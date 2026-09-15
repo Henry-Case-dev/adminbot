@@ -885,6 +885,13 @@
                         ночные тики идут только в окне 4–6 local.
                       </span>
                     </div>
+                    <!-- F7/T-1763 (ADR-1018-7 D8): каталог-Δ=0 — рубильник
+                         Глубокого сна не расширяет TAB_RULES, а доступен по
+                         ссылке в разделе «Память». -->
+                    <div class="text-xs text-gray-500 mb-3">
+                      Рубильник Глубокого сна (мета-синтез):
+                      <a href="#/ai/memory" class="underline">Память → Глубокий сон</a>.
+                    </div>
                     <div class="text-xs text-gray-500 font-bold mb-1">Последние убеждения</div>
                     <div v-if="dreamBeliefs.length === 0"
                          class="text-xs text-gray-500 py-2">
@@ -1337,8 +1344,14 @@
                   Нет данных матрицы.
                 </div>
                 <template v-else>
-                  <div v-for="sec in matrixSections()" :key="sec.id"
-                       class="mb-3">
+                  <div v-for="nav in matrixSections()" :key="nav.id"
+                       class="mb-4">
+                    <div class="text-sm font-bold mb-2">
+                      {{ nav.title }}
+                      <span v-if="nav.count" class="badge badge-muted ml-1">{{ nav.count }}</span>
+                    </div>
+                    <div v-for="sec in nav.sections" :key="nav.id + sec.id"
+                         class="mb-3">
                     <div class="text-xs uppercase tracking-wider text-gray-500 mb-1">
                       {{ sec.title }}
                       <span v-if="sec.count" class="badge badge-muted ml-1">{{ sec.count }}</span>
@@ -1384,6 +1397,7 @@
                         </tbody>
                       </table>
                     </details>
+                    </div>
                   </div>
                 </template>
               </div>

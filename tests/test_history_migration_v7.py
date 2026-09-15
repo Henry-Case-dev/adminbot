@@ -120,9 +120,9 @@ class TestMigrationV7:
             -100, '"старый"*', 5, 2_000_000_000)
         assert any(r["id"] == 7 and r["fact"] == "старый факт до v7"
                    for r in rows)
-        # PRAGMA user_version = 9 (каскад v6→v7→v8→v9 раунда 10.14)
+        # PRAGMA user_version = 10 (каскад v6→v7→v8→v9→v10)
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 9
+        assert (await cursor.fetchone())[0] == 10
         # индексы v7 существуют
         cursor = await d.db.execute(
             "SELECT name FROM sqlite_master WHERE type='index' AND name IN "
@@ -147,7 +147,7 @@ class TestMigrationV7:
         await d.close()
         await d.initialize()                        # «рестарт» — no-op
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 9
+        assert (await cursor.fetchone())[0] == 10
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         assert (await cursor.fetchone())["c"] == 1  # строки не задвоены
         await d.close()

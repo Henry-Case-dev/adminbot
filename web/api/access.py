@@ -332,8 +332,11 @@ async def param_permissions_list(
     from services.param_catalog import (
         CONFIG_TAB_TITLES,
         GROUPS,
+        NAV_ORDER,
+        NAV_TITLES,
         REGISTRY,
         group_tab,
+        tab_nav,
     )
     groups_by_id = {g.id: (g.title_ru, g.category, g.order) for g in GROUPS}
     items = {}
@@ -348,12 +351,19 @@ async def param_permissions_list(
         gtitle, gcat, gorder = groups_by_id.get(
             spec.group, (spec.group, spec.category, 999))
         tab = group_tab(spec.group)
+        # OD10/T-1130: tab/tab_title; F6 (D2, ADR-1018-6): аддитивные
+        # nav/nav_title/nav_order — фактический navbar-раздел мини-аппа
+        # (Модули/ИИ/PERMsoc) для группировки матрицы на фронте.
+        nav = tab_nav(tab)
         matrix["category"] = spec.category
         matrix["group"] = spec.group
         matrix["group_title"] = gtitle
         matrix["group_order"] = gorder
         matrix["tab"] = tab
         matrix["tab_title"] = CONFIG_TAB_TITLES.get(tab) if tab else None
+        matrix["nav"] = nav
+        matrix["nav_title"] = NAV_TITLES.get(nav) if nav else None
+        matrix["nav_order"] = NAV_ORDER.index(nav) if nav in NAV_ORDER else 999
         matrix["title"] = spec.title_ru
         matrix["secret"] = spec.secret
         items[spec.pg_key] = matrix

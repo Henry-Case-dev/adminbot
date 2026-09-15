@@ -2,7 +2,8 @@
 
 Покрытие (spec §2/§5/§6):
   * каталог-инвариант: +1 PG-only ключ content.intelligence_guide
-    (REGISTRY 435 / categorized 411; Settings/GROUPS/mapped/TAB_RULES = const);
+    (REGISTRY 436 / categorized 411; +1 env-only BETTERSTACK_HOST
+    (ADR-1018-1 D3); Settings/GROUPS/mapped/TAB_RULES = const);
   * идемпотентный сид: ключа нет → из файла; ключ есть (в т.ч. правленый) → НЕ
     перезатирается;
   * InfoService.get_guide() — fail-open (PG down → код-канон/пусто);
@@ -193,7 +194,7 @@ class TestCatalogDelta:
     def test_counts(self):
         from services import param_catalog as pc
         from config.settings import Settings
-        assert len(pc.REGISTRY) == 435
+        assert len(pc.REGISTRY) == 436
         assert len(pc.GROUPS) == 90
         assert len(pc._TAB_BY_GROUP) == 88
         assert len(pc.TAB_RULES) == 19

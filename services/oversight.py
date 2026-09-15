@@ -169,8 +169,11 @@ async def build_summary(pg, sqlite_db=None) -> dict:
             gates_opt_in = bool(row.get("gates_opt_in"))
             heavy = {}
             for feature in sorted(feature_gates.HEAVY_FEATURES):
+                # R10.18-3: fallback = per-chat master (как у воркера) —
+                # карточка «Тяжёлые» не расходится с фактическим поведением.
+                fb = await feature_gates.master_fallback(chat_id, feature)
                 heavy[feature] = await feature_gates.gates_enabled(
-                    chat_id, feature, root=root)
+                    chat_id, feature, root=root, fallback=fb)
             permsoc_on = await permsoc.master_enabled(chat_id)
             allow_global = bool((root.get("keys") or {}).get(
                 "allow_global", True))

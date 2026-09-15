@@ -65,8 +65,12 @@ async def gates_get(
             "local_admin", "moderator"):
         raise HTTPException(status_code=403, detail="нет доступа к чату")
     root = await chat_params.get_all_chat_params(chat_id)
-    gates = {f: await feature_gates.gates_enabled(chat_id, f, root=root)
-             for f in sorted(ALL)}
+    # R10.18-3: fallback = per-chat master-флаг (как у воркера) — «Гейты/
+    # Тяжёлые» показывают то, что реально исполняется.
+    gates = {f: await feature_gates.gates_enabled(
+        chat_id, f, root=root,
+        fallback=await feature_gates.master_fallback(chat_id, f))
+        for f in sorted(ALL)}
     opt_in = await feature_gates.has_opt_in(chat_id, cache.pg,
                                             root=root)
     who = {}

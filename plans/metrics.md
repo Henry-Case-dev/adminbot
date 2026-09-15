@@ -17,6 +17,7 @@ git-история. Таблица ведётся @Memory на Шаге 10 (фи
 | **10.15** | Багфиксы Графа памяти, Воркера Сна и Ностальгии + Гибридный Tool Calling — 9 фич: F1 graph-sampling-centrality, F2 graph-frontend-physics-search, F3 sleep-unblock-diagnostics, F4 nostalgia-prompt-revamp, F5 status-graph-ui-relocation, F6 command-prefix-persona-routing, F7 guide-rewrite-persona, F8 hybrid-tool-calling, F9 recent-history-tool (T-1549…T-1624, 76 задач) | одна сессия **13–14.09.2026** (798e044 21:24 → d01a539 04:27 +1200, ~7 ч) | **2** (1 Rejected → 1 Approved) | **0 / 0** | 0 / 0 / **3** / **6** | **2** (после Reviewer Rejected; после Scanner Mediums) | 5589 → **5774** (**+185**; итер.1 5761) | 435 / 406 / 411 (Δ=0; GROUPS 90, mapped 88, TAB_RULES 19) | **`d01a539`** | ✅ прод `eb2a232..d01a539` (fast-forward; ручная разблокировка дрейфа `info_text.md`), admin_bot active (PID **1860445**) | **200** | **Low 3** (`R10.15-4`, `-10`, `-11`) + **Info 3** (в т.ч. repo-wide **R17-долг**) |
 | **10.16** | «Download-Guide-MobileAudit» — багфиксы скачивания + доставка Гайда + полный аудит 10.13–10.15 + мобильный мини-апп + ротация секрета — 5 фич: F1 download-fix, F2 guide-delivery, F3 audit-recent-epics, F4 miniapp-mobile, F5 security-rotation-finalize (T-1625…T-1665, 41 задача) | одна сессия **14.09.2026** (Step 0 → Step 10 @Memory) | **2** (1 Rejected → 1 Approved) | **0 / 0** | 0 / **1** / **1** / **6** | **2** (после Reviewer Critical; после Scanner High) | 5774 → **5936** (**+162**; итер.1 5910) | 435 / 406 / 411 (Δ=0; GROUPS 90, mapped 88, TAB_RULES 19) | **`eb3fd4a`** | ✅ прод `d01a539..eb3fd4a` (fast-forward), admin_bot active (PID **1976836**) | **200** | **Low 1** (`S10.16-9`) + **WONTFIX 3** (`S10.13-9`, `S10.13-11`, `R10.14-4`) + **R17-долг** `current_task.md` |
 | **10.17** | «Mobile-Download-Badges» — мобильный миниапп/DNS-диагностика + tool-download quality + countdown-бейджи Сна + **ОТМЕНА** ротации SSH + warnings-hygiene — 5 фич: F1 miniapp-mobile-dns, F2 tool-download-quality, F3 sleep-badge-countdown, F4 ssh-rotation-cancelled, F5 warnings-hygiene (T-1666…T-1702, 37 задач) | одна сессия **14.09.2026** (Step 0 → Step 10 @Memory) | **2** (1 Rejected → 1 Approved) | **0 / 0** | 0 / 0 / **1** / 2 | **2** (после Reviewer 3 Medium) | 5936 → **6007** (**+71**) | 435 / 406 / 411 (Δ=0; GROUPS 90, mapped 88, TAB_RULES 19) | **`b6c153f`** | ✅ прод `eb3fd4a..b6c153f` (fast-forward), admin_bot active (PID **2016726**) | **200** | **Low 1** (`S10.17-2`) + **Info 3** (`S10.17-4/-5/-6`) + **WONTFIX brotli**; **CANCELLED** ротации SSH |
+| **10.18** | «Memory-Graph-Sleep-BetterStack bugfixes» — BetterStack US-регион (401) + разблокировка Сна/каскада/бейджей + апгрейд графа (скоринг/плотность/физика) + пенализация мета-фактов + Матрица ролей + **рассинхрон UI↔воркеры** — 7 фич: F1 betterstack-us-region-401, F2 sleep-manual-cascade-badges, F3 graph-density-scoring-stoplist, F4 graph-physics-stabilization, F5 metafact-penalty-extractor-prompt, F6 role-matrix-settings-actualization, F7 settings-worker-sync (T-1703…T-1777, 75 задач) | _заполнит Step 10_ | _—_ | _—_ | _—_ | _—_ | 6007 → **_итог_** | 435 / 406 / 411 → план **437 / 407** (GROUPS 90, mapped 88, TAB_RULES 19; при отказе от F5-флага 436/406) | _—_ | _—_ | _—_ | **NARROWED** `risk-catalog-delta-drift-round1018` — F3-флаг `graph_scoring_v2_enabled` **снят** (ADR-1018-3 **D7**: флаг не вводится, поведение безусловно; каталог-Δ=0); остаётся пин-тест F6 §6 `436` vs §5 `437` и дрейф backlog/нумерации ADR (закрыть на Merge/Step 10) + запланированные остаточные (см. раздел «Заготовка 10.18») |
 | _…_ | — | — | — | — | — | — | — | — | — | — | — | — |
 
 ## Детали раунда 10.13 (13.09.2026)
@@ -224,3 +225,25 @@ git-история. Таблица ведётся @Memory на Шаге 10 (фи
 | Ротация SSH | CANCELLED | Закрыта **отменой** решением владельца, а не выполнением; не открытый гейт; git-гигиена (`plans/current_task.md` untracked) сохраняется |
 
 Источник: `plans/reports/round10.17_scanner_audit.md`, `plans/reports/round10.17_reviewer.md`; KG `tech-debt-round10.17`.
+
+## Заготовка раунда 10.18 (Step 3 @Memory, 15.09.2026) — заполнит Step 10
+
+> Статус: **ARCHITECTED / SPEC_READY** (Step 2 @Architect + итерация 2 после human-gate);
+> Builder не начат. Длительность / R-iters / Scanner / Rework / тесты-Δ / commit / деплой —
+> **TBD** (заполняется по факту на Step 10).
+
+- **Эпик:** `Epic round1018 (Memory-Graph-Sleep-BetterStack bugfixes)` — KG + `plans/features/*-round1018/` (7 папок).
+- **Фичи (7, 🔵/🟣 SPEC_READY):**
+  - F1 `betterstack-us-region-401` — T-1703…T-1711 (9), P0, ADR-1018-1; **Δ REGISTRY +1**.
+  - F2 `sleep-manual-cascade-badges` — T-1712…T-1726 + T-1767…T-1772 (21), P0, ADR-1018-2; Δ=0; закрывает **S10.17-2**.
+  - F3 `graph-density-scoring-stoplist` — T-1727…T-1735 + T-1773…T-1777 (14), P1, ADR-1018-3; **DDL SQLite v9→v10**.
+  - F4 `graph-physics-stabilization` — T-1736…T-1741 (6), P1, ADR-1018-4; Δ=0.
+  - F5 `metafact-penalty-extractor-prompt` — T-1742…T-1749 (8), P1, ADR-1018-5; **Δ REGISTRY +1 / Settings +1**.
+  - F6 `role-matrix-settings-actualization` — T-1750…T-1757 (8), P2, ADR-1018-6; сводит Δ каталога.
+  - F7 `settings-worker-sync` — T-1758…T-1766 (9), **P0 (итерация 2)**, ADR-1018-7; Δ=0.
+- **Порядок:** F7 → F2 → F3 → {F4 ∥ F5} → F6 (F1 параллельно; @DevOps `.env` + restart).
+- **Baseline:** HEAD `118a03c`, прод `b6c153f` (release-round1017), pytest **6007 / 0**, APP_VERSION **2.57.0**, SQLite v9, каталог 435/406/411/90/88/19.
+- **Плановый каталог:** REGISTRY **437** / Settings **407** / categorized **411** (GROUPS 90, mapped 88, TAB_RULES 19); альтернатива 436/406 — решение на Merge.
+- **Риск `risk-catalog-delta-drift-round1018` — СУЖЕН (F3-часть снята):** F3-флаг `flags.graph_scoring_v2_enabled` **не вводится** (ADR-1018-3 **D7** — каталог-Δ=0, новая политика активна безусловно, откат = `git revert`); остаются: пин-тест F6 §6 `436` vs свод §5 `437` и дрейф backlog (6 фич / 5 ADR) / нумерации ADR — свести на Merge/Step 10.
+- **Планируемые остаточные (заполнить на Step 10):** F1 — CHECKUP-контур/EU, `logtail-python` в requirements; F5 — падежи, крон-промпт, пути без subject/object; F7 — Nostalgia/Lore-рассинхрон, холостой тик; F3 — legacy NULL, `chat_id=None` perf, STOP_LIST-ложносрез.
+- **Источник:** `plans/current_task.md` §1–§5 + UPD (109-128); KG `metric-snapshot-round1018-baseline`; `plans/backlog.md` §10.18.

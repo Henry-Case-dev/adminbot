@@ -459,8 +459,9 @@ class TestUiMarkers:
         assert 'memory_router.get("/memory/graph")' in src
         assert 'memory_router.get("/memory/stats")' in src
         assert 'memory_router.get("/memory/timeline")' in src
-        assert "GRAPH_MAX_NODES = 120" in src
-        assert "GRAPH_MAX_EDGES = 240" in src
+        # F3 (раунд 10.18): cap поднят до плотности 500–800 узлов.
+        assert "GRAPH_MAX_NODES = 800" in src
+        assert "GRAPH_MAX_EDGES = 2400" in src
         # beliefs kind-фильтр
         assert 'pattern="^(belief|paradigm|all)$"' in src
 

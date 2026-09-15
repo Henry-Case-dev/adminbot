@@ -34,11 +34,12 @@ from services.param_catalog import get_by_pg_key
 
 class TestCatalogInvariant:
     def test_counts_unchanged(self):
-        """F6 добавляет +1 PG-only content-ключ: 435/406/411/90/88/19."""
+        """F6 +1 PG-only → 435; 10.18 F1 +1 env-only BETTERSTACK_HOST
+        (ADR-1018-1 D3) → 436/406/411/90/88/19."""
         import dataclasses
 
         from config.settings import Settings
-        assert len(pc.REGISTRY) == 435
+        assert len(pc.REGISTRY) == 436
         assert len(pc.GROUPS) == 90
         assert len(pc._TAB_BY_GROUP) == 88
         assert len(pc.TAB_RULES) == 19

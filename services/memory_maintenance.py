@@ -24,6 +24,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from config.settings import settings
 from services import hot_config as hot
+from services.graph_stoplist import METAFACT_PENALTY_IMPORTANCE
 from services.llm_client import LLMError
 from services.summary_memory import _TOKEN_RE
 from services.summary_prompts import COMPRESS_PROMPT
@@ -251,11 +252,23 @@ class MemoryMaintenanceService:
         expiry = (None if any(row["expires_at"] is None for row in cluster)
                   else max(row["expires_at"] for row in cluster))
         weight = max(row["weight"] for row in cluster)
+        # S10.18-35 (F5, ADR-1018-5 D2/D3): эпи-мерж НЕ должен «терять»
+        # F5-пенальти мета-фактов. Исходные мета-факты записаны с importance=1
+        # (срез по subject/object), но пере-вычисление rule_importance('chat_history')
+        # дало бы слитой строке 4 → два таких факта набрали бы Σ8 ≥ гейта Сна.
+        # Минимально инвазивно: если ВСЕ члены кластера имели imp<=1 → merged
+        # imp=METAFACT_PENALTY_IMPORTANCE; иначе прежнее поведение (None →
+        # rule_importance), существующие merge-тесты не затрагиваются.
+        importance = (
+            METAFACT_PENALTY_IMPORTANCE
+            if all(int(row["importance"]) <= METAFACT_PENALTY_IMPORTANCE
+                   for row in cluster)
+            else None)
         targets = {row["target_user"] for row in cluster if row["target_user"]}
         target_user = targets.pop() if len(targets) == 1 else None
         fact_id = await self.db.insert_graph_fact(
             chat_id, merged_text, origin, expiry, target_user=target_user,
-            weight=weight)
+            weight=weight, importance=importance)
         if self.memory._vec_available:
             await self.memory._save_graph_fact_embedding(
                 fact_id, chat_id, merged_text, origin, expiry)

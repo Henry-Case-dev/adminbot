@@ -5,6 +5,110 @@
 (Memory MCP, entity `AdminBot` + модули `adminbot-*` + entity `feature-*`
 раунда 10).
 
+> **АКТУАЛЬНЫЙ СТАТУС (15.09.2026):** раунд **10.18 «Memory-Graph-Sleep-BetterStack bugfixes»**
+> — **ARCHITECTED / SPEC_READY** (Step 2 @Architect + итерация 2 после human-gate;
+> Step 3 @Memory, Builder не начат): **7 фич F1–F7**, **75 задач T-1703…T-1777**,
+> **7 ADR (ADR-1018-1…-7)**, 7 папок `plans/features/*-round1018/` (`spec.md` + `tasks.md`
+> + ADR). Плановый каталог-Δ: **REGISTRY 435→437 / Settings 406→407** (F1 `BETTERSTACK_HOST`
+> +1, F5 `flags.metafact_penalty_enabled` +1; при отказе от F5-флага — 436/406, на Merge);
+> **DDL SQLite v9→v10** (`edges.fact_id`, F3). Baseline: HEAD **`118a03c`**,
+> прод release-round1017 (**`b6c153f`**), pytest **6007 passed / 0 failed**, APP_VERSION
+> **2.57.0**. Детали — KG-узел `Epic round1018 (Memory-Graph-Sleep-BetterStack bugfixes)`
+> + блок **«Step 2/3»** ниже; метрики — `plans/metrics.md` (заготовка Step 10).
+> Предыдущий раунд — 10.17 (COMPLETED + DEPLOYED, `b6c153f`).
+
+> **Step 2/3 (Step 2 @Architect + итерация 2 после human-gate — синк Step 3 @Memory)
+> 15.09.2026 (раунд 10.18 «Memory-Graph-Sleep-BetterStack bugfixes»):** эпик
+> `Epic round1018 (Memory-Graph-Sleep-BetterStack bugfixes)` — **ARCHITECTED / SPEC_READY,
+> Builder не начат**. ТЗ — `plans/current_task.md` §1–§5 + **UPD владельца (строки 109-128)**.
+> **7 фич F1–F7 / 75 задач T-1703…T-1777** (итерация 2: F2 T-1767…T-1772, F3 T-1773…T-1777,
+> F7 T-1758…T-1766) + **7 ADR (ADR-1018-1…-7)**. Каталог-Δ (санкц.): **REGISTRY 437 /
+> Settings 407** (F1 +1, F5 +1); **GROUPS 90 / mapped 88 / TAB_RULES 19 — без изменений**;
+> F2/F3/F4/F6/F7 Δ=0. **DDL: SQLite v9→v10** — nullable `edges.fact_id` + индекс (F3).
+> **Порядок:** **F7 → F2 → F3 → {F4 ∥ F5} → F6** (F1 — параллельная инфра-плоскость
+> @DevOps: `.env` + `systemctl restart`). **Рекомендация @PM** была `{F1 ∥ F2} → F3 →
+> {F4 ∥ F5} → F6`; ADR-1018-2 D8 / ADR-1018-7 ставят F7 перед F2.
+>
+> **F1** `betterstack-us-region-401 round1018` (T-1703…T-1711, **P0**, **ADR-1018-1**):
+> посылка ТЗ неверна — библиотечный `LogtailHandler` НЕ в прод-пути с раунда 4/5; реальная
+> точка `bot.py:141-145` (`BetterStackHandler`), host не передавался → EU-дефолт
+> `in.logs.betterstack.com` → 401 на US-токене. Решение: `BETTERSTACK_HOST` обязателен
+> (env-only, **REGISTRY 435→436**; пусто → хендлер не создаётся + WARNING fail-safe);
+> `token_equals_sentry_public_key()` → WARNING (не блок); Sentry/BetterStack разведены;
+> startup-лог (R17); `.env` — только рестарт. **T-1704 — обязательный curl-матрикс
+> {US,EU}×{Source Token, public key} ДО правки кода.** Артефакт `test_monitoring_smoke.py`
+> (библиотечный `LogtailHandler` без host) — на ревизию. `CHECKUP_BETTERSTACK_SQL_HOST` —
+> другой контур, вне скоупа.
+> **F2** `sleep-manual-cascade-badges round1018` (T-1712…T-1726 + T-1767…T-1772, **P0**,
+> **ADR-1018-2**): `manual=True` — **безусловный приоритет БЕЗ фича-флагов** (UPD п.2);
+> обходит window_skip/kill-switch/near-limit/суточные бюджеты/тайминги каскада
+> (аудит `gate_override`/`budget_override`; Worker Budget как **учёт** сохраняется);
+> **НЕ обходит** локи/`protected_facts`/≥2 `source_ids`/R17/`persona_enabled`/целостность;
+> каскад Сон→Глубокий→Личность (+`stats['cascade']`); пороги ослаблены 2/8/2/10/60/300000/10
+> + идемпотентная **DML**-миграция PG; реактивные бейджи без WebSocket
+> (`active_until=now+900с`, оптимистичный фронт + ретраи); **S10.17-2 закрывается**
+> (`cognition==null` → `—`/`badge-muted`, T-1721); диагностика Личности (7 R17-safe исходов).
+> **Жёстко зависит от F7** (D8).
+> **F3** `graph-density-scoring-stoplist round1018` (T-1727…T-1735 + T-1773…T-1777, **P1**,
+> **ADR-1018-3**, **SUPERSEDE ADR-1015-2**): `score = Σ edge_importance` (COALESCE
+> `f.importance`/`e.weight`) ×2 за Убеждение/Парадигму; STOP_LIST центров (6 слов) только к
+> seed-выборке; **seeds 150 / cap 800-2400** → 500–800 узлов; **DDL v9→v10**: `edges.fact_id`
+> nullable + индекс, reorder `insert_graph_fact` ДО `upsert_edge(..., fact_id=…)`,
+> legacy NULL (без backfill); единый `services/graph_stoplist.py`; флаг
+> `flags.graph_scoring_v2_enabled` OFF (⚠️ см. дрейф Δ).
+> **F4** `graph-physics-stabilization round1018` (T-1736…T-1741, **P1**, **ADR-1018-4**,
+> **AMEND F2 10.15**): `iterations=150` + `net.once('stabilizationIterationsDone'/'stabilized')`
+> → `physics.enabled=false`; `destroy` пересоздаёт с options; `reducedMotion`/поиск/подсветка
+> без изменений; Δ=0.
+> **F5** `metafact-penalty-extractor-prompt round1018` (T-1742…T-1749, **P1**, **ADR-1018-5**,
+> **AMEND ADR-1013-3**): `FACT_EXTRACT_PROMPT` — модульная константа → `PREV_…` + байт-тесты,
+> `PROMPT_MIGRATIONS` **не трогается** (крон-промпт `EXTRACT_PROMPT` — другой, вне скоупа);
+> `importance` считает `rule_importance()`, НЕ LLM; хард-лимит **`min(imp, 1)`** в
+> `insert_graph_fact` по penalty-стоп-листу (6 слов, отдельный frozenset); флаг
+> `flags.metafact_penalty_enabled` OFF (**+1 REGISTRY/+1 Settings**).
+> **F6** `role-matrix-settings-actualization round1018` (T-1750…T-1757, **P2**, **ADR-1018-6**):
+> «Матрица ролей» = фактическая карта мини-аппа (3 nav: Модули 11 / ИИ 7 / PERMsoc);
+> `NAV_TITLES`/`NAV_ORDER`/`TAB_NAV` — Python-метаданные (счётчики не растут); подпись
+> `CONFIG_TAB_TITLES[permsoc]` → «PERMsoc» + инвариант-тест; аддитивные `nav/nav_title/nav_order`;
+> сводит Δ каталога (**437/407** vs 436/406). Последняя.
+> **F7** `settings-worker-sync round1018` (T-1758…T-1766, **P0 — новый пункт итерации 2**,
+> **ADR-1018-7**): **критичный рассинхрон UI↔воркеры** — тумблеры Dream/DeepSleep ON в UI,
+> бэкенд видит OFF. Корень: воркеры/статус-API читают только глобальный `hot.get`, а UI пишет
+> в `chat_params.overrides`; планировщик регистрирует джоб один раз на старте; `pg_notify`
+> без `LISTEN`; тумблер `deep_sleep` вне окна «Сон». Решение: единый accessor
+> (**per-chat DB → глобальный DB → env-дефолт**), реактивный планировщик, `LISTEN`, `source=`
+> в статус-API/логах, UI-хинт (Δ=0). **F7 — первая** (без неё F2 не проверяема).
+>
+> **Решения владельца (UPD, итерация 2):** DDL `edges.fact_id` v9→v10 — **ДА**; manual обходит
+> гейты **без фича-флагов** (новый стандарт базовой логики); включать
+> `DREAM_ENABLED`/`DEEP_SLEEP_ENABLED` + **починить рассинхрон** (F7); BetterStack host через
+> env; лимиты графа (seeds 150 / cap 800-2400), STOP_LIST, **importance мета-узлов = 1** — «как есть».
+>
+> **Противоречие памяти о BetterStack 401 — RESOLVED WITH ADR-1018-1:** в KG две
+> взаимоисключающие записи (раунд 5 / T-746: «токен == public key `SENTRY_DSN` → 401» vs
+> раунд 6: «ошибочная эвристика, Errors и Logs делят один токен, Sentry-сравнения удалены»).
+> Итог: первопричина — **EU-хост при US-регионе**; диагностика **curl-матриксом ДО правки**
+> (T-1704); хост US через `BETTERSTACK_HOST`; сравнение возвращается **только** как WARNING-диагностик
+> (KG `risk-betterstack-401-token-vs-region-round1018`).
+>
+> **⚠️ Дрейф — СУЖЕН (F3-часть снята, Step 3→реализация):** F3 объявляла «каталог Δ=0»,
+> но ADR-1018-3 D7 вводил флаг `flags.graph_scoring_v2_enabled` — **флаг НЕ вводится**
+> (D7 финально: поведение безусловно, дед-кода OFF нет, откат = `git revert`), поэтому
+> конфликт «Δ=0 ↔ флаг» снят. Остаётся: spec F6 §6 всё ещё пинит `REGISTRY == 436`
+> против §5 `437`; backlog (Step 1) устарел (6 фич / 5 ADR / нумерация
+> `1018-4=metafact, -5=role-matrix`). На Merge — единый свод и обновление пин-тестов
+> (KG `risk-catalog-delta-drift-round1018`).
+>
+> **Остаётся в силе:** R16, R17, порядок роутеров `bot.py`, `media/`/`.env` не трогать,
+> каталог-Δ только санкционированно, русские conventional commits; `plans/current_task.md` —
+> untracked (`.gitignore:70`), **секреты ТЗ в KG/MEMORY.md не вносились**.
+> **Граф синхронизирован (Step 3):** Epic + 7 Feature + 7 ADR + 7 Risk + 3 ArchitecturalConstraint
+> + ExternalDependency BetterStack + SpecDecision owner UPD + `tech-debt-round10.18` +
+> `metric-snapshot-round1018-baseline`; 85 связей (HAS_FEATURE/PART_OF/GOVERNED_BY/DECIDES/
+> **SUPERSEDES** (ADR-1018-3 → ADR-1015-2; ADR-1018-2 → F-10), **AMENDS** (ADR-1018-1 → раунды
+> 4/5; ADR-1018-4 → F2 10.15; ADR-1018-2 → ADR-1017-3; ADR-1018-5 → ADR-1013-3),
+> DEPENDS_ON (ADR-1018-2 → ADR-1018-7), RESOLVED_BY и др.).
+
 > **АКТУАЛЬНЫЙ СТАТУС (14.09.2026):** раунд **10.17 «Mobile-Download-Badges»**
 > — **COMPLETED + DEPLOYED** (функциональный HEAD == origin/master == **`b6c153f`**;
 > ТЗ — `plans/current_task.md` секция «UPD3:», строки 155-160): 5 фич F1–F5

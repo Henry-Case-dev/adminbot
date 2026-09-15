@@ -192,6 +192,11 @@
     'memory_rag', 'smart_cache', 'people_names', 'relations', 'chat_lore',
     'permsoc',
   ];
+  // F6 (ADR-1018-6 D4): фактические navbar-разделы мини-аппа с настройками
+  // (Модули/ИИ/PERMsoc) — порядок и подписи для группировки «Матрицы ролей»;
+  // зеркало backend NAV_ORDER/NAV_TITLES (services/param_catalog.py).
+  var NAV_GROUP_ORDER = ['modules', 'ai', 'permsoc'];
+  var NAV_GROUP_TITLES = { modules: 'Модули', ai: 'ИИ', permsoc: 'PERMsoc' };
 
   // ═══ Material Symbols Rounded — PUA-карта (T-1147/§15.4.4) ═══
   // Субсет без лигатур ⟹ рендер кодпоинтом (ICONS[name] → символ PUA),
@@ -583,6 +588,14 @@
   var _avatarCache = new Map();
   var _AVATAR_CACHE_MAX = 200;
 
+  // ═══ F4 (graph-physics-stabilization-round1018, ADR-1018-4) ═══
+  // Физика графа: короткая стабилизация (150 итераций вместо 250) и
+  // авто-отключение physics после первичной расстановки по событию
+  // stabilizationIterationsDone/stabilized → ~60 FPS при 500–800 узлах (F3).
+  // Каталог-Δ=0 — только код-константы (маркеры JS-тестов).
+  var GRAPH_PHYSICS_ITERATIONS = 150;
+  var GRAPH_PHYSICS_DISABLE_ON_STABILIZE = true;
+
   function arr(x) { return Array.isArray(x) ? x : []; }
 
   // ═══ Hash-routing (T-1099, OD1/OD3/§6.3): route — источник истины ═══
@@ -899,6 +912,7 @@
         cognitionTimeline: [],         // GET /api/memory/timeline
         cognitionBusy: false,
         cognitionTimer: null,          // polling 15с (только вкладка «Статус»)
+        _cognitionPollRestore: null,   // F2: таймер возврата polling к 15с
         cognitionNetwork: null,        // vis.Network (destroy-дисциплина)
         cognitionGraphData: null,      // {nodes, edges, truncated}
         _cognitionGraphSig: null,      // подпись данных (ISSUE-4: без пере-рендера)
@@ -1214,7 +1228,11 @@
       // «выключен»: при enabled=false показывается остаток без свечения.
       // `now` — серверный `generated_at` (ADR-1017-3 §2.1), не локальные часы.
       dreamPhaseBadge: function () {
-        var c = this.cognition || {};
+        var c = this.cognition;
+        if (!c) {
+          // S10.17-2 (F2 T-1721): нет данных → чистый «—», без «через —».
+          return { text: '—', cls: 'badge-muted' };
+        }
         var d = c.dream || {};
         var now = Number(c.generated_at) || Math.floor(Date.now() / 1000);
         if (d.active) {
@@ -1232,7 +1250,11 @@
                  cls: 'badge-muted' };
       },
       deepPhaseBadge: function () {
-        var c = this.cognition || {};
+        var c = this.cognition;
+        if (!c) {
+          // S10.17-2 (F2 T-1721): нет данных → чистый «—», без «через —».
+          return { text: '—', cls: 'badge-muted' };
+        }
         var d = c.deep_sleep || {};
         var now = Number(c.generated_at) || Math.floor(Date.now() / 1000);
         if (d.active) {
@@ -2361,6 +2383,10 @@
       },
       closeModule: function () {
         this.openModuleId = null;
+        // S10.18-22: модалка «Сон» живёт на вкладке modules — ускоренный
+        // polling/ретраи, запущенные кнопкой «Сон сейчас», не должны жить
+        // после закрытия модалки вне вкладки «Статус» (F5/R10.11-5).
+        if (this.activeTab !== 'status') this.stopCognitionPolling();
       },
       canEditModule: function (m) {
         return !!m && this.canEditConfig(m.toggleKey);
@@ -3612,52 +3638,75 @@
         };
         return titles[cat] || cat;
       },
-      // [{id, title, groups:[{id, title, order, items:[{key,item}]}]}] —
-      // секция = мини-апп-вкладка (tab) или fallback-категория.
+      // F6 (ADR-1018-6 D4): матрица группируется по ФАКТИЧЕСКИМ разделам
+      // мини-аппа (nav → секция → группа → параметр). Backend отдаёт
+      // аддитивные nav/nav_title/nav_order; TAB_SECTION_ORDER — порядок
+      // секций внутри nav (fallback при отсутствии nav).
       matrixSections: function () {
         var items = this.matrixItems || {};
         var q = (this.matrixSearch || '').toLowerCase();
-        var bySec = {};
+        var byNav = {};
         Object.keys(items).forEach(function (key) {
           var it = items[key];
           if (q && key.toLowerCase().indexOf(q) < 0
               && (it.title || '').toLowerCase().indexOf(q) < 0) return;
+          var navId = it.nav || 'other';
+          if (!byNav[navId]) {
+            var navOrder = (typeof it.nav_order === 'number') ? it.nav_order
+              : NAV_GROUP_ORDER.indexOf(navId);
+            byNav[navId] = {
+              id: navId,
+              title: it.nav_title || NAV_GROUP_TITLES[navId] || 'Прочее',
+              order: navOrder < 0 ? 999 : navOrder,
+              sections: {},
+            };
+          }
+          var nav = byNav[navId];
           var secId = it.tab || ('cat:' + (it.category || 'other'));
-          if (!bySec[secId]) {
-            bySec[secId] = {
+          if (!nav.sections[secId]) {
+            nav.sections[secId] = {
               id: secId, title: it.tab_title || null,
               category: it.category || 'other', groups: {},
             };
           }
           var gid = it.group || 'other';
-          if (!bySec[secId].groups[gid]) {
-            bySec[secId].groups[gid] = {
+          if (!nav.sections[secId].groups[gid]) {
+            nav.sections[secId].groups[gid] = {
               id: gid, title: it.group_title || gid,
               order: it.group_order || 999, items: [],
             };
           }
-          bySec[secId].groups[gid].items.push({ key: key, item: it });
+          nav.sections[secId].groups[gid].items.push({ key: key, item: it });
         });
         var self = this;
-        return Object.keys(bySec).map(function (sid) {
-          var sec = bySec[sid];
-          if (!sec.title) sec.title = self.matrixCategoryTitle(sec.category);
-          sec.groups = Object.keys(sec.groups).map(function (g) {
-            var grp = sec.groups[g];
-            grp.items.sort(function (a, b) { return a.key < b.key ? -1 : 1; });
-            return grp;
+        return Object.keys(byNav).map(function (nid) {
+          var nav = byNav[nid];
+          nav.sections = Object.keys(nav.sections).map(function (sid) {
+            var sec = nav.sections[sid];
+            if (!sec.title) sec.title = self.matrixCategoryTitle(sec.category);
+            sec.groups = Object.keys(sec.groups).map(function (g) {
+              var grp = sec.groups[g];
+              grp.items.sort(function (a, b) { return a.key < b.key ? -1 : 1; });
+              return grp;
+            }).sort(function (a, b) {
+              return (a.order - b.order) || (a.id < b.id ? -1 : 1);
+            });
+            sec.order = TAB_SECTION_ORDER.indexOf(sec.id);
+            sec.count = sec.groups.reduce(function (n, g) {
+              return n + g.items.length;
+            }, 0);
+            return sec;
           }).sort(function (a, b) {
-            return (a.order - b.order) || (a.id < b.id ? -1 : 1);
+            var ao = a.order < 0 ? 999 : a.order;
+            var bo = b.order < 0 ? 999 : b.order;
+            return (ao - bo) || (a.id < b.id ? -1 : 1);
           });
-          sec.order = TAB_SECTION_ORDER.indexOf(sec.id);
-          sec.count = sec.groups.reduce(function (n, g) {
-            return n + g.items.length;
+          nav.count = nav.sections.reduce(function (n, s) {
+            return n + s.count;
           }, 0);
-          return sec;
+          return nav;
         }).sort(function (a, b) {
-          var ao = a.order < 0 ? 999 : a.order;
-          var bo = b.order < 0 ? 999 : b.order;
-          return (ao - bo) || (a.id < b.id ? -1 : 1);
+          return (a.order - b.order) || (a.id < b.id ? -1 : 1);
         });
       },
       matrixChecked: function (item, field, role) {
@@ -4978,6 +5027,19 @@
         try {
           await this.api('/api/memory/dream/run', { method: 'POST',
             body: JSON.stringify({}) });
+          // F2 (spec §4.6, T-1720, ADR-1018-2 D5): ручной запуск — бейдж
+          // зажигаем оптимистично и НЕМЕДЛЕННО тянем cognition (WebSocket в
+          // проекте нет; polling 15с дал бы стейл). Плюс ретраи 1/3/8с и
+          // временное ускорение polling до 5с на время прогона.
+          if (this.cognition && this.cognition.dream) {
+            this.cognition.dream.active = true;
+          }
+          this.loadCognition();
+          // S10.18-22/-26: сначала перезапуск polling (он чистит старые
+          // ретраи внутри stop), затем — новые ретраи, иначе restart снял бы
+          // только что созданные таймеры.
+          this.restartCognitionPolling(5000, 120000);
+          this._retryCognition([1000, 3000, 8000]);
           this.toast('Синтез запущен в фоне — результат появится в списке '
             + 'убеждений', 'ok');
           setTimeout(function () {   // прогресс LLM-прогона — минуты; обновим
@@ -5311,7 +5373,8 @@
                   damping: 0.09,                // гасит «болтанку»
                   avoidOverlap: 0.2,            // не даёт слипаться
                 },
-                stabilization: { enabled: true, iterations: 250,
+                stabilization: { enabled: true,
+                                 iterations: GRAPH_PHYSICS_ITERATIONS,
                                  updateInterval: 25, fit: true },
                 minVelocity: 0.75,
               },
@@ -5321,6 +5384,27 @@
         this.cognitionNetwork = new window.vis.Network(
           el, { nodes: nodes, edges: edges }, options);
         this._cognitionGraphSig = sig;
+        // F4 (ADR-1018-4 D2): выключаем physics ПОСЛЕ первичной расстановки.
+        // `once` (не `on`) — обработчики не копятся при повторных рендерах.
+        // B3-1: guard ТОЛЬКО по тождеству инстанса — после
+        // destroyCognitionGraph() this.cognitionNetwork=null, поэтому старый
+        // (уже уничтоженный) инстанс отсекается. Полей `destroyed`/
+        // `isDestroyed` в self-host vis-network v9.1.9 НЕТ — проверять их
+        // нельзя (мёртвый guard). Сетевые вызовы на уничтоженной сети ловит
+        // try/catch. reducedMotion → физика изначально false, слушатели не нужны.
+        if (!this.reducedMotion && GRAPH_PHYSICS_DISABLE_ON_STABILIZE) {
+          var self = this;
+          var net = this.cognitionNetwork;
+          var _disablePhysics = function () {
+            if (net && net === self.cognitionNetwork) {
+              try {
+                net.setOptions({ physics: { enabled: false } });
+              } catch (e) { /* noop: сеть уже уничтожена */ }
+            }
+          };
+          net.once('stabilizationIterationsDone', _disablePhysics);
+          net.once('stabilized', _disablePhysics);
+        }
       },
       // F2 (T-1560/1561, spec §5): поиск по графу — подстрока по label
       // (R16: id — ключ, поиск по label). Несколько совпадений — перебор
@@ -5382,19 +5466,80 @@
         this._cognitionGraphSig = null;
       },
       // ── Polling 15с с паузой при document.hidden (F5-Q3, R10.11-5) ─────
-      startCognitionPolling: function () {
+      // D2/R10.18: единый старт таймера БЕЗ раннего выхода по cognitionTimer
+      // (нужен restore-пути после stop — иначе ускоренный 5с остаётся
+      // навсегда). `ms` по умолчанию — базовые 15с.
+      _startCognitionTimer: function (ms) {
         var self = this;
-        if (!this.isGlobalAdmin || this.cognitionTimer) return;
         if (typeof document !== 'undefined' && document.hidden) return;
         this.cognitionTimer = setInterval(function () {
           if (typeof document !== 'undefined' && document.hidden) return;
           self.loadCognition();
-        }, 15000);
+        }, ms || 15000);
+      },
+      startCognitionPolling: function () {
+        if (!this.isGlobalAdmin || this.cognitionTimer) return;
+        this._startCognitionTimer(15000);
       },
       stopCognitionPolling: function () {
         if (this.cognitionTimer) {
           clearInterval(this.cognitionTimer);
           this.cognitionTimer = null;
+        }
+        if (this._cognitionPollRestore) {
+          clearTimeout(this._cognitionPollRestore);
+          this._cognitionPollRestore = null;
+        }
+        // S10.18-26: ретраи ручного POST тоже снимаются при уходе с вкладки.
+        if (Array.isArray(this._cognitionRetryTimers)
+            && this._cognitionRetryTimers.length) {
+          this._cognitionRetryTimers.forEach(function (t) { clearTimeout(t); });
+          this._cognitionRetryTimers = [];
+        }
+      },
+      // F2 (spec §4.6, T-1720): ретраи cognition после ручного POST — не
+      // ждём polling 15с. Без WebSocket/живого tick-таймера (ADR-1017-3 §2.6).
+      // S10.18-26: хэндлы сохраняются в state и снимаются в
+      // stopCognitionPolling (иначе 3 запроса уходили вне вкладки).
+      _retryCognition: function (delays) {
+        var self = this;
+        if (!Array.isArray(this._cognitionRetryTimers)) {
+          this._cognitionRetryTimers = [];
+        }
+        (delays || []).forEach(function (ms) {
+          var h = setTimeout(function () { self.loadCognition(); }, ms);
+          self._cognitionRetryTimers.push(h);
+        });
+      },
+      // D2/R10.18: вернуть БАЗОВЫЕ 15с после временного ускорения. Вызов
+      // startCognitionPolling() здесь раннеретурнил (cognitionTimer ещё жив)
+      // → 5с-таймер оставался навсегда.
+      // S10.18-22: базовый 15с стартует ТОЛЬКО на вкладке «Статус»; вне неё
+      // restore лишь останавливает таймеры (инвариант F5/R10.11-5 «вне
+      // Статуса — стоп»).
+      _restoreCognitionPolling: function () {
+        this.stopCognitionPolling();
+        if (this.activeTab !== 'status') return;
+        this._startCognitionTimer(15000);
+      },
+      // F2 (spec §4.6, T-1720): временно ускорить polling (5с) на время
+      // ручного прогона и вернуть базовые 15с через `restoreMs`.
+      // R10.18 / R2-1: гейт `activeTab === 'status'` снят — кнопка «Запустить
+      // синтез сейчас» живёт на вкладке «Модули», поэтому ускорение обязано
+      // стартовать сразу после POST, независимо от вкладки (иначе вызов
+      // оставался мёртвым). «Вечного 5с вне вкладки» нет: `setTab` при любом
+      // уходе зовёт `stopCognitionPolling`, который снимает и interval, и
+      // restore-таймер (см. `setTab` и `stopCognitionPolling`).
+      restartCognitionPolling: function (intervalMs, restoreMs) {
+        if (!this.isGlobalAdmin) return;
+        var self = this;
+        this.stopCognitionPolling();
+        this._startCognitionTimer(intervalMs || 15000);
+        if (restoreMs) {
+          this._cognitionPollRestore = setTimeout(function () {
+            self._cognitionPollRestore = null;
+            self._restoreCognitionPolling();
+          }, restoreMs);
         }
       },
       onVisibilityChange: function () {

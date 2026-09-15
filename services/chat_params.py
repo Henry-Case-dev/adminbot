@@ -182,6 +182,21 @@ class ChatParamsCache:
         return root, updated_at
 
 
+async def invalidate_chat_from_notify(payload) -> None:
+    """F7 (T-1764, ADR-1018-7 D6): обработчик payload канала
+    `chat_params_updated` — инвалидирует кэш чата. Fail-open: нет кэша/битый
+    payload/ошибка → тихо (WARNING), бот жив."""
+    cache = _chat_params_cache
+    if cache is None or payload in (None, ""):
+        return
+    try:
+        await cache.invalidate_chat(int(payload))
+    except Exception:
+        logger.warning(
+            "[chat_params] notify invalidate failed — fail-open | payload=%s",
+            payload, exc_info=True)
+
+
 async def get_chat_updated_at(chat_id: int) -> str | None:
     """updated_at профиля чата (optimistic-метка; None — нет/недоступен)."""
     cache = _chat_params_cache

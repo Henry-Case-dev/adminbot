@@ -445,10 +445,21 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
 
 // ── MODERATE-2: closeModule сбрасывает openModuleId ──────────────────────
 (function () {
-  const ctx = { openModuleId: 'mod_sleep' };
+  // S10.18-22: closeModule вне «Статуса» зовёт stopCognitionPolling —
+  // контекст даёт стаб (как реальный Vue-инстанс).
+  let stops = 0;
+  const ctx = { openModuleId: 'mod_sleep', activeTab: 'status',
+    stopCognitionPolling() { stops += 1; } };
   methods.closeModule.call(ctx);
   assert.strictEqual(ctx.openModuleId, null,
     'MODERATE-2: closeModule закрывает модалку');
+  assert.strictEqual(stops, 0,
+    'S10.18-22: на «Статусе» closeModule polling не трогает');
+  const ctxOff = { openModuleId: 'mod_sleep', activeTab: 'modules',
+    stopCognitionPolling() { stops += 1; } };
+  methods.closeModule.call(ctxOff);
+  assert.strictEqual(stops, 1,
+    'S10.18-22: вне «Статуса» closeModule останавливает polling');
 })();
 
 (async function () {
@@ -1425,7 +1436,7 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     assert.strictEqual(
       dream.call({ cognition: null, fmtClock: methods.fmtClock,
         fmtCountdown: methods.fmtCountdown }).text,
-      '☀️ Сон через —', 'F5: нет данных → нейтральный «через»');
+      '—', 'F2/S10.17-2: нет данных → чистый «—»');
     const deep = computed.deepPhaseBadge;
     const deepActive = deep.call({
       cognition: { deep_sleep: { active: true, active_until: 1740000000 } },
@@ -1506,7 +1517,8 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
 
     // Polling lifecycle (15с; стоп очищает таймер).
     const pctx = { isGlobalAdmin: true, cognitionTimer: null,
-                   loadCognition() {}, reducedMotion: false };
+                   loadCognition() {}, reducedMotion: false,
+                   _startCognitionTimer: methods._startCognitionTimer };
     methods.startCognitionPolling.call(pctx);
     assert.ok(pctx.cognitionTimer != null, 'F5: polling запущен');
     methods.stopCognitionPolling.call(pctx);
@@ -1592,12 +1604,12 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     // Нет данных → «—», badge-muted.
     const noData = { cognition: null, fmtClock: methods.fmtClock,
       fmtCountdown: methods.fmtCountdown };
-    assert.strictEqual(dream.call(noData).text, '☀️ Сон через —',
-      'F3: cognition=null → «—»');
+    assert.strictEqual(dream.call(noData).text, '—',
+      'F2/S10.17-2: cognition=null → «—»');
     assert.strictEqual(dream.call(noData).cls, 'badge-muted',
-      'F3: нет данных → muted');
-    assert.strictEqual(deep.call(noData).text, '🌅 Глубокий сон через —',
-      'F3: cognition=null deep → «—»');
+      'F2: нет данных → muted');
+    assert.strictEqual(deep.call(noData).text, '—',
+      'F2/S10.17-2: cognition=null deep → «—»');
 
     // Отсутствие generated_at → Date.now()/1000, без NaN.
     const noGen = dream.call(ctx({
@@ -1856,6 +1868,304 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     await methods.searchCognitionGraph.call(ctx);
     assert.strictEqual(rendered, 1, 'F2: гонка до рендера → один повтор');
     assert.strictEqual(net2.calls.focus.length, 1, 'F2: поиск после рендера');
+  }
+
+  // ── F4 (graph-physics-stabilization-round1018, ADR-1018-4): 150 итераций
+  //    стабилизации + авто-отключение physics по завершении расстановки ─────
+  {
+    const fs = require('fs');
+    const jsSrc = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'web', 'app.js'), 'utf-8');
+    assert.ok(jsSrc.indexOf('GRAPH_PHYSICS_ITERATIONS = 150') >= 0,
+      'F4: iterations=150 — код-константа');
+    assert.ok(jsSrc.indexOf('GRAPH_PHYSICS_DISABLE_ON_STABILIZE = true') >= 0,
+      'F4: флаг авто-отключения физики');
+    assert.ok(jsSrc.indexOf('iterations: GRAPH_PHYSICS_ITERATIONS') >= 0,
+      'F4: опции используют GRAPH_PHYSICS_ITERATIONS');
+    assert.ok(jsSrc.indexOf('stabilizationIterationsDone') >= 0,
+      'F4: слушатель stabilizationIterationsDone');
+    assert.ok(jsSrc.indexOf("'stabilized'") >= 0,
+      'F4: слушатель stabilized');
+    assert.ok(jsSrc.indexOf('physics: { enabled: false }') >= 0,
+      'F4: physics.enabled=false после расстановки');
+    assert.ok(jsSrc.indexOf('net.once(') >= 0,
+      'F4: once (не on) — обработчики не копятся');
+    assert.ok(jsSrc.indexOf('physics: this.reducedMotion') >= 0,
+      'F4: reducedMotion → physics:false сохранён');
+
+    const FakeDataSet = function (rows) { this.rows = rows; };
+    let netCreated = null;
+    function FakeNetwork(el, data, options) {
+      // B3-1: НЕ фабрикуем несуществующие члены vis-network
+      // (`destroyed`/`isDestroyed` отсутствуют в self-host v9.1.9) —
+      // guard обязан опираться только на тождество инстанса.
+      const self = this;
+      this.el = el; this.data = data; this.options = options;
+      this.onceEvents = [];
+      this.setOptionsCalls = [];
+      this.destroy = function () {};
+      this.once = function (ev, cb) {
+        self.onceEvents.push(ev);
+        self['cb_' + ev] = cb;
+      };
+      this.setOptions = function (o) { self.setOptionsCalls.push(o); };
+      netCreated = self;
+    }
+    const prevVis = global.window.vis;
+    global.window.vis = { DataSet: FakeDataSet, Network: FakeNetwork };
+    const baseCtx = {
+      isGlobalAdmin: true, activeTab: 'status', reducedMotion: false,
+      cognitionGraphData: {
+        nodes: [{ id: 1, label: 'a' }, { id: 2, label: 'b' }],
+        edges: [{ from: 1, to: 2, label: 'r', weight: 1 }],
+      },
+      $refs: { cognitionGraph: {} },
+      cognitionNetwork: null, _cognitionGraphSig: null,
+      ensureVisNetwork: methods.ensureVisNetwork,
+      _graphSignature: methods._graphSignature,
+      destroyCognitionGraph: methods.destroyCognitionGraph,
+    };
+    await methods.renderCognitionGraph.call(baseCtx);
+    assert.ok(netCreated, 'F4: сеть создана');
+    assert.strictEqual(
+      netCreated.options.physics.stabilization.iterations, 150,
+      'F4: stabilization.iterations=150');
+    assert.deepStrictEqual(netCreated.onceEvents,
+      ['stabilizationIterationsDone', 'stabilized'],
+      'F4: once-слушатели стабилизации');
+    // событие завершения стабилизации → physics off
+    netCreated.cb_stabilizationIterationsDone();
+    assert.deepStrictEqual(netCreated.setOptionsCalls,
+      [{ physics: { enabled: false } }],
+      'F4: stabilizationIterationsDone → physics off');
+
+    // B3-1: старый инстанс после destroy не получает setOptions (guard по
+    // тождеству отсекает уничтоженную сеть), а НОВЫЙ инстанс — получает.
+    const first = netCreated;
+    const firstCalls = first.setOptionsCalls.length;
+    methods.destroyCognitionGraph.call(baseCtx);
+    assert.strictEqual(baseCtx.cognitionNetwork, null,
+      'F4: destroy обнулил сеть');
+    first.cb_stabilizationIterationsDone();  // старый инстанс: guard отсекает
+    assert.strictEqual(first.setOptionsCalls.length, firstCalls,
+      'B3-1: старый инстанс после destroy не получает setOptions');
+    netCreated = null;
+    await methods.renderCognitionGraph.call(baseCtx);
+    assert.ok(netCreated && netCreated !== first, 'F4: пересоздание сети');
+    assert.strictEqual(netCreated.onceEvents.length, 2,
+      'F4: новый инстанс снова получает слушатели');
+    netCreated.cb_stabilizationIterationsDone();
+    assert.deepStrictEqual(netCreated.setOptionsCalls,
+      [{ physics: { enabled: false } }],
+      'B3-1: новый инстанс получает physics off');
+
+    // reducedMotion → physics:false, слушатели не навешиваются.
+    netCreated = null;
+    const rmCtx = Object.assign({}, baseCtx, {
+      reducedMotion: true, cognitionNetwork: null, _cognitionGraphSig: null });
+    await methods.renderCognitionGraph.call(rmCtx);
+    assert.strictEqual(netCreated.options.physics, false,
+      'F4: reducedMotion → physics:false');
+    assert.strictEqual(netCreated.onceEvents.length, 0,
+      'F4: reducedMotion → без слушателей');
+    global.window.vis = prevVis;
+  }
+
+  // ── F2 (sleep-manual-cascade-badges-round1018): реактивные бейджи ────────
+  //    (T-1720/T-1721): cognition=null → «—»; ретраи после ручного POST;
+  //    временное ускорение polling. WebSocket в проекте нет.
+  {
+    assert.strictEqual(typeof methods._retryCognition, 'function',
+      'F2: _retryCognition — метод');
+    assert.strictEqual(typeof methods.restartCognitionPolling, 'function',
+      'F2: restartCognitionPolling — метод');
+
+    // Пустые delays → без вызовов (нет лишних таймеров).
+    let loads = 0;
+    methods._retryCognition.call({ loadCognition() { loads += 1; } }, []);
+    assert.strictEqual(loads, 0, 'F2: пустые delays → без вызовов');
+
+    // restartCognitionPolling(5000) → таймер 5с; stop() очищает.
+    const pctx = { isGlobalAdmin: true, activeTab: 'status', cognitionTimer: null,
+                   _cognitionPollRestore: null, loadCognition() {},
+                   stopCognitionPolling: methods.stopCognitionPolling,
+                   _startCognitionTimer: methods._startCognitionTimer,
+                   _restoreCognitionPolling: methods._restoreCognitionPolling };
+    methods.restartCognitionPolling.call(pctx, 5000, 0);
+    assert.ok(pctx.cognitionTimer != null, 'F2: polling перезапущен (5с)');
+    methods.stopCognitionPolling.call(pctx);
+    assert.strictEqual(pctx.cognitionTimer, null, 'F2: polling остановлен');
+
+    // D2/R10.18 + R2-5: restore возвращает БАЗОВЫЕ 15с (не оставляет 5с
+    // навсегда). setInterval/setTimeout стабим, чтобы дожать restore ЧЕРЕЗ
+    // срабатывание таймера (не вызывая internal _restoreCognitionPolling
+    // напрямую — иначе closure setTimeout(..., restoreMs) не покрыт).
+    const seenMs = [];
+    const restoreCbs = [];
+    const realSet = global.setInterval;
+    const realClear = global.clearInterval;
+    const realSetTimeout = global.setTimeout;
+    const realClearTimeout = global.clearTimeout;
+    global.setInterval = function (fn, ms) { seenMs.push(ms); return { ms: ms }; };
+    global.clearInterval = function () {};
+    global.setTimeout = function (fn, ms) { restoreCbs.push({ fn: fn, ms: ms }); return { ms: ms }; };
+    global.clearTimeout = function () {};
+    try {
+      methods.restartCognitionPolling.call(pctx, 5000, 120000);
+      assert.deepStrictEqual(seenMs, [5000],
+        'F2/D6: ускорение 5с на вкладке Статус');
+      assert.strictEqual(restoreCbs.length, 1, 'F2: restore таймер armed');
+      assert.strictEqual(restoreCbs[0].ms, 120000, 'F2: restore = 120с');
+      assert.ok(pctx._cognitionPollRestore != null, 'F2: restore сохранён в state');
+      // Дожим restore ЧЕРЕЗ срабатывание таймера (не вызовом internal).
+      restoreCbs[0].fn();
+      assert.strictEqual(pctx._cognitionPollRestore, null,
+        'F2/R2-5: restore-таймер сброшен после срабатывания');
+      assert.deepStrictEqual(seenMs, [5000, 15000],
+        'F2/D2: базовый polling восстановлен 15с');
+    } finally {
+      global.setInterval = realSet;
+      global.clearInterval = realClear;
+      global.setTimeout = realSetTimeout;
+      global.clearTimeout = realClearTimeout;
+    }
+    methods.stopCognitionPolling.call(pctx);
+
+    // R2-1: кнопка «Запустить синтез сейчас» живёт на вкладке modules —
+    // ускорение обязано стартовать и там (гейт по вкладке снят).
+    {
+      const seen2 = [];
+      const cbs2 = [];
+      const rs = global.setInterval, rc = global.clearInterval;
+      const rst = global.setTimeout, rct = global.clearTimeout;
+      global.setInterval = function (fn, ms) { seen2.push(ms); return { ms: ms }; };
+      global.clearInterval = function () {};
+      global.setTimeout = function (fn, ms) { cbs2.push({ fn: fn, ms: ms }); return { ms: ms }; };
+      global.clearTimeout = function () {};
+      try {
+        const modTab = { isGlobalAdmin: true, activeTab: 'modules',
+          cognitionTimer: null, _cognitionPollRestore: null, loadCognition() {},
+          stopCognitionPolling: methods.stopCognitionPolling,
+          _startCognitionTimer: methods._startCognitionTimer,
+          _restoreCognitionPolling: methods._restoreCognitionPolling };
+        methods.restartCognitionPolling.call(modTab, 5000, 120000);
+        assert.deepStrictEqual(seen2, [5000],
+          'F2/R2-1: на вкладке modules ускорение 5с стартует');
+        assert.strictEqual(cbs2.length, 1,
+          'F2/R2-1: restore-таймер armed вне Статуса');
+        // S10.18-22: по истечении restore вне вкладки «Статус» базовый 15с
+        // НЕ поднимается (инвариант F5/R10.11-5 «вне Статуса — стоп»).
+        cbs2[0].fn();
+        assert.deepStrictEqual(seen2, [5000],
+          'S10.18-22: restore вне Статуса не стартует 15с');
+        assert.strictEqual(modTab.cognitionTimer, null,
+          'S10.18-22: после restore вне Статуса polling не создан');
+        // Уход с вкладки (setTab → stopCognitionPolling) снимает ОБА таймера:
+        // 5с-интервал и restore — «вечного 5с» вне вкладки нет.
+        methods.restartCognitionPolling.call(modTab, 5000, 120000);
+        methods.stopCognitionPolling.call(modTab);
+        assert.strictEqual(modTab.cognitionTimer, null,
+          'F2/R2-1: уход с вкладки снял 5с-интервал');
+        assert.strictEqual(modTab._cognitionPollRestore, null,
+          'F2/R2-1: уход с вкладки снял restore-таймер');
+      } finally {
+        global.setInterval = rs; global.clearInterval = rc;
+        global.setTimeout = rst; global.clearTimeout = rct;
+      }
+    }
+
+    // S10.18-26: ретраи _retryCognition сохраняются в state и снимаются
+    // stopCognitionPolling (иначе 3 запроса уходили после ухода с вкладки).
+    {
+      const cleared = [];
+      const handles = [];
+      const rs = global.setInterval, rc = global.clearInterval;
+      const rst = global.setTimeout, rct = global.clearTimeout;
+      global.setTimeout = function (fn, ms) {
+        const h = { ms: ms }; handles.push(h); return h;
+      };
+      global.clearTimeout = function (h) { cleared.push(h); };
+      global.setInterval = function () { return { ms: 15000 }; };
+      global.clearInterval = function () {};
+      try {
+        const retryCtx = { isGlobalAdmin: true, activeTab: 'modules',
+          cognitionTimer: null, _cognitionPollRestore: null,
+          _cognitionRetryTimers: [], loadCognition() {},
+          _retryCognition: methods._retryCognition,
+          stopCognitionPolling: methods.stopCognitionPolling };
+        methods._retryCognition.call(retryCtx, [1000, 3000, 8000]);
+        assert.strictEqual(retryCtx._cognitionRetryTimers.length, 3,
+          'S10.18-26: ретраи сохранены в state');
+        methods.stopCognitionPolling.call(retryCtx);
+        assert.strictEqual(retryCtx._cognitionRetryTimers.length, 0,
+          'S10.18-26: stop очистил список ретраев');
+        assert.strictEqual(cleared.length, 3,
+          'S10.18-26: все 3 setTimeout сняты clearTimeout');
+      } finally {
+        global.setInterval = rs; global.clearInterval = rc;
+        global.setTimeout = rst; global.clearTimeout = rct;
+      }
+    }
+
+    // S10.18-22: closeModule вне «Статуса» снимает polling (модалка «Сон»
+    // живёт на вкладке modules).
+    {
+      let stopped = 0;
+      const closeCtx = { openModuleId: 'mod_sleep', activeTab: 'modules',
+        stopCognitionPolling: function () { stopped += 1; } };
+      methods.closeModule.call(closeCtx);
+      assert.strictEqual(closeCtx.openModuleId, null, 'S10.18-22: модалка закрыта');
+      assert.strictEqual(stopped, 1, 'S10.18-22: closeModule вне Статуса → stop');
+      const statusCtx = { openModuleId: 'mod_sleep', activeTab: 'status',
+        stopCognitionPolling: function () { stopped += 1; } };
+      methods.closeModule.call(statusCtx);
+      assert.strictEqual(stopped, 1,
+        'S10.18-22: на «Статусе» polling не трогаем');
+    }
+
+    // R2-1 (реальный путь): runDreamNow с вкладки modules (где живёт кнопка
+    // «Запустить синтез сейчас») обязан включить ускорение 5с СРАЗУ после POST.
+    {
+      const seen3 = [];
+      const timers3 = [];
+      const rs = global.setInterval, rc = global.clearInterval;
+      const rst = global.setTimeout, rct = global.clearTimeout;
+      global.setInterval = function (fn, ms) { seen3.push(ms); return { ms: ms }; };
+      global.clearInterval = function () {};
+      global.setTimeout = function (fn, ms) { timers3.push({ fn: fn, ms: ms }); return { ms: ms }; };
+      global.clearTimeout = function () {};
+      try {
+        const rctx = {
+          isGlobalAdmin: true, activeTab: 'modules', dreamBusy: false,
+          cognition: { dream: { active: false } },
+          cognitionTimer: null, _cognitionPollRestore: null,
+          api: async function () { return {}; },
+          loadCognition() {}, loadDreamBeliefs() {}, loadDreamLog() {}, toast() {},
+          _retryCognition: methods._retryCognition,
+          restartCognitionPolling: methods.restartCognitionPolling,
+          stopCognitionPolling: methods.stopCognitionPolling,
+          _startCognitionTimer: methods._startCognitionTimer,
+          _restoreCognitionPolling: methods._restoreCognitionPolling,
+        };
+        await methods.runDreamNow.call(rctx);
+        assert.strictEqual(rctx.cognition.dream.active, true,
+          'F2/R2-1: оптимистичная active после POST');
+        assert.deepStrictEqual(seen3, [5000],
+          'F2/R2-1: runDreamNow (modules) → ускоренный polling 5с стартует');
+        assert.ok(timers3.some(function (t) { return t.ms === 120000; }),
+          'F2/R2-1: restore-таймер 120с armed');
+      } finally {
+        global.setInterval = rs; global.clearInterval = rc;
+        global.setTimeout = rst; global.clearTimeout = rct;
+      }
+    }
+
+    // non-admin → no-op (не создаём таймер).
+    const notAdmin = { isGlobalAdmin: false, cognitionTimer: null,
+                       _cognitionPollRestore: null };
+    methods.restartCognitionPolling.call(notAdmin, 5000, 0);
+    assert.strictEqual(notAdmin.cognitionTimer, null,
+      'F2: не global admin → polling не запускается');
   }
 
   console.log('JS-UNIT-OK');

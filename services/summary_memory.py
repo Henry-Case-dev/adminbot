@@ -108,7 +108,11 @@ _GRAPH_VEC_TABLE_SQL_INT8 = (
 
 # КАНОН R46-2 — промпт-экстрактор (VERBATIM, байт-в-байт; тест-якорь backlog
 # «Канон R46-2 — промпт-экстрактор»).
-FACT_EXTRACT_PROMPT = """СИСТЕМНАЯ РОЛЬ:
+# F5 (T-1743, ADR-1018-5 D1): канон-миграция по ADR-1013-3 — PREV-слепок
+# прежнего текста + аддитивный абзац «ФОКУС НА СОДЕРЖАНИИ». Модульная
+# константа (НЕ PG-сид) → PROMPT_MIGRATIONS НЕ трогается; миграция =
+# PREV-слепок + байт-тесты (см. tests/test_metafact_penalty_round1018.py).
+PREV_FACT_EXTRACT_PROMPT = """СИСТЕМНАЯ РОЛЬ:
 Ты — безэмоциональный архивариус (ETL-процессор). Твоя задача: извлечь сухие, проверяемые факты из предоставленного текста и представить их в виде графовых триплетов (Субъект -> Предикат -> Объект).
 - Игнорируй любые эмоции, шутки, оскорбления и личности авторов запроса.
 - Извлекай только объективную информацию (суть статьи, результаты поиска, тезисы видео).
@@ -116,6 +120,13 @@ FACT_EXTRACT_PROMPT = """СИСТЕМНАЯ РОЛЬ:
 
 ВЫВОД:
 Верни строго JSON со списком фактов. Пример: [{"subject": "Ozon", "predicate": "доставляет быстрее чем", "object": "Wildberries", "context": "из-за большего количества складов"}]"""
+
+FACT_EXTRACT_PROMPT = PREV_FACT_EXTRACT_PROMPT + """
+
+ФОКУС НА СОДЕРЖАНИИ:
+- Фокусируйся на СУТИ и СОДЕРЖАНИИ сообщений, а не на их формате.
+- Факт отправки «голосового», «кружочка», «видеосообщения», «фото», «ссылки», «стикера» извлекай ТОЛЬКО если вокруг формата идёт явное обсуждение (например, кто-то ругается на спам голосовыми).
+- Если это обычное сообщение — игнорируй его формат."""
 
 _FACT_ORIGINS = ("chat_history", "search_fact", "youtube_content", "web_content",
                  "bot_direct_reply",
@@ -219,6 +230,30 @@ def _origin_weight(source_type: str, *, bot_weight: float | None = None) -> floa
     if source_type == "user_memory":
         return 1.0
     return _clamp_weight(hot.get("limits.graph_fact_weight_archive", settings.GRAPH_FACT_WEIGHT_ARCHIVE))
+
+
+def _importance_factor(importance) -> float:
+    """B4-1 (F5, ADR-1018-5 D7): ограниченный множитель важности в RAG-ранге.
+
+    imp∈[1,10] → factor = 0.5 + 0.05·imp ∈ [0.55, 1.0]. Множитель монотонный
+    и ограниченный: одинаковые importance → одинаковый factor (относительное
+    ранжирование по weight/cosine НЕ ломается), но мета-факт (imp=1) при прочих
+    равных детерминированно уступает важному факту (imp≥8). Отсутствующая/
+    нечисловая importance → 5 (нейтральный factor 0.75)."""
+    try:
+        imp = int(importance)
+    except (TypeError, ValueError):
+        imp = 5
+    imp = max(1, min(10, imp))
+    return 0.5 + 0.05 * imp
+
+
+def _row_importance(row) -> int:
+    """importance RAG-строки; нет колонки (мок/старый SELECT) → 5 (нейтр.)."""
+    try:
+        return int(row["importance"])
+    except (KeyError, IndexError, TypeError, ValueError):
+        return 5
 
 
 def _effective_weight(weight, confirmed_at, now: int) -> float:
@@ -1674,7 +1709,8 @@ class MemoryManager:
 
         max_retry = GRAPH_MEMORIZE_MAX_BATCH_RETRIES (default 2 → 3 попытки),
         сон GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF * 2**attempt (default 2.0/4.0).
-        Канон FACT_EXTRACT_PROMPT (R46-2) — байт-в-байт, НЕ трогать.
+        Канон FACT_EXTRACT_PROMPT (R46-2 + F5-абзац «ФОКУС НА СОДЕРЖАНИИ» по
+        ADR-1018-5) — байт-в-байт (PREV_FACT_EXTRACT_PROMPT хранит слепок).
         """
         max_retry = (hot.get("limits.graph_memorize_max_batch_retries", settings.GRAPH_MEMORIZE_MAX_BATCH_RETRIES) or 0)
         for attempt in range(max_retry + 1):
@@ -1832,13 +1868,26 @@ class MemoryManager:
                     chat_id, subject, "fact", origin=source_type, expires_at=expiry)
                 oid = await self.db.upsert_node(
                     chat_id, obj, "fact", origin=source_type, expires_at=expiry)
-                await self.db.upsert_edge(
-                    sid, oid, fact["predicate"], origin=source_type, expires_at=expiry)
-                fact_id = await self.db.insert_graph_fact(
-                    chat_id, sentence, source_type, expiry, target_user=target_user,
-                    status=status, weight=weight,
-                    supersedes=(decision["old_id"]
-                                if decision["action"] == "supersede" else None))
+                # F3 (T-1774, ADR-1018-3 D1): СНАЧАЛА факт, ЗАТЕМ ребро — чтобы
+                # у ребра появился fact_id (provenance для скоринга Σ importance).
+                # Порядок важен: upsert_edge получает id только что созданного факта.
+                # B3-5: fact+edge — ОДНА транзакция (commit=False у обоих, единый
+                # commit); при сбое второго шага откат не оставит «факт без ребра».
+                try:
+                    fact_id = await self.db.insert_graph_fact(
+                        chat_id, sentence, source_type, expiry, target_user=target_user,
+                        status=status, weight=weight,
+                        supersedes=(decision["old_id"]
+                                    if decision["action"] == "supersede" else None),
+                        subject=subject, object=obj,
+                        commit=False)
+                    await self.db.upsert_edge(
+                        sid, oid, fact["predicate"], origin=source_type,
+                        expires_at=expiry, fact_id=fact_id, commit=False)
+                    await self.db.db.commit()
+                except Exception:
+                    await self.db.db.rollback()
+                    raise
                 if decision["action"] == "supersede":
                     # свежий побеждает = инвалидация (НЕ перезапись); журнал
                     # «что во что» — обратимость антиотравления (64.2)
@@ -2293,9 +2342,13 @@ class MemoryManager:
             return []
         # 66.3 (T-481): время-взвешивание в Python (SQL-ранг не меняем);
         # стабильная сортировка — равные w_eff сохраняют FTS-порядок.
+        # B4-1 (F5, ADR-1018-5 D7): × ограниченный множитель importance, чтобы
+        # мета-факт (imp=1) не перебивал важные факты в RAG-выборке.
         ranked = sorted(
             rows,
-            key=lambda r: _effective_weight(r["weight"], r["last_confirmed_at"], now),
+            key=lambda r: (_effective_weight(
+                r["weight"], r["last_confirmed_at"], now)
+                * _importance_factor(_row_importance(r))),
             reverse=True)
         kept = ranked[:limit]
         if kept and hot.get("flags.graph_fact_touch_enabled", settings.GRAPH_FACT_TOUCH_ENABLED):
@@ -2352,7 +2405,9 @@ class MemoryManager:
             if row is None:
                 continue
             w_eff = _effective_weight(row["weight"], row["last_confirmed_at"], now)
-            score = cosine * w_eff
+            # B4-1 (F5, ADR-1018-5 D7): × ограниченный множитель importance
+            # (meta imp=1 не доминирует в KNN-выборке при прочих равных).
+            score = cosine * w_eff * _importance_factor(_row_importance(row))
             if str(row["status"] or "") == "archived_belief":
                 score -= penalty
             cosine_by_id[fid] = float(cosine)
@@ -2922,6 +2977,9 @@ class MemoryManager:
             oid = await self.db.upsert_node(
                 chat_id, obj, triplet["object_type"]
             )
+            # F3 (T-1774, ADR-1018-3 D1): cron-путь graph_facts НЕ создаёт →
+            # fact_id ребра остаётся NULL ОСОЗНАННО (без provenance); скоринг
+            # деградирует к COALESCE(importance, weight).
             await self.db.upsert_edge(
                 sid,
                 oid,

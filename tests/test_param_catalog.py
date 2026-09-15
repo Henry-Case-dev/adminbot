@@ -115,6 +115,8 @@ class TestInfraExcluded:
         "WEB_PORT", "LOG_RING_MAX_ENTRIES", "UPTIME_EVENTS_RETENTION_HOURS",
         "SENTRY_DSN", "LOGTAIL_SOURCE_TOKEN", "TELEGRAM_API_ID",
         "TELEGRAM_API_HASH", "COBALT_HTTP_PROXY",
+        # 10.18 (F1, ADR-1018-1 D3): US ingest host BetterStack (env-only)
+        "BETTERSTACK_HOST",
     }
 
     def test_infra_category_none(self):
@@ -131,10 +133,18 @@ class TestInfraExcluded:
 
     def test_env_only_infra_present(self):
         for field in ("POSTGRES_DSN", "WEB_PORT", "LOG_RING_MAX_ENTRIES",
-                      "UPTIME_EVENTS_RETENTION_HOURS"):
+                      "UPTIME_EVENTS_RETENTION_HOURS", "BETTERSTACK_HOST"):
             spec = pc.get(field)
             assert spec is not None
             assert spec.settings_field is None or spec.env_name == field
+
+    def test_betterstack_host_env_only_not_secret(self):
+        """F1 (ADR-1018-1 D3): хост BetterStack — env-only, не секрет."""
+        spec = pc.get("BETTERSTACK_HOST")
+        assert spec is not None
+        assert spec.category is None
+        assert spec.settings_field is None
+        assert spec.secret is False
 
 
 class TestSecrets:

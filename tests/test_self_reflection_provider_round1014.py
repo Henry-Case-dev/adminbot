@@ -64,8 +64,10 @@ class TestCatalogAndSettingsF8:
         from services import param_catalog as pc
         # F6 (help-guide-integration-round1014): +1 PG-only content-ключ
         # (content.intelligence_guide) → REGISTRY 435 / categorized 411;
+        # 10.18 (F1): +1 env-only BETTERSTACK_HOST (ADR-1018-1 D3)
+        # → REGISTRY 436 / categorized 411;
         # Settings/GROUPS/mapped/TAB_RULES без изменений.
-        assert len(pc.REGISTRY) == 435
+        assert len(pc.REGISTRY) == 436
         assert len(pc.GROUPS) == 90
         assert len(pc._TAB_BY_GROUP) == 88
         assert len(pc.TAB_RULES) == 19

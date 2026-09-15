@@ -359,9 +359,13 @@ class TestSchemaAndAdr:
             "get_recent_history"]
 
     def test_adr_supersede_recorded(self):
-        adr = (Path(__file__).resolve().parents[1]
-               / "plans/features/tool-download-quality-round1017"
+        # 10.17: фича заархивирована @PM → артефакты лежат в plans/archive/.
+        root = Path(__file__).resolve().parents[1] / "plans"
+        adr = (root / "features" / "tool-download-quality-round1017"
                / "adr-1017-2-tool-download-quality.md")
+        if not adr.exists():                     # fallback на архив (актуальный)
+            adr = (root / "archive" / "tool-download-quality-round1017"
+                   / "adr-1017-2-tool-download-quality.md")
         text = adr.read_text(encoding="utf-8")
         assert "SUPERSEDE" in text
         assert "ADR-1016-1" in text

@@ -20,12 +20,22 @@ FR-B3 (завершение): close() — stop → join → flush() остатк
 не бросает (короткий lock; ошибки отправки живут в модульном логгере).
 
 Токен — строго os.getenv("LOGTAIL_SOURCE_TOKEN") (bot.py), один на Errors и
-Logs; содержимое токена не проверяется (никаких эвристик/сравнений с DSN).
+Logs; это должен быть BetterStack **Source Token** (Logs → Sources), а НЕ
+public key из SENTRY_DSN.
+
+Раунд 10.18 (F1, ADR-1018-1): хост обязателен и берётся из env
+`BETTERSTACK_HOST` (US-кластер проекта). Неявный EU-дефолт удалён
+(`DEFAULT_HOST = ""`): конструктор без хоста бросает ValueError, а bot.py
+при пустом хосте хендлер вообще не создаёт (fail-safe). Дополнительно:
+`token_equals_sentry_public_key` — детерминированная (не эвристическая)
+проверка «токен == public key SENTRY_DSN» для WARNING на старте.
 """
 import datetime
+import hmac
 import json
 import logging
 import os
+import re
 import threading
 import time
 import urllib.error
@@ -36,17 +46,51 @@ from services.log_ring import sanitize
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_HOST = "in.logs.betterstack.com"
+# Пустой невозможный дефолт (ADR-1018-1 D2): любой явный вызов ОБЯЗАН
+# передать host — EU in.logs.betterstack.com больше не подставляется молча.
+DEFAULT_HOST = ""
 
 _RATE_LIMIT_SECONDS = 60.0     # анти-спам журнала ошибок/дропов (spec 3.1.3)
 _RETRY_PAUSE_SECONDS = 1.0     # пауза перед единственным повтором батча
 _USER_AGENT = "adminbot/own-v1"
 
-# Подсказка при HTTP 401 — нейтральная (битый source token; Sentry DSN ни при
-# чём — у BetterStack Errors и Logs один общий токен). R17: значения токена/URL
-# в текст НЕ попадают — только слова-подсказки.
-_HINT_401 = ("подсказка: проверьте LOGTAIL_SOURCE_TOKEN/.env — это должен "
-             "быть Source Token из BetterStack → Logs → Sources")
+# Подсказка при HTTP 401 — нейтральная. Две частые причины: хост не того
+# региона и токен не Source Token (например, public key из SENTRY_DSN).
+# R17: значения токена/URL в текст НЕ попадают — только слова-подсказки.
+_HINT_401 = ("подсказка: BETTERSTACK_HOST и LOGTAIL_SOURCE_TOKEN должны "
+             "соответствовать одному региону/проекту; токен — Source Token "
+             "из BetterStack → Logs → Sources, а не public key из SENTRY_DSN")
+
+# SENTRY_DSN вида https://<public_key>@<host>/<project_id>
+_SENTRY_DSN_USERINFO_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://([^@/]+)@")
+
+
+def extract_sentry_public_key(dsn: str | None) -> str | None:
+    """Public key (userinfo) из SENTRY_DSN `https://<key>@<host>/<id>`.
+
+    Возвращает None при пустом/кривом DSN без userinfo. Не эвристика: берём
+    ровно userinfo-часть URL."""
+    if not dsn or not isinstance(dsn, str):
+        return None
+    match = _SENTRY_DSN_USERINFO_RE.match(dsn.strip())
+    if not match:
+        return None
+    key = match.group(1).strip()
+    return key or None
+
+
+def token_equals_sentry_public_key(token: str | None,
+                                   dsn: str | None) -> bool:
+    """True, если `token` ТОЧНО равен public key из `SENTRY_DSN`
+    (constant-time сравнение). Это НЕ Source Token → WARNING на старте
+    (старт не блокируем, ADR-1018-1 D4)."""
+    pub = extract_sentry_public_key(dsn)
+    if not token or not pub:
+        return False
+    try:
+        return hmac.compare_digest(str(token), str(pub))
+    except Exception:
+        return False
 
 
 def _rel_file(pathname: str) -> str:
@@ -100,6 +144,10 @@ class BetterStackHandler(logging.Handler):
                  level: int = logging.INFO, buffer_size: int = 2000,
                  flush_interval: float = 1.0, batch_size: int = 500,
                  timeout: float = 10.0) -> None:
+        host = (host or "").strip()
+        if not host:
+            # ADR-1018-1 D2: неявный регион запрещён — хост обязателен.
+            raise ValueError("BetterStackHandler: host is required")
         super().__init__(level=level)
         self.source_token = str(source_token or "")
         self.host = host

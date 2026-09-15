@@ -371,7 +371,11 @@ class TestDeepSleepSchedule:
             called["n"] += 1
             return {}
 
+        async def _candidates(now):
+            return [CHAT_ID]
+
         monkeypatch.setattr(worker, "_run_deep_all", _fake)
+        monkeypatch.setattr(worker, "_deep_candidate_chat_ids", _candidates)
         import services.dream_worker as dw
         monkeypatch.setattr(dw, "_local_hour", lambda now, tz=None: 7)
         await worker._deep_tick()
@@ -379,6 +383,118 @@ class TestDeepSleepSchedule:
         monkeypatch.setattr(dw, "_local_hour", lambda now, tz=None: 8)
         await worker._deep_tick()
         assert called["n"] == 1
+
+    @pytest.mark.asyncio
+    async def test_deep_tick_resolves_trigger_per_chat(self, db, monkeypatch):
+        """R10.18-2: per-chat `trigger='fixed'` исполним при глобальном
+        `'after_sleep'` (и наоборот — чужой фиксированный час не исполняется)."""
+        from services import chat_params as cp
+
+        class _Cache:
+            def __init__(self, root, only_chat):
+                self.root = root
+                self.only_chat = only_chat
+
+            async def get_chat_params(self, chat_id):
+                return self.root if chat_id == self.only_chat else {}
+
+        worker = _worker(db, _FakeMemory([]), _FakeWorkerLLM(),
+                         monkeypatch=monkeypatch,
+                         values={"flags.deep_sleep_enabled": True,
+                                 "memory.deep_sleep_trigger": "after_sleep",
+                                 "memory.deep_sleep_hour": 7})
+        called = {"ids": []}
+
+        async def _fake(ids, **kw):
+            called["ids"].append(list(ids))
+            return {}
+
+        async def _candidates(now):
+            return [CHAT_ID, -200]
+
+        monkeypatch.setattr(worker, "_run_deep_all", _fake)
+        monkeypatch.setattr(worker, "_deep_candidate_chat_ids", _candidates)
+        monkeypatch.setattr(cp, "_chat_params_cache", _Cache(
+            {"overrides": {"memory.deep_sleep_trigger": "fixed",
+                           "memory.deep_sleep_hour": 7}}, CHAT_ID))
+        import services.dream_worker as dw
+        monkeypatch.setattr(dw, "_local_hour", lambda now, tz=None: 7)
+        await worker._deep_tick()
+        # только ЦЕЛЕВОЙ чат с override 'fixed' в свой час (-200 без override
+        # наследует глобальный 'after_sleep' → не запускается)
+        assert called["ids"] == [[CHAT_ID]]
+
+    @pytest.mark.asyncio
+    async def test_deep_tick_cold_cache_reaches_candidates(self, db,
+                                                           monkeypatch):
+        """S10.18-21: холодный `ChatParamsCache` (пустой `_items`) при
+        глобальном 'after_sleep' НЕ должен молча хоронить per-chat
+        `trigger='fixed'` — тик обязан дойти до SQL-выборки кандидатов
+        (предгейт R10.18-17 удалён: 1 дешёвый запрос/час < риск потерять
+        прогон). Реальный `ChatParamsCache` с пустым `_items`."""
+        import services.dream_worker as dw
+        from services import chat_params as cp
+        cache = cp.ChatParamsCache(pg=None)
+        assert cache._items == {}                      # кэш не прогрет
+        monkeypatch.setattr(cp, "_chat_params_cache", cache)
+        worker = _worker(db, _FakeMemory([]), _FakeWorkerLLM(),
+                         monkeypatch=monkeypatch,
+                         values={"flags.deep_sleep_enabled": True,
+                                 "memory.deep_sleep_trigger": "after_sleep"})
+        calls = {"n": 0}
+        called = {"ids": []}
+
+        async def _candidates(*a, **kw):
+            calls["n"] += 1
+            return [{"chat_id": CHAT_ID}]
+
+        async def _fake(ids, **kw):
+            called["ids"].append(list(ids))
+            return {}
+
+        # per-chat override 'fixed' резолвится из PG-слоя, хотя кэш холодный.
+        async def _resolve(key, *, chat_id=None, default=None):
+            if key == "memory.deep_sleep_trigger" and chat_id == CHAT_ID:
+                return "fixed"
+            if key == "memory.deep_sleep_hour" and chat_id == CHAT_ID:
+                return 7
+            return default
+
+        monkeypatch.setattr(worker.db, "get_dream_candidate_chats", _candidates)
+        monkeypatch.setattr(worker, "_run_deep_all", _fake)
+        monkeypatch.setattr(dw, "resolve_setting_cached", _resolve)
+        monkeypatch.setattr(dw, "_local_hour", lambda now, tz=None: 7)
+        await worker._deep_tick()
+        assert calls["n"] == 1, ("холодный кэш не должен блокировать "
+                                 "выборку кандидатов")
+        assert called["ids"] == [[CHAT_ID]], (
+            "per-chat trigger='fixed' исполняется несмотря на холодный кэш")
+
+    @pytest.mark.asyncio
+    async def test_deep_tick_proceeds_when_per_chat_override(self, db,
+                                                             monkeypatch):
+        """Контроль: per-chat override триггера в кэше → тик доходит до
+        выборки кандидатов и запускает чат в свой час."""
+        from services import chat_params as cp
+        worker = _worker(db, _FakeMemory([]), _FakeWorkerLLM(),
+                         monkeypatch=monkeypatch,
+                         values={"flags.deep_sleep_enabled": True,
+                                 "memory.deep_sleep_trigger": "after_sleep"})
+        cache = cp.ChatParamsCache(pg=None)
+        cache._items[CHAT_ID] = (time.monotonic(),
+                                 {"overrides": {
+                                     "memory.deep_sleep_trigger": "fixed"}},
+                                 None)
+        monkeypatch.setattr(cp, "_chat_params_cache", cache)
+        calls = {"n": 0}
+
+        async def _candidates(*a, **kw):
+            calls["n"] += 1
+            return []
+
+        monkeypatch.setattr(worker.db, "get_dream_candidate_chats", _candidates)
+        await worker._deep_tick()
+        assert calls["n"] == 1
 
     @pytest.mark.asyncio
     async def test_cooldown_blocks_non_manual(self, db, monkeypatch):
@@ -424,6 +540,51 @@ class TestDeepSleepSchedule:
             assert "deep_sleep_tick" in ids
         finally:
             await worker.stop()
+
+
+class TestManualDeepCascade:
+    """R10.18-5: manual-каскад Сон→Глубокий не идёт по всем чатам прогона."""
+
+    @pytest.mark.asyncio
+    async def test_manual_cascade_targets_only_chat(self, db, monkeypatch):
+        worker = _worker(db, _FakeMemory([]), _FakeWorkerLLM(),
+                         monkeypatch=monkeypatch, values={})
+        seen = {}
+
+        async def _fake(ids, *, since_ts=None, manual=False):
+            seen["ids"] = list(ids)
+            seen["manual"] = manual
+            seen["since_ts"] = since_ts
+            return {}
+
+        monkeypatch.setattr(worker, "_run_deep_all", _fake)
+        worker._last_chat_ids = [CHAT_ID, -200, -300]
+        worker._last_run_started = 111
+        await worker._maybe_deep_after_sleep(
+            {"distilled": 1, "chats": 3}, manual=True, only_chat=CHAT_ID)
+        assert seen["ids"] == [CHAT_ID]      # только целевой чат кнопки
+        assert seen["manual"] is True
+        assert seen["since_ts"] == 111
+
+    @pytest.mark.asyncio
+    async def test_manual_cascade_without_target_is_capped(self, db,
+                                                           monkeypatch):
+        """Без явной цели manual-каскад ограничен _MANUAL_DEEP_CASCADE_MAX
+        (а не max_chats_per_run LLM-прогонов за один клик)."""
+        from services.dream_worker import _MANUAL_DEEP_CASCADE_MAX
+        worker = _worker(db, _FakeMemory([]), _FakeWorkerLLM(),
+                         monkeypatch=monkeypatch, values={})
+        seen = {}
+
+        async def _fake(ids, *, since_ts=None, manual=False):
+            seen["ids"] = list(ids)
+            return {}
+
+        monkeypatch.setattr(worker, "_run_deep_all", _fake)
+        worker._last_chat_ids = [CHAT_ID, -200, -300]
+        await worker._maybe_deep_after_sleep(
+            {"distilled": 1, "chats": 3}, manual=True)
+        assert seen["ids"] == [CHAT_ID][:_MANUAL_DEEP_CASCADE_MAX]
 
 
 # ── T-1439: роутер выделенных моделей ───────────────────────────────────────

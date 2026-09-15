@@ -29,7 +29,8 @@ class TestCatalogDelta1013:
     def test_counts(self):
         from config.settings import Settings
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 435
+        # 436 = 435 + 1 env-only BETTERSTACK_HOST (ADR-1018-1 D3).
+        assert len(pc.REGISTRY) == 436
         assert len(pc.GROUPS) == 90
         assert len(pc._TAB_BY_GROUP) == 88
         assert len(pc.TAB_RULES) == 19

@@ -451,6 +451,10 @@ _INFRA_ENV_ONLY: list[tuple] = [
     ("UPTIME_EVENTS_RETENTION_HOURS", "Ретенция uptime_events, часов", "int", False),
     ("SENTRY_DSN", "Sentry DSN", "str", True),
     ("LOGTAIL_SOURCE_TOKEN", "Logtail source token", "str", True),
+    # Раунд 10.18 (F1, ADR-1018-1 D3): US ingest host BetterStack. env-only
+    # (category=None, settings_field=None, не секрет). Пусто = хендлер логов
+    # не создаётся (fail-safe). REGISTRY 435 → 436.
+    ("BETTERSTACK_HOST", "Хост ingest BetterStack (регион проекта)", "str", False),
     ("TELEGRAM_API_ID", "API ID my.telegram.org", "str", True),
     ("TELEGRAM_API_HASH", "API hash my.telegram.org", "str", True),
     ("COBALT_HTTP_PROXY", "Исходящий HTTP-прокси cobalt", "str", True),
@@ -1364,8 +1368,11 @@ _MEMORY: list[tuple] = [
     ("DREAM_ENABLED", "Сон: синтез убеждений (DreamWorker)", "bool",
      "memory_dream",
      "Рубильник фонового DreamWorker: из повторяющихся фактов чата модель "
-     "делает устойчивые убеждения (beliefs). Выключено (дефолт) — тик не "
-     "регистрируется, 0 влияния.",
+     "делает устойчивые убеждения (beliefs). Выключено (дефолт в коде) — "
+     "включается per-chat/scope. С F7 джоб зарегистрирован всегда, решение "
+     "«работать/не работать» принимается ПО КАЖДОМУ чату на тике (override → "
+     "глобальный), поэтому OFF отключает дистилляцию, но не «не регистрирует "
+     "тик».",
      "basic"),
 
     ("DREAM_TICK_MINUTES", "Сон: период тика, минут", "int", "memory_dream",
@@ -1392,7 +1399,7 @@ _MEMORY: list[tuple] = [
 
     ("DREAM_MIN_NEW_FACTS_PER_CHAT", "Сон: мин. новых фактов для чата", "int",
      "memory_dream",
-     "Чат-кандидат тика — только при новых фактах не меньше порога (5).",
+     "Чат-кандидат тика — только при новых фактах не меньше порога (2).",
      "advanced"),
 
     ("DREAM_MAX_CHATS_PER_RUN", "Сон: максимум чатов за тик", "int",
@@ -1402,7 +1409,7 @@ _MEMORY: list[tuple] = [
 
     ("DREAM_QUIET_CHECK_MINUTES", "Сон: тишина перед тиком, минут", "int",
      "memory_dream",
-     "«Не пик»: чат с сообщениями за последние N минут пропускается (30).",
+     "«Не пик»: чат с сообщениями за последние N минут пропускается (10).",
      "advanced"),
 
     ("DREAM_CLUSTER_OVERLAP_TOKENS", "Сон: общих слов для кластера", "int",
@@ -1413,22 +1420,22 @@ _MEMORY: list[tuple] = [
 
     ("DREAM_REPEAT_THRESHOLD", "Сон: повторяемость кластера (членов)", "int",
      "memory_dream",
-     "Кластер идёт в дистилляцию при членах не меньше порога (3).",
+     "Кластер идёт в дистилляцию при членах не меньше порога (2).",
      "advanced"),
 
     ("DREAM_IMPORTANCE_SUM_THRESHOLD", "Сон: Σ важности кластера", "int",
      "memory_dream",
-     "Кластер идёт в дистилляцию при сумме importance не меньше порога (12).",
+     "Кластер идёт в дистилляцию при сумме importance не меньше порога (8).",
      "advanced"),
 
     ("DREAM_MAX_CLUSTERS_PER_RUN", "Сон: кластеров в дистилляцию за тик",
      "int", "memory_dream",
-     "Потолок кластеров на тик (5), топ по сумме важности.",
+     "Потолок кластеров на тик (10), топ по сумме важности.",
      "advanced"),
 
     ("DREAM_DISTILLATIONS_PER_DAY", "Сон: дистилляций в сутки", "int",
      "memory_dream",
-     "Глобальный суточный лимит успешных синтезов (30; по memory_dream_log).",
+     "Суточный лимит (per-chat) успешных синтезов (60; по memory_dream_log).",
      "advanced"),
 
     ("DREAM_TOKENS_PER_DAY", "Сон: слов в сутки (денежный)", "int",
@@ -1767,8 +1774,56 @@ CONFIG_TAB_TITLES: dict[str, str] = {
     TAB_PEOPLE_NAMES: "Имена",
     TAB_RELATIONS: "Участники и отношения",
     TAB_CHAT_LORE: "Лор чата",
-    TAB_PERMSOC: "Функции PERMsoc",
+    TAB_PERMSOC: "PERMsoc",
 }
+
+# ── F6 (T-1752, ADR-1018-6 D1): nav-разметка «Матрицы ролей» ─────────────────
+# Фактические navbar-разделы мини-аппа, несущие настройки каталога
+# (web/app.js::TABS[].menu / NAV_ITEMS). Это Python-метаданные, НЕ ParamSpec/
+# GroupSpec → счётчики каталога (REGISTRY/GROUPS/TAB_RULES) НЕ растут.
+NAV_MODULES = "modules"
+NAV_AI = "ai"
+NAV_PERMSOC = "permsoc"
+
+NAV_TITLES: dict[str, str] = {
+    NAV_MODULES: "Модули",
+    NAV_AI: "ИИ",
+    NAV_PERMSOC: "PERMsoc",
+}
+
+NAV_ORDER: tuple[str, ...] = (NAV_MODULES, NAV_AI, NAV_PERMSOC)
+
+# tab_id → nav (исчерпывающе, все 19 config-вкладок TAB_RULES). Паритет с
+# фактической картой мини-аппа (web/app.js): 11 mod_* → Модули, 7 «ИИ» → ИИ,
+# permsoc → PERMsoc. `#/access` и `#/ai/persona` — НЕ per-param секции
+# матрицы (нет ParamSpec; ADR-1018-6 D5).
+TAB_NAV: dict[str, str] = {
+    TAB_MOD_SUMMARY: NAV_MODULES,
+    TAB_MOD_DIRECT: NAV_MODULES,
+    TAB_MOD_FACTCHECK: NAV_MODULES,
+    TAB_MOD_SEARCH: NAV_MODULES,
+    TAB_MOD_TRANSCRIBE: NAV_MODULES,
+    TAB_MOD_VIDEO_SUMMARY: NAV_MODULES,
+    TAB_MOD_MEDIA_DOWNLOAD: NAV_MODULES,
+    TAB_MOD_WEB: NAV_MODULES,
+    TAB_MOD_CHECKUP: NAV_MODULES,
+    TAB_MOD_SLEEP: NAV_MODULES,
+    TAB_MOD_NOSTALGIA: NAV_MODULES,
+    TAB_LLM_PROVIDERS: NAV_AI,
+    TAB_PROMPTS: NAV_AI,
+    TAB_MEMORY_RAG: NAV_AI,
+    TAB_SMART_CACHE: NAV_AI,
+    TAB_PEOPLE_NAMES: NAV_AI,
+    TAB_RELATIONS: NAV_AI,
+    TAB_CHAT_LORE: NAV_AI,
+    TAB_PERMSOC: NAV_PERMSOC,
+}
+
+
+def tab_nav(tab_id: str | None) -> str | None:
+    """F6 (D1): nav-раздел мини-аппа для config-вкладки (None — неизвестно)."""
+    return TAB_NAV.get(tab_id) if tab_id else None
+
 
 TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
     # ── 11 модулей (spec §4.2) ─────────────────────────────────────────────

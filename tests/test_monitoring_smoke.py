@@ -1,8 +1,19 @@
-"""Smoke test for Better Stack monitoring integration."""
+"""Smoke test for Better Stack monitoring integration.
+
+Раунд 10.18 (F1, ADR-1018-1): библиотечный `logtail-python` в прод-пути НЕ
+используется — лог отправляет собственный `BetterStackHandler` с явным
+US-хостом (env `BETTERSTACK_HOST`). Без хоста/токена хендлер не создаётся
+(fail-safe). Секреты не печатаем (R17).
+
+Ручной запуск: `python tests/test_monitoring_smoke.py`.
+"""
 import os
 import logging
 import sys
-import traceback
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
 from dotenv import load_dotenv
 
@@ -13,18 +24,19 @@ from dotenv import load_dotenv
 if os.getenv("ADMINBOT_SKIP_DOTENV") != "1":
     load_dotenv()
 
-import sentry_sdk
-from logtail import LogtailHandler
+import sentry_sdk  # noqa: E402
+
+from services.betterstack_handler import BetterStackHandler  # noqa: E402
 
 logger = logging.getLogger("smoke_test")
 
 
 def test_logging():
-    """Test that log messages flow through Logtail."""
+    """Test that log messages flow through BetterStackHandler."""
     print("--- Logging Smoke Test ---")
     logger.info("Test Better Stack Log - INFO level")
     logger.warning("Test Better Stack Log - WARNING level")
-    print("[OK] Test log messages sent to Logtail")
+    print("[OK] Test log messages sent to Better Stack")
     assert True
 
 
@@ -41,23 +53,28 @@ def test_sentry_error():
 
 def main():
     sentry_dsn = os.getenv("SENTRY_DSN")
-    logtail_token = os.getenv("LOGTAIL_SOURCE_TOKEN")
+    token = os.getenv("LOGTAIL_SOURCE_TOKEN")
+    host = (os.getenv("BETTERSTACK_HOST") or "").strip()
 
     print("=" * 50)
     print("Better Stack Monitoring Smoke Test")
     print("=" * 50)
     print(f"SENTRY_DSN configured: {bool(sentry_dsn)}")
-    print(f"LOGTAIL_SOURCE_TOKEN configured: {bool(logtail_token)}")
+    print(f"LOGTAIL_SOURCE_TOKEN configured: {bool(token)}")
+    print(f"BETTERSTACK_HOST configured: {bool(host)}")
 
     console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+    console_handler.setFormatter(logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
 
     handlers = [console_handler]
-    if logtail_token:
-        handlers.append(LogtailHandler(source_token=logtail_token))
+    if token and host:
+        handlers.append(BetterStackHandler(source_token=token, host=host))
+    else:
+        print("[WARN] BETTERSTACK_HOST/LOGTAIL_SOURCE_TOKEN не заданы — "
+              "лог-хендлер не создан (fail-safe)")
 
     logging.basicConfig(level=logging.INFO, handlers=handlers, force=True)
-    root_logger = logging.getLogger()
 
     if sentry_dsn:
         sentry_sdk.init(dsn=sentry_dsn, traces_sample_rate=1.0)

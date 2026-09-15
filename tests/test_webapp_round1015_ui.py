@@ -174,13 +174,16 @@ class TestCognitionStatusAdditive:
 
     @pytest.mark.asyncio
     async def test_running_outside_window_still_active(self, monkeypatch):
-        """Ручной запуск вне окна → active=True, но active_until=null
-        (fallback «Сон идёт» — spec §4)."""
+        """F2 (T-1719, spec §4.5): ручной запуск вне окна → active=True И
+        active_until = now + _DREAM_RUN_TIMEOUT_SECONDS (было null), плюс
+        аддитивный флаг manual=True. Бейдж показывает «Сон до HH:MM»."""
         from web.api import memory_agi as ma
 
         class _W:
             dream_running = True
             deep_running = False
+            # S10.18-23: реальный маркер ручного прогона (выставляет run_once).
+            manual_run_active = True
 
         fixed = datetime.datetime(2026, 9, 14, 8, 0,
                                   tzinfo=datetime.timezone.utc).timestamp()
@@ -188,8 +191,49 @@ class TestCognitionStatusAdditive:
                             lambda: _W())
         data = await _status(monkeypatch, fixed)
         assert data["dream"]["active"] is True
-        assert data["dream"]["active_until"] is None
+        assert data["dream"]["active_until"] == (
+            int(fixed) + ma._DREAM_RUN_TIMEOUT_SECONDS)
+        assert data["dream"]["manual"] is True
         assert data["deep_sleep"]["active"] is False
+        assert data["deep_sleep"]["manual"] is False
+
+    @pytest.mark.asyncio
+    async def test_auto_tick_outside_window_not_manual(self, monkeypatch):
+        """S10.18-23: плановый тик вне окна (running без маркера ручного
+        прогона) НЕ даёт manual=True и не растягивает active_until на 900с."""
+        from web.api import memory_agi as ma
+
+        class _W:
+            dream_running = True
+            deep_running = False
+            manual_run_active = False
+
+        fixed = datetime.datetime(2026, 9, 14, 8, 0,
+                                  tzinfo=datetime.timezone.utc).timestamp()
+        monkeypatch.setattr(ma.lore_runtime, "get_dream_worker",
+                            lambda: _W())
+        data = await _status(monkeypatch, fixed)
+        assert data["dream"]["active"] is True
+        assert data["dream"]["manual"] is False
+        assert data["dream"]["active_until"] is None
+
+    @pytest.mark.asyncio
+    async def test_running_inside_window_capped_by_timeout(self, monkeypatch):
+        """F2: running в окне → active_until = min(конец окна, now+timeout)."""
+        from web.api import memory_agi as ma
+
+        class _W:
+            dream_running = True
+            deep_running = False
+
+        fixed = datetime.datetime(2026, 9, 14, 5, 50,
+                                  tzinfo=datetime.timezone.utc).timestamp()
+        monkeypatch.setattr(ma.lore_runtime, "get_dream_worker",
+                            lambda: _W())
+        data = await _status(monkeypatch, fixed, {"memory.dream_enabled": True})
+        assert data["dream"]["active_until"] == min(
+            ma_end(6, fixed), int(fixed) + ma._DREAM_RUN_TIMEOUT_SECONDS)
+        assert data["dream"]["manual"] is False
 
     @pytest.mark.asyncio
     async def test_fixed_deep_trigger(self, monkeypatch):

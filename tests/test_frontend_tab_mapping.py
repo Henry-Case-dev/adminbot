@@ -48,6 +48,43 @@ class TestTabMappingAudit:
         assert len(pc.TAB_RULES) == 19
         assert set(pc.CONFIG_TAB_TITLES) == set(ALL_TABS)
 
+    def test_tab_nav_covers_all_19_tabs(self):
+        """F6 (T-1752, ADR-1018-6 D1): nav-разметка исчерпывающа."""
+        assert set(pc.TAB_NAV) == set(ALL_TABS)
+        assert set(pc.TAB_NAV.values()) <= set(pc.NAV_TITLES)
+
+    def test_nav_order_and_titles(self):
+        assert pc.NAV_ORDER == ("modules", "ai", "permsoc")
+        assert pc.NAV_TITLES == {
+            "modules": "Модули", "ai": "ИИ", "permsoc": "PERMsoc"}
+
+    def test_tab_nav_helper(self):
+        assert pc.tab_nav(TAB_PERMSOC) == "permsoc"
+        assert pc.tab_nav(TAB_MOD_SLEEP) == "modules"
+        assert pc.tab_nav(TAB_CHAT_LORE) == "ai"
+        assert pc.tab_nav(None) is None
+        assert pc.tab_nav("unknown") is None
+
+    def test_every_nav_has_sections(self):
+        """F6 (D5): нет «мёртвых» nav/секций — каждая sec имеет ≥1 группу."""
+        for tab in ALL_TABS:
+            assert pc.tab_group_ids(tab), tab
+        navs = {pc.tab_nav(t) for t in ALL_TABS}
+        assert navs == set(pc.NAV_ORDER)
+
+    def test_permsoc_title_drift_fixed(self):
+        """F6 (T-1752, ADR-1018-6 D3): подпись = фактическому разделу."""
+        assert pc.CONFIG_TAB_TITLES[TAB_PERMSOC] == "PERMsoc"
+
+    def test_config_tab_titles_parity_with_js(self):
+        """Инвариант: CONFIG_TAB_TITLES ↔ web/app.js TABS[].label (19)."""
+        import re
+        js = open("web/app.js", encoding="utf-8").read()
+        pairs = dict(re.findall(
+            r"\{ id: '(\w+)', icon: '[^']+', label: '([^']*)'", js))
+        for tab in ALL_TABS:
+            assert pairs.get(tab) == pc.CONFIG_TAB_TITLES[tab], tab
+
     def test_every_config_group_assigned_to_exactly_one_tab(self):
         seen = {}
         for g in GROUPS:
@@ -78,10 +115,11 @@ class TestTabMappingAudit:
         # 10.14 (F8 self-reflection-llm-provider): +4 (INTEL_REFLECTION_*) →
         # 434 (GROUPS/mapped/TAB_RULES без изменений).
         # 10.14 (F6 help-guide-integration): +1 PG-only content →
-        # 435 (GROUPS/mapped/TAB_RULES без изменений).
+        # 436 = 435 + 1 env-only BETTERSTACK_HOST (ADR-1018-1 D3);
+        # GROUPS/mapped/TAB_RULES без изменений.
         assert len(pc._TAB_BY_GROUP) == 88
         assert len(GROUPS) == 90
-        assert len(pc.REGISTRY) == 435
+        assert len(pc.REGISTRY) == 436
 
 
 class TestModuleTabs:
@@ -202,6 +240,31 @@ class TestJsMirror:
     def test_smart_cache_and_7_ai_cards(self):
         assert "id: 'smart_cache'" in self.JS
         assert "'#/ai/smart-cache'" in self.JS
+
+    def test_matrix_nav_grouping_markers(self):
+        """F6 (D4): фронт группирует матрицу по nav из backend-ответа."""
+        assert "NAV_GROUP_ORDER" in self.JS
+        assert "NAV_GROUP_TITLES" in self.JS
+        assert "it.nav ||" in self.JS
+        assert "nav.sections" in self.JS
+        assert "nav.sections" in self.HTML
+        assert "sec.groups" in self.HTML
+
+    def test_matrix_nav_group_parity_with_backend(self):
+        """B4-4 (ADR-1018-6 D1/D4): JS-зеркало NAV_GROUP_ORDER/
+        NAV_GROUP_TITLES == backend NAV_ORDER/NAV_TITLES (parity-инвариант
+        против дрейфа двух источников правды)."""
+        import re
+        m_order = re.search(r"NAV_GROUP_ORDER\s*=\s*\[([^\]]*)\]", self.JS)
+        assert m_order, "NAV_GROUP_ORDER не найден в web/app.js"
+        js_order = tuple(re.findall(r"'([^']+)'", m_order.group(1)))
+        assert js_order == tuple(pc.NAV_ORDER)
+
+        m_titles = re.search(r"NAV_GROUP_TITLES\s*=\s*\{([^}]*)\}", self.JS)
+        assert m_titles, "NAV_GROUP_TITLES не найден в web/app.js"
+        js_titles = dict(re.findall(r"(\w+)\s*:\s*'([^']*)'",
+                                    m_titles.group(1)))
+        assert js_titles == dict(pc.NAV_TITLES)
 
     def test_provider_blocks_and_test_endpoint(self):
         assert "PROVIDER_BLOCKS" in self.JS

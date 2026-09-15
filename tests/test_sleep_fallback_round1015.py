@@ -2,7 +2,8 @@
 
 Покрытие (spec §8):
 - детект «0 убеждений за 3 дня» (`_sleep_fallback_active`, fail-safe);
-- динамические пороги 2/8 при активном fallback и базовые 3/12 иначе;
+- динамические пороги 2/6 при активном fallback (S10.18-24: Σ опущен ниже
+  новых дефолтов 2/8) и базовые 3/12 иначе;
 - самоотключение fallback после первого синтеза;
 - защита от мусора: одиночный факт не проходит и в fallback;
 - точный формат пре-гейт-лога `[Sleep]` (skipped — WARNING, passed — INFO);
@@ -72,8 +73,13 @@ def _hot(monkeypatch, values=None):
 
 
 def _worker(db, llm, monkeypatch):
-    """Гейт dream включён (как в проде) — иначе chat скипается до гейта."""
-    _hot(monkeypatch, {"memory.dream_enabled": True})
+    """Гейт dream включён (как в проде) — иначе chat скипается до гейта.
+
+    F2: базовые пороги заданы явно (3/12), чтобы тест проверял ОТЛИЧИЕ
+    базы от fallback 2/6 независимо от нового code-дефолта (2/8)."""
+    _hot(monkeypatch, {"memory.dream_enabled": True,
+                       "memory.dream_repeat_threshold": 3,
+                       "memory.dream_importance_sum_threshold": 12})
     return DreamWorker(db, memory=None, llm=llm)
 
 
@@ -130,7 +136,8 @@ def test_fallback_constants():
     """Код-константы fallback (каталог-Δ=0)."""
     assert _FALLBACK_WINDOW_DAYS == 3
     assert _FALLBACK_MIN_CLUSTER_SIZE == 2
-    assert _FALLBACK_MIN_IMPORTANCE_SUM == 8
+    # S10.18-24: Σ ниже новых дефолтов (8), иначе fallback — no-op.
+    assert _FALLBACK_MIN_IMPORTANCE_SUM == 6
 
 
 # ── 2–4. применение порогов ──────────────────────────────────────────────
@@ -248,7 +255,7 @@ class TestSleepLogFormat:
     @pytest.mark.asyncio
     async def test_passed_log_prints_fallback_threshold(self, db, monkeypatch,
                                                         caplog):
-        """В fallback `threshold` = 8 (эффективный sum_min)."""
+        """В fallback `threshold` = 6 (эффективный sum_min, S10.18-24)."""
         caplog.set_level(logging.INFO)
         w = _worker(db, _FakeLLM(_ANS), monkeypatch)
         await _weak_topic(db)
@@ -256,7 +263,7 @@ class TestSleepLogFormat:
         line = _sleep_records(caplog)[0].getMessage()
         assert line == (
             "[Sleep] Chunks: 2, Clusters formed: 1, Max importance: 8 "
-            "-> Passed (threshold 8)")
+            "-> Passed (threshold 6)")
 
     @pytest.mark.asyncio
     async def test_sleep_warning_visible_in_log_ring(self, db, monkeypatch):

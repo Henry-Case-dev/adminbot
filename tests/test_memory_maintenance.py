@@ -257,3 +257,38 @@ class TestReview:
         broken.find_exact_dup_groups = AsyncMock(side_effect=RuntimeError("x"))
         svc, _ = _service(broken, MergeLLM())
         await svc.review()                       # не падает
+
+
+class TestEpisodeMergeImportancePenalty:
+    """S10.18-35 (F5, ADR-1018-5 D2/D3): эпи-мерж не «отменяет» F5-пенальти —
+    кластер из мета-фактов (imp=1) даёт слитую строку imp=1, а не
+    rule_importance('chat_history')=4; обычный кластер не затронут."""
+
+    @pytest.mark.asyncio
+    async def test_merge_of_metafacts_keeps_penalty(self, db):
+        from services.graph_stoplist import METAFACT_PENALTY_IMPORTANCE
+        for obj in ("видеосообщение", "голосовое"):
+            await db.insert_graph_fact(
+                -100, f"вася отправил {obj}", "chat_history", None,
+                subject="вася", object=obj)               # imp=1 (F5-срез)
+        llm = MergeLLM(response="вася отправил видеосообщение и голосовое")
+        svc, _ = _service(db, llm)
+        assert await svc.merge_episodes() == 1
+        cursor = await db.db.execute(
+            "SELECT importance, fact FROM graph_facts ORDER BY id DESC LIMIT 1")
+        row = await cursor.fetchone()
+        assert row["fact"] == "вася отправил видеосообщение и голосовое"
+        assert row["importance"] == METAFACT_PENALTY_IMPORTANCE   # 1, не 4
+
+    @pytest.mark.asyncio
+    async def test_merge_of_normal_facts_unchanged(self, db):
+        for obj in ("открытку", "письмо"):
+            await db.insert_graph_fact(
+                -100, f"вася отправил {obj}", "chat_history", None,
+                subject="вася", object=obj)               # imp=4 (rule_importance)
+        llm = MergeLLM(response="вася отправил открытку и письмо")
+        svc, _ = _service(db, llm)
+        assert await svc.merge_episodes() == 1
+        cursor = await db.db.execute(
+            "SELECT importance FROM graph_facts ORDER BY id DESC LIMIT 1")
+        assert (await cursor.fetchone())["importance"] == 4   # прежнее поведение

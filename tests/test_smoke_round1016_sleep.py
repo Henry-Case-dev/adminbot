@@ -64,7 +64,11 @@ def _hot(monkeypatch, values=None):
 
 
 def _worker(db, llm, monkeypatch):
-    _hot(monkeypatch, {"memory.dream_enabled": True})
+    # F2: базовые пороги заданы явно (3/12), чтобы смоук проверял ОТЛИЧИЕ
+    # базы от fallback 2/6 независимо от новых code-дефолтов (2/8).
+    _hot(monkeypatch, {"memory.dream_enabled": True,
+                       "memory.dream_repeat_threshold": 3,
+                       "memory.dream_importance_sum_threshold": 12})
     return DreamWorker(db, memory=None, llm=llm)
 
 
@@ -81,7 +85,8 @@ async def _weak_topic(db):
 def test_fallback_constants_smoke():
     assert _FALLBACK_WINDOW_DAYS == 3
     assert _FALLBACK_MIN_CLUSTER_SIZE == 2
-    assert _FALLBACK_MIN_IMPORTANCE_SUM == 8
+    # S10.18-24: Σ ниже новых дефолтов (8), иначе fallback — no-op.
+    assert _FALLBACK_MIN_IMPORTANCE_SUM == 6
 
 
 class TestSleepSmoke:

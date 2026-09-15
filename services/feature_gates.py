@@ -47,6 +47,45 @@ DEFAULT_BY_FEATURE = {
     "permsoc": False,
 }
 
+# F7/R10.18-3: фичи, у которых есть ОТДЕЛЬНЫЙ per-chat master-флаг, который
+# воркер передаёт в `gates_enabled(fallback=…)`. Статус-API обязан резолвить
+# тот же fallback — иначе UI «Гейты/Тяжёлые» расходится с воркером. Только
+# `dream`: `nostalgia`/`lore_auto` воркеры fallback не используют, их
+# поведение не меняем.
+MASTER_FALLBACK_KEYS: dict[str, str] = {"dream": "memory.dream_enabled"}
+
+
+def _master_fallback_default(feature: str) -> bool:
+    """R10.18-15: env-дефолт master-флага — ЕДИНЫЙ с воркером.
+
+    Воркер резолвит `memory.dream_enabled` через
+    `_key_for(chat_id, "enabled", settings.DREAM_ENABLED)`, т.е. при
+    отсутствии DB-ключа дефолт = `settings.DREAM_ENABLED`. Статус обязан
+    использовать тот же дефолт, а НЕ `DEFAULT_BY_FEATURE["dream"]=False`:
+    иначе при env `DREAM_ENABLED=true` и несозданном ключе в БД воркер ON,
+    а `master_fallback`/`cognition.effective` OFF (рассинхрон класса
+    S10.18-3). `DEFAULT_BY_FEATURE` остаётся дефолтом глобального слоя
+    (`_global_flag_value`), т.к. kill-switch-путь исторически консервативен."""
+    if feature == "dream":
+        return bool(settings.DREAM_ENABLED)
+    return bool(DEFAULT_BY_FEATURE.get(feature, False))
+
+
+async def master_fallback(chat_id: int, feature: str) -> bool | None:
+    """Per-chat master-флаг для параметра `fallback` (chat DB → global DB →
+    env) — ровно то, что DreamWorker передаёт в `gates_enabled`. None — для
+    фич без отдельного master-флага (поведение без fallback сохраняется)."""
+    key = MASTER_FALLBACK_KEYS.get(feature)
+    if key is None:
+        return None
+    try:
+        from services.worker_settings import resolve_setting_cached
+        return bool(await resolve_setting_cached(
+            key, chat_id=chat_id,
+            default=_master_fallback_default(feature)))
+    except Exception:
+        return None
+
 
 def _global_flag_value(feature: str) -> bool:
     """Значение глобального слоя: первый НЕ-None из FLAG_KEYS[feature]
@@ -64,10 +103,37 @@ def _global_flag_value(feature: str) -> bool:
     return value
 
 
+def _explicit_flag_value(feature: str) -> bool | None:
+    """Явное значение КАНОНИЧЕСКОГО kill-switch флага (первый ключ FLAG_KEYS)
+    либо None, если ключ не задан.
+
+    Фикс R10.18-3: для `dream`/`nostalgia` канонический ключ —
+    `flags.<feature>_enabled` (kill-switch), а `memory.<feature>_enabled` —
+    master-флаг, который воркер передаёт как `fallback`. Kill-switch должен
+    побеждать fallback: явный глобальный `flags.dream_enabled=false`
+    останавливает тик даже при per-chat `memory.dream_enabled=true`."""
+    keys = FLAG_KEYS.get(feature, ())
+    if not keys:
+        return None
+    try:
+        v = hot.get(keys[0], None)
+    except Exception:
+        return None
+    return None if v is None else bool(v)
+
+
 async def gates_enabled(chat_id: int, feature: str,
-                        root: dict | None = None) -> bool:
-    """Эффективный гейт (приоритет §2: явный chat-гейт → глобальный флаг →
-    False). Fail-open: PG/кэш down → глобальный флаг (pretcедачно безопасно)."""
+                        root: dict | None = None, *,
+                        fallback: bool | None = None) -> bool:
+    """Эффективный гейт (приоритет: явный chat-гейт → явный глобальный
+    kill-switch → fallback (master-флаг) → глобальный флаг → False).
+    Fail-open: PG/кэш down → глобальный флаг (прецедентно безопасно).
+
+    F7 (ADR-1018-7 D3/R4): `fallback` позволяет вызывающему передать уже
+    разрешённый per-chat master-флаг (`memory.dream_enabled` по приоритету
+    chat → global → default). Явный глобальный kill-switch
+    (`flags.<feature>_enabled`) при этом сохраняет приоритет — иначе
+    выключение рубильника не останавливало бы воркер (регрессия R10.18-3)."""
     if feature not in ALL_GATED_FEATURES:
         return False
     if root is None:
@@ -83,6 +149,11 @@ async def gates_enabled(chat_id: int, feature: str,
                 return bool(gates[feature])
             except Exception:
                 return False
+    explicit = _explicit_flag_value(feature)
+    if explicit is not None:
+        return explicit
+    if fallback is not None:
+        return bool(fallback)
     try:
         return _global_flag_value(feature)
     except Exception:
@@ -165,5 +236,9 @@ async def allowed_features(chat_id: int) -> dict[str, bool]:
         pass
     out = {}
     for feature in sorted(ALL_GATED_FEATURES):
-        out[feature] = await gates_enabled(chat_id, feature, root=root)
+        # R10.18-3: тот же fallback, что у воркера (per-chat master) — статус
+        # совпадает с фактическим поведением, а не только с глобальным слоем.
+        fb = await master_fallback(chat_id, feature)
+        out[feature] = await gates_enabled(chat_id, feature, root=root,
+                                           fallback=fb)
     return out

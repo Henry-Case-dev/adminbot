@@ -103,8 +103,11 @@ async def oversight_killswitch(
     await _require_chat_exists(cache, chat_id)      # 404 неизвестный чат
     root = await chat_params.get_all_chat_params(chat_id)
     previous = bool((root.get("gates") or {}).get(
-        payload.feature, await feature_gates.gates_enabled(
-            chat_id, payload.feature, root=root)))
+        payload.feature,
+        await feature_gates.gates_enabled(
+            chat_id, payload.feature, root=root,
+            fallback=await feature_gates.master_fallback(
+                chat_id, payload.feature))))
     new_root = None
     try:
         new_root = await feature_gates.set_feature_gate(

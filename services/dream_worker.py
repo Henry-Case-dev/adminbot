@@ -2,11 +2,15 @@
 
 Фоновый SQLite-воркер (каркас memory_maintenance.py/lore_worker.py, БЕЗ
 PG-lock: состояние — SQLite dream_state/memory_dream_log, NFR-7).
-Тик IntervalTrigger(minutes=memory.dream_tick_minutes=60) регистрируется
-ТОЛЬКО при hot.get("memory.dream_enabled", settings.DREAM_ENABLED) (default
-false, Q12). Запуск в bot.py on_startup после lore-блока (fail-open); ручной
-run_once(chat_id) — для F2-API, окно диалогов игнорирует (D-5), бюджеты
-соблюдает.
+
+F7 (settings-worker-sync, ADR-1018-7): тик-джоб регистрируется ВСЕГДА, а
+решение «работать/не работать» принимается внутри тика/чата через единый
+accessor `worker_settings` с приоритетом per-chat DB → глобальный DB →
+env-дефолт. Это даёт реактивность без рестарта и закрывает рассинхрон
+«UI ON в scope чата, бэкенд OFF». Пороги/лимиты в `_process_chat` резолвятся
+по конкретному чату (`_key_for`). Запуск в bot.py on_startup после
+lore-блока (fail-open); ручной run_once(chat_id) — для F2-API, окно диалогов
+игнорирует (D-5), бюджеты/пороги — по чату.
 
 Тик чата (§3.4.2–3.4.6, D-13):
 1. чаты-кандидаты по dream_state-watermark (Q9: для чатов БЕЗ строки — окно
@@ -59,6 +63,7 @@ from zoneinfo import ZoneInfo
 
 from config.settings import settings
 from services import hot_config as hot
+from services.worker_settings import resolve_setting_cached
 from services.database import parse_belief_meta, row_get
 from services.dream_prompts import (
     DEEP_SLEEP_BRIDGE_SYSTEM_PROMPT,
@@ -84,18 +89,38 @@ def _tick_jitter(base_minutes: int) -> int:
         return 0
 
 
-async def _dream_budget_ok(chat_id: int, user_text: str) -> bool:
+async def _dream_budget_ok(chat_id: int, user_text: str, *,
+                           manual: bool = False) -> bool:
     """F-10 §5: consume до LLM-вызова дистилляции — global + chat:<id>
     (calls 1 + tokens est); любое False → budget-скип. Fail-open внутри
     consume (PG down → True). ФИКС R4: приоритетная деградация по
-    global-лимиту (dream падает первым до consume — allowed_workers)."""
+    global-лимиту (dream падает первым до consume — allowed_workers).
+
+    F2 (ADR-1018-2 D2, spec §4.2, T-1715/T-1767): `manual=True` — ручной
+    запуск обходит экономические гейты БЕЗУСЛОВНО (деградация/лимит не
+    отклоняют), но расход `worker_budget.consume` всё равно записывается
+    (fail-open учёт стоимости). Никаких фича-флагов."""
     from services import worker_budget
-    if not await worker_budget.global_degradation_allows("dream"):
+    degraded = not await worker_budget.global_degradation_allows("dream")
+    if degraded:
+        if not manual:
+            logger.warning(
+                "[dream] skip: global budget exhausted — degradation dream | "
+                "chat=%s", chat_id)
+            return False
         logger.warning(
-            "[dream] skip: global budget exhausted — degradation dream | "
-            "chat=%s", chat_id)
-        return False
+            "[dream] manual override: global budget degradation | chat=%s",
+            chat_id)
     est = worker_budget.estimate_tokens(user_text)
+    if manual:
+        # D3/T-1771: при manual все 4 consume выполняются НЕЗАВИСИМО (иначе
+        # короткое замыкание цепочки теряло бы часть per-chat статистики),
+        # verdict не применяется — ручной запуск приоритетен (UPD п.5).
+        await worker_budget.consume(None, "global", "llm_calls", 1)
+        await worker_budget.consume(None, "global", "llm_tokens", est)
+        await worker_budget.consume(None, f"chat:{chat_id}", "llm_calls", 1)
+        await worker_budget.consume(None, f"chat:{chat_id}", "llm_tokens", est)
+        return True
     ok = await worker_budget.consume(None, "global", "llm_calls", 1)
     if ok:
         ok = await worker_budget.consume(None, "global", "llm_tokens", est)
@@ -132,14 +157,26 @@ _DEEP_SLEEP_WEIGHT = 0.55             # вес парадигмы в конте�
 # эволюции характера бота.
 _PERSONA_SELF_LOOKBACK_DAYS = 30
 _DEEP_SLEEP_USER_JOB_ID = "deep_sleep_tick"
+# R10.18-5: кап deep-прогонов при manual-каскаде БЕЗ явной цели — не более
+# одного чата (а не до max_chats_per_run LLM-прогонов за один клик).
+_MANUAL_DEEP_CASCADE_MAX = 1
+# S10.18-23: срок жизни маркера РУЧНОГО прогона (совпадает с таймаутом бейджа
+# `_DREAM_RUN_TIMEOUT_SECONDS=900` в memory_agi) — API отличает ручной запуск
+# от транзиентного авто-тика вне окна по этому маркеру, а не по `!in_window`.
+_MANUAL_RUN_MARKER_SECONDS = 900
 
 # ── F3 (sleep-unblock-diagnostics-round1015, spec §3): fallback-пороги ──────
 # «0 убеждений за N дней» → временно снижаем требования гейта (код-константы,
 # каталог-Δ=0). Базовые memory.dream_repeat_threshold/importance_sum_threshold
 # НЕ меняются; fallback самоотключается при первом же синтезе.
+# S10.18-24: после F2 (дефолты repeat=2/sum=8) `_FALLBACK_MIN_IMPORTANCE_SUM`
+# опущен 8→6 — иначе fallback стал бы no-op (оба порога равны дефолтам).
+# Размер кластера НЕ опускаем ниже 2: одиночный факт — мусор
+# (`test_single_fact_rejected_even_in_fallback`), поэтому fallback ослабляет
+# только Σ-важность (6 < дефолтных 8).
 _FALLBACK_WINDOW_DAYS = 3            # окно «тишины» синтеза, дней
-_FALLBACK_MIN_CLUSTER_SIZE = 2       # min_cluster_size в fallback (базовый 3)
-_FALLBACK_MIN_IMPORTANCE_SUM = 8     # min_importance_sum в fallback (баз. 12)
+_FALLBACK_MIN_CLUSTER_SIZE = 2       # min_cluster_size в fallback (= дефолт 2)
+_FALLBACK_MIN_IMPORTANCE_SUM = 6     # min_importance_sum в fallback (< деф. 8)
 
 # Источники «жизни чата» для дистилляции (обсуждение кандидатов §3.4.3:
 # только переписка/личное; производные контенты (search/web/youtube/voice/
@@ -160,6 +197,16 @@ def significant_tokens(text: str) -> list[str]:
 def _now_ts() -> int:
     """Текущее unix-время (обёртка — тесты подменяют день для бюджетов)."""
     return int(time.time())
+
+
+def _deep_result(status: str, *, paradigms: int = 0, tokens: int = 0,
+                 traits: int = 0) -> dict:
+    """D7/T-1771: единая форма результата шага глубокого сна — все ранние
+    return'ы несут одинаковый набор ключей (status/paradigms/tokens/traits).
+    `_run_deep_all`/`run_once(deep=True)` больше не получают dict без
+    `traits`."""
+    return {"status": status, "paradigms": int(paradigms),
+            "tokens": int(tokens), "traits": int(traits)}
 
 
 def _hot_number(key: str, default, cast):
@@ -239,6 +286,15 @@ class DreamWorker:
         self._deep_lock = asyncio.Lock()
         self._last_chat_ids: list[int] = []      # чаты последнего _run
         self._last_run_started: int = 0          # старт последнего обычного сна
+        # S10.18-23: настоящий признак РУЧНОГО прогона (выставляется только в
+        # `run_once`), а не вывод «running вне окна». API отдаёт `manual` из
+        # него и не растягивает `active_until` для авто-тика вне окна.
+        self._manual_run_until: int = 0
+        self._manual_deep_until: int = 0
+        # S10.18-29: идёт ли РУЧНОЙ deep-прогон прямо сейчас. Прогон длиннее
+        # `_MANUAL_RUN_MARKER_SECONDS` (15 мин) не теряет `manual` до своего
+        # конца: `manual_deep_active` = флаг ИЛИ TTL-маркер.
+        self._manual_deep_run: bool = False
         tz = hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE)
         self._tz_name = str(tz or "UTC")
         # S10.13-8 (spec F3 §3): сутки/час глубокого сна считаются в
@@ -250,7 +306,21 @@ class DreamWorker:
     # ── ключи (hot с фолбэком settings; категория memory, spec §3.6.4) ──
 
     def _key(self, name: str, default):
+        """Глобальный helper (обратная совместимость): hot.get → default.
+        Для per-chat резолва — `_key_for(chat_id, ...)`."""
         return hot.get(f"memory.dream_{name}", default)
+
+    async def _key_for(self, chat_id: int, name: str, default):
+        """F7: per-chat резолв `memory.dream_<name>` (chat DB → global DB →
+        env-дефолт). Fail-open внутри accessor."""
+        return await resolve_setting_cached(
+            f"memory.dream_{name}", chat_id=chat_id, default=default)
+
+    async def _dream_master_on(self) -> bool:
+        """F7/S10.18-4: глобальный master-флаг Сна (`memory.dream_enabled`,
+        chat_id=None → global DB → env). Гейтит глобальный шаг decay."""
+        return bool(await resolve_setting_cached(
+            "memory.dream_enabled", default=settings.DREAM_ENABLED))
 
     # ── F3 (sleep-unblock-diagnostics-round1015, spec §3): fallback ──────
 
@@ -289,64 +359,64 @@ class DreamWorker:
         """F5/§3.2: идёт ли ГЛУБОКИЙ сон (бейдж [🌌 Глубокий сон активен])."""
         return self._deep_lock.locked()
 
+    @property
+    def manual_run_active(self) -> bool:
+        """S10.18-23: был ли недавно явный РУЧНОЙ прогон обычного сна.
+
+        Маркер выставляет только `run_once` (на `_MANUAL_RUN_MARKER_SECONDS`);
+        авто-тик его не трогает. API (`memory_agi.cognition_status`) использует
+        это для поля `dream.manual` — «running вне окна» больше не трактуется
+        как ручной запуск."""
+        return int(self._manual_run_until) > _now_ts()
+
+    @property
+    def manual_deep_active(self) -> bool:
+        """S10.18-23/S10.18-29: идёт ли/был ли недавно явный РУЧНОЙ прогон
+        глубокого сна. Флаг `_manual_deep_run` держит `manual` на протяжении
+        всего прогона (в т.ч. >15 мин), TTL-маркер — для бейджа после него."""
+        if self._manual_deep_run:
+            return True
+        return int(self._manual_deep_until) > _now_ts()
+
     # ── планировщик ───────────────────────────────────────────────
 
     def start(self) -> None:
-        """Регистрирует джоб dream_tick ТОЛЬКО при memory.dream_enabled
-        (default false). Повторный start — идемпотентен (replace_existing).
-        Фикс-раунд (major-6/D-20): тик МИНУТНЫЙ (dream_tick_minutes, 60) —
-        первый тик внутри окна [4, 6) local дистиллирует при старте в любое
-        время суток (водяной знак вне окна не двигается, см. D-5/D-13).
+        """F7 (ADR-1018-7 D4): джобы dream_tick и deep_sleep_tick
+        регистрируются **ВСЕГДА** (независимо от текущего значения флага);
+        решение «работать/не работать» принимается ВНУТРИ тика по резолву
+        (chat → global → default). Поэтому переключение тумблера в админке
+        действует без `systemctl restart`. Повторный start — идемпотентен
+        (replace_existing).
 
-        F3/T-1435: при flags.deep_sleep_enabled регистрируется отдельный
-        минутный джоб deep_sleep_tick (режим trigger='fixed' — проверка
-        своего часа local; режим after_sleep запускается хуком после _run)."""
-        enabled = bool(self._key("enabled", settings.DREAM_ENABLED))
-        deep_on = bool(hot.get("flags.deep_sleep_enabled",
-                               settings.DEEP_SLEEP_ENABLED))
-        if not enabled and not deep_on:
-            logger.info("DreamWorker disabled (memory.dream_enabled off)")
-            return
+        Интервал тика (`memory.dream_tick_minutes`) и jitter фиксируются на
+        старте (IntervalTrigger создаётся один раз): изменение интервала
+        применяется при рестарте — это осознанная граница (фиксируется в
+        логе маркером `applies on restart`).
+
+        F3/T-1435: отдельный джоб deep_sleep_tick обслуживает режим
+        trigger='fixed' (свой local-час); режим after_sleep запускается
+        хуком после обычного `_run`."""
         # Раунд 10 (F-10 §5.2): jitter тика (случайный сдвиг ≤ интервал/3)
         # — ТОЛЬКО при явном ключе worker_budget_jitter_minutes.
         base_minutes = int(self._key("tick_minutes",
                                      settings.DREAM_TICK_MINUTES) or 60)
         tick_minutes = base_minutes + _tick_jitter(base_minutes)
-        if enabled:
-            self._scheduler.add_job(
-                self._tick,
-                IntervalTrigger(
-                    minutes=tick_minutes,
-                    timezone=self._tz_name),
-                id=self.JOB_DREAM_ID, replace_existing=True,
-                max_instances=1, coalesce=True)
-            logger.info(
-                "DreamWorker started (tick=%sm, window=%s-%s, "
-                "clusters=%s/distillations=%s/day)",
-                self._key("tick_minutes", settings.DREAM_TICK_MINUTES),
-                self._key("window_start_hour", settings.DREAM_WINDOW_START_HOUR),
-                self._key("window_end_hour", settings.DREAM_WINDOW_END_HOUR),
-                self._key("max_clusters_per_run",
-                          settings.DREAM_MAX_CLUSTERS_PER_RUN),
-                self._key("distillations_per_day",
-                          settings.DREAM_DISTILLATIONS_PER_DAY))
-        if deep_on:
-            self._scheduler.add_job(
-                self._deep_tick,
-                IntervalTrigger(
-                    minutes=tick_minutes,
-                    timezone=self._tz_name),
-                id=_DEEP_SLEEP_USER_JOB_ID, replace_existing=True,
-                max_instances=1, coalesce=True)
-            logger.info(
-                "DeepSleep started (tick=%sm, trigger=%s, top_k=%s, "
-                "max_paradigms=%s/day)",
-                tick_minutes,
-                hot.get("memory.deep_sleep_trigger",
-                        settings.DEEP_SLEEP_TRIGGER),
-                hot.get("limits.deep_sleep_top_k", settings.DEEP_SLEEP_TOP_K),
-                hot.get("limits.deep_sleep_max_paradigms_per_run",
-                        settings.DEEP_SLEEP_MAX_PARADIGMS))
+        self._scheduler.add_job(
+            self._tick,
+            IntervalTrigger(minutes=tick_minutes, timezone=self._tz_name),
+            id=self.JOB_DREAM_ID, replace_existing=True,
+            max_instances=1, coalesce=True)
+        logger.info(
+            "DreamWorker job registered (enabled resolved per-tick) | "
+            "tick_minutes=%s (applies on restart)", base_minutes)
+        self._scheduler.add_job(
+            self._deep_tick,
+            IntervalTrigger(minutes=tick_minutes, timezone=self._tz_name),
+            id=_DEEP_SLEEP_USER_JOB_ID, replace_existing=True,
+            max_instances=1, coalesce=True)
+        logger.info(
+            "DeepSleep job registered (enabled resolved per-tick) | "
+            "tick_minutes=%s (applies on restart)", base_minutes)
         if not self._scheduler.running:
             self._scheduler.start()
 
@@ -364,7 +434,15 @@ class DreamWorker:
     async def _tick(self) -> None:
         """Scheduler-джоб: тик «сна». Окно дистилляций [4,6) соблюдается;
         анти-рейс с ручным run_once — _run_lock. F3: после завершения
-        обычного сна — хук глубокого сна (режим after_sleep)."""
+        обычного сна — хук глубокого сна (режим after_sleep).
+
+        F7 (ADR-1018-7 D4): джоб зарегистрирован ВСЕГДА, поэтому раннего
+        выхода «по глобальному флагу» здесь НЕТ — глобальный OFF не отменяет
+        тик: у конкретного чата может быть явный per-chat override ON (это и
+        есть симптом владельца). Итоговое решение «работать/не работать»
+        принимается ПО КАЖДОМУ чату в `_process_chat` (через `_key_for` →
+        `resolve_setting_cached`, с логом `source=`). Выключение on-the-fly
+        не прерывает активный прогон (уважает `_run_lock`)."""
         if self._run_lock.locked():
             return
         stats = None
@@ -374,7 +452,7 @@ class DreamWorker:
             except Exception:
                 logger.warning("[dream] tick failed — fail-open", exc_info=True)
         try:
-            await self._maybe_deep_after_sleep(stats)
+            await self._maybe_deep_after_sleep(stats, manual=False)
         except Exception:
             logger.warning("[dream] deep sleep after tick failed — fail-open",
                            exc_info=True)
@@ -382,15 +460,22 @@ class DreamWorker:
     async def run_once(self, chat_id: int | None = None, *,
                        deep: bool = False) -> dict:
         """Ручной запуск «синтеза сейчас» (F2-API): окно диалогов НЕ
-        применяется (D-5), бюджеты соблюдаются. Идущий прогон → immediate
-        {"status": "already_running"} (409-паттерн API).
+        применяется (D-5), а kill-switch и суточные бюджеты/near-limit
+        обходятся БЕЗУСЛОВНО (ADR-1018-2 D2, T-1715/T-1767) — расход
+        `worker_budget.consume` при этом всё равно пишется. Идущий прогон →
+        immediate {"status": "already_running"} (409-паттерн API).
+        Возвращает аддитивный `stats["cascade"] = {"deep":…, "traits":…}`.
 
         F3/T-1435: deep=True — ручной запуск ГЛУБОКОГО сна (staged rollout
         §8: POST /api/memory/dream/run?deep=1); игнорирует cooldown/флаг
-        автозапуска (явное действие админа), но соблюдает лимиты стоимости."""
+        автозапуска и суточный deep-кап (явное действие админа)."""
+        # S10.18-23: маркер ручного прогона — API отличает ручной запуск от
+        # транзиентного авто-тика вне окна по нему, а не по `!in_window`.
+        # Ставим маркер только если прогон реально стартует (не 409).
         if deep:
             if self._deep_lock.locked():
                 return {"status": "already_running"}
+            self._manual_deep_until = _now_ts() + _MANUAL_RUN_MARKER_SECONDS
             try:
                 stats = await self._run_deep_all(
                     [chat_id] if chat_id is not None else None, manual=True)
@@ -401,6 +486,7 @@ class DreamWorker:
             return {"status": "ok", **stats}
         if self._run_lock.locked():
             return {"status": "already_running"}
+        self._manual_run_until = _now_ts() + _MANUAL_RUN_MARKER_SECONDS
         async with self._run_lock:
             try:
                 stats = await self._run(manual=True, only_chat=chat_id)
@@ -408,11 +494,20 @@ class DreamWorker:
                 logger.warning("[dream] run_once failed — fail-open",
                                exc_info=True)
                 return {"status": "error"}
+        # F2 (T-1716): manual-каскад Сон → Глубокий сон → Личность. Результат
+        # аддитивно кладём в stats["cascade"] (контракт 202 не ломается).
+        deep_stats = {"chats": 0, "paradigms": 0, "ran": 0, "skipped": 0,
+                      "traits": 0}
         try:
-            await self._maybe_deep_after_sleep(stats)
+            deep_stats = await self._maybe_deep_after_sleep(
+                stats, manual=True, only_chat=chat_id)
         except Exception:
             logger.warning("[dream] deep sleep after run_once failed — "
                            "fail-open", exc_info=True)
+        stats["cascade"] = {
+            "deep": deep_stats,
+            "traits": {"written": int(deep_stats.get("traits") or 0)},
+        }
         return {"status": "ok", **stats}
 
     # ── тик ───────────────────────────────────────────────────────
@@ -425,11 +520,17 @@ class DreamWorker:
                  "errors": 0, "window_skips": 0, "budget_stop": False}
         # F2/T-1425 (spec §6): шаг охлаждения убеждений — ПЕРЕД обработкой
         # чатов, под флагом flags.belief_decay_enabled; fail-open.
-        try:
-            await self._maybe_decay(now)
-        except Exception:
-            logger.warning("[dream] belief decay failed — fail-open",
-                           exc_info=True)
+        # F7/S10.18-4: decay — ГЛОБАЛЬНЫЙ этап цикла Сна (охлаждает beliefs
+        # всех чатов), поэтому дополнительно гейтится глобальным master-флагом
+        # `memory.dream_enabled`. Иначе «джоб всегда зарегистрирован» (D4)
+        # сделал бы decay достижимым при выключенном Сне — побочный эффект,
+        # которого до 10.18 не было. Per-chat резолв здесь неприменим.
+        if await self._dream_master_on():
+            try:
+                await self._maybe_decay(now)
+            except Exception:
+                logger.warning("[dream] belief decay failed — fail-open",
+                               exc_info=True)
         if only_chat is not None:
             chats = [{"chat_id": int(only_chat), "new_count": 0,
                       "max_fact_id": 0}]
@@ -471,9 +572,11 @@ class DreamWorker:
                 stats["budget_stop"] = True
                 logger.warning(
                     "[dream] daily budget reached — tick stopped | "
-                    "distilled_today=%d",
+                    "chat_id=%s | distilled_today=%d",
+                    chat["chat_id"],
                     await self.db.count_dream_log(
-                        _day_start_ts(now, self._tz_name), kind="distilled"))
+                        _day_start_ts(now, self._tz_name), kind="distilled",
+                        chat_id=int(chat["chat_id"])))
                 break
         return stats
 
@@ -486,6 +589,16 @@ class DreamWorker:
         watermark не двигается)."""
         out = {"clusters": 0, "distilled": 0, "unchanged": 0, "errors": 0,
                "window_skips": 0, "budget_stop": False}
+        # F7 (ADR-1018-7 D3): рубильник резолвится по КОНКРЕТНОМУ чату
+        # (chat DB → global DB → env-дефолт). Авто-тик пропускает чат,
+        # выключенный именно для него; ручной запуск гейт игнорирует
+        # (решение владельца: manual обходит гейты/тайминги/бюджеты).
+        enabled = bool(await self._key_for(chat_id, "enabled",
+                                           settings.DREAM_ENABLED))
+        if not manual and not enabled:
+            logger.debug("[dream] chat skipped (dream off) | chat_id=%s",
+                         chat_id)
+            return out
         try:
             rows = await self._candidates(chat_id, now)
         except Exception:
@@ -515,14 +628,16 @@ class DreamWorker:
         terms = await self._participant_terms(chat_id)
         clusters = greedy_cluster_facts(
             rows,
-            overlap_tokens=int(self._key(
-                "cluster_overlap_tokens",
+            overlap_tokens=int(await self._key_for(
+                chat_id, "cluster_overlap_tokens",
                 settings.DREAM_CLUSTER_OVERLAP_TOKENS) or 2),
             extra_terms=terms)
-        repeat_min = int(self._key("repeat_threshold",
-                                   settings.DREAM_REPEAT_THRESHOLD) or 3)
-        sum_min = int(self._key("importance_sum_threshold",
-                                settings.DREAM_IMPORTANCE_SUM_THRESHOLD) or 12)
+        repeat_min = int(await self._key_for(
+            chat_id, "repeat_threshold",
+            settings.DREAM_REPEAT_THRESHOLD) or 3)
+        sum_min = int(await self._key_for(
+            chat_id, "importance_sum_threshold",
+            settings.DREAM_IMPORTANCE_SUM_THRESHOLD) or 12)
         # F3 (spec §3/§4): «0 убеждений за 3 дня» → временно 2/8 (fallback).
         if fallback_active:
             repeat_min = _FALLBACK_MIN_CLUSTER_SIZE
@@ -536,8 +651,8 @@ class DreamWorker:
             key=lambda cl: (sum(int(r["importance"] or 0) for r in cl),
                             cl[0]["id"]),
             reverse=True)
-        top = qualified[: int(self._key(
-            "max_clusters_per_run",
+        top = qualified[: int(await self._key_for(
+            chat_id, "max_clusters_per_run",
             settings.DREAM_MAX_CLUSTERS_PER_RUN) or 5)]
         run_at = now
         await self.db.log_dream_event(chat_id, run_at, kind="run",
@@ -568,24 +683,63 @@ class DreamWorker:
         # kill-switch останавливает и ручные запуски.
         try:
             from services.feature_gates import gates_enabled
-            if not await gates_enabled(chat_id, "dream"):
+            # F7: явный gates[dream] — kill-switch; иначе fallback — уже
+            # разрешённый per-chat memory.dream_enabled (chat → global).
+            gate_ok = await gates_enabled(chat_id, "dream", fallback=enabled)
+            if not gate_ok and not manual:
                 logger.warning(
                     "[dream] WARNING skip: gate dream | chat_id=%s",
                     chat_id)
                 await self.db.log_dream_event(
                     chat_id, run_at, kind="skipped", status="budget_skip")
                 return out
+            if not gate_ok and manual:
+                # F2 (ADR-1018-2 D2, spec §4.2, T-1715/T-1767): ручной запуск
+                # обходит kill-switch БЕЗУСЛОВНО — базовая логика без
+                # фича-флагов. Аудит — существующая memory_dream_log
+                # (status='gate_override' — строка, не каталог; Δ=0, R17-safe).
+                logger.warning(
+                    "[dream] manual override: gate dream | chat_id=%s",
+                    chat_id)
+                await self.db.log_dream_event(
+                    chat_id, run_at, kind="skipped", status="gate_override")
         except Exception:
             logger.warning("[dream] gate check failed — fail-open | "
                            "chat_id=%s", chat_id, exc_info=True)
         day_start = _day_start_ts(now, self._tz_name)
+        # F7/S10.18-1: суточный расход считается ПО ЧАТУ (chat_id) — per-chat
+        # override лимита не должен сравниваться с чужим/общим расходом.
         distilled_today = await self.db.count_dream_log(
-            day_start, kind="distilled")
-        tokens_today = await self.db.sum_dream_log_tokens(day_start)
+            day_start, kind="distilled", chat_id=chat_id)
+        tokens_today = await self.db.sum_dream_log_tokens(
+            day_start, chat_id=chat_id)
         abnormal = None                     # 'error' | 'window' | 'budget'
         failed_cluster = None
+        # F2 (ADR-1018-2 D2, spec §4.2, T-1715/T-1767): manual-запуск обходит
+        # суточные бюджеты и near-limit БЕЗУСЛОВНО (решение «запускать/не
+        # запускать»). Расход всё равно учитывается. Факт обхода — в аудите
+        # (status='budget_override'; строка в существующей memory_dream_log).
+        if manual:
+            override_reason = await self._budget_reason_for(
+                chat_id, distilled_today, tokens_today)
+            if override_reason:
+                logger.warning(
+                    "[dream] manual override: budget %s | chat_id=%s",
+                    override_reason, chat_id)
+                await self.db.log_dream_event(
+                    chat_id, run_at, kind="skipped",
+                    status="budget_override")
+        # D8/T-1771: суточные лимиты резолвятся ОДИН раз ДО цикла кластеров
+        # (per-chat резолв стабилен на протяжении тика — незачем ходить в БД
+        # на каждую итерацию). Расход (distilled_today/tokens_today) растёт
+        # внутри цикла и сравнивается с уже разрешёнными лимитами.
+        dist_max = await self._daily_limit_for(
+            chat_id, "distillations_per_day",
+            settings.DREAM_DISTILLATIONS_PER_DAY)
+        tok_max = await self._daily_limit_for(
+            chat_id, "tokens_per_day", settings.DREAM_TOKENS_PER_DAY)
         for cluster_id, cluster in enumerate(top, 1):
-            if not manual and not self._window_open(now):
+            if not manual and not await self._window_open_for(chat_id, now):
                 # §3.4.2/D-5: вне окна — только отбор/кластеризация,
                 # дистилляции window_skip (деньги не тратятся)
                 await self.db.log_dream_event(
@@ -597,29 +751,37 @@ class DreamWorker:
                 out["window_skips"] += 1
                 abnormal = "window"
                 break
-            # суточные бюджеты (§3.4.4) — стоп тика заранее
-            reason = self._budget_reason(distilled_today, tokens_today)
-            if reason:
-                logger.warning(
-                    "[dream] budget %s reached — tick stopped | chat_id=%s",
-                    reason, chat_id)
-                out["budget_stop"] = True
-                abnormal = "budget"
-                break
-            if (self._daily_limit("distillations_per_day",
-                                  settings.DREAM_DISTILLATIONS_PER_DAY)
-                    - distilled_today < _DREAM_NEAR_LIMIT_DIST
-                    or (self._daily_limit(
-                        "tokens_per_day", settings.DREAM_TOKENS_PER_DAY)
-                        - tokens_today) < _DREAM_NEAR_LIMIT_TOKENS):
-                logger.warning(
-                    "[dream] near daily limit — tick finished early | "
-                    "chat_id=%s", chat_id)
-                out["budget_stop"] = True
-                abnormal = "budget"
-                break
+            # суточные бюджеты (§3.4.4) — стоп тика заранее (per-chat);
+            # manual их игнорирует (см. budget_override выше). Лимиты уже
+            # разрешены ДО цикла (D8/T-1771) — здесь только сравнение.
+            if not manual:
+                reason = None
+                if dist_max and distilled_today >= dist_max:
+                    reason = "distillations"
+                elif tok_max and tokens_today >= tok_max:
+                    reason = "tokens"
+                if reason:
+                    logger.warning(
+                        "[dream] budget %s reached — tick stopped | "
+                        "chat_id=%s", reason, chat_id)
+                    out["budget_stop"] = True
+                    abnormal = "budget"
+                    break
+                # S10.18-25: `0` = «без лимита» (как в `_budget_reason_for`) —
+                # near-limit при нулевом лимите не должен останавливать чат.
+                near_dist = bool(dist_max) and (
+                    dist_max - distilled_today) < _DREAM_NEAR_LIMIT_DIST
+                near_tok = bool(tok_max) and (
+                    tok_max - tokens_today) < _DREAM_NEAR_LIMIT_TOKENS
+                if near_dist or near_tok:
+                    logger.warning(
+                        "[dream] near daily limit — tick finished early | "
+                        "chat_id=%s", chat_id)
+                    out["budget_stop"] = True
+                    abnormal = "budget"
+                    break
             outcome, tokens_used, unchanged = await self._distill_cluster(
-                chat_id, run_at, cluster, cluster_id)
+                chat_id, run_at, cluster, cluster_id, manual=manual)
             out["clusters"] += 1
             tokens_today += tokens_used
             if outcome == "budget":
@@ -665,8 +827,8 @@ class DreamWorker:
                 since_id=int(state["last_processed_fact_id"] or 0))
         return await self.db.get_dream_candidates(
             chat_id, now, origins=_DREAM_SOURCE_ORIGINS,
-            since_ts=now - int(self._key(
-                "initial_window_hours",
+            since_ts=now - int(await self._key_for(
+                chat_id, "initial_window_hours",
                 settings.DREAM_INITIAL_WINDOW_HOURS) or 168) * 3600)
 
     async def _participant_terms(self, chat_id: int) -> list[str]:
@@ -698,26 +860,31 @@ class DreamWorker:
 
     # ── окно и бюджеты ────────────────────────────────────────────
 
-    def _window_open(self, now_ts: int) -> bool:
-        """Local-час в окне [start, end) дистилляций (D-5; дефолт 4–6)."""
-        start = int(self._key("window_start_hour",
-                              settings.DREAM_WINDOW_START_HOUR) or 4)
-        end = int(self._key("window_end_hour",
-                            settings.DREAM_WINDOW_END_HOUR) or 6)
+    async def _window_open_for(self, chat_id: int, now_ts: int) -> bool:
+        """Local-час в окне [start, end) дистилляций (D-5; дефолт 4–6).
+        F7: границы окна резолвятся по чату."""
+        start = int(await self._key_for(
+            chat_id, "window_start_hour",
+            settings.DREAM_WINDOW_START_HOUR) or 4)
+        end = int(await self._key_for(
+            chat_id, "window_end_hour",
+            settings.DREAM_WINDOW_END_HOUR) or 6)
         hour = _local_hour(now_ts, self._tz_name)
         return start <= hour < end
 
-    def _daily_limit(self, name: str, default) -> int:
-        return int(self._key(name, default) or 0)
+    async def _daily_limit_for(self, chat_id: int, name: str, default) -> int:
+        """F7: суточный лимит по чату (chat DB → global DB → env)."""
+        return int(await self._key_for(chat_id, name, default) or 0)
 
-    def _budget_reason(self, distilled_today: int,
-                       tokens_today: int) -> str | None:
-        """Суточные бюджеты §3.4.4 (глобально): дистилляции/токены. None —
+    async def _budget_reason_for(self, chat_id: int, distilled_today: int,
+                                 tokens_today: int) -> str | None:
+        """Суточные бюджеты §3.4.4 (per-chat): дистилляции/токены. None —
         можно работать."""
-        dist_max = self._daily_limit("distillations_per_day",
-                                     settings.DREAM_DISTILLATIONS_PER_DAY)
-        tok_max = self._daily_limit("tokens_per_day",
-                                    settings.DREAM_TOKENS_PER_DAY)
+        dist_max = await self._daily_limit_for(
+            chat_id, "distillations_per_day",
+            settings.DREAM_DISTILLATIONS_PER_DAY)
+        tok_max = await self._daily_limit_for(
+            chat_id, "tokens_per_day", settings.DREAM_TOKENS_PER_DAY)
         if dist_max and distilled_today >= dist_max:
             return "distillations"
         if tok_max and tokens_today >= tok_max:
@@ -727,7 +894,8 @@ class DreamWorker:
     # ── дистилляция ───────────────────────────────────────────────
 
     async def _distill_cluster(self, chat_id: int, run_at: int,
-                               cluster: list, cluster_id: int) -> tuple:
+                               cluster: list, cluster_id: int, *,
+                               manual: bool = False) -> tuple:
         """Один LLM-вызов на кластер (§3.4.5): возвращает
         (outcome, tokens_used, unchanged):
         outcome 'distilled' | 'unchanged' | 'error'; кривой JSON — 1 retry;
@@ -759,7 +927,8 @@ class DreamWorker:
                     {"role": "user", "content": user_text}]
         # Раунд 10 (F-10 §5/§6): consume до LLM-вызова дистилляции
         # (global + chat:<id>); False → memory_dream_log status='budget_skip'.
-        if not await _dream_budget_ok(chat_id, user_text):
+        # F2: при manual=True гейт не отклоняет, но расход учитывается.
+        if not await _dream_budget_ok(chat_id, user_text, manual=manual):
             await self.db.log_dream_event(
                 chat_id, run_at, kind="skipped", cluster_id=cluster_id,
                 source_ids=json.dumps(source_ids, ensure_ascii=False),
@@ -1096,50 +1265,126 @@ class DreamWorker:
     # базе → «Мост времени» (LLM history) → парадигмы (kind='belief',
     # belief_meta.type='paradigm', weight=0.55) без DDL.
 
-    async def _maybe_deep_after_sleep(self, stats: dict | None) -> None:
-        """Хук after_sleep (spec §3): если флаг включён и триггер
-        'after_sleep' — запускает глубокий сон по чатам только что
-        завершившегося обычного сна."""
-        if not hot.get("flags.deep_sleep_enabled",
-                       settings.DEEP_SLEEP_ENABLED):
-            return
-        trigger = str(hot.get("memory.deep_sleep_trigger",
-                              settings.DEEP_SLEEP_TRIGGER) or "after_sleep")
-        if trigger != "after_sleep":
-            return
+    async def _maybe_deep_after_sleep(self, stats: dict | None, *,
+                                      manual: bool = False,
+                                      only_chat: int | None = None) -> dict:
+        """Хук after_sleep (spec §3): запускает глубокий сон по чатам только
+        что завершившегося обычного сна.
+
+        F7 (ADR-1018-7 D3): при авто-режиме флаг `flags.deep_sleep_enabled` и
+        триггер `memory.deep_sleep_trigger` резолвятся ПО КАЖДОМУ чату из
+        `self._last_chat_ids` (per-chat DB → global DB → env); прогоняются
+        только чаты с флагом ON и триггером 'after_sleep'.
+
+        R10.18-10 (ADR-1018-2 D2): при `manual=True` (ручное «уснуть сейчас»)
+        флаг и триггер НЕ гейтят каскад — явное действие оператора обходит
+        экономические/тайминговые гейты. `_run_deep_once(manual=True)` также
+        пропускает cooldown/суточный лимит.
+
+        R10.18-5: manual-каскад идёт прежде всего по ЦЕЛЕВОМУ чату
+        (`only_chat`), а не по всем чатам прогона; если цели нет — не более
+        `_MANUAL_DEEP_CASCADE_MAX` чатов (а не до `max_chats_per_run` LLM-
+        прогонов).
+
+        F2 (T-1716): возвращает аддитивную статистику каскада
+        (deep/traits) — `run_once` кладёт её в `stats["cascade"]` (контракт
+        202 не ломается)."""
+        empty = {"chats": 0, "paradigms": 0, "ran": 0, "skipped": 0,
+                 "traits": 0}
         if not stats:
-            return
+            return dict(empty)
         if not (int(stats.get("distilled") or 0) > 0
                 or int(stats.get("chats") or 0) > 0):
-            return
-        chats = list(self._last_chat_ids or [])
+            return dict(empty)
+        if only_chat is not None:
+            # Явная цель (кнопка «Сон сейчас» для чата) — только этот чат.
+            chats = [int(only_chat)]
+        else:
+            chats = list(self._last_chat_ids or [])
         if not chats:
-            return
-        await self._run_deep_all(chats, since_ts=self._last_run_started,
-                                 manual=False)
+            return dict(empty)
+        eligible: list[int] = []
+        for cid in chats:
+            if not manual:
+                enabled = bool(await resolve_setting_cached(
+                    "flags.deep_sleep_enabled", chat_id=cid,
+                    default=settings.DEEP_SLEEP_ENABLED))
+                if not enabled:
+                    continue
+                trigger = str(await resolve_setting_cached(
+                    "memory.deep_sleep_trigger", chat_id=cid,
+                    default=settings.DEEP_SLEEP_TRIGGER) or "after_sleep")
+                if trigger != "after_sleep":
+                    continue
+            eligible.append(int(cid))
+        if not eligible:
+            return dict(empty)
+        if manual and only_chat is None:
+            # R10.18-5: без явной цели — жёсткий кап ручного каскада.
+            eligible = eligible[:_MANUAL_DEEP_CASCADE_MAX]
+        return await self._run_deep_all(eligible,
+                                        since_ts=self._last_run_started,
+                                        manual=manual)
 
     async def _deep_tick(self) -> None:
         """Scheduler-джоб deep_sleep_tick: режим trigger='fixed' — запуск в
-        свой local-час (memory.deep_sleep_hour) с cooldown/лимитом суток."""
-        if not hot.get("flags.deep_sleep_enabled",
-                       settings.DEEP_SLEEP_ENABLED):
-            return
-        trigger = str(hot.get("memory.deep_sleep_trigger",
-                              settings.DEEP_SLEEP_TRIGGER) or "after_sleep")
-        if trigger != "fixed":
-            return
-        now = _now_ts()
-        target = int(hot.get("memory.deep_sleep_hour",
-                             settings.DEEP_SLEEP_HOUR) or 7)
-        if _local_hour(now, self._deep_tz_name) != target:
-            return
+        свой local-час (memory.deep_sleep_hour) с cooldown/лимитом суток.
+
+        F7 (ADR-1018-7 D4): джоб зарегистрирован всегда; решение — здесь.
+        R10.18-2: триггер И час резолвятся ПО КАЖДОМУ чату-кандидату (chat DB
+        → global DB → env) — per-chat `trigger='fixed'` исполним при
+        глобальном `'after_sleep'` (и наоборот, per-chat `'after_sleep'` не
+        получает deep в чужой фиксированный час).
+        S10.18-21: предгейт R10.18-17 (`_deep_fixed_possible`) УДАЛЁН — он
+        опирался на прогретость in-memory `ChatParamsCache` и при глобальном
+        `after_sleep` + незагруженном чате с per-chat `fixed` молча хоронил
+        фиксированный прогон (частичный откат R10.18-2). Цена — 1 дешёвый
+        SQL-запрос кандидатов в час, что ниже риска потерять прогон."""
         if self._deep_lock.locked():
             return
+        now = _now_ts()
         try:
-            await self._run_deep_all(None, manual=False)
+            candidates = await self._deep_candidate_chat_ids(now)
+        except Exception:
+            logger.warning("[deep_sleep] candidate chats failed — fail-open",
+                           exc_info=True)
+            return
+        hour = _local_hour(now, self._deep_tz_name)
+        eligible: list[int] = []
+        for cid in candidates:
+            try:
+                trigger = str(await resolve_setting_cached(
+                    "memory.deep_sleep_trigger", chat_id=cid,
+                    default=settings.DEEP_SLEEP_TRIGGER) or "after_sleep")
+                if trigger != "fixed":
+                    continue
+                target = int(await resolve_setting_cached(
+                    "memory.deep_sleep_hour", chat_id=cid,
+                    default=settings.DEEP_SLEEP_HOUR) or 7)
+            except Exception:
+                continue
+            if hour == target:
+                eligible.append(int(cid))
+        if not eligible:
+            return
+        try:
+            await self._run_deep_all(eligible, manual=False)
         except Exception:
             logger.warning("[dream] deep tick failed — fail-open",
                            exc_info=True)
+
+    async def _deep_candidate_chat_ids(self, now: int) -> list[int]:
+        """R10.18-2: чаты-кандидаты глубокого сна (свежая активность за
+        `_DEEP_SLEEP_LOOKBACK_HOURS`); общий путь для `_deep_tick` и
+        `_run_deep_all(None)`."""
+        candidates = await self.db.get_dream_candidate_chats(
+            now, origins=_DREAM_SOURCE_ORIGINS,
+            initial_window_hours=_DEEP_SLEEP_LOOKBACK_HOURS,
+            min_new_facts=1,
+            max_chats=int(self._key(
+                "max_chats_per_run",
+                settings.DREAM_MAX_CHATS_PER_RUN) or 10))
+        return [int(c["chat_id"]) for c in candidates]
 
     async def _run_deep_all(self, chat_ids=None, *, since_ts: int | None = None,
                             manual: bool = False) -> dict:
@@ -1147,50 +1392,64 @@ class DreamWorker:
         Анти-наложение — _deep_lock/max_instances=1; авто-режим останавливается
         после первого успешного прогона (лимиты стоимости spec §4)."""
         if self._deep_lock.locked():
-            return {"chats": 0, "paradigms": 0, "ran": 0, "skipped": 1}
+            # D7/T-1771: единая форма stats (в т.ч. ключ `traits`).
+            return {"chats": 0, "paradigms": 0, "ran": 0, "skipped": 1,
+                    "traits": 0}
         async with self._deep_lock:
-            if chat_ids is None:
-                now = _now_ts()
-                try:
-                    candidates = await self.db.get_dream_candidate_chats(
-                        now, origins=_DREAM_SOURCE_ORIGINS,
-                        initial_window_hours=_DEEP_SLEEP_LOOKBACK_HOURS,
-                        min_new_facts=1,
-                        max_chats=int(self._key(
-                            "max_chats_per_run",
-                            settings.DREAM_MAX_CHATS_PER_RUN) or 10))
-                except Exception:
-                    logger.warning("[deep_sleep] candidate chats failed — "
-                                   "fail-open", exc_info=True)
-                    candidates = []
-                chat_ids = [int(c["chat_id"]) for c in candidates]
-            stats = {"chats": 0, "paradigms": 0, "ran": 0, "skipped": 0}
-            for cid in chat_ids:
-                try:
-                    out = await self._run_deep_once(
-                        int(cid), since_ts=since_ts, manual=manual)
-                except Exception:
-                    logger.warning("[deep_sleep] deep run failed — fail-open "
-                                   "| chat_id=%s", cid, exc_info=True)
-                    out = {"status": "error", "paradigms": 0}
-                stats["chats"] += 1
-                stats["paradigms"] += int(out.get("paradigms") or 0)
-                if out.get("status") == "ok":
-                    stats["ran"] += 1
-                    if not manual:
-                        break          # авто: 1 успешный прогон за раз
-                else:
-                    stats["skipped"] += 1
-            return stats
+            # S10.18-29: ручной deep-прогон (в т.ч. каскад из
+            # `run_once(deep=False)`) выставляет маркер `manual_deep_active`
+            # на всё время прогона (`_manual_deep_run`) + TTL `…_until` после
+            # него — бейдж глубокого сна не «теряет» фазу.
+            if manual:
+                self._manual_deep_run = True
+                self._manual_deep_until = _now_ts() + _MANUAL_RUN_MARKER_SECONDS
+            try:
+                if chat_ids is None:
+                    now = _now_ts()
+                    try:
+                        chat_ids = await self._deep_candidate_chat_ids(now)
+                    except Exception:
+                        logger.warning("[deep_sleep] candidate chats failed — "
+                                       "fail-open", exc_info=True)
+                        chat_ids = []
+                stats = {"chats": 0, "paradigms": 0, "ran": 0, "skipped": 0,
+                         "traits": 0}
+                for cid in chat_ids:
+                    try:
+                        out = await self._run_deep_once(
+                            int(cid), since_ts=since_ts, manual=manual)
+                    except Exception:
+                        logger.warning("[deep_sleep] deep run failed — "
+                                       "fail-open | chat_id=%s", cid,
+                                       exc_info=True)
+                        out = _deep_result("error")
+                    stats["chats"] += 1
+                    stats["paradigms"] += int(out.get("paradigms") or 0)
+                    stats["traits"] += int(out.get("traits") or 0)
+                    if out.get("status") == "ok":
+                        stats["ran"] += 1
+                        if not manual:
+                            break      # авто: 1 успешный прогон за раз
+                    else:
+                        stats["skipped"] += 1
+                return stats
+            finally:
+                if manual:
+                    self._manual_deep_run = False
+                    self._manual_deep_until = (
+                        _now_ts() + _MANUAL_RUN_MARKER_SECONDS)
 
     async def _run_deep_once(self, chat_id: int, *, since_ts: int | None = None,
                              manual: bool = False) -> dict:
         """Один прогон «Поиска по якорям» + «Моста времени» для чата (spec
         §4). Никогда не бросает (fail-open): ошибка RAG/LLM/записи → skip."""
         now = _now_ts()
-        if not manual and not hot.get("flags.deep_sleep_enabled",
-                                      settings.DEEP_SLEEP_ENABLED):
-            return {"status": "disabled", "paradigms": 0}
+        if not manual:
+            deep_on = bool(await resolve_setting_cached(
+                "flags.deep_sleep_enabled", chat_id=chat_id,
+                default=settings.DEEP_SLEEP_ENABLED))
+            if not deep_on:
+                return _deep_result("disabled")
         if not manual:
             try:
                 # S10.13-2: суточный лимит и cooldown учитывают и неуспешные
@@ -1198,27 +1457,27 @@ class DreamWorker:
                 # error повторялись бы каждый тик/after_sleep.
                 if await self.db.count_deep_attempts(
                         _day_start_ts(now, self._deep_tz_name)) >= 1:
-                    return {"status": "daily_limit", "paradigms": 0}
+                    return _deep_result("daily_limit")
                 last = await self.db.last_deep_attempt(chat_id)
             except Exception:
                 logger.warning("[deep_sleep] cooldown read failed — skip | "
                                "chat_id=%s", chat_id, exc_info=True)
-                return {"status": "error", "paradigms": 0}
+                return _deep_result("error")
             cooldown = _hot_number(
                 "memory.deep_sleep_min_interval_hours",
                 _DEEP_SLEEP_MIN_INTERVAL_HOURS, int)
             if last is not None and (now - int(last)) < cooldown * 3600:
-                return {"status": "cooldown", "paradigms": 0}
+                return _deep_result("cooldown")
         if self.memory is None:
-            return {"status": "no_memory", "paradigms": 0}
+            return _deep_result("no_memory")
         try:
             packet = await self._build_deep_packet(chat_id, now, since_ts)
         except Exception:
             logger.warning("[deep_sleep] packet build failed — skip | "
                            "chat_id=%s", chat_id, exc_info=True)
-            return {"status": "error", "paradigms": 0}
+            return _deep_result("error")
         if not packet["beliefs"] and not packet["recent"]:
-            return {"status": "no_context", "paradigms": 0}
+            return _deep_result("no_context")
         query = " ".join(
             [str(b.get("fact") or "") for b in packet["beliefs"][:20]]
             + [str(r.get("fact") or "") for r in packet["recent"]])
@@ -1227,27 +1486,28 @@ class DreamWorker:
         except Exception:
             logger.warning("[deep_sleep] RAG failed — skip | chat_id=%s",
                            chat_id, exc_info=True)
-            return {"status": "error", "paradigms": 0}
+            return _deep_result("error")
         top_k = _hot_number("limits.deep_sleep_top_k",
                             settings.DEEP_SLEEP_TOP_K, int)
         anchors = list(anchors or [])[: max(1, top_k)]
         historical = [a for a in anchors if _anchor_is_old(a, now)]
         if len(historical) < _DEEP_SLEEP_MIN_HISTORICAL:
             await self._log_deep_skip(chat_id, now, "no_anchors", 0)
-            return {"status": "no_anchors", "paradigms": 0}
+            return _deep_result("no_anchors")
         user_text = build_bridge_user(packet, historical)
         messages = [
             {"role": "system", "content": DEEP_SLEEP_BRIDGE_SYSTEM_PROMPT},
             {"role": "user", "content": user_text},
         ]
         if not await self._deep_budget_ok(
-                chat_id, DEEP_SLEEP_BRIDGE_SYSTEM_PROMPT + user_text):
+                chat_id, DEEP_SLEEP_BRIDGE_SYSTEM_PROMPT + user_text,
+                manual=manual):
             await self._log_deep_skip(chat_id, now, "budget_skip", 0)
-            return {"status": "budget", "paradigms": 0}
+            return _deep_result("budget")
         raw, tokens = await self._deep_llm_once(messages, user_text)
         if raw is None:
             await self._log_deep_skip(chat_id, now, "error", tokens)
-            return {"status": "error", "paradigms": 0}
+            return _deep_result("error")
         try:
             paradigms = parse_bridge_answer(raw,
                                             anchor_count=len(historical),
@@ -1256,24 +1516,24 @@ class DreamWorker:
             # 1 retry на кривой JSON (не более 1 — spec §4 «без ретраев»)
             # S10.13-2: перед retry перепроверяем токен-кап с учётом уже
             # потраченных токенов первой попытки.
-            if not await self._deep_budget_ok(chat_id, user_text,
-                                              extra_tokens=tokens):
+            if not await self._deep_budget_ok(
+                    chat_id, user_text, extra_tokens=tokens, manual=manual):
                 await self._log_deep_skip(chat_id, now, "budget_skip", tokens)
-                return {"status": "budget", "paradigms": 0}
+                return _deep_result("budget")
             raw2, tokens2 = await self._deep_llm_once(messages, user_text)
             tokens += tokens2
             if raw2 is None:
                 await self._log_deep_skip(chat_id, now, "error", tokens)
-                return {"status": "error", "paradigms": 0}
+                return _deep_result("error")
             try:
                 paradigms = parse_bridge_answer(
                     raw2, anchor_count=len(historical), min_anchors=2)
             except ValueError:
                 await self._log_deep_skip(chat_id, now, "error", tokens)
-                return {"status": "error", "paradigms": 0}
+                return _deep_result("error")
         if not paradigms:
             await self._log_deep_skip(chat_id, now, "unchanged", tokens)
-            return {"status": "unchanged", "paradigms": 0}
+            return _deep_result("unchanged")
         try:
             existing = await self._paradigm_dedup_keys(chat_id)
         except Exception:
@@ -1321,15 +1581,27 @@ class DreamWorker:
         persona_enabled = await _persona_gate(
             chat_id, "flags.persona_enabled",
             hot.get("flags.persona_enabled", settings.PERSONA_ENABLED))
+        traits_written = 0
         if persona_enabled:
             try:
-                await self._run_persona_traits_once(chat_id, now=now)
+                traits_stats = await self._run_persona_traits_once(
+                    chat_id, now=now, manual=manual)
+                traits_written = int(traits_stats.get("traits") or 0)
             except Exception:
                 logger.warning(
                     "[persona_traits] run failed — fail-open | chat_id=%s",
                     chat_id, exc_info=True)
+        else:
+            # F2 (ADR-1018-2 D3, spec §4.2a/§4.4, T-1770): persona — контентный
+            # гейт владельца, запись traits НЕ обходим даже при manual. Но
+            # каскад не «глушим молча»: явная причина в логах (R17-safe —
+            # только chat_id, без текстов).
+            logger.warning(
+                "[persona_traits] skip | reason=persona_disabled | "
+                "chat_id=%s", chat_id)
         return {"status": "ok" if written else "duplicate",
-                "paradigms": written, "tokens": tokens}
+                "paradigms": written, "tokens": tokens,
+                "traits": traits_written}
 
     async def _build_deep_packet(self, chat_id: int, now: int,
                                  since_ts: int | None) -> dict:
@@ -1389,7 +1661,8 @@ class DreamWorker:
         return content, _estimate_tokens(prompt_text, content)
 
     async def _deep_budget_ok(self, chat_id: int, prompt_text: str, *,
-                              extra_tokens: int = 0) -> bool:
+                              extra_tokens: int = 0,
+                              manual: bool = False) -> bool:
         """Суточный токен-кап глубокого сна (limits.deep_sleep_tokens_per_day,
         40000) + worker_budget.consume (worker='deep_sleep'); fail-open.
 
@@ -1397,7 +1670,13 @@ class DreamWorker:
         (`deep_skip`) — иначе error/unchanged/duplicate обходили лимит.
         R10.14-2: сюда же входят токены traits (`deep_traits`) — LLM-вызов
         эволюции характера больше не идёт вне суточного капа.
-        `extra_tokens` — уже потраченные токены текущей попытки (retry)."""
+        `extra_tokens` — уже потраченные токены текущей попытки (retry).
+
+        F2/D1 (ADR-1018-2 D2, T-1771): `manual=True` — ручной каскад «уснуть
+        сейчас» НЕ отклоняется суточным капом и деградацией (безусловный
+        приоритет); расход consume всё равно пишется для учёта, но verdict
+        не применяется. Без кап-обхода Личность была недостижима при
+        исчерпанном `deep_sleep_tokens_per_day`."""
         from services import worker_budget
         cap = _hot_number("limits.deep_sleep_tokens_per_day",
                           settings.DEEP_SLEEP_TOKENS_PER_DAY, int)
@@ -1412,19 +1691,36 @@ class DreamWorker:
         except Exception:
             used = 0
         if cap and used + int(extra_tokens or 0) + est > cap:
+            if not manual:
+                logger.warning(
+                    "[deep_sleep] daily token cap reached — skip | chat_id=%s "
+                    "| used=%d | cap=%d", chat_id, used, cap)
+                return False
             logger.warning(
-                "[deep_sleep] daily token cap reached — skip | chat_id=%s | "
+                "[deep_sleep] manual override: daily token cap | chat_id=%s | "
                 "used=%d | cap=%d", chat_id, used, cap)
-            return False
         try:
             if not await worker_budget.global_degradation_allows(
                     worker_budget.WORKER_DEEP_SLEEP):
+                if not manual:
+                    logger.warning(
+                        "[deep_sleep] global budget degradation — skip | "
+                        "chat_id=%s", chat_id)
+                    return False
                 logger.warning(
-                    "[deep_sleep] global budget degradation — skip | "
-                    "chat_id=%s", chat_id)
-                return False
+                    "[deep_sleep] manual override: global budget degradation "
+                    "| chat_id=%s", chat_id)
         except Exception:
             pass
+        if manual:
+            # D1/T-1771: все 4 consume независимо, verdict не применяется.
+            await worker_budget.consume(None, "global", "llm_calls", 1)
+            await worker_budget.consume(None, "global", "llm_tokens", est)
+            await worker_budget.consume(None, f"chat:{chat_id}",
+                                        "llm_calls", 1)
+            await worker_budget.consume(None, f"chat:{chat_id}",
+                                        "llm_tokens", est)
+            return True
         ok = await worker_budget.consume(None, "global", "llm_calls", 1)
         if ok:
             ok = await worker_budget.consume(None, "global", "llm_tokens", est)
@@ -1458,7 +1754,8 @@ class DreamWorker:
                            "chat_id=%s", chat_id, exc_info=True)
 
     async def _run_persona_traits_once(self, chat_id: int, *,
-                                       now: int | None = None) -> dict:
+                                       now: int | None = None,
+                                       manual: bool = False) -> dict:
         """F2 persona-storage-core (spec §3.4): «Как изменился характер бота?».
 
         Источники: свежие self-факты (origin='bot_self_reply') + убеждения
@@ -1489,6 +1786,11 @@ class DreamWorker:
         # origin='bot_self_reply'); без них убеждений чата недостаточно —
         # не подменяем личность общечатовым лором (fail-safe empty).
         if not self_facts:
+            # F2 (spec §4.4, T-1717/T-1770): явная причина «0 черт» — нет
+            # self-фактов (origin='bot_self_reply') за окно. R17-safe.
+            logger.warning(
+                "[persona_traits] skip | reason=no_self_facts | chat_id=%s",
+                chat_id)
             await bot_persona.record_trait_status("empty")
             return {"status": "empty", "traits": 0}
         user_text = build_persona_user(self_facts, beliefs)
@@ -1500,7 +1802,10 @@ class DreamWorker:
         # R10.14-2 (spec F2 §3.4 п.5): traits-LLM идёт через тот же учёт, что
         # и прочие фоновые вызовы — суточный кап + worker_budget. Fail-safe:
         # превышение → skip без вызова, прогон глубокого сна не рушится.
-        if not await self._deep_budget_ok(chat_id, prompt_text):
+        if not await self._deep_budget_ok(chat_id, prompt_text,
+                                          manual=manual):
+            logger.warning("[persona_traits] skip | reason=budget_skip | "
+                           "chat_id=%s", chat_id)
             await bot_persona.record_trait_status("budget_skip")
             await self._log_persona_traits_tokens(chat_id, now, 0,
                                                   "budget_skip")
@@ -1511,8 +1816,9 @@ class DreamWorker:
         except Exception:
             await self._log_persona_traits_tokens(
                 chat_id, now, _estimate_tokens(prompt_text), "error")
-            logger.warning("[persona_traits] LLM call failed — fail-open | "
-                           "chat_id=%s", chat_id, exc_info=True)
+            logger.warning("[persona_traits] LLM call failed | "
+                           "reason=llm_error | chat_id=%s", chat_id,
+                           exc_info=True)
             await bot_persona.record_trait_status("error")
             return {"status": "error", "traits": 0}
         # Токены traits пишутся в memory_dream_log (kind='deep_traits') —
@@ -1523,17 +1829,25 @@ class DreamWorker:
         try:
             traits = parse_persona_traits(raw)
         except ValueError:
+            # F2 (spec §4.4): ошибка JSON промпта — R17-safe (только длина
+            # ответа, без текста/промпта).
+            logger.warning("[persona_traits] parse failed | "
+                           "reason=json_error | chat_id=%s | raw_len=%d",
+                           chat_id, len(str(raw or "")))
             await bot_persona.record_trait_status("error")
             return {"status": "error", "traits": 0}
         if not traits:
+            logger.info("[persona_traits] empty answer | "
+                        "reason=empty_response | chat_id=%s", chat_id)
             await bot_persona.record_trait_status("empty")
             return {"status": "empty", "traits": 0}
         try:
             written = await bot_persona.append_traits(
                 traits, chat_id=chat_id, source="deep_sleep")
         except Exception:
-            logger.warning("[persona_traits] write failed — fail-open | "
-                           "chat_id=%s", chat_id, exc_info=True)
+            logger.warning("[persona_traits] write failed | "
+                           "reason=write_error | chat_id=%s", chat_id,
+                           exc_info=True)
             await bot_persona.record_trait_status("error")
             return {"status": "error", "traits": 0}
         status = "ok" if written else "empty"
@@ -1541,6 +1855,10 @@ class DreamWorker:
         if written:
             logger.info("[persona_traits] written | chat_id=%s | count=%d",
                         chat_id, written)
+        else:
+            # F2 (spec §4.4): все кандидаты оказались дублями (дедуп/cap).
+            logger.info("[persona_traits] skip | reason=all_duplicates | "
+                        "chat_id=%s | candidates=%d", chat_id, len(traits))
         return {"status": status, "traits": written}
 
     async def _paradigm_dedup_keys(self, chat_id: int) -> set[str]:

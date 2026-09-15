@@ -2,8 +2,9 @@
 
 In-process: реальный `DatabaseService(":memory:")`, реальный `graph_snapshot`
 и API-обёртка `web.api.memory_agi.memory_graph` (замокан только auth/DI).
-Проверяются Degree Centrality, раскрытие смежных, отсечение сирот, cap после
-раскрытия и контракт `nodes/edges/truncated/limits`.
+Проверяются скоринг по **Σ importance** (F3 раунда 10.18, ADR-1018-3;
+SUPERSEDE ADR-1015-2 — Degree Centrality), раскрытие смежных, отсечение
+сирот, cap после раскрытия и контракт `nodes/edges/truncated/limits`.
 """
 import json
 
@@ -75,7 +76,8 @@ class TestGraphSnapshotSmoke:
         for i in range(130):
             leaf = await _node(db, 1, f"leaf{i}")
             await _edge(db, hub, leaf)
-        snap = await db.graph_snapshot(chat_id=1)
+        # F3: cap поднят до 800/2400; отсечение проверяем явным cap.
+        snap = await db.graph_snapshot(chat_id=1, max_nodes=120)
         assert len(snap["nodes"]) <= 120
         assert snap["truncated"] is True
         _connected(snap)
@@ -105,8 +107,9 @@ class TestGraphApiSmoke:
         snap = await ma.memory_graph(request=None, user=None, chat_id=1)
         assert snap["limits"] == {"nodes": ma.GRAPH_MAX_NODES,
                                   "edges": ma.GRAPH_MAX_EDGES}
-        assert snap["limits"]["nodes"] == 120
-        assert snap["limits"]["edges"] == 240
+        # F3 (ADR-1018-3 D5): плотность — cap 800/2400, seeds 150.
+        assert snap["limits"]["nodes"] == 800
+        assert snap["limits"]["edges"] == 2400
         assert _ids(snap) == {a, b}
         assert len(snap["edges"]) == 1
 

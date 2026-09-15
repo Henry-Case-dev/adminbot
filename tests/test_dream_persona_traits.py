@@ -186,7 +186,8 @@ class TestRunPersonaTraitsBudget:
         async def _status(value):
             statuses.append(value)
 
-        async def _no_budget(chat_id, prompt_text, *, extra_tokens=0):
+        async def _no_budget(chat_id, prompt_text, *, extra_tokens=0,
+                             manual=False):
             return False
 
         monkeypatch.setattr(bot_persona, "record_trait_status", _status)
@@ -209,7 +210,7 @@ class TestRunPersonaTraitsBudget:
         async def _status(value):
             pass
 
-        async def _ok(chat_id, prompt_text, *, extra_tokens=0):
+        async def _ok(chat_id, prompt_text, *, extra_tokens=0, manual=False):
             return True
 
         monkeypatch.setattr(bot_persona, "append_traits", _append)

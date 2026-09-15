@@ -29,7 +29,9 @@ class TestCatalogInvariant106:
         # → REGISTRY 434 / Settings 406. GROUPS/mapped/TAB_RULES не меняются.
         # 10.14 (F6 help-guide-integration): +1 PG-only (Settings не растёт)
         # → REGISTRY 435 / Settings 406. GROUPS/mapped/TAB_RULES не меняются.
-        assert len(pc.REGISTRY) == 435
+        # 10.18 (F1 betterstack-us-region): +1 env-only BETTERSTACK_HOST
+        # (ADR-1018-1 D3, Settings не растёт) → REGISTRY 436 / Settings 406.
+        assert len(pc.REGISTRY) == 436
         assert len(pc.GROUPS) == 90
         assert len(pc._TAB_BY_GROUP) == 88
         assert len(pc.TAB_RULES) == 19

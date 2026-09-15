@@ -1,9 +1,10 @@
 """F1 `graph-sampling-centrality-round1015` — умная выборка графа памяти
 (Degree Centrality + окрестность + очистка сирот), ТЗ §1 backend, spec §4,
-ADR-1015-2.
+ADR-1015-2. **Ф3 (раунд 10.18) SUPERSEDE ADR-1015-2**: сиды теперь по
+Σ importance и cap 800/2400 — ожидания диапазонов/cap обновлены.
 
 Покрытие:
-  * топ-сиды по centrality и приоритет сидов над соседями;
+  * топ-сиды по score и приоритет сидов над соседями;
   * раскрытие окрестности (смежные узлы включены, чужие компоненты отсечены);
   * удаление сирот (узел без рёбер внутри выборки);
   * отсутствие висячих рёбер (S10.13-14: оба конца в nodes);
@@ -155,12 +156,13 @@ class TestCapsAndEmpty:
 
     @pytest.mark.asyncio
     async def test_cap_and_truncated(self, db):
-        """>max_nodes кандидатов → len(nodes) ≤ cap и truncated True."""
+        """>max_nodes кандидатов → len(nodes) ≤ cap и truncated True.
+        F3: явно задаём старый cap — проверяем механику отсечения."""
         hub = await _node(db, 1, "hub")
         for i in range(130):
             leaf = await _node(db, 1, f"leaf{i}")
             await _edge(db, hub, leaf)
-        snap = await db.graph_snapshot(chat_id=1)
+        snap = await db.graph_snapshot(chat_id=1, max_nodes=120, max_edges=240)
         assert len(snap["nodes"]) == 120
         assert len(snap["edges"]) <= 240
         assert snap["truncated"] is True
@@ -237,8 +239,9 @@ class TestApi:
         snap = await ma.memory_graph(request=None, user=None, chat_id=1)
         assert snap["limits"] == {"nodes": ma.GRAPH_MAX_NODES,
                                   "edges": ma.GRAPH_MAX_EDGES}
-        assert captured["seed_nodes"] == ma.GRAPH_SEED_NODES == 50
-        assert captured["max_nodes"] == 120 and captured["max_edges"] == 240
+        # F3 (T-1728/T-1731, ADR-1018-3 D5): seeds 150, cap 800/2400.
+        assert captured["seed_nodes"] == ma.GRAPH_SEED_NODES == 150
+        assert captured["max_nodes"] == 800 and captured["max_edges"] == 2400
         assert _ids(snap) == {a, b}
 
     @pytest.mark.asyncio
@@ -254,13 +257,15 @@ class TestApi:
         snap = await ma.memory_graph(request=None, user=None, chat_id=None)
         assert snap["nodes"] == [] and snap["edges"] == []
         assert snap["truncated"] is False
-        assert snap["limits"] == {"nodes": 120, "edges": 240}
+        assert snap["limits"] == {"nodes": ma.GRAPH_MAX_NODES,
+                                  "edges": ma.GRAPH_MAX_EDGES}
 
 
 class TestMarkers:
     def test_db_uses_indexed_cte_no_correlated_count(self):
         src = _read("services/database.py")
-        assert "seed_nodes: int = 50" in src
+        # F3: дефолт сидов — 150 (ADR-1018-3 D5).
+        assert "seed_nodes: int = 150" in src
         assert "WITH re AS (" in src
         assert "GROUP BY nid" in src
         assert "origin != 'bot_direct_reply'" in src
@@ -269,7 +274,7 @@ class TestMarkers:
 
     def test_api_constant_present(self):
         src = _read("web/api/memory_agi.py")
-        assert "GRAPH_SEED_NODES = 50" in src
+        assert "GRAPH_SEED_NODES = 150" in src
         assert "seed_nodes=GRAPH_SEED_NODES" in src
 
     @pytest.mark.asyncio

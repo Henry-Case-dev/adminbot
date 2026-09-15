@@ -143,7 +143,8 @@ class TestClusteringUnits:
 
 class TestTickRegistration:
     @pytest.mark.asyncio
-    async def test_job_registered_only_when_flag_on(self, db, monkeypatch):
+    async def test_job_registered_always_flag_on(self, db, monkeypatch):
+        """F7 (ADR-1018-7 D4): джоб dream_tick регистрируется всегда."""
         _hot_cache(monkeypatch, {"memory.dream_enabled": True})
         worker = DreamWorker(db, llm=_FakeLLM())
         try:
@@ -155,21 +156,30 @@ class TestTickRegistration:
             await worker.stop()
 
     @pytest.mark.asyncio
-    async def test_flag_off_no_job_and_run_once_skipped(self, db,
-                                                        monkeypatch):
-        """ФИКС R5 (F-10 §6): глобальный флаг/гейт off → джоб не
-        регистрируется И ручной run_once теперь скипается (kill-switch
-        останавливает и ручные запуски — carve-out удалён)."""
+    async def test_job_registered_always_flag_off(self, db, monkeypatch):
+        """F7: глобальный флаг off НЕ мешает регистрации джоба (реактивность
+        без рестарта). F2 T-1767: ручной run_once при этом выполняется —
+        kill-switch обходится БЕЗУСЛОВНО (без флага), с аудитом
+        status='gate_override'."""
         _hot_cache(monkeypatch, {"memory.dream_enabled": False})
         llm = _FakeLLM(_ANS_A)
         worker = DreamWorker(db, llm=llm)
-        worker.start()                       # off → no-op
-        assert not worker._scheduler.running
-        assert worker._scheduler.get_job(DreamWorker.JOB_DREAM_ID) is None
+        try:
+            worker.start()
+            assert worker._scheduler.running
+            assert worker._scheduler.get_job(DreamWorker.JOB_DREAM_ID) \
+                is not None
+        finally:
+            await worker.stop()
         await _add_batch(db, 3, ("вася", "платит", "в баре"))
         res = await worker.run_once(CHAT_ID)
-        assert res["distilled"] == 0        # gate dream → skip до LLM
-        assert llm.calls == []
+        assert res["distilled"] == 1        # manual обходит kill-switch
+        assert len(llm.calls) == 1
+        cursor = await db.db.execute(
+            "SELECT kind, status FROM memory_dream_log ORDER BY id")
+        rows = await cursor.fetchall()
+        assert ("skipped", "gate_override") in \
+            [(r["kind"], r["status"]) for r in rows]
 
     @pytest.mark.asyncio
     async def test_tick_trigger_is_minute_based(self, db, monkeypatch):
@@ -254,6 +264,11 @@ class TestDistillation:
         """Пороги: членов < repeat ИЛИ Σ importance < порога — кластер не
         идёт в дистилляцию (LLM не вызывается), watermark двигается."""
         llm = _FakeLLM(_ANS_A, _ANS_B)
+        # F2: чтобы отличать порог от нового code-дефолта 2/8, задаём пороги
+        # явно (3/12) — тест проверяет логику отсева, а не числовой дефолт.
+        _hot_cache(monkeypatch, {"memory.dream_enabled": True,
+                                 "memory.dream_repeat_threshold": 3,
+                                 "memory.dream_importance_sum_threshold": 12})
         worker = _worker(db, llm, monkeypatch=monkeypatch)
         # F3 round1015: fallback (2/8) активен при «0 убеждений 3 дня» —
         # сидируем свежую дистилляцию, чтобы проверить БАЗОВЫЕ пороги 3/12.
@@ -385,8 +400,10 @@ class TestWindowAndBudgets:
         (остаток < 5) тик завершается заранее; «новый день» — счётчик
         обнуляется (по run_at >= начало новых суток)."""
         import services.dream_worker as dw
+        # F2 T-1767: плановый путь соблюдает окно — фиксируем час внутри [4,6).
+        monkeypatch.setattr(dw, "_local_hour", lambda ts, tz=None: 5)
         # лимит 6: near-limit (< 5 остатка) срабатывает после 2 дистилляций
-        # ФИКС R5: гейты применяются и к ручному run_once — явный глобальный
+        # ФИКС R5: гейты применяются и к плановому прогону — явный глобальный
         # флаг ON (иначе gate chain скинет чат).
         _hot_cache(monkeypatch,
                    {"memory.dream_distillations_per_day": 6,
@@ -398,7 +415,8 @@ class TestWindowAndBudgets:
                       ("петя", "ходит", "по четвергам"),
                       ("ольга", "вяжет", "свитер")):
             await _add_batch(db, 3, topic)
-        res = await worker.run_once(CHAT_ID)
+        # F2 T-1767: бюджеты проверяем на ПЛАНОВОМ пути — manual их обходит.
+        res = await worker._run(manual=False, only_chat=CHAT_ID)
         assert res["distilled"] == 2
         assert res["budget_stop"] is True
         assert len(llm.calls) == 2           # третий кластер не пошёл
@@ -407,7 +425,7 @@ class TestWindowAndBudgets:
         # (не сбросься — день2 остановился бы сразу на остатке 4 < 5)
         real_now = dw._now_ts()
         monkeypatch.setattr(dw, "_now_ts", lambda: real_now + 3 * 86400)
-        res2 = await worker.run_once(CHAT_ID)
+        res2 = await worker._run(manual=False, only_chat=CHAT_ID)
         assert res2["distilled"] == 2
         assert res2["budget_stop"] is True
         assert len(llm.calls) == 4
@@ -416,7 +434,10 @@ class TestWindowAndBudgets:
     async def test_tokens_budget_near_limit_stops_after_first_call(
             self, db, monkeypatch):
         """Токенный бюджет: «почти у предела» (<5000 остатка) — тик
-        завершается заранее после первого вызова (деньги ограничены)."""
+        завершается заранее после первого вызова (деньги ограничены).
+        F2 T-1767: проверяем плановый путь (manual обходит near-limit)."""
+        import services.dream_worker as dw
+        monkeypatch.setattr(dw, "_local_hour", lambda ts, tz=None: 5)
         # ФИКС R5 (см. выше): явный глобальный флаг ON.
         _hot_cache(monkeypatch, {"memory.dream_tokens_per_day": 5000,
                                  "memory.dream_enabled": True})
@@ -424,7 +445,7 @@ class TestWindowAndBudgets:
         worker = _worker(db, llm, monkeypatch=monkeypatch)
         await _add_batch(db, 3, ("вася", "платит", "в баре"))
         await _add_batch(db, 3, ("петя", "ходит", "по четвергам"))
-        res = await worker.run_once(CHAT_ID)
+        res = await worker._run(manual=False, only_chat=CHAT_ID)
         assert res["distilled"] == 1
         assert res["budget_stop"] is True
         assert len(llm.calls) == 1
@@ -434,6 +455,69 @@ class TestWindowAndBudgets:
             "WHERE kind = 'distilled' LIMIT 1")
         row = await cursor.fetchone()
         assert row["tokens"] > 0
+
+
+class TestPerChatBudget:
+    @pytest.mark.asyncio
+    async def test_chat_override_not_blocked_by_other_chat_spend(
+            self, db, monkeypatch):
+        """S10.18-1 (High, регресс): суточный расход считается ПО ЧАТУ — чат A
+        с per-chat override лимита не глушится расходом чата B. Без фикса
+        глобальный счётчик B (10 ≥ лимита 6) останавливал бы A до первой
+        дистилляции."""
+        import services.dream_worker as dw
+        from services import chat_params as cp
+
+        class _Cache:
+            def __init__(self, root):
+                self.root = root
+
+            async def get_chat_params(self, chat_id):
+                return self.root
+
+        _hot_cache(monkeypatch, {
+            "memory.dream_distillations_per_day": 6,
+            "memory.dream_tokens_per_day": 100000,  # без токен-капа
+            "memory.dream_enabled": True,
+        })
+        # Чат A: явный per-chat override лимита (50) — главный сценарий F7.
+        monkeypatch.setattr(cp, "_chat_params_cache", _Cache({
+            "overrides": {"memory.dream_distillations_per_day": 50}}))
+        worker = _worker(db, _FakeLLM(_ANS_A))
+        now = dw._now_ts()
+        # Чат B «израсходовал» 10 дистилляций за сегодня (глобально > лимита).
+        for i in range(10):
+            await db.log_dream_event(-200, now - i, kind="distilled",
+                                     tokens=10, status="ok")
+        await _add_batch(db, 3, ("вася", "платит", "в баре"))
+        res = await worker.run_once(CHAT_ID)
+        assert res["distilled"] == 1
+        assert res["budget_stop"] is False
+        # расход чата B не тронут
+        assert await db.count_dream_log(
+            now - 86400, kind="distilled", chat_id=-200) == 10
+
+
+class TestDecayGatedByDreamMaster:
+    @pytest.mark.asyncio
+    async def test_decay_skipped_when_dream_master_off(self, db, monkeypatch):
+        """S10.18-4: decay — глобальный этап Сна; при выключенном master
+        (`memory.dream_enabled=false`) он НЕ выполняется (нет побочного
+        архивирования beliefs при выключенном Сне)."""
+        _hot_cache(monkeypatch, {"flags.belief_decay_enabled": True,
+                                 "memory.dream_enabled": False})
+        worker = DreamWorker(db, memory=None, llm=_FakeLLM())
+        await worker._run(manual=True, only_chat=CHAT_ID)
+        assert await db.last_decay_run() is None
+
+    @pytest.mark.asyncio
+    async def test_decay_runs_when_dream_master_on(self, db, monkeypatch):
+        """Контроль: master ON + decay-флаг ON → decay-маркер записан."""
+        _hot_cache(monkeypatch, {"flags.belief_decay_enabled": True,
+                                 "memory.dream_enabled": True})
+        worker = DreamWorker(db, memory=None, llm=_FakeLLM())
+        await worker._run(manual=True, only_chat=CHAT_ID)
+        assert await db.last_decay_run() is not None
 
 
 class TestProtectedAndSupersede:

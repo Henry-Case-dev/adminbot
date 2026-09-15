@@ -1,10 +1,248 @@
 # Global Map (architectural memory)
 
 > Архитектурная память Scanner. Не источник правды о коде — только карта связностей.
-> HEAD == 32d1aa9 (10.11 docs) + рабочее дерево 10.12 (providers-kostik-round1012, 2026-09-13).
-> origin/master == 3624789 (10.11 deployed; 10.12 — не задеплоен, сканирование).
-> Каталог-инвариант 10.12: REGISTRY 405 / GROUPS 90 / Settings 377 / mapped 88 / TAB_RULES 19 / categorized 381.
+> **ФИНАЛЬНЫЙ baseline эпика 10.18 (БАТЧИ 1–4: F1–F7, 15.09.2026):**
+> HEAD `118a03c` + рабочее дерево (F7 settings-worker-sync, F1 betterstack-us-region-401,
+> F2 sleep-manual-cascade-badges, F3 graph-density-scoring-stoplist, F4 graph-physics-stabilization,
+> F5 metafact-penalty-extractor-prompt, F6 role-matrix-settings-actualization); прод `b6c153f`.
+> pytest **6137 passed / 0 failed**; JS-гейты OK (`node --check`, `JS-UNIT-OK`, `VUE-MOUNT-OK`);
+> `git diff --check` exit 0.
+> Каталог-инвариант 10.18: **REGISTRY 436 / Settings 406 / categorized 411 / GROUPS 90 /
+> mapped 88 / TAB_RULES 19 / CONFIG_TAB_TITLES 19** (+1 — F1 `BETTERSTACK_HOST`; F2–F6 — Δ=0).
+> SQLite **v10** (F3: `edges.fact_id` + `idx_edges_fact_id`).
+> **Статус скана: 0 Critical / 0 High по ВСЕМУ эпику → готов к @Reviewer/@PM → Merge/архивация/деплой**
+> (открыто 1 Medium S10.18-30 + 2 Low S10.18-29/-35 + 11 Info; сводная таблица — отчёт §10.4).
 > П.6 (Headroom) — OUT OF SCOPE репозитория, в коде ссылок нет.
+
+
+
+
+## Round 10.18 (2026-09-15, БАТЧ 1/3: F7 + F1, HEAD 118a03c + рабочее дерево) — карта связностей
+
+> **⏱ Итерация 2 (после фиксов @Builder, тот же baseline):** закрыты S10.18-1…-9 и -11. Ключевые изменения карты:
+> `database.count_dream_log/sum_dream_log_tokens` += `chat_id` → бюджет Сна per-chat; `_deep_tick` резолвит
+> `trigger`/`deep_sleep_hour` **по чату-кандидату** (общий `_deep_candidate_chat_ids`); `feature_gates.master_fallback`
+> (+`MASTER_FALLBACK_KEYS={"dream": …}`) подключён в `allowed_features`/`web/api/gates.py`/`oversight.py`/
+> `web/api/oversight.py`; `cognition_status` += аддитивный `dream.effective` (и `dream_in` считается по нему);
+> `_run` гейтит decay глобальным `_dream_master_on()`; manual-каскад — по `only_chat` и `_MANUAL_DEEP_CASCADE_MAX=1`;
+> BetterStack без хоста → **ERROR**; `ChatParamsNotify.stop()` вызывается из `on_shutdown`, `_pending`-задачи
+> удерживаются и отменяются. **Новый Medium S10.18-15:** `master_fallback` берёт default `DEFAULT_BY_FEATURE["dream"]=False`
+> вместо `settings.DREAM_ENABLED` → при env `DREAM_ENABLED=true` и отсутствии DB-ключа статус показывает OFF, а воркер ON
+> (воспроизведено). Детали — `plans/reports/round10.18_scanner_audit.md` §7.
+
+- **F7 `settings-worker-sync` (T-1759…T-1764, P0)** — единый read-path настроек воркеров/статус-API.
+  Новый `services/worker_settings.py`: `resolve_setting`/`resolve_setting_with_source`/`resolve_setting_cached`/
+  `setting_source`; приоритет `chat_profiles.chat_params.overrides[key]` (каст = `chat_params._resolve_from_root`:
+  `normalize_value` + `_cast_type_ok` + `math.isfinite`) → `hot.get(key)` (`ConfigCache`, in-memory) → env-дефолт.
+  Сентинел `_global_with_source` использует `hot.get(key, _SENTINEL)`; проверено, что `_cast_to_type`
+  (`param_catalog.py:1966-2034`) пропускает `object()`-сентинел без изменений (все 5 типов) → `source='default'`
+  корректен. `setting_source` — best-effort без I/O (читает `ChatParamsCache._items` / `ConfigCache`).
+- **DreamWorker ↔ accessor:** `_key_for(chat_id, name, default)` = `memory.dream_<name>` (chat → global → default);
+  per-chat применён в `_process_chat` (`enabled`, `cluster_overlap_tokens`, `repeat_threshold`,
+  `importance_sum_threshold`, `max_clusters_per_run`, `_window_open_for`, `_budget_reason_for`, `_daily_limit_for`),
+  `_candidates` (`initial_window_hours`), `_maybe_deep_after_sleep` (`flags.deep_sleep_enabled` + `trigger`),
+  `_run_deep_once` (`flags.deep_sleep_enabled`). Тик-слой осознанно глобальный: `min_new_facts_per_chat`,
+  `max_chats_per_run`, `quiet_check_minutes` (`_run`/`get_dream_candidate_chats`).
+  Старые sync-helpers `_window_open`/`_daily_limit`/`_budget_reason` удалены (S10.18-16, итерация 3); `_key()`
+  сохранён (тик-слой/совместимость).
+- **Гейты (kill-switch vs master):** `feature_gates.gates_enabled(chat_id, feature, root=None, *, fallback=None)` —
+  порядок chat-gate → `_explicit_flag_value` (первый ключ `FLAG_KEYS`, `flags.<feature>_enabled`) → `fallback`
+  (per-chat master `memory.dream_enabled`) → `_global_flag_value` → False. Воркер передаёт `fallback=enabled`
+  (`dream_worker.py:587`). **Открытая связка (Medium S10.18-3):** `web/api/gates.py:68`, `allowed_features`,
+  `oversight.py:172` вызывают без `fallback` → при per-chat master ON / global OFF показывают OFF, хотя воркер
+  работает; `cognition_status.dream.enabled` не учитывает kill-switch.
+- **Реактивность (T-1761):** `DreamWorker.start()` регистрирует `dream_tick` + `deep_sleep_tick` **ВСЕГДА**
+  (`replace_existing=True`, `max_instances=1`, `coalesce=True`); решение — внутри тика/чата; `tick_minutes` и jitter
+  фиксируются на старте (`applies on restart`). Побочно: `_run` всегда вызывает `_maybe_decay`,
+  гейт только `flags.belief_decay_enabled` (Medium S10.18-4); чат-кандидаты читаются DB каждый тик (R2 spec).
+- **Manual-каскад (задел F2/ADR-1018-2 D2/D4):** `_maybe_deep_after_sleep(…, manual=True)` игнорирует
+  `flags.deep_sleep_enabled`/`trigger`; `_run_deep_all(manual=True)` не делает `break` после первого успеха;
+  `_run_deep_once(manual=True)` пропускает cooldown/суточный лимит (Medium S10.18-5, ограничитель `_deep_budget_ok`).
+- **LISTEN `chat_params_updated` (T-1764):** новый `services/chat_params_notify.py::ChatParamsNotify` — **отдельное**
+  `asyncpg.connect` (у `Pool.add_listener` нет; Critical R10.18-1 закрыт) + `_init_connection`; backoff 1→60 c с
+  сбросом; `finally` закрывает conn; колбэк sync → `asyncio.create_task(_safe_invalidate)` →
+  `chat_params.invalidate_chat_from_notify(payload)` (fail-open). Монтаж — `bot.py::_start_chat_params_listener`
+  (`:863-872`), вызов в `main()` сразу после `set_chat_params_cache` (`:900`); снятие — cancel в финальном
+  `finally` `main()` (`:1005-1010`). `stop()` класса не вызывается (Low S10.18-7).
+- **Статус-API (T-1762):** `web/api/memory_agi.py` — `deep_sleep_status` + `cognition_status` принимают
+  `chat_id: Query() = None`, резолвят рубильники через `resolve_setting_with_source`, аддитивно отдают
+  `source` (`chat|global|default`; в `cognition_status` — `{"dream":…, "deep_sleep":…}`), R16-совместимо.
+- **F1 `betterstack-us-region-401` (T-1703…T-1711, P0)** — хост обязателен: `BetterStackHandler.__init__(host)`
+  (`host=""`/whitespace → `ValueError`), `DEFAULT_HOST=""`; `bot.py` создаёт хендлер только при
+  `LOGTAIL_SOURCE_TOKEN and BETTERSTACK_HOST` (иначе WARNING-маркер, fail-safe; Medium S10.18-6 — логи в панель
+  полностью исчезнут, пока @DevOps не добавит переменную). Диагностика: `extract_sentry_public_key`
+  (regex userinfo DSN) + `token_equals_sentry_public_key` (`hmac.compare_digest`) → WARNING без блокировки старта;
+  attached-маркер `host + token_len + last4 + from=LOGTAIL_SOURCE_TOKEN` (R17-safe); `_HINT_401` про регион/токен.
+  `BETTERSTACK_SOURCE_TOKEN` НЕ читается; `logtail-python` удалён из `requirements.txt` + smoke переведён на
+  `BetterStackHandler`; новый `scripts/betterstack_host_token_probe.py` (host×token матрикс, dry-run, маскирование)
+  + `tests/test_betterstack_probe.py`. Каталог: `BETTERSTACK_HOST` в `_INFRA_ENV_ONLY` (category None, secret False).
+- **Статус находок 10.18 (итерация 2):** **CLOSED** — S10.18-1 (per-chat учёт расходов Сна, `chat_id` в
+  `count_dream_log`/`sum_dream_log_tokens`), S10.18-2 (`trigger`/`hour` per-chat в `_deep_tick`), S10.18-3
+  (`master_fallback` во всех статус-поверхностях + `dream.effective`), S10.18-4 (decay за `_dream_master_on()`),
+  S10.18-5 (manual-каскад: `only_chat` + кап 1), S10.18-6 (ERROR без хоста), S10.18-7 (`stop()` в `on_shutdown`),
+  S10.18-8/-9 (доки/спека), S10.18-10 (изоляция reload в тесте — restore в `finally`), S10.18-11 (`_pending`-ссылки +
+  отмена). **CLOSED (итерация 3, fix @Builder):** S10.18-15 (env-дефолт `master_fallback` =
+  `settings.DREAM_ENABLED`), S10.18-16 (мёртвые sync-хелперы `_window_open`/`_daily_limit`/`_budget_reason`
+  удалены), S10.18-17 (`_deep_tick` предгейт `_deep_fixed_possible()` + `ChatParamsCache.has_any_override`).
+  **OPEN (Info):**
+  S10.18-12 (`NostalgiaWorker` — остаточный РАЗРЫВ spec §2.3, backlog T-1764), S10.18-13 (pre-existing фрагмент
+  SSH-пароля в `plans/archive/security-rotation-finalize-round1016/spec.md:35`, R10.18-12, файл отслеживаемый),
+  S10.18-18…-20 (`?deep=1` без капа; `tokens_per_day` без фильтра `kind`; `previous` kill-switch = effective).
+- **Инварианты 10.18 (целы):** R16 (аддитивность `source`/`effective`), R17 (нет секретов: `last4`-маска,
+  маскирование probe), fail-open PG/кэш (бот жив), порядок роутеров `bot.py`, `media/`/`.env` не в скоупе,
+  DDL нет, SQLite v9 (`database.py` менялся только `WHERE chat_id` — без DDL), промпт-каноны не тронуты,
+  каталог 436/406/411/90/88/19.
+- Scan-отчёт: `plans/reports/round10.18_scanner_audit.md` (итерация 1: 0 Critical / **1 High** / 5 Medium / 5 Low /
+  3 Info; **итерация 2: 0 Critical / 0 High, 1 Medium / 2 Low / 5 Info открыто; БАТЧ 2 разрешён**;
+  pytest **6052/0**; каталог-интроспекция).
+
+## Round 10.18 — БАТЧ 2/3: F2 `sleep-manual-cascade-badges` (15.09.2026, HEAD 118a03c + рабочее дерево) — карта связностей
+
+- **Пороги Сна (T-1714/T-1769):** `config/settings.py:1091-1107` — code-дефолты 2/8/2/10/60/300000/10
+  (`DREAM_REPEAT_THRESHOLD`, `DREAM_IMPORTANCE_SUM_THRESHOLD`, `DREAM_MIN_NEW_FACTS_PER_CHAT`,
+  `DREAM_MAX_CLUSTERS_PER_RUN`, `DREAM_DISTILLATIONS_PER_DAY`, `DREAM_TOKENS_PER_DAY`,
+  `DREAM_QUIET_CHECK_MINUTES`); анти-мусор (`CLUSTER_OVERLAP_TOKENS=2`, `INITIAL_WINDOW_HOURS=168`) не тронут.
+  Новый `services/config_migrations.py::migrate_dream_thresholds(cache)` — идемпотентная DML-миграция
+  (правит PG только при равенстве прежнему дефолту 3/12/5/5/30/60000/30; кастом → WARNING; missing → skip;
+  PG down → skip), вызов в `bot.py:928-933` сразу после `migrate_prompt_canons`; `prompt_migrations.py` не тронут.
+  **Открытая связка (Low S10.18-24):** fallback-константы `_FALLBACK_MIN_CLUSTER_SIZE=2`/`_FALLBACK_MIN_IMPORTANCE_SUM=8`
+  теперь равны новым дефолтам → F3-fallback при дефолтах no-op.
+- **Manual-приоритет (T-1715/T-1767/T-1771):** `_process_chat(..., manual=True)` — kill-switch
+  `gates_enabled(chat_id,"dream", fallback=enabled)` обходится с аудитом `memory_dream_log(kind='skipped',
+  status='gate_override')` + WARNING `[dream] manual override: gate dream`; суточные бюджеты/near-limit — обход с
+  `status='budget_override'` (пре-аудит до цикла кластеров); `window_skip` обходится (как раньше);
+  `_dream_budget_ok`/`_deep_budget_ok` при `manual=True` выполняют 4 независимых `worker_budget.consume`
+  (global/chat × calls/tokens) и **не применяют verdict** (расход пишется, `PG down` → fail-open).
+  Неприкосновенны: `_run_lock`/`_deep_lock`, `protected_facts`, ≥2 реальных `source_ids`, R17/fail-safe,
+  `PERSONA_TRAITS_MAX`/дедуп, `flags.persona_enabled` (только WARNING `reason=persona_disabled`).
+  Фича-флагов нет (grep `sleep_manual_priority_enabled`/`sleep_relaxed_thresholds_enabled` — 0).
+- **Каскад (T-1716):** `run_once` → `_run` → `_maybe_deep_after_sleep(stats, manual=True, only_chat=chat_id)` →
+  `_run_deep_all(manual=True)` (без `break`) → `_run_deep_once(manual=True)` → `_run_persona_traits_once(manual=True)`.
+  Manual не гейтится `flags.deep_sleep_enabled`/`trigger`, не гейтится cooldown/`count_deep_attempts`;
+  `only_chat` → ровно целевой чат, без цели — `_MANUAL_DEEP_CASCADE_MAX=1`. Единая форма результата
+  `_deep_result(status, paradigms, tokens, traits)`; `run_once` отдаёт аддитивный
+  `stats["cascade"] = {"deep": {...}, "traits": {"written": N}}`.
+- **`_deep_tick` (R10.18-2/R10.18-17):** per-chat `memory.deep_sleep_trigger`+`deep_sleep_hour` по кандидатам
+  (`_deep_candidate_chat_ids` — общий путь с `_run_deep_all(None)`); дешёвый предгейт `_deep_fixed_possible()`
+  (глобальный 'fixed' ИЛИ `ChatParamsCache.has_any_override('memory.deep_sleep_trigger')`, in-memory).
+  **Открытая связка (Medium S10.18-21):** предгейт видит только ПРОГРЕТЫЙ кэш (`_items`/`_override_keys_seen`) →
+  per-chat `trigger='fixed'` при глобальном `after_sleep` может быть молча пропущен на «холодном» старте/после
+  NOTIFY-инвалидации (частичный откат R10.18-2; тесты покрывают лишь warm-cache).
+- **Диагностика Личности (T-1717/T-1770):** R17-safe reason-коды `no_self_facts`, `persona_disabled`,
+  `budget_skip`, `llm_error`, `json_error`(+`raw_len`), `empty_response`, `all_duplicates`, `write_error`.
+- **Бейджи/статус (T-1719/T-1720/T-1721):** `web/api/memory_agi.py:57-72` `_badge_active_until` (running вне окна →
+  `now+_DREAM_RUN_TIMEOUT_SECONDS=900`; в окне → `min(конец окна, now+900)`); аддитивные `dream.manual`/
+  `deep_sleep.manual` (+от F7 `effective`/`source`). Фронт: `dreamPhaseBadge`/`deepPhaseBadge` при `cognition==null` →
+  `'—'`/`badge-muted` (S10.17-2 закрыт); `runDreamNow` → оптимистичная `active` + немедленный `loadCognition()` +
+  `_retryCognition([1s,3s,8s])` + `restartCognitionPolling(5000, 120000)`. Общие хелперы
+  `_startCognitionTimer(ms)`/`_restoreCognitionPolling()`/`stopCognitionPolling()` (снимает interval + restore);
+  `setTab` вне «Статуса» → `stopCognitionPolling`.
+  **Открытая связка (Medium S10.18-22):** `_restoreCognitionPolling` стартует базовые 15с БЕЗ проверки `activeTab`
+  (а `closeModule` polling не снимает) → после ручного POST polling (6 GET/тик) идёт вне «Статуса» бессрочно, пока
+  не сменится вкладка; обоснован только пока открыта модалка «Сон» (бейджи `index.html:1039-1040`); JS-тест
+  фиксирует это поведение.
+- **F7-совместимость:** per-chat учёт бюджетов (S10.18-1) сохранён; `dist_max`/`tok_max` резолвятся per-chat один
+  раз до цикла кластеров (D8/T-1771). `feature_gates._master_fallback_default` → `settings.DREAM_ENABLED`
+  (**S10.18-15 закрыт**). Удалены мёртвые sync-хелперы (**S10.18-16 закрыт**).
+- **Инварианты Батча 2:** каталог Δ=0 (436/406/411/90/88/19), DDL нет (SQLite v9; v10 — только F3), R16-аддитивность
+  (`cascade`/`manual`/`effective`/`source`), R17 (логи только chat_id/числа/длины), порядок роутеров `bot.py` не тронут.
+- Scan-отчёт (Батч 2, §8): `plans/reports/round10.18_scanner_audit.md` — **0 Critical / 0 High**, 2 Medium
+  (S10.18-21/-22), 4 Low, 8 Info; закрыты S10.18-15/-16/-17. Валидатор: pytest **6083/0**, JS-гейты OK,
+  `git diff --check` exit 0. **Вердикт: к Батчу 3 (F3 граф + v10) — можно.**
+
+## Round 10.18 — БАТЧ 3/4: F3 `graph-density-scoring-stoplist` + F4 `graph-physics-stabilization` (15.09.2026) — карта связностей
+
+- **SQLite v10 (F3/T-1773, ADR-1018-3 D1):** `services/database.py` — `_SCHEMA_VERSION_EDGES_FACT_ID = 10`
+  (текущая цель `user_version`; 9 — историческая ступень), `_SCHEMA_SQL.edges` += `fact_id INTEGER` (nullable),
+  новый `_migrate_edges_fact_id_v10()` в цепочке `initialize()` после `_migrate_self_origin_v9()`: guard по
+  `PRAGMA table_info(edges)` → `ALTER TABLE edges ADD COLUMN fact_id`; `CREATE INDEX IF NOT EXISTS idx_edges_fact_id`
+  **вне guard и НЕ в `_SCHEMA_SQL`** (legacy-БД до миграции не имеет колонки); `PRAGMA user_version = 10` — безусловно,
+  после индекса → частичный сбой самовосстанавливается. Данные/FTS5/vec не затрагиваются; обратный путь —
+  DROP INDEX + DROP COLUMN + user_version=9 (docstring). Legacy-рёбра: `fact_id IS NULL` осознанно (backfill отклонён, A7).
+- **Скоринг (F3/T-1728):** `graph_snapshot(chat_id, max_nodes=800, max_edges=2400, seed_nodes=150)` (новые дефолты;
+  API `web/api/memory_agi.py:643` передаёт `GRAPH_MAX_NODES=800/GRAPH_MAX_EDGES=2400/GRAPH_SEED_NODES=150`).
+  `score(node) = Σ COALESCE(graph_facts.importance, edges.weight)` по инцидентным рёбрам (`edges.fact_id` v10,
+  `LEFT JOIN graph_facts f ON f.id = e.fact_id`); `degree` — отдельная метрика (фронт `_graphSignature`), не сортировка;
+  tie-break `score DESC, degree DESC, id ASC`; кандидатный пул `max(seed×10, 2000)` + Python-ранжирование (D8).
+  **Открытая связка (Medium S10.18-30):** ×2-фаза (per-node `re.search` по belief-блобу) доминирует в перфе
+  (~176 мс при 200 beliefs; до секунд при тысячах) и выполняется в event loop на каждый `GET /api/memory/graph`
+  (polling 15с / 5с при manual) — «SQL-часть» ≈59 мс на 15k рёбер совпадает с заявленным бюджетом, полный вызов ≈238 мс.
+- **STOP_LIST (F3/T-1730):** новый `services/graph_stoplist.py` — `GRAPH_CENTER_STOPLIST`
+  {видеосообщение, голосовое, сообщение, фото, кружочек, ссылка} (фильтр **только сидов**) и
+  `METAFACT_PENALTY_STOPLIST` (+«стикер», −«сообщение») для переиспользования F5; `normalize_token`
+  (casefold + ё→е + срез краевой пунктуации), `is_center_stopword`/`is_metafact_stopword`. Единый источник, Δ каталога = 0.
+- **×2 за Убеждение/Парадигму (F3/T-1728, D4):** `_belief_participation_blob(chat_id)` — текст живых
+  (`kind='belief'`, `status='confirmed'`, `supersedes IS NULL`) beliefs, casefold+ё→е; матч по **границам токенов**
+  `(?<![\wё])re.escape(name)(?![\wё])` (substring исключён, многословные имена поддерживаются); fail-open → ×1.
+- **Атомарность fact+edge (F3/T-1774, B3-5):** `insert_graph_fact(..., commit=False)` + `upsert_edge(..., fact_id=…,
+  commit=False)` + единый `self.db.db.commit()`, `except → rollback; raise` (`services/summary_memory.py:1832-1852`);
+  `upsert_edge` += `fact_id`/`commit`, `ON CONFLICT … fact_id = COALESCE(excluded.fact_id, edges.fact_id)`;
+  cron-путь `_extract_and_save_graph` — осознанный `fact_id=NULL`; остальные 8 сайтов `insert_graph_fact` и все
+  `upsert_edge` — дефолт `commit=True` (поведение не изменилось).
+- **Плотность/Canvas:** 150 сидов → окрестность 1 шаг → рёбра только с обоими концами (S10.13-14) → очистка сирот →
+  cap 800/2400 ПОСЛЕ расширения; `truncated` = cap узлов/рёбер/сироты (фронт «показаны не все»). Каталог Δ=0.
+- **F4 `graph-physics-stabilization` (ADR-1018-4):** `web/app.js` — `GRAPH_PHYSICS_ITERATIONS=150`,
+  `GRAPH_PHYSICS_DISABLE_ON_STABILIZE=true`; `net.once('stabilizationIterationsDone'|'stabilized')` →
+  `setOptions({physics:{enabled:false}})` под guard **только по тождеству** `net === this.cognitionNetwork`
+  (в self-host v9.1.9 нет `destroyed`/`isDestroyed`); `once` (не `on`) → нет накопления; `reducedMotion` → `physics:false`
+  и слушатели не навешиваются; `renderCognitionGraph` → destroy-before-create + early-return по `_graphSignature`;
+  поиск/подсветка/бейджи не тронуты.
+- **S10.18-закрытия Батча 3:** S10.18-21 (предгейт `_deep_tick` удалён; `has_any_override`/`note_overrides` убраны
+  из `chat_params.py`), S10.18-22 (`_restoreCognitionPolling` — 15с только на «Статусе»; `closeModule` вне вкладки
+  гасит polling), S10.18-23 (маркеры `manual_run_active`/`manual_deep_active` + `_MANUAL_RUN_MARKER_SECONDS=900`),
+  S10.18-24 (`_FALLBACK_MIN_IMPORTANCE_SUM=6` < дефолта 8), S10.18-25 (`0` = «без лимита» в near-limit),
+  S10.18-26 (ретраи `_cognitionRetryTimers` снимаются; порядок restart→retry в `runDreamNow`).
+  **Новый Low S10.18-29:** manual-каскад (`run_once(deep=False)`) не ставит `_manual_deep_until` → `deep_sleep.manual=False`
+  и `active_until=None` во время deep-фазы каскада вне окна.
+- **Инварианты Батча 3:** каталог Δ=0, SQLite v10 (миграция аддитивна/идемпотентна/обратима), R16 (`limits`
+  в `/api/memory/graph` аддитивно; `id/label/group/degree` без изменений), R17 (STOP_LIST/×2 без текстов в логах),
+  порядок роутеров `bot.py` не тронут.
+- Scan-отчёт (Батч 3, §9): `plans/reports/round10.18_scanner_audit.md` — **0 Critical / 0 High**, 1 Medium
+  (S10.18-30), 1 Low (S10.18-29), 8 Info. Валидатор: pytest **6104/0**, JS-гейты OK, `git diff --check` exit 0.
+  **Вердикт: к Батчу 4 (F5 + F6) — можно.**
+
+## Round 10.18 — БАТЧ 4/4: F5 `metafact-penalty-extractor-prompt` + F6 `role-matrix-settings-actualization` (15.09.2026) — карта связностей
+
+- **F5 хард-лимит мета-фактов (T-1744, ADR-1018-5 D2/D3):** `services/graph_stoplist.py` +=
+  `METAFACT_PENALTY_IMPORTANCE = 1`; `services/database.py::insert_graph_fact` += аддитивные
+  `subject/object` (в конце сигнатуры → позиционная совместимость 8 call-сайтов сохранена) и после `imp`:
+  `if is_metafact_stopword(subject) or is_metafact_stopword(object): imp = min(imp, 1)` — централизованно,
+  перекрывает `rule_importance` и явный `importance`; `_memorize_facts_inner` передаёт `subject/object`
+  (единственный покрытый путь — осознанное ограничение D2/spec §9 Q3). **Открытый Low S10.18-35:** эпи-мерж
+  (`services/memory_maintenance.py:250-258`) ре-вычисляет importance от origin (chat_history → 4) → слитый
+  мета-факт теряет пенальти.
+- **F5 промпт-канон (T-1743, ADR-1013-3):** `services/summary_memory.py` — `PREV_FACT_EXTRACT_PROMPT`
+  (байт-в-байт прежний, 649 симв., проверено AST-пробой) + новый `FACT_EXTRACT_PROMPT = PREV + 335-байтный
+  аддитивный блок «ФОКУС НА СОДЕРЖАНИИ»`; `PROMPT_MIGRATIONS` **не расширен**; `EXTRACT_PROMPT`
+  (`prompts.extract_system_prompt`, крон) не тронут; эталон — `plans/docs/canon/backlog.md` (байт-тест).
+- **F5 RAG-множитель (T-1746, ADR-1018-5 D7/B4-1):** `_importance_factor(imp)=0.5+0.05·clamp(1..10)` ∈ [0.55, 1.0]
+  (`summary_memory.py:235-249`), применяется в **обеих** ветках `_search_graph_facts` (FTS-фолбек `:2349-2351`,
+  KNN `cosine×w_eff×factor` `:2410`) — ветки взаимоисключающи (двойного применения нет); `f.importance` добавлен
+  в SELECT `search_graph_facts_fts` (`database.py:2637`) и `get_graph_fact_records` (`:3448`);
+  MMR/дедуп/`touch`/resurrection используют тот же `score`; golden-путь — отдельный SQL-порог. **Info S10.18-37:**
+  множитель меняет RAG-порядок для всех чатов (weight×decay → ×importance) — нужна живая проверка.
+- **F6 nav-разметка матрицы (T-1752, ADR-1018-6 D1/D2/D3):** `services/param_catalog.py` — Python-метаданные
+  `NAV_MODULES/NAV_AI/NAV_PERMSOC`, `NAV_TITLES`, `NAV_ORDER=("modules","ai","permsoc")`, `TAB_NAV` (все 19 вкладок),
+  `tab_nav()`; `CONFIG_TAB_TITLES[TAB_PERMSOC]` = «PERMsoc» (дрейф устранён); `web/api/access.py::param_permissions_list`
+  += аддитивные `nav/nav_title/nav_order` (R16; 403/форма прав не изменены); `web/app.js::matrixSections` группирует
+  nav → секция (`TAB_SECTION_ORDER`, fallback `cat:<category>`) → группа → параметры, JS-зеркало
+  `NAV_GROUP_ORDER`/`NAV_GROUP_TITLES` закреплено parity-тестом; `web/index.html` — вложенный шаблон.
+  Фактически **4** nav-группы: 3 backend + «Прочее» (`it.nav || 'other'`) для 5 content-параметров с `tab=None`
+  (`MEDIA_PUBLIC_BASE_URL`, `MEDIA_SHARE_DIR`, `content.info_how_it_works`, `content.intelligence_guide`,
+  `content.no_key_reply`; проверено интроспекцией: nav-распределение 161/180/65/5 = 411). **Info S10.18-36:**
+  spec §3.1 говорит «3 nav» — синхронизировать с ADR D4 (B4-info(a)).
+- **Сквозная интеграция (F1–F7):** конфликтов между батчами нет — F3-скоринг (`Σ importance` в `graph_snapshot`)
+  и F5-множитель живут в разных read-путях; мета-факты (imp=1) вносят минимум и в сиды F3, и в RAG F5, и не
+  проходят гейты Сна (поведенческий тест); F4-физика рассчитана на плотность F3 (500–800); F7 per-chat accessor
+  не конфликтует с F5/F6; F1 — единственный Δ каталога (+1).
+- **Итоговые инварианты эпика 10.18:** каталог **436/406/411/90/88/19**, SQLite **v10**, R16 (все новые поля
+  аддитивны), R17 (логи без секретов/текстов), fail-open, порядок роутеров `bot.py` не тронут.
+- Scan-отчёт (Батч 4, §10 + итог эпика §10.4): `plans/reports/round10.18_scanner_audit.md` — Батч 4:
+  **0 Critical / 0 High**, 1 Low (S10.18-35), 3 Info (S10.18-36/-37/-38). Валидатор: pytest **6137/0**,
+  JS-гейты OK, `git diff --check` exit 0. **Вердикт эпика: 0 Critical / 0 High → к @Reviewer/@PM →
+  Merge/архивация → деплой @DevOps** (открыто 1 Medium S10.18-30, 2 Low, 11 Info; блокеров нет).
+
+
 
 ## Round 10.17 (2026-09-14, F1–F5, HEAD 772f192 + рабочее дерево) — карта связностей
 

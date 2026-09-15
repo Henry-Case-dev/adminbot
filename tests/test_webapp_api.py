@@ -1340,14 +1340,28 @@ class TestParamPermissionFlagsApi:
         # D4: секция = config-вкладка мини-аппа, а не внутренняя категория.
         assert m["tab"] == "mod_search"
         assert m["tab_title"] == "Поиск"
+        # F6 (T-1752, ADR-1018-6 D2): аддитивные nav/nav_title/nav_order.
+        assert m["nav"] == "modules"
+        assert m["nav_title"] == "Модули"
+        assert m["nav_order"] == 0
         assert items["models.llm_base_url"]["tab"] == "llm_providers"
         assert items["models.llm_base_url"]["tab_title"] == "LLM Провайдеры"
+        assert items["models.llm_base_url"]["nav"] == "ai"
+        assert items["models.llm_base_url"]["nav_title"] == "ИИ"
+        assert items["models.llm_base_url"]["nav_order"] == 1
         assert items["keys.groq_api_key"]["tab"] == "llm_providers"
         assert items["prompts.summary_system_prompt"]["tab"] == "prompts"
         assert items["prompts.summary_system_prompt"]["tab_title"] == "Промпты"
-        # у каждого параметра секция-метаданные присутствуют (key есть)
+        # у каждого параметра секция-метаданные присутствуют (key есть);
+        # F6: nav заполнен для config-параметров, None — для content без tab.
+        nav_titles = {"modules": "Модули", "ai": "ИИ", "permsoc": "PERMsoc"}
         for key, it in items.items():
             assert "tab" in it and "tab_title" in it, key
+            if it["nav"] is not None:
+                assert it["nav"] in nav_titles, key
+                assert it["nav_title"] == nav_titles[it["nav"]], key
+            else:
+                assert it["nav_title"] is None, key
 
     def test_put_flags_new_shape(self, client):
         from services import access as access_srv

@@ -48,8 +48,9 @@ class TestCatalogParity:
         # 10.14 (F1 anti-echo-self-reply): +2/+2 → 429/401 (локальный Δ).
         # 10.14 (F2 persona-storage-core): +1/+1 (PERSONA_ENABLED) → 430/402.
         # 10.14 (F8 self-reflection-llm-provider): +4/+4 (INTEL_REFLECTION_*)
-        # → 434/406; 10.14 (F6 help-guide-integration): +1 PG-only → 435/406.
-        assert len(REGISTRY) == 435, len(REGISTRY)
+        # → 434/406; 10.14 (F6 help-guide-integration): +1 PG-only → 435/406;
+        # 10.18 (F1): +1 env-only BETTERSTACK_HOST (ADR-1018-1 D3) → 436/406.
+        assert len(REGISTRY) == 436, len(REGISTRY)
         assert len(GROUPS) == 90
         from config.settings import Settings
         import dataclasses

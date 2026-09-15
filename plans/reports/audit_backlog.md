@@ -3,6 +3,142 @@
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
+## Round 10.18 БАТЧ 4 (финал эпика) scan (2026-09-15) — all scanned (diff-based: F5 `metafact-penalty-extractor-prompt` + F6 `role-matrix-settings-actualization`, HEAD 118a03c + worktree)
+- [x] services/graph_stoplist.py (F5: `METAFACT_PENALTY_IMPORTANCE=1`, `is_metafact_stopword`; списки centers≠penalty — чисто)
+- [x] services/database.py (F5: `insert_graph_fact` += `subject/object` + централизованный срез `imp=min(imp,1)`;
+      `f.importance` в SELECT `search_graph_facts_fts`/`get_graph_fact_records`. Находка: S10.18-35)
+- [x] services/summary_memory.py (F5: `PREV_FACT_EXTRACT_PROMPT` байт-в-байт + аддитивный канон (AST-проба);
+      `_importance_factor` в FTS+KNN ветках `_search_graph_facts` (взаимоисключающие → нет двойного применения); S10.18-37)
+- [x] services/param_catalog.py (F6: `NAV_*`/`NAV_TITLES`/`NAV_ORDER`/`TAB_NAV`/`tab_nav`, `CONFIG_TAB_TITLES[PERMsoc]`=«PERMsoc»; Δ=0)
+- [x] web/api/access.py (`param_permissions_list` += `nav/nav_title/nav_order`, R16; 403/форма прав не изменены)
+- [x] web/app.js + web/index.html (F6: `matrixSections` по nav, `NAV_GROUP_ORDER/TITLES` — parity-тест, вложенный шаблон, «Прочее»; S10.18-36)
+- [x] tests/test_metafact_penalty_round1018.py (новый: канон-байты, стоп-листы, срез (обе стороны/нормализация/явный importance),
+      memorise-путь, поведенческий гейт Сна, RAG FTS/KNN/золотые, границы множителя) + test_frontend_tab_mapping/test_webapp_api
+- **Открыто (Батч 4):**
+  - [ ] **S10.18-35 [low, new]** F5-срез покрывает только memorise-путь; эпи-мерж (`memory_maintenance.py:250-258`)
+        ре-вычисляет importance от origin → слитый мета-факт теряет пенальти (imp 1→4) → прокинуть пенальти в merge.
+  - Info: S10.18-36 (spec §3.1 «3 nav» vs фактические 4 группы с «Прочее» — синхронизировать с ADR D4),
+    S10.18-37 (F5-множитель меняет RAG-порядок всех чатов — живая проверка), S10.18-38 (сводка остатков эпика).
+- **СВОДКА ЭПИКА 10.18 (F1–F7, батчи 1–4): Critical 0 / High 0 / Medium 1 (S10.18-30) / Low 2 (S10.18-29, -35) / Info 11.**
+  **Вердикт: эпик готов к @Reviewer/@PM (T-1749/T-1757) → Merge/архивация → деплой @DevOps**; до деплоя желательно
+  закрыть S10.18-30 (перф ×2-фазы `graph_snapshot`).
+- Валидатор @Scanner (независимо): pytest **6137 passed / 0 failed** (67.8 c); `node --check web/app.js` OK;
+  `routing_test.js` `JS-UNIT-OK`; `vue_mount_test.js` `VUE-MOUNT-OK`; `git diff --check` exit 0; каталог 436/406/411/90/88/19;
+  SQLite v10; nav-интроспекция 161/180/65/5 = 411.
+
+## Round 10.18 БАТЧ 3 scan (2026-09-15) — all scanned (diff-based: F3 `graph-density-scoring-stoplist` + F4 `graph-physics-stabilization`, HEAD 118a03c + worktree)
+- [x] services/database.py (F3: миграция v10 `_migrate_edges_fact_id_v10` (guard/индекс вне `_SCHEMA_SQL`/user_version=10),
+      `graph_snapshot` (score=Σ importance, bound-pool, STOP_LIST центров, ×2, cap 800/2400, сироты/truncated),
+      `_belief_participation_blob`, `upsert_edge(fact_id, commit)`, `insert_graph_fact(commit)`. Находки: S10.18-30/-32/-33)
+- [x] services/graph_stoplist.py (новый: centers/penalty списки, normalize_token/predicates — чисто; S10.18-31)
+- [x] services/summary_memory.py (атомарность fact+edge: commit=False ×2 + единый commit + rollback; cron-путь NULL)
+- [x] web/api/memory_agi.py (лимиты 800/2400/150; `limits` аддитивно; manual-маркеры/`_badge_active_until`; S10.18-29)
+- [x] web/app.js (F4: physics 150 + `once`-авто-отключение, guard по тождеству, reducedMotion; S10.18-22/-26 закрыты)
+- [x] tests/test_graph_scoring_round1018.py (новый: миграция/fresh/legacy/FTS, скоринг/degree, STOP_LIST, ×2/substring/multiword,
+      fact_id-путь/COALESCE/атомарность, плотность 500–800, константы) + 11 обновлённых тестов (user_version 9→10)
+- **Закрыто в Батче 3:** S10.18-21 [medium] (предгейт `_deep_tick` + `has_any_override` удалены), S10.18-22 [medium]
+  (restore-polling только на «Статусе» + `closeModule`), S10.18-23 [low] (manual-маркеры воркера), S10.18-24 [low]
+  (`_FALLBACK_MIN_IMPORTANCE_SUM=6`), S10.18-25 [low] (`0` = «без лимита»), S10.18-26 [info] (ретраи снимаются).
+- **Открыто (Батч 3):**
+  - [ ] **S10.18-30 [medium, new]** перф ×2-фазы `graph_snapshot` (`database.py:3796-3833`): замер — полный ≈238 мс
+        (15k рёбер/200 beliefs), SQL ≈59 мс, ×2-цикл ≈176 мс; линейно растёт с belief-блобом (≈2.3 с при 4000, ≈6.5 с при 10 000);
+        выполняется в event loop на каждый `/api/memory/graph` (15с / 5с при manual) → заменить на O(1)-множество токенов/кэш.
+  - [ ] **S10.18-29 [low, new]** `run_once(deep=False)` не ставит `_manual_deep_until` → `deep_sleep.manual=False` и
+        `active_until=None` во время deep-фазы manual-каскада вне окна; TTL 900с не связан с локами.
+  - Info (open): S10.18-31 (варианты STOP_LIST с дефисом/пробелом), S10.18-32 (self-loop ×2 в degree/score),
+    S10.18-33 (`upsert_edge` при отсутствии узла → факт без ребра), S10.18-34 (S10.18-18/-19/-20 из Батча 1),
+    плюс S10.18-12 (nostalgia backlog T-1764), S10.18-13 (SSH-фрагмент, вне батча).
+  - **ВЕРДИКТ: БАТЧ 4 (F5 экстрактор + F6 матрица ролей) РАЗРЕШЁН** (0 Critical / 0 High).
+- Валидатор @Scanner (независимо): pytest **6104 passed / 0 failed** (75.4 c); `node --check web/app.js` OK;
+  `routing_test.js` `JS-UNIT-OK`; `vue_mount_test.js` `VUE-MOUNT-OK`; `git diff --check` exit 0; каталог 436/406/411/90/88/19;
+  SQLite v10 (миграция проверена пробой fresh/legacy/idempotent).
+
+## Round 10.18 БАТЧ 2 scan (2026-09-15) — all scanned (diff-based: F2 `sleep-manual-cascade-badges`, HEAD 118a03c + worktree)
+- [x] services/dream_worker.py (F2: manual-обход gate (`gate_override`)/бюджетов (`budget_override`)/near-limit/window;
+      `_dream_budget_ok`/`_deep_budget_ok(manual=True)` — 4 независимых `consume`, verdict игнорируется; каскад
+      `_maybe_deep_after_sleep(manual, only_chat)` + `_MANUAL_DEEP_CASCADE_MAX=1`; `_deep_result`; `_deep_fixed_possible`;
+      `_run_persona_traits_once` reason-коды. Находки: S10.18-21/-23/-24/-25/-27)
+- [x] services/config_migrations.py (новый; `migrate_dream_thresholds`: идемпотентность/кастом/PG down — чисто)
+- [x] config/settings.py (пороги 2/8/2/10/60/300000/10; DREAM/DEEP_ENABLED оставлены False — S10.18-28)
+- [x] bot.py (вызов `migrate_dream_thresholds` после `migrate_prompt_canons`; маркер BetterStack без `last4`)
+- [x] web/api/memory_agi.py (`_badge_active_until`; `dream/deep_sleep.manual`; `effective`/`source` — S10.18-23)
+- [x] web/app.js (S10.17-2 закрыт; оптимистичная `active`; `_retryCognition`; `restartCognitionPolling`/restore — S10.18-22/-26)
+- [x] services/param_catalog.py (тексты порогов/DREAM_ENABLED; Δ=0) + services/feature_gates.py (`_master_fallback_default` — S10.18-15 closed)
+- [x] services/chat_params.py (`has_any_override`/`note_overrides`/`_override_keys_seen` — S10.18-21)
+- [x] tests/* (новый `test_sleep_manual_cascade_round1018.py` + deep_sleep/dream_worker/webapp1015/smoke1016/fallback1015/persona_traits/chat_params/js-routing)
+- **Закрыто в Батче 2:** S10.18-15 [medium] (`settings.DREAM_ENABLED`-дефолт), S10.18-16 [low] (мёртвые sync-хелперы), S10.18-17 [low] (`_deep_fixed_possible`).
+- **Открыто (Батч 2):**
+  - [ ] **S10.18-21 [medium, new]** предгейт `_deep_tick` (`dream_worker.py:1282-1333`, `chat_params.py:150-183`) видит
+        только прогретый кэш → per-chat `trigger='fixed'` молча пропускается на cold-start/после NOTIFY (откат R10.18-2).
+  - [ ] **S10.18-22 [medium, new]** `_restoreCognitionPolling` (`app.js:5440-5463`, `closeModule:2371-2373`) стартует 15с
+        без гейта `activeTab` и не снимается при закрытии модалки → polling вне «Статуса» бессрочно (JS-тест фиксирует).
+  - [ ] **S10.18-23 [low, new]** `manual = running && !in_window` (`memory_agi.py:590-601`) — авто-тик вне окна помечается
+        «ручным»; `active_until` 900с для него.
+  - [ ] **S10.18-24 [low, new]** дефолты 2/8 == fallback-константы (`dream_worker.py:168-170`) → F3-fallback no-op.
+  - [ ] **S10.18-25 [low, new]** `0` как per-chat лимит противоречив (`dream_worker.py:723-733`).
+  - Info: S10.18-26 (`_retryCognition` без очистки), S10.18-27 (manual deep без кап/cooldown — принято),
+    S10.18-28 (`DREAM_ENABLED`/`DEEP_SLEEP_ENABLED` False; T-1713/T-1724/T-1725/T-1726/T-1772 открыты);
+    плюс из Батча 1: S10.18-12 (nostalgia backlog T-1764), S10.18-13 (SSH-фрагмент R10.18-12, вне батча),
+    S10.18-18…-20.
+  - **ВЕРДИКТ: БАТЧ 3 (F3 граф + миграция v10) РАЗРЕШЁН** (0 Critical / 0 High).
+- Валидатор @Scanner (независимо): pytest **6083 passed / 0 failed** (69.6 c); `node --check web/app.js` OK;
+  `routing_test.js` `JS-UNIT-OK`; `vue_mount_test.js` `VUE-MOUNT-OK`; `git diff --check` exit 0; каталог 436/406/411/90/88/19.
+
+## Round 10.18 scan (2026-09-15, БАТЧ 1/3) — all scanned (diff-based: F7 settings-worker-sync + F1 betterstack-us-region-401, HEAD 118a03c + worktree)
+- [x] services/worker_settings.py (F7: `resolve_setting`/`_with_source`/`_cached`/`setting_source`; сентинел `hot.get(key,_SENTINEL)`
+      проходит `_coerce` без изменений — интроспекция `_cast_to_type`; каст == `chat_params._resolve_from_root`; fail-open)
+- [x] services/dream_worker.py (F7: `_key_for`/`_window_open_for`/`_daily_limit_for`/`_budget_reason_for`; `start()` регистрирует
+      джобы ВСЕГДА; `_maybe_deep_after_sleep(…, manual)`; gate-fallback per-chat. Находки: S10.18-1…-5)
+- [x] services/feature_gates.py (F7: `_explicit_flag_value` + `fallback`; без fallback поведение прежних вызовов не изменилось — grep 5 callers)
+- [x] services/chat_params.py (`invalidate_chat_from_notify` — fail-open) + services/chat_params_notify.py (LISTEN на отдельном
+      `asyncpg.connect` + backoff + закрытие conn; `stop()` не вызывается — S10.18-7; untracked tasks — S10.18-11)
+- [x] services/betterstack_handler.py (F1: host обязателен, `DEFAULT_HOST=""`, `extract_sentry_public_key`,
+      `token_equals_sentry_public_key`, `_HINT_401`; S10.18-8 доки)
+- [x] bot.py (F1 attach/skip-маркеры + last4; F7 `_start_chat_params_listener` + cancel на shutdown; stale-коммент :565)
+- [x] services/param_catalog.py (`BETTERSTACK_HOST` в `_INFRA_ENV_ONLY`, REGISTRY 436)
+- [x] web/api/memory_agi.py (chat_id-резолв + аддитивный `source`; S10.18-3 kill-switch не учитывается)
+- [x] web/index.html (hint-ссылка на `#/ai/memory` — маршрут существует, TAB_RULES не расширен)
+- [x] scripts/betterstack_host_token_probe.py + tests/test_betterstack_probe.py (матrix host×token, dry-run, R17-маскирование)
+- [x] tests/* (settings_worker_sync_round1018, dream_worker, betterstack_handler, monitoring_smoke, param_catalog, 12 пин-тестов каталога)
+- [x] plans/* (spec/adr/tasks F1+F7, backlog 10.18, ARCHITECTURE/README — drift S10.18-8/-9)
+- **ЗАКРЫТО @Builder (10.18, Батч 1):**
+  - [x] **S10.18-1 [high]** per-chat суточные лимиты Сна vs глобальные счётчики — `count_dream_log`/`sum_dream_log_tokens`
+        получили `chat_id`; `_process_chat` считает расход по чату; регресс-тест `TestPerChatBudget`.
+  - [x] **S10.18-2 [medium]** per-chat `deep_sleep_trigger`/`hour` в `_deep_tick` (+`_deep_candidate_chat_ids`); тесты.
+  - [x] **S10.18-3 [medium]** статусы используют тот же fallback, что воркер (`feature_gates.master_fallback`); `cognition`
+        отдаёт `dream.effective`, `active` по нему; тесты `TestStatusMatchesWorkerBehavior`.
+  - [x] **S10.18-4 [medium]** decay гейтится глобальным master Сна (`TestDecayGatedByDreamMaster`).
+  - [x] **S10.18-5 [medium]** manual-каскад по целевому чату + кап (`TestManualDeepCascade`).
+  - [x] **S10.18-6 [medium]** нет `BETTERSTACK_HOST` → ERROR «логи НЕ отправляются»; тесты обновлены.
+  - [x] S10.18-7…-11 [low] — `stop()` вызывается в `on_shutdown`; сильные ссылки на `create_task` в `_on_notify`; stale-доки
+        (bot.py/ARCHITECTURE/README) синхронизированы; спека F1 §9 Q4 ↔ T-1706 и docstring `mask`; изоляция reload
+        `config.settings` в тесте (restore `settings_mod.settings` + pop `bot` в `finally`).
+  - [x] Гигиена: `test_tool_download_quality_round1017` ищет ADR в `plans/archive/`.
+  - Info: S10.18-12 (Nostalgia backlog + задача есть), S10.18-13 (SSH-фрагмент, R10.18-12 — вне батча), S10.18-14 (инварианты целы).
+- **⏱ Итерация 2 @Scanner (повторный аудит, 15.09.2026) — CLOSED S10.18-1…-11, -14 (11 закрыто); OPEN:**
+  - [x] **S10.18-15 [medium, new]** `services/feature_gates.py:55-72` — `master_fallback` default `False` ≠
+        `settings.DREAM_ENABLED`: env `DREAM_ENABLED=true` + нет DB-ключа `memory.dream_enabled` → воркер ON, статус
+        гейтов/`cognition.effective` OFF (воспроизведено скриптом). Фикс — default из `settings`.
+        **CLOSED (fix @Builder, итерация 3):** `_master_fallback_default("dream")=settings.DREAM_ENABLED`; тесты
+        `test_master_fallback_default_matches_worker_env_on/_off`.
+  - [x] **S10.18-16 [low, new]** `services/dream_worker.py:753,766,784-793` — мёртвые sync-хелперы
+        `_window_open`/`_daily_limit`/`_budget_reason` (0 вызовов в проде и тестах) → удалить/deprecate.
+        **CLOSED (fix @Builder, итерация 3):** удалены; `_key()` сохранён.
+  - [x] **S10.18-17 [low, new]** `services/dream_worker.py:1205-1230` — `_deep_tick` делает `get_dream_candidate_chats`
+        + N per-chat resolve каждый тик (60 мин) даже без `fixed`-чатов (раньше ранний return без I/O) → дешёвый предгейт.
+        **CLOSED (fix @Builder, итерация 3):** `_deep_fixed_possible()` + `ChatParamsCache.has_any_override`; тесты
+        `test_deep_tick_skips_candidate_sql_when_disabled` / `test_deep_tick_proceeds_when_per_chat_override`.
+  - Info (open): S10.18-12 (Nostalgia/backlog T-1764), S10.18-13 (SSH-фрагмент, R10.18-12, вне батча),
+    S10.18-18 (`?deep=1` без капа — осознанно), S10.18-19 (`tokens_per_day` без фильтра `kind` — pre-existing),
+    S10.18-20 (`previous` kill-switch = effective — семантика поля).
+  - **ВЕРДИКТ итерации 2: БАТЧ 2 (F2) РАЗРЕШЁН** (0 Critical / 0 High).
+- Валидатор @Builder (итерация 3): pytest **6057 passed / 0 failed**; `node --check web/app.js` clean; `JS-UNIT-OK`;
+  `VUE-MOUNT-OK`; `git diff --check` clean; каталог-интроспекция 436/406/411/90/88/19; SQLite v9.
+- Валидатор @Builder (итерация 1): pytest **6052 passed / 0 failed**; `node --check web/app.js` clean; `JS-UNIT-OK`; `VUE-MOUNT-OK`;
+  `git diff --check` clean; каталог-интроспекция 436/406/411/90/88/19; SQLite v9; `logtail`-импортов нет.
+- Валидатор @Scanner (независимо): pytest **6052 passed / 0 failed** (75.6 c); целевые 10.18 — 121 passed;
+  `git ls-files` подтверждает трекинг архивного `spec.md` с фрагментом пароля (S10.18-13).
+
 ## Round 10.17 scan (2026-09-14) — all scanned (diff-based, 5 фич F1–F5, HEAD 772f192 + worktree)
 - [x] services/tool_router.py (F2: `_download_media` probe→меню→`needs_quality`; `_download_now` direct/явное
       качество/bounded fallback; `store/peek/pop_tool_download_pending` TTL 600; `_quality_arg`; R17-логи без URL)

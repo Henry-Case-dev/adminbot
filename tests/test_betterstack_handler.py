@@ -8,10 +8,12 @@ context.runtime+system); emit→буфер→flush с моком urllib.request.
 (записи модульного логгера не эхосируются); close() досылает остаток; стартовые
 маркеры attached/skipped + aiogram.event=WARNING (bot.py-импорт, AC-B4/B6).
 
-Токен читается строго из LOGTAIL_SOURCE_TOKEN (общий для Errors и Logs;
-BETTERSTACK_SOURCE_TOKEN игнорируется; содержимое токена не проверяется —
-никаких эвристик/Sentry-сравнений). 401 → WARNING с нейтральной подсказкой
-(проверьте source token; значение токена НЕ в логе; rate-gate ≤1/60с жив).
+Токен читается строго из LOGTAIL_SOURCE_TOKEN (общий для Errors и Logs).
+Хост обязателен и берётся из BETTERSTACK_HOST (F1/ADR-1018-1): ctor без
+хоста → ValueError; неявный EU-дефолт удалён. Дополнительно —
+детерминированная проверка `token_equals_sentry_public_key`. 401 → WARNING с
+нейтральной подсказкой (регион хоста + Source Token; значение токена НЕ в
+логе; rate-gate ≤1/60с жив).
 """
 import json
 import logging
@@ -22,7 +24,9 @@ import pytest
 
 from services.betterstack_handler import (
     BetterStackHandler,
+    extract_sentry_public_key,
     make_betterstack_frame,
+    token_equals_sentry_public_key,
 )
 from services.log_ring import sanitize
 
@@ -60,8 +64,8 @@ class _StatusResponse:
 def handler():
     # flush_interval большой: фоновый флашер спит — тесты флашат явно (flush),
     # детерминированно (батч не уходит в сеть между emit и flush сам собой).
-    h = BetterStackHandler(source_token="t" * 32, buffer_size=50,
-                           flush_interval=10.0)
+    h = BetterStackHandler(source_token="t" * 32, host="test.invalid",
+                           buffer_size=50, flush_interval=10.0)
     yield h
     try:
         h.close()
@@ -126,7 +130,7 @@ class TestPosting:
         handler.flush()
         assert len(posts) == 1
         req = posts[0]
-        assert req.full_url == f"https://in.logs.betterstack.com/{'t' * 32}"
+        assert req.full_url == f"https://test.invalid/{'t' * 32}"
         assert req.method == "POST"
         headers = {k.lower(): v for k, v in req.headers.items()}
         assert headers["content-type"] == "application/json"
@@ -241,7 +245,8 @@ class TestPosting:
                 return _OkResponse()
 
         monkeypatch.setattr("urllib.request.urlopen", _Capture())
-        h = BetterStackHandler(source_token="t" * 8, buffer_size=3,
+        h = BetterStackHandler(source_token="t" * 8, host="test.invalid",
+                               buffer_size=3,
                                flush_interval=10.0)   # флашер спит
         try:
             with caplog.at_level(logging.WARNING,
@@ -295,8 +300,8 @@ class TestLifecycle:
                 return _OkResponse()
 
         monkeypatch.setattr("urllib.request.urlopen", _Capture())
-        h = BetterStackHandler(source_token="t" * 8, buffer_size=50,
-                               flush_interval=10.0)
+        h = BetterStackHandler(source_token="t" * 8, host="test.invalid",
+                               buffer_size=50, flush_interval=10.0)
         h.emit(_make_record(msg="перед закрытием"))
         h.close()                                    # досыл остатка
         assert len(posts) == 1
@@ -326,7 +331,8 @@ class TestHttp401Hint:
             return _StatusResponse(401)
 
         monkeypatch.setattr("urllib.request.urlopen", fail401)
-        h = BetterStackHandler(source_token="т" * 32, flush_interval=10.0)
+        h = BetterStackHandler(source_token="т" * 32, host="test.invalid",
+                               flush_interval=10.0)
         try:
             with caplog.at_level(logging.WARNING,
                                  logger="services.betterstack_handler"):
@@ -336,9 +342,10 @@ class TestHttp401Hint:
                      if r.message.startswith("[betterstack] send failed")]
             assert len(warns) == 1
             assert "reason=status=401" in warns[0]
-            assert "подсказка: проверьте LOGTAIL_SOURCE_TOKEN/.env" in warns[0]
+            # ADR-1018-1 D6: подсказка про регион хоста + Source Token
+            assert "BETTERSTACK_HOST" in warns[0]
             assert "Source Token" in warns[0]
-            assert "Sentry" not in warns[0]
+            assert "SENTRY_DSN" in warns[0]
             assert "т" * 32 not in warns[0]            # R17: токена нет
             assert "failed=1" in warns[0]
             assert h.failed == 1
@@ -352,7 +359,8 @@ class TestHttp401Hint:
             return _StatusResponse(401)
 
         monkeypatch.setattr("urllib.request.urlopen", fail401)
-        h = BetterStackHandler(source_token="t" * 32, flush_interval=10.0)
+        h = BetterStackHandler(source_token="t" * 32, host="test.invalid",
+                               flush_interval=10.0)
         try:
             with caplog.at_level(logging.WARNING,
                                  logger="services.betterstack_handler"):
@@ -378,8 +386,7 @@ class TestHttp401Hint:
         from services.betterstack_handler import _reason
 
         err = urllib.error.HTTPError(
-            "https://in.logs.betterstack.com/tok", 401, "Unauthorized",
-            {}, None)
+            "https://test.invalid/tok", 401, "Unauthorized", {}, None)
         assert _reason(err) == "status=401"
         with caplog.at_level(logging.WARNING,
                              logger="services.betterstack_handler"):
@@ -388,32 +395,71 @@ class TestHttp401Hint:
                  if r.message.startswith("[betterstack] send failed")]
         assert warns and "подсказка" in warns[-1]
         assert "LOGTAIL_SOURCE_TOKEN" in warns[-1]
-        assert "Sentry" not in warns[-1]
+        assert "BETTERSTACK_HOST" in warns[-1]
+
+
+# ── ADR-1018-1 D2: хост обязателен, EU-дефолт запрещён ─────────────────────
+
+class TestHostRequired:
+    def test_ctor_without_host_raises(self):
+        with pytest.raises(ValueError):
+            BetterStackHandler(source_token="t" * 32, host="")
+        with pytest.raises(ValueError):
+            BetterStackHandler(source_token="t" * 32, host="   ")
+
+    def test_default_host_is_empty(self):
+        from services.betterstack_handler import DEFAULT_HOST
+        assert DEFAULT_HOST == ""
+
+    def test_url_uses_given_host(self):
+        h = BetterStackHandler(source_token="abc", host="us.example.test",
+                               flush_interval=10.0)
+        try:
+            assert h._url == "https://us.example.test/abc"
+            assert "in.logs.betterstack.com" not in h._url
+        finally:
+            h.close()
+
+
+# ── ADR-1018-1 D4: детерминированная проверка Source Token vs public key ───
+
+class TestSentryPublicKey:
+    def test_extract_public_key(self):
+        assert extract_sentry_public_key(
+            "https://PUBKEY@host.ingest.sentry.io/1") == "PUBKEY"
+
+    def test_extract_none_cases(self):
+        assert extract_sentry_public_key(None) is None
+        assert extract_sentry_public_key("") is None
+        assert extract_sentry_public_key("not-a-dsn") is None
+        assert extract_sentry_public_key("https://host/1") is None
+
+    def test_token_equals_public_key(self):
+        dsn = "https://PUBKEY@host.ingest.sentry.io/1"
+        assert token_equals_sentry_public_key("PUBKEY", dsn) is True
+        assert token_equals_sentry_public_key("OTHER", dsn) is False
+        assert token_equals_sentry_public_key(None, dsn) is False
+        assert token_equals_sentry_public_key("PUBKEY", None) is False
+        assert token_equals_sentry_public_key("PUBKEY", "broken") is False
 
 
 # ── AC-B4/B6: маркеры бота и aiogram.event (импорт bot.py) ─────────────────
 
 class TestBotMarkers:
-    """AC-B4/B6: маркеры attached/skipped + aiogram.event=WARNING через
-    импорт bot.py. ВАЖНО: config.settings загружает .env (load_dotenv без
-    override) — чтобы прод-токен из .env не вмешался, LOGTAIL_SOURCE_TOKEN
-    ЯВНО выставляется ДО импорта (пустая строка = «токена нет»), а
-    BETTERSTACK_SOURCE_TOKEN не задаётся вовсе — код читает только
-    LOGTAIL_SOURCE_TOKEN."""
+    """AC-B4/B6 + F1 (ADR-1018-1): маркеры attached/skipped + fail-safe без
+    BETTERSTACK_HOST + детерминированный WARNING при token==public key.
+    ВАЖНО: config.settings загружает .env (load_dotenv без override) — env
+    выставляется ЯВНО ДО импорта bot.py."""
 
     def _import_bot(self, monkeypatch, env):
         import importlib
         import config.settings as settings_mod
-        import sentry_sdk
 
         monkeypatch.setenv("API_TOKEN", "123456:TEST_TOKEN_FOR_BSH")
-        if "BETTERSTACK_SOURCE_TOKEN" in env:
-            monkeypatch.setenv("BETTERSTACK_SOURCE_TOKEN",
-                               env["BETTERSTACK_SOURCE_TOKEN"])
-        else:
-            monkeypatch.delenv("BETTERSTACK_SOURCE_TOKEN", raising=False)
         monkeypatch.setenv("LOGTAIL_SOURCE_TOKEN",
                            env.get("LOGTAIL_SOURCE_TOKEN", ""))
+        monkeypatch.setenv("BETTERSTACK_HOST",
+                           env.get("BETTERSTACK_HOST", ""))
         monkeypatch.setenv("SENTRY_DSN", env.get("SENTRY_DSN", ""))
         # SENTRY_DSN в тесте — фейковый: sentry_sdk.init НЕ запускаем (иначе
         # при выходе из pytest процесс пытается флашить события в Sentry).
@@ -423,71 +469,60 @@ class TestBotMarkers:
         import bot as bot_mod  # noqa: F401
         return bot_mod
 
-    def test_attached_marker_with_token(self, monkeypatch, caplog):
-        """Токен из LOGTAIL_SOURCE_TOKEN → attached-маркер БЕЗ from=."""
-        try:
-            with caplog.at_level(logging.INFO, logger="bot"):
-                self._import_bot(monkeypatch, {"LOGTAIL_SOURCE_TOKEN": "x" * 32})
-            messages = [r.message for r in caplog.records]
-            marker = "[betterstack] attached | token_len=32 | handler=own-v1"
-            assert any(m == marker for m in messages)   # байт-эталон спеки
-            assert "x" * 32 not in " ".join(messages)      # токена нет
-            assert not any("| from=" in m for m in messages)
-        finally:
-            self._close_betterstack_handlers()
-
-    def test_betterstack_env_ignored_strictly_logtail(self, monkeypatch,
-                                                      caplog):
-        """BETTERSTACK_SOURCE_TOKEN игнорируется: заданы обе переменные →
-        attached c token_len строго по LOGTAIL_SOURCE_TOKEN."""
+    def test_attached_marker_with_token_and_host(self, monkeypatch, caplog):
+        """D9/R10.18: токен + хост → attached-маркер с host и token_len, БЕЗ
+        полного токена и БЕЗ last4 (R17: секрет не логируется вовсе)."""
         try:
             with caplog.at_level(logging.INFO, logger="bot"):
                 self._import_bot(monkeypatch, {
-                    "BETTERSTACK_SOURCE_TOKEN": "b" * 8,
-                    "LOGTAIL_SOURCE_TOKEN": "z" * 32,
-                })
+                    "LOGTAIL_SOURCE_TOKEN": "x" * 32,
+                    "BETTERSTACK_HOST": "us.example.test"})
             messages = [r.message for r in caplog.records]
-            marker = "[betterstack] attached | token_len=32 | handler=own-v1"
-            assert any(m == marker for m in messages)
-            assert "z" * 32 not in " ".join(messages)      # R17
-        finally:
-            self._close_betterstack_handlers()
-
-    def test_betterstack_env_only_no_attach(self, monkeypatch, caplog):
-        """Только BETTERSTACK_SOURCE_TOKEN (LOGTAIL пуст) → токена нет:
-        skipped-маркер, attached отсутствует."""
-        try:
-            with caplog.at_level(logging.WARNING, logger="bot"):
-                self._import_bot(monkeypatch,
-                                 {"BETTERSTACK_SOURCE_TOKEN": "a" * 32})
-            messages = [r.message for r in caplog.records]
+            joined = " ".join(messages)
             assert any(
-                m == "[betterstack] skipped (no LOGTAIL_SOURCE_TOKEN)"
+                m.startswith("[betterstack] attached | host=us.example.test | ")
+                and "token_len=32" in m
+                and "from=LOGTAIL_SOURCE_TOKEN" in m
                 for m in messages)
-            assert not any("attached" in m for m in messages)
+            assert not any("last4=" in m for m in messages)
+            assert "x" * 32 not in joined            # R17: токена нет
         finally:
             self._close_betterstack_handlers()
 
-    def test_token_coinciding_with_sentry_dsn_pubkey_is_ok(self, monkeypatch,
-                                                           caplog):
-        """Совпадение токена логов с public key из SENTRY_DSN — НОРМА:
-        attached-маркер, НИКАКИХ WARNING-эвристик."""
+    def test_skipped_when_no_host(self, monkeypatch, caplog):
+        """F1 fail-safe (+R10.18-6): токен есть, BETTERSTACK_HOST пуст →
+        хендлер НЕ создаётся; маркер — ERROR (явная деградация: логи НЕ
+        отправляются); в чужой регион не отправляем."""
+        try:
+            with caplog.at_level(logging.ERROR, logger="bot"):
+                self._import_bot(monkeypatch,
+                                 {"LOGTAIL_SOURCE_TOKEN": "x" * 32})
+            records = caplog.records
+            assert any(
+                "no BETTERSTACK_HOST" in r.message
+                and "логи НЕ отправляются" in r.message
+                for r in records)
+            assert any(r.levelno >= logging.ERROR for r in records
+                       if "no BETTERSTACK_HOST" in r.message)
+            assert not any("attached" in r.message for r in records)
+        finally:
+            self._close_betterstack_handlers()
+
+    def test_token_equal_sentry_public_key_warns(self, monkeypatch, caplog):
+        """ГЛАВНЫЙ разворот ADR-1018-1 D4: token == public key SENTRY_DSN →
+        WARNING «это НЕ Source Token» (старт не блокируется)."""
         token = "SyNtHtIcK3y9v0000000000"
         try:
             with caplog.at_level(logging.INFO, logger="bot"):
                 self._import_bot(monkeypatch, {
                     "LOGTAIL_SOURCE_TOKEN": token,
+                    "BETTERSTACK_HOST": "us.example.test",
                     "SENTRY_DSN": f"https://{token}@o450000.ingest.sentry.io/1",
                 })
             records = caplog.records
             warns = [r for r in records if r.levelno >= logging.WARNING]
-            assert not any("Sentry" in m or "похож" in m
-                           for m in (r.message for r in warns))
-            assert any(
-                r.levelno == logging.INFO
-                and r.message == ("[betterstack] attached | token_len=%d "
-                                  "| handler=own-v1" % len(token))
-                for r in records)
+            assert any("public key" in r.message and "SENTRY_DSN" in r.message
+                       for r in warns)
             assert token not in " ".join(r.message for r in records)  # R17
         finally:
             self._close_betterstack_handlers()
@@ -495,10 +530,12 @@ class TestBotMarkers:
     def test_skipped_marker_without_token(self, monkeypatch, caplog):
         try:
             with caplog.at_level(logging.WARNING, logger="bot"):
-                self._import_bot(monkeypatch, {})
+                self._import_bot(monkeypatch,
+                                 {"BETTERSTACK_HOST": "us.example.test"})
             messages = [r.message for r in caplog.records]
             assert any(
-                m == "[betterstack] skipped (no LOGTAIL_SOURCE_TOKEN)"
+                m.startswith("[betterstack] disabled (no token/host)")
+                and "логи НЕ отправляются" in m
                 for m in messages)
             # FR-B4/AC-B6: aiogram.event = WARNING, root INFO не тронут
             assert logging.getLogger("aiogram.event").level == logging.WARNING

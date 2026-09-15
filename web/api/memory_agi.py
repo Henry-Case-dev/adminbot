@@ -43,6 +43,7 @@ from pydantic import BaseModel, Field
 from config.settings import settings
 from services import hot_config as hot
 from services import lore_runtime
+from services.worker_settings import resolve_setting_with_source
 from web.api.deps import get_cache, get_tma_user
 
 logger = logging.getLogger(__name__)
@@ -53,13 +54,42 @@ _DREAM_LOG_LIMIT_MAX = 500     # потолок строк лога «снов»
 _NOSTALGIA_LOG_LIMIT_MAX = 500
 _BELIEF_LIMIT_MAX = 200
 
+# F2 sleep-manual-cascade-badges (spec §4.5, ADR-1018-2 D5, T-1719):
+# таймаут одного прогона Сна/Глубокого сна — код-константа (каталог-Δ=0).
+# При `running` вне окна расписания `active_until = now + timeout`, чтобы
+# бейдж показывал «Сон до HH:MM», а не терял активную фазу (active_until=null).
+_DREAM_RUN_TIMEOUT_SECONDS = 900
+
+
+def _badge_active_until(running: bool, in_window: bool,
+                        window_end_epoch: int, now: float, *,
+                        manual: bool = False) -> int | None:
+    """F2 (spec §4.5): `active_until` для бейджа фазы.
+
+    * running в окне → min(конец окна, now+timeout) — не «переживаем» окно;
+    * running вне окна И ручной прогон → now+timeout — раньше было None;
+    * running вне окна, но авто-тик (S10.18-23) → None: транзиентная работа
+      планового тика не должна показывать «ручной прогон»/растягивать бейдж;
+    * не running в окне → конец окна (как Ф5);
+    * иначе → None."""
+    timeout_at = int(now) + _DREAM_RUN_TIMEOUT_SECONDS
+    if running:
+        if in_window:
+            return min(int(window_end_epoch), timeout_at)
+        return timeout_at if manual else None
+    if in_window:
+        return int(window_end_epoch)
+    return None
+
 # F5 (cognition-dashboard-round1013, spec §3.3): серверные лимиты графа —
 # код-константы (каталог-Δ=0), предохранитель Canvas на Android (ADR-1013-2).
-GRAPH_MAX_NODES = 120
-GRAPH_MAX_EDGES = 240
-# F1 (graph-sampling-centrality-round1015, F1-Q2 RESOLVED): сиды Degree
-# Centrality — код-константа (каталог-Δ=0, ADR-1015-2).
-GRAPH_SEED_NODES = 50
+# F3 (graph-density-scoring-stoplist-round1018, ADR-1018-3 D5, T-1773): cap
+# поднят до плотности 500–800 узлов (seeds 150, cap 800/2400). Каталог-Δ=0.
+GRAPH_MAX_NODES = 800
+GRAPH_MAX_EDGES = 2400
+# F3: сиды — топ-150 по Σ importance (STOP_LIST центров + ×2 за Убеждение/
+# Парадигму обрабатывает сам graph_snapshot).
+GRAPH_SEED_NODES = 150
 _TIMELINE_LIMIT_MAX = 100
 
 
@@ -358,9 +388,13 @@ async def memory_health_summary(
 async def deep_sleep_status(
     request: Request,
     user: Annotated[WebAppUser, Depends(get_tma_user)],
+    chat_id: Annotated[int | None, Query()] = None,
 ):
     """Статус глубокого сна (spec §6): рубильник, парадигмы, прогоны, время
     последнего запуска + лог. R17-safe — только метаданные/счётчики.
+
+    F7 (T-1762): рубильник резолвится по `chat_id` (per-chat DB → global DB
+    → env) и аддитивно отдаётся `source` (chat|global|default) — R16.
     Fail-open: ошибка БД → пустой ответ (не 500)."""
     _require_global_admin(request, user)
     db = _db_or_503()
@@ -382,9 +416,12 @@ async def deep_sleep_status(
         total, last_run, runs_total, log = 0, None, 0, []
     deep_log = [r for r in log
                 if str(r.get("kind") or "") in ("deep_run", "deep_skip")]
+    deep_enabled, deep_source = await resolve_setting_with_source(
+        "flags.deep_sleep_enabled", chat_id=chat_id,
+        default=settings.DEEP_SLEEP_ENABLED)
     return {
-        "enabled": bool(hot.get("flags.deep_sleep_enabled",
-                                settings.DEEP_SLEEP_ENABLED)),
+        "enabled": bool(deep_enabled),
+        "source": deep_source,
         "paradigms_total": int(total),
         "runs_total": int(runs_total),
         "last_run_at": last_run,
@@ -439,9 +476,36 @@ async def cognition_status(
     worker = lore_runtime.get_dream_worker()
     dream_running = bool(getattr(worker, "dream_running", False))
     deep_running = bool(getattr(worker, "deep_running", False))
-    enabled = bool(hot.get("memory.dream_enabled", settings.DREAM_ENABLED))
-    deep_enabled = bool(hot.get("flags.deep_sleep_enabled",
-                                settings.DEEP_SLEEP_ENABLED))
+    # S10.18-23: «ручной прогон» — настоящий маркер воркера (стажит `run_once`),
+    # а не вывод «running вне окна расписания» (плановый тик идёт 22 ч/сутки
+    # вне окна [4,6) и транзиентно давал ложный manual/active_until).
+    dream_manual = bool(dream_running
+                        and getattr(worker, "manual_run_active", False))
+    deep_manual = bool(deep_running
+                       and getattr(worker, "manual_deep_active", False))
+    # F7 (T-1762): рубильники резолвятся по chat_id (per-chat DB → global DB
+    # → env) — статус совпадает с тем, что реально видит воркер.
+    enabled, dream_source = await resolve_setting_with_source(
+        "memory.dream_enabled", chat_id=chat_id,
+        default=settings.DREAM_ENABLED)
+    enabled = bool(enabled)
+    deep_enabled, deep_source = await resolve_setting_with_source(
+        "flags.deep_sleep_enabled", chat_id=chat_id,
+        default=settings.DEEP_SLEEP_ENABLED)
+    deep_enabled = bool(deep_enabled)
+    # R10.18-3: `enabled` — рубильник (master per-chat); `dream_effective` —
+    # тот же порядок слоёв, что в `gates_enabled` (chat-gate → kill-switch →
+    # fallback(master) → global). Статус/бейдж должны отражать то, что реально
+    # исполняет воркер: явный `flags.dream_enabled=false` гасит активность.
+    dream_effective = enabled
+    try:
+        from services.feature_gates import gates_enabled
+        dream_effective = bool(await gates_enabled(
+            chat_id if chat_id is not None else 0, "dream",
+            root={} if chat_id is None else None, fallback=enabled))
+    except Exception:
+        logger.warning("[memory_api] dream effective gate failed — master",
+                       exc_info=True)
     start_h = int(hot.get("memory.dream_window_start_hour",
                           settings.DREAM_WINDOW_START_HOUR) or 4)
     last_dream = last_deep = None
@@ -479,10 +543,14 @@ async def cognition_status(
     # Review-fix H1 (14.09.2026): рубильник выключен → активность гасится даже
     # внутри часового окна (F5-Q2: enabled=false — отдельное нейтральное
     # состояние). Фактический running уважаем как fallback.
-    dream_in = bool(enabled and in_window)
+    dream_in = bool(dream_effective and in_window)
     dream_active = dream_in or dream_running
-    dream_active_until = (_next_hour_epoch(end_h, tz_name, now)
-                          if dream_in else None)
+    # F2 (spec §4.5): active_until считается и при running вне окна (ручной
+    # прогон) через код-таймаут — бейдж не теряет активную фазу.
+    dream_active_until = _badge_active_until(
+        dream_running, dream_in,
+        _next_hour_epoch(end_h, tz_name, now), now,
+        manual=dream_manual)
     trigger = str(hot.get("memory.deep_sleep_trigger",
                           settings.DEEP_SLEEP_TRIGGER) or "after_sleep")
     if trigger == "fixed":
@@ -490,15 +558,19 @@ async def cognition_status(
                                 settings.DEEP_SLEEP_HOUR) or 7)
         deep_next = _next_hour_epoch(deep_hour, tz_name, now)
         deep_in = bool(deep_enabled and now_h == deep_hour)
-        deep_active_until = (_next_hour_epoch((deep_hour + 1) % 24, tz_name,
-                                              now) if deep_in else None)
+        deep_active_until = _badge_active_until(
+            deep_running, deep_in,
+            _next_hour_epoch((deep_hour + 1) % 24, tz_name, now), now,
+            manual=deep_manual)
     else:
         deep_next = next_wake   # after_sleep — сразу после окна обычного сна
         deep_in = bool(deep_enabled and in_window)
         # R10.15-5: считаем independently от dream-ветки — при dream_enabled=
         # false + deep_enabled=true в окне бейдж получает «до HH:MM», а не null.
-        deep_active_until = (_next_hour_epoch(end_h, tz_name, now)
-                             if deep_in else None)
+        deep_active_until = _badge_active_until(
+            deep_running, deep_in,
+            _next_hour_epoch(end_h, tz_name, now), now,
+            manual=deep_manual)
     deep_active = deep_in or deep_running
     lore_last = None
     try:
@@ -526,8 +598,13 @@ async def cognition_status(
             logger.warning("[memory_api] nostalgia state failed — None",
                            exc_info=True)
     return {
+        # F2 (R16-аддитивно): `manual` — идёт НАСТОЯЩИЙ ручной прогон
+        # (S10.18-23: маркер воркера, выставленный `run_once`), а не просто
+        # «running вне окна расписания».
         "dream": {"running": dream_running, "enabled": enabled,
+                  "effective": dream_effective,
                   "active": dream_active, "active_until": dream_active_until,
+                  "manual": dream_manual,
                   "last_run_at": last_dream, "next_wake_at": next_wake,
                   "state": dream_state,
                   "budget": {"distilled_today": distilled_today,
@@ -537,11 +614,14 @@ async def cognition_status(
         "deep_sleep": {"running": deep_running, "enabled": deep_enabled,
                        "active": deep_active,
                        "active_until": deep_active_until,
+                       "manual": deep_manual,
                        "last_run_at": last_deep, "next_run_at": deep_next},
         "lore": {"last_inject_at": lore_last},
         # BLOCKER-2: сигнатура — _nostalgia_state(last_user_ts, sent_ts, ...).
         "nostalgia": _nostalgia_state(last_user, sent_ts, now,
                                       silence_min, cooldown_h),
+        # F7 (T-1762, R16-аддитивно): источник каждого рубильника.
+        "source": {"dream": dream_source, "deep_sleep": deep_source},
         "generated_at": int(now),
     }
 

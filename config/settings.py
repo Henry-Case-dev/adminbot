@@ -1091,20 +1091,24 @@ class Settings:
     DREAM_TICK_MINUTES: int = _env_int("DREAM_TICK_MINUTES", 60)
     DREAM_WINDOW_START_HOUR: int = _env_int("DREAM_WINDOW_START_HOUR", 4)
     DREAM_WINDOW_END_HOUR: int = _env_int("DREAM_WINDOW_END_HOUR", 6)
+    # F2 sleep-manual-cascade-badges (spec §4.1, T-1714/T-1769): пороги
+    # «снятия паранойи по токенам» — прежние дефолты (5/30/3/12/5/30/60000)
+    # ослаблены до 2/10/2/8/10/60/300000, чтобы факты доходили до дистилляции.
+    # PG-значения мигрируются идемпотентно (migrate_dream_thresholds).
     DREAM_INITIAL_WINDOW_HOURS: int = _env_int("DREAM_INITIAL_WINDOW_HOURS", 168)
     DREAM_MIN_NEW_FACTS_PER_CHAT: int = _env_int(
-        "DREAM_MIN_NEW_FACTS_PER_CHAT", 5)
+        "DREAM_MIN_NEW_FACTS_PER_CHAT", 2)
     DREAM_MAX_CHATS_PER_RUN: int = _env_int("DREAM_MAX_CHATS_PER_RUN", 10)
-    DREAM_QUIET_CHECK_MINUTES: int = _env_int("DREAM_QUIET_CHECK_MINUTES", 30)
+    DREAM_QUIET_CHECK_MINUTES: int = _env_int("DREAM_QUIET_CHECK_MINUTES", 10)
     DREAM_CLUSTER_OVERLAP_TOKENS: int = _env_int(
         "DREAM_CLUSTER_OVERLAP_TOKENS", 2)
-    DREAM_REPEAT_THRESHOLD: int = _env_int("DREAM_REPEAT_THRESHOLD", 3)
+    DREAM_REPEAT_THRESHOLD: int = _env_int("DREAM_REPEAT_THRESHOLD", 2)
     DREAM_IMPORTANCE_SUM_THRESHOLD: int = _env_int(
-        "DREAM_IMPORTANCE_SUM_THRESHOLD", 12)
-    DREAM_MAX_CLUSTERS_PER_RUN: int = _env_int("DREAM_MAX_CLUSTERS_PER_RUN", 5)
+        "DREAM_IMPORTANCE_SUM_THRESHOLD", 8)
+    DREAM_MAX_CLUSTERS_PER_RUN: int = _env_int("DREAM_MAX_CLUSTERS_PER_RUN", 10)
     DREAM_DISTILLATIONS_PER_DAY: int = _env_int(
-        "DREAM_DISTILLATIONS_PER_DAY", 30)
-    DREAM_TOKENS_PER_DAY: int = _env_int("DREAM_TOKENS_PER_DAY", 60000)
+        "DREAM_DISTILLATIONS_PER_DAY", 60)
+    DREAM_TOKENS_PER_DAY: int = _env_int("DREAM_TOKENS_PER_DAY", 300000)
 
     # ── Раунд 10.13 (F2 cognition-belief-decay, spec §7): охлаждение
     #    убеждений + воскрешение ─────────────────────────────────────────────

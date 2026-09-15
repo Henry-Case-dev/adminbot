@@ -11,7 +11,10 @@ import uvicorn
 
 from config.settings import settings
 from services import hot_config as hot
-from services.betterstack_handler import BetterStackHandler
+from services.betterstack_handler import (
+    BetterStackHandler,
+    token_equals_sentry_public_key,
+)
 from services.config_cache import ConfigCache
 from services.control_service import ControlService
 from services.hot_config import set_config_cache
@@ -109,6 +112,7 @@ from handlers.voice_transcription import (
 )
 # ── Раунд 7: Chat Lore v2 (PG-профили чатов) — B5: DI/startup/shutdown ──
 from services.chat_lore_store import ChatLoreStore
+from services.chat_params_notify import ChatParamsNotify
 from services.lore_cache import ChatLoreCache
 from services.lore_notify import LoreNotify
 from services.lore_runtime import (
@@ -137,11 +141,19 @@ console_handler.setFormatter(formatter)
 # logtail-python 0.4.0 (тихие потери: Queue-Full → dropcount без лога, ошибки
 # только print в flusher). Чтение токена: строго LOGTAIL_SOURCE_TOKEN — один
 # токен общий для BetterStack Errors и Logs. Формат фрейма — logtail-совместимый
-# (3.1.2). Содержимое токена не проверяется (совпадение с SENTRY_DSN — норма).
+# (3.1.2).
+# Раунд 10.18 (F1, ADR-1018-1 D2/D3): хост ОБЯЗАТЕЛЕН и берётся из env
+# BETTERSTACK_HOST (US-кластер проекта). Неявный EU-дефолт запрещён: без
+# хоста хендлер НЕ создаём (fail-safe — лучше без логов, чем 401 в чужой
+# регион). BETTERSTACK_SOURCE_TOKEN НЕ читается (устаревшее имя).
+# Токен — Source Token из Logs → Sources; public key из SENTRY_DSN недопустим
+# (детерминированная проверка ниже, WARNING без блокировки старта).
 betterstack_token = os.getenv("LOGTAIL_SOURCE_TOKEN")
+betterstack_host = (os.getenv("BETTERSTACK_HOST") or "").strip()
 handlers = [console_handler]
-if betterstack_token:
+if betterstack_token and betterstack_host:
     handlers.append(BetterStackHandler(source_token=betterstack_token,
+                                       host=betterstack_host,
                                        level=logging.INFO))
 
 logging.basicConfig(level=logging.INFO, handlers=handlers)
@@ -167,11 +179,30 @@ log_ring_handler = _log_ring_singleton
 # /api/status/logs («слушает ли хендлер», аналог T-700). Первым событием маркер
 # уходит и в панель BetterStack (live-проверка). Токен НЕ логируется — только
 # token_len (R17/NFR-3). Счётчики/журнал ошибок — в самом хендлере.
-if betterstack_token:
-    logger.info("[betterstack] attached | token_len=%d | handler=own-v1",
-                len(betterstack_token))
+if betterstack_token and betterstack_host:
+    # R17: хост — не секрет; токен НЕ логируется вообще — только длина
+    # (R17/NFR-3). Ранее печатались последние 4 символа — противоречило
+    # комментарию R17, убрано полностью (D9/R10.18).
+    logger.info(
+        "[betterstack] attached | host=%s | token_len=%d | "
+        "from=LOGTAIL_SOURCE_TOKEN",
+        betterstack_host, len(betterstack_token))
+    if token_equals_sentry_public_key(betterstack_token,
+                                      os.getenv("SENTRY_DSN")):
+        logger.warning(
+            "[betterstack] token == SENTRY_DSN public key — это НЕ Source "
+            "Token (нужен токен из Logs → Sources)")
+elif betterstack_token and not betterstack_host:
+    # R10.18-6 (fail-safe): хендлер не создан из-за отсутствия хоста —
+    # это ЯВНАЯ деградация мониторинга (логи в панель НЕ уходят), а не
+    # рядовое событие → ERROR, чтобы потеря была видна в journald/логах.
+    logger.error(
+        "[betterstack] disabled (no BETTERSTACK_HOST) — логи НЕ отправляются "
+        "в панель; задайте US-хост в .env и перезапустите бота")
 else:
-    logger.warning("[betterstack] skipped (no LOGTAIL_SOURCE_TOKEN)")
+    logger.warning(
+        "[betterstack] disabled (no token/host) — логи НЕ отправляются "
+        "в панель")
 
 if hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED):
     bot = Bot(
@@ -536,8 +567,9 @@ async def on_startup():
     # ── Раунд 9 (AGI Memory, spec §3.4.1, T-824/T-825): DreamWorker («сон»).
     # Вне summary-гейта, как LoreWorker: при выключенном summary — свой
     # LLMClient (образец выше), memory=None (beliefs живут текстом+FTS —
-    # эмбеддинг деградирует как в бою). Джоб регистрируется ТОЛЬКО при
-    # memory.dream_enabled (default false); ручной run_once работает всегда.
+    # эмбеддинг деградирует как в бою). F7 (10.18): start() регистрирует джоб
+    # ВСЕГДА — гейт Сна резолвится per-chat внутри тика (реактивно, без
+    # рестарта); ручной run_once работает всегда.
     # Fail-open: ошибка инициализации → WARNING, бот жив.
     global _dream_worker
     _dream_worker = None
@@ -802,6 +834,10 @@ async def on_shutdown():
         await _lore_worker.stop()
     if _lore_notify:
         await _lore_notify.stop()
+    # F7/T-1764 (S10.18-7): lifecycle-остановка LISTEN-слушателя chat_params
+    # (конвенция LoreNotify.stop(); отменяет фоновые invalidate-задачи).
+    if _chat_params_notify:
+        await _chat_params_notify.stop()
     if _uptime_heartbeat:
         await _uptime_heartbeat.shutdown()
     if _goodmorning_scheduler:
@@ -821,6 +857,29 @@ async def on_shutdown():
     if _checkup_fetcher:
         await _checkup_fetcher.close()
     await close_smart_cache()
+
+
+# ── Раунд 10.18 (F7 settings-worker-sync, T-1764, ADR-1018-7 D6):
+# LISTEN chat_params_updated → инвалидация ChatParamsCache. Закрывает
+# кросс-процессный рассинхрон (web-процесс пишет слой чата → бот-процесс
+# видит изменение немедленно, а не по TTL 120с). Фикс R10.18-1: слушаем на
+# ОТДЕЛЬНОМ прямом соединении (`ChatParamsNotify` → asyncpg.connect + backoff),
+# а не на пуле — у `asyncpg.Pool` нет `add_listener` (asyncpg 0.31.0).
+# Fail-open: нет DSN/ошибка LISTEN → WARNING, бот живёт на TTL.
+_chat_params_notify: ChatParamsNotify | None = None
+_chat_params_listener_task: asyncio.Task | None = None
+
+
+async def _start_chat_params_listener(pg) -> asyncio.Task | None:
+    """Поднять фоновую LISTEN-таску (None — PG/DSN недоступен, TTL-фолбэк)."""
+    global _chat_params_notify
+    dsn = getattr(pg, "dsn", None) if pg is not None else None
+    if not dsn:
+        logger.warning(
+            "[chat_params] listen unavailable — TTL fallback (120s)")
+        return None
+    _chat_params_notify = ChatParamsNotify(dsn)
+    return asyncio.create_task(_chat_params_notify.start())
 
 
 async def main():
@@ -845,6 +904,10 @@ async def main():
     # Рядом с ConfigCache; PG down → кэш fail-open (пустой), бот жив.
     from services.chat_params import ChatParamsCache, set_chat_params_cache
     set_chat_params_cache(ChatParamsCache(cache.pg))
+    # F7/T-1764: подписчик NOTIFY chat_params_updated (fail-open, нет пула →
+    # WARNING + TTL 120с как осознанная граница).
+    global _chat_params_listener_task
+    _chat_params_listener_task = await _start_chat_params_listener(cache.pg)
     # ── Раунд 10 (F-10 §5): runtime-PG для worker_budget (воркеры/API). ──
     from services.worker_budget import set_worker_budget_pg
     set_worker_budget_pg(cache.pg)
@@ -861,6 +924,14 @@ async def main():
     # migrate_direct_chat_prompt_if_legacy (удалена из chat_prompts.py).
     from services.prompt_migrations import migrate_prompt_canons
     await migrate_prompt_canons(cache)
+
+    # ── F2 sleep-manual-cascade-badges (spec §4.1, T-1714/T-1769): ослабление
+    # порогов дистилляции Сна. Идемпотентно: заменяем PG-значение ТОЛЬКО если
+    # оно равно прежнему дефолту (3/12/5/5/30/60000/30); кастом владельца не
+    # трогаем (WARNING); PG down → skip. Отдельный модуль config_migrations —
+    # prompt_migrations не трогаем (канон промптов Личности не меняется).
+    from services.config_migrations import migrate_dream_thresholds
+    await migrate_dream_thresholds(cache)
 
     # ── Раунд 3 (3.7/C2, T-697): легаси-NULL TTL bot_direct_reply в PG → 30
     # (сид поставит 30, если ключа нет; 0/число — явный выбор, не трогаем).
@@ -901,7 +972,7 @@ async def main():
         log_level="warning",
         log_config=None,        # hotfix 30.08.2026: НЕ запускать дефолтный
         # dictConfig uvicorn — его _clearExistingHandlers → logging.shutdown()
-        # закрывает LogtailHandler и дедлочит с logtail-флашером (прод-инцидент
+        # закрывает BetterStackHandler и его фоновый флашер (прод-инцидент
         # Epic 85: процесс «active», но polling/webapp/heartbeat не стартуют).
     ))
     server_holder[0] = server
@@ -949,6 +1020,12 @@ async def main():
         with contextlib.suppress(asyncio.CancelledError):
             await watcher
         server.should_exit = True
+        # F7/T-1764: снять LISTEN-таску до закрытия PG-пула (fail-open);
+        # полноценный lifecycle — `_chat_params_notify.stop()` в on_shutdown.
+        if _chat_params_listener_task is not None:
+            _chat_params_listener_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await _chat_params_listener_task
         await on_shutdown()
         await cache.close()
         # ── Раунд 4 (3.1.6/3.1.4, FR-B3): мягкое закрытие логов — САМЫЙ конец

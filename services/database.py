@@ -9,6 +9,11 @@ from pathlib import Path
 
 from config.settings import settings
 from services import hot_config as hot
+from services.graph_stoplist import (
+    METAFACT_PENALTY_IMPORTANCE,
+    is_center_stopword,
+    is_metafact_stopword,
+)
 from services.user_relations import decay_weight, decide_stage, \
     relations_limits, stage_candidate
 
@@ -56,8 +61,13 @@ _SCHEMA_VERSION_AGI_MEMORY_V8 = 8  # Раунд 9 (T-822, spec §3.3.1): 7→8 �
                                 # Историческая ступень каскада — НЕ цель.
 _SCHEMA_VERSION_AGI_MEMORY = 9   # Раунд 10.14 (F1 anti-echo-self-reply,
                                 # ADR-1014-2 D2 / spec §2.1): 8→9 — graph_facts
-                                # rebuild (origin '+ bot_self_reply'); это
-                                # ТЕКУЩАЯ цель user_version.
+                                # rebuild (origin '+ bot_self_reply').
+                                # Историческая ступень каскада — НЕ цель.
+_SCHEMA_VERSION_EDGES_FACT_ID = 10  # Раунд 10.18 (F3 graph-density-scoring-
+                                # stoplist, ADR-1018-3 D1): 9→10 — edges
+                                # ADD COLUMN fact_id (provenance ребра → факт
+                                # для скоринга Σ importance). Это ТЕКУЩАЯ цель
+                                # user_version.
 
 # Раунд 3 (3.6/B7, T-693): полный список origin для CHECK graph_facts — в ОДНОМ
 # месте (CREATE TABLE + пересоздание в _migrate_direct_chat_v2 + миграции v4/v5).
@@ -246,11 +256,17 @@ class DatabaseService:
             last_updated  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             origin        TEXT NOT NULL DEFAULT 'chat_history',
             expires_at    INTEGER,
+            -- Раунд 10.18 (F3, ADR-1018-3 D1): provenance ребра → факт
+            -- graph_facts.id для скоринга Σ importance. Nullable; legacy
+            -- рёбра остаются NULL осознанно (ниже — COALESCE(importance, weight)).
+            fact_id       INTEGER,
             UNIQUE (source_id, target_id, relation_type)
         );
         CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id);
         CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id);
         CREATE INDEX IF NOT EXISTS idx_edges_chat_weight ON edges(chat_id, weight);
+        -- idx_edges_fact_id создаётся в _migrate_edges_fact_id_v10 (legacy-БД
+        -- до миграции не имеют колонки fact_id — CREATE INDEX здесь упал бы).
 
         -- GraphRAG v2 (Epic 46, Section 55.3): факты гибридного RAG
         -- (origin/expires_at — ТЗ R46-1; TTL-исключение — ленивое WHERE, D175;
@@ -431,6 +447,7 @@ class DatabaseService:
         await self._migrate_history_import_v7()  # Фаза 2 (T-758): 6→7
         await self._migrate_agi_memory_v8()  # Раунд 9 (T-822): 7→8
         await self._migrate_self_origin_v9()  # Раунд 10.14 (F1/T-1478): 8→9
+        await self._migrate_edges_fact_id_v10()  # Раунд 10.18 (F3/T-1773): 9→10
 
         # Migration: add timestamp column if missing (Dead Page V2)
         try:
@@ -1012,6 +1029,45 @@ class DatabaseService:
         # user_version фиксируется БЕЗУСЛОВНО (вне guard) — см. docstring.
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_AGI_MEMORY}")
+        await self.db.commit()
+
+    async def _migrate_edges_fact_id_v10(self) -> None:
+        """Раунд 10.18 (F3 graph-density-scoring-stoplist, ADR-1018-3 D1):
+        user_version 9→10. `ALTER TABLE edges ADD COLUMN fact_id INTEGER`
+        (nullable, БЕЗ rebuild) + индекс `idx_edges_fact_id` — provenance
+        ребра → `graph_facts.id` для скоринга `Σ importance` (T-1728).
+
+        - ADD COLUMN без rebuild: FTS5 `graph_facts_fts` (content='graph_facts')
+          и vec `graph_facts_vec` (rowid=fact_id) НЕ затрагиваются, id строк не
+          меняются, данные не теряются (миграция касается ТОЛЬКО `edges`).
+        - GUARD (идемпотентность): колонка добавляется ТОЛЬКО если 'fact_id'
+          нет в `PRAGMA table_info(edges)`; повторный запуск — no-op.
+        - ``PRAGMA user_version = 10`` ставится ВСЕГДА, вне guard (свежая БД
+          уже имеет fact_id из `_SCHEMA_SQL`, но версию всё равно фиксируем —
+          прецедент `_migrate_self_origin_v9`).
+        - Legacy-рёбра: `fact_id` остаётся NULL осознанно — backfill по
+          triple-строке недетерминирован (ADR-1018-3 A7); формула скоринга для
+          NULL деградирует к `COALESCE(f.importance, e.weight)`.
+        - Обратный путь отката: колонка аддитивна и безвредна → ``git revert``
+          безопасен. Полный откат схемы:
+          ``DROP INDEX IF EXISTS idx_edges_fact_id`` +
+          ``ALTER TABLE edges DROP COLUMN fact_id`` (SQLite ≥3.35) +
+          ``PRAGMA user_version = 9`` — данные не теряются."""
+        cursor = await self.db.execute("PRAGMA table_info(edges)")
+        cols = {row["name"] for row in await cursor.fetchall()}
+        if "fact_id" not in cols:
+            logger.info(
+                "[database] migration v10: edges.fact_id (provenance факта)")
+            await self.db.execute(
+                "ALTER TABLE edges ADD COLUMN fact_id INTEGER")
+        # Индекс создаётся ВСЕГДА (вне guard): на legacy-БД колонки ещё не
+        # было при отработке _SCHEMA_SQL, поэтому индекс живёт здесь.
+        await self.db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_edges_fact_id ON edges(fact_id)")
+        await self.db.commit()
+        # user_version фиксируется БЕЗУСЛОВНО (вне guard) — см. docstring.
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_EDGES_FACT_ID}")
         await self.db.commit()
 
     async def close(self) -> None:
@@ -1605,6 +1661,8 @@ class DatabaseService:
         weight_increment: int = 1,
         origin: str = "chat_history",
         expires_at=None,
+        fact_id: int | None = None,
+        commit: bool = True,
     ) -> None:
         """Merge a graph edge; duplicate (source,target,relation) bumps weight (D70).
 
@@ -1613,18 +1671,40 @@ class DatabaseService:
         origin/expires_at записываются. Epic 60 (66.3, T-481): подтверждение
         связи — +инкремент с cap 5 (T-459 тема 5: «+1 cap 5»), last_updated =
         CURRENT_TIMESTAMP (сброс затухания).
+
+        Раунд 10.18 (F3, ADR-1018-3 D1): `fact_id` — provenance ребра →
+        `graph_facts.id` (скоринг Σ importance). Дефолт None сохраняет ВСЕ
+        существующие вызовы (cron `_extract_and_save_graph` — осознанный NULL).
+        При конфликте `fact_id = COALESCE(excluded.fact_id, edges.fact_id)`:
+        новый точный факт перезаписывает NULL-legacy, но НЕ затирается NULL-ом.
+
+        B3-5 (атомарность fact+edge): `commit=False` оставляет запись в текущей
+        транзакции — вызывающий (`_memorize_facts_inner`) коммитит пару
+        `insert_graph_fact`+`upsert_edge` ОДНИМ commit и откатывает при сбое
+        второго шага. Дефолт True — поведение всех прочих вызовов неизменно.
         """
-        await self.db.execute(
+        cursor = await self.db.execute(
             "INSERT INTO edges (chat_id, source_id, target_id, relation_type, weight, "
-            "origin, expires_at) "
-            "SELECT chat_id, ?, ?, ?, ?, ?, ? FROM nodes WHERE id = ? "
+            "origin, expires_at, fact_id) "
+            "SELECT chat_id, ?, ?, ?, ?, ?, ?, ? FROM nodes WHERE id = ? "
             "ON CONFLICT(source_id, target_id, relation_type) DO UPDATE SET "
             "weight = MIN(weight + excluded.weight, ?), "
-            "last_updated = CURRENT_TIMESTAMP",
+            "last_updated = CURRENT_TIMESTAMP, "
+            "fact_id = COALESCE(excluded.fact_id, edges.fact_id)",
             (source_id, target_id, relation_type, weight_increment, origin,
-             expires_at, source_id, _EDGE_WEIGHT_CAP),
+             expires_at, fact_id, source_id, _EDGE_WEIGHT_CAP),
         )
-        await self.db.commit()
+        # S10.18-33: `INSERT … SELECT … FROM nodes WHERE id = ?` при
+        # отсутствующем узле-источнике вставляет 0 строк — факт мог остаться
+        # закоммиченным без ребра. Fail-open: WARNING (транзакцию не ломаем —
+        # вызывающий сам коммитит/откатывает пару fact+edge, B3-5).
+        if cursor.rowcount == 0:
+            logger.warning(
+                "[database] upsert_edge: source node id=%s not found — edge "
+                "NOT written (fail-open) | target_id=%s | relation=%s",
+                source_id, target_id, relation_type)
+        if commit:
+            await self.db.commit()
 
     async def match_nodes(
         self, chat_id: int, user_names: list[str], topic_keywords: list[str]
@@ -1704,7 +1784,10 @@ class DatabaseService:
                                 importance: int | None = None,
                                 source_ids: str | None = None,
                                 kind: str | None = None,
-                                belief_meta: str | None = None) -> int:
+                                belief_meta: str | None = None,
+                                subject: str | None = None,
+                                object: str | None = None,
+                                commit: bool = True) -> int:
         """Факт-строка (+FTS-индекс). Возвращает id. Epic 50 (58.8, D205):
         target_user — имя обращающегося (origin='bot_direct_reply'); created_at
         ставится автоматически (int(time.time())). Epic 60 (64.1/64.2):
@@ -1727,6 +1810,14 @@ class DatabaseService:
         Q8); явный importance — clamp 1..10. kind: None → 'fact'
         ('belief' — только DreamWorker). source_ids — JSON-массив id
         фактов-источников, belief_meta — JSON-метаданные (только beliefs).
+        B3-5 (атомарность fact+edge): `commit=False` оставляет строку факта и
+        FTS-строку в текущей транзакции — вызывающий (`_memorize_facts_inner`)
+        коммитит пару с `upsert_edge(..., commit=False)` ОДНИМ commit.
+        Дефолт True — поведение всех прочих вызовов неизменно.
+        F5 (T-1744, ADR-1018-5 D2): аддитивные `subject`/`object` — для
+        программного хард-лимита importance мета-фактов (стоп-лист
+        `METAFACT_PENALTY_STOPLIST` → imp=min(imp,1)); None → прежнее
+        поведение (дефолты).
         Существующие вызовы НЕ меняются (дефолты)."""
         w = 0.5 if weight is None else float(weight)
         if not 0.0 <= w <= 1.0:
@@ -1734,6 +1825,15 @@ class DatabaseService:
             w = min(1.0, max(0.0, w))
         imp = (rule_importance(origin, str(fact or "")) if importance is None
                else max(1, min(10, int(importance))))
+        # F5 (T-1744, ADR-1018-5 D2/D3): программный хард-лимит мета-фактов.
+        # Если нормализованный subject ИЛИ object строго равен слову
+        # METAFACT_PENALTY_STOPLIST («видеосообщение/голосовое/фото/кружочек/
+        # ссылка/стикер») → importance = min(imp, 1), независимо от
+        # rule_importance()/LLM. Мета-факты СОХРАНЯЮТСЯ (не удаляются), но не
+        # проходят гейты Сна и не доминируют в RAG. subject/object=None (крон,
+        # direct-reply) → срез не применяется (осознанное ограничение, D2).
+        if is_metafact_stopword(subject) or is_metafact_stopword(object):
+            imp = min(imp, METAFACT_PENALTY_IMPORTANCE)
         k = "belief" if kind == "belief" else "fact"
         now = int(time.time())
         insert_sql = (
@@ -1756,7 +1856,8 @@ class DatabaseService:
         fact_id = cursor.lastrowid
         await self.db.execute(
             "INSERT INTO graph_facts_fts(rowid, fact) VALUES (?, ?)", (fact_id, fact))
-        await self.db.commit()
+        if commit:
+            await self.db.commit()
         return fact_id
 
     # ── Раунд 9 (AGI Memory, spec §3.4, T-824/T-825): «сон» (DreamWorker) ──
@@ -1973,27 +2074,43 @@ class DatabaseService:
         await self.db.commit()
         return cursor.lastrowid
 
-    async def count_dream_log(self, since_ts: int, *, kind: str) -> int:
+    async def count_dream_log(self, since_ts: int, *, kind: str,
+                              chat_id: int | None = None) -> int:
         """Счётчик строк лога за local-сутки (суточный бюджет §3.4.4:
-        дистилляции считаются по kind='distilled')."""
-        cursor = await self.db.execute(
-            "SELECT COUNT(*) AS c FROM memory_dream_log "
-            "WHERE kind = ? AND run_at >= ?", (kind, int(since_ts)))
+        дистилляции считаются по kind='distilled').
+
+        F7/S10.18-1: `chat_id` — per-chat учёт расхода (None — глобально, как
+        раньше). Схема `memory_dream_log` уже содержит `chat_id` — DDL не
+        нужен; глобальное событие decay пишется с `chat_id=0` и в per-chat
+        бюджет дистилляций не попадает (другой kind)."""
+        sql = ("SELECT COUNT(*) AS c FROM memory_dream_log "
+               "WHERE kind = ? AND run_at >= ?")
+        params: list = [kind, int(since_ts)]
+        if chat_id is not None:
+            sql += " AND chat_id = ?"
+            params.append(int(chat_id))
+        cursor = await self.db.execute(sql, params)
         row = await cursor.fetchone()
         return int(row["c"]) if row else 0
 
     async def sum_dream_log_tokens(self, since_ts: int,
-                                   kind: str | None = None) -> int:
+                                   kind: str | None = None,
+                                   *, chat_id: int | None = None) -> int:
         """Оценка токенов за local-сутки (денежный бюджет §3.4.4): сумма
         memory_dream_log.tokens (max(1, len/4) промпта+ответа). F3/T-1438:
         опциональный `kind` — суточный токен-кап глубокого сна считается
-        только по строкам kind='deep_run' (без смешения с обычным сном)."""
+        только по строкам kind='deep_run' (без смешения с обычным сном).
+
+        F7/S10.18-1: `chat_id` — per-chat сумма токенов (None — глобально)."""
         sql = ("SELECT COALESCE(SUM(tokens), 0) AS s FROM memory_dream_log "
                "WHERE run_at >= ?")
         params: list = [int(since_ts)]
         if kind:
             sql += " AND kind = ?"
             params.append(str(kind))
+        if chat_id is not None:
+            sql += " AND chat_id = ?"
+            params.append(int(chat_id))
         cursor = await self.db.execute(sql, params)
         row = await cursor.fetchone()
         return int(row["s"]) if row else 0
@@ -2511,12 +2628,18 @@ class DatabaseService:
         (False) архив не видит.
         Раунд 10.14 (F1, ADR-1014-2 D7): include_self=False (default) →
         origin='bot_self_reply' невидим (Сон/золотые/чужие пайплайны);
-        direct-путь передаёт include_self=True (свои прошлые слова с меткой)."""
+        direct-путь передаёт include_self=True (свои прошлые слова с меткой).
+        Раунд 10.18 (F5, ADR-1018-5 D7): в SELECT добавлена ``f.importance`` —
+        вызывающий (`summary_memory._search_graph_facts`) домножает Python-ранг
+        на ``_importance_factor(imp)=0.5+0.05·imp ∈ [0.55,1.0]``, чтобы
+        мета-факты (imp=1) не перебивали важные (SQL-порядок по FTS-рангу не
+        меняется; множитель накладывается при пересортировке в Python)."""
         statuses = ("('confirmed', 'archived_belief')" if include_archived
                     else "('confirmed')")
         sql = (
             "SELECT f.id, f.fact, f.origin, f.created_at, f.target_user, "
             "f.weight, f.last_confirmed_at, f.message_timestamp, f.status, "
+            "f.importance, "
             "COALESCE(f.message_timestamp, f.created_at) AS rag_ts "
             "FROM graph_facts_fts "
             "JOIN graph_facts f ON f.id = graph_facts_fts.rowid "
@@ -3327,7 +3450,7 @@ class DatabaseService:
         placeholders = ",".join("?" for _ in fact_ids)
         sql = (f"SELECT id, fact, origin, created_at, target_user, weight, "
                f"status, last_confirmed_at, message_timestamp, belief_meta, "
-               f"kind FROM graph_facts "
+               f"kind, importance FROM graph_facts "
                f"WHERE id IN ({placeholders})")
         params: list = list(fact_ids)
         if status:
@@ -3432,10 +3555,13 @@ class DatabaseService:
     async def get_live_graph_facts(self, chat_id: int, now_ts: int) -> list:
         """66.2/66.11: живые (не протухшие) confirmed-факты чата для слияния/
         пересмотра. Раунд 10.14 (F1, ADR-1014-2 D6): self-факты исключены по
-        origin (собственные слова бота не «подтверждаются» слиянием)."""
+        origin (собственные слова бота не «подтверждаются» слиянием).
+        S10.18-35 (F5): + ``importance`` в SELECT — merge-путь (`_merge_cluster`)
+        переносит F5-пенальти мета-фактов в слитую строку (кластер из фактов
+        с imp<=1 → merged imp=1), а не теряет его в ``rule_importance``."""
         cursor = await self.db.execute(
             "SELECT id, fact, origin, expires_at, created_at, weight, "
-            "target_user, last_confirmed_at FROM graph_facts "
+            "target_user, last_confirmed_at, importance FROM graph_facts "
             "WHERE chat_id = ? AND status = 'confirmed' "
             "AND origin != 'bot_self_reply' "
             "AND (expires_at IS NULL OR expires_at > ?)",
@@ -3621,31 +3747,93 @@ class DatabaseService:
         row = await cursor.fetchone()
         return int(row["t"]) if row else 0
 
+    async def _belief_participation_blob(self, chat_id: int | None) -> str:
+        """Текст живых Убеждений/Парадигм чата (casefold, ё→е, '\\n'-склейка).
+
+        F3 (ADR-1018-3 D4): узел «участвует в Убеждении/Парадигме», если его
+        entity_name встречается в тексте живого belief (`kind='belief'`,
+        `status='confirmed'`, `supersedes IS NULL` — заменённые не считаем).
+        Живых beliefs немного → bounded-выборка; матчинг в Python (SQLite
+        lower() не умеет кириллицу). B3-4: нормализуем ё→е заранее — сравнение
+        идёт по ГРАНИЦАМ ТОКЕНОВ (regex в `graph_snapshot`), а не по подстроке
+        (иначе «тема» матчилась бы внутри «система», «дом» — внутри
+        «домашний»). Пусто/ошибка → '' (множитель ×1, fail-open).
+        """
+        try:
+            sql = ("SELECT fact FROM graph_facts "
+                   "WHERE kind = 'belief' AND status = 'confirmed' "
+                   "AND supersedes IS NULL")
+            params: list = []
+            if chat_id is not None:
+                sql += " AND chat_id = ?"
+                params.append(int(chat_id))
+            cursor = await self.db.execute(sql, params)
+            rows = await cursor.fetchall()
+        except Exception:
+            logger.warning("[database] belief blob failed — ×1 (fail-open)",
+                           exc_info=True)
+            return ""
+        return "\n".join(
+            str(r["fact"] or "").casefold().replace("ё", "е") for r in rows)
+
+    @staticmethod
+    def _belief_name_participates(name: str, token_set: set[str],
+                                  padded: str) -> bool:
+        """S10.18-30: O(1)-аналог прежнего `re.search` по belief-блобу.
+
+        Семантика та же (границы токенов `(?<![\\wё])…(?![\\wё])`, B3-4):
+          * однословное имя — точное совпадение с токеном блоба: «тема» ⊄
+            «система», «дом» ⊄ «домашний» (подстрока ×2 не даёт);
+          * многословное имя (пробел/дефис/иной не-словный разделитель) —
+            непрерывная последовательность его слов внутри padded-строки
+            токенов блоба («тема дня» матчится, разорванные слова — нет).
+
+        `name` уже casefold + ё→е; `token_set`/`padded` строятся один раз на
+        весь вызов `graph_snapshot`. Пустой блоб/имя короче 2 символов → False.
+        """
+        if not token_set or len(name) < 2:
+            return False
+        words = re.findall(r"[\wё]+", name)
+        if not words:
+            return False
+        if len(words) == 1:
+            # Однословное — точное совпадение токена (не подстрока).
+            return name in token_set
+        # Многословное — непрерывная последовательность слов в padded.
+        return f" {' '.join(words)} " in padded
+
     async def graph_snapshot(self, chat_id: int | None = None,
-                             max_nodes: int = 120,
-                             max_edges: int = 240,
-                             seed_nodes: int = 50) -> dict:
-        """Узлы/рёбра SQLite GraphRAG для force-directed графа (spec F1 —
-        graph-sampling-centrality-round1015, ADR-1015-2).
+                             max_nodes: int = 800,
+                             max_edges: int = 2400,
+                             seed_nodes: int = 150) -> dict:
+        """Узлы/рёбра SQLite GraphRAG для force-directed графа (F3 —
+        graph-density-scoring-stoplist, ADR-1018-3; SUPERSEDE ADR-1015-2).
 
         Алгоритм (read-only):
-          1. Degree Centrality: неевзвешенное число рёбер (`origin !=
-             'bot_direct_reply'`, chat-скоуп) через GROUP BY по UNION
-             индексированных выборок (idx_edges_source/target) — без
-             коррелированного COUNT(*).
-          2. Сиды — топ-`seed_nodes` по `degree DESC, id ASC`; затем все
-             смежные им узлы (окрестность 1 шаг), все достижимые компоненты.
-          3. Рёбра — только с ОБОИМИ концами внутри набора узлов (S10.13-14:
+          1. Score узла = **Σ importance** инцидентных рёбер (НЕ degree):
+             importance ребра = `COALESCE(graph_facts.importance, edges.weight)`
+             через новый `edges.fact_id` (v10). Legacy-рёбра с NULL `fact_id`
+             деградируют к повторяемости (`weight`) — не «фейковый вес», а
+             честная обработка исторических данных без provenance.
+          2. Сиды — топ-`seed_nodes` по `score DESC, degree DESC, id ASC`
+             ПОСЛЕ фильтра STOP_LIST центров (`services.graph_stoplist`;
+             периферия сохраняется) и с ×2 для узлов-участников Убеждений/
+             Парадигм. Кандидатный пул для ранжирования — bounded
+             `max(seed_nodes × 10, 2000)`.
+          3. Все смежные сидам узлы (окрестность 1 шаг).
+          4. Рёбра — только с ОБОИМИ концами внутри набора узлов (S10.13-14:
              висячих рёбер нет).
-          4. Сироты (узел без рёбер внутри итоговой выборки) удаляются.
-          5. Финальный cap `max_nodes`/`max_edges` — ПОСЛЕ раскрытия/очистки.
+          5. Сироты (узел без рёбер внутри итоговой выборки) удаляются.
+          6. Финальный cap `max_nodes`/`max_edges` — ПОСЛЕ раскрытия/очистки.
 
         R16: id — ключ, label — entity_name, group — entity_type, degree
-        сохранён (фронт `_graphSignature`). `truncated` — упёрлись в cap узлов
-        либо рёбер, либо были отброшены сироты."""
+        сохранён (фронт `_graphSignature`; degree — отдельная метрика, НЕ
+        сортировка). `truncated` — упёрлись в cap узлов/рёбер либо отброшены
+        сироты."""
         chat = int(chat_id) if chat_id is not None else None
         seed_n = max(1, int(seed_nodes))
-        scope = " AND chat_id = ?" if chat is not None else ""
+        pool_n = max(seed_n * 10, 2000)
+        scope = " AND e.chat_id = ?" if chat is not None else ""
         scope_params: list = [chat, chat] if chat is not None else []
 
         nwhere = ["n.entity_name IS NOT NULL", "n.entity_name != ''"]
@@ -3654,17 +3842,77 @@ class DatabaseService:
             nwhere.append("n.chat_id = ?")
             nparams.append(chat)
 
-        seed_sql = (
+        # (1) Кандидатный пул: score = Σ importance инцидентных рёбер.
+        score_sql = (
             "WITH re AS ("
-            "  SELECT source_id AS nid, target_id AS oid FROM edges"
-            "   WHERE origin != 'bot_direct_reply'" + scope +
+            "  SELECT e.source_id AS nid, e.target_id AS oid, e.id AS eid"
+            "   FROM edges e WHERE e.origin != 'bot_direct_reply'" + scope +
             "  UNION ALL"
-            "  SELECT target_id AS nid, source_id AS oid FROM edges"
-            "   WHERE origin != 'bot_direct_reply'" + scope + "),"
+            "  SELECT e.target_id AS nid, e.source_id AS oid, e.id AS eid"
+            "   FROM edges e WHERE e.origin != 'bot_direct_reply'" + scope + "),"
+            " imp AS ("
+            "  SELECT e.id AS eid, COALESCE(f.importance, e.weight) AS eimp"
+            "   FROM edges e LEFT JOIN graph_facts f ON f.id = e.fact_id"
+            "   WHERE e.origin != 'bot_direct_reply'" + scope + "),"
             " deg AS (SELECT nid, COUNT(*) AS degree FROM re GROUP BY nid),"
-            " seed AS (SELECT d.nid FROM deg d JOIN nodes n ON n.id = d.nid"
-            "          WHERE " + " AND ".join(nwhere) +
-            "          ORDER BY d.degree DESC, d.nid ASC LIMIT ?),"
+            " score AS (SELECT r.nid AS nid, SUM(i.eimp) AS s"
+            "           FROM re r JOIN imp i ON i.eid = r.eid GROUP BY r.nid)"
+            " SELECT n.id AS id, n.entity_name AS label, d.degree AS degree,"
+            "        sc.s AS score"
+            "  FROM score sc"
+            "  JOIN nodes n ON n.id = sc.nid"
+            "  JOIN deg d ON d.nid = sc.nid"
+            " WHERE " + " AND ".join(nwhere) +
+            " ORDER BY sc.s DESC, d.degree DESC, n.id ASC LIMIT ?")
+        # score_sql использует scope ТРИ раза (re ×2 + imp ×1).
+        cursor = await self.db.execute(
+            score_sql,
+            scope_params + ([chat] if chat is not None else [])
+            + nparams + [int(pool_n)])
+        rows = [dict(r) for r in await cursor.fetchall()]
+
+        # (2) STOP_LIST центров (только сиды!) + ×2 за Убеждение/Парадигму.
+        #     Ranking в Python: SQLite lower() не понижает кириллицу.
+        # S10.18-30 (perf): прежде ×2-фаза делала per-node `re.search(name, blob)`
+        # — доминирующая стоимость (≈176 мс на 2000 строк при blob 5 КБ; до
+        # секунд при росте числа beliefs) и выполнялась в event loop на каждый
+        # `GET /api/memory/graph`. Теперь токены блоба строятся ОДИН раз, а
+        # проверка — O(1) на узел (границы токенов сохранены, см.
+        # `_belief_name_participates`).
+        belief_blob = await self._belief_participation_blob(chat)
+        belief_tokens = (re.findall(r"[\wё]+", belief_blob)
+                         if belief_blob else [])
+        token_set = set(belief_tokens)
+        padded = (" " + " ".join(belief_tokens) + " ") if belief_tokens else ""
+        ranked: list[tuple[float, int, int]] = []
+        for r in rows:
+            label = str(r["label"] or r["id"])
+            if is_center_stopword(label):
+                continue
+            score = float(r["score"] or 0)
+            name = label.strip().casefold().replace("ё", "е")
+            # B3-4: матч по ГРАНИЦАМ ТОКЕНОВ, не подстрокой. «тема» не должна
+            # получать ×2 от «система», «дом» — от «домашний». Многословные
+            # имена поддерживаются (границы `\w` — на краях строки).
+            if self._belief_name_participates(name, token_set, padded):
+                score *= 2.0
+            ranked.append((score, int(r["degree"] or 0), int(r["id"])))
+        ranked.sort(key=lambda t: (-t[0], -t[1], t[2]))
+        seed_ids = [t[2] for t in ranked[:seed_n]]
+        if not seed_ids:
+            return {"nodes": [], "edges": [], "truncated": False}
+
+        # (3-4) Окрестность сидов + рёбра строго с обоими концами (S10.13-14).
+        seed_values = ",".join("(?)" for _ in seed_ids)
+        adj_sql = (
+            "WITH re AS ("
+            "  SELECT e.source_id AS nid, e.target_id AS oid FROM edges e"
+            "   WHERE e.origin != 'bot_direct_reply'" + scope +
+            "  UNION ALL"
+            "  SELECT e.target_id AS nid, e.source_id AS oid FROM edges e"
+            "   WHERE e.origin != 'bot_direct_reply'" + scope + "),"
+            " deg AS (SELECT nid, COUNT(*) AS degree FROM re GROUP BY nid),"
+            " seed(nid) AS (VALUES " + seed_values + "),"
             " adj AS (SELECT DISTINCT r.nid FROM re r"
             "          WHERE r.oid IN (SELECT nid FROM seed)),"
             " cand AS (SELECT nid FROM seed UNION SELECT nid FROM adj)"
@@ -3677,8 +3925,8 @@ class DatabaseService:
             " ORDER BY (c.nid IN (SELECT nid FROM seed)) DESC,"
             "          d.degree DESC, n.id ASC LIMIT ?")
         cursor = await self.db.execute(
-            seed_sql,
-            scope_params + nparams + [seed_n] + nparams + [int(max_nodes) + 1])
+            adj_sql,
+            scope_params + seed_ids + nparams + [int(max_nodes) + 1])
         rows = [dict(r) for r in await cursor.fetchall()]
         truncated_nodes = len(rows) > max_nodes
         rows = rows[:max_nodes]

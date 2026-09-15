@@ -31,7 +31,9 @@ class TestCatalogInvariant:
         # F3 НЕ вводит новых ключей (персона — PG-API): Δ каталога F3 = 0.
         # 10.14 (F8 self-reflection-llm-provider): +4/+4/+4 → 434/406/410;
         # 10.14 (F6 help-guide-integration): +1 PG-only → 435/406/411.
-        assert len(pc.REGISTRY) == 435
+        # 10.18 (F1): +1 env-only BETTERSTACK_HOST (ADR-1018-1 D3)
+        # → 436/406/411.
+        assert len(pc.REGISTRY) == 436
         assert len(pc.GROUPS) == 90
         assert len(pc._TAB_BY_GROUP) == 88
         assert len(pc.TAB_RULES) == 19
