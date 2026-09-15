@@ -1,11 +1,62 @@
 # AdminBot — Memory Index (plans/MEMORY.md)
 
-Индекс долговременной памяти. Архитектура — `plans/ARCHITECTURE.md` (§1–§39);
+Индекс долговременной памяти. Архитектура — `plans/ARCHITECTURE.md` (§1–§44);
 бэклог — `plans/backlog.md`. Полная семантическая карта — knowledge graph
 (Memory MCP, entity `AdminBot` + модули `adminbot-*` + entity `feature-*`
 раунда 10).
 
-> **АКТУАЛЬНЫЙ СТАТУС (15.09.2026):** раунд **10.19 «UPD2 bugfixes»** (UPD2 + итерация 2 **UPD3**)
+> **АКТУАЛЬНЫЙ СТАТУС (16.09.2026):** раунд **10.19 «UPD2+UPD3+UPD4 bugfixes»**
+> — **COMPLETED + DEPLOYED + ЗААРХИВИРОВАН**: **8 фич F1–F8**, **8 ADR (ADR-1019-1…-8)**,
+> **задачи T-1778…T-1865** (88). Спеки + ADR — **`plans/archive/<feature>/`** (8 папок):
+> `betterstack-ingest-bearer-contract`, `direct-chat-budget-unlimited`, `budget-settings-section`
+> (ADR-1019-3 + **ADR-1019-8** `per-chat-limits-and-seed` → **Accepted/Implemented**),
+> `direct-context-limit-expansion`, `status-section-ui-merge`, `media-files-avatars-sync`,
+> `memory-retention-health`, `graphrag-memorize-robustness`. `plans/archive/` — **84 папки**;
+> `plans/features/` — 6 backlog-папок.
+>
+> **Финальные числа:** pytest **6326 passed / 0 failed** (база 6139 → **+187**; траектория
+> 6164(A) → 6195(B) → 6232(C) → 6262(D) → 6323(E) → 6326 hotfix); каталог
+> **437/407/412/92/90/20** (REGISTRY/Settings/categorized/GROUPS/mapped/TAB_RULES; было
+> 436/406/411/90/88/19); **SQLite v10 → v11** (`UNIQUE(chat_id, import_key)` + `import_checkpoints`
+> PK `(path, chat_id)`), на проде `user_version=11`; **новых каталоговых флагов НЕТ**; env-only
+> `IMPORT_RETENTION_ENABLED`/`_DRY_RUN`/`_BACKUP_CONFIRMED` (**авто-purge OFF**) и
+> `CHAT_CONTEXT_UNLIMITED_CEILING_TOKENS=32000`. Деплой: **`c1502b6`** + **`2416d3e`** (hotfix сида),
+> push `fd6acc7..2416d3e`, прод **active (MainPID 2476027)**, `/api/health` **200**; релиз-узел
+> **`release-round1019`** (alias `release-2416d3e`).
+>
+> **✅ BetterStack 401 ПОБЕЖДЁН:** ingest-контракт `POST https://{host}` + `Authorization: Bearer`
+> — probe **US × Bearer = 202** (path-token/EU = 401); после деплоя `status=401` = **0**;
+> `[betterstack] attached | host=…us-west-2a…`. WARNING `token == SENTRY_DSN pubkey` снят → `debug`
+> (норма unified US). **`_STATUS_HINTS = {401, 402, 403, 406}`** — **202 = успех**, в подсказках его
+> нет (в ТЗ-брифе UPD2 значился 202 — неверно; **код — источник истины**).
+>
+> **🔴→✅ Post-Deploy Gate (UPD4 п.4):** первый деплой **`c1502b6`** → **ABORT** — сид не применялся
+> (`changed_by='chat_settings_seed'` (str) → `chat_lore_history.changed_by BIGINT` → `asyncpg.DataError`,
+> глотался fail-open; тесты не поймали — мок `set_chat_params`). **Hotfix `2416d3e`**: `changed_by=None`
+> + интеграционный тест **без мока** (`_StrictPgConn` валидирует BIGINT) → повторный гейт **PASS**:
+> 8 ключей целевого чата `-1002661910336` = `[0, -1, -1, -1, -1, -1, -1, -1]` (retention 0 = вечно;
+> бюджеты/фон/контекст −1 = безлимит); идемпотентность 2-го рестарта (chat_lore_history 39→39),
+> чужие overrides (`limits.chat_burst_limit=10`) и `meta` сохранены. **UPD4:** концепция «VIP» удалена
+> из КОДА → универсальный сид `services/chat_settings_seed.py` + `config/chat_settings_seed.json`
+> (id чата — только данные + тесты). retention dry-run (снапшот БД): целевой чат НЕ кандидат.
+>
+> **Процесс:** @Reviewer **Approved** по батчам A(F1+F8)/B(F2)/C(F3)/D(F4+F5)/E(F6+F7, после UPD4);
+> **отклонений 6** (A-1, B-1, C-1, D-1, E-2); @Scanner **0 Critical / 0 High / 0 Medium** по всему эпику;
+> открыто **2 Low** (`S10.19-15` двойной `key_status`; `S10.19-23` fsync каталога архива) + Low
+> `S10.18-29` + **16 Info**; @Builder **~6 rework**. Merge @Architect: `plans/ARCHITECTURE.md`
+> **818 строк** — **§40** (F2), **§41** (F3/F6/F7), **§42** (F1/F8), **§43** (F4/F5),
+> **§44** (итог/SUPERSEDE-карта + Feature Flags/Progressive Delivery). Archive @PM: `plans/backlog.md` —
+> 10.19 COMPLETED + ИТОГ + техдолг + таблица @DevOps-гейтов; **UPD2-3 (SSH-фрагмент) закрыт/отменён**
+> (историю git не трогаем). Граф: **`Epic round1019`** COMPLETED + `release-round1019` + F1–F8
+> (DEPLOYED_IN) + ADR-1019-1…-8 (Accepted) + risks **RESOLVED** + новый
+> `risk-seed-changed-by-type-round1019` (ABORT → hotfix → PASS) + `metric-snapshot-round1019-final`.
+> Предыдущий раунд — **10.18** (COMPLETED + DEPLOYED + ARCHIVED, `16a8c0b`).
+>
+> ⤵️ **Ниже — исторический снимок планирования (Step 2/3, 15.09.2026) раунда 10.19.**
+>
+> ---
+>
+> **ИСТОРИЧЕСКИЙ СНИМОК (Step 2/3, 15.09.2026):** раунд **10.19 «UPD2 bugfixes»** (UPD2 + итерация 2 **UPD3**)
 > — **PLANNED / SPEC_READY, Builder не начат**: **8 фич F1–F8**, **8 ADR (ADR-1019-1…-8)**,
 > **88 задач T-1778…T-1865** (исходно T-1778…T-1852 + итерация 2 UPD3 T-1853…T-1865).
 > Спеки/ADR — `plans/features/` (**8 папок**). ТЗ — `plans/current_task.md` §UPD2 (стр.130-175)
@@ -102,6 +153,14 @@
 > ADR-1018-7; ADR-1019-8 → ADR-1019-2/-3/-4/-6) / **SUPERSEDES** (ADR-1019-2 → F-15
 > `direct-sandbox-budget-investigation`; ADR-1019-7 **AMEND F-15 §4**) / DEPENDS_ON /
 > RESOLVED_BY / HAS_TECH_DEBT / HAS_METRIC.
+>
+> **UPD (Step 10, 16.09.2026): блок «Step 2/3» выше — исторический снимок планирования.**
+> Факт финала: раунд **10.19 COMPLETED + DEPLOYED + ARCHIVED**, спеки+ADR в `plans/archive/<feature>/`
+> (8), pytest **6326**, каталог **437/407/412/92/90/20**, SQLite **v11** (на проде `user_version=11`),
+> коммиты **`c1502b6`** + **`2416d3e`** (hotfix сида после ABORT Post-Deploy Gate), релиз
+> **`release-round1019`**; BetterStack 401 снят (US × Bearer = 202); `_STATUS_HINTS={401,402,403,406}`.
+> «PLANNED/SPEC_READY, Builder не начат» — устарело. Актуальные числа — в блоке «АКТУАЛЬНЫЙ СТАТУС»
+> выше и в `plans/metrics.md`.
 
 > **Архив (раунд 10.18): «Memory-Graph-Sleep-BetterStack bugfixes»**
 > — **COMPLETED + DEPLOYED + ЗААРХИВИРОВАН**: **7 фич F1–F7**, **75 задач T-1703…T-1777**,
