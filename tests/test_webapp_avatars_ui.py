@@ -436,9 +436,9 @@ class TestAvatarFrontAudit:
         # F4 10.16: CSS-канон вынесен из inline <style> в app.css.
         css = _Static.read("web/static/app.css")
         # Редизайн 10.5 (T-1098/OD4): анимированные градиенты эталона.
-        # 10.9 (п.8): чуть быстрее — grad-drift 18s, --grad-speed 14s.
-        assert "animation: grad-drift 18s" in css
-        assert "--grad-speed:14s" in css
+        # UPD3/T-1937: единый токен --grad-speed 6s (5–8 s), wash — conic+wash.
+        assert "grad-drift var(--grad-speed)" in css
+        assert "--grad-speed:6s" in css
         assert "animation: grad-spin" in css
 
     def test_relations_enrich_fields_in_app_js(self):

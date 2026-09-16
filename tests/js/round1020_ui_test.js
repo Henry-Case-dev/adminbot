@@ -107,6 +107,7 @@ const INDEX = fs.readFileSync(
       { key: 'limits.llm_timeout', type: 'float', value: 12.5 },
       { key: 'flags.x', type: 'bool', value: false },
       { key: 'keys.llm_api_key', type: 'str',
+        category: 'keys', secret: true,
         value: { configured: true, last4: '1234' } },
       { key: 'models.empty', type: 'str', value: null },
     ],
@@ -117,9 +118,11 @@ const INDEX = fs.readFileSync(
   assert.strictEqual(
     methods.blockFieldValue.call(ctx, { key: 'limits.llm_timeout' }),
     12.5, 'T-1895a: число из БД попадает в инпут');
+  // UPD3 (T-1936/INV-3): секрет configured → инпут показывает МАСКУ, не ''.
   assert.strictEqual(
-    methods.blockFieldValue.call(ctx, { key: 'keys.llm_api_key' }), '',
-    'T-1895a: секрет НЕ префиллится (маска)');
+    methods.blockFieldValue.call(ctx, { key: 'keys.llm_api_key', secret: true }),
+    '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022',
+    'T-1895a: секрет префиллится маской');
   assert.strictEqual(
     methods.blockFieldValue.call(ctx, { key: 'models.empty' }), '',
     'T-1895a: пусто только при реальном null');
@@ -432,13 +435,13 @@ const INDEX = fs.readFileSync(
 (function () {
   const CSS = fs.readFileSync(
     path.join(__dirname, '..', '..', 'web', 'static', 'app.css'), 'utf8');
-  assert.ok(CSS.indexOf('--glass-bg: rgba(30, 35, 40, 0.6)') >= 0,
-    'T-1898: токен --glass-bg');
+  assert.ok(CSS.indexOf('--glass-bg: rgba(20, 25, 30, 0.5)') >= 0,
+    'T-1898/UPD3: токен --glass-bg');
   assert.ok(CSS.indexOf('--glass-border') >= 0, 'T-1898: токен --glass-border');
   assert.ok(CSS.indexOf('backdrop-filter: var(--glass-blur)') >= 0,
-    'T-1898: backdrop-filter: blur(12px)');
-  assert.ok(CSS.indexOf('repeat(auto-fit, minmax(300px, 1fr))') >= 0,
-    'T-1899: CSS Grid auto-fit minmax(300px)');
+    'T-1898/UPD3: backdrop-filter: blur(16px)');
+  assert.ok(CSS.indexOf('repeat(auto-fit, minmax(320px, 1fr))') >= 0,
+    'T-1899/UPD3: CSS Grid auto-fit minmax(320px)');
   assert.ok(CSS.indexOf('justify-content: center') >= 0,
     'T-1899: центровка сетки');
   assert.ok(CSS.indexOf('details.advanced') >= 0, 'T-1902: рестайл аккордеона');

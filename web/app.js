@@ -12,6 +12,23 @@
 (function () {
   'use strict';
 
+  // UPD3 (T-1936/R31): sentinel маски секрета. Маска — НЕ значение: она не
+  // сохраняется (guard в saveBlock/saveKeyItem) и не считается изменением.
+  var SECRET_MASK = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
+  function isSecretMask(v) { return v === SECRET_MASK; }
+  // UPD3-fix (Critical-1/R31/INV-3): клик в конец маски + ввод даёт КОМПОЗИТ
+  // (`••••••••••••<ввод>`). Любая строка, СОДЕРЖАЩАЯ сентинел, считается
+  // маской, а не новым секретом: иначе композит уйдёт в POST /api/config и
+  // перезапишет реальный ключ (порча BYOK). Guard'ы обязаны использовать
+  // ТОЛЬКО этот предикат (не строгое равенство `isSecretMask`).
+  function hasSecretMask(v) {
+    return String(v == null ? '' : v).indexOf(SECRET_MASK) !== -1;
+  }
+  // UPD3-fix (L-2): подсказка, когда в поле — маска/композит секрета.
+  // Значение НЕ сохранено — сообщение объясняет, что делать (иначе «Уже
+  // сохранено» вводит в заблуждение и ввод молча теряется).
+  var SECRET_MASK_HINT = 'Поле содержит маску сохранённого секрета — выделите поле и введите значение заново';
+
   // ═══ Вкладки (3.5.1; зеркало TAB_RULES/CONFIG_TAB_TITLES бэка) ═══
   // sources: [{category, groups|null|except:[...]}] — groups = белый список
   // групп категории, except = вся категория кроме перечисленного, null = вся.
@@ -892,6 +909,7 @@
         configChatUpdatedAt: null, // F-7: optimistic-метка чата (X-Chat-Id)
         saving: new Set(),
         keyDrafts: {},
+        secretMask: SECRET_MASK,  // контракт/тесты; рантайм-guard'ы читают SECRET_MASK напрямую
         keyReveal: {},           // 3.5.1: показать/скрыть маску ключа (по item.key)
         // access
         admins: [],
@@ -1348,6 +1366,8 @@
           return it && it.key != null
             && (it.category === 'keys' || it.secret)
             && !!drafts[it.key]
+            // UPD3/R31: маска и её композит (`маска+ввод`) ≠ изменение.
+            && !hasSecretMask(drafts[it.key])
             && self.canEditConfig(it.key);
         });
       },
@@ -2641,6 +2661,23 @@
           if (it && it.key != null) snap[it.key] = JSON.stringify(it.value);
         });
         this.configSnapshot = snap;
+        // UPD3 (T-1936): (пере)сеем маски секретов в keyDrafts, чтобы инпут
+        // не был пустым при configured-значении (INV-3).
+        if (typeof this._seedSecretMasks === 'function') this._seedSecretMasks();
+      },
+      // INV-3: configured-секрет → в keyDrafts лежит SECRET_MASK (а не '').
+      // Пусто — только при null/{configured:false}; реальный черновик не
+      // перетирается. Маска не сохраняется (dirtyKeyItems/saveKeyItem guard).
+      _seedSecretMasks: function () {
+        var self = this;
+        if (!this.keyDrafts) this.keyDrafts = {};
+        (this.configItems || []).forEach(function (it) {
+          if (!it || it.key == null) return;
+          if (!(it.category === 'keys' || it.secret)) return;
+          if (typeof self.isKeyConfigured === 'function'
+              && !self.isKeyConfigured(it)) return;
+          if (!self.keyDrafts[it.key]) self.keyDrafts[it.key] = SECRET_MASK;
+        });
       },
       cancelModalEdits: function () {
         var snap = this.configSnapshot || {};
@@ -2649,7 +2686,9 @@
           if (!Object.prototype.hasOwnProperty.call(snap, it.key)) return;
           try { it.value = JSON.parse(snap[it.key]); } catch (e) { /* keep */ }
         });
+        // UPD3: вместо keyDrafts={} — пере-сев масок (пустые поля не вернуть).
         this.keyDrafts = {};
+        if (typeof this._seedSecretMasks === 'function') this._seedSecretMasks();
         this.stickyFailed = [];
         this.toast('Изменения отменены', 'ok');
       },
@@ -2814,8 +2853,14 @@
         var draft = this.blockDrafts[f.key];
         if (draft != null) return draft;
         var it = this.configItems.find(function (i) { return i.key === f.key; });
-        if (it && typeof it.value === 'string') return it.value;
-        if (it && it.type !== 'bool' && typeof it.value !== 'object') return it.value;
+        if (!it) return '';
+        // UPD3 (T-1936): credential-поле с {configured:true} → маска, а не ''.
+        if (it.value && typeof it.value === 'object') {
+          var isSecret = !!(f.secret || it.secret || it.category === 'keys');
+          return (isSecret && it.value.configured) ? SECRET_MASK : '';
+        }
+        if (typeof it.value === 'string') return it.value;
+        if (it.type !== 'bool' && it.value != null) return it.value;
         return '';
       },
       // Раунд 10.12 (ADR-1012-1 §2.3): маленькая надпись у header каждого
@@ -2875,7 +2920,9 @@
           var v = self.blockFieldValue(f);
           if (f.role === 'base_url') body.base_url = v || body.base_url;
           else if (f.role === 'model') body.model = v || body.model;
-          else if (f.role === 'api_key' && v) body.api_key = v;
+          // UPD3-fix/R31: маску и её композит в пробу не шлём (бэкенд
+          // резолвит сохранённый ключ по block).
+          else if (f.role === 'api_key' && v && !hasSecretMask(v)) body.api_key = v;
         });
         try {
           var res = await this.api('/api/llm/test', {
@@ -2905,7 +2952,10 @@
             method: 'POST',
             body: JSON.stringify({
               block: target, base_url: '', model: '',
-              api_key: this.blockFieldValue(f),
+              // UPD3/R31: маску/композит в пробу не шлём — бэкенд резолвит
+              // сохранённый ключ.
+              api_key: hasSecretMask(this.blockFieldValue(f))
+                ? '' : this.blockFieldValue(f),
             }),
           });
           this.blockResults[target] = {
@@ -2932,7 +2982,9 @@
           var it = self.configItems.find(function (i) { return i.key === f.key; });
           var draft = self.blockDrafts[f.key];
           if (f.secret) {
-            if (draft) items.push({ key: f.key, value: draft });
+            // UPD3-fix/R31: маска-сентинел И её композит (`маска+ввод`) НЕ
+            // отправляем — иначе перезапишем реальный секрет «остатком» ввода.
+            if (draft && !hasSecretMask(draft)) items.push({ key: f.key, value: draft });
             return;
           }
           // MINOR-3: `draft == null` = «не трогать»; `''` (пусто) = очистить.
@@ -3820,8 +3872,13 @@
         if (v && typeof v === 'string') return '••••';   // значение видно, хвост не показываем
         return '';
       },
+      isSecretMask: function (v) { return isSecretMask(v); },
+      // UPD3-fix: композит `маска+ввод` тоже должен распознаваться как маска.
+      hasSecretMask: function (v) { return hasSecretMask(v); },
       saveKeyItem: async function (item) {
         var value = (this.keyDrafts[item.key] || '').trim();
+        // UPD3-fix/R31: маска/композит → no-op (0 POST), без «отрезания».
+        if (hasSecretMask(value)) { this.toast(SECRET_MASK_HINT, 'warn'); return false; }
         if (!value) {
           this.toast('Введите новый ключ', 'warn');
           return false;
@@ -3842,6 +3899,7 @@
           this.keyDrafts[item.key] = '';
           this.toast('Ключ обновлён: ' + item.title, 'ok');
           await this._preserveScroll(this.loadConfig);
+          if (typeof this._seedSecretMasks === 'function') this._seedSecretMasks();
           return true;
         } catch (e) {
           this.toast('Ошибка: ' + e.message, 'err');

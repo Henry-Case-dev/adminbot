@@ -1201,11 +1201,12 @@ class TestStatic:
         assert "css" in resp.headers["content-type"]
         css = resp.text
         assert "@property --grad-angle" in css          # OD4: inherits:false
-        assert "animation: grad-drift" in css           # page-wash (T2)
+        assert "grad-drift var(--grad-speed)" in css   # page-wash (T2/UPD3)
         assert "conic-gradient(from var(--grad-angle)" in css
         assert "@media (prefers-reduced-motion: reduce)" in css
         assert "--surface-1:#161616" in css             # палитра эталона
-        assert "backdrop-filter: blur(20px) saturate(140%)" in css
+        assert "backdrop-filter: var(--glass-blur) saturate(140%)" in css
+        assert "--glass-blur: blur(16px)" in css
         assert "/static/fonts/material-symbols-rounded.woff2" in css
 
     def test_web_app_js_served(self, client):

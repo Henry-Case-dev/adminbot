@@ -211,13 +211,13 @@
               </div>
               <!-- A4/T-1207: LLM Провайдеры — блоки ПО МОДУЛЯМ; каждый =
                    base_url + model + api key + «Проверить» (POST /api/llm/test). -->
-              <div v-if="activeTab === 'llm_providers'" class="col-span-full grid gap-3">
+              <div v-if="activeTab === 'llm_providers'" class="col-span-full prov-grid">
                 <!-- 2.2.1 «Подключения»: только блоки настройки моделей. -->
                 <div class="hub-head" style="max-width: none;">
                   <div class="hub-title">Подключения</div>
                   <div class="hub-sub">Адреса, модели и ключи провайдеров. Технические параметры — ниже, в «Расширенных настройках».</div>
                 </div>
-                <section class="prov-block card p-4 max-w-3xl mx-auto w-full"
+                <section class="prov-block card p-4 w-full"
                          v-for="b in providerConnectionBlocks" :key="b.id" :data-block="b.id">
                   <header class="prov-head flex items-center gap-2 mb-2">
                     <span class="prov-title text-sm font-bold">{{ b.title }}</span>
@@ -241,6 +241,7 @@
                                  :type="f.secret && !keyReveal[f.key] ? 'password' : 'text'"
                                  autocomplete="off" :placeholder="blockFieldPlaceholder(f)"
                                  :value="blockFieldValue(f)"
+                                 @focus="f.secret && $event.target.select()" @mouseup="f.secret && $event.preventDefault()"
                                  @input="blockDrafts[f.key] = $event.target.value"
                                  :disabled="!canEditConfig(f.key)">
                           <div v-if="f.secret && blockFieldConfigured(f)"
@@ -277,6 +278,7 @@
                                :type="f.secret && !keyReveal[f.key] ? 'password' : 'text'"
                                autocomplete="off" :placeholder="blockFieldPlaceholder(f)"
                                :value="blockFieldValue(f)"
+                               @focus="f.secret && $event.target.select()" @mouseup="f.secret && $event.preventDefault()"
                                @input="blockDrafts[f.key] = $event.target.value"
                                :disabled="!canEditConfig(f.key)">
                         <div v-if="f.secret && blockFieldConfigured(f)"
@@ -360,8 +362,8 @@
                   </span>
                   <span class="msr advanced-gear" aria-hidden="true">{{ iconGlyph('settings') }}</span>
                 </summary>
-                <div v-if="activeTab === 'llm_providers'" class="col-span-full grid gap-3 mt-3">
-                  <section class="prov-block card p-4 max-w-3xl mx-auto w-full"
+                <div v-if="activeTab === 'llm_providers'" class="col-span-full prov-grid mt-3">
+                  <section class="prov-block card p-4 w-full"
                            v-for="b in providerAdvancedBlocks" :key="b.id" :data-block="b.id">
                     <header class="prov-head flex items-center gap-2 mb-2">
                       <span class="prov-title text-sm font-bold">{{ b.title }}</span>
@@ -375,6 +377,7 @@
                                :type="f.secret && !keyReveal[f.key] ? 'password' : 'text'"
                                autocomplete="off" :placeholder="blockFieldPlaceholder(f)"
                                :value="blockFieldValue(f)"
+                               @focus="f.secret && $event.target.select()" @mouseup="f.secret && $event.preventDefault()"
                                @input="blockDrafts[f.key] = $event.target.value"
                                :disabled="!canEditConfig(f.key)">
                         <div v-if="f.secret && blockFieldConfigured(f)"
@@ -553,6 +556,7 @@
                         <input class="field flex-1 min-w-0" autocomplete="off"
                                :type="keyReveal[item.key] ? 'text' : 'password'"
                                :placeholder="isKeyConfigured(item) ? 'Новый ключ (заменить)…' : 'Ключ…'"
+                               @focus="$event.target.select()"
                                v-model="keyDrafts[item.key]">
                         <button class="btn-ghost text-xs shrink-0"
                                 :title="keyReveal[item.key] ? 'Скрыть ключ' : 'Показать ключ'"
@@ -638,6 +642,7 @@
                           <input class="field flex-1 min-w-0" autocomplete="off"
                                  :type="keyReveal[item.key] ? 'text' : 'password'"
                                  :placeholder="isKeyConfigured(item) ? 'Новый ключ (заменить)…' : 'Ключ…'"
+                                 @focus="$event.target.select()"
                                  v-model="keyDrafts[item.key]">
                         </div>
                       </div>
@@ -701,6 +706,7 @@
                    способ сохранить textarea/input/JSON/промпты и key-drafts на
                    конфиг-вкладках (точечные кнопки удалены). Финальный блок
                    ветки currentTabIsConfig. -->
+              <div class="sticky-spacer col-span-full" aria-hidden="true"></div>
               <sticky-save class="col-span-full"></sticky-save>
             </template>
           </template>
@@ -743,7 +749,7 @@
 
             <!-- Окно параметров модуля (модалка; A2/T-1167) -->
             <div v-if="activeModule" class="modal-backdrop" @click.self="closeModule()">
-              <div class="modal-card card card-solid p-5 w-full max-w-2xl"
+              <div class="modal-card card p-5 w-full max-w-2xl"
                    role="dialog" aria-modal="true"
                    :aria-labelledby="'mod-title-' + activeModule.id"
                    tabindex="-1" @keydown.esc="closeModule()">
@@ -755,7 +761,7 @@
                   <button class="modal-close btn-ghost ml-auto text-sm px-2" @click="closeModule()"
                           aria-label="Закрыть">✕</button>
                 </header>
-                <div class="modal-body" style="max-height:80dvh;overflow-y:auto;">
+                <div class="modal-body">
                   <div v-if="!activeModuleGroups.length" class="text-xs text-gray-500">
                     Параметры модуля ещё не загружены.
                   </div>
@@ -798,10 +804,17 @@
                           <template v-else-if="item.category === 'keys' || item.secret">
                             <div class="text-sm font-semibold">{{ item.title }}</div>
                             <div class="text-xs text-gray-400 mb-1">{{ item.description }}</div>
+                            <!-- G3.5 (UPD3): бейдж маски — место без маски нельзя
+                                 спутать с «не настроено». -->
+                            <div class="mb-2">
+                              <span v-if="isKeyConfigured(item)" class="badge badge-ok">configured ••••{{ last4(item) }}</span>
+                              <span v-else class="badge badge-muted">не настроен</span>
+                            </div>
                             <div class="flex gap-2 mt-1">
                               <input class="field flex-1 min-w-0" autocomplete="off"
                                      :type="keyReveal[item.key] ? 'text' : 'password'"
                                      :placeholder="isKeyConfigured(item) ? 'Новый ключ (заменить)…' : 'Ключ…'"
+                                     @focus="$event.target.select()"
                                      v-model="keyDrafts[item.key]">
                             </div>
                           </template>
@@ -960,11 +973,11 @@
                     </div>
                   </div>
                 </div>
+                  <!-- UPD3 (T-1938): sticky-панель ВНУТРИ скроллера .modal-body
+                       (position:sticky работает только внутри него). -->
+                  <sticky-save></sticky-save>
                 </div>
-                <footer class="modal-footer mt-3 flex items-center gap-2">
-                  <!-- 10.20 (T-1900): одна sticky-панель вместо кнопок «Сохранить»
-                       под инпутами; тумблеры/select сохраняются мгновенно. -->
-                  <sticky-save class="flex-1"></sticky-save>
+                <footer class="modal-footer flex items-center gap-2">
                   <button class="btn-ghost text-sm shrink-0" @click="closeModule()">Закрыть</button>
                 </footer>
               </div>
@@ -1256,7 +1269,7 @@
                  id="sec-admins" сохранён. -->
             <div v-if="isAccessOpen('admins')" class="modal-backdrop"
                  @click.self="closeAccessWindow()">
-              <div class="modal-card card card-solid p-5 w-full max-w-2xl"
+              <div class="modal-card card p-5 w-full max-w-2xl"
                    role="dialog" aria-modal="true"
                    aria-labelledby="acc-admins-title"
                    tabindex="-1" @keydown.esc="closeAccessWindow()">
@@ -1266,7 +1279,7 @@
                   <button class="modal-close btn-ghost ml-auto text-sm px-2"
                           @click="closeAccessWindow()" aria-label="Закрыть">✕</button>
                 </header>
-                <div class="modal-body" style="max-height:80dvh;overflow-y:auto;">
+                <div class="modal-body">
             <div class="card p-4" id="sec-admins">
                 <div class="text-sm font-bold mb-2">Роли</div>
                 <div v-if="adminsLoading" class="spinner"></div>
@@ -1299,7 +1312,7 @@
                 </div>
               </div>
                 </div>
-                <footer class="modal-footer mt-3 flex justify-end">
+                <footer class="modal-footer flex justify-end">
                   <button class="btn-ghost text-sm" @click="closeAccessWindow()">Закрыть</button>
                 </footer>
               </div>
@@ -1308,7 +1321,7 @@
             <!-- Окно «Матрица ролей» (#/access/roles): sec-roles + sec-matrix -->
             <div v-if="isAccessOpen('roles')" class="modal-backdrop"
                  @click.self="closeAccessWindow()">
-              <div class="modal-card card card-solid p-5 w-full max-w-2xl"
+              <div class="modal-card card p-5 w-full max-w-2xl"
                    role="dialog" aria-modal="true"
                    aria-labelledby="acc-roles-title"
                    tabindex="-1" @keydown.esc="closeAccessWindow()">
@@ -1318,7 +1331,7 @@
                   <button class="modal-close btn-ghost ml-auto text-sm px-2"
                           @click="closeAccessWindow()" aria-label="Закрыть">✕</button>
                 </header>
-                <div class="modal-body" style="max-height:80dvh;overflow-y:auto;">
+                <div class="modal-body">
               <!-- Роли -->
               <div class="card p-4" id="sec-roles">
                 <div class="text-sm font-bold mb-2">Роли</div>
@@ -1440,7 +1453,7 @@
                 </template>
               </div>
                 </div>
-                <footer class="modal-footer mt-3 flex justify-end">
+                <footer class="modal-footer flex justify-end">
                   <button class="btn-ghost text-sm" @click="closeAccessWindow()">Закрыть</button>
                 </footer>
               </div>
@@ -1449,7 +1462,7 @@
             <!-- Окно «Локальные админы» (#/access/local): id="sec-local" -->
             <div v-if="isAccessOpen('local')" class="modal-backdrop"
                  @click.self="closeAccessWindow()">
-              <div class="modal-card card card-solid p-5 w-full max-w-2xl"
+              <div class="modal-card card p-5 w-full max-w-2xl"
                    role="dialog" aria-modal="true"
                    aria-labelledby="acc-local-title"
                    tabindex="-1" @keydown.esc="closeAccessWindow()">
@@ -1459,7 +1472,7 @@
                   <button class="modal-close btn-ghost ml-auto text-sm px-2"
                           @click="closeAccessWindow()" aria-label="Закрыть">✕</button>
                 </header>
-                <div class="modal-body" style="max-height:80dvh;overflow-y:auto;">
+                <div class="modal-body">
               <!-- Раунд 10 (F-7 T-857): «Локальные админы чата» — доступы
                    активного чата (X-Chat-Id; global admin + local admin) -->
               <div class="card p-4" id="sec-local">
@@ -1501,7 +1514,7 @@
                 </template>
               </div>
                 </div>
-                <footer class="modal-footer mt-3 flex justify-end">
+                <footer class="modal-footer flex justify-end">
                   <button class="btn-ghost text-sm" @click="closeAccessWindow()">Закрыть</button>
                 </footer>
               </div>
@@ -1546,6 +1559,7 @@
               <!-- 10.20 (T-1900): нижняя sticky-панель конфиг-вкладки — вместо
                    кнопок «Сохранить» под каждым инпутом (тумблеры/select —
                    мгновенный auto-save). -->
+              <div class="sticky-spacer col-span-full" aria-hidden="true"></div>
               <sticky-save class="col-span-full"></sticky-save>
             </template>
           </template>
@@ -2640,7 +2654,7 @@
 
     <!-- Модалка подтверждения control -->
     <div v-if="confirmAction" class="modal-backdrop" @click.self="confirmAction = null">
-      <div class="card card-solid p-5 max-w-sm w-full">
+      <div class="card p-5 max-w-sm w-full">
         <div class="text-base font-bold mb-2">Подтверждение</div>
         <div class="text-sm text-gray-300 mb-4">{{ confirmText }}</div>
         <div class="flex justify-end gap-2">
@@ -2655,7 +2669,7 @@
          PATCH-контракт аддитивен (R16: user_id — ключ); пустая правка =
          сброс к авто. Sticky-футер — единая кнопка сохранения (T-1900). -->
     <div v-if="dossierOpen" class="modal-backdrop" @click.self="closeDossier()">
-      <div class="modal-card card card-solid p-5 w-full max-w-xl"
+      <div class="modal-card card p-5 w-full max-w-xl"
            role="dialog" aria-modal="true" aria-labelledby="dossier-title"
            tabindex="-1" @keydown.esc="closeDossier()">
         <header class="modal-head flex items-center gap-2 mb-3">
@@ -2666,7 +2680,7 @@
           <button class="modal-close btn-ghost ml-auto text-sm px-2" @click="closeDossier()"
                   aria-label="Закрыть">✕</button>
         </header>
-        <div class="modal-body" style="max-height:70dvh;overflow-y:auto;">
+        <div class="modal-body">
           <div v-if="dossierBusy" class="spinner my-4"></div>
           <template v-else>
             <div class="text-xs text-gray-500 mb-1">Черты от экстрактора Личности (авто)</div>
@@ -2690,23 +2704,24 @@
               Пустое поле сбросит правку — вернётся авто-досье.
             </div>
           </template>
+          <!-- UPD3 (T-1938): sticky-футер досье перенесён ВНУТРЬ скроллера. -->
+          <footer class="sticky-save">
+            <span class="sticky-save__count">
+              {{ dossierDraft === ((dossierData && dossierData.manual_traits) || '') ? 'Нет изменений' : 'Есть правка' }}
+            </span>
+            <button class="btn-ghost text-sm" type="button"
+                    :disabled="dossierSaving" @click="closeDossier()">Отмена</button>
+            <button class="btn-accent text-sm" type="button"
+                    :disabled="dossierSaving"
+                    @click="saveDossier()">{{ dossierSaving ? 'Сохранение…' : 'Сохранить досье' }}</button>
+          </footer>
         </div>
-        <footer class="sticky-save">
-          <span class="sticky-save__count">
-            {{ dossierDraft === ((dossierData && dossierData.manual_traits) || '') ? 'Нет изменений' : 'Есть правка' }}
-          </span>
-          <button class="btn-ghost text-sm" type="button"
-                  :disabled="dossierSaving" @click="closeDossier()">Отмена</button>
-          <button class="btn-accent text-sm" type="button"
-                  :disabled="dossierSaving"
-                  @click="saveDossier()">{{ dossierSaving ? 'Сохранение…' : 'Сохранить досье' }}</button>
-        </footer>
       </div>
     </div>
 
     <!-- Модалка редактора ролей -->
     <div v-if="roleEditor.open" class="modal-backdrop" @click.self="closeRoleEditor()">
-      <div class="card card-solid p-5 w-full max-w-xl max-h-[85vh] overflow-y-auto scroll-thin">
+      <div class="card p-5 w-full max-w-xl max-h-[85vh] overflow-y-auto scroll-thin">
         <div class="text-base font-bold mb-1">Роль «{{ roleEditor.roleName }}»</div>
         <div class="text-xs text-gray-500 mb-3">Отметьте права; чек секции отмечает всё внутри, частичный чек = indeterminate.</div>
         <div v-if="roleEditor.loading" class="spinner my-4"></div>
@@ -2759,7 +2774,7 @@
 
     <!-- История изменений лора (timeline DESC, spec §3.10/Q7) -->
     <div v-if="chatLoreHistoryOpen" class="modal-backdrop" @click.self="closeLoreHistory()">
-      <div class="card card-solid p-5 w-full max-w-2xl max-h-[85vh] flex flex-col">
+      <div class="card p-5 w-full max-w-2xl max-h-[85vh] flex flex-col">
         <div class="flex items-center gap-2 mb-1 shrink-0">
           <div class="text-base font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('history') }}</span> История изменений</div>
           <span v-if="chatLoreProfile" class="text-xs text-gray-500 font-mono">
@@ -2823,7 +2838,7 @@
 
     <!-- 409 optimistic-lock лора (Q8): профиль изменён — перезагрузить? -->
     <div v-if="chatLore409" class="modal-backdrop" @click.self="cancelLoreReload()">
-      <div class="card card-solid p-5 max-w-sm w-full">
+      <div class="card p-5 max-w-sm w-full">
         <div class="text-base font-bold mb-2">Профиль изменён — перезагрузить?</div>
         <div class="text-sm text-gray-300 mb-1">
           Лор этого чата обновился с момента загрузки (параллельная правка
@@ -2842,7 +2857,7 @@
 
     <!-- Раунд 10 (F-12 C2): модалка деталей чата Oversight -->
     <div v-if="oversightDetail" class="modal-backdrop" @click.self="closeChatDetails()">
-      <div class="card card-solid p-5 max-w-2xl w-full max-h-[90vh] overflow-y-auto scroll-thin">
+      <div class="card p-5 max-w-2xl w-full max-h-[90vh] overflow-y-auto scroll-thin">
         <div class="flex items-center gap-2 flex-wrap mb-2">
           <div class="text-base font-bold">{{ oversightDetail.title }}</div>
           <span class="text-xs text-gray-500 font-mono">{{ oversightDetail.chat_id }}</span>
@@ -2910,7 +2925,7 @@
          global admin — неявно ВСЕГДА (не чекбокс); все сняты → «только
          глобальный админ»; «Сбросить на дефолт» → DELETE (в таблицу). -->
     <div v-if="permPickerOpen" class="modal-backdrop" @click.self="closePermPicker()">
-      <div class="card card-solid p-5 max-w-md w-full">
+      <div class="card p-5 max-w-md w-full">
         <div class="text-base font-bold mb-1">Права ключа: {{ permPickerItem && permPickerItem.title }}</div>
         <div class="text-xs text-gray-500 font-mono mb-3">{{ permPickerItem && permPickerItem.key }}</div>
         <div class="text-xs text-gray-500 mb-3">

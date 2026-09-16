@@ -190,13 +190,16 @@ class TestProviderForm:
             assert "display_name" in chunk[first:first + 60], block
 
     def test_form_width_constrained(self):
-        assert "max-w-3xl mx-auto w-full" in HTML
+        # UPD3/T-1935: «ИИ» → единый grid-контейнер prov-grid; max-w-3xl снят.
+        assert "prov-grid" in HTML
+        assert "max-w-3xl mx-auto w-full" not in HTML
 
 
 class TestGradient109:
     def test_faster_gradient(self):
-        assert "--grad-speed:14s" in HTML
-        assert "animation: grad-drift 18s" in HTML
+        # UPD3/T-1937: --grad-speed 14s → 6s (5–8 s) + оранжевый токен --grad-d.
+        assert "--grad-speed:6s" in HTML
+        assert "var(--grad-d)" in HTML
         # reduced-motion/contrast сохранены
         assert "prefers-reduced-motion" in HTML
         assert "prefers-contrast" in HTML

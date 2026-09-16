@@ -1272,3 +1272,28 @@ bot.py
 - **Статус после re-audit (16.09.2026): 0 Critical / 0 High / 0 Medium / 0 Low (open) / 5 Info.**
   Все S10.20-2…-16 закрыты; S10.20-12 (ADR-1020-3) и S10.20-17 (RBAC-паритет) — приняты обоснованно.
   Валидатор: pytest **6546 passed / 0 failed**; JS-гейты `JS-UNIT-OK`/`VUE-MOUNT-OK`; `git diff --check` clean.
+## Round 10.20 UPD3 (T-1941, 17.09.2026, HEAD a67f83d + worktree) — карта связностей UI-rework
+- **Статус скана: 0 Critical / 0 High / 1 Medium / 3 Low / 3 Info** (блокеров нет). **Финал (T-1936-fix2):** M-1/L-1/L-2 **закрыты**; @Reviewer **APPROVED** (Re-review итерация 2). Отчёты: `plans/reports/round1020_ui_rework_scanner_audit.md`, `plans/reports/round1020_ui_rework_reviewer.md`. Архитектура: `plans/ARCHITECTURE.md` §46.
+- **Новые узлы (frontend-only, backend/API/каталог Δ=0):**
+  - `web/static/app.css` — единый glass-set (`.card`, `.modal-card`, `.module-card`, `.hub-card`, `.prov-block`,
+    `details.advanced`, `.scope-panel`, `.glass-panel`, `.oversight-panel`) ← `--glass-bg rgba(20,25,30,.5)` + `--glass-blur blur(16px)`;
+    `.prov-grid`/`.module-list`/`.hub-grid` — только раскладка `repeat(auto-fit,minmax(320px,1fr))` (без фона/blur);
+    `.sticky-save` + `.modal-card{flex-col;max-height:min(90dvh,46rem)}` + `.modal-body{overflow-y:auto;scroll-padding-bottom}`
+    (у `.scroll-area` — только `scroll-padding-bottom`, **без** `padding-bottom`; место над панелью резервирует `.sticky-spacer` — закрытие M-1);
+    градиент `--grad-d #FF8A3D` + `--grad-speed 6s` (wash = `body::before` conic + `#app{z-index:1}`).
+  - `web/app.js` — `SECRET_MASK`/`isSecretMask`/`hasSecretMask` (композит `маска+ввод` = маска) ← `_seedSecretMasks()`
+    (вызов из `loadConfig`/`_snapshotConfig`/`cancelModalEdits`/`saveKeyItem`) → guard'ы `saveKeyItem`/`saveBlock`/`dirtyKeyItems`/`testBlock`/`testField`;
+    `SECRET_MASK_HINT` — понятная подсказка при композите вместо вводящего в заблуждение «Уже сохранено» (L-2).
+  - `web/index.html` — **условный** `@focus="f.secret && $event.target.select()"`/`@mouseup` на 3 provider-инпутах (L-1: не-секретные не блокируются); `prov-grid` для ветки «ИИ»; `<sticky-save>` внутрь
+    `.modal-body` и футера досье + **`.sticky-spacer`** перед панелью в config/access-ветках (M-1); снят inline `max-height`.
+- **Новые тесты:** `tests/js/round1020_ui_rework_test.js` (JS-UNIT-OK), `tests/test_webapp_ui_rework_round1020.py`
+  (каскад-резолвер/селекторы); обновлены `round1020_ui_test.js`, `test_webapp_api.py::TestStatic`,
+  `test_webapp_round1020_ui.py`, `test_webapp_round109_ui.py`, `test_webapp_avatars_ui.py`.
+- **Проверенные связки:** UI `testBlock`/`testField` (пустой `api_key`) ← `services/llm_probe.py:308-311::probe_block`
+  (резолв сохранённого ключа); `/api/config` маскирует секреты `{configured,last4}` (`web/api/routes.py:231-240`) ←
+  `blockFieldValue` → `SECRET_MASK`.
+- **Finding M-1 (Medium) — ЗАКРЫТ (T-1936-fix2):** было `.scroll-area:has(> .sticky-save){padding-bottom:88px}` — смещал
+  content-box, из-за чего sticky-панель в fullscreen config-вкладках «висела» на 88px выше низа вьюпорта (Chromium: `bandBelow=88`).
+  Стало: `padding-bottom:0` + `scroll-padding-bottom:var(--sticky-save-h)` + спейсер `.sticky-spacer` перед `<sticky-save>` (`bandBelow=0` на scrollTop 0/1000/max).
+- **Изменённые `web/*` (Δ backend/API/каталог=0):** `web/static/app.css`, `web/app.js`, `web/index.html`.
+- **Валидатор (финал):** pytest **6574 passed / 0 failed** (baseline 6546 → +28); JS-гейты `JS-UNIT-OK`×2 / `VUE-MOUNT-OK` / routing OK; `node --check web/app.js` OK; red→green (19 failed/7 passed → 26 passed); `git diff --check` clean. **⏸ Открыто:** T-1942 (прод served-CSS), живые WebView, скриншоты §7.5.

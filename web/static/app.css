@@ -5,7 +5,10 @@
       /* ═══ Дизайн-токены (редизайн 10.5, T-1098; палитра эталона Relume) ═══ */
       /* surfaces (плотные — гарантируют контраст WCAG AA) */
       --surface-0:#0E0E0E; --surface-1:#161616; --surface-2:#1F1F1F; --surface-3:#262626;
-      --surface-border:rgba(255,255,255,.10); --surface-glass:rgba(22,22,22,.72);
+      --surface-border:rgba(255,255,255,.10);
+      /* UPD3: --surface-glass больше не потребляется (стекло = --glass-bg ниже);
+         оставлен как алиас для обратной совместимости. */
+      --surface-glass:rgba(20,25,30,.5);
       /* text */
       --text-1:#F5F5F5; --text-2:#BABABA; --text-3:#9E9E9E;
       /* brand/base palette (эталон) */
@@ -16,7 +19,9 @@
       --ok-bg:rgba(22,179,100,.14); --warn-bg:rgba(234,170,8,.14); --err-bg:rgba(255,72,72,.14);
       /* animated gradient tokens (OD4) */
       --grad-angle:135deg; --grad-a:#664EA0; --grad-b:#14CBB6; --grad-c:#8D6BDC;
-      --grad-speed:14s; --grad-ease:cubic-bezier(0,0,.2,1);
+      --grad-d:#FF8A3D;   /* UPD3/T-1937: оранжевый к сиреневому/циану */
+      --grad-speed:6s;    /* UPD3/T-1937: 14s → 6s (диапазон 5–8 s) */
+      --grad-ease:cubic-bezier(0,0,.2,1);
       /* typography (значения эталона) */
       --font-body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
       --h1:3.5rem;--h2:3rem;--h3:2.5rem;--h4:2rem;--h5:1.5rem;--h6:1.25rem;
@@ -30,14 +35,16 @@
       --page-padding:2.5rem;--navbar-height:4.5rem;
       /* Liquid Glass (раунд 10.20, БЛОК 3.4/T-1898): токены — единый источник.
          Применяются к панелям «Сводка»/«Модули»/«ИИ» и всем модалкам. */
-      --glass-bg: rgba(30, 35, 40, 0.6);
-      --glass-blur: blur(12px);
-      --glass-border-color: rgba(255, 255, 255, 0.1);
+      --glass-bg: rgba(20, 25, 30, 0.5);
+      --glass-bg-strong: rgba(20, 25, 30, 0.85);
+      --glass-blur: blur(16px);
+      --glass-border-color: rgba(255, 255, 255, 0.12);
       --glass-border: 1px solid var(--glass-border-color);
+      --sticky-save-h: 4.5rem;
       /* compat-алиасы (хардкод прежней фиолетово-синей палитры удалён, §4.5) */
-      --card-bg: var(--surface-glass);
+      --card-bg: var(--glass-bg);
       --card-border: 1px solid var(--surface-border);
-      --accent-grad: linear-gradient(135deg, var(--purple-500), var(--teal-500));
+      --accent-grad: linear-gradient(135deg, var(--purple-500), var(--grad-d), var(--teal-500));
     }
     /* @property + inherits:false — быстрое (не)наследуемое вычисление и
        плавная интерполяция угла градиента (OD4/§4.3) */
@@ -71,11 +78,11 @@
 
     /* ═══ Анимированные градиенты (OD4/T-1091): только ограниченные
        поверхности; текст/иконки — всегда на плотных подложках (WCAG AA) ═══ */
-    @keyframes grad-spin { to { --grad-angle: 495deg; } }
+    @keyframes grad-spin { from { --grad-angle: 0deg; } to { --grad-angle: 360deg; } }
     @keyframes grad-drift { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
     .grad-band, .btn-accent, .tab-btn.active {
       background-image: conic-gradient(from var(--grad-angle),
-        var(--grad-a), var(--grad-b), var(--grad-c), var(--grad-a));
+        var(--grad-a), var(--grad-b), var(--grad-d), var(--grad-c), var(--grad-a));
       animation: grad-spin var(--grad-speed) linear infinite;
     }
     .grad-band { contain: paint; }
@@ -89,25 +96,34 @@
       color: var(--text-1);
     }
 
+    html { background-color: var(--surface-0); }
     body {
-      background: var(--surface-0);
+      background: transparent;
       position: relative;
     }
-    /* T2 — большая мягкая page-wash (фон-подсветка), не под текстом напрямую */
+    /* T2/UPD3 — большая мягкая page-wash (фон-подсветка), не под текстом напрямую.
+       UPD3/T-1937: conic-gradient + вращение угла, оранжевый stop, opacity .42 —
+       видимые переливы за 6 s; wash — backdrop для backdrop-filter стекла (RC-B). */
     body::before {
       content: '';
       position: fixed;
-      inset: 0;
-      z-index: -1;
+      inset: -10%;
+      z-index: 0;
       pointer-events: none;
-      background: linear-gradient(120deg, var(--grad-a), var(--grad-b), var(--grad-c));
+      background: conic-gradient(from var(--grad-angle) at 50% 50%,
+        var(--grad-a), var(--grad-b), var(--grad-d), var(--grad-c), var(--grad-a));
       background-size: 200% 200%;
-      animation: grad-drift 18s var(--grad-ease) infinite alternate;
-      opacity: .16;
+      animation: grad-spin var(--grad-speed) linear infinite,
+                 grad-drift var(--grad-speed) var(--grad-ease) infinite alternate;
+      opacity: .42;
     }
+    #app { position: relative; z-index: 1; }
     @media (prefers-reduced-motion: reduce) {
       .grad-band, .btn-accent, .tab-btn.active { animation: none !important; }
-      body::before { animation: none !important; background: var(--surface-1); opacity: 1; }
+      body::before {
+        animation: none !important; opacity: .35;
+        background: linear-gradient(135deg, var(--grad-a), var(--grad-b), var(--grad-c));
+      }
       :root { --grad-angle: 135deg; }
     }
     @media (prefers-contrast: more) {
@@ -117,15 +133,16 @@
       }
     }
 
-    /* Glass-карточки (84.7): полупрозрачные — фон просвечивает */
+    /* Glass-карточки (84.7/UPD3): полупрозрачные — фон просвечивает */
     .card {
-      background: var(--surface-glass);
-      backdrop-filter: blur(20px) saturate(140%);
-      -webkit-backdrop-filter: blur(20px) saturate(140%);
-      border: var(--card-border);
+      background-color: var(--glass-bg);
+      -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
+      backdrop-filter: var(--glass-blur) saturate(140%);
+      border: var(--glass-border);
       border-radius: 1rem;
       box-shadow: var(--shadow-lg);
     }
+    /* G1.3: card-solid — плотная подложка только header-sticky/scope-panel. */
     .card-solid {
       background: rgba(22, 22, 22, 0.88);
     }
@@ -270,7 +287,7 @@
     }
     .hub-card {
       display: flex; align-items: flex-start; gap: .75rem; text-align: left;
-      background: var(--surface-glass); border: var(--card-border);
+      background-color: var(--glass-bg); border: var(--glass-border);
       border-radius: var(--radius-lg); padding: .9rem; cursor: pointer;
       color: var(--text-1); transition: transform .12s ease, border-color .12s ease;
     }
@@ -782,43 +799,118 @@
        Раунд 10.20 — рефакторинг UX/UI мини-аппа (БЛОК 3). МЕНЮ НЕ МЕНЯЕТСЯ.
        ═══════════════════════════════════════════════════════════════════ */
 
-    /* T-1898: Liquid Glass — панели «Сводка»/«Модули»/«ИИ» + все модалки. */
-    .glass-panel,
-    .hub-head.glass-panel,
-    .oversight-panel,
-    .hub-grid,
-    .module-list,
+    /* T-1898/UPD3 (T-1934): Liquid Glass — карточки/панели/модалки/модальные
+       блоки. RC-A: `.card` (94 узла) обязан входить в glass-set; alpha .5. */
+    .card,
+    .modal-card,
     .module-card,
-    .modal-card {
-      background: var(--glass-bg);
+    .hub-card,
+    .prov-block,
+    details.advanced,
+    .scope-panel,
+    .glass-panel,
+    .oversight-panel {
+      background-color: var(--glass-bg);
       -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
       backdrop-filter: var(--glass-blur) saturate(140%);
       border: var(--glass-border);
     }
+    /* G1.6/UPD3 (T-1935): grid-контейнеры — ТОЛЬКО раскладка, без фона/
+       бордера/blur (раньше фон висел на обёртке «панель-слэб»). */
+    .prov-grid,
+    .module-list,
+    .hub-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1rem;
+      width: 100%;
+      align-content: start;
+      border: 0;
+      background: transparent;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+    /* G1.5: вложенные карточки не складывают alpha в «кирпич». */
+    .card .card,
+    .modal-body .card {
+      background-color: rgba(255, 255, 255, .04);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+    /* G2.4/UPD3: мобильное схлопывание сетки — ПОСЛЕ правила-тройки
+       (иначе более позднее auto-fit перебивает 1fr). */
+    @media (max-width: 479px) {
+      .prov-grid, .module-list, .hub-grid { grid-template-columns: 1fr; }
+    }
     .modal-backdrop {
       background: rgba(0, 0, 0, 0.5);
-      -webkit-backdrop-filter: blur(12px);
-      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: var(--glass-blur);
+      backdrop-filter: var(--glass-blur);
     }
     /* webkit-фолбэк: плотный фон, если backdrop-filter не поддержан. */
     @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-      .glass-panel, .modal-card { background: rgba(22, 22, 22, 0.92); }
+      .card, .modal-card, .module-card, .hub-card, .prov-block,
+      details.advanced, .scope-panel, .glass-panel, .oversight-panel {
+        background-color: var(--glass-bg-strong);
+      }
     }
 
-    /* T-1900: sticky-save — одна закреплённая панель внизу модалки/вкладки. */
+    /* T-1900/UPD3 (T-1938): sticky-save — одна закреплённая панель внизу
+       скролл-контейнера (модалки/вкладки). */
     .sticky-save {
       position: sticky;
       bottom: 0;
+      z-index: 5;
       display: flex;
       align-items: center;
       gap: .5rem;
-      padding: .5rem .25rem .25rem;
-      margin-top: .75rem;
+      padding: .6rem .75rem;
+      padding-bottom: calc(.6rem + env(safe-area-inset-bottom, 0px));
+      margin: 0;
       border-top: var(--glass-border);
-      background: var(--glass-bg);
+      background-color: var(--glass-bg-strong);
       -webkit-backdrop-filter: var(--glass-blur);
       backdrop-filter: var(--glass-blur);
-      z-index: 5;
+    }
+    /* G5.1: панель лежит ВНУТРИ скроллера — это и есть sticky-носитель.
+       Защитный фолбэк: если её вернут в .modal-footer — не «всплывает». */
+    .modal-footer > .sticky-save { position: static; }
+    /* G5: модалка = flex-колонка; .modal-body — единственный скроллер. */
+    .modal-card {
+      display: flex;
+      flex-direction: column;
+      max-height: min(90dvh, 46rem);
+      overflow: hidden;
+      border-radius: var(--radius-lg);
+    }
+    .modal-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scroll-padding-bottom: var(--sticky-save-h);
+    }
+    .modal-footer { flex: 0 0 auto; margin-top: 0; }
+    /* G5.5 (UPD3-fix/M-1): запас снизу у вкладки-скроллера БЕЗ смещения
+       sticky-панели. `padding-bottom` скролл-контейнера сужает content-box,
+       и `position:sticky; bottom:0` прижимается к его низу, а не к низу
+       скролл-порта (панель «висела» на 88px выше). Обнуляем нижний паддинг
+       контейнера (в т.ч. базовый fullscreen-паддинг 1rem+safe-area;
+       safe-area учитывает сама панель) и оставляем `scroll-padding-bottom`
+       (фокус/scrollIntoView не уезжает под панель). Место над панелью
+       резервирует спейсер-элемент в потоке ПЕРЕД ней. */
+    .scroll-area:has(> .sticky-save) {
+      padding-bottom: 0;
+      scroll-padding-bottom: var(--sticky-save-h);
+    }
+    .sticky-spacer {
+      display: block;
+      height: var(--sticky-save-h);
+      pointer-events: none;
+    }
+    @supports not (selector(:has(*))) {
+      /* Без :has() не сужаем content-box (M-1/L-3) — только scroll-padding. */
+      .scroll-area { scroll-padding-bottom: var(--sticky-save-h); }
     }
     .sticky-save__count {
       flex: 1 1 auto;

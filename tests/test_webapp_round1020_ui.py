@@ -153,15 +153,17 @@ class TestLiquidGlassAndGrid:
     """T-1898/T-1899: дизайн-токены, grid, reduced-motion."""
 
     def test_glass_tokens(self):
-        assert "--glass-bg: rgba(30, 35, 40, 0.6)" in CSS
-        assert "--glass-blur: blur(12px)" in CSS
-        assert "--glass-border-color: rgba(255, 255, 255, 0.1)" in CSS
+        # UPD3 (T-1934): alpha .5 + blur 16px (см. каскад-тесты
+        # tests/test_webapp_ui_rework_round1020.py).
+        assert "--glass-bg: rgba(20, 25, 30, 0.5)" in CSS
+        assert "--glass-blur: blur(16px)" in CSS
+        assert "--glass-border-color: rgba(255, 255, 255, 0.12)" in CSS
         assert "--glass-border: 1px solid var(--glass-border-color)" in CSS
         assert "backdrop-filter: var(--glass-blur)" in CSS
         assert ".modal-card" in CSS
 
     def test_grid(self):
-        assert CSS.count("repeat(auto-fit, minmax(300px, 1fr))") >= 2
+        assert CSS.count("repeat(auto-fit, minmax(320px, 1fr))") >= 1
         assert "justify-content: center" in CSS
 
     def test_reduced_motion(self):
