@@ -1272,7 +1272,7 @@ bot.py
 - **Статус после re-audit (16.09.2026): 0 Critical / 0 High / 0 Medium / 0 Low (open) / 5 Info.**
   Все S10.20-2…-16 закрыты; S10.20-12 (ADR-1020-3) и S10.20-17 (RBAC-паритет) — приняты обоснованно.
   Валидатор: pytest **6546 passed / 0 failed**; JS-гейты `JS-UNIT-OK`/`VUE-MOUNT-OK`; `git diff --check` clean.
-## Round 10.20 UPD3 (T-1941, 17.09.2026, HEAD a67f83d + worktree) — карта связностей UI-rework
+## Round 10.20 UPD3 (T-1941, 17.09.2026, HEAD a67f83d + worktree → деплой `ec93c3d`) — карта связностей UI-rework
 - **Статус скана: 0 Critical / 0 High / 1 Medium / 3 Low / 3 Info** (блокеров нет). **Финал (T-1936-fix2):** M-1/L-1/L-2 **закрыты**; @Reviewer **APPROVED** (Re-review итерация 2). Отчёты: `plans/reports/round1020_ui_rework_scanner_audit.md`, `plans/reports/round1020_ui_rework_reviewer.md`. Архитектура: `plans/ARCHITECTURE.md` §46.
 - **Новые узлы (frontend-only, backend/API/каталог Δ=0):**
   - `web/static/app.css` — единый glass-set (`.card`, `.modal-card`, `.module-card`, `.hub-card`, `.prov-block`,
@@ -1296,4 +1296,4 @@ bot.py
   content-box, из-за чего sticky-панель в fullscreen config-вкладках «висела» на 88px выше низа вьюпорта (Chromium: `bandBelow=88`).
   Стало: `padding-bottom:0` + `scroll-padding-bottom:var(--sticky-save-h)` + спейсер `.sticky-spacer` перед `<sticky-save>` (`bandBelow=0` на scrollTop 0/1000/max).
 - **Изменённые `web/*` (Δ backend/API/каталог=0):** `web/static/app.css`, `web/app.js`, `web/index.html`.
-- **Валидатор (финал):** pytest **6574 passed / 0 failed** (baseline 6546 → +28); JS-гейты `JS-UNIT-OK`×2 / `VUE-MOUNT-OK` / routing OK; `node --check web/app.js` OK; red→green (19 failed/7 passed → 26 passed); `git diff --check` clean. **⏸ Открыто:** T-1942 (прод served-CSS), живые WebView, скриншоты §7.5.
+- **Валидатор (финал):** pytest **6574 passed / 0 failed** (baseline 6546 → +28); JS-гейты `JS-UNIT-OK`×2 / `VUE-MOUNT-OK` / routing OK; `node --check web/app.js` OK; red→green (19 failed/7 passed → 26 passed); `git diff --check` clean. **✅ Деплой: commit `ec93c3d`** — прод-`/web/static/app.css` подтверждён (`blur(16px)`/`rgba(20,25,30,0.5)`/`#FF8A3D`/`6s`/`sticky-spacer`/`Cache-Control: no-store`); сервер `racknerd-f4e3456` — `systemctl` active, MainPID **2738993**, NRestarts=0; SQLite `user_version=12`; каталог-Δ=0. **⏸ Открыто (не блокеры):** живые WebView, скриншоты §7.5.

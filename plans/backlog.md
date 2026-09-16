@@ -4,7 +4,7 @@
 
 ## Раунд 10.20 (16.09.2026): «Летописец» (Lore Compiler) + глубокий рефакторинг RAG-архитектуры + UX/UI мини-аппа + Agentic AI (БЛОК 7) + Справка UI (БЛОК 8) — 1 фича-папка (фазы A–H) — ✅ COMPLETED + DEPLOYED + ЗААРХИВИРОВАН (16.09.2026 · commit `995cf83` + R18-fix `741b77c`; @PM Step 8 · @Architect Merge §45)
 
-> **⚠️ REOPENED (UI rework) — 17.09.2026 (UPD3 владельца, 16.09.2026):** фронтенд-блок **БЛОК 3** (`miniapp-ux-refactor-round1020`) провален (отчёт Оркестратора о готовности — галлюцинация; бэкенд работает). **@Reviewer — выговор** за пропуск. Эпик возвращён на доработку — **5 дефектов:** (1) нет Liquid Glass; (2) CSS Grid в одну колонку; (3) КРИТИЧНО пустые поля/секреты (two-way binding, аудит во всех модулях); (4) градиент 5–8s + оранжевый; (5) сломанная sticky-панель «Отмена/Сохранить». До отчётов о готовности — только реальный фикс CSS/стейта. KG: Feature `round1020-ui-rework`, constraints `glassmorphism-contract`/`css-grid-320`/`secret-field-mask`/`gradient-motion-orange`; метрики — `plans/metrics.md`.
+> **✅ REOPENED → RESOLVED (UI rework) — 17.09.2026 (UPD3 владельца, 16.09.2026):** фронтенд-блок **БЛОК 3** (`miniapp-ux-refactor-round1020`) был провален (отчёт Оркестратора о готовности — галлюцинация; бэкенд работает). **@Reviewer — выговор** за пропуск. Эпик возвращён на доработку — **5 дефектов:** (1) нет Liquid Glass; (2) CSS Grid в одну колонку; (3) КРИТИЧНО пустые поля/секреты (two-way binding, аудит во всех модулях); (4) градиент 5–8s + оранжевый; (5) сломанная sticky-панель «Отмена/Сохранить». До отчётов о готовности — только реальный фикс CSS/стейта. KG: Feature `round1020-ui-rework`, constraints `glassmorphism-contract`/`css-grid-320`/`secret-field-mask`/`gradient-motion-orange`; метрики — `plans/metrics.md`. **➡ ЗАКРЫТО:** доработка `round1020-ui-rework` — **✅ COMPLETED + DEPLOYED + ЗААРХИВИРОВАН** (17.09.2026 · commit `ec93c3d`; @Reviewer Approved iter2 · @Scanner 0 C/H · pytest 6574/0; архив `plans/archive/round1020-ui-rework/`, §46) — см. раздел «Раунд 10.20-UPD3 (UI-rework)» ниже.
 >
 > **✅ R17 — Risk Accepted (владелец, 16.09.2026):** ротация НЕ делается, история git НЕ переписывается; R18 остаётся; старый файл — в ignore-листе `plans/docs/r18_scanner_ignore.md`.
 
@@ -103,35 +103,42 @@ OFF → тул недоступен (остальные 7 работают); о�
 
 **➡ Follow-up (следующий раунд):** **T-1932** — fallback точки 7 (`vector_search` → `list[str]`): «голые» строки архива в `query_chat_memory` (документированный PENDING, ADR-1020-1 Р6/R26); формат `[ММ.ГГГГ | fact:ID]: текст`, без смены текущего контракта с `summary_generator`.
 
-## Раунд 10.20-UPD3 (UI-rework) — 🔴 REOPENED (17.09.2026)
+## Раунд 10.20-UPD3 (UI-rework) — ✅ COMPLETED + DEPLOYED + ЗААРХИВИРОВАН (17.09.2026 · commit `ec93c3d`)
 
-**Папка фичи:** `plans/features/round1020-ui-rework/` (`tasks.md`; спека/контракт — @Architect T-1933).
+**Папка фичи (архив @PM, Step 8):** `plans/archive/round1020-ui-rework/` — `spec.md`, `ui-contract.md`, `tasks.md`, `adr/ui-rework-1020.md`.
 
-**Статус: 🔴 REOPENED.** Эпик **10.20** возвращён владельцем на доработку после **визуальной инспекции мини-аппа
-(скриншоты)**: **бэкенд — ок**, **БЛОК 3 (UX/UI) провален почти полностью**. Отчёт Оркестратора о готовности UI —
-**галлюцинация**; @Reviewer — **выговор** за пропуск. Владелец: **никаких отчётов о готовности до реального фикса**.
+**Статус: ✅ COMPLETED + DEPLOYED + ЗААРХИВИРОВАН.** Доработка БЛОКА 3 закрыта: **5 UI-дефектов исправлены**
+(Liquid Glass `rgba(20,25,30,0.5)` + `blur(16px)`; CSS Grid `repeat(auto-fit, minmax(320px,1fr))`; маска секретов `••••••••••••`
+при `configured:true` + guard «маска не уходит на сервер»; градиент **6s** + оранжевый `#FF8A3D`; переверстанный `sticky-save`
++ `.sticky-spacer`). @Reviewer — **Approved** (итерация 2, реальный Chromium: CSSOM-зонды, Grid-треки, значения инпутов, offset-замер
+sticky); @Scanner — **0 Critical / 0 High** (`M-1`/`L-1`/`L-2` закрыты); полный `pytest` — **6574 passed / 0 failed**;
+JS-гейты (`node --check web/app.js`, `JS-UNIT-OK`, `VUE-MOUNT-OK`) чистые. Архитектура — `plans/ARCHITECTURE.md` §46.
+
+**Деплой (@DevOps):** commit **`ec93c3d`**; сервис на `racknerd-f4e3456` — `active`, MainPID `2738993`; прод-`/web/static/app.css`
+подтверждён (`blur(16px)`, `rgba(20,25,30,0.5)`, `#FF8A3D`, `6s`, `sticky-spacer`, `Cache-Control: no-store`); `PRAGMA user_version=12`.
 
 **5 дефектов (UPD3, `plans/current_task.md` стр. 365–411):**
-1. **Нет Liquid Glass + сломанная верстка** — фоны модалок/карточек сплошные тёмные; нужно `rgba(20,25,30,0.5)` + `backdrop-filter: blur(16px)` (+`-webkit-`).
-2. **CSS Grid проигнорирован** — «Модули»/«ИИ» в одну колонку; нужно `display:grid; grid-template-columns: repeat(auto-fit, minmax(320px,1fr)); gap:1rem;`.
-3. **КРИТИЧНО: пустые поля ввода** (two-way binding) — `Пароль/Пользователь Betterstack SQL` пусты при данных в БД; секрет **обязан** показывать `••••••••••••` (проверить во всех модулях).
-4. **Фоновый градиент** — ускорить (5–8s), добавить **оранжевый** к сиреневому и циан/бирюзовому, отрегулировать углы (заметные переливы).
-5. **Кривая sticky-панель** «Отмена/Сохранить» — сломала padding/margin модалок, перекрывает контент.
+1. **Liquid Glass + сломанная верстка** — ✅ исправлено (стекло на модалках/карточках; grid-контейнеры без фона).
+2. **CSS Grid** — ✅ «Модули»/«ИИ» заполняют ширину (≥2 трека на десктопе).
+3. **КРИТИЧНО: пустые поля/секреты** — ✅ `configured:true` → маска; пусто только при `null`; маска не сохраняется (все модули).
+4. **Фоновый градиент** — ✅ 6s + оранжевый, переливы заметны; `prefers-reduced-motion`/`prefers-contrast` сохранены.
+5. **Sticky-панель** — ✅ не перекрывает контент, отступы модалки целы, `safe-area` учтён.
 
-**Задачи:** **T-1933…T-1942** (10 задач; нумерация продолжает T-1931). **T-1932** (fallback точки 7, R26) — **вне** этого эпика.
-`T-1933` @Architect (UI-контракт) → `T-1934…T-1938` @Builder (по блоку на дефект) → `T-1939` тесты (DOM/CSS-ассерты, red→green) →
-`T-1940` @Reviewer (фактический рендер) → `T-1941` @Scanner (независимый re-audit) → `T-1942` @DevOps (деплой + прод-проверка CSS).
+**⏸ Остатки (human-pending, НЕ блокируют завершение/деплой/архив):** живая приёмка владельцем — WebView **Telegram Android / Nekogram**
+(реальный рендер + fallback `@supports not (backdrop-filter)`) и **скриншот-приёмка §7.5** (согласование внешнего вида градиента/стекла).
 
 **Файлы:** `web/index.html`, `web/static/app.css`, `web/app.js`, `web/api/routes.py`; чтение — `services/param_catalog.py`
-(`CHECKUP_BETTERSTACK_SQL_*`, стр. 503–506). **Меню/навигацию НЕ менять.** Флаг не вводится (каталог-Δ = **0**), раскатки нет, откат — `git revert`.
+(`CHECKUP_BETTERSTACK_SQL_*`, стр. 503–506). **Меню/навигация не изменены** (снимок 25 вкладок / 6 nav / 12 модулей). Флаг не вводится
+(каталог-Δ = **0**), раскатки 10→50→100% нет, откат — `git revert`.
 
-**Корень прошлого ложного «PASS»:** ревью проверяло «класс/панель где-то есть», а не каскад/вычисленные стили и не отдаваемый клиенту CSS;
-живая приёмка **T-1904** осталась ⏸. В этот раз @Reviewer обязан проверять **фактический рендер** (CSSOM-зонды, served-CSS, значения инпутов,
-отсутствие перекрытия), доказательство вида «grep нашёл» **не принимается** (риски R27–R36 в `tasks.md §7`).
+> **История провала/фикса (R27–R36):** исходный отчёт о готовности UI был **галлюцинацией** (@Reviewer — выговор за пропуск);
+> повторная приёмка выполнена по **фактическому рендеру** (CSSOM-зонды, served-CSS, значения инпутов, offset-замер), доказательство
+> вида «grep нашёл» запрещено. Детали и риски — `tasks.md §7` (архив).
 
-**➡ Передать @Memory (Step 10):** финальные числа — pytest **6546/0**, каталог **439/409/414/92/90/20**, **SQLite v12**;
-8-й инструмент `compile_lore_story` (флаг `flags.lore_compiler_enabled`, default **ON**); `INFO_CANON_VERSION` **3** (Справка v3);
-путь архива — `plans/archive/round1020-lore-compiler-rag-refactor/`; архитектура — `plans/ARCHITECTURE.md` §45.
+**➡ Передать @Memory (Step 10):** финальные числа — pytest **6574/0**, **SQLite v12**; commit **`ec93c3d`**; UI-доработка безусловная
+(флаг не вводится, каталог-Δ = **0**); путь архива — `plans/archive/round1020-ui-rework/`; архитектура — `plans/ARCHITECTURE.md` §46.
+Предшествующий эпик 10.20: pytest 6546/0, каталог 439/409/414/92/90/20, `compile_lore_story`, `INFO_CANON_VERSION=3`,
+архив `plans/archive/round1020-lore-compiler-rag-refactor/`, `§45`.
 
 ## F6/F7 (10.19, ревью Батча E, итерация 2/3, 15.09.2026): перенесённые пункты
 
