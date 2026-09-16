@@ -1,8 +1,12 @@
 # Эпик round1020 — «Летописец» (Lore Compiler) + глубокий рефакторинг RAG-архитектуры + UX/UI мини-аппа + Agentic AI + Справка UI
 
-> **Статус: 🟢 PLANNED / GATE PASSED** (Step 1 @PM, 16.09.2026; итерация 2 по UPD-разделу ТЗ). **Human Gate пройден** —
-> решения **О1–О7** зафиксированы (см. §Решения). Спеки/ADR — @Architect (Step 2): **ADR-1020-1…-6 DONE**, **ADR-1020-7…-8 — in-flight**.
-> Реализация — **@Builder** (Step 4). Деплой — **@DevOps** (Step 9). Архив — **@PM** (Step 8).
+> **Статус: ✅ COMPLETED + DEPLOYED + ЗААРХИВИРОВАН** (16.09.2026). Фазы **A–H** выполнены; @Reviewer — **Approved**;
+> @Scanner (re-audit) — **0 Critical / 0 High / 0 Medium / 0 Low** (открыто 5 Info); pytest **6546 passed / 0 failed**;
+> деплой — коммит **`995cf83`** (фича) + **`741b77c`** (R18-вычистка кредов из архива 10.16), запушено; на сервере
+> `systemctl` **active**, MainPID **2668878**, SQLite **`user_version=12`**. Архитектура смержена — `plans/ARCHITECTURE.md` **§45**.
+> Папка фичи перенесена `plans/features/round1020-lore-compiler-rag-refactor/` → **`plans/archive/round1020-lore-compiler-rag-refactor/`** (@PM Step 8).
+> **Human Gate пройден**, решения **О1–О7** зафиксированы (см. §Решения). Спеки/ADR — @Architect (Step 2): **ADR-1020-1…-8 DONE**.
+> ⏸ **Открыто (human-pending, не блокер):** **T-1904** (живая UI-приёмка), **T-1931** (приёмка Справки). Follow-up: **T-1932** (fallback точки 7, R26).
 > **Тип:** backend (память/RAG/тулы/промпты/LLM-движок) + frontend (TMA) + ops/CLI. **Приоритет:** Фаза A ✅ (гейт пройден) → **P0** (B, C) → **P1** (D, E, G) → **P2** (H).
 > **Фазы:** **A** (read-only аудит ✅) → **B** (ядро памяти) → **C** («Летописец») → **D** (UX/UI) → **E** (фактчекер + техдолг) → **G** (Agentic AI, БЛОК 7) → **H** (Справка UI, БЛОК 8) → **F** (верификация/SPEC_READY/деплой/архив).
 > **Нумерация:** продолжает T-1865 (10.19) → **T-1866 … T-1931 (66 задач)**.
@@ -294,11 +298,12 @@
 
 > **Внимание:** нумерация T-1913…T-1917 **меньше** номеров фаз G/H, но физически Фаза F — **последняя** (финальные гейты).
 
-- [ ] **T-1913 (@Architect + @PM) — SPEC_READY ⏸ (требование ТЗ, стр. 76):** показать владельцу логику всех изменений (пайплайны фаз B/C/E/G/H, флаги — включая default ON, Δ каталога +2 ключа, миграции, порядок доставки) **до деплоя**; получить явное «go».
-- [ ] **T-1914 (@Reviewer):** сквозное ревью эпика (DoD §5, R16/R17, канон-атомарность, отсутствие регрессий); полный `pytest` + JS-гейты.
-- [ ] **T-1915 (@Scanner):** аудит эпика → отчёт `plans/reports/round1020_scanner_audit.md` (0 Critical/High); фиксация открытых Low/Info.
-- [ ] **T-1916 (@DevOps, гейт):** деплой (`git pull --ff-only`, при необходимости `.env` + `systemctl restart admin_bot`, проверка статуса, живая проверка «Летописца», Справки и UI). **Пароль сервера в репозитории НЕ хранить (R17, О6).**
-- [ ] **T-1917 (@PM, Step 8):** финальная синхронизация `plans/backlog.md` + `plans/MEMORY.md` + `plans/metrics.md`; перенос папки фичи в `plans/archive/`; передача @Memory (Step 10).
+- [x] **T-1913 (@Architect + @PM) — SPEC_READY ✅ (требование ТЗ, стр. 76):** логика всех изменений (пайплайны фаз B/C/E/G/H, флаги — включая default ON, Δ каталога +2 ключа, миграции, порядок доставки) **предъявлена владельцу до деплоя**; получено явное **«go»** → деплой одобрен (считаем закрытым фактом получения «go» на деплой). **DONE.**
+- [x] **T-1914 (@Reviewer):** сквозное ревью эпика (DoD §5, R16/R17, канон-атомарность, отсутствие регрессий); полный `pytest` + JS-гейты. **APPROVED** (`plans/reports/round1020_reviewer.md`); pytest **6546 passed / 0 failed**; JS-гейты чистые; `git diff --check` clean.
+- [x] **T-1915 (@Scanner):** аудит эпика → отчёт `plans/reports/round1020_scanner_audit.md`. **RE-AUDIT: 0 Critical / 0 High / 0 Medium / 0 Low** (открыто только **5 Info**, не блокеры); все S10.20-* (1 High + 7 Medium + 9 Low) закрыты/верифицированы (§6a). **DONE.**
+- [x] **T-1916 (@DevOps, гейт):** деплой выполнен — коммит **`995cf83`** (фича) + **`741b77c`** (R18-вычистка кредов из архива 10.16), запушено; на сервере `systemctl` **active**, MainPID **2668878**, SQLite **`user_version=12`**; живая проверка «Летописца»/Справки/UI — ⏸ human-pending (T-1904/T-1931). **Пароль сервера в репозитории НЕ хранится (R17, О6).** **DONE.**
+- [x] **T-1917 (@PM, Step 8):** архивация выполнена — папка фичи перенесена `plans/features/round1020-lore-compiler-rag-refactor/` → **`plans/archive/round1020-lore-compiler-rag-refactor/`**; синхронизированы `plans/backlog.md` и `tasks.md`/`README.md` (все файлы + ADR-1020-1…-8 сохранены). R18-скан папки фичи — **чисто** (секретов нет). Передача **@Memory (Step 10)** — синхронизация `plans/MEMORY.md`/`plans/metrics.md`. **DONE (Step 8).**
+- ⏸ **ОТКРЫТО (human-pending, НЕ блокирует архив/деплой):** **T-1904** (живая UI-приёмка человеком: десктоп/Android/Nekogram, «меню не изменено», кнопка manual DeepDream О1) и **T-1931** (приёмка Справки владельцем). Follow-up: **T-1932** (fallback точки 7, R26 — `[ММ.ГГГГ | fact:ID]: текст`, без смены текущего контракта).
 
 ## 6a. Фиксы после @Scanner S10.20-* (Step 6→4, 16.09.2026)
 
@@ -377,10 +382,13 @@ JS-гейты: `node --check web/app.js` OK; `routing_test` → `JS-UNIT-OK`; `v
 
 ## 9. Handoff / деплой
 
-`@Orchestrator` — план эпика round1020 обновлён (Step 1 @PM, итерация 2). **Human Gate пройден**, решения О1–О7 зафиксированы.
-Дальше — **@Builder (Step 4)** по фазам **B → D → C → E → {G ∥ H}**; спеки/ADR фаз G/H — **@Architect (Step 2, in-flight: ADR-1020-7/-8)**.
-**Архитектурный конфликт T-1874 разрешён (Step 2 @Architect, ADR-1020-1 ред. 3):** двухъярусный контракт представления
-метаданных; остаток фазы B — точки **2/3/8/13** (форматировать) + подтвердить эквивалент 1/4/5/7/10/11/12/14;
-ID/forward фактов — **G/T-1924**; fallback точки 7 — follow-up. Гейт **T-1885 не тронут**.
-Деплой — @DevOps отдельным шагом (Step 9), **пароль сервера в репозитории НЕ хранится, `plans/current_task.md` — untracked (О6/R17)**.
-SPEC_READY-демонстрация владельцу **до деплоя** (T-1913). Архив/память — @PM (Step 8) + @Memory (Step 10).
+`@Orchestrator` — эпик **round1020 ЗАВЕРШЁН**: реализация фаз **A–H** выполнена, @Reviewer **Approved**, @Scanner re-audit
+**0 Critical/High/Medium/Low**, pytest **6546 passed / 0 failed**, архитектура смержена (`plans/ARCHITECTURE.md` **§45**).
+**Деплой (Step 9) выполнен:** коммит **`995cf83`** (+ R18-fix **`741b77c`**), запушено; на сервере `systemctl` active,
+MainPID **2668878**, SQLite **`user_version=12`**.
+**Архив (Step 8, @PM) выполнен:** папка фичи — **`plans/archive/round1020-lore-compiler-rag-refactor/`** (`spec.md`, `tasks.md`,
+`README.md`, `adr-1020-1…-8` сохранены); R18-скан — чисто.
+**Передача @Memory (Step 10):** синхронизация `plans/MEMORY.md` + `plans/metrics.md`; финальные числа — pytest **6546/0**,
+каталог **439/409/414/92/90/20**, **SQLite v12**, 8-й инструмент `compile_lore_story` (флаг `flags.lore_compiler_enabled` default ON).
+**⏸ Открыто (human-pending):** T-1904 (живая UI-приёмка), T-1931 (приёмка Справки); follow-up **T-1932** (fallback точки 7, R26).
+**Безопасность:** пароль сервера в репозитории НЕ хранится, `plans/current_task.md` — untracked (О6/R17).

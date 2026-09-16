@@ -1,9 +1,17 @@
 # round1020 — «Летописец» (Lore Compiler) + рефакторинг RAG/UI + Agentic AI + Справка UI
 
-Эпик Plan-фазы (OpenSpec Step 1 @PM, 16.09.2026; **итерация 2** по UPD-разделу ТЗ). Папка фичи: **одна** — фазы **A–H** внутри `tasks.md`.
-Спеки/ADR — за @Architect (Step 2): **`spec.md` + `adr-1020-1…-6` (DONE)**; **`adr-1020-7…-8` (in-flight)**.
+Эпик завершён (OpenSpec Step 1 @PM → Step 8 @PM, 16.09.2026). Папка фичи: **одна** — фазы **A–H** внутри `tasks.md`.
+Спеки/ADR — за @Architect (Step 2): **`spec.md` + `adr-1020-1…-8` (DONE)**.
 
-**Статус:** 🟢 **PLANNED / GATE PASSED** — **Human Gate пройден**, решения **О1–О7** зафиксированы (`tasks.md` §Решения).
+**Статус:** ✅ **COMPLETED + DEPLOYED + ЗААРХИВИРОВАН** (16.09.2026) — **Human Gate пройден**, решения **О1–О7** зафиксированы (`tasks.md` §Решения).
+
+## Итог эпика (16.09.2026)
+
+- **Реализация:** фазы **A–H** выполнены (@Builder Step 4). @Reviewer — **Approved**; @Scanner — **0 Critical / 0 High / 0 Medium / 0 Low** (5 Info); pytest **6546 passed / 0 failed**.
+- **Архитектура:** `plans/ARCHITECTURE.md` **§45** (Merge, Step 7).
+- **Деплой (Step 9 @DevOps):** коммит **`995cf83`** (+ R18-fix **`741b77c`**), запушено; на сервере `systemctl` **active**, MainPID **2668878**, SQLite **`user_version=12`**.
+- **Архив (Step 8 @PM):** папка фичи — `plans/archive/round1020-lore-compiler-rag-refactor/` (перемещена из `plans/features/…`, все файлы + ADR-1020-1…-8 сохранены). R18-скан — чисто.
+- **⏸ Открыто (human-pending):** **T-1904** (живая UI-приёмка), **T-1931** (приёмка Справки). **Follow-up:** **T-1932** (fallback точки 7, R26).
 
 ## Что внутри
 
@@ -11,7 +19,7 @@
 - [`spec.md`](./spec.md) — спека @Architect (Step 2, 🟡 PROVISIONAL → актуализируется под О1–О7 + БЛОК 7/8).
 - `adr-1020-1…-6` — контракт метаданных · роутинг/хронология · Time Injection/tz · `compile_lore_story` · фактчекер · формат доставки историй.
   **ADR-1020-1 — ред. 3 (16.09):** разрешение конфликта T-1874 (двухъярусный контракт представления метаданных; остаток фазы B — точки 2/3/8/13; `<chat_history>`/legacy-RAG — байт-инвариант; ID/forward фактов — G/T-1924).
-- `adr-1020-7…-8` — Agentic AI (БЛОК 7) + Справка UI (БЛОК 8) — готовит @Architect (имена/расщепление — по его решению).
+- `adr-1020-7…-8` — Agentic AI (БЛОК 7) + Справка UI (БЛОК 8) — **DONE** (Step 2 @Architect; все ADR-1020-1…-8 заархивированы).
 
 ## Исходное ТЗ
 
@@ -37,13 +45,13 @@
 | Фаза | Содержание | ТЗ | Задачи | Тип |
 |---|---|---|---|---|
 | **A** ✅ | READ-ONLY аудит LLM-движка → отчёт; **Human Gate A пройден** | БЛОК 4 | T-1866…T-1871 | research (DONE) |
-| **B** | Ядро памяти: метаданные (БЛОК 0), роутинг/хронология ASC/`/summary`/`dig_into_lore` (БЛОК 2), Time Injection + tz, анти-галлюцинации, persona fallback, «Безлимит (∞)» (БЛОК 5) | БЛОК 0/2/5 | T-1872…T-1885 | backend + prompts + UI-виджеты |
-| **C** | Новая фича: tool `compile_lore_story(topic)` — граф + хронология + storytelling-промпт (**HTML**) + диффы/UPD, `lore_stories` (7→8 инструментов, флаг default ON) | БЛОК 1 | T-1886…T-1893 | backend / new feature |
-| **D** | UX/UI мини-аппа: критич. баги binding/routing, досье участников, тикер досье, Liquid Glass, CSS Grid, sticky save, human-readable labels, рестайлинг Advanced-аккордеона (**меню НЕ менять**) | БЛОК 3 | T-1894…T-1904 | frontend |
-| **E** | Фактчекер: Full Tool Access + функциональный промпт; техдолг S10.19-15 / S10.19-23 / CLI retention | БЛОК 6 | T-1905…T-1912 | backend + prompts + ops |
-| **G** | **Agentic AI:** (7.1) tool recursion fail-safe + graceful degradation + лог потерянных раундов; (7.2) `reasoning_content` + stripper reasoning-тегов + снятие канона «1-2 предложения» (P0); (7.3) Context Middleware + приоритет метаданных над капом + `graph_facts` (`tg_message_id`, `forward_from`) + миграция pg+sqlite; (7.4) EN-`description` всех схем + строгая типизация | **БЛОК 7** | T-1918…T-1927 | backend / LLM-движок + DDL |
-| **H** | **Справка UI:** тексты (Летописец, Фактчек, безлимиты), удаление неактуального, **сохранение дерзкого стиля**; `services/info_service.py`/`info_text.md`/гайд, `web/` | **БЛОК 8** | T-1928…T-1931 | content/UI |
-| **F** | SPEC_READY владельцу → ревью → аудит → деплой → архив (охватывает B–H) | — | T-1913…T-1917 | финальные гейты |
+| **B** ✅ | Ядро памяти: метаданные (БЛОК 0), роутинг/хронология ASC/`/summary`/`dig_into_lore` (БЛОК 2), Time Injection + tz, анти-галлюцинации, persona fallback, «Безлимит (∞)» (БЛОК 5) | БЛОК 0/2/5 | T-1872…T-1885 | backend + prompts + UI-виджеты |
+| **C** ✅ | Новая фича: tool `compile_lore_story(topic)` — граф + хронология + storytelling-промпт (**HTML**) + диффы/UPD, `lore_stories` (7→8 инструментов, флаг default ON) | БЛОК 1 | T-1886…T-1893 | backend / new feature |
+| **D** ✅ | UX/UI мини-аппа: критич. баги binding/routing, досье участников, тикер досье, Liquid Glass, CSS Grid, sticky save, human-readable labels, рестайлинг Advanced-аккордеона (**меню НЕ менять**); ⏸ T-1904 — живая приёмка человека | БЛОК 3 | T-1894…T-1904 | frontend |
+| **E** ✅ | Фактчекер: Full Tool Access + функциональный промпт; техдолг S10.19-15 / S10.19-23 / CLI retention | БЛОК 6 | T-1905…T-1912 | backend + prompts + ops |
+| **G** ✅ | **Agentic AI:** (7.1) tool recursion fail-safe + graceful degradation + лог потерянных раундов; (7.2) `reasoning_content` + stripper reasoning-тегов + снятие канона «1-2 предложения» (P0); (7.3) Context Middleware + приоритет метаданных над капом + `graph_facts` (`tg_message_id`, `forward_from`) + миграция pg+sqlite; (7.4) EN-`description` всех схем + строгая типизация | **БЛОК 7** | T-1918…T-1927 | backend / LLM-движок + DDL |
+| **H** ✅ | **Справка UI:** тексты (Летописец, Фактчек, безлимиты), удаление неактуального, **сохранение дерзкого стиля**; `services/info_service.py`/`info_text.md`/гайд, `web/`; ⏸ T-1931 — приёмка владельцем | **БЛОК 8** | T-1928…T-1931 | content/UI |
+| **F** ✅ | SPEC_READY владельцу (**«go» получен**) → ревью (Approved) → аудит @Scanner (0 Critical/High/Medium/Low) → деплой (`995cf83`/`741b77c`) → архив @PM (охватывает B–H) | — | T-1913…T-1917 | финальные гейты |
 
 **Порядок:** **A ✅ → {B ∥ D} → C → E → {G ∥ H} → F.**
 

@@ -2,11 +2,19 @@
 
 Только эпики, которые можно начать планировать. Канон-блоки промптов — в `docs/canon/`; закрытые эпики 1–85 — история в git-истории (прежние файлы plans/, удалены 03.09.2026).
 
-## Раунд 10.20 (16.09.2026): «Летописец» (Lore Compiler) + глубокий рефакторинг RAG-архитектуры + UX/UI мини-аппа + Agentic AI (БЛОК 7) + Справка UI (БЛОК 8) — 1 фича-папка (фазы A–H) — 🟢 PLANNED / GATE PASSED (Human Gate О1–О7, Step 1 @PM итер. 2)
+## Раунд 10.20 (16.09.2026): «Летописец» (Lore Compiler) + глубокий рефакторинг RAG-архитектуры + UX/UI мини-аппа + Agentic AI (БЛОК 7) + Справка UI (БЛОК 8) — 1 фича-папка (фазы A–H) — ✅ COMPLETED + DEPLOYED + ЗААРХИВИРОВАН (16.09.2026 · commit `995cf83` + R18-fix `741b77c`; @PM Step 8 · @Architect Merge §45)
 
-**Папка фичи:** `plans/features/round1020-lore-compiler-rag-refactor/` (`tasks.md` + `README.md` + `spec.md` + `adr-1020-1…6`).
-**Спеки/ADR:** @Architect (Step 2) — **ADR-1020-1…-6 DONE**, **ADR-1020-7 (Agentic AI) / ADR-1020-8 (Справка) — in-flight**
-(+ возможные SUPERSEDE/AMEND: D206/Epic 50-58.8, канон R11/3.3, F-15 §4, ADR-1013-3 (канон-миграции), ADR-1018-2 (не трогаем)).
+**✅ ИТОГ 10.20 (16.09.2026):** эпик **завершён, задеплоен и заархивирован.** Фазы **A–H** выполнены (@Builder);
+@Reviewer — **Approved**; @Scanner (re-audit) — **0 Critical / 0 High / 0 Medium / 0 Low** (открыто 5 Info);
+pytest **6546 passed / 0 failed**; JS-гейты чистые. Архитектура смержена — `plans/ARCHITECTURE.md` **§45** (@Architect Step 7).
+**Деплой (Step 9 @DevOps):** коммит **`995cf83`** (фича) + **`741b77c`** (R18-вычистка кредов из архива 10.16), запушено;
+на сервере `systemctl` **active**, MainPID **2668878**, SQLite **`user_version=12`**. **Архив (Step 8 @PM):** папка фичи
+`plans/features/round1020-lore-compiler-rag-refactor/` → **`plans/archive/round1020-lore-compiler-rag-refactor/`**
+(сохранены `spec.md` + `tasks.md` + `README.md` + `adr-1020-1…-8`); R18-скан папки — **чисто** (секретов нет).
+
+**Папка фичи (архив):** `plans/archive/round1020-lore-compiler-rag-refactor/` (`tasks.md` + `README.md` + `spec.md` + `adr-1020-1…8`).
+**Спеки/ADR:** @Architect (Step 2) — **ADR-1020-1…-8 DONE**
+(+ SUPERSEDE/AMEND: D206/Epic 50-58.8, канон R11/3.3, F-15 §4, ADR-1013-3 (канон-миграции), ADR-1018-2 (не трогаем)).
 **Нумерация:** **T-1866…T-1931 (66 задач)**; фазы **A–H**.
 **ТЗ:** `plans/current_task.md` — БЛОК 0 (7–11), БЛОК 1 (14–45), БЛОК 2 (48–76), БЛОК 3 (88–140), БЛОК 4 (144–177),
 БЛОК 5 (181–211), БЛОК 6 (225–254), **UPD: О1–О7 (278–291)**, **БЛОК 7 Agentic AI (293–319)**, **БЛОК 8 Справка UI (323–331)**.
@@ -84,6 +92,16 @@ OFF → тул недоступен (остальные 7 работают); о�
 тон фактчекера; секрет в `current_task.md`; **AGENTIC AI (БЛОК 7):** stripper-тегов (R15), EN-схемы/роутинг (R16),
 `graph_facts` DDL (R17), приоритет метаданных над капом (R18), протечка снятого канона 1-2 предложения (R19);
 **Справка (R20), локальный `parse_mode=HTML` (R21)**.
+
+**⏸ Открыто (human-pending, НЕ блокирует завершение/деплой/архив):**
+- **T-1904** (Фаза D): живая UI-приёмка человеком (десктоп/Android/Nekogram), подтверждение «меню не изменено», проверка кнопки «Форсировать глубокий сон» в новом UI (О1/T-1906).
+- **T-1931** (Фаза H): приёмка Справки владельцем (стиль/актуальность), сверка с фактическим поведением.
+
+**➡ Follow-up (следующий раунд):** **T-1932** — fallback точки 7 (`vector_search` → `list[str]`): «голые» строки архива в `query_chat_memory` (документированный PENDING, ADR-1020-1 Р6/R26); формат `[ММ.ГГГГ | fact:ID]: текст`, без смены текущего контракта с `summary_generator`.
+
+**➡ Передать @Memory (Step 10):** финальные числа — pytest **6546/0**, каталог **439/409/414/92/90/20**, **SQLite v12**;
+8-й инструмент `compile_lore_story` (флаг `flags.lore_compiler_enabled`, default **ON**); `INFO_CANON_VERSION` **3** (Справка v3);
+путь архива — `plans/archive/round1020-lore-compiler-rag-refactor/`; архитектура — `plans/ARCHITECTURE.md` §45.
 
 ## F6/F7 (10.19, ревью Батча E, итерация 2/3, 15.09.2026): перенесённые пункты
 
