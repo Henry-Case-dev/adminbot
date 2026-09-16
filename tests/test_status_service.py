@@ -185,6 +185,62 @@ class TestSnapshot:
             assert "status" in b
 
     @pytest.mark.asyncio
+    async def test_context_limit_prefers_per_chat_cap(self, monkeypatch):
+        """S10.20-7: per-chat override важнее процесс-глобального acct."""
+        monkeypatch.setattr(
+            "services.status_service.StatusService._server_metrics",
+            staticmethod(lambda: {"cpu_percent": 1.0}))
+
+        def _acct():
+            return {"context_used": 100, "context_limit": 9000}
+
+        monkeypatch.setattr(
+            "services.direct_chat_service.get_process_accounting", _acct)
+
+        async def _chat_param(chat_id, key, default=None):
+            if key == "limits.chat_context_budget_tokens":
+                return 4000
+            return default
+
+        monkeypatch.setattr("services.chat_params.get_chat_param",
+                            _chat_param)
+        hot.set_config_cache(_FakeCache({
+            "limits.chat_context_budget_tokens": 16000}))
+        svc = StatusService()
+        ctx = types.SimpleNamespace(is_global_admin=False)
+        snapshot = await svc.build_snapshot(_FakeCache(pg=_FakePg()),
+                                            ctx=ctx, chat_id=-100)
+        assert snapshot["context"]["limit"] == 4000
+        assert snapshot["context"]["source"] == "chat"
+
+    @pytest.mark.asyncio
+    async def test_context_limit_global_without_override(self, monkeypatch):
+        """S10.20-7: без override — прежнее поведение (acct/global)."""
+        monkeypatch.setattr(
+            "services.status_service.StatusService._server_metrics",
+            staticmethod(lambda: {"cpu_percent": 1.0}))
+
+        def _acct():
+            return {"context_used": 100, "context_limit": 9000}
+
+        monkeypatch.setattr(
+            "services.direct_chat_service.get_process_accounting", _acct)
+
+        async def _chat_param(chat_id, key, default=None):
+            return default                       # override отсутствует
+
+        monkeypatch.setattr("services.chat_params.get_chat_param",
+                            _chat_param)
+        hot.set_config_cache(_FakeCache({
+            "limits.chat_context_budget_tokens": 16000}))
+        svc = StatusService()
+        ctx = types.SimpleNamespace(is_global_admin=False)
+        snapshot = await svc.build_snapshot(_FakeCache(pg=_FakePg()),
+                                            ctx=ctx, chat_id=-100)
+        assert snapshot["context"]["limit"] == 9000
+        assert snapshot["context"]["source"] == "account"
+
+    @pytest.mark.asyncio
     async def test_uptime_empty_rows_minimal_buckets(self, monkeypatch):
         """ФИКС 2026-09-03: uptime_events пуст → два 5-мин бакета
         status='down' (последние слоты) + generated_at; формат {ts,status}."""

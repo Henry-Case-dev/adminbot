@@ -508,15 +508,47 @@ class StatusService:
             acct = {}
         ctx_cap = hot.get("limits.chat_context_budget_tokens",
                           settings.CHAT_CONTEXT_BUDGET_TOKENS)
+        # 10.20 (БЛОК 5.4): per-chat резолв контекст-бюджета — при смене чата
+        # виджет «Бюджет контекста» реактивен; `-1` (безлимит) → `unlimited`
+        # → фронт «Безлимит (∞)» (без ложных 100%). Fail-open: PG down →
+        # глобальный слой как раньше.
+        per_chat_unlimited = False
+        per_chat_limit = None
+        if chat_id is not None:
+            try:
+                from services import budget_limits as _bl
+                from services.chat_params import (
+                    get_chat_param as _chat_budget,
+                )
+                value = await _chat_budget(
+                    chat_id, "limits.chat_context_budget_tokens", ctx_cap)
+                state = _bl.context_state(value)
+                if state == "unlimited":
+                    per_chat_unlimited = True
+                elif state == "cap" and value != ctx_cap:
+                    # S10.20-7: per-chat cap важнее процесс-глобального acct —
+                    # иначе виджет не был реактивен по чату (кроме unlimited).
+                    # `value == ctx_cap` → override нет, ведём себя как раньше.
+                    ctx_cap = value
+                    per_chat_limit = value
+            except Exception:
+                logger.warning("[status] per-chat context budget resolve "
+                               "failed — global | chat=%s", chat_id,
+                               exc_info=True)
         # D-7 (10.19): безлимит общего бюджета (`-1`) → `limit=null` +
         # `unlimited=true`, фронт показывает «Безлимит (∞)», а не ложные 100%.
-        ctx_unlimited = bool(acct.get("context_unlimited"))
+        ctx_unlimited = (bool(acct.get("context_unlimited"))
+                         or per_chat_unlimited)
+        effective_limit = (per_chat_limit if per_chat_limit is not None
+                           else (acct.get("context_limit") or ctx_cap))
         context_field = {
             "used": acct.get("context_used"),
-            "limit": None if ctx_unlimited
-            else (acct.get("context_limit") or ctx_cap),
+            "limit": None if ctx_unlimited else effective_limit,
             "unlimited": ctx_unlimited,
             "truncated": bool(acct.get("context_truncated")),
+            # S10.20-7: явный источник — «chat» (override), «account», «global».
+            "source": ("chat" if per_chat_limit is not None else
+                       ("account" if acct.get("context_limit") else "global")),
         }
         # ФИКС (2026-09-03): uptime_events пуст/недоступен (PG down, робот
         # только-только поднялся) → НЕ отдаём пустой список (фронт показывал

@@ -7,6 +7,9 @@ MAD2 2026: past-only context ≈ full; SIGIR 2026: длинный контекс
 """
 import logging
 
+from services.canonical_context import format_context_item, resolve_item_id
+from services.database import row_get
+
 logger = logging.getLogger(__name__)
 
 _CHAT_CONTEXT_MAX_CHARS = 2000     # SIGIR'26: большой контекст ухудшает верификацию
@@ -19,9 +22,14 @@ _CONTEXT_NOTE = (
 
 def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS) -> str:
     """rows — хронологический список строк smart_messages (sqlite3.Row с
-    author_name/user_id/text). → '<chat_context …>[имя]: текст…</chat_context>'
-    или '' (пустое окно / нет текстов). Потолок max_chars, старые сообщения
-    вытесняются первыми (окно уже ASC)."""
+    author_name/user_id/text). → '<chat_context …>…</chat_context>' или ''
+    (пустое окно / нет текстов). Потолок max_chars, старые сообщения
+    вытесняются первыми (окно уже ASC).
+
+    10.20 (БЛОК 0, ADR-1020-1 ред. 3, точка 13): строка — канонический
+    контекст-элемент `[Дата Время | Автор | ID | Переслано]: текст`
+    (данные ts/tg/id/forward доступны в smart_messages; R16 — опускаем
+    отсутствующее)."""
     lines: list[str] = []
     total = 0
     for row in rows:
@@ -29,7 +37,14 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS) -> str:
         if not text:
             continue
         name = row["author_name"] or f"id{row['user_id'] or '?'}"
-        line = f"[{name}]: {text}"
+        forward_source = (row_get(row, "forward_source")
+                          if row_get(row, "is_forward") else None)
+        line = format_context_item(
+            ts=row_get(row, "timestamp"), author=name,
+            item_id=resolve_item_id(
+                tg_message_id=row_get(row, "tg_message_id"),
+                message_id=row_get(row, "id")),
+            forward_source=forward_source, text=text, kind="msg")
         if total + len(line) > max_chars:
             break
         lines.append(line)

@@ -12,7 +12,7 @@ import logging
 from typing import Annotated
 
 from aiogram.utils.web_app import WebAppUser
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from services import chat_params, feature_gates, lore_runtime, oversight
@@ -170,3 +170,38 @@ async def oversight_global_key(
         chat_id, payload.allow, previous, user.id)
     return {"allow": payload.allow, "previous": previous,
             "updated_at": await chat_params.get_chat_updated_at(chat_id)}
+
+
+@oversight_router.get("/dossier_feed")
+async def dossier_feed(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
+    chat_id: int | None = None,
+    limit: int = Query(default=12, ge=1, le=40),
+):
+    """Раунд 10.20 (БЛОК 3.3/T-1897): «Живая лента досье».
+
+    GLOBAL (chat_id пуст) → случайные выдержки-факты по всем чатам; конкретный
+    чат → только его участники. Источник — graph_facts (те же данные, что у
+    досье; новых таблиц нет). Fail-open: нет БД/ошибка → пустая лента (200)."""
+    db = lore_runtime.get_lore_db()
+    if db is None:
+        return {"chat_id": chat_id, "items": []}
+    try:
+        rows = await db.dossier_feed(limit=limit, chat_id=chat_id)
+    except Exception:
+        logger.warning("[oversight] dossier_feed failed — пустая лента | "
+                       "chat=%s", chat_id, exc_info=True)
+        return {"chat_id": chat_id, "items": []}
+    items = []
+    for row in rows:
+        excerpt = str(row.get("fact") or "").strip()
+        name = str(row.get("name") or "").strip()
+        if not excerpt or not name:
+            continue
+        items.append({
+            "chat_id": int(row.get("chat_id") or 0),
+            "name": name,
+            "excerpt": excerpt[:240],
+        })
+    return {"chat_id": chat_id, "items": items}

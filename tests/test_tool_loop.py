@@ -17,7 +17,12 @@ from services.llm_client import (
     LLMChatResult,
     LLMToolCall,
 )
-from services.tool_loop import TOOL_MAX_ROUNDS, chat_with_tools
+from services.tool_loop import (
+    TOOL_LOOP_FALLBACK_PHRASE,
+    TOOL_MAX_ROUNDS,
+    ToolLoopResult,
+    chat_with_tools,
+)
 
 
 class FakeLLM:
@@ -113,16 +118,22 @@ class TestChatWithTools:
         assert roles == ["user", "assistant", "tool", "tool"]
 
     @pytest.mark.asyncio
-    async def test_round_limit_reached_raises_bad_response(self):
-        """AC-2.3: лимит раундов — не более TOOL_MAX_ROUNDS вызовов LLM."""
+    async def test_round_limit_degrades_to_fallback(self):
+        """AC-2.3 + БЛОК 7.1 (T-1919): лимит раундов — не более TOOL_MAX_ROUNDS
+        вызовов LLM; graceful degradation вместо LLMBadResponseError."""
         answers = []
         for i in range(TOOL_MAX_ROUNDS):
             answers.append(_tool_result(f"call_{i}", "execute_web_search", f"q{i}"))
         llm = FakeLLM(answers)
         router = FakeRouter({"execute_web_search": "данные"})
-        with pytest.raises(LLMBadResponseError):
-            await chat_with_tools(llm, MESSAGES, tools=[], router=router,
-                                  ctx=MagicMock())
+        out = await chat_with_tools(llm, MESSAGES, tools=[], router=router,
+                                    ctx=MagicMock())
+        assert not isinstance(out, BaseException)
+        assert out == TOOL_LOOP_FALLBACK_PHRASE
+        assert out.degraded is True
+        assert out.reason == "round_limit"
+        assert out.rounds_used == TOOL_MAX_ROUNDS
+        assert len(out.tool_trace) == TOOL_MAX_ROUNDS
         assert len(llm.all_messages) == TOOL_MAX_ROUNDS  # ровно 4 вызова LLM
         assert len(router.calls) == TOOL_MAX_ROUNDS
 

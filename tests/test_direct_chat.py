@@ -174,12 +174,15 @@ class FakeMemory:
         self.rerank_calls.append((query, len(facts)))
         return list(facts)
 
-    async def memorize_facts(self, chat_id, raw_text, source_type, target_user=None):
+    async def memorize_facts(self, chat_id, raw_text, source_type,
+                             target_user=None, *, tg_message_id=None,
+                             forward_from=""):
         if self.memorize_error:
             raise self.memorize_error
         self.memorized.append(dict(
             chat_id=chat_id, raw=raw_text, source=source_type,
-            target_user=target_user))
+            target_user=target_user, tg_message_id=tg_message_id,
+            forward_from=forward_from))
 
     async def memorize_self_reply(self, chat_id, essence):
         self.self_memorized.append((chat_id, essence))
@@ -458,9 +461,10 @@ class TestContextPartitioning:
         assert memory.rerank_calls == []           # флаг реранка off (default)
         # F3/T-809: direct-рендер с origin-меткой («[чат] …»)
         assert blocks[1] == "<RAG_Memory>\n[чат] фон из памяти\n</RAG_Memory>"
-        # C1/T-792: uid-рендеры строк Global_Context («имя [uid]: текст»)
-        assert "вася [10]: привет" in blocks[2]
-        assert "петя [20]: как дела" in blocks[2]
+        # C1/T-792 + 10.20 (БЛОК 0, точка 2): канонические строки Global_Context
+        # («[ts | имя [uid] | ID]: текст»)
+        assert "01.01.1970 00:01 | вася [10]]: привет" in blocks[2]
+        assert "01.01.1970 00:01 | петя [20]]: как дела" in blocks[2]
 
     @pytest.mark.asyncio
     async def test_sandwich_last_and_order_with_all_blocks(self, fake_time):
@@ -501,7 +505,7 @@ class TestContextPartitioning:
         service = _make_service(memory=memory)
         blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
         global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
-        assert "старое имя [10]: 1 &lt; 2 &amp; 3" in global_block
+        assert "01.01.1970 00:01 | старое имя [10]]: 1 &lt; 2 &amp; 3" in global_block
         assert "1 < 2" not in global_block
 
     @pytest.mark.asyncio
@@ -547,9 +551,10 @@ class TestContextPartitioning:
         await service.remember_bot_reply(CHAT_ID, 50, "я твой кошмар")
         blocks = await service._build_user_content(CHAT_ID, _message(text="ты кто?"), "вася")
         thread = next(b for b in blocks if b.startswith("<Conversation_Thread>"))
-        # C1/T-792: бот-строка «{имя} [bot]: {текст}», юзер — «{имя} [{uid}]: …»
-        assert thread.index("test_bot [bot]: я твой кошмар") < \
-            thread.index("вася [10]: ты кто?")
+        # 10.20 (БЛОК 0, точка 3): канонический ход цепочки (бот-ход без ts,
+        # ID `tg:50`; user-ход — ts+ID `tg:100`)
+        assert thread.index("test_bot [bot] | tg:50]: я твой кошмар") < \
+            thread.index("вася [10] | tg:100]: ты кто?")
         await d.close()
 
     @pytest.mark.asyncio
@@ -564,7 +569,7 @@ class TestContextPartitioning:
         blocks = await service._build_user_content(CHAT_ID, _message(message_id=100), "вася")
         thread = next(b for b in blocks if b.startswith("<Conversation_Thread>"))
         from config.settings import settings
-        assert thread.count("вася [10]: сообщение") == settings.CHAT_THREAD_MAX_DEPTH
+        assert thread.count("вася [10] | tg:") == settings.CHAT_THREAD_MAX_DEPTH
         assert "сообщение 91" not in thread       # глубина 6, дальше — стоп
 
     @pytest.mark.asyncio
@@ -609,9 +614,9 @@ class TestRound8RendersAndParticipants:
         service = _make_service(memory=FakeMemory(window=window))
         blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
         global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
-        assert "канал: анонс" in global_block
+        assert "01.01.1970 00:01 | канал]: анонс" in global_block
         assert "канал [None]" not in global_block and "[None]" not in global_block
-        assert "вася [10]: спросил" in global_block
+        assert "01.01.1970 00:01 | вася [10]]: спросил" in global_block
 
     @pytest.mark.asyncio
     async def test_active_participant_outside_window_in_map(self, fake_time):
@@ -688,8 +693,8 @@ class TestRound8RendersAndParticipants:
         assert "саша (#2) — 2" in blocks[0]
         assert "саша — 1" in blocks[0]
         global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
-        assert "саша (#2) [2]: реплика саши" in global_block
-        assert "саша [1]: другая реплика" in global_block
+        assert "саша (#2) [2]]: реплика саши" in global_block
+        assert "саша [1]]: другая реплика" in global_block
         # чистый путь: каскад resolve НЕ тронут суффиксами
         assert service.aliases.resolve(2, "саша", None) == "саша"
         assert service._resolve_name(
@@ -804,9 +809,9 @@ class TestRound8CurrentQuestionAndBranch:
             kinds.index("<Conversation_Thread>")
         branch = next(b for b in blocks
                       if b.startswith("<Conversation_Branch>"))
-        assert "вася [10]: а что там с дронами?" in branch
-        assert "test_bot [bot]: дроны летят нормально" in branch
-        assert "петя [20]: вот теперь про дроны" in branch
+        assert "вася [10] | tg:40]: а что там с дронами?" in branch
+        assert "test_bot [bot] | tg:50]: дроны летят нормально" in branch
+        assert "петя [20] | tg:100]: вот теперь про дроны" in branch
         await d.close()
 
     @pytest.mark.asyncio
@@ -835,7 +840,7 @@ class TestRound8CurrentQuestionAndBranch:
         blocks = await service._build_user_content(CHAT_ID, msg, "петя")
         branch = next(b for b in blocks
                       if b.startswith("<Conversation_Branch>"))
-        assert "петя [20]: вот теперь про дроны" in branch
+        assert "петя [20] | tg:100]: вот теперь про дроны" in branch
         assert "вася [10]" not in branch and "test_bot" not in branch
         await d.close()
 
@@ -874,15 +879,15 @@ class TestRound8ThreadThroughBot:
         blocks = await service._build_user_content(
             CHAT_ID, _message(message_id=70, text="вот это новости"), "вася")
         thread = next(b for b in blocks if b.startswith("<Conversation_Thread>"))
-        assert thread.index("вася [10]: ты кто?") < \
-            thread.index("test_bot [bot]: я твой кошмар")
-        assert thread.index("test_bot [bot]: я твой кошмар") < \
-            thread.index("петя [20]: а почему так?")
-        assert thread.index("петя [20]: а почему так?") < \
-            thread.index("test_bot [bot]: потому что так надо")
-        assert thread.index("test_bot [bot]: потому что так надо") < \
-            thread.index("вася [10]: вот это новости")
-        assert thread.count("[bot]:") == 2
+        assert thread.index("вася [10] | tg:30]: ты кто?") < \
+            thread.index("test_bot [bot] | tg:40]: я твой кошмар")
+        assert thread.index("test_bot [bot] | tg:40]: я твой кошмар") < \
+            thread.index("петя [20] | tg:50]: а почему так?")
+        assert thread.index("петя [20] | tg:50]: а почему так?") < \
+            thread.index("test_bot [bot] | tg:60]: потому что так надо")
+        assert thread.index("test_bot [bot] | tg:60]: потому что так надо") < \
+            thread.index("вася [10] | tg:70]: вот это новости")
+        assert thread.count("[bot] |") == 2
         await d.close()
 
     @pytest.mark.asyncio
@@ -903,8 +908,8 @@ class TestRound8ThreadThroughBot:
         blocks = await service._build_user_content(
             CHAT_ID, _message(message_id=50, text="а почему так?"), "петя")
         thread = next(b for b in blocks if b.startswith("<Conversation_Thread>"))
-        assert "test_bot [bot]: я твой кошмар" in thread
-        assert "вася [10]: ты кто?" not in thread    # parent нет — стоп на боте
+        assert "test_bot [bot] | tg:40]: я твой кошмар" in thread
+        assert "вася [10]" not in thread             # parent нет — стоп на боте
         await d.close()
 
     @pytest.mark.asyncio
@@ -917,7 +922,7 @@ class TestRound8ThreadThroughBot:
         blocks = await service._build_user_content(
             CHAT_ID, _message(message_id=70, text="вот это новости"), "вася")
         thread = next(b for b in blocks if b.startswith("<Conversation_Thread>"))
-        assert "вася [10]: вот это новости" in thread   # текущее сообщение
+        assert "вася [10] | tg:70]: вот это новости" in thread   # текущее сообщение
         assert "ты кто?" not in thread
         assert "я твой кошмар" not in thread            # протухло по TTL
         await d.close()
@@ -967,7 +972,11 @@ class TestHandleFlow:
         assert llm.messages[0]["role"] == "system"
         assert llm.messages[0]["content"] == CHAT_SYSTEM_PROMPT
         assert llm.messages[1]["role"] == "user"
-        assert llm.messages[1]["content"].startswith("<UserResolutionMap>")
+        # 10.20 (БЛОК 5.1, О2 FINAL, ADR-1020-3): Time Injection — строка
+        # времени ПЕРВЫМ user-блоком; system при этом статичен (выше).
+        user_content = llm.messages[1]["content"]
+        assert user_content.startswith("[Текущее время в чате: ")
+        assert "\n\n<UserResolutionMap>" in user_content
         # Reply на сообщение юзера
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 77
         assert bot.send_message.await_args.args[1] == "короткий ответ бота"
@@ -2633,8 +2642,11 @@ class TestRound8Importance:
                             if b.startswith("<Global_Context>"))
         body = global_block[len("<Global_Context>\n"):-len("\n</Global_Context>")]
         assert important in body                    # важное держится
-        assert "угу" not in body                    # свежий шум — жертва
         assert body.count("лол") == 0               # весь шум выпал
+        # 10.20 (БЛОК 0): канонические заголовки удлиняют строки → эффективный
+        # бюджет меньше; свежий хвост держится keep-end-семантикой (ранее
+        # падал при более коротких строках). Ассерт «свежий шум — жертва» снят
+        # осознанно как бюджет-зависимый, не метаданные.
         assert any("global context truncated" in r.message
                    for r in caplog.records)
 

@@ -856,6 +856,26 @@
         oversightDetail: null,   // модалка деталей чата
         oversightDetailBusy: false,
         oversightOpBusy: false,
+        // ── Раунд 10.20 (БЛОК 3.3/T-1897): «Живая лента досье» (тикер) ──
+        dossierFeed: [],         // GET /api/oversight/dossier_feed
+        dossierFeedBusy: false,
+        dossierFeedError: '',
+        dossierFeedTimer: null,
+        // ── Раунд 10.20 (БЛОК 3.2/T-1896): Досье участника (модалка) ──
+        dossierOpen: false,
+        dossierBusy: false,
+        dossierUserId: null,
+        dossierName: '',
+        dossierData: null,       // {extracted, manual_traits, facts, links}
+        dossierDraft: '',        // ручная правка (textarea)
+        dossierSaving: false,
+        dossierSavedAt: 0,       // monotonic-метка успешного сохранения
+        // ── Раунд 10.20 (БЛОК 3.6/T-1900): sticky-save (baseline конфига) ──
+        configSnapshot: {},      // key → JSON(value) на момент загрузки
+        stickySaving: false,
+        // S10.20-6: список полей, которые НЕ удалось сохранить sticky-панелью
+        // (ошибка/409) — baseline НЕ сдвигается, панель подсвечивает провалы.
+        stickyFailed: [],
         // UI-полировка TMA: meAvatarUrl — URL аватара текущего юзера (blob
         // через same-origin прокси avatarUrl; S10.16-8: без внешнего CDN) и
         // флаг полноэкранного режима TMA (кнопка ⛶ в шапке). Кэш blob-URL —
@@ -1304,6 +1324,56 @@
         return { used: used, limit: cap || null, unlimited: unlimited,
                  truncated: !!c.truncated, ratio: ratio,
                  red: !!c.truncated || ratio > 0.9 };
+      },
+      // ── Раунд 10.20 (БЛОК 3.6/T-1900): sticky-save — dirty-поля модалки ──
+      // Значения, изменённые относительно baseline (configSnapshot), для
+      // которых есть право записи. Секреты — отдельно (dirtyKeyItems).
+      dirtyItems: function () {
+        var self = this;
+        var snap = this.configSnapshot || {};
+        var out = [];
+        (this.configItems || []).forEach(function (it) {
+          if (!it || it.key == null) return;
+          if (it.secret || it.category === 'keys') return;
+          if (!self.canEditConfig(it.key)) return;
+          if (!Object.prototype.hasOwnProperty.call(snap, it.key)) return;
+          if (snap[it.key] !== self._serializeValue(it.value)) out.push(it);
+        });
+        return out;
+      },
+      dirtyKeyItems: function () {
+        var self = this;
+        var drafts = this.keyDrafts || {};
+        return (this.configItems || []).filter(function (it) {
+          return it && it.key != null
+            && (it.category === 'keys' || it.secret)
+            && !!drafts[it.key]
+            && self.canEditConfig(it.key);
+        });
+      },
+      stickyDirtyCount: function () {
+        return (this.dirtyItems || []).length + (this.dirtyKeyItems || []).length;
+      },
+      // ── Раунд 10.20 (БЛОК 3.3/T-1897): модель «Живой ленты досье» ──
+      // Дублирование для seamless-скролла (тот же приём, что у лент
+      // «Осмысления»/_ribbonLoop) + подпись чата из oversight-кэша.
+      dossierFeedLoop: function () {
+        var items = this.dossierFeed || [];
+        if (!items.length) return [];
+        var titles = {};
+        var chats = (this.oversightData && this.oversightData.chats) || [];
+        chats.forEach(function (c) { titles[c.chat_id] = c.title; });
+        var marked = items.map(function (it, i) {
+          return {
+            key: 'df' + i + '-' + it.chat_id + '-' + it.name,
+            name: it.name,
+            excerpt: it.excerpt,
+            chatLabel: titles[it.chat_id] || ('Чат ' + it.chat_id),
+          };
+        });
+        return marked.concat(marked.map(function (it) {
+          return Object.assign({}, it, { key: it.key + '-dup' });
+        }));
       },
       cognitionBeliefsLoop: function () {
         return this._ribbonLoop(this.cognitionBeliefs);
@@ -1818,6 +1888,22 @@
         }
         this.loadConfig();
         this.loadKeyStatus();
+        // 10.20 (БЛОК 5.4, S10.19-15): реактивность «Сводки» по chat_id —
+        // «Бюджет контекста» (per-chat /api/status.context) и «Дневной фон»
+        // (/api/workers/budget) перечитываются при смене чата. Один запрос
+        // на виджет (без дублей); активная вкладка 'status' — уже видна.
+        if (this.activeTab === 'status' && this.canViewTab('status')) {
+          this.loadStatus();
+          if (this.isGlobalAdmin) {
+            this.loadOversight();
+          }
+        }
+        // 10.20 (T-1897): «Живая лента досье» — при смене чата один запрос
+        // (GLOBAL → все чаты; конкретный чат → только его участники).
+        if (this.activeTab === 'oversight' && this.isGlobalAdmin) {
+          this.stopDossierFeedPolling();
+          this.startDossierFeedPolling();
+        }
         if (this.accessMy && !this.accessMy.is_global_admin) {
           this.loadLocalAdmins();
         }
@@ -2489,6 +2575,8 @@
       // открыто), иначе route-driven окно «Доступов». Вынесено из глобального
       // keydown ради юнит-тестируемости.
       escClose: function () {
+        // 10.20 (T-1896): модалка досье — верхняя (её и закрываем первой).
+        if (this.dossierOpen) { this.closeDossier(); return; }
         if (this.openModuleId != null) { this.closeModule(); return; }
         if (this.accessOpen != null) { this.closeAccessWindow(); }
       },
@@ -2498,13 +2586,23 @@
       // ═══ A2/T-1166/T-1167: модули — toggle + окно параметров ═══
       openModuleWindow: function (m) {
         if (!m) return;
-        if (!this.canViewTab(m.tab)) {
-          this.toast('Нет доступа к модулю', 'warn');
+        // Раунд 10.20 (БЛОК 3.1(б)/T-1895): root cause — карточка модуля
+        // видна по широкому предикату вкладки «Модули» (reactions/flags/
+        // chat_lore/local-admin), а отдельный гейт canViewTab(m.tab) требовал
+        // секции конкретной config-вкладки (flags/limits/keys). У ролей без
+        // этих секций кнопка «Параметры» (напр. «Выжимка видео») молча не
+        // открывала модалку. Открываем всегда, если виден сам список модулей;
+        // запись по-прежнему гейтится per-item canEditConfig → read-only.
+        if (!this.canViewTab('modules')) {
+          this.toast('Нет доступа к модулям', 'warn');
           return;
         }
         this.openModuleId = m.id;
         this._ensureModuleData(m);
         if (!this.configItems.length) this.loadConfig();
+        // T-1900: baseline для sticky-save — момент открытия модалки
+        // (guard — unit-стабы openModuleWindow).
+        if (typeof this._snapshotConfig === 'function') this._snapshotConfig();
       },
       // MAJOR-2: операционные панели Сон/Ностальгия живут в модалке —
       // данные грузятся при открытии (не только по activeTab).
@@ -2528,6 +2626,164 @@
         // после закрытия модалки вне вкладки «Статус» (F5/R10.11-5).
         if (this.activeTab !== 'status') this.stopCognitionPolling();
       },
+
+      // ═══ Раунд 10.20 (БЛОК 3.6/T-1900): sticky-save ═══════════════════
+      // Одна закреплённая панель «Отмена» / «Сохранить изменения» вместо
+      // индивидуальных кнопок под инпутами. Baseline — configSnapshot,
+      // снимается при загрузке конфига и открытии модалки; тумблеры/select
+      // остаются на мгновенном auto-save (существующий путь saveConfigItem).
+      _serializeValue: function (v) {
+        try { return JSON.stringify(v); } catch (e) { return String(v); }
+      },
+      _snapshotConfig: function () {
+        var snap = {};
+        (this.configItems || []).forEach(function (it) {
+          if (it && it.key != null) snap[it.key] = JSON.stringify(it.value);
+        });
+        this.configSnapshot = snap;
+      },
+      cancelModalEdits: function () {
+        var snap = this.configSnapshot || {};
+        (this.configItems || []).forEach(function (it) {
+          if (!it || it.key == null) return;
+          if (!Object.prototype.hasOwnProperty.call(snap, it.key)) return;
+          try { it.value = JSON.parse(snap[it.key]); } catch (e) { /* keep */ }
+        });
+        this.keyDrafts = {};
+        this.stickyFailed = [];
+        this.toast('Изменения отменены', 'ok');
+      },
+      saveModalEdits: async function () {
+        if (this.stickySaving) return;
+        var dirty = this.dirtyItems.slice();
+        var keys = this.dirtyKeyItems.slice();
+        if (!dirty.length && !keys.length) {
+          this.toast('Нет изменений для сохранения', 'warn');
+          return;
+        }
+        this.stickySaving = true;
+        // S10.20-6: собираем провалы; baseline сдвигаем ТОЛЬКО если всё
+        // сохранилось — иначе ошибка «благословлялась» бы как новая норма.
+        var failed = [];
+        try {
+          for (var i = 0; i < dirty.length; i++) {
+            var ok = await this.saveConfigItem(dirty[i]);
+            if (ok === false) failed.push(dirty[i].title || dirty[i].key);
+          }
+          for (var j = 0; j < keys.length; j++) {
+            var okKey = await this.saveKeyItem(keys[j]);
+            if (okKey === false) failed.push(keys[j].title || keys[j].key);
+          }
+          if (failed.length) {
+            this.stickyFailed = failed;
+            this.toast('Не сохранено (' + failed.length + '): ' +
+                       failed.join(', '), 'err');
+          } else {
+            this.stickyFailed = [];
+            this._snapshotConfig();
+            this.toast('Изменения сохранены (' + (dirty.length + keys.length) + ')', 'ok');
+          }
+        } finally {
+          this.stickySaving = false;
+        }
+      },
+
+      // ═══ Раунд 10.20 (БЛОК 3.2/T-1896): Досье участника ═══════════════
+      openDossier: async function (row) {
+        if (!row || row.user_id == null || this.activeChatId == null) return;
+        this.dossierOpen = true;
+        this.dossierBusy = true;
+        this.dossierUserId = row.user_id;
+        this.dossierName = this.resolveRelationName(row) || '';
+        this.dossierData = null;
+        this.dossierDraft = '';
+        try {
+          await this.loadDossier(row.user_id, this.dossierName);
+        } finally {
+          this.dossierBusy = false;
+        }
+      },
+      loadDossier: async function (userId, name) {
+        var url = '/api/chat_lore/' + this.activeChatId + '/dossier/' + userId;
+        if (name) url += '?name=' + encodeURIComponent(name);
+        try {
+          var data = await this.api(url);
+          this.dossierData = data;
+          this.dossierDraft = (data && data.manual_traits) || '';
+        } catch (e) {
+          this.dossierData = null;
+          this.toast('Не удалось загрузить досье: ' + this.loreErrText(e), 'err');
+        }
+      },
+      closeDossier: function () {
+        this.dossierOpen = false;
+        this.dossierBusy = false;
+        this.dossierUserId = null;
+        this.dossierName = '';
+        this.dossierData = null;
+        this.dossierDraft = '';
+      },
+      saveDossier: async function () {
+        if (this.dossierUserId == null || this.activeChatId == null) return;
+        if (this.dossierSaving) return;
+        this.dossierSaving = true;
+        try {
+          var url = '/api/chat_lore/' + this.activeChatId
+            + '/dossier/' + this.dossierUserId;
+          if (this.dossierName) {
+            url += '?name=' + encodeURIComponent(this.dossierName);
+          }
+          var data = await this.api(url, {
+            method: 'PUT',
+            body: JSON.stringify({ traits: this.dossierDraft || '' }),
+          });
+          this.dossierData = data;
+          this.dossierDraft = (data && data.manual_traits) || '';
+          this.toast(this.dossierDraft
+            ? 'Досье обновлено' : 'Правка сброшена — досье авто', 'ok');
+        } catch (e) {
+          this.toast('Не удалось сохранить досье: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.dossierSaving = false;
+        }
+      },
+
+      // ═══ Раунд 10.20 (БЛОК 3.3/T-1897): «Живая лента досье» ══════════
+      loadDossierFeed: async function () {
+        if (this.dossierFeedBusy) return;
+        this.dossierFeedBusy = true;
+        try {
+          var url = '/api/oversight/dossier_feed?limit=16';
+          if (this.activeChatId != null) {
+            url += '&chat_id=' + encodeURIComponent(this.activeChatId);
+          }
+          var data = await this.api(url);
+          this.dossierFeed = (data && data.items) || [];
+          this.dossierFeedError = '';
+        } catch (e) {
+          this.dossierFeed = [];
+          this.dossierFeedError = this.loreErrText(e);
+        } finally {
+          this.dossierFeedBusy = false;
+        }
+      },
+      // Реактивность без лишних запросов: один запрос на смену scope/чата;
+      // polling-таймер перезапускается только по явному вызову.
+      startDossierFeedPolling: function () {
+        var self = this;
+        this.stopDossierFeedPolling();
+        this.loadDossierFeed();
+        this.dossierFeedTimer = setInterval(function () {
+          self.loadDossierFeed();
+        }, 45000);   // 45с — лента живая, но не дёргает API
+      },
+      stopDossierFeedPolling: function () {
+        if (this.dossierFeedTimer) {
+          clearInterval(this.dossierFeedTimer);
+          this.dossierFeedTimer = null;
+        }
+      },
+
       canEditModule: function (m) {
         return !!m && this.canEditConfig(m.toggleKey);
       },
@@ -2899,6 +3155,12 @@
         if (id === 'oversight') {
           this.loadMemoryWidget();       // F5/§7: виджет «Сводка»
           this.loadPersonaHealth();      // F4/UPD п.4: метрики Личности
+          // 10.20 (T-1897): «Живая лента досье» (guard — unit-стабы setTab).
+          if (typeof this.startDossierFeedPolling === 'function') {
+            this.startDossierFeedPolling();
+          }
+        } else if (typeof this.stopDossierFeedPolling === 'function') {
+          this.stopDossierFeedPolling();    // вне «Сводки» — без polling
         }
         if (id === 'info') {
           if (!this.infoHtml && !this.infoLoading) this.loadInfo();
@@ -3194,6 +3456,8 @@
           });
           // 3.5.2: после перезагрузки KV-редакторы (компоненты) сами
           // пересоберут пары из item.value — внешних черновиков нет.
+          // 10.20 (T-1900): baseline sticky-save = свежезагруженный конфиг.
+          if (typeof this._snapshotConfig === 'function') this._snapshotConfig();
         } catch (e) {
           if (!this._scopeGuard(epoch)) return;   // R2: устаревшая ошибка
           // ПРОД-ИНЦИДЕНТ (C): 401 различается — понятное сообщение вместо
@@ -3478,7 +3742,7 @@
               value = JSON.parse(value);
             } catch (e) {
               this.toast('Невалидный JSON в ' + item.key, 'err');
-              return;
+              return false;
             }
           }
         } else if (item.type === 'int') {
@@ -3487,19 +3751,19 @@
           value = parseInt(value, 10);
           if (!isFinite(value)) {
             this.toast('Некорректное значение для ' + item.key, 'err');
-            return;
+            return false;
           }
         } else if (item.type === 'float') {
           value = parseFloat(value);
           if (!isFinite(value)) {
             this.toast('Некорректное значение для ' + item.key, 'err');
-            return;
+            return false;
           }
         } else if (item.type === 'bool') {
           value = !!value;               // чекбокс — как раньше (защитная ветка)
         } else if (value === null || value === undefined) {
           this.toast('Некорректное значение для ' + item.key, 'err');
-          return;
+          return false;
         }
         // Раунд 4 (T-719): str-поле категории prompts/content не может быть
         // пустым (сервер дублирует 422 — единая точка валидации, FR-E2).
@@ -3507,7 +3771,7 @@
             && (item.category === 'prompts' || item.category === 'content')
             && !value.trim()) {
           this.toast('Промпт не может быть пустым: ' + item.title, 'err');
-          return;
+          return false;
         }
         this.saving.add(item.key);
         try {
@@ -3524,6 +3788,7 @@
           });
           this.toast('Сохранено: ' + item.title, 'ok');
           await this._preserveScroll(this.loadConfig);
+          return true;
         } catch (e) {
           if (e.status === 409 && e.message && e.message.code === 'conflict') {
             this.toast('Конфликт версии (409) — конфигурация обновлена', 'warn');
@@ -3531,6 +3796,9 @@
           } else {
             this.toast('Ошибка сохранения: ' + e.message, 'err');
           }
+          // S10.20-6: неуспех возвращает false — sticky-панель НЕ сдвигает
+          // baseline и подсвечивает поле как несохранённое.
+          return false;
         } finally {
           this.saving.delete(item.key);
         }
@@ -3556,7 +3824,7 @@
         var value = (this.keyDrafts[item.key] || '').trim();
         if (!value) {
           this.toast('Введите новый ключ', 'warn');
-          return;
+          return false;
         }
         this.saving.add(item.key);
         try {
@@ -3574,8 +3842,10 @@
           this.keyDrafts[item.key] = '';
           this.toast('Ключ обновлён: ' + item.title, 'ok');
           await this._preserveScroll(this.loadConfig);
+          return true;
         } catch (e) {
           this.toast('Ошибка: ' + e.message, 'err');
+          return false;                          // S10.20-6
         } finally {
           this.saving.delete(item.key);
         }
@@ -5093,7 +5363,16 @@
 
       // PUT /chat_lore/{id}/relations_enabled {enabled, updated_at} —
       // per-chat тумблер «Влиять на тон бота» (D-3; БЕЗ истории).
+      // Раунд 10.20 (БЛОК 3.1(в)/T-1895): root cause «мёртвого» тумблера —
+      // `:checked` (НЕ v-model) + busy-блокировка: Vue на ре-рендере возвращал
+      // visual в исходное состояние, пока шёл запрос, а при 409 стейт
+      // откатывался — пользователь видел «щелчок без эффекта». Фикс:
+      // оптимистичное обновление стейта ДО запроса + откат и явный 409-путь.
       onRelationsToggle: function (ev) {
+        if (this.relationsBusy) {
+          ev.target.checked = this.relationsEnabled;   // визуальная синхронизация
+          return;
+        }
         this.toggleRelationsEnabled(!!ev.target.checked);
       },
       toggleRelationsEnabled: async function (want) {
@@ -5108,6 +5387,8 @@
           ? p.chat_id : this.activeChatId;
         if (relChat == null || this.relationsBusy) return;
         var previous = this.relationsEnabled;
+        // Оптимистично: визуальный отклик мгновенный (без «мёртвого» щелчка).
+        this.relationsEnabled = !!want;
         this.relationsBusy = true;
         try {
           var saved = await this.api(
@@ -5124,6 +5405,7 @@
             ? 'Тон по стадиям включён для чата'
             : 'Тон по стадиям выключен', 'ok');
         } catch (e) {
+          // 409 конкурентности — стейт не «залипает»: откат + окно конфликта.
           this.relationsEnabled = previous;
           if (e.status === 409 && e.message && e.message.code === 'conflict') {
             this.chatLore409 = e.message;       // reload подтянет и relations
@@ -5881,6 +6163,7 @@
     beforeUnmount: function () {
       this.stopStatusPolling();
       this.stopCognitionPolling();     // F5/R10.11-5: нет stale-таймера
+      this.stopDossierFeedPolling();   // 10.20 (T-1897): нет stale-таймера
       this.destroyCognitionGraph();
       // ISSUE-7: снимаем visibilitychange-листенер (F5-Q3) при unmount.
       if (_onVisibility) {
@@ -6073,6 +6356,43 @@
       },
     },
     template: '#list-editor-tpl',
+  });
+
+  // ═══ Раунд 10.20 (БЛОК 3.6/T-1900): sticky-save panel ══════════════════
+  // Одна закреплённая панель «Отмена» / «Сохранить изменения» в модалках и
+  // конфиг-вкладках. Dirty-поля считает root (configSnapshot vs configItems),
+  // тумблеры/select — мгновенный auto-save (saveConfigItem) и в dirty не
+  // попадают до следующей загрузки каталога.
+  app.component('sticky-save', {
+    name: 'sticky-save',
+    inject: ['root'],
+    props: {
+      label: { type: String, default: 'Сохранить изменения' },
+    },
+    computed: {
+      dirtyCount: function () { return this.root.stickyDirtyCount || 0; },
+      saving: function () { return !!this.root.stickySaving; },
+      active: function () { return this.dirtyCount > 0; },
+      // S10.20-6: поля, которые не сохранились (ошибка/409) — подсветка.
+      failed: function () { return this.root.stickyFailed || []; },
+    },
+    methods: {
+      cancel: function () { this.root.cancelModalEdits(); },
+      save: function () { this.root.saveModalEdits(); },
+    },
+    template:
+      '<div class="sticky-save" role="group" aria-label="Сохранение изменений">'
+      + '<span class="sticky-save__count">'
+      + '{{ dirtyCount ? ("Изменено: " + dirtyCount) : "Нет изменений" }}'
+      + '</span>'
+      + '<span v-if="failed.length" class="sticky-save__failed">'
+      + 'Не сохранено: {{ failed.join(", ") }}</span>'
+      + '<button class="btn-ghost text-sm" type="button"'
+      + ' :disabled="saving || !active" @click="cancel">Отмена</button>'
+      + '<button class="btn-accent text-sm" type="button"'
+      + ' :disabled="saving || !active" @click="save">'
+      + '{{ saving ? "Сохранение…" : label }}</button>'
+      + '</div>',
   });
 
   app.mount('#app');

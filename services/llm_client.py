@@ -223,6 +223,11 @@ class LLMChatResult:
     content: str | None        # текст финального ответа (None при tool_calls)
     tool_calls: list[LLMToolCall] | None
     finish_reason: str | None
+    # Раунд 10.20 (БЛОК 7.2a, ADR-1020-7 §2, T-1920): reasoning-черновик
+    # reasoning-моделей (reasoning_content/reasoning/thinking). АДДИТИВНО,
+    # default None — существующие конструкторы/тесты не ломаются.
+    # Никогда не уходит пользователю (см. reply_postprocess).
+    reasoning: str | None = None
 
 
 class LLMClient:
@@ -1004,6 +1009,16 @@ class LLMClient:
             ) from exc
         message = choice.get("message") or {}
         content = message.get("content")
+        # Раунд 10.20 (БЛОК 7.2a, ADR-1020-7 §2, T-1920): reasoning-черновик
+        # reasoning-моделей. Первое непустое из алиасов reasoning_content →
+        # reasoning → thinking. В content НЕ помешивается (черновик не уходит
+        # пользователю — сюда попадает только для деградации/телеметрии).
+        reasoning_text = None
+        for alias in ("reasoning_content", "reasoning", "thinking"):
+            raw_reasoning = message.get(alias)
+            if isinstance(raw_reasoning, str) and raw_reasoning.strip():
+                reasoning_text = raw_reasoning
+                break
         tool_calls = None
         raw_calls = message.get("tool_calls")
         if raw_calls:
@@ -1028,7 +1043,7 @@ class LLMClient:
                         self._chat_model)
             if parsed:
                 tool_calls = parsed
-        if content is None and not tool_calls:
+        if content is None and not tool_calls and not reasoning_text:
             raise LLMBadResponseError("chat/completions: empty content (no tool_calls)")
         logger.info(
             "LLM generate_chat OK | model=%s | out_chars=%s | tool_calls=%d",
@@ -1036,12 +1051,20 @@ class LLMClient:
             len(str(content)) if content is not None else "-",
             len(tool_calls) if tool_calls else 0,
         )
+        if reasoning_text and not tool_calls and not (
+                isinstance(content, str) and content.strip()):
+            # Reasoning-only ответ: штатной деградации (молчание/🗿) — без
+            # нештатного LLMBadResponseError. Содержимое черновика не логируем.
+            logger.warning(
+                "LLM generate_chat reasoning-only | model=%s | reasoning_chars=%d",
+                self._chat_model, len(reasoning_text))
         content_text = content if (isinstance(content, str) and content.strip()) else None
         await self._record_global_usage(chat_id, content_text, source=source)
         return LLMChatResult(
             content=content_text,
             tool_calls=tool_calls,
             finish_reason=choice.get("finish_reason"),
+            reasoning=reasoning_text,
         )
 
     async def embed(self, texts: list[str]) -> list[list[float]]:

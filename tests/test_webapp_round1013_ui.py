@@ -31,14 +31,14 @@ class TestCatalogDelta1013:
         from services import param_catalog as pc
         # 436 = 435 + 1 env-only BETTERSTACK_HOST (ADR-1018-1 D3).
         # 10.19 (F3/ADR-1019-3 D3, UPD3 п.5): → 437/92/90/20/407, categorized 412.
-        assert len(pc.REGISTRY) == 437
+        assert len(pc.REGISTRY) == 439
         assert len(pc.GROUPS) == 92
         assert len(pc._TAB_BY_GROUP) == 90
         assert len(pc.TAB_RULES) == 20
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 407
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 409
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 412
+        assert len(categorized) == 414
 
     def test_new_param_spec(self):
         from services import param_catalog as pc
@@ -154,7 +154,11 @@ class TestDreamCanonF1:
 
 class TestDigUnifiedRender:
     def test_dig_facts_use_shared_helper(self):
-        assert "_format_origin_labeled_line" in TOOL_ROUTER
+        # 10.20 (БЛОК 2.8, ADR-1020-2 п.2): dig-факты рендерятся ЕДИНЫМ
+        # каноническим хелпером format_context_item (kind="fact"), а не
+        # прежним `_format_origin_labeled_line`.
+        assert "format_context_item" in TOOL_ROUTER
+        assert "_format_origin_labeled_line" not in TOOL_ROUTER
 
 
 class TestIntelLlmProvidersF4:

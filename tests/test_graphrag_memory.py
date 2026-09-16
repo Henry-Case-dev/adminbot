@@ -775,9 +775,11 @@ class TestGetRagContextDates:
                                    "search_fact", fixed + 100)
         memory = MemoryManager(db, FactsLLM())
         ctx = await memory.get_rag_context(-100, "озон")
-        assert "[05.2024] озон быстрее чем вб" in ctx
-        # знаниевый факт — дата ПЕРЕД origin-префиксом
-        assert "[05.2024] [Из твоего прошлого поиска]: " in ctx
+        # 10.20 (T-1924): канонический header факта — `[ММ.ГГГГ | fact:ID]:`.
+        assert "[05.2024 | fact:" in ctx
+        assert "озон быстрее чем вб" in ctx
+        # знаниевый факт — дата/ID ПЕРЕД origin-префиксом
+        assert "[Из твоего прошлого поиска]: " in ctx
 
     @pytest.mark.asyncio
     async def test_direct_reply_fact_date_rendered_too(self, db, monkeypatch):
@@ -791,7 +793,7 @@ class TestGetRagContextDates:
         memory = MemoryManager(db, FactsLLM())
         ctx = await memory.get_rag_context(
             -100, "погода", include_direct_reply=True)
-        expected = time.strftime("[%m.%Y] ", time.gmtime(now))
+        expected = time.strftime("[%m.%Y | fact:", time.gmtime(now))
         assert expected in ctx
         assert "погода сегодня будет солнечной" in ctx
 
@@ -2517,7 +2519,9 @@ class TestF8MemorizeRobustness:
 
 class TestF1Extraction4Tuples:
     """KNN- и FTS-пути `_search_graph_facts` возвращают
-    (origin, fact, rag_ts, target_user); target_user NULL → author None."""
+    (origin, fact, rag_ts, target_user[, item_id, forward_from]):
+    10.20 (T-1924) — provenance-поля (ID-политика + forward), аддитивно;
+    target_user NULL → author None."""
 
     @pytest.mark.asyncio
     async def test_fts_path_four_tuples_with_author(self, db, monkeypatch):
@@ -2529,11 +2533,13 @@ class TestF1Extraction4Tuples:
         memory._vec_available = False        # → FTS-ветка
         facts = await memory.get_rag_facts(-100, "озон")
         assert len(facts) == 1
-        assert len(facts[0]) == 4
+        assert len(facts[0]) == 6
         assert facts[0][0] == "chat_history"
         assert facts[0][1] == "озон быстрее чем вб"
         assert facts[0][2] == now
         assert facts[0][3] == "Толян"
+        assert facts[0][4].startswith("fact:")
+        assert facts[0][5] == ""
 
     @pytest.mark.asyncio
     async def test_fts_path_null_author(self, db, monkeypatch):
@@ -2543,7 +2549,7 @@ class TestF1Extraction4Tuples:
         memory = MemoryManager(db, FactsLLM())
         memory._vec_available = False
         facts = await memory.get_rag_facts(-100, "погода")
-        assert len(facts) == 1 and len(facts[0]) == 4
+        assert len(facts) == 1 and len(facts[0]) == 6
         assert facts[0][3] is None
 
     @pytest.mark.asyncio
@@ -2557,6 +2563,7 @@ class TestF1Extraction4Tuples:
         memory._vec_candidates = AsyncMock(
             return_value=[(fid, 0.9, [1.0, 0.0])])
         rows = await memory._knn_graph_facts(-100, [1.0, 0.0], 1)
-        assert rows and len(rows[0]) == 4
+        assert rows and len(rows[0]) == 6
         assert rows[0][0] == "search_fact"
         assert rows[0][3] == "Вася"
+        assert rows[0][4] == f"fact:{fid}"

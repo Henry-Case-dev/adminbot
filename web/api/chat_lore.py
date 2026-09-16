@@ -39,6 +39,7 @@ from services import chat_params, lore_runtime
 from services.chat_lore_store import ChatLoreConflict, ChatLorePgUnavailable
 from services.permissions import Permissions
 from services import summary_aliases
+from services.dossier_prompts import format_dossier_block
 from services.summary_aliases import AliasResolver
 from web.api.deps import get_cache, get_tma_user
 # UI-полировка TMA: RAM-кэши обогащения (title/фото чата, username/фото
@@ -54,6 +55,10 @@ _PERIOD_MIN = 1                     # auto_period_hours/auto_window_hours
 _PERIOD_MAX = 720                   # валидация 1..720 (422; spec §3.8)
 _PREVIEW_CHARS = 80                 # превью в списке чатов
 _RELATION_NOTE_MAX = 4000           # F2: cap заметки отношений (422)
+# Раунд 10.20 (БЛОК 3.2/T-1896): Досье участников.
+_DOSSIER_NOTE_MAX = 4000            # cap ручной правки досье (422)
+_DOSSIER_MAX_ITEMS = 10             # фактов/связей в досье (как 66.9)
+_DOSSIER_MAX_CHARS = 1200           # бюджет рендера досье (как _PERSONA_*)
 _RELATIONS_LIST_MAX = 100           # F2: потолок строк списка отношений
 _RELATIONS_ENRICH_TOP = 50          # Hotfix-R10 (raw-имена/нет аватаров):
 _RELATIONS_SEMAPHORE_LIMIT = 5     # Раунд 10.4 (H-2): параллельные Bot API
@@ -124,6 +129,16 @@ class RelationsEnabledBody(BaseModel):
     """PUT /chat_lore/{chat_id}/relations_enabled {enabled, updated_at}."""
     enabled: bool
     updated_at: str
+
+
+class DossierOverrideBody(BaseModel):
+    """Раунд 10.20 (БЛОК 3.2/T-1896): PUT ручной правки Досье.
+
+    `traits` — свободный текст (пусто → сброс правки на авто-досье).
+    `updated_at` — аддитивно (зарезервировано под optimistic-метку;
+    текущее хранилище — SQLite без версионирования, поле не требуется)."""
+    traits: str = Field(default="", max_length=_DOSSIER_NOTE_MAX)
+    updated_at: str | None = None
 
 
 class RemapRequest(BaseModel):
@@ -791,4 +806,126 @@ async def set_relations_enabled(
     except ChatLorePgUnavailable as exc:
         raise _pg_guard(exc) from exc
     return profile.to_dict()
+
+
+# ═══ Раунд 10.20 (БЛОК 3.2/T-1896): Досье участника (чтение + правка) ═══════
+# Досье — агрегация graph_facts (get_persona_card, 66.9) + ручная правка
+# админа (persona_dossier_overrides, аддитивная SQLite-таблица). Контракты
+# аддитивны (R16): user_id — ключ, имя — производное. Канонический resolve
+# имени — тот же AliasResolver, что у relations (fail-open).
+
+
+async def _dossier_name(chat_id: int, user_id: int,
+                        fallback_name: str | None) -> str:
+    """Канон-имя участника: AliasResolver → fallback (query) → ''. ID как имя
+    — никогда (инвариант 10.2: имя-заглушка не показывается)."""
+    name = ''
+    try:
+        resolver = await summary_aliases.build_alias_resolver(chat_id)
+        resolved = resolver.resolve(user_id, None, None)
+        if resolved and str(resolved) != str(user_id):
+            name = str(resolved)
+    except Exception:
+        logger.warning("[dossier] alias-резолв не удался — fallback | "
+                       "chat=%s uid=%s", chat_id, user_id, exc_info=True)
+    if not name:
+        candidate = str(fallback_name or '').strip()
+        if candidate and candidate != str(user_id):
+            name = candidate
+    return name
+
+
+async def _dossier_payload(db, chat_id: int, user_id: int,
+                           name: str) -> dict:
+    """Собрать досье участника (без записи). Fail-open: ошибка чтения →
+    пустое досье (200), но ручная правка возвращается."""
+    now_ts = int(time.time())
+    facts: list = []
+    links: list = []
+    override = ''
+    if name:
+        try:
+            card = await db.get_persona_card(
+                chat_id, name, _DOSSIER_MAX_ITEMS, now_ts)
+            facts = list(card.get("facts") or [])
+            links = [
+                {"source_name": link.get("source_name"),
+                 "relation_type": link.get("relation_type"),
+                 "target_name": link.get("target_name")}
+                for link in (card.get("links") or [])
+            ]
+        except Exception:
+            logger.warning("[dossier] card read failed — пусто | chat=%s "
+                           "uid=%s", chat_id, user_id, exc_info=True)
+    try:
+        override = await db.get_dossier_override(chat_id, user_id)
+    except Exception:
+        logger.warning("[dossier] override read failed — пусто | chat=%s "
+                       "uid=%s", chat_id, user_id, exc_info=True)
+    extracted = format_dossier_block(facts, [], _DOSSIER_MAX_CHARS)
+    return {
+        "chat_id": chat_id,
+        "user_id": user_id,
+        "name": name,
+        "facts": facts[:_DOSSIER_MAX_ITEMS],
+        "links": links[:_DOSSIER_MAX_ITEMS],
+        "extracted": extracted,
+        "manual_traits": override,
+    }
+
+
+@chat_lore_router.get("/chat_lore/{chat_id}/dossier/{user_id}")
+async def get_dossier(
+    chat_id: int,
+    user_id: int,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    name: Annotated[str | None, Query(max_length=200)] = None,
+):
+    """GET досье участника: авто-досье (экстрактор Личности) + ручная правка."""
+    cache = get_cache(request)
+    store, _cache_c, _worker = _components()
+    await _require_chat(cache, store, user, chat_id)
+    db, _relations_service = _db_component()
+    if db is None:
+        raise HTTPException(status_code=503, detail="память недоступна")
+    canon = await _dossier_name(chat_id, user_id, name)
+    return await _dossier_payload(db, chat_id, user_id, canon)
+
+
+@chat_lore_router.put("/chat_lore/{chat_id}/dossier/{user_id}")
+async def put_dossier(
+    chat_id: int,
+    user_id: int,
+    payload: DossierOverrideBody,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    name: Annotated[str | None, Query(max_length=200)] = None,
+):
+    """PUT ручной правки досье участника. Пустой `traits` → сброс на авто
+    (удаление строки). Ответ — актуальное досье (extracted + manual_traits)."""
+    cache = get_cache(request)
+    store, _cache_c, _worker = _components()
+    await _require_chat(cache, store, user, chat_id)
+    db, _relations_service = _db_component()
+    if db is None:
+        raise HTTPException(status_code=503, detail="память недоступна")
+    canon = await _dossier_name(chat_id, user_id, name)
+    traits = str(payload.traits or "")
+    if len(traits) > _DOSSIER_NOTE_MAX:
+        raise HTTPException(status_code=422, detail="traits слишком длинный")
+    try:
+        if traits.strip():
+            await db.set_dossier_override(
+                chat_id, user_id, traits, int(time.time()))
+        else:
+            await db.delete_dossier_override(chat_id, user_id)
+    except Exception as exc:
+        logger.warning("[dossier] override write failed | chat=%s uid=%s",
+                       chat_id, user_id, exc_info=True)
+        raise HTTPException(status_code=503,
+                            detail="не удалось сохранить досье") from exc
+    logger.info("[dossier] override saved | chat=%s uid=%s by=%s",
+                chat_id, user_id, user.id)
+    return await _dossier_payload(db, chat_id, user_id, canon)
 

@@ -381,13 +381,13 @@ class TestGraphRagV2Migration:
 
     @pytest.mark.asyncio
     async def test_user_version_is_3_after_initialize(self, db):
-        """#2: PRAGMA user_version == 11 (Epic 46 → 1, Epic 50/58.7 → 2,
+        """#2: PRAGMA user_version == 12 (Epic 46 → 1, Epic 50/58.7 → 2,
         Epic 60/63.3 → 3, видео-origins → 4, user_memory-origins → 5,
         protected_facts chat-level → 6, фаза 2: history_import → 7,
         раунд 9 (AGI Memory): v8 → 8, раунд 10.14 (F1): self origin → 9)."""
         cursor = await db.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 11
+        assert row[0] == 12
 
     @pytest.mark.asyncio
     async def test_reinitialize_is_idempotent_user_version_stays_3(self, tmp_path):
@@ -398,7 +398,7 @@ class TestGraphRagV2Migration:
         await d.initialize()
         cursor = await d.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 11
+        assert row[0] == 12
         await d.close()
 
     @pytest.mark.asyncio
@@ -432,7 +432,7 @@ class TestGraphRagV2Migration:
 
         cursor = await d.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 11                      # каскад до v9 (раунды 9/10.14)
+        assert row[0] == 12                      # каскад до v9 (раунды 9/10.14)
 
         # расширенный CHECK активен: 'fact' проходит, 'banana' — нет
         import aiosqlite
@@ -570,7 +570,7 @@ class TestGraphFacts:
         rows = await d.search_graph_facts_fts(-100, '"факт"*', 10, 1_800_000_000)
         assert any(r["fact"] == "факт до рестарта" for r in rows)
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 11    # каскад v2…v9 (раунды 9/10.14)
+        assert (await cursor.fetchone())[0] == 12    # каскад v2…v9 (раунды 9/10.14)
         await d.close()
 
     @pytest.mark.asyncio

@@ -2,6 +2,89 @@
 
 Только эпики, которые можно начать планировать. Канон-блоки промптов — в `docs/canon/`; закрытые эпики 1–85 — история в git-истории (прежние файлы plans/, удалены 03.09.2026).
 
+## Раунд 10.20 (16.09.2026): «Летописец» (Lore Compiler) + глубокий рефакторинг RAG-архитектуры + UX/UI мини-аппа + Agentic AI (БЛОК 7) + Справка UI (БЛОК 8) — 1 фича-папка (фазы A–H) — 🟢 PLANNED / GATE PASSED (Human Gate О1–О7, Step 1 @PM итер. 2)
+
+**Папка фичи:** `plans/features/round1020-lore-compiler-rag-refactor/` (`tasks.md` + `README.md` + `spec.md` + `adr-1020-1…6`).
+**Спеки/ADR:** @Architect (Step 2) — **ADR-1020-1…-6 DONE**, **ADR-1020-7 (Agentic AI) / ADR-1020-8 (Справка) — in-flight**
+(+ возможные SUPERSEDE/AMEND: D206/Epic 50-58.8, канон R11/3.3, F-15 §4, ADR-1013-3 (канон-миграции), ADR-1018-2 (не трогаем)).
+**Нумерация:** **T-1866…T-1931 (66 задач)**; фазы **A–H**.
+**ТЗ:** `plans/current_task.md` — БЛОК 0 (7–11), БЛОК 1 (14–45), БЛОК 2 (48–76), БЛОК 3 (88–140), БЛОК 4 (144–177),
+БЛОК 5 (181–211), БЛОК 6 (225–254), **UPD: О1–О7 (278–291)**, **БЛОК 7 Agentic AI (293–319)**, **БЛОК 8 Справка UI (323–331)**.
+**⚠️ Файл ТЗ — untracked и содержит plaintext-секрет (SSH-пароль): не коммитить, значение не цитировать (R17, решение О6).**
+**Baseline:** HEAD `2f3e1f0`; pytest **6326 passed / 0 failed**; каталог **437/407/412/92/90/20**; SQLite **v11**; APP_VERSION 2.57.0.
+**Диагностика @Memory (Step 0):** `plans/reports/global_map.md`, `plans/reports/round10.19_scanner_audit.md` (§10.4/§10.5), `plans/MEMORY.md`.
+**Аудит @Architect (Step 2, Фаза A):** `plans/reports/round1020_llm_engine_audit.md` — рекурсия тулов **есть** (`TOOL_MAX_ROUNDS=4`),
+reasoning/scratchpad **отсутствует**, контекст — монолит без middleware, intent-router — rule-based.
+
+**🚦 Human Gate ПРОЙДЕН (16.09.2026) — решения О1–О7 зафиксированы:**
+- **О1** — БЛОК 5.5/6.1 = **verify-only**; manual DeepDream привязать к кнопке нового UI и подтвердить.
+- **О2** — Time Injection **первым USER-блоком**; system-промпт **статичен**, **Prompt Caching не ломать**.
+- **О3** — `compile_lore_story` — **простой флаг ВКЛ/ВЫКЛ, ДЕФОЛТ ON глобально**; **поэтапная раскатка 10/50/100 % ОТМЕНЕНА**.
+- **О4** — новый ключ **`limits.chat_timezone`** (расписания сна/бэкапа не смешивать).
+- **О5** — глобальный `parse_mode=None` **сохраняется**; для историй Летописца **локально `parse_mode=HTML`** + HTML-теги в промпте; структуру меню не менять.
+- **О6** — `current_task.md` untracked, пароль в git **не коммитить**.
+- **О7** — аддитивная **`lore_stories` без бампа `user_version`**.
+
+**Фазы эпика (порядок критичен):**
+
+| Фаза | Содержание | ТЗ-блок | Задачи | Тип |
+|---|---|---|---|---|
+| **A** ✅ | READ-ONLY аудит LLM-движка → отчёт `plans/reports/round1020_llm_engine_audit.md` + Human Gate A (**пройден**) | БЛОК 4 | T-1866…T-1871 | research — **DONE, разблокировала B/C** |
+| **B** | Ядро памяти: тотальные метаданные (БЛОК 0), роутинг/ASC-хронология/`/summary`/`dig_into_lore` (БЛОК 2), Time Injection (первым user-блоком) + «Часовой пояс чата», анти-галлюцинации + group-by-authors, persona fallback, «Безлимит (∞)» в «Сводке» (БЛОК 5) | 0/2/5 | T-1872…T-1885 | backend + канон-промпты + UI-виджеты |
+| **C** | Новая фича **«Летописец»**: tool `compile_lore_story(topic)` — граф 1–2 уровня + хронология + storytelling-промпт (HTML) + диффы/UPD, `lore_stories` (**7→8 инструментов**, флаг default ON) | БЛОК 1 | T-1886…T-1893 | backend / new feature |
+| **D** | UX/UI мини-аппа: критические баги binding/routing, досье участников + ручное редактирование, тикер досье, Liquid Glass, CSS Grid, sticky save, human-readable labels, рестайлинг Advanced-аккордеона (**структуру меню НЕ менять**) | БЛОК 3 | T-1894…T-1904 | frontend |
+| **E** | Фактчекер: Full Tool Access (`dig_into_lore`, `compile_lore_story`, веб-поиск) + функциональный промпт; техдолг **S10.19-15**, **S10.19-23**, CLI `retention` (WAL) | БЛОК 6 | T-1905…T-1912 | backend + канон-промпты + ops |
+| **G** | **Agentic AI:** (7.1) tool recursion fail-safe + graceful degradation + лог потерянных раундов; (7.2) парсинг `reasoning_content` + stripper reasoning-тегов + локальное снятие канона «1-2 предложения» (P0); (7.3) единый Context Middleware + приоритет метаданных над бюджет-капом + `graph_facts` (`tg_message_id`, `forward_from`) + миграция pg+sqlite; (7.4) EN-`description` всех схем + строгая типизация | **БЛОК 7** | T-1918…T-1927 | backend / LLM-движок + DDL |
+| **H** | **Справка UI:** актуализация текстов (Летописец, Фактчек, безлимиты), удаление неактуальных механик, **сохранение дерзкого стиля**; канон `info_service.py`/`info_text.md`/гайд, `web/` | **БЛОК 8** | T-1928…T-1931 | content/UI |
+| **F** | SPEC_READY владельцу **до деплоя** → ревью → аудит @Scanner → деплой @DevOps → архив @PM (охватывает B–H) | — | T-1913…T-1917 | гейты (финальные) |
+
+**Порядок исполнения:** **A ✅ → {B ∥ D} → C → E → {G ∥ H} → F.** Обоснование: аудит до проектирования (прямое требование владельца);
+D (UI) не зависит от A/B; C стартует после гейта B (роутинг-описание 2.5 ссылается на описание C); E зависит от C (тулы фактчекера) и B (метаданные);
+G зависит от B (Context Middleware поверх метаданных), C/E (канон-ступени) и ADR-1020-7; H зависит от C/E (тексты про Летописца и Фактчек).
+**Ступени вливания общих файлов:** `tool_schemas.py` **B→C→E→G.4**; `tool_loop.py` **C→G.1**; канон промптов **C→E→G.2c** (все атомарно); `web/*` **D→H**.
+
+**⚠️ Дубли / «уже сделано» — повторно НЕ реализовывать (verify-only):**
+- **БЛОК 5.5** (аудит DeepDream/PersonalityExtractor + логирование причин пропуска) — **уже сделано** в 10.18
+  (`plans/archive/sleep-manual-cascade-badges/`, ADR-1018-2, T-1717) → **T-1883 (verify-only)**.
+- **БЛОК 6.1** (ручной триггер DeepDream, «Форсировать глубокий сон») — **уже реализовано** в 10.18
+  (API `POST /api/memory/dream/run`, коммит `16a8c0b`, тесты `tests/test_sleep_manual_cascade_round1018.py`) → **T-1906 (verify-only)**.
+- **ASC-хронология** уже есть для DirectChat (`services/summary_memory.py:2316-2368`, канон D206) → БЛОК 2.6 = **аддитивное расширение скоупа** (T-1876).
+- **Advanced-аккордеон** уже есть (10.4 D + 10.11 F-11: `progressive_level`, `<details class="advanced">`) → БЛОК 3.8 = **рестайлинг** (T-1902).
+- **Tool recursion** уже есть (`services/tool_loop.py::chat_with_tools`, `TOOL_MAX_ROUNDS=4`) → БЛОК 4 = **read-only описание** (T-1866).
+- **Имя тула:** в ТЗ — `dig_into_lor` (опечатка), в коде — **`dig_into_lore`** (`services/tool_schemas.py:72`, `services/tool_router.py::_dig_into_lore:413`) — использовать корректное.
+- **`factcheck_service.py` тулов не имеет** — посылка БЛОК 6.2 верна.
+- **`compile_lore_story` НЕ существует** — реально новая фича (сейчас 7 инструментов: `execute_web_search`, `query_chat_memory`, `dig_into_lore`, `summarize_video`, `download_media`, `get_bot_health`, `get_recent_history`).
+- **Reasoning/scratchpad в движке отсутствует** (аудит Q2: читается только `content`, теги не вырезаются) → БЛОК 7.2 = **новый рабочий пакет** (T-1920…T-1922).
+- **Контекст — монолит без middleware** (`payload_builder`: 1 system + 1 user) → БЛОК 7.3 = **Context Middleware** (T-1923).
+- **`graph_facts` без `tg_message_id`/`forward_from`** (`database.py:286-296`) → БЛОК 7.3 = **расширение схемы + миграция pg+sqlite** (T-1924).
+- **`description` схем тулов на русском** (`tool_schemas.py`) → БЛОК 7.4 = **EN + строгая типизация** (T-1925; канон 3.3).
+- **Справка** — код-канон `services/info_service.py::DEFAULT_INFO_TEXT` (+ `info_text.md`, `INFO_CANON_VERSION`, `KNOWN_INFO_SNAPSHOTS`), гайд `plans/docs/intelligence_user_guide.md`, рендер `web/index.html:2564-2630` → БЛОК 8 = **правка текста + бамп версии** (T-1929).
+
+**Техдолг БЛОК 6.4 (подтверждён, переносится сюда):** **S10.19-15** (`services/oversight.py:203-216` — двойной
+`chat_usage.key_status` в «Сводке»), **S10.19-23** (`services/memory_maintenance.py:389-425` — fsync файла есть,
+каталога нет), **CLI `manage.py retention`** (dry-run default, работа при живом боте → WAL/снапшот). Источник —
+`plans/reports/round10.19_scanner_audit.md` §10.4/§10.5. Смежно: S10.18-29 (Low, проверен/закрыт фикс-проходом 10.18).
+
+**Feature flags / раскатка (Фаза C; решение О3):** **`flags.lore_compiler_enabled`** (каталог-Δ = **+1 ключ**), **ДЕФОЛТ ON
+глобально** для всех чатов; простой тумблер ВКЛ/ВЫКЛ в админке; **поэтапная раскатка 10/50/100 % ОТМЕНЕНА**;
+OFF → тул недоступен (остальные 7 работают); откат — toggle OFF / `git revert`. Фазы B/D/E/G/H — безусловные.
+**`limits.chat_timezone`** (Δ +1 ключ) — это **данные**, не флаг (О4). Итого каталог-Δ = **+2 ключа + N текстов**.
+
+**🚦 Human Gate — ✅ ПРОЙДЕН (16.09.2026), решения О1–О7 зафиксированы (см. блок выше и `tasks.md` §Решения):**
+1. **Дубли 10.18** — подтверждён verify-only (БЛОК 5.5 / 6.1), ADR-1018-2 не переоткрывается (**О1**).
+2. **7 → 8 инструментов** (`compile_lore_story`) — санкционировано; флаг простой, **default ON** (**О3**).
+3. **Новый ключ каталога «Часовой пояс чата»** (`limits.chat_timezone`) — санкционирован (**О4**); Δ каталога сводится единым гейтом.
+4. **Политика `plans/current_task.md`** — untracked, «не коммитить / значение не цитировать» (R17, **О6**).
+5. **Объём UX/UI** — подтверждён полностью + «структуру меню не меняем»; **format доставки историй — HTML** (**О5**).
+6. **DDL UPD-хранилища** — аддитивная `lore_stories` без бампа `user_version` (**О7**).
+
+**Риски (переносятся в `spec.md`, полный список — `tasks.md §7`, R1–R21):** дубли 10.18; 7→8 инструментов;
+канон-атомарность промптов (ADR-1013-3); аддитивность ASC vs семантический RAG; Δ каталога между фазами;
+стоимость Time Injection (митигировано О2: первый user-блок); запрет изменения меню; sticky-save vs auto-save/409;
+тон фактчекера; секрет в `current_task.md`; **AGENTIC AI (БЛОК 7):** stripper-тегов (R15), EN-схемы/роутинг (R16),
+`graph_facts` DDL (R17), приоритет метаданных над капом (R18), протечка снятого канона 1-2 предложения (R19);
+**Справка (R20), локальный `parse_mode=HTML` (R21)**.
+
 ## F6/F7 (10.19, ревью Батча E, итерация 2/3, 15.09.2026): перенесённые пункты
 
 - **`services/media_integrity.restore_missing_files` (Low, D-4/D-5):** функция **убрана из публичного API** — не имела call-site и реального маппинга `path→file_id` (Bot API `file_path` транзиентен), т.е. фактически не восстанавливала файлы. Реализовать только при появлении персистентного маппинга медиа (`path`/`file_id` в схеме); до тех пор диагностика (`audit_media_files`) остаётся honest-эвристикой (`reliable=false`). Требуется: таблица/колонка маппинга + bounded-восстановление под `flags.download_enabled` + тесты.

@@ -11,6 +11,7 @@ import pytest
 
 from services import hot_config as hot
 from services.config_cache import ConfigCache
+from services.info_service import INFO_CANON_VERSION
 from services.permissions import Permissions
 
 
@@ -87,7 +88,7 @@ _STRING_ROWS = [
      "category": "reactions", "updated_at": None},
     {"key": "content.info_how_it_works",
      "value": '{"html": "<h1>x</h1>", "updated_by": 1, '
-              '"canon_delivered_version": 2}',
+              f'"canon_delivered_version": {INFO_CANON_VERSION}}}',
      "category": "content", "updated_at": None},
     {"key": "keys.groq_api_key", "value": "gsk_secret_str",
      "category": "keys", "updated_at": None},

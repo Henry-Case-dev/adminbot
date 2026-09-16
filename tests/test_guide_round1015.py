@@ -17,6 +17,7 @@ import pytest
 from services.config_cache import ConfigCache
 from services.info_service import (
     DEFAULT_INFO_TEXT,
+    INFO_CANON_VERSION,
     PREV_DEFAULT_INFO_TEXT,
 )
 
@@ -132,7 +133,8 @@ class TestCanonContent:
             assert stale not in DEFAULT_INFO_TEXT, stale
 
     def test_commands_highlighted_and_new_canon(self):
-        assert DEFAULT_INFO_TEXT.count("<h4><b><i>") == 34
+        # 10.20/H (БЛОК 8): +Летописец (3 примера + UPD) → 34 → 38 акцентов.
+        assert DEFAULT_INFO_TEXT.count("<h4><b><i>") == 38
         assert DEFAULT_INFO_TEXT != PREV_DEFAULT_INFO_TEXT
 
 
@@ -165,7 +167,9 @@ class TestInfoMigration:
     async def test_manual_edit_not_overwritten(self, monkeypatch, caplog):
         """После доставки (маркер стоит) ручная правка НЕ затирается."""
         manual = "<h1>Моя ручная справка</h1>"
-        cache, conn = _cache(manual, monkeypatch, delivered=2)
+        # Маркер доставки — на ТЕКУЩЕЙ версии канона (H 10.20: константа).
+        cache, conn = _cache(manual, monkeypatch,
+                             delivered=INFO_CANON_VERSION)
         with caplog.at_level(logging.WARNING):
             await cache.init()
         assert cache.get(INFO_KEY)["html"] == manual

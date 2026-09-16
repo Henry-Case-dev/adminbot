@@ -349,15 +349,16 @@
                    generic-группы) скрыто под <details>; на остальных вкладках
                    обёртка — обычный <div> (поведение не меняется). -->
               <component :is="activeTab === 'llm_providers' ? 'details' : 'div'"
-                   class="col-span-full grid gap-4"
+                   class="col-span-full grid gap-4 advanced"
                    :open="activeTab === 'llm_providers' ? expandOpen(activeTab, 'prov-advanced') : null"
                    @toggle="activeTab === 'llm_providers' && toggleExpand(activeTab, 'prov-advanced')">
                 <summary v-if="activeTab === 'llm_providers'"
-                         class="cursor-pointer select-none text-sm font-bold text-violet-300 uppercase tracking-wide col-span-full">
-                  ▶ Расширенные настройки
+                         class="select-none text-sm font-bold text-violet-300 uppercase tracking-wide col-span-full">
+                  Расширенные системные
                   <span class="text-xs text-gray-500 font-normal normal-case">
                     ({{ providerAdvancedBlocks.length + currentTabGroups.length }})
                   </span>
+                  <span class="msr advanced-gear" aria-hidden="true">{{ iconGlyph('settings') }}</span>
                 </summary>
                 <div v-if="activeTab === 'llm_providers'" class="col-span-full grid gap-3 mt-3">
                   <section class="prov-block card p-4 max-w-3xl mx-auto w-full"
@@ -539,12 +540,6 @@
                       <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
                       <textarea class="field scroll-thin" :rows="item.type === 'json' ? 4 : 6"
                                 v-model="item.value"></textarea>
-                      <div class="mt-2 flex justify-end">
-                        <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
-                                @click="saveConfigItem(item)">
-                          {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
-                        </button>
-                      </div>
                     </template>
                     <template v-else-if="item.category === 'keys' || item.secret">
                       <div class="text-sm font-semibold">{{ item.title }}</div>
@@ -565,12 +560,6 @@
                           <span class="msr" aria-hidden="true">{{ iconGlyph(keyReveal[item.key] ? 'visibility_off' : 'visibility') }}</span>
                         </button>
                       </div>
-                      <div class="mt-2 flex justify-end">
-                        <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
-                                @click="saveKeyItem(item)">
-                          {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить ключ' }}
-                        </button>
-                      </div>
                     </template>
                     <template v-else-if="item.widget === 'select'">
                       <div class="text-sm font-semibold">{{ item.title }}</div>
@@ -589,12 +578,6 @@
                       <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
                       <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
                       <input class="field" :type="inputType(item)" v-model="item.value">
-                      <div class="mt-2 flex justify-end">
-                        <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
-                                @click="saveConfigItem(item)">
-                          {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
-                        </button>
-                      </div>
                     </template>
                   </div>
                 </div>
@@ -611,12 +594,12 @@
                 <details class="advanced mt-4" v-if="advancedItems(grp).length > 0"
                          :open="expandOpen(activeTab)"
                          @toggle="toggleExpand(activeTab)">
-                  <summary class="cursor-pointer select-none text-sm font-semibold
-                                 inline-flex items-center gap-2">
-                    ▶ Расширенные настройки
+                  <summary class="select-none text-sm font-semibold">
+                    Расширенные системные
                     <span class="text-xs text-gray-500 font-normal">
                       ({{ advancedItems(grp).length }})
                     </span>
+                    <span class="msr advanced-gear" aria-hidden="true">{{ iconGlyph('settings') }}</span>
                   </summary>
                   <div class="grid gap-3 md:grid-cols-2 mt-3">
                     <div v-for="item in advancedItems(grp)"
@@ -645,12 +628,6 @@
                       <div v-else-if="item.type === 'json' || item.category === 'prompts' || item.category === 'content'">
                         <textarea class="field scroll-thin" :rows="item.type === 'json' ? 4 : 6"
                                   v-model="item.value"></textarea>
-                        <div class="mt-2 flex justify-end">
-                          <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
-                                  @click="saveConfigItem(item)">
-                            {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
-                          </button>
-                        </div>
                       </div>
                       <div v-else-if="item.category === 'keys' || item.secret">
                         <div class="mb-2">
@@ -662,8 +639,6 @@
                                  :type="keyReveal[item.key] ? 'text' : 'password'"
                                  :placeholder="isKeyConfigured(item) ? 'Новый ключ (заменить)…' : 'Ключ…'"
                                  v-model="keyDrafts[item.key]">
-                          <button class="btn-accent text-sm shrink-0" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
-                                  @click="saveKeyItem(item)">Сохранить</button>
                         </div>
                       </div>
                       <div v-else-if="item.widget === 'select'" class="mt-2">
@@ -677,12 +652,6 @@
                       </div>
                       <div v-else>
                         <input class="field" :type="inputType(item)" v-model="item.value">
-                        <div class="mt-2 flex justify-end">
-                          <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
-                                  @click="saveConfigItem(item)">
-                            {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
-                          </button>
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -728,6 +697,11 @@
                   </div>
                 </div>
               </div>
+              <!-- S10.20-1 (High, регресс T-1900): sticky-панель — ЕДИНСТВЕННЫЙ
+                   способ сохранить textarea/input/JSON/промпты и key-drafts на
+                   конфиг-вкладках (точечные кнопки удалены). Финальный блок
+                   ветки currentTabIsConfig. -->
+              <sticky-save class="col-span-full"></sticky-save>
             </template>
           </template>
           <template v-else-if="activeTab === 'modules'">
@@ -829,34 +803,17 @@
                                      :type="keyReveal[item.key] ? 'text' : 'password'"
                                      :placeholder="isKeyConfigured(item) ? 'Новый ключ (заменить)…' : 'Ключ…'"
                                      v-model="keyDrafts[item.key]">
-                              <button class="btn-accent text-xs shrink-0"
-                                      :disabled="!canEditConfig(item.key) || saving.has(item.key)"
-                                      @click="saveKeyItem(item)">Сохранить</button>
                             </div>
                           </template>
                           <template v-else-if="item.type === 'json' || item.category === 'prompts' || item.category === 'content'">
                             <div class="text-sm font-semibold">{{ item.title }}</div>
                             <textarea class="field scroll-thin mt-1" :rows="item.type === 'json' ? 4 : 6"
                                       v-model="item.value"></textarea>
-                            <div class="mt-2 flex justify-end">
-                              <button class="btn-accent text-sm"
-                                      :disabled="!canEditConfig(item.key) || saving.has(item.key)"
-                                      @click="saveConfigItem(item)">
-                                {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
-                              </button>
-                            </div>
                           </template>
                           <template v-else>
                             <div class="text-sm font-semibold">{{ item.title }}</div>
                             <div class="text-xs text-gray-400 mb-1">{{ item.description }}</div>
                             <input class="field mt-1" :type="inputType(item)" v-model="item.value">
-                            <div class="mt-2 flex justify-end">
-                              <button class="btn-accent text-sm"
-                                      :disabled="!canEditConfig(item.key) || saving.has(item.key)"
-                                      @click="saveConfigItem(item)">
-                                {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
-                              </button>
-                            </div>
                           </template>
                         </div>
                       </div>
@@ -880,13 +837,6 @@
                               <div class="text-sm font-semibold">{{ item.title }}</div>
                               <div class="text-xs text-gray-400 mb-1">{{ item.description }}</div>
                               <input class="field mt-1" :type="inputType(item)" v-model="item.value">
-                              <div class="mt-2 flex justify-end">
-                                <button class="btn-accent text-sm"
-                                        :disabled="!canEditConfig(item.key) || saving.has(item.key)"
-                                        @click="saveConfigItem(item)">
-                                  {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
-                                </button>
-                              </div>
                             </template>
                           </div>
                         </div>
@@ -1011,15 +961,18 @@
                   </div>
                 </div>
                 </div>
-                <footer class="modal-footer mt-3 flex justify-end">
-                  <button class="btn-ghost text-sm" @click="closeModule()">Закрыть</button>
+                <footer class="modal-footer mt-3 flex items-center gap-2">
+                  <!-- 10.20 (T-1900): одна sticky-панель вместо кнопок «Сохранить»
+                       под инпутами; тумблеры/select сохраняются мгновенно. -->
+                  <sticky-save class="flex-1"></sticky-save>
+                  <button class="btn-ghost text-sm shrink-0" @click="closeModule()">Закрыть</button>
                 </footer>
               </div>
             </div>
           </template>
           <template v-else-if="activeTab === 'oversight'">
             <!-- ═══ Сводка (F-12 C1/C2) — только global admin ═══ -->
-            <div class="card p-4 col-span-full">
+            <div class="card glass-panel p-4 col-span-full">
               <div class="flex items-center gap-2 flex-wrap mb-2">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('radar') }}</span> Сводка</div>
                 <span class="text-xs text-gray-500">сводка всех чатов (кэш 60 с)</span>
@@ -1144,6 +1097,35 @@
                   <span class="badge badge-muted">Черт сгенерировано: {{ personaHealth && personaHealth.traits_count != null ? personaHealth.traits_count : '—' }}</span>
                   <span class="badge badge-muted">Пересмотр характера: {{ personaHealth && personaHealth.last_trait_at ? fmtLogTime(personaHealth.last_trait_at) : '—' }}</span>
                   <span class="badge badge-muted">Экстрактор последний раз: {{ personaHealth && personaHealth.extractor_last_at ? fmtLogTime(personaHealth.extractor_last_at) : '—' }}</span>
+                </div>
+              </div>
+              <!-- ═══ Раунд 10.20 (БЛОК 3.3/T-1897): «Живая лента досье» ═══
+                   Реактивный тикер: GLOBAL → случайные выдержки по всем чатам;
+                   конкретный чат → только его участники. CSS-анимация без
+                   сторонних библиотек (CSP). Реактивность — один запрос на
+                   смену чата (см. setActiveChat/setTab('oversight')). -->
+              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2 dossier-ticker-wrap">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <div class="text-xs font-bold">Живая лента досье</div>
+                  <span class="text-xs text-gray-500">
+                    {{ activeChatId == null ? 'по всем чатам' : 'только этот чат' }}
+                  </span>
+                  <button class="btn-ghost text-xs ml-auto" :disabled="dossierFeedBusy"
+                          @click="loadDossierFeed()">⟳</button>
+                </div>
+                <div v-if="dossierFeedError" class="text-xs text-red-300">Ошибка ленты: {{ dossierFeedError }}</div>
+                <div v-else-if="!dossierFeedLoop.length" class="text-xs text-gray-500">
+                  Пока нечего показать — в графе памяти нет подтверждённых фактов.
+                </div>
+                <div v-else class="dossier-ticker" role="marquee" aria-label="Живая лента досье">
+                  <div class="dossier-ticker__track">
+                    <span v-for="it in dossierFeedLoop" :key="it.key" class="dossier-ticker__item">
+                      <b>{{ it.name }}</b>
+                      <span class="text-gray-500">({{ it.chatLabel }})</span>
+                      <span>{{ it.excerpt }}</span>
+                      <span class="dossier-ticker__dot" aria-hidden="true">◆</span>
+                    </span>
+                  </div>
                 </div>
               </div>
               <div v-if="oversightBusy" class="spinner my-4"></div>
@@ -1559,12 +1541,12 @@
                 <div class="mt-2 flex gap-2">
                   <input class="field flex-1" type="number" v-model="adminIdItem().value"
                          :disabled="!canEditConfig('reactions.admin_user_id')">
-                  <button class="btn-accent text-sm" @click="saveConfigItem(adminIdItem())"
-                          :disabled="!canEditConfig('reactions.admin_user_id')">
-                    Сохранить
-                  </button>
                 </div>
               </div>
+              <!-- 10.20 (T-1900): нижняя sticky-панель конфиг-вкладки — вместо
+                   кнопок «Сохранить» под каждым инпутом (тумблеры/select —
+                   мгновенный auto-save). -->
+              <sticky-save class="col-span-full"></sticky-save>
             </template>
           </template>
           <template v-else-if="activeTab === 'relations'">
@@ -1680,6 +1662,10 @@
                                 :disabled="relationsBusy"
                                 title="Сбросить на авто — стирает стадию и заметку"
                                 @click="removeRelationManual(u)">Сброс</button>
+                        <button class="btn-ghost text-xs shrink-0"
+                                :disabled="relationsBusy"
+                                title="Досье участника: черты от экстрактора Личности + ручная правка"
+                                @click="openDossier(u)"><span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span> Досье</button>
                       </div>
                     </div>
                   </div>
@@ -1732,10 +1718,10 @@
                       <details class="advanced mt-4" v-if="advancedItems(grp).length > 0"
                                :open="expandOpen(activeTab)"
                                @toggle="toggleExpand(activeTab)">
-                        <summary class="cursor-pointer select-none text-sm font-semibold
-                                       inline-flex items-center gap-2">
-                          ▶ Расширенные настройки
+                        <summary class="select-none text-sm font-semibold">
+                          Расширенные системные
                           <span class="text-xs text-gray-500 font-normal">({{ advancedItems(grp).length }})</span>
+                          <span class="msr advanced-gear" aria-hidden="true">{{ iconGlyph('settings') }}</span>
                         </summary>
                         <div class="grid gap-3 md:grid-cols-2 mt-3">
                           <div v-for="item in advancedItems(grp)" :key="item.key"
@@ -2100,10 +2086,10 @@
                       <details class="advanced mt-4" v-if="advancedItems(grp).length > 0"
                                :open="expandOpen('chat_lore')"
                                @toggle="toggleExpand('chat_lore')">
-                        <summary class="cursor-pointer select-none text-sm font-semibold
-                                       inline-flex items-center gap-2">
-                          ▶ Расширенные настройки
+                        <summary class="select-none text-sm font-semibold">
+                          Расширенные системные
                           <span class="text-xs text-gray-500 font-normal">({{ advancedItems(grp).length }})</span>
+                          <span class="msr advanced-gear" aria-hidden="true">{{ iconGlyph('settings') }}</span>
                         </summary>
                         <div class="grid gap-3 md:grid-cols-2 mt-3">
                           <div v-for="item in advancedItems(grp)" :key="item.key"
@@ -2661,6 +2647,60 @@
           <button class="btn-ghost text-sm" @click="confirmAction = null">Отмена</button>
           <button class="btn-danger text-sm" @click="confirmControl()">Выполнить</button>
         </div>
+      </div>
+    </div>
+
+    <!-- ═══ Раунд 10.20 (БЛОК 3.2/T-1896): модалка Досье участника ═══
+         Авто-досье (черты от экстрактора Личности) + ручная правка админа.
+         PATCH-контракт аддитивен (R16: user_id — ключ); пустая правка =
+         сброс к авто. Sticky-футер — единая кнопка сохранения (T-1900). -->
+    <div v-if="dossierOpen" class="modal-backdrop" @click.self="closeDossier()">
+      <div class="modal-card card card-solid p-5 w-full max-w-xl"
+           role="dialog" aria-modal="true" aria-labelledby="dossier-title"
+           tabindex="-1" @keydown.esc="closeDossier()">
+        <header class="modal-head flex items-center gap-2 mb-3">
+          <span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span>
+          <h2 class="modal-title text-base font-bold" id="dossier-title">
+            Досье: {{ dossierName || ('ID ' + dossierUserId) }}
+          </h2>
+          <button class="modal-close btn-ghost ml-auto text-sm px-2" @click="closeDossier()"
+                  aria-label="Закрыть">✕</button>
+        </header>
+        <div class="modal-body" style="max-height:70dvh;overflow-y:auto;">
+          <div v-if="dossierBusy" class="spinner my-4"></div>
+          <template v-else>
+            <div class="text-xs text-gray-500 mb-1">Черты от экстрактора Личности (авто)</div>
+            <pre v-if="dossierData && dossierData.extracted"
+                 class="dossier-auto card p-3 text-xs whitespace-pre-wrap mb-3">{{ dossierData.extracted }}</pre>
+            <div v-else class="text-xs text-gray-500 mb-3">
+              Авто-досье пока пусто — у участника ещё нет подтверждённых фактов.
+            </div>
+            <div v-if="dossierData && dossierData.links && dossierData.links.length"
+                 class="text-xs text-gray-400 mb-3">
+              Связи:
+              <span v-for="(l, i) in dossierData.links" :key="'dl' + i" class="badge badge-muted mr-1">
+                {{ l.source_name }} — {{ l.relation_type }} — {{ l.target_name }}
+              </span>
+            </div>
+            <label class="text-xs text-gray-500" for="dossier-edit">Ручная правка досье</label>
+            <textarea id="dossier-edit" class="field scroll-thin mt-1" rows="6"
+                      v-model="dossierDraft" maxlength="4000"
+                      placeholder="Например: любит мемы про кота; спорит про футбол; главный поставщик мемов…"></textarea>
+            <div class="text-xs text-gray-500 mt-1">
+              Пустое поле сбросит правку — вернётся авто-досье.
+            </div>
+          </template>
+        </div>
+        <footer class="sticky-save">
+          <span class="sticky-save__count">
+            {{ dossierDraft === ((dossierData && dossierData.manual_traits) || '') ? 'Нет изменений' : 'Есть правка' }}
+          </span>
+          <button class="btn-ghost text-sm" type="button"
+                  :disabled="dossierSaving" @click="closeDossier()">Отмена</button>
+          <button class="btn-accent text-sm" type="button"
+                  :disabled="dossierSaving"
+                  @click="saveDossier()">{{ dossierSaving ? 'Сохранение…' : 'Сохранить досье' }}</button>
+        </footer>
       </div>
     </div>
 

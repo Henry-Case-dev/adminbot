@@ -322,7 +322,8 @@ class TestSummarizeCascade:
         service, _, _ = _cascade_service(vc, memory=memory)
         await service.summarize_cascade(VIDEO_ID, chat_id=-100,
                                         rag_query="че за видос")
-        memory.get_rag_context.assert_awaited_once_with(-100, "че за видос")
+        memory.get_rag_context.assert_awaited_once_with(
+            -100, "че за видос", sort_by_timestamp=True)
         assert "<RAG>факты</RAG>" in vc.summarize.await_args.kwargs["user_text"]
 
     @pytest.mark.asyncio

@@ -1240,3 +1240,35 @@ bot.py
 - **Находки 10.15:** `plans/reports/round10.15_scanner_audit.md` — итерация 1: **0 Critical / 0 High /
   3 Medium / 6 Low / 3 Info**; итерация 2 (после фиксов @Builder): **0 Critical / 0 High / 0 Medium /
   3 Low / 3 Info**; открытых Critical/High/Medium нет.
+
+## Round 10.20 (T-1915) — карта связностей (diff-based, HEAD 2f3e1f0 + worktree)
+- **Статус скана: итерация 1 — 0 Critical / 1 High (S10.20-1) / 7 Medium / 9 Low / 5 Info → финал (re-audit §10, 16.09.2026): 0 Critical / 0 High / 0 Medium / 0 Low (open) / 5 Info. Блокер S10.20-1 закрыт.**
+- **Новые узлы:** `services/canonical_context.py` — единственная точка рендера контекста
+  (`format_context_item`/`strip_context_header`/`resolve_item_id`/`format_chat_time`) + реестр
+  `CONTEXT_POINTS` (14 точек) → потребляют: `direct_chat_service` (точки 2/3, `_line_markers`),
+  `summary_memory` (RAG-строки, `_fact_tokens`), `tool_router` (dig/history), `chat_context`,
+  `summary_generator` (archive), `lore_compiler_service`.
+- **`services/context_middleware.py`** — обёртка `truncate_keep_header` ← `direct_chat_service._truncate_block`/
+  `_apply_context_budget` (неразрывная связка «метаданные > бюджет»).
+- **`services/lore_compiler_service.py`** ← `tool_router._compile_lore_story` (8-й тул, гейт
+  `flags.lore_compiler_enabled`) → `db.lore_graph_slice` + `db.lore_dense_dialogs` + `db.get/upsert_lore_story`
+  (`lore_stories`, без бампа `user_version`) → `ctx.lore_compiled/lore_story` → `direct_chat_service`
+  (локальный `parse_mode=HTML` + `escape_lore_html` + plain-фолбэк). **`factcheck_service` тоже получил
+  `compile_lore_story`, но `ctx.lore_compiled` не читает** (S10.20-4).
+- **`services/reply_postprocess.py`** → `tool_loop` (финал/деградация), `direct_chat` (chokepoint),
+  `summary_cleanup.cleanup_llm_text` (factcheck/summary/поиск/видео) — единый срез reasoning-черновиков.
+- **`ToolLoopResult` (str-подкласс)** → `direct_chat_service` (degraded-логирование, `str(raw)`-совместимость);
+  `LLMChatResult.reasoning` — телеметрия без потребителей.
+- **Provenance `graph_facts.tg_message_id/forward_from`** (миграция v11→v12, `_SCHEMA_SQL` + guard) →
+  `memorize_facts` (17/17) → 6-кортежи `_search_graph_facts`/`_knn_graph_facts` →
+  `_format_origin_labeled_line`/`build_rag_context` (канон-заголовок) → `order_rag_facts_asc` (D206, после дедупа).
+- **Мини-апп:** `web/app.js` sticky-save (`dirtyItems`/`dirtyKeyItems`/`saveModalEdits`) ↔ `configSnapshot` ↔
+  `loadConfig`; `dossier_feed` (API global-admin, поллинг 45 с) → тикер «Живой ленты»; модалка досье →
+  `PUT/GET /api/chat_lore/{chat_id}/dossier/{user_id}` (`persona_dossier_overrides`, RBAC `_require_chat`; хендлеры — `web/api/chat_lore.py::put_dossier`/`get_dossier`, фид — `web/api/oversight.py::dossier_feed` ← `services/database.py::dossier_feed`).
+  **Разрыв (S10.20-1, High) — ЗАКРЫТ (re-audit 16.09.2026):** `<sticky-save>` добавлен в конец ветки
+  `currentTabIsConfig` (`web/index.html:704`); панели также в модалке «Модулей» (:967), ветке «Доступы»
+  (:1549) и футере модалки досье (:2694); тесты проверяют панель В КАЖДОЙ ветке.
+- **Техдолг/CLI/каноны:** `manage.py retention` (dry-run по временному снапшоту через SQLite backup API; `--apply` — `DatabaseService.initialize_existing()`, WAL/busy_timeout без DDL); `services/memory_maintenance._archive_imported_history` += `_fsync_directory` (POSIX; win32 no-op); `services/reply_postprocess.py` (reasoning-стриппер) ← `summary_cleanup.cleanup_llm_text`; канон-консистентность: `docs/canon/architecture.md` (CHAT/FACTCHECK/LORE_STORY/TOOL_SCHEMAS EN) + `docs/canon/backlog.md` (R11 v4 summary «архив ≠ свежее»); `services/canonical_context.py::CONTEXT_POINTS` (14) — генератор инвентарного теста «нет голого текста».
+- **Статус после re-audit (16.09.2026): 0 Critical / 0 High / 0 Medium / 0 Low (open) / 5 Info.**
+  Все S10.20-2…-16 закрыты; S10.20-12 (ADR-1020-3) и S10.20-17 (RBAC-паритет) — приняты обоснованно.
+  Валидатор: pytest **6546 passed / 0 failed**; JS-гейты `JS-UNIT-OK`/`VUE-MOUNT-OK`; `git diff --check` clean.

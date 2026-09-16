@@ -77,6 +77,13 @@ _SCHEMA_VERSION_IMPORT_KEY_CHAT_SCOPE = 11  # Раунд 10.19 (F7 memory-
                                 # ключ (path, chat_id). Формула import_key НЕ
                                 # меняется (идемпотентность 1.27M строк).
                                 # Это ТЕКУЩАЯ цель user_version.
+_SCHEMA_VERSION_GRAPH_FACTS_V12 = 12  # Раунд 10.20 (БЛОК 7.3b, ADR-1020-1
+                                # ред. 3 / ADR-1020-7 §3, T-1924): 11→12 —
+                                # graph_facts ADD COLUMN tg_message_id INTEGER
+                                # (nullable) + forward_from TEXT NOT NULL
+                                # DEFAULT '' (provenance: ID-политика `tg:` и
+                                # сегмент «Переслано:»). PG — no-op (таблицы
+                                # graph_facts в PG нет). Это ТЕКУЩАЯ цель.
 
 # Раунд 3 (3.6/B7, T-693): полный список origin для CHECK graph_facts — в ОДНОМ
 # месте (CREATE TABLE + пересоздание в _migrate_direct_chat_v2 + миграции v4/v5).
@@ -163,6 +170,31 @@ def parse_belief_meta(raw) -> dict:
     except (ValueError, TypeError):
         return {}
     return loaded if isinstance(loaded, dict) else {}
+
+
+# ── «Летописец» (раунд 10.20, БЛОК 1, ADR-1020-4): модульные хелперы ────────
+# Токены топика для casefold-матча узлов графа и FTS.
+_LORE_TOKEN_RE = re.compile(r"[а-яёa-z0-9]+", re.IGNORECASE)
+# Потолок скана узлов чата при поиске узла топика (детерминированно по id).
+_LORE_NODE_SCAN_LIMIT = 2000
+
+
+def _lore_fact_row(row: dict) -> dict:
+    """Строка ``graph_facts`` → структурный факт «Летописца» (R16).
+
+    ``rag_ts`` = message_timestamp (дата источника) или created_at — та же
+    логика, что в RAG/скоринге; пустые поля не выдумываются."""
+    rag_ts = row.get("message_timestamp") or row.get("created_at") or 0
+    return {
+        "id": int(row.get("id") or 0),
+        "fact": str(row.get("fact") or ""),
+        "target_user": row.get("target_user"),
+        "rag_ts": int(rag_ts or 0),
+        "kind": str(row.get("kind") or "fact"),
+        "origin": str(row.get("origin") or ""),
+        "status": str(row.get("status") or ""),
+        "weight": float(row.get("weight") or 0.0),
+    }
 
 
 class DatabaseService:
@@ -292,7 +324,14 @@ class DatabaseService:
                         'bot_direct_reply', 'voice_transcript', 'video_transcript')),
             expires_at INTEGER,
             created_at INTEGER NOT NULL,
-            target_user TEXT
+            target_user TEXT,
+            -- Раунд 10.20 (БЛОК 7.3b, ADR-1020-1 ред. 3 / ADR-1020-7 §3,
+            -- T-1924): provenance факта — id TG-сообщения-источника
+            -- (ID-политика `tg:`) и источник пересылки (сегмент «Переслано:»).
+            -- Схема-база; для legacy-БД колонки добавляет
+            -- `_migrate_graph_facts_metadata_v12` (идемпотентно).
+            tg_message_id INTEGER,
+            forward_from  TEXT NOT NULL DEFAULT ''
         );
         CREATE INDEX IF NOT EXISTS idx_graph_facts_chat_origin ON graph_facts(chat_id, origin);
         -- idx_graph_facts_target_user создаётся в _migrate_direct_chat_v2
@@ -380,6 +419,40 @@ class DatabaseService:
         CREATE INDEX IF NOT EXISTS idx_users_meta_chat_last
             ON users_meta (chat_id, last_seen DESC);
 
+        -- ── Раунд 10.20 (БЛОК 3.2/T-1896): ручные правки Досье участника ──
+        -- Аддитивное хранилище, CREATE IF NOT EXISTS, user_version НЕ
+        -- поднимается (прецедент smart_cache/bot_reply_parents/users_meta).
+        -- Ключ — (chat_id, user_id) (R16: id — ключ, не имя). traits —
+        -- свободный текст ручной правки, который UI показывает рядом с
+        -- досье, собранным PersonalityExtractor'ом. Удаление строки = откат.
+        CREATE TABLE IF NOT EXISTS persona_dossier_overrides (
+            chat_id    INTEGER NOT NULL,
+            user_id    INTEGER NOT NULL,
+            traits     TEXT    NOT NULL DEFAULT '',
+            updated_at INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (chat_id, user_id)
+        );
+
+        -- ── Раунд 10.20 (БЛОК 1/О7, ADR-1020-4 п.4, T-1891): «Летописец» ──
+        -- UPD-хранилище историй. Аддитивно, CREATE IF NOT EXISTS,
+        -- user_version НЕ поднимается (прецеденты smart_cache/
+        -- bot_reply_parents/persona_dossier_overrides; RUNTIME WARNING).
+        -- topic_key = normalize_text(topic) (services/smart_cache.py);
+        -- UNIQUE (chat_id, topic_key) — hit → is_update + previous_story_at;
+        -- last_ts — last_seen на момент компиляции (дотягивание новых
+        -- сообщений только с ts > last_ts). Удаление таблицы = откат.
+        CREATE TABLE IF NOT EXISTS lore_stories (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id    INTEGER NOT NULL,
+            topic_key  TEXT    NOT NULL,
+            topic      TEXT    NOT NULL,
+            story      TEXT    NOT NULL,
+            last_ts    INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL,
+            UNIQUE (chat_id, topic_key)
+        );
+
         -- ── Раунд 9 (AGI Memory, spec §3.4.1, T-824): «сон» — DreamWorker ──
         -- Аддитивные структуры, user_version НЕ поднимается (RUNTIME WARNING;
         -- образец bot_reply_parents выше). dream_state — watermark «сна» per
@@ -458,6 +531,7 @@ class DatabaseService:
         await self._migrate_self_origin_v9()  # Раунд 10.14 (F1/T-1478): 8→9
         await self._migrate_edges_fact_id_v10()  # Раунд 10.18 (F3/T-1773): 9→10
         await self._migrate_import_key_chat_scope_v11()  # Раунд 10.19 (F7/T-1864): 10→11
+        await self._migrate_graph_facts_metadata_v12()  # Раунд 10.20 (G/T-1924): 11→12
 
         # Migration: add timestamp column if missing (Dead Page V2)
         try:
@@ -492,7 +566,46 @@ class DatabaseService:
                          row[0] if row is not None else None)
         except Exception:
             logger.debug("PRAGMA foreign_keys check failed", exc_info=True)
-    
+
+    async def initialize_existing(self) -> None:
+        """Открыть УЖЕ существующую/мигрированную БД БЕЗ DDL и миграций.
+
+        10.20 (CLI retention, ADR-1020-5 п.6, T-1910a): внешний CLI при ЖИВОМ
+        боте (`manage.py retention --apply`) не должен конкурировать с
+        основным процессом за DDL-лок — схема уже создана, `user_version`
+        поднят. Здесь только соединение + WAL/busy_timeout (R13: не падать на
+        «database is locked»). Свежая/пустая БД → ошибка уровня запроса
+        (утилите нужна готовая схема) — вызывающий fail-safe.
+
+        S10.20-13: мягкая валидация существования/схемы — неверный путь или
+        пустой файл дают понятную ошибку вместо «deleted=0» по несуществующим
+        таблицам (R17: без полного пути в тексте).
+        """
+        is_memory = str(self.db_path) in (":memory:", "")
+        if not is_memory and not self.db_path.exists():
+            raise FileNotFoundError(
+                f"БД не найдена: {self.db_path.name} — retention работает "
+                "только по существующей схеме (проверьте путь)")
+        self.db = await aiosqlite.connect(str(self.db_path))
+        self.db.row_factory = aiosqlite.Row
+        await self.db.execute(f"PRAGMA busy_timeout = {_BUSY_TIMEOUT_MS}")
+        await self.db.execute("PRAGMA journal_mode=WAL")
+        # Epic 60 (63.1): single-writer — synchronous=NORMAL (WAL-журнал есть).
+        await self.db.execute("PRAGMA synchronous=NORMAL")
+        # S10.20-13: пустая/чужая БД → понятная ошибка до любых запросов.
+        try:
+            cursor = await self.db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+            has_tables = await cursor.fetchone() is not None
+        except Exception:
+            has_tables = False
+        if not has_tables:
+            await self.db.close()
+            self.db = None
+            raise RuntimeError(
+                "В БД нет таблиц — схема не найдена (это не рабочая база "
+                "adminbot)")
+
     async def _migrate_graphrag_v2(self) -> None:
         """Идемпотентная миграция Epic 46 (55.3): origin/expires_at в nodes/edges,
         CHECK entity_type + 'fact' (пересоздание nodes с сохранением id),
@@ -1181,6 +1294,54 @@ class DatabaseService:
             f"PRAGMA user_version = {_SCHEMA_VERSION_IMPORT_KEY_CHAT_SCOPE}")
         await self.db.commit()
 
+    async def _migrate_graph_facts_metadata_v12(self) -> None:
+        """Раунд 10.20 (БЛОК 7.3b, ADR-1020-1 ред. 3 / ADR-1020-7 §3, T-1924):
+        user_version 11→12. `graph_facts` += `tg_message_id INTEGER` (nullable)
+        и `forward_from TEXT NOT NULL DEFAULT ''` — provenance факта для
+        ID-политики `tg:`/`fact:` и сегмента «Переслано:» (Tier-A строк фактов).
+
+        - GUARD (идемпотентность): колонки добавляются ТОЛЬКО если их нет в
+          `PRAGMA table_info(graph_facts)`; повторный запуск — no-op. На свежей
+          БД `_SCHEMA_SQL` уже содержит колонки → guard пропускает ALTER.
+        - ADD COLUMN без rebuild: FTS5 `graph_facts_fts` (content='graph_facts',
+          rowid=id) и vec0 `graph_facts_vec` (rowid=fact_id) НЕ затрагиваются,
+          id/rowid строк не меняются, данные не теряются (прецедент D201/v10).
+        - Новых индексов НЕТ (документировано: запросов по `tg_message_id` нет;
+          `idx_graph_facts_chat_origin` сохраняется).
+        - Legacy-строки: `tg_message_id` = NULL (честное опускание ID, R16);
+          `forward_from` = '' (= не forward).
+        - ``PRAGMA user_version = 12`` ставится ВСЕГДА, вне guard (прецедент
+          v9/v10/v11 — свежая БД тоже фиксирует версию).
+        - **PG — no-op:** таблицы `graph_facts` в PostgreSQL нет
+          (`pg_db.py` — только settings/роли/админы/uptime_events);
+          phantom-таблицу НЕ создаём (вне скоупа).
+        - Обратный путь отката: колонки аддитивны и безвредны → `git revert`
+          безопасен; полный откат — `ALTER TABLE graph_facts DROP COLUMN
+          tg_message_id` + `DROP COLUMN forward_from` (SQLite ≥3.35) +
+          `PRAGMA user_version = 11` — данные не теряются."""
+        cursor = await self.db.execute("PRAGMA table_info(graph_facts)")
+        cols = {row["name"] for row in await cursor.fetchall()}
+        additions = []
+        if "tg_message_id" not in cols:
+            additions.append(("tg_message_id",
+                              "ALTER TABLE graph_facts ADD COLUMN "
+                              "tg_message_id INTEGER"))
+        if "forward_from" not in cols:
+            additions.append(("forward_from",
+                              "ALTER TABLE graph_facts ADD COLUMN "
+                              "forward_from TEXT NOT NULL DEFAULT ''"))
+        for name, sql in additions:
+            logger.info(
+                "[database] migration v12: graph_facts.%s (provenance факта)",
+                name)
+            await self.db.execute(sql)
+        if additions:
+            await self.db.commit()
+        # user_version фиксируется БЕЗУСЛОВНО (вне guard) — см. docstring.
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_GRAPH_FACTS_V12}")
+        await self.db.commit()
+
     async def close(self) -> None:
         if self.db:
             await self.db.close()
@@ -1845,10 +2006,14 @@ class DatabaseService:
         return cursor.rowcount
 
     async def search_messages_fts(self, chat_id: int, match_query: str, limit: int) -> list:
-        """L2-RAG / фоллбек: FTS5 search over raw messages, ordered by rank."""
+        """L2-RAG / фоллбек: FTS5 search over raw messages, ordered by rank.
+
+        10.20 (БЛОК 2.8, ADR-1020-2): аддитивно отдаём `tg_message_id` —
+        для ID-политики канонического рендера (`tg:` приоритетнее `msg:`)."""
         cursor = await self.db.execute(
             "SELECT m.id, m.user_id, m.chat_id, m.text, m.reply_to_id, m.timestamp, "
-            "m.media_type, m.author_name, m.is_forward, m.forward_source "
+            "m.media_type, m.author_name, m.is_forward, m.forward_source, "
+            "m.tg_message_id "
             "FROM smart_messages_fts JOIN smart_messages m ON m.id = smart_messages_fts.rowid "
             "WHERE smart_messages_fts MATCH ? AND m.chat_id = ? "
             "ORDER BY smart_messages_fts.rank LIMIT ?",
@@ -1876,6 +2041,313 @@ class DatabaseService:
         return {"count": int(row["cnt"] or 0) if row else 0,
                 "first_seen": row["first_ts"] if row else None,
                 "last_seen": row["last_ts"] if row else None}
+
+    async def search_messages_fts_count_by_author(self, chat_id: int,
+                                                  match_query: str,
+                                                  since_ts: int = 0,
+                                                  until_ts: int = 0) -> dict:
+        """10.20 (БЛОК 2.8, ADR-1020-2 п.2, R16): счётчик упоминаний
+        FTS-совпадений smart_messages с РАЗБИВКОЙ ПО АВТОРАМ.
+
+        Возвращает ``{"count", "first_seen", "last_seen", "by_author":
+        [{"author_name", "user_id", "count"}, ...]}`` — ``by_author`` отсортирован
+        по убыванию count (имя резолвит вызывающий тем же R16-каскадом
+        `tool_router._resolve_name`: здесь отдаём сырые author_name+user_id,
+        чтобы каскад алиасов/ников работал — имя НЕ выдумываем).
+
+        ``since_ts``/``until_ts`` (>0) — окно по timestamp В SQL (не
+        пост-фильтр top-N, прецедент `search_messages_fts_count`)."""
+        sql = ("SELECT COUNT(*) AS cnt, MIN(m.timestamp) AS first_ts, "
+               "MAX(m.timestamp) AS last_ts, "
+               "COALESCE(m.author_name, '') AS author_name, "
+               "m.user_id AS user_id "
+               "FROM smart_messages m "
+               "WHERE m.chat_id = ? AND m.id IN "
+               "(SELECT rowid FROM smart_messages_fts "
+               "WHERE smart_messages_fts MATCH ?)")
+        params: list = [chat_id, match_query]
+        if since_ts:
+            sql += " AND m.timestamp >= ?"
+            params.append(since_ts)
+        if until_ts:
+            sql += " AND m.timestamp <= ?"
+            params.append(until_ts)
+        sql += " GROUP BY COALESCE(m.author_name, ''), m.user_id"
+        cursor = await self.db.execute(sql, tuple(params))
+        rows = await cursor.fetchall()
+        total = 0
+        first_ts = None
+        last_ts = None
+        by_author: list[dict] = []
+        for row in rows:
+            chunk = int(row["cnt"] or 0)
+            total += chunk
+            first = row["first_ts"]
+            last = row["last_ts"]
+            if first is not None and (first_ts is None or first < first_ts):
+                first_ts = first
+            if last is not None and (last_ts is None or last > last_ts):
+                last_ts = last
+            by_author.append({
+                "author_name": row["author_name"] or "",
+                "user_id": row["user_id"],
+                "count": chunk,
+            })
+        by_author.sort(key=lambda item: (-item["count"],
+                                         str(item["author_name"])))
+        return {"count": total, "first_seen": first_ts, "last_seen": last_ts,
+                "by_author": by_author}
+
+    # ── «Летописец» (раунд 10.20, БЛОК 1, ADR-1020-4, T-1888/T-1889/T-1891) ──
+
+    async def get_lore_story(self, chat_id: int, topic_key: str) -> dict | None:
+        """UPD-hit «Летописца» (T-1891): сохранённая история по
+        ``(chat_id, normalize_text(topic))`` или None. Ошибки чтения —
+        пустой результат (диалог не роняется, NFR-4)."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT id, chat_id, topic_key, topic, story, last_ts, "
+                "created_at, updated_at FROM lore_stories "
+                "WHERE chat_id = ? AND topic_key = ?",
+                (chat_id, str(topic_key or "")))
+            row = await cursor.fetchone()
+            return dict(row) if row else None
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning("[database] get_lore_story failed — None | "
+                           "chat=%s", chat_id, exc_info=True)
+            return None
+
+    async def upsert_lore_story(self, chat_id: int, topic_key: str, topic: str,
+                                story: str, last_ts: int = 0) -> None:
+        """Запись истории «Летописца» (T-1891): UPSERT по UNIQUE
+        ``(chat_id, topic_key)``; ``last_ts`` — last_seen на момент компиляции
+        (для дотягивания новых сообщений ``ts > last_ts``). Ошибки — WARNING
+        (деградация без UPD, NFR-4), НЕ бросает."""
+        now = int(time.time())
+        try:
+            await self.db.execute(
+                "INSERT INTO lore_stories "
+                "(chat_id, topic_key, topic, story, last_ts, created_at, "
+                "updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(chat_id, topic_key) DO UPDATE SET "
+                "topic = excluded.topic, story = excluded.story, "
+                "last_ts = excluded.last_ts, updated_at = excluded.updated_at",
+                (chat_id, str(topic_key or ""), str(topic or ""),
+                 str(story or ""), int(last_ts or 0), now, now))
+            await self.db.commit()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning("[database] upsert_lore_story failed | chat=%s",
+                           chat_id, exc_info=True)
+
+    async def lore_graph_slice(self, chat_id: int, topic: str, *,
+                               depth: int = 2, max_nodes: int = 20,
+                               max_edges: int = 120,
+                               max_facts: int = 30) -> dict:
+        """Шаг А «Летописца» (T-1888): структурный срез графа вокруг топика.
+
+        Узел топика (``nodes.entity_name`` casefold-содержит токен темы) →
+        связи 1..``depth`` уровня в ОБЕ стороны (``edges``: relation_type/
+        weight/fact_id-provenance, ADR-1018-3 D1) → привязанные факты и
+        Убеждения (``graph_facts`` по ``edge.fact_id``).
+
+        Возврат ``{"nodes": [...], "edges": [...], "facts": [...]}`` (сырые
+        строки). Детерминизм: узлы/рёбра — по id, факты — ASC по
+        ``(rag_ts, id)``. Рендер ``format_context_item(kind="fact")`` — на
+        сервисе. НЕ бросает: ошибка → пустой срез + WARNING.
+
+        M2 (S10.20-8): поиск узла топика — детерминированный скан первых
+        ``_LORE_NODE_SCAN_LIMIT`` (=2000) узлов чата по ``id``; узлы сверх
+        лимита срезом не находятся (перф-защита на росте БД, осознанный кап)."""
+        empty = {"nodes": [], "edges": [], "facts": []}
+        seeds = sorted({tok for tok in _LORE_TOKEN_RE.findall(
+            str(topic or "").casefold()) if len(tok) >= 3})
+        if not seeds:
+            return dict(empty)
+        try:
+            cap_depth = min(max(1, int(depth)), 2)
+            cap_nodes = max(1, int(max_nodes))
+            cap_edges = max(1, int(max_edges))
+            cursor = await self.db.execute(
+                "SELECT id, entity_name, entity_type FROM nodes "
+                "WHERE chat_id = ? ORDER BY id LIMIT ?",
+                (chat_id, _LORE_NODE_SCAN_LIMIT))
+            nodes: dict[int, dict] = {}
+            for row in (dict(r) for r in await cursor.fetchall()):
+                name = str(row.get("entity_name") or "")
+                if not any(seed in name.casefold() for seed in seeds):
+                    continue
+                nodes[int(row["id"])] = {
+                    "id": int(row["id"]),
+                    "entity_name": name,
+                    "entity_type": str(row.get("entity_type") or ""),
+                }
+                if len(nodes) >= cap_nodes:
+                    break
+            if not nodes:
+                return dict(empty)
+            frontier = set(nodes)
+            edge_keys: set[tuple] = set()
+            edges: list[dict] = []
+            for _ in range(cap_depth):
+                if not frontier or len(edges) >= cap_edges:
+                    break
+                front = sorted(frontier)
+                placeholders = ",".join("?" * len(front))
+                cursor = await self.db.execute(
+                    "SELECT e.source_id AS sid, e.target_id AS tid, "
+                    "e.relation_type AS rel, e.weight AS weight, "
+                    "e.fact_id AS fact_id, ns.entity_name AS sname, "
+                    "nt.entity_name AS tname FROM edges e "
+                    "JOIN nodes ns ON ns.id = e.source_id "
+                    "JOIN nodes nt ON nt.id = e.target_id "
+                    "WHERE e.chat_id = ? AND (e.source_id IN (" + placeholders
+                    + ") OR e.target_id IN (" + placeholders + ")) "
+                    "ORDER BY e.source_id, e.target_id, e.relation_type "
+                    "LIMIT ?",
+                    [chat_id] + front + front + [cap_edges])
+                next_frontier: set[int] = set()
+                for row in (dict(r) for r in await cursor.fetchall()):
+                    sid = int(row["sid"])
+                    tid = int(row["tid"])
+                    key = (sid, tid, str(row["rel"] or ""))
+                    if key in edge_keys:
+                        continue
+                    if len(edges) >= cap_edges:
+                        break
+                    edge_keys.add(key)
+                    edges.append({
+                        "source_id": sid, "target_id": tid,
+                        "relation_type": key[2],
+                        "source": str(row.get("sname") or ""),
+                        "target": str(row.get("tname") or ""),
+                        "weight": int(row.get("weight") or 0),
+                        "fact_id": row.get("fact_id"),
+                    })
+                    for nid, nname in ((sid, row.get("sname")),
+                                       (tid, row.get("tname"))):
+                        if nid not in nodes:
+                            nodes[nid] = {"id": nid,
+                                          "entity_name": str(nname or ""),
+                                          "entity_type": ""}
+                            next_frontier.add(nid)
+                frontier = next_frontier
+            facts: list[dict] = []
+            fact_ids = sorted({int(edge["fact_id"]) for edge in edges
+                               if edge.get("fact_id")})
+            if fact_ids:
+                placeholders = ",".join("?" * len(fact_ids))
+                cursor = await self.db.execute(
+                    "SELECT id, fact, target_user, created_at, "
+                    "message_timestamp, kind, origin, status, weight "
+                    "FROM graph_facts WHERE chat_id = ? AND id IN ("
+                    + placeholders + ") ORDER BY id",
+                    [chat_id] + fact_ids)
+                facts = [_lore_fact_row(dict(r))
+                         for r in await cursor.fetchall()]
+            facts.sort(key=lambda f: (int(f.get("rag_ts") or 0),
+                                      int(f.get("id") or 0)))
+            return {"nodes": list(nodes.values()), "edges": edges,
+                    "facts": facts[:max(1, int(max_facts))]}
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning("[database] lore_graph_slice failed — empty | "
+                           "chat=%s", chat_id, exc_info=True)
+            return dict(empty)
+
+    async def lore_dense_dialogs(self, chat_id: int, match_query: str, *,
+                                 max_dialogs: int = 3,
+                                 window_minutes: int = 30,
+                                 since_ts: int = 0,
+                                 max_scan: int = 300,
+                                 max_window_rows: int = 60) -> dict:
+        """Шаг Б «Летописца» (T-1889): хронология упоминаний топика.
+
+        FTS-совпадения ``smart_messages`` → ``earliest``/``latest``/``total``
+        (точный COUNT) → жадное бакетирование по ``window_minutes`` → топ-N
+        бакетов по плотности совпадений (тай-брейк — раннее окно) → ПОЛНЫЙ
+        текст окна **строго ASC** (``timestamp, id``).
+
+        ``since_ts>0`` — UPD-режим: только новые сообщения ``ts > since_ts``.
+        Возврат ``{"earliest", "latest", "total", "dialogs": [[row, ...], ...]}``
+        (окна — ASC по началу). НЕ бросает: ошибка → пустая структура."""
+        empty = {"earliest": None, "latest": None, "total": 0, "dialogs": []}
+        match = str(match_query or "").strip()
+        if not match:
+            return dict(empty)
+        try:
+            since = int(since_ts or 0)
+            sql_count = (
+                "SELECT COUNT(*) AS cnt, MIN(m.timestamp) AS first_ts, "
+                "MAX(m.timestamp) AS last_ts FROM smart_messages m "
+                "WHERE m.chat_id = ? AND m.id IN "
+                "(SELECT rowid FROM smart_messages_fts "
+                "WHERE smart_messages_fts MATCH ?)")
+            params: list = [chat_id, match]
+            if since:
+                sql_count += " AND m.timestamp > ?"
+                params.append(since)
+            cursor = await self.db.execute(sql_count, tuple(params))
+            row = await cursor.fetchone()
+            total = int(row["cnt"] or 0) if row else 0
+            earliest = row["first_ts"] if row else None
+            latest = row["last_ts"] if row else None
+            if not total:
+                return dict(empty)
+            sql = ("SELECT m.id, m.timestamp FROM smart_messages m "
+                   "WHERE m.chat_id = ? AND m.id IN "
+                   "(SELECT rowid FROM smart_messages_fts "
+                   "WHERE smart_messages_fts MATCH ?)")
+            params = [chat_id, match]
+            if since:
+                sql += " AND m.timestamp > ?"
+                params.append(since)
+            sql += " ORDER BY m.timestamp ASC, m.id ASC LIMIT ?"
+            params.append(max(1, int(max_scan)))
+            cursor = await self.db.execute(sql, tuple(params))
+            hits = [int(r["timestamp"] or 0) for r in await cursor.fetchall()]
+            if not hits:
+                return {"earliest": earliest, "latest": latest, "total": total,
+                        "dialogs": []}
+            window = max(1, int(window_minutes)) * 60
+            buckets: list[tuple[int, int, int]] = []
+            start: int | None = None
+            end = 0
+            count = 0
+            for ts in hits:
+                if start is None:
+                    start, end, count = ts, ts + window, 1
+                elif ts <= end:
+                    count += 1
+                else:
+                    buckets.append((start, end, count))
+                    start, end, count = ts, ts + window, 1
+            if start is not None:
+                buckets.append((start, end, count))
+            top = sorted(buckets, key=lambda b: (-b[2], b[0]))[
+                :max(1, int(max_dialogs))]
+            top.sort(key=lambda b: b[0])
+            dialogs: list[list[dict]] = []
+            for win_start, win_end, _cnt in top:
+                cursor = await self.db.execute(
+                    "SELECT id, user_id, author_name, text, timestamp, "
+                    "media_type, is_forward, forward_source, tg_message_id "
+                    "FROM smart_messages WHERE chat_id = ? AND timestamp >= ? "
+                    "AND timestamp <= ? ORDER BY timestamp ASC, id ASC LIMIT ?",
+                    (chat_id, win_start, win_end, max(1, int(max_window_rows))))
+                dialogs.append([dict(r) for r in await cursor.fetchall()])
+            return {"earliest": earliest, "latest": latest, "total": total,
+                    "dialogs": dialogs}
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning("[database] lore_dense_dialogs failed — empty | "
+                           "chat=%s", chat_id, exc_info=True)
+            return dict(empty)
 
     async def search_archive_fts(self, chat_id: int, match_query: str, limit: int) -> list[str]:
         """L3 фоллбек: FTS5 search over archive facts, ordered by rank."""
@@ -2048,7 +2520,9 @@ class DatabaseService:
                                 belief_meta: str | None = None,
                                 subject: str | None = None,
                                 object: str | None = None,
-                                commit: bool = True) -> int:
+                                commit: bool = True,
+                                tg_message_id: int | None = None,
+                                forward_from: str = "") -> int:
         """Факт-строка (+FTS-индекс). Возвращает id. Epic 50 (58.8, D205):
         target_user — имя обращающегося (origin='bot_direct_reply'); created_at
         ставится автоматически (int(time.time())). Epic 60 (64.1/64.2):
@@ -2079,7 +2553,10 @@ class DatabaseService:
         программного хард-лимита importance мета-фактов (стоп-лист
         `METAFACT_PENALTY_STOPLIST` → imp=min(imp,1)); None → прежнее
         поведение (дефолты).
-        Существующие вызовы НЕ меняются (дефолты)."""
+        Раунд 10.20 (БЛОК 7.3b, ADR-1020-1 ред. 3, T-1924): аддитивные
+        `tg_message_id`/`forward_from` — provenance факта (ID-политика `tg:`
+        и сегмент «Переслано:» в канонической строке). None/'' → прежнее
+        поведение (R16: не выдумываем). Существующие вызовы НЕ меняются."""
         w = 0.5 if weight is None else float(weight)
         if not 0.0 <= w <= 1.0:
             logger.warning("graph fact weight %s outside [0,1] — clamped (66.1)", w)
@@ -2105,11 +2582,13 @@ class DatabaseService:
             insert_sql +
             "(chat_id, fact, origin, expires_at, created_at, "
             "target_user, status, supersedes, weight, last_confirmed_at, "
-            "message_timestamp, importance, kind, source_ids, belief_meta) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "message_timestamp, importance, kind, source_ids, belief_meta, "
+            "tg_message_id, forward_from) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (chat_id, fact, origin, expires_at, now, target_user,
              status, supersedes, w, now, message_timestamp, imp, k,
-             source_ids, belief_meta))
+             source_ids, belief_meta, tg_message_id,
+             str(forward_from or "")))
         if cursor.rowcount == 0:
             # дубль (INSERT OR IGNORE) — FTS-строку НЕ пишем (edge 5),
             # коммитить нечего
@@ -2900,7 +3379,7 @@ class DatabaseService:
         sql = (
             "SELECT f.id, f.fact, f.origin, f.created_at, f.target_user, "
             "f.weight, f.last_confirmed_at, f.message_timestamp, f.status, "
-            "f.importance, "
+            "f.importance, f.tg_message_id, f.forward_from, "
             "COALESCE(f.message_timestamp, f.created_at) AS rag_ts "
             "FROM graph_facts_fts "
             "JOIN graph_facts f ON f.id = graph_facts_fts.rowid "
@@ -3711,7 +4190,8 @@ class DatabaseService:
         placeholders = ",".join("?" for _ in fact_ids)
         sql = (f"SELECT id, fact, origin, created_at, target_user, weight, "
                f"status, last_confirmed_at, message_timestamp, belief_meta, "
-               f"kind, importance FROM graph_facts "
+               f"kind, importance, tg_message_id, forward_from "
+               f"FROM graph_facts "
                f"WHERE id IN ({placeholders})")
         params: list = list(fact_ids)
         if status:
@@ -3935,6 +4415,68 @@ class DatabaseService:
             "GROUP BY target_user ORDER BY name ASC",
             (chat_id, now_ts))
         return [(row["name"], row["c"]) for row in await cursor.fetchall()]
+
+    # ── Раунд 10.20 (БЛОК 3.2/T-1896): ручные правки Досье ─────────────────
+    # Аддитивные read/write над persona_dossier_overrides. Fail-open — на
+    # уровне вызывающего (API) исключения → 503/деградация.
+
+    async def get_dossier_override(self, chat_id: int, user_id: int) -> str:
+        """Ручная правка досье участника (пустая строка — правок нет)."""
+        cursor = await self.db.execute(
+            "SELECT traits FROM persona_dossier_overrides "
+            "WHERE chat_id = ? AND user_id = ?",
+            (int(chat_id), int(user_id)))
+        row = await cursor.fetchone()
+        return str(row["traits"]) if row and row["traits"] else ""
+
+    async def set_dossier_override(self, chat_id: int, user_id: int,
+                                   traits: str, now_ts: int) -> None:
+        """Upsert ручной правки досье (id — ключ; R16)."""
+        await self.db.execute(
+            "INSERT OR REPLACE INTO persona_dossier_overrides "
+            "(chat_id, user_id, traits, updated_at) VALUES (?, ?, ?, ?)",
+            (int(chat_id), int(user_id), str(traits or ""), int(now_ts)))
+        await self.db.commit()
+
+    async def delete_dossier_override(self, chat_id: int,
+                                      user_id: int) -> None:
+        """Сброс ручной правки досье участника (откат к авто-досье)."""
+        await self.db.execute(
+            "DELETE FROM persona_dossier_overrides "
+            "WHERE chat_id = ? AND user_id = ?",
+            (int(chat_id), int(user_id)))
+        await self.db.commit()
+
+    async def dossier_feed(self, limit: int = 12,
+                           chat_id: int | None = None,
+                           now_ts: int | None = None) -> list:
+        """Раунд 10.20 (БЛОК 3.3/T-1897): случайные живые факты-«выдержки»
+        из досье для виджета-тикера. chat_id None → по всем чатам (GLOBAL),
+        иначе — только участники чата. Возвращает [{chat_id, name, fact}].
+
+        M3/S10.20-16: выборка ограничена свежим пулом ``limit*20``
+        (``ORDER BY id DESC`` по PK) — ``ORDER BY RANDOM()`` по всему скану
+        при GLOBAL-поллинге 45с бил по росту ``graph_facts``. Ошибки доступа
+        к БД НЕ глотаются (API-слой ловит сам, `web/api/oversight.py`) —
+        «fail-open» здесь только про пустой результат ([]) на пустой БД."""
+        ts = int(now_ts if now_ts is not None else time.time())
+        cap = max(1, int(limit))
+        pool = max(cap, cap * 20)
+        sql = ("SELECT chat_id, name, fact FROM ("
+               "SELECT chat_id, target_user AS name, fact, id "
+               "FROM graph_facts "
+               "WHERE target_user IS NOT NULL AND fact IS NOT NULL "
+               "AND fact != '' AND status = 'confirmed' "
+               "AND (expires_at IS NULL OR expires_at > ?) ")
+        params: list = [ts]
+        if chat_id is not None:
+            sql += "AND chat_id = ? "
+            params.append(int(chat_id))
+        sql += "ORDER BY id DESC LIMIT ?) ORDER BY RANDOM() LIMIT ?"
+        params.append(pool)
+        params.append(cap)
+        cursor = await self.db.execute(sql, params)
+        return [dict(row) for row in await cursor.fetchall()]
 
     # ── F8 (cognition-irony-dossier-round1013, spec §3/§6): chat_memes ──────
     # Мемы живут в ТОЙ ЖЕ graph_facts со status='chat_meme' (status без CHECK,

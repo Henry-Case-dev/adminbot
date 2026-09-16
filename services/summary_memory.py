@@ -42,6 +42,11 @@ import time
 
 from config.settings import settings
 from services import hot_config as hot
+from services.canonical_context import (
+    format_context_item,
+    resolve_item_id,
+    strip_context_header,
+)
 from services.chat_params import (
     chat_summary_enabled,
     get_chat_param as _chat_limit,  # G-3 per-chat
@@ -924,18 +929,52 @@ def _stale_suffix(rag_ts, *, now: int | None = None) -> str:
     return " (Внимание: возможно устарело)" if days > limit else ""
 
 
+def order_rag_facts_asc(facts: list) -> list:
+    """Раунд 10.20 (БЛОК 2.6, ADR-1020-2 п.1): стабильная хронологическая
+    сортировка RAG-фактов по ``rag_ts`` (ASC).
+
+    НЕ меняет состав top-K — ранжирование (KNN×w_eff + MMR / FTS w_eff DESC)
+    по-прежнему определяет, ЧТО попало в контекст; меняется только порядок
+    ВНУТРИ него (таймлайн восстановлен). Элемент — кортеж
+    ``(origin, fact[, rag_ts[, author]])``: отсутствующий/битый ``rag_ts`` →
+    ``0`` («неизвестное время» идёт первым). Пустой список → как есть."""
+    if not facts:
+        return facts
+
+    def _rag_ts(item):
+        try:
+            return item[2] or 0
+        except (IndexError, TypeError):
+            return 0
+
+    return sorted(facts, key=_rag_ts)
+
+
 def _format_origin_labeled_line(item) -> str:
     """F1/T-1418 (spec §3.3): одна строка direct-рендера RAG —
     '[{label}] {_fact_prefix}{текст}{_stale_suffix}' (label из _ORIGIN_LABELS;
-    неизвестный origin — сам origin). item — 3- или 4-кортеж
-    (origin, fact, rag_ts[, author]); author читается при len(item) >= 4;
-    легаси-3-кортежи дают '[ММ.ГГГГ] ' (без автора). Текст — escape_xml_text
-    (как легаси-рендер build_rag_context); пометка устаревания — после текста."""
+    неизвестный origin — сам origin). item — 3-/4-/6-кортеж
+    (origin, fact, rag_ts[, author[, item_id[, forward_from]]]).
+
+    Раунд 10.20 (БЛОК 7.3b, ADR-1020-1 ред. 3, T-1924): при наличии
+    provenance (item_id/forward_from — 6-кортеж из `_search_graph_facts`)
+    строка доводится до канона `kind="fact"` — ID-политика (`tg:`/`fact:`) и
+    сегмент «Переслано:»; 3/4-кортежи остаются валидными (R16-аддитивно,
+    байт-в-байт прежний формат). Текст/автор — escape_xml_text (как раньше),
+    пометка устаревания — после текста."""
     origin = item[0]
     fact = item[1]
     rag_ts = item[2] if len(item) >= 3 else None
     author = item[3] if len(item) >= 4 else None
+    item_id = item[4] if len(item) >= 5 else None
+    forward = item[5] if len(item) >= 6 else None
     label = _ORIGIN_LABELS.get(origin, origin)
+    if item_id or forward:
+        line = format_context_item(
+            ts=rag_ts, author=author, item_id=item_id or None,
+            forward_source=forward or None, text=fact, kind="fact",
+            stale=bool(_stale_suffix(rag_ts)))
+        return f"[{label}] {escape_xml_text(line)}"
     return (f"[{label}] {_fact_prefix(rag_ts, author)}"
             f"{escape_xml_text(fact)}{_stale_suffix(rag_ts)}")
 
@@ -967,7 +1006,16 @@ def build_rag_context(facts: list, *, origin_labels: bool = False) -> str:
         fact = item[1]
         rag_ts = item[2] if len(item) >= 3 else None
         author = item[3] if len(item) >= 4 else None
-        date = _fact_prefix(rag_ts, author)
+        item_id = item[4] if len(item) >= 5 else None
+        forward = item[5] if len(item) >= 6 else None
+        if item_id or forward:
+            # T-1924: канонический header факта (ID-политика + «Переслано»);
+            # структура XML ниже не меняется — меняется только текст строки.
+            date = escape_xml_text(format_context_item(
+                ts=rag_ts, author=author, item_id=item_id or None,
+                forward_source=forward or None, text="", kind="fact"))
+        else:
+            date = _fact_prefix(rag_ts, author)
         suffix = _stale_suffix(rag_ts)
         text = escape_xml_text(fact)
         if origin == "chat_history":
@@ -985,8 +1033,14 @@ def build_rag_context(facts: list, *, origin_labels: bool = False) -> str:
 
 def _fact_tokens(text) -> set[str]:
     """F2 (T-808): нормализованные токены факта/строки фона для словарного
-    дедупа (regex-токены, casefold) — нормализация 'lower, без дат-префиксов'."""
-    return set(_TOKEN_RE.findall(str(text or "").casefold()))
+    дедупа (regex-токены, casefold) — нормализация 'lower, без дат-префиксов'.
+
+    10.20 (БЛОК 0, ADR-1020-1 ред. 3, Р5/R23): строки `<Global_Context>`
+    теперь несут канонический заголовок (`[12.09.2026 10:00 | Автор | msg:5]`)
+    — его токены (`12`, `09`, `msg`, `5`) давали ложные пересечения;
+    заголовок срезается ДО токенизации (обе стороны дедупа)."""
+    return set(_TOKEN_RE.findall(
+        strip_context_header(str(text or "")).casefold()))
 
 
 def dedup_rag_vs_global(facts: list, global_text: str,
@@ -1802,7 +1856,9 @@ class MemoryManager:
     # ── GraphRAG v2: Fact Extractor (Epic 46, Section 55.4) ───────
 
     async def memorize_facts(self, chat_id: int, raw_text: str, source_type: str,
-                             target_user: str | None = None) -> None:
+                             target_user: str | None = None, *,
+                             tg_message_id: int | None = None,
+                             forward_from: str = "") -> None:
         """R46-2 (55.4): raw_text → FACT_EXTRACT_PROMPT (канон R46-2) →
         триплеты → nodes/edges (entity_type='fact', origin/expires_at) +
         graph_facts (+vec0). Embed-фейл (403 и пр.) → факт сохраняется ТЕКСТОМ
@@ -1810,14 +1866,19 @@ class MemoryManager:
         сюда НЕ попадают (хуки передают raw, 55.5). chat_history → expires_at
         NULL (вечно); остальные → now + GRAPH_FACT_TTL_DAYS*86400 (D175).
         Epic 50 (58.8, D205): source_type='bot_direct_reply' + target_user;
-        TTL — CHAT_DIRECT_REPLY_TTL_DAYS (пусто/0 → expires_at NULL, вечное)."""
+        TTL — CHAT_DIRECT_REPLY_TTL_DAYS (пусто/0 → expires_at NULL, вечное).
+        Раунд 10.20 (БЛОК 7.3b, ADR-1020-1 ред. 3, T-1924): аддитивные
+        `tg_message_id`/`forward_from` — provenance факта (ID-политика `tg:`
+        и «Переслано:»); None/'' → NULL/'' (R16: не выдумываем)."""
         if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
             return
         if source_type not in _FACT_ORIGINS:
             logger.warning("graphrag memorize: unknown source_type=%r — skipped", source_type)
             return
         try:
-            await self._memorize_facts_inner(chat_id, raw_text, source_type, target_user)
+            await self._memorize_facts_inner(
+                chat_id, raw_text, source_type, target_user,
+                tg_message_id=tg_message_id, forward_from=forward_from)
         except LLMError as exc:
             # F8 (ADR-1019-7 D2): первичная LLMError теперь перехватывается
             # ВНУТРИ _memorize_facts_inner (с восстановлением), поэтому здесь —
@@ -1869,7 +1930,9 @@ class MemoryManager:
             return None
 
     async def _memorize_facts_inner(self, chat_id, raw_text, source_type,
-                                    target_user=None) -> None:
+                                    target_user=None, *,
+                                    tg_message_id: int | None = None,
+                                    forward_from: str = "") -> None:
         text = " ".join(str(raw_text).split())
         if not text:
             return
@@ -2035,6 +2098,8 @@ class MemoryManager:
                         supersedes=(decision["old_id"]
                                     if decision["action"] == "supersede" else None),
                         subject=subject, object=obj,
+                        tg_message_id=tg_message_id,
+                        forward_from=forward_from,
                         commit=False)
                     await self.db.upsert_edge(
                         sid, oid, fact["predicate"], origin=source_type,
@@ -2337,7 +2402,7 @@ class MemoryManager:
                            chat_id, exc_info=True)
             return ""
         if sort_by_timestamp:
-            facts = sorted(facts, key=lambda f: f[2] or 0)   # стабильная сортировка, ASC
+            facts = order_rag_facts_asc(facts)   # стабильная сортировка, ASC (D206)
         # Раунд 4 (T-724, FR-F1; F1/T-1418): рендер 3/4-кортежей (origin, fact,
         # created_at[, author]) — дата-префикс '[ММ.ГГГГ | Автор: X] ' в
         # контексте («что было N-числа» через RAG); UTC (см. _fact_prefix).
@@ -2516,8 +2581,13 @@ class MemoryManager:
                 logger.warning("graphrag RAG: touch failed | chat_id=%s",
                                chat_id, exc_info=True)
         # Фаза 2 (T-759): рендер ts = COALESCE(message_timestamp, created_at);
-        # F1/T-1418: + target_user (автор факта — 4-кортеж).
-        return [(row["origin"], row["fact"], row["rag_ts"], row["target_user"])
+        # F1/T-1418: + target_user (автор факта — 4-й элемент).
+        # 10.20 (T-1924): + item_id (ID-политика `tg:`/`fact:`) и forward_from —
+        # 6-кортеж (R16-аддитивно; 3/4-кортежи остаются валидными).
+        return [(row["origin"], row["fact"], row["rag_ts"], row["target_user"],
+                 resolve_item_id(tg_message_id=row["tg_message_id"],
+                                 fact_id=row["id"]),
+                 row["forward_from"] or "")
                 for row in kept]
 
     async def _knn_graph_facts(self, chat_id, vector, limit,
@@ -2593,9 +2663,15 @@ class MemoryManager:
         # Фаза 2 (T-759): KNN-путь — ts = message_timestamp or created_at
         # (импортированные факты: дата сообщения, не дата импорта).
         # F1/T-1418: + target_user (автор факта — 4-кортеж).
+        # 10.20 (T-1924): + item_id (ID-политика `tg:`/`fact:`) и forward_from —
+        # 6-кортеж (R16-аддитивно).
         return [(by_id[f]["origin"], by_id[f]["fact"],
                  by_id[f]["message_timestamp"] or by_id[f]["created_at"],
-                 by_id[f]["target_user"])
+                 by_id[f]["target_user"],
+                 resolve_item_id(
+                     tg_message_id=by_id[f]["tg_message_id"],
+                     fact_id=by_id[f]["id"]),
+                 by_id[f]["forward_from"] or "")
                 for f in chosen]
 
     async def _resurrect_resonant(self, chat_id, chosen, by_id,

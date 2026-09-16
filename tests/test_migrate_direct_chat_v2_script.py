@@ -4,7 +4,7 @@
 smart_messages без tg_message_id, user_version=1) и запускает
 scripts/migrate_direct_chat_v2.py::_main с путём в argv →
 CHECK + target_user, tg_message_id, данные сохранены. Epic 60 (63.3):
-initialize теперь применяет и v3…v11 — финальный user_version == 11
+initialize теперь применяет и v3…v11 — финальный user_version == 12
 (каскад раундов 3–10.19).
 """
 import asyncio
@@ -57,7 +57,7 @@ def test_migration_script_v1_to_v2(tmp_path, monkeypatch):
     try:
         # Epic 60 (63.3 + раунды 4/5 + фаза 2 + раунды 9/10.14): initialize
         # каскадно применяет v3+v5+v6+v7+v8+v9 → финал 9.
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 11
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 12
         sql = conn.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts'"
         ).fetchone()[0]
@@ -83,7 +83,7 @@ def test_migration_script_idempotent_second_run(tmp_path, monkeypatch):
     conn = sqlite3.connect(str(path))
     try:
         # Epic 60 (63.3 + раунды 4/5 + фаза 2 + раунды 9/10.14): каскад до 9.
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 11
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 12
         row = conn.execute("SELECT COUNT(*) FROM graph_facts").fetchone()
         assert row[0] == 1                      # строки не задвоены
     finally:

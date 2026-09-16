@@ -8,21 +8,25 @@ execute_web_search); параметры query/year/person/mode (enum, default bo
 import json
 
 from services.tool_schemas import (
+    LORE_COMPILER_TOOL_NAME,
     TOOL_CALLING_TOOLS,
+    TOOL_COMPILE_LORE_STORY,
     TOOL_DIG_INTO_LORE,
     TOOL_EXECUTE_WEB_SEARCH,
     TOOL_QUERY_CHAT_MEMORY,
+    active_tools,
 )
 
 
 class TestToolSchemas:
-    def test_seven_tools_in_expected_order(self):
+    def test_eight_tools_in_expected_order(self):
         # Раунд 10.15 (F8, T-1611): канон R9 (память → лор → веб) + 4 новых
-        # в конце; существующие имена/схемы не меняются.
+        # в конце; 10.20 (C/T-1887): +compile_lore_story → 8. Существующие
+        # имена/схемы не меняются.
         assert [t["function"]["name"] for t in TOOL_CALLING_TOOLS] == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
-            "get_recent_history"]
+            "get_recent_history", "compile_lore_story"]
 
     def _assert_function_schema(self, tool, name, required):
         assert tool["type"] == "function"
@@ -64,27 +68,70 @@ class TestToolSchemas:
         assert mode["enum"] == ["messages", "facts", "both"]
         assert mode["default"] == "both"
 
-    def test_dig_description_covers_nostalgia_triggers(self):
+    def test_dig_description_covers_fast_factual_routing(self):
+        """10.20 (БЛОК 2.5, ADR-1020-2 п.4): роутинг-пара
+        dig_into_lore ↔ compile_lore_story — dig EN-формулировка (дословно по
+        ТЗ, стр. 55-56): fast/factual lookups, minimal precise facts."""
         desc = TOOL_DIG_INTO_LORE["function"]["description"]
-        for trigger in ("помнишь", "как мы тогда", "в 2024", "ПЕРВЫМ",
-                        "год назад"):
-            assert trigger in desc, trigger
-        assert "year" in desc and "person" in desc
+        assert "fast, factual lookups" in desc
+        assert "Who owns X?" in desc
+        assert "When did Y happen?" in desc
+        assert "minimal, precise facts" in desc
+        assert TOOL_DIG_INTO_LORE["function"]["name"] == "dig_into_lore"
+
+    def test_compile_lore_story_schema(self):
+        """10.20 (C/T-1887, ТЗ стр. 56): 8-й инструмент — topic (required),
+        EN-description дословно, additionalProperties=False."""
+        self._assert_function_schema(
+            TOOL_COMPILE_LORE_STORY, "compile_lore_story", ["topic"])
+        props = TOOL_COMPILE_LORE_STORY["function"]["parameters"]["properties"]
+        assert props["topic"]["type"] == "string"
+
+    def test_compile_lore_story_description_verbatim(self):
+        """EN-description — дословно по ТЗ (роутинг-пара с dig_into_lore)."""
+        desc = TOOL_COMPILE_LORE_STORY["function"]["description"]
+        assert desc == (
+            "Use this ONLY when the user asks to explain a meme, tell a "
+            "story, or give a comprehensive historical overview of a topic. "
+            "Heavy narrative tool.")
+
+    def test_active_tools_flag_on_off(self):
+        """10.20 (О3/T-1887): ON (дефолт) — 8 инструментов; OFF — тул
+        compile_lore_story недоступен, 7 прежних сохранены по именам."""
+        assert [t["function"]["name"] for t in active_tools(True)] == [
+            t["function"]["name"] for t in TOOL_CALLING_TOOLS]
+        disabled = [t["function"]["name"] for t in active_tools(False)]
+        assert disabled == [
+            "query_chat_memory", "dig_into_lore", "execute_web_search",
+            "summarize_video", "download_media", "get_bot_health",
+            "get_recent_history"]
+        assert LORE_COMPILER_TOOL_NAME not in disabled
+
+    def test_active_tools_default_on(self):
+        """О3: код-дефолт флага — ON (список без аргумента = 8 тулов)."""
+        assert len(active_tools()) == 8
+
+    def test_active_tools_does_not_mutate_snapshot(self):
+        """active_tools возвращает новый список — снапшот не мутируется."""
+        off = active_tools(False)
+        assert len(off) == 7
+        assert len(TOOL_CALLING_TOOLS) == 8
 
     # Bugfix 04.09.2026 (Часть 2, AC-3.4): расширенные description'ы.
+    # 10.20 (БЛОК 7.4, T-1925): все description — EN (ревизия канона 3.3).
     def test_query_chat_memory_description_covers_count_questions(self):
         desc = TOOL_QUERY_CHAT_MEMORY["function"]["description"]
-        assert "сколько раз" in desc
-        assert "ПЕРВЫМ" in desc
-        assert "статистика" in desc
-        assert "диапазон дат" in desc
+        assert "chat's history" in desc
+        assert "Call FIRST" in desc
+        assert "statistics" in desc
+        assert "date range" in desc
 
     def test_execute_web_search_description_covers_fresh_data(self):
         desc = TOOL_EXECUTE_WEB_SEARCH["function"]["description"]
-        assert "новости" in desc
-        assert "свежие" in desc
-        assert "проверка" in desc
-        assert "в памяти" in desc
+        assert "news" in desc
+        assert "fresh" in desc
+        assert "verification" in desc
+        assert "memory" in desc
 
     def test_all_tools_list_is_mutable_snapshot(self):
-        assert len(TOOL_CALLING_TOOLS) == 7
+        assert len(TOOL_CALLING_TOOLS) == 8

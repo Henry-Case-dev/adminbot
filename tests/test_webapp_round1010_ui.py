@@ -162,8 +162,10 @@ class TestRolesUi:
         assert "if (!url) a.avatarSkipped = true;" in JS
 
     def test_close_buttons_count_unchanged(self):
-        # 10.8/10.9-инвариант: ровно 4 модальных ✕ (новых не добавляли).
-        assert HTML.count(">✕</button>") == 4
+        # 10.8/10.9-инвариант: модальные ✕ не «плодятся».
+        # 10.20 (T-1896): +1 — осознанная модалка «Досье участника»
+        # (БЛОК 3.2); итого 5.
+        assert HTML.count(">✕</button>") == 5
 
     def test_backend_enrichment_markers(self):
         assert "global_user_display_info" in AVATARS
@@ -181,8 +183,8 @@ class TestCatalog1010:
         from services import param_catalog as pc
         # 436 = 435 + 1 env-only BETTERSTACK_HOST (ADR-1018-1 D3).
         # 10.19 (F3/ADR-1019-3 D3, UPD3 п.5): → 437/92/90/20/407.
-        assert len(pc.REGISTRY) == 437
+        assert len(pc.REGISTRY) == 439
         assert len(pc.GROUPS) == 92
         assert len(pc._TAB_BY_GROUP) == 90
         assert len(pc.TAB_RULES) == 20
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 407
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 409

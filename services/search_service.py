@@ -75,7 +75,9 @@ class SearchService:
         if self.memory is not None and chat_id is not None:
             fire_and_forget(
                 self.memory.memorize_facts(chat_id, results, "search_fact"), "search")
-            rag = await self.memory.get_rag_context(chat_id, query)   # 55.6, никогда не бросает
+            # 10.20 (БЛОК 2.6, ADR-1020-2): ASC-хронология перед рендером.
+            rag = await self.memory.get_rag_context(
+                chat_id, query, sort_by_timestamp=True)   # 55.6, никогда не бросает
         else:
             rag = ""
         system = system_prompt.replace("{max_symbols}", str(max_symbols))

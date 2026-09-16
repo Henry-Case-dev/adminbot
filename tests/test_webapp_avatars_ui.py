@@ -414,7 +414,8 @@ class TestAvatarFrontAudit:
         assert "@click=\"toggleFullscreen()\"" in html
         assert ">✕</button>" in html
         # 10.8: 4 модальных ✕ (модуль + roles/local/admins «Доступов»).
-        assert html.count(">✕</button>") == 4
+        # 10.20 (T-1896): +1 — модалка «Досье участника» (БЛОК 3.2).
+        assert html.count(">✕</button>") == 5
         assert ">⛶</button>" in html
 
     def test_sticky_header_class(self):

@@ -30,7 +30,10 @@ import argparse
 import asyncio
 import logging
 import math
+import os
+import sqlite3
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -635,18 +638,62 @@ def _retention_dry_run(args) -> bool:
             or getattr(args, "command", "") == "retention-dry-run")
 
 
-def _cmd_retention(args) -> int:
-    """F7 (D-2/UPD4 п.3): `python manage.py retention [--dry-run|--apply]`."""
-    import asyncio
+def _make_db_snapshot(db_path) -> Path:
+    """CLI retention (T-1910a, ADR-1020-5 п.6): временный СНАПШОТ SQLite для
+    работы при ЖИВОМ боте. Backup API читает согласованный снимок (включая
+    несохранённые в WAL данные) в отдельный файл — живой процесс не
+    блокируется, «database is locked» не возникает.
 
+    Вызывающий обязан удалить снапшот через `_drop_snapshot`."""
+    src = Path(db_path)
+    if not src.exists():
+        raise FileNotFoundError(str(src))
+    fd, name = tempfile.mkstemp(prefix="retention_snap_", suffix=".db")
+    os.close(fd)
+    dest = Path(name)
+    source = sqlite3.connect(str(src), timeout=30)
+    try:
+        target = sqlite3.connect(str(dest))
+        try:
+            source.backup(target)
+        finally:
+            target.close()
+    finally:
+        source.close()
+    return dest
+
+
+def _drop_snapshot(path: Path | None) -> None:
+    """Удалить временный снапшот и его WAL/SHM-файлы (best-effort)."""
+    if path is None:
+        return
+    for suffix in ("", "-wal", "-shm"):
+        try:
+            Path(str(path) + suffix).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def _cmd_retention(args) -> int:
+    """F7 (D-2/UPD4 п.3): `python manage.py retention [--dry-run|--apply]`.
+
+    10.20 (T-1910a, ADR-1020-5 п.6): dry-run работает по ВРЕМЕННОМУ СНАПШОТУ
+    БД (backup API) — утилита не падает при живом боте и не блокирует его;
+    `--apply` открывает живую БД БЕЗ DDL/миграций (`initialize_existing`,
+    WAL/busy_timeout). R17: в выводе нет путей/значений секретов."""
     from services.database import DatabaseService
     from services.memory_maintenance import run_import_retention
 
     dry_run = _retention_dry_run(args)
+    db_path = Path(getattr(args, "db", None) or settings.DB_PATH)
+    snapshot: Path | None = None
 
-    async def _run() -> dict:
-        db = DatabaseService(getattr(args, "db", None) or settings.DB_PATH)
-        await db.initialize()
+    async def _run(source_path: Path, *, existing: bool) -> dict:
+        db = DatabaseService(str(source_path))
+        if existing:
+            await db.initialize_existing()
+        else:
+            await db.initialize()
         try:
             return await run_import_retention(
                 db, dry_run=dry_run,
@@ -658,14 +705,27 @@ def _cmd_retention(args) -> int:
             except Exception:
                 pass
 
-    report = asyncio.run(_run())
+    if dry_run:
+        try:
+            snapshot = _make_db_snapshot(db_path)
+        except Exception as exc:
+            logging.warning("[retention] snapshot failed — fail safe | "
+                            "reason=%s", type(exc).__name__)
+            print("retention: mode=dry-run reason=snapshot_failed")
+            return 1
+        try:
+            report = asyncio.run(_run(snapshot, existing=False))
+        finally:
+            _drop_snapshot(snapshot)
+    else:
+        report = asyncio.run(_run(db_path, existing=True))
+
     print(f"retention: mode={'dry-run' if dry_run else 'APPLY'} "
           f"reason={report.get('reason')} chats={report.get('chats')} "
           f"candidates={report.get('candidates')} "
           f"archived={report.get('archived')} deleted={report.get('deleted')} "
-          f"batches={report.get('batches')}")
-    if report.get("archive"):
-        print(f"  archive: {report['archive']}")
+          f"batches={report.get('batches')} "
+          f"archive={'yes' if report.get('archive') else 'no'}")
     return 0
 
 

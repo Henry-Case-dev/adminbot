@@ -58,7 +58,9 @@ class WebSummarizerService:
         if self.memory is not None and chat_id is not None:
             fire_and_forget(
                 self.memory.memorize_facts(chat_id, markdown, "web_content"), "web")
-        rag = await self.memory.get_rag_context(chat_id, rag_query) if (
+        # 10.20 (БЛОК 2.6, ADR-1020-2): ASC-хронология перед рендером.
+        rag = await self.memory.get_rag_context(
+            chat_id, rag_query, sort_by_timestamp=True) if (
             self.memory and chat_id is not None and rag_query) else ""
         system = system_prompt.replace("{max_symbols}", str(max_symbols))
         user = (f"{rag}\n\n" if rag else "") + (

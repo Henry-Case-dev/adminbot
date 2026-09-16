@@ -98,7 +98,8 @@ class FakeMemory:
         return list(facts)
 
     async def memorize_facts(self, chat_id, raw_text, source_type,
-                             target_user=None):
+                             target_user=None, *, tg_message_id=None,
+                             forward_from=""):
         return None
 
     async def memorize_self_reply(self, chat_id, essence):

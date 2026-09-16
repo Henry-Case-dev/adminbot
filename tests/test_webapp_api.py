@@ -154,8 +154,9 @@ def client(monkeypatch, tmp_path):
                        "updated_at": "2026-08-30T00:00:00+00:00",
                        "updated_by": ADMIN_ID,
                        # ревью-итер.1: значение уже обработано доставкой канона,
-                       # одноразовая форс-доставка при init его не перезапишет.
-                       "canon_delivered_version": 2},
+                       # одноразовая форс-доставка при init его не перезапишет
+                       # (H 10.20: маркер — на текущей версии из константы).
+                       "canon_delivered_version": INFO_CANON_VERSION},
              "category": "content"},
             {"key": "memory.infinite_retention", "value": False,
              "category": "memory", "updated_at": None},
@@ -1333,7 +1334,7 @@ class TestParamPermissionFlagsApi:
         # (content.intelligence_guide) → categorized 411.
         # 10.19 (F3/ADR-1019-3 D3): +1 categorized
         # (IMPORT_HISTORY_RETENTION_DAYS) → categorized 412.
-        assert len(items) == len(categorized) == 412
+        assert len(items) == len(categorized) == 414
         m = items["limits.search_max_symbols"]
         assert m["category"] == "limits"
         assert m["group"] == "limits_search"

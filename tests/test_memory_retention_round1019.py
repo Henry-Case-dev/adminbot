@@ -544,7 +544,7 @@ class TestIsolationV11:
         await db2.initialize()
         try:
             cursor = await db2.db.execute("PRAGMA user_version")
-            assert (await cursor.fetchone())[0] == 11
+            assert (await cursor.fetchone())[0] == 12
             cursor = await db2.db.execute(
                 "SELECT name FROM sqlite_master WHERE type='index' AND name IN "
                 "('idx_smart_messages_import_key', "
@@ -574,7 +574,7 @@ class TestIsolationV11:
                 "SELECT path, chat_id, done FROM import_checkpoints")
             assert [tuple(r) for r in await cursor.fetchall()] == [("x.json", 0, 1)]
             cursor = await db3.db.execute("PRAGMA user_version")
-            assert (await cursor.fetchone())[0] == 11
+            assert (await cursor.fetchone())[0] == 12
         finally:
             await db3.close()
 

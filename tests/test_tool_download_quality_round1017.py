@@ -351,12 +351,14 @@ class TestSchemaAndAdr:
         assert QUALITY_ENUM == ("max",) + tuple(
             str(h) for h in _ALLOWED_HEIGHTS)
 
-    def test_tool_set_unchanged(self):
-        assert len(TOOL_CALLING_TOOLS) == 7
+    def test_tool_set_names_unchanged(self):
+        # 10.20 (C/T-1887): состав 7 → 8 (+compile_lore_story), прежние имена
+        # и их порядок сохранены.
+        assert len(TOOL_CALLING_TOOLS) == 8
         assert [t["function"]["name"] for t in TOOL_CALLING_TOOLS] == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
-            "get_recent_history"]
+            "get_recent_history", "compile_lore_story"]
 
     def test_adr_supersede_recorded(self):
         # 10.17: фича заархивирована @PM → артефакты лежат в plans/archive/.

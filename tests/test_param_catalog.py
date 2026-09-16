@@ -79,7 +79,9 @@ class TestCompleteness:
         #   IMPORT_HISTORY_RETENTION_DAYS (limits_memory, sentinel retention
         #   0=вечно) = 407. CHAT_CONTEXT_UNLIMITED_CEILING_TOKENS — ClassVar
         #   (F4 infra, в dataclass.fields не входит).
-        assert len(fields) == 407
+        #   + C (lore-compiler-round1020, БЛОК 1/О3): +1 —
+        #   LORE_COMPILER_ENABLED (flags_module_direct, default ON) = 409.
+        assert len(fields) == 409
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -346,13 +348,15 @@ class TestGroups8424:
         Раунд 10.14 (F6 help-guide-integration): content +1
         (content.intelligence_guide, PG-only).
         10.19 (F3/ADR-1019-3 D3, UPD3 п.5): limits +1
-        (IMPORT_HISTORY_RETENTION_DAYS, группа limits_memory) → 188."""
+        (IMPORT_HISTORY_RETENTION_DAYS, группа limits_memory) → 188.
+        10.20 (C/ADR-1020-4 п.5, О3): flags +1
+        (LORE_COMPILER_ENABLED, группа flags_module_direct, default ON)."""
         counts = {cat: 0 for cat in CATEGORIES}
         for s in REGISTRY.values():
             if s.category is not None:
                 counts[s.category] += 1
         assert counts == {"prompts": 10, "models": 53, "keys": 19,
-                          "limits": 188, "flags": 64, "reactions": 39,
+                          "limits": 189, "flags": 65, "reactions": 39,
                           "content": 5, "memory": 34}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

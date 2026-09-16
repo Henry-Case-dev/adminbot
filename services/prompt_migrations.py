@@ -25,6 +25,7 @@ import logging
 from services.chat_prompts import (
     CHAT_SYSTEM_PROMPT,
     LEGACY_CHAT_SYSTEM_PROMPT,
+    PREV_CHAT_R2020_SYSTEM_PROMPT,
     PREV_CHAT_SYSTEM_PROMPT,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
@@ -35,6 +36,7 @@ from services.checkup_prompts import (
 )
 from services.factcheck_prompts import (
     FACTCHECK_SYSTEM_PROMPT,
+    PREV_FACTCHECK_R2020_SYSTEM_PROMPT,
     PREV_FACTCHECK_SYSTEM_PROMPT,
 )
 from services.search_prompts import (
@@ -44,6 +46,7 @@ from services.search_prompts import (
 from services.summary_prompts import (
     COMPRESS_PROMPT,
     PREV_COMPRESS_PROMPT,
+    PREV_R2020_SUMMARY_SYSTEM_PROMPT,
     PREV_SUMMARY_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
 )
@@ -65,13 +68,17 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         (LEGACY_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
         (PREV_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
         (PREV_R8_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
-        (PREV_R9_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)],
-    "prompts.summary_system_prompt": [(PREV_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT)],
+        (PREV_R9_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
+        (PREV_CHAT_R2020_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)],
+    "prompts.summary_system_prompt": [
+        (PREV_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
+        (PREV_R2020_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT)],
     "prompts.compress_system_prompt": [(PREV_COMPRESS_PROMPT, COMPRESS_PROMPT)],
     "prompts.checkup_system_prompt": [
         (PREV_CHECKUP_SYSTEM_PROMPT, CHECKUP_SYSTEM_PROMPT)],
     "prompts.factcheck_system_prompt": [
-        (PREV_FACTCHECK_SYSTEM_PROMPT, FACTCHECK_SYSTEM_PROMPT)],
+        (PREV_FACTCHECK_SYSTEM_PROMPT, FACTCHECK_SYSTEM_PROMPT),
+        (PREV_FACTCHECK_R2020_SYSTEM_PROMPT, FACTCHECK_SYSTEM_PROMPT)],
     "prompts.search_system_prompt": [(PREV_SEARCH_SYSTEM_PROMPT, SEARCH_SYSTEM_PROMPT)],
     "prompts.youtube_system_prompt": [
         (PREV_YOUTUBE_SYSTEM_PROMPT, YOUTUBE_SYSTEM_PROMPT)],

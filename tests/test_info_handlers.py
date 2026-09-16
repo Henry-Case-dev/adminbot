@@ -89,15 +89,15 @@ class TestRichToLegacyHtml:
         result = info_mod._rich_to_legacy_html(DEFAULT_INFO_TEXT)
         assert "<h1>" not in result and "</h1>" not in result
         assert "<h2>" not in result and "</h2>" not in result
-        # Epic 83 (D306) / F7 (10.15): rich-канон обновлён — b=44,
-        # b+i+u=34, u=35, i=34
-        assert result.count("<b>") == 44
-        assert result.count("</b>") == 44
-        assert result.count("<b><i><u>") == 34
-        assert result.count("<u>") == 35
-        assert result.count("</u>") == 35
-        assert result.count("<i>") == 34
-        assert result.count("</i>") == 34
+        # Epic 83 (D306) / F7 (10.15) / H 10.20 (БЛОК 8): rich-канон
+        # обновлён — b=57, b+i+u=41, u=42, i=41
+        assert result.count("<b>") == 57
+        assert result.count("</b>") == 57
+        assert result.count("<b><i><u>") == 41
+        assert result.count("<u>") == 42
+        assert result.count("</u>") == 42
+        assert result.count("<i>") == 41
+        assert result.count("</i>") == 41
 
     def test_intro_h1_emulation_and_links_kept(self):
         result = info_mod._rich_to_legacy_html(DEFAULT_INFO_TEXT)

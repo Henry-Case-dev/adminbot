@@ -503,6 +503,11 @@ class Settings:
     # Лимит Telegram: число частей ответа (чанкинг 4096).
     MAX_SUMMARY_PARTS: int = _env_int("MAX_SUMMARY_PARTS", 1)
     SUMMARY_TIMEZONE: str = os.getenv("SUMMARY_TIMEZONE", "Asia/Yekaterinburg")
+    # ── 10.20 (БЛОК 5.1, О4 FINAL, ADR-1020-3): «Часовой пояс чата» —
+    # НОВЫЙ per-chat ключ (limits.chat_timezone) для Time Injection
+    # (`build_messages`, первым user-блоком). Пусто → фолбэк на
+    # SUMMARY_TIMEZONE (расписания воркеров НЕ трогаем).
+    CHAT_TIMEZONE: str = os.getenv("CHAT_TIMEZONE", "")
     # ── Раунд 10 (F-10 §5.1): локальная таймзона дня бюджетов фона ──
     WORKER_BUDGET_TZ: str = os.getenv("WORKER_BUDGET_TZ", "Asia/Yekaterinburg")
     # ── Раунд 10 (F-7 §5.2): суточные бюджеты глобального ключа на чат ──
@@ -1108,6 +1113,11 @@ class Settings:
     # (сниппеты/факты/символы), глубина граф-обхода имён, окно «N лет назад».
     DIG_ENABLED: bool = _env_bool("DIG_ENABLED", True)
     DIG_PRE_GATE_ENABLED: bool = _env_bool("DIG_PRE_GATE_ENABLED", False)
+    # Раунд 10.20 (БЛОК 1/О3, ADR-1020-4 п.5): `flags.lore_compiler_enabled` —
+    # простой тумблер ВКЛ/ВЫКЛ 8-го инструмента compile_lore_story. ДЕФОЛТ ON
+    # (О3 FINAL), поэтапная раскатка отменена. Откат — тумблер OFF без
+    # редеплоя (тул недоступен, остальные 7 работают).
+    LORE_COMPILER_ENABLED: bool = _env_bool("LORE_COMPILER_ENABLED", True)
     DIG_MAX_SNIPPETS: int = _env_int("DIG_MAX_SNIPPETS", 8)
     DIG_MAX_FACTS: int = _env_int("DIG_MAX_FACTS", 3)
     DIG_MAX_SYMBOLS: int = _env_int("DIG_MAX_SYMBOLS", 3500)

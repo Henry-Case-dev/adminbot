@@ -3,6 +3,29 @@
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
+## Round 10.20 scan + re-audit (T-1915, 2026-09-16) — all scanned/closed (diff-based, HEAD 2f3e1f0 + worktree)
+- [x] web/index.html + web/app.js (S10.20-1 High CLOSED: `<sticky-save>` в ветке `currentTabIsConfig`
+      (:704) + модалка «Модулей» (:967) + «Доступы» (:1549) + футер досье (:2694); S10.20-6 CLOSED:
+      `saveModalEdits` не снапшотит при ошибках, `stickyFailed`; S10.20-10 CLOSED: длинная история → plain)
+- [x] services/tool_router.py (S10.20-2 `resolve_lore_compiler_flag`; S10.20-3 `_dig_json_payload`
+      с валидным JSON; S10.20-4 `lore_verbatim_instruction`/`strip_lore_html`)
+- [x] services/factcheck_service.py (S10.20-2 per-chat флаг; S10.20-4 без «ДОСЛОВНО» + strip HTML)
+- [x] services/smartmodule_utils.py (S10.20-4/10/11: `strip_lore_html`, комментарий sanitize)
+- [x] services/lore_compiler_service.py (S10.20-5 `last_ts` по включённым диалогам; S10.20-8/M1
+      header-safe `_trim_pairs`; S10.20-14 tz `_date`; S10.20-15 `_empty_dense`)
+- [x] services/status_service.py (S10.20-7 per-chat cap приоритетнее acct + `context.source`)
+- [x] services/database.py (M2 докстринг `_LORE_NODE_SCAN_LIMIT`; M3 `dossier_feed` пул `limit*20`;
+      S10.20-13 `initialize_existing` валидация; S10.20-16 докстринг)
+- [x] services/canonical_context.py (S10.20-9 паттерны 6-кортежа `direct_rag`/`legacy_rag`)
+- [x] tests/test_scanner_fixes_round1020.py + tests/test_webapp_round1020_ui.py +
+      tests/js/round1020_ui_test.js (панель в каждой ветке, S10.20-6)
+- **Принято обоснованно (не закрываем):** S10.20-12 (Time Injection/prompt-cache — ADR-1020-3),
+  S10.20-17 (RBAC-паритет `persona_dossier_overrides` — вне скоупа).
+- **СВОДКА: Critical 0 / High 0 / Medium 0 / Low 0 (open) / Info 5.** Новых находок нет.
+  Валидатор: pytest **6546 passed / 0 failed** (87.49 s); `node --check web/app.js` OK;
+  `routing_test.js`/`round1020_ui_test.js` `JS-UNIT-OK`; `vue_mount_test.js` `VUE-MOUNT-OK`;
+  `git diff --check` exit 0. **ВЕРДИКТ: «нет Critical/High»** → @Orchestrator, шаг 7.
+
 ## Round 10.18 БАТЧ 4 (финал эпика) scan (2026-09-15) — all scanned (diff-based: F5 `metafact-penalty-extractor-prompt` + F6 `role-matrix-settings-actualization`, HEAD 118a03c + worktree)
 - [x] services/graph_stoplist.py (F5: `METAFACT_PENALTY_IMPORTANCE=1`, `is_metafact_stopword`; списки centers≠penalty — чисто)
 - [x] services/database.py (F5: `insert_graph_fact` += `subject/object` + централизованный срез `imp=min(imp,1)`;
@@ -888,3 +911,49 @@
 - [x] tests/__init__.py
 - [x] tests/conftest.py
 - [x] tests/test_*.py (all test files)
+## Round 10.20 (T-1915) scan (2026-09-16) — diff-based: БЛОКИ 0–8 эпика `round1020`, HEAD 2f3e1f0 + worktree
+- [x] services/canonical_context.py (14 точек, representation/pattern, `strip_context_header`/`format_context_item`/
+      `format_chat_time`; pattern `legacy_rag` рассинхронизирован с рантаймом — S10.20-9)
+- [x] services/context_middleware.py (header-safe `truncate_keep_header`, `limit<=0` → заголовок; чисто)
+- [x] services/lore_compiler_service.py (`_trim` режет header — S10.20-8; `last_ts` обгоняет материал — S10.20-5;
+      `_EMPTY_DENSE` shared list — S10.20-15; `_date` UTC — S10.20-14)
+- [x] services/reply_postprocess.py (`strip_reasoning_tags`: no-op/парные/незакрытые/лишние — верно; чисто)
+- [x] services/tool_loop.py (graceful degradation BLOCK 7.1; NoApiKeyForChat-проброс; PartialText; чисто)
+- [x] services/llm_client.py (`reasoning` аддитивно; reasoning-only без LLMBadResponseError; чисто)
+- [x] services/direct_chat_service.py (точки 2/3 канона, `_line_markers` header-strip, Time Injection,
+      `_send_direct_answer` HTML+фолбэк; per-chat флаг vs роутер — S10.20-2; чанк-дубль — S10.20-10)
+- [x] services/database.py (v11→v12 `graph_facts` provenance — идемпотентно/PG no-op; `lore_stories`,
+      `persona_dossier_overrides` без бампа; `lore_graph_slice`/`lore_dense_dialogs`; 17/17 `memorize_facts`;
+      `dossier_feed` RANDOM — reviewer M3 + S10.20-16)
+- [x] services/tool_schemas.py (8 тулов EN, `active_tools`/`factcheck_tools` — новые списки, dict-схемы общие — ок)
+- [x] services/tool_router.py (JSON-контракт dig ломается капом — S10.20-3; per-chat флаг — S10.20-2;
+      `_LORE_RETURN_INSTRUCTION` в фактчеке — S10.20-4)
+- [x] services/factcheck_service.py / services/factcheck_prompts.py (Full Tool Access, DI-kwarg; канон +функц. блоки)
+- [x] services/summary_memory.py / summary_generator.py / summary_cleanup.py (6-кортежи R16, ASC после дедупа,
+      header-strip токенов, archive-маркер; чисто)
+- [x] services/oversight.py (`key_status` 1× вместо 2× — контракт сохранён; чисто)
+- [x] services/memory_maintenance.py / manage.py (fsync каталога no-op win32; retention-снапшот;
+      `initialize_existing` без проверки схемы — S10.20-13)
+- [x] services/status_service.py (per-chat context budget; acct затирает cap — S10.20-7)
+- [x] services/param_catalog.py / config/settings.py (каталог 439/92/20, +1 tz-ключ, +1 флаг; Δ санкционирован)
+- [x] web/index.html + web/app.js + web/static/app.css + web/api/* (`openModuleWindow`/тумблер/досье/тикер/
+      sticky-save; МЕНЮ не изменено; **S10.20-1 [High] — конфиг-вкладки без сохранения**; S10.20-6)
+- **Открыто (Round 10.20):**
+  - [ ] **S10.20-1 [high, new] BLOCKER** — `web/index.html:170-700`: добавить `<sticky-save>` в ветку
+        `currentTabIsConfig` (перед :700) + тест «панель есть в каждой ветке без авто-сейва».
+  - [ ] S10.20-2 [medium, new] — per-chat `flags.lore_compiler_enabled` в `tool_router._compile_lore_story`
+        и `factcheck_service` (сегодня только глобальный `hot.get`).
+  - [ ] S10.20-3 [medium, new] — `dig_into_lore`: усечение секций ДО `json.dumps` (или `truncated: true`).
+  - [ ] S10.20-4 [medium, new] — `_LORE_RETURN_INSTRUCTION` не подмешивать вне DirectChat / срезать HTML в фактчеке.
+  - [ ] S10.20-5 [medium, new] — `last_ts` считать по фактически включённым в промпт строкам.
+  - [ ] S10.20-6 [medium, new] — `saveModalEdits`: не снимать baseline при ошибках сохранения.
+  - [ ] S10.20-7 [medium, new] — «Бюджет контекста»: приоритет per-chat cap над `acct.context_limit`.
+  - [ ] S10.20-8 [medium, подтверждение reviewer M1–M3] — `_trim` (header), кап скана узлов, `ORDER BY RANDOM()`.
+  - [ ] Low: S10.20-9 (pattern `legacy_rag`), -10 (чанк-дубль HTML), -11 (`javascript:` href), -12 (cache),
+        -13 (`initialize_existing`), -14 (`_date` UTC), -15 (`_EMPTY_DENSE`), -16 (докстринг fail-open),
+        -17 (запись досье moderator'ом).
+- **СВОДКА ЭПИКА 10.20: Critical 0 / High 1 / Medium 7 / Low 9 / Info 5.**
+  **ВЕРДИКТ: есть Critical/High → возврат к @Builder (S10.20-1), затем повторный ревью UI-фазы (T-1904).**
+- Валидатор @Scanner: pytest **6523 passed / 0 failed** (89.52 c); `node --check web/app.js` OK;
+  `routing_test.js` + `round1020_ui_test.js` `JS-UNIT-OK`; `vue_mount_test.js` `VUE-MOUNT-OK`;
+  `git diff --check` exit 0; каталог 439/92/20; SQLite v12.

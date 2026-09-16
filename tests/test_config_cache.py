@@ -11,6 +11,7 @@ import types
 import pytest
 
 from services.config_cache import ConfigCache
+from services.info_service import INFO_CANON_VERSION
 from services.permissions import Permissions
 
 
@@ -283,9 +284,10 @@ class TestInfoSeed:
             "key": "content.info_how_it_works",
             "value": {"html": "<h1>ИЗ БД</h1>", "updated_at": "t",
                       "updated_by": 1,
-                      # ревью-итер.1: маркер доставки — значение уже обработано,
-                      # одноразовая форс-доставка его не перезаписывает.
-                      "canon_delivered_version": 2},
+                      # ревью-итер.1: маркер доставки — значение уже обработано
+                      # на ТЕКУЩЕЙ версии канона, одноразовая форс-доставка его
+                      # не перезаписывает (H 10.20: версия берётся из константы).
+                      "canon_delivered_version": INFO_CANON_VERSION},
             "category": "content",
         })
         conn = _FakeConn(settings_rows, role_rows, admin_rows)

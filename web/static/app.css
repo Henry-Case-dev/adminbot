@@ -28,6 +28,12 @@
       --shadow-lg:0 10px 25px -3px rgba(0,0,0,.08);--shadow-xl:0 20px 50px -12px rgba(0,0,0,.12);
       --dur-fast:.15s;--dur-normal:.3s;--dur-slow:.5s;--ease-out:cubic-bezier(0,0,.2,1);
       --page-padding:2.5rem;--navbar-height:4.5rem;
+      /* Liquid Glass (раунд 10.20, БЛОК 3.4/T-1898): токены — единый источник.
+         Применяются к панелям «Сводка»/«Модули»/«ИИ» и всем модалкам. */
+      --glass-bg: rgba(30, 35, 40, 0.6);
+      --glass-blur: blur(12px);
+      --glass-border-color: rgba(255, 255, 255, 0.1);
+      --glass-border: 1px solid var(--glass-border-color);
       /* compat-алиасы (хардкод прежней фиолетово-синей палитры удалён, §4.5) */
       --card-bg: var(--surface-glass);
       --card-border: 1px solid var(--surface-border);
@@ -232,7 +238,11 @@
     /* Раунд 10.6 (A2): список 11 модулей + карточки */
     .module-list {
       grid-column: 1 / -1; display: grid; gap: .75rem;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      /* 10.20 (БЛОК 3.5/T-1899): auto-fit + minmax(300px) + строгая центровка;
+         треки не разъезжаются к левому краю на широких экранах. */
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      justify-content: center; width: 100%; max-width: 1100px;
+      justify-self: center; margin-inline: auto;
     }
     .module-card { display: flex; align-items: center; gap: .75rem; }
     .module-card .module-icon { color: var(--teal-500); font-size: 24px; flex-shrink: 0; }
@@ -254,7 +264,9 @@
     .hub-grid {
       grid-column: 1 / -1; display: grid; gap: .75rem;
       width: 100%; max-width: 64rem; justify-self: center;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      /* 10.20 (БЛОК 3.5/T-1899): auto-fit + minmax(300px) + центровка. */
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      justify-content: center; margin-inline: auto;
     }
     .hub-card {
       display: flex; align-items: flex-start; gap: .75rem; text-align: left;
@@ -764,5 +776,147 @@
         -webkit-mask-image: none !important; mask-image: none !important;
       }
       .ribbon-item { opacity: 1 !important; }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       Раунд 10.20 — рефакторинг UX/UI мини-аппа (БЛОК 3). МЕНЮ НЕ МЕНЯЕТСЯ.
+       ═══════════════════════════════════════════════════════════════════ */
+
+    /* T-1898: Liquid Glass — панели «Сводка»/«Модули»/«ИИ» + все модалки. */
+    .glass-panel,
+    .hub-head.glass-panel,
+    .oversight-panel,
+    .hub-grid,
+    .module-list,
+    .module-card,
+    .modal-card {
+      background: var(--glass-bg);
+      -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
+      backdrop-filter: var(--glass-blur) saturate(140%);
+      border: var(--glass-border);
+    }
+    .modal-backdrop {
+      background: rgba(0, 0, 0, 0.5);
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+    }
+    /* webkit-фолбэк: плотный фон, если backdrop-filter не поддержан. */
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      .glass-panel, .modal-card { background: rgba(22, 22, 22, 0.92); }
+    }
+
+    /* T-1900: sticky-save — одна закреплённая панель внизу модалки/вкладки. */
+    .sticky-save {
+      position: sticky;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .5rem .25rem .25rem;
+      margin-top: .75rem;
+      border-top: var(--glass-border);
+      background: var(--glass-bg);
+      -webkit-backdrop-filter: var(--glass-blur);
+      backdrop-filter: var(--glass-blur);
+      z-index: 5;
+    }
+    .sticky-save__count {
+      flex: 1 1 auto;
+      min-width: 0;
+      font-size: var(--tx-tiny);
+      color: var(--text-3);
+    }
+    /* S10.20-6: провалы сохранения не «благословляются» — красная подсветка. */
+    .sticky-save__failed {
+      flex: 0 1 auto;
+      min-width: 0;
+      font-size: var(--tx-tiny);
+      color: #f87171;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* T-1897: «Живая лента досье» — бегущая строка (CSS, без библиотек). */
+    .dossier-ticker-wrap { overflow: hidden; }
+    .dossier-ticker {
+      position: relative;
+      overflow: hidden;
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+      mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+    }
+    .dossier-ticker__track {
+      display: inline-flex;
+      align-items: center;
+      gap: 1.5rem;
+      white-space: nowrap;
+      will-change: transform;
+      animation: dossier-ticker-scroll 42s linear infinite;
+    }
+    .dossier-ticker__item {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      font-size: var(--tx-small);
+      color: var(--text-2);
+    }
+    .dossier-ticker__dot { color: var(--teal-500); font-size: 10px; }
+    .dossier-ticker:hover .dossier-ticker__track { animation-play-state: paused; }
+    @keyframes dossier-ticker-scroll {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+
+    /* T-1896: карточка авто-досье — плотная подложка для читаемости. */
+    .dossier-auto {
+      background: rgba(0, 0, 0, 0.24);
+      border: var(--glass-border);
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: var(--font-body);
+    }
+
+    /* T-1902: рестайлинг существующего Advanced-аккордеона (<details>).
+       Состав групп НЕ меняется — только оформление полосы раскрытия. */
+    details.advanced {
+      border: var(--glass-border);
+      border-radius: var(--radius-lg);
+      background: var(--glass-bg);
+      -webkit-backdrop-filter: var(--glass-blur);
+      backdrop-filter: var(--glass-blur);
+      overflow: hidden;
+    }
+    details.advanced > summary {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .6rem .85rem;
+      list-style: none;
+      cursor: pointer;
+      transition: background var(--dur-fast) var(--ease-out);
+    }
+    details.advanced > summary::-webkit-details-marker { display: none; }
+    details.advanced > summary::before {
+      content: '▶';
+      display: inline-block;
+      font-size: 10px;
+      color: var(--teal-500);
+      transition: transform var(--dur-normal) var(--ease-out);
+    }
+    details.advanced[open] > summary::before { transform: rotate(90deg); }
+    details.advanced > summary:hover { background: rgba(255, 255, 255, .05); }
+    details.advanced > summary .advanced-gear {
+      margin-left: auto;
+      color: var(--text-3);
+      font-size: 18px;
+    }
+    details.advanced[open] > summary .advanced-gear { color: var(--teal-500); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .dossier-ticker__track { animation: none !important; }
+      .dossier-ticker {
+        -webkit-mask-image: none !important; mask-image: none !important;
+      }
+      details.advanced > summary::before { transition: none !important; }
     }
   

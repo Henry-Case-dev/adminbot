@@ -126,7 +126,7 @@ class TestTabMappingAudit:
         # 19→20) → 437/92/90/20.
         assert len(pc._TAB_BY_GROUP) == 90
         assert len(GROUPS) == 92
-        assert len(pc.REGISTRY) == 437
+        assert len(pc.REGISTRY) == 439
 
 
 class TestModuleTabs:
@@ -325,6 +325,8 @@ def test_widget_keyvalue_on_summary_aliases():
     assert {s.pg_key for s in sel} == {
         "limits.chat_temperature_preset_default",
         "memory.deep_sleep_trigger",
+        # 10.20 (БЛОК 5.1, О4 FINAL): «Часовой пояс чата» — sanctioned Δ (+1).
+        "limits.chat_timezone",
     }
     for spec in sel:
         assert spec.select_options and spec.select_labels

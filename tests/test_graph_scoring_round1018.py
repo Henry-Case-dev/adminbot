@@ -67,7 +67,7 @@ class TestMigrationV10:
             "AND name='idx_edges_fact_id'")).fetchone())
         assert idx is not None
         assert (await (await db.db.execute(
-            "PRAGMA user_version")).fetchone())[0] == 11
+            "PRAGMA user_version")).fetchone())[0] == 12
 
     @pytest.mark.asyncio
     async def test_legacy_edges_are_migrated_preserving_rows(self, tmp_path):
@@ -106,14 +106,14 @@ class TestMigrationV10:
                 "SELECT fact_id FROM edges WHERE relation_type='rel'")).fetchone()
             assert row is not None and row["fact_id"] is None
             assert (await (await d.db.execute(
-                "PRAGMA user_version")).fetchone())[0] == 11
+                "PRAGMA user_version")).fetchone())[0] == 12
             # idempotent re-init — no-op (guard по table_info)
             await d.close()
             await d.initialize()
             assert (await (await d.db.execute(
                 "SELECT COUNT(*) AS c FROM edges")).fetchone())["c"] == 1
             assert (await (await d.db.execute(
-                "PRAGMA user_version")).fetchone())[0] == 11
+                "PRAGMA user_version")).fetchone())[0] == 12
         finally:
             await d.close()
 

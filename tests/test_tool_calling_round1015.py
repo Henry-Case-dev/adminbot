@@ -95,11 +95,12 @@ def _ctx(**kwargs) -> ToolContext:
 
 
 class TestToolSet:
-    def test_seven_tools_in_canonical_order(self):
+    def test_eight_tools_in_canonical_order(self):
+        # 10.20 (C/T-1887): +compile_lore_story (8-й, в конце).
         assert [t["function"]["name"] for t in TOOL_CALLING_TOOLS] == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
-            "get_recent_history"]
+            "get_recent_history", "compile_lore_story"]
 
     def test_existing_schemas_unchanged(self):
         """Существующие 3 схемы — те же объекты и та же форма (не менялись)."""
@@ -546,7 +547,9 @@ class TestToolLoopLimits:
         assert out == "обычный ответ" and llm.plain == 1
 
     @pytest.mark.asyncio
-    async def test_round_limit_raises_bad_response(self):
+    async def test_round_limit_degrades(self):
+        from services.tool_loop import TOOL_LOOP_FALLBACK_PHRASE
+
         class _AlwaysToolLLM:
             async def generate_chat(self, *a, **k):
                 return LLMChatResult(
@@ -555,11 +558,13 @@ class TestToolLoopLimits:
                                             arguments='{"query":"x"}')],
                     finish_reason="tool_calls")
 
-        with pytest.raises(LLMBadResponseError):
-            await chat_with_tools(_AlwaysToolLLM(),
-                                  [{"role": "user", "content": "x"}],
-                                  tools=TOOL_CALLING_TOOLS,
-                                  router=_CountingRouter(), ctx=_ctx())
+        out = await chat_with_tools(_AlwaysToolLLM(),
+                                    [{"role": "user", "content": "x"}],
+                                    tools=TOOL_CALLING_TOOLS,
+                                    router=_CountingRouter(), ctx=_ctx())
+        assert out.degraded is True
+        assert out.reason == "round_limit"
+        assert out == TOOL_LOOP_FALLBACK_PHRASE
 
 
 # ── 8. R17 ───────────────────────────────────────────────────────────────
@@ -627,4 +632,5 @@ class TestDirectChatContext:
         assert ctx.bot is bot
         assert ctx.reply_to_message_id == 555
         assert ctx.user_id == user.id
-        assert len(captured["tools"]) == 7
+        # 10.20 (C/T-1887): флаг «Летописца» default ON → 8 инструментов.
+        assert len(captured["tools"]) == 8

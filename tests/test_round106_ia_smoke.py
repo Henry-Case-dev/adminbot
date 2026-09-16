@@ -34,11 +34,11 @@ class TestCatalogInvariant106:
         # 10.19 (F3/ADR-1019-3 D3, UPD3 п.5): +1 REGISTRY/Settings
         # (IMPORT_HISTORY_RETENTION_DAYS), +2 GROUPS, +2 mapped, +1 TAB_RULES
         # → 437/92/90/20/407.
-        assert len(pc.REGISTRY) == 437
+        assert len(pc.REGISTRY) == 439
         assert len(pc.GROUPS) == 92
         assert len(pc._TAB_BY_GROUP) == 90
         assert len(pc.TAB_RULES) == 20
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 407
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 409
 
     def test_five_master_flags_default_true(self):
         s = Settings()

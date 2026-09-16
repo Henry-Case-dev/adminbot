@@ -380,6 +380,38 @@ def _flush_and_fsync(fh) -> None:
     os.fsync(fh.fileno())
 
 
+def _fsync_directory(directory) -> None:
+    """S10.19-23 (ADR-1020-5 п.5, T-1910b): fsync КАТАЛОГА архива после
+    fsync файла — только так запись ИМЕНИ нового файла в каталоге переживёт
+    краш (POSIX). Best-effort: любые OSError → честный WARNING, прогон НЕ
+    падает. На Windows (dev-платформа win32) каталог открыть нельзя —
+    явный no-op с честным логом (R17: без путей/значений)."""
+    if os.name == "nt":
+        logger.info("[retention] dir fsync skipped (no-op on %s)", os.name)
+        return
+    flags = getattr(os, "O_DIRECTORY", 0) | os.O_RDONLY
+    try:
+        fd = os.open(str(directory), flags)
+    except OSError as exc:
+        logger.warning("[retention] dir fsync unavailable | reason=%s",
+                       type(exc).__name__)
+        return
+    try:
+        os.fsync(fd)
+    except OSError as exc:
+        logger.warning("[retention] dir fsync failed | reason=%s",
+                       type(exc).__name__)
+    finally:
+        os.close(fd)
+
+
+def _flush_fsync_and_dir(fh, directory) -> None:
+    """D-2.2 + S10.19-23: fsync файла, затем каталога — одним
+    `asyncio.to_thread`-вызовом (event loop не блокируется)."""
+    _flush_and_fsync(fh)
+    _fsync_directory(directory)
+
+
 def auto_purge_dry_run(*, dry_run: bool, backup_confirmed: bool) -> bool:
     """Гейт деструктивного авто-крона (UPD4 п.3, D-2 High).
 
@@ -434,9 +466,9 @@ async def _archive_imported_history(db, chat_cutoffs: dict[int, int],
                     max_ids[int(chat_id)] = after_id
                     if len(rows) < _ARCHIVE_BATCH:
                         break
-            # D-2.2: fsync ДО возврата `ok=True`/удаления — иначе архив не
-            # гарантированно на диске при сбое питания.
-            await asyncio.to_thread(_flush_and_fsync, fh)
+            # D-2.2 + S10.19-23: fsync файла, затем КАТАЛОГА (имя файла
+            # тоже должно пережить краш) — одним to_thread.
+            await asyncio.to_thread(_flush_fsync_and_dir, fh, directory)
     except Exception:
         logger.warning("[retention] archive failed — purge skipped "
                        "(fail-safe)", exc_info=True)

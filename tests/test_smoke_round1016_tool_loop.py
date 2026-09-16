@@ -168,17 +168,20 @@ class TestToolLoopLimits:
                    for r in caplog.records)
 
     @pytest.mark.asyncio
-    async def test_round_limit_raises(self, monkeypatch):
+    async def test_round_limit_degrades(self, monkeypatch):
+        from services.tool_loop import TOOL_LOOP_FALLBACK_PHRASE
         router = ToolRouter(_deps())
         always = [LLMChatResult(content=None,
                                 tool_calls=[_tc(f"c{i}", "no_such_tool", {})],
                                 finish_reason="tool_calls")
                   for i in range(TOOL_MAX_ROUNDS)]
         llm = _ScriptedLLM(always)
-        with pytest.raises(LLMBadResponseError):
-            await chat_with_tools(llm, [{"role": "user", "content": "x"}],
-                                  tools=TOOL_CALLING_TOOLS, router=router,
-                                  ctx=_ctx(bot=_FakeBot()))
+        out = await chat_with_tools(llm, [{"role": "user", "content": "x"}],
+                                    tools=TOOL_CALLING_TOOLS, router=router,
+                                    ctx=_ctx(bot=_FakeBot()))
+        assert out.degraded is True
+        assert out.reason == "round_limit"
+        assert out == TOOL_LOOP_FALLBACK_PHRASE
         assert llm.calls == TOOL_MAX_ROUNDS
 
 

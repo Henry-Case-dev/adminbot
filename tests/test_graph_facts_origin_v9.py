@@ -150,7 +150,7 @@ class TestMigrationV9:
             -100, '"чай"*', 5, 2_000_000_000, include_self=True)
         assert any(r["id"] == fid for r in found)
         # user_version = 9
-        assert (await (await d.db.execute("PRAGMA user_version")).fetchone())[0] == 11
+        assert (await (await d.db.execute("PRAGMA user_version")).fetchone())[0] == 12
         await d.close()
 
     @pytest.mark.asyncio
@@ -161,7 +161,7 @@ class TestMigrationV9:
         await d.initialize()
         await d.close()
         await d.initialize()                        # «рестарт» — no-op
-        assert (await (await d.db.execute("PRAGMA user_version")).fetchone())[0] == 11
+        assert (await (await d.db.execute("PRAGMA user_version")).fetchone())[0] == 12
         assert (await (await d.db.execute(
             "SELECT COUNT(*) AS c FROM graph_facts")).fetchone())["c"] == 2
         await d.close()
@@ -177,7 +177,7 @@ class TestMigrationV9:
             "SELECT sql FROM sqlite_master WHERE type='table' "
             "AND name='graph_facts'")).fetchone())["sql"]
         assert "bot_self_reply" in sql
-        assert (await (await d.db.execute("PRAGMA user_version")).fetchone())[0] == 11
+        assert (await (await d.db.execute("PRAGMA user_version")).fetchone())[0] == 12
         await d.close()
 
     @pytest.mark.asyncio

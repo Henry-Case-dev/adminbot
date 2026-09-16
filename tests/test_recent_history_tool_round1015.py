@@ -9,6 +9,7 @@ R17 (без текста/URL в логах), сбой БД (структурна
 """
 import logging
 import time
+import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -39,6 +40,13 @@ def _deps(memory=None, db=None, aliases=None) -> ToolDeps:
 
 def _ctx(query="что обсуждали 10 минут назад") -> ToolContext:
     return ToolContext(CHAT_ID, query)
+
+
+def _stamp(ts) -> str:
+    """Ожидаемый канонический ts-сегмент (UTC, «ДД.ММ.ГГГГ ЧЧ:ММ») —
+    10.20 (БЛОК 0, точка 8): строки get_recent_history несут ts."""
+    return datetime.datetime.fromtimestamp(
+        int(ts), datetime.timezone.utc).strftime("%d.%m.%Y %H:%M")
 
 
 def _row(user_id=1, author_name="вася", text="сообщение", ts=None,
@@ -87,8 +95,11 @@ class TestDepthPath:
                 "get_recent_history", {"depth": 10}, _ctx())
         finally:
             await db.db.close()
-        assert out.splitlines() == ["вася: первое", "петя: второе",
-                                    "вася: третье"]
+        assert out.splitlines() == [
+            f"[{_stamp(100)} | вася | msg:2]: первое",
+            f"[{_stamp(200)} | петя | msg:3]: второе",
+            f"[{_stamp(300)} | вася | msg:4]: третье",
+        ]
         assert "чужой чат" not in out
 
     @pytest.mark.asyncio
@@ -173,7 +184,10 @@ class TestQueryPath:
         out = await ToolRouter(_deps(memory=memory)).dispatch(
             "get_recent_history", {"query": "ссылка"}, _ctx())
         assert "слишком старое" not in out
-        assert out.splitlines() == ["вася: свежее раньше", "петя: свежее позже"]
+        assert out.splitlines() == [
+            f"[{_stamp(now - 120)} | вася]: свежее раньше",
+            f"[{_stamp(now - 60)} | петя]: свежее позже",
+        ]
         args, kwargs = memory.search_long_term.await_args
         assert args[0] == CHAT_ID                    # chat-скоуп
         assert args[1] == ["ссылка"]
@@ -221,8 +235,11 @@ class TestNameCascade:
         aliases = AliasResolver('{"555": "Леха"}')
         out = await ToolRouter(_deps(db=db, aliases=aliases)).dispatch(
             "get_recent_history", {"depth": 3}, _ctx())
-        assert out.splitlines() == ["Леха: без имени", "Автор: с автором",
-                                    "42: только id"]
+        assert out.splitlines() == [
+            f"[{_stamp(1)} | Леха]: без имени",
+            f"[{_stamp(2)} | Автор]: с автором",
+            f"[{_stamp(3)} | 42]: только id",
+        ]
 
     @pytest.mark.asyncio
     async def test_media_marker_and_blank_text_skipped(self):
@@ -234,7 +251,10 @@ class TestNameCascade:
         ])
         out = await ToolRouter(_deps(db=db)).dispatch(
             "get_recent_history", {"depth": 3}, _ctx())
-        assert out.splitlines() == ["вася: [медиа: video]", "вася: обычное"]
+        assert out.splitlines() == [
+            f"[{_stamp(1)} | вася]: [медиа: video]",
+            f"[{_stamp(3)} | вася]: обычное",
+        ]
 
 
 # ── 4. R17: приватность логов ────────────────────────────────────────────
@@ -301,11 +321,13 @@ class TestTruncate:
 
 
 class TestToolSetIntegration:
-    def test_schema_registered_in_seven_tool_set(self):
+    def test_schema_registered_in_tool_set(self):
+        # 10.20 (C/T-1887): tool-сет 7 → 8 (последним добавлен
+        # compile_lore_story); get_recent_history сохранён по имени.
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
-        assert len(TOOL_CALLING_TOOLS) == 7
+        assert len(TOOL_CALLING_TOOLS) == 8
         assert "get_recent_history" in names
-        assert TOOL_CALLING_TOOLS[-1] is TOOL_GET_RECENT_HISTORY
+        assert TOOL_GET_RECENT_HISTORY in TOOL_CALLING_TOOLS
 
     def test_schema_shape(self):
         params = TOOL_GET_RECENT_HISTORY["function"]["parameters"]

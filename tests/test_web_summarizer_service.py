@@ -141,7 +141,7 @@ class TestGraphRagV2Hooks:
         assert len(spy) == 1
         await spy[0]        # выполняем фоновую задачу вручную (детерминизм)
         memory.memorize_facts.assert_awaited_once_with(-100, "# Заголовок", "web_content")
-        memory.get_rag_context.assert_awaited_once_with(-100, "статья")
+        memory.get_rag_context.assert_awaited_once_with(-100, "статья", sort_by_timestamp=True)
         user = llm.generate.await_args.args[0][1]["content"]
         assert "<webpage" in user
 

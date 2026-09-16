@@ -36,6 +36,13 @@ get_bot_health (CheckupLogsFetcher+CheckupService) и get_recent_history
 (скачивание доводит callback `tdq:` в роутере 4e); прямой медиа-URL или явно
 названное `quality` — сразу `download(url, quality)`; провал probe — одна
 bounded попытка `download(url, None)`. Кулдаун (D279) — только после успеха.
+
+Раунд 10.20 (БЛОК 1/О3, ADR-1020-4 п.1-4, T-1887): 8-й тул
+`compile_lore_story(topic)` — «Летописец». Dispatch делегирует в
+изолированный `LoreCompilerService` (Шаг А граф + Шаг Б хронология → свой
+канон `LORE_STORY_SYSTEM_PROMPT` → готовый рассказ), ставит
+`ToolContext.lore_compiled = True` (сигнал доставки HTML — ADR-1020-6);
+гейт `flags.lore_compiler_enabled` (default ON). Ошибки → «ОШИБКА …».
 """
 import asyncio
 import datetime
@@ -46,6 +53,7 @@ import time
 
 from config.settings import settings
 from services import hot_config as hot
+from services.canonical_context import format_context_item, resolve_item_id
 from services.media_send import send_media, send_quality_menu
 from services.persistent_throttling import (
     cooldown_refresh,
@@ -71,6 +79,14 @@ _SEARCH_TOOL_TIMEOUT = 25.0
 # summarize_video — страховка поверх внутреннего бюджета сервиса.
 _DOWNLOAD_TOOL_TIMEOUT = 180.0
 _SUMMARIZE_TOOL_TIMEOUT = 300.0
+# Раунд 10.20 (БЛОК 1, ADR-1020-4 п.3, T-1887): «Летописец» делает ВТОРОЙ
+# LLM-вызов (синтез) — страховочный wait_for поверх него (как summarize_video).
+_LORE_TOOL_TIMEOUT = 300.0
+# Служебная инструкция tool-response: детерминизм доставки — в ctx
+# (`lore_compiled`), но модель просим вернуть story дословно (мягкая страховка).
+_LORE_RETURN_INSTRUCTION = (
+    "[СИСТЕМНАЯ ИНСТРУКЦИЯ: верни пользователю текст из поля \"story\" "
+    "ДОСЛОВНО, без сокращений, без пересказа и без собственных добавлений.]")
 # Cap транскрипта для mode=transcript (прецедент handlers/youtube T-690).
 _SUMMARIZE_TRANSCRIPT_CAP = 20000
 
@@ -213,6 +229,72 @@ def _truncate(text: str, limit: int) -> str:
     return text[:limit].rstrip() + "…"
 
 
+def _dig_json_payload(result: dict, limit: int) -> str:
+    """S10.20-3: сериализовать dig-контракт, ужимая СЕКЦИИ по бюджету.
+
+    ``_truncate(json.dumps(...))`` рвал JSON (невалидные скобки). Здесь
+    сначала выкидываются хвостовые элементы ``snippets``/``facts``, затем
+    укорачиваются самые длинные строки — итог ВСЕГДА валидный JSON. При
+    усечении добавляется ``"truncated": true`` (честный сигнал модели)."""
+    budget = max(1, int(limit or 0))
+    payload = json.dumps(result, ensure_ascii=False)
+    if len(payload) <= budget:
+        return payload
+    out = dict(result)
+    out["snippets"] = list(result.get("snippets") or [])
+    out["facts"] = list(result.get("facts") or [])
+    out["truncated"] = True
+
+    def _size() -> int:
+        return len(json.dumps(out, ensure_ascii=False))
+
+    # 1) выкидываем хвостовые элементы секций (сначала facts — они дешевле).
+    while _size() > budget and (out["snippets"] or out["facts"]):
+        if out["facts"]:
+            out["facts"].pop()
+        else:
+            out["snippets"].pop()
+    # 2) усекаем самые длинные строки (валидность JSON сохраняется).
+    for _ in range(100):
+        if _size() <= budget:
+            break
+        target = out["snippets"] if out["snippets"] else out["facts"]
+        if not target:
+            break
+        idx = max(range(len(target)), key=lambda k: len(str(target[k])))
+        text = str(target[idx])
+        if len(text) <= 1:
+            break
+        overshoot = _size() - budget
+        target[idx] = text[:max(1, len(text) - overshoot - 8)]
+    serialized = json.dumps(out, ensure_ascii=False)
+    if len(serialized) > budget:
+        # Даже метаданные не влезли — честный минимум (JSON валиден).
+        serialized = json.dumps(
+            {"truncated": True,
+             "total_mentions": int(result.get("total_mentions") or 0)},
+            ensure_ascii=False)
+    return serialized
+
+
+async def resolve_lore_compiler_flag(chat_id: int | None) -> bool:
+    """S10.20-2: флаг «Летописца» тем же per-chat каскадом, что DirectChat
+    (override → hot → канон). ``chat_id=None`` — глобальный hot-слой."""
+    base = hot.get("flags.lore_compiler_enabled",
+                   settings.LORE_COMPILER_ENABLED)
+    if chat_id is None:
+        return bool(base)
+    try:
+        from services.chat_params import get_chat_param
+        value = await get_chat_param(
+            chat_id, "flags.lore_compiler_enabled", base)
+        return bool(value)
+    except Exception:
+        logger.warning("[tools] lore flag resolve failed — global | chat=%s",
+                       chat_id)
+        return bool(base)
+
+
 def _format_timestamp(ts) -> str:
     """timestamp (int/float) → 'YYYY-MM-DD HH:MM' (пусто при отсутствии)."""
     if not ts:
@@ -244,7 +326,7 @@ class ToolDeps:
 
     def __init__(self, search, memory, aliases=None, *, video=None,
                  downloader=None, health=None, db=None,
-                 download_cooldown=None) -> None:
+                 download_cooldown=None, llm=None) -> None:
         self.search = search            # SearchAggregator
         self.memory = memory            # MemoryManager
         self.aliases = aliases          # AliasResolver | None
@@ -256,6 +338,10 @@ class ToolDeps:
         # (ленивая ссылка: `setup_video_download` пересоздаёт трекер в
         # on_startup уже после сборки ToolDeps). None → гейта нет.
         self.download_cooldown = download_cooldown
+        # Раунд 10.20 (БЛОК 1, ADR-1020-4 п.3, T-1887): LLM-клиент для
+        # изолированного синтеза истории «Летописца» (compile_lore_story).
+        # None → инструмент честно вернёт «сервис недоступен».
+        self.llm = llm                  # LLMClient | None
 
 
 class ToolContext:
@@ -264,15 +350,32 @@ class ToolContext:
     Раунд 10.15 (F8): bot/reply_to_message_id/user_id — аддитивные
     keyword-only (у download_media есть куда отправить файл и на что
     ответить реплаем).
+
+    Раунд 10.20 (БЛОК 1, ADR-1020-6 п.2, T-1887/T-1892): ``lore_compiled`` —
+    детерминированный СИГНАЛ РЕЖИМА. Ставится инструментом
+    compile_lore_story (успешный синтез) и читается DirectChat ПОСЛЕ цикла
+    `chat_with_tools`: `True` → доставка истории локально с parse_mode=HTML
+    (О5), иначе — обычный plain-путь байт-в-байт. Сам цикл (`tool_loop.py`)
+    сигнал НЕ обрабатывает — он лишь проносит ctx.
     """
 
     def __init__(self, chat_id: int, query: str, *, bot=None,
-                 reply_to_message_id=None, user_id=None) -> None:
+                 reply_to_message_id=None, user_id=None,
+                 lore_verbatim_instruction: bool = True) -> None:
         self.chat_id = chat_id
         self.query = str(query or "")
         self.bot = bot
         self.reply_to_message_id = reply_to_message_id
         self.user_id = user_id
+        self.lore_compiled = False
+        # Раунд 10.20 (БЛОК 7.2c, ADR-1020-7 §2, T-1922): готовый текст
+        # истории «Летописца» (HTML). DirectChat при `lore_compiled` доставляет
+        # его детерминированно, не полагаясь на «верни дословно».
+        self.lore_story = ""
+        # S10.20-4: служебная инструкция «верни story ДОСЛОВНО» нужна только
+        # DirectChat (там сигнал доставки уже есть, это мягкая страховка).
+        # В фактчеке она провоцировала вердикт-историю → caller ставит False.
+        self.lore_verbatim_instruction = bool(lore_verbatim_instruction)
 
 
 # ── dig_into_lore (раунд 9, T-820): код-дефолты (spec §3.6.4; REGISTRY-ключи
@@ -307,6 +410,7 @@ class ToolRouter:
             "download_media": self._download_media,
             "get_bot_health": self._get_bot_health,
             "get_recent_history": self._get_recent_history,
+            "compile_lore_story": self._compile_lore_story,
         }
         method = registry.get(name)
         if method is None:
@@ -389,7 +493,9 @@ class ToolRouter:
 
         # 3. Гибридный RAG-контекст, если всё ещё пусто.
         if not lines:
-            rag = await self.deps.memory.get_rag_context(ctx.chat_id, query)
+            # 10.20 (БЛОК 2.6, ADR-1020-2): ASC-хронология перед рендером.
+            rag = await self.deps.memory.get_rag_context(
+                ctx.chat_id, query, sort_by_timestamp=True)
             if rag and str(rag).strip():
                 lines.append(str(rag).strip())
 
@@ -464,8 +570,12 @@ class ToolRouter:
         msg_lines: list[str] = []
         fact_lines: list[str] = []
         stage_error = None
+        total_mentions = 0
+        mentions_by_authors: dict[str, int] = {}
+        first_seen = None
+        last_seen = None
         if not merged:
-            return f"ничего не нашёл по запросу «{query}»"
+            return self._dig_not_found(query)
         # (в) mode messages/both: FTS5 по smart_messages (search_long_term) +
         #     пост-фильтр периода/user_id; рендер «[Имя YYYY-MM-DD]: текст».
         if mode in ("messages", "both"):
@@ -486,8 +596,17 @@ class ToolRouter:
                         continue
                     seen.add(text)
                     name = self._resolve_name(row)
-                    stamp = f" {self._dig_date(ts)}" if ts else ""
-                    msg_lines.append(f"[{name}{stamp}]: {text}")
+                    # 10.20 (БЛОК 2.8, ADR-1020-2 п.2): канонический рендер
+                    # строки контекста (§2.2, kind="msg") — дата ВРЕМЯ | автор
+                    # | ID (tg:→msg:) | Переслано.
+                    item_id = resolve_item_id(
+                        tg_message_id=row.get("tg_message_id"),
+                        message_id=row.get("id"))
+                    forward_source = (row.get("forward_source")
+                                      if row.get("is_forward") else None)
+                    msg_lines.append(format_context_item(
+                        ts=ts, author=name, item_id=item_id,
+                        forward_source=forward_source, text=text, kind="msg"))
                     if len(msg_lines) >= max_snippets:
                         break
             except asyncio.CancelledError:
@@ -503,7 +622,7 @@ class ToolRouter:
                 db = getattr(self.deps.memory, "db", None)
                 if db is not None and hasattr(db, "search_graph_facts_fts"):
                     from services.summary_memory import (
-                        _format_origin_labeled_line,
+                        _stale_suffix,
                         build_fts_query,
                     )
                     match = build_fts_query(merged)
@@ -531,14 +650,18 @@ class ToolRouter:
                             if not text or text in seen_facts:
                                 continue
                             seen_facts.add(text)
-                            # F1/T-1420 (spec §3.6): единый RAG-рендер факта
-                            # «[{label}] [ММ.ГГГГ | Автор: X] текст (возможно
-                            # устарело)» — тот же хелпер, что и в RAG-контексте.
+                            # 10.20 (БЛОК 2.8, ADR-1020-2 п.2): единый
+                            # канонический рендер факта (§2.2, kind="fact"):
+                            # «[ММ.ГГГГ | Автор | fact:ID]: текст (+ устарело)».
                             # Автор — target_user строки (R16, не выдумываем).
                             ts_render = ts if ts else None
-                            fact_lines.append(_format_origin_labeled_line((
-                                row.get("origin"), text, ts_render,
-                                row.get("target_user"))))
+                            fact_lines.append(format_context_item(
+                                ts=ts_render,
+                                author=row.get("target_user"),
+                                item_id=resolve_item_id(
+                                    fact_id=row.get("id")),
+                                text=text, kind="fact",
+                                stale=bool(_stale_suffix(ts_render))))
                             if len(fact_lines) >= max_facts:
                                 break
             except asyncio.CancelledError:
@@ -547,17 +670,49 @@ class ToolRouter:
                 stage_error = f"{type(exc).__name__}"
                 logger.warning("[tools] dig facts failed | query=%r | "
                                "error=%s", query, stage_error, exc_info=True)
-        parts: list[str] = []
-        if msg_lines:
-            parts.append("сообщения:\n" + "\n".join(msg_lines))
-        if fact_lines:
-            parts.append("факты:\n" + "\n".join(fact_lines))
-        if not parts:
+        # (д) 10.20 (БЛОК 2.8, ADR-1020-2 п.2): агрегация упоминаний по
+        # авторам — GROUP BY в SQL, имя резолвится тем же R16-каскадом
+        # (_resolve_name). Считается по окну year (since/until). Ошибка
+        # счётчика не роняет выдачу: total_mentions честно молчит (R16).
+        if mode in ("messages", "both") and merged:
+            try:
+                db = getattr(self.deps.memory, "db", None)
+                counter = getattr(
+                    db, "search_messages_fts_count_by_author", None)
+                from services.summary_memory import build_fts_query
+                match = build_fts_query(merged)
+                if callable(counter) and match:
+                    stats = await counter(
+                        ctx.chat_id, match,
+                        since_ts=bounds[0] if bounds else 0,
+                        until_ts=bounds[1] if bounds else 0)
+                    total_mentions = int(stats.get("count") or 0)
+                    for entry in stats.get("by_author") or []:
+                        name = self._resolve_name(entry)
+                        mentions_by_authors[name] = (
+                            mentions_by_authors.get(name, 0)
+                            + int(entry.get("count") or 0))
+                    first_seen = _format_timestamp(stats.get("first_seen"))
+                    last_seen = _format_timestamp(stats.get("last_seen"))
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.warning("[tools] dig count failed | query=%r | "
+                               "error=%s", query, type(exc).__name__)
+        if not msg_lines and not fact_lines and not total_mentions:
             if stage_error:
                 return (f"ОШИБКА dig_into_lore: этап поиска не выполнен "
                         f"({stage_error})")
-            return f"ничего не нашёл по запросу «{query}»"
-        return _truncate("\n".join(parts), dig_max_symbols)
+            return self._dig_not_found(query)
+        result = {
+            "total_mentions": total_mentions,
+            "mentions_by_authors": mentions_by_authors,
+            "first_seen": first_seen or None,
+            "last_seen": last_seen or None,
+            "snippets": msg_lines,
+            "facts": fact_lines,
+        }
+        return _dig_json_payload(result, dig_max_symbols)
 
     # ── F8 (раунд 10.15, ADR-1015-3): новые инструменты ──────────────
 
@@ -873,8 +1028,10 @@ class ToolRouter:
         return self._history_lines(rows)
 
     def _history_lines(self, rows) -> list[str]:
-        """Строки smart_messages → список «Имя: текст» (R16-каскад имён;
-        пустой текст без медиа пропускается; медиа-событие — маркером)."""
+        """Строки smart_messages → канонические строки контекста (10.20,
+        БЛОК 0, ADR-1020-1 ред. 3, точка 8): «[ts | Имя | ID | Переслано]:
+        текст» (R16-каскад имён; пустой текст без медиа пропускается;
+        медиа-событие — маркером)."""
         lines: list[str] = []
         for row in rows or []:
             try:
@@ -887,11 +1044,98 @@ class ToolRouter:
                 if not media or media == "text":
                     continue
                 text = f"[медиа: {media}]"
-            lines.append(f"{self._resolve_name(item)}: {text}")
+            forward_source = (item.get("forward_source")
+                              if item.get("is_forward") else None)
+            lines.append(format_context_item(
+                ts=item.get("timestamp"), author=self._resolve_name(item),
+                item_id=resolve_item_id(
+                    tg_message_id=item.get("tg_message_id"),
+                    message_id=item.get("id")),
+                forward_source=forward_source, text=text, kind="msg"))
         return lines
 
-    # ── helpers dig (T-820; переиспользуют _require_query/_resolve_name) ──
+    # ── compile_lore_story (раунд 10.20, БЛОК 1, ADR-1020-4 п.1-4, T-1887) ──
 
+    async def _chat_timezone(self, chat_id: int | None) -> str:
+        """S10.20-14: tz чата (per-chat override → hot → код-дефолт) для
+        рендера дат Летописца; пусто → фолбэк `limits.summary_timezone`
+        (существующая tz-инфраструктура, расписания не трогаем). Возвращает
+        ВАЛИДНОЕ имя tz (неизвестное → UTC)."""
+        from services.canonical_context import resolve_timezone
+        fallback = hot.get("limits.summary_timezone",
+                           getattr(settings, "SUMMARY_TIMEZONE", ""))
+        global_tz = hot.get("limits.chat_timezone",
+                            getattr(settings, "CHAT_TIMEZONE", ""))
+        tz = global_tz
+        if chat_id is not None:
+            try:
+                from services.chat_params import get_chat_param
+                tz = await get_chat_param(chat_id, "limits.chat_timezone",
+                                          global_tz)
+            except Exception:
+                logger.warning("[tools] chat tz resolve failed — global | "
+                               "chat=%s", chat_id)
+                tz = global_tz
+        return resolve_timezone(tz, fallback=str(fallback or "UTC"))
+
+
+    async def _compile_lore_story(self, arguments: dict,
+                                  ctx: ToolContext) -> str:
+        """«Летописец»: Шаг А (граф) + Шаг Б (хронология) → JSON-контракт →
+        изолированный синтез своим каноном `LORE_STORY_SYSTEM_PROMPT`
+        (LoreCompilerService) → готовый рассказ. При успехе ставит
+        ``ctx.lore_compiled = True`` (сигнал доставки, ADR-1020-6 п.2).
+
+        Гейт: ``flags.lore_compiler_enabled`` (О3, default ON) — OFF → честная
+        строка отключения, LLM не вызывается. НЕ бросает: таймаут/сбой →
+        «ОШИБКА …» (диалог не роняется, NFR-4). R17: без текстов истории."""
+        if not await resolve_lore_compiler_flag(ctx.chat_id):
+            return "Инструмент compile_lore_story отключен."
+        topic = self._require_str(arguments, "topic") or str(ctx.query or "")
+        topic = topic.strip()
+        if not topic:
+            return "ОШИБКА compile_lore_story: не указан topic"
+        db = self.deps.db if self.deps.db is not None \
+            else getattr(self.deps.memory, "db", None)
+        if db is None or self.deps.llm is None:
+            return "ОШИБКА compile_lore_story: сервис недоступен"
+        try:
+            from services.lore_compiler_service import LoreCompilerService
+            tz_name = await self._chat_timezone(ctx.chat_id)
+            service = LoreCompilerService(db, self.deps.llm, self.deps.aliases,
+                                          tz_name=tz_name)
+            result = await asyncio.wait_for(
+                service.compile(ctx.chat_id, topic), timeout=_LORE_TOOL_TIMEOUT)
+        except asyncio.TimeoutError:
+            logger.warning("[tools] compile_lore_story timeout | chat=%s",
+                           ctx.chat_id)
+            return "ОШИБКА compile_lore_story: timeout"
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning("[tools] compile_lore_story failed | chat=%s | "
+                           "error=%s", ctx.chat_id, type(exc).__name__)
+            return f"ОШИБКА compile_lore_story: {type(exc).__name__}"
+        status = str(result.get("status") or "")
+        if status != "ok":
+            return str(result.get("message")
+                       or "ОШИБКА compile_lore_story: не удалось собрать историю")
+        story = str(result.get("story") or "").strip()
+        if not story:
+            return "ОШИБКА compile_lore_story: пустая история"
+        ctx.lore_compiled = True
+        ctx.lore_story = story
+        payload = json.dumps({
+            "status": "ok",
+            "is_update": bool(result.get("is_update")),
+            "previous_story_at": result.get("previous_story_at"),
+            "story": story,
+        }, ensure_ascii=False)
+        if getattr(ctx, "lore_verbatim_instruction", True):
+            return f"{payload}\n\n{_LORE_RETURN_INSTRUCTION}"
+        return payload
+
+    # ── helpers dig (T-820; переиспользуют _require_query/_resolve_name) ──
     @staticmethod
     def _dig_year(raw) -> int | None:
         """year-параметр → int (вне [2000, текущий] → None; кривой тип →
@@ -987,6 +1231,24 @@ class ToolRouter:
             return datetime.datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d")
         except (ValueError, OSError, OverflowError):
             return ""
+
+    @staticmethod
+    def _dig_not_found(query: str) -> str:
+        """Честный JSON-контракт при отсутствии попаданий (БЛОК 2.8/R16):
+        нули + текст «ничего не нашёл» — БЕЗ выдуманных цифр.
+
+        Сохраняет обратную совместимость по подстроке «ничего не нашёл по
+        запросу» (снапшот-тесты: plain→JSON обновлены осознанно)."""
+        return json.dumps({
+            "total_mentions": 0,
+            "mentions_by_authors": {},
+            "first_seen": None,
+            "last_seen": None,
+            "snippets": [],
+            "facts": [],
+            "status": "not_found",
+            "message": f"ничего не нашёл по запросу «{query}»",
+        }, ensure_ascii=False)
 
     @staticmethod
     def _dig_person_text(raw) -> str | None:

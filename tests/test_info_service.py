@@ -3,7 +3,7 @@
 ФС-моки: tmp_path + явный путь конструктора. Канон DEFAULT_INFO_TEXT —
 байт-в-байт с info_text.md (Epic 83, T-599/D306; 84.13: файл — сид-источник
 для PG); rich-структура h1/h2/h4/h5 валидна; суть — R44-1 (полная структура
-секций 1..9); инициализация дефолтом; load.
+секций 1..11 после H 10.20/БЛОК 8); инициализация дефолтом; load.
 
 F2 10.16 (guide-delivery-round1016, ADR-1016-3):
   * `info_text.md` — read-only сид: load() НЕ создаёт/НЕ перезаписывает файл;
@@ -37,17 +37,19 @@ class TestDefaultInfoText:
         )
 
     def test_rich_structure_complete(self):
-        """#20: rich-разметка Epic 83 / F7 (10.15): h1=1, h2=9, h4=34
-        (инлайн-акценты команд), h5=9 (тела секций) — счётчики сбалансированы."""
+        """#20: rich-разметка Epic 83 / F7 (10.15) / H 10.20 (БЛОК 8):
+        h1=1, h2=11, h4=38 (инлайн-акценты команд), h5=11 (тела секций) —
+        счётчики сбалансированы (11 секций: +Летописец, +безлимиты)."""
         assert DEFAULT_INFO_TEXT.count("<h1>") == DEFAULT_INFO_TEXT.count("</h1>") == 1
-        assert DEFAULT_INFO_TEXT.count("<h2>") == DEFAULT_INFO_TEXT.count("</h2>") == 9
-        assert DEFAULT_INFO_TEXT.count("<h4>") == DEFAULT_INFO_TEXT.count("</h4>") == 34
-        assert DEFAULT_INFO_TEXT.count("<h5>") == DEFAULT_INFO_TEXT.count("</h5>") == 9
+        assert DEFAULT_INFO_TEXT.count("<h2>") == DEFAULT_INFO_TEXT.count("</h2>") == 11
+        assert DEFAULT_INFO_TEXT.count("<h4>") == DEFAULT_INFO_TEXT.count("</h4>") == 38
+        assert DEFAULT_INFO_TEXT.count("<h5>") == DEFAULT_INFO_TEXT.count("</h5>") == 11
 
     def test_html_tags_balanced(self):
-        """Epic 71 (T-550) / F7 (10.15): rich-канон — b=34, i=34, u=0, a=2."""
-        assert DEFAULT_INFO_TEXT.count("<b>") == DEFAULT_INFO_TEXT.count("</b>") == 34
-        assert DEFAULT_INFO_TEXT.count("<i>") == DEFAULT_INFO_TEXT.count("</i>") == 34
+        """Epic 71 (T-550) / F7 (10.15) / H 10.20: rich-канон — b=45, i=41,
+        u=0, a=2."""
+        assert DEFAULT_INFO_TEXT.count("<b>") == DEFAULT_INFO_TEXT.count("</b>") == 45
+        assert DEFAULT_INFO_TEXT.count("<i>") == DEFAULT_INFO_TEXT.count("</i>") == 41
         assert DEFAULT_INFO_TEXT.count("<u>") == 0
         assert DEFAULT_INFO_TEXT.count("</u>") == 0
         assert DEFAULT_INFO_TEXT.count("<a ") == DEFAULT_INFO_TEXT.count("</a>") == 2
@@ -66,13 +68,16 @@ class TestDefaultInfoText:
             "Гайд по фичам", "фактчек", "чекап", "кулдаун", "Checkup",
             "youtu.be", "какой-то-сайт.ru",
             "ботяра", "Богу Машине", "требуют обращения",
+            # H 10.20 (БЛОК 8): актуальные фичи фаз B–G.
+            "Летописец", "UPD (Свежак)", "Безлимит (∞)", "Импорт: Вечно",
+            "Часовой пояс чата", "Бюджеты",
         ):
             assert marker in DEFAULT_INFO_TEXT
 
     def test_canon_matches_backlog_r44_1_essence(self):
         """#24 (дельта Epic 83): снятие всех тегов сохраняет полную структуру
-        секций 1..9 (суть R44-1; живой канон — info_text.md)."""
-        for i in range(1, 10):
+        секций 1..11 (суть R44-1 + H 10.20; живой канон — info_text.md)."""
+        for i in range(1, 12):
             assert f"<h2>{i}." in DEFAULT_INFO_TEXT
 
 

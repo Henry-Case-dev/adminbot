@@ -2,6 +2,7 @@
 поверх моков SearchAggregator/MemoryManager; fail-open в тексты «ОШИБКА …».
 """
 import asyncio
+import json
 import time
 from unittest.mock import AsyncMock, MagicMock
 
@@ -193,7 +194,9 @@ class TestQueryChatMemory:
         out = await router.dispatch(
             "query_chat_memory", {"query": "факт"}, _ctx())
         assert "<RAG>важный факт</RAG>" in out
-        memory.get_rag_context.assert_awaited_once_with(CHAT_ID, "факт")
+        # 10.20 (БЛОК 2.6): ASC-хронология → sort_by_timestamp=True
+        memory.get_rag_context.assert_awaited_once_with(
+            CHAT_ID, "факт", sort_by_timestamp=True)
 
     @pytest.mark.asyncio
     async def test_bad_time_range_defaults_to_all(self):
@@ -346,15 +349,26 @@ class TestQueryChatMemoryCount:
 
 # ── Раунд 9 (AGI Memory, T-820, spec §3.2.1): dig_into_lore ────────────────
 
+
+def _dig_payload(out: str) -> dict:
+    """10.20 (БЛОК 2.8): dig_into_lore возвращает JSON-контракт — парсим."""
+    return json.loads(out)
+
+
 class TestDigIntoLore:
     """dig_into_lore: FTS-сниппеты L1 с датами + факты графа; пост-фильтры
     year/person; режимы messages/facts/both; «ничего не нашёл»; НЕ бросает;
-    лимит 3500; флаг dig_enabled."""
+    лимит 3500; флаг dig_enabled. 10.20 (БЛОК 2.8): JSON-контракт
+    {total_mentions, mentions_by_authors, first_seen, last_seen, snippets,
+    facts} (снапшот plain→JSON обновлён осознанно)."""
 
     @staticmethod
-    def _dig_row(user_id=10, author_name="вася", text="текст", ts=None):
-        return {"user_id": user_id, "author_name": author_name, "text": text,
-                "timestamp": ts}
+    def _dig_row(user_id=10, author_name="вася", text="текст", ts=None,
+                 row_id=1, tg_message_id=None, is_forward=0,
+                 forward_source=None):
+        return {"id": row_id, "user_id": user_id, "author_name": author_name,
+                "text": text, "timestamp": ts, "tg_message_id": tg_message_id,
+                "is_forward": is_forward, "forward_source": forward_source}
 
     @pytest.mark.asyncio
     async def test_registered_in_dispatch(self):
@@ -379,9 +393,14 @@ class TestDigIntoLore:
         out = await router.dispatch(
             "dig_into_lore",
             {"query": "море", "mode": "messages", "year": 2024}, _ctx())
-        assert out.startswith("сообщения:")
-        assert "[вася 2024-05-01]: ездили тогда на море" in out
-        assert "факты:" not in out
+        payload = _dig_payload(out)
+        assert payload["snippets"], "сниппеты непусты при попаданиях"
+        snippet = payload["snippets"][0]
+        # канонический формат §2.2 (kind="msg"): дата ВРЕМЯ | автор | ID
+        stamp = _dt.datetime.fromtimestamp(
+            ts, _dt.timezone.utc).strftime("%d.%m.%Y %H:%M")
+        assert snippet == f"[{stamp} | вася | msg:1]: ездили тогда на море"
+        assert payload["facts"] == []
 
     @pytest.mark.asyncio
     async def test_year_filter_applies_to_snippets(self):
@@ -438,8 +457,8 @@ class TestDigIntoLore:
         router = ToolRouter(_deps(memory=memory))
         out = await router.dispatch(
             "dig_into_lore", {"query": "машина", "mode": "facts"}, _ctx())
-        assert out.startswith("факты:")
-        assert "Леха тогда купил машину" in out
+        payload = _dig_payload(out)
+        assert any("Леха тогда купил машину" in f for f in payload["facts"])
         memory.search_long_term.assert_not_called()
 
     @pytest.mark.asyncio
@@ -460,9 +479,10 @@ class TestDigIntoLore:
         router = ToolRouter(_deps(memory=memory))
         out = await router.dispatch(
             "dig_into_lore", {"query": "машина", "mode": "facts"}, _ctx())
-        assert out.startswith("факты:")
-        assert "[03.2023 | Автор: Леха] Леха тогда купил машину" in out
-        assert "(Внимание: возможно устарело)" in out
+        facts = _dig_payload(out)["facts"]
+        joined = "\n".join(facts)
+        assert "[03.2023 | Леха | fact:1]: Леха тогда купил машину" in joined
+        assert "(Внимание: возможно устарело)" in joined
 
     @pytest.mark.asyncio
     async def test_mode_facts_without_date_renders_origin_label_only(self):
@@ -479,8 +499,8 @@ class TestDigIntoLore:
         router = ToolRouter(_deps(memory=memory))
         out = await router.dispatch(
             "dig_into_lore", {"query": "без даты", "mode": "facts"}, _ctx())
-        assert "факт без даты" in out
-        assert out.split("факты:")[1].strip() == "[чат] факт без даты"
+        facts = _dig_payload(out)["facts"]
+        assert facts == ["[fact:1]: факт без даты"]
         assert "(Внимание" not in out
 
     @pytest.mark.asyncio
@@ -498,9 +518,10 @@ class TestDigIntoLore:
         router = ToolRouter(_deps(memory=memory))
         out = await router.dispatch(
             "dig_into_lore", {"query": "поездка", "mode": "both"}, _ctx())
-        assert out.index("сообщения:") < out.index("факты:")
-        assert "про поездку в переписке" in out
-        assert "факт: поездка была в 2024" in out
+        payload = _dig_payload(out)
+        assert payload["snippets"] and payload["facts"]
+        assert any("про поездку в переписке" in s for s in payload["snippets"])
+        assert any("факт: поездка была в 2024" in f for f in payload["facts"])
 
     @pytest.mark.asyncio
     async def test_empty_returns_nothing_found(self):
@@ -553,8 +574,9 @@ class TestDigIntoLore:
         router = ToolRouter(_deps(memory=memory))
         out = await router.dispatch(
             "dig_into_lore", {"query": "факт выжил", "mode": "both"}, _ctx())
-        assert "факты:" in out and "факт выжил" in out
-        assert "сообщения:" not in out
+        payload = _dig_payload(out)
+        assert any("факт выжил" in f for f in payload["facts"])
+        assert payload["snippets"] == []
 
     @pytest.mark.asyncio
     async def test_result_truncated_to_3500(self):

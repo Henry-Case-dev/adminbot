@@ -385,9 +385,12 @@ async def on_startup():
         global _search_aggregator
         _search_aggregator = SearchAggregator()                 # ленивый httpx-клиент
         _search_aggregator.log_config()                         # D104: WARNING-и пустых ключей
-        setup_factcheck(FactCheckService(_search_aggregator, _llm_client, memory=memory), db)
+        # 10.20 (БЛОК 6.2, ADR-1020-5 п.1, T-1907): setup_factcheck перенесён
+        # НИЖЕ сборки _tool_router — FactCheckService получает ToolRouter
+        # аддитивным DI-kwarg (только kwargs; порядок роутеров не меняется).
         setup_search(SearchService(_search_aggregator, _llm_client, memory=memory), db)
-        logger.info("SmartModule FactCheck + SmartSearch (Epic 33) initialized")
+        logger.info("SmartModule SmartSearch (Epic 33) initialized "
+                    "(FactCheck — после сборки ToolRouter)")
 
         # ── SmartModule: YouTube + Web (Epic 37) ──
         global _web_extractor
@@ -473,7 +476,17 @@ async def on_startup():
             health=ToolHealthDeps(checkup_service, _checkup_fetcher),
             # R10.15-9: общий download-кулдаун 4e (ленивый провайдер —
             # setup_video_download пересоздаёт трекер позже в on_startup).
-            download_cooldown=get_download_cooldown))
+            download_cooldown=get_download_cooldown,
+            # 10.20 (БЛОК 1, T-1887): LLM для изолированного синтеза истории
+            # «Летописца» (compile_lore_story) — тот же клиент, что DirectChat.
+            llm=_llm_client))
+        # 10.20 (БЛОК 6.2, ADR-1020-5 п.1, T-1907): тот же ToolRouter получает
+        # фактчекер (Full Tool Access: dig_into_lore/compile_lore_story/веб).
+        # DI-kwarg, порядок роутеров и setup-последовательность не меняются.
+        setup_factcheck(
+            FactCheckService(_search_aggregator, _llm_client, memory=memory,
+                             tool_router=_tool_router),
+            db)
         setup_direct_chat(
             DirectChatService(
                 memory, db, _llm_client, aliases,

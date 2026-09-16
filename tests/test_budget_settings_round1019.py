@@ -34,15 +34,15 @@ HTML = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
 class TestCatalogDeltaF3:
     def test_counts(self):
         import dataclasses
-        assert len(pc.REGISTRY) == 437
+        assert len(pc.REGISTRY) == 439
         assert len(pc.GROUPS) == 92
         assert len(pc._TAB_BY_GROUP) == 90
         assert len(pc.TAB_RULES) == 20
         assert len(pc.TAB_NAV) == 20
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 407
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 409
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 412
+        assert len(categorized) == 414
 
     def test_new_groups_exist(self):
         assert pc.get_group("limits_chat_key") is not None
@@ -230,8 +230,8 @@ class TestLimitsBlock:
         day_rows = [{"metric": "llm_calls", "used": 5, "limit": 60},
                     {"metric": "llm_tokens", "used": 9, "limit": 300000}]
         limits = await oversight._limits_block(object(), -100, day_rows)
-        assert seen == [-100, -100], \
-            "chat_usage.key_status вызван для direct-контура (calls+tokens)"
+        assert seen == [-100], \
+            "S10.19-15: chat_usage.key_status вызван РОВНО один раз на чат"
         assert limits["key_budget"]["calls"]["used"] == 7
         assert limits["key_budget"]["tokens"]["used"] == 11
         assert limits["key_budget"]["calls"]["limit"] == 100

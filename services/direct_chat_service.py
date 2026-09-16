@@ -77,6 +77,9 @@ import logging
 import random
 import re
 import time
+from typing import NamedTuple
+
+from aiogram.exceptions import TelegramBadRequest
 
 from config.settings import settings
 from services import chat_access
@@ -99,6 +102,13 @@ from services.llm_client import (
 )
 from services.llm_circuit_breaker import STATE_HALF_OPEN, LLMCircuitBreaker
 from services.budget_limits import context_state
+from services.canonical_context import (
+    format_chat_time,
+    format_context_item,
+    resolve_item_id,
+    strip_context_header,
+)
+from services.database import row_get
 from services.payload_builder import build_messages
 from services.persistent_throttling import SilenceStreak
 from services.smartmodule_concurrency import get_smartmodule_concurrency_pool
@@ -109,7 +119,13 @@ from services.smartmodule_phrases import (
     CHAT_LOCK_BUSY_PHRASES,
 )
 from services.smartmodule_throttling import format_remaining_time
-from services.smartmodule_utils import _reply, react_moai, send_chunked_reply
+from services.smartmodule_utils import (
+    _reply,
+    escape_lore_html,
+    react_moai,
+    send_chunked_reply,
+    strip_lore_html,
+)
 from services.smart_cache import normalize_text
 from services.self_reflection import extract_self_essence, record_extractor_status
 from services.summary_memory import (
@@ -117,6 +133,7 @@ from services.summary_memory import (
     build_rag_context,
     dedup_rag_vs_global,
     fire_and_forget,
+    order_rag_facts_asc,
 )
 from services.summary_xml import escape_xml_text
 from services.token_counter import (
@@ -127,9 +144,11 @@ from services.token_counter import (
     truncate_to_tokens,
     truncate_to_tokens_keep_head,
 )
-from services.tool_loop import chat_with_tools
+from services.context_middleware import truncate_keep_header
+from services.reply_postprocess import strip_reasoning_tags
+from services.tool_loop import chat_with_tools, ToolLoopResult
 from services.tool_router import ToolContext
-from services.tool_schemas import TOOL_CALLING_TOOLS
+from services.tool_schemas import active_tools
 from services.typing_manager import typing_active
 from services.user_relations import STAGE_RU
 from services.nostalgia_prompts import format_nostalgia_hint
@@ -148,6 +167,10 @@ _NOSTALGIA_MARKERS_RE = re.compile(
 # Потолок инжекта <dig_result> (спека §3.2.3; dig уже режет 3500 сам —
 # страховка для результатов не-dig веток).
 _DIG_RESULT_MAX_CHARS = 3600
+# S10.20-10: лимит Telegram-сообщения — HTML-история шлётся разметкой только
+# если экранированный текст влезает в ОДИН чанк (иначе чанкинг мог порвать
+# тег → TelegramBadRequest → дубль текста plain-фолбэком).
+_LORE_HTML_MAX_SINGLE_CHARS = 4096
 # Раунд 9 (E1/T-826, spec §3.5.1): доля блок-маркера ностальгии в бюджете
 # урезания — константа (REGISTRY-ключа в spec §3.6.4 нет): блок маленький
 # (фикс-кап 300 симв. ДО инжекта), в общем порядке урезания участвует
@@ -237,6 +260,23 @@ def _parse_mood_words(raw: str) -> tuple[str, ...]:
     return tuple(w.strip().lower() for w in str(raw or "").split(",") if w.strip())
 
 
+def _forward_source_of(message) -> str:
+    """Источник пересылки TG-сообщения (для provenance факта, T-1924).
+
+    Реюз готового каскада `handlers.summary._extract_forward_source` (ленивый
+    импорт — сервис не зависит от handler-слоя на загрузке). Не forward или
+    ошибка → '' (R16: не выдумываем)."""
+    origin = getattr(message, "forward_origin", None)
+    if origin is None:
+        return ""
+    try:
+        from handlers.summary import _extract_forward_source
+        return str(_extract_forward_source(origin) or "")
+    except Exception:
+        logger.debug("[direct] forward source extract failed — skipped")
+        return ""
+
+
 def _nostalgia_markers(text: str) -> bool:
     """Раунд 9 (фикс-раунд major-1, spec §3.2.3): есть ли в сообщении маркер
     ностальгии (помнишь, как мы тогда, год назад, «в 20XX» и т.п.)."""
@@ -257,6 +297,20 @@ def _strip_direct_prefix(text: str) -> str:
     if re.fullmatch(r"(?:бот(?:ина|яра|ик)?|@[\w_]+)[,:]?", s, re.IGNORECASE):
         return ""
     return s
+
+
+class _ChainItem(NamedTuple):
+    """10.20 (БЛОК 0, точка 3): ход reply-цепочки + метаданные канона.
+    user-ход — ts/tg/id/forward из smart_messages; бот-ход — ts ОПУЩЕН
+    (bot_replies не хранит время сообщения; `last_used_at` = время доступа,
+    R16), item_id = `tg:<current_id>`."""
+    uid: int | None
+    name: str
+    text: str
+    is_bot: bool
+    ts: int | None = None
+    item_id: str = ""
+    forward_source: str | None = None
 
 
 def _speaker_tag(name: str, uid, *, is_bot: bool = False,
@@ -294,8 +348,16 @@ def _line_markers(line: str, names: frozenset[str]) -> frozenset[str]:
       long   — ≥ 3 слов.
     Возвращает подмножество маркеров."""
     text = str(line or "")
-    idx = text.find(":")
-    content = text[idx + 1:].strip() if idx != -1 else text
+    # 10.20 (БЛОК 0, ADR-1020-1 ред. 3, Р5/R23): после канонизации строк
+    # <Global_Context> первое «:» уезжает в заголовок («msg:<id>») — сначала
+    # срезаем канонический заголовок, затем (для не-канонических строк)
+    # сохраняем легаси-разбор по первому «:» (speaker-prefix).
+    stripped = strip_context_header(text)
+    if stripped != text:
+        content = stripped.strip()
+    else:
+        idx = text.find(":")
+        content = text[idx + 1:].strip() if idx != -1 else text
     markers: set[str] = set()
     low = content.casefold()
     if any(n in low for n in names):
@@ -606,7 +668,8 @@ class DirectChatService:
                     persona, [t.get("text") for t in traits], enabled=True)
                 if persona_block:
                     system_prompt = system_prompt + "\n\n" + persona_block
-            payload = build_messages(system_prompt, user_blocks)
+            payload = build_messages(system_prompt, user_blocks,
+                                     time_line=await self._chat_time_line(chat_id))
             # Epic 60 (65.8, T-476): temperature-пресет юзера (user_prefs)
             # или дефолт. Другие пайплайны — без temperature (65.8).
             temperature = settings.tone_temperature(
@@ -615,15 +678,25 @@ class DirectChatService:
             # Эпик 04.09.2026 (3.3): при настроенном tool_router генерация идёт
             # циклом chat_with_tools (модель сама решает вызвать инструменты);
             # ошибки/пустые финалы — те же классы, ветки except ниже без правок.
+            # Раунд 10.20 (БЛОК 1/О3, ADR-1020-4 п.5, T-1887/T-1892): флаг
+            # «Летописца» резолвится per-chat (override → global → канон); OFF
+            # → 8-й инструмент не объявляется (7 прежних — байт-в-байт).
+            # ctx вынесен из вызова цикла: сигнал режима ctx.lore_compiled
+            # читается ПОСЛЕ chat_with_tools (доставка HTML, ADR-1020-6 п.2).
+            lore_enabled = await _cpg(
+                chat_id, "flags.lore_compiler_enabled",
+                hot.get("flags.lore_compiler_enabled",
+                        settings.LORE_COMPILER_ENABLED))
+            tool_ctx = ToolContext(chat_id, query, bot=bot,
+                                   reply_to_message_id=message.message_id,
+                                   user_id=user_id)
             try:
                 async with typing_active(bot, chat_id):
                     if self.tool_router is not None:
                         raw = await chat_with_tools(
-                            self.llm, payload, tools=TOOL_CALLING_TOOLS,
-                            router=self.tool_router,
-                            ctx=ToolContext(chat_id, query, bot=bot,
-                                            reply_to_message_id=message.message_id,
-                                            user_id=user_id),
+                            self.llm, payload,
+                            tools=active_tools(bool(lore_enabled)),
+                            router=self.tool_router, ctx=tool_ctx,
                             temperature=temperature, chat_id=chat_id)
                     else:
                         raw = await self.llm.generate(payload,
@@ -653,14 +726,30 @@ class DirectChatService:
                     chat_id, target_name, exc)
                 await react_moai(bot, chat_id, message.message_id)
                 return
-            answer = str(raw).strip()
+            if isinstance(raw, ToolLoopResult) and raw.degraded:
+                # БЛОК 7.1 (T-1919): деградация tool-цикла — ответ уже есть
+                # (частичный/заглушка), но фиксируем для наблюдаемости (R17).
+                logger.warning(
+                    "[direct] tool-loop degraded | chat=%s | reason=%s | "
+                    "rounds_used=%d", chat_id, raw.reason, raw.rounds_used)
+            # БЛОК 7.2b (T-1921): единая стадия пост-обработки — reasoning-
+            # теги-черновики не уходят пользователю (no-op без тегов).
+            answer = strip_reasoning_tags(str(raw).strip())
+            # БЛОК 7.2c (T-1922, ADR-1020-7 §2): при ctx.lore_compiled
+            # доставляем ГОТОВЫЙ текст истории (детерминизм в коде), а не
+            # сжатую диспетчерскую ремарку. Обычный путь не меняется.
+            lore_story = str(getattr(tool_ctx, "lore_story", "") or "").strip()
+            if getattr(tool_ctx, "lore_compiled", False) and lore_story:
+                answer = strip_reasoning_tags(lore_story)
             if not answer:
                 logger.warning(
                     "[direct] empty answer — silence | chat=%s user=%s",
                     chat_id, target_name)
                 await react_moai(bot, chat_id, message.message_id)
                 return
-            sent_id = await send_chunked_reply(bot, chat_id, answer, message.message_id)
+            sent_id = await self._send_direct_answer(
+                bot, chat_id, answer, message.message_id,
+                lore=bool(getattr(tool_ctx, "lore_compiled", False)))
             if sent_id is not None:
                 answer_text = answer
                 # D3/T-800: parent = сообщение, на которое бот ответил
@@ -672,8 +761,10 @@ class DirectChatService:
                 # wrapper с пост-фазой «факты про третьих лиц не приписываются
                 # спрашивающему» (target_user уже = канон автора запроса).
                 fire_and_forget(
-                    self._memorize_direct_reply(chat_id, query, answer,
-                                                target_name),
+                    self._memorize_direct_reply(
+                        chat_id, query, answer, target_name,
+                        tg_message_id=getattr(message, "message_id", None),
+                        forward_from=_forward_source_of(message)),
                     "direct")
             logger.info("[direct] reply sent | chat=%s user=%s", chat_id, target_name)
             # Epic 53 (62.3.3): успех (в т.ч. фоллбэка) → полный сброс CB.
@@ -713,6 +804,57 @@ class DirectChatService:
                 await self._cache.set_dedup(dedup_key, answer_text or "")
 
     # ── Context Partitioning (58.6) ─────────────────────────────
+
+    @staticmethod
+    async def _send_direct_answer(bot, chat_id: int, answer: str,
+                                  reply_to: int | None, *,
+                                  lore: bool = False):
+        """Доставка ответа DirectChat (раунд 10.20, T-1892, О5/ADR-1020-6 п.3).
+
+        Обычный путь — байт-в-байт `parse_mode=None`. Режим «Летописца»
+        (``ctx.lore_compiled`` за turn) — ЛОКАЛЬНЫЙ ``parse_mode="HTML"``:
+        текст экранируется по whitelist-тегов (`escape_lore_html`); при
+        ``TelegramBadRequest`` (битая разметка) — деградация на plain-text
+        с ИСХОДНЫМ текстом (диалог не роняется, история не теряется).
+        Глобальный `parse_mode` не меняется.
+
+        S10.20-10: HTML-ветка используется ТОЛЬКО если экранированный текст
+        влезает в одно сообщение (≤4096). Иначе чанкинг по пробелам мог
+        разорвать тег → `TelegramBadRequest` на 2-м чанке → фолбэк пересылал
+        ВЕСЬ ответ plain (дубль). Длинная история уходит одной plain-доставкой
+        без тегов — без дублей и без сырой разметки."""
+        if not lore:
+            return await send_chunked_reply(bot, chat_id, answer, reply_to)
+        escaped = escape_lore_html(answer)
+        if len(escaped) <= _LORE_HTML_MAX_SINGLE_CHARS:
+            try:
+                return await send_chunked_reply(
+                    bot, chat_id, escaped, reply_to, parse_mode="HTML")
+            except TelegramBadRequest as exc:
+                logger.warning(
+                    "[direct] lore HTML send failed — plain fallback | "
+                    "chat=%s | error=%s", chat_id, type(exc).__name__)
+                return await send_chunked_reply(bot, chat_id, answer, reply_to)
+        logger.info("[direct] lore story too long for safe HTML — plain | "
+                    "chat=%s | chars=%d", chat_id, len(escaped))
+        return await send_chunked_reply(bot, chat_id, strip_lore_html(answer),
+                                        reply_to)
+
+    async def _chat_time_line(self, chat_id: int) -> str:
+        """10.20 (БЛОК 5.1, О2/О4 FINAL, ADR-1020-3): строка Time Injection
+        `[Текущее время в чате: DD.MM.YYYY, HH:MM, День недели]` в таймзоне
+        чата. Источник — НОВЫЙ ключ `limits.chat_timezone` (per-chat override
+        → global → код-дефолт; пусто → фолбэк `limits.summary_timezone`,
+        который НЕ трогаем). Вставляется ПЕРВЫМ user-блоком в `build_messages`
+        (system статичен — prompt-cache не ломаем).
+        """
+        tz = await _cp_g(
+            chat_id, "limits.chat_timezone",
+            hot.get("limits.chat_timezone",
+                    getattr(settings, "CHAT_TIMEZONE", "")))
+        fallback = hot.get("limits.summary_timezone",
+                           settings.SUMMARY_TIMEZONE)
+        return format_chat_time(tz_name=tz, fallback_tz=fallback)
 
     async def _build_user_content(self, chat_id: int, message,
                                   target_name: str,
@@ -1056,7 +1198,9 @@ class DirectChatService:
     # ── Раунд 8: memorize-хук с пост-фазой атрибуции (C6/T-797) ──
 
     async def _memorize_direct_reply(self, chat_id: int, query: str,
-                                     answer: str, asker_canon: str) -> None:
+                                     answer: str, asker_canon: str, *,
+                                     tg_message_id: int | None = None,
+                                     forward_from: str = "") -> None:
         """C6: memorize_facts (target_user = канон автора запроса — «кто
         спрашивал», как и было) + пост-фаза: subject/object фактов,
         совпадающие с участниками карты чата, НЕ остаются на спрашивающем —
@@ -1094,7 +1238,8 @@ class DirectChatService:
         if self_aware:
             # ON: запрос — сам по себе, ответ бота — сутью в self-origin.
             await self.memory.memorize_facts(
-                chat_id, query, "bot_direct_reply", target_user=asker_canon)
+                chat_id, query, "bot_direct_reply", target_user=asker_canon,
+                tg_message_id=tg_message_id, forward_from=forward_from)
             try:
                 essence = await extract_self_essence(
                     self.llm, answer, chat_id=chat_id,
@@ -1115,7 +1260,8 @@ class DirectChatService:
             # OFF: байт-в-байт прежнее поведение.
             await self.memory.memorize_facts(
                 chat_id, f"{query}\n{answer}", "bot_direct_reply",
-                target_user=asker_canon)
+                target_user=asker_canon,
+                tg_message_id=tg_message_id, forward_from=forward_from)
         if before_id is None:
             return
         try:
@@ -1368,13 +1514,12 @@ class DirectChatService:
             inner_budget = limit_tokens - count_tokens(opening) - count_tokens(closing)
             if inner_budget <= 0:
                 return opening + closing.lstrip("\n")
-            if kind == "global":
-                return opening + truncate_to_tokens_keep_head(
-                    body, inner_budget) + closing
-            return opening + truncate_to_tokens(body, inner_budget) + closing
-        if kind == "global":
-            return truncate_to_tokens_keep_head(text, limit_tokens)
-        return truncate_to_tokens(text, limit_tokens)
+            # БЛОК 7.3a (T-1923): header-safe усечение тела — ведущий
+            # `[Дата Время | Автор | ID | Переслано]:` неприкосновенен
+            # (global/thread/rag/…: режется только body).
+            return opening + truncate_keep_header(
+                body, inner_budget, kind=kind) + closing
+        return truncate_keep_header(text, limit_tokens, kind=kind)
 
     # ── Epic 60 Фаза C (65.4/65.9/65.10): якоря, настроение, защита ──
 
@@ -1916,7 +2061,9 @@ class DirectChatService:
                 settings.NOSTALGIA_LAYER_A_ENABLED):
             hint = await self._build_nostalgia_hint(chat_id, query, kept)
         # F3: единый формат строки с origin-меткой; дата — внутри факта.
-        content = build_rag_context(kept, origin_labels=True)
+        # 10.20 (БЛОК 2.6, ADR-1020-2 п.1): ASC-хронология ПОСЛЕ дедупа/реранка/
+        # граф-активации, ПЕРЕД рендером (состав top-K не меняется).
+        content = build_rag_context(order_rag_facts_asc(kept), origin_labels=True)
         if not content:
             return "", ""
         # F1/T-1482 (ADR-1014-2 D5): анти-эхо — только когда в блоке есть
@@ -2064,8 +2211,7 @@ class DirectChatService:
                 text = row["text"] or ""
                 if not text:
                     continue
-                name, uid = self._row_speaker(row)
-                tail.append(f"{_speaker_tag(name, uid, suffix=suffix_map.get(uid, ''))}: {text}")
+                tail.append(self._context_row_line(row, suffix_map))
         else:
             _g_limit = int(await _cp_g(
                 chat_id, "limits.chat_global_context_limit",
@@ -2076,8 +2222,7 @@ class DirectChatService:
                 text = row["text"] or ""
                 if not text:
                     continue
-                name, uid = self._row_speaker(row)
-                tail.append(f"{_speaker_tag(name, uid, suffix=suffix_map.get(uid, ''))}: {text}")
+                tail.append(self._context_row_line(row, suffix_map))
             if not tail:
                 return ""
             # D5: метка verbatim-режима — по отобранной ветке окна
@@ -2137,6 +2282,22 @@ class DirectChatService:
             int(uid or 0), (row["author_name"] or None), None)
         return name, uid
 
+    def _context_row_line(self, row, suffix_map: dict[int, str]) -> str:
+        """10.20 (БЛОК 0, ADR-1020-1 ред. 3, точка 2): каноническая строка
+        сообщения окна (ярус A) — ts/автор/ID/forward из smart_messages-row;
+        отсутствующие в источнике поля опускаются (R16, не выдумываем)."""
+        name, uid = self._row_speaker(row)
+        author = _speaker_tag(name, uid, suffix=suffix_map.get(uid, ""))
+        forward_source = (row_get(row, "forward_source")
+                          if row_get(row, "is_forward") else None)
+        return format_context_item(
+            ts=row_get(row, "timestamp"), author=author,
+            item_id=resolve_item_id(
+                tg_message_id=row_get(row, "tg_message_id"),
+                message_id=row_get(row, "id")),
+            forward_source=forward_source, text=row_get(row, "text") or "",
+            kind="msg")
+
     # ── <Conversation_Thread> / <Conversation_Branch> (Раунд 8: D3/T-800,
     #    D4/T-801 — цепочка сквозь бот-ответы, итог ветки без LLM) ──
 
@@ -2148,13 +2309,14 @@ class DirectChatService:
         продолжается от parent-сообщения (bot_reply_parents); break — только
         терминальный: нет reply_to_id / не найдено / parent нет или протух /
         глубина исчерпана / сообщение уже в seen.
-        Возвращает [(uid, display-имя, text, is_bot)] — от ТЕКУЩЕГО
-        сообщения (самое свежее первое) к корню."""
+        Возвращает [_ChainItem] — от ТЕКУЩЕГО сообщения (самое свежее первое)
+        к корню. 10.20 (БЛОК 0, точка 3): метаданные user-хода (ts/tg/id/
+        forward) из smart_messages; бот-ход — ts опущен (R16), ID `tg:<id>`."""
         _depth = await _cp_g(chat_id, "limits.chat_thread_max_depth",
                              hot.get("limits.chat_thread_max_depth",
                                      settings.CHAT_THREAD_MAX_DEPTH))
         depth = int(_depth or 0)
-        chain: list[tuple[int | None, str, str, bool]] = []
+        chain: list[_ChainItem] = []
         current_id = getattr(message, "message_id", None)
         seen: set[int] = set()
         for _ in range(max(1, depth)):
@@ -2166,12 +2328,23 @@ class DirectChatService:
                 text = row["text"] or ""
                 if text:
                     name, uid = self._row_speaker(row)
-                    chain.append((uid, name, text, False))
+                    forward_source = (row_get(row, "forward_source")
+                                      if row_get(row, "is_forward") else None)
+                    chain.append(_ChainItem(
+                        uid=uid, name=name, text=text, is_bot=False,
+                        ts=row_get(row, "timestamp"),
+                        item_id=resolve_item_id(
+                            tg_message_id=row_get(row, "tg_message_id"),
+                            message_id=row_get(row, "id")),
+                        forward_source=forward_source))
                 current_id = row["reply_to_id"]
                 continue
             bot_text = await self.get_bot_reply(chat_id, current_id)
             if bot_text is not None:
-                chain.append((None, self._resolve_bot_name(), bot_text, True))
+                chain.append(_ChainItem(
+                    uid=None, name=self._resolve_bot_name(), text=bot_text,
+                    is_bot=True, ts=None, item_id=f"tg:{current_id}",
+                    forward_source=None))
                 parent = await self._bot_reply_parent(chat_id, current_id)
                 if parent is None:
                     break
@@ -2181,13 +2354,18 @@ class DirectChatService:
         return chain
 
     def _chain_line(self, item, suffix_map: dict[int, str]) -> str:
-        """Рендер одного хода цепочки (C1): «{имя}{дискр} [{uid}]: {текст}»,
-        бот-ход — «{имя} [bot]: {текст}»."""
-        uid, name, text, is_bot = item
-        if is_bot:
-            return f"{_speaker_tag(name, None, is_bot=True)}: {text}"
-        return (f"{_speaker_tag(name, uid, suffix=suffix_map.get(uid, ''))}: "
-                f"{text}")
+        """10.20 (БЛОК 0, точка 3): каноническая строка хода цепочки (ярус A).
+        user — «[ts | имя [uid] | ID]: текст», бот — ts опущен, ID `tg:`."""
+        if not isinstance(item, _ChainItem):
+            item = _ChainItem(*item)
+        if item.is_bot:
+            author = _speaker_tag(item.name, None, is_bot=True)
+        else:
+            author = _speaker_tag(
+                item.name, item.uid, suffix=suffix_map.get(item.uid, ""))
+        return format_context_item(
+            ts=item.ts, author=author, item_id=item.item_id,
+            forward_source=item.forward_source, text=item.text, kind="msg")
 
     async def _thread_limit(self, chat_id: int):
         """Раунд 10.4 (G-ремедиация): per-chat лимит треда (tokens/chars) —

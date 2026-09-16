@@ -122,7 +122,7 @@ class TestMigrationV7:
                    for r in rows)
         # PRAGMA user_version = 11 (каскад v6→v7→v8→v9→v10→v11)
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 11
+        assert (await cursor.fetchone())[0] == 12
         # индексы v7 существуют; глобальный import_key заменён на chat-scoped
         # (F7/v11, ADR-1019-6 D1b) — старого глобального UNIQUE больше нет.
         cursor = await d.db.execute(
@@ -150,7 +150,7 @@ class TestMigrationV7:
         await d.close()
         await d.initialize()                        # «рестарт» — no-op
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 11
+        assert (await cursor.fetchone())[0] == 12
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         assert (await cursor.fetchone())["c"] == 1  # строки не задвоены
         await d.close()
@@ -257,12 +257,13 @@ class TestDateRenderCoalesce:
             "SELECT created_at FROM graph_facts WHERE id = ?", (live_id,))
         live_ts = (await cursor.fetchone())["created_at"]
         live_day = _dt.datetime.fromtimestamp(
-            int(live_ts), _dt.timezone.utc).strftime("[%m.%Y] ")
+            int(live_ts), _dt.timezone.utc).strftime("[%m.%Y | fact:")
         memory = MemoryManager(db, _FakeLLM())
         memory._vec_available = False      # → FTS-ветка поиска
         ctx = await memory.get_rag_context(
             -100, "петя машина март", include_direct_reply=True)
-        assert "[05.2024] " in ctx
+        # 10.20 (T-1924): канонический header факта `[ММ.ГГГГ | fact:ID]:`.
+        assert "[05.2024 | fact:" in ctx
         # live-факт рендерится с датой created_at (COALESCE после backfill v7)
         assert live_day in ctx
 

@@ -206,13 +206,13 @@ async def _limits_block(pg, chat_id: int, day_rows) -> dict:
     источника → под-объект с нулём/дефолтом, но 500 не бывает (R16)."""
     limits: dict = {}
     try:
+        # 10.20 (БЛОК 5.4 / S10.19-15): ОДИН `key_status` на чат — обе метрики
+        # (calls+tokens) берутся из одного `budget_snapshot`, без 2× чтений
+        # `used_today`/`chat_profiles` на чат за построение «Сводки».
+        status = await chat_usage.key_status(pg, chat_id)
         limits["key_budget"] = {
-            "calls": await _limits_metric(pg, chat_id, contour="direct",
-                                          used_key="calls", day_rows=day_rows,
-                                          metric="llm_calls"),
-            "tokens": await _limits_metric(pg, chat_id, contour="direct",
-                                           used_key="tokens", day_rows=day_rows,
-                                           metric="llm_tokens"),
+            "calls": dict(status["calls"]),
+            "tokens": dict(status["tokens"]),
         }
     except Exception:
         logger.warning("[oversight] key_budget limits failed | chat=%s",

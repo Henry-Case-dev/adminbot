@@ -319,10 +319,12 @@ class TestRagImportanceRanking:
         rows_in = [
             {"id": 1, "fact": "вася отправил видеосообщение", "origin":
              "chat_history", "weight": 0.5, "last_confirmed_at": None,
-             "importance": 1, "rag_ts": 0, "target_user": None},
+             "importance": 1, "rag_ts": 0, "target_user": None,
+             "tg_message_id": None, "forward_from": ""},
             {"id": 2, "fact": "вася спас проект", "origin": "chat_history",
              "weight": 0.5, "last_confirmed_at": None, "importance": 8,
-             "rag_ts": 0, "target_user": None},
+             "rag_ts": 0, "target_user": None,
+             "tg_message_id": None, "forward_from": ""},
         ]
 
         class _RagDB:

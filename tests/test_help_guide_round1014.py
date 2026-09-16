@@ -198,14 +198,14 @@ class TestCatalogDelta:
         # +1 REGISTRY/Settings/categorized (IMPORT_HISTORY_RETENTION_DAYS),
         # +2 GROUPS (limits_chat_key/limits_chat_context), +2 mapped,
         # +1 TAB_RULES/TAB_NAV (mod_budgets): 437/92/407/412/90/20.
-        assert len(pc.REGISTRY) == 437
+        assert len(pc.REGISTRY) == 439
         assert len(pc.GROUPS) == 92
         assert len(pc._TAB_BY_GROUP) == 90
         assert len(pc.TAB_RULES) == 20
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 407
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 409
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 412
+        assert len(categorized) == 414
 
     def test_guide_spec(self):
         from services import param_catalog as pc
@@ -519,9 +519,12 @@ class TestGuideStyle:
         assert "Личность бота" in text
         assert "Эволюция характера" in text
         assert "Осознаёт себя ИИ" in text
+        # H 10.20 (БЛОК 8): Летописец + безлимиты в гайде.
+        assert "Летописец" in text
+        assert "Лимиты и безлимиты" in text
 
     def test_guide_not_empty_and_markdown(self):
         text = DOCS.read_text(encoding="utf-8")
         assert len(text) > 3000
         assert text.startswith("# ")
-        assert "## 10. Словарик" in text
+        assert "## 11. Словарик" in text

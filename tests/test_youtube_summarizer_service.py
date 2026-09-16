@@ -144,7 +144,7 @@ class TestGraphRagV2Hooks:
         memory.memorize_facts.assert_awaited_once_with(
             -100, "[00:05] привет", "youtube_content"
         )
-        memory.get_rag_context.assert_awaited_once_with(-100, "че за видос")
+        memory.get_rag_context.assert_awaited_once_with(-100, "че за видос", sort_by_timestamp=True)
 
     @pytest.mark.asyncio
     async def test_long_transcript_compressed_then_memorized(self):

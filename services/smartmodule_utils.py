@@ -10,10 +10,13 @@ reply_to_message_id ТОЛЬКО у первой части, TelegramRetryAfter 
 react_moai (Epic 60, 65.1, T-469): best-effort реакция 🗿 на триггер-сообщение
 при пустом ответе модели; НЕ бросает (молчание гарантировано отсутствием
 send_message — реакция только дополняет его).
+Раунд 10.20 (БЛОК 1/О5, ADR-1020-6): escape_lore_html — экранирование текста
+истории «Летописца» под parse_mode="HTML" с сохранением whitelist-тегов.
 """
 import asyncio
 import logging
 import random
+import re
 
 from aiogram import types
 from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
@@ -29,6 +32,61 @@ logger = logging.getLogger(__name__)
 _CHUNK_LIMIT = 4096
 
 _REPLY_GONE_MARKER = "message to be replied not found"   # точная строка из прод-логов
+
+# Раунд 10.20 (БЛОК 1/О5, ADR-1020-6): разрешённые Telegram-HTML-теги историй
+# Летописца. Всё, что не совпало, экранируется (TelegramBadRequest → фолбэк
+# plain-text в direct_chat) — предсказуемость важнее «умного» парсера.
+_LORE_HTML_TAG_RE = re.compile(
+    r"</?(?:b|strong|i|em|u|ins|s|strike|del|code|pre|tg-spoiler|blockquote)>"
+    r"|<a\s+href=\"[^\"]*\">|</a>",
+    re.IGNORECASE,
+)
+
+
+def escape_lore_html(text: str) -> str:
+    """Экранирование HTML-спецсимволов с сохранением разрешённых тегов.
+
+    История «Летописца» доставляется с ``parse_mode="HTML"`` (О5). Модель
+    может подсунуть «голые» ``<``/``>``/``&`` — они ломают парсер Telegram.
+    Здесь всё вне whitelist-тегов превращается в сущности; при любой ошибке
+    парсинга отправки direct_chat повторяет доставку plain-text'ом с
+    ИСХОДНЫМ текстом (см. `direct_chat_service`).
+
+    S10.20-11 (Low, принято): Telegram JS не исполняет, истории в TMA пока
+    не рендерятся (``{{ }}``) — практической уязвимости нет. При переносе
+    историй в TMA ОБЯЗАТЕЛЕН отдельный sanitize (в т.ч. ``<a href="javascript:...">``):
+    регэксп ниже пропускает любой href и намеренно НЕ является HTML-sanitizer.
+    """
+    if not text:
+        return ""
+    out: list[str] = []
+    pos = 0
+    for match in _LORE_HTML_TAG_RE.finditer(text):
+        out.append(_escape_chunk(text[pos:match.start()]))
+        out.append(match.group(0))
+        pos = match.end()
+    out.append(_escape_chunk(text[pos:]))
+    return "".join(out)
+
+
+def strip_lore_html(text: str) -> str:
+    """S10.20-4: убрать whitelist-HTML-теги историй из plain-доставки.
+
+    Нужна фактчекеру/plain-путям: если модель эхом вернула HTML-историю
+    (``<b>…</b>``), пользователь не должен видеть сырые теги. Убираются
+    только теги из whitelist историй — обычный текст с ``<``/``>`` не
+    затрагивается (no-op для вердиктов без разметки)."""
+    if not text:
+        return ""
+    return _LORE_HTML_TAG_RE.sub("", text)
+
+
+def _escape_chunk(chunk: str) -> str:
+    """Текст между тегами → HTML-сущности (``&`` первым — иначе двойное
+    экранирование)."""
+    return (chunk.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;"))
 
 
 async def react_moai(bot, chat_id: int, message_id: int | None) -> None:

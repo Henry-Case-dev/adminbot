@@ -68,7 +68,7 @@ class FakeMemory:
     async def memorize_facts(self, chat_id, raw_text, source_type):
         return None
 
-    async def get_rag_context(self, chat_id, query):
+    async def get_rag_context(self, chat_id, query, *, sort_by_timestamp=False):
         return ""
 
 

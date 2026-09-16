@@ -24,6 +24,7 @@ from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
 
 from config.settings import settings
 from services import hot_config as hot
+from services.canonical_context import format_context_item
 from services.chat_params import (
     get_chat_param as _chat_limit,  # G-3 per-chat
 )
@@ -159,7 +160,9 @@ class SummaryGenerator:
                     self.memory.memorize_facts(
                         chat_id, _build_batch_text(rows, skip_empty=True), "chat_history"),
                     "summary")
-            rag_context = await self.memory.get_rag_context(chat_id, " ".join(keywords))
+            # 10.20 (БЛОК 2.6, ADR-1020-2): ASC-хронология перед рендером.
+            rag_context = await self.memory.get_rag_context(
+                chat_id, " ".join(keywords), sort_by_timestamp=True)
             user_content = self._compose_user_content(
                 xml_context, l2_quotes, l3_facts, graph_facts, rag_context=rag_context
             )
@@ -343,21 +346,33 @@ class SummaryGenerator:
         graph_facts: list[str] = [],
         rag_context: str = "",
     ) -> str:
+        """10.20 (БЛОК 2.7, ADR-1020-2 п.3): архивные блоки
+        (<historical_graph_facts>, <memory>, <facts>) рендерятся КАНОНИЧЕСКИ
+        `format_context_item(kind="archive")` — контрастный маркер
+        «Архивная справка» (архив ≠ свежее). Подмешивание архива сохраняется
+        (R14); escape_xml_text ОБЯЗАТЕЛЕН (review Low-2)."""
+        def _archive(line: str) -> str:
+            return format_context_item(
+                text=escape_xml_text(line), kind="archive")
+
         parts = []
         if rag_context:                       # Epic 46 (55.5): RAG-контекст ПЕРВЫМ
             parts.append(rag_context)
         if graph_facts:                        # Q8: секция ПЕРВАЯ, до <chat_history>
-            escaped = [escape_xml_text(line) for line in graph_facts]
             parts.append(
-                "<historical_graph_facts>\n" + "\n".join(escaped) + "\n</historical_graph_facts>"
+                "<historical_graph_facts>\n"
+                + "\n".join(_archive(line) for line in graph_facts)
+                + "\n</historical_graph_facts>"
             )
         parts.append(xml_context)
         if l2_quotes:
-            escaped = [escape_xml_text(line) for line in l2_quotes]
-            parts.append("<memory>\n" + "\n".join(escaped) + "\n</memory>")
+            parts.append("<memory>\n"
+                         + "\n".join(_archive(line) for line in l2_quotes)
+                         + "\n</memory>")
         if l3_facts:
-            escaped = [escape_xml_text(line) for line in l3_facts]
-            parts.append("<facts>\n" + "\n".join(escaped) + "\n</facts>")
+            parts.append("<facts>\n"
+                         + "\n".join(_archive(line) for line in l3_facts)
+                         + "\n</facts>")
         return "\n\n".join(parts)
 
     # ── Sending ───────────────────────────────────────────────

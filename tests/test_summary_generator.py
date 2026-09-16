@@ -84,7 +84,7 @@ class FakeMemory:
         """Epic 46 (55.5): фоновый хук — фиксируем вызов, не трогаем events."""
         self.memorized.append((chat_id, raw_text, source_type))
 
-    async def get_rag_context(self, chat_id, query):
+    async def get_rag_context(self, chat_id, query, *, sort_by_timestamp=False):
         """Epic 46 (55.6): RAG-контекст (по умолчанию пуст — старые тесты)."""
         return self.rag_context
 
@@ -512,8 +512,10 @@ class TestComposeUserContent:
         result = SummaryGenerator._compose_user_content(
             "<chat_history/>", ["кто-то: цитата"], ["факт один"]
         )
-        assert "<memory>\nкто-то: цитата\n</memory>" in result
-        assert "<facts>\nфакт один\n</facts>" in result
+        # 10.20 (БЛОК 2.7): архивные блоки помечены канонически
+        assert ("<memory>\n[Архивная справка]: кто-то: цитата\n</memory>"
+                in result)
+        assert "<facts>\n[Архивная справка]: факт один\n</facts>" in result
 
     def test_memory_and_facts_are_xml_escaped(self):
         """Review Low-2: L2/L3 контент проходит то же экранирование, что и <chat_history>."""
@@ -544,11 +546,15 @@ class TestComposeGraphFacts:
     """Epic 26 (R26-3/D71/Q8): <historical_graph_facts> — ПЕРВОЙ секцией, до <chat_history>."""
 
     def test_default_arg_output_unchanged(self):
-        """D71: default [] → вывод байт-в-байт прежний (регрессия)."""
+        """D71 + 10.20 (БЛОК 2.7): структура секций прежняя; архивные строки
+        теперь несут канонический маркер «Архивная справка» (archive ≠ свежее)."""
         result = SummaryGenerator._compose_user_content(
             "<chat_history/>", ["кто-то: цитата"], ["факт"]
         )
-        assert result == "<chat_history/>\n\n<memory>\nкто-то: цитата\n</memory>\n\n<facts>\nфакт\n</facts>"
+        assert result == (
+            "<chat_history/>\n\n"
+            "<memory>\n[Архивная справка]: кто-то: цитата\n</memory>\n\n"
+            "<facts>\n[Архивная справка]: факт\n</facts>")
 
     def test_graph_section_first(self):
         result = SummaryGenerator._compose_user_content(
@@ -591,7 +597,7 @@ class TestPipelineGraphFacts:
         await generator.generate_and_send(-100)
         user = llm.messages[1]["content"]
         assert user.startswith("<historical_graph_facts>")
-        assert "Историческая справка" in user
+        assert "[Архивная справка]: [Историческая справка: вася (спорил с) петя]" in user
         bot.send_message.assert_called_once()
 
     @pytest.mark.asyncio
@@ -660,12 +666,14 @@ class TestGraphRagV2Hooks:
         assert result.index("<historical_graph_facts>") < result.index("<chat_history/")
 
     def test_compose_without_rag_context_unchanged(self):
-        """#20: rag_context="" → вывод как раньше."""
+        """#20 + 10.20 (БЛОК 2.7): rag_context="" → структура как раньше;
+        архивная строка помечена каноническим маркером."""
         result = SummaryGenerator._compose_user_content(
             "<chat_history/>", [], [], ["[Историческая справка: вася (спорил с) петя]"]
         )
         assert result == (
-            "<historical_graph_facts>\n[Историческая справка: вася (спорил с) петя]\n"
+            "<historical_graph_facts>\n"
+            "[Архивная справка]: [Историческая справка: вася (спорил с) петя]\n"
             "</historical_graph_facts>\n\n<chat_history/>"
         )
 

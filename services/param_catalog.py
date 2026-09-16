@@ -385,7 +385,7 @@ _PROMPTS: list[tuple] = [
     ("prompts.extract_system_prompt", "Промпт извлечения фактов (граф)",
      "services.summary_prompts.EXTRACT_PROMPT", "prompts_memory",
      "Инструкция, как вытаскивать факты из разговора для долгой памяти. Изменения применяются сразу после сохранения."),
-    ("prompts.compress_system_prompt", "Промпт сжатия истории (L3)",
+    ("prompts.compress_system_prompt", "Промпт сжатия истории (глубокий уровень)",
      "services.summary_prompts.COMPRESS_PROMPT", "prompts_memory",
      "Инструкция, как ужимать старые сообщения в факты памяти. Изменения применяются сразу после сохранения."),
     ("prompts.youtube_system_prompt", "Системный промпт пересказа YouTube",
@@ -561,7 +561,7 @@ _MODELS: list[tuple] = [
      "Сколько раз повторить запрос при временном сбое. Больше — надёжнее, но дольше ждать."),
     ("LLM_RETRY_BACKOFF_BASE", "Начальная пауза между повторами", "float", "models_llm_timeouts",
      "Начальная пауза перед повтором, сек. Больше — реже долбить провайдера при сбоях."),
-    ("LLM_RETRY_BACKOFF_CAP", "Максимальная пауза между повторами, сек", "float", "models_llm_timeouts",
+    ("LLM_RETRY_BACKOFF_CAP", "Макс. пауза между попытками (сек)", "float", "models_llm_timeouts",
      "Максимальная пауза между повторами. Больше — дольше терпелив, но тише при упорном сбое."),
     ("LLM_RETRY_JITTER_MAX", "Разброс паузы между повторами, сек", "float", "models_llm_timeouts",
      "Случайная добавка к паузе повтора — чтобы запросы не стучались одновременно."),
@@ -838,6 +838,13 @@ _FLAGS: list[tuple] = [
      "При фразе «помнишь/как мы тогда/год назад/в 2024» бот сам копает "
      "историю ДО генерации ответа и кладёт результат в <dig_result>. "
      "Выключено (дефолт) — dig только по контракту канона (вызов модели)."),
+    # ── Раунд 10.20 (БЛОК 1/О3, ADR-1020-4 п.5): «Летописец» — 8-й тул ──────
+    ("LORE_COMPILER_ENABLED", "Летописец: тул compile_lore_story включён",
+     "flags_module_direct",
+     "Рубильник нового инструмента compile_lore_story: бот рассказывает "
+     "комедийные истории по лору чата («поясни за…», «расскажи историю "
+     "про…»). Дефолт — ВКЛ. Выключено — модель не может вызвать "
+     "compile_lore_story, остальные инструменты работают как раньше."),
     # ── F2 (cognition-belief-decay, spec §7/§8): охлаждение убеждений ────────
     ("BELIEF_DECAY_ENABLED", "Охлаждение убеждений (сон)", "flags_memory",
      "Убеждения без свежих подтверждений постепенно теряют вес и уходят "
@@ -908,21 +915,27 @@ _LIMITS: list[tuple] = [
      "На сколько частей может разбиться пересказ длинного разговора. Больше — длиннее ответ."),
     ("SUMMARY_TIMEZONE", "Часовой пояс саммари", "str", "limits_summary",
      "Часовой пояс для границ дня пересказа. Меняется, если бот в другом поясе."),
+    # 10.20 (БЛОК 5.1, О4 FINAL, ADR-1020-3): «Часовой пояс чата» — per-chat
+    # ключ limits.chat_timezone для Time Injection (диалог ≠ расписания
+    # воркеров). Пусто → фолбэк на «Часовой пояс саммари».
+    ("CHAT_TIMEZONE", "Часовой пояс чата", "str", "limits_chat_behavior",
+     "Часовой пояс, в котором бот называет текущее время в диалоге. "
+     "Пусто — берётся пояс саммари. Меняется, если чат живёт в другом поясе."),
     ("SUMMARY_THROTTLE_SECONDS", "Троттлинг /summary, сек", "float", "limits_summary",
      "Минимальная пауза между запросами пересказа. Больше — реже можно просить."),
     ("SUMMARY_CHUNK_DELAY", "Пауза между чанками саммари, сек", "float", "limits_summary",
      "Пауза между частями длинного пересказа. Больше — мягче для лимитов, дольше ответ."),
-    ("SUMMARY_MAX_WINDOW_MESSAGES", "Кап окна L1 (сообщений)", "int", "limits_memory",
+    ("SUMMARY_MAX_WINDOW_MESSAGES", "Сколько сообщений берётся в пересказ", "int", "limits_memory",
      "Сколько сообщений максимум берётся в пересказ. Больше — полнее, но дороже."),
-    ("SUMMARY_MAX_MESSAGE_CHARS", "Кап одного сообщения, символов", "int", "limits_summary",
+    ("SUMMARY_MAX_MESSAGE_CHARS", "Макс. длина одного сообщения (символов)", "int", "limits_summary",
      "Максимальная длина одного сообщения в пересказе. Больше — учитываются длинные сообщения."),
-    ("SUMMARY_MAX_CONTEXT_CHARS", "Кап контекста, символов", "int", "limits_summary",
+    ("SUMMARY_MAX_CONTEXT_CHARS", "Потолок текста для нейросети (символов)", "int", "limits_summary",
      "Потолок текста, отдаваемого нейросети. Больше — точнее, но дороже и медленнее."),
-    ("SUMMARY_RAG_L2_LIMIT", "Лимит фактов памяти, уровень 2", "int", "limits_graph",
+    ("SUMMARY_RAG_L2_LIMIT", "Сколько фактов памяти берётся (средний уровень)", "int", "limits_graph",
      "Сколько фактов памяти берётся на втором уровне. Больше — контекстнее, дороже."),
-    ("SUMMARY_RAG_L3_LIMIT", "Лимит фактов памяти, уровень 3", "int", "limits_graph",
+    ("SUMMARY_RAG_L3_LIMIT", "Сколько фактов памяти берётся (глубокий уровень)", "int", "limits_graph",
      "Сколько фактов памяти берётся на третьем уровне. Больше — точнее, дороже."),
-    ("SUMMARY_COMPRESS_BATCH", "Размер пачки сжатия L3", "int", "limits_summary",
+    ("SUMMARY_COMPRESS_BATCH", "Сколько сообщений сжимать за раз", "int", "limits_summary",
      "Сколько сообщений сжимается за раз. Больше — быстрее, но грубее."),
     ("SUMMARY_RETRY_ONCE_PAUSE", "Пауза повтора генерации, сек", "float", "limits_summary",
      "Пауза перед повторной попыткой, если пересказ не удался. Больше — терпеливее."),
@@ -1058,11 +1071,11 @@ _LIMITS: list[tuple] = [
      "Сколько участников максимум в карте имён. Больше — полнее, но дороже."),
     ("CHAT_BRANCH_CONTEXT_HOPS", "Ходов в итоге ветки <Conversation_Branch>", "int", "limits_chat",
      "Сколько последних ходов reply-цепочки показывать над фоном. Больше — полнее, но дороже."),
-    ("CHAT_CURRENT_QUESTION_MAX_CHARS", "Кап <Current_Question>, символов", "int", "limits_chat",
+    ("CHAT_CURRENT_QUESTION_MAX_CHARS", "Макс. длина текущего вопроса (символов)", "int", "limits_chat",
      "Максимальная длина блока текущего вопроса. Больше — длиннее вопросы видит бот, но дороже."),
-    ("CHAT_LEVEL2_MIN_RAW_COUNT", "Порог сжатия конспекта L1→L2 (сообщений)", "int", "limits_chat",
-     "Сколько сообщений покрывал конспект, чтобы он сжимался в широкий уровень L2. Меньше — уровни строятся раньше."),
-    ("CHAT_LEVEL2_MAX_CHARS", "Кап широкого конспекта L2, символов", "int", "limits_chat",
+    ("CHAT_LEVEL2_MIN_RAW_COUNT", "Порог сжатия конспекта в широкий фон (сообщений)", "int", "limits_chat",
+     "Сколько сообщений покрывал конспект, чтобы он сжимался в широкий уровень. Меньше — уровни строятся раньше."),
+    ("CHAT_LEVEL2_MAX_CHARS", "Макс. длина широкого фона (символов)", "int", "limits_chat",
      "Сколько символов широкого фона показывать в Global_Context. Больше — глубже история, но дороже."),
     ("CHAT_RAG_DEDUP_OVERLAP_RATIO", "Порог совпадения факта с фоном, доля", "float", "limits_rag",
      "Доля слов факта, уже найденных в фоне, после которой факт не повторяется в блоке памяти."),
@@ -1076,15 +1089,15 @@ _LIMITS: list[tuple] = [
      "Длина одной фразы-якоря. Больше — полнее, но дороже."),
     ("TYPING_INTERVAL_SECONDS", "Интервал «печатает…», сек", "float", "limits_chat_behavior",
      "Как часто обновлять индикатор «печатает…». Меньше — живее, но больше запросов."),
-    ("CHAT_TEMPERATURE_PRECISE", "Temperature: точный", "float", "limits_temperature",
+    ("CHAT_TEMPERATURE_PRECISE", "Креативность (Точный режим)", "float", "limits_temperature",
      "Насколько строго бот отвечает в режиме «точный». Больше — свободнее, меньше — суше."),
-    ("CHAT_TEMPERATURE_BALANCED", "Temperature: сбалансированный", "float", "limits_temperature",
+    ("CHAT_TEMPERATURE_BALANCED", "Креативность (Сбалансированный режим)", "float", "limits_temperature",
      "Насколько свободно отвечает в режиме «сбалансированный». Больше — креативнее."),
-    ("CHAT_TEMPERATURE_CHATTY", "Temperature: болтливый", "float", "limits_temperature",
+    ("CHAT_TEMPERATURE_CHATTY", "Креативность (Болтливый режим)", "float", "limits_temperature",
      "Насколько вольные ответы в режиме «болтливый». Больше — креативнее и непредсказуемее."),
     # Раунд 10.4 (B-8): пресет — выпадающий список (widget/select-опции —
     # поля ParamSpec; опции ниже в _SELECT_WIDGET_PRESETS, REGISTRY без роста).
-    ("CHAT_TEMPERATURE_PRESET_DEFAULT", "Temperature-пресет по умолчанию", "str", "limits_temperature",
+    ("CHAT_TEMPERATURE_PRESET_DEFAULT", "Режим креативности по умолчанию", "str", "limits_temperature",
      "Какой режим свободы ответов используется по умолчанию. Точный — строже, болтливый — вольнее."),
     ("GRAPH_FACT_WEIGHT_DIRECT", "Стартовый вес прямых фактов", "float", "limits_graph",
      "Сколько весит факт, сказанный напрямую. Больше — важнее прямые слова."),
@@ -1224,7 +1237,7 @@ _LIMITS: list[tuple] = [
      "Как долго не пересчитывать карточки участников повторно."),
     ("RELATIONS_SCAN_MAX_ROWS", "Потолок строк окна скана", "int", "limits_relations",
      "Строк окна decay > порога — окно сжимается вдвое (до 3 итераций)."),
-    ("RELATIONS_INJECT_MAX_CHARS", "Кап инжекта <user_relations>, символов", "int", "limits_relations",
+    ("RELATIONS_INJECT_MAX_CHARS", "Потолок блока отношений (символов)", "int", "limits_relations",
      "Потолок символов блока отношений в контексте (600; блок uncuttable бюджетом)."),
     ("RELATIONS_API_MAX_USERS", "Потолок участников в списке", "int", "limits_relations",
      "Лимит refresh/GET relations без явного списка (топ по активности)."),
@@ -1600,7 +1613,7 @@ _MEMORY: list[tuple] = [
 
      ("NOSTALGIA_MAX_SEND_CHARS", "Ностальгия: текст сообщения, символов",
       "int", "memory_nostalgia",
-      "Кап текста проактивного сообщения перед отправкой (400).",
+      "Макс. длина текста проактивного сообщения перед отправкой (400).",
      "advanced"),
 ]
 
@@ -1709,6 +1722,23 @@ _SELECT_WIDGET_PRESETS: dict[str, dict] = {
         "widget": "select",
         "select_options": ("after_sleep", "fixed"),
         "select_labels": ("Запускать после сна", "Своё время (час ниже)"),
+    },
+    # 10.20 (БЛОК 5.1, О4 FINAL): «Часовой пояс чата» — select с человеческими
+    # названиями (значения — IANA-имена для zoneinfo; пусто → фолбэк на
+    # limits.summary_timezone). Preцедент _SELECT_WIDGET_PRESETS.
+    "CHAT_TIMEZONE": {
+        "widget": "select",
+        "select_options": (
+            "", "Europe/Kaliningrad", "Europe/Moscow", "Europe/Kyiv",
+            "Asia/Yekaterinburg", "Asia/Almaty", "Asia/Tbilisi",
+            "Asia/Novosibirsk", "Asia/Krasnoyarsk", "Asia/Dubai",
+            "Asia/Vladivostok", "Europe/Berlin", "UTC"),
+        "select_labels": (
+            "Как у саммари (по умолчанию)", "UTC+2 (Калининград)",
+            "UTC+3 (Москва)", "UTC+2/+3 (Киев)", "UTC+5 (Екатеринбург/Пермь)",
+            "UTC+5 (Алматы)", "UTC+4 (Тбилиси)", "UTC+7 (Новосибирск)",
+            "UTC+7 (Красноярск)", "UTC+4 (Дубай)", "UTC+10 (Владивосток)",
+            "UTC+1/+2 (Берлин)", "UTC (0)"),
     },
 }
 for _name, _opts in _SELECT_WIDGET_PRESETS.items():

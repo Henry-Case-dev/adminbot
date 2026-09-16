@@ -34,14 +34,14 @@ class TestCatalogInvariant:
         # 10.18 (F1): +1 env-only BETTERSTACK_HOST (ADR-1018-1 D3)
         # → 436/406/411.
         # 10.19 (F3/ADR-1019-3 D3, UPD3 п.5): → 437/92/90/20/407/412.
-        assert len(pc.REGISTRY) == 437
+        assert len(pc.REGISTRY) == 439
         assert len(pc.GROUPS) == 92
         assert len(pc._TAB_BY_GROUP) == 90
         assert len(pc.TAB_RULES) == 20
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 407
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 409
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 412
+        assert len(categorized) == 414
 
     def test_persona_not_config_tab(self):
         # «Личность» — special-screen, НЕ запись TABS (иначе ломается
