@@ -2,9 +2,10 @@
 
 Только эпики, которые можно начать планировать. Канон-блоки промптов — в `docs/canon/`; закрытые эпики 1–85 — история в git-истории (прежние файлы plans/, удалены 03.09.2026).
 
-## Раунд 10.21 (18.09.2026): System 2 Reasoning — многослойная экстракция памяти, строгий grounding фактчекера + CoVe, де-роботизация, пороги Парадигм, ребилд/санитария памяти, автономный UI-аудит — 6 фич — ✅ COMPLETED + ЗААРХИВИРОВАН (18.09.2026 · @Reviewer Approved iter3 · @Scanner re-audit 0 C/0 H/0 M · @PM Step 8 · @Architect Merge **§47**; **деплой — @DevOps Step 9, вне этого шага**)
+## Раунд 10.21 (18.09.2026): System 2 Reasoning — многослойная экстракция памяти, строгий grounding фактчекера + CoVe, де-роботизация, пороги Парадигм, ребилд/санитария памяти, автономный UI-аудит — 6 фич — ✅ COMPLETED + DEPLOYED + ЗААРХИВИРОВАН (18.09.2026 · @Reviewer Approved iter3 · @Scanner re-audit 0 C/0 H/0 M · @PM Step 8 · @Architect Merge **§47** · @DevOps Step 9 деплой)
 
-**✅ ИТОГ 10.21 (18.09.2026):** эпик **COMPLETED + ЗААРХИВИРОВАН**; **деплой — @DevOps (Step 9, Шаг 8 архивацию завершает, деплой — вне неё)**.
+**✅ ИТОГ 10.21 (18.09.2026):** эпик **COMPLETED + DEPLOYED + ЗААРХИВИРОВАН**.
+**✅ DEPLOY (Step 9 @DevOps, 18.09.2026):** коммиты **`29fc638`** (feat) + **`a923310`** (docs/plans: архивация + §47 + отчёты) → push `21cd54c..a923310`; прод `/var/www/admin_bot` fast-forward `ec93c3d..a923310`; `systemctl` **active** (PID **3023258**); включены `DREAM_ENABLED=true` / `DEEP_SLEEP_ENABLED=true` / `BELIEF_DECAY_ENABLED=true`; `/api/health` + `/healthz` = **200**; SQLite `user_version=12`; канон-миграция промптов идемпотентна (8 ключей). Детали — `plans/metrics.md` (раздел «Детали раунда 10.21»); KG `release-round1021`.
 Реализовано **6 фич** (F1–F6), **ADR-1021-1…-6**, задачи **T-1943…T-2018 (76)**. @Reviewer — **Approved** (итерация 3);
 @Scanner (re-audit, `plans/reports/round1021_scanner_audit.md`) — **0 Critical / 0 High / 0 Medium** (открыто 1 Low **S10.21-8** + **N10.21-1/-2** + **4 Info**); полный
 **pytest — 6779 passed / 0 failed**; **каталог 439/409/414/92/90/20 (Δ=0)**; **SQLite v12 (Δ DDL = 0)**; JS-гейты (`node --check web/app.js`, `JS-UNIT-OK`, `VUE-MOUNT-OK`) чистые; `git diff --check` clean.
@@ -31,10 +32,10 @@
 **N10.21-2** (Low: бинарный гард `roster_incomplete` по `independent > 0`); **4 Info** (S10.21-10…13);
 **WebView Telegram (Android/Nekogram/iOS) не воспроизводился** (headless ≠ WebView — унаследованное ограничение F6); **IRONY-развязка** — подтвердить в живом прогоне на деплое.
 
-**⚠️ Пост-архивный фикс теста (PM не правит код):** `tests/test_de_robotization_round1021.py:157` захардкожен путь
-`plans/features/de-robotization-negative-constraints-round1021/ROLLBACK.md` → после архивации этот тест падает (проверено: `1 failed / 51 passed`).
-Требуется замена `plans/features/` → `plans/archive/` (задача @Builder/@DevOps на Шаге 9). Прочие упоминания `plans/features/*-round1021` в `tests/` —
-только комментарии/докстринги, безопасны.
+**✅ Пост-архивный фикс теста — РЕШЁН (коммит `29fc638`):** `tests/test_de_robotization_round1021.py` искал
+`plans/features/de-robotization-negative-constraints-round1021/ROLLBACK.md` → после архивации доработан **archive-fallback**
+(`plans/archive/de-robotization-negative-constraints-round1021/ROLLBACK.md`); тест зелёный (итоговый прогон **6779 passed / 0 failed**).
+Прочие упоминания `plans/features/*-round1021` в `tests/` — только комментарии/докстринги, безопасны.
 
 **ТЗ:** `plans/current_task.md` (untracked, .gitignore:70; содержит plaintext SSH-креды → **не коммитить, значения не цитировать**; R17/R18). Части: **ЧАСТЬ 1** (System 2 Reasoning), **ЧАСТЬ 2** (Data Migration), **ЧАСТЬ 3** (UI/UX-аудит).
 **Цель эпика:** снять архитектурный потолок наивного RAG и однопроходной генерации: многослойная экстракция памяти (Слой А scratchpad + Слой Б синтезатор), изолированный RAG фактчекера со строгим grounding + Chain-of-Verification, де-роботизация (negative constraints против RLHF-тропов), починка порогов Парадигм/Deep Sleep + консолидация, ребилд/санитария досье и убеждений, автономный браузерный UI-аудит с фиксами.
