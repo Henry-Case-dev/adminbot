@@ -3,6 +3,35 @@
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
+## Round 10.21 scan + re-audit (Step 6 @Scanner, 18.09.2026) — all scanned/closed (diff-based, HEAD 21cd54c + worktree)
+- [x] services/grounding_validator.py (F2: anchors только из доверенных источников — S10.21-5 CLOSED; дата-теги без
+      `fact:ID` проверяются — S10.21-4 CLOSED; fail-open, no ReDoS)
+- [x] services/factcheck_service.py + services/tool_loop.py (F2: `tool_context` до cleanup; `trusted_parts` =
+      rag/results/chat_context/tool_context, `<claim>`/`<user_hint>` исключены — S10.21-5 CLOSED)
+- [x] services/dossier_prompts.py + services/lore_worker.py (F1: слои A/B, фильтр, дедуп, бюджет; пустой `memes` Слоя Б
+      больше не перетирается мемами А — S10.21-7 CLOSED)
+- [x] services/database.py (`get/upsert_generated_dossier`; `initialize_readonly` (`mode=ro`, без DDL/WAL/создания файла) —
+      S10.21-6 CLOSED; схема v12, Info S10.21-11 открыт)
+- [x] services/memory_rebuild.py (F5: allowlist+`RAW_HISTORY_TABLES`+`_guarded_delete`; бэкап→JSONL→сверка→DELETE;
+      `_chat_roster` union nodes+portraits+overrides + `roster_incomplete`/`roster_size` — S10.21-2 CLOSED;
+      `belief_source` исключает опоры убеждений — S10.21-3 CLOSED; Info S10.21-13 открыт)
+- [x] manage.py (F4/F5 CLI `memory`; guard целевого чата; `audit` через `initialize_readonly` — S10.21-6 CLOSED)
+- [x] services/memory_maintenance.py (F4 consolidate fail-closed; per-chat кап `deep_sleep_max_paradigms_per_run` +
+      `deep_sleep_top_k` — S10.21-1 CLOSED; Low S10.21-8 парадигмы без vec — ОТКРЫТО, вне скоупа фиксов)
+- [x] services/config_migrations.py + services/prompt_migrations.py + `*_prompts.py` (F3/F4: PREV_*_R1021 + ROLLBACK,
+      идемпотентные миграции порогов, docs-канон синхронен — чисто)
+- [x] services/prompt_style_blocks.py (F3: блоки A/B, R46-4 без «уже проверял» — чисто)
+- [x] config/settings.py + bot.py + .env.example (env-only ClassVar, порядок роутеров не тронут, Δ каталога = 0 — чисто)
+- [x] web/app.js + web/index.html + web/api/chat_lore.py + tests/js/round1021_ui_audit_test.js (F6: `_syntheticGroup` в
+      methods, `positionScopePanel`; регресс зелёный — чисто)
+- [x] tools/ui_audit_round1021.py + UI_AUDIT_REPORT.md + tools/_ui_audit_raw.json (F6: реальный Playwright-рендер;
+      S10.21-9 CLOSED — `tools/_ui_audit_shots/` и `tools/_ui_audit_raw.json` в `.gitignore`, `git check-ignore -v` OK)
+- [x] tests/test_*_round1021.py + тесты канонов/промптов — 217 целевых passed; фиксы S10.21-2/-3/-6/-7 подтверждены
+      7 ad-hoc пробами @Scanner (своих регресс-тестов у этих 4 веток нет — новый Low N10.21-1)
+- **СВОДКА RE-AUDIT: Critical 0 / High 0 / Medium 0 (open).** Low: S10.21-8 (вне скоупа) + N10.21-1 (тест-покрытие) +
+  N10.21-2 (бинарный `roster_incomplete`). Info 4. Вердикт: **раунд передаётся на Merge/деплой**; обязательных
+  возвратов @Builder нет. Отчёт: `round1021_scanner_audit.md` §«Re-audit после пост-скан фиксов».
+
 ## Round 10.20 scan + re-audit (T-1915, 2026-09-16) — all scanned/closed (diff-based, HEAD 2f3e1f0 + worktree)
 - [x] web/index.html + web/app.js (S10.20-1 High CLOSED: `<sticky-save>` в ветке `currentTabIsConfig`
       (:704) + модалка «Модулей» (:967) + «Доступы» (:1549) + футер досье (:2694); S10.20-6 CLOSED:

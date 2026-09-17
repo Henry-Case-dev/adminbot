@@ -2,6 +2,71 @@
 
 Только эпики, которые можно начать планировать. Канон-блоки промптов — в `docs/canon/`; закрытые эпики 1–85 — история в git-истории (прежние файлы plans/, удалены 03.09.2026).
 
+## Раунд 10.21 (18.09.2026): System 2 Reasoning — многослойная экстракция памяти, строгий grounding фактчекера + CoVe, де-роботизация, пороги Парадигм, ребилд/санитария памяти, автономный UI-аудит — 6 фич — ✅ COMPLETED + ЗААРХИВИРОВАН (18.09.2026 · @Reviewer Approved iter3 · @Scanner re-audit 0 C/0 H/0 M · @PM Step 8 · @Architect Merge **§47**; **деплой — @DevOps Step 9, вне этого шага**)
+
+**✅ ИТОГ 10.21 (18.09.2026):** эпик **COMPLETED + ЗААРХИВИРОВАН**; **деплой — @DevOps (Step 9, Шаг 8 архивацию завершает, деплой — вне неё)**.
+Реализовано **6 фич** (F1–F6), **ADR-1021-1…-6**, задачи **T-1943…T-2018 (76)**. @Reviewer — **Approved** (итерация 3);
+@Scanner (re-audit, `plans/reports/round1021_scanner_audit.md`) — **0 Critical / 0 High / 0 Medium** (открыто 1 Low **S10.21-8** + **N10.21-1/-2** + **4 Info**); полный
+**pytest — 6779 passed / 0 failed**; **каталог 439/409/414/92/90/20 (Δ=0)**; **SQLite v12 (Δ DDL = 0)**; JS-гейты (`node --check web/app.js`, `JS-UNIT-OK`, `VUE-MOUNT-OK`) чистые; `git diff --check` clean.
+Архитектура — `plans/ARCHITECTURE.md` **§47** (итог/ADR-карта).
+
+**Архив (Step 8 @PM):** все **6 фич-папок** перенесены `plans/features/<feature>-round1021/` → **`plans/archive/<feature>-round1021/`**
+(`git mv`; сохранены `spec.md` + `tasks.md` + `ADR-1021-N.md`, а также `ROLLBACK.md` (F3) и `audit.md` (F4)). R18-скан папок — **чисто** (секретов нет).
+В `plans/features/` остались только 6 ранее существовавших backlog-папок; пустых/осиротевших папок нет.
+
+**Инварианты:** **`imported-history-immutable`** (сырая история `smart_messages` не удаляется) и **`manual-overrides-immutable`**
+(`persona_dossier_overrides` не перезаписываются; writer пишет только производные `graph_facts`). **env-only рубильники** вне каталога (`ClassVar`, Δ=0):
+**`MULTILAYER_EXTRACTION_ENABLED`** (**default ON**) — аварийный kill-switch F1; **`DEEP_SLEEP_THRESHOLD_MIGRATION_ENABLED`** (**default OFF**) —
+активация PG-миграции порогов `migrate_deep_sleep_thresholds` (cooldown 20→6 ч) оператором при ветке B/C.
+
+**Парадигмы (T-1972; `plans/reports/round1021_paradigm_audit.md`):** корень мёртвого мета-слоя — **выключенные** `DREAM_ENABLED` / `DEEP_SLEEP_ENABLED`
+(+ `BELIEF_DECAY_ENABLED`), **а не пороги**; санкционированное действие — **включить флаги `memory.dream_enabled` + `flags.deep_sleep_enabled` на деплое**
+(per-chat/global), затем при необходимости — ручная консолидация `python manage.py memory consolidate`.
+
+**Resolved / ключевое:** развязка F1 от `IRONY_FILTER_ENABLED` (T-2013: портреты/мемы пишутся при irony OFF, гейтит только kill-switch);
+закрыты Medium S10.21-1/-2 и Low S10.21-3…-7/-9.
+
+**Остаточный техдолг (не блокеры, follow-up):** **S10.21-8** (Low: парадигмы CLI без vec-эмбеддинга, `services/memory_maintenance.py:785` — `DreamWorker(memory=None)`);
+**N10.21-1** (Low: нет регресс-тестов на `_chat_roster`/`roster_incomplete`/`belief_source`/`initialize_readonly`/пустой Слой Б);
+**N10.21-2** (Low: бинарный гард `roster_incomplete` по `independent > 0`); **4 Info** (S10.21-10…13);
+**WebView Telegram (Android/Nekogram/iOS) не воспроизводился** (headless ≠ WebView — унаследованное ограничение F6); **IRONY-развязка** — подтвердить в живом прогоне на деплое.
+
+**⚠️ Пост-архивный фикс теста (PM не правит код):** `tests/test_de_robotization_round1021.py:157` захардкожен путь
+`plans/features/de-robotization-negative-constraints-round1021/ROLLBACK.md` → после архивации этот тест падает (проверено: `1 failed / 51 passed`).
+Требуется замена `plans/features/` → `plans/archive/` (задача @Builder/@DevOps на Шаге 9). Прочие упоминания `plans/features/*-round1021` в `tests/` —
+только комментарии/докстринги, безопасны.
+
+**ТЗ:** `plans/current_task.md` (untracked, .gitignore:70; содержит plaintext SSH-креды → **не коммитить, значения не цитировать**; R17/R18). Части: **ЧАСТЬ 1** (System 2 Reasoning), **ЧАСТЬ 2** (Data Migration), **ЧАСТЬ 3** (UI/UX-аудит).
+**Цель эпика:** снять архитектурный потолок наивного RAG и однопроходной генерации: многослойная экстракция памяти (Слой А scratchpad + Слой Б синтезатор), изолированный RAG фактчекера со строгим grounding + Chain-of-Verification, де-роботизация (negative constraints против RLHF-тропов), починка порогов Парадигм/Deep Sleep + консолидация, ребилд/санитария досье и убеждений, автономный браузерный UI-аудит с фиксами.
+**Baseline (Step 0 @Memory):** HEAD `21cd54c`; pytest **6574 passed / 0 failed**; SQLite **v12**; каталог **439/409/414/92/90/20**; APP_VERSION 2.57.0; прод `ec93c3d`.
+**Предшественники (архив):** `plans/archive/round1020-lore-compiler-rag-refactor/` (T-1866…T-1931), `plans/archive/round1020-ui-rework/` (T-1933…T-1942).
+**Follow-up прошлого раунда:** **T-1932** (fallback точки 7 `CONTEXT_POINTS`) — остаётся открытым, в 10.21 не входит.
+**Спеки/ADR:** Step 2 @Architect — **ADR-1021-1…-6 `Accepted`** (UPD владельца 18.09.2026: F1/F2/F3 включены по умолчанию; деструктив F5 без обязательного dry-run; tooling F6 Puppeteer→Playwright→честный отказ; **Δ каталога = 0**). `spec.md` PM **не создаёт**.
+
+**Триггер эпика (симптомы деградации):** мусор в досье (Entity Resolution Failure: Тяньаньмэнь/«Кирилл» у Никиты, «инструкции по сокрытию трупа» у Васи); галлюцинации фактчекера (выдуманные теги `[04.2023 | fact:2574]`); мёртвые Парадигмы (мета-слой Deep Sleep пуст); синтетические RLHF-тропы («нет, ты», «ты уже спрашивал»).
+
+**6 фич (нумерация продолжает T-1942 → T-1943…T-2000, 58 задач):**
+
+| # | Фича (папка) | ТЗ | Тип | Приоритет | Зависит от | Задачи |
+|---|---|---|---|---|---|---|
+| **F1** | `multilayer-memory-extraction-round1021` — Слой А (scratchpad/`<thought>`) + Слой Б (синтезатор), фильтр мусора, entity resolution | Ч.1 Шаг 1 | backend/LLM-память | **P0** | — | T-1943…T-1952 (10) |
+| **F2** | `factchecker-grounding-cove-round1021` — строгий grounding (ID/даты только из контекста) + Chain-of-Verification | Ч.1 Шаг 2 | backend/фактчек | **P0** | F1, F3 (канон) | T-1953…T-1961 (9) |
+| **F3** | `de-robotization-negative-constraints-round1021` — negative constraints против RLHF-тропов + асимметрия + канон-миграция | Ч.1 Шаг 3 | канон промптов | **P0** | F1, F2 | T-1962…T-1970 (9) |
+| **F4** | `paradigm-thresholds-consolidation-round1021` — аудит триггеров Парадигм/Deep Sleep + скрипт Memory Consolidation | Ч.1 Шаг 4 | backend/cognition | P1 | F1, F5 (CLI) | T-1971…T-1979 (9) |
+| **F5** | `memory-rebuild-sanitation-round1021` — `manage.py memory rebuild-dossiers` + санитария убеждений/фактов | Ч.2 | data migration/CLI | **P0** | F1, F4 | T-1980…T-1989 (10) |
+| **F6** | `ui-audit-puppeteer-round1021` — реальный браузерный E2E-аудит + фиксы + `UI_AUDIT_REPORT.md` | Ч.3 | frontend `web/**` | **P0** | — (параллельно) | T-1990…T-2000 (11) |
+
+**Порядок исполнения:** **F6 (параллельно) ∥ [ F1 → {F2 → F3} → {F4 → F5} ]**.
+Обоснование: F6 не пересекается по файлам с бэкендом (`web/**` vs `services/**`+`manage.py`) → стартует сразу; F1 — фундамент (двухэтапный пайплайн), без него F5 бессмыслен; F2 требует F1 (чистый вход) и идёт в паре с F3 (единая канон-миграция `factcheck_prompts.py` + все `*_prompts.py` + `prompt_migrations.py`); F4 даёт консолидацию/пороги, F5 использует её и пайплайн F1.
+**Ступени вливания общих файлов:** `services/lore_worker.py`/`dream_worker.py`/`*_prompts.py` — **F1 → F2+F3** (атомарно: код + `docs/canon/**` + слепки `prompt_migrations.py` + тесты); `config/settings.py` + `services/param_catalog.py` + `services/config_migrations.py` + `manage.py` — **F4 → F5** (**Δ каталога = 0**); `web/*` — **эксклюзив F6**.
+
+**⛔ Факт-ошибки ТЗ (обязательно в spec/ADR @Architect):** класса `PersonalityExtractor` **нет** (реально `LoreWorker._classify_dossier`, `services/lore_worker.py:526`; `_classify_dossier_safe` — `:483`); `DreamWorker` **есть** (`services/dream_worker.py:274`); таблицы `user_dossier` **нет** (досье = `graph_facts` + `persona_dossier_overrides`, `services/database.py:428`, `:4420-4448`); команды `manage.py memory` **нет** (argparse, `manage.py:476`; подкоманды `import`/`overrides`/`retention`); `factcheck_service.py` **уже имеет Full Tool Access** (10.20, фаза E) — не переоткрывать; «36 убеждений» — сверить факт на Step 2, валидатор count-agnostic.
+**⚠️ Канон-конфликт (ADR-1013-3):** текущий канон **ПРЕДПИСЫВАЕТ** «дай понять, что ты уже проверял ранее / не повторять дважды» (`services/factcheck_prompts.py:43,72,104`; также `search_prompts.py`, `summary_prompts.py`, `web_prompts.py`, `youtube_prompts.py`), а ТЗ это **ЗАПРЕЩАЕТ** → обязательна канон-миграция (правка константы + `docs/canon/**` + `prompt_migrations.py` + тесты одним коммитом).
+**⚠️ Инструменты UI-аудита (UPD владельца):** Puppeteer MCP **первым** (`puppeteer_navigate`/`screenshot`/`evaluate`); при недоступности/ошибке — fallback **Playwright ≥1.40 + Chromium** (`requirements.txt:28`, `playwright install chromium --with-deps`; прецедент 10.20-UPD3); если упали оба — **честная фиксация «аудит не выполнен»** в `UI_AUDIT_REPORT.md` (выдумывать результаты запрещено, R2/F6). Human-gate — только спорные дизайн-решения.
+**Риски (полные списки — `tasks.md §4` каждой фичи):** двойная стоимость LLM двухслойного пайплайна (R1/F1); потеря полезных фактов фильтром (R2/F1); канон-атомарность и утечка снятого канона (R1/R2/F3); ложно-негативный grounding (R2/F2); деструктивность консолидации и санитарии — авто-бэкап/JSONL-архив/guard, но **инвариант: сырая история не удаляется** (R1/F4, R1/R5/F5); большой объём БД ~2M строк/724 МБ (R3/F4, R3/F5); факт-ошибки `user_dossier` (R2/F5); **галлюцинация отчёта о готовности UI — прецедент 10.20** (R2/F6); регресс 5 дефектов UPD3 (R3/F6); секреты в отчётах/скриншотах R17/R18 (R5/F6).
+**Активация / раскатка (UPD владельца):** **флагов нет, поэтапной раскатки 10/50/100% нет.** F1/F2/F3 — **включены по умолчанию**; F4-консолидация — CLI-only без флага; F5 — деструктивный CLI **сразу (дефолт apply)**, без обязательного dry-run и двойных env-подтверждений, страховка — авто-бэкап + JSONL-архив, guard целевого чата, «сырую историю не трогаем»; F6 — без флага. **Δ каталога = 0** (439/409/414/92/90/20 без изменений); откат — `git revert` (+ обратная канон-миграция для F2/F3).
+**Открытые гейты раунда (сквозные, вне фич):** Step 2 @Architect (spec/ADR **Accepted**) → реализация → @Reviewer → **Step 6 @Scanner** (независимый re-audit) → SPEC_READY → **Step 9 @DevOps** (для F5: авто-бэкап + боевой прогон + post-check неизменности `smart_messages`; деплой) → **Step 8 @PM** (архив `plans/features/*` → `plans/archive/*`). Отчёт @Scanner 10.20 (`plans/reports/round1020_scanner_audit.md`) — учесть: S10.20-1 (High, сохранение конфиг-вкладок) закрыт в UPD3; не переоткрывать.
+
 ## Раунд 10.20 (16.09.2026): «Летописец» (Lore Compiler) + глубокий рефакторинг RAG-архитектуры + UX/UI мини-аппа + Agentic AI (БЛОК 7) + Справка UI (БЛОК 8) — 1 фича-папка (фазы A–H) — ✅ COMPLETED + DEPLOYED + ЗААРХИВИРОВАН (16.09.2026 · commit `995cf83` + R18-fix `741b77c`; @PM Step 8 · @Architect Merge §45)
 
 > **✅ REOPENED → RESOLVED (UI rework) — 17.09.2026 (UPD3 владельца, 16.09.2026):** фронтенд-блок **БЛОК 3** (`miniapp-ux-refactor-round1020`) был провален (отчёт Оркестратора о готовности — галлюцинация; бэкенд работает). **@Reviewer — выговор** за пропуск. Эпик возвращён на доработку — **5 дефектов:** (1) нет Liquid Glass; (2) CSS Grid в одну колонку; (3) КРИТИЧНО пустые поля/секреты (two-way binding, аудит во всех модулях); (4) градиент 5–8s + оранжевый; (5) сломанная sticky-панель «Отмена/Сохранить». До отчётов о готовности — только реальный фикс CSS/стейта. KG: Feature `round1020-ui-rework`, constraints `glassmorphism-contract`/`css-grid-320`/`secret-field-mask`/`gradient-motion-orange`; метрики — `plans/metrics.md`. **➡ ЗАКРЫТО:** доработка `round1020-ui-rework` — **✅ COMPLETED + DEPLOYED + ЗААРХИВИРОВАН** (17.09.2026 · commit `ec93c3d`; @Reviewer Approved iter2 · @Scanner 0 C/H · pytest 6574/0; архив `plans/archive/round1020-ui-rework/`, §46) — см. раздел «Раунд 10.20-UPD3 (UI-rework)» ниже.

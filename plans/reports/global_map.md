@@ -1,6 +1,15 @@
 # Global Map (architectural memory)
 
 > Архитектурная память Scanner. Не источник правды о коде — только карта связностей.
+>
+> **АКТУАЛЬНЫЙ baseline эпика 10.21 (`System 2 Reasoning & Memory Rebuild`, 18.09.2026, Step 6 @Scanner, re-audit):**
+> HEAD `21cd54c` + рабочее дерево (6 фич F1–F6, не закоммичено). @Reviewer `Approved` (iter 3), полный pytest
+> **6779 passed / 0 failed** (после пост-скан фиксов @Builder). Схема БД **v12** (Δ=0), каталог **Δ=0** (ClassVar-рубильники
+> вне param_catalog). `git diff --check` — только LF/CRLF. **Статус: 0 Critical / 0 High / 0 Medium открыто** (S10.21-1/-2
+> закрыты, как и Low S10.21-3/-4/-5/-6/-7/-9); осталось Low S10.21-8 (vec парадигм CLI) + 4 Info + 2 новых Low
+> (N10.21-1 тест-покрытие, N10.21-2 бинарный `roster_incomplete`) → **раунд передаётся на Merge/деплой**.
+> Отчёт: `plans/reports/round1021_scanner_audit.md` (§«Re-audit после пост-скан фиксов»). Детали карты — ниже.
+>
 > **ФИНАЛЬНЫЙ baseline эпика 10.18 (БАТЧИ 1–4: F1–F7, 15.09.2026):**
 > HEAD `118a03c` + рабочее дерево (F7 settings-worker-sync, F1 betterstack-us-region-401,
 > F2 sleep-manual-cascade-badges, F3 graph-density-scoring-stoplist, F4 graph-physics-stabilization,
@@ -39,6 +48,58 @@
 > Открыто: 2 Low (S10.19-15 — двойной `key_status` в «Сводке»; S10.19-23 — fsync каталога архива) + S10.18-29 (Low)
 > + 16 Info; обязательные @DevOps-гейты (dry-run → бэкап → SQL-чеклист → purge) — отчёт §10.5.
 > Отчёт: `plans/reports/round10.19_scanner_audit.md` (§10 — Батч E + итог эпика).
+
+## Round 10.21 — F1 multilayer / F2 grounding+CoVe / F3 де-роботизация / F4 консолидация / F5 rebuild-sanitation / F6 UI-аудит (18.09.2026) — карта связностей
+
+- **F1 `multilayer-memory-extraction` (ADR-1021-1):** `LoreWorker._classify_dossier` → ветвление по env-only
+  `settings.MULTILAYER_EXTRACTION_ENABLED` (default True, ClassVar). Слой А (`LAYER_A_SYSTEM_PROMPT` +
+  `parse_layer_a` + `filter_layer_a_candidates`) → Слой Б (`LAYER_B_SYSTEM_PROMPT` + `build_layer_b_user` +
+  `parse_layer_b` + `validate_layer_b` с анти-цитатным `find_verbatim_quote`). Бюджет: прогноз `_budget_ok(calls=2)`,
+  фактический retry/fallback добирается `_budget_extra_calls` (fail-open). Fallback: A невалиден → legacy 10.20;
+  B упал → memes Слоя А без портрета. Персистенция: `DatabaseService.upsert_generated_dossier`/`get_generated_dossier`
+  — `graph_facts.status='dossier_portrait'` (нулевой DDL), рендер `render_generated_portrait` (≤600). Изоляция от
+  RAG/KNN/`get_persona_card`/`get_persona_names`/`get_dream_candidates`/`list_chat_memes` — через `status!='confirmed'`
+  (FTS-ветка фильтрует статус, KNN — `by_id`), vec-строки портрет не получает. Приоритет `persona_dossier_overrides`
+  в `web/api/chat_lore.py` (`portrait_source='manual'`) и `direct_chat_service._format_generated_portrait_block`.
+- **F2 `factchecker-grounding-cove` (ADR-1021-2):** новый `services/grounding_validator.py` — `collect_allowed_anchors`
+  (fact:ID/`ММ.ГГГГ`/ISO только из ДОВЕРЕННЫХ источников: RAG/`search_results`/`chat_context`/`tool_context`; `<claim>`/
+  `<user_hint>` исключены — S10.21-5) + `strip_phantom_tags` (bracket с `fact:` режется целиком при несовпадении
+  id/даты; дата-только метка без `fact:ID` тоже проверяется по контексту — S10.21-4; голые `fact:ID` — по токену;
+  fail-open, логи counts). `FactCheckService.check_claim`:
+  `tool_context` читается с `ToolLoopResult` ДО `cleanup_llm_text`; CoVe-блок `<reasoning>` снимается штатным
+  `strip_reasoning_tags`. `ToolLoopResult.tool_context` — аддитивный атрибут (склейка выводов тулов, R17-safe).
+- **F3 `de-robotization-negative-constraints` (ADR-1021-3):** новый `services/prompt_style_blocks.py`
+  (`ANTI_BOT_BLOCK`/`ASYMMETRY_BLOCK`/`STYLE_BLOCKS_SUFFIX`, новый R46-4 без «уже проверял» + legacy-версия).
+  8 канонов (`chat/checkup/search/summary/web/youtube/youtube_video/factcheck`) собираются как `base + suffix`;
+  добавлены `PREV_*_R1021` в `PROMPT_MIGRATIONS` и обратный `ROLLBACK_MIGRATIONS` (`rollback_prompt_canons`,
+  ручной runbook). `docs/canon/**` синхронны.
+- **F4 `paradigm-thresholds-consolidation` (ADR-1021-4):** `memory_maintenance.consolidate` — CLI-only,
+  `DreamWorker._write_paradigm` с дедупом `_deep_dedup_key`/`_paradigm_dedup_keys`, fail-closed без `db_path`
+  (`allow_no_backup=False`), авто-бэкап+JSONL; `collect_paradigm_audit` (READ-ONLY по коду) + `memory_health`
+  счётчики. `config_migrations.migrate_deep_sleep_thresholds` (20→6) — env-рубильник default OFF, вызов в `bot.py`
+  после `migrate_context_limit_defaults`. **Закрыто Medium S10.21-1:** `consolidate` применяет per-chat кап
+  `limits.deep_sleep_max_paradigms_per_run` (иначе `DEEP_SLEEP_MAX_PARADIGMS`) и ограничивает выборку `limits.deep_sleep_top_k`;
+  **Low S10.21-8 (открыто):** парадигмы CLI без vec-эмбеддинга (`DreamWorker(memory=None)`).
+- **F5 `memory-rebuild-sanitation` (ADR-1021-5):** новый `services/memory_rebuild.py` — единственный путь DELETE
+  `_guarded_delete` + `assert_derived_table` (allowlist производных; `RAW_HISTORY_TABLES` блокируются всегда, в т.ч.
+  через `extra`). `_safety_backup` (Backup API + fsync) → `_archive_generated_rows` (JSONL) → сверка
+  `candidates==archived` → DELETE. `rebuild_dossiers` (chat_meme+dossier_portrait reset + pipeline F1), `sanitize_beliefs`
+  (orphan/invalid_belief/hallucination), `_reset_overrides` только под `--include-overrides`. CLI `manage.py memory`
+  (`_memory_scope`: `--all` без целевого, `--chat <target>` требует `--allow-target-chat`; дефолт apply, `--dry-run` —
+  опция). Сырая история только READ. **Исправлено (S10.21-2/-3/-6):** `_chat_roster` = union `nodes` + `dossier_portrait` +
+  `persona_dossier_overrides` (AliasResolver) с `independent`-счётчиком и гардом `roster_incomplete` (мемы вне неполного
+  ростера не удаляются), `roster_size` в отчёте; `belief_sources` (`source_ids`+`evidence`) исключаются из orphan
+  (reason `belief_source`); `memory audit` через `DatabaseService.initialize_readonly` (`mode=ro`, без DDL/WAL/создания
+  файла). Осталось: Info S10.21-11/13 + Low N10.21-2 (бинарный гард ростера).
+- **F6 `ui-audit-puppeteer` (ADR-1021-6):** Puppeteer MCP честно недоступен → fallback Playwright+Chromium
+  (`tools/ui_audit_round1021.py`, фейковый stub, `sk_FAKE_*`); отчёт `UI_AUDIT_REPORT.md` + `tools/_ui_audit_raw.json`
+  + `tools/_ui_audit_shots/`. Фиксы: F6-01 (`_syntheticGroup` из `computed` → `methods`), F6-02/L-4
+  (`positionScopePanel` + `scopePanelStyle`). Регресс-зонды `tests/js/round1021_ui_audit_test.js`;
+  `web/index.html` — блоки авто-портрета/паттернов/тем досье.
+- **Инварианты:** порядок роутеров `bot.py` не тронут (только 2 вызова миграций), каталог Δ=0, SQLite v12, R16
+  (аддитивные поля API), R17 (логи counts/коды), секретов нет; `backups/` gitignored (JSONL/бэкапы F5 не в репо).
+  **Закрыто Low S10.21-9:** `tools/_ui_audit_shots/` (≈9.2 МБ) и `_ui_audit_raw.json` добавлены в `.gitignore`
+  (`git check-ignore -v` подтверждает); в репо остаются только `tools/ui_audit_round1021.py` и `UI_AUDIT_REPORT.md`.
 
 ## Round 10.19 — БАТЧ E: F6 `media-files-avatars-sync` + F7 `memory-retention-health` (16.09.2026, после UPD4) — карта связностей
 

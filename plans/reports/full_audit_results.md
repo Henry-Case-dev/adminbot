@@ -1296,3 +1296,35 @@ golden-путь отдельным SQL-порогом; F6 `NAV_*`/`TAB_NAV`/`tab
 - Валидатор: pytest **6546 passed / 0 failed** (87.49 s); `node --check web/app.js` OK;
   `routing_test.js`/`round1020_ui_test.js` `JS-UNIT-OK`; `vue_mount_test.js` `VUE-MOUNT-OK`;
   `git diff --check` exit 0. **ВЕРДИКТ: «нет Critical/High».**
+
+## Round 10.21 (Step 6 @Scanner, 18.09.2026) — diff-based аудит `System 2 Reasoning & Memory Rebuild`
+
+- Отчёт: `plans/reports/round1021_scanner_audit.md`. Baseline HEAD `21cd54c` + рабочее дерево (6 фич F1–F6;
+  новые `grounding_validator.py`, `memory_rebuild.py`, `prompt_style_blocks.py`, `tools/ui_audit_round1021.py` и др.).
+- Сводка: **Critical 0 / High 0 / Medium 2 / Low 7 / Info 4.** **ВЕРДИКТ: 0 Critical / 0 High → шаг 7 разрешён**
+  (@Reviewer Approved iter 3; полный pytest 6775/0 заявлен @Reviewer, независимо проверены 213 целевых тестов).
+- **S10.21-1 [Medium]** F4 `memory_maintenance.consolidate` (`:850-864`) пишет парадигму на каждого кандидата —
+  кап `DEEP_SLEEP_MAX_PARADIGMS` (применяется только в `dream_worker.py:1578-1582`) не соблюдён, вопреки
+  докстрингу `:735`.
+- **S10.21-2 [Medium]** F5 `memory_rebuild._chat_roster` (`:275-285`) берёт «ростер участников» из
+  `nodes(entity_type='user')`, а узлы создаются только триплетным путём (`summary_memory.py:3250-3267`) →
+  неполный ростер → ложные «галлюцинации» и удаление валидных `chat_meme` (`:531-544`). Митигация: бэкап + JSONL + dry-run.
+- Low (7): S10.21-3 (каскад orphan→belief `missing_sources`), S10.21-4 (grounding не режет дата-теги без `fact:ID`),
+  S10.21-5 (якоря из `<claim>`/`<user_hint>` — обход grounding), S10.21-6 (`memory audit` не строго RO: `initialize()`/WAL),
+  S10.21-7 (пустой `memes` Слоя Б перетирается `memes_a`), S10.21-8 (парадигмы CLI без vec-эмбеддинга),
+  S10.21-9 (`tools/_ui_audit_shots/` ≈9.2 МБ не в `.gitignore`).
+- Info (4): S10.21-10 (хардкод `ADMIN_ID` в инструменте), S10.21-11 (audit на «чужой» БД молча даёт нули),
+  S10.21-12 (`_MONTH_RE` читает `MM.YYYY` из `DD.MM.YYYY`), S10.21-13 (класс-счётчик orphan до перезаписи).
+- Подтверждено корректным: F5 — allowlist + `RAW_HISTORY_TABLES` (в т.ч. через `extra`), единственный путь DELETE,
+  бэкап ДО DELETE, сверка `candidates==archived`, guard целевого чата (`--all`/`--allow-target-chat`); F4 — fail-closed
+  без `db_path`, нет авто-кронов/HTTP; F1 — изоляция `dossier_portrait` от RAG/KNN/`get_persona_card` и приоритет
+  ручных overrides; F3 — `PREV_*_R1021` в `PROMPT_MIGRATIONS` + `ROLLBACK_MIGRATIONS`, docs-канон синхронен; F2 —
+  fail-open, `_BRACKET_RE` без ReDoS; F6 — реальный fallback-рендер, `_syntheticGroup` в `methods`, секретов нет.
+- Валидатор: целевой pytest **213 passed**; `node tests/js/round1021_ui_audit_test.js` → `JS-UNIT-OK`;
+  `node --check web/app.js` OK; `git diff --check` — только LF/CRLF; `py_compile` изменённых файлов OK.
+- **RE-AUDIT (18.09.2026, после пост-скан фиксов @Builder):** S10.21-1/-2/-3/-4/-5/-6/-7/-9 **закрыты**;
+  открыто 1 Low (S10.21-8, вне скоупа) + 2 новых Low (N10.21-1 тест-покрытие четырёх фиксов; N10.21-2
+  бинарный характер гарда `roster_incomplete`) + 4 Info. Регрессии целы: user_version=12, каталог Δ=0,
+  сырая история/ручные overrides не мутируются, JS-UNIT-OK. Валидатор: 217 целевых тестов + 7 ad-hoc проб.
+  **Сводка re-audit: Critical 0 / High 0 / Medium 0 открыто → @Orchestrator, шаг 7 (Merge/deploy).
+  Детали — `round1021_scanner_audit.md` §«Re-audit после пост-скан фиксов».**
