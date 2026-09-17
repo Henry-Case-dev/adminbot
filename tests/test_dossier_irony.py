@@ -11,7 +11,7 @@ import time
 
 import pytest
 
-from config.settings import settings
+from config.settings import Settings, settings
 from services import hot_config as hot
 from services.database import DatabaseService
 from services.direct_chat_service import DirectChatService
@@ -66,10 +66,14 @@ class FakeLLM:
 
 
 def _flag(monkeypatch, enabled: bool) -> None:
+    # F1 (multilayer-memory-extraction-round1021): этот файл проверяет путь
+    # 10.20 (single-pass) — принудительно гасим двухслойный пайплайн
+    # аварийным env-kill-switch. Двухслойность покрыта test_multilayer_*.
     monkeypatch.setattr(
         hot, "get",
         lambda key, default=None: enabled
         if key == "flags.irony_filter_enabled" else default)
+    monkeypatch.setattr(Settings, "MULTILAYER_EXTRACTION_ENABLED", False)
 
 
 def _worker(db, llm, aliases=None) -> LoreWorker:

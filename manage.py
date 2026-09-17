@@ -627,6 +627,95 @@ def build_parser() -> argparse.ArgumentParser:
                      help="строк на пачку при архиве/purge (дефолт 2000)")
     ret.add_argument("--archive-dir", default=None,
                      help="каталог файла-архива (дефолт: MEMORY_BACKUP_DIR)")
+    # ── F4/F5 (10.21, ADR-1021-4 / ADR-1021-5): CLI памяти ─────────────────
+    # Дефолт — БОЕВОЙ прогон (`apply`); обязательный dry-run и двойные
+    # env-подтверждения ОТМЕНЕНЫ (UPD). `--dry-run` — опциональная диагностика.
+    # ⛔ Сырая история (smart_messages/импорт) не мутируется ни при каких
+    # обстоятельствах (guard allowlist в services/memory_rebuild.py).
+    mem = sub.add_parser(
+        "memory",
+        help="память: rebuild-dossiers | sanitize-beliefs | consolidate | audit",
+        description="Деструктивный контур памяти: пересборка досье "
+                    "(двухслойный пайплайн F1), санитария убеждений/фактов, "
+                    "консолидация убеждений в парадигмы и READ-ONLY аудит. "
+                    "Только сгенерированные производные; сырая история "
+                    "неприкосновенна; авто-бэкап + JSONL-архив до DELETE; "
+                    "без авто-кронов.")
+    mem_sub = mem.add_subparsers(dest="memory_command",
+                                 metavar="<подкоманда>")
+    mem_sub.required = True
+
+    def _add_memory_common(sp, *, with_scope: bool) -> None:
+        sp.add_argument("--db", default=None,
+                        help=f"путь SQLite-БД (дефолт: {settings.DB_PATH})")
+        sp.add_argument("--limit", type=int, default=500,
+                        help="потолок строк bounded-выборки (дефолт 500)")
+        sp.add_argument("--batch", type=int, default=2000,
+                        help="строк на пачку архива/удаления (дефолт 2000)")
+        sp.add_argument("--backup-dir", default=None,
+                        help="каталог авто-бэкапа/JSONL-архива "
+                             "(дефолт: MEMORY_BACKUP_DIR)")
+        sp.add_argument("--dry-run", action="store_true",
+                        help="опциональная диагностика: ничего не пишет и не "
+                             "удаляет (дефолт — боевой прогон)")
+        if with_scope:
+            sp.add_argument("--chat", type=int, action="append", default=None,
+                            help="чат явно (можно несколько раз); целевой "
+                                 f"чат {LEGACY_TARGET_CHAT_ID} требует "
+                                 "--allow-target-chat")
+            sp.add_argument("--all", action="store_true",
+                            help="все чаты БЕЗ целевого (он исключён)")
+            sp.add_argument("--allow-target-chat", action="store_true",
+                            help="разрешить явный целевой чат в --chat")
+
+    rb = mem_sub.add_parser(
+        "rebuild-dossiers",
+        help="сброс старых chat_meme + пересборка досье (пайплайн F1)",
+        description="Боевая пересборка досье: сброс сгенерированных мемов "
+                    "(chat_meme) и повторный прогон двухслойного пайплайна F1. "
+                    "Сырая история и ручные persona_dossier_overrides "
+                    "не трогаются (последние — только с --include-overrides).")
+    _add_memory_common(rb, with_scope=True)
+    rb.add_argument("--include-overrides", action="store_true",
+                    help="ТАКЖЕ сбросить ручные persona_dossier_overrides "
+                         "(по умолчанию НЕ трогаются)")
+    rb.add_argument("--window-hours", type=int, default=168,
+                    help="окно пересборки, часов (дефолт 168 = 7 дней)")
+
+    sb = mem_sub.add_parser(
+        "sanitize-beliefs",
+        help="санитария: факты без связей, убеждения, галлюцинации",
+        description="Чистка ТОЛЬКО сгенерированных производных: факты без "
+                    "инцидентных edges, невалидные убеждения (валидатор "
+                    "count-agnostic), галлюцинации (source_ids/target вне "
+                    "БД/ростера). Сырая история не читается и не мутуируется.")
+    _add_memory_common(sb, with_scope=True)
+
+    con = mem_sub.add_parser(
+        "consolidate",
+        help="консолидация убеждений в парадигмы (идемпотентно)",
+        description="Memory Consolidation (F4): bounded-выборка убеждений "
+                    "(belief_meta.type='belief'), ранжирование по опорам, "
+                    "запись парадигм с дедупом. Повторный прогон — 0 записей. "
+                    "CLI-only, авто-крона нет.")
+    _add_memory_common(con, with_scope=False)
+    con.add_argument("--chat", type=int, action="append", default=None,
+                     help="чат(ы); без него — все чаты (целевой защищён)")
+    con.add_argument("--all", action="store_true",
+                     help="все чаты БЕЗ целевого (он исключён)")
+    con.add_argument("--allow-target-chat", action="store_true",
+                     help="разрешить явный целевой чат в --chat")
+    con.add_argument("--min-sources", type=int, default=2,
+                     help="мин. число опор (source_ids) для парадигмы (2)")
+
+    aud = mem_sub.add_parser(
+        "audit",
+        help="READ-ONLY аудит причин пустого мета-слоя (F4/T-1972)",
+        description="READ-ONLY: фактические флаги, счётчики memory_dream_log "
+                    "по kind, число парадигм/убеждений, точка обрыва и ветвь "
+                    "spec §3.3. Ничего не меняет.")
+    aud.add_argument("--db", default=None,
+                     help=f"путь SQLite-БД (дефолт: {settings.DB_PATH})")
     return parser
 
 
@@ -756,6 +845,181 @@ def _cmd_apply_chat_overrides(args) -> int:
     return 0
 
 
+def _memory_scope(args, available: list, *, required: bool) -> list:
+    """F5/§3: охват чатов CLI `memory`.
+
+    `--all` НИКОГДА не включает целевой чат; для него нужен явный `--chat` +
+    `--allow-target-chat`. `required=True` (rebuild/sanitize) — без охвата
+    отказ (защита от «случайно всё»); `required=False` (consolidate) — все
+    чаты без целевого."""
+    target = LEGACY_TARGET_CHAT_ID
+    explicit = [int(c) for c in (getattr(args, "chat", None) or [])]
+    allow = bool(getattr(args, "allow_target_chat", False))
+    if explicit:
+        if target in explicit and not allow:
+            raise SystemExit(
+                f"целевой чат {target} защищён: нужен явный --chat {target} "
+                f"+ --allow-target-chat")
+        return explicit
+    if getattr(args, "all", False):
+        return [int(c) for c in available if int(c) != target]
+    if required:
+        raise SystemExit(
+            "укажите охват: --chat <id> (можно несколько раз) или --all")
+    return [int(c) for c in available if int(c) != target]
+
+
+def _build_rebuild_pipeline(db, args):
+    """F5/§4.1: боевой pipeline пересборки досье — двухслойный пайплайн F1
+    поверх окна `smart_messages` (SQLite-ЧТЕНИЕ, инвариант §3.1.1)."""
+    from services.llm_client import LLMClient
+    from services.lore_worker import LoreWorker
+
+    llm = LLMClient(
+        settings.LLM_BASE_URL, settings.LLM_API_KEY, settings.LLM_MODEL_NAME,
+        settings.EMBEDDING_MODEL_NAME,
+        embed_base_url=settings.EMBEDDING_BASE_URL,
+        embed_api_key=settings.EMBEDDING_API_KEY)
+    worker = LoreWorker(None, cache=None, db=db, llm=llm)
+    window_hours = int(getattr(args, "window_hours", 168) or 168)
+    limit = int(getattr(args, "limit", 0) or 0)
+
+    async def _pipeline(chat_id: int) -> int:
+        return await worker.rebuild_dossier_for_chat(
+            chat_id, window_hours=window_hours, limit=limit or None)
+    return _pipeline
+
+
+async def _open_memory_db(db_path: Path, *, readonly: bool = False):
+    """F5: живая БД без DDL (`initialize_existing`), свежая — `initialize`.
+
+    S10.21-6: `readonly=True` (команда `audit`) открывает существующий файл
+    строго в режиме `mode=ro` — без DDL/миграций/WAL; отсутствие файла —
+    явная ошибка, схема НЕ создаётся."""
+    from services.database import DatabaseService
+
+    if readonly:
+        db = DatabaseService(str(db_path))
+        await db.initialize_readonly()
+        return db
+    if db_path.exists():
+        db = DatabaseService(str(db_path))
+        try:
+            await db.initialize_existing()
+            return db
+        except Exception:
+            try:
+                await db.close()
+            except Exception:
+                pass
+    db = DatabaseService(str(db_path))
+    await db.initialize()
+    return db
+
+
+def _print_memory_report(command: str, report: dict) -> None:
+    """R17-safe вывод CLI: counts/классы/коды, без текстов и путей."""
+    if command == "audit":
+        print(f"memory audit: break_point={report.get('break_point')} "
+              f"branch={report.get('branch')} "
+              f"flags={report.get('flags')}")
+        print(f"  paradigms_total={report.get('paradigms_total')} "
+              f"by_chat={report.get('paradigms_by_chat')}")
+        print(f"  dream_log={report.get('dream_log')} "
+              f"last_run={report.get('last_run')}")
+        print(f"  beliefs={report.get('beliefs_by_status')}")
+        return
+    mode = "dry-run" if report.get("dry_run") else "APPLY"
+    if command == "consolidate":
+        print(f"memory consolidate: mode={mode} chats={report.get('chats')} "
+              f"scanned={report.get('scanned')} "
+              f"candidates={report.get('candidates')} "
+              f"written={report.get('written')} "
+              f"max_paradigms={report.get('max_paradigms')} "
+              f"skipped={report.get('skipped')} "
+              f"archived={report.get('archived')} "
+              f"reasons={report.get('reasons')} "
+              f"backup={'yes' if report.get('backup') else 'no'}")
+        return
+    if command == "rebuild-dossiers":
+        print(f"memory rebuild-dossiers: mode={mode} "
+              f"chats={report.get('chats')} scanned={report.get('scanned')} "
+              f"reset={report.get('reset')} "
+              f"reset_portraits={report.get('reset_portraits')} "
+              f"rebuilt={report.get('rebuilt')} "
+              f"skipped={report.get('skipped')} "
+              f"reasons={report.get('reasons')} "
+              f"backup={'yes' if report.get('backup') else 'no'}")
+        return
+    print(f"memory sanitize-beliefs: mode={mode} chats={report.get('chats')} "
+          f"scanned={report.get('scanned')} "
+          f"candidates={report.get('candidates')} "
+          f"archived={report.get('archived')} deleted={report.get('deleted')} "
+          f"roster_size={report.get('roster_size')} "
+          f"classes={report.get('classes')} reasons={report.get('reasons')} "
+          f"backup={'yes' if report.get('backup') else 'no'}")
+
+
+def _cmd_memory(args) -> int:
+    """F4/F5 (ADR-1021-4/5): `python manage.py memory <подкоманда>`.
+
+    Дефолт — боевой прогон; `--dry-run` — опциональная диагностика.
+    Схема БД не меняется; авто-кронов/HTTP-триггеров нет."""
+    from services import memory_maintenance as mm
+    from services import memory_rebuild as mr
+
+    command = args.memory_command
+    db_path = Path(getattr(args, "db", None) or settings.DB_PATH)
+
+    async def _run() -> dict:
+        # S10.21-6: `audit` — строго read-only (без DDL/WAL/создания файла).
+        db = await _open_memory_db(db_path, readonly=(command == "audit"))
+        try:
+            if command == "audit":
+                return await mm.collect_paradigm_audit(db)
+            available = await db.get_graph_chat_ids()
+            if command == "consolidate":
+                chats = _memory_scope(args, available, required=False)
+                return await mm.consolidate(
+                    db, chat_ids=chats, dry_run=bool(args.dry_run),
+                    limit=int(args.limit), min_sources=int(args.min_sources),
+                    db_path=str(db_path), backup_dir=args.backup_dir)
+            chats = _memory_scope(args, available, required=True)
+            if command == "rebuild-dossiers":
+                pipeline = None
+                if not args.dry_run:
+                    pipeline = _build_rebuild_pipeline(db, args)
+                return await mr.rebuild_dossiers(
+                    db, chat_ids=chats, dry_run=bool(args.dry_run),
+                    include_overrides=bool(args.include_overrides),
+                    limit=int(args.limit), pipeline=pipeline,
+                    db_path=str(db_path), backup_dir=args.backup_dir,
+                    window_hours=int(args.window_hours),
+                    batch=int(args.batch))
+            return await mr.sanitize_beliefs(
+                db, chat_ids=chats, dry_run=bool(args.dry_run),
+                limit=int(args.limit), db_path=str(db_path),
+                backup_dir=args.backup_dir, batch=int(args.batch))
+        finally:
+            try:
+                await db.close()
+            except Exception:
+                pass
+
+    try:
+        report = asyncio.run(_run())
+    except (FileNotFoundError, RuntimeError):
+        # S10.21-6: audit НЕ создаёт схему — при отсутствии файла/таблиц
+        # сообщаем явно (R17: без пути) и выходим с ошибкой.
+        if command == "audit":
+            print("memory audit: error=db_unavailable — файл БД не найден "
+                  "или схема отсутствует (ничего не создано)")
+            return 1
+        raise
+    _print_memory_report(command, report)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -766,6 +1030,8 @@ def main(argv: list[str] | None = None) -> int:
         args = build_parser().parse_args(argv)
         if args.command == "apply-chat-overrides":
             return _cmd_apply_chat_overrides(args)
+        if args.command == "memory":
+            return _cmd_memory(args)
         if args.command in ("retention", "retention-dry-run"):
             return _cmd_retention(args)
         if args.command != "import_history":

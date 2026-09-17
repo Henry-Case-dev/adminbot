@@ -58,8 +58,16 @@ from services import hot_config as hot
 from services.chat_lore import CHAT_LORE_2661910336
 from services.dossier_prompts import (
     DOSSIER_SYSTEM_PROMPT,
+    LAYER_A_SYSTEM_PROMPT,
+    LAYER_B_SYSTEM_PROMPT,
     build_dossier_user,
+    build_layer_a_user,
+    build_layer_b_user,
+    filter_layer_a_candidates,
     parse_dossier_answer,
+    parse_layer_a,
+    parse_layer_b,
+    validate_layer_b,
 )
 from services.llm_client import LLMError
 
@@ -78,26 +86,45 @@ def _jitter(base_minutes: int) -> int:
 
 
 async def _budget_ok(chat_id: int, tokens_estimate: int,
-                     worker_id: str = "lore") -> bool:
-    """F-10 §5: consume global (calls 1 + tokens) и chat:<id>; любое False →
+                     worker_id: str = "lore", calls: int = 1) -> bool:
+    """F-10 §5: consume global (calls + tokens) и chat:<id>; любое False →
     скип. Fail-open сам consume (PG down → True). ФИКС R4: приоритетная
-    деградация по global-лимиту (allowed_workers) до consume."""
+    деградация по global-лимиту (allowed_workers) до consume.
+
+    F1 (multilayer): `calls` — число LLM-вызовов в прогнозе (двухслойный
+    пайплайн передаёт 2: Слой А + Слой Б); дефолт 1 сохраняет путь 10.20
+    байт-совместимым."""
     from services import worker_budget
     if not await worker_budget.global_degradation_allows(worker_id):
         logger.warning(
             "[lore_worker] skip: global budget exhausted — degradation %s | "
             "chat=%s", worker_id, chat_id)
         return False
-    ok = await worker_budget.consume(None, "global", "llm_calls", 1)
+    n_calls = max(1, int(calls))
+    ok = await worker_budget.consume(None, "global", "llm_calls", n_calls)
     if ok:
         ok = await worker_budget.consume(None, "global", "llm_tokens",
                                          tokens_estimate)
     if ok:
         ok = await worker_budget.consume(None, f"chat:{chat_id}",
-                                         "llm_calls", 1)
+                                         "llm_calls", n_calls)
     if ok:
         ok = await worker_budget.consume(None, f"chat:{chat_id}",
                                          "llm_tokens", tokens_estimate)
+    return ok
+
+
+async def _budget_extra_calls(chat_id: int, calls: int = 1) -> bool:
+    """F1 fix-round 10.21: добрать ФАКТИЧЕСКИЙ расход LLM-вызовов на
+    retry/fallback сверх прогноза A+B (spec §3.2/§8.6). Учитываются только
+    `llm_calls` (токены уже покрыты прогнозом); fail-open — не блокирует
+    прогон, лишь фиксирует расход."""
+    from services import worker_budget
+    n = max(1, int(calls))
+    ok = await worker_budget.consume(None, "global", "llm_calls", n)
+    if ok:
+        ok = await worker_budget.consume(None, f"chat:{chat_id}",
+                                         "llm_calls", n)
     return ok
 from services.lore_prompts import (
     LORE_INIT_SYSTEM_PROMPT,
@@ -483,10 +510,19 @@ class LoreWorker:
     async def _classify_dossier_safe(self, chat_id: int, window: list[str],
                                      rows) -> None:
         """best-effort обёртка классификации (fail-open: ошибка одного шага
-        не роняет прогон лора, R16/R17: в логи только chat_id)."""
+        не роняет прогон лора, R16/R17: в логи только chat_id).
+
+        F1 fix-round 2: двухслойный пайплайн (default ON) НЕ гейтится
+        историческим `flags.irony_filter_enabled` — он управляется только
+        аварийным kill-switch `MULTILAYER_EXTRACTION_ENABLED`. Irony-флаг
+        остаётся отдельной функцией и гейтит лишь legacy-путь 10.20
+        (kill-switch OFF), его историческое поведение не меняется."""
         try:
-            if not hot.get("flags.irony_filter_enabled",
-                           settings.IRONY_FILTER_ENABLED):
+            multilayer = bool(getattr(
+                settings, "MULTILAYER_EXTRACTION_ENABLED", True))
+            if not multilayer and not hot.get(
+                    "flags.irony_filter_enabled",
+                    settings.IRONY_FILTER_ENABLED):
                 return
             names = self._window_names(rows)
             await self._classify_dossier(chat_id, window, names)
@@ -524,11 +560,27 @@ class LoreWorker:
         return names
 
     async def _classify_dossier(self, chat_id: int, window: list[str],
-                                names: list[str]) -> None:
-        """LLM-классификация окна в real_facts/chat_memes (канон досье) +
-        запись ТОЛЬКО `chat_memes` как `graph_facts.status='chat_meme'`
-        (spec §3, нулевой DDL). `real_facts` не дублируем (обычный GraphRAG).
-        Кривой JSON → 1 retry → skip. Идемпотентность — db.meme_exists."""
+                                names: list[str]) -> int:
+        """F1/F8: классификация окна досье.
+
+        UPD Human Gate (ADR-1021-1): по умолчанию — двухслойный пайплайн
+        Слой А (Thinker) → Python-фильтр → Слой Б (Synthesizer). Только
+        аварийный env-only kill-switch `MULTILAYER_EXTRACTION_ENABLED=False`
+        возвращает ровно путь 10.20 (байт-совместимость).
+
+        F5: возвращает число записанных `chat_memes` (0 при скипе/ошибке) —
+        вызывающий (`rebuild_dossier_for_chat`) кладёт его в отчёт CLI."""
+        if bool(getattr(settings, "MULTILAYER_EXTRACTION_ENABLED", True)):
+            return await self._classify_dossier_multilayer(chat_id, window,
+                                                           names)
+        return await self._classify_dossier_legacy(chat_id, window, names)
+
+    async def _classify_dossier_legacy(self, chat_id: int, window: list[str],
+                                       names: list[str]) -> int:
+        """Путь 10.20 (single-pass), БАЙТ-совместимое поведение F8: один
+        LLM-вызов + 1 retry на кривом JSON; запись ТОЛЬКО `chat_memes` как
+        `graph_facts.status='chat_meme'` (нулевой DDL), `real_facts` не
+        дублируем. Идемпотентность — db.meme_exists."""
         messages = [
             {"role": "system", "content": DOSSIER_SYSTEM_PROMPT},
             {"role": "user", "content": build_dossier_user(window, names)},
@@ -540,6 +592,9 @@ class LoreWorker:
             logger.info(
                 "[lore_worker] dossier answer invalid — 1 retry | chat=%s",
                 chat_id)
+            # F1 fix-round 2: retry запасного пути — фактический consume
+            # (сверх прогноза A+B/fallback), чтобы бюджет не занижался.
+            await _budget_extra_calls(chat_id)
             raw = await self._dossier_llm(messages)
             try:
                 items = parse_dossier_answer(raw, canon=self._canon)
@@ -547,9 +602,200 @@ class LoreWorker:
                 logger.warning(
                     "[lore_worker] dossier classification skipped (invalid "
                     "JSON after retry) | chat=%s", chat_id)
-                return
+                return 0
+        return await self._write_chat_memes(
+            chat_id, items.get("chat_memes") or [])
+
+    async def _classify_dossier_multilayer(self, chat_id: int,
+                                           window: list[str],
+                                           names: list[str]) -> int:
+        """F1 (ADR-1021-1): Слой А (scratchpad) → Python-фильтр → Слой Б.
+
+        Стоимость ×2: единый прогноз A+B через `_budget_ok` (2 вызова).
+        Fallback: Слой А невалиден после 1 retry → WARNING + путь 10.20
+        (single-pass), память не теряем. Слой Б упал → сохраняем `chat_memes`
+        Слоя А (портрет не пишем). R17: логи — только chat_id/counts/kind/
+        длины, без текстов сообщений."""
+        layer_a_user = build_layer_a_user(window, names)
+        layer_a_messages = [
+            {"role": "system", "content": LAYER_A_SYSTEM_PROMPT},
+            {"role": "user", "content": layer_a_user},
+        ]
+        from services import worker_budget
+        # Прогноз A+B: 2 вызова; токены — по входу A (Слой Б работает над
+        # его отфильтрованным подмножеством и шире окна не будет).
+        # F1 fix-round 10.21: retry (до +2) и fallback 10.20 (3-й вызов)
+        # добираются ФАКТИЧЕСКИ через `_budget_extra_calls` на месте.
+        if not await _budget_ok(chat_id,
+                                worker_budget.estimate_tokens(layer_a_user),
+                                calls=2):
+            logger.warning(
+                "[lore_worker] WARNING skip: budget dossier (multilayer) | "
+                "chat=%s", chat_id)
+            return 0
+        try:
+            parsed_a = await self._layer_a_call(chat_id, layer_a_messages)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning(
+                "[lore_worker] layer A invalid after retry — fallback 10.20 | "
+                "chat=%s", chat_id)
+            # +1 фактический вызов запасного одиночного пути (10.20).
+            await _budget_extra_calls(chat_id)
+            return await self._classify_dossier_legacy(chat_id, window, names)
+        filtered = filter_layer_a_candidates(parsed_a, names,
+                                             canon=self._canon)
+        person_facts = filtered["person_facts"]
+        memes_a = filtered["memes"]
+        discarded = len(filtered["discarded"]) + len(filtered["dropped"])
+        logger.info(
+            "[lore_worker] layer A | chat=%s | candidates=%s | "
+            "person_facts=%s | memes=%s | discarded=%s",
+            chat_id, len(parsed_a.get("candidates") or []),
+            len(person_facts), len(memes_a), discarded)
+        if not person_facts and not memes_a:
+            return 0
+        layer_b_messages = [
+            {"role": "system", "content": LAYER_B_SYSTEM_PROMPT},
+            {"role": "user",
+             "content": build_layer_b_user(person_facts, memes_a, names)},
+        ]
+        try:
+            parsed_b = await self._layer_b_call(chat_id, layer_b_messages)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning(
+                "[lore_worker] layer B failed — chat_memes Слоя А сохранены | "
+                "chat=%s", chat_id)
+            return await self._write_chat_memes(chat_id, memes_a)
+        validated = validate_layer_b(parsed_b, window)
+        if validated.get("rejected"):
+            logger.info(
+                "[lore_worker] layer B verbatim rejected | chat=%s | "
+                "fields=%s", chat_id,
+                [r.get("field") for r in validated["rejected"]])
+        # Д3: пишем ТОЛЬКО производные (портрет + мемы); ручные
+        # persona_dossier_overrides не трогаем (writer их не вызывает).
+        await self._write_generated_portraits(
+            chat_id, validated.get("portraits") or [], names)
+        # S10.21-7: успешный Слой Б — источник истины по мемам, в т.ч. пустой
+        # список (Синтезатор сознательно всё отфильтровал). Fallback на
+        # `memes_a` — только если ключа `memes` нет в ответе B (исключение B
+        # обработано выше).
+        memes_b = validated.get("memes") if "memes" in validated else None
+        return await self._write_chat_memes(
+            chat_id, memes_a if memes_b is None else memes_b)
+
+    async def rebuild_dossier_for_chat(self, chat_id: int, *,
+                                       window_hours: int = 168,
+                                       limit: int | None = None) -> int:
+        """F5 (ADR-1021-5 §4.1 п.2): публичная пересборка досье чата через
+        двухслойный пайплайн F1 — БЕЗ store/профиля/флага иронии (операторский
+        CLI-путь). Окно `smart_messages` — только ЧТЕНИЕ (инвариант сырой
+        истории), формат `_format_window`, ростер `_window_names`. Возвращает
+        число записанных `chat_memes` (0 — пустое окно/скип)."""
+        db = self._db
+        min_chars = hot.get("limits.lore_min_message_chars",
+                            settings.LORE_MIN_MESSAGE_CHARS)
+        bot_exclude = int(self.bot_id) if self.bot_id else _NEVER_USER_ID
+        since_ts = int(time.time()) - max(1, int(window_hours)) * 3600
+        max_msgs = int(limit or hot.get(
+            "limits.lore_window_max_messages",
+            settings.LORE_WINDOW_MAX_MESSAGES))
+        cursor = await db.db.execute(
+            _WINDOW_SQL, (chat_id, since_ts, int(min_chars), bot_exclude,
+                          max_msgs))
+        rows = await cursor.fetchall()
+        lines = self._format_window(rows)
+        if not lines:
+            logger.info("[lore_worker] rebuild: пустое окно | chat=%s",
+                        chat_id)
+            return 0
+        return await self._classify_dossier(chat_id, lines,
+                                            self._window_names(rows))
+
+    async def _layer_a_call(self, chat_id: int,
+                            messages: list[dict]) -> dict:
+        """LLM-вызов Слоя А (temp 0.2, роль background) + 1 retry на
+        невалидном JSON; повторная ошибка → ValueError (fallback вызывающего)."""
+        raw = await self._dossier_llm(messages)
+        try:
+            return parse_layer_a(raw, canon=self._canon)
+        except ValueError:
+            logger.info(
+                "[lore_worker] layer A answer invalid — 1 retry | chat=%s",
+                chat_id)
+            await _budget_extra_calls(chat_id)
+            raw = await self._dossier_llm(messages)
+            return parse_layer_a(raw, canon=self._canon)
+
+    async def _layer_b_call(self, chat_id: int,
+                            messages: list[dict]) -> dict:
+        """LLM-вызов Слоя Б (temp 0.2, роль background) + 1 retry на
+        невалидном JSON; повторная ошибка → ValueError (fallback вызывающего)."""
+        raw = await self._dossier_llm(messages)
+        try:
+            return parse_layer_b(raw, canon=self._canon)
+        except ValueError:
+            logger.info(
+                "[lore_worker] layer B answer invalid — 1 retry | chat=%s",
+                chat_id)
+            await _budget_extra_calls(chat_id)
+            raw = await self._dossier_llm(messages)
+            return parse_layer_b(raw, canon=self._canon)
+
+    async def _write_generated_portraits(self, chat_id: int, portraits,
+                                         names) -> int:
+        """F1 (spec §3.2.1): запись персональных портретов Слоя Б как
+        производных `graph_facts.status='dossier_portrait'` через
+        `db.upsert_generated_dossier`. Только `target` из ростера окна;
+        пустые портреты (нет portrait/patterns/themes) пропускаем.
+        Fail-open на каждый портрет; R17 — в логах только count."""
+        roster = {str(n).strip().casefold()
+                  for n in (names or []) if str(n).strip()}
         written = 0
-        for item in items.get("chat_memes") or []:
+        for item in portraits or []:
+            if not isinstance(item, dict):
+                continue
+            target = str(item.get("target") or "").strip()
+            if not target:
+                continue
+            if roster and target.casefold() not in roster:
+                continue
+            portrait = str(item.get("portrait") or "").strip()
+            patterns = [str(x).strip() for x in (item.get("patterns") or [])
+                        if str(x).strip()]
+            themes = [str(x).strip() for x in (item.get("themes") or [])
+                      if str(x).strip()]
+            if not portrait and not patterns and not themes:
+                continue
+            try:
+                fact_id = await self._db.upsert_generated_dossier(
+                    chat_id, target, portrait, patterns, themes,
+                    int(time.time()))
+                if fact_id:
+                    written += 1
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.warning(
+                    "[lore_worker] generated portrait write failed — "
+                    "fail-open | chat=%s", chat_id, exc_info=True)
+        if written:
+            logger.info(
+                "[lore_worker] dossier portraits written | chat=%s | n=%s",
+                chat_id, written)
+        return written
+
+    async def _write_chat_memes(self, chat_id: int, items) -> int:
+        """Идемпотентная запись `chat_memes` как `graph_facts.status=
+        'chat_meme'` (spec §3, нулевой DDL). `real_facts` не дублируем."""
+        written = 0
+        for item in items or []:
+            if not isinstance(item, dict):
+                continue
             text = str(item.get("text") or "").strip()
             target = str(item.get("target") or "").strip()
             if not text or not target:
@@ -576,6 +822,7 @@ class LoreWorker:
             logger.info(
                 "[lore_worker] dossier memes written | chat=%s | n=%s",
                 chat_id, written)
+        return written
 
     async def _worker_llm(self, role: str, messages: list[dict],
                           temperature: float | None = None) -> str:

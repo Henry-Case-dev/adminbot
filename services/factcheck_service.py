@@ -23,6 +23,10 @@ import time
 from config.settings import settings
 from services import hot_config as hot
 from services.factcheck_prompts import FACTCHECK_SYSTEM_PROMPT
+from services.grounding_validator import (
+    collect_allowed_anchors,
+    strip_phantom_tags,
+)
 from services.llm_client import LLMBadResponseError, LLMClient
 from services.search_aggregator import SearchAggregator
 from services.summary_cleanup import cleanup_llm_text
@@ -118,7 +122,29 @@ class FactCheckService:
                 "factcheck LLM OK | out_chars=%d | latency_ms=%.0f",
                 len(raw), (time.monotonic() - started) * 1000.0,
             )
+        # Выводы инструментов (tool-loop) должны попасть в grounding-якоря ДО
+        # cleanup (cleanup возвращает обычный str и теряет атрибут).
+        tool_context = str(getattr(raw, "tool_context", "") or "")
         raw = cleanup_llm_text(raw)
+        # F2 (T-1954/T-1957, ADR-1021-2; fix-round 10.21): strict grounding —
+        # допустимые якоря берём ТОЛЬКО из доверенных источников (RAG + выдача
+        # поиска + chat_context + выводы инструментов). S10.21-5: `<claim>` и
+        # `<user_hint>` НЕ включаем — иначе пользователь может протолкнуть
+        # фейковый `fact:ID`/дату и обойти валидатор. Выводы тулов
+        # (tool-loop, напр. dig_into_lore) — доверенный источник.
+        trusted_parts = [str(rag or ""), str(results or "")]
+        if chat_context:
+            trusted_parts.append(str(chat_context))
+        if tool_context:
+            trusted_parts.append(str(tool_context))
+        anchors = collect_allowed_anchors("\n".join(trusted_parts))
+        raw, gstats = strip_phantom_tags(raw, anchors)
+        if gstats.stripped_phantom or gstats.stripped_bare:
+            logger.info(
+                "factcheck grounding | stripped_phantom=%d | stripped_bare=%d "
+                "| kept=%d",
+                gstats.stripped_phantom, gstats.stripped_bare, gstats.kept,
+            )
         if used_tools:
             # S10.20-4: если модель всё же вернула HTML-историю — не показываем
             # сырые теги в plain-доставке фактчека (no-op для обычного вердикта).

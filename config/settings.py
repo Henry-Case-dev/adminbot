@@ -495,6 +495,22 @@ class Settings:
     # требует ЯВНО всех трёх: ENABLED=true, DRY_RUN=false, BACKUP_CONFIRMED=true.
     IMPORT_RETENTION_BACKUP_CONFIRMED: ClassVar[bool] = _env_bool(
         "IMPORT_RETENTION_BACKUP_CONFIRMED", False)
+    # ── F1 (multilayer-memory-extraction-round1021, ADR-1021-1, UPD): аварийный
+    # env-only ClassVar kill-switch двухслойного пайплайна памяти (Слой А →
+    # фильтр → Слой Б). Default ON (UPD владельца, строка 117): пайплайн
+    # включён безусловно, раскатки нет. ClassVar → НЕ dataclass-поле, в
+    # `param_catalog` не регистрируется → Δ каталога = 0. При `false` воркер
+    # досье возвращается ровно на путь 10.20 (байт-совместимость).
+    MULTILAYER_EXTRACTION_ENABLED: ClassVar[bool] = _env_bool(
+        "MULTILAYER_EXTRACTION_ENABLED", True)
+    # ── F4 (paradigm-thresholds-consolidation-round1021, ADR-1021-4 §3.3/§5):
+    # env-only ClassVar рубильник идемпотентной PG-миграции порогов глубокого
+    # сна. Default OFF: аудит (T-1972) — ветка A (флаги DREAM_*/DEEP_SLEEP_*
+    # OFF), пороги не при чём; правку дефолтов оператор включает явно при
+    # ветке B/C. ClassVar → НЕ dataclass-поле, вне каталога → Δ каталога = 0
+    # (прецедент MULTILAYER_EXTRACTION_ENABLED).
+    DEEP_SLEEP_THRESHOLD_MIGRATION_ENABLED: ClassVar[bool] = _env_bool(
+        "DEEP_SLEEP_THRESHOLD_MIGRATION_ENABLED", False)
     # ── F4 (direct-context-limit-expansion, ADR-1019-8 D3): практический
     # потолок безлимитного контекста (`-1`). env-only инфра: ClassVar →
     # НЕ dataclass-поле (в каталог не входит, Settings 407 не растёт).

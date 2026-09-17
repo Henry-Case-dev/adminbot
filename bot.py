@@ -963,6 +963,13 @@ async def main():
     from services.config_migrations import migrate_context_limit_defaults
     await migrate_context_limit_defaults(cache)
 
+    # ── F4 (10.21, ADR-1021-4 §3.3): принудительное снижение порога глубокого
+    # сна при ветке B аудита. По умолчанию ВЫКЛЮЧЕНО (ветка A: флаги OFF) —
+    # env-only рубильник DEEP_SLEEP_THRESHOLD_MIGRATION_ENABLED. Идемпотентно,
+    # кастом не трогает, PG down → skip; Δ каталога = 0.
+    from services.config_migrations import migrate_deep_sleep_thresholds
+    await migrate_deep_sleep_thresholds(cache)
+
     # ── F3 (10.19, ADR-1019-8 D4): сид настроек чатов — эксклюзивные per-chat настройки
     # из config/chat_settings_seed.json (retention 0=вечно, бюджеты/контекст −1).
     # Идемпотентно (повторный прогон — no-op), fail-open: PG down/нет файла →

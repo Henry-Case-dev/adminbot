@@ -54,18 +54,22 @@ class ToolLoopResult(str):
     * ``rounds_used`` — сколько LLM-раундов реально израсходовано;
     * ``degraded`` — ответ получен деградацией (не штатный финал);
     * ``reason`` — ``"ok" | "round_limit" | "llm_error"``;
-    * ``tool_trace`` — ``[{"round", "tool", "ok", "out_chars"}, …]``.
+    * ``tool_trace`` — ``[{"round", "tool", "ok", "out_chars"}, …]``;
+    * ``tool_context`` — склеенный текст выводов инструментов (нужен F2 для
+      допустимых grounding-якорей: id/даты, полученные ИЗ ТУЛОВ; в логи не
+      пишется, R17).
 
     Атрибуты не сериализуются и не влияют на строковое равенство.
     """
 
     def __new__(cls, text, *, rounds_used=1, degraded=False, reason="ok",
-                tool_trace=None):
+                tool_trace=None, tool_context=None):
         obj = super().__new__(cls, str(text or ""))
         obj.rounds_used = int(rounds_used)
         obj.degraded = bool(degraded)
         obj.reason = str(reason or "ok")
         obj.tool_trace = list(tool_trace) if tool_trace else []
+        obj.tool_context = str(tool_context or "")
         return obj
 
 
@@ -97,6 +101,7 @@ async def chat_with_tools(llm, messages: list[dict], *,
     """
     payload_messages = copy.deepcopy(messages)
     tool_trace: list[dict] = []
+    tool_context_parts: list[str] = []
     partial_text = ""
     for round_index in range(TOOL_MAX_ROUNDS):
         try:
@@ -120,7 +125,8 @@ async def chat_with_tools(llm, messages: list[dict], *,
             _log_degraded("llm_error", round_index, tool_trace, text)
             return ToolLoopResult(text, rounds_used=round_index,
                                   degraded=True, reason="llm_error",
-                                  tool_trace=tool_trace)
+                                  tool_trace=tool_trace,
+                                  tool_context="\n".join(tool_context_parts))
         if result.content and str(result.content).strip():
             partial_text = str(result.content).strip()
         if not result.tool_calls:
@@ -132,7 +138,8 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 # БЛОК 7.2b (T-1921): страховка tool-пути (idempotent).
                 return ToolLoopResult(strip_reasoning_tags(text),
                                       rounds_used=round_index + 1,
-                                      tool_trace=tool_trace)
+                                      tool_trace=tool_trace,
+                                      tool_context="\n".join(tool_context_parts))
             raise LLMBadResponseError("tool loop: empty final answer")
         tool_calls: list[LLMToolCall] = result.tool_calls
         if len(tool_calls) > _TOOL_CALLS_PER_ROUND_MAX:   # защита от спама
@@ -159,6 +166,7 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 output = f"ОШИБКА {tc.name}: {type(exc).__name__}"
             payload_messages.append({"role": "tool", "tool_call_id": tc.id,
                                      "content": output})
+            tool_context_parts.append(output)
             tool_trace.append({"round": round_index + 1, "tool": tc.name,
                                "ok": ok, "out_chars": len(output or "")})
             logger.info("[tools] round=%d | tool=%s | out_chars=%d",
@@ -167,4 +175,5 @@ async def chat_with_tools(llm, messages: list[dict], *,
     text = strip_reasoning_tags(partial_text) or TOOL_LOOP_FALLBACK_PHRASE
     _log_degraded("round_limit", TOOL_MAX_ROUNDS, tool_trace, text)
     return ToolLoopResult(text, rounds_used=TOOL_MAX_ROUNDS, degraded=True,
-                          reason="round_limit", tool_trace=tool_trace)
+                          reason="round_limit", tool_trace=tool_trace,
+                          tool_context="\n".join(tool_context_parts))

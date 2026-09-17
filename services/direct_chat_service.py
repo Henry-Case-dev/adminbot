@@ -255,6 +255,27 @@ _PEER_PREFIX_RE = re.compile(
     r"^(?:(?:бот(?:ина|яра|ик)?|@[\w_]+)[,:]?\s+)+", re.IGNORECASE)
 
 
+def _format_generated_portrait_block(generated) -> str:
+    """F1 (spec §3.2.1): аддитивные блоки карточки `/persona` из
+    сгенерированного Слоем Б портрета. Нет строки/пусто → '' (байт-в-байт
+    прежний вывод карточки)."""
+    if not isinstance(generated, dict):
+        return ""
+    portrait = str(generated.get("portrait") or "").strip()
+    patterns = [str(x).strip() for x in (generated.get("patterns") or [])
+                if str(x).strip()]
+    themes = [str(x).strip() for x in (generated.get("themes") or [])
+              if str(x).strip()]
+    parts = []
+    if portrait:
+        parts.append("[Психологический портрет]\n" + portrait)
+    if patterns:
+        parts.append("[Паттерны]\n" + "\n".join(patterns))
+    if themes:
+        parts.append("[Темы]\n" + "\n".join(themes))
+    return "\n".join(parts)
+
+
 def _parse_mood_words(raw: str) -> tuple[str, ...]:
     """65.9: comma-separated env → кортеж слов (нижний регистр)."""
     return tuple(w.strip().lower() for w in str(raw or "").split(",") if w.strip())
@@ -1834,10 +1855,18 @@ class DirectChatService:
                                     settings.IRONY_FILTER_ENABLED))
             memes = (await self.db.list_chat_memes(
                 chat_id, canon, limit=_PERSONA_MAX_ITEMS) if irony_on else [])
+            # F1 (spec §3.2.1): сгенерированный портрет Слоя Б (производная
+            # graph_facts.status='dossier_portrait'). Отдельный try — сбой
+            # чтения портрета НЕ ломает карточку (fail-open).
+            try:
+                generated = await self.db.get_generated_dossier(chat_id, canon)
+            except Exception:
+                generated = None
         except Exception:
             logger.warning("direct: persona card read failed | chat=%s name=%s",
                            chat_id, name, exc_info=True)
             return None
+        generated_block = _format_generated_portrait_block(generated)
         facts = card["facts"]
         links = card["links"]
         lore_lines = [lore_inner] if lore_inner else []
@@ -1849,9 +1878,11 @@ class DirectChatService:
             lines += [f"{link['source_name']} ({link['relation_type']}) "
                       f"{link['target_name']}" for link in links]
             lines = lines[:_PERSONA_MAX_ITEMS]
-            if n == 0 and m == 0:
+            if n == 0 and m == 0 and not generated_block:
                 return None
             body = "\n".join(f"{i}. {text}" for i, text in enumerate(lines, 1))
+            if generated_block:
+                body = f"{body}\n{generated_block}" if body else generated_block
             return f"карточка: {canon}\nзнаю о тебе: {n} фактов, {m} связей\n{body}"
         # F8: досье двумя блоками — [Факты] и [Локальные мемы/Ярлыки].
         fact_lines = (lore_lines + list(protected) + list(facts))[
@@ -1861,7 +1892,7 @@ class DirectChatService:
         meme_lines = [t for t in meme_lines if t.strip()][:_PERSONA_MAX_ITEMS]
         n = len(fact_lines)
         m = len(links)
-        if not fact_lines and not meme_lines and not links:
+        if not fact_lines and not meme_lines and not links and not generated_block:
             return None
         body_parts = []
         dossier = format_dossier_block(fact_lines, meme_lines,
@@ -1872,6 +1903,8 @@ class DirectChatService:
             body_parts.append("\n".join(
                 f"{i}. {link['source_name']} ({link['relation_type']}) "
                 f"{link['target_name']}" for i, link in enumerate(links, 1)))
+        if generated_block:
+            body_parts.append(generated_block)
         body = "\n".join(body_parts)
         return f"карточка: {canon}\nзнаю о тебе: {n} фактов, {m} связей\n{body}"
 

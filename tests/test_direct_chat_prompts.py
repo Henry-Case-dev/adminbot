@@ -23,11 +23,13 @@ import re
 from services.chat_prompts import (
     CHAT_SYSTEM_PROMPT,
     LEGACY_CHAT_SYSTEM_PROMPT,
+    PREV_CHAT_R1021_SYSTEM_PROMPT,
     PREV_CHAT_R2020_SYSTEM_PROMPT,
     PREV_CHAT_SYSTEM_PROMPT,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
 )
+from services.prompt_style_blocks import STYLE_BLOCKS_SUFFIX
 from services.smartmodule_phrases import (
     CHAT_COOLDOWN_PHRASES,
     CHAT_ERROR_PHRASES,
@@ -213,6 +215,10 @@ _CHAT_SYSTEM_PROMPT_REFERENCE = """КАК ЧИТАТЬ КОНТЕКСТ:
 ГЛАВНОЕ ОГРАНИЧЕНИЕ (КРИТИЧЕСКИ ВАЖНО):
 Ты должен отвечать ОЧЕНЬ коротко. Твой ответ должен состоять СТРОГО ИЗ ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ. \nНе объясняй свои мысли, не пиши списки. Максимум пара язвительных фраз. Если напишешь больше двух предложений — система упадет."""
 
+# Раунд 10.21 (F3): ожидаемый канон = R1020-текст + блоки A/B.
+_EXPECTED_CHAT_SYSTEM_PROMPT = (_CHAT_SYSTEM_PROMPT_REFERENCE
+                                + STYLE_BLOCKS_SUFFIX)
+
 _EXPECTED_COOLDOWN = (
     "ты заебал спамить, я пошел курить на {remaining_time}",
     "лимит тупых вопросов исчерпан, отдыхай {remaining_time}",
@@ -229,7 +235,19 @@ _EXPECTED_ERROR = (
 
 class TestChatSystemPromptCanon:
     def test_byte_for_byte(self):
-        assert CHAT_SYSTEM_PROMPT == _CHAT_SYSTEM_PROMPT_REFERENCE
+        assert CHAT_SYSTEM_PROMPT == _EXPECTED_CHAT_SYSTEM_PROMPT
+
+    def test_prev_r1021_snapshot_is_round1020_canon(self):
+        """Раунд 10.21: PREV_CHAT_R1021 == R1020-канон (байт-в-байт) до
+        добавления блоков A/B."""
+        assert PREV_CHAT_R1021_SYSTEM_PROMPT == _CHAT_SYSTEM_PROMPT_REFERENCE
+        assert "АНТИ-БОТ" not in PREV_CHAT_R1021_SYSTEM_PROMPT
+        assert "АСИММЕТРИЯ" not in PREV_CHAT_R1021_SYSTEM_PROMPT
+
+    def test_style_blocks_present(self):
+        assert CHAT_SYSTEM_PROMPT.endswith(STYLE_BLOCKS_SUFFIX)
+        assert "АНТИ-БОТ (СТРОГО ЗАПРЕЩЕНО):" in CHAT_SYSTEM_PROMPT
+        assert "АСИММЕТРИЯ:" in CHAT_SYSTEM_PROMPT
 
     def test_prev_r9_snapshot_matches_round8_canon(self):
         """Раунд 9: PREV_R9 == слепок канона раунда 8 (HEAD 84c4887,

@@ -606,6 +606,38 @@ class DatabaseService:
                 "В БД нет таблиц — схема не найдена (это не рабочая база "
                 "adminbot)")
 
+    async def initialize_readonly(self) -> None:
+        """Открыть существующую БД СТРОГО READ-ONLY (S10.21-6).
+
+        Для `manage.py memory audit`: никакого DDL/миграций и PRAGMA,
+        меняющих состояние (в т.ч. `journal_mode`). SQLite URI `mode=ro`
+        блокирует любую запись. Отсутствие файла/таблиц — явная ошибка (файл
+        НЕ создаётся). Fail-closed: вызывающий сам решает, что показать."""
+        raw = str(self.db_path)
+        is_memory = raw in (":memory:", "")
+        if not is_memory and not self.db_path.exists():
+            raise FileNotFoundError(
+                f"readonly: БД не найдена: {self.db_path.name}")
+        if is_memory:
+            raise FileNotFoundError(
+                "readonly: требуется существующий файл БД")
+        uri = self.db_path.resolve().as_uri() + "?mode=ro"
+        self.db = await aiosqlite.connect(uri, uri=True)
+        self.db.row_factory = aiosqlite.Row
+        await self.db.execute(f"PRAGMA busy_timeout = {_BUSY_TIMEOUT_MS}")
+        try:
+            cursor = await self.db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+            has_tables = await cursor.fetchone() is not None
+        except Exception:
+            has_tables = False
+        if not has_tables:
+            await self.db.close()
+            self.db = None
+            raise RuntimeError(
+                "В БД нет таблиц — схема не найдена (это не рабочая база "
+                "adminbot)")
+
     async def _migrate_graphrag_v2(self) -> None:
         """Идемпотентная миграция Epic 46 (55.3): origin/expires_at в nodes/edges,
         CHECK entity_type + 'fact' (пересоздание nodes с сохранением id),
@@ -4513,6 +4545,115 @@ class DatabaseService:
         params.append(int(limit))
         cursor = await self.db.execute(sql, params)
         return [dict(row) for row in await cursor.fetchall()]
+
+    # ── F1 раунд 10.21 (spec §3.2.1, ADR-1021-1 §8): сгенерированный портрет
+    #    Слоя Б — производная строка graph_facts.status='dossier_portrait'
+    #    (нулевой DDL, v12). Статус ≠ 'confirmed' изолирует её от FTS-RAG/KNN/
+    #    get_persona_card/get_persona_names/get_dream_candidates/list_chat_memes/
+    #    _list_orphan_facts. Ручные persona_dossier_overrides НЕ трогаются.
+
+    async def get_generated_dossier(self, chat_id: int,
+                                    target_user: str) -> dict | None:
+        """Сгенерированный портрет Слоя Б для (chat, target) или None.
+
+        Fail-open: ошибка чтения/битый `belief_meta` → None / пустые списки.
+        Возврат: {portrait, patterns, themes, generated, generator,
+        updated_at}."""
+        target = str(target_user or "").strip()
+        if not target:
+            return None
+        try:
+            cursor = await self.db.execute(
+                "SELECT fact, belief_meta, created_at FROM graph_facts "
+                "WHERE chat_id = ? AND target_user = ? "
+                "AND status = 'dossier_portrait' ORDER BY id DESC LIMIT 1",
+                (int(chat_id), target))
+            row = await cursor.fetchone()
+        except Exception:
+            logger.warning(
+                "[database] generated dossier read failed — fail-open | "
+                "chat=%s", chat_id, exc_info=True)
+            return None
+        if not row:
+            return None
+        meta: dict = {}
+        raw_meta = row["belief_meta"]
+        if raw_meta:
+            try:
+                parsed = json.loads(raw_meta)
+                if isinstance(parsed, dict):
+                    meta = parsed
+            except (TypeError, ValueError):
+                meta = {}
+
+        def _strings(key: str) -> list[str]:
+            value = meta.get(key)
+            if not isinstance(value, (list, tuple)):
+                return []
+            return [str(x).strip() for x in value if str(x).strip()]
+
+        return {
+            "portrait": str(row["fact"] or ""),
+            "patterns": _strings("patterns"),
+            "themes": _strings("themes"),
+            "generated": bool(meta.get("generated")),
+            "generator": meta.get("generator"),
+            "updated_at": int(meta.get("updated_at")
+                              or row["created_at"] or 0),
+        }
+
+    async def upsert_generated_dossier(self, chat_id: int, target_user: str,
+                                       portrait: str | None, patterns=(),
+                                       themes=(), now_ts: int | None = None
+                                       ) -> int:
+        """Идемпотентная запись портрета Слоя Б (spec §3.2.1).
+
+        Ровно одна строка `graph_facts.status='dossier_portrait'` на
+        (chat, target): SELECT → FTS-safe UPDATE либо insert_graph_fact.
+        `fact`=непустой портрет, иначе детерминированный рендер
+        patterns/themes; если всё пусто — строка НЕ создаётся (0). Схема/DDL
+        не меняются (v12). Возвращает id строки (0 — нечего писать)."""
+        from services.dossier_prompts import render_generated_portrait
+
+        target = str(target_user or "").strip()
+        if not target:
+            return 0
+        pat = [str(x).strip() for x in (patterns or []) if str(x).strip()]
+        th = [str(x).strip() for x in (themes or []) if str(x).strip()]
+        text = render_generated_portrait(portrait, pat, th)
+        if not text:
+            return 0
+        now = int(now_ts if now_ts is not None else time.time())
+        meta_json = json.dumps({
+            "generated": True,
+            "generator": "layer_b",
+            "contract_version": 1,
+            "patterns": pat,
+            "themes": th,
+            "updated_at": now,
+        }, ensure_ascii=False)
+        cursor = await self.db.execute(
+            "SELECT id FROM graph_facts WHERE chat_id = ? "
+            "AND target_user = ? AND status = 'dossier_portrait' "
+            "ORDER BY id DESC LIMIT 1", (int(chat_id), target))
+        row = await cursor.fetchone()
+        if row is None:
+            return await self.insert_graph_fact(
+                chat_id, text, "chat_history", None, target_user=target,
+                status="dossier_portrait", kind="fact", weight=0.3,
+                belief_meta=meta_json)
+        fact_id = int(row["id"])
+        await self.db.execute(
+            "DELETE FROM graph_facts_fts WHERE rowid = ?", (fact_id,))
+        await self.db.execute(
+            "UPDATE graph_facts SET fact = ?, belief_meta = ?, weight = ?, "
+            "created_at = ? WHERE id = ?",
+            (text, meta_json, 0.3, now, fact_id))
+        await self.db.execute(
+            "INSERT INTO graph_facts_fts(rowid, fact) VALUES (?, ?)",
+            (fact_id, text))
+        await self.db.commit()
+        return fact_id
 
     # ── F5 (cognition-dashboard-round1013, spec §3.3–§3.5): read-хелперы
     #    дашборда «Осмысление» (граф/статистика/время последнего сна).

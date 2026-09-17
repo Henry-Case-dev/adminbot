@@ -99,6 +99,33 @@ async def collect_metrics(db, memory) -> str:
         lines.append(f"глубокий сон: парадигм {paradigms}, "
                      f"прогонов {deep_runs}")
 
+        # F4/T-1978 (ADR-1021-4 §5): наблюдаемость мета-слоя — счётчики
+        # (`paradigms_total`, `paradigms_last_run`, `dream_runs_7d`) и
+        # R17-safe reason-коды пропусков глубокого сна. Только числа/коды.
+        paradigms_last_run = await _count(
+            db, "SELECT COALESCE(MAX(run_at), 0) FROM memory_dream_log "
+                "WHERE kind = 'deep_run'")
+        dream_runs_7d = await _count(
+            db, "SELECT COUNT(*) FROM memory_dream_log WHERE kind = 'run' "
+                "AND run_at >= ?", (now - 7 * 86400,))
+        reasons_part = "нет"
+        try:
+            cursor = await db.db.execute(
+                "SELECT status, COUNT(*) AS c FROM memory_dream_log "
+                "WHERE kind = 'deep_skip' GROUP BY status "
+                "ORDER BY c DESC LIMIT 8")
+            items = [(str(r["status"] or "?"), int(r["c"]))
+                     for r in await cursor.fetchall()]
+            if items:
+                reasons_part = ", ".join(f"{code} {count}"
+                                         for code, count in items)
+        except Exception:
+            reasons_part = "?"
+        lines.append(f"парадигмы: всего {paradigms}, "
+                     f"последний прогон {paradigms_last_run}, "
+                     f"снов за 7д {dream_runs_7d}, "
+                     f"пропуски глубокого сна: {reasons_part}")
+
         lines.append(f"smart_archive_facts: "
                      f"{await _count(db, 'SELECT COUNT(*) FROM smart_archive_facts')}")
         lines.append(f"smart_messages: "

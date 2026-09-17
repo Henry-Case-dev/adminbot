@@ -65,7 +65,7 @@
               <span aria-hidden="true">▾</span>
             </button>
             <div v-if="scopeOpen" class="scope-panel card-solid" role="listbox"
-                 aria-label="Выбор контекста">
+                 aria-label="Выбор контекста" :style="scopePanelStyle">
               <input v-if="scopeOptions.length > 8" class="field text-xs mb-1"
                      type="search" placeholder="Поиск чата…" v-model="scopeSearch">
               <button v-for="(o, idx) in scopeOptions" :key="o.key" type="button"
@@ -2695,6 +2695,29 @@
               <span v-for="(l, i) in dossierData.links" :key="'dl' + i" class="badge badge-muted mr-1">
                 {{ l.source_name }} — {{ l.relation_type }} — {{ l.target_name }}
               </span>
+            </div>
+            <div v-if="dossierData && dossierData.generated_portrait"
+                 class="dossier-auto card p-3 text-xs mb-3">
+              <div class="text-gray-500 mb-1">Психологический портрет — сгенерировано автоматически · Слой Б</div>
+              <div class="whitespace-pre-wrap">{{ dossierData.generated_portrait }}</div>
+              <div v-if="dossierData.portrait_source === 'manual'" class="text-gray-500 mt-1">
+                Показан авто-портрет; ручная правка ниже имеет приоритет.
+              </div>
+            </div>
+            <div v-if="dossierData && ((dossierData.patterns && dossierData.patterns.length) || (dossierData.themes && dossierData.themes.length))"
+                 class="card p-3 text-xs mb-3">
+              <div v-if="dossierData.patterns && dossierData.patterns.length" class="mb-2">
+                <div class="text-gray-500 mb-1">Паттерны — сгенерировано автоматически · Слой Б</div>
+                <ul class="list-disc pl-4">
+                  <li v-for="(p, i) in dossierData.patterns" :key="'dp' + i">{{ p }}</li>
+                </ul>
+              </div>
+              <div v-if="dossierData.themes && dossierData.themes.length">
+                <div class="text-gray-500 mb-1">Темы — сгенерировано автоматически · Слой Б</div>
+                <ul class="list-disc pl-4">
+                  <li v-for="(t, i) in dossierData.themes" :key="'dt' + i">{{ t }}</li>
+                </ul>
+              </div>
             </div>
             <label class="text-xs text-gray-500" for="dossier-edit">Ручная правка досье</label>
             <textarea id="dossier-edit" class="field scroll-thin mt-1" rows="6"

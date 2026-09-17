@@ -831,6 +831,10 @@
         scopeOpen: false,
         scopeSearch: '',
         scopeFocus: -1,
+        // F6 round 10.21 (T-1993/L-4): коллизионное позиционирование панели
+        // выбора контекста (иначе при коротком заголовке вкладки `right:0` +
+        // min-width 260px выводил панель за левый край вьюпорта).
+        scopePanelStyle: {},
         // Роль-пикер (F-7 T-855): модалка per-param прав (global admin).
         // Ре-дизайн 10.2, BUG-6 (spec §3.2.1): флаги «Чтение»/«Запись» —
         // чекбоксы user/moderator/local_admin; global admin — неявно.
@@ -1125,20 +1129,6 @@
           if (extra) groups = groups.concat([extra]);
         }
         return groups;
-      },
-      _syntheticGroup: function (category, gid) {
-        var q = (this.configSearch || '').trim().toLowerCase();
-        var items = this.configItems.filter(function (it) {
-          if (it.category !== category || it.group !== gid) return false;
-          if (!q) return true;
-          return (it.title || '').toLowerCase().indexOf(q) >= 0
-            || (it.key || '').toLowerCase().indexOf(q) >= 0;
-        });
-        if (!items.length) return null;
-        var meta = null;
-        this.configGroups.forEach(function (g) { if (g.id === gid) meta = g; });
-        return { uid: category + '/' + gid, id: gid, category: category,
-                 meta: meta, items: items };
       },
       // 3.5.1: активная вкладка — конфиг (generic-рендер по sources)
       currentTabIsConfig: function () {
@@ -1607,6 +1597,25 @@
     },
 
     methods: {
+      // F6 round 10.21 (T-1998): ранее объявлен в `computed` → вызывался как
+      // функция и падал `this._syntheticGroup is not a function` при открытии
+      // окна модуля «Выжимка видео» (Vue render-error, модалка не строилась).
+      // Перенесён в `methods` — `activeModuleGroups` вызывает его с аргументами.
+      _syntheticGroup: function (category, gid) {
+        var q = (this.configSearch || '').trim().toLowerCase();
+        var items = this.configItems.filter(function (it) {
+          if (it.category !== category || it.group !== gid) return false;
+          if (!q) return true;
+          return (it.title || '').toLowerCase().indexOf(q) >= 0
+            || (it.key || '').toLowerCase().indexOf(q) >= 0;
+        });
+        if (!items.length) return null;
+        var meta = null;
+        this.configGroups.forEach(function (g) { if (g.id === gid) meta = g; });
+        return { uid: category + '/' + gid, id: gid, category: category,
+                 meta: meta, items: items };
+      },
+
       hasInitData: function () {
         // T-1099/§6.2 п.1: initData читается/кэшируется ДО hash; фолбэк —
         // sessionStorage (переживает перезаброс launch-hash при refresh).
@@ -3072,9 +3081,44 @@
           this.scopeSearch = '';
           this.scopeFocus = 0;
           this.ensureScopeAvatars();
+          this.positionScopePanel();
         } else {
           this.scopeFocus = -1;
         }
+      },
+
+      // F6 round 10.21 (T-1993/L-4): не даём панели уехать за край вьюпорта.
+      // По умолчанию `.scope-panel` — right:0 от триггера. Если при этом её
+      // левый край уходит за экран (короткий заголовок вкладки) — якорим
+      // панель к ЛЕВОМУ краю триггера и ограничиваем ширину; если упирается
+      // в правый край (узкий вьюпорт) — оставляем right:0 с ограничением.
+      positionScopePanel: function () {
+        var self = this;
+        // Сброс прошлой коррекции: меряем дефолтную позицию (right:0), а не
+        // inline-стиль, оставшийся от предыдущего открытия.
+        self.scopePanelStyle = {};
+        this.$nextTick(function () {
+          var panel = document.querySelector('.scope-panel');
+          if (!panel || !self.scopeOpen) return;
+          var wrap = panel.closest('.scope-wrap') || panel.parentElement;
+          var vw = document.documentElement.clientWidth;
+          var pad = 8;
+          var pr = panel.getBoundingClientRect();
+          var wr = wrap ? wrap.getBoundingClientRect() : pr;
+          if (pr.left < pad) {
+            self.scopePanelStyle = {
+              left: '0', right: 'auto',
+              maxWidth: Math.max(160, Math.round(vw - wr.left - pad)) + 'px',
+            };
+          } else if (pr.right > vw - pad) {
+            self.scopePanelStyle = {
+              left: 'auto', right: '0',
+              maxWidth: Math.max(160, Math.round(wr.right - pad)) + 'px',
+            };
+          } else {
+            self.scopePanelStyle = {};
+          }
+        });
       },
       closeScope: function () {
         this.scopeOpen = false;

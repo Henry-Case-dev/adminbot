@@ -35,6 +35,23 @@ CHAT_ID = -1002661910336
 BOT_ID = 12345
 
 
+@pytest.fixture(autouse=True)
+def _disable_multilayer_dossier(monkeypatch):
+    """F1 (multilayer-memory-extraction-round1021): этот файл тестирует
+    генерацию лора и считает LLM-вызовы. Двухслойную классификацию досье
+    (default ON, см. spec F1 §5) выключаем аварийным kill-switch'ем, чтобы
+    фоновые вызовы Слоя А/Б не искажали счётчики. Двухслойность покрыта
+    отдельно — tests/test_multilayer_extraction_round1021.py.
+
+    Патчим класс ИМЕННО инстанса, который держит `services.lore_worker`:
+    ряд тестов делает `importlib.reload(config.settings)`, поэтому свежий
+    импорт `Settings` может оказаться новым классом и не затронуть воркер.
+    """
+    from services import lore_worker as _lw
+    monkeypatch.setattr(type(_lw.settings),
+                        "MULTILAYER_EXTRACTION_ENABLED", False)
+
+
 def make_profile(chat_id: int = CHAT_ID, *,
                  manual: str = "", auto: str = "", auto_enabled: bool = True,
                  period_hours: int = 24, window_hours: int = 24,

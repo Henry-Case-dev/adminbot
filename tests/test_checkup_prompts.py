@@ -64,9 +64,13 @@ class TestCheckupPrompt:
     def test_replace_substitution(self):
         formatted = CHECKUP_SYSTEM_PROMPT.replace("{max_symbols}", "3000")
         assert "{max_symbols}" not in formatted
-        assert formatted.endswith(
-            "ОГРАНИЧЕНИЕ: длина ответа строго до 3000 символов."
-        )
+        assert "ОГРАНИЧЕНИЕ: длина ответа строго до 3000 символов." in formatted
+
+    def test_style_blocks_present(self):
+        """Раунд 10.21 (F3): блоки A/B в конце CHECKUP-канона."""
+        assert "АНТИ-БОТ (СТРОГО ЗАПРЕЩЕНО):" in CHECKUP_SYSTEM_PROMPT
+        assert "АСИММЕТРИЯ:" in CHECKUP_SYSTEM_PROMPT
+        assert CHECKUP_SYSTEM_PROMPT.endswith("нравоучением.")
 
     def test_no_trailing_newline(self):
         assert not CHECKUP_SYSTEM_PROMPT.endswith("\n")

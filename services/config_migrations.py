@@ -14,6 +14,8 @@ DML-миграции числовых настроек в PG.
 """
 import logging
 
+from config.settings import settings
+
 logger = logging.getLogger(__name__)
 
 # Прежние (до F2) дефолты порогов дистилляции Сна → новые code-дефолты
@@ -53,6 +55,18 @@ CONTEXT_LIMIT_MIGRATIONS: dict[str, tuple[int, int]] = {
     "limits.chat_global_context_max_tokens": (1000, 5000),
     "limits.chat_thread_max_tokens": (500, 3000),
     "limits.chat_context_budget_tokens": (4000, 16000),
+}
+
+# F4 (10.21, ADR-1021-4 §3.3/§5): принудительное снижение порога глубокого
+# сна (cooldown между прогонами), РАЗРЕШЁННОЕ UPD (Д11=да) — идемпотентная
+# обратимая PG/DML-миграция (прецедент `migrate_dream_thresholds`). Значение
+# `6` (было 20) берётся из отчёта аудита T-1972 при ветке B; при ветке A
+# (флаги OFF — текущий аудит) миграция НЕ применяется (env-рубильник
+# `DEEP_SLEEP_THRESHOLD_MIGRATION_ENABLED`, default OFF). Обратимость:
+# вернуть прежнее значение тем же механизмом (prev↔new).
+DEEP_SLEEP_THRESHOLD_MIGRATIONS: dict[str, tuple[int, int]] = {
+    # pg-key: (прежний дефолт, форсированный)
+    "memory.deep_sleep_min_interval_hours": (20, 6),
 }
 
 
@@ -127,6 +141,49 @@ async def migrate_global_budget_defaults(cache) -> dict[str, str]:
             continue
         logger.warning("[budget_migration] кастом владельца — НЕ трогаем | "
                        "key=%s", key)
+    return report
+
+
+async def migrate_deep_sleep_thresholds(cache, *,
+                                        enabled: bool | None = None
+                                        ) -> dict[str, str]:
+    """F4 (ADR-1021-4): идемпотентная миграция порога глубокого сна.
+
+    Принудительное снижение cooldown (`memory.deep_sleep_min_interval_hours`
+    20→6) — только если PG-значение в точности равно прежнему дефолту (или
+    ключа нет). Кастом владельца не трогаем (WARNING); PG down → skip.
+    Обратимость: тот же путь с `(6, 20)`.
+
+    `enabled=None` → env-only ClassVar
+    `settings.DEEP_SLEEP_THRESHOLD_MIGRATION_ENABLED` (default **False**):
+    аудит T-1972 — ветка A (флаги OFF), поэтому миграция по умолчанию НЕ
+    применяется (Δ каталога = 0, прецедент MULTILAYER_EXTRACTION_ENABLED).
+    Вызывается из `bot.py main()` (fail-open)."""
+    report: dict[str, str] = {}
+    if cache is None or not getattr(cache, "pg_available", False):
+        logger.info("[deep_sleep_migration] skip: PG недоступен")
+        return report
+    if enabled is None:
+        enabled = bool(getattr(
+            settings, "DEEP_SLEEP_THRESHOLD_MIGRATION_ENABLED", False))
+    if not enabled:
+        logger.info("[deep_sleep_migration] skip: выключено (ветка A аудита)")
+        return report
+    for key, (prev_default, new_default) in \
+            DEEP_SLEEP_THRESHOLD_MIGRATIONS.items():
+        current = cache.get(key)
+        current_int = _threshold_int(current)
+        if current_int == new_default:
+            logger.info("[deep_sleep_migration] уже новый дефолт | key=%s",
+                        key)
+            continue
+        if current is None or current_int == prev_default:
+            await cache.set(key, new_default, "memory")
+            report[key] = "updated"
+            logger.info("[deep_sleep_migration] порог обновлён | key=%s", key)
+            continue
+        logger.warning("[deep_sleep_migration] кастом владельца — НЕ трогаем "
+                       "| key=%s", key)
     return report
 
 

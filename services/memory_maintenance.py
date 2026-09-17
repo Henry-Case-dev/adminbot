@@ -602,3 +602,293 @@ async def run_import_retention(db, *, dry_run: bool = False,
         "batches=%d", out["chats"], out["archived"], out["deleted"],
         out["batches"])
     return out
+
+
+# ── F4 (paradigm-thresholds-consolidation-round1021, ADR-1021-4) ──────────
+# READ-ONLY аудит причин пустого мета-слоя + идемпотентная Memory
+# Consolidation. Консолидация — ТОЛЬКО ручной CLI-вызов (`manage.py memory
+# consolidate`), авто-крона нет. Дефолт — боевой прогон; `--dry-run` — опция.
+
+_DREAM_LOG_KINDS = ("run", "distilled", "skipped", "error",
+                    "deep_run", "deep_skip", "deep_traits")
+
+
+async def collect_paradigm_audit(db) -> dict:
+    """READ-ONLY аудит T-1972: где обрыв цепочки «сон → глубокий сон →
+    парадигмы».
+
+    Возвращает фактические значения флагов, счётчики `memory_dream_log` по
+    kind, число парадигм/убеждений и определённую «точку обрыва» с ветвью
+    spec §3.3 (A — флаги, B — пороги, C — кап). Только bounded SELECT;
+    никаких мутаций. R17: счётчики и bool-флаги, без текстов."""
+    out = {
+        "flags": {},
+        "dream_log": {},
+        "last_run": {},
+        "paradigms_total": 0,
+        "paradigms_by_chat": {},
+        "beliefs_by_status": {},
+        "break_point": "unknown",
+        "branch": "unknown",
+    }
+    from services.worker_settings import resolve_setting_cached
+
+    flag_specs = (
+        ("dream_enabled", "memory.dream_enabled", settings.DREAM_ENABLED),
+        ("deep_sleep_enabled", "flags.deep_sleep_enabled",
+         settings.DEEP_SLEEP_ENABLED),
+        ("belief_decay_enabled", "flags.belief_decay_enabled",
+         settings.BELIEF_DECAY_ENABLED),
+    )
+    for label, key, default in flag_specs:
+        try:
+            value = bool(await resolve_setting_cached(key, default=default))
+        except Exception:
+            value = bool(default)
+        out["flags"][label] = value
+
+    for kind in _DREAM_LOG_KINDS:
+        try:
+            cursor = await db.db.execute(
+                "SELECT COUNT(*) AS c FROM memory_dream_log WHERE kind = ?",
+                (kind,))
+            row = await cursor.fetchone()
+            out["dream_log"][kind] = int(row["c"]) if row else 0
+        except Exception:
+            out["dream_log"][kind] = 0
+    for label, kinds in (("deep_run", ("deep_run",)),
+                         ("deep_skip", ("deep_skip",))):
+        try:
+            ts = await db.last_run_at(kinds)
+        except Exception:
+            ts = None
+        out["last_run"][label] = ts
+
+    try:
+        out["paradigms_total"] = int(await db.count_paradigms())
+    except Exception:
+        out["paradigms_total"] = 0
+    try:
+        cursor = await db.db.execute(
+            "SELECT chat_id, COUNT(*) AS c FROM graph_facts "
+            "WHERE kind = 'belief' AND (belief_meta LIKE ? OR "
+            "belief_meta LIKE ?) GROUP BY chat_id",
+            ('%"type":"paradigm"%', '%"type": "paradigm"%'))
+        out["paradigms_by_chat"] = {
+            int(r["chat_id"]): int(r["c"]) for r in await cursor.fetchall()}
+    except Exception:
+        out["paradigms_by_chat"] = {}
+    try:
+        out["beliefs_by_status"] = await db.count_beliefs_by_status()
+    except Exception:
+        out["beliefs_by_status"] = {}
+
+    # Точка обрыва (spec §2.2/§3.3): цепочка гейтов.
+    flags = out["flags"]
+    log = out["dream_log"]
+    ordinary = int(log.get("run", 0)) + int(log.get("distilled", 0)) + \
+        int(log.get("skipped", 0)) + int(log.get("error", 0))
+    deep_attempts = int(log.get("deep_run", 0)) + int(log.get("deep_skip", 0))
+    if not flags.get("dream_enabled") and not flags.get("deep_sleep_enabled"):
+        out["break_point"], out["branch"] = "flags_off", "A"
+    elif ordinary == 0:
+        out["break_point"], out["branch"] = "no_dream_runs", "A"
+    elif deep_attempts == 0:
+        # Обычный сон шёл, но глубокий не запускался — триггер/флаг.
+        out["break_point"], out["branch"] = "no_deep_runs", "A"
+    elif out["paradigms_total"] == 0:
+        out["break_point"], out["branch"] = "no_paradigms", "B"
+    else:
+        out["break_point"], out["branch"] = "ok", "none"
+    return out
+
+
+def _belief_source_ids(raw) -> list[int]:
+    """`source_ids` убеждения (JSON-массив) → список int (мусор пропускаем)."""
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw) if isinstance(raw, str) else raw
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(data, list):
+        return []
+    ids: list[int] = []
+    for item in data:
+        try:
+            ids.append(int(item))
+        except (TypeError, ValueError):
+            continue
+    return ids
+
+
+async def consolidate(db, *, chat_ids=None, dry_run: bool = False,
+                      limit: int = 200, min_sources: int = 2,
+                      now: int | None = None, db_path=None,
+                      backup_dir=None, allow_no_backup: bool = False) -> dict:
+    """F4/§3.2: идемпотентная Memory Consolidation (сжатие убеждений в
+    парадигмы).
+
+    Вход — bounded-выборка убеждений чата (`belief_meta.type='belief'`),
+    ранжирование по числу опор (`source_ids`). Выход — парадигмы через
+    `DreamWorker._write_paradigm` с дедупом `_paradigm_dedup_keys` /
+    `_deep_dedup_key`. Капы не снимаются (S10.21-1): на чат пишется не больше
+    `limits.deep_sleep_max_paradigms_per_run` (иначе
+    `DEEP_SLEEP_MAX_PARADIGMS`) парадигм за прогон, а выборка ограничена
+    `limits.deep_sleep_top_k` (`DEEP_SLEEP_TOP_K`) — как в Deep Sleep-пасе.
+    Повторный прогон — 0 записей (идемпотентность). Вызывается
+    ТОЛЬКО из CLI (F5), авто-крона нет; `dry_run` ничего не пишет.
+
+    F4 fix-round 10.21 (R1): при боевом прогоне с `db_path` — авто-бэкап ДО
+    первой записи + JSONL-архив ЗАПИСЫВАЕМЫХ парадигм (страховка/откат, по
+    образцу F5). `db_path`/`backup_dir` прокидывает CLI (`manage.py memory
+    consolidate`).
+
+    F4 fix-round 2 (Medium): страховка **fail-closed** — боевой прогон без
+    `db_path` НЕ пишет (reason `backup_unavailable`, выход до первой записи),
+    как в F5. Явный opt-in `allow_no_backup=True` возвращает прежнее
+    «пишем без страховки» поведение; в прод-коде он не выставляется.
+
+    Возврат: `{chats, scanned, candidates, written, skipped, reasons,
+    archived, backup, dry_run}`."""
+    from services.dream_worker import DreamWorker, _deep_dedup_key
+
+    out = {"dry_run": bool(dry_run), "chats": 0, "scanned": 0,
+           "candidates": 0, "written": 0, "skipped": 0, "reasons": {},
+           "archived": 0, "backup": "", "max_paradigms": 0}
+
+    def _reason(code: str) -> None:
+        out["reasons"][code] = out["reasons"].get(code, 0) + 1
+
+    # S10.21-1: те же капы, что у Deep Sleep-паса (`dream_worker.py`):
+    # per-chat не больше MAX_PARADIGMS, выборка не шире TOP_K. Каталог/схема
+    # не меняются — значения лишь читаются.
+    def _cap(key: str, default) -> int:
+        try:
+            return max(1, int(hot.get(key, default)))
+        except (TypeError, ValueError):
+            return max(1, int(default))
+
+    max_paradigms = _cap("limits.deep_sleep_max_paradigms_per_run",
+                         settings.DEEP_SLEEP_MAX_PARADIGMS)
+    read_cap = _cap("limits.deep_sleep_top_k", settings.DEEP_SLEEP_TOP_K)
+    out["max_paradigms"] = max_paradigms
+    read_limit = min(max(1, int(limit)), read_cap)
+    now = int(time.time()) if now is None else int(now)
+    if chat_ids is None:
+        try:
+            chat_ids = await db.get_graph_chat_ids()
+        except Exception:
+            logger.warning("[consolidate] chat list failed — fail-open",
+                           exc_info=True)
+            chat_ids = []
+    worker = DreamWorker(db, memory=None, llm=None)
+    # Пасс 1: собрать кандидатов (дедуп внутри прогона — по ключу).
+    candidates: list[dict] = []
+    for chat_id in chat_ids:
+        out["chats"] += 1
+        try:
+            rows = await db.list_recent_beliefs(
+                chat_id=chat_id, limit=read_limit, status="confirmed",
+                belief_type="belief")
+        except Exception:
+            logger.warning("[consolidate] belief read failed | chat=%s",
+                           chat_id, exc_info=True)
+            _reason("read_error")
+            out["skipped"] += 1
+            continue
+        out["scanned"] += len(rows)
+        try:
+            existing = await worker._paradigm_dedup_keys(chat_id)
+        except Exception:
+            existing = set()
+        ranked = sorted(
+            rows, key=lambda r: len(_belief_source_ids(r.get("source_ids"))),
+            reverse=True)
+        per_chat = 0
+        for row in ranked:
+            if per_chat >= max_paradigms:
+                # S10.21-1: не снимаем кап MAX_PARADIGMS за один прогон.
+                _reason("cap_reached")
+                out["skipped"] += 1
+                continue
+            ids = _belief_source_ids(row.get("source_ids"))
+            text = " ".join(str(row.get("fact") or "").split())
+            if not text:
+                _reason("empty_text")
+                out["skipped"] += 1
+                continue
+            if len(ids) < max(1, int(min_sources)):
+                _reason("below_min_sources")
+                out["skipped"] += 1
+                continue
+            anchors = [{"fact": text, "target_user": row.get("target_user")}]
+            key = _deep_dedup_key(text, anchors)
+            if key in existing:
+                _reason("duplicate")
+                out["skipped"] += 1
+                continue
+            out["candidates"] += 1
+            per_chat += 1
+            existing.add(key)
+            if dry_run:
+                continue
+            candidates.append({
+                "chat_id": int(chat_id),
+                "fact": text,
+                "target_user": row.get("target_user"),
+                "source_ids": row.get("source_ids"),
+                "anchors": anchors,
+                "key": key,
+                "ids": ids,
+            })
+    # Страховочная сетка ДО первой записи (боевой прогон с db_path).
+    if not dry_run and candidates:
+        if not db_path:
+            # F4 fix-round 2 (Medium): fail-closed — без пути к БД страховку
+            # создать нельзя, поэтому НЕ пишем (F5-семантика). Явный opt-in
+            # allow_no_backup=True оставляет прежнее поведение (тесты/утилиты).
+            if not allow_no_backup:
+                _reason("backup_unavailable")
+                return out
+            out["backup"] = ""
+        else:
+            # Ленивый импорт: memory_rebuild импортирует
+            # `_flush_fsync_and_dir` из этого модуля (циклический импорт).
+            from services.memory_rebuild import (
+                _safety_backup, _archive_generated_rows,
+                _resolve_backup_dir)
+            ok, backup_path, reason = await _safety_backup(
+                db_path, backup_dir, "consolidate")
+            if not ok:
+                _reason(reason)
+                return out
+            out["backup"] = backup_path
+            ok, archived, _path = await _archive_generated_rows(
+                candidates, _resolve_backup_dir(backup_dir), "consolidate")
+            if not ok or archived != len(candidates):
+                _reason("archive_mismatch")
+                out["skipped"] += len(candidates)
+                return out
+            out["archived"] = archived
+    # Пасс 2: запись парадигм.
+    for cand in candidates:
+        try:
+            fact_id = await worker._write_paradigm(
+                cand["chat_id"], cand["fact"], {}, cand["anchors"],
+                cand["ids"], cand["key"], now)
+        except Exception:
+            logger.warning("[consolidate] paradigm write failed | chat=%s",
+                           cand["chat_id"], exc_info=True)
+            fact_id = None
+        if fact_id:
+            out["written"] += 1
+        else:
+            _reason("write_failed")
+            out["skipped"] += 1
+    if out["written"] or out["candidates"]:
+        logger.info(
+            "[consolidate] scanned=%d candidates=%d written=%d skipped=%d "
+            "archived=%d dry_run=%s", out["scanned"], out["candidates"],
+            out["written"], out["skipped"], out["archived"], out["dry_run"])
+    return out

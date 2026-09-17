@@ -838,11 +838,17 @@ async def _dossier_name(chat_id: int, user_id: int,
 async def _dossier_payload(db, chat_id: int, user_id: int,
                            name: str) -> dict:
     """Собрать досье участника (без записи). Fail-open: ошибка чтения →
-    пустое досье (200), но ручная правка возвращается."""
+    пустое досье (200), но ручная правка возвращается.
+
+    F1 (spec §3.2.1): аддитивно отдаём сгенерированный Слоем Б портрет
+    (`portrait`/`patterns`/`themes`/`generated_updated_at`/`portrait_source`
+    + `generated_portrait`). Приоритет — ручная правка (`manual_traits`):
+    при непустой правке `portrait_source='manual'`."""
     now_ts = int(time.time())
     facts: list = []
     links: list = []
     override = ''
+    generated: dict | None = None
     if name:
         try:
             card = await db.get_persona_card(
@@ -857,12 +863,27 @@ async def _dossier_payload(db, chat_id: int, user_id: int,
         except Exception:
             logger.warning("[dossier] card read failed — пусто | chat=%s "
                            "uid=%s", chat_id, user_id, exc_info=True)
+        try:
+            generated = await db.get_generated_dossier(chat_id, name)
+        except Exception:
+            logger.warning("[dossier] generated read failed — пусто | "
+                           "chat=%s uid=%s", chat_id, user_id, exc_info=True)
     try:
         override = await db.get_dossier_override(chat_id, user_id)
     except Exception:
         logger.warning("[dossier] override read failed — пусто | chat=%s "
                        "uid=%s", chat_id, user_id, exc_info=True)
     extracted = format_dossier_block(facts, [], _DOSSIER_MAX_CHARS)
+    generated_portrait = str((generated or {}).get("portrait") or "")
+    if str(override or "").strip():
+        portrait_source = "manual"
+        effective_portrait = override
+    elif generated_portrait:
+        portrait_source = "generated"
+        effective_portrait = generated_portrait
+    else:
+        portrait_source = "none"
+        effective_portrait = ""
     return {
         "chat_id": chat_id,
         "user_id": user_id,
@@ -871,7 +892,15 @@ async def _dossier_payload(db, chat_id: int, user_id: int,
         "links": links[:_DOSSIER_MAX_ITEMS],
         "extracted": extracted,
         "manual_traits": override,
+        # F1 (аддитивно, R16): сгенерированный портрет/паттерны/темы.
+        "portrait": effective_portrait,
+        "generated_portrait": generated_portrait,
+        "patterns": list((generated or {}).get("patterns") or []),
+        "themes": list((generated or {}).get("themes") or []),
+        "generated_updated_at": (generated or {}).get("updated_at"),
+        "portrait_source": portrait_source,
     }
+
 
 
 @chat_lore_router.get("/chat_lore/{chat_id}/dossier/{user_id}")

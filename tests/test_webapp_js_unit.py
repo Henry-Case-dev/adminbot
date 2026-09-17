@@ -18,14 +18,25 @@ def _node() -> str:
     return node
 
 
-def test_js_unit_routing_and_scope_guard():
-    script = os.path.join("tests", "js", "routing_test.js")
+def _run_js(script: str, ok_marker: str = "JS-UNIT-OK"):
+    node = _node()
     assert os.path.exists(script)
     res = subprocess.run(
-        [_node(), script],
+        [node, script],
         capture_output=True, text=True, timeout=60,
         cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     assert res.returncode == 0, (
-        "JS-UNIT провалился:\nSTDOUT:\n%s\nSTDERR:\n%s"
-        % (res.stdout, res.stderr))
-    assert "JS-UNIT-OK" in res.stdout
+        "JS-UNIT провалился (%s):\nSTDOUT:\n%s\nSTDERR:\n%s"
+        % (script, res.stdout, res.stderr))
+    assert ok_marker in res.stdout
+
+
+def test_js_unit_routing_and_scope_guard():
+    _run_js(os.path.join("tests", "js", "routing_test.js"))
+
+
+def test_js_unit_round1021_ui_audit():
+    """F6 round 10.21 (T-1990…T-2000): регресс-зонды UI-аудита —
+    glass/grid/mask/gradient/sticky + инвариант меню + регресс
+    `_syntheticGroup` (метод, а не computed)."""
+    _run_js(os.path.join("tests", "js", "round1021_ui_audit_test.js"))

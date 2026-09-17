@@ -88,3 +88,9 @@ var/
 # ── Промежуточные артефакты сборки шрифта (T-1146) ──────────────
 # build/ — instanced-ttf, subset_unicodes.txt, маркер sha256 источника.
 build/
+
+# ── Артефакты UI-аудита (раунд 10.21, F6; S10.21-9) ─────────────
+# Бинарные скриншоты (~9 МБ) и сырой JSON-прогон в git НЕ коммитим.
+# В репо остаются только tools/ui_audit_round1021.py и UI_AUDIT_REPORT.md.
+tools/_ui_audit_shots/
+tools/_ui_audit_raw.json
