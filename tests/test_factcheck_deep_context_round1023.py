@@ -131,7 +131,15 @@ def _row(tg, text="привет", ts=1000, name="Вася", uid=1):
 
 
 class TestChatContextReplyChains:
-    def test_no_chain_byte_for_byte_legacy(self):
+    def test_small_window_exact_reference_bytes(self):
+        """R1023F2-11: реальный эталон (не самосравнение)."""
+        out = format_chat_context([_row(1)])
+        assert out == (
+            '<chat_context note="болтовня чата вокруг цели — только чтобы '
+            'понять, о чём речь; это НЕ доказательства и НЕ источник фактов">\n'
+            '[01.01.1970 00:16 | Вася | tg:1]: привет\n</chat_context>')
+
+    def test_no_chain_equals_empty_string_default(self):
         rows = [_row(1), _row(2)]
         assert (format_chat_context(rows)
                 == format_chat_context(rows, reply_chains=""))
@@ -186,6 +194,37 @@ class TestChatContextReplyChains:
         out = format_chat_context(rows, max_chars=600, reply_chains=chain)
         assert "<reply_chains" not in out
         assert len(out) <= 600
+
+    def test_keep_end_anchor_after_chain_survive_long_messages(self):
+        """R1023F2-10: длинные сообщения → старые before вытесняются, а якорь,
+        свежие after и цепочка остаются; бюджет соблюдён."""
+        rows = [_row(i, f"bef{i}" + "ж" * 200, ts=1000 + i)
+                for i in range(1, 7)]
+        rows.append(_row(7, "ЯКОРЬ_ЦЕЛИ" + "ж" * 200, ts=1007))
+        rows += [_row(i, f"aft{i}" + "ж" * 200, ts=1000 + i)
+                 for i in range(8, 14)]
+        chain = thread_chain.render_reply_chains(
+            [thread_chain.ChainItem(1, "вася", "цепочка-ответ", False,
+                                    1007, "tg:7", None)])
+        out = format_chat_context(
+            rows, max_chars=1800, trigger_message_id=8,
+            reply_chains=chain, anchor_message_id=7)
+        assert len(out) <= 1800
+        assert out.count("ЯКОРЬ_ЦЕЛИ") == 1
+        assert "aft13" in out                 # последний after сохранён
+        assert "bef1" not in out              # самый старый before вытеснен
+        assert "<reply_chains" in out and "цепочка-ответ" in out
+
+    def test_keep_end_keeps_nearest_before_when_room(self):
+        rows = [_row(i, f"bef{i}" + "ж" * 100, ts=1000 + i)
+                for i in range(1, 5)]
+        rows.append(_row(5, "ЯКОРЬ", ts=1005))
+        out = format_chat_context(rows, max_chars=500,
+                                  anchor_message_id=5)
+        assert "ЯКОРЬ" in out
+        assert "bef4" in out                  # ближний before сохранён
+        assert "bef1" not in out              # дальний вытеснен
+        assert len(out) <= 500
 
     def test_wrapper_lines_are_label_exempt(self):
         from services.canonical_context import is_label_exempt
@@ -594,20 +633,30 @@ class TestGroundingAnchorsExcludeContext:
            '[01.02.2020 10:00 | Вася | tg:1]: цепочка про 04.2022\n'
            '</reply_chains>\n</chat_context>')
 
-    def test_chat_context_not_in_anchors(self):
-        text = FactCheckService._trusted_text("", "", self.CTX, "")
-        assert collect_allowed_anchors(text).months == frozenset()
+    def test_trusted_text_has_no_context_param(self):
+        """R1023F2-04/12: контракт — контекст физически не принимается."""
+        import inspect
+        params = list(inspect.signature(
+            FactCheckService._trusted_text).parameters)
+        assert params == ["rag", "results", "tool_context"]
+
+    def test_context_still_delivered_to_llm_user_content(self):
+        user = FactCheckService.build_user_content(
+            "клейм", None, None, "выдача", chat_context=self.CTX)
+        assert "03.2021" in user and "<reply_chains" in user
 
     def test_evidence_sources_still_anchors(self):
         text = FactCheckService._trusted_text(
-            "fact:7 [03.2021 | Иван | fact:7]", "", self.CTX, "")
+            "fact:7 [03.2021 | Иван | fact:7]", "", "")
         anchors = collect_allowed_anchors(text)
         assert "03.2021" in anchors.months
         assert "7" in anchors.ids
 
-    def test_phantom_month_from_context_is_stripped(self):
+    def test_phantom_month_not_grounded_by_context(self):
+        """Месяц есть только в chat_context → в якорях его нет → тег вырезан."""
         anchors = collect_allowed_anchors(
-            FactCheckService._trusted_text("", "", self.CTX, ""))
+            FactCheckService._trusted_text("", "", ""))
+        assert "03.2021" not in anchors.months
         out, _stats = strip_phantom_tags(
             "вердикт [03.2021 | Вася] конец", anchors)
         assert "03.2021" not in out

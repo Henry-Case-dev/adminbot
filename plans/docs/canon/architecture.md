@@ -506,9 +506,11 @@ Egress: `sanitize_outgoing` дополнительно вырезает техн
   **per-chat** (`get_chat_param`) и в direct, и в фактчеке (паритет, новый ключ
   НЕ вводится); инжект — отдельный `<reply_chains>`-под-блок с note «не
   доказательства». Fail-open: нет цепочки/ошибка → блок опускается.
-- **Бюджет и grounding (fix-round R1023F2-01/04):** `format_chat_context`
+- **Бюджет и grounding (fix-round R1023F2-01/04/10):** `format_chat_context`
   гарантирует длину всего `<chat_context>` ≤ `max_chars` с учётом
   `<reply_chains>` (потолок цепочки `_REPLY_CHAINS_MAX_CHARS = 1200`);
+  усечение — **keep-end с приоритетом якоря** (`anchor_message_id`): старые
+  `before` вытесняются первыми, якорь/свежие `after`/цепочка сохраняются;
   `chat_context`/`<reply_chains>` исключены из grounding-якорей
   (`FactCheckService._trusted_text`) — контекст не «заземляет» фантомные даты.
 - **Промпт-правило:** `FACTCHECK_ANALYST_SYSTEM_PROMPT` +

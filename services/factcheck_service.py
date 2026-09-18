@@ -104,8 +104,7 @@ class FactCheckService:
             user = f"{rag}\n\n{user}"
         if getattr(settings, "SYSTEM2_FACTCHECK_ENABLED", True):
             two_call = await self._check_claim_two_call(
-                target_text, user, rag, results, chat_id, chat_context,
-                max_symbols)
+                target_text, user, rag, results, chat_id, max_symbols)
             if two_call is not None:
                 return two_call
             logger.info(
@@ -118,11 +117,11 @@ class FactCheckService:
             {"role": "user", "content": user},
         ]
         raw, used_tools = await self._invoke_llm(messages, target_text, chat_id)
-        return self._finalize(raw, used_tools, rag, results, chat_context)
+        return self._finalize(raw, used_tools, rag, results)
 
     async def _check_claim_two_call(
         self, target_text: str, user: str, rag: str, results: str,
-        chat_id: int | None, chat_context: str | None, max_symbols: int,
+        chat_id: int | None, max_symbols: int,
     ) -> str | None:
         """System 2 фактчека. ``None`` → вызывающий уходит на 10.21."""
         analyst_messages = [
@@ -139,7 +138,7 @@ class FactCheckService:
             return None
         tool_context = str(getattr(raw_analyst, "tool_context", "") or "")
         anchors = collect_allowed_anchors(
-            self._trusted_text(rag, results, chat_context, tool_context))
+            self._trusted_text(rag, results, tool_context))
         analyst_text = strip_reasoning_tags(str(raw_analyst))
         analyst_text, _gstats = strip_phantom_tags(analyst_text, anchors)
         data = parse_factcheck_analysis(analyst_text)
@@ -183,8 +182,7 @@ class FactCheckService:
             len(stats.get("hits") or []), bool(stats.get("fallback")))
         if stats.get("fallback"):
             return None
-        return self._finalize_text(text, used_tools, tool_context,
-                                   rag, results, chat_context)
+        return self._finalize_text(text, used_tools, tool_context, rag, results)
 
     async def _invoke_llm(self, messages, target_text, chat_id):
         """Один LLM-вызов: tool-loop (при `tool_router` + `chat_id`) или plain."""
@@ -213,27 +211,27 @@ class FactCheckService:
         return raw, used_tools
 
     @staticmethod
-    def _trusted_text(rag, results, chat_context, tool_context) -> str:
+    def _trusted_text(rag, results, tool_context) -> str:
         """Доверенные источники grounding-якорей (S10.21-5: без claim/hint).
 
-        10.23 (F2, ADR-1023-2, R1023F2-04): ``chat_context`` (включая
-        ``<reply_chains>``) НАМЕРЕННО исключён — это контекст «не
+        10.23 (F2, ADR-1023-2, R1023F2-04/12): ``chat_context`` (включая
+        ``<reply_chains>``) НАМЕРЕННО не принимается — это контекст «не
         доказательства», и его таймстампы (``ДД.ММ.ГГГГ``) не должны
         становиться grounding-якорями и «заземлять» фантомные ``[ММ.ГГГГ]``
         теги. Якоря — только из доказательств: RAG, поисковая выдача,
-        tool-контекст (аргумент сохранён для явности/совместимости)."""
+        tool-контекст. Параметр убран, чтобы исключение нельзя было случайно
+        откатить «для симметрии»."""
         parts = [str(rag or ""), str(results or "")]
         if tool_context:
             parts.append(str(tool_context))
         return "\n".join(parts)
 
-    def _finalize(self, raw, used_tools, rag, results, chat_context) -> str:
+    def _finalize(self, raw, used_tools, rag, results) -> str:
         tool_context = str(getattr(raw, "tool_context", "") or "")
         return self._finalize_text(str(raw), used_tools, tool_context,
-                                   rag, results, chat_context)
+                                   rag, results)
 
-    def _finalize_text(self, text, used_tools, tool_context, rag, results,
-                       chat_context) -> str:
+    def _finalize_text(self, text, used_tools, tool_context, rag, results) -> str:
         """cleanup → grounding-strip → HTML-strip → пустой ответ.
 
         Review iter1 (H2): whitelist-HTML-теги (`<b>` и пр.) срезаются ВСЕГДА,
@@ -241,7 +239,7 @@ class FactCheckService:
         пользователю показывать нельзя.
         """
         anchors = collect_allowed_anchors(
-            self._trusted_text(rag, results, chat_context, tool_context))
+            self._trusted_text(rag, results, tool_context))
         out = cleanup_llm_text(text)
         out, gstats = strip_phantom_tags(out, anchors)
         if gstats.stripped_phantom or gstats.stripped_bare:

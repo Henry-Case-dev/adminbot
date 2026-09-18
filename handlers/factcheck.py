@@ -77,7 +77,8 @@ async def _fetch_chat_context(chat_id: int, before: int, after: int,
             chat_id, target_tg_message_id, b, a)
         reply_chains = await _build_reply_chains(chat_id, target_tg_message_id)
         return format_chat_context(rows, trigger_message_id=trigger_message_id,
-                                   reply_chains=reply_chains)
+                                   reply_chains=reply_chains,
+                                   anchor_message_id=target_tg_message_id)
     except Exception:
         logger.warning("[factcheck] chat context build failed | chat=%s",
                        chat_id, exc_info=True)

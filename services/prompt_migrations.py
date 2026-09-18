@@ -168,8 +168,12 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     "prompts.webpage_system_prompt":
         (WEBPAGE_SYSTEM_PROMPT, PREV_WEBPAGE_R1021_SYSTEM_PROMPT),
     # 10.23 (F1, ADR-1023-1): обратный шаг для новых PG-ключей F8.
-    # 10.23 (F2): Аналитик откатывается на непосредственный прежний канон F1
-    # (PREV_FACTCHECK_ANALYST_R1023_F2) — снимает только правило веб-поиска.
+    # 10.23 (F2, ADR-1023-2): правило веб-поиска. После вливания F3 (ступень
+    # F2→F3) откат Аналитика ведёт на непосредственный прежний канон —
+    # PREV_FACTCHECK_ANALYST_R1023_F3 (F2-правило веб-поиска в нём СОХРАНЕНО);
+    # снимается только ступень F3 (response_mode). Прямой откат сразу к F1
+    # (PREV_..._F2) не выражается — стек ступеней F1→F2→F3, каждая снимает
+    # ровно предыдущую.
     # 10.23 (F3, ADR-1023-3): откат снимает только ступень F3 — на слепок без
     # поля response_mode (PREV_SUMMARY_EDITOR_R1023_F3/PREV_..._F3).
     "prompts.summary_editor_system_prompt":
