@@ -82,17 +82,15 @@ FORBIDDEN_CLICHE_PATTERNS: tuple[ClicheRule, ...] = (
     ),
     # Раунд 10.23 (F3, ADR-1023-3 §3.6.3): таблицы запрещены на plain-канале
     # (Telegram ParseError). Включается только для plain-канала; на rich
-    # (статья) правило НЕ активно. Детектор ниже — тот же набор шаблонов.
-    # Review iter1 (M5): + pipe-таблицы без внешних `|` («a | b», «a | b | c»).
+    # (статья) правило НЕ активно. Сам детектор — `detect_plain_tables` ниже;
+    # в правиле оставлены только однозначные жёсткие маркеры таблиц.
+    # Review iter2 (M5): одиночная строка с `|` сама по себе таблицей НЕ
+    # считается (см. контекстную эвристику в детекторе).
     ClicheRule(
         "plain_no_tables",
         _c(
             r"<table\b",
-            r"^\s*\|.*\|\s*$",
             r"^\s*\+[-=+]+\+\s*$",
-            r"\|?\s*:?-{2,}:?\s*\|",
-            r"^\s*[^\s|\n][^|\n]*\|[^|\n]*[^\s|\n]\s*$",
-            r"^\s*[^\s|\n][^|\n]*\|[^|\n]*\|[^|\n]*[^\s|\n]\s*$",
             flags=re.IGNORECASE | re.MULTILINE,
         ),
         secondary=True,
@@ -100,19 +98,51 @@ FORBIDDEN_CLICHE_PATTERNS: tuple[ClicheRule, ...] = (
     ),
 )
 
-# Отдельный публичный детектор табличной разметки (Markdown `| … |`, HTML
-# `<table>`, ASCII-сетки `+---+`, разделители `---|`). R17: наружу — только bool.
-_PLAIN_TABLE_PATTERNS = next(
-    rule.patterns for rule in FORBIDDEN_CLICHE_PATTERNS
-    if rule.code == "plain_no_tables"
+# Жёсткие маркеры табличной разметки (однозначны без контекста).
+_TABLE_HTML_RE = re.compile(r"<table\b", re.IGNORECASE)
+_TABLE_ASCII_GRID_RE = re.compile(r"^\s*\+[-=+]+\+\s*$", re.MULTILINE)
+# Separator-строка Markdown: только `-`/`:`/`|`/пробелы, есть `|` и прогон
+# дефисов ≥2 («---|», «|---|---|», «|:--|:--|»).
+_TABLE_SEPARATOR_RE = re.compile(
+    r"^\s*\|?(?:\s*:?-{2,}:?\s*\|)+(?:\s*:?-{2,}:?\s*)?\|?\s*$",
+    re.MULTILINE,
 )
+# «Pipe-строка»: есть `|` с непробельными символами по обе стороны
+# (кандидат в строку таблицы, но сам по себе — не таблица).
+_TABLE_PIPE_LINE_RE = re.compile(r"\S\s*\|\s*\S")
 
 
 def detect_plain_tables(text: str) -> bool:
-    """True, если в тексте есть табличная разметка любого вида. Fail-open."""
+    """True, если в тексте есть табличная разметка. Fail-open.
+
+    Review iter2 (M5): детекция **контекстно-чувствительная** — одиночный `|`
+    (в т.ч. легитимный шелл-пайп `cat file | grep error`) таблицей не считается.
+    Таблица фиксируется по любому из признаков:
+
+    1. HTML-маркер `<table`;
+    2. ASCII-сетка `+---+`;
+    3. separator-строка Markdown (`---|`, `|---|---|`);
+    4. **две и более подряд** идущих pipe-строк (шапка + строки/разделитель).
+    """
     try:
         source = str(text or "")
-        return any(pattern.search(source) for pattern in _PLAIN_TABLE_PATTERNS)
+        if not source:
+            return False
+        if _TABLE_HTML_RE.search(source):
+            return True
+        if _TABLE_ASCII_GRID_RE.search(source):
+            return True
+        if _TABLE_SEPARATOR_RE.search(source):
+            return True
+        consecutive = 0
+        for line in source.splitlines():
+            if _TABLE_PIPE_LINE_RE.search(line):
+                consecutive += 1
+                if consecutive >= 2:
+                    return True
+            else:
+                consecutive = 0
+        return False
     except Exception:  # pragma: no cover - defensive (fail-open)
         logger.warning("[validator] table detector error — treated as clean")
         return False

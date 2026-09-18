@@ -168,8 +168,11 @@
   HTML-рендера — `FORMAT_PLAIN_TEXT_BLOCK` (HTML-теги запрещены, финальный
   текст чистится `strip_lore_html`). Guard `plain_no_tables`
   (`detect_plain_tables`, bounded-регенерация) активен только на plain-канале;
-  детекция включает pipe-таблицы без внешних `|`. Для `deep_research` при
-  сборке снимаются безусловные запреты буллитов (`_DEEP_RESEARCH_OVERRIDES`).
+  детекция контекстно-чувствительная: одиночный `|` (шелл-пайп, `a|b`, `5|10`)
+  таблицей не считается — таблица фиксируется по `<table`, ASCII-сетке,
+  separator-строке (`---|`/`|---|---|`) или ≥2 подряд pipe-строкам. Для
+  `deep_research` при сборке снимаются безусловные запреты буллитов
+  (`_DEEP_RESEARCH_OVERRIDES`).
   Deep_research прямого чата доставляется safe-HTML-паттерном «Летописца»
   (`escape_lore_html` + `parse_mode="HTML"` + `TelegramBadRequest`→plain).
 - **Флаг:** `SMART_VERBALIZER_MODES_ENABLED` (env-only ClassVar, default ON,

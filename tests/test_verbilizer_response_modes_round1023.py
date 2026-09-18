@@ -252,13 +252,13 @@ class TestDeepResearchPromptConsistency:
 
 class TestPlainTableGuard:
     @pytest.mark.parametrize("text", [
-        "| a | b |",
-        "<table><tr><td>x</td></tr></table>",
-        "+---+---+",
-        "|---|---|",
-        "шапка\n| col1 | col2 |\n|---|---|",
-        "a | b",              # M5: pipe-таблица без внешних |
-        "a | b | c",          # M5: два разделителя без внешних |
+        "<table><tr><td>x</td></tr></table>",          # HTML
+        "+---+---+",                                   # ASCII-сетка
+        "|---|---|",                                    # separator
+        "шапка\n| col1 | col2 |\n|---|---|",           # Markdown с separator
+        "| a | b |\n| c | d |",                        # ≥2 pipe-строк подряд
+        "| a | b |\n|---|",                            # шапка + separator
+        "a | b\n1 | 2",                                # 2 pipe-строки без внешних |
     ])
     def test_detect_true(self, text):
         assert detect_plain_tables(text) is True
@@ -268,22 +268,36 @@ class TestPlainTableGuard:
         "обычный текст без таблиц",
         "- буллит один\n- буллит два",
         "дефис - и тире - не таблица",
+        # Review iter2 (M5): одиночный `|` — НЕ таблица (контекстная детекция).
+        "Команда: cat file | grep error",
+        "a|b",
+        "5|10",
+        "сигнал|шум",
+        "| a | b |",
+        "a | b",
+        "a | b | c",
     ])
     def test_detect_false_clean(self, text):
         assert detect_plain_tables(text) is False
 
-    def test_rule_uses_detector_for_pipe_without_outer(self):
-        """M2/M5: правило идёт через публичный детектор и ловит 'a | b'."""
-        assert detect_plain_tables("a | b") is True
+    def test_rule_uses_detector_context_sensitive(self):
+        """M2/M5: правило идёт через детектор; одиночный `|` не бракуется,
+        реальная таблица с разделителем — бракуется."""
+        assert detect_plain_tables("a | b") is False
         assert find_forbidden_cliches(
-            "a | b", enabled_rules={"plain_no_tables"}) == ["plain_no_tables"]
+            "a | b", enabled_rules={"plain_no_tables"}) == []
         assert find_forbidden_cliches(
-            "a | b | c", enabled_rules={"plain_no_tables"}) == ["plain_no_tables"]
+            "Команда: cat file | grep error",
+            enabled_rules={"plain_no_tables"}) == []
+        table = "| a | b |\n|---|---|"
+        assert find_forbidden_cliches(
+            table, enabled_rules={"plain_no_tables"}) == ["plain_no_tables"]
 
     def test_rule_only_when_enabled(self):
-        assert find_forbidden_cliches("| a | b |") == []
+        table = "| a | b |\n|---|---|"
+        assert find_forbidden_cliches(table) == []
         assert find_forbidden_cliches(
-            "| a | b |", enabled_rules={"plain_no_tables"}) == ["plain_no_tables"]
+            table, enabled_rules={"plain_no_tables"}) == ["plain_no_tables"]
 
     def test_plain_rules_include_guard_rich_do_not(self):
         plain = channel_enabled_rules("plain", "serious")
@@ -302,7 +316,7 @@ class TestPlainTableGuard:
 
     @pytest.mark.asyncio
     async def test_table_in_plain_rejected_and_regenerated(self):
-        gen = AsyncMock(side_effect=["| a | b |", "чистый ответ"])
+        gen = AsyncMock(side_effect=["| a | b |\n|---|---|", "чистый ответ"])
         text, stats = await verbalize_validated(
             gen, [{"role": "user", "content": "x"}],
             enabled_rules=channel_enabled_rules("plain", "deep_research"))
@@ -358,7 +372,7 @@ class TestTwoCallModes:
     async def test_summary_plain_table_regenerated(self):
         editor = json.dumps({"response_mode": "deep_research", "digest": _DIGEST})
         gen, llm = _summary_generator([
-            editor, "| a | b |", "чистый текст без таблиц"])
+            editor, "| a | b |\n|---|---|", "чистый текст без таблиц"])
         text = await gen._generate_two_call("сырая история", 3800, -100)
         assert text == "чистый текст без таблиц"
         assert llm.generate.await_count == 3
