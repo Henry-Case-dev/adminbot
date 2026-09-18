@@ -328,12 +328,18 @@ async def get_day_summary(pg=None) -> dict:
                       "limit": await _metric_limit(scope, METRIC_CALLS)},
             "tokens": {"used": metrics.get(METRIC_TOKENS, {}).get("used", 0),
                        "limit": await _metric_limit(scope, METRIC_TOKENS)},
+            # Раунд 10.23 (F5, review iter1 Finding 8): виден расход на
+            # генерацию изображений (метрика image_calls).
+            "image_calls": {
+                "used": metrics.get(METRIC_IMAGE_CALLS, {}).get("used", 0),
+                "limit": await _metric_limit(scope, METRIC_IMAGE_CALLS)},
         })
     out = {
         "day": str(today()),
         "timezone": DAY_TZ,
         "global": {"calls": await _pair(METRIC_CALLS),
-                   "tokens": await _pair(METRIC_TOKENS)},
+                   "tokens": await _pair(METRIC_TOKENS),
+                   "image_calls": await _pair(METRIC_IMAGE_CALLS)},
         "chats": chat_entries,
         "priorities": list(_priority_order()),
     }

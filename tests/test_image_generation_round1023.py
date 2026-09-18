@@ -141,9 +141,131 @@ class TestModuleFlag:
         out = await router._generate_image({"prompt": "кот"}, ctx)
         assert json.loads(out)["status"] == "error"
 
-    def test_registered_in_dispatch(self):
+    @pytest.mark.asyncio
+    async def test_dispatch_mapping(self, monkeypatch):
+        """review iter1 Finding 7: реальный маппинг `"generate_image"` в
+        `dispatch()` (а не прямой вызов метода)."""
+        monkeypatch.setattr(ig, "resolve_module_enabled", AsyncMock(
+            return_value=True))
+        monkeypatch.setattr(ig, "generate_and_send", AsyncMock(
+            return_value=ig.GenerationResult(ok=True, content=b"x")))
         router = ToolRouter(types.SimpleNamespace())
-        assert callable(getattr(router, "_generate_image"))
+        ctx = ToolContext(1, "Бот, нарисуй кота", bot=MagicMock())
+        out = await router.dispatch("generate_image", {"prompt": "кот"}, ctx)
+        assert json.loads(out)["status"] == "success"
+
+
+# ── Пре-гейт и прямой чат ───────────────────────────────────────────────────
+
+class TestPreGateIntegration:
+    @pytest.mark.asyncio
+    async def test_pre_gate_calls_service(self, monkeypatch):
+        from services.direct_chat_service import DirectChatService
+        monkeypatch.setattr(ig, "resolve_module_enabled", AsyncMock(
+            return_value=True))
+        called = {}
+
+        async def fake_handle(ctx, query):
+            called["query"] = query
+            return '<image_result status="ok">x</image_result>'
+
+        monkeypatch.setattr(ig, "maybe_handle_keyword", fake_handle)
+        block = await DirectChatService._image_pre_gate_block(
+            types.SimpleNamespace(), 1, "Бот, нарисуй кота", MagicMock(),
+            types.SimpleNamespace(message_id=7), None)
+        assert block.startswith("<image_result")
+        assert called["query"] == "Бот, нарисуй кота"
+
+    @pytest.mark.asyncio
+    async def test_pre_gate_module_off(self, monkeypatch):
+        from services.direct_chat_service import DirectChatService
+        monkeypatch.setattr(ig, "resolve_module_enabled", AsyncMock(
+            return_value=False))
+        monkeypatch.setattr(ig, "maybe_handle_keyword", AsyncMock())
+        block = await DirectChatService._image_pre_gate_block(
+            types.SimpleNamespace(), 1, "Бот, нарисуй кота", MagicMock(),
+            types.SimpleNamespace(message_id=7), None)
+        assert block == ""
+        ig.maybe_handle_keyword.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_pre_gate_no_keyword(self, monkeypatch):
+        from services.direct_chat_service import DirectChatService
+        monkeypatch.setattr(ig, "resolve_module_enabled", AsyncMock(
+            return_value=True))
+        monkeypatch.setattr(ig, "maybe_handle_keyword", AsyncMock())
+        block = await DirectChatService._image_pre_gate_block(
+            types.SimpleNamespace(), 1, "Бот, расскажи анекдот", MagicMock(),
+            types.SimpleNamespace(message_id=7), None)
+        assert block == ""
+        ig.maybe_handle_keyword.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_direct_chat_image_off_eight_tools(self, monkeypatch):
+        """review iter1 Finding 7: OFF-ветка модуля в прямом чате → 8 тулов."""
+        from tests.test_direct_chat import (
+            _bot as dc_bot,
+            _make_service,
+            _message as dc_message,
+            _user as dc_user,
+        )
+        monkeypatch.setattr("services.image_generation."
+                            "resolve_module_enabled",
+                            AsyncMock(return_value=False))
+        captured = {}
+
+        async def fake_chat_with_tools(llm, payload, *, tools, router, ctx,
+                                       temperature, chat_id=None):
+            captured["tools"] = tools
+            return "ответ"
+
+        monkeypatch.setattr("services.direct_chat_service.chat_with_tools",
+                            fake_chat_with_tools)
+        service = _make_service(tool_router=MagicMock())
+        bot = dc_bot()
+        user = dc_user()
+        await service.handle(bot, dc_message(text="привет", message_id=1,
+                                             user=user), user)
+        names = [t["function"]["name"] for t in captured["tools"]]
+        assert len(names) == 8
+        assert "generate_image" not in names
+
+    @pytest.mark.asyncio
+    async def test_direct_chat_pre_gate_disables_tool(self, monkeypatch):
+        """review iter1 Finding 3: на ход пре-гейта инструмент исключён —
+        один путь генерации, без двойного платного вызова."""
+        from tests.test_direct_chat import (
+            _bot as dc_bot,
+            _make_service,
+            _message as dc_message,
+            _user as dc_user,
+        )
+        monkeypatch.setattr("services.image_generation."
+                            "resolve_module_enabled",
+                            AsyncMock(return_value=True))
+        monkeypatch.setattr(
+            "services.image_generation.maybe_handle_keyword",
+            AsyncMock(return_value='<image_result status="ok">ok</image_result>'))
+        captured = {}
+
+        async def fake_chat_with_tools(llm, payload, *, tools, router, ctx,
+                                       temperature, chat_id=None):
+            captured["tools"] = tools
+            captured["payload"] = payload
+            return "ответ"
+
+        monkeypatch.setattr("services.direct_chat_service.chat_with_tools",
+                            fake_chat_with_tools)
+        service = _make_service(tool_router=MagicMock())
+        bot = dc_bot()
+        user = dc_user()
+        await service.handle(bot, dc_message(text="Бот, нарисуй кота",
+                                             message_id=2, user=user), user)
+        names = [t["function"]["name"] for t in captured["tools"]]
+        assert "generate_image" not in names
+        # Блок пре-гейта инжектится в user-content Stage-1.
+        assert any("<image_result" in str(m.get("content", ""))
+                   for m in captured["payload"] if isinstance(m, dict))
 
 
 # ── POST-режим ──────────────────────────────────────────────────────────────
@@ -193,7 +315,8 @@ class TestPostMode:
 
 class TestGetMode:
     @pytest.mark.asyncio
-    async def test_get_url_and_no_key_leak(self, monkeypatch):
+    async def test_get_url_is_anonymous(self, monkeypatch):
+        """review iter1 Finding 1: GET-режим строго анонимный — ключ НЕ в URL."""
         urls = []
 
         async def fake(method, url, *, json_body=None, headers=None,
@@ -206,16 +329,56 @@ class TestGetMode:
         monkeypatch.setattr(
             ig.hot, "get",
             lambda key, default=None: True if key == ig.KEY_GET_MODE
-            else ("top-secret-value" if key == ig.KEY_API_KEY else default))
+            else ("SENTINELKEYVALUE12345" if key == ig.KEY_API_KEY
+                  else default))
         res = await ig.generate("кот в шляпе", chat_id=1)
         assert res.ok
         method, url = urls[0]
         assert method == "GET"
         assert "/image/" in url and "/v1/image/" not in url
         assert "model=flux" in url
-        assert "top-secret-value" in url          # GET-режим допускает ?key
-        # URL не уходит наружу в результате/логах — только байты.
+        # Ключ не попадает в query GET-режима вовсе.
+        assert "SENTINELKEYVALUE12345" not in url
+        assert "key=" not in url
         assert res.content == b"img-bytes"
+
+    @pytest.mark.asyncio
+    async def test_get_key_not_in_logs(self, monkeypatch, caplog):
+        """review iter1 Finding 1: при GET-вызове с заданным ключом ключ не
+        встречается ни в одном лог-сообщении (httpx INFO заглушён, фильтры)."""
+        import logging
+
+        async def fake(method, url, *, json_body=None, headers=None,
+                       timeout=90.0):
+            # Эмулируем то, что httpx-INFO писал бы полный URL.
+            logging.getLogger("httpx").info(
+                'HTTP Request: %s %s "HTTP/1.1 200 OK"', method, url)
+            return FakeResponse(200, content=b"img")
+
+        monkeypatch.setattr(ig, "_http_request", fake)
+        _patch_budget(monkeypatch)
+        sentinel = "SENTINELKEYVALUE12345"
+        monkeypatch.setattr(
+            ig.hot, "get",
+            lambda key, default=None: True if key == ig.KEY_GET_MODE
+            else (sentinel if key == ig.KEY_API_KEY else default))
+        with caplog.at_level(logging.INFO):
+            await ig.generate("кот", chat_id=1)
+        for record in caplog.records:
+            assert sentinel not in record.getMessage()
+
+    def test_secret_mask_filter_masks_keyed_url(self):
+        """Defense-in-depth: фильтр для консольного обработчика маскирует
+        ключ в URL (закрывает путь stdout → journald)."""
+        import logging
+
+        from services.log_ring import SecretMaskFilter
+        record = logging.LogRecord(
+            "httpx", logging.INFO, __file__, 1,
+            'HTTP Request: GET http://x/image/cat?key=sk_ABCDEFGHIJKLMNOP',
+            (), None)
+        assert SecretMaskFilter().filter(record) is True
+        assert "sk_ABCDEFGHIJKLMNOP" not in record.getMessage()
 
     def test_host_from_base(self):
         assert ig._host_from_base("https://gen.pollinations.ai/v1") == \
@@ -223,20 +386,26 @@ class TestGetMode:
 
     @pytest.mark.asyncio
     async def test_send_photo_gets_bytes_not_url(self, monkeypatch):
+        from aiogram.types import BufferedInputFile
         monkeypatch.setattr(ig, "generate", AsyncMock(return_value=(
             ig.GenerationResult(ok=True, content=b"payload"))))
         captured = {}
 
         async def fake_send(bot, chat_id, photo, **kwargs):
             captured["photo"] = photo
+            captured["chat_id"] = chat_id
             captured["kwargs"] = kwargs
 
         monkeypatch.setattr("services.telegram_send.send_photo", fake_send)
         res = await ig.generate_and_send(MagicMock(), 5, "кот",
                                          reply_to_message_id=42)
         assert res.ok
+        # Наружу уходят именно БАЙТЫ (BufferedInputFile), а не URL провайдера.
+        assert isinstance(captured["photo"], BufferedInputFile)
         assert captured["photo"].data == b"payload"
-        assert "top-secret" not in str(captured["kwargs"])
+        assert captured["photo"].filename
+        assert captured["kwargs"].get("reply_to_message_id") == 42
+        assert "key=" not in str(captured)
 
 
 # ── Бюджет ──────────────────────────────────────────────────────────────────
@@ -286,6 +455,12 @@ class TestBudget:
         await worker_budget._metric_limit("chat:3",
                                           worker_budget.METRIC_IMAGE_CALLS)
         assert captured == [worker_budget.LIMIT_CALLS_PER_CHAT]
+
+    @pytest.mark.asyncio
+    async def test_day_summary_reports_image_calls(self):
+        """review iter1 Finding 8: расход на картинки виден в сводке бюджета."""
+        summary = await worker_budget.get_day_summary(pg=None)
+        assert "image_calls" in summary["global"]
 
 
 # ── Ошибки/ретраи/размер ────────────────────────────────────────────────────
@@ -442,8 +617,11 @@ class TestSecretAndEgress:
                     yield path
 
     def test_no_plaintext_image_key_in_repo(self):
+        # review iter1 Finding 2: `plans/` НЕ исключаем — трекаемые
+        # MEMORY.md/backlog.md/спеки тоже под сканом (untracked current_task.md
+        # и так не попадает: скан идёт по `git ls-files`).
         root = Path(__file__).resolve().parents[1]
-        skip = (".git", ".venv", "__pycache__", "migrate_history", "plans")
+        skip = (".git", ".venv", "__pycache__", "migrate_history")
         for path in self._tracked_text_files(root):
             posix = path.as_posix()
             if any(part in posix for part in skip):

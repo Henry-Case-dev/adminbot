@@ -670,14 +670,15 @@ class DirectChatService:
                 if dig_block:
                     user_blocks = self._insert_dig_result(user_blocks,
                                                           dig_block)
-                # Раунд 10.23 (F5, ADR-1023-5 §D2): пре-гейт ключевиков
-                # генерации изображений («Бот, нарисуй …») — генерация и
-                # отправка ДО Stage-1, блок <image_result> для инъекции.
-                image_block = await self._image_pre_gate_block(
-                    chat_id, query, bot, message, user_id)
-                if image_block:
-                    user_blocks = self._insert_dig_result(user_blocks,
-                                                          image_block)
+            # Раунд 10.23 (F5, ADR-1023-5 §D2): пре-гейт ключевиков генерации
+            # изображений («Бот, нарисуй …») — генерация и отправка ДО Stage-1,
+            # блок <image_result> для инъекции. НЕ зависит от tool_router
+            # (spec §2.2: условие — только «модуль ON»); review iter1 Finding 4.
+            image_block = await self._image_pre_gate_block(
+                chat_id, query, bot, message, user_id)
+            image_pre_gate_fired = bool(image_block)
+            if image_block:
+                user_blocks = self._insert_dig_result(user_blocks, image_block)
             # T-619: системный промпт — горячая точка (фолбек код-канона).
             # Раунд 10 (F-7 §4.5): per-chat override (chat_params → глобал →
             # канон) — «Использовать мой» локального админа работает ТОЛЬКО
@@ -728,6 +729,12 @@ class DirectChatService:
             from services import image_generation
             image_enabled = await image_generation.resolve_module_enabled(
                 chat_id)
+            # Review iter1 Finding 3: если на этот ход уже сработал пре-гейт
+            # ключевика, изображение сгенерировано/отправлено — на этом же
+            # ходу инструмент не объявляем (один путь генерации, без двойного
+            # платного вызова и двойного списания image_calls).
+            if image_pre_gate_fired:
+                image_enabled = False
             tool_ctx = ToolContext(chat_id, query, bot=bot,
                                    reply_to_message_id=message.message_id,
                                    user_id=user_id)
@@ -1275,9 +1282,8 @@ class DirectChatService:
             return ""
         if not await image_generation.resolve_module_enabled(chat_id):
             return ""
-        router = self.tool_router
-        if router is None or not hasattr(router, "dispatch"):
-            return ""
+        # Review iter1 Finding 4: роутер здесь НЕ нужен — генерация и отправка
+        # выполняются сервисом самостоятельно (spec §2.2: условие — «модуль ON»).
         try:
             tool_ctx = ToolContext(
                 chat_id, query, bot=bot,

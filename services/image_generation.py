@@ -43,6 +43,11 @@ from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
 
+# Defense-in-depth (review iter1, Finding 1): httpx на INFO печатает полный
+# URL запроса. GET-режим анонимный, но даже гипотетический keyed-URL не должен
+# попадать в консоль/journald — глушим INFO httpx до WARNING.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 # Имена каталоговых ключей (pg_key).
 KEY_BASE_URL = "models.image_base_url"
 KEY_MODEL = "models.image_model"
@@ -240,7 +245,12 @@ async def _consume_budget(chat_id: int | None) -> bool:
 
 async def _generate_post(base_url: str, model: str, prompt: str, key: str,
                          timeout: float, max_bytes: int) -> bytes:
-    """POST-режим: жёстко `response_format:"url"` → скачивание байтов."""
+    """POST-режим: жёстко `response_format:"url"` → скачивание байтов.
+
+    `b64_json` поддерживается как СОЗНАТЕЛЬНЫЙ defensive-fallback (review
+    iter1, Finding 5; зафиксировано в ADR-1023-5 D1 / spec §2.3): некоторые
+    шлюзы игнорируют `response_format` и возвращают вложения в base64. Это не
+    меняет контракт основного пути (`data[0].url`), но не роняет генерацию."""
     url = f"{str(base_url).rstrip('/')}/images/generations"
     headers = {"Content-Type": "application/json"}
     if key:
@@ -293,17 +303,21 @@ async def _download_bytes(image_url: str, timeout: float,
     return content
 
 
-async def _generate_get(host: str, model: str, prompt: str, key: str,
+async def _generate_get(host: str, model: str, prompt: str,
                         timeout: float, max_bytes: int) -> bytes:
-    """GET-режим: `/image/{prompt}`; ключ опционален (`?key=`)."""
+    """GET-режим: `/image/{prompt}` — СТРОГО АНОНИМНЫЙ.
+
+    Ключ доступа в query НЕ добавляется сознательно (review iter1, Finding 1):
+    httpx логирует полный URL на INFO, а консольный/journald-обработчик не
+    гарантирует маскировку — `?key=` утёк бы в журнал. Это ровно семантика UI:
+    «в GET-режиме поле ключа блокируется». Провайдер для GET работает по
+    серверному лимиту без авторизации."""
     params = {
         "model": model,
         "width": _IMAGE_WIDTH,
         "height": _IMAGE_HEIGHT,
         "seed": random.randint(0, 2147483647),
     }
-    if key:
-        params["key"] = key
     url = f"{host}/image/{quote(prompt, safe='')}?{urlencode(params)}"
     resp = await _request_with_retry("GET", url, timeout=timeout)
     status = int(getattr(resp, "status_code", 0))
@@ -334,7 +348,7 @@ async def generate(prompt: str, *, chat_id: int | None = None) -> GenerationResu
     try:
         if get_mode:
             content = await _generate_get(_host_from_base(base_url), model,
-                                          prompt, key, timeout, max_bytes)
+                                          prompt, timeout, max_bytes)
         else:
             content = await _generate_post(base_url, model, prompt, key,
                                            timeout, max_bytes)
@@ -424,7 +438,8 @@ async def maybe_handle_keyword(ctx, query: str) -> str:
         reply_to_message_id=getattr(ctx, "reply_to_message_id", None))
     if result.ok:
         return ('<image_result status="ok">\n'
-                "Изображение сгенерировано и отправлено в чат.\n"
+                "Изображение уже сгенерировано и отправлено в чат. "
+                "Повторно инструмент generate_image не вызывай.\n"
                 "</image_result>")
     return (f'<image_result status="error">\n'
             f"{IMAGE_GENERATION_FALLBACK_PHRASE}\n"

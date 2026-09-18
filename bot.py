@@ -18,6 +18,7 @@ from services.betterstack_handler import (
 from services.config_cache import ConfigCache
 from services.control_service import ControlService
 from services.hot_config import set_config_cache
+from services.log_ring import SecretMaskFilter as _SecretMaskFilter
 from services.log_ring import log_ring as _log_ring_singleton
 from services.status_service import status
 from services.uptime_heartbeat import UptimeHeartbeatService
@@ -143,6 +144,10 @@ formatter = logging.Formatter(log_format)
 
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(formatter)
+# Раунд 10.23 (F5, review iter1 Finding 1): маскировка секретов на КОНСОЛЬНОМ
+# обработчике (stdout → systemd journald). Раньше sanitize был только в
+# LogRing/BetterStack → URL с ключом из httpx-INFO уходил в журнал открытым.
+console_handler.addFilter(_SecretMaskFilter())
 
 # ── Раунд 4 (T-706, spec 3.1.6, FR-B5): собственный BetterStackHandler вместо
 # logtail-python 0.4.0 (тихие потери: Queue-Full → dropcount без лога, ошибки
@@ -172,6 +177,9 @@ logging.basicConfig(level=logging.INFO, handlers=handlers)
 # панели BetterStack. WARNING/ERROR-событий в этом логгере нет — ничего
 # полезного не теряется. Уровень root INFO сохраняется.
 logging.getLogger("aiogram.event").setLevel(logging.WARNING)
+# Раунд 10.23 (F5, review iter1 Finding 1): httpx на INFO печатает полный URL
+# запроса (в GET-режиме мог бы содержать ключ) — глушим до WARNING.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # ── Epic 85 (84.11.1, T-628): in-memory ring-buffer логов для /api/status/logs.

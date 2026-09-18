@@ -91,6 +91,27 @@ class _LogtailFilter(logging.Filter):
         return not record.name.startswith("logtail")
 
 
+class SecretMaskFilter(logging.Filter):
+    """Раунд 10.23 (F5, review iter1 Finding 1) — маскировка секретов на ЛЮБОМ
+    обработчике (в т.ч. консольном → journald): мутирует `record` до форматирования.
+
+    Раньше `sanitize()` применялся только в `LogRingHandler` и
+    `BetterStackHandler`, поэтому URL с `?key=` из httpx-INFO попадал в stdout
+    открытым текстом. Фильтр вешается на `console_handler` в `bot.py`; никогда
+    не бросает и не отбрасывает записи (всегда `True`)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            message = record.getMessage()
+            masked = sanitize(message)
+            if masked != message:
+                record.msg = masked
+                record.args = ()
+        except Exception:  # pragma: no cover — фильтр не должен ронять лог
+            pass
+        return True
+
+
 class LogRingHandler(logging.Handler):
     """In-memory ring-buffer логов (deque, maxlen из LOG_RING_MAX_ENTRIES)."""
 
