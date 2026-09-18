@@ -133,7 +133,9 @@ class FactCheckService:
     ) -> str | None:
         """System 2 фактчека. ``None`` → вызывающий уходит на 10.21."""
         analyst_messages = [
-            {"role": "system", "content": FACTCHECK_ANALYST_SYSTEM_PROMPT},
+            {"role": "system", "content": hot.get(
+                "prompts.factcheck_analyst_system_prompt",
+                FACTCHECK_ANALYST_SYSTEM_PROMPT)},
             {"role": "user", "content": user},
         ]
         try:
@@ -159,8 +161,9 @@ class FactCheckService:
         response_mode = normalize_response_mode(data.get("response_mode"))
         modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED", True)
         verbalizer_template = (
-            FACTCHECK_VERBALIZER_SYSTEM_PROMPT if modes_on
-            else PREV_FACTCHECK_VERBALIZER_R1023)
+            hot.get("prompts.factcheck_verbalizer_system_prompt",
+                    FACTCHECK_VERBALIZER_SYSTEM_PROMPT)
+            if modes_on else PREV_FACTCHECK_VERBALIZER_R1023)
         verbalizer_base = verbalizer_template.replace(
             "{max_symbols}", str(max_symbols))
         # Review iter1 (H2): у фактчека нет safe-HTML-доставки → text-only

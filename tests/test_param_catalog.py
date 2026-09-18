@@ -201,8 +201,9 @@ class TestPromptsContentPgOnly:
         prompts = [s for s in REGISTRY.values()
                    if s.category == pc.CATEGORY_PROMPTS]
         # + prompts.youtube_video_system_prompt (04.09.2026);
-        # + prompts.summary_cover_style (10.23 F6/ADR-1023-6) = 11.
-        assert len(prompts) == 11
+        # + prompts.summary_cover_style (10.23 F6/ADR-1023-6) = 11;
+        # + 10 ключей F8 (Stage-1/Stage-2 + режимы Вербализатора) = 21.
+        assert len(prompts) == 21
         for spec in prompts:
             assert spec.settings_field is None
             assert spec.env_name is None
@@ -295,7 +296,7 @@ class TestGroups8424:
         # (санкция UPD3 п.5) → GROUPS 92.
         # 10.23 (F5/ADR-1023-5 D5): +3 — models_images, keys_images,
         # flags_module_images → GROUPS 95.
-        assert len(GROUPS) == 95
+        assert len(GROUPS) == 96
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -370,9 +371,11 @@ class TestGroups8424:
             if s.category is not None:
                 counts[s.category] += 1
         # 10.23 (F6/ADR-1023-6): prompts +1 (prompts.summary_cover_style).
-        assert counts == {"prompts": 11, "models": 56, "keys": 20,
+        # 10.23 (F8/ADR-1023-8): prompts +10 (Stage-1/2 + режимы), content +1
+        # (hidden content.dynamic_cliche_list — кэш анти-клише, владелец F4).
+        assert counts == {"prompts": 21, "models": 56, "keys": 20,
                           "limits": 191, "flags": 66, "reactions": 39,
-                          "content": 5, "memory": 34}
+                          "content": 6, "memory": 34}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 
 

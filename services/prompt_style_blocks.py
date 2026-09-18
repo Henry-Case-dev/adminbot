@@ -154,6 +154,32 @@ MODE_BLOCKS: dict[str, str] = {
     "deep_research": MODE_DEEP_RESEARCH_BLOCK,
 }
 
+# Раунд 10.23 (F8, ADR-1023-8): режим по умолчанию — код-дефолт каталога
+# (PG-ключ prompts.verbilizer_default_mode, widget select). Держим строку в
+# одном месте: сид каталога и fail-safe compose используют один канон.
+VERBILIZER_DEFAULT_MODE = "serious"
+
+
+def _resolve_mode_block(mode: str) -> str:
+    """F8: режимный блок из PG (hot) с fallback на код-канон.
+
+    Правка промпта режима в UI применяется без рестарта (hot-get); пустое
+    значение/отсутствие ключа → прежняя код-константа MODE_*_BLOCK.
+    """
+    from services import hot_config as hot
+    value = hot.get(f"prompts.verbilizer_mode_{mode}", MODE_BLOCKS[mode])
+    if isinstance(value, str) and value.strip():
+        return value
+    return MODE_BLOCKS[mode]
+
+
+def _resolve_default_mode() -> str:
+    """F8: режим по умолчанию из PG (hot) с fail-safe на код-канон."""
+    from services import hot_config as hot
+    value = str(hot.get("prompts.verbilizer_default_mode",
+                        VERBILIZER_DEFAULT_MODE) or "").strip().lower()
+    return value if value in MODE_BLOCKS else VERBILIZER_DEFAULT_MODE
+
 # Review iter1 (H1): в `deep_research` буллиты ОБЯЗАТЕЛЬНЫ, поэтому при сборке
 # промпта для этого режима снимаем безусловные запреты на списки/буллиты из
 # общих блоков (ANTI_BOT п.4 и R11-правило 2 Рассказчика). Замены — точечные,
@@ -209,9 +235,9 @@ def compose_verbalizer_system(base_prompt: str, response_mode: str = "serious",
     """
     candidate = str(response_mode or "").strip().lower()
     if candidate not in MODE_BLOCKS:
-        candidate = "serious"
+        candidate = _resolve_default_mode()
     base = _apply_mode_overrides(str(base_prompt or "").rstrip(), candidate)
-    parts = [base, MODE_BLOCKS[candidate]]
+    parts = [base, _resolve_mode_block(candidate)]
     if candidate == "deep_research":
         parts.append(format_block(channel, html_safe=html_safe))
     return "\n\n".join(part for part in parts if part)

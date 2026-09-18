@@ -54,3 +54,10 @@ def test_js_unit_round1022_dossier_rebuild():
     POST period, 409-подхват, отмена+rollback-статус, polling, localStorage."""
     _run_js(os.path.join("tests", "js", "round1022_dossier_rebuild_test.js"),
             ok_marker="DOSSIER-REBUILD-UNIT-OK")
+
+
+def test_js_unit_round1023_verbilizer_tabs():
+    """F8 round 10.23 (ADR-1023-8): stage-секции «Промпты», Tabs режимов,
+    блок анти-клише (force/PUT/fail-open)."""
+    _run_js(os.path.join("tests", "js", "round1023_verbilizer_tabs_test.js"),
+            ok_marker="VERBILIZER-UNIT-OK")

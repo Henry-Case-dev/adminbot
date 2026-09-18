@@ -101,6 +101,11 @@ class ParamSpec:
     # Раунд 10.23 (F2, ADR-1023-2): ключ остаётся в реестре (права/пины), но
     # не показывается в UI-каталоге (внутренний: миграция/совместимость).
     hidden: bool = False
+    # Раунд 10.23 (F8, ADR-1023-8 D3): аддитивная разметка стадии System 2
+    # ("synthesizer" | "verbalizer" | "mode" | None) — UI группирует элементы
+    # внутри карточки модуля на «Синтезатор (Логика)» / «Вербализатор
+    # (Характер)». На GROUPS/TAB_RULES/счётчики не влияет.
+    stage: str | None = None
 
     @property
     def pg_key(self) -> str:
@@ -157,6 +162,9 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Пересказ страниц по ссылке.", 7),
     GroupSpec("prompts_memory", "prompts", "Память и граф знаний",
               "Промпты извлечения и сжатия фактов для долгой памяти.", 8),
+    # prompts (9; раунд 10.23, F8/ADR-1023-8): общий блок режимов Вербализатора.
+    GroupSpec("prompts_verbilizer", "prompts", "Вербализатор: режимы",
+              "Режимы подачи ответа: Casual / Serious / Deep Research.", 9),
     # models (8)
     GroupSpec("models_main", "models", "Основная модель",
               "Главная нейросеть бота: адрес и название модели.", 1),
@@ -384,7 +392,8 @@ _PROMPTS: list[tuple] = [
      "Инструкция нейросети при проверке фактов: как оформлять ответ. Изменения применяются сразу после сохранения."),
     ("prompts.search_system_prompt", "Системный промпт поиска",
      "services.search_prompts.SEARCH_SYSTEM_PROMPT", "prompts_search",
-     "Инструкция нейросети при поиске: как формулировать ответ. Изменения применяются сразу после сохранения."),
+     "Инструкция нейросети при поиске: как формулировать ответ. Изменения применяются сразу после сохранения.",
+     "", "verbalizer"),
     ("prompts.summary_system_prompt", "Системный промпт саммари",
      "services.summary_prompts.SYSTEM_PROMPT", "prompts_summary",
      "Инструкция нейросети для пересказов: стиль и структура. Изменения применяются сразу после сохранения."),
@@ -409,13 +418,59 @@ _PROMPTS: list[tuple] = [
      "Инструкция, как ужимать старые сообщения в факты памяти. Изменения применяются сразу после сохранения."),
     ("prompts.youtube_system_prompt", "Системный промпт пересказа YouTube",
      "services.youtube_prompts.YOUTUBE_SYSTEM_PROMPT", "prompts_youtube",
-     "Инструкция нейросети при пересказе видео по ссылке. Изменения применяются сразу после сохранения."),
+     "Инструкция нейросети при пересказе видео по ссылке. Изменения применяются сразу после сохранения.",
+     "", "verbalizer"),
     ("prompts.youtube_video_system_prompt", "Системный промпт пересказа видео (мультимодально)",
      "services.youtube_prompts.YOUTUBE_VIDEO_SYSTEM_PROMPT", "prompts_youtube",
-     "Инструкция нейросети при пересказе видео, когда модель смотрит само видео (без субтитров)."),
+     "Инструкция нейросети при пересказе видео, когда модель смотрит само видео (без субтитров).",
+     "", "verbalizer"),
     ("prompts.webpage_system_prompt", "Системный промпт пересказа веб-страниц",
      "services.web_prompts.WEBPAGE_SYSTEM_PROMPT", "prompts_web",
-     "Инструкция нейросети при пересказе страницы по ссылке. Изменения применяются сразу после сохранения."),
+     "Инструкция нейросети при пересказе страницы по ссылке. Изменения применяются сразу после сохранения.",
+     "", "verbalizer"),
+    # Раунд 10.23 (F8, ADR-1023-8): Stage-1/Stage-2 промпты (PG-редактируемые)
+    # + общий блок режимов Вербализатора. Все — advanced (длинные каноны);
+    # правка из UI применяется в рантайме без рестарта (hot-get в сервисах).
+    ("prompts.factcheck_analyst_system_prompt", "Синтезатор фактчека (Логика)",
+     "services.factcheck_prompts.FACTCHECK_ANALYST_SYSTEM_PROMPT", "prompts_factcheck",
+     "Разбор тезиса и фактов в машинную справку (первый проход фактчека). Изменения применяются сразу.",
+     "advanced", "synthesizer"),
+    ("prompts.factcheck_verbalizer_system_prompt", "Вербализатор фактчека (Характер)",
+     "services.factcheck_prompts.FACTCHECK_VERBALIZER_SYSTEM_PROMPT", "prompts_factcheck",
+     "Превращает разбор фактчека в финальный текст. Изменения применяются сразу.",
+     "advanced", "verbalizer"),
+    ("prompts.summary_editor_system_prompt", "Синтезатор саммари (Редактор)",
+     "services.summary_prompts.SUMMARY_EDITOR_SYSTEM_PROMPT", "prompts_summary",
+     "Сжимает историю в короткую выжимку (первый проход саммари). Изменения применяются сразу.",
+     "advanced", "synthesizer"),
+    ("prompts.summary_narrator_system_prompt", "Вербализатор саммари (Рассказчик)",
+     "services.summary_prompts.SUMMARY_NARRATOR_SYSTEM_PROMPT", "prompts_summary",
+     "Пересказывает выжимку саммари живым языком. Изменения применяются сразу.",
+     "advanced", "verbalizer"),
+    ("prompts.direct_chat_synthesizer_system_prompt", "Синтезатор прямого чата (Логика)",
+     "services.chat_prompts.DIRECT_SYNTHESIZER_SYSTEM_PROMPT", "prompts_direct_chat",
+     "Собирает выводы инструментов в справку (первый проход прямого чата). Изменения применяются сразу.",
+     "advanced", "synthesizer"),
+    ("prompts.direct_chat_verbalizer_system_prompt", "Вербализатор прямого чата (Характер)",
+     "services.chat_prompts.DIRECT_VERBALIZER_SYSTEM_PROMPT", "prompts_direct_chat",
+     "Оформляет справку прямого чата в живой ответ. Изменения применяются сразу.",
+     "advanced", "verbalizer"),
+    ("prompts.verbilizer_mode_casual", "Режим Casual",
+     "services.prompt_style_blocks.MODE_CASUAL_BLOCK", "prompts_verbilizer",
+     "Режим подачи ответа «торопливое письмо»: короткие рубленые фразы без Markdown.",
+     "advanced", "mode"),
+    ("prompts.verbilizer_mode_serious", "Режим Serious",
+     "services.prompt_style_blocks.MODE_SERIOUS_BLOCK", "prompts_verbilizer",
+     "Режим подачи ответа «грамотно, по делу»: сдержанная циничная ирония.",
+     "advanced", "mode"),
+    ("prompts.verbilizer_mode_deep_research", "Режим Deep Research",
+     "services.prompt_style_blocks.MODE_DEEP_RESEARCH_BLOCK", "prompts_verbilizer",
+     "Режим подачи ответа «глубокий разбор»: полный структурированный отчёт.",
+     "advanced", "mode"),
+    ("prompts.verbilizer_default_mode", "Режим по умолчанию",
+     "services.prompt_style_blocks.VERBILIZER_DEFAULT_MODE", "prompts_verbilizer",
+     "Режим Вербализатора по умолчанию, если модель не выбрала режим сама. Изменения применяются сразу.",
+     "advanced", "mode"),
 ]
 
 # ── content: PG-only ключи (84.13.2) ────────────────────────────────────────
@@ -1730,18 +1785,34 @@ def _build_registry() -> dict[str, ParamSpec]:
         add(ParamSpec(field, field, CATEGORY_CONTENT, title, typ,
                       group=group, description=desc))
     for row in _PROMPTS:
-        if len(row) == 6:      # (pg_id, title, code_source, group, desc, level)
+        # Форматы: 5 — база; 6 — +progressive_level; 7 — +stage (F8).
+        stage = None
+        level = ""
+        if len(row) == 7:      # (pg_id, title, code_source, group, desc, level, stage)
+            spec_id, title, code_source, group, desc, level, stage = row
+        elif len(row) == 6:    # (pg_id, title, code_source, group, desc, level)
             spec_id, title, code_source, group, desc, level = row
         else:
             spec_id, title, code_source, group, desc = row
-            level = ""
         add(ParamSpec(None, None, CATEGORY_PROMPTS, title, "str",
                       code_source=code_source, pg_id=spec_id,
                       group=group, description=desc,
-                      progressive_level=level))
+                      progressive_level=level, stage=stage))
     for spec_id, title, group, desc in _CONTENT:
         add(ParamSpec(None, None, CATEGORY_CONTENT, title, "json",
                       pg_id=spec_id, group=group, description=desc))
+    # Раунд 10.23 (F8, ADR-1023-8 D7): hidden-ключ кэша динамического
+    # анти-клише. Владелец данных — F4 (воркер + API); F4 отдельного
+    # bot_settings-ключа не заводил, поэтому регистрируем его здесь:
+    # остаётся в реестре/правах, из UI-каталога скрыт (hidden). UI-блок
+    # мониторинга читает/пишет через F4-API (/api/anticliche).
+    add(ParamSpec(None, None, CATEGORY_CONTENT,
+                  "Динамический список анти-клише (кэш)",
+                  "json", pg_id="content.dynamic_cliche_list",
+                  group="content_info",
+                  description=("Служебный кэш фраз-клише для детектора "
+                               "Вербализатора (владелец — воркер анти-клише)."),
+                  hidden=True))
     for spec_id, title, code_source, group, desc in _CONTENT_STR:
         add(ParamSpec(None, None, CATEGORY_CONTENT, title, "str",
                       code_source=code_source, pg_id=spec_id,
@@ -1800,6 +1871,12 @@ _SELECT_WIDGET_PRESETS: dict[str, dict] = {
             "UTC+5 (Алматы)", "UTC+4 (Тбилиси)", "UTC+7 (Новосибирск)",
             "UTC+7 (Красноярск)", "UTC+4 (Дубай)", "UTC+10 (Владивосток)",
             "UTC+1/+2 (Берлин)", "UTC (0)"),
+    },
+    # F8 (10.23, ADR-1023-8): режим Вербализатора по умолчанию — select.
+    "prompts.verbilizer_default_mode": {
+        "widget": "select",
+        "select_options": ("casual", "serious", "deep_research"),
+        "select_labels": ("Casual", "Serious", "Deep Research"),
     },
 }
 for _name, _opts in _SELECT_WIDGET_PRESETS.items():

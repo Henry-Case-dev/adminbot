@@ -408,6 +408,10 @@ async def get_config(
                       "per_chat": bool(spec.per_chat) if spec else False,
                       "progressive_level":
                           resolve_progressive_level(spec) if spec else "basic",
+                      # F8 (10.23, ADR-1023-8 D3): стадия System 2
+                      # (synthesizer/verbalizer/mode/None) — UI-секции карточек
+                      # «Промпты»; None у прочих ключей.
+                      "stage": spec.stage if spec else None,
                       # Ре-дизайн 10.2, BUG-6 (spec §3.2): флаги-роли —
                       # новая форма (view_roles/edit_roles) для роль-пикера TMA
                       "view_roles": list(matrix.get("view_roles") or []),

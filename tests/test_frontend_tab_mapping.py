@@ -127,9 +127,12 @@ class TestTabMappingAudit:
         # 10.23 (F5/ADR-1023-5 D5): +5 REGISTRY, +3 GROUPS, +3 mapped
         # (models_images/keys_images → llm_providers; flags_module_images →
         # mod_direct) → 446/95/93; TAB_RULES 20 (новых вкладок нет).
-        assert len(pc._TAB_BY_GROUP) == 93
-        assert len(GROUPS) == 95
-        assert len(pc.REGISTRY) == 447
+        # 10.23 (F8/ADR-1023-8): +11 REGISTRY (10 prompts + 1 hidden content),
+        # +1 GROUPS/mapped (prompts_verbilizer → вкладка prompts) → 458/96/94;
+        # TAB_RULES 20 — вкладок не добавляем.
+        assert len(pc._TAB_BY_GROUP) == 94
+        assert len(GROUPS) == 96
+        assert len(pc.REGISTRY) == 458
 
 
 class TestModuleTabs:
@@ -333,6 +336,8 @@ def test_widget_keyvalue_on_summary_aliases():
         "memory.deep_sleep_trigger",
         # 10.20 (БЛОК 5.1, О4 FINAL): «Часовой пояс чата» — sanctioned Δ (+1).
         "limits.chat_timezone",
+        # 10.23 (F8/ADR-1023-8): режим Вербализатора по умолчанию — select.
+        "prompts.verbilizer_default_mode",
     }
     for spec in sel:
         assert spec.select_options and spec.select_labels

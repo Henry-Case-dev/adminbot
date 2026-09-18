@@ -54,8 +54,8 @@ class TestCatalogParity:
         # (IMPORT_HISTORY_RETENTION_DAYS), +2 GROUPS → 437/92/407.
         # 10.23 (F5/ADR-1023-5 D5): +5 REGISTRY/Settings, +3 GROUPS →
         # 446/95/416.
-        assert len(REGISTRY) == 447, len(REGISTRY)
-        assert len(GROUPS) == 95
+        assert len(REGISTRY) == 458, len(REGISTRY)
+        assert len(GROUPS) == 96
         from config.settings import Settings
         import dataclasses
         assert len({f.name for f in dataclasses.fields(Settings)}) == 416

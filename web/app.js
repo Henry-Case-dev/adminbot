@@ -937,6 +937,15 @@
         configError: '',          // F-13 (AC-3, MED-021): баннер loadConfig
                                   // (403/503/сеть) — объясняет пустую вкладку
         configChatUpdatedAt: null, // F-7: optimistic-метка чата (X-Chat-Id)
+        // Раунд 10.23 (F8, ADR-1023-8): вкладка «Промпты» — активный режим
+        // Вербализатора (Tabs) и блок мониторинга динамического анти-клише.
+        promptMode: 'serious',     // редактируемый режим: casual|serious|deep_research
+        clicheMeta: null,          // GET /api/anticliche (метаданные + список)
+        clicheAvailable: false,    // F4-API доступен (fail-open → блок скрыт)
+        clicheLoading: false,
+        clicheBusy: false,         // форс-обновление/сохранение в процессе
+        clicheEditing: false,      // режим ручного редактирования
+        clicheDraft: '',           // черновик списка (по строке на фразу)
         saving: new Set(),
         keyDrafts: {},
         secretMask: SECRET_MASK,  // контракт/тесты; рантайм-guard'ы читают SECRET_MASK напрямую
@@ -1172,6 +1181,14 @@
       currentTabItemCount: function () {
         var t = this.currentTab;
         return (t && t.type === 'config') ? this.tabItemCount(t) : 0;
+      },
+      // F8 (ADR-1023-8): Tabs режимов Вербализатора (вкладка «Промпты»).
+      promptModeTabs: function () {
+        return [
+          { id: 'casual', label: 'Casual' },
+          { id: 'serious', label: 'Serious' },
+          { id: 'deep_research', label: 'Deep Research' },
+        ];
       },
       // 10.11 (spec §2.2): две смысловые зоны «Провайдеров». ОБЯЗАНЫ быть
       // computed (не methods): шаблон обращается как к bare-ref
@@ -1524,6 +1541,14 @@
     watch: {
       logLevel: function () {
         this.loadLogs();
+      },
+      // F8 (ADR-1023-8): при переходе на «Промпты» синхронизируем режим и
+      // подтягиваем блок анти-клише (идемпотентно, fail-open).
+      activeTab: function (id) {
+        if (id === 'prompts') {
+          this._syncPromptModeFromConfig();
+          this.maybeLoadCliche();
+        }
       },
     },
 
@@ -3607,6 +3632,12 @@
             && !this.configItems.length) {
           self.loadConfig();
         }
+        // F8 (ADR-1023-8): вход на «Промпты» — синхронизация режима и
+        // подгрузка блока анти-клише (fail-open, только global admin).
+        if (id === 'prompts') {
+          this._syncPromptModeFromConfig();
+          this.maybeLoadCliche();
+        }
       },
 
       // ═══ TMA-кнопки шапки (UI-полировка) ═══
@@ -3766,6 +3797,133 @@
         });
       },
 
+      // ═══ Раунд 10.23 (F8, ADR-1023-8): вкладка «Промпты» ═══════════════
+      // Клиентская группировка элементов карточки модуля по полю `stage`
+      // (synthesizer/verbalizer/mode/None) — секции «Синтезатор (Логика)» /
+      // «Вербализатор (Характер)». GROUPS/TAB_RULES не затронуты.
+      promptStageItems: function (grp, stage) {
+        if (!grp || !grp.items) return [];
+        return grp.items.filter(function (i) { return i.stage === stage; });
+      },
+      promptOtherItems: function (grp) {
+        if (!grp || !grp.items) return [];
+        return grp.items.filter(function (i) { return !i.stage; });
+      },
+      promptsHasSynthesizer: function (grp) {
+        return this.promptStageItems(grp, 'synthesizer').length > 0;
+      },
+      promptItemByKey: function (grp, key) {
+        var items = (grp && grp.items) || [];
+        for (var i = 0; i < items.length; i++) {
+          if (items[i].key === key) return items[i];
+        }
+        return null;
+      },
+      promptModeItem: function (mode) {
+        var m = mode || this.promptMode;
+        return (this.configItems || []).find(function (i) {
+          return i.key === 'prompts.verbilizer_mode_' + m;
+        }) || null;
+      },
+      promptDefaultModeItem: function () {
+        return (this.configItems || []).find(function (i) {
+          return i.key === 'prompts.verbilizer_default_mode';
+        }) || null;
+      },
+      // Клик по табу: переключает редактируемый режимный блок и задаёт режим
+      // по умолчанию (ключ prompts.verbilizer_default_mode, автосейв).
+      selectPromptMode: function (mode) {
+        if (!mode) return;
+        this.promptMode = mode;
+        var item = this.promptDefaultModeItem();
+        if (item && item.value !== mode && this.canEditConfig(item.key)) {
+          item.value = mode;
+          this.saveConfigItem(item);
+        }
+      },
+      _syncPromptModeFromConfig: function () {
+        var item = this.promptDefaultModeItem();
+        if (item && item.value) this.promptMode = String(item.value);
+      },
+      // ── Блок мониторинга динамического анти-клише (API F4) ────────────
+      // Fail-open: F4-API недоступен (403/404/503/сеть) → блок скрыт
+      // (clicheAvailable=false), вкладка «Промпты» продолжает работать.
+      loadCliche: async function () {
+        if (!this.isGlobalAdmin) { this.clicheAvailable = false; return; }
+        this.clicheLoading = true;
+        try {
+          var data = await this.api('/api/anticliche');
+          this.clicheMeta = data || null;
+          this.clicheAvailable = true;
+        } catch (e) {
+          this.clicheAvailable = false;
+          this.clicheMeta = null;
+        } finally {
+          this.clicheLoading = false;
+        }
+      },
+      maybeLoadCliche: function () {
+        if (this.isGlobalAdmin && this.activeTab === 'prompts'
+            && !this.clicheAvailable && !this.clicheLoading) {
+          this.loadCliche();
+        }
+      },
+      forceRefreshCliche: async function () {
+        if (this.clicheBusy) return;
+        this.clicheBusy = true;
+        try {
+          await this.api('/api/anticliche/refresh', { method: 'POST' });
+          await this.loadCliche();
+          this.toast('Список анти-клише обновлён', 'ok');
+        } catch (e) {
+          this.toast('Не удалось обновить список анти-клише', 'err');
+        } finally {
+          this.clicheBusy = false;
+        }
+      },
+      toggleClicheEdit: function () {
+        if (this.clicheEditing) { this.clicheEditing = false; return; }
+        var pats = (this.clicheMeta && this.clicheMeta.patterns) || [];
+        this.clicheDraft = pats.map(function (p) { return p.phrase; }).join('\n');
+        this.clicheEditing = true;
+      },
+      saveCliche: async function () {
+        if (this.clicheBusy) return;
+        var phrases = String(this.clicheDraft || '').split('\n')
+          .map(function (s) { return s.trim(); })
+          .filter(function (s) { return s.length > 0; });
+        this.clicheBusy = true;
+        try {
+          await this.api('/api/anticliche', {
+            method: 'PUT',
+            body: JSON.stringify({ patterns: phrases.map(function (p) {
+              return { phrase: p };
+            }) }),
+          });
+          await this.loadCliche();
+          this.clicheEditing = false;
+          this.toast('Список анти-клише сохранён', 'ok');
+        } catch (e) {
+          this.toast('Не удалось сохранить список анти-клише', 'err');
+        } finally {
+          this.clicheBusy = false;
+        }
+      },
+      clicheStatusLabel: function () {
+        var map = { ok: 'актуален', parse_error: 'ошибка разбора',
+                    fetch_error: 'ошибка загрузки', llm_error: 'ошибка модели',
+                    budget_skip: 'пропуск по бюджету', empty: 'пустой результат',
+                    disabled: 'отключён', never: 'ещё не обновлялся' };
+        var st = (this.clicheMeta && this.clicheMeta.last_status) || 'never';
+        return map[st] || st;
+      },
+      formatClicheDate: function (iso) {
+        if (!iso) return '—';
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso);
+        try { return d.toLocaleString(); } catch (e) { return String(iso); }
+      },
+
       canEditConfig: function (key) {
         var p = this.permissions;
         if (p.wildcard) return true;
@@ -3865,6 +4023,11 @@
           // пересоберут пары из item.value — внешних черновиков нет.
           // 10.20 (T-1900): baseline sticky-save = свежезагруженный конфиг.
           if (typeof this._snapshotConfig === 'function') this._snapshotConfig();
+          // F8 (ADR-1023-8): синхронизируем активный режим Вербализатора с
+          // ключом по умолчанию и (на вкладке «Промпты») подтягиваем блок
+          // анти-клише (fail-open).
+          this._syncPromptModeFromConfig();
+          if (this.activeTab === 'prompts') this.maybeLoadCliche();
         } catch (e) {
           if (!this._scopeGuard(epoch)) return;   // R2: устаревшая ошибка
           // ПРОД-ИНЦИДЕНТ (C): 401 различается — понятное сообщение вместо

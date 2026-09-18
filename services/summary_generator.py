@@ -449,7 +449,9 @@ class SummaryGenerator:
         ``response_mode``); канал Stage-2 — ``rich``, когда обложка реально
         возможна (флаг ON ∧ поддержка media ∧ ``cover_prompt`` ≠ "")."""
         editor_payload = [
-            {"role": "system", "content": SUMMARY_EDITOR_SYSTEM_PROMPT},
+            {"role": "system", "content": hot.get(
+                "prompts.summary_editor_system_prompt",
+                SUMMARY_EDITOR_SYSTEM_PROMPT)},
             {"role": "user", "content": user_content},
         ]
         editor_raw = await self._llm_generate(
@@ -467,8 +469,12 @@ class SummaryGenerator:
         response_mode = parsed["response_mode"]
         cover_prompt = parsed.get("cover_prompt", "")
         modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED", True)
-        narrator_template = (SUMMARY_NARRATOR_SYSTEM_PROMPT if modes_on
-                             else PREV_SUMMARY_NARRATOR_R1023)
+        # F8 (ADR-1023-8): Stage-2 база читается из PG (hot) с fallback на
+        # код-канон; kill-switch OFF → прежний до-F3 Рассказчик.
+        narrator_template = (
+            hot.get("prompts.summary_narrator_system_prompt",
+                    SUMMARY_NARRATOR_SYSTEM_PROMPT)
+            if modes_on else PREV_SUMMARY_NARRATOR_R1023)
         narrator_base = narrator_template.replace(
             "{max_symbols}", str(max_symbols))
         # F6: канал Stage-2 = rich, только если Article реально возможен
