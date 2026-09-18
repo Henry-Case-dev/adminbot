@@ -543,6 +543,13 @@ class Settings:
     # OFF → единый прежний Вербализатор (пре-режимные PREV-константы).
     SMART_VERBALIZER_MODES_ENABLED: ClassVar[bool] = _env_bool(
         "SMART_VERBALIZER_MODES_ENABLED", True)
+    # ── Раунд 10.23 (F4, ADR-1023-4 D3/D6): env-only ClassVar kill-switch
+    # динамического анти-клише кэша. default ON, Δ каталога = 0 (в
+    # param_catalog не входит). OFF → `anticliche_cache.get_rules()` = (),
+    # недельный воркер НЕ регистрируется → работает только захардкоженный
+    # детектор (байт-в-байт 10.22). Промпты/scrubber фича не трогает.
+    DYNAMIC_ANTICLICHE_ENABLED: ClassVar[bool] = _env_bool(
+        "DYNAMIC_ANTICLICHE_ENABLED", True)
     # ── Раунд 10.22 (F8, ADR-1022-8): env-only ClassVar-рубильники
     # асинхронной пересборки досье из мини-аппа. Δ каталога = 0 (в
     # param_catalog не входят; прецедент MULTILAYER_EXTRACTION_ENABLED).

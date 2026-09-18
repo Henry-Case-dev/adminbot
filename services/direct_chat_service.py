@@ -153,6 +153,7 @@ from services.token_counter import (
 )
 from services.context_middleware import truncate_keep_header
 from services.reply_postprocess import strip_reasoning_tags
+from services import anticliche_cache
 from services.negative_constraints import (
     channel_enabled_rules,
     verbalize_validated,
@@ -910,7 +911,8 @@ class DirectChatService:
                              if modes_on else None)
             text, stats = await verbalize_validated(
                 _generate, base_messages, max_retries=2,
-                enabled_rules=enabled_rules)
+                enabled_rules=enabled_rules,
+                dynamic_rules=anticliche_cache.get_rules() or None)
             logger.info(
                 "[direct] system2 | chat=%s | mode=%s | attempts=%d | retries=%d | "
                 "hits=%d | fallback=%s", chat_id, response_mode,

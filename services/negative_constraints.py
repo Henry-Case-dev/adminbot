@@ -14,10 +14,11 @@ Fail-safe: ошибка generate на ретрае → возвращается 
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 from dataclasses import dataclass
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, Iterable
 
 from config.settings import settings
 from services.outgoing_guard import sanitize_outgoing
@@ -40,6 +41,20 @@ class ClicheRule:
     use_raw: bool = False
 
 
+@dataclass(frozen=True)
+class DynamicClicheRule:
+    """F4 (ADR-1023-4 D2): динамическое правило — литеральная фраза + код.
+
+    Фраза хранится уже нормализованной (`_normalize`: lower/ё→е/пробелы);
+    на детекторе компилируется через ``re.escape`` (произвольные regex НЕ
+    принимаются — защита от ReDoS/инъекций). Код стабилен: ``dyn_<sha1[:8]>``.
+    R17: наружу отдаются только коды, не фразы.
+    """
+
+    code: str
+    phrase: str
+
+
 def _c(*patterns: str, flags: int = 0) -> tuple[re.Pattern[str], ...]:
     return tuple(re.compile(p, flags) for p in patterns)
 
@@ -52,10 +67,23 @@ FORBIDDEN_CLICHE_PATTERNS: tuple[ClicheRule, ...] = (
         r"\bя\s*,?\s+(?:как\s+)?(?:ии|искусственный\s+интеллект)\b",
         # «как ИИ / языковая модель» — но НЕ третьеличные сравнения
         # (S10.22-4: «он/она/оно/это/люди … как …», «ведёт себя как …»).
-        r"(?<!\bсебя\s)(?<!\bон\s)(?<!\bона\s)(?<!\bоно\s)(?<!\bэто\s)"
-        r"(?<!\bлюди\s)(?<!\bчеловек\s)\bкак\s+"
+        # S10.22-4b (F4, ADR-1023-4 D5): добавлены comma-варианты lookbehind
+        # фиксированной ширины — «Он, как …», «Люди, как …» (Python re не
+        # поддерживает lookbehind переменной длины).
+        r"(?<!\bсебя\s)(?<!\bсебя,\s)"
+        r"(?<!\bон\s)(?<!\bон,\s)"
+        r"(?<!\bона\s)(?<!\bона,\s)"
+        r"(?<!\bоно\s)(?<!\bоно,\s)"
+        r"(?<!\bэто\s)(?<!\bэто,\s)"
+        r"(?<!\bлюди\s)(?<!\bлюди,\s)"
+        r"(?<!\bчеловек\s)(?<!\bчеловек,\s)"
+        r"\bкак\s+"
         r"(?:ии|искусственный\s+интеллект|языковая\s+модель)\b",
-        r"\bязыковая\s+модель\b",
+        # S10.22-4b: голое «языковая модель» — самоидентификация; в
+        # третьеличном сравнении «она, как языковая модель» роль играет
+        # предыдущее правило (его comma-lookbehind), поэтому bare-правило
+        # не должно срабатывать сразу после «как ».
+        r"(?<!\bкак\s)\bязыковая\s+модель\b",
     )),
     ClicheRule("classic_genre", _c(r"\bклассика\s+жанра\b")),
     ClicheRule("summing_up", _c(r"\bподводя\s+итог(?:и)?\b")),
@@ -182,18 +210,104 @@ def _normalize(text: str) -> str:
     return _WS_RE.sub(" ", value).strip()
 
 
+# ── F4 (ADR-1023-4 D2): динамические правила (литеральные фразы) ─────────────
+DYNAMIC_PREFIX = "dyn_"
+DYNAMIC_PHRASE_MIN = 2
+DYNAMIC_PHRASE_MAX = 120
+# Bounded-кэш скомпилированных шаблонов динамических фраз (module-level).
+_DYNAMIC_PATTERN_CACHE: dict[str, re.Pattern[str] | None] = {}
+_DYNAMIC_PATTERN_CACHE_MAX = 256
+
+
+def normalize_dynamic_phrase(raw) -> str | None:
+    """Нормализация фразы динамического правила → строка | None.
+
+    Только литеральная строка: lower, `ё→е`, схлопывание дефисов/пробелов;
+    длина 2…120 символов (иначе ``None``). Произвольные regex/служебные
+    значения не принимаются на уровне вызывающего (``re.escape``).
+    """
+    try:
+        value = _normalize(raw)
+        if len(value) < DYNAMIC_PHRASE_MIN or len(value) > DYNAMIC_PHRASE_MAX:
+            return None
+        return value
+    except Exception:  # pragma: no cover - defensive
+        return None
+
+
+def dynamic_rule_code(phrase: str) -> str:
+    """Стабильный код правила: ``dyn_<sha1(normalized_phrase)[:8]>``."""
+    digest = hashlib.sha1(
+        str(phrase or "").encode("utf-8")).hexdigest()[:8]
+    return DYNAMIC_PREFIX + digest
+
+
+def build_dynamic_rule(phrase) -> DynamicClicheRule | None:
+    """Нормализованная фраза → правило (или ``None``, если фраза невалидна)."""
+    normalized = normalize_dynamic_phrase(phrase)
+    if not normalized:
+        return None
+    return DynamicClicheRule(code=dynamic_rule_code(normalized),
+                             phrase=normalized)
+
+
+def _compile_dynamic_pattern(phrase: str) -> re.Pattern[str] | None:
+    """Компиляция литеральной фразы через ``re.escape`` (+ ``\\b`` по краям).
+
+    Произвольные regex не принимаются (фраза экранируется целиком). Кэш
+    bounded (сброс при переполнении — динамических фраз мало)."""
+    cached = _DYNAMIC_PATTERN_CACHE.get(phrase)
+    if cached is not None or phrase in _DYNAMIC_PATTERN_CACHE:
+        return cached
+    try:
+        escaped = re.escape(phrase)
+        if re.match(r"\w", phrase):
+            escaped = r"\b" + escaped
+        if re.search(r"\w$", phrase):
+            escaped = escaped + r"\b"
+        pattern: re.Pattern[str] | None = re.compile(escaped)
+    except Exception:  # pragma: no cover - defensive (не должно случаться)
+        pattern = None
+    if len(_DYNAMIC_PATTERN_CACHE) >= _DYNAMIC_PATTERN_CACHE_MAX:
+        _DYNAMIC_PATTERN_CACHE.clear()
+    _DYNAMIC_PATTERN_CACHE[phrase] = pattern
+    return pattern
+
+
+def _dynamic_hits(
+    norm: str, dynamic_rules: Iterable[DynamicClicheRule] | None
+) -> list[str]:
+    """Коды сработавших динамических правил по нормализованному тексту."""
+    hits: list[str] = []
+    if not dynamic_rules:
+        return hits
+    for rule in dynamic_rules:
+        code = getattr(rule, "code", None)
+        phrase = getattr(rule, "phrase", None)
+        if not code or not phrase or code in hits:
+            continue
+        pattern = _compile_dynamic_pattern(str(phrase))
+        if pattern is not None and pattern.search(norm):
+            hits.append(str(code))
+    return hits
+
+
 def find_forbidden_cliches(
-    text: str, enabled_rules: frozenset[str] | set[str] | None = None
+    text: str,
+    enabled_rules: frozenset[str] | set[str] | None = None,
+    dynamic_rules: Iterable[DynamicClicheRule] | None = None,
 ) -> list[str]:
     """→ список кодов найденных клише (R17: без matched-подстрок).
 
     ``enabled_rules=None`` → дефолтный набор (все, кроме вторичного
-    ``bullet_list``). Fail-open: ошибка → ``[]`` (текст считается чистым).
+    ``bullet_list``). ``dynamic_rules`` (F4, аддитивно) — литеральные
+    правила из PG-кэша; ``None``/пусто → поведение **байт-в-байт** прежнее.
+    Fail-open: ошибка → ``[]`` (текст считается чистым).
     """
     try:
         codes = (DEFAULT_ENABLED_RULES if enabled_rules is None
                  else frozenset(enabled_rules))
-        if not codes:
+        if not codes and not dynamic_rules:
             return []
         source = str(text or "")
         norm = _normalize(source)
@@ -210,6 +324,7 @@ def find_forbidden_cliches(
             haystack = source if rule.use_raw else norm
             if any(pattern.search(haystack) for pattern in rule.patterns):
                 hits.append(rule.code)
+        hits.extend(_dynamic_hits(norm, dynamic_rules))
         return hits
     except Exception:  # pragma: no cover - defensive (fail-open)
         logger.warning("[validator] detector error — text treated as clean")
@@ -227,6 +342,7 @@ async def verbalize_validated(
     max_retries: int = _MAX_RETRIES_HARD_CAP,
     scrubber: Scrubber = sanitize_outgoing,
     enabled_rules: frozenset[str] | set[str] | None = None,
+    dynamic_rules: Iterable[DynamicClicheRule] | None = None,
 ) -> tuple[str, dict]:
     """Вызвать Вербализатор с браковкой ответа по запрещённым клише.
 
@@ -260,7 +376,7 @@ async def verbalize_validated(
     retry_message = {"role": "system", "content": CLICHE_RETRY_SYSTEM_PROMPT}
     text = await generate_call(base_messages)
     attempts = 1
-    codes = find_forbidden_cliches(text, enabled_rules)
+    codes = find_forbidden_cliches(text, enabled_rules, dynamic_rules)
     if not codes:
         stats["attempts"] = attempts
         return scrubber(text), stats
@@ -284,7 +400,7 @@ async def verbalize_validated(
             return scrubber(best_text), stats
         attempts += 1
         retries = index
-        codes = find_forbidden_cliches(text, enabled_rules)
+        codes = find_forbidden_cliches(text, enabled_rules, dynamic_rules)
         if not codes:
             stats.update({"attempts": attempts, "retries": retries})
             return scrubber(text), stats

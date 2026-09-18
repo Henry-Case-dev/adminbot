@@ -76,12 +76,13 @@ class TestItem1EmbedDecoupling:
         assert "var isGlobal = item.per_chat === false" in JS
 
     def test_bot_di_all_four_call_sites(self):
-        """Ревью-дефект 1: DI embed-base/ключа во ВСЕХ 4 точках LLMClient."""
+        """Ревью-дефект 1: DI embed-base/ключа во ВСЕХ точках LLMClient
+        (4 базовых + AntiClicheWorker 10.23/F4 = 5)."""
         bot = (ROOT / "bot.py").read_text(encoding="utf-8")
         assert bot.count(
-            'embed_base_url=hot.get("models.embedding_base_url"') == 4
+            'embed_base_url=hot.get("models.embedding_base_url"') == 5
         assert bot.count(
-            'embed_api_key=hot.get("keys.embedding_api_key"') == 4
+            'embed_api_key=hot.get("keys.embedding_api_key"') == 5
 
 
 class TestItem2MergedBlocks:

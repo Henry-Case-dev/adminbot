@@ -30,6 +30,7 @@ from services.chat_params import (
 )
 from services.database import row_get
 from services.llm_client import LLMBadResponseError, LLMError
+from services import anticliche_cache
 from services.negative_constraints import (
     DEFAULT_ENABLED_RULES,
     channel_enabled_rules,
@@ -364,7 +365,8 @@ class SummaryGenerator:
             enabled_rules = DEFAULT_ENABLED_RULES | {"bullet_list"}
         text, stats = await verbalize_validated(
             _generate, base_messages, max_retries=2,
-            enabled_rules=enabled_rules)
+            enabled_rules=enabled_rules,
+            dynamic_rules=anticliche_cache.get_rules() or None)
         logger.info(
             "summary system2 narrator | chat_id=%s | mode=%s | attempts=%d "
             "| retries=%d | hits=%d | fallback=%s", chat_id, response_mode,

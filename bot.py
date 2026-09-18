@@ -122,6 +122,13 @@ from services.lore_runtime import (
     set_lore_components,
 )
 from services.lore_worker import LoreWorker
+# ── Раунд 10.23 (F4 dynamic-anticliche-cache, ADR-1023-4): недельный воркер
+#    динамического анти-клише кэша (PG-таблица anticliche_cache).
+from services.anticliche_worker import (
+    AntiClicheWorker,
+    set_runtime_worker as set_anticliche_worker,
+)
+from services import anticliche_cache
 from handlers.chat_lifecycle import chat_lifecycle_router, setup_chat_lifecycle
 # ── Раунд 9: DreamWorker («сон», beliefs) — вне summary-гейта (T-824/T-825)
 from services.dream_worker import DreamWorker
@@ -254,6 +261,8 @@ _nostalgia_worker = None
 # Раунд 9 (AGI Memory, T-828/F1) — refs: RelationsService (runtime-компонент
 # для web-api relations и инжекта <user_relations>).
 _relations_service = None
+# Раунд 10.23 (F4) — ref для on_shutdown: недельный воркер анти-клише.
+_anticliche_worker = None
 
 
 async def on_startup():
@@ -646,6 +655,35 @@ async def on_startup():
             "[nostalgia] worker init failed — fail-open (ностальгия "
             "выключена)", exc_info=True)
 
+    # ── Раунд 10.23 (F4, ADR-1023-4 D6): AntiClicheWorker — недельное
+    # обновление динамического анти-клише кэша. Вне summary-гейта (как
+    # LoreWorker/DreamWorker): при выключенном summary — свой ленивый
+    # LLMClient. start() сам решает по env-флагу DYNAMIC_ANTICLICHE_ENABLED
+    # (OFF → джоб не регистрируется, работает только захардкоженный детектор).
+    # Fail-open: ошибка инициализации → WARNING, бот жив.
+    global _anticliche_worker
+    _anticliche_worker = None
+    try:
+        anticliche_llm = _llm_client or LLMClient(
+            hot.get("models.llm_base_url", settings.LLM_BASE_URL),
+            hot.get("keys.llm_api_key", settings.LLM_API_KEY),
+            hot.get("models.llm_model_name", settings.LLM_MODEL_NAME),
+            hot.get("models.embedding_model_name", settings.EMBEDDING_MODEL_NAME),
+            embed_base_url=hot.get("models.embedding_base_url",
+                                   settings.EMBEDDING_BASE_URL),
+            embed_api_key=hot.get("keys.embedding_api_key",
+                                  settings.EMBEDDING_API_KEY),
+        )
+        _anticliche_worker = AntiClicheWorker(
+            llm=anticliche_llm,
+            pg=(lore_store.pg if lore_store is not None else None))
+        _anticliche_worker.start()
+        set_anticliche_worker(_anticliche_worker)
+        logger.info("AntiClicheWorker (раунд 10.23 F4) initialized")
+    except Exception:
+        logger.warning(
+            "[anticliche] worker init failed — fail-open", exc_info=True)
+
     # ── Раунд 9 (AGI Memory, spec §3.6.1/Q2, T-828/F1): db + relations +
     # воркеры в runtime — для web-api (relations-скоры users_meta через
     # get_lore_db(); ручной запуск/логи «сна»/ностальгии через
@@ -846,6 +884,8 @@ async def on_shutdown():
     logger.info("Bot shutting down...")
     if _nostalgia_worker:
         await _nostalgia_worker.stop()
+    if _anticliche_worker:
+        await _anticliche_worker.stop()
     if _dream_worker:
         await _dream_worker.stop()
     if _lore_worker:
@@ -929,6 +969,16 @@ async def main():
     # ── Раунд 10 (F-10 §5): runtime-PG для worker_budget (воркеры/API). ──
     from services.worker_budget import set_worker_budget_pg
     set_worker_budget_pg(cache.pg)
+
+    # ── Раунд 10.23 (F4, ADR-1023-4 D3): runtime-PG + прогрев in-process
+    # правил динамического анти-клише кэша. Fail-open: PG down/битый JSON →
+    # пустой набор (детектор работает на захардкоженном списке).
+    anticliche_cache.set_runtime_pg(cache.pg)
+    try:
+        await anticliche_cache.load_rules(cache.pg)
+    except Exception:
+        logger.warning("[anticliche] cache warm failed — fail-open",
+                       exc_info=True)
 
     # ── Раунд 10.14 (F2 persona-storage-core, spec §3.3/T-1493): прогрев
     # in-memory кэша глобального имени бота (sync-триггер обращения).

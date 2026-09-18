@@ -34,6 +34,7 @@ from services.grounding_validator import (
     strip_phantom_tags,
 )
 from services.llm_client import LLMBadResponseError, LLMClient
+from services import anticliche_cache
 from services.negative_constraints import (
     channel_enabled_rules,
     verbalize_validated,
@@ -174,7 +175,8 @@ class FactCheckService:
                          if modes_on else None)
         text, stats = await verbalize_validated(
             _generate, base_messages, max_retries=2,
-            enabled_rules=enabled_rules)
+            enabled_rules=enabled_rules,
+            dynamic_rules=anticliche_cache.get_rules() or None)
         logger.info(
             "factcheck system2 verbalizer | chat=%s | mode=%s | attempts=%d "
             "| retries=%d | hits=%d | fallback=%s", chat_id, response_mode,

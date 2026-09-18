@@ -206,6 +206,10 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
     # Раунд 10 (F-12 §4, Q3): Oversight API (только global admin).
     from web.api.oversight import oversight_router
     app.include_router(oversight_router, prefix="/api/oversight")
+    # Раунд 10.23 (F4, ADR-1023-4 D6): мониторинг/управление динамическим
+    # анти-клише кэшем (только global admin) — рядом с остальными роутерами.
+    from web.api.anticliche import anticliche_router
+    app.include_router(anticliche_router, prefix="/api")
 
     rendered_index = _render_index()   # один раз at startup (84.21.2)
     rendered_css = _render_app_css()   # F4 10.16: подстановка ?v= в @font-face

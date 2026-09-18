@@ -279,6 +279,27 @@ DDL_STATEMENTS: tuple[str, ...] = (
     INSERT INTO personas (chat_id, is_global)
     SELECT NULL, true WHERE NOT EXISTS (SELECT 1 FROM personas WHERE is_global)
     """,
+    # ── Раунд 10.23 (F4 dynamic-anticliche-cache, ADR-1023-4 D3) ────────────
+    # PG-кэш динамических ИИ-паттернов (singleton id=1, JSONB-список +
+    # метаданные). Δ SQLite = 0 (кэш живёт только в PG). Идемпотентно:
+    # CREATE/INDEX IF NOT EXISTS + сид singleton ON CONFLICT DO NOTHING.
+    # Паттерны питают детектор (`find_forbidden_cliches`), НЕ scrubber и
+    # НЕ промпт (ADR-1023-4 D1). last_status — R17-safe код состояния.
+    """
+    CREATE TABLE IF NOT EXISTS anticliche_cache (
+        id          SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+        patterns    JSONB NOT NULL DEFAULT '[]'::jsonb,
+        source      TEXT NOT NULL DEFAULT '',
+        source_url  TEXT NOT NULL DEFAULT '',
+        version     INTEGER NOT NULL DEFAULT 0,
+        fetched_at  TIMESTAMPTZ,
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+        last_status TEXT NOT NULL DEFAULT 'never'
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_anticliche_cache_updated"
+    " ON anticliche_cache (updated_at DESC)",
+    "INSERT INTO anticliche_cache (id) VALUES (1) ON CONFLICT (id) DO NOTHING",
 )
 
 # ── Сиды ────────────────────────────────────────────────────────────────────
