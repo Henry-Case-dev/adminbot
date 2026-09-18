@@ -161,7 +161,7 @@ class TestDirectHandleBranchOn:
         svc._send_direct_answer = send
 
         async def fake_chat_with_tools(llm, payload, *, tools, router, ctx,
-                                       temperature, chat_id):
+                                       temperature, chat_id, **kwargs):
             if lore:
                 ctx.lore_compiled = True
                 ctx.lore_story = "HTML история"

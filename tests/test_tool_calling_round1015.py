@@ -204,7 +204,7 @@ class _ToolCallLLM:
         self.last_messages = None
 
     async def generate_chat(self, messages, *, temperature=None, tools=None,
-                            tool_choice="auto", chat_id=None):
+                            tool_choice="auto", chat_id=None, **kwargs):
         self.calls += 1
         self.last_messages = copy.deepcopy(messages)
         if self.calls == 1:
@@ -508,7 +508,7 @@ class _OverflowLLM:
         self.calls = 0
 
     async def generate_chat(self, messages, *, temperature=None, tools=None,
-                            tool_choice="auto", chat_id=None):
+                            tool_choice="auto", chat_id=None, **kwargs):
         self.calls += 1
         if self.calls == 1:
             calls = [LLMToolCall(id=f"c{i}", name="query_chat_memory",
@@ -537,7 +537,8 @@ class TestToolLoopLimits:
             async def generate_chat(self, *a, **k):
                 raise LLMError("provider rejects tools")
 
-            async def generate(self, messages, temperature=None, chat_id=None):
+            async def generate(self, messages, temperature=None, chat_id=None,
+                               **kwargs):
                 self.plain += 1
                 return "обычный ответ"
 
@@ -616,7 +617,7 @@ class TestDirectChatContext:
         captured = {}
 
         async def _fake_chat_with_tools(llm, payload, *, tools, router, ctx,
-                                        temperature, chat_id=None):
+                                        temperature, chat_id=None, **kwargs):
             captured["ctx"] = ctx
             captured["tools"] = tools
             return "готовый ответ"

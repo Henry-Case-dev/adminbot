@@ -56,12 +56,13 @@ class _ScriptedLLM:
         self.last_messages = None
 
     async def generate_chat(self, messages, *, temperature=None, tools=None,
-                            tool_choice="auto", chat_id=None):
+                            tool_choice="auto", chat_id=None, **kwargs):
         self.calls += 1
         self.last_messages = copy.deepcopy(messages)
         return self._results.pop(0)
 
-    async def generate(self, messages, temperature=None, chat_id=None):
+    async def generate(self, messages, temperature=None, chat_id=None,
+                       **kwargs):
         return "обычный ответ"
 
 

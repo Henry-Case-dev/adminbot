@@ -362,12 +362,16 @@ class ToolContext:
 
     def __init__(self, chat_id: int, query: str, *, bot=None,
                  reply_to_message_id=None, user_id=None,
-                 lore_verbatim_instruction: bool = True) -> None:
+                 lore_verbatim_instruction: bool = True,
+                 correlation_id: str | None = None) -> None:
         self.chat_id = chat_id
         self.query = str(query or "")
         self.bot = bot
         self.reply_to_message_id = reply_to_message_id
         self.user_id = user_id
+        # F7 (ADR-1023-7 D4): сквозной id ответа — прокидывается в
+        # инструменты, которые пишут телеметрию (generate_image → step='image').
+        self.correlation_id = correlation_id
         self.lore_compiled = False
         # Раунд 10.20 (БЛОК 7.2c, ADR-1020-7 §2, T-1922): готовый текст
         # истории «Летописца» (HTML). DirectChat при `lore_compiled` доставляет
@@ -1156,7 +1160,8 @@ class ToolRouter:
                               ensure_ascii=False)
         result = await image_generation.generate_and_send(
             ctx.bot, ctx.chat_id, prompt,
-            reply_to_message_id=ctx.reply_to_message_id)
+            reply_to_message_id=ctx.reply_to_message_id,
+            correlation_id=getattr(ctx, "correlation_id", None))
         if result.ok:
             return json.dumps(
                 {"status": "success",

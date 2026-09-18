@@ -95,7 +95,7 @@ class FakeLLM:
         self.error = error
         self.messages = None
 
-    async def generate(self, messages):
+    async def generate(self, messages, **kwargs):
         self.messages = messages
         if self.error:
             raise self.error
@@ -111,7 +111,7 @@ class RetryLLM:
         self.calls = 0
         self.messages = None
 
-    async def generate(self, messages):
+    async def generate(self, messages, **kwargs):
         self.calls += 1
         self.messages = messages
         if self.calls <= self.fail_times:
@@ -913,7 +913,7 @@ class _SummaryLLM:
         self.generate_calls = 0
         self.last_user = None
 
-    async def generate(self, messages):
+    async def generate(self, messages, **kwargs):
         self.generate_calls += 1
         self.last_user = messages[1]["content"]
         return "конспект окна"

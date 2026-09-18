@@ -114,7 +114,7 @@ class TestSummaryRunBranchOn:
             def __init__(self):
                 self.calls = 0
 
-            async def generate(self, messages):
+            async def generate(self, messages, **kwargs):
                 self.calls += 1
                 return _DIGEST if self.calls == 1 else "связный дерзкий рассказ"
 
@@ -144,7 +144,7 @@ class TestSummaryRunBranchOn:
             def __init__(self):
                 self.calls = 0
 
-            async def generate(self, messages):
+            async def generate(self, messages, **kwargs):
                 self.calls += 1
                 return "одиночный текст"
 

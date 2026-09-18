@@ -62,13 +62,14 @@ class _ScriptedLLM:
         self.calls = 0
 
     async def generate_chat(self, messages, *, temperature=None, tools=None,
-                            tool_choice="auto", chat_id=None):
+                            tool_choice="auto", chat_id=None, **kwargs):
         self.calls += 1
         if not self._answers:
             raise AssertionError("не хватило ответов")
         return self._answers.pop(0)
 
-    async def generate(self, messages, temperature=None, chat_id=None):
+    async def generate(self, messages, temperature=None, chat_id=None,
+                       **kwargs):
         return "plain"
 
 
@@ -148,7 +149,8 @@ class TestToolLoopFailSafe:
             async def generate_chat(self, *a, **k):
                 raise LLMError("tools unsupported")
 
-            async def generate(self, messages, temperature=None, chat_id=None):
+            async def generate(self, messages, temperature=None, chat_id=None,
+                               **kwargs):
                 return "обычный ответ"
 
         out = await chat_with_tools(_Reject(), [{"role": "user", "content": "q"}],

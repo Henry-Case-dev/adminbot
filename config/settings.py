@@ -571,6 +571,17 @@ class Settings:
     # `sendRichMessage` (Article-ветка пропускается).
     SUMMARY_COVER_ARTICLE_ENABLED: ClassVar[bool] = _env_bool(
         "SUMMARY_COVER_ARTICLE_ENABLED", True)
+    # ── Раунд 10.23 (F7, ADR-1023-7 D6): env-only ClassVar-рубильники
+    # аналитики токенов. Δ каталога = 0 (в param_catalog НЕ входят).
+    #   * TOKEN_ANALYTICS_ENABLED — мастер-килсвитч телеметрии (default ON).
+    #     OFF → запись событий и дашборд выключены, бюджетный учёт
+    #     (`chat_usage`/`worker_budget`, source='global') байт-в-байт прежний.
+    #   * TOKEN_ANALYTICS_RETENTION_DAYS — горизонт хранения событий
+    #     (default 90 дней), opportunistic-очистка fail-open.
+    TOKEN_ANALYTICS_ENABLED: ClassVar[bool] = _env_bool(
+        "TOKEN_ANALYTICS_ENABLED", True)
+    TOKEN_ANALYTICS_RETENTION_DAYS: ClassVar[int] = _env_int(
+        "TOKEN_ANALYTICS_RETENTION_DAYS", 90)
     # ── Раунд 10.22 (F8, ADR-1022-8): env-only ClassVar-рубильники
     # асинхронной пересборки досье из мини-аппа. Δ каталога = 0 (в
     # param_catalog не входят; прецедент MULTILAYER_EXTRACTION_ENABLED).

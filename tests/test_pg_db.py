@@ -136,8 +136,9 @@ class TestDdl:
         # 4 базовых + 4 лора (раунд 7) + param_permissions/chat_keys/
         # chat_usage/worker_budget (раунд 10) + persona_state (10.14/F1)
         # + personas/persona_traits (10.14/F2) = 15; + anticliche_cache
-        # (10.23/F4) = 16 × 2 запуска
-        assert len(create_tables) == 16 * 2
+        # (10.23/F4) = 16; + llm_usage_events/llm_model_prices (10.23/F7) = 18
+        # × 2 запуска
+        assert len(create_tables) == 18 * 2
 
     @pytest.mark.asyncio
     async def test_init_without_seed_settings_no_settings_insert(self, fake_pool):

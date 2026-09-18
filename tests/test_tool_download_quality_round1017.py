@@ -386,7 +386,7 @@ class _ScriptedLLM:
         self.last_messages = None
 
     async def generate_chat(self, messages, *, temperature=None, tools=None,
-                            tool_choice="auto", chat_id=None):
+                            tool_choice="auto", chat_id=None, **kwargs):
         self.calls += 1
         self.last_messages = [dict(m) for m in messages]
         return self._results.pop(0)

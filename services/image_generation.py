@@ -331,7 +331,31 @@ async def _generate_get(host: str, model: str, prompt: str,
     return content
 
 
-async def generate(prompt: str, *, chat_id: int | None = None) -> GenerationResult:
+def _pg():
+    """PgDatabase из runtime-кэша (для аналитики F7); None при его нет."""
+    cache = hot.get_config_cache()
+    if cache is None:
+        return None
+    return getattr(cache, "pg", None)
+
+
+async def _record_image_event(correlation_id: str | None) -> None:
+    """F7 (ADR-1023-7 D4): телеметрия `step='image'` (fail-open, R17).
+
+    Изображение токенов LLM не тратит, поэтому `input/output=0`, `cost=0`;
+    событие нужно для полноты дерева вызовов (`source='image'`)."""
+    try:
+        from services import usage_events
+        await usage_events.record(
+            _pg(), module="image", step="image", tool_name="generate_image",
+            source="image", correlation_id=correlation_id,
+            input_tokens=0, output_tokens=0)
+    except Exception:
+        logger.warning("[image] analytics record failed — fail-open")
+
+
+async def generate(prompt: str, *, chat_id: int | None = None,
+                   correlation_id: str | None = None) -> GenerationResult:
     """Платный вызов провайдера → байты изображения (fail-open контракт)."""
     prompt = str(prompt or "").strip()
     if not prompt:
@@ -370,16 +394,18 @@ async def generate(prompt: str, *, chat_id: int | None = None) -> GenerationResu
         "[image] generated | mode=%s | model=%s | bytes=%d | latency_ms=%d",
         "get" if get_mode else "post", model, len(content),
         int((time.monotonic() - started) * 1000))
+    await _record_image_event(correlation_id)
     return GenerationResult(ok=True, content=content)
 
 
-async def generate_image(prompt: str, *, chat_id: int | None = None
-                         ) -> str | None:
+async def generate_image(prompt: str, *, chat_id: int | None = None,
+                         correlation_id: str | None = None) -> str | None:
     """F6-контракт (сохранить): изображение → путь к локальному файлу.
 
     Fail-open: любая ошибка/пустой результат → ``None``. Вызывающий владеет
     файлом и удаляет его сам (tmp, ``delete=False``)."""
-    result = await generate(prompt, chat_id=chat_id)
+    result = await generate(prompt, chat_id=chat_id,
+                            correlation_id=correlation_id)
     if not result.ok or not result.content:
         return None
     try:
@@ -393,12 +419,15 @@ async def generate_image(prompt: str, *, chat_id: int | None = None
 
 
 async def generate_and_send(bot, chat_id: int, prompt: str, *,
-                            reply_to_message_id=None) -> GenerationResult:
+                            reply_to_message_id=None,
+                            correlation_id: str | None = None
+                            ) -> GenerationResult:
     """Сгенерировать и отправить изображение в чат (байты из памяти).
 
     R17: keyed-URL провайдера не покидает сервер; в Telegram уходит
     ``BufferedInputFile`` без подписи."""
-    result = await generate(prompt, chat_id=chat_id)
+    result = await generate(prompt, chat_id=chat_id,
+                            correlation_id=correlation_id)
     if not result.ok:
         return result
     if bot is None:

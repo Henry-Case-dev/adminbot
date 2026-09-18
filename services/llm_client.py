@@ -466,6 +466,41 @@ class LLMClient:
         return hot.get("keys.llm_fallback_api_key",
                        self._fallback_api_key) or ""
 
+    async def _record_analytics(
+        self, usage, messages, content, *, source: str,
+        module: str | None, step: str | None,
+        correlation_id: str | None, chat_id: int | None,
+        model: str | None = None, tool_name: str = "",
+    ) -> None:
+        """F7 (ADR-1023-7): запись обогащённого usage-события в PG.
+
+        Аналитика **аддитивна** и fail-open: ошибка/нет PG/флаг OFF → только
+        WARNING (или no-op), бюджетный учёт (`_record_global_usage`) не
+        затрагивается. Реальные токены — из `usage` ответа; при отсутствии —
+        честная оценка + `tokens_estimated=true`. R17: только числа/коды."""
+        try:
+            from services import usage_events
+            in_tokens, out_tokens, estimated = \
+                usage_events.resolve_token_counts(usage, messages, content)
+            await usage_events.record(
+                self._pg(),
+                module=module or "llm",
+                step=step or "single",
+                correlation_id=correlation_id,
+                # BYOK-ключ чата (source='chat') в аналитике = 'byok'.
+                source=("byok" if source == "chat" else source),
+                chat_id=chat_id,
+                model=model or self._chat_model,
+                tool_name=tool_name,
+                input_tokens=in_tokens,
+                output_tokens=out_tokens,
+                tokens_estimated=estimated,
+            )
+        except Exception:
+            logger.warning(
+                "[llm_client] analytics record failed — fail-open | module=%s",
+                module, exc_info=True)
+
     @staticmethod
     def _close_async(client: httpx.AsyncClient) -> None:
         """Закрытие старого клиента при смене ключа (fire-and-forget)."""
@@ -835,7 +870,10 @@ class LLMClient:
 
     async def generate(self, messages: list[dict[str, str]],
                        temperature: float | None = None,
-                       chat_id: int | None = None) -> str:
+                       chat_id: int | None = None, *,
+                       module: str | None = None,
+                       step: str | None = None,
+                       correlation_id: str | None = None) -> str:
         """POST /chat/completions → choices[0].message.content.
 
         Epic 60 (65.8, T-476): temperature — опциональный kwarg; None →
@@ -888,6 +926,11 @@ class LLMClient:
             "LLM generate OK | model=%s | out_chars=%d", self._chat_model, len(content)
         )
         await self._record_global_usage(chat_id, content, source=source)
+        usage = data.get("usage") if isinstance(data, dict) else None
+        await self._record_analytics(usage, messages, content, source=source,
+                                     module=module, step=step,
+                                     correlation_id=correlation_id,
+                                     chat_id=chat_id)
         return content
 
     # ── F3/T-1439 (cognition-deep-sleep, ADR-1013-1): роутер воркеров ───────
@@ -964,7 +1007,11 @@ class LLMClient:
     async def generate_chat(self, messages, *, temperature: float | None = None,
                             tools: list[dict] | None = None,
                             tool_choice: str | dict = "auto",
-                            chat_id: int | None = None) -> "LLMChatResult":
+                            chat_id: int | None = None,
+                            module: str | None = None,
+                            step: str | None = None,
+                            correlation_id: str | None = None,
+                            tool_name: str = "") -> "LLMChatResult":
         """POST /chat/completions с tools/tool_choice (Эпик 04.09.2026, 3.3).
 
         Контракт {model, messages}: температура — как в generate (None →
@@ -1060,6 +1107,12 @@ class LLMClient:
                 self._chat_model, len(reasoning_text))
         content_text = content if (isinstance(content, str) and content.strip()) else None
         await self._record_global_usage(chat_id, content_text, source=source)
+        usage = data.get("usage") if isinstance(data, dict) else None
+        await self._record_analytics(usage, messages, content, source=source,
+                                     module=module, step=step,
+                                     correlation_id=correlation_id,
+                                     chat_id=chat_id,
+                                     tool_name=tool_name)
         return LLMChatResult(
             content=content_text,
             tool_calls=tool_calls,

@@ -215,7 +215,7 @@ class TestPreGateIntegration:
         captured = {}
 
         async def fake_chat_with_tools(llm, payload, *, tools, router, ctx,
-                                       temperature, chat_id=None):
+                                       temperature, chat_id=None, **kwargs):
             captured["tools"] = tools
             return "ответ"
 
@@ -249,7 +249,7 @@ class TestPreGateIntegration:
         captured = {}
 
         async def fake_chat_with_tools(llm, payload, *, tools, router, ctx,
-                                       temperature, chat_id=None):
+                                       temperature, chat_id=None, **kwargs):
             captured["tools"] = tools
             captured["payload"] = payload
             return "ответ"

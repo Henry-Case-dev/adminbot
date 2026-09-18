@@ -33,6 +33,7 @@ from services.chat_params import (
 from services.database import row_get
 from services.llm_client import LLMBadResponseError, LLMError
 from services import anticliche_cache
+from services import usage_events
 from services.negative_constraints import (
     DEFAULT_ENABLED_RULES,
     channel_enabled_rules,
@@ -244,6 +245,8 @@ class SummaryGenerator:
 
     async def _run(self, chat_id: int, manual: bool, focus: str | None = None,
                    trigger_message_id: int | None = None) -> None:
+        # F7 (ADR-1023-7 D4): один сквозной id на саммари.
+        correlation_id = usage_events.new_correlation_id()
         try:
             await self.memory.compress_and_purge(chat_id)
             rows = await self.memory.get_window_messages(chat_id)
@@ -333,16 +336,20 @@ class SummaryGenerator:
             draft: SummaryDraft | None = None
             if getattr(settings, "SYSTEM2_SUMMARY_ENABLED", True):
                 draft = await self._generate_two_call(
-                    user_content, max_symbols, chat_id)
+                    user_content, max_symbols, chat_id, correlation_id)
                 if draft is not None:
                     raw = draft.text
                 else:
                     logger.info(
                         "summary system2: fallback на одиночный путь 10.21 | "
                         "chat_id=%s", chat_id)
-                    raw = await self._llm_generate(payload, chat_id)
+                    raw = await self._llm_generate(
+                        payload, chat_id, correlation_id=correlation_id,
+                        step="single")
             else:
-                raw = await self._llm_generate(payload, chat_id)
+                raw = await self._llm_generate(
+                    payload, chat_id, correlation_id=correlation_id,
+                    step="single")
             if raw is None:
                 return
             raw = cleanup_llm_text(raw)                   # Epic 28 (R28-3)
@@ -376,16 +383,23 @@ class SummaryGenerator:
             logger.exception("summary: unexpected failure | chat_id=%s", chat_id)
             await self._send_ux(chat_id, _UX_GENERIC_FAILED)
 
-    async def _llm_generate(self, payload: list[dict], chat_id: int) -> str | None:
+    async def _llm_generate(self, payload: list[dict], chat_id: int, *,
+                            correlation_id: str | None = None,
+                            step: str = "single") -> str | None:
         """Один LLM-вызов саммари с retry-once. ``None`` → молчание (пустой
-        ответ), `LLMError` на повторе пробрасывается (R13-ветка внешнего except)."""
+        ответ), `LLMError` на повторе пробрасывается (R13-ветка внешнего except).
+
+        F7 (ADR-1023-7 D4): `correlation_id`/`step` — аддитивная телеметрия.
+        """
         started = time.monotonic()
         # Epic 60 (65.7, T-475): «печатает…» вокруг LLM-точки (manual И cron).
         # Epic 60 (65.1, T-469): LLMBadResponseError (пустой ответ) — молчание
         # ДО retry-once; R13-ветки не тронуты.
         try:
             async with typing_active(self.bot, chat_id):
-                raw = await self.llm.generate(payload)
+                raw = await self.llm.generate(
+                    payload, module="summary", step=step,
+                    correlation_id=correlation_id)
         except LLMBadResponseError as exc:
             logger.warning(
                 "summary: empty answer — silence | chat_id=%s | error=%s",
@@ -399,7 +413,9 @@ class SummaryGenerator:
             try:
                 started = time.monotonic()   # latency_ms — только повторная попытка
                 async with typing_active(self.bot, chat_id):
-                    raw = await self.llm.generate(payload)
+                    raw = await self.llm.generate(
+                        payload, module="summary", step=step,
+                        correlation_id=correlation_id)
             except LLMBadResponseError as exc:
                 # 65.1: пустой ответ на повторе — тоже молчание.
                 logger.warning(
@@ -418,7 +434,9 @@ class SummaryGenerator:
         return raw
 
     async def _generate_two_call(self, user_content: str, max_symbols: int,
-                                 chat_id: int) -> "SummaryDraft | None":
+                                 chat_id: int,
+                                 correlation_id: str | None = None
+                                 ) -> "SummaryDraft | None":
         """System 2 саммари: Редактор → Рассказчик. ``None`` → одиночный путь.
 
         F6 (ADR-1023-6): возвращает ``SummaryDraft`` (текст + ``cover_prompt`` +
@@ -428,7 +446,9 @@ class SummaryGenerator:
             {"role": "system", "content": SUMMARY_EDITOR_SYSTEM_PROMPT},
             {"role": "user", "content": user_content},
         ]
-        editor_raw = await self._llm_generate(editor_payload, chat_id)
+        editor_raw = await self._llm_generate(
+            editor_payload, chat_id, correlation_id=correlation_id,
+            step="stage1")
         if editor_raw is None:
             return None
         parsed = parse_summary_handoff(editor_raw)
@@ -462,7 +482,9 @@ class SummaryGenerator:
         ]
 
         async def _generate(messages):
-            return await self.llm.generate(messages)
+            return await self.llm.generate(
+                messages, module="summary", step="stage2",
+                correlation_id=correlation_id)
 
         # F4 — Рассказчик отдаёт plain-text R11: маркированный список
         # («- …», «1. …») вне жанра → бракуем (правило F6, вторичное).

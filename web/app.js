@@ -890,6 +890,11 @@
         oversightDetail: null,   // модалка деталей чата
         oversightDetailBusy: false,
         oversightOpBusy: false,
+        // ── Раунд 10.23 (F7, ADR-1023-7 §2.8): аналитика токенов в «Сводке» ──
+        tokenAnalyticsLatest: null,     // GET /api/analytics/usage/latest
+        tokenAnalyticsSummary: null,    // GET /api/analytics/usage/summary
+        tokenAnalyticsPeriod: 'day',    // day|week|month
+        tokenAnalyticsBusy: false,
         // ── Раунд 10.20 (БЛОК 3.3/T-1897): «Живая лента досье» (тикер) ──
         dossierFeed: [],         // GET /api/oversight/dossier_feed
         dossierFeedBusy: false,
@@ -2201,6 +2206,73 @@
           this.budgetBusy = false;
         }
       },
+      // F7 (раунд 10.23, ADR-1023-7 §2.8): аналитика токенов — дерево
+      // последнего вызова (Flow node) + графики день/неделя/месяц. Fail-open:
+      // ошибка/недоступность → null (шаблон «—»). Меню не трогает.
+      loadTokenAnalytics: async function () {
+        this.tokenAnalyticsBusy = true;
+        try {
+          var period = this.tokenAnalyticsPeriod || 'day';
+          var res = await Promise.all([
+            this.api('/api/analytics/usage/latest'),
+            this.api('/api/analytics/usage/summary?period=' + period),
+          ]);
+          this.tokenAnalyticsLatest = res[0];
+          this.tokenAnalyticsSummary = res[1];
+        } catch (e) {
+          this.tokenAnalyticsLatest = null;
+          this.tokenAnalyticsSummary = null;
+        } finally {
+          this.tokenAnalyticsBusy = false;
+        }
+      },
+      setTokenAnalyticsPeriod: function (period) {
+        this.tokenAnalyticsPeriod = period;
+        this.loadTokenAnalytics();
+      },
+      // Шаги дерева последнего вызова: [{label, tokens, cost_usd, …}].
+      tokenFlowNodes: function () {
+        var latest = this.tokenAnalyticsLatest;
+        var steps = (latest && latest.steps) || [];
+        return steps.map(function (s) {
+          return {
+            label: (s.step || '?') + (s.tool_name ? (':' + s.tool_name) : ''),
+            module: s.module || '',
+            tokens: (s.input_tokens || 0) + (s.output_tokens || 0),
+            cost_usd: s.cost_usd || 0,
+            estimated: !!s.tokens_estimated,
+            price_known: s.price_known !== false,
+          };
+        });
+      },
+      // Точное число токенов (без «k»-сокращения) — формат Flow node.
+      fmtExactTokens: function (n) {
+        var v = Number(n) || 0;
+        return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+      },
+      fmtCost: function (v) {
+        var n = Number(v) || 0;
+        if (n === 0) return '$0';
+        if (n < 0.000001) return '$' + n.toExponential(2);
+        return '$' + n.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+      },
+      // Столбики графика: высота пропорциональна cost_usd бакета.
+      tokenSeriesBars: function () {
+        var s = this.tokenAnalyticsSummary;
+        var series = (s && s.series) || [];
+        var max = 0;
+        series.forEach(function (b) { max = Math.max(max, b.cost_usd || 0); });
+        return series.map(function (b) {
+          var cost = b.cost_usd || 0;
+          return {
+            bucket: b.bucket,
+            cost_usd: cost,
+            calls: b.calls || 0,
+            label: String(b.bucket || '').replace('T', ' ').slice(0, 16),
+            height: max > 0 ? Math.max(2, Math.round(cost / max * 100)) : 0,
+          };
+        });
+      },
       loadModules: async function () {
         if (this.modulesBusy) return;
         this.modulesBusy = true;
@@ -2379,6 +2451,8 @@
           // 10.9 (п.6, ADR-109-5): «Бюджет фона» живёт в «Сводке» — единый
           // клиентский путь (прогрессбары), без дубля global_budget.
           this.loadBudgetInfo();
+          // F7 (раунд 10.23): аналитика токенов — Flow node + графики.
+          this.loadTokenAnalytics();
         } catch (e) {
           this.oversightData = null;
           if (e.status !== 401 && e.status !== 403) {

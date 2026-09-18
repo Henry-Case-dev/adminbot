@@ -210,6 +210,10 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
     # анти-клише кэшем (только global admin) — рядом с остальными роутерами.
     from web.api.anticliche import anticliche_router
     app.include_router(anticliche_router, prefix="/api")
+    # Раунд 10.23 (F7, ADR-1023-7 §2.7): дашборд аналитики токенов
+    # (read-side PG; RBAC глобального админа).
+    from web.api.analytics import analytics_router
+    app.include_router(analytics_router, prefix="/api")
 
     rendered_index = _render_index()   # один раз at startup (84.21.2)
     rendered_css = _render_app_css()   # F4 10.16: подстановка ?v= в @font-face

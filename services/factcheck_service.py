@@ -35,6 +35,7 @@ from services.grounding_validator import (
 )
 from services.llm_client import LLMBadResponseError, LLMClient
 from services import anticliche_cache
+from services import usage_events
 from services.negative_constraints import (
     channel_enabled_rules,
     verbalize_validated,
@@ -85,6 +86,8 @@ class FactCheckService:
           на одиночный путь (пользователь ВСЕГДА получает ответ).
         * OFF → байт-в-байт 10.21 (один вызов `self.llm.generate`/tool-loop).
         Raises: AllSearchEnginesFailedException (поиск) / LLMError (LLM)."""
+        # F7 (ADR-1023-7 D4): один сквозной id на вердикт фактчека.
+        correlation_id = usage_events.new_correlation_id()
         # T-619: лимит и промпт — горячие точки (ConfigCache с settings-фолбеком)
         max_symbols = hot.get("limits.factcheck_max_symbols",
                               settings.FACTCHECK_MAX_SYMBOLS)
@@ -105,7 +108,8 @@ class FactCheckService:
             user = f"{rag}\n\n{user}"
         if getattr(settings, "SYSTEM2_FACTCHECK_ENABLED", True):
             two_call = await self._check_claim_two_call(
-                target_text, user, rag, results, chat_id, max_symbols)
+                target_text, user, rag, results, chat_id, max_symbols,
+                correlation_id)
             if two_call is not None:
                 return two_call
             logger.info(
@@ -117,12 +121,15 @@ class FactCheckService:
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ]
-        raw, used_tools = await self._invoke_llm(messages, target_text, chat_id)
+        raw, used_tools = await self._invoke_llm(
+            messages, target_text, chat_id, correlation_id=correlation_id,
+            step="single")
         return self._finalize(raw, used_tools, rag, results)
 
     async def _check_claim_two_call(
         self, target_text: str, user: str, rag: str, results: str,
         chat_id: int | None, max_symbols: int,
+        correlation_id: str | None = None,
     ) -> str | None:
         """System 2 фактчека. ``None`` → вызывающий уходит на 10.21."""
         analyst_messages = [
@@ -131,7 +138,8 @@ class FactCheckService:
         ]
         try:
             raw_analyst, used_tools = await self._invoke_llm(
-                analyst_messages, target_text, chat_id)
+                analyst_messages, target_text, chat_id,
+                correlation_id=correlation_id, step="stage1")
         except Exception as exc:                # таймаут/ошибка Stage-1 → 10.21
             logger.info(
                 "factcheck system2: stage1 failed — fallback | chat=%s | "
@@ -167,7 +175,9 @@ class FactCheckService:
         ]
 
         async def _generate(messages):
-            return await self.llm.generate(messages)
+            return await self.llm.generate(
+                messages, module="factcheck", step="stage2",
+                correlation_id=correlation_id)
 
         # F3 (ADR-1023-3): plain-канал → guard от таблиц (без запрета буллитов,
         # буллиты в фактческе жанром не запрещены).
@@ -186,18 +196,25 @@ class FactCheckService:
             return None
         return self._finalize_text(text, used_tools, tool_context, rag, results)
 
-    async def _invoke_llm(self, messages, target_text, chat_id):
-        """Один LLM-вызов: tool-loop (при `tool_router` + `chat_id`) или plain."""
+    async def _invoke_llm(self, messages, target_text, chat_id, *,
+                          correlation_id: str | None = None,
+                          step: str = "single"):
+        """Один LLM-вызов: tool-loop (при `tool_router` + `chat_id`) или plain.
+
+        F7 (ADR-1023-7 D4): `correlation_id`/`step` — аддитивная телеметрия
+        (когда тулов нет, вызов идёт с переданным `step`)."""
         started = time.monotonic()
         used_tools = False
         if self.tool_router is not None and chat_id is not None:
             lore_enabled = await resolve_lore_compiler_flag(chat_id)
             tools = factcheck_tools(bool(lore_enabled))
             ctx = ToolContext(chat_id, target_text,
-                              lore_verbatim_instruction=False)
+                              lore_verbatim_instruction=False,
+                              correlation_id=correlation_id)
             raw = await chat_with_tools(
                 self.llm, messages, tools=tools,
-                router=self.tool_router, ctx=ctx, chat_id=chat_id)
+                router=self.tool_router, ctx=ctx, chat_id=chat_id,
+                module="factcheck", correlation_id=correlation_id)
             used_tools = True
             logger.info(
                 "factcheck tool-loop OK | chat=%s | tools=%d | out_chars=%d "
@@ -205,7 +222,9 @@ class FactCheckService:
                 (time.monotonic() - started) * 1000.0,
             )
         else:
-            raw = await self.llm.generate(messages)
+            raw = await self.llm.generate(
+                messages, module="factcheck", step=step,
+                correlation_id=correlation_id)
             logger.info(
                 "factcheck LLM OK | out_chars=%d | latency_ms=%.0f",
                 len(raw), (time.monotonic() - started) * 1000.0,

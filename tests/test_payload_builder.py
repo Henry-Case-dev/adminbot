@@ -35,7 +35,8 @@ class _SpyLLM:
         self.text = text
         self.messages = None
 
-    async def generate(self, messages, temperature=None, chat_id=None):
+    async def generate(self, messages, temperature=None, chat_id=None,
+                       **kwargs):
         self.messages = messages
         return self.text
 

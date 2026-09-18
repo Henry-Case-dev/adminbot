@@ -146,7 +146,7 @@ class TestServiceHotPoints:
             def __init__(self):
                 self.last_system = None
 
-            async def generate(self, messages, temperature=None):
+            async def generate(self, messages, temperature=None, **kwargs):
                 self.last_system = messages[0]["content"]
                 return "вердикт"
 
@@ -168,7 +168,7 @@ class TestServiceHotPoints:
                 return ""
 
         class _Llm:
-            async def generate(self, messages, temperature=None):
+            async def generate(self, messages, temperature=None, **kwargs):
                 return "ок"
 
         agg = _Agg()
@@ -194,7 +194,7 @@ class TestServiceHotPoints:
                 return "выдача без реранка"
 
         class _Llm:
-            async def generate(self, messages, temperature=None):
+            async def generate(self, messages, temperature=None, **kwargs):
                 return "ответ"
 
         service = SearchService(_Agg(), _Llm())

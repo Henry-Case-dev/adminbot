@@ -468,7 +468,7 @@ class TestFinalDeliveryNoHtml:
             def __init__(self):
                 self.calls = 0
 
-            async def generate(self, messages):
+            async def generate(self, messages, **kwargs):
                 self.calls += 1
                 return (editor if self.calls == 1
                         else "<b>жирный</b> разбор без таблиц")

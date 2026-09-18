@@ -158,7 +158,8 @@ class GateLLM:
         self.active = 0
         self.max_active = 0
 
-    async def generate(self, messages, temperature=None, chat_id=None):
+    async def generate(self, messages, temperature=None, chat_id=None,
+                       **kwargs):
         self.call_count += 1
         self.active += 1
         self.max_active = max(self.max_active, self.active)

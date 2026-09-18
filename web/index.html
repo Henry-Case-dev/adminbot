@@ -1044,6 +1044,58 @@
                 </div>
                 <div v-else class="text-xs text-gray-500">Бюджет недоступен.</div>
               </div>
+              <!-- F7 (раунд 10.23, ADR-1023-7 §2.8): «Token Metrics» —
+                   Flow node последнего вызова + графики день/неделя/месяц.
+                   Внутри существующей вкладки «Сводка»; структура меню НЕ
+                   меняется (tma-menu-freeze). Источник — /api/analytics/*. -->
+              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2">
+                <div class="flex items-center gap-2 flex-wrap mb-2">
+                  <div class="text-xs font-bold">Token Metrics</div>
+                  <span class="text-xs text-gray-500">последний вызов · графики</span>
+                  <div class="ml-auto flex items-center gap-1">
+                    <button class="btn-ghost text-xs" :class="{ 'font-bold': tokenAnalyticsPeriod === 'day' }"
+                            @click="setTokenAnalyticsPeriod('day')">День</button>
+                    <button class="btn-ghost text-xs" :class="{ 'font-bold': tokenAnalyticsPeriod === 'week' }"
+                            @click="setTokenAnalyticsPeriod('week')">Неделя</button>
+                    <button class="btn-ghost text-xs" :class="{ 'font-bold': tokenAnalyticsPeriod === 'month' }"
+                            @click="setTokenAnalyticsPeriod('month')">Месяц</button>
+                    <button class="btn-ghost text-xs" :disabled="tokenAnalyticsBusy"
+                            @click="loadTokenAnalytics()">⟳</button>
+                  </div>
+                </div>
+                <div v-if="tokenAnalyticsBusy" class="spinner my-2"></div>
+                <template v-else>
+                  <div class="flex flex-wrap items-center gap-1 mb-2 text-xs">
+                    <template v-if="tokenFlowNodes().length">
+                      <span v-for="(n, i) in tokenFlowNodes()" :key="'tn' + i" class="flex items-center gap-1">
+                        <span class="badge badge-muted" :title="n.module">{{ n.label }}: {{ fmtExactTokens(n.tokens) }} т.<template v-if="n.estimated"> (оц.)</template></span>
+                        <span class="text-gray-500">→</span>
+                      </span>
+                      <span class="badge badge-info">Итого: {{ fmtCost(tokenAnalyticsLatest && tokenAnalyticsLatest.total ? tokenAnalyticsLatest.total.cost_usd : 0) }}</span>
+                    </template>
+                    <span v-else class="text-gray-500">Вызовов ещё не было.</span>
+                  </div>
+                  <div class="flex items-end gap-1 h-16 mb-1" v-if="tokenSeriesBars().length">
+                    <div v-for="(b, i) in tokenSeriesBars()" :key="'tb' + i"
+                         class="flex-1 flex flex-col items-center justify-end"
+                         :title="b.bucket + ' · ' + fmtCost(b.cost_usd) + ' · ' + b.calls + ' вызов.'">
+                      <div class="w-full rounded-t" :style="{ height: b.height + '%', background: '#6ea8fe' }"></div>
+                    </div>
+                  </div>
+                  <div v-else class="text-xs text-gray-500 mb-1">За период данных нет.</div>
+                  <div class="flex flex-wrap gap-2 text-xs"
+                       v-if="tokenAnalyticsSummary && tokenAnalyticsSummary.totals">
+                    <span class="badge badge-muted">Вызовов: {{ tokenAnalyticsSummary.totals.calls }}</span>
+                    <span class="badge badge-muted">Токены: {{ fmtExactTokens((tokenAnalyticsSummary.totals.input_tokens || 0) + (tokenAnalyticsSummary.totals.output_tokens || 0)) }}</span>
+                    <span class="badge badge-info">Итого: {{ fmtCost(tokenAnalyticsSummary.totals.cost_usd) }}</span>
+                  </div>
+                  <div class="flex flex-wrap gap-1 mt-1 text-xs"
+                       v-if="tokenAnalyticsSummary && tokenAnalyticsSummary.by_module && tokenAnalyticsSummary.by_module.length">
+                    <span v-for="m in tokenAnalyticsSummary.by_module" :key="'tm' + m.module"
+                          class="badge badge-muted">{{ m.module }}: {{ fmtCost(m.cost_usd) }}</span>
+                  </div>
+                </template>
+              </div>
               <!-- F5 (T-1454..T-1456, ТЗ §7): «Интеллект и Память» — пульс
                    процессов, прогресс-бары бюджета/лимитов, метрики БД и
                    компактный Timeline. Источник — cognition/status, stats,

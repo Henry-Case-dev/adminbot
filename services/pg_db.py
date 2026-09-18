@@ -300,6 +300,56 @@ DDL_STATEMENTS: tuple[str, ...] = (
     "CREATE INDEX IF NOT EXISTS idx_anticliche_cache_updated"
     " ON anticliche_cache (updated_at DESC)",
     "INSERT INTO anticliche_cache (id) VALUES (1) ON CONFLICT (id) DO NOTHING",
+    # ── Раунд 10.23 (F7 token-analytics, ADR-1023-7 D1/D2/D3) ──────────────
+    # Телеметрия LLM-событий и таблица цен — в PG (web-API читает только PG;
+    # SQLite остаётся v12 — AMEND к Part 1 §3.4). Изолированы от бюджетного
+    # контура (chat_usage/worker_budget, source='global') — его не трогаем.
+    # Идемпотентно: CREATE/INDEX IF NOT EXISTS; сид цен ON CONFLICT DO NOTHING.
+    # R17: только коды/числа (NUMERIC), без промптов/секретов.
+    """
+    CREATE TABLE IF NOT EXISTS llm_usage_events (
+        id               BIGSERIAL PRIMARY KEY,
+        ts               TIMESTAMPTZ NOT NULL DEFAULT now(),
+        correlation_id   TEXT NOT NULL,
+        module           TEXT NOT NULL,
+        step             TEXT NOT NULL,
+        tool_name        TEXT NOT NULL DEFAULT '',
+        source           TEXT NOT NULL DEFAULT 'global',
+        chat_id          BIGINT,
+        model            TEXT NOT NULL DEFAULT '',
+        input_tokens     BIGINT NOT NULL DEFAULT 0,
+        output_tokens    BIGINT NOT NULL DEFAULT 0,
+        tokens_estimated BOOLEAN NOT NULL DEFAULT false,
+        cost_usd         NUMERIC(12, 6) NOT NULL DEFAULT 0,
+        price_known      BOOLEAN NOT NULL DEFAULT true
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_llm_usage_events_ts"
+    " ON llm_usage_events (ts DESC)",
+    "CREATE INDEX IF NOT EXISTS idx_llm_usage_events_corr"
+    " ON llm_usage_events (correlation_id)",
+    "CREATE INDEX IF NOT EXISTS idx_llm_usage_events_module_ts"
+    " ON llm_usage_events (module, ts DESC)",
+    """
+    CREATE TABLE IF NOT EXISTS llm_model_prices (
+        model             TEXT PRIMARY KEY,
+        input_usd_per_1m  NUMERIC(12, 6) NOT NULL,
+        output_usd_per_1m NUMERIC(12, 6) NOT NULL,
+        currency          TEXT NOT NULL DEFAULT 'USD',
+        updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    # Стартовый сид цен (значения — стартовые, владелец уточняет; цены
+    # меняются). Идемпотентно: существующие строки НЕ перезаписываются.
+    """
+    INSERT INTO llm_model_prices
+        (model, input_usd_per_1m, output_usd_per_1m) VALUES
+        ('deepseek-v4-flash', 0.27, 1.10),
+        ('deepseek-chat', 0.27, 1.10),
+        ('deepseek-reasoner', 0.55, 2.19),
+        ('gpt-4o-mini', 0.15, 0.60)
+    ON CONFLICT (model) DO NOTHING
+    """,
 )
 
 # ── Сиды ────────────────────────────────────────────────────────────────────

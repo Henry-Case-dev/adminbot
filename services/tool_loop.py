@@ -89,7 +89,9 @@ def _log_degraded(reason: str, rounds_used: int, tool_trace: list,
 async def chat_with_tools(llm, messages: list[dict], *,
                           tools: list[dict], router, ctx,
                           temperature: float | None = None,
-                          chat_id: int | None = None) -> "ToolLoopResult":
+                          chat_id: int | None = None,
+                          module: str | None = None,
+                          correlation_id: str | None = None) -> "ToolLoopResult":
     """→ ``ToolLoopResult`` (str) — финальный текст + телеметрия.
 
     При исчерпании ``TOOL_MAX_ROUNDS`` или ``LLMError`` на ``round_index > 0``
@@ -105,10 +107,14 @@ async def chat_with_tools(llm, messages: list[dict], *,
     partial_text = ""
     for round_index in range(TOOL_MAX_ROUNDS):
         try:
-            result = await llm.generate_chat(payload_messages,
-                                             temperature=temperature,
-                                             tools=tools, tool_choice="auto",
-                                             chat_id=chat_id)
+            result = await llm.generate_chat(
+                payload_messages, temperature=temperature,
+                tools=tools, tool_choice="auto", chat_id=chat_id,
+                module=module,
+                # Первый раунд — это Stage-1 (Синтезатор с тулами);
+                # последующие — tool-раунды (ADR-1023-7 D4).
+                step=("stage1" if round_index == 0 else "tool"),
+                correlation_id=correlation_id)
         except NoApiKeyForChat:
             raise
         except LLMError as exc:                 # провайдер не умеет tools
@@ -117,8 +123,10 @@ async def chat_with_tools(llm, messages: list[dict], *,
                     "[tools] provider rejected tools — plain answer | error=%s",
                     exc)
                 # degrade: 1 обычный вызов БЕЗ tools (FR-15, AC-2.5)
-                plain = await llm.generate(messages, temperature=temperature,
-                                           chat_id=chat_id)
+                plain = await llm.generate(
+                    messages, temperature=temperature, chat_id=chat_id,
+                    module=module, step="single",
+                    correlation_id=correlation_id)
                 return ToolLoopResult(plain, rounds_used=1)
             # БЛОК 7.1: поздний раунд — не пробрасываем (не теряем ответ).
             text = strip_reasoning_tags(partial_text) or TOOL_LOOP_FALLBACK_PHRASE

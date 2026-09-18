@@ -43,7 +43,7 @@ def _two_call_llm(cover_prompt="a lone cat on a neon rooftop", mode="deep_resear
         def __init__(self):
             self.calls = 0
 
-        async def generate(self, messages):
+        async def generate(self, messages, **kwargs):
             self.calls += 1
             if self.calls == 1:
                 return json.dumps({"response_mode": mode, "digest": _DIGEST,

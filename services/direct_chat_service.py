@@ -154,6 +154,7 @@ from services.token_counter import (
 from services.context_middleware import truncate_keep_header
 from services.reply_postprocess import strip_reasoning_tags
 from services import anticliche_cache
+from services import usage_events
 from services.negative_constraints import (
     channel_enabled_rules,
     verbalize_validated,
@@ -577,6 +578,9 @@ class DirectChatService:
         user_id = user.id if user is not None else 0
         target_name = self._resolve_name(user)
         query = (message.text or "").strip()
+        # F7 (ADR-1023-7 D4): ОДИН сквозной id на ответ пользователя —
+        # связывает Stage-1 → tool-раунды → Stage-2 в дерево дашборда.
+        correlation_id = usage_events.new_correlation_id()
         remaining = self.throttle.allow(chat_id, user_id)
         if asyncio.iscoroutine(remaining):
             remaining = await remaining   # persistent-троттлинг (63.1)
@@ -737,7 +741,8 @@ class DirectChatService:
                 image_enabled = False
             tool_ctx = ToolContext(chat_id, query, bot=bot,
                                    reply_to_message_id=message.message_id,
-                                   user_id=user_id)
+                                   user_id=user_id,
+                                   correlation_id=correlation_id)
             try:
                 async with typing_active(bot, chat_id):
                     if self.tool_router is not None:
@@ -746,11 +751,14 @@ class DirectChatService:
                             tools=active_tools(bool(lore_enabled),
                                                bool(image_enabled)),
                             router=self.tool_router, ctx=tool_ctx,
-                            temperature=temperature, chat_id=chat_id)
+                            temperature=temperature, chat_id=chat_id,
+                            module="direct_chat",
+                            correlation_id=correlation_id)
                     else:
-                        raw = await self.llm.generate(payload,
-                                                      temperature=temperature,
-                                                      chat_id=chat_id)
+                        raw = await self.llm.generate(
+                            payload, temperature=temperature, chat_id=chat_id,
+                            module="direct_chat", step="single",
+                            correlation_id=correlation_id)
             except NoApiKeyForChat as exc:
                 # Раунд 10 (F-7 §5.2): у чата нет своего ключа, глобальный
                 # запрещён/исчерпан → sandbox-фраза content.no_key_reply
@@ -792,7 +800,8 @@ class DirectChatService:
                     and bool(getattr(raw, "tool_trace", None))
                     and not getattr(tool_ctx, "lore_compiled", False)):
                 synthesized = await self._synthesize_direct_answer(
-                    chat_id, query, raw, temperature)
+                    chat_id, query, raw, temperature,
+                    correlation_id=correlation_id)
                 if synthesized:
                     # F3 (ADR-1023-3): режим несёт и стиль, и канал доставки.
                     raw, response_mode = synthesized
@@ -871,7 +880,9 @@ class DirectChatService:
     # ── System 2 direct (F5, раунд 10.22, ADR-1022-5) ───────────
 
     async def _synthesize_direct_answer(self, chat_id: int, query: str,
-                                        raw, temperature) -> tuple[str, str] | None:
+                                        raw, temperature,
+                                        correlation_id: str | None = None
+                                        ) -> tuple[str, str] | None:
         """Синтезатор тулов → Вербализатор. ``None`` → финал tool-loop.
 
         Stage-1 получает ТОЛЬКО санитизированную «кашу» логов; Stage-2 —
@@ -900,7 +911,9 @@ class DirectChatService:
                 {"role": "user", "content": synth_user},
             ]
             raw_synth = await self.llm.generate(
-                synth_messages, temperature=temperature, chat_id=chat_id)
+                synth_messages, temperature=temperature, chat_id=chat_id,
+                module="direct_chat", step="stage1",
+                correlation_id=correlation_id)
             data = parse_direct_synthesis(str(raw_synth))
             if data is None:
                 logger.info(
@@ -928,7 +941,9 @@ class DirectChatService:
 
             async def _generate(messages):
                 return await self.llm.generate(
-                    messages, temperature=temperature, chat_id=chat_id)
+                    messages, temperature=temperature, chat_id=chat_id,
+                    module="direct_chat", step="stage2",
+                    correlation_id=correlation_id)
 
             enabled_rules = (channel_enabled_rules("plain", response_mode)
                              if modes_on else None)

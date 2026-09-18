@@ -35,14 +35,15 @@ class FakeLLM:
         self.all_messages = []
 
     async def generate_chat(self, messages, *, temperature=None, tools=None,
-                            tool_choice="auto", chat_id=None):
+                            tool_choice="auto", chat_id=None, **kwargs):
         self.all_messages.append(copy.deepcopy(messages))
         assert tools is not None, "generate_chat без tools — сломанный тест"
         if not self._answers:
             raise AssertionError("не хватило запланированных ответов")
         return self._answers.pop(0)
 
-    async def generate(self, messages, temperature=None, chat_id=None):
+    async def generate(self, messages, temperature=None, chat_id=None,
+                       **kwargs):
         self.generated_plain += 1
         self.all_messages.append(copy.deepcopy(messages))
         return self.plain_text
@@ -178,7 +179,7 @@ class TestChatWithTools:
 
             async def generate_chat(self, messages, *, temperature=None,
                                     tools=None, tool_choice="auto",
-                                    chat_id=None):
+                                    chat_id=None, **kwargs):
                 raise LLMError("HTTP 400: provider does not support tools")
 
         llm = RejectingLLM()
