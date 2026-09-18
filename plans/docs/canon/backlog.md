@@ -136,3 +136,34 @@
   `WEB_SEARCH_INSTRUCTION_BLOCK` (обязательный веб-поиск для тейков о реальном
   мире); слепок `PREV_FACTCHECK_ANALYST_R1023_F2`; миграция/откат PG —
   `PROMPT_MIGRATIONS`/`ROLLBACK_MIGRATIONS`.
+
+## Раунд 10.23 (F3) — умный Вербализатор: режимы и канальные правила (ADR-1023-3)
+
+- **Роутер в Stage-1:** поле `response_mode` (`casual|serious|deep_research`)
+  едет в том же JSON Синтезатора (`parse_factcheck_analysis`,
+  `parse_direct_synthesis`, новый `parse_summary_handoff`); третьего
+  LLM-вызова нет (инвариант `physical-two-call-pipeline`). Нормализатор с
+  fail-safe `serious` — `normalize_response_mode`; `validate_summary_digest`
+  сохранён как backward-compatible обёртка.
+- **Stage-1 каноны:** `SUMMARY_EDITOR_SYSTEM_PROMPT` → строгий JSON
+  `{"response_mode","digest"}` (слепок `PREV_SUMMARY_EDITOR_R1023_F3`);
+  `FACTCHECK_ANALYST_SYSTEM_PROMPT` → поле `response_mode`
+  (слепок `PREV_FACTCHECK_ANALYST_R1023_F3`); `DIRECT_SYNTHESIZER_SYSTEM_PROMPT`
+  → поле `response_mode` (слепок `PREV_DIRECT_SYNTHESIZER_R1023`).
+- **Stage-2 каноны:** `SUMMARY_NARRATOR_SYSTEM_PROMPT`,
+  `FACTCHECK_VERBALIZER_SYSTEM_PROMPT`, `DIRECT_VERBALIZER_SYSTEM_PROMPT`
+  получают общий `TYPOGRAPHY_BLOCK` (только `-`/`""`, мат/сленг разрешён, без
+  понтов); слепки `PREV_SUMMARY_NARRATOR_R1023`,
+  `PREV_FACTCHECK_VERBALIZER_R1023`, `PREV_CHAT_VERBALIZER_R1023`. Режимный
+  блок (`MODE_CASUAL_BLOCK`/`MODE_SERIOUS_BLOCK`/`MODE_DEEP_RESEARCH_BLOCK`)
+  добавляется в оркестраторе (`compose_verbilizer_system`).
+- **Канальные правила (UPD владельца):** direct/factcheck/plain-саммари —
+  `FORMAT_PLAIN_BLOCK` (`<b>`-акценты + `- `-буллиты, таблицы КАТЕГОРИЧЕСКИ
+  запрещены); Article (`sendRichMessage`, F6) — `FORMAT_RICH_BLOCK` (полный
+  Markdown/HTML). Guard `plain_no_tables` (`detect_plain_tables`,
+  bounded-регенерация) активен только на plain-канале. Deep_research прямого
+  чата доставляется safe-HTML-паттерном «Летописца»
+  (`escape_lore_html` + `parse_mode="HTML"` + `TelegramBadRequest`→plain).
+- **Флаг:** `SMART_VERBALIZER_MODES_ENABLED` (env-only ClassVar, default ON,
+  Δ каталога = 0); OFF → единый прежний Вербализатор.
+

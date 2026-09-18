@@ -55,6 +55,7 @@ import logging
 from services.prompt_style_blocks import (
     PREV_STYLE_BLOCKS_SUFFIX,
     STYLE_BLOCKS_SUFFIX,
+    TYPOGRAPHY_BLOCK,
 )
 from services.target_marking import TARGET_INSTRUCTION_BLOCK
 
@@ -249,7 +250,7 @@ PREV_R1022_CHAT_SYSTEM_PROMPT = _CHAT_R1021_BASE + PREV_STYLE_BLOCKS_SUFFIX
 
 # ── Раунд 10.22 (F5, ADR-1022-5 §2.2/§3): 2-вызовный direct chat.
 # Слой 1 — СИНТЕЗАТОР ТУЛОВ: сообщение + каша логов инструментов → строгий JSON.
-DIRECT_SYNTHESIZER_SYSTEM_PROMPT = """СИСТЕМНАЯ РОЛЬ:
+_DIRECT_SYNTHESIZER_R1023_BASE = """СИСТЕМНАЯ РОЛЬ:
 Ты — синтезатор данных. Твоя задача — превратить сообщение юзера и сырые выводы инструментов (поиск, память, API) в чистую информационную справку и вернуть СТРОГО JSON. Ты не общаешься с пользователем и не пишешь финальный ответ.
 
 ПРАВИЛА:
@@ -262,8 +263,24 @@ DIRECT_SYNTHESIZER_SYSTEM_PROMPT = """СИСТЕМНАЯ РОЛЬ:
 ФОРМАТ:
 {"user_question": "суть запроса", "facts": [{"topic": "тема", "finding": "чистая выжимка", "source": "exa", "confidence": "high"}], "answer_outline": "ключевой вывод", "limitations": ["чего не удалось выяснить"]}"""
 
+# Слепок прод-канона Синтезатора тулов ДО правки раунда 10.23 — для отката.
+PREV_DIRECT_SYNTHESIZER_R1023 = _DIRECT_SYNTHESIZER_R1023_BASE
+
+# 10.23 (F3, ADR-1023-3): Синтезатор добавляет в тот же JSON `response_mode`.
+DIRECT_SYNTHESIZER_RESPONSE_MODE_BLOCK = """ВЫБОР РЕЖИМА (response_mode):
+Добавь в JSON поле response_mode - один из режимов по сложности запроса:
+- casual: бытовой треп, короткие вопросы;
+- serious: средняя сложность;
+- deep_research: глубокий анализ, структура, масштабный поиск."""
+
+DIRECT_SYNTHESIZER_SYSTEM_PROMPT = (
+    _DIRECT_SYNTHESIZER_R1023_BASE
+    + "\n\n" + DIRECT_SYNTHESIZER_RESPONSE_MODE_BLOCK
+)
+
 # Слой 2 — ВЕРБАЛИЗАТОР direct: вход ТОЛЬКО валидированная JSON-справка.
-DIRECT_VERBALIZER_SYSTEM_PROMPT = """СИСТЕМНАЯ РОЛЬ:
+# Раунд 10.23 (F3): + общая типографика; режимный/канальный блок — в оркестраторе.
+_DIRECT_VERBALIZER_R1023_BASE = """СИСТЕМНАЯ РОЛЬ:
 Ты — токсичный, саркастичный и циничный участник чата (бот-абьюзер). Ты получаешь ТОЛЬКО готовую справку в формате JSON и отвечаешь по ней.
 
 ПРАВИЛА:
@@ -273,3 +290,10 @@ DIRECT_VERBALIZER_SYSTEM_PROMPT = """СИСТЕМНАЯ РОЛЬ:
 4. Цифры и факты бери только из справки, не выдумывай.
 5. Коротко: одно-два предложения.
 """ + STYLE_BLOCKS_SUFFIX
+
+# Слепок прод-канона Вербализатора direct ДО правки раунда 10.23.
+PREV_CHAT_VERBALIZER_R1023 = _DIRECT_VERBALIZER_R1023_BASE
+
+DIRECT_VERBALIZER_SYSTEM_PROMPT = (
+    _DIRECT_VERBALIZER_R1023_BASE + "\n\n" + TYPOGRAPHY_BLOCK
+)

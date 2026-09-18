@@ -35,6 +35,22 @@ _FACT_STATUSES = frozenset({"true", "false", "misleading", "unverifiable"})
 _CONFIDENCE = frozenset({"high", "medium", "low"})
 _SOURCES = frozenset({"exa", "rag", "lore", "api", "unknown"})
 
+# Раунд 10.23 (F3, ADR-1023-3): режим общения определяется Синтезатором
+# (Stage-1) и передаётся Вербализатору служебным полем `response_mode`.
+# Роутер НЕ добавляет третий LLM-вызов — поле едет в том же JSON Stage-1.
+RESPONSE_MODES = ("casual", "serious", "deep_research")
+_DEFAULT_RESPONSE_MODE = "serious"
+
+
+def normalize_response_mode(value) -> str:
+    """Fail-safe нормализация ``response_mode``: любое неизвестное/пустое/
+    ``None`` → ``"serious"``. Никогда не бросает (R3)."""
+    if isinstance(value, str):
+        candidate = value.strip().lower()
+        if candidate in RESPONSE_MODES:
+            return candidate
+    return _DEFAULT_RESPONSE_MODE
+
 
 def parse_json_object(raw: str) -> dict | None:
     """Строгий разбор JSON-объекта. Никогда не бросает; ошибка → ``None``.
@@ -122,19 +138,54 @@ def parse_factcheck_analysis(raw: str) -> dict | None:
     }
     if isinstance(tone_hint, str) and tone_hint.strip():
         result["tone_hint"] = tone_hint.strip()
+    # Поле добавляется последним (порядок F7 — корреляция — пойдёт ПОСЛЕ F3).
+    result["response_mode"] = normalize_response_mode(data.get("response_mode"))
     return result
 
 
+def _validate_digest_text(text) -> str | None:
+    """Детерминированная проверка Markdown-выжимки (общие правила Stage-1)."""
+    value = strip_reasoning_tags(str(text or "")).strip()
+    if not value:
+        return None
+    if contains_system_ids(value):
+        return None
+    if "Архивная справка" in value:
+        return None
+    return value
+
+
+def parse_summary_handoff(raw: str) -> dict | None:
+    """Строгий JSON Редактора: ``{"response_mode": …, "digest": …}``.
+
+    ``digest`` валидируется существующими правилами (reasoning-теги,
+    ``contains_system_ids``, запрет «Архивная справка»). Обратная совместимость
+    (ADR-1023-3 §3): если raw — не JSON, но валидная Markdown-выжимка, то
+    возвращаем ``digest=raw``, ``response_mode="serious"``. Невалидно → ``None``.
+    """
+    source = str(raw or "")
+    data = parse_json_object(source)
+    if isinstance(data, dict) and "digest" in data:
+        digest = _validate_digest_text(data.get("digest"))
+        if digest is None:
+            return None
+        return {
+            "response_mode": normalize_response_mode(data.get("response_mode")),
+            "digest": digest,
+        }
+    digest = _validate_digest_text(source)
+    if digest is None:
+        return None
+    return {"response_mode": _DEFAULT_RESPONSE_MODE, "digest": digest}
+
+
 def validate_summary_digest(raw: str) -> str | None:
-    """Валидировать Markdown-выжимку Редактора. Невалидно → ``None``."""
-    text = strip_reasoning_tags(str(raw or "")).strip()
-    if not text:
-        return None
-    if contains_system_ids(text):
-        return None
-    if "Архивная справка" in text:
-        return None
-    return text
+    """Backward-compatible обёртка (10.22): вернуть только ``digest``.
+
+    Старый контракт «чистая Markdown-выжимка» жив: не-JSON raw проходит как
+    выжимка с режимом ``serious``. Невалидно → ``None``."""
+    parsed = parse_summary_handoff(raw)
+    return parsed["digest"] if parsed else None
 
 
 def parse_direct_synthesis(raw: str) -> dict | None:
@@ -185,4 +236,5 @@ def parse_direct_synthesis(raw: str) -> dict | None:
         "facts": clean,
         "answer_outline": redact_secrets(outline.strip()),
         "limitations": clean_limitations,
+        "response_mode": normalize_response_mode(data.get("response_mode")),
     }

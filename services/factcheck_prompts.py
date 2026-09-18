@@ -30,6 +30,7 @@ from services.prompt_style_blocks import (
     LEGACY_BOT_KNOWLEDGE_INSTRUCTION,
     PREV_STYLE_BLOCKS_SUFFIX,
     STYLE_BLOCKS_SUFFIX,
+    TYPOGRAPHY_BLOCK,
 )
 from services.target_marking import TARGET_INSTRUCTION_BLOCK
 
@@ -200,9 +201,25 @@ FACTCHECK_ANALYST_SYSTEM_PROMPT = (
     + "\n\n" + WEB_SEARCH_INSTRUCTION_BLOCK
 )
 
+# ── Раунд 10.23 (F3, ADR-1023-3): Аналитик добавляет в тот же JSON поле
+# `response_mode` (роутер строго в Stage-1). Прежний канон F1/F2 — слепок.
+PREV_FACTCHECK_ANALYST_R1023_F3 = FACTCHECK_ANALYST_SYSTEM_PROMPT
+
+FACTCHECK_ANALYST_RESPONSE_MODE_BLOCK = """ВЫБОР РЕЖИМА (response_mode):
+Добавь в JSON поле response_mode - один из режимов по сложности тезиса:
+- casual: бытовой треп, споры, короткие вопросы;
+- serious: средняя сложность, нужен нормальный ответ без пяти страниц ресерча;
+- deep_research: глубокий анализ, структура, масштабный поиск."""
+
+FACTCHECK_ANALYST_SYSTEM_PROMPT = (
+    PREV_FACTCHECK_ANALYST_R1023_F3
+    + "\n\n" + FACTCHECK_ANALYST_RESPONSE_MODE_BLOCK
+)
+
 # Слой 2 — ВЕРБАЛИЗАТОР: вход ТОЛЬКО валидированный JSON Аналитика; без БД,
 # инструментов, якорей и черновиков. Стиль — общий канон A/B.
-FACTCHECK_VERBALIZER_SYSTEM_PROMPT = """СИСТЕМНАЯ РОЛЬ:
+# Раунд 10.23 (F3): + общая типографика; режимный/канальный блок — в оркестраторе.
+_FACTCHECK_VERBALIZER_R1023_BASE = """СИСТЕМНАЯ РОЛЬ:
 Ты — токсичный, ироничный фактчекер, третейский судья в интернет-срачах и завсегдатай двача. Ты получаешь ТОЛЬКО готовый разбор в формате JSON от аналитика.
 
 ПРАВИЛА:
@@ -213,3 +230,10 @@ FACTCHECK_VERBALIZER_SYSTEM_PROMPT = """СИСТЕМНАЯ РОЛЬ:
 
 ОБЪЕМ: не более {max_symbols} символов.
 """ + STYLE_BLOCKS_SUFFIX + "\n\n" + BOT_KNOWLEDGE_INSTRUCTION
+
+# Слепок прод-канона Вербализатора ДО правки раунда 10.23 — для канон-миграции.
+PREV_FACTCHECK_VERBALIZER_R1023 = _FACTCHECK_VERBALIZER_R1023_BASE
+
+FACTCHECK_VERBALIZER_SYSTEM_PROMPT = (
+    _FACTCHECK_VERBALIZER_R1023_BASE + "\n\n" + TYPOGRAPHY_BLOCK
+)

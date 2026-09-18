@@ -32,16 +32,19 @@ from services.database import row_get
 from services.llm_client import LLMBadResponseError, LLMError
 from services.negative_constraints import (
     DEFAULT_ENABLED_RULES,
+    channel_enabled_rules,
     verbalize_validated,
 )
+from services.prompt_style_blocks import compose_verbilizer_system
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import _build_batch_text, fire_and_forget
 from services.summary_prompts import (
+    PREV_SUMMARY_NARRATOR_R1023,
     SUMMARY_EDITOR_SYSTEM_PROMPT,
     SUMMARY_NARRATOR_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
 )
-from services.system2_handoff import validate_summary_digest
+from services.system2_handoff import parse_summary_handoff
 from services.smartmodule_concurrency import get_smartmodule_concurrency_pool
 from services.summary_xml import escape_xml_text
 from services.telegram_send import edit_text_safe, send_text
@@ -310,14 +313,23 @@ class SummaryGenerator:
         editor_raw = await self._llm_generate(editor_payload, chat_id)
         if editor_raw is None:
             return None
-        digest = validate_summary_digest(editor_raw)
-        if digest is None:
+        parsed = parse_summary_handoff(editor_raw)
+        if parsed is None:
             logger.info(
                 "summary system2: невалидная выжимка редактора — fallback | "
                 "chat_id=%s", chat_id)
             return None
-        narrator_system = SUMMARY_NARRATOR_SYSTEM_PROMPT.replace(
+        digest = parsed["digest"]
+        response_mode = parsed["response_mode"]
+        modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED", True)
+        narrator_template = (SUMMARY_NARRATOR_SYSTEM_PROMPT if modes_on
+                             else PREV_SUMMARY_NARRATOR_R1023)
+        narrator_base = narrator_template.replace(
             "{max_symbols}", str(max_symbols))
+        # F3 (ADR-1023-3): режимный блок по response_mode + канальный блок
+        # (план-саммари = plain-канал). OFF kill-switch → прежний Рассказчик.
+        narrator_system = (compose_verbilizer_system(
+            narrator_base, response_mode, "plain") if modes_on else narrator_base)
         base_messages = [
             {"role": "system", "content": narrator_system},
             {"role": "user", "content": "ВЫЖИМКА (Markdown):\n" + digest},
@@ -326,16 +338,23 @@ class SummaryGenerator:
         async def _generate(messages):
             return await self.llm.generate(messages)
 
+        # F4 — Рассказчик отдаёт plain-text R11: маркированный список
+        # («- …», «1. …») вне жанра → бракуем (правило F6, вторичное).
+        # F3 — на plain-канале включается guard от таблиц; в режиме
+        # deep_research буллиты разрешены (FORMAT_PLAIN_BLOCK их требует).
+        if modes_on:
+            enabled_rules = channel_enabled_rules(
+                "plain", response_mode, forbid_bullets=True)
+        else:
+            enabled_rules = DEFAULT_ENABLED_RULES | {"bullet_list"}
         text, stats = await verbalize_validated(
             _generate, base_messages, max_retries=2,
-            # F4 — Рассказчик отдаёт plain-text R11: маркированный список
-            # («- …», «1. …») вне жанра → бракуем (правило F6, вторичное).
-            enabled_rules=DEFAULT_ENABLED_RULES | {"bullet_list"})
+            enabled_rules=enabled_rules)
         logger.info(
-            "summary system2 narrator | chat_id=%s | attempts=%d | retries=%d "
-            "| hits=%d | fallback=%s", chat_id, stats.get("attempts", 0),
-            stats.get("retries", 0), len(stats.get("hits") or []),
-            bool(stats.get("fallback")))
+            "summary system2 narrator | chat_id=%s | mode=%s | attempts=%d "
+            "| retries=%d | hits=%d | fallback=%s", chat_id, response_mode,
+            stats.get("attempts", 0), stats.get("retries", 0),
+            len(stats.get("hits") or []), bool(stats.get("fallback")))
         if not text.strip():
             return None
         return text

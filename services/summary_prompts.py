@@ -19,6 +19,7 @@ from services.prompt_style_blocks import (
     LEGACY_BOT_KNOWLEDGE_INSTRUCTION,
     PREV_STYLE_BLOCKS_SUFFIX,
     STYLE_BLOCKS_SUFFIX,
+    TYPOGRAPHY_BLOCK,
 )
 from services.target_marking import TARGET_INSTRUCTION_BLOCK
 
@@ -94,8 +95,29 @@ SUMMARY_EDITOR_SYSTEM_PROMPT = (
     _SUMMARY_EDITOR_R1023_BASE + "\n\n" + TARGET_INSTRUCTION_BLOCK
 )
 
+# ── Раунд 10.23 (F3, ADR-1023-3): Слой-1 теперь возвращает СТРОГИЙ JSON с
+# полем `response_mode` (роутер режимов живёт внутри Stage-1; третьего вызова
+# нет). Прежний канон (F1/F2, чистая Markdown-выжимка) — слепок для
+# идемпотентной канон-миграции PG.
+PREV_SUMMARY_EDITOR_R1023_F3 = SUMMARY_EDITOR_SYSTEM_PROMPT
+
+SUMMARY_EDITOR_RESPONSE_MODE_BLOCK = """ФОРМАТ ОТВЕТА (СТРОГО JSON-объект, без текста вокруг):
+{"response_mode": "serious", "digest": "готовая выжимка в Markdown"}
+
+ПОЛЕ response_mode - выбери ОДИН режим по сложности запроса:
+- casual: бытовой треп, споры, короткие вопросы;
+- serious: средняя сложность, нужен нормальный ответ без пяти страниц ресерча;
+- deep_research: глубокий анализ, структура, масштабный поиск.
+ПОЛЕ digest - та же Markdown-выжимка, что описана выше."""
+
+SUMMARY_EDITOR_SYSTEM_PROMPT = (
+    PREV_SUMMARY_EDITOR_R1023_F3 + "\n\n" + SUMMARY_EDITOR_RESPONSE_MODE_BLOCK
+)
+
 # Слой 2 — РАССКАЗЧИК: вход ТОЛЬКО выжимка. Стиль R11 (plain-text, токсичный).
-SUMMARY_NARRATOR_SYSTEM_PROMPT = """СИСТЕМНАЯ РОЛЬ:
+# Раунд 10.23 (F3): к базе добавлена общая типографика; режимный блок
+# (`MODE_*_BLOCK`) и канальный форматный блок выбираются в оркестраторе.
+_SUMMARY_NARRATOR_R1023_BASE = """СИСТЕМНАЯ РОЛЬ:
 Ты — токсичный, ироничный участник чата (бот-абьюзер) и завсегдатай двача. Ты получаешь ТОЛЬКО готовую выжимку в Markdown и пишешь по ней связный текст.
 
 ПРАВИЛА:
@@ -106,6 +128,14 @@ SUMMARY_NARRATOR_SYSTEM_PROMPT = """СИСТЕМНАЯ РОЛЬ:
 
 ОГРАНИЧЕНИЕ: длина текста не более {max_symbols} символов.
 """ + STYLE_BLOCKS_SUFFIX
+
+# Слепок прод-канона Рассказчика ДО правки раунда 10.23 (байт-в-байт) — для
+# идемпотентной канон-миграции/отката (ADR-1013-3).
+PREV_SUMMARY_NARRATOR_R1023 = _SUMMARY_NARRATOR_R1023_BASE
+
+SUMMARY_NARRATOR_SYSTEM_PROMPT = (
+    _SUMMARY_NARRATOR_R1023_BASE + "\n\n" + TYPOGRAPHY_BLOCK
+)
 
 # Слепок HEAD 68fb03e (раунд 5) ДО правки — для авто-миграции PG.
 PREV_SUMMARY_SYSTEM_PROMPT = """СИСТЕМНАЯ РОЛЬ:

@@ -30,6 +30,7 @@ from services.factcheck_prompts import (
     FACTCHECK_ANALYST_SYSTEM_PROMPT,
     PREV_FACTCHECK_ANALYST_R1023,
     PREV_FACTCHECK_ANALYST_R1023_F2,
+    PREV_FACTCHECK_ANALYST_R1023_F3,
     WEB_SEARCH_INSTRUCTION_BLOCK,
 )
 from services.target_marking import TARGET_INSTRUCTION_BLOCK
@@ -402,8 +403,11 @@ class TestWebSearchPrompt:
                 FACTCHECK_ANALYST_SYSTEM_PROMPT) in pm.PROMPT_MIGRATIONS[key]
         assert (PREV_FACTCHECK_ANALYST_R1023_F2,
                 FACTCHECK_ANALYST_SYSTEM_PROMPT) in pm.PROMPT_MIGRATIONS[key]
+        # 10.23 (F3, ADR-1023-3): ступень response_mode стала последней —
+        # откат снимает только её (F3-слепок сохраняет правило веб-поиска).
         assert pm.ROLLBACK_MIGRATIONS[key] == (
-            FACTCHECK_ANALYST_SYSTEM_PROMPT, PREV_FACTCHECK_ANALYST_R1023_F2)
+            FACTCHECK_ANALYST_SYSTEM_PROMPT, PREV_FACTCHECK_ANALYST_R1023_F3)
+        assert WEB_SEARCH_INSTRUCTION_BLOCK in PREV_FACTCHECK_ANALYST_R1023_F3
 
 
 # ── каталог: +2 ключа, hidden legacy, код-кап, вкладка ───────────────────────

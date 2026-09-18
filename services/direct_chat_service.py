@@ -95,6 +95,7 @@ from services.chat_prompts import (
     CHAT_SYSTEM_PROMPT,
     DIRECT_SYNTHESIZER_SYSTEM_PROMPT,
     DIRECT_VERBALIZER_SYSTEM_PROMPT,
+    PREV_CHAT_VERBALIZER_R1023,
 )
 from services.dossier_prompts import format_dossier_block
 from services.llm_client import (
@@ -152,7 +153,11 @@ from services.token_counter import (
 )
 from services.context_middleware import truncate_keep_header
 from services.reply_postprocess import strip_reasoning_tags
-from services.negative_constraints import verbalize_validated
+from services.negative_constraints import (
+    channel_enabled_rules,
+    verbalize_validated,
+)
+from services.prompt_style_blocks import compose_verbilizer_system
 from services.system2_handoff import parse_direct_synthesis, redact_secrets
 from services.tool_loop import chat_with_tools, ToolLoopResult
 from services.tool_router import ToolContext
@@ -752,6 +757,7 @@ class DirectChatService:
             # Вербализатор) — ТОЛЬКО при реально вызванных тулах, успешном
             # tool-финале и НЕ lore_compiled (детерминированная HTML-история
             # остаётся вне System 2, Д-9). Любой сбой → финал tool-loop.
+            response_mode = "serious"      # F3: fail-safe до Stage-2
             if (getattr(settings, "SYSTEM2_DIRECT_ENABLED", True)
                     and isinstance(raw, ToolLoopResult)
                     and not raw.degraded
@@ -760,7 +766,8 @@ class DirectChatService:
                 synthesized = await self._synthesize_direct_answer(
                     chat_id, query, raw, temperature)
                 if synthesized:
-                    raw = synthesized
+                    # F3 (ADR-1023-3): режим несёт и стиль, и канал доставки.
+                    raw, response_mode = synthesized
             # БЛОК 7.2b (T-1921): единая стадия пост-обработки — reasoning-
             # теги-черновики не уходят пользователю (no-op без тегов).
             answer = strip_reasoning_tags(str(raw).strip())
@@ -778,7 +785,8 @@ class DirectChatService:
                 return
             sent_id = await self._send_direct_answer(
                 bot, chat_id, answer, message.message_id,
-                lore=bool(getattr(tool_ctx, "lore_compiled", False)))
+                lore=bool(getattr(tool_ctx, "lore_compiled", False)),
+                deep_research=(response_mode == "deep_research"))
             if sent_id is not None:
                 answer_text = answer
                 # D3/T-800: parent = сообщение, на которое бот ответил
@@ -835,12 +843,17 @@ class DirectChatService:
     # ── System 2 direct (F5, раунд 10.22, ADR-1022-5) ───────────
 
     async def _synthesize_direct_answer(self, chat_id: int, query: str,
-                                        raw, temperature) -> str | None:
+                                        raw, temperature) -> tuple[str, str] | None:
         """Синтезатор тулов → Вербализатор. ``None`` → финал tool-loop.
 
         Stage-1 получает ТОЛЬКО санитизированную «кашу» логов; Stage-2 —
         ONLY валидированную JSON-справку (изоляция). Любой сбой/невалидный
         JSON/пустой ответ → ``None`` (fail-safe, R17: логи без содержимого).
+
+        Раунд 10.23 (F3, ADR-1023-3): возвращает ``(текст, response_mode)`` —
+        режим нужен вызывающему, чтобы выбрать канал доставки (deep_research →
+        safe-HTML «Летописца»). Роутера третьим вызовом нет: режим едет в
+        том же JSON Stage-1.
         """
         try:
             tool_context = redact_secrets(
@@ -866,8 +879,16 @@ class DirectChatService:
                     "[direct] system2: невалидная справка — fallback | chat=%s",
                     chat_id)
                 return None
+            response_mode = str(data.get("response_mode") or "serious")
+            modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED", True)
+            verbalizer_template = (
+                DIRECT_VERBALIZER_SYSTEM_PROMPT if modes_on
+                else PREV_CHAT_VERBALIZER_R1023)
+            verbalizer_system = (compose_verbilizer_system(
+                verbalizer_template, response_mode, "plain")
+                if modes_on else verbalizer_template)
             base_messages = [
-                {"role": "system", "content": DIRECT_VERBALIZER_SYSTEM_PROMPT},
+                {"role": "system", "content": verbalizer_system},
                 {"role": "user",
                  "content": "СПРАВКА (JSON):\n" + json.dumps(data, ensure_ascii=False)},
             ]
@@ -876,16 +897,19 @@ class DirectChatService:
                 return await self.llm.generate(
                     messages, temperature=temperature, chat_id=chat_id)
 
+            enabled_rules = (channel_enabled_rules("plain", response_mode)
+                             if modes_on else None)
             text, stats = await verbalize_validated(
-                _generate, base_messages, max_retries=2)
+                _generate, base_messages, max_retries=2,
+                enabled_rules=enabled_rules)
             logger.info(
-                "[direct] system2 | chat=%s | attempts=%d | retries=%d | "
-                "hits=%d | fallback=%s", chat_id, stats.get("attempts", 0),
-                stats.get("retries", 0), len(stats.get("hits") or []),
-                bool(stats.get("fallback")))
+                "[direct] system2 | chat=%s | mode=%s | attempts=%d | retries=%d | "
+                "hits=%d | fallback=%s", chat_id, response_mode,
+                stats.get("attempts", 0), stats.get("retries", 0),
+                len(stats.get("hits") or []), bool(stats.get("fallback")))
             if not text.strip():
                 return None
-            return text
+            return text, response_mode
         except Exception as exc:                # fail-safe → финал tool-loop
             logger.info(
                 "[direct] system2 failed — fallback tool-loop | chat=%s | "
@@ -897,22 +921,23 @@ class DirectChatService:
     @staticmethod
     async def _send_direct_answer(bot, chat_id: int, answer: str,
                                   reply_to: int | None, *,
-                                  lore: bool = False):
+                                  lore: bool = False,
+                                  deep_research: bool = False):
         """Доставка ответа DirectChat (раунд 10.20, T-1892, О5/ADR-1020-6 п.3).
 
-        Обычный путь — байт-в-байт `parse_mode=None`. Режим «Летописца»
-        (``ctx.lore_compiled`` за turn) — ЛОКАЛЬНЫЙ ``parse_mode="HTML"``:
-        текст экранируется по whitelist-тегов (`escape_lore_html`); при
-        ``TelegramBadRequest`` (битая разметка) — деградация на plain-text
-        с ИСХОДНЫМ текстом (диалог не роняется, история не теряется).
-        Глобальный `parse_mode` не меняется.
+        Обычный путь — байт-в-байт `parse_mode=None`. Под-путь safe-HTML
+        (режим «Летописца» `lore` ИЛИ F3 `deep_research` прямого чата):
+        ЛОКАЛЬНЫЙ ``parse_mode="HTML"``, текст экранируется по whitelist-тегов
+        (`escape_lore_html`); при ``TelegramBadRequest`` (битая разметка) —
+        деградация на plain-text с ИСХОДНЫМ текстом (диалог не роняется,
+        история не теряется). Глобальный `parse_mode` не меняется.
 
         S10.20-10: HTML-ветка используется ТОЛЬКО если экранированный текст
         влезает в одно сообщение (≤4096). Иначе чанкинг по пробелам мог
         разорвать тег → `TelegramBadRequest` на 2-м чанке → фолбэк пересылал
-        ВЕСЬ ответ plain (дубль). Длинная история уходит одной plain-доставкой
+        ВЕСЬ ответ plain (дубль). Длинный ответ уходит одной plain-доставкой
         без тегов — без дублей и без сырой разметки."""
-        if not lore:
+        if not (lore or deep_research):
             return await send_chunked_reply(bot, chat_id, answer, reply_to)
         escaped = escape_lore_html(answer)
         if len(escaped) <= _LORE_HTML_MAX_SINGLE_CHARS:
@@ -921,10 +946,10 @@ class DirectChatService:
                     bot, chat_id, escaped, reply_to, parse_mode="HTML")
             except TelegramBadRequest as exc:
                 logger.warning(
-                    "[direct] lore HTML send failed — plain fallback | "
+                    "[direct] safe-HTML send failed — plain fallback | "
                     "chat=%s | error=%s", chat_id, type(exc).__name__)
                 return await send_chunked_reply(bot, chat_id, answer, reply_to)
-        logger.info("[direct] lore story too long for safe HTML — plain | "
+        logger.info("[direct] text too long for safe HTML — plain | "
                     "chat=%s | chars=%d", chat_id, len(escaped))
         return await send_chunked_reply(bot, chat_id, strip_lore_html(answer),
                                         reply_to)

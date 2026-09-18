@@ -77,3 +77,93 @@ LEGACY_BOT_KNOWLEDGE_INSTRUCTION = (
     "что ты уже проверял эту инфу ранее или смотрел ролик на эту тему, "
     "и тебе не нужно повторять дважды."
 )
+
+# ── Раунд 10.23 (F3, ADR-1023-3) — умный Вербализатор: типографика и режимы.
+# Единые блоки переиспользуются всеми модулями (не 9 отдельных констант).
+# Текст блока типографики намеренно цитирует сами запреты (это инструкция,
+# а не троп), как и в базовых канонах раунда 5.
+
+TYPOGRAPHY_BLOCK = (
+    "ТИПОГРАФИКА (ОБЯЗАТЕЛЬНО):\n"
+    "Только короткие дефисы (-) и обычные двойные кавычки (\"\"). "
+    "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНЫ длинные тире (—) и кавычки-елочки («»). "
+    "Разрешен мат и сленг. Никаких понтов про \"я сделал за тебя работу\"."
+)
+
+MODE_CASUAL_BLOCK = (
+    "РЕЖИМ CASUAL - ТОРОПЛИВОЕ ПИСЬМО:\n"
+    "Имитируй торопливое письмо: короткие рубленые фразы, иногда начинай "
+    "с маленькой буквы. КАТЕГОРИЧЕСКИ ЗАПРЕЩЕН Markdown: никаких заголовков, "
+    "списков, жирного, курсива и таблиц. Только живой текст."
+)
+
+MODE_SERIOUS_BLOCK = (
+    "РЕЖИМ SERIOUS - ГРАМОТНО, ПО ДЕЛУ:\n"
+    "Пиши грамотно и по существу, без воды и размазывания. Разрешено "
+    "минимальное форматирование. Держи легкую циничную иронию, без пафоса "
+    "и морализаторства."
+)
+
+MODE_DEEP_RESEARCH_BLOCK = (
+    "РЕЖИМ DEEP_RESEARCH - ГЛУБОКИЙ РАЗБОР:\n"
+    "Выведи переданный тебе структурированный отчет ПОЛНОСТЬЮ, ничего не "
+    "выбрасывай и не сжимай. Интегрируй токсичный стиль органично, без "
+    "пафосных вступлений."
+)
+
+# Канальные форматные блоки (UPD владельца): канал доставки, а не режим,
+# определяет разрешённую разметку. Причина — защита от Telegram ParseError.
+FORMAT_PLAIN_BLOCK = (
+    "ФОРМАТ PLAIN - ПРЯМОЙ ЧАТ (ОБЫЧНОЕ СООБЩЕНИЕ):\n"
+    "Обязательно используй жирный для акцентов: <b>акцент</b>. Перечисления "
+    "давай простыми буллитами: \"- \".\n"
+    "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНЫ любые таблицы: Markdown (| ... |), HTML (<table>), "
+    "ASCII-сетки. Telegram не переваривает таблицы в обычном сообщении, и ответ "
+    "не уйдет. Без #-заголовков и тяжелой разметки."
+)
+
+FORMAT_RICH_BLOCK = (
+    "ФОРМАТ RICH - СТАТЬЯ (sendRichMessage):\n"
+    "Разрешено ВСЁ: полный Markdown/HTML, сложные таблицы, сетки и глубокая "
+    "структура. Пользуйся силой статьи на полную."
+)
+
+_CHANNEL_PLAIN = "plain"
+_CHANNEL_RICH = "rich"
+
+MODE_BLOCKS: dict[str, str] = {
+    "casual": MODE_CASUAL_BLOCK,
+    "serious": MODE_SERIOUS_BLOCK,
+    "deep_research": MODE_DEEP_RESEARCH_BLOCK,
+}
+
+
+def mode_block(response_mode: str | None) -> str:
+    """Режимный блок; неизвестное/пустое → ``serious`` (fail-safe)."""
+    candidate = str(response_mode or "").strip().lower()
+    return MODE_BLOCKS.get(candidate, MODE_SERIOUS_BLOCK)
+
+
+def format_block(channel: str | None) -> str:
+    """Канальный форматный блок; неизвестный канал → plain (безопасно)."""
+    if str(channel or "").strip().lower() == _CHANNEL_RICH:
+        return FORMAT_RICH_BLOCK
+    return FORMAT_PLAIN_BLOCK
+
+
+def compose_verbilizer_system(base_prompt: str, response_mode: str = "serious",
+                              channel: str = _CHANNEL_PLAIN) -> str:
+    """Narrator-промпт по режиму и каналу.
+
+    Формула (ADR-1023-3 §Decision 4/10): модульный базовый narrator
+    (уже включает ``STYLE_BLOCKS_SUFFIX`` + ``TYPOGRAPHY_BLOCK``) +
+    ровно один ``MODE_*_BLOCK``; для ``deep_research`` добавляется ровно
+    один канальный блок (``FORMAT_PLAIN_BLOCK`` | ``FORMAT_RICH_BLOCK``).
+    """
+    candidate = str(response_mode or "").strip().lower()
+    if candidate not in MODE_BLOCKS:
+        candidate = "serious"
+    parts = [str(base_prompt or "").rstrip(), MODE_BLOCKS[candidate]]
+    if candidate == "deep_research":
+        parts.append(format_block(channel))
+    return "\n\n".join(part for part in parts if part)

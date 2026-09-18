@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from config.settings import Settings
+from services.prompt_style_blocks import compose_verbilizer_system
 from services.summary_generator import SummaryGenerator
 from services.summary_prompts import (
     SUMMARY_EDITOR_SYSTEM_PROMPT,
@@ -38,8 +39,9 @@ class TestSummaryTwoCall:
         stage2 = llm.generate.await_args_list[1].args[0]
         assert stage1[0]["content"] == SUMMARY_EDITOR_SYSTEM_PROMPT
         assert stage1[1]["content"] == "сырая история"
-        assert stage2[0]["content"] == SUMMARY_NARRATOR_SYSTEM_PROMPT.replace(
-            "{max_symbols}", "3800")
+        assert stage2[0]["content"] == compose_verbilizer_system(
+            SUMMARY_NARRATOR_SYSTEM_PROMPT.replace("{max_symbols}", "3800"),
+            "serious", "plain")
         assert stage2[1]["content"] == "ВЫЖИМКА (Markdown):\n" + _DIGEST
 
     @pytest.mark.asyncio

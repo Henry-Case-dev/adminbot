@@ -44,6 +44,7 @@ from services.factcheck_prompts import (
     FACTCHECK_SYSTEM_PROMPT,
     PREV_FACTCHECK_ANALYST_R1023,
     PREV_FACTCHECK_ANALYST_R1023_F2,
+    PREV_FACTCHECK_ANALYST_R1023_F3,
     PREV_FACTCHECK_R1021_SYSTEM_PROMPT,
     PREV_FACTCHECK_R2020_SYSTEM_PROMPT,
     PREV_FACTCHECK_SYSTEM_PROMPT,
@@ -62,6 +63,7 @@ from services.summary_prompts import (
     PREV_R1022_SUMMARY_SYSTEM_PROMPT,
     PREV_R2020_SUMMARY_SYSTEM_PROMPT,
     PREV_SUMMARY_EDITOR_R1023,
+    PREV_SUMMARY_EDITOR_R1023_F3,
     PREV_SUMMARY_SYSTEM_PROMPT,
     SUMMARY_EDITOR_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
@@ -130,12 +132,15 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # фактчека) получают правило маркировки; PG-ключи добавляет F8 — до сида
     # migrate/skip (отсутствующий ключ → INFO, сид поставит канон).
     "prompts.summary_editor_system_prompt": [
-        (PREV_SUMMARY_EDITOR_R1023, SUMMARY_EDITOR_SYSTEM_PROMPT)],
+        (PREV_SUMMARY_EDITOR_R1023, SUMMARY_EDITOR_SYSTEM_PROMPT),
+        (PREV_SUMMARY_EDITOR_R1023_F3, SUMMARY_EDITOR_SYSTEM_PROMPT)],
     # 10.23 (F2, ADR-1023-2 §3.3): ступень Аналитика — правило обязательного
     # веб-поиска. Старые прод-значения (pre-F1 и F1) ведут на новый канон.
+    # 10.23 (F3, ADR-1023-3): ступень F3 — поле response_mode в том же JSON.
     "prompts.factcheck_analyst_system_prompt": [
         (PREV_FACTCHECK_ANALYST_R1023, FACTCHECK_ANALYST_SYSTEM_PROMPT),
-        (PREV_FACTCHECK_ANALYST_R1023_F2, FACTCHECK_ANALYST_SYSTEM_PROMPT)],
+        (PREV_FACTCHECK_ANALYST_R1023_F2, FACTCHECK_ANALYST_SYSTEM_PROMPT),
+        (PREV_FACTCHECK_ANALYST_R1023_F3, FACTCHECK_ANALYST_SYSTEM_PROMPT)],
 }
 # prompts.extract_system_prompt НЕ входит (EXTRACT_PROMPT не трогаем)
 
@@ -165,10 +170,12 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # 10.23 (F1, ADR-1023-1): обратный шаг для новых PG-ключей F8.
     # 10.23 (F2): Аналитик откатывается на непосредственный прежний канон F1
     # (PREV_FACTCHECK_ANALYST_R1023_F2) — снимает только правило веб-поиска.
+    # 10.23 (F3, ADR-1023-3): откат снимает только ступень F3 — на слепок без
+    # поля response_mode (PREV_SUMMARY_EDITOR_R1023_F3/PREV_..._F3).
     "prompts.summary_editor_system_prompt":
-        (SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1023),
+        (SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1023_F3),
     "prompts.factcheck_analyst_system_prompt":
-        (FACTCHECK_ANALYST_SYSTEM_PROMPT, PREV_FACTCHECK_ANALYST_R1023_F2),
+        (FACTCHECK_ANALYST_SYSTEM_PROMPT, PREV_FACTCHECK_ANALYST_R1023_F3),
 }
 
 

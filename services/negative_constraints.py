@@ -80,11 +80,63 @@ FORBIDDEN_CLICHE_PATTERNS: tuple[ClicheRule, ...] = (
         secondary=True,
         use_raw=True,
     ),
+    # Раунд 10.23 (F3, ADR-1023-3 §3.6.3): таблицы запрещены на plain-канале
+    # (Telegram ParseError). Включается только для plain-канала; на rich
+    # (статья) правило НЕ активно. Детектор ниже — тот же набор шаблонов.
+    ClicheRule(
+        "plain_no_tables",
+        _c(
+            r"<table\b",
+            r"^\s*\|.*\|\s*$",
+            r"^\s*\+[-=+]+\+\s*$",
+            r"\|?\s*:?-{2,}:?\s*\|",
+            flags=re.IGNORECASE | re.MULTILINE,
+        ),
+        secondary=True,
+        use_raw=True,
+    ),
 )
+
+# Отдельный публичный детектор табличной разметки (Markdown `| … |`, HTML
+# `<table>`, ASCII-сетки `+---+`, разделители `---|`). R17: наружу — только bool.
+_PLAIN_TABLE_PATTERNS = next(
+    rule.patterns for rule in FORBIDDEN_CLICHE_PATTERNS
+    if rule.code == "plain_no_tables"
+)
+
+
+def detect_plain_tables(text: str) -> bool:
+    """True, если в тексте есть табличная разметка любого вида. Fail-open."""
+    try:
+        source = str(text or "")
+        return any(pattern.search(source) for pattern in _PLAIN_TABLE_PATTERNS)
+    except Exception:  # pragma: no cover - defensive (fail-open)
+        logger.warning("[validator] table detector error — treated as clean")
+        return False
+
 
 DEFAULT_ENABLED_RULES: frozenset[str] = frozenset(
     rule.code for rule in FORBIDDEN_CLICHE_PATTERNS if not rule.secondary
 )
+
+
+def channel_enabled_rules(channel: str = "plain", response_mode: str = "serious",
+                          *, forbid_bullets: bool = False) -> frozenset[str]:
+    """Набор правил под канал доставки (ADR-1023-3 §Decision 5/10).
+
+    * rich-канал (статья) — таблицы легальны: ``plain_no_tables`` НЕ активен;
+    * plain-канал — всегда ``plain_no_tables``; список-буллиты бракуются
+      только там, где жанр их не предусматривает (``forbid_bullets=True``,
+      напр. R11-саммари), и НЕ бракуются в режиме ``deep_research`` (там
+      ``FORMAT_PLAIN_BLOCK`` их прямо требует).
+    """
+    rules = set(DEFAULT_ENABLED_RULES)
+    if str(channel or "plain").strip().lower() != "rich":
+        rules.add("plain_no_tables")
+        mode = str(response_mode or "").strip().lower()
+        if forbid_bullets and mode != "deep_research":
+            rules.add("bullet_list")
+    return frozenset(rules)
 
 _DASH_RE = re.compile(r"[—–-]+")
 _WS_RE = re.compile(r"\s+")

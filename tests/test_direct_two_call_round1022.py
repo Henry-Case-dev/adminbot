@@ -15,6 +15,7 @@ from services.chat_prompts import (
     DIRECT_VERBALIZER_SYSTEM_PROMPT,
 )
 from services.direct_chat_service import DirectChatService
+from services.prompt_style_blocks import compose_verbilizer_system
 from services.tool_loop import ToolLoopResult
 
 pytestmark = pytest.mark.system2
@@ -47,14 +48,16 @@ class TestDirectTwoCall:
     @pytest.mark.asyncio
     async def test_valid_two_call(self):
         svc = _service([_SYNTH_JSON, "дерзкий короткий ответ"])
-        text = await svc._synthesize_direct_answer(
+        text, mode = await svc._synthesize_direct_answer(
             -100, "что с погодой", _tool_raw(), None)
         assert text == "дерзкий короткий ответ"
+        assert mode == "serious"          # нет поля → fail-safe serious
         assert svc.llm.generate.await_count == 2
         stage1 = svc.llm.generate.await_args_list[0].args[0]
         stage2 = svc.llm.generate.await_args_list[1].args[0]
         assert stage1[0]["content"] == DIRECT_SYNTHESIZER_SYSTEM_PROMPT
-        assert stage2[0]["content"] == DIRECT_VERBALIZER_SYSTEM_PROMPT
+        assert stage2[0]["content"] == compose_verbilizer_system(
+            DIRECT_VERBALIZER_SYSTEM_PROMPT, "serious", "plain")
         assert stage2[1]["content"].startswith("СПРАВКА (JSON):")
 
     @pytest.mark.asyncio
@@ -91,7 +94,7 @@ class TestDirectTwoCall:
     @pytest.mark.asyncio
     async def test_validator_loop_retry(self):
         svc = _service([_SYNTH_JSON, "как ИИ", "чистый ответ"])
-        text = await svc._synthesize_direct_answer(
+        text, _mode = await svc._synthesize_direct_answer(
             -100, "q", _tool_raw(), None)
         assert text == "чистый ответ"
         assert svc.llm.generate.await_count == 3
@@ -100,7 +103,7 @@ class TestDirectTwoCall:
     async def test_validator_exhausted_returns_best(self):
         svc = _service([_SYNTH_JSON, "как ИИ и подводя итог", "подводя итог",
                         "в заключение"])
-        text = await svc._synthesize_direct_answer(
+        text, _mode = await svc._synthesize_direct_answer(
             -100, "q", _tool_raw(), None)
         assert text == "подводя итог"
 
@@ -152,7 +155,7 @@ class TestDirectHandleBranchOn:
         from tests.test_direct_chat import _bot, _make_service, _message, _user
         monkeypatch.setattr(Settings, "SYSTEM2_DIRECT_ENABLED", enabled)
         svc = _make_service(tool_router=MagicMock())
-        synth = AsyncMock(return_value="SYNTH")
+        synth = AsyncMock(return_value=("SYNTH", "serious"))
         send = AsyncMock(return_value=None)
         svc._synthesize_direct_answer = synth
         svc._send_direct_answer = send

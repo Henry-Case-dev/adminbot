@@ -27,13 +27,18 @@ from services.factcheck_prompts import (
     FACTCHECK_ANALYST_SYSTEM_PROMPT,
     FACTCHECK_SYSTEM_PROMPT,
     FACTCHECK_VERBALIZER_SYSTEM_PROMPT,
+    PREV_FACTCHECK_VERBALIZER_R1023,
 )
 from services.grounding_validator import (
     collect_allowed_anchors,
     strip_phantom_tags,
 )
 from services.llm_client import LLMBadResponseError, LLMClient
-from services.negative_constraints import verbalize_validated
+from services.negative_constraints import (
+    channel_enabled_rules,
+    verbalize_validated,
+)
+from services.prompt_style_blocks import compose_verbilizer_system
 from services.reply_postprocess import strip_reasoning_tags
 from services.search_aggregator import SearchAggregator
 from services.summary_cleanup import cleanup_llm_text
@@ -140,8 +145,16 @@ class FactCheckService:
                 "factcheck system2: невалидный JSON аналитика — fallback | "
                 "chat=%s", chat_id)
             return None
-        verbalizer_system = FACTCHECK_VERBALIZER_SYSTEM_PROMPT.replace(
+        response_mode = data.get("response_mode", "serious")
+        modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED", True)
+        verbalizer_template = (
+            FACTCHECK_VERBALIZER_SYSTEM_PROMPT if modes_on
+            else PREV_FACTCHECK_VERBALIZER_R1023)
+        verbalizer_base = verbalizer_template.replace(
             "{max_symbols}", str(max_symbols))
+        verbalizer_system = (compose_verbilizer_system(
+            verbalizer_base, response_mode, "plain")
+            if modes_on else verbalizer_base)
         base_messages = [
             {"role": "system", "content": verbalizer_system},
             {"role": "user",
@@ -151,13 +164,18 @@ class FactCheckService:
         async def _generate(messages):
             return await self.llm.generate(messages)
 
+        # F3 (ADR-1023-3): plain-канал → guard от таблиц (без запрета буллитов,
+        # буллиты в фактческе жанром не запрещены).
+        enabled_rules = (channel_enabled_rules("plain", response_mode)
+                         if modes_on else None)
         text, stats = await verbalize_validated(
-            _generate, base_messages, max_retries=2)
+            _generate, base_messages, max_retries=2,
+            enabled_rules=enabled_rules)
         logger.info(
-            "factcheck system2 verbalizer | chat=%s | attempts=%d | retries=%d "
-            "| hits=%d | fallback=%s", chat_id, stats.get("attempts", 0),
-            stats.get("retries", 0), len(stats.get("hits") or []),
-            bool(stats.get("fallback")))
+            "factcheck system2 verbalizer | chat=%s | mode=%s | attempts=%d "
+            "| retries=%d | hits=%d | fallback=%s", chat_id, response_mode,
+            stats.get("attempts", 0), stats.get("retries", 0),
+            len(stats.get("hits") or []), bool(stats.get("fallback")))
         if stats.get("fallback"):
             return None
         return self._finalize_text(text, used_tools, tool_context,

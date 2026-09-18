@@ -537,6 +537,12 @@ class Settings:
         "SYSTEM2_SUMMARY_ENABLED", True)
     SYSTEM2_DIRECT_ENABLED: ClassVar[bool] = _env_bool(
         "SYSTEM2_DIRECT_ENABLED", True)
+    # ── Раунд 10.23 (F3, ADR-1023-3): env-only ClassVar kill-switch умного
+    # Вербализатора (3 режима: casual/serious/deep_research) + канальных
+    # форматных блоков. default ON, Δ каталога = 0 (в param_catalog не входит).
+    # OFF → единый прежний Вербализатор (пре-режимные PREV-константы).
+    SMART_VERBALIZER_MODES_ENABLED: ClassVar[bool] = _env_bool(
+        "SMART_VERBALIZER_MODES_ENABLED", True)
     # ── Раунд 10.22 (F8, ADR-1022-8): env-only ClassVar-рубильники
     # асинхронной пересборки досье из мини-аппа. Δ каталога = 0 (в
     # param_catalog не входят; прецедент MULTILAYER_EXTRACTION_ENABLED).
