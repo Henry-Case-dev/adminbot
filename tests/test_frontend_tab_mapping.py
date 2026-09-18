@@ -129,7 +129,7 @@ class TestTabMappingAudit:
         # mod_direct) → 446/95/93; TAB_RULES 20 (новых вкладок нет).
         assert len(pc._TAB_BY_GROUP) == 93
         assert len(GROUPS) == 95
-        assert len(pc.REGISTRY) == 446
+        assert len(pc.REGISTRY) == 447
 
 
 class TestModuleTabs:

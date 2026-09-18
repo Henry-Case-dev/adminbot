@@ -114,6 +114,32 @@ SUMMARY_EDITOR_SYSTEM_PROMPT = (
     PREV_SUMMARY_EDITOR_R1023_F3 + "\n\n" + SUMMARY_EDITOR_RESPONSE_MODE_BLOCK
 )
 
+# ── Раунд 10.23 (F6, ADR-1023-6): двойной промптинг — Редактор дополнительно
+# отдаёт короткий визуальный промпт обложки (EN, ≤300) в ТОМ ЖЕ JSON. Третьего
+# LLM-вызова нет (поле едет в Stage-1); нормализация/обрезка — в
+# `system2_handoff.normalize_cover_prompt`.
+SUMMARY_EDITOR_COVER_PROMPT_BLOCK = """ПОЛЕ cover_prompt - короткий визуальный промпт для генерации обложки этой выжимки.
+- Строго на английском языке, не длиннее 300 символов.
+- Опиши ОДНУ сцену или образ по главной теме выжимки; без текста, букв и водяных знаков на картинке.
+- Одна фраза, без кавычек и переносов строк.
+
+ФОРМАТ ОТВЕТА (СТРОГО JSON-объект, без текста вокруг):
+{"response_mode": "serious", "digest": "готовая выжимка в Markdown", "cover_prompt": "english visual prompt"}
+Поле digest - та же Markdown-выжимка, что описана выше. Поле cover_prompt - визуальный промпт обложки."""
+
+# Слепок канона F3 (с полем response_mode, без cover_prompt) ДО правки F6 —
+# для идемпотентной канон-миграции/отката PG (ADR-1013-3).
+PREV_SUMMARY_EDITOR_R1023_F6 = SUMMARY_EDITOR_SYSTEM_PROMPT
+
+SUMMARY_EDITOR_SYSTEM_PROMPT = (
+    PREV_SUMMARY_EDITOR_R1023_F6 + "\n\n"
+    + SUMMARY_EDITOR_COVER_PROMPT_BLOCK
+)
+
+# Дефолт авторского «Стиля обложки» (код-константа, PG-only сид по
+# `code_source`); в рантайме конкатенируется с `cover_prompt` перед image-API.
+SUMMARY_COVER_STYLE_DEFAULT = "photorealistic, cinematic light"
+
 # Слой 2 — РАССКАЗЧИК: вход ТОЛЬКО выжимка. Стиль R11 (plain-text, токсичный).
 # Раунд 10.23 (F3): к базе добавлена общая типографика; режимный блок
 # (`MODE_*_BLOCK`) и канальный форматный блок выбираются в оркестраторе.

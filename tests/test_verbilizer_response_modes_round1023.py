@@ -131,7 +131,8 @@ class TestResponseModeRouter:
     def test_parse_summary_handoff_json(self):
         raw = json.dumps({"response_mode": "deep_research", "digest": _DIGEST})
         parsed = parse_summary_handoff(raw)
-        assert parsed == {"response_mode": "deep_research", "digest": _DIGEST}
+        assert parsed == {"response_mode": "deep_research", "digest": _DIGEST,
+                          "cover_prompt": ""}
 
     def test_parse_summary_handoff_missing_mode_serious(self):
         raw = json.dumps({"digest": _DIGEST})
@@ -144,7 +145,8 @@ class TestResponseModeRouter:
     def test_parse_summary_handoff_raw_markdown_backcompat(self):
         """Старый Stage-1 отдавал чистую Markdown-выжимку."""
         parsed = parse_summary_handoff(_DIGEST)
-        assert parsed == {"response_mode": "serious", "digest": _DIGEST}
+        assert parsed == {"response_mode": "serious", "digest": _DIGEST,
+                          "cover_prompt": ""}
 
     def test_parse_summary_handoff_invalid_digest_none(self):
         raw = json.dumps({"response_mode": "casual", "digest": "мусор fact:12"})
@@ -350,8 +352,9 @@ class TestTwoCallModes:
     async def test_summary_deep_research_plain_bullets(self):
         editor = json.dumps({"response_mode": "deep_research", "digest": _DIGEST})
         gen, llm = _summary_generator([editor, "- пункт один\n- пункт два"])
-        text = await gen._generate_two_call("сырая история", 3800, -100)
-        assert text == "- пункт один\n- пункт два"   # буллиты живы в deep_research
+        draft = await gen._generate_two_call("сырая история", 3800, -100)
+        # буллиты живы в deep_research (F6: результат — SummaryDraft)
+        assert draft.text == "- пункт один\n- пункт два"
         assert llm.generate.await_count == 2          # роутер не добавил вызов
         stage2_system = llm.generate.await_args_list[1].args[0][0]["content"]
         assert MODE_DEEP_RESEARCH_BLOCK in stage2_system
@@ -373,8 +376,8 @@ class TestTwoCallModes:
         editor = json.dumps({"response_mode": "deep_research", "digest": _DIGEST})
         gen, llm = _summary_generator([
             editor, "| a | b |\n|---|---|", "чистый текст без таблиц"])
-        text = await gen._generate_two_call("сырая история", 3800, -100)
-        assert text == "чистый текст без таблиц"
+        draft = await gen._generate_two_call("сырая история", 3800, -100)
+        assert draft.text == "чистый текст без таблиц"
         assert llm.generate.await_count == 3
 
     @pytest.mark.asyncio

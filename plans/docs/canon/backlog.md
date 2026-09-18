@@ -178,3 +178,22 @@
 - **Флаг:** `SMART_VERBALIZER_MODES_ENABLED` (env-only ClassVar, default ON,
   Δ каталога = 0); OFF → единый прежний Вербализатор.
 
+
+## Раунд 10.23 (F6) — обложки саммари и Rich Article (ADR-1023-6)
+
+- **Двойной промптинг:** `SUMMARY_EDITOR_SYSTEM_PROMPT` возвращает строгий JSON
+  `{"response_mode","digest","cover_prompt"}`; `cover_prompt` — визуальный промпт
+  обложки (EN, ≤300) в том же Stage-1 JSON (третьего LLM-вызова нет). Слепок
+  прежнего канона — `PREV_SUMMARY_EDITOR_R1023_F6`; миграция/откат PG —
+  `PROMPT_MIGRATIONS`/`ROLLBACK_MIGRATIONS` (ключ `prompts.summary_editor_system_prompt`).
+- **«Стиль обложки»:** новый каталоговый ключ `prompts.summary_cover_style`
+  (группа `prompts_summary`, `advanced`); дефолт — код-константа
+  `SUMMARY_COVER_STYLE_DEFAULT`. Промпт image-API = `style + cover_prompt`,
+  жёсткий кап 300 (`compose_cover_image_prompt`).
+- **Article:** доставка через `sendRichMessage` (`InputRichMessage(html/markdown,
+  media=…)`, обложка `<img src="tg://photo?id=summary_cover">`); обложка —
+  только сервисом F5 `generate_image`. Тихий фолбэк на plain при любой ошибке
+  (генерация/отправка) с даунгрейдом rich → plain; стриминг/чанки (R11) не
+  тронуты. Флаг `SUMMARY_COVER_ARTICLE_ENABLED` (env-only, default ON).
+- **Egress:** обёртка `send_rich_message` (`services/telegram_send.py`);
+  `sanitize_outgoing` ДО `html.escape`.

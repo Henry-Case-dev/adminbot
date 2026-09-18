@@ -52,6 +52,36 @@ def normalize_response_mode(value) -> str:
     return _DEFAULT_RESPONSE_MODE
 
 
+# Раунд 10.23 (F6, ADR-1023-6 §Decision 1): визуальный промпт обложки — короткий
+# (EN, ≤300) и едет служебным полем того же Stage-1 JSON. Обрезка — по границе
+# слова, никогда не бросает (R3/back-compat).
+COVER_PROMPT_MAX = 300
+_WS_RUN_RE = re.compile(r"\s+")
+
+
+def normalize_cover_prompt(value) -> str:
+    """Нормализовать ``cover_prompt`` из Stage-1 JSON.
+
+    Не строка / пусто / ``None`` → ``""``; схлопывание всех пробельных
+    пробегов (включая ``\\n``) в один пробел; обрезка до 300 символов по
+    границе слова. Никогда не бросает (fail-open → ``""``)."""
+    try:
+        if not isinstance(value, str):
+            return ""
+        collapsed = _WS_RUN_RE.sub(" ", value).strip()
+        if not collapsed:
+            return ""
+        if len(collapsed) <= COVER_PROMPT_MAX:
+            return collapsed
+        truncated = collapsed[:COVER_PROMPT_MAX]
+        cut = truncated.rfind(" ")
+        if cut > 0:
+            truncated = truncated[:cut]
+        return truncated.rstrip()
+    except Exception:  # pragma: no cover - defensive
+        return ""
+
+
 def parse_json_object(raw: str) -> dict | None:
     """Строгий разбор JSON-объекта. Никогда не бросает; ошибка → ``None``.
 
@@ -172,11 +202,15 @@ def parse_summary_handoff(raw: str) -> dict | None:
         return {
             "response_mode": normalize_response_mode(data.get("response_mode")),
             "digest": digest,
+            # F6 (additive): служебное поле визуального промпта обложки.
+            "cover_prompt": normalize_cover_prompt(data.get("cover_prompt")),
         }
     digest = _validate_digest_text(source)
     if digest is None:
         return None
-    return {"response_mode": _DEFAULT_RESPONSE_MODE, "digest": digest}
+    # Legacy-выжимка (не JSON) режима/обложки не несёт.
+    return {"response_mode": _DEFAULT_RESPONSE_MODE, "digest": digest,
+            "cover_prompt": ""}
 
 
 def validate_summary_digest(raw: str) -> str | None:

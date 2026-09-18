@@ -32,8 +32,9 @@ class TestSummaryTwoCall:
     @pytest.mark.asyncio
     async def test_editor_then_narrator(self):
         gen, llm = _generator([_DIGEST, "связный саркастичный текст"])
-        text = await gen._generate_two_call("сырая история", 3800, -100)
-        assert text == "связный саркастичный текст"
+        draft = await gen._generate_two_call("сырая история", 3800, -100)
+        assert draft.text == "связный саркастичный текст"
+        assert draft.cover_prompt == ""      # F6: legacy-выжимка без обложки
         assert llm.generate.await_count == 2
         stage1 = llm.generate.await_args_list[0].args[0]
         stage2 = llm.generate.await_args_list[1].args[0]
@@ -78,16 +79,16 @@ class TestSummaryTwoCall:
     @pytest.mark.asyncio
     async def test_validator_loop_retry(self):
         gen, llm = _generator([_DIGEST, "как ИИ отвечаю", "чистый текст"])
-        text = await gen._generate_two_call("история", 3800, -100)
-        assert text == "чистый текст"
+        draft = await gen._generate_two_call("история", 3800, -100)
+        assert draft.text == "чистый текст"
         assert llm.generate.await_count == 3
 
     @pytest.mark.asyncio
     async def test_validator_exhausted_returns_best(self):
         gen, llm = _generator([
             _DIGEST, "как ИИ и подводя итог", "подводя итог", "в заключение"])
-        text = await gen._generate_two_call("история", 3800, -100)
-        assert text == "подводя итог"      # лучший вариант (fail-open)
+        draft = await gen._generate_two_call("история", 3800, -100)
+        assert draft.text == "подводя итог"      # лучший вариант (fail-open)
         assert llm.generate.await_count == 4
 
     @pytest.mark.asyncio

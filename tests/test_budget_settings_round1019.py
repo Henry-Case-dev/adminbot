@@ -34,7 +34,7 @@ HTML = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
 class TestCatalogDeltaF3:
     def test_counts(self):
         import dataclasses
-        assert len(pc.REGISTRY) == 446
+        assert len(pc.REGISTRY) == 447
         assert len(pc.GROUPS) == 95
         assert len(pc._TAB_BY_GROUP) == 93
         assert len(pc.TAB_RULES) == 20
@@ -42,7 +42,7 @@ class TestCatalogDeltaF3:
         assert len({f.name for f in dataclasses.fields(Settings)}) == 416
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 421
+        assert len(categorized) == 422
 
     def test_new_groups_exist(self):
         assert pc.get_group("limits_chat_key") is not None

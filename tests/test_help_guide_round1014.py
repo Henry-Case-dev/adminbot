@@ -200,14 +200,14 @@ class TestCatalogDelta:
         # +1 TAB_RULES/TAB_NAV (mod_budgets): 437/92/407/412/90/20.
         # 10.23 (F5/ADR-1023-5 D5): +5 REGISTRY/Settings/categorized,
         # +3 GROUPS/mapped → 446/95/93/20/416/421.
-        assert len(pc.REGISTRY) == 446
+        assert len(pc.REGISTRY) == 447
         assert len(pc.GROUPS) == 95
         assert len(pc._TAB_BY_GROUP) == 93
         assert len(pc.TAB_RULES) == 20
         assert len({f.name for f in dataclasses.fields(Settings)}) == 416
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 421
+        assert len(categorized) == 422
 
     def test_guide_spec(self):
         from services import param_catalog as pc

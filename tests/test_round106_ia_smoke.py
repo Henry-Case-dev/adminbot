@@ -36,7 +36,7 @@ class TestCatalogInvariant106:
         # → 437/92/90/20/407.
         # 10.23 (F5/ADR-1023-5 D5): +5 REGISTRY/Settings, +3 GROUPS/mapped
         # (models_images/keys_images/flags_module_images) → 446/95/93/20/416.
-        assert len(pc.REGISTRY) == 446
+        assert len(pc.REGISTRY) == 447
         assert len(pc.GROUPS) == 95
         assert len(pc._TAB_BY_GROUP) == 93
         assert len(pc.TAB_RULES) == 20

@@ -565,6 +565,12 @@ class Settings:
         "IMAGE_REQUEST_TIMEOUT_SECONDS", 90.0)
     IMAGE_MAX_BYTES: ClassVar[int] = _env_int(
         "IMAGE_MAX_BYTES", 9 * 1024 * 1024)
+    # ── Раунд 10.23 (F6, ADR-1023-6 §Decision 10): env-only ClassVar kill-switch
+    # обложек/Article саммари. default ON, Δ каталога = 0 (в param_catalog НЕ
+    # входит). OFF → обычное текстовое саммари: ни генерации обложки, ни
+    # `sendRichMessage` (Article-ветка пропускается).
+    SUMMARY_COVER_ARTICLE_ENABLED: ClassVar[bool] = _env_bool(
+        "SUMMARY_COVER_ARTICLE_ENABLED", True)
     # ── Раунд 10.22 (F8, ADR-1022-8): env-only ClassVar-рубильники
     # асинхронной пересборки досье из мини-аппа. Δ каталога = 0 (в
     # param_catalog не входят; прецедент MULTILAYER_EXTRACTION_ENABLED).

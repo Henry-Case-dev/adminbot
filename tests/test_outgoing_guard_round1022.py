@@ -25,7 +25,9 @@ from services.prompt_style_blocks import (
 from services.telegram_send import (
     SEND_ALLOWLIST,
     SEND_POINTS,
+    build_cover_article_html,
     edit_text_safe,
+    send_rich_message,
     send_text,
 )
 
@@ -100,11 +102,30 @@ class TestTelegramSendWrappers:
         """Прод-дефолт рубильника — ON (ревью, High-3: ON-ветка не маскируется)."""
         assert Settings.TELEGRAM_SEND_GUARD_ENABLED is True
 
+    def test_build_cover_article_html_sanitizes_before_escape(self):
+        html = build_cover_article_html("a fact:5 <b>b</b>")
+        assert html.startswith('<img src="tg://photo?id=summary_cover">')
+        assert "fact:5" not in html
+        assert "&lt;b&gt;b&lt;/b&gt;" in html
+
+    @pytest.mark.asyncio
+    async def test_send_rich_message_sanitizes_and_uses_html_mode(self):
+        """F6 (10.23): plain-источник → sanitize ДО escape; html-режим,
+        markdown/blocks пусты (exactly-one-of)."""
+        bot = MagicMock()
+        bot.send_rich_message = AsyncMock(return_value="sent")
+        await send_rich_message(bot, 1, "a fact:5 <b>b</b>",
+                                cover_id="summary_cover")
+        rich = bot.send_rich_message.await_args.args[1]
+        assert "fact:5" not in rich.html
+        assert "&lt;b&gt;" in rich.html
+        assert rich.markdown is None and rich.blocks is None
+
 
 class TestSendPointsCoverage:
     _SEND_RE = re.compile(
         r"\.send_message\(|\.edit_message_text\(|\.edit_text\("
-        r"|\.reply\(|\.answer\(")
+        r"|\.reply\(|\.answer\(|\.send_rich_message\(")
 
     def _scan(self) -> dict[str, int]:
         found: dict[str, int] = {}
@@ -132,6 +153,10 @@ class TestSendPointsCoverage:
     def test_registry_has_expected_points(self):
         assert "services/summary_generator.py" in SEND_POINTS
         assert "services/smartmodule_utils.py" in SEND_POINTS
+        # F6 (10.23): rich-точка Article зарегистрирована у саммари.
+        assert "send_rich_message" in SEND_POINTS["services/summary_generator.py"]
+        # Справка шлёт rich напрямую (админ-канон/PG, не Stage-2 LLM).
+        assert "handlers/info.py" in SEND_ALLOWLIST
 
     def test_allowlist_entries_have_justification(self):
         assert SEND_ALLOWLIST

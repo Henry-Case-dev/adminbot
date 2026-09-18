@@ -388,6 +388,13 @@ _PROMPTS: list[tuple] = [
     ("prompts.summary_system_prompt", "Системный промпт саммари",
      "services.summary_prompts.SYSTEM_PROMPT", "prompts_summary",
      "Инструкция нейросети для пересказов: стиль и структура. Изменения применяются сразу после сохранения."),
+    # Раунд 10.23 (F6, ADR-1023-6 §Decision 2): авторский «Стиль обложки» —
+    # конкатенируется с visual prompt перед image-API (F5). advanced (6-й
+    # элемент кортежа — явный progressive_level).
+    ("prompts.summary_cover_style", "Стиль обложки",
+     "services.summary_prompts.SUMMARY_COVER_STYLE_DEFAULT", "prompts_summary",
+     "Авторский стиль обложек саммари: конкатенируется с визуальным промптом перед генерацией изображения.",
+     "advanced"),
     ("prompts.checkup_system_prompt", "Системный промпт чекапа",
      "services.checkup_prompts.CHECKUP_SYSTEM_PROMPT", "prompts_checkup",
      "Инструкция для ежемесячной сводки о здоровье сервера и памяти. Изменения применяются сразу после сохранения."),
@@ -1722,10 +1729,16 @@ def _build_registry() -> dict[str, ParamSpec]:
         field, title, typ, group, desc = row
         add(ParamSpec(field, field, CATEGORY_CONTENT, title, typ,
                       group=group, description=desc))
-    for spec_id, title, code_source, group, desc in _PROMPTS:
+    for row in _PROMPTS:
+        if len(row) == 6:      # (pg_id, title, code_source, group, desc, level)
+            spec_id, title, code_source, group, desc, level = row
+        else:
+            spec_id, title, code_source, group, desc = row
+            level = ""
         add(ParamSpec(None, None, CATEGORY_PROMPTS, title, "str",
                       code_source=code_source, pg_id=spec_id,
-                      group=group, description=desc))
+                      group=group, description=desc,
+                      progressive_level=level))
     for spec_id, title, group, desc in _CONTENT:
         add(ParamSpec(None, None, CATEGORY_CONTENT, title, "json",
                       pg_id=spec_id, group=group, description=desc))

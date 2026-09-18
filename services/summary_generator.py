@@ -15,7 +15,9 @@ manual при занятом чате получает _UX_BUSY и встаёт 
 (INFO «summary: lock busy — queued»).
 """
 import asyncio
+import dataclasses
 import logging
+import os
 import re
 import sqlite3
 import time
@@ -41,14 +43,22 @@ from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import _build_batch_text, fire_and_forget
 from services.summary_prompts import (
     PREV_SUMMARY_NARRATOR_R1023,
+    SUMMARY_COVER_STYLE_DEFAULT,
     SUMMARY_EDITOR_SYSTEM_PROMPT,
     SUMMARY_NARRATOR_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
 )
 from services.system2_handoff import parse_summary_handoff
+from services.image_generation import generate_image
 from services.smartmodule_concurrency import get_smartmodule_concurrency_pool
 from services.summary_xml import escape_xml_text
-from services.telegram_send import edit_text_safe, send_text
+from services.telegram_send import (
+    SUMMARY_COVER_MEDIA_ID,
+    build_cover_media,
+    edit_text_safe,
+    send_rich_message,
+    send_text,
+)
 from services.token_counter import (
     count_tokens,
     resolve_chat_limit,
@@ -64,6 +74,87 @@ except ImportError:  # pragma: no cover
     _SQLITE_ERRORS = (sqlite3.Error,)
 
 logger = logging.getLogger(__name__)
+
+# Раунд 10.23 (F6, ADR-1023-6): жёсткий финальный кап промпта обложки.
+COVER_IMAGE_PROMPT_MAX = 300
+
+
+@dataclasses.dataclass
+class SummaryDraft:
+    """Результат System 2 саммари (Stage-1 → Stage-2).
+
+    F6 (additive): ``cover_prompt`` — визуальный промпт обложки того же JSON
+    Stage-1; ``response_mode`` — роутер режимов F3. Число LLM-вызовов не растёт.
+    """
+
+    text: str
+    cover_prompt: str = ""
+    response_mode: str = "serious"
+
+
+def compose_cover_image_prompt(style: str | None, cover_prompt: str) -> str:
+    """«Стиль обложки» + visual prompt; финальный жёсткий кап 300 (D2)."""
+    joined = " ".join(
+        part.strip() for part in (style, cover_prompt) if part and part.strip())
+    return joined.strip()[:COVER_IMAGE_PROMPT_MAX]
+
+
+def _rich_media_supported() -> bool:
+    """Поддержка rich-обложек: поле ``media`` у ``InputRichMessage`` + метод
+    ``Bot.send_rich_message``. aiogram < 3.30 → ``False`` (тихий plain)."""
+    try:
+        from aiogram import Bot
+        from aiogram.types import InputRichMessage
+        if not hasattr(Bot, "send_rich_message"):
+            return False
+        fields = getattr(InputRichMessage, "model_fields", None)
+        if fields is None:
+            fields = getattr(InputRichMessage, "__annotations__", None) or {}
+        try:
+            return "media" in fields
+        except TypeError:                 # pragma: no cover - defensive
+            return False
+    except Exception:                     # pragma: no cover - defensive
+        return False
+
+
+_MD_TABLE_SEP_RE = re.compile(
+    r"^\s*\|?(?:\s*:?-{2,}:?\s*\|)+(?:\s*:?-{2,}:?\s*)?\|?\s*$")
+_MD_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+", re.MULTILINE)
+_MD_FENCE_RE = re.compile(r"^\s*```.*$", re.MULTILINE)
+_STRUCT_HTML_TAG_RE = re.compile(
+    r"</?(?:table|thead|tbody|tr|td|th|h[1-6]|ul|ol|li|div|span|p|br|"
+    r"blockquote|pre|code|strong|em|b|i)\b[^>]*>",
+    re.IGNORECASE,
+)
+
+
+def downgrade_rich_to_plain(text: str) -> str:
+    """Детерминированный даунгрейд rich → R11-plain (тихий фолбэк Article).
+
+    Снимает структурную разметку: HTML-теги, Markdown-таблицы (separator +
+    pipe-строки → plain), заголовки/фенсы/эмфазис. Слова-сущности не режутся
+    (никаких `fact:`/`msg:` regex-резов)."""
+    source = str(text or "")
+    if not source:
+        return source
+    source = _MD_FENCE_RE.sub("", source)
+    source = _STRUCT_HTML_TAG_RE.sub(" ", source)
+    lines: list[str] = []
+    for line in source.splitlines():
+        if _MD_TABLE_SEP_RE.match(line):
+            continue
+        stripped = line.strip()
+        if (stripped.startswith("|") and stripped.endswith("|")
+                and "|" in stripped[1:-1]):
+            cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+            line = " - ".join(cell for cell in cells if cell)
+        lines.append(line)
+    out = "\n".join(lines)
+    out = _MD_HEADING_RE.sub("", out)
+    out = out.replace("**", "").replace("__", "").replace("`", "")
+    out = re.sub(r"\n{3,}", "\n\n", out)
+    return out.strip()
 
 
 def _apply_focus(user_content: str, focus: str | None) -> str:
@@ -239,11 +330,12 @@ class SummaryGenerator:
             ]
             # Раунд 10.22 (F4, ADR-1022-4): System 2 — Редактор (Markdown-выжимка)
             # → Рассказчик (plain R11). Невалидный digest/провал → одиночный путь.
+            draft: SummaryDraft | None = None
             if getattr(settings, "SYSTEM2_SUMMARY_ENABLED", True):
-                staged = await self._generate_two_call(
+                draft = await self._generate_two_call(
                     user_content, max_symbols, chat_id)
-                if staged is not None:
-                    raw = staged
+                if draft is not None:
+                    raw = draft.text
                 else:
                     logger.info(
                         "summary system2: fallback на одиночный путь 10.21 | "
@@ -263,11 +355,17 @@ class SummaryGenerator:
                     chat_id)
                 return
             text = self._ensure_shiz_postfix(raw, rows)
-            if hot.get("flags.summary_streaming_enabled",
-                       settings.SUMMARY_STREAMING_ENABLED):
-                await self._send_streaming(chat_id, text)   # Epic 60 (65.6, T-474)
+            cover_prompt = draft.cover_prompt if draft is not None else ""
+            # F6 (ADR-1023-6 §3.4): Article-ветка — только если флаг ON,
+            # обложка возможна и aiogram поддерживает media. Иначе — прежний
+            # plain-путь байт-в-байт (R11).
+            if (cover_prompt
+                    and getattr(settings, "SUMMARY_COVER_ARTICLE_ENABLED", True)
+                    and _rich_media_supported()):
+                await self._deliver_rich(chat_id, text, cover_prompt,
+                                         draft.response_mode)
             else:
-                await self._send_chunked(chat_id, text)
+                await self._deliver_plain(chat_id, text)
         except LLMError as exc:
             logger.warning("summary: LLM failed | chat_id=%s | error=%s", chat_id, exc)
             await self._send_ux(chat_id, _UX_LLM_FAILED)
@@ -320,8 +418,12 @@ class SummaryGenerator:
         return raw
 
     async def _generate_two_call(self, user_content: str, max_symbols: int,
-                                 chat_id: int) -> str | None:
-        """System 2 саммари: Редактор → Рассказчик. ``None`` → одиночный путь."""
+                                 chat_id: int) -> "SummaryDraft | None":
+        """System 2 саммари: Редактор → Рассказчик. ``None`` → одиночный путь.
+
+        F6 (ADR-1023-6): возвращает ``SummaryDraft`` (текст + ``cover_prompt`` +
+        ``response_mode``); канал Stage-2 — ``rich``, когда обложка реально
+        возможна (флаг ON ∧ поддержка media ∧ ``cover_prompt`` ≠ "")."""
         editor_payload = [
             {"role": "system", "content": SUMMARY_EDITOR_SYSTEM_PROMPT},
             {"role": "user", "content": user_content},
@@ -337,15 +439,23 @@ class SummaryGenerator:
             return None
         digest = parsed["digest"]
         response_mode = parsed["response_mode"]
+        cover_prompt = parsed.get("cover_prompt", "")
         modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED", True)
         narrator_template = (SUMMARY_NARRATOR_SYSTEM_PROMPT if modes_on
                              else PREV_SUMMARY_NARRATOR_R1023)
         narrator_base = narrator_template.replace(
             "{max_symbols}", str(max_symbols))
-        # F3 (ADR-1023-3): режимный блок по response_mode + канальный блок
-        # (план-саммари = plain-канал). OFF kill-switch → прежний Рассказчик.
+        # F6: канал Stage-2 = rich, только если Article реально возможен
+        # (обложка будет запрошена). Иначе — прежний plain-канал.
+        rich_eligible = bool(
+            cover_prompt
+            and getattr(settings, "SUMMARY_COVER_ARTICLE_ENABLED", True)
+            and _rich_media_supported())
+        channel = "rich" if rich_eligible else "plain"
+        # F3 (ADR-1023-3): режимный блок по response_mode + канальный блок.
+        # OFF kill-switch → прежний Рассказчик.
         narrator_system = (compose_verbalizer_system(
-            narrator_base, response_mode, "plain") if modes_on else narrator_base)
+            narrator_base, response_mode, channel) if modes_on else narrator_base)
         base_messages = [
             {"role": "system", "content": narrator_system},
             {"role": "user", "content": "ВЫЖИМКА (Markdown):\n" + digest},
@@ -356,11 +466,12 @@ class SummaryGenerator:
 
         # F4 — Рассказчик отдаёт plain-text R11: маркированный список
         # («- …», «1. …») вне жанра → бракуем (правило F6, вторичное).
-        # F3 — на plain-канале включается guard от таблиц; в режиме
-        # deep_research буллиты разрешены (FORMAT_PLAIN_BLOCK их требует).
+        # F3/F6 — на plain-канале включается guard от таблиц; на rich
+        # (Article, Сценарий Б) таблицы легальны; в режиме deep_research
+        # буллиты разрешены (FORMAT_*_BLOCK их требует).
         if modes_on:
             enabled_rules = channel_enabled_rules(
-                "plain", response_mode, forbid_bullets=True)
+                channel, response_mode, forbid_bullets=True)
         else:
             enabled_rules = DEFAULT_ENABLED_RULES | {"bullet_list"}
         text, stats = await verbalize_validated(
@@ -368,13 +479,15 @@ class SummaryGenerator:
             enabled_rules=enabled_rules,
             dynamic_rules=anticliche_cache.get_rules() or None)
         logger.info(
-            "summary system2 narrator | chat_id=%s | mode=%s | attempts=%d "
-            "| retries=%d | hits=%d | fallback=%s", chat_id, response_mode,
-            stats.get("attempts", 0), stats.get("retries", 0),
-            len(stats.get("hits") or []), bool(stats.get("fallback")))
+            "summary system2 narrator | chat_id=%s | mode=%s | channel=%s "
+            "| attempts=%d | retries=%d | hits=%d | fallback=%s", chat_id,
+            response_mode, channel, stats.get("attempts", 0),
+            stats.get("retries", 0), len(stats.get("hits") or []),
+            bool(stats.get("fallback")))
         if not text.strip():
             return None
-        return text
+        return SummaryDraft(text=text, cover_prompt=cover_prompt,
+                            response_mode=response_mode)
 
     # ── Postprocessing ────────────────────────────────────────
 
@@ -490,6 +603,70 @@ class SummaryGenerator:
         return "\n\n".join(parts)
 
     # ── Sending ───────────────────────────────────────────────
+
+    async def _deliver_plain(self, chat_id: int, text: str) -> None:
+        """Прежний plain-путь (стриминг/чанки) — R11, ``parse_mode=None``."""
+        if hot.get("flags.summary_streaming_enabled",
+                   settings.SUMMARY_STREAMING_ENABLED):
+            await self._send_streaming(chat_id, text)   # Epic 60 (65.6, T-474)
+        else:
+            await self._send_chunked(chat_id, text)
+
+    async def _deliver_rich(self, chat_id: int, text: str, cover_prompt: str,
+                            response_mode: str) -> None:
+        """F6 (ADR-1023-6 §3.4): обложка (F5) → Article (`sendRichMessage`).
+
+        Тихий фолбэк (D8): любая ошибка генерации/отправки → plain-путь без
+        сообщений пользователю; лог — только класс ошибки (R17). Rich-ветка не
+        стримит → дублей нет."""
+        tmp_path = None
+        try:
+            style = hot.get("prompts.summary_cover_style",
+                            SUMMARY_COVER_STYLE_DEFAULT)
+            image_prompt = compose_cover_image_prompt(style, cover_prompt)
+            tmp_path = await generate_image(image_prompt, chat_id=chat_id)
+            if not tmp_path:
+                logger.info(
+                    "summary cover: image unavailable — plain fallback | "
+                    "chat_id=%s", chat_id)
+                return await self._plain_fallback(chat_id, text, response_mode)
+            media = [build_cover_media(tmp_path)]
+            await self._send_rich_with_retry(chat_id, text, media)
+            logger.info("summary cover: article sent | chat_id=%s", chat_id)
+        except Exception as exc:
+            logger.warning(
+                "summary cover: rich fallback | chat_id=%s | error=%s",
+                chat_id, type(exc).__name__)
+            return await self._plain_fallback(chat_id, text, response_mode)
+        finally:
+            if tmp_path:
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+
+    async def _send_rich_with_retry(self, chat_id: int, text: str,
+                                    media: list) -> None:
+        """Article ровно 1 повтор по ``retry_after``, затем исключение → plain."""
+        try:
+            await send_rich_message(
+                self.bot, chat_id, text, media=media,
+                cover_id=SUMMARY_COVER_MEDIA_ID)
+        except TelegramRetryAfter as exc:
+            logger.warning(
+                "summary cover: TelegramRetryAfter %.1fs — one retry | "
+                "chat_id=%s", exc.retry_after, chat_id)
+            await asyncio.sleep(exc.retry_after)
+            await send_rich_message(
+                self.bot, chat_id, text, media=media,
+                cover_id=SUMMARY_COVER_MEDIA_ID)
+
+    async def _plain_fallback(self, chat_id: int, text: str,
+                              response_mode: str) -> None:
+        """Даунгрейд rich → plain (Сценарий Б) и прежняя доставка."""
+        plain_text = (downgrade_rich_to_plain(text)
+                      if response_mode == "deep_research" else text)
+        await self._deliver_plain(chat_id, plain_text)
 
     async def _send_streaming(self, chat_id: int, text: str) -> None:
         """Epic 60 (65.6, T-474): стриминг ТОЛЬКО саммари — placeholder «…» →

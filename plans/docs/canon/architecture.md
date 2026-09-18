@@ -518,3 +518,24 @@ Egress: `sanitize_outgoing` дополнительно вырезает техн
   общеизвестных фактах → ОБЯЗАН вызвать веб-поиск»); слепок F1-канона —
   `PREV_FACTCHECK_ANALYST_R1023_F2`; миграция PG — `PROMPT_MIGRATIONS` (ступени
   pre-F1 и F1 → новый канон) + `ROLLBACK_MIGRATIONS` (новый → F1-канон).
+
+
+## Раунд 10.23 (F6) — обложки саммари и Rich Article (ADR-1023-6)
+
+- **Stage-1 JSON:** `SUMMARY_EDITOR_SYSTEM_PROMPT` дополнен полем `cover_prompt`
+  (EN, ≤300; нормализация/обрезка — `system2_handoff.normalize_cover_prompt`,
+  never-raise). Слепок — `PREV_SUMMARY_EDITOR_R1023_F6`; ступень канон-миграции
+  `… → F4 → F6`.
+- **Каталог:** `prompts.summary_cover_style` (группа `prompts_summary`,
+  `advanced`), дефолт `SUMMARY_COVER_STYLE_DEFAULT`; Δ каталога = +1.
+- **Article (Сценарий Б):** `sendRichMessage` через egress-обёртку
+  `services.telegram_send.send_rich_message`; plain-источник проходит
+  `sanitize_outgoing` ДО `html.escape`; обложка — `InputRichMessageMedia(
+  id="summary_cover", media=InputMediaPhoto(BufferedInputFile))` + ссылка
+  `<img src="tg://photo?id=summary_cover">`. Rich-контент (Markdown/HTML/таблицы)
+  отдаётся как `markdown`; plain — `<p>`-абзацы (`html`).
+- **Guard и фолбэк:** `_rich_media_supported()` (поле `media` у
+  `InputRichMessage` + `Bot.send_rich_message`) — aiogram < 3.30 → plain.
+  Любая ошибка генерации/отправки → тихий plain-фолбэк (без UX-сообщений) с
+  даунгрейдом rich → plain (`downgrade_rich_to_plain`). Флаг
+  `SUMMARY_COVER_ARTICLE_ENABLED` (env-only, default ON, Δ каталога = 0).

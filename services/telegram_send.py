@@ -12,13 +12,27 @@ Caption-точки (``send_caption``/``edit_caption``) — вне контура
 """
 from __future__ import annotations
 
+import html as _html
 import logging
+import re
 from typing import Any
 
 from config.settings import settings
 from services.outgoing_guard import sanitize_outgoing
 
 logger = logging.getLogger(__name__)
+
+# Раунд 10.23 (F6, ADR-1023-6): id вложения-обложки Article. Используется в
+# `InputRichMessageMedia(id=…)` и ссылке `<img src="tg://photo?id=…">`.
+SUMMARY_COVER_MEDIA_ID = "summary_cover"
+
+# Структурные маркеры rich-контента (Сценарий Б: Markdown/HTML/таблицы).
+_MD_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+\S", re.MULTILINE)
+_MD_FENCE_RE = re.compile(r"^\s*```", re.MULTILINE)
+_HTML_BLOCK_RE = re.compile(
+    r"<(?:table|thead|tbody|tr|td|th|h[1-6]|ul|ol|li|div|blockquote|pre)\b",
+    re.IGNORECASE,
+)
 
 # Реестр send-точек, переведённых на обёртки: модуль → имена функций.
 # Тест покрытия (`tests/test_outgoing_guard_round1022.py`) сверяет реестр с
@@ -27,6 +41,7 @@ SEND_POINTS: dict[str, tuple[str, ...]] = {
     "services/smartmodule_utils.py": ("_send_once",),
     "services/summary_generator.py": (
         "_send_streaming", "_send_chunked", "_send_one_chunk", "_send_ux",
+        "send_rich_message",
     ),
 }
 
@@ -63,6 +78,10 @@ SEND_ALLOWLIST: dict[str, str] = {
     # Раунд 10.23 (F5, ADR-1023-5 §D6): сгенерированное изображение —
     # байты без LLM-текста (подписи нет), в Telegram не уходит keyed-URL.
     "services/image_generation.py": "сгенерированное изображение, байты без LLM-текста",
+    # Раунд 10.23 (F6, ADR-1023-6 §Decision 6): rich-точка `bot.send_rich_message`
+    # в Справке — текст админ-канон/PG (не Stage-2 LLM-текст), правится только
+    # `/edit_info`; rich-текст саммари идёт через обёртку `send_rich_message`.
+    "handlers/info.py": "текст справки — админ-канон/PG, не Stage-2 LLM",
 }
 
 
@@ -96,3 +115,89 @@ async def send_photo(bot, chat_id: int, photo, **kwargs: Any):
     не передаётся.
     """
     return await bot.send_photo(chat_id, photo, **kwargs)
+
+
+# ── Раунд 10.23 (F6, ADR-1023-6 §Decision 4): Article (sendRichMessage) ─────
+
+def _looks_rich(text: str) -> bool:
+    """Есть ли структурная rich-разметка (Markdown/HTML/таблицы)."""
+    source = str(text or "")
+    if not source:
+        return False
+    if (_HTML_BLOCK_RE.search(source) or _MD_HEADING_RE.search(source)
+            or _MD_FENCE_RE.search(source)):
+        return True
+    try:                                  # единый детектор таблиц (F3)
+        from services.negative_constraints import detect_plain_tables
+        return detect_plain_tables(source)
+    except Exception:                     # pragma: no cover - defensive
+        return False
+
+
+def _paragraphs_html(text: str) -> str:
+    """Plain → ``<p>``-абзацы (``html.escape`` ПОСЛЕ sanitize)."""
+    blocks = [block.strip() for block in str(text or "").split("\n\n")
+              if block.strip()]
+    return "".join("<p>{}</p>".format(_html.escape(block)) for block in blocks)
+
+
+def build_cover_article_html(text: str, *,
+                             cover_id: str = SUMMARY_COVER_MEDIA_ID) -> str:
+    """Собрать HTML Article: обложка-ссылка + plain-абзацы.
+
+    Порядок обязателен (инвариант 3): ``sanitize_outgoing`` ДО ``html.escape``,
+    иначе технические теги станут сущностями и не вырежутся. Обложка
+    ссылается как ``<img src="tg://photo?id=…">`` (резолвится через
+    ``InputRichMessage.media``).
+    """
+    clean = _maybe_sanitize(text)
+    body = _paragraphs_html(clean)
+    if cover_id:
+        return '<img src="tg://photo?id={}">'.format(cover_id) + body
+    return body
+
+
+def build_cover_media(photo_source, *,
+                      cover_id: str = SUMMARY_COVER_MEDIA_ID):
+    """Вложение Article из локального файла/байтов (F5 ``generate_image`` → путь).
+
+    В Telegram уходят БАЙТЫ (``BufferedInputFile``), а не URL провайдера —
+    keyed-URL не покидает сервер (R17)."""
+    from aiogram.types import (
+        BufferedInputFile,
+        InputMediaPhoto,
+        InputRichMessageMedia,
+    )
+    if isinstance(photo_source, (bytes, bytearray)):
+        data = bytes(photo_source)
+    else:
+        with open(photo_source, "rb") as handle:
+            data = handle.read()
+    return InputRichMessageMedia(
+        id=cover_id,
+        media=InputMediaPhoto(
+            media=BufferedInputFile(data, filename="summary_cover.jpg")))
+
+
+async def send_rich_message(bot, chat_id: int, text: str, *, media=None,
+                            cover_id: str | None = None, **kwargs: Any):
+    """Egress-обёртка rich-канала (``sendRichMessage``, Bot API 10.1+).
+
+    Plain-источник проходит ``sanitize_outgoing`` ДО сборки HTML (инвариант 3);
+    plain-текст → ``InputRichMessage(html=…, media=…)`` с ``<p>``-абзацами и
+    обложкой; rich-контент (Markdown/HTML/таблицы, Сценарий Б) →
+    ``InputRichMessage(markdown=…)``. Заполняется РОВНО одно из
+    ``html``/``markdown``; ``blocks`` не используется.
+    """
+    from aiogram.types import InputRichMessage
+    clean = _maybe_sanitize(text)
+    media_list = list(media) if media else None
+    if _looks_rich(clean):
+        body = clean
+        if cover_id:
+            body = '<img src="tg://photo?id={}">\n\n{}'.format(cover_id, body)
+        rich = InputRichMessage(markdown=body, media=media_list)
+    else:
+        html = build_cover_article_html(clean, cover_id=cover_id or "")
+        rich = InputRichMessage(html=html, media=media_list)
+    return await bot.send_rich_message(chat_id, rich, **kwargs)
