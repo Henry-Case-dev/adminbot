@@ -26,6 +26,7 @@ from services import hot_config as hot
 from services.smartmodule_phrases import THROTTLE_PHRASES
 from services.smartmodule_throttling import format_remaining_time
 from services.summary_generator import SummaryGenerator   # только статический метод
+from services.telegram_send import send_text
 
 logger = logging.getLogger(__name__)
 
@@ -131,15 +132,17 @@ async def _send_once(bot, chat_id: int, text: str,
         kwargs["parse_mode"] = parse_mode
     try:
         if reply_to_message_id:
-            return await bot.send_message(chat_id, text, reply_to_message_id=reply_to_message_id, **kwargs)
-        return await bot.send_message(chat_id, text, **kwargs)
+            return await send_text(bot, chat_id, text,
+                                   reply_to_message_id=reply_to_message_id,
+                                   **kwargs)
+        return await send_text(bot, chat_id, text, **kwargs)
     except TelegramBadRequest as exc:
         if reply_to_message_id and _is_reply_target_gone(exc):
             logger.warning(
                 "SmartModule: reply target gone — retrying without reply_to_message_id | "
                 "chat_id=%s msg_id=%s", chat_id, reply_to_message_id, exc_info=True,
             )
-            sent = await bot.send_message(chat_id, text, **kwargs)
+            sent = await send_text(bot, chat_id, text, **kwargs)
             logger.info("SmartModule: sent without reply | chat_id=%s", chat_id)
             return sent
         raise

@@ -679,8 +679,15 @@ def build_parser() -> argparse.ArgumentParser:
     rb.add_argument("--include-overrides", action="store_true",
                     help="ТАКЖЕ сбросить ручные persona_dossier_overrides "
                          "(по умолчанию НЕ трогаются)")
-    rb.add_argument("--window-hours", type=int, default=168,
-                    help="окно пересборки, часов (дефолт 168 = 7 дней)")
+    # F1 round1022 (UPD3, Д-1/Д-3): операторский shortcut целевого чата;
+    # равнозначен `--chat <target> --allow-target-chat`. `--all` целевой
+    # по-прежнему исключает. Окно боевого прогона — 180 дней (4320 ч).
+    rb.add_argument("--target-chat", action="store_true",
+                    help=f"shortcut: целевой чат {LEGACY_TARGET_CHAT_ID} "
+                         "(= --chat <id> --allow-target-chat)")
+    rb.add_argument("--window-hours", type=int, default=4320,
+                    help="окно пересборки, часов (дефолт 4320 = 180 дней); "
+                         "0 = без ограничения по времени (в пределах --limit)")
 
     sb = mem_sub.add_parser(
         "sanitize-beliefs",
@@ -855,6 +862,11 @@ def _memory_scope(args, available: list, *, required: bool) -> list:
     target = LEGACY_TARGET_CHAT_ID
     explicit = [int(c) for c in (getattr(args, "chat", None) or [])]
     allow = bool(getattr(args, "allow_target_chat", False))
+    # F1 round1022: явный shortcut `--target-chat` равнозначен
+    # `--chat <target> --allow-target-chat`; он НЕ делает целевой чат
+    # доступным через `--all`.
+    if bool(getattr(args, "target_chat", False)):
+        return [target]
     if explicit:
         if target in explicit and not allow:
             raise SystemExit(
@@ -881,12 +893,16 @@ def _build_rebuild_pipeline(db, args):
         embed_base_url=settings.EMBEDDING_BASE_URL,
         embed_api_key=settings.EMBEDDING_API_KEY)
     worker = LoreWorker(None, cache=None, db=db, llm=llm)
-    window_hours = int(getattr(args, "window_hours", 168) or 168)
+    default_window_hours = int(getattr(args, "window_hours", 4320) or 0)
     limit = int(getattr(args, "limit", 0) or 0)
 
-    async def _pipeline(chat_id: int) -> int:
+    async def _pipeline(chat_id: int, window_hours: int | None = None) -> int:
+        # F1 round1022: rebuild_dossiers передаёт effective_window (R1b);
+        # fallback — значение CLI (0 = без ограничения по времени).
+        eff = (default_window_hours if window_hours is None
+               else int(window_hours))
         return await worker.rebuild_dossier_for_chat(
-            chat_id, window_hours=window_hours, limit=limit or None)
+            chat_id, window_hours=int(eff or 0), limit=limit or None)
     return _pipeline
 
 
@@ -942,12 +958,20 @@ def _print_memory_report(command: str, report: dict) -> None:
               f"backup={'yes' if report.get('backup') else 'no'}")
         return
     if command == "rebuild-dossiers":
+        # F1 round1022 (UPD3): R17-safe отчёт — только числа/коды.
         print(f"memory rebuild-dossiers: mode={mode} "
               f"chats={report.get('chats')} scanned={report.get('scanned')} "
               f"reset={report.get('reset')} "
               f"reset_portraits={report.get('reset_portraits')} "
+              f"confirmed_candidates={report.get('confirmed_candidates')} "
+              f"cleaned_facts={report.get('cleaned_facts')} "
+              f"protected_belief_sources="
+              f"{report.get('protected_belief_sources')} "
               f"rebuilt={report.get('rebuilt')} "
               f"skipped={report.get('skipped')} "
+              f"window_hours_used={report.get('window_hours_used')} "
+              f"source_age_days={report.get('source_age_days')} "
+              f"max_msgs={report.get('max_msgs')} "
               f"reasons={report.get('reasons')} "
               f"backup={'yes' if report.get('backup') else 'no'}")
         return
@@ -960,16 +984,77 @@ def _print_memory_report(command: str, report: dict) -> None:
           f"backup={'yes' if report.get('backup') else 'no'}")
 
 
+def _memory_exit_code(command: str, report: dict) -> int:
+    """F1 round1022: ненулевой exit, если что-то сброшено, но не пересобрано
+    (`rebuild_empty`, R1b/ADR-1022-1 §5). Молчаливый «успех» запрещён."""
+    if command == "rebuild-dossiers":
+        reasons = report.get("reasons") or {}
+        if reasons.get("rebuild_empty"):
+            return 1
+    return 0
+
+
+def _acquire_memory_locks(chats, *, jobs_dir=None):
+    """R6/spec §2.7 (F8): CLI F1 берёт тот же кросс-процессный per-chat
+    file-lock, что и UI-джоба (`services/dossier_rebuild_jobs`). Иначе
+    одновременный CLI-прогон и UI-пересборка одного чата конкурировали бы.
+
+    Возвращает `(handles, busy_chat)`: при занятом локе `handles` пуст, а
+    `busy_chat` — id первого занятого чата (R17: без путей/имён)."""
+    from services import dossier_rebuild_jobs as drj
+
+    directory = jobs_dir if jobs_dir is not None else drj.jobs_dir()
+    handles = []
+    for chat_id in chats:
+        lock = drj.acquire_chat_lock(directory, int(chat_id))
+        if lock is None:
+            _release_memory_locks(handles)
+            return [], int(chat_id)
+        handles.append(lock)
+    return handles, None
+
+
+def _release_memory_locks(locks) -> None:
+    """Best-effort освобождение CLI-lock'ов (идемпотентно)."""
+    for lock in locks or []:
+        try:
+            lock.release()
+        except Exception:
+            pass
+
+
 def _cmd_memory(args) -> int:
     """F4/F5 (ADR-1021-4/5): `python manage.py memory <подкоманда>`.
 
     Дефолт — боевой прогон; `--dry-run` — опциональная диагностика.
-    Схема БД не меняется; авто-кронов/HTTP-триггеров нет."""
+    Схема БД не меняется; авто-кронов/HTTP-триггеров нет.
+
+    F8/R6: `rebuild-dossiers`/`sanitize-beliefs` берут per-chat file-lock
+    `services/dossier_rebuild_jobs` — тот же, что UI-джоба; занят → exit 1
+    с кодом `chat_locked`."""
     from services import memory_maintenance as mm
     from services import memory_rebuild as mr
 
     command = args.memory_command
     db_path = Path(getattr(args, "db", None) or settings.DB_PATH)
+    outcome = {"locked_chat": None}
+
+    async def _run_memory_engine(db, chats) -> dict:
+        if command == "rebuild-dossiers":
+            pipeline = None
+            if not args.dry_run:
+                pipeline = _build_rebuild_pipeline(db, args)
+            return await mr.rebuild_dossiers(
+                db, chat_ids=chats, dry_run=bool(args.dry_run),
+                include_overrides=bool(args.include_overrides),
+                limit=int(args.limit), pipeline=pipeline,
+                db_path=str(db_path), backup_dir=args.backup_dir,
+                window_hours=int(args.window_hours),
+                batch=int(args.batch))
+        return await mr.sanitize_beliefs(
+            db, chat_ids=chats, dry_run=bool(args.dry_run),
+            limit=int(args.limit), db_path=str(db_path),
+            backup_dir=args.backup_dir, batch=int(args.batch))
 
     async def _run() -> dict:
         # S10.21-6: `audit` — строго read-only (без DDL/WAL/создания файла).
@@ -985,21 +1070,16 @@ def _cmd_memory(args) -> int:
                     limit=int(args.limit), min_sources=int(args.min_sources),
                     db_path=str(db_path), backup_dir=args.backup_dir)
             chats = _memory_scope(args, available, required=True)
-            if command == "rebuild-dossiers":
-                pipeline = None
-                if not args.dry_run:
-                    pipeline = _build_rebuild_pipeline(db, args)
-                return await mr.rebuild_dossiers(
-                    db, chat_ids=chats, dry_run=bool(args.dry_run),
-                    include_overrides=bool(args.include_overrides),
-                    limit=int(args.limit), pipeline=pipeline,
-                    db_path=str(db_path), backup_dir=args.backup_dir,
-                    window_hours=int(args.window_hours),
-                    batch=int(args.batch))
-            return await mr.sanitize_beliefs(
-                db, chat_ids=chats, dry_run=bool(args.dry_run),
-                limit=int(args.limit), db_path=str(db_path),
-                backup_dir=args.backup_dir, batch=int(args.batch))
+            if command in ("rebuild-dossiers", "sanitize-beliefs"):
+                locks, busy_chat = _acquire_memory_locks(chats)
+                if busy_chat is not None:
+                    outcome["locked_chat"] = busy_chat
+                    return None
+                try:
+                    return await _run_memory_engine(db, chats)
+                finally:
+                    _release_memory_locks(locks)
+            return await _run_memory_engine(db, chats)
         finally:
             try:
                 await db.close()
@@ -1016,8 +1096,14 @@ def _cmd_memory(args) -> int:
                   "или схема отсутствует (ничего не создано)")
             return 1
         raise
+    if outcome["locked_chat"] is not None:
+        # R17-safe: только код и chat_id; путей/имён нет.
+        print(f"memory {command}: error=chat_locked chat="
+              f"{outcome['locked_chat']} — пересборку этого чата уже "
+              f"выполняет CLI/UI, повторите позже")
+        return 1
     _print_memory_report(command, report)
-    return 0
+    return _memory_exit_code(command, report)
 
 
 def main(argv: list[str] | None = None) -> int:

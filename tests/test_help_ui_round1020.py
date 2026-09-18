@@ -1,13 +1,12 @@
 """Раунд 10.20 / Фаза H (БЛОК 8) — актуализация раздела «Справка» (T-1930).
 
-Покрытие (ADR-1020-8, spec §19):
-  * канон-версия ``INFO_CANON_VERSION == 3`` + ``KNOWN_INFO_SNAPSHOTS`` знает
-    оба прежних слепка (v1/F7-предыстория и v2/F7 … до 10.20);
+Покрытие (ADR-1020-8, spec §19; актуализировано F7 10.22 / ADR-1022-7):
+  * канон-версия ``INFO_CANON_VERSION == 4`` + ``KNOWN_INFO_SNAPSHOTS`` знает
+    все прежние слепки (v1 … v3);
   * байт-зеркало ``DEFAULT_INFO_TEXT ↔ info_text.md``;
-  * наличие новых блоков «Летописец»/«Фактчек»/«Безлимит» и отсутствие
-    удалённых механик (web-only-описание фактчека);
+  * наличие блоков «Летописец»/«Фактчек», удаление п.11 «Безлимиты»;
   * tone of voice: дерзкий/ироничный, мат не переписан, нет канцелярита;
-  * идемпотентная миграция прод-PG знает прежний (v2) слепок → канон v3;
+  * идемпотентная миграция прод-PG знает прежний (v2) слепок → канон v4;
   * снимок навигации: меню/структура вкладки «Справка» НЕ изменены.
 """
 import re
@@ -22,6 +21,7 @@ from services.info_service import (
     INFO_CANON_VERSION,
     KNOWN_INFO_SNAPSHOTS,
     PREV_DEFAULT_INFO_TEXT,
+    PREV_R1022_DEFAULT_INFO_TEXT,
     PREV_R2020_DEFAULT_INFO_TEXT,
     canon_drift,
     normalize_canon,
@@ -39,30 +39,36 @@ APP_JS = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
 
 class TestCanonV3:
     def test_version_bumped(self):
-        assert INFO_CANON_VERSION == 3
+        # F7 10.22 (ADR-1022-7): канон бампнут 3 → 4.
+        assert INFO_CANON_VERSION == 4
 
-    def test_known_snapshots_cover_both_prev_canons(self):
+    def test_known_snapshots_cover_all_prev_canons(self):
         assert PREV_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS          # v1
         assert PREV_R2020_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS    # v2
-        assert len(KNOWN_INFO_SNAPSHOTS) == 2
+        assert PREV_R1022_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS    # v3
+        assert len(KNOWN_INFO_SNAPSHOTS) == 3
 
     def test_snapshots_distinct_from_current_canon(self):
+        assert DEFAULT_INFO_TEXT != PREV_R1022_DEFAULT_INFO_TEXT
         assert DEFAULT_INFO_TEXT != PREV_R2020_DEFAULT_INFO_TEXT
         assert DEFAULT_INFO_TEXT != PREV_DEFAULT_INFO_TEXT
         assert PREV_R2020_DEFAULT_INFO_TEXT != PREV_DEFAULT_INFO_TEXT
-        # v2-слепок — прошлый канон, не текущий (иначе миграция бессмысленна).
+        # v3-слепок — прошлый канон, не текущий (иначе миграция бессмысленна).
         assert canon_drift(DEFAULT_INFO_TEXT) is False
-        assert normalize_canon(PREV_R2020_DEFAULT_INFO_TEXT) != \
+        assert normalize_canon(PREV_R1022_DEFAULT_INFO_TEXT) != \
             normalize_canon(DEFAULT_INFO_TEXT)
 
     def test_byte_for_byte_mirror(self):
         assert DEFAULT_INFO_TEXT == INFO_MD.read_text(encoding="utf-8")
 
     def test_structure_balanced(self):
-        for tag in ("h1", "h2", "h4", "h5", "b", "i"):
+        # F7 10.22: v4 использует только h1/h2 для заголовков + blockquote.
+        for tag in ("h1", "h2", "b", "i", "p", "blockquote"):
             assert DEFAULT_INFO_TEXT.count(f"<{tag}>") == \
                 DEFAULT_INFO_TEXT.count(f"</{tag}>") > 0
         assert DEFAULT_INFO_TEXT.count("<u>") == 0
+        for tag in ("h3", "h4", "h5"):
+            assert DEFAULT_INFO_TEXT.count(f"<{tag}>") == 0
 
 
 # ── актуальность контента ───────────────────────────────────────────────────
@@ -83,13 +89,15 @@ class TestActualContent:
         assert "вердикт" in text
         assert "переслано: откуда" in text
 
-    def test_limits_explained(self):
+    def test_limits_block_removed(self):
+        # F7 10.22 (ADR-1022-7): п.11 «Безлимиты» удалён из Справки (лишний).
         text = DEFAULT_INFO_TEXT
-        assert "Безлимит (∞)" in text
-        assert "Импорт: Вечно" in text
-        assert "-1" in text
-        assert "ближе к чату" in text          # per-chat override
-        assert "Модули → Бюджеты" in text
+        assert "Безлимит (∞)" not in text
+        assert "Импорт: Вечно" not in text
+        assert "Модули → Бюджеты" not in text
+        assert "<h2>11." not in text
+        # прежний v3-текст (с безлимитами) сохранён как слепок-миграции.
+        assert "Безлимит (∞)" in PREV_R1022_DEFAULT_INFO_TEXT
 
     def test_retired_mechanics_absent(self):
         # v2-формулировка фактчека «web-only» удалена при актуализации.
@@ -102,7 +110,7 @@ class TestActualContent:
         assert "нахуй" in text
         assert "хуям" in text
         assert "<h1>" in text and "Никаких слеш-команд" in text
-        assert text.count("<h2>") >= 11
+        assert text.count("<h2>") >= 10
         # канцелярит/корпоративный мануал — запрещён.
         low = text.lower()
         for stale in ("уважаемый пользователь", "пожалуйста, обратитесь",
@@ -191,13 +199,13 @@ def _info_inserts(conn):
 
 class TestMigrationKnowsPrevSnapshot:
     @pytest.mark.asyncio
-    async def test_v2_snapshot_migrated_to_v3(self, monkeypatch):
+    async def test_v2_snapshot_migrated_to_current(self, monkeypatch):
         cache, conn = _cache(_settings_row(PREV_R2020_DEFAULT_INFO_TEXT),
                              monkeypatch)
         await cache.init()
         value = cache.get(INFO_KEY)
         assert value["html"] == DEFAULT_INFO_TEXT
-        assert value["canon_version"] == INFO_CANON_VERSION == 3
+        assert value["canon_version"] == INFO_CANON_VERSION == 4
         assert value["canon_delivered_version"] == INFO_CANON_VERSION
         assert len(_info_inserts(conn)) == 1
 

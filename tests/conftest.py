@@ -19,6 +19,39 @@ def _reset_global_persona_name():
     bot_persona.set_global_name_cache(previous)
 
 
+@pytest.fixture(autouse=True)
+def _system2_flags_off_by_default(request, monkeypatch):
+    """Изоляция раунда 10.22 (F3–F6): старые тесты (без маркера ``system2``)
+    идут ровно по одиночному пути 10.21 (флаги OFF). Тесты новой функциональности
+    помечаются ``@pytest.mark.system2`` и работают с прод-дефолтами (ON).
+
+    Патчим ClassVar на ВСЕХ ``Settings``-классах, на которые ссылаются сервисы
+    (часть тестов делает ``importlib.reload(config.settings)`` и создаёт новый
+    класс — иначе патч класса не долетел бы до старого инстанса).
+    """
+    if request.node.get_closest_marker("system2") is not None:
+        return
+    from config.settings import Settings
+    import services.direct_chat_service as _dcs
+    import services.factcheck_service as _fs
+    import services.negative_constraints as _nc
+    import services.summary_generator as _sg
+    classes = {Settings, type(_dcs.settings), type(_fs.settings),
+               type(_nc.settings), type(_sg.settings)}
+    for _cls in classes:
+        for _name in (
+            "SYSTEM2_FACTCHECK_ENABLED",
+            "SYSTEM2_SUMMARY_ENABLED",
+            "SYSTEM2_DIRECT_ENABLED",
+            "SYSTEM2_VALIDATOR_LOOP_ENABLED",
+            "TELEGRAM_SEND_GUARD_ENABLED",
+        ):
+            if hasattr(_cls, _name):
+                monkeypatch.setattr(_cls, _name, False)
+
+
+
+
 @pytest.fixture
 def mock_bot():
     """Mock aiogram Bot instance."""

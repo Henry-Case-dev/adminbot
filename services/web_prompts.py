@@ -14,6 +14,7 @@ Placeholder: {max_symbols} ×1 (runtime), подстановка ТОЛЬКО ч
 from services.prompt_style_blocks import (
     BOT_KNOWLEDGE_INSTRUCTION,
     LEGACY_BOT_KNOWLEDGE_INSTRUCTION,
+    PREV_STYLE_BLOCKS_SUFFIX,
     STYLE_BLOCKS_SUFFIX,
 )
 
@@ -66,5 +67,12 @@ PREV_WEBPAGE_R1021_SYSTEM_PROMPT = (
 WEBPAGE_SYSTEM_PROMPT = (
     _WEBPAGE_R1021_BASE
     + STYLE_BLOCKS_SUFFIX
+    + "\n\n" + BOT_KNOWLEDGE_INSTRUCTION
+)
+
+# Слепок прод-канона 10.21 — авто-миграция PG (F6, ADR-1022-6; ADR-1013-3).
+PREV_R1022_WEBPAGE_SYSTEM_PROMPT = (
+    _WEBPAGE_R1021_BASE
+    + PREV_STYLE_BLOCKS_SUFFIX
     + "\n\n" + BOT_KNOWLEDGE_INSTRUCTION
 )

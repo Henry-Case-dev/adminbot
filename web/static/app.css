@@ -168,6 +168,26 @@
     .guide-markdown b { font-weight: 700; }
     .guide-markdown i { font-style: italic; }
 
+    /* F7 10.22 (ADR-1022-7): rich-Справка v4 — заголовки h1/h2 (Tailwind
+       preflight их обнуляет) + команды-вызовы как выделенная цитата/код.
+       DOMPurify (default) пропускает h1/h2/blockquote — отдельный allowlist
+       не нужен, но без этих стилей теги визуально неотличимы от текста. */
+    .info-html { color: var(--text-1); line-height: 1.65; }
+    .info-html h1 { font-size: 1.3rem; font-weight: 700; margin: 0 0 .7rem; }
+    .info-html h2 { font-size: 1.08rem; font-weight: 700; margin: 1.25rem 0 .5rem; }
+    .info-html h1:first-child, .info-html h2:first-child { margin-top: 0; }
+    .info-html p { margin: .5rem 0; }
+    .info-html blockquote {
+      margin: .4rem 0; padding: .45rem .8rem;
+      border-left: 3px solid var(--teal-500);
+      background: rgba(255, 255, 255, .06);
+      border-radius: 0 .5rem .5rem 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: .85em; color: var(--text-2);
+    }
+    .info-html blockquote b { font-weight: 700; }
+    .info-html a { color: var(--teal-500); text-decoration: underline; }
+
     /* Активные кнопки/выделения — фиолетово-синий градиент */
     .btn-accent {
       color: #fff;

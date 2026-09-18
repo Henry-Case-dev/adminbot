@@ -2726,6 +2726,61 @@
             <div class="text-xs text-gray-500 mt-1">
               Пустое поле сбросит правку — вернётся авто-досье.
             </div>
+            <!-- ═══ F8 round 10.22 (ADR-1022-8): пересборка досье ═══
+                 Фоновая задача + прогресс «X/Y чанков»; persistence через
+                 GET latest; отмена = откат из стартового снимка. -->
+            <div class="card p-3 text-xs mt-3"
+                 v-if="dossierUserId != null && dossierRebuildEnabled">
+              <div class="text-gray-500 mb-2">Пересборка досье</div>
+              <template v-if="dossierRebuildJob">
+                <div class="flex items-center justify-between mb-1">
+                  <span>{{ dossierRebuildStageText(dossierRebuildJob) }}</span>
+                  <span v-if="dossierRebuildIsActive(dossierRebuildJob)">
+                    {{ dossierRebuildJob.processed }}/{{ dossierRebuildJob.total }} чанков · {{ dossierRebuildJob.percent }}%
+                  </span>
+                </div>
+                <div class="progress mb-2" v-if="dossierRebuildIsActive(dossierRebuildJob)">
+                  <div :style="{ width: (dossierRebuildJob.percent || 0) + '%' }"></div>
+                </div>
+                <div class="text-gray-500 mb-1" v-if="dossierRebuildJob.status === 'interrupted'">
+                  Пересборка прервана перезапуском бота — доступен откат.
+                </div>
+                <div class="text-gray-500 mb-1" v-else-if="dossierRebuildJob.status === 'failed' && dossierRollbackRetryable(dossierRebuildJob)">
+                  Откат не завершён — данные участника можно восстановить из снимка.
+                </div>
+                <div class="text-gray-500 mb-1" v-else-if="dossierRebuildJob.status === 'failed'">
+                  Пересборка не удалась. Можно запустить заново.
+                </div>
+                <div class="text-gray-500 mb-1" v-else-if="dossierRebuildJob.status === 'cancelled'">
+                  Отменено, данные участника восстановлены из снимка.
+                </div>
+                <div class="text-gray-500 mb-1" v-else-if="dossierRebuildJob.status === 'done'">
+                  Готово: очищено {{ dossierRebuildJob.cleaned }}, пересобрано {{ dossierRebuildJob.rebuilt }}.
+                </div>
+              </template>
+              <div class="flex items-center gap-2 mt-2">
+                <select class="field" v-model="dossierRebuildPeriod"
+                        :disabled="dossierRebuildBusy || dossierRebuildIsActive(dossierRebuildJob)">
+                  <option value="30">30 дней</option>
+                  <option value="90">90 дней</option>
+                  <option value="180">180 дней</option>
+                  <option value="all">Всё время</option>
+                </select>
+                <button class="btn-accent text-sm" type="button"
+                        :disabled="dossierRebuildBusy || dossierRebuildIsActive(dossierRebuildJob) || dossierRollbackRetryable(dossierRebuildJob)"
+                        @click="startDossierRebuild()">
+                  {{ dossierRebuildBusy ? '…' : 'Пересобрать досье' }}
+                </button>
+                <button class="btn-ghost text-sm" type="button"
+                        v-if="dossierRebuildCancelable(dossierRebuildJob)"
+                        :disabled="dossierRebuildBusy"
+                        @click="cancelDossierRebuild()">Отмена</button>
+                <button class="btn-ghost text-sm" type="button"
+                        v-if="dossierRollbackRetryable(dossierRebuildJob)"
+                        :disabled="dossierRebuildBusy"
+                        @click="cancelDossierRebuild()">Повторить откат</button>
+              </div>
+            </div>
           </template>
           <!-- UPD3 (T-1938): sticky-футер досье перенесён ВНУТРЬ скроллера. -->
           <footer class="sticky-save">

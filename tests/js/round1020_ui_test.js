@@ -238,6 +238,12 @@ const INDEX = fs.readFileSync(
     activeChatId: -100, dossierOpen: false, dossierBusy: false,
     dossierUserId: null, dossierName: '', dossierData: null,
     dossierDraft: '', dossierSaving: false,
+    // F8 (T-2085/T-2086): openDossier/closeDossier теперь ещё управляют
+    // polling'ом пересборки досье. Это стабы коллабораторов — сама
+    // пересборка проверяется отдельным гейтом round1022_dossier_rebuild_test.js.
+    dossierRebuildJob: null, dossierRebuildTimer: null,
+    stopDossierRebuildPolling() {},
+    resumeDossierRebuild: async function () {},
     toasts: [], toast(m) { this.toasts.push(m); },
     loreErrText() { return 'err'; },
     resolveRelationName() { return 'Толян'; },

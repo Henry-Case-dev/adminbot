@@ -133,8 +133,10 @@ class TestCanonContent:
             assert stale not in DEFAULT_INFO_TEXT, stale
 
     def test_commands_highlighted_and_new_canon(self):
-        # 10.20/H (БЛОК 8): +Летописец (3 примера + UPD) → 34 → 38 акцентов.
-        assert DEFAULT_INFO_TEXT.count("<h4><b><i>") == 38
+        # F7 10.22 (ADR-1022-7): команды переехали в <blockquote>, h4/h5 удалены.
+        assert DEFAULT_INFO_TEXT.count("<h4>") == 0
+        assert DEFAULT_INFO_TEXT.count("<h5>") == 0
+        assert DEFAULT_INFO_TEXT.count("<blockquote>") > 0
         assert DEFAULT_INFO_TEXT != PREV_DEFAULT_INFO_TEXT
 
 

@@ -27,15 +27,19 @@ bot.py on_startup); компонент не установлен / PG недос
 """
 import asyncio
 import logging
+import math
+import secrets
 import time
 from typing import Annotated, Literal
 
 from aiogram.utils.web_app import WebAppUser
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from config.settings import settings
 from services import chat_params, lore_runtime
+from services import dossier_rebuild_jobs as drj
 from services.chat_lore_store import ChatLoreConflict, ChatLorePgUnavailable
 from services.permissions import Permissions
 from services import summary_aliases
@@ -958,3 +962,261 @@ async def put_dossier(
                 chat_id, user_id, user.id)
     return await _dossier_payload(db, chat_id, user_id, canon)
 
+
+# ═══ F8 round 10.22 (ADR-1022-8): асинхронная пересборка досье ═════════════
+# Фоновая пересборка (job-store → snapshot → confirmed-cleanup → чанковый
+# Слой А/Б → rollback при отмене). Флаг DOSSIER_REBUILD_UI_ENABLED (env-only,
+# default ON): OFF → все эндпоинты 404. R17: job-view — числа/коды.
+
+_PERIOD_WINDOW = {"30": 720, "90": 2160, "180": 4320, "all": 0}
+_TERMINAL_REBUILD_STATUSES = frozenset({"done", "failed", "cancelled"})
+
+
+def _rebuild_rollback_retryable(job: dict) -> bool:
+    """Spec §2.6 п.5 (F8): разрешает повторный cancel-rollback для `failed`.
+
+    Терминальные статусы отдают 200 без действий, но два случая требуют
+    восстановления производных из снапшота:
+      * `error_code == 'rollback_failed'` — прошлый откат упал, снапшот цел;
+      * `cleaned > 0` / `rebuilt > 0` — пересборка оборвалась, часть фактов
+        участника уже изменена/удалена (ручной откат иначе недостижим).
+    Условие `rollback.done == false` + наличие `snapshot_ref` — иначе
+    откатывать нечего."""
+    if not isinstance(job, dict) or job.get("status") != "failed":
+        return False
+    rollback = job.get("rollback") or {}
+    if rollback.get("done"):
+        return False
+    if not str(job.get("snapshot_ref") or "").strip():
+        return False
+    return (job.get("error_code") == "rollback_failed"
+            or int(job.get("cleaned") or 0) > 0
+            or int(job.get("rebuilt") or 0) > 0)
+
+
+class DossierRebuildBody(BaseModel):
+    """Тело POST rebuild: период окна (default 180 дней)."""
+    period: Literal["30", "90", "180", "all"] = "180"
+
+
+def _rebuild_enabled() -> bool:
+    return bool(getattr(settings, "DOSSIER_REBUILD_UI_ENABLED", True))
+
+
+def _rebuild_disabled() -> HTTPException:
+    return HTTPException(status_code=404, detail="пересборка досье выключена")
+
+
+def _schedule_rebuild(coro):
+    """Запуск фоновой задачи (прецедент web/api/memory_agi.py:335). Тесты
+    подменяют, чтобы захватить/закрыть корутину детерминированно."""
+    return asyncio.create_task(coro)
+
+
+def _rebuild_jobs():
+    return drj.get_job_store()
+
+
+async def _rebuild_job_or_404(jobs, job_id: str, chat_id: int,
+                              user_id: int) -> dict:
+    try:
+        job = await jobs.get(job_id)
+    except Exception:
+        job = None
+    if (job is None or int(job.get("chat_id") or 0) != int(chat_id)
+            or int(job.get("user_id") or 0) != int(user_id)):
+        raise HTTPException(status_code=404, detail="job не найден")
+    return job
+
+
+# GET latest — регистрируется ДО `{job_id}`, иначе литерал съестся job_id.
+@chat_lore_router.get(
+    "/chat_lore/{chat_id}/dossier/{user_id}/rebuild/latest")
+async def latest_dossier_rebuild(
+    chat_id: int,
+    user_id: int,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Последний job юзера (для persistence при reopen мини-аппа) или 204.
+    Fail-open: ошибка job-store → 204 (UI не падает)."""
+    if not _rebuild_enabled():
+        raise _rebuild_disabled()
+    cache = get_cache(request)
+    store, _cache_c, _worker = _components()
+    await _require_chat(cache, store, user, chat_id)
+    try:
+        job = await _rebuild_jobs().latest(chat_id, user_id)
+    except Exception:
+        job = None
+    if job is None:
+        return Response(status_code=204)
+    return drj.job_view(job)
+
+
+# GET статус job'а (идемпотентно; polling ~2с только пока job активен).
+@chat_lore_router.get(
+    "/chat_lore/{chat_id}/dossier/{user_id}/rebuild/{job_id}")
+async def get_dossier_rebuild(
+    chat_id: int,
+    user_id: int,
+    job_id: str,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Статус/прогресс job'а (R17-safe job-view). Чужой/неизвестный → 404."""
+    if not _rebuild_enabled():
+        raise _rebuild_disabled()
+    cache = get_cache(request)
+    store, _cache_c, _worker = _components()
+    await _require_chat(cache, store, user, chat_id)
+    job = await _rebuild_job_or_404(_rebuild_jobs(), job_id, chat_id, user_id)
+    return drj.job_view(job)
+
+
+# POST старт пересборки → 202 {job_id, ...} (HTTP не блокируется).
+@chat_lore_router.post(
+    "/chat_lore/{chat_id}/dossier/{user_id}/rebuild")
+async def start_dossier_rebuild(
+    chat_id: int,
+    user_id: int,
+    payload: DossierRebuildBody,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    name: Annotated[str | None, Query(max_length=200)] = None,
+):
+    """Запуск фоновой пересборки досье участника (period 30/90/180/all).
+
+    409 `{code:'already_running', job_id}` при активном job на (chat,user);
+    409 `{code:'chat_locked'}` при кросс-процессном lock (CLI F1)."""
+    if not _rebuild_enabled():
+        raise _rebuild_disabled()
+    cache = get_cache(request)
+    store, _cache_c, worker = _components()
+    await _require_chat(cache, store, user, chat_id)
+    db, _relations_service = _db_component()
+    if db is None:
+        raise HTTPException(status_code=503, detail="память недоступна")
+    if worker is None or not hasattr(worker, "rebuild_dossier_for_user"):
+        raise HTTPException(status_code=503, detail="воркер пересборки недоступен")
+    canon = await _dossier_name(chat_id, user_id, name)
+    if not canon:
+        raise HTTPException(status_code=422,
+                            detail="не удалось определить участника")
+    jobs = _rebuild_jobs()
+    try:
+        active = await jobs.find_active(chat_id, user_id)
+    except Exception:
+        active = None
+    if active is not None:
+        raise HTTPException(status_code=409, detail={
+            "code": "already_running",
+            "job_id": str(active.get("job_id") or ""),
+        })
+    # S10.22-5: `interrupted` больше не блокирует новый старт. Фиксируем
+    # вытеснение прерванного job'а (он остаётся в store для ручного отката).
+    try:
+        previous = await jobs.latest(chat_id, user_id)
+    except Exception:
+        previous = None
+    if previous is not None and str(
+            previous.get("status") or "") == "interrupted":
+        logger.warning("[dossier] rebuild supersedes interrupted job | "
+                       "chat=%s uid=%s", chat_id, user_id)
+    lock = drj.acquire_chat_lock(jobs.dir_path, chat_id)
+    if lock is None:
+        raise HTTPException(status_code=409, detail={"code": "chat_locked"})
+    period = payload.period
+    window_hours = int(_PERIOD_WINDOW.get(period, 4320))
+    chunk = max(1, int(getattr(
+        settings, "DOSSIER_REBUILD_CHUNK_SIZE", 40) or 40))
+    max_msgs = max(1, int(getattr(
+        settings, "LORE_WINDOW_MAX_MESSAGES", 300) or 300))
+    count = 0
+    try:
+        count = int(await worker.count_window_messages(
+            chat_id, window_hours=window_hours) or 0)
+    except Exception:
+        count = 0
+    bounded = min(count, max_msgs) if count > 0 else 0
+    total = int(math.ceil(bounded / chunk)) if bounded > 0 else 0
+    job_id = secrets.token_hex(16)
+    try:
+        await jobs.create(
+            job_id, chat_id=chat_id, user_id=user_id, target_name=canon,
+            actor_id=user.id, period=period, window_hours=window_hours,
+            chunk_size=chunk, total=total)
+        task = _schedule_rebuild(drj.run_dossier_rebuild(
+            store=jobs, db=db, worker=worker, job_id=job_id, chat_id=chat_id,
+            user_id=user_id, target_name=canon, window_hours=window_hours,
+            chunk_size=chunk, jobs_dir=jobs.dir_path,
+            archive_dir=getattr(settings, "MEMORY_BACKUP_DIR", "backups"),
+            lock=lock))
+        jobs.register_task(job_id, task)
+    except Exception as exc:
+        lock.release()
+        try:
+            await jobs.update(job_id, status="failed",
+                              error_code="schedule_failed",
+                              finished_at=int(time.time()))
+        except Exception:
+            pass
+        logger.warning("[dossier] rebuild schedule failed | chat=%s uid=%s",
+                       chat_id, user_id, exc_info=True)
+        raise HTTPException(status_code=503,
+                            detail="не удалось запустить пересборку") from exc
+    logger.info("[dossier] rebuild started | chat=%s uid=%s period=%s "
+                "total=%s by=%s", chat_id, user_id, period, total, user.id)
+    return JSONResponse(status_code=202, content={
+        "job_id": job_id, "status": "queued", "period": period,
+        "window_hours": window_hours, "total": total, "processed": 0,
+    })
+
+
+# POST cancel: активный → 202 cancelling (кооперативно → rollback);
+# interrupted → 202 + ручной rollback; terminal → 200 текущий статус/rollback.
+@chat_lore_router.post(
+    "/chat_lore/{chat_id}/dossier/{user_id}/rebuild/{job_id}/cancel")
+async def cancel_dossier_rebuild(
+    chat_id: int,
+    user_id: int,
+    job_id: str,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Отмена = rollback (не kill): восстановление досье/фактов юзера из
+    стартового снапшота. Идемпотентно на terminal-статусах."""
+    if not _rebuild_enabled():
+        raise _rebuild_disabled()
+    cache = get_cache(request)
+    store, _cache_c, _worker = _components()
+    await _require_chat(cache, store, user, chat_id)
+    jobs = _rebuild_jobs()
+    job = await _rebuild_job_or_404(jobs, job_id, chat_id, user_id)
+    status = str(job.get("status") or "")
+    view = drj.job_view(job)
+    # F8 §2.6 п.5: `failed` из-за упавшего rollback (или частичной пересборки)
+    # — не тупик: разрешаем повторный откат из сохранённого снапшота.
+    retryable = _rebuild_rollback_retryable(job)
+    if status in _TERMINAL_REBUILD_STATUSES and not retryable:
+        return {"status": status, "rollback": view["rollback"]}
+    if status == "cancelling" and job.get("cancel_requested"):
+        raise HTTPException(status_code=409, detail={"code": "cancelling"})
+    try:
+        await jobs.update(job_id, cancel_requested=True, status="cancelling")
+    except Exception as exc:
+        raise HTTPException(status_code=503,
+                            detail="job-store недоступен") from exc
+    task = jobs.get_task(job_id)
+    if task is None or task.done():
+        # interrupted (после рестарта) / нет живого раннера → ручной rollback.
+        db, _relations_service = _db_component()
+        if db is None:
+            raise HTTPException(status_code=503, detail="память недоступна")
+        _schedule_rebuild(drj.perform_rollback(
+            jobs, db, job_id, jobs_dir=jobs.dir_path, chat_id=chat_id,
+            target_name=str(job.get("target_name") or ""),
+            reason="cancelled"))
+    logger.info("[dossier] rebuild cancel requested | chat=%s uid=%s "
+                "status=%s", chat_id, user_id, status)
+    return JSONResponse(status_code=202, content={"status": "cancelling"})

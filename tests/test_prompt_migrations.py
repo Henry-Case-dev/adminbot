@@ -148,16 +148,18 @@ class TestPromptMigrationsCatalog:
         assert "prompts.extract_system_prompt" not in PROMPT_MIGRATIONS
 
     def test_direct_chat_five_steps_legacy_prev_r8_r9_r2020(self):
-        """Раунд 10.21: шестая ступень (PREV_CHAT_R1021 → канон 10.21,
-        блоки A/B); прежние ступени сохранены и указывают на тот же новый
+        """Раунд 10.21/10.22: ступени PREV_CHAT_R1021 и PREV_R1022 → канон
+        (блоки A/B); прежние ступени сохранены и указывают на тот же новый
         канон."""
+        from services.chat_prompts import PREV_R1022_CHAT_SYSTEM_PROMPT
         steps = PROMPT_MIGRATIONS["prompts.direct_chat_system_prompt"]
         assert steps == [(LEGACY_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
                          (PREV_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
                          (PREV_R8_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
                          (PREV_R9_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
                          (PREV_CHAT_R2020_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
-                         (PREV_CHAT_R1021_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)]
+                         (PREV_CHAT_R1021_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
+                         (PREV_R1022_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)]
 
     def test_catalog_points_to_new_canons(self):
         """new во всех ступенях == канону раунда 5 (байт-сверка со спека)."""

@@ -17,22 +17,30 @@ kwarg `tool_router` (DI из bot.py, только kwargs). Если роутер
 обёртка ВОКРУГ `llm.generate`, второго синтеза нет. Роутер не задан
 (старые вызовы/тесты) → ровно прежний одиночный вызов (R16-аддитивность).
 """
+import json
 import logging
 import time
 
 from config.settings import settings
 from services import hot_config as hot
-from services.factcheck_prompts import FACTCHECK_SYSTEM_PROMPT
+from services.factcheck_prompts import (
+    FACTCHECK_ANALYST_SYSTEM_PROMPT,
+    FACTCHECK_SYSTEM_PROMPT,
+    FACTCHECK_VERBALIZER_SYSTEM_PROMPT,
+)
 from services.grounding_validator import (
     collect_allowed_anchors,
     strip_phantom_tags,
 )
 from services.llm_client import LLMBadResponseError, LLMClient
+from services.negative_constraints import verbalize_validated
+from services.reply_postprocess import strip_reasoning_tags
 from services.search_aggregator import SearchAggregator
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import MemoryManager, fire_and_forget
 from services.summary_xml import escape_xml_text
 from services.smartmodule_utils import strip_lore_html
+from services.system2_handoff import parse_factcheck_analysis
 from services.tool_loop import chat_with_tools
 from services.tool_router import ToolContext, resolve_lore_compiler_flag
 from services.tool_schemas import factcheck_tools
@@ -60,16 +68,14 @@ class FactCheckService:
         chat_id: int | None = None,
         chat_context: str | None = None,
     ) -> str:
-        """Фактчек-пайплайн:
-        1) results = await self.aggregator.search(target_text, max_symbols)
-        2) system = FACTCHECK_SYSTEM_PROMPT.replace("{max_symbols}", str(max_symbols))
-        3) user = [rag] self.build_user_content(target_text, user_hint, forward_source, results)
-        4) raw = await self.llm.generate([{system}, {user}])
-           (T-1907: при заданном `tool_router` + `chat_id` — вместо этого
-           `chat_with_tools` с tool-сетом `factcheck_tools()`; финальный текст
-           тот же)
-        5) return cleanup_llm_text(raw)          # R33-7, ПОСТОЯННО
-        Raises: AllSearchEnginesFailedException (поиск) / LLMError (LLM) — пробрасываются в хендлер."""
+        """Фактчек-пайплайн (10.22, ADR-1022-3): агрегатор → (System 2:
+        Аналитик JSON → Вербализатор) либо одиночный путь 10.21.
+
+        * ``SYSTEM2_FACTCHECK_ENABLED`` ON → два физических вызова; при
+          невалидном JSON/провале Stage-2/исчерпании validator-loop — fallback
+          на одиночный путь (пользователь ВСЕГДА получает ответ).
+        * OFF → байт-в-байт 10.21 (один вызов `self.llm.generate`/tool-loop).
+        Raises: AllSearchEnginesFailedException (поиск) / LLMError (LLM)."""
         # T-619: лимит и промпт — горячие точки (ConfigCache с settings-фолбеком)
         max_symbols = hot.get("limits.factcheck_max_symbols",
                               settings.FACTCHECK_MAX_SYMBOLS)
@@ -84,27 +90,86 @@ class FactCheckService:
                 chat_id, target_text, sort_by_timestamp=True)
         else:
             rag = ""
-        system = system_prompt.replace("{max_symbols}", str(max_symbols))
         user = self.build_user_content(target_text, user_hint, forward_source,
                                        results, chat_context=chat_context)
         if rag:
             user = f"{rag}\n\n{user}"
+        if getattr(settings, "SYSTEM2_FACTCHECK_ENABLED", True):
+            two_call = await self._check_claim_two_call(
+                target_text, user, rag, results, chat_id, chat_context,
+                max_symbols)
+            if two_call is not None:
+                return two_call
+            logger.info(
+                "factcheck system2: fallback на одиночный путь 10.21 | chat=%s",
+                chat_id)
+        # ── Одиночный путь 10.21 (kill-switch / fallback) ──
+        system = system_prompt.replace("{max_symbols}", str(max_symbols))
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ]
+        raw, used_tools = await self._invoke_llm(messages, target_text, chat_id)
+        return self._finalize(raw, used_tools, rag, results, chat_context)
+
+    async def _check_claim_two_call(
+        self, target_text: str, user: str, rag: str, results: str,
+        chat_id: int | None, chat_context: str | None, max_symbols: int,
+    ) -> str | None:
+        """System 2 фактчека. ``None`` → вызывающий уходит на 10.21."""
+        analyst_messages = [
+            {"role": "system", "content": FACTCHECK_ANALYST_SYSTEM_PROMPT},
+            {"role": "user", "content": user},
+        ]
+        try:
+            raw_analyst, used_tools = await self._invoke_llm(
+                analyst_messages, target_text, chat_id)
+        except Exception as exc:                # таймаут/ошибка Stage-1 → 10.21
+            logger.info(
+                "factcheck system2: stage1 failed — fallback | chat=%s | "
+                "error=%s", chat_id, type(exc).__name__)
+            return None
+        tool_context = str(getattr(raw_analyst, "tool_context", "") or "")
+        anchors = collect_allowed_anchors(
+            self._trusted_text(rag, results, chat_context, tool_context))
+        analyst_text = strip_reasoning_tags(str(raw_analyst))
+        analyst_text, _gstats = strip_phantom_tags(analyst_text, anchors)
+        data = parse_factcheck_analysis(analyst_text)
+        if data is None:
+            logger.info(
+                "factcheck system2: невалидный JSON аналитика — fallback | "
+                "chat=%s", chat_id)
+            return None
+        verbalizer_system = FACTCHECK_VERBALIZER_SYSTEM_PROMPT.replace(
+            "{max_symbols}", str(max_symbols))
+        base_messages = [
+            {"role": "system", "content": verbalizer_system},
+            {"role": "user",
+             "content": "АНАЛИЗ (JSON):\n" + json.dumps(data, ensure_ascii=False)},
+        ]
+
+        async def _generate(messages):
+            return await self.llm.generate(messages)
+
+        text, stats = await verbalize_validated(
+            _generate, base_messages, max_retries=2)
+        logger.info(
+            "factcheck system2 verbalizer | chat=%s | attempts=%d | retries=%d "
+            "| hits=%d | fallback=%s", chat_id, stats.get("attempts", 0),
+            stats.get("retries", 0), len(stats.get("hits") or []),
+            bool(stats.get("fallback")))
+        if stats.get("fallback"):
+            return None
+        return self._finalize_text(text, used_tools, tool_context,
+                                   rag, results, chat_context)
+
+    async def _invoke_llm(self, messages, target_text, chat_id):
+        """Один LLM-вызов: tool-loop (при `tool_router` + `chat_id`) или plain."""
         started = time.monotonic()
         used_tools = False
         if self.tool_router is not None and chat_id is not None:
-            # T-1907 (ADR-1020-5 п.1): реюз цикла обычного диалога. Лимит
-            # раундов тот же (TOOL_MAX_ROUNDS=4, spec §7.1); S10.20-2: флаг
-            # «Летописца» резолвится ТЕМ ЖЕ per-chat каскадом, что DirectChat
-            # (override → hot → канон) — иначе OFF-глобально/ON-для-чата давал
-            # «инструмент отключен» на видимом инструменте.
             lore_enabled = await resolve_lore_compiler_flag(chat_id)
             tools = factcheck_tools(bool(lore_enabled))
-            # S10.20-4: фактчекеру НЕ добавляем «верни story ДОСЛОВНО» —
-            # иначе вместо вердикта приходит история.
             ctx = ToolContext(chat_id, target_text,
                               lore_verbatim_instruction=False)
             raw = await chat_with_tools(
@@ -122,23 +187,30 @@ class FactCheckService:
                 "factcheck LLM OK | out_chars=%d | latency_ms=%.0f",
                 len(raw), (time.monotonic() - started) * 1000.0,
             )
-        # Выводы инструментов (tool-loop) должны попасть в grounding-якоря ДО
-        # cleanup (cleanup возвращает обычный str и теряет атрибут).
-        tool_context = str(getattr(raw, "tool_context", "") or "")
-        raw = cleanup_llm_text(raw)
-        # F2 (T-1954/T-1957, ADR-1021-2; fix-round 10.21): strict grounding —
-        # допустимые якоря берём ТОЛЬКО из доверенных источников (RAG + выдача
-        # поиска + chat_context + выводы инструментов). S10.21-5: `<claim>` и
-        # `<user_hint>` НЕ включаем — иначе пользователь может протолкнуть
-        # фейковый `fact:ID`/дату и обойти валидатор. Выводы тулов
-        # (tool-loop, напр. dig_into_lore) — доверенный источник.
-        trusted_parts = [str(rag or ""), str(results or "")]
+        return raw, used_tools
+
+    @staticmethod
+    def _trusted_text(rag, results, chat_context, tool_context) -> str:
+        """Доверенные источники grounding-якорей (S10.21-5: без claim/hint)."""
+        parts = [str(rag or ""), str(results or "")]
         if chat_context:
-            trusted_parts.append(str(chat_context))
+            parts.append(str(chat_context))
         if tool_context:
-            trusted_parts.append(str(tool_context))
-        anchors = collect_allowed_anchors("\n".join(trusted_parts))
-        raw, gstats = strip_phantom_tags(raw, anchors)
+            parts.append(str(tool_context))
+        return "\n".join(parts)
+
+    def _finalize(self, raw, used_tools, rag, results, chat_context) -> str:
+        tool_context = str(getattr(raw, "tool_context", "") or "")
+        return self._finalize_text(str(raw), used_tools, tool_context,
+                                   rag, results, chat_context)
+
+    def _finalize_text(self, text, used_tools, tool_context, rag, results,
+                       chat_context) -> str:
+        """cleanup → grounding-strip → lore-strip → пустой ответ."""
+        anchors = collect_allowed_anchors(
+            self._trusted_text(rag, results, chat_context, tool_context))
+        out = cleanup_llm_text(text)
+        out, gstats = strip_phantom_tags(out, anchors)
         if gstats.stripped_phantom or gstats.stripped_bare:
             logger.info(
                 "factcheck grounding | stripped_phantom=%d | stripped_bare=%d "
@@ -146,15 +218,10 @@ class FactCheckService:
                 gstats.stripped_phantom, gstats.stripped_bare, gstats.kept,
             )
         if used_tools:
-            # S10.20-4: если модель всё же вернула HTML-историю — не показываем
-            # сырые теги в plain-доставке фактчека (no-op для обычного вердикта).
-            raw = strip_lore_html(raw)
-        if not raw.strip():
-            # Epic 60 (65.1, T-469): пустой ответ модели → молчание + 🗿
-            # (хендлер). LLMBadResponseError — подкласс LLMError, но ветка
-            # хендлера идёт ДО except LLMError (R13-эталоны не тронуты).
+            out = strip_lore_html(out)
+        if not out.strip():
             raise LLMBadResponseError("factcheck: empty answer")
-        return raw
+        return out
 
     @staticmethod
     def build_user_content(

@@ -37,27 +37,31 @@ class TestDefaultInfoText:
         )
 
     def test_rich_structure_complete(self):
-        """#20: rich-разметка Epic 83 / F7 (10.15) / H 10.20 (БЛОК 8):
-        h1=1, h2=11, h4=38 (инлайн-акценты команд), h5=11 (тела секций) —
-        счётчики сбалансированы (11 секций: +Летописец, +безлимиты)."""
+        """#20 / F7 10.22 (ADR-1022-7): rich-канон v4 — только h1/h2 для
+        заголовков (никаких h3/h4/h5), команды — в blockquote.
+        h1=1, h2=10 (10 секций, п.«Безлимиты» удалён), blockquote=21, p=40."""
         assert DEFAULT_INFO_TEXT.count("<h1>") == DEFAULT_INFO_TEXT.count("</h1>") == 1
-        assert DEFAULT_INFO_TEXT.count("<h2>") == DEFAULT_INFO_TEXT.count("</h2>") == 11
-        assert DEFAULT_INFO_TEXT.count("<h4>") == DEFAULT_INFO_TEXT.count("</h4>") == 38
-        assert DEFAULT_INFO_TEXT.count("<h5>") == DEFAULT_INFO_TEXT.count("</h5>") == 11
+        assert DEFAULT_INFO_TEXT.count("<h2>") == DEFAULT_INFO_TEXT.count("</h2>") == 10
+        assert DEFAULT_INFO_TEXT.count("<h3>") == 0
+        assert DEFAULT_INFO_TEXT.count("<h4>") == 0
+        assert DEFAULT_INFO_TEXT.count("<h5>") == 0
+        assert DEFAULT_INFO_TEXT.count("<blockquote>") == \
+            DEFAULT_INFO_TEXT.count("</blockquote>") == 21
+        assert DEFAULT_INFO_TEXT.count("<p>") == DEFAULT_INFO_TEXT.count("</p>") == 40
 
     def test_html_tags_balanced(self):
-        """Epic 71 (T-550) / F7 (10.15) / H 10.20: rich-канон — b=45, i=41,
-        u=0, a=2."""
-        assert DEFAULT_INFO_TEXT.count("<b>") == DEFAULT_INFO_TEXT.count("</b>") == 45
-        assert DEFAULT_INFO_TEXT.count("<i>") == DEFAULT_INFO_TEXT.count("</i>") == 41
+        """F7 10.22: инлайн-акценты — b=36, i=36, u=0, a=2 (ссылки-примеры)."""
+        assert DEFAULT_INFO_TEXT.count("<b>") == DEFAULT_INFO_TEXT.count("</b>") == 36
+        assert DEFAULT_INFO_TEXT.count("<i>") == DEFAULT_INFO_TEXT.count("</i>") == 36
         assert DEFAULT_INFO_TEXT.count("<u>") == 0
         assert DEFAULT_INFO_TEXT.count("</u>") == 0
         assert DEFAULT_INFO_TEXT.count("<a ") == DEFAULT_INFO_TEXT.count("</a>") == 2
 
     def test_no_unbalanced_special_chars(self):
         stripped = DEFAULT_INFO_TEXT
-        for tag in ("<h1>", "</h1>", "<h2>", "</h2>", "<h4>", "</h4>",
-                    "<h5>", "</h5>", "<b>", "</b>", "<i>", "</i>",
+        for tag in ("<h1>", "</h1>", "<h2>", "</h2>", "<p>", "</p>",
+                    "<blockquote>", "</blockquote>",
+                    "<b>", "</b>", "<i>", "</i>",
                     '<a href="https://youtu.be/">',
                     '<a href="https://какой-то-сайт.ru">', "</a>"):
             stripped = stripped.replace(tag, "")
@@ -68,16 +72,17 @@ class TestDefaultInfoText:
             "Гайд по фичам", "фактчек", "чекап", "кулдаун", "Checkup",
             "youtu.be", "какой-то-сайт.ru",
             "ботяра", "Богу Машине", "требуют обращения",
-            # H 10.20 (БЛОК 8): актуальные фичи фаз B–G.
-            "Летописец", "UPD (Свежак)", "Безлимит (∞)", "Импорт: Вечно",
-            "Часовой пояс чата", "Бюджеты",
+            # F7 10.22 (ADR-1022-7): транскрипт vs смысловая выжимка.
+            "транскрипт", "поясни за видос", "о чем видео",
+            # H 10.20 (БЛОК 8) сохранённое: актуальные фичи фаз B–G.
+            "Летописец", "UPD (Свежак)", "Часовой пояс чата",
         ):
             assert marker in DEFAULT_INFO_TEXT
 
     def test_canon_matches_backlog_r44_1_essence(self):
-        """#24 (дельта Epic 83): снятие всех тегов сохраняет полную структуру
-        секций 1..11 (суть R44-1 + H 10.20; живой канон — info_text.md)."""
-        for i in range(1, 12):
+        """F7 10.22: снятие всех тегов сохраняет структуру секций 1..10
+        (п.«Безлимиты» удалён — секций стало 10)."""
+        for i in range(1, 11):
             assert f"<h2>{i}." in DEFAULT_INFO_TEXT
 
 

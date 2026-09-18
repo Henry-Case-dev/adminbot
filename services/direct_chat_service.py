@@ -73,6 +73,7 @@ lore_runtime (не установлен/ошибка → блока нет, 0 в
 import asyncio
 import datetime
 import hashlib
+import json
 import logging
 import random
 import re
@@ -90,7 +91,11 @@ from services.chat_params import (
     get_chat_param as _cp_g,  # G-3 per-chat
 )
 from services.sandbox_reply import DEFAULT_NO_KEY_REPLY
-from services.chat_prompts import CHAT_SYSTEM_PROMPT
+from services.chat_prompts import (
+    CHAT_SYSTEM_PROMPT,
+    DIRECT_SYNTHESIZER_SYSTEM_PROMPT,
+    DIRECT_VERBALIZER_SYSTEM_PROMPT,
+)
 from services.dossier_prompts import format_dossier_block
 from services.llm_client import (
     LLMBadResponseError,
@@ -146,6 +151,8 @@ from services.token_counter import (
 )
 from services.context_middleware import truncate_keep_header
 from services.reply_postprocess import strip_reasoning_tags
+from services.negative_constraints import verbalize_validated
+from services.system2_handoff import parse_direct_synthesis, redact_secrets
 from services.tool_loop import chat_with_tools, ToolLoopResult
 from services.tool_router import ToolContext
 from services.tool_schemas import active_tools
@@ -753,6 +760,19 @@ class DirectChatService:
                 logger.warning(
                     "[direct] tool-loop degraded | chat=%s | reason=%s | "
                     "rounds_used=%d", chat_id, raw.reason, raw.rounds_used)
+            # Раунд 10.22 (F5, ADR-1022-5): System 2 (Синтезатор тулов →
+            # Вербализатор) — ТОЛЬКО при реально вызванных тулах, успешном
+            # tool-финале и НЕ lore_compiled (детерминированная HTML-история
+            # остаётся вне System 2, Д-9). Любой сбой → финал tool-loop.
+            if (getattr(settings, "SYSTEM2_DIRECT_ENABLED", True)
+                    and isinstance(raw, ToolLoopResult)
+                    and not raw.degraded
+                    and bool(getattr(raw, "tool_trace", None))
+                    and not getattr(tool_ctx, "lore_compiled", False)):
+                synthesized = await self._synthesize_direct_answer(
+                    chat_id, query, raw, temperature)
+                if synthesized:
+                    raw = synthesized
             # БЛОК 7.2b (T-1921): единая стадия пост-обработки — reasoning-
             # теги-черновики не уходят пользователю (no-op без тегов).
             answer = strip_reasoning_tags(str(raw).strip())
@@ -823,6 +843,66 @@ class DirectChatService:
             # → повтор того же текста молчит. Заглушки в кэш НЕ пишутся.
             if dedup_key is not None and self._cache is not None:
                 await self._cache.set_dedup(dedup_key, answer_text or "")
+
+    # ── System 2 direct (F5, раунд 10.22, ADR-1022-5) ───────────
+
+    async def _synthesize_direct_answer(self, chat_id: int, query: str,
+                                        raw, temperature) -> str | None:
+        """Синтезатор тулов → Вербализатор. ``None`` → финал tool-loop.
+
+        Stage-1 получает ТОЛЬКО санитизированную «кашу» логов; Stage-2 —
+        ONLY валидированную JSON-справку (изоляция). Любой сбой/невалидный
+        JSON/пустой ответ → ``None`` (fail-safe, R17: логи без содержимого).
+        """
+        try:
+            tool_context = redact_secrets(
+                str(getattr(raw, "tool_context", "") or ""))
+            trace = getattr(raw, "tool_trace", []) or []
+            trace_summary = ", ".join(
+                f"{entry.get('tool')}:{entry.get('out_chars')}"
+                for entry in trace if entry.get("tool")) or "-"
+            synth_user = (
+                f"СООБЩЕНИЕ ЮЗЕРА:\n{query}\n\n"
+                f"ИНСТРУМЕНТЫ (сводка):\n{trace_summary}\n\n"
+                f"ВЫВОДЫ ИНСТРУМЕНТОВ:\n{tool_context}"
+            )
+            synth_messages = [
+                {"role": "system", "content": DIRECT_SYNTHESIZER_SYSTEM_PROMPT},
+                {"role": "user", "content": synth_user},
+            ]
+            raw_synth = await self.llm.generate(
+                synth_messages, temperature=temperature, chat_id=chat_id)
+            data = parse_direct_synthesis(str(raw_synth))
+            if data is None:
+                logger.info(
+                    "[direct] system2: невалидная справка — fallback | chat=%s",
+                    chat_id)
+                return None
+            base_messages = [
+                {"role": "system", "content": DIRECT_VERBALIZER_SYSTEM_PROMPT},
+                {"role": "user",
+                 "content": "СПРАВКА (JSON):\n" + json.dumps(data, ensure_ascii=False)},
+            ]
+
+            async def _generate(messages):
+                return await self.llm.generate(
+                    messages, temperature=temperature, chat_id=chat_id)
+
+            text, stats = await verbalize_validated(
+                _generate, base_messages, max_retries=2)
+            logger.info(
+                "[direct] system2 | chat=%s | attempts=%d | retries=%d | "
+                "hits=%d | fallback=%s", chat_id, stats.get("attempts", 0),
+                stats.get("retries", 0), len(stats.get("hits") or []),
+                bool(stats.get("fallback")))
+            if not text.strip():
+                return None
+            return text
+        except Exception as exc:                # fail-safe → финал tool-loop
+            logger.info(
+                "[direct] system2 failed — fallback tool-loop | chat=%s | "
+                "error=%s", chat_id, type(exc).__name__)
+            return None
 
     # ── Context Partitioning (58.6) ─────────────────────────────
 

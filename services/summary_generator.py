@@ -30,11 +30,21 @@ from services.chat_params import (
 )
 from services.database import row_get
 from services.llm_client import LLMBadResponseError, LLMError
+from services.negative_constraints import (
+    DEFAULT_ENABLED_RULES,
+    verbalize_validated,
+)
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import _build_batch_text, fire_and_forget
-from services.summary_prompts import SYSTEM_PROMPT
+from services.summary_prompts import (
+    SUMMARY_EDITOR_SYSTEM_PROMPT,
+    SUMMARY_NARRATOR_SYSTEM_PROMPT,
+    SYSTEM_PROMPT,
+)
+from services.system2_handoff import validate_summary_digest
 from services.smartmodule_concurrency import get_smartmodule_concurrency_pool
 from services.summary_xml import escape_xml_text
+from services.telegram_send import edit_text_safe, send_text
 from services.token_counter import (
     count_tokens,
     resolve_chat_limit,
@@ -200,44 +210,26 @@ class SummaryGenerator:
             # T-619: промпт саммари — горячая точка (фолбек код-канона).
             summary_prompt = hot.get("prompts.summary_system_prompt", SYSTEM_PROMPT)
             system = summary_prompt.replace("{max_symbols}", str(max_symbols))
-            started = time.monotonic()
             payload = [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user_content},
             ]
-            # Epic 60 (65.7, T-475): «печатает…» вокруг LLM-точки (manual И
-            # cron — в чат всё равно пишется). Без искусственной паузы.
-            # Epic 60 (65.1, T-469): LLMBadResponseError (пустой ответ) —
-            # молчание ДО retry-once; R13-ветки не тронуты.
-            try:
-                async with typing_active(self.bot, chat_id):
-                    raw = await self.llm.generate(payload)
-            except LLMBadResponseError as exc:
-                logger.warning(
-                    "summary: empty answer — silence | chat_id=%s | error=%s",
-                    chat_id, exc)
-                return                     # молчание: ни заглушки, ни реакции
-            except LLMError as exc:
-                # Epic 47 (D189, 56.6): A — retry-once (пауза SUMMARY_RETRY_ONCE_PAUSE)
-                logger.warning("summary: LLM failed — retry-once | chat_id=%s", chat_id)
-                await asyncio.sleep(hot.get("limits.summary_retry_once_pause", settings.SUMMARY_RETRY_ONCE_PAUSE))
-                try:
-                    started = time.monotonic()   # latency_ms — только повторная попытка
-                    async with typing_active(self.bot, chat_id):
-                        raw = await self.llm.generate(payload)
-                except LLMBadResponseError as exc:
-                    # 65.1: пустой ответ на повторе — тоже молчание.
-                    logger.warning(
-                        "summary: empty answer — silence | chat_id=%s | error=%s",
-                        chat_id, exc)
-                    return
-                except LLMError:
-                    raise                       # C — UX R13 через внешний except
-            latency_ms = (time.monotonic() - started) * 1000.0
-            logger.info(
-                "summary LLM raw response | chat_id=%s | len=%d | latency_ms=%.0f | raw=%r",
-                chat_id, len(raw), latency_ms, raw,
-            )
+            # Раунд 10.22 (F4, ADR-1022-4): System 2 — Редактор (Markdown-выжимка)
+            # → Рассказчик (plain R11). Невалидный digest/провал → одиночный путь.
+            if getattr(settings, "SYSTEM2_SUMMARY_ENABLED", True):
+                staged = await self._generate_two_call(
+                    user_content, max_symbols, chat_id)
+                if staged is not None:
+                    raw = staged
+                else:
+                    logger.info(
+                        "summary system2: fallback на одиночный путь 10.21 | "
+                        "chat_id=%s", chat_id)
+                    raw = await self._llm_generate(payload, chat_id)
+            else:
+                raw = await self._llm_generate(payload, chat_id)
+            if raw is None:
+                return
             raw = cleanup_llm_text(raw)                   # Epic 28 (R28-3)
             if not raw.strip():
                 # Epic 60 (65.1): после cleanup пусто → молчание (без реакции:
@@ -261,6 +253,87 @@ class SummaryGenerator:
         except Exception:
             logger.exception("summary: unexpected failure | chat_id=%s", chat_id)
             await self._send_ux(chat_id, _UX_GENERIC_FAILED)
+
+    async def _llm_generate(self, payload: list[dict], chat_id: int) -> str | None:
+        """Один LLM-вызов саммари с retry-once. ``None`` → молчание (пустой
+        ответ), `LLMError` на повторе пробрасывается (R13-ветка внешнего except)."""
+        started = time.monotonic()
+        # Epic 60 (65.7, T-475): «печатает…» вокруг LLM-точки (manual И cron).
+        # Epic 60 (65.1, T-469): LLMBadResponseError (пустой ответ) — молчание
+        # ДО retry-once; R13-ветки не тронуты.
+        try:
+            async with typing_active(self.bot, chat_id):
+                raw = await self.llm.generate(payload)
+        except LLMBadResponseError as exc:
+            logger.warning(
+                "summary: empty answer — silence | chat_id=%s | error=%s",
+                chat_id, exc)
+            return None
+        except LLMError:
+            # Epic 47 (D189, 56.6): A — retry-once (пауза SUMMARY_RETRY_ONCE_PAUSE)
+            logger.warning("summary: LLM failed — retry-once | chat_id=%s", chat_id)
+            await asyncio.sleep(hot.get("limits.summary_retry_once_pause",
+                                        settings.SUMMARY_RETRY_ONCE_PAUSE))
+            try:
+                started = time.monotonic()   # latency_ms — только повторная попытка
+                async with typing_active(self.bot, chat_id):
+                    raw = await self.llm.generate(payload)
+            except LLMBadResponseError as exc:
+                # 65.1: пустой ответ на повторе — тоже молчание.
+                logger.warning(
+                    "summary: empty answer — silence | chat_id=%s | error=%s",
+                    chat_id, exc)
+                return None
+            except LLMError:
+                raise                       # C — UX R13 через внешний except
+        latency_ms = (time.monotonic() - started) * 1000.0
+        # R17 (S10.22-8): логируем только числа/тайминги/класс, без сырого
+        # ответа LLM (прецедент `factcheck_service._invoke_llm`).
+        logger.info(
+            "summary LLM response | chat_id=%s | len=%d | latency_ms=%.0f",
+            chat_id, len(raw), latency_ms,
+        )
+        return raw
+
+    async def _generate_two_call(self, user_content: str, max_symbols: int,
+                                 chat_id: int) -> str | None:
+        """System 2 саммари: Редактор → Рассказчик. ``None`` → одиночный путь."""
+        editor_payload = [
+            {"role": "system", "content": SUMMARY_EDITOR_SYSTEM_PROMPT},
+            {"role": "user", "content": user_content},
+        ]
+        editor_raw = await self._llm_generate(editor_payload, chat_id)
+        if editor_raw is None:
+            return None
+        digest = validate_summary_digest(editor_raw)
+        if digest is None:
+            logger.info(
+                "summary system2: невалидная выжимка редактора — fallback | "
+                "chat_id=%s", chat_id)
+            return None
+        narrator_system = SUMMARY_NARRATOR_SYSTEM_PROMPT.replace(
+            "{max_symbols}", str(max_symbols))
+        base_messages = [
+            {"role": "system", "content": narrator_system},
+            {"role": "user", "content": "ВЫЖИМКА (Markdown):\n" + digest},
+        ]
+
+        async def _generate(messages):
+            return await self.llm.generate(messages)
+
+        text, stats = await verbalize_validated(
+            _generate, base_messages, max_retries=2,
+            # F4 — Рассказчик отдаёт plain-text R11: маркированный список
+            # («- …», «1. …») вне жанра → бракуем (правило F6, вторичное).
+            enabled_rules=DEFAULT_ENABLED_RULES | {"bullet_list"})
+        logger.info(
+            "summary system2 narrator | chat_id=%s | attempts=%d | retries=%d "
+            "| hits=%d | fallback=%s", chat_id, stats.get("attempts", 0),
+            stats.get("retries", 0), len(stats.get("hits") or []),
+            bool(stats.get("fallback")))
+        if not text.strip():
+            return None
+        return text
 
     # ── Postprocessing ────────────────────────────────────────
 
@@ -398,7 +471,7 @@ class SummaryGenerator:
             logger.warning("summary: streaming — empty final text | chat_id=%s",
                            chat_id)
             return
-        sent = await self.bot.send_message(chat_id, "…")
+        sent = await send_text(self.bot, chat_id, "…")
         acc, last_text = "", "…"
         for index, chunk in enumerate(chunks):
             # Накопление с разделителем: чанки режутся ПО пробелам (сам
@@ -409,12 +482,12 @@ class SummaryGenerator:
             if new_text == last_text:
                 continue                    # защита «message is not modified»
             try:
-                await sent.edit_text(new_text)
+                await edit_text_safe(sent, new_text)
                 last_text = new_text
             except TelegramRetryAfter as exc:       # сон + РОВНО 1 повтор, затем drop
                 await asyncio.sleep(exc.retry_after)
                 try:
-                    await sent.edit_text(new_text)
+                    await edit_text_safe(sent, new_text)
                     last_text = new_text
                 except Exception:
                     pass                    # финальный edit гарантирует полноту
@@ -432,7 +505,7 @@ class SummaryGenerator:
             await asyncio.sleep(interval)
         try:                                # финальный edit — полнота (без «…»)
             if acc[:4096] != last_text.rstrip("…"):
-                await sent.edit_text(acc[:4096])
+                await edit_text_safe(sent, acc[:4096])
         except Exception:
             logger.warning("summary: streaming final edit failed | chat_id=%s",
                            chat_id)
@@ -458,18 +531,18 @@ class SummaryGenerator:
 
     async def _send_one_chunk(self, chat_id: int, chunk: str) -> None:
         try:
-            await self.bot.send_message(chat_id, chunk)
+            await send_text(self.bot, chat_id, chunk)
         except TelegramRetryAfter as exc:
             logger.warning(
                 "summary: TelegramRetryAfter %.1fs — sleeping, one retry | chat_id=%s",
                 exc.retry_after, chat_id,
             )
             await asyncio.sleep(exc.retry_after)
-            await self.bot.send_message(chat_id, chunk)
+            await send_text(self.bot, chat_id, chunk)
 
     async def _send_ux(self, chat_id: int, text: str) -> None:
         """Send a UX phrase; its own failure must never crash the run."""
         try:
-            await self.bot.send_message(chat_id, text)
+            await send_text(self.bot, chat_id, text)
         except Exception:
             logger.exception("summary: failed to send UX message | chat_id=%s", chat_id)

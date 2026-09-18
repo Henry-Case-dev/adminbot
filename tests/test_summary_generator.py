@@ -225,7 +225,8 @@ class TestPipeline:
         await generator.generate_and_send(-100)
 
     @pytest.mark.asyncio
-    async def test_raw_response_logged(self, no_sleep, caplog):
+    async def test_raw_response_not_logged(self, no_sleep, caplog):
+        """S10.22-8 (R17): сырой ответ LLM НЕ уходит в лог — только числа."""
         import logging
 
         memory = FakeMemory(rows=[_row()])
@@ -234,8 +235,9 @@ class TestPipeline:
         generator = _make_generator(memory, llm, bot)
         with caplog.at_level(logging.INFO):
             await generator.generate_and_send(-100)
-        assert any("summary LLM raw response" in r.message for r in caplog.records)
-        assert any("сырой текст саммари" in r.message for r in caplog.records)
+        assert any("summary LLM response" in r.message for r in caplog.records)
+        assert not any("сырой текст саммари" in r.message
+                       for r in caplog.records)
 
 
 class TestShizPostfix:
@@ -875,7 +877,8 @@ class TestCleanupApplied:
         assert sent.endswith("самым главным шизом объявляется вася")
 
     @pytest.mark.asyncio
-    async def test_raw_log_kept_before_cleanup(self, no_sleep, caplog):
+    async def test_llm_log_has_no_content(self, no_sleep, caplog):
+        """S10.22-8 (R17): лог LLM-ответа — только len/latency, без содержимого."""
         import logging
 
         memory = FakeMemory(rows=[_row()])
@@ -884,8 +887,8 @@ class TestCleanupApplied:
         generator = _make_generator(memory, llm, bot)
         with caplog.at_level(logging.INFO):
             await generator.generate_and_send(-100)
-        raw_logs = [r.message for r in caplog.records if "summary LLM raw response" in r.message]
-        assert any("«ёлочкой»" in msg for msg in raw_logs)  # лог честный raw, до очистки
+        assert not any("«ёлочкой»" in r.message for r in caplog.records)
+        assert any("len=" in r.message for r in caplog.records)
 
 
 @pytest.fixture

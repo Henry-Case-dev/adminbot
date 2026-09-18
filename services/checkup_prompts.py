@@ -12,7 +12,10 @@ Placeholder: {max_symbols} ×1 (runtime), подстановка ТОЛЬКО ч
 (прецедент Epic 27/29).
 """
 
-from services.prompt_style_blocks import STYLE_BLOCKS_SUFFIX
+from services.prompt_style_blocks import (
+    PREV_STYLE_BLOCKS_SUFFIX,
+    STYLE_BLOCKS_SUFFIX,
+)
 
 # Слепок HEAD 68fb03e (раунд 5) ДО правки — для авто-миграции PG.
 PREV_CHECKUP_SYSTEM_PROMPT = """СИСТЕМНАЯ РОЛЬ:
@@ -59,6 +62,12 @@ PREV_CHECKUP_R1021_SYSTEM_PROMPT = _CHECKUP_R1021_BASE
 
 # Канон раунда 10.21: базовый текст + блоки A/B.
 CHECKUP_SYSTEM_PROMPT = _CHECKUP_R1021_BASE + STYLE_BLOCKS_SUFFIX
+
+# Слепок прод-канона 10.21 (прежние блоки A/B, без п.7) — авто-миграция PG
+# (F6, ADR-1022-6; ADR-1013-3).
+PREV_R1022_CHECKUP_SYSTEM_PROMPT = (
+    _CHECKUP_R1021_BASE + PREV_STYLE_BLOCKS_SUFFIX
+)
 
 # R42-2: скрытая приписка в system-контекст при фолбеке (ДОСЛОВНО; добавляется
 # В КОНЕЦ system-сообщения отдельным абзацем "\n\n" ПОСЛЕ канона, ровно 1 раз)

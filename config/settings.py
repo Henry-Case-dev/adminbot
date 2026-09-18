@@ -516,6 +516,42 @@ class Settings:
     # НЕ dataclass-поле (в каталог не входит, Settings 407 не растёт).
     CHAT_CONTEXT_UNLIMITED_CEILING_TOKENS: ClassVar[int] = _env_int_min(
         "CHAT_CONTEXT_UNLIMITED_CEILING_TOKENS", 32000, 1000)
+    # ── Раунд 10.22 (F6, ADR-1022-6): env-only ClassVar рубильники egress.
+    # Оба default ON (UPD3 Д-5), Δ каталога = 0 (в param_catalog не входят).
+    #   * TELEGRAM_SEND_GUARD_ENABLED — regex-предохранитель отправки
+    #     (`services/outgoing_guard.sanitize_outgoing` через
+    #     `services/telegram_send`): тихо режет только технические теги
+    #     (`<thought>`-семейство, `fact:\d+`, `msg:\d+`); клише НЕ режет.
+    #   * SYSTEM2_VALIDATOR_LOOP_ENABLED — детектор ИИ-клише + петля возврата
+    #     Вербализатору (`services/negative_constraints.verbalize_validated`).
+    TELEGRAM_SEND_GUARD_ENABLED: ClassVar[bool] = _env_bool(
+        "TELEGRAM_SEND_GUARD_ENABLED", True)
+    SYSTEM2_VALIDATOR_LOOP_ENABLED: ClassVar[bool] = _env_bool(
+        "SYSTEM2_VALIDATOR_LOOP_ENABLED", True)
+    # ── Раунд 10.22 (F3/F4/F5, ADR-1022-3/4/5): env-only ClassVar kill-switch
+    # двухвызовных пайплайнов System 2 (Слой-1 → Слой-2). default ON, Δ
+    # каталога = 0. OFF → ровно одиночный путь 10.21 (байт-в-байт).
+    SYSTEM2_FACTCHECK_ENABLED: ClassVar[bool] = _env_bool(
+        "SYSTEM2_FACTCHECK_ENABLED", True)
+    SYSTEM2_SUMMARY_ENABLED: ClassVar[bool] = _env_bool(
+        "SYSTEM2_SUMMARY_ENABLED", True)
+    SYSTEM2_DIRECT_ENABLED: ClassVar[bool] = _env_bool(
+        "SYSTEM2_DIRECT_ENABLED", True)
+    # ── Раунд 10.22 (F8, ADR-1022-8): env-only ClassVar-рубильники
+    # асинхронной пересборки досье из мини-аппа. Δ каталога = 0 (в
+    # param_catalog не входят; прецедент MULTILAYER_EXTRACTION_ENABLED).
+    #   * DOSSIER_REBUILD_UI_ENABLED — kill-switch: OFF → rebuild-эндпоинты
+    #     404 (в т.ч. `latest`), по 404 фронт скрывает блок «Пересборка досье»;
+    #     остальной функционал досье не затронут.
+    #   * DOSSIER_REBUILD_CHUNK_SIZE — размер чанка окна для прогресса «X/Y».
+    #   * DOSSIER_REBUILD_LOCK_TTL_SECONDS — TTL кросс-процессного file-lock
+    #     (против одновременного CLI-прогона F1).
+    DOSSIER_REBUILD_UI_ENABLED: ClassVar[bool] = _env_bool(
+        "DOSSIER_REBUILD_UI_ENABLED", True)
+    DOSSIER_REBUILD_CHUNK_SIZE: ClassVar[int] = _env_int(
+        "DOSSIER_REBUILD_CHUNK_SIZE", 40)
+    DOSSIER_REBUILD_LOCK_TTL_SECONDS: ClassVar[int] = _env_int(
+        "DOSSIER_REBUILD_LOCK_TTL_SECONDS", 6 * 3600)
     # Лимит Telegram: число частей ответа (чанкинг 4096).
     MAX_SUMMARY_PARTS: int = _env_int("MAX_SUMMARY_PARTS", 1)
     SUMMARY_TIMEZONE: str = os.getenv("SUMMARY_TIMEZONE", "Asia/Yekaterinburg")

@@ -891,6 +891,14 @@
         dossierDraft: '',        // ручная правка (textarea)
         dossierSaving: false,
         dossierSavedAt: 0,       // monotonic-метка успешного сохранения
+        // ── F8 round 10.22 (ADR-1022-8): асинхронная пересборка досье ──
+        dossierRebuildPeriod: '180',  // 30|90|180|all (default 180)
+        dossierRebuildJob: null,      // job-view (сервер — источник истины)
+        dossierRebuildBusy: false,    // старт/отмена в полёте
+        dossierRebuildTimer: null,    // polling ~2с только пока job активен
+        // S10.22-6: доступность фичи (kill-switch DOSSIER_REBUILD_UI_ENABLED).
+        // OFF → latest отдаёт 404 → прячем блок вместо битой кнопки.
+        dossierRebuildEnabled: true,
         // ── Раунд 10.20 (БЛОК 3.6/T-1900): sticky-save (baseline конфига) ──
         configSnapshot: {},      // key → JSON(value) на момент загрузки
         stickySaving: false,
@@ -2745,8 +2753,12 @@
         this.dossierName = this.resolveRelationName(row) || '';
         this.dossierData = null;
         this.dossierDraft = '';
+        // F8: пересборка — состояние per-user; прогресс подтягиваем с сервера.
+        this.dossierRebuildJob = null;
+        this.stopDossierRebuildPolling();
         try {
           await this.loadDossier(row.user_id, this.dossierName);
+          await this.resumeDossierRebuild();
         } finally {
           this.dossierBusy = false;
         }
@@ -2770,6 +2782,9 @@
         this.dossierName = '';
         this.dossierData = null;
         this.dossierDraft = '';
+        // F8: polling не должен жить после закрытия модалки; сам job остаётся
+        // на сервере и подтянется при reopen (persistence).
+        this.stopDossierRebuildPolling();
       },
       saveDossier: async function () {
         if (this.dossierUserId == null || this.activeChatId == null) return;
@@ -2794,6 +2809,184 @@
         } finally {
           this.dossierSaving = false;
         }
+      },
+
+      // ═══ F8 round 10.22 (ADR-1022-8): пересборка досье ═══════════════
+      // Сервер — источник истины (job-store); фронт лишь рисует состояние и
+      // опрашивает GET, пока job активен. Ошибки GET — fail-open (нейтрально).
+      dossierRebuildIsActive: function (job) {
+        // S10.22-5: `interrupted` — НЕ активен для целей блокировки старта
+        // (оживёт только ручной откат). Активны лишь работающие статусы.
+        return !!job && ['queued', 'running', 'cancelling']
+          .indexOf(job.status) >= 0;
+      },
+      dossierRebuildCancelable: function (job) {
+        // Отмена/откат доступны и для `interrupted` (после рестарта процесса),
+        // хотя новый старт при этом разрешён.
+        return !!job && (this.dossierRebuildIsActive(job)
+          || job.status === 'interrupted');
+      },
+      dossierRebuildStageText: function (job) {
+        var map = {
+          snapshot: 'Снимок данных', cleanup: 'Очистка мусора',
+          extract: 'Извлечение фактов', synthesize: 'Синтез портрета',
+          write: 'Запись досье', finalize: 'Завершение',
+          rollback: 'Откат изменений',
+        };
+        return (job && map[job.stage]) || 'Выполняется';
+      },
+      // F8 §2.6 п.5: терминальный 'failed' не тупик — если снапшот цел и
+      // откат ещё не сделан, доступен повторный откат (кнопка «Повторить
+      // откат» вместо «Пересобрать заново»). Зеркалит серверный критерий.
+      dossierRollbackRetryable: function (job) {
+        if (!job || job.status !== 'failed' || !job.snapshot_ref) return false;
+        var rb = job.rollback || {};
+        if (rb.done) return false;
+        return job.error_code === 'rollback_failed'
+          || (job.cleaned || 0) > 0 || (job.rebuilt || 0) > 0;
+      },
+      startDossierRebuild: async function () {
+        if (this.dossierUserId == null || this.activeChatId == null) return;
+        if (this.dossierRebuildBusy) return;
+        if (this.dossierRebuildIsActive(this.dossierRebuildJob)) return;
+        var period = this.dossierRebuildPeriod || '180';
+        if (period === 'all' && !window.confirm(
+            'Пересборка «Всё время» может занять много времени и токенов. '
+            + 'Продолжить?')) {
+          return;
+        }
+        this.dossierRebuildBusy = true;
+        try {
+          var url = '/api/chat_lore/' + this.activeChatId + '/dossier/'
+            + this.dossierUserId + '/rebuild';
+          if (this.dossierName) {
+            url += '?name=' + encodeURIComponent(this.dossierName);
+          }
+          var data = await this.api(url, {
+            method: 'POST',
+            body: JSON.stringify({ period: period }),
+          });
+          this.dossierRebuildJob = data || null;
+          this._rememberDossierRebuild(data && data.job_id);
+          this.startDossierRebuildPolling();
+          this.toast('Пересборка досье запущена', 'ok');
+        } catch (e) {
+          var code = (e && e.message && e.message.code) || null;
+          if (e && e.status === 409 && code === 'chat_locked') {
+            // Кросс-процессный lock: пересборку чата уже ведёт CLI-прогон.
+            // Своего job'а нет — polling не запускаем.
+            this.toast('Чат занят другим прогоном пересборки — повторите '
+              + 'позже', 'warn');
+          } else if (e && e.status === 409) {
+            // already_running: подхватываем существующий job.
+            await this.loadDossierRebuild();
+            this.startDossierRebuildPolling();
+            this.toast('Пересборка уже выполняется', 'warn');
+          } else {
+            this.toast('Не удалось запустить пересборку: '
+              + this.loreErrText(e), 'err');
+          }
+        } finally {
+          this.dossierRebuildBusy = false;
+        }
+      },
+      loadDossierRebuild: async function () {
+        if (this.dossierUserId == null || this.activeChatId == null) return;
+        try {
+          var data = await this.api('/api/chat_lore/' + this.activeChatId
+            + '/dossier/' + this.dossierUserId + '/rebuild/latest');
+          this.dossierRebuildEnabled = true;
+          this.dossierRebuildJob = data || null;
+          this._rememberDossierRebuild(data && data.job_id);
+        } catch (e) {
+          // S10.22-6: kill-switch OFF → `latest` отдаёт 404. Прячем весь блок,
+          // а не показываем кнопку, ведущую в ошибку. Прочие сбои — fail-open.
+          if (e && e.status === 404) {
+            this.dossierRebuildEnabled = false;
+          }
+          this.dossierRebuildJob = null;
+        }
+      },
+      resumeDossierRebuild: async function () {
+        if (this.dossierUserId == null) return;
+        await this.loadDossierRebuild();
+        if (this.dossierRebuildIsActive(this.dossierRebuildJob)) {
+          this.startDossierRebuildPolling();
+        } else {
+          this.stopDossierRebuildPolling();
+        }
+      },
+      pollDossierRebuild: async function () {
+        var job = this.dossierRebuildJob;
+        if (!job || !job.job_id || this.dossierUserId == null) return;
+        try {
+          var data = await this.api('/api/chat_lore/' + this.activeChatId
+            + '/dossier/' + this.dossierUserId + '/rebuild/' + job.job_id);
+          if (!data) return;
+          this.dossierRebuildJob = data;
+          if (!this.dossierRebuildIsActive(data)) {
+            this.stopDossierRebuildPolling();
+            if (data.status === 'done') {
+              await this.loadDossier(this.dossierUserId, this.dossierName);
+              this.toast('Досье пересобрано', 'ok');
+            } else if (data.status === 'cancelled') {
+              await this.loadDossier(this.dossierUserId, this.dossierName);
+              this.toast('Пересборка отменена — данные восстановлены', 'warn');
+            } else if (data.status === 'failed') {
+              this.toast('Пересборка не удалась', 'err');
+            }
+          }
+        } catch (e) {
+          // Одиночный сбой опроса — не роняем UI; следующий тик повторит.
+        }
+      },
+      startDossierRebuildPolling: function () {
+        var self = this;
+        this.stopDossierRebuildPolling();
+        if (!this.dossierRebuildIsActive(this.dossierRebuildJob)) return;
+        this.dossierRebuildTimer = setInterval(function () {
+          self.pollDossierRebuild();
+        }, 2000);
+      },
+      stopDossierRebuildPolling: function () {
+        if (this.dossierRebuildTimer) {
+          clearInterval(this.dossierRebuildTimer);
+          this.dossierRebuildTimer = null;
+        }
+      },
+      cancelDossierRebuild: async function () {
+        var job = this.dossierRebuildJob;
+        if (!job || !job.job_id || this.dossierRebuildBusy) return;
+        var retry = this.dossierRollbackRetryable(job);
+        if (!window.confirm(retry
+            ? 'Повторить откат досье/фактов участника из снимка?'
+            : 'Отменить пересборку и откатить досье/факты участника?')) return;
+        this.dossierRebuildBusy = true;
+        try {
+          await this.api('/api/chat_lore/' + this.activeChatId + '/dossier/'
+            + this.dossierUserId + '/rebuild/' + job.job_id + '/cancel',
+            { method: 'POST' });
+          this.dossierRebuildJob = Object.assign({}, job,
+            { status: 'cancelling' });
+          this.startDossierRebuildPolling();
+        } catch (e) {
+          this.toast('Не удалось отменить: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.dossierRebuildBusy = false;
+        }
+      },
+      _rememberDossierRebuild: function (jobId) {
+        // localStorage — лишь подсказка {chat,user,job}; истина — сервер.
+        try {
+          if (jobId) {
+            localStorage.setItem('adminbot.dossier_rebuild', JSON.stringify({
+              chat_id: this.activeChatId, user_id: this.dossierUserId,
+              job_id: jobId,
+            }));
+          } else {
+            localStorage.removeItem('adminbot.dossier_rebuild');
+          }
+        } catch (e) { /* приватный режим — не критично */ }
       },
 
       // ═══ Раунд 10.20 (БЛОК 3.3/T-1897): «Живая лента досье» ══════════
@@ -6070,6 +6263,15 @@
         }
       },
       onVisibilityChange: function () {
+        // F8: свернули/вернули мини-апп с открытой модалкой Досье —
+        // приостанавливаем/возобновляем опрос пересборки (источник — сервер).
+        if (this.dossierOpen) {
+          if (document.hidden) {
+            this.stopDossierRebuildPolling();
+          } else {
+            this.resumeDossierRebuild();
+          }
+        }
         if (this.activeTab !== 'status') return;
         if (document.hidden) {
           this.stopCognitionPolling();
@@ -6266,6 +6468,7 @@
       this.stopStatusPolling();
       this.stopCognitionPolling();     // F5/R10.11-5: нет stale-таймера
       this.stopDossierFeedPolling();   // 10.20 (T-1897): нет stale-таймера
+      this.stopDossierRebuildPolling(); // F8: нет stale-таймера пересборки
       this.destroyCognitionGraph();
       // ISSUE-7: снимаем visibilitychange-листенер (F5-Q3) при unmount.
       if (_onVisibility) {
@@ -6333,8 +6536,21 @@
       // Инициализация/пересборка пар из объекта-значения item.value
       sync: function () {
         var raw = this.item && this.item.value;
-        var src = {};
-        if (raw && typeof raw === 'object' && !Array.isArray(raw)) src = raw;
+        // F2 round1022: backend может отдать строку-JSON (двойное
+        // кодирование jsonb) — распаковываем до объекта (до 2 уровней).
+        // Не-JSON строка/массив/скаляр → безопасно пусто (fallback).
+        var src = raw;
+        var guard = 0;
+        while (typeof src === 'string' && guard < 2) {
+          try {
+            src = JSON.parse(src);
+          } catch (e) {
+            src = null;
+            break;
+          }
+          guard++;
+        }
+        if (!src || typeof src !== 'object' || Array.isArray(src)) src = {};
         var pairs = Object.keys(src).map(function (k) {
           return { id: String(k), name: String(src[k] == null ? '' : src[k]) };
         });

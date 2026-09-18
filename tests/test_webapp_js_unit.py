@@ -40,3 +40,17 @@ def test_js_unit_round1021_ui_audit():
     glass/grid/mask/gradient/sticky + инвариант меню + регресс
     `_syntheticGroup` (метод, а не computed)."""
     _run_js(os.path.join("tests", "js", "round1021_ui_audit_test.js"))
+
+
+def test_js_unit_round1022_aliases():
+    """F2 round 10.22 (T-2032): KV-редактор `summary_aliases` рендерит пары из
+    объекта И из строки-JSON (двойное кодирование) — регресс-гейт."""
+    _run_js(os.path.join("tests", "js", "round1022_aliases_test.js"),
+            ok_marker="ALIASES-UNIT-OK")
+
+
+def test_js_unit_round1022_dossier_rebuild():
+    """F8 round 10.22 (ADR-1022-8): фронт пересборки досье — статусы/job-view,
+    POST period, 409-подхват, отмена+rollback-статус, polling, localStorage."""
+    _run_js(os.path.join("tests", "js", "round1022_dossier_rebuild_test.js"),
+            ok_marker="DOSSIER-REBUILD-UNIT-OK")

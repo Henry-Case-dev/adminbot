@@ -42,6 +42,7 @@ coalesce=True)`; джоб регистрируется и планировщик
 ошибка чата не роняет тик; fail-open WARNING).
 """
 import asyncio
+import inspect
 import json
 import logging
 import os
@@ -200,6 +201,32 @@ def _row_get(row, name: str, index: int):
         return row[index]
     except (IndexError, TypeError):
         return None
+
+
+def _cancel_requested(cancel_cb) -> bool:
+    """F8: кооперативная отмена между чанками/стадиями (fail-open — ошибка
+    колбэка НЕ считается отменой)."""
+    if cancel_cb is None:
+        return False
+    try:
+        return bool(cancel_cb())
+    except Exception:
+        return False
+
+
+async def _emit_progress(progress_cb, processed, total, stage) -> None:
+    """F8: fail-open вызов `progress_cb` (sync/async) — прогресс не роняет
+    пересборку."""
+    if progress_cb is None:
+        return
+    try:
+        result = progress_cb(processed, total, stage)
+        if inspect.isawaitable(result):
+            await result
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logger.debug("[lore_worker] progress callback failed (fail-open)")
 
 
 class LoreWorker:
@@ -700,7 +727,10 @@ class LoreWorker:
         min_chars = hot.get("limits.lore_min_message_chars",
                             settings.LORE_MIN_MESSAGE_CHARS)
         bot_exclude = int(self.bot_id) if self.bot_id else _NEVER_USER_ID
-        since_ts = int(time.time()) - max(1, int(window_hours)) * 3600
+        # F1 round1022 (UPD3): window_hours == 0 → без ограничения по времени
+        # (всё в пределах max_msgs); иначе — окно часов назад.
+        _hours = int(window_hours or 0)
+        since_ts = 0 if _hours <= 0 else int(time.time()) - _hours * 3600
         max_msgs = int(limit or hot.get(
             "limits.lore_window_max_messages",
             settings.LORE_WINDOW_MAX_MESSAGES))
@@ -715,6 +745,173 @@ class LoreWorker:
             return 0
         return await self._classify_dossier(chat_id, lines,
                                             self._window_names(rows))
+
+    async def count_window_messages(self, chat_id: int, *,
+                                    window_hours: int = 4320) -> int:
+        """F8 (ADR-1022-8 §2.4): дешёвый `COUNT` осмысленных сообщений окна —
+        для прогресса «X/Y чанков» без тяжёлого скана. Окно `smart_messages` —
+        только ЧТЕНИЕ (инвариант сырой истории)."""
+        db = self._db
+        min_chars = hot.get("limits.lore_min_message_chars",
+                            settings.LORE_MIN_MESSAGE_CHARS)
+        bot_exclude = int(self.bot_id) if self.bot_id else _NEVER_USER_ID
+        hours = int(window_hours or 0)
+        since_ts = 0 if hours <= 0 else int(time.time()) - hours * 3600
+        cursor = await db.db.execute(
+            _COUNT_WINDOW_SQL,
+            (chat_id, since_ts, int(min_chars), bot_exclude))
+        row = await cursor.fetchone()
+        return int(row[0]) if row is not None else 0
+
+    async def rebuild_dossier_for_user(
+            self, chat_id: int, *, target_user: str,
+            window_hours: int = 4320, limit: int | None = None,
+            chunk_size: int | None = 40, progress_cb=None,
+            cancel_cb=None) -> int:
+        """F8 (ADR-1022-8 §2.5): аддитивная user-scoped чанковая пересборка
+        досье — НЕ меняет поведение `rebuild_dossier_for_chat` (CLI F1).
+
+        Окно `smart_messages` — только ЧТЕНИЕ. `chunk_size=None` → текущее
+        одноразовое поведение (совместимость); иначе чанки окна прогоняются
+        через Слой А, кандидаты накапливаются и синтезируются Слоем Б один
+        раз; пишутся производные ТОЛЬКО для `target_user`. `progress_cb`
+        (sync/async) вызывается после каждого чанка/на переходах стадий;
+        `cancel_cb() -> bool` проверяется между чанками и стадиями → при True
+        поднимается `asyncio.CancelledError` (кооперативный abort)."""
+        db = self._db
+        min_chars = hot.get("limits.lore_min_message_chars",
+                            settings.LORE_MIN_MESSAGE_CHARS)
+        bot_exclude = int(self.bot_id) if self.bot_id else _NEVER_USER_ID
+        hours = int(window_hours or 0)
+        since_ts = 0 if hours <= 0 else int(time.time()) - hours * 3600
+        max_msgs = int(limit or hot.get(
+            "limits.lore_window_max_messages",
+            settings.LORE_WINDOW_MAX_MESSAGES))
+        cursor = await db.db.execute(
+            _WINDOW_SQL, (chat_id, since_ts, int(min_chars), bot_exclude,
+                          max_msgs))
+        rows = await cursor.fetchall()
+        lines = self._format_window(rows)
+        if not lines:
+            logger.info("[lore_worker] user rebuild: пустое окно | chat=%s",
+                        chat_id)
+            return 0
+        names = self._window_names(rows)
+        target = self._canon(target_user) or str(target_user or "").strip()
+        if not chunk_size:
+            return await self._classify_dossier(chat_id, lines, names)
+        return await self._classify_chunked_user(
+            chat_id, lines, names, target=target,
+            chunk_size=max(1, int(chunk_size)),
+            progress_cb=progress_cb, cancel_cb=cancel_cb)
+
+    async def _classify_chunked_user(
+            self, chat_id: int, window: list[str], names: list[str], *,
+            target: str, chunk_size: int, progress_cb=None,
+            cancel_cb=None) -> int:
+        """F8: Layer A по чанкам → накопление кандидатов → один Layer B.
+
+        Пишет `dossier_portrait`/`chat_meme` ТОЛЬКО для `target`."""
+        chunks = [window[i:i + chunk_size]
+                  for i in range(0, len(window), chunk_size)]
+        total = max(1, len(chunks))
+        processed = 0
+        person_facts: list = []
+        memes_a: list = []
+        await _emit_progress(progress_cb, 0, total, "extract")
+        for chunk in chunks:
+            if _cancel_requested(cancel_cb):
+                raise asyncio.CancelledError()
+            extracted = await self._extract_chunk(chat_id, chunk, names)
+            if extracted is None:
+                break
+            facts, memes = extracted
+            person_facts.extend(facts)
+            memes_a.extend(memes)
+            processed += 1
+            await _emit_progress(progress_cb, processed, total, "extract")
+        if _cancel_requested(cancel_cb):
+            raise asyncio.CancelledError()
+        await _emit_progress(progress_cb, processed, total, "synthesize")
+        if not person_facts and not memes_a:
+            return 0
+        layer_b_messages = [
+            {"role": "system", "content": LAYER_B_SYSTEM_PROMPT},
+            {"role": "user",
+             "content": build_layer_b_user(person_facts, memes_a, names)},
+        ]
+        from services import worker_budget
+        try:
+            if not await _budget_ok(
+                    chat_id,
+                    worker_budget.estimate_tokens(layer_b_messages[1]["content"]),
+                    calls=1):
+                logger.warning(
+                    "[lore_worker] WARNING skip: budget dossier (layer B "
+                    "user rebuild) | chat=%s", chat_id)
+                return await self._write_target_memes(chat_id, memes_a, target)
+            parsed_b = await self._layer_b_call(chat_id, layer_b_messages)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning(
+                "[lore_worker] user rebuild layer B failed — мемы A "
+                "target-scoped | chat=%s", chat_id)
+            return await self._write_target_memes(chat_id, memes_a, target)
+        validated = validate_layer_b(parsed_b, window)
+        if _cancel_requested(cancel_cb):
+            raise asyncio.CancelledError()
+        target_key = target.casefold()
+        portraits = [
+            item for item in (validated.get("portraits") or [])
+            if isinstance(item, dict)
+            and str(item.get("target") or "").strip().casefold() == target_key]
+        written = await self._write_generated_portraits(
+            chat_id, portraits, names)
+        memes_b = validated.get("memes") if "memes" in validated else None
+        written += await self._write_target_memes(
+            chat_id, memes_a if memes_b is None else memes_b, target)
+        await _emit_progress(progress_cb, processed, total, "write")
+        return written
+
+    async def _extract_chunk(self, chat_id: int, lines: list[str],
+                             names: list[str]) -> tuple | None:
+        """Layer A одного чанка. None — бюджет исчерпан (стоп извлечения);
+        ошибка разбора → пустой результат (fail-open, чанк пропущен)."""
+        layer_a_user = build_layer_a_user(lines, names)
+        messages = [
+            {"role": "system", "content": LAYER_A_SYSTEM_PROMPT},
+            {"role": "user", "content": layer_a_user},
+        ]
+        from services import worker_budget
+        if not await _budget_ok(
+                chat_id, worker_budget.estimate_tokens(layer_a_user), calls=1):
+            logger.warning(
+                "[lore_worker] WARNING skip: budget dossier (chunk) | "
+                "chat=%s", chat_id)
+            return None
+        try:
+            parsed_a = await self._layer_a_call(chat_id, messages)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning(
+                "[lore_worker] layer A chunk failed — skip | chat=%s",
+                chat_id)
+            return [], []
+        filtered = filter_layer_a_candidates(parsed_a, names, canon=self._canon)
+        return filtered["person_facts"], filtered["memes"]
+
+    async def _write_target_memes(self, chat_id: int, items,
+                                  target: str) -> int:
+        """Запись `chat_meme` только для `target` (F8 user-scoped)."""
+        key = str(target or "").strip().casefold()
+        if not key:
+            return await self._write_chat_memes(chat_id, items)
+        filtered = [it for it in (items or [])
+                    if isinstance(it, dict)
+                    and str(it.get("target") or "").strip().casefold() == key]
+        return await self._write_chat_memes(chat_id, filtered)
 
     async def _layer_a_call(self, chat_id: int,
                             messages: list[dict]) -> dict:

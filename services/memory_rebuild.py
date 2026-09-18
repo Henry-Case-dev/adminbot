@@ -23,8 +23,11 @@ fsync каталога/файла) ДО любого DELETE + JSONL-архив �
 """
 import asyncio
 import datetime
+import inspect
 import json
 import logging
+import math
+import time
 from pathlib import Path
 
 from config.settings import settings
@@ -63,6 +66,10 @@ RAW_HISTORY_TABLES = frozenset({
 
 _ARCHIVE_BATCH = 2000
 _DEFAULT_BACKUP_PREFIX = "memory_rebuild_"
+# F1/§2.3 (round1022): bounded-ретраи записи на `database is locked`
+# (busy_timeout=5с уже стоит на соединении; экспоненциальный бэкофф).
+_LOCK_RETRIES = 3
+_LOCK_BACKOFF = 0.1
 
 
 class UnsafeMutationError(RuntimeError):
@@ -84,12 +91,24 @@ def assert_derived_table(table: str, *, extra: frozenset = frozenset()) -> None:
 
 async def _guarded_delete(db, table: str, where_sql: str, params=(),
                           *, extra: frozenset = frozenset()) -> int:
-    """Единственный путь удаления строк: guard → DELETE → commit."""
+    """Единственный путь удаления строк: guard → DELETE → commit.
+
+    F1/§2.3: при `database is locked` — до `_LOCK_RETRIES` повторов с
+    экспоненциальным бэкоффом (запись в живую БД/WAL не блокирует бота)."""
     assert_derived_table(table, extra=extra)
-    cursor = await db.db.execute(
-        f"DELETE FROM {table} WHERE {where_sql}", tuple(params))
-    await db.db.commit()
-    return int(cursor.rowcount or 0)
+    attempt = 0
+    while True:
+        try:
+            cursor = await db.db.execute(
+                f"DELETE FROM {table} WHERE {where_sql}", tuple(params))
+            await db.db.commit()
+            return int(cursor.rowcount or 0)
+        except Exception as exc:
+            locked = "locked" in str(exc).lower()
+            if not locked or attempt >= _LOCK_RETRIES:
+                raise
+            attempt += 1
+            await asyncio.sleep(_LOCK_BACKOFF * (2 ** (attempt - 1)))
 
 
 async def delete_generated_facts(db, ids, *, batch: int = _ARCHIVE_BATCH) -> int:
@@ -262,13 +281,16 @@ async def _list_orphan_facts(db, chat_id: int, limit: int) -> list:
     return [dict(r) for r in await cursor.fetchall()]
 
 
-async def _list_beliefs(db, chat_id: int, limit: int) -> list:
-    """Убеждения/парадигмы чата (kind='belief') — кандидаты валидатора."""
+async def _list_beliefs(db, chat_id: int, limit: int,
+                        after_id: int = 0) -> list:
+    """Убеждения/парадигмы чата (kind='belief') — кандидаты валидатора.
+
+    Keyset-пагинация по `id` (``after_id``) — для полного обхода без потерь."""
     cursor = await db.db.execute(
         "SELECT id, fact, target_user, weight, created_at, status, kind, "
         "belief_meta, source_ids FROM graph_facts WHERE chat_id = ? "
-        "AND kind = 'belief' ORDER BY id ASC LIMIT ?",
-        (int(chat_id), int(limit)))
+        "AND kind = 'belief' AND id > ? ORDER BY id ASC LIMIT ?",
+        (int(chat_id), int(after_id), int(limit)))
     return [dict(r) for r in await cursor.fetchall()]
 
 
@@ -397,22 +419,38 @@ def validate_belief_row(row, existing_ids) -> str | None:
 
 # ── операции ──────────────────────────────────────────────────────────────
 
+def _pipeline_takes_window(pipeline) -> bool:
+    """F1/§2.2: поддерживает ли pipeline `window_hours=` (для effective_window)."""
+    try:
+        return "window_hours" in inspect.signature(pipeline).parameters
+    except (TypeError, ValueError):
+        return False
+
+
 async def rebuild_dossiers(db, *, chat_ids, dry_run: bool = False,
                            include_overrides: bool = False, limit: int = 500,
                            pipeline=None, db_path=None, backup_dir=None,
-                           window_hours: int = 168, batch: int = 2000) -> dict:
-    """F5/§4.1: сброс сгенерированных мемов → пересборка досье (pipeline).
+                           window_hours: int = 4320, batch: int = 2000) -> dict:
+    """F5/§4.1 + F1 round1022 (UPD3): сброс сгенерированных мемов/портретов и
+    confirmed-фактов участников → пересборка досье (pipeline).
 
-    `pipeline` — async callable `(chat_id) -> int` (число записанных мемов);
-    в CLI это двухслойный пайплайн F1 (`LoreWorker.rebuild_dossier_for_chat`).
-    Без pipeline боевой прогон отменяется (`no_pipeline`) — не сбрасываем
-    мемы, если нечем пересобирать. Авто-бэкап — один раз до первого DELETE."""
+    `pipeline` — async callable `(chat_id[, window_hours=]) -> int` (число
+    записанных мемов); в CLI это двухслойный пайплайн F1
+    (`LoreWorker.rebuild_dossier_for_chat`). Без pipeline боевой прогон
+    отменяется (`no_pipeline`). Авто-бэкап — один раз до первого DELETE.
+
+    Порядок (F1 ADR-1022-1 §8): мемы/портреты → confirmed-cleanup (JSONL+сверка)
+    → pipeline по 180-дневному (effective) окну. Инвариант результата:
+    что-то сброшено, но `rebuilt == 0` → reason `rebuild_empty` (ненулевой exit
+    в CLI). Сырая история/overrides/beliefs/nodes/edges не мутируются."""
     out = {"dry_run": bool(dry_run), "chats": 0, "scanned": 0, "reset": 0,
-           "reset_portraits": 0, "rebuilt": 0, "skipped": 0, "reasons": {},
-           "backup": ""}
+           "reset_portraits": 0, "confirmed_candidates": 0, "cleaned_facts": 0,
+           "protected_belief_sources": 0, "rebuilt": 0, "skipped": 0,
+           "window_hours_used": None, "source_age_days": None,
+           "max_msgs": int(limit or 0), "reasons": {}, "backup": ""}
 
-    def _reason(code: str) -> None:
-        out["reasons"][code] = out["reasons"].get(code, 0) + 1
+    def _reason(code: str, count: int = 1) -> None:
+        out["reasons"][code] = out["reasons"].get(code, 0) + int(count)
 
     if not dry_run and pipeline is None:
         _reason("no_pipeline")
@@ -424,24 +462,49 @@ async def rebuild_dossiers(db, *, chat_ids, dry_run: bool = False,
             _reason(reason)
             return out
         out["backup"] = backup_path
+    takes_window = _pipeline_takes_window(pipeline) if pipeline else False
     for chat_id in chat_ids:
         out["chats"] += 1
         try:
             memes = await _list_generated_memes(db, chat_id, limit)
             portraits = await _list_generated_portraits(db, chat_id, limit)
+            confirmed = await _list_confirmed_dossier_facts(db, chat_id, limit)
         except Exception:
             logger.warning("[memory_rebuild] meme/portrait list failed | "
                            "chat=%s", chat_id, exc_info=True)
             _reason("read_error")
             out["skipped"] += 1
             continue
-        out["scanned"] += len(memes) + len(portraits)
+        out["scanned"] += len(memes) + len(portraits) + len(confirmed)
+        # R1b: effective_window обязан покрывать возраст удаляемых строк.
+        ages = [float(r.get("created_at") or 0)
+                for r in (memes + portraits + confirmed)]
+        oldest = min([a for a in ages if a > 0], default=0)
+        eff, age_days = _effective_window(window_hours, oldest, time.time())
+        if out["window_hours_used"] is None:
+            out["window_hours_used"] = eff
+        else:
+            out["window_hours_used"] = max(out["window_hours_used"], eff)
+        if out["source_age_days"] is None:
+            out["source_age_days"] = age_days
+        else:
+            out["source_age_days"] = max(out["source_age_days"], age_days)
+
         if dry_run:
             out["reset"] += len(memes)
             out["reset_portraits"] += len(portraits)
-            if memes or portraits:
+            clean = await cleanup_confirmed_dossier_facts(
+                db, chat_ids=[chat_id], dry_run=True, backup_dir=backup_dir,
+                batch=batch)
+            out["confirmed_candidates"] += clean["candidates"]
+            out["protected_belief_sources"] += clean["protected_belief_sources"]
+            for code, n in clean["reasons"].items():
+                _reason(code, n)
+            if memes or portraits or clean["candidates"]:
                 _reason("would_reset")
             continue
+
+        deleted_any = 0
         if memes:
             ok, _archived, deleted, reason = await _archive_and_delete(
                 db, memes, backup_dir=backup_dir, label="rebuild",
@@ -451,6 +514,7 @@ async def rebuild_dossiers(db, *, chat_ids, dry_run: bool = False,
                 out["skipped"] += 1
                 continue
             out["reset"] += deleted
+            deleted_any += deleted
         if portraits:
             ok, _archived, deleted, reason = await _archive_and_delete(
                 db, portraits, backup_dir=backup_dir,
@@ -460,6 +524,17 @@ async def rebuild_dossiers(db, *, chat_ids, dry_run: bool = False,
                 out["skipped"] += 1
                 continue
             out["reset_portraits"] += deleted
+            deleted_any += deleted
+        # confirmed-cleanup — строго после мемов/портретов, до pipeline.
+        clean = await cleanup_confirmed_dossier_facts(
+            db, chat_ids=[chat_id], dry_run=False, backup_dir=backup_dir,
+            batch=batch)
+        out["confirmed_candidates"] += clean["candidates"]
+        out["cleaned_facts"] += clean["cleaned"]
+        out["protected_belief_sources"] += clean["protected_belief_sources"]
+        for code, n in clean["reasons"].items():
+            _reason(code, n)
+        deleted_any += clean["cleaned"]
         if include_overrides:
             try:
                 n, reason = await _reset_overrides(db, chat_id, backup_dir)
@@ -473,7 +548,10 @@ async def rebuild_dossiers(db, *, chat_ids, dry_run: bool = False,
                                "chat=%s", chat_id, exc_info=True)
                 _reason("overrides_error")
         try:
-            written = int(await pipeline(chat_id) or 0)
+            if takes_window:
+                written = int(await pipeline(chat_id, window_hours=eff) or 0)
+            else:
+                written = int(await pipeline(chat_id) or 0)
         except Exception:
             logger.warning("[memory_rebuild] rebuild failed | chat=%s",
                            chat_id, exc_info=True)
@@ -481,6 +559,11 @@ async def rebuild_dossiers(db, *, chat_ids, dry_run: bool = False,
             out["skipped"] += 1
             continue
         out["rebuilt"] += written
+        if deleted_any > 0 and written == 0:
+            # R1b/ADR-1022-1 §5: молчаливый «успех» запрещён.
+            logger.warning("[memory_rebuild] rebuild empty after reset | "
+                           "chat=%s | deleted=%d", chat_id, deleted_any)
+            _reason("rebuild_empty")
     return out
 
 
@@ -656,3 +739,180 @@ async def sanitize_beliefs(db, *, chat_ids, dry_run: bool = False,
             continue
         out["deleted"] += deleted
     return out
+
+
+# ── F1 / round1022 (UPD3): confirmed-cleanup досье-фактов ──────────────────
+
+async def _list_confirmed_dossier_facts(db, chat_id: int, limit: int,
+                                         target_user=None,
+                                         after_id: int = 0) -> list:
+    """F1/§2.5 (UPD3): confirmed-факты, привязанные к участнику (питают
+    карточку «Досье»: `get_persona_card` фильтрует `target_user = name AND
+    status='confirmed'`). Точный скоуп удаления:
+
+        chat_id = :chat AND kind = 'fact' AND status = 'confirmed'
+        AND target_user IS NOT NULL AND target_user != ''  (+ target_user=:name)
+
+    `kind='belief'` (мета-слой) и непривязанные факты сюда НЕ попадают.
+
+    Keyset-пагинация: `after_id` — последний обработанный id (`id > after_id`,
+    стабильно даже при удалении строк позади курсора)."""
+    sql = ("SELECT id, chat_id, fact, target_user, weight, created_at, "
+           "status, kind FROM graph_facts WHERE chat_id = ? "
+           "AND kind = 'fact' AND status = 'confirmed' "
+           "AND target_user IS NOT NULL AND target_user != '' "
+           "AND id > ?")
+    params: list = [int(chat_id), int(after_id)]
+    if target_user:
+        sql += " AND target_user = ?"
+        params.append(str(target_user))
+    sql += " ORDER BY id ASC LIMIT ?"
+    params.append(int(limit))
+    cursor = await db.db.execute(sql, tuple(params))
+    return [dict(r) for r in await cursor.fetchall()]
+
+
+async def _belief_source_set(db, chat_id: int, batch: int) -> set:
+    """F1/§2.5: id фактов-опор живых убеждений/парадигм чата (`source_ids` +
+    `evidence` из `belief_meta`). Такие факты ИСКЛЮЧАЮТСЯ из confirmed-cleanup
+    (иначе belief-валидатор получит `missing_sources`, прецедент S10.21-3).
+
+    Обход ВСЕХ beliefs чата keyset-пагинацией (не только первого батча) —
+    защита опор не должна зависеть от размера окна.
+
+    Fail-closed (S10.22-1): ошибка чтения `_list_beliefs` НЕ глушится — она
+    пробрасывается вызывающему `cleanup_confirmed_dossier_facts`, который
+    помечает чат `read_error` и ПРОПУСКАЕТ его cleanup (иначе пустой
+    `protected_ids` привёл бы к удалению опор живых убеждений, S10.21-3)."""
+    out: set = set()
+    step = max(1, int(batch))
+    after_id = 0
+    while True:
+        beliefs = await _list_beliefs(db, chat_id, step, after_id=after_id)
+        if not beliefs:
+            break
+        for row in beliefs:
+            out.update(_parse_source_ids(row.get("source_ids")))
+            raw_meta = row.get("belief_meta")
+            if not raw_meta:
+                continue
+            try:
+                meta = (json.loads(raw_meta) if isinstance(raw_meta, str)
+                        else raw_meta)
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(meta, dict):
+                continue
+            for value in meta.get("evidence") or []:
+                try:
+                    out.add(int(value))
+                except (TypeError, ValueError):
+                    continue
+        after_id = int(beliefs[-1]["id"])
+        if len(beliefs) < step:
+            break
+    return out
+
+
+async def cleanup_confirmed_dossier_facts(
+        db, *, chat_ids, target_user=None, dry_run: bool = False,
+        db_path=None, backup_dir=None, batch: int = 2000) -> dict:
+    """F1/§2.5 (UPD3) — новый общий примитив (владелец F1; F8 переиспользует).
+
+    Удаляет РОВНО confirmed-факты участников (`kind='fact'`, непустой
+    `target_user`) — те, что видны в «Досье». Порядок fail-closed:
+    выборка → защита `source_ids`/`evidence` живых beliefs → JSONL-архив →
+    сверка `candidates == archived` → guard-DELETE (`graph_facts`+FTS/vec).
+
+    Границы (не трогаются): `kind='belief'`, `nodes`/`edges`,
+    `persona_dossier_overrides`, `smart_messages`(+FTS/vec),
+    `import_checkpoints`. Возврат: `{candidates, cleaned,
+    protected_belief_sources, archived, reasons}`. `dry_run` — только counts.
+    """
+    out = {"dry_run": bool(dry_run), "chats": 0, "candidates": 0,
+           "cleaned": 0, "protected_belief_sources": 0, "archived": 0,
+           "reasons": {}}
+
+    def _reason(code: str) -> None:
+        out["reasons"][code] = out["reasons"].get(code, 0) + 1
+
+    for chat_id in chat_ids:
+        out["chats"] += 1
+        try:
+            protected_ids = await _belief_source_set(db, chat_id, int(batch))
+        except Exception:
+            logger.warning("[memory_rebuild] confirmed beliefs read failed | "
+                           "chat=%s", chat_id, exc_info=True)
+            _reason("read_error")
+            continue
+        # Keyset-пагинация: обрабатываем confirmed-факты чата порциями по
+        # `batch` до исчерпания (удаление строк позади курсора не мешает —
+        # следующий запрос идёт по `id > last_id`).
+        last_id = 0
+        step = max(1, int(batch))
+        while True:
+            try:
+                rows = await _list_confirmed_dossier_facts(
+                    db, chat_id, step, target_user, after_id=last_id)
+            except Exception:
+                logger.warning(
+                    "[memory_rebuild] confirmed list/read failed | chat=%s",
+                    chat_id, exc_info=True)
+                _reason("read_error")
+                break
+            if not rows:
+                break
+            last_id = int(rows[-1]["id"])
+            candidates = []
+            protected = 0
+            for row in rows:
+                if int(row["id"]) in protected_ids:
+                    protected += 1
+                    continue
+                candidates.append(row)
+            out["candidates"] += len(candidates)
+            out["protected_belief_sources"] += protected
+            if dry_run:
+                if candidates:
+                    _reason("would_clean")
+            elif candidates:
+                directory = _resolve_backup_dir(backup_dir)
+                ok, archived, _path = await _archive_generated_rows(
+                    candidates, directory, "confirmed")
+                out["archived"] += archived
+                if not ok or archived != len(candidates):
+                    logger.warning(
+                        "[memory_rebuild] confirmed archive mismatch — delete "
+                        "aborted | chat=%s | candidates=%d archived=%d",
+                        chat_id, len(candidates), archived)
+                    _reason("confirmed_cleanup_archive_mismatch")
+                    break
+                deleted = await delete_generated_facts(
+                    db, [r["id"] for r in candidates], batch=batch)
+                if deleted != len(candidates):
+                    _reason("delete_mismatch")
+                    break
+                out["cleaned"] += deleted
+            if len(rows) < step:
+                break
+    return out
+
+
+def _effective_window(window_hours: int, oldest_created_at, now: float) -> tuple:
+    """F1/§2.2: `(window_hours_used, source_age_days)`.
+
+    `effective_window = max(window_hours, ceil(age_hours) + 24)` (R1b: окно
+    обязано покрывать возраст удаляемых строк). `window_hours == 0` — без
+    ограничения по времени (`0`), в пределах `max_msgs`."""
+    age_hours = 0.0
+    try:
+        oldest = float(oldest_created_at)
+        if oldest > 0:
+            age_hours = max(0.0, (float(now) - oldest) / 3600.0)
+    except (TypeError, ValueError):
+        age_hours = 0.0
+    hours = int(window_hours or 0)
+    if hours == 0:
+        return 0, round(age_hours / 24.0, 1)
+    needed = int(math.ceil(age_hours)) + 24
+    return max(hours, needed), round(age_hours / 24.0, 1)

@@ -522,9 +522,12 @@ class TestGuideStyle:
         # H 10.20 (БЛОК 8): Летописец + безлимиты в гайде.
         assert "Летописец" in text
         assert "Лимиты и безлимиты" in text
+        # F7 10.22 (ADR-1022-7): блок «Как бот думает (System 2)».
+        assert "Как бот думает" in text
+        assert "System 2" in text
 
     def test_guide_not_empty_and_markdown(self):
         text = DOCS.read_text(encoding="utf-8")
         assert len(text) > 3000
         assert text.startswith("# ")
-        assert "## 11. Словарик" in text
+        assert "## 12. Словарик" in text

@@ -395,6 +395,19 @@ class TestConfigGroups8424:
         assert item["widget"] == "keyvalue"
         assert item["value"] == aliases
 
+    def test_summary_aliases_double_encoded_renders_object(self, client):
+        """F2 round1022 (ADR-1022-2, T-2030): защита от двойного кодирования
+        jsonb — для widget='keyvalue' /api/config отдаёт ОБЪЕКТ, не строку."""
+        aliases = {"138811255": "Леха"}
+        client.cache._settings["limits.summary_aliases"] = json.dumps(
+            json.dumps(aliases))          # двойное кодирование
+        resp = client.get("/api/config", headers=_hdr(ADMIN_ID))
+        item = {i["key"]: i for i in resp.json()["items"]}[
+            "limits.summary_aliases"]
+        assert item["widget"] == "keyvalue"
+        assert item["value"] == aliases
+        assert isinstance(item["value"], dict)
+
 
 class TestMemoryRetentionToggle:
     """Фаза 2 (T-755): memory.infinite_retention в GET /api/config, POST-toggle

@@ -216,6 +216,29 @@ def _coerce_value(spec, raw) -> Any:
     return str(raw)
 
 
+def _ensure_keyvalue_object(value, *, pg_key: str = "") -> dict:
+    """F2 round1022: вход KV-редактора (`widget='keyvalue'`) — ВСЕГДА объект.
+
+    Defense-in-depth от двойного кодирования jsonb: строка JSON распаковывается
+    (до 2 уровней); если объект так и не получен — пустой объект + WARNING
+    (R17: логируем только ключ/форму, без значений). Остальные `json`-виджеты
+    (textarea) не затронуты — helper вызывается точечно."""
+    current = value
+    for _ in range(2):
+        if not isinstance(current, str):
+            break
+        try:
+            current = json.loads(current)
+        except (TypeError, ValueError):
+            break
+    if isinstance(current, dict):
+        return current
+    if current not in (None, ""):
+        logger.warning("[api] keyvalue-значение не объект — отдаю пустой | "
+                       "key=%s | shape=%s", pg_key, type(current).__name__)
+    return {}
+
+
 def _chat_id_or_none(x_chat_id: str | None) -> int | None:
     """X-Chat-Id: прозрачный заголовок; мусор → 422; отсутствует → None
     (ровно старое поведение — глобальный конфиг, F-7 §6)."""
@@ -348,6 +371,12 @@ async def get_config(
                 if is_per_chat:
                     value = overrides[key]
                     chat_source = "chat"
+        # F2 round1022: KV-редактор получает ВСЕГДА объект (в т.ч. при
+        # двойном кодировании jsonb). Другие json-виджеты не затронуты.
+        if spec is not None and spec.widget == "keyvalue" and not secret:
+            value = _ensure_keyvalue_object(value, pg_key=key)
+            if chat_id is not None and global_value is not None:
+                global_value = _ensure_keyvalue_object(global_value, pg_key=key)
         items.append({"key": key, "value": value, "category": category,
                       "secret": secret,
                       "chat_source": chat_source,
