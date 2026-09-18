@@ -2231,12 +2231,20 @@
         this.loadTokenAnalytics();
       },
       // Шаги дерева последнего вызова: [{label, tokens, cost_usd, …}].
+      // F7 (review iter1): человекочитаемые метки шагов дерева
+      // («Слой 1/2», «Инструмент: name», «Один вызов», «Изображение»).
       tokenFlowNodes: function () {
         var latest = this.tokenAnalyticsLatest;
         var steps = (latest && latest.steps) || [];
+        var labels = {
+          stage1: 'Слой 1', stage2: 'Слой 2', tool: 'Инструмент',
+          single: 'Один вызов', image: 'Изображение',
+        };
         return steps.map(function (s) {
+          var base = labels[s.step] || (s.step || '?');
+          var label = base + (s.tool_name ? (': ' + s.tool_name) : '');
           return {
-            label: (s.step || '?') + (s.tool_name ? (':' + s.tool_name) : ''),
+            label: label,
             module: s.module || '',
             tokens: (s.input_tokens || 0) + (s.output_tokens || 0),
             cost_usd: s.cost_usd || 0,

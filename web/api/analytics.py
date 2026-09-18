@@ -229,7 +229,9 @@ async def prices_list(
     """Таблица цен моделей (для обслуживания из мини-аппа)."""
     cache = get_cache(request)
     pool = _pool(cache)
-    if pool is None:
+    # review iter1: мастер-флаг OFF → управление ценами тоже выключено
+    # (контракт spec §2.7 «эндпоинты возвращают пустой/shape-совместимый ответ»).
+    if pool is None or not usage_events.is_enabled():
         return {"prices": []}
     try:
         async with pool.acquire() as conn:
@@ -255,7 +257,7 @@ async def prices_upsert(
     """Upsert цены модели (admin-only); сбрасывает in-process кэш цен."""
     cache = get_cache(request)
     pool = _pool(cache)
-    if pool is None:
+    if pool is None or not usage_events.is_enabled():
         return {"ok": False, "model": payload.model}
     model = str(payload.model or "").strip()
     if not model:

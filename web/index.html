@@ -1069,7 +1069,7 @@
                     <template v-if="tokenFlowNodes().length">
                       <span v-for="(n, i) in tokenFlowNodes()" :key="'tn' + i" class="flex items-center gap-1">
                         <span class="badge badge-muted" :title="n.module">{{ n.label }}: {{ fmtExactTokens(n.tokens) }} т.<template v-if="n.estimated"> (оц.)</template></span>
-                        <span class="text-gray-500">→</span>
+                        <span v-if="i < tokenFlowNodes().length - 1" class="text-gray-500">→</span>
                       </span>
                       <span class="badge badge-info">Итого: {{ fmtCost(tokenAnalyticsLatest && tokenAnalyticsLatest.total ? tokenAnalyticsLatest.total.cost_usd : 0) }}</span>
                     </template>

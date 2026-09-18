@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from config.settings import Settings, settings
 from services import llm_pricing, usage_events
@@ -25,6 +25,10 @@ from services import pg_db as pg_mod
 from services.llm_client import LLMChatResult, LLMClient, LLMToolCall
 from services.tool_loop import chat_with_tools
 from web.api import analytics as analytics_api
+
+# e2e-корреляция через System-2 оркестраторы требует прод-дефолтов флагов
+# (conftest гасит SYSTEM2_* для немаркированных тестов).
+pytestmark = pytest.mark.system2
 
 
 # ── Фейковый PG (пул + соединение) ─────────────────────────────────────────
@@ -113,6 +117,39 @@ class TestDdl:
                  if "INSERT INTO llm_model_prices" in s]
         assert len(seeds) == 1
         assert "ON CONFLICT (model) DO NOTHING" in seeds[0]
+
+    def test_ddl_has_no_duplicate_create_and_is_guarded(self):
+        """Идемпотентность контракта: каждый CREATE — с IF NOT EXISTS, и в
+        наборе DDL нет дублирующихся имён таблиц (review iter1)."""
+        import re
+        sql = "\n".join(pg_mod.DDL_STATEMENTS)
+        creates = re.findall(
+            r"CREATE\s+(?:TABLE|INDEX)\s+", sql, re.IGNORECASE)
+        guarded = re.findall(
+            r"CREATE\s+(?:TABLE|INDEX)\s+IF NOT EXISTS\s+", sql, re.IGNORECASE)
+        assert len(creates) == len(guarded)
+        names = re.findall(r"CREATE TABLE IF NOT EXISTS (\w+)", sql)
+        assert len(names) == len(set(names))
+        assert {"llm_usage_events", "llm_model_prices"} <= set(names)
+
+    @pytest.mark.asyncio
+    async def test_repeated_init_creates_each_table_exactly_twice(self):
+        """Повторный init() (2 прогона) — каждая таблица CREATE один раз за
+        прогон, без внутренних дублей."""
+        conn = _FakeConn(price=None)
+        db = pg_mod.PgDatabase(pool=_FakePool(conn))
+        await db.connect()
+        await db.init(seed_settings=False)
+        await db.init(seed_settings=False)
+        creates = [q[0] for q in conn.executed if "CREATE TABLE" in q[0]]
+        # каждое имя таблицы встречается ровно 2 раза (по разу на init)
+        from collections import Counter
+        import re
+        names = [re.search(r"CREATE TABLE IF NOT EXISTS (\w+)", s).group(1)
+                 for s in creates]
+        counts = Counter(names)
+        assert set(counts.values()) == {2}
+        assert "llm_usage_events" in counts and "llm_model_prices" in counts
 
 
 # ── 2. Расчёт стоимости ────────────────────────────────────────────────────
@@ -266,6 +303,33 @@ class TestRetention:
         monkeypatch.setattr(Settings, "TOKEN_ANALYTICS_RETENTION_DAYS", 0)
         assert usage_events.retention_days() == 90
 
+    @pytest.mark.asyncio
+    async def test_failed_cleanup_does_not_set_dedup_mark(self):
+        """Сбой DELETE → метка дедупа НЕ выставляется: следующая попытка
+        снова идёт в PG (review iter1)."""
+        attempts = []
+
+        class _FailConn:
+            async def execute(self, sql, *args):
+                attempts.append(sql)
+                raise RuntimeError("transient pg")
+
+        class _FailPool:
+            def acquire(self):
+                class _CM:
+                    async def __aenter__(self):
+                        return _FailConn()
+
+                    async def __aexit__(self, *exc):
+                        return False
+
+                return _CM()
+
+        pool = _FailPool()
+        assert await usage_events.maybe_cleanup(pool, force=False) is False
+        assert await usage_events.maybe_cleanup(pool, force=False) is False
+        assert len(attempts) == 2
+
 
 # ── 4. Сквозной correlation-id через tool-loop ─────────────────────────────
 
@@ -305,6 +369,38 @@ class TestCorrelationThroughToolLoop:
         assert llm.calls[1]["step"] == "tool"
         assert all(c["correlation_id"] == "corr-1" for c in llm.calls)
         assert all(c["module"] == "direct_chat" for c in llm.calls)
+        # F7 (High, review iter1): tool-раунд несёт имя вызванного инструмента.
+        assert llm.calls[0]["tool_name"] == ""
+        assert llm.calls[1]["tool_name"] == "query_chat_memory"
+
+    @pytest.mark.asyncio
+    async def test_two_tools_joined_in_tool_name(self):
+        class _TwoToolLLM:
+            def __init__(self):
+                self.calls = []
+
+            async def generate_chat(self, messages, **kwargs):
+                self.calls.append(kwargs)
+                if len(self.calls) == 1:
+                    return LLMChatResult(
+                        content=None,
+                        tool_calls=[
+                            LLMToolCall(id="a", name="query_chat_memory",
+                                        arguments="{}"),
+                            LLMToolCall(id="b", name="execute_web_search",
+                                        arguments="{}"),
+                        ], finish_reason="tool_calls")
+                return LLMChatResult(content="ok", tool_calls=None,
+                                     finish_reason="stop")
+
+        llm = _TwoToolLLM()
+        out = await chat_with_tools(
+            llm, [{"role": "user", "content": "q"}],
+            tools=[{"type": "function"}], router=_Router(), ctx=SimpleNamespace(),
+            module="direct_chat", correlation_id="c")
+        assert str(out) == "ok"
+        assert llm.calls[1]["tool_name"] == \
+            "query_chat_memory,execute_web_search"
 
     @pytest.mark.asyncio
     async def test_backward_compat_without_kwargs(self):
@@ -383,18 +479,209 @@ class TestLLMClientAnalytics:
         out = await client.generate([{"role": "user", "content": "q"}])
         assert out == "ок"
 
+    @pytest.mark.asyncio
+    async def test_fallback_records_fallback_model(self, monkeypatch):
+        def handler(request):
+            if "fb.test" in str(request.url):
+                return httpx.Response(200, json={
+                    "choices": [{"message": {"content": "fb"}}],
+                    "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+                }, request=request)
+            return httpx.Response(500, text="boom", request=request)
 
-# ── 5. Бюджетный контур не сломан ──────────────────────────────────────────
+        transport = httpx.MockTransport(handler)
+        original = httpx.AsyncClient
+
+        def factory(**kw):
+            return original(transport=transport, **kw)
+
+        monkeypatch.setattr("services.llm_client.httpx.AsyncClient", factory)
+        client = LLMClient(
+            "https://api.test/v1", "k", "primary-model", "embed-model",
+            fallback_base_url="https://fb.test/v1", fallback_model="fb-model",
+            fallback_api_key="fk")
+        client.backoff_base = 0
+        client._fallback_max_retries = 0
+        record = AsyncMock()
+        monkeypatch.setattr("services.usage_events.record", record)
+        out = await client.generate([{"role": "user", "content": "q"}])
+        assert out == "fb"
+        assert record.await_args.kwargs["model"] == "fb-model"
+
+
+# ── 5. Бюджетный контур не сломан (поведенчески) ───────────────────────────
 
 class TestBudgetUntouched:
-    def test_chat_usage_report_call_source_global_unchanged(self):
-        # `_record_global_usage` по-прежнему пропускает только source='global'
-        import inspect
-        from services.llm_client import LLMClient as C
-        src = inspect.getsource(C._record_global_usage)
-        assert 'source != "global"' in src
-        # аналитика — отдельный метод, бюджетный не переписан
-        assert "_record_analytics" in inspect.getsource(C)
+    @pytest.mark.asyncio
+    async def test_global_source_reports_budget(self, monkeypatch):
+        client = LLMClient("https://x/v1", "k", "m", "e")
+        client._pg = lambda: object()          # type: ignore[assignment]
+        report = AsyncMock()
+        monkeypatch.setattr("services.chat_usage.report_call", report)
+        await client._record_global_usage(7, "ответ", source="global")
+        assert report.await_count == 1
+        assert report.await_args.args[1] == 7
+
+    @pytest.mark.asyncio
+    async def test_non_global_source_does_not_report_budget(self, monkeypatch):
+        client = LLMClient("https://x/v1", "k", "m", "e")
+        client._pg = lambda: object()          # type: ignore[assignment]
+        report = AsyncMock()
+        monkeypatch.setattr("services.chat_usage.report_call", report)
+        await client._record_global_usage(7, "ответ", source="chat")
+        await client._record_global_usage(None, "ответ", source="global")
+        assert report.await_count == 0
+
+
+# ── 4b. e2e-корреляция через оркестраторы (Medium, review iter1) ───────────
+
+class _NullTyping:
+    async def __aenter__(self):
+        return None
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+class TestOrchestratorCorrelation:
+    @pytest.mark.asyncio
+    async def test_direct_stage1_stage2_share_id(self):
+        from services.direct_chat_service import DirectChatService
+        from services.tool_loop import ToolLoopResult
+        svc = DirectChatService.__new__(DirectChatService)
+        svc.llm = MagicMock()
+        svc.llm.generate = AsyncMock(side_effect=[
+            json.dumps({"user_question": "q", "facts": [],
+                        "answer_outline": "o", "limitations": []}),
+            "чистый ответ",
+        ])
+        raw = ToolLoopResult(
+            "финал", rounds_used=2,
+            tool_trace=[{"round": 1, "tool": "t", "ok": True,
+                         "out_chars": 3}],
+            tool_context="ctx")
+        res = await svc._synthesize_direct_answer(
+            -1, "q", raw, None, correlation_id="DIR-1")
+        assert res is not None
+        calls = svc.llm.generate.await_args_list
+        assert calls[0].kwargs["step"] == "stage1"
+        assert calls[1].kwargs["step"] == "stage2"
+        assert calls[0].kwargs["correlation_id"] == "DIR-1"
+        assert calls[1].kwargs["correlation_id"] == "DIR-1"
+        assert calls[0].kwargs["module"] == "direct_chat"
+
+    @pytest.mark.asyncio
+    async def test_factcheck_creates_one_id_for_both_stages(self):
+        from services.factcheck_service import FactCheckService
+
+        class _Agg:
+            async def search(self, text, max_symbols):
+                return "выдача"
+
+        class _FcLLM:
+            def __init__(self):
+                self.calls = []
+
+            async def generate(self, messages, **kwargs):
+                self.calls.append(kwargs)
+                if kwargs.get("step") == "stage1":
+                    return json.dumps({
+                        "claim": "c", "verdict": "true",
+                        "findings": [{"assertion": "a", "status": "true",
+                                      "evidence": "e"}]})
+                return "готовый вердикт"
+
+        llm = _FcLLM()
+        svc = FactCheckService(_Agg(), llm)
+        out = await svc.check_claim("цель")
+        assert out
+        assert llm.calls[0]["step"] == "stage1"
+        assert llm.calls[1]["step"] == "stage2"
+        cid = llm.calls[0]["correlation_id"]
+        assert cid
+        assert llm.calls[1]["correlation_id"] == cid
+        assert llm.calls[0]["module"] == "factcheck"
+
+    @pytest.mark.asyncio
+    async def test_summary_run_creates_single_id(self, monkeypatch):
+        from services.summary_generator import SummaryGenerator
+        monkeypatch.setattr(usage_events, "new_correlation_id", lambda: "SUM-1")
+        gen = object.__new__(SummaryGenerator)
+        gen.memory = AsyncMock()
+        gen.memory.compress_and_purge = AsyncMock()
+        gen.memory.get_window_messages = AsyncMock(return_value=[
+            {"text": "привет", "author_name": "A", "ts": 1, "user_id": 1}])
+        gen.memory.search_long_term = AsyncMock(return_value=[])
+        gen.memory.vector_search = AsyncMock(return_value=[])
+        gen.memory.get_graph_facts = AsyncMock(return_value=[])
+        gen.memory.get_rag_context = AsyncMock(return_value="")
+        gen.memory.memorize_facts = AsyncMock()
+        gen.xml = SimpleNamespace(build=lambda *a, **k: "XML")
+        gen.bot = MagicMock()
+        gen.aliases = None
+        gen._compose_user_content = lambda *a, **k: "user"
+        captured = {}
+
+        async def _fake_two_call(user_content, max_symbols, chat_id,
+                                 correlation_id=None):
+            captured["id"] = correlation_id
+            return None
+
+        async def _fake_llm_generate(payload, chat_id, *,
+                                     correlation_id=None, step="single"):
+            captured["single"] = correlation_id
+            return "текст"
+
+        async def _fake_deliver(chat_id, text):
+            captured["delivered"] = text
+
+        gen._generate_two_call = _fake_two_call
+        gen._llm_generate = _fake_llm_generate
+        gen._deliver_plain = _fake_deliver
+        await gen._run(1, manual=True)
+        assert captured.get("id") == "SUM-1"
+        assert captured.get("single") == "SUM-1"
+        assert "текст" in captured.get("delivered", "")
+
+    @pytest.mark.asyncio
+    async def test_summary_two_call_stage1_stage2_share_id(self, monkeypatch):
+        from services.summary_generator import SummaryGenerator
+        monkeypatch.setattr("services.summary_generator.typing_active",
+                            lambda *a, **k: _NullTyping())
+        gen = object.__new__(SummaryGenerator)
+        gen.bot = MagicMock()
+        gen.llm = MagicMock()
+        gen.llm.generate = AsyncMock(side_effect=[
+            json.dumps({"response_mode": "serious", "digest": "выжимка"}),
+            "готовый текст",
+        ])
+        draft = await gen._generate_two_call("сырьё", 1000, 1, "SUM-2")
+        assert draft is not None
+        calls = gen.llm.generate.await_args_list
+        assert calls[0].kwargs["step"] == "stage1"
+        assert calls[1].kwargs["step"] == "stage2"
+        assert calls[0].kwargs["correlation_id"] == "SUM-2"
+        assert calls[1].kwargs["correlation_id"] == "SUM-2"
+        assert calls[0].kwargs["module"] == "summary"
+
+    @pytest.mark.asyncio
+    async def test_image_tool_receives_ctx_correlation_id(self, monkeypatch):
+        from services.tool_router import ToolContext, ToolRouter
+        from services import image_generation as img
+        captured = {}
+
+        async def _fake_send(bot, chat_id, prompt, *,
+                             reply_to_message_id=None, correlation_id=None):
+            captured["correlation_id"] = correlation_id
+            return SimpleNamespace(ok=True, reason="")
+
+        monkeypatch.setattr(img, "resolve_module_enabled",
+                            AsyncMock(return_value=True))
+        monkeypatch.setattr(img, "generate_and_send", _fake_send)
+        ctx = ToolContext(1, "q", correlation_id="IMG-1")
+        fake_self = SimpleNamespace(_require_str=ToolRouter._require_str)
+        await ToolRouter._generate_image(fake_self, {"prompt": "кот"}, ctx)
+        assert captured["correlation_id"] == "IMG-1"
 
 
 # ── 8. API дашборда ────────────────────────────────────────────────────────
@@ -531,6 +818,32 @@ class TestAnalyticsApi:
                                     "cost_usd": 0.0, "calls": 0}}
         assert summary["totals"]["calls"] == 0
         assert summary["period"] == "week"
+
+    @pytest.mark.asyncio
+    async def test_off_gates_prices(self, monkeypatch):
+        """review iter1: OFF → управление ценами тоже выключено."""
+        monkeypatch.setattr(Settings, "TOKEN_ANALYTICS_ENABLED", False)
+        conn = _ApiConn(prices=[{"model": "m", "input_usd_per_1m": 1,
+                                 "output_usd_per_1m": 2, "currency": "USD"}])
+        req = _api_request(_ApiPool(conn))
+        listed = await analytics_api.prices_list(req, user=SimpleNamespace(id=1))
+        updated = await analytics_api.prices_upsert(
+            req, analytics_api.PriceBody(
+                model="m", input_usd_per_1m=1.0, output_usd_per_1m=2.0),
+            user=SimpleNamespace(id=1))
+        assert listed == {"prices": []}
+        assert updated["ok"] is False
+
+    @pytest.mark.asyncio
+    async def test_prices_upsert_invalidates_cache(self, monkeypatch):
+        llm_pricing._CACHE["m"] = ((1.0, 2.0), 1e18)   # «старое» значение
+        conn = _ApiConn()
+        await analytics_api.prices_upsert(
+            _api_request(_ApiPool(conn)),
+            analytics_api.PriceBody(model="m", input_usd_per_1m=3.0,
+                                    output_usd_per_1m=4.0),
+            user=SimpleNamespace(id=1))
+        assert "m" not in llm_pricing._CACHE
 
     @pytest.mark.asyncio
     async def test_no_pg_returns_empty(self):

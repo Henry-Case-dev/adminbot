@@ -105,6 +105,10 @@ async def chat_with_tools(llm, messages: list[dict], *,
     tool_trace: list[dict] = []
     tool_context_parts: list[str] = []
     partial_text = ""
+    # F7 (ADR-1023-7 D4): имена инструментов, исполненных ПЕРЕД текущим
+    # LLM-вызовом — для телеметрии `step='tool'` (`tool_name`). На первом
+    # (Stage-1) раунде пусто; далее — из tool_calls предыдущего раунда.
+    pending_tool_name = ""
     for round_index in range(TOOL_MAX_ROUNDS):
         try:
             result = await llm.generate_chat(
@@ -114,7 +118,8 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 # Первый раунд — это Stage-1 (Синтезатор с тулами);
                 # последующие — tool-раунды (ADR-1023-7 D4).
                 step=("stage1" if round_index == 0 else "tool"),
-                correlation_id=correlation_id)
+                correlation_id=correlation_id,
+                tool_name=(pending_tool_name if round_index > 0 else ""))
         except NoApiKeyForChat:
             raise
         except LLMError as exc:                 # провайдер не умеет tools
@@ -155,6 +160,10 @@ async def chat_with_tools(llm, messages: list[dict], *,
                            len(tool_calls), _TOOL_CALLS_PER_ROUND_MAX,
                            round_index + 1)
             tool_calls = tool_calls[:_TOOL_CALLS_PER_ROUND_MAX]
+        # Имена фактически запрошенных тулов — станут `tool_name` события
+        # СЛЕДУЮЩЕГО (tool-)раунда.
+        pending_tool_name = ",".join(
+            tc.name for tc in tool_calls if tc.name)
         assistant_message = {"role": "assistant",
                              "content": result.content or None,
                              "tool_calls": [tc.as_openai_dict()

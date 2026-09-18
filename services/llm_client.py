@@ -896,6 +896,9 @@ class LLMClient:
         payload = {"model": self._chat_model, "messages": messages}
         if temperature is not None:
             payload["temperature"] = temperature
+        # F7 (review iter1): фактически использованная модель — при срабатывании
+        # фоллбэка цена/токены атрибутируются правильной модели.
+        used_model = self._chat_model
         try:
             response = await self._post_with_key(
                 "/chat/completions", payload, chat_id=chat_id, key=key)
@@ -909,6 +912,7 @@ class LLMClient:
             if fb_response is None:
                 raise exc from None
             response = fb_response
+            used_model = self._fallback_model
             logger.warning("LLM fallback OK | model=%s", self._fallback_model)
         try:
             data = response.json()
@@ -930,7 +934,7 @@ class LLMClient:
         await self._record_analytics(usage, messages, content, source=source,
                                      module=module, step=step,
                                      correlation_id=correlation_id,
-                                     chat_id=chat_id)
+                                     chat_id=chat_id, model=used_model)
         return content
 
     # ── F3/T-1439 (cognition-deep-sleep, ADR-1013-1): роутер воркеров ───────
@@ -1030,6 +1034,8 @@ class LLMClient:
         if tools is not None:
             payload["tools"] = tools
             payload["tool_choice"] = tool_choice
+        # F7 (review iter1): фактически использованная модель (фоллбэк).
+        used_model = self._chat_model
         try:
             response = await self._post_with_key(
                 "/chat/completions", payload, chat_id=chat_id, key=key)
@@ -1043,6 +1049,7 @@ class LLMClient:
             if fb_response is None:
                 raise exc from None
             response = fb_response
+            used_model = self._fallback_model
             logger.warning("LLM fallback OK | model=%s", self._fallback_model)
         try:
             data = response.json()
@@ -1111,7 +1118,7 @@ class LLMClient:
         await self._record_analytics(usage, messages, content, source=source,
                                      module=module, step=step,
                                      correlation_id=correlation_id,
-                                     chat_id=chat_id,
+                                     chat_id=chat_id, model=used_model,
                                      tool_name=tool_name)
         return LLMChatResult(
             content=content_text,

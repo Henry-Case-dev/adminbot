@@ -161,21 +161,22 @@ async def maybe_cleanup(pool, *, force: bool = False) -> bool:
     """Opportunistic-очистка старых событий (ретенция). Возвращает факт DELETE.
 
     Дедуп: не чаще `CLEANUP_INTERVAL_SECONDS` (если `force=False`). Fail-open:
-    ошибка удаления не влияет на запись/ответ.
+    ошибка удаления не влияет на запись/ответ. Метка дедупа ставится ТОЛЬКО
+    после успешного `DELETE` — сбой PG не «залипает» на час (review iter1).
     """
     global _last_cleanup
     now = time.monotonic()
     if not force and (now - _last_cleanup) < CLEANUP_INTERVAL_SECONDS:
         return False
-    _last_cleanup = now
     try:
         async with pool.acquire() as conn:
             await conn.execute(DELETE_SQL, retention_days())
-        return True
     except Exception:
         logger.warning("[usage_events] retention cleanup failed — fail-open",
                        exc_info=True)
         return False
+    _last_cleanup = time.monotonic()
+    return True
 
 
 def reset_cleanup_state() -> None:
