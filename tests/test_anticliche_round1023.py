@@ -56,13 +56,15 @@ class _FakeConn:
         if flat.startswith("SELECT patterns"):
             return dict(self.store.row) if self.store.row else None
         if flat.startswith("INSERT INTO anticliche_cache"):
-            patterns, source, source_url, status = args
+            patterns, source, source_url, status, fetched_at = args
             prev = self.store.row or {}
             version = int(prev.get("version") or 0) + 1
+            previous_fetched = prev.get("fetched_at")
             self.store.row = {
                 "patterns": patterns, "source": source,
                 "source_url": source_url, "version": version,
-                "fetched_at": "2026-09-19T00:00:00+00:00",
+                "fetched_at": fetched_at if fetched_at is not None
+                else previous_fetched,
                 "updated_at": "2026-09-19T00:00:00+00:00",
                 "last_status": status,
             }
@@ -210,6 +212,12 @@ class TestDetectorDynamic:
         assert all(h.startswith("dyn_") or h in DEFAULT_ENABLED_RULES
                    for h in hits)
 
+    def test_generator_rules_materialized(self):
+        """M2: генератор допустим сигнатурой и должен находиться."""
+        rules = (r for r in [build_dynamic_rule("штамп генератора")])
+        hits = find_forbidden_cliches("штамп генератора", dynamic_rules=rules)
+        assert len(hits) == 1 and hits[0].startswith("dyn_")
+
 
 class TestScrubberDoesNotCutCliches:
     def test_sanitize_keeps_dynamic_phrase(self):
@@ -254,6 +262,24 @@ class TestValidatorDynamic:
             gen, [{"role": "user", "content": "x"}])
         assert stats["hits"] == ["summing_up"]
 
+    @pytest.mark.asyncio
+    async def test_generator_rules_survive_retries(self):
+        """M2: генератор не должен исчерпаться на ретраях."""
+        rule = build_dynamic_rule("секретный штамп")
+        calls = []
+
+        async def gen(messages):
+            calls.append(messages)
+            return "секретный штамп опять"
+
+        rules = (r for r in [rule])
+        _text, stats = await verbalize_validated(
+            gen, [{"role": "user", "content": "x"}],
+            dynamic_rules=rules, max_retries=2)
+        assert len(calls) == 3          # каждый ответ забракован
+        assert stats["retries"] == 2
+        assert rule.code in stats["hits"]
+
 
 # ── S10.22-4b ───────────────────────────────────────────────────────────────
 
@@ -267,6 +293,12 @@ class TestS1022_4b:
         "Человек, как искусственный интеллект, ошибается",
         "она, как языковая модель",
         "Он, как языковая модель, отвечает",
+        # M3 (review iter1): пробел ПЕРЕД запятой (дефект набора).
+        "Он , как искусственный интеллект, не устаёт",
+        "Она , как ИИ, ошибается",
+        "Люди , как ИИ",
+        "Человек , как искусственный интеллект",
+        "Оно , как языковая модель",
     ])
     def test_third_person_comma_not_flagged(self, text):
         assert find_forbidden_cliches(text) == []
@@ -278,6 +310,34 @@ class TestS1022_4b:
     def test_bare_language_model_flagged(self):
         assert "as_ai" in find_forbidden_cliches("языковая модель отвечает")
         assert "as_ai" in find_forbidden_cliches("как языковая модель отвечаю")
+
+
+class TestPromptInvariants:
+    """L6 (review iter1): тест-гарант «фразы не в промпте»."""
+
+    _TROPES = ("как ИИ", "надеюсь, помог", "нет, ты", "ты уже спрашивал",
+               "подводя итог", "в заключение")
+
+    def test_extract_prompt_does_not_quote_cliches(self):
+        for trop in self._TROPES:
+            assert trop not in aw.EXTRACT_SYSTEM_PROMPT
+
+    @pytest.mark.asyncio
+    async def test_dynamic_phrase_never_in_verb_messages(self):
+        rule = build_dynamic_rule("динамическая улика")
+        seen: list[list[dict]] = []
+
+        async def gen(messages):
+            seen.append(list(messages))
+            return "динамическая улика опять"
+
+        await verbalize_validated(
+            gen, [{"role": "user", "content": "x"}],
+            dynamic_rules=[rule], max_retries=1)
+        assert seen
+        for messages in seen:
+            for message in messages:
+                assert rule.phrase not in message["content"]
 
 
 # ── кэш: fail-open/резолв ───────────────────────────────────────────────────
@@ -305,6 +365,19 @@ class TestCacheFailOpen:
         assert ac.get_rules() == rules
         ac.invalidate()
         assert ac.get_rules() == ()
+
+    def test_status_sql_does_not_touch_updated_at(self):
+        """L3: status-only апдейт не двигает updated_at."""
+        assert "updated_at" not in ac._STATUS_SQL
+
+    @pytest.mark.asyncio
+    async def test_mark_status_whitelist(self):
+        """L1: неизвестный статус не пишется как есть."""
+        pg = _FakePg()
+        await ac.mark_status(pg, "bogus_status")
+        assert pg.store.row["last_status"] == "never"
+        await ac.mark_status(pg, "llm_error")
+        assert pg.store.row["last_status"] == "llm_error"
 
     @pytest.mark.asyncio
     async def test_read_write_roundtrip(self):
@@ -399,21 +472,85 @@ class TestWorker:
                             AsyncMock(return_value=False))
         store = _Store()
         fetch = AsyncMock(return_value="text")
-        worker = _worker(store, fetch=fetch, llm=AsyncMock())
+        llm = AsyncMock()
+        llm.generate_worker = AsyncMock(return_value="{}")
+        worker = _worker(store, fetch=fetch, llm=llm)
         result = await worker.refresh()
         assert result["status"] == "budget_skip"
-        assert fetch.await_count == 0
+        # L5: бюджет call-лимита проверяется ПОСЛЕ fetch, но ДО LLM.
+        assert fetch.await_count == 1
+        assert llm.generate_worker.await_count == 0
 
     @pytest.mark.asyncio
-    async def test_apply_manual(self, monkeypatch):
+    async def test_empty_result_keeps_previous_cache(self, monkeypatch):
+        """Review iter1 H1: валидный вырожденный ответ не затирает кэш."""
         monkeypatch.setattr(aw.worker_budget, "consume",
                             AsyncMock(return_value=True))
         store = _Store()
-        worker = _worker(store, llm=AsyncMock())
-        result = await worker.apply_manual([{"phrase": "ручная фраза"}])
+        store.row = {
+            "patterns": [{"code": "dyn_keep", "phrase": "живая фраза",
+                          "origin": "wiki"}],
+            "source": "wikipedia", "source_url": "u", "version": 5,
+            "fetched_at": "2026-01-01T00:00:00+00:00",
+            "last_status": "ok",
+        }
+        llm = AsyncMock()
+        llm.generate_worker = AsyncMock(return_value='{"patterns": []}')
+        worker = _worker(store, fetch=AsyncMock(return_value="text"), llm=llm)
+        result = await worker.refresh()
+        assert result["status"] == "empty"
+        assert result["count"] == 0
+        assert store.row["patterns"][0]["phrase"] == "живая фраза"
+        assert store.row["version"] == 5          # запись не производилась
+        assert store.row["last_status"] == "empty"
+
+    @pytest.mark.asyncio
+    async def test_hardcoded_echo_keeps_previous_cache(self, monkeypatch):
+        """Все фразы — эхо захардкоженного списка → кэш не затирается."""
+        monkeypatch.setattr(aw.worker_budget, "consume",
+                            AsyncMock(return_value=True))
+        store = _Store()
+        store.row = {
+            "patterns": [{"code": "dyn_keep", "phrase": "живая фраза"}],
+            "source": "wikipedia", "source_url": "u", "version": 2,
+            "fetched_at": "2026-01-01T00:00:00+00:00", "last_status": "ok",
+        }
+        echo = json.dumps({"patterns": [{"phrase": "подводя итог"},
+                                        {"phrase": "надеюсь, помог"}]})
+        llm = AsyncMock()
+        llm.generate_worker = AsyncMock(return_value=echo)
+        worker = _worker(store, fetch=AsyncMock(return_value="text"), llm=llm)
+        result = await worker.refresh()
+        assert result["status"] == "empty"
+        assert store.row["patterns"][0]["phrase"] == "живая фраза"
+        assert store.row["version"] == 2
+
+    @pytest.mark.asyncio
+    async def test_apply_manual(self):
+        store = _Store()
+        store.row = {"patterns": [], "source": "wikipedia", "source_url": "u",
+                     "version": 1,
+                     "fetched_at": "2026-01-01T00:00:00+00:00",
+                     "last_status": "ok"}
+        result = await aw.apply_manual(_FakePg(store),
+                                       [{"phrase": "ручная фраза"}])
         assert result["status"] == "ok"
         assert store.row["source"] == "manual"
         assert store.row["patterns"][0]["phrase"] == "ручная фраза"
+        # L3: ручная правка не двигает fetched_at.
+        assert store.row["fetched_at"] == "2026-01-01T00:00:00+00:00"
+
+    @pytest.mark.asyncio
+    async def test_apply_manual_allows_empty(self):
+        """Пустая запись допустима только через явный ручной PUT."""
+        store = _Store()
+        store.row = {"patterns": [{"code": "dyn_x", "phrase": "фраза"}],
+                     "source": "wikipedia", "source_url": "u", "version": 1,
+                     "fetched_at": "2026-01-01T00:00:00+00:00",
+                     "last_status": "ok"}
+        result = await aw.apply_manual(_FakePg(store), [])
+        assert result["count"] == 0
+        assert store.row["patterns"] == []
 
     @pytest.mark.asyncio
     async def test_refresh_disabled(self, monkeypatch):
@@ -431,23 +568,46 @@ class TestWorkerScheduler:
 
     def test_start_registers_job(self, monkeypatch):
         class _Sched:
-            def __init__(self):
+            def __init__(self, running=False):
                 self.jobs = []
-                self.running = False
+                self.running = running
+                self.start_calls = 0
 
             def add_job(self, *a, **k):
                 self.jobs.append((a, k))
 
             def start(self):
+                self.start_calls += 1
                 self.running = True
 
         sched = _Sched()
         worker = AntiClicheWorker(llm=AsyncMock(), pg=None, scheduler=sched)
         worker.start()
         assert sched.running is True
+        assert sched.start_calls == 1
         assert sched.jobs and sched.jobs[0][1]["id"] == aw._JOB_ID
         assert sched.jobs[0][1]["coalesce"] is True
         assert sched.jobs[0][1]["max_instances"] == 1
+
+    def test_start_does_not_restart_running_scheduler(self):
+        """Review iter1 L8: внешний запущенный планировщик не перезапускаем."""
+        class _Sched:
+            def __init__(self):
+                self.running = True
+                self.start_calls = 0
+                self.jobs = []
+
+            def add_job(self, *a, **k):
+                self.jobs.append((a, k))
+
+            def start(self):
+                self.start_calls += 1
+
+        sched = _Sched()
+        worker = AntiClicheWorker(llm=AsyncMock(), pg=None, scheduler=sched)
+        worker.start()
+        assert sched.start_calls == 0
+        assert sched.jobs
 
 
 class TestDdlIdempotent:
@@ -594,6 +754,21 @@ class TestAnticlicheApi:
         resp = api_client.put("/api/anticliche", headers=_hdr(ADMIN_ID),
                               json=payload)
         assert resp.status_code == 422
+
+    def test_put_422_phrase_too_long(self, api_client):
+        """L4: длина фразы ограничена до regex-нормализации."""
+        payload = {"patterns": [{"phrase": "я" * 501}]}
+        resp = api_client.put("/api/anticliche", headers=_hdr(ADMIN_ID),
+                              json=payload)
+        assert resp.status_code == 422
+
+    def test_put_manual_preserves_fetched_at(self, api_client):
+        before = api_client.store.row["fetched_at"]
+        resp = api_client.put(
+            "/api/anticliche", headers=_hdr(ADMIN_ID),
+            json={"patterns": [{"phrase": "ручная фраза"}]})
+        assert resp.status_code == 200
+        assert api_client.store.row["fetched_at"] == before
 
     def test_post_refresh_uses_runtime_worker(self, api_client, monkeypatch):
         worker = AsyncMock()

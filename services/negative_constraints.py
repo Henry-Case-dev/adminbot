@@ -69,14 +69,16 @@ FORBIDDEN_CLICHE_PATTERNS: tuple[ClicheRule, ...] = (
         # (S10.22-4: «он/она/оно/это/люди … как …», «ведёт себя как …»).
         # S10.22-4b (F4, ADR-1023-4 D5): добавлены comma-варианты lookbehind
         # фиксированной ширины — «Он, как …», «Люди, как …» (Python re не
-        # поддерживает lookbehind переменной длины).
-        r"(?<!\bсебя\s)(?<!\bсебя,\s)"
-        r"(?<!\bон\s)(?<!\bон,\s)"
-        r"(?<!\bона\s)(?<!\bона,\s)"
-        r"(?<!\bоно\s)(?<!\bоно,\s)"
-        r"(?<!\bэто\s)(?<!\bэто,\s)"
-        r"(?<!\bлюди\s)(?<!\bлюди,\s)"
-        r"(?<!\bчеловек\s)(?<!\bчеловек,\s)"
+        # поддерживает lookbehind переменной длины). Review iter1 (M3):
+        # добавлены и варианты с пробелом ПЕРЕД запятой («Он , как …») —
+        # типичный дефект набора; `_normalize` пробел перед запятой не убирает.
+        r"(?<!\bсебя\s)(?<!\bсебя,\s)(?<!\bсебя\s,\s)"
+        r"(?<!\bон\s)(?<!\bон,\s)(?<!\bон\s,\s)"
+        r"(?<!\bона\s)(?<!\bона,\s)(?<!\bона\s,\s)"
+        r"(?<!\bоно\s)(?<!\bоно,\s)(?<!\bоно\s,\s)"
+        r"(?<!\bэто\s)(?<!\bэто,\s)(?<!\bэто\s,\s)"
+        r"(?<!\bлюди\s)(?<!\bлюди,\s)(?<!\bлюди\s,\s)"
+        r"(?<!\bчеловек\s)(?<!\bчеловек,\s)(?<!\bчеловек\s,\s)"
         r"\bкак\s+"
         r"(?:ии|искусственный\s+интеллект|языковая\s+модель)\b",
         # S10.22-4b: голое «языковая модель» — самоидентификация; в
@@ -302,12 +304,14 @@ def find_forbidden_cliches(
     ``enabled_rules=None`` → дефолтный набор (все, кроме вторичного
     ``bullet_list``). ``dynamic_rules`` (F4, аддитивно) — литеральные
     правила из PG-кэша; ``None``/пусто → поведение **байт-в-байт** прежнее.
-    Fail-open: ошибка → ``[]`` (текст считается чистым).
+    Итератор материализуется один раз (review iter1 M2). Fail-open: ошибка →
+    ``[]`` (текст считается чистым).
     """
     try:
+        dyn = tuple(dynamic_rules) if dynamic_rules else ()
         codes = (DEFAULT_ENABLED_RULES if enabled_rules is None
                  else frozenset(enabled_rules))
-        if not codes and not dynamic_rules:
+        if not codes and not dyn:
             return []
         source = str(text or "")
         norm = _normalize(source)
@@ -324,7 +328,7 @@ def find_forbidden_cliches(
             haystack = source if rule.use_raw else norm
             if any(pattern.search(haystack) for pattern in rule.patterns):
                 hits.append(rule.code)
-        hits.extend(_dynamic_hits(norm, dynamic_rules))
+        hits.extend(_dynamic_hits(norm, dyn))
         return hits
     except Exception:  # pragma: no cover - defensive (fail-open)
         logger.warning("[validator] detector error — text treated as clean")
@@ -374,9 +378,12 @@ async def verbalize_validated(
         return scrubber(text), stats
 
     retry_message = {"role": "system", "content": CLICHE_RETRY_SYSTEM_PROMPT}
+    # Review iter1 (M2): материализуем один раз — итератор/генератор нельзя
+    # прокручивать повторно на ретраях.
+    dyn = tuple(dynamic_rules) if dynamic_rules else ()
     text = await generate_call(base_messages)
     attempts = 1
-    codes = find_forbidden_cliches(text, enabled_rules, dynamic_rules)
+    codes = find_forbidden_cliches(text, enabled_rules, dyn)
     if not codes:
         stats["attempts"] = attempts
         return scrubber(text), stats
@@ -400,7 +407,7 @@ async def verbalize_validated(
             return scrubber(best_text), stats
         attempts += 1
         retries = index
-        codes = find_forbidden_cliches(text, enabled_rules, dynamic_rules)
+        codes = find_forbidden_cliches(text, enabled_rules, dyn)
         if not codes:
             stats.update({"attempts": attempts, "retries": retries})
             return scrubber(text), stats

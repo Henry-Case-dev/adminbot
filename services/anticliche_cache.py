@@ -25,28 +25,33 @@ logger = logging.getLogger(__name__)
 # Лимит динамических правил (ADR-1023-4 D2; Δ каталога = 0 — код-константа).
 ANTICLICHE_MAX_PATTERNS = 20
 
+# R17-safe whitelist статусов (review iter1 L1): применяется в записи.
+ALLOWED_STATUSES: frozenset[str] = frozenset({
+    "never", "ok", "fetch_error", "llm_error", "parse_error", "empty",
+})
+
 _SELECT_SQL = (
     "SELECT patterns, source, source_url, version, fetched_at, updated_at, "
     "last_status FROM anticliche_cache WHERE id = 1"
 )
+# Review iter1 (L3): `fetched_at` («время забора источника», spec §2.2) —
+# обновляется только при реальном заборе; при ручной правке передаётся None
+# и COALESCE сохраняет прежнее значение. `mark_status` updated_at НЕ двигает.
 _UPSERT_SQL = (
     "INSERT INTO anticliche_cache (id, patterns, source, source_url, version, "
     "fetched_at, updated_at, last_status) "
-    "VALUES (1, $1, $2, $3, 1, now(), now(), $4) "
+    "VALUES (1, $1, $2, $3, 1, COALESCE($5::timestamptz, now()), now(), $4) "
     "ON CONFLICT (id) DO UPDATE SET "
     "patterns = EXCLUDED.patterns, "
     "source = EXCLUDED.source, "
     "source_url = EXCLUDED.source_url, "
     "version = anticliche_cache.version + 1, "
-    "fetched_at = EXCLUDED.fetched_at, "
+    "fetched_at = COALESCE($5::timestamptz, anticliche_cache.fetched_at), "
     "updated_at = now(), "
     "last_status = EXCLUDED.last_status "
     "RETURNING version"
 )
-_STATUS_SQL = (
-    "UPDATE anticliche_cache SET last_status = $1, updated_at = now() "
-    "WHERE id = 1"
-)
+_STATUS_SQL = "UPDATE anticliche_cache SET last_status = $1 WHERE id = 1"
 
 # Runtime-PG (DI из bot.py; прецедент worker_budget.set_worker_budget_pg).
 _runtime_pg = None
@@ -148,18 +153,21 @@ async def load_rules(pg=None) -> tuple[DynamicClicheRule, ...]:
 
 
 async def write_patterns(pg, patterns, *, source: str, source_url: str,
-                         last_status: str = "ok") -> int:
+                         last_status: str = "ok", fetched_at=None) -> int:
     """Upsert списка паттернов (version+1) + обновление in-process правил.
 
-    Бросает исключение при недоступном PG (вызывающий решает, что вернуть).
-    Возвращает новую версию строки."""
+    ``fetched_at`` — время реального забора источника (None → сохранить
+    прежнее значение, напр. при ручной правке). Бросает исключение при
+    недоступном PG (вызывающий решает, что вернуть). Возвращает новую версию.
+    """
     pool = _pool(pg)
     if pool is None:
         raise RuntimeError("anticliche_cache: PostgreSQL недоступен")
+    safe_status = _safe_status(last_status)
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             _UPSERT_SQL, list(patterns or []), str(source or ""),
-            str(source_url or ""), str(last_status or "ok"))
+            str(source_url or ""), safe_status, fetched_at)
     version = int(row["version"]) if row and row.get("version") is not None else 0
     set_rules(patterns)
     logger.info("[anticliche] cache written | n=%d | source=%s | version=%d",
@@ -167,13 +175,21 @@ async def write_patterns(pg, patterns, *, source: str, source_url: str,
     return version
 
 
+def _safe_status(status) -> str:
+    """Whitelist R17-safe статусов (review iter1 L1)."""
+    value = str(status or "never")
+    return value if value in ALLOWED_STATUSES else "never"
+
+
 async def mark_status(pg, status: str) -> None:
-    """R17-safe запись статуса без изменения паттернов. Fail-open."""
+    """R17-safe запись статуса без изменения паттернов/fetched_at. Fail-open.
+
+    `updated_at` не двигается (status-only апдейт; review iter1 L3)."""
     pool = _pool(pg)
     if pool is None:
         return
     try:
         async with pool.acquire() as conn:
-            await conn.execute(_STATUS_SQL, str(status or "never"))
+            await conn.execute(_STATUS_SQL, _safe_status(status))
     except Exception:
         logger.warning("[anticliche] status write failed | status=%s", status)

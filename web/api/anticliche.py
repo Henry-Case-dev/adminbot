@@ -20,7 +20,6 @@ from pydantic import BaseModel, Field
 from services import anticliche_cache
 from services import anticliche_worker
 from services import roles as roles_srv
-from services.anticliche_worker import build_patterns
 from web.api.deps import get_cache, get_tma_user
 
 logger = logging.getLogger(__name__)
@@ -31,8 +30,9 @@ _MANUAL_INPUT_CAP = 200
 
 
 class PatternIn(BaseModel):
-    phrase: str = ""
-    origin: str = ""
+    # Review iter1 (L4): верхние границы до regex-нормализации.
+    phrase: str = Field(default="", max_length=500)
+    origin: str = Field(default="", max_length=200)
 
 
 class ManualPatternsBody(BaseModel):
@@ -117,14 +117,13 @@ async def anticliche_put(
             detail=f"слишком много паттернов (>{_MANUAL_INPUT_CAP})")
     entries = [{"phrase": p.phrase, "origin": p.origin}
                for p in payload.patterns]
-    patterns = build_patterns(entries)
     try:
-        version = await anticliche_cache.write_patterns(
-            cache.pg, patterns, source="manual", source_url="")
+        # Единый путь ручной правки (review iter1 L2): серверная
+        # нормализация/дедуп/лимит + запись source='manual'.
+        result = await anticliche_worker.apply_manual(cache.pg, entries)
     except Exception:
         raise HTTPException(status_code=503,
                             detail="PostgreSQL недоступен (R6)")
     logger.info("[anticliche] manual edit | count=%d | version=%d",
-                len(patterns), version)
-    return {"status": "ok", "count": len(patterns), "version": version,
-            "source": "manual"}
+                result["count"], result["version"])
+    return result

@@ -63,10 +63,6 @@ EXTRACT_SYSTEM_PROMPT = (
     "- origin — короткая пометка, откуда шаблон (например, название раздела)."
 )
 
-_ALLOWED_STATUSES = frozenset({
-    "never", "ok", "fetch_error", "llm_error", "parse_error",
-})
-
 
 def _now_iso() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -200,7 +196,9 @@ class AntiClicheWorker:
                                              settings.SUMMARY_TIMEZONE)),
             id=_JOB_ID, replace_existing=True,
             max_instances=1, coalesce=True, misfire_grace_time=3600)
-        self._scheduler.start()
+        # Review iter1 (L8): не запускаем уже работающий внешний планировщик.
+        if not getattr(self._scheduler, "running", False):
+            self._scheduler.start()
         logger.info("AntiClicheWorker started | interval_days=%d", REFRESH_DAYS)
 
     async def stop(self) -> None:
@@ -234,8 +232,8 @@ class AntiClicheWorker:
         """Полный цикл забора источника → LLM → запись. Никогда не бросает.
 
         Возврат (R17-safe: коды/числа/идентификаторы источника):
-        ``{status, count, version, source}``; ``status`` — ``ok|fetch_error|
-        llm_error|parse_error|budget_skip|disabled|write_error``.
+        ``{status, count, version, source}``; ``status`` — ``ok|empty|
+        fetch_error|llm_error|parse_error|budget_skip|disabled|write_error``.
         """
         source_id = source or self._source_id
         if not anticliche_cache.enabled():
@@ -243,7 +241,17 @@ class AntiClicheWorker:
                     "source": source_id}
         pg = self._pg if self._pg is not None else anticliche_cache.get_runtime_pg()
 
-        # Бюджет фона (best-effort; fail-open = True при недоступном PG).
+        try:
+            text = await self._fetch(self._source_url)
+        except Exception as exc:
+            await anticliche_cache.mark_status(pg, "fetch_error")
+            logger.warning("[anticliche] fetch failed | error=%s",
+                           type(exc).__name__)
+            return {"status": "fetch_error", "count": 0, "version": 0,
+                    "source": source_id}
+
+        # Review iter1 (L5): call списывается ровно перед LLM-вызовом
+        # (неудачный fetch LLM-call не расходует).
         try:
             allowed = await worker_budget.consume(
                 pg, "global", worker_budget.METRIC_CALLS)
@@ -255,15 +263,6 @@ class AntiClicheWorker:
                     "source": source_id}
 
         try:
-            text = await self._fetch(self._source_url)
-        except Exception as exc:
-            await anticliche_cache.mark_status(pg, "fetch_error")
-            logger.warning("[anticliche] fetch failed | error=%s",
-                           type(exc).__name__)
-            return {"status": "fetch_error", "count": 0, "version": 0,
-                    "source": source_id}
-
-        try:
             raw = await self._call_llm(text)
         except Exception as exc:
             await anticliche_cache.mark_status(pg, "llm_error")
@@ -271,6 +270,16 @@ class AntiClicheWorker:
                            type(exc).__name__)
             return {"status": "llm_error", "count": 0, "version": 0,
                     "source": source_id}
+
+        # Review iter1 (L5): токены — сразу после ответа LLM, независимо от
+        # исхода разбора (вызов уже состоялся).
+        try:
+            await worker_budget.consume(
+                pg, "global", worker_budget.METRIC_TOKENS,
+                worker_budget.estimate_tokens(text)
+                + worker_budget.estimate_tokens(raw))
+        except Exception:
+            pass
 
         entries = parse_patterns(raw)
         if entries is None:
@@ -280,31 +289,29 @@ class AntiClicheWorker:
                     "source": source_id}
 
         patterns = build_patterns(entries)
+        # Review iter1 (H1): вырожденный (но валидный) ответ — эхо хардкода,
+        # пустой список и т.п. — НЕ затирает предыдущий кэш. Пустая запись
+        # допустима только через явный ручной PUT (`apply_manual`).
+        if not patterns:
+            data = await anticliche_cache.fetch_cache(pg)
+            version = int((data or {}).get("version") or 0)
+            await anticliche_cache.mark_status(pg, "empty")
+            logger.warning(
+                "[anticliche] empty result — cache kept | version=%s", version)
+            return {"status": "empty", "count": 0, "version": version,
+                    "source": source_id}
+
         try:
             version = await anticliche_cache.write_patterns(
-                pg, patterns, source=source_id, source_url=self._source_url)
+                pg, patterns, source=source_id, source_url=self._source_url,
+                fetched_at=datetime.datetime.now(datetime.timezone.utc))
         except Exception as exc:
             logger.warning("[anticliche] write failed | error=%s (cache kept)",
                            type(exc).__name__)
             return {"status": "write_error", "count": 0, "version": 0,
                     "source": source_id}
-        try:
-            await worker_budget.consume(
-                pg, "global", worker_budget.METRIC_TOKENS,
-                worker_budget.estimate_tokens(text) + worker_budget.estimate_tokens(raw))
-        except Exception:
-            pass
         return {"status": "ok", "count": len(patterns), "version": version,
                 "source": source_id}
-
-    async def apply_manual(self, entries) -> dict:
-        """Ручная правка списка (source='manual'): нормализация/дедуп/лимит."""
-        pg = self._pg if self._pg is not None else anticliche_cache.get_runtime_pg()
-        patterns = build_patterns(entries)
-        version = await anticliche_cache.write_patterns(
-            pg, patterns, source=_SOURCE_ID_MANUAL, source_url="")
-        return {"status": "ok", "count": len(patterns), "version": version,
-                "source": _SOURCE_ID_MANUAL}
 
     async def _call_llm(self, source_text: str) -> str:
         if self._llm is None:
@@ -315,6 +322,19 @@ class AntiClicheWorker:
             {"role": "user", "content": str(source_text or "")[:MAX_SOURCE_CHARS]},
         ]
         return await self._llm.generate_worker("background", messages)
+
+
+async def apply_manual(pg, entries) -> dict:
+    """Единый путь ручной правки (review iter1 L2): build + write.
+
+    Нормализация/дедуп/лимит серверные; пустая запись допустима (ручная
+    очистка); ``fetched_at`` не трогается (review iter1 L3). Используется и
+    API `PUT /api/anticliche` — одна реализация бизнес-логики."""
+    patterns = build_patterns(entries)
+    version = await anticliche_cache.write_patterns(
+        pg, patterns, source=_SOURCE_ID_MANUAL, source_url="", fetched_at=None)
+    return {"status": "ok", "count": len(patterns), "version": version,
+            "source": _SOURCE_ID_MANUAL}
 
 
 # ── runtime-держатель воркера (DI для API ручного запуска/правки) ────────────
