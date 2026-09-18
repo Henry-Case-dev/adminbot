@@ -15,7 +15,7 @@ from services.chat_prompts import (
     DIRECT_VERBALIZER_SYSTEM_PROMPT,
 )
 from services.direct_chat_service import DirectChatService
-from services.prompt_style_blocks import compose_verbilizer_system
+from services.prompt_style_blocks import compose_verbalizer_system
 from services.tool_loop import ToolLoopResult
 
 pytestmark = pytest.mark.system2
@@ -56,7 +56,7 @@ class TestDirectTwoCall:
         stage1 = svc.llm.generate.await_args_list[0].args[0]
         stage2 = svc.llm.generate.await_args_list[1].args[0]
         assert stage1[0]["content"] == DIRECT_SYNTHESIZER_SYSTEM_PROMPT
-        assert stage2[0]["content"] == compose_verbilizer_system(
+        assert stage2[0]["content"] == compose_verbalizer_system(
             DIRECT_VERBALIZER_SYSTEM_PROMPT, "serious", "plain")
         assert stage2[1]["content"].startswith("СПРАВКА (JSON):")
 

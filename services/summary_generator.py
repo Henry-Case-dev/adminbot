@@ -35,7 +35,7 @@ from services.negative_constraints import (
     channel_enabled_rules,
     verbalize_validated,
 )
-from services.prompt_style_blocks import compose_verbilizer_system
+from services.prompt_style_blocks import compose_verbalizer_system
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import _build_batch_text, fire_and_forget
 from services.summary_prompts import (
@@ -75,6 +75,20 @@ def _apply_focus(user_content: str, focus: str | None) -> str:
     return ('<focus note="главная тема этой выжимки — подсвети в саммари всё, '
             'что касается неё; остальное кратко">' + safe + "</focus>\n\n"
             + user_content)
+
+
+def _strip_safe_html(text: str) -> str:
+    """Review iter1 (H2): саммари-канал не рендерит HTML — whitelist-теги
+    (`<b>`, `<i>` и пр.) срезаются, чтобы не утечь сырыми. Ленивый импорт —
+    `smartmodule_utils` сам импортирует `SummaryGenerator` (цикл на уровне
+    модулей недопустим)."""
+    try:
+        from services.smartmodule_utils import strip_lore_html
+        return strip_lore_html(text)
+    except Exception:  # pragma: no cover - defensive (не ломаем саммари)
+        logger.warning("summary: html strip unavailable — text kept as-is")
+        return text
+
 
 _UX_LLM_FAILED = "не смог сделать саммари потому что упал апи"
 _UX_DB_FAILED = "база данных подавилась"
@@ -239,6 +253,7 @@ class SummaryGenerator:
             if raw is None:
                 return
             raw = cleanup_llm_text(raw)                   # Epic 28 (R28-3)
+            raw = _strip_safe_html(raw)                   # review iter1 (H2)
             if not raw.strip():
                 # Epic 60 (65.1): после cleanup пусто → молчание (без реакции:
                 # message_id в manual-ветку не передаётся — 65.1).
@@ -328,7 +343,7 @@ class SummaryGenerator:
             "{max_symbols}", str(max_symbols))
         # F3 (ADR-1023-3): режимный блок по response_mode + канальный блок
         # (план-саммари = plain-канал). OFF kill-switch → прежний Рассказчик.
-        narrator_system = (compose_verbilizer_system(
+        narrator_system = (compose_verbalizer_system(
             narrator_base, response_mode, "plain") if modes_on else narrator_base)
         base_messages = [
             {"role": "system", "content": narrator_system},

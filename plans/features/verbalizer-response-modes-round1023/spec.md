@@ -162,3 +162,15 @@
 ## 10. Задачи
 
 См. `tasks.md` (T-2116…T-2125, +T-2183…T-2186 — канальные правила). **T-2116** — этот spec + ADR-1023-3 (выполнен).
+
+## 11. UPD review iter1 (@Builder, 19.09.2026) — уточнения приёмки
+
+Ревью F3 (Step 5, `plans/reports/round1023_f3_reviewer.md`) зафиксировало противоречие и пробелы; ниже — уточнённая трактовка, синхронная коду.
+
+1. **H1 — снятие конфликта буллитов в `deep_research`.** В общих блоках (`ANTI_BOT_BLOCK` п.4, R11-правило 2 Рассказчика) буллиты безусловно запрещены, а канальный plain-блок для `deep_research` их требует. При сборке промпта `deep_research` точечные запреты буллитов заменяются разрешающей формулировкой (`_DEEP_RESEARCH_OVERRIDES` в `services/prompt_style_blocks.py`); базовые каноны и их PREV-слепки не трогаются. Для `casual`/`serious` запрет сохраняется.
+2. **H2 — доставка `<b>`.** «Жирный» рендерится только там, где есть safe-HTML-доставка (`parse_mode="HTML"` + `escape_lore_html`). Такая доставка есть у direct `deep_research` (§3.6.4). У саммари и фактчека её нет, поэтому они получают **text-only** канальный блок `FORMAT_PLAIN_TEXT_BLOCK` (без HTML-тегов вовсе); требование `<b>` там снимается до появления HTML-доставки (F6/F8), а финальный текст гарантированно очищается от whitelist-тегов (`strip_lore_html`). `FORMAT_PLAIN_BLOCK` (с `<b>`) применяется к direct `deep_research` (`html_safe=True`).
+3. **M1 — область действия флага.** `SMART_VERBALIZER_MODES_ENABLED` гейтит **Stage-2** (выбор режимного/канального блока) и **маршрут доставки** (`deep_research` → safe-HTML). Stage-1-поле `response_mode` флагом не гейтится: оно остаётся в JSON, но при OFF игнорируется (fail-safe `serious`).
+4. **M2/M5 — guard таблиц.** Прод-путь `plain_no_tables` идёт через публичный `detect_plain_tables` (единый источник), детекция расширена на pipe-таблицы без внешних `|` («a | b», «a | b | c»).
+5. **M3 — rich-канал.** Интеграция `sendRichMessage`/`InputRichMessage` — зона **F6**; F3 поставляет только контракт-хелперы (`FORMAT_RICH_BLOCK`, `channel_enabled_rules("rich", …)`). T-2186 — **контрактный**, не сквозной.
+6. **L4 — narrator-слепки.** `PREV_SUMMARY_NARRATOR_R1023`, `PREV_FACTCHECK_VERBALIZER_R1023`, `PREV_CHAT_VERBALIZER_R1023` — **code-snapshots** для отката/документации: у narrator-промптов нет PG-ключей, поэтому в `PROMPT_MIGRATIONS`/`ROLLBACK_MIGRATIONS` входят только Stage-1-ключи Редактора/Аналитика (ступень F3).
+

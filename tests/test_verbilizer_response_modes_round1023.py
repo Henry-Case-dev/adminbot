@@ -40,12 +40,13 @@ from services.negative_constraints import (
 )
 from services.prompt_style_blocks import (
     FORMAT_PLAIN_BLOCK,
+    FORMAT_PLAIN_TEXT_BLOCK,
     FORMAT_RICH_BLOCK,
     MODE_CASUAL_BLOCK,
     MODE_DEEP_RESEARCH_BLOCK,
     MODE_SERIOUS_BLOCK,
     TYPOGRAPHY_BLOCK,
-    compose_verbilizer_system,
+    compose_verbalizer_system,
 )
 from services.summary_generator import SummaryGenerator
 from services.summary_prompts import (
@@ -186,26 +187,65 @@ class TestModeAndFormatBlocks:
         ("deep_research", MODE_DEEP_RESEARCH_BLOCK),
     ])
     def test_compose_selects_mode_block(self, mode, block):
-        composed = compose_verbilizer_system("BASE", mode, "plain")
+        composed = compose_verbalizer_system("BASE", mode, "plain")
         assert block in composed
 
     def test_compose_casual_has_no_markdown_format_block(self):
-        composed = compose_verbilizer_system("BASE", "casual", "plain")
+        composed = compose_verbalizer_system("BASE", "casual", "plain")
+        assert FORMAT_PLAIN_BLOCK not in composed
+        assert FORMAT_PLAIN_TEXT_BLOCK not in composed
+        assert FORMAT_RICH_BLOCK not in composed
+
+    def test_compose_deep_plain_text_default_no_html(self):
+        """Review iter1 (H2): plain без HTML-доставки → text-only блок."""
+        composed = compose_verbalizer_system("BASE", "deep_research", "plain")
+        assert FORMAT_PLAIN_TEXT_BLOCK in composed
         assert FORMAT_PLAIN_BLOCK not in composed
         assert FORMAT_RICH_BLOCK not in composed
 
-    def test_compose_deep_plain_forbids_tables(self):
-        composed = compose_verbilizer_system("BASE", "deep_research", "plain")
+    def test_compose_deep_plain_html_safe_requires_bold(self):
+        composed = compose_verbalizer_system(
+            "BASE", "deep_research", "plain", html_safe=True)
         assert FORMAT_PLAIN_BLOCK in composed
+        assert FORMAT_PLAIN_TEXT_BLOCK not in composed
         assert FORMAT_RICH_BLOCK not in composed
 
     def test_compose_deep_rich_allows_everything(self):
-        composed = compose_verbilizer_system("BASE", "deep_research", "rich")
+        composed = compose_verbalizer_system("BASE", "deep_research", "rich")
         assert FORMAT_RICH_BLOCK in composed
         assert FORMAT_PLAIN_BLOCK not in composed
+        assert FORMAT_PLAIN_TEXT_BLOCK not in composed
 
     def test_compose_unknown_mode_fail_safe_serious(self):
-        assert MODE_SERIOUS_BLOCK in compose_verbilizer_system("BASE", "wat")
+        assert MODE_SERIOUS_BLOCK in compose_verbalizer_system("BASE", "wat")
+
+
+class TestDeepResearchPromptConsistency:
+    """Review iter1 (H1): в собранном deep_research нет одновременного
+    запрета и требования буллитов."""
+
+    @pytest.mark.parametrize("base", [
+        SUMMARY_NARRATOR_SYSTEM_PROMPT,
+        FACTCHECK_VERBALIZER_SYSTEM_PROMPT,
+        DIRECT_VERBALIZER_SYSTEM_PROMPT,
+    ])
+    def test_no_bullet_ban_in_deep_research(self, base):
+        composed = compose_verbalizer_system(base, "deep_research", "plain")
+        # безусловный запрет списков из ANTI_BOT п.4 снят
+        assert ("4. Списки с буллитами и нумерованные перечни в самом ответе."
+                not in composed)
+        # R11-запрет «только сплошной текст» снят (только у Рассказчика)
+        assert ("2. Не выводи Markdown, списки, пункты и эмодзи: только "
+                "сплошной текст" not in composed)
+        # при этом перечисления буллитами разрешены/требуются
+        assert "буллит" in composed.lower()
+
+    def test_ban_kept_for_casual_and_serious(self):
+        for mode in ("casual", "serious"):
+            composed = compose_verbalizer_system(
+                SUMMARY_NARRATOR_SYSTEM_PROMPT, mode, "plain")
+            assert ("4. Списки с буллитами и нумерованные перечни в самом ответе."
+                    in composed)
 
 
 # ── C. Guard plain_no_tables и набор правил по каналу ────────────────
@@ -217,6 +257,8 @@ class TestPlainTableGuard:
         "+---+---+",
         "|---|---|",
         "шапка\n| col1 | col2 |\n|---|---|",
+        "a | b",              # M5: pipe-таблица без внешних |
+        "a | b | c",          # M5: два разделителя без внешних |
     ])
     def test_detect_true(self, text):
         assert detect_plain_tables(text) is True
@@ -229,6 +271,14 @@ class TestPlainTableGuard:
     ])
     def test_detect_false_clean(self, text):
         assert detect_plain_tables(text) is False
+
+    def test_rule_uses_detector_for_pipe_without_outer(self):
+        """M2/M5: правило идёт через публичный детектор и ловит 'a | b'."""
+        assert detect_plain_tables("a | b") is True
+        assert find_forbidden_cliches(
+            "a | b", enabled_rules={"plain_no_tables"}) == ["plain_no_tables"]
+        assert find_forbidden_cliches(
+            "a | b | c", enabled_rules={"plain_no_tables"}) == ["plain_no_tables"]
 
     def test_rule_only_when_enabled(self):
         assert find_forbidden_cliches("| a | b |") == []
@@ -291,7 +341,8 @@ class TestTwoCallModes:
         assert llm.generate.await_count == 2          # роутер не добавил вызов
         stage2_system = llm.generate.await_args_list[1].args[0][0]["content"]
         assert MODE_DEEP_RESEARCH_BLOCK in stage2_system
-        assert FORMAT_PLAIN_BLOCK in stage2_system
+        assert FORMAT_PLAIN_TEXT_BLOCK in stage2_system   # канал text-only
+        assert FORMAT_PLAIN_BLOCK not in stage2_system
         assert FORMAT_RICH_BLOCK not in stage2_system
 
     @pytest.mark.asyncio
@@ -370,8 +421,71 @@ class TestDirectTwoCallMode:
         assert MODE_DEEP_RESEARCH_BLOCK in stage2_system
         assert FORMAT_PLAIN_BLOCK in stage2_system
 
+    @pytest.mark.asyncio
+    async def test_kill_switch_off_forces_serious_and_no_html_block(
+            self, monkeypatch):
+        """Review iter1 (M1): OFF → режим serious, доставка не уходит safe-HTML."""
+        monkeypatch.setattr(Settings, "SMART_VERBALIZER_MODES_ENABLED", False)
+        svc = self._service([_direct_json("deep_research"), "ответ"])
+        text, mode = await svc._synthesize_direct_answer(
+            -100, "q", self._raw(), None)
+        assert (text, mode) == ("ответ", "serious")
+        stage2_system = svc.llm.generate.await_args_list[1].args[0][0]["content"]
+        assert stage2_system == PREV_CHAT_VERBALIZER_R1023
+        assert MODE_DEEP_RESEARCH_BLOCK not in stage2_system
 
-# ── E. Доставка direct deep_research (safe-HTML «Летописца») ─────────
+
+# ── E. Финальная доставка без сырого HTML (H2) ──────────────────────
+
+class TestFinalDeliveryNoHtml:
+    @pytest.mark.asyncio
+    async def test_summary_run_strips_html_bold(self, monkeypatch):
+        """Review iter1 (H2): саммари не рендерит HTML — `<b>` не должен
+        доехать до пользователя сырым ни в одном режиме."""
+        from services.summary_xml import XmlGroundingBuilder
+        from tests.test_summary_generator import FakeMemory, _row
+
+        editor = json.dumps({"response_mode": "deep_research", "digest": _DIGEST})
+
+        class TwoCallLLM:
+            def __init__(self):
+                self.calls = 0
+
+            async def generate(self, messages):
+                self.calls += 1
+                return (editor if self.calls == 1
+                        else "<b>жирный</b> разбор без таблиц")
+
+        delivered: list = []
+
+        async def _capture(self, chat_id, text):
+            delivered.append(text)
+
+        monkeypatch.setattr(SummaryGenerator, "_send_streaming", _capture)
+        monkeypatch.setattr(SummaryGenerator, "_send_chunked", _capture)
+        gen = SummaryGenerator(FakeMemory(rows=[_row(author_name="вася")]),
+                               XmlGroundingBuilder(), TwoCallLLM(), AsyncMock())
+        await gen._run(-100, False)
+        assert delivered
+        assert "<b>" not in delivered[0]
+        assert "жирный" in delivered[0]
+
+    @pytest.mark.asyncio
+    async def test_factcheck_final_strips_html_bold(self):
+        from services.factcheck_service import FactCheckService
+        aggregator = MagicMock()
+        aggregator.search = AsyncMock(return_value="хиты")
+        llm = MagicMock()
+        llm.generate = AsyncMock(
+            side_effect=[_factcheck_json("deep_research"),
+                         "<b>вердикт</b> без тегов"])
+        service = FactCheckService(aggregator, llm)
+        result = await service.check_claim("тезис")
+        assert "<b>" not in result
+        assert "вердикт" in result
+
+
+# ── F. Доставка direct deep_research (safe-HTML «Летописца») ─────────
 
 class TestDeepResearchDelivery:
     @pytest.mark.asyncio

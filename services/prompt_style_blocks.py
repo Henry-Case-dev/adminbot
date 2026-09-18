@@ -113,13 +113,30 @@ MODE_DEEP_RESEARCH_BLOCK = (
 
 # Канальные форматные блоки (UPD владельца): канал доставки, а не режим,
 # определяет разрешённую разметку. Причина — защита от Telegram ParseError.
+#
+# ВАЖНО (review iter1, H2): «жирный» физически рендерится только там, где есть
+# safe-HTML-доставка (`parse_mode="HTML"` + `escape_lore_html`). Поэтому у
+# plain-канала две разновидности блока:
+#   * `FORMAT_PLAIN_BLOCK` — HTML-capable (direct deep_research: есть safe-HTML);
+#   * `FORMAT_PLAIN_TEXT_BLOCK` — text-only (саммари/фактчек без HTML-доставки):
+#     никаких HTML-тегов, чтобы `<b>` не утёк сырым; акценты — словом/строем
+#     фразы, перечисления — буллитами `- `.
 FORMAT_PLAIN_BLOCK = (
-    "ФОРМАТ PLAIN - ПРЯМОЙ ЧАТ (ОБЫЧНОЕ СООБЩЕНИЕ):\n"
+    "ФОРМАТ PLAIN - ПРЯМОЙ ЧАТ (ОБЫЧНОЕ СООБЩЕНИЕ, HTML-РЕЖИМ):\n"
     "Обязательно используй жирный для акцентов: <b>акцент</b>. Перечисления "
     "давай простыми буллитами: \"- \".\n"
     "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНЫ любые таблицы: Markdown (| ... |), HTML (<table>), "
     "ASCII-сетки. Telegram не переваривает таблицы в обычном сообщении, и ответ "
     "не уйдет. Без #-заголовков и тяжелой разметки."
+)
+
+FORMAT_PLAIN_TEXT_BLOCK = (
+    "ФОРМАТ PLAIN - ПРЯМОЙ ЧАТ (ОБЫЧНОЕ СООБЩЕНИЕ, ТОЛЬКО ТЕКСТ):\n"
+    "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНЫ любые HTML-теги, включая <b> и <i>: этот канал "
+    "не рендерит разметку, теги уйдут пользователю сырыми. Акцент делай строем "
+    "фразы и порядком слов. Перечисления давай простыми буллитами: \"- \".\n"
+    "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНЫ любые таблицы: Markdown (| ... |), HTML (<table>), "
+    "ASCII-сетки. Без #-заголовков и тяжелой разметки."
 )
 
 FORMAT_RICH_BLOCK = (
@@ -137,33 +154,64 @@ MODE_BLOCKS: dict[str, str] = {
     "deep_research": MODE_DEEP_RESEARCH_BLOCK,
 }
 
+# Review iter1 (H1): в `deep_research` буллиты ОБЯЗАТЕЛЬНЫ, поэтому при сборке
+# промпта для этого режима снимаем безусловные запреты на списки/буллиты из
+# общих блоков (ANTI_BOT п.4 и R11-правило 2 Рассказчика). Замены — точечные,
+# чтобы базовые каноны и их слепки не трогались, а собранный промпт не содержал
+# взаимоисключающих инструкций.
+_DEEP_RESEARCH_OVERRIDES: tuple[tuple[str, str], ...] = (
+    (
+        "4. Списки с буллитами и нумерованные перечни в самом ответе.",
+        "4. Перечисления оформляй простыми буллитами \"- \": в этом режиме "
+        "они разрешены.",
+    ),
+    (
+        "2. Не выводи Markdown, списки, пункты и эмодзи: только сплошной "
+        "текст, разделённый абзацами.",
+        "2. Не выводи сырой Markdown и эмодзи: перечисления давай буллитами "
+        "\"- \", остальной текст - сплошным.",
+    ),
+)
 
-def mode_block(response_mode: str | None) -> str:
-    """Режимный блок; неизвестное/пустое → ``serious`` (fail-safe)."""
-    candidate = str(response_mode or "").strip().lower()
-    return MODE_BLOCKS.get(candidate, MODE_SERIOUS_BLOCK)
+
+def _apply_mode_overrides(base_prompt: str, response_mode: str) -> str:
+    """Снять запреты на буллиты для ветки ``deep_research`` (H1)."""
+    if response_mode != "deep_research":
+        return base_prompt
+    text = base_prompt
+    for old, new in _DEEP_RESEARCH_OVERRIDES:
+        text = text.replace(old, new)
+    return text
 
 
-def format_block(channel: str | None) -> str:
-    """Канальный форматный блок; неизвестный канал → plain (безопасно)."""
+def format_block(channel: str | None, *, html_safe: bool = False) -> str:
+    """Канальный форматный блок.
+
+    * ``rich`` → полный Markdown/HTML (F6);
+    * ``plain`` + ``html_safe`` → HTML-capable plain (direct deep_research);
+    * ``plain`` без ``html_safe`` → text-only plain (без любых HTML-тегов).
+    Неизвестный канал трактуется как безопасный text-only plain."""
     if str(channel or "").strip().lower() == _CHANNEL_RICH:
         return FORMAT_RICH_BLOCK
-    return FORMAT_PLAIN_BLOCK
+    return FORMAT_PLAIN_BLOCK if html_safe else FORMAT_PLAIN_TEXT_BLOCK
 
 
-def compose_verbilizer_system(base_prompt: str, response_mode: str = "serious",
-                              channel: str = _CHANNEL_PLAIN) -> str:
+def compose_verbalizer_system(base_prompt: str, response_mode: str = "serious",
+                              channel: str = _CHANNEL_PLAIN, *,
+                              html_safe: bool = False) -> str:
     """Narrator-промпт по режиму и каналу.
 
     Формула (ADR-1023-3 §Decision 4/10): модульный базовый narrator
     (уже включает ``STYLE_BLOCKS_SUFFIX`` + ``TYPOGRAPHY_BLOCK``) +
     ровно один ``MODE_*_BLOCK``; для ``deep_research`` добавляется ровно
-    один канальный блок (``FORMAT_PLAIN_BLOCK`` | ``FORMAT_RICH_BLOCK``).
+    один канальный блок. Для ``deep_research`` безусловные запреты на
+    буллиты снимаются (H1), чтобы требование буллитов не конфликтовало с базой.
     """
     candidate = str(response_mode or "").strip().lower()
     if candidate not in MODE_BLOCKS:
         candidate = "serious"
-    parts = [str(base_prompt or "").rstrip(), MODE_BLOCKS[candidate]]
+    base = _apply_mode_overrides(str(base_prompt or "").rstrip(), candidate)
+    parts = [base, MODE_BLOCKS[candidate]]
     if candidate == "deep_research":
-        parts.append(format_block(channel))
+        parts.append(format_block(channel, html_safe=html_safe))
     return "\n\n".join(part for part in parts if part)

@@ -157,8 +157,12 @@ from services.negative_constraints import (
     channel_enabled_rules,
     verbalize_validated,
 )
-from services.prompt_style_blocks import compose_verbilizer_system
-from services.system2_handoff import parse_direct_synthesis, redact_secrets
+from services.prompt_style_blocks import compose_verbalizer_system
+from services.system2_handoff import (
+    normalize_response_mode,
+    parse_direct_synthesis,
+    redact_secrets,
+)
 from services.tool_loop import chat_with_tools, ToolLoopResult
 from services.tool_router import ToolContext
 from services.tool_schemas import active_tools
@@ -879,13 +883,18 @@ class DirectChatService:
                     "[direct] system2: невалидная справка — fallback | chat=%s",
                     chat_id)
                 return None
-            response_mode = str(data.get("response_mode") or "serious")
+            # Review iter1 (M1): при kill-switch OFF режим не выбирается вовсе
+            # (fail-safe serious) — включая маршрут доставки.
             modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED", True)
+            response_mode = (normalize_response_mode(data.get("response_mode"))
+                             if modes_on else "serious")
             verbalizer_template = (
                 DIRECT_VERBALIZER_SYSTEM_PROMPT if modes_on
                 else PREV_CHAT_VERBALIZER_R1023)
-            verbalizer_system = (compose_verbilizer_system(
-                verbalizer_template, response_mode, "plain")
+            # Review iter1 (H2): direct deep_research доставляется safe-HTML
+            # (`parse_mode="HTML"` + escape_lore_html) → HTML-capable блок.
+            verbalizer_system = (compose_verbalizer_system(
+                verbalizer_template, response_mode, "plain", html_safe=True)
                 if modes_on else verbalizer_template)
             base_messages = [
                 {"role": "system", "content": verbalizer_system},

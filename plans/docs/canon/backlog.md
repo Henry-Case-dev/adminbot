@@ -158,13 +158,19 @@
   понтов); слепки `PREV_SUMMARY_NARRATOR_R1023`,
   `PREV_FACTCHECK_VERBALIZER_R1023`, `PREV_CHAT_VERBALIZER_R1023`. Режимный
   блок (`MODE_CASUAL_BLOCK`/`MODE_SERIOUS_BLOCK`/`MODE_DEEP_RESEARCH_BLOCK`)
-  добавляется в оркестраторе (`compose_verbilizer_system`).
+  добавляется в оркестраторе (`compose_verbalizer_system`).
 - **Канальные правила (UPD владельца):** direct/factcheck/plain-саммари —
   `FORMAT_PLAIN_BLOCK` (`<b>`-акценты + `- `-буллиты, таблицы КАТЕГОРИЧЕСКИ
   запрещены); Article (`sendRichMessage`, F6) — `FORMAT_RICH_BLOCK` (полный
-  Markdown/HTML). Guard `plain_no_tables` (`detect_plain_tables`,
-  bounded-регенерация) активен только на plain-канале. Deep_research прямого
-  чата доставляется safe-HTML-паттерном «Летописца»
+  Markdown/HTML). **UPD review iter1:** «жирный» рендерится только при
+  safe-HTML-доставке, поэтому канал HTML-capable (`html_safe=True`, direct
+  `deep_research`) использует `FORMAT_PLAIN_BLOCK`, а саммари/фактчек без
+  HTML-рендера — `FORMAT_PLAIN_TEXT_BLOCK` (HTML-теги запрещены, финальный
+  текст чистится `strip_lore_html`). Guard `plain_no_tables`
+  (`detect_plain_tables`, bounded-регенерация) активен только на plain-канале;
+  детекция включает pipe-таблицы без внешних `|`. Для `deep_research` при
+  сборке снимаются безусловные запреты буллитов (`_DEEP_RESEARCH_OVERRIDES`).
+  Deep_research прямого чата доставляется safe-HTML-паттерном «Летописца»
   (`escape_lore_html` + `parse_mode="HTML"` + `TelegramBadRequest`→plain).
 - **Флаг:** `SMART_VERBALIZER_MODES_ENABLED` (env-only ClassVar, default ON,
   Δ каталога = 0); OFF → единый прежний Вербализатор.

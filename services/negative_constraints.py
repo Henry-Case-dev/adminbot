@@ -83,6 +83,7 @@ FORBIDDEN_CLICHE_PATTERNS: tuple[ClicheRule, ...] = (
     # Раунд 10.23 (F3, ADR-1023-3 §3.6.3): таблицы запрещены на plain-канале
     # (Telegram ParseError). Включается только для plain-канала; на rich
     # (статья) правило НЕ активно. Детектор ниже — тот же набор шаблонов.
+    # Review iter1 (M5): + pipe-таблицы без внешних `|` («a | b», «a | b | c»).
     ClicheRule(
         "plain_no_tables",
         _c(
@@ -90,6 +91,8 @@ FORBIDDEN_CLICHE_PATTERNS: tuple[ClicheRule, ...] = (
             r"^\s*\|.*\|\s*$",
             r"^\s*\+[-=+]+\+\s*$",
             r"\|?\s*:?-{2,}:?\s*\|",
+            r"^\s*[^\s|\n][^|\n]*\|[^|\n]*[^\s|\n]\s*$",
+            r"^\s*[^\s|\n][^|\n]*\|[^|\n]*\|[^|\n]*[^\s|\n]\s*$",
             flags=re.IGNORECASE | re.MULTILINE,
         ),
         secondary=True,
@@ -167,6 +170,12 @@ def find_forbidden_cliches(
         hits: list[str] = []
         for rule in FORBIDDEN_CLICHE_PATTERNS:
             if rule.code not in codes:
+                continue
+            # Review iter1 (M2): правило таблиц идёт через публичный детектор
+            # `detect_plain_tables` — единый источник истины для прода и тестов.
+            if rule.code == "plain_no_tables":
+                if detect_plain_tables(source):
+                    hits.append(rule.code)
                 continue
             haystack = source if rule.use_raw else norm
             if any(pattern.search(haystack) for pattern in rule.patterns):

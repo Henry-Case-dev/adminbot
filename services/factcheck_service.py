@@ -38,14 +38,17 @@ from services.negative_constraints import (
     channel_enabled_rules,
     verbalize_validated,
 )
-from services.prompt_style_blocks import compose_verbilizer_system
+from services.prompt_style_blocks import compose_verbalizer_system
 from services.reply_postprocess import strip_reasoning_tags
 from services.search_aggregator import SearchAggregator
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import MemoryManager, fire_and_forget
 from services.summary_xml import escape_xml_text
 from services.smartmodule_utils import strip_lore_html
-from services.system2_handoff import parse_factcheck_analysis
+from services.system2_handoff import (
+    normalize_response_mode,
+    parse_factcheck_analysis,
+)
 from services.tool_loop import chat_with_tools
 from services.tool_router import ToolContext, resolve_lore_compiler_flag
 from services.tool_schemas import factcheck_tools
@@ -145,14 +148,16 @@ class FactCheckService:
                 "factcheck system2: невалидный JSON аналитика — fallback | "
                 "chat=%s", chat_id)
             return None
-        response_mode = data.get("response_mode", "serious")
+        response_mode = normalize_response_mode(data.get("response_mode"))
         modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED", True)
         verbalizer_template = (
             FACTCHECK_VERBALIZER_SYSTEM_PROMPT if modes_on
             else PREV_FACTCHECK_VERBALIZER_R1023)
         verbalizer_base = verbalizer_template.replace(
             "{max_symbols}", str(max_symbols))
-        verbalizer_system = (compose_verbilizer_system(
+        # Review iter1 (H2): у фактчека нет safe-HTML-доставки → text-only
+        # plain-блок (без требования `<b>`, без HTML-тегов вовсе).
+        verbalizer_system = (compose_verbalizer_system(
             verbalizer_base, response_mode, "plain")
             if modes_on else verbalizer_base)
         base_messages = [
@@ -229,7 +234,12 @@ class FactCheckService:
 
     def _finalize_text(self, text, used_tools, tool_context, rag, results,
                        chat_context) -> str:
-        """cleanup → grounding-strip → lore-strip → пустой ответ."""
+        """cleanup → grounding-strip → HTML-strip → пустой ответ.
+
+        Review iter1 (H2): whitelist-HTML-теги (`<b>` и пр.) срезаются ВСЕГДА,
+        а не только при тулах — фактчек-канал не рендерит HTML, сырой тег
+        пользователю показывать нельзя.
+        """
         anchors = collect_allowed_anchors(
             self._trusted_text(rag, results, chat_context, tool_context))
         out = cleanup_llm_text(text)
@@ -240,8 +250,7 @@ class FactCheckService:
                 "| kept=%d",
                 gstats.stripped_phantom, gstats.stripped_bare, gstats.kept,
             )
-        if used_tools:
-            out = strip_lore_html(out)
+        out = strip_lore_html(out)
         if not out.strip():
             raise LLMBadResponseError("factcheck: empty answer")
         return out
