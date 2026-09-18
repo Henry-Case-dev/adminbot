@@ -209,10 +209,15 @@ class FactCheckService:
 
     @staticmethod
     def _trusted_text(rag, results, chat_context, tool_context) -> str:
-        """Доверенные источники grounding-якорей (S10.21-5: без claim/hint)."""
+        """Доверенные источники grounding-якорей (S10.21-5: без claim/hint).
+
+        10.23 (F2, ADR-1023-2, R1023F2-04): ``chat_context`` (включая
+        ``<reply_chains>``) НАМЕРЕННО исключён — это контекст «не
+        доказательства», и его таймстампы (``ДД.ММ.ГГГГ``) не должны
+        становиться grounding-якорями и «заземлять» фантомные ``[ММ.ГГГГ]``
+        теги. Якоря — только из доказательств: RAG, поисковая выдача,
+        tool-контекст (аргумент сохранён для явности/совместимости)."""
         parts = [str(rag or ""), str(results or "")]
-        if chat_context:
-            parts.append(str(chat_context))
         if tool_context:
             parts.append(str(tool_context))
         return "\n".join(parts)

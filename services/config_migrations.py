@@ -233,11 +233,17 @@ async def migrate_factcheck_context_defaults(cache) -> dict[str, str]:
     """F2 (10.23, ADR-1023-2): одноразовый перенос legacy-значения окна
     фактчека в `limits.factcheck_context_before`.
 
-    Идемпотентна: значение legacy переносится ТОЛЬКО если `before` содержит
-    дефолт (сид вставил code-дефолт) или не задан; кастом `before` не
-    затирается (WARNING). Legacy-значение НЕ удаляется (обратимость отката).
-    Не-числовое legacy / отсутствие legacy / PG down → skip. Вызывается из
-    `bot.py main()` (fail-open)."""
+    Идемпотентна и осторожна (R1023F2-08):
+      * legacy РАВЕН своему code-дефолту (`FACTCHECK_CONTEXT_MESSAGES`) →
+        мигрировать нечего → skip (не трогаем `before`, в т.ч. env-дефолт);
+      * `before` задан не-дефолтным значением (кастом владельца/PG-каст) →
+        WARNING + skip;
+      * `before` отсутствует или равен своему code-дефолту → переносим legacy,
+        если значение отличается.
+    Известное ограничение (зафиксировано в ADR): явный `before == дефолту`
+    неотличим от сид-дефолта без отдельного маркера — в этом случае legacy
+    считается намерением владельца и переносится. Legacy-значение НЕ удаляется
+    (обратимость). PG down → skip. Вызывается из `bot.py main()` (fail-open)."""
     report: dict[str, str] = {}
     if cache is None or not getattr(cache, "pg_available", False):
         logger.info("[factcheck_context_migration] skip: PG недоступен")
@@ -252,16 +258,20 @@ async def migrate_factcheck_context_defaults(cache) -> dict[str, str]:
         logger.warning("[factcheck_context_migration] legacy-значение не "
                        "число — skip | key=%s", FACTCHECK_CONTEXT_LEGACY_KEY)
         return report
+    legacy_default = int(settings.FACTCHECK_CONTEXT_MESSAGES or 0)
+    if legacy_int == legacy_default:
+        logger.info("[factcheck_context_migration] legacy == дефолт — "
+                    "мигрировать нечего | key=%s", FACTCHECK_CONTEXT_LEGACY_KEY)
+        return report
     default_int = int(settings.FACTCHECK_CONTEXT_BEFORE or 0)
-    before_int = _threshold_int(cache.get(FACTCHECK_CONTEXT_BEFORE_KEY))
-    if before_int is None:
-        before_int = default_int
-    if before_int != default_int:
+    before_raw = cache.get(FACTCHECK_CONTEXT_BEFORE_KEY)
+    before_int = _threshold_int(before_raw)
+    if before_int is not None and before_int != default_int:
         logger.warning("[factcheck_context_migration] before уже настроен "
                        "владельцем — НЕ трогаем | key=%s",
                        FACTCHECK_CONTEXT_BEFORE_KEY)
         return report
-    if legacy_int == before_int:
+    if before_int is not None and legacy_int == before_int:
         logger.info("[factcheck_context_migration] уже перенесён — no-op | "
                     "key=%s", FACTCHECK_CONTEXT_BEFORE_KEY)
         return report

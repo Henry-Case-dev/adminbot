@@ -61,10 +61,15 @@ VALID_REPRESENTATIONS = (
 # (F1/ADR-1014-2 D5). Держим строковыми префиксами, чтобы не тянуть импорт
 # summary_memory в canonical_context (цикл: summary_memory → canonical_context).
 # Синхронность с `summary_memory._SELF_ECHO_INSTRUCTION` проверяется тестом.
+# 10.23 (F2, ADR-1023-2, R1023F2-07): структурная обёртка под-блока фактчека
+# `<reply_chains …>` / `</reply_chains>` — не элемент данных (как label_exempt);
+# внутренние строки цепочки каноничны.
 CONTEXT_LABEL_EXEMPT_PREFIXES = (
     "фон: ",
     "широкий фон: ",
     "Ниже — твои ПРОШЛЫЕ слова.",
+    "<reply_chains",
+    "</reply_chains>",
 )
 
 
@@ -162,8 +167,11 @@ CONTEXT_POINTS: tuple[ContextPoint, ...] = (
         r"^(?:- )?\[[^\]]+\]"),
     ContextPoint(
         "factcheck_context", "services/factcheck_service.py", KIND_MSG,
-        "Фактчек <chat_context>", REPRESENTATION_CANONICAL,
-        canonical_line_pattern(KIND_MSG)),
+        "Фактчек <chat_context> (+ <reply_chains>)", REPRESENTATION_CANONICAL,
+        # 10.23 (F2, R1023F2-07): окно — канон с ts; вложенный <reply_chains>
+        # добавляет бот-ходы без ts (источник времени не хранит, R16) — как в
+        # direct_thread. Открытый/закрытый тег под-блока — label_exempt.
+        r"^(?:\[\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}.*?\]: |\[[^\]]+.*?\]: )"),
     ContextPoint(
         "video_web_summary", "services/youtube_summarizer_service.py",
         KIND_FACT, "Видео/веб-выжимки (RAG-префикс)",

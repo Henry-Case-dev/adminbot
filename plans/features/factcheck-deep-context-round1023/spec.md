@@ -44,10 +44,12 @@
 ### 3.1. Двунаправленное окно (T-2108)
 
 - Новые ключи каталога (group `limits_factcheck`): `FACTCHECK_CONTEXT_BEFORE` (`limits.factcheck_context_before`, default **6**), `FACTCHECK_CONTEXT_AFTER` (`limits.factcheck_context_after`, default **6**).
-- Код-кап: `FACTCHECK_CONTEXT_TOTAL_CAP = 40` (жёстко в коде; суммарное число сообщений не превышает кап).
+- Код-кап: `FACTCHECK_CONTEXT_TOTAL_CAP = 40` (жёстко в коде). Кап считается по **сумме `before + after`**; якорь БД добавляется сверх капа → фактический максимум строк окна **cap + 1 = 41** (R1023F2-06).
+- Бюджет рендера: `format_chat_context(..., reply_chains=...)` гарантирует **длину всего `<chat_context>` ≤ `max_chars`** (обёртка + окно + цепочка); дальние ходы цепочки вытесняются первыми, при нехватке места под-блок опускается. Отдельный жёсткий потолок цепочки — `_REPLY_CHAINS_MAX_CHARS = 1200` (R1023F2-01).
+- Grounding: `chat_context`/`<reply_chains>` **исключены** из источников grounding-якорей (`FactCheckService._trusted_text`); якоря — только RAG/поиск/tool-контекст (R1023F2-04).
 - **Legacy `FACTCHECK_CONTEXT_MESSAGES`:** активный код-путь **не читает**; одноразовая идемпотентная миграция `migrate_factcheck_context_defaults` переносит его значение в `before`, если `before` не задан; ключ остаётся в реестре (пины), но уходит из UI-вида фактчека (внутренний).
 - **Δ каталога F2 = +2** (Settings/REGISTRY 439→441). Группа/вкладка не меняются (`tma-menu-freeze`).
-- Новый метод БД: `get_messages_around(chat_id, target_tg_message_id, before, after) -> list` — anchor-выборка (id < anchor / id == anchor / id > anchor) ASC; fail-open → legacy `get_recent_messages(before + after)`.
+- Новый метод БД: `get_messages_around(chat_id, target_tg_message_id, before, after) -> list` — anchor-выборка (id < anchor / id == anchor / id > anchor) ASC; fail-open → legacy `get_recent_messages(before + after)`. Фактический максимум строк = `before + after + 1` (якорь), где `before + after ≤ cap`.
 
 ### 3.2. Граф реплаев (T-2109)
 

@@ -502,9 +502,15 @@ Egress: `sanitize_outgoing` дополнительно вырезает техн
 - **Граф реплаев:** `services/thread_chain.py` — общий util
   (`collect_thread_chain`/`format_chain_line`/`render_reply_chains`), вынесен из
   `DirectChatService` (direct переключён на util, регресс обязателен). Фактчек
-  строит цепочку для ЯКОРЯ, глубина = `limits.chat_thread_max_depth` (паритет с
-  direct, новый ключ НЕ вводится); инжект — отдельный `<reply_chains>`-под-блок
-  с note «не доказательства». Fail-open: нет цепочки/ошибка → блок опускается.
+  строит цепочку для ЯКОРЯ, глубина = `limits.chat_thread_max_depth`, резолв
+  **per-chat** (`get_chat_param`) и в direct, и в фактчеке (паритет, новый ключ
+  НЕ вводится); инжект — отдельный `<reply_chains>`-под-блок с note «не
+  доказательства». Fail-open: нет цепочки/ошибка → блок опускается.
+- **Бюджет и grounding (fix-round R1023F2-01/04):** `format_chat_context`
+  гарантирует длину всего `<chat_context>` ≤ `max_chars` с учётом
+  `<reply_chains>` (потолок цепочки `_REPLY_CHAINS_MAX_CHARS = 1200`);
+  `chat_context`/`<reply_chains>` исключены из grounding-якорей
+  (`FactCheckService._trusted_text`) — контекст не «заземляет» фантомные даты.
 - **Промпт-правило:** `FACTCHECK_ANALYST_SYSTEM_PROMPT` +
   `WEB_SEARCH_INSTRUCTION_BLOCK` («тейк о реальном мире/новостях/датах/политике/
   общеизвестных фактах → ОБЯЗАН вызвать веб-поиск»); слепок F1-канона —

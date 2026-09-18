@@ -16,6 +16,7 @@
 """
 import asyncio
 import dataclasses
+import types
 
 import pytest
 
@@ -26,6 +27,11 @@ from services.config_migrations import migrate_factcheck_context_defaults
 from services.database import DatabaseService
 from services import thread_chain
 from services.direct_chat_service import _ChainItem, DirectChatService
+from services.grounding_validator import (
+    collect_allowed_anchors,
+    strip_phantom_tags,
+)
+from services.factcheck_service import FactCheckService
 from services.factcheck_prompts import (
     FACTCHECK_ANALYST_SYSTEM_PROMPT,
     PREV_FACTCHECK_ANALYST_R1023,
@@ -104,6 +110,18 @@ class TestGetMessagesAround:
             _FakeSelf(), CHAT_ID, 1, 2, 3)
         assert out == [{"fallback": True}]
 
+    @pytest.mark.asyncio
+    async def test_cap_plus_anchor_max_rows(self, db):
+        """R1023F2-06: кап = before+after, якорь сверх → максимум cap+1."""
+        from handlers import factcheck as fc
+        from config.settings import settings as s
+        await _seed(db, [(i, f"м{i}") for i in range(1, 61)])
+        b, a = fc._clamp_window(1000, 1000)
+        assert b + a == s.FACTCHECK_CONTEXT_TOTAL_CAP
+        rows = await db.get_messages_around(CHAT_ID, 41, b, a)   # якорь id=41
+        assert len(rows) == s.FACTCHECK_CONTEXT_TOTAL_CAP + 1
+        assert rows[-1]["text"] == "м41"
+
 
 # ── format_chat_context + reply_chains ──────────────────────────────────────
 
@@ -146,6 +164,34 @@ class TestChatContextReplyChains:
         assert block.startswith("<reply_chains")
         assert block.endswith("</reply_chains>")
 
+    def test_total_block_length_capped_with_long_chain(self):
+        """R1023F2-01: длинная цепочка не пробивает max_chars всего блока."""
+        rows = [_row(i, "x" * 50) for i in range(1, 4)]
+        chain = [thread_chain.ChainItem(
+            1, "вася", "y" * 900, False, 1000 + i, f"tg:{i}", None)
+            for i in range(6)]
+        full_chain = thread_chain.render_reply_chains(chain)
+        assert len(full_chain) > 2000           # цепочка сама по себе велика
+        out = format_chat_context(rows, max_chars=2000,
+                                  reply_chains=full_chain)
+        assert len(out) <= 2000
+        assert out.endswith("</chat_context>")
+        assert "НЕ доказательства" in out       # под-блок сохранился (усечён)
+
+    def test_chain_dropped_when_no_budget(self):
+        rows = [_row(1, "x" * 800), _row(2, "y" * 800)]
+        chain = thread_chain.render_reply_chains(
+            [thread_chain.ChainItem(1, "вася", "z" * 500, False, 1000,
+                                    "tg:1", None)])
+        out = format_chat_context(rows, max_chars=600, reply_chains=chain)
+        assert "<reply_chains" not in out
+        assert len(out) <= 600
+
+    def test_wrapper_lines_are_label_exempt(self):
+        from services.canonical_context import is_label_exempt
+        assert is_label_exempt('<reply_chains note="x">')
+        assert is_label_exempt("</reply_chains>")
+
 
 # ── thread_chain util / паритет direct ──────────────────────────────────────
 
@@ -167,6 +213,35 @@ class _FakeChainDB:
 
     async def get_bot_reply_parent(self, chat_id, tg_id, now):
         return self.parents.get(tg_id)
+
+
+class _Msg:
+    def __init__(self, message_id):
+        self.message_id = message_id
+
+
+class _FakeAliases:
+    def resolve(self, uid, name, username=None):
+        return name or f"id{uid}"
+
+
+def _full_chain_db():
+    """user→бот→user→бот→user: полная цепочка сквозь bot_reply_parents."""
+    messages = {
+        30: dict(text="ты кто?", reply_to_id=None, timestamp=100,
+                 author_name="вася", user_id=10, tg_message_id=30,
+                 id=30, is_forward=0),
+        50: dict(text="а почему так?", reply_to_id=40, timestamp=200,
+                 author_name="петя", user_id=20, tg_message_id=50,
+                 id=50, is_forward=0),
+        70: dict(text="вот это новости", reply_to_id=60, timestamp=300,
+                 author_name="вася", user_id=10, tg_message_id=70,
+                 id=70, is_forward=0),
+    }
+    return _FakeChainDB(
+        messages,
+        bot_replies={40: "я твой кошмар", 60: "потому что так надо"},
+        parents={40: 30, 60: 50})
 
 
 class TestThreadChainUtil:
@@ -218,14 +293,73 @@ class TestThreadChainUtil:
         out = thread_chain.render_reply_chains(chain)
         assert out.index("реплика_юзера") < out.index("реплика_бота")
 
-    def test_direct_parity_aliases_and_line(self):
+    def test_direct_parity_alias_and_line_rendering(self):
+        # Алиас класса един; рендер строки — конкретный канон (не сравнение
+        # делегата с его телом).
         assert _ChainItem is thread_chain.ChainItem
         item = _ChainItem(10, "вася", "привет", False, 1_700_000_000,
                           "tg:5", None)
         assert DirectChatService._chain_line(None, item, {}) == \
-            thread_chain.format_chain_line(item, {})
-        assert DirectChatService._chain_line(None, item, {}) == \
-            thread_chain.format_chain_line(item, {})
+            "[14.11.2023 22:13 | вася [10] | tg:5]: привет"
+        bot = _ChainItem(None, "бот", "ответ", True, None, "tg:6", None)
+        assert DirectChatService._chain_line(None, bot, {}) == \
+            "[бот [bot] | tg:6]: ответ"
+
+    @pytest.mark.asyncio
+    async def test_collect_chain_parity_direct_vs_util(self, monkeypatch):
+        """R1023F2-05: поведенческий паритет — direct `_collect_thread_chain`
+        и общий util дают один и тот же список `ChainItem` на общем фикстуре."""
+        from services import direct_chat_service as dcs
+
+        async def _fake_cp_g(chat_id, key, default=None):
+            return 6
+
+        monkeypatch.setattr(dcs, "_cp_g", _fake_cp_g)
+        db = _full_chain_db()
+        svc = DirectChatService.__new__(DirectChatService)
+        svc.db = db
+        svc.aliases = _FakeAliases()
+        svc.bot_id = None
+        svc.bot_username = ""
+
+        direct_chain = await svc._collect_thread_chain(CHAT_ID, _Msg(70))
+        util_chain = await thread_chain.collect_thread_chain(
+            db, CHAT_ID, 70, 6,
+            row_speaker=svc._row_speaker,
+            bot_name_resolver=svc._resolve_bot_name,
+            bot_reply_getter=svc.get_bot_reply,
+            bot_parent_getter=svc._bot_reply_parent)
+        assert [tuple(c) for c in direct_chain] == \
+            [tuple(c) for c in util_chain]
+        assert [c.item_id for c in direct_chain] == \
+            ["tg:70", "tg:60", "tg:50", "tg:40", "tg:30"]
+
+    @pytest.mark.asyncio
+    async def test_per_chat_depth_applied_in_both_paths(self, monkeypatch):
+        """R1023F2-02/R1023F2-05: per-chat `chat_thread_max_depth` применяется
+        в direct и в фактчеке одинаково."""
+        from services import direct_chat_service as dcs
+        from handlers import factcheck as fc
+
+        async def _fake_cp_g_depth2(chat_id, key, default=None):
+            return 2
+
+        monkeypatch.setattr(dcs, "_cp_g", _fake_cp_g_depth2)
+        monkeypatch.setattr(fc, "_cp_g", _fake_cp_g_depth2)
+        db = _full_chain_db()
+        svc = DirectChatService.__new__(DirectChatService)
+        svc.db = db
+        svc.aliases = _FakeAliases()
+        svc.bot_id = None
+        svc.bot_username = ""
+
+        direct_chain = await svc._collect_thread_chain(CHAT_ID, _Msg(70))
+        assert [c.item_id for c in direct_chain] == ["tg:70", "tg:60"]
+
+        monkeypatch.setattr(fc, "_db", db)
+        block = await fc._build_reply_chains(CHAT_ID, 70)
+        assert "tg:70" in block and "tg:60" in block
+        assert "tg:50" not in block        # глубина 2 — цепочка обрезана
 
 
 # ── handler: clamp + _fetch_chat_context + инжекция ─────────────────────────
@@ -307,6 +441,27 @@ class TestHandlerWindow:
             CHAT_ID, 6, 6, target_tg_message_id=30) == ""
 
     @pytest.mark.asyncio
+    async def test_fetch_fail_open_on_render_error(self, monkeypatch):
+        """R1023F2-03: ошибка РЕНДЕРА тоже глотается → ''."""
+        from handlers import factcheck as fc
+
+        class _DB:
+            async def get_messages_around(self, chat_id, target, before, after):
+                return [_row(30, "якорь", ts=1500)]
+
+            async def get_smart_message_by_tg_id(self, chat_id, tg_id):
+                return None
+
+        def _boom(*a, **k):
+            raise RuntimeError("render boom")
+
+        monkeypatch.setattr(fc, "_db", _DB())
+        monkeypatch.setattr(
+            "services.chat_context.format_chat_context", _boom)
+        assert await fc._fetch_chat_context(
+            CHAT_ID, 6, 6, target_tg_message_id=30) == ""
+
+    @pytest.mark.asyncio
     async def test_fetch_no_db_returns_empty(self, monkeypatch):
         from handlers import factcheck as fc
         monkeypatch.setattr(fc, "_db", None)
@@ -373,6 +528,26 @@ class TestFactcheckContextMigration:
         assert await migrate_factcheck_context_defaults(cache) == {}
 
     @pytest.mark.asyncio
+    async def test_legacy_equal_default_skipped(self):
+        """R1023F2-08: legacy == code-дефолт → мигрировать нечего."""
+        cache = _FakeCache({self.LEGACY: 6})
+        report = await migrate_factcheck_context_defaults(cache)
+        assert report == {}
+        assert cache.set_calls == []
+
+    @pytest.mark.asyncio
+    async def test_env_default_before_not_clobbered_by_default_legacy(
+            self, monkeypatch):
+        """R1023F2-08: env-дефолт `before` не затирается legacy-дефолтом."""
+        import services.config_migrations as cm
+        monkeypatch.setattr(cm, "settings", types.SimpleNamespace(
+            FACTCHECK_CONTEXT_MESSAGES=6, FACTCHECK_CONTEXT_BEFORE=10))
+        cache = _FakeCache({self.LEGACY: 6, self.BEFORE: 10})
+        report = await migrate_factcheck_context_defaults(cache)
+        assert report == {}
+        assert cache.set_calls == []
+
+    @pytest.mark.asyncio
     async def test_pg_down_skipped(self):
         cache = _FakeCache({self.LEGACY: 12}, pg_available=False)
         assert await migrate_factcheck_context_defaults(cache) == {}
@@ -408,6 +583,35 @@ class TestWebSearchPrompt:
         assert pm.ROLLBACK_MIGRATIONS[key] == (
             FACTCHECK_ANALYST_SYSTEM_PROMPT, PREV_FACTCHECK_ANALYST_R1023_F3)
         assert WEB_SEARCH_INSTRUCTION_BLOCK in PREV_FACTCHECK_ANALYST_R1023_F3
+
+
+# ── grounding: chat_context/reply_chains НЕ источник якорей (R1023F2-04) ────
+
+class TestGroundingAnchorsExcludeContext:
+    CTX = ('<chat_context note="НЕ доказательства">\n'
+           '[01.02.2020 10:00 | Вася | tg:1]: болтовня про 03.2021\n'
+           '<reply_chains note="не доказательства">\n'
+           '[01.02.2020 10:00 | Вася | tg:1]: цепочка про 04.2022\n'
+           '</reply_chains>\n</chat_context>')
+
+    def test_chat_context_not_in_anchors(self):
+        text = FactCheckService._trusted_text("", "", self.CTX, "")
+        assert collect_allowed_anchors(text).months == frozenset()
+
+    def test_evidence_sources_still_anchors(self):
+        text = FactCheckService._trusted_text(
+            "fact:7 [03.2021 | Иван | fact:7]", "", self.CTX, "")
+        anchors = collect_allowed_anchors(text)
+        assert "03.2021" in anchors.months
+        assert "7" in anchors.ids
+
+    def test_phantom_month_from_context_is_stripped(self):
+        anchors = collect_allowed_anchors(
+            FactCheckService._trusted_text("", "", self.CTX, ""))
+        out, _stats = strip_phantom_tags(
+            "вердикт [03.2021 | Вася] конец", anchors)
+        assert "03.2021" not in out
+        assert "вердикт" in out and "конец" in out
 
 
 # ── каталог: +2 ключа, hidden legacy, код-кап, вкладка ───────────────────────

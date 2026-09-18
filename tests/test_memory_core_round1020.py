@@ -229,10 +229,19 @@ def _sample_nostalgia():
 
 def _sample_factcheck():
     from services.chat_context import format_chat_context
+    from services.thread_chain import ChainItem, render_reply_chains
     row = {"user_id": 10, "author_name": "вася", "text": "привет",
            "timestamp": 1714500000, "tg_message_id": 5, "id": 9}
-    return [ln for ln in format_chat_context([row]).splitlines()
-            if ln.startswith("[")]
+    # 10.23 (F2, R1023F2-07): под-блок цепочек — структурная обёртка
+    # (label_exempt), внутренние строки — канонические.
+    chains = render_reply_chains([
+        ChainItem(10, "вася", "вопрос", False, 1714500000, "tg:5", None),
+        ChainItem(None, "бот", "ответ", True, None, "tg:6", None),
+    ])
+    return [ln for ln in format_chat_context(
+        [row], reply_chains=chains).splitlines()
+        if ln.startswith("[") or ln.startswith("<reply_chains")
+        or ln.startswith("</reply_chains>")]
 
 
 _SAMPLES = {

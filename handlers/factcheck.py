@@ -21,6 +21,7 @@ from config.settings import settings
 from handlers.summary import _extract_forward_source
 from handlers.voice_transcription import _is_transcription_target
 from services import hot_config as hot
+from services.chat_params import get_chat_param as _cp_g
 from services.llm_client import LLMBadResponseError, LLMError
 from services.media_group_buffer import get_media_group_caption
 from services.persistent_throttling import (
@@ -62,8 +63,9 @@ async def _fetch_chat_context(chat_id: int, before: int, after: int,
     ``before`` сообщений старше целевого + якорь + ``after`` новее (ASC),
     плюс программный граф реплаев вокруг якоря.
 
-    Fail-open: любая ошибка БД/построения цепочки → '' (прежнее поведение без
-    контекста); цепочка — отдельный под-блок «не доказательства»."""
+    Fail-open: ЛЮБАЯ ошибка (БД/цепочка/рендер) → '' (R1023F2-03: рендер
+    внутри общего try — прежнее поведение без контекста); цепочка — отдельный
+    под-блок «не доказательства»."""
     from services.chat_context import format_chat_context   # локальный импорт — без циклов
     if _db is None:
         return ""
@@ -73,18 +75,20 @@ async def _fetch_chat_context(chat_id: int, before: int, after: int,
     try:
         rows = await _db.get_messages_around(
             chat_id, target_tg_message_id, b, a)
+        reply_chains = await _build_reply_chains(chat_id, target_tg_message_id)
+        return format_chat_context(rows, trigger_message_id=trigger_message_id,
+                                   reply_chains=reply_chains)
     except Exception:
-        logger.warning("[factcheck] chat context fetch failed | chat=%s",
+        logger.warning("[factcheck] chat context build failed | chat=%s",
                        chat_id, exc_info=True)
         return ""
-    reply_chains = await _build_reply_chains(chat_id, target_tg_message_id)
-    return format_chat_context(rows, trigger_message_id=trigger_message_id,
-                               reply_chains=reply_chains)
 
 
 def _clamp_window(before, after) -> tuple[int, int]:
-    """Границы окна: неотрицательные int, сумма ≤ FACTCHECK_CONTEXT_TOTAL_CAP
-    (жёсткий код-кап, ADR-1023-2; при переполнении срезаем ``after``)."""
+    """Границы окна: неотрицательные int, сумма ``before + after`` ≤
+    FACTCHECK_CONTEXT_TOTAL_CAP (жёсткий код-кап, ADR-1023-2; при переполнении
+    срезаем ``after``). Якорь БД добавляет сверх капа (R1023F2-06: фактический
+    максимум строк = cap + 1)."""
     cap = int(getattr(settings, "FACTCHECK_CONTEXT_TOTAL_CAP", 40) or 40)
     try:
         b = max(0, int(before or 0))
@@ -100,7 +104,10 @@ def _clamp_window(before, after) -> tuple[int, int]:
 
 async def _build_reply_chains(chat_id: int, target_tg_message_id) -> str:
     """Цепочка реплаев для якоря общим util (F2). Fail-open → '' (нет цепочки/
-    ошибка БД → под-блок опускается, прежнее поведение)."""
+    ошибка БД → под-блок опускается, прежнее поведение).
+
+    R1023F2-02: глубина резолвится per-chat (``get_chat_param``) — тот же
+    контракт, что в ``direct_chat_service`` (паритет с direct, ADR-1023-2)."""
     if _db is None or target_tg_message_id in (None, "", 0):
         return ""
     from services.thread_chain import (          # локальный импорт — без циклов
@@ -108,10 +115,12 @@ async def _build_reply_chains(chat_id: int, target_tg_message_id) -> str:
         render_reply_chains,
     )
     try:
-        depth = hot.get("limits.chat_thread_max_depth",
-                        settings.CHAT_THREAD_MAX_DEPTH)
+        depth = await _cp_g(
+            chat_id, "limits.chat_thread_max_depth",
+            hot.get("limits.chat_thread_max_depth",
+                    settings.CHAT_THREAD_MAX_DEPTH))
         chain = await collect_thread_chain(
-            _db, chat_id, int(target_tg_message_id), depth)
+            _db, chat_id, int(target_tg_message_id), int(depth or 0))
         return render_reply_chains(chain)
     except Exception:
         logger.warning("[factcheck] reply chain build failed | chat=%s",

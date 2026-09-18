@@ -160,6 +160,13 @@ def client(monkeypatch, tmp_path):
              "category": "content"},
             {"key": "memory.infinite_retention", "value": False,
              "category": "memory", "updated_at": None},
+            # F2 (10.23, ADR-1023-2, R1023F2-09): legacy внутренний + новые окна.
+            {"key": "limits.factcheck_context_messages", "value": 6,
+             "category": "limits", "updated_at": None},
+            {"key": "limits.factcheck_context_before", "value": 6,
+             "category": "limits", "updated_at": None},
+            {"key": "limits.factcheck_context_after", "value": 6,
+             "category": "limits", "updated_at": None},
         ],
         role_rows=[
             {"role_name": "admin", "permissions": {"wildcard": True},
@@ -726,6 +733,22 @@ class TestAdmins:
         assert items["limits.search_max_symbols"]["updated_at"] \
             == "2026-08-30T01:00:00+00:00"
         assert items["keys.groq_api_key"]["updated_at"] is None
+
+    def test_config_hides_internal_factcheck_legacy_key(self, client):
+        """R1023F2-09: hidden-ключ не отдаётся в GET /api/config."""
+        resp = client.get("/api/config", headers=_hdr(ADMIN_ID))
+        items = {i["key"] for i in resp.json()["items"]}
+        assert "limits.factcheck_context_messages" not in items
+        assert "limits.factcheck_context_before" in items
+        assert "limits.factcheck_context_after" in items
+
+    def test_params_meta_hides_internal_factcheck_legacy_key(self, client):
+        """R1023F2-09: hidden-ключ не отдаётся в GET /api/config/params-meta."""
+        resp = client.get("/api/config/params-meta", headers=_hdr(ADMIN_ID))
+        meta = resp.json()["items"]
+        assert "limits.factcheck_context_messages" not in meta
+        assert "limits.factcheck_context_before" in meta
+        assert "limits.factcheck_context_after" in meta
 
 
 class TestRoles:

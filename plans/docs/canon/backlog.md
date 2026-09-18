@@ -131,7 +131,9 @@
   legacy `limits.factcheck_context_messages` — внутренний (hidden), только
   источник одноразовой миграции в `before`.
 - **Граф реплаев:** общий `services/thread_chain.py` (direct + фактчек), цепочка
-  для якоря, `<reply_chains>`-под-блок «не доказательства».
+  для якоря (глубина per-chat, паритет), `<reply_chains>`-под-блок «не
+  доказательства»; бюджет всего `<chat_context>` ≤ `max_chars` (R1023F2-01);
+  `chat_context`/цепочки не дают grounding-якорей (R1023F2-04).
 - **Промпт:** `FACTCHECK_ANALYST_SYSTEM_PROMPT` получает
   `WEB_SEARCH_INSTRUCTION_BLOCK` (обязательный веб-поиск для тейков о реальном
   мире); слепок `PREV_FACTCHECK_ANALYST_R1023_F2`; миграция/откат PG —
