@@ -22,6 +22,7 @@ from services.info_service import (
     KNOWN_INFO_SNAPSHOTS,
     PREV_DEFAULT_INFO_TEXT,
     PREV_R1022_DEFAULT_INFO_TEXT,
+    PREV_R1023_DEFAULT_INFO_TEXT,
     PREV_R2020_DEFAULT_INFO_TEXT,
     canon_drift,
     normalize_canon,
@@ -39,14 +40,15 @@ APP_JS = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
 
 class TestCanonV3:
     def test_version_bumped(self):
-        # F7 10.22 (ADR-1022-7): канон бампнут 3 → 4.
-        assert INFO_CANON_VERSION == 4
+        # F9 10.23 (ADR-1023-9): канон бампнут 4 → 5 (секция изображений).
+        assert INFO_CANON_VERSION == 5
 
     def test_known_snapshots_cover_all_prev_canons(self):
         assert PREV_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS          # v1
         assert PREV_R2020_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS    # v2
         assert PREV_R1022_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS    # v3
-        assert len(KNOWN_INFO_SNAPSHOTS) == 3
+        assert PREV_R1023_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS    # v4
+        assert len(KNOWN_INFO_SNAPSHOTS) == 4
 
     def test_snapshots_distinct_from_current_canon(self):
         assert DEFAULT_INFO_TEXT != PREV_R1022_DEFAULT_INFO_TEXT
@@ -90,12 +92,13 @@ class TestActualContent:
         assert "переслано: откуда" in text
 
     def test_limits_block_removed(self):
-        # F7 10.22 (ADR-1022-7): п.11 «Безлимиты» удалён из Справки (лишний).
+        # F7 10.22 (ADR-1022-7): п.11 «Безлимиты» удалён; F9 10.23 поставил
+        # на п.11 «Генерацию изображений» (безлимиты так и не вернулись).
         text = DEFAULT_INFO_TEXT
         assert "Безлимит (∞)" not in text
         assert "Импорт: Вечно" not in text
         assert "Модули → Бюджеты" not in text
-        assert "<h2>11." not in text
+        assert "<h2>11. Безлимиты" not in text
         # прежний v3-текст (с безлимитами) сохранён как слепок-миграции.
         assert "Безлимит (∞)" in PREV_R1022_DEFAULT_INFO_TEXT
 
@@ -205,7 +208,7 @@ class TestMigrationKnowsPrevSnapshot:
         await cache.init()
         value = cache.get(INFO_KEY)
         assert value["html"] == DEFAULT_INFO_TEXT
-        assert value["canon_version"] == INFO_CANON_VERSION == 4
+        assert value["canon_version"] == INFO_CANON_VERSION == 5
         assert value["canon_delivered_version"] == INFO_CANON_VERSION
         assert len(_info_inserts(conn)) == 1
 

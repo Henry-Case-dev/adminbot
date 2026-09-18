@@ -169,6 +169,8 @@ def client(monkeypatch, tmp_path):
             INFO_TEXT_FILE=str(tmp_path / "info_text.md"),
             ADMIN_USER_ID=ADMIN_ID))
     guide_value = {"markdown": DB_MARKDOWN,
+                   "guide_version": 2,
+                   "guide_delivered_version": 2,
                    "updated_at": "2026-09-13T00:00:00+00:00",
                    "updated_by": ADMIN_ID}
     conn = _FakeConn(*_rows(guide_value))
@@ -248,7 +250,10 @@ class TestGuideSeed:
         monkeypatch.setattr(
             "services.config_cache.settings",
             types.SimpleNamespace(ADMIN_USER_ID=ADMIN_ID))
+        # F9 10.23 (ADR-1023-9): значение уже доставлено и правилось вручную —
+        # маркер guide_delivered_version защищает его от перезаписи миграцией.
         value_in_db = {"markdown": "# Правка админа",
+                       "guide_version": 2, "guide_delivered_version": 2,
                        "updated_at": "t", "updated_by": 7}
         cache = ConfigCache(pg=_FakePg(_FakeConn(*_rows(value_in_db))),
                             retry_attempts=1, retry_delay=0)

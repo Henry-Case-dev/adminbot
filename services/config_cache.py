@@ -24,9 +24,11 @@ import logging
 from config.settings import settings
 from services.info_service import (
     DEFAULT_INFO_TEXT as _DEFAULT_INFO_TEXT,
+    GUIDE_CANON_VERSION as _GUIDE_CANON_VERSION,
     GUIDE_KEY as _GUIDE_KEY,
     GUIDE_SEED_FILE as _GUIDE_SEED_FILE,
     INFO_CANON_VERSION as _INFO_CANON_VERSION,
+    KNOWN_GUIDE_SNAPSHOTS as _KNOWN_GUIDE_SNAPSHOTS,
     KNOWN_INFO_SNAPSHOTS as _KNOWN_INFO_SNAPSHOTS,
     normalize_canon as _normalize_canon,
 )
@@ -40,6 +42,19 @@ _INIT_RETRY_ATTEMPTS = 3
 _INIT_RETRY_DELAY = 2.0
 
 _INFO_KEY = "content.info_how_it_works"
+
+
+def _read_guide_canon() -> str:
+    """F9 10.23 (ADR-1023-9): чтение код-канона гайда из seed-файла
+    (`plans/docs/intelligence_user_guide.md`). OSError → '' (fail-open: не
+    трогаем прод, если канон недоступен)."""
+    try:
+        with open(_GUIDE_SEED_FILE, encoding="utf-8") as fh:
+            return fh.read()
+    except OSError:
+        logger.warning("[config_cache] guide canon read failed | file=%s",
+                       _GUIDE_SEED_FILE, exc_info=True)
+        return ""
 
 
 def _iso(value) -> str | None:
@@ -142,6 +157,7 @@ class ConfigCache:
                 self._pg_available = True
                 await self._seed_info_key()    # 84.13.2 (T-638): сид из info_text.md
                 await self._seed_intelligence_guide()   # 10.14 (F6): сид гайда
+                await self._migrate_intelligence_guide_r1023()  # 10.23 (F9)
                 await self._migrate_info_how_it_works_v1015()  # 10.15 (F7)
                 self._initialized = True
                 logger.info("[config_cache] initialized: settings=%d roles=%d "
@@ -340,12 +356,94 @@ class ConfigCache:
             return
         value = {
             "markdown": markdown,
+            "guide_version": _GUIDE_CANON_VERSION,
+            "guide_delivered_version": _GUIDE_CANON_VERSION,
             "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "updated_by": settings.ADMIN_USER_ID,
         }
         await self.set(_GUIDE_KEY, value, "content")
         logger.info("[config_cache] seeded %s | chars=%d | updated_by=%s",
                     _GUIDE_KEY, len(markdown), value["updated_by"])
+
+    async def _migrate_intelligence_guide_r1023(self) -> None:
+        """F9 10.23 (help-ui-v5-round1023, ADR-1023-9): версионная идемпотентная
+        доставка канона «Гайда по возможностям» (``content.intelligence_guide``)
+        в прод-PG — паттерн ADR-1016-3 (DML-only, без DDL).
+
+        Матч идёт по ``_normalize_canon`` (EOL + trailing whitespace + strip) —
+        ловит whitespace/CRLF-дрейф прод-значения.
+
+        Правила:
+          * текст == канон, версия и маркер доставки актуальны → no-op;
+          * текст == канон, но версия/маркер устарели → досылаем канон;
+          * текст ∈ ``KNOWN_GUIDE_SNAPSHOTS`` (прошлый канон/его дрейф) →
+            перезапись каноном + ``guide_version``/``guide_delivered_version``;
+          * неизвестный текст и маркер доставки текущей версии НЕ стоит →
+            **одноразовая форс-доставка** канона с бэкапом ``prev_markdown``/
+            ``prev_updated_at`` (гарантия доставки без ручного reset);
+          * неизвестный текст, но доставка уже состоялась → ручная правка
+            владельца: НЕ затираем молча (WARNING; лечится правкой через UI).
+        """
+        current = self._settings.get(_GUIDE_KEY)
+        if not isinstance(current, dict):
+            return
+        markdown = current.get("markdown")
+        if not isinstance(markdown, str) or not markdown.strip():
+            return
+        canon = _read_guide_canon()
+        if not canon.strip():
+            return                                   # канон-файл недоступен — no-op
+        stored_ver = current.get("guide_version")
+        delivered_done = (
+            current.get("guide_delivered_version") == _GUIDE_CANON_VERSION)
+        norm = _normalize_canon(markdown)
+        canon_norm = _normalize_canon(canon)
+        if norm == canon_norm:
+            if stored_ver == _GUIDE_CANON_VERSION and delivered_done:
+                return                               # уже актуально → no-op
+            await self._write_guide_canon(canon)     # верный текст → добить маркеры
+            logger.info("[config_cache] guide canon version fixed | v=%s→%s",
+                        stored_ver, _GUIDE_CANON_VERSION)
+            return
+        if any(norm == _normalize_canon(s) for s in _KNOWN_GUIDE_SNAPSHOTS):
+            await self._write_guide_canon(canon)     # наш прошлый канон → безопасно
+            logger.info("[config_cache] guide canon migrated | v=%s→%s",
+                        stored_ver, _GUIDE_CANON_VERSION)
+            return
+        if not delivered_done:
+            await self._write_guide_canon(canon, backup_of=current)
+            logger.warning(
+                "[config_cache] guide canon force-delivered (one-time) | v=%s",
+                _GUIDE_CANON_VERSION)
+            return
+        logger.warning(
+            "[config_cache] guide canon drift — intelligence_guide изменён "
+            "вручную | stored_v=%s current_v=%s (не затираем; правка через UI)",
+            stored_ver, _GUIDE_CANON_VERSION)
+
+    async def _write_guide_canon(self, canon: str,
+                                 backup_of: dict | None = None) -> None:
+        """Запись код-канона гайда в PG + память (общий путь сида/миграции).
+        Вместе с каноном ставятся ``guide_version`` и ``guide_delivered_version``
+        — маркер доставки (защита последующих ручных правок владельца).
+        ``backup_of`` (прежнее значение) → бэкап ``prev_markdown``/
+        ``prev_updated_at`` перед перезаписью (путь force-доставки)."""
+        value = {
+            "markdown": canon,
+            "guide_version": _GUIDE_CANON_VERSION,
+            "guide_delivered_version": _GUIDE_CANON_VERSION,
+            "updated_at": datetime.datetime.now(
+                datetime.timezone.utc).isoformat(),
+            "updated_by": settings.ADMIN_USER_ID,
+        }
+        if isinstance(backup_of, dict):
+            prev_markdown = backup_of.get("markdown")
+            if isinstance(prev_markdown, str):
+                value["prev_markdown"] = prev_markdown
+            prev_updated_at = backup_of.get("updated_at")
+            if prev_updated_at:
+                value["prev_updated_at"] = prev_updated_at
+        await self.set(_GUIDE_KEY, value, "content")
 
     # ── sync-чтение (горячие точки) ────────────────────────────────────────
 

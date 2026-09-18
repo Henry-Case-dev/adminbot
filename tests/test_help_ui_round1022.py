@@ -27,6 +27,7 @@ from services.info_service import (
     KNOWN_INFO_SNAPSHOTS,
     PREV_DEFAULT_INFO_TEXT,
     PREV_R1022_DEFAULT_INFO_TEXT,
+    PREV_R1023_DEFAULT_INFO_TEXT,
     PREV_R2020_DEFAULT_INFO_TEXT,
     canon_drift,
     normalize_canon,
@@ -65,14 +66,17 @@ def _between_adjacent_blockquotes(text: str) -> list[str]:
 # ── канон v4: версия, слепки, байт-зеркало ─────────────────────────────────
 
 class TestCanonV4:
-    def test_version_bumped_to_4(self):
-        assert INFO_CANON_VERSION == 4
+    def test_version_bumped(self):
+        # F9 10.23 (ADR-1023-9): канон бампнут 4 → 5. v4-текст заморожен как
+        # PREV_R1023_DEFAULT_INFO_TEXT (слепок миграции).
+        assert INFO_CANON_VERSION == 5
 
     def test_v3_snapshot_registered(self):
         assert PREV_R1022_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
         assert PREV_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
         assert PREV_R2020_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
-        assert len(KNOWN_INFO_SNAPSHOTS) == 3
+        assert PREV_R1023_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
+        assert len(KNOWN_INFO_SNAPSHOTS) == 4
 
     def test_v3_snapshot_is_previous_canon_not_current(self):
         # v3-слепок — прошлый текст (h4/h5 + безлимиты), а не текущий канон.
@@ -94,14 +98,16 @@ class TestLayoutRules:
     def test_only_h1_h2_headings(self):
         text = DEFAULT_INFO_TEXT
         assert text.count("<h1>") == text.count("</h1>") == 1
-        assert text.count("<h2>") == text.count("</h2>") == 10
+        # F9 10.23 добавил секцию «11. Генерация изображений» → h2 == 11.
+        assert text.count("<h2>") == text.count("</h2>") == 11
         for tag in ("h3", "h4", "h5", "h6"):
             assert text.count(f"<{tag}>") == 0, tag
             assert text.count(f"</{tag}>") == 0, tag
 
     def test_every_command_group_in_blockquote(self):
         text = DEFAULT_INFO_TEXT
-        assert text.count("<blockquote>") == text.count("</blockquote>") == 21
+        # F9 10.23 добавил 3 команды изображений → blockquote == 24.
+        assert text.count("<blockquote>") == text.count("</blockquote>") == 24
         # ключевые команды — в цитате (выделенная цитата/код в UI).
         for cmd in ("Бот, транскрипт", "Бот, поясни за видос", "Бот, о чем видео",
                     "Бот, загугли", "Бот, скачай", "фактчек"):
@@ -137,8 +143,9 @@ class TestContent:
         assert "Безлимит (∞)" not in text
         assert "Импорт: Вечно" not in text
         assert "Модули → Бюджеты" not in text
-        assert "<h2>11." not in text
-        assert text.count("<h2>") == 10
+        # F9 10.23: п.11 теперь «Генерация изображений» (а не «Безлимиты»).
+        assert "<h2>11. Безлимиты" not in text
+        assert text.count("<h2>") == 11
 
     def test_tone_of_voice_preserved(self):
         text = DEFAULT_INFO_TEXT
@@ -163,10 +170,12 @@ class TestGuideSystem2:
         assert "## 12. Словарик" in text
 
     def test_guide_avoids_impl_details(self):
-        # без деталей реализации (validator-loop и имена внутренних слоёв).
+        # F9 10.23: запрет на внутренний жаргон сохранён и ужесточён
+        # (validator-loop/scrubber/regex/имена слоёв). Человеческие описания
+        # новых возможностей (манеры ответа, анти-штампы) при этом допустимы.
         text = GUIDE_MD.read_text(encoding="utf-8").lower()
-        for leak in ("validator", "вербализатор", "аналитик", "синтезатор",
-                     "loop", "промпт", "llm"):
+        for leak in ("validator", "scrubber", "regex", "вербализатор",
+                     "аналитик", "синтезатор", "loop", "промпт", "llm"):
             assert leak not in text, leak
 
 
@@ -251,13 +260,13 @@ def _info_inserts(conn):
 
 class TestMigrationV3ToV4:
     @pytest.mark.asyncio
-    async def test_v3_snapshot_migrated_to_v4(self, monkeypatch):
+    async def test_v3_snapshot_migrated_to_current(self, monkeypatch):
         cache, conn = _cache(_settings_row(PREV_R1022_DEFAULT_INFO_TEXT),
                              monkeypatch)
         await cache.init()
         value = cache.get(INFO_KEY)
         assert value["html"] == DEFAULT_INFO_TEXT
-        assert value["canon_version"] == INFO_CANON_VERSION == 4
+        assert value["canon_version"] == INFO_CANON_VERSION == 5
         assert value["canon_delivered_version"] == INFO_CANON_VERSION
         assert len(_info_inserts(conn)) == 1
 
