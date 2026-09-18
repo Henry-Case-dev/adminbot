@@ -469,3 +469,17 @@ LORE_STORY_SYSTEM_PROMPT = """Ты - саркастичный летописец
 Все константы — новые (PG-значений не имеют), поэтому в `PROMPT_MIGRATIONS`
 не входят. Изменённые общие блоки A/B зафиксированы слепками `PREV_*_R1022`
 (см. `services/prompt_migrations.py`).
+
+
+## Раунд 10.23 (F1) — маркировка целевого сообщения-команды (ADR-1023-1)
+
+Единый токен `<<< [ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА]` (escape-стабильное ядро
+`[ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА]`) дописывается к сообщению-триггеру при рендере
+истории: XML (`services/summary_xml.py`) — `&lt;&lt;&lt;…`, plain
+(`services/canonical_context.py`) — `<<<…`; физически сообщение из истории НЕ
+вырезается. Сопоставление — по Telegram `message_id`; нет совпадения →
+legacy-рендер байт-в-байт. Правило «помеченное — инструкция, не событие чата»
+вставлено в Stage-1 промпты `SUMMARY_EDITOR_SYSTEM_PROMPT`,
+`FACTCHECK_ANALYST_SYSTEM_PROMPT`, `CHAT_SYSTEM_PROMPT`; слепки —
+`PREV_SUMMARY_EDITOR_R1023`, `PREV_FACTCHECK_ANALYST_R1023`,
+`PREV_CHAT_R1023`; миграция PG — `PROMPT_MIGRATIONS`/`ROLLBACK_MIGRATIONS`.

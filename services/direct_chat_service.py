@@ -141,6 +141,7 @@ from services.summary_memory import (
     order_rag_facts_asc,
 )
 from services.summary_xml import escape_xml_text
+from services.target_marking import is_target_row
 from services.token_counter import (
     count_tokens,
     resolve_chat_limit,
@@ -976,6 +977,9 @@ class DirectChatService:
         Раунд 9 (E1/T-826, spec §3.5.1): маркер «золотых» (kind "nostalgia")
         встаёт ПОСЛЕ relations, до mood (подсказка «важное к концу»)."""
         window = await self.memory.get_window_messages(chat_id)
+        # Раунд 10.23 (F1, ADR-1023-1): текущий пользовательский ход —
+        # триггер маркировки в истории (сопоставление по Telegram message_id).
+        trigger_message_id = getattr(message, "message_id", None)
         # Раунд 8 (C2/T-793): карта по активным участникам (24 ч) + окно;
         # суффиксы-дискриминаторы (C3/T-794) считаются один раз на рендер.
         active = await self._active_participants(chat_id)
@@ -988,12 +992,14 @@ class DirectChatService:
         # для reply-триггера с цепочкой ≥ 2 ходов (полный Thread — ниже).
         chain = await self._collect_thread_chain(chat_id, message)
         if self._is_reply_trigger(message) and len(chain) >= 2:
-            branch = self._render_branch(chain, suffix_map)
+            branch = self._render_branch(chain, suffix_map,
+                                         trigger_message_id=trigger_message_id)
             if branch:
                 blocks.append(("branch", branch))
         # F2: global считается раньше RAG (тело фона — для словарного дедупа).
         global_ctx = await self._build_global_context(
-            chat_id, window, roster, suffix_map)
+            chat_id, window, roster, suffix_map,
+            trigger_message_id=trigger_message_id)
         # Раунд 9 (E1/T-826): второй элемент кортежа — маркер «золотых»
         # (блок kind "nostalgia" ставится ПОЗЖЕ: после relations, до mood).
         rag_block, nostalgia_hint = await self._build_rag_block(
@@ -1003,7 +1009,8 @@ class DirectChatService:
         if global_ctx:
             blocks.append(("global", global_ctx))
         thread = self._render_thread(chain, suffix_map,
-                                     await self._thread_limit(chat_id))
+                                     await self._thread_limit(chat_id),
+                                     trigger_message_id=trigger_message_id)
         if thread:
             blocks.append(("thread", thread))
         # Раунд 8 (C5/T-796): блок адресата — канон + uid запросившего.
@@ -2249,8 +2256,8 @@ class DirectChatService:
 
     async def _build_global_context(self, chat_id: int, window: list,
                                     roster: list | None = None,
-                                    suffix_map: dict[int, str] | None = None
-                                    ) -> str:
+                                    suffix_map: dict[int, str] | None = None,
+                                    trigger_message_id=None) -> str:
         """Последние CHAT_GLOBAL_CONTEXT_LIMIT сообщений (окно уже ASC),
         «{имя} [{uid}]: текст» (C1). Epic 60 (64.6): валидный бегущий конспект
         → конспект + дословный хвост (ts > window_end_ts). Раунд 8 (D2/Q8):
@@ -2324,7 +2331,8 @@ class DirectChatService:
                 text = row["text"] or ""
                 if not text:
                     continue
-                tail.append(self._context_row_line(row, suffix_map))
+                tail.append(self._context_row_line(
+                    row, suffix_map, trigger_message_id=trigger_message_id))
         else:
             _g_limit = int(await _cp_g(
                 chat_id, "limits.chat_global_context_limit",
@@ -2335,7 +2343,8 @@ class DirectChatService:
                 text = row["text"] or ""
                 if not text:
                     continue
-                tail.append(self._context_row_line(row, suffix_map))
+                tail.append(self._context_row_line(
+                    row, suffix_map, trigger_message_id=trigger_message_id))
             if not tail:
                 return ""
             # D5: метка verbatim-режима — по отобранной ветке окна
@@ -2395,10 +2404,12 @@ class DirectChatService:
             int(uid or 0), (row["author_name"] or None), None)
         return name, uid
 
-    def _context_row_line(self, row, suffix_map: dict[int, str]) -> str:
+    def _context_row_line(self, row, suffix_map: dict[int, str],
+                          trigger_message_id=None) -> str:
         """10.20 (БЛОК 0, ADR-1020-1 ред. 3, точка 2): каноническая строка
         сообщения окна (ярус A) — ts/автор/ID/forward из smart_messages-row;
-        отсутствующие в источнике поля опускаются (R16, не выдумываем)."""
+        отсутствующие в источнике поля опускаются (R16, не выдумываем).
+        10.23 (F1): совпавший с триггером ``tg_message_id`` получает маркер."""
         name, uid = self._row_speaker(row)
         author = _speaker_tag(name, uid, suffix=suffix_map.get(uid, ""))
         forward_source = (row_get(row, "forward_source")
@@ -2409,7 +2420,8 @@ class DirectChatService:
                 tg_message_id=row_get(row, "tg_message_id"),
                 message_id=row_get(row, "id")),
             forward_source=forward_source, text=row_get(row, "text") or "",
-            kind="msg")
+            kind="msg",
+            is_target=is_target_row(row, trigger_message_id))
 
     # ── <Conversation_Thread> / <Conversation_Branch> (Раунд 8: D3/T-800,
     #    D4/T-801 — цепочка сквозь бот-ответы, итог ветки без LLM) ──
@@ -2466,9 +2478,11 @@ class DirectChatService:
             break                          # обрыв: нет reply_to_id/не найдено
         return chain
 
-    def _chain_line(self, item, suffix_map: dict[int, str]) -> str:
+    def _chain_line(self, item, suffix_map: dict[int, str],
+                    trigger_message_id=None) -> str:
         """10.20 (БЛОК 0, точка 3): каноническая строка хода цепочки (ярус A).
-        user — «[ts | имя [uid] | ID]: текст», бот — ts опущен, ID `tg:`."""
+        user — «[ts | имя [uid] | ID]: текст», бот — ts опущен, ID `tg:`.
+        10.23 (F1): ход с ``item_id == tg:<триггер>`` получает маркер."""
         if not isinstance(item, _ChainItem):
             item = _ChainItem(*item)
         if item.is_bot:
@@ -2476,9 +2490,12 @@ class DirectChatService:
         else:
             author = _speaker_tag(
                 item.name, item.uid, suffix=suffix_map.get(item.uid, ""))
+        is_target = (trigger_message_id is not None
+                     and item.item_id == f"tg:{trigger_message_id}")
         return format_context_item(
             ts=item.ts, author=author, item_id=item.item_id,
-            forward_source=item.forward_source, text=item.text, kind="msg")
+            forward_source=item.forward_source, text=item.text, kind="msg",
+            is_target=is_target)
 
     async def _thread_limit(self, chat_id: int):
         """Раунд 10.4 (G-ремедиация): per-chat лимит треда (tokens/chars) —
@@ -2497,12 +2514,13 @@ class DirectChatService:
         return kind, limit
 
     def _render_thread(self, chain: list, suffix_map: dict[int, str],
-                       thread_limit=None) -> str:
+                       thread_limit=None, trigger_message_id=None) -> str:
         """Рендер полной цепочки сверху-вниз (лимиты 64.7, keep-end —
-        verbatim-диалог не участвует в importance-удержании E1)."""
+        verbatim-диалог не участвует в importance-удержании E1).
+        10.23 (F1): ход-триггер получает маркер."""
         if not chain:
             return ""
-        lines = [self._chain_line(item, suffix_map)
+        lines = [self._chain_line(item, suffix_map, trigger_message_id)
                  for item in reversed(chain)]
         body = "\n".join(lines)
         if thread_limit is not None:
@@ -2528,7 +2546,8 @@ class DirectChatService:
             body = body[:limit]
         return f"<Conversation_Thread>\n{escape_xml_text(body)}\n</Conversation_Thread>"
 
-    def _render_branch(self, chain: list, suffix_map: dict[int, str]) -> str:
+    def _render_branch(self, chain: list, suffix_map: dict[int, str],
+                       trigger_message_id=None) -> str:
         """Раунд 8 (D4/T-801): <Conversation_Branch> — компактный итог
         reply-ветки: последние limits.chat_branch_context_hops (default 3)
         ходов уже собранной цепочки (без LLM, без повторного walk). Полный
@@ -2539,7 +2558,8 @@ class DirectChatService:
         hops = int(hot.get("limits.chat_branch_context_hops",
                            settings.CHAT_BRANCH_CONTEXT_HOPS) or 0) or 3
         fresh = list(reversed(chain[:max(1, hops)]))     # ASC: старое → новое
-        lines = [self._chain_line(item, suffix_map) for item in fresh]
+        lines = [self._chain_line(item, suffix_map, trigger_message_id)
+                 for item in fresh]
         body = "\n".join(lines)
         return (f"<Conversation_Branch>\n"
                 f"{escape_xml_text(body)}\n</Conversation_Branch>")

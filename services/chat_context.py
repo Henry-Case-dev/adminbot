@@ -9,6 +9,7 @@ import logging
 
 from services.canonical_context import format_context_item, resolve_item_id
 from services.database import row_get
+from services.target_marking import is_target_row
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,8 @@ _CONTEXT_NOTE = (
 )
 
 
-def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS) -> str:
+def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
+                        trigger_message_id=None) -> str:
     """rows — хронологический список строк smart_messages (sqlite3.Row с
     author_name/user_id/text). → '<chat_context …>…</chat_context>' или ''
     (пустое окно / нет текстов). Потолок max_chars, старые сообщения
@@ -29,9 +31,14 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS) -> str:
     10.20 (БЛОК 0, ADR-1020-1 ред. 3, точка 13): строка — канонический
     контекст-элемент `[Дата Время | Автор | ID | Переслано]: текст`
     (данные ts/tg/id/forward доступны в smart_messages; R16 — опускаем
-    отсутствующее)."""
+    отсутствующее).
+
+    10.23 (F1, ADR-1023-1): сообщение-триггер (``tg_message_id ==
+    trigger_message_id``) помечается маркером; ``None``/нет совпадения →
+    вывод байт-в-байт прежний. При дубле id маркируется только первое."""
     lines: list[str] = []
     total = 0
+    remaining_trigger = trigger_message_id
     for row in rows:
         text = (row["text"] or "").strip()
         if not text:
@@ -39,12 +46,16 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS) -> str:
         name = row["author_name"] or f"id{row['user_id'] or '?'}"
         forward_source = (row_get(row, "forward_source")
                           if row_get(row, "is_forward") else None)
+        is_target = is_target_row(row, remaining_trigger)
         line = format_context_item(
             ts=row_get(row, "timestamp"), author=name,
             item_id=resolve_item_id(
                 tg_message_id=row_get(row, "tg_message_id"),
                 message_id=row_get(row, "id")),
-            forward_source=forward_source, text=text, kind="msg")
+            forward_source=forward_source, text=text, kind="msg",
+            is_target=is_target)
+        if is_target:
+            remaining_trigger = None
         if total + len(line) > max_chars:
             break
         lines.append(line)

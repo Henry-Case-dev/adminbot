@@ -281,5 +281,9 @@ async def cmd_summary(message: types.Message, bot: Bot = None):
     await _delete_command(message)                                 # D81: удалить СРАЗУ, ДО ack
     await _safe_send(bot, message.chat.id, random.choice(_UX_ACK_VARIANTS))   # B1/D82: ack из пула
     logger.info("[/summary] ack sent | chat=%s", message.chat.id)
-    await _generator.generate_and_send(message.chat.id, manual=True, focus=focus)  # B2
+    # Раунд 10.23 (F1, ADR-1023-1): Telegram id команды — триггер маркировки
+    # в истории (команда не сохраняется observer'ом → обычно legacy-путь).
+    await _generator.generate_and_send(
+        message.chat.id, manual=True, focus=focus,
+        trigger_message_id=message.message_id)  # B2
     return

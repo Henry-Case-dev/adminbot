@@ -56,6 +56,7 @@ from services.prompt_style_blocks import (
     PREV_STYLE_BLOCKS_SUFFIX,
     STYLE_BLOCKS_SUFFIX,
 )
+from services.target_marking import TARGET_INSTRUCTION_BLOCK
 
 logger = logging.getLogger(__name__)
 
@@ -232,8 +233,14 @@ _CHAT_R1021_BASE = """КАК ЧИТАТЬ КОНТЕКСТ:
 # Слепок прод-канона 10.20 ДО правок 10.21 — для авто-миграции PG.
 PREV_CHAT_R1021_SYSTEM_PROMPT = _CHAT_R1021_BASE
 
-# Канон раунда 10.21 (F3, ADR-1021-3): блоки A «АНТИ-БОТ» / B «АСИММЕТРИЯ».
-CHAT_SYSTEM_PROMPT = _CHAT_R1021_BASE + STYLE_BLOCKS_SUFFIX
+# Слепок прод-канона раунда 10.21/10.22 ДО правки раунда 10.23 (байт-в-байт)
+# — для идемпотентной авто-миграции PG (F1, ADR-1023-1; ADR-1013-3).
+PREV_CHAT_R1023_SYSTEM_PROMPT = _CHAT_R1021_BASE + STYLE_BLOCKS_SUFFIX
+
+# Канон раунда 10.21 (F3, ADR-1021-3): блоки A «АНТИ-БОТ» / B «АСИММЕТРИЯ» +
+# 10.23 (F1, ADR-1023-1): правило маркировки целевого сообщения-команды.
+CHAT_SYSTEM_PROMPT = (_CHAT_R1021_BASE + "\n\n" + TARGET_INSTRUCTION_BLOCK
+                      + STYLE_BLOCKS_SUFFIX)
 
 # Слепок прод-канона 10.21 (прежние блоки A/B, без п.7) — для идемпотентной
 # авто-миграции PG (F6, ADR-1022-6; ADR-1013-3). PREV_R1022 — это ровно

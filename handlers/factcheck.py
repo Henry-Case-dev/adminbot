@@ -55,15 +55,18 @@ logger = logging.getLogger(__name__)
 factcheck_router = Router(name="factcheck")
 
 
-async def _fetch_chat_context(chat_id: int, limit: int) -> str:
+async def _fetch_chat_context(chat_id: int, limit: int,
+                              trigger_message_id=None) -> str:
     """Epic 65: последние limit сообщений чата → <chat_context> блок.
-    Fail-open: любая ошибка БД → '' (старое поведение без контекста)."""
+    Fail-open: любая ошибка БД → '' (старое поведение без контекста).
+    Раунд 10.23 (F1, ADR-1023-1): trigger_message_id — id команды фактчека;
+    совпавшее сообщение помечается маркером (None → legacy)."""
     from services.chat_context import format_chat_context   # локальный импорт — без циклов
     if _db is None or limit <= 0:
         return ""
     try:
         rows = await _db.get_recent_messages(chat_id, limit)
-        return format_chat_context(rows)
+        return format_chat_context(rows, trigger_message_id=trigger_message_id)
     except Exception:
         logger.warning("[factcheck] chat context fetch failed | chat=%s",
                        chat_id, exc_info=True)
@@ -224,8 +227,11 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     try:
         # Epic 60 (65.7, T-475): «печатает…» от контекста в ИИ до отправки.
         async with typing_active(bot, message.chat.id):
-            chat_context = await _fetch_chat_context(message.chat.id,
-                                                     hot.get("limits.factcheck_context_messages", settings.FACTCHECK_CONTEXT_MESSAGES))
+            chat_context = await _fetch_chat_context(
+                message.chat.id,
+                hot.get("limits.factcheck_context_messages",
+                        settings.FACTCHECK_CONTEXT_MESSAGES),
+                trigger_message_id=message.message_id)
             verdict = await _service.check_claim(
                 target_text, user_hint, forward_source, chat_id=message.chat.id,
                 chat_context=chat_context or None,

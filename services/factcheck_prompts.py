@@ -31,6 +31,7 @@ from services.prompt_style_blocks import (
     PREV_STYLE_BLOCKS_SUFFIX,
     STYLE_BLOCKS_SUFFIX,
 )
+from services.target_marking import TARGET_INSTRUCTION_BLOCK
 
 # Слепок HEAD 68fb03e (раунд 5) ДО правки — для авто-миграции PG.
 PREV_FACTCHECK_SYSTEM_PROMPT = """СИСТЕМНАЯ РОЛЬ:
@@ -156,7 +157,7 @@ PREV_R1022_FACTCHECK_SYSTEM_PROMPT = (
 # ── Раунд 10.22 (F3, ADR-1022-3 §2.2/§3): физический конвейер из двух вызовов.
 # Слой 1 — АНАЛИТИК: текст юзера + сырые факты → СТРОГИЙ JSON (ID/даты
 # переводятся в человеческое время). Стиль НЕ применяется (не user-facing).
-FACTCHECK_ANALYST_SYSTEM_PROMPT = """СИСТЕМНАЯ РОЛЬ:
+_FACTCHECK_ANALYST_R1023_BASE = """СИСТЕМНАЯ РОЛЬ:
 Ты — аналитик-фактчекер. Твоя задача — разобрать проверяемый тезис по сырым данным и вернуть СТРОГО JSON-объект для последующей озвучки. Ты не общаешься с пользователем и не пишешь финальный текст.
 
 ЧТО ДЕЛАТЬ:
@@ -170,6 +171,15 @@ FACTCHECK_ANALYST_SYSTEM_PROMPT = """СИСТЕМНАЯ РОЛЬ:
 {"claim": "краткая суть тезиса", "findings": [{"assertion": "проверяемое утверждение", "status": "true", "human_time": "в августе", "author": "имя или null", "evidence": "краткий довод"}], "verdict": "сухой итог без ID", "tone_hint": "необязательная подсказка стиля"}
 
 Самопроверка: перед JSON можешь написать черновик в скрытых тегах <reasoning>...</reasoning> (он будет срезан). После закрывающего тега — только валидный JSON."""
+
+# Слепок прод-канона Аналитика ДО правки раунда 10.23 (байт-в-байт) — для
+# идемпотентной канон-миграции PG (F1, ADR-1023-1; ключ появится в F8).
+PREV_FACTCHECK_ANALYST_R1023 = _FACTCHECK_ANALYST_R1023_BASE
+
+# 10.23 (F1, ADR-1023-1): + правило маркировки целевого сообщения-команды.
+FACTCHECK_ANALYST_SYSTEM_PROMPT = (
+    _FACTCHECK_ANALYST_R1023_BASE + "\n\n" + TARGET_INSTRUCTION_BLOCK
+)
 
 # Слой 2 — ВЕРБАЛИЗАТОР: вход ТОЛЬКО валидированный JSON Аналитика; без БД,
 # инструментов, якорей и черновиков. Стиль — общий канон A/B.

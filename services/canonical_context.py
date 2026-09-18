@@ -30,6 +30,8 @@ import logging
 import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from services.target_marking import append_marker
+
 logger = logging.getLogger(__name__)
 
 KIND_MSG = "msg"
@@ -241,13 +243,17 @@ def resolve_item_id(*, tg_message_id=None, message_id=None,
 
 def format_context_item(*, ts=None, author=None, item_id=None,
                         forward_source=None, text="", kind: str = KIND_MSG,
-                        stale: bool = False) -> str:
+                        stale: bool = False, is_target: bool = False) -> str:
     """Каноническая строка контекста (spec §2.2).
 
     Поля-метаданные, которых нет, опускаются вместе с разделителем. Если
     метаданных нет вообще — возвращается сам текст (нечем размечать).
     ``stale=True`` добавляет существующий суффикс «(Внимание: возможно
     устарело)» ПОСЛЕ текста (прецедент `_stale_suffix`).
+    ``is_target=True`` (раунд 10.23, F1, ADR-1023-1) дописывает ПОСЛЕ текста
+    маркер `<<< [ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА]` (plain, без экранирования) —
+    только для ``kind="msg"``; дефолт ``False`` → все прочие вызывающие
+    байт-в-байт неизменны.
     """
     kind = (str(kind or KIND_MSG)).strip().lower()
     if kind not in VALID_KINDS:
@@ -274,6 +280,8 @@ def format_context_item(*, ts=None, author=None, item_id=None,
         head.append(f"Переслано: {source}")
     if stale:
         body = f"{body}{STALE_SUFFIX}" if body else STALE_SUFFIX
+    if is_target and kind == KIND_MSG:
+        body = append_marker(body)
     if not head:
         return body
     return f"[{' | '.join(head)}]: {body}"

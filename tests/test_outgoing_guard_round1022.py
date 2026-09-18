@@ -177,8 +177,12 @@ class TestCanonR1022:
             "prompts.youtube_video_system_prompt": ("PREV_R1022_YOUTUBE_VIDEO"),
             "prompts.webpage_system_prompt": ("PREV_R1022_WEBPAGE"),
         }
-        assert set(pairs) == {k for k in PROMPT_MIGRATIONS if k !=
-                              "prompts.compress_system_prompt"}
+        # F1 (10.23): каталог расширен ключами Stage-1 промптов
+        # (summary_editor/factcheck_analyst) — они не относятся к R1022.
+        assert set(pairs) == {k for k in PROMPT_MIGRATIONS if k not in (
+            "prompts.compress_system_prompt",
+            "prompts.summary_editor_system_prompt",
+            "prompts.factcheck_analyst_system_prompt")}
         from services import (chat_prompts, checkup_prompts, factcheck_prompts,
                               search_prompts, summary_prompts, web_prompts,
                               youtube_prompts)

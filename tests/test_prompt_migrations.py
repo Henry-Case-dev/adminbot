@@ -23,6 +23,7 @@ from services.chat_prompts import (
     CHAT_SYSTEM_PROMPT,
     LEGACY_CHAT_SYSTEM_PROMPT,
     PREV_CHAT_R1021_SYSTEM_PROMPT,
+    PREV_CHAT_R1023_SYSTEM_PROMPT,
     PREV_CHAT_R2020_SYSTEM_PROMPT,
     PREV_CHAT_SYSTEM_PROMPT,
     PREV_R8_CHAT_SYSTEM_PROMPT,
@@ -34,7 +35,9 @@ from services.checkup_prompts import (
     PREV_CHECKUP_SYSTEM_PROMPT,
 )
 from services.factcheck_prompts import (
+    FACTCHECK_ANALYST_SYSTEM_PROMPT,
     FACTCHECK_SYSTEM_PROMPT,
+    PREV_FACTCHECK_ANALYST_R1023,
     PREV_FACTCHECK_R1021_SYSTEM_PROMPT,
     PREV_FACTCHECK_SYSTEM_PROMPT,
 )
@@ -53,7 +56,9 @@ from services.summary_prompts import (
     COMPRESS_PROMPT,
     PREV_COMPRESS_PROMPT,
     PREV_R1021_SUMMARY_SYSTEM_PROMPT,
+    PREV_SUMMARY_EDITOR_R1023,
     PREV_SUMMARY_SYSTEM_PROMPT,
+    SUMMARY_EDITOR_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
 )
 from services.web_prompts import (
@@ -80,6 +85,9 @@ _ALL_KEYS = [
     "prompts.youtube_system_prompt",
     "prompts.youtube_video_system_prompt",
     "prompts.webpage_system_prompt",
+    # Раунд 10.23 (F1, ADR-1023-1): Stage-1 промпты (PG-ключи создаёт F8).
+    "prompts.summary_editor_system_prompt",
+    "prompts.factcheck_analyst_system_prompt",
 ]
 
 # prev-эталон (слепок HEAD 68fb03e) для каждой ступени — первая пара.
@@ -93,6 +101,9 @@ _PREV_BY_KEY: dict[str, str] = {
     "prompts.youtube_system_prompt": PREV_YOUTUBE_SYSTEM_PROMPT,
     "prompts.youtube_video_system_prompt": PREV_YOUTUBE_VIDEO_SYSTEM_PROMPT,
     "prompts.webpage_system_prompt": PREV_WEBPAGE_SYSTEM_PROMPT,
+    # Раунд 10.23 (F1): слепок прод-канона Stage-1 промптов ДО F1.
+    "prompts.summary_editor_system_prompt": PREV_SUMMARY_EDITOR_R1023,
+    "prompts.factcheck_analyst_system_prompt": PREV_FACTCHECK_ANALYST_R1023,
 }
 
 # new-канон (раунд 5) для каждого ключа.
@@ -106,6 +117,9 @@ _NEW_BY_KEY: dict[str, str] = {
     "prompts.youtube_system_prompt": YOUTUBE_SYSTEM_PROMPT,
     "prompts.youtube_video_system_prompt": YOUTUBE_VIDEO_SYSTEM_PROMPT,
     "prompts.webpage_system_prompt": WEBPAGE_SYSTEM_PROMPT,
+    # Раунд 10.23 (F1): Stage-1 каноны с правилом маркировки.
+    "prompts.summary_editor_system_prompt": SUMMARY_EDITOR_SYSTEM_PROMPT,
+    "prompts.factcheck_analyst_system_prompt": FACTCHECK_ANALYST_SYSTEM_PROMPT,
 }
 
 # Слепки прод-канона раунда 10.21 (F2+F3) — для новой ступени.
@@ -120,7 +134,17 @@ _PREV_R1021_BY_KEY: dict[str, str] = {
     "prompts.webpage_system_prompt": PREV_WEBPAGE_R1021_SYSTEM_PROMPT,
 }
 # compress в 10.21 не менялся — ступени/отката для него нет.
-_ROLLBACK_KEYS = list(_PREV_R1021_BY_KEY)
+# Раунд 10.23 (F1): в ROLLBACK добавлены ключи Stage-1 промптов (цель — слепок
+# R1023; PG-ключи создаёт F8); цели существующих ключей R1021 не меняются.
+_ROLLBACK_KEYS = list(_PREV_R1021_BY_KEY) + [
+    "prompts.summary_editor_system_prompt",
+    "prompts.factcheck_analyst_system_prompt",
+]
+_ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
+    **dict(_PREV_R1021_BY_KEY),
+    "prompts.summary_editor_system_prompt": PREV_SUMMARY_EDITOR_R1023,
+    "prompts.factcheck_analyst_system_prompt": PREV_FACTCHECK_ANALYST_R1023,
+}
 
 
 class FakeCache:
@@ -140,7 +164,7 @@ class FakeCache:
 
 
 class TestPromptMigrationsCatalog:
-    def test_all_nine_keys_present(self):
+    def test_all_expected_keys_present(self):
         assert list(PROMPT_MIGRATIONS) == _ALL_KEYS
 
     def test_no_extract_key(self):
@@ -159,7 +183,8 @@ class TestPromptMigrationsCatalog:
                          (PREV_R9_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
                          (PREV_CHAT_R2020_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
                          (PREV_CHAT_R1021_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
-                         (PREV_R1022_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)]
+                         (PREV_R1022_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
+                         (PREV_CHAT_R1023_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)]
 
     def test_catalog_points_to_new_canons(self):
         """new во всех ступенях == канону раунда 5 (байт-сверка со спека)."""
@@ -264,7 +289,7 @@ class TestMigratePromptCanons:
         assert cache.set_calls == []
         infos = [r for r in caplog.records
                  if "ключ отсутствует — сид сделает своё" in r.message]
-        assert len(infos) == 9
+        assert len(infos) == len(_ALL_KEYS)
 
     @pytest.mark.asyncio
     async def test_pg_unavailable_skipped(self, caplog):
@@ -314,9 +339,10 @@ class TestRound1021Migration:
     async def test_r1021_snapshots_update_to_new(self):
         cache = FakeCache(values=dict(_PREV_R1021_BY_KEY))
         report = await migrate_prompt_canons(cache)
-        assert report == {key: "updated" for key in _ROLLBACK_KEYS}
+        assert report == {key: "updated" for key in _PREV_R1021_BY_KEY}
         assert cache.set_calls == [
-            (key, _NEW_BY_KEY[key], "prompts") for key in _ROLLBACK_KEYS]
+            (key, _NEW_BY_KEY[key], "prompts")
+            for key in _PREV_R1021_BY_KEY]
 
     @pytest.mark.asyncio
     async def test_rollback_updates_new_to_prev(self):
@@ -324,7 +350,7 @@ class TestRound1021Migration:
         report = await rollback_prompt_canons(cache)
         assert report == {key: "rolled_back" for key in _ROLLBACK_KEYS}
         assert cache.set_calls == [
-            (key, _PREV_R1021_BY_KEY[key], "prompts")
+            (key, _ROLLBACK_TARGET_BY_KEY[key], "prompts")
             for key in _ROLLBACK_KEYS]
 
     @pytest.mark.asyncio
@@ -353,3 +379,50 @@ class TestRound1021Migration:
         assert report == {}
         assert any("[prompt_rollback] skip: PG недоступен" in r.message
                    for r in caplog.records)
+
+
+class TestRound1023Migration:
+    """F1 (раунд 10.23, ADR-1023-1): слепки PREV_*_R1023 и ключи Stage-1."""
+
+    def test_chat_r1023_step_present(self):
+        assert (PREV_CHAT_R1023_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT) in \
+            PROMPT_MIGRATIONS["prompts.direct_chat_system_prompt"]
+
+    def test_stage1_keys_migrate_from_r1023(self):
+        assert (PREV_SUMMARY_EDITOR_R1023, SUMMARY_EDITOR_SYSTEM_PROMPT) in \
+            PROMPT_MIGRATIONS["prompts.summary_editor_system_prompt"]
+        assert (PREV_FACTCHECK_ANALYST_R1023,
+                FACTCHECK_ANALYST_SYSTEM_PROMPT) in \
+            PROMPT_MIGRATIONS["prompts.factcheck_analyst_system_prompt"]
+
+    def test_r1023_snapshots_differ_from_new(self):
+        assert PREV_SUMMARY_EDITOR_R1023 != SUMMARY_EDITOR_SYSTEM_PROMPT
+        assert PREV_FACTCHECK_ANALYST_R1023 != FACTCHECK_ANALYST_SYSTEM_PROMPT
+        assert PREV_CHAT_R1023_SYSTEM_PROMPT != CHAT_SYSTEM_PROMPT
+
+    def test_rollback_targets_r1023_for_stage1_keys(self):
+        assert ROLLBACK_MIGRATIONS["prompts.summary_editor_system_prompt"] == \
+            (SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1023)
+        assert ROLLBACK_MIGRATIONS["prompts.factcheck_analyst_system_prompt"] == \
+            (FACTCHECK_ANALYST_SYSTEM_PROMPT, PREV_FACTCHECK_ANALYST_R1023)
+
+    @pytest.mark.asyncio
+    async def test_r1023_snapshots_update_and_rollback(self):
+        values = {
+            "prompts.direct_chat_system_prompt": PREV_CHAT_R1023_SYSTEM_PROMPT,
+            "prompts.summary_editor_system_prompt": PREV_SUMMARY_EDITOR_R1023,
+            "prompts.factcheck_analyst_system_prompt":
+                PREV_FACTCHECK_ANALYST_R1023,
+        }
+        cache = FakeCache(values=dict(values))
+        report = await migrate_prompt_canons(cache)
+        assert report == {key: "updated" for key in values}
+        rollback_cache = FakeCache(values={
+            "prompts.summary_editor_system_prompt": SUMMARY_EDITOR_SYSTEM_PROMPT,
+            "prompts.factcheck_analyst_system_prompt":
+                FACTCHECK_ANALYST_SYSTEM_PROMPT,
+        })
+        rollback = await rollback_prompt_canons(rollback_cache)
+        assert set(rollback) == {
+            "prompts.summary_editor_system_prompt",
+            "prompts.factcheck_analyst_system_prompt"}

@@ -109,11 +109,15 @@ class SummaryGenerator:
                       else get_smartmodule_concurrency_pool())
 
     async def generate_and_send(self, chat_id: int, manual: bool = False,
-                                focus: str | None = None) -> None:
+                                focus: str | None = None,
+                                trigger_message_id: int | None = None) -> None:
         """Entrypoint for /summary (manual=True) and cron (manual=False). B2/B5.
         Epic 65: focus — тема из «/summary про X» (None = обычное саммари).
         Раунд N (T-841): слот пула per-chat; занят → busy-фраза (manual) +
-        лог, затем очередь (как раньше у глобального лока B5)."""
+        лог, затем очередь (как раньше у глобального лока B5).
+        Раунд 10.23 (F1, ADR-1023-1): trigger_message_id — Telegram id
+        сообщения-команды /summary (маркировка в истории); None (авто-крон)
+        → legacy-путь без маркера."""
         # Проба без ожидания: занят ли слот этого чата (B5-семантика).
         permit = await self._pool.try_acquire(chat_id, timeout=0.0)
         if permit is None:
@@ -125,11 +129,12 @@ class SummaryGenerator:
             # Очередь, как раньше async with lock (без таймаута).
             permit = await self._pool.acquire(chat_id)
         try:
-            await self._run(chat_id, manual, focus)
+            await self._run(chat_id, manual, focus, trigger_message_id)
         finally:
             permit.release()
 
-    async def _run(self, chat_id: int, manual: bool, focus: str | None = None) -> None:
+    async def _run(self, chat_id: int, manual: bool, focus: str | None = None,
+                   trigger_message_id: int | None = None) -> None:
         try:
             await self.memory.compress_and_purge(chat_id)
             rows = await self.memory.get_window_messages(chat_id)
@@ -141,7 +146,7 @@ class SummaryGenerator:
                     chat_id, manual,
                 )
                 return
-            xml_context = self.xml.build(rows, self.aliases)
+            xml_context = self.xml.build(rows, self.aliases, trigger_message_id)
             keywords = self._extract_keywords(rows)
             l2_rows = await self.memory.search_long_term(
                 chat_id, keywords, await _chat_limit(

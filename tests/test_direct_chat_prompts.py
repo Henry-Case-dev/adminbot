@@ -30,6 +30,7 @@ from services.chat_prompts import (
     PREV_R9_CHAT_SYSTEM_PROMPT,
 )
 from services.prompt_style_blocks import STYLE_BLOCKS_SUFFIX
+from services.target_marking import TARGET_INSTRUCTION_BLOCK
 from services.smartmodule_phrases import (
     CHAT_COOLDOWN_PHRASES,
     CHAT_ERROR_PHRASES,
@@ -216,7 +217,10 @@ _CHAT_SYSTEM_PROMPT_REFERENCE = """КАК ЧИТАТЬ КОНТЕКСТ:
 Ты должен отвечать ОЧЕНЬ коротко. Твой ответ должен состоять СТРОГО ИЗ ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ. \nНе объясняй свои мысли, не пиши списки. Максимум пара язвительных фраз. Если напишешь больше двух предложений — система упадет."""
 
 # Раунд 10.21 (F3): ожидаемый канон = R1020-текст + блоки A/B.
+# Раунд 10.23 (F1, ADR-1023-1): перед блоками A/B вставлено правило
+# маркировки целевого сообщения-команды (TARGET_INSTRUCTION_BLOCK).
 _EXPECTED_CHAT_SYSTEM_PROMPT = (_CHAT_SYSTEM_PROMPT_REFERENCE
+                                + "\n\n" + TARGET_INSTRUCTION_BLOCK
                                 + STYLE_BLOCKS_SUFFIX)
 
 _EXPECTED_COOLDOWN = (

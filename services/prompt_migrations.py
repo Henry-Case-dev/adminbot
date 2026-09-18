@@ -27,6 +27,7 @@ from services.chat_prompts import (
     LEGACY_CHAT_SYSTEM_PROMPT,
     PREV_CHAT_R2020_SYSTEM_PROMPT,
     PREV_CHAT_R1021_SYSTEM_PROMPT,
+    PREV_CHAT_R1023_SYSTEM_PROMPT,
     PREV_CHAT_SYSTEM_PROMPT,
     PREV_R1022_CHAT_SYSTEM_PROMPT,
     PREV_R8_CHAT_SYSTEM_PROMPT,
@@ -39,7 +40,9 @@ from services.checkup_prompts import (
     PREV_R1022_CHECKUP_SYSTEM_PROMPT,
 )
 from services.factcheck_prompts import (
+    FACTCHECK_ANALYST_SYSTEM_PROMPT,
     FACTCHECK_SYSTEM_PROMPT,
+    PREV_FACTCHECK_ANALYST_R1023,
     PREV_FACTCHECK_R1021_SYSTEM_PROMPT,
     PREV_FACTCHECK_R2020_SYSTEM_PROMPT,
     PREV_FACTCHECK_SYSTEM_PROMPT,
@@ -57,7 +60,9 @@ from services.summary_prompts import (
     PREV_R1021_SUMMARY_SYSTEM_PROMPT,
     PREV_R1022_SUMMARY_SYSTEM_PROMPT,
     PREV_R2020_SUMMARY_SYSTEM_PROMPT,
+    PREV_SUMMARY_EDITOR_R1023,
     PREV_SUMMARY_SYSTEM_PROMPT,
+    SUMMARY_EDITOR_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
 )
 from services.web_prompts import (
@@ -87,7 +92,8 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         (PREV_R9_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
         (PREV_CHAT_R2020_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
         (PREV_CHAT_R1021_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
-        (PREV_R1022_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)],
+        (PREV_R1022_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
+        (PREV_CHAT_R1023_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)],
     "prompts.summary_system_prompt": [
         (PREV_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
         (PREV_R2020_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
@@ -119,6 +125,13 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         (PREV_WEBPAGE_SYSTEM_PROMPT, WEBPAGE_SYSTEM_PROMPT),
         (PREV_WEBPAGE_R1021_SYSTEM_PROMPT, WEBPAGE_SYSTEM_PROMPT),
         (PREV_R1022_WEBPAGE_SYSTEM_PROMPT, WEBPAGE_SYSTEM_PROMPT)],
+    # 10.23 (F1, ADR-1023-1): Stage-1 промпты (Редактор саммари/Аналитик
+    # фактчека) получают правило маркировки; PG-ключи добавляет F8 — до сида
+    # migrate/skip (отсутствующий ключ → INFO, сид поставит канон).
+    "prompts.summary_editor_system_prompt": [
+        (PREV_SUMMARY_EDITOR_R1023, SUMMARY_EDITOR_SYSTEM_PROMPT)],
+    "prompts.factcheck_analyst_system_prompt": [
+        (PREV_FACTCHECK_ANALYST_R1023, FACTCHECK_ANALYST_SYSTEM_PROMPT)],
 }
 # prompts.extract_system_prompt НЕ входит (EXTRACT_PROMPT не трогаем)
 
@@ -143,6 +156,11 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
         (YOUTUBE_VIDEO_SYSTEM_PROMPT, PREV_YOUTUBE_VIDEO_R1021_SYSTEM_PROMPT),
     "prompts.webpage_system_prompt":
         (WEBPAGE_SYSTEM_PROMPT, PREV_WEBPAGE_R1021_SYSTEM_PROMPT),
+    # 10.23 (F1, ADR-1023-1): обратный шаг для новых PG-ключей F8.
+    "prompts.summary_editor_system_prompt":
+        (SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1023),
+    "prompts.factcheck_analyst_system_prompt":
+        (FACTCHECK_ANALYST_SYSTEM_PROMPT, PREV_FACTCHECK_ANALYST_R1023),
 }
 
 

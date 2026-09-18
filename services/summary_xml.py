@@ -12,6 +12,7 @@ from config.settings import settings
 from services import hot_config as hot
 from services.database import row_get
 from services.summary_aliases import AliasResolver
+from services.target_marking import append_marker, is_target_row
 
 logger = logging.getLogger(__name__)
 
@@ -53,15 +54,23 @@ def escape_xml_text(text: str, quote: bool = False) -> str:
 class XmlGroundingBuilder:
     """Builds the XML chat history block for the LLM prompt."""
 
-    def build(self, messages: list, aliases: AliasResolver | None = None) -> str:
-        """messages: rows with id/timestamp/author_name/text/reply_to_id/media_type."""
+    def build(self, messages: list, aliases: AliasResolver | None = None,
+              trigger_message_id=None) -> str:
+        """messages: rows with id/timestamp/author_name/text/reply_to_id/media_type.
+
+        Раунд 10.23 (F1, ADR-1023-1): сообщение с ``tg_message_id ==
+        trigger_message_id`` получает маркер ``<<< [ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА]``
+        (в XML — ``&lt;&lt;&lt;…``). ``trigger_message_id=None`` или нет
+        совпадения → вывод байт-в-байт прежний (legacy). При дубле
+        ``tg_message_id`` маркируется только первое совпадение."""
         if not messages:
             return "<chat_history/>"
 
         parts = ["<chat_history>"]
         total_chars = 0
+        remaining_trigger = trigger_message_id
         for row in messages[: hot.get("limits.summary_max_window_messages", settings.SUMMARY_MAX_WINDOW_MESSAGES)]:
-            element = self._build_element(row, aliases)
+            element = self._build_element(row, aliases, remaining_trigger)
             if total_chars + len(element) > hot.get("limits.summary_max_context_chars", settings.SUMMARY_MAX_CONTEXT_CHARS):
                 logger.warning(
                     "XML context: hard cap %d chars reached, stopping at %d messages",
@@ -70,10 +79,12 @@ class XmlGroundingBuilder:
                 break
             parts.append(element)
             total_chars += len(element)
+            if remaining_trigger is not None and is_target_row(row, remaining_trigger):
+                remaining_trigger = None
         parts.append("</chat_history>")
         return "\n".join(parts)
 
-    def _build_element(self, row, aliases=None) -> str:
+    def _build_element(self, row, aliases=None, trigger_message_id=None) -> str:
         msg_id = row["id"]
         timestamp = row["timestamp"]
         try:
@@ -88,6 +99,10 @@ class XmlGroundingBuilder:
             author = aliases.resolve(int(row["user_id"] or 0), author or None, None)
         media_type = row["media_type"] or "text"
         body = self._build_body(row["text"], media_type)
+        if is_target_row(row, trigger_message_id):
+            # Маркер дописывается ДО _escape → в XML он станет
+            # `&lt;&lt;&lt; [ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА]` (well-formed XML сохранён).
+            body = append_marker(body)
         reply_to_id = row["reply_to_id"]
         reply_attr = "" if reply_to_id is None else str(reply_to_id)
         extra = ""
