@@ -3,6 +3,26 @@
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
+## Round 10.22 scan + re-audit (Step 6 @Scanner, 19.09.2026) — all scanned/closed (diff-based, HEAD acd9311 + worktree)
+- [x] services/memory_rebuild.py (F1: fail-closed `_belief_source_set` — S10.22-1 CLOSED; `:787-847` + тест
+      `test_belief_read_error_skips_chat_fail_closed`; rebuild_empty/exit — S10.21-инвариант цел)
+- [x] services/dossier_rebuild_jobs.py (F8: `cleaned>0 & rebuilt==0` → `failed`/`rebuild_empty` — S10.22-2 CLOSED;
+      `interrupted` вне `_ACTIVE_STATUSES` + prune — S10.22-5 CLOSED; `restore_user_snapshot` whitelist по
+      `PRAGMA table_info` — S10.22-9 CLOSED)
+- [x] services/negative_constraints.py (F6: `as_ai` сужен до 1-го лица — S10.22-4 CLOSED; остаток S10.22-4b Info —
+      ложное срабатывание при запятой «Он, как искусственный интеллект, …»)
+- [x] services/telegram_send.py + handlers/voice_transcription.py (F6: обоснование allowlist отделяет ASR-транскрипт
+      от Stage-2 LLM + escape-инвариант — S10.22-3 CLOSED, достаточно)
+- [x] services/summary_generator.py (R17: лог только len/latency, без сырого текста — S10.22-8 CLOSED)
+- [x] web/api/chat_lore.py + web/app.js + web/index.html (F8: `latest` 404 при kill-switch → UI прячет карточку
+      `dossierRebuildEnabled=false` — S10.22-6 CLOSED; новый старт после `interrupted` — S10.22-5 UI CLOSED)
+- [x] .env.example (новые env-рубильники `SYSTEM2_*`/`TELEGRAM_SEND_GUARD_ENABLED`/`DOSSIER_REBUILD_*` — S10.22-7 CLOSED)
+- [x] tests/* (целевые 187+339+70+88 passed / 0 failed; JS-гейты `JS-UNIT-OK`/`DOSSIER-REBUILD-UNIT-OK`/help OK)
+- **СВОДКА RE-AUDIT: Critical 0 / High 0 / Medium 0 (open). Low 0, Info 1 (S10.22-4b, не блокер).**
+  Валидатор: catalogue 439/92/20 (Δ=0), v12, канон v4 байт-в-байт, `git diff --check` exit 0.
+  Вердикт: **раунд передаётся на Merge/деплой**; обязательных возвратов @Builder нет.
+  Отчёт: `round1022_scanner_audit.md` §«Re-audit после пост-скан фиксов».
+
 ## Round 10.21 scan + re-audit (Step 6 @Scanner, 18.09.2026) — all scanned/closed (diff-based, HEAD 21cd54c + worktree)
 - [x] services/grounding_validator.py (F2: anchors только из доверенных источников — S10.21-5 CLOSED; дата-теги без
       `fact:ID` проверяются — S10.21-4 CLOSED; fail-open, no ReDoS)
@@ -986,3 +1006,20 @@
 - Валидатор @Scanner: pytest **6523 passed / 0 failed** (89.52 c); `node --check web/app.js` OK;
   `routing_test.js` + `round1020_ui_test.js` `JS-UNIT-OK`; `vue_mount_test.js` `VUE-MOUNT-OK`;
   `git diff --check` exit 0; каталог 439/92/20; SQLite v12.
+
+## Round 10.22 (UPD3, 19.09.2026) — diff-based scan (HEAD `acd9311` + worktree); открытых пунктов нет
+- [x] services/memory_rebuild.py (F1 confirmed-cleanup: `cleanup_confirmed_dossier_facts`, `_belief_source_set` fail-open — S10.22-1; keyset/JSONL/сверка/guard — ок)
+- [x] manage.py (F1 `--target-chat`, `_memory_scope`, CLI per-chat lock, `_memory_exit_code` rebuild_empty — ок)
+- [x] services/system2_handoff.py (новый: parse/validate JSON, `contains_system_ids`, `redact_secrets` — ок)
+- [x] services/negative_constraints.py (новый: детектор клише + validator-loop ≤2; FP `as_ai` — S10.22-4)
+- [x] services/outgoing_guard.py (новый: `sanitize_outgoing`, fail-closed; ReDoS нет — ок)
+- [x] services/telegram_send.py (обёртки + SEND_POINTS/SEND_ALLOWLIST; allowlist обоснование voice_transcription — S10.22-3)
+- [x] services/dossier_rebuild_jobs.py (новый F8: job-store/lock/снапшот/rollback/раннер; done-empty — S10.22-2; interrupted retention — S10.22-5)
+- [x] web/api/chat_lore.py (F8 start/status/latest/cancel; RBAC/R17 — ок)
+- [x] web/api/routes.py (`_ensure_keyvalue_object` — ок)
+- [x] web/app.js + web/index.html + web/static/app.css (F2 KV, F8 UI, F7 info-стили; flag-OFF кнопка — S10.22-6)
+- [x] services/lore_worker.py (F8 user-scoped чанковый rebuild; соседние контуры не тронуты — ок)
+- [x] services/direct_chat_service.py / summary_generator.py / factcheck_service.py (two-call + fallback — ок)
+- [x] services/info_service.py + config/settings.py + .env.example (канон v4 байт-тест; .env.example — S10.22-7)
+- **Открыто (Round 10.22):** нет Critical/High. Non-blocking: S10.22-1/-2 (Medium), S10.22-3/-4/-5/-6 (Low), S10.22-7/-8/-9 (Info).
+  Все — `plans/reports/round1022_scanner_audit.md`.

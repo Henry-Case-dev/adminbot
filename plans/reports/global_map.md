@@ -49,6 +49,70 @@
 > + 16 Info; обязательные @DevOps-гейты (dry-run → бэкап → SQL-чеклист → purge) — отчёт §10.5.
 > Отчёт: `plans/reports/round10.19_scanner_audit.md` (§10 — Батч E + итог эпика).
 
+## Round 10.22 (UPD3) — F1 rebuild confirmed-cleanup / F2 KV-объект / F3–F5 System-2 two-call / F6 egress-guard / F7 справка v4 / F8 async rebuild досье (19.09.2026) — карта связностей
+
+- **F1 `urgent-rebuild-dossiers-target-chat` (ADR-1022-1):** `services/memory_rebuild.py` — новый примитив
+  `cleanup_confirmed_dossier_facts` (владелец F1; переиспользует F8): выборка ровно `kind='fact' AND
+  status='confirmed' AND target_user` непустой (+`target_user=:name` для F8) keyset-пагинацией `id > after_id`;
+  защита опор живых beliefs/парадигм `_belief_source_set` (обход всех `kind='belief'` keyset'ом, `source_ids` +
+  `belief_meta.evidence`); порядок fail-closed `снимок → JSONL-архив (`memory_generated_confirmed_*.jsonl`,
+  fsync) → сверка candidates==archived → guard-DELETE (`delete_generated_facts`: FTS→vec→`graph_facts`)`.
+  `rebuild_dossiers` теперь: мемы/портреты → confirmed-cleanup → `pipeline(effective_window)`;
+  `_effective_window = max(window_hours, ceil(age_hours)+24)` (R1b); инвариант `reset>0 & rebuilt==0 → rebuild_empty`
+  + exit 1 (`manage._memory_exit_code`). CLI `manage.py memory rebuild-dossiers --target-chat` (shortcut =
+  `--chat <target> --allow-target-chat`, `--all` цель исключает), окно по умолчанию 4320ч, кросс-процессный
+  per-chat file-lock `dossier_rebuild_jobs.acquire_chat_lock` (общий с F8). `_guarded_delete` — bounded-retry на `locked`.
+  Инварианты сохранены: `RAW_HISTORY_TABLES`/`assert_derived_table`/`_guarded_delete` не тронуты, overrides/beliefs/
+  nodes/edges не мутируются. Принят R7 (удаление валидных confirmed компенсировано бэкап+JSONL; confirmed пайплайном не воссоздаются).
+- **F2 `urgent-summary-aliases-ui` (R16):** `web/api/routes.py::_ensure_keyvalue_object` — точечно для `widget='keyvalue'`
+  (`not secret`): строка-JSON распаковывается до 2 уровней → объект (иначе `{}` + WARNING); `web/app.js` KV-editor `sync`
+  зеркалит распаковку. Другие `json`-виджеты (textarea) не затронуты; cache-bust `?v=__APP_VERSION__` без изменений.
+- **F3/F4/F5 System-2 two-call (ADR-1022-3/4/5):** новый `services/system2_handoff.py` — общий контракт изоляции:
+  `parse_json_object` (reasoning-стены/фенсы/raw_decode, усечение→None), `parse_factcheck_analysis`,
+  `validate_summary_digest`, `parse_direct_synthesis`, `contains_system_ids` (fact/msg/`[ММ.ГГГГ |`), `redact_secrets` (R17).
+  Цепочки: factcheck `FactCheckService.check_claim` → `_check_claim_two_call` (Аналитик JSON → Вербализатор; Stage-2
+  видит только валидированный JSON); summary `SummaryGenerator._generate_two_call` (Редактор → Рассказчик);
+  direct `DirectChatService._synthesize_direct_answer` (Синтезатор тулов → Вербализатор, только при непустом
+  `raw.tool_trace`, не degraded, НЕ `lore_compiled`). Верификация ответа — `services/negative_constraints.verbalize_validated`
+  (детектор клише → ≤2 полных регенерации, `CLICHE_RETRY_SYSTEM_PROMPT`); любой сбой/невалидный JSON → fallback на
+  одиночный путь 10.21 (ответ не теряется). Kill-switch `SYSTEM2_{FACTCHECK,SUMMARY,DIRECT,VALIDATOR_LOOP}_ENABLED` (env-only).
+- **F6 `telegram-send-regex-guard` (ADR-1022-6):** новый `services/outgoing_guard.py::sanitize_outgoing` — единая чистая
+  функция egress (reasoning-теги + `\bfact:\d+\b`/`\bmsg:\d+\b`, no-op без паттернов, fail-closed `""`).
+  `services/telegram_send.py` — обёртки `send_text`/`edit_text_safe` (chokepoint) + реестры `SEND_POINTS`/`SEND_ALLOWLIST`;
+  переведены `smartmodule_utils._send_once` (все LLM-контуры: direct/factcheck/search/youtube/web/checkup) и
+  `summary_generator` (_send_streaming/_send_chunked/_send_one_chunk/_send_ux). `services/negative_constraints.py` —
+  детектор клише (коды правил, R17) + validator-loop; клише кодом НЕ вырезаются (вето владельца).
+  `prompt_style_blocks`: `ANTI_BOT_BLOCK` п.7 + `PREV_ANTI_BOT_BLOCK`/`PREV_STYLE_BLOCKS_SUFFIX`; `PREV_*_R1022` в `PROMPT_MIGRATIONS`.
+- **F7 `help-ui-system2` (ADR-1022-7):** `services/info_service.py` канон **v4** (`INFO_CANON_VERSION 3→4`), прежний v3 →
+  `PREV_R1022_DEFAULT_INFO_TEXT` в `KNOWN_INFO_SNAPSHOTS`; только `<h1>/<h2>` + команды в `<blockquote>` (h3+ нет),
+  байт-тест `info_text.md`. `config_cache._migrate_info_how_it_works_v1015` мигрирует v3→v4 идемпотентно; DOMPurify
+  (default) пропускает h1/h2/blockquote; `.info-html`-стили в `web/static/app.css`.
+- **F8 `dossier-rebuild-async-ui` (ADR-1022-8):** новый `services/dossier_rebuild_jobs.py` — `DossierRebuildJobStore`
+  (JSON-стор `backups/dossier_jobs/dossier_rebuild_jobs.json`, `tmp`→`os.replace`+fsync, один писатель `asyncio.Lock`,
+  retention 50/7д, активные не вытесняются, рестарт → `interrupted`), per-chat file-lock `acquire_chat_lock`
+  (O_CREAT|O_EXCL + takeover-маркер + TTL), точечный снапшот производных юзера (`_USER_DERIVED_SQL`, JSONL+fsync) и
+  `restore_user_snapshot`/`archive_user_derived`, раннер `run_dossier_rebuild` (snapshot → F1 confirmed-cleanup →
+  `LoreWorker.rebuild_dossier_for_user` чанками с `progress_cb`/`cancel_cb` → done; при отмене `perform_rollback`
+  идемпотентно). `LoreWorker.rebuild_dossier_for_user`/`_classify_chunked_user`/`_extract_chunk`/`_write_target_memes`
+  — user-scoped (пишет только `target`: `dossier_portrait`+`chat_meme`); `count_window_messages`. API
+  `web/api/chat_lore.py`: `POST .../dossier/{user_id}/rebuild` (202; 409 already_running/chat_locked), `GET .../rebuild/latest`
+  (204), `GET .../rebuild/{job_id}`, `POST .../rebuild/{job_id}/cancel` (terminal retryable для `failed`+`rollback_failed`/
+  частичной пересборки). RBAC `_require_chat`; job-view R17 (только числа/коды/basename); kill-switch `DOSSIER_REBUILD_UI_ENABLED`.
+  UI `web/app.js` (`startDossierRebuild`/polling 2с/`resumeDossierRebuild`/`cancelDossierRebuild`) + карточка в `web/index.html`.
+- **Инварианты:** порядок роутеров `bot.py` не менялся; каталог **Δ=0** (новые рубильники — env-only ClassVar);
+  SQLite **v12**; `git diff --check` clean; секретов нет.
+- **Статус скана (итерация 2, после пост-скан фиксов): 0 Critical / 0 High / 0 Medium / 0 Low / 0 Info открыто**
+  (новая Info S10.22-4b — не блокер). Пост-скан фиксы, вошедшие в связи: F1 `_belief_source_set` → fail-closed
+  (ошибка чтения beliefs пробрасывается, чат `read_error` пропускается, опоры не удаляются, `memory_rebuild.py:787-847`);
+  F8 раннер `cleaned>0 & rebuilt==0` → `failed`/`rebuild_empty` + достижимый ручной откат (`dossier_rebuild_jobs.py:720-732`,
+  `_rebuild_rollback_retryable` учитывает `cleaned>0`); `interrupted` исключён из `_ACTIVE_STATUSES` и prune-ится
+  (`:41,295-312,371-379`) → новый старт разрешён; `restore_user_snapshot` фильтрует колонки по `PRAGMA table_info` (`:526-541`);
+  F8 UI-флаг доступности: `latest` 404 при kill-switch → `dossierRebuildEnabled=false` (`app.js:2893-2909`, `index.html:2733`);
+  F6 `as_ai` сужен до 1-го лица (negative lookbehind, `negative_constraints.py:50-59`); R17-лог summary без сырого текста
+  (`summary_generator.py:290-296`). Валидатор: целевой pytest **187+339+70+88 passed**; JS-гейты `JS-UNIT-OK`/
+  `DOSSIER-REBUILD-UNIT-OK`/help OK; `git diff --check` clean; v12; каталог 439/92/20 (Δ=0); справка байт-в-байт.
+  Отчёт: `plans/reports/round1022_scanner_audit.md` (§«Re-audit после пост-скан фиксов»).
+
 ## Round 10.21 — F1 multilayer / F2 grounding+CoVe / F3 де-роботизация / F4 консолидация / F5 rebuild-sanitation / F6 UI-аудит (18.09.2026) — карта связностей
 
 - **F1 `multilayer-memory-extraction` (ADR-1021-1):** `LoreWorker._classify_dossier` → ветвление по env-only

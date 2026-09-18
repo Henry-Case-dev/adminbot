@@ -1328,3 +1328,49 @@ golden-путь отдельным SQL-порогом; F6 `NAV_*`/`TAB_NAV`/`tab
   сырая история/ручные overrides не мутируются, JS-UNIT-OK. Валидатор: 217 целевых тестов + 7 ad-hoc проб.
   **Сводка re-audit: Critical 0 / High 0 / Medium 0 открыто → @Orchestrator, шаг 7 (Merge/deploy).
   Детали — `round1021_scanner_audit.md` §«Re-audit после пост-скан фиксов».**
+
+---
+
+## Round 10.22 (UPD3, 19.09.2026) — diff-based аудит 8 фич (System-2 two-call + egress-guard + async rebuild досье)
+
+- Baseline HEAD `acd9311` + рабочее дерево; @Reviewer `Approved` (iter 3), полный pytest 6953/0 (заявлен).
+- Новые модули: `services/system2_handoff.py`, `services/negative_constraints.py`, `services/outgoing_guard.py`,
+  `services/telegram_send.py`, `services/dossier_rebuild_jobs.py`; изменены `memory_rebuild.py`, `lore_worker.py`,
+  `direct_chat_service.py`, `summary_generator.py`, `factcheck_service.py`, `info_service.py`, `manage.py`,
+  `web/api/chat_lore.py`, `web/api/routes.py`, `web/app.js`, `web/index.html`.
+- Сводка: **Critical 0 / High 0 / Medium 2 / Low 4 / Info 3.** **ВЕРДИКТ: 0 Critical / 0 High → шаг 7 разрешён.**
+- **S10.22-1 [Medium]** F1 `memory_rebuild._belief_source_set` (`:775-812`, `except → return out`) — ошибка чтения
+  beliefs молча обнуляет `protected_ids`; внешний обработчик не срабатывает → `confirmed`-факты-опоры beliefs
+  удаляются (fail-open вместо fail-closed; прецедент-регресс S10.21-3). Проба: monkeypatch `_list_beliefs`→raise →
+  возврат `set()` без throw.
+- **S10.22-2 [Medium]** F8 `dossier_rebuild_jobs.run_dossier_rebuild` (`:694-710`) — job помечается `done` при
+  `cleaned>0 && rebuilt==0`; инвариант F1 `rebuild_empty` не зеркалится, а `cancel` на `done` терминален (200) →
+  откат из UI недостижим. Воспроизводимо при пустом окне (`rebuild_dossier_for_user` → `return 0`) после удаления
+  confirmed-фактов. Тестов на ветку нет.
+- Low (4): S10.22-3 (`handlers/voice_transcription.py:214` — ASR-транскрипт, модель-текст, мимо egress-guard под
+  обоснованием «UX-фразы»), S10.22-4 (детектор `as_ai` ловит нейтральное «ведёт себя как искусственный интеллект»),
+  S10.22-5 (`interrupted` в `_ACTIVE_STATUSES` + не prune → блокирует старт и копит job-store), S10.22-6 (F8 flag OFF
+  → 404, но кнопка в UI не скрыта).
+- Info (3): S10.22-7 (`.env.example` без новых env-флагов), S10.22-8 (raw-логирование ответа LLM в summary, R17,
+  pre-existing), S10.22-9 (restore SQL строит column-list из JSON без allowlist — accepted defense-in-depth).
+- Подтверждено корректным: F1 скоуп `kind='fact'/confirmed/непустой target_user`, keyset-пагинация без пропусков,
+  JSONL-до-DELETE + сверка, guard-only DELETE, `RAW_HISTORY_TABLES`/overrides/beliefs/nodes/edges не мутируются,
+  target-chat guard (`--all` исключает, `--target-chat`/`--allow-target-chat`); F6 — regex без ReDoS, fail-closed,
+  validator-loop ≤2 ретраев, покрытие direct/factcheck/search/youtube/web/checkup через `_send_once`+summary обёртки;
+  F3–F5 — изоляция Stage-2 (только валидированный JSON), fallback не теряет ответ; F2 — KV-объект, другие виджеты не тронуты;
+  F7 — v3→v4 идемпотентно, байт-тест `info_text.md`, h3+ отсутствуют; F8 — единственный путь DELETE (guard), снапшот
+  ДО cleanup, rollback идемпотентен, RBAC `_require_chat`, R17 job-view.
+- Валидатор: целевой pytest **229 passed** (11 файлов раунда + prompt_migrations + param_catalog); JS-гейты
+  `ALIASES-UNIT-OK`/`DOSSIER-REBUILD-UNIT-OK`/help OK + `node --check`; `git diff --check` clean; SQLite v12;
+  справка байт-в-байт; схема `graph_facts` без BLOB. Секретов нет.
+- Принятые остатки: R7 ADR-1022-1 (удаление валидных confirmed, компенсация бэкап+JSONL+снапшот); stale-lock TTL/
+  рестарт; rollback snapshot missing; vec не восстанавливается; job-store single-writer in-process.
+- **ИТОГ: Critical 0 / High 0 открыто → @Orchestrator, Шаг 7. Отчёт `round1022_scanner_audit.md`.**
+- **Re-audit после пост-скан фиксов (итерация 2):** S10.22-1/-2 (Medium), S10.22-3/-4/-5/-6 (Low), S10.22-7/-8/-9
+  (Info) — **все закрыты**. Доказательства: `memory_rebuild.py:787-814,841-847` + тест `test_belief_read_error_skips_chat_fail_closed`;
+  `dossier_rebuild_jobs.py:720-732,41,295-312,526-541` + `chat_lore.py:975-994,1043-1044` + тесты/JS;
+  `negative_constraints.py:50-59`; `.env.example:474-491`; `summary_generator.py:290-296`.
+  Валидатор: целевой pytest **187+339+70+88 passed / 0 failed**; JS-гейты OK; каталог 439/92/20 (Δ=0, пин-тесты);
+  v12; канон v4 байт-в-байт; `git diff --check` exit 0. Новая Info **S10.22-4b** (ложное `as_ai` при запятой:
+  «Он, как искусственный интеллект, …») — не блокер. **ВЕРДИКТ: 0 Critical / 0 High / 0 Medium открыто →
+  раунд 10.22 передаётся на Merge/деплой.**
