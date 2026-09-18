@@ -2,7 +2,7 @@
 
 Покрытие:
   * Δ каталога: +10 prompts-ключей (Stage-1/2 + режимы) и +1 группа
-    `prompts_verbilizer`; hidden-ключ `content.dynamic_cliche_list` (владелец F4);
+    `prompts_verbilizer`; phantom-ключ клише НЕ регистрируем (review iter1);
   * поле `ParamSpec.stage` и аддитивная отдача в `/api/config`;
   * рантайм hot-get Stage-1/Stage-2/режимов (правка промптов из UI работает
     без рестарта); fallback на код-константы; число LLM-вызовов = 2;
@@ -18,7 +18,6 @@ import pytest
 from services import hot_config as hot
 from services import param_catalog as pc
 from services.param_catalog import (
-    CATEGORY_CONTENT,
     CATEGORY_PROMPTS,
     TAB_PROMPTS,
 )
@@ -79,7 +78,7 @@ ONE_STAGE_KEYS = {
 
 class TestCatalogDelta:
     def test_counts(self):
-        assert len(pc.REGISTRY) == 458
+        assert len(pc.REGISTRY) == 457
         assert len(pc.GROUPS) == 96
         assert len(pc._TAB_BY_GROUP) == 94
         assert len(pc.TAB_RULES) == 20
@@ -134,14 +133,11 @@ class TestCatalogDelta:
             item = pc.get_by_pg_key(f"prompts.verbilizer_mode_{mode}")
             assert item.stage == "mode"
 
-    def test_hidden_cliche_key(self):
-        """F4 не завёл bot_settings-ключ → F8 регистрирует hidden-ключ."""
-        spec = pc.get_by_pg_key("content.dynamic_cliche_list")
-        assert spec is not None
-        assert spec.category == CATEGORY_CONTENT
-        assert spec.hidden is True
-        assert spec.code_source is None
-        assert spec.group and spec.description
+    def test_phantom_cliche_key_not_registered(self):
+        """Review iter1 (Low): phantom-ключ `content.dynamic_cliche_list` НЕ
+        регистрируем — F4 хранит клише в PG-таблице, ключ был бы «мёртвой
+        ручкой» в матрице прав. UI-блок работает через /api/anticliche."""
+        assert pc.get_by_pg_key("content.dynamic_cliche_list") is None
 
 
 # ── B. Рантайм hot-get (кросс-фичевый контракт §4.1) ─────────────────────────
@@ -305,6 +301,64 @@ class TestDirectRuntimeHotGet:
         assert svc.llm.generate.await_count == 2
 
 
+# ── B2. Fail-safe на пустое PG-значение (review iter1, Low) ─────────────────
+
+class TestEmptyPgFallback:
+    """Пустое/whitespace значение ключа → код-константа (инвариант §4.1)."""
+
+    def test_resolve_prompt_helper(self):
+        from services.prompt_style_blocks import resolve_prompt
+        key = "prompts.factcheck_analyst_system_prompt"
+        assert resolve_prompt(key, "CODE") == "CODE"            # нет кэша
+        hot.set_config_cache(_FakeCache({key: "   "}))
+        assert resolve_prompt(key, "CODE") == "CODE"            # пусто
+        hot.set_config_cache(_FakeCache({key: "PG"}))
+        assert resolve_prompt(key, "CODE") == "PG"              # значение есть
+
+    @pytest.mark.asyncio
+    async def test_summary_empty_stage_prompts_fall_back(self):
+        from services.summary_prompts import (
+            SUMMARY_EDITOR_SYSTEM_PROMPT, SUMMARY_NARRATOR_SYSTEM_PROMPT)
+        hot.set_config_cache(_FakeCache({
+            "prompts.summary_editor_system_prompt": "  ",
+            "prompts.summary_narrator_system_prompt": "",
+        }))
+        editor = json.dumps({"response_mode": "serious", "digest": _DIGEST})
+        gen, llm = TestSummaryRuntimeHotGet._gen([editor, "текст"])
+        await gen._generate_two_call("история", 3800, -100)
+        stage1 = llm.generate.await_args_list[0].args[0][0]["content"]
+        assert stage1 == SUMMARY_EDITOR_SYSTEM_PROMPT
+        assert SUMMARY_NARRATOR_SYSTEM_PROMPT.replace(
+            "{max_symbols}", "3800") in \
+            llm.generate.await_args_list[1].args[0][0]["content"]
+
+    @pytest.mark.asyncio
+    async def test_factcheck_empty_analyst_falls_back(self):
+        from services.factcheck_service import FactCheckService
+        from services.factcheck_prompts import FACTCHECK_ANALYST_SYSTEM_PROMPT
+        hot.set_config_cache(_FakeCache({
+            "prompts.factcheck_analyst_system_prompt": "   "}))
+        aggregator = MagicMock()
+        aggregator.search = AsyncMock(return_value="хиты")
+        llm = MagicMock()
+        llm.generate = AsyncMock(side_effect=[_factcheck_json(), "ответ"])
+        service = FactCheckService(aggregator, llm)
+        await service.check_claim("тезис")
+        stage1 = llm.generate.await_args_list[0].args[0][0]["content"]
+        assert stage1 == FACTCHECK_ANALYST_SYSTEM_PROMPT
+
+    @pytest.mark.asyncio
+    async def test_direct_empty_synth_falls_back(self):
+        from services.chat_prompts import DIRECT_SYNTHESIZER_SYSTEM_PROMPT
+        hot.set_config_cache(_FakeCache({
+            "prompts.direct_chat_synthesizer_system_prompt": "\n "}))
+        svc = TestDirectRuntimeHotGet._svc([_direct_json(), "ответ"])
+        await svc._synthesize_direct_answer(
+            -100, "q", TestDirectRuntimeHotGet._raw(), None)
+        stage1 = svc.llm.generate.await_args_list[0].args[0][0]["content"]
+        assert stage1 == DIRECT_SYNTHESIZER_SYSTEM_PROMPT
+
+
 # ── C. API/UI: аддитивная отдача stage и маркеры фронта ─────────────────────
 
 class TestApiAndUiMarkers:
@@ -313,15 +367,21 @@ class TestApiAndUiMarkers:
     HTML = open("web/index.html", encoding="utf-8").read()
 
     def test_config_exposes_stage(self):
+        # Дополнительный grep-гейт (поведенческий — в test_webapp_api.py).
         assert '"stage": spec.stage if spec else None' in self.ROUTES
 
     def test_js_stage_sections_and_mode_tabs(self):
         for token in ("promptStageItems", "promptOtherItems",
-                      "promptsHasSynthesizer", "selectPromptMode",
+                      "promptsHasSynthesizer", "promptsHasVerbalizer",
+                      "promptSections", "selectPromptMode",
                       "promptModeTabs", "promptModeItem", "promptMode:"):
             assert token in self.JS, token
-        assert "promptStageItems(grp, 'synthesizer')" in self.HTML
-        assert "promptStageItems(grp, 'verbalizer')" in self.HTML
+        # Секции строит promptSections (условная Вербализатор-секция).
+        assert "promptSections(grp)" in self.HTML
+        assert "Синтезатор (Логика)" in self.JS
+        assert "Вербализатор (Характер)" in self.JS
+        # High: селект сохраняет по $event.target.value.
+        assert '@change="selectPromptMode($event.target.value)"' in self.HTML
 
     def test_js_cliche_monitor(self):
         for token in ("loadCliche", "forceRefreshCliche", "saveCliche",
@@ -329,11 +389,16 @@ class TestApiAndUiMarkers:
                       "/api/anticliche", "/api/anticliche/refresh"):
             assert token in self.JS, token
 
-    def test_html_sections_and_cliche_block(self):
-        assert "Синтезатор (Логика)" in self.HTML
-        assert "Вербализатор (Характер)" in self.HTML
+    def test_html_restores_perms_and_override_controls(self):
+        """Review iter1 (Medium): в карточках F8 вернули права/оверрайды."""
+        assert "openPermPicker(item)" in self.HTML
+        assert "resetChatOverride(item)" in self.HTML
+        assert "item.chat_source === 'chat'" in self.HTML
+        assert "expandOpen(activeTab)" in self.HTML  # basic/advanced дисклоузер
+
+    def test_html_cliche_block(self):
         assert "Режимы Вербализатора" in self.HTML
-        assert "Модуль одностадийный" in self.HTML
+        assert "Модуль одностадийный" in self.JS
         assert "Анти-клише: динамический список" in self.HTML
         assert 'data-block="anticliche-monitor"' in self.HTML
         # Freeze: вкладка «Промпты» и витрина модулей не переписаны.

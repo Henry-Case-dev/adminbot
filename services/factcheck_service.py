@@ -40,7 +40,10 @@ from services.negative_constraints import (
     channel_enabled_rules,
     verbalize_validated,
 )
-from services.prompt_style_blocks import compose_verbalizer_system
+from services.prompt_style_blocks import (
+    compose_verbalizer_system,
+    resolve_prompt,
+)
 from services.reply_postprocess import strip_reasoning_tags
 from services.search_aggregator import SearchAggregator
 from services.summary_cleanup import cleanup_llm_text
@@ -133,7 +136,7 @@ class FactCheckService:
     ) -> str | None:
         """System 2 фактчека. ``None`` → вызывающий уходит на 10.21."""
         analyst_messages = [
-            {"role": "system", "content": hot.get(
+            {"role": "system", "content": resolve_prompt(
                 "prompts.factcheck_analyst_system_prompt",
                 FACTCHECK_ANALYST_SYSTEM_PROMPT)},
             {"role": "user", "content": user},
@@ -161,8 +164,8 @@ class FactCheckService:
         response_mode = normalize_response_mode(data.get("response_mode"))
         modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED", True)
         verbalizer_template = (
-            hot.get("prompts.factcheck_verbalizer_system_prompt",
-                    FACTCHECK_VERBALIZER_SYSTEM_PROMPT)
+            resolve_prompt("prompts.factcheck_verbalizer_system_prompt",
+                           FACTCHECK_VERBALIZER_SYSTEM_PROMPT)
             if modes_on else PREV_FACTCHECK_VERBALIZER_R1023)
         verbalizer_base = verbalizer_template.replace(
             "{max_symbols}", str(max_symbols))

@@ -457,7 +457,7 @@
                         <div class="text-xs text-gray-400 mb-2">{{ promptDefaultModeItem().description }}</div>
                         <select class="field" v-model="promptDefaultModeItem().value"
                                 :disabled="!canEditConfig(promptDefaultModeItem().key)"
-                                @change="selectPromptMode(promptDefaultModeItem().value)">
+                                @change="selectPromptMode($event.target.value)">
                           <option v-for="(o, i) in (promptDefaultModeItem().select_options || [])"
                                   :key="o" :value="o">
                             {{ (promptDefaultModeItem().select_labels && promptDefaultModeItem().select_labels[i]) || o }}
@@ -466,57 +466,65 @@
                       </div>
                     </template>
 
-                    <!-- Обычный модуль: Синтезатор + Вербализатор (+ прочее) -->
+                    <!-- Обычный модуль: секции по stage (basic/advanced) -->
                     <template v-else>
-                      <div v-if="promptsHasSynthesizer(grp)" class="mb-3">
-                        <div class="text-xs font-semibold text-violet-300 uppercase tracking-wide mb-2">
-                          Синтезатор (Логика)
-                        </div>
-                        <div class="grid gap-3 md:grid-cols-2">
-                          <div v-for="item in promptStageItems(grp, 'synthesizer')"
-                               :key="item.key" class="card p-4" style="min-width:0;">
-                            <div class="text-sm font-semibold">{{ item.title }}</div>
-                            <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
-                            <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
-                            <textarea class="field scroll-thin" rows="6"
-                                      v-model="item.value"></textarea>
+                      <template v-for="sec in promptSections(grp)" :key="sec.id">
+                        <div :class="sec.id === 'other' ? 'mt-2' : 'mb-3'">
+                          <div class="text-xs font-semibold uppercase tracking-wide mb-2"
+                               :class="sec.id === 'other' ? 'text-gray-400' : 'text-violet-300'">
+                            {{ sec.title }}
                           </div>
-                        </div>
-                      </div>
-                      <div class="mb-3">
-                        <div class="text-xs font-semibold text-violet-300 uppercase tracking-wide mb-2">
-                          Вербализатор (Характер)
-                        </div>
-                        <div v-if="!promptsHasSynthesizer(grp)"
-                             class="text-xs text-gray-500 mb-2">
-                          Модуль одностадийный — только Вербализатор.
-                        </div>
-                        <div class="grid gap-3 md:grid-cols-2">
-                          <div v-for="item in promptStageItems(grp, 'verbalizer')"
-                               :key="item.key" class="card p-4" style="min-width:0;">
-                            <div class="text-sm font-semibold">{{ item.title }}</div>
-                            <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
-                            <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
-                            <textarea class="field scroll-thin" rows="6"
-                                      v-model="item.value"></textarea>
+                          <div v-if="sec.note" class="text-xs text-gray-500 mb-2">
+                            {{ sec.note }}
                           </div>
-                        </div>
-                      </div>
-                      <div v-if="promptOtherItems(grp).length" class="mt-2">
-                        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-                          Прочие промпты модуля
-                        </div>
-                        <div class="grid gap-3 md:grid-cols-2">
-                          <div v-for="item in promptOtherItems(grp)" :key="item.key"
-                               class="card p-4" style="min-width:0;">
-                            <div class="text-sm font-semibold">{{ item.title }}</div>
-                            <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
-                            <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
-                            <textarea class="field scroll-thin" rows="6"
-                                      v-model="item.value"></textarea>
+                          <div class="grid gap-3 md:grid-cols-2" v-if="sec.basic.length">
+                            <div v-for="item in sec.basic" :key="item.key"
+                                 class="card p-4" style="min-width:0;">
+                              <div class="flex items-center gap-2 min-w-0 mb-1">
+                                <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
+                                <span v-if="itemHiddenDev(item)" class="badge badge-warn">скрыт</span>
+                                <button v-if="isGlobalAdmin" class="btn-ghost text-xs px-2 ml-auto shrink-0"
+                                        title="Права ключа (min-роли view/edit)"
+                                        @click="openPermPicker(item)"><span class="msr" aria-hidden="true">{{ iconGlyph('manage_accounts') }}</span></button>
+                                <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
+                                        class="btn-ghost text-xs px-2 shrink-0"
+                                        @click="resetChatOverride(item)">↪ глобальное</button>
+                              </div>
+                              <div class="text-sm font-semibold">{{ item.title }}</div>
+                              <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                              <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
+                              <textarea class="field scroll-thin" rows="6" v-model="item.value"></textarea>
+                            </div>
                           </div>
+                          <details class="advanced mt-4" v-if="sec.advanced.length > 0"
+                                   :open="expandOpen(activeTab)" @toggle="toggleExpand(activeTab)">
+                            <summary class="select-none text-sm font-semibold">
+                              Расширенные системные
+                              <span class="text-xs text-gray-500 font-normal">({{ sec.advanced.length }})</span>
+                              <span class="msr advanced-gear" aria-hidden="true">{{ iconGlyph('settings') }}</span>
+                            </summary>
+                            <div class="grid gap-3 md:grid-cols-2 mt-3">
+                              <div v-for="item in sec.advanced" :key="'a-' + item.key"
+                                   class="card p-4" style="min-width:0;">
+                                <div class="flex items-center gap-2 min-w-0 mb-1">
+                                  <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
+                                  <span v-if="itemHiddenDev(item)" class="badge badge-warn">скрыт</span>
+                                  <button v-if="isGlobalAdmin" class="btn-ghost text-xs px-2 ml-auto shrink-0"
+                                          title="Права ключа (min-роли view/edit)"
+                                          @click="openPermPicker(item)"><span class="msr" aria-hidden="true">{{ iconGlyph('manage_accounts') }}</span></button>
+                                  <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
+                                          class="btn-ghost text-xs px-2 shrink-0"
+                                          @click="resetChatOverride(item)">↪ глобальное</button>
+                                </div>
+                                <div class="text-sm font-semibold">{{ item.title }}</div>
+                                <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                                <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
+                                <textarea class="field scroll-thin" rows="6" v-model="item.value"></textarea>
+                              </div>
+                            </div>
+                          </details>
                         </div>
-                      </div>
+                      </template>
                     </template>
                   </div>
                 </template>

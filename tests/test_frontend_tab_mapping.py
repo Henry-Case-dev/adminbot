@@ -127,12 +127,14 @@ class TestTabMappingAudit:
         # 10.23 (F5/ADR-1023-5 D5): +5 REGISTRY, +3 GROUPS, +3 mapped
         # (models_images/keys_images → llm_providers; flags_module_images →
         # mod_direct) → 446/95/93; TAB_RULES 20 (новых вкладок нет).
-        # 10.23 (F8/ADR-1023-8): +11 REGISTRY (10 prompts + 1 hidden content),
-        # +1 GROUPS/mapped (prompts_verbilizer → вкладка prompts) → 458/96/94;
-        # TAB_RULES 20 — вкладок не добавляем.
+        # 10.23 (F8/ADR-1023-8, review iter1): +10 REGISTRY (Stage-1/2 + режимы),
+        # +1 GROUPS/mapped (prompts_verbilizer → вкладка prompts) → 457/96/94;
+        # phantom-ключ content.dynamic_cliche_list НЕ регистрируем (review
+        # iter1, Low: F4 хранит клише в PG-таблице, ключ был бы «мёртвой
+        # ручкой»); TAB_RULES 20 — вкладок не добавляем.
         assert len(pc._TAB_BY_GROUP) == 94
         assert len(GROUPS) == 96
-        assert len(pc.REGISTRY) == 458
+        assert len(pc.REGISTRY) == 457
 
 
 class TestModuleTabs:

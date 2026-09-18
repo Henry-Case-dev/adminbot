@@ -3632,12 +3632,6 @@
             && !this.configItems.length) {
           self.loadConfig();
         }
-        // F8 (ADR-1023-8): вход на «Промпты» — синхронизация режима и
-        // подгрузка блока анти-клише (fail-open, только global admin).
-        if (id === 'prompts') {
-          this._syncPromptModeFromConfig();
-          this.maybeLoadCliche();
-        }
       },
 
       // ═══ TMA-кнопки шапки (UI-полировка) ═══
@@ -3812,6 +3806,45 @@
       promptsHasSynthesizer: function (grp) {
         return this.promptStageItems(grp, 'synthesizer').length > 0;
       },
+      promptsHasVerbalizer: function (grp) {
+        return this.promptStageItems(grp, 'verbalizer').length > 0;
+      },
+      // F8 (review iter1): секции карточки модуля для вкладки «Промпты».
+      // Пустые секции НЕ рендерятся (группы без staged-элементов —
+      // prompts_memory/prompts_checkup — дают только «Прочие промпты»).
+      // Внутри секции items разбиты на basic/advanced (дисклоузер).
+      promptSections: function (grp) {
+        var self = this;
+        function split(items) {
+          var basic = [], advanced = [];
+          items.forEach(function (it) {
+            if (self.itemAdvanced(it)) advanced.push(it); else basic.push(it);
+          });
+          return { basic: basic, advanced: advanced };
+        }
+        var sections = [];
+        var synth = this.promptStageItems(grp, 'synthesizer');
+        var verb = this.promptStageItems(grp, 'verbalizer');
+        var other = this.promptOtherItems(grp);
+        if (synth.length) {
+          sections.push(Object.assign(
+            { id: 'synthesizer', title: 'Синтезатор (Логика)', note: '' },
+            split(synth)));
+        }
+        if (verb.length) {
+          sections.push(Object.assign(
+            { id: 'verbalizer', title: 'Вербализатор (Характер)',
+              note: synth.length ? ''
+                : 'Модуль одностадийный — только Вербализатор.' },
+            split(verb)));
+        }
+        if (other.length) {
+          sections.push(Object.assign(
+            { id: 'other', title: 'Прочие промпты модуля', note: '' },
+            split(other)));
+        }
+        return sections;
+      },
       promptItemByKey: function (grp, key) {
         var items = (grp && grp.items) || [];
         for (var i = 0; i < items.length; i++) {
@@ -3830,20 +3863,29 @@
           return i.key === 'prompts.verbilizer_default_mode';
         }) || null;
       },
-      // Клик по табу: переключает редактируемый режимный блок и задаёт режим
-      // по умолчанию (ключ prompts.verbilizer_default_mode, автосейв).
+      // Клик по табу / смена селекта: переключает редактируемый режимный
+      // блок и задаёт режим по умолчанию (ключ prompts.verbilizer_default_mode,
+      // автосейв). Review iter1 (High): сохраняем по факту СМЕНЫ режима
+      // (promptMode !== mode), а не по `item.value !== mode` — иначе селект
+      // (аргумент = текущее item.value) никогда не сохранялся.
       selectPromptMode: function (mode) {
         if (!mode) return;
+        mode = String(mode);
+        var changed = this.promptMode !== mode;
         this.promptMode = mode;
         var item = this.promptDefaultModeItem();
-        if (item && item.value !== mode && this.canEditConfig(item.key)) {
+        if (item && changed && this.canEditConfig(item.key)) {
           item.value = mode;
           this.saveConfigItem(item);
         }
       },
       _syncPromptModeFromConfig: function () {
         var item = this.promptDefaultModeItem();
-        if (item && item.value) this.promptMode = String(item.value);
+        if (!item || !item.value) return;
+        // Санитайз: неизвестное/битое PG-значение не оставляем «без таба».
+        var allowed = this.promptModeTabs.map(function (t) { return t.id; });
+        this.promptMode = allowed.indexOf(String(item.value)) >= 0
+          ? String(item.value) : 'serious';
       },
       // ── Блок мониторинга динамического анти-клише (API F4) ────────────
       // Fail-open: F4-API недоступен (403/404/503/сеть) → блок скрыт
@@ -3863,8 +3905,11 @@
         }
       },
       maybeLoadCliche: function () {
+        // F8 (review iter1): обновляем список при КАЖДОМ входе на вкладку
+        // (не только при первом) — дата/форс не «замерзают». Защита от
+        // параллельных запросов — clicheLoading.
         if (this.isGlobalAdmin && this.activeTab === 'prompts'
-            && !this.clicheAvailable && !this.clicheLoading) {
+            && !this.clicheLoading) {
           this.loadCliche();
         }
       },

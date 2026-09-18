@@ -80,9 +80,40 @@ assert(methods, 'root.methods не найден');
   assert.strictEqual(methods.promptStageItems(grp, 'verbalizer').length, 2);
   assert.strictEqual(methods.promptOtherItems(grp).length, 1);
   assert.strictEqual(methods.promptsHasSynthesizer(grp), true);
+  assert.strictEqual(methods.promptsHasVerbalizer(grp), true);
   assert.strictEqual(methods.promptsHasSynthesizer({ items: [
     { key: 'x', stage: 'verbalizer' }] }), false);
   assert.strictEqual(methods.promptStageItems(null, 'verbalizer').length, 0);
+})();
+
+// ── 1b. promptSections: условные секции + basic/advanced split ──────────────
+(function () {
+  const itemAdvanced = function (it) { return !!it.advanced; };
+  const ctx = { itemAdvanced: itemAdvanced,
+                promptStageItems: methods.promptStageItems,
+                promptOtherItems: methods.promptOtherItems };
+  function call(grp) { return methods.promptSections.call(ctx, grp); }
+
+  // Группа без staged-элементов (prompts_memory/prompts_checkup):
+  // НЕТ ложной секции «Вербализатор» — только «Прочие промпты модуля».
+  const only = call({ items: [
+    { key: 'a' }, { key: 'b', advanced: true }, { key: 'c' }] });
+  assert.deepStrictEqual(only.map(function (s) { return s.id; }), ['other']);
+  assert.strictEqual(only[0].basic.length, 2);
+  assert.strictEqual(only[0].advanced.length, 1);
+
+  // Одностадийный модуль (search/youtube/web): verbalizer + пометка, без synth.
+  const os = call({ items: [{ key: 'v', stage: 'verbalizer' }] });
+  assert.deepStrictEqual(os.map(function (s) { return s.id; }), ['verbalizer']);
+  assert(os[0].note && os[0].note.indexOf('одностадийный') >= 0);
+
+  // Двухстадийный: synth + verbalizer + прочее; пометки об одностадийности нет.
+  const two = call({ items: [
+    { key: 's', stage: 'synthesizer' },
+    { key: 'v', stage: 'verbalizer' }, { key: 'o' }] });
+  assert.deepStrictEqual(two.map(function (s) { return s.id; }),
+    ['synthesizer', 'verbalizer', 'other']);
+  assert.strictEqual(two[1].note, '');
 })();
 
 // ── 2. Tabs режимов ─────────────────────────────────────────────────────────
@@ -91,6 +122,7 @@ assert(methods, 'root.methods не найден');
   assert.deepStrictEqual(tabs.map(function (t) { return t.id; }),
     ['casual', 'serious', 'deep_research']);
 
+  // 2.1 Таб: смена режима сохраняется.
   const defaultItem = { key: 'prompts.verbilizer_default_mode', value: 'serious' };
   const saved = [];
   const ctx = {
@@ -105,11 +137,40 @@ assert(methods, 'root.methods не найден');
   assert.strictEqual(defaultItem.value, 'casual');
   assert.deepStrictEqual(saved, ['casual']);
 
-  // sync из конфига
+  // 2.2 High-регресс: путь СЕЛЕКТА ($event.target.value). v-model уже
+  // записал новое значение в item.value ДО @change — сохранение всё равно
+  // должно произойти (раньше условие item.value !== mode было всегда false).
+  const selItem = { key: 'prompts.verbilizer_default_mode', value: 'serious' };
+  const savedSel = [];
+  const ctxSel = {
+    promptMode: 'serious',
+    configItems: [selItem],
+    canEditConfig: function () { return true; },
+    saveConfigItem: function (it) { savedSel.push(it.value); },
+    promptDefaultModeItem: methods.promptDefaultModeItem,
+  };
+  ctxSel.promptDefaultModeItem().value = 'deep_research';   // v-model
+  methods.selectPromptMode.call(ctxSel, 'deep_research');    // @change
+  assert.strictEqual(ctxSel.promptMode, 'deep_research');
+  assert.deepStrictEqual(savedSel, ['deep_research']);
+
+  // 2.3 Повторный выбор того же режима — без повторного сохранения.
+  methods.selectPromptMode.call(ctxSel, 'deep_research');
+  assert.deepStrictEqual(savedSel, ['deep_research']);
+
+  // 2.4 sync из конфига.
   const ctx2 = { promptMode: 'serious', configItems: [defaultItem],
+                 promptModeTabs: tabs,
                  promptDefaultModeItem: methods.promptDefaultModeItem };
   methods._syncPromptModeFromConfig.call(ctx2);
   assert.strictEqual(ctx2.promptMode, 'casual');
+
+  // 2.5 Санитайз: неизвестное значение → 'serious' (таб подсвечен).
+  const ctxBad = { promptMode: 'serious', promptModeTabs: tabs,
+    configItems: [{ key: 'prompts.verbilizer_default_mode', value: 'bogus' }],
+    promptDefaultModeItem: methods.promptDefaultModeItem };
+  methods._syncPromptModeFromConfig.call(ctxBad);
+  assert.strictEqual(ctxBad.promptMode, 'serious');
 })();
 
 // ── 3. Блок анти-клише: load (fail-open) / force / PUT ──────────────────────

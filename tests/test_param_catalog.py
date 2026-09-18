@@ -371,11 +371,12 @@ class TestGroups8424:
             if s.category is not None:
                 counts[s.category] += 1
         # 10.23 (F6/ADR-1023-6): prompts +1 (prompts.summary_cover_style).
-        # 10.23 (F8/ADR-1023-8): prompts +10 (Stage-1/2 + режимы), content +1
-        # (hidden content.dynamic_cliche_list — кэш анти-клише, владелец F4).
+        # 10.23 (F8/ADR-1023-8, review iter1): prompts +10 (Stage-1/2 + режимы);
+        # content без изменений (phantom content.dynamic_cliche_list удалён —
+        # F4 хранит клише в PG-таблице, ключ был бы «мёртвой ручкой»).
         assert counts == {"prompts": 21, "models": 56, "keys": 20,
                           "limits": 191, "flags": 66, "reactions": 39,
-                          "content": 6, "memory": 34}
+                          "content": 5, "memory": 34}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 
 

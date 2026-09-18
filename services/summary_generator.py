@@ -40,7 +40,10 @@ from services.negative_constraints import (
     channel_enabled_rules,
     verbalize_validated,
 )
-from services.prompt_style_blocks import compose_verbalizer_system
+from services.prompt_style_blocks import (
+    compose_verbalizer_system,
+    resolve_prompt,
+)
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import _build_batch_text, fire_and_forget
 from services.summary_prompts import (
@@ -449,7 +452,7 @@ class SummaryGenerator:
         ``response_mode``); канал Stage-2 — ``rich``, когда обложка реально
         возможна (флаг ON ∧ поддержка media ∧ ``cover_prompt`` ≠ "")."""
         editor_payload = [
-            {"role": "system", "content": hot.get(
+            {"role": "system", "content": resolve_prompt(
                 "prompts.summary_editor_system_prompt",
                 SUMMARY_EDITOR_SYSTEM_PROMPT)},
             {"role": "user", "content": user_content},
@@ -472,8 +475,8 @@ class SummaryGenerator:
         # F8 (ADR-1023-8): Stage-2 база читается из PG (hot) с fallback на
         # код-канон; kill-switch OFF → прежний до-F3 Рассказчик.
         narrator_template = (
-            hot.get("prompts.summary_narrator_system_prompt",
-                    SUMMARY_NARRATOR_SYSTEM_PROMPT)
+            resolve_prompt("prompts.summary_narrator_system_prompt",
+                           SUMMARY_NARRATOR_SYSTEM_PROMPT)
             if modes_on else PREV_SUMMARY_NARRATOR_R1023)
         narrator_base = narrator_template.replace(
             "{max_symbols}", str(max_symbols))

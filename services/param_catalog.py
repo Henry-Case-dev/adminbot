@@ -1801,18 +1801,11 @@ def _build_registry() -> dict[str, ParamSpec]:
     for spec_id, title, group, desc in _CONTENT:
         add(ParamSpec(None, None, CATEGORY_CONTENT, title, "json",
                       pg_id=spec_id, group=group, description=desc))
-    # Раунд 10.23 (F8, ADR-1023-8 D7): hidden-ключ кэша динамического
-    # анти-клише. Владелец данных — F4 (воркер + API); F4 отдельного
-    # bot_settings-ключа не заводил, поэтому регистрируем его здесь:
-    # остаётся в реестре/правах, из UI-каталога скрыт (hidden). UI-блок
-    # мониторинга читает/пишет через F4-API (/api/anticliche).
-    add(ParamSpec(None, None, CATEGORY_CONTENT,
-                  "Динамический список анти-клише (кэш)",
-                  "json", pg_id="content.dynamic_cliche_list",
-                  group="content_info",
-                  description=("Служебный кэш фраз-клише для детектора "
-                               "Вербализатора (владелец — воркер анти-клише)."),
-                  hidden=True))
+    # Раунд 10.23 (F8, review iter1): НЕ регистрируем bot_settings-ключ
+    # `content.dynamic_cliche_list`. F4 хранит список в PG-таблице
+    # `anticliche_cache` (не bot_settings), GET /api/config и params-meta
+    # hidden-ключи не отдают, а UI-блок работает через /api/anticliche —
+    # ключ был бы «мёртвой ручкой» в матрице прав. Владелец данных — F4.
     for spec_id, title, code_source, group, desc in _CONTENT_STR:
         add(ParamSpec(None, None, CATEGORY_CONTENT, title, "str",
                       code_source=code_source, pg_id=spec_id,

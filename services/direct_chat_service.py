@@ -159,7 +159,10 @@ from services.negative_constraints import (
     channel_enabled_rules,
     verbalize_validated,
 )
-from services.prompt_style_blocks import compose_verbalizer_system
+from services.prompt_style_blocks import (
+    compose_verbalizer_system,
+    resolve_prompt,
+)
 from services.system2_handoff import (
     normalize_response_mode,
     parse_direct_synthesis,
@@ -907,7 +910,7 @@ class DirectChatService:
                 f"ВЫВОДЫ ИНСТРУМЕНТОВ:\n{tool_context}"
             )
             synth_messages = [
-                {"role": "system", "content": hot.get(
+                {"role": "system", "content": resolve_prompt(
                     "prompts.direct_chat_synthesizer_system_prompt",
                     DIRECT_SYNTHESIZER_SYSTEM_PROMPT)},
                 {"role": "user", "content": synth_user},
@@ -928,8 +931,8 @@ class DirectChatService:
             response_mode = (normalize_response_mode(data.get("response_mode"))
                              if modes_on else "serious")
             verbalizer_template = (
-                hot.get("prompts.direct_chat_verbalizer_system_prompt",
-                        DIRECT_VERBALIZER_SYSTEM_PROMPT)
+                resolve_prompt("prompts.direct_chat_verbalizer_system_prompt",
+                               DIRECT_VERBALIZER_SYSTEM_PROMPT)
                 if modes_on else PREV_CHAT_VERBALIZER_R1023)
             # Review iter1 (H2): direct deep_research доставляется safe-HTML
             # (`parse_mode="HTML"` + escape_lore_html) → HTML-capable блок.

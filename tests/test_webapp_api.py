@@ -384,6 +384,22 @@ class TestConfigGroups8424:
         # у всех items поле widget присутствует
         assert all("widget" in i for i in resp.json()["items"])
 
+    def test_config_exposes_prompt_stage(self, client):
+        """F8 (10.23, ADR-1023-8, review iter1): поведенческий контракт —
+        GET /api/config отдаёт `stage` промпт-ключей (synthesizer/verbalizer/
+        mode), у обычных ключей — None."""
+        resp = client.post(
+            "/api/config",
+            json={"items": [{"key": "prompts.factcheck_analyst_system_prompt",
+                             "value": "PG-канон синтезатора"}]},
+            headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        items = {i["key"]: i for i in client.get(
+            "/api/config", headers=_hdr(ADMIN_ID)).json()["items"]}
+        assert items["prompts.factcheck_analyst_system_prompt"]["stage"] == \
+            "synthesizer"
+        assert items["limits.search_max_symbols"]["stage"] is None
+
     def test_summary_aliases_widget_keyvalue_and_json_roundtrip(self, client):
         """FR-28: summary_aliases отдаётся с widget=keyvalue; POST объектом
         JSON сохраняет dict (json-тип каталога), значение горячо читается."""
@@ -1372,7 +1388,7 @@ class TestParamPermissionFlagsApi:
         # 10.19 (F3/ADR-1019-3 D3): +1 categorized
         # (IMPORT_HISTORY_RETENTION_DAYS) → categorized 412.
         # 10.23 (F5/ADR-1023-5 D5): +5 categorized → 421.
-        assert len(items) == len(categorized) == 433
+        assert len(items) == len(categorized) == 432
         m = items["limits.search_max_symbols"]
         assert m["category"] == "limits"
         assert m["group"] == "limits_search"

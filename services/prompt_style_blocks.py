@@ -160,17 +160,23 @@ MODE_BLOCKS: dict[str, str] = {
 VERBILIZER_DEFAULT_MODE = "serious"
 
 
-def _resolve_mode_block(mode: str) -> str:
-    """F8: режимный блок из PG (hot) с fallback на код-канон.
+def resolve_prompt(pg_key: str, code_default: str) -> str:
+    """F8: промпт из PG (hot) с откатом на код-канон.
 
-    Правка промпта режима в UI применяется без рестарта (hot-get); пустое
-    значение/отсутствие ключа → прежняя код-константа MODE_*_BLOCK.
+    Правка промпта в UI применяется без рестарта (hot-get); **пустое/
+    whitespace** значение или отсутствие ключа → прежняя код-константа
+    (инвариант spec §4.1/ADR D4: пустота не должна «обнулять» system-промпт).
     """
     from services import hot_config as hot
-    value = hot.get(f"prompts.verbilizer_mode_{mode}", MODE_BLOCKS[mode])
+    value = hot.get(pg_key, code_default)
     if isinstance(value, str) and value.strip():
         return value
-    return MODE_BLOCKS[mode]
+    return code_default
+
+
+def _resolve_mode_block(mode: str) -> str:
+    """F8: режимный блок из PG (hot) с fallback на код-канон."""
+    return resolve_prompt(f"prompts.verbilizer_mode_{mode}", MODE_BLOCKS[mode])
 
 
 def _resolve_default_mode() -> str:
