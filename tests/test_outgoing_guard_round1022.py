@@ -111,14 +111,19 @@ class TestTelegramSendWrappers:
     @pytest.mark.asyncio
     async def test_send_rich_message_sanitizes_and_uses_html_mode(self):
         """F6 (10.23): plain-источник → sanitize ДО escape; html-режим,
-        markdown/blocks пусты (exactly-one-of)."""
+        markdown/blocks пусты (exactly-one-of) + media-вложение."""
+        from services.telegram_send import build_cover_media
         bot = MagicMock()
         bot.send_rich_message = AsyncMock(return_value="sent")
         await send_rich_message(bot, 1, "a fact:5 <b>b</b>",
+                                media=[build_cover_media(b"jpeg")],
                                 cover_id="summary_cover")
         rich = bot.send_rich_message.await_args.args[1]
         assert "fact:5" not in rich.html
         assert "&lt;b&gt;" in rich.html
+        assert rich.html.startswith(
+            '<img src="tg://photo?id=summary_cover">')
+        assert rich.media and len(rich.media) == 1
         assert rich.markdown is None and rich.blocks is None
 
     @pytest.mark.asyncio
