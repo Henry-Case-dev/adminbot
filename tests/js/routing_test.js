@@ -974,8 +974,9 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       ids.filter((id) => id.indexOf('llm_guard') < 0
         && id.indexOf('search_keys') < 0 && id.indexOf('media_share') < 0),
       ['direct', 'transcription', 'video_summary', 'embeddings',
-       'intel_history', 'intel_background', 'intel_reflection'],
-      '10.13 (F4) + 10.14 (F8): merged intel-блоки в «Подключениях»');
+       'intel_history', 'intel_background', 'intel_reflection',
+       'image_generation'],
+      '10.13 (F4) + 10.14 (F8) + 10.23 (F5): merged intel/image-блоки в «Подключениях»');
     // 10.12: parent-блоки несут subBlocks; id'ы подблоков сохранены.
     const byId = {};
     blocks.forEach((b) => { byId[b.id] = b; });

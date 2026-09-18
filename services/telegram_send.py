@@ -60,6 +60,9 @@ SEND_ALLOWLIST: dict[str, str] = {
     "handlers/slavik.py": "персона-триггер: фиксированный реле-текст",
     "handlers/vasya.py": "персона-триггер: фиксированный реле-текст",
     "handlers/war_alert.py": "персона-триггер: фиксированный реле-текст",
+    # Раунд 10.23 (F5, ADR-1023-5 §D6): сгенерированное изображение —
+    # байты без LLM-текста (подписи нет), в Telegram не уходит keyed-URL.
+    "services/image_generation.py": "сгенерированное изображение, байты без LLM-текста",
 }
 
 
@@ -81,3 +84,15 @@ async def send_text(bot, chat_id: int, text: str, **kwargs: Any):
 async def edit_text_safe(message, text: str, **kwargs: Any):
     """``sanitize_outgoing`` → ``message.edit_text``."""
     return await message.edit_text(_maybe_sanitize(text), **kwargs)
+
+
+async def send_photo(bot, chat_id: int, photo, **kwargs: Any):
+    """Раунд 10.23 (F5, ADR-1023-5 §D6) — отправка изображения-файла.
+
+    Тонкая обёртка egress для сгенерированного изображения: подписи нет
+    (LLM-текст в ``sendPhoto`` не уходит), поэтому guard не применяется —
+    точка зарегистрирована в ``SEND_ALLOWLIST`` с обоснованием. ``photo`` —
+    ``BufferedInputFile`` (байты из памяти): keyed-URL провайдера в Telegram
+    не передаётся.
+    """
+    return await bot.send_photo(chat_id, photo, **kwargs)

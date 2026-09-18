@@ -550,6 +550,21 @@ class Settings:
     # детектор (байт-в-байт 10.22). Промпты/scrubber фича не трогает.
     DYNAMIC_ANTICLICHE_ENABLED: ClassVar[bool] = _env_bool(
         "DYNAMIC_ANTICLICHE_ENABLED", True)
+    # ── Раунд 10.23 (F5, ADR-1023-5 §D1/D6): env-only ClassVar-рубильники
+    # генерации изображений. Δ каталога = 0 (в param_catalog НЕ входят).
+    # IMAGE_GENERATION_ENABLED — мастер-килсвитч фичи (default ON); вместе с
+    # каталоговым тумблером `flags.image_generation_module_enabled` гейтит
+    # 9-й инструмент `generate_image` и ключевик-пре-гейт. OFF (любой из двух)
+    # → прямой чат байт-в-байт прежний.
+    # IMAGE_REQUEST_TIMEOUT_SECONDS / IMAGE_MAX_BYTES — таймаут запроса к
+    # провайдеру (default 90 c) и потолок скачиваемых байтов (default 9 MB,
+    # ниже лимита Telegram sendPhoto 10 MB). Секретов здесь нет.
+    IMAGE_GENERATION_ENABLED: ClassVar[bool] = _env_bool(
+        "IMAGE_GENERATION_ENABLED", True)
+    IMAGE_REQUEST_TIMEOUT_SECONDS: ClassVar[float] = _env_float(
+        "IMAGE_REQUEST_TIMEOUT_SECONDS", 90.0)
+    IMAGE_MAX_BYTES: ClassVar[int] = _env_int(
+        "IMAGE_MAX_BYTES", 9 * 1024 * 1024)
     # ── Раунд 10.22 (F8, ADR-1022-8): env-only ClassVar-рубильники
     # асинхронной пересборки досье из мини-аппа. Δ каталога = 0 (в
     # param_catalog не входят; прецедент MULTILAYER_EXTRACTION_ENABLED).
@@ -1197,6 +1212,22 @@ class Settings:
     DIG_GRAPH_HOP_DEPTH: int = _env_int("DIG_GRAPH_HOP_DEPTH", 2)
     DIG_YEAR_BACK_WINDOW_DAYS: int = _env_int(
         "DIG_YEAR_BACK_WINDOW_DAYS", 2)
+
+    # ── Раунд 10.23 (F5, ADR-1023-5 §D1/D3/D5): генерация изображений ───────
+    # Каталоговые поля (models_images/keys_images/flags_module_images).
+    # IMAGE_BASE_URL/IMAGE_MODEL/IMAGE_GET_MODE — провайдер по умолчанию
+    # (Pollinations, flux, POST-режим); IMAGE_API_KEY — секрет (default пуст,
+    # НИКОГДА не коммитится: .env `IMAGE_API_KEY` или PG-настройка из UI);
+    # IMAGE_GENERATION_MODULE_ENABLED — каталоговый тумблер модуля (default ON).
+    # Сид-миграция `migrate_image_provider_defaults` пишет только URL/модель/
+    # GET-флаг, ключ не трогает.
+    IMAGE_BASE_URL: str = _env_str(
+        "IMAGE_BASE_URL", "https://gen.pollinations.ai/v1")
+    IMAGE_MODEL: str = _env_str("IMAGE_MODEL", "flux")
+    IMAGE_GET_MODE: bool = _env_bool("IMAGE_GET_MODE", False)
+    IMAGE_API_KEY: str = os.getenv("IMAGE_API_KEY", "")
+    IMAGE_GENERATION_MODULE_ENABLED: bool = _env_bool(
+        "IMAGE_GENERATION_MODULE_ENABLED", True)
 
     # ── Раунд 9 (AGI Memory, spec §3.6.4/Q12, T-824/T-825): «сон» ──────────
     # Парные Settings-поля для REGISTRY-записей категории memory (группа

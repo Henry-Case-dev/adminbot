@@ -536,6 +536,19 @@
             { key: 'keys.intel_reflection_api_key', label: 'Ключ', role: 'api_key', secret: true },
           ] },
       ] },
+    // 10.23 (F5, ADR-1023-5 §D5): генерация изображений — адрес/модель/ключ +
+    // чекбокс «Режим GET-запроса» (блокирует ввод ключа: GET идёт анонимно).
+    { id: 'image_generation', title: 'Генерация изображений',
+      modules: 'Генерация изображений', testable: false,
+      fields: [
+        { key: 'models.image_base_url', label: 'Адрес сервера', role: 'base_url' },
+        { key: 'models.image_model', label: 'Модель', role: 'model' },
+        { key: 'models.image_get_mode', label: 'Режим GET-запроса',
+          checkbox: true,
+          hint: 'Режим GET-запроса (ключ не используется)' },
+        { key: 'keys.image_api_key', label: 'Ключ', role: 'api_key',
+          secret: true, dependsOn: 'models.image_get_mode' },
+      ] },
     // 10.11 (spec §2.5, OPEN-Q6): зона «Расширенные настройки».
     { id: 'llm_guard', title: 'Таймауты и защита', modules: 'Общий',
       zone: 'advanced',
@@ -3064,6 +3077,29 @@
         if (typeof it.value === 'string') return it.value;
         if (it.type !== 'bool' && it.value != null) return it.value;
         return '';
+      },
+      // 10.23 (F5): bool-поле блока (чекбокс GET-режима) — из черновика или
+      // сохранённого значения configItems.
+      blockFieldBool: function (f) {
+        var draft = this.blockDrafts[f.key];
+        if (draft != null) return (draft === true || draft === 'true'
+                                   || draft === '1');
+        var it = this.configItems.find(function (i) { return i.key === f.key; });
+        if (!it) return false;
+        return it.value === true || it.value === 'true' || it.value === 1;
+      },
+      // 10.23 (F5): поле зависит от другого bool-поля (GET-режим блокирует
+      // ввод API-ключа). Значение зависимости — черновик или configItems.
+      blockDependsOn: function (f) {
+        if (!f || !f.dependsOn) return false;
+        var draft = this.blockDrafts[f.dependsOn];
+        if (draft != null) return (draft === true || draft === 'true'
+                                   || draft === '1');
+        var it = this.configItems.find(function (i) {
+          return i.key === f.dependsOn;
+        });
+        if (!it) return false;
+        return it.value === true || it.value === 'true' || it.value === 1;
       },
       // Раунд 10.12 (ADR-1012-1 §2.3): маленькая надпись у header каждого
       // подключения = значение первого поля с role === '' («Название модели»).

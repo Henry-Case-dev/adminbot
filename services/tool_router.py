@@ -53,6 +53,7 @@ import time
 
 from config.settings import settings
 from services import hot_config as hot
+from services import image_generation
 from services.canonical_context import format_context_item, resolve_item_id
 from services.media_send import send_media, send_quality_menu
 from services.persistent_throttling import (
@@ -411,6 +412,7 @@ class ToolRouter:
             "get_bot_health": self._get_bot_health,
             "get_recent_history": self._get_recent_history,
             "compile_lore_story": self._compile_lore_story,
+            "generate_image": self._generate_image,
         }
         method = registry.get(name)
         if method is None:
@@ -1134,6 +1136,38 @@ class ToolRouter:
         if getattr(ctx, "lore_verbatim_instruction", True):
             return f"{payload}\n\n{_LORE_RETURN_INSTRUCTION}"
         return payload
+
+    async def _generate_image(self, arguments: dict, ctx: ToolContext) -> str:
+        """Раунд 10.23 (F5, ADR-1023-5): генерация изображения по промпту.
+
+        Бэкенд САМ отправляет изображение в чат (`services.image_generation`),
+        модели возвращается короткий JSON-статус (прецедент `download_media`).
+        Гейт модуля: env-рубильник + каталоговый тумблер (per-chat). Провал
+        провайдера/бюджета → циничная отмазка в статусе, бот жив. R17: без
+        промпта/URL/ключа в логах."""
+        if not await image_generation.resolve_module_enabled(ctx.chat_id):
+            return json.dumps({"status": "error",
+                               "message": "Генерация изображений отключена"},
+                              ensure_ascii=False)
+        prompt = self._require_str(arguments, "prompt")
+        if not prompt:
+            return json.dumps({"status": "error",
+                               "message": "Не указан prompt"},
+                              ensure_ascii=False)
+        result = await image_generation.generate_and_send(
+            ctx.bot, ctx.chat_id, prompt,
+            reply_to_message_id=ctx.reply_to_message_id)
+        if result.ok:
+            return json.dumps(
+                {"status": "success",
+                 "message": "Изображение сгенерировано и отправлено в чат"},
+                ensure_ascii=False)
+        logger.info("[tools] generate_image failed | chat=%s | reason=%s",
+                    ctx.chat_id, result.reason)
+        return json.dumps(
+            {"status": "error", "reason": result.reason,
+             "message": image_generation.IMAGE_GENERATION_FALLBACK_PHRASE},
+            ensure_ascii=False)
 
     # ── helpers dig (T-820; переиспользуют _require_query/_resolve_name) ──
     @staticmethod

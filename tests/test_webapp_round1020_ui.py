@@ -233,8 +233,9 @@ class TestHumanReadableLabels:
 
     def test_counters_not_grown(self):
         # T-1901: санкционированный Δ — только тексты, счётчики не растут.
-        assert len(pc.REGISTRY) == 441
-        assert len(pc.GROUPS) == 92
+        # 10.23 (F5/ADR-1023-5 D5): рост каталога — отдельная фича → 446/95.
+        assert len(pc.REGISTRY) == 446
+        assert len(pc.GROUPS) == 95
 
 
 class TestAdvancedAccordion:

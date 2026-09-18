@@ -528,8 +528,9 @@ class TestGraphFactsV12:
 
 
 class TestToolSchemasEnCanon:
-    def test_all_eight_descriptions_are_english(self):
-        assert len(TOOL_CALLING_TOOLS) == 8
+    def test_all_nine_descriptions_are_english(self):
+        # 10.23 (F5/ADR-1023-5 D2): +generate_image → 9.
+        assert len(TOOL_CALLING_TOOLS) == 9
         for tool in TOOL_CALLING_TOOLS:
             fn = tool["function"]
             desc = fn["description"]
@@ -566,7 +567,7 @@ class TestToolSchemasEnCanon:
         assert [t["function"]["name"] for t in TOOL_CALLING_TOOLS] == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
-            "get_recent_history", "compile_lore_story"]
+            "get_recent_history", "compile_lore_story", "generate_image"]
         assert TOOL_CALLING_TOOLS[0]["function"]["parameters"]["required"] == ["query"]
 
     def test_description_snapshot(self):

@@ -81,7 +81,10 @@ class TestCompleteness:
         #   (F4 infra, в dataclass.fields не входит).
         #   + C (lore-compiler-round1020, БЛОК 1/О3): +1 —
         #   LORE_COMPILER_ENABLED (flags_module_direct, default ON) = 409.
-        assert len(fields) == 411
+        #   + раунд 10.23 (F5/ADR-1023-5 D5): +5 — IMAGE_BASE_URL,
+        #   IMAGE_MODEL, IMAGE_GET_MODE, IMAGE_API_KEY,
+        #   IMAGE_GENERATION_MODULE_ENABLED = 416.
+        assert len(fields) == 416
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -281,7 +284,9 @@ class TestGroups8424:
         # раунд 10.9: reactions_persons удалена → GROUPS 90.
         # 10.19 (F3/ADR-1019-3 D2/D3): +2 — limits_chat_key, limits_chat_context
         # (санкция UPD3 п.5) → GROUPS 92.
-        assert len(GROUPS) == 92
+        # 10.23 (F5/ADR-1023-5 D5): +3 — models_images, keys_images,
+        # flags_module_images → GROUPS 95.
+        assert len(GROUPS) == 95
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -355,8 +360,8 @@ class TestGroups8424:
         for s in REGISTRY.values():
             if s.category is not None:
                 counts[s.category] += 1
-        assert counts == {"prompts": 10, "models": 53, "keys": 19,
-                          "limits": 191, "flags": 65, "reactions": 39,
+        assert counts == {"prompts": 10, "models": 56, "keys": 20,
+                          "limits": 191, "flags": 66, "reactions": 39,
                           "content": 5, "memory": 34}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

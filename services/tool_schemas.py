@@ -239,9 +239,32 @@ TOOL_COMPILE_LORE_STORY = {
 }
 
 # Раунд 10.15 (F8, ADR-1015-3 §3): итоговый tool-сет — 7 инструментов.
-# Раунд 10.20 (T-1887): +compile_lore_story → 8. Порядок сохраняет канон R9
+# Раунд 10.20 (T-1887): +compile_lore_story → 8.
+# Раунд 10.23 (F5, ADR-1023-5 §D2): +generate_image → 9 (в КОНЕЦ; порядок
+# первых 8 — канон R9, байт-в-байт). Порядок сохраняет канон R9
 # (память → лор → веб) и добавляет новые в конце. Имена/состав/порядок не
 # меняются; `description` — EN (T-1925, ревизия канона 3.3).
+TOOL_GENERATE_IMAGE = {
+    "type": "function",
+    "function": {
+        "name": "generate_image",
+        "description": ("Generate an image from a text description and send "
+                        "it to this chat. Call when the user asks to draw, "
+                        "create, generate or imagine a picture, meme, art or "
+                        "illustration."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string",
+                           "description": ("What to draw - a short visual "
+                                           "description in any language.")}
+            },
+            "required": ["prompt"],
+            "additionalProperties": False,
+        },
+    },
+}
+
 TOOL_CALLING_TOOLS: list[dict] = [
     TOOL_QUERY_CHAT_MEMORY,
     TOOL_DIG_INTO_LORE,
@@ -251,23 +274,34 @@ TOOL_CALLING_TOOLS: list[dict] = [
     TOOL_GET_BOT_HEALTH,
     TOOL_GET_RECENT_HISTORY,
     TOOL_COMPILE_LORE_STORY,
+    TOOL_GENERATE_IMAGE,
 ]
 
 # Имя флагового инструмента (гейт flags.lore_compiler_enabled, О3).
 LORE_COMPILER_TOOL_NAME = "compile_lore_story"
+# Имя image-инструмента (гейт flags.image_generation_module_enabled, F5).
+IMAGE_GENERATION_TOOL_NAME = "generate_image"
 
 
-def active_tools(lore_compiler_enabled: bool = True) -> list[dict]:
-    """Tool-сет для LLM с учётом флага «Летописец» (О3, T-1887).
+def active_tools(lore_compiler_enabled: bool = True,
+                 image_generation_enabled: bool = False) -> list[dict]:
+    """Tool-сет для LLM с учётом флагов «Летописец» (О3, T-1887) и
+    генерации изображений (F5, ADR-1023-5 §D2).
 
-    ``False`` → compile_lore_story исключается из списка (тул недоступен
-    модели, остальные 7 имён сохранены байт-в-байт). Возвращается новый
-    список — TOOL_CALLING_TOOLS (снапшот) не мутируется.
+    ``lore_compiler_enabled=False`` → compile_lore_story исключается.
+    ``image_generation_enabled=False`` (дефолт) → generate_image исключён
+    (список 8 имён байт-в-байт как до F5). Возвращается новый список —
+    TOOL_CALLING_TOOLS (снапшот) не мутируется.
     """
-    if lore_compiler_enabled:
+    disabled: set[str] = set()
+    if not lore_compiler_enabled:
+        disabled.add(LORE_COMPILER_TOOL_NAME)
+    if not image_generation_enabled:
+        disabled.add(IMAGE_GENERATION_TOOL_NAME)
+    if not disabled:
         return list(TOOL_CALLING_TOOLS)
     return [tool for tool in TOOL_CALLING_TOOLS
-            if tool["function"]["name"] != LORE_COMPILER_TOOL_NAME]
+            if tool["function"]["name"] not in disabled]
 
 
 # Раунд 10.20 (БЛОК 6.2, ADR-1020-5 п.1, T-1907): tool-сет ФАКТЧЕКА —

@@ -26,6 +26,11 @@ logger = logging.getLogger(__name__)
 
 METRIC_CALLS = "llm_calls"
 METRIC_TOKENS = "llm_tokens"
+# Раунд 10.23 (F5, ADR-1023-5 §D4): платный вызов генерации изображения
+# индексируется вызовами (не токенами). Лимит ПЕРЕИСПОЛЬЗУЕТ существующий
+# per-chat paid-call лимит — новых каталоговых ключей нет (Δ каталога = 0
+# по лимитам; ключи image-групп относятся к провайдеру).
+METRIC_IMAGE_CALLS = "image_calls"
 
 LIMIT_CALLS_GLOBAL = "limits.worker_daily_llm_calls_global"
 LIMIT_TOKENS_GLOBAL = "limits.worker_daily_llm_tokens_global"
@@ -257,7 +262,7 @@ async def _metric_limit(scope: str, metric: str) -> int:
 
     Sentinel (ADR-1019-8 §D2): `0` = запрет, `<0` = безлимит, `>0` = cap."""
     chat_id = _scope_chat_id(scope)
-    if metric == METRIC_CALLS:
+    if metric in (METRIC_CALLS, METRIC_IMAGE_CALLS):
         if scope == "global":
             key, default = LIMIT_CALLS_GLOBAL, \
                 settings.WORKER_DAILY_LLM_CALLS_GLOBAL

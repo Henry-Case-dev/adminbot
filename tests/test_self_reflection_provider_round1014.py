@@ -68,14 +68,16 @@ class TestCatalogAndSettingsF8:
         # → REGISTRY 436 / categorized 411;
         # Settings/GROUPS/mapped/TAB_RULES без изменений.
         # 10.19 (F3/ADR-1019-3 D3, UPD3 п.5): → 437/92/90/20/407/412.
-        assert len(pc.REGISTRY) == 441
-        assert len(pc.GROUPS) == 92
-        assert len(pc._TAB_BY_GROUP) == 90
+        # 10.23 (F5/ADR-1023-5 D5): +5 REGISTRY/Settings/categorized,
+        # +3 GROUPS/mapped → 446/95/93/20/416/421.
+        assert len(pc.REGISTRY) == 446
+        assert len(pc.GROUPS) == 95
+        assert len(pc._TAB_BY_GROUP) == 93
         assert len(pc.TAB_RULES) == 20
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 411
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 416
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 416
+        assert len(categorized) == 421
 
 
 class TestWorkerRoleF8:

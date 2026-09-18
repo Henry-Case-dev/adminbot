@@ -323,9 +323,10 @@ class TestTruncate:
 class TestToolSetIntegration:
     def test_schema_registered_in_tool_set(self):
         # 10.20 (C/T-1887): tool-сет 7 → 8 (последним добавлен
-        # compile_lore_story); get_recent_history сохранён по имени.
+        # compile_lore_story); 10.23 (F5/ADR-1023-5 D2): +generate_image → 9;
+        # get_recent_history сохранён по имени.
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
-        assert len(TOOL_CALLING_TOOLS) == 8
+        assert len(TOOL_CALLING_TOOLS) == 9
         assert "get_recent_history" in names
         assert TOOL_GET_RECENT_HISTORY in TOOL_CALLING_TOOLS
 

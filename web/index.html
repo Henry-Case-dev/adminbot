@@ -270,21 +270,40 @@
                     <div class="prov-row flex items-start gap-2 mb-2" v-for="f in b.fields" :key="f.key">
                       <label class="prov-label text-xs w-36 shrink-0 pt-2">{{ f.label }}</label>
                       <div class="flex-1 min-w-0">
+                        <!-- Раунд 10.23 (F5/ADR-1023-5 §D5): чекбокс-поле
+                             блока (напр. «Режим GET-запроса»). Значение
+                             уходит в blockDrafts и сохраняется кнопкой. -->
+                        <template v-if="f.checkbox">
+                          <label class="flex items-center gap-2 text-sm pt-2 cursor-pointer">
+                            <input type="checkbox" class="w-4 h-4"
+                                   :checked="blockFieldBool(f)"
+                                   :disabled="!canEditConfig(f.key)"
+                                   @change="blockDrafts[f.key] = $event.target.checked">
+                            <span class="text-gray-300">{{ f.hint || f.label }}</span>
+                          </label>
+                        </template>
+                        <template v-else>
                         <!-- 10.10 (п.3): контролируемое :value из configItems —
                              реальное текущее значение; черновик пишется только
                              при правке (@input), поэтому draft==null остаётся
-                             «не трогать» (MINOR-3). -->
+                             «не трогать» (MINOR-3). GET-режим блокирует ввод
+                             ключа (blockDependsOn, F5). -->
                         <input class="field w-full"
                                :type="f.secret && !keyReveal[f.key] ? 'password' : 'text'"
                                autocomplete="off" :placeholder="blockFieldPlaceholder(f)"
                                :value="blockFieldValue(f)"
                                @focus="f.secret && $event.target.select()" @mouseup="f.secret && $event.preventDefault()"
                                @input="blockDrafts[f.key] = $event.target.value"
-                               :disabled="!canEditConfig(f.key)">
+                               :disabled="!canEditConfig(f.key) || blockDependsOn(f)">
                         <div v-if="f.secret && blockFieldConfigured(f)"
                              class="text-[10px] text-gray-500 mt-0.5">
                           Ключ сохранён (••••{{ last4ByKey(f.key) }}) — можно проверить без ввода
                         </div>
+                        <div v-if="f.dependsOn && blockDependsOn(f)"
+                             class="text-[10px] text-gray-500 mt-0.5">
+                          GET-режим: ключ не используется
+                        </div>
+                        </template>
                       </div>
                       <!-- MINOR-2: раздельный тест каждого поискового ключа -->
                       <button v-if="f.probeTarget" class="btn-accent prov-test-btn text-xs shrink-0"

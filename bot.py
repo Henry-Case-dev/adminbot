@@ -1020,6 +1020,13 @@ async def main():
     from services.config_migrations import migrate_factcheck_context_defaults
     await migrate_factcheck_context_defaults(cache)
 
+    # ── F5 (10.23, ADR-1023-5 §D1/§D3): дефолтный провайдер генерации
+    # изображений (Pollinations, flux, POST). Идемпотентно: пишем только
+    # отсутствующие/пустые ключи, кастом не трогаем, ключ-секрет НЕ
+    # записывается (только .env/UI). PG down → skip.
+    from services.config_migrations import migrate_image_provider_defaults
+    await migrate_image_provider_defaults(cache)
+
     # ── F4 (10.21, ADR-1021-4 §3.3): принудительное снижение порога глубокого
     # сна при ветке B аудита. По умолчанию ВЫКЛЮЧЕНО (ветка A: флаги OFF) —
     # env-only рубильник DEEP_SLEEP_THRESHOLD_MIGRATION_ENABLED. Идемпотентно,

@@ -670,6 +670,14 @@ class DirectChatService:
                 if dig_block:
                     user_blocks = self._insert_dig_result(user_blocks,
                                                           dig_block)
+                # Раунд 10.23 (F5, ADR-1023-5 §D2): пре-гейт ключевиков
+                # генерации изображений («Бот, нарисуй …») — генерация и
+                # отправка ДО Stage-1, блок <image_result> для инъекции.
+                image_block = await self._image_pre_gate_block(
+                    chat_id, query, bot, message, user_id)
+                if image_block:
+                    user_blocks = self._insert_dig_result(user_blocks,
+                                                          image_block)
             # T-619: системный промпт — горячая точка (фолбек код-канона).
             # Раунд 10 (F-7 §4.5): per-chat override (chat_params → глобал →
             # канон) — «Использовать мой» локального админа работает ТОЛЬКО
@@ -713,6 +721,13 @@ class DirectChatService:
                 chat_id, "flags.lore_compiler_enabled",
                 hot.get("flags.lore_compiler_enabled",
                         settings.LORE_COMPILER_ENABLED))
+            # Раунд 10.23 (F5, ADR-1023-5 §D2/§D5): env-рубильник AND
+            # каталоговый тумблер `flags.image_generation_module_enabled`
+            # (per-chat). OFF → 9-й инструмент не объявляется (8 прежних —
+            # байт-в-байт).
+            from services import image_generation
+            image_enabled = await image_generation.resolve_module_enabled(
+                chat_id)
             tool_ctx = ToolContext(chat_id, query, bot=bot,
                                    reply_to_message_id=message.message_id,
                                    user_id=user_id)
@@ -721,7 +736,8 @@ class DirectChatService:
                     if self.tool_router is not None:
                         raw = await chat_with_tools(
                             self.llm, payload,
-                            tools=active_tools(bool(lore_enabled)),
+                            tools=active_tools(bool(lore_enabled),
+                                               bool(image_enabled)),
                             router=self.tool_router, ctx=tool_ctx,
                             temperature=temperature, chat_id=chat_id)
                     else:
@@ -1247,6 +1263,34 @@ class DirectChatService:
         blocks = list(user_blocks)
         blocks.insert(target_idx, dig_block)
         return blocks
+
+    async def _image_pre_gate_block(self, chat_id: int, query: str, bot,
+                                    message, user_id) -> str:
+        """Раунд 10.23 (F5, ADR-1023-5 §D2): пре-гейт ключевиков генерации
+        изображений («Бот, нарисуй …»). Генерация+отправка ДО Stage-1, блок
+        ``<image_result>`` для инъекции. `tool_choice` НЕ форсируется. Нет
+        ключевика/модуль OFF/нет бота → ``""``. Fail-open — не бросает."""
+        from services import image_generation
+        if not image_generation.is_image_keyword(query):
+            return ""
+        if not await image_generation.resolve_module_enabled(chat_id):
+            return ""
+        router = self.tool_router
+        if router is None or not hasattr(router, "dispatch"):
+            return ""
+        try:
+            tool_ctx = ToolContext(
+                chat_id, query, bot=bot,
+                reply_to_message_id=getattr(message, "message_id", None),
+                user_id=user_id)
+            return await image_generation.maybe_handle_keyword(tool_ctx, query)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning(
+                "direct: image pre-gate failed — блок не строится | chat=%s",
+                chat_id, exc_info=True)
+            return ""
 
     async def _build_user_relations(self, chat_id: int,
                                     target_user_id: int | None,

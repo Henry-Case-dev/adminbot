@@ -280,3 +280,43 @@ async def migrate_factcheck_context_defaults(cache) -> dict[str, str]:
     logger.info("[factcheck_context_migration] legacy-значение перенесено в "
                 "before | value=%d", legacy_int)
     return report
+
+
+# Раунд 10.23 (F5, ADR-1023-5 §D1/§D3): дефолтный провайдер изображений
+# (Pollinations, flux, POST-режим). Сид `bot_settings` вставляет ключи
+# `ON CONFLICT DO NOTHING` — уже существующий кастом владельца не перетираем.
+# Ключ `keys.image_api_key` здесь СОЗНАТЕЛЬНО отсутствует: секрет пишется
+# только из `.env`/UI (R17/R18).
+IMAGE_PROVIDER_DEFAULTS_FROM_SETTINGS: tuple[tuple[str, str], ...] = (
+    # pg-key → имя Settings-поля (значение берётся из code-дефолта).
+    ("models.image_base_url", "IMAGE_BASE_URL"),
+    ("models.image_model", "IMAGE_MODEL"),
+    ("models.image_get_mode", "IMAGE_GET_MODE"),
+)
+
+
+async def migrate_image_provider_defaults(cache) -> dict[str, str]:
+    """F5 (ADR-1023-5): идемпотентный сид дефолтного провайдера изображений.
+
+    Записывает URL/модель/GET-флаг, ЕСЛИ ключ отсутствует или пуст; кастом
+    владельца не трогает (WARNING); повторный запуск — no-op. Ключ
+    `keys.image_api_key` НЕ записывается никогда (секрет — из `.env`/UI).
+    PG down → skip. Вызывается из `bot.py main()` (fail-open)."""
+    report: dict[str, str] = {}
+    if cache is None or not getattr(cache, "pg_available", False):
+        logger.info("[image_migration] skip: PG недоступен")
+        return report
+    for key, field in IMAGE_PROVIDER_DEFAULTS_FROM_SETTINGS:
+        default = getattr(settings, field, None)
+        current = cache.get(key)
+        if current is None or current == "":
+            await cache.set(key, default, "models")
+            report[key] = "seeded"
+            logger.info("[image_migration] дефолт записан | key=%s", key)
+            continue
+        if current == default:
+            logger.info("[image_migration] уже дефолт | key=%s", key)
+            continue
+        logger.warning("[image_migration] кастом владельца — НЕ трогаем | "
+                       "key=%s", key)
+    return report

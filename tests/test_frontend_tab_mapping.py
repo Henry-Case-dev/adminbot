@@ -124,9 +124,12 @@ class TestTabMappingAudit:
         # (IMPORT_HISTORY_RETENTION_DAYS), +2 GROUPS (limits_chat_key/
         # limits_chat_context), +2 mapped, +2 TAB_RULES (mod_budgets;
         # 19→20) → 437/92/90/20.
-        assert len(pc._TAB_BY_GROUP) == 90
-        assert len(GROUPS) == 92
-        assert len(pc.REGISTRY) == 441
+        # 10.23 (F5/ADR-1023-5 D5): +5 REGISTRY, +3 GROUPS, +3 mapped
+        # (models_images/keys_images → llm_providers; flags_module_images →
+        # mod_direct) → 446/95/93; TAB_RULES 20 (новых вкладок нет).
+        assert len(pc._TAB_BY_GROUP) == 93
+        assert len(GROUPS) == 95
+        assert len(pc.REGISTRY) == 446
 
 
 class TestModuleTabs:
@@ -139,7 +142,10 @@ class TestModuleTabs:
         assert tab_group_ids(TAB_MOD_DIRECT) == {
             "flags_module_direct", "flags_chat_behavior", "limits_chat",
             "limits_chat_behavior", "limits_chat_budgets", "limits_temperature",
-            "reactions_chat"}
+            "reactions_chat",
+            # 10.23 (F5/ADR-1023-5 D5): тумблер модуля генерации изображений —
+            # в «Модуль: Прямые ответы» (9-й инструмент прямого чата).
+            "flags_module_images"}
 
     def test_mod_factcheck_and_search(self):
         assert tab_group_ids(TAB_MOD_FACTCHECK) == {

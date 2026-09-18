@@ -34,11 +34,13 @@ class TestCatalogInvariant106:
         # 10.19 (F3/ADR-1019-3 D3, UPD3 п.5): +1 REGISTRY/Settings
         # (IMPORT_HISTORY_RETENTION_DAYS), +2 GROUPS, +2 mapped, +1 TAB_RULES
         # → 437/92/90/20/407.
-        assert len(pc.REGISTRY) == 441
-        assert len(pc.GROUPS) == 92
-        assert len(pc._TAB_BY_GROUP) == 90
+        # 10.23 (F5/ADR-1023-5 D5): +5 REGISTRY/Settings, +3 GROUPS/mapped
+        # (models_images/keys_images/flags_module_images) → 446/95/93/20/416.
+        assert len(pc.REGISTRY) == 446
+        assert len(pc.GROUPS) == 95
+        assert len(pc._TAB_BY_GROUP) == 93
         assert len(pc.TAB_RULES) == 20
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 411
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 416
 
     def test_five_master_flags_default_true(self):
         s = Settings()
@@ -437,7 +439,9 @@ class TestProviderBlockTestability:
         assert "testable: false" in JS
         # 10.11 (2.3): embeddings стал testable (3 подблока с «Проверить») —
         # testable:false остаётся только у llm_guard (1 блок).
-        assert JS.count("testable: false") == 1
+        # 10.23 (F5/ADR-1023-5 D5): +image_generation (не сетевой LLM-пробник)
+        # → 2 блока без кнопки «Проверить».
+        assert JS.count("testable: false") == 2
         assert "b.testable !== false" in HTML
 
     def test_llm_guard_fields_no_model_role(self):
@@ -507,8 +511,9 @@ class TestScannerR106Fixes:
         # api_key ×3, openrouter_display_name ×2, embedding_fallback_* ×2).
         # 10.13 (F4, ADR-1013-1 §2.3): +8 полей (2 блока × 4) → 50/43.
         # 10.14 (F8, UPD п.3): +4 поля (intel_reflection × 4) → 54/47.
-        assert len(keys) == 54          # полей в блоках + subBlocks
-        assert len(set(keys)) == 47     # уникальных ключей
+        # 10.23 (F5/ADR-1023-5 D5): +4 поля (image_generation) → 58/51.
+        assert len(keys) == 58          # полей в блоках + subBlocks
+        assert len(set(keys)) == 51     # уникальных ключей
         # generic-фильтр только для llm_providers
         assert "(tab.id === 'llm_providers')" in JS
         # 10.11: subBlocks эмбеддингов покрыты рекурсивным обходом.

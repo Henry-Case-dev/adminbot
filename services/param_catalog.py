@@ -174,6 +174,9 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Откуда бот берёт метрики сервера для чекапа.", 7),
     GroupSpec("models_video_summary", "models", "Видео-выжимка (OpenRouter)",
               "Модели, которые смотрят видео сами, и таймаут выжимки.", 8),
+    # models (9; раунд 10.23, F5/ADR-1023-5 §D5): генерация изображений.
+    GroupSpec("models_images", "models", "Генерация изображений",
+              "Адрес, модель и режим запроса к провайдеру генерации картинок.", 9),
     # keys (7)
     GroupSpec("keys_llm", "keys", "Основная нейросеть",
               "Пароли доступа к основной и запасной нейросети.", 1),
@@ -189,6 +192,9 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Прокси и сохранённые пропуска браузера для субтитров YouTube.", 6),
     GroupSpec("keys_media", "keys", "Медиа-шара",
               "Секрет подписи временных ссылок на видео (раунд 3).", 7),
+    # keys (8; раунд 10.23, F5/ADR-1023-5 §D5): ключ генерации изображений.
+    GroupSpec("keys_images", "keys", "Генерация изображений: ключ",
+              "Ключ провайдера генерации картинок (GET-режим работает без ключа).", 8),
     # ── limits (28; раунд 10.6 T-1180/T-1208) ──────────────────────────────
     # Расщепления: limits_media→4, limits_persons→2, limits_youtube_web→2,
     # limits_cooldowns→растворена, limits_chat_budgets→+limits_rag.
@@ -311,6 +317,9 @@ GROUPS: tuple[GroupSpec, ...] = (
     # flags (19; раунд 9, T-816/T-817): отношения (A-Life)
     GroupSpec("flags_relations", "flags", "Отношения",
               "Глобальный рубильник тона по стадиям участников.", 19),
+    # flags (20; раунд 10.23, F5/ADR-1023-5 §D5): генерация изображений.
+    GroupSpec("flags_module_images", "flags", "Модуль: Генерация изображений",
+              "Рубильник генерации изображений: 9-й инструмент и пре-гейт ключевиков.", 20),
     # ── reactions (15; раунд 10.6 T-1185; 10.9: reactions_persons удалена) ──
     # Ре-дизайн 10.2, BUG-3 (spec §10 B): Telegram ID админа — отдельная
     # группа (перенос из reactions_persons).
@@ -532,6 +541,11 @@ _KEYS: list[tuple] = [
     ("INTEL_REFLECTION_API_KEY", "Ключ нейросети саморефлексии", "str", True,
      "keys_llm",
      "Ключ отдельной нейросети для экстрактора сути (саморефлексия). Пусто — используется ключ основной нейросети."),
+    # ── Раунд 10.23 (F5, ADR-1023-5 §D3): ключ генерации изображений.
+    # Секрет: default пуст, сид/миграция значение НЕ записывают; источник —
+    # .env (IMAGE_API_KEY) или PG-настройка из UI. Наружу — маска. ──
+    ("IMAGE_API_KEY", "Ключ генерации изображений", "str", True, "keys_images",
+     "Ключ провайдера генерации изображений. Хранится только в настройках или .env, в интерфейсе показывается маской."),
 ]
 
 # ── models: провайдеры/модели/таймауты/ретраи (не секреты) ──────────────────
@@ -663,6 +677,14 @@ _MODELS: list[tuple] = [
     ("INTEL_REFLECTION_DISPLAY_NAME", "Название модели саморефлексии", "str",
      "models_extra_providers",
      "Как называть эту нейросеть в админке. Пусто — покажется адрес сервера."),
+    # ── Раунд 10.23 (F5, ADR-1023-5 §D5): провайдер генерации изображений ──
+    ("IMAGE_BASE_URL", "Адрес сервера генерации изображений", "str",
+     "models_images",
+     "Адрес сервера генерации изображений (по умолчанию Pollinations). Меняется при переезде на другого провайдера."),
+    ("IMAGE_MODEL", "Модель генерации изображений", "str", "models_images",
+     "Название модели генерации картинок. По умолчанию flux."),
+    ("IMAGE_GET_MODE", "Режим GET-запроса", "bool", "models_images",
+     "Включает GET-режим провайдера: запрос идёт по ссылке с параметрами, ключ доступа при этом не используется (поле ключа блокируется)."),
 ]
 
 # ── models: PG-only записи (OD11+OD16, раунд 10.5) ──────────────────────────
@@ -867,6 +889,12 @@ _FLAGS: list[tuple] = [
      "[Локальные мемы/Ярлыки]. Выключено (дефолт) — выключает классификацию "
      "и блоки досье, но НЕ убирает ироническую заметку из канона лора "
      "(синтез лора всё равно идёт с ней)."),
+    # ── Раунд 10.23 (F5, ADR-1023-5 §D5): генерация изображений — модуль ──
+    ("IMAGE_GENERATION_MODULE_ENABLED", "Модуль генерации изображений включён",
+     "flags_module_images",
+     "Бот рисует картинки по просьбе («Бот, нарисуй …») и через инструмент "
+     "generate_image. Выключено — генерация недоступна, остальные функции "
+     "работают как раньше."),
 ]
 
 # ── limits: числа/таймауты/кулдауны/бюджеты ─────────────────────────────────
@@ -1936,7 +1964,8 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
     )),
     (TAB_MOD_DIRECT, (
         (CATEGORY_FLAGS,
-         frozenset({"flags_module_direct", "flags_chat_behavior"})),
+         frozenset({"flags_module_direct", "flags_chat_behavior",
+                    "flags_module_images"})),
         (CATEGORY_LIMITS, frozenset({
             "limits_chat", "limits_chat_behavior", "limits_chat_budgets",
             "limits_temperature"})),
@@ -1993,10 +2022,11 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
         (CATEGORY_MODELS, frozenset({
             "models_main", "models_fallback", "models_embeddings",
             "models_llm_timeouts", "models_llm_guard",
-            "models_extra_providers", "models_video_summary"})),
+            "models_extra_providers", "models_video_summary",
+            "models_images"})),
         (CATEGORY_KEYS, frozenset({
             "keys_llm", "keys_groq", "keys_openrouter", "keys_search",
-            "keys_media"})),
+            "keys_media", "keys_images"})),
     )),
     (TAB_PROMPTS, (
         (CATEGORY_PROMPTS, None),
