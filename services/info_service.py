@@ -735,7 +735,11 @@ class InfoService:
 
     def get_guide(self) -> dict:
         """Гайд из ConfigCache (PG); PG down/нет ключа → сид-файл (код-канон)
-        → пусто. fail-open, 200, без исключений (spec §2.3)."""
+        → пусто. fail-open, 200, без исключений (spec §2.3).
+
+        F9 10.23 (ADR-1023-9 Decision 6): отдаём и бэкап прежней правки
+        (``prev_markdown``/``prev_updated_at``), если он есть (путь форс-доставки
+        или ``reset_guide``) — владелец может восстановить текст без сырого SQL."""
         cached = hot.get(GUIDE_KEY)
         if isinstance(cached, dict):
             markdown = cached.get("markdown")
@@ -744,11 +748,15 @@ class InfoService:
                     "markdown": markdown,
                     "updated_at": cached.get("updated_at"),
                     "updated_by": cached.get("updated_by"),
+                    "prev_markdown": cached.get("prev_markdown"),
+                    "prev_updated_at": cached.get("prev_updated_at"),
                 }
         return {
             "markdown": _read_text(GUIDE_SEED_FILE) or DEFAULT_GUIDE_MARKDOWN,
             "updated_at": None,
             "updated_by": None,
+            "prev_markdown": None,
+            "prev_updated_at": None,
         }
 
     async def save_guide(self, markdown: str,
@@ -777,4 +785,44 @@ class InfoService:
         await cache.set(GUIDE_KEY, value, "content")
         logger.info("[info service] guide saved | chars=%d | by=%s",
                     len(markdown), value["updated_by"])
+        return value
+
+    async def reset_guide(self, updated_by: int | None = None,
+                          cache=None) -> dict:
+        """F9 10.23 (ADR-1023-9 Decision 6): явный force-reset «Гайда по
+        возможностям» к код-канону (сид-файл `plans/docs/intelligence_user_guide.md`).
+        Зеркало `reset_canon`: прежний текст бэкапится в `prev_markdown`/
+        `prev_updated_at`, аудит — `updated_by`/`updated_at` (R16/R17); ставит
+        маркеры `guide_version`/`guide_delivered_version`. Без PG или без
+        доступного код-канона → исключение (роут → 503/500). Это и есть
+        процедура отката: `git revert` (файл снова v1) + вызов роута."""
+        from services.config_cache import ConfigCacheUnavailableError
+
+        target = cache if cache is not None else hot.get_config_cache()
+        if target is None or not getattr(target, "pg_available", False):
+            raise ConfigCacheUnavailableError("PostgreSQL недоступен (R6)")
+        canon = _read_text(GUIDE_SEED_FILE)
+        if not canon.strip():
+            raise ConfigCacheUnavailableError("код-канон гайда недоступен")
+        current = target.get(GUIDE_KEY)
+        value = {
+            "markdown": canon,
+            "guide_version": GUIDE_CANON_VERSION,
+            "guide_delivered_version": GUIDE_CANON_VERSION,
+            "updated_at": datetime.datetime.now(
+                datetime.timezone.utc).isoformat(),
+            "updated_by": (updated_by if updated_by is not None
+                           else settings.ADMIN_USER_ID),
+        }
+        if isinstance(current, dict):
+            prev_markdown = current.get("markdown")
+            if isinstance(prev_markdown, str):
+                value["prev_markdown"] = prev_markdown
+            prev_updated_at = current.get("updated_at")
+            if prev_updated_at:
+                value["prev_updated_at"] = prev_updated_at
+        await target.set(GUIDE_KEY, value, "content")
+        logger.info("[info service] guide canon force-reset | by=%s | "
+                    "prev_backed_up=%s", value["updated_by"],
+                    "prev_markdown" in value)
         return value

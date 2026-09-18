@@ -431,6 +431,26 @@ class TestGuideApi:
                            headers=_hdr(ADMIN_ID))
         assert resp.status_code == 503
 
+    def test_reset_admin_ok_returns_canon_and_backup(self, client):
+        # F9 10.23 (ADR-1023-9 Decision 6): откат гайда к код-канону из сид-файла.
+        resp = client.post("/api/info/guide/reset", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        assert resp.json()["guide_version"] == 2
+        again = client.get("/api/info/guide", headers=_hdr(ADMIN_ID))
+        body = again.json()
+        # markdown == код-канон (сид-файл), а прежняя ручная правка — в бэкапе.
+        assert "## 11. Как бот думает (System 2)" in body["markdown"]
+        assert body["prev_markdown"] == DB_MARKDOWN
+
+    def test_reset_non_admin_403(self, client):
+        resp = client.post("/api/info/guide/reset", headers=_hdr(MODERATOR_ID))
+        assert resp.status_code == 403
+
+    def test_reset_pg_down_503(self, client):
+        client.cache._pg_available = False
+        resp = client.post("/api/info/guide/reset", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 503
+
 
 # ═══ фронтенд-маркеры ════════════════════════════════════════════════════════
 

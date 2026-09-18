@@ -101,9 +101,10 @@
 | `info_text.md` | байт-в-байт под v5 |
 | `plans/docs/intelligence_user_guide.md` | §11 (+§12) — вербализатор/режимы, System 2, анти-клише |
 | `services/config_cache.py` | `_migrate_intelligence_guide_r1023` (+ маркеры) и его вызов в `init` |
+| `web/api/routes.py` | аддитивный `POST /api/info/guide/reset` (RBAC `edit_info`) — откат гайда; `GET /api/info/guide` отдаёт `prev_markdown`/`prev_updated_at` |
 | `tests/` | новый `test_help_ui_round1023.py`; осознанное обновление счётчиков v4-теста и `test_guide_avoids_impl_details` |
 
-**Δ каталога = 0** (ни новые версии канонов, ни гайд — не ключи `param_catalog`). **DDL = 0** (DML-only PG). **web = 0**.
+**Δ каталога = 0** (ни новые версии канонов, ни гайд — не ключи `param_catalog`). **DDL = 0** (DML-only PG). **Δ frontend = 0** (`web/index.html`/`web/app.js`/`web/static`); backend-роут отката аддитивен (R16).
 
 ## 6. План тестирования (T-2181)
 
@@ -135,8 +136,10 @@
 
 ## 9. Feature flag / раскатка / откат
 
-- Отдельного флага нет (контент-канон). Δ каталога = 0.
-- Откат: `git revert` + обратная PG-миграция (слепок v4 в `KNOWN_INFO_SNAPSHOTS` и v1-гайд в `KNOWN_GUIDE_SNAPSHOTS` позволяют распознать и вернуть).
+- Отдельного флага нет (контент-канон). Δ каталога = 0. Δ frontend (`web/index.html`, `web/app.js`, `web/static`) = 0.
+- **Откат Справки (info):** `git revert` возвращает `INFO_CANON_VERSION=4` и `DEFAULT_INFO_TEXT=v4`; на старте `_migrate_info_how_it_works_v1015` видит `canon_delivered_version=5 != 4` → одноразовая форс-доставка v4 с бэкапом `prev_html` (покрыто тестом `test_rollback_v5_to_v4`).
+- **Откат гайда:** `git revert` возвращает сид-файл `plans/docs/intelligence_user_guide.md` к v1 и удаляет `_migrate_intelligence_guide_r1023` (PG остался бы на v2 — молчаливый рассинхрон). Поэтому откат **обязателен явным вызовом** `POST /api/info/guide/reset` (RBAC `edit_info`, аддитивно R16): `InfoService.reset_guide()` пишет код-канон из `_GUIDE_SEED_FILE` и бэкапит прежний текст в `prev_markdown`/`prev_updated_at`; `GET /api/info/guide` отдаёт бэкап для ручного восстановления. `KNOWN_GUIDE_SNAPSHOTS` обеспечивает только прямую миграцию v1→v2, а не возврат — возврат обеспечивает роут.
+- **Раскатка:** `bot.py`/`config_cache.init` вызывает `_migrate_intelligence_guide_r1023` после `_seed_intelligence_guide`; порядок существующих миграций не сдвигается.
 
 ## 10. Зависимости / ступени
 

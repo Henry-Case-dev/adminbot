@@ -1242,6 +1242,34 @@ async def post_info_guide(
             "updated_by": user.id}
 
 
+@api_router.post("/info/guide/reset")
+async def post_info_guide_reset(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(requires_permission("edit_info"))],
+):
+    """F9 10.23 (ADR-1023-9 Decision 6): явный force-reset «Гайда по
+    возможностям» к код-канону (сид-файл). RBAC `edit_info` (как /api/info/guide);
+    прежний текст бэкапится в `prev_markdown`/`prev_updated_at`, аудит —
+    `updated_by`/`updated_at` (R16/R17). PG down / нет канона → 503.
+    Ответ: `{guide_version, updated_at, updated_by}`. Аддитивно (R16)."""
+    from services.info_service import InfoService
+
+    cache: ConfigCache = get_cache(request)
+    if not cache.pg_available:
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    try:
+        value = await InfoService().reset_guide(updated_by=user.id, cache=cache)
+    except ConfigCacheUnavailableError:
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    except Exception:
+        logger.exception("[api] guide canon reset failed | by=%s", user.id)
+        raise HTTPException(status_code=500, detail="сброс гайда к канону не удался")
+    logger.info("[api] guide canon reset | by=%s | version=%s",
+                user.id, value.get("guide_version"))
+    return {"key": _GUIDE_KEY, "guide_version": value.get("guide_version"),
+            "updated_at": value.get("updated_at"), "updated_by": user.id}
+
+
 def _category_title(category: str) -> str:
     return {
         "prompts": "Промпты",

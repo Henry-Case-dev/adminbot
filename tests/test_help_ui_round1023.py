@@ -1,6 +1,6 @@
 """F9 `help-ui-v5-round1023` — Справка v5 и «Гайд по возможностям» v2.
 
-Покрытие (ADR-1023-9, spec §6):
+Покрытие (ADR-1023-9, spec §6; review iter1):
   * канон-версия ``INFO_CANON_VERSION == 5`` + ``PREV_R1023_DEFAULT_INFO_TEXT``
     (v4) в ``KNOWN_INFO_SNAPSHOTS``; цепочка v1/v2/v3/v4 сохранена;
   * байт-зеркало ``DEFAULT_INFO_TEXT ↔ info_text.md``;
@@ -8,12 +8,15 @@
     ``<h1>``/``<h2>``, без точек/запятых/«или» между соседними примерами,
     без секретов/URL провайдера (R18);
   * идемпотентная PG-миграция справки v4 → v5 (слепок → канон; повтор → no-op;
-    ручной дрейф → не затирается);
+    ручной дрейф → не затирается; «текст == канон, маркеры устарели»; откат v5→v4);
   * версионирование гайда: ``GUIDE_CANON_VERSION == 2`` +
     ``PREV_R1023_INTELLIGENCE_GUIDE`` (v1) в ``KNOWN_GUIDE_SNAPSHOTS``; контент
-    v2 (манеры ответа, анти-штампы, System 2); идемпотентная миграция v1 → v2,
-    ручная правка не затирается; ``get_guide`` отдаёт новый markdown.
+    v2 (манеры ответа, анти-штампы, System 2); целостность канона (заголовки
+    §1…§12 по порядку); идемпотентная миграция v1 → v2, ручная правка не
+    затирается; ``reset_guide`` (откат к код-канону) с бэкапом; ``get_guide``
+    отдаёт новый markdown и ``prev_markdown``.
 """
+import json
 import re
 import types
 from pathlib import Path
@@ -36,6 +39,7 @@ from services.info_service import (
     canon_drift,
     normalize_canon,
 )
+from tests.helpers.info_layout import between_adjacent_blockquotes
 
 ROOT = Path(__file__).resolve().parent.parent
 INFO_KEY = "content.info_how_it_works"
@@ -43,22 +47,6 @@ GUIDE_KEY = "content.intelligence_guide"
 ADMIN_ID = 5885953495
 INFO_MD = ROOT / "info_text.md"
 GUIDE_MD = ROOT / "plans" / "docs" / "intelligence_user_guide.md"
-
-
-def _between_adjacent_blockquotes(text: str) -> list[str]:
-    """Тексты-разделители, стоящие непосредственно между соседними
-    ``</blockquote>`` и ``<blockquote>`` (без block-level прозы: если между ними
-    начинается ``<p>``/``<h2>`` — это разные смысловые группы, не примеры)."""
-    gaps = []
-    for close in re.finditer(r"</blockquote>", text):
-        nxt = text.find("<blockquote>", close.end())
-        if nxt == -1:
-            continue
-        gap = text[close.end():nxt]
-        if "<p>" in gap or "<h1>" in gap or "<h2>" in gap:
-            continue
-        gaps.append(gap)
-    return gaps
 
 
 # ── Справка v5: версия, снапшоты, байт-зеркало ─────────────────────────────
@@ -111,7 +99,7 @@ class TestImageSectionLayout:
         assert text.count("<blockquote>") == text.count("</blockquote>") == 24
 
     def test_no_punctuation_or_conjunction_between_examples(self):
-        gaps = _between_adjacent_blockquotes(DEFAULT_INFO_TEXT)
+        gaps = between_adjacent_blockquotes(DEFAULT_INFO_TEXT)
         assert gaps, "должны быть группы соседних примеров-цитат"
         for gap in gaps:
             assert gap.strip() == "", repr(gap)
@@ -128,7 +116,7 @@ class TestImageSectionLayout:
             assert leak not in low, leak
 
 
-# ── идемпотентная PG-миграция справки v4 → v5 ──────────────────────────────
+# ── идемпотентная PG-миграция справки v4 → v5 (+ обратимость) ──────────────
 
 class _FakeConn:
     def __init__(self, settings_rows=()):
@@ -218,6 +206,13 @@ def _inserts(conn, key):
             and q[1] and q[1][0] == key]
 
 
+def _persisted(conn, key):
+    """Последний персистированный JSON-payload для ключа (INSERT → json.dumps)."""
+    rows = _inserts(conn, key)
+    assert rows, f"нет INSERT для {key}"
+    return json.loads(rows[-1][1][1])
+
+
 class TestInfoMigrationV4ToV5:
     @pytest.mark.asyncio
     async def test_v4_snapshot_migrated_to_v5(self, monkeypatch):
@@ -242,7 +237,7 @@ class TestInfoMigrationV4ToV5:
         assert cache.get(INFO_KEY)["html"] == DEFAULT_INFO_TEXT
 
     @pytest.mark.asyncio
-    async def test_manual_drift_not_overwritten(self, monkeypatch, caplog):
+    async def test_manual_drift_not_overwritten(self, monkeypatch):
         manual = "<h1>Моя ручная справка</h1>"
         rows = _info_row(manual, canon_version=INFO_CANON_VERSION,
                          delivered=INFO_CANON_VERSION)
@@ -250,6 +245,41 @@ class TestInfoMigrationV4ToV5:
         await cache.init()
         assert cache.get(INFO_KEY)["html"] == manual
         assert _inserts(conn, INFO_KEY) == []
+
+    @pytest.mark.asyncio
+    async def test_canon_text_with_stale_markers_rewritten_once(self, monkeypatch):
+        """«Текст == канон, маркеры отсутствуют» → ровно 1 запись (добивка
+        маркеров), повторные прогоны — no-op (идемпотентность)."""
+        cache, conn = _cache(_info_row(DEFAULT_INFO_TEXT), monkeypatch)
+        await cache.init()
+        value = cache.get(INFO_KEY)
+        assert value["html"] == DEFAULT_INFO_TEXT
+        assert value["canon_version"] == INFO_CANON_VERSION
+        assert value["canon_delivered_version"] == INFO_CANON_VERSION
+        assert len(_inserts(conn, INFO_KEY)) == 1
+        await cache._migrate_info_how_it_works_v1015()
+        await cache._migrate_info_how_it_works_v1015()
+        assert len(_inserts(conn, INFO_KEY)) == 1
+
+    @pytest.mark.asyncio
+    async def test_rollback_v5_to_v4(self, monkeypatch):
+        """Обратимость: «откаченный» код (v4) находит в PG v5 → одноразовая
+        форс-доставка v4 с бэкапом prev_html (ровно 1 INSERT)."""
+        monkeypatch.setattr("services.config_cache._INFO_CANON_VERSION", 4)
+        monkeypatch.setattr("services.config_cache._DEFAULT_INFO_TEXT",
+                            PREV_R1023_DEFAULT_INFO_TEXT)
+        monkeypatch.setattr(
+            "services.config_cache._KNOWN_INFO_SNAPSHOTS",
+            (PREV_DEFAULT_INFO_TEXT, PREV_R2020_DEFAULT_INFO_TEXT,
+             PREV_R1022_DEFAULT_INFO_TEXT))
+        rows = _info_row(DEFAULT_INFO_TEXT, canon_version=5, delivered=5)
+        cache, conn = _cache(rows, monkeypatch)
+        await cache.init()
+        value = cache.get(INFO_KEY)
+        assert value["html"] == PREV_R1023_DEFAULT_INFO_TEXT
+        assert value["canon_version"] == 4
+        assert value["prev_html"] == DEFAULT_INFO_TEXT
+        assert len(_inserts(conn, INFO_KEY)) == 1
 
 
 # ── «Гайд по возможностям» v1 → v2: канон/контент ──────────────────────────
@@ -280,6 +310,14 @@ class TestGuideCanonV2:
         assert "Манера ответа" in text          # словарик пополнен
         assert "Анти-штампы" in text
 
+    def test_canon_integrity_headings_in_order(self):
+        """Целостность канона гайда: заголовки `## 1.`…`## 12.` идут строго
+        по порядку и без пропусков (ловит усечение/порчу середины файла)."""
+        text = GUIDE_MD.read_text(encoding="utf-8")
+        headings = [int(m.group(1))
+                    for m in re.finditer(r"^## (\d+)\.", text, re.M)]
+        assert headings == list(range(1, 13)), headings
+
     def test_v2_no_internal_jargon(self):
         text = GUIDE_MD.read_text(encoding="utf-8").lower()
         for leak in ("validator", "scrubber", "regex", "llm", "промпт",
@@ -294,7 +332,7 @@ class TestGuideCanonV2:
         assert got["markdown"] == GUIDE_MD.read_text(encoding="utf-8")
 
 
-# ── идемпотентная PG-миграция гайда v1 → v2 ────────────────────────────────
+# ── идемпотентная PG-миграция гайда v1 → v2 (+ откат) ──────────────────────
 
 class TestGuideMigrationV1ToV2:
     @staticmethod
@@ -326,6 +364,22 @@ class TestGuideMigrationV1ToV2:
         assert cache.get(GUIDE_KEY)["markdown"] == V2_CANON
 
     @pytest.mark.asyncio
+    async def test_canon_text_with_stale_markers_rewritten_once(
+            self, monkeypatch, tmp_path):
+        """«Текст == канон, маркеров нет» → ровно 1 запись, повтор → 0."""
+        cache, conn = _cache(_guide_row(V2_CANON), monkeypatch,
+                             guide_seed=self._seed(tmp_path))
+        await cache.init()
+        value = cache.get(GUIDE_KEY)
+        assert value["markdown"] == V2_CANON
+        assert value["guide_version"] == GUIDE_CANON_VERSION
+        assert value["guide_delivered_version"] == GUIDE_CANON_VERSION
+        assert len(_inserts(conn, GUIDE_KEY)) == 1
+        await cache._migrate_intelligence_guide_r1023()
+        await cache._migrate_intelligence_guide_r1023()
+        assert len(_inserts(conn, GUIDE_KEY)) == 1
+
+    @pytest.mark.asyncio
     async def test_manual_edit_after_delivery_not_overwritten(
             self, monkeypatch, tmp_path):
         manual = "# Моя ручная правка гайда"
@@ -348,9 +402,53 @@ class TestGuideMigrationV1ToV2:
         assert value["guide_delivered_version"] == GUIDE_CANON_VERSION
         assert value["prev_markdown"] == manual
         assert len(_inserts(conn, GUIDE_KEY)) == 1
+        # Бэкап реально персистирован (а не только в in-memory копии).
+        persisted = _persisted(conn, GUIDE_KEY)
+        assert persisted["markdown"] == V2_CANON
+        assert persisted["prev_markdown"] == manual
 
     @pytest.mark.asyncio
     async def test_missing_guide_key_is_noop(self, monkeypatch, tmp_path):
         cache, conn = _cache([], monkeypatch, guide_seed=self._seed(tmp_path))
         await cache._migrate_intelligence_guide_r1023()
         assert _inserts(conn, GUIDE_KEY) == []
+
+    @pytest.mark.asyncio
+    async def test_reset_guide_returns_to_canon_with_backup(
+            self, monkeypatch, tmp_path):
+        """Откат гайда: reset_guide пишет код-канон из сид-файла и бэкапит
+        прежний текст (prev_markdown/prev_updated_at); get_guide отдаёт бэкап."""
+        manual = "# ручная правка, которую надо откатить"
+        rows = _guide_row(manual, guide_version=GUIDE_CANON_VERSION,
+                          delivered=GUIDE_CANON_VERSION)
+        seed = self._seed(tmp_path)
+        cache, conn = _cache(rows, monkeypatch, guide_seed=seed)
+        await cache.init()
+        # reset_guide читает код-канон из сид-файла info_service.
+        monkeypatch.setattr("services.info_service.GUIDE_SEED_FILE", seed)
+        svc = InfoService(file_path=str(INFO_MD))
+        value = await svc.reset_guide(updated_by=42, cache=cache)
+        assert value["markdown"] == V2_CANON
+        assert value["guide_version"] == GUIDE_CANON_VERSION
+        assert value["prev_markdown"] == manual
+        assert value["updated_by"] == 42
+        persisted = _persisted(conn, GUIDE_KEY)
+        assert persisted["markdown"] == V2_CANON
+        assert persisted["prev_markdown"] == manual
+        # GET-путь отдаёт новый markdown и бэкап для ручного восстановления.
+        monkeypatch.setattr(
+            "services.info_service.hot.get",
+            lambda *a, **k: cache.get(GUIDE_KEY))
+        got = svc.get_guide()
+        assert got["markdown"] == V2_CANON
+        assert got["prev_markdown"] == manual
+
+    @pytest.mark.asyncio
+    async def test_reset_guide_without_pg_raises(self, monkeypatch):
+        from services.config_cache import ConfigCacheUnavailableError
+
+        class _NoPg:
+            pg_available = False
+
+        with pytest.raises(ConfigCacheUnavailableError):
+            await InfoService().reset_guide(cache=_NoPg())

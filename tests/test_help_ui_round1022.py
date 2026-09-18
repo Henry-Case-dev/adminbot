@@ -14,13 +14,13 @@
   * рендер: DOMPurify default пропускает blockquote/h1/h2, CSS оформляет
     цитаты, санитайз не обойдён (v-html только через sanitized*).
 """
-import re
 import types
 from pathlib import Path
 
 import pytest
 
 from services.config_cache import ConfigCache
+from tests.helpers.info_layout import between_adjacent_blockquotes
 from services.info_service import (
     DEFAULT_INFO_TEXT,
     INFO_CANON_VERSION,
@@ -46,21 +46,9 @@ DOMPURIFY = (ROOT / "web" / "static" / "vendor"
 
 
 def _between_adjacent_blockquotes(text: str) -> list[str]:
-    """Тексты-разделители, стоящие непосредственно между соседними
-    ``</blockquote>`` и ``<blockquote>`` (без block-level прозы: если между ними
-    начинается ``<p>``/``<h2>`` — это разные смысловые группы, не примеры)."""
-    gaps = []
-    for close in re.finditer(r"</blockquote>", text):
-        nxt = text.find("<blockquote>", close.end())
-        if nxt == -1:
-            continue
-        gap = text[close.end():nxt]
-        # Между группами всегда идёт проза/новый заголовок — это не «между
-        # примерами». Между примерами одной группы — только whitespace.
-        if "<p>" in gap or "<h1>" in gap or "<h2>" in gap:
-            continue
-        gaps.append(gap)
-    return gaps
+    """Совместимость: делегирует в общий util
+    `tests.helpers.info_layout.between_adjacent_blockquotes`."""
+    return between_adjacent_blockquotes(text)
 
 
 # ── канон v4: версия, слепки, байт-зеркало ─────────────────────────────────
