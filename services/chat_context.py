@@ -22,7 +22,7 @@ _CONTEXT_NOTE = (
 
 
 def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
-                        trigger_message_id=None) -> str:
+                        trigger_message_id=None, reply_chains: str = "") -> str:
     """rows — хронологический список строк smart_messages (sqlite3.Row с
     author_name/user_id/text). → '<chat_context …>…</chat_context>' или ''
     (пустое окно / нет текстов). Потолок max_chars, старые сообщения
@@ -35,7 +35,12 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
 
     10.23 (F1, ADR-1023-1): сообщение-триггер (``tg_message_id ==
     trigger_message_id``) помечается маркером; ``None``/нет совпадения →
-    вывод байт-в-байт прежний. При дубле id маркируется только первое."""
+    вывод байт-в-байт прежний. При дубле id маркируется только первое.
+
+    10.23 (F2, ADR-1023-2): ``reply_chains`` — уже отрендеренный
+    ``<reply_chains>``-под-блок (общий util ``services/thread_chain.py``),
+    вставляется в конец ``<chat_context>`` после окна; ``""`` → блок
+    отсутствует (байт-в-байт прежний вывод)."""
     lines: list[str] = []
     total = 0
     remaining_trigger = trigger_message_id
@@ -62,5 +67,8 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
         total += len(line)
     if not lines:
         return ""
+    body = "\n".join(lines)
+    if reply_chains:
+        body = body + "\n" + reply_chains
     return ("<chat_context " + _CONTEXT_NOTE + ">\n"
-            + "\n".join(lines) + "\n</chat_context>")
+            + body + "\n</chat_context>")

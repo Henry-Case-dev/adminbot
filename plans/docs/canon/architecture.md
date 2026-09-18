@@ -486,3 +486,27 @@ legacy-рендер байт-в-байт. Правило «помеченное 
 `PREV_CHAT_R1023`; миграция PG — `PROMPT_MIGRATIONS`/`ROLLBACK_MIGRATIONS`.
 Egress: `sanitize_outgoing` дополнительно вырезает технический маркер
 (`<<< [ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА]` и его ядро) — defense-in-depth.
+
+## Раунд 10.23 (F2) — глубокий контекст фактчека + граф реплаев (ADR-1023-2)
+
+- **Двунаправленное окно:** новые ключи `limits.factcheck_context_before` /
+  `limits.factcheck_context_after` (group `limits_factcheck`, defaults 6/6) +
+  жёсткий код-кап `settings.FACTCHECK_CONTEXT_TOTAL_CAP = 40` (ClassVar, вне
+  каталога → Δ каталога ровно +2). Окно строится вокруг целевого сообщения
+  (`DatabaseService.get_messages_around`: before старше + якорь + after новее,
+  ASC; fail-open → `get_recent_messages`). Legacy
+  `limits.factcheck_context_messages` — депрекейт: активный код читает только
+  before/after, legacy (hidden, вне UI) — источник одноразовой миграции
+  `config_migrations.migrate_factcheck_context_defaults` (переносит значение в
+  `before`, кастом не затирает; идемпотентно).
+- **Граф реплаев:** `services/thread_chain.py` — общий util
+  (`collect_thread_chain`/`format_chain_line`/`render_reply_chains`), вынесен из
+  `DirectChatService` (direct переключён на util, регресс обязателен). Фактчек
+  строит цепочку для ЯКОРЯ, глубина = `limits.chat_thread_max_depth` (паритет с
+  direct, новый ключ НЕ вводится); инжект — отдельный `<reply_chains>`-под-блок
+  с note «не доказательства». Fail-open: нет цепочки/ошибка → блок опускается.
+- **Промпт-правило:** `FACTCHECK_ANALYST_SYSTEM_PROMPT` +
+  `WEB_SEARCH_INSTRUCTION_BLOCK` («тейк о реальном мире/новостях/датах/политике/
+  общеизвестных фактах → ОБЯЗАН вызвать веб-поиск»); слепок F1-канона —
+  `PREV_FACTCHECK_ANALYST_R1023_F2`; миграция PG — `PROMPT_MIGRATIONS` (ступени
+  pre-F1 и F1 → новый канон) + `ROLLBACK_MIGRATIONS` (новый → F1-канон).

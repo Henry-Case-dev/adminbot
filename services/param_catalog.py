@@ -98,6 +98,9 @@ class ParamSpec:
     # без изменений (widget ""/keyvalue — как раньше).
     select_options: tuple[str, ...] = ()
     select_labels: tuple[str, ...] = ()
+    # Раунд 10.23 (F2, ADR-1023-2): ключ остаётся в реестре (права/пины), но
+    # не показывается в UI-каталоге (внутренний: миграция/совместимость).
+    hidden: bool = False
 
     @property
     def pg_key(self) -> str:
@@ -1039,6 +1042,13 @@ _LIMITS: list[tuple] = [
      "Технический: как часто ужимать журнал БД. Обычно не трогать."),
     ("FACTCHECK_CONTEXT_MESSAGES", "Окно контекста фактчека (сообщений)", "int", "limits_factcheck",
      "Сколько сообщений берётся для проверки факта. Больше — точнее, но дороже."),
+    # 10.23 (F2, ADR-1023-2): двунаправленное окно фактчека (Δ каталога +2).
+    # Legacy-ключ выше — внутренний (hidden): источник одноразовой миграции,
+    # из UI-раздела фактчека убран.
+    ("FACTCHECK_CONTEXT_BEFORE", "Контекст фактчека: сообщений до тейка", "int", "limits_factcheck",
+     "Сколько сообщений ДО проверяемого сообщения видит фактчек. Больше — шире контекст, но дороже."),
+    ("FACTCHECK_CONTEXT_AFTER", "Контекст фактчека: сообщений после тейка", "int", "limits_factcheck",
+     "Сколько сообщений ПОСЛЕ проверяемого сообщения видит фактчек (реакции, уточнения). Больше — шире контекст, но дороже."),
     ("SEARCH_CONTEXT_MESSAGES", "Окно контекста поиска (сообщений)", "int", "limits_search",
      "Сколько сообщений берётся для поиска. Больше — точнее, но дороже."),
     ("CHAT_CONTEXT_FILL_RATIO", "Порог заполнения окна (доля)", "float", "limits_chat",
@@ -1709,6 +1719,16 @@ def _build_registry() -> dict[str, ParamSpec]:
 
 
 REGISTRY: dict[str, ParamSpec] = _build_registry()
+
+# Раунд 10.23 (F2, ADR-1023-2): внутренние ключи — остаются в реестре и
+# правах, но исключаются из UI-каталога (get_config/params-meta).
+_HIDDEN_CATALOG_FIELDS: frozenset[str] = frozenset({
+    "FACTCHECK_CONTEXT_MESSAGES",   # legacy окна фактчека — источник миграции
+})
+for _hidden_name in _HIDDEN_CATALOG_FIELDS:
+    _hidden_spec = REGISTRY.get(_hidden_name)
+    if _hidden_spec is not None:
+        REGISTRY[_hidden_name] = dataclasses.replace(_hidden_spec, hidden=True)
 
 # Раунд 10.4 (B-7/B-8): select-виджеты — опции/подписи (без роста записей).
 _SELECT_WIDGET_PRESETS: dict[str, dict] = {

@@ -963,6 +963,13 @@ async def main():
     from services.config_migrations import migrate_context_limit_defaults
     await migrate_context_limit_defaults(cache)
 
+    # ── F2 (10.23, ADR-1023-2 §3.1): legacy-ключ окна фактчека
+    # (`limits.factcheck_context_messages`) → одноразовый перенос значения в
+    # `limits.factcheck_context_before`. Идемпотентно, кастом before не трогает,
+    # legacy-значение сохраняется (обратимость), PG down → skip. Δ каталога: +2.
+    from services.config_migrations import migrate_factcheck_context_defaults
+    await migrate_factcheck_context_defaults(cache)
+
     # ── F4 (10.21, ADR-1021-4 §3.3): принудительное снижение порога глубокого
     # сна при ветке B аудита. По умолчанию ВЫКЛЮЧЕНО (ветка A: флаги OFF) —
     # env-only рубильник DEEP_SLEEP_THRESHOLD_MIGRATION_ENABLED. Идемпотентно,

@@ -218,3 +218,55 @@ async def migrate_context_limit_defaults(cache) -> dict[str, str]:
         logger.warning("[context_migration] кастом владельца — НЕ трогаем | "
                        "key=%s", key)
     return report
+
+
+# F2 (10.23, ADR-1023-2 §3.1): legacy-ключ окна фактчека
+# `limits.factcheck_context_messages` — депрекейт. Активный код-путь читает
+# только `limits.factcheck_context_before`/`_after`; legacy используется
+# ИСКЛЮЧИТЕЛЬНО как источник одноразовой миграции значения в `before`
+# (второго источника правды нет, legacy остаётся в реестре как внутренний).
+FACTCHECK_CONTEXT_LEGACY_KEY = "limits.factcheck_context_messages"
+FACTCHECK_CONTEXT_BEFORE_KEY = "limits.factcheck_context_before"
+
+
+async def migrate_factcheck_context_defaults(cache) -> dict[str, str]:
+    """F2 (10.23, ADR-1023-2): одноразовый перенос legacy-значения окна
+    фактчека в `limits.factcheck_context_before`.
+
+    Идемпотентна: значение legacy переносится ТОЛЬКО если `before` содержит
+    дефолт (сид вставил code-дефолт) или не задан; кастом `before` не
+    затирается (WARNING). Legacy-значение НЕ удаляется (обратимость отката).
+    Не-числовое legacy / отсутствие legacy / PG down → skip. Вызывается из
+    `bot.py main()` (fail-open)."""
+    report: dict[str, str] = {}
+    if cache is None or not getattr(cache, "pg_available", False):
+        logger.info("[factcheck_context_migration] skip: PG недоступен")
+        return report
+    legacy_raw = cache.get(FACTCHECK_CONTEXT_LEGACY_KEY)
+    if legacy_raw is None:
+        logger.info("[factcheck_context_migration] legacy-ключ отсутствует — "
+                    "skip | key=%s", FACTCHECK_CONTEXT_LEGACY_KEY)
+        return report
+    legacy_int = _threshold_int(legacy_raw)
+    if legacy_int is None:
+        logger.warning("[factcheck_context_migration] legacy-значение не "
+                       "число — skip | key=%s", FACTCHECK_CONTEXT_LEGACY_KEY)
+        return report
+    default_int = int(settings.FACTCHECK_CONTEXT_BEFORE or 0)
+    before_int = _threshold_int(cache.get(FACTCHECK_CONTEXT_BEFORE_KEY))
+    if before_int is None:
+        before_int = default_int
+    if before_int != default_int:
+        logger.warning("[factcheck_context_migration] before уже настроен "
+                       "владельцем — НЕ трогаем | key=%s",
+                       FACTCHECK_CONTEXT_BEFORE_KEY)
+        return report
+    if legacy_int == before_int:
+        logger.info("[factcheck_context_migration] уже перенесён — no-op | "
+                    "key=%s", FACTCHECK_CONTEXT_BEFORE_KEY)
+        return report
+    await cache.set(FACTCHECK_CONTEXT_BEFORE_KEY, legacy_int, "limits")
+    report[FACTCHECK_CONTEXT_BEFORE_KEY] = "updated"
+    logger.info("[factcheck_context_migration] legacy-значение перенесено в "
+                "before | value=%d", legacy_int)
+    return report

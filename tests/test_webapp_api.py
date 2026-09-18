@@ -1348,7 +1348,7 @@ class TestParamPermissionFlagsApi:
         # (content.intelligence_guide) → categorized 411.
         # 10.19 (F3/ADR-1019-3 D3): +1 categorized
         # (IMPORT_HISTORY_RETENTION_DAYS) → categorized 412.
-        assert len(items) == len(categorized) == 414
+        assert len(items) == len(categorized) == 416
         m = items["limits.search_max_symbols"]
         assert m["category"] == "limits"
         assert m["group"] == "limits_search"

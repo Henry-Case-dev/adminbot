@@ -38,6 +38,7 @@ from services.factcheck_prompts import (
     FACTCHECK_ANALYST_SYSTEM_PROMPT,
     FACTCHECK_SYSTEM_PROMPT,
     PREV_FACTCHECK_ANALYST_R1023,
+    PREV_FACTCHECK_ANALYST_R1023_F2,
     PREV_FACTCHECK_R1021_SYSTEM_PROMPT,
     PREV_FACTCHECK_SYSTEM_PROMPT,
 )
@@ -146,7 +147,9 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # канон R1023 (снимает только F1, сохраняя блоки A/B 10.21/10.22).
     "prompts.direct_chat_system_prompt": PREV_CHAT_R1023_SYSTEM_PROMPT,
     "prompts.summary_editor_system_prompt": PREV_SUMMARY_EDITOR_R1023,
-    "prompts.factcheck_analyst_system_prompt": PREV_FACTCHECK_ANALYST_R1023,
+    # F2 (10.23): откат Аналитика снимает только правило веб-поиска →
+    # непосредственный прежний канон F1.
+    "prompts.factcheck_analyst_system_prompt": PREV_FACTCHECK_ANALYST_R1023_F2,
 }
 
 
@@ -406,8 +409,9 @@ class TestRound1023Migration:
     def test_rollback_targets_r1023_for_stage1_keys(self):
         assert ROLLBACK_MIGRATIONS["prompts.summary_editor_system_prompt"] == \
             (SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1023)
+        # F2 (10.23): Аналитик откатывается на F1-канон (без правила поиска).
         assert ROLLBACK_MIGRATIONS["prompts.factcheck_analyst_system_prompt"] == \
-            (FACTCHECK_ANALYST_SYSTEM_PROMPT, PREV_FACTCHECK_ANALYST_R1023)
+            (FACTCHECK_ANALYST_SYSTEM_PROMPT, PREV_FACTCHECK_ANALYST_R1023_F2)
 
     def test_rollback_chat_targets_r1023(self):
         """R1023F1-07: откат чата — на PREV_CHAT_R1023 (только F1)."""

@@ -78,7 +78,6 @@ import logging
 import random
 import re
 import time
-from typing import NamedTuple
 
 from aiogram.exceptions import TelegramBadRequest
 
@@ -86,6 +85,7 @@ from config.settings import settings
 from services import chat_access
 from services import hot_config as hot
 from services import bot_persona
+from services import thread_chain
 from services.chat_params import (
     chat_summary_enabled,
     get_chat_param as _cp_g,  # G-3 per-chat
@@ -141,7 +141,7 @@ from services.summary_memory import (
     order_rag_facts_asc,
 )
 from services.summary_xml import escape_xml_text
-from services.target_marking import is_target_item_id, is_target_row
+from services.target_marking import is_target_row
 from services.token_counter import (
     count_tokens,
     resolve_chat_limit,
@@ -328,31 +328,18 @@ def _strip_direct_prefix(text: str) -> str:
     return s
 
 
-class _ChainItem(NamedTuple):
-    """10.20 (БЛОК 0, точка 3): ход reply-цепочки + метаданные канона.
-    user-ход — ts/tg/id/forward из smart_messages; бот-ход — ts ОПУЩЕН
-    (bot_replies не хранит время сообщения; `last_used_at` = время доступа,
-    R16), item_id = `tg:<current_id>`."""
-    uid: int | None
-    name: str
-    text: str
-    is_bot: bool
-    ts: int | None = None
-    item_id: str = ""
-    forward_source: str | None = None
+# Раунд 10.23 (F2, ADR-1023-2): цепочка реплаев вынесена в общий util
+# `services/thread_chain.py`; здесь — обратно-совместимые алиасы (тесты/код
+# direct продолжают импортировать `_ChainItem`/`_speaker_tag`).
+_ChainItem = thread_chain.ChainItem
 
 
 def _speaker_tag(name: str, uid, *, is_bot: bool = False,
                  suffix: str = "") -> str:
-    """Раунд 8 (§3.0/C1): display-строка участника для внутренних рендеров —
-    «{имя}{суффикс} [{uid}]» (бот — «{имя} [bot]»). uid None/0 → без скобки.
-    suffix — дискриминатор коллизии (C3), пуст при отсутствии коллизии."""
-    rendered = f"{name}{suffix}"
-    if is_bot:
-        return f"{rendered} [bot]"
-    if uid not in (None, 0):
-        return f"{rendered} [{uid}]"
-    return rendered
+    """Раунд 8 (§3.0/C1): display-строка участника — делегат общего
+    ``thread_chain.speaker_tag`` (F2). «{имя}{суффикс} [{uid}]» (бот —
+    «{имя} [bot]»). uid None/0 → без скобки."""
+    return thread_chain.speaker_tag(name, uid, is_bot=is_bot, suffix=suffix)
 
 
 def _collision_suffix(uid: int, username: str | None = None) -> str:
@@ -2430,74 +2417,27 @@ class DirectChatService:
 
     async def _collect_thread_chain(self, chat_id: int, message) -> list:
         """Рекурсивная цепочка reply по tg_message_id (глубина
-        CHAT_THREAD_MAX_DEPTH): user-сообщения из БД (observer сохраняет все),
-        бот-сообщения из bot_replies (Epic 60, 63.1). Раунд 8 (D3/T-800):
-        на бот-сообщении цепочка НЕ обрывается — текст добавляется и ход
-        продолжается от parent-сообщения (bot_reply_parents); break — только
-        терминальный: нет reply_to_id / не найдено / parent нет или протух /
-        глубина исчерпана / сообщение уже в seen.
-        Возвращает [_ChainItem] — от ТЕКУЩЕГО сообщения (самое свежее первое)
-        к корню. 10.20 (БЛОК 0, точка 3): метаданные user-хода (ts/tg/id/
-        forward) из smart_messages; бот-ход — ts опущен (R16), ID `tg:<id>`."""
+        CHAT_THREAD_MAX_DEPTH). Раунд 10.23 (F2, ADR-1023-2): реализация
+        вынесена в общий ``services/thread_chain.py`` (паритет с фактчеком);
+        здесь остаётся только per-chat резолв глубины и alias-резолвер имени.
+        Возвращает ``[thread_chain.ChainItem]`` от ТЕКУЩЕГО к корню."""
         _depth = await _cp_g(chat_id, "limits.chat_thread_max_depth",
                              hot.get("limits.chat_thread_max_depth",
                                      settings.CHAT_THREAD_MAX_DEPTH))
-        depth = int(_depth or 0)
-        chain: list[_ChainItem] = []
-        current_id = getattr(message, "message_id", None)
-        seen: set[int] = set()
-        for _ in range(max(1, depth)):
-            if current_id is None or current_id in seen:
-                break
-            seen.add(current_id)
-            row = await self.db.get_smart_message_by_tg_id(chat_id, current_id)
-            if row is not None:
-                text = row["text"] or ""
-                if text:
-                    name, uid = self._row_speaker(row)
-                    forward_source = (row_get(row, "forward_source")
-                                      if row_get(row, "is_forward") else None)
-                    chain.append(_ChainItem(
-                        uid=uid, name=name, text=text, is_bot=False,
-                        ts=row_get(row, "timestamp"),
-                        item_id=resolve_item_id(
-                            tg_message_id=row_get(row, "tg_message_id"),
-                            message_id=row_get(row, "id")),
-                        forward_source=forward_source))
-                current_id = row["reply_to_id"]
-                continue
-            bot_text = await self.get_bot_reply(chat_id, current_id)
-            if bot_text is not None:
-                chain.append(_ChainItem(
-                    uid=None, name=self._resolve_bot_name(), text=bot_text,
-                    is_bot=True, ts=None, item_id=f"tg:{current_id}",
-                    forward_source=None))
-                parent = await self._bot_reply_parent(chat_id, current_id)
-                if parent is None:
-                    break
-                current_id = parent
-                continue
-            break                          # обрыв: нет reply_to_id/не найдено
-        return chain
+        return await thread_chain.collect_thread_chain(
+            self.db, chat_id, message, int(_depth or 0),
+            row_speaker=self._row_speaker,
+            bot_name_resolver=self._resolve_bot_name,
+            bot_reply_getter=self.get_bot_reply,
+            bot_parent_getter=self._bot_reply_parent)
 
     def _chain_line(self, item, suffix_map: dict[int, str],
                     trigger_message_id=None) -> str:
         """10.20 (БЛОК 0, точка 3): каноническая строка хода цепочки (ярус A).
-        user — «[ts | имя [uid] | ID]: текст», бот — ts опущен, ID `tg:`.
-        10.23 (F1): ход с ``item_id == tg:<триггер>`` получает маркер."""
-        if not isinstance(item, _ChainItem):
-            item = _ChainItem(*item)
-        if item.is_bot:
-            author = _speaker_tag(item.name, None, is_bot=True)
-        else:
-            author = _speaker_tag(
-                item.name, item.uid, suffix=suffix_map.get(item.uid, ""))
-        # R1023F1-06: единый матчер/guard, что и is_target_row.
-        is_target = is_target_item_id(item.item_id, trigger_message_id)
-        return format_context_item(
-            ts=item.ts, author=author, item_id=item.item_id,
-            forward_source=item.forward_source, text=item.text, kind="msg",
-            is_target=is_target)
+        F2 (10.23): делегат ``thread_chain.format_chain_line`` (единый рендер
+        с фактчеком); F1: ход-триггер получает маркер."""
+        return thread_chain.format_chain_line(
+            item, suffix_map, trigger_message_id)
 
     async def _thread_limit(self, chat_id: int):
         """Раунд 10.4 (G-ремедиация): per-chat лимит треда (tokens/chars) —

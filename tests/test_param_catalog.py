@@ -81,7 +81,7 @@ class TestCompleteness:
         #   (F4 infra, в dataclass.fields не входит).
         #   + C (lore-compiler-round1020, БЛОК 1/О3): +1 —
         #   LORE_COMPILER_ENABLED (flags_module_direct, default ON) = 409.
-        assert len(fields) == 409
+        assert len(fields) == 411
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -356,7 +356,7 @@ class TestGroups8424:
             if s.category is not None:
                 counts[s.category] += 1
         assert counts == {"prompts": 10, "models": 53, "keys": 19,
-                          "limits": 189, "flags": 65, "reactions": 39,
+                          "limits": 191, "flags": 65, "reactions": 39,
                           "content": 5, "memory": 34}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

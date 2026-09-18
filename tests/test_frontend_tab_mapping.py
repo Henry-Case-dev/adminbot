@@ -126,7 +126,7 @@ class TestTabMappingAudit:
         # 19→20) → 437/92/90/20.
         assert len(pc._TAB_BY_GROUP) == 90
         assert len(GROUPS) == 92
-        assert len(pc.REGISTRY) == 439
+        assert len(pc.REGISTRY) == 441
 
 
 class TestModuleTabs:

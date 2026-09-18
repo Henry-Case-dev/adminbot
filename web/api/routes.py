@@ -334,6 +334,10 @@ async def get_config(
     items = []
     for key, value in sorted(cache.get_all().items()):
         spec = get_by_pg_key(key)
+        # F2 (10.23, ADR-1023-2): внутренние ключи (hidden) — вне UI-каталога
+        # (остаются в реестре/правах; значения/миграции не затрагиваются).
+        if spec is not None and spec.hidden:
+            continue
         category = spec.category if spec else key.split(".")[0]
         secret = bool(spec.secret) if spec else category == CATEGORY_KEYS
         if chat_id is not None and ctx is not None:
@@ -545,6 +549,9 @@ async def get_params_meta(
     for spec_key in sorted(param_catalog.REGISTRY):
         spec = param_catalog.REGISTRY[spec_key]
         if spec.category is None:
+            continue
+        # F2 (10.23, ADR-1023-2): скрытые (внутренние) ключи не отдаём в UI.
+        if spec.hidden:
             continue
         items[spec.pg_key] = {
             "per_chat": bool(spec.per_chat),

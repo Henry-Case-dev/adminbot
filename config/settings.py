@@ -824,6 +824,14 @@ class Settings:
     # Окно последних сообщений чата вокруг цели (NAACL'22: +10 п.т.; SIGIR'26:
     # большой контекст вредит → окно маленькое, блок маркирован НЕ-доказательства).
     FACTCHECK_CONTEXT_MESSAGES: int = _env_int_min("FACTCHECK_CONTEXT_MESSAGES", 6, 0)
+    # 10.23 (F2, ADR-1023-2): двунаправленное окно фактчека — N сообщений
+    # ДО целевого и N ПОСЛЕ (defaults 6/6). Legacy-ключ выше — только источник
+    # одноразовой миграции значения в BEFORE, активный код читает эти два.
+    FACTCHECK_CONTEXT_BEFORE: int = _env_int_min("FACTCHECK_CONTEXT_BEFORE", 6, 0)
+    FACTCHECK_CONTEXT_AFTER: int = _env_int_min("FACTCHECK_CONTEXT_AFTER", 6, 0)
+    # Жёсткий суммарный потолок окна (сообщений) — код-кап, НЕ настройка:
+    # ClassVar → вне каталога/UI (Δ каталога ровно +2). Ограничивает стоимость.
+    FACTCHECK_CONTEXT_TOTAL_CAP: ClassVar[int] = 40
     SEARCH_CONTEXT_MESSAGES: int = _env_int_min("SEARCH_CONTEXT_MESSAGES", 6, 0)
     # LLM-реранкинг выдачи (Anthropic Contextual Retrieval: rerank до −67% промахов).
     SEARCH_RERANK_ENABLED: bool = _env_bool("SEARCH_RERANK_ENABLED", True)

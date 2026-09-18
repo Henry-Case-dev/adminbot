@@ -124,3 +124,15 @@
 `PREV_CHAT_R1023`; миграция PG — `PROMPT_MIGRATIONS`/`ROLLBACK_MIGRATIONS`
 (ключи Редактора/Аналитика создаёт F8). Egress-guard
 (`sanitize_outgoing`) вырезает маркер как технический токен.
+
+## Раунд 10.23 (F2) — глубокий контекст фактчека + граф реплаев (ADR-1023-2)
+
+- **Окно:** `limits.factcheck_context_before`/`_after` (6/6) + код-кап 40;
+  legacy `limits.factcheck_context_messages` — внутренний (hidden), только
+  источник одноразовой миграции в `before`.
+- **Граф реплаев:** общий `services/thread_chain.py` (direct + фактчек), цепочка
+  для якоря, `<reply_chains>`-под-блок «не доказательства».
+- **Промпт:** `FACTCHECK_ANALYST_SYSTEM_PROMPT` получает
+  `WEB_SEARCH_INSTRUCTION_BLOCK` (обязательный веб-поиск для тейков о реальном
+  мире); слепок `PREV_FACTCHECK_ANALYST_R1023_F2`; миграция/откат PG —
+  `PROMPT_MIGRATIONS`/`ROLLBACK_MIGRATIONS`.

@@ -233,7 +233,7 @@ class TestHumanReadableLabels:
 
     def test_counters_not_grown(self):
         # T-1901: санкционированный Δ — только тексты, счётчики не растут.
-        assert len(pc.REGISTRY) == 439
+        assert len(pc.REGISTRY) == 441
         assert len(pc.GROUPS) == 92
 
 

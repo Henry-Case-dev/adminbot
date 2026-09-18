@@ -198,14 +198,14 @@ class TestCatalogDelta:
         # +1 REGISTRY/Settings/categorized (IMPORT_HISTORY_RETENTION_DAYS),
         # +2 GROUPS (limits_chat_key/limits_chat_context), +2 mapped,
         # +1 TAB_RULES/TAB_NAV (mod_budgets): 437/92/407/412/90/20.
-        assert len(pc.REGISTRY) == 439
+        assert len(pc.REGISTRY) == 441
         assert len(pc.GROUPS) == 92
         assert len(pc._TAB_BY_GROUP) == 90
         assert len(pc.TAB_RULES) == 20
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 409
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 411
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 414
+        assert len(categorized) == 416
 
     def test_guide_spec(self):
         from services import param_catalog as pc

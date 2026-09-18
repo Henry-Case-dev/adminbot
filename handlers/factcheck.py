@@ -55,20 +55,66 @@ logger = logging.getLogger(__name__)
 factcheck_router = Router(name="factcheck")
 
 
-async def _fetch_chat_context(chat_id: int, limit: int,
+async def _fetch_chat_context(chat_id: int, before: int, after: int,
+                              target_tg_message_id=None,
                               trigger_message_id=None) -> str:
-    """Epic 65: последние limit сообщений чата → <chat_context> блок.
-    Fail-open: любая ошибка БД → '' (старое поведение без контекста).
-    Раунд 10.23 (F1, ADR-1023-1): trigger_message_id — id команды фактчека;
-    совпавшее сообщение помечается маркером (None → legacy)."""
+    """Epic 65 + 10.23 (F2, ADR-1023-2): двунаправленное окно фактчека —
+    ``before`` сообщений старше целевого + якорь + ``after`` новее (ASC),
+    плюс программный граф реплаев вокруг якоря.
+
+    Fail-open: любая ошибка БД/построения цепочки → '' (прежнее поведение без
+    контекста); цепочка — отдельный под-блок «не доказательства»."""
     from services.chat_context import format_chat_context   # локальный импорт — без циклов
-    if _db is None or limit <= 0:
+    if _db is None:
+        return ""
+    b, a = _clamp_window(before, after)
+    if b <= 0 and a <= 0:
         return ""
     try:
-        rows = await _db.get_recent_messages(chat_id, limit)
-        return format_chat_context(rows, trigger_message_id=trigger_message_id)
+        rows = await _db.get_messages_around(
+            chat_id, target_tg_message_id, b, a)
     except Exception:
         logger.warning("[factcheck] chat context fetch failed | chat=%s",
+                       chat_id, exc_info=True)
+        return ""
+    reply_chains = await _build_reply_chains(chat_id, target_tg_message_id)
+    return format_chat_context(rows, trigger_message_id=trigger_message_id,
+                               reply_chains=reply_chains)
+
+
+def _clamp_window(before, after) -> tuple[int, int]:
+    """Границы окна: неотрицательные int, сумма ≤ FACTCHECK_CONTEXT_TOTAL_CAP
+    (жёсткий код-кап, ADR-1023-2; при переполнении срезаем ``after``)."""
+    cap = int(getattr(settings, "FACTCHECK_CONTEXT_TOTAL_CAP", 40) or 40)
+    try:
+        b = max(0, int(before or 0))
+        a = max(0, int(after or 0))
+    except (TypeError, ValueError):
+        return 0, 0
+    if b > cap:
+        b = cap
+    if b + a > cap:
+        a = max(0, cap - b)
+    return b, a
+
+
+async def _build_reply_chains(chat_id: int, target_tg_message_id) -> str:
+    """Цепочка реплаев для якоря общим util (F2). Fail-open → '' (нет цепочки/
+    ошибка БД → под-блок опускается, прежнее поведение)."""
+    if _db is None or target_tg_message_id in (None, "", 0):
+        return ""
+    from services.thread_chain import (          # локальный импорт — без циклов
+        collect_thread_chain,
+        render_reply_chains,
+    )
+    try:
+        depth = hot.get("limits.chat_thread_max_depth",
+                        settings.CHAT_THREAD_MAX_DEPTH)
+        chain = await collect_thread_chain(
+            _db, chat_id, int(target_tg_message_id), depth)
+        return render_reply_chains(chain)
+    except Exception:
+        logger.warning("[factcheck] reply chain build failed | chat=%s",
                        chat_id, exc_info=True)
         return ""
 
@@ -229,8 +275,11 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
         async with typing_active(bot, message.chat.id):
             chat_context = await _fetch_chat_context(
                 message.chat.id,
-                hot.get("limits.factcheck_context_messages",
-                        settings.FACTCHECK_CONTEXT_MESSAGES),
+                hot.get("limits.factcheck_context_before",
+                        settings.FACTCHECK_CONTEXT_BEFORE),
+                hot.get("limits.factcheck_context_after",
+                        settings.FACTCHECK_CONTEXT_AFTER),
+                target_tg_message_id=target.message_id,
                 trigger_message_id=message.message_id)
             verdict = await _service.check_claim(
                 target_text, user_hint, forward_source, chat_id=message.chat.id,

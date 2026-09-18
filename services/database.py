@@ -1795,6 +1795,75 @@ class DatabaseService:
         return rows
 
 
+    async def get_messages_around(self, chat_id: int, target_tg_message_id,
+                                  before: int, after: int) -> list:
+        """Раунд 10.23 (F2, ADR-1023-2): двунаправленное окно вокруг целевого
+        сообщения (anchor) — ``before`` старше якоря + сам якорь + ``after``
+        новее, хронологически ASC (по ``id``). Каждое сообщение включается
+        ровно один раз (якорь — из отдельного SELECT).
+        Fail-open: пустой/нечисловой anchor, якорь не найден, ошибка БД →
+        legacy ``get_recent_messages(before + after)`` (прежнее поведение)."""
+        try:
+            before = max(0, int(before or 0))
+            after = max(0, int(after or 0))
+        except (TypeError, ValueError):
+            before = after = 0
+        _fields = ("id, user_id, chat_id, text, reply_to_id, timestamp, "
+                   "media_type, author_name, is_forward, forward_source, "
+                   "tg_message_id")
+        try:
+            anchor_id = None
+            if target_tg_message_id not in (None, "", 0):
+                cursor = await self.db.execute(
+                    "SELECT id FROM smart_messages "
+                    "WHERE chat_id = ? AND tg_message_id = ? "
+                    "ORDER BY id ASC LIMIT 1",
+                    (chat_id, int(target_tg_message_id)),
+                )
+                anchor_row = await cursor.fetchone()
+                anchor_id = anchor_row["id"] if anchor_row is not None else None
+            if anchor_id is None:
+                return await self.get_recent_messages(chat_id, before + after)
+            older: list = []
+            if before:
+                cursor = await self.db.execute(
+                    f"SELECT {_fields} FROM smart_messages "
+                    "WHERE chat_id = ? AND id < ? ORDER BY id DESC LIMIT ?",
+                    (chat_id, anchor_id, before),
+                )
+                older = list(await cursor.fetchall())
+                older.reverse()            # DESC-выборка → ASC
+            cursor = await self.db.execute(
+                f"SELECT {_fields} FROM smart_messages "
+                "WHERE chat_id = ? AND id = ?",
+                (chat_id, anchor_id),
+            )
+            anchor = await cursor.fetchone()
+            newer: list = []
+            if after:
+                cursor = await self.db.execute(
+                    f"SELECT {_fields} FROM smart_messages "
+                    "WHERE chat_id = ? AND id > ? ORDER BY id ASC LIMIT ?",
+                    (chat_id, anchor_id, after),
+                )
+                newer = list(await cursor.fetchall())
+            result = older
+            if anchor is not None:
+                result.append(anchor)
+            result.extend(newer)
+            return result
+        except Exception:
+            logger.warning(
+                "db: get_messages_around failed — fallback к последним | "
+                "chat=%s", chat_id, exc_info=True)
+            try:
+                return await self.get_recent_messages(chat_id, before + after)
+            except Exception:
+                logger.warning("db: get_recent_messages fallback failed | "
+                               "chat=%s", chat_id, exc_info=True)
+                return []
+
+
     async def get_smart_message_by_tg_id(self, chat_id: int, tg_message_id: int):
         """Epic 50 (58.7, D201): строка smart_messages по TG message_id
         (рекурсия reply-цепочек <Conversation_Thread>); None — нет записи."""
