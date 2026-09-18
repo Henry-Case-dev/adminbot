@@ -74,7 +74,7 @@
 
 ### 3.5. Промпт-правило (канон)
 
-Единый блок (`TARGET_INSTRUCTION_BLOCK` в `prompt_style_blocks.py` либо инлайн-вставка в 3 Stage-1 промпта) со смыслом:
+Единый блок `TARGET_INSTRUCTION_BLOCK` — фактически размещён в новом F1-модуле `services/target_marking.py` (импортируется в 3 Stage-1 промпта; вариант «общий блок в `prompt_style_blocks.py`» не выбран, чтобы не пересекаться со ступенью вливания `F3 → F4`). Смысл:
 
 > «В истории чата будет сообщение с пометкой `[ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА]` (перед ней может стоять `<<<`). Это инструкция от пользователя. КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО пересказывать этот запрос как событие чата, упоминать его в выжимке или анализировать как часть обычного диалога. Просто выполни написанное.»
 
@@ -98,7 +98,7 @@
 | `services/chat_context.py` | проброс `trigger_message_id` |
 | `services/summary_generator.py` | проброс `trigger_message_id` в `xml.build` |
 | `services/direct_chat_service.py` | проброс триггера в рендеры строк |
-| `handlers/summary.py`, `handlers/factcheck.py`, `handlers/direct_chat.py` | извлечение `message.message_id` и проброс |
+| `handlers/summary.py`, `handlers/factcheck.py` | проброс `message.message_id` (у direct_chat id берётся внутри `DirectChatService._build_user_content` — `handlers/direct_chat.py` НЕ меняется) |
 | `services/summary_prompts.py`, `services/factcheck_prompts.py`, `services/chat_prompts.py` | правило маркировки |
 | `services/prompt_style_blocks.py` | константа блока (если выбран общий блок) |
 | `services/prompt_migrations.py`, `plans/docs/canon/**` | канон-миграция + слепки |
@@ -140,8 +140,8 @@
 
 ## 9. Открытые вопросы (Human Gate)
 
-- Триггер `/summary` может отсутствовать в окне `smart_messages` → маркер не ставится (legacy). Подтвердить (архитектура §7.4).
-- Способ проброса триггера в `summary_generator` (параметр публичного API vs атрибут контекста) — на усмотрение @Builder в рамках контракта T-2100.
+- **ЗАКРЫТО (R1023F1-04):** для `/summary` маркер **недостижим** — observer (`summary_observer`, B9) принципиально не сохраняет команды в `smart_messages`, поэтому `trigger_message_id` команды никогда не совпадёт. Это известное ограничение F1 (саммари идёт legacy-путём); отдельный носитель триггера саммари — вне объёма F1. `trigger_message_id` в контракте сохранён для симметрии API.
+- Способ проброса триггера в `summary_generator` — параметр публичного API `trigger_message_id` (T-2100).
 
 ## 10. Задачи
 

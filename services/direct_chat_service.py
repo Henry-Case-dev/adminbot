@@ -141,7 +141,7 @@ from services.summary_memory import (
     order_rag_facts_asc,
 )
 from services.summary_xml import escape_xml_text
-from services.target_marking import is_target_row
+from services.target_marking import is_target_item_id, is_target_row
 from services.token_counter import (
     count_tokens,
     resolve_chat_limit,
@@ -978,7 +978,11 @@ class DirectChatService:
         встаёт ПОСЛЕ relations, до mood (подсказка «важное к концу»)."""
         window = await self.memory.get_window_messages(chat_id)
         # Раунд 10.23 (F1, ADR-1023-1): текущий пользовательский ход —
-        # триггер маркировки в истории (сопоставление по Telegram message_id).
+        # триггер маркировки (сопоставление по Telegram message_id).
+        # R1023F1-01: маркер ставится РОВНО ОДИН раз на всю сборку — только в
+        # <Global_Context> (единственный «исторический» блок; цепочка стартует
+        # от текущего хода, поэтому thread/branch его дублируют). Вспомогательные
+        # блоки получают trigger_message_id=None и маркер не расходуют.
         trigger_message_id = getattr(message, "message_id", None)
         # Раунд 8 (C2/T-793): карта по активным участникам (24 ч) + окно;
         # суффиксы-дискриминаторы (C3/T-794) считаются один раз на рендер.
@@ -992,8 +996,7 @@ class DirectChatService:
         # для reply-триггера с цепочкой ≥ 2 ходов (полный Thread — ниже).
         chain = await self._collect_thread_chain(chat_id, message)
         if self._is_reply_trigger(message) and len(chain) >= 2:
-            branch = self._render_branch(chain, suffix_map,
-                                         trigger_message_id=trigger_message_id)
+            branch = self._render_branch(chain, suffix_map)
             if branch:
                 blocks.append(("branch", branch))
         # F2: global считается раньше RAG (тело фона — для словарного дедупа).
@@ -1009,8 +1012,7 @@ class DirectChatService:
         if global_ctx:
             blocks.append(("global", global_ctx))
         thread = self._render_thread(chain, suffix_map,
-                                     await self._thread_limit(chat_id),
-                                     trigger_message_id=trigger_message_id)
+                                     await self._thread_limit(chat_id))
         if thread:
             blocks.append(("thread", thread))
         # Раунд 8 (C5/T-796): блок адресата — канон + uid запросившего.
@@ -2490,8 +2492,8 @@ class DirectChatService:
         else:
             author = _speaker_tag(
                 item.name, item.uid, suffix=suffix_map.get(item.uid, ""))
-        is_target = (trigger_message_id is not None
-                     and item.item_id == f"tg:{trigger_message_id}")
+        # R1023F1-06: единый матчер/guard, что и is_target_row.
+        is_target = is_target_item_id(item.item_id, trigger_message_id)
         return format_context_item(
             ts=item.ts, author=author, item_id=item.item_id,
             forward_source=item.forward_source, text=item.text, kind="msg",

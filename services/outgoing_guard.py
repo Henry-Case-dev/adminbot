@@ -6,8 +6,11 @@
 1) ``strip_reasoning_tags`` (reuse ``services/reply_postprocess``) — срезает
    ``<thought>``-семейство черновиков;
 2) вырезает технические ID-маркеры ``\\bfact:\\d+\\b`` / ``\\bmsg:\\d+\\b``;
-3) no-op, если паттернов нет — исходная строка байт-в-байт;
-4) нормализация пробелов ТОЛЬКО вокруг вырезанного фрагмента (одиночный
+3) вырезает технический маркер целевой команды (``services/target_marking``,
+   раунд 10.23 F1) — defense-in-depth: служебный указатель LLM не должен
+   попадать пользователю, даже если Stage-1 проэхоил его в выжимку;
+4) no-op, если паттернов нет — исходная строка байт-в-байт;
+5) нормализация пробелов ТОЛЬКО вокруг вырезанного фрагмента (одиночный
    разделитель, без двойных пробелов).
 
 Клише (ИИ/канцелярит) кодом **НЕ** вырезаются — вето владельца (UPD3 Д-10):
@@ -22,6 +25,7 @@ import logging
 import re
 
 from services.reply_postprocess import strip_reasoning_tags
+from services.target_marking import TARGET_MARKER_CORE
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +37,13 @@ _ID_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Раунд 10.23 (F1, ADR-1023-1): технический указатель целевой команды
+# (``<<< [ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА]`` и/или его ядро) — режем как технический
+# токен; пробелы по краям нормализуются (одиночный разделитель).
+_TARGET_MARKER_RE = re.compile(
+    r"(\s*)(?:<<<)?\s*" + re.escape(TARGET_MARKER_CORE) + r"(\s*)",
+)
+
 # Точка расширения: дополнительные компилированные паттерны (сегодня пусто).
 EXTRA_PATTERNS: tuple[re.Pattern[str], ...] = ()
 
@@ -41,6 +52,10 @@ _WS_JUNCTION_RE = re.compile(r"[ \t]{2,}")
 
 
 def _repl_id(match: re.Match[str]) -> str:
+    return " " if (match.group(1) and match.group(2)) else ""
+
+
+def _repl_marker(match: re.Match[str]) -> str:
     return " " if (match.group(1) and match.group(2)) else ""
 
 
@@ -61,6 +76,7 @@ def sanitize_outgoing(text: str, *, parse_mode: str | None = None) -> str:
             # горизонтальные пробелы → один).
             out = _WS_JUNCTION_RE.sub(" ", out)
         out = _ID_RE.sub(_repl_id, out)
+        out = _TARGET_MARKER_RE.sub(_repl_marker, out)
         for pattern in EXTRA_PATTERNS:
             out = pattern.sub("", out)
         return out

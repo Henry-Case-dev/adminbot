@@ -13,7 +13,8 @@
 """
 import xml.etree.ElementTree as ET
 
-from services import canonical_context as cc
+import pytest
+
 from services.canonical_context import format_context_item
 from services.chat_context import format_chat_context
 from services.chat_prompts import (
@@ -29,12 +30,15 @@ from services.summary_prompts import (
     SUMMARY_NARRATOR_SYSTEM_PROMPT,
 )
 from services.summary_xml import XmlGroundingBuilder
+from services.outgoing_guard import sanitize_outgoing
 from services.target_marking import (
     TARGET_INSTRUCTION_BLOCK,
     TARGET_MARKER,
     TARGET_MARKER_CORE,
     append_marker,
+    is_target_item_id,
     is_target_row,
+    normalize_trigger_id,
 )
 
 
@@ -78,13 +82,42 @@ class TestTokenAndMatcher:
         assert is_target_row(_row(tg_message_id=100), None) is False
         assert is_target_row(_row(tg_message_id=None), 100) is False
         assert is_target_row(_row(tg_message_id="bad"), 100) is False
+        assert is_target_row(_row(tg_message_id=100), 0) is False
         assert is_target_row({}, 100) is False
+
+    def test_normalize_trigger_id(self):
+        assert normalize_trigger_id(None) is None
+        assert normalize_trigger_id("") is None
+        assert normalize_trigger_id(0) is None
+        assert normalize_trigger_id("bad") is None
+        assert normalize_trigger_id("42") == 42
+        assert normalize_trigger_id(42) == 42
+
+    def test_is_target_item_id_unified_guard(self):
+        """R1023F1-06: тот же guard/нормализация, что у is_target_row."""
+        assert is_target_item_id("tg:100", 100) is True
+        assert is_target_item_id("tg:100", "100") is True
+        assert is_target_item_id("tg:99", 100) is False
+        assert is_target_item_id("tg:100", None) is False
+        assert is_target_item_id("tg:100", 0) is False
+        assert is_target_item_id("msg:100", 100) is False
+        assert is_target_item_id("tg:bad", 100) is False
 
     def test_append_marker_no_duplicates(self):
         assert append_marker("текст") == "текст " + TARGET_MARKER
         assert append_marker("") == TARGET_MARKER
         marked = "текст " + TARGET_MARKER
         assert append_marker(marked) == marked
+
+    def test_append_marker_dedup_by_core(self):
+        """R1023F1-05: тело, уже содержащее ядро (без `<<<`), не дублируется."""
+        body_with_core = "текст " + TARGET_MARKER_CORE
+        assert append_marker(body_with_core) == body_with_core
+
+    def test_append_marker_whitespace_body_is_empty(self):
+        """R1023F1-05: пробельное тело — как пустое."""
+        assert append_marker("   ") == TARGET_MARKER
+        assert append_marker("\n\t") == TARGET_MARKER
 
 
 class TestXmlRenderer:
@@ -191,10 +224,135 @@ class TestPromptsAndAntiEcho:
             assert TARGET_MARKER_CORE not in prompt
             assert "<<<" not in prompt
 
-    def test_final_text_has_no_marker_artifacts(self):
-        """Симуляция финального пользовательского текста: маркер не должен
-        появляться (правило промпта + изоляция Вербализатора)."""
-        final = "вася спорил с петей про футбол и обосрался с прогнозом"
-        assert TARGET_MARKER not in final
-        assert TARGET_MARKER_CORE not in final
-        assert cc.ARCHIVE_MARKER not in final
+class TestEgressScrub:
+    """R1023F1-03: egress-guard вырезает технический маркер (defense-in-depth
+    к промпт-правилу; scrubber режет только технические токены)."""
+
+    def test_full_marker_scrubbed(self):
+        out = sanitize_outgoing("привет <<< [ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА]")
+        assert TARGET_MARKER_CORE not in out
+        assert "<<" not in out
+        assert out == "привет"
+
+    def test_core_only_scrubbed(self):
+        assert sanitize_outgoing("[ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА] текст") == "текст"
+
+    def test_marker_in_middle_single_separator(self):
+        out = sanitize_outgoing("до <<< [ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА] после")
+        assert out == "до после"
+        assert "  " not in out
+
+    def test_noop_without_marker_byte_for_byte(self):
+        text = "обычный ответ без служебных токенов и цифр"
+        assert sanitize_outgoing(text) == text
+
+    def test_idempotent(self):
+        once = sanitize_outgoing("x <<< [ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА] y")
+        assert sanitize_outgoing(once) == once
+
+    def test_stage1_echo_does_not_reach_user(self):
+        """Граница Stage-1 → отправка: если Синтезатор проэхоил маркер в
+        выжимку/финал, egress его вырезает до показа пользователю."""
+        stage2_output = ("вася спорил с петей про футбол "
+                         "<<< [ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА]")
+        outgoing = sanitize_outgoing(stage2_output)
+        assert TARGET_MARKER_CORE not in outgoing
+        assert TARGET_MARKER not in outgoing
+        assert "вася спорил с петей про футбол" in outgoing
+
+
+class TestDirectChatWiring:
+    """R1023F1-02 + R1023F1-01: покрытие проводки T-2100 в прямом чате
+    (`_context_row_line`/`_chain_line`/`_render_thread`/`_render_branch`/
+    `_build_user_content`) и «суммарно ровно один маркер»."""
+
+    def test_context_row_line_marks_target_and_legacy(self):
+        from tests.test_direct_chat import _make_service
+        svc = _make_service()
+        row = {"user_id": 10, "author_name": "вася", "text": "привет",
+               "timestamp": 1_700_000_000, "tg_message_id": 5, "id": 9}
+        marked = svc._context_row_line(row, {}, trigger_message_id=5)
+        assert TARGET_MARKER in marked
+        legacy = svc._context_row_line(row, {})
+        assert TARGET_MARKER not in legacy
+        assert legacy == svc._context_row_line(row, {}, trigger_message_id=None)
+        assert svc._context_row_line(row, {}, trigger_message_id=777) == legacy
+
+    def test_chain_line_marks_target_and_unified_guard(self):
+        from services.direct_chat_service import _ChainItem
+        from tests.test_direct_chat import _make_service
+        svc = _make_service()
+        item = _ChainItem(10, "вася", "привет", False, 1_700_000_000,
+                          "tg:5", None)
+        assert TARGET_MARKER in svc._chain_line(item, {}, trigger_message_id=5)
+        assert TARGET_MARKER not in svc._chain_line(item, {})
+        assert TARGET_MARKER not in svc._chain_line(
+            item, {}, trigger_message_id=999)
+        # R1023F1-06: id=0 трактуется как отсутствие триггера (единый guard)
+        assert TARGET_MARKER not in svc._chain_line(
+            item, {}, trigger_message_id=0)
+
+    def test_render_thread_and_branch_mark_target(self):
+        from services.direct_chat_service import _ChainItem
+        from tests.test_direct_chat import _make_service
+        svc = _make_service()
+        chain = [
+            _ChainItem(10, "вася", "текущий", False, 1_700_000_000,
+                       "tg:5", None),
+            _ChainItem(None, "test_bot", "ответ", True, None, "tg:6", None),
+        ]
+        # В XML-подобных блоках direct чата маркер экранируется (`&lt;&lt;&lt;`),
+        # поэтому считаем escape-стабильное ядро.
+        thread = svc._render_thread(chain, {}, trigger_message_id=5)
+        assert thread.count(TARGET_MARKER_CORE) == 1
+        assert "&lt;&lt;&lt;" in thread
+        assert TARGET_MARKER_CORE not in svc._render_thread(chain, {})
+        branch = svc._render_branch(chain, {}, trigger_message_id=5)
+        assert branch.count(TARGET_MARKER_CORE) == 1
+        assert TARGET_MARKER_CORE not in svc._render_branch(chain, {})
+
+    @pytest.mark.asyncio
+    async def test_build_user_content_single_marker_ordinary(self):
+        """Обычное сообщение: суммарно ровно один маркер (в <Global_Context>)."""
+        from tests.test_direct_chat import FakeMemory, _make_service, _message
+        row = {"user_id": 10, "author_name": "вася",
+               "text": "текущая команда", "timestamp": 1_700_000_000,
+               "media_type": "text", "reply_to_id": None, "tg_message_id": 100}
+        svc = _make_service(memory=FakeMemory(window=[row]))
+        blocks = await svc._build_user_content(-100, _message(message_id=100),
+                                               "вася")
+        joined = "\n".join(blocks)
+        # В direct-блоках маркер экранируется (`&lt;&lt;&lt;`) — считаем ядро.
+        assert joined.count(TARGET_MARKER_CORE) == 1
+        assert joined.count("<<<") + joined.count("&lt;&lt;&lt;") == 1
+
+    @pytest.mark.asyncio
+    async def test_build_user_content_single_marker_reply(self):
+        """Reply-сообщение: маркер один (branch/thread не дублируют)."""
+        from tests.test_direct_chat import (
+            FakeDB, FakeMemory, _make_service, _message, _thread_row)
+        current = {"user_id": 10, "author_name": "вася",
+                   "text": "текущая команда", "timestamp": 1_700_000_000,
+                   "media_type": "text", "reply_to_id": 50,
+                   "tg_message_id": 100}
+        parent = _thread_row(50, text="родитель")
+        svc = _make_service(
+            memory=FakeMemory(window=[parent, current]),
+            db=FakeDB(rows={100: current, 50: parent}))
+        msg = _message(message_id=100)
+        msg.reply_to_message = object()          # reply-триггер
+        blocks = await svc._build_user_content(-100, msg, "вася")
+        joined = "\n".join(blocks)
+        assert joined.count(TARGET_MARKER_CORE) == 1
+        assert joined.count("<<<") + joined.count("&lt;&lt;&lt;") == 1
+
+    @pytest.mark.asyncio
+    async def test_build_user_content_no_trigger_no_marker(self):
+        from tests.test_direct_chat import FakeMemory, _make_service, _message
+        row = {"user_id": 10, "author_name": "вася", "text": "текущая команда",
+               "timestamp": 1_700_000_000, "media_type": "text",
+               "reply_to_id": None, "tg_message_id": 100}
+        svc = _make_service(memory=FakeMemory(window=[row]))
+        blocks = await svc._build_user_content(-100, _message(message_id=777),
+                                               "вася")
+        assert TARGET_MARKER_CORE not in "\n".join(blocks)

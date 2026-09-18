@@ -38,28 +38,54 @@ TARGET_INSTRUCTION_BLOCK = (
 )
 
 
+def normalize_trigger_id(value):
+    """Telegram-id триггера → ``int`` или ``None`` (пусто/битое/``0``).
+    Единая нормализация для всех рендереров (паритет XML/plain/цепочки)."""
+    if value in (None, "", 0):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def is_target_row(row, trigger_message_id) -> bool:
     """Строка окна — это сообщение-триггер? Сравнение по Telegram
     ``message_id`` (``tg_message_id``). ``None``/пусто/нет совпадения →
     ``False`` (маркер не ставится, никаких догадок)."""
-    if trigger_message_id in (None, "", 0):
-        return False
-    tg_message_id = row_get(row, "tg_message_id")
-    if tg_message_id in (None, "", 0):
+    trigger = normalize_trigger_id(trigger_message_id)
+    if trigger is None:
         return False
     try:
-        return int(tg_message_id) == int(trigger_message_id)
+        return int(row_get(row, "tg_message_id")) == trigger
+    except (TypeError, ValueError):
+        return False
+
+
+def is_target_item_id(item_id, trigger_message_id) -> bool:
+    """Ход reply-цепочки — это триггер? Единый матчер для ``_chain_line``
+    (item_id вида ``tg:<id>``) — тот же guard/нормализация, что у
+    :func:`is_target_row` (R1023F1-06)."""
+    trigger = normalize_trigger_id(trigger_message_id)
+    if trigger is None:
+        return False
+    text = str(item_id or "")
+    if not text.startswith("tg:"):
+        return False
+    try:
+        return int(text[3:]) == trigger
     except (TypeError, ValueError):
         return False
 
 
 def append_marker(body: str) -> str:
     """Дописать маркер к телу сообщения: один пробел-разделитель, без дублей.
-    Пустое тело → только маркер. Существующий маркер не дублируется."""
+    Пустое/пробельное тело → только маркер. Дедуп — по escape-стабильному ядру
+    ``TARGET_MARKER_CORE`` (тело с ядром, но без ``<<<``, не дублируется)."""
     text = "" if body is None else str(body)
-    if TARGET_MARKER in text:
+    if TARGET_MARKER_CORE in text:
         return text
-    if not text:
+    if not text.strip():
         return TARGET_MARKER
     if text.endswith((" ", "\n", "\t")):
         return text + TARGET_MARKER

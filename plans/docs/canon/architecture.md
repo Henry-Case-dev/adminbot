@@ -480,6 +480,9 @@ LORE_STORY_SYSTEM_PROMPT = """Ты - саркастичный летописец
 вырезается. Сопоставление — по Telegram `message_id`; нет совпадения →
 legacy-рендер байт-в-байт. Правило «помеченное — инструкция, не событие чата»
 вставлено в Stage-1 промпты `SUMMARY_EDITOR_SYSTEM_PROMPT`,
-`FACTCHECK_ANALYST_SYSTEM_PROMPT`, `CHAT_SYSTEM_PROMPT`; слепки —
+`FACTCHECK_ANALYST_SYSTEM_PROMPT`, `CHAT_SYSTEM_PROMPT` (текст правила —
+`TARGET_INSTRUCTION_BLOCK` в `services/target_marking.py`); слепки —
 `PREV_SUMMARY_EDITOR_R1023`, `PREV_FACTCHECK_ANALYST_R1023`,
 `PREV_CHAT_R1023`; миграция PG — `PROMPT_MIGRATIONS`/`ROLLBACK_MIGRATIONS`.
+Egress: `sanitize_outgoing` дополнительно вырезает технический маркер
+(`<<< [ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА]` и его ядро) — defense-in-depth.

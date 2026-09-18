@@ -142,6 +142,9 @@ _ROLLBACK_KEYS = list(_PREV_R1021_BY_KEY) + [
 ]
 _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     **dict(_PREV_R1021_BY_KEY),
+    # F1 (10.23, R1023F1-07): чат откатывается на непосредственный прежний
+    # канон R1023 (снимает только F1, сохраняя блоки A/B 10.21/10.22).
+    "prompts.direct_chat_system_prompt": PREV_CHAT_R1023_SYSTEM_PROMPT,
     "prompts.summary_editor_system_prompt": PREV_SUMMARY_EDITOR_R1023,
     "prompts.factcheck_analyst_system_prompt": PREV_FACTCHECK_ANALYST_R1023,
 }
@@ -329,8 +332,8 @@ class TestRound1021Migration:
             assert (prev, _NEW_BY_KEY[key]) in PROMPT_MIGRATIONS[key]
 
     def test_rollback_map_points_new_to_prev(self):
-        for key, prev in _PREV_R1021_BY_KEY.items():
-            assert ROLLBACK_MIGRATIONS[key] == (_NEW_BY_KEY[key], prev)
+        for key, target in _ROLLBACK_TARGET_BY_KEY.items():
+            assert ROLLBACK_MIGRATIONS[key] == (_NEW_BY_KEY[key], target)
 
     def test_compress_not_in_rollback(self):
         assert "prompts.compress_system_prompt" not in ROLLBACK_MIGRATIONS
@@ -405,6 +408,21 @@ class TestRound1023Migration:
             (SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1023)
         assert ROLLBACK_MIGRATIONS["prompts.factcheck_analyst_system_prompt"] == \
             (FACTCHECK_ANALYST_SYSTEM_PROMPT, PREV_FACTCHECK_ANALYST_R1023)
+
+    def test_rollback_chat_targets_r1023(self):
+        """R1023F1-07: откат чата — на PREV_CHAT_R1023 (только F1)."""
+        assert ROLLBACK_MIGRATIONS["prompts.direct_chat_system_prompt"] == \
+            (CHAT_SYSTEM_PROMPT, PREV_CHAT_R1023_SYSTEM_PROMPT)
+
+    @pytest.mark.asyncio
+    async def test_rollback_chat_restores_r1023(self):
+        cache = FakeCache(values={
+            "prompts.direct_chat_system_prompt": CHAT_SYSTEM_PROMPT})
+        report = await rollback_prompt_canons(cache)
+        assert report == {"prompts.direct_chat_system_prompt": "rolled_back"}
+        assert cache.set_calls == [
+            ("prompts.direct_chat_system_prompt",
+             PREV_CHAT_R1023_SYSTEM_PROMPT, "prompts")]
 
     @pytest.mark.asyncio
     async def test_r1023_snapshots_update_and_rollback(self):

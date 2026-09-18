@@ -281,8 +281,12 @@ async def cmd_summary(message: types.Message, bot: Bot = None):
     await _delete_command(message)                                 # D81: удалить СРАЗУ, ДО ack
     await _safe_send(bot, message.chat.id, random.choice(_UX_ACK_VARIANTS))   # B1/D82: ack из пула
     logger.info("[/summary] ack sent | chat=%s", message.chat.id)
-    # Раунд 10.23 (F1, ADR-1023-1): Telegram id команды — триггер маркировки
-    # в истории (команда не сохраняется observer'ом → обычно legacy-путь).
+    # Раунд 10.23 (F1, ADR-1023-1; R1023F1-04): Telegram id команды передаётся
+    # в контракт для симметрии. ВАЖНО: команда `/summary` observer'ом НЕ
+    # сохраняется (B9: команды — не контент чата), поэтому её tg_message_id
+    # никогда не совпадёт с smart_messages.tg_message_id → для саммари маркер
+    # НЕДОСТИЖИМ (всегда legacy-путь, без маркера). Это известное ограничение
+    # зафиксировано в spec §9; отдельный носитель триггера саммари — вне F1.
     await _generator.generate_and_send(
         message.chat.id, manual=True, focus=focus,
         trigger_message_id=message.message_id)  # B2

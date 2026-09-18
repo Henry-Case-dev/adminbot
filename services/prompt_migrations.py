@@ -140,8 +140,10 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
 # возвращает код-константы, но НЕ откатывает значение в PG. `COMPRESS_PROMPT`
 # и `extract` не входят — в 10.21 не менялись.
 ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
+    # F1 (10.23, R1023F1-07): откат чата ведёт на непосредственный прежний
+    # канон PREV_CHAT_R1023 (снимает только F1, сохраняя блоки A/B 10.21/10.22).
     "prompts.direct_chat_system_prompt":
-        (CHAT_SYSTEM_PROMPT, PREV_CHAT_R1021_SYSTEM_PROMPT),
+        (CHAT_SYSTEM_PROMPT, PREV_CHAT_R1023_SYSTEM_PROMPT),
     "prompts.summary_system_prompt":
         (SYSTEM_PROMPT, PREV_R1021_SUMMARY_SYSTEM_PROMPT),
     "prompts.checkup_system_prompt":

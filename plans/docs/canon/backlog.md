@@ -118,7 +118,9 @@
 из истории НЕ вырезается (таймлайн сохраняется). Правило «помеченное — это
 инструкция, а не событие чата» вставлено в Stage-1 промпты:
 `SUMMARY_EDITOR_SYSTEM_PROMPT`, `FACTCHECK_ANALYST_SYSTEM_PROMPT`,
-`CHAT_SYSTEM_PROMPT`. Слепки прежних канонов — `PREV_SUMMARY_EDITOR_R1023`,
-`PREV_FACTCHECK_ANALYST_R1023`, `PREV_CHAT_R1023`; миграция PG —
-`PROMPT_MIGRATIONS`/`ROLLBACK_MIGRATIONS` (ключи Редактора/Аналитика
-создаёт F8).
+`CHAT_SYSTEM_PROMPT` (текст правила — `TARGET_INSTRUCTION_BLOCK` в
+`services/target_marking.py`). Слепки прежних канонов —
+`PREV_SUMMARY_EDITOR_R1023`, `PREV_FACTCHECK_ANALYST_R1023`,
+`PREV_CHAT_R1023`; миграция PG — `PROMPT_MIGRATIONS`/`ROLLBACK_MIGRATIONS`
+(ключи Редактора/Аналитика создаёт F8). Egress-guard
+(`sanitize_outgoing`) вырезает маркер как технический токен.
