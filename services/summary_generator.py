@@ -21,6 +21,7 @@ import os
 import re
 import sqlite3
 import time
+from functools import lru_cache
 
 from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
 
@@ -57,6 +58,7 @@ from services.telegram_send import (
     SUMMARY_COVER_MEDIA_ID,
     build_cover_media,
     edit_text_safe,
+    looks_rich,
     send_rich_message,
     send_text,
 )
@@ -100,9 +102,14 @@ def compose_cover_image_prompt(style: str | None, cover_prompt: str) -> str:
     return joined.strip()[:COVER_IMAGE_PROMPT_MAX]
 
 
+@lru_cache(maxsize=1)
 def _rich_media_supported() -> bool:
     """Поддержка rich-обложек: поле ``media`` у ``InputRichMessage`` + метод
-    ``Bot.send_rich_message``. aiogram < 3.30 → ``False`` (тихий plain)."""
+    ``Bot.send_rich_message``. aiogram < 3.30 → ``False`` (тихий plain).
+
+    Review iter1 (Low-4): результат кэшируется на процесс (spec §3.4) —
+    ``aiogram``/его типы за рантайм не меняются. Тесты сбрасывают
+    ``_rich_media_supported.cache_clear()``."""
     try:
         from aiogram import Bot
         from aiogram.types import InputRichMessage
@@ -369,8 +376,7 @@ class SummaryGenerator:
             if (cover_prompt
                     and getattr(settings, "SUMMARY_COVER_ARTICLE_ENABLED", True)
                     and _rich_media_supported()):
-                await self._deliver_rich(chat_id, text, cover_prompt,
-                                         draft.response_mode)
+                await self._deliver_rich(chat_id, text, cover_prompt)
             else:
                 await self._deliver_plain(chat_id, text)
         except LLMError as exc:
@@ -634,8 +640,8 @@ class SummaryGenerator:
         else:
             await self._send_chunked(chat_id, text)
 
-    async def _deliver_rich(self, chat_id: int, text: str, cover_prompt: str,
-                            response_mode: str) -> None:
+    async def _deliver_rich(self, chat_id: int, text: str,
+                            cover_prompt: str) -> None:
         """F6 (ADR-1023-6 §3.4): обложка (F5) → Article (`sendRichMessage`).
 
         Тихий фолбэк (D8): любая ошибка генерации/отправки → plain-путь без
@@ -651,7 +657,7 @@ class SummaryGenerator:
                 logger.info(
                     "summary cover: image unavailable — plain fallback | "
                     "chat_id=%s", chat_id)
-                return await self._plain_fallback(chat_id, text, response_mode)
+                return await self._plain_fallback(chat_id, text)
             media = [build_cover_media(tmp_path)]
             await self._send_rich_with_retry(chat_id, text, media)
             logger.info("summary cover: article sent | chat_id=%s", chat_id)
@@ -659,7 +665,7 @@ class SummaryGenerator:
             logger.warning(
                 "summary cover: rich fallback | chat_id=%s | error=%s",
                 chat_id, type(exc).__name__)
-            return await self._plain_fallback(chat_id, text, response_mode)
+            return await self._plain_fallback(chat_id, text)
         finally:
             if tmp_path:
                 try:
@@ -683,11 +689,14 @@ class SummaryGenerator:
                 self.bot, chat_id, text, media=media,
                 cover_id=SUMMARY_COVER_MEDIA_ID)
 
-    async def _plain_fallback(self, chat_id: int, text: str,
-                              response_mode: str) -> None:
-        """Даунгрейд rich → plain (Сценарий Б) и прежняя доставка."""
-        plain_text = (downgrade_rich_to_plain(text)
-                      if response_mode == "deep_research" else text)
+    async def _plain_fallback(self, chat_id: int, text: str) -> None:
+        """Даунгрейд rich → plain (Сценарий Б) и прежняя доставка.
+
+        Review iter1 (Medium-2): решение о даунгрейде — по ФАКТИЧЕСКОМУ
+        содержимому (``looks_rich``), а не по ``response_mode``: rich-разметка
+        могла появиться и в ``serious``/``casual`` (нарушение R11 моделью), и
+        тогда она обязана быть снята на plain-канале."""
+        plain_text = downgrade_rich_to_plain(text) if looks_rich(text) else text
         await self._deliver_plain(chat_id, plain_text)
 
     async def _send_streaming(self, chat_id: int, text: str) -> None:

@@ -7,10 +7,13 @@
   * конкатенация «стиль + visual prompt» с финальным капом 300;
   * Article: ``html``-режим, ``<img src="tg://photo?id=summary_cover">``,
     экранирование, exactly-one-of;
-  * guard ``_rich_media_supported`` (нет media → plain);
+  * guard ``_rich_media_supported`` (нет media → plain; реальный детектор
+    на фейковом типе, без подмены всей функции);
   * тихий фолбэк: ``generate_image → None`` / ``TelegramBadRequest`` /
-    любое исключение → plain, без ``_send_ux``;
-  * даунгрейд rich → plain (таблицы/HTML снимаются).
+    любое исключение / двойной ``TelegramRetryAfter`` → plain, без ``_send_ux``;
+  * даунгрейд rich → plain по СОДЕРЖИМОМУ (в т.ч. ``serious``/``casual``);
+  * инвариант ``physical-two-call`` на JSON с непустым ``cover_prompt`` и
+    изоляция Stage-2 от служебного поля.
 """
 import json
 from unittest.mock import AsyncMock, MagicMock
@@ -31,7 +34,11 @@ from services.system2_handoff import (
     normalize_cover_prompt,
     parse_summary_handoff,
 )
-from services.telegram_send import SUMMARY_COVER_MEDIA_ID, build_cover_article_html
+from services.telegram_send import (
+    SUMMARY_COVER_MEDIA_ID,
+    build_cover_article_html,
+    build_cover_media,
+)
 
 pytestmark = pytest.mark.system2
 
@@ -51,6 +58,18 @@ def _two_call_llm(cover_prompt="a lone cat on a neon rooftop", mode="deep_resear
             return "богатый дерзкий рассказ"
 
     return _LLM()
+
+
+def _mock_llm(cover_prompt="a lone cat", mode="deep_research",
+              stage2="богатый дерзкий рассказ") -> MagicMock:
+    """AsyncMock-LLM с `await_count`/`await_args_list` (инвариант 2 вызовов)."""
+    llm = MagicMock()
+    llm.generate = AsyncMock(side_effect=[
+        json.dumps({"response_mode": mode, "digest": _DIGEST,
+                    "cover_prompt": cover_prompt}),
+        stage2,
+    ])
+    return llm
 
 
 def _make_generator(llm):
@@ -139,9 +158,63 @@ class TestArticleBuild:
         assert "tg://photo" not in html
         assert html == "<p>просто текст</p>"
 
-    def test_rich_media_supported_on_installed_aiogram(self):
-        # requirements.txt пинит aiogram>=3.31; локально установлено 3.31.
-        assert sg._rich_media_supported() is True
+    @staticmethod
+    def _fake_aiogram(monkeypatch, fields: dict):
+        """Подменить aiogram-типы фейком: реальная логика `_rich_media_supported`
+        исполняется, окружение aiogram не важно (review iter1, Medium-3)."""
+        import aiogram
+        import aiogram.types as aiogram_types
+
+        class _FakeBot:
+            def send_rich_message(self, *a, **k):  # noqa: D401
+                return None
+
+        class _FakeIRM:
+            model_fields = fields
+
+        monkeypatch.setattr(aiogram, "Bot", _FakeBot)
+        monkeypatch.setattr(aiogram_types, "InputRichMessage", _FakeIRM)
+        sg._rich_media_supported.cache_clear()
+
+    def test_detector_true_when_media_present(self, monkeypatch):
+        self._fake_aiogram(monkeypatch, {"html": object(), "media": object()})
+        try:
+            assert sg._rich_media_supported() is True
+        finally:
+            sg._rich_media_supported.cache_clear()
+
+    def test_detector_false_when_media_absent(self, monkeypatch):
+        """aiogram без `InputRichMessage.media` → guard выключает Article."""
+        self._fake_aiogram(monkeypatch, {"html": object(), "markdown": object()})
+        try:
+            assert sg._rich_media_supported() is False
+        finally:
+            sg._rich_media_supported.cache_clear()
+
+    def test_detector_cached_on_process(self, monkeypatch):
+        """Review iter1 (Low-4): результат кэшируется на процесс."""
+        self._fake_aiogram(monkeypatch, {"html": object(), "media": object()})
+        try:
+            sg._rich_media_supported()
+            sg._rich_media_supported()
+            assert sg._rich_media_supported.cache_info().hits >= 1
+        finally:
+            sg._rich_media_supported.cache_clear()
+
+
+class TestStage1Canon:
+    def test_single_json_format_block(self):
+        """Review iter1 (Low-7): ровно один блок «ФОРМАТ ОТВЕТА» в каноне."""
+        from services.summary_prompts import (
+            PREV_SUMMARY_EDITOR_R1023_F6,
+            SUMMARY_EDITOR_SYSTEM_PROMPT,
+        )
+        assert SUMMARY_EDITOR_SYSTEM_PROMPT.count("ФОРМАТ ОТВЕТА") == 1
+        assert '"cover_prompt"' in SUMMARY_EDITOR_SYSTEM_PROMPT
+        assert "response_mode" in SUMMARY_EDITOR_SYSTEM_PROMPT
+        # слепок прежнего канона (F3) неизменен и отличается
+        assert PREV_SUMMARY_EDITOR_R1023_F6 != SUMMARY_EDITOR_SYSTEM_PROMPT
+        assert PREV_SUMMARY_EDITOR_R1023_F6.count("ФОРМАТ ОТВЕТА") == 1
 
 
 # ── D. Тихий фолбэк в _run ───────────────────────────────────────────
@@ -291,6 +364,63 @@ class TestRichDelivery:
         assert rec.ux == []
 
     @pytest.mark.asyncio
+    async def test_retry_after_both_attempts_then_silent_plain(
+            self, monkeypatch, tmp_path):
+        """Review iter1 (Medium-3a): RetryAfter на обеих попытках → ровно 1
+        повтор, затем тихий plain без UX-сообщений."""
+        rec = _Recorder()
+        img = tmp_path / "cover.jpg"
+        img.write_bytes(b"jpegbytes")
+        _base_env(monkeypatch, rec, cover_path=str(img))
+
+        calls = {"n": 0}
+
+        async def _always_retry(*a, **k):
+            calls["n"] += 1
+            raise TelegramRetryAfter(method=MagicMock(), message="too many",
+                                     retry_after=0)
+
+        monkeypatch.setattr(sg, "send_rich_message", _always_retry)
+        gen = _make_generator(_two_call_llm())
+
+        await gen._run(-100, False)
+
+        assert calls["n"] == 2                     # ровно 1 повтор
+        assert rec.rich == []
+        assert rec.plain and "богатый дерзкий рассказ" in rec.plain[0]
+        assert rec.ux == []
+
+    @pytest.mark.asyncio
+    async def test_downgrade_by_content_in_serious_mode(self, monkeypatch,
+                                                        tmp_path):
+        """Review iter1 (Medium-2): rich-разметка от Narrator в serious-режиме
+        при фолбэке снимается (даунгрейд по содержимому, не по режиму)."""
+        from tests.test_summary_generator import FakeMemory, _row
+        from services.summary_xml import XmlGroundingBuilder
+
+        rec = _Recorder()
+        img = tmp_path / "cover.jpg"
+        img.write_bytes(b"jpegbytes")
+        _base_env(monkeypatch, rec, cover_path=str(img))
+        llm = _mock_llm(mode="serious", cover_prompt="cat",
+                        stage2="| a | b |\n|---|---|\n| 1 | 2 |\n# Заголовок")
+
+        async def _boom(*a, **k):
+            raise TelegramBadRequest(method=MagicMock(), message="bad")
+
+        monkeypatch.setattr(sg, "send_rich_message", _boom)
+        gen = SummaryGenerator(FakeMemory(rows=[_row(author_name="вася")]),
+                               XmlGroundingBuilder(), llm, AsyncMock())
+
+        await gen._run(-100, False)
+
+        assert rec.rich == []
+        assert rec.plain
+        assert "|" not in rec.plain[0]
+        assert "#" not in rec.plain[0]
+        assert rec.ux == []
+
+    @pytest.mark.asyncio
     async def test_guard_false_skips_cover(self, monkeypatch):
         rec = _Recorder()
         _base_env(monkeypatch, rec, cover_path="ignored")
@@ -344,3 +474,35 @@ class TestSummaryDraft:
         assert isinstance(draft, SummaryDraft)
         assert draft.cover_prompt == "neon cat"
         assert draft.response_mode == "deep_research"
+
+
+# ── G. Инвариант двух вызовов и изоляция Stage-2 ─────────────────────
+
+class TestTwoCallInvariant:
+    @pytest.mark.asyncio
+    async def test_cover_json_keeps_two_physical_calls(self, monkeypatch):
+        """Review iter1 (Medium-3c): непустой `cover_prompt` не добавляет
+        третий LLM-вызов — ровно Stage-1 + Stage-2."""
+        monkeypatch.setattr(sg, "_rich_media_supported", lambda: True)
+        llm = _mock_llm(cover_prompt="neon cat")
+        gen = _make_generator(llm)
+
+        draft = await gen._generate_two_call("сырьё", 3800, -100)
+
+        assert draft.cover_prompt == "neon cat"
+        assert llm.generate.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_cover_prompt_isolated_from_stage2(self, monkeypatch):
+        """Review iter1 (Medium-3d): служебное поле `cover_prompt` не попадает
+        в user-content Stage-2 (R17/изоляция)."""
+        monkeypatch.setattr(sg, "_rich_media_supported", lambda: True)
+        llm = _mock_llm(cover_prompt="SECRET_VISUAL_TOKEN")
+        gen = _make_generator(llm)
+
+        await gen._generate_two_call("сырьё", 3800, -100)
+
+        stage2_messages = llm.generate.await_args_list[1].args[0]
+        blob = json.dumps(stage2_messages, ensure_ascii=False)
+        assert "SECRET_VISUAL_TOKEN" not in blob
+        assert "cover_prompt" not in blob

@@ -119,8 +119,16 @@ async def send_photo(bot, chat_id: int, photo, **kwargs: Any):
 
 # ── Раунд 10.23 (F6, ADR-1023-6 §Decision 4): Article (sendRichMessage) ─────
 
+def looks_rich(text: str) -> bool:
+    """Есть ли структурная rich-разметка (Markdown/HTML/таблицы).
+
+    Публичный детектор: используется и оркестратором саммари для решения о
+    даунгрейде rich→plain при фолбэке (review iter1, Medium-2)."""
+    return _looks_rich(text)
+
+
 def _looks_rich(text: str) -> bool:
-    """Есть ли структурная rich-разметка (Markdown/HTML/таблицы)."""
+    """Внутренний детектор структурной rich-разметки."""
     source = str(text or "")
     if not source:
         return False
@@ -193,9 +201,13 @@ async def send_rich_message(bot, chat_id: int, text: str, *, media=None,
     clean = _maybe_sanitize(text)
     media_list = list(media) if media else None
     if _looks_rich(clean):
+        # review iter1 (High-1): в markdown-режиме обложка — Markdown-ссылка
+        # на вложение (`![alt](tg://photo?id=…)`), а НЕ сырой HTML `<img>`:
+        # HTML-форма документирована только для `html`-режима.
         body = clean
         if cover_id:
-            body = '<img src="tg://photo?id={}">\n\n{}'.format(cover_id, body)
+            body = '![summary cover](tg://photo?id={})\n\n{}'.format(
+                cover_id, body)
         rich = InputRichMessage(markdown=body, media=media_list)
     else:
         html = build_cover_article_html(clean, cover_id=cover_id or "")

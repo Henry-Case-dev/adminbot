@@ -121,6 +121,24 @@ class TestTelegramSendWrappers:
         assert "&lt;b&gt;" in rich.html
         assert rich.markdown is None and rich.blocks is None
 
+    @pytest.mark.asyncio
+    async def test_send_rich_message_markdown_cover_uses_markdown_link(self):
+        """Review iter1 (High-1): rich-контент + media → обложка Markdown-ссылкой
+        `![…](tg://photo?id=summary_cover)`, а не сырым HTML `<img>`."""
+        from services.telegram_send import build_cover_media
+        bot = MagicMock()
+        bot.send_rich_message = AsyncMock(return_value="sent")
+        table = "| a | b |\n|---|---|\n| 1 | 2 |"
+        await send_rich_message(bot, 1, table,
+                                media=[build_cover_media(b"jpeg")],
+                                cover_id="summary_cover")
+        rich = bot.send_rich_message.await_args.args[1]
+        assert rich.html is None and rich.blocks is None
+        assert rich.markdown.startswith(
+            "![summary cover](tg://photo?id=summary_cover)")
+        assert "<img" not in rich.markdown
+        assert "| a | b |" in rich.markdown
+
 
 class TestSendPointsCoverage:
     _SEND_RE = re.compile(

@@ -214,6 +214,13 @@ class TestPromptsContentPgOnly:
             if spec.category == pc.CATEGORY_PROMPTS:
                 assert spec not in iter_migratable()
 
+    def test_summary_cover_style_widget_textarea(self):
+        """10.23 (F6/ADR-1023-6 §3.2): «Стиль обложки» — widget textarea."""
+        spec = pc.get_by_pg_key("prompts.summary_cover_style")
+        assert spec is not None
+        assert spec.widget == "textarea"
+        assert pc.resolve_progressive_level(spec) == "advanced"
+
     def test_code_sources_resolve(self):
         for spec in iter_pg_only():
             if spec.code_source is None:

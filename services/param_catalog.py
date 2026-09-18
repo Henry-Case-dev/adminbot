@@ -1818,6 +1818,14 @@ for _name, _pg_id in _PG_ID_OVERRIDES.items():
     if _spec is not None:
         REGISTRY[_name] = dataclasses.replace(_spec, pg_id=_pg_id)
 
+# Раунд 10.23 (F6, ADR-1023-6 §3.2): «Стиль обложки» — многострочный ввод
+# (spec называет widget `textarea`); остальные prompt-ключи рендерятся
+# textarea по конвенции категории `prompts` (web/index.html).
+for _pg_key in ("prompts.summary_cover_style",):
+    _spec = REGISTRY.get(_pg_key)
+    if _spec is not None:
+        REGISTRY[_pg_key] = dataclasses.replace(_spec, widget="textarea")
+
 _BY_PG_KEY: dict[str, ParamSpec] = {s.pg_key: s for s in REGISTRY.values()}
 
 _SETTINGS_FIELDS: frozenset[str] = frozenset(

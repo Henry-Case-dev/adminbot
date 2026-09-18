@@ -101,14 +101,21 @@ SUMMARY_EDITOR_SYSTEM_PROMPT = (
 # идемпотентной канон-миграции PG.
 PREV_SUMMARY_EDITOR_R1023_F3 = SUMMARY_EDITOR_SYSTEM_PROMPT
 
-SUMMARY_EDITOR_RESPONSE_MODE_BLOCK = """ФОРМАТ ОТВЕТА (СТРОГО JSON-объект, без текста вокруг):
-{"response_mode": "serious", "digest": "готовая выжимка в Markdown"}
+# Форматный JSON-блок F3 (два поля) и общие правила полей — собираются в один
+# `SUMMARY_EDITOR_RESPONSE_MODE_BLOCK` (значение неизменно, байт-в-байт F3-канон).
+_SUMMARY_EDITOR_F3_FORMAT = (
+    'ФОРМАТ ОТВЕТА (СТРОГО JSON-объект, без текста вокруг):\n'
+    '{"response_mode": "serious", "digest": "готовая выжимка в Markdown"}')
 
-ПОЛЕ response_mode - выбери ОДИН режим по сложности запроса:
+_SUMMARY_EDITOR_MODE_RULES = """ПОЛЕ response_mode - выбери ОДИН режим по сложности запроса:
 - casual: бытовой треп, споры, короткие вопросы;
 - serious: средняя сложность, нужен нормальный ответ без пяти страниц ресерча;
 - deep_research: глубокий анализ, структура, масштабный поиск.
 ПОЛЕ digest - та же Markdown-выжимка, что описана выше."""
+
+SUMMARY_EDITOR_RESPONSE_MODE_BLOCK = (
+    _SUMMARY_EDITOR_F3_FORMAT + "\n\n" + _SUMMARY_EDITOR_MODE_RULES
+)
 
 SUMMARY_EDITOR_SYSTEM_PROMPT = (
     PREV_SUMMARY_EDITOR_R1023_F3 + "\n\n" + SUMMARY_EDITOR_RESPONSE_MODE_BLOCK
@@ -118,22 +125,27 @@ SUMMARY_EDITOR_SYSTEM_PROMPT = (
 # отдаёт короткий визуальный промпт обложки (EN, ≤300) в ТОМ ЖЕ JSON. Третьего
 # LLM-вызова нет (поле едет в Stage-1); нормализация/обрезка — в
 # `system2_handoff.normalize_cover_prompt`.
+#
+# Review iter1 (Low-7): единый JSON-формат (без дубля «ФОРМАТ ОТВЕТА») —
+# F6-формат включает все три поля; правила cover_prompt — отдельным блоком.
+_SUMMARY_EDITOR_F6_FORMAT = (
+    'ФОРМАТ ОТВЕТА (СТРОГО JSON-объект, без текста вокруг):\n'
+    '{"response_mode": "serious", "digest": "готовая выжимка в Markdown", '
+    '"cover_prompt": "english visual prompt"}')
+
 SUMMARY_EDITOR_COVER_PROMPT_BLOCK = """ПОЛЕ cover_prompt - короткий визуальный промпт для генерации обложки этой выжимки.
 - Строго на английском языке, не длиннее 300 символов.
 - Опиши ОДНУ сцену или образ по главной теме выжимки; без текста, букв и водяных знаков на картинке.
-- Одна фраза, без кавычек и переносов строк.
-
-ФОРМАТ ОТВЕТА (СТРОГО JSON-объект, без текста вокруг):
-{"response_mode": "serious", "digest": "готовая выжимка в Markdown", "cover_prompt": "english visual prompt"}
-Поле digest - та же Markdown-выжимка, что описана выше. Поле cover_prompt - визуальный промпт обложки."""
+- Одна фраза, без кавычек и переносов строк."""
 
 # Слепок канона F3 (с полем response_mode, без cover_prompt) ДО правки F6 —
 # для идемпотентной канон-миграции/отката PG (ADR-1013-3).
 PREV_SUMMARY_EDITOR_R1023_F6 = SUMMARY_EDITOR_SYSTEM_PROMPT
 
 SUMMARY_EDITOR_SYSTEM_PROMPT = (
-    PREV_SUMMARY_EDITOR_R1023_F6 + "\n\n"
-    + SUMMARY_EDITOR_COVER_PROMPT_BLOCK
+    PREV_SUMMARY_EDITOR_R1023_F3 + "\n\n"
+    + _SUMMARY_EDITOR_F6_FORMAT + "\n\n" + _SUMMARY_EDITOR_MODE_RULES
+    + "\n" + SUMMARY_EDITOR_COVER_PROMPT_BLOCK
 )
 
 # Дефолт авторского «Стиля обложки» (код-константа, PG-only сид по
