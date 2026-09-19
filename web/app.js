@@ -1426,12 +1426,14 @@
       },
       // F4 (84.14.5): только доступные вкладки;
       // «Статус» и «Справка» — всегда (RBAC-исключения).
+      // NB (F5 10.24): computed НЕ подключён к разметке (в UI нет полосы
+      // вкладок), поэтому гейт kill-switch `IMAGE_MODULE_CARD_ENABLED` живёт
+      // НЕ здесь, а в `visibleModules` (карточка) и `applyRoute`/`setTab`
+      // (доступ к вкладке) — см. spec §3.2.5 / ADR-1024-9 D6.
       visibleTabs: function () {
         var self = this;
         return this.tabs.filter(function (tab) {
-          return tab.always
-            || (self.canViewTab(tab.id)
-                && !(self._flagTabHidden && self._flagTabHidden(tab.id)));
+          return tab.always || self.canViewTab(tab.id);
         });
       },
       // 3.10: визуальная склейка «ручной + авто» для инфо-строки (превью)
@@ -2874,17 +2876,20 @@
             tabId = routeToTab(route);
             try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
           }
-        } else if (this.me && tabId && this._flagTabHidden
-                   && this._flagTabHidden(tabId)) {
-          // F5 (10.24, ADR-1024-9 review iter1): kill-switch скрывает не
-          // только карточку, но и вкладку — диплинк `#/mod_images` при OFF
-          // редиректится на витрину «Модули».
-          route = '#/modules';
-          tabId = routeToTab(route);
-          try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
         } else if (this.me && tabId && !this.canViewTab(tabId)) {
+          // RBAC имеет ПРИОРИТЕТ над kill-switch: нет права на вкладку →
+          // штатный отказ на `#/` независимо от флага.
           this.toast('Нет доступа к разделу', 'warn');
           route = '#/';
+          tabId = routeToTab(route);
+          try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
+        } else if (this.me && tabId && this._flagTabHidden
+                   && this._flagTabHidden(tabId)) {
+          // F5 (10.24, ADR-1024-9 review iter2): kill-switch скрывает не
+          // только карточку, но и вкладку — диплинк `#/modules/images` при
+          // OFF редиректится на витрину «Модули»; витрина тоже под RBAC
+          // (нет права на `modules` → `#/`).
+          route = this.canViewTab('modules') ? '#/modules' : '#/';
           tabId = routeToTab(route);
           try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
         }

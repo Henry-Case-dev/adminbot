@@ -142,10 +142,12 @@ assert.strictEqual(visible({ IMAGE_MODULE_CARD_ENABLED: false })
 assert.strictEqual(visible({}).filter((m) => m.id === 'mod_images').length, 1,
   'F5: без данных /api/me — безопасный дефолт ON');
 
-// 6) Kill-switch вкладки (review iter1): OFF → `_flagTabHidden` истинна;
-// visibleTabs исключает mod_images; диплинк `#/modules/images` откатывается
-// на витрину `#/modules`. ON — вкладка открывается штатно.
-function flagCtx(uiFlags) {
+// 6) Kill-switch вкладки (review iter2): OFF → `_flagTabHidden` истинна;
+// диплинк `#/modules/images` откатывается на витрину `#/modules`, но RBAC
+// приоритетнее: нет права на вкладку → `#/`. ON — вкладка открывается.
+// `visibleTabs` НЕ является UI-гейтом (computed не подключён к разметке) —
+// реальный гейт в `applyRoute`/`setTab` + карточке `visibleModules`.
+function flagCtx(uiFlags, canView) {
   return {
     route: '#/__none__',
     me: { role_name: 'admin' },
@@ -153,7 +155,7 @@ function flagCtx(uiFlags) {
     tabs: data.tabs,
     toast() {},
     syncBackButton() {},
-    canViewTab() { return true; },
+    canViewTab(id) { return canView ? canView(id) : true; },
     uiFlag: function (name) {
       return methods.uiFlag.call({ me: { ui_flags: uiFlags } }, name);
     },
@@ -174,26 +176,69 @@ assert.strictEqual(
   methods._flagTabHidden.call(flagCtx({}), 'mod_images'), false,
   'F5: без данных /api/me — дефолт ON');
 
-// диплинк при OFF → редирект на #/modules.
+// диплинк при OFF + доступ есть → редирект на #/modules.
 let off = flagCtx({ IMAGE_MODULE_CARD_ENABLED: false });
 methods.applyRoute.call(off, '#/modules/images');
 assert.strictEqual(off.route, '#/modules',
   'F5: OFF — диплинк #/modules/images редиректится на витрину');
 assert.strictEqual(off.activeTab, 'modules', 'F5: OFF — активна витрина «Модули»');
 
-// при ON — вкладка открывается.
+// review iter2 #1: RBAC приоритетнее kill-switch. OFF, но нет права на
+// вкладку → штатный отказ `#/` (не «спасение» на витрину).
+let offNo = flagCtx({ IMAGE_MODULE_CARD_ENABLED: false }, () => false);
+methods.applyRoute.call(offNo, '#/modules/images');
+assert.strictEqual(offNo.route, '#/',
+  'F5: OFF + без доступа → #/ (RBAC приоритетнее kill-switch)');
+assert.strictEqual(offNo.activeTab, 'status', 'F5: OFF + без доступа → status');
+
+// OFF + доступ к mod_images есть, но нет доступа к витрине `modules` → `#/`.
+let offPartial = flagCtx({ IMAGE_MODULE_CARD_ENABLED: false },
+  (id) => id !== 'modules');
+methods.applyRoute.call(offPartial, '#/modules/images');
+assert.strictEqual(offPartial.route, '#/',
+  'F5: OFF + нет права на витрину → #/');
+
+// ON + без доступа → штатный RBAC-отказ (поведение до фикса не изменилось).
+let onNo = flagCtx({ IMAGE_MODULE_CARD_ENABLED: true }, () => false);
+methods.applyRoute.call(onNo, '#/modules/images');
+assert.strictEqual(onNo.route, '#/',
+  'F5: ON + без доступа → #/ (RBAC)');
+
+// при ON + доступ есть — вкладка открывается.
 let on = flagCtx({ IMAGE_MODULE_CARD_ENABLED: true });
 methods.applyRoute.call(on, '#/modules/images');
 assert.strictEqual(on.route, '#/modules/images',
   'F5: ON — диплинк открывает вкладку mod_images');
 assert.strictEqual(on.activeTab, 'mod_images', 'F5: ON — активна mod_images');
 
-// visibleTabs: OFF прячет вкладку mod_images, ON — показывает.
-const tabIds = (uiFlags) => computed.visibleTabs.call(flagCtx(uiFlags))
-  .map((t) => t.id);
-assert.strictEqual(tabIds({ IMAGE_MODULE_CARD_ENABLED: false })
-  .indexOf('mod_images'), -1, 'F5: OFF — вкладки нет в visibleTabs');
-assert(tabIds({ IMAGE_MODULE_CARD_ENABLED: true }).indexOf('mod_images') >= 0,
-  'F5: ON — вкладка есть в visibleTabs');
+// 7) Реальный `setTab`-гейт (review iter2 #3): при OFF активация mod_images
+// невозможна — уходит на витрину «Модули».
+function setTabStub(uiFlags) {
+  return {
+    copiedTimer: null, copiedIndex: null,
+    activeTab: 'status',
+    gateInfo: null, modulesBusy: false,
+    activeChatId: null, configSearch: '',
+    currentTab: null,
+    canViewTab() { return false; },
+    uiFlag: function (name) {
+      return methods.uiFlag.call({ me: { ui_flags: uiFlags } }, name);
+    },
+    _flagTabHidden: function (tabId) {
+      return methods._flagTabHidden.call(this, tabId);
+    },
+    $nextTick() {},
+    stopStatusPolling() {}, stopCognitionPolling() {},
+    destroyCognitionGraph() {}, stopDossierFeedPolling() {},
+  };
+}
+let st = setTabStub({ IMAGE_MODULE_CARD_ENABLED: false });
+methods.setTab.call(st, 'mod_images');
+assert.strictEqual(st.activeTab, 'modules',
+  'F5: setTab при OFF не пускает на mod_images → modules');
+let st2 = setTabStub({ IMAGE_MODULE_CARD_ENABLED: true });
+methods.setTab.call(st2, 'mod_images');
+assert.strictEqual(st2.activeTab, 'mod_images',
+  'F5: setTab при ON открывает mod_images');
 
 console.log('IMAGE-MODULE-OK');
