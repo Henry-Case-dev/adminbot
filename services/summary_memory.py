@@ -511,6 +511,19 @@ def _graph_split_chunks(tail: str) -> list[str]:
     return [tail[i:i + chunk] for i in range(0, limit, chunk)]
 
 
+def _graph_max_triplets() -> int:
+    """F1/R1024F1-03: батч-кап триплетов (тот же резолв, что в parse_triplets).
+
+    ``parse_triplets`` режет ≤N на КАЖДЫЙ чанк; при 2 чанках на батч писало бы
+    до 2N. После агрегации применяем единый батч-кап. ``0`` → кап выключен
+    (совместимо с ``or 0`` в parse_triplets)."""
+    try:
+        return int(hot.get("limits.graph_extract_max_triplets",
+                           settings.GRAPH_EXTRACT_MAX_TRIPLETS) or 0)
+    except Exception:  # pragma: no cover
+        return 0
+
+
 class GraphExtractionError(Exception):
     """Raw LLM extraction answer is not a JSON array of triplets (35.4)."""
 
@@ -1182,10 +1195,11 @@ class MemoryManager:
         self._reactivate_lock = asyncio.Lock()
         # Epic 60 (66.6, T-484): int8-coarse + float-реранк (VEC_INT8_ENABLED).
         self._vec_int8 = False
-        # F1 (ADR-1024-6 D3): счётчик ПОСЛЕДОВАТЕЛЬНЫХ полных фейлов батча
-        # graph-extract. При достижении порога батч явно отбрасывается
-        # (mark + dropped_metric); успех сбрасывает счётчик.
-        self._graph_batch_failures = 0
+        # F1 (ADR-1024-6 D3, R1024F1-04): счётчик ПОСЛЕДОВАТЕЛЬНЫХ полных
+        # фейлов батча graph-extract — PER-CHAT (фейлы чата A не отбрасывают
+        # батч чата B). При достижении порога батч явно отбрасывается
+        # (mark + dropped_metric); успех/пустой результат сбрасывает счётчик.
+        self._graph_batch_failures: dict[int, int] = {}
 
     # ── Initialization (R3: graceful sqlite-vec load + self-heal) ──────────
 
@@ -3289,11 +3303,14 @@ class MemoryManager:
         facts = [line.strip() for line in raw.splitlines() if line.strip()]
         return facts[:10]
 
-    def _log_graph_no_triplets(self, chat_id: int, raw: str) -> None:
+    def _log_graph_empty_result(self, chat_id: int, *, empty_valid: bool,
+                                raw_len: int = 0) -> None:
         """F8 (ADR-1019-7 D5): «валидный []» vs «невалидный ответ» — в лог.
 
-        R17-safe: значения/сырой ответ не логируются, только длина."""
-        if str(raw).strip() == "[]":
+        R17-safe: значения/сырой ответ не логируются, только длина.
+        R1024F1-05: в чанковом канале агрегируется признак: ``empty_valid``
+        True только если ВСЕ успешные чанки вернули ровно ``[]``."""
+        if empty_valid:
             # S10.19-1: rate-limited INFO вместо невидимого DEBUG.
             _log_empty_valid(chat_id, "triplets", label="graph extract")
             trace_step(logger, component="graph", step="parse",
@@ -3303,40 +3320,55 @@ class MemoryManager:
                 "graph extract: no triplets parsed | chat_id=%s", chat_id)
             trace_step(logger, component="graph", step="parse",
                        status="error", reason="no_triplets", chat_id=chat_id,
-                       extra={"raw_len": len(str(raw or ""))})
+                       extra={"raw_len": raw_len})
+
+    def _log_graph_no_triplets(self, chat_id: int, raw: str) -> None:
+        """F8 (legacy/одиночный путь): разбор одного raw-ответа."""
+        self._log_graph_empty_result(
+            chat_id, empty_valid=(str(raw).strip() == "[]"),
+            raw_len=len(str(raw or "")))
 
     async def _write_graph_triplets(self, chat_id: int, triplets: list) -> None:
         """Фаза B (ADR-1024-6 D3, extract-then-write): upsert узлов/связей.
 
-        Вызывается РОВНО один раз на батч (после успешного извлечения) — это
-        исключает инфляцию весов при повторном прогоне того же батча."""
-        for triplet in triplets:
-            # Epic 60 (66.9, T-487): user-сущности — канон-имена по алиасам
-            # (карточки /persona и связи графа агрегируются по одному имени).
-            subject = _normalize_name(triplet["subject"])
-            obj = _normalize_name(triplet["object"])
-            if triplet["subject_type"] == "user":
-                subject = self._canon_fact_name(subject)
-            if triplet["object_type"] == "user":
-                obj = self._canon_fact_name(obj)
-            sid = await self.db.upsert_node(
-                chat_id, subject, triplet["subject_type"]
-            )
-            oid = await self.db.upsert_node(
-                chat_id, obj, triplet["object_type"]
-            )
-            # F3 (T-1774, ADR-1018-3 D1): cron-путь graph_facts НЕ создаёт →
-            # fact_id ребра остаётся NULL ОСОЗНАННО (без provenance); скоринг
-            # деградирует к COALESCE(importance, weight).
-            await self.db.upsert_edge(
-                sid,
-                oid,
-                _normalize_name(triplet["predicate"]),
-                weight_increment=(await _chat_limit(
-                    chat_id, "limits.graph_edge_weight_increment",
-                    hot.get("limits.graph_edge_weight_increment",
-                            settings.GRAPH_EDGE_WEIGHT_INCREMENT)) or 0),
-            )
+        Вызывается РОВНО один раз на батч (после успешного извлечения) —
+        исключает инфляцию весов при повторном прогоне. R1024F1-06: весь
+        цикл — в ОДНОЙ транзакции (mid-write сбой → rollback, нет частичной
+        записи и повторного наращивания веса)."""
+        await self.db.db.execute("BEGIN")
+        try:
+            for triplet in triplets:
+                # Epic 60 (66.9, T-487): user-сущности — канон-имена по алиасам
+                # (карточки /persona и связи графа агрегируются по одному имени).
+                subject = _normalize_name(triplet["subject"])
+                obj = _normalize_name(triplet["object"])
+                if triplet["subject_type"] == "user":
+                    subject = self._canon_fact_name(subject)
+                if triplet["object_type"] == "user":
+                    obj = self._canon_fact_name(obj)
+                sid = await self.db.upsert_node(
+                    chat_id, subject, triplet["subject_type"], commit=False
+                )
+                oid = await self.db.upsert_node(
+                    chat_id, obj, triplet["object_type"], commit=False
+                )
+                # F3 (T-1774, ADR-1018-3 D1): cron-путь graph_facts НЕ создаёт →
+                # fact_id ребра остаётся NULL ОСОЗНАННО (без provenance); скоринг
+                # деградирует к COALESCE(importance, weight).
+                await self.db.upsert_edge(
+                    sid,
+                    oid,
+                    _normalize_name(triplet["predicate"]),
+                    weight_increment=(await _chat_limit(
+                        chat_id, "limits.graph_edge_weight_increment",
+                        hot.get("limits.graph_edge_weight_increment",
+                                settings.GRAPH_EDGE_WEIGHT_INCREMENT)) or 0),
+                    commit=False,
+                )
+            await self.db.db.commit()
+        except Exception:
+            await self.db.db.rollback()
+            raise
         logger.info("graph: triplets=%d | chat_id=%s", len(triplets), chat_id)
         trace_step(logger, component="graph", step="write", status="ok",
                    reason="saved", chat_id=chat_id,
@@ -3365,7 +3397,8 @@ class MemoryManager:
         tail = text[-_GRAPH_EXTRACT_MAX_CHARS:]
 
         if not _graph_retry_enabled():
-            # Kill-switch (ADR-1024-6 D2): байт-в-байт прежний одиночный путь.
+            # Kill-switch (ADR-1024-6 D2): прежний одиночный путь. Финальная
+            # INFO `graph: triplets=N` сохраняется и при N=0 (R1024F1-02).
             raw = await self.llm.generate(
                 [
                     {"role": "system", "content": EXTRACT_PROMPT},
@@ -3375,6 +3408,7 @@ class MemoryManager:
             triplets = parse_triplets(raw)
             if not triplets:
                 self._log_graph_no_triplets(chat_id, raw)
+                logger.info("graph: triplets=0 | chat_id=%s", chat_id)
                 return
             await self._write_graph_triplets(chat_id, triplets)
             return
@@ -3387,6 +3421,9 @@ class MemoryManager:
         chunks_ok = 0
         chunks_failed = 0
         last_reason = "unknown"
+        # R1024F1-05: различение «валидный []» vs «мусор» агрегируется по чанкам.
+        empty_valid = True
+        raw_len_total = 0
         for index, chunk in enumerate(chunks):
             try:
                 raw = await self.llm.generate_background(
@@ -3398,8 +3435,7 @@ class MemoryManager:
                     deadline=deadline,
                     max_attempts=max_attempts,
                 )
-                triplets.extend(parse_triplets(raw))
-                chunks_ok += 1
+                parsed = parse_triplets(raw)
             except Exception as exc:  # noqa: BLE001 — фон не должен ронять крон
                 chunks_failed += 1
                 last_reason = type(exc).__name__
@@ -3407,15 +3443,27 @@ class MemoryManager:
                            status="error", reason=last_reason, chat_id=chat_id,
                            extra={"chunk": index, "chunks_ok": chunks_ok,
                                   "chunks_failed": chunks_failed})
+                continue
+            triplets.extend(parsed)
+            chunks_ok += 1
+            if not parsed and str(raw).strip() != "[]":
+                empty_valid = False
+                raw_len_total += len(str(raw or ""))
+
+        # R1024F1-03: parse_triplets режет ≤N на КАЖДЫЙ чанк → применяем
+        # единый батч-кап после агрегации (иначе 2 чанка дают до 2N рёбер).
+        max_triplets = _graph_max_triplets()
+        if max_triplets > 0:
+            triplets = triplets[:max_triplets]
 
         if triplets:
             # ── Фаза B: запись ровно один раз на батч ────────────────────
             await self._write_graph_triplets(chat_id, triplets)
-            self._graph_batch_failures = 0
+            self._graph_batch_failures.pop(chat_id, None)
             if chunks_failed:
                 trace_step(logger, component="graph", step="extract",
                            status="partial", reason="graph_extract_partial",
-                           chat_id=chat_id,
+                           event="graph_extract_partial", chat_id=chat_id,
                            extra={"chunks_ok": chunks_ok,
                                   "chunks_failed": chunks_failed,
                                   "triplets": len(triplets)},
@@ -3423,24 +3471,26 @@ class MemoryManager:
             return
 
         if chunks_failed == 0:
-            # Все чанки ответили, но графа в них нет (валидный `[]`) — это НЕ
-            # потеря: батч можно помечать (прежняя семантика D68/F8).
-            _log_empty_valid(chat_id, "triplets", label="graph extract")
-            trace_step(logger, component="graph", step="parse",
-                       status="empty", reason="empty_list", chat_id=chat_id)
-            self._graph_batch_failures = 0
+            # Все чанки ответили, но графа в них нет — это НЕ потеря: батч
+            # можно помечать (прежняя семантика D68/F8), но с различением
+            # «валидный []» и «мусор» (R1024F1-05).
+            self._log_graph_empty_result(chat_id, empty_valid=empty_valid,
+                                         raw_len=raw_len_total)
+            self._graph_batch_failures.pop(chat_id, None)
             return
 
         # ── none-ok (есть упавшие чанки): БД не пишем, mark НЕ ставим ────
-        self._graph_batch_failures += 1
+        # R1024F1-04: счётчик ведётся PER-CHAT (фейлы другого чата не влияют).
+        failures = self._graph_batch_failures.get(chat_id, 0) + 1
+        self._graph_batch_failures[chat_id] = failures
         max_failures = _env_graph_int("GRAPH_EXTRACT_MAX_BATCH_FAILURES", 3)
-        if self._graph_batch_failures >= max_failures:
+        if failures >= max_failures:
             # «Отравленный» батч: явный отброс + метрика (не молча).
-            self._graph_batch_failures = 0
+            self._graph_batch_failures.pop(chat_id, None)
             dropped_total = _count_graph_dropped()
             log_dropped(logger, component="graph",
                         reason="graph_extract_dropped", count=1,
-                        chat_id=chat_id,
+                        event="graph_extract_dropped", chat_id=chat_id,
                         extra={"chunks_failed": chunks_failed,
                                "failures": max_failures,
                                "reason_class": last_reason,
@@ -3449,9 +3499,10 @@ class MemoryManager:
                 f"graph extract dropped after {max_failures} failures "
                 f"| chat_id={chat_id} | reason={last_reason}")
         trace_step(logger, component="graph", step="extract", status="error",
-                   reason="graph_extract_failed", chat_id=chat_id,
+                   reason="graph_extract_failed",
+                   event="graph_extract_failed", chat_id=chat_id,
                    extra={"chunks_ok": chunks_ok, "chunks_failed": chunks_failed,
-                          "failures": self._graph_batch_failures,
+                          "failures": failures,
                           "reason_class": last_reason})
         raise GraphExtractionError(
             f"graph extract failed: all {len(chunks)} chunk(s) failed "

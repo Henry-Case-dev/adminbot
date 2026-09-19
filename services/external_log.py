@@ -205,15 +205,21 @@ def _level_for_status(status) -> int:
 
 
 def trace_step(logger, *, component, step, status, reason=None, chat_id=None,
-               extra=None, level: int | None = None) -> None:
+               extra=None, level: int | None = None,
+               event: str | None = None) -> None:
     """Одна строка ``event=pipeline_step`` (сквозная трассировка пайплайна).
 
     ``level=None`` → правило: ``ok/skip/empty/duplicate`` → ``INFO``,
-    ``error/dropped`` → ``ERROR``, иначе ``WARNING``. Никогда не бросает."""
+    ``error/dropped`` → ``ERROR``, иначе ``WARNING``. Никогда не бросает.
+
+    ``event`` (раунд 10.24 F1, ADR-1024-6 D4): опциональный явный ключ события
+    вместо ``pipeline_step`` (например, ``graph_extract_partial``/``_failed``).
+    ``None`` → прежнее поведение (F2 байт-в-байт)."""
     try:
         if level is None:
             level = _level_for_status(status)
-        parts = ["[pipeline]", "event=pipeline_step",
+        event_key = (safe_text(event, limit=64) if event else "pipeline_step")
+        parts = ["[pipeline]", f"event={event_key}",
                  f"component={safe_text(component, limit=64)}",
                  f"step={safe_text(step, limit=64)}",
                  f"status={safe_text(status, limit=32)}"]
@@ -228,10 +234,15 @@ def trace_step(logger, *, component, step, status, reason=None, chat_id=None,
 
 
 def log_dropped(logger, *, component, reason, count=1, chat_id=None,
-                extra=None) -> None:
-    """``event=dropped_metric`` — потеря данных видима и считается (ERROR)."""
+                extra=None, event: str | None = None) -> None:
+    """``event=dropped_metric`` — потеря данных видима и считается (ERROR).
+
+    ``event`` (раунд 10.24 F1, ADR-1024-6 D4): опциональный явный ключ события
+    вместо ``dropped_metric`` (например, ``graph_extract_dropped`` для
+    грепа/алерта Betterstack). ``None`` → прежнее поведение (F2 байт-в-байт)."""
     try:
-        parts = ["[pipeline]", "event=dropped_metric",
+        event_key = (safe_text(event, limit=64) if event else "dropped_metric")
+        parts = ["[pipeline]", f"event={event_key}",
                  f"component={safe_text(component, limit=64)}",
                  f"reason={safe_text(reason, limit=_EXTRA_VALUE_LIMIT)}",
                  f"count={_fmt_value(count)}"]

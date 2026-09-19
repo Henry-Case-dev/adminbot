@@ -24,6 +24,8 @@ from services.summary_memory import (
     GraphExtractionError,
     MemoryManager,
     _FACT_RETRY_SYSTEM_PROMPT,
+    _GRAPH_EXTRACT_MAX_CHARS,
+    _build_batch_text,
     _fallback_parse_facts,
     _graph_split_chunks,
     _log_memorize_lost,
@@ -405,6 +407,8 @@ class _PerChunkLLM:
         self.calls = 0
         self.bg_calls = 0
         self.legacy_calls = 0
+        self.bg_kwargs: list[dict] = []
+        self.bg_payloads: list[str] = []
 
     async def generate(self, messages):
         self.legacy_calls += 1
@@ -415,6 +419,9 @@ class _PerChunkLLM:
         idx = self.calls
         self.calls += 1
         self.bg_calls += 1
+        self.bg_kwargs.append({"purpose": purpose, "deadline": deadline,
+                               "max_attempts": max_attempts})
+        self.bg_payloads.append(messages[1]["content"])
         outcome = self.outcomes[idx] if idx < len(self.outcomes) else "fail"
         if outcome == "fail":
             raise LLMError("LLM timeout после попыток")
@@ -440,7 +447,7 @@ class TestGraphExtractF1:
 
     @pytest.mark.asyncio
     async def test_timeout_keeps_batch_and_logs_failed(self, db, caplog):
-        """(a) все чанки упали → батч не обработан, лог graph_extract_failed."""
+        """(a) все чанки упали → батч не обработан, лог event=graph_extract_failed."""
         import logging
 
         old = int(time.time()) - 40 * 86400
@@ -450,12 +457,13 @@ class TestGraphExtractF1:
             await memory.compress_and_purge(-100)
         raw = await db.get_smart_raw(-100, int(time.time()) + 1, 100)
         assert [r["text"] for r in raw] == ["старое про войну"]
-        assert any("graph_extract_failed" in r.getMessage()
+        # R1024F1-01: точный согласованный ключ события (не просто подстрока).
+        assert any("event=graph_extract_failed " in r.getMessage()
                    for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_partial_writes_ok_chunk_and_logs_partial(self, db, caplog):
-        """(b) 1 чанк ok, 1 failed → записан граф + graph_extract_partial."""
+        """(b) 1 чанк ok, 1 failed → записан граф + event=graph_extract_partial."""
         import logging
 
         triplet = json.dumps([_triplet()], ensure_ascii=False)
@@ -467,7 +475,7 @@ class TestGraphExtractF1:
         cursor = await db.db.execute("SELECT COUNT(*) AS c FROM edges")
         row = await cursor.fetchone()
         assert row["c"] == 1
-        assert any("graph_extract_partial" in r.getMessage()
+        assert any("event=graph_extract_partial " in r.getMessage()
                    for r in caplog.records)
 
     @pytest.mark.asyncio
@@ -487,6 +495,34 @@ class TestGraphExtractF1:
         assert (await cursor.fetchone())["c"] == 1
 
     @pytest.mark.asyncio
+    async def test_kill_switch_receives_full_tail_and_final_info(self, db,
+                                                                 monkeypatch,
+                                                                 caplog):
+        """R1024F1-02: OFF-ветка шлёт полный хвост ≤8000 и сохраняет финальную
+        INFO `graph: triplets=N` (в т.ч. N=0)."""
+        import logging
+
+        batch = [{"author_name": "вася", "text": "a" * 9000}]
+        full = _build_batch_text(batch, skip_empty=True)
+        llm = _PerChunkLLM([], legacy_response="[]")
+        captured = {}
+
+        async def fake_generate(messages):
+            captured["user"] = messages[1]["content"]
+            return "[]"
+
+        memory = MemoryManager(db, llm)
+        memory.llm.generate = fake_generate
+        monkeypatch.setattr(
+            type(settings), "GRAPH_EXTRACT_RETRY_ENABLED", False)
+        with caplog.at_level(logging.INFO):
+            await memory._extract_and_save_graph(-100, batch)
+        assert captured["user"] == full[-_GRAPH_EXTRACT_MAX_CHARS:]
+        assert len(captured["user"]) == 8000
+        assert any("graph: triplets=0" in r.getMessage()
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
     async def test_no_weight_inflation_after_failed_attempt(self, db):
         """(f) упавшая попытка НЕ пишет БД → повторный прогон не инфлирует вес."""
         triplet = json.dumps([_triplet()], ensure_ascii=False)
@@ -501,7 +537,8 @@ class TestGraphExtractF1:
 
     @pytest.mark.asyncio
     async def test_three_failures_drop_batch_and_count(self, db, caplog):
-        """(c) 3 полных фейла подряд → GraphExtractDropped + счётчик."""
+        """(c) 3 полных фейла подряд → GraphExtractDropped + счётчик +
+        точный event=graph_extract_dropped (R1024F1-01)."""
         import logging
 
         before = graph_extract_dropped_total()
@@ -515,14 +552,14 @@ class TestGraphExtractF1:
             with pytest.raises(GraphExtractDropped):
                 await memory._extract_and_save_graph(-100, batch)
         assert graph_extract_dropped_total() == before + 1
-        assert memory._graph_batch_failures == 0
-        assert any("graph_extract_dropped" in r.getMessage()
+        assert memory._graph_batch_failures == {}
+        assert any("event=graph_extract_dropped " in r.getMessage()
                    for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_dropped_batch_is_marked_by_caller(self, db):
-        """(c) на пороге caller штатно завершает батч (mark/delete) — очередь
-        графа не стоит на «отравленном» батче."""
+        """(c) System-2 drop-ветка: caller штатно завершает батч (mark/delete) —
+        очередь графа не стоит на «отравленном» батче."""
         old = int(time.time()) - 40 * 86400
         await _save(db, -100, "старое", old, author="вася")
         memory = MemoryManager(db, FakeLLM(facts="факт", fail_extract=True))
@@ -532,6 +569,148 @@ class TestGraphExtractF1:
                 -100, int(time.time()) + 1, 100)) == 1
         await memory.compress_and_purge(-100)            # 3-й фейл → drop+mark
         assert await db.get_smart_raw(-100, int(time.time()) + 1, 100) == []
+
+    @pytest.mark.asyncio
+    async def test_failure_counter_isolated_per_chat(self, db):
+        """R1024F1-04: счётчик per-chat — фейлы чата A не отбрасывают батч B."""
+        memory = MemoryManager(db, FakeLLM(fail_extract=True))
+        batch = [{"author_name": "вася", "text": "старое"}]
+        with pytest.raises(GraphExtractionError):
+            await memory._extract_and_save_graph(-100, batch)
+        with pytest.raises(GraphExtractionError):
+            await memory._extract_and_save_graph(-100, batch)
+        # первый собственный сбой чата B — НЕ drop (счётчик A не влияет)
+        with pytest.raises(GraphExtractionError):
+            await memory._extract_and_save_graph(-200, batch)
+        assert memory._graph_batch_failures.get(-100) == 2
+        assert memory._graph_batch_failures.get(-200) == 1
+
+    @pytest.mark.asyncio
+    async def test_env_overrides_chunking_deadline_attempts(self, db,
+                                                            monkeypatch):
+        """R1024F1-07.1: env-override чанкинга/дедлайна/попыток применяется."""
+        monkeypatch.setattr(type(settings), "GRAPH_EXTRACT_CHUNK_CHARS", 1000)
+        monkeypatch.setattr(type(settings), "GRAPH_EXTRACT_MAX_CHUNKS", 2)
+        monkeypatch.setattr(type(settings), "GRAPH_EXTRACT_TIMEOUT_SECONDS", 7.5)
+        monkeypatch.setattr(type(settings), "GRAPH_EXTRACT_MAX_ATTEMPTS", 4)
+        llm = _PerChunkLLM([])                       # все чанки → fail
+        memory = MemoryManager(db, llm)
+        with pytest.raises(GraphExtractionError):
+            await memory._extract_and_save_graph(-100, _long_batch())
+        assert llm.bg_calls == 2                     # 5000/1000, потолок 2
+        assert {k["deadline"] for k in llm.bg_kwargs} == {7.5}
+        assert {k["max_attempts"] for k in llm.bg_kwargs} == {4}
+        assert {k["purpose"] for k in llm.bg_kwargs} == {"graph_extract"}
+
+    @pytest.mark.asyncio
+    async def test_batch_triplet_cap_after_aggregation(self, db, monkeypatch):
+        """R1024F1-03/07.5: батч-кап триплетов применяется ПОСЛЕ агрегации."""
+        # GRAPH_EXTRACT_MAX_TRIPLETS — обычное dataclass-поле (не ClassVar) →
+        # подменяем сам объект settings в модуле (как в прочих тестах).
+        monkeypatch.setattr(
+            "services.summary_memory.settings",
+            replace(settings, GRAPH_EXTRACT_MAX_TRIPLETS=1))
+        first = json.dumps([_triplet(subject="аня", obj="ира")],
+                           ensure_ascii=False)
+        second = json.dumps([_triplet(subject="оля", obj="дима")],
+                            ensure_ascii=False)
+        llm = _PerChunkLLM([first, second])
+        memory = MemoryManager(db, llm)
+        await memory._extract_and_save_graph(-100, _long_batch())
+        assert llm.bg_calls == 2                     # 2 чанка дали 2 триплета
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM edges")
+        assert (await cursor.fetchone())["c"] == 1   # батч-кап = 1
+
+    @pytest.mark.asyncio
+    async def test_chunk_mode_tail_capped_to_8000(self, db):
+        """R1024F1-07.4: в чанковом режиме хвост по-прежнему ≤8000."""
+        batch = [{"author_name": "вася", "text": "s" * 20000}]
+        full = _build_batch_text(batch, skip_empty=True)
+        triplet = json.dumps([_triplet()], ensure_ascii=False)
+        llm = _PerChunkLLM([triplet] * 3)
+        memory = MemoryManager(db, llm)
+        await memory._extract_and_save_graph(-100, batch)
+        joined = "".join(llm.bg_payloads)
+        assert joined == full[-_GRAPH_EXTRACT_MAX_CHARS:]
+        assert len(joined) == 8000
+
+    @pytest.mark.asyncio
+    async def test_empty_valid_vs_no_triplets_aggregated(self, db, caplog):
+        """R1024F1-05: валидный `[]` (empty_list) vs мусор (no_triplets).
+
+        Первый прогон — оба чанка вернули `[]` → empty_list; второй — один
+        чанк вернул валидный JSON с мусорными элементами → no_triplets."""
+        import logging
+
+        memory = MemoryManager(db, FakeLLM(extract_response="[]"))
+        with caplog.at_level(logging.INFO):
+            await memory._extract_and_save_graph(-100, _long_batch())
+        assert any("reason=empty_list" in r.getMessage()
+                   for r in caplog.records)
+
+        caplog.clear()
+        junk_llm = _PerChunkLLM([json.dumps([{"nope": 1}]), "[]"])
+        memory2 = MemoryManager(db, junk_llm)
+        with caplog.at_level(logging.INFO):
+            await memory2._extract_and_save_graph(-100, _long_batch())
+        assert any("reason=no_triplets" in r.getMessage()
+                   for r in caplog.records)
+        assert not any("reason=empty_list" in r.getMessage()
+                       for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_write_transaction_rolls_back_midway(self, db, monkeypatch):
+        """R1024F1-06: mid-write сбой → rollback, частичной записи нет."""
+        memory = MemoryManager(db, FakeLLM())
+        calls = {"n": 0}
+        orig = db.upsert_edge
+
+        async def flaky(*args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 2:
+                raise RuntimeError("db mid-write")
+            return await orig(*args, **kwargs)
+
+        monkeypatch.setattr(db, "upsert_edge", flaky)
+        triplets = [
+            _triplet(subject="аня", obj="ира"),
+            _triplet(subject="оля", obj="дима"),
+        ]
+        with pytest.raises(RuntimeError):
+            await memory._write_graph_triplets(-100, triplets)
+        assert calls["n"] == 2
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM nodes")
+        assert (await cursor.fetchone())["c"] == 0
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM edges")
+        assert (await cursor.fetchone())["c"] == 0
+
+    @pytest.mark.asyncio
+    async def test_partial_marks_batch_in_extract_only(self, db):
+        """R1024F1-07.2: partial в extract-only-ветке → mark (history_processed)."""
+        old = int(time.time()) - 40 * 86400
+        await _save(db, -100, "x" * 5000, old, author="вася")
+        triplet = json.dumps([_triplet()], ensure_ascii=False)
+        memory = MemoryManager(db, _PerChunkLLM([triplet, "fail"]))
+        await memory._compress_purge_extract_only(-100)
+        cursor = await db.db.execute(
+            "SELECT history_processed FROM smart_messages "
+            "WHERE chat_id = -100 AND import_key IS NULL")
+        assert (await cursor.fetchone())["history_processed"] == 1
+
+    @pytest.mark.asyncio
+    async def test_chunk_text_not_leaked_to_log(self, db, caplog):
+        """R1024F1-07.6: текст чанка (сообщения) НЕ попадает в лог (R17)."""
+        import logging
+
+        marker = "SECRET_CHUNK_MARKER_42"
+        old = int(time.time()) - 40 * 86400
+        await _save(db, -100, marker + " " + "ю" * 100, old, author="вася")
+        memory = MemoryManager(db, FakeLLM(facts="факт", fail_extract=True))
+        with caplog.at_level(logging.DEBUG):
+            with pytest.raises(GraphExtractionError):
+                await memory._extract_and_save_graph(
+                    -100, [{"author_name": "вася", "text": marker}])
+        assert marker not in caplog.text
 
 
 # ── get_graph_facts (R26-3: детерминированный поиск для /summary) ─

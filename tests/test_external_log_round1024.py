@@ -181,6 +181,41 @@ class TestHelperRobustness:
         assert "count=3" in msg and "chat_id=7" in msg
 
 
+class TestOptionalEventKey:
+    """Раунд 10.24 F1 (ADR-1024-6 D4): опциональный `event` в хелперах.
+
+    Default (`event=None`) остаётся байт-в-байт (F2); явный event печатается
+    как согласованный ключ алерта (`event=graph_extract_*`)."""
+
+    def test_default_events_unchanged(self, caplog):
+        with caplog.at_level(logging.INFO):
+            el.trace_step(logging.getLogger("t"), component="c", step="s",
+                          status="ok")
+            el.log_dropped(logging.getLogger("t"), component="c", reason="r")
+        assert _find(caplog, "event=pipeline_step")
+        assert _find(caplog, "event=dropped_metric")
+
+    def test_custom_event_key_emitted(self, caplog):
+        with caplog.at_level(logging.INFO):
+            el.trace_step(logging.getLogger("t"), component="graph",
+                          step="extract", status="partial",
+                          reason="graph_extract_partial",
+                          event="graph_extract_partial")
+            el.trace_step(logging.getLogger("t"), component="graph",
+                          step="extract", status="error",
+                          reason="graph_extract_failed",
+                          event="graph_extract_failed")
+            el.log_dropped(logging.getLogger("t"), component="graph",
+                           reason="graph_extract_dropped",
+                           event="graph_extract_dropped")
+        assert "event=graph_extract_partial" in caplog.text
+        assert "event=graph_extract_failed" in caplog.text
+        assert "event=graph_extract_dropped" in caplog.text
+        # прежние ключи НЕ печатаются при явном event
+        assert "event=pipeline_step" not in caplog.text
+        assert "event=dropped_metric" not in caplog.text
+
+
 # ── (g) kill-switch ─────────────────────────────────────────────────────────
 
 class TestKillSwitch:

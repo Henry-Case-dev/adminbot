@@ -2471,9 +2471,14 @@ class DatabaseService:
     # ── GraphRAG: nodes/edges (Epic 26, Section 35.2) ───────
 
     async def upsert_node(self, chat_id: int, entity_name: str, entity_type: str,
-                          origin: str = "chat_history", expires_at=None) -> int:
+                          origin: str = "chat_history", expires_at=None,
+                          commit: bool = True) -> int:
         """INSERT OR IGNORE (ключ chat_id+entity_name): существующий узел сохраняет
-        СВОЙ тип/origin (не перезаписывается); новые получают origin/expires_at."""
+        СВОЙ тип/origin (не перезаписывается); новые получают origin/expires_at.
+
+        Раунд 10.24 (F1, ADR-1024-6 D3): `commit=False` — запись остаётся в
+        текущей транзакции вызывающего (атомарная фаза B graph-extract);
+        дефолт True сохраняет поведение всех прочих вызовов."""
         await self.db.execute(
             "INSERT OR IGNORE INTO nodes (chat_id, entity_name, entity_type, origin, expires_at) "
             "VALUES (?, ?, ?, ?, ?)",
@@ -2484,7 +2489,8 @@ class DatabaseService:
             (chat_id, entity_name),
         )
         row = await cursor.fetchone()
-        await self.db.commit()
+        if commit:
+            await self.db.commit()
         return row["id"]
 
     async def upsert_edge(
