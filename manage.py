@@ -908,13 +908,19 @@ def _cmd_disk(args) -> int:
               f"({dr.human_bytes(report['immutable_bytes'])})")
         print(f"  total_bytes={report['total_bytes']} "
               f"({dr.human_bytes(report['total_bytes'])})")
+        print(f"  log_retention_days={report['log_retention_days']} "
+              "(journald: docs/runbook-disk-retention.md)")
         for item in report["top_files"]:
             print(f"  top: {item['name']} bytes={item['bytes']} "
                   f"category={item['category']}")
         forecast = dr.forecast_monthly(dirs)
         print(f"  forecast: bytes_per_day={forecast['bytes_per_day']} "
               f"projected_30d={forecast['projected_30d']} "
-              f"({dr.human_bytes(forecast['projected_30d'])})")
+              f"({dr.human_bytes(forecast['projected_30d'])}) "
+              f"files={forecast['files']} "
+              f"immutable_bytes={forecast['immutable_bytes']} "
+              f"span_days={forecast['span_days']}")
+        print(f"  forecast_method: {forecast['method']}")
         return 0
 
     plan = dr.plan_cleanup(dirs)

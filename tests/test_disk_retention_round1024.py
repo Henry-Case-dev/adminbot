@@ -14,13 +14,14 @@ import os
 import re
 import sqlite3
 import time
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 import manage
 import services.disk_retention as dr
-from config.settings import Settings
+from config.settings import Settings, settings as _settings
 
 
 def _set_mtime(path: Path, days_ago: float) -> None:
@@ -125,12 +126,53 @@ class TestHistoryImmutable:
 
     def test_hard_even_if_flag_false(self, tmp_path, monkeypatch, caplog):
         monkeypatch.setattr(Settings, "HISTORY_JSONL_IMMUTABLE", False)
+        monkeypatch.setattr(dr, "_log_retention_warned", False)
         f = _mk(tmp_path / "imported_history_x.jsonl", '{"chat_id":1}\n',
                 days_ago=500)
         with caplog.at_level(logging.WARNING):
             assert dr.classify(f) == "immutable"
             assert dr.plan_cleanup([tmp_path]) == []
+        assert any("HISTORY_JSONL_IMMUTABLE=false" in r.message
+                   for r in caplog.records)
         assert f.exists()
+
+
+class TestFailClosedHistory:
+    """High-находки ревью: sniff fail-closed и re-classify в примитиве удаления."""
+
+    def test_unreadable_jsonl_is_history(self, tmp_path, monkeypatch):
+        f = _mk(tmp_path / "neutral_name.jsonl", '{"id":1}\n', days_ago=400)
+        real_open = open
+
+        def _boom(path, *args, **kwargs):
+            if str(path) == str(f):
+                raise OSError("denied")
+            return real_open(path, *args, **kwargs)
+
+        monkeypatch.setattr("builtins.open", _boom)
+        assert dr.classify(f) == "immutable"
+        assert dr.plan_cleanup([tmp_path]) == []
+
+    def test_apply_blocks_immutable_item_in_plan(self, tmp_path):
+        imp = _mk(tmp_path / "imported_history_x.jsonl", '{"chat_id":1}\n',
+                  days_ago=400)
+        _mk(tmp_path / "local_database_20260101.db", b"valid", days_ago=1)
+        plan = [{"path": str(imp), "category": "jsonl_retention",
+                 "reason": "evil-plan", "bytes": 1}]
+        result = dr.apply_cleanup(plan, verify=False, dirs=[tmp_path])
+        assert result["blocked"] == 1
+        assert result["deleted"] == 0
+        assert imp.exists()
+
+    def test_sniff_history_excluded_end_to_end(self, tmp_path):
+        sniff = _mk(tmp_path / "dump_random.jsonl",
+                    '{"chat_id":1,"user_id":2,"text":"hi","timestamp":1}\n',
+                    days_ago=400)
+        _mk(tmp_path / "local_database_20260101.db", b"valid", days_ago=1)
+        plan = dr.plan_cleanup([tmp_path])
+        assert all(item["path"] != str(sniff) for item in plan)
+        dr.apply_cleanup(plan, verify=True, dirs=[tmp_path])
+        assert sniff.exists()
 
 
 # ── (c) окно не-history JSONL ───────────────────────────────────────────────
@@ -189,7 +231,7 @@ class TestFailClosed:
     def test_empty_plan_is_noop(self):
         assert dr.apply_cleanup([]) == {
             "deleted": 0, "bytes_freed": 0, "aborted_reason": "",
-            "skipped": 0, "errors": 0, "categories": {}}
+            "skipped": 0, "errors": 0, "blocked": 0, "categories": {}}
 
 
 # ── (e) CLI ─────────────────────────────────────────────────────────────────
@@ -243,11 +285,15 @@ class TestForecast:
         per_day = recent / 10.0
         assert report["bytes_per_day"] == int(per_day)
         assert report["projected_30d"] == int(per_day * 30)
+        assert report["files"] == 2
+        assert report["immutable_bytes"] == 0
+        assert "method" in report
 
     def test_empty_dirs_zero(self, tmp_path):
         report = dr.forecast_monthly([tmp_path], now=1_700_000_000.0)
         assert report["bytes_per_day"] == 0
         assert report["projected_30d"] == 0
+        assert report["files"] == 0
 
 
 # ── (g) egress: без секретов ────────────────────────────────────────────────
@@ -293,3 +339,39 @@ class TestFlags:
         assert dr.prune_db_backups(tmp_path) == []
         assert dr.plan_cleanup([tmp_path]) == []
         assert (tmp_path / "local_database_old.db").exists()
+
+
+class TestDefaultDirs:
+    """Medium: CLI-дефолт обязан совпадать с резолвом рантайма (hot-config)."""
+
+    def test_uses_hot_config_resolver(self, tmp_path, monkeypatch):
+        target = tmp_path / "hotbackups"
+        monkeypatch.setattr(
+            "services.hot_config.get",
+            lambda key, default=None: str(target)
+            if key == "reactions.memory_backup_dir" else default)
+        assert dr.default_dirs() == [str(target)]
+
+    def test_falls_back_to_settings(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "services.hot_config.get",
+            lambda key, default=None: default)
+        monkeypatch.setattr(
+            dr, "settings", replace(_settings, MEMORY_BACKUP_DIR=str(tmp_path)))
+        assert dr.default_dirs() == [str(tmp_path)]
+
+
+class TestLogRetention:
+    """Medium: LOG_RETENTION_DAYS должен иметь реального потребителя + сниппет."""
+
+    def test_default_is_7(self):
+        assert dr.log_retention_days() == 7
+
+    def test_journald_snippet_has_retention(self):
+        snippet = dr.journald_config_snippet()
+        assert "[Journal]" in snippet
+        assert "MaxRetentionSec=7d" in snippet
+
+    def test_audit_reports_log_retention(self, tmp_path):
+        report = dr.audit([tmp_path])
+        assert report["log_retention_days"] == 7

@@ -20,6 +20,10 @@ safety-бэкапы `memory_rebuild_*.db` (≈802 МБ) не покрывали�
 Гарантии безопасности:
   * IMMUTABLE-файлы никогда не попадают в `plan_cleanup` (deny-list по имени
     + content-sniff по ключам JSON — сырая история опознаётся и не удаляется).
+  * Sniff FAIL-CLOSED: непрочитанный `.jsonl` (OSError) считается историей —
+    сомнение трактуется в пользу сохранности (High/R2).
+  * `apply_cleanup` повторно классифицирует КАЖДЫЙ файл перед `unlink` и
+    блокирует `immutable` — примитив удаления не доверяет входному плану.
   * `apply_cleanup(verify=True)` — fail-closed: без валидного свежего
     `*.db`-бэкапа (size > 0, не в удаляемом наборе) удаление отменяется.
   * CLI по умолчанию dry-run; удаление — только с `--apply`.
@@ -32,11 +36,11 @@ import datetime
 import fnmatch
 import json
 import logging
-import os
 import time
 from pathlib import Path
 
 from config.settings import settings
+from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +49,6 @@ logger = logging.getLogger(__name__)
 IMMUTABLE_PATTERNS = ("imported_history_*.jsonl",)
 DB_BACKUP_PATTERNS = ("local_database_*.db", "memory_rebuild_*.db")
 FACTS_PATTERNS = ("facts_*.txt",)
-JSONL_ROTATE_PATTERNS = ("memory_generated_*.jsonl",)
 
 # Жёсткий deny-list по имени: любые архивы/дампы истории сообщений.
 # Владелец: файловые архивы сырых переписок — бессрочное хранение.
@@ -65,16 +68,24 @@ _ROW_HISTORY_KEYS = frozenset(
 # safety — по требованию; слишком старый «бэкап» не считается страховкой.
 FRESH_BACKUP_DAYS = 7
 
-
-class RetentionDisabled(RuntimeError):
-    """Retention выключен kill-switch'ем (`DISK_RETENTION_ENABLED=false`)."""
+# Минимальный интервал наблюдения для прогноза (дни): если свежие файлы
+# появились только что, делим на сутки, а не на ~0 (иначе «+∞/день»).
+MIN_FORECAST_SPAN_DAYS = 1.0
 
 
 # ── вспомогательное ─────────────────────────────────────────────────────────
 
+def resolve_backup_dir(backup_dir=None) -> Path:
+    """ЕДИНЫЙ резолвер каталога бэкапов (hot-config → settings), как в
+    `memory_backup.py`/`memory_rebuild.py`. CLI и сервисы должны смотреть
+    один и тот же каталог, иначе аудит/очистка без `--dir` уйдут не туда."""
+    return Path(backup_dir or hot.get("reactions.memory_backup_dir",
+                                      settings.MEMORY_BACKUP_DIR))
+
+
 def default_dirs() -> list[str]:
-    """Каталоги по умолчанию для CLI-аудита (MEMORY_BACKUP_DIR)."""
-    return [str(settings.MEMORY_BACKUP_DIR)]
+    """Каталоги по умолчанию для CLI-аудита — резолв как у рантайма."""
+    return [str(resolve_backup_dir())]
 
 
 def _retention_enabled() -> bool:
@@ -84,13 +95,9 @@ def _retention_enabled() -> bool:
 def _db_keep() -> int:
     """Фиксированный guard: ровно 1 бэкап БД (политика владельца UPD3 №5).
 
-    `DB_BACKUP_KEEP` читается для совместимости, но жёстко ограничен 1 —
-    значения 3+ запрещены (БД слишком тяжёлая)."""
-    try:
-        raw = int(getattr(settings, "DB_BACKUP_KEEP", 1) or 1)
-    except (TypeError, ValueError):
-        raw = 1
-    return 1 if raw >= 1 else 1
+    `DB_BACKUP_KEEP` намеренно НЕ настраивается: хранить более 1 бэкапа
+    запрещено (БД слишком тяжёлая), поэтому функция всегда возвращает 1."""
+    return 1
 
 
 def _jsonl_retention_days() -> int:
@@ -101,9 +108,19 @@ def _jsonl_retention_days() -> int:
     return days if days >= 1 else 180
 
 
+_log_retention_warned = False
+
+
 def _history_immutable() -> bool:
-    """История неприкосновенна ВСЕГДА (hard, ADR-1024-2 D2/spec §6)."""
-    if not bool(getattr(settings, "HISTORY_JSONL_IMMUTABLE", True)):
+    """Единая точка hard-инварианта: история НЕПРИКОСНОВЕННА всегда.
+
+    Вызывается из `classify`: флаг `HISTORY_JSONL_IMMUTABLE` существует лишь
+    для наблюдаемости и НЕ может отключить защиту (R2/High). При попытке
+    выставить `false` пишем однократный WARNING и продолжаем защищать."""
+    global _log_retention_warned
+    if (not bool(getattr(settings, "HISTORY_JSONL_IMMUTABLE", True))
+            and not _log_retention_warned):
+        _log_retention_warned = True
         logger.warning("[disk_retention] HISTORY_JSONL_IMMUTABLE=false "
                        "проигнорирован: история сообщений неприкосновенна")
     return True
@@ -122,7 +139,12 @@ def _looks_like_history(path: Path) -> bool:
     """Content-sniff JSONL (bounded, R17-safe): опознать сырую историю.
 
     Признаки: root-объект Telegram-экспорта с ключом `messages` ИЛИ строка с
-    `text` и хотя бы одним «мессенджер»-ключом. Содержимое НЕ логируется."""
+    `text` и хотя бы одним «мессенджер»-ключом.
+
+    FAIL-CLOSED (High/R2): любая ошибка чтения (`OSError` — нет прав,
+    transient I/O, повреждённый inode) трактуется как «возможно история» →
+    `True`. Непрочитанный `.jsonl` с нейтральным именем не должен удаляться.
+    Содержимое НЕ логируется."""
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as fh:
             read = 0
@@ -146,7 +168,8 @@ def _looks_like_history(path: Path) -> bool:
                     if "text" in obj and (_ROW_HISTORY_KEYS - {"text"}) & set(obj):
                         return True
     except OSError:
-        return False
+        # Не смогли прочитать — НЕ рискуем: считаем потенциальной историей.
+        return True
     return False
 
 
@@ -170,7 +193,10 @@ def classify(path) -> str:
     """Категория файла: immutable|db_backup|facts_export|jsonl_retention|other.
 
     IMMUTABLE имеет наивысший приоритет: история сообщений (по имени или
-    содержимому) НИКОГДА не станет кандидатом на удаление."""
+    содержимому) НИКОГДА не станет кандидатом на удаление. `_history_immutable()`
+    здесь — единая точка hard-инварианта (флаг `HISTORY_JSONL_IMMUTABLE` не
+    может его отключить)."""
+    _history_immutable()
     p = Path(path)
     name = p.name
     if _matches_any(name, IMMUTABLE_PATTERNS) or _history_name(name):
@@ -316,6 +342,7 @@ def audit(dirs) -> dict:
         "immutable_bytes": immutable_bytes,
         "total_bytes": total_bytes,
         "top_files": top_files,
+        "log_retention_days": log_retention_days(),
     }
 
 
@@ -377,7 +404,7 @@ def apply_cleanup(plan, *, verify: bool = True, dirs=None) -> dict:
     `dirs` — каталоги для проверки бэкапа (дефолт: родители элементов плана).
     Идемпотентно: отсутствующий файл считается уже удалённым (не ошибка)."""
     out = {"deleted": 0, "bytes_freed": 0, "aborted_reason": "",
-           "skipped": 0, "errors": 0, "categories": {}}
+           "skipped": 0, "errors": 0, "blocked": 0, "categories": {}}
     items = list(plan or [])
     if not items:
         return out
@@ -394,6 +421,20 @@ def apply_cleanup(plan, *, verify: bool = True, dirs=None) -> dict:
     for item in items:
         path = Path(str(item.get("path")))
         category = str(item.get("category") or "other")
+        if not path.exists():
+            out["skipped"] += 1
+            continue
+        # High/R2: деструктивный примитив НЕ доверяет входному плану —
+        # повторно классифицируем каждый файл и блокируем immutable.
+        try:
+            real_category = classify(path)
+        except Exception:
+            real_category = "immutable"          # fail-closed на любом сомнении
+        if real_category == "immutable":
+            out["blocked"] += 1
+            logger.warning("[disk_retention] cleanup blocked immutable | "
+                           "name=%s", path.name)
+            continue
         try:
             size = _size(path)
             path.unlink()
@@ -408,41 +449,60 @@ def apply_cleanup(plan, *, verify: bool = True, dirs=None) -> dict:
             out["errors"] += 1
             logger.warning("[disk_retention] cleanup unlink failed | name=%s",
                            path.name)
-    logger.info("[disk_retention] cleanup done | deleted=%d freed=%d skipped=%d",
-                out["deleted"], out["bytes_freed"], out["skipped"])
+    logger.info("[disk_retention] cleanup done | deleted=%d freed=%d "
+                "skipped=%d blocked=%d", out["deleted"], out["bytes_freed"],
+                out["skipped"], out["blocked"])
     return out
 
 
 # ── прогноз (T-2263) ────────────────────────────────────────────────────────
 
 def forecast_monthly(dirs, *, window_days: int = 30, now: float | None = None) -> dict:
-    """Прогноз расхода: суммарный размер свежих файлов / фактическое окно.
+    """Прогноз расхода диска (T-2263) — методика зафиксирована.
 
-    `bytes_per_day` — средний прирост за наблюдаемое окно; `projected_30d` —
-    линейная экстраполяция на 30 дней. Детерминирован на фикстурах."""
+    Состав: суммируются размеры ВСЕХ файлов (включая immutable-историю —
+    именно она основной драйвер роста, её исключение занизило бы прогноз),
+    чей mtime попадает в окно `window_days`.
+    Интервал: `span_days = min(window_days, max(MIN_FORECAST_SPAN_DAYS,
+    now - самый старый свежий mtime))` — защита от деления на ~0.
+    `bytes_per_day = recent_bytes / span_days`;
+    `projected_30d = bytes_per_day × 30` (линейная экстраполяция).
+    Детерминирован на фикстурах; `immutable_bytes`/`files` — для объяснимости."""
     now_ts = float(now if now is not None else time.time())
     window_days = max(1, int(window_days or 30))
     cutoff = now_ts - window_days * 86400.0
     recent = 0
+    immutable_bytes = 0
+    files = 0
     oldest = None
     for path in _iter_files(dirs):
         mtime = _mtime_ns(path) / 1_000_000_000
         if mtime < cutoff:
             continue
-        recent += _size(path)
+        size = _size(path)
+        recent += size
+        files += 1
+        if classify(path) == "immutable":
+            immutable_bytes += size
         oldest = mtime if oldest is None else min(oldest, mtime)
+    method = ("sum_sizes_of_files_modified_within_window / "
+              "max(MIN_FORECAST_SPAN_DAYS, observed_span)")
     if not recent or oldest is None:
-        return {"bytes_per_day": 0, "projected_30d": 0,
-                "recent_bytes": 0, "span_days": 0.0, "window_days": window_days}
+        return {"bytes_per_day": 0, "projected_30d": 0, "recent_bytes": 0,
+                "immutable_bytes": 0, "files": 0, "span_days": 0.0,
+                "window_days": window_days, "method": method}
     span_days = min(float(window_days),
-                    max(1.0, (now_ts - oldest) / 86400.0))
+                    max(MIN_FORECAST_SPAN_DAYS, (now_ts - oldest) / 86400.0))
     per_day = recent / span_days
     return {
         "bytes_per_day": int(per_day),
         "projected_30d": int(per_day * 30),
         "recent_bytes": recent,
+        "immutable_bytes": immutable_bytes,
+        "files": files,
         "span_days": round(span_days, 3),
         "window_days": window_days,
+        "method": method,
     }
 
 
@@ -459,3 +519,22 @@ def human_bytes(size: int) -> str:
 def day_stamp(ts: float | None = None) -> str:
     return datetime.datetime.fromtimestamp(
         ts if ts is not None else time.time()).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def log_retention_days() -> int:
+    """Окно логов (дней) — политика владельца: 7 (ADR-1024-2 D4)."""
+    try:
+        days = int(getattr(settings, "LOG_RETENTION_DAYS", 7) or 7)
+    except (TypeError, ValueError):
+        days = 7
+    return days if days >= 1 else 7
+
+
+def journald_config_snippet() -> str:
+    """Готовый journald-сниппет (логи — 7 дней) для применения @DevOps.
+
+    Кладётся в `/etc/systemd/journald.conf.d/retention.conf`; см. runbook
+    `docs/runbook-disk-retention.md`. Без секретов (R17)."""
+    return ("[Journal]\n"
+            f"MaxRetentionSec={log_retention_days()}d\n"
+            "SystemMaxUse=500M\n")

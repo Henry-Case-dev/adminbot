@@ -922,6 +922,8 @@ class Settings:
     # Бэкап БД раз в день + текстовый экспорт фактов (64.3). false → джоб не стартует.
     MEMORY_BACKUP_ENABLED: bool = _env_bool("MEMORY_BACKUP_ENABLED", True)
     MEMORY_BACKUP_DIR: str = _env_str("MEMORY_BACKUP_DIR", "backups")
+    # Legacy (не действует с F9/ADR-1024-2): БД-бэкапов хранится строго 1.
+    # Значение парсится для совместимости, но ротацией игнорируется.
     MEMORY_BACKUP_KEEP: int = _env_int_min("MEMORY_BACKUP_KEEP", 1, 1)
     MEMORY_BACKUP_HOUR: str = _env_str("MEMORY_BACKUP_HOUR", "05:00")
     # ── Раунд 10.24 (F9, ADR-1024-2): env-only ClassVar-рубильники retention

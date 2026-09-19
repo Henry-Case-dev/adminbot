@@ -142,6 +142,8 @@ async def delete_generated_facts(db, ids, *, batch: int = _ARCHIVE_BATCH) -> int
 # ── страховочная сетка: бэкап + JSONL-архив ───────────────────────────────
 
 def _resolve_backup_dir(backup_dir=None) -> Path:
+    """Каталог бэкапов (hot-config → settings) — та же формула, что и у CLI
+    `disk` (`services.disk_retention.resolve_backup_dir`)."""
     return Path(backup_dir or hot.get(
         "reactions.memory_backup_dir", settings.MEMORY_BACKUP_DIR))
 
