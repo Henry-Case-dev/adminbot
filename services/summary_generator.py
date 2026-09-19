@@ -54,7 +54,8 @@ from services.summary_prompts import (
     SYSTEM_PROMPT,
 )
 from services.system2_handoff import parse_summary_handoff
-from services.image_generation import generate_image
+from services.external_log import log_external_api
+from services.image_generation import generate_image_verbose
 from services.smartmodule_concurrency import get_smartmodule_concurrency_pool
 from services.summary_xml import escape_xml_text
 from services.telegram_send import (
@@ -81,7 +82,10 @@ except ImportError:  # pragma: no cover
 
 logger = logging.getLogger(__name__)
 
-# Раунд 10.23 (F6, ADR-1023-6): жёсткий финальный кап промпта обложки.
+# Раунд 10.23 (F6, ADR-1023-6): прежний жёсткий кап (историческое имя —
+# используется тестами 10.23 как справка). Раунд 10.24 (F12/ADR-1024-4 D2):
+# общий кап вынесен в env-only `SUMMARY_COVER_PROMPT_MAX_CHARS` (1000), а
+# кап стиля — в `SUMMARY_COVER_STYLE_MAX_CHARS` (500).
 COVER_IMAGE_PROMPT_MAX = 300
 
 
@@ -99,10 +103,18 @@ class SummaryDraft:
 
 
 def compose_cover_image_prompt(style: str | None, cover_prompt: str) -> str:
-    """«Стиль обложки» + visual prompt; финальный жёсткий кап 300 (D2)."""
-    joined = " ".join(
-        part.strip() for part in (style, cover_prompt) if part and part.strip())
-    return joined.strip()[:COVER_IMAGE_PROMPT_MAX]
+    """«Стиль обложки» + visual prompt (F12/ADR-1024-4 D2, AMEND 1023-6).
+
+    Стиль сохраняется ПРИОРИТЕТНО (до своего капа
+    `SUMMARY_COVER_STYLE_MAX_CHARS`), visual добирает остаток до общего капа
+    `SUMMARY_COVER_PROMPT_MAX_CHARS`; при переполнении режется visual, а не
+    стиль (инструкция владельца типа «PERMsoc» обязана дойти до модели)."""
+    style_cap = int(getattr(settings, "SUMMARY_COVER_STYLE_MAX_CHARS", 500))
+    total_cap = int(getattr(settings, "SUMMARY_COVER_PROMPT_MAX_CHARS", 1000))
+    s = (style or "").strip()[:max(0, style_cap)]
+    remaining = total_cap - len(s) - 1
+    v = (cover_prompt or "").strip()[:max(0, remaining)]
+    return " ".join(part for part in (s, v) if part)
 
 
 @lru_cache(maxsize=1)
@@ -664,13 +676,27 @@ class SummaryGenerator:
             style = hot.get("prompts.summary_cover_style",
                             SUMMARY_COVER_STYLE_DEFAULT)
             image_prompt = compose_cover_image_prompt(style, cover_prompt)
-            tmp_path = await generate_image(
+            # F12/ADR-1024-4 D2 (UPD2 п.10.1): доказательство подмешивания
+            # стиля — R17-safe, без полного текста промпта (только длины).
+            style_text = (style or "").strip()
+            visual_text = (cover_prompt or "").strip()
+            logger.info(
+                "summary cover: prompt composed | style_present=%s | "
+                "style_len=%d | visual_len=%d | final_len=%d | chat_id=%s",
+                bool(style_text), len(style_text), len(visual_text),
+                len(image_prompt), chat_id)
+            tmp_path, img_reason = await generate_image_verbose(
                 image_prompt, chat_id=chat_id,
                 correlation_id=correlation_id)
             if not tmp_path:
+                # F12/ADR-1024-4 D4: «тихий откат» для юзера ≠ тишина в логах —
+                # реальная причина (уже R17-safe код из image-слоя).
                 logger.info(
-                    "summary cover: image unavailable — plain fallback | "
-                    "chat_id=%s", chat_id)
+                    "summary cover: image unavailable (%s) — plain fallback | "
+                    "chat_id=%s", img_reason, chat_id)
+                log_external_api(
+                    logger, provider="image", method="post", status=None,
+                    reason=img_reason, level=logging.ERROR)
                 return await self._plain_fallback(chat_id, text)
             media = [build_cover_media(tmp_path)]
             await self._send_rich_with_retry(chat_id, text, media)

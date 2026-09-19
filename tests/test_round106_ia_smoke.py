@@ -443,9 +443,9 @@ class TestProviderBlockTestability:
         assert "testable: false" in JS
         # 10.11 (2.3): embeddings стал testable (3 подблока с «Проверить») —
         # testable:false остаётся только у llm_guard (1 блок).
-        # 10.23 (F5/ADR-1023-5 D5): +image_generation (не сетевой LLM-пробник)
-        # → 2 блока без кнопки «Проверить».
-        assert JS.count("testable: false") == 2
+        # 10.24 (F12/ADR-1024-4 D3): image_generation стал testable —
+        # кнопка «Проверить подключение» (probeEndpoint '/api/images/test').
+        assert JS.count("testable: false") == 1
         assert "b.testable !== false" in HTML
 
     def test_llm_guard_fields_no_model_role(self):

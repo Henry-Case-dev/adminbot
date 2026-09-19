@@ -326,7 +326,9 @@
                       <button v-if="b.testable !== false && !b.perFieldTest"
                               class="btn-accent prov-test-btn text-xs"
                               :disabled="blockTesting[b.id]" @click="testBlock(b)">
-                        {{ blockTesting[b.id] ? 'Проверка…' : 'Проверить' }}
+                        {{ blockTesting[b.id] ? 'Проверка…'
+                           : (b.probeEndpoint ? 'Проверить подключение'
+                                              : 'Проверить') }}
                       </button>
                       <span v-if="!b.perFieldTest && blockResults[b.id]" class="prov-test-status text-xs"
                             :class="blockResults[b.id].ok ? 'text-green-400' : 'text-red-400'">
@@ -611,7 +613,9 @@
                       <button v-if="b.testable !== false && !b.perFieldTest"
                               class="btn-accent prov-test-btn text-xs"
                               :disabled="blockTesting[b.id]" @click="testBlock(b)">
-                        {{ blockTesting[b.id] ? 'Проверка…' : 'Проверить' }}
+                        {{ blockTesting[b.id] ? 'Проверка…'
+                           : (b.probeEndpoint ? 'Проверить подключение'
+                                              : 'Проверить') }}
                       </button>
                       <span v-if="!b.perFieldTest && blockResults[b.id]" class="prov-test-status text-xs"
                             :class="blockResults[b.id].ok ? 'text-green-400' : 'text-red-400'">

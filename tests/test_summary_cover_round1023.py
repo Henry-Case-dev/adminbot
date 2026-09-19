@@ -138,9 +138,13 @@ class TestStyleConcat:
         assert compose_cover_image_prompt("", "a cat") == "a cat"
         assert compose_cover_image_prompt(None, "a cat") == "a cat"
 
-    def test_hard_cap_300(self):
-        out = compose_cover_image_prompt("x" * 400, "y" * 50)
-        assert len(out) == 300
+    def test_style_kept_visual_trimmed(self):
+        # F12 (10.24, ADR-1024-4 D2): стиль приоритетнее visual; при
+        # переполнении режется visual, общий кап = 1000.
+        out = compose_cover_image_prompt("x" * 400, "y" * 800)
+        assert out.startswith("x" * 400 + " ")
+        assert len(out) == 1000
+        assert set(out[401:]) == {"y"}
 
 
 # ── C. Article-сборка ────────────────────────────────────────────────
@@ -255,9 +259,10 @@ def _base_env(monkeypatch, rec, *, cover_path):
     async def _gen_image(prompt, *, chat_id=None, correlation_id=None):
         rec.image_prompts.append(prompt)
         rec.image_correlation_ids.append(correlation_id)
-        return cover_path
+        # 10.24 (F12): verbose-контракт — (путь, reason).
+        return cover_path, ("ok" if cover_path else "error")
 
-    monkeypatch.setattr(sg, "generate_image", _gen_image)
+    monkeypatch.setattr(sg, "generate_image_verbose", _gen_image)
 
 
 class TestRichDelivery:

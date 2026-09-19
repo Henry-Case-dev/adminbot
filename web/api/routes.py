@@ -156,6 +156,13 @@ class LlmTestRequest(BaseModel):
     api_key: str = ""
 
 
+class ImageTestRequest(BaseModel):
+    """Раунд 10.24 (F12, ADR-1024-4 D3): тест подключения image-провайдера.
+
+    ``prompt`` пуст → нейтральный тестовый промпт на бэкенде (R17)."""
+    prompt: str = ""
+
+
 class PersonaUpdate(BaseModel):
     """Раунд 10.14 (F2 persona-storage-core, spec §5): partial-правка персоны.
 
@@ -1534,6 +1541,51 @@ async def post_llm_test(
     from services.llm_probe import probe_block
     return await probe_block(payload.block, payload.base_url, payload.model,
                              payload.api_key)
+
+
+# ── Раунд 10.24 (F12, ADR-1024-4 D3): POST /api/images/test ─────────────────
+# «Проверить подключение»: global admin шлёт тестовый промпт image-провайдеру
+# и получает ProbeResult (успех или сырой безопасный текст ошибки). Rate-limit
+# ≥10с на пользователя; 200 даже при неуспехе провайдера (ok=false). R17:
+# ключ не эхо/не логируется (`probe` возвращает только safe_text тела).
+_IMAGES_TEST_MIN_INTERVAL = 10.0
+_IMAGES_TEST_LAST_TTL = 3600.0
+_IMAGES_TEST_LAST: dict[int, float] = {}
+
+
+def reset_images_test_rate_limit() -> None:
+    """Тестовая точка сброса серверного rate-limit диагностики изображений."""
+    _IMAGES_TEST_LAST.clear()
+
+
+def _prune_images_test_last(now: float) -> None:
+    if len(_IMAGES_TEST_LAST) < 256:
+        return
+    stale = [k for k, ts in _IMAGES_TEST_LAST.items()
+             if now - ts > _IMAGES_TEST_LAST_TTL]
+    for k in stale:
+        _IMAGES_TEST_LAST.pop(k, None)
+
+
+@api_router.post("/images/test")
+async def post_images_test(
+    payload: ImageTestRequest,
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
+):
+    """Тестовый промпт image-провайдеру; всегда 200 с ProbeResult.
+
+    403 — не глобальный админ; 429 — повтор чаще 10 секунд. Реальный сбой
+    провайдера → ``ok=false`` + ``body_excerpt`` (R17-safe)."""
+    now = time.monotonic()
+    _prune_images_test_last(now)
+    last = _IMAGES_TEST_LAST.get(user.id, 0.0)
+    if now - last < _IMAGES_TEST_MIN_INTERVAL:
+        raise HTTPException(status_code=429,
+                            detail="повтор теста чаще 10 секунд")
+    _IMAGES_TEST_LAST[user.id] = now
+    from services.image_generation import probe
+    result = await probe(prompt=payload.prompt)
+    return result.as_dict()
 
 
 # ── Раунд 10.14 (F2 persona-storage-core, spec §5): /api/persona ────────────

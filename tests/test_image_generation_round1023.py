@@ -291,7 +291,9 @@ class TestPreGateIntegration:
 
 class TestPostMode:
     @pytest.mark.asyncio
-    async def test_post_hard_url_format(self, monkeypatch):
+    async def test_post_universal_body(self, monkeypatch):
+        """F12 (10.24, ADR-1024-4 D1): тело строго {prompt, model, n:1} —
+        без size/quality/response_format (универсально для любой модели)."""
         calls = []
 
         async def fake(method, url, *, json_body=None, headers=None,
@@ -309,10 +311,10 @@ class TestPostMode:
         method, url, body, _headers = calls[0]
         assert method == "POST"
         assert url.endswith("/images/generations")
-        assert body["response_format"] == "url"
-        assert body["model"] == "flux"
-        assert body["size"] == ig._IMAGE_SIZE
-        assert body["n"] == 1
+        assert body == {"prompt": "кот", "model": "flux", "n": 1}
+        assert "size" not in body
+        assert "quality" not in body
+        assert "response_format" not in body
 
     @pytest.mark.asyncio
     async def test_post_b64_fallback(self, monkeypatch):

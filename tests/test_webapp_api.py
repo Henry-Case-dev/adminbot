@@ -1972,3 +1972,55 @@ class TestLlmTestEndpoint:
         body = json.dumps(resp.json())
         assert "input" not in body
         assert "ctx" not in body
+
+
+class TestImagesTestEndpoint:
+    """Раунд 10.24 (F12, ADR-1024-4 D3): POST /api/images/test — кнопка
+    «Проверить подключение» (global admin, rate-limit, R17)."""
+
+    def test_non_global_admin_403(self, client):
+        resp = client.post("/api/images/test", json={},
+                           headers=_hdr(MODERATOR_ID))
+        assert resp.status_code == 403
+
+    def test_admin_ok_then_rate_limit_429(self, client, monkeypatch):
+        from services import image_generation as ig
+        from web.api import routes
+
+        async def fake_probe(*, chat_id=None, prompt=None):
+            return ig.ProbeResult(ok=True, status_code=200, reason="ok",
+                                  body_excerpt="", latency_ms=11,
+                                  model="gptimage", mode="post")
+
+        monkeypatch.setattr(ig, "probe", fake_probe)
+        routes.reset_images_test_rate_limit()
+        resp = client.post("/api/images/test", json={},
+                           headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["ok"] is True
+        assert body["status_code"] == 200
+        assert body["model"] == "gptimage" and body["mode"] == "post"
+        resp2 = client.post("/api/images/test", json={},
+                            headers=_hdr(ADMIN_ID))
+        assert resp2.status_code == 429
+
+    def test_provider_error_returns_safe_body(self, client, monkeypatch):
+        """Сбой провайдера → 200 + ok=false + сырой безопасный body_excerpt."""
+        from services import image_generation as ig
+        from web.api import routes
+
+        async def fake_probe(*, chat_id=None, prompt=None):
+            return ig.ProbeResult(
+                ok=False, status_code=400, reason="bad_request",
+                body_excerpt='{"error":"unknown field size"}',
+                latency_ms=5, model="gptimage", mode="post")
+
+        monkeypatch.setattr(ig, "probe", fake_probe)
+        routes.reset_images_test_rate_limit()
+        resp = client.post("/api/images/test", json={},
+                           headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["ok"] is False and body["status_code"] == 400
+        assert "unknown field size" in body["body_excerpt"]

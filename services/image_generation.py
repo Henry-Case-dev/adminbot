@@ -4,9 +4,14 @@
 Интеграция (веб-ресёрч, spec §0.1/ADR §References):
 
 * **POST-режим** (default): ``POST {base}/images/generations`` с
-  ``Authorization: Bearer <key>``, JSON ``{prompt, model, n:1,
-  size:"1024x1024", response_format:"url"}``. Жёсткое
-  ``response_format:"url"`` — требование ТЗ (owned-модель `flux`).
+  ``Authorization: Bearer <key>``, JSON ``{prompt, model, n:1}`` — строго по
+  стандарту OpenAI-совместимого image API. Поля ``size``/``quality``/
+  ``response_format`` НЕ отправляются (раунд 10.24, F12/ADR-1024-4 D1): часть
+  моделей/провайдеров отвергает их (HTTP 400) — payload обязан быть
+  универсальным. Ответ принимается в обеих формах: ``data[0].url``
+  (скачиваем) и ``data[0].b64_json`` (декодируем). Kill-switch
+  ``SUMMARY_COVER_MODEL_COMPAT_ENABLED=False`` возвращает прежнее тело
+  (``size``/``response_format:"url"``) для отката.
 * **GET-режим**: ``GET {host}/image/{quote(prompt)}?model=&width=1024&
   height=1024&seed=<random>``; ключ — ``?key=<key>``, ЕСЛИ задан.
 
@@ -40,7 +45,7 @@ import httpx
 
 from config.settings import settings
 from services import hot_config as hot
-from services.external_log import log_external_api
+from services.external_log import log_external_api, safe_text
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +64,15 @@ KEY_MODULE_ENABLED = "flags.image_generation_module_enabled"
 # Имя инструмента Tool Calling (9-й, канон R9: добавляется в конец).
 TOOL_NAME = "generate_image"
 
-# Жёсткие параметры запроса (ТЗ/ADR): размер и n.
+# Размер — ТОЛЬКО для kill-switch OFF (прежнее тело POST) и GET-эндпоинта;
+# в универсальном POST-теле (default ON) НЕ отправляется (ADR-1024-4 D1).
 _IMAGE_SIZE = "1024x1024"
 _IMAGE_WIDTH = 1024
 _IMAGE_HEIGHT = 1024
+
+# Тестовый промпт диагностики подключения (ADR-1024-4 D3). Нейтральный,
+# без пользовательских данных (R17).
+PROBE_PROMPT = "a simple red circle on a white background"
 
 # Ретрай только для перегрузки/лимита: ≤1 попытка (ADR §D1).
 _RETRY_STATUSES = frozenset({429, 503})
@@ -116,6 +126,34 @@ class GenerationResult:
     filename: str = "image.jpg"
 
 
+@dataclass
+class ProbeResult:
+    """Результат диагностики подключения провайдера (ADR-1024-4 D3).
+
+    ``reason`` — R17-safe код; ``body_excerpt`` — сырой текст ответа
+    провайдера, прогнанный через ``external_log.safe_text`` (усечён, без
+    секретов: ключ никогда не возвращается)."""
+
+    ok: bool
+    status_code: int | None
+    reason: str
+    body_excerpt: str
+    latency_ms: int
+    model: str
+    mode: str
+
+    def as_dict(self) -> dict:
+        return {
+            "ok": self.ok,
+            "status_code": self.status_code,
+            "reason": self.reason,
+            "body_excerpt": self.body_excerpt,
+            "latency_ms": self.latency_ms,
+            "model": self.model,
+            "mode": self.mode,
+        }
+
+
 def is_image_keyword(query: str) -> bool:
     """True — сообщение начинается с ключевика генерации изображения."""
     return bool(IMAGE_KEYWORD_RE.match(str(query or "")))
@@ -164,6 +202,38 @@ def _resolve_bool(key: str, default: bool) -> bool:
     if isinstance(value, str):
         return value.strip().lower() in ("true", "1", "yes", "on")
     return bool(value)
+
+
+def _model_compat_enabled() -> bool:
+    """Универсальный payload (default ON); OFF → прежнее тело (откат)."""
+    try:
+        return bool(getattr(settings, "SUMMARY_COVER_MODEL_COMPAT_ENABLED", True))
+    except Exception:  # pragma: no cover — конфиг не должен ронять генерацию
+        return True
+
+
+def _build_post_body(prompt: str, model: str) -> dict:
+    """Тело POST строго по стандарту OpenAI-совместимого image API.
+
+    Default: ``{prompt, model, n:1}`` — никаких ``size``/``quality``/
+    ``response_format`` (часть моделей их отвергает — ADR-1024-4 D1).
+    Kill-switch OFF → байт-в-байт прежнее тело (для отката)."""
+    body: dict = {"prompt": prompt, "model": model, "n": 1}
+    if not _model_compat_enabled():
+        body["size"] = _IMAGE_SIZE
+        body["response_format"] = "url"
+    return body
+
+
+def _first_image_item(data) -> dict:
+    """Первый элемент ``data[]`` ответа image API ({} при любой форме)."""
+    if isinstance(data, dict):
+        data_list = data.get("data") or []
+        if isinstance(data_list, list) and data_list:
+            first = data_list[0]
+            if isinstance(first, dict):
+                return first
+    return {}
 
 
 def _host_from_base(base_url: str) -> str:
@@ -282,23 +352,17 @@ async def _consume_budget(chat_id: int | None) -> bool:
 
 async def _generate_post(base_url: str, model: str, prompt: str, key: str,
                          timeout: float, max_bytes: int) -> bytes:
-    """POST-режим: жёстко `response_format:"url"` → скачивание байтов.
+    """POST-режим: универсальное тело → байты (url скачиваем / b64 декодируем).
 
-    `b64_json` поддерживается как СОЗНАТЕЛЬНЫЙ defensive-fallback (review
-    iter1, Finding 5; зафиксировано в ADR-1023-5 D1 / spec §2.3): некоторые
-    шлюзы игнорируют `response_format` и возвращают вложения в base64. Это не
-    меняет контракт основного пути (`data[0].url`), но не роняет генерацию."""
+    Раунд 10.24 (F12/ADR-1024-4 D1): тело строго ``{prompt, model, n:1}``;
+    ``size``/``response_format`` убраны (их отвергает часть моделей, напр.
+    community/`gptimage`). Обе формы ответа — `data[0].url` и
+    `data[0].b64_json` — равноправны."""
     url = f"{str(base_url).rstrip('/')}/images/generations"
     headers = {"Content-Type": "application/json"}
     if key:
         headers["Authorization"] = f"Bearer {key}"
-    body = {
-        "prompt": prompt,
-        "model": model,
-        "n": 1,
-        "size": _IMAGE_SIZE,
-        "response_format": "url",
-    }
+    body = _build_post_body(prompt, model)
     resp = await _request_with_retry("POST", url, json_body=body,
                                      headers=headers, timeout=timeout)
     status = int(getattr(resp, "status_code", 0))
@@ -316,11 +380,7 @@ async def _generate_post(base_url: str, model: str, prompt: str, key: str,
             status=status, reason="bad_json",
             body=getattr(resp, "text", ""), level=logging.ERROR)
         raise ImageGenerationError("bad_json")
-    item = {}
-    if isinstance(data, dict):
-        data_list = data.get("data") or []
-        if data_list and isinstance(data_list, list):
-            item = data_list[0] if isinstance(data_list[0], dict) else {}
+    item = _first_image_item(data)
     b64 = item.get("b64_json")
     if b64:
         try:
@@ -396,6 +456,100 @@ async def _generate_get(host: str, model: str, prompt: str,
     if len(content) > max_bytes:
         raise ImageGenerationError("too_large")
     return content
+
+
+async def _probe_post(base_url: str, model: str, prompt: str, key: str,
+                      timeout: float) -> tuple[int | None, str, str]:
+    """Тестовый POST тем же универсальным телом; байты НЕ скачиваются.
+
+    Возвращает (status, reason, body_excerpt). ``body_excerpt`` — уже
+    R17-safe (``safe_text``). Исключения наружу (их маппит ``probe``)."""
+    url = f"{str(base_url).rstrip('/')}/images/generations"
+    headers = {"Content-Type": "application/json"}
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+    resp = await _request_with_retry(
+        "POST", url, json_body=_build_post_body(prompt, model),
+        headers=headers, timeout=timeout)
+    status = int(getattr(resp, "status_code", 0))
+    text = safe_text(getattr(resp, "text", ""))
+    if status != 200:
+        return status, _reason_from_status(status), text
+    try:
+        data = resp.json()
+    except Exception:
+        return status, "bad_json", text
+    item = _first_image_item(data)
+    if item.get("url") or item.get("b64_json"):
+        return status, "ok", ""
+    return status, "no_image", text
+
+
+async def _probe_get(host: str, model: str, prompt: str,
+                     timeout: float) -> tuple[int | None, str, str]:
+    """Тестовый GET (анонимный) — проверка без скачивания вложения."""
+    params = {
+        "model": model,
+        "width": _IMAGE_WIDTH,
+        "height": _IMAGE_HEIGHT,
+        "seed": random.randint(0, 2147483647),
+    }
+    url = f"{host}/image/{quote(prompt, safe='')}?{urlencode(params)}"
+    safe_url = f"{host}/image"
+    resp = await _request_with_retry("GET", url, timeout=timeout,
+                                     log_url=safe_url)
+    status = int(getattr(resp, "status_code", 0))
+    if status != 200:
+        return (status, _reason_from_status(status),
+                safe_text(getattr(resp, "text", "")))
+    if not bytes(getattr(resp, "content", b"") or b""):
+        return status, "empty", ""
+    return status, "ok", ""
+
+
+async def probe(*, chat_id: int | None = None,
+                prompt: str | None = None) -> ProbeResult:
+    """Диагностика подключения провайдера (ADR-1024-4 D3).
+
+    Идёт тем же универсальным путём, что генерация, но **не** отправляет в
+    Telegram и **не** расходует per-chat бюджет. Возвращает ``ProbeResult``;
+    ``body_excerpt`` — сырой текст ошибки провайдера, обезвреженный
+    ``external_log.safe_text`` (R17: ключ никогда не возвращается)."""
+    text = str(prompt or "").strip() or PROBE_PROMPT
+    base_url = _resolve_str(KEY_BASE_URL, settings.IMAGE_BASE_URL)
+    model = _resolve_str(KEY_MODEL, settings.IMAGE_MODEL)
+    get_mode = _resolve_bool(KEY_GET_MODE, settings.IMAGE_GET_MODE)
+    key = _resolve_str(KEY_API_KEY, getattr(settings, "IMAGE_API_KEY", "") or "")
+    timeout = float(getattr(settings, "IMAGE_REQUEST_TIMEOUT_SECONDS", 90.0))
+    mode = "get" if get_mode else "post"
+    started = time.monotonic()
+    try:
+        if get_mode:
+            status, reason, body = await _probe_get(
+                _host_from_base(base_url), model, text, timeout)
+        else:
+            status, reason, body = await _probe_post(
+                base_url, model, text, key, timeout)
+    except httpx.TimeoutException:
+        status, reason, body = None, "timeout", ""
+    except httpx.HTTPError as exc:
+        status, reason, body = None, "unreachable", safe_text(str(exc))
+    except Exception as exc:  # pragma: no cover — defensive
+        status, reason, body = None, "unreachable", safe_text(str(exc))
+    latency_ms = int((time.monotonic() - started) * 1000)
+    logger.info(
+        "[image] probe | mode=%s | model=%s | status=%s | reason=%s | "
+        "latency_ms=%d", mode, model, status, reason, latency_ms)
+    # F2/ADR-1024-1: реальная причина видна в логе (тихий откат ≠ тишина).
+    log_external_api(
+        logger, provider=_provider_from_url(base_url),
+        method="GET" if get_mode else "POST",
+        url=_endpoint_for_log(base_url, get_mode),
+        status=status, reason=reason, body=body, duration_ms=latency_ms,
+        level=logging.INFO if reason == "ok" else logging.ERROR)
+    return ProbeResult(ok=reason == "ok", status_code=status, reason=reason,
+                       body_excerpt=body, latency_ms=latency_ms, model=model,
+                       mode=mode)
 
 
 def _pg():
@@ -479,24 +633,36 @@ async def generate(prompt: str, *, chat_id: int | None = None,
     return GenerationResult(ok=True, content=content)
 
 
+async def generate_image_verbose(prompt: str, *, chat_id: int | None = None,
+                                 correlation_id: str | None = None
+                                 ) -> tuple[str | None, str]:
+    """Как ``generate_image``, но возвращает ``(путь|None, reason)``.
+
+    F12/ADR-1024-4 D4: причина отказа видна вызывающему — обложка саммари
+    пишет её в F2-лог вместо безликого «image unavailable». Fail-open."""
+    result = await generate(prompt, chat_id=chat_id,
+                            correlation_id=correlation_id)
+    if not result.ok or not result.content:
+        return None, result.reason or "error"
+    try:
+        fd, path = tempfile.mkstemp(prefix="genimg_", suffix=".jpg")
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(result.content)
+        return path, "ok"
+    except Exception:
+        logger.warning("[image] temp file write failed — fail-open")
+        return None, "temp_write_failed"
+
+
 async def generate_image(prompt: str, *, chat_id: int | None = None,
                          correlation_id: str | None = None) -> str | None:
     """F6-контракт (сохранить): изображение → путь к локальному файлу.
 
     Fail-open: любая ошибка/пустой результат → ``None``. Вызывающий владеет
     файлом и удаляет его сам (tmp, ``delete=False``)."""
-    result = await generate(prompt, chat_id=chat_id,
-                            correlation_id=correlation_id)
-    if not result.ok or not result.content:
-        return None
-    try:
-        fd, path = tempfile.mkstemp(prefix="genimg_", suffix=".jpg")
-        with os.fdopen(fd, "wb") as handle:
-            handle.write(result.content)
-        return path
-    except Exception:
-        logger.warning("[image] temp file write failed — fail-open")
-        return None
+    path, _reason = await generate_image_verbose(
+        prompt, chat_id=chat_id, correlation_id=correlation_id)
+    return path
 
 
 async def generate_and_send(bot, chat_id: int, prompt: str, *,

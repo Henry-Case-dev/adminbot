@@ -546,8 +546,11 @@
       ] },
     // 10.23 (F5, ADR-1023-5 §D5): генерация изображений — адрес/модель/ключ +
     // чекбокс «Режим GET-запроса» (блокирует ввод ключа: GET идёт анонимно).
+    // 10.24 (F12, ADR-1024-4 D3): кнопка «Проверить подключение» → POST
+    // /api/images/test (тестовый промпт; тост успех/сырой текст ошибки).
     { id: 'image_generation', title: 'Генерация изображений',
-      modules: 'Генерация изображений', testable: false,
+      modules: 'Генерация изображений', testable: true,
+      probeEndpoint: '/api/images/test',
       fields: [
         { key: 'models.image_base_url', label: 'Адрес сервера', role: 'base_url' },
         { key: 'models.image_model', label: 'Модель', role: 'model' },
@@ -3287,16 +3290,36 @@
         if (!b || this.blockTesting[b.id]) return;
         this.blockTesting[b.id] = true;
         var self = this;
-        var body = { block: b.id, base_url: '', model: '', api_key: '' };
-        b.fields.forEach(function (f) {
-          var v = self.blockFieldValue(f);
-          if (f.role === 'base_url') body.base_url = v || body.base_url;
-          else if (f.role === 'model') body.model = v || body.model;
-          // UPD3-fix/R31: маску и её композит в пробу не шлём (бэкенд
-          // резолвит сохранённый ключ по block).
-          else if (f.role === 'api_key' && v && !hasSecretMask(v)) body.api_key = v;
-        });
         try {
+          // 10.24 (F12, ADR-1024-4 D3): «Проверить подключение» в карточке
+          // изображений — бэкенд шлёт реальный тестовый промпт и возвращает
+          // ProbeResult; тост показывает успех или СЫРОЙ безопасный текст
+          // ошибки провайдера (R17: без ключа).
+          if (b.probeEndpoint) {
+            var probe = await this.api(b.probeEndpoint, {
+              method: 'POST', body: JSON.stringify({ prompt: '' }),
+            });
+            var ok = !!(probe && probe.ok);
+            var info = ok
+              ? ('OK ' + (probe.status_code != null ? probe.status_code : '')
+                 + ' · ' + (probe.latency_ms || 0) + ' мс'
+                 + (probe.model ? (' · ' + probe.model) : ''))
+              : ((probe && (probe.body_excerpt || probe.reason)) || 'ошибка');
+            this.blockResults[b.id] = { ok: ok, text: info };
+            this.toast(ok ? ('Подключение OK: ' + info)
+                          : ('Ошибка подключения: ' + info),
+                       ok ? 'ok' : 'err');
+            return;
+          }
+          var body = { block: b.id, base_url: '', model: '', api_key: '' };
+          b.fields.forEach(function (f) {
+            var v = self.blockFieldValue(f);
+            if (f.role === 'base_url') body.base_url = v || body.base_url;
+            else if (f.role === 'model') body.model = v || body.model;
+            // UPD3-fix/R31: маску и её композит в пробу не шлём (бэкенд
+            // резолвит сохранённый ключ по block).
+            else if (f.role === 'api_key' && v && !hasSecretMask(v)) body.api_key = v;
+          });
           var res = await this.api('/api/llm/test', {
             method: 'POST', body: JSON.stringify(body),
           });
