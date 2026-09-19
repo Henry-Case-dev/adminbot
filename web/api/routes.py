@@ -307,7 +307,9 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
             "TOKEN_FLOW_NODEFLOW_ENABLED":
                 bool(settings.TOKEN_FLOW_NODEFLOW_ENABLED),
             # F5 (10.24, ADR-1024-9 D6): гейт карточки/вкладки «Генерация
-            # изображений» в «Модулях» (default ON).
+            # изображений» в «Модулях» (default ON). OFF → карточка скрыта,
+            # диплинк `#/mod_images` → `#/modules`; главный тумблер в UI
+            # недостижим (возврат — env-флаг ON / git revert).
             "IMAGE_MODULE_CARD_ENABLED":
                 bool(settings.IMAGE_MODULE_CARD_ENABLED),
             # F6 (10.24, ADR-1024-10 D5): гейт новой раскладки вкладки

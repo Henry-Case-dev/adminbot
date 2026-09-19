@@ -621,8 +621,11 @@ class Settings:
     # ── Раунд 10.24 (F5, ADR-1024-9 D6 / ADR-1024-13): env-only ClassVar
     # kill-switch карточки «Генерация изображений» в разделе «Модули».
     # default ON, Δ каталога = 0 (в param_catalog НЕ входит). Доставка — через
-    # `GET /api/me.ui_flags`. OFF → карточка/вкладка скрыты из витрины; сам
-    # тумблер остаётся достижим через окно «Прямые ответы» (не теряем ручку).
+    # `GET /api/me.ui_flags`. OFF → карточка скрыта и вкладка `mod_images`
+    # недоступна (диплинк `#/mod_images` редиректится на `#/modules`).
+    # Группа `flags_module_images` живёт ровно на одной вкладке
+    # (`mod_images`), поэтому при OFF главный тумблер модуля в UI недостижим;
+    # возврат ручки — env-флаг ON или `git revert`.
     IMAGE_MODULE_CARD_ENABLED: ClassVar[bool] = _env_bool(
         "IMAGE_MODULE_CARD_ENABLED", True)
     # ── Раунд 10.24 (F6, ADR-1024-10 D5 / ADR-1024-13): env-only ClassVar

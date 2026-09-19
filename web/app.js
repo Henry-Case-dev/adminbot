@@ -686,6 +686,10 @@
     '#/modules': 'modules',
     // F3 (10.19, ADR-1019-3 D1): раздел «Бюджеты» в «Модулях».
     '#/modules/budgets': 'mod_budgets',
+    // F5 (10.24, ADR-1024-9 review iter1): вкладка «Генерация изображений»
+    // получила канонический маршрут (симметрично «Бюджетам»); при OFF
+    // kill-switch `applyRoute` откатывает её на витрину `#/modules`.
+    '#/modules/images': 'mod_images',
     '#/permsoc': 'permsoc',
     '#/ai': 'llm_providers',
     '#/ai/llm': 'llm_providers',
@@ -714,6 +718,7 @@
     status: '#/', info: '#/how', oversight: '#/oversight',
     modules: '#/modules', permsoc: '#/permsoc',
     mod_budgets: '#/modules/budgets',
+    mod_images: '#/modules/images',
     llm_providers: '#/ai/llm', prompts: '#/ai/prompts',
     memory_rag: '#/ai/memory', smart_cache: '#/ai/smart-cache',
     people_names: '#/ai/names', relations: '#/ai/relations',
@@ -742,6 +747,7 @@
     '#/access/roles': '#/access', '#/access/local': '#/access',
     '#/access/admins': '#/access',
     '#/modules/budgets': '#/modules',
+    '#/modules/images': '#/modules',
   };
 
   // Маршрут валиден ТОЛЬКО если hash начинается с '#/' (иначе launch-hash).
@@ -1208,7 +1214,7 @@
       },
       // F5 (10.24, ADR-1024-9 D6): карточка «Генерация изображений» видна
       // только при uiFlag('IMAGE_MODULE_CARD_ENABLED') (default ON). OFF →
-      // витрина без карточки; ручка остаётся в окне «Прямые ответы».
+      // витрина без карточки; вкладка также недоступна (см. _flagTabHidden).
       visibleModules: function () {
         var self = this;
         return this.modules.filter(function (m) {
@@ -1423,7 +1429,9 @@
       visibleTabs: function () {
         var self = this;
         return this.tabs.filter(function (tab) {
-          return tab.always || self.canViewTab(tab.id);
+          return tab.always
+            || (self.canViewTab(tab.id)
+                && !(self._flagTabHidden && self._flagTabHidden(tab.id)));
         });
       },
       // 3.10: визуальная склейка «ручной + авто» для инфо-строки (превью)
@@ -2447,6 +2455,15 @@
         }
         return !!flags[name];
       },
+      // F5 (10.24, ADR-1024-9 review iter1): kill-switch вкладки. При
+      // IMAGE_MODULE_CARD_ENABLED=OFF карточка скрыта (visibleModules), а
+      // диплинк `#/mod_images` редиректится на витрину `#/modules`
+      // (applyRoute). Главный тумблер при OFF в UI недостижим — возврат
+      // ручки: env-флаг ON либо `git revert`.
+      _flagTabHidden: function (tabId) {
+        return tabId === 'mod_images'
+          && !this.uiFlag('IMAGE_MODULE_CARD_ENABLED');
+      },
       // Шаги дерева последнего вызова: [{label, tokens, cost_usd, …}].
       // F7 (review iter1): человекочитаемые метки шагов дерева
       // («Слой 1/2», «Инструмент: name», «Один вызов», «Изображение»).
@@ -2857,6 +2874,14 @@
             tabId = routeToTab(route);
             try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
           }
+        } else if (this.me && tabId && this._flagTabHidden
+                   && this._flagTabHidden(tabId)) {
+          // F5 (10.24, ADR-1024-9 review iter1): kill-switch скрывает не
+          // только карточку, но и вкладку — диплинк `#/mod_images` при OFF
+          // редиректится на витрину «Модули».
+          route = '#/modules';
+          tabId = routeToTab(route);
+          try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
         } else if (this.me && tabId && !this.canViewTab(tabId)) {
           this.toast('Нет доступа к разделу', 'warn');
           route = '#/';
@@ -3742,6 +3767,14 @@
 
       setTab: function (id) {
         var self = this;
+        // F5 (10.24, ADR-1024-9 review iter1): kill-switch вкладки — при
+        // IMAGE_MODULE_CARD_ENABLED=OFF уйти на `mod_images` нельзя ни одним
+        // путём (карточка скрыта, диплинк `#/modules/images` откатывается);
+        // попытка активации → витрина «Модули».
+        if (id === 'mod_images' && this._flagTabHidden
+            && this._flagTabHidden('mod_images')) {
+          id = 'modules';
+        }
         // R10.7-3: смена вкладки отменяет отложенный сброс подсветки
         // скопированной строки лога (иначе таймер 800 мс «протекает»).
         if (this.copiedTimer) clearTimeout(this.copiedTimer);

@@ -258,6 +258,8 @@ class TestHealthAndMe:
         assert body["permissions"] == {"wildcard": True}
         # ADR-1024-13: ui_flags — аддитивный контракт доставки env-флагов.
         assert body["ui_flags"]["TOKEN_FLOW_NODEFLOW_ENABLED"] is True
+        # F5 (10.24, ADR-1024-9 D6): гейт карточки/вкладки изображений.
+        assert body["ui_flags"]["IMAGE_MODULE_CARD_ENABLED"] is True
         # F6 (10.24, ADR-1024-10 D5): гейт новой раскладки «Промптов».
         assert body["ui_flags"]["PROMPTS_UI_V2_ENABLED"] is True
 
