@@ -10,10 +10,13 @@
 from __future__ import annotations
 
 import logging
+import re
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
+from urllib.parse import quote
 
+import services.log_ring as log_ring
 from config.settings import Settings
 from services import anticliche_worker as aw
 from services import bot_persona
@@ -27,16 +30,22 @@ from services.dream_worker import DreamWorker
 # ── заглушки ────────────────────────────────────────────────────────────────
 
 class _Resp:
-    def __init__(self, status=200, text="", json_data=None, headers=None):
+    def __init__(self, status=200, text="", json_data=None, headers=None,
+                 content=b""):
         self.status_code = status
         self.text = text
         self._json = json_data
         self.headers = headers or {}
+        self.content = content
 
     def json(self):
         if isinstance(self._json, Exception):
             raise self._json
         return self._json
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise RuntimeError(f"HTTP {self.status_code}")
 
 
 def _messages(caplog) -> list[str]:
@@ -86,6 +95,46 @@ class TestHelperMasking:
         assert "key=***" in out
         assert "model=flux" in out
         assert "abc" not in out
+
+    def test_redact_url_ipv6_keeps_brackets(self):
+        out = el.redact_url("https://[::1]:8443/path?x=1")
+        assert out == "https://[::1]:8443/path"
+
+
+# R1024F2-03: литеральный секрет каталога (spec §6a). Значение секрета —
+# синтетическое, реальные ключи не цитируются (R18). `Settings` — frozen
+# dataclass, поэтому подменяем settings-подобный объект в `_collect_secrets`.
+class TestLiteralCatalogSecret:
+    @pytest.fixture
+    def reset_secret_cache(self):
+        log_ring._SECRETS = None
+        yield
+        log_ring._SECRETS = None
+
+    def _patch_catalog_secret(self, monkeypatch, secret):
+        import types
+
+        monkeypatch.setattr("config.settings.settings",
+                            types.SimpleNamespace(IMAGE_API_KEY=secret))
+        log_ring._SECRETS = None      # сбросить кэш → перечитать каталог
+
+    def test_literal_catalog_secret_masked(self, monkeypatch,
+                                           reset_secret_cache):
+        secret = "SENTINEL-CATALOG-SECRET-9f3a11"
+        self._patch_catalog_secret(monkeypatch, secret)
+        out = el.safe_text(f"provider_key={secret} trailing")
+        assert secret not in out
+        assert el.REDACTED in out
+
+    def test_literal_catalog_secret_masked_in_body(self, monkeypatch,
+                                                    reset_secret_cache, caplog):
+        secret = "SENTINEL-CATALOG-SECRET-9f3a11"
+        self._patch_catalog_secret(monkeypatch, secret)
+        with caplog.at_level(logging.INFO):
+            el.log_external_api(
+                logging.getLogger("t"), provider="p", status=400,
+                reason="bad_request", body=f'{{"key":"{secret}"}}')
+        assert secret not in "\n".join(_messages(caplog))
 
 
 # ── (d/f) helper: уровни и «никогда не бросает» ─────────────────────────────
@@ -212,6 +261,41 @@ class TestImageFailureLogging:
             await self._gen(monkeypatch, resp, get_mode=True)
         assert not any("кот" in m for m in _messages(caplog))
 
+    @pytest.mark.asyncio
+    async def test_get_retry_does_not_leak_prompt(self, monkeypatch, caplog):
+        """R1024F2-01: ретрай GET не пишет промпт из path в лог."""
+        prompt = "кот-секрет-промпт"
+        responses = [
+            _Resp(429, text="rate limited", headers={"Retry-After": "0"}),
+            _Resp(200, content=b"img-bytes", headers={}),
+        ]
+        calls: list[str] = []
+
+        async def fake(method, url, *, json_body=None, headers=None,
+                       timeout=90.0):
+            calls.append(url)
+            return responses[min(len(calls) - 1, len(responses) - 1)]
+
+        monkeypatch.setattr(ig, "_http_request", fake)
+        with caplog.at_level(logging.INFO):
+            content = await ig._generate_get(
+                "https://image.pollinations.ai", "flux", prompt, 5.0, 1000)
+        assert content == b"img-bytes"
+        joined = "\n".join(_messages(caplog))
+        assert prompt not in joined
+        assert quote(prompt, safe="") not in joined
+        retry = [m for m in _messages(caplog) if "reason=retry" in m]
+        assert retry
+        assert "url=https://image.pollinations.ai/image" in retry[0]
+        # R1024F2-05: провайдер распознан, а не деградировал до "image".
+        assert "provider=image.pollinations.ai" in retry[0]
+
+    def test_provider_from_scheme_less_host(self):
+        assert ig._provider_from_url(
+            "image.pollinations.ai") == "image.pollinations.ai"
+        assert ig._provider_from_url(
+            "https://image.pollinations.ai/v1") == "image.pollinations.ai"
+
 
 # ── (c) анти-клише крон ─────────────────────────────────────────────────────
 
@@ -280,6 +364,26 @@ class TestAnticlicheFailureLogging:
         ext = _find(caplog, "event=ext_api")
         assert any("status=500" in m and "upstream" in m for m in ext)
 
+    @pytest.mark.asyncio
+    async def test_fetch_source_2xx_not_error(self, monkeypatch, caplog):
+        """R1024F2-07: успешные 200/204 не пишут ERROR-строку."""
+        class _Client:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            async def get(self, *a, **kw):
+                return _Resp(204, text="")
+
+        monkeypatch.setattr(aw.httpx, "AsyncClient", lambda **kw: _Client())
+        with caplog.at_level(logging.INFO):
+            out = await aw.fetch_source("https://wiki.example/w/api.php?x=1")
+        assert out == ""
+        assert not any(r.levelno >= logging.ERROR for r in caplog.records)
+        assert not _find(caplog, "event=ext_api")
+
 
 # ── (c) Экстрактор/Сон ──────────────────────────────────────────────────────
 
@@ -330,3 +434,84 @@ class TestGraphTraceLogging:
         trace = _find(caplog, "event=pipeline_step")
         assert any("component=graph" in m and "reason=no_captions" in m
                    and "chat_id=9" in m for m in trace)
+
+
+# ── (b) сквозной egress-скан по всем подсистемам (spec §6c) ──────────────────
+
+class TestEgressEndToEnd:
+    """R1024F2-02: прогон сбоев image/cron/dream/graph → единый R17/R18-скан
+    собранных лог-записей: ни одного запрещённого токена."""
+
+    _SECRET_RE = re.compile(
+        r"(?i)(authorization\s*:\s*bearer\s+\S+"
+        r"|bearer\s+[A-Za-z0-9._\-]{12,}"
+        r"|\b(?:sk|gsk|or|tvly)[-_][A-Za-z0-9_\-]{6,}"
+        r"|://[^/\s:@]+:[^/\s@]+@)")
+
+    @pytest.mark.asyncio
+    async def test_scan_failure_scenarios(self, monkeypatch, caplog):
+        with caplog.at_level(logging.INFO):
+            # 1) image POST 400 — секреты в теле ответа
+            async def post_fake(method, url, *, json_body=None, headers=None,
+                                timeout=90.0):
+                return _Resp(
+                    400,
+                    text='{"error":"bad model",'
+                         '"auth":"Bearer abcdefghijklmnop",'
+                         '"key":"sk-EGRESSZZZ999888777666"}')
+
+            monkeypatch.setattr(ig, "_http_request", post_fake)
+            with pytest.raises(ig.ImageGenerationError):
+                await ig._generate_post("https://gen.pollinations.ai/v1",
+                                        "flux", "кот", "", 5.0, 1000)
+
+            # 2) image GET 429 → ретрай (промпт в path не должен утечь)
+            seq = [
+                _Resp(429, text="rate limited",
+                      headers={"Retry-After": "0"}),
+                _Resp(200, content=b"img", headers={}),
+            ]
+            calls: list[str] = []
+
+            async def get_fake(method, url, *, json_body=None, headers=None,
+                               timeout=90.0):
+                calls.append(url)
+                return seq[min(len(calls) - 1, len(seq) - 1)]
+
+            monkeypatch.setattr(ig, "_http_request", get_fake)
+            await ig._generate_get("https://image.pollinations.ai", "flux",
+                                   "кот-промпт-123", 5.0, 1000)
+
+            # 3) cron fetch 500 — секреты в теле источника
+            class _Client:
+                async def __aenter__(self):
+                    return self
+
+                async def __aexit__(self, *a):
+                    return False
+
+                async def get(self, *a, **kw):
+                    return _Resp(
+                        500,
+                        text='{"e":"Bearer abcdefghijklmnop",'
+                             '"k":"gsk_XYZ789000000"}')
+
+            monkeypatch.setattr(aw.httpx, "AsyncClient",
+                                lambda **kw: _Client())
+            with pytest.raises(Exception):
+                await aw.fetch_source("https://wiki.example/w/api.php?x=1")
+
+            # 4) dream traits empty
+            monkeypatch.setattr(bot_persona, "record_trait_status",
+                                AsyncMock())
+            await DreamWorker(_EmptyDb())._run_persona_traits_once(7)
+
+            # 5) graph no captions
+            mem = sm.MemoryManager(db=MagicMock(), llm=MagicMock())
+            await mem._extract_and_save_graph(
+                9, [{"author_name": "a", "text": ""}])
+
+        joined = "\n".join(_messages(caplog))
+        match = self._SECRET_RE.search(joined)
+        assert match is None, f"секрет в логах: {match.group(0)!r}"
+        assert "reason=retry" in joined and "event=pipeline_step" in joined

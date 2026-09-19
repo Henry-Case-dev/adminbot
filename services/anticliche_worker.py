@@ -167,13 +167,19 @@ async def fetch_source(url: str) -> str:
         response = await client.get(
             url, headers={"User-Agent": "adminbot-anticliche/1.0"})
         status = int(getattr(response, "status_code", 0))
-        if status != 200:
+        if status >= 400:
             # F2/ADR-1024-1: статус + усечённое тело ошибки источника.
             log_external_api(
                 logger, provider=_host_label(url), method="GET", url=url,
                 status=status, reason="fetch_http",
                 body=getattr(response, "text", ""), level=logging.ERROR)
-            response.raise_for_status()
+        elif not 200 <= status < 300:
+            # R1024F2-07: успешные 2xx (201/204…) ERROR'ом не шумим.
+            log_external_api(
+                logger, provider=_host_label(url), method="GET", url=url,
+                status=status, reason="fetch_unexpected",
+                body=getattr(response, "text", ""), level=logging.WARNING)
+        response.raise_for_status()
         text = response.text
         try:
             data = response.json()

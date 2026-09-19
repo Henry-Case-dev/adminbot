@@ -80,12 +80,15 @@ def redact_url(url: str, *, keep_query: bool = False) -> str:
         parts = urlsplit(raw)
         if parts.scheme and parts.netloc:
             host = parts.hostname or ""
+            if ":" in host:          # IPv6 — вернуть квадратные скобки
+                host = f"[{host}]"
             netloc = host
             if parts.port:
                 netloc = f"{host}:{parts.port}"
             base = f"{parts.scheme}://{netloc}{parts.path}"
         else:
-            # Относительный/некорректный URL: срезаем query вручную.
+            # Относительный/безсхемный URL: срезаем query (его вернём ниже,
+            # если keep_query=True).
             base = raw.split("?", 1)[0]
         if keep_query and parts.query:
             query = _redact_query(parts.query)

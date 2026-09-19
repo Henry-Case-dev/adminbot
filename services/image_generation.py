@@ -188,11 +188,19 @@ def _reason_from_status(status: int) -> str:
 
 
 def _provider_from_url(url: str) -> str:
-    """Ярлык провайдера для лога — host без схемы (R17-safe)."""
+    """Ярлык провайдера для лога — host без схемы (R17-safe).
+
+    Понимает и scheme-less вход (`image.pollinations.ai`), т.к. GET-режим
+    получает host без схемы (R1024F2-05)."""
+    raw = str(url or "").strip()
+    if not raw:
+        return "image"
     try:
-        host = urlsplit(str(url or "")).hostname or ""
+        host = urlsplit(raw).hostname
+        if not host:
+            host = urlsplit("//" + raw.lstrip("/")).hostname
     except Exception:  # pragma: no cover — defensive
-        host = ""
+        host = None
     return host or "image"
 
 
@@ -231,19 +239,26 @@ def _retry_delay(resp) -> float:
 async def _request_with_retry(method: str, url: str, *,
                               json_body: dict | None = None,
                               headers: dict | None = None,
-                              timeout: float = 90.0):
-    """Запрос с ≤1 ретраем на 429/503 (учёт `Retry-After`)."""
+                              timeout: float = 90.0,
+                              log_url: str | None = None):
+    """Запрос с ≤1 ретраем на 429/503 (учёт `Retry-After`).
+
+    ``log_url`` — R17-safe URL для лога. GET-режим кодирует пользовательский
+    промпт прямо в path (`/image/{quote(prompt)}`), поэтому сырой ``url``
+    логировать нельзя (R1024F2-01): caller передаёт безопасный эндпоинт без
+    промпта. None → ``url`` (POST/download — путь промпта не содержит)."""
     resp = await _http_request(method, url, json_body=json_body,
                                headers=headers, timeout=timeout)
     attempt = 0
     while (getattr(resp, "status_code", 0) in _RETRY_STATUSES
            and attempt < _RETRY_MAX):
         delay = _retry_delay(resp)
+        safe_url = log_url or url
         log_external_api(
-            logger, provider=_provider_from_url(url), method=method, url=url,
-            status=getattr(resp, "status_code", None), reason="retry",
-            body=getattr(resp, "text", ""), attempt=attempt + 1,
-            level=logging.WARNING)
+            logger, provider=_provider_from_url(safe_url), method=method,
+            url=safe_url, status=getattr(resp, "status_code", None),
+            reason="retry", body=getattr(resp, "text", ""),
+            attempt=attempt + 1, level=logging.WARNING)
         if delay > 0:
             await asyncio.sleep(delay)
         attempt += 1
@@ -325,12 +340,16 @@ async def _generate_post(base_url: str, model: str, prompt: str, key: str,
 async def _download_bytes(image_url: str, timeout: float,
                           max_bytes: int) -> bytes:
     """Скачать байты изображения (без авторизации — внешний URL)."""
-    resp = await _request_with_retry("GET", image_url, timeout=timeout)
+    # R17: URL ресурса выдан провайдером (может содержать подписанный токен в
+    # path) — в лог/ретрай уходит только host, без path/query.
+    safe_url = _provider_from_url(image_url)
+    resp = await _request_with_retry("GET", image_url, timeout=timeout,
+                                     log_url=safe_url)
     status = int(getattr(resp, "status_code", 0))
     if status != 200:
         log_external_api(
             logger, provider=_provider_from_url(image_url), method="GET",
-            url=image_url, status=status,
+            url=safe_url, status=status,
             reason=f"download_{_reason_from_status(status)}",
             body=getattr(resp, "text", ""), level=logging.ERROR)
         raise ImageGenerationError(f"download_{_reason_from_status(status)}")
@@ -358,14 +377,16 @@ async def _generate_get(host: str, model: str, prompt: str,
         "seed": random.randint(0, 2147483647),
     }
     url = f"{host}/image/{quote(prompt, safe='')}?{urlencode(params)}"
-    resp = await _request_with_retry("GET", url, timeout=timeout)
+    # R17: в path GET-URL зашит пользовательский промпт → и в ретрае
+    # (`_request_with_retry`), и в ошибке логируем только эндпоинт без промпта.
+    safe_url = f"{host}/image"
+    resp = await _request_with_retry("GET", url, timeout=timeout,
+                                     log_url=safe_url)
     status = int(getattr(resp, "status_code", 0))
     if status != 200:
-        # R17: в URL GET-режима зашит пользовательский промпт (path) — в лог
-        # уходит ТОЛЬКО эндпоинт без промпта.
         log_external_api(
-            logger, provider=_provider_from_url(host), method="GET",
-            url=f"{host}/image", status=status,
+            logger, provider=_provider_from_url(safe_url), method="GET",
+            url=safe_url, status=status,
             reason=_reason_from_status(status),
             body=getattr(resp, "text", ""), level=logging.ERROR)
         raise ImageGenerationError(_reason_from_status(status))
