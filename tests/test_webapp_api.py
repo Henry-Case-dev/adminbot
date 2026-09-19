@@ -256,6 +256,8 @@ class TestHealthAndMe:
         assert body["telegram_id"] == ADMIN_ID
         assert body["role_name"] == "admin"
         assert body["permissions"] == {"wildcard": True}
+        # ADR-1024-13: ui_flags — аддитивный контракт доставки env-флагов.
+        assert body["ui_flags"]["TOKEN_FLOW_NODEFLOW_ENABLED"] is True
 
     def test_me_unknown_id_defaults_user_role(self, client):
         resp = client.get("/api/me", headers=_hdr(USER_ID))

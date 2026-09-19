@@ -215,3 +215,36 @@ class TestAnalyticsPricesPut:
         assert "deepseek-v4-flash" not in llm_pricing._CACHE
         assert any("INSERT INTO llm_model_prices" in sql
                    for sql, _args in client.conn.executed)
+
+
+class TestNodeFlowUiSmoke:
+    """F3 round 10.24 (ADR-1024-7/13): статический smoke UI-объёма дерева.
+
+    API аналитики НЕ меняется (контракт steps[]); проверяем чистый русский
+    нейминг, отсутствие англо-жаргона, наличие kill-switch-гейта uiFlag и
+    CSP/zero-build инвариант (без внешних ресурсов в шаблоне)."""
+
+    def test_russian_naming_present_and_jargon_absent(self):
+        from pathlib import Path
+        root = Path(__file__).resolve().parent.parent
+        index = (root / "web" / "index.html").read_text(encoding="utf-8")
+        app_js = (root / "web" / "app.js").read_text(encoding="utf-8")
+        assert "Аналитика токенов" in index
+        assert "Последний запрос (Дерево вызова)" in index
+        assert "График расходов" in index
+        assert "Token Metrics" not in index
+        # Шаблон гейтится uiFlag; фронт читает me.ui_flags (ADR-1024-13).
+        assert "uiFlag('TOKEN_FLOW_NODEFLOW_ENABLED')" in index
+        assert "ui_flags" in app_js
+
+    def test_nodeflow_is_css_only_no_external_resources(self):
+        from pathlib import Path
+        root = Path(__file__).resolve().parent.parent
+        index = (root / "web" / "index.html").read_text(encoding="utf-8")
+        app_js = (root / "web" / "app.js").read_text(encoding="utf-8")
+        assert 'class="token-flow' in index
+        for lib in ("mermaid", "cytoscape", "d3.min.js", "chart.js",
+                    "unpkg.com", "cdn.jsdelivr.net"):
+            assert lib not in app_js
+            assert lib not in index
+        assert "http://" not in index and "https://" not in index

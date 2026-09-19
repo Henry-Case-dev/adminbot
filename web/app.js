@@ -2289,6 +2289,16 @@
         this.tokenAnalyticsPeriod = period;
         this.loadTokenAnalytics();
       },
+      // F3 (10.24, ADR-1024-13): UI-флаг из `GET /api/me.ui_flags`.
+      // До загрузки /api/me — безопасный дефолт ON (новое поведение =
+      // штатный дефолт). CSP-safe: значения приходят в JSON, без inline-script.
+      uiFlag: function (name) {
+        var flags = (this.me && this.me.ui_flags) || null;
+        if (!flags || !Object.prototype.hasOwnProperty.call(flags, name)) {
+          return true;
+        }
+        return !!flags[name];
+      },
       // Шаги дерева последнего вызова: [{label, tokens, cost_usd, …}].
       // F7 (review iter1): человекочитаемые метки шагов дерева
       // («Слой 1/2», «Инструмент: name», «Один вызов», «Изображение»).
@@ -2312,6 +2322,122 @@
           };
         });
       },
+      // F3 (раунд 10.24, ADR-1024-7): визуальное дерево вызова (Node Flow).
+      // Детерминированная проекция `steps[]`:
+      //   * двухслойный (`stage1`+`stage2`) → Запрос→Синтезатор→Вербализатор→Итог,
+      //     tool-шаги — под-нодами-ветками у Синтезатора;
+      //   * `single`/`image`/прочее → линейная цепочка БЕЗ ложной ветки
+      //     «Синтезатор→Вербализатор»; `tool` без стадий — плашка у корня;
+      //   * пусто → {nodes:[], edges:[], empty:true}.
+      // Нода: Вход/Выход/Цена (+ «оц.» при tokens_estimated, «цена неизвестна»
+      // при price_known=false). Возврат: {nodes, edges, hasBranch, empty}.
+      tokenFlowTree: function () {
+        var latest = this.tokenAnalyticsLatest;
+        var steps = (latest && latest.steps) || [];
+        var total = (latest && latest.total) || {};
+        var meta = {
+          stage1: { kind: 'synthesizer', title: 'Синтезатор' },
+          stage2: { kind: 'verbalizer', title: 'Вербализатор' },
+          single: { kind: 'single', title: 'Один вызов' },
+          image: { kind: 'image', title: 'Изображение' },
+        };
+        if (!steps.length) {
+          return { nodes: [], edges: [], hasBranch: false, empty: true };
+        }
+        var nodes = [];
+        var edges = [];
+        var hasBranch = false;
+
+        function mk(s, kind, title, id, depth) {
+          return {
+            id: id, kind: kind, title: title, depth: depth,
+            input: s.input_tokens || 0,
+            output: s.output_tokens || 0,
+            cost: s.cost_usd || 0,
+            estimated: !!s.tokens_estimated,
+            price_known: s.price_known !== false,
+            note: '',
+          };
+        }
+        function toolTitle(s) {
+          return 'Инструмент' + (s.tool_name ? (': ' + s.tool_name) : '');
+        }
+
+        nodes.push({
+          id: 'root', kind: 'root', title: 'Запрос юзера', depth: 0,
+          input: 0, output: 0, cost: 0, estimated: false, price_known: true,
+          note: this._tokenFlowTimestamp(latest && latest.ts),
+        });
+
+        var stage1 = null, stage2 = null;
+        var tools = [];
+        var i, s;
+        for (i = 0; i < steps.length; i++) {
+          s = steps[i];
+          if (s.step === 'stage1' && !stage1) stage1 = s;
+          if (s.step === 'stage2' && !stage2) stage2 = s;
+          if (s.step === 'tool') tools.push(s);
+        }
+
+        var prevId = 'root';
+        function pushSpine(node) {
+          nodes.push(node);
+          edges.push({ from: prevId, to: node.id });
+          prevId = node.id;
+        }
+        function pushTools(parentId, depth, branching) {
+          if (!tools.length) return;
+          for (var t = 0; t < tools.length; t++) {
+            var tn = mk(tools[t], 'tool', toolTitle(tools[t]),
+                        'tool-' + t, depth);
+            nodes.push(tn);
+            edges.push({ from: parentId, to: tn.id });
+          }
+          if (branching) hasBranch = true;
+        }
+
+        if (stage1 && stage2) {
+          // Двухслойный вызов: ветвление Синтезатор → (Инструменты) → Вербализатор.
+          pushSpine(mk(stage1, 'synthesizer', 'Синтезатор', 'n-synth', 1));
+          pushTools('n-synth', 2, true);
+          pushSpine(mk(stage2, 'verbalizer', 'Вербализатор', 'n-verb', 1));
+        } else {
+          // Линейная цепочка по фактическим шагам (tool — отдельными плашками).
+          var k = 0;
+          var hostId = null;
+          for (i = 0; i < steps.length; i++) {
+            s = steps[i];
+            if (s.step === 'tool') continue;
+            var m = meta[s.step];
+            var kind = m ? m.kind : 'other';
+            var title = m ? m.title : ('Шаг: ' + (s.step || 'неизвестно'));
+            var id = 'n-' + (k++);
+            pushSpine(mk(s, kind, title, id, 1));
+            if (kind === 'synthesizer' && !hostId) hostId = id;
+          }
+          // tool без ветвления: при наличии Синтезатора — ветка у него,
+          // иначе — плашки у корня (без рёбер «Синтезатор→Вербализатор»).
+          pushTools(hostId || 'root', hostId ? 2 : 1, !!hostId);
+        }
+
+        nodes.push({
+          id: 'result', kind: 'result', title: 'Итог', depth: 1,
+          input: total.input_tokens || 0,
+          output: total.output_tokens || 0,
+          cost: total.cost_usd || 0,
+          estimated: false, price_known: true, note: '',
+        });
+        edges.push({ from: prevId, to: 'result' });
+
+        return { nodes: nodes, edges: edges, hasBranch: hasBranch,
+                 empty: false };
+      },
+      // Человекочитаемая подпись корня дерева: время последнего вызова.
+      _tokenFlowTimestamp: function (ts) {
+        if (!ts) return 'последний вызов';
+        var s = String(ts).replace('T', ' ').slice(0, 16);
+        return 'последний вызов · ' + s;
+      },
       // Точное число токенов (без «k»-сокращения) — формат Flow node.
       fmtExactTokens: function (n) {
         var v = Number(n) || 0;
@@ -2324,12 +2450,15 @@
         return '$' + n.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
       },
       // Столбики графика: высота пропорциональна cost_usd бакета.
+      // F3 (10.24): + index/isFirst/isLast — подписи оси (первый/последний
+      // бакет) без чарт-библиотек; tooltip остаётся title (bucket·цена·вызовы).
       tokenSeriesBars: function () {
         var s = this.tokenAnalyticsSummary;
         var series = (s && s.series) || [];
         var max = 0;
         series.forEach(function (b) { max = Math.max(max, b.cost_usd || 0); });
-        return series.map(function (b) {
+        var last = series.length - 1;
+        return series.map(function (b, i) {
           var cost = b.cost_usd || 0;
           return {
             bucket: b.bucket,
@@ -2337,6 +2466,9 @@
             calls: b.calls || 0,
             label: String(b.bucket || '').replace('T', ' ').slice(0, 16),
             height: max > 0 ? Math.max(2, Math.round(cost / max * 100)) : 0,
+            index: i,
+            isFirst: i === 0,
+            isLast: i === last,
           };
         });
       },

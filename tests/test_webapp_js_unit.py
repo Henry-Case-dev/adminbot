@@ -61,3 +61,11 @@ def test_js_unit_round1023_verbilizer_tabs():
     блок анти-клише (force/PUT/fail-open)."""
     _run_js(os.path.join("tests", "js", "round1023_verbilizer_tabs_test.js"),
             ok_marker="VERBILIZER-UNIT-OK")
+
+
+def test_js_unit_round1024_nodeflow():
+    """F3 round 10.24 (ADR-1024-7): визуальное дерево вызова (Node Flow) —
+    проекция steps[] (двухслойный/tool/single/image/пусто), нейминг,
+    kill-switch uiFlag (OFF → бейджи), CSP/no-CDN."""
+    _run_js(os.path.join("tests", "js", "round1024_nodeflow_test.js"),
+            ok_marker="NODEFLOW-UNIT-OK")

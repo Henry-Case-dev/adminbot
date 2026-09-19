@@ -281,7 +281,9 @@ async def health():
 @api_router.get("/me")
 async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)]):
     """84.5: {telegram_id, username, first_name, last_name, photo_url,
-    role_name, permissions, is_custom} (UI-полировка: + last_name/photo_url)."""
+    role_name, permissions, is_custom} (UI-полировка: + last_name/photo_url).
+    Раунд 10.24 (F3, ADR-1024-13): аддитивно + `ui_flags` — доставка env-only
+    kill-switch'ей во фронт без inline-скриптов (CSP). Наружу только булевы."""
     cache: ConfigCache = get_cache(request)
     role_name = cache.get_role(user.id)
     if role_name is None:
@@ -300,6 +302,11 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
         "role_name": role_name,
         "permissions": permissions,
         "is_custom": is_custom,
+        # ADR-1024-13: UI-флаги (R16-аддитивно, R17-безопасно — только bool).
+        "ui_flags": {
+            "TOKEN_FLOW_NODEFLOW_ENABLED":
+                bool(settings.TOKEN_FLOW_NODEFLOW_ENABLED),
+        },
     }
 
 

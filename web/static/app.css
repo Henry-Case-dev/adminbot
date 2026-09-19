@@ -1044,3 +1044,98 @@
       details.advanced > summary::before { transition: none !important; }
     }
   
+
+    /* ═══ F3 (раунд 10.24, ADR-1024-7): визуальное дерево вызова (Node Flow) ═══
+       Чистый CSS Flexbox: узлы + тонкие коннекторы, без граф-библиотек и CDN
+       (инвариант CSP/zero-build). Источник — tokenFlowTree() (web/app.js). */
+    .token-flow {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .token-flow__node {
+      position: relative;
+      border: 1px solid var(--surface-border, rgba(255, 255, 255, .12));
+      border-radius: var(--radius-lg, .6rem);
+      background: rgba(255, 255, 255, .04);
+      padding: .4rem .6rem;
+    }
+    .token-flow__node[data-depth="1"] { margin-left: .6rem; }
+    .token-flow__node[data-depth="2"] { margin-left: 1.5rem; }
+    .token-flow__node--root {
+      border-color: rgba(148, 163, 184, .45);
+      background: rgba(148, 163, 184, .08);
+    }
+    .token-flow__node--synthesizer,
+    .token-flow__node--verbalizer {
+      border-color: rgba(110, 168, 254, .55);
+      background: rgba(110, 168, 254, .08);
+    }
+    .token-flow__node--result {
+      border-color: rgba(74, 222, 128, .55);
+      background: rgba(74, 222, 128, .08);
+    }
+    .token-flow__node--tool {
+      border-color: rgba(250, 204, 21, .5);
+      background: rgba(250, 204, 21, .07);
+      border-left-width: 3px;
+    }
+    /* ветвь: вертикальный рельс + горизонтальный ус к под-ноде инструмента */
+    .token-flow__node--tool[data-depth="2"]::before {
+      content: '';
+      position: absolute;
+      left: -.75rem;
+      top: -0.2rem;
+      bottom: 50%;
+      width: 2px;
+      background: rgba(250, 204, 21, .45);
+    }
+    .token-flow__node--tool[data-depth="2"]::after {
+      content: '';
+      position: absolute;
+      left: -.75rem;
+      top: 50%;
+      width: .6rem;
+      height: 2px;
+      background: rgba(250, 204, 21, .45);
+    }
+    .token-flow__head {
+      font-size: .78rem;
+      font-weight: 700;
+      color: var(--text-1, #e5e7eb);
+    }
+    .token-flow__note {
+      font-size: .68rem;
+      color: var(--text-3, #9ca3af);
+      margin-top: .1rem;
+    }
+    .token-flow__metrics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .3rem .75rem;
+      margin-top: .25rem;
+      font-size: .72rem;
+      color: var(--text-2, #cbd5e1);
+    }
+    .token-flow__metric { white-space: nowrap; }
+    .token-flow__edge {
+      text-align: center;
+      color: rgba(110, 168, 254, .75);
+      font-size: .62rem;
+      line-height: 1.1;
+    }
+    .token-flow__edge[data-depth="2"] {
+      text-align: left;
+      padding-left: 1.75rem;
+    }
+    /* узкая TMA: вертикальный стек, сдвиги ветки убираем, порядок сохраняется */
+    @media (max-width: 420px) {
+      .token-flow__node[data-depth="1"],
+      .token-flow__node[data-depth="2"] { margin-left: 0; }
+      .token-flow__node--tool[data-depth="2"]::before,
+      .token-flow__node--tool[data-depth="2"]::after { display: none; }
+      .token-flow__edge[data-depth="2"] { text-align: center; padding-left: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .token-flow__node { transition: none !important; }
+    }

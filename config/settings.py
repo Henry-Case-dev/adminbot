@@ -611,6 +611,13 @@ class Settings:
         "TOKEN_ANALYTICS_ENABLED", True)
     TOKEN_ANALYTICS_RETENTION_DAYS: ClassVar[int] = _env_int(
         "TOKEN_ANALYTICS_RETENTION_DAYS", 90)
+    # ── Раунд 10.24 (F3, ADR-1024-7/13): env-only ClassVar kill-switch
+    # визуального дерева вызовов (Node Flow) в разделе «Сводка». default ON,
+    # Δ каталога = 0 (в param_catalog НЕ входит). Доставка — через
+    # `GET /api/me.ui_flags` (ADR-1024-13). OFF → прежние плоские бейджи
+    # 10.23 байт-в-байт (computed `tokenFlowNodes()` остаётся живым).
+    TOKEN_FLOW_NODEFLOW_ENABLED: ClassVar[bool] = _env_bool(
+        "TOKEN_FLOW_NODEFLOW_ENABLED", True)
     # ── Раунд 10.22 (F8, ADR-1022-8): env-only ClassVar-рубильники
     # асинхронной пересборки досье из мини-аппа. Δ каталога = 0 (в
     # param_catalog не входят; прецедент MULTILAYER_EXTRACTION_ENABLED).
