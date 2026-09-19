@@ -1548,12 +1548,14 @@
                     <div class="dossier-ticker__track dossier-ticker__track--y">
                       <div v-for="it in dossierFeedLoop" :key="it.key"
                            class="dossier-ticker__item"
-                           :class="{ 'dossier-ticker__item--click': it.user_id != null }"
-                           :role="it.user_id != null ? 'button' : null"
-                           :tabindex="it.user_id != null ? 0 : null"
-                           @click="it.user_id != null && openFeedDossier(it)"
-                           @keydown.enter.prevent="it.user_id != null && openFeedDossier(it)"
-                           @keydown.space.prevent="it.user_id != null && openFeedDossier(it)">
+                           :class="{ 'dossier-ticker__item--click': !it.dup && it.user_id != null,
+                                     'dossier-ticker__item--dup': it.dup }"
+                           :aria-hidden="it.dup ? 'true' : null"
+                           :role="(!it.dup && it.user_id != null) ? 'button' : null"
+                           :tabindex="(!it.dup && it.user_id != null) ? 0 : null"
+                           @click="!it.dup && it.user_id != null && openFeedDossier(it)"
+                           @keydown.enter.prevent="!it.dup && it.user_id != null && openFeedDossier(it)"
+                           @keydown.space.prevent="!it.dup && it.user_id != null && openFeedDossier(it)">
                         <b>{{ it.name }}</b>
                         <span class="text-gray-500">({{ it.chatLabel }})</span>
                         <span>{{ it.excerpt }}</span>

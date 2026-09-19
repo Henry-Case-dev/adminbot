@@ -1042,7 +1042,9 @@
     }
     @keyframes dossier-ticker-scroll-y {
       from { transform: translateY(0); }
-      to   { transform: translateY(calc(-50% - .25rem)); }
+      /* Сдвиг = ровно одна копия + половина межкопийного gap (бесшовный
+         цикл). gap берём из переменной — смена --dossier-gap не сломает стык. */
+      to   { transform: translateY(calc(-50% - (var(--dossier-gap) / 2))); }
     }
 
     /* T-1896: карточка авто-досье — плотная подложка для читаемости. */
@@ -1096,12 +1098,15 @@
         -webkit-mask-image: none !important; mask-image: none !important;
       }
       /* F4 (10.24): вертикальная лента без анимации — обычный прокручиваемый
-         список (mask снят выше, высота по контенту с разумным потолком). */
+         список (mask снят выше, высота по контенту с разумным потолком).
+         Клон-дубль (нужный только для анимации) скрываем — иначе факты
+         дублируются в списке (review iter1). */
       .dossier-ticker--y {
         height: auto;
         max-height: var(--dossier-h);
         overflow-y: auto;
       }
+      .dossier-ticker__item--dup { display: none !important; }
       details.advanced > summary::before { transition: none !important; }
     }
   

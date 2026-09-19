@@ -1617,10 +1617,14 @@
             chat_id: it.chat_id,
             excerpt: it.excerpt,
             chatLabel: titles[it.chat_id] || ('Чат ' + it.chat_id),
+            dup: false,
           };
         });
+        // F4 review iter1: клон помечаем `dup` — он нужен только для
+        // бесшовного цикла, но НЕ должен попадать в таб-порядок/дерево
+        // доступности (aria-hidden) и не должен быть интерактивным.
         return marked.concat(marked.map(function (it) {
-          return Object.assign({}, it, { key: it.key + '-dup' });
+          return Object.assign({}, it, { key: it.key + '-dup', dup: true });
         }));
       },
       // F4 (10.24, ADR-1024-8 D1): скорость вертикальной ленты —
@@ -3397,7 +3401,14 @@
       openFeedDossier: async function (it) {
         if (!it || it.user_id == null) return;
         var chatId = (it.chat_id == null) ? null : String(it.chat_id);
-        if (chatId != null && String(this.activeChatId) !== chatId) {
+        // Спека §3.2(2)/review iter1: чат факта обязателен — иначе открыли бы
+        // чужое досье в текущем активном чате (риск R1). chat_id 0/пусто —
+        // то же «неизвестный чат».
+        if (chatId == null || chatId === '' || chatId === '0') {
+          this.toast('Не удалось определить чат факта', 'err');
+          return;
+        }
+        if (this.activeChatId == null || String(this.activeChatId) !== chatId) {
           try {
             this.setActiveChat(chatId);
           } catch (e) {

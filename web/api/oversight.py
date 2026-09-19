@@ -10,6 +10,7 @@ F-7/F-10 (явный chat-гейт > глобальный флаг > False). R17
 """
 import logging
 import time
+import unicodedata
 from typing import Annotated
 
 from aiogram.utils.web_app import WebAppUser
@@ -33,9 +34,10 @@ _FEED_RESOLVE_CAP = 200
 
 
 def _feed_key(value) -> str:
-    """Ключ сопоставления имён ленты: strip + casefold (канон-имя может
-    отличаться регистром/пробелами от `target_user`)."""
-    return str(value or "").strip().casefold()
+    """Ключ сопоставления имён ленты: NFKC-нормализация (одна и та же буква
+    в разных формах Unicode не должна терять участника) + strip + casefold."""
+    text = unicodedata.normalize("NFKC", str(value or ""))
+    return text.strip().casefold()
 
 
 async def _feed_user_index_one(db, chat_id: int, since_ts: int) -> dict:
@@ -43,8 +45,9 @@ async def _feed_user_index_one(db, chat_id: int, since_ts: int) -> dict:
 
     Источник — активные участники (`get_active_participants`, тот же вызов,
     что у `_participant_names`), поверх — `AliasResolver` (канон алиасов).
-    Порядок строк БД (cnt DESC, user_id ASC) задаёт приоритет при коллизии
-    имён детерминированно: первым побеждает более активный (меньший uid)."""
+    Порядок строк БД (``ORDER BY cnt DESC, user_id ASC``) задаёт приоритет
+    при коллизии имён детерминированно: первым побеждает самый активный
+    (``cnt`` DESC), при равенстве — меньший ``user_id`` (tiebreaker)."""
     rows = await db.get_active_participants(
         chat_id, since_ts, _FEED_RESOLVE_CAP)
     pairs: list = []

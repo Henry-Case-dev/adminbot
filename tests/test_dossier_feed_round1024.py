@@ -10,10 +10,14 @@
     лишние поля не утекают (R17); резолв не пишет в БД (read-only);
   * статика фронта: вертикальная лента/скорость/кликабельность/флаг.
 
-Работаем на **настоящих** `sqlite3.Row` (как aiosqlite.Row), чтобы регресс
-`.get`-обращения не спрятался за тихим `except` (прецедент F18/ADR-1024-19).
+Работаем на **настоящих** `sqlite3.Row` (как aiosqlite.Row) в боевом порядке
+`get_active_participants` (`ORDER BY cnt DESC, user_id ASC`), чтобы регресс
+`.get`-обращения и приоритета коллизий не спрятался за тихим `except`
+(прецедент F18/ADR-1024-19; review iter1 F4).
 """
+import logging
 import sqlite3
+import unicodedata
 from pathlib import Path
 
 import pytest
@@ -28,15 +32,21 @@ ROUTES = (ROOT / "web" / "api" / "routes.py").read_text(encoding="utf-8")
 SETTINGS = (ROOT / "config" / "settings.py").read_text(encoding="utf-8")
 
 
-def _rows(pairs: list) -> list:
-    """Настоящие `sqlite3.Row` (author_name/user_id как в smart_messages)."""
+def _active_rows(pairs: list) -> list:
+    """`sqlite3.Row` в РЕАЛЬНОМ порядке `get_active_participants`
+    (`services/database.py:3719-3725`): одна строка на участника,
+    ``ORDER BY cnt DESC, user_id ASC``. `pairs = [(user_id, name, cnt)]`."""
     conn = sqlite3.connect(":memory:")
     try:
         conn.row_factory = sqlite3.Row
-        conn.execute("CREATE TABLE t(user_id INTEGER, author_name TEXT)")
-        conn.executemany("INSERT INTO t VALUES (?, ?)", pairs)
+        conn.execute("CREATE TABLE m(user_id INTEGER, author_name TEXT)")
+        for uid, name, cnt in pairs:
+            for _ in range(int(cnt)):
+                conn.execute("INSERT INTO m VALUES (?, ?)", (uid, name))
         return conn.execute(
-            "SELECT user_id, author_name FROM t").fetchall()
+            "SELECT user_id, MAX(author_name) AS author_name, COUNT(*) AS cnt "
+            "FROM m WHERE user_id IS NOT NULL GROUP BY user_id "
+            "ORDER BY cnt DESC, user_id ASC").fetchall()
     finally:
         conn.close()
 
@@ -100,7 +110,7 @@ def _dossier_item(chat_id, name, fact):
 async def test_api_resolves_user_id_by_name(monkeypatch):
     db = _FakeDB(
         feed_rows=[_dossier_item(-100, "Толян", "любит мемы")],
-        participants={-100: _rows([(5, "Толян")])})
+        participants={-100: _active_rows([(5, "Толян", 1)])})
     _use_db(monkeypatch, db)
     _use_resolver(monkeypatch, {})
 
@@ -125,7 +135,7 @@ async def test_api_resolves_user_id_by_alias_canon(monkeypatch):
     """Сырое имя участника отличается от `target_user` — матч по канон-алиасу."""
     db = _FakeDB(
         feed_rows=[_dossier_item(-100, "Толян", "факт")],
-        participants={-100: _rows([(7, "tolik_nick")])})
+        participants={-100: _active_rows([(7, "tolik_nick", 1)])})
     _use_db(monkeypatch, db)
     _use_resolver(monkeypatch, {"7": "Толян"})
 
@@ -139,7 +149,7 @@ async def test_api_resolves_user_id_by_alias_canon(monkeypatch):
 async def test_api_unresolved_name_stays_text(monkeypatch):
     db = _FakeDB(
         feed_rows=[_dossier_item(-100, "Призрак", "факт")],
-        participants={-100: _rows([(5, "Толян")])})
+        participants={-100: _active_rows([(5, "Толян", 1)])})
     _use_db(monkeypatch, db)
     _use_resolver(monkeypatch, {})
 
@@ -155,7 +165,7 @@ async def test_api_fail_open_on_resolve_error(monkeypatch):
     """Ошибка резолва → HTTP-контракт не ломается: 200, `user_id=null`."""
     db = _FakeDB(
         feed_rows=[_dossier_item(-100, "Толян", "факт")],
-        participants={-100: _rows([(5, "Толян")])})
+        participants={-100: _active_rows([(5, "Толян", 1)])})
     db.raise_participants = True
     _use_db(monkeypatch, db)
     _use_resolver(monkeypatch, {})
@@ -180,8 +190,8 @@ async def test_api_global_resolves_per_chat(monkeypatch):
     db = _FakeDB(
         feed_rows=[_dossier_item(-100, "Аня", "ф1"),
                    _dossier_item(-200, "Борис", "ф2")],
-        participants={-100: _rows([(1, "Аня")]),
-                      -200: _rows([(2, "Борис")])})
+        participants={-100: _active_rows([(1, "Аня", 1)]),
+                      -200: _active_rows([(2, "Борис", 1)])})
     _use_db(monkeypatch, db)
     _use_resolver(monkeypatch, {})
 
@@ -193,17 +203,66 @@ async def test_api_global_resolves_per_chat(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_api_collision_prefers_active_tiebreaker(monkeypatch):
-    """Коллизия имён: побеждает первый в порядке БД (активный, меньший uid)."""
+async def test_api_collision_prefers_more_active(monkeypatch):
+    """Коллизия имён: побеждает более АКТИВНЫЙ участник (`cnt` DESC)."""
     db = _FakeDB(
         feed_rows=[_dossier_item(-100, "Аня", "факт")],
-        # get_active_participants: ORDER BY cnt DESC, user_id ASC → активный 9.
-        participants={-100: _rows([(9, "Аня"), (3, "Аня")])})
+        # uid 9 активнее (cnt 5) → в боевом порядке первый, несмотря на uid.
+        participants={-100: _active_rows([(3, "Аня", 1), (9, "Аня", 5)])})
     _use_db(monkeypatch, db)
     _use_resolver(monkeypatch, {})
 
     body = await ov.dossier_feed(None, None, chat_id=None, limit=12)
     assert body["items"][0]["user_id"] == 9
+
+
+@pytest.mark.asyncio
+async def test_api_collision_tiebreak_smaller_uid(monkeypatch):
+    """Коллизия имён при равной активности: tiebreak — меньший `user_id`
+    (`ORDER BY cnt DESC, user_id ASC`, database.py:3719-3725)."""
+    db = _FakeDB(
+        feed_rows=[_dossier_item(-100, "Аня", "факт")],
+        participants={-100: _active_rows([(3, "Аня", 2), (9, "Аня", 2)])})
+    _use_db(monkeypatch, db)
+    _use_resolver(monkeypatch, {})
+
+    body = await ov.dossier_feed(None, None, chat_id=None, limit=12)
+    assert body["items"][0]["user_id"] == 3
+
+
+@pytest.mark.asyncio
+async def test_api_nfkc_name_match(monkeypatch):
+    """Разные Unicode-формы имени (NFD vs NFC) совпадают (NFKC-нормализация)."""
+    nfd_name = unicodedata.normalize("NFD", "Йожик")  # «Й» → «И» + бревис
+    assert nfd_name != "Йожик", "предпосылка: формы действительно различаются"
+    db = _FakeDB(
+        feed_rows=[_dossier_item(-100, nfd_name, "факт")],
+        participants={-100: _active_rows([(5, "Йожик", 1)])})
+    _use_db(monkeypatch, db)
+    _use_resolver(monkeypatch, {})
+
+    body = await ov.dossier_feed(None, None, chat_id=None, limit=12)
+    assert body["items"][0]["user_id"] == 5
+
+
+@pytest.mark.asyncio
+async def test_api_logs_do_not_leak_raw_values(monkeypatch, caplog):
+    """R17 (spec §6): серверные логи не содержат сырых значений ленты
+    (ни excerpt-секрета, ни имени) даже при сбое резолва."""
+    canary = "CANARY-SECRET-VALUE-1234567890"
+    db = _FakeDB(
+        feed_rows=[_dossier_item(-100, "Толян", canary)],
+        participants={-100: _active_rows([(5, "Толян", 1)])})
+    db.raise_participants = True
+    _use_db(monkeypatch, db)
+    _use_resolver(monkeypatch, {})
+
+    with caplog.at_level(logging.WARNING, logger="web.api.oversight"):
+        body = await ov.dossier_feed(None, None, chat_id=None, limit=12)
+
+    assert body["items"][0]["user_id"] is None, "сбой резолва → fail-open"
+    assert canary not in caplog.text, "R17: сырое значение утекло в лог"
+    assert "Толян" not in caplog.text, "R17: имя участника утекло в лог"
 
 
 # ── Статика фронта: вертикаль/скорость/клик/флаг ────────────────────────────
@@ -218,6 +277,10 @@ class TestDossierFeedStatic:
         # Прежняя горизонталь 42s сохраняется (OFF-ветка) — не удаляем.
         assert "dossier-ticker-scroll 42s linear infinite" in CSS
 
+    def test_css_seamless_uses_gap_var(self):
+        # review iter1: бесшовность через --dossier-gap/2, без магической .25rem.
+        assert "calc(-50% - (var(--dossier-gap) / 2))" in CSS
+
     def test_css_speed_var_used_by_track(self):
         assert "var(--dossier-speed" in CSS
 
@@ -227,12 +290,16 @@ class TestDossierFeedStatic:
         assert "dossier-ticker__item--click" in INDEX
         assert "openFeedDossier(it)" in INDEX
         assert "@keydown.enter.prevent" in INDEX
+        # review iter1: клише-клон исключён из a11y/таб-порядка.
+        assert ":aria-hidden=\"it.dup ? 'true' : null\"" in INDEX
+        assert "!it.dup && it.user_id != null" in INDEX
         # OFF-ветка — прежний горизонтальный тикер (role="marquee").
         assert 'role="marquee"' in INDEX
 
     def test_appjs_speed_and_click_path(self):
         assert "dossierFeedSpeed" in APP_JS
         assert "openFeedDossier" in APP_JS
+        assert "dup: true" in APP_JS
         assert "user_name" in APP_JS and "user_id" in APP_JS
 
     def test_flag_delivered_additionally(self):

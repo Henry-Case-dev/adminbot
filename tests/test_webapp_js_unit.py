@@ -91,3 +91,19 @@ def test_js_unit_round1024_image_key():
     (global), не в общий POST; маска → 0 запросов; GET-режим disable+clear."""
     _run_js(os.path.join("tests", "js", "round1024_image_key_test.js"),
             ok_marker="IMAGE-KEY-OK")
+
+
+def test_js_unit_round1024_dossier_feed():
+    """F4 round 10.24 (ADR-1024-8): вертикальная кликабельная «Живая лента
+    досье» — dossierFeedLoop/скорость, клик-путь GLOBAL→чат→досье (UPD3 №9),
+    a11y (клоны aria-hidden/без таб-стопа), kill-switch uiFlag."""
+    _run_js(os.path.join("tests", "js", "round1024_dossier_feed_test.js"),
+            ok_marker="DOSSIER-FEED-OK")
+
+
+def test_js_unit_round1024_dossier_feed():
+    """F4 round 10.24 (ADR-1024-8): вертикальная кликабельная «Живая лента
+    досье» — dossierFeedLoop/скорость, клик-путь GLOBAL→чат→досье (UPD3 №9),
+    a11y (клоны aria-hidden/без таб-стопа), kill-switch uiFlag."""
+    _run_js(os.path.join("tests", "js", "round1024_dossier_feed_test.js"),
+            ok_marker="DOSSIER-FEED-OK")

@@ -2,16 +2,19 @@
 /* F4 round1024 (dossier-live-feed-round1024, ADR-1024-8, UPD2 п.2 + UPD3 №9) —
  * РЕАЛЬНЫЙ JS-тест «Живой ленты досье»:
  *   - `dossierFeedLoop` дублирует элементы (seamless), ключи уникальны,
- *     переносит user_id/user_name/chat_id (кликабельность);
+ *     переносит user_id/user_name/chat_id (кликабельность), клон помечен
+ *     `dup` (исключается из a11y/таб-порядка);
  *   - `dossierFeedSpeed` = max(72s, items × 6s) — заметно медленнее 42s;
  *   - `openFeedDossier`:
  *       · user_id=null → НЕ вызывается openDossier (нет ложного affordance);
  *       · GLOBAL (activeChatId пуст) → сначала setActiveChat(chat_id),
  *         затем openDossier с верным user_id;
  *       · активный чат совпадает → setActiveChat НЕ вызывается;
+ *       · chat_id null/0 → toast, модалка не открывается (контракт §3.2(2));
  *       · ошибка setActiveChat → toast, модалка не открывается;
  *   - wiring: шаблон гейтит uiFlag('DOSSIER_LIVE_FEED_ENABLED'), вертикальная
- *     дорожка/`role=button`/keydown, OFF-ветка сохраняет горизонталь;
+ *     дорожка/`role=button`/keydown; клоны `aria-hidden` без таб-стопа;
+ *     OFF-ветка сохраняет горизонталь; бесшовность через --dossier-gap/2;
  *   - статика: флаг доставляется через ui_flags; CSP/no-CDN.
  *
  * Запуск: node tests/js/round1024_dossier_feed_test.js  → DOSSIER-FEED-OK
@@ -82,7 +85,7 @@ assert(computed && computed.dossierFeedSpeed, 'dossierFeedSpeed — computed');
 assert(methods && methods.openFeedDossier, 'root.methods.openFeedDossier');
 assert(methods && methods.uiFlag, 'root.methods.uiFlag');
 
-// ── 1. dossierFeedLoop: дублирование + ключи + user_id/user_name ────────────
+// ── 1. dossierFeedLoop: дублирование + ключи + user_id/user_name + dup ──────
 (function () {
   const loop = computed.dossierFeedLoop.call({
     dossierFeed: [
@@ -100,6 +103,9 @@ assert(methods && methods.uiFlag, 'root.methods.uiFlag');
   assert.strictEqual(loop[1].user_id, null, 'null user_id сохраняется');
   assert.strictEqual(loop[1].user_name, 'B', 'fallback user_name = name');
   assert.strictEqual(loop[0].chat_id, -100, 'chat_id перенесён');
+  assert.strictEqual(loop[0].dup, false, 'оригинал не помечен dup');
+  assert.strictEqual(loop[2].dup, true, 'клоны помечены dup (a11y)');
+  assert.strictEqual(loop[3].dup, true, 'все клоны помечены dup');
   assert.strictEqual(
     computed.dossierFeedLoop.call({ dossierFeed: [] }).length, 0,
     'пустая лента → пусто');
@@ -114,7 +120,6 @@ assert(methods && methods.uiFlag, 'root.methods.uiFlag');
   assert.strictEqual(speed(2), '72s', 'короткий список — база 72s');
   assert.strictEqual(speed(12), '72s');
   assert.strictEqual(speed(20), '120s', '20×6=120 > 72');
-  // Заметно медленнее прежней горизонтали 42s.
   assert.ok(parseInt(speed(12), 10) >= 72, 'скорость ≥ 72s (медленнее 42s)');
 })();
 
@@ -132,6 +137,25 @@ assert(methods && methods.uiFlag, 'root.methods.uiFlag');
     methods.openFeedDossier.call(ctx, { chat_id: -100, user_id: null, name: 'X' });
     methods.openFeedDossier.call(ctx, null);
     assert.strictEqual(called, 0, 'null user_id → нет вызова (нет affordance)');
+  }
+
+  // 3a-2. chat_id null/0 → toast, чат не переключаем, модалку не открываем.
+  {
+    const toasts = [];
+    let switched = 0, opened = 0;
+    const ctx = {
+      activeChatId: -100,
+      toast(m) { toasts.push(m); },
+      setActiveChat() { switched += 1; },
+      async openDossier() { opened += 1; },
+    };
+    await methods.openFeedDossier.call(ctx,
+      { chat_id: null, user_id: 5, name: 'A', user_name: 'Аня' });
+    await methods.openFeedDossier.call(ctx,
+      { chat_id: 0, user_id: 5, name: 'A', user_name: 'Аня' });
+    assert.strictEqual(switched, 0, 'неизвестный чат → без setActiveChat');
+    assert.strictEqual(opened, 0, 'неизвестный чат → модалка не открыта');
+    assert.strictEqual(toasts.length, 2, 'неизвестный чат → toast');
   }
 
   // 3b. GLOBAL (нет активного чата) → setActiveChat, затем openDossier.
@@ -194,7 +218,7 @@ assert(methods && methods.uiFlag, 'root.methods.uiFlag');
     'DOSSIER_LIVE_FEED_ENABLED'), false);
 })();
 
-// ── 5. Wiring: шаблон вертикален/кликабелен, OFF = горизонталь ───────────────
+// ── 5. Wiring: шаблон вертикален/кликабелен, OFF = горизонталь, a11y ─────────
 (function () {
   const INDEX = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
   const APP_JS = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
@@ -206,14 +230,22 @@ assert(methods && methods.uiFlag, 'root.methods.uiFlag');
   assert(INDEX.indexOf('dossier-ticker__item--click') !== -1, 'строка-кнопка');
   assert(INDEX.indexOf('@keydown.enter.prevent') !== -1, 'клавиатура a11y');
   assert(INDEX.indexOf('openFeedDossier(it)') !== -1, 'клик → досье');
+  assert(INDEX.indexOf(':role="(!it.dup && it.user_id != null)') !== -1,
+    'клоны не получают role=button (a11y)');
+  assert(INDEX.indexOf('!it.dup && it.user_id != null && openFeedDossier(it)') !== -1,
+    'клоны не кликабельны');
+  assert(INDEX.indexOf(':aria-hidden="it.dup') !== -1, 'клоны скрыты от AT');
   assert(INDEX.indexOf('role="marquee"') !== -1, 'OFF: горизонтальный тикер');
   assert(APP_JS.indexOf('dossierFeedSpeed') !== -1, 'скорость во фронте');
+  assert(APP_JS.indexOf('dup: true') !== -1, 'клоны помечены dup');
   assert(APP_JS.indexOf('ui_flags') !== -1, 'uiFlag читает this.me.ui_flags');
   assert(CSS.indexOf('@keyframes dossier-ticker-scroll-y') !== -1,
     'вертикальный keyframe');
   assert(CSS.indexOf('@keyframes dossier-ticker-scroll') !== -1,
     'горизонтальный keyframe (OFF) сохранён');
   assert(CSS.indexOf('translateY') !== -1, 'движение по Y');
+  assert(CSS.indexOf('calc(-50% - (var(--dossier-gap) / 2))') !== -1,
+    'бесшовность через --dossier-gap/2 (без магической константы)');
   assert(CSS.indexOf('prefers-reduced-motion') !== -1, 'reduced-motion сохранён');
   for (const lib of ['cdn.jsdelivr.net', 'unpkg.com', 'http://', 'https://']) {
     assert(INDEX.indexOf(lib) === -1, 'без внешних ресурсов (CSP): ' + lib);
