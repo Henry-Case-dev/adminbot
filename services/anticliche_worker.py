@@ -14,6 +14,7 @@ from __future__ import annotations
 import datetime
 import json
 import logging
+from urllib.parse import urlsplit
 
 import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -24,6 +25,7 @@ from services import anticliche_cache
 from services import hot_config as hot
 from services import worker_budget
 from services.anticliche_cache import ANTICLICHE_MAX_PATTERNS
+from services.external_log import log_external_api, trace_step
 from services.negative_constraints import (
     DEFAULT_ENABLED_RULES,
     dynamic_rule_code,
@@ -66,6 +68,21 @@ EXTRACT_SYSTEM_PROMPT = (
 
 def _now_iso() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def _host_label(url: str) -> str:
+    """Host источника для лога (R17-safe: без query/кредов)."""
+    try:
+        return urlsplit(str(url or "")).hostname or "source"
+    except Exception:  # pragma: no cover — defensive
+        return "source"
+
+
+def _refresh_level(status: str) -> int:
+    """Штатные исходы (успех/пусто/скип по бюджету) → INFO, сбои → ERROR."""
+    if status in ("ok", "empty", "budget_skip", "disabled"):
+        return logging.INFO
+    return logging.ERROR
 
 
 def parse_patterns(raw) -> list[dict] | None:
@@ -149,7 +166,14 @@ async def fetch_source(url: str) -> str:
     async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         response = await client.get(
             url, headers={"User-Agent": "adminbot-anticliche/1.0"})
-        response.raise_for_status()
+        status = int(getattr(response, "status_code", 0))
+        if status != 200:
+            # F2/ADR-1024-1: статус + усечённое тело ошибки источника.
+            log_external_api(
+                logger, provider=_host_label(url), method="GET", url=url,
+                status=status, reason="fetch_http",
+                body=getattr(response, "text", ""), level=logging.ERROR)
+            response.raise_for_status()
         text = response.text
         try:
             data = response.json()
@@ -200,6 +224,21 @@ class AntiClicheWorker:
         if not getattr(self._scheduler, "running", False):
             self._scheduler.start()
         logger.info("AntiClicheWorker started | interval_days=%d", REFRESH_DAYS)
+        trace_step(logger, component="anticliche", step="schedule", status="ok",
+                   reason="started",
+                   extra={"interval_days": REFRESH_DAYS,
+                          "next_run_time": self._next_run_time() or "n/a"})
+
+    def _next_run_time(self):
+        """Ближайшее время прогона джоба (None — планировщик недоступен)."""
+        try:
+            scheduler = self._scheduler
+            if scheduler is None:
+                return None
+            job = scheduler.get_job(_JOB_ID)
+            return getattr(job, "next_run_time", None)
+        except Exception:  # pragma: no cover — defensive
+            return None
 
     async def stop(self) -> None:
         """Идемпотентная остановка планировщика."""
@@ -222,9 +261,20 @@ class AntiClicheWorker:
                 "[anticliche] refresh | status=%s | count=%s | source=%s",
                 result.get("status"), result.get("count"),
                 result.get("source"))
+            trace_step(
+                logger, component="anticliche", step="refresh",
+                status=result.get("status"), reason=result.get("source"),
+                level=_refresh_level(str(result.get("status"))),
+                extra={"count": result.get("count"),
+                       "version": result.get("version"),
+                       "next_run_time": self._next_run_time() or "n/a"})
         except Exception:
             logger.warning("[anticliche] tick failed (fail-open)",
                            exc_info=True)
+            trace_step(
+                logger, component="anticliche", step="refresh",
+                status="error", reason="tick_exception",
+                extra={"next_run_time": self._next_run_time() or "n/a"})
 
     # ── обновление ─────────────────────────────────────────────────────────
 
@@ -237,6 +287,9 @@ class AntiClicheWorker:
         """
         source_id = source or self._source_id
         if not anticliche_cache.enabled():
+            trace_step(logger, component="anticliche", step="gate",
+                       status="skip", reason="disabled",
+                       extra={"source": source_id})
             return {"status": "disabled", "count": 0, "version": 0,
                     "source": source_id}
         pg = self._pg if self._pg is not None else anticliche_cache.get_runtime_pg()
@@ -246,7 +299,11 @@ class AntiClicheWorker:
         except Exception as exc:
             await anticliche_cache.mark_status(pg, "fetch_error")
             logger.warning("[anticliche] fetch failed | error=%s",
-                           type(exc).__name__)
+                           type(exc).__name__, exc_info=True)
+            trace_step(logger, component="anticliche", step="fetch",
+                       status="error", reason="fetch_error",
+                       extra={"source": source_id,
+                              "error": type(exc).__name__})
             return {"status": "fetch_error", "count": 0, "version": 0,
                     "source": source_id}
 
@@ -259,6 +316,9 @@ class AntiClicheWorker:
             allowed = True
         if not allowed:
             logger.info("[anticliche] skip: worker budget exhausted")
+            trace_step(logger, component="anticliche", step="budget",
+                       status="skip", reason="budget_skip",
+                       extra={"source": source_id})
             return {"status": "budget_skip", "count": 0, "version": 0,
                     "source": source_id}
 
@@ -267,7 +327,11 @@ class AntiClicheWorker:
         except Exception as exc:
             await anticliche_cache.mark_status(pg, "llm_error")
             logger.warning("[anticliche] llm failed | error=%s",
-                           type(exc).__name__)
+                           type(exc).__name__, exc_info=True)
+            trace_step(logger, component="anticliche", step="llm",
+                       status="error", reason="llm_error",
+                       extra={"source": source_id,
+                              "error": type(exc).__name__})
             return {"status": "llm_error", "count": 0, "version": 0,
                     "source": source_id}
 
@@ -285,6 +349,10 @@ class AntiClicheWorker:
         if entries is None:
             await anticliche_cache.mark_status(pg, "parse_error")
             logger.warning("[anticliche] parse failed — cache kept")
+            trace_step(logger, component="anticliche", step="parse",
+                       status="error", reason="parse_error",
+                       extra={"source": source_id,
+                              "raw_len": len(str(raw or ""))})
             return {"status": "parse_error", "count": 0, "version": 0,
                     "source": source_id}
 
@@ -298,6 +366,9 @@ class AntiClicheWorker:
             await anticliche_cache.mark_status(pg, "empty")
             logger.warning(
                 "[anticliche] empty result — cache kept | version=%s", version)
+            trace_step(logger, component="anticliche", step="empty",
+                       status="empty", reason="empty_result",
+                       extra={"source": source_id, "version": version})
             return {"status": "empty", "count": 0, "version": version,
                     "source": source_id}
 
@@ -307,7 +378,11 @@ class AntiClicheWorker:
                 fetched_at=datetime.datetime.now(datetime.timezone.utc))
         except Exception as exc:
             logger.warning("[anticliche] write failed | error=%s (cache kept)",
-                           type(exc).__name__)
+                           type(exc).__name__, exc_info=True)
+            trace_step(logger, component="anticliche", step="write",
+                       status="error", reason="write_error",
+                       extra={"source": source_id,
+                              "error": type(exc).__name__})
             return {"status": "write_error", "count": 0, "version": 0,
                     "source": source_id}
         return {"status": "ok", "count": len(patterns), "version": version,

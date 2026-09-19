@@ -40,6 +40,7 @@ import httpx
 
 from config.settings import settings
 from services import hot_config as hot
+from services.external_log import log_external_api
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +187,22 @@ def _reason_from_status(status: int) -> str:
     }.get(int(status), f"http_{int(status)}")
 
 
+def _provider_from_url(url: str) -> str:
+    """Ярлык провайдера для лога — host без схемы (R17-safe)."""
+    try:
+        host = urlsplit(str(url or "")).hostname or ""
+    except Exception:  # pragma: no cover — defensive
+        host = ""
+    return host or "image"
+
+
+def _endpoint_for_log(base_url: str, get_mode: bool) -> str:
+    """R17-safe эндпоинт провайдера для лога (без промпта/query)."""
+    if get_mode:
+        return f"{_host_from_base(base_url)}/image"
+    return f"{str(base_url or '').rstrip('/')}/images/generations"
+
+
 async def _http_request(method: str, url: str, *,
                         json_body: dict | None = None,
                         headers: dict | None = None,
@@ -222,6 +239,11 @@ async def _request_with_retry(method: str, url: str, *,
     while (getattr(resp, "status_code", 0) in _RETRY_STATUSES
            and attempt < _RETRY_MAX):
         delay = _retry_delay(resp)
+        log_external_api(
+            logger, provider=_provider_from_url(url), method=method, url=url,
+            status=getattr(resp, "status_code", None), reason="retry",
+            body=getattr(resp, "text", ""), attempt=attempt + 1,
+            level=logging.WARNING)
         if delay > 0:
             await asyncio.sleep(delay)
         attempt += 1
@@ -266,10 +288,18 @@ async def _generate_post(base_url: str, model: str, prompt: str, key: str,
                                      headers=headers, timeout=timeout)
     status = int(getattr(resp, "status_code", 0))
     if status != 200:
+        log_external_api(
+            logger, provider=_provider_from_url(url), method="POST", url=url,
+            status=status, reason=_reason_from_status(status),
+            body=getattr(resp, "text", ""), level=logging.ERROR)
         raise ImageGenerationError(_reason_from_status(status))
     try:
         data = resp.json()
     except Exception:
+        log_external_api(
+            logger, provider=_provider_from_url(url), method="POST", url=url,
+            status=status, reason="bad_json",
+            body=getattr(resp, "text", ""), level=logging.ERROR)
         raise ImageGenerationError("bad_json")
     item = {}
     if isinstance(data, dict):
@@ -284,6 +314,10 @@ async def _generate_post(base_url: str, model: str, prompt: str, key: str,
             raise ImageGenerationError("bad_b64")
     image_url = item.get("url")
     if not image_url:
+        log_external_api(
+            logger, provider=_provider_from_url(url), method="POST", url=url,
+            status=status, reason="no_url", body=getattr(resp, "text", ""),
+            level=logging.ERROR)
         raise ImageGenerationError("no_url")
     return await _download_bytes(str(image_url), timeout, max_bytes)
 
@@ -294,6 +328,11 @@ async def _download_bytes(image_url: str, timeout: float,
     resp = await _request_with_retry("GET", image_url, timeout=timeout)
     status = int(getattr(resp, "status_code", 0))
     if status != 200:
+        log_external_api(
+            logger, provider=_provider_from_url(image_url), method="GET",
+            url=image_url, status=status,
+            reason=f"download_{_reason_from_status(status)}",
+            body=getattr(resp, "text", ""), level=logging.ERROR)
         raise ImageGenerationError(f"download_{_reason_from_status(status)}")
     content = bytes(getattr(resp, "content", b"") or b"")
     if not content:
@@ -322,6 +361,13 @@ async def _generate_get(host: str, model: str, prompt: str,
     resp = await _request_with_retry("GET", url, timeout=timeout)
     status = int(getattr(resp, "status_code", 0))
     if status != 200:
+        # R17: в URL GET-режима зашит пользовательский промпт (path) — в лог
+        # уходит ТОЛЬКО эндпоинт без промпта.
+        log_external_api(
+            logger, provider=_provider_from_url(host), method="GET",
+            url=f"{host}/image", status=status,
+            reason=_reason_from_status(status),
+            body=getattr(resp, "text", ""), level=logging.ERROR)
         raise ImageGenerationError(_reason_from_status(status))
     content = bytes(getattr(resp, "content", b"") or b"")
     if not content:
@@ -377,16 +423,30 @@ async def generate(prompt: str, *, chat_id: int | None = None,
             content = await _generate_post(base_url, model, prompt, key,
                                            timeout, max_bytes)
     except ImageGenerationError as exc:
+        elapsed_ms = int((time.monotonic() - started) * 1000)
         logger.warning(
             "[image] generation failed | mode=%s | model=%s | reason=%s | "
             "latency_ms=%d", "get" if get_mode else "post", model, exc.reason,
-            int((time.monotonic() - started) * 1000))
+            elapsed_ms)
+        # F2/ADR-1024-1: «тихий откат» для юзера ≠ тишина в логах.
+        log_external_api(
+            logger, provider=_provider_from_url(base_url),
+            method="GET" if get_mode else "POST",
+            url=_endpoint_for_log(base_url, get_mode),
+            status=None, reason=exc.reason, duration_ms=elapsed_ms,
+            level=logging.ERROR)
         return GenerationResult(ok=False, reason=exc.reason)
     except Exception as exc:
+        elapsed_ms = int((time.monotonic() - started) * 1000)
         logger.warning(
             "[image] generation error | mode=%s | model=%s | error=%s | "
             "latency_ms=%d", "get" if get_mode else "post", model,
-            type(exc).__name__, int((time.monotonic() - started) * 1000))
+            type(exc).__name__, elapsed_ms)
+        log_external_api(
+            logger, provider=_provider_from_url(base_url),
+            method="GET" if get_mode else "POST",
+            status=None, reason=type(exc).__name__, duration_ms=elapsed_ms,
+            level=logging.ERROR)
         return GenerationResult(ok=False, reason="error")
     if len(content) > max_bytes:
         return GenerationResult(ok=False, reason="too_large")

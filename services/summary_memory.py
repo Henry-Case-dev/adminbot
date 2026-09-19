@@ -52,6 +52,7 @@ from services.chat_params import (
     get_chat_param as _chat_limit,  # G-3 per-chat
 )
 from services.database import parse_belief_meta, row_get
+from services.external_log import trace_step
 from services.llm_client import LLMError
 from services.summary_prompts import COMPRESS_PROMPT, EXTRACT_PROMPT
 from services.summary_xml import escape_xml_text
@@ -3184,6 +3185,11 @@ class MemoryManager:
                     "pipeline continues | chat_id=%s",
                     chat_id,
                 )
+                # F2/ADR-1024-1: сбой виден в логе (батч сохранён, не отброшен).
+                trace_step(
+                    logger, component="graph", step="extract", status="error",
+                    reason="extract_failed", chat_id=chat_id,
+                    extra={"batch": len(ids)}, level=logging.ERROR)
                 break
             # успешная экстракция окна → маркер (повторный крон не
             # пере-экстрактит; новые строки после маркера — экстрактятся)
@@ -3219,6 +3225,8 @@ class MemoryManager:
                 "graph extract: batch has no captions — nothing to extract | chat_id=%s",
                 chat_id,
             )
+            trace_step(logger, component="graph", step="gate", status="empty",
+                       reason="no_captions", chat_id=chat_id)
             return
         tail = text[-_GRAPH_EXTRACT_MAX_CHARS:]
         raw = await self.llm.generate(
@@ -3235,9 +3243,16 @@ class MemoryManager:
             if str(raw).strip() == "[]":
                 # S10.19-1: rate-limited INFO вместо невидимого DEBUG.
                 _log_empty_valid(chat_id, "triplets", label="graph extract")
+                trace_step(logger, component="graph", step="parse",
+                           status="empty", reason="empty_list",
+                           chat_id=chat_id)
             else:
                 logger.info(
                     "graph extract: no triplets parsed | chat_id=%s", chat_id)
+                trace_step(logger, component="graph", step="parse",
+                           status="error", reason="no_triplets",
+                           chat_id=chat_id,
+                           extra={"raw_len": len(str(raw or ""))})
         for triplet in triplets:
             # Epic 60 (66.9, T-487): user-сущности — канон-имена по алиасам
             # (карточки /persona и связи графа агрегируются по одному имени).
@@ -3266,6 +3281,10 @@ class MemoryManager:
                             settings.GRAPH_EDGE_WEIGHT_INCREMENT)) or 0),
             )
         logger.info("graph: triplets=%d | chat_id=%s", len(triplets), chat_id)
+        if triplets:
+            trace_step(logger, component="graph", step="write", status="ok",
+                       reason="saved", chat_id=chat_id,
+                       extra={"triplets": len(triplets)})
 
     async def _save_archive_embedding(self, chat_id: int, fact_id: int, fact: str) -> None:
         try:

@@ -597,6 +597,20 @@ class Settings:
         "DOSSIER_REBUILD_CHUNK_SIZE", 40)
     DOSSIER_REBUILD_LOCK_TTL_SECONDS: ClassVar[int] = _env_int(
         "DOSSIER_REBUILD_LOCK_TTL_SECONDS", 6 * 3600)
+    # ── Раунд 10.24 (F2, ADR-1024-1): env-only ClassVar-рубильники единого
+    # R17-safe логирования внешних API/пайплайнов. Δ каталога = 0 (в
+    # param_catalog не входят). Default ON.
+    #   * EXTERNAL_API_LOGGING_ENABLED — kill-switch тел/URL: OFF → хелпер
+    #     печатает только provider/status/reason (наблюдаемость не теряется).
+    #   * EXTERNAL_API_LOG_BODY_CHARS — лимит длины тела ответа (default 1024).
+    #   * EXTERNAL_API_LOG_URL_QUERY — логировать query (с маскировкой
+    #     секрето-подобных параметров); default OFF → URL без query.
+    EXTERNAL_API_LOGGING_ENABLED: ClassVar[bool] = _env_bool(
+        "EXTERNAL_API_LOGGING_ENABLED", True)
+    EXTERNAL_API_LOG_BODY_CHARS: ClassVar[int] = _env_int(
+        "EXTERNAL_API_LOG_BODY_CHARS", 1024)
+    EXTERNAL_API_LOG_URL_QUERY: ClassVar[bool] = _env_bool(
+        "EXTERNAL_API_LOG_URL_QUERY", False)
     # Лимит Telegram: число частей ответа (чанкинг 4096).
     MAX_SUMMARY_PARTS: int = _env_int("MAX_SUMMARY_PARTS", 1)
     SUMMARY_TIMEZONE: str = os.getenv("SUMMARY_TIMEZONE", "Asia/Yekaterinburg")
