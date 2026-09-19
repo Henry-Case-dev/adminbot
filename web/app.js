@@ -1297,6 +1297,19 @@
         return !!(this.me && (this.me.role_name === 'admin'
           || (this.me.permissions && this.me.permissions.wildcard)));
       },
+      // F11 (10.24, ADR-1024-12; review iter2 M1): ЭФФЕКТИВНЫЙ глобальный
+      // админ с сервера (`/api/me.is_global_admin` — единый источник
+      // `services/roles.access_for`). Паритет с RBAC safe-эндпоинта: custom-
+      // роль с `role_type=global_admin` без wildcard тоже правит глобальный
+      // секрет. Fallback на legacy-эвристику `isGlobalAdmin`, если поле не
+      // пришло (старый сервер/тест-стенд). НЕ заменяет `isGlobalAdmin`
+      // (общий флаг других фич) — только гейт глобальных секретов.
+      isGlobalAdminEffective: function () {
+        if (this.me && typeof this.me.is_global_admin === 'boolean') {
+          return this.me.is_global_admin;
+        }
+        return !!this.isGlobalAdmin;
+      },
       // F3 (раунд 10.24, ADR-1024-7): визуальное дерево вызова (Node Flow).
       // Единый проход по фактическим `steps[]` — НИ ОДИН шаг не отбрасывается
       // (повторы stage1/stage2 и нераспознанные `step` — отдельные ноды):
@@ -4450,7 +4463,8 @@
         // права на этот ключ (иначе UI обещал бы возможность, которую
         // бэкенд отбирает).
         if (isGlobalSecretKey(key)) {
-          return !!(this.isGlobalAdmin && this.isGlobalAdmin());
+          // `isGlobalAdminEffective` — computed (ЗНАЧЕНИЕ, не метод).
+          return !!this.isGlobalAdminEffective;
         }
         // F-14 (§6, ремедиация ревью): в DM-скоупе (свои ЛС) юзер правит
         // параметры как local_admin — permissions из /api/me (глобальная

@@ -34,6 +34,8 @@ ADMIN_ID = 5885953495
 MODERATOR_ID = 1313107079
 USER_ID = 999999999
 KEYS_EDITOR_ID = 424242425
+ADMIN_NO_WILDCARD_ID = 424242426
+CUSTOM_GA_ID = 424242427
 
 IMAGE_KEY = "keys.image_api_key"
 IMAGE_SECRET = "img-secret-value-9999"
@@ -199,6 +201,36 @@ def keys_editor_client(monkeypatch, tmp_path):
         yield test_client
 
 
+@pytest.fixture
+def admin_no_wildcard_client(monkeypatch, tmp_path):
+    """Роль `admin` БЕЗ wildcard (legacy-role_type → global_admin): раньше
+    фронт бросал TypeError, бэкенд считает её глобальным админом."""
+    roles = [{"role_name": "admin", "permissions": {}, "is_custom": False},
+             {"role_name": "user", "permissions": {}, "is_custom": False}]
+    admins = [{"telegram_id": ADMIN_NO_WILDCARD_ID, "role_name": "admin",
+               "added_by": None, "created_at": None}]
+    cache, app = _make_app_client(monkeypatch, tmp_path, roles, admins)
+    with TestClient(app) as test_client:
+        test_client.cache = cache
+        yield test_client
+
+
+@pytest.fixture
+def custom_global_admin_client(monkeypatch, tmp_path):
+    """Custom-роль с `role_type=global_admin` без wildcard: backend разрешает
+    (200), фронт по эффективному флагу тоже должен разрешать (M1)."""
+    roles = _ROLE_ROWS + [{"role_name": "ga_custom",
+                           "permissions": {"sections": ["keys"]},
+                           "is_custom": True, "role_type": "global_admin"}]
+    admins = _ADMIN_ROWS + [{"telegram_id": CUSTOM_GA_ID,
+                             "role_name": "ga_custom",
+                             "added_by": ADMIN_ID, "created_at": None}]
+    cache, app = _make_app_client(monkeypatch, tmp_path, roles, admins)
+    with TestClient(app) as test_client:
+        test_client.cache = cache
+        yield test_client
+
+
 def _audit_rows(client) -> list:
     conn = client.cache.pg.pool._conn
     return [args for sql, args in conn.queries
@@ -232,7 +264,10 @@ class TestAllowlists:
         """ADR-1024-13: kill-switch доставляется во фронт через /api/me."""
         resp = client.get("/api/me", headers=_hdr(ADMIN_ID))
         assert resp.status_code == 200
-        assert resp.json()["ui_flags"]["BYOK_IMAGE_KEY_ENABLED"] is True
+        body = resp.json()
+        assert body["ui_flags"]["BYOK_IMAGE_KEY_ENABLED"] is True
+        # M1: эффективный глобальный админ — единый источник прав UI↔бэкенд.
+        assert body["is_global_admin"] is True
 
 
 # ═══ PUT global ════════════════════════════════════════════════════════════
@@ -415,6 +450,41 @@ class TestRbacParity:
             headers=_hdr(ADMIN_ID))
         assert resp.status_code == 200
         assert client.cache.get(IMAGE_KEY) == "rbac-ok-key"
+
+    def test_keys_editor_me_flag_false(self, keys_editor_client):
+        """UI получит is_global_admin=false → поле disabled (паритет)."""
+        body = keys_editor_client.get("/api/me",
+                                      headers=_hdr(KEYS_EDITOR_ID)).json()
+        assert body["is_global_admin"] is False
+
+    def test_admin_role_without_wildcard_is_global(self, admin_no_wildcard_client):
+        """Роль `admin` без wildcard: legacy-role_type → global_admin.
+        /api/me.is_global_admin=true и safe-эндпоинт 200 — паритет с UI
+        (H1: computed как значение, без TypeError)."""
+        body = admin_no_wildcard_client.get(
+            "/api/me", headers=_hdr(ADMIN_NO_WILDCARD_ID)).json()
+        assert body["is_global_admin"] is True
+        resp = admin_no_wildcard_client.put(
+            "/api/config/keys/own",
+            json={"key_name": IMAGE_KEY, "value": "admin-nw-key",
+                  "scope": "global"},
+            headers=_hdr(ADMIN_NO_WILDCARD_ID))
+        assert resp.status_code == 200
+        assert admin_no_wildcard_client.cache.get(IMAGE_KEY) == "admin-nw-key"
+
+    def test_custom_global_admin_role_allowed(self, custom_global_admin_client):
+        """Custom `role_type=global_admin` без wildcard: backend 200,
+        `/api/me.is_global_admin=true` — UI не запрещает лишнего (M1)."""
+        body = custom_global_admin_client.get(
+            "/api/me", headers=_hdr(CUSTOM_GA_ID)).json()
+        assert body["is_global_admin"] is True
+        resp = custom_global_admin_client.put(
+            "/api/config/keys/own",
+            json={"key_name": IMAGE_KEY, "value": "custom-ga-key",
+                  "scope": "global"},
+            headers=_hdr(CUSTOM_GA_ID))
+        assert resp.status_code == 200
+        assert custom_global_admin_client.cache.get(IMAGE_KEY) == "custom-ga-key"
 
 
 # ═══ Reload + R17-логи (review iter1, Finding M/spec §6) ════════════════════

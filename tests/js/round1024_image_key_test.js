@@ -297,28 +297,65 @@ function makeBlockCtx(drafts, opts) {
       'llm chat → scope:chat');
   }
 
-  // ── 8) Паритет прав UI↔бэкенд для globalSecret (Finding H) ──────────────
+  // ── 8) Паритет прав UI↔бэкенд для globalSecret (Finding H1/M1) ──────────
+  // `isGlobalAdminEffective` — computed (ЗНАЧЕНИЕ), как в рантайме; раньше
+  // тест подменял его МЕТОДОМ и из-за этого не ловил TypeError.
   {
-    function editCtx(permissions, isGlobal) {
+    function editCtx(permissions, effective, legacy) {
       return {
         permissions: permissions,
         configItems: imageConfigItems(),
-        isGlobalAdmin() { return isGlobal; },
+        isGlobalAdminEffective: effective,
+        isGlobalAdmin: (legacy === undefined ? effective : legacy),
         isDmCtx() { return false; },
       };
     }
+    // Все 4 комбинации wildcard × effective — без исключений.
     assert.strictEqual(
       methods.canEditConfig.call(editCtx({ sections: ['keys'] }, false),
         'keys.image_api_key'), false,
       'F11: роль с секцией keys НЕ правит глобальный image-ключ');
     assert.strictEqual(
-      methods.canEditConfig.call(editCtx({ wildcard: true }, true),
-        'keys.image_api_key'), true,
-      'F11: wildcard (global admin) правит image-ключ');
-    assert.strictEqual(
       methods.canEditConfig.call(editCtx({ sections: ['keys'] }, true),
         'keys.image_api_key'), true,
-      'F11: global admin правит image-ключ');
+      'F11: эффективный global admin (custom role_type) правит image-ключ');
+    assert.strictEqual(
+      methods.canEditConfig.call(editCtx({ wildcard: true }, false),
+        'keys.image_api_key'), true,
+      'F11: wildcard правит image-ключ (ранний return)');
+    assert.strictEqual(
+      methods.canEditConfig.call(editCtx({ wildcard: true }, true),
+        'keys.image_api_key'), true,
+      'F11: wildcard + effective true');
+    // Регресс H1: роль `admin` без wildcard (effective=true, wildcard=false)
+    // раньше бросала `TypeError: this.isGlobalAdmin is not a function`.
+    assert.doesNotThrow(() => {
+      const r = methods.canEditConfig.call(
+        editCtx({ sections: ['keys'] }, true, true), 'keys.image_api_key');
+      assert.strictEqual(r, true, 'admin без wildcard → правит');
+    }, 'F11: computed как значение — без TypeError в рендере');
+  }
+
+  // ── 9) isGlobalAdminEffective — источник истины с сервера ──────────────
+  {
+    const computed = captured.computed;
+    assert(computed && computed.isGlobalAdminEffective,
+      'computed.isGlobalAdminEffective не найден');
+    const eff = computed.isGlobalAdminEffective;
+    // Сервер отдал эффективный флаг — он приоритетнее legacy-эвристики.
+    assert.strictEqual(eff.call({
+      me: { role_name: 'admin', is_global_admin: false },
+      isGlobalAdmin: true,
+    }), false, 'M1: серверный false приоритетнее role_name=admin');
+    assert.strictEqual(eff.call({
+      me: { role_name: 'ga_custom', is_global_admin: true },
+      isGlobalAdmin: false,
+    }), true, 'M1: custom role_type=global_admin → эффективный true');
+    // Старый сервер (нет поля) → legacy-фолбэк.
+    assert.strictEqual(eff.call({
+      me: { role_name: 'admin', permissions: {} },
+      isGlobalAdmin: true,
+    }), true, 'M1: без поля — fallback на legacy isGlobalAdmin');
   }
 
   console.log('IMAGE-KEY-OK');

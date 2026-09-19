@@ -326,6 +326,11 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
     role = cache.roles().get(role_name)
     permissions = (role or {}).get("permissions", {})
     is_custom = bool((role or {}).get("is_custom", False))
+    # F11 (10.24, ADR-1024-12; review iter2 M1): эффективный глобальный админ
+    # по единому источнику `services/roles.access_for` (role_type ==
+    # global_admin ИЛИ wildcard) — паритет UI с RBAC safe-эндпоинта.
+    # R16: поле аддитивно, наружу только bool.
+    ctx_me = await roles_srv.access_for(user.id, cache=cache)
     return {
         "telegram_id": user.id,
         "username": user.username,
@@ -337,6 +342,7 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
         "role_name": role_name,
         "permissions": permissions,
         "is_custom": is_custom,
+        "is_global_admin": bool(ctx_me.is_global_admin),
         # ADR-1024-13: UI-флаги (R16-аддитивно, R17-безопасно — только bool).
         "ui_flags": {
             "TOKEN_FLOW_NODEFLOW_ENABLED":
