@@ -28,6 +28,8 @@
 """
 import argparse
 import asyncio
+import datetime
+import json
 import logging
 import math
 import os
@@ -601,6 +603,30 @@ def build_parser() -> argparse.ArgumentParser:
     overrides.add_argument("--force", action="store_true",
                      help="перезаписать бюджеты/контекст даже при ручной "
                           "правке (enforce-ключи применяются всегда)")
+    # ── F22 (10.24, ADR-1024-23 D5): read-only аудит overrides/истории ──────
+    audit = sub.add_parser(
+        "audit-chat-overrides",
+        help="READ-ONLY аудит per-chat overrides и истории правок (F22)",
+        description="READ-ONLY (только SELECT): фактический набор overrides "
+                    "чата и сверка с эталоном сида (ok|absent|different), "
+                    "таймлайн chat_lore_history field='chat_params' с "
+                    "детектором вайпа, chat_keys — только {configured,last4}, "
+                    "счётчики chat_usage/worker_budget/bot_settings и резолв "
+                    "flags.chat_context_budgets_enabled. Секреты не выводятся "
+                    "(R17/R18); JSONL — в gitignored var/audit/.")
+    audit.add_argument("--chat-id", type=int, required=True,
+                       help="chat_id для аудита (обязателен)")
+    audit.add_argument("--seed", default=None,
+                       help="путь сида-эталона (дефолт: "
+                            "config/chat_settings_seed.json)")
+    audit.add_argument("--history-limit", type=int, default=200,
+                       help="потолок строк таймлайна chat_params (дефолт 200)")
+    audit.add_argument("--jsonl", default=None,
+                       help="путь JSONL-выгрузки (дефолт: var/audit/"
+                            "chat_overrides_<chat_id>_<utc>.jsonl)")
+    audit.add_argument("--strict", action="store_true",
+                       help="non-zero exit при дрейфе "
+                            "(absent/different/wipe_suspected)")
     # ── F7 (10.19, ADR-1019-6 D2, D-2 ревью Батча E): retention импорта ──
     ret = sub.add_parser(
         "retention",
@@ -826,15 +852,30 @@ def _cmd_retention(args) -> int:
 
 
 def _cmd_apply_chat_overrides(args) -> int:
-    """F3 (10.19): `python manage.py apply-chat-overrides [--force]` — идемпотентный сид."""
-    import asyncio
+    """F3 (10.19) + F22 (10.24, ADR-1024-23 D4): `python manage.py
+    apply-chat-overrides [--force]` — идемпотентный сид.
 
+    F22: обязательный `await pg.connect()` ДО `pg.init(...)` и fail-loud —
+    при недоступной PG выход с ненулевым кодом. Иначе CLI печатал
+    `applied=0 skipped=0 errors=0` и притворялся успешным (тихий no-op,
+    ремонт данных не выполнялся)."""
     from services.pg_db import PgDatabase
     from services.chat_settings_seed import apply_chat_settings_seed
 
-    async def _run() -> dict:
+    async def _run() -> dict | None:
         pg = PgDatabase()
-        await pg.init(seed_settings=False)
+        try:
+            await pg.connect()
+        except Exception as exc:
+            print(f"apply-chat-overrides: не удалось подключиться к "
+                  f"PostgreSQL ({type(exc).__name__}) — ремонт не выполнен",
+                  file=sys.stderr)
+            return None
+        if pg.pool is None:
+            print("apply-chat-overrides: PostgreSQL недоступен (POSTGRES_DSN "
+                  "пуст или пул не создан) — ремонт не выполнен",
+                  file=sys.stderr)
+            return None
         try:
             return await apply_chat_settings_seed(pg, force=bool(getattr(
                 args, "force", False)))
@@ -845,11 +886,426 @@ def _cmd_apply_chat_overrides(args) -> int:
                 pass
 
     report = asyncio.run(_run())
+    if report is None:
+        return 1
     print(f"apply-chat-overrides: applied={len(report['applied'])} "
           f"skipped={len(report['skipped'])} errors={len(report['errors'])}")
     for chat_id, keys in report["applied"]:
         print(f"  chat {chat_id}: {', '.join(keys)}")
+    if report["errors"]:
+        print(f"apply-chat-overrides: ошибки применения на "
+              f"{len(report['errors'])} чат(ах) — ремонт НЕ полный",
+              file=sys.stderr)
+        return 1
     return 0
+
+
+# ═══ F22 (раунд 10.24, ADR-1024-23 D5/D7): read-only аудит overrides ═════════
+# Только SELECT (без set_chat_params/NOTIFY/history). R17/R18: в stdout/JSONL
+# попадают лишь имена ключей, числа-значения лимитов (0/-1) и
+# `{configured,last4}`; сырые `key_value`/секреты/полные JSON-дампы `old_value`
+# и `new_value` НЕ выводятся. JSONL — в gitignored `var/audit/`.
+
+_AUDIT_PROFILE_SQL = (
+    "SELECT chat_id, updated_at, chat_params FROM chat_profiles "
+    "WHERE chat_id = $1")
+_AUDIT_HISTORY_SQL = (
+    "SELECT id, created_at, changed_by, old_value, new_value "
+    "FROM chat_lore_history WHERE chat_id = $1 AND field = 'chat_params' "
+    "ORDER BY created_at DESC, id DESC LIMIT $2")
+_AUDIT_KEYS_SQL = (
+    "SELECT key_name, key_value FROM chat_keys WHERE chat_id = $1")
+_AUDIT_USAGE_SQL = (
+    "SELECT metric, used, day FROM chat_usage WHERE chat_id = $1 "
+    "ORDER BY day DESC LIMIT 30")
+_AUDIT_WORKER_SQL = (
+    "SELECT day, scope, metric, used FROM worker_budget WHERE scope = $1 "
+    "ORDER BY day DESC LIMIT 30")
+_AUDIT_SETTINGS_SQL = (
+    "SELECT key, value FROM bot_settings WHERE key = ANY($1::text[])")
+
+# Ось «усечение контекста direct-контура» (F22 фиксирует границу с master-
+# тумблером бюджетов F21 `flags.budgets_enabled`; F22 флаги НЕ пишет).
+_CONTEXT_BUDGET_FLAG = "flags.chat_context_budgets_enabled"
+
+
+def _iso_any(value):
+    """JSON-safe строка из datetime/строки/None."""
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
+def _as_dict(row) -> dict:
+    """asyncpg.Record | dict | None → dict (без падений)."""
+    if row is None:
+        return {}
+    try:
+        return dict(row)
+    except Exception:
+        return {}
+
+
+def _load_params(value) -> dict:
+    """JSONB chat_params → dict (мусор/строка → {})."""
+    if isinstance(value, dict):
+        return dict(value)
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except ValueError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
+async def _safe_close(pg) -> None:
+    try:
+        await pg.close()
+    except Exception:
+        pass
+
+
+def _load_seed_ref(chat_id: int, seed_path) -> tuple[dict, int]:
+    """`(эталон overrides чата, version сида)` из `config/chat_settings_seed.json`.
+
+    Generic-обход: chat_id берётся из данных сида (в коде id не ветвится)."""
+    from services.chat_settings_seed import load_chat_settings_seed
+    seed = load_chat_settings_seed(seed_path)
+    try:
+        version = int(seed.get("version", 0) or 0)
+    except (TypeError, ValueError):
+        version = 0
+    reference: dict = {}
+    for entry in seed.get("chats") or []:
+        try:
+            if int(entry["chat_id"]) == int(chat_id):
+                reference = dict(entry.get("overrides") or {})
+                break
+        except (KeyError, TypeError, ValueError):
+            continue
+    return reference, version
+
+
+def _values_equal(key: str, current, expected) -> bool:
+    """Сравнение значения с эталоном с учётом типа каталога (мусор → False)."""
+    if current == expected:
+        return True
+    try:
+        from services.param_catalog import normalize_value
+        return normalize_value(key, current) == normalize_value(key, expected)
+    except Exception:
+        return False
+
+
+def _classify_overrides(overrides: dict, reference: dict) -> list[dict]:
+    """Классификация seed-ключей: `ok | absent | different` (R17-safe)."""
+    out = []
+    for key, expected in reference.items():
+        if key not in overrides:
+            out.append({"key": key, "status": "absent", "value": None})
+        elif _values_equal(key, overrides[key], expected):
+            out.append({"key": key, "status": "ok", "value": overrides[key]})
+        else:
+            out.append({"key": key, "status": "different",
+                        "value": overrides[key]})
+    return out
+
+
+def _parse_overrides_blob(text) -> tuple[set, object]:
+    """`(набор ключей overrides, seed_version|None)` из TEXT old/new_value.
+
+    Значение — свободный TEXT; не-JSON/мусор → пустой набор (не падаем)."""
+    if text is None:
+        return set(), None
+    if isinstance(text, (bytes, bytearray)):
+        try:
+            text = text.decode("utf-8", "replace")
+        except Exception:
+            return set(), None
+    if not isinstance(text, str):
+        return set(), None
+    try:
+        parsed = json.loads(text)
+    except Exception:
+        return set(), None
+    if not isinstance(parsed, dict):
+        return set(), None
+    overrides = parsed.get("overrides")
+    keys = set(overrides) if isinstance(overrides, dict) else set()
+    version = None
+    meta = parsed.get("meta")
+    if isinstance(meta, dict):
+        raw = meta.get("chat_settings_seed_version")
+        if raw is not None:
+            try:
+                version = int(raw)
+            except (TypeError, ValueError):
+                version = None
+    return keys, version
+
+
+def _timeline_entry(row: dict, seed_keys: set) -> dict:
+    """R17-safe строка таймлайна `chat_params`: только наборы ключей/числа.
+
+    `wipe_suspected` — уменьшение числа seed-ключей в `overrides` (детектор
+    вайпа: merge-баг стирал namespace целиком)."""
+    old_keys, old_ver = _parse_overrides_blob(row.get("old_value"))
+    new_keys, new_ver = _parse_overrides_blob(row.get("new_value"))
+    seed_old = len(seed_keys & old_keys)
+    seed_new = len(seed_keys & new_keys)
+    return {
+        "id": row.get("id"),
+        "created_at": _iso_any(row.get("created_at")),
+        "changed_by": row.get("changed_by"),
+        "added": sorted(new_keys - old_keys),
+        "dropped": sorted(old_keys - new_keys),
+        "seed_version_old": old_ver,
+        "seed_version_new": new_ver,
+        "seed_keys_old": seed_old,
+        "seed_keys_new": seed_new,
+        "wipe_suspected": seed_new < seed_old,
+    }
+
+
+async def _collect_chat_overrides_audit(pg, *, chat_id: int, seed_path=None,
+                                        history_limit: int = 200) -> dict:
+    """Read-only сбор аудита (§3.3). Все запросы — только `SELECT`.
+
+    Возвращает R17-safe сводку; `wipe_detected` — найден ли вайп в истории."""
+    reference, seed_version = _load_seed_ref(chat_id, seed_path)
+    seed_keys = set(reference)
+    report: dict = {
+        "chat_id": int(chat_id),
+        "seed_version_expected": seed_version,
+        "reference_keys": sorted(seed_keys),
+        "profile": False,
+        "updated_at": None,
+        "classification": [],
+        "seed_meta_version": None,
+        "allow_global_present": False,
+        "timeline": [],
+        "wipe_detected": False,
+        "chat_keys": [],
+        "chat_usage": [],
+        "worker_budget": [],
+        "global_limits": {},
+        "context_flag": {"value": None, "source": None},
+        "warnings": [],
+    }
+    pool = getattr(pg, "pool", None)
+    if pool is None:
+        raise RuntimeError("PostgreSQL недоступен (пул отсутствует)")
+    async with pool.acquire() as conn:
+        profile_row = _as_dict(await conn.fetchrow(
+            _AUDIT_PROFILE_SQL, int(chat_id)))
+        chat_params = _load_params(profile_row.get("chat_params"))
+        overrides = dict(chat_params.get("overrides") or {})
+        meta = dict(chat_params.get("meta") or {})
+        keys_ns = dict(chat_params.get("keys") or {})
+        report["profile"] = bool(profile_row)
+        report["updated_at"] = _iso_any(profile_row.get("updated_at"))
+        report["classification"] = _classify_overrides(overrides, reference)
+        raw_ver = meta.get("chat_settings_seed_version")
+        if raw_ver is not None:
+            try:
+                report["seed_meta_version"] = int(raw_ver)
+            except (TypeError, ValueError):
+                report["seed_meta_version"] = None
+        report["allow_global_present"] = "allow_global" in keys_ns
+
+        hist_rows = await conn.fetch(_AUDIT_HISTORY_SQL, int(chat_id),
+                                     int(history_limit))
+        for item in hist_rows or []:
+            report["timeline"].append(
+                _timeline_entry(_as_dict(item), seed_keys))
+        report["wipe_detected"] = any(
+            entry["wipe_suspected"] for entry in report["timeline"])
+
+        # chat_keys — ТОЛЬКО маска {configured,last4} (сырое значение не выводим).
+        try:
+            from services.chat_keys import mask_key_info
+            rows = await conn.fetch(_AUDIT_KEYS_SQL, int(chat_id))
+            for item in rows or []:
+                raw = _as_dict(item)
+                mask = mask_key_info(raw.get("key_name"), raw.get("key_value"))
+                report["chat_keys"].append({
+                    "key_name": mask["key_name"],
+                    "configured": mask["configured"],
+                    "last4": mask["last4"]})
+        except Exception:
+            report["warnings"].append("chat_keys")
+
+        # Счётчики — только числа.
+        try:
+            rows = await conn.fetch(_AUDIT_USAGE_SQL, int(chat_id))
+            for item in rows or []:
+                raw = _as_dict(item)
+                report["chat_usage"].append({
+                    "metric": raw.get("metric"),
+                    "used": int(raw.get("used") or 0),
+                    "day": _iso_any(raw.get("day"))})
+        except Exception:
+            report["warnings"].append("chat_usage")
+        try:
+            rows = await conn.fetch(_AUDIT_WORKER_SQL,
+                                    f"chat:{int(chat_id)}")
+            for item in rows or []:
+                raw = _as_dict(item)
+                report["worker_budget"].append({
+                    "day": _iso_any(raw.get("day")),
+                    "scope": raw.get("scope"),
+                    "metric": raw.get("metric"),
+                    "used": int(raw.get("used") or 0)})
+        except Exception:
+            report["warnings"].append("worker_budget")
+        # Глобальный слой лимитов — только числа.
+        if seed_keys:
+            try:
+                from services.param_catalog import normalize_value
+                rows = await conn.fetch(_AUDIT_SETTINGS_SQL, sorted(seed_keys))
+                for item in rows or []:
+                    raw = _as_dict(item)
+                    key = raw.get("key")
+                    report["global_limits"][key] = normalize_value(
+                        key, raw.get("value"))
+            except Exception:
+                report["warnings"].append("bot_settings")
+
+    # Ось контекста (граница с master-тумблером F21) — резолв read-only.
+    try:
+        from services import worker_settings
+        value, source = await worker_settings.resolve_setting_with_source(
+            _CONTEXT_BUDGET_FLAG, chat_id=int(chat_id), default=None)
+        report["context_flag"] = {"value": value, "source": source}
+    except Exception:
+        report["warnings"].append("context_flag")
+    return report
+
+
+def _audit_drift(report: dict) -> bool:
+    """Дрейф = не все seed-ключи `ok` либо найден вайп в истории."""
+    if report.get("wipe_detected"):
+        return True
+    return any(item.get("status") != "ok"
+               for item in report.get("classification") or [])
+
+
+def _write_audit_jsonl(path: Path, report: dict) -> None:
+    """Записать R17-safe JSONL (по строке на запись; без сырых JSON-дампов)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines: list[dict] = []
+    summary = {k: v for k, v in report.items()
+               if k not in ("timeline", "chat_keys", "chat_usage",
+                            "worker_budget", "global_limits", "context_flag")}
+    summary["type"] = "summary"
+    lines.append(summary)
+    for entry in report.get("timeline") or []:
+        lines.append({"type": "timeline", **entry})
+    for mask in report.get("chat_keys") or []:
+        lines.append({"type": "chat_key", **mask})
+    for usage in report.get("chat_usage") or []:
+        lines.append({"type": "chat_usage", **usage})
+    for wb in report.get("worker_budget") or []:
+        lines.append({"type": "worker_budget", **wb})
+    for key, value in (report.get("global_limits") or {}).items():
+        lines.append({"type": "global_limit", "key": key, "value": value})
+    lines.append({"type": "context_flag", **(report.get("context_flag") or {})})
+    with open(path, "w", encoding="utf-8") as fh:
+        for line in lines:
+            fh.write(json.dumps(line, ensure_ascii=False, default=str) + "\n")
+
+
+def _cmd_audit_chat_overrides(args) -> int:
+    """F22 (ADR-1024-23 D5): `python manage.py audit-chat-overrides` — READ-ONLY.
+
+    Только `SELECT`; ничего не пишет в БД. `--strict` — non-zero при дрейфе."""
+    from services.pg_db import PgDatabase
+
+    chat_id = int(args.chat_id)
+    seed_path = getattr(args, "seed", None)
+
+    async def _run() -> dict | None:
+        pg = PgDatabase()
+        try:
+            await pg.connect()
+        except Exception as exc:
+            print(f"audit-chat-overrides: не удалось подключиться к "
+                  f"PostgreSQL ({type(exc).__name__}) — аудит не выполнен",
+                  file=sys.stderr)
+            return None
+        if pg.pool is None:
+            print("audit-chat-overrides: PostgreSQL недоступен (POSTGRES_DSN "
+                  "пуст или пул не создан) — аудит не выполнен",
+                  file=sys.stderr)
+            await _safe_close(pg)
+            return None
+        try:
+            return await _collect_chat_overrides_audit(
+                pg, chat_id=chat_id, seed_path=seed_path,
+                history_limit=int(getattr(args, "history_limit", 200) or 200))
+        finally:
+            await _safe_close(pg)
+
+    try:
+        report = asyncio.run(_run())
+    except Exception as exc:
+        print(f"audit-chat-overrides: ошибка аудита ({type(exc).__name__}) — "
+              f"данные не изменялись", file=sys.stderr)
+        return 1
+    if not report:
+        return 1
+
+    counts = {"ok": 0, "absent": 0, "different": 0}
+    for item in report["classification"]:
+        counts[item["status"]] = counts.get(item["status"], 0) + 1
+    print(f"audit-chat-overrides: chat={report['chat_id']} "
+          f"profile={'yes' if report['profile'] else 'no'} "
+          f"seed_version={report['seed_meta_version']} "
+          f"reference_keys={len(report['reference_keys'])} "
+          f"ok={counts['ok']} absent={counts['absent']} "
+          f"different={counts['different']} "
+          f"allow_global_present={report['allow_global_present']} "
+          f"updated_at={report['updated_at']}")
+    for item in report["classification"]:
+        suffix = "" if item["value"] is None else f" value={item['value']}"
+        print(f"  [{item['status']}] {item['key']}{suffix}")
+    print(f"  timeline: rows={len(report['timeline'])} "
+          f"wipe_suspected={'yes' if report['wipe_detected'] else 'no'}")
+    for entry in report["timeline"]:
+        print(f"    id={entry['id']} at={entry['created_at']} "
+              f"by={entry['changed_by']} added={len(entry['added'])} "
+              f"dropped={len(entry['dropped'])} "
+              f"seed_keys={entry['seed_keys_old']}->{entry['seed_keys_new']} "
+              f"wipe={'yes' if entry['wipe_suspected'] else 'no'}")
+    for mask in report["chat_keys"]:
+        print(f"  chat_key {mask['key_name']}: configured="
+              f"{mask['configured']} last4={mask['last4']}")
+    flag = report["context_flag"]
+    print(f"  {_CONTEXT_BUDGET_FLAG}: value={flag['value']} "
+          f"source={flag['source']}")
+    if report["warnings"]:
+        print(f"  warnings: {','.join(report['warnings'])}")
+
+    jsonl_arg = getattr(args, "jsonl", None)
+    if jsonl_arg:
+        jsonl_path = Path(jsonl_arg)
+    else:
+        stamp = datetime.datetime.now(
+            datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        jsonl_path = (Path("var") / "audit"
+                      / f"chat_overrides_{report['chat_id']}_{stamp}.jsonl")
+    try:
+        _write_audit_jsonl(jsonl_path, report)
+        print(f"  jsonl: {jsonl_path}")
+    except OSError as exc:
+        print(f"audit-chat-overrides: не удалось записать JSONL "
+              f"({type(exc).__name__}) — БД не изменена", file=sys.stderr)
+        return 1
+    return 1 if (_audit_drift(report)
+                 and bool(getattr(args, "strict", False))) else 0
 
 
 def _memory_scope(args, available: list, *, required: bool) -> list:
@@ -1116,6 +1572,8 @@ def main(argv: list[str] | None = None) -> int:
         args = build_parser().parse_args(argv)
         if args.command == "apply-chat-overrides":
             return _cmd_apply_chat_overrides(args)
+        if args.command == "audit-chat-overrides":
+            return _cmd_audit_chat_overrides(args)
         if args.command == "memory":
             return _cmd_memory(args)
         if args.command in ("retention", "retention-dry-run"):
