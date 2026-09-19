@@ -682,6 +682,16 @@ class Settings:
         "YOUTUBE_MULTIMODAL_DOWNLOAD_CHAT_IDS", "")
     YOUTUBE_CREDENTIALED_LEVEL_ENABLED: ClassVar[bool] = _env_bool(
         "YOUTUBE_CREDENTIALED_LEVEL_ENABLED", True)
+    # ── Раунд 10.24 (F19, ADR-1024-20 §2.4): env-only ClassVar kill-switch
+    # инструмента `transcribe_video` (сырая транскрибация) и командного
+    # форс-повтора ГС/кружка по команде «транскрипт». Δ каталога = 0 (в
+    # param_catalog НЕ входит). Default ON. OFF → LLM видит 9 инструментов
+    # (без `transcribe_video`), «транскрипт» по ГС/кружку даёт прежний
+    # нейтральный ответ; авто-транскрибация и видео-команды — как до F19.
+    # Наличие схемы `TOOL_TRANSCRIBE_VIDEO` и канон `TOOL_CALLING_TOOLS == 10`
+    # флагом НЕ гейтятся (безусловная ревизия канона, прецедент 8→9).
+    MEDIA_TRANSCRIBE_TOOL_ENABLED: ClassVar[bool] = _env_bool(
+        "MEDIA_TRANSCRIBE_TOOL_ENABLED", True)
     # Лимит Telegram: число частей ответа (чанкинг 4096).
     MAX_SUMMARY_PARTS: int = _env_int("MAX_SUMMARY_PARTS", 1)
     SUMMARY_TIMEZONE: str = os.getenv("SUMMARY_TIMEZONE", "Asia/Yekaterinburg")

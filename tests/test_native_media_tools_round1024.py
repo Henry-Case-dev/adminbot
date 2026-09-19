@@ -478,12 +478,13 @@ class TestSchemasContract:
         assert params["properties"]["source"]["enum"] == ["link", "reply"]
         assert params["additionalProperties"] is False
 
-    def test_transcribe_contract_defined_but_not_registered(self):
-        """F14 фиксирует контракт; 10-й (в конец) регистрирует F19 — текущий
-        список остаётся 9 имён в каноническом порядке."""
+    def test_transcribe_contract_registered_as_tenth(self):
+        """F14 фиксирует контракт; F19 (ADR-1024-20 §2.1) регистрирует его
+        10-м в конец (первые 9 — байт-в-байт канонического порядка)."""
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
-        assert names == _FIRST_NINE
-        assert "transcribe_video" not in names
+        assert names == _FIRST_NINE + ["transcribe_video"]
+        assert TOOL_TRANSCRIBE_VIDEO in TOOL_CALLING_TOOLS
+        assert TOOL_CALLING_TOOLS[-1] is TOOL_TRANSCRIBE_VIDEO
         assert TOOL_TRANSCRIBE_VIDEO["function"]["name"] == "transcribe_video"
         params = TOOL_TRANSCRIBE_VIDEO["function"]["parameters"]
         assert params["required"] == []

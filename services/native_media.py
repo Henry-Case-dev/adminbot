@@ -28,9 +28,15 @@ logger = logging.getLogger(__name__)
 # Расширения видео-документов (без mime). Паритет с handlers/youtube.py 3.1.1.
 VIDEO_DOC_EXTENSIONS: tuple[str, ...] = ("mp4", "webm", "mov", "mkv", "avi")
 
-#: Виды медиа, которые квалифицируются как «видео» (F14; F19 аддитивно
-#: расширит voice/video_note для инструмента ``transcribe_video``).
+#: Виды медиа, которые квалифицируются как «видео» (F14).
 VIDEO_KINDS: tuple[str, ...] = ("video", "document")
+
+#: Раунд 10.24 (F19, ADR-1024-20 §2.5): голосовые/кружочки — аддитивное
+#: расширение резолвера. Их принимает только инструмент ``transcribe_video``
+#: (STT); ``summarize_video``/``download_media``/Fast-Track «скачай» остаются
+#: строго на ``VIDEO_KINDS``.
+AUDIO_KINDS: tuple[str, ...] = ("voice", "video_note")
+MEDIA_KINDS: tuple[str, ...] = VIDEO_KINDS + AUDIO_KINDS
 
 _DEFAULT_FETCH_TIMEOUT = 120.0
 _SUFFIX_PREFIX = "nm_"
@@ -40,12 +46,13 @@ _SUFFIX_PREFIX = "nm_"
 class NativeMedia:
     """Медиа-носитель: сообщение-источник + aiogram-объект Video/Document.
 
-    ``kind`` ∈ ``{"video", "document"}`` (F14). Поле ``media`` — разрешённый
-    aiogram-объект (bytes берутся только из него, не из текста модели)."""
+    ``kind`` ∈ ``{"video", "document", "voice", "video_note"}`` (F14 + F19).
+    Поле ``media`` — разрешённый aiogram-объект (bytes берутся только из него,
+    не из текста модели)."""
 
     source: object          # aiogram types.Message (носитель)
-    media: object           # aiogram Video | Document
-    kind: str               # "video" | "document"
+    media: object           # aiogram Video | Document | Voice | VideoNote
+    kind: str               # "video" | "document" | "voice" | "video_note"
 
 
 def document_is_video(doc) -> bool:
@@ -71,9 +78,12 @@ def _has_file_id(media) -> bool:
 
 
 def resolve_reply_video(message) -> NativeMedia | None:
-    """Нативное видео из сообщения: **своё** ``video``/видео-``document`` →
-    медиа реплая. ``voice``/``video_note`` НЕ квалифицируются. Никогда не
-    бросает (F13 вызывает на каждом direct_chat-сообщении)."""
+    """Нативное медиа из сообщения: **своё** (``message``) приоритетнее
+    реплая; внутри кандидата порядок ``video`` → видео-``document`` →
+    ``voice`` → ``video_note``. Голосовые/кружочки расширены F19 (ADR-1024-20
+    §2.5) — их принимает только ``transcribe_video``; Fast-Track «скачай»
+    отсекает их по ``VIDEO_KINDS``. Никогда не бросает (F13 вызывает на
+    каждом direct_chat-сообщении)."""
     try:
         candidates = (message, getattr(message, "reply_to_message", None))
     except Exception:
@@ -91,6 +101,14 @@ def resolve_reply_video(message) -> NativeMedia | None:
                     and document_is_video(document)):
                 return NativeMedia(source=candidate, media=document,
                                    kind="document")
+            # F19 (ADR-1024-20 §2.5): голосовое/кружок — аддитивно, для STT.
+            voice = getattr(candidate, "voice", None)
+            if voice is not None and _has_file_id(voice):
+                return NativeMedia(source=candidate, media=voice, kind="voice")
+            video_note = getattr(candidate, "video_note", None)
+            if video_note is not None and _has_file_id(video_note):
+                return NativeMedia(source=candidate, media=video_note,
+                                   kind="video_note")
         except Exception as exc:
             # R17: только класс исключения (без str/repr/file_id/путей).
             logger.debug("[native_media] media resolve failed — skip | error=%s",
@@ -100,10 +118,14 @@ def resolve_reply_video(message) -> NativeMedia | None:
 
 
 def media_suffix(media: NativeMedia) -> str:
-    """Суффикс tmp-файла: ``video`` → ``.mp4``; ``document`` — по ``file_name``
-    (известное видео-расширение) либо ``.mp4`` по умолчанию."""
-    if getattr(media, "kind", "") == "video":
+    """Суффикс tmp-файла: ``video``/``video_note`` → ``.mp4``; ``voice`` →
+    ``.ogg``; ``document`` — по ``file_name`` (известное видео-расширение)
+    либо ``.mp4`` по умолчанию."""
+    kind = getattr(media, "kind", "")
+    if kind == "video" or kind == "video_note":
         return ".mp4"
+    if kind == "voice":
+        return ".ogg"
     name = str(getattr(getattr(media, "media", None), "file_name", "")
                or "").lower()
     for ext in VIDEO_DOC_EXTENSIONS:

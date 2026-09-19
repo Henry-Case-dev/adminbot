@@ -19,15 +19,17 @@ from services.tool_schemas import (
 
 
 class TestToolSchemas:
-    def test_nine_tools_in_expected_order(self):
+    def test_ten_tools_in_expected_order(self):
         # Раунд 10.15 (F8, T-1611): канон R9 (память → лор → веб) + 4 новых
         # в конце; 10.20 (C/T-1887): +compile_lore_story → 8;
-        # 10.23 (F5/ADR-1023-5 D2): +generate_image → 9 (в конец, первые 8
-        # байт-в-байт). Существующие имена/схемы не меняются.
+        # 10.23 (F5/ADR-1023-5 D2): +generate_image → 9;
+        # 10.24 (F19/ADR-1024-20 §2.1): +transcribe_video → 10 (в конец,
+        # первые 9 байт-в-байт). Существующие имена/схемы не меняются.
         assert [t["function"]["name"] for t in TOOL_CALLING_TOOLS] == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
-            "get_recent_history", "compile_lore_story", "generate_image"]
+            "get_recent_history", "compile_lore_story", "generate_image",
+            "transcribe_video"]
 
     def _assert_function_schema(self, tool, name, required):
         assert tool["type"] == "function"
@@ -102,34 +104,41 @@ class TestToolSchemas:
         assert [t["function"]["name"]
                 for t in active_tools(True, image_generation_enabled=True)] == [
             t["function"]["name"] for t in TOOL_CALLING_TOOLS]
+        # F19: transcribe_video (default ON) остаётся в списке при любых
+        # per-chat флагах — гейтится только env-флагом MEDIA_TRANSCRIBE_TOOL_ENABLED.
         disabled = [t["function"]["name"] for t in active_tools(False)]
         assert disabled == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
-            "get_recent_history"]
+            "get_recent_history", "transcribe_video"]
         assert LORE_COMPILER_TOOL_NAME not in disabled
 
     def test_active_tools_image_flag_gate(self):
         """F5 (ADR-1023-5 D2): image OFF (дефолт) → 8 без generate_image;
-        image ON → 9 (generate_image в конце)."""
+        image ON → 9 (generate_image перед transcribe_video, F19)."""
         names_off = [t["function"]["name"] for t in active_tools()]
         assert names_off == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
-            "get_recent_history", "compile_lore_story"]
+            "get_recent_history", "compile_lore_story", "transcribe_video"]
         names_on = [t["function"]["name"]
                     for t in active_tools(image_generation_enabled=True)]
-        assert names_on == names_off + ["generate_image"]
+        assert names_on == [
+            "query_chat_memory", "dig_into_lore", "execute_web_search",
+            "summarize_video", "download_media", "get_bot_health",
+            "get_recent_history", "compile_lore_story", "generate_image",
+            "transcribe_video"]
 
     def test_active_tools_default_on(self):
-        """О3: код-дефолт флага — ON (список без аргумента = 8 тулов)."""
-        assert len(active_tools()) == 8
+        """О3: код-дефолт «Летописца» — ON; F19 transcribe_video default ON
+        (список без аргумента = 8 базовых + transcribe_video = 9)."""
+        assert len(active_tools()) == 9
 
     def test_active_tools_does_not_mutate_snapshot(self):
         """active_tools возвращает новый список — снапшот не мутируется."""
         off = active_tools(False)
-        assert len(off) == 7
-        assert len(TOOL_CALLING_TOOLS) == 9
+        assert len(off) == 8
+        assert len(TOOL_CALLING_TOOLS) == 10
 
     # Bugfix 04.09.2026 (Часть 2, AC-3.4): расширенные description'ы.
     # 10.20 (БЛОК 7.4, T-1925): все description — EN (ревизия канона 3.3).
@@ -148,4 +157,5 @@ class TestToolSchemas:
         assert "memory" in desc
 
     def test_all_tools_list_is_mutable_snapshot(self):
-        assert len(TOOL_CALLING_TOOLS) == 9
+        # F19 (ADR-1024-20 §2.1): канон R9 = 10.
+        assert len(TOOL_CALLING_TOOLS) == 10

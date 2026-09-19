@@ -176,9 +176,16 @@ def _native_video_media(message) -> object | None:
     """F14 (ADR-1024-15 §2.2): нативное видео-медиа сообщения — **своё**
     ``video``/видео-``document`` → медиа реплая; иначе ``None``. Невидео-
     документ (PDF и пр.) НЕ квалифицируется. Делегирует единому резолверу
-    ``services.native_media``."""
+    ``services.native_media``.
+
+    F19 (ADR-1024-20 §2.5): резолвер стал возвращать также ``voice``/
+    ``video_note`` (для инструмента ``transcribe_video``); Fast-Track «скачай»
+    их по-прежнему НЕ квалифицирует — фильтр по ``VIDEO_KINDS`` сохраняет
+    поведение байт-в-байт."""
     resolved = native_media_module.resolve_reply_video(message)
-    return resolved.media if resolved is not None else None
+    if resolved is None or resolved.kind not in native_media_module.VIDEO_KINDS:
+        return None
+    return resolved.media
 
 
 def _reply_video_media(message: types.Message):

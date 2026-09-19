@@ -57,12 +57,15 @@ def _patch_budget(monkeypatch, ok=True):
 
 class TestToolSchema:
     def test_generate_image_is_ninth(self):
+        # F19 (ADR-1024-20 §2.1): +transcribe_video → 10 (generate_image
+        # остаётся 9-м; transcribe_video — в конец).
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
-        assert names == _FIRST_EIGHT + ["generate_image"]
+        assert names == _FIRST_EIGHT + ["generate_image", "transcribe_video"]
+        assert names[8] == "generate_image"
         assert IMAGE_GENERATION_TOOL_NAME == "generate_image"
 
     def test_schema_strict(self):
-        tool = TOOL_CALLING_TOOLS[-1]
+        tool = TOOL_CALLING_TOOLS[8]              # 9-й — generate_image
         fn = tool["function"]
         assert fn["name"] == "generate_image"
         assert fn["description"].strip()
@@ -74,10 +77,12 @@ class TestToolSchema:
         json.dumps(tool)
 
     def test_active_tools_gate(self):
-        assert [t["function"]["name"] for t in active_tools()] == _FIRST_EIGHT
+        # F19: transcribe_video default ON присутствует в обоих наборах.
+        assert [t["function"]["name"] for t in active_tools()] == \
+            _FIRST_EIGHT + ["transcribe_video"]
         assert [t["function"]["name"]
                 for t in active_tools(image_generation_enabled=True)] == \
-            _FIRST_EIGHT + ["generate_image"]
+            _FIRST_EIGHT + ["generate_image", "transcribe_video"]
 
     def test_factcheck_tools_unchanged(self):
         from services.tool_schemas import factcheck_tools
@@ -246,7 +251,8 @@ class TestPreGateIntegration:
         await service.handle(bot, dc_message(text="привет", message_id=1,
                                              user=user), user)
         names = [t["function"]["name"] for t in captured["tools"]]
-        assert len(names) == 8
+        # F19: transcribe_video (default ON) входит в список → 8 базовых + 1.
+        assert len(names) == 9
         assert "generate_image" not in names
 
     @pytest.mark.asyncio

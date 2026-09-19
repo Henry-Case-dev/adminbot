@@ -43,6 +43,12 @@ bounded попытка `download(url, None)`. Кулдаун (D279) — толь
 канон `LORE_STORY_SYSTEM_PROMPT` → готовый рассказ), ставит
 `ToolContext.lore_compiled = True` (сигнал доставки HTML — ADR-1020-6);
 гейт `flags.lore_compiler_enabled` (default ON). Ошибки → «ОШИБКА …».
+
+Раунд 10.24 (F19, ADR-1024-20 §2.2): `transcribe_video` — СЫРАЯ
+транскрибация (дословный текст, без пересказа), отдельно от `summarize_video`.
+Источник link/native (voice/video_note включительно); YouTube → субтитры raw,
+иначе download→STT; native → fetch→STT. Возвращает строку (усечённую
+`_MEMORY_MAX_SYMBOLS`), никогда не бросает. Egress не расширяется.
 """
 import asyncio
 import datetime
@@ -101,6 +107,9 @@ _SUMMARIZE_TRANSCRIPT_CAP = 20000
 # паритет Fast-Track). Kill-switch `NATIVE_MEDIA_TOOLS_ENABLED` гейтит нативный
 # резолв (OFF → прежние ошибки, native fetch/STT не запускаются).
 _NATIVE_VIDEO_KINDS = ("video", "document")
+# F19 (ADR-1024-20 §2.5): `transcribe_video` принимает все виды нативного
+# медиа, включая voice/video_note (остальные инструменты — только video/document).
+_NATIVE_TRANSCRIBE_KINDS = ("video", "document", "voice", "video_note")
 _DOWNLOAD_NATIVE_MAX_BYTES = 2_000_000_000
 
 # Раунд 10.17 (F2, ADR-1017-2 §2.1/§2.6): tool-скачивание спрашивает качество
@@ -149,6 +158,15 @@ _HTTP_URL_RE = re.compile(r"^https?://\S+$", re.IGNORECASE)
 def _is_http_url(url: str) -> bool:
     """True — строка похожа на http(s)-ссылку (иначе инструмент → ОШИБКА)."""
     return bool(_HTTP_URL_RE.match(str(url or "").strip()))
+
+
+def _path_ext(path) -> str:
+    """Расширение tmp-файла для STT (без точки); пусто/нет суффикса → ``mp4``."""
+    try:
+        suffix = str(getattr(path, "suffix", "") or "").lstrip(".")
+    except Exception:
+        suffix = ""
+    return suffix or "mp4"
 
 
 def _native_tools_enabled() -> bool:
@@ -447,6 +465,7 @@ class ToolRouter:
             "get_recent_history": self._get_recent_history,
             "compile_lore_story": self._compile_lore_story,
             "generate_image": self._generate_image,
+            "transcribe_video": self._transcribe_video,
         }
         method = registry.get(name)
         if method is None:
@@ -870,24 +889,131 @@ class ToolRouter:
         return await transcriber.transcribe_voice(
             str(path), ext, timeout=timeout)
 
-    def _resolve_tool_source(self, arguments: dict, ctx: ToolContext):
+    # ── F19 (раунд 10.24, ADR-1024-20): transcribe_video (сырой текст) ──
+
+    async def _transcribe_video(self, arguments: dict,
+                                ctx: ToolContext) -> str:
+        """Сырая транскрибация (F19, ADR-1024-20 §2.2/§2.5): дословный текст
+        БЕЗ пересказа. Источник: http(s)-``url`` → ссылочный путь (YouTube →
+        субтитры raw, иначе download+STT); иначе нативное медиа из
+        ``ctx.native_media`` (video/document/voice/video_note) → fetch → STT.
+        Нет источника → понятная ОШИБКА. Результат усечён до
+        ``_MEMORY_MAX_SYMBOLS``. НИКОГДА не бросает (контракт dispatch).
+        R17: только ``source``/``kind``/``out_chars``/``error=<Class>``."""
+        source, url, native = self._resolve_tool_source(
+            arguments, ctx, kinds=_NATIVE_TRANSCRIBE_KINDS)
+        if source is None:
+            return ("ОШИБКА transcribe_video: нет источника "
+                    "(нужна ссылка или медиа из реплая)")
+        kind = getattr(native, "kind", "") if source == "native" else "link"
+        try:
+            if source == "link":
+                text = await asyncio.wait_for(
+                    self._link_transcript(url),
+                    timeout=_SUMMARIZE_TOOL_TIMEOUT)
+            else:
+                text = await asyncio.wait_for(
+                    self._native_transcript(ctx, native),
+                    timeout=_SUMMARIZE_TOOL_TIMEOUT)
+        except asyncio.TimeoutError:
+            logger.warning("[tools] transcribe_video timeout | source=%s | "
+                           "kind=%s", source, kind)
+            return "ОШИБКА transcribe_video: timeout"
+        except Exception as exc:
+            logger.warning("[tools] transcribe_video failed | source=%s | "
+                           "kind=%s | error=%s", source, kind,
+                           type(exc).__name__)
+            return f"ОШИБКА transcribe_video: {type(exc).__name__}"
+        text = str(text or "").strip()
+        if not text:
+            logger.info("[tools] transcribe_video | source=%s | kind=%s | "
+                        "out_chars=0", source, kind)
+            return "ОШИБКА transcribe_video: пустой результат"
+        truncated = _truncate(text, _MEMORY_MAX_SYMBOLS)
+        logger.info("[tools] transcribe_video | source=%s | kind=%s | "
+                    "out_chars=%d", source, kind, len(truncated))
+        return truncated
+
+    async def _link_transcript(self, url: str) -> str:
+        """Ссылочный путь: YouTube → субтитры raw (cap); при недоступности
+        субтитров (или для direct/platform) → download+STT. R17: без URL в
+        логах (только класс ошибки)."""
+        video_id = extract_youtube_video_id(url)
+        if video_id is not None and self.deps.video is not None:
+            try:
+                return await self._video_transcript(self.deps.video, url)
+            except Exception as exc:
+                logger.warning(
+                    "[tools] transcribe_video subtitles unavailable — "
+                    "download+STT | error=%s", type(exc).__name__)
+        return await self._link_stt(url)
+
+    async def _link_stt(self, url: str) -> str:
+        """direct/platform (и YouTube-фолбэк): download → STT raw. tmp-файл
+        удаляется в finally. R17: без URL/путей в логах."""
+        downloader = getattr(self.deps, "downloader", None)
+        if downloader is None:
+            raise RuntimeError("downloader unavailable")
+        path = await asyncio.wait_for(
+            downloader.download(url, None), timeout=_DOWNLOAD_TOOL_TIMEOUT)
+        try:
+            return await self._stt_media(path, _path_ext(path))
+        finally:
+            try:
+                path.unlink(missing_ok=True)
+            except (OSError, AttributeError):
+                pass
+
+    async def _native_transcript(self, ctx: ToolContext, native) -> str:
+        """Нативный путь (F19): ``download_to_tmp`` → STT raw. tmp чистится в
+        finally. R17: без file_id/путей в логах."""
+        path = None
+        try:
+            path = await native_media.download_to_tmp(
+                ctx.bot, native, timeout=_DOWNLOAD_TOOL_TIMEOUT)
+            return await self._stt_media(
+                path, native_media.media_suffix(native).lstrip(".") or "mp4")
+        finally:
+            if path is not None:
+                try:
+                    path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+
+    async def _stt_media(self, path, ext: str) -> str:
+        """STT файла ``deps.transcriber`` (F19): нет сервиса → RuntimeError
+        (dispatch → ОШИБКА). Таймаут — паритет youtube
+        (``limits.video_stt_timeout_seconds``)."""
+        transcriber = getattr(self.deps, "transcriber", None)
+        if transcriber is None:
+            raise RuntimeError("transcriber unavailable")
+        timeout = float(hot.get("limits.video_stt_timeout_seconds",
+                                settings.VIDEO_STT_TIMEOUT_SECONDS)
+                        or settings.VIDEO_STT_TIMEOUT_SECONDS)
+        return await transcriber.transcribe_voice(str(path), ext,
+                                                  timeout=timeout)
+
+    def _resolve_tool_source(self, arguments: dict, ctx: ToolContext,
+                             kinds: tuple[str, ...] = _NATIVE_VIDEO_KINDS):
         """Общий резолв источника медиа-инструментов (F14, §4.5):
 
         * ``source == "reply"`` → нативный путь при доступном видео (приоритет
           над http-``url`` — спецификация §4.5); иначе нет источника;
         * http(s)-``url`` → ``("link", url, None)``;
-        * иначе при нативном видео в ``ctx.native_media`` (video/видео-document)
-          → ``("native", None, media)``;
+        * иначе при нативном медиа в ``ctx.native_media`` (по умолчанию
+          video/видео-document) → ``("native", None, media)``;
         * иначе ``(None, None, None)``.
 
-        Kill-switch ``NATIVE_MEDIA_TOOLS_ENABLED`` OFF → нативный резолв не
-        срабатывает (прежнее поведение: инструментам нужен http-``url``)."""
+        ``kinds`` — какие виды нативного медиа допустимы: F14 (video/document)
+        по умолчанию; F19 ``transcribe_video`` передаёт расширенный набор
+        (voice/video_note). Kill-switch ``NATIVE_MEDIA_TOOLS_ENABLED`` OFF →
+        нативный резолв не срабатывает (прежнее поведение: нужен http-``url``)."""
         args = arguments if isinstance(arguments, dict) else {}
         url = str(args.get("url") or "").strip()
         source = str(args.get("source") or "").strip().lower()
         native = getattr(ctx, "native_media", None)
         native_ok = (native is not None
-                     and getattr(native, "kind", "") in _NATIVE_VIDEO_KINDS)
+                     and getattr(native, "kind", "") in kinds)
         if source == "reply":
             if _native_tools_enabled() and native_ok:
                 return "native", None, native

@@ -30,6 +30,12 @@ B8-фолбек отсутствующей строки smart_messages. Прям
 (переиспользует native-инфру `_publish_and_cascade`); `summarize_cascade`
 теперь L3-only. AMEND архивной границы (только эта ветка); transcript/native/
 direct/platform — байт-в-байт.
+
+Раунд 10.24 (F19, ADR-1024-20 §2.3/§4.6): команда «транскрипт» реплаем на
+``voice``/``video_note`` принудительно повторяет транскрибацию (классификация
+`kind="voice"`; ветка `kind=="voice"` → `voice_transcription.force_repeat_from_reply`).
+Порядок роутеров `bot.py` не сдвигается; YouTube/direct/platform/native
+`mode=transcript` — байт-в-байт (сырой транскрипт курсивом).
 """
 import asyncio
 import dataclasses
@@ -394,6 +400,56 @@ def _resolve_video_media(message: types.Message) -> _VideoMedia | None:
         return None
 
 
+def _resolve_voice_media(message: types.Message):
+    """F19 (ADR-1024-20 §2.3/§4.6): сообщение-носитель ``voice``/``video_note``
+    (своё приоритетнее реплая) либо None. Строгая проверка ``file_id`` — не
+    путаем MagicMock-атрибуты с медиа. Никогда не бросает."""
+    try:
+        for candidate in (message, getattr(message, "reply_to_message", None)):
+            if candidate is None:
+                continue
+            for attr in ("voice", "video_note"):
+                media = getattr(candidate, attr, None)
+                if media is None:
+                    continue
+                fid = getattr(media, "file_id", None)
+                if isinstance(fid, str) and fid:
+                    return candidate
+        return None
+    except Exception:
+        logger.warning("[youtube] voice resolve failed — UNHANDLED",
+                       exc_info=True)
+        return None
+
+
+def _media_transcribe_enabled() -> bool:
+    """F19 kill-switch ``MEDIA_TRANSCRIBE_TOOL_ENABLED`` (env-only, default ON):
+    инструмент ``transcribe_video`` + командный форс-повтор ГС/кружка."""
+    return bool(getattr(settings, "MEDIA_TRANSCRIBE_TOOL_ENABLED", True))
+
+
+async def _handle_voice_command(bot, message: types.Message) -> None:
+    """F19 (ADR-1024-20 §2.3): «транскрипт» по voice/video_note — принудительный
+    повтор STT. OFF-флаг или отсутствие цели → прежний нейтральный ответ
+    ``COMMAND_NO_TARGET_PHRASES`` (порядок роутеров bot.py не сдвигается)."""
+    if not _media_transcribe_enabled():
+        await _reply(bot, message.chat.id,
+                     random.choice(COMMAND_NO_TARGET_PHRASES),
+                     message.message_id)
+        return
+    # Импорт на уровне функции — избегаем цикла youtube ↔ voice_transcription.
+    from handlers.voice_transcription import force_repeat_from_reply
+    try:
+        handled = await force_repeat_from_reply(bot, message)
+    except Exception:
+        logger.warning("[youtube] voice transcript repeat failed", exc_info=True)
+        handled = False
+    if not handled:
+        await _reply(bot, message.chat.id,
+                     random.choice(COMMAND_NO_TARGET_PHRASES),
+                     message.message_id)
+
+
 def _resolve_author(message: types.Message) -> str:
     """Автор лейбла расшифровки видео (форвард → источник, иначе from_user)."""
     return _resolve_transcript_author(message)
@@ -427,8 +483,10 @@ def _classify_video_request(message: types.Message) -> _VideoRequest | None:
     """Классификация (FR-B3): триггер есть (substring); приоритеты:
     (1) YouTube-URL (reply-таргет приоритетнее вызова, D126-семантика);
     (2) прямая медиа-ссылка; (3) известная платформа (НЕ youtube, НЕ direct);
-    (4) нативное медиа (video/document; voice/video_note НЕ квалифицируются);
-    (5) ничего → None (UNHANDLED → пропагация живёт). mode — «транскрипт»
+    (4) нативное медиа video/document;
+    (5) F19 (ADR-1024-20 §4.6) voice/video_note реплая/своего сообщения →
+    ``kind="voice"`` (mode — transcript: команда «транскрипт»);
+    (6) ничего → None (UNHANDLED → пропагация живёт). mode — «транскрипт»
     substring текста вызова (FR-B4). Никогда не бросает."""
     try:
         body = _triggered_body(message)
@@ -460,6 +518,13 @@ def _classify_video_request(message: types.Message) -> _VideoRequest | None:
             return _VideoRequest(kind="native", mode=mode, url=None,
                                  video_id=None, media=media,
                                  source=media.source)
+        # (5) F19 (ADR-1024-20 §4.6): voice/video_note (реплая или своего
+        # сообщения) — команда «транскрипт» принудительно повторяет STT.
+        voice_message = _resolve_voice_media(message)
+        if voice_message is not None:
+            return _VideoRequest(kind="voice", mode="transcript", url=None,
+                                 video_id=None, media=None,
+                                 source=voice_message)
         return None
     except Exception:
         logger.warning("[youtube] classify failed — UNHANDLED", exc_info=True)
@@ -1210,6 +1275,11 @@ async def youtube_handler(message: types.Message, bot: Bot = None) -> None:
                      message.message_id)
         return                                # консьюм
     await cooldown_touch(_cooldown, message.chat.id, user_id)
+    # F19 (ADR-1024-20 §2.3/§4.6): команда «транскрипт» по voice/video_note —
+    # принудительный повтор STT через слой 0i (переиспользование логики).
+    if request.kind == "voice":
+        await _handle_voice_command(bot, message)
+        return
     if request.kind == "youtube" and request.mode == "summary":
         # URL-ветка Части 1 — байт-в-байт (T-688); слот пула — внутри
         # _process_youtube_summary ПОСЛЕ cache-check (быстрый путь без пула).

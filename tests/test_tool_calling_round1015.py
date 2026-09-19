@@ -95,13 +95,15 @@ def _ctx(**kwargs) -> ToolContext:
 
 
 class TestToolSet:
-    def test_nine_tools_in_canonical_order(self):
+    def test_ten_tools_in_canonical_order(self):
         # 10.20 (C/T-1887): +compile_lore_story (8-й, в конце);
-        # 10.23 (F5/ADR-1023-5 D2): +generate_image (9-й, в конце).
+        # 10.23 (F5/ADR-1023-5 D2): +generate_image (9-й);
+        # 10.24 (F19/ADR-1024-20 §2.1): +transcribe_video (10-й, в конец).
         assert [t["function"]["name"] for t in TOOL_CALLING_TOOLS] == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
-            "get_recent_history", "compile_lore_story", "generate_image"]
+            "get_recent_history", "compile_lore_story", "generate_image",
+            "transcribe_video"]
 
     def test_existing_schemas_unchanged(self):
         """Существующие 3 схемы — те же объекты и та же форма (не менялись)."""
@@ -643,5 +645,6 @@ class TestDirectChatContext:
         assert ctx.reply_to_message_id == 555
         assert ctx.user_id == user.id
         # 10.20 (C/T-1887): флаг «Летописца» default ON; 10.23 (F5): модуль
-        # генерации изображений default ON → 9 инструментов.
-        assert len(captured["tools"]) == 9
+        # генерации изображений default ON; 10.24 (F19): transcribe_video
+        # default ON → 10 инструментов.
+        assert len(captured["tools"]) == 10

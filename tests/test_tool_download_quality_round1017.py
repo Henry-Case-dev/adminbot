@@ -355,13 +355,15 @@ class TestSchemaAndAdr:
 
     def test_tool_set_names_unchanged(self):
         # 10.20 (C/T-1887): состав 7 → 8 (+compile_lore_story);
-        # 10.23 (F5/ADR-1023-5 D2): +generate_image → 9. Прежние имена и их
-        # порядок сохранены байт-в-байт.
-        assert len(TOOL_CALLING_TOOLS) == 9
+        # 10.23 (F5/ADR-1023-5 D2): +generate_image → 9;
+        # 10.24 (F19/ADR-1024-20 §2.1): +transcribe_video (10-й, в конец).
+        # Прежние имена и их порядок сохранены байт-в-байт.
+        assert len(TOOL_CALLING_TOOLS) == 10
         assert [t["function"]["name"] for t in TOOL_CALLING_TOOLS] == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
-            "get_recent_history", "compile_lore_story", "generate_image"]
+            "get_recent_history", "compile_lore_story", "generate_image",
+            "transcribe_video"]
 
     def test_adr_supersede_recorded(self):
         # 10.17: фича заархивирована @PM → артефакты лежат в plans/archive/.

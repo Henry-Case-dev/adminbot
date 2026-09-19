@@ -432,21 +432,28 @@ LORE_STORY_SYSTEM_PROMPT = """Ты - саркастичный летописец
 
 ## TOOL_SCHEMAS — канон 3.3 (раунд 10.20, БЛОК 7.4, ADR-1020-7 §4, T-1925; источник — services/tool_schemas.py)
 
-Ревизия канона 3.3: **все** `description` JSON-схем инструментов Tool Calling (8 шт.) — на **английском**;
-строгая типизация (`additionalProperties: false` у всех; `enum`/`minimum`/`maximum` заполнены). Имена, состав,
-порядок `TOOL_CALLING_TOOLS` (канон R9: память → лор → веб) и `required`-наборы НЕ меняются.
-`tool_choice="auto"` НЕ форсируется (backlog §16 п.2).
+**Раунд 10.24 (UPD5):** AMEND — канон инструментов **R9 = 10** (ADR-1024-15 §2.1 → ADR-1024-20 §2.1; ступень
+F14 → F19). Порядок первых 9 — байт-в-байт; 10-й — `transcribe_video` (в конец). `summarize_video` лишился
+`mode` (инструмент = только выжимка); функции разведены: `summarize_video` — выжимка, `transcribe_video` —
+сырой дословный транскрипт. Медиа-источник: опциональный `url` + `source: enum["link","reply"]`.
+
+Ревизия канона 3.3: **все** `description` JSON-схем инструментов Tool Calling (10 шт.) — на **английском**;
+строгая типизация (`additionalProperties: false` у всех; `enum`/`minimum`/`maximum` заполнены).
+`tool_choice="auto"` НЕ форсируется (backlog §16 п.2). LLM-доступность `transcribe_video` гейтится env-only
+`MEDIA_TRANSCRIBE_TOOL_ENABLED` (default ON); наличие схемы/счётчик 10 — безусловны.
 
 Порядок и EN-описания (routing-пары dig_into_lore ↔ compile_lore_story — по ТЗ, стр. 55-56):
 
 1. `query_chat_memory` — "Search the bot's memory: this chat's history, who wrote what and when, long-term facts, mention statistics. Call FIRST when the question is about the chat's past: 'how many times was a word or topic mentioned', 'when did it happen', 'who talked about ...', 'what was written earlier'. The result contains the match count and a date range - answer strictly from it."
 2. `dig_into_lore` — "Use this for fast, factual lookups. Answers simple questions like 'Who owns X?', 'When did Y happen?'. Returns minimal, precise facts."
 3. `execute_web_search` — "Search the web (cascade Tavily->Exa->DuckDuckGo). Call when the answer needs fresh or external facts: news, current events, verification of information that is absent from the context and memory."
-4. `summarize_video` — "Summary or transcript of a video by link (YouTube/platforms/direct file). Call when the user asks to retell/transcribe a clip and provides a link. mode='transcript' - raw text; mode='summary' - condensed summary."
-5. `download_media` — "Download a video by link and send it as a file to this chat. Call on a free-form request 'download/fetch/grab <link>'. Fill the quality field ONLY if the user explicitly named a quality; otherwise omit it - the backend will offer a quality menu with buttons."
+4. `summarize_video` — "Make a SUMMARY (a condensed retelling) of a video: what it is about and its key points. Call when the user wants an overview of a video: 'what is this video about', 'what's in the video', 'retell/summarize this clip'. Source is a link (YouTube/platforms/direct file) OR the video from the replied message. Returns a SUMMARY, not the raw transcript."
+5. `download_media` — "Download a video by link and send it as a file to this chat. Call on a free-form request 'download/fetch/grab <link>'. Source is a link OR the video from the replied message. Fill the quality field ONLY if the user explicitly named a quality; otherwise omit it - the backend will offer a quality menu with buttons."
 6. `get_bot_health` — "Show the bot's status/health (logs, memory, services). Call on 'are you ok / how are you / check health' when the command arrives in free form."
 7. `get_recent_history` — "Recent transcript of THIS chat: the latest messages in order (Name: text). Call on 'what were we discussing 10 minutes ago', 'who dropped that link', 'who is right in the argument', 're-read the last messages'. depth - how many messages back (up to 150); OR query - search among the last hours' messages. This is exact chronology, NOT semantic RAG."
 8. `compile_lore_story` — "Use this ONLY when the user asks to explain a meme, tell a story, or give a comprehensive historical overview of a topic. Heavy narrative tool."
+9. `generate_image` — "Generate an image from a text description and send it to this chat. Call when the user asks to draw, create, generate or imagine a picture, meme, art or illustration."
+10. `transcribe_video` — "Transcribe a video or voice note into RAW verbatim text (an audio transcript), without retelling. Call when the user explicitly asks for a 'transcript'/'transcription' or to repeat/re-transcribe a voice message, video note or video. Source is a link (YouTube/platforms/direct) OR the media from the replied message. Return the raw transcript VERBATIM - do NOT summarize, shorten or retell it."
 
 
 ## Раунд 10.22 (UPD3) — System 2: двухвызовные пайплайны фактчека и direct chat

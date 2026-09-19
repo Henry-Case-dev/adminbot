@@ -13,6 +13,14 @@ smart_messages.text вместо плейсхолдера + memorize_facts
 finally на 100% путей. Имя отправителя — каскад AliasResolver
 (Алиас → Никнейм → Юзернейм → ID); у форвардов — автор источника
 (_extract_forward_source, Epic 72 / Section 74.B).
+
+Раунд 10.24 (F19, ADR-1024-20 §2.3) — принудительный повтор по команде
+«транскрипт»: тело авто-пути вынесено в ``transcribe_media_message(...,
+force=...)`` (поведение 0i байт-в-байт), публичная точка
+``force_repeat_from_reply(bot, command_message)`` переиспользуется
+``handlers/youtube.py`` (0e — текстовая команда приходит раньше 0i).
+Идемпотентность: ``memorize_facts`` при force-повторе — только если строка
+ещё не несла расшифровку (защита от дублей GraphRAG-фактов).
 """
 import asyncio
 import html
@@ -125,12 +133,50 @@ async def _safe_typing(bot, chat_id: int) -> None:
         pass
 
 
+# Плейсхолдеры медиа-строк smart_messages (summary_xml._MEDIA_DESCRIPTIONS):
+# их наличие ≠ готовая расшифровка. F19 — база идемпотентности форс-повтора.
+_PLACEHOLDER_TEXTS = frozenset({
+    "[голосовое]", "[кружок]", "[видео]", "[аудио]", "[файл]",
+    "[медиа]", "[фото]", "[гифка]", "[стикер]",
+})
+
+
+async def _row_has_transcript(chat_id: int, message_id: int) -> bool:
+    """True — строка smart_messages уже несла расшифровку (не плейсхолдер).
+
+    F19 (ADR-1024-20 §2.6): защита от дублей GraphRAG-фактов при
+    принудительном повторе. Нет БД/API/строки → False (поведение прежнее)."""
+    if _db is None:
+        return False
+    getter = getattr(_db, "get_smart_message_by_tg_id", None)
+    if getter is None:
+        return False
+    try:
+        row = await getter(chat_id, message_id)
+    except Exception:
+        logger.warning("[transcribe] smart_message read failed | chat=%s",
+                       chat_id)
+        return False
+    if row is None:
+        return False
+    try:
+        old = str(dict(row).get("text") or "").strip()
+    except (TypeError, ValueError):
+        old = ""
+    return bool(old) and old not in _PLACEHOLDER_TEXTS
+
+
 async def _inject_memory(message: types.Message, name: str, text: str,
                          is_video_note: bool,
-                         forward_source: str | None = None) -> None:
+                         forward_source: str | None = None, *,
+                         force: bool = False) -> None:
     """CRITICAL (D267): двойная инъекция — L2-строка + GraphRAG-факт.
-    Epic 72 (74.B.3): у форвардов факт несёт forward_from-атрибуцию."""
+    Epic 72 (74.B.3): у форвардов факт несёт forward_from-атрибуцию.
+    F19: при ``force=True`` ``memorize_facts`` пропускается, если строка уже
+    содержала расшифровку (идемпотентность повторного «транскрипта»)."""
     chat_id = message.chat.id
+    already = (await _row_has_transcript(chat_id, message.message_id)
+               if force else False)
     try:
         updated = await _db.update_smart_message_text(
             chat_id, message.message_id, text)
@@ -140,7 +186,11 @@ async def _inject_memory(message: types.Message, name: str, text: str,
     except Exception:
         logger.warning("[transcribe] smart_message text update failed | chat=%s",
                        chat_id, exc_info=True)
-    if _memory is None:
+    if _memory is None or already:
+        if already:
+            logger.info("[transcribe] repeat — memorize skipped (row already "
+                        "has transcript) | chat=%s msg=%s",
+                        chat_id, message.message_id)
         return
     media_type = "video_note" if is_video_note else "voice"
     wrapped = wrap_media_fact(media_type, name, text,
@@ -150,27 +200,74 @@ async def _inject_memory(message: types.Message, name: str, text: str,
         "voice_transcript")
 
 
-async def _process(message: types.Message, bot) -> None:
-    user = message.from_user
+def _has_voice_media(message) -> bool:
+    """True — у сообщения есть ``voice``/``video_note`` с валидным ``file_id``.
+    Строгая проверка (str file_id) — не путаем MagicMock-атрибуты с медиа."""
+    for attr in ("voice", "video_note"):
+        media = getattr(message, attr, None)
+        if media is None:
+            continue
+        fid = getattr(media, "file_id", None)
+        if isinstance(fid, str) and fid:
+            return True
+    return False
+
+
+async def _reply_media(bot, media_message, reply_to_id, text,
+                       parse_mode: str | None = None) -> None:
+    """Ответ на целевое медиа (F19): ``reply_to_id`` == message_id медиа →
+    прежний ``message.reply`` (байт-в-байт авто-путь); иное → ``bot.send_message``
+    с ``reply_to_message_id``. ``parse_mode`` — только локальный (HTML)."""
+    own_id = getattr(media_message, "message_id", None)
+    target = reply_to_id if reply_to_id is not None else own_id
+    if target is None or target == own_id:
+        if parse_mode is not None:
+            await media_message.reply(text, parse_mode=parse_mode)
+        else:
+            await media_message.reply(text)
+        return
+    kwargs = {"reply_to_message_id": target}
+    if parse_mode is not None:
+        kwargs["parse_mode"] = parse_mode
+    await bot.send_message(media_message.chat.id, text, **kwargs)
+
+
+async def transcribe_media_message(media_message, bot, *,
+                                   reply_to_id: int | None = None,
+                                   force: bool = False) -> bool:
+    """Скачивание → STT → курсив (D268) → инъекция памяти (идемпотентно).
+
+    ``force=True`` — повтор по явной команде «транскрипт»: STT запускается
+    всегда свежим (кэш/готовый текст не читаем), ``memorize_facts`` — только
+    если строка ещё не содержала расшифровку. ``reply_to_id`` — целевое
+    сообщение ответа (по умолчанию — сам медиа-месседж). Возвращает True при
+    успешной транскрибации. Temp-файл удаляется в finally на 100% путей."""
+    user = getattr(media_message, "from_user", None)
     if user is None or (_bot_id is not None and user.id == _bot_id):
-        return
-    media = getattr(message, "voice", None) or getattr(message, "video_note", None)
+        return False
+    media = getattr(media_message, "voice", None) \
+        or getattr(media_message, "video_note", None)
     if media is None:
-        return
+        return False
+    chat_id = media_message.chat.id
+    if _service is None:
+        logger.warning("[transcribe] STT service unavailable | chat=%s", chat_id)
+        return False
     duration = getattr(media, "duration", 0) or 0
-    if duration > hot.get("limits.voice_max_duration_seconds", settings.VOICE_MAX_DURATION_SECONDS):
+    if duration > hot.get("limits.voice_max_duration_seconds",
+                          settings.VOICE_MAX_DURATION_SECONDS):
         # Edge case #4: файл НЕ качаем.
-        await message.reply(random.choice(VT_TOO_LONG_PHRASES))
-        return
+        await _reply_media(bot, media_message, reply_to_id,
+                           random.choice(VT_TOO_LONG_PHRASES))
+        return False
     # Epic 72 (74.B/D272): у форварда в bold — АВТОР источника; не-форвард —
     # прежний каскад от from_user (D268-поведение, байт-в-байт).
-    origin = getattr(message, "forward_origin", None)
+    origin = getattr(media_message, "forward_origin", None)
     is_forward = origin is not None
-    name = _resolve_transcript_author(message)
-    is_video_note = getattr(message, "video_note", None) is not None
+    name = _resolve_transcript_author(media_message)
+    is_video_note = getattr(media_message, "video_note", None) is not None
     suffix = ".mp4" if is_video_note else ".ogg"
     audio_format = "mp4" if is_video_note else "ogg"
-    chat_id = message.chat.id
 
     await _safe_typing(bot, chat_id)
     fd, path = tempfile.mkstemp(prefix="vt_", suffix=suffix)
@@ -185,13 +282,15 @@ async def _process(message: types.Message, bot) -> None:
         except EmptyTranscript:
             logger.info("[transcribe] empty transcript | chat=%s user=%s",
                         chat_id, user.id)
-            await message.reply(random.choice(VT_SILENCE_PHRASES))
-            return
+            await _reply_media(bot, media_message, reply_to_id,
+                               random.choice(VT_SILENCE_PHRASES))
+            return False
         except TranscriptionUnavailable as exc:
             logger.warning("[transcribe] all strategies failed | chat=%s | error=%s",
                            chat_id, exc)
-            await message.reply(random.choice(VT_ALL_FAILED_PHRASES))
-            return
+            await _reply_media(bot, media_message, reply_to_id,
+                               random.choice(VT_ALL_FAILED_PHRASES))
+            return False
     finally:
         # Cleanup temp ГАРАНТИРОВАННО на 100% путей (Section 71.4 п.5).
         try:
@@ -211,13 +310,44 @@ async def _process(message: types.Message, bot) -> None:
             username=getattr(user, "username", None),
         )
         label += f" (переслал {html.escape(forwarder)})"
-    await message.reply(
-        f"{label} 🗣: <i>{escaped_text}</i>", parse_mode="HTML")
-    logger.info("[transcribe] OK | chat=%s user=%s len=%d",
-                chat_id, user.id, len(text))
+    await _reply_media(bot, media_message, reply_to_id,
+                       f"{label} 🗣: <i>{escaped_text}</i>", parse_mode="HTML")
+    logger.info("[transcribe] OK | chat=%s user=%s len=%d force=%s",
+                chat_id, user.id, len(text), bool(force))
     await _inject_memory(
-        message, name, text, is_video_note,
-        forward_source=_extract_forward_source(origin) if is_forward else None)
+        media_message, name, text, is_video_note,
+        forward_source=_extract_forward_source(origin) if is_forward else None,
+        force=force)
+    return True
+
+
+async def force_repeat_from_reply(bot, command_message) -> bool:
+    """F19 (ADR-1024-20 §2.3): команда «транскрипт» → принудительный повтор
+    транскрибации ГС/кружка. Цель: реплай на ``voice``/``video_note`` (или
+    собственное медиа сообщения-команды). Возвращает True при успехе; False —
+    цели нет (вызывающий отдаёт прежний нейтральный ответ)."""
+    if _service is None or bot is None:
+        return False
+    reply = getattr(command_message, "reply_to_message", None)
+    media_message = None
+    if reply is not None and _has_voice_media(reply):
+        media_message = reply
+    elif _has_voice_media(command_message):
+        media_message = command_message
+    if media_message is None:
+        return False
+    logger.info("[transcribe] force repeat | chat=%s",
+                getattr(getattr(media_message, "chat", None), "id", None))
+    return await transcribe_media_message(
+        media_message, bot,
+        reply_to_id=getattr(media_message, "message_id", None), force=True)
+
+
+async def _process(message: types.Message, bot) -> None:
+    """Авто-путь 0i (observer): тонкая обёртка над ``transcribe_media_message``
+    (F19) — поведение байт-в-байт (``force=False``, ответ на само медиа)."""
+    await transcribe_media_message(
+        message, bot, reply_to_id=message.message_id, force=False)
 
 
 @voice_transcription_router.message(F.voice | F.video_note)

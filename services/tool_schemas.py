@@ -36,12 +36,16 @@ query_chat_memory → dig_into_lore → execute_web_search — при носта
 контракт нативного источника — `summarize_video`/`download_media` получают
 ОПЦИОНАЛЬНЫЙ `url` + `source: enum["link","reply"]`; у `summarize_video`
 удалён `mode` (инструмент = только выжимка). Контракт второго инструмента —
-`transcribe_video` (сырая транскрибация) — определён здесь (`TOOL_TRANSCRIBE_VIDEO`),
-но **НЕ регистрируется** в `TOOL_CALLING_TOOLS`: финальную схему/диспетчер и
-10-й счётчик канона R9 вливает F19 `media-transcribe-tool-round1024`
-(ступень F14 → F19). Техдолг 10.23 I2 (устаревший комментарий-счётчик «7»)
-закрыт: актуальный зарегистрированный набор — 9, канон UPD5 — 10.
+`transcribe_video` (сырая транскрибация) — определён здесь (`TOOL_TRANSCRIBE_VIDEO`).
+
+Раунд 10.24 (F19, ADR-1024-20 §2.1/§2.2 — AMEND ADR-1020-4, ступень F14 → F19):
+`transcribe_video` **зарегистрирован** в `TOOL_CALLING_TOOLS` 10-м (в конец,
+канон-дисциплина «новое — в хвост»; первые 9 — байт-в-байт). Канон R9 = **10**;
+техдолг 10.23 I2 (комментарий-счётчик) закрыт. LLM-доступность
+`transcribe_video` гейтится env-only `MEDIA_TRANSCRIBE_TOOL_ENABLED`
+(`active_tools`); само наличие схемы/счётчик — безусловны.
 """
+from config.settings import settings
 from tools.video_downloader import QUALITY_ENUM
 
 TOOL_EXECUTE_WEB_SEARCH = {
@@ -301,12 +305,11 @@ TOOL_COMPILE_LORE_STORY = {
 
 # Раунд 10.15 (F8, ADR-1015-3 §3): итоговый tool-сет — 7 инструментов.
 # Раунд 10.20 (T-1887): +compile_lore_story → 8.
-# Раунд 10.23 (F5, ADR-1023-5 §D2): +generate_image → 9 (в КОНЕЦ; порядок
-# первых 8 — канон R9, байт-в-байт).
-# Раунд 10.24 (F14, ADR-1024-15 §2.1, UPD5): канон R9 → **10** (10-й —
-# transcribe_video, контракт `TOOL_TRANSCRIBE_VIDEO` выше; регистрацию и
-# диспетчер ведёт F19 — ступень F14 → F19). Здесь фактический список на шаге
-# F14 — 9 имён (I2 «7» устранён). Порядок первых 9 имён не меняется.
+# Раунд 10.23 (F5, ADR-1023-5 §D2): +generate_image → 9 (в КОНЕЦ).
+# Раунд 10.24 (F19, ADR-1024-20 §2.1, UPD5): канон R9 → **10**; 10-й —
+# transcribe_video (в КОНЕЦ, контракт `TOOL_TRANSCRIBE_VIDEO` выше; ступень
+# F14 → F19). Порядок первых 9 имён — байт-в-байт. Техдолг 10.23 I2 закрыт:
+# комментарий-счётчик соответствует фактическому набору (**10**).
 # Имена/состав/порядок сохраняют канон R9 (память → лор → веб) и добавляют
 # новые в конце; `description` — EN (T-1925, ревизия канона 3.3).
 TOOL_GENERATE_IMAGE = {
@@ -330,6 +333,7 @@ TOOL_GENERATE_IMAGE = {
     },
 }
 
+# Канон R9 = **10** (UPD5): первые 9 — байт-в-байт, transcribe_video — в конец.
 TOOL_CALLING_TOOLS: list[dict] = [
     TOOL_QUERY_CHAT_MEMORY,
     TOOL_DIG_INTO_LORE,
@@ -340,6 +344,7 @@ TOOL_CALLING_TOOLS: list[dict] = [
     TOOL_GET_RECENT_HISTORY,
     TOOL_COMPILE_LORE_STORY,
     TOOL_GENERATE_IMAGE,
+    TOOL_TRANSCRIBE_VIDEO,
 ]
 
 # Имя флагового инструмента (гейт flags.lore_compiler_enabled, О3).
@@ -350,21 +355,34 @@ IMAGE_GENERATION_TOOL_NAME = "generate_image"
 TRANSCRIBE_TOOL_NAME = "transcribe_video"
 
 
+def _transcribe_tool_enabled() -> bool:
+    """env-only kill-switch ``MEDIA_TRANSCRIBE_TOOL_ENABLED`` (F19, default ON).
+
+    Гейтит только LLM-доступность ``transcribe_video`` (ADR-1024-20 §2.4):
+    OFF → инструмент не объявляется (прежний набор без него). Наличие схемы
+    и канон ``TOOL_CALLING_TOOLS == 10`` — безусловны."""
+    return bool(getattr(settings, "MEDIA_TRANSCRIBE_TOOL_ENABLED", True))
+
+
 def active_tools(lore_compiler_enabled: bool = True,
                  image_generation_enabled: bool = False) -> list[dict]:
-    """Tool-сет для LLM с учётом флагов «Летописец» (О3, T-1887) и
-    генерации изображений (F5, ADR-1023-5 §D2).
+    """Tool-сет для LLM с учётом флагов «Летописец» (О3, T-1887),
+    генерации изображений (F5, ADR-1023-5 §D2) и транскрибации (F19,
+    ADR-1024-20 §2.4).
 
     ``lore_compiler_enabled=False`` → compile_lore_story исключается.
     ``image_generation_enabled=False`` (дефолт) → generate_image исключён
-    (список 8 имён байт-в-байт как до F5). Возвращается новый список —
-    TOOL_CALLING_TOOLS (снапшот) не мутируется.
+    (список 8 имён байт-в-байт как до F5).
+    ``MEDIA_TRANSCRIBE_TOOL_ENABLED`` OFF (env) → transcribe_video исключён.
+    Возвращается новый список — TOOL_CALLING_TOOLS (снапшот) не мутируется.
     """
     disabled: set[str] = set()
     if not lore_compiler_enabled:
         disabled.add(LORE_COMPILER_TOOL_NAME)
     if not image_generation_enabled:
         disabled.add(IMAGE_GENERATION_TOOL_NAME)
+    if not _transcribe_tool_enabled():
+        disabled.add(TRANSCRIBE_TOOL_NAME)
     if not disabled:
         return list(TOOL_CALLING_TOOLS)
     return [tool for tool in TOOL_CALLING_TOOLS
