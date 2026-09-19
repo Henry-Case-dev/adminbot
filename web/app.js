@@ -136,6 +136,14 @@
         { category: 'limits', groups: ['limits_chat_key',
             'limits_chat_context', 'limits_worker'] },
       ] },
+    // F5 (10.24, ADR-1024-9 D1): отдельный пункт «Генерация изображений» —
+    // группа flags_module_images перенесена из mod_direct (провайдер
+    // models_images/keys_images остаётся в llm_providers, «один дом»).
+    { id: 'mod_images', icon: 'grid_view', label: 'Генерация изображений',
+      type: 'config', menu: 'modules',
+      sources: [
+        { category: 'flags', groups: ['flags_module_images'] },
+      ] },
     // Список-витрина 11 модулей (не config; карточки + модалки).
     { id: 'modules', icon: 'extension', label: 'Модули', type: 'modules',
       menu: 'modules' },
@@ -214,11 +222,11 @@
   // 10.10 (п.2, ADR-1010-2): временная сетка графика истории ключей.
   var SAMPLE_BUCKET = 300;        // 5 мин — тот же бакет, что пишет ring
   var MIN_BUCKETS = 12;           // минимум 1 час даже при 1-2 сэмплах
-  // D4: порядок секций матрицы прав = порядок config-вкладок (20; §4.3).
+  // D4: порядок секций матрицы прав = порядок config-вкладок (21; §4.3).
   var TAB_SECTION_ORDER = [
     'mod_summary', 'mod_direct', 'mod_factcheck', 'mod_search',
     'mod_transcribe', 'mod_video_summary', 'mod_media_download', 'mod_web',
-    'mod_checkup', 'mod_sleep', 'mod_nostalgia', 'mod_budgets',
+    'mod_checkup', 'mod_sleep', 'mod_nostalgia', 'mod_budgets', 'mod_images',
     'llm_providers', 'prompts',
     'memory_rag', 'smart_cache', 'people_names', 'relations', 'chat_lore',
     'permsoc',
@@ -281,6 +289,9 @@
     mod_checkup: 'monitoring', mod_sleep: 'bedtime',
     mod_nostalgia: 'history', modules: 'extension',
     llm_providers: 'smart_toy', prompts: 'description',
+    // F5 (10.24, ADR-1024-9 D5): переиспользуем существующий grid_view
+    // (в font-subset) — без правки шрифтового сабсета.
+    mod_images: 'grid_view',
     memory_rag: 'memory', smart_cache: 'bolt', people_names: 'badge',
     relations: 'group', permsoc: 'admin_panel_settings',
     access: 'supervisor_account', chat_lore: 'auto_stories',
@@ -398,6 +409,12 @@
       subtitle: 'Лимиты интеллекта и фона, безлимит по чату',
       icon: 'receipt_long', toggleKey: 'flags.budgets_enabled',
       tab: 'mod_budgets' },
+    // F5 (10.24, ADR-1024-9 D1/D4): отдельная карточка «Генерация
+    // изображений» с главным тумблером (default ON); гейт видимости —
+    // uiFlag('IMAGE_MODULE_CARD_ENABLED') в computed `visibleModules`.
+    { id: 'mod_images', title: 'Генерация изображений',
+      subtitle: 'Рисунки по просьбе', icon: 'grid_view',
+      toggleKey: 'flags.image_generation_module_enabled', tab: 'mod_images' },
   ];
 
   // A4/T-1207: «LLM Провайдеры» — блоки ПО МОДУЛЯМ (base_url+model+key).
@@ -1188,6 +1205,18 @@
           if (extra) groups = groups.concat([extra]);
         }
         return groups;
+      },
+      // F5 (10.24, ADR-1024-9 D6): карточка «Генерация изображений» видна
+      // только при uiFlag('IMAGE_MODULE_CARD_ENABLED') (default ON). OFF →
+      // витрина без карточки; ручка остаётся в окне «Прямые ответы».
+      visibleModules: function () {
+        var self = this;
+        return this.modules.filter(function (m) {
+          if (m.id === 'mod_images') {
+            return self.uiFlag('IMAGE_MODULE_CARD_ENABLED');
+          }
+          return true;
+        });
       },
       // 3.5.1: активная вкладка — конфиг (generic-рендер по sources)
       currentTabIsConfig: function () {

@@ -39,10 +39,12 @@ class TestCatalogInvariant106:
         # 10.24 (F21/ADR-1024-22 D8): +1 REGISTRY/Settings,
         # +1 GROUPS/mapped (flags_module_budgets → mod_budgets) →
         # 459/98/96/20/418; TAB_RULES 20 — новых вкладок нет.
+        # 10.24 (F5/ADR-1024-9 D3): Δ REGISTRY/GROUPS/_TAB_BY_GROUP = 0
+        # (group переносит вкладку) → 459/98/96; TAB_RULES 20→21 (+mod_images).
         assert len(pc.REGISTRY) == 459
         assert len(pc.GROUPS) == 98
         assert len(pc._TAB_BY_GROUP) == 96
-        assert len(pc.TAB_RULES) == 20
+        assert len(pc.TAB_RULES) == 21
         assert len({f.name for f in dataclasses.fields(Settings)}) == 418
 
     def test_five_master_flags_default_true(self):
@@ -116,11 +118,13 @@ class TestModulesAndAi:
         start = JS.index("var MODULES = [")
         mods = JS[start:JS.index("];", start)]
         # F21 (10.24, ADR-1024-22 D7): +1 toggleKey (mod_budgets) → 12.
-        assert mods.count("toggleKey:") == 12
+        # F5 (10.24, ADR-1024-9 D1): +1 toggleKey (mod_images) → 13.
+        assert mods.count("toggleKey:") == 13
         for title in ("Саммаризация", "Прямые ответы", "Фактчек", "Поиск",
                       "Транскрипт голосовых и видео", "Выжимка видео",
                       "Скачивание медиа", "Веб-страницы", "Диагностика",
-                      "Сон", "Ностальгия", "Бюджеты"):
+                      "Сон", "Ностальгия", "Бюджеты",
+                      "Генерация изображений"):
             assert title in JS, title
 
     def test_no_custom_modules(self):

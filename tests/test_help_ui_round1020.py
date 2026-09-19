@@ -237,6 +237,7 @@ class TestNavigationUnchanged:
         "mod_summary", "mod_direct", "mod_factcheck", "mod_search",
         "mod_transcribe", "mod_video_summary", "mod_media_download", "mod_web",
         "mod_checkup", "mod_sleep", "mod_nostalgia", "mod_budgets",
+        "mod_images",
         "modules", "memory_rag", "smart_cache", "people_names", "relations",
         "permsoc", "access", "chat_lore", "status", "info", "oversight",
     ]

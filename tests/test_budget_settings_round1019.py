@@ -40,8 +40,9 @@ class TestCatalogDeltaF3:
         assert len(pc.REGISTRY) == 459
         assert len(pc.GROUPS) == 98
         assert len(pc._TAB_BY_GROUP) == 96
-        assert len(pc.TAB_RULES) == 20
-        assert len(pc.TAB_NAV) == 20
+        # F5 (10.24, ADR-1024-9 D3): +1 config-вкладка mod_images.
+        assert len(pc.TAB_RULES) == 21
+        assert len(pc.TAB_NAV) == 21
         assert len({f.name for f in dataclasses.fields(Settings)}) == 418
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]

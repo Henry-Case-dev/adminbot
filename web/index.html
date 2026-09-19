@@ -927,7 +927,7 @@
               <div class="hub-sub">Модули, бюджет фона и интеллекта: честный тумблер и окно со всеми параметрами</div>
             </div>
             <div class="module-list col-span-full" role="list">
-              <article class="module-card card p-4" v-for="m in modules" :key="m.id"
+              <article class="module-card card p-4" v-for="m in visibleModules" :key="m.id"
                        role="listitem" :data-mod="m.id">
                 <span class="msr module-icon" aria-hidden="true">{{ iconGlyph(m.icon) }}</span>
                 <div class="module-meta min-w-0">

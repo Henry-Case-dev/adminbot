@@ -69,3 +69,11 @@ def test_js_unit_round1024_nodeflow():
     kill-switch uiFlag (OFF → бейджи), CSP/no-CDN."""
     _run_js(os.path.join("tests", "js", "round1024_nodeflow_test.js"),
             ok_marker="NODEFLOW-UNIT-OK")
+
+
+def test_js_unit_round1024_image_module():
+    """F5 round 10.24 (ADR-1024-9): карточка «Генерация изображений» в
+    «Модулях» — toggleKey/tab/icon, вкладка mod_images с группой
+    flags_module_images (один дом), menu-freeze +1, гейт uiFlag."""
+    _run_js(os.path.join("tests", "js", "round1024_image_module_test.js"),
+            ok_marker="IMAGE-MODULE-OK")

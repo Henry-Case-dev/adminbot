@@ -13,7 +13,7 @@
  *   5. Sticky (M-1): `.sticky-spacer` + `padding-bottom:0` у
  *      `.scroll-area:has(> .sticky-save)` (панель прижата к низу, не 88px),
  *      фолбэк `@supports not (selector(:has(*)))` без padding-bottom.
- *   6. Инвариант меню: 25 вкладок / 6 NAV_ITEMS / 12 модулей.
+ *   6. Инвариант меню: 26 вкладок / 6 NAV_ITEMS / 13 модулей.
  *   7. РЕГРЕСС round 10.21 (T-1998): `_syntheticGroup` обязан быть МЕТОДОМ
  *      (ранее жил в `computed` → `TypeError ... is not a function` при
  *      открытии окна модуля «Выжимка видео»).
@@ -226,10 +226,10 @@ const CSS = fs.readFileSync(
     'sticky(M-1/L-3): фолбэк НЕ добавляет padding-bottom');
 }
 
-// ── 6. Инвариант меню: 25 вкладок / 6 NAV_ITEMS / 12 модулей ────────────────
+// ── 6. Инвариант меню: 26 вкладок / 6 NAV_ITEMS / 13 модулей ────────────────
 {
-  assert.strictEqual(data.tabs.length, 25, 'меню: 25 вкладок');
-  assert.strictEqual(data.modules.length, 12, 'меню: 12 модулей');
+  assert.strictEqual(data.tabs.length, 26, 'меню: 26 вкладок');
+  assert.strictEqual(data.modules.length, 13, 'меню: 13 модулей');
   const navBlock = APP_JS.slice(APP_JS.indexOf('var NAV_ITEMS = ['),
     APP_JS.indexOf('];', APP_JS.indexOf('var NAV_ITEMS = [')));
   const navCount = (navBlock.match(/route:\s*'#/g) || []).length;

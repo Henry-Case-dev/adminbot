@@ -75,7 +75,7 @@ class TestCatalogAndSettingsF8:
         assert len(pc.REGISTRY) == 459
         assert len(pc.GROUPS) == 98
         assert len(pc._TAB_BY_GROUP) == 96
-        assert len(pc.TAB_RULES) == 20
+        assert len(pc.TAB_RULES) == 21
         assert len({f.name for f in dataclasses.fields(Settings)}) == 418
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]

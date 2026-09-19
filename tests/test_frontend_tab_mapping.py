@@ -15,6 +15,7 @@ from services.param_catalog import (
     TAB_MOD_BUDGETS,
     TAB_MOD_DIRECT,
     TAB_MOD_FACTCHECK,
+    TAB_MOD_IMAGES,
     TAB_MOD_MEDIA_DOWNLOAD,
     TAB_MOD_NOSTALGIA,
     TAB_MOD_SEARCH,
@@ -38,20 +39,22 @@ ALL_TABS = [
     TAB_MOD_SUMMARY, TAB_MOD_DIRECT, TAB_MOD_FACTCHECK, TAB_MOD_SEARCH,
     TAB_MOD_TRANSCRIBE, TAB_MOD_VIDEO_SUMMARY, TAB_MOD_MEDIA_DOWNLOAD,
     TAB_MOD_WEB, TAB_MOD_CHECKUP, TAB_MOD_SLEEP, TAB_MOD_NOSTALGIA,
-    TAB_MOD_BUDGETS,
+    TAB_MOD_BUDGETS, TAB_MOD_IMAGES,
     TAB_LLM_PROVIDERS, TAB_PROMPTS, TAB_MEMORY_RAG, TAB_SMART_CACHE,
     TAB_PEOPLE_NAMES, TAB_RELATIONS, TAB_CHAT_LORE, TAB_PERMSOC,
 ]
 
 
 class TestTabMappingAudit:
-    def test_20_config_tabs(self):
+    def test_21_config_tabs(self):
         # 10.19 (F3/ADR-1019-3 D1): +1 — mod_budgets («Бюджеты», nav «Модули»).
-        assert len(ALL_TABS) == 20
-        assert len(pc.TAB_RULES) == 20
+        # 10.24 (F5/ADR-1024-9 D1): +1 — mod_images («Генерация изображений»,
+        # nav «Модули»; группа flags_module_images перенесена из mod_direct).
+        assert len(ALL_TABS) == 21
+        assert len(pc.TAB_RULES) == 21
         assert set(pc.CONFIG_TAB_TITLES) == set(ALL_TABS)
 
-    def test_tab_nav_covers_all_20_tabs(self):
+    def test_tab_nav_covers_all_21_tabs(self):
         """F6 (T-1752, ADR-1018-6 D1): nav-разметка исчерпывающа."""
         assert set(pc.TAB_NAV) == set(ALL_TABS)
         assert set(pc.TAB_NAV.values()) <= set(pc.NAV_TITLES)
@@ -138,6 +141,9 @@ class TestTabMappingAudit:
         # 10.24 (F21/ADR-1024-22 D8): +1 REGISTRY (BUDGETS_ENABLED),
         # +1 GROUPS/mapped (flags_module_budgets → вкладка mod_budgets) →
         # 459/98/96; TAB_RULES 20 — вкладок не добавляем.
+        # 10.24 (F5/ADR-1024-9 D3): Δ REGISTRY/GROUPS/_TAB_BY_GROUP = 0
+        # (группа flags_module_images лишь меняет вкладку-владельца) →
+        # 459/98/96; TAB_RULES 20→21 (+mod_images).
         assert len(pc._TAB_BY_GROUP) == 96
         assert len(GROUPS) == 98
         assert len(pc.REGISTRY) == 459
@@ -153,10 +159,19 @@ class TestModuleTabs:
         assert tab_group_ids(TAB_MOD_DIRECT) == {
             "flags_module_direct", "flags_chat_behavior", "limits_chat",
             "limits_chat_behavior", "limits_chat_budgets", "limits_temperature",
-            "reactions_chat",
-            # 10.23 (F5/ADR-1023-5 D5): тумблер модуля генерации изображений —
-            # в «Модуль: Прямые ответы» (9-й инструмент прямого чата).
-            "flags_module_images"}
+            "reactions_chat"}
+        # F5 (10.24, ADR-1024-9 D1): тумблер изображений ПЕРЕНЕСЁН из
+        # «Прямых ответов» в отдельную вкладку — дублирования быть не должно.
+        assert "flags_module_images" not in tab_group_ids(TAB_MOD_DIRECT)
+
+    def test_mod_images_composition(self):
+        """F5 (10.24, ADR-1024-9 D1): отдельная вкладка «Генерация
+        изображений» — ровно одна группа flags_module_images, nav «Модули»."""
+        assert tab_group_ids(TAB_MOD_IMAGES) == {"flags_module_images"}
+        assert pc.tab_nav(TAB_MOD_IMAGES) == pc.NAV_MODULES
+        assert pc.CONFIG_TAB_TITLES[TAB_MOD_IMAGES] == "Генерация изображений"
+        # провайдер остаётся «одним домом» на llm_providers.
+        assert "flags_module_images" not in tab_group_ids(TAB_LLM_PROVIDERS)
 
     def test_mod_factcheck_and_search(self):
         assert tab_group_ids(TAB_MOD_FACTCHECK) == {

@@ -81,8 +81,8 @@ assert.strictEqual(card.noToggle, undefined,
 assert.strictEqual(card.toggleKey, 'flags.budgets_enabled',
   'F21: toggleKey = flags.budgets_enabled');
 
-// tma-menu-freeze: состав карточек модулей не изменился (12).
-assert.strictEqual(data.modules.length, 12, 'карточек модулей — 12');
+// tma-menu-freeze: F5 (10.24) санкционировал +1 карточку → 12→13.
+assert.strictEqual(data.modules.length, 13, 'карточек модулей — 13');
 
 // 2) Вкладка mod_budgets получила источник flags_module_budgets.
 const tab = data.tabs.filter((t) => t.id === 'mod_budgets')[0];
@@ -98,10 +98,10 @@ assert(groups.indexOf('flags_module_budgets') >= 0,
   assert(groups.indexOf(g) >= 0, 'лимит-группа на месте: ' + g);
 });
 
-// 3) tma-menu-freeze: новых вкладок нет (число вкладок заморожено, 25 —
-// включая неконфиг «access/status/info/oversight»; Python-инвариант
-// TAB_RULES = 20 проверяется pytest-пинами).
-assert.strictEqual(data.tabs.length, 25, 'tma-menu-freeze: вкладок 25');
+// 3) tma-menu-freeze: F5 (10.24, ADR-1024-9) санкционировал РОВНО +1 вкладку
+// (mod_images) → 25→26. Python-инвариант TAB_RULES = 21 проверяется
+// pytest-пинами.
+assert.strictEqual(data.tabs.length, 26, 'tma-menu-freeze: вкладок 26');
 const ids = data.tabs.map((t) => t.id);
 assert.strictEqual(ids.length, ids.filter((v, i) => ids.indexOf(v) === i).length,
   'дубли вкладок недопустимы');

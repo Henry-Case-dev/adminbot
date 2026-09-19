@@ -618,6 +618,13 @@ class Settings:
     # 10.23 байт-в-байт (computed `tokenFlowNodes()` остаётся живым).
     TOKEN_FLOW_NODEFLOW_ENABLED: ClassVar[bool] = _env_bool(
         "TOKEN_FLOW_NODEFLOW_ENABLED", True)
+    # ── Раунд 10.24 (F5, ADR-1024-9 D6 / ADR-1024-13): env-only ClassVar
+    # kill-switch карточки «Генерация изображений» в разделе «Модули».
+    # default ON, Δ каталога = 0 (в param_catalog НЕ входит). Доставка — через
+    # `GET /api/me.ui_flags`. OFF → карточка/вкладка скрыты из витрины; сам
+    # тумблер остаётся достижим через окно «Прямые ответы» (не теряем ручку).
+    IMAGE_MODULE_CARD_ENABLED: ClassVar[bool] = _env_bool(
+        "IMAGE_MODULE_CARD_ENABLED", True)
     # ── Раунд 10.22 (F8, ADR-1022-8): env-only ClassVar-рубильники
     # асинхронной пересборки досье из мини-аппа. Δ каталога = 0 (в
     # param_catalog не входят; прецедент MULTILAYER_EXTRACTION_ENABLED).

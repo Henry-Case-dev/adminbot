@@ -1983,6 +1983,10 @@ TAB_MOD_NOSTALGIA = "mod_nostalgia"
 # F3 (10.19, ADR-1019-3 D1): отдельный раздел «Бюджеты» в «Модулях» —
 # оба контура (ключ чата + фон) и лимит контекста; безлимит — тумблером.
 TAB_MOD_BUDGETS = "mod_budgets"
+# F5 (10.24, ADR-1024-9 D1): отдельный пункт «Модули» — «Генерация изображений».
+# Группа flags_module_images ПЕРЕНОСИТСЯ сюда из TAB_MOD_DIRECT (без новых
+# групп/ключей); провайдер (models_images/keys_images) остаётся в llm_providers.
+TAB_MOD_IMAGES = "mod_images"
 TAB_LLM_PROVIDERS = "llm_providers"
 TAB_PROMPTS = "prompts"
 TAB_MEMORY_RAG = "memory_rag"
@@ -2006,6 +2010,7 @@ CONFIG_TAB_TITLES: dict[str, str] = {
     TAB_MOD_SLEEP: "Сон",
     TAB_MOD_NOSTALGIA: "Ностальгия",
     TAB_MOD_BUDGETS: "Бюджеты",
+    TAB_MOD_IMAGES: "Генерация изображений",
     TAB_LLM_PROVIDERS: "LLM Провайдеры",
     TAB_PROMPTS: "Промпты",
     TAB_MEMORY_RAG: "Память",
@@ -2049,6 +2054,7 @@ TAB_NAV: dict[str, str] = {
     TAB_MOD_SLEEP: NAV_MODULES,
     TAB_MOD_NOSTALGIA: NAV_MODULES,
     TAB_MOD_BUDGETS: NAV_MODULES,
+    TAB_MOD_IMAGES: NAV_MODULES,
     TAB_LLM_PROVIDERS: NAV_AI,
     TAB_PROMPTS: NAV_AI,
     TAB_MEMORY_RAG: NAV_AI,
@@ -2075,8 +2081,7 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
     )),
     (TAB_MOD_DIRECT, (
         (CATEGORY_FLAGS,
-         frozenset({"flags_module_direct", "flags_chat_behavior",
-                    "flags_module_images"})),
+         frozenset({"flags_module_direct", "flags_chat_behavior"})),
         (CATEGORY_LIMITS, frozenset({
             "limits_chat", "limits_chat_behavior", "limits_chat_budgets",
             "limits_temperature"})),
@@ -2129,6 +2134,12 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
         (CATEGORY_FLAGS, frozenset({"flags_module_budgets"})),
         (CATEGORY_LIMITS, frozenset({
             "limits_chat_key", "limits_chat_context", "limits_worker"})),
+    )),
+    # F5 (10.24, ADR-1024-9 D1): «Генерация изображений» — главный тумблер
+    # модуля (group flags_module_images перенесена из mod_direct; провайдер
+    # models_images/keys_images остаётся «одним домом» в llm_providers).
+    (TAB_MOD_IMAGES, (
+        (CATEGORY_FLAGS, frozenset({"flags_module_images"})),
     )),
     # ── Настройки AI (7 подразделов) ───────────────────────────────────────
     # A8: keys_youtube → М6, models_checkup/keys_betterstack → М9.

@@ -306,6 +306,10 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
         "ui_flags": {
             "TOKEN_FLOW_NODEFLOW_ENABLED":
                 bool(settings.TOKEN_FLOW_NODEFLOW_ENABLED),
+            # F5 (10.24, ADR-1024-9 D6): гейт карточки/вкладки «Генерация
+            # изображений» в «Модулях» (default ON).
+            "IMAGE_MODULE_CARD_ENABLED":
+                bool(settings.IMAGE_MODULE_CARD_ENABLED),
         },
     }
 

@@ -109,12 +109,13 @@ function makeSaveCtx(configItems, keyDrafts) {
       'mod_summary', 'mod_direct', 'mod_factcheck', 'mod_search',
       'mod_transcribe', 'mod_video_summary', 'mod_media_download', 'mod_web',
       'mod_checkup', 'mod_sleep', 'mod_nostalgia', 'mod_budgets',
+      'mod_images',
       'modules', 'memory_rag', 'smart_cache', 'people_names', 'relations',
       'permsoc', 'access', 'chat_lore', 'status', 'info', 'oversight',
     ];
     assert.deepStrictEqual(data.tabs.map((t) => t.id), expectedTabs,
       'меню: состав/порядок вкладок не изменён');
-    assert.strictEqual(data.modules.length, 12, 'меню: 12 карточек модулей');
+    assert.strictEqual(data.modules.length, 13, 'меню: 13 карточек модулей');
   }
 
   // ── sentinel: SECRET_MASK / isSecretMask ───────────────────────────────

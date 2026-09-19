@@ -85,6 +85,7 @@ const INDEX = fs.readFileSync(
     'mod_summary', 'mod_direct', 'mod_factcheck', 'mod_search',
     'mod_transcribe', 'mod_video_summary', 'mod_media_download', 'mod_web',
     'mod_checkup', 'mod_sleep', 'mod_nostalgia', 'mod_budgets',
+    'mod_images',
     'modules', 'memory_rag', 'smart_cache', 'people_names', 'relations',
     'permsoc', 'access', 'chat_lore', 'status', 'info', 'oversight',
   ];
@@ -94,8 +95,8 @@ const INDEX = fs.readFileSync(
   assert.deepStrictEqual(nav.map((n) => n.id),
     ['status', 'how', 'modules', 'ai', 'permsoc', 'access'],
     'T-1903: navbar — те же 6 пунктов');
-  // Состав модулей (11 + «Бюджеты») тоже стабилен.
-  assert.strictEqual(data.modules.length, 12, 'T-1903: карточек модулей — 12');
+  // Состав модулей (12 + «Генерация изображений») — F5 (10.24).
+  assert.strictEqual(data.modules.length, 13, 'T-1903: карточек модулей — 13');
 })();
 
 // ── T-1895a: binding — значение из БД попадает в инпут; секрет → маска ────

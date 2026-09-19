@@ -41,6 +41,7 @@ class TestNavigationSnapshot:
         "mod_summary", "mod_direct", "mod_factcheck", "mod_search",
         "mod_transcribe", "mod_video_summary", "mod_media_download", "mod_web",
         "mod_checkup", "mod_sleep", "mod_nostalgia", "mod_budgets",
+        "mod_images",
         "modules", "memory_rag", "smart_cache", "people_names", "relations",
         "permsoc", "access", "chat_lore", "status", "info", "oversight",
     ]
@@ -54,10 +55,10 @@ class TestNavigationSnapshot:
         nav_ids = ["status", "how", "modules", "ai", "permsoc", "access"]
         for nid in nav_ids:
             assert "'" + nid + "'" in APP_JS
-        # Состав MODULES (11 модулей + «Бюджеты») не менялся.
+        # Состав MODULES (12 модулей + «Генерация изображений») — F5 (10.24).
         mods = re.findall(r"\{ id: '(mod_[a-z_]+)',",
                           APP_JS[APP_JS.index("var MODULES = ["):])
-        assert len(mods) == 12
+        assert len(mods) == 13
 
     def test_no_new_nav_markup(self):
         # Никаких новых пунктов меню не добавлялось в разметку.
