@@ -971,7 +971,7 @@
         configChatUpdatedAt: null, // F-7: optimistic-метка чата (X-Chat-Id)
         // Раунд 10.23 (F8, ADR-1023-8): вкладка «Промпты» — активный режим
         // Вербализатора (Tabs) и блок мониторинга динамического анти-клише.
-        promptMode: 'serious',     // редактируемый режим: casual|serious|deep_research
+        promptMode: 'casual',      // редактируемый режим: casual|serious|deep_research
         clicheMeta: null,          // GET /api/anticliche (метаданные + список)
         clicheAvailable: false,    // F4-API доступен (fail-open → блок скрыт)
         clicheLoading: false,
@@ -4083,11 +4083,22 @@
       },
       _syncPromptModeFromConfig: function () {
         var item = this.promptDefaultModeItem();
-        if (!item || !item.value) return;
-        // Санитайз: неизвестное/битое PG-значение не оставляем «без таба».
+        // F6 (10.24, ADR-1024-10 D2): пусто/бито → код-дефолт `casual`
+        // (резервный режим), не `serious`. Валидное значение приоритетно.
         var allowed = this.promptModeTabs.map(function (t) { return t.id; });
-        this.promptMode = allowed.indexOf(String(item.value)) >= 0
-          ? String(item.value) : 'serious';
+        var value = item ? String(item.value == null ? '' : item.value) : '';
+        this.promptMode = allowed.indexOf(value) >= 0 ? value : 'casual';
+      },
+      // F6 (10.24, ADR-1024-10 D1): элементы секции для плоской раскладки.
+      // V2 ON → basic + advanced в ОДНОМ grid (аккордеон не нужен: одиночный
+      // textarea виден сразу). OFF → только basic (advanced остаётся под
+      // <details> прежней раскладки 10.23).
+      promptVisibleItems: function (sec) {
+        if (!sec) return [];
+        var v2 = (typeof this.uiFlag === 'function')
+          ? this.uiFlag('PROMPTS_UI_V2_ENABLED') : true;
+        if (!v2) return sec.basic || [];
+        return (sec.basic || []).concat(sec.advanced || []);
       },
       // ── Блок мониторинга динамического анти-клише (API F4) ────────────
       // Fail-open: F4-API недоступен (403/404/503/сеть) → блок скрыт

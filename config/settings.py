@@ -625,6 +625,14 @@ class Settings:
     # тумблер остаётся достижим через окно «Прямые ответы» (не теряем ручку).
     IMAGE_MODULE_CARD_ENABLED: ClassVar[bool] = _env_bool(
         "IMAGE_MODULE_CARD_ENABLED", True)
+    # ── Раунд 10.24 (F6, ADR-1024-10 D5 / ADR-1024-13): env-only ClassVar
+    # kill-switch новой раскладки вкладки «Промпты» (плоский grid без
+    # аккордеонов, табы режимов внутри карточек модулей, fallback-дропдаун
+    # один раз в шапке). default ON, Δ каталога = 0. Доставка — через
+    # `GET /api/me.ui_flags`. OFF → прежняя раскладка 10.23 байт-в-байт
+    # (аккордеоны + отдельная карточка режимов, код-дефолт `serious`).
+    PROMPTS_UI_V2_ENABLED: ClassVar[bool] = _env_bool(
+        "PROMPTS_UI_V2_ENABLED", True)
     # ── Раунд 10.22 (F8, ADR-1022-8): env-only ClassVar-рубильники
     # асинхронной пересборки досье из мини-аппа. Δ каталога = 0 (в
     # param_catalog не входят; прецедент MULTILAYER_EXTRACTION_ENABLED).

@@ -310,6 +310,11 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
             # изображений» в «Модулях» (default ON).
             "IMAGE_MODULE_CARD_ENABLED":
                 bool(settings.IMAGE_MODULE_CARD_ENABLED),
+            # F6 (10.24, ADR-1024-10 D5): гейт новой раскладки вкладки
+            # «Промпты» (плоский grid без аккордеонов, табы режимов в
+            # карточках, fallback-дропдаун один раз). default ON.
+            "PROMPTS_UI_V2_ENABLED":
+                bool(settings.PROMPTS_UI_V2_ENABLED),
         },
     }
 

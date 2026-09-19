@@ -475,9 +475,9 @@ _PROMPTS: list[tuple] = [
      "services.prompt_style_blocks.MODE_DEEP_RESEARCH_BLOCK", "prompts_verbilizer",
      "Режим подачи ответа «глубокий разбор»: полный структурированный отчёт.",
      "advanced", "mode"),
-    ("prompts.verbilizer_default_mode", "Режим по умолчанию",
+    ("prompts.verbilizer_default_mode", "Резервный режим (Fallback)",
      "services.prompt_style_blocks.VERBILIZER_DEFAULT_MODE", "prompts_verbilizer",
-     "Режим Вербализатора по умолчанию, если модель не выбрала режим сама. Изменения применяются сразу.",
+     "Предохранитель: срабатывает только при сбое модели (зависла/нечитаемый ответ). Штатный выбор режима делает Синтезатор динамически. Изменения применяются сразу.",
      "advanced", "mode"),
 ]
 

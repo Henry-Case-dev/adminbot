@@ -229,8 +229,11 @@ class TestModeAndFormatBlocks:
         assert FORMAT_PLAIN_BLOCK not in composed
         assert FORMAT_PLAIN_TEXT_BLOCK not in composed
 
-    def test_compose_unknown_mode_fail_safe_serious(self):
-        assert MODE_SERIOUS_BLOCK in compose_verbalizer_system("BASE", "wat")
+    def test_compose_unknown_mode_fail_safe_casual(self):
+        # F6 (10.24, ADR-1024-10 D2): резервный режим-предохранитель → casual.
+        composed = compose_verbalizer_system("BASE", "wat")
+        assert MODE_CASUAL_BLOCK in composed
+        assert MODE_SERIOUS_BLOCK not in composed
 
 
 class TestDeepResearchPromptConsistency:

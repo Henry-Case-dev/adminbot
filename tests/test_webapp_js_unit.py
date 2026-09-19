@@ -77,3 +77,10 @@ def test_js_unit_round1024_image_module():
     flags_module_images (один дом), menu-freeze +1, гейт uiFlag."""
     _run_js(os.path.join("tests", "js", "round1024_image_module_test.js"),
             ok_marker="IMAGE-MODULE-OK")
+
+
+def test_js_unit_round1024_prompts_ui():
+    """F6 round 10.24 (ADR-1024-10): плоский grid «Промптов» (без аккордеонов),
+    fallback-режим → casual, табы режимов внутри карточек модулей."""
+    _run_js(os.path.join("tests", "js", "round1024_prompts_ui_test.js"),
+            ok_marker="PROMPTS-UI-UNIT-OK")

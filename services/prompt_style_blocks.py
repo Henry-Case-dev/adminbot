@@ -154,10 +154,13 @@ MODE_BLOCKS: dict[str, str] = {
     "deep_research": MODE_DEEP_RESEARCH_BLOCK,
 }
 
-# Раунд 10.23 (F8, ADR-1023-8): режим по умолчанию — код-дефолт каталога
-# (PG-ключ prompts.verbilizer_default_mode, widget select). Держим строку в
-# одном месте: сид каталога и fail-safe compose используют один канон.
-VERBILIZER_DEFAULT_MODE = "serious"
+# Раунд 10.24 (F6, ADR-1024-10 D2): «Резервный режим (Fallback)» — код-дефолт
+# каталога (PG-ключ prompts.verbilizer_default_mode, widget select). Это НЕ
+# штатный режим роутинга (его динамически выбирает Синтезатор из Stage-1), а
+# предохранитель на сбойный путь: применяется ТОЛЬКО если Stage-1 не отдал
+# валидный `response_mode`. Держим строку в одном месте: сид каталога и
+# fail-safe compose используют один канон (ADR-1013-3).
+VERBILIZER_DEFAULT_MODE = "casual"
 
 
 def resolve_prompt(pg_key: str, code_default: str) -> str:
@@ -238,6 +241,13 @@ def compose_verbalizer_system(base_prompt: str, response_mode: str = "serious",
     ровно один ``MODE_*_BLOCK``; для ``deep_research`` добавляется ровно
     один канальный блок. Для ``deep_research`` безусловные запреты на
     буллиты снимаются (H1), чтобы требование буллитов не конфликтовало с базой.
+
+    Fallback-контракт (F6, ADR-1024-10 D3): валидный ``response_mode`` из
+    Stage-1 приоритетен — ключ ``prompts.verbilizer_default_mode`` при этом
+    **не читается**. ``_resolve_default_mode()`` (значение ключа, код-дефолт
+    ``casual``) применяется ТОЛЬКО если ``response_mode`` пуст/невалиден —
+    то есть исключительно на сбойном пути. Предохранитель никогда не
+    перехватывает штатный динамический выбор Синтезатора.
     """
     candidate = str(response_mode or "").strip().lower()
     if candidate not in MODE_BLOCKS:

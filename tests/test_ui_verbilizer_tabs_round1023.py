@@ -126,7 +126,8 @@ class TestCatalogDelta:
         assert spec.widget == "select"
         assert spec.select_options == ("casual", "serious", "deep_research")
         assert len(spec.select_labels) == 3
-        assert VERBILIZER_DEFAULT_MODE == "serious"
+        # F6 (10.24, ADR-1024-10 D2): код-дефолт резервного режима → casual.
+        assert VERBILIZER_DEFAULT_MODE == "casual"
         assert spec.code_source == (
             "services.prompt_style_blocks.VERBILIZER_DEFAULT_MODE")
 
@@ -188,10 +189,13 @@ class TestModeBlockHotGet:
             {"prompts.verbilizer_default_mode": "casual"}))
         assert MODE_CASUAL_BLOCK in compose_verbalizer_system("BASE", "wat")
 
-    def test_default_mode_invalid_falls_back_serious(self):
+    def test_default_mode_invalid_falls_back_casual(self):
+        # F6 (10.24, ADR-1024-10 D2): битое значение ключа → код-дефолт casual.
         hot.set_config_cache(_FakeCache(
             {"prompts.verbilizer_default_mode": "bogus"}))
-        assert MODE_SERIOUS_BLOCK in compose_verbalizer_system("BASE", "wat")
+        composed = compose_verbalizer_system("BASE", "wat")
+        assert MODE_CASUAL_BLOCK in composed
+        assert MODE_SERIOUS_BLOCK not in composed
 
 
 class TestSummaryRuntimeHotGet:

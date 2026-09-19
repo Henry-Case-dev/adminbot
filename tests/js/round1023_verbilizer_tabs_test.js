@@ -165,12 +165,13 @@ assert(methods, 'root.methods не найден');
   methods._syncPromptModeFromConfig.call(ctx2);
   assert.strictEqual(ctx2.promptMode, 'casual');
 
-  // 2.5 Санитайз: неизвестное значение → 'serious' (таб подсвечен).
+  // 2.5 Санитайз: неизвестное значение → 'casual' (F6 10.24: резервный
+  // режим-предохранитель; таб подсвечен, штатный роутинг не затронут).
   const ctxBad = { promptMode: 'serious', promptModeTabs: tabs,
     configItems: [{ key: 'prompts.verbilizer_default_mode', value: 'bogus' }],
     promptDefaultModeItem: methods.promptDefaultModeItem };
   methods._syncPromptModeFromConfig.call(ctxBad);
-  assert.strictEqual(ctxBad.promptMode, 'serious');
+  assert.strictEqual(ctxBad.promptMode, 'casual');
 })();
 
 // ── 3. Блок анти-клише: load (fail-open) / force / PUT ──────────────────────

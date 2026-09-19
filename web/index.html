@@ -444,6 +444,36 @@
                   <div v-else class="text-xs text-gray-500">Список пуст.</div>
                 </div>
 
+                <!-- F6 (10.24, ADR-1024-10 D2): «Резервный режим (Fallback)» —
+                     предохранитель СБОЙНОГО пути (Stage-1 не отдал валидный
+                     `response_mode`). Рендерится ОДИН раз в шапке вкладки,
+                     чтобы один ключ prompts.verbilizer_default_mode не
+                     редактировался из нескольких карточек. На штатный
+                     динамический выбор Синтезатора НЕ влияет. В OFF-режиме
+                     дропдаун живёт в прежней карточке режимов 10.23. -->
+                <div v-if="uiFlag('PROMPTS_UI_V2_ENABLED') && promptDefaultModeItem()"
+                     class="card p-4 col-span-full" data-block="prompts-fallback-mode">
+                  <div class="flex items-center gap-2 flex-wrap mb-1">
+                    <span class="text-sm font-bold">{{ promptDefaultModeItem().title }}</span>
+                    <span class="badge badge-warn">предохранитель</span>
+                  </div>
+                  <div class="text-xs text-gray-500 mb-2">
+                    Срабатывает только при сбое модели (зависла / нечитаемый ответ).
+                    Штатный выбор режима делает Синтезатор динамически.
+                  </div>
+                  <select class="field" style="max-width:18rem"
+                          v-model="promptDefaultModeItem().value"
+                          :disabled="!canEditConfig(promptDefaultModeItem().key)"
+                          @change="selectPromptMode($event.target.value)">
+                    <option v-for="(o, i) in (promptDefaultModeItem().select_options || [])"
+                            :key="o" :value="o">
+                      {{ (promptDefaultModeItem().select_labels && promptDefaultModeItem().select_labels[i]) || o }}
+                    </option>
+                  </select>
+                  <div v-if="!canEditConfig(promptDefaultModeItem().key)"
+                       class="text-xs text-gray-500 mt-1">Только чтение.</div>
+                </div>
+
                 <!-- Карточки модулей: секции по stage -->
                 <template v-for="grp in currentTabGroups" :key="'prompt-' + grp.uid">
                   <!-- F7 (10.24, ADR-1024-3 D1): группа limits_anticliche не
@@ -452,8 +482,14 @@
                        карточка монитора недоступна (clicheAvailable=false,
                        сбой GET /api/anticliche) — отдаём группу generic-
                        рендеру, чтобы параметр остался доступен (review iter1). -->
-                  <div v-if="grp.id !== 'limits_anticliche'
-                            || !(isGlobalAdmin && clicheAvailable)"
+                  <!-- F6 (10.24, ADR-1024-10 D4): при V2 отдельную карточку
+                       режимов prompts_verbilizer НЕ рендерим — её ключи
+                       редактируются из карточек модулей (табы над полем
+                       Вербализатора) и fallback-дропдауном в шапке. -->
+                  <div v-if="(grp.id !== 'limits_anticliche'
+                             || !(isGlobalAdmin && clicheAvailable))
+                            && !(uiFlag('PROMPTS_UI_V2_ENABLED')
+                                 && grp.id === 'prompts_verbilizer')"
                        class="card p-4 col-span-full">
                     <div class="text-sm font-bold">{{ groupTitle(grp) }}</div>
                     <div class="text-xs text-gray-500 mb-3">{{ groupDescription(grp) }}</div>
@@ -506,8 +542,34 @@
                           <div v-if="sec.note" class="text-xs text-gray-500 mb-2">
                             {{ sec.note }}
                           </div>
-                          <div class="grid gap-3 md:grid-cols-2" v-if="sec.basic.length">
-                            <div v-for="item in sec.basic" :key="item.key"
+                          <!-- F6 (10.24, ADR-1024-10 D4): табы режимов —
+                               ВНУТРИ карточки модуля, прямо над полем(ями)
+                               Вербализатора. Режим общий (шаренный): правка
+                               влияет на все модули. Только в V2-раскладке. -->
+                          <div v-if="uiFlag('PROMPTS_UI_V2_ENABLED')
+                                    && sec.id === 'verbalizer' && promptModeItem()"
+                               class="mb-4" data-block="prompt-mode-tabs">
+                            <div class="flex gap-2 flex-wrap mb-2" role="tablist">
+                              <button v-for="m in promptModeTabs" :key="'v2m-' + m.id"
+                                      role="tab" :aria-selected="promptMode === m.id"
+                                      class="btn-ghost text-xs"
+                                      :class="promptMode === m.id ? 'btn-accent' : ''"
+                                      @click="selectPromptMode(m.id)">{{ m.label }}</button>
+                            </div>
+                            <div v-for="m in promptModeTabs" :key="'v2mode-' + m.id"
+                                 v-show="promptMode === m.id">
+                              <template v-if="promptModeItem(m.id)">
+                                <div class="text-sm font-semibold">{{ promptModeItem(m.id).title }}</div>
+                                <div class="text-xs text-gray-400 mb-2">{{ promptModeItem(m.id).description }}</div>
+                                <textarea class="field scroll-thin" rows="6"
+                                          v-model="promptModeItem(m.id).value"></textarea>
+                                <div v-if="!canEditConfig(promptModeItem(m.id).key)"
+                                     class="text-xs text-gray-500 mt-1">Только чтение.</div>
+                              </template>
+                            </div>
+                          </div>
+                          <div class="grid gap-3 md:grid-cols-2" v-if="promptVisibleItems(sec).length">
+                            <div v-for="item in promptVisibleItems(sec)" :key="item.key"
                                  class="card p-4" style="min-width:0;">
                               <div class="flex items-center gap-2 min-w-0 mb-1">
                                 <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
@@ -525,7 +587,12 @@
                               <textarea class="field scroll-thin" rows="6" v-model="item.value"></textarea>
                             </div>
                           </div>
-                          <details class="advanced mt-4" v-if="sec.advanced.length > 0"
+                          <!-- F6 (10.24, ADR-1024-10 D1): аккордеон только в
+                               OFF-раскладке 10.23; в V2 advanced-элементы
+                               идут в общий grid выше. details.advanced для
+                               llm_providers не затронут. -->
+                          <details class="advanced mt-4"
+                                   v-if="!uiFlag('PROMPTS_UI_V2_ENABLED') && sec.advanced.length > 0"
                                    :open="expandOpen(activeTab)" @toggle="toggleExpand(activeTab)">
                             <summary class="select-none text-sm font-semibold">
                               Расширенные системные
