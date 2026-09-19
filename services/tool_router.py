@@ -106,10 +106,9 @@ _SUMMARIZE_TRANSCRIPT_CAP = 20000
 # download-кулдаун на нативную пересылку НЕ жжётся (копирование TG-файла,
 # паритет Fast-Track). Kill-switch `NATIVE_MEDIA_TOOLS_ENABLED` гейтит нативный
 # резолв (OFF → прежние ошибки, native fetch/STT не запускаются).
-_NATIVE_VIDEO_KINDS = ("video", "document")
-# F19 (ADR-1024-20 §2.5): `transcribe_video` принимает все виды нативного
-# медиа, включая voice/video_note (остальные инструменты — только video/document).
-_NATIVE_TRANSCRIBE_KINDS = ("video", "document", "voice", "video_note")
+# F19 (ADR-1024-20 §2.5): наборы kind-ов — единый источник `services.native_media`
+# (`VIDEO_KINDS` для summarize/download; `MEDIA_KINDS` — включая voice/video_note
+# для `transcribe_video`), без дублирующих локальных констант.
 _DOWNLOAD_NATIVE_MAX_BYTES = 2_000_000_000
 
 # Раунд 10.17 (F2, ADR-1017-2 §2.1/§2.6): tool-скачивание спрашивает качество
@@ -901,7 +900,7 @@ class ToolRouter:
         ``_MEMORY_MAX_SYMBOLS``. НИКОГДА не бросает (контракт dispatch).
         R17: только ``source``/``kind``/``out_chars``/``error=<Class>``."""
         source, url, native = self._resolve_tool_source(
-            arguments, ctx, kinds=_NATIVE_TRANSCRIBE_KINDS)
+            arguments, ctx, kinds=native_media.MEDIA_KINDS)
         if source is None:
             return ("ОШИБКА transcribe_video: нет источника "
                     "(нужна ссылка или медиа из реплая)")
@@ -994,7 +993,7 @@ class ToolRouter:
                                                   timeout=timeout)
 
     def _resolve_tool_source(self, arguments: dict, ctx: ToolContext,
-                             kinds: tuple[str, ...] = _NATIVE_VIDEO_KINDS):
+                             kinds: tuple[str, ...] | None = None):
         """Общий резолв источника медиа-инструментов (F14, §4.5):
 
         * ``source == "reply"`` → нативный путь при доступном видео (приоритет
@@ -1004,16 +1003,19 @@ class ToolRouter:
           video/видео-document) → ``("native", None, media)``;
         * иначе ``(None, None, None)``.
 
-        ``kinds`` — какие виды нативного медиа допустимы: F14 (video/document)
-        по умолчанию; F19 ``transcribe_video`` передаёт расширенный набор
-        (voice/video_note). Kill-switch ``NATIVE_MEDIA_TOOLS_ENABLED`` OFF →
-        нативный резолв не срабатывает (прежнее поведение: нужен http-``url``)."""
+        ``kinds`` — какие виды нативного медиа допустимы: по умолчанию
+        ``native_media.VIDEO_KINDS`` (F14, video/document); F19
+        ``transcribe_video`` передаёт ``native_media.MEDIA_KINDS``
+        (включая voice/video_note). Kill-switch ``NATIVE_MEDIA_TOOLS_ENABLED``
+        OFF → нативный резолв не срабатывает (прежнее поведение: нужен
+        http-``url``)."""
+        allowed = kinds if kinds is not None else native_media.VIDEO_KINDS
         args = arguments if isinstance(arguments, dict) else {}
         url = str(args.get("url") or "").strip()
         source = str(args.get("source") or "").strip().lower()
         native = getattr(ctx, "native_media", None)
         native_ok = (native is not None
-                     and getattr(native, "kind", "") in kinds)
+                     and getattr(native, "kind", "") in allowed)
         if source == "reply":
             if _native_tools_enabled() and native_ok:
                 return "native", None, native

@@ -402,24 +402,10 @@ def _resolve_video_media(message: types.Message) -> _VideoMedia | None:
 
 def _resolve_voice_media(message: types.Message):
     """F19 (ADR-1024-20 §2.3/§4.6): сообщение-носитель ``voice``/``video_note``
-    (своё приоритетнее реплая) либо None. Строгая проверка ``file_id`` — не
-    путаем MagicMock-атрибуты с медиа. Никогда не бросает."""
-    try:
-        for candidate in (message, getattr(message, "reply_to_message", None)):
-            if candidate is None:
-                continue
-            for attr in ("voice", "video_note"):
-                media = getattr(candidate, attr, None)
-                if media is None:
-                    continue
-                fid = getattr(media, "file_id", None)
-                if isinstance(fid, str) and fid:
-                    return candidate
-        return None
-    except Exception:
-        logger.warning("[youtube] voice resolve failed — UNHANDLED",
-                       exc_info=True)
-        return None
+    (своё приоритетнее реплая) либо None. Единый хелпер
+    ``native_media.voice_media_message`` (тот же порядок использует
+    ``voice_transcription.force_repeat_from_reply``)."""
+    return native_media.voice_media_message(message)
 
 
 def _media_transcribe_enabled() -> bool:
@@ -1258,6 +1244,13 @@ async def youtube_handler(message: types.Message, bot: Bot = None) -> None:
                      random.choice(COMMAND_NO_TARGET_PHRASES),
                      message.message_id)
         return
+    # F19 (ADR-1024-20 §2.3/§4.6): команда «транскрипт» по voice/video_note —
+    # принудительный повтор STT через слой 0i. Обрабатывается ДО кулдауна:
+    # при kill-switch OFF или недоступной цели поведение совпадает с прежним
+    # нейтральным ответом (request is None) — без списания youtube-кулдауна.
+    if request.kind == "voice":
+        await _handle_voice_command(bot, message)
+        return
     # Раунд 10.6 (T-1201/A1): master-флаг «Выжимка видео» гейтит ТОЛЬКО
     # summary-ветки (YouTube+media); «транскрипт» продолжает работать.
     if request.mode == "summary" and not hot.get(
@@ -1275,11 +1268,6 @@ async def youtube_handler(message: types.Message, bot: Bot = None) -> None:
                      message.message_id)
         return                                # консьюм
     await cooldown_touch(_cooldown, message.chat.id, user_id)
-    # F19 (ADR-1024-20 §2.3/§4.6): команда «транскрипт» по voice/video_note —
-    # принудительный повтор STT через слой 0i (переиспользование логики).
-    if request.kind == "voice":
-        await _handle_voice_command(bot, message)
-        return
     if request.kind == "youtube" and request.mode == "summary":
         # URL-ветка Части 1 — байт-в-байт (T-688); слот пула — внутри
         # _process_youtube_summary ПОСЛЕ cache-check (быстрый путь без пула).

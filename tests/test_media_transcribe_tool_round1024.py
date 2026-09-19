@@ -77,8 +77,9 @@ def _make_msg(text=None, caption=None, message_id=11, user_id=USER_ID,
     return m
 
 
-def _voice_msg(message_id=77, file_id="voicefid01", duration=5, user_id=USER_ID):
-    return _make_msg(message_id=message_id, user_id=user_id,
+def _voice_msg(message_id=77, file_id="voicefid01", duration=5,
+               user_id=USER_ID, caption=None):
+    return _make_msg(message_id=message_id, user_id=user_id, caption=caption,
                      voice=SimpleNamespace(file_id=file_id, duration=duration))
 
 
@@ -277,6 +278,55 @@ class TestVoiceCommand:
         assert any(str(text) in COMMAND_NO_TARGET_PHRASES for text in sent)
 
     @pytest.mark.asyncio
+    async def test_caption_row_is_not_a_transcript(self, clean_env):
+        """Medium-фикс: подпись медиа в text ≠ расшифровка → memorize вызван."""
+        caption = "подпись к голосовому"
+        svc, db, memory = _setup_voice(row={"text": caption})
+        yt.setup_youtube(MagicMock())
+        bot = _bot()
+        voice = _voice_msg(caption=caption)
+        command = _make_msg(text="Бот, транскрипт", message_id=100,
+                            reply_to_message=voice)
+
+        await yt.youtube_handler(command, bot=bot)
+        await asyncio.sleep(0)
+        memory.memorize_facts.assert_awaited_once()
+        db.update_smart_message_text.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_caption_video_note_placeholder_still_memorizes(self,
+                                                                  clean_env):
+        """`video_note` мапится observer'ом на `video` → плейсхолдер «[видео]»
+        (не «[кружок]»); первый форс-повтор обязан вызвать memorize."""
+        svc, db, memory = _setup_voice(row={"text": "[видео]"})
+        yt.setup_youtube(MagicMock())
+        bot = _bot()
+        note = _make_msg(message_id=78,
+                         video_note=SimpleNamespace(file_id="n1", duration=3))
+        command = _make_msg(text="Бот, транскрипт", message_id=101,
+                            reply_to_message=note)
+
+        await yt.youtube_handler(command, bot=bot)
+        await asyncio.sleep(0)
+        memory.memorize_facts.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_caption_repeat_after_transcript_skips_memorize(self,
+                                                                  clean_env):
+        """Повтор после реальной расшифровки (≠ подписи) → memorize не дублит."""
+        caption = "подпись к голосовому"
+        svc, db, memory = _setup_voice(row={"text": "полный текст расшифровки"})
+        yt.setup_youtube(MagicMock())
+        bot = _bot()
+        voice = _voice_msg(caption=caption)
+        command = _make_msg(text="Бот, транскрипт", message_id=100,
+                            reply_to_message=voice)
+
+        await yt.youtube_handler(command, bot=bot)
+        await asyncio.sleep(0)
+        memory.memorize_facts.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_auto_path_still_memorizes_without_force(self, clean_env):
         """(f) Авто-путь 0i (force=False) не изменился: memorize как прежде."""
         svc, db, memory = _setup_voice(row={"text": "старый текст"})
@@ -287,6 +337,40 @@ class TestVoiceCommand:
         assert ok is True
         await asyncio.sleep(0)
         memory.memorize_facts.assert_awaited_once()
+
+
+class TestTargetSelection:
+    @pytest.mark.asyncio
+    async def test_own_voice_priority_over_reply(self, clean_env):
+        """Единый хелпер: и классификация, и исполнение берут «своё > реплай»."""
+        svc, db, memory = _setup_voice()
+        yt.setup_youtube(MagicMock())
+        bot = _bot()
+        reply_voice = _voice_msg(message_id=70)
+        own = _make_msg(message_id=71, caption="Бот, транскрипт",
+                        voice=SimpleNamespace(file_id="own1", duration=4),
+                        reply_to_message=reply_voice)
+
+        await yt.youtube_handler(own, bot=bot)
+        own.reply.assert_awaited_once()            # транскрибировано своё
+        reply_voice.reply.assert_not_awaited()
+        assert svc.transcribe_voice.await_args.args[1] == "ogg"
+
+    @pytest.mark.asyncio
+    async def test_reply_target_id_uses_send_message(self, clean_env):
+        """Low-фикс: внешний reply_to_id покрыт — bot.send_message + reply."""
+        svc, db, memory = _setup_voice(row={"text": "[голосовое]"})
+        bot = _bot()
+        voice = _voice_msg(message_id=77)
+
+        ok = await vt.transcribe_media_message(
+            voice, bot, reply_to_id=555, force=False)
+        assert ok is True
+        voice.reply.assert_not_awaited()
+        args, kwargs = bot.send_message.await_args
+        assert kwargs.get("reply_to_message_id") == 555
+        assert kwargs.get("parse_mode") == "HTML"
+        assert "<i>привет мир</i>" in args[1]
 
 
 # ── (c) YouTube-URL + «транскрипт» → курсивный сырой транскрипт ──────────

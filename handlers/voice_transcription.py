@@ -52,7 +52,9 @@ from services.media_download import (
     fetch_media_to_tmp as _fetch_media_to_tmp,
     local_files_subdir as _local_files_subdir,
 )
+from services import native_media
 from services.summary_memory import fire_and_forget
+from services.summary_xml import _MEDIA_DESCRIPTIONS as _MEDIA_PLACEHOLDERS
 from SmartModule.phrases import (
     VT_ALL_FAILED_PHRASES,
     VT_SILENCE_PHRASES,
@@ -133,19 +135,21 @@ async def _safe_typing(bot, chat_id: int) -> None:
         pass
 
 
-# Плейсхолдеры медиа-строк smart_messages (summary_xml._MEDIA_DESCRIPTIONS):
-# их наличие ≠ готовая расшифровка. F19 — база идемпотентности форс-повтора.
-_PLACEHOLDER_TEXTS = frozenset({
-    "[голосовое]", "[кружок]", "[видео]", "[аудио]", "[файл]",
-    "[медиа]", "[фото]", "[гифка]", "[стикер]",
-})
+# Плейсхолдеры медиа-строк smart_messages — единый словарь summary_xml
+# (_MEDIA_DESCRIPTIONS): их наличие ≠ готовая расшифровка. F19 — база
+# идемпотентности форс-повтора (voice_note мапится на «video» → «[видео]»).
+_PLACEHOLDER_TEXTS = frozenset(_MEDIA_PLACEHOLDERS.values())
 
 
-async def _row_has_transcript(chat_id: int, message_id: int) -> bool:
-    """True — строка smart_messages уже несла расшифровку (не плейсхолдер).
+async def _row_has_transcript(chat_id: int, message_id: int,
+                              media_caption: str | None = None) -> bool:
+    """True — строка smart_messages уже несла расшифровку.
 
     F19 (ADR-1024-20 §2.6): защита от дублей GraphRAG-фактов при
-    принудительном повторе. Нет БД/API/строки → False (поведение прежнее)."""
+    принудительном повторе. Расшифровкой НЕ считается пустая строка, строка-
+    плейсхолдер медиа и **подпись исходного медиа** (observer кладёт в ``text``
+    ``message.text or message.caption`` — на ГС/кружке с подписью это caption,
+    а не транскрипт). Нет БД/API/строки → False (поведение прежнее)."""
     if _db is None:
         return False
     getter = getattr(_db, "get_smart_message_by_tg_id", None)
@@ -163,7 +167,12 @@ async def _row_has_transcript(chat_id: int, message_id: int) -> bool:
         old = str(dict(row).get("text") or "").strip()
     except (TypeError, ValueError):
         old = ""
-    return bool(old) and old not in _PLACEHOLDER_TEXTS
+    if not old or old in _PLACEHOLDER_TEXTS:
+        return False
+    caption = str(media_caption or "").strip()
+    if caption and old == caption:
+        return False
+    return True
 
 
 async def _inject_memory(message: types.Message, name: str, text: str,
@@ -175,7 +184,10 @@ async def _inject_memory(message: types.Message, name: str, text: str,
     F19: при ``force=True`` ``memorize_facts`` пропускается, если строка уже
     содержала расшифровку (идемпотентность повторного «транскрипта»)."""
     chat_id = message.chat.id
-    already = (await _row_has_transcript(chat_id, message.message_id)
+    # Подпись медиа (observer пишет её в text): не путать с расшифровкой.
+    caption = (getattr(message, "text", None)
+               or getattr(message, "caption", None))
+    already = (await _row_has_transcript(chat_id, message.message_id, caption)
                if force else False)
     try:
         updated = await _db.update_smart_message_text(
@@ -198,19 +210,6 @@ async def _inject_memory(message: types.Message, name: str, text: str,
     fire_and_forget(
         _memory.memorize_facts(chat_id, wrapped, source_type="voice_transcript"),
         "voice_transcript")
-
-
-def _has_voice_media(message) -> bool:
-    """True — у сообщения есть ``voice``/``video_note`` с валидным ``file_id``.
-    Строгая проверка (str file_id) — не путаем MagicMock-атрибуты с медиа."""
-    for attr in ("voice", "video_note"):
-        media = getattr(message, attr, None)
-        if media is None:
-            continue
-        fid = getattr(media, "file_id", None)
-        if isinstance(fid, str) and fid:
-            return True
-    return False
 
 
 async def _reply_media(bot, media_message, reply_to_id, text,
@@ -328,12 +327,9 @@ async def force_repeat_from_reply(bot, command_message) -> bool:
     цели нет (вызывающий отдаёт прежний нейтральный ответ)."""
     if _service is None or bot is None:
         return False
-    reply = getattr(command_message, "reply_to_message", None)
-    media_message = None
-    if reply is not None and _has_voice_media(reply):
-        media_message = reply
-    elif _has_voice_media(command_message):
-        media_message = command_message
+    # Единый выбор цели (своё > реплай) — тот же хелпер, что в классификации
+    # handlers/youtube.py (`_resolve_voice_media`), порядок не расходится.
+    media_message = native_media.voice_media_message(command_message)
     if media_message is None:
         return False
     logger.info("[transcribe] force repeat | chat=%s",

@@ -117,6 +117,30 @@ def resolve_reply_video(message) -> NativeMedia | None:
     return None
 
 
+def voice_media_message(message):
+    """F19 (ADR-1024-20 §2.3/§4.6): сообщение-носитель ``voice``/``video_note``
+    либо ``None``. **Своё сообщение приоритетнее реплая** — единый порядок для
+    классификации (``handlers/youtube.py``) и исполнения
+    (``handlers/voice_transcription.py``), чтобы не расходились. Строгая
+    проверка ``file_id`` (str) — не путаем MagicMock-атрибуты с медиа.
+    Никогда не бросает."""
+    try:
+        for candidate in (message, getattr(message, "reply_to_message", None)):
+            if candidate is None:
+                continue
+            for attr in ("voice", "video_note"):
+                media = getattr(candidate, attr, None)
+                if media is None:
+                    continue
+                fid = getattr(media, "file_id", None)
+                if isinstance(fid, str) and fid:
+                    return candidate
+        return None
+    except Exception:
+        logger.debug("[native_media] voice resolve failed — None")
+        return None
+
+
 def media_suffix(media: NativeMedia) -> str:
     """Суффикс tmp-файла: ``video``/``video_note`` → ``.mp4``; ``voice`` →
     ``.ogg``; ``document`` — по ``file_name`` (известное видео-расширение)
