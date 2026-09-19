@@ -127,9 +127,12 @@
       ] },
     // F3 (10.19, ADR-1019-3 D1): «Бюджеты» — оба контура (ключ чата + фон)
     // и лимит контекста; тумблер безлимита — в спец-блоке (index.html).
+    // F21 (10.24, ADR-1024-22 D7): +master-группа flags_module_budgets
+    // (зеркало Python-rule; новых вкладок нет).
     { id: 'mod_budgets', icon: 'receipt_long', label: 'Бюджеты',
       type: 'config', menu: 'modules',
       sources: [
+        { category: 'flags', groups: ['flags_module_budgets'] },
         { category: 'limits', groups: ['limits_chat_key',
             'limits_chat_context', 'limits_worker'] },
       ] },
@@ -387,12 +390,14 @@
     { id: 'mod_nostalgia', title: 'Ностальгия',
       subtitle: '«Кстати…» по старым сообщениям', icon: 'history',
       toggleKey: 'memory.nostalgia_enabled', tab: 'mod_nostalgia' },
-    // F3 (10.19, ADR-1019-3 D1): «Бюджеты» — config-раздел без master-
-    // тумблера (это лимиты, а не модуль). Карточка ведёт в окно параметров
+    // F3 (10.19, ADR-1019-3 D1): «Бюджеты» — карточка с параметрами раздела
     // (mod_budgets), внутри — тумблер «Безлимит по чату».
+    // F21 (10.24, ADR-1024-22 D7): master-тумблер бюджетов (снят noToggle);
+    // сохранение — штатным saveConfigItem (global/per-chat через X-Chat-Id).
     { id: 'mod_budgets', title: 'Бюджеты',
       subtitle: 'Лимиты интеллекта и фона, безлимит по чату',
-      icon: 'receipt_long', noToggle: true, tab: 'mod_budgets' },
+      icon: 'receipt_long', toggleKey: 'flags.budgets_enabled',
+      tab: 'mod_budgets' },
   ];
 
   // A4/T-1207: «LLM Провайдеры» — блоки ПО МОДУЛЯМ (base_url+model+key).

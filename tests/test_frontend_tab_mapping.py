@@ -135,9 +135,12 @@ class TestTabMappingAudit:
         # 10.24 (F7/ADR-1024-3 D1): +1 REGISTRY (ANTICLICHE_MAX_PATTERNS),
         # +1 GROUPS/mapped (limits_anticliche → вкладка prompts) → 458/97/95;
         # TAB_RULES 20 — вкладок не добавляем.
-        assert len(pc._TAB_BY_GROUP) == 95
-        assert len(GROUPS) == 97
-        assert len(pc.REGISTRY) == 458
+        # 10.24 (F21/ADR-1024-22 D8): +1 REGISTRY (BUDGETS_ENABLED),
+        # +1 GROUPS/mapped (flags_module_budgets → вкладка mod_budgets) →
+        # 459/98/96; TAB_RULES 20 — вкладок не добавляем.
+        assert len(pc._TAB_BY_GROUP) == 96
+        assert len(GROUPS) == 98
+        assert len(pc.REGISTRY) == 459
 
 
 class TestModuleTabs:
@@ -193,8 +196,10 @@ class TestModuleTabs:
         assert "keys_betterstack" not in tab_group_ids(TAB_LLM_PROVIDERS)
 
     def test_mod_budgets_composition(self):
-        """F3 (D1): «Бюджеты» — оба контура + лимит контекста."""
+        """F3 (D1) + F21 (10.24, ADR-1024-22 D1): «Бюджеты» — оба контура +
+        лимит контекста + master-группа флагов."""
         assert tab_group_ids(TAB_MOD_BUDGETS) == {
+            "flags_module_budgets",
             "limits_chat_key", "limits_chat_context", "limits_worker"}
 
     def test_mod_sleep_and_nostalgia(self):

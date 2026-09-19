@@ -53,12 +53,13 @@ class TestCatalogParity:
         # 10.19 (F3/ADR-1019-3 D3, UPD3 п.5): +1 REGISTRY/Settings
         # (IMPORT_HISTORY_RETENTION_DAYS), +2 GROUPS → 437/92/407.
         # 10.23 (F5/ADR-1023-5 D5): +5 REGISTRY/Settings, +3 GROUPS →
-        # 446/95/416.
-        assert len(REGISTRY) == 458, len(REGISTRY)
-        assert len(GROUPS) == 97
+        # 446/95/416; 10.24 (F21/ADR-1024-22 D8): +1 REGISTRY/Settings,
+        # +1 GROUPS/mapped → 459/98/418.
+        assert len(REGISTRY) == 459, len(REGISTRY)
+        assert len(GROUPS) == 98
         from config.settings import Settings
         import dataclasses
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 417
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 418
 
     def test_every_param_has_group_and_reachable(self):
         for spec in _catalog_specs():

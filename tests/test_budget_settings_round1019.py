@@ -34,15 +34,18 @@ HTML = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
 class TestCatalogDeltaF3:
     def test_counts(self):
         import dataclasses
-        assert len(pc.REGISTRY) == 458
-        assert len(pc.GROUPS) == 97
-        assert len(pc._TAB_BY_GROUP) == 95
+        # 10.24 (F21/ADR-1024-22 D8): +1 REGISTRY/Settings/categorized
+        # (BUDGETS_ENABLED), +1 GROUPS/mapped (flags_module_budgets →
+        # вкладка mod_budgets); TAB_RULES 20 — новых вкладок нет.
+        assert len(pc.REGISTRY) == 459
+        assert len(pc.GROUPS) == 98
+        assert len(pc._TAB_BY_GROUP) == 96
         assert len(pc.TAB_RULES) == 20
         assert len(pc.TAB_NAV) == 20
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 417
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 418
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 433
+        assert len(categorized) == 434
 
     def test_new_groups_exist(self):
         assert pc.get_group("limits_chat_key") is not None
@@ -52,7 +55,9 @@ class TestCatalogDeltaF3:
         assert pc.group_tab("limits_worker") == pc.TAB_MOD_BUDGETS
 
     def test_budgets_tab_composition(self):
+        # F21 (10.24, ADR-1024-22 D1): +master-группа флагов на той же вкладке.
         assert pc.tab_group_ids(pc.TAB_MOD_BUDGETS) == {
+            "flags_module_budgets",
             "limits_chat_key", "limits_chat_context", "limits_worker"}
         assert pc.CONFIG_TAB_TITLES[pc.TAB_MOD_BUDGETS] == "Бюджеты"
         assert pc.tab_nav(pc.TAB_MOD_BUDGETS) == pc.NAV_MODULES

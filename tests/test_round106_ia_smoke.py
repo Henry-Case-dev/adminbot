@@ -36,11 +36,14 @@ class TestCatalogInvariant106:
         # → 437/92/90/20/407.
         # 10.23 (F5/ADR-1023-5 D5): +5 REGISTRY/Settings, +3 GROUPS/mapped
         # (models_images/keys_images/flags_module_images) → 446/95/93/20/416.
-        assert len(pc.REGISTRY) == 458
-        assert len(pc.GROUPS) == 97
-        assert len(pc._TAB_BY_GROUP) == 95
+        # 10.24 (F21/ADR-1024-22 D8): +1 REGISTRY/Settings,
+        # +1 GROUPS/mapped (flags_module_budgets → mod_budgets) →
+        # 459/98/96/20/418; TAB_RULES 20 — новых вкладок нет.
+        assert len(pc.REGISTRY) == 459
+        assert len(pc.GROUPS) == 98
+        assert len(pc._TAB_BY_GROUP) == 96
         assert len(pc.TAB_RULES) == 20
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 417
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 418
 
     def test_five_master_flags_default_true(self):
         s = Settings()
@@ -112,11 +115,12 @@ class TestModulesAndAi:
         # строго внутри массива MODULES.
         start = JS.index("var MODULES = [")
         mods = JS[start:JS.index("];", start)]
-        assert mods.count("toggleKey:") == 11
+        # F21 (10.24, ADR-1024-22 D7): +1 toggleKey (mod_budgets) → 12.
+        assert mods.count("toggleKey:") == 12
         for title in ("Саммаризация", "Прямые ответы", "Фактчек", "Поиск",
                       "Транскрипт голосовых и видео", "Выжимка видео",
                       "Скачивание медиа", "Веб-страницы", "Диагностика",
-                      "Сон", "Ностальгия"):
+                      "Сон", "Ностальгия", "Бюджеты"):
             assert title in JS, title
 
     def test_no_custom_modules(self):

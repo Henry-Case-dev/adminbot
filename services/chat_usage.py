@@ -20,6 +20,7 @@ import logging
 from zoneinfo import ZoneInfo
 
 from config.settings import settings
+from services import budget_gate
 from services import budget_limits
 
 logger = logging.getLogger(__name__)
@@ -174,7 +175,7 @@ def _aggregate_source(exceeded_metric: str | None, req_source: str,
 
 def _snapshot(*, day, exceeded, exceeded_metric, used_calls, used_tokens,
               limit_calls, limit_tokens, unlimited, forbidden, source,
-              source_calls, source_tokens) -> dict:
+              source_calls, source_tokens, budgets_enabled=True) -> dict:
     return {
         "day": str(day),
         "exceeded": bool(exceeded),
@@ -188,6 +189,8 @@ def _snapshot(*, day, exceeded, exceeded_metric, used_calls, used_tokens,
         "source": source,
         "source_calls": source_calls,
         "source_tokens": source_tokens,
+        # F21 (ADR-1024-22 §D4, R16-аддитивно): состояние master-рубильника.
+        "budgets_enabled": bool(budgets_enabled),
     }
 
 
@@ -202,8 +205,15 @@ async def budget_snapshot(pg, chat_id: int, tokens_estimate: int = 0) -> dict:
     `exceeded_metric` из допустимого набора; иначе — ERROR-лог и fail-open
     (`exceeded=False`) → `reason=budget` без доказанной метрики невозможен.
     Fail-open: резолв лимитов/чтение usage недоступны → `exceeded=False`
-    (в sandbox без доказанной причины не уходим; `unlimited=False`)."""
+    (в sandbox без доказанной причины не уходим; `unlimited=False`).
+
+    F21 (ADR-1024-22 §D4): master-рубильник `flags.budgets_enabled`. При OFF
+    (`budgets_enabled=False`) лимиты/usage читаются как обычно (статистика и
+    диагностика сохраняются), но enforcement выключен: `exceeded=False`,
+    `exceeded_metric=None`. Аддитивный ключ `budgets_enabled` в снимке (R16)."""
     day = today()
+    # F21: единственная точка решения для direct-контура. Fail-open ON.
+    master_on = await budget_gate.budgets_enabled(chat_id)
     req_limit, req_source = await _limit_with_source(KEY_BUDGET_REQUESTS,
                                                      chat_id)
     tok_limit, tok_source = await _limit_with_source(KEY_BUDGET_TOKENS, chat_id)
@@ -227,7 +237,8 @@ async def budget_snapshot(pg, chat_id: int, tokens_estimate: int = 0) -> dict:
             used_calls=0, used_tokens=0, limit_calls=req_limit,
             limit_tokens=tok_limit, unlimited=False, forbidden=forbidden,
             source=_aggregate_source(None, req_source, tok_source),
-            source_calls=req_source, source_tokens=tok_source)
+            source_calls=req_source, source_tokens=tok_source,
+            budgets_enabled=master_on)
     used_calls = int(used.get(METRIC_CALLS, 0))
     used_tokens = int(used.get(METRIC_TOKENS, 0))
     metric = _exceeds(req_limit, tok_limit, used_calls, used_tokens,
@@ -240,13 +251,17 @@ async def budget_snapshot(pg, chat_id: int, tokens_estimate: int = 0) -> dict:
             "used_calls=%s/%s | used_tokens=%s/%s — fail-open",
             chat_id, metric, used_calls, req_limit, used_tokens, tok_limit)
         metric = None
+    if not master_on:
+        # F21: master OFF — enforcement выключен (счётчики/диагностика целы).
+        metric = None
     exceeded = metric is not None
     return _snapshot(
         day=day, exceeded=exceeded, exceeded_metric=metric,
         used_calls=used_calls, used_tokens=used_tokens, limit_calls=req_limit,
         limit_tokens=tok_limit, unlimited=unlimited, forbidden=forbidden,
         source=_aggregate_source(metric, req_source, tok_source),
-        source_calls=req_source, source_tokens=tok_source)
+        source_calls=req_source, source_tokens=tok_source,
+        budgets_enabled=master_on)
 
 
 async def budget_exceeded(pg, chat_id: int,

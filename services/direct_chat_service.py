@@ -1139,10 +1139,17 @@ class DirectChatService:
         # Раунд 10.4 (B-2): гейт бюджетов — per-chat резолв (override →
         # hot.get → default; без override — байт-в-байт старое поведение).
         from services.chat_params import get_chat_param as _budget_gate
-        budgets_enabled = await _budget_gate(
+        from services import budget_gate as _master_gate
+        # F21 (ADR-1024-22 D5): master-рубильник бюджетов приоритетен —
+        # эффективный гейт контекста = master AND context-флаг. При master OFF
+        # усечение выключено, даже если flags.chat_context_budgets_enabled=true;
+        # при master ON поведение ровно как прежде (context-флаг решает).
+        _master_on = await _master_gate.budgets_enabled(chat_id)
+        _context_on = await _budget_gate(
             chat_id, "flags.chat_context_budgets_enabled",
             hot.get("flags.chat_context_budgets_enabled",
                     settings.CHAT_CONTEXT_BUDGETS_ENABLED))
+        budgets_enabled = bool(_master_on) and bool(_context_on)
         budget_tokens = await _budget_gate(
             chat_id, "limits.chat_context_budget_tokens",
             hot.get("limits.chat_context_budget_tokens",

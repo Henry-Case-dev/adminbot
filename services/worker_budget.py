@@ -19,6 +19,7 @@ import logging
 from zoneinfo import ZoneInfo
 
 from config.settings import settings
+from services import budget_gate
 from services import budget_limits
 from services import hot_config as hot
 
@@ -218,6 +219,11 @@ async def consume(pg, scope: str, metric: str, amount: int = 1) -> bool:
     except Exception:
         _warn_once("err", f"consume failed — fail-open=True | scope={scope} "
                           f"metric={metric}")
+        return True
+    # F21 (ADR-1024-22 §D4): UPSERT уже выполнен (учёт всегда ведётся) —
+    # master OFF ниже снимает только enforcement (лимит не применяется,
+    # `_metric_limit` при OFF не вызывается).
+    if not await budget_gate.budgets_enabled(_scope_chat_id(scope)):
         return True
     limit = await _metric_limit(scope, metric)
     if budget_limits.is_forbidden(limit):

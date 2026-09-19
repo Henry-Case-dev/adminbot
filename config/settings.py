@@ -1061,6 +1061,10 @@ class Settings:
     # блоки режутся дважды (global-доля 0.30×16000=4800 ≥ 4347). Sentinel: -1 =
     # безлимит → агрегатное усечение _apply_context_budget не применяется.
     CHAT_CONTEXT_BUDGETS_ENABLED: bool = _env_bool("CHAT_CONTEXT_BUDGETS_ENABLED", True)
+    # F21 (10.24, ADR-1024-22 D2): master-рубильник бюджетов (каталоговый
+    # `flags.budgets_enabled`, default ON). OFF = enforcement (direct/фон/
+    # усечение контекста) прекращается, учёт статистики ведётся.
+    BUDGETS_ENABLED: bool = _env_bool("BUDGETS_ENABLED", True)
     CHAT_CONTEXT_BUDGET_TOKENS: int = _env_int_min("CHAT_CONTEXT_BUDGET_TOKENS", 16000, 100)
     CHAT_BUDGET_MAP_RATIO: float = _env_float("CHAT_BUDGET_MAP_RATIO", 0.05)
     CHAT_BUDGET_GLOBAL_RATIO: float = _env_float("CHAT_BUDGET_GLOBAL_RATIO", 0.30)
