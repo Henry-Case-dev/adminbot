@@ -678,6 +678,26 @@ class Settings:
     # Максимум триплетов, сохраняемых за один extraction-вызов (35.4)
     GRAPH_EXTRACT_MAX_TRIPLETS: int = _env_int("GRAPH_EXTRACT_MAX_TRIPLETS", 50)
 
+    # ── Раунд 10.24 (F1, ADR-1024-6): устойчивость фонового graph-extract ──
+    # env-only ClassVar (НЕ dataclass-поля → вне каталога, Δ каталога = 0).
+    # Kill-switch: False → прежний одиночный вызов generate() (без чанков и
+    # отдельного дедлайна — байт-в-байт старое поведение).
+    GRAPH_EXTRACT_RETRY_ENABLED: ClassVar[bool] = _env_bool(
+        "GRAPH_EXTRACT_RETRY_ENABLED", True)
+    # Окно промпта на один фоновый вызов и потолок чанков на батч.
+    GRAPH_EXTRACT_CHUNK_CHARS: ClassVar[int] = _env_int(
+        "GRAPH_EXTRACT_CHUNK_CHARS", 4000)
+    GRAPH_EXTRACT_MAX_CHUNKS: ClassVar[int] = _env_int(
+        "GRAPH_EXTRACT_MAX_CHUNKS", 3)
+    # Отдельный дедлайн и bounded retry фонового канала (вне общего generate).
+    GRAPH_EXTRACT_TIMEOUT_SECONDS: ClassVar[float] = _env_float(
+        "GRAPH_EXTRACT_TIMEOUT_SECONDS", 120.0)
+    GRAPH_EXTRACT_MAX_ATTEMPTS: ClassVar[int] = _env_int(
+        "GRAPH_EXTRACT_MAX_ATTEMPTS", 2)
+    # Порог последовательных полных фейлов батча → явный drop (не молча).
+    GRAPH_EXTRACT_MAX_BATCH_FAILURES: ClassVar[int] = _env_int(
+        "GRAPH_EXTRACT_MAX_BATCH_FAILURES", 3)
+
     # ── GraphRAG v2 (Epic 46) ─────────────────────────────────────
     # TTL фактов (search_fact/youtube_content/web_content), дней; отдельно от
     # FULL_MEMORY_RETENTION_DAYS=30 / ARCHIVE_MEMORY_RETENTION_DAYS=90 (D175).

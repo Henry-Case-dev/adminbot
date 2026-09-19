@@ -1945,3 +1945,112 @@ class TestEmbedBaseDecoupling1012:
         assert client._embed_client_key == "embed-key"
         await client.close()
         assert client._client is None and client._embed_client is None
+
+
+# ── F1 раунда 10.24 (ADR-1024-6): per-call override + generate_background ──
+
+
+class TestPostPerCallOverrideF1:
+    """`_post(budget=…, max_retries=…)` — опциональный override; None →
+    байт-в-байт прежнее поведение (self._budget/self._max_retries)."""
+
+    @pytest.mark.asyncio
+    async def test_default_uses_self_retries(self, monkeypatch):
+        calls = {"n": 0}
+
+        def handler(request):
+            calls["n"] += 1
+            return httpx.Response(500, json={}, request=request)
+
+        client = _make_client(handler, monkeypatch, max_retries=2)
+        with pytest.raises(LLMServerError):
+            await client._post(
+                "/chat/completions", {"model": "m", "messages": []})
+        assert calls["n"] == 3          # self._max_retries + 1
+        assert client._max_retries == 2
+
+    @pytest.mark.asyncio
+    async def test_override_does_not_mutate_self(self, monkeypatch):
+        calls = {"n": 0}
+
+        def handler(request):
+            calls["n"] += 1
+            return httpx.Response(500, json={}, request=request)
+
+        client = _make_client(handler, monkeypatch, max_retries=2)
+        with pytest.raises(LLMServerError):
+            await client._post(
+                "/chat/completions", {"model": "m", "messages": []},
+                max_retries=0)
+        assert calls["n"] == 1          # override применён
+        assert client._max_retries == 2  # self не смещён
+
+    @pytest.mark.asyncio
+    async def test_budget_override_binds(self, monkeypatch):
+        state = {"n": 0}
+
+        async def handler(request):
+            state["n"] += 1
+            await asyncio.sleep(1)
+            raise httpx.TimeoutException("долго", request=request)
+
+        client = _make_client(handler, monkeypatch, max_retries=0)
+        client._budget = 60.0           # общий бюджет большой
+        with pytest.raises(LLMTimeoutError):
+            await client._post(
+                "/chat/completions", {"model": "m", "messages": []},
+                budget=0.01)            # per-call дедлайн 10мс
+        assert state["n"] == 1
+
+
+class TestGenerateBackgroundF1:
+    @pytest.mark.asyncio
+    async def test_success_and_no_analytics(self, monkeypatch):
+        client = _make_client(
+            _json_handler({"choices": [{"message": {"content": "граф"}}]}),
+            monkeypatch)
+        client._record_analytics = AsyncMock()
+        client._record_global_usage = AsyncMock()
+        result = await client.generate_background(
+            [{"role": "user", "content": "q"}], purpose="graph_extract",
+            deadline=5.0, max_attempts=2)
+        assert result == "граф"
+        # Фоновый канал вне physical-two-call: System-2 аналитика не пишется.
+        client._record_analytics.assert_not_called()
+        client._record_global_usage.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_max_attempts_maps_to_retries(self, monkeypatch):
+        calls = {"n": 0}
+
+        def handler(request):
+            calls["n"] += 1
+            return httpx.Response(500, json={}, request=request)
+
+        client = _make_client(handler, monkeypatch, max_retries=9)
+        with pytest.raises(LLMServerError):
+            await client.generate_background(
+                [{"role": "user", "content": "q"}], purpose="graph_extract",
+                deadline=5.0, max_attempts=3)
+        assert calls["n"] == 3          # ровно max_attempts, не self-дефолт
+
+    @pytest.mark.asyncio
+    async def test_bad_json_raises_bad_response(self, monkeypatch):
+        def handler(request):
+            return httpx.Response(200, content=b"not-json", request=request)
+
+        client = _make_client(handler, monkeypatch)
+        with pytest.raises(LLMBadResponseError):
+            await client.generate_background(
+                [{"role": "user", "content": "q"}], purpose="graph_extract",
+                deadline=5.0, max_attempts=1)
+
+    @pytest.mark.asyncio
+    async def test_empty_content_raises_bad_response(self, monkeypatch):
+        client = _make_client(
+            _json_handler({"choices": [{"message": {"content": "   "}}]}),
+            monkeypatch)
+        with pytest.raises(LLMBadResponseError):
+            await client.generate_background(
+                [{"role": "user", "content": "q"}], purpose="graph_extract",
+                deadline=5.0, max_attempts=1)

@@ -85,6 +85,15 @@ class _FakeLLM:
         self.compress_calls += 1
         return "сжатый факт\nфакт два"
 
+    async def generate_background(self, messages, *, purpose, deadline,
+                                  max_attempts):
+        """F1 (ADR-1024-6): фоновый канал graph-extract."""
+        if messages[0]["content"] == EXTRACT_PROMPT:
+            self.extract_calls += 1
+            return self.extract_response
+        self.compress_calls += 1
+        return "сжатый факт\nфакт два"
+
     async def embed(self, texts):
         raise LLMError("vec не нужен")
 

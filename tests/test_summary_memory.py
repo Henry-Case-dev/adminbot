@@ -59,6 +59,16 @@ class FakeLLM:
             return self.extract_response
         return self.facts
 
+    async def generate_background(self, messages, *, purpose, deadline,
+                                  max_attempts):
+        """F1 (ADR-1024-6): фоновый канал graph-extract (без счётчика
+        generate_calls — тесты считают пользовательский путь)."""
+        if self.fail_generate:
+            raise LLMError("api упал")
+        if messages[0]["content"] == EXTRACT_PROMPT:
+            return self.extract_response
+        return self.facts
+
     async def embed(self, texts):
         self.embed_calls += 1
         if self.fail_embed:
@@ -526,6 +536,12 @@ class TestCompressAndPurge:
                     raise LLMError("второй раз упал")
                 return "факт"
 
+            async def generate_background(self, messages, *, purpose, deadline,
+                                          max_attempts):
+                if messages[0]["content"] == EXTRACT_PROMPT:
+                    return "[]"      # F1: фоновый graph-extract пуст, но успешен
+                return "факт"
+
             async def embed(self, texts):
                 raise LLMError("no")
 
@@ -603,6 +619,10 @@ class FlakyLLM:
 
     async def generate(self, messages):
         self.generate_calls += 1
+        return "[]"
+
+    async def generate_background(self, messages, *, purpose, deadline,
+                                  max_attempts):
         return "[]"
 
 

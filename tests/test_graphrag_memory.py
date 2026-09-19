@@ -20,15 +20,18 @@ from services.summary_memory import (
     PARSE_EMPTY_VALID,
     PARSE_INVALID,
     PARSE_OK,
+    GraphExtractDropped,
     GraphExtractionError,
     MemoryManager,
     _FACT_RETRY_SYSTEM_PROMPT,
     _fallback_parse_facts,
+    _graph_split_chunks,
     _log_memorize_lost,
     _mask_llm_raw,
     _normalize_name,
     build_rag_context,
     dedup_rag_vs_global,
+    graph_extract_dropped_total,
     parse_fact_list,
     parse_fact_list_ex,
     parse_triplets,
@@ -70,8 +73,21 @@ class FakeLLM:
         self.fail_compress = fail_compress
         self.extract_calls = 0
         self.compress_calls = 0
+        # F1 (ADR-1024-6): фоновый канал graph-extract.
+        self.bg_calls = 0
+        self.bg_kwargs: list[dict] = []
 
     async def generate(self, messages):
+        return await self._respond(messages)
+
+    async def generate_background(self, messages, *, purpose, deadline,
+                                  max_attempts):
+        self.bg_calls += 1
+        self.bg_kwargs.append({"purpose": purpose, "deadline": deadline,
+                               "max_attempts": max_attempts})
+        return await self._respond(messages)
+
+    async def _respond(self, messages):
         if messages[0]["content"] == EXTRACT_PROMPT:
             self.extract_calls += 1
             if self.fail_extract:
@@ -361,14 +377,161 @@ class TestExtractAndSaveGraph:
         memory = MemoryManager(db, FakeLLM())
         captured = {}
 
-        async def fake_generate(messages):
+        async def fake_background(messages, *, purpose, deadline, max_attempts):
             captured["user"] = messages[1]["content"]
+            captured["purpose"] = purpose
+            captured["deadline"] = deadline
+            captured["max_attempts"] = max_attempts
             return "[]"
 
-        memory.llm.generate = fake_generate
+        memory.llm.generate_background = fake_background
         await memory._extract_and_save_graph(-100, batch)
         assert captured["user"].endswith("[вася]: сообщение 2")
         assert "[вася]: сообщение 0" in captured["user"]
+        assert captured["purpose"] == "graph_extract"
+        assert captured["deadline"] == settings.GRAPH_EXTRACT_TIMEOUT_SECONDS
+        assert captured["max_attempts"] == settings.GRAPH_EXTRACT_MAX_ATTEMPTS
+
+
+# ── F1 раунда 10.24 (ADR-1024-6): устойчивость фонового graph-extract ─
+
+
+class _PerChunkLLM:
+    """Фоновый stub: outcomes[i] — raw-ответ i-го чанка либо 'fail'."""
+
+    def __init__(self, outcomes, legacy_response="[]"):
+        self.outcomes = list(outcomes)
+        self.legacy_response = legacy_response
+        self.calls = 0
+        self.bg_calls = 0
+        self.legacy_calls = 0
+
+    async def generate(self, messages):
+        self.legacy_calls += 1
+        return self.legacy_response
+
+    async def generate_background(self, messages, *, purpose, deadline,
+                                  max_attempts):
+        idx = self.calls
+        self.calls += 1
+        self.bg_calls += 1
+        outcome = self.outcomes[idx] if idx < len(self.outcomes) else "fail"
+        if outcome == "fail":
+            raise LLMError("LLM timeout после попыток")
+        return outcome
+
+    async def embed(self, texts):
+        raise LLMError("no embed")
+
+
+def _long_batch(text="x" * 5000, author="вася"):
+    """Батч, чей текст даёт ≥2 чанка при CHUNK=4000."""
+    return [{"author_name": author, "text": text}]
+
+
+class TestGraphExtractF1:
+    def test_chunk_split_bounded(self):
+        tail = "y" * 8000
+        chunks = _graph_split_chunks(tail)
+        assert [len(c) for c in chunks] == [4000, 4000]
+        assert "".join(chunks) == tail
+        # потолок MAX_CHUNKS: хвост больше не режется бесплатно
+        assert len(_graph_split_chunks("z" * 40000)) == 3
+
+    @pytest.mark.asyncio
+    async def test_timeout_keeps_batch_and_logs_failed(self, db, caplog):
+        """(a) все чанки упали → батч не обработан, лог graph_extract_failed."""
+        import logging
+
+        old = int(time.time()) - 40 * 86400
+        await _save(db, -100, "старое про войну", old, author="вася")
+        memory = MemoryManager(db, FakeLLM(facts="факт", fail_extract=True))
+        with caplog.at_level(logging.ERROR):
+            await memory.compress_and_purge(-100)
+        raw = await db.get_smart_raw(-100, int(time.time()) + 1, 100)
+        assert [r["text"] for r in raw] == ["старое про войну"]
+        assert any("graph_extract_failed" in r.getMessage()
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_partial_writes_ok_chunk_and_logs_partial(self, db, caplog):
+        """(b) 1 чанк ok, 1 failed → записан граф + graph_extract_partial."""
+        import logging
+
+        triplet = json.dumps([_triplet()], ensure_ascii=False)
+        llm = _PerChunkLLM([triplet, "fail"])
+        memory = MemoryManager(db, llm)
+        with caplog.at_level(logging.WARNING):
+            await memory._extract_and_save_graph(-100, _long_batch())
+        assert llm.bg_calls == 2
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM edges")
+        row = await cursor.fetchone()
+        assert row["c"] == 1
+        assert any("graph_extract_partial" in r.getMessage()
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_kill_switch_single_generate(self, db, monkeypatch):
+        """(d) GRAPH_EXTRACT_RETRY_ENABLED=False → прежний одиночный вызов."""
+        old = int(time.time()) - 40 * 86400
+        await _save(db, -100, "старое", old, author="вася")
+        triplet = json.dumps([_triplet()], ensure_ascii=False)
+        llm = _PerChunkLLM([triplet], legacy_response=triplet)
+        memory = MemoryManager(db, llm)
+        monkeypatch.setattr(
+            type(settings), "GRAPH_EXTRACT_RETRY_ENABLED", False)
+        await memory.compress_and_purge(-100)
+        assert llm.bg_calls == 0                 # фоновый канал не задействован
+        assert llm.legacy_calls == 2             # compress + одиночный extract
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM edges")
+        assert (await cursor.fetchone())["c"] == 1
+
+    @pytest.mark.asyncio
+    async def test_no_weight_inflation_after_failed_attempt(self, db):
+        """(f) упавшая попытка НЕ пишет БД → повторный прогон не инфлирует вес."""
+        triplet = json.dumps([_triplet()], ensure_ascii=False)
+        llm = _PerChunkLLM(["fail", triplet])
+        memory = MemoryManager(db, llm)
+        batch = [{"author_name": "вася", "text": "старое"}]
+        with pytest.raises(GraphExtractionError):
+            await memory._extract_and_save_graph(-100, batch)   # none-ok, не пишет
+        await memory._extract_and_save_graph(-100, batch)       # успех
+        cursor = await db.db.execute("SELECT weight FROM edges")
+        assert (await cursor.fetchone())["weight"] == 1
+
+    @pytest.mark.asyncio
+    async def test_three_failures_drop_batch_and_count(self, db, caplog):
+        """(c) 3 полных фейла подряд → GraphExtractDropped + счётчик."""
+        import logging
+
+        before = graph_extract_dropped_total()
+        memory = MemoryManager(db, FakeLLM(fail_extract=True))
+        batch = [{"author_name": "вася", "text": "старое"}]
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(GraphExtractionError):
+                await memory._extract_and_save_graph(-100, batch)
+            with pytest.raises(GraphExtractionError):
+                await memory._extract_and_save_graph(-100, batch)
+            with pytest.raises(GraphExtractDropped):
+                await memory._extract_and_save_graph(-100, batch)
+        assert graph_extract_dropped_total() == before + 1
+        assert memory._graph_batch_failures == 0
+        assert any("graph_extract_dropped" in r.getMessage()
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_dropped_batch_is_marked_by_caller(self, db):
+        """(c) на пороге caller штатно завершает батч (mark/delete) — очередь
+        графа не стоит на «отравленном» батче."""
+        old = int(time.time()) - 40 * 86400
+        await _save(db, -100, "старое", old, author="вася")
+        memory = MemoryManager(db, FakeLLM(facts="факт", fail_extract=True))
+        for _ in range(2):
+            await memory.compress_and_purge(-100)
+            assert len(await db.get_smart_raw(
+                -100, int(time.time()) + 1, 100)) == 1
+        await memory.compress_and_purge(-100)            # 3-й фейл → drop+mark
+        assert await db.get_smart_raw(-100, int(time.time()) + 1, 100) == []
 
 
 # ── get_graph_facts (R26-3: детерминированный поиск для /summary) ─

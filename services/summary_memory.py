@@ -52,7 +52,7 @@ from services.chat_params import (
     get_chat_param as _chat_limit,  # G-3 per-chat
 )
 from services.database import parse_belief_meta, row_get
-from services.external_log import trace_step
+from services.external_log import log_dropped, trace_step
 from services.llm_client import LLMError
 from services.summary_prompts import COMPRESS_PROMPT, EXTRACT_PROMPT
 from services.summary_xml import escape_xml_text
@@ -464,9 +464,65 @@ _GRAPH_EXTRACT_MAX_CHARS = 8000      # tail of the batch text sent to extraction
 _GRAPH_MAX_NAME_CHARS = 100          # cap for subject/object entity names (35.4)
 _GRAPH_MAX_RELATION_CHARS = 200      # cap for the predicate (35.4)
 
+# ── F1 / ADR-1024-6: метрика «батч graph-extract отброшен» (без DDL) ──
+# In-process счётчик (сбрасывается рестартом — приемлемо, деградация остаётся
+# видимой в логах). Читается через `graph_extract_dropped_total()`.
+_GRAPH_DROPPED_TOTAL = 0
+
+
+def graph_extract_dropped_total() -> int:
+    """F1: сколько батчей графа явно отброшено (см. ``log_dropped``)."""
+    return _GRAPH_DROPPED_TOTAL
+
+
+def _count_graph_dropped() -> int:
+    """F1: инкремент метрики отброшенных батчей → новое значение."""
+    global _GRAPH_DROPPED_TOTAL
+    _GRAPH_DROPPED_TOTAL += 1
+    return _GRAPH_DROPPED_TOTAL
+
+
+def _env_graph_int(name: str, default: int, minimum: int = 1) -> int:
+    """Читает env-only ClassVar настроек graph-extract (fail-safe default)."""
+    try:
+        value = int(getattr(settings, name, default))
+    except Exception:  # pragma: no cover — конфиг не должен ронять экстракцию
+        value = default
+    return max(minimum, value)
+
+
+def _env_graph_float(name: str, default: float) -> float:
+    try:
+        return float(getattr(settings, name, default))
+    except Exception:  # pragma: no cover
+        return default
+
+
+def _graph_retry_enabled() -> bool:
+    """Kill-switch (default ON): OFF → прежний одиночный вызов generate()."""
+    return bool(getattr(settings, "GRAPH_EXTRACT_RETRY_ENABLED", True))
+
+
+def _graph_split_chunks(tail: str) -> list[str]:
+    """F1: хвост батча → окна ≤ CHUNK_CHARS, не более MAX_CHUNKS."""
+    chunk = _env_graph_int("GRAPH_EXTRACT_CHUNK_CHARS", 4000)
+    max_chunks = _env_graph_int("GRAPH_EXTRACT_MAX_CHUNKS", 3)
+    limit = min(len(tail), chunk * max_chunks)
+    return [tail[i:i + chunk] for i in range(0, limit, chunk)]
+
 
 class GraphExtractionError(Exception):
     """Raw LLM extraction answer is not a JSON array of triplets (35.4)."""
+
+
+class GraphExtractDropped(Exception):
+    """F1 (ADR-1024-6 D3): батч ЯВНО отброшен после серии полных фейлов.
+
+    Поднимается ``_extract_and_save_graph`` при достижении
+    ``GRAPH_EXTRACT_MAX_BATCH_FAILURES``. Caller обязан поставить
+    ``mark_smart_messages_processed`` (иначе «отравленный» батч навсегда
+    застопорит очередь графа). Отброс виден в логе (``dropped_metric``) и в
+    ``graph_extract_dropped_total()`` — не молча."""
 
 
 def _normalize_name(s: str) -> str:
@@ -1126,6 +1182,10 @@ class MemoryManager:
         self._reactivate_lock = asyncio.Lock()
         # Epic 60 (66.6, T-484): int8-coarse + float-реранк (VEC_INT8_ENABLED).
         self._vec_int8 = False
+        # F1 (ADR-1024-6 D3): счётчик ПОСЛЕДОВАТЕЛЬНЫХ полных фейлов батча
+        # graph-extract. При достижении порога батч явно отбрасывается
+        # (mark + dropped_metric); успех сбрасывает счётчик.
+        self._graph_batch_failures = 0
 
     # ── Initialization (R3: graceful sqlite-vec load + self-heal) ──────────
 
@@ -3091,7 +3151,13 @@ class MemoryManager:
                     )
                     break
                 if hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):                       # D69: False → ровно старое поведение
-                    await self._extract_and_save_graph(chat_id, batch)  # LLM-вызов №2 + nodes/edges (D68)
+                    try:
+                        await self._extract_and_save_graph(chat_id, batch)  # LLM-вызов №2 + nodes/edges (D68)
+                    except GraphExtractDropped:
+                        # F1 (ADR-1024-6 D3): граф батча явно отброшен
+                        # (dropped_metric залогирован) — компрессия/очистка
+                        # батча штатно продолжаются.
+                        pass
                 now = int(time.time())
                 for fact in facts:
                     fact_id = await self.db.save_archive_fact(chat_id, fact, now)
@@ -3179,6 +3245,15 @@ class MemoryManager:
             ids = [row["id"] for row in batch]
             try:
                 await self._extract_and_save_graph(chat_id, batch)
+            except GraphExtractDropped:
+                # F1 (ADR-1024-6 D3): «отравленный» батч явно отброшен
+                # (dropped_metric + счётчик уже залогированы) — ставим маркер,
+                # чтобы очередь графа не стояла; следующие батчи берутся дальше.
+                await self.db.mark_smart_messages_processed(chat_id, ids)
+                processed += len(ids)
+                if len(ids) < batch_size:
+                    break
+                continue
             except Exception:
                 logger.exception(
                     "SmartModule L3 (retention ON): extract failed — batch kept, "
@@ -3214,45 +3289,27 @@ class MemoryManager:
         facts = [line.strip() for line in raw.splitlines() if line.strip()]
         return facts[:10]
 
-    async def _extract_and_save_graph(self, chat_id: int, batch: list) -> None:
-        """R26-2: one extra LLM call per batch → nodes/edges upsert (35.4).
+    def _log_graph_no_triplets(self, chat_id: int, raw: str) -> None:
+        """F8 (ADR-1019-7 D5): «валидный []» vs «невалидный ответ» — в лог.
 
-        Raises on any failure (LLM / parsing / DB) — the caller keeps the batch.
-        """
-        text = _build_batch_text(batch, skip_empty=True)
-        if not text:
+        R17-safe: значения/сырой ответ не логируются, только длина."""
+        if str(raw).strip() == "[]":
+            # S10.19-1: rate-limited INFO вместо невидимого DEBUG.
+            _log_empty_valid(chat_id, "triplets", label="graph extract")
+            trace_step(logger, component="graph", step="parse",
+                       status="empty", reason="empty_list", chat_id=chat_id)
+        else:
             logger.info(
-                "graph extract: batch has no captions — nothing to extract | chat_id=%s",
-                chat_id,
-            )
-            trace_step(logger, component="graph", step="gate", status="empty",
-                       reason="no_captions", chat_id=chat_id)
-            return
-        tail = text[-_GRAPH_EXTRACT_MAX_CHARS:]
-        raw = await self.llm.generate(
-            [
-                {"role": "system", "content": EXTRACT_PROMPT},
-                {"role": "user", "content": tail},
-            ]
-        )
-        triplets = parse_triplets(raw)
-        if not triplets:
-            # F8 (ADR-1019-7 D5): крон-ветка получает ТОЛЬКО различение
-            # «валидный []» vs «невалидный ответ» в лог (info/debug); доп.
-            # LLM-вызовов/ретраев нет («деградация без потерь» — канон F-15).
-            if str(raw).strip() == "[]":
-                # S10.19-1: rate-limited INFO вместо невидимого DEBUG.
-                _log_empty_valid(chat_id, "triplets", label="graph extract")
-                trace_step(logger, component="graph", step="parse",
-                           status="empty", reason="empty_list",
-                           chat_id=chat_id)
-            else:
-                logger.info(
-                    "graph extract: no triplets parsed | chat_id=%s", chat_id)
-                trace_step(logger, component="graph", step="parse",
-                           status="error", reason="no_triplets",
-                           chat_id=chat_id,
-                           extra={"raw_len": len(str(raw or ""))})
+                "graph extract: no triplets parsed | chat_id=%s", chat_id)
+            trace_step(logger, component="graph", step="parse",
+                       status="error", reason="no_triplets", chat_id=chat_id,
+                       extra={"raw_len": len(str(raw or ""))})
+
+    async def _write_graph_triplets(self, chat_id: int, triplets: list) -> None:
+        """Фаза B (ADR-1024-6 D3, extract-then-write): upsert узлов/связей.
+
+        Вызывается РОВНО один раз на батч (после успешного извлечения) — это
+        исключает инфляцию весов при повторном прогоне того же батча."""
         for triplet in triplets:
             # Epic 60 (66.9, T-487): user-сущности — канон-имена по алиасам
             # (карточки /persona и связи графа агрегируются по одному имени).
@@ -3281,10 +3338,124 @@ class MemoryManager:
                             settings.GRAPH_EDGE_WEIGHT_INCREMENT)) or 0),
             )
         logger.info("graph: triplets=%d | chat_id=%s", len(triplets), chat_id)
+        trace_step(logger, component="graph", step="write", status="ok",
+                   reason="saved", chat_id=chat_id,
+                   extra={"triplets": len(triplets)})
+
+    async def _extract_and_save_graph(self, chat_id: int, batch: list) -> None:
+        """R26-2: one extra LLM call per batch → nodes/edges upsert (35.4).
+
+        F1 (ADR-1024-6 D2/D3): фоновый extract идёт ЧАНКАМИ по отдельному
+        каналу ``generate_background`` (свой дедлайн/попытки, не трогая общий
+        ``generate``), запись в БД — ровно один раз за батч (extract-then-write).
+
+        Raises on any failure — the caller keeps the batch. При серии полных
+        фейлов (``GRAPH_EXTRACT_MAX_BATCH_FAILURES``) поднимается
+        ``GraphExtractDropped`` (caller ставит mark — батч отброшен ЯВНО).
+        """
+        text = _build_batch_text(batch, skip_empty=True)
+        if not text:
+            logger.info(
+                "graph extract: batch has no captions — nothing to extract | chat_id=%s",
+                chat_id,
+            )
+            trace_step(logger, component="graph", step="gate", status="empty",
+                       reason="no_captions", chat_id=chat_id)
+            return
+        tail = text[-_GRAPH_EXTRACT_MAX_CHARS:]
+
+        if not _graph_retry_enabled():
+            # Kill-switch (ADR-1024-6 D2): байт-в-байт прежний одиночный путь.
+            raw = await self.llm.generate(
+                [
+                    {"role": "system", "content": EXTRACT_PROMPT},
+                    {"role": "user", "content": tail},
+                ]
+            )
+            triplets = parse_triplets(raw)
+            if not triplets:
+                self._log_graph_no_triplets(chat_id, raw)
+                return
+            await self._write_graph_triplets(chat_id, triplets)
+            return
+
+        # ── Фаза A: extract по чанкам (в память, БЕЗ записи в БД) ─────────
+        chunks = _graph_split_chunks(tail)
+        deadline = _env_graph_float("GRAPH_EXTRACT_TIMEOUT_SECONDS", 120.0)
+        max_attempts = _env_graph_int("GRAPH_EXTRACT_MAX_ATTEMPTS", 2)
+        triplets: list[dict] = []
+        chunks_ok = 0
+        chunks_failed = 0
+        last_reason = "unknown"
+        for index, chunk in enumerate(chunks):
+            try:
+                raw = await self.llm.generate_background(
+                    [
+                        {"role": "system", "content": EXTRACT_PROMPT},
+                        {"role": "user", "content": chunk},
+                    ],
+                    purpose="graph_extract",
+                    deadline=deadline,
+                    max_attempts=max_attempts,
+                )
+                triplets.extend(parse_triplets(raw))
+                chunks_ok += 1
+            except Exception as exc:  # noqa: BLE001 — фон не должен ронять крон
+                chunks_failed += 1
+                last_reason = type(exc).__name__
+                trace_step(logger, component="graph", step="chunk",
+                           status="error", reason=last_reason, chat_id=chat_id,
+                           extra={"chunk": index, "chunks_ok": chunks_ok,
+                                  "chunks_failed": chunks_failed})
+
         if triplets:
-            trace_step(logger, component="graph", step="write", status="ok",
-                       reason="saved", chat_id=chat_id,
-                       extra={"triplets": len(triplets)})
+            # ── Фаза B: запись ровно один раз на батч ────────────────────
+            await self._write_graph_triplets(chat_id, triplets)
+            self._graph_batch_failures = 0
+            if chunks_failed:
+                trace_step(logger, component="graph", step="extract",
+                           status="partial", reason="graph_extract_partial",
+                           chat_id=chat_id,
+                           extra={"chunks_ok": chunks_ok,
+                                  "chunks_failed": chunks_failed,
+                                  "triplets": len(triplets)},
+                           level=logging.WARNING)
+            return
+
+        if chunks_failed == 0:
+            # Все чанки ответили, но графа в них нет (валидный `[]`) — это НЕ
+            # потеря: батч можно помечать (прежняя семантика D68/F8).
+            _log_empty_valid(chat_id, "triplets", label="graph extract")
+            trace_step(logger, component="graph", step="parse",
+                       status="empty", reason="empty_list", chat_id=chat_id)
+            self._graph_batch_failures = 0
+            return
+
+        # ── none-ok (есть упавшие чанки): БД не пишем, mark НЕ ставим ────
+        self._graph_batch_failures += 1
+        max_failures = _env_graph_int("GRAPH_EXTRACT_MAX_BATCH_FAILURES", 3)
+        if self._graph_batch_failures >= max_failures:
+            # «Отравленный» батч: явный отброс + метрика (не молча).
+            self._graph_batch_failures = 0
+            dropped_total = _count_graph_dropped()
+            log_dropped(logger, component="graph",
+                        reason="graph_extract_dropped", count=1,
+                        chat_id=chat_id,
+                        extra={"chunks_failed": chunks_failed,
+                               "failures": max_failures,
+                               "reason_class": last_reason,
+                               "dropped_total": dropped_total})
+            raise GraphExtractDropped(
+                f"graph extract dropped after {max_failures} failures "
+                f"| chat_id={chat_id} | reason={last_reason}")
+        trace_step(logger, component="graph", step="extract", status="error",
+                   reason="graph_extract_failed", chat_id=chat_id,
+                   extra={"chunks_ok": chunks_ok, "chunks_failed": chunks_failed,
+                          "failures": self._graph_batch_failures,
+                          "reason_class": last_reason})
+        raise GraphExtractionError(
+            f"graph extract failed: all {len(chunks)} chunk(s) failed "
+            f"| chat_id={chat_id} | reason={last_reason}")
 
     async def _save_archive_embedding(self, chat_id: int, fact_id: int, fact: str) -> None:
         try:

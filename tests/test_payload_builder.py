@@ -40,6 +40,12 @@ class _SpyLLM:
         self.messages = messages
         return self.text
 
+    async def generate_background(self, messages, *, purpose, deadline,
+                                  max_attempts):
+        """F1 (ADR-1024-6): фоновый graph-extract-канал."""
+        self.messages = messages
+        return self.text
+
 
 def _assert_system_at_zero(llm):
     assert llm.messages is not None, "LLM не был вызван"

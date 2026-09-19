@@ -618,7 +618,9 @@ class LLMClient:
     async def _post(self, path: str, payload: dict,
                     api_key: str | None = None,
                     base_url: str | None = None,
-                    channel: str = "chat") -> httpx.Response:
+                    channel: str = "chat",
+                    budget: float | None = None,
+                    max_retries: int | None = None) -> httpx.Response:
         """POST with retry on all transient errors; auth errors raised immediately.
 
         Единственный владелец LLM-ретраев (56.4, D187). Жёсткий дедлайн всей
@@ -627,19 +629,26 @@ class LLMClient:
         глобальный слой).
         Раунд 10.12 (ADR-1012-1 D1): base_url — per-call override (embed-путь
         ходит на `_embed_base_url`, chat — на `_base_url`).
+        Раунд 10.24 (F1, ADR-1024-6 D1): `budget`/`max_retries` — опциональные
+        per-call override для фонового канала. ``None`` → ровно прежнее
+        поведение (self._budget/self._max_retries), не смещая других
+        потребителей (байт-в-байт).
         """
         client = (self._get_embed_client(api_key) if channel == "embed"
                   else self._get_client(api_key))
         base = (base_url or self._base_url).rstrip("/")
         url = f"{base}{path}"
         request_len = len(str(payload))
-        total_attempts = self._max_retries + 1
+        # F1: per-call override (None = прежний self-дефолт).
+        call_budget = self._budget if budget is None else budget
+        call_retries = self._max_retries if max_retries is None else max_retries
+        total_attempts = call_retries + 1
         started_total = time.monotonic()
         budget_exceeded = False
         try:
-            async with asyncio.timeout(self._budget):
+            async with asyncio.timeout(call_budget):
                 for attempt in range(total_attempts):
-                    if attempt > 0 and (time.monotonic() - started_total) >= self._budget:
+                    if attempt > 0 and (time.monotonic() - started_total) >= call_budget:
                         budget_exceeded = True
                         break                   # попытка не стартует (56.4)
                     started = time.monotonic()
@@ -647,7 +656,7 @@ class LLMClient:
                         response = await client.post(url, json=payload)
                     except httpx.TransportError as exc:
                         # Транзиентное (timeout/connect/read/.../protocol) → ретрай
-                        if attempt < self._max_retries:
+                        if attempt < call_retries:
                             sleep = self._sleep_seconds(attempt)
                             logger.warning(
                                 "LLM request retry | url=%s | attempt=%d/%d | sleep=%.1fs | reason=%s",
@@ -675,7 +684,7 @@ class LLMClient:
                         "deepseek", latency_ms,
                         None if status < 500 else f"status={status}")
                     if status in (408, 425, 429) or 500 <= status < 600:
-                        if attempt < self._max_retries:
+                        if attempt < call_retries:
                             sleep = self._sleep_seconds(attempt, status, response.headers)
                             logger.warning(
                                 "LLM request retry | url=%s | attempt=%d/%d | sleep=%.1fs | reason=%s",
@@ -935,6 +944,42 @@ class LLMClient:
                                      module=module, step=step,
                                      correlation_id=correlation_id,
                                      chat_id=chat_id, model=used_model)
+        return content
+
+    async def generate_background(self, messages: list[dict[str, str]], *,
+                                  purpose: str, deadline: float,
+                                  max_attempts: int) -> str:
+        """F1 (ADR-1024-6 D1): отдельный канал для ФОНОВЫХ LLM-вызовов.
+
+        Не участвует в ``physical-two-call`` (не пишет System-2 аналитику) и
+        НЕ меняет общие ``self._budget``/``self._max_retries``: дедлайн и число
+        попыток передаются per-call в ``_post`` (для остальных потребителей
+        поведение не смещается). Использует глобальный ключ (chat-независимо).
+        При исчерпании попыток бросает ``LLMError``-подкласс — решение
+        (повтор/отброс батча) принимает caller.
+        """
+        key = self._current_api_key()
+        payload = {"model": self._chat_model, "messages": messages}
+        response = await self._post(
+            "/chat/completions", payload, api_key=key,
+            budget=float(deadline),
+            max_retries=max(0, int(max_attempts) - 1))
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise LLMBadResponseError(
+                "chat/completions background: invalid JSON response") from exc
+        try:
+            content = data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise LLMBadResponseError(
+                "chat/completions background: no choices[0].message.content"
+            ) from exc
+        if not isinstance(content, str) or not content.strip():
+            raise LLMBadResponseError("chat/completions background: empty content")
+        logger.info(
+            "LLM background OK | purpose=%s | model=%s | out_chars=%d",
+            purpose, self._chat_model, len(content))
         return content
 
     # ── F3/T-1439 (cognition-deep-sleep, ADR-1013-1): роутер воркеров ───────
