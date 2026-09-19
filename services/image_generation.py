@@ -10,7 +10,8 @@
   моделей/провайдеров отвергает их (HTTP 400) — payload обязан быть
   универсальным. Ответ принимается в обеих формах: ``data[0].url``
   (скачиваем) и ``data[0].b64_json`` (декодируем). Kill-switch
-  ``SUMMARY_COVER_MODEL_COMPAT_ENABLED=False`` возвращает прежнее тело
+  ``IMAGE_MODEL_COMPAT_ENABLED=False`` (область — вся генерация изображений)
+  возвращает прежнее тело
   (``size``/``response_format:"url"``) для отката.
 * **GET-режим**: ``GET {host}/image/{quote(prompt)}?model=&width=1024&
   height=1024&seed=<random>``; ключ — ``?key=<key>``, ЕСЛИ задан.
@@ -205,9 +206,13 @@ def _resolve_bool(key: str, default: bool) -> bool:
 
 
 def _model_compat_enabled() -> bool:
-    """Универсальный payload (default ON); OFF → прежнее тело (откат)."""
+    """Универсальный payload (default ON); OFF → прежнее тело (откат).
+
+    Область действия — ВСЯ генерация изображений (обложка, tool, пре-гейт):
+    тело POST общее, поэтому имя флага `IMAGE_MODEL_COMPAT_ENABLED`
+    отражает реальную область (L1 review iter1)."""
     try:
-        return bool(getattr(settings, "SUMMARY_COVER_MODEL_COMPAT_ENABLED", True))
+        return bool(getattr(settings, "IMAGE_MODEL_COMPAT_ENABLED", True))
     except Exception:  # pragma: no cover — конфиг не должен ронять генерацию
         return True
 
@@ -234,6 +239,22 @@ def _first_image_item(data) -> dict:
             if isinstance(first, dict):
                 return first
     return {}
+
+
+def _redact_secret(text, secret: str | None) -> str:
+    """Явно вырезает резолвнутый секрет из текста ДО общей санитизации (R17).
+
+    ``safe_text`` маскирует только известные префиксы (`sk-`/`gsk`/…) и
+    секреты из env/``settings``. Ключ провайдера, сохранённый через UI в PG
+    (`keys.image_api_key` через ``hot.get``), в ``settings.IMAGE_API_KEY``
+    может отсутствовать и в этот набор не попадает — поэтому вырезаем его
+    буквальной заменой (образец: ``services.llm_probe.sanitize_error``), а
+    затем прогоняем через ``safe_text`` (пробелы/усечение)."""
+    raw = "" if text is None else str(text)
+    secret = (secret or "").strip()
+    if secret:
+        raw = raw.replace(secret, "***")
+    return safe_text(raw)
 
 
 def _host_from_base(base_url: str) -> str:
@@ -310,13 +331,18 @@ async def _request_with_retry(method: str, url: str, *,
                               json_body: dict | None = None,
                               headers: dict | None = None,
                               timeout: float = 90.0,
-                              log_url: str | None = None):
+                              log_url: str | None = None,
+                              redact_key: str | None = None):
     """Запрос с ≤1 ретраем на 429/503 (учёт `Retry-After`).
 
     ``log_url`` — R17-safe URL для лога. GET-режим кодирует пользовательский
     промпт прямо в path (`/image/{quote(prompt)}`), поэтому сырой ``url``
     логировать нельзя (R1024F2-01): caller передаёт безопасный эндпоинт без
-    промпта. None → ``url`` (POST/download — путь промпта не содержит)."""
+    промпта. None → ``url`` (POST/download — путь промпта не содержит).
+
+    ``redact_key`` (R17): резолвнутый ключ провайдера, если он есть в области
+    видимости — вырезается из тела ретрай-лога явно (``safe_text`` маскирует
+    только известные префиксы/env-секреты и PG-ключ без префикса не поймает)."""
     resp = await _http_request(method, url, json_body=json_body,
                                headers=headers, timeout=timeout)
     attempt = 0
@@ -327,7 +353,8 @@ async def _request_with_retry(method: str, url: str, *,
         log_external_api(
             logger, provider=_provider_from_url(safe_url), method=method,
             url=safe_url, status=getattr(resp, "status_code", None),
-            reason="retry", body=getattr(resp, "text", ""),
+            reason="retry",
+            body=_redact_secret(getattr(resp, "text", ""), redact_key),
             attempt=attempt + 1, level=logging.WARNING)
         if delay > 0:
             await asyncio.sleep(delay)
@@ -364,13 +391,15 @@ async def _generate_post(base_url: str, model: str, prompt: str, key: str,
         headers["Authorization"] = f"Bearer {key}"
     body = _build_post_body(prompt, model)
     resp = await _request_with_retry("POST", url, json_body=body,
-                                     headers=headers, timeout=timeout)
+                                     headers=headers, timeout=timeout,
+                                     redact_key=key)
     status = int(getattr(resp, "status_code", 0))
     if status != 200:
         log_external_api(
             logger, provider=_provider_from_url(url), method="POST", url=url,
             status=status, reason=_reason_from_status(status),
-            body=getattr(resp, "text", ""), level=logging.ERROR)
+            body=_redact_secret(getattr(resp, "text", ""), key),
+            level=logging.ERROR)
         raise ImageGenerationError(_reason_from_status(status))
     try:
         data = resp.json()
@@ -378,7 +407,8 @@ async def _generate_post(base_url: str, model: str, prompt: str, key: str,
         log_external_api(
             logger, provider=_provider_from_url(url), method="POST", url=url,
             status=status, reason="bad_json",
-            body=getattr(resp, "text", ""), level=logging.ERROR)
+            body=_redact_secret(getattr(resp, "text", ""), key),
+            level=logging.ERROR)
         raise ImageGenerationError("bad_json")
     item = _first_image_item(data)
     b64 = item.get("b64_json")
@@ -391,7 +421,8 @@ async def _generate_post(base_url: str, model: str, prompt: str, key: str,
     if not image_url:
         log_external_api(
             logger, provider=_provider_from_url(url), method="POST", url=url,
-            status=status, reason="no_url", body=getattr(resp, "text", ""),
+            status=status, reason="no_url",
+            body=_redact_secret(getattr(resp, "text", ""), key),
             level=logging.ERROR)
         raise ImageGenerationError("no_url")
     return await _download_bytes(str(image_url), timeout, max_bytes)
@@ -470,9 +501,11 @@ async def _probe_post(base_url: str, model: str, prompt: str, key: str,
         headers["Authorization"] = f"Bearer {key}"
     resp = await _request_with_retry(
         "POST", url, json_body=_build_post_body(prompt, model),
-        headers=headers, timeout=timeout)
+        headers=headers, timeout=timeout, redact_key=key)
     status = int(getattr(resp, "status_code", 0))
-    text = safe_text(getattr(resp, "text", ""))
+    # R17: ключ вырезается явно ДО safe_text (PG-ключ без префикса маску
+    # prefix/_SECRETS не ловит).
+    text = _redact_secret(getattr(resp, "text", ""), key)
     if status != 200:
         return status, _reason_from_status(status), text
     try:
@@ -513,8 +546,11 @@ async def probe(*, chat_id: int | None = None,
 
     Идёт тем же универсальным путём, что генерация, но **не** отправляет в
     Telegram и **не** расходует per-chat бюджет. Возвращает ``ProbeResult``;
-    ``body_excerpt`` — сырой текст ошибки провайдера, обезвреженный
-    ``external_log.safe_text`` (R17: ключ никогда не возвращается)."""
+    ``body_excerpt`` — сырой текст ошибки провайдера, из которого **явно
+    вырезан резолвнутый ключ** и который дополнительно обезврежен
+    ``external_log.safe_text`` (R17: ключ не возвращается ни в JSON, ни в лог).
+
+    ``chat_id`` — контекст вызова для лога (per-chat бюджет здесь не тратится)."""
     text = str(prompt or "").strip() or PROBE_PROMPT
     base_url = _resolve_str(KEY_BASE_URL, settings.IMAGE_BASE_URL)
     model = _resolve_str(KEY_MODEL, settings.IMAGE_MODEL)
@@ -533,13 +569,16 @@ async def probe(*, chat_id: int | None = None,
     except httpx.TimeoutException:
         status, reason, body = None, "timeout", ""
     except httpx.HTTPError as exc:
-        status, reason, body = None, "unreachable", safe_text(str(exc))
+        status, reason, body = None, "unreachable", \
+            _redact_secret(str(exc), key)
     except Exception as exc:  # pragma: no cover — defensive
-        status, reason, body = None, "unreachable", safe_text(str(exc))
+        status, reason, body = None, "unreachable", \
+            _redact_secret(str(exc), key)
     latency_ms = int((time.monotonic() - started) * 1000)
     logger.info(
         "[image] probe | mode=%s | model=%s | status=%s | reason=%s | "
-        "latency_ms=%d", mode, model, status, reason, latency_ms)
+        "chat_id=%s | latency_ms=%d", mode, model, status, reason, chat_id,
+        latency_ms)
     # F2/ADR-1024-1: реальная причина видна в логе (тихий откат ≠ тишина).
     log_external_api(
         logger, provider=_provider_from_url(base_url),

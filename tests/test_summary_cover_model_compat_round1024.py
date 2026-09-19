@@ -10,8 +10,8 @@
   * (e) ``probe()`` — успех/ошибка, ``body_excerpt`` безопасен (R17);
   * (f) причина отказа провайдера реально логируется, а не только
     «image unavailable» (F2/ADR-1024-1);
-  * (g) kill-switch ``SUMMARY_COVER_MODEL_COMPAT_ENABLED=False`` → прежнее
-    тело (byte-identical).
+  * (g) kill-switch ``IMAGE_MODEL_COMPAT_ENABLED=False`` → прежнее
+    тело (byte-identical полного тела запроса).
 
 Сеть не используется: ``_http_request`` подменяется заглушкой; ключ нигде
 не печатается (R17).
@@ -65,16 +65,16 @@ def _patch_cfg(monkeypatch, *, model="flux", api_key="", get_mode=False):
 
 class TestUniversalPayload:
     def test_build_body_minimal(self, monkeypatch):
-        monkeypatch.setattr(Settings, "SUMMARY_COVER_MODEL_COMPAT_ENABLED", True)
+        monkeypatch.setattr(Settings, "IMAGE_MODEL_COMPAT_ENABLED", True)
         body = ig._build_post_body("a cat", "gptimage")
         assert body == {"prompt": "a cat", "model": "gptimage", "n": 1}
 
     def test_build_body_kill_switch_legacy(self, monkeypatch):
-        monkeypatch.setattr(Settings, "SUMMARY_COVER_MODEL_COMPAT_ENABLED", False)
+        """(g) OFF → ПОЛНОЕ прежнее тело (byte-identical), не подмножество."""
+        monkeypatch.setattr(Settings, "IMAGE_MODEL_COMPAT_ENABLED", False)
         body = ig._build_post_body("a cat", "flux")
-        assert body["size"] == ig._IMAGE_SIZE
-        assert body["response_format"] == "url"
-        assert body["n"] == 1
+        assert body == {"prompt": "a cat", "model": "flux", "n": 1,
+                        "size": ig._IMAGE_SIZE, "response_format": "url"}
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("model", ["gptimage", "ideogram", "flux"])
@@ -102,7 +102,7 @@ class TestUniversalPayload:
     @pytest.mark.asyncio
     async def test_kill_switch_off_sends_legacy_body(self, monkeypatch):
         """(g) OFF → прежнее тело (откат), byte-identical."""
-        monkeypatch.setattr(Settings, "SUMMARY_COVER_MODEL_COMPAT_ENABLED", False)
+        monkeypatch.setattr(Settings, "IMAGE_MODEL_COMPAT_ENABLED", False)
         captured = {}
 
         async def fake(method, url, *, json_body=None, headers=None,
@@ -117,8 +117,9 @@ class TestUniversalPayload:
         monkeypatch.setattr(ig, "_consume_budget", AsyncMock(return_value=True))
         _patch_cfg(monkeypatch, model="flux")
         await ig.generate("кот", chat_id=1)
-        assert captured["body"]["size"] == ig._IMAGE_SIZE
-        assert captured["body"]["response_format"] == "url"
+        assert captured["body"] == {
+            "prompt": "кот", "model": "flux", "n": 1,
+            "size": ig._IMAGE_SIZE, "response_format": "url"}
 
 
 # ── (b)/(c) обе формы ответа ────────────────────────────────────────────────
@@ -196,9 +197,14 @@ class TestProbe:
                             "n": 1}
 
     @pytest.mark.asyncio
-    async def test_probe_error_is_safe(self, monkeypatch):
-        """400 → ok=false + сырой усечённый body_excerpt; ключ не утекает."""
-        secret = "sk-SUPER-SECRET-1234567890"
+    async def test_probe_error_redacts_unprefixed_key(self, monkeypatch,
+                                                      caplog):
+        """(R17/M3) 400 → ok=false + body_excerpt БЕЗ ключа.
+
+        Ключ намеренно БЕЗ известного префикса (`sk-`/`gsk`/…), как PG/BYOK-
+        ключ: prefix-маска `safe_text` его не поймает — значит тест проверяет
+        именно явную редакцию резолвнутого ключа, а не тавтологию."""
+        secret = "abc123secretXYZ"          # префиксов sk-/gsk/or/tvly нет
 
         async def fake(method, url, *, json_body=None, headers=None,
                        timeout=90.0):
@@ -208,13 +214,32 @@ class TestProbe:
 
         monkeypatch.setattr(ig, "_http_request", fake)
         _patch_cfg(monkeypatch, model="gptimage", api_key=secret)
-        result = await ig.probe()
+        with caplog.at_level(logging.INFO):
+            result = await ig.probe()
         assert result.ok is False
         assert result.status_code == 400
         assert result.reason == "bad_request"
         assert "unknown field size" in result.body_excerpt
-        assert secret not in result.body_excerpt      # R17
+        assert secret not in result.body_excerpt      # R17: ни в JSON/тост
+        assert "***" in result.body_excerpt           # явная редакция
+        assert secret not in caplog.text              # R17: ни в лог
         assert result.as_dict()["reason"] == "bad_request"
+
+    @pytest.mark.asyncio
+    async def test_probe_retry_log_redacts_key(self, monkeypatch, caplog):
+        """(H1) Тело ретрай-лога 429 тоже без резолвнутого ключа (R17)."""
+        secret = "abc123secretXYZ"
+        seq = [
+            FakeResponse(429, None, text=f"slow down, api key {secret}",
+                         headers={"Retry-After": "0"}),
+            FakeResponse(200, {"data": [{"b64_json": "aGk="}]}, text=""),
+        ]
+        monkeypatch.setattr(ig, "_http_request", AsyncMock(side_effect=seq))
+        _patch_cfg(monkeypatch, model="flux", api_key=secret)
+        with caplog.at_level(logging.INFO):
+            result = await ig.probe()
+        assert result.ok is True
+        assert secret not in caplog.text
 
     @pytest.mark.asyncio
     async def test_probe_does_not_consume_budget(self, monkeypatch):

@@ -448,6 +448,24 @@ class TestProviderBlockTestability:
         assert JS.count("testable: false") == 1
         assert "b.testable !== false" in HTML
 
+    def test_image_generation_probe_contract(self):
+        """F12 (10.24, ADR-1024-4 D3): UI-контракт кнопки «Проверить
+        подключение» — компенсирует счётчик testable (M2 review iter1).
+
+        Без этих ассертов поломка probeEndpoint/ветки/лейбла прошла бы
+        `node --check` (синтаксис) и не была бы поймана."""
+        i = JS.index("id: 'image_generation'")
+        chunk = JS[i:i + 900]
+        assert "testable: true" in chunk
+        assert "probeEndpoint: '/api/images/test'" in chunk
+        # Ветка probe в testBlock (не генерическая llm/test).
+        assert "if (b.probeEndpoint)" in JS
+        assert "this.api(b.probeEndpoint" in JS
+        # Лейбл кнопки в разметке.
+        assert "b.probeEndpoint ? 'Проверить подключение'" in HTML
+        # L4: подсказка, что проверяется сохранённая конфигурация.
+        assert "использует сохранённые адрес" in chunk
+
     def test_llm_guard_fields_no_model_role(self):
         # Значения llm_guard не отправляются как `model`.
         i = JS.index("id: 'llm_guard'")

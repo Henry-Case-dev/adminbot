@@ -551,6 +551,10 @@
     { id: 'image_generation', title: 'Генерация изображений',
       modules: 'Генерация изображений', testable: true,
       probeEndpoint: '/api/images/test',
+      // L4 (review iter1): кнопка проверяет СОХРАНЁННЫЕ адрес/модель/ключ из
+      // базы, а не значения полей формы — предупреждаем явно.
+      note: '«Проверить подключение» использует сохранённые адрес, модель и '
+        + 'ключ из базы — сначала сохраните карточку.',
       fields: [
         { key: 'models.image_base_url', label: 'Адрес сервера', role: 'base_url' },
         { key: 'models.image_model', label: 'Модель', role: 'model' },
@@ -3330,8 +3334,9 @@
               : (res.error || 'ошибка'),
           };
         } catch (e) {
-          var msg = (e && e.status === 429) ? 'Слишком часто — подождите 5 секунд'
-            : ((e && e.message) || 'ошибка');
+          // F12 (10.24): серверный detail различается (llm/test 5с, images/test
+          // 10с) — показываем его как есть, без хардкода интервала.
+          var msg = (e && e.message) || 'ошибка';
           this.blockResults[b.id] = { ok: false, text: msg };
         } finally {
           this.blockTesting[b.id] = false;

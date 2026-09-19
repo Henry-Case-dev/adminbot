@@ -584,14 +584,18 @@ class Settings:
         "SUMMARY_COVER_ARTICLE_ENABLED", True)
     # ── Раунд 10.24 (F12, ADR-1024-4 D1/D2): env-only ClassVar-рубильники
     # универсального payload изображений и капа промпта обложки. Δ каталога = 0.
-    #   * SUMMARY_COVER_MODEL_COMPAT_ENABLED — ON: POST-тело строго
+    #   * IMAGE_MODEL_COMPAT_ENABLED — ON: POST-тело строго
     #     `{prompt, model, n:1}` (любая OpenAI-совместимая модель, без
-    #     `size`/`response_format`); OFF → прежнее тело (byte-identical, откат).
+    #     `size`/`response_format`); OFF → прежнее тело (byte-identical,
+    #     откат). ВНИМАНИЕ: область действия — ВСЯ генерация изображений
+    #     (обложка саммари, tool `generate_image`, пре-гейт прямого чата), а
+    #     не только обложка (L1 review iter1).
     #   * SUMMARY_COVER_PROMPT_MAX_CHARS / SUMMARY_COVER_STYLE_MAX_CHARS —
     #     общий кап финального промпта (стиль+visual) и отдельный кап стиля;
     #     стиль сохраняется приоритетно, при переполнении режется visual.
-    SUMMARY_COVER_MODEL_COMPAT_ENABLED: ClassVar[bool] = _env_bool(
-        "SUMMARY_COVER_MODEL_COMPAT_ENABLED", True)
+    #     (Эти два — действительно только про обложку саммари.)
+    IMAGE_MODEL_COMPAT_ENABLED: ClassVar[bool] = _env_bool(
+        "IMAGE_MODEL_COMPAT_ENABLED", True)
     SUMMARY_COVER_PROMPT_MAX_CHARS: ClassVar[int] = _env_int(
         "SUMMARY_COVER_PROMPT_MAX_CHARS", 1000)
     SUMMARY_COVER_STYLE_MAX_CHARS: ClassVar[int] = _env_int(
