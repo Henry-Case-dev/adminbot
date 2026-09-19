@@ -358,6 +358,67 @@ class TestWorkerBudget:
         assert calls and calls[0][0] == -100
 
 
+# ── (f) фон: предохранитель деградации уважает master ───────────────────────
+
+class TestBackgroundDegradation:
+    @pytest.mark.asyncio
+    async def test_off_frees_background_even_when_exhausted(self, monkeypatch):
+        """High (review iter1): OFF + исчерпанный global-лимит → воркер допущен
+        (деградация не скипает тики при выключенных бюджетах)."""
+        from services import worker_budget as wb
+        _setup(monkeypatch,
+               hot_values={budget_gate.KEY_BUDGETS_ENABLED: False})
+
+        async def _usage(pg=None, scope=None, day=None):
+            return [{"metric": wb.METRIC_CALLS, "used": 100, "limit": 60}]
+
+        monkeypatch.setattr(wb, "get_usage", _usage)
+        assert await wb.global_degradation_allows("dream") is True
+        assert await wb.global_degradation_allows("lore") is True
+        assert await wb.global_degradation_allows("nostalgia") is True
+
+    @pytest.mark.asyncio
+    async def test_off_zero_limit_still_allows(self, monkeypatch):
+        from services import worker_budget as wb
+        _setup(monkeypatch,
+               hot_values={budget_gate.KEY_BUDGETS_ENABLED: False})
+
+        async def _usage(pg=None, scope=None, day=None):
+            return [{"metric": wb.METRIC_CALLS, "used": 0, "limit": 0}]
+
+        monkeypatch.setattr(wb, "get_usage", _usage)
+        assert await wb.global_degradation_allows("dream") is True
+
+    @pytest.mark.asyncio
+    async def test_on_degrades_when_exhausted(self, monkeypatch):
+        """Master ON — деградация сохранена (не сломали прежнее поведение)."""
+        from services import worker_budget as wb
+        _setup(monkeypatch)          # пустые слои → master ON (дефолт)
+
+        async def _usage(pg=None, scope=None, day=None):
+            return [{"metric": wb.METRIC_CALLS, "used": 100, "limit": 60}]
+
+        monkeypatch.setattr(wb, "get_usage", _usage)
+        assert await wb.global_degradation_allows("dream") is False
+        # матрица деградации на границе used == limit (позиции dream=0,
+        # lore=1, nostalgia=2): dream падает первым, у lore/nostalgia запас.
+        assert wb.allowed_workers(("dream", "lore", "nostalgia"), 60, 60) == {
+            "dream": False, "lore": True, "nostalgia": True}
+
+    @pytest.mark.asyncio
+    async def test_off_does_not_read_usage(self, monkeypatch):
+        """OFF → usage не читается (короткое замыкание до get_usage)."""
+        from services import worker_budget as wb
+        _setup(monkeypatch,
+               hot_values={budget_gate.KEY_BUDGETS_ENABLED: False})
+
+        async def _boom(*a, **kw):
+            raise AssertionError("get_usage не должен вызываться при OFF")
+
+        monkeypatch.setattr(wb, "get_usage", _boom)
+        assert await wb.global_degradation_allows("dream") is True
+
+
 # ── (g): master приоритетнее context-флага ──────────────────────────────────
 
 class _FakeMemory:

@@ -10,7 +10,9 @@ enforcement бюджетов ЦЕЛИКОМ — глобально ИЛИ per-ch
 Fail-open: любая ошибка резолва → True (поведение как прежде, enforcement
 остаётся включённым — безопасный дефолт для продукта).
 
-R17/R18-safe: логируется только `key`/`chat`/`source`, значений нет.
+R17/R18-safe: успешный резолв оставляет debug-лог `[settings] key/chat/source`
+(внутри `resolve_setting_cached`), при ошибке пишем WARNING с `chat`; значения
+(в т.ч. секреты) не логируются.
 """
 import logging
 

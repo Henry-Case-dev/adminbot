@@ -167,7 +167,15 @@ def allowed_workers(worker_ids, used_calls: int, limit_calls: int) -> dict[str, 
 async def global_degradation_allows(worker_id: str, pg=None) -> bool:
     """ФИКС R4: разрешён ли тик воркера текущим global-бюджетом
     (использует allowed_workers по фактическому used дня). Fail-open:
-    PG/строка недоступна → True (воркеры не останавливаются, §1-4)."""
+    PG/строка недоступна → True (воркеры не останавливаются, §1-4).
+
+    F21 (ADR-1024-22 D4): master-рубильник бюджетов приоритетен — при OFF
+    (`flags.budgets_enabled=false`, скоп `global`) фон не ограничивается
+    совсем: возвращаем True ДО чтения usage, чтобы предохранитель деградации
+    не скипал тики. Fail-open ON: ошибка резолва флага → деградация как
+    прежде."""
+    if not await budget_gate.budgets_enabled(None):
+        return True
     try:
         rows = await get_usage(pg, scope="global")
     except Exception:
