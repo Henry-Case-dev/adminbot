@@ -38,6 +38,7 @@ from services.tool_schemas import (
     TOOL_TRANSCRIBE_VIDEO,
     active_tools,
 )
+from SmartModule.service import EmptyTranscript, TranscriptionUnavailable
 
 CHAT_ID = -1001234567890
 USER_ID = 111
@@ -337,6 +338,48 @@ class TestVoiceCommand:
         assert ok is True
         await asyncio.sleep(0)
         memory.memorize_facts.assert_awaited_once()
+
+
+class TestDegradationSingleAnswer:
+    """Medium (review iter2): после деградации ASR — ровно ОДИН ответ, без
+    ложной нейтральной «нет цели»."""
+
+    async def _run(self, clean_env, transcribe_error=None, duration=5):
+        svc, db, memory = _setup_voice(transcribe_error=transcribe_error)
+        yt.setup_youtube(MagicMock())
+        bot = _bot()
+        voice = _voice_msg(duration=duration)
+        command = _make_msg(text="Бот, транскрипт", message_id=100,
+                            reply_to_message=voice)
+        await yt.youtube_handler(command, bot=bot)
+        return svc, voice, bot
+
+    @pytest.mark.asyncio
+    async def test_empty_transcript_single_answer(self, clean_env):
+        svc, voice, bot = await self._run(
+            clean_env, transcribe_error=EmptyTranscript("path"))
+        assert voice.reply.await_count == 1           # только фраза 5.12
+        bot.send_message.assert_not_awaited()          # нет второй «нет цели»
+
+    @pytest.mark.asyncio
+    async def test_transcription_unavailable_single_answer(self, clean_env):
+        svc, voice, bot = await self._run(
+            clean_env, transcribe_error=TranscriptionUnavailable("x"))
+        assert voice.reply.await_count == 1           # только фраза 5.11
+        bot.send_message.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_too_long_single_answer(self, clean_env):
+        svc, voice, bot = await self._run(clean_env, duration=10 ** 6)
+        svc.transcribe_voice.assert_not_awaited()      # файл не качали
+        assert voice.reply.await_count == 1            # только фраза длительности
+        bot.send_message.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_success_still_single_answer(self, clean_env):
+        svc, voice, bot = await self._run(clean_env)
+        assert voice.reply.await_count == 1
+        bot.send_message.assert_not_awaited()
 
 
 class TestTargetSelection:

@@ -424,13 +424,18 @@ async def _handle_voice_command(bot, message: types.Message) -> None:
                      message.message_id)
         return
     # Импорт на уровне функции — избегаем цикла youtube ↔ voice_transcription.
-    from handlers.voice_transcription import force_repeat_from_reply
+    from handlers.voice_transcription import (
+        FORCE_REPEAT_NO_TARGET,
+        force_repeat_from_reply,
+    )
     try:
-        handled = await force_repeat_from_reply(bot, message)
+        result = await force_repeat_from_reply(bot, message)
     except Exception:
         logger.warning("[youtube] voice transcript repeat failed", exc_info=True)
-        handled = False
-    if not handled:
+        result = FORCE_REPEAT_NO_TARGET
+    # Нейтральный ответ — ТОЛЬКО когда цели/сервиса не было. Деградация ASR
+    # (result == handled) уже отправила свою фразу — второй ответ не шлём.
+    if result == FORCE_REPEAT_NO_TARGET:
         await _reply(bot, message.chat.id,
                      random.choice(COMMAND_NO_TARGET_PHRASES),
                      message.message_id)

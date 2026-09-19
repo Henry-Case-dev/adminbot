@@ -320,23 +320,38 @@ async def transcribe_media_message(media_message, bot, *,
     return True
 
 
-async def force_repeat_from_reply(bot, command_message) -> bool:
+# Тристейт командного форс-повтора (F19, review iter2): нейтральный ответ
+# вызывающего уместен ТОЛЬКО при отсутствии цели/сервиса. После деградации ASR
+# фраза деградации уже отправлена `transcribe_media_message` — второй ответ
+# слать нельзя (иначе «нет цели» поверх реальной причины).
+FORCE_REPEAT_NO_TARGET = "no_target"   # цели/сервиса нет — ответа НЕ было
+FORCE_REPEAT_HANDLED = "handled"       # цель была: ответ (деградация) отправлен
+FORCE_REPEAT_SENT_OK = "sent_ok"       # цель была: успешный транскрипт отправлен
+
+
+async def force_repeat_from_reply(bot, command_message) -> str:
     """F19 (ADR-1024-20 §2.3): команда «транскрипт» → принудительный повтор
     транскрибации ГС/кружка. Цель: реплай на ``voice``/``video_note`` (или
-    собственное медиа сообщения-команды). Возвращает True при успехе; False —
-    цели нет (вызывающий отдаёт прежний нейтральный ответ)."""
+    собственное медиа сообщения-команды).
+
+    Возвращает тристейт: ``no_target`` — цели/сервиса нет, ответа не было
+    (вызывающий отдаёт прежний нейтральный ответ); ``handled`` — цель была,
+    но ASR деградировал и фраза деградации УЖЕ отправлена; ``sent_ok`` —
+    цель была и успешный транскрипт отправлен. Исключения — наружу
+    (вызывающий делает нейтральный фолбэк)."""
     if _service is None or bot is None:
-        return False
+        return FORCE_REPEAT_NO_TARGET
     # Единый выбор цели (своё > реплай) — тот же хелпер, что в классификации
     # handlers/youtube.py (`_resolve_voice_media`), порядок не расходится.
     media_message = native_media.voice_media_message(command_message)
     if media_message is None:
-        return False
+        return FORCE_REPEAT_NO_TARGET
     logger.info("[transcribe] force repeat | chat=%s",
                 getattr(getattr(media_message, "chat", None), "id", None))
-    return await transcribe_media_message(
+    sent = await transcribe_media_message(
         media_message, bot,
         reply_to_id=getattr(media_message, "message_id", None), force=True)
+    return FORCE_REPEAT_SENT_OK if sent else FORCE_REPEAT_HANDLED
 
 
 async def _process(message: types.Message, bot) -> None:
