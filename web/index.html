@@ -304,6 +304,12 @@
                              class="text-[10px] text-green-400 mt-0.5">
                           Ключ установлен
                         </div>
+                        <!-- F11 (ADR-1024-12): глобальный секрет правит только
+                             глобальный админ — паритет с safe-эндпоинтом (403). -->
+                        <div v-if="f.globalSecret && !canEditConfig(f.key)"
+                             class="text-[10px] text-gray-500 mt-0.5">
+                          Ключ глобальный — изменить может только глобальный администратор
+                        </div>
                         <div v-if="f.secret && !f.globalSecret && blockFieldConfigured(f)"
                              class="text-[10px] text-gray-500 mt-0.5">
                           Ключ сохранён (••••{{ last4ByKey(f.key) }}) — можно проверить без ввода

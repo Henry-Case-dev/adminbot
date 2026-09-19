@@ -29,6 +29,13 @@
   // сохранено» вводит в заблуждение и ввод молча теряется).
   var SECRET_MASK_HINT = 'Поле содержит маску сохранённого секрета — выделите поле и введите значение заново';
 
+  // F11 (10.24, ADR-1024-12): ГЛОБАЛЬНЫЕ провайдерские секреты — сохраняются
+  // безопасным путём и правятся ТОЛЬКО глобальным админом (паритет с
+  // `PUT /api/config/keys/own scope=global`, который иначе отдаёт 403).
+  // Зеркало backend-allowlist `services/chat_keys.GLOBAL_SECRET_KEYS`.
+  var GLOBAL_SECRET_KEYS = ['keys.image_api_key'];
+  function isGlobalSecretKey(k) { return GLOBAL_SECRET_KEYS.indexOf(k) >= 0; }
+
   // ═══ Вкладки (3.5.1; зеркало TAB_RULES/CONFIG_TAB_TITLES бэка) ═══
   // sources: [{category, groups|null|except:[...]}] — groups = белый список
   // групп категории, except = вся категория кроме перечисленного, null = вся.
@@ -2360,11 +2367,26 @@
 
       // F11 (10.24, ADR-1024-12 D4): БЕЗОПАСНЫЙ путь сохранения
       // провайдерского секрета — в общий POST /api/config секреты не попадают.
-      // `keys.image_api_key` — глобальный секрет: PUT на safe-эндпоинт с
-      // scope:'global' и БЕЗ X-Chat-Id (`global:true`); ответ — маска (R17).
-      // Прочие `keys.*` (per_chat=false) — прежний глобальный POST.
-      saveProviderSecret: async function (key, value) {
-        if (key === 'keys.image_api_key') {
+      // Контракт spec §3.2: `saveProviderSecret(key, value, {scope})`.
+      //   * scope 'global' (default) + image-ключ + kill-switch ON →
+      //     PUT safe-эндпоинт, scope:'global', БЕЗ X-Chat-Id (`global:true`),
+      //     ответ — маска (R17);
+      //   * scope 'chat' + `keys.llm_api_key` → per-chat BYOK (PUT без global);
+      //   * прочие секреты ИЛИ kill-switch OFF → прежний глобальный POST
+      //     (`per_chat=false`, без X-Chat-Id) — OFF-поведение фичи.
+      saveProviderSecret: async function (key, value, opts) {
+        opts = opts || {};
+        var scope = opts.scope || 'global';
+        if (key === 'keys.llm_api_key' && scope === 'chat') {
+          return this.api('/api/config/keys/own', {
+            method: 'PUT',
+            body: JSON.stringify({ key_name: key, value: value,
+                                   scope: 'chat' }),
+          });
+        }
+        var flagOn = (typeof this.uiFlag === 'function')
+          ? this.uiFlag('BYOK_IMAGE_KEY_ENABLED') : true;
+        if (key === 'keys.image_api_key' && scope === 'global' && flagOn) {
           return this.api('/api/config/keys/own', {
             method: 'PUT',
             body: JSON.stringify({ key_name: key, value: value,
@@ -3535,7 +3557,10 @@
       blockFieldPlaceholder: function (f) {
         var it = this.configItems.find(function (i) { return i.key === f.key; });
         if (it && typeof it.value === 'object' && it.value) {
-          return it.value.configured ? ('configured ••••' + (it.value.last4 || '')) : 'не настроен';
+          // F11 (10.24, spec §3.3): не задан → обычный пустой инпут с
+          // placeholder-подписью поля (не «не настроен»).
+          return it.value.configured
+            ? ('configured ••••' + (it.value.last4 || '')) : f.label;
         }
         return f.label;
       },
@@ -3678,7 +3703,8 @@
           // F11: секреты — ТОЛЬКО безопасным путём (по одному), никогда в
           // теле общего запроса. Никакой `keys.*` в items не попадает.
           for (var si = 0; si < secrets.length; si++) {
-            await this.saveProviderSecret(secrets[si].key, secrets[si].value);
+            await this.saveProviderSecret(secrets[si].key, secrets[si].value,
+                                          { scope: 'global' });
           }
           if (items.length) {
           // Раунд 10.12 (ADR-1012-1 D2): глобальные (per_chat=false) ключи
@@ -4407,6 +4433,14 @@
         var p = this.permissions;
         if (p.wildcard) return true;
         var cat = String(key).split('.')[0];
+        // F11 (10.24, ADR-1024-12): ГЛОБАЛЬНЫЙ провайдерский секрет (image)
+        // правит ТОЛЬКО глобальный админ — паритет с safe-эндпоинтом
+        // (`scope=global`), который иначе отдаёт 403. Секция `keys` НЕ даёт
+        // права на этот ключ (иначе UI обещал бы возможность, которую
+        // бэкенд отбирает).
+        if (isGlobalSecretKey(key)) {
+          return !!(this.isGlobalAdmin && this.isGlobalAdmin());
+        }
         // F-14 (§6, ремедиация ревью): в DM-скоупе (свои ЛС) юзер правит
         // параметры как local_admin — permissions из /api/me (глобальная
         // роль user = {}) не отражают is_dm_owner. НО сервер (routes.py)

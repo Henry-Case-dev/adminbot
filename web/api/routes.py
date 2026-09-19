@@ -661,8 +661,7 @@ async def config_keys_own(
             raise HTTPException(status_code=403,
                                 detail="только для глобального админа")
         masks = [chat_keys.mask_key_info(name, cache.get(name))
-                 for name in sorted(chat_keys.GLOBAL_SECRET_KEYS)
-                 if chat_keys.is_global_secret(name)]
+                 for name in sorted(chat_keys.global_secret_keys())]
         return {"keys": masks}
     ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
     # F-14 (§3.2/§3.3): в DM-скоупе доступ ТОЛЬКО владельцу (глобальный

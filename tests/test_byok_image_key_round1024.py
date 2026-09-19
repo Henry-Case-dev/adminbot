@@ -14,9 +14,11 @@
 import hashlib
 import hmac
 import json
+import logging
 import time
 import types
 import urllib.parse
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -31,10 +33,13 @@ TEST_TOKEN = "123456:TEST_TOKEN_FOR_API_TESTS_F11"
 ADMIN_ID = 5885953495
 MODERATOR_ID = 1313107079
 USER_ID = 999999999
+KEYS_EDITOR_ID = 424242425
 
 IMAGE_KEY = "keys.image_api_key"
 IMAGE_SECRET = "img-secret-value-9999"
 CHAT_ID = -100500
+
+_INDEX = (Path(".") / "web" / "index.html").read_text(encoding="utf-8")
 
 
 def make_init_data(user_id: int = ADMIN_ID) -> str:
@@ -134,6 +139,30 @@ class _FakePg:
 
 @pytest.fixture
 def client(monkeypatch, tmp_path):
+    cache, app = _make_app_client(monkeypatch, tmp_path)
+    with TestClient(app) as test_client:
+        test_client.cache = cache
+        yield test_client
+
+
+_ROLE_ROWS = [
+    {"role_name": "admin", "permissions": {"wildcard": True},
+     "is_custom": False},
+    {"role_name": "moderator",
+     "permissions": {"sections": ["limits"]}, "is_custom": False},
+    {"role_name": "user", "permissions": {}, "is_custom": False},
+]
+_ADMIN_ROWS = [
+    {"telegram_id": ADMIN_ID, "role_name": "admin",
+     "added_by": None, "created_at": "2026-08-30T00:00:00+00:00"},
+    {"telegram_id": MODERATOR_ID, "role_name": "moderator",
+     "added_by": ADMIN_ID, "created_at": None},
+]
+
+
+def _make_app_client(monkeypatch, tmp_path,
+                     role_rows=None, admin_rows=None):
+    """Сборка TestClient с фейковым PG и заданными ролями/админами."""
     monkeypatch.setattr(deps_mod, "settings",
                         types.SimpleNamespace(API_TOKEN=TEST_TOKEN))
     monkeypatch.setattr(
@@ -147,22 +176,24 @@ def client(monkeypatch, tmp_path):
             {"key": "keys.llm_api_key", "value": "sk_deepseek_123456",
              "category": "keys", "updated_at": None},
         ],
-        role_rows=[
-            {"role_name": "admin", "permissions": {"wildcard": True},
-             "is_custom": False},
-            {"role_name": "moderator",
-             "permissions": {"sections": ["limits"]}, "is_custom": False},
-            {"role_name": "user", "permissions": {}, "is_custom": False},
-        ],
-        admin_rows=[
-            {"telegram_id": ADMIN_ID, "role_name": "admin",
-             "added_by": None, "created_at": "2026-08-30T00:00:00+00:00"},
-            {"telegram_id": MODERATOR_ID, "role_name": "moderator",
-             "added_by": ADMIN_ID, "created_at": None},
-        ],
+        role_rows=role_rows if role_rows is not None else _ROLE_ROWS,
+        admin_rows=admin_rows if admin_rows is not None else _ADMIN_ROWS,
     )
     cache = ConfigCache(pg=_FakePg(conn), retry_attempts=1, retry_delay=0)
-    app = create_app(cache)
+    return cache, create_app(cache)
+
+
+@pytest.fixture
+def keys_editor_client(monkeypatch, tmp_path):
+    """Роль с `sections:['keys']` (без wildcard): поле image-ключа должно быть
+    недоступно (паритет UI↔бэкенд, Finding H)."""
+    roles = _ROLE_ROWS + [{"role_name": "keys_editor",
+                           "permissions": {"sections": ["keys"]},
+                           "is_custom": False}]
+    admins = _ADMIN_ROWS + [{"telegram_id": KEYS_EDITOR_ID,
+                             "role_name": "keys_editor",
+                             "added_by": ADMIN_ID, "created_at": None}]
+    cache, app = _make_app_client(monkeypatch, tmp_path, roles, admins)
     with TestClient(app) as test_client:
         test_client.cache = cache
         yield test_client
@@ -186,14 +217,15 @@ class TestAllowlists:
     def test_global_secret_allowlist(self):
         assert chat_keys.is_global_secret(IMAGE_KEY) is True
         assert chat_keys.is_global_secret("keys.llm_api_key") is False
-        assert IMAGE_KEY in chat_keys.GLOBAL_SECRET_KEYS
+        assert IMAGE_KEY in chat_keys.global_secret_keys()
 
     def test_flag_off_disables_global_secret(self, monkeypatch):
-        """Kill-switch: OFF → global-ветка отключена (allowlist «пуст»)."""
+        """Kill-switch: OFF → global-ветка отключена (allowlist буквально пуст)."""
         # Тип берём у живого синглтона: иные тесты делают
         # `importlib.reload(config.settings)` и класс-идентичность сдвигается.
         monkeypatch.setattr(type(settings_mod.settings),
                             "BYOK_IMAGE_KEY_ENABLED", False)
+        assert chat_keys.global_secret_keys() == frozenset()
         assert chat_keys.is_global_secret(IMAGE_KEY) is False
 
     def test_me_exposes_ui_flag(self, client):
@@ -350,3 +382,80 @@ class TestGlobalDelete:
         resp = client.delete("/api/config/keys/own/keys.llm_api_key",
                              headers=_hdr(ADMIN_ID))
         assert resp.status_code == 422
+
+
+# ═══ Паритет прав UI↔бэкенд (review iter1, Finding H) ══════════════════════
+
+class TestRbacParity:
+    def test_keys_section_role_cannot_save_global_secret(
+            self, keys_editor_client):
+        """Роль с `sections:['keys']` без wildcard НЕ глобальный админ →
+        safe-эндпоинт 403 (UI зеркалит: поле disabled, см. JS-тест)."""
+        resp = keys_editor_client.put(
+            "/api/config/keys/own",
+            json={"key_name": IMAGE_KEY, "value": "x", "scope": "global"},
+            headers=_hdr(KEYS_EDITOR_ID))
+        assert resp.status_code == 403
+        assert keys_editor_client.cache.get(IMAGE_KEY) == IMAGE_SECRET
+
+    def test_keys_section_role_sees_no_global_key_in_config(
+            self, keys_editor_client):
+        """Секция `keys` не открывает глобальный секрет и на чтении."""
+        resp = keys_editor_client.get("/api/config",
+                                      headers=_hdr(KEYS_EDITOR_ID))
+        assert resp.status_code == 200
+        items = {i["key"]: i for i in resp.json()["items"]}
+        assert IMAGE_KEY not in items
+
+    def test_global_admin_saves_ok(self, client):
+        resp = client.put(
+            "/api/config/keys/own",
+            json={"key_name": IMAGE_KEY, "value": "rbac-ok-key",
+                  "scope": "global"},
+            headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        assert client.cache.get(IMAGE_KEY) == "rbac-ok-key"
+
+
+# ═══ Reload + R17-логи (review iter1, Finding M/spec §6) ════════════════════
+
+class TestReloadAndLogs:
+    def test_reload_shows_configured_mask(self, client):
+        """После PUT «перезагрузка» (свежий GET /api/config) показывает
+        {configured:true,last4}, а не пусто — ключ не потерян."""
+        client.put("/api/config/keys/own",
+                   json={"key_name": IMAGE_KEY, "value": "reload-secret-4321",
+                         "scope": "global"},
+                   headers=_hdr(ADMIN_ID))
+        items = {i["key"]: i
+                 for i in client.get("/api/config",
+                                     headers=_hdr(ADMIN_ID)).json()["items"]}
+        assert items[IMAGE_KEY]["value"] == {"configured": True,
+                                             "last4": "4321"}
+
+    def test_logs_never_contain_raw(self, client, caplog):
+        """R17: raw-значение не попадает ни в одну лог-запись (PUT/GET/DELETE)."""
+        sentinel = "log-sentinel-raw-987654"
+        with caplog.at_level(logging.INFO):
+            client.put("/api/config/keys/own",
+                       json={"key_name": IMAGE_KEY, "value": sentinel,
+                             "scope": "global"},
+                       headers=_hdr(ADMIN_ID))
+            client.get("/api/config", headers=_hdr(ADMIN_ID))
+            client.get("/api/config/keys/own", headers=_hdr(ADMIN_ID))
+            client.delete(f"/api/config/keys/own/{IMAGE_KEY}",
+                          headers=_hdr(ADMIN_ID))
+        assert sentinel not in caplog.text
+        assert all(sentinel not in r.getMessage() for r in caplog.records)
+
+
+# ═══ UI-разметка заглушки (spec §3.3) ═══════════════════════════════════════
+
+class TestIndexMarkup:
+    def test_installed_badge_present(self):
+        assert "Ключ установлен" in _INDEX
+        assert "f.globalSecret && blockFieldConfigured(f)" in _INDEX
+
+    def test_global_secret_admin_only_hint(self):
+        assert "f.globalSecret && !canEditConfig(f.key)" in _INDEX
+        assert "только глобальный администратор" in _INDEX

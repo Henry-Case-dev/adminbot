@@ -102,7 +102,8 @@ function imageConfigItems() {
       per_chat: false, value: { configured: true, last4: 'abcd' } },
   ];
 }
-function makeBlockCtx(drafts) {
+function makeBlockCtx(drafts, opts) {
+  opts = opts || {};
   const calls = [];
   const ctx = {
     calls: calls,
@@ -117,7 +118,14 @@ function makeBlockCtx(drafts) {
     blockFieldValue: methods.blockFieldValue,
     blockDependsOn: methods.blockDependsOn,
     saveProviderSecret: methods.saveProviderSecret,
-    async api(url, opts) { calls.push({ url: url, opts: opts || {} }); return {}; },
+    activeChatId: opts.activeChatId != null ? opts.activeChatId : null,
+    uiFlag(name) {
+      if (opts.uiFlags && Object.prototype.hasOwnProperty.call(opts.uiFlags, name)) {
+        return !!opts.uiFlags[name];
+      }
+      return true;
+    },
+    async api(url, opts2) { calls.push({ url: url, opts: opts2 || {} }); return {}; },
   };
   return ctx;
 }
@@ -252,6 +260,65 @@ function makeBlockCtx(drafts) {
       'F11: saveKeyItem image → scope global');
     assert.strictEqual(ctx.keyDrafts['keys.image_api_key'], '',
       'F11: черновик очищен');
+  }
+
+  // ── 6) Kill-switch OFF → прежняя (сбойная) маршрутизация секрета ────────
+  {
+    const ctx = makeBlockCtx({ 'keys.image_api_key': 'sk-off-flag' },
+      { uiFlags: { BYOK_IMAGE_KEY_ENABLED: false } });
+    await methods.saveBlock.call(ctx, imageBlock);
+    assert.strictEqual(
+      ctx.calls.filter((c) => c.url === '/api/config/keys/own').length, 0,
+      'F11 OFF: safe-эндпоинт не вызывается');
+    const cfg = ctx.calls.filter((c) => c.url === '/api/config');
+    assert.strictEqual(cfg.length, 1,
+      'F11 OFF: прежний POST /api/config');
+    assert.ok(cfg[0].opts.body.indexOf('keys.image_api_key') >= 0,
+      'F11 OFF: прежняя маршрутизация секрета');
+  }
+
+  // ── 7) Контракт saveProviderSecret: scope:'chat' → per-chat BYOK ────────
+  {
+    const calls = [];
+    const ctx = {
+      activeChatId: -100500,
+      uiFlag() { return true; },
+      async api(url, opts) { calls.push({ url: url, opts: opts || {} }); return {}; },
+    };
+    await methods.saveProviderSecret.call(ctx, 'keys.llm_api_key', 'llm-secret',
+      { scope: 'chat' });
+    assert.strictEqual(calls.length, 1, 'llm chat → 1 запрос');
+    assert.strictEqual(calls[0].url, '/api/config/keys/own',
+      'llm chat → BYOK-эндпоинт');
+    assert.strictEqual(calls[0].opts.method, 'PUT', 'llm chat → PUT');
+    assert.notStrictEqual(calls[0].opts.global, true,
+      'llm chat → с X-Chat-Id (не global)');
+    assert.strictEqual(JSON.parse(calls[0].opts.body).scope, 'chat',
+      'llm chat → scope:chat');
+  }
+
+  // ── 8) Паритет прав UI↔бэкенд для globalSecret (Finding H) ──────────────
+  {
+    function editCtx(permissions, isGlobal) {
+      return {
+        permissions: permissions,
+        configItems: imageConfigItems(),
+        isGlobalAdmin() { return isGlobal; },
+        isDmCtx() { return false; },
+      };
+    }
+    assert.strictEqual(
+      methods.canEditConfig.call(editCtx({ sections: ['keys'] }, false),
+        'keys.image_api_key'), false,
+      'F11: роль с секцией keys НЕ правит глобальный image-ключ');
+    assert.strictEqual(
+      methods.canEditConfig.call(editCtx({ wildcard: true }, true),
+        'keys.image_api_key'), true,
+      'F11: wildcard (global admin) правит image-ключ');
+    assert.strictEqual(
+      methods.canEditConfig.call(editCtx({ sections: ['keys'] }, true),
+        'keys.image_api_key'), true,
+      'F11: global admin правит image-ключ');
   }
 
   console.log('IMAGE-KEY-OK');

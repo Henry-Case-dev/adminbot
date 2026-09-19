@@ -55,12 +55,20 @@ def is_whitelisted(key_name: str) -> bool:
 
 def is_global_secret(key_name: str) -> bool:
     """F11 (ADR-1024-12 D2): True — ключ из allowlist ГЛОБАЛЬНЫХ секретов И
-    рубильник `BYOK_IMAGE_KEY_ENABLED` включён. OFF → global-ветка отключена
-    (allowlist пуст, прежнее поведение)."""
+    рубильник `BYOK_IMAGE_KEY_ENABLED` включён. OFF → allowlist пуст
+    (global-ветка отключена, прежнее поведение)."""
+    return key_name in global_secret_keys()
+
+
+def global_secret_keys() -> frozenset[str]:
+    """Действующий allowlist глобальных секретов: пуст при
+    `BYOK_IMAGE_KEY_ENABLED=OFF` (spec §9). Единственная точка правды —
+    call-site'ы обязаны ходить сюда/через `is_global_secret`, а не читать
+    `GLOBAL_SECRET_KEYS` напрямую (иначе обойдут kill-switch)."""
     from config.settings import settings
     if not getattr(settings, "BYOK_IMAGE_KEY_ENABLED", True):
-        return False
-    return key_name in GLOBAL_SECRET_KEYS
+        return frozenset()
+    return GLOBAL_SECRET_KEYS
 
 
 def mask_key_info(key_name: str, value: str | None) -> dict:
