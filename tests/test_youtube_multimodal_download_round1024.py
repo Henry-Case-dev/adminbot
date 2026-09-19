@@ -133,6 +133,10 @@ def fm_env(tmp_path, monkeypatch):
     youtube_mod._media_downloader = downloader
     youtube_mod._cooldown._last.clear()
 
+    memory = MagicMock()
+    memory.memorize_facts = AsyncMock()
+    youtube_mod._media_memory = memory
+
     monkeypatch.setattr(youtube_mod.media_share, "enabled", lambda: True)
     monkeypatch.setattr(youtube_mod.media_share, "publish_media_file",
                         AsyncMock(return_value=_ticket()))
@@ -144,6 +148,7 @@ def fm_env(tmp_path, monkeypatch):
     yield service, downloader, cache
     youtube_mod._service = None
     youtube_mod._media_downloader = None
+    youtube_mod._media_memory = None
     youtube_mod._cooldown._last.clear()
 
 
@@ -164,6 +169,7 @@ class TestDownloadPublishMultimodal:
         await _run_summary(bot)
         # скачали канонический watch-URL (вход для yt-dlp, не video_url модели)
         assert downloader.downloaded == [CANONICAL]
+        assert downloader.quality == ["360"]     # тариф ветки — 360p
         # опубликовали и отдали мультимодалке РЕАЛЬНЫЙ /media-URL
         youtube_mod.media_share.publish_media_file.assert_awaited_once()
         kwargs = service.summarize_media_url.await_args.kwargs
@@ -176,6 +182,46 @@ class TestDownloadPublishMultimodal:
         assert cache.sets == [(f"youtube:{VIDEO_ID}", "выжимка по видео")]
         # ticket удалён в finally
         youtube_mod.media_share.delete_file.assert_awaited()
+
+    @pytest.mark.asyncio
+    async def test_multimodal_success_writes_no_memory(self, fm_env):
+        """spec §3.1 п.4: память мультимодального успеха НЕ пишем (паритет с
+        native/direct/platform: инъекция — только на путях с транскриптом)."""
+        service, downloader, cache = fm_env
+        spy = []
+
+        def _spy(coro, tag):
+            spy.append((coro, tag))
+            coro.close()
+
+        import unittest.mock as _um
+        with _um.patch.object(youtube_mod, "fire_and_forget", side_effect=_spy):
+            await _run_summary()
+        assert spy == []
+        youtube_mod._media_memory.memorize_facts.assert_not_called()
+        service.summarize_cascade.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_video_client_unavailable_skips_download(self, fm_env):
+        """review iter1 (High): нет доступного видео-клиента → download НЕ
+        вызывается (субтитровый фолбэк файл не использует), сразу L3."""
+        service, downloader, cache = fm_env
+        service.video_client.available = False
+        bot = _make_bot()
+        await _run_summary(bot)
+        assert downloader.downloaded == []
+        youtube_mod.media_share.publish_media_file.assert_not_awaited()
+        service.summarize_cascade.assert_awaited_once()
+        assert bot.send_message.await_args.args[1] == "выжимка по субтитрам"
+
+    @pytest.mark.asyncio
+    async def test_video_client_none_skips_download(self, fm_env):
+        service, downloader, cache = fm_env
+        service.video_client = None
+        bot = _make_bot()
+        await _run_summary(bot)
+        assert downloader.downloaded == []
+        service.summarize_cascade.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_downloaded_file_cleaned_up(self, fm_env, tmp_path):
@@ -207,6 +253,40 @@ class TestSubtitleFallback:
         await _run_summary(bot)
         service.summarize_cascade.assert_awaited_once()
         assert bot.send_message.await_args.args[1] == "выжимка по субтитрам"
+
+    @pytest.mark.asyncio
+    async def test_publish_returns_none_falls_back(self, fm_env, monkeypatch):
+        """Файл > MEDIA_SHARE_MAX_MB / не-whitelisted ext: publish → None →
+        тихий фолбэк на субтитры."""
+        service, downloader, cache = fm_env
+        monkeypatch.setattr(youtube_mod.media_share, "publish_media_file",
+                            AsyncMock(return_value=None))
+        bot = _make_bot()
+        await _run_summary(bot)
+        assert downloader.downloaded == [CANONICAL]
+        service.summarize_media_url.assert_not_awaited()
+        service.summarize_cascade.assert_awaited_once()
+        assert bot.send_message.await_count == 1
+        assert bot.send_message.await_args.args[1] == "выжимка по субтитрам"
+
+    @pytest.mark.asyncio
+    async def test_publish_raises_silent_falls_back(self, fm_env, monkeypatch,
+                                                    caplog):
+        """review iter1 (Medium): неожиданное исключение публикации глушится —
+        юзеру НЕ уходит LLM_ERROR_PHRASES, работает субтитровый фолбэк."""
+        service, downloader, cache = fm_env
+        monkeypatch.setattr(youtube_mod.media_share, "publish_media_file",
+                            AsyncMock(side_effect=RuntimeError("executor down")))
+        bot = _make_bot()
+        with caplog.at_level(logging.WARNING):
+            await _run_summary(bot)
+        assert bot.send_message.await_count == 1
+        sent = bot.send_message.await_args.args[1]
+        assert sent == "выжимка по субтитрам"
+        assert sent not in LLM_ERROR_PHRASES
+        service.summarize_cascade.assert_awaited_once()
+        assert any("multimodal publish/cascade unexpected" in r.message
+                   for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_download_failure_silent_then_subtitles(self, fm_env, caplog):

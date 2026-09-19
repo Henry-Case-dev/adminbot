@@ -693,8 +693,10 @@ async def _publish_and_cascade(bot, chat_id: int, path: str,
     """Публикация tmp-файла → L1/L2 на /media abs_url → ticket.
     Публикация выключена/файл не опубликован → (None, None) — уровни L1/L2
     пропускаются сразу (лог, без таймаутов 120с×2). Провал обеих моделей →
-    (None, None) (STT-фолбек). Успех → (None, text). Удаление файла — в
-    finally (TTL — страховка). R17: URL/подпись не логируются (label-хвост)."""
+    (ticket, None) (STT/субтитровый фолбек — вызывающий). Успех →
+    (ticket, text); ticket уже удалён в finally (владелец lifecycle —
+    эта функция; TTL — страховка). R17: URL/подпись не логируются
+    (label-хвост)."""
     if not media_share.enabled():
         logger.info("[video cascade] file publish unavailable — skip L1/L2 | "
                     "chat=%s label=%s", chat_id, label)
@@ -1068,7 +1070,8 @@ async def _process_youtube_summary(bot, message: types.Message,
     A) скачать видео (тихо, 360p, бюджет) → B) опубликовать (media_share) и
     дать мультимодалке РЕАЛЬНЫЙ файл (`summarize_media_url`) → C) фолбэк на
     субтитры (`summarize_cascade`, L3-only). При флаге OFF / выключенной
-    публикации / без downloader — сразу C (совместимость с прежним путём).
+    публикации / без downloader / без доступного видео-клиента — сразу C
+    (совместимость с прежним путём).
     Cache-key, слот пула, on_retry, 🗿 и фразы сохранены."""
     text = (message.text or message.caption or "")
     cache = get_smart_cache()
@@ -1092,20 +1095,34 @@ async def _process_youtube_summary(bot, message: types.Message,
                      message.message_id)
         return
     path: Path | None = None
-    ticket = None
     try:
         # Epic 60 (65.7, T-475): «печатает…» от контекста в ИИ до отправки.
         async with typing_active(bot, message.chat.id):
             # ── Шаг A+B (F16): скачать → опубликовать → мультимодалка ──
+            # Парность с native/direct: при недоступном мультимодальном
+            # клиенте скачивание бессмысленно (субтитровый фолбэк файл НЕ
+            # использует) — не тратим до 240с и копию на диск, сразу шаг C.
             if (_yt_multimodal_enabled()
+                    and _service.video_client is not None
+                    and _service.video_client.available
                     and media_share.enabled()
                     and _media_downloader is not None
                     and _yt_multimodal_allowed(message.chat.id)):
                 url = f"https://www.youtube.com/watch?v={video_id}"
                 path = await _download_youtube_silent(url, _yt_multimodal_timeout())
                 if path is not None:
-                    ticket, text_out = await _publish_and_cascade(
-                        bot, message.chat.id, str(path), _LABEL_YT_URL)
+                    try:
+                        # ticket удаляется внутри _publish_and_cascade (finally);
+                        # хендлеру он не нужен — владелец lifecycle там.
+                        _, text_out = await _publish_and_cascade(
+                            bot, message.chat.id, str(path), _LABEL_YT_URL)
+                    except Exception as exc:
+                        # spec §3.3: сбой публикации/каскада — тихий WARNING,
+                        # юзеру НЕ показываем LLM-фразу; идём на субтитры (C).
+                        logger.warning(
+                            "[youtube] multimodal publish/cascade unexpected "
+                            "| error=%s", type(exc).__name__)
+                        text_out = None
                     if text_out:
                         await send_chunked_reply(bot, message.chat.id, text_out,
                                                  target.message_id)
@@ -1157,8 +1174,6 @@ async def _process_youtube_summary(bot, message: types.Message,
                 os.unlink(path)
             except OSError:
                 pass
-        if ticket is not None:
-            await media_share.delete_file(ticket.file_id)
         permit.release()
 
 
