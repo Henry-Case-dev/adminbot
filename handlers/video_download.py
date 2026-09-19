@@ -168,7 +168,7 @@ def _extract_urls(message: types.Message) -> list[str]:
 # что в handlers/youtube.py 3.1.1 (видео-документ: mime video/*; без mime —
 # по расширению file_name; voice/video_note/audio НЕ подходят).
 # Раунд 10.24 (F14, ADR-1024-15 §2.3): единый источник — services.native_media.
-_VIDEO_DOC_EXTENSIONS = native_media_module.VIDEO_DOC_EXTENSIONS
+# `_document_is_video` сохранён для прежнего (флаг OFF) пути `_reply_video_media`.
 _document_is_video = native_media_module.document_is_video
 
 

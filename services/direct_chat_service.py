@@ -747,6 +747,12 @@ class DirectChatService:
             # платного вызова и двойного списания image_calls).
             if image_pre_gate_fired:
                 image_enabled = False
+            # Раунд 10.24 (F13→F14, T-2295): эмиссия `ToolContext.native_media` —
+            # интерфейсная строка связи. Файл принадлежит F13, но F13-коммит
+            # эмиссию не отдал, поэтому она влита F14 вместе с модулем
+            # `services.native_media` (зафиксировано в tasks.md F14). Резолвер
+            # безопасен (никогда не бросает). При OFF-флаге значение не мешает:
+            # нативный резолв в `tool_router` гейтится `NATIVE_MEDIA_TOOLS_ENABLED`.
             tool_ctx = ToolContext(chat_id, query, bot=bot,
                                    reply_to_message_id=message.message_id,
                                    user_id=user_id,

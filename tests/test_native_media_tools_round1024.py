@@ -36,6 +36,7 @@ from services.tool_schemas import (
     TOOL_SUMMARIZE_VIDEO,
     TOOL_TRANSCRIBE_VIDEO,
 )
+from services.video_cascade_client import VideoLevelError
 from tools.video_download_phrases import (
     VD_ERROR_PHRASES,
     VD_NO_LINK_PHRASES,
@@ -243,6 +244,193 @@ class TestToolsNativeSource:
             "download_media", {}, _ctx(bot=_NativeBot()))
         assert json.loads(dl)["status"] == "error"
 
+    @pytest.mark.asyncio
+    async def test_flag_off_native_calls_return_legacy_errors(self, monkeypatch):
+        """Kill-switch: OFF → native-резолв в tool_router не работает; нативные
+        вызовы без `url` дают ПРЕЖНИЕ строки ошибок, fetch/send не запускаются."""
+        from services import tool_router as tool_router_mod
+        # Settings — frozen dataclass с ClassVar-флагом: подменяем объект
+        # прокси, где флаг OFF, остальные атрибуты — из реальных settings.
+        real_settings = tool_router_mod.settings
+
+        class _OffSettings:
+            NATIVE_MEDIA_TOOLS_ENABLED = False
+
+            def __getattr__(self, name):
+                return getattr(real_settings, name)
+
+        monkeypatch.setattr(tool_router_mod, "settings", _OffSettings())
+        bot = _NativeBot()
+        video = MagicMock()
+        video.video_client = None
+        video.summarize_transcript = AsyncMock()
+        router = ToolRouter(_deps(video=video, downloader=MagicMock()))
+        ctx = _ctx(bot=bot, native_media=_video_native())
+        summary = await router.dispatch("summarize_video", {}, ctx)
+        assert summary == "ОШИБКА summarize_video: некорректная ссылка"
+        dl = await router.dispatch("download_media", {}, ctx)
+        assert json.loads(dl)["status"] == "error"
+        assert json.loads(dl)["message"] == "Некорректная ссылка"
+        assert bot.download.await_count == 0
+        assert bot.send_video.await_count == 0
+
+    @pytest.mark.asyncio
+    async def test_source_reply_wins_over_http_url(self):
+        """§4.5: `source=="reply"` — нативный путь приоритетнее http-`url`."""
+        bot = _NativeBot()
+        router = ToolRouter(_deps(downloader=MagicMock()))
+        ctx = _ctx(bot=bot, native_media=_video_native())
+        out = await router.dispatch(
+            "download_media", {"url": URL, "source": "reply"}, ctx)
+        assert json.loads(out)["status"] == "success"
+        assert bot.download.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_source_reply_without_native_is_error(self):
+        """`source=="reply"`, но нативного медиа нет → ошибка (не url-ветка)."""
+        router = ToolRouter(_deps(downloader=MagicMock()))
+        out = await router.dispatch(
+            "download_media", {"url": URL, "source": "reply"},
+            _ctx(bot=_NativeBot()))
+        assert json.loads(out)["status"] == "error"
+
+
+# ── (b) публикационный путь native summarize: media_share → L1/L2 → cleanup ─
+
+
+class TestNativeSummarizePublish:
+    @pytest.mark.asyncio
+    async def test_publish_then_media_url_and_delete(self, monkeypatch):
+        from services import media_share
+        bot = _NativeBot()
+        ticket = SimpleNamespace(abs_url="https://media.example/signed-token",
+                                 file_id="ticket1")
+        monkeypatch.setattr(media_share, "enabled", lambda: True)
+        monkeypatch.setattr(media_share, "publish_media_file",
+                            AsyncMock(return_value=ticket))
+        delete = AsyncMock()
+        monkeypatch.setattr(media_share, "delete_file", delete)
+        video = MagicMock()
+        video.video_client = SimpleNamespace(available=True)
+        video.summarize_media_url = AsyncMock(return_value="выжимка L1/L2")
+        video.summarize_transcript = AsyncMock()
+        transcriber = MagicMock()
+        transcriber.transcribe_voice = AsyncMock()
+        router = ToolRouter(_deps(video=video, transcriber=transcriber))
+        out = await router.dispatch(
+            "summarize_video", {}, _ctx(bot=bot, native_media=_video_native()))
+        assert out == "выжимка L1/L2"
+        kwargs = video.summarize_media_url.await_args.kwargs
+        assert kwargs["video_url"] == ticket.abs_url
+        delete.assert_awaited_once_with(ticket.file_id)
+        transcriber.transcribe_voice.assert_not_awaited()   # STT не задействован
+        video.summarize_transcript.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_publish_videolevel_error_falls_back_and_deletes(
+            self, monkeypatch):
+        from services import media_share
+        bot = _NativeBot()
+        ticket = SimpleNamespace(abs_url="https://media.example/signed-token",
+                                 file_id="ticket2")
+        monkeypatch.setattr(media_share, "enabled", lambda: True)
+        monkeypatch.setattr(media_share, "publish_media_file",
+                            AsyncMock(return_value=ticket))
+        delete = AsyncMock()
+        monkeypatch.setattr(media_share, "delete_file", delete)
+        video = MagicMock()
+        video.video_client = SimpleNamespace(available=True)
+        video.summarize_media_url = AsyncMock(
+            side_effect=VideoLevelError("L1/L2 down"))
+        video.summarize_transcript = AsyncMock(return_value="выжимка из STT")
+        transcriber = MagicMock()
+        transcriber.transcribe_voice = AsyncMock(return_value="сырой текст")
+        router = ToolRouter(_deps(video=video, transcriber=transcriber))
+        out = await router.dispatch(
+            "summarize_video", {}, _ctx(bot=bot, native_media=_video_native()))
+        assert out == "выжимка из STT"
+        delete.assert_awaited_once_with(ticket.file_id)     # finally сработал
+        transcriber.transcribe_voice.assert_awaited_once()
+        video.summarize_transcript.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_publish_without_ticket_skips_to_stt(self, monkeypatch):
+        """publish_media_file → None: L1/L2 пропускается, идёт STT-фолбэк."""
+        from services import media_share
+        monkeypatch.setattr(media_share, "enabled", lambda: True)
+        monkeypatch.setattr(media_share, "publish_media_file",
+                            AsyncMock(return_value=None))
+        video = MagicMock()
+        video.video_client = SimpleNamespace(available=True)
+        video.summarize_media_url = AsyncMock()
+        video.summarize_transcript = AsyncMock(return_value="выжимка из STT")
+        transcriber = MagicMock()
+        transcriber.transcribe_voice = AsyncMock(return_value="сырой текст")
+        router = ToolRouter(_deps(video=video, transcriber=transcriber))
+        out = await router.dispatch(
+            "summarize_video", {}, _ctx(bot=_NativeBot(),
+                                        native_media=_video_native()))
+        assert out == "выжимка из STT"
+        video.summarize_media_url.assert_not_awaited()
+        transcriber.transcribe_voice.assert_awaited_once()
+
+
+# ── (h) R17: нативный путь не логирует file_id/tmp/abs_url ───────────────
+
+
+class TestNativePathR17:
+    @pytest.mark.asyncio
+    async def test_native_download_logs_no_secrets(self, monkeypatch, caplog):
+        real = native_media.download_to_tmp
+
+        async def _wrap(bot, media, *, timeout=120.0):
+            return await real(bot, media, timeout=timeout)
+
+        monkeypatch.setattr(native_media, "download_to_tmp", _wrap)
+        bot = _NativeBot()
+        native = NativeMedia(
+            source=MagicMock(),
+            media=SimpleNamespace(file_id="SECRETFID12345"), kind="video")
+        router = ToolRouter(_deps(downloader=MagicMock()))
+        with caplog.at_level(logging.DEBUG):
+            await router.dispatch("download_media", {},
+                                  _ctx(bot=bot, native_media=native))
+        assert "SECRETFID12345" not in caplog.text
+        assert "nm_" not in caplog.text                 # tmp-префикс пути
+        assert "file_id" not in caplog.text
+        assert "kind=video" in caplog.text              # разрешённое поле
+
+    @pytest.mark.asyncio
+    async def test_native_summarize_logs_no_secrets(self, monkeypatch, caplog):
+        from services import media_share
+        real = native_media.download_to_tmp
+
+        async def _wrap(bot, media, *, timeout=120.0):
+            return await real(bot, media, timeout=timeout)
+
+        monkeypatch.setattr(native_media, "download_to_tmp", _wrap)
+        monkeypatch.setattr(media_share, "enabled", lambda: True)
+        ticket = SimpleNamespace(abs_url="https://media.example/signed-token",
+                                 file_id="ticket3")
+        monkeypatch.setattr(media_share, "publish_media_file",
+                            AsyncMock(return_value=ticket))
+        monkeypatch.setattr(media_share, "delete_file", AsyncMock())
+        video = MagicMock()
+        video.video_client = SimpleNamespace(available=True)
+        video.summarize_media_url = AsyncMock(return_value="выжимка L1/L2")
+        transcriber = MagicMock()
+        router = ToolRouter(_deps(video=video, transcriber=transcriber))
+        native = NativeMedia(
+            source=MagicMock(),
+            media=SimpleNamespace(file_id="SECRETFID12345"), kind="video")
+        with caplog.at_level(logging.DEBUG):
+            await router.dispatch("summarize_video", {},
+                                  _ctx(bot=_NativeBot(), native_media=native))
+        assert "SECRETFID12345" not in caplog.text
+        assert "signed-token" not in caplog.text        # подписанный abs_url
+        assert "media.example" not in caplog.text
+        assert "nm_" not in caplog.text
+
 
 # ── (c) probe-fail: отдельный пул + R17-safe лог ─────────────────────────
 
@@ -325,6 +513,19 @@ class TestAdditive:
                               file_name="док.pdf")
         assert not document_is_video(pdf)
         msg = _make_msg(document=pdf)
+        assert resolve_reply_video(msg) is None
+
+    def test_youtube_resolver_tolerant_vs_strict_video_without_file_id(self):
+        """Ревизия ADR-1024-15 §2.3 (F14): youtube `_resolve_video_media`
+        сохраняет прежнюю (толерантную) семантику — video без `file_id`
+        квалифицируется; строгий `resolve_reply_video` (Fast-Track/F13) его
+        отсекает как небезопасный для fetch."""
+        from handlers import youtube
+        reply = _make_msg(message_id=55, video=SimpleNamespace(file_id=None))
+        msg = _make_msg(text="Бот, транскрипт", message_id=56,
+                        reply_to_message=reply)
+        resolved = youtube._resolve_video_media(msg)
+        assert resolved is not None and resolved.kind == "video"
         assert resolve_reply_video(msg) is None
 
     def test_youtube_resolver_delegates(self):

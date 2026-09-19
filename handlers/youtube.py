@@ -131,10 +131,6 @@ _media_downloader = None
 # Медиа-ветка: бюджет на скачивание TG-файла (NFR-4).
 _FETCH_TIMEOUT = 120.0
 
-# Документы-«видео» БЕЗ mime — по расширению file_name (3.1.1).
-# Раунд 10.24 (F14, ADR-1024-15 §2.3): единый источник — services.native_media.
-_VIDEO_DOC_EXTENSIONS = native_media.VIDEO_DOC_EXTENSIONS
-
 # Раунд 3 (3.2, T-690): cap субтитров YouTube для mode=transcript.
 _YT_TRANSCRIPT_CAP = 20000
 # Ссылочные ветки качают «в тихую» в 360p (без probe-меню 4e).
@@ -371,12 +367,28 @@ def _resolve_video_media(message: types.Message) -> _VideoMedia | None:
     НИКОГДА не квалифицируются (0i их обслуживает). Собственное медиа вызова
     приоритетнее медиа реплая. Любое исключение → None (не ронять роутер).
     Форварды: aiogram кладёт вложение в те же поля (message.video +
-    forward_origin) — репосты работают через ту же квалификацию."""
+    forward_origin) — репосты работают через ту же квалификацию.
+
+    Раунд 10.24 (F14): семантика **байт-в-байт** прежней (без `_has_file_id`,
+    без per-candidate catch) — строгий `resolve_reply_video` используется
+    Fast-Track/эмиссией F13; здесь сохранён регресс-паритет ревизии ADR-15 §2.3.
+    Квалификация документа делегирована `native_media.document_is_video`."""
     try:
         body = _triggered_body(message)
         if body is None:
             return None
-        return native_media.resolve_reply_video(message)
+        for candidate in (message, getattr(message, "reply_to_message", None)):
+            if candidate is None:
+                continue
+            video = getattr(candidate, "video", None)
+            if video is not None:
+                return native_media.NativeMedia(
+                    source=candidate, media=video, kind="video")
+            document = getattr(candidate, "document", None)
+            if document is not None and native_media.document_is_video(document):
+                return native_media.NativeMedia(
+                    source=candidate, media=document, kind="document")
+        return None
     except Exception:
         logger.warning("[youtube] media resolve failed — UNHANDLED", exc_info=True)
         return None

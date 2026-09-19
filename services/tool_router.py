@@ -93,13 +93,14 @@ _LORE_RETURN_INSTRUCTION = (
 # Cap транскрипта для mode=transcript (прецедент handlers/youtube T-690).
 _SUMMARIZE_TRANSCRIPT_CAP = 20000
 
-# Раунд 10.24 (F14, ADR-1024-15 §2.3): нативный источник инструментов
+# Раунд 10.24 (F14, ADR-1024-15 §2.3/§2.5): нативный источник инструментов
 # (summarize_video/download_media) — только video/видео-document; bytes берём
 # из разрешённого aiogram-объекта `ToolContext.native_media` (не из текста
-# модели). STT-фолбэк выжимки — таймаут и лимит TG-файла; download-кулдаун на
-# нативную пересылку НЕ жжётся (копирование TG-файла, паритет Fast-Track).
+# модели). STT-таймаут — паритет с youtube (`limits.video_stt_timeout_seconds`);
+# download-кулдаун на нативную пересылку НЕ жжётся (копирование TG-файла,
+# паритет Fast-Track). Kill-switch `NATIVE_MEDIA_TOOLS_ENABLED` гейтит нативный
+# резолв (OFF → прежние ошибки, native fetch/STT не запускаются).
 _NATIVE_VIDEO_KINDS = ("video", "document")
-_NATIVE_STT_TIMEOUT = 120.0
 _DOWNLOAD_NATIVE_MAX_BYTES = 2_000_000_000
 
 # Раунд 10.17 (F2, ADR-1017-2 §2.1/§2.6): tool-скачивание спрашивает качество
@@ -148,6 +149,15 @@ _HTTP_URL_RE = re.compile(r"^https?://\S+$", re.IGNORECASE)
 def _is_http_url(url: str) -> bool:
     """True — строка похожа на http(s)-ссылку (иначе инструмент → ОШИБКА)."""
     return bool(_HTTP_URL_RE.match(str(url or "").strip()))
+
+
+def _native_tools_enabled() -> bool:
+    """env-only kill-switch ``NATIVE_MEDIA_TOOLS_ENABLED`` (default ON).
+
+    Единая точка чтения флага для нативного резолва инструментов
+    (F14 §9/ADR-1024-15 §2.5). OFF → нативные вызовы без ``url`` не
+    исполняются (прежние строки ошибок, native fetch/STT не запускаются)."""
+    return bool(getattr(settings, "NATIVE_MEDIA_TOOLS_ENABLED", True))
 
 
 def _download_status(status: str, message: str) -> str:
@@ -752,6 +762,10 @@ class ToolRouter:
         R17: URL/пути не логируются."""
         source, url, native = self._resolve_tool_source(arguments, ctx)
         if source is None:
+            # F14 §2.5: OFF → прежняя (до-F14) строка ошибки; ON → понятная
+            # «нет источника» (нужна ссылка или видео из реплая).
+            if not _native_tools_enabled():
+                return "ОШИБКА summarize_video: некорректная ссылка"
             return ("ОШИБКА summarize_video: нет источника "
                     "(нужна ссылка или видео из реплая)")
         service = self.deps.video
@@ -844,26 +858,43 @@ class ToolRouter:
 
     async def _native_stt(self, path, native) -> str:
         """STT нативного видео-файла (F14): `deps.transcriber.transcribe_voice`
-        с видео-расширением; нет сервиса → RuntimeError (dispatch → ОШИБКА)."""
+        с видео-расширением; нет сервиса → RuntimeError (dispatch → ОШИБКА).
+        Таймаут — паритет youtube (`limits.video_stt_timeout_seconds`)."""
         transcriber = getattr(self.deps, "transcriber", None)
         if transcriber is None:
             raise RuntimeError("transcriber unavailable")
         ext = native_media.media_suffix(native).lstrip(".") or "mp4"
+        timeout = float(hot.get("limits.video_stt_timeout_seconds",
+                                settings.VIDEO_STT_TIMEOUT_SECONDS)
+                        or settings.VIDEO_STT_TIMEOUT_SECONDS)
         return await transcriber.transcribe_voice(
-            str(path), ext, timeout=_NATIVE_STT_TIMEOUT)
+            str(path), ext, timeout=timeout)
 
     def _resolve_tool_source(self, arguments: dict, ctx: ToolContext):
         """Общий резолв источника медиа-инструментов (F14, §4.5):
-        http(s)-`url` → ``("link", url, None)``; иначе при нативном видео в
-        ``ctx.native_media`` (video/видео-document) → ``("native", None, media)``;
-        иначе ``(None, None, None)`` (вызывающий вернёт понятную ошибку)."""
+
+        * ``source == "reply"`` → нативный путь при доступном видео (приоритет
+          над http-``url`` — спецификация §4.5); иначе нет источника;
+        * http(s)-``url`` → ``("link", url, None)``;
+        * иначе при нативном видео в ``ctx.native_media`` (video/видео-document)
+          → ``("native", None, media)``;
+        * иначе ``(None, None, None)``.
+
+        Kill-switch ``NATIVE_MEDIA_TOOLS_ENABLED`` OFF → нативный резолв не
+        срабатывает (прежнее поведение: инструментам нужен http-``url``)."""
         args = arguments if isinstance(arguments, dict) else {}
         url = str(args.get("url") or "").strip()
+        source = str(args.get("source") or "").strip().lower()
+        native = getattr(ctx, "native_media", None)
+        native_ok = (native is not None
+                     and getattr(native, "kind", "") in _NATIVE_VIDEO_KINDS)
+        if source == "reply":
+            if _native_tools_enabled() and native_ok:
+                return "native", None, native
+            return None, None, None
         if _is_http_url(url):
             return "link", url, None
-        native = getattr(ctx, "native_media", None)
-        if native is not None \
-                and getattr(native, "kind", "") in _NATIVE_VIDEO_KINDS:
+        if _native_tools_enabled() and native_ok:
             return "native", None, native
         return None, None, None
 

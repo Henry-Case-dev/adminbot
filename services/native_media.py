@@ -77,7 +77,7 @@ def resolve_reply_video(message) -> NativeMedia | None:
     try:
         candidates = (message, getattr(message, "reply_to_message", None))
     except Exception:
-        logger.debug("[native_media] message read failed", exc_info=True)
+        logger.debug("[native_media] message read failed")
         return None
     for candidate in candidates:
         if candidate is None:
@@ -91,9 +91,10 @@ def resolve_reply_video(message) -> NativeMedia | None:
                     and document_is_video(document)):
                 return NativeMedia(source=candidate, media=document,
                                    kind="document")
-        except Exception:
-            logger.warning("[native_media] media resolve failed — skip",
-                           exc_info=True)
+        except Exception as exc:
+            # R17: только класс исключения (без str/repr/file_id/путей).
+            logger.debug("[native_media] media resolve failed — skip | error=%s",
+                         type(exc).__name__)
             continue
     return None
 
