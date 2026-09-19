@@ -285,10 +285,10 @@ class _FakeDb:
     async def last_run_at(self, kinds, chat_id=None):
         return None
 
-    async def last_deep_run(self):
+    async def last_deep_run(self, chat_id=None):
         return None
 
-    async def count_dream_log(self, today, kind=None):
+    async def count_dream_log(self, today, kind=None, chat_id=None):
         return 0
 
     async def sum_dream_tokens(self, today):
@@ -304,10 +304,10 @@ class _FakeDb:
     async def list_recent_beliefs(self, **kwargs):
         return []
 
-    async def count_paradigms(self):
+    async def count_paradigms(self, chat_id=None):
         return 0
 
-    async def recent_dream_log(self, limit=50):
+    async def recent_dream_log(self, limit=50, chat_id=None):
         return []
 
 

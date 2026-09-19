@@ -455,6 +455,13 @@ async def memory_health_summary(
 # ── GET /api/memory/deep-sleep (F3/T-1442, spec §6/§8) ──────────────────────
 
 # F8/ADR-1024-5 D3: единые R17-safe коды причин пустоты (spec §5.1).
+#   * "unchanged" — LLM вернула `{"paradigms":[]}`/UNCHANGED (по промпту:
+#     «связи нет или данных мало») → код `empty` (НЕ `duplicate`: `duplicate`
+#     — это когда все кандидаты уже записаны ранее). Иначе Empty State врал бы
+#     владельцу (см. review F1).
+#   * "cooldown"/"daily_limit" оставлены для совместимости, но пре-LLM гейты
+#     не пишут `deep_skip` (только `_trace_deep`) — в ленте они недостижимы
+#     без записи в memory_dream_log. Ограничение зафиксировано в spec §5.1.
 _DEEP_REASON_MAP = {
     "no_anchors": "no_anchors",
     "no_context": "no_context",
@@ -462,7 +469,7 @@ _DEEP_REASON_MAP = {
     "daily_limit": "daily_limit",
     "budget": "budget_skip",
     "budget_skip": "budget_skip",
-    "unchanged": "duplicate",
+    "unchanged": "empty",
     "duplicate": "duplicate",
     "error": "error",
     "ok": "ok",
@@ -470,18 +477,14 @@ _DEEP_REASON_MAP = {
 }
 
 
-def _last_deep_reason(log, chat_id) -> str | None:
+def _last_deep_reason(log) -> str | None:
     """Причина последней попытки глубокого сна по memory_dream_log.
 
-    Сначала строки целевого чата (если есть), иначе — глобальные. Возвращает
-    R17-safe код причины (spec §5.1) либо None (попыток нет)."""
-    rows = [r for r in (log or []) if isinstance(r, dict)]
-    if chat_id is not None:
-        scoped = [r for r in rows
-                  if int(r.get("chat_id") or 0) == int(chat_id)]
-        if scoped:
-            rows = scoped
-    for row in rows:
+    Принимает уже СКОУПИРОВАННЫЙ по чату лог (без fallback на чужие строки).
+    Возвращает R17-safe код причины (spec §5.1) либо None (попыток нет)."""
+    for row in (log or []):
+        if not isinstance(row, dict):
+            continue
         if str(row.get("kind") or "") not in ("deep_run", "deep_skip"):
             continue
         raw = str(row.get("status") or "").strip()
@@ -511,11 +514,17 @@ async def deep_sleep_status(
         logger.warning("[memory_api] deep-sleep paradigms failed — пусто",
                        exc_info=True)
         paradigms = []
+    # F8/review F2+F3 (R16): ВСЕ поля ответа скоупятся по `chat_id` (None →
+    # глобально), как и список `paradigms[]`. Иначе причина последнего прогона
+    # и счётчики брались бы у чужого чата, а `paradigms_total` расходился с
+    # `paradigms_status`. `recent_dream_log` тоже строго по чату (без fallback).
     try:
-        total = await db.count_paradigms()
-        last_run = await db.last_deep_run()
-        runs_total = await db.count_dream_log(0, kind="deep_run")
-        log = [dict(r) for r in await db.recent_dream_log(limit=50)]
+        total = await db.count_paradigms(chat_id)
+        last_run = await db.last_deep_run(chat_id)
+        runs_total = await db.count_dream_log(0, kind="deep_run",
+                                              chat_id=chat_id)
+        log = [dict(r) for r in await db.recent_dream_log(
+            limit=50, chat_id=chat_id)]
     except Exception:
         logger.warning("[memory_api] deep-sleep counters failed — нули",
                        exc_info=True)
@@ -540,7 +549,7 @@ async def deep_sleep_status(
         paradigms_status, paradigms_reason = "empty", "master_off"
     else:
         paradigms_status = "empty"
-        paradigms_reason = _last_deep_reason(deep_log, chat_id) or "empty"
+        paradigms_reason = _last_deep_reason(deep_log) or "empty"
     return {
         "enabled": bool(deep_enabled),
         "source": deep_source,

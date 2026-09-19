@@ -1845,12 +1845,20 @@ class DreamWorker:
         personas_state), а не «тихое» пропускание. Возвращает число записанных
         черт (0 при skip/error). Fail-open: любая ошибка не рушит прогон."""
         from services.chat_params import get_chat_param as _persona_gate
+        persona_enabled = False
         try:
-            persona_enabled = await _persona_gate(
+            persona_enabled = bool(await _persona_gate(
                 chat_id, "flags.persona_enabled",
-                hot.get("flags.persona_enabled", settings.PERSONA_ENABLED))
+                hot.get("flags.persona_enabled", settings.PERSONA_ENABLED)))
         except Exception:
-            persona_enabled = bool(settings.PERSONA_ENABLED)
+            # F8/review F5: `persona_enabled` — контентный гейт владельца.
+            # Сбой чтения per-chat override НЕ «повышаем» молча до ON
+            # (иначе обошли бы выключенный для чата модуль) — трактуем OFF с
+            # явной причиной в трассе (R17-safe).
+            logger.warning("[persona_traits] persona gate read failed — "
+                           "fail-closed OFF | chat_id=%s", chat_id,
+                           exc_info=True)
+            _trace_deep(chat_id, "traits", "error", reason="gate_read_error")
         if not persona_enabled:
             logger.warning(
                 "[persona_traits] skip | reason=persona_disabled | chat_id=%s",

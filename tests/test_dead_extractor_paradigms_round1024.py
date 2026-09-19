@@ -207,28 +207,84 @@ class TestNoSelfFacts:
         assert written == 0
         assert state["statuses"] == ["persona_disabled"]
 
+    @pytest.mark.asyncio
+    async def test_gate_read_error_is_fail_closed_off(self, db, monkeypatch,
+                                                      caplog):
+        """review F5: сбой чтения per-chat гейта persona не «повышает» его до
+        ON — fail-closed OFF + trace `gate_read_error` (R17-safe)."""
+        import logging
+        state = _patch_persona(monkeypatch)
+
+        async def _boom(chat_id, key, default=None):
+            raise RuntimeError("pg down")
+
+        monkeypatch.setattr(cp, "get_chat_param", _boom)
+        worker = _worker(db, _FakeMemory([]), _RoleLLM(),
+                         monkeypatch=monkeypatch, values={})
+        with caplog.at_level(logging.WARNING):
+            written = await worker._run_persona_traits_step(CHAT_ID, _NOW)
+        assert written == 0
+        assert state["statuses"] == ["persona_disabled"]
+        assert "reason=gate_read_error" in caplog.text
+
 
 # ── (e) API статусы/причины лент ────────────────────────────────────────────
 
 class _ApiDb:
-    def __init__(self, *, paradigms=None, log=None):
-        self._paradigms = list(paradigms or [])
-        self._log = list(log or [])
+    """Мок БД, моделирующий РЕАЛЬНЫЙ chat-скоуп deep-sleep API (review F2/F3).
 
-    async def list_recent_beliefs(self, **kwargs):
+    `_paradigms`/`_log` — данные целевого чата; `foreign_*` — «чужие» строки,
+    видимые только при `chat_id=None` (глобальный режим)."""
+
+    def __init__(self, *, paradigms=None, log=None, runs=0, last_run=None,
+                 foreign_paradigms=None, foreign_log=None):
+        self._paradigms = list(paradigms or [])
+        self._foreign_paradigms = list(foreign_paradigms or [])
+        self._log = list(log or [])
+        self._foreign_log = list(foreign_log or [])
+        self._runs = int(runs)
+        self._last_run = last_run
+
+    async def list_recent_beliefs(self, chat_id=None, **kwargs):
+        if chat_id is None:
+            return list(self._paradigms) + list(self._foreign_paradigms)
         return list(self._paradigms)
 
-    async def count_paradigms(self):
-        return len(self._paradigms)
+    async def count_paradigms(self, chat_id=None):
+        extra = len(self._foreign_paradigms) if chat_id is None else 0
+        return len(self._paradigms) + extra
 
-    async def last_deep_run(self):
-        return None
+    async def last_deep_run(self, chat_id=None):
+        return self._last_run
 
-    async def count_dream_log(self, *a, **kw):
-        return 0
+    async def count_dream_log(self, since_ts, kind=None, chat_id=None):
+        return self._runs
 
-    async def recent_dream_log(self, limit=50):
-        return list(self._log)
+    async def recent_dream_log(self, limit=50, chat_id=None):
+        rows = list(self._log)
+        if chat_id is None:
+            rows = rows + list(self._foreign_log)
+        return rows
+
+
+def _mk_log(*, chat_id, status, kind="deep_skip"):
+    return {"id": 1, "chat_id": chat_id, "run_at": _NOW, "kind": kind,
+            "cluster_id": None, "source_ids": "[]", "belief_id": None,
+            "tokens": 0, "status": status}
+
+
+async def _patch_budget_gates(monkeypatch):
+    """deep_sleep enabled / master enabled = True (для reason-тестов)."""
+    from web.api import memory_agi as ma
+
+    async def _with_source(key, *, chat_id=None, default=None):
+        return True, "default"
+
+    async def _cached(key, *, chat_id=None, default=None):
+        return True
+
+    monkeypatch.setattr(ma, "resolve_setting_with_source", _with_source)
+    monkeypatch.setattr(ma, "resolve_setting_cached", _cached)
 
 
 class TestDeepSleepStatusApi:
@@ -256,24 +312,52 @@ class TestDeepSleepStatusApi:
     @pytest.mark.asyncio
     async def test_status_reason_from_last_skip(self, monkeypatch):
         from web.api import memory_agi as ma
-        log = [{"id": 1, "chat_id": CHAT_ID, "run_at": _NOW,
-                "kind": "deep_skip", "cluster_id": None, "source_ids": "[]",
-                "belief_id": None, "tokens": 0, "status": "no_anchors"}]
         monkeypatch.setattr(ma, "_require_global_admin", lambda *a, **k: None)
-        monkeypatch.setattr(ma, "_db_or_503", lambda: _ApiDb(log=log))
-
-        async def _with_source(key, *, chat_id=None, default=None):
-            return True, "default"
-
-        async def _cached(key, *, chat_id=None, default=None):
-            return True
-
-        monkeypatch.setattr(ma, "resolve_setting_with_source", _with_source)
-        monkeypatch.setattr(ma, "resolve_setting_cached", _cached)
+        monkeypatch.setattr(ma, "_db_or_503", lambda: _ApiDb(
+            log=[_mk_log(chat_id=CHAT_ID, status="no_anchors")]))
+        await _patch_budget_gates(monkeypatch)
         data = await ma.deep_sleep_status(request=None, user=None,
                                           chat_id=CHAT_ID)
         assert data["paradigms_status"] == "empty"
         assert data["paradigms_reason"] == "no_anchors"
+
+    @pytest.mark.asyncio
+    async def test_unchanged_maps_to_empty_not_duplicate(self, monkeypatch):
+        """review F1: `unchanged` (LLM не нашла связей) → `empty`,
+        НЕ `duplicate` (тот — только «всё уже записано»)."""
+        from web.api import memory_agi as ma
+        monkeypatch.setattr(ma, "_require_global_admin", lambda *a, **k: None)
+        monkeypatch.setattr(ma, "_db_or_503", lambda: _ApiDb(
+            log=[_mk_log(chat_id=CHAT_ID, status="unchanged")]))
+        await _patch_budget_gates(monkeypatch)
+        data = await ma.deep_sleep_status(request=None, user=None,
+                                          chat_id=CHAT_ID)
+        assert data["paradigms_reason"] == "empty"
+
+    @pytest.mark.asyncio
+    async def test_duplicate_reason_kept(self, monkeypatch):
+        from web.api import memory_agi as ma
+        monkeypatch.setattr(ma, "_require_global_admin", lambda *a, **k: None)
+        monkeypatch.setattr(ma, "_db_or_503", lambda: _ApiDb(
+            log=[_mk_log(chat_id=CHAT_ID, status="duplicate")]))
+        await _patch_budget_gates(monkeypatch)
+        data = await ma.deep_sleep_status(request=None, user=None,
+                                          chat_id=CHAT_ID)
+        assert data["paradigms_reason"] == "duplicate"
+
+    @pytest.mark.asyncio
+    async def test_foreign_chat_log_not_used(self, monkeypatch):
+        """review F2: причина берётся строго по своему чату — чужие строки
+        (видны только при chat_id=None) НЕ подставляются."""
+        from web.api import memory_agi as ma
+        monkeypatch.setattr(ma, "_require_global_admin", lambda *a, **k: None)
+        monkeypatch.setattr(ma, "_db_or_503", lambda: _ApiDb(
+            log=[], foreign_log=[_mk_log(chat_id=-999, status="error")]))
+        await _patch_budget_gates(monkeypatch)
+        data = await ma.deep_sleep_status(request=None, user=None,
+                                          chat_id=CHAT_ID)
+        assert data["paradigms_status"] == "empty"
+        assert data["paradigms_reason"] == "empty"      # НЕ "error" чужого чата
 
     @pytest.mark.asyncio
     async def test_status_ok_when_paradigms_present(self, monkeypatch):
@@ -286,20 +370,39 @@ class TestDeepSleepStatusApi:
                "last_confirmed_at": None}
         monkeypatch.setattr(ma, "_require_global_admin", lambda *a, **k: None)
         monkeypatch.setattr(ma, "_db_or_503", lambda: _ApiDb(paradigms=[row]))
-
-        async def _with_source(key, *, chat_id=None, default=None):
-            return True, "default"
-
-        async def _cached(key, *, chat_id=None, default=None):
-            return True
-
-        monkeypatch.setattr(ma, "resolve_setting_with_source", _with_source)
-        monkeypatch.setattr(ma, "resolve_setting_cached", _cached)
+        await _patch_budget_gates(monkeypatch)
         data = await ma.deep_sleep_status(request=None, user=None,
                                           chat_id=CHAT_ID)
         assert data["paradigms_status"] == "ok"
         assert data["paradigms_reason"] == "ok"
         assert data["paradigms"]
+
+    @pytest.mark.asyncio
+    async def test_counters_chat_scoped(self, monkeypatch):
+        """review F3 (R16): список и счётчики — один скоуп (чат). «Чужие»
+        парадигмы видны только в глобальном режиме (chat_id=None)."""
+        from web.api import memory_agi as ma
+        own = {"id": 1, "chat_id": CHAT_ID, "fact": "own",
+               "origin": "derived_belief", "status": "confirmed",
+               "weight": 0.55, "importance": 3, "source_ids": "[]",
+               "belief_meta": json.dumps({"type": "paradigm"}),
+               "created_at": _NOW, "supersedes": None,
+               "last_confirmed_at": None}
+        foreign = dict(own, id=2, chat_id=-999)
+        db = _ApiDb(paradigms=[own], foreign_paradigms=[foreign],
+                    runs=3, last_run=_NOW - 100)
+        monkeypatch.setattr(ma, "_require_global_admin", lambda *a, **k: None)
+        monkeypatch.setattr(ma, "_db_or_503", lambda: db)
+        await _patch_budget_gates(monkeypatch)
+        chat = await ma.deep_sleep_status(request=None, user=None,
+                                          chat_id=CHAT_ID)
+        assert len(chat["paradigms"]) == 1
+        assert chat["paradigms_total"] == 1            # согласовано со списком
+        assert chat["runs_total"] == 3
+        assert chat["last_run_at"] == _NOW - 100
+        global_ = await ma.deep_sleep_status(request=None, user=None,
+                                             chat_id=None)
+        assert global_["paradigms_total"] == 2
 
 
 # ── (d) парадигмы о пользователях + дедуп ───────────────────────────────────
