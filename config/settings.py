@@ -644,6 +644,13 @@ class Settings:
     # возврат ручки — env-флаг ON или `git revert`.
     BYOK_IMAGE_KEY_ENABLED: ClassVar[bool] = _env_bool(
         "BYOK_IMAGE_KEY_ENABLED", True)
+    # ── Раунд 10.24 (F4, ADR-1024-8 D5 / ADR-1024-13): env-only ClassVar
+    # kill-switch «Живой ленты досье». default ON, Δ каталога = 0 (в
+    # param_catalog НЕ входит). Доставка — `GET /api/me.ui_flags`. OFF →
+    # прежний горизонтальный тикер 42s и некликабельные строки
+    # (байт-в-байт 10.20/ADR-1022-8).
+    DOSSIER_LIVE_FEED_ENABLED: ClassVar[bool] = _env_bool(
+        "DOSSIER_LIVE_FEED_ENABLED", True)
     # ── Раунд 10.22 (F8, ADR-1022-8): env-only ClassVar-рубильники
     # асинхронной пересборки досье из мини-аппа. Δ каталога = 0 (в
     # param_catalog не входят; прецедент MULTILAYER_EXTRACTION_ENABLED).

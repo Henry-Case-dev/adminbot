@@ -355,6 +355,11 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
             # F11 (10.24, ADR-1024-12 D6): гейт безопасного пути глобального
             # image-ключа. default ON; OFF → прежняя (сбойная) маршрутизация.
             "BYOK_IMAGE_KEY_ENABLED": bool(settings.BYOK_IMAGE_KEY_ENABLED),
+            # F4 (10.24, ADR-1024-8 D5): гейт вертикальной кликабельной
+            # «Живой ленты досье». default ON; OFF → горизонталь 42s,
+            # строки некликабельны (10.20/ADR-1022-8 байт-в-байт).
+            "DOSSIER_LIVE_FEED_ENABLED":
+                bool(settings.DOSSIER_LIVE_FEED_ENABLED),
         },
     }
 

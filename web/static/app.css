@@ -961,7 +961,10 @@
       text-overflow: ellipsis;
     }
 
-    /* T-1897: «Живая лента досье» — бегущая строка (CSS, без библиотек). */
+    /* T-1897: «Живая лента досье» — бегущая строка (CSS, без библиотек).
+       F4 (раунд 10.24, ADR-1024-8 D1): ON-режим — вертикальная лента
+       (снизу вверх) с масштабируемой скоростью; OFF-флаг оставляет
+       прежнюю горизонталь 42s байт-в-байт. */
     .dossier-ticker-wrap { overflow: hidden; }
     .dossier-ticker {
       position: relative;
@@ -989,6 +992,57 @@
     @keyframes dossier-ticker-scroll {
       from { transform: translateX(0); }
       to   { transform: translateX(-50%); }
+    }
+
+    /* F4 (10.24, ADR-1024-8 D1): вертикальная лента «снизу вверх».
+       * фиксированная высота контейнера обязательна (иначе клиппинг/цикл
+       не работают), ≤ 40vh на низких экранах;
+       * 180deg-маска вместо 90deg;
+       * дорожка дублируется (см. dossierFeedLoop), поэтому бесшовный цикл =
+       translateY(-50% - gap/2): полкопии мимо окна (gap между flex-копиями);
+       * скорость --dossier-speed = max(72s, items×6s), hover/focus — пауза. */
+    .dossier-ticker--y {
+      --dossier-h: 180px;
+      --dossier-gap: .5rem;
+      height: min(var(--dossier-h), 40vh);
+      -webkit-mask-image: linear-gradient(180deg, transparent, #000 12%, #000 88%, transparent);
+      mask-image: linear-gradient(180deg, transparent, #000 12%, #000 88%, transparent);
+    }
+    .dossier-ticker__track--y {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--dossier-gap);
+      white-space: normal;
+      will-change: transform;
+      animation: dossier-ticker-scroll-y var(--dossier-speed, 72s) linear infinite;
+    }
+    .dossier-ticker__track--y .dossier-ticker__item {
+      display: flex;
+      align-items: baseline;
+      gap: .4rem;
+      font-size: var(--tx-small);
+      color: var(--text-2);
+      padding: .35rem .5rem;
+      border-radius: 8px;
+      transition: background var(--dur-fast) var(--ease-out);
+    }
+    .dossier-ticker__item--click { cursor: pointer; }
+    .dossier-ticker__item--click:hover {
+      background: rgba(255, 255, 255, .06);
+    }
+    .dossier-ticker__item--click:focus-visible {
+      background: rgba(255, 255, 255, .06);
+      outline: none;
+      box-shadow: 0 0 0 2px var(--teal-500) inset;
+    }
+    .dossier-ticker--y:hover .dossier-ticker__track--y,
+    .dossier-ticker--y:focus-within .dossier-ticker__track--y {
+      animation-play-state: paused;
+    }
+    @keyframes dossier-ticker-scroll-y {
+      from { transform: translateY(0); }
+      to   { transform: translateY(calc(-50% - .25rem)); }
     }
 
     /* T-1896: карточка авто-досье — плотная подложка для читаемости. */
@@ -1040,6 +1094,13 @@
       .dossier-ticker__track { animation: none !important; }
       .dossier-ticker {
         -webkit-mask-image: none !important; mask-image: none !important;
+      }
+      /* F4 (10.24): вертикальная лента без анимации — обычный прокручиваемый
+         список (mask снят выше, высота по контенту с разумным потолком). */
+      .dossier-ticker--y {
+        height: auto;
+        max-height: var(--dossier-h);
+        overflow-y: auto;
       }
       details.advanced > summary::before { transition: none !important; }
     }

@@ -9,19 +9,90 @@ F-7/F-10 (явный chat-гейт > глобальный флаг > False). R17
 ключей (только статусы own/global/forbidden/none + last4 своего own).
 """
 import logging
+import time
 from typing import Annotated
 
 from aiogram.utils.web_app import WebAppUser
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
-from services import chat_params, feature_gates, lore_runtime, oversight
+from services import (chat_params, feature_gates, lore_runtime, oversight,
+                      summary_aliases)
 from services.chat_params import ChatParamsConflict
+from services.database import row_get
 from web.api.deps import get_cache, get_tma_user, requires_global_admin
 
 logger = logging.getLogger(__name__)
 
 oversight_router = APIRouter()
+
+# F4 (10.24, ADR-1024-8 D2): горизонт обратного резолва имени участника
+# (совпадает с `web/api/chat_lore.py::_participant_names` — окно 30 дней).
+_FEED_RESOLVE_WINDOW_DAYS = 30
+_FEED_RESOLVE_CAP = 200
+
+
+def _feed_key(value) -> str:
+    """Ключ сопоставления имён ленты: strip + casefold (канон-имя может
+    отличаться регистром/пробелами от `target_user`)."""
+    return str(value or "").strip().casefold()
+
+
+async def _feed_user_index_one(db, chat_id: int, since_ts: int) -> dict:
+    """Обратная карта «имя(casefold) → (user_id, канон-имя)» ОДНОГО чата.
+
+    Источник — активные участники (`get_active_participants`, тот же вызов,
+    что у `_participant_names`), поверх — `AliasResolver` (канон алиасов).
+    Порядок строк БД (cnt DESC, user_id ASC) задаёт приоритет при коллизии
+    имён детерминированно: первым побеждает более активный (меньший uid)."""
+    rows = await db.get_active_participants(
+        chat_id, since_ts, _FEED_RESOLVE_CAP)
+    pairs: list = []
+    for r in rows:
+        uid = row_get(r, "user_id")
+        if not uid:
+            continue
+        pairs.append((int(uid), str(row_get(r, "author_name") or "").strip()))
+    if not pairs:
+        return {}
+    try:
+        resolver = await summary_aliases.build_alias_resolver(chat_id)
+    except Exception:
+        logger.warning("[oversight] dossier_feed alias-резолв не удался — "
+                       "имена как есть | chat=%s", chat_id, exc_info=True)
+        resolver = None
+    index: dict = {}
+    for uid, author in pairs:
+        canon = author
+        if resolver is not None:
+            try:
+                resolved = resolver.resolve(uid, author or None, None)
+            except Exception:
+                resolved = None
+            if resolved and str(resolved) != str(uid):
+                canon = str(resolved)
+        if not canon:
+            continue
+        # Сырое имя и канон указывают на одного участника — первый побеждает.
+        for key in {_feed_key(author), _feed_key(canon)}:
+            if key:
+                index.setdefault(key, (uid, canon))
+    return index
+
+
+async def _feed_user_index(db, chat_ids: list) -> dict:
+    """Кэш резолва в пределах запроса: один проход на chat_id, не на строку.
+    Fail-open: ошибка чата → пустая карта (строка останется с `user_id=null`)."""
+    index: dict = {}
+    since_ts = int(time.time()) - _FEED_RESOLVE_WINDOW_DAYS * 86400
+    for cid in chat_ids:
+        try:
+            index[cid] = await _feed_user_index_one(db, cid, since_ts)
+        except Exception:
+            logger.warning("[oversight] dossier_feed resolve failed — "
+                           "user_id=null | chat=%s", cid, exc_info=True)
+            index[cid] = {}
+    return index
 
 
 class KillswitchBody(BaseModel):
@@ -183,7 +254,11 @@ async def dossier_feed(
 
     GLOBAL (chat_id пуст) → случайные выдержки-факты по всем чатам; конкретный
     чат → только его участники. Источник — graph_facts (те же данные, что у
-    досье; новых таблиц нет). Fail-open: нет БД/ошибка → пустая лента (200)."""
+    досье; новых таблиц нет). Fail-open: нет БД/ошибка → пустая лента (200).
+
+    F4 (10.24, ADR-1024-8 D2/D3): аддитивно отдаём `user_id`/`user_name`
+    (обратный резолв `target_user` → участник, read-time, без DDL). Нерезолвленное
+    имя/ошибка резолва → `user_id=null`, строка остаётся текстом (R16/R17)."""
     db = lore_runtime.get_lore_db()
     if db is None:
         return {"chat_id": chat_id, "items": []}
@@ -193,15 +268,31 @@ async def dossier_feed(
         logger.warning("[oversight] dossier_feed failed — пустая лента | "
                        "chat=%s", chat_id, exc_info=True)
         return {"chat_id": chat_id, "items": []}
+    chat_ids: list = []
+    for row in rows:
+        cid = int(row.get("chat_id") or 0)
+        if cid and cid not in chat_ids:
+            chat_ids.append(cid)
+    try:
+        index = await _feed_user_index(db, chat_ids) if chat_ids else {}
+    except Exception:
+        logger.warning("[oversight] dossier_feed index failed — "
+                       "user_id=null | chats=%s", len(chat_ids), exc_info=True)
+        index = {}
     items = []
     for row in rows:
         excerpt = str(row.get("fact") or "").strip()
         name = str(row.get("name") or "").strip()
         if not excerpt or not name:
             continue
+        cid = int(row.get("chat_id") or 0)
+        hit = index.get(cid, {}).get(_feed_key(name))
         items.append({
-            "chat_id": int(row.get("chat_id") or 0),
+            "chat_id": cid,
             "name": name,
             "excerpt": excerpt[:240],
+            # F4/R16: аддитивные поля; при неудаче резолва — null/имя как есть.
+            "user_id": hit[0] if hit else None,
+            "user_name": hit[1] if hit else name,
         })
     return {"chat_id": chat_id, "items": items}

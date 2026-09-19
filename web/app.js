@@ -1593,6 +1593,8 @@
       // ── Раунд 10.20 (БЛОК 3.3/T-1897): модель «Живой ленты досье» ──
       // Дублирование для seamless-скролла (тот же приём, что у лент
       // «Осмысления»/_ribbonLoop) + подпись чата из oversight-кэша.
+      // F4 (10.24, ADR-1024-8 D3/D4): переносим user_id/user_name/chat_id —
+      // строка с user_id становится кликабельной (openFeedDossier).
       dossierFeedLoop: function () {
         var items = this.dossierFeed || [];
         if (!items.length) return [];
@@ -1603,6 +1605,9 @@
           return {
             key: 'df' + i + '-' + it.chat_id + '-' + it.name,
             name: it.name,
+            user_name: it.user_name || it.name,
+            user_id: (it.user_id == null ? null : it.user_id),
+            chat_id: it.chat_id,
             excerpt: it.excerpt,
             chatLabel: titles[it.chat_id] || ('Чат ' + it.chat_id),
           };
@@ -1610,6 +1615,13 @@
         return marked.concat(marked.map(function (it) {
           return Object.assign({}, it, { key: it.key + '-dup' });
         }));
+      },
+      // F4 (10.24, ADR-1024-8 D1): скорость вертикальной ленты —
+      // max(72s, items × 6s): длиннее список → скорость строки НЕ растёт
+      // (лента заметно медленнее прежней горизонтали 42s).
+      dossierFeedSpeed: function () {
+        var n = (this.dossierFeed || []).length;
+        return Math.max(72, n * 6) + 's';
       },
       cognitionBeliefsLoop: function () {
         return this._ribbonLoop(this.cognitionBeliefs);
@@ -3355,6 +3367,32 @@
       },
 
       // ═══ Раунд 10.20 (БЛОК 3.3/T-1897): «Живая лента досье» ══════════
+      // F4 (10.24, ADR-1024-8 D4): клик по строке ленты (UPD3 №9).
+      // Лента по умолчанию GLOBAL (активного чата нет), а `openDossier` —
+      // per-chat: сначала переключаем контекст (setActiveChat → reload
+      // config/lore/oversight), затем открываем модалку. Строка без user_id
+      // в сюда не попадает. Ошибка переключения → toast, модалка не открывается.
+      openFeedDossier: async function (it) {
+        if (!it || it.user_id == null) return;
+        var chatId = (it.chat_id == null) ? null : String(it.chat_id);
+        if (chatId != null && String(this.activeChatId) !== chatId) {
+          try {
+            this.setActiveChat(chatId);
+          } catch (e) {
+            this.toast('Не удалось переключить чат: '
+              + (e && e.message ? e.message : e), 'err');
+            return;
+          }
+        }
+        if (this.activeChatId == null) {
+          this.toast('Не удалось открыть досье: не выбран чат', 'err');
+          return;
+        }
+        await this.openDossier({
+          user_id: it.user_id,
+          name: it.user_name || it.name || '',
+        });
+      },
       loadDossierFeed: async function () {
         if (this.dossierFeedBusy) return;
         this.dossierFeedBusy = true;
