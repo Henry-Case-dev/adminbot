@@ -41,6 +41,7 @@ from config.settings import settings
 from services import chat_params, lore_runtime
 from services import dossier_rebuild_jobs as drj
 from services.chat_lore_store import ChatLoreConflict, ChatLorePgUnavailable
+from services.database import row_get
 from services.permissions import Permissions
 from services import summary_aliases
 from services.dossier_prompts import format_dossier_block
@@ -671,9 +672,15 @@ async def _participant_names(db, chat_id: int) -> dict | None:
     try:
         rows = await db.get_active_participants(
             chat_id, int(time.time()) - 30 * 86400, 200)
-        names = {int(r["user_id"]): str(r["author_name"])
-                 for r in rows if r.get("user_id") and str(
-                     r.get("author_name") or "").strip()}
+        # R10.24 F18 / ADR-1024-19: источник — aiosqlite.Row (sqlite3.Row),
+        # у которого НЕТ .get; читаем поля через канонический row_get,
+        # иначе AttributeError глотался broad-except'ом и имена терялись.
+        names = {
+            int(row_get(r, "user_id")): str(row_get(r, "author_name"))
+            for r in rows
+            if row_get(r, "user_id")
+            and str(row_get(r, "author_name") or "").strip()
+        }
     except Exception:
         logger.warning(
             "[relations] имена участников недоступны — uid fallback | "
