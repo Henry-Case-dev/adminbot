@@ -37,6 +37,7 @@ from services.info_service import (
     PREV_R2020_DEFAULT_INFO_TEXT,
     InfoService,
     canon_drift,
+    guide_version_for,
     normalize_canon,
 )
 from tests.helpers.info_layout import between_adjacent_blockquotes
@@ -329,7 +330,29 @@ class TestGuideCanonV2:
                             lambda *a, **k: None)
         svc = InfoService(file_path=str(INFO_MD))
         got = svc.get_guide()
+        # Публичный get_guide отдаёт только markdown/updated_at/updated_by.
         assert got["markdown"] == GUIDE_MD.read_text(encoding="utf-8")
+        assert set(got) == {"markdown", "updated_at", "updated_by"}
+
+    def test_guide_version_for_matches_content(self):
+        """Версия вычисляется по содержимому: текущий канон → константа,
+        v1-слепок → 1, пусто → безопасный дефолт."""
+        assert guide_version_for(GUIDE_MD.read_text(encoding="utf-8")) == \
+            GUIDE_CANON_VERSION
+        assert guide_version_for(PREV_R1023_INTELLIGENCE_GUIDE) == 1
+        assert guide_version_for("") == GUIDE_CANON_VERSION
+
+    def test_get_guide_backup_exposed(self, monkeypatch):
+        fake = {"markdown": "x", "prev_markdown": "old",
+                "prev_updated_at": "t"}
+        monkeypatch.setattr("services.info_service.hot.get",
+                            lambda *a, **k: fake)
+        assert InfoService().get_guide_backup() == {
+            "prev_markdown": "old", "prev_updated_at": "t"}
+        monkeypatch.setattr("services.info_service.hot.get",
+                            lambda *a, **k: None)
+        assert InfoService().get_guide_backup() == {
+            "prev_markdown": None, "prev_updated_at": None}
 
 
 # ── идемпотентная PG-миграция гайда v1 → v2 (+ откат) ──────────────────────
@@ -414,10 +437,10 @@ class TestGuideMigrationV1ToV2:
         assert _inserts(conn, GUIDE_KEY) == []
 
     @pytest.mark.asyncio
-    async def test_reset_guide_returns_to_canon_with_backup(
+    async def test_reset_guide_returns_current_canon_with_backup(
             self, monkeypatch, tmp_path):
-        """Откат гайда: reset_guide пишет код-канон из сид-файла и бэкапит
-        прежний текст (prev_markdown/prev_updated_at); get_guide отдаёт бэкап."""
+        """Нормальный откат: current-канон доставляется роутом, прежняя правка —
+        в бэкапе (персистированном и доступном через get_guide_backup)."""
         manual = "# ручная правка, которую надо откатить"
         rows = _guide_row(manual, guide_version=GUIDE_CANON_VERSION,
                           delivered=GUIDE_CANON_VERSION)
@@ -429,19 +452,42 @@ class TestGuideMigrationV1ToV2:
         svc = InfoService(file_path=str(INFO_MD))
         value = await svc.reset_guide(updated_by=42, cache=cache)
         assert value["markdown"] == V2_CANON
-        assert value["guide_version"] == GUIDE_CANON_VERSION
+        assert value["guide_version"] == GUIDE_CANON_VERSION == 2
         assert value["prev_markdown"] == manual
         assert value["updated_by"] == 42
         persisted = _persisted(conn, GUIDE_KEY)
         assert persisted["markdown"] == V2_CANON
         assert persisted["prev_markdown"] == manual
-        # GET-путь отдаёт новый markdown и бэкап для ручного восстановления.
+        # GET-путь отдаёт бэкап (админский read-path), публичный markdown — новый.
         monkeypatch.setattr(
             "services.info_service.hot.get",
             lambda *a, **k: cache.get(GUIDE_KEY))
-        got = svc.get_guide()
-        assert got["markdown"] == V2_CANON
-        assert got["prev_markdown"] == manual
+        assert svc.get_guide()["markdown"] == V2_CANON
+        assert svc.get_guide_backup()["prev_markdown"] == manual
+
+    @pytest.mark.asyncio
+    async def test_reset_guide_after_seed_file_downgrade_to_v1(
+            self, monkeypatch, tmp_path):
+        """Runbook отката (review iter2): сид-файл заменён на СТАРУЮ версию (v1),
+        код F9 НЕ реверчен → reset_guide доставляет v1 и маркер = 1 (из
+        содержимого, не хардкод 2), прежняя правка — в prev_markdown."""
+        manual = "# правка, которая была в проде"
+        old_seed = tmp_path / "guide_v1.md"
+        old_seed.write_text(PREV_R1023_INTELLIGENCE_GUIDE, encoding="utf-8")
+        rows = _guide_row(manual, guide_version=1, delivered=1)
+        cache, conn = _cache(rows, monkeypatch, guide_seed=str(old_seed))
+        await cache.init()
+        # миграция не трогает ручную правку (маркер совпадает с версией канона).
+        assert cache.get(GUIDE_KEY)["markdown"] == manual
+        monkeypatch.setattr("services.info_service.GUIDE_SEED_FILE",
+                            str(old_seed))
+        svc = InfoService(file_path=str(INFO_MD))
+        value = await svc.reset_guide(updated_by=7, cache=cache)
+        assert value["markdown"] == PREV_R1023_INTELLIGENCE_GUIDE
+        assert value["guide_version"] == 1
+        assert value["guide_delivered_version"] == 1
+        assert value["prev_markdown"] == manual
+        assert _persisted(conn, GUIDE_KEY)["prev_markdown"] == manual
 
     @pytest.mark.asyncio
     async def test_reset_guide_without_pg_raises(self, monkeypatch):

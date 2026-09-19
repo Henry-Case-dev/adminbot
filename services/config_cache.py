@@ -24,12 +24,12 @@ import logging
 from config.settings import settings
 from services.info_service import (
     DEFAULT_INFO_TEXT as _DEFAULT_INFO_TEXT,
-    GUIDE_CANON_VERSION as _GUIDE_CANON_VERSION,
     GUIDE_KEY as _GUIDE_KEY,
     GUIDE_SEED_FILE as _GUIDE_SEED_FILE,
     INFO_CANON_VERSION as _INFO_CANON_VERSION,
     KNOWN_GUIDE_SNAPSHOTS as _KNOWN_GUIDE_SNAPSHOTS,
     KNOWN_INFO_SNAPSHOTS as _KNOWN_INFO_SNAPSHOTS,
+    guide_version_for as _guide_version_for,
     normalize_canon as _normalize_canon,
 )
 from services.param_catalog import normalize_value
@@ -354,10 +354,11 @@ class ConfigCache:
             return
         if not markdown.strip():
             return
+        version = _guide_version_for(markdown)
         value = {
             "markdown": markdown,
-            "guide_version": _GUIDE_CANON_VERSION,
-            "guide_delivered_version": _GUIDE_CANON_VERSION,
+            "guide_version": version,
+            "guide_delivered_version": version,
             "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "updated_by": settings.ADMIN_USER_ID,
         }
@@ -393,45 +394,51 @@ class ConfigCache:
         canon = _read_guide_canon()
         if not canon.strip():
             return                                   # канон-файл недоступен — no-op
+        # F9 10.23 (review iter2): версия канона — из СОДЕРЖИМОГО файла, а не
+        # хардкод константы: при подмене сид-файла на старую версию (откат)
+        # маркер честно станет 1, и миграция остаётся идемпотентной.
+        canon_ver = _guide_version_for(canon)
         stored_ver = current.get("guide_version")
         delivered_done = (
-            current.get("guide_delivered_version") == _GUIDE_CANON_VERSION)
+            current.get("guide_delivered_version") == canon_ver)
         norm = _normalize_canon(markdown)
         canon_norm = _normalize_canon(canon)
         if norm == canon_norm:
-            if stored_ver == _GUIDE_CANON_VERSION and delivered_done:
+            if stored_ver == canon_ver and delivered_done:
                 return                               # уже актуально → no-op
             await self._write_guide_canon(canon)     # верный текст → добить маркеры
             logger.info("[config_cache] guide canon version fixed | v=%s→%s",
-                        stored_ver, _GUIDE_CANON_VERSION)
+                        stored_ver, canon_ver)
             return
         if any(norm == _normalize_canon(s) for s in _KNOWN_GUIDE_SNAPSHOTS):
             await self._write_guide_canon(canon)     # наш прошлый канон → безопасно
             logger.info("[config_cache] guide canon migrated | v=%s→%s",
-                        stored_ver, _GUIDE_CANON_VERSION)
+                        stored_ver, canon_ver)
             return
         if not delivered_done:
             await self._write_guide_canon(canon, backup_of=current)
             logger.warning(
                 "[config_cache] guide canon force-delivered (one-time) | v=%s",
-                _GUIDE_CANON_VERSION)
+                canon_ver)
             return
         logger.warning(
             "[config_cache] guide canon drift — intelligence_guide изменён "
             "вручную | stored_v=%s current_v=%s (не затираем; правка через UI)",
-            stored_ver, _GUIDE_CANON_VERSION)
+            stored_ver, canon_ver)
 
     async def _write_guide_canon(self, canon: str,
                                  backup_of: dict | None = None) -> None:
         """Запись код-канона гайда в PG + память (общий путь сида/миграции).
         Вместе с каноном ставятся ``guide_version`` и ``guide_delivered_version``
-        — маркер доставки (защита последующих ручных правок владельца).
-        ``backup_of`` (прежнее значение) → бэкап ``prev_markdown``/
+        — маркеры доставки; версия вычисляется по СОДЕРЖИМОМУ
+        (`_guide_version_for`: текущий канон → константа, старый слепок → его
+        номер). ``backup_of`` (прежнее значение) → бэкап ``prev_markdown``/
         ``prev_updated_at`` перед перезаписью (путь force-доставки)."""
+        version = _guide_version_for(canon)
         value = {
             "markdown": canon,
-            "guide_version": _GUIDE_CANON_VERSION,
-            "guide_delivered_version": _GUIDE_CANON_VERSION,
+            "guide_version": version,
+            "guide_delivered_version": version,
             "updated_at": datetime.datetime.now(
                 datetime.timezone.utc).isoformat(),
             "updated_by": settings.ADMIN_USER_ID,

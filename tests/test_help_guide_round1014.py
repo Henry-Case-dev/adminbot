@@ -436,11 +436,28 @@ class TestGuideApi:
         resp = client.post("/api/info/guide/reset", headers=_hdr(ADMIN_ID))
         assert resp.status_code == 200
         assert resp.json()["guide_version"] == 2
+        # reset-ответ (RBAC edit_info) содержит бэкап прежней правки.
+        assert resp.json()["prev_markdown"] == DB_MARKDOWN
         again = client.get("/api/info/guide", headers=_hdr(ADMIN_ID))
         body = again.json()
-        # markdown == код-канон (сид-файл), а прежняя ручная правка — в бэкапе.
+        # markdown == код-канон (сид-файл).
         assert "## 11. Как бот думает (System 2)" in body["markdown"]
-        assert body["prev_markdown"] == DB_MARKDOWN
+        # публичный GET бэкап НЕ отдаёт (least privilege, review iter2).
+        assert "prev_markdown" not in body
+        # бэкап доступен отдельным роутом под edit_info.
+        backup = client.get("/api/info/guide/backup", headers=_hdr(ADMIN_ID))
+        assert backup.status_code == 200
+        assert backup.json()["prev_markdown"] == DB_MARKDOWN
+
+    def test_guide_backup_requires_edit_info(self, client):
+        assert client.get("/api/info/guide/backup").status_code == 401
+        resp = client.get("/api/info/guide/backup", headers=_hdr(MODERATOR_ID))
+        assert resp.status_code == 403
+
+    def test_public_guide_has_no_backup_fields(self, client):
+        body = client.get("/api/info/guide", headers=_hdr(USER_ID)).json()
+        assert "prev_markdown" not in body
+        assert "prev_updated_at" not in body
 
     def test_reset_non_admin_403(self, client):
         resp = client.post("/api/info/guide/reset", headers=_hdr(MODERATOR_ID))

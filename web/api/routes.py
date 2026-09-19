@@ -1210,6 +1210,20 @@ async def get_info_guide(
     return {"key": _GUIDE_KEY, **guide}
 
 
+@api_router.get("/info/guide/backup")
+async def get_info_guide_backup(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(requires_permission("edit_info"))],
+):
+    """F9 10.23 (review iter2): бэкап прежней ревизии гайда — ТОЛЬКО под RBAC
+    `edit_info` (принцип наименьших привилегий: там может лежать неопубликованный
+    черновик владельца). Публичный `GET /api/info/guide` бэкап НЕ отдаёт.
+    Fail-open, всегда 200; нет бэкапа → оба поля None (R16/R17)."""
+    from services.info_service import InfoService
+
+    return {"key": _GUIDE_KEY, **InfoService().get_guide_backup()}
+
+
 @api_router.post("/info/guide")
 async def post_info_guide(
     request: Request,
@@ -1267,7 +1281,9 @@ async def post_info_guide_reset(
     logger.info("[api] guide canon reset | by=%s | version=%s",
                 user.id, value.get("guide_version"))
     return {"key": _GUIDE_KEY, "guide_version": value.get("guide_version"),
-            "updated_at": value.get("updated_at"), "updated_by": user.id}
+            "updated_at": value.get("updated_at"), "updated_by": user.id,
+            "prev_markdown": value.get("prev_markdown"),
+            "prev_updated_at": value.get("prev_updated_at")}
 
 
 def _category_title(category: str) -> str:
