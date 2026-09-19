@@ -194,6 +194,11 @@ assert(methods, 'root.methods не найден');
     isGlobalAdmin: true, activeTab: 'prompts',
     clicheAvailable: false, clicheLoading: false, clicheBusy: false,
     clicheMeta: null, clicheEditing: false, clicheDraft: '',
+    // F7 (10.24, ADR-1024-3 D1): поля регулируемого лимита паттернов.
+    clicheLimitDraft: '', configItems: [],
+    clicheLimitItem: methods.clicheLimitItem,
+    clicheLimitValue: methods.clicheLimitValue,
+    canEditConfig: function () { return true; },
     api: api, toast: function () {},
     loadCliche: methods.loadCliche,
   };
@@ -201,6 +206,8 @@ assert(methods, 'root.methods не найден');
   assert.strictEqual(ctx.clicheAvailable, true);
   assert.strictEqual(ctx.clicheMeta.count, 1);
   assert.strictEqual(ctx.clicheLoading, false);
+  // F7: черновик лимита инициализируется резолвленным max_patterns из API.
+  assert.strictEqual(ctx.clicheLimitDraft, '20');
 
   // 3.2 forceRefresh → POST + перечитать.
   await methods.forceRefreshCliche.call(ctx);

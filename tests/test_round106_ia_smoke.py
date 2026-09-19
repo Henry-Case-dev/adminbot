@@ -36,11 +36,11 @@ class TestCatalogInvariant106:
         # → 437/92/90/20/407.
         # 10.23 (F5/ADR-1023-5 D5): +5 REGISTRY/Settings, +3 GROUPS/mapped
         # (models_images/keys_images/flags_module_images) → 446/95/93/20/416.
-        assert len(pc.REGISTRY) == 457
-        assert len(pc.GROUPS) == 96
-        assert len(pc._TAB_BY_GROUP) == 94
+        assert len(pc.REGISTRY) == 458
+        assert len(pc.GROUPS) == 97
+        assert len(pc._TAB_BY_GROUP) == 95
         assert len(pc.TAB_RULES) == 20
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 416
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 417
 
     def test_five_master_flags_default_true(self):
         s = Settings()

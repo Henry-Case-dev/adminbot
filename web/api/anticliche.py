@@ -76,7 +76,7 @@ async def anticliche_get(
         "version": int(data.get("version") or 0),
         "last_status": str(data.get("last_status") or "never"),
         "count": len(patterns) if isinstance(patterns, (list, tuple)) else 0,
-        "max_patterns": anticliche_cache.ANTICLICHE_MAX_PATTERNS,
+        "max_patterns": anticliche_cache.max_patterns(),
         "patterns": _pattern_view(patterns),
     }
 
@@ -92,7 +92,7 @@ async def anticliche_refresh(
     if worker is None:
         raise HTTPException(status_code=503,
                             detail="воркер анти-клише недоступен")
-    result = await worker.refresh()
+    result = await worker.refresh(force=True)
     logger.info("[anticliche] manual refresh | status=%s | count=%s",
                 result.get("status"), result.get("count"))
     return {

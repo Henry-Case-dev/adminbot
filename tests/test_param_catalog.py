@@ -84,7 +84,11 @@ class TestCompleteness:
         #   + раунд 10.23 (F5/ADR-1023-5 D5): +5 — IMAGE_BASE_URL,
         #   IMAGE_MODEL, IMAGE_GET_MODE, IMAGE_API_KEY,
         #   IMAGE_GENERATION_MODULE_ENABLED = 416.
-        assert len(fields) == 416
+        #   + раунд 10.24 (F7/ADR-1024-3 D1): +1 — ANTICLICHE_MAX_PATTERNS
+        #   (limits.anticliche_max_patterns, default 200) = 417.
+        #   ANTICLICHE_FIRST_RUN_DELAY_MINUTES — ClassVar (env-only, в
+        #   dataclass.fields не входит).
+        assert len(fields) == 417
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -296,7 +300,9 @@ class TestGroups8424:
         # (санкция UPD3 п.5) → GROUPS 92.
         # 10.23 (F5/ADR-1023-5 D5): +3 — models_images, keys_images,
         # flags_module_images → GROUPS 95.
-        assert len(GROUPS) == 96
+        # 10.24 (F7/ADR-1024-3 D1): +1 — limits_anticliche (группа лимита
+        # клише, вкладка prompts) → GROUPS 97.
+        assert len(GROUPS) == 97
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -365,7 +371,9 @@ class TestGroups8424:
         10.19 (F3/ADR-1019-3 D3, UPD3 п.5): limits +1
         (IMPORT_HISTORY_RETENTION_DAYS, группа limits_memory) → 188.
         10.20 (C/ADR-1020-4 п.5, О3): flags +1
-        (LORE_COMPILER_ENABLED, группа flags_module_direct, default ON)."""
+        (LORE_COMPILER_ENABLED, группа flags_module_direct, default ON).
+        10.24 (F7/ADR-1024-3 D1): limits +1 (ANTICLICHE_MAX_PATTERNS,
+        группа limits_anticliche, default 200) → limits 192."""
         counts = {cat: 0 for cat in CATEGORIES}
         for s in REGISTRY.values():
             if s.category is not None:
@@ -375,7 +383,7 @@ class TestGroups8424:
         # content без изменений (phantom content.dynamic_cliche_list удалён —
         # F4 хранит клише в PG-таблице, ключ был бы «мёртвой ручкой»).
         assert counts == {"prompts": 21, "models": 56, "keys": 20,
-                          "limits": 191, "flags": 66, "reactions": 39,
+                          "limits": 192, "flags": 66, "reactions": 39,
                           "content": 5, "memory": 34}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

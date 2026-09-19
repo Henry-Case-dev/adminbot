@@ -132,9 +132,12 @@ class TestTabMappingAudit:
         # phantom-ключ content.dynamic_cliche_list НЕ регистрируем (review
         # iter1, Low: F4 хранит клише в PG-таблице, ключ был бы «мёртвой
         # ручкой»); TAB_RULES 20 — вкладок не добавляем.
-        assert len(pc._TAB_BY_GROUP) == 94
-        assert len(GROUPS) == 96
-        assert len(pc.REGISTRY) == 457
+        # 10.24 (F7/ADR-1024-3 D1): +1 REGISTRY (ANTICLICHE_MAX_PATTERNS),
+        # +1 GROUPS/mapped (limits_anticliche → вкладка prompts) → 458/97/95;
+        # TAB_RULES 20 — вкладок не добавляем.
+        assert len(pc._TAB_BY_GROUP) == 95
+        assert len(GROUPS) == 97
+        assert len(pc.REGISTRY) == 458
 
 
 class TestModuleTabs:

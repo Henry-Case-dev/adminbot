@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 
 from config.settings import settings
+from services import hot_config as hot
 from services.negative_constraints import (
     DynamicClicheRule,
     build_dynamic_rule,
@@ -22,8 +23,33 @@ from services.negative_constraints import (
 
 logger = logging.getLogger(__name__)
 
-# Лимит динамических правил (ADR-1023-4 D2; Δ каталога = 0 — код-константа).
-ANTICLICHE_MAX_PATTERNS = 20
+# Раунд 10.24 (F7, ADR-1024-3 D1; AMEND ADR-1023-4 D2): искусственный потолок
+# 20 снят. Дефолт — 200; регулируется ключом каталога
+# `limits.anticliche_max_patterns` (int). Защитный код-потолок от раздувания
+# промпта/детектора — 1000.
+ANTICLICHE_MAX_PATTERNS_DEFAULT = 200
+ANTICLICHE_MAX_PATTERNS_HARD_CEILING = 1000
+# Deprecated-alias для совместимости импортов; вся логика читает `max_patterns()`.
+ANTICLICHE_MAX_PATTERNS = ANTICLICHE_MAX_PATTERNS_DEFAULT
+
+
+def max_patterns() -> int:
+    """Резолв эффективного лимита динамических клише.
+
+    hot (`limits.anticliche_max_patterns`) → `settings.ANTICLICHE_MAX_PATTERNS`
+    (default 200) → clamp `[1, ANTICLICHE_MAX_PATTERNS_HARD_CEILING]`. Никогда
+    не бросает: мусор/None → дефолт."""
+    try:
+        value = hot.get("limits.anticliche_max_patterns",
+                        getattr(settings, "ANTICLICHE_MAX_PATTERNS",
+                                ANTICLICHE_MAX_PATTERNS_DEFAULT))
+    except Exception:  # pragma: no cover — hot_config не должен ронять резолв
+        value = ANTICLICHE_MAX_PATTERNS_DEFAULT
+    try:
+        result = int(value)
+    except (TypeError, ValueError):
+        result = ANTICLICHE_MAX_PATTERNS_DEFAULT
+    return max(1, min(result, ANTICLICHE_MAX_PATTERNS_HARD_CEILING))
 
 # R17-safe whitelist статусов (review iter1 L1): применяется в записи.
 ALLOWED_STATUSES: frozenset[str] = frozenset({
@@ -91,7 +117,7 @@ def _rules_from_patterns(patterns) -> tuple[DynamicClicheRule, ...]:
             continue
         seen.add(rule.code)
         rules.append(rule)
-        if len(rules) >= ANTICLICHE_MAX_PATTERNS:
+        if len(rules) >= max_patterns():
             break
     return tuple(rules)
 

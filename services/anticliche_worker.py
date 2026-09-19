@@ -24,7 +24,6 @@ from config.settings import settings
 from services import anticliche_cache
 from services import hot_config as hot
 from services import worker_budget
-from services.anticliche_cache import ANTICLICHE_MAX_PATTERNS
 from services.external_log import log_external_api, trace_step
 from services.negative_constraints import (
     DEFAULT_ENABLED_RULES,
@@ -79,10 +78,42 @@ def _host_label(url: str) -> str:
 
 
 def _refresh_level(status: str) -> int:
-    """Штатные исходы (успех/пусто/скип по бюджету) → INFO, сбои → ERROR."""
-    if status in ("ok", "empty", "budget_skip", "disabled"):
+    """Штатные исходы (успех/пусто/скип) → INFO, сбои → ERROR."""
+    if status in ("ok", "empty", "budget_skip", "disabled", "fresh", "skip"):
         return logging.INFO
     return logging.ERROR
+
+
+def _first_run_delay_minutes() -> int:
+    """Задержка первого прогона крона после старта (env-only, default 5)."""
+    try:
+        return max(0, int(getattr(settings, "ANTICLICHE_FIRST_RUN_DELAY_MINUTES",
+                                 5)))
+    except Exception:  # pragma: no cover — конфиг не должен ронять старт
+        return 5
+
+
+def _is_fresh(fetched_at, *, now=None) -> bool:
+    """Свежесть кэша: `fetched_at` младше REFRESH_DAYS → refresh не нужен.
+
+    Рестарт-устойчиво (источник истины — `fetched_at` в PG, без job store).
+    Принимает `datetime` (asyncpg) или ISO-строку (тесты/фронт); None/мусор →
+    не свежо (fail-open: прогон состоится)."""
+    if fetched_at is None:
+        return False
+    moment = fetched_at
+    if isinstance(moment, str):
+        try:
+            moment = datetime.datetime.fromisoformat(
+                moment.strip().replace("Z", "+00:00"))
+        except (ValueError, AttributeError):
+            return False
+    if not isinstance(moment, datetime.datetime):
+        return False
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=datetime.timezone.utc)
+    current = now or datetime.datetime.now(datetime.timezone.utc)
+    return (current - moment) < datetime.timedelta(days=REFRESH_DAYS)
 
 
 def parse_patterns(raw) -> list[dict] | None:
@@ -131,16 +162,20 @@ def _safe_origin(value) -> str:
 
 
 def build_patterns(entries, *,
-                   max_patterns: int = ANTICLICHE_MAX_PATTERNS) -> list[dict]:
+                   max_patterns: int | None = None) -> list[dict]:
     """Нормализация/дедуп/лимит/фильтр хардкод-дублей → список паттернов.
 
-    Дедуп: по нормализованной фразе (внутри динамики) и против
-    захардкоженных правил (фраза, которую уже ловит детектор, пропускается).
+    ``max_patterns=None`` → резолвленный лимит `anticliche_cache.max_patterns()`
+    (default 200, регулируемый). Дедуп: по нормализованной фразе (внутри
+    динамики) и против захардкоженных правил (фраза, которую уже ловит
+    детектор, пропускается).
     """
     out: list[dict] = []
     seen: set[str] = set()
     if not isinstance(entries, (list, tuple)):
         return out
+    limit = (max_patterns if max_patterns is not None
+             else anticliche_cache.max_patterns())
     for entry in entries:
         raw = entry.get("phrase") if isinstance(entry, dict) else entry
         origin = entry.get("origin") if isinstance(entry, dict) else ""
@@ -156,7 +191,7 @@ def build_patterns(entries, *,
             "origin": _safe_origin(origin),
             "added_at": _now_iso(),
         })
-        if len(out) >= max(1, int(max_patterns)):
+        if len(out) >= max(1, int(limit)):
             break
     return out
 
@@ -211,29 +246,41 @@ class AntiClicheWorker:
     # ── lifecycle ──────────────────────────────────────────────────────────
 
     def start(self) -> None:
-        """Регистрация недельного джоба — только при активном флаге."""
+        """Регистрация недельного джоба — только при активном флаге.
+
+        F7/ADR-1024-3 D2: первый прогон — **вскоре после старта**
+        (`next_run_time = now + ANTICLICHE_FIRST_RUN_DELAY_MINUTES`), далее
+        недельный `IntervalTrigger`. Рестарты не сдвигают окно: лишний запуск
+        отсекает freshness-skip по `fetched_at` (см. `refresh`)."""
         if not anticliche_cache.enabled():
             logger.info("AntiClicheWorker disabled "
                         "(DYNAMIC_ANTICLICHE_ENABLED=False)")
             return
+        tz_name = hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE)
         if self._scheduler is None:
-            tz = hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE)
-            self._scheduler = AsyncIOScheduler(timezone=tz)
+            self._scheduler = AsyncIOScheduler(timezone=tz_name)
+        delay_minutes = _first_run_delay_minutes()
+        next_run_time = (datetime.datetime.now(datetime.timezone.utc)
+                         + datetime.timedelta(minutes=delay_minutes))
         self._scheduler.add_job(
             self.tick,
             IntervalTrigger(days=REFRESH_DAYS, jitter=3600,
-                            timezone=hot.get("limits.summary_timezone",
-                                             settings.SUMMARY_TIMEZONE)),
+                            timezone=tz_name),
             id=_JOB_ID, replace_existing=True,
-            max_instances=1, coalesce=True, misfire_grace_time=3600)
+            max_instances=1, coalesce=True, misfire_grace_time=3600,
+            next_run_time=next_run_time)
         # Review iter1 (L8): не запускаем уже работающий внешний планировщик.
         if not getattr(self._scheduler, "running", False):
             self._scheduler.start()
-        logger.info("AntiClicheWorker started | interval_days=%d", REFRESH_DAYS)
+        logger.info("AntiClicheWorker started | interval_days=%d | "
+                    "first_run_delay_min=%d | next_run_time=%s",
+                    REFRESH_DAYS, delay_minutes, next_run_time)
         trace_step(logger, component="anticliche", step="schedule", status="ok",
                    reason="started",
                    extra={"interval_days": REFRESH_DAYS,
-                          "next_run_time": self._next_run_time() or "n/a"})
+                          "first_run_delay_min": delay_minutes,
+                          "next_run_time": self._next_run_time()
+                          or next_run_time.isoformat()})
 
     def _next_run_time(self):
         """Ближайшее время прогона джоба (None — планировщик недоступен)."""
@@ -259,18 +306,23 @@ class AntiClicheWorker:
             logger.warning("[anticliche] scheduler shutdown failed", exc_info=True)
         logger.info("AntiClicheWorker stopped")
 
-    async def tick(self) -> None:
-        """Обёртка джоба: обновление кэша, ошибка не роняет тик (fail-open)."""
+    async def tick(self, *, force: bool = False) -> None:
+        """Обёртка джоба: обновление кэша, ошибка не роняет тик (fail-open).
+
+        ``force=False`` (штатный крон) → freshness-skip при свежем `fetched_at`;
+        ``force=True`` — ручной прогон. Причина/итог/фаза — в лог (F2)."""
         try:
-            result = await self.refresh()
+            result = await self.refresh(force=force)
+            status = str(result.get("status"))
+            skipped = status in ("fresh", "skip")
             logger.info(
                 "[anticliche] refresh | status=%s | count=%s | source=%s",
-                result.get("status"), result.get("count"),
-                result.get("source"))
+                status, result.get("count"), result.get("source"))
             trace_step(
                 logger, component="anticliche", step="refresh",
-                status=result.get("status"), reason=result.get("source"),
-                level=_refresh_level(str(result.get("status"))),
+                status="skip" if skipped else status,
+                reason="fresh" if status == "fresh" else result.get("source"),
+                level=_refresh_level(status),
                 extra={"count": result.get("count"),
                        "version": result.get("version"),
                        "next_run_time": self._next_run_time() or "n/a"})
@@ -284,12 +336,17 @@ class AntiClicheWorker:
 
     # ── обновление ─────────────────────────────────────────────────────────
 
-    async def refresh(self, *, source: str | None = None) -> dict:
+    async def refresh(self, *, source: str | None = None,
+                      force: bool = False) -> dict:
         """Полный цикл забора источника → LLM → запись. Никогда не бросает.
+
+        F7/ADR-1024-3 D2: при `force=False` и свежем `fetched_at` (младше
+        REFRESH_DAYS) прогон пропускается без fetch/LLM (`status="fresh"`).
 
         Возврат (R17-safe: коды/числа/идентификаторы источника):
         ``{status, count, version, source}``; ``status`` — ``ok|empty|
-        fetch_error|llm_error|parse_error|budget_skip|disabled|write_error``.
+        fetch_error|llm_error|parse_error|budget_skip|disabled|write_error|
+        fresh``.
         """
         source_id = source or self._source_id
         if not anticliche_cache.enabled():
@@ -299,6 +356,19 @@ class AntiClicheWorker:
             return {"status": "disabled", "count": 0, "version": 0,
                     "source": source_id}
         pg = self._pg if self._pg is not None else anticliche_cache.get_runtime_pg()
+
+        # F7/ADR-1024-3 D2: freshness-skip (рестарт-устойчиво, без job store).
+        if not force:
+            data = await anticliche_cache.fetch_cache(pg)
+            if _is_fresh((data or {}).get("fetched_at")):
+                version = int((data or {}).get("version") or 0)
+                logger.info("[anticliche] skip: cache fresh | version=%s",
+                            version)
+                trace_step(logger, component="anticliche", step="gate",
+                           status="skip", reason="fresh",
+                           extra={"source": source_id, "version": version})
+                return {"status": "fresh", "count": 0, "version": version,
+                        "source": source_id}
 
         try:
             text = await self._fetch(self._source_url)
@@ -399,7 +469,8 @@ class AntiClicheWorker:
             raise RuntimeError("anticliche: LLM недоступен")
         messages = [
             {"role": "system",
-             "content": EXTRACT_SYSTEM_PROMPT.format(max=ANTICLICHE_MAX_PATTERNS)},
+             "content": EXTRACT_SYSTEM_PROMPT.format(
+                 max=anticliche_cache.max_patterns())},
             {"role": "user", "content": str(source_text or "")[:MAX_SOURCE_CHARS]},
         ]
         return await self._llm.generate_worker("background", messages)

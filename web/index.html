@@ -395,6 +395,25 @@
                     паттернов: {{ (clicheMeta && clicheMeta.count) || 0 }}
                     / {{ (clicheMeta && clicheMeta.max_patterns) || 0 }}
                   </div>
+                  <!-- F7 (10.24, ADR-1024-3 D1): регулируемый лимит паттернов
+                       (каталоговый ключ limits.anticliche_max_patterns):
+                       числовой ввод 1..1000, дефолт 200. Сохранение — штатным
+                       путём конфига (hot-reload). -->
+                  <div class="flex items-center gap-2 flex-wrap mb-2">
+                    <label class="text-xs text-gray-400"
+                           for="cliche-limit-input">Лимит паттернов</label>
+                    <input id="cliche-limit-input" class="field"
+                           type="number" min="1" max="1000" style="max-width:7rem"
+                           v-model="clicheLimitDraft"
+                           :disabled="!canEditClicheLimit()"
+                           @keyup.enter="saveClicheLimit()">
+                    <button class="btn-accent text-xs"
+                            :disabled="clicheBusy || !canEditClicheLimit()"
+                            @click="saveClicheLimit()">
+                      {{ clicheBusy ? 'Сохранение…' : 'Сохранить' }}
+                    </button>
+                    <span class="text-xs text-gray-500">1–1000, по умолчанию 200</span>
+                  </div>
                   <div class="flex gap-2 flex-wrap mb-2">
                     <button class="btn-accent text-xs" :disabled="clicheBusy"
                             @click="forceRefreshCliche()">
@@ -425,7 +444,11 @@
 
                 <!-- Карточки модулей: секции по stage -->
                 <template v-for="grp in currentTabGroups" :key="'prompt-' + grp.uid">
-                  <div class="card p-4 col-span-full">
+                  <!-- F7 (10.24, ADR-1024-3 D1): группа limits_anticliche не
+                       рендерится generic-карточкой — её ключ редактируется
+                       числовым полем внутри карточки монитора выше. -->
+                  <div v-if="grp.id !== 'limits_anticliche'"
+                       class="card p-4 col-span-full">
                     <div class="text-sm font-bold">{{ groupTitle(grp) }}</div>
                     <div class="text-xs text-gray-500 mb-3">{{ groupDescription(grp) }}</div>
 

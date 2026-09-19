@@ -550,6 +550,17 @@ class Settings:
     # детектор (байт-в-байт 10.22). Промпты/scrubber фича не трогает.
     DYNAMIC_ANTICLICHE_ENABLED: ClassVar[bool] = _env_bool(
         "DYNAMIC_ANTICLICHE_ENABLED", True)
+    # ── Раунд 10.24 (F7, ADR-1024-3 D1/D2): потолок динамических клише и
+    # задержка первого прогона крона после деплоя.
+    #   * ANTICLICHE_MAX_PATTERNS — регулируемый лимит (каталог
+    #     `limits.anticliche_max_patterns`, default 200). Резолв — через
+    #     `anticliche_cache.max_patterns()` (hot → этот дефолт → clamp 1..1000).
+    #   * ANTICLICHE_FIRST_RUN_DELAY_MINUTES — env-only ClassVar (default 5,
+    #     Δ каталога = 0): первый тик недельного воркера планируется вскоре
+    #     после старта, далее IntervalTrigger(days=7, jitter=3600).
+    ANTICLICHE_MAX_PATTERNS: int = _env_int("ANTICLICHE_MAX_PATTERNS", 200)
+    ANTICLICHE_FIRST_RUN_DELAY_MINUTES: ClassVar[int] = _env_int(
+        "ANTICLICHE_FIRST_RUN_DELAY_MINUTES", 5)
     # ── Раунд 10.23 (F5, ADR-1023-5 §D1/D6): env-only ClassVar-рубильники
     # генерации изображений. Δ каталога = 0 (в param_catalog НЕ входят).
     # IMAGE_GENERATION_ENABLED — мастер-килсвитч фичи (default ON); вместе с

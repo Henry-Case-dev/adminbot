@@ -49,6 +49,9 @@
     { id: 'prompts', icon: 'description', label: 'Промпты', type: 'config', menu: 'ai',
       sources: [
         { category: 'prompts', groups: null },
+        // F7 (10.24, ADR-1024-3 D1): лимит анти-клише — зеркало TAB_RULES
+        // (группа limits_anticliche на вкладке «Промпты»).
+        { category: 'limits', groups: ['limits_anticliche'] },
       ] },
     // ── Раунд 10.6 (T-1165/T-1201): 11 модулей (config-источники для окна) ──
     { id: 'mod_summary', icon: 'description', label: 'Саммаризация',
@@ -946,6 +949,8 @@
         clicheBusy: false,         // форс-обновление/сохранение в процессе
         clicheEditing: false,      // режим ручного редактирования
         clicheDraft: '',           // черновик списка (по строке на фразу)
+        // F7 (10.24, ADR-1024-3 D1): черновик регулируемого лимита паттернов.
+        clicheLimitDraft: '',
         saving: new Set(),
         keyDrafts: {},
         secretMask: SECRET_MASK,  // контракт/тесты; рантайм-guard'ы читают SECRET_MASK напрямую
@@ -3897,6 +3902,7 @@
           var data = await this.api('/api/anticliche');
           this.clicheMeta = data || null;
           this.clicheAvailable = true;
+          this.clicheLimitDraft = String(this.clicheLimitValue());
         } catch (e) {
           this.clicheAvailable = false;
           this.clicheMeta = null;
@@ -3967,6 +3973,52 @@
         var d = new Date(iso);
         if (isNaN(d.getTime())) return String(iso);
         try { return d.toLocaleString(); } catch (e) { return String(iso); }
+      },
+      // F7 (10.24, ADR-1024-3 D1): регулируемый лимит анти-клише. Поле —
+      // числовой ввод в карточке монитора, значение — каталоговый ключ
+      // limits.anticliche_max_patterns (int, default 200; clamp 1..1000).
+      clicheLimitItem: function () {
+        var items = this.configItems || [];
+        for (var i = 0; i < items.length; i++) {
+          if (items[i].key === 'limits.anticliche_max_patterns') {
+            return items[i];
+          }
+        }
+        return null;
+      },
+      clicheLimitValue: function () {
+        var it = this.clicheLimitItem();
+        if (it && it.value !== null && it.value !== undefined
+            && it.value !== '') {
+          return it.value;
+        }
+        return (this.clicheMeta && this.clicheMeta.max_patterns) || 0;
+      },
+      canEditClicheLimit: function () {
+        var it = this.clicheLimitItem();
+        return it ? this.canEditConfig(it.key) : false;
+      },
+      saveClicheLimit: async function () {
+        if (this.clicheBusy) return;
+        var it = this.clicheLimitItem();
+        if (!it) {
+          this.toast('Лимит не загружен — откройте вкладку заново', 'warn');
+          return;
+        }
+        var val = parseInt(this.clicheLimitDraft, 10);
+        if (!isFinite(val) || val < 1 || val > 1000) {
+          this.toast('Лимит анти-клише: целое число от 1 до 1000', 'err');
+          this.clicheLimitDraft = String(this.clicheLimitValue());
+          return;
+        }
+        this.clicheBusy = true;
+        try {
+          it.value = val;
+          await this.saveConfigItem(it);
+        } finally {
+          this.clicheBusy = false;
+          await this.loadCliche();
+        }
       },
 
       canEditConfig: function (key) {

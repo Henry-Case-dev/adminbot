@@ -78,9 +78,9 @@ ONE_STAGE_KEYS = {
 
 class TestCatalogDelta:
     def test_counts(self):
-        assert len(pc.REGISTRY) == 457
-        assert len(pc.GROUPS) == 96
-        assert len(pc._TAB_BY_GROUP) == 94
+        assert len(pc.REGISTRY) == 458
+        assert len(pc.GROUPS) == 97
+        assert len(pc._TAB_BY_GROUP) == 95
         assert len(pc.TAB_RULES) == 20
 
     def test_new_group_bound_to_prompts_tab(self):

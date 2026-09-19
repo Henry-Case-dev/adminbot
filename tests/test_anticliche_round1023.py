@@ -163,10 +163,11 @@ class TestBuildPatterns:
         assert [p["phrase"] for p in out] == ["свежая фраза"]
 
     def test_limit_and_drop_invalid(self):
+        """F7/ADR-1024-3 D1: искусственный потолок 20 снят (default 200)."""
         entries = [{"phrase": f"фраза номер {i}"} for i in range(30)]
         entries += [{"phrase": "a"}, {"phrase": "я" * 200}]
         out = build_patterns(entries)
-        assert len(out) == ac.ANTICLICHE_MAX_PATTERNS
+        assert len(out) == 30          # все валидные (30 > прежних 20)
         assert "a" not in [p["phrase"] for p in out]
 
     def test_code_deterministic(self):
@@ -737,7 +738,15 @@ class TestAnticlicheApi:
         assert body["version"] == 2
         assert body["count"] == 1
         assert body["patterns"][0]["code"] == "dyn_abc"
-        assert body["max_patterns"] == ac.ANTICLICHE_MAX_PATTERNS
+        assert body["max_patterns"] == ac.max_patterns()
+
+    def test_get_returns_resolved_max_patterns(self, api_client, monkeypatch):
+        """F7/ADR-1024-3 D1: API отдаёт резолвленный лимит (не хардкод 20)."""
+        monkeypatch.setattr(ac, "settings", types.SimpleNamespace(
+            ANTICLICHE_MAX_PATTERNS=350))
+        resp = api_client.get("/api/anticliche", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        assert resp.json()["max_patterns"] == 350
 
     def test_put_manual_edit(self, api_client):
         resp = api_client.put(
