@@ -648,6 +648,13 @@ class Settings:
     # успешной записи парадигм).
     DEEP_SLEEP_EXTRACT_FIX_ENABLED: ClassVar[bool] = _env_bool(
         "DEEP_SLEEP_EXTRACT_FIX_ENABLED", True)
+    # ── Раунд 10.24 (F13, ADR-1024-14 D5): env-only ClassVar kill-switch
+    # медиа-маркера нативного медиа в контексте реплая (thread_chain /
+    # chat_context / <Current_Question>). Δ каталога = 0 (в param_catalog НЕ
+    # входит). Default ON. OFF → медиа-строки снова скипаются, три рендера
+    # дают байт-в-байт прежний вывод.
+    NATIVE_REPLY_MEDIA_CONTEXT_ENABLED: ClassVar[bool] = _env_bool(
+        "NATIVE_REPLY_MEDIA_CONTEXT_ENABLED", True)
     # Лимит Telegram: число частей ответа (чанкинг 4096).
     MAX_SUMMARY_PARTS: int = _env_int("MAX_SUMMARY_PARTS", 1)
     SUMMARY_TIMEZONE: str = os.getenv("SUMMARY_TIMEZONE", "Asia/Yekaterinburg")

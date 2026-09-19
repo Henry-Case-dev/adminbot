@@ -9,6 +9,7 @@ import logging
 
 from services.canonical_context import format_context_item, resolve_item_id
 from services.database import row_get
+from services.media_marker import media_context_enabled, row_media_marker
 from services.target_marking import is_target_row
 
 logger = logging.getLogger(__name__)
@@ -104,8 +105,17 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
     content_budget = max(0, max_chars - len(wrapper[0]) - len(wrapper[1]))
     rendered: list[tuple[str, bool]] = []      # (line, is_anchor)
     remaining_trigger = trigger_message_id
+    # Раунд 10.24 (F13, ADR-1024-14 D2): строки с пустым текстом и нативным
+    # медиа не скипаются — рендерится медиа-маркер. Флаг OFF или отсутствие
+    # медиа → прежний скип (байт-в-байт, окно/бюджет усечения не меняются).
+    media_enabled = media_context_enabled()
     for row in rows:
+        item_id = resolve_item_id(
+            tg_message_id=row_get(row, "tg_message_id"),
+            message_id=row_get(row, "id"))
         text = (row["text"] or "").strip()
+        if not text and media_enabled:
+            text = row_media_marker(row, item_id=item_id)
         if not text:
             continue
         name = row["author_name"] or f"id{row['user_id'] or '?'}"
@@ -115,9 +125,7 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
         is_anchor = is_target_row(row, anchor_message_id)
         line = format_context_item(
             ts=row_get(row, "timestamp"), author=name,
-            item_id=resolve_item_id(
-                tg_message_id=row_get(row, "tg_message_id"),
-                message_id=row_get(row, "id")),
+            item_id=item_id,
             forward_source=forward_source, text=text, kind="msg",
             is_target=is_marked)
         if is_marked:

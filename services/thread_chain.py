@@ -21,6 +21,7 @@ from typing import NamedTuple
 
 from services.canonical_context import format_context_item, resolve_item_id
 from services.database import row_get
+from services.media_marker import media_context_enabled, row_media_marker
 from services.target_marking import is_target_item_id
 
 logger = logging.getLogger(__name__)
@@ -124,13 +125,22 @@ async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
     chain: list[ChainItem] = []
     current_id = _message_id_of(message)
     seen: set = set()
+    # Раунд 10.24 (F13, ADR-1024-14 D2): медиа-строки (пустой текст + медиа)
+    # не отбрасываются — вместо текста рендерится медиа-маркер. Флаг OFF или
+    # отсутствие медиа → прежний скип (байт-в-байт).
+    media_enabled = media_context_enabled()
     for _ in range(max(1, depth)):
         if current_id is None or current_id in seen:
             break
         seen.add(current_id)
         row = await db.get_smart_message_by_tg_id(chat_id, current_id)
         if row is not None:
+            item_id = resolve_item_id(
+                tg_message_id=row_get(row, "tg_message_id"),
+                message_id=row_get(row, "id"))
             text = row["text"] or ""
+            if not text and media_enabled:
+                text = row_media_marker(row, item_id=item_id)
             if text:
                 name, uid = speaker(row)
                 forward_source = (row_get(row, "forward_source")
@@ -138,9 +148,7 @@ async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
                 chain.append(ChainItem(
                     uid=uid, name=name, text=text, is_bot=False,
                     ts=row_get(row, "timestamp"),
-                    item_id=resolve_item_id(
-                        tg_message_id=row_get(row, "tg_message_id"),
-                        message_id=row_get(row, "id")),
+                    item_id=item_id,
                     forward_source=forward_source))
             current_id = row["reply_to_id"]
             continue

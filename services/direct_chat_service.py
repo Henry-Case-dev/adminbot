@@ -115,6 +115,8 @@ from services.canonical_context import (
     strip_context_header,
 )
 from services.database import row_get
+from services.media_marker import (
+    media_context_enabled, media_marker, message_media_type)
 from services.payload_builder import build_messages
 from services.persistent_throttling import SilenceStreak
 from services.smartmodule_concurrency import get_smartmodule_concurrency_pool
@@ -1228,15 +1230,42 @@ class DirectChatService:
         """Раунд 8 (D1/T-798, spec §3.D1): блок <Current_Question> — текст
         текущего сообщения после среза обращения «бот(@ник):»; cap
         limits.chat_current_question_max_chars (default 800); НЕ режется
-        бюджетом (kind вне лимитов). Пустой после среза — без блока."""
+        бюджетом (kind вне лимитов). Пустой после среза — без блока.
+
+        Раунд 10.24 (F13, ADR-1024-14 D3): к тексту дописываются медиа-маркеры
+        нативного медиа самого сообщения и ``reply_to_message`` (``tg:<id>``).
+        При пустом тексте с медиа блок не пуст; при непустом — текст усекается
+        до резерва под суффикс, маркер гарантированно выживает. Флаг OFF или
+        отсутствие медиа → ровно прежний ``stripped[:cap]`` (байт-в-байт)."""
         stripped = _strip_direct_prefix(message.text or "")
-        if not stripped:
+        markers: list[str] = []
+        if media_context_enabled():
+            own = message_media_type(message)
+            if own:
+                markers.append(
+                    media_marker(own, f"tg:{getattr(message, 'message_id', '')}"))
+            reply = getattr(message, "reply_to_message", None)
+            reply_type = message_media_type(reply)
+            if reply_type:
+                markers.append(
+                    media_marker(
+                        reply_type, f"tg:{getattr(reply, 'message_id', '')}"))
+        if not stripped and not markers:
             return ""
         cap = int(hot.get("limits.chat_current_question_max_chars",
                           settings.CHAT_CURRENT_QUESTION_MAX_CHARS) or 0) \
             or 800
+        if markers:
+            suffix = " ".join(markers)
+            room = max(0, cap - len(suffix) - 1)
+            if room:
+                body = stripped[:room] + (" " + suffix if stripped else suffix)
+            else:
+                body = suffix
+        else:
+            body = stripped[:cap]
         return (f"<Current_Question>\n"
-                f"{escape_xml_text(stripped[:cap])}\n"
+                f"{escape_xml_text(body)}\n"
                 f"</Current_Question>")
 
     @staticmethod
