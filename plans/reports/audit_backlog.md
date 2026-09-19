@@ -3,6 +3,32 @@
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
+## Round 10.23 scan (Step 6 @Scanner, 19.09.2026) — all scanned (diff-based, HEAD 2e056e7, 22 коммита) — files processed
+- [x] services/target_marking.py + summary_xml.py + canonical_context.py + chat_context.py + outgoing_guard.py (F1: единый маркер,
+      оба рендера, анти-эхо, ровно один раз; smoke байт-путь) — чисто
+- [x] services/thread_chain.py + database.get_messages_around + handlers/factcheck._fetch_chat_context (F2: окно/граф/fail-open,
+      keep-end бюджет, `_trusted_text` без chat_context) — чисто; Low L4 (шум миграции)
+- [x] services/system2_handoff.py + prompt_style_blocks.py + negative_constraints.py (F3: роутер в Stage-1, канальные блоки,
+      `detect_plain_tables`) — чисто; **M2** (`response_mode` в Stage-2 JSON direct/factcheck)
+- [x] services/anticliche_cache.py + anticliche_worker.py + web/api/anticliche.py + pg_db DDL (F4: PG-кэш, re.escape, guard пустого,
+      S10.22-4b, RBAC global admin) — чисто
+- [x] services/image_generation.py + tool_schemas.py + tool_router.py + worker_budget.py + telegram_send.send_photo (F5: tool 9-й,
+      POST/GET, бюджет, секрет env/PG, anti-double) — чисто; **M1** (корреляция пре-гейта), Low L1 (image_calls), L3 (SSRF/size)
+- [x] services/summary_generator.py + telegram_send.build_cover*/send_rich_message (F6: cover_prompt, Article, тихий фолбэк,
+      даунгрейд по содержимому, egress-реестр) — чисто; Low L2 (`_strip_safe_html` на rich)
+- [x] services/usage_events.py + llm_pricing.py + llm_client.py + tool_loop.py + web/api/analytics.py + pg_db DDL (F7: correlation-id
+      Stage1/tool/Stage2, cost/price_known, retention, RBAC) — чисто; **M1** (image-нода без родительской корреляции)
+- [x] services/param_catalog.py + prompt_migrations.py + chat_prompts.py + summary_prompts.py + factcheck_prompts.py + web/app.js +
+      web/index.html (F8/F9: +18 каталога, PG-промпты, UI-табы, справка v5 + guide v2, backup/reset RBAC) — чисто; Info I2 (stale doc)
+- [x] bot.py + config/settings.py + config_cache.py + config_migrations.py + web/app.py + .env.example (DI воркера, env-рубильники,
+      идемпотентные миграции, порядок роутеров не сдвинут, PG-DDL идемпотентен, SQLite v12) — чисто
+- [x] tests/* (полный pytest 7418 passed / 0 failed; node --check OK) + grep секретов (sk_/gsk_/ghp_/Bearer/ssh-rsa/PRIVATE KEY —
+      только фейковые фикстуры)
+- **СВОДКА 10.23: Critical 0 / High 0 / Medium 2 (M1 correlation картинок, M2 response_mode в Stage-2; не блокеры) /
+  Low 4 / Info 4.** Валидатор: каталог 457/96/94 (Settings 416), SQLite v12 (Δ=0), PG +3 таблицы, aiogram 3.31.0.
+  Вердикт: **обязательных возвратов @Builder нет; раунд передаётся на Merge/деплой** (Medium — к решению владельца/tech-debt).
+  Отчёт: `plans/reports/round1023_scanner_audit.md`.
+
 ## Round 10.22 scan + re-audit (Step 6 @Scanner, 19.09.2026) — all scanned/closed (diff-based, HEAD acd9311 + worktree)
 - [x] services/memory_rebuild.py (F1: fail-closed `_belief_source_set` — S10.22-1 CLOSED; `:787-847` + тест
       `test_belief_read_error_skips_chat_fail_closed`; rebuild_empty/exit — S10.21-инвариант цел)

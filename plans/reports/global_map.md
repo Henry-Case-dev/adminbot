@@ -49,6 +49,82 @@
 > + 16 Info; обязательные @DevOps-гейты (dry-run → бэкап → SQL-чеклист → purge) — отчёт §10.5.
 > Отчёт: `plans/reports/round10.19_scanner_audit.md` (§10 — Батч E + итог эпика).
 
+## Round 10.23 — F1 target-message-marking / F2 factcheck-deep-context / F3 verbalizer-response-modes / F4 dynamic-anticliche-cache / F5 image-generation-tool / F6 summary-cover-rich-article / F7 token-analytics-dashboard / F8 ui-verbilizer-tabs / F9 help-ui-v5 (19.09.2026, HEAD `2e056e7`, 22 коммита) — карта связностей
+
+> **Baseline скана Step 6 @Scanner:** pytest **7418 passed / 0 failed** (95.99 s); `node --check web/app.js` OK;
+> `git diff 731a845..HEAD` = 118 файлов, +13192/−523. Секретов в диффе/трекаемых файлах нет. Каталог **457**
+> (было 439: F2 +2 / F5 +5 / F6 +1 / F8 +10); Settings-поля **416**; `GROUPS 96`; `_TAB_BY_GROUP 94`.
+> SQLite **v12 (не тронут)**, PG +3 таблицы. **Статус: 0 Critical / 0 High; 2 Medium (не блокеры) / 4 Low / 4 Info.**
+> Отчёт: `plans/reports/round1023_scanner_audit.md`.
+
+- **Кросс-фичевые общие файлы (ступени вливания):**
+  - `services/system2_handoff.py` — **F3 → F6 → F7**: `RESPONSE_MODES`/`normalize_response_mode` (fail-safe `serious`),
+    `parse_summary_handoff` (`{response_mode, digest, cover_prompt}`) + back-compat `validate_summary_digest`,
+    `normalize_cover_prompt` (≤300, по границе слова); `response_mode` добавлен в `parse_factcheck_analysis`/
+    `parse_direct_synthesis`.
+  - `services/prompt_style_blocks.py` — **F3/F8**: `TYPOGRAPHY_BLOCK`, `MODE_{CASUAL,SERIOUS,DEEP_RESEARCH}_BLOCK`,
+    `FORMAT_{PLAIN,PLAIN_TEXT,RICH}_BLOCK`, `compose_verbalizer_system(base, mode, channel, html_safe=)`,
+    `channel_enabled_rules` override буллитов для `deep_research`; `resolve_prompt(pg_key, code_default)`
+    (пустота/whitespace не обнуляет system-промпт, hot-get).
+  - `services/param_catalog.py` — **F2 → F5 → F8**: `+2` (`factcheck_context_before/after`, legacy hidden),
+    `+5` image-группа (`models_images`/`keys_images`/`flags_module_images`), `+1` `prompts.summary_cover_style`,
+    `+10` Stage-1/2 + режимы (`prompts_verbilizer`); поле `ParamSpec.stage` (`synthesizer|verbalizer|mode`);
+    phantom `content.dynamic_cliche_list` НЕ регистрируется (F4 хранит клише в PG-таблице).
+  - `services/prompt_migrations.py` — **F1 → F2 → F3 → F4(no-op) → F6**: `PREV_SUMMARY_EDITOR_R1023[_F3/_F6]`,
+    `PREV_FACTCHECK_ANALYST_R1023[_F2/_F3]`, PREV-слепки chat/direct verbalizer; `ROLLBACK_MIGRATIONS` снимает
+    ровно последнюю ступень.
+  - `web/app.js` + `web/index.html` — **F5 → F7 → F8 → F9**: блок «Генерация изображений» (checkbox GET + dependsOn
+    ключа), «Token Metrics» (Flow node + графики), вкладка «Промпты» (табы режимов, секции по `stage`, монитор
+    анти-клише через `/api/anticliche`), guide backup-UI. `tma-menu-freeze` не нарушен.
+- **F1 `target-message-marking` (ADR-1023-1):** новый `services/target_marking.py` (`TARGET_MARKER[_CORE]`,
+  `TARGET_INSTRUCTION_BLOCK`, `normalize_trigger_id`, `is_target_row`/`is_target_item_id`, `append_marker`);
+  `summary_xml.XmlGroundingBuilder.build(..., trigger_message_id)` (маркер до `_escape`), `canonical_context.format_context_item(is_target=)`
+  (дефолт False — прочие вызывающие не затронуты), `chat_context.format_chat_context(trigger_message_id=)`;
+  правило в `CHAT_SYSTEM_PROMPT`/`SUMMARY_EDITOR_SYSTEM_PROMPT`/`FACTCHECK_ANALYST_SYSTEM_PROMPT`;
+  анти-эхо — `outgoing_guard._TARGET_MARKER_RE`. Маркер ровно один раз (только `<Global_Context>` в direct; команда
+  `/summary` в историю не пишется — ограничение зафиксировано).
+- **F2 `factcheck-deep-context` (ADR-1023-2):** `database.get_messages_around` (anchor + before/after, ASC,
+  fail-open → `get_recent_messages`); `handlers/factcheck._fetch_chat_context`/`_clamp_window`; `chat_context`
+  keep-end бюджет с приоритетом якоря/`after`/`<reply_chains>` (обёртка учитывается, ≤ `max_chars`); новый
+  `services/thread_chain.py` (общий граф реплаев, вынесен из direct); `render_reply_chains` (пометка «не доказательства»);
+  `_trusted_text` БЕЗ chat_context (таймстампы не становятся grounding-якорями); `WEB_SEARCH_INSTRUCTION_BLOCK`;
+  legacy `limits.factcheck_context_messages` → одноразовая DML-миграция в `before`.
+- **F3 `verbalizer-response-modes` (ADR-1023-3):** роутер строго в Stage-1 JSON; `compose_verbalizer_system`
+  + канальные блоки; `channel_enabled_rules` (`plain_no_tables` на plain, легальные таблицы на rich);
+  `detect_plain_tables` (контекстная эвристика: HTML/ASCII/separator/≥2 pipe-строк) в `negative_constraints`;
+  direct `deep_research` → safe-HTML «Летописца» (`_send_direct_answer(deep_research=True)`); kill-switch
+  `SMART_VERBALIZER_MODES_ENABLED`.
+- **F4 `dynamic-anticliche-cache` (ADR-1023-4):** PG `anticliche_cache` (singleton id=1, JSONB) — DDL/сид в
+  `pg_db`; `services/anticliche_cache.py` (memoized `get_rules`, `fetch/write/apply_manual`, `re.escape`-компиляция
+  фраз, `dyn_<sha1[:8]>`, R17-статусы); `services/anticliche_worker.py` (недельный `AntiClicheWorker`,
+  бюджет `llm_calls`, guard пустого/эхо-результата — кэш не затирается); фикс S10.22-4b (lookbehind запятой,
+  bare «языковая модель» не после «как»); API `web/api/anticliche.py` (GET/PUT/POST refresh, global admin).
+- **F5 `image-generation-tool` (ADR-1023-5):** новый `services/image_generation.py` (`generate`/`generate_image`/
+  `generate_and_send`/`maybe_handle_keyword`, POST `response_format=url` + b64-fallback, GET строго анонимный,
+  ≤1 ретрай на 429/503, `IMAGE_MAX_BYTES`); tool `generate_image` 9-м в `tool_schemas` (после канонических 8;
+  гейт сомкнут env∧каталог, анти-двойная генерация с пре-гейтом); `worker_budget.METRIC_IMAGE_CALLS`;
+  egress `telegram_send.send_photo` (байты, без keyed-URL); `SecretMaskFilter` на console + httpx→WARNING.
+- **F6 `summary-cover-rich-article` (ADR-1023-6):** `cover_prompt` в Stage-1 JSON; `SummaryDraft`;
+  `_deliver_rich` (обложка F5 → `send_rich_message`) с тихим фолбэком и даунгрейдом rich→plain по содержимому
+  (`downgrade_rich_to_plain`/`looks_rich`); `telegram_send.build_cover_article_html`/`build_cover_media`/
+  `send_rich_message` (exactly-one-of html/markdown, sanitize ДО escape, media `tg://photo`); `_rich_media_supported()`.
+- **F7 `token-analytics-dashboard` (ADR-1023-7, AMEND: DDL в PG):** `services/usage_events.py` (fail-open запись,
+  ретенция opportunistic), `services/llm_pricing.py` (TTL-кэш цен, `compute_cost` fail-safe), DDL
+  `llm_usage_events`/`llm_model_prices` + индексы + сид цен; `correlation_id` протянут Stage-1/tool/Stage-2
+  (`llm_client.generate[_chat]`, `tool_loop`, все три оркестратора); API `web/api/analytics.py` (latest/summary/prices,
+  global admin); UI «Token Metrics».
+- **F8 `ui-verbilizer-tabs` (ADR-1023-8):** PG-редактируемые Stage-1/2 промпты + 3 режима + default-mode;
+  `resolve_prompt` hot-get; UI-табы/секции по `stage`; монитор анти-клише; `stage` в `/api/config`.
+- **F9 `help-ui-v5` (ADR-1023-9):** `INFO_CANON_VERSION 4→5` (info_text.md + секция «11. Генерация изображений»),
+  `GUIDE_CANON_VERSION=2` + `guide_version_for` по содержимому, `KNOWN_GUIDE_SNAPSHOTS`; `InfoService.get_guide_backup`/
+  `reset_guide`; маршруты `GET /api/info/guide/backup` + `POST /api/info/guide/reset` (RBAC `edit_info`).
+- **Кросс-фичевые зависимости/риски (из аудита):** M1 — телеметрия изображений (пре-гейт F5 и обложка F6)
+  не несёт родительский `correlation_id` → `usage/latest` (F7) отдаёт одиночную ноду image вместо дерева;
+  M2 — `response_mode` (F3) попадает в Stage-2 JSON direct/factcheck (spec §3.1 требует обратного).
+- **Инварианты целы:** physical-two-call (роутер в Stage-1), validator-loop без regex-реза, egress-реестр,
+  imported-history/manual-overrides immutable, R16/R17/R18, `parse_mode=None`, порядок роутеров `bot.py`,
+  RBAC новых эндпоинтов, идемпотентные PG-DDL, SQLite v12.
+
 ## Round 10.22 (UPD3) — F1 rebuild confirmed-cleanup / F2 KV-объект / F3–F5 System-2 two-call / F6 egress-guard / F7 справка v4 / F8 async rebuild досье (19.09.2026) — карта связностей
 
 - **F1 `urgent-rebuild-dossiers-target-chat` (ADR-1022-1):** `services/memory_rebuild.py` — новый примитив
