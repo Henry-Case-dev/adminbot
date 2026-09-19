@@ -479,7 +479,13 @@ async def post_config(
     except Exception:
         db_overrides = {}
     root = await chat_params.get_all_chat_params(chat_id)
-    chat_overrides = dict(root.get("perm_overrides") or {})
+    # F20 (раунд 10.24, ADR-1024-21 D1/D2): два НЕЗАВИСИМЫХ namespace.
+    #   perm_overrides  — матрица прав (chat-скоуп view/edit ролей ключа);
+    #                     в POST используется ТОЛЬКО для effective_matrix ниже.
+    #   value_overrides — ЗНАЧЕНИЯ per-chat (root["overrides"]) — база merge.
+    # Смешение этих пространств и было багом: одиночный save затирал значения.
+    perm_overrides = dict(root.get("perm_overrides") or {})
+    value_overrides = dict(root.get("overrides") or {})
     patch_overrides = {}
     for item in payload.items:
         spec = get_by_pg_key(item.key)
@@ -497,7 +503,7 @@ async def post_config(
                 detail=f"{item.key}: ключ нельзя переносить на уровень чата")
         matrix = access_srv.effective_matrix(
             item.key, db_overrides.get(item.key),
-            chat_overrides.get(item.key))
+            perm_overrides.get(item.key))
         if not access_srv.can_edit_param(ctx, matrix):
             raise HTTPException(status_code=403,
                                 detail=f"нет права на {item.key}")
@@ -520,7 +526,7 @@ async def post_config(
         patch_overrides[item.key] = value
     if not patch_overrides:
         raise HTTPException(status_code=422, detail="items пуст")
-    new_overrides = dict(chat_overrides)
+    new_overrides = dict(value_overrides)
     new_overrides.update(patch_overrides)
     meta = dict(root.get("meta") or {})
     meta["updated_by"] = user.id
