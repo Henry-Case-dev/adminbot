@@ -1248,6 +1248,111 @@ class TestClassification:
         assert YouTubeTranscriptEngine._is_transient(None) is False
 
 
+class TestReasonClassification:
+    """Раунд 10.24 (F16, spec §5.3): `reason` итогового исключения —
+    age_restricted → transient → unavailable (приоритет по классам/атрибутам).
+
+    Политика, а не сообщение: тесты на текст `both engines failed` остаются."""
+
+    @staticmethod
+    def _AgeRestricted():
+        class AgeRestricted(Exception):
+            pass
+
+        return AgeRestricted("This video is age-restricted")
+
+    @staticmethod
+    def _RequestBlocked():
+        class RequestBlocked(Exception):
+            pass
+
+        return RequestBlocked("blocked")
+
+    def test_fetch_segments_age_restricted_reason(self, monkeypatch):
+        age = self._AgeRestricted()
+
+        class _Api(_FakeApi):
+            def list(self, video_id):
+                raise age
+
+        monkeypatch.setattr(engine_mod, "YouTubeTranscriptApi", _Api)
+        with pytest.raises(YouTubeTranscriptUnavailableException) as ei:
+            YouTubeTranscriptEngine()._fetch_segments("video-1")
+        assert ei.value.reason == "age_restricted"
+
+    def test_fetch_segments_request_blocked_transient_reason(self, monkeypatch):
+        blocked = self._RequestBlocked()
+
+        class _Api(_FakeApi):
+            def list(self, video_id):
+                raise blocked
+
+        monkeypatch.setattr(engine_mod, "YouTubeTranscriptApi", _Api)
+        with pytest.raises(YouTubeTranscriptUnavailableException) as ei:
+            YouTubeTranscriptEngine()._fetch_segments("video-1")
+        assert ei.value.reason == "transient"
+
+    def test_default_reason_unavailable(self):
+        exc = YouTubeTranscriptUnavailableException("both engines failed")
+        assert exc.reason == "unavailable"
+
+    def test_classify_reason_priority_age_over_transient(self):
+        age = self._AgeRestricted()
+        transient = self._RequestBlocked()
+        # age-фейл одного движка приоритетнее transient другого
+        assert YouTubeTranscriptEngine._classify_reason(
+            transient, age) == "age_restricted"
+        assert YouTubeTranscriptEngine._classify_reason(
+            age, transient) == "age_restricted"
+
+    def test_classify_reason_transient(self):
+        """Обёртка `_fetch_segments` (reason='transient') доезжает до итога."""
+        wrapped = YouTubeTranscriptUnavailableException(
+            "list failed (TRANSIENT)", reason="transient")
+        wrapped.__cause__ = self._RequestBlocked()
+        assert YouTubeTranscriptEngine._classify_reason(
+            None, wrapped) == "transient"
+
+    def test_classify_reason_unavailable(self):
+        assert YouTubeTranscriptEngine._classify_reason(
+            VideoUnavailable("Video unavailable"),
+            NoTranscriptFound("no transcript")) == "unavailable"
+
+    @pytest.mark.asyncio
+    async def test_fetch_transcript_carries_age_restricted_reason(
+            self, patched_cascade):
+        """Прод-кейс 1TON5W_SNKY: yt-dlp None (transient) + api AgeRestricted →
+        reason=age_restricted (хендлер выберет отдельный пул фраз)."""
+        engine, _, _, _ = patched_cascade(
+            [RuntimeError("yt-dlp: extract_info returned None | video_id='v'")],
+            [self._AgeRestricted()],
+        )
+        with pytest.raises(YouTubeTranscriptUnavailableException) as ei:
+            await engine.fetch_transcript("video-1", 4000)
+        assert ei.value.reason == "age_restricted"
+
+    @pytest.mark.asyncio
+    async def test_fetch_transcript_carries_transient_reason(
+            self, patched_cascade):
+        engine, _, _, _ = patched_cascade(
+            [HTTPError(status=429)], [TooManyRequests("too many")]
+        )
+        with pytest.raises(YouTubeTranscriptUnavailableException) as ei:
+            await engine.fetch_transcript("video-1", 4000)
+        assert ei.value.reason == "transient"
+
+    @pytest.mark.asyncio
+    async def test_fetch_transcript_carries_unavailable_reason(
+            self, patched_cascade):
+        engine, _, _, _ = patched_cascade(
+            [VideoUnavailable("Video unavailable")],
+            [NoTranscriptFound("no transcript")],
+        )
+        with pytest.raises(YouTubeTranscriptUnavailableException) as ei:
+            await engine.fetch_transcript("video-1", 4000)
+        assert ei.value.reason == "unavailable"
+
+
 class TestRetryLogs:
     """Epic 41 (50.8 #14-15, D157): status/body_bytes в WARNING и финальном
     исключении (атрибут → регэксп → «-»)."""

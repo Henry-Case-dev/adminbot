@@ -11,12 +11,19 @@ Epic 46 (55.5): после fetch_transcript — fire_and_forget-хук _memorize
 задачи) + гибридный RAG (get_rag_context по rag_query) префиксом user-контента.
 memory=None / chat_id=None / rag_query пуст → ровно старое поведение.
 
-Эпик 04.09.2026 (3.2, Часть 1): summarize_cascade — оркестратор каскада
-L1 (video_primary_model) → L2 (video_fallback_model) → L3 (summarize —
-субтитры). Каскад молча деградирует: любой сбой L1/L2 (VideoLevelError/
-таймаут/пустой ответ) → WARNING + следующий уровень; исключения уровней
-наружу не пробрасываются. video_client=None (или недоступен ключ) → ровно
-старое поведение (сразу L3).
+Эпик 04.09.2026 (3.2, Часть 1): summarize_cascade — каскад L1 (video_primary_model)
+→ L2 (video_fallback_model) → L3 (summarize — субтитры). Каскад молча
+деградирует: любой сбой L1/L2 (VideoLevelError/таймаут/пустой ответ) → WARNING
++ следующий уровень; исключения уровней наружу не пробрасываются.
+video_client=None (или недоступен ключ) → ровно старое поведение (сразу L3).
+
+Раунд 10.24 (F16, ADR-1024-17 §Решение п.2): summarize_cascade переопределён
+как СУБТИТРОВЫЙ ФОЛБЭК (L3-only). Мультимодальный L1/L2 здесь БОЛЬШЕ НЕ
+выполняется: URL страницы (watch?v=) не является валидным video_url для
+OpenRouter. Для youtube+summary мультимодалка выполняется ХЕНДЛЕРОМ по
+опубликованному файлу (media_share → summarize_media_url) ДО вызова
+summarize_cascade. `summarize_media_url` (L1→L2 по реальному URL) — без
+изменений.
 """
 import asyncio
 import logging
@@ -43,11 +50,6 @@ from services.youtube_transcript_engine import YouTubeTranscriptEngine
 logger = logging.getLogger(__name__)
 
 
-def _canonical_youtube_url(video_id: str) -> str:
-    """Canonical-форма URL для OpenRouter (видео передаётся URL-ом, не файлом)."""
-    return f"https://www.youtube.com/watch?v={video_id}"
-
-
 class YoutubeSummarizerService:
     """YouTube: субтитры → LLM-выжимка в токсичном стиле → cleanup."""
 
@@ -66,90 +68,12 @@ class YoutubeSummarizerService:
         chat_id: int | None = None,
         rag_query: str | None = None,
     ) -> str:
-        """L1 (primary) → L2 (fallback) → L3 (субтитры). Всегда возвращает текст.
-
-        Мультимодальный путь пропускается целиком, если видео-клиент не задан
-        или недоступен (пустой keys.openrouter_api_key) — WARNING + L3.
-        Успех L1/L2 возвращается без сообщений юзеру об уровнях (кэширует
-        хендлер). Ошибки/пустые ответы L1/L2 молча уводят на следующий уровень.
-        """
-        max_symbols = hot.get("limits.youtube_max_symbols",
-                              settings.YOUTUBE_MAX_SYMBOLS)
-        timeout = hot.get("models.video_timeout_seconds",
-                          settings.VIDEO_TIMEOUT_SECONDS)
-        if self.video_client is None or not self.video_client.available:
-            logger.warning(
-                "[video cascade] disabled (no openrouter key) — subtitles path "
-                "| video_id=%r", video_id)
-            return await self.summarize(video_id, on_retry=on_retry,
-                                        chat_id=chat_id, rag_query=rag_query)
-        rag = ""
-        if self.memory is not None and chat_id is not None and rag_query:
-            try:
-                # 10.20 (БЛОК 2.6, ADR-1020-2): ASC-хронология перед рендером.
-                rag = await self.memory.get_rag_context(
-                    chat_id, rag_query, sort_by_timestamp=True)
-            except Exception:
-                logger.warning(
-                    "[video cascade] rag build failed — fail-open | video_id=%r",
-                    video_id, exc_info=True)
-        video_system = hot.get("prompts.youtube_video_system_prompt",
-                               YOUTUBE_VIDEO_SYSTEM_PROMPT)
-        system = video_system.replace("{max_symbols}", str(max_symbols))
-        user = ((f"{rag}\n\n" if rag else "") +
-                f"<video_id>{video_id}</video_id>\n\n"
-                f"Смотри видео и сделай выжимку по правилам.")
-        video_url = _canonical_youtube_url(video_id)
-        for level, key, settings_attr in (
-                ("L1", "models.video_primary_model", settings.VIDEO_PRIMARY_MODEL),
-                ("L2", "models.video_fallback_model", settings.VIDEO_FALLBACK_MODEL),
-        ):
-            model = str(hot.get(key, settings_attr) or "").strip()
-            if not model:                             # пусто = ступень отключена
-                logger.warning(
-                    "[video cascade] %s skipped (empty model) | video_id=%r",
-                    level, video_id)
-                continue
-            started = time.monotonic()
-            try:
-                raw = await asyncio.wait_for(
-                    self.video_client.summarize(
-                        model=model, video_url=video_url,
-                        system_prompt=system, user_text=user, timeout=timeout),
-                    timeout=timeout)
-            except VideoLevelError as exc:
-                logger.warning(
-                    "[video cascade] %s failed → next | model=%s video_id=%r "
-                    "| reason=%s", level, model, video_id, exc)
-                continue
-            except asyncio.TimeoutError:
-                logger.warning(
-                    "[video cascade] %s timeout (%.0fs) → next | model=%s "
-                    "video_id=%r", level, timeout, model, video_id)
-                continue
-            text = cleanup_llm_text(raw)
-            if not text.strip():
-                logger.warning(
-                    "[video cascade] %s empty answer → next | model=%s video_id=%r",
-                    level, model, video_id)
-                continue
-            if is_refusal_response(text):
-                # Раунд 4 (T-709, FR-C2): «не вижу видео»/короткая заглушка —
-                # НЕ выжимка. Отказной текст юзеру НЕ уходит: следующий уровень
-                # (L2), после исчерпания — субтитры L3.
-                logger.warning(
-                    "[video cascade] %s refusal → next | model=%s "
-                    "video_id=%r", level, model, video_id)
-                continue
-            logger.info(                                # R41-5
-                "[video cascade] OK | level=%s model=%s video_id=%r "
-                "out_chars=%d latency_ms=%.0f",
-                level, model, video_id, len(text),
-                (time.monotonic() - started) * 1000.0)
-            return text                                # успех L1/L2 — кэш хендлера
-        logger.warning(
-            "[video cascade] L1+L2 unavailable → subtitles (L3) | video_id=%r",
-            video_id)
+        """СУБТИТРОВЫЙ ФОЛБЭК (L3). Мультимодальный L1/L2 здесь БОЛЬШЕ НЕ
+        выполняется: YouTube-страница (watch?v=) не является валидным
+        video_url для OpenRouter. Мультимодалка для youtube+summary
+        выполняется хендлером по опубликованному файлу (media_share →
+        summarize_media_url) ДО вызова этого метода. Возвращает текст
+        выжимки; исключения движка/LLM — наружу (фразы у хендлера)."""
         return await self.summarize(video_id, on_retry=on_retry,
                                     chat_id=chat_id, rag_query=rag_query)
 

@@ -661,6 +661,27 @@ class Settings:
     # OFF → байт-в-байт прежнее: urls-first, инструменты требуют url.
     NATIVE_MEDIA_TOOLS_ENABLED: ClassVar[bool] = _env_bool(
         "NATIVE_MEDIA_TOOLS_ENABLED", True)
+    # ── Раунд 10.24 (F16, ADR-1024-17 §Решение/§9): env-only ClassVar-рубильники
+    # YouTube+summary «скачать → мультимодалка → фолбэк субтитры». Δ каталога = 0
+    # (в param_catalog НЕ входят). Все — опциональная инфра, значения секретов
+    # (cookies/POT/proxy) живут ТОЛЬКО в .env и не логируются (R17/R18).
+    #   * YOUTUBE_MULTIMODAL_DOWNLOAD_ENABLED — мастер kill-switch (default ON):
+    #     OFF → шаги A/B пропускаются, сразу субтитровый L3 (без скачивания).
+    #   * YOUTUBE_MULTIMODAL_DOWNLOAD_TIMEOUT_SECONDS — бюджет скачивания
+    #     (default 240; хендлер клампит ≥ 30).
+    #   * YOUTUBE_MULTIMODAL_DOWNLOAD_CHAT_IDS — CSV chat_id для поэтапной
+    #     раскатки; пусто = все чаты.
+    #   * YOUTUBE_CREDENTIALED_LEVEL_ENABLED — UPD5: разрешает credentialed-
+    #     уровень (cookies/POT/resident-proxy) для age-restricted; default ON.
+    #     OFF → только публичные ресурсы (honest-фолбэк).
+    YOUTUBE_MULTIMODAL_DOWNLOAD_ENABLED: ClassVar[bool] = _env_bool(
+        "YOUTUBE_MULTIMODAL_DOWNLOAD_ENABLED", True)
+    YOUTUBE_MULTIMODAL_DOWNLOAD_TIMEOUT_SECONDS: ClassVar[float] = _env_float(
+        "YOUTUBE_MULTIMODAL_DOWNLOAD_TIMEOUT_SECONDS", 240.0)
+    YOUTUBE_MULTIMODAL_DOWNLOAD_CHAT_IDS: ClassVar[str] = os.getenv(
+        "YOUTUBE_MULTIMODAL_DOWNLOAD_CHAT_IDS", "")
+    YOUTUBE_CREDENTIALED_LEVEL_ENABLED: ClassVar[bool] = _env_bool(
+        "YOUTUBE_CREDENTIALED_LEVEL_ENABLED", True)
     # Лимит Telegram: число частей ответа (чанкинг 4096).
     MAX_SUMMARY_PARTS: int = _env_int("MAX_SUMMARY_PARTS", 1)
     SUMMARY_TIMEZONE: str = os.getenv("SUMMARY_TIMEZONE", "Asia/Yekaterinburg")
@@ -1536,6 +1557,11 @@ def build_ytdlp_base_opts() -> dict:
     # 84.23 (D303): HTTP-кэш yt-dlp отключаем — прогресс-бар и ретраи
     # клиентов без него (кэш только копит диск/память; зависимостей нет).
     opts["cachedir"] = False
+    # Раунд 10.24 (F16, ADR-1024-17 §9): credentialed-уровень OFF → только
+    # публичные ресурсы (cookies/POT/proxy НЕ пробрасываются). Default ON →
+    # поведение байт-в-байт прежнее. Значения кредов — только .env (R17).
+    if not getattr(settings, "YOUTUBE_CREDENTIALED_LEVEL_ENABLED", True):
+        return opts
     proxy = (settings.YOUTUBE_TRANSCRIPT_PROXY_URL or "").strip()
     if proxy:
         opts["proxy"] = proxy

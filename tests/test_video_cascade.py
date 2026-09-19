@@ -23,10 +23,7 @@ from services.video_cascade_client import (
     is_refusal_response,
     normalize_for_refusal,
 )
-from services.youtube_summarizer_service import (
-    YoutubeSummarizerService,
-    _canonical_youtube_url,
-)
+from services.youtube_summarizer_service import YoutubeSummarizerService
 from services.youtube_prompts import YOUTUBE_VIDEO_SYSTEM_PROMPT
 
 VIDEO_ID = "dQw4w9WgXcQ"
@@ -201,14 +198,18 @@ def _cascade_service(video_client, engine=None, llm=None, memory=None):
                                     video_client=video_client), engine, llm
 
 
-class TestSummarizeCascade:
+class TestSummarizeCascadeL3Only:
+    """F16 (ADR-1024-17 §Решение п.2): `summarize_cascade` — субтитровый
+    фолбэк (L3-only). Мультимодальный L1/L2 здесь БОЛЬШЕ НЕ выполняется:
+    URL страницы не является валидным video_url. L1/L2 живут в
+    `summarize_media_url` (см. TestSummarizeMediaUrlCascade)."""
+
     def _video_mock(self, text=None, error=None):
         vc = MagicMock()
         vc.available = True
         if error is None:
             vc.summarize = AsyncMock(return_value=text)
         else:
-            # список side_effect: L1 падает, L2 (и далее) отдаёт text
             effects = list(error) if isinstance(error, (list, tuple)) else [error]
             if text is not None:
                 effects.append(text)
@@ -216,94 +217,25 @@ class TestSummarizeCascade:
         return vc
 
     @pytest.mark.asyncio
-    async def test_l1_ok_returns_text_no_subtitles(self):
-        vc = self._video_mock(text="выжимка из видео")
-        service, engine, llm = _cascade_service(vc)
-        result = await service.summarize_cascade(VIDEO_ID)
-        assert result == "выжимка из видео"
-        engine.fetch_transcript.assert_not_called()      # L3 не запускался
-        llm.generate.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_l1_ok_uses_primary_model_and_canonical_url(self):
-        vc = self._video_mock(text="выжимка из видео по кадрам")
-        service, _, _ = _cascade_service(vc)
-        await service.summarize_cascade(VIDEO_ID)
-        kwargs = vc.summarize.await_args.kwargs
-        assert kwargs["model"] == settings.VIDEO_PRIMARY_MODEL
-        assert kwargs["video_url"] == _canonical_youtube_url(VIDEO_ID)
-        # системный промпт видеорежима с подставленным лимитом
-        system = kwargs["system_prompt"]
-        assert "{max_symbols}" not in system
-        assert str(settings.YOUTUBE_MAX_SYMBOLS) in system
-        assert "<video_id>" in kwargs["user_text"]
-        assert "Смотри видео и сделай выжимку по правилам" in kwargs["user_text"]
-        assert "<transcript>" not in kwargs["user_text"]
-
-    @pytest.mark.asyncio
-    async def test_l1_fail_falls_to_l2(self):
-        vc = self._video_mock(text="выжимка из видео",
-                              error=VideoLevelError("status=400"))
-        service, engine, _ = _cascade_service(vc)
-        result = await service.summarize_cascade(VIDEO_ID)
-        assert result == "выжимка из видео"
-        assert vc.summarize.await_count == 2     # L1 + L2
-        models = [c.kwargs["model"] for c in vc.summarize.await_args_list]
-        assert models == [settings.VIDEO_PRIMARY_MODEL,
-                          settings.VIDEO_FALLBACK_MODEL]
-        engine.fetch_transcript.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_both_fail_falls_to_subtitles_l3(self):
-        vc = self._video_mock(
-            error=[VideoLevelError("status=429"), VideoLevelError("status=429")])
+    async def test_never_calls_video_client(self):
+        """T1 (F16): summarize_cascade НЕ уходит в мультимодалку — только L3."""
+        vc = self._video_mock(text="не должно случиться")
         service, engine, llm = _cascade_service(vc)
         result = await service.summarize_cascade(VIDEO_ID)
         assert result == "выжимка по субтитрам"
+        vc.summarize.assert_not_called()
         engine.fetch_transcript.assert_awaited_once()
         llm.generate.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_empty_answers_fall_to_l3(self):
-        vc = self._video_mock(text="   ")
-        service, engine, _ = _cascade_service(vc)
-        result = await service.summarize_cascade(VIDEO_ID)
-        assert result == "выжимка по субтитрам"
-        engine.fetch_transcript.assert_awaited_once()
-        # оба уровня пробованы, пустые ответы → L3
-        assert vc.summarize.await_count == 2
-
-    @pytest.mark.asyncio
-    async def test_all_levels_empty_raises_bad_response(self):
-        """Все пусто → хендлер молчание+🗿 через LLMBadResponseError."""
-        vc = self._video_mock(text="   ")
-        llm = MagicMock()
-        llm.generate = AsyncMock(return_value="   ")
-        engine = MagicMock()
-        engine.fetch_transcript = AsyncMock(return_value="субтитры")
-        service = YoutubeSummarizerService(engine, llm, video_client=vc)
-        with pytest.raises(LLMBadResponseError):
-            await service.summarize_cascade(VIDEO_ID)
-
-    @pytest.mark.asyncio
-    async def test_timeout_falls_to_next_level(self):
-        vc = self._video_mock(text="выжимка из видео",
-                              error=asyncio.TimeoutError())
-        service, _, _ = _cascade_service(vc)
-        result = await service.summarize_cascade(VIDEO_ID)
-        assert result == "выжимка из видео"
-
-    @pytest.mark.asyncio
-    async def test_no_key_client_available_false_immediate_l3(self, caplog):
-        import logging
+    async def test_no_key_client_available_false_still_subtitles(self):
         vc = self._video_mock(text="не должно случиться")
         vc.available = False
-        service, engine, _ = _cascade_service(vc)
-        with caplog.at_level(logging.WARNING):
-            result = await service.summarize_cascade(VIDEO_ID)
+        service, engine, llm = _cascade_service(vc)
+        result = await service.summarize_cascade(VIDEO_ID)
         assert result == "выжимка по субтитрам"
         vc.summarize.assert_not_called()
-        assert any("[video cascade] disabled" in r.message for r in caplog.records)
+        engine.fetch_transcript.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_video_client_none_is_old_behavior(self):
@@ -315,20 +247,164 @@ class TestSummarizeCascade:
         llm.generate.assert_awaited_once()
 
     @pytest.mark.asyncio
+    async def test_all_levels_empty_raises_bad_response(self):
+        """Пустой ответ L3 → хендлер молчание+🗿 через LLMBadResponseError."""
+        llm = MagicMock()
+        llm.generate = AsyncMock(return_value="   ")
+        engine = MagicMock()
+        engine.fetch_transcript = AsyncMock(return_value="субтитры")
+        service = YoutubeSummarizerService(engine, llm)
+        with pytest.raises(LLMBadResponseError):
+            await service.summarize_cascade(VIDEO_ID)
+
+    @pytest.mark.asyncio
     async def test_rag_prefix_used_when_memory_present(self):
+        """L3-субтитры используют RAG-префикс (как summarize)."""
         memory = MagicMock()
         memory.get_rag_context = AsyncMock(return_value="<RAG>факты</RAG>")
-        vc = self._video_mock(text="выжимка по кадрам с RAG-фоном")
-        service, _, _ = _cascade_service(vc, memory=memory)
+        llm = MagicMock()
+        llm.generate = AsyncMock(return_value="выжимка по субтитрам")
+        engine = MagicMock()
+        engine.fetch_transcript = AsyncMock(return_value="[00:01] субтитры")
+        service = YoutubeSummarizerService(engine, llm, memory=memory)
         await service.summarize_cascade(VIDEO_ID, chat_id=-100,
                                         rag_query="че за видос")
         memory.get_rag_context.assert_awaited_once_with(
             -100, "че за видос", sort_by_timestamp=True)
-        assert "<RAG>факты</RAG>" in vc.summarize.await_args.kwargs["user_text"]
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert "<RAG>факты</RAG>" in user
 
     @pytest.mark.asyncio
-    async def test_memorize_not_called_on_video_path(self):
-        """FR-5: _memorize_youtube — только на пути субтитров (L3)."""
+    async def test_memorize_called_on_subtitles_path(self):
+        """L3-субтитры пишут память (в отличие от L1/L2 файлового каскада)."""
+        spy = []
+
+        def _spy(coro, tag):
+            spy.append(coro)
+            coro.close()
+
+        with patch("services.youtube_summarizer_service.fire_and_forget",
+                   side_effect=_spy):
+            memory = MagicMock()
+            memory.get_rag_context = AsyncMock(return_value="")
+            service, engine, llm = _cascade_service(None, memory=memory)
+            await service.summarize_cascade(VIDEO_ID, chat_id=-100)
+            assert len(spy) == 1
+
+    def test_video_system_prompt_is_youtube_prompt_variant(self):
+        """Промпт видеорежима — копия субтитрового с заменой формулировки."""
+        from services.youtube_prompts import YOUTUBE_SYSTEM_PROMPT
+        assert YOUTUBE_VIDEO_SYSTEM_PROMPT.count("{max_symbols}") == 1
+        assert YOUTUBE_VIDEO_SYSTEM_PROMPT == YOUTUBE_SYSTEM_PROMPT.replace(
+            "по предоставленной текстовой расшифровке (субтитрам)",
+            "по самому видео (ты видишь кадры и слышишь звук)")
+
+
+class TestSummarizeMediaUrlCascade:
+    """F16: покрытие L1/L2 (primary→fallback, транзиенты/refusal/timeouts)
+    ПЕРЕНЕСЕНО с summarize_cascade на summarize_media_url — там L1/L2 и
+    живут (мультимодалка по реальному опубликованному файлу)."""
+
+    def _video_mock(self, text=None, error=None):
+        vc = MagicMock()
+        vc.available = True
+        if error is None:
+            vc.summarize = AsyncMock(return_value=text)
+        else:
+            effects = list(error) if isinstance(error, (list, tuple)) else [error]
+            if text is not None:
+                effects.append(text)
+            vc.summarize = AsyncMock(side_effect=effects)
+        return vc
+
+    @pytest.mark.asyncio
+    async def test_l1_ok_returns_text_no_subtitles(self):
+        vc = self._video_mock(text="выжимка из видео")
+        service, engine, llm = _cascade_service(vc)
+        result = await service.summarize_media_url(
+            chat_id=-100, video_url="https://media.example/x.mp4",
+            label="youtube-file")
+        assert result == "выжимка из видео"
+        assert vc.summarize.await_count == 1
+        engine.fetch_transcript.assert_not_called()
+        llm.generate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_l1_uses_primary_model_and_given_url(self):
+        vc = self._video_mock(text="выжимка из видео по кадрам")
+        service, _, _ = _cascade_service(vc)
+        await service.summarize_media_url(
+            chat_id=-100, video_url="https://media.example/x.mp4?s=sec",
+            label="youtube-file")
+        kwargs = vc.summarize.await_args.kwargs
+        assert kwargs["model"] == settings.VIDEO_PRIMARY_MODEL
+        assert kwargs["video_url"] == "https://media.example/x.mp4?s=sec"
+        # системный промпт видеорежима с подставленным лимитом
+        system = kwargs["system_prompt"]
+        assert "{max_symbols}" not in system
+        assert str(settings.YOUTUBE_MAX_SYMBOLS) in system
+        assert "<video_id>" in kwargs["user_text"]
+        assert "<transcript>" not in kwargs["user_text"]
+
+    @pytest.mark.asyncio
+    async def test_l1_fail_falls_to_l2(self):
+        vc = self._video_mock(text="выжимка из видео",
+                              error=VideoLevelError("status=400"))
+        service, engine, _ = _cascade_service(vc)
+        result = await service.summarize_media_url(
+            chat_id=-100, video_url="https://x/y.mp4", label="youtube-file")
+        assert result == "выжимка из видео"
+        assert vc.summarize.await_count == 2     # L1 + L2
+        models = [c.kwargs["model"] for c in vc.summarize.await_args_list]
+        assert models == [settings.VIDEO_PRIMARY_MODEL,
+                          settings.VIDEO_FALLBACK_MODEL]
+        engine.fetch_transcript.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_both_fail_raises_video_level_error(self):
+        vc = self._video_mock(
+            error=[VideoLevelError("status=429"), VideoLevelError("status=429")])
+        service, engine, llm = _cascade_service(vc)
+        with pytest.raises(VideoLevelError):
+            await service.summarize_media_url(
+                chat_id=-100, video_url="https://x/y.mp4",
+                label="youtube-file")
+        engine.fetch_transcript.assert_not_called()
+        llm.generate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_empty_answers_raise_video_level_error(self):
+        vc = self._video_mock(text="   ")
+        service, engine, _ = _cascade_service(vc)
+        with pytest.raises(VideoLevelError):
+            await service.summarize_media_url(
+                chat_id=-100, video_url="https://x/y.mp4",
+                label="youtube-file")
+        assert vc.summarize.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_timeout_falls_to_next_level(self):
+        vc = self._video_mock(text="выжимка из видео",
+                              error=asyncio.TimeoutError())
+        service, _, _ = _cascade_service(vc)
+        result = await service.summarize_media_url(
+            chat_id=-100, video_url="https://x/y.mp4", label="youtube-file")
+        assert result == "выжимка из видео"
+
+    @pytest.mark.asyncio
+    async def test_no_key_client_available_false_raises(self):
+        vc = self._video_mock(text="не должно случиться")
+        vc.available = False
+        service, _, _ = _cascade_service(vc)
+        with pytest.raises(VideoLevelError):
+            await service.summarize_media_url(
+                chat_id=-100, video_url="https://x/y.mp4",
+                label="youtube-file")
+        vc.summarize.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_memorize_not_called_on_media_path(self):
+        """FR-5: L1/L2 файловый каскад память НЕ пишет (только L3)."""
         spy = []
         with patch("services.youtube_summarizer_service.fire_and_forget",
                    side_effect=lambda coro, tag: spy.append(coro)):
@@ -336,9 +412,10 @@ class TestSummarizeCascade:
             memory.get_rag_context = AsyncMock(return_value="")
             vc = self._video_mock(text="выжимка по кадрам без RAG")
             service, _, _ = _cascade_service(vc, memory=memory)
-            await service.summarize_cascade(VIDEO_ID, chat_id=-100,
-                                            rag_query="q")
-            assert spy == []                       # L1 — без memorize-хука
+            await service.summarize_media_url(
+                chat_id=-100, video_url="https://x/y.mp4",
+                label="youtube-file")
+            assert spy == []
 
     @pytest.mark.asyncio
     async def test_cleanup_applied_to_l1_output(self):
@@ -346,7 +423,8 @@ class TestSummarizeCascade:
         отказ (эталон с «ёлочками»/тире как в живых выжимках)."""
         vc = self._video_mock(text="«ёлочки» и тире — длинный пересказ ролика")
         service, _, _ = _cascade_service(vc)
-        result = await service.summarize_cascade(VIDEO_ID)
+        result = await service.summarize_media_url(
+            chat_id=-100, video_url="https://x/y.mp4", label="youtube-file")
         assert result == '"ёлочки" и тире - длинный пересказ ролика'
         assert vc.summarize.await_count == 1
 
@@ -364,7 +442,9 @@ class TestSummarizeCascade:
         try:
             vc = self._video_mock(text="выжимка от запасной модели по кадрам")
             service, _, _ = _cascade_service(vc)
-            result = await service.summarize_cascade(VIDEO_ID)
+            result = await service.summarize_media_url(
+                chat_id=-100, video_url="https://x/y.mp4",
+                label="youtube-file")
             assert result == "выжимка от запасной модели по кадрам"
             # L1 пропущен, сработал L2
             calls = [c.kwargs["model"] for c in vc.summarize.await_args_list]
@@ -372,13 +452,6 @@ class TestSummarizeCascade:
         finally:
             hot.set_config_cache(old_cache)
 
-    def test_video_system_prompt_is_youtube_prompt_variant(self):
-        """Промпт видеорежима — копия субтитрового с заменой формулировки."""
-        from services.youtube_prompts import YOUTUBE_SYSTEM_PROMPT
-        assert YOUTUBE_VIDEO_SYSTEM_PROMPT.count("{max_symbols}") == 1
-        assert YOUTUBE_VIDEO_SYSTEM_PROMPT == YOUTUBE_SYSTEM_PROMPT.replace(
-            "по предоставленной текстовой расшифровке (субтитрам)",
-            "по самому видео (ты видишь кадры и слышишь звук)")
 
 
 # ── Раунд 4 (T-709, AC-C1): маркерный детект отказных ответов ───────────────
@@ -495,7 +568,8 @@ class TestCascadeRefusals:
                               "выжимка по кадрам от minimax")
         service, engine, _ = _cascade_service(vc)
         with caplog.at_level(logging.WARNING):
-            result = await service.summarize_cascade(VIDEO_ID)
+            result = await service.summarize_media_url(
+                chat_id=-100, video_url="https://x/y.mp4", label="youtube-file")
         assert result == "выжимка по кадрам от minimax"
         assert vc.summarize.await_count == 2
         models = [c.kwargs["model"] for c in vc.summarize.await_args_list]
@@ -506,13 +580,14 @@ class TestCascadeRefusals:
                    for r in caplog.records)
 
     @pytest.mark.asyncio
-    async def test_l1_refusal_l2_refusal_goes_to_subtitles(self):
-        """Оба уровня отказали (YouTube-URL) → L3-субтитры (фолбек)."""
+    async def test_summarize_cascade_l3_only_regardless_of_client(self):
+        """F16: summarize_cascade — только субтитры, независимо от того, что
+        вернул бы видео-клиент (отказы/пустые ответы его больше не касаются)."""
         vc = self._video_mock("не вижу видео", "cannot see the video at all")
         service, engine, llm = _cascade_service(vc)
         result = await service.summarize_cascade(VIDEO_ID)
         assert result == "выжимка по субтитрам"
-        assert vc.summarize.await_count == 2
+        vc.summarize.assert_not_called()
         engine.fetch_transcript.assert_awaited_once()
         llm.generate.assert_awaited_once()
 
@@ -528,7 +603,7 @@ class TestCascadeRefusals:
     @pytest.mark.asyncio
     async def test_media_url_both_refusal_raises_video_level_error(self, caplog):
         """Файловый каскад: L1+L2 отказали → VideoLevelError c 'refusal'
-        (хендлер youtube.py:587-590 делает STT-фолбек)."""
+        (хендлер youtube.py делает STT-фолбек)."""
         import logging
         vc = self._video_mock("не вижу видео, пришли файл",
                               "i cannot view the video, resend")
@@ -546,7 +621,8 @@ class TestCascadeRefusals:
         """Короткая заглушка (<15 симв.) L1 → L2 (как отказ)."""
         vc = self._video_mock("мем с котом", "развёрнутая выжимка по кадрам")
         service, _, _ = _cascade_service(vc)
-        result = await service.summarize_cascade(VIDEO_ID)
+        result = await service.summarize_media_url(
+            chat_id=-100, video_url="https://x/y.mp4", label="tg-file")
         assert result == "развёрнутая выжимка по кадрам"
         assert vc.summarize.await_count == 2
 
@@ -555,7 +631,8 @@ class TestCascadeRefusals:
         """Легитимный короткий (но ≥15) ответ не уводит на следующий уровень."""
         vc = self._video_mock("просто смешной ролик с котом и собакой")
         service, engine, _ = _cascade_service(vc)
-        result = await service.summarize_cascade(VIDEO_ID)
+        result = await service.summarize_media_url(
+            chat_id=-100, video_url="https://x/y.mp4", label="tg-file")
         assert result == "просто смешной ролик с котом и собакой"
         engine.fetch_transcript.assert_not_called()
 

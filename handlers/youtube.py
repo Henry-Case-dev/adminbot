@@ -24,6 +24,12 @@ B8-фолбек отсутствующей строки smart_messages. Прям
 (в тихую, quality 360) → публикация → L1/L2 → STT-фолбек. YouTube-URL-ветка
 для mode=summary — байт-в-байт прежняя. Voice/video_note НЕ квалифицируются
 (их обслуживает 0i).
+
+Раунд 10.24 (F16, ADR-1024-17): YouTube-URL + mode=summary становится
+«скачать видео → мультимодалка по опубликованному файлу → фолбэк субтитры»
+(переиспользует native-инфру `_publish_and_cascade`); `summarize_cascade`
+теперь L3-only. AMEND архивной границы (только эта ветка); transcript/native/
+direct/platform — байт-в-байт.
 """
 import asyncio
 import dataclasses
@@ -73,6 +79,7 @@ from services.smartmodule_phrases import (
     VIDEO_MEDIA_TOO_LONG_PHRASES,
     VIDEO_MEDIA_UNAVAILABLE_PHRASES,
     VIDEO_NO_SPEECH_PHRASES,
+    YOUTUBE_AGE_RESTRICTED_PHRASES,
     YOUTUBE_ERROR_PHRASES,
     YOUTUBE_RETRY_PHRASES,   # НОВОЕ (5.8, R41-2)
 )
@@ -136,6 +143,78 @@ _URL_QUALITY = "360"
 _LABEL_TG_FILE = "tg-file"
 _LABEL_DIRECT = "direct-url"
 _LABEL_PLATFORM = "platform-url"
+# Раунд 10.24 (F16, ADR-1024-17): youtube+summary — файл, скачанный yt-dlp.
+_LABEL_YT_URL = "youtube-file"
+
+
+# ── Раунд 10.24 (F16): «скачать → мультимодалка → фолбэк субтитры» ─────
+
+def _yt_multimodal_enabled() -> bool:
+    """Kill-switch env-only (default ON). OFF → A/B пропускаются, сразу L3."""
+    return bool(getattr(settings, "YOUTUBE_MULTIMODAL_DOWNLOAD_ENABLED", True))
+
+
+def _yt_multimodal_timeout() -> float:
+    """Бюджет скачивания ветки (env-only, default 240с, clamp ≥ 30)."""
+    raw = getattr(settings, "YOUTUBE_MULTIMODAL_DOWNLOAD_TIMEOUT_SECONDS", 240.0)
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        value = 240.0
+    return max(value, 30.0)
+
+
+def _yt_multimodal_allowed(chat_id: int) -> bool:
+    """Поэтапная раскатка (env-allowlist): пусто = все чаты."""
+    raw = str(getattr(settings, "YOUTUBE_MULTIMODAL_DOWNLOAD_CHAT_IDS", "") or "")
+    if not raw.strip():
+        return True
+    allowed = {part.strip() for part in raw.split(",") if part.strip()}
+    return str(chat_id) in allowed
+
+
+def _yt_credentialed_enabled() -> bool:
+    """Credentialed-уровень (UPD5): cookies/POT/resident-proxy разрешены."""
+    return bool(getattr(settings, "YOUTUBE_CREDENTIALED_LEVEL_ENABLED", True))
+
+
+def _log_yt_credentials_presence() -> None:
+    """R17: только presence (set|empty) cookies/POT/proxy, без значений."""
+    from config.settings import get_ytdlp_pot_provider
+    cookies = str(getattr(settings, "YOUTUBE_COOKIES_FILE", "") or "").strip()
+    proxy = str(getattr(settings, "YOUTUBE_TRANSCRIPT_PROXY_URL", "") or "").strip()
+    pot = get_ytdlp_pot_provider()
+    logger.info(
+        "[youtube] credentialed level | enabled=%s | cookies=%s | pot=%s "
+        "| proxy=%s",
+        _yt_credentialed_enabled(),
+        "set" if cookies else "empty",
+        "set" if pot else "empty",
+        "set" if proxy else "empty")
+
+
+async def _download_youtube_silent(url: str, timeout: float) -> Path | None:
+    """Тихое скачивание 360p для youtube+summary. None = не скачалось
+    (WARNING, R17-safe: класс исключения + safe-reason, без URL). Юзеру
+    фраз на этом шаге НЕ шлём — деградация на субтитровый фолбэк."""
+    if _media_downloader is None:
+        return None
+    _log_yt_credentials_presence()
+    try:
+        return await asyncio.wait_for(
+            _media_downloader.download(url, _URL_QUALITY), timeout=timeout)
+    except asyncio.TimeoutError:
+        logger.warning("[youtube] multimodal download timeout (%.0fs)", timeout)
+    except DownloadError as exc:
+        # R17: только класс + safe-reason (никогда str(exc)/URL).
+        logger.warning("[youtube] multimodal download failed | error=%s "
+                       "reason=%s", type(exc).__name__,
+                       getattr(exc, "reason", "-"))
+    except Exception as exc:                       # неожиданное — тоже тихо
+        logger.warning("[youtube] multimodal download unexpected | error=%s",
+                       type(exc).__name__)
+    return None
+
 
 
 def setup_youtube(service, db=None) -> None:
@@ -973,8 +1052,12 @@ async def _process_video_media(bot, message: types.Message,
 async def _process_youtube_summary(bot, message: types.Message,
                                    target: types.Message,
                                    video_id: str) -> None:
-    """Прежняя URL-ветка 0e (cache → L1/L2/L3-каскад → фразы) — байт-в-байт
-    для mode=summary (T-688/границы: не трогаем)."""
+    """URL-ветка 0e для mode=summary. Раунд 10.24 (F16, ADR-1024-17):
+    A) скачать видео (тихо, 360p, бюджет) → B) опубликовать (media_share) и
+    дать мультимодалке РЕАЛЬНЫЙ файл (`summarize_media_url`) → C) фолбэк на
+    субтитры (`summarize_cascade`, L3-only). При флаге OFF / выключенной
+    публикации / без downloader — сразу C (совместимость с прежним путём).
+    Cache-key, слот пула, on_retry, 🗿 и фразы сохранены."""
     text = (message.text or message.caption or "")
     cache = get_smart_cache()
     cache_key = cache.build_key("youtube", video_id)
@@ -984,8 +1067,8 @@ async def _process_youtube_summary(bot, message: types.Message,
         logger.info("[youtube] cache hit | chat=%s video_id=%r",
                     message.chat.id, video_id)
         return
-    # Раунд N (T-841): слот пула per-chat перед LLM-каскадом summarize_cascade
-    # (cache-hit выше — быстрый путь БЕЗ пула). Таймаут → busy-фраза на ВЫЗОВ.
+    # Раунд N (T-841): слот пула per-chat перед LLM-каскадом (cache-hit выше —
+    # быстрый путь БЕЗ пула). Таймаут → busy-фраза на ВЫЗОВ.
     pool = get_smartmodule_concurrency_pool()
     permit = await pool.try_acquire(message.chat.id,
                                     timeout=smartmodule_wait_seconds())
@@ -996,13 +1079,30 @@ async def _process_youtube_summary(bot, message: types.Message,
                      random.choice(SMARTMODULE_BUSY_PHRASES),
                      message.message_id)
         return
+    path: Path | None = None
+    ticket = None
     try:
         # Epic 60 (65.7, T-475): «печатает…» от контекста в ИИ до отправки.
         async with typing_active(bot, message.chat.id):
-            # Эпик 04.09.2026 (3.2): каскад L1 (видео-модель) → L2 (запасная) →
-            # L3 (субтитры). Ошибки L1/L2 в хендлер НЕ приходят (молчаливая
-            # деградация внутри сервиса); try/except ниже покрывает только
-            # финальный провал ВСЕГО каскада (L3).
+            # ── Шаг A+B (F16): скачать → опубликовать → мультимодалка ──
+            if (_yt_multimodal_enabled()
+                    and media_share.enabled()
+                    and _media_downloader is not None
+                    and _yt_multimodal_allowed(message.chat.id)):
+                url = f"https://www.youtube.com/watch?v={video_id}"
+                path = await _download_youtube_silent(url, _yt_multimodal_timeout())
+                if path is not None:
+                    ticket, text_out = await _publish_and_cascade(
+                        bot, message.chat.id, str(path), _LABEL_YT_URL)
+                    if text_out:
+                        await send_chunked_reply(bot, message.chat.id, text_out,
+                                                 target.message_id)
+                        await cache.set(cache_key, text_out)
+                        logger.info(                                # R41-5
+                            "[youtube] multimodal summary sent | chat=%s "
+                            "video_id=%r", message.chat.id, video_id)
+                        return
+            # ── Шаг C: субтитровый фолбэк (L3-only) ──
             text_out = await _service.summarize_cascade(
                 video_id,
                 on_retry=_make_retry_notifier(bot, message.chat.id,
@@ -1020,10 +1120,14 @@ async def _process_youtube_summary(bot, message: types.Message,
         logger.warning("[youtube] empty answer — silence | chat=%s video_id=%r | error=%s",
                        message.chat.id, video_id, exc)
         await react_moai(bot, message.chat.id, target.message_id)
-    except YouTubeTranscriptUnavailableException:
-        logger.exception("[youtube] transcript failed | chat=%s video_id=%r",
-                         message.chat.id, video_id)                       # R41-5
-        await _reply(bot, message.chat.id, random.choice(YOUTUBE_ERROR_PHRASES),  # 5.6 → ЦЕЛЕВОЕ
+    except YouTubeTranscriptUnavailableException as exc:
+        # F16: age_restricted → отдельный понятный пул (не ложная 5.6).
+        reason = getattr(exc, "reason", "unavailable")
+        phrases = (YOUTUBE_AGE_RESTRICTED_PHRASES if reason == "age_restricted"
+                   else YOUTUBE_ERROR_PHRASES)
+        logger.exception("[youtube] transcript failed | chat=%s video_id=%r "
+                         "| reason=%s", message.chat.id, video_id, reason)  # R41-5
+        await _reply(bot, message.chat.id, random.choice(phrases),  # 5.6/5.6-age
                      target.message_id)
     except LLMError as exc:
         logger.warning("[youtube] LLM failed | chat=%s video_id=%r | error=%s",  # Epic 47 (D190): WARNING
@@ -1036,6 +1140,13 @@ async def _process_youtube_summary(bot, message: types.Message,
         await _reply(bot, message.chat.id, random.choice(LLM_ERROR_PHRASES),
                      target.message_id)
     finally:
+        if path is not None:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+        if ticket is not None:
+            await media_share.delete_file(ticket.file_id)
         permit.release()
 
 

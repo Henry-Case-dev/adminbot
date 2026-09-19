@@ -55,7 +55,16 @@ _RETRY_HTTP_STATUSES = frozenset({403, 429, 500, 502, 503, 504})  # D155: тра
 
 class YouTubeTranscriptUnavailableException(Exception):
     """Транскрипт недоступен (ОБА движка упали): нет субтитров / приватность /
-    видео удалено / 429 / сетевой сбой. → пул 5.6 (YOUTUBE_ERROR_PHRASES)."""
+    видео удалено / 429 / сетевой сбой. → пул 5.6 (YOUTUBE_ERROR_PHRASES).
+
+    Раунд 10.24 (F16, ADR-1024-17 §Решение п.5): необязательный `reason`
+    (позиционный `message` сохранён) — машинная причина, по которой хендлер
+    выбирает пул фраз. Значения: ``"age_restricted"`` | ``"transient"`` |
+    ``"unavailable"`` (default — ``"unavailable"``)."""
+
+    def __init__(self, message: str, *, reason: str = "unavailable") -> None:
+        super().__init__(message)
+        self.reason = reason
 
 
 class YouTubeTranscriptEngine:
@@ -150,7 +159,8 @@ class YouTubeTranscriptEngine:
             f"(yt-dlp: {ytdlp_exc} [status={self._exc_status(ytdlp_exc)}, "
             f"body_bytes={self._exc_body_bytes(ytdlp_exc)}]; "
             f"transcript-api: {api_exc} [status={self._exc_status(api_exc)}, "
-            f"body_bytes={self._exc_body_bytes(api_exc)}])"
+            f"body_bytes={self._exc_body_bytes(api_exc)}])",
+            reason=self._classify_reason(ytdlp_exc, api_exc),
         )
 
     async def _notify_retry(
@@ -369,7 +379,12 @@ class YouTubeTranscriptEngine:
         GenericProxyConfig с URL-embedded auth (http://user:pass@host:port).
         Приоритет: (1) username+password+domain+port → generic с auth,
         (2) domain+port → generic без auth, (3) webshare locations → None.
-        Пусто → None (без прокси). R17: значения НЕ логируются."""
+        Пусто → None (без прокси). R17: значения НЕ логируются.
+
+        Раунд 10.24 (F16, ADR-1024-17 §9): credentialed-уровень OFF →
+        прокси НЕ используется (только публичные ресурсы)."""
+        if not getattr(settings, "YOUTUBE_CREDENTIALED_LEVEL_ENABLED", True):
+            return None
         username = (hot.get("keys.youtube_transcript_proxy_username", settings.YOUTUBE_TRANSCRIPT_PROXY_USERNAME) or "").strip()
         password = (hot.get("keys.youtube_transcript_proxy_password", settings.YOUTUBE_TRANSCRIPT_PROXY_PASSWORD) or "").strip()
         domain = (hot.get("limits.youtube_transcript_proxy_domain", settings.YOUTUBE_TRANSCRIPT_PROXY_DOMAIN) or "").strip()
@@ -411,14 +426,17 @@ class YouTubeTranscriptEngine:
             exc_name = type(exc).__name__
             if exc_name in ("RequestBlocked", "IpBlocked"):
                 raise YouTubeTranscriptUnavailableException(
-                    f"list failed (TRANSIENT) | video_id={video_id!r} ({exc})"
+                    f"list failed (TRANSIENT) | video_id={video_id!r} ({exc})",
+                    reason="transient",
                 ) from exc
             if exc_name == "AgeRestricted":
                 raise YouTubeTranscriptUnavailableException(
-                    f"list failed (PERMANENT) | video_id={video_id!r} ({exc})"
+                    f"list failed (PERMANENT) | video_id={video_id!r} ({exc})",
+                    reason="age_restricted",
                 ) from exc
             raise YouTubeTranscriptUnavailableException(
-                f"list failed | video_id={video_id!r} ({exc})"
+                f"list failed | video_id={video_id!r} ({exc})",
+                reason="unavailable",
             ) from exc
         transcript = self._pick_transcript(transcript_list, video_id)
         try:
@@ -535,6 +553,47 @@ class YouTubeTranscriptEngine:
         if "timed out" in text_l or isinstance(root, TimeoutError):
             return True
         return False                                         # дефолт: PERMANENT
+
+    @staticmethod
+    def _is_age_restricted(exc: BaseException | None) -> bool:
+        """Раунд 10.24 (F16): age-restricted по корневой причине
+        (класс AgeRestricted или текст «age-restricted»/«age restricted»).
+        Приоритет выше transient (в логе прода age-restricted-фейл одного
+        движка соседствовал с transient-фейлом другого)."""
+        if exc is None:
+            return False
+        root = YouTubeTranscriptEngine._root_cause(exc)
+        name = type(root).__name__
+        text_l = str(root).lower()
+        return (name == "AgeRestricted"
+                or "age-restricted" in text_l
+                or "age restricted" in text_l)
+
+    @classmethod
+    def _reason_of(cls, exc: BaseException | None) -> str | None:
+        """Причина одного движка: явный `reason` обёртки (age/transient),
+        иначе структурная классификация. `None` — движок не падал."""
+        if exc is None:
+            return None
+        explicit = getattr(exc, "reason", None)
+        if explicit == "age_restricted" or cls._is_age_restricted(exc):
+            return "age_restricted"
+        if explicit == "transient" or cls._is_transient(exc):
+            return "transient"
+        return "unavailable"
+
+    @classmethod
+    def _classify_reason(cls, ytdlp_exc: BaseException | None,
+                         api_exc: BaseException | None) -> str:
+        """Раунд 10.24 (F16, spec 4.3): приоритет age_restricted → transient →
+        unavailable по обоим движкам. Значение уходит в `reason` итогового
+        исключения (хендлер выбирает пул фраз)."""
+        reasons = {cls._reason_of(ytdlp_exc), cls._reason_of(api_exc)}
+        if "age_restricted" in reasons:
+            return "age_restricted"
+        if "transient" in reasons:
+            return "transient"
+        return "unavailable"
 
     @staticmethod
     def _exc_status(exc: BaseException | None) -> str:
