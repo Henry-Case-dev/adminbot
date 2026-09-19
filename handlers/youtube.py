@@ -48,6 +48,7 @@ from handlers.media_common import (
 )
 from services import hot_config as hot
 from services import media_share
+from services import native_media
 from services import command_prefix
 from services import command_registry
 from services.llm_client import LLMBadResponseError, LLMError
@@ -124,7 +125,8 @@ _media_downloader = None
 _FETCH_TIMEOUT = 120.0
 
 # Документы-«видео» БЕЗ mime — по расширению file_name (3.1.1).
-_VIDEO_DOC_EXTENSIONS = ("mp4", "webm", "mov", "mkv", "avi")
+# Раунд 10.24 (F14, ADR-1024-15 §2.3): единый источник — services.native_media.
+_VIDEO_DOC_EXTENSIONS = native_media.VIDEO_DOC_EXTENSIONS
 
 # Раунд 3 (3.2, T-690): cap субтитров YouTube для mode=transcript.
 _YT_TRANSCRIPT_CAP = 20000
@@ -275,28 +277,18 @@ def _parse(message: types.Message) -> tuple[types.Message | None, str | None]:
     return message, video_id
 
 
-@dataclasses.dataclass(frozen=True)
-class _VideoMedia:
-    """Медиа-ветка (Часть 1): сообщение-носитель + объект Video/Document."""
-    source: types.Message
-    media: object
-    kind: str                    # "video" | "document"
-
-
-def _document_is_video(doc) -> bool:
-    """Document → видео: mime video/*; mime пуст/None → расширение file_name;
-    mime задан и не video/* → НЕ видео (mime авторитетнее имени)."""
-    mime = str(getattr(doc, "mime_type", "") or "").strip().lower()
-    if mime:
-        return mime.startswith("video/")
-    name = str(getattr(doc, "file_name", "") or "").lower()
-    return any(name.endswith("." + ext) for ext in _VIDEO_DOC_EXTENSIONS)
+# Раунд 10.24 (F14, ADR-1024-15 §2.3): ``_VideoMedia`` — алиас на общий
+# ``native_media.NativeMedia`` (те же поля source/media/kind); квалификация и
+# суффикс делегированы в ``services.native_media`` (семантика байт-в-байт).
+_VideoMedia = native_media.NativeMedia
+_document_is_video = native_media.document_is_video
+_video_suffix = native_media.media_suffix
 
 
 def _resolve_video_media(message: types.Message) -> _VideoMedia | None:
     """Триггер есть (substring, тот же _has_trigger) + НЕТ YouTube-URL (по
     классификатору это уже гарантировано вызывающим) + медиа «видео» на
-    message ИЛИ reply_to_message → _VideoMedia. ВАЖНО: voice/video_note/audio
+    message ИЛИ reply_to_message → NativeMedia. ВАЖНО: voice/video_note/audio
     НИКОГДА не квалифицируются (0i их обслуживает). Собственное медиа вызова
     приоритетнее медиа реплая. Любое исключение → None (не ронять роутер).
     Форварды: aiogram кладёт вложение в те же поля (message.video +
@@ -305,32 +297,10 @@ def _resolve_video_media(message: types.Message) -> _VideoMedia | None:
         body = _triggered_body(message)
         if body is None:
             return None
-        for candidate in (message, getattr(message, "reply_to_message", None)):
-            if candidate is None:
-                continue
-            video = getattr(candidate, "video", None)
-            if video is not None:
-                return _VideoMedia(source=candidate, media=video, kind="video")
-            document = getattr(candidate, "document", None)
-            if document is not None and _document_is_video(document):
-                return _VideoMedia(source=candidate, media=document,
-                                   kind="document")
-        return None
+        return native_media.resolve_reply_video(message)
     except Exception:
         logger.warning("[youtube] media resolve failed — UNHANDLED", exc_info=True)
         return None
-
-
-def _video_suffix(media: _VideoMedia) -> str:
-    """Суффикс tmp-файла: video → .mp4; document — по file_name (известное
-    видео-расширение) либо .mp4 по умолчанию."""
-    if media.kind == "video":
-        return ".mp4"
-    name = str(getattr(media.media, "file_name", "") or "").lower()
-    for ext in _VIDEO_DOC_EXTENSIONS:
-        if name.endswith("." + ext):
-            return f".{ext}"
-    return ".mp4"
 
 
 def _resolve_author(message: types.Message) -> str:

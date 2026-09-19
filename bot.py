@@ -496,7 +496,10 @@ async def on_startup():
             download_cooldown=get_download_cooldown,
             # 10.20 (БЛОК 1, T-1887): LLM для изолированного синтеза истории
             # «Летописца» (compile_lore_story) — тот же клиент, что DirectChat.
-            llm=_llm_client))
+            llm=_llm_client,
+            # Раунд 10.24 (F14, ADR-1024-15 §2.3): STT-сервис для нативного
+            # пути инструмента summarize_video (тот же инстанс, что youtube/0i).
+            transcriber=voice_service))
         # 10.20 (БЛОК 6.2, ADR-1020-5 п.1, T-1907): тот же ToolRouter получает
         # фактчекер (Full Tool Access: dig_into_lore/compile_lore_story/веб).
         # DI-kwarg, порядок роутеров и setup-последовательность не меняются.

@@ -117,6 +117,7 @@ from services.canonical_context import (
 from services.database import row_get
 from services.media_marker import (
     media_context_enabled, media_marker, message_media_type)
+from services import native_media as native_media_module
 from services.payload_builder import build_messages
 from services.persistent_throttling import SilenceStreak
 from services.smartmodule_concurrency import get_smartmodule_concurrency_pool
@@ -749,7 +750,10 @@ class DirectChatService:
             tool_ctx = ToolContext(chat_id, query, bot=bot,
                                    reply_to_message_id=message.message_id,
                                    user_id=user_id,
-                                   correlation_id=correlation_id)
+                                   correlation_id=correlation_id,
+                                   native_media=
+                                   native_media_module.resolve_reply_video(
+                                       message))
             try:
                 async with typing_active(bot, chat_id):
                     if self.tool_router is not None:

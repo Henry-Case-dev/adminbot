@@ -344,7 +344,9 @@ class TestSchemaAndAdr:
         params = TOOL_DOWNLOAD_MEDIA["function"]["parameters"]
         assert params["properties"]["quality"]["enum"] == list(QUALITY_ENUM)
         assert params["additionalProperties"] is False
-        assert params["required"] == ["url"]
+        # F14 (ADR-1024-15 §2.3): url стал опциональным + добавлен `source`.
+        assert params["required"] == []
+        assert params["properties"]["source"]["enum"] == ["link", "reply"]
 
     def test_quality_enum_matches_allowed_heights(self):
         from tools.video_downloader import _ALLOWED_HEIGHTS

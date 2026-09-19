@@ -29,6 +29,8 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from config.settings import settings
 from services import command_prefix
 from services import hot_config as hot
+from services import native_media as native_media_module
+from services.external_log import trace_step
 from services.media_send import send_quality_menu
 from services.persistent_throttling import (
     cooldown_refresh,
@@ -53,6 +55,7 @@ from tools.video_download_phrases import (
     VD_ERROR_PHRASES,
     VD_MULTI_LINK_PHRASES,
     VD_NO_LINK_PHRASES,
+    VD_PROBE_FAIL_PHRASES,
     VD_RIGHTS_ERROR_PHRASES,
     VD_SERVICE_DOWN_PHRASES,
     VD_TOO_BIG_PHRASES,
@@ -164,22 +167,25 @@ def _extract_urls(message: types.Message) -> list[str]:
 # Bugfix 04.09.2026 (Часть 1b, FR-12): квалификация медиа реплая — та же,
 # что в handlers/youtube.py 3.1.1 (видео-документ: mime video/*; без mime —
 # по расширению file_name; voice/video_note/audio НЕ подходят).
-_VIDEO_DOC_EXTENSIONS = ("mp4", "webm", "mov", "mkv", "avi")
+# Раунд 10.24 (F14, ADR-1024-15 §2.3): единый источник — services.native_media.
+_VIDEO_DOC_EXTENSIONS = native_media_module.VIDEO_DOC_EXTENSIONS
+_document_is_video = native_media_module.document_is_video
 
 
-def _document_is_video(doc) -> bool:
-    """Document → видео: mime video/*; mime пуст/None → расширение file_name;
-    mime задан и не video/* → НЕ видео (mime авторитетнее имени)."""
-    mime = str(getattr(doc, "mime_type", "") or "").strip().lower()
-    if mime:
-        return mime.startswith("video/")
-    name = str(getattr(doc, "file_name", "") or "").lower()
-    return any(name.endswith("." + ext) for ext in _VIDEO_DOC_EXTENSIONS)
+def _native_video_media(message) -> object | None:
+    """F14 (ADR-1024-15 §2.2): нативное видео-медиа сообщения — **своё**
+    ``video``/видео-``document`` → медиа реплая; иначе ``None``. Невидео-
+    документ (PDF и пр.) НЕ квалифицируется. Делегирует единому резолверу
+    ``services.native_media``."""
+    resolved = native_media_module.resolve_reply_video(message)
+    return resolved.media if resolved is not None else None
 
 
 def _reply_video_media(message: types.Message):
     """Видео-медиа из reply_target (video | документ video/* по mime/имени)
-    → объект медиа для пересылки; None — не видео/нет реплая."""
+    → объект медиа для пересылки; None — не видео/нет реплая.
+
+    Прежний путь (флаг ``NATIVE_MEDIA_TOOLS_ENABLED`` OFF — байт-в-байт)."""
     reply_target = getattr(message, "reply_to_message", None)
     if reply_target is None:
         return None
@@ -255,9 +261,25 @@ async def video_download_handler(message: types.Message, bot: Bot = None):
     chat_id = message.chat.id
     logger.info("[videodl] triggered | chat=%s user=%s", chat_id, user_id)
 
+    # Раунд 10.24 (F14, ADR-1024-15 §2.2): native-first. Найдено нативное
+    # видео (своё video/видео-document → медиа реплая) — идём в нативную
+    # пересылку НЕЗАВИСИМО от http(s)-ссылок в text/caption (баг A-2).
+    native_enabled = bool(
+        getattr(settings, "NATIVE_MEDIA_TOOLS_ENABLED", True))
+    if native_enabled:
+        native = _native_video_media(message)
+        if native is not None:
+            await _handle_native_media(bot, message, native)
+            return None
+
     urls = _extract_urls(message)
     if not urls:
-        # Замечание чекапа: нативное TG-видео («скачай <видео-сообщение>»)
+        if native_enabled:
+            # F14: латентный баг — своё сообщение-document обязано пройти
+            # квалификацию document_is_video (невидео-document → «нет ссылки»).
+            await message.reply(random.choice(VD_NO_LINK_PHRASES))  # consume
+            return None
+        # Флаг OFF — прежнее поведение байт-в-байт.
         video = getattr(message, "video", None) or getattr(
             message, "document", None)
         if video is not None and isinstance(getattr(video, "file_id", None),
@@ -351,6 +373,11 @@ async def video_download_handler(message: types.Message, bot: Bot = None):
                            "reason=%s", chat_id, type(exc).__name__,
                            exc.reason)
             log_download_env_once()
+            # F14 (ADR-1024-15 §2.4): реальная причина probe — в сквозную
+            # трассировку (R17-safe: только код причины, без URL).
+            trace_step(logger, component="video_download", step="probe",
+                       status="failed", reason=getattr(exc, "reason", None),
+                       chat_id=chat_id)
             # T-1628: probe (yt-dlp) гейтит и cobalt-платформы — при провале
             # для не-direct ссылки одна ограниченная попытка без меню
             # качества (probe-fail кулдаун НЕ жжёт — см. _download_without_menu).
@@ -411,7 +438,12 @@ def _probe_error_phrase(reason: str) -> tuple[str, ...]:
     """T-1628: safe-код причины → СУЩЕСТВУЮЩИЙ пул фраз (spec §4.4). Новых
     пулов не вводим; неизвестная причина → общий VD_ERROR_PHRASES.
     S10.16-5: probe эмитит только probe_timeout/probe_bot_check/probe_failed
-    (probe-raise в tools/video_downloader.py) — мёртвый probe_unavailable убран."""
+    (probe-raise в tools/video_downloader.py) — мёртвый probe_unavailable убран.
+    Раунд 10.24 (F14, ADR-1024-15 §2.4): probe-причины (probe_timeout/
+    probe_failed) получают ОТДЕЛЬНЫЙ пул VD_PROBE_FAIL_PHRASES — реальная
+    причина не маскируется общей «че ты мне суешь?» (формулировки — F15)."""
+    if reason in ("probe_timeout", "probe_failed"):
+        return VD_PROBE_FAIL_PHRASES
     if reason == "probe_bot_check":
         return VD_UNAVAILABLE_PHRASES
     if reason == "cobalt_down":

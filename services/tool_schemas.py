@@ -31,6 +31,16 @@ query_chat_memory → dig_into_lore → execute_web_search — при носта
 Имена/состав/порядок/`required` НЕ меняются; `tool_choice` НЕ форсируется
 (backlog §16 п.2). Прежние RU-описания — слепок `plans/docs/canon/architecture.md`
 (тем же коммитом).
+
+Раунд 10.24 (F14, ADR-1024-15 §2.1/§2.3 — AMEND ADR-1015-3/ADR-1020-4, UPD5):
+контракт нативного источника — `summarize_video`/`download_media` получают
+ОПЦИОНАЛЬНЫЙ `url` + `source: enum["link","reply"]`; у `summarize_video`
+удалён `mode` (инструмент = только выжимка). Контракт второго инструмента —
+`transcribe_video` (сырая транскрибация) — определён здесь (`TOOL_TRANSCRIBE_VIDEO`),
+но **НЕ регистрируется** в `TOOL_CALLING_TOOLS`: финальную схему/диспетчер и
+10-й счётчик канона R9 вливает F19 `media-transcribe-tool-round1024`
+(ступень F14 → F19). Техдолг 10.23 I2 (устаревший комментарий-счётчик «7»)
+закрыт: актуальный зарегистрированный набор — 9, канон UPD5 — 10.
 """
 from tools.video_downloader import QUALITY_ENUM
 
@@ -121,22 +131,64 @@ TOOL_SUMMARIZE_VIDEO = {
     "type": "function",
     "function": {
         "name": "summarize_video",
-        "description": ("Summary or transcript of a video by link "
-                        "(YouTube/platforms/direct file). Call when the user "
-                        "asks to retell/transcribe a clip and provides a link. "
-                        "mode='transcript' - raw text; mode='summary' - "
-                        "condensed summary."),
+        "description": (
+            "Make a SUMMARY (a condensed retelling) of a video: what it is "
+            "about and its key points. Call when the user wants an overview of "
+            "a video: 'what is this video about', 'what's in the video', "
+            "'retell/summarize this clip'. Source is a link (YouTube/platforms/"
+            "direct file) OR the video from the replied message. Returns a "
+            "SUMMARY, not the raw transcript."),
         "parameters": {
             "type": "object",
             "properties": {
-                "url": {"type": "string", "description": "Video link."},
-                "mode": {"type": "string",
-                         "enum": ["summary", "transcript"],
-                         "default": "summary",
-                         "description": "Output mode: 'summary' - condensed "
-                                        "summary; 'transcript' - raw text."},
+                "url": {"type": "string",
+                        "description": ("Video link (YouTube/platforms/direct "
+                                        "file). Omit when the video comes from "
+                                        "the replied message.")},
+                "source": {"type": "string",
+                           "enum": ["link", "reply"],
+                           "description": ("Where to take the video from: "
+                                           "'link' - use url; 'reply' - use the "
+                                           "video/document from the replied "
+                                           "message.")},
             },
-            "required": ["url"],
+            "required": [],
+            "additionalProperties": False,
+        },
+    },
+}
+
+# Раунд 10.24 (F14, ADR-1024-15 §2.3-bis, UPD5): контракт второго
+# медиа-инструмента — сырая транскрибация (дословный текст, без пересказа).
+# F14 фиксирует EN-определение; регистрацию (10-й, в конец) и dispatch ведёт
+# F19 (T-2344/T-2345/T-2349) поверх этой схемы — без дублирования правки.
+TOOL_TRANSCRIBE_VIDEO = {
+    "type": "function",
+    "function": {
+        "name": "transcribe_video",
+        "description": (
+            "Transcribe a video or voice note into RAW verbatim text (an "
+            "audio transcript), without retelling. Call when the user "
+            "explicitly asks for a 'transcript'/'transcription' or to repeat/"
+            "re-transcribe a voice message, video note or video. Source is a "
+            "link (YouTube/platforms/direct) OR the media from the replied "
+            "message. Return the raw transcript VERBATIM - do NOT summarize, "
+            "shorten or retell it."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string",
+                        "description": ("Video link (YouTube/platforms/direct "
+                                        "file). Omit when the media comes from "
+                                        "the replied message.")},
+                "source": {"type": "string",
+                           "enum": ["link", "reply"],
+                           "description": ("Where to take the media from: "
+                                           "'link' - use url; 'reply' - use the "
+                                           "video/voice from the replied "
+                                           "message.")},
+            },
+            "required": [],
             "additionalProperties": False,
         },
     },
@@ -148,14 +200,23 @@ TOOL_DOWNLOAD_MEDIA = {
         "name": "download_media",
         "description": ("Download a video by link and send it as a file to "
                         "this chat. Call on a free-form request "
-                        "'download/fetch/grab <link>'. Fill the quality field "
+                        "'download/fetch/grab <link>'. Source is a link OR the "
+                        "video from the replied message. Fill the quality field "
                         "ONLY if the user explicitly named a quality; "
                         "otherwise omit it - the backend will offer a quality "
                         "menu with buttons."),
         "parameters": {
             "type": "object",
             "properties": {
-                "url": {"type": "string", "description": "Video link."},
+                "url": {"type": "string",
+                        "description": ("Video link. Omit when the video comes "
+                                        "from the replied message.")},
+                "source": {"type": "string",
+                           "enum": ["link", "reply"],
+                           "description": ("Where to take the video from: "
+                                           "'link' - use url; 'reply' - use the "
+                                           "video/document from the replied "
+                                           "message.")},
                 "quality": {
                     "type": "string",
                     "enum": list(QUALITY_ENUM),
@@ -165,7 +226,7 @@ TOOL_DOWNLOAD_MEDIA = {
                                     "offer a buttons menu."),
                 },
             },
-            "required": ["url"],
+            "required": [],
             "additionalProperties": False,
         },
     },
@@ -241,9 +302,13 @@ TOOL_COMPILE_LORE_STORY = {
 # Раунд 10.15 (F8, ADR-1015-3 §3): итоговый tool-сет — 7 инструментов.
 # Раунд 10.20 (T-1887): +compile_lore_story → 8.
 # Раунд 10.23 (F5, ADR-1023-5 §D2): +generate_image → 9 (в КОНЕЦ; порядок
-# первых 8 — канон R9, байт-в-байт). Порядок сохраняет канон R9
-# (память → лор → веб) и добавляет новые в конце. Имена/состав/порядок не
-# меняются; `description` — EN (T-1925, ревизия канона 3.3).
+# первых 8 — канон R9, байт-в-байт).
+# Раунд 10.24 (F14, ADR-1024-15 §2.1, UPD5): канон R9 → **10** (10-й —
+# transcribe_video, контракт `TOOL_TRANSCRIBE_VIDEO` выше; регистрацию и
+# диспетчер ведёт F19 — ступень F14 → F19). Здесь фактический список на шаге
+# F14 — 9 имён (I2 «7» устранён). Порядок первых 9 имён не меняется.
+# Имена/состав/порядок сохраняют канон R9 (память → лор → веб) и добавляют
+# новые в конце; `description` — EN (T-1925, ревизия канона 3.3).
 TOOL_GENERATE_IMAGE = {
     "type": "function",
     "function": {
@@ -281,6 +346,8 @@ TOOL_CALLING_TOOLS: list[dict] = [
 LORE_COMPILER_TOOL_NAME = "compile_lore_story"
 # Имя image-инструмента (гейт flags.image_generation_module_enabled, F5).
 IMAGE_GENERATION_TOOL_NAME = "generate_image"
+# F14: имя контракта сырой транскрибации (регистрацию/гейт ведёт F19).
+TRANSCRIBE_TOOL_NAME = "transcribe_video"
 
 
 def active_tools(lore_compiler_enabled: bool = True,

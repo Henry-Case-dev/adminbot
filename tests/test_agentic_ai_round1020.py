@@ -553,10 +553,10 @@ class TestToolSchemasEnCanon:
             "messages", "facts", "both"]
         depth = props("get_recent_history")["depth"]
         assert depth["minimum"] == 1 and depth["maximum"] == 150
-        assert props("summarize_video")["mode"]["enum"] == [
-            "summary", "transcript"]
-        # 10.20 (T-1925): у summarize_video.mode появилось description
-        assert props("summarize_video")["mode"].get("description")
+        # F14 (ADR-1024-15 §2.3-bis, UPD5): у summarize_video `mode` удалён
+        # (только выжимка); источник — опциональный `url` + `source`.
+        assert "mode" not in props("summarize_video")
+        assert props("summarize_video")["source"]["enum"] == ["link", "reply"]
 
     def test_param_descriptions_are_english(self):
         for tool in TOOL_CALLING_TOOLS:

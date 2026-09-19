@@ -54,6 +54,8 @@ import time
 from config.settings import settings
 from services import hot_config as hot
 from services import image_generation
+from services import media_share
+from services import native_media
 from services.canonical_context import format_context_item, resolve_item_id
 from services.media_send import send_media, send_quality_menu
 from services.persistent_throttling import (
@@ -90,6 +92,15 @@ _LORE_RETURN_INSTRUCTION = (
     "ДОСЛОВНО, без сокращений, без пересказа и без собственных добавлений.]")
 # Cap транскрипта для mode=transcript (прецедент handlers/youtube T-690).
 _SUMMARIZE_TRANSCRIPT_CAP = 20000
+
+# Раунд 10.24 (F14, ADR-1024-15 §2.3): нативный источник инструментов
+# (summarize_video/download_media) — только video/видео-document; bytes берём
+# из разрешённого aiogram-объекта `ToolContext.native_media` (не из текста
+# модели). STT-фолбэк выжимки — таймаут и лимит TG-файла; download-кулдаун на
+# нативную пересылку НЕ жжётся (копирование TG-файла, паритет Fast-Track).
+_NATIVE_VIDEO_KINDS = ("video", "document")
+_NATIVE_STT_TIMEOUT = 120.0
+_DOWNLOAD_NATIVE_MAX_BYTES = 2_000_000_000
 
 # Раунд 10.17 (F2, ADR-1017-2 §2.1/§2.6): tool-скачивание спрашивает качество
 # (probe → инлайн-меню `tdq:<height>` → callback доводит download). Таймаут
@@ -327,7 +338,7 @@ class ToolDeps:
 
     def __init__(self, search, memory, aliases=None, *, video=None,
                  downloader=None, health=None, db=None,
-                 download_cooldown=None, llm=None) -> None:
+                 download_cooldown=None, llm=None, transcriber=None) -> None:
         self.search = search            # SearchAggregator
         self.memory = memory            # MemoryManager
         self.aliases = aliases          # AliasResolver | None
@@ -343,6 +354,10 @@ class ToolDeps:
         # изолированного синтеза истории «Летописца» (compile_lore_story).
         # None → инструмент честно вернёт «сервис недоступен».
         self.llm = llm                  # LLMClient | None
+        # Раунд 10.24 (F14, ADR-1024-15 §2.3): STT-сервис для нативного
+        # пути summarize_video (STT-фолбэк выжимки). Тот же инстанс, что у
+        # youtube/voice (DI в bot.py). None → честная деградация.
+        self.transcriber = transcriber  # VoiceTranscriber | None
 
 
 class ToolContext:
@@ -363,7 +378,8 @@ class ToolContext:
     def __init__(self, chat_id: int, query: str, *, bot=None,
                  reply_to_message_id=None, user_id=None,
                  lore_verbatim_instruction: bool = True,
-                 correlation_id: str | None = None) -> None:
+                 correlation_id: str | None = None,
+                 native_media=None) -> None:
         self.chat_id = chat_id
         self.query = str(query or "")
         self.bot = bot
@@ -372,6 +388,10 @@ class ToolContext:
         # F7 (ADR-1023-7 D4): сквозной id ответа — прокидывается в
         # инструменты, которые пишут телеметрию (generate_image → step='image').
         self.correlation_id = correlation_id
+        # Раунд 10.24 (F14, ADR-1024-15 §2.3): разрешённый aiogram-объект
+        # нативного медиа (``native_media.NativeMedia`` | None). Заполняется
+        # DirectChat (F13), потребляется нативным путём инструментов (F14).
+        self.native_media = native_media
         self.lore_compiled = False
         # Раунд 10.20 (БЛОК 7.2c, ADR-1020-7 §2, T-1922): готовый текст
         # истории «Летописца» (HTML). DirectChat при `lore_compiled` доставляет
@@ -723,35 +743,36 @@ class ToolRouter:
     # ── F8 (раунд 10.15, ADR-1015-3): новые инструменты ──────────────
 
     async def _summarize_video(self, arguments: dict, ctx: ToolContext) -> str:
-        """Выжимка/расшифровка видео по ссылке: YouTube → каскад/субтитры
-        YoutubeSummarizerService; иная ссылка → мультимодальная выжимка
-        (summarize_media_url). mode=transcript → сырой текст (cap), иначе
-        summary. Не-URL → ОШИБКА. Результат усечён до _MEMORY_MAX_SYMBOLS.
-        R17: URL не логируется."""
-        url = self._require_str(arguments, "url")
-        if not _is_http_url(url):
-            return "ОШИБКА summarize_video: некорректная ссылка"
-        mode = str(arguments.get("mode") or "summary").strip().lower()
-        if mode not in ("summary", "transcript"):
-            mode = "summary"
+        """Выжимка видео (F14, ADR-1024-15 §2.3/§4.5; UPD5 — только
+        саммаризация, без `mode`). Источник: http(s)-`url` → ссылочный путь
+        (YouTube → каскад; иная ссылка → мультимодальная выжимка); иначе
+        нативное видео из `ctx.native_media` (видео-document) → tmp →
+        публикация `media_share` + L1/L2 → STT-фолбэк выжимки. Нет источника →
+        понятная ОШИБКА. Результат усечён до `_MEMORY_MAX_SYMBOLS`.
+        R17: URL/пути не логируются."""
+        source, url, native = self._resolve_tool_source(arguments, ctx)
+        if source is None:
+            return ("ОШИБКА summarize_video: нет источника "
+                    "(нужна ссылка или видео из реплая)")
         service = self.deps.video
         if service is None:
             return "ОШИБКА summarize_video: сервис недоступен"
         try:
-            if mode == "transcript":
-                text = await asyncio.wait_for(
-                    self._video_transcript(service, url),
-                    timeout=_SUMMARIZE_TOOL_TIMEOUT)
-            else:
+            if source == "link":
                 text = await asyncio.wait_for(
                     self._video_summary(service, url, ctx),
                     timeout=_SUMMARIZE_TOOL_TIMEOUT)
+            else:
+                text = await asyncio.wait_for(
+                    self._video_native_summary(service, ctx, native),
+                    timeout=_SUMMARIZE_TOOL_TIMEOUT)
         except asyncio.TimeoutError:
-            logger.warning("[tools] summarize_video timeout | mode=%s", mode)
+            logger.warning("[tools] summarize_video timeout | source=%s",
+                           source)
             return "ОШИБКА summarize_video: timeout"
         except Exception as exc:
-            logger.warning("[tools] summarize_video failed | mode=%s | "
-                           "error=%s", mode, type(exc).__name__)
+            logger.warning("[tools] summarize_video failed | source=%s | "
+                           "error=%s", source, type(exc).__name__)
             return f"ОШИБКА summarize_video: {type(exc).__name__}"
         text = str(text or "").strip()
         if not text:
@@ -760,8 +781,8 @@ class ToolRouter:
 
     @staticmethod
     async def _video_transcript(service, url: str) -> str:
-        """mode=transcript: субтитры YouTube (cap). Иная ссылка без транскрипта
-        (для не-YouTube нужен downloader+STT — вне tool-контракта)."""
+        """Субтитры YouTube (cap). F14 сохраняет хелпер для F19
+        (`transcribe_video`); ссылочный STT/direct — зона F19."""
         video_id = extract_youtube_video_id(url)
         if video_id is None:
             raise ValueError("transcript доступен только для YouTube")
@@ -770,14 +791,81 @@ class ToolRouter:
 
     @staticmethod
     async def _video_summary(service, url: str, ctx: ToolContext) -> str:
-        """mode=summary: YouTube → каскад выжимки по video_id; прямая/платформа
-        → мультимодальная выжимка по video_url."""
+        """Ссылочная выжимка: YouTube → каскад выжимки по video_id;
+        прямая/платформа → мультимодальная выжимка по video_url."""
         video_id = extract_youtube_video_id(url)
         if video_id is not None:
             return await service.summarize_cascade(video_id,
                                                    chat_id=ctx.chat_id)
         return await service.summarize_media_url(chat_id=ctx.chat_id,
                                                  video_url=url)
+
+    async def _video_native_summary(self, service, ctx: ToolContext,
+                                    native) -> str:
+        """Нативная выжимка (F14, ADR-1024-15 §2.3): tmp-файл → публикация
+        `media_share` → L1/L2 (`summarize_media_url`); при недоступности/пустом
+        результате — STT-фолбэк выжимки (`deps.transcriber` +
+        `summarize_transcript`). tmp чистится в finally. R17: без URL/путей."""
+        path = None
+        text = ""
+        try:
+            path = await native_media.download_to_tmp(
+                ctx.bot, native, timeout=_DOWNLOAD_TOOL_TIMEOUT)
+            video_client = getattr(service, "video_client", None)
+            if (video_client is not None
+                    and getattr(video_client, "available", False)
+                    and media_share.enabled()):
+                ttl = int(hot.get("limits.media_share_ttl_seconds",
+                                  settings.MEDIA_SHARE_TTL_SECONDS) or 0)
+                ticket = await media_share.publish_media_file(str(path), ttl)
+                if ticket is not None:
+                    try:
+                        text = await service.summarize_media_url(
+                            chat_id=ctx.chat_id, video_url=ticket.abs_url,
+                            label="tg-file")
+                    except Exception as exc:
+                        logger.warning("[tools] native summarize L1/L2 "
+                                       "unavailable — STT fallback | error=%s",
+                                       type(exc).__name__)
+                        text = ""
+                    finally:
+                        await media_share.delete_file(ticket.file_id)
+            if not str(text or "").strip():
+                transcript = await self._native_stt(path, native)
+                text = await service.summarize_transcript(
+                    chat_id=ctx.chat_id, transcript=transcript)
+            return text
+        finally:
+            if path is not None:
+                try:
+                    path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+
+    async def _native_stt(self, path, native) -> str:
+        """STT нативного видео-файла (F14): `deps.transcriber.transcribe_voice`
+        с видео-расширением; нет сервиса → RuntimeError (dispatch → ОШИБКА)."""
+        transcriber = getattr(self.deps, "transcriber", None)
+        if transcriber is None:
+            raise RuntimeError("transcriber unavailable")
+        ext = native_media.media_suffix(native).lstrip(".") or "mp4"
+        return await transcriber.transcribe_voice(
+            str(path), ext, timeout=_NATIVE_STT_TIMEOUT)
+
+    def _resolve_tool_source(self, arguments: dict, ctx: ToolContext):
+        """Общий резолв источника медиа-инструментов (F14, §4.5):
+        http(s)-`url` → ``("link", url, None)``; иначе при нативном видео в
+        ``ctx.native_media`` (video/видео-document) → ``("native", None, media)``;
+        иначе ``(None, None, None)`` (вызывающий вернёт понятную ошибку)."""
+        args = arguments if isinstance(arguments, dict) else {}
+        url = str(args.get("url") or "").strip()
+        if _is_http_url(url):
+            return "link", url, None
+        native = getattr(ctx, "native_media", None)
+        if native is not None \
+                and getattr(native, "kind", "") in _NATIVE_VIDEO_KINDS:
+            return "native", None, native
+        return None, None, None
 
     def _download_cooldown(self):
         """Общий download-кулдаун роутера 4e | None (R10.15-9). Провайдер —
@@ -805,12 +893,18 @@ class ToolRouter:
         Файл шлём САМИ (send_media), в LLM — фиктивный JSON (модель не
         «печатает» видео). Кулдаун (D279) жжётся только после успешного probe
         (ask-ветка) либо успешного download. R17: без URL/текстов в логах."""
-        url = self._require_str(arguments, "url")
-        if not _is_http_url(url):
+        source, url, native = self._resolve_tool_source(arguments, ctx)
+        if source is None:
             return _download_status("error", "Некорректная ссылка")
         if not hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED):
             return _download_status("error", "Скачивание отключено")
-        if ctx.bot is None or self.deps.downloader is None:
+        if ctx.bot is None:
+            return _download_status("error", "Скачивание недоступно")
+        # (а) нативный источник (F14): пересылка TG-файла без меню качества и
+        # без download-кулдауна (паритет Fast-Track `_handle_native_media`).
+        if source == "native":
+            return await self._download_native(ctx, native)
+        if self.deps.downloader is None:
             return _download_status("error", "Скачивание недоступно")
         # Follow-up R10.15-9: уважаем общий download-кулдаун роутера 4e
         # (тот же трекер через DI-провайдер; R17 — без URL/текстов в логах).
@@ -868,6 +962,46 @@ class ToolRouter:
             "needs_quality",
             "Пользователю предложен выбор качества — меню с кнопками "
             "отправлено в чат")
+
+    async def _download_native(self, ctx: ToolContext, native) -> str:
+        """Нативная пересылка TG-файла (F14, ADR-1024-15 §2.1/§2.3):
+        `fetch_media_to_tmp` → `send_media`; меню качества НЕ предлагается,
+        download-кулдаун НЕ жжётся; лимит 2 ГБ (лимит Telegram). tmp чистится в
+        finally. R17: без file_id/URL/локальных путей в логах."""
+        path = None
+        try:
+            path = await asyncio.wait_for(
+                native_media.download_to_tmp(
+                    ctx.bot, native, timeout=_DOWNLOAD_TOOL_TIMEOUT),
+                timeout=_DOWNLOAD_TOOL_TIMEOUT)
+            try:
+                size = path.stat().st_size
+            except OSError:
+                size = 0
+            if size > _DOWNLOAD_NATIVE_MAX_BYTES:
+                logger.warning(
+                    "[tools] native download too big | tool=download_media | "
+                    "bytes=%d", size)
+                return _download_status("error",
+                                        "Файл больше лимита Telegram")
+            await send_media(ctx.bot, ctx.chat_id, path,
+                             reply_to=ctx.reply_to_message_id)
+        except asyncio.TimeoutError:
+            logger.warning(
+                "[tools] native download timeout | tool=download_media")
+            return _download_status("error", "Таймаут нативного скачивания")
+        except Exception as exc:
+            logger.warning(
+                "[tools] native download failed | tool=download_media | "
+                "error=%s", type(exc).__name__)
+            return _download_status("error", "Не удалось переслать видео")
+        finally:
+            if path is not None:
+                try:
+                    path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+        return _download_status("success", "Файл успешно загружен в чат")
 
     async def _download_now(self, ctx: ToolContext, url: str, quality,
                             cooldown) -> str:

@@ -115,11 +115,16 @@ class TestToolSet:
             "mode"]["enum"] == ["messages", "facts", "both"]
 
     def test_new_schemas_shape(self):
-        assert TOOL_SUMMARIZE_VIDEO["function"]["parameters"]["required"] == ["url"]
-        mode = TOOL_SUMMARIZE_VIDEO["function"]["parameters"]["properties"]["mode"]
-        assert mode["enum"] == ["summary", "transcript"]
-        assert mode["default"] == "summary"
-        assert TOOL_DOWNLOAD_MEDIA["function"]["parameters"]["required"] == ["url"]
+        # F14 (ADR-1024-15 §2.3-bis, UPD5): url стал ОПЦИОНАЛЬНЫМ, добавлен
+        # `source`; у summarize_video удалён `mode` (только выжимка).
+        params = TOOL_SUMMARIZE_VIDEO["function"]["parameters"]
+        assert params["required"] == []
+        assert params["properties"]["url"]["type"] == "string"
+        assert params["properties"]["source"]["enum"] == ["link", "reply"]
+        assert "mode" not in params["properties"]
+        dl_params = TOOL_DOWNLOAD_MEDIA["function"]["parameters"]
+        assert dl_params["required"] == []
+        assert dl_params["properties"]["source"]["enum"] == ["link", "reply"]
         assert TOOL_GET_BOT_HEALTH["function"]["parameters"]["properties"] == {}
         assert "depth" in TOOL_GET_RECENT_HISTORY["function"]["parameters"][
             "properties"]
@@ -382,12 +387,15 @@ class TestSummarizeVideo:
         video.engine.fetch_transcript.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_youtube_transcript_uses_engine(self):
+    async def test_summarize_ignores_stray_mode(self):
+        """F14 (ADR-1024-15 §2.3-bis): `mode` удалён из схемы; лишний аргумент
+        больше НЕ переключает summarize на транскрипт — инструмент всегда
+        отдаёт выжимку (сырой транскрипт — отдельный `transcribe_video`, F19)."""
         video = _FakeVideo()
         out = await ToolRouter(_deps(video=video)).dispatch(
             "summarize_video", {"url": _YT_URL, "mode": "transcript"}, _ctx())
-        assert out == "сырой текст"
-        video.engine.fetch_transcript.assert_awaited_once()
+        assert out == "выжимка"
+        video.engine.fetch_transcript.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_non_youtube_summary_uses_media_url(self):

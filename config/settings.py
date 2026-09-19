@@ -655,6 +655,12 @@ class Settings:
     # дают байт-в-байт прежний вывод.
     NATIVE_REPLY_MEDIA_CONTEXT_ENABLED: ClassVar[bool] = _env_bool(
         "NATIVE_REPLY_MEDIA_CONTEXT_ENABLED", True)
+    # ── Раунд 10.24 (F14, ADR-1024-15 §2.5): env-only ClassVar kill-switch
+    # native-first маршрутизации Fast-Track (4e) и нативного резолва в
+    # tool_router. Δ каталога = 0 (в param_catalog НЕ входит). Default ON.
+    # OFF → байт-в-байт прежнее: urls-first, инструменты требуют url.
+    NATIVE_MEDIA_TOOLS_ENABLED: ClassVar[bool] = _env_bool(
+        "NATIVE_MEDIA_TOOLS_ENABLED", True)
     # Лимит Telegram: число частей ответа (чанкинг 4096).
     MAX_SUMMARY_PARTS: int = _env_int("MAX_SUMMARY_PARTS", 1)
     SUMMARY_TIMEZONE: str = os.getenv("SUMMARY_TIMEZONE", "Asia/Yekaterinburg")
