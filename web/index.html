@@ -464,7 +464,7 @@
                   <select class="field" style="max-width:18rem"
                           v-model="promptDefaultModeItem().value"
                           :disabled="!canEditConfig(promptDefaultModeItem().key)"
-                          @change="selectPromptMode($event.target.value)">
+                          @change="savePromptFallbackMode()">
                     <option v-for="(o, i) in (promptDefaultModeItem().select_options || [])"
                             :key="o" :value="o">
                       {{ (promptDefaultModeItem().select_labels && promptDefaultModeItem().select_labels[i]) || o }}
@@ -554,7 +554,7 @@
                                       role="tab" :aria-selected="promptMode === m.id"
                                       class="btn-ghost text-xs"
                                       :class="promptMode === m.id ? 'btn-accent' : ''"
-                                      @click="selectPromptMode(m.id)">{{ m.label }}</button>
+                                      @click="switchPromptMode(m.id)">{{ m.label }}</button>
                             </div>
                             <div v-for="m in promptModeTabs" :key="'v2mode-' + m.id"
                                  v-show="promptMode === m.id">
@@ -592,7 +592,7 @@
                                идут в общий grid выше. details.advanced для
                                llm_providers не затронут. -->
                           <details class="advanced mt-4"
-                                   v-if="!uiFlag('PROMPTS_UI_V2_ENABLED') && sec.advanced.length > 0"
+                                   v-if="promptsShowAccordion(sec)"
                                    :open="expandOpen(activeTab)" @toggle="toggleExpand(activeTab)">
                             <summary class="select-none text-sm font-semibold">
                               Расширенные системные

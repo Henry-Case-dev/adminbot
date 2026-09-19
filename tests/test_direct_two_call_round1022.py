@@ -51,13 +51,15 @@ class TestDirectTwoCall:
         text, mode = await svc._synthesize_direct_answer(
             -100, "что с погодой", _tool_raw(), None)
         assert text == "дерзкий короткий ответ"
-        assert mode == "serious"          # нет поля → fail-safe serious
+        # F6 (10.24, ADR-1024-10 D3): нет поля → "" (сигнал сбоя);
+        # режим резолвит compose из fallback-ключа (код-дефолт casual).
+        assert mode == ""
         assert svc.llm.generate.await_count == 2
         stage1 = svc.llm.generate.await_args_list[0].args[0]
         stage2 = svc.llm.generate.await_args_list[1].args[0]
         assert stage1[0]["content"] == DIRECT_SYNTHESIZER_SYSTEM_PROMPT
         assert stage2[0]["content"] == compose_verbalizer_system(
-            DIRECT_VERBALIZER_SYSTEM_PROMPT, "serious", "plain")
+            DIRECT_VERBALIZER_SYSTEM_PROMPT, "", "plain")
         assert stage2[1]["content"].startswith("СПРАВКА (JSON):")
 
     @pytest.mark.asyncio

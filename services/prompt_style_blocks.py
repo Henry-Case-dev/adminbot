@@ -231,7 +231,7 @@ def format_block(channel: str | None, *, html_safe: bool = False) -> str:
     return FORMAT_PLAIN_BLOCK if html_safe else FORMAT_PLAIN_TEXT_BLOCK
 
 
-def compose_verbalizer_system(base_prompt: str, response_mode: str = "serious",
+def compose_verbalizer_system(base_prompt: str, response_mode: str = "",
                               channel: str = _CHANNEL_PLAIN, *,
                               html_safe: bool = False) -> str:
     """Narrator-промпт по режиму и каналу.
@@ -248,6 +248,10 @@ def compose_verbalizer_system(base_prompt: str, response_mode: str = "serious",
     ``casual``) применяется ТОЛЬКО если ``response_mode`` пуст/невалиден —
     то есть исключительно на сбойном пути. Предохранитель никогда не
     перехватывает штатный динамический выбор Синтезатора.
+
+    Дефолт аргумента — ``""`` (сигнал «режим не выбран»), а не валидный
+    режим: так вызов без явного режима тоже уходит на fallback-ключ, и
+    второй источник правды о дефолте не заводится (канон — ``casual``).
     """
     candidate = str(response_mode or "").strip().lower()
     if candidate not in MODE_BLOCKS:

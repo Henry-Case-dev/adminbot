@@ -39,7 +39,12 @@ _SOURCES = frozenset({"exa", "rag", "lore", "api", "unknown"})
 # (Stage-1) и передаётся Вербализатору служебным полем `response_mode`.
 # Роутер НЕ добавляет третий LLM-вызов — поле едет в том же JSON Stage-1.
 RESPONSE_MODES = ("casual", "serious", "deep_research")
-_DEFAULT_RESPONSE_MODE = "serious"
+# F6 (10.24, ADR-1024-10 D3): сигнал «режим не выбран» для сбойного пути.
+# Нормализация НЕ подставляет жёсткий режим (раньше — `"serious"`): решение
+# принимает `compose_verbalizer_system` через ключ-предохранитель
+# `prompts.verbilizer_default_mode` (дефолт `casual`). Так fallback реально
+# достижим, а не подменяется валидным `serious` ещё до сборки промпта.
+_MODE_UNSET = ""
 
 
 # Служебные поля Stage-1, которые НЕ должны попадать в user-content Stage-2
@@ -61,13 +66,19 @@ def stage2_payload(data: dict) -> dict:
 
 
 def normalize_response_mode(value) -> str:
-    """Fail-safe нормализация ``response_mode``: любое неизвестное/пустое/
-    ``None`` → ``"serious"``. Никогда не бросает (R3)."""
+    """Нормализация ``response_mode`` из Stage-1.
+
+    Валидный режим из :data:`RESPONSE_MODES` возвращается как есть; любое
+    неизвестное/пустое/``None``/не-строка → **пустая строка** — сигнал сбоя
+    (F6, ADR-1024-10 D3). Жёсткий режим здесь НЕ подставляется: резервный
+    режим резолвит ``compose_verbalizer_system`` из ключа
+    ``prompts.verbilizer_default_mode`` (дефолт ``casual``) только на этом
+    сбойном пути. Никогда не бросает (R3)."""
     if isinstance(value, str):
         candidate = value.strip().lower()
         if candidate in RESPONSE_MODES:
             return candidate
-    return _DEFAULT_RESPONSE_MODE
+    return _MODE_UNSET
 
 
 # Раунд 10.23 (F6, ADR-1023-6 §Decision 1): визуальный промпт обложки — короткий
@@ -209,7 +220,8 @@ def parse_summary_handoff(raw: str) -> dict | None:
     ``digest`` валидируется существующими правилами (reasoning-теги,
     ``contains_system_ids``, запрет «Архивная справка»). Обратная совместимость
     (ADR-1023-3 §3): если raw — не JSON, но валидная Markdown-выжимка, то
-    возвращаем ``digest=raw``, ``response_mode="serious"``. Невалидно → ``None``.
+    возвращаем ``digest=raw``, ``response_mode=""`` (режим не выбран — F6
+    резолвит fallback-ключ). Невалидно → ``None``.
     """
     source = str(raw or "")
     data = parse_json_object(source)
@@ -226,9 +238,8 @@ def parse_summary_handoff(raw: str) -> dict | None:
     digest = _validate_digest_text(source)
     if digest is None:
         return None
-    # Legacy-выжимка (не JSON) режима/обложки не несёт.
-    return {"response_mode": _DEFAULT_RESPONSE_MODE, "digest": digest,
-            "cover_prompt": ""}
+    # Legacy-выжимка (не JSON) режима/обложки не несёт → сигнал сбоя ("").
+    return {"response_mode": _MODE_UNSET, "digest": digest, "cover_prompt": ""}
 
 
 def validate_summary_digest(raw: str) -> str | None:

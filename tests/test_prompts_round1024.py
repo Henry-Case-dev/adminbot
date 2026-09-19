@@ -13,6 +13,9 @@ fallback-предохранитель (`casual`) и табы режимов вн
 """
 from __future__ import annotations
 
+import json
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 
 from services import hot_config as hot
@@ -24,6 +27,12 @@ from services.prompt_style_blocks import (
     VERBILIZER_DEFAULT_MODE,
     _resolve_default_mode,
     compose_verbalizer_system,
+)
+from services.system2_handoff import (
+    normalize_response_mode,
+    parse_direct_synthesis,
+    parse_factcheck_analysis,
+    parse_summary_handoff,
 )
 
 pytestmark = pytest.mark.system2
@@ -134,6 +143,125 @@ class TestFallbackContract:
         assert _resolve_default_mode() == "casual"
 
 
+# ── B2. Проводка сбойного пути: Stage-1 сбой → ключ-предохранитель ──────────
+# Review iter1 (High): раньше `normalize_response_mode` коэрсил невалид в
+# `"serious"`, и ветка `_resolve_default_mode()` была недостижима из прода.
+# Теперь нормализация отдаёт "" (сигнал сбоя), а решение принимает compose.
+
+_DIGEST = "# Событие\n- Вася спорил с Петей"
+
+
+def _factcheck_json(mode="wat"):
+    return json.dumps({
+        "claim": "земля плоская",
+        "findings": [{"assertion": "земля плоская", "status": "false",
+                      "human_time": "в августе", "author": "Вася",
+                      "evidence": "спутники и фото"}],
+        "verdict": "полный бред",
+        "response_mode": mode,
+    })
+
+
+def _direct_json(mode="wat"):
+    return json.dumps({
+        "user_question": "что там с погодой",
+        "facts": [{"topic": "погода", "finding": "завтра дождь",
+                   "source": "exa", "confidence": "high"}],
+        "answer_outline": "взять зонт",
+        "limitations": [],
+        "response_mode": mode,
+    })
+
+
+def _tool_result():
+    from services.tool_loop import ToolLoopResult
+    return ToolLoopResult(
+        "финал", rounds_used=1,
+        tool_trace=[{"round": 1, "tool": "execute_web_search", "ok": True,
+                     "out_chars": 5}],
+        tool_context="логи")
+
+
+class TestFailurePathWiring:
+    def test_normalize_emits_failure_signal_not_serious(self):
+        assert normalize_response_mode("wat") == ""
+        assert normalize_response_mode(None) == ""
+        assert normalize_response_mode("") == ""
+        assert normalize_response_mode("casual") == "casual"
+
+    def test_parsers_carry_failure_signal(self):
+        assert parse_factcheck_analysis(_factcheck_json())["response_mode"] == ""
+        assert parse_direct_synthesis(_direct_json())["response_mode"] == ""
+        raw = json.dumps({"response_mode": "wat", "digest": _DIGEST})
+        assert parse_summary_handoff(raw)["response_mode"] == ""
+
+    @pytest.mark.asyncio
+    async def test_direct_chat_failure_uses_fallback_key(self):
+        from services.direct_chat_service import DirectChatService
+        hot.set_config_cache(_FakeCache({
+            "prompts.verbilizer_mode_casual": "CASUAL_SENTINEL",
+            "prompts.verbilizer_default_mode": "casual",
+        }))
+        svc = DirectChatService.__new__(DirectChatService)
+        svc.llm = MagicMock()
+        svc.llm.generate = AsyncMock(side_effect=[_direct_json(), "ответ"])
+        await svc._synthesize_direct_answer(-100, "q", _tool_result(), None)
+        stage2 = svc.llm.generate.await_args_list[1].args[0][0]["content"]
+        assert "CASUAL_SENTINEL" in stage2
+        assert MODE_SERIOUS_BLOCK not in stage2
+
+    @pytest.mark.asyncio
+    async def test_direct_chat_valid_mode_wins_on_real_wiring(self):
+        from services.direct_chat_service import DirectChatService
+        hot.set_config_cache(_FakeCache({
+            "prompts.verbilizer_mode_casual": "CASUAL_SENTINEL",
+            "prompts.verbilizer_mode_deep_research": "DEEP_SENTINEL",
+            "prompts.verbilizer_default_mode": "casual",
+        }))
+        svc = DirectChatService.__new__(DirectChatService)
+        svc.llm = MagicMock()
+        svc.llm.generate = AsyncMock(side_effect=[
+            _direct_json("deep_research"), "ответ"])
+        await svc._synthesize_direct_answer(-100, "q", _tool_result(), None)
+        stage2 = svc.llm.generate.await_args_list[1].args[0][0]["content"]
+        assert "DEEP_SENTINEL" in stage2
+        assert "CASUAL_SENTINEL" not in stage2
+
+    @pytest.mark.asyncio
+    async def test_factcheck_failure_uses_fallback_key(self):
+        from services.factcheck_service import FactCheckService
+        hot.set_config_cache(_FakeCache({
+            "prompts.verbilizer_mode_casual": "CASUAL_SENTINEL",
+            "prompts.verbilizer_default_mode": "casual",
+        }))
+        aggregator = MagicMock()
+        aggregator.search = AsyncMock(return_value="хиты")
+        llm = MagicMock()
+        llm.generate = AsyncMock(side_effect=[_factcheck_json(), "ответ"])
+        service = FactCheckService(aggregator, llm)
+        await service.check_claim("тезис")
+        stage2 = llm.generate.await_args_list[1].args[0][0]["content"]
+        assert "CASUAL_SENTINEL" in stage2
+        assert MODE_SERIOUS_BLOCK not in stage2
+
+    @pytest.mark.asyncio
+    async def test_summary_failure_uses_fallback_key(self):
+        from services.summary_generator import SummaryGenerator
+        hot.set_config_cache(_FakeCache({
+            "prompts.verbilizer_mode_casual": "CASUAL_SENTINEL",
+            "prompts.verbilizer_default_mode": "casual",
+        }))
+        llm = MagicMock()
+        llm.generate = AsyncMock(side_effect=[
+            json.dumps({"response_mode": "wat", "digest": _DIGEST}),
+            "готовый текст"])
+        gen = SummaryGenerator(memory=MagicMock(), xml=MagicMock(), llm=llm,
+                               bot=None)
+        await gen._generate_two_call("история", 3800, -100)
+        stage2 = llm.generate.await_args_list[1].args[0][0]["content"]
+        assert "CASUAL_SENTINEL" in stage2
+
+
 # ── C. Kill-switch и UI-маркеры новой раскладки ──────────────────────────────
 
 class TestUiGateAndMarkers:
@@ -142,20 +270,33 @@ class TestUiGateAndMarkers:
         assert bool(settings.PROMPTS_UI_V2_ENABLED) is True
         assert '"PROMPTS_UI_V2_ENABLED"' in ROUTES
 
-    def test_fallback_dropdown_rendered_once(self):
-        assert 'data-block="prompts-fallback-mode"' in HTML
+    def test_fallback_dropdown_rendered_exactly_once(self):
+        marker = 'data-block="prompts-fallback-mode"'
+        assert HTML.count(marker) == 1
+        # Дропдаун стоит ДО цикла карточек модулей → рендерится один раз,
+        # а не в каждой карточке (ADR-1024-10 D4).
+        idx_fallback = HTML.index(marker)
+        idx_loop = HTML.index('v-for="grp in currentTabGroups" :key=')
+        assert idx_fallback < idx_loop
         assert "promptDefaultModeItem().title" in HTML
         assert "предохранитель" in HTML
 
     def test_mode_tabs_live_inside_module_cards(self):
         assert 'data-block="prompt-mode-tabs"' in HTML
         assert "&& sec.id === 'verbalizer' && promptModeItem()" in HTML
-        # Табы используют общий selected-режим и сохранение как в 10.23.
-        assert "@click=\"selectPromptMode(m.id)\"" in HTML
+        # Таб V2 только переключает редактируемый режим (ключ не пишет).
+        assert "@click=\"switchPromptMode(m.id)\"" in HTML
+        assert "@click=\"selectPromptMode(m.id)\"" in HTML   # OFF-карточка 10.23
+        # Ключ fallback пишет только шапочный дропдаун.
+        assert "@change=\"savePromptFallbackMode()\"" in HTML
 
-    def test_prompts_accordion_gated_by_flag(self):
-        assert ("v-if=\"!uiFlag('PROMPTS_UI_V2_ENABLED') "
-                "&& sec.advanced.length > 0\"") in HTML
+    def test_prompts_accordion_render_gate(self):
+        # Единый предикат рендера аккордеона; в V2 → false для любой секции.
+        assert "promptsShowAccordion(sec)" in HTML
+        assert "promptsShowAccordion" in JS
+        # В области промптов нет безусловного <details class="advanced">:
+        # единственный аккордеон гейтится предикатом (не флагом-строкой).
+        assert 'v-if="promptsShowAccordion(sec)"' in HTML
 
     def test_verbilizer_group_card_skipped_in_v2(self):
         assert "grp.id === 'prompts_verbilizer')" in HTML

@@ -4114,6 +4114,34 @@
           this.saveConfigItem(item);
         }
       },
+      // F6 (10.24, ADR-1024-10, review iter1): таб в V2 ТОЛЬКО переключает
+      // редактируемый режимный блок и НЕ пишет fallback-ключ (его пишет
+      // единственный дропдаун в шапке). OFF-карточка 10.23 продолжает
+      // использовать selectPromptMode (switch+save) — её поведение не меняем.
+      switchPromptMode: function (mode) {
+        if (!mode) return;
+        this.promptMode = String(mode);
+      },
+      // Единственная точка записи ключа prompts.verbilizer_default_mode из V2:
+      // вызывается только шапочным дропдауном по @change. v-model уже обновил
+      // item.value; синхронизируем редактируемый режим и сохраняем ключ.
+      savePromptFallbackMode: function () {
+        var item = this.promptDefaultModeItem();
+        if (!item) return;
+        var value = String(item.value == null ? '' : item.value);
+        var allowed = this.promptModeTabs.map(function (t) { return t.id; });
+        if (allowed.indexOf(value) >= 0) this.promptMode = value;
+        if (this.canEditConfig(item.key)) this.saveConfigItem(item);
+      },
+      // F6 (10.24, ADR-1024-10 D1): условие аккордеона на «Промптах».
+      // V2 ON → всегда false (advanced-элементы идут в общий grid через
+      // promptVisibleItems); OFF → как в 10.23 (basic + <details>).
+      promptsShowAccordion: function (sec) {
+        if (!sec) return false;
+        var v2 = (typeof this.uiFlag === 'function')
+          ? this.uiFlag('PROMPTS_UI_V2_ENABLED') : true;
+        return !v2 && (sec.advanced || []).length > 0;
+      },
       _syncPromptModeFromConfig: function () {
         var item = this.promptDefaultModeItem();
         // F6 (10.24, ADR-1024-10 D2): пусто/бито → код-дефолт `casual`

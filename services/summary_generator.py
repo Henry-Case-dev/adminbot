@@ -99,7 +99,9 @@ class SummaryDraft:
 
     text: str
     cover_prompt: str = ""
-    response_mode: str = "serious"
+    # F6 (10.24, ADR-1024-10 D3): ``""`` = режим не выбран (сбойный путь) —
+    # fallback-ключ резолвится в compose, без второго источника дефолта.
+    response_mode: str = ""
 
 
 def compose_cover_image_prompt(style: str | None, cover_prompt: str) -> str:

@@ -107,10 +107,12 @@ class TestResponseModeRouter:
         ("serious", "serious"),
         ("deep_research", "deep_research"),
         (" Deep_Research ", "deep_research"),
-        ("bogus", "serious"),
-        ("", "serious"),
-        (None, "serious"),
-        (42, "serious"),
+        # F6 (10.24, ADR-1024-10 D3): невалид/пусто → "" (сигнал сбоя);
+        # режим НЕ подставляется здесь — его резолвит compose из fallback-ключа.
+        ("bogus", ""),
+        ("", ""),
+        (None, ""),
+        (42, ""),
     ])
     def test_normalize_fail_safe(self, value, expected):
         assert normalize_response_mode(value) == expected
@@ -119,15 +121,17 @@ class TestResponseModeRouter:
         data = parse_factcheck_analysis(_factcheck_json("casual"))
         assert data is not None and data["response_mode"] == "casual"
 
-    def test_factcheck_analysis_missing_or_invalid_is_serious(self):
-        assert parse_factcheck_analysis(_factcheck_json())["response_mode"] == "serious"
+    def test_factcheck_analysis_missing_or_invalid_is_unset(self):
+        # F6: отсутствующий/битый режим → "" (compose применит fallback-ключ).
+        assert parse_factcheck_analysis(_factcheck_json())["response_mode"] == ""
         assert parse_factcheck_analysis(
-            _factcheck_json("wat"))["response_mode"] == "serious"
+            _factcheck_json("wat"))["response_mode"] == ""
 
     def test_direct_synthesis_keeps_mode(self):
         data = parse_direct_synthesis(_direct_json("deep_research"))
         assert data is not None and data["response_mode"] == "deep_research"
-        assert parse_direct_synthesis(_direct_json())["response_mode"] == "serious"
+        # F6: отсутствующий режим → "" (сигнал сбоя).
+        assert parse_direct_synthesis(_direct_json())["response_mode"] == ""
 
     def test_parse_summary_handoff_json(self):
         raw = json.dumps({"response_mode": "deep_research", "digest": _DIGEST})
@@ -135,18 +139,18 @@ class TestResponseModeRouter:
         assert parsed == {"response_mode": "deep_research", "digest": _DIGEST,
                           "cover_prompt": ""}
 
-    def test_parse_summary_handoff_missing_mode_serious(self):
+    def test_parse_summary_handoff_missing_mode_unset(self):
         raw = json.dumps({"digest": _DIGEST})
-        assert parse_summary_handoff(raw)["response_mode"] == "serious"
+        assert parse_summary_handoff(raw)["response_mode"] == ""
 
-    def test_parse_summary_handoff_invalid_mode_serious(self):
+    def test_parse_summary_handoff_invalid_mode_unset(self):
         raw = json.dumps({"response_mode": "wat", "digest": _DIGEST})
-        assert parse_summary_handoff(raw)["response_mode"] == "serious"
+        assert parse_summary_handoff(raw)["response_mode"] == ""
 
     def test_parse_summary_handoff_raw_markdown_backcompat(self):
-        """Старый Stage-1 отдавал чистую Markdown-выжимку."""
+        """Старый Stage-1 отдавал чистую Markdown-выжимку (без режима)."""
         parsed = parse_summary_handoff(_DIGEST)
-        assert parsed == {"response_mode": "serious", "digest": _DIGEST,
+        assert parsed == {"response_mode": "", "digest": _DIGEST,
                           "cover_prompt": ""}
 
     def test_parse_summary_handoff_invalid_digest_none(self):

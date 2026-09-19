@@ -120,24 +120,73 @@ assert(methods, 'root.methods не найден');
   assert.strictEqual(ctxEmpty.promptMode, 'casual');
 })();
 
-// ── 4. Табы в карточке: переключение режима + автосейв выбранного ────────────
+// ── 4. Таб V2 только переключает режим и НЕ пишет fallback-ключ ──────────────
 (function () {
   const defaultItem = { key: 'prompts.verbilizer_default_mode', value: 'casual' };
   const saved = [];
   const ctx = {
     promptMode: 'casual',
     configItems: [defaultItem],
+    promptModeTabs: [{ id: 'casual' }, { id: 'serious' }, { id: 'deep_research' }],
     canEditConfig: function () { return true; },
     saveConfigItem: function (it) { saved.push(it.value); },
     promptDefaultModeItem: methods.promptDefaultModeItem,
   };
-  methods.selectPromptMode.call(ctx, 'serious');
+  // Переключение редактируемого режима — без записи ключа.
+  methods.switchPromptMode.call(ctx, 'serious');
   assert.strictEqual(ctx.promptMode, 'serious');
-  assert.strictEqual(defaultItem.value, 'serious');
+  assert.strictEqual(defaultItem.value, 'casual');
+  assert.deepStrictEqual(saved, [], 'таб НЕ должен писать fallback-ключ');
+  methods.switchPromptMode.call(ctx, 'deep_research');
+  assert.strictEqual(ctx.promptMode, 'deep_research');
+  assert.deepStrictEqual(saved, []);
+})();
+
+// ── 5. Шапочный дропдаун — единственная точка записи fallback-ключа ──────────
+(function () {
+  const defaultItem = { key: 'prompts.verbilizer_default_mode', value: 'casual' };
+  const saved = [];
+  const ctx = {
+    promptMode: 'casual',
+    configItems: [defaultItem],
+    promptModeTabs: [{ id: 'casual' }, { id: 'serious' }, { id: 'deep_research' }],
+    canEditConfig: function () { return true; },
+    saveConfigItem: function (it) { saved.push(it.value); },
+    promptDefaultModeItem: methods.promptDefaultModeItem,
+  };
+  defaultItem.value = 'serious';               // v-model дропдауна
+  methods.savePromptFallbackMode.call(ctx);     // @change
+  assert.strictEqual(ctx.promptMode, 'serious');
   assert.deepStrictEqual(saved, ['serious']);
-  // Повторный клик по тому же табу — без повторного сохранения.
-  methods.selectPromptMode.call(ctx, 'serious');
-  assert.deepStrictEqual(saved, ['serious']);
+  // Недоступный для правки ключ — без записи.
+  const roSaved = [];
+  const ro = {
+    configItems: [defaultItem],
+    promptModeTabs: [{ id: 'casual' }, { id: 'serious' }],
+    canEditConfig: function () { return false; },
+    saveConfigItem: function (it) { roSaved.push(it.value); },
+    promptDefaultModeItem: methods.promptDefaultModeItem,
+  };
+  methods.savePromptFallbackMode.call(ro);
+  assert.deepStrictEqual(roSaved, []);
+})();
+
+// ── 6. Аккордеон промптов: в V2 не рендерится (render-предикат) ──────────────
+(function () {
+  const sec = { basic: [{ key: 'b' }], advanced: [{ key: 'a' }] };
+  // V2 ON → аккордеон не показывается ни для какой секции.
+  assert.strictEqual(
+    methods.promptsShowAccordion.call(
+      { uiFlag: function () { return true; } }, sec), false);
+  // V2 OFF → показывается только при наличии advanced.
+  assert.strictEqual(
+    methods.promptsShowAccordion.call(
+      { uiFlag: function () { return false; } }, sec), true);
+  assert.strictEqual(
+    methods.promptsShowAccordion.call(
+      { uiFlag: function () { return false; } }, { basic: [{ key: 'b' }], advanced: [] }),
+    false);
+  assert.strictEqual(methods.promptsShowAccordion.call({}, null), false);
 })();
 
 console.log('PROMPTS-UI-UNIT-OK');

@@ -40,9 +40,11 @@ class TestSummaryTwoCall:
         stage2 = llm.generate.await_args_list[1].args[0]
         assert stage1[0]["content"] == SUMMARY_EDITOR_SYSTEM_PROMPT
         assert stage1[1]["content"] == "сырая история"
+        # F6 (10.24, ADR-1024-10 D3): legacy-выжимка без режима → "" (сигнал
+        # сбоя); compose резолвит fallback-ключ (код-дефолт casual).
         assert stage2[0]["content"] == compose_verbalizer_system(
             SUMMARY_NARRATOR_SYSTEM_PROMPT.replace("{max_symbols}", "3800"),
-            "serious", "plain")
+            "", "plain")
         assert stage2[1]["content"] == "ВЫЖИМКА (Markdown):\n" + _DIGEST
 
     @pytest.mark.asyncio
