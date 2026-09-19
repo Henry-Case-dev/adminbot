@@ -1047,7 +1047,7 @@
 
     /* ═══ F3 (раунд 10.24, ADR-1024-7): визуальное дерево вызова (Node Flow) ═══
        Чистый CSS Flexbox: узлы + тонкие коннекторы, без граф-библиотек и CDN
-       (инвариант CSP/zero-build). Источник — tokenFlowTree() (web/app.js). */
+       (инвариант CSP/zero-build). Источник — computed tokenFlowTree (web/app.js). */
     .token-flow {
       display: flex;
       flex-direction: column;
@@ -1060,8 +1060,6 @@
       background: rgba(255, 255, 255, .04);
       padding: .4rem .6rem;
     }
-    .token-flow__node[data-depth="1"] { margin-left: .6rem; }
-    .token-flow__node[data-depth="2"] { margin-left: 1.5rem; }
     .token-flow__node--root {
       border-color: rgba(148, 163, 184, .45);
       background: rgba(148, 163, 184, .08);
@@ -1080,17 +1078,25 @@
       background: rgba(250, 204, 21, .07);
       border-left-width: 3px;
     }
-    /* ветвь: вертикальный рельс + горизонтальный ус к под-ноде инструмента */
-    .token-flow__node--tool[data-depth="2"]::before {
+    /* Ветка: отдельный контейнер под родителем (Синтезатором); tool-под-ноды
+       NOT на спине. Рельс + горизонтальный ус — CSS-псевдоэлементы. */
+    .token-flow__branch {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: .3rem;
+      margin: .2rem 0 .2rem 1.25rem;
+    }
+    .token-flow__branch::before {
       content: '';
       position: absolute;
       left: -.75rem;
-      top: -0.2rem;
+      top: -.2rem;
       bottom: 50%;
       width: 2px;
       background: rgba(250, 204, 21, .45);
     }
-    .token-flow__node--tool[data-depth="2"]::after {
+    .token-flow__branch::after {
       content: '';
       position: absolute;
       left: -.75rem;
@@ -1124,17 +1130,11 @@
       font-size: .62rem;
       line-height: 1.1;
     }
-    .token-flow__edge[data-depth="2"] {
-      text-align: left;
-      padding-left: 1.75rem;
-    }
-    /* узкая TMA: вертикальный стек, сдвиги ветки убираем, порядок сохраняется */
+    /* узкая TMA: вертикальный стек, отступ ветки убираем, порядок сохраняется */
     @media (max-width: 420px) {
-      .token-flow__node[data-depth="1"],
-      .token-flow__node[data-depth="2"] { margin-left: 0; }
-      .token-flow__node--tool[data-depth="2"]::before,
-      .token-flow__node--tool[data-depth="2"]::after { display: none; }
-      .token-flow__edge[data-depth="2"] { text-align: center; padding-left: 0; }
+      .token-flow__branch { margin-left: 0; }
+      .token-flow__branch::before,
+      .token-flow__branch::after { display: none; }
     }
     @media (prefers-reduced-motion: reduce) {
       .token-flow__node { transition: none !important; }

@@ -1261,11 +1261,11 @@
                   <!-- ── НОВЫЙ рендер (ADR-1024-7): дерево вызова ── -->
                   <template v-if="uiFlag('TOKEN_FLOW_NODEFLOW_ENABLED')">
                     <div class="text-xs font-bold mb-1">Последний запрос (Дерево вызова)</div>
-                    <div v-if="tokenFlowTree().nodes.length" class="token-flow mb-3">
-                      <template v-for="node in tokenFlowTree().nodes" :key="node.id">
+                    <div v-if="tokenFlowTree.main.length" class="token-flow mb-3">
+                      <template v-for="(node, idx) in tokenFlowTree.main" :key="node.id">
+                        <!-- Нода спины: root/слои/итог -->
                         <div class="token-flow__node"
-                             :class="'token-flow__node--' + node.kind"
-                             :data-depth="node.depth">
+                             :class="'token-flow__node--' + node.kind">
                           <div class="token-flow__head">{{ node.title }}</div>
                           <div class="token-flow__note" v-if="node.note">{{ node.note }}</div>
                           <div class="token-flow__metrics" v-if="node.kind !== 'root'">
@@ -1280,11 +1280,34 @@
                             </span>
                           </div>
                         </div>
-                        <div class="token-flow__edge" v-if="node.kind !== 'result'"
-                             :data-depth="node.depth" aria-hidden="true">↓</div>
+                        <!-- ВЕТКА (рёбра parent→child): tool-под-ноды, НЕ на спине;
+                             коннектор ↓ внутри ветки не рисуется -->
+                        <div class="token-flow__branch"
+                             v-if="node.children && node.children.length">
+                          <div v-for="child in node.children" :key="child.id"
+                               class="token-flow__node token-flow__node--tool">
+                            <div class="token-flow__head">{{ child.title }}</div>
+                            <div class="token-flow__metrics">
+                              <span class="token-flow__metric">
+                                Вход: {{ fmtExactTokens(child.input) }}<template v-if="child.estimated"> (оц.)</template>
+                              </span>
+                              <span class="token-flow__metric">
+                                Выход: {{ fmtExactTokens(child.output) }}<template v-if="child.estimated"> (оц.)</template>
+                              </span>
+                              <span class="token-flow__metric">
+                                Цена: <template v-if="child.price_known">{{ fmtCost(child.cost) }}</template><template v-else>цена неизвестна</template>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <!-- Коннектор спины: только если есть ребро к следующей ноде -->
+                        <div class="token-flow__edge"
+                             v-if="idx < tokenFlowTree.main.length - 1" aria-hidden="true">↓</div>
                       </template>
                     </div>
                     <div v-else class="text-xs text-gray-500 mb-3">Вызовов ещё не было.</div>
+                    <!-- Заголовок графика — только в новом рендере (OFF = 10.23) -->
+                    <div class="text-xs font-bold mb-1">График расходов</div>
                   </template>
                   <!-- ── СТАРЫЙ рендер (10.23): плоские бейджи (флаг OFF) ── -->
                   <template v-else>
@@ -1300,19 +1323,19 @@
                     </div>
                   </template>
                   <!-- ── График расходов (день/неделя/месяц) ── -->
-                  <div class="text-xs font-bold mb-1">График расходов</div>
-                  <div class="flex items-end gap-1 h-16 mb-1" v-if="tokenSeriesBars().length">
-                    <div v-for="(b, i) in tokenSeriesBars()" :key="'tb' + i"
+                  <div class="flex items-end gap-1 h-16 mb-1" v-if="tokenSeriesBars.length">
+                    <div v-for="(b, i) in tokenSeriesBars" :key="'tb' + i"
                          class="flex-1 flex flex-col items-center justify-end"
                          :title="b.bucket + ' · ' + fmtCost(b.cost_usd) + ' · ' + b.calls + ' вызов.'">
                       <div class="w-full rounded-t" :style="{ height: b.height + '%', background: '#6ea8fe' }"></div>
                     </div>
                   </div>
                   <div v-else class="text-xs text-gray-500 mb-1">За период данных нет.</div>
+                  <!-- Подписи оси — только в новом рендере (OFF = 10.23) -->
                   <div class="token-axis flex justify-between text-xs text-gray-500 mb-2"
-                       v-if="tokenSeriesBars().length">
-                    <span>{{ tokenSeriesBars()[0].label }}</span>
-                    <span v-if="tokenSeriesBars().length > 1">{{ tokenSeriesBars()[tokenSeriesBars().length - 1].label }}</span>
+                       v-if="uiFlag('TOKEN_FLOW_NODEFLOW_ENABLED') && tokenSeriesBars.length">
+                    <span>{{ tokenSeriesBars[0].label }}</span>
+                    <span v-if="tokenSeriesBars.length > 1">{{ tokenSeriesBars[tokenSeriesBars.length - 1].label }}</span>
                   </div>
                   <div class="flex flex-wrap gap-2 text-xs"
                        v-if="tokenAnalyticsSummary && tokenAnalyticsSummary.totals">

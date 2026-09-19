@@ -1254,6 +1254,125 @@
         return !!(this.me && (this.me.role_name === 'admin'
           || (this.me.permissions && this.me.permissions.wildcard)));
       },
+      // F3 (раунд 10.24, ADR-1024-7): визуальное дерево вызова (Node Flow).
+      // Единый проход по фактическим `steps[]` — НИ ОДИН шаг не отбрасывается
+      // (повторы stage1/stage2 и нераспознанные `step` — отдельные ноды):
+      //   * спина: root → шаги в порядке steps[] → result;
+      //   * `tool` — под-нодами-ветками у ближайшего Синтезатора (рёбра
+      //     parent→child), НЕ на спине; `hasBranch` = есть ветки;
+      //   * `single`/`image`/прочее → без ложной ветки «Синтезатор→Вербализатор»;
+      //   * пусто → {nodes:[], edges:[], main:[], hasBranch:false, empty:true}.
+      // Нода: Вход/Выход/Цена (+ «оц.» при tokens_estimated, «цена неизвестна»
+      // при price_known=false). `main` — спина с `.children` для рендера веток
+      // по рёбрам (без `↓` внутри ветки); `nodes` — плоский контракт §5.
+      tokenFlowTree: function () {
+        var latest = this.tokenAnalyticsLatest;
+        var steps = (latest && latest.steps) || [];
+        var total = (latest && latest.total) || {};
+        var meta = {
+          stage1: { kind: 'synthesizer', title: 'Синтезатор' },
+          stage2: { kind: 'verbalizer', title: 'Вербализатор' },
+          single: { kind: 'single', title: 'Один вызов' },
+          image: { kind: 'image', title: 'Изображение' },
+        };
+        if (!steps.length) {
+          return { nodes: [], edges: [], main: [], hasBranch: false,
+                   empty: true };
+        }
+        function mk(s, kind, title, id) {
+          return {
+            id: id, kind: kind, title: title, children: [],
+            input: s.input_tokens || 0,
+            output: s.output_tokens || 0,
+            cost: s.cost_usd || 0,
+            estimated: !!s.tokens_estimated,
+            price_known: s.price_known !== false,
+            note: '',
+          };
+        }
+        function toolTitle(s) {
+          return 'Инструмент' + (s.tool_name ? (': ' + s.tool_name) : '');
+        }
+
+        var main = [];
+        var edges = [];
+        var hasBranch = false;
+        var root = {
+          id: 'root', kind: 'root', title: 'Запрос юзера', children: [],
+          input: 0, output: 0, cost: 0, estimated: false, price_known: true,
+          note: this._tokenFlowTimestamp(latest && latest.ts),
+        };
+        main.push(root);
+
+        var prevId = 'root';
+        var host = null;   // ближайший Синтезатор — хозяин tool-ветки
+        for (var i = 0; i < steps.length; i++) {
+          var s = steps[i];
+          if (s.step === 'tool') {
+            // tool — ветка у Синтезатора (или у корня, если Синтезатора нет);
+            // НЕ звено спины → в `main` не попадает.
+            var parent = host || root;
+            var tn = mk(s, 'tool', toolTitle(s), 'tool-' + i);
+            parent.children.push(tn);
+            edges.push({ from: parent.id, to: tn.id });
+            hasBranch = true;
+            continue;
+          }
+          var m = meta[s.step];
+          var kind = m ? m.kind : 'other';
+          var title = m ? m.title : ('Шаг: ' + (s.step || 'неизвестно'));
+          var node = mk(s, kind, title, 'n-' + i);
+          main.push(node);
+          edges.push({ from: prevId, to: node.id });
+          prevId = node.id;
+          if (kind === 'synthesizer') host = node;
+        }
+
+        // Агрегированные признаки «Итог»: «цена неизвестна», если хотя бы один
+        // шаг без цены; «оц.», если хотя бы один шаг — оценка.
+        var priceKnown = true, estimated = false;
+        for (var j = 0; j < steps.length; j++) {
+          if (steps[j].price_known === false) priceKnown = false;
+          if (steps[j].tokens_estimated) estimated = true;
+        }
+        var result = {
+          id: 'result', kind: 'result', title: 'Итог', children: [],
+          input: (total.input_tokens || 0),
+          output: (total.output_tokens || 0),
+          cost: (total.cost_usd || 0),
+          estimated: estimated, price_known: priceKnown, note: '',
+        };
+        main.push(result);
+        edges.push({ from: prevId, to: 'result' });
+
+        // Плоский `nodes` (контракт §5): спина + ветки сразу за родителем.
+        var nodes = [];
+        main.forEach(function (n) {
+          nodes.push(n);
+          n.children.forEach(function (c) { nodes.push(c); });
+        });
+
+        return { nodes: nodes, edges: edges, main: main,
+                 hasBranch: hasBranch, empty: false };
+      },
+      // Столбики графика расходов: высота пропорциональна cost_usd бакета.
+      // Tooltip — существующий title (bucket·цена·вызовы) в шаблоне.
+      tokenSeriesBars: function () {
+        var s = this.tokenAnalyticsSummary;
+        var series = (s && s.series) || [];
+        var max = 0;
+        series.forEach(function (b) { max = Math.max(max, b.cost_usd || 0); });
+        return series.map(function (b) {
+          var cost = b.cost_usd || 0;
+          return {
+            bucket: b.bucket,
+            cost_usd: cost,
+            calls: b.calls || 0,
+            label: String(b.bucket || '').replace('T', ' ').slice(0, 16),
+            height: max > 0 ? Math.max(2, Math.round(cost / max * 100)) : 0,
+          };
+        });
+      },
       // 3.10: любая операция лора в процессе — блокировка кнопок-мутаций
       chatLoreBusy: function () {
         return this.chatLoreProfileLoading
@@ -2322,116 +2441,6 @@
           };
         });
       },
-      // F3 (раунд 10.24, ADR-1024-7): визуальное дерево вызова (Node Flow).
-      // Детерминированная проекция `steps[]`:
-      //   * двухслойный (`stage1`+`stage2`) → Запрос→Синтезатор→Вербализатор→Итог,
-      //     tool-шаги — под-нодами-ветками у Синтезатора;
-      //   * `single`/`image`/прочее → линейная цепочка БЕЗ ложной ветки
-      //     «Синтезатор→Вербализатор»; `tool` без стадий — плашка у корня;
-      //   * пусто → {nodes:[], edges:[], empty:true}.
-      // Нода: Вход/Выход/Цена (+ «оц.» при tokens_estimated, «цена неизвестна»
-      // при price_known=false). Возврат: {nodes, edges, hasBranch, empty}.
-      tokenFlowTree: function () {
-        var latest = this.tokenAnalyticsLatest;
-        var steps = (latest && latest.steps) || [];
-        var total = (latest && latest.total) || {};
-        var meta = {
-          stage1: { kind: 'synthesizer', title: 'Синтезатор' },
-          stage2: { kind: 'verbalizer', title: 'Вербализатор' },
-          single: { kind: 'single', title: 'Один вызов' },
-          image: { kind: 'image', title: 'Изображение' },
-        };
-        if (!steps.length) {
-          return { nodes: [], edges: [], hasBranch: false, empty: true };
-        }
-        var nodes = [];
-        var edges = [];
-        var hasBranch = false;
-
-        function mk(s, kind, title, id, depth) {
-          return {
-            id: id, kind: kind, title: title, depth: depth,
-            input: s.input_tokens || 0,
-            output: s.output_tokens || 0,
-            cost: s.cost_usd || 0,
-            estimated: !!s.tokens_estimated,
-            price_known: s.price_known !== false,
-            note: '',
-          };
-        }
-        function toolTitle(s) {
-          return 'Инструмент' + (s.tool_name ? (': ' + s.tool_name) : '');
-        }
-
-        nodes.push({
-          id: 'root', kind: 'root', title: 'Запрос юзера', depth: 0,
-          input: 0, output: 0, cost: 0, estimated: false, price_known: true,
-          note: this._tokenFlowTimestamp(latest && latest.ts),
-        });
-
-        var stage1 = null, stage2 = null;
-        var tools = [];
-        var i, s;
-        for (i = 0; i < steps.length; i++) {
-          s = steps[i];
-          if (s.step === 'stage1' && !stage1) stage1 = s;
-          if (s.step === 'stage2' && !stage2) stage2 = s;
-          if (s.step === 'tool') tools.push(s);
-        }
-
-        var prevId = 'root';
-        function pushSpine(node) {
-          nodes.push(node);
-          edges.push({ from: prevId, to: node.id });
-          prevId = node.id;
-        }
-        function pushTools(parentId, depth, branching) {
-          if (!tools.length) return;
-          for (var t = 0; t < tools.length; t++) {
-            var tn = mk(tools[t], 'tool', toolTitle(tools[t]),
-                        'tool-' + t, depth);
-            nodes.push(tn);
-            edges.push({ from: parentId, to: tn.id });
-          }
-          if (branching) hasBranch = true;
-        }
-
-        if (stage1 && stage2) {
-          // Двухслойный вызов: ветвление Синтезатор → (Инструменты) → Вербализатор.
-          pushSpine(mk(stage1, 'synthesizer', 'Синтезатор', 'n-synth', 1));
-          pushTools('n-synth', 2, true);
-          pushSpine(mk(stage2, 'verbalizer', 'Вербализатор', 'n-verb', 1));
-        } else {
-          // Линейная цепочка по фактическим шагам (tool — отдельными плашками).
-          var k = 0;
-          var hostId = null;
-          for (i = 0; i < steps.length; i++) {
-            s = steps[i];
-            if (s.step === 'tool') continue;
-            var m = meta[s.step];
-            var kind = m ? m.kind : 'other';
-            var title = m ? m.title : ('Шаг: ' + (s.step || 'неизвестно'));
-            var id = 'n-' + (k++);
-            pushSpine(mk(s, kind, title, id, 1));
-            if (kind === 'synthesizer' && !hostId) hostId = id;
-          }
-          // tool без ветвления: при наличии Синтезатора — ветка у него,
-          // иначе — плашки у корня (без рёбер «Синтезатор→Вербализатор»).
-          pushTools(hostId || 'root', hostId ? 2 : 1, !!hostId);
-        }
-
-        nodes.push({
-          id: 'result', kind: 'result', title: 'Итог', depth: 1,
-          input: total.input_tokens || 0,
-          output: total.output_tokens || 0,
-          cost: total.cost_usd || 0,
-          estimated: false, price_known: true, note: '',
-        });
-        edges.push({ from: prevId, to: 'result' });
-
-        return { nodes: nodes, edges: edges, hasBranch: hasBranch,
-                 empty: false };
-      },
       // Человекочитаемая подпись корня дерева: время последнего вызова.
       _tokenFlowTimestamp: function (ts) {
         if (!ts) return 'последний вызов';
@@ -2448,29 +2457,6 @@
         if (n === 0) return '$0';
         if (n < 0.000001) return '$' + n.toExponential(2);
         return '$' + n.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
-      },
-      // Столбики графика: высота пропорциональна cost_usd бакета.
-      // F3 (10.24): + index/isFirst/isLast — подписи оси (первый/последний
-      // бакет) без чарт-библиотек; tooltip остаётся title (bucket·цена·вызовы).
-      tokenSeriesBars: function () {
-        var s = this.tokenAnalyticsSummary;
-        var series = (s && s.series) || [];
-        var max = 0;
-        series.forEach(function (b) { max = Math.max(max, b.cost_usd || 0); });
-        var last = series.length - 1;
-        return series.map(function (b, i) {
-          var cost = b.cost_usd || 0;
-          return {
-            bucket: b.bucket,
-            cost_usd: cost,
-            calls: b.calls || 0,
-            label: String(b.bucket || '').replace('T', ' ').slice(0, 16),
-            height: max > 0 ? Math.max(2, Math.round(cost / max * 100)) : 0,
-            index: i,
-            isFirst: i === 0,
-            isLast: i === last,
-          };
-        });
       },
       loadModules: async function () {
         if (this.modulesBusy) return;
