@@ -167,6 +167,7 @@ from services.system2_handoff import (
     normalize_response_mode,
     parse_direct_synthesis,
     redact_secrets,
+    stage2_payload,
 )
 from services.tool_loop import chat_with_tools, ToolLoopResult
 from services.tool_router import ToolContext
@@ -682,7 +683,8 @@ class DirectChatService:
             # блок <image_result> для инъекции. НЕ зависит от tool_router
             # (spec §2.2: условие — только «модуль ON»); review iter1 Finding 4.
             image_block = await self._image_pre_gate_block(
-                chat_id, query, bot, message, user_id)
+                chat_id, query, bot, message, user_id,
+                correlation_id=correlation_id)
             image_pre_gate_fired = bool(image_block)
             if image_block:
                 user_blocks = self._insert_dig_result(user_blocks, image_block)
@@ -942,7 +944,9 @@ class DirectChatService:
             base_messages = [
                 {"role": "system", "content": verbalizer_system},
                 {"role": "user",
-                 "content": "СПРАВКА (JSON):\n" + json.dumps(data, ensure_ascii=False)},
+                 # spec F3 §3.1: служебный response_mode в Stage-2 не утекает.
+                 "content": "СПРАВКА (JSON):\n" + json.dumps(
+                     stage2_payload(data), ensure_ascii=False)},
             ]
 
             async def _generate(messages):
@@ -1293,11 +1297,14 @@ class DirectChatService:
         return blocks
 
     async def _image_pre_gate_block(self, chat_id: int, query: str, bot,
-                                    message, user_id) -> str:
+                                    message, user_id,
+                                    correlation_id: str | None = None) -> str:
         """Раунд 10.23 (F5, ADR-1023-5 §D2): пре-гейт ключевиков генерации
         изображений («Бот, нарисуй …»). Генерация+отправка ДО Stage-1, блок
         ``<image_result>`` для инъекции. `tool_choice` НЕ форсируется. Нет
-        ключевика/модуль OFF/нет бота → ``""``. Fail-open — не бросает."""
+        ключевика/модуль OFF/нет бота → ``""``. Fail-open — не бросает.
+        F7 rework: ``correlation_id`` ответа прокидывается в ToolContext, чтобы
+        событие ``step='image'`` попало в дерево последнего вызова."""
         from services import image_generation
         if not image_generation.is_image_keyword(query):
             return ""
@@ -1309,7 +1316,8 @@ class DirectChatService:
             tool_ctx = ToolContext(
                 chat_id, query, bot=bot,
                 reply_to_message_id=getattr(message, "message_id", None),
-                user_id=user_id)
+                user_id=user_id,
+                correlation_id=correlation_id)
             return await image_generation.maybe_handle_keyword(tool_ctx, query)
         except asyncio.CancelledError:
             raise

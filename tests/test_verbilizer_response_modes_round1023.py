@@ -61,6 +61,7 @@ from services.system2_handoff import (
     parse_direct_synthesis,
     parse_factcheck_analysis,
     parse_summary_handoff,
+    stage2_payload,
     validate_summary_digest,
 )
 
@@ -158,6 +159,16 @@ class TestResponseModeRouter:
         raw = json.dumps({"response_mode": "casual", "digest": _DIGEST})
         assert validate_summary_digest(raw) == _DIGEST
         assert validate_summary_digest("fact:12") is None
+
+    def test_stage2_payload_strips_service_fields(self):
+        """spec §3.1: служебные поля не едут в user-content Stage-2."""
+        raw = {"claim": "c", "verdict": "true", "findings": [],
+               "response_mode": "casual", "cover_prompt": "cat"}
+        assert stage2_payload(raw) == {
+            "claim": "c", "verdict": "true", "findings": []}
+        # исходный объект не мутируется; не-dict → {}
+        assert raw["response_mode"] == "casual"
+        assert stage2_payload(None) == {}
 
 
 # ── B. Промпт-блоки: режим и канал ───────────────────────────────────
@@ -409,6 +420,22 @@ class TestFactcheckTwoCallMode:
         assert FORMAT_RICH_BLOCK not in stage2_system
         assert llm.generate.await_count == 2
 
+    @pytest.mark.asyncio
+    async def test_stage2_user_content_excludes_response_mode(self):
+        """spec §3.1: служебный response_mode не попадает в Stage-2."""
+        from services.factcheck_service import FactCheckService
+        aggregator = MagicMock()
+        aggregator.search = AsyncMock(return_value="хиты")
+        llm = MagicMock()
+        llm.generate = AsyncMock(
+            side_effect=[_factcheck_json("casual"), "дерзкий ответ"])
+        service = FactCheckService(aggregator, llm)
+        await service.check_claim("тезис")
+        stage2_user = llm.generate.await_args_list[1].args[0][1]["content"]
+        assert "response_mode" not in stage2_user
+        assert "АНАЛИЗ (JSON):" in stage2_user
+        assert "земля плоская" in stage2_user     # содержательная часть жива
+
 
 class TestDirectTwoCallMode:
     @staticmethod
@@ -437,6 +464,16 @@ class TestDirectTwoCallMode:
         stage2_system = svc.llm.generate.await_args_list[1].args[0][0]["content"]
         assert MODE_DEEP_RESEARCH_BLOCK in stage2_system
         assert FORMAT_PLAIN_BLOCK in stage2_system
+
+    @pytest.mark.asyncio
+    async def test_stage2_user_content_excludes_response_mode(self):
+        """spec §3.1: служебный response_mode не попадает в Stage-2."""
+        svc = self._service([_direct_json("deep_research"), "разбор"])
+        await svc._synthesize_direct_answer(-100, "что там", self._raw(), None)
+        stage2_user = svc.llm.generate.await_args_list[1].args[0][1]["content"]
+        assert "response_mode" not in stage2_user
+        assert "СПРАВКА (JSON):" in stage2_user
+        assert "погода" in stage2_user            # содержательная часть жива
 
     @pytest.mark.asyncio
     async def test_kill_switch_off_forces_serious_and_no_html_block(

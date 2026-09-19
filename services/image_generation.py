@@ -464,7 +464,11 @@ async def maybe_handle_keyword(ctx, query: str) -> str:
         return ""
     result = await generate_and_send(
         bot, chat_id, extract_prompt(query),
-        reply_to_message_id=getattr(ctx, "reply_to_message_id", None))
+        reply_to_message_id=getattr(ctx, "reply_to_message_id", None),
+        # F7 rework: пре-гейт встраивается в дерево ответа — тот же сквозной
+        # correlation_id, что у Stage-1/Stage-2 (иначе step='image' создаёт
+        # новую одиночную ноду в дашборде).
+        correlation_id=getattr(ctx, "correlation_id", None))
     if result.ok:
         return ('<image_result status="ok">\n'
                 "Изображение уже сгенерировано и отправлено в чат. "

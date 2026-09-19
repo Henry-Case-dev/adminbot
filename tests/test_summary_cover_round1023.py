@@ -224,6 +224,7 @@ class _Recorder:
         self.plain = []
         self.rich = []
         self.image_prompts = []
+        self.image_correlation_ids = []
         self.ux = []
 
 
@@ -251,8 +252,9 @@ def _base_env(monkeypatch, rec, *, cover_path):
     monkeypatch.setattr(sg, "_rich_media_supported", lambda: True)
     _patch_delivery(monkeypatch, rec)
 
-    async def _gen_image(prompt, *, chat_id=None):
+    async def _gen_image(prompt, *, chat_id=None, correlation_id=None):
         rec.image_prompts.append(prompt)
+        rec.image_correlation_ids.append(correlation_id)
         return cover_path
 
     monkeypatch.setattr(sg, "generate_image", _gen_image)
@@ -282,6 +284,23 @@ class TestRichDelivery:
                                        "a lone cat on a neon rooftop")]
         # tmp-файл обложки удалён после отправки
         assert not img.exists()
+
+    @pytest.mark.asyncio
+    async def test_cover_image_gets_summary_correlation_id(self, monkeypatch,
+                                                           tmp_path):
+        """F7 rework (M1): обложка несёт ТОТ ЖЕ correlation_id, что саммари —
+        событие ``step='image'`` остаётся в дереве последнего вызова."""
+        rec = _Recorder()
+        img = tmp_path / "cover.jpg"
+        img.write_bytes(b"jpegbytes")
+        _base_env(monkeypatch, rec, cover_path=str(img))
+        monkeypatch.setattr("services.usage_events.new_correlation_id",
+                            lambda: "SUM-COVER-9")
+        gen = _make_generator(_two_call_llm())
+
+        await gen._run(-100, False)
+
+        assert rec.image_correlation_ids == ["SUM-COVER-9"]
 
     @pytest.mark.asyncio
     async def test_image_none_is_silent_plain_fallback(self, monkeypatch):

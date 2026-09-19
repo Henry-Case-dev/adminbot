@@ -53,6 +53,7 @@ from services.smartmodule_utils import strip_lore_html
 from services.system2_handoff import (
     normalize_response_mode,
     parse_factcheck_analysis,
+    stage2_payload,
 )
 from services.tool_loop import chat_with_tools
 from services.tool_router import ToolContext, resolve_lore_compiler_flag
@@ -177,7 +178,9 @@ class FactCheckService:
         base_messages = [
             {"role": "system", "content": verbalizer_system},
             {"role": "user",
-             "content": "АНАЛИЗ (JSON):\n" + json.dumps(data, ensure_ascii=False)},
+             # spec F3 §3.1: служебный response_mode в Stage-2 не утекает.
+             "content": "АНАЛИЗ (JSON):\n" + json.dumps(
+                 stage2_payload(data), ensure_ascii=False)},
         ]
 
         async def _generate(messages):

@@ -379,7 +379,8 @@ class SummaryGenerator:
             if (cover_prompt
                     and getattr(settings, "SUMMARY_COVER_ARTICLE_ENABLED", True)
                     and _rich_media_supported()):
-                await self._deliver_rich(chat_id, text, cover_prompt)
+                await self._deliver_rich(chat_id, text, cover_prompt,
+                                         correlation_id=correlation_id)
             else:
                 await self._deliver_plain(chat_id, text)
         except LLMError as exc:
@@ -650,18 +651,22 @@ class SummaryGenerator:
             await self._send_chunked(chat_id, text)
 
     async def _deliver_rich(self, chat_id: int, text: str,
-                            cover_prompt: str) -> None:
+                            cover_prompt: str,
+                            correlation_id: str | None = None) -> None:
         """F6 (ADR-1023-6 §3.4): обложка (F5) → Article (`sendRichMessage`).
 
         Тихий фолбэк (D8): любая ошибка генерации/отправки → plain-путь без
         сообщений пользователю; лог — только класс ошибки (R17). Rich-ветка не
-        стримит → дублей нет."""
+        стримит → дублей нет. F7 rework: ``correlation_id`` саммари едет в
+        генерацию обложки — событие ``step='image'`` остаётся в дереве."""
         tmp_path = None
         try:
             style = hot.get("prompts.summary_cover_style",
                             SUMMARY_COVER_STYLE_DEFAULT)
             image_prompt = compose_cover_image_prompt(style, cover_prompt)
-            tmp_path = await generate_image(image_prompt, chat_id=chat_id)
+            tmp_path = await generate_image(
+                image_prompt, chat_id=chat_id,
+                correlation_id=correlation_id)
             if not tmp_path:
                 logger.info(
                     "summary cover: image unavailable — plain fallback | "

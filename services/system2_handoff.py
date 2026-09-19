@@ -42,6 +42,24 @@ RESPONSE_MODES = ("casual", "serious", "deep_research")
 _DEFAULT_RESPONSE_MODE = "serious"
 
 
+# Служебные поля Stage-1, которые НЕ должны попадать в user-content Stage-2
+# (spec F3 §3.1): роутер режима и визуальный промпт обложки — метаданные
+# оркестратора. Вербализатор Stage-2 видит только содержательную часть.
+_SERVICE_FIELDS = ("response_mode", "cover_prompt")
+
+
+def stage2_payload(data: dict) -> dict:
+    """Копия валидированного Stage-1-объекта без служебных полей (spec §3.1).
+
+    Гарантирует изоляцию ``response_mode``/``cover_prompt``: в user-content
+    Stage-2 едет только содержательная часть (анализ фактчека/справка
+    Синтезатора/digest). Никогда не бросает."""
+    if not isinstance(data, dict):
+        return {}
+    return {key: value for key, value in data.items()
+            if key not in _SERVICE_FIELDS}
+
+
 def normalize_response_mode(value) -> str:
     """Fail-safe нормализация ``response_mode``: любое неизвестное/пустое/
     ``None`` → ``"serious"``. Никогда не бросает (R3)."""

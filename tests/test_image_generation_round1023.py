@@ -177,6 +177,25 @@ class TestPreGateIntegration:
         assert called["query"] == "Бот, нарисуй кота"
 
     @pytest.mark.asyncio
+    async def test_pre_gate_forwards_correlation_id(self, monkeypatch):
+        """F7 rework (M1): correlation_id ответа едет в ToolContext пре-гейта."""
+        from services.direct_chat_service import DirectChatService
+        monkeypatch.setattr(ig, "resolve_module_enabled", AsyncMock(
+            return_value=True))
+        captured = {}
+
+        async def fake_handle(ctx, query):
+            captured["correlation_id"] = getattr(ctx, "correlation_id", None)
+            return ""
+
+        monkeypatch.setattr(ig, "maybe_handle_keyword", fake_handle)
+        await DirectChatService._image_pre_gate_block(
+            types.SimpleNamespace(), 1, "Бот, нарисуй кота", MagicMock(),
+            types.SimpleNamespace(message_id=7), None,
+            correlation_id="DIR-IMG-1")
+        assert captured["correlation_id"] == "DIR-IMG-1"
+
+    @pytest.mark.asyncio
     async def test_pre_gate_module_off(self, monkeypatch):
         from services.direct_chat_service import DirectChatService
         monkeypatch.setattr(ig, "resolve_module_enabled", AsyncMock(
@@ -531,6 +550,27 @@ class TestErrors:
         ctx = ToolContext(1, "Бот, нарисуй кота", bot=MagicMock())
         block = await ig.maybe_handle_keyword(ctx, "Бот, нарисуй кота")
         assert 'status="ok"' in block
+
+    @pytest.mark.asyncio
+    async def test_keyword_forwards_ctx_correlation_id(self, monkeypatch):
+        """F7 rework (M1): пре-гейт несёт correlation_id родительского ответа."""
+        captured = {}
+
+        async def fake_send(bot, chat_id, prompt, *,
+                            reply_to_message_id=None, correlation_id=None):
+            captured["correlation_id"] = correlation_id
+            return ig.GenerationResult(ok=True, content=b"x")
+
+        monkeypatch.setattr(ig, "generate_and_send", fake_send)
+        ctx = ToolContext(1, "Бот, нарисуй кота", bot=MagicMock(),
+                          correlation_id="DIR-IMG-2")
+        block = await ig.maybe_handle_keyword(ctx, "Бот, нарисуй кота")
+        assert 'status="ok"' in block
+        assert captured["correlation_id"] == "DIR-IMG-2"
+        # без correlation_id в контексте — аддитивный None (прежнее поведение)
+        ctx2 = ToolContext(1, "Бот, нарисуй кота", bot=MagicMock())
+        await ig.maybe_handle_keyword(ctx2, "Бот, нарисуй кота")
+        assert captured["correlation_id"] is None
 
 
 # ── Каталог/сид/секрет/egress ───────────────────────────────────────────────
