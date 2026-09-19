@@ -751,6 +751,38 @@ def build_parser() -> argparse.ArgumentParser:
                     "spec §3.3. Ничего не меняет.")
     aud.add_argument("--db", default=None,
                      help=f"путь SQLite-БД (дефолт: {settings.DB_PATH})")
+
+    # ── F9 (10.24, ADR-1024-2): retention диска ─────────────────────
+    disk = sub.add_parser(
+        "disk",
+        help="retention диска: audit (read-only) | cleanup (dry-run/--apply)",
+        description="Аудит и очистка диска по политике владельца (UPD3 №5): "
+                    "бэкапы БД — ровно 1; не-history JSONL — 6 мес; логи — "
+                    "7 дней. Архивы истории сообщений (imported_history_"
+                    "*.jsonl) НЕПРИКОСНОВЕННЫ. Удаление — только с --apply "
+                    "(по умолчанию dry-run), с verify свежего бэкапа.")
+    disk_sub = disk.add_subparsers(dest="disk_command", metavar="<подкоманда>")
+    disk_sub.required = True
+    d_aud = disk_sub.add_parser(
+        "audit", help="READ-ONLY: категории/размеры/топ-файлы",
+        description="Read-only снимок каталогов: категории (db_backup, "
+                    "facts_export, jsonl_retention, immutable, other), "
+                    "immutable_bytes, total_bytes, топ-10 по размеру. Ничего "
+                    "не удаляет и не меняет.")
+    d_aud.add_argument("--dir", action="append", default=None,
+                       help="каталог для аудита (можно несколько; дефолт: "
+                            f"{settings.MEMORY_BACKUP_DIR})")
+    d_clean = disk_sub.add_parser(
+        "cleanup", help="очистка: dry-run по умолчанию, --apply для удаления",
+        description="Строит план (DB-бэкапы за пределами 1, facts за "
+                    "пределами 1, не-history JSONL старше 180 дней) и — "
+                    "только с --apply — удаляет, предварительно верифицировав "
+                    "наличие валидного свежего бэкапа БД (fail-closed).")
+    d_clean.add_argument("--apply", action="store_true",
+                         help="выполнить удаление (без флага — dry-run)")
+    d_clean.add_argument("--dir", action="append", default=None,
+                         help="каталог очистки (можно несколько; дефолт: "
+                              f"{settings.MEMORY_BACKUP_DIR})")
     return parser
 
 
@@ -850,6 +882,64 @@ def _cmd_retention(args) -> int:
           f"archived={report.get('archived')} deleted={report.get('deleted')} "
           f"batches={report.get('batches')} "
           f"archive={'yes' if report.get('archive') else 'no'}")
+    return 0
+
+
+def _cmd_disk(args) -> int:
+    """F9 (10.24, ADR-1024-2): `python manage.py disk audit|cleanup`.
+
+    R17/R18: вывод содержит только имена файлов, размеры и счётчики — без
+    содержимого, полных секретов и ключей. `cleanup` по умолчанию dry-run;
+    удаление — только с `--apply` (fail-closed verify свежего бэкапа БД)."""
+    from services import disk_retention as dr
+
+    dirs = getattr(args, "dir", None) or dr.default_dirs()
+    command = args.disk_command
+
+    if command == "audit":
+        report = dr.audit(dirs)
+        print("disk audit (READ-ONLY)")
+        for entry in report["dirs"]:
+            print(f"  dir: {entry}")
+        for category, bucket in sorted(report["categories"].items()):
+            print(f"  {category}: count={bucket['count']} "
+                  f"bytes={bucket['bytes']} ({dr.human_bytes(bucket['bytes'])})")
+        print(f"  immutable_bytes={report['immutable_bytes']} "
+              f"({dr.human_bytes(report['immutable_bytes'])})")
+        print(f"  total_bytes={report['total_bytes']} "
+              f"({dr.human_bytes(report['total_bytes'])})")
+        for item in report["top_files"]:
+            print(f"  top: {item['name']} bytes={item['bytes']} "
+                  f"category={item['category']}")
+        forecast = dr.forecast_monthly(dirs)
+        print(f"  forecast: bytes_per_day={forecast['bytes_per_day']} "
+              f"projected_30d={forecast['projected_30d']} "
+              f"({dr.human_bytes(forecast['projected_30d'])})")
+        return 0
+
+    plan = dr.plan_cleanup(dirs)
+    total = sum(int(item.get("bytes") or 0) for item in plan)
+    if not getattr(args, "apply", False):
+        print(f"disk cleanup: DRY-RUN candidates={len(plan)} "
+              f"bytes={total} ({dr.human_bytes(total)})")
+        for item in plan:
+            print(f"  would-delete: {Path(item['path']).name} "
+                  f"category={item['category']} reason={item['reason']} "
+                  f"bytes={item['bytes']}")
+        print("  (удаление не выполнялось; добавьте --apply)")
+        return 0
+
+    result = dr.apply_cleanup(plan, verify=True, dirs=dirs)
+    if result.get("aborted_reason"):
+        print(f"disk cleanup: ABORTED reason={result['aborted_reason']} "
+              "(нет валидного свежего бэкапа БД — fail-closed)")
+        return 1
+    print(f"disk cleanup: APPLY deleted={result['deleted']} "
+          f"bytes_freed={result['bytes_freed']} "
+          f"({dr.human_bytes(result['bytes_freed'])}) "
+          f"skipped={result['skipped']} errors={result['errors']}")
+    for category, bucket in sorted(result["categories"].items()):
+        print(f"  {category}: count={bucket['count']} bytes={bucket['bytes']}")
     return 0
 
 
@@ -1646,6 +1736,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_audit_chat_overrides(args)
         if args.command == "memory":
             return _cmd_memory(args)
+        if args.command == "disk":
+            return _cmd_disk(args)
         if args.command in ("retention", "retention-dry-run"):
             return _cmd_retention(args)
         if args.command != "import_history":

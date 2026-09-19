@@ -368,6 +368,12 @@ class MemoryMaintenanceService:
 
 _ARCHIVE_BATCH = 2000          # строк на пачку при экспорте архива
 _ARCHIVE_PREFIX = "imported_history_"
+# ⛔ IMMUTABLE (F9/ADR-1024-2 D2; owner UPD3 №5): файлы `imported_history_*.
+# jsonl` содержат СЫРУЮ ИСТОРИЮ сообщений и НЕ являются кандидатами на
+# удаление. Их не трогает ни retention диска (`services.disk_retention`:
+# IMMUTABLE_PATTERNS/deny-list), ни какие-либо другие пути. Техдолг S10.19-24
+# (ротация этих архивов) закрыт как Won't Fix — история хранится бессрочно.
+IMMUTABLE_ARCHIVE_GLOB = "imported_history_*.jsonl"
 
 
 def _flush_and_fsync(fh) -> None:

@@ -78,7 +78,9 @@ class TestBackupAndExport:
                    for r in caplog.records)
 
     @pytest.mark.asyncio
-    async def test_rotation_keeps_last_n(self, db, tmp_path, monkeypatch):
+    async def test_rotation_keeps_exactly_one(self, db, tmp_path, monkeypatch):
+        """F9 round 10.24 (ADR-1024-2, UPD3 №5): политика владельца —
+        строго 1 бэкап БД независимо от legacy-ключа MEMORY_BACKUP_KEEP."""
         _patch_settings(monkeypatch, MEMORY_BACKUP_DIR=str(tmp_path),
                         MEMORY_BACKUP_KEEP=3)
         # 5 старых бэкапов + 5 старых экспортов
@@ -91,29 +93,15 @@ class TestBackupAndExport:
 
         backups = _backup_files(tmp_path)
         exports = _export_files(tmp_path)
-        assert len(backups) == 3        # KEEP=3: 2 старых + сегодняшний
-        assert len(exports) == 3
-        assert backups[0].name.startswith("local_database_20260301")
+        assert len(backups) == 1        # строго 1 (политика UPD3 №5)
+        assert len(exports) == 1
+        assert backups[0].name.startswith("local_database_")
 
     @pytest.mark.asyncio
-    async def test_rotation_default_keep_is_one(self, db, tmp_path, monkeypatch):
-        """BUG-8: код-дефолт ретенции — ровно 1 бэкап каждого вида (раньше
-        дефолт 7 — диск рос даже без надёжного cron-гварда)."""
-        _patch_settings(monkeypatch, MEMORY_BACKUP_DIR=str(tmp_path),
-                        MEMORY_BACKUP_KEEP=1)
-        for i in range(5):
-            (tmp_path / f"local_database_20260{i}01.db").write_bytes(b"x")
-            (tmp_path / f"facts_20260{i}01.txt").write_text("x", encoding="utf-8")
-        await db.insert_graph_fact(-100, "факт", "search_fact", None)
-        service = MemoryBackupService(db)
-        await service.backup_and_export()
-        assert len(_backup_files(tmp_path)) == 1
-        assert len(_export_files(tmp_path)) == 1
-
-    @pytest.mark.asyncio
-    async def test_rotation_hot_key_override(self, db, tmp_path, monkeypatch):
-        """BUG-8: hot-config limits.memory_backup_keep перекрывает дефолт —
-        тест-оверрайд hot.get (5) дожимает ротацию до 5 файлов на вид."""
+    async def test_rotation_hot_key_override_ignored(self, db, tmp_path,
+                                                     monkeypatch):
+        """F9 (ADR-1024-2 D1): hot-config limits.memory_backup_keep больше НЕ
+        расширяет окно БД — единый prune_db_backups держит ровно 1."""
         _patch_settings(monkeypatch, MEMORY_BACKUP_DIR=str(tmp_path),
                         MEMORY_BACKUP_KEEP=1)
         monkeypatch.setattr(
@@ -126,8 +114,8 @@ class TestBackupAndExport:
         await db.insert_graph_fact(-100, "факт", "search_fact", None)
         service = MemoryBackupService(db)
         await service.backup_and_export()
-        assert len(_backup_files(tmp_path)) == 5
-        assert len(_export_files(tmp_path)) == 5
+        assert len(_backup_files(tmp_path)) == 1
+        assert len(_export_files(tmp_path)) == 1
 
     @pytest.mark.asyncio
     async def test_vacuum_into_failure_falls_back_to_subprocess(

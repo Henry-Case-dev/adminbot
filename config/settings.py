@@ -917,6 +917,24 @@ class Settings:
     MEMORY_BACKUP_DIR: str = _env_str("MEMORY_BACKUP_DIR", "backups")
     MEMORY_BACKUP_KEEP: int = _env_int_min("MEMORY_BACKUP_KEEP", 1, 1)
     MEMORY_BACKUP_HOUR: str = _env_str("MEMORY_BACKUP_HOUR", "05:00")
+    # ── Раунд 10.24 (F9, ADR-1024-2): env-only ClassVar-рубильники retention
+    # диска (services/disk_retention.py). Δ каталога = 0 (в param_catalog НЕ
+    # входят; прецедент TOKEN_ANALYTICS_ENABLED).
+    #   * DISK_RETENTION_ENABLED — kill-switch авто-ротации (default ON).
+    #   * DB_BACKUP_KEEP — guard: ровно 1 последний бэкап БД (оба префикса);
+    #     значения < 1 или > 1 игнорируются кодом (политика владельца UPD3 №5).
+    #   * JSONL_NONHISTORY_RETENTION_DAYS — окно не-history JSONL (180 дней).
+    #   * LOG_RETENTION_DAYS — окно логов journald (7 дней; применяет @DevOps).
+    #   * HISTORY_JSONL_IMMUTABLE — hard-инвариант: архивы истории сообщений
+    #     НЕ удаляются никогда (значение false игнорируется).
+    DISK_RETENTION_ENABLED: ClassVar[bool] = _env_bool(
+        "DISK_RETENTION_ENABLED", True)
+    DB_BACKUP_KEEP: ClassVar[int] = _env_int("DB_BACKUP_KEEP", 1)
+    JSONL_NONHISTORY_RETENTION_DAYS: ClassVar[int] = _env_int(
+        "JSONL_NONHISTORY_RETENTION_DAYS", 180)
+    LOG_RETENTION_DAYS: ClassVar[int] = _env_int("LOG_RETENTION_DAYS", 7)
+    HISTORY_JSONL_IMMUTABLE: ClassVar[bool] = _env_bool(
+        "HISTORY_JSONL_IMMUTABLE", True)
     # Кэш эмбеддингов (64.4): SHA-256-ключ, TTL дней, LRU-cap строк, ленивый
     # last_used_at (≥60с, без write-per-read). false → ровно старое поведение.
     EMBED_CACHE_ENABLED: bool = _env_bool("EMBED_CACHE_ENABLED", True)

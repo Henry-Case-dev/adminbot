@@ -172,6 +172,15 @@ def create_safety_backup(db_path, backup_dir=None) -> Path:
         source.close()
     with open(target, "r+b") as fh:
         _flush_fsync_and_dir(fh, directory)
+    # F9/ADR-1024-2 D1: safety-бэкапы больше не накапливаются — единый
+    # `prune_db_backups` держит ровно 1 новейший бэкап БД (оба префикса).
+    # Только что созданный `target` — новейший, поэтому он сохраняется.
+    try:
+        from services.disk_retention import prune_db_backups
+        prune_db_backups(directory, keep=1)
+    except Exception:
+        logger.warning("[memory_rebuild] safety backup rotation skipped",
+                       exc_info=True)
     return target
 
 
