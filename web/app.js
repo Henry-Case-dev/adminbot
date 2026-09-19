@@ -4013,8 +4013,14 @@
         }
         this.clicheBusy = true;
         try {
-          it.value = val;
-          await this.saveConfigItem(it);
+          // Review iter1 (Medium): динамический кэш анти-клише — глобальная
+          // сущность; воркер резолвит лимит через `hot.get` (только
+          // глобальный слой). Принудительно сохраняем ключ глобально (без
+          // X-Chat-Id), иначе в контексте чата правка ушла бы в per-chat
+          // слой и была бы тихим no-op. `per_chat:false` → глобальный путь
+          // внутри `saveConfigItem`.
+          var payload = Object.assign({}, it, { per_chat: false, value: val });
+          await this.saveConfigItem(payload);
         } finally {
           this.clicheBusy = false;
           await this.loadCliche();

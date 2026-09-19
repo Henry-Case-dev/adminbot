@@ -26,7 +26,14 @@ logger = logging.getLogger(__name__)
 
 anticliche_router = APIRouter()
 
-_MANUAL_INPUT_CAP = 200
+def _manual_input_cap() -> int:
+    """Абсолютный потолок входного списка ручной правки (review iter1 High).
+
+    Привязан к защитному код-потолку `ANTICLICHE_MAX_PATTERNS_HARD_CEILING`
+    (1000), а не к текущему резолвленному лимиту: список длиннее лимита
+    нормализуется/усекается `build_patterns()` до `max_patterns()`, а не
+    отбивается 422. Устраняет «мёртвую ручку» при лимите 201..1000."""
+    return int(anticliche_cache.ANTICLICHE_MAX_PATTERNS_HARD_CEILING)
 
 
 class PatternIn(BaseModel):
@@ -111,10 +118,11 @@ async def anticliche_put(
 ):
     """Ручная правка списка (нормализация/дедуп/лимит на сервере)."""
     cache = await _require_global_admin(request, user)
-    if len(payload.patterns) > _MANUAL_INPUT_CAP:
+    input_cap = _manual_input_cap()
+    if len(payload.patterns) > input_cap:
         raise HTTPException(
             status_code=422,
-            detail=f"слишком много паттернов (>{_MANUAL_INPUT_CAP})")
+            detail=f"слишком много паттернов (>{input_cap})")
     entries = [{"phrase": p.phrase, "origin": p.origin}
                for p in payload.patterns]
     try:

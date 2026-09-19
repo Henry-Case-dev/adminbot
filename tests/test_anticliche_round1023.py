@@ -758,8 +758,23 @@ class TestAnticlicheApi:
         assert body["count"] == 1
         assert api_client.store.row["patterns"][0]["phrase"] == "новая ручная фраза"
 
-    def test_put_422_over_cap(self, api_client):
-        payload = {"patterns": [{"phrase": f"фраза {i}"} for i in range(201)]}
+    def test_put_over_resolved_limit_truncates(self, api_client):
+        """Review iter1 (High): список 201..1000 не отбивается 422, а
+        нормализуется/усекается до резолвленного лимита (default 200).
+        Прежний `_MANUAL_INPUT_CAP=200` был «мёртвой ручкой» при лимите >200."""
+        payload = {"patterns": [{"phrase": f"фраза cap {i}"}
+                                for i in range(201)]}
+        resp = api_client.put("/api/anticliche", headers=_hdr(ADMIN_ID),
+                              json=payload)
+        assert resp.status_code == 200
+        assert resp.json()["count"] == ac.max_patterns()
+
+    def test_put_422_over_hard_ceiling(self, api_client):
+        """Review iter1 (High): абсолютный потолок входного списка — hard
+        ceiling (1000); выше — защитный 422."""
+        over = ac.ANTICLICHE_MAX_PATTERNS_HARD_CEILING + 1
+        payload = {"patterns": [{"phrase": f"фраза hard {i}"}
+                                for i in range(over)]}
         resp = api_client.put("/api/anticliche", headers=_hdr(ADMIN_ID),
                               json=payload)
         assert resp.status_code == 422
@@ -770,6 +785,19 @@ class TestAnticlicheApi:
         resp = api_client.put("/api/anticliche", headers=_hdr(ADMIN_ID),
                               json=payload)
         assert resp.status_code == 422
+
+    def test_put_accepts_up_to_1000_with_custom_limit(self, api_client,
+                                                      monkeypatch):
+        """Review iter1 (High): при резолвленном лимите 1000 список 600
+        проходит целиком (покрывает диапазон 201..1000)."""
+        monkeypatch.setattr(ac, "settings", types.SimpleNamespace(
+            ANTICLICHE_MAX_PATTERNS=1000))
+        payload = {"patterns": [{"phrase": f"фраза big {i}"}
+                                for i in range(600)]}
+        resp = api_client.put("/api/anticliche", headers=_hdr(ADMIN_ID),
+                              json=payload)
+        assert resp.status_code == 200
+        assert resp.json()["count"] == 600
 
     def test_put_manual_preserves_fetched_at(self, api_client):
         before = api_client.store.row["fetched_at"]

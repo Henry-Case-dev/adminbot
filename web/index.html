@@ -446,8 +446,12 @@
                 <template v-for="grp in currentTabGroups" :key="'prompt-' + grp.uid">
                   <!-- F7 (10.24, ADR-1024-3 D1): группа limits_anticliche не
                        рендерится generic-карточкой — её ключ редактируется
-                       числовым полем внутри карточки монитора выше. -->
-                  <div v-if="grp.id !== 'limits_anticliche'"
+                       числовым полем внутри карточки монитора выше. Но если
+                       карточка монитора недоступна (clicheAvailable=false,
+                       сбой GET /api/anticliche) — отдаём группу generic-
+                       рендеру, чтобы параметр остался доступен (review iter1). -->
+                  <div v-if="grp.id !== 'limits_anticliche'
+                            || !(isGlobalAdmin && clicheAvailable)"
                        class="card p-4 col-span-full">
                     <div class="text-sm font-bold">{{ groupTitle(grp) }}</div>
                     <div class="text-xs text-gray-500 mb-3">{{ groupDescription(grp) }}</div>

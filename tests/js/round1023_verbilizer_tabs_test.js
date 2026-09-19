@@ -181,7 +181,7 @@ assert(methods, 'root.methods не найден');
     calls.push({ url: url, method: (opts && opts.method) || 'GET' });
     if (url === '/api/anticliche' && (!opts || opts.method !== 'PUT')) {
       return { patterns: [{ code: 'dyn_a', phrase: 'фраза' }], count: 1,
-               max_patterns: 20, last_status: 'ok',
+               max_patterns: 200, last_status: 'ok',
                fetched_at: '2026-09-19T00:00:00+00:00' };
     }
     if (url === '/api/anticliche/refresh') return { status: 'ok', count: 2 };
@@ -207,7 +207,7 @@ assert(methods, 'root.methods не найден');
   assert.strictEqual(ctx.clicheMeta.count, 1);
   assert.strictEqual(ctx.clicheLoading, false);
   // F7: черновик лимита инициализируется резолвленным max_patterns из API.
-  assert.strictEqual(ctx.clicheLimitDraft, '20');
+  assert.strictEqual(ctx.clicheLimitDraft, '200');
 
   // 3.2 forceRefresh → POST + перечитать.
   await methods.forceRefreshCliche.call(ctx);
@@ -247,6 +247,76 @@ assert(methods, 'root.methods не найден');
   const st = { clicheMeta: { last_status: 'parse_error' } };
   assert.strictEqual(methods.clicheStatusLabel.call(st), 'ошибка разбора');
   assert.strictEqual(methods.formatClicheDate.call({}, null), '—');
+
+  // ── 3.7-3.9 F7 (review iter1): регулируемый лимит — save/validate. ────────
+  const limitItem = {
+    key: 'limits.anticliche_max_patterns', value: 200, type: 'int',
+    title: 'Анти-клише: лимит паттернов', category: 'limits', per_chat: true,
+  };
+  function makeSaveCtx(draft, opts) {
+    opts = opts || {};
+    const log = opts.log || [];
+    return {
+      log: log,
+      clicheBusy: false, clicheLimitDraft: String(draft),
+      configItems: (opts.items !== undefined) ? opts.items : [limitItem],
+      clicheMeta: { max_patterns: 200 },
+      saving: new Set(),
+      clicheLimitItem: methods.clicheLimitItem,
+      clicheLimitValue: methods.clicheLimitValue,
+      canEditClicheLimit: function () { return true; },
+      canEditConfig: function () { return true; },
+      saveConfigItem: methods.saveConfigItem,
+      loadCliche: async function () {},
+      loadConfig: async function () {},
+      _preserveScroll: function () {},
+      toast: function (msg, kind) { log.push({ toast: msg, kind: kind }); },
+      api: async function (url, o) {
+        log.push({ url: url, method: (o && o.method) || 'GET',
+                   global: !!(o && o.global), body: o && o.body });
+        return {};
+      },
+    };
+  }
+
+  // 3.7 валидное значение → POST /api/config с ключом и числом, глобально.
+  const saveLog = [];
+  const ctxSave = makeSaveCtx(500, { log: saveLog });
+  await methods.saveClicheLimit.call(ctxSave);
+  const cfgPost = saveLog.find(function (c) {
+    return c.url === '/api/config' && c.method === 'POST';
+  });
+  assert(cfgPost, 'нужен POST /api/config при сохранении лимита');
+  assert.strictEqual(cfgPost.global, true,
+    'лимит сохраняется в глобальный слой (без X-Chat-Id)');
+  const cfgBody = JSON.parse(cfgPost.body);
+  assert.strictEqual(cfgBody.items[0].key, 'limits.anticliche_max_patterns');
+  assert.strictEqual(cfgBody.items[0].value, 500);
+  assert(cfgBody.items[0].value === 500, 'значение — число, не строка');
+  assert(saveLog.some(function (c) { return c.kind === 'ok'; }),
+    'успех → тост ok');
+  assert.strictEqual(ctxSave.clicheBusy, false, 'busy сброшен');
+
+  // 3.8 невалидные значения (0/-1/1001/'abc') → тост ошибки, без POST.
+  for (const bad of ['0', '-1', '1001', 'abc']) {
+    const log = [];
+    const ctxBad = makeSaveCtx(bad, { log: log });
+    await methods.saveClicheLimit.call(ctxBad);
+    assert(!log.some(function (c) { return c.url === '/api/config'; }),
+      'невалидное "' + bad + '" → без POST');
+    assert(log.some(function (c) { return c.kind === 'err'; }),
+      'невалидное "' + bad + '" → тост ошибки');
+    assert.strictEqual(ctxBad.clicheBusy, false);
+  }
+
+  // 3.9 ветка «лимит не загружен» (configItems пуст) → warn, без POST.
+  const noLog = [];
+  const ctxNoItem = makeSaveCtx(100, { log: noLog, items: [] });
+  await methods.saveClicheLimit.call(ctxNoItem);
+  assert(!noLog.some(function (c) { return c.url === '/api/config'; }),
+    'без item → без POST');
+  assert(noLog.some(function (c) { return c.kind === 'warn'; }),
+    'без item → warning-тост');
 
   console.log('VERBILIZER-UNIT-OK');
 })().catch(function (e) {
