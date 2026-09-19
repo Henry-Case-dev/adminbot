@@ -603,6 +603,8 @@ def build_parser() -> argparse.ArgumentParser:
     overrides.add_argument("--force", action="store_true",
                      help="перезаписать бюджеты/контекст даже при ручной "
                           "правке (enforce-ключи применяются всегда)")
+    overrides.add_argument("--seed", default=None,
+                     help="путь сида (дефолт: config/chat_settings_seed.json)")
     # ── F22 (10.24, ADR-1024-23 D5): read-only аудит overrides/истории ──────
     audit = sub.add_parser(
         "audit-chat-overrides",
@@ -851,16 +853,35 @@ def _cmd_retention(args) -> int:
     return 0
 
 
+def _seed_usable(seed_path) -> bool:
+    """Сид прочитан и содержит хотя бы один чат (fail-loud для CLI).
+
+    `load_chat_settings_seed` fail-open возвращает `{}` при отсутствующем/
+    битом файле — это НЕ «нечего делать», а неисправность ремонта."""
+    from services.chat_settings_seed import load_chat_settings_seed
+    try:
+        seed = load_chat_settings_seed(seed_path)
+    except Exception:
+        return False
+    return bool(isinstance(seed, dict) and (seed.get("chats") or []))
+
+
 def _cmd_apply_chat_overrides(args) -> int:
     """F3 (10.19) + F22 (10.24, ADR-1024-23 D4): `python manage.py
     apply-chat-overrides [--force]` — идемпотентный сид.
 
-    F22: обязательный `await pg.connect()` ДО `pg.init(...)` и fail-loud —
-    при недоступной PG выход с ненулевым кодом. Иначе CLI печатал
-    `applied=0 skipped=0 errors=0` и притворялся успешным (тихий no-op,
-    ремонт данных не выполнялся)."""
+    F22: (1) `await pg.connect()` **до** `pg.init(seed_settings=False)`;
+    (2) fail-loud при недоступной PG, битом/пустом сиде и реальных ошибках —
+    выход с ненулевым кодом. Иначе CLI печатал `applied=0 skipped=0 errors=0`
+    и притворялся успешным (тихий no-op, ремонт данных не выполнялся)."""
     from services.pg_db import PgDatabase
     from services.chat_settings_seed import apply_chat_settings_seed
+
+    seed_path = getattr(args, "seed", None)
+    if not _seed_usable(seed_path):
+        print("apply-chat-overrides: сид chat_settings_seed.json нечитаем или "
+              "пуст — ремонт не выполнен", file=sys.stderr)
+        return 1
 
     async def _run() -> dict | None:
         pg = PgDatabase()
@@ -877,13 +898,20 @@ def _cmd_apply_chat_overrides(args) -> int:
                   file=sys.stderr)
             return None
         try:
+            # Спека §3.2.1/§5.1 + ADR D4: connect ДО init (init при отсутствии
+            # пула молча скипал DDL — первопричина тихого no-op).
+            await pg.init(seed_settings=False)
+        except Exception as exc:
+            print(f"apply-chat-overrides: не удалось применить схему "
+                  f"({type(exc).__name__}) — ремонт не выполнен",
+                  file=sys.stderr)
+            await _safe_close(pg)
+            return None
+        try:
             return await apply_chat_settings_seed(pg, force=bool(getattr(
                 args, "force", False)))
         finally:
-            try:
-                await pg.close()
-            except Exception:
-                pass
+            await _safe_close(pg)
 
     report = asyncio.run(_run())
     if report is None:
@@ -968,12 +996,14 @@ async def _safe_close(pg) -> None:
         pass
 
 
-def _load_seed_ref(chat_id: int, seed_path) -> tuple[dict, int]:
-    """`(эталон overrides чата, version сида)` из `config/chat_settings_seed.json`.
+def _load_seed_ref(chat_id: int, seed_path) -> tuple[dict, int, bool]:
+    """`(эталон overrides чата, version сида, seed_ok)`.
 
-    Generic-обход: chat_id берётся из данных сида (в коде id не ветвится)."""
+    `seed_ok=False` — сид нечитаем/битый/пуст (fail-loud: аудит без эталона
+    недостоверен). Generic-обход: chat_id берётся из данных сида."""
     from services.chat_settings_seed import load_chat_settings_seed
     seed = load_chat_settings_seed(seed_path)
+    seed_ok = bool(isinstance(seed, dict) and (seed.get("chats") or []))
     try:
         version = int(seed.get("version", 0) or 0)
     except (TypeError, ValueError):
@@ -986,7 +1016,7 @@ def _load_seed_ref(chat_id: int, seed_path) -> tuple[dict, int]:
                 break
         except (KeyError, TypeError, ValueError):
             continue
-    return reference, version
+    return reference, version, seed_ok
 
 
 def _values_equal(key: str, current, expected) -> bool:
@@ -1001,16 +1031,20 @@ def _values_equal(key: str, current, expected) -> bool:
 
 
 def _classify_overrides(overrides: dict, reference: dict) -> list[dict]:
-    """Классификация seed-ключей: `ok | absent | different` (R17-safe)."""
+    """Классификация seed-ключей: `ok | absent | different` (R17-safe).
+
+    Выводится только **эталонное** seed-значение (`seed_value`, числа 0/-1) —
+    фактическое значение override (может быть произвольной строкой) в вывод
+    не попадает (R17/R18)."""
     out = []
     for key, expected in reference.items():
         if key not in overrides:
-            out.append({"key": key, "status": "absent", "value": None})
+            status = "absent"
         elif _values_equal(key, overrides[key], expected):
-            out.append({"key": key, "status": "ok", "value": overrides[key]})
+            status = "ok"
         else:
-            out.append({"key": key, "status": "different",
-                        "value": overrides[key]})
+            status = "different"
+        out.append({"key": key, "status": status, "seed_value": expected})
     return out
 
 
@@ -1070,15 +1104,41 @@ def _timeline_entry(row: dict, seed_keys: set) -> dict:
     }
 
 
+def _resolve_context_flag(overrides: dict, global_values: dict) -> dict:
+    """Резолв `flags.chat_context_budgets_enabled`: chat → global → default.
+
+    F22 review iter1: `worker_settings.resolve_setting_with_source` в CLI не
+    работает — chat-слой читается из процесс-глобала `ChatParamsCache`, который
+    выставляется только `bot.py`. Здесь резолвим из уже вычитанных данных PG
+    (source `'chat'`/`'global'`/`'default'`)."""
+    from config.settings import settings
+    from services.param_catalog import get_by_pg_key, normalize_value
+    spec = get_by_pg_key(_CONTEXT_BUDGET_FLAG)
+    default = None
+    if spec is not None and getattr(spec, "settings_field", None):
+        default = getattr(settings, spec.settings_field, None)
+    if default is None:
+        default = getattr(settings, "CHAT_CONTEXT_BUDGETS_ENABLED", None)
+    if _CONTEXT_BUDGET_FLAG in overrides:
+        return {"value": normalize_value(_CONTEXT_BUDGET_FLAG,
+                                         overrides[_CONTEXT_BUDGET_FLAG]),
+                "source": "chat"}
+    if _CONTEXT_BUDGET_FLAG in global_values:
+        return {"value": global_values[_CONTEXT_BUDGET_FLAG],
+                "source": "global"}
+    return {"value": default, "source": "default"}
+
+
 async def _collect_chat_overrides_audit(pg, *, chat_id: int, seed_path=None,
                                         history_limit: int = 200) -> dict:
     """Read-only сбор аудита (§3.3). Все запросы — только `SELECT`.
 
     Возвращает R17-safe сводку; `wipe_detected` — найден ли вайп в истории."""
-    reference, seed_version = _load_seed_ref(chat_id, seed_path)
+    reference, seed_version, seed_ok = _load_seed_ref(chat_id, seed_path)
     seed_keys = set(reference)
     report: dict = {
         "chat_id": int(chat_id),
+        "seed_ok": seed_ok,
         "seed_version_expected": seed_version,
         "reference_keys": sorted(seed_keys),
         "profile": False,
@@ -1161,33 +1221,36 @@ async def _collect_chat_overrides_audit(pg, *, chat_id: int, seed_path=None,
                     "used": int(raw.get("used") or 0)})
         except Exception:
             report["warnings"].append("worker_budget")
-        # Глобальный слой лимитов — только числа.
-        if seed_keys:
-            try:
-                from services.param_catalog import normalize_value
-                rows = await conn.fetch(_AUDIT_SETTINGS_SQL, sorted(seed_keys))
-                for item in rows or []:
-                    raw = _as_dict(item)
-                    key = raw.get("key")
-                    report["global_limits"][key] = normalize_value(
-                        key, raw.get("value"))
-            except Exception:
-                report["warnings"].append("bot_settings")
+        # Глобальный слой: 8 limit-ключей + флаг контекста — только числа.
+        setting_keys = sorted(set(seed_keys) | {_CONTEXT_BUDGET_FLAG})
+        global_values: dict = {}
+        try:
+            from services.param_catalog import normalize_value
+            rows = await conn.fetch(_AUDIT_SETTINGS_SQL, setting_keys)
+            for item in rows or []:
+                raw = _as_dict(item)
+                key = raw.get("key")
+                global_values[key] = normalize_value(key, raw.get("value"))
+        except Exception:
+            report["warnings"].append("bot_settings")
+        report["global_limits"] = {
+            key: value for key, value in global_values.items()
+            if key in seed_keys}
 
-    # Ось контекста (граница с master-тумблером F21) — резолв read-only.
-    try:
-        from services import worker_settings
-        value, source = await worker_settings.resolve_setting_with_source(
-            _CONTEXT_BUDGET_FLAG, chat_id=int(chat_id), default=None)
-        report["context_flag"] = {"value": value, "source": source}
-    except Exception:
-        report["warnings"].append("context_flag")
+    # Ось контекста (граница с master-тумблером F21) — резолв из данных PG
+    # (без bot-only глобала `ChatParamsCache`, недоступного в CLI).
+    report["context_flag"] = _resolve_context_flag(overrides, global_values)
     return report
 
 
 def _audit_drift(report: dict) -> bool:
-    """Дрейф = не все seed-ключи `ok` либо найден вайп в истории."""
+    """Дрейф = не все seed-ключи `ok`, вайп в истории, нечитаемый эталон или
+    неполный аудит (отказ отдельной секции). Под `--strict` → non-zero."""
+    if not report.get("seed_ok", True):
+        return True
     if report.get("wipe_detected"):
+        return True
+    if report.get("warnings"):
         return True
     return any(item.get("status") != "ok"
                for item in report.get("classification") or [])
@@ -1257,6 +1320,7 @@ def _cmd_audit_chat_overrides(args) -> int:
         return 1
     if not report:
         return 1
+    seed_unusable = not report.get("seed_ok", True)
 
     counts = {"ok": 0, "absent": 0, "different": 0}
     for item in report["classification"]:
@@ -1270,7 +1334,9 @@ def _cmd_audit_chat_overrides(args) -> int:
           f"allow_global_present={report['allow_global_present']} "
           f"updated_at={report['updated_at']}")
     for item in report["classification"]:
-        suffix = "" if item["value"] is None else f" value={item['value']}"
+        # R17: печатаем только эталонное seed-значение (не текущий override)
+        seed_val = item.get("seed_value")
+        suffix = "" if seed_val is None else f" seed={seed_val}"
         print(f"  [{item['status']}] {item['key']}{suffix}")
     print(f"  timeline: rows={len(report['timeline'])} "
           f"wipe_suspected={'yes' if report['wipe_detected'] else 'no'}")
@@ -1303,6 +1369,10 @@ def _cmd_audit_chat_overrides(args) -> int:
     except OSError as exc:
         print(f"audit-chat-overrides: не удалось записать JSONL "
               f"({type(exc).__name__}) — БД не изменена", file=sys.stderr)
+        return 1
+    if seed_unusable:
+        print("audit-chat-overrides: сид-эталон нечитаем/пуст — аудит "
+              "недостоверен (это НЕ «всё ок»)", file=sys.stderr)
         return 1
     return 1 if (_audit_drift(report)
                  and bool(getattr(args, "strict", False))) else 0

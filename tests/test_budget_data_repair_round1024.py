@@ -1,17 +1,19 @@
 """F22 (раунд 10.24, `budget-data-repair-round1024`, ADR-1024-23) — ремонт
 потерянных per-chat seed-overrides + read-only аудит + fail-loud CLI PG.
 
-Покрытие (spec §6.1):
+Покрытие (spec §6.1, review iter1):
   (1) отсутствующие 8 seed-ключей целевого чата восстанавливаются (в т.ч. `-1`);
   (2) повторный прогон — идемпотентный no-op (без set/history);
   (3) ручные надстройки не перетираются (`manual-overrides-immutable`);
   (4) `--force` перезаписывает present — осознанный break-glass;
-  (5) разрыв петли «save → стирание → рестарт-лечение» (F20-merge + сид no-op);
+  (5) разрыв петли F20: РЕАЛЬНЫЙ роут `POST /api/config` + сид no-op;
   (6) таймлайн chat_params: детектор вайпа `wipe_suspected`, added/dropped;
   (7) аудит — строго READ-ONLY (`SELECT`, без set_chat_params/NOTIFY);
-  (8) R17/R18: нет сырых key_value/секретов/полных new_value в выводе;
-  (9) CLI `apply-chat-overrides`: `pg.connect()` обязателен, fail-loud non-zero;
-  (10) границы: `flags.chat_context_budgets_enabled` ↔ master (F21); backfill цел.
+  (8) R17/R18: нет сырых key_value/секретов/полных дампов и текущих значений;
+  (9) CLI `apply-chat-overrides`: connect → init → apply, fail-loud non-zero
+      (PG недоступна, нечитаемый/пустой сид, реальные ошибки);
+  (10) границы: `flags.chat_context_budgets_enabled` ↔ master (F21);
+       резолв флага в CLI (chat/global/default) без bot-only глобала; Δ=0 пины.
 
 R17/R18: значения секретов не цитируются; в фикстурах — синтетические маркеры.
 """
@@ -24,21 +26,21 @@ import pytest
 import manage
 from services import chat_settings_seed
 
+# F20-харнесс: реальный роут, in-memory chat_params + TestClient.
+from tests.test_budget_overrides_merge_round1024 import (  # noqa: F401
+    K_NEW as F20_NEW_KEY,
+    _post as _f20_post,
+    webapp as webapp,
+)
+
 ROOT = Path(".")
 SEED_ID = -1002661910336
+FLAG = "flags.chat_context_budgets_enabled"
 
-
-def _seed_entry() -> dict:
-    seed = chat_settings_seed.load_chat_settings_seed()
-    for entry in seed["chats"]:
-        if int(entry["chat_id"]) == SEED_ID:
-            return entry
-    raise AssertionError("сид без целевого чата")
-
-
-SEED_ENTRY = _seed_entry()
-SEED_KEYS = dict(SEED_ENTRY["overrides"])
-SEED_VERSION = chat_settings_seed.load_chat_settings_seed()["version"]
+_SEED = chat_settings_seed.load_chat_settings_seed()
+SEED_VERSION = _SEED["version"]
+SEED_KEYS = dict(next(e for e in _SEED["chats"]
+                      if int(e["chat_id"]) == SEED_ID)["overrides"])
 
 
 class _FakeChatParams:
@@ -102,7 +104,6 @@ class TestRepair:
         assert chat_id == SEED_ID
         assert set(keys) == set(SEED_KEYS)
         overrides = fake_cp.store[SEED_ID]["overrides"]
-        # безлимит (-1) восстановлен, retention=0 (enforce)
         assert overrides["limits.chat_global_key_budget_requests"] == -1
         assert overrides["limits.chat_global_key_budget_tokens"] == -1
         assert overrides["limits.worker_daily_llm_calls_per_chat"] == -1
@@ -141,11 +142,8 @@ class TestImmutability:
         report = await chat_settings_seed.apply_chat_settings_seed(_pg())
         assert report["applied"]
         overrides = fake_cp.store[SEED_ID]["overrides"]
-        # ручная правка seed-ключа НЕ затёрта (present, без bump/force)
         assert overrides["limits.chat_global_key_budget_requests"] == 50
-        # чужой ключ сохранён
         assert overrides["limits.chat_cooldown_seconds"] == 42
-        # отсутствующие seed-ключи восстановлены
         assert overrides["limits.chat_context_budget_tokens"] == -1
         assert overrides["limits.chat_global_context_max_tokens"] == -1
 
@@ -160,24 +158,24 @@ class TestImmutability:
             "limits.chat_global_key_budget_requests"] == -1
 
 
-# ── (5): разрыв петли F20-merge + сид ───────────────────────────────────────
+# ── (5): разрыв петли — РЕАЛЬНЫЙ F20-роут + сид no-op ───────────────────────
 
 class TestLoopBroken:
     @pytest.mark.asyncio
-    async def test_f20_merge_keeps_set_then_seed_noop(self, fake_cp):
-        # F20-merge (web/api/routes.py): new = value_overrides ∪ patch
-        value_overrides = dict(SEED_KEYS)
-        patch = {"limits.chat_context_budget_tokens": -1}
-        new_overrides = dict(value_overrides)
-        new_overrides.update(patch)
-        assert set(new_overrides) == set(SEED_KEYS)        # набор цел
-        fake_cp.store[SEED_ID] = {
-            "overrides": new_overrides,
-            "meta": {"chat_settings_seed_version": SEED_VERSION},
-        }
+    async def test_f20_route_save_then_seed_noop(self, webapp):
+        """Реальный `POST /api/config` (F20) сохраняет seed-набор; затем
+        штатный сид видит полный набор → no-op (петля разорвана)."""
+        webapp.cp.seed(SEED_ID, overrides=dict(SEED_KEYS))
+        resp = _f20_post(webapp, F20_NEW_KEY, 7777)
+        assert resp.status_code == 200, resp.text
+        overrides = webapp.cp.store[SEED_ID]["overrides"]
+        assert set(SEED_KEYS) <= set(overrides)
+        assert overrides[F20_NEW_KEY] == 7777
+        sets_before = len(webapp.cp.set_calls)
         report = await chat_settings_seed.apply_chat_settings_seed(_pg())
-        assert report["skipped"] == [SEED_ID]
         assert report["applied"] == []
+        assert report["skipped"] == [SEED_ID]
+        assert len(webapp.cp.set_calls) == sets_before
 
 
 # ── Аудит: инфраструктура ───────────────────────────────────────────────────
@@ -243,17 +241,26 @@ def _profile(overrides, *, meta=None, keys=None, updated_at="2026-09-20"):
     }
 
 
-@pytest.fixture()
-def _stub_flag(monkeypatch):
-    async def _resolve(key, *, chat_id=None, default=None):
-        return True, "chat"
-
-    monkeypatch.setattr("services.worker_settings.resolve_setting_with_source",
-                        _resolve)
-
-
 def _seed_keys() -> set:
     return set(SEED_KEYS)
+
+
+def _fake_db_class(pool):
+    """Фабрика подменного `PgDatabase` (connect/close; audit без init)."""
+    class _FakeDb:
+        def __init__(self, *a, **kw):
+            self.pool = pool
+
+        async def connect(self):
+            pass
+
+        async def init(self, **kw):
+            pass
+
+        async def close(self):
+            pass
+
+    return _FakeDb
 
 
 # ── (6): таймлайн и детектор вайпа ──────────────────────────────────────────
@@ -277,9 +284,7 @@ class TestTimeline:
         assert entry["wipe_suspected"] is True
         assert entry["seed_keys_old"] == 8
         assert entry["seed_keys_new"] == 1
-        # dropped содержит утраченные seed-ключи
-        assert set(entry["dropped"]) >= (
-            set(SEED_KEYS) - set(one_key))
+        assert set(entry["dropped"]) >= (set(SEED_KEYS) - set(one_key))
         assert entry["added"] == []
 
     def test_no_wipe_when_set_intact(self):
@@ -291,7 +296,7 @@ class TestTimeline:
         assert entry["wipe_suspected"] is False
 
     @pytest.mark.asyncio
-    async def test_collect_classifies_absent(self, _stub_flag):
+    async def test_collect_classifies_absent(self):
         old = json.dumps({"overrides": dict(SEED_KEYS),
                           "meta": {"chat_settings_seed_version": 1}})
         new = json.dumps({"overrides": {},
@@ -308,14 +313,50 @@ class TestTimeline:
         assert report["wipe_detected"] is True
         assert report["allow_global_present"] is False
         assert report["seed_meta_version"] == 1
+        assert report["seed_ok"] is True
+
+
+# ── (10) High-1: резолв context-флага из данных PG ──────────────────────────
+
+class TestContextFlag:
+    @pytest.mark.asyncio
+    async def test_chat_source(self):
+        conn = _AuditConn(profile=_profile({FLAG: False}))
+        report = await manage._collect_chat_overrides_audit(
+            SimpleNamespace(pool=_AuditPool(conn)), chat_id=SEED_ID)
+        assert report["context_flag"] == {"value": False, "source": "chat"}
+
+    @pytest.mark.asyncio
+    async def test_chat_source_from_string(self):
+        conn = _AuditConn(profile=_profile({FLAG: "false"}))
+        report = await manage._collect_chat_overrides_audit(
+            SimpleNamespace(pool=_AuditPool(conn)), chat_id=SEED_ID)
+        assert report["context_flag"] == {"value": False, "source": "chat"}
+
+    @pytest.mark.asyncio
+    async def test_global_source(self):
+        conn = _AuditConn(profile=_profile({}),
+                          settings=[{"key": FLAG, "value": True}])
+        report = await manage._collect_chat_overrides_audit(
+            SimpleNamespace(pool=_AuditPool(conn)), chat_id=SEED_ID)
+        assert report["context_flag"] == {"value": True, "source": "global"}
+
+    @pytest.mark.asyncio
+    async def test_default_source(self):
+        from config.settings import settings
+        conn = _AuditConn(profile=_profile({}))
+        report = await manage._collect_chat_overrides_audit(
+            SimpleNamespace(pool=_AuditPool(conn)), chat_id=SEED_ID)
+        assert report["context_flag"]["source"] == "default"
+        assert report["context_flag"]["value"] == \
+            settings.CHAT_CONTEXT_BUDGETS_ENABLED
 
 
 # ── (7): строго read-only ───────────────────────────────────────────────────
 
 class TestReadOnly:
     @pytest.mark.asyncio
-    async def test_only_select_and_no_write_path(self, _stub_flag,
-                                                 monkeypatch):
+    async def test_only_select_and_no_write_path(self, monkeypatch):
         async def _boom(*a, **kw):
             raise AssertionError("аудит не должен писать через set_chat_params")
 
@@ -336,16 +377,15 @@ class TestReadOnly:
         assert "delete " not in joined
 
 
-# ── (8): R17/R18 — без секретов и полных дампов ─────────────────────────────
+# ── (8): R17/R18 — без секретов и текущих значений ──────────────────────────
 
 class TestRedaction:
     @pytest.mark.asyncio
-    async def test_jsonl_has_no_secret_value(self, _stub_flag, tmp_path):
+    async def test_jsonl_has_no_secret_value(self, tmp_path):
         secret = "sk-SYNTHETIC-ABCD"
         marker = "TOPSECRETVALUE"
         new_value = json.dumps({"overrides": {
-            "limits.chat_mood_enabled": marker},
-            "meta": {}})
+            "limits.chat_mood_enabled": marker}, "meta": {}})
         conn = _AuditConn(
             profile=_profile({}, meta={"chat_settings_seed_version": 1}),
             history=[{"id": 1, "created_at": None, "changed_by": None,
@@ -361,29 +401,37 @@ class TestRedaction:
         assert marker not in text
         assert "ABCD" in text                      # last4 маски есть
         assert '"configured": true' in text
-        # в сводке chat_keys — только маска
         assert report["chat_keys"][0]["configured"] is True
         assert report["chat_keys"][0]["last4"] == "ABCD"
 
-    def test_cli_audit_output_has_no_secret(self, _stub_flag, monkeypatch,
-                                            tmp_path, capsys):
+    def test_different_value_not_printed(self, tmp_path, capsys,
+                                         monkeypatch):
+        """R17: текущее (different) значение-строка НЕ попадает в stdout/JSONL."""
+        marker = "SECRET_MARKER_STRING"
+        overrides = dict(SEED_KEYS)
+        overrides["limits.chat_context_budget_tokens"] = marker
+        conn = _AuditConn(profile=_profile(
+            overrides, meta={"chat_settings_seed_version": 1}))
+        monkeypatch.setattr("services.pg_db.PgDatabase",
+                            _fake_db_class(_AuditPool(conn)))
+        jsonl = tmp_path / "different.jsonl"
+        code = manage.main(["audit-chat-overrides", "--chat-id", str(SEED_ID),
+                            "--jsonl", str(jsonl)])
+        out = capsys.readouterr()
+        assert code == 0
+        assert marker not in out.out
+        assert marker not in jsonl.read_text(encoding="utf-8")
+        assert "different=1" in out.out
+
+    def test_cli_audit_output_has_no_secret(self, monkeypatch, tmp_path,
+                                            capsys):
         secret = "sk-SYNTHETIC-WXYZ"
         conn = _AuditConn(
             profile=_profile(dict(SEED_KEYS),
                              meta={"chat_settings_seed_version": 1}),
             keys=[{"key_name": "keys.llm_api_key", "key_value": secret}])
-
-        class _FakeDb:
-            def __init__(self, *a, **kw):
-                self.pool = _AuditPool(conn)
-
-            async def connect(self):
-                pass
-
-            async def close(self):
-                pass
-
-        monkeypatch.setattr("services.pg_db.PgDatabase", _FakeDb)
+        monkeypatch.setattr("services.pg_db.PgDatabase",
+                            _fake_db_class(_AuditPool(conn)))
         jsonl = tmp_path / "cli.jsonl"
         code = manage.main(["audit-chat-overrides", "--chat-id", str(SEED_ID),
                             "--jsonl", str(jsonl)])
@@ -394,37 +442,38 @@ class TestRedaction:
         assert "ok=8" in out.out
 
 
-# ── (9): CLI apply — connect + fail-loud ────────────────────────────────────
+# ── (9): CLI apply — connect → init → apply, fail-loud ──────────────────────
 
 class TestApplyCliFailLoud:
-    def test_connect_called_and_seed_applied(self, monkeypatch):
-        observed = {}
+    def test_connect_init_then_seed_applied(self, monkeypatch):
+        observed = {"order": []}
 
         class _FakeDb:
             def __init__(self, *a, **kw):
                 self.pool = object()
-                self.connected = False
                 observed["pg"] = self
 
             async def connect(self):
-                self.connected = True
+                observed["order"].append("connect")
 
-            async def init(self, **kw):
-                raise AssertionError("init не должен вызываться раньше connect")
+            async def init(self, seed_settings=True):
+                observed["order"].append(("init", seed_settings))
 
             async def close(self):
                 pass
 
         async def _apply(pg, *, force=False):
+            observed["order"].append("apply")
             return {"applied": [(SEED_ID, sorted(SEED_KEYS))],
                     "skipped": [], "errors": []}
 
         monkeypatch.setattr("services.pg_db.PgDatabase", _FakeDb)
-        monkeypatch.setattr("services.chat_settings_seed.apply_chat_settings_seed",
-                            _apply)
-        code = manage.main(["apply-chat-overrides"])
-        assert code == 0
-        assert observed["pg"].connected is True
+        monkeypatch.setattr(
+            "services.chat_settings_seed.apply_chat_settings_seed", _apply)
+        assert manage.main(["apply-chat-overrides"]) == 0
+        assert observed["order"][0] == "connect"
+        assert observed["order"][1] == ("init", False)   # connect ДО init
+        assert observed["order"][2] == "apply"
 
     def test_pg_unavailable_is_nonzero_not_silent(self, monkeypatch, capsys):
         class _DownDb:
@@ -434,6 +483,9 @@ class TestApplyCliFailLoud:
             async def connect(self):
                 pass
 
+            async def init(self, **kw):
+                raise AssertionError("init не должен вызываться без pool")
+
             async def close(self):
                 pass
 
@@ -441,34 +493,90 @@ class TestApplyCliFailLoud:
             raise AssertionError("сид не должен запускаться без PG")
 
         monkeypatch.setattr("services.pg_db.PgDatabase", _DownDb)
-        monkeypatch.setattr("services.chat_settings_seed.apply_chat_settings_seed",
-                            _must_not_run)
-        code = manage.main(["apply-chat-overrides"])
-        assert code == 1
-        err = capsys.readouterr().err
-        assert "PostgreSQL недоступен" in err
+        monkeypatch.setattr(
+            "services.chat_settings_seed.apply_chat_settings_seed",
+            _must_not_run)
+        assert manage.main(["apply-chat-overrides"]) == 1
+        assert "PostgreSQL недоступен" in capsys.readouterr().err
 
     def test_real_errors_are_nonzero(self, monkeypatch):
-        class _FakeDb:
-            def __init__(self, *a, **kw):
-                self.pool = object()
-
-            async def connect(self):
-                pass
-
-            async def close(self):
-                pass
+        monkeypatch.setattr("services.pg_db.PgDatabase", _fake_db_class(object()))
 
         async def _apply(pg, *, force=False):
             return {"applied": [], "skipped": [], "errors": [SEED_ID]}
 
-        monkeypatch.setattr("services.pg_db.PgDatabase", _FakeDb)
-        monkeypatch.setattr("services.chat_settings_seed.apply_chat_settings_seed",
-                            _apply)
+        monkeypatch.setattr(
+            "services.chat_settings_seed.apply_chat_settings_seed", _apply)
         assert manage.main(["apply-chat-overrides"]) == 1
 
 
-# ── (10): границы флага контекста ↔ master (F21), backfill цел ──────────────
+# ── (9) High-2: fail-loud на нечитаемый/пустой сид ──────────────────────────
+
+class TestSeedFailLoud:
+    def test_apply_unreadable_seed_nonzero(self, tmp_path, capsys):
+        broken = tmp_path / "seed.json"
+        broken.write_text("{not json", encoding="utf-8")
+        assert manage.main(["apply-chat-overrides", "--seed", str(broken)]) == 1
+        assert "нечитаем" in capsys.readouterr().err
+
+    def test_apply_empty_seed_nonzero(self, tmp_path, capsys):
+        empty = tmp_path / "seed.json"
+        empty.write_text(json.dumps({"version": 1, "chats": []}),
+                         encoding="utf-8")
+        assert manage.main(["apply-chat-overrides", "--seed", str(empty)]) == 1
+        assert "нечитаем" in capsys.readouterr().err
+
+    def test_audit_unreadable_seed_nonzero(self, monkeypatch, tmp_path,
+                                           capsys):
+        broken = tmp_path / "seed.json"
+        broken.write_text("{not json", encoding="utf-8")
+        conn = _AuditConn(profile=None)
+        monkeypatch.setattr("services.pg_db.PgDatabase",
+                            _fake_db_class(_AuditPool(conn)))
+        code = manage.main(["audit-chat-overrides", "--chat-id", str(SEED_ID),
+                            "--seed", str(broken),
+                            "--jsonl", str(tmp_path / "a.jsonl")])
+        assert code == 1
+        assert "недостоверен" in capsys.readouterr().err
+
+
+# ── (9)/(5) Medium-5: --strict ──────────────────────────────────────────────
+
+class TestStrictMode:
+    def _run(self, monkeypatch, tmp_path, conn, *extra):
+        monkeypatch.setattr("services.pg_db.PgDatabase",
+                            _fake_db_class(_AuditPool(conn)))
+        return manage.main(["audit-chat-overrides", "--chat-id", str(SEED_ID),
+                            "--jsonl", str(tmp_path / "a.jsonl"), *extra])
+
+    def test_strict_nonzero_on_drift(self, monkeypatch, tmp_path):
+        conn = _AuditConn(profile=_profile({}))          # все absent
+        assert self._run(monkeypatch, tmp_path, conn, "--strict") == 1
+
+    def test_non_strict_zero_on_drift(self, monkeypatch, tmp_path):
+        conn = _AuditConn(profile=_profile({}))
+        assert self._run(monkeypatch, tmp_path, conn) == 0
+
+    def test_strict_zero_when_clean(self, monkeypatch, tmp_path):
+        conn = _AuditConn(profile=_profile(
+            dict(SEED_KEYS), meta={"chat_settings_seed_version": 1}))
+        assert self._run(monkeypatch, tmp_path, conn, "--strict") == 0
+
+    def test_strict_nonzero_when_section_failed(self, monkeypatch, tmp_path):
+        """Low-6: отказ секции (warnings) → неполный аудит → strict non-zero."""
+        conn = _AuditConn(profile=_profile(
+            dict(SEED_KEYS), meta={"chat_settings_seed_version": 1}))
+
+        async def _fail_keys(sql, *args):
+            if "FROM chat_keys" in sql:
+                raise RuntimeError("section failed")
+            return []
+
+        conn.fetch = _fail_keys  # type: ignore[assignment]
+        assert self._run(monkeypatch, tmp_path, conn, "--strict") == 1
+
+
+# ── (10): границы флага контекста ↔ master (F21) и Δ=0 пины ─────────────────
 
 class TestFlagBoundary:
     def test_two_distinct_axes_in_catalog(self):
@@ -482,5 +590,13 @@ class TestFlagBoundary:
         text = (ROOT / "scripts" / "backfill_104_chat_flags.py").read_text(
             encoding="utf-8")
         assert "flags.chat_context_budgets_enabled" in text
-        # F22 не смешивает оси: backfill не пишет master-тумблер
         assert "flags.budgets_enabled" not in text
+
+    def test_delta_ddl_zero(self):
+        from services import pg_db
+        assert len(pg_db.DDL_STATEMENTS) == 45
+
+    def test_delta_catalog_zero(self):
+        from services import param_catalog as pc
+        assert len(pc.REGISTRY) == 459
+        assert len(pc.GROUPS) == 98
