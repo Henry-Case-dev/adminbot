@@ -611,10 +611,12 @@ class TestManualBudgetVerdictIgnored:
              _NOW - 200 * 86400, None),
             ("chat_history", "толян бросил пить", _NOW - 200 * 86400, None),
         ])
+        # F8/ADR-1024-5 D1: traits (background) исполняются ДО парадигм
+        # (history) — эволюция характера больше не зависит от paradigm-ветки.
         llm = _FakeWorkerLLM(
+            '["стал спокойнее", "чаще шутить"]',
             '{"paradigms":[{"text":"Толян теперь спортсмен",'
-            '"anchors":[1,2]}]}',
-            '["стал спокойнее", "чаще шутит"]')
+            '"anchors":[1,2]}]}')
         # Суточный deep-кап уже исчерпан прошлым прогоном.
         await db.log_dream_event(CHAT_ID, int(time.time()),
                                  kind="deep_run", tokens=9999, status="ok")
@@ -640,4 +642,4 @@ class TestManualBudgetVerdictIgnored:
         out = await worker._run_deep_once(CHAT_ID, manual=True)
         assert out["status"] == "ok"
         assert out["traits"] >= 1, "Личность достигнута при исчерпанном капе"
-        assert llm.calls == ["history", "background"]
+        assert llm.calls == ["background", "history"]

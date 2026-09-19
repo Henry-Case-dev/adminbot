@@ -127,7 +127,8 @@ class TestRunPersonaTraits:
         out = await _worker(db, llm)._run_persona_traits_once(CHAT_ID)
         assert out == {"status": "empty", "traits": 0}
         assert llm.calls == []
-        assert statuses == ["empty"]
+        # F8/ADR-1024-5 D3: явная причина 'no_self_facts' вместо 'empty'.
+        assert statuses == ["no_self_facts"]
 
     @pytest.mark.asyncio
     async def test_parse_error_sets_error(self, monkeypatch):
@@ -172,7 +173,8 @@ class TestRunPersonaTraits:
         out = await _worker(db, llm)._run_persona_traits_once(CHAT_ID)
         assert out == {"status": "empty", "traits": 0}
         assert llm.calls == []
-        assert statuses == ["empty"]
+        # F8/ADR-1024-5 D3: явная причина 'no_self_facts' вместо 'empty'.
+        assert statuses == ["no_self_facts"]
 
 
 class TestRunPersonaTraitsBudget:

@@ -759,6 +759,18 @@
     .ribbon-op-100 { opacity: 1; }
     .ribbon-op-75 { opacity: .75; }
     .ribbon-op-50 { opacity: .5; }
+    /* F8 (ADR-1024-5 D3/UPD3 №4): пояснительный Empty State в лентах
+       «Парадигмы»/«Эволюция характера» — причины и как работает эволюция. */
+    .ribbon-empty { height: 100%; overflow-y: auto; padding: 4px 4px 2px; }
+    .ribbon-empty__title {
+      font-size: .76rem; font-weight: 600; color: #94a3b8; margin-bottom: 4px;
+    }
+    .ribbon-empty__text {
+      font-size: .68rem; color: #94a3b8; line-height: 1.35;
+    }
+    .ribbon-empty__reason {
+      font-size: .66rem; color: #64748b; margin-top: 5px;
+    }
     .cognition-graph {
       height: 320px; width: 100%; border: 1px solid rgba(255,255,255,.08);
       border-radius: 10px; background: rgba(0,0,0,.18);

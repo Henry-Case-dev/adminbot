@@ -45,7 +45,10 @@ from pydantic import BaseModel, Field
 from config.settings import settings
 from services import hot_config as hot
 from services import lore_runtime
-from services.worker_settings import resolve_setting_with_source
+from services.worker_settings import (
+    resolve_setting_cached,
+    resolve_setting_with_source,
+)
 from web.api.deps import get_cache, get_tma_user
 
 logger = logging.getLogger(__name__)
@@ -451,6 +454,42 @@ async def memory_health_summary(
 
 # ── GET /api/memory/deep-sleep (F3/T-1442, spec §6/§8) ──────────────────────
 
+# F8/ADR-1024-5 D3: единые R17-safe коды причин пустоты (spec §5.1).
+_DEEP_REASON_MAP = {
+    "no_anchors": "no_anchors",
+    "no_context": "no_context",
+    "cooldown": "cooldown",
+    "daily_limit": "daily_limit",
+    "budget": "budget_skip",
+    "budget_skip": "budget_skip",
+    "unchanged": "duplicate",
+    "duplicate": "duplicate",
+    "error": "error",
+    "ok": "ok",
+    "disabled": "master_off",
+}
+
+
+def _last_deep_reason(log, chat_id) -> str | None:
+    """Причина последней попытки глубокого сна по memory_dream_log.
+
+    Сначала строки целевого чата (если есть), иначе — глобальные. Возвращает
+    R17-safe код причины (spec §5.1) либо None (попыток нет)."""
+    rows = [r for r in (log or []) if isinstance(r, dict)]
+    if chat_id is not None:
+        scoped = [r for r in rows
+                  if int(r.get("chat_id") or 0) == int(chat_id)]
+        if scoped:
+            rows = scoped
+    for row in rows:
+        if str(row.get("kind") or "") not in ("deep_run", "deep_skip"):
+            continue
+        raw = str(row.get("status") or "").strip()
+        if raw:
+            return _DEEP_REASON_MAP.get(raw, "empty")
+    return None
+
+
 @memory_router.get("/memory/deep-sleep")
 async def deep_sleep_status(
     request: Request,
@@ -467,7 +506,7 @@ async def deep_sleep_status(
     db = _db_or_503()
     try:
         paradigms = [dict(r) for r in await db.list_recent_beliefs(
-            chat_id=None, limit=50, belief_type="paradigm")]
+            chat_id=chat_id, limit=50, belief_type="paradigm")]
     except Exception:
         logger.warning("[memory_api] deep-sleep paradigms failed — пусто",
                        exc_info=True)
@@ -486,6 +525,22 @@ async def deep_sleep_status(
     deep_enabled, deep_source = await resolve_setting_with_source(
         "flags.deep_sleep_enabled", chat_id=chat_id,
         default=settings.DEEP_SLEEP_ENABLED)
+    # F8/ADR-1024-5 D3: явный статус+причина для Empty State UI (R16).
+    try:
+        master_enabled = bool(await resolve_setting_cached(
+            "memory.dream_enabled", chat_id=chat_id,
+            default=settings.DREAM_ENABLED))
+    except Exception:
+        master_enabled = bool(settings.DREAM_ENABLED)
+    if paradigms:
+        paradigms_status, paradigms_reason = "ok", "ok"
+    elif not master_enabled or not bool(deep_enabled):
+        # Мастер-гейты OFF (DREAM_ENABLED/DEEP_SLEEP_ENABLED) — данных нет до
+        # включения владельцем (ADR-1024-5 Context п.3).
+        paradigms_status, paradigms_reason = "empty", "master_off"
+    else:
+        paradigms_status = "empty"
+        paradigms_reason = _last_deep_reason(deep_log, chat_id) or "empty"
     return {
         "enabled": bool(deep_enabled),
         "source": deep_source,
@@ -493,6 +548,10 @@ async def deep_sleep_status(
         "runs_total": int(runs_total),
         "last_run_at": last_run,
         "paradigms": [_belief_out(r) for r in paradigms],
+        "paradigms_status": paradigms_status,
+        "paradigms_reason": paradigms_reason,
+        "deep_enabled": bool(deep_enabled),
+        "master_enabled": master_enabled,
         "log": [_dream_log_out(r) for r in deep_log],
     }
 

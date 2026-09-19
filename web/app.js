@@ -1013,6 +1013,13 @@
         // F4 (persona-traits-ribbon-round1014): третья лента «Эволюция
         // характера» — global `dynamic_traits` из GET /api/persona.
         cognitionTraits: [],
+        // F8 (dead-extractor-paradigms-round1024, ADR-1024-5 D3): явные
+        // статусы/причины пустоты лент для пояснительного Empty State.
+        cognitionParadigmsStatus: null,   // ok|empty (deep-sleep)
+        cognitionParadigmsReason: null,   // код причины (R17-safe)
+        cognitionTraitsStatus: null,      // ok|empty|skip|error|never
+        cognitionTraitsReason: null,      // код причины (R17-safe)
+        cognitionSelfFactsCount: null,    // self-факты за окно (chat-scope)
         personaHealth: null,           // метрики Личности (GET /persona/health)
         cognitionStats: null,          // GET /api/memory/stats
         cognitionTimeline: [],         // GET /api/memory/timeline
@@ -1448,6 +1455,16 @@
       // тот же механизм `_ribbonLoop`, без дублирования (spec §0/§2).
       cognitionTraitsLoop: function () {
         return this._ribbonLoop(this.cognitionTraits);
+      },
+      // F8 (dead-extractor-paradigms-round1024, ADR-1024-5 D3/UPD3 №4):
+      // пояснительный Empty State — понятная причина пустоты ленты.
+      cognitionParadigmsEmptyReason: function () {
+        return this.emptyReasonLabel(
+          this.cognitionParadigmsReason, this.cognitionParadigmsStatus);
+      },
+      cognitionTraitsEmptyReason: function () {
+        return this.emptyReasonLabel(
+          this.cognitionTraitsReason, this.cognitionTraitsStatus);
       },
       // F4 (UPD п.4): бейдж статуса экстрактора самосознания для панели
       // «Личность» в «Сводке». Fail-open: нет данных → «не запускался».
@@ -6301,6 +6318,30 @@
         var mm = String(d.getMinutes()); if (mm.length < 2) mm = '0' + mm;
         return hh + ':' + mm;
       },
+      // F8 (ADR-1024-5 D3/UPD3 №4): R17-safe код причины → понятный текст
+      // пояснительного Empty State. Неизвестный код → нейтральная фраза.
+      emptyReasonLabel: function (reason, status) {
+        var code = String(reason || status || '').toLowerCase();
+        var map = {
+          ok: 'данные есть',
+          no_self_facts: 'за последние 30 дней нет self-фактов — бот ещё ' +
+            'не сформировал наблюдений о собственном поведении',
+          persona_disabled: 'модуль «Личность» выключен для этого чата',
+          master_off: 'мастер-рубильник памяти выключен (нужно решение ' +
+            'владельца)',
+          budget_skip: 'дневной бюджет фоновых задач исчерпан',
+          cooldown: 'ещё не прошёл интервал между прогонами',
+          daily_limit: 'суточный лимит прогонов исчерпан',
+          no_anchors: 'недостаточно исторических фактов (нужны минимум 2 ' +
+            'опоры старше 90 дней)',
+          no_context: 'нет свежего контекста для анализа',
+          duplicate: 'все выводы уже записаны ранее (идемпотентность)',
+          empty: 'источников пока недостаточно',
+          error: 'ошибка пайплайна (причина видна в логах)',
+          never: 'прогон ещё не выполнялся',
+        };
+        return map[code] || 'данных пока нет — они появятся по мере накопления';
+      },
       // F4 (persona-traits-ribbon-round1014): 'ДД.ММ' для записей ленты
       // «Эволюция характера» (F4-Q1: «13.09: Стал более циничным...»).
       fmtDayMonth: function (ts) {
@@ -6353,6 +6394,18 @@
           var paradigms = await this.api(
             '/api/memory/dream/beliefs?kind=paradigm&limit=30' + cq);
           this.cognitionParadigms = Array.isArray(paradigms) ? paradigms : [];
+          // F8 (ADR-1024-5 D3): статус/причина парадигм для Empty State.
+          // Fail-open: ошибка → причина неизвестна (лента покажет текст).
+          try {
+            var deep = await this.api('/api/memory/deep-sleep' + q);
+            this.cognitionParadigmsStatus =
+              (deep && deep.paradigms_status) || null;
+            this.cognitionParadigmsReason =
+              (deep && deep.paradigms_reason) || null;
+          } catch (de) {
+            this.cognitionParadigmsStatus = null;
+            this.cognitionParadigmsReason = null;
+          }
           // F4 (persona-traits-ribbon-round1014): третья лента — «Эволюция
           // характера» из global `dynamic_traits` (GET /api/persona).
           // Fail-open: ошибка → пустой пул (заглушка).
@@ -6360,6 +6413,14 @@
             var persona = await this.api('/api/persona' + q);
             this.cognitionTraits = this._traitsAdapter(
               persona && persona.dynamic_traits);
+            // F8 (ADR-1024-5 D3): причина/статус черт + self-факты.
+            this.cognitionTraitsStatus =
+              (persona && persona.traits_status) || null;
+            this.cognitionTraitsReason =
+              (persona && persona.traits_reason) || null;
+            this.cognitionSelfFactsCount =
+              (persona && persona.self_facts_count != null)
+                ? persona.self_facts_count : null;
           } catch (pe) {
             this.cognitionTraits = [];
           }

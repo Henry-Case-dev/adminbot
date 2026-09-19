@@ -622,6 +622,14 @@ class Settings:
         "EXTERNAL_API_LOG_BODY_CHARS", 1024)
     EXTERNAL_API_LOG_URL_QUERY: ClassVar[bool] = _env_bool(
         "EXTERNAL_API_LOG_URL_QUERY", False)
+    # ── Раунд 10.24 (F8, ADR-1024-5 D1): env-only ClassVar kill-switch
+    # декаплинга traits от paradigm-ветки «Глубокого сна». Δ каталога = 0 (в
+    # param_catalog НЕ входит). Default ON: traits исполняются сразу после
+    # гейтов cooldown/лимитов, независимо от `no_anchors`/`unchanged`. OFF →
+    # байт-в-байт прежняя последовательность (traits в конце, только при
+    # успешной записи парадигм).
+    DEEP_SLEEP_EXTRACT_FIX_ENABLED: ClassVar[bool] = _env_bool(
+        "DEEP_SLEEP_EXTRACT_FIX_ENABLED", True)
     # Лимит Telegram: число частей ответа (чанкинг 4096).
     MAX_SUMMARY_PARTS: int = _env_int("MAX_SUMMARY_PARTS", 1)
     SUMMARY_TIMEZONE: str = os.getenv("SUMMARY_TIMEZONE", "Asia/Yekaterinburg")

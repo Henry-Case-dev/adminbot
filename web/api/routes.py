@@ -1613,6 +1613,68 @@ async def _persona_access(request: Request, user: WebAppUser,
     return cache, chat_id, ctx
 
 
+# F8/ADR-1024-5 D3 (round 10.24): категория статуса эволюции характера для UI
+# (details остаётся в traits_reason — R17-safe код причины, spec §5.1).
+_TRAITS_STATUS_CATEGORY = {
+    "ok": "ok",
+    "error": "error",
+    "never": "never",
+    "no_self_facts": "empty",
+    "empty": "empty",
+    "duplicate": "empty",
+    "budget_skip": "skip",
+    "persona_disabled": "skip",
+    "master_off": "skip",
+    "cooldown": "skip",
+    "daily_limit": "skip",
+}
+
+
+async def _persona_traits_meta(out: dict, *, chat_id: int | None) -> None:
+    """F8/ADR-1024-5 D3: явные traits_status/traits_reason/self_facts_count.
+
+    Причина приоритетно выводится из числа self-фактов за окно (нет →
+    `no_self_facts`) и мастер-гейта `persona_enabled`; иначе — код последнего
+    прогона из persona_state. Fail-open: ошибка БД → нейтральные значения,
+    API не падает (не 500). Значения — R17-safe коды, не тексты."""
+    try:
+        health = await bot_persona.get_persona_health()
+    except Exception:
+        health = {}
+    raw = str((health or {}).get("last_trait_status") or "never")
+    self_facts_count = None
+    if chat_id is not None:
+        try:
+            from services import lore_runtime
+            from services.dream_worker import _PERSONA_SELF_LOOKBACK_DAYS
+            db = lore_runtime.get_lore_db()
+        except Exception:
+            db = None
+            _PERSONA_SELF_LOOKBACK_DAYS = 30
+        if db is not None:
+            try:
+                now = int(time.time())
+                facts = await db.get_dream_candidates(
+                    int(chat_id), now, origins=("bot_self_reply",),
+                    since_ts=now - _PERSONA_SELF_LOOKBACK_DAYS * 86400,
+                    limit=50)
+                self_facts_count = len(facts or [])
+            except Exception:
+                self_facts_count = None
+    if out.get("dynamic_traits"):
+        status, reason = "ok", "ok"
+    elif not out.get("persona_enabled", True):
+        status, reason = "skip", "persona_disabled"
+    elif self_facts_count == 0:
+        status, reason = "empty", "no_self_facts"
+    else:
+        status = _TRAITS_STATUS_CATEGORY.get(raw, "empty")
+        reason = raw
+    out["traits_status"] = status
+    out["traits_reason"] = reason
+    out["self_facts_count"] = self_facts_count
+
+
 @api_router.get("/persona")
 async def get_persona(
     request: Request,
@@ -1641,6 +1703,9 @@ async def get_persona(
             chat_id, "flags.persona_enabled", enabled_default))
     out["dynamic_traits"] = await bot_persona.get_traits(
         _PERSONA_TRAITS_LIMIT)
+    # F8/ADR-1024-5 D3 (round 10.24): статус/причина эволюции характера для
+    # Empty State UI (аддитивно, R16; fail-open внутри).
+    await _persona_traits_meta(out, chat_id=chat_id)
     return out
 
 

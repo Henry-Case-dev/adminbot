@@ -217,6 +217,18 @@ def _deep_result(status: str, *, paradigms: int = 0, tokens: int = 0,
             "tokens": int(tokens), "traits": int(traits)}
 
 
+def _extract_fix_enabled() -> bool:
+    """F8/ADR-1024-5 D1: kill-switch декаплинга traits от paradigms.
+
+    env-only `DEEP_SLEEP_EXTRACT_FIX_ENABLED` (default ON). OFF → прежняя
+    последовательность `_run_deep_once` (traits в самом конце). Никогда не
+    бросает — некорректный конфиг трактуется как ON (фикс не теряется)."""
+    try:
+        return bool(getattr(settings, "DEEP_SLEEP_EXTRACT_FIX_ENABLED", True))
+    except Exception:  # pragma: no cover — конфиг не должен ронять прогон
+        return True
+
+
 def _hot_number(key: str, default, cast):
     """S10.13-7: чтение числового hot-ключа с честным учётом нуля.
 
@@ -1519,19 +1531,36 @@ class DreamWorker:
             if last is not None and (now - int(last)) < cooldown * 3600:
                 _trace_deep(chat_id, "deep", "skip", reason="cooldown")
                 return _deep_result("cooldown")
+        # ── F8/ADR-1024-5 D1 (round 10.24): развязка traits от paradigms.
+        # Прогон допустим (прошли disabled/daily_limit/cooldown) → эволюция
+        # характера запускается ДО ранних return'ов ветки парадигм
+        # (no_anchors/unchanged/budget_skip/…), которые раньше молча
+        # пропускали persona-блок — корневой баг «мёртвого экстрактора черт».
+        # Kill-switch OFF → traits остаются в конце (прежняя последовательность).
+        fix_enabled = _extract_fix_enabled()
+        traits_written = 0
+        if fix_enabled:
+            traits_written = await self._run_persona_traits_step(
+                chat_id, now, manual=manual)
+
+        def _done(status: str, **extra) -> dict:
+            """Единый результат ветки: несёт traits, посчитанные выше."""
+            extra.setdefault("traits", traits_written)
+            return _deep_result(status, **extra)
+
         if self.memory is None:
             _trace_deep(chat_id, "deep", "skip", reason="no_memory")
-            return _deep_result("no_memory")
+            return _done("no_memory")
         try:
             packet = await self._build_deep_packet(chat_id, now, since_ts)
         except Exception:
             logger.warning("[deep_sleep] packet build failed — skip | "
                            "chat_id=%s", chat_id, exc_info=True)
             _trace_deep(chat_id, "deep", "error", reason="packet_build")
-            return _deep_result("error")
+            return _done("error")
         if not packet["beliefs"] and not packet["recent"]:
             _trace_deep(chat_id, "deep", "empty", reason="no_context")
-            return _deep_result("no_context")
+            return _done("no_context")
         query = " ".join(
             [str(b.get("fact") or "") for b in packet["beliefs"][:20]]
             + [str(r.get("fact") or "") for r in packet["recent"]])
@@ -1541,7 +1570,7 @@ class DreamWorker:
             logger.warning("[deep_sleep] RAG failed — skip | chat_id=%s",
                            chat_id, exc_info=True)
             _trace_deep(chat_id, "deep", "error", reason="rag_failed")
-            return _deep_result("error")
+            return _done("error")
         top_k = _hot_number("limits.deep_sleep_top_k",
                             settings.DEEP_SLEEP_TOP_K, int)
         anchors = list(anchors or [])[: max(1, top_k)]
@@ -1550,7 +1579,7 @@ class DreamWorker:
             await self._log_deep_skip(chat_id, now, "no_anchors", 0)
             _trace_deep(chat_id, "deep", "empty", reason="no_anchors",
                         extra={"anchors": len(historical)})
-            return _deep_result("no_anchors")
+            return _done("no_anchors")
         user_text = build_bridge_user(packet, historical)
         messages = [
             {"role": "system", "content": DEEP_SLEEP_BRIDGE_SYSTEM_PROMPT},
@@ -1561,13 +1590,13 @@ class DreamWorker:
                 manual=manual):
             await self._log_deep_skip(chat_id, now, "budget_skip", 0)
             _trace_deep(chat_id, "deep", "skip", reason="budget_skip")
-            return _deep_result("budget")
+            return _done("budget")
         raw, tokens = await self._deep_llm_once(messages, user_text)
         if raw is None:
             await self._log_deep_skip(chat_id, now, "error", tokens)
             _trace_deep(chat_id, "deep", "error", reason="llm_error",
                         extra={"tokens": tokens})
-            return _deep_result("error")
+            return _done("error")
         try:
             paradigms = parse_bridge_answer(raw,
                                             anchor_count=len(historical),
@@ -1580,14 +1609,14 @@ class DreamWorker:
                     chat_id, user_text, extra_tokens=tokens, manual=manual):
                 await self._log_deep_skip(chat_id, now, "budget_skip", tokens)
                 _trace_deep(chat_id, "deep", "skip", reason="budget_skip")
-                return _deep_result("budget")
+                return _done("budget")
             raw2, tokens2 = await self._deep_llm_once(messages, user_text)
             tokens += tokens2
             if raw2 is None:
                 await self._log_deep_skip(chat_id, now, "error", tokens)
                 _trace_deep(chat_id, "deep", "error", reason="llm_error",
                             extra={"tokens": tokens})
-                return _deep_result("error")
+                return _done("error")
             try:
                 paradigms = parse_bridge_answer(
                     raw2, anchor_count=len(historical), min_anchors=2)
@@ -1595,12 +1624,12 @@ class DreamWorker:
                 await self._log_deep_skip(chat_id, now, "error", tokens)
                 _trace_deep(chat_id, "deep", "error", reason="parse_error",
                             extra={"tokens": tokens})
-                return _deep_result("error")
+                return _done("error")
         if not paradigms:
             await self._log_deep_skip(chat_id, now, "unchanged", tokens)
             _trace_deep(chat_id, "deep", "empty", reason="unchanged",
                         extra={"tokens": tokens})
-            return _deep_result("unchanged")
+            return _done("unchanged")
         try:
             existing = await self._paradigm_dedup_keys(chat_id)
         except Exception:
@@ -1646,36 +1675,16 @@ class DreamWorker:
             await self._log_deep_skip(chat_id, now, "duplicate", tokens)
             _trace_deep(chat_id, "deep", "duplicate", reason="all_duplicates",
                         extra={"tokens": tokens})
-        # ── F2 persona-storage-core (spec §3.4): после прогона парадигм
-        # «Глубокий сон» анализирует эволюцию характера бота и пишет
-        # dynamic_traits (persona_traits). Гейт — flags.persona_enabled
-        # (deep_sleep уже проверен в начале). Fail-open: ошибка не влияет.
-        # H3-фикс: гейт резолвится per-chat (override → global → default).
-        from services.chat_params import get_chat_param as _persona_gate
-        persona_enabled = await _persona_gate(
-            chat_id, "flags.persona_enabled",
-            hot.get("flags.persona_enabled", settings.PERSONA_ENABLED))
-        traits_written = 0
-        if persona_enabled:
-            try:
-                traits_stats = await self._run_persona_traits_once(
-                    chat_id, now=now, manual=manual)
-                traits_written = int(traits_stats.get("traits") or 0)
-            except Exception:
-                logger.warning(
-                    "[persona_traits] run failed — fail-open | chat_id=%s",
-                    chat_id, exc_info=True)
-        else:
-            # F2 (ADR-1018-2 D3, spec §4.2a/§4.4, T-1770): persona — контентный
-            # гейт владельца, запись traits НЕ обходим даже при manual. Но
-            # каскад не «глушим молча»: явная причина в логах (R17-safe —
-            # только chat_id, без текстов).
-            logger.warning(
-                "[persona_traits] skip | reason=persona_disabled | "
-                "chat_id=%s", chat_id)
-        return {"status": "ok" if written else "duplicate",
-                "paradigms": written, "tokens": tokens,
-                "traits": traits_written}
+        # ── F2 persona-storage-core (spec §3.4): эволюция характера.
+        # При `DEEP_SLEEP_EXTRACT_FIX_ENABLED` ON traits уже посчитаны выше
+        # (`_run_persona_traits_step`, до ветки парадигм) — повтор не нужен.
+        # При OFF (kill-switch) сохраняем прежнюю последовательность: traits
+        # в самом конце, только при успешной записи парадигм (байт-в-байт).
+        if not fix_enabled:
+            traits_written = await self._run_persona_traits_step(
+                chat_id, now, manual=manual)
+        return _done("ok" if written else "duplicate",
+                     paradigms=written, tokens=tokens)
 
     async def _build_deep_packet(self, chat_id: int, now: int,
                                  since_ts: int | None) -> dict:
@@ -1827,6 +1836,43 @@ class DreamWorker:
             logger.warning("[persona_traits] token log failed — fail-open | "
                            "chat_id=%s", chat_id, exc_info=True)
 
+    async def _run_persona_traits_step(self, chat_id: int, now: int, *,
+                                       manual: bool = False) -> int:
+        """F8/ADR-1024-5 D1: единый шаг traits, независимый от paradigm-ветки.
+
+        Резолвит per-chat гейт `flags.persona_enabled` (override → global →
+        default); при OFF — явный reason `persona_disabled` (R17-safe лог +
+        personas_state), а не «тихое» пропускание. Возвращает число записанных
+        черт (0 при skip/error). Fail-open: любая ошибка не рушит прогон."""
+        from services.chat_params import get_chat_param as _persona_gate
+        try:
+            persona_enabled = await _persona_gate(
+                chat_id, "flags.persona_enabled",
+                hot.get("flags.persona_enabled", settings.PERSONA_ENABLED))
+        except Exception:
+            persona_enabled = bool(settings.PERSONA_ENABLED)
+        if not persona_enabled:
+            logger.warning(
+                "[persona_traits] skip | reason=persona_disabled | chat_id=%s",
+                chat_id)
+            _trace_deep(chat_id, "traits", "skip", reason="persona_disabled")
+            try:
+                from services import bot_persona
+                await bot_persona.record_trait_status("persona_disabled")
+            except Exception:
+                logger.debug("[persona_traits] status write failed — "
+                             "fail-open", exc_info=True)
+            return 0
+        try:
+            stats = await self._run_persona_traits_once(
+                chat_id, now=now, manual=manual)
+        except Exception:
+            logger.warning("[persona_traits] run failed — fail-open | "
+                           "chat_id=%s", chat_id, exc_info=True)
+            _trace_deep(chat_id, "traits", "error", reason="run_exception")
+            return 0
+        return int(stats.get("traits") or 0)
+
     async def _run_persona_traits_once(self, chat_id: int, *,
                                        now: int | None = None,
                                        manual: bool = False) -> dict:
@@ -1866,7 +1912,9 @@ class DreamWorker:
                 "[persona_traits] skip | reason=no_self_facts | chat_id=%s",
                 chat_id)
             _trace_deep(chat_id, "traits", "empty", reason="no_self_facts")
-            await bot_persona.record_trait_status("empty")
+            # F8/ADR-1024-5 D3: в persona_state пишем ЯВНУЮ причину
+            # (не безликое 'empty') — API/UI отдают её как traits_reason.
+            await bot_persona.record_trait_status("no_self_facts")
             return {"status": "empty", "traits": 0}
         user_text = build_persona_user(self_facts, beliefs)
         messages = [
@@ -1932,7 +1980,9 @@ class DreamWorker:
             await bot_persona.record_trait_status("error")
             return {"status": "error", "traits": 0}
         status = "ok" if written else "empty"
-        await bot_persona.record_trait_status(status)
+        # F8/ADR-1024-5 D3: причина в persona_state — 'ok'/'duplicate'
+        # (для API traits_reason); возвращаемый status сохраняет контракт.
+        await bot_persona.record_trait_status("ok" if written else "duplicate")
         if written:
             logger.info("[persona_traits] written | chat_id=%s | count=%d",
                         chat_id, written)

@@ -2536,7 +2536,11 @@
                 <div class="ribbon">
                   <div class="ribbon-title">Парадигмы <span class="text-gray-500">(Глубокий сон)</span></div>
                   <div class="ribbon-viewport">
-                    <div v-if="!cognitionParadigmsLoop.length" class="text-xs text-gray-500 py-4">Пул парадигм пуст.</div>
+                    <div v-if="!cognitionParadigmsLoop.length" class="ribbon-empty">
+                      <div class="ribbon-empty__title">Пул парадигм пуст.</div>
+                      <div class="ribbon-empty__text">Парадигмы — мета-факты о динамике («что было раньше и что стало»). Глубокий сон выводит их, сопоставляя свежие убеждения с историческими фактами: нужны минимум 2 опоры старше 90 дней. Пока условий нет, выводы не выдумываются.</div>
+                      <div class="ribbon-empty__reason">Причина: {{ cognitionParadigmsEmptyReason }}.</div>
+                    </div>
                     <div v-else class="ribbon-track">
                       <div v-for="it in cognitionParadigmsLoop" :key="it.key"
                            class="ribbon-item" :class="it.op">
@@ -2552,7 +2556,11 @@
                 <div class="ribbon">
                   <div class="ribbon-title">Эволюция характера <span class="text-gray-500">(Личность)</span></div>
                   <div class="ribbon-viewport">
-                    <div v-if="!cognitionTraitsLoop.length" class="text-xs text-gray-500 py-4">Пул черт пуст.</div>
+                    <div v-if="!cognitionTraitsLoop.length" class="ribbon-empty">
+                      <div class="ribbon-empty__title">Пул черт пуст.</div>
+                      <div class="ribbon-empty__text">Эволюция характера строится из саморефлексии: бот сжимает свои ответы в self-факты, а фоновый анализ выводит из них устойчивые черты (тон, привычки, склонности). Без self-фактов черты не придумываются.</div>
+                      <div class="ribbon-empty__reason">Причина: {{ cognitionTraitsEmptyReason }}. Self-фактов за 30 дней: {{ cognitionSelfFactsCount == null ? '—' : cognitionSelfFactsCount }}.</div>
+                    </div>
                     <div v-else class="ribbon-track">
                       <div v-for="it in cognitionTraitsLoop" :key="it.key"
                            class="ribbon-item" :class="it.op">
