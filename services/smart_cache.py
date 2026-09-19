@@ -11,11 +11,14 @@ set() — no-op (аварийный рубильник, R51-3). Ошибки Б�
 Ленивый синглтон без DI-хендлеров (прецедент MediaGroupCaptionBuffer);
 close() вызывается в on_shutdown (bot.py).
 """
+import asyncio
 import hashlib
 import logging
 import re
+import sqlite3
 import time
 import urllib.parse
+from typing import Any, Awaitable, Callable
 
 import aiosqlite
 
@@ -23,6 +26,17 @@ from config.settings import settings
 from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
+
+# F17 (раунд 10.24, ADR-1024-18): паритет настроек соединения с
+# services/database.py:48,516-520 и bounded retry на `database is locked`
+# (зеркало services/memory_rebuild.py:71-72). Значения — локальные константы.
+_BUSY_TIMEOUT_MS = 5000     # зеркало services/database.py:48 (_BUSY_TIMEOUT_MS)
+_LOCK_RETRIES = 3           # зеркало services/memory_rebuild.py:71
+_LOCK_BACKOFF = 0.1         # зеркало services/memory_rebuild.py:72
+
+# In-process счётчик исчерпаний (Δ DDL = 0: метрика = лог + счётчик; сброс
+# процесса = сброс счётчика — событие остаётся в логе).
+_lock_exhausted_total = 0
 
 _NORMALIZERS = {
     "factcheck": "text",
@@ -74,6 +88,53 @@ def build_key(slug: str, raw_input: str) -> str:
     return hashlib.md5(f"{slug}\x00{norm}".encode("utf-8")).hexdigest()
 
 
+def smart_cache_lock_exhausted_total() -> int:
+    """F17: число исчерпаний retry на `database is locked` в этом процессе.
+
+    Δ DDL = 0 (PG-таблиц/миграций нет). Сброс процесса = сброс счётчика;
+    само событие остаётся в логе (`event=smart_cache_lock_exhausted`)."""
+    return _lock_exhausted_total
+
+
+def _resilience_enabled() -> bool:
+    """F17: флаг ON/OFF (env-only ClassVar, default ON). OFF → байт-в-байт
+    прежнее поведение: без PRAGMA и без повторов."""
+    return bool(getattr(settings, "SMART_CACHE_LOCK_RESILIENCE_ENABLED", True))
+
+
+def _is_locked(exc: BaseException) -> bool:
+    """F17: True только для `OperationalError` с `locked` в тексте.
+
+    Прочие исключения (в т.ч. OperationalError по другим причинам) не
+    ретраятся — прежнее поведение."""
+    return isinstance(exc, sqlite3.OperationalError) and "locked" in str(exc).lower()
+
+
+def _note_lock_exhausted(op_name: str, key: str, attempts: int,
+                         exc: BaseException) -> None:
+    """F17: явный структурный WARNING при исчерпании попыток + счётчик.
+
+    R17: логируем только MD5-ключ и текст ошибки — payload/сырой ввод НЕ
+    попадают в лог. `exc_info=True` сохраняет реальную причину в трейсе."""
+    global _lock_exhausted_total
+    _lock_exhausted_total += 1
+    logger.warning(
+        "smart cache: lock exhausted | event=smart_cache_lock_exhausted | "
+        "op=%s | key=%s | attempts=%d | error=%s",
+        op_name, key, attempts, exc, exc_info=True)
+
+
+async def _apply_pragmas(db: aiosqlite.Connection) -> None:
+    """F17: паритет настроек соединения с `services/database.py:516-520`.
+
+    Тот же порядок и значения: `journal_mode=WAL` → `busy_timeout` →
+    `synchronous=NORMAL`. `journal_mode=WAL` — свойство БД (уже активно
+    основным соединением), повторное применение безвредно."""
+    await db.execute("PRAGMA journal_mode=WAL")
+    await db.execute(f"PRAGMA busy_timeout = {_BUSY_TIMEOUT_MS}")
+    await db.execute("PRAGMA synchronous=NORMAL")
+
+
 class SmartCache:
     """Собственное ленивое aiosqlite-соединение к settings.DB_PATH
     (WAL допускает несколько соединений; close() в on_shutdown)."""
@@ -88,17 +149,28 @@ class SmartCache:
 
     async def _ensure_db(self) -> aiosqlite.Connection | None:
         if self._db is None:
+            db: aiosqlite.Connection | None = None
             try:
-                self._db = await aiosqlite.connect(self.db_path)
-                self._db.row_factory = aiosqlite.Row
-                await self._db.execute(
+                db = await aiosqlite.connect(self.db_path)
+                db.row_factory = aiosqlite.Row
+                # F17: паритет PRAGMA с основным клиентом под флагом.
+                if _resilience_enabled():
+                    await _apply_pragmas(db)
+                await db.execute(
                     "CREATE TABLE IF NOT EXISTS smart_cache ("
                     "key TEXT PRIMARY KEY, payload TEXT NOT NULL, "
                     "created_at REAL NOT NULL)"
                 )
-                await self._db.commit()
+                await db.commit()
+                self._db = db
             except Exception:
                 logger.warning("smart cache: DB init failed — cache disabled", exc_info=True)
+                # F17: best-effort close при провале инициализации (утечка fd).
+                if db is not None:
+                    try:
+                        await db.close()
+                    except Exception:
+                        pass
                 self._db = None
         return self._db
 
@@ -122,54 +194,105 @@ class SmartCache:
             return hot.get("flags.chat_dedup_enabled", settings.CHAT_DEDUP_ENABLED)
         return hot.get("flags.smart_cache_enabled", settings.SMART_CACHE_ENABLED)
 
+    async def _run_with_lock_retry(
+        self,
+        op: Callable[[], Awaitable[Any]],
+        *,
+        op_name: str,
+        key: str,
+        on_exhausted: Callable[[BaseException], Any],
+    ) -> Any:
+        """F17: bounded retry только на `database is locked`.
+
+        - Флаг OFF → ровно одна попытка (прежнее поведение, исключение наружу).
+        - `locked`: не более `_LOCK_RETRIES` повторов с экспоненциальным
+          backoff; перед повтором — best-effort `rollback` (ошибки игнорируются).
+        - исчерпание → структурный WARNING + счётчик (`_note_lock_exhausted`)
+          и `on_exhausted(exc)` (fail-open семантика вызывающего).
+        - не-`locked` исключения не ретраятся — пробрасываются как есть."""
+        if not _resilience_enabled():
+            return await op()
+        attempt = 0
+        while True:
+            try:
+                return await op()
+            except Exception as exc:
+                if not _is_locked(exc):
+                    raise
+                if attempt >= _LOCK_RETRIES:
+                    _note_lock_exhausted(op_name, key, attempt + 1, exc)
+                    return on_exhausted(exc)
+                attempt += 1
+                db = self._db
+                if db is not None:
+                    try:
+                        await db.rollback()
+                    except Exception:
+                        pass
+                await asyncio.sleep(_LOCK_BACKOFF * (2 ** (attempt - 1)))
+
+    async def _read_once(self, db: aiosqlite.Connection, key: str,
+                         ttl_seconds: int) -> str | None:
+        cursor = await db.execute(
+            "SELECT payload, created_at FROM smart_cache WHERE key = ?", (key,))
+        row = await cursor.fetchone()
+        if row is None:
+            logger.info("smart cache: miss | key=%s", key)
+            return None
+        age = time.monotonic() - row["created_at"]
+        if age > ttl_seconds:
+            await db.execute("DELETE FROM smart_cache WHERE key = ?", (key,))
+            await db.commit()
+            logger.info("smart cache: expired | key=%s", key)
+            return None
+        logger.info("smart cache: hit | key=%s | age=%.0fs", key, age)
+        return row["payload"]
+
     async def _read(self, key: str, ttl_seconds: int) -> str | None:
         db = await self._ensure_db()
         if db is None:
             return None
         try:
-            cursor = await db.execute(
-                "SELECT payload, created_at FROM smart_cache WHERE key = ?", (key,))
-            row = await cursor.fetchone()
-            if row is None:
-                logger.info("smart cache: miss | key=%s", key)
-                return None
-            age = time.monotonic() - row["created_at"]
-            if age > ttl_seconds:
-                await db.execute("DELETE FROM smart_cache WHERE key = ?", (key,))
-                await db.commit()
-                logger.info("smart cache: expired | key=%s", key)
-                return None
-            logger.info("smart cache: hit | key=%s | age=%.0fs", key, age)
-            return row["payload"]
+            return await self._run_with_lock_retry(
+                lambda: self._read_once(db, key, ttl_seconds),
+                op_name="get", key=key,
+                on_exhausted=lambda exc: None)
         except Exception:
             logger.warning("smart cache: get failed | key=%s", key, exc_info=True)
             return None
+
+    async def _write_once(self, db: aiosqlite.Connection, key: str,
+                          payload: str, ttl_seconds: int) -> None:
+        now = time.monotonic()
+        await db.execute(
+            "DELETE FROM smart_cache WHERE created_at < ?",
+            (now - ttl_seconds,),
+        )
+        await db.execute(
+            "INSERT OR REPLACE INTO smart_cache (key, payload, created_at) "
+            "VALUES (?, ?, ?)",
+            (key, payload, now),
+        )
+        cursor = await db.execute("SELECT COUNT(*) AS c FROM smart_cache")
+        row = await cursor.fetchone()
+        if row["c"] > hot.get("limits.smart_cache_max_rows", settings.SMART_CACHE_MAX_ROWS):
+            await db.execute(
+                "DELETE FROM smart_cache WHERE key IN ("
+                "SELECT key FROM smart_cache ORDER BY created_at ASC LIMIT ?)",
+                (row["c"] - hot.get("limits.smart_cache_max_rows", settings.SMART_CACHE_MAX_ROWS),),
+            )
+        await db.commit()
+        logger.info("smart cache: set | key=%s", key)
 
     async def _write(self, key: str, payload: str, ttl_seconds: int) -> None:
         db = await self._ensure_db()
         if db is None:
             return
         try:
-            now = time.monotonic()
-            await db.execute(
-                "DELETE FROM smart_cache WHERE created_at < ?",
-                (now - ttl_seconds,),
-            )
-            await db.execute(
-                "INSERT OR REPLACE INTO smart_cache (key, payload, created_at) "
-                "VALUES (?, ?, ?)",
-                (key, payload, now),
-            )
-            cursor = await db.execute("SELECT COUNT(*) AS c FROM smart_cache")
-            row = await cursor.fetchone()
-            if row["c"] > hot.get("limits.smart_cache_max_rows", settings.SMART_CACHE_MAX_ROWS):
-                await db.execute(
-                    "DELETE FROM smart_cache WHERE key IN ("
-                    "SELECT key FROM smart_cache ORDER BY created_at ASC LIMIT ?)",
-                    (row["c"] - hot.get("limits.smart_cache_max_rows", settings.SMART_CACHE_MAX_ROWS),),
-                )
-            await db.commit()
-            logger.info("smart cache: set | key=%s", key)
+            await self._run_with_lock_retry(
+                lambda: self._write_once(db, key, payload, ttl_seconds),
+                op_name="set", key=key,
+                on_exhausted=lambda exc: None)
         except Exception:
             logger.warning("smart cache: set failed | key=%s", key, exc_info=True)
 

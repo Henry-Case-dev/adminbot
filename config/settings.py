@@ -876,6 +876,13 @@ class Settings:
     SMART_CACHE_TTL_SECONDS: int = _env_int_min("SMART_CACHE_TTL_SECONDS", 1800, 60)
     # Потолок строк таблицы smart_cache; <100 → дефолт 1000 (WARNING).
     SMART_CACHE_MAX_ROWS: int = _env_int_min("SMART_CACHE_MAX_ROWS", 1000, 100)
+    # F17 (раунд 10.24, ADR-1024-18): kill-switch устойчивости smart_cache к
+    # `database is locked` — паритет PRAGMA (WAL/busy_timeout/synchronous),
+    # bounded retry на `locked`, структурный WARNING при исчерпании.
+    # env-only ClassVar → в param_catalog НЕ добавляется (Δ каталога = 0).
+    # ON (default) = новое поведение; OFF = байт-в-байт прежнее (без PRAGMA/retry).
+    SMART_CACHE_LOCK_RESILIENCE_ENABLED: ClassVar[bool] = _env_bool(
+        "SMART_CACHE_LOCK_RESILIENCE_ENABLED", True)
 
     # ── Epic 60 Фаза A (Section 63.5, R60-1/R60-2) ─────────────
     # Персистентный троттлинг (throttle_state/bot_replies, 63.1). false →

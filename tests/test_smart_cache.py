@@ -5,6 +5,7 @@ normalize_url/normalize_text/build_key (D208); hit/miss/expiry; ленивая
 2-й вызов с тем же URL → LLM/Tavily/Trafilatura НЕ вызываются (мок хендлера).
 """
 import logging
+import sqlite3
 from dataclasses import replace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -12,7 +13,13 @@ import pytest
 import pytest_asyncio
 
 from config.settings import settings
-from services.smart_cache import SmartCache, build_key, normalize_text, normalize_url
+from services.smart_cache import (
+    SmartCache,
+    build_key,
+    normalize_text,
+    normalize_url,
+    smart_cache_lock_exhausted_total,
+)
 
 CHAT_ID = -1001234567890
 
@@ -339,3 +346,225 @@ class TestDirectDedupCache:
         await c2.set_dedup(key, "не сохранится")
         assert await c2.get_dedup(key) is None      # dedup заглушен
         await c2.close()
+
+
+class _FlakyDB:
+    """Обёртка над реальным aiosqlite-соединением: первые `fail_times`
+    вызовов `execute` с подстрокой `marker` падают `OperationalError: locked`.
+
+    Нужна для проверки bounded retry без гонки за реальной блокировкой."""
+
+    def __init__(self, real, *, marker: str, fail_times: int):
+        self._real = real
+        self._marker = marker
+        self._remaining = fail_times
+        self.attempts = 0
+
+    async def execute(self, sql, *args, **kwargs):
+        if self._marker in sql:
+            self.attempts += 1
+            if self._remaining > 0:
+                self._remaining -= 1
+                raise sqlite3.OperationalError("database is locked")
+        return await self._real.execute(sql, *args, **kwargs)
+
+    async def commit(self):
+        return await self._real.commit()
+
+    async def rollback(self):
+        return await self._real.rollback()
+
+    async def close(self):
+        return await self._real.close()
+
+
+class _BoomDB:
+    """Соединение, падающее НЕ-lock ошибкой на любом execute."""
+
+    def __init__(self):
+        self.attempts = 0
+
+    async def execute(self, sql, *args, **kwargs):
+        self.attempts += 1
+        raise sqlite3.OperationalError("attempt to write a readonly database")
+
+    async def commit(self):
+        return None
+
+    async def rollback(self):
+        return None
+
+    async def close(self):
+        return None
+
+
+class TestLockResilience:
+    """F17 (раунд 10.24, ADR-1024-18): PRAGMA-паритет + bounded retry."""
+
+    @pytest_asyncio.fixture
+    async def cache(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "services.smart_cache.settings",
+            replace(settings, SMART_CACHE_ENABLED=True,
+                    SMART_CACHE_TTL_SECONDS=60),
+        )
+        c = SmartCache(str(tmp_path / "resilience.db"))
+        yield c
+        await c.close()
+
+    @pytest.mark.asyncio
+    async def test_pragmas_applied(self, cache):
+        """(a) WAL/busy_timeout/synchronous реально применены (файловая БД)."""
+        db = await cache._ensure_db()
+        assert db is not None
+        cur = await db.execute("PRAGMA journal_mode")
+        assert str((await cur.fetchone())[0]).lower() == "wal"
+        cur = await db.execute("PRAGMA busy_timeout")
+        assert int((await cur.fetchone())[0]) == 5000
+        cur = await db.execute("PRAGMA synchronous")
+        assert int((await cur.fetchone())[0]) == 1  # NORMAL
+
+    @pytest.mark.asyncio
+    async def test_write_retry_then_success(self, cache, monkeypatch, caplog):
+        """(b) locked на первых попытках → retry сохраняет запись, без события."""
+        monkeypatch.setattr("services.smart_cache._LOCK_BACKOFF", 0)
+        real = await cache._ensure_db()
+        proxy = _FlakyDB(real, marker="INSERT OR REPLACE", fail_times=2)
+        cache._db = proxy
+        key = build_key("web", "https://site.ru/retry")
+        with caplog.at_level(logging.INFO):
+            await cache.set(key, "ответ после ретраев")
+        assert proxy.attempts == 3          # 2 сбоя + 1 успех
+        assert proxy._remaining == 0
+        assert "smart_cache_lock_exhausted" not in caplog.text
+        cache._db = real
+        assert await cache.get(key) == "ответ после ретраев"
+
+    @pytest.mark.asyncio
+    async def test_write_lock_exhausted_is_explicit(self, cache, monkeypatch, caplog):
+        """(c) исчерпание: fail-open + структурный WARNING + счётчик."""
+        monkeypatch.setattr("services.smart_cache._LOCK_BACKOFF", 0)
+        real = await cache._ensure_db()
+        proxy = _FlakyDB(real, marker="INSERT OR REPLACE", fail_times=99)
+        cache._db = proxy
+        key = build_key("web", "https://site.ru/boom")
+        before = smart_cache_lock_exhausted_total()
+        with caplog.at_level(logging.WARNING):
+            await cache.set(key, "СЕКРЕТНЫЙ-PAYLOAD")   # не должно бросать
+        assert proxy.attempts == 4          # 1 попытка + 3 повтора
+        assert smart_cache_lock_exhausted_total() == before + 1
+        events = [r for r in caplog.records
+                  if "event=smart_cache_lock_exhausted" in r.message]
+        assert events, "ожидался структурный WARNING при исчерпании"
+        assert "op=set" in events[0].message
+        assert f"key={key}" in events[0].message
+        assert "attempts=4" in events[0].message
+        assert "database is locked" in events[0].message
+        # R17: payload в логах отсутствует
+        assert "СЕКРЕТНЫЙ-PAYLOAD" not in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_read_lock_exhausted_returns_none(self, cache, monkeypatch, caplog):
+        """(c) для _read: fail-open (None) + тот же структурный WARNING."""
+        monkeypatch.setattr("services.smart_cache._LOCK_BACKOFF", 0)
+        real = await cache._ensure_db()
+        proxy = _FlakyDB(real, marker="SELECT payload", fail_times=99)
+        cache._db = proxy
+        before = smart_cache_lock_exhausted_total()
+        with caplog.at_level(logging.WARNING):
+            assert await cache.get(build_key("web", "https://x/none")) is None
+        assert proxy.attempts == 4
+        assert smart_cache_lock_exhausted_total() == before + 1
+        assert any("op=get" in r.message and "event=smart_cache_lock_exhausted" in r.message
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_non_lock_error_not_retried(self, cache, monkeypatch, caplog):
+        """(f) не-lock исключение — одна попытка, прежний WARNING."""
+        monkeypatch.setattr("services.smart_cache._LOCK_BACKOFF", 0)
+        real = await cache._ensure_db()
+        boom = _BoomDB()
+        cache._db = boom
+        before = smart_cache_lock_exhausted_total()
+        with caplog.at_level(logging.WARNING):
+            await cache.set("k", "v")        # fail-open, не бросает
+        assert boom.attempts == 1
+        assert smart_cache_lock_exhausted_total() == before
+        assert any("smart cache: set failed" in r.message for r in caplog.records)
+        assert "smart_cache_lock_exhausted" not in caplog.text
+        cache._db = real                     # вернуть реальное соединение (fixture)
+
+    @pytest.mark.asyncio
+    async def test_flag_off_no_pragmas(self, tmp_path, monkeypatch):
+        """(e) kill-switch: PRAGMA не применяются."""
+        calls = []
+
+        async def spy(db):
+            calls.append(db)
+
+        monkeypatch.setattr("services.smart_cache._apply_pragmas", spy)
+        monkeypatch.setattr("services.smart_cache._resilience_enabled", lambda: False)
+        c = SmartCache(str(tmp_path / "off.db"))
+        try:
+            db = await c._ensure_db()
+            assert calls == []                          # PRAGMA не вызывались
+            cur = await db.execute("PRAGMA journal_mode")
+            assert str((await cur.fetchone())[0]).lower() != "wal"
+        finally:
+            await c.close()
+
+    @pytest.mark.asyncio
+    async def test_flag_off_single_attempt(self, tmp_path, monkeypatch, caplog):
+        """(e) kill-switch: при `locked` одна попытка и прежний WARNING."""
+        monkeypatch.setattr("services.smart_cache._resilience_enabled", lambda: False)
+        monkeypatch.setattr("services.smart_cache._LOCK_BACKOFF", 0)
+        monkeypatch.setattr(
+            "services.smart_cache.settings",
+            replace(settings, SMART_CACHE_ENABLED=True,
+                    SMART_CACHE_TTL_SECONDS=60),
+        )
+        c = SmartCache(str(tmp_path / "off_retry.db"))
+        try:
+            real = await c._ensure_db()
+            proxy = _FlakyDB(real, marker="INSERT OR REPLACE", fail_times=99)
+            c._db = proxy
+            before = smart_cache_lock_exhausted_total()
+            with caplog.at_level(logging.WARNING):
+                await c.set(build_key("web", "https://off/x"), "v")
+            assert proxy.attempts == 1
+            assert smart_cache_lock_exhausted_total() == before
+            assert any("smart cache: set failed" in r.message for r in caplog.records)
+            assert "smart_cache_lock_exhausted" not in caplog.text
+        finally:
+            await c.close()
+
+    @pytest.mark.asyncio
+    async def test_init_failure_closes_connection(self, tmp_path, monkeypatch):
+        """(g) провал инициализации → соединение закрыто, self._db is None."""
+        import aiosqlite
+
+        captured = []
+        real_connect = aiosqlite.connect
+
+        async def capturing_connect(path):
+            conn = await real_connect(path)
+            captured.append(conn)
+            return conn
+
+        async def boom_pragmas(db):
+            raise RuntimeError("pragma fail")
+
+        monkeypatch.setattr("services.smart_cache.aiosqlite.connect", capturing_connect)
+        monkeypatch.setattr("services.smart_cache._apply_pragmas", boom_pragmas)
+        c = SmartCache(str(tmp_path / "fd.db"))
+        assert await c._ensure_db() is None
+        assert c._db is None
+        assert len(captured) == 1
+        assert captured[0]._connection is None      # aiosqlite.close() обнуляет
+        # после снятия поломки повторная инициализация возможна и корректна
+        async def ok_pragmas(db):
+            return None
+
+        monkeypatch.setattr("services.smart_cache._apply_pragmas", ok_pragmas)
+        assert await c._ensure_db() is not None
+        await c.close()
