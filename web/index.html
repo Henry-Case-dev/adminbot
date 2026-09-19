@@ -272,13 +272,15 @@
                       <div class="flex-1 min-w-0">
                         <!-- Раунд 10.23 (F5/ADR-1023-5 §D5): чекбокс-поле
                              блока (напр. «Режим GET-запроса»). Значение
-                             уходит в blockDrafts и сохраняется кнопкой. -->
+                             уходит в blockDrafts и сохраняется кнопкой.
+                             F11 (10.24, ADR-1024-12 D5): setBlockBool также
+                             очищает зависимый секрет при включении. -->
                         <template v-if="f.checkbox">
                           <label class="flex items-center gap-2 text-sm pt-2 cursor-pointer">
                             <input type="checkbox" class="w-4 h-4"
                                    :checked="blockFieldBool(f)"
                                    :disabled="!canEditConfig(f.key)"
-                                   @change="blockDrafts[f.key] = $event.target.checked">
+                                   @change="setBlockBool(b, f, $event.target.checked)">
                             <span class="text-gray-300">{{ f.hint || f.label }}</span>
                           </label>
                         </template>
@@ -287,7 +289,10 @@
                              реальное текущее значение; черновик пишется только
                              при правке (@input), поэтому draft==null остаётся
                              «не трогать» (MINOR-3). GET-режим блокирует ввод
-                             ключа (blockDependsOn, F5). -->
+                             ключа (blockDependsOn, F5).
+                             F11 (ADR-1024-12 D3): при {configured:true}
+                             blockFieldValue отдаёт заглушку ••••••••••••,
+                             рядом — явный бейдж «Ключ установлен». -->
                         <input class="field w-full"
                                :type="f.secret && !keyReveal[f.key] ? 'password' : 'text'"
                                autocomplete="off" :placeholder="blockFieldPlaceholder(f)"
@@ -295,7 +300,11 @@
                                @focus="f.secret && $event.target.select()" @mouseup="f.secret && $event.preventDefault()"
                                @input="blockDrafts[f.key] = $event.target.value"
                                :disabled="!canEditConfig(f.key) || blockDependsOn(f)">
-                        <div v-if="f.secret && blockFieldConfigured(f)"
+                        <div v-if="f.globalSecret && blockFieldConfigured(f)"
+                             class="text-[10px] text-green-400 mt-0.5">
+                          Ключ установлен
+                        </div>
+                        <div v-if="f.secret && !f.globalSecret && blockFieldConfigured(f)"
                              class="text-[10px] text-gray-500 mt-0.5">
                           Ключ сохранён (••••{{ last4ByKey(f.key) }}) — можно проверить без ввода
                         </div>

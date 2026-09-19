@@ -579,7 +579,8 @@
           checkbox: true,
           hint: 'Режим GET-запроса (ключ не используется)' },
         { key: 'keys.image_api_key', label: 'Ключ', role: 'api_key',
-          secret: true, dependsOn: 'models.image_get_mode' },
+          secret: true, globalSecret: true,
+          dependsOn: 'models.image_get_mode' },
       ] },
     // 10.11 (spec §2.5, OPEN-Q6): зона «Расширенные настройки».
     { id: 'llm_guard', title: 'Таймауты и защита', modules: 'Общий',
@@ -2345,6 +2346,39 @@
         }
       },
 
+      // F11 (10.24, ADR-1024-12 D4): БЕЗОПАСНЫЙ путь сохранения
+      // провайдерского секрета — в общий POST /api/config секреты не попадают.
+      // `keys.image_api_key` — глобальный секрет: PUT на safe-эндпоинт с
+      // scope:'global' и БЕЗ X-Chat-Id (`global:true`); ответ — маска (R17).
+      // Прочие `keys.*` (per_chat=false) — прежний глобальный POST.
+      saveProviderSecret: async function (key, value) {
+        if (key === 'keys.image_api_key') {
+          return this.api('/api/config/keys/own', {
+            method: 'PUT',
+            body: JSON.stringify({ key_name: key, value: value,
+                                   scope: 'global' }),
+            global: true,
+          });
+        }
+        return this.api('/api/config', {
+          method: 'POST',
+          body: JSON.stringify({ items: [{ key: key, value: value }],
+                                 updated_at: null }),
+          global: true,
+        });
+      },
+      // F11 (10.24, ADR-1024-12 D4): сохранение ГЛОБАЛЬНОГО image-ключа из
+      // карточки-модалки (saveKeyItem): safe-эндпоинт + тот же успешный
+      // жизненный цикл (очистка черновика, тост, reload, ре-сев масок).
+      saveImageKeyItem: async function (item, value) {
+        await this.saveProviderSecret(item.key, value);
+        this.keyDrafts[item.key] = '';
+        this.toast('Ключ обновлён: ' + item.title, 'ok');
+        await this._preserveScroll(this.loadConfig);
+        if (typeof this._seedSecretMasks === 'function') this._seedSecretMasks();
+        return true;
+      },
+
       // ═══ «Доступы» (F-7 T-857): локальные админы активного чата ═══
       loadLocalAdmins: async function () {
         if (this.activeChatId == null) {
@@ -3419,6 +3453,20 @@
         if (!it) return false;
         return it.value === true || it.value === 'true' || it.value === 1;
       },
+      // F11 (10.24, ADR-1024-12 D5): переключение bool-поля блока
+      // (например, «Режим GET-запроса»). При включении зависимые СЕКРЕТЫ
+      // очищаются (черновик ''), при выключении — черновик снимается, и поле
+      // снова показывает маску из БД. Очистка ТОЛЬКО UI: ключ из БД не
+      // удаляется (никакого DELETE — R4).
+      setBlockBool: function (b, f, checked) {
+        this.blockDrafts[f.key] = checked;
+        var self = this;
+        (b && b.fields ? b.fields : []).forEach(function (dep) {
+          if (!dep.secret || dep.dependsOn !== f.key) return;
+          if (checked) self.blockDrafts[dep.key] = '';
+          else delete self.blockDrafts[dep.key];
+        });
+      },
       // Раунд 10.12 (ADR-1012-1 §2.3): маленькая надпись у header каждого
       // подключения = значение первого поля с role === '' («Название модели»).
       // Пусто → прежний текст модуля (x.modules), не пусто/не хардкод.
@@ -3551,17 +3599,23 @@
       },
       // MODERATE-1: сохранение полей блока через /api/config (без потери
       // черновика). Секреты пишутся только если введён новый ключ.
+      // F11 (10.24, ADR-1024-12 D4): секреты ВЫНЕСЕНЫ из общего POST —
+      // идут через saveProviderSecret (image → safe-эндпоинт global).
       saveBlock: async function (b) {
         if (!b || this.blockSaving[b.id]) return;
         var self = this;
         var items = [];
+        var secrets = [];
         b.fields.forEach(function (f) {
           var it = self.configItems.find(function (i) { return i.key === f.key; });
           var draft = self.blockDrafts[f.key];
           if (f.secret) {
             // UPD3-fix/R31: маска-сентинел И её композит (`маска+ввод`) НЕ
             // отправляем — иначе перезапишем реальный секрет «остатком» ввода.
-            if (draft && !hasSecretMask(draft)) items.push({ key: f.key, value: draft });
+            // F11: собранный секрет уходит отдельным безопасным запросом.
+            if (draft && !hasSecretMask(draft)) {
+              secrets.push({ key: f.key, value: draft });
+            }
             return;
           }
           // MINOR-3: `draft == null` = «не трогать»; `''` (пусто) = очистить.
@@ -3577,9 +3631,18 @@
           }
           items.push({ key: f.key, value: v });
         });
-        if (!items.length) { this.toast('Нет изменений', 'warn'); return; }
+        if (!items.length && !secrets.length) {
+          this.toast('Нет изменений', 'warn');
+          return;
+        }
         this.blockSaving[b.id] = true;
         try {
+          // F11: секреты — ТОЛЬКО безопасным путём (по одному), никогда в
+          // теле общего запроса. Никакой `keys.*` в items не попадает.
+          for (var si = 0; si < secrets.length; si++) {
+            await this.saveProviderSecret(secrets[si].key, secrets[si].value);
+          }
+          if (items.length) {
           // Раунд 10.12 (ADR-1012-1 D2): глобальные (per_chat=false) ключи
           // сохраняются БЕЗ X-Chat-Id (иначе 422). Смешанный случай — два
           // последовательных запроса (chat + global).
@@ -3610,6 +3673,7 @@
               }),
               global: allGlobal,
             });
+          }
           }
           this.toast('Сохранено: ' + b.title, 'ok');
           await this._preserveScroll(this.loadConfig);
@@ -4774,14 +4838,13 @@
         var value = (this.keyDrafts[item.key] || '').trim();
         // UPD3-fix/R31: маска/композит → no-op (0 POST), без «отрезания».
         if (hasSecretMask(value)) { this.toast(SECRET_MASK_HINT, 'warn'); return false; }
-        if (!value) {
-          this.toast('Введите новый ключ', 'warn');
-          return false;
-        }
+        if (!value) { this.toast('Введите новый ключ', 'warn'); return false; }
         this.saving.add(item.key);
         try {
-          // Раунд 10.12 (ADR-1012-1 D2, follow-up Scanner LOW): keys.* —
-          // per_chat=false → глобальный путь без X-Chat-Id (иначе 422).
+          // F11: image-ключ — safe-эндпоинт.
+          if (item.key === 'keys.image_api_key') {
+            return await this.saveImageKeyItem(item, value);
+          }
           var isGlobal = item.per_chat === false;
           await this.api('/api/config', {
             method: 'POST',

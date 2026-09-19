@@ -84,3 +84,10 @@ def test_js_unit_round1024_prompts_ui():
     fallback-режим → casual, табы режимов внутри карточек модулей."""
     _run_js(os.path.join("tests", "js", "round1024_prompts_ui_test.js"),
             ok_marker="PROMPTS-UI-UNIT-OK")
+
+
+def test_js_unit_round1024_image_key():
+    """F11 round 10.24 (ADR-1024-12): image-секрет → PUT /api/config/keys/own
+    (global), не в общий POST; маска → 0 запросов; GET-режим disable+clear."""
+    _run_js(os.path.join("tests", "js", "round1024_image_key_test.js"),
+            ok_marker="IMAGE-KEY-OK")

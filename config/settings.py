@@ -636,6 +636,14 @@ class Settings:
     # (аккордеоны + отдельная карточка режимов, код-дефолт `serious`).
     PROMPTS_UI_V2_ENABLED: ClassVar[bool] = _env_bool(
         "PROMPTS_UI_V2_ENABLED", True)
+    # ── Раунд 10.24 (F11, ADR-1024-12 D6 / ADR-1024-13): env-only ClassVar
+    # kill-switch безопасного пути сохранения ГЛОБАЛЬНОГО ключа изображений
+    # через `/api/config/keys/own` (scope=global). default ON, Δ каталога = 0.
+    # Доставка во фронт — `GET /api/me.ui_flags`. OFF → allowlist глобальных
+    # секретов пуст, global-ветка выключена (прежнее поведение с 422);
+    # возврат ручки — env-флаг ON или `git revert`.
+    BYOK_IMAGE_KEY_ENABLED: ClassVar[bool] = _env_bool(
+        "BYOK_IMAGE_KEY_ENABLED", True)
     # ── Раунд 10.22 (F8, ADR-1022-8): env-only ClassVar-рубильники
     # асинхронной пересборки досье из мини-аппа. Δ каталога = 0 (в
     # param_catalog не входят; прецедент MULTILAYER_EXTRACTION_ENABLED).

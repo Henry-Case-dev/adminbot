@@ -18,6 +18,15 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 BYOK_KEYS_WHITELIST: frozenset[str] = frozenset({"keys.llm_api_key"})
+# F11 (10.24, ADR-1024-12 D2): ГЛОБАЛЬНЫЕ секреты-провайдеры — сохраняются в
+# глобальный слой (тем же `cache.set`, что читает image_generation), НЕ в
+# `chat_keys`. Per-chat image-ключ сознательно НЕ добавляем (backend его не
+# резолвит → «ручка без эффекта»). BYOK_KEYS_WHITELIST не расширяется.
+GLOBAL_SECRET_KEYS: frozenset[str] = frozenset({"keys.image_api_key"})
+# Sentinel chat_id для аудита глобального секрета: реальный Telegram-chat_id
+# не бывает 0; `chat_lore_history.field='chat_keys'` переиспользуем (Δ DDL = 0),
+# значения — только '***' (R17).
+GLOBAL_AUDIT_CHAT_ID = 0
 _HISTORY_FIELD = "chat_keys"
 
 SELECT_KEY_SQL = (
@@ -42,6 +51,16 @@ INSERT_HISTORY_SQL = (
 
 def is_whitelisted(key_name: str) -> bool:
     return key_name in BYOK_KEYS_WHITELIST
+
+
+def is_global_secret(key_name: str) -> bool:
+    """F11 (ADR-1024-12 D2): True — ключ из allowlist ГЛОБАЛЬНЫХ секретов И
+    рубильник `BYOK_IMAGE_KEY_ENABLED` включён. OFF → global-ветка отключена
+    (allowlist пуст, прежнее поведение)."""
+    from config.settings import settings
+    if not getattr(settings, "BYOK_IMAGE_KEY_ENABLED", True):
+        return False
+    return key_name in GLOBAL_SECRET_KEYS
 
 
 def mask_key_info(key_name: str, value: str | None) -> dict:
@@ -144,6 +163,27 @@ async def list_own_keys(pg, chat_id: int) -> list[dict]:
                        chat_id, exc_info=True)
         return []
     return [mask_key_info(r["key_name"], r["key_value"]) for r in rows]
+
+
+async def record_global_secret_audit(pg, key_name: str, changed_by: int | None,
+                                     old_value, new_value) -> bool:
+    """F11 (ADR-1024-12): аудит изменения ГЛОБАЛЬНОГО секрета — та же таблица
+    `chat_lore_history` (sentinel-chat, field='chat_keys', Δ DDL = 0), значения
+    ТОЛЬКО '***' (R17: raw не пишем). Fail-open: ошибка аудита не роняет save."""
+    pool = _pool(pg)
+    if pool is None:
+        return False
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(INSERT_HISTORY_SQL, GLOBAL_AUDIT_CHAT_ID,
+                               _HISTORY_FIELD, changed_by,
+                               "***" if old_value else "",
+                               "***" if new_value else "")
+    except Exception:
+        logger.warning("[chat_keys] global audit failed — fail-open | key=%s",
+                       key_name, exc_info=True)
+        return False
+    return True
 
 
 def _iso(value) -> str | None:

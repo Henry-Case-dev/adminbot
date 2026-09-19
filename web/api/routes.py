@@ -138,6 +138,10 @@ class ConfigChatDelete(BaseModel):
 class ChatKeyBody(BaseModel):
     key_name: str
     value: str = ""
+    # F11 (10.24, ADR-1024-12 D1): опциональный scope. "auto" — без X-Chat-Id
+    # и для глобального allowlist → global, иначе chat; "global" — только
+    # global admin + is_global_secret; "chat" — прежний per-chat BYOK.
+    scope: str = "auto"
 
 
 class ChatKeyDelete(BaseModel):
@@ -270,6 +274,37 @@ def _mask_secret(value, telegram_id: int, pg_key: str, cache: ConfigCache) -> di
     return {"configured": True, "last4": str(value)[-4:]}
 
 
+# F11 (10.24, ADR-1024-12 D1): допустимые scope безопасного эндпоинта.
+_KEY_SCOPES = ("auto", "global", "chat")
+
+
+def _resolve_key_scope(scope: str, chat_id: int | None, key_name: str) -> str:
+    """Effective scope для `/api/config/keys/own`.
+
+    `auto` без X-Chat-Id → global ТОЛЬКО для allowlist глобальных секретов
+    (иначе chat → 422 «нужен X-Chat-Id», как раньше). Явный `chat` требует
+    X-Chat-Id. Явный `global` — без X-Chat-Id (права/allowlist проверяет
+    вызывающая ветка)."""
+    if scope not in _KEY_SCOPES:
+        raise HTTPException(status_code=422,
+                            detail=f"неизвестный scope: {scope}")
+    if scope == "global":
+        return "global"
+    if scope == "chat":
+        if chat_id is None:
+            raise HTTPException(status_code=422,
+                                detail="scope=chat требует X-Chat-Id")
+        return "chat"
+    if chat_id is None and chat_keys.is_global_secret(key_name):
+        return "global"
+    return "chat"
+
+
+async def _ctx_global_admin(cache: ConfigCache, user: WebAppUser):
+    """AccessCtx для глобального пути без X-Chat-Id (F11: RBAC global-ветки)."""
+    return await roles_srv.access_for(user.id, cache=cache)
+
+
 # ── Health / me ─────────────────────────────────────────────────────────────
 
 @api_router.get("/health")
@@ -317,6 +352,9 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
             # карточках, fallback-дропдаун один раз). default ON.
             "PROMPTS_UI_V2_ENABLED":
                 bool(settings.PROMPTS_UI_V2_ENABLED),
+            # F11 (10.24, ADR-1024-12 D6): гейт безопасного пути глобального
+            # image-ключа. default ON; OFF → прежняя (сбойная) маршрутизация.
+            "BYOK_IMAGE_KEY_ENABLED": bool(settings.BYOK_IMAGE_KEY_ENABLED),
         },
     }
 
@@ -607,11 +645,20 @@ async def config_keys_own(
 ):
     """Раунд 10 (F-7 §6): маски СОБСТВЕННЫХ ключей чата (R17: никогда raw).
     Права: local admin чата / global admin. F-14 (§3.2): + DM-владелец
-    (BYOK своего ЛС)."""
+    (BYOK своего ЛС).
+    F11 (10.24, ADR-1024-12 D1): без X-Chat-Id → маски ГЛОБАЛЬНЫХ секретов
+    (только global admin; raw никогда)."""
     cache: ConfigCache = get_cache(request)
     chat_id = _chat_id_or_none(x_chat_id)
     if chat_id is None:
-        raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
+        ctx = await _ctx_global_admin(cache, user)
+        if not ctx.is_global_admin:
+            raise HTTPException(status_code=403,
+                                detail="только для глобального админа")
+        masks = [chat_keys.mask_key_info(name, cache.get(name))
+                 for name in sorted(chat_keys.GLOBAL_SECRET_KEYS)
+                 if chat_keys.is_global_secret(name)]
+        return {"keys": masks}
     ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
     # F-14 (§3.2/§3.3): в DM-скоупе доступ ТОЛЬКО владельцу (глобальный
     # админ в ЧУЖОМ ЛС → 403); в группах — global/local admin как раньше.
@@ -633,10 +680,35 @@ async def config_keys_own_put(
 ):
     """Раунд 10 (F-7 §6): запись BYOK-ключа чата (insert-or-replace).
     422 key_name вне whitelist; 403 чужие права; маска в ответе (R17).
-    F-14 (§3.1): DM-владелец своего ЛС + ensure_scope_profile."""
+    F-14 (§3.1): DM-владелец своего ЛС + ensure_scope_profile.
+    F11 (10.24, ADR-1024-12 D1/D2): `scope="global"` (или auto без X-Chat-Id
+    для allowlist) → запись ГЛОБАЛЬНОГО секрета в глобальный слой, ответ —
+    маска; строка в chat_keys не создаётся."""
     cache: ConfigCache = get_cache(request)
     chat_id = _chat_id_or_none(x_chat_id)
+    scope = _resolve_key_scope(payload.scope, chat_id, payload.key_name)
+    if scope == "global":
+        ctx = await _ctx_global_admin(cache, user)
+        if not ctx.is_global_admin:
+            raise HTTPException(status_code=403,
+                                detail="только для глобального админа")
+        if not chat_keys.is_global_secret(payload.key_name):
+            raise HTTPException(
+                status_code=422,
+                detail=f"{payload.key_name}: не глобальный секрет")
+        if not cache.pg_available:
+            raise HTTPException(status_code=503,
+                                detail="PostgreSQL недоступен (R6)")
+        old_value = cache.get(payload.key_name)
+        await cache.set(payload.key_name, payload.value, CATEGORY_KEYS)
+        await chat_keys.record_global_secret_audit(
+            cache.pg, payload.key_name, user.id, old_value, payload.value)
+        _invalidate_provider_health((payload.key_name,))
+        logger.info("[api] global secret upsert | key=%s | by=%s | mode=mask",
+                    payload.key_name, user.id)
+        return chat_keys.mask_key_info(payload.key_name, payload.value)
     if chat_id is None:
+        # scope=auto/chat без X-Chat-Id и без глобального allowlist — прежний 422.
         raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
     ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
     # F-14 (§3.2/§3.3): в DM-скоупе доступ ТОЛЬКО владельцу (глобальный
@@ -672,11 +744,31 @@ async def config_keys_own_delete(
     x_chat_id: Annotated[str | None, Header()] = None,
 ):
     """Раунд 10 (F-7 §6): удаление BYOK-ключа чата.
-    F-14 (§3.2): гейт + DM-владелец своего ЛС."""
+    F-14 (§3.2): гейт + DM-владелец своего ЛС.
+    F11 (10.24, ADR-1024-12 D1): без X-Chat-Id → удаление ГЛОБАЛЬНОГО секрета
+    (global admin + allowlist; сброс глобального слоя + аудит)."""
     cache: ConfigCache = get_cache(request)
     chat_id = _chat_id_or_none(x_chat_id)
     if chat_id is None:
-        raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
+        ctx = await _ctx_global_admin(cache, user)
+        if not ctx.is_global_admin:
+            raise HTTPException(status_code=403,
+                                detail="только для глобального админа")
+        if not chat_keys.is_global_secret(key_name):
+            raise HTTPException(status_code=422,
+                                detail=f"{key_name}: не глобальный секрет")
+        if not cache.pg_available:
+            raise HTTPException(status_code=503,
+                                detail="PostgreSQL недоступен (R6)")
+        had_value = bool(cache.get(key_name))
+        if had_value:
+            await cache.set(key_name, "", CATEGORY_KEYS)
+            await chat_keys.record_global_secret_audit(
+                cache.pg, key_name, user.id, True, "")
+        _invalidate_provider_health((key_name,))
+        logger.info("[api] global secret delete | key=%s | by=%s | removed=%s",
+                    key_name, user.id, had_value)
+        return {"removed": had_value}
     ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
     # F-14 (§3.2/§3.3): в DM-скоупе доступ ТОЛЬКО владельцу (глобальный
     # админ в ЧУЖОМ ЛС → 403); в группах — global/local admin как раньше.
