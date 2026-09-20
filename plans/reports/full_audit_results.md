@@ -6,6 +6,62 @@
 
 ---
 
+## Round 10.25 «F0: конфигурация + устойчивость к database is locked» — 20.09.2026, Step 6 @Scanner
+
+**Diff `pre-round1025..HEAD`** (коммиты `c0cb8aa`…`9a5f265`), фича F0 (P0, Wave 0).
+Полный отчёт: `plans/reports/round1025_f0_scanner_audit.md`.
+
+**Сводка: Critical 0 / High 1 / Medium 3 / Low 8 / Info 6.**
+_(исходный снимок на `9a5f265`; H 10.25-1 закрыт коммитом `5dd2b0d` — см. «Повторный аудит» ниже)._
+Доказательство: `pytest` по 4 файлам раунда = **32 passed**;
+`node tests/js/round1025_save_state_test.js` и `round1025_cliche_ui_test.js` = OK;
+секретов в диффе нет (архивный R10.18-12 диффом не затронут).
+
+**High (блокер Шага 7):**
+- [H10.25-1] `web/app.js:3861-3908` (`saveBlock`) ложно сообщает «Сохранено:
+  <title>» при частичном провале (saved непуст + failed непуст) и при полном
+  in-flight-пропуске (`skipped` непуст, `saved`/`failed` пусты). Регрессия
+  против pre-F0 (падавший POST всплывал в `catch`). Фикс: успех только при
+  `res.state==='saved' && !failed.length && !skipped.length`.
+
+**Medium:**
+- [M10.25-1] `services/database.py:596-616` — `write_transaction` ловит
+  `Exception`, а не `BaseException`: при `CancelledError` rollback не делается
+  (вразрез с docstring `:580-583`) → возможны незакоммиченные «огрызки»,
+  подхватываемые следующим `commit()`.
+- [M10.25-2] `web/app.js:5217-5220` — global per-key `updated_at` не шлётся
+  клиентом (GET его отдаёт, `routes.py:474`); global optimistic инертен через UI.
+- [M10.25-3] `web/api/routes.py:995-1002` — 409 `conflicting` может вернуть
+  `server_value` сырого секрета `keys.*` (R17); chat-путь безопасен.
+
+**Low:** L10.25-1 `_patch_already_applied` meta-only → ложный revalidated
+(недостижимо через роуты); L10.25-2 LRU `_chat_write_locks` soft-cap не
+ограничивает рост при всех занятых локах; L10.25-3 `notify` читает `_opNotified`
+до проверки типа; L10.25-4 очередь тостов молча вытесняет новый того же
+приоритета; L10.25-5 `saveState` не возвращает `'saved'` (при `stateLabel`);
+L10.25-6 дубль `_REFRESH_ACTIVE_CAP`; L10.25-7 cliche UI-тест статический
+(grep); L10.25-8 `set_many` fallback без транзакции (тест-двойники).
+
+**Подтверждённые инварианты:** single-writer сериализация (`write_transaction`);
+rollback на не-lock исключение (ON и OFF); `commit_if` паритет
+(`touch_graph_facts`); advisory-lock внутри транзакции; scope-изоляция A≠B;
+idempotent short-circuit 200/`revalidated`; атомарная валидация global-пакета;
+XSS-safe рендер тостов (`{{ }}`); R17-логи событий без фраз/значений;
+анти-клише bounded (rounds/per-run/dedup).
+
+**Вердикт:** к Шагу 7 без правок — **нет**; обязателен фикс H10.25-1
+(желательно + M10.25-1).
+
+**ПОВТОРНЫЙ АУДИТ (после `5dd2b0d`/`83fc4c4`): Critical 0 / High 0 → к Шагу 7
+(Merge) ДА.** Закрыты H10.25-1, M10.25-1, M10.25-3, Low L10.25-1/3/4/5/6; M10.25-2
+отложен и зафиксирован. Новых находок нет. pytest **7946 passed** (106.27s),
+JS **19/19**; новые тесты падают на pre-fix `9a5f265`. Δ DDL=0, Δ каталога=0,
+промпты/`smart_cache` не тронуты, `git diff --check` = 0, секретов нет.
+Подробно: `round1025_f0_scanner_audit.md` §5.
+
+
+---
+
 ## Round 10.24 «Disaster Recovery: UI & Backend Bloat» (UPD2–UPD6) — 20.09.2026, Step 6 @Scanner
 
 **Baseline `00eab85` → HEAD `379cfdd`** (132 файла, +18264/−1016). Фичи F1–F24.

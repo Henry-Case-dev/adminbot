@@ -78,3 +78,9 @@
 ## Human Gate
 
 - **Открытые вопросы** (см. spec §10): нужен ли per-key optimistic-лок в этом раунде или достаточно serialize+short-circuit; допустимо ли 409 с `conflicting` для global-пути сразу или аддитивно. Значения (retry одна попытка recovery, без авто-повторов) — техническая настройка @Architect. Прогрессивная раскатка не требуется.
+
+## Merge (10.25, Step 7)
+
+- **Статус: реализовано/принято** (@Reviewer Approved iter3; @Scanner 0 Critical/0 High). Ссылка в архитектуре: `plans/ARCHITECTURE.md` **§9** (канонический save-path) и **§52.1**.
+- **Фактические артефакты реализации:** клиент — `web/app.js::persistItems` + computed `saveState` + `notify(operationId, result)`; сервер — `services/chat_params.py` (`ChatParamsConflict.conflicting`, `_patch_already_applied`, `_chat_write_locks` LRU, `pg_advisory_xact_lock`), `web/api/routes.py` (`revalidated`, `_post_config_global`, `ConfigItemUpdate.updated_at`, маска `keys.*` в `conflicting`).
+- **Human Gate закрыт:** выбран вариант **serialize + idempotent short-circuit + §2.3-recovery** (A2 «per-key optimistic» для global — **отложено, M-2**: UI пока не шлёт `item.updated_at`; серверная ветка активна для API-клиентов). A1/A3/A4 отклонены без изменений; авто-retry по-прежнему запрещён.

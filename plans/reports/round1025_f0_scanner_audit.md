@@ -4,6 +4,11 @@
 > (коммиты `c0cb8aa`, `7af2539`, `82722ad`, `2c3b7ed`, `5030fc6`, `d5750fc`,
 > `d6ed9db`, `9a5f265`). @Reviewer уже дал Approved — здесь независимый поиск
 > логических ошибок/регрессий. Код не менялся.
+>
+> **ОБНОВЛЕНО (повторный аудит после `5dd2b0d`/`83fc4c4`): Critical 0 / High 0 —
+> к Шагу 7 (Merge) ДА.** H-1, M-1, M-3 и Low L-1/L-3/L-4/L-5/L-6 закрыты и
+> подтверждены доказательно (см. §5). Ниже §1–§4 — исходный аудит (исторический
+> снимок на `9a5f265`).
 
 ---
 
@@ -223,3 +228,70 @@
 **Продолжать к Шагу 7 без правок: НЕТ** — до закрытия H-1 (и, желательно, M-1).
 После закрытия H-1 достаточно точечной проверки + повторного прогона
 `test_save_state_machine_round1025.py`/JS save-state теста.
+
+---
+
+## 5. Повторный аудит (после `5dd2b0d`, `83fc4c4`) — 20.09.2026, @Scanner
+
+> Проверялось по коду и запуском тестов, не по отчёту Builder.
+
+**Вердикт: Critical 0 / High 0 → можно к Шагу 7 (Merge) — ДА.**
+
+### 5.1. Подтверждение закрытия
+
+- **H-1 (был High) — ЗАКРЫТ.** `web/app.js:3916-3944` (`saveBlock`):
+  `allOk = state==='saved' && !failed.length && !skipped.length`; при false —
+  `warn`/`err` с числом сохранённых и перечнем неподтверждённых, `ok`-тоста нет.
+  Ветка `persistResult === null` (только секреты / legacy) сохранена.
+  **Доказательство «падает без фикса»:** отдельный worktree на pre-fix `9a5f265`
+  (репозиторий не менялся) — изолированная проба `saveBlock` дала
+  `ok-toast=true` и при частичном провале, и при полном in-flight-пропуске
+  (`H1-PROBE-FAILS-ON-PREFIX`); полный JS-тест на pre-fix падает. Post-fix: JS
+  тесты 10a/10b (реальный `saveBlock`, не заглушка) проходят.
+- **M-1 (был Medium) — ЗАКРЫТ.** `services/database.py:593` (OFF) и `:606` (ON):
+  `except BaseException`; `rollback` вызывается, retry — только для `locked`
+  (`_is_locked`), `CancelledError`/`KeyboardInterrupt` пробрасываются дальше.
+  `test_cancelled_error_rolls_back` (cancel во время `op` + проверка, что
+  следующий писатель не «подхватывает» огрызки) на pre-fix **падает**,
+  post-fix проходит.
+- **M-3 (был Medium) — ЗАКРЫТ.** `web/api/routes.py:997-1004`: для
+  `entry["category"] == CATEGORY_KEYS` в `conflicting` кладётся
+  `server_value: null` + `secret: true`; сырое серверное значение не отдаётся
+  (chat-путь и так безопасен — там `keys` = метаданные). Тест
+  `test_secret_conflict_does_not_leak_server_value` на pre-fix падает,
+  post-fix проверяет отсутствие значения в сериализованном `detail`.
+- **Low, заявленные закрытыми — ЗАКРЫТЫ:**
+  - **L-1** `_patch_already_applied`: флаг `compared`; meta-only/пустой патч
+    больше не даёт `revalidated` (+тест `test_patch_already_applied_requires_value_keys`,
+    падает на pre-fix).
+  - **L-3** `notify`: нормализация `_opNotified` до чтения ключа (`app.js:5147-5153`).
+  - **L-4** `toast`: цикл вытеснения удаляет **самый старый** тост наименьшего
+    приоритета; новый виден (+обновлённое утверждение в JS-тесте, падает на pre-fix).
+  - **L-5** `stateLabel`: мёртвая ветка `saved` удалена (`app.js:8130-8134`).
+  - **L-6** дубль `_REFRESH_ACTIVE_CAP` удалён — осталось ровно одно определение
+    (`services/database.py:49`).
+- **M-2 (не блокер) — корректно отложен и зафиксирован.**
+  `plans/reports/f0-round1025-report.md:123` — статус `⏳`, явно: «Не в этом круге
+  (аддитивная ветка; UI шлёт без токенов). Требует прокидывания `item.updated_at`».
+  Согласуется с ADR-1025-2 A2 (per-key optimistic — отложено) и spec §2/D-409-3
+  («если клиент прислал `updated_at`»). Регрессии нет.
+
+### 5.2. Фактические цифры и инварианты
+
+- **pytest:** `.venv` Python 3.12 → **7946 passed, 1 warning in 106.27s** (заявленное подтверждено).
+- **JS:** все **19/19** файлов `tests/js/*` → `exit 0` (включая оба `round1025_*`).
+- **Валидность новых тестов (pre-fix `9a5f265`, отдельный worktree):**
+  `3 failed, 25 passed` — падают ровно три новых Python-теста (M-1, M-3, L-1);
+  JS save-state падает. Значит тесты не тавтологичны.
+- **Δ DDL = 0, Δ каталога = 0:** среди файлов фикса нет `migrations/schema/param_catalog/settings.py`
+  (проверено `git diff --name-only 9a5f265..HEAD`); `services/database.py` изменён
+  только в логике `write_transaction`.
+- **Промпты не тронуты; `smart_cache` не тронут** (в списке изменённых файлов их нет).
+- **Секреты:** в диффе фикса `password/passwd/BEGIN …KEY/ssh/api_key=` — 0 совпадений;
+  M-3-тест использует плейсхолдеры (`SECRET-OLD-VALUE`); значение нигде не логируется.
+- **`git diff --check 9a5f265..HEAD`** → exit 0 (пробельных ошибок нет).
+- **Новых регрессий от правок не найдено.** Замечаний/находок сверх закрытых — нет;
+  остаточные Info из §2 (anticliche merge, advisory-таймаут и т.п.) в силе как Info.
+
+**Итог §5: Critical 0 / High 0 / новых Medium 0 / новых Low 0 → к Шагу 7 (Merge) — ДА.**
+

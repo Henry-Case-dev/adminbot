@@ -1,5 +1,47 @@
 # Global Map (architectural memory)
 
+## Round 10.25 «F0: конфигурация + устойчивость к database is locked» (20.09.2026, Step 6 @Scanner)
+
+- **Diff `pre-round1025..HEAD`** (коммиты `c0cb8aa`…`9a5f265`). Фича F0
+  (`f0-config-bugfixes-round1025`), P0 Wave 0.
+- **Итог: 0 Critical / 1 High / 3 Medium / 8 Low / 6 Info.** Отчёт:
+  `plans/reports/round1025_f0_scanner_audit.md`.
+  **Вердикт: Шаг 7 заблокирован до закрытия H-1** (ложный успех `saveBlock`).
+- **ПОВТОРНЫЙ АУДИТ (после `5dd2b0d`/`83fc4c4`): 0 Critical / 0 High / новых
+  Medium 0 → к Шагу 7 (Merge) ДА.** Закрыты H-1 (`saveBlock` успех только при
+  `state==='saved' && !failed && !skipped`), M-1 (`except BaseException` +
+  rollback, retry только `locked`), M-3 (`server_value:null`+`secret:true` для
+  `keys.*`), Low L-1/L-3/L-4/L-5/L-6. **M-2** отложен и зафиксирован
+  (`f0-round1025-report.md:123`). Цифры: pytest **7946 passed** (106.27s), JS
+  **19/19**; новые тесты падают на pre-fix `9a5f265` (3 failed / 25 passed + JS).
+  Δ DDL=0, Δ каталога=0, промпты/`smart_cache` не тронуты, `git diff --check` = 0,
+  секретов в диффе нет.
+- **Ключевые связности раунда:**
+  - **F0.5 DB-write:** `services/database.py::DatabaseService.write_transaction`
+    (single-writer `self._lock` + bounded retry `_LOCK_RETRIES`/backoff,
+    `_note_lock_exhausted`/`database_lock_exhausted_total`, `commit_if`) — единая
+    обёртка для `insert_graph_fact(commit=True)`, `upsert_bot_reply`,
+    `touch_graph_facts`; kill-switch `settings.DB_LOCK_RESILIENCE_ENABLED`
+    (env-only ClassVar, Δ каталога = 0). Переведены также
+    `services/persistent_throttling.py` (`_db_write`) и
+    `services/summary_memory.py::_embed_cache_store` (сырой `db.db` убран, T-2449).
+  - **F0.1 save-path:** `web/api/routes.py::_post_config_global` (2 прохода:
+    валидация → per-key optimistic → `ConfigCache.set_many`, одна PG-транзакция);
+    `services/chat_params.py` (`ChatParamsResult.revalidated/updated_at`,
+    `ChatParamsConflict.conflicting`, `_patch_already_applied`/`_diff_patch`,
+    in-process `_chat_write_lock` LRU + PG `pg_advisory_xact_lock`).
+  - **Клиент:** `web/app.js::persistItems` — единая точка (guard in-flight по
+    ключу, scope-split chat/global, 409-recovery), `saveState` computed +
+    `sticky-save` (`data-save-state`), `notify`/`toast` (дедуп, очередь ≤3).
+    Связь с **F9** `secrets-and-save-states-round1025` (F9 читает результат F0,
+    UI-слой секретов — там).
+  - **F0.3 анти-клише:** `services/anticliche_worker.py` — capacity vs per-run
+    (`ANTICLICHE_MAX_PATTERNS_PER_RUN`), bounded rounds (`ANTICLICHE_MAX_ROUNDS`),
+    merge-дедуп против БД (`_normalize_stored`), события `ANTI_CLICHE_*`;
+    `web/api/anticliche.py` отдаёт `per_run`/`max_rounds` (аддитивно).
+  - **F0.4:** safe-area тостов (`web/static/app.css`), «Подробнее» для длинных
+    ошибок, per-field подсветка `is-save-failed`.
+
 ## Round 10.24 «Disaster Recovery: UI & Backend Bloat» (UPD2–UPD6, 20.09.2026, Step 6 @Scanner)
 
 - **Baseline `00eab85` → HEAD `379cfdd`** (132 файла, +18264/−1016). 24 фичи F1–F24.

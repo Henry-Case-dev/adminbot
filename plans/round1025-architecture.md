@@ -1,0 +1,173 @@
+# Round 10.25 — сквозной архитектурный слой (Step 2 @Architect · Эпик 1 «Liquid Glass Control Center»)
+
+> **Назначение:** архитектурная карта раунда 10.25 (аналог `plans/archive/round1023-architecture.md` / `round1024-architecture.md`) — чтобы видеть фичи, их слои, зависимости, ступени общих файлов, инварианты и kill-switch’и в одном месте.
+> **Мастер-ТЗ:** `plans/current_task.md` v6.0 — **untracked**, в git НЕ коммитить, секреты не цитировать (R17/R18).
+> **Baseline:** ветка `master`, HEAD `da561bc` (раунд 10.24, ✅ COMPLETED+DEPLOYED+ARCHIVED); pytest **7911/0**; SQLite `user_version=12`; каталог **REGISTRY 459 / GROUPS 98 / `_TAB_BY_GROUP` 96 / TAB_RULES 21 / Settings 418**; APP_VERSION 2.58.0.
+> **Объём Эпика 1:** **12 фич (F0 + F1–F11)**, приоритет P0. **F0 (Wave 0, добавлена UPD)** — обязательные багфиксы сохранения конфигурации, выполнялась **до F1**; папка — `plans/archive/f0-config-bugfixes-round1025/` (**✅ ARCHIVED**, Шаг 8 @PM 20.09.2026; spec.md + 4 ADR + tasks.md, T-2410…T-2455). Внутри F0 — блок **F0.5 «устойчивость к `database is locked`»** (T-2442…T-2455) — прод-деградация 20.09.2026, **расширение ADR-1024-18** (`plans/archive/sqlite-lock-resilience-round1024`, `smart_cache`) на `database.py`/`summary_memory`/`persistent_throttling`. Эпик 2 (Summary Hybrid Pipeline) — **не** в этом раунде; стартует только после приёмки Эпика 1 (F10). **Эпик 3 «Agentic Intelligence»** (раунд 10.26+, после Эпиков 1–2) — **верхнеуровнево** в `plans/backlog.md` (фичи A0–A10); архитектура — отдельным `round*-architecture.md` при старте Эпика 3.
+>
+> **📌 PM-аннотация (UPD, Step 1):** F0 добавлена в Wave 0, изменён порядок фич (F11 перед F9), F9 сужена (persistence/409 → F0). **Детальный `spec.md`/ADR по F0 и AMEND `physical-two-call-pipeline` для Эпика 3 — зона Step 2 @Architect** (PM архитектуру не создаёт).
+>
+> **✅ F0 — COMPLETED + MERGED + ARCHIVED (Step 7 Merge / Шаг 8 @PM, 20.09.2026):** реализована и принята — @Reviewer **Approved** (итерация 3), @Scanner **Critical 0 / High 0** (повторный аудит, `round1025_f0_scanner_audit.md` §5); ADR **1025-2/3/4/5** приняты; контракты интегрированы в глобальную архитектуру — `plans/ARCHITECTURE.md` **§9** (save-path/409), **§10** (DB-lock наблюдаемость), **§49** (анти-клише AMEND), **§51** (F17 AMEND), **§52** (полный раздел F0). pytest **7946/0**; JS **19/19**; Δ DDL=0; Δ каталога=0; `smart_cache` не тронут; остаточный техдолг — **M-2** + Info/Low (§52.8). **Архив:** `plans/archive/f0-config-bugfixes-round1025/`. **⚠️ Live-приёмка (T-2419/T-2433/T-2454) — post-deploy gate, НЕ выполнена; деплой в прод НЕ подтверждён.** Бэкап `var/backups/web-round1025-f0-<ts>/` и теги `pre-round1025*` хранятся до утверждения владельцем (R18).
+
+---
+
+## 1. Обзор фич
+
+| # | Фича (папка `plans/features/*-round1025`; ✅ архивные — `plans/archive/*`) | Слой | Роль | Зависит от | Δ каталога | DDL | Kill-switch |
+|---|---|---|---|---|---|---|---|
+| **F0** ✅ | `plans/archive/f0-config-bugfixes-round1025/` (ARCHIVED, Шаг 8 @PM) | persistence/state + UI (web/api) + **backend (надёжность БД, F0.5)** | **Wave 0, выполнялась ДО F1** | — | 0 | 0 | — (F0.1–F0.4 багфикс); **F0.5 → `DB_LOCK_RESILIENCE_ENABLED`** (env-only, default ON) |
+| **F1** | `ia-shell-navigation-round1025` | IA + app shell (web + nav-метаданные) | **ядро/каркас** | F8 (Wave 0), **F0** (контракт сохранения) | nav-метаданные (0 ParamSpec/Group) | 0 | `IA_V2_ENABLED` |
+| **F2** | `design-tokens-liquidglass-v2-round1025` | web (CSS/токены) | визуал | F1 | 0 | 0 | (по фиче) |
+| **F3** | `global-scope-selector-round1025` | UI + state (web) | §5 селектор области | F1 | 0 | 0 | — |
+| **F4** | `module-catalog-quickpanel-store-round1025` | UI + state (web) | §31–§45 каталог/избранное/store | F2, F3 | 0 | 0 | — |
+| **F5** | `module-workspace-tabs-round1025` | UI + IA (web) | §46/§48 workspace-табы | F4 | 0 | 0 | — |
+| **F6** | `memory-analytics-reorg-round1025` | UI + adapter (web/api) | §4/§21–§30 память↔аналитика, ExecutionGraph | F1, F4 | 0 | 0 | — |
+| **F7** | `permsoc-local-space-round1025` | UI + backend | §60–§67 локальное пространство PERMsoc | F3, F4 | 0 (ожид.) | 0 (ожид.) | — |
+| **F8** | `parameter-registry-widget-map-round1025` | реестр/инвентарь (enabler, **Wave 0**) | §1/§2/§3/§117 реестр + карта виджетов + бэкап | — | 0 | 0 | — |
+| **F9** | `secrets-and-save-states-round1025` | UI + API | §50 секреты + визуальный SaveBar §69/§78 (**persistence/409/state → F0**) | **F0**, F4, F5 | 0 | 0 | — |
+| **F10** | `epic1-verification-round1025` | верификация (gate) | §71–§79/§114/§116/§117 приёмка Эпика 1 (+ критерии §6 F0) | **F0**, F1–F9, F11 | — | — | — |
+| **F11** | `status-showcase-dashboard-round1025` | UI (web) | §11–§21 композиция виджетов Статуса | F1, F2, F6 | 0 | 0 | — |
+
+> **Итог Эпика 1:** Δ каталога = **0** (только nav-метаданные F1; реестр F8 — read-only инвентарь; F0 — багфикс); Δ DDL = **0** (SQLite `v12`, PG без изменений; **F0.5 — тоже Δ DDL = 0**, без миграций). Новые рубильники — env-only `ClassVar` (default ON), вне `param_catalog`. **F0.1–F0.4 — без флагов** (откат: `git revert` + точка отката T-2410); **F0.5 — `DB_LOCK_RESILIENCE_ENABLED`** (default ON, откат флагом OFF).
+>
+> **Статус F0 (обновлено на Archive/Шаг 8):** ✅ **COMPLETED + MERGED + ARCHIVED** — папка перенесена в `plans/archive/f0-config-bugfixes-round1025/` (spec.md + 4 ADR + tasks.md; содержимое/чекбоксы/UTF-8 сохранены); pytest **7946 passed / 0 failed** (база 7911 → +35); JS **19/19**; Δ DDL=0 (`user_version=12`); Δ каталога=0 (REGISTRY 459 / GROUPS 98 / `_TAB_BY_GROUP` 96 / Settings 418); `smart_cache` не переписан. Новые env-only `ClassVar`: `DB_LOCK_RESILIENCE_ENABLED` (ON), `ANTICLICHE_MAX_PATTERNS_PER_RUN` (40), `ANTICLICHE_MAX_ROUNDS` (3). **⚠️ Открыты live-приёмки @DevOps (post-deploy gate, НЕ выполнены): T-2419 / T-2433 / T-2454** (§52.9 `ARCHITECTURE.md`); **деплой в прод не подтверждён**. Бэкап/теги `pre-round1025*` не удаляются до утверждения владельцем (R18).
+
+---
+
+## 2. Порядок и ступени
+
+**Сквозной порядок (обновлён UPD: F0 — Wave 0 ДО F1; F11 перед F9):**
+```
+F0 ✅ ARCHIVED (Wave 0: точка отката + багфиксы сохранения §1–§6; `plans/archive/f0-config-bugfixes-round1025/`)
+  └ внутри: T-2410 (откат) → T-2411 (репро) → F0.5 (T-2442…T-2455: database is locked, ПЕРВЫМ по приоритету) → F0.1 → F0.2 → F0.3 → F0.4 → T-2439…T-2441
+  └ post-deploy gate (НЕ выполнен): T-2419 / T-2433 / T-2454 ──► F1 (только после критических фиксов F0)
+F8 (Wave 0 ∥ F0: инвентарь/бэкап/baseline) ──► читается F1
+   └─► F1 (IA + shell + роутинг + kill-switch)  ── каркас всего
+          ├─► F2 (Liquid Glass токены) ─┐
+          ├─► F3 (селектор области) ────┴─► F4 (каталог + store) ─► F5 (workspace-табы)
+          │                                                        ├─► F6 (память/аналитика) ─► F11 (Статус-виджеты)
+          │                                                        ├─► F7 (PERMsoc)
+          │                                                        └─► F9 (секреты UI + SaveBar)
+   └─► F10 (приёмка Эпика 1 — gated, последняя: после F1…F9, F11)
+```
+
+**Ступени общих файлов (строго сериализовано):**
+- `services/param_catalog.py`: **F1 (nav-метаданные) → F8 (реестр/карта) → F4/F5/F7**.
+- `web/app.js`, `web/index.html`, `web/static/app.css`: **F0 → F1 → F2 → F3 → F4 → F5 → F6 → F7 → F11 → F9 → F10**.
+- `config/settings.py`: F1 (`IA_V2_ENABLED`) → далее аддитивно по фичам.
+- `web/api/routes.py`: **F0 (save/state-machine)** → F1 (`ui_flags` +1 bool) → далее аддитивно.
+- `web/static/telegram-init.js`: **F1**.
+
+Правило: фича более поздней ступени читает результат предыдущей и не переписывает её блоки.
+
+---
+
+## 3. F1 — ключевые архитектурные решения (детали в `spec.md` / `adr-1025-1-ia-v2.md`)
+
+### 3.1. Новая IA (§4)
+```
+Публичные:   Статус (#/, стартовая) · Справка (#/how)
+Админ:       Модули (#/modules) · ИИ (#/ai) · Память (#/memory) · Доступы (#/access)
+Локальное:   PERMsoc (#/permsoc)
+
+#/memory hub:  #/memory/rag · #/memory/lore · #/memory/relations
+#/ai hub:      #/ai/llm · #/ai/prompts · #/ai/smart-cache · #/ai/names · #/ai/persona
+#/modules:     #/modules/budgets · #/modules/images
+#/access:      #/access/{roles,local,admins}
+```
+- Статус — единственная главная; отдельной «Обзор» нет.
+- «Сводка» → «Аналитика» (**label**; канонический hash `#/oversight` сохранён), открывается из Статуса.
+- «Память» — отдельный раздел; из «ИИ» уезжают `memory_rag`, `chat_lore`, `relations`.
+- PERMsoc остаётся локальным.
+- Legacy-алиасы: `#/ai/memory|/lore|/relations` → новые.
+
+### 3.2. Backend nav-метаданные (Δ=0)
+`services/param_catalog.py`: `NAV_MEMORY="memory"`, `NAV_TITLES["memory"]="Память"`, `NAV_ORDER=(modules,ai,memory,permsoc)`, `TAB_NAV`: 3 переноса в `memory`. `TAB_RULES`/`GROUPS`/`REGISTRY` не трогаются. `GET /api/access/param_permissions` группирует матрицу по новому `nav` автоматически.
+
+### 3.3. Kill-switch
+`IA_V2_ENABLED` env-only `ClassVar` (default **ON**), доставка `GET /api/me.ui_flags` (ADR-1024-13). OFF → legacy-константы `NAV_ITEMS`/`HUBS` + `.navbar-band` рендерятся как раньше (байт-в-байт). Legacy-константы сохраняются литерально.
+
+### 3.4. Shell (§6/§7) и адаптивность (§70)
+- ≥1200: sidebar ≈232 + header ≈64 + контент; формы 1200–1440.
+- <768: компактный header, селектор области под заголовком (F3), одна колонка, `.bottom-nav` (админ: Статус/Модули/ИИ/Ещё; пользователь: Статус/Справка), «Ещё» (Справка/Память/Доступы/PERMsoc/Профиль); без 7-вкладочной полосы.
+- 4 диапазона (320–767 / 768–991 / 992–1199 / ≥1200), `container queries`, без горизонтального скролла страницы, touch ≥44×44.
+- TMA: `BackButton`, `viewportStableHeight`, `safeAreaInset`, `contentSafeAreaInset` (`telegram-init.js`).
+
+### 3.5. Сохранность
+Δ каталога=0 · Δ DDL=0 · API аддитивен · baseline-фикстура `sorted(pg_key)`/`{group_id: tab_id}` + тест равенства множеств (никакой параметр/группа не потеряны) · 100% покрытие «inventory ↔ IA-map» · OFF/ON-тест.
+
+---
+
+## 4. SUPERSEDE / REVISE карта
+
+| Ранее | Действие | Причина |
+|---|---|---|
+| menu-freeze 10.20/10.21 (`test_frontend_tab_mapping`, `test_webapp_nav_disclosure_ui`, `test_round106_ia_smoke`, `NAV_ORDER`/`TAB_NAV`/`NAV_ITEMS`) | **SUPERSEDE → ADR-1025-1 D4** | ТЗ §4 задаёт новую IA; заморозка снимается |
+| «navbar = ровно 6 пунктов» (7 тестовых файлов, см. F1 spec §3.5) | **SUPERSEDE** | Появление «Памяти» (7-й пункт) и sidebar |
+| «sidebar запрещён» (10.6 A1) | **SUPERSEDE** | ТЗ §6 вводит desktop-sidebar ≥1200 |
+| OD4 10.20 (`#161616`/`#14CBB6`) / 10.20-UPD3 orange | **SUPERSEDE → F2/ADR-1025-2** (палитра §8) | ТЗ §8/§9/§10 |
+| 10.24 F6 `prompts-refactor-accordion-modes` | **REVISE → F5 (workspace-табы §48/§69)** | Аккордеоны как основная навигация запрещены |
+| «Сводка» (label 10.8) | **RENAME → «Аналитика»** | ТЗ §4/§21 |
+| Persistence/409/412/state-machine сохранения в F9 (исходная декомпозиция) | **MOVE → F0 (Wave 0)**; F9 сужена до UI-секретов + визуального SaveBar | UPD §2/§6: неисправное сохранение нельзя переносить в новые компоненты |
+| `ADR-1024-18` (устойчивость `smart_cache` к `database is locked`, 10.24 F17 `sqlite-lock-resilience-round1024`) | **AMEND/EXTEND → F0.5 / ADR-1025-5** — тот же контракт (PRAGMA-паритет WAL/`busy_timeout=5000`/`synchronous=NORMAL`; bounded retry **только на `locked`** `_LOCK_RETRIES=3`/backoff 0.1/0.2/0.4с; явный `event=*_lock_exhausted` + счётчик; fail-open последним рубежом; env-only kill-switch) на `services/database.py` (`write_transaction`: single-writer `self._lock` + `commit_if` + rollback на `BaseException`/`CancelledError`) + `summary_memory.py` + `persistent_throttling.py` + `direct_chat_service.py` | прод-логи 20.09.2026: 6 стеков `database is locked` (chat_id -1002661910336); тот же класс дефекта вне зоны прошлого фикса; `smart_cache` **не дублируется**. ✅ реализовано/принято |
+| `ADR-1012-1`/`ADR-1024-21` (per-chat save-path, merge `overrides`/`perm_overrides`) | **AMEND → F0.1/F0.2 / ADR-1025-2** — serialize мутаций по `chat_id` (`asyncio.Lock` + `pg_advisory_xact_lock`), idempotent short-circuit `revalidated:true`, честный 409 `conflicting[]`, единый `persistItems`, атомарный global `ConfigCache.set_many` + per-key optimistic | одно действие порождало 2 мутации с одним токеном → ложный 409 + три противоречивых тоста. ✅ реализовано/принято; merge-контракт F20 сохранён |
+| `ADR-1023-4 D2`/`ADR-1024-3` (лимит анти-клише) | **AMEND → F0.3 / ADR-1025-3** — разведены «вместимость БД» (`limits.anticliche_max_patterns`) и «размер партии» (`ANTICLICHE_MAX_PATTERNS_PER_RUN`); bounded-пополнение (`ANTICLICHE_MAX_ROUNDS` + `worker_budget`); дедуп против БД; «0 новых» ≠ `llm_error`; ключ global-only | conflation семантик → усечённый JSON/«20 вместо 200» + ложная «ошибка модели». ✅ реализовано/принято |
+| 10.8/10.20 save-UI (SaveBar/тосты) | **AMEND → F0.4 / ADR-1025-4** — один итог на операцию (`notify(operationId,result)`, `err>warn>ok`, очередь ≤3, safe-area, per-field ошибки, `saveState` в sticky-save) | запрет противоречивых/перекрывающих уведомлений (§5 ТЗ). ✅ реализовано/принято |
+| `physical-two-call-pipeline` (инвариант «ровно 2 LLM-вызова», 10.22) | **AMEND (Эпик 3, Step 2)** — `action`-решение не добавляет **третий** LLM-вызов | UPD §13/§38 |
+| `response_mode` = стиль Вербализатора (ADR-1023-3) | **AMEND (Эпик 3, Step 2)** — разделить `action` {reply/react/silent/tool} и `style` | UPD §38/§39 |
+
+---
+
+## 5. Инварианты раунда (нарушать нельзя)
+
+1. **Сохранность 100%:** все разделы/маршруты/параметры/значения/виджеты/права/PERMsoc/промпты/модели/ключи/лор/отношения — доступны после рефакторинга (§1/§79/§116).
+2. **Δ каталога = 0, Δ DDL = 0** (общий итог Эпика 1).
+3. **Технические ключи и смысл `null/0/-1/""`** не меняются; локальное не перезаписывается глобальным; никаких новых дефолтов при открытии формы.
+4. **RBAC-семантика** не меняется; права проверяются на сервере.
+5. **CSP/zero-build:** только self-host, без inline-скриптов/стилей, без vue-router и новых state-библиотек (Vue 3 global).
+6. **Логи остаются на Статусе** (§20); виджеты Статуса не удаляются.
+7. **PERMsoc локальный**; не переносится в глобальные настройки.
+8. **Порядок роутеров `bot.py`** не сдвигается.
+9. **OFF-совместимость:** все env-only kill-switch’и default ON; OFF возвращает прежнее поведение.
+10. **`plans/current_task.md` не коммитить**, секреты не цитировать (R17/R18).
+11. **F0 — первым (Wave 0):** неисправный механизм сохранения не переносится в F1+; точка отката — первая задача (**T-2410**).
+12. **F0.5 — без тихой потери записи:** retry **ограничен** (только `locked`); fail-open/фоллбэк — **последний** рубеж с обязательным структурированным `event=*_lock_exhausted` + счётчиком; **Δ DDL = 0**; `smart_cache` из ADR-1024-18 **не переписывается** — только расширение контракта на другие сервисы; OFF kill-switch `DB_LOCK_RESILIENCE_ENABLED` = baseline.
+
+---
+
+## 6. Риски раунда и стратегия приёмки
+
+| Риск | Ур. | Снятие |
+|---|---|---|
+| «Объявлено готово, но визуально провалено» (10.20-UI-rework, 10.22 F2) | High | Реальная Chromium/Playwright-проверка §71 (F10), `scrollWidth`, `getBoundingClientRect`, скриншоты; запрет закрытия по отчёту |
+| Потеря параметра/экрана при переносе IA | Critical | Δ=0 + baseline-фикстура + авто-тест «inventory ↔ IA-map» (F1/F8/F10) |
+| SUPERSEDE маркер-тестов без атомарности | High | Код+эталоны в одном коммите; новый inventory-тест сравнивает множества, а не размеры |
+| Мобильный скролл/обрезание переключателей | High | §70 + `container queries` + Playwright на 320/390/768/992/1200/1440+ |
+| Декларативные kill-switch’и | Medium | Тесты OFF/ON для каждого флага |
+| Конфликты ступеней общих файлов | Medium | Строгая сериализация **F0 → F1 → F2 → F3 → F4 → F5 → F6 → F7 → F11 → F9 → F10** |
+| Неисправное сохранение перенесено в новые компоненты (F1+) | Critical | **F0 Wave 0** закрывается до F1; критерии §6 (10 пунктов) + точка отката T-2410 |
+| Прод-потеря записи из-за `database is locked` (память/ответы/throttling) | Critical | **F0.5** до приёмки F0: диагностика первопричины (T-2443), bounded retry только на `locked` + сериализация (T-2445/T-2446), явный лог+счётчик (T-2448), live-приёмка (T-2454); **расширение ADR-1024-18**, не «лечение по симптому» |
+| Долгий retry подвешивает hot-path/хендлер | High | F0.5: попытки ограничены, fail-open последним рубежом, тесты (b)/(c)/(g) T-2452 |
+
+**Приёмка Эпика 1 (F10):** JS-гейты (`node --check`, `routing_test.js`, `vue_mount_test.js`) + полный `pytest` без регрессий к 7911/0 + Playwright-матрица §71 + сверка конфигурации до/после + отчётные карты (§117).
+
+---
+
+## 7. Артефакты Step 2 (@Architect)
+
+- **F0** (Wave 0, ✅ COMPLETED + MERGED + **ARCHIVED** → `plans/archive/f0-config-bugfixes-round1025/`): `spec.md` + `tasks.md` (T-2410…T-2455); ADR: **`adr-1025-2-save-state-machine.md`** (F0.1/F0.2), **`adr-1025-3-anticliche-semantics.md`** (F0.3), **`adr-1025-4-toasts-savebar.md`** (F0.4), **`adr-1025-5-db-lock-resilience.md`** (F0.5 — **AMEND/EXTEND `ADR-1024-18`**). Интеграция в глобальную архитектуру — `plans/ARCHITECTURE.md` **§52** (+ §9/§10/§49/§51).
+- F1: `plans/features/ia-shell-navigation-round1025/spec.md`, `adr-1025-1-ia-v2.md`.
+- `plans/round1025-architecture.md` (этот файл; PM-аннотация по Wave 0/F0 — Step 1, детальная архитектура — Step 2).
+- **Эпик 3** (раунд 10.26+): `spec.md`/ADR — Step 2 @Architect при старте Эпика 3 (в т.ч. AMEND `physical-two-call-pipeline`).
+
+## 8. Ссылки
+
+- Мастер-ТЗ: `plans/current_task.md` (§0–§7, §68, §70, §71, §79, §116, §117) + **блок UPD** (строки 3718–5918: F0 §1–§6, Human Gate §7–§10, Эпик 3 §11–§54) — **untracked, не коммитить**, секреты не цитировать.
+- **F0** (Wave 0, ✅ **ARCHIVED**): `plans/archive/f0-config-bugfixes-round1025/tasks.md` (T-2410…T-2455; F0.5 — T-2442…T-2455). **F0.5-прецедент:** `plans/archive/sqlite-lock-resilience-round1024/{ADR-1024-18.md,tasks.md}`; `services/memory_rebuild.py:69-72,92-111`; `services/database.py:514-520,589-594`; `services/llm_client.py:604` (тест-хук backoff).
+- F1: `plans/features/ia-shell-navigation-round1025/{tasks.md,spec.md,adr-1025-1-ia-v2.md}`
+- F8 (Wave 0): `plans/features/parameter-registry-widget-map-round1025/`
+- Прочие фичи: `plans/features/<name>-round1025/`
+- Отчёты: `plans/reports/round1024_scanner_audit.md`, `round1023_scanner_audit.md`, `round1020_ui_rework_scanner_audit.md`, `round1020_ui_rework_reviewer.md`
+- **F0-отчёты (Merge):** `plans/reports/f0-round1025-report.md` (§54), `f0-save-audit-round1025.md` (аудит 14 механизмов), `f0-5-db-lock-round1025.md` (карта соединений/первопричина DB-lock), `round1025_f0_scanner_audit.md` (§1–§4 аудит + §5 повторный аудит), `global_map.md`/`full_audit_results.md` (снимок @Scanner)
+- Архив-образцы: `plans/archive/round1024-architecture.md`, `plans/archive/round1023-architecture.md`
+- Канон: `plans/ARCHITECTURE.md`, `plans/project.md`, `plans/docs/canon/architecture.md`

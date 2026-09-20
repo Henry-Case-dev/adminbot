@@ -111,3 +111,10 @@ env-only `ClassVar[bool]`, **default ON**, вне `param_catalog` (Δ катал
 ## Human Gate
 
 - **Открытые вопросы:** (1) достаточно ли lock по всему `write_transaction` или нужен отдельный read-путь для консистентного чтения; (2) нужно ли приводить `manage.py` CLI к PRAGMA-паритету в этом раунде (T-2447) или достаточно зафиксировать по T-2442. Значения (`_LOCK_RETRIES=3`, backoff 0.1, `busy_timeout=5000`) — техническая настройка @Architect; флаг default ON согласован в `tasks.md`. Прогрессивная раскатка не требуется.
+
+## Merge (10.25, Step 7)
+
+- **Статус: реализовано/принято** (@Reviewer Approved; @Scanner 0 Critical/0 High, повторный аудит §5). Ссылка в архитектуре: `plans/ARCHITECTURE.md` **§10** (наблюдаемость), **§51** (AMEND-пометка к F17) и **§52.4**.
+- **Фактическая реализация (уточняет D1/D2):** публичный `DatabaseService.write_transaction(op, *, op_name, on_exhausted)` поверх `self._lock` (single-writer) + `_is_locked`/`_with_lock_retry` + `_best_effort_rollback` + `commit_if`; `rollback` выполняется на **любое** исключение, включая `BaseException`/`CancelledError` (**M-1**, закрыто), retry — только для `locked`; обёрнуты `insert_graph_fact(commit=True)`, `upsert_bot_reply`, `touch_graph_facts`; `summary_memory._embed_cache_store`/`persistent_throttling` переведены с `db.db`/`_db.db` на публичный API. `smart_cache.py` **не переписан**. Kill-switch `DB_LOCK_RESILIENCE_ENABLED` (env-only, ON).
+- **Human Gate:** (1) отдельный read-путь — **отложено** (A6), в F0 достаточно single-writer на запись; (2) PRAGMA-паритет `manage.py` — зафиксирован по T-2442 без фиктивных правок. `_LOCK_RETRIES=3`/backoff 0.1/`busy_timeout=5000` подтверждены.
+- **Остаточный Info (не блокер):** `pg_advisory_xact_lock` без таймаута (штатное свойство); LRU `_chat_write_locks` — soft-cap 1024 без жёсткой верхней границы.

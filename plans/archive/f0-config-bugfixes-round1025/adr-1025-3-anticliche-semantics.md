@@ -67,3 +67,9 @@
 ## Human Gate
 
 - **Открытый вопрос:** какое значение `ANTICLICHE_MAX_PATTERNS_PER_RUN` принять по умолчанию (рекомендация @Architect — 40) и допустимый `MAX_ROUNDS` на один прогон. Это влияет на стоимость LLM-вызовов; решение владельца.
+
+## Merge (10.25, Step 7)
+
+- **Статус: реализовано/принято** (@Reviewer Approved; @Scanner 0 Critical/0 High). Ссылка в архитектуре: `plans/ARCHITECTURE.md` **§49** (AMEND-пометка) и **§52.2**.
+- **Уточнение D1/D2 по факту реализации:** потолок раундов вынесен в **отдельный** env-only `ClassVar` **`ANTICLICHE_MAX_ROUNDS`** (default **3**, min 1) — помимо `ANTICLICHE_MAX_PATTERNS_PER_RUN` (default **40**, clamp `[1, capacity]`). Δ каталога = 0 (оба вне `param_catalog`). Реализация — `services/anticliche_worker.py` (`max_patterns_per_run()`/`max_rounds()`, цикл `while stored < capacity and rounds < rounds_limit and worker_budget.consume(...)`, `_normalize_stored`, события `ANTI_CLICHE_*`).
+- **Human Gate закрыт:** приняты рекомендованные значения (`PER_RUN=40`, `ROUNDS=3`); ответственность владельца — при необходимости скорректировать env-переменные.
