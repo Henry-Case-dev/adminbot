@@ -821,7 +821,10 @@
                       <div class="text-sm font-semibold">{{ item.title }}</div>
                       <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
                       <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
-                      <kv-editor :item="item" :can-edit="canEditConfig(item.key)"></kv-editor>
+                      <!-- F10 (ADR-1024-11 D2): :key с версией конфига —
+                           reload гарантированно перемонтирует редактор. -->
+                      <kv-editor :key="item.key + ':' + configVersion"
+                                 :item="item" :can-edit="canEditConfig(item.key)"></kv-editor>
                     </template>
                     <template v-else-if="item.widget === 'list'">
                       <div class="text-sm font-semibold">{{ item.title }}</div>
@@ -1086,7 +1089,10 @@
                           <template v-else-if="item.widget === 'keyvalue'">
                             <div class="text-sm font-semibold">{{ item.title }}</div>
                             <div class="text-xs text-gray-400 mb-1">{{ item.description }}</div>
-                            <kv-editor :item="item" :can-edit="canEditConfig(item.key)"></kv-editor>
+                            <!-- F10 (ADR-1024-11 D2): :key с версией конфига —
+                                 reload гарантированно перемонтирует редактор. -->
+                            <kv-editor :key="item.key + ':' + configVersion"
+                                       :item="item" :can-edit="canEditConfig(item.key)"></kv-editor>
                           </template>
                           <template v-else-if="item.widget === 'list'">
                             <div class="text-sm font-semibold">{{ item.title }}</div>
@@ -3517,8 +3523,16 @@
        Компонент зарегистрирован в web/app.js (provide/inject: root). -->
   <script type="text/x-template" id="kv-editor-tpl">
     <div>
+      <!-- F10 (10.24, ADR-1024-11 D3): индикатор источника эффективного
+           значения — «значение чата» (per-chat override) / «глобально». -->
+      <div class="mb-1.5">
+        <span v-if="sourceLabel === 'значение чата'"
+              class="badge badge-info">{{ sourceLabel }}</span>
+        <span v-else class="badge badge-muted">{{ sourceLabel }}</span>
+      </div>
+      <!-- F10: явный Empty State — пустой словарь не выглядит «сломанным». -->
       <div v-if="pairs.length === 0" class="text-xs text-gray-500 mb-1">
-        Пар пока нет — добавьте первую.
+        Пар пока нет — словарь пуст. Добавьте первую пару «ID → имя».
       </div>
       <div v-for="(pair, i) in pairs" :key="'kv' + i" class="flex items-center gap-2 mb-1.5">
         <input class="field flex-1 min-w-0" type="text"
@@ -3530,7 +3544,7 @@
                :disabled="!canEdit" v-model="pair.name"
                :class="{ 'kv-bad': emptyField(pair) === 'name' }">
         <button class="btn-ghost text-xs shrink-0" title="Удалить пару"
-                :disabled="!canEdit" @click="removeRow(i)"><span class="msr" aria-hidden="true">{{ iconGlyph('delete') }}</span><span class="sr-only">Удалить</span></button>
+                :disabled="!canEdit" @click="removeRow(i)"><span class="msr" aria-hidden="true">{{ root.iconGlyph('delete') }}</span><span class="sr-only">Удалить</span></button>
       </div>
       <div class="flex flex-wrap items-center gap-2 text-xs mt-1">
         <button class="btn-ghost text-xs" :disabled="!canEdit || pairs.length >= maxPairs"

@@ -651,6 +651,14 @@ class Settings:
     # (байт-в-байт 10.20/ADR-1022-8).
     DOSSIER_LIVE_FEED_ENABLED: ClassVar[bool] = _env_bool(
         "DOSSIER_LIVE_FEED_ENABLED", True)
+    # ── Раунд 10.24 (F10, ADR-1024-11 D5 / ADR-1024-13): env-only ClassVar
+    # kill-switch реального data-binding KV-редактора алиасов (deep-watch по
+    # item + :key). default ON, Δ каталога = 0 (в param_catalog НЕ входит).
+    # Доставка — `GET /api/me.ui_flags`. OFF → прежний (сломанный) watcher
+    # по пути 'item.value' (только аварийное сопоставление); возврат ручки —
+    # env-флаг ON или `git revert`.
+    ALIASES_KEYSVALUE_RENDER_ENABLED: ClassVar[bool] = _env_bool(
+        "ALIASES_KEYSVALUE_RENDER_ENABLED", True)
     # ── Раунд 10.22 (F8, ADR-1022-8): env-only ClassVar-рубильники
     # асинхронной пересборки досье из мини-аппа. Δ каталога = 0 (в
     # param_catalog не входят; прецедент MULTILAYER_EXTRACTION_ENABLED).

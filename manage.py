@@ -783,6 +783,26 @@ def build_parser() -> argparse.ArgumentParser:
     d_clean.add_argument("--dir", action="append", default=None,
                          help="каталог очистки (можно несколько; дефолт: "
                               f"{settings.MEMORY_BACKUP_DIR})")
+
+    # ── F10 (10.24, ADR-1024-11 D1): READ-ONLY диагностика алиасов ─────
+    diag = sub.add_parser(
+        "diag",
+        help="READ-ONLY диагностика (aliases: global vs per-chat override)",
+        description="Только SELECT: форма и число ключей global-значения "
+                    "`limits.summary_aliases` (bot_settings), наличие/форма "
+                    "per-chat override (chat_profiles.chat_params.overrides) "
+                    "и форма ответа GET /api/config (value/global_value/"
+                    "widget/chat_source). Значения НЕ выводятся (R17 — только "
+                    "форма и число ключей); restore из бэкапа запрещён.")
+    diag_sub = diag.add_subparsers(dest="diag_command", metavar="<подкоманда>")
+    diag_sub.required = True
+    d_alias = diag_sub.add_parser(
+        "aliases", help="READ-ONLY: global/override/API-форма алиасов",
+        description="Фиксирует «есть данные / нет данных» и форму для "
+                    "`limits.summary_aliases` без единой записи в БД.")
+    d_alias.add_argument("--chat-id", type=int, action="append", default=None,
+                         help="целевой chat_id для проверки per-chat override "
+                              "(можно несколько раз)")
     return parser
 
 
@@ -1728,6 +1748,161 @@ def _cmd_memory(args) -> int:
     return _memory_exit_code(command, report)
 
 
+# ── F10 (10.24, ADR-1024-11 D1): READ-ONLY диагностика алиасов ──────────────
+_ALIASES_PG_KEY = "limits.summary_aliases"
+_ALIASES_SETTING_SQL = "SELECT key, value FROM bot_settings WHERE key = $1"
+_ALIASES_PROFILE_SQL = (
+    "SELECT chat_id, chat_params FROM chat_profiles WHERE chat_id = $1")
+
+
+def _aliases_shape(value) -> dict:
+    """R17-safe форма значения: тип/число ключей/двойное кодирование.
+
+    Значения НЕ возвращаются — только форма (spec §3.1)."""
+    from web.api.routes import _ensure_keyvalue_object
+    encoded_as_string = isinstance(value, str)
+    double_encoded = False
+    if encoded_as_string:
+        try:
+            json.loads(value)
+            double_encoded = True
+        except ValueError:
+            double_encoded = False
+    effective = _ensure_keyvalue_object(value, pg_key=_ALIASES_PG_KEY)
+    return {
+        "raw_type": type(value).__name__,
+        "encoded_as_string": encoded_as_string,
+        "double_encoded": double_encoded,
+        "effective_keys": len(effective),
+    }
+
+
+async def _collect_aliases_diag(pg, *, chat_ids=None) -> dict:
+    """Read-only сбор фактов (только SELECT).
+
+    global (bot_settings) + per-chat override (chat_profiles.chat_params) +
+    API-эффект (widget/value/global_value/chat_source). Без значений (R17)."""
+    from services.param_catalog import get_by_pg_key
+    from web.api.routes import _ensure_keyvalue_object
+
+    report: dict = {
+        "key": _ALIASES_PG_KEY,
+        "global": None,
+        "global_present": False,
+        "widget": "",
+        "chats": [],
+        "warnings": [],
+    }
+    pool = getattr(pg, "pool", None)
+    if pool is None:
+        raise RuntimeError("PostgreSQL недоступен (пул отсутствует)")
+
+    spec = get_by_pg_key(_ALIASES_PG_KEY)
+    report["widget"] = spec.widget if spec is not None else ""
+    is_per_chat = bool(spec.per_chat) if spec is not None else False
+
+    async with pool.acquire() as conn:
+        row = _as_dict(await conn.fetchrow(_ALIASES_SETTING_SQL,
+                                           _ALIASES_PG_KEY))
+        global_value = row.get("value") if row else None
+        report["global_present"] = bool(row)
+        report["global"] = _aliases_shape(global_value)
+        effective_global = _ensure_keyvalue_object(
+            global_value, pg_key=_ALIASES_PG_KEY)
+
+        for chat_id in (chat_ids or []):
+            profile = _as_dict(await conn.fetchrow(_ALIASES_PROFILE_SQL,
+                                                   int(chat_id)))
+            root = _load_params(profile.get("chat_params"))
+            overrides = dict(root.get("overrides") or {})
+            override_present = _ALIASES_PG_KEY in overrides
+            override_value = overrides.get(_ALIASES_PG_KEY)
+            # Эффективное значение API: override (если per-chat) иначе global.
+            if override_present and is_per_chat:
+                effective = _ensure_keyvalue_object(
+                    override_value, pg_key=_ALIASES_PG_KEY)
+                chat_source = "chat"
+                global_out = effective_global
+            else:
+                effective = effective_global
+                chat_source = ""
+                global_out = effective_global if override_present else None
+            report["chats"].append({
+                "chat_id": int(chat_id),
+                "profile_present": bool(profile),
+                "override_present": override_present,
+                "override": (_aliases_shape(override_value)
+                             if override_present else None),
+                "api_value_keys": len(effective),
+                "api_global_value_keys": (len(global_out)
+                                          if isinstance(global_out, dict)
+                                          else None),
+                "api_chat_source": chat_source,
+            })
+    return report
+
+
+def _cmd_diag(args) -> int:
+    """F10 (ADR-1024-11 D1): `python manage.py diag aliases` — READ-ONLY.
+
+    Только SELECT; ничего не пишет в БД. Значения не выводятся (R17)."""
+    if getattr(args, "diag_command", None) != "aliases":
+        print("diag: неизвестная подкоманда", file=sys.stderr)
+        return 2
+    from services.pg_db import PgDatabase
+
+    chat_ids = list(getattr(args, "chat_id", None) or [])
+
+    async def _run():
+        pg = PgDatabase()
+        try:
+            await pg.connect()
+        except Exception as exc:
+            print(f"diag aliases: не удалось подключиться к PostgreSQL "
+                  f"({type(exc).__name__}) — диагностика не выполнена",
+                  file=sys.stderr)
+            return None
+        if pg.pool is None:
+            print("diag aliases: PostgreSQL недоступен (POSTGRES_DSN пуст "
+                  "или пул не создан) — диагностика не выполнена",
+                  file=sys.stderr)
+            await _safe_close(pg)
+            return None
+        try:
+            return await _collect_aliases_diag(pg, chat_ids=chat_ids)
+        finally:
+            await _safe_close(pg)
+
+    try:
+        report = asyncio.run(_run())
+    except Exception as exc:
+        print(f"diag aliases: ошибка диагностики ({type(exc).__name__}) — "
+              f"данные не изменялись", file=sys.stderr)
+        return 1
+    if not report:
+        return 1
+
+    g = report["global"] or {}
+    print(f"diag aliases: key={report['key']} widget={report['widget']} "
+          f"global_present={'yes' if report['global_present'] else 'no'} "
+          f"global_type={g.get('raw_type')} "
+          f"global_keys={g.get('effective_keys')} "
+          f"double_encoded={'yes' if g.get('double_encoded') else 'no'}")
+    for chat in report["chats"]:
+        ov = chat["override"] or {}
+        print(f"  chat={chat['chat_id']} "
+              f"profile={'yes' if chat['profile_present'] else 'no'} "
+              f"override={'yes' if chat['override_present'] else 'no'} "
+              f"override_type={ov.get('raw_type')} "
+              f"override_keys={ov.get('effective_keys')} "
+              f"api_value_keys={chat['api_value_keys']} "
+              f"api_global_value_keys={chat['api_global_value_keys']} "
+              f"api_chat_source='{chat['api_chat_source']}'")
+    print("  вывод data: только форма/число ключей (R17), значения не "
+          "печатаются; restore из бэкапа запрещён")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -1744,6 +1919,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_memory(args)
         if args.command == "disk":
             return _cmd_disk(args)
+        if args.command == "diag":
+            return _cmd_diag(args)
         if args.command in ("retention", "retention-dry-run"):
             return _cmd_retention(args)
         if args.command != "import_history":

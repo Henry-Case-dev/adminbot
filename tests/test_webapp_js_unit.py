@@ -93,6 +93,15 @@ def test_js_unit_round1024_image_key():
             ok_marker="IMAGE-KEY-OK")
 
 
+def test_js_unit_round1024_aliases_render():
+    """F10 round 10.24 (ADR-1024-11): РЕАЛЬНЫЙ render-тест kv-editor — значение
+    из API отрисовывается при монтировании, deep-watch на замену/мутацию
+    `item` (регресс shallow-бага), массив пар, Empty State, индикатор
+    источника и kill-switch (OFF → прежний path-watcher)."""
+    _run_js(os.path.join("tests", "js", "round1024_aliases_render_test.js"),
+            ok_marker="ALIASES-RENDER-OK")
+
+
 def test_js_unit_round1024_dossier_feed():
     """F4 round 10.24 (ADR-1024-8): вертикальная кликабельная «Живая лента
     досье» — dossierFeedLoop/скорость, клик-путь GLOBAL→чат→досье (UPD3 №9),

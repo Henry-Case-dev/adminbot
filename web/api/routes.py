@@ -366,6 +366,11 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
             # строки некликабельны (10.20/ADR-1022-8 байт-в-байт).
             "DOSSIER_LIVE_FEED_ENABLED":
                 bool(settings.DOSSIER_LIVE_FEED_ENABLED),
+            # F10 (10.24, ADR-1024-11 D5): гейт реального data-binding
+            # KV-редактора алиасов (deep-watch item + :key). default ON;
+            # OFF → прежний (сломанный) watcher 'item.value'.
+            "ALIASES_KEYSVALUE_RENDER_ENABLED":
+                bool(settings.ALIASES_KEYSVALUE_RENDER_ENABLED),
         },
     }
 

@@ -977,6 +977,10 @@
         isFullscreen: false,
         // config
         configItems: [],
+        // F10 (10.24, ADR-1024-11 D2): версия загрузки конфига — растёт в
+        // loadConfig(); входит в :key kv-editor, чтобы reload гарантированно
+        // перемонтировал редактор (реактивность prop на замену массива).
+        configVersion: 0,
         configGroups: [],          // 84.24: метаданные групп (с сервера)
         configSearch: '',          // 84.24: фильтр по title/description/key
         configLoading: false,
@@ -4540,6 +4544,10 @@
           if (!this._scopeGuard(epoch)) return;   // scope сменился — ответ старый
           this.configError = '';      // F-13 (AC-3): успех — баннер скрыт
           this.configItems = data.items || [];
+          // F10 (ADR-1024-11 D2): reload → новая версия; :key kv-editor
+          // перемонтирует редактор (created/immediate-watch видит финальное
+          // значение, а не «ещё не приехало»).
+          this.configVersion++;
           this.configGroups = data.groups || [];
           this.configChatUpdatedAt = data.updated_at != null
             ? data.updated_at : null;   // optimistic-метка чата (409-протокол)
@@ -7357,9 +7365,31 @@
     },
     created: function () { this.sync(); },
     watch: {
-      'item.value': function () { this.sync(); },
+      // F10 (10.24, ADR-1024-11 D2): prop `item` — shallowReactive-объект;
+      // строковый путь 'item.value' не переживает замену `configItems`
+      // (новый массив/объекты) и не видит вложенные мутации. deep+immediate
+      // по самому `item` — надёжная инициализация и при монтировании, и при
+      // любом изменении/замене значения. Гейт kill-switch.
+      item: {
+        handler: function () {
+          if (this._renderEnabled()) this.sync();
+        },
+        deep: true,
+        immediate: true,
+      },
+      // Kill-switch OFF → прежний (сломанный) watcher по пути — только для
+      // аварийного сопоставления (default ON).
+      'item.value': function () {
+        if (!this._renderEnabled()) this.sync();
+      },
     },
     computed: {
+      // F10 (ADR-1024-11 D3): индикатор источника эффективного значения —
+      // per-chat override («значение чата») либо глобальный слой.
+      sourceLabel: function () {
+        return (this.item && this.item.chat_source === 'chat')
+          ? 'значение чата' : 'глобально';
+      },
       // id непустой в одной паре при пустом имени (или наоборот) — ошибка
       partialRows: function () {
         return this.pairs.filter(function (p) {
@@ -7395,6 +7425,15 @@
       },
     },
     methods: {
+      // F10 (ADR-1024-11 D5): kill-switch `ALIASES_KEYSVALUE_RENDER_ENABLED`
+      // (env-only, default ON; доставка — /api/me.ui_flags). Безопасный
+      // дефолт ON, если корень/флаг недоступны (как uiFlag).
+      _renderEnabled: function () {
+        if (this.root && typeof this.root.uiFlag === 'function') {
+          return this.root.uiFlag('ALIASES_KEYSVALUE_RENDER_ENABLED');
+        }
+        return true;
+      },
       // Инициализация/пересборка пар из объекта-значения item.value
       sync: function () {
         var raw = this.item && this.item.value;
@@ -7412,10 +7451,26 @@
           }
           guard++;
         }
-        if (!src || typeof src !== 'object' || Array.isArray(src)) src = {};
-        var pairs = Object.keys(src).map(function (k) {
-          return { id: String(k), name: String(src[k] == null ? '' : src[k]) };
-        });
+        var pairs;
+        if (Array.isArray(src)) {
+          // F10 (ADR-1024-11 D2): backend может отдать массив пар
+          // [[key, value], …] — поддерживаем; прочие массивы → пусто.
+          pairs = [];
+          for (var i = 0; i < src.length; i++) {
+            var row = src[i];
+            if (Array.isArray(row) && row.length >= 2) {
+              pairs.push({
+                id: String(row[0]),
+                name: String(row[1] == null ? '' : row[1]),
+              });
+            }
+          }
+        } else {
+          if (!src || typeof src !== 'object') src = {};
+          pairs = Object.keys(src).map(function (k) {
+            return { id: String(k), name: String(src[k] == null ? '' : src[k]) };
+          });
+        }
         // 3.5.2/W2: порядок объекта-значения сохраняется (как в JSON/PG),
         // без сортировки; новые строки добавляются в конец (addRow).
         this.pairs = pairs;
