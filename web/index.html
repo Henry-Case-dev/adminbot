@@ -23,18 +23,77 @@
 </head>
 <body>
   <div id="app" v-cloak>
-    <div class="app-shell" :class="{ 'fullscreen-mode': isFullscreen }">
+    <div class="app-shell"
+         :class="[{ 'fullscreen-mode': isFullscreen }, 'shell-' + shellMode,
+                  iaV2 ? 'ia-v2' : 'ia-legacy']">
+      <!-- ═══ F1 (ADR-1025-1 D6, §4.2): desktop sidebar — СТРОГО ≥1200 px.
+           В 768–1199 постоянной панели нет (drawer ниже); <768 — bottom-nav. -->
+      <aside v-if="iaV2 && hasSidebar" class="app-sidebar" aria-label="Боковая навигация">
+        <div class="sidebar-brand">
+          <span class="msr" aria-hidden="true">{{ iconGlyph('monitoring') }}</span>
+          <span class="sidebar-brand-title">AdminBot</span>
+        </div>
+        <nav class="sidebar-nav">
+          <button v-for="n in sidebarGroups.pub" :key="'sb-' + n.id"
+                  type="button" class="sidebar-link"
+                  :class="{ active: activeNav === n.id }"
+                  :aria-current="activeNav === n.id ? 'page' : null"
+                  :title="n.label" @click="shellNavTo(n.route)">
+            <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
+            <span class="sidebar-label">{{ n.label }}</span>
+          </button>
+          <div class="sidebar-sep" role="presentation"></div>
+          <button v-for="n in sidebarGroups.admin" :key="'sb-' + n.id"
+                  type="button" class="sidebar-link"
+                  :class="{ active: activeNav === n.id }"
+                  :aria-current="activeNav === n.id ? 'page' : null"
+                  :title="n.label" @click="shellNavTo(n.route)">
+            <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
+            <span class="sidebar-label">{{ n.label }}</span>
+          </button>
+          <div class="sidebar-sep" role="presentation"></div>
+          <button v-for="n in sidebarGroups.local" :key="'sb-' + n.id"
+                  type="button" class="sidebar-link"
+                  :class="{ active: activeNav === n.id }"
+                  :aria-current="activeNav === n.id ? 'page' : null"
+                  :title="n.label" @click="shellNavTo(n.route)">
+            <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
+            <span class="sidebar-label">{{ n.label }}</span>
+          </button>
+        </nav>
+      </aside>
       <!-- Раунд 10.6 (A1): боковая панель удалена полностью — навигация только через
            верхний navbar (иконка + подпись); A9 — эксклюзивный аккордеон. -->
       <header class="main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap"
               style="border-radius:0;">
+          <!-- F1 (§7, drawer 768–1199): кнопка временной навигации. -->
+          <button v-if="iaV2 && isCompactShell" class="btn-ghost text-base px-2 shrink-0"
+                  title="Навигация" aria-label="Открыть навигацию"
+                  aria-haspopup="menu" :aria-expanded="drawerOpen ? 'true' : 'false'"
+                  @click="toggleDrawer()">
+            <span class="msr" aria-hidden="true">{{ iconGlyph('expand_more') }}</span>
+          </button>
           <!-- T-1099/§6.4.6: in-app fallback ← — ТОЛЬКО если нативного
                BackButton нет (вне TMA/старый SDK) и depth>0; когда нативный
                есть — Telegram сам меняет ✕ на ← (дублирования нет). -->
           <button v-if="routeDepth > 0 && !backNative"
                   class="btn-ghost text-sm px-2 shrink-0" title="Назад"
                   aria-label="Назад" @click="goBack()">←</button>
-          <div class="text-sm font-semibold truncate">{{ currentTabLabel }}</div>
+          <div class="header-title-wrap min-w-0">
+            <!-- F1 (UPD §8.4): на вложенных — текущий раздел + путь назад. -->
+            <nav v-if="iaV2 && breadcrumb" class="breadcrumb" aria-label="Путь назад">
+              <button type="button" class="breadcrumb-link"
+                      @click="shellNavTo(breadcrumb.root.route)">{{ breadcrumb.root.label }}</button>
+              <span class="breadcrumb-sep" aria-hidden="true">/</span>
+              <template v-if="breadcrumb.mid">
+                <button type="button" class="breadcrumb-link"
+                        @click="shellNavTo(breadcrumb.mid.route)">{{ breadcrumb.mid.label }}</button>
+                <span class="breadcrumb-sep" aria-hidden="true">/</span>
+              </template>
+              <span class="breadcrumb-current" aria-current="page">{{ breadcrumb.current }}</span>
+            </nav>
+            <div class="text-sm font-semibold truncate">{{ currentTabLabel }}</div>
+          </div>
           <!-- Раунд 10 (F-7 T-854/F-11 T-906) + F-13 (AC-1): селектор —
                ЕДИНСТВЕННАЯ точка выбора чата в шапке (кнопка-дропдаун
                «Выбери чат» удалена). BUG-1 (рекон раунда 10): селектор
@@ -111,8 +170,11 @@
           </div>
           <!-- Раунд 10.6 (A1/T-1158/T-1159): navbar — ровно 6 пунктов;
                иконка + МАЛЕНЬКАЯ подпись ПОД ней (видна mobile+desktop),
-               активный — по route (activeNav), aria-current. -->
-          <nav class="navbar-band scroll-thin" aria-label="Основная навигация">
+               активный — по route (activeNav), aria-current.
+               F1 (ADR-1025-1 D5): при IA v2 полоса НЕ рендерится — её роль
+               выполняют sidebar (≥1200) / drawer (768–1199) / bottom-nav (<768).
+               OFF (IA_V2_ENABLED=false) → эта разметка байт-в-байт. -->
+          <nav v-if="!iaV2" class="navbar-band scroll-thin" aria-label="Основная навигация">
             <button v-for="n in navItems" :key="n.id"
                     class="nav-link" :class="{ active: activeNav === n.id }"
                     :aria-current="activeNav === n.id ? 'page' : null"
@@ -1288,7 +1350,7 @@
             <!-- ═══ Сводка (F-12 C1/C2) — только global admin ═══ -->
             <div class="card glass-panel p-4 col-span-full">
               <div class="flex items-center gap-2 flex-wrap mb-2">
-                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('radar') }}</span> Сводка</div>
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('radar') }}</span> Аналитика</div>
                 <span class="text-xs text-gray-500">сводка всех чатов (кэш 60 с)</span>
                 <div class="ml-auto flex items-center gap-2">
                   <input class="field w-40" placeholder="Поиск: имя/id" v-model="oversightSearch">
@@ -1859,13 +1921,17 @@
                         {{ grp.title }}
                         <span class="badge badge-muted ml-1">{{ grp.items.length }}</span>
                       </summary>
-                      <table class="avail-list">
+                      <!-- F1 (T-2401): на mobile таблица разворачивается в
+                           последовательный редактор (CSS .matrix-table) —
+                           без горизонтального скролла. -->
+                      <table class="avail-list matrix-table">
                         <thead><tr>
                           <th>Параметр</th><th>Чтение</th><th>Запись</th><th></th>
                         </tr></thead>
                         <tbody>
                           <tr v-for="row in grp.items" :key="row.key">
-                            <td class="mono" :title="row.item.title">
+                            <td class="mono" :title="row.item.title"
+                                data-label="Параметр">
                               {{ row.item.title || row.key }}
                               <span v-if="row.item.secret"
                                     class="badge badge-warn ml-1">secret</span>
@@ -1873,7 +1939,8 @@
                                     class="badge badge-muted ml-1">дефолт</span>
                             </td>
                             <td v-for="fld in ['view_roles', 'edit_roles']"
-                                :key="fld">
+                                :key="fld"
+                                :data-label="fld === 'view_roles' ? 'Чтение' : 'Запись'">
                               <label v-for="r in ['user','moderator','local_admin']"
                                      :key="fld + r"
                                      class="inline-flex items-center gap-1 mr-2 text-[10px]">
@@ -2599,7 +2666,7 @@
                  @keydown.space.prevent="navTo('#/oversight')">
               <span class="msr" aria-hidden="true">{{ iconGlyph('radar') }}</span>
               <span class="min-w-0">
-                <span class="hub-card-title block">Сводка</span>
+                <span class="hub-card-title block">Аналитика</span>
                 <span class="hub-card-sub block">Сводка ключей/гейтов/бюджетов по всем чатам (только global admin)</span>
               </span>
             </div>
@@ -3016,7 +3083,24 @@
             </div>
           </template>
           <template v-else-if="activeTab === 'info'">
-            <!-- ═══ "Справка" ═══ -->
+            <!-- ═══ "Справка" (T-2400): desktop — оглавление + контент;
+                 mobile — поиск/оглавление/текст; якоря. Тексты/стиль v5
+                 не изменяем (только layout + id-анкеры заголовков). ═══ -->
+            <div class="help-layout" style="grid-column: 1 / -1;">
+              <aside class="help-toc card p-4" aria-label="Оглавление справки">
+                <div class="text-sm font-bold mb-2">Оглавление</div>
+                <input class="field w-full text-xs mb-2" type="search"
+                       placeholder="Поиск по справке…" v-model="helpQuery"
+                       aria-label="Поиск по справке">
+                <nav class="help-toc-list">
+                  <button v-for="a in filteredHelpToc" :key="a.id" type="button"
+                          class="help-toc-link" :class="'lvl-' + a.level"
+                          @click="scrollToAnchor(a.id)">{{ a.text }}</button>
+                  <div v-if="!filteredHelpToc.length"
+                       class="text-xs text-gray-500">Ничего не найдено.</div>
+                </nav>
+              </aside>
+              <div class="help-content">
             <div class="card p-5" style="grid-column: 1 / -1;">
               <div class="flex items-center gap-2 flex-wrap mb-3">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('help') }}</span> Справка</div>
@@ -3043,7 +3127,7 @@
               <div v-if="infoLoading" class="spinner my-6"></div>
               <template v-else>
                 <template v-if="!editingInfo">
-                  <div class="info-html text-sm leading-relaxed" v-html="sanitizedInfoHtml"></div>
+                  <div class="info-html text-sm leading-relaxed" v-html="helpContent.infoHtml"></div>
                 </template>
                 <template v-else>
                   <div class="text-xs text-gray-500 mb-1">{{ infoDraft.length }} / 32768 символов</div>
@@ -3080,7 +3164,7 @@
               <div v-if="guideLoading" class="spinner my-6"></div>
               <template v-else>
                 <template v-if="!editingGuide">
-                  <div class="guide-markdown text-sm" v-html="sanitizedGuideHtml"></div>
+                  <div class="guide-markdown text-sm" v-html="helpContent.guideHtml"></div>
                 </template>
                 <template v-else>
                   <div class="text-xs text-gray-500 mb-1">
@@ -3102,8 +3186,86 @@
                 </template>
               </template>
             </div>
+              </div>
+            </div>
           </template>
         </main>
+      <!-- ═══ F1 (§4.3/§4.4, UPD §8.3/§8.4): shell-навигация планшета/мобилы ═══ -->
+      <!-- Drawer (768–1199): временная панель, состояние не персистится. -->
+      <div v-if="iaV2 && isCompactShell && drawerOpen"
+           class="drawer-backdrop" @click="closeDrawer()"></div>
+      <aside v-if="iaV2 && isCompactShell"
+             class="app-drawer" :class="{ open: drawerOpen }"
+             :aria-hidden="drawerOpen ? 'false' : 'true'"
+             aria-label="Навигация">
+        <nav class="sidebar-nav">
+          <button v-for="n in sidebarGroups.pub" :key="'dr-' + n.id"
+                  type="button" class="sidebar-link"
+                  :class="{ active: activeNav === n.id }"
+                  :title="n.label" @click="shellNavTo(n.route)">
+            <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
+            <span class="sidebar-label">{{ n.label }}</span>
+          </button>
+          <div class="sidebar-sep" role="presentation"></div>
+          <button v-for="n in sidebarGroups.admin" :key="'dr-' + n.id"
+                  type="button" class="sidebar-link"
+                  :class="{ active: activeNav === n.id }"
+                  :title="n.label" @click="shellNavTo(n.route)">
+            <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
+            <span class="sidebar-label">{{ n.label }}</span>
+          </button>
+          <div class="sidebar-sep" role="presentation"></div>
+          <button v-for="n in sidebarGroups.local" :key="'dr-' + n.id"
+                  type="button" class="sidebar-link"
+                  :class="{ active: activeNav === n.id }"
+                  :title="n.label" @click="shellNavTo(n.route)">
+            <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
+            <span class="sidebar-label">{{ n.label }}</span>
+          </button>
+        </nav>
+      </aside>
+
+      <!-- Bottom-nav (<768): РОВНО 4 пункта (админ: Статус/Модули/ИИ/Ещё;
+           пользователь: Статус/Справка). Память живёт в шторке «Ещё». -->
+      <nav v-if="iaV2 && isMobileShell" class="bottom-nav"
+           aria-label="Нижняя навигация">
+        <button v-for="n in bottomNavItems" :key="'bn-' + n.id"
+                type="button" class="bottom-nav-link"
+                :class="{ active: !n.more && activeNav === n.id }"
+                :aria-current="!n.more && activeNav === n.id ? 'page' : null"
+                :title="n.label"
+                @click="n.more ? toggleMore() : shellNavTo(n.route)">
+          <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
+          <span class="bottom-nav-label">{{ n.label }}</span>
+        </button>
+      </nav>
+      <!-- Шторка «Ещё»: Справка / Память / Доступы / PERMsoc / Профиль. -->
+      <div v-if="iaV2 && isMobileShell && moreOpen"
+           class="more-backdrop" @click="closeMore()"></div>
+      <div v-if="iaV2 && isMobileShell" class="more-sheet"
+           :class="{ open: moreOpen }" :aria-hidden="moreOpen ? 'false' : 'true'"
+           role="menu" aria-label="Ещё">
+        <div class="more-sheet-handle" aria-hidden="true"></div>
+        <button v-for="n in mobileMoreItems" :key="'mm-' + n.id"
+                type="button" class="more-item" role="menuitem"
+                :class="{ active: activeNav === n.id }"
+                @click="shellNavTo(n.route)">
+          <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
+          <span class="sidebar-label">{{ n.label }}</span>
+        </button>
+        <!-- «Профиль» — существующий блок Telegram-пользователя (UPD §8.2),
+             нового экрана нет: показываем identity-данные из /api/me. -->
+        <div v-if="me" class="more-profile">
+          <img v-if="meAvatarUrl" :src="meAvatarUrl" alt=""
+               class="w-8 h-8 rounded-full object-cover shrink-0"
+               @error="onMeAvatarError()">
+          <span v-else class="scope-initial">{{ (me.first_name || '?').slice(0, 1) }}</span>
+          <span class="min-w-0 flex-1">
+            <span class="block truncate">{{ me.first_name || me.username || ('@' + (me.username || me.telegram_id)) }}</span>
+            <span class="text-[10px] text-gray-500">{{ me.role_name }}</span>
+          </span>
+        </div>
+      </div>
     </div>
 
     <!-- Модалка подтверждения control -->

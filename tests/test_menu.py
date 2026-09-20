@@ -160,9 +160,11 @@ class TestMenuCommand:
         """B: миниапп применяет Telegram.WebApp-тему (themeParams + фолбэки)."""
         # F4 10.16: init вынесен из inline index.html в /static/telegram-init.js.
         src = open("web/static/telegram-init.js", encoding="utf-8").read()
-        assert "Telegram.WebApp.setHeaderColor(" in src
+        # F1 (T-2399): WebApp берётся в локальную `wa` (плюс safe-area var).
+        assert "var wa = Telegram.WebApp;" in src
+        assert "wa.setHeaderColor(" in src
         assert "themeParams" in src
-        assert "setBackgroundColor(" in src
-        assert "setBottomBarColor" in src
+        assert "wa.setBackgroundColor(" in src
+        assert "wa.setBottomBarColor" in src
         assert "'#161616'" in src          # фолбэк-палитра эталона (T-1098)
-        assert "Telegram.WebApp.ready()" in src
+        assert "wa.ready()" in src

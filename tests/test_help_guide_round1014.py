@@ -492,9 +492,11 @@ class TestFrontend:
 
     def test_no_unsanitized_v_html(self):
         block = _block(HTML, "activeTab === 'info'", "</main>")
-        # все v-html идут через санитайз (sanitizeHtml / sanitized*)
-        assert 'v-html="sanitizedInfoHtml"' in block
-        assert 'v-html="sanitizedGuideHtml"' in block
+        # все v-html идут через санитайз (sanitizeHtml / sanitized*);
+        # F1 (T-2400): helpContent.{info,guide}Html — производные от
+        # sanitizedInfoHtml/sanitizedGuideHtml (только +id-анкеры).
+        assert 'v-html="helpContent.infoHtml"' in block
+        assert 'v-html="helpContent.guideHtml"' in block
         assert 'v-html="sanitizedGuidePreviewHtml"' in block
         for bad in ('v-html="guideHtml"', 'v-html="guideDraft"',
                     'v-html="infoDraft"'):

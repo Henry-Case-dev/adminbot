@@ -12,12 +12,27 @@ _HTML = (open("web/index.html", encoding="utf-8").read()
 
 class TestNavbarAndHubs:
     def test_six_nav_items(self):
+        # F1 (T-2393, SUPERSEDE): legacy NAV_ITEMS (6) — OFF-режим;
+        # NAV_ITEMS_V2 (7) — новая IA с отдельной «Памятью».
         assert "var NAV_ITEMS = [" in _JS
         for label in ("Статус", "Справка", "Модули", "ИИ",
                       "PERMsoc", "Доступы"):
             assert label in _JS, label
+        assert "var NAV_ITEMS_V2 = [" in _JS
+        assert "id: 'memory', label: 'Память', route: '#/memory'" in _JS
         assert "navTo(n.route)" in _HTML
         assert "activeNav === n.id" in _HTML
+        # shell-навигация (T-2397/T-2398)
+        assert 'class="app-sidebar"' in _HTML
+        assert 'class="bottom-nav"' in _HTML
+        assert 'class="app-drawer"' in _HTML
+        assert "shellNavTo(" in _HTML
+
+    def test_memory_hub_v2(self):
+        assert "var HUBS_V2 = {" in _JS
+        for route in ("'#/memory/rag'", "'#/memory/lore'", "'#/memory/relations'"):
+            assert route in _JS, route
+        assert "'#/ai'" in _JS and "'#/memory'" in _JS
 
     def test_hub_rendering(self):
         assert "var HUBS = {" in _JS

@@ -270,7 +270,8 @@ def _status_block() -> str:
 class TestStatusLayoutOrderF7:
     # Заголовки-маркеры блоков (по видимому тексту, не по комментариям).
     ORDER = (
-        ("Сводка", "hub-card-title block\">Сводка</span>"),
+        # F1 (10.25, Human Gate §8.1): «Сводка» → «Аналитика» (route цел).
+        ("Аналитика", "hub-card-title block\">Аналитика</span>"),
         ("Сердцебиение", "monitoring') }}</span> Сердцебиение</div>"),
         ("Бот", "smart_toy') }}</span> Бот</div>"),
         ("Сервер", "dns') }}</span> Сервер</div>"),

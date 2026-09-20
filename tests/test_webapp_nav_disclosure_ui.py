@@ -27,12 +27,16 @@ class TestMenu:
             assert "menu: %s" % tag in js, tag
 
     def test_no_sidebar_dead_menu(self):
-        """A1/T-1157: sidebar, MENU_ORDER/MENU_LABELS/sidebarOpen удалены."""
+        """A1/T-1157: мёртвое legacy-меню (MENU_ORDER/MENU_LABELS/
+        sidebarOpen) удалено. F1 (T-2393, SUPERSEDE): введён НОВЫЙ shell
+        (app-sidebar/app-drawer/bottom-nav) — это не legacy dead-menu."""
         js, html = _js(), _html()
         for token in ("MENU_ORDER", "MENU_LABELS", "sidebarOpen"):
             assert token not in js, token
-        assert "sidebar" not in html
         assert "☰" not in html
+        assert 'class="app-sidebar"' in html
+        assert 'class="app-drawer"' in html
+        assert 'class="bottom-nav"' in html
 
     def test_user_sees_only_home(self):
         js = _js()

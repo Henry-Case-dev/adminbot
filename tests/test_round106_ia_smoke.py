@@ -92,12 +92,14 @@ class TestRuntimeGates:
 
 
 class TestNavShell:
-    def test_no_sidebar(self):
-        assert "sidebar" not in JS
-        assert "sidebar" not in HTML
+    def test_no_legacy_sidebar_dead_menu(self):
+        """F1 (T-2393, SUPERSEDE 10.20/10.21): legacy dead-menu удалён;
+        новый app shell (app-sidebar/app-drawer/bottom-nav) — это НЕ он."""
         assert "MENU_ORDER" not in JS
         assert "MENU_LABELS" not in JS
         assert "☰" not in HTML
+        assert 'class="app-sidebar"' in HTML
+        assert 'class="bottom-nav"' in HTML
 
     def test_navbar_labels_visible(self):
         assert 'class="nav-label"' in HTML

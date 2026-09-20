@@ -95,6 +95,12 @@ build/
 tools/_ui_audit_shots/
 tools/_ui_audit_raw.json
 
+# ── Артефакты Playwright-матрицы shell (раунд 10.25, F1; T-2407) ──
+# Бинарные скриншоты и сырой JSON-прогон в git НЕ коммитим.
+# В репо остаётся только tools/ui_round1025_matrix.py.
+tools/_ui_round1025_shots/
+tools/_ui_round1025_raw.json
+
 # ── Крупные архивы исходников/бэкапов (round1025 hotfix, T-2460) ──
 # bot.zip / admin_bot.zip / adminbot.zip (~0.9 ГБ суммарно) — локальные
 # архивы, в git НЕ коммитить и НЕ удалять (владелец).

@@ -350,6 +350,81 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
   assert.ok(ids.indexOf('status') >= 0, 'status всегда виден');
 })();
 
+// ── F1 (T-2392/T-2393): IA v2 — legacy (6) vs V2 (7) под флагом ──────────
+(function () {
+  const legacyCtx = {
+    route: '#/', iaV2: false, canViewTab() { return true; },
+  };
+  assert.deepStrictEqual(
+    captured.computed.navItems.call(legacyCtx).map((n) => n.id),
+    ['status', 'how', 'modules', 'ai', 'permsoc', 'access'],
+    'F1: OFF (iaV2=false) → прежние 6 пунктов байт-в-байт');
+
+  const v2Ctx = { route: '#/', iaV2: true, canViewTab() { return true; } };
+  assert.deepStrictEqual(
+    captured.computed.navItems.call(v2Ctx).map((n) => n.id),
+    ['status', 'how', 'modules', 'ai', 'memory', 'access', 'permsoc'],
+    'F1: ON → 7 пунктов, «Память» отдельным разделом');
+
+  // «Память» скрыта без прав на её карточки.
+  const noMem = { route: '#/', iaV2: true,
+    canViewTab(id) { return id === 'status' || id === 'info'; } };
+  assert.ok(captured.computed.navItems.call(noMem).map((n) => n.id)
+    .indexOf('memory') < 0, 'F1: memory скрыт без прав');
+})();
+
+// ── F1 (§4.3): bottom-nav ровно 4 (Статус/Модули/ИИ/Ещё) ─────────────────
+(function () {
+  const admin = {
+    route: '#/', iaV2: true,
+    canViewTab() { return true; },
+    navItems: captured.computed.navItems.call({
+      route: '#/', iaV2: true, canViewTab() { return true; } }),
+  };
+  const bottom = captured.computed.bottomNavItems.call(admin);
+  assert.deepStrictEqual(bottom.map((n) => n.id),
+    ['status', 'modules', 'ai', 'more'],
+    'F1: bottom-nav админа = ровно 4 пункта (Память в «Ещё»).');
+  const more = captured.computed.mobileMoreItems.call(admin).map((n) => n.id);
+  assert.ok(more.indexOf('memory') >= 0,
+    'F1: «Память» живёт в шторке «Ещё»');
+})();
+
+// ── F1 (ADR-1025-1 D3): legacy-алиасы памяти → канон #/memory* ────────────
+(function () {
+  function applyOnce(route) {
+    const ctx = {
+      route: '#/', iaV2: true, me: { role_name: 'admin' },
+      canViewTab() { return true; }, activeTab: 'status', accessOpen: null,
+      tabs: captured.data().tabs,
+      syncBackButton() {}, setTab(id) { this.activeTab = id; },
+    };
+    methods.applyRoute.call(ctx, route);
+    return ctx.route;
+  }
+  assert.strictEqual(applyOnce('#/ai/memory'), '#/memory',
+    'F1: #/ai/memory → #/memory');
+  assert.strictEqual(applyOnce('#/ai/lore'), '#/memory/lore',
+    'F1: #/ai/lore → #/memory/lore');
+  assert.strictEqual(applyOnce('#/ai/relations'), '#/memory/relations',
+    'F1: #/ai/relations → #/memory/relations');
+  // Мусорный hash → Статус без падения (T-2396).
+  assert.strictEqual(applyOnce('#/garbage/route'), '#/',
+    'F1: мусорный hash → #/');
+})();
+
+// ── F1 (§4.1): #/memory — hub из 3 карточек ──────────────────────────────
+(function () {
+  const ctx = {
+    route: '#/memory', iaV2: true, canViewTab() { return true; },
+  };
+  const hub = captured.computed.hubCards.call(ctx);
+  assert.ok(hub && hub.cards.length === 3, 'F1: #/memory hub = 3 карточки');
+  assert.deepStrictEqual(hub.cards.map((c) => c.route),
+    ['#/memory/rag', '#/memory/lore', '#/memory/relations'],
+    'F1: карточки «Памяти»');
+})();
+
 // ── MAJOR-2: открытие модалки Сон грузит beliefs/лог ─────────────────────
 (function () {
   let beliefs = 0, log = 0;

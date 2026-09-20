@@ -154,8 +154,9 @@
     // Список-витрина 11 модулей (не config; карточки + модалки).
     { id: 'modules', icon: 'extension', label: 'Модули', type: 'modules',
       menu: 'modules' },
+    // F1 (ADR-1025-1 D1): «Память» — отдельный nav-раздел (не «ИИ»).
     { id: 'memory_rag', icon: 'memory', label: 'Память', type: 'config',
-      menu: 'ai',
+      menu: 'memory',
       sources: [
         { category: 'limits', groups: ['limits_memory', 'limits_graph',
             'limits_rag'] },
@@ -180,7 +181,7 @@
     // шаблон, как chat_lore): блок участников активного чата + конфиг-часть
     // (limits_relations/flags_relations через generic-блок; A-канон).
     { id: 'relations', icon: 'group', label: 'Участники и отношения',
-      type: 'relations', menu: 'ai',
+      type: 'relations', menu: 'memory',
       sources: [
         { category: 'limits', groups: ['limits_relations'] },
         { category: 'flags', groups: ['flags_relations'] },
@@ -210,17 +211,19 @@
     // Раунд 10.4 (A-8, Risk A-2): sources — ТОЛЬКО для рендера config-части
     // (группы limits_lore/flags_lore) через groupedForTab; тип — 'chat_lore'.
     { id: 'chat_lore', icon: 'auto_stories', label: 'Лор чата', type: 'chat_lore',
-      menu: 'ai',
+      menu: 'memory',
       sources: [
         { category: 'limits', groups: ['limits_lore'] },
         { category: 'flags', groups: ['flags_lore'] },
       ] },
+    // F1 (T-2394): Статус — единственная главная/стартовая (#/), доступна всем.
     { id: 'status', icon: 'monitoring', label: 'Статус', type: 'status', always: true,
-      menu: 'home' },
+      home: true, menu: 'home' },
     { id: 'info', icon: 'help', label: 'Справка', type: 'info',
       always: true, menu: 'home' },
     // Раунд 10 (F-12): точка интеграции Oversight (только global admin).
-    { id: 'oversight', icon: 'radar', label: 'Сводка', type: 'oversight',
+    // F1 (Human Gate §8.1): #/oversight сохранён, имя «Аналитика», дубля нет.
+    { id: 'oversight', icon: 'radar', label: 'Аналитика', type: 'oversight',
       menu: 'home' },
   ];
 
@@ -241,8 +244,9 @@
   // F6 (ADR-1018-6 D4): фактические navbar-разделы мини-аппа с настройками
   // (Модули/ИИ/PERMsoc) — порядок и подписи для группировки «Матрицы ролей»;
   // зеркало backend NAV_ORDER/NAV_TITLES (services/param_catalog.py).
-  var NAV_GROUP_ORDER = ['modules', 'ai', 'permsoc'];
-  var NAV_GROUP_TITLES = { modules: 'Модули', ai: 'ИИ', permsoc: 'PERMsoc' };
+  var NAV_GROUP_ORDER = ['modules', 'ai', 'memory', 'permsoc'];
+  var NAV_GROUP_TITLES = { modules: 'Модули', ai: 'ИИ', memory: 'Память',
+    permsoc: 'PERMsoc' };
 
   // ═══ Material Symbols Rounded — PUA-карта (T-1147/§15.4.4) ═══
   // Субсет без лигатур ⟹ рендер кодпоинтом (ICONS[name] → символ PUA),
@@ -318,6 +322,26 @@
       icon: 'supervisor_account' },
   ];
 
+  // ═══ F1 (ADR-1025-1 D1/D3): IA v2 — 7 пунктов, 3 уровня ═══
+  // legacy NAV_ITEMS выше НЕ трогаем: OFF-режим (IA_V2_ENABLED=false)
+  // рендерит его байт-в-байт. group: public | admin | local.
+  var NAV_ITEMS_V2 = [
+    { id: 'status', label: 'Статус', route: '#/', icon: 'monitoring',
+      group: 'public' },
+    { id: 'how', label: 'Справка', route: '#/how', icon: 'help',
+      group: 'public' },
+    { id: 'modules', label: 'Модули', route: '#/modules', icon: 'extension',
+      group: 'admin' },
+    { id: 'ai', label: 'ИИ', route: '#/ai', icon: 'smart_toy',
+      group: 'admin' },
+    { id: 'memory', label: 'Память', route: '#/memory', icon: 'memory',
+      group: 'admin' },
+    { id: 'access', label: 'Доступы', route: '#/access',
+      icon: 'supervisor_account', group: 'admin' },
+    { id: 'permsoc', label: 'PERMsoc', route: '#/permsoc',
+      icon: 'admin_panel_settings', group: 'local' },
+  ];
+
   // Hub-экраны (T-1100, §2.2): карточки → дочерние маршруты. optional
   // `section` — якорь внутри экрана (для #/access/*).
   // Раунд 10.6 (A2): «Модули» — НЕ hub, а список-витрина 11 модулей.
@@ -369,6 +393,48 @@
           route: '#/access/admins', tab: 'access' },
       ],
     },
+  };
+
+  // ═══ F1 (ADR-1025-1 D1/D3): хабы IA v2 ═══
+  // «ИИ» теряет память/лор/отношения (уехали в «Память»); #/access — тот же.
+  var HUBS_V2 = {
+    '#/ai': {
+      title: 'ИИ',
+      subtitle: 'Провайдеры, промпты, кэш, имена и личность',
+      cards: [
+        { icon: 'smart_toy', title: 'LLM Провайдеры',
+          subtitle: 'Блоки по модулям: base_url, модель, ключ, тест',
+          route: '#/ai/llm', tab: 'llm_providers' },
+        { icon: 'description', title: 'Библиотека промптов',
+          subtitle: 'Все системные промпты модулей',
+          route: '#/ai/prompts', tab: 'prompts' },
+        { icon: 'bolt', title: 'Умный кэш',
+          subtitle: 'Exact Match Cache: TTL и строки',
+          route: '#/ai/smart-cache', tab: 'smart_cache' },
+        { icon: 'badge', title: 'Имена и алиасы',
+          subtitle: 'Имена людей (алиасы, per-chat/ЛС)',
+          route: '#/ai/names', tab: 'people_names' },
+        { icon: 'psychology', title: 'Личность и стиль',
+          subtitle: 'Имя, биография, характер, осознание ИИ',
+          route: '#/ai/persona', tab: 'persona' },
+      ],
+    },
+    '#/memory': {
+      title: 'Память',
+      subtitle: 'Память и RAG, лор чата, участники и отношения',
+      cards: [
+        { icon: 'memory', title: 'Память и RAG',
+          subtitle: 'Память, граф, хранение, RAG-доли',
+          route: '#/memory/rag', tab: 'memory_rag' },
+        { icon: 'auto_stories', title: 'Лор чата',
+          subtitle: 'Ручной и авто-лор, история',
+          route: '#/memory/lore', tab: 'chat_lore' },
+        { icon: 'group', title: 'Участники и отношения',
+          subtitle: 'Участники чата и отношения',
+          route: '#/memory/relations', tab: 'relations' },
+      ],
+    },
+    '#/access': HUBS['#/access'],
   };
 
   // ═══ Раунд 10.6 (A2/T-1165): «Модули» = ровно 11; toggle + окно ═══
@@ -702,11 +768,17 @@
     '#/ai': 'llm_providers',
     '#/ai/llm': 'llm_providers',
     '#/ai/prompts': 'prompts',
-    '#/ai/memory': 'memory_rag',
     '#/ai/smart-cache': 'smart_cache',
     '#/ai/names': 'people_names',
+    // F1 (ADR-1025-1 D3): legacy-маршруты остаются валидными (алиасы ниже),
+    // канонический дом «Памяти» — #/memory/*.
+    '#/ai/memory': 'memory_rag',
     '#/ai/relations': 'relations',
     '#/ai/lore': 'chat_lore',
+    '#/memory': 'memory_rag',
+    '#/memory/rag': 'memory_rag',
+    '#/memory/lore': 'chat_lore',
+    '#/memory/relations': 'relations',
     // F3 (10.14): special-screen «Личность» (не зеркалит TABS/TAB_RULES).
     '#/ai/persona': 'persona',
     '#/access': 'access',
@@ -728,19 +800,25 @@
     mod_budgets: '#/modules/budgets',
     mod_images: '#/modules/images',
     llm_providers: '#/ai/llm', prompts: '#/ai/prompts',
-    memory_rag: '#/ai/memory', smart_cache: '#/ai/smart-cache',
-    people_names: '#/ai/names', relations: '#/ai/relations',
-    chat_lore: '#/ai/lore', access: '#/access',
+    // F1 (ADR-1025-1 D3): «Память» живёт в своём разделе.
+    memory_rag: '#/memory/rag', smart_cache: '#/ai/smart-cache',
+    people_names: '#/ai/names', relations: '#/memory/relations',
+    chat_lore: '#/memory/lore', access: '#/access',
     // F3 (10.14): persona — special-screen маршрут (нет записи в TABS).
     persona: '#/ai/persona',
   };
-  var ROOT_ROUTES = ['#/', '#/how', '#/modules', '#/permsoc', '#/ai', '#/access'];
+  var ROOT_ROUTES = ['#/', '#/how', '#/modules', '#/permsoc', '#/ai',
+    '#/memory', '#/access'];
   // MINOR-1: удалённые роуты → канонический hash (spec §3.2). applyRoute
   // делает replaceState, чтобы адресная строка не несла legacy-путь.
   var ROUTE_ALIAS = {
     '#/ai/limits': '#/ai',
     '#/ai/sleep': '#/modules',
     '#/ai/nostalgia': '#/modules',
+    // F1 (ADR-1025-1 D3): старые «дом-в-ИИ» маршруты памяти → «Память».
+    '#/ai/memory': '#/memory',
+    '#/ai/lore': '#/memory/lore',
+    '#/ai/relations': '#/memory/relations',
     '#/modules/features': '#/modules',
     '#/modules/switches': '#/modules',
     '#/modules/reactions': '#/modules',
@@ -748,10 +826,12 @@
   };
   var ROUTE_PARENT = {
     '#/oversight': '#/',
-    '#/ai/llm': '#/ai', '#/ai/prompts': '#/ai', '#/ai/memory': '#/ai',
+    '#/ai/llm': '#/ai', '#/ai/prompts': '#/ai',
     '#/ai/smart-cache': '#/ai', '#/ai/names': '#/ai',
-    '#/ai/relations': '#/ai', '#/ai/lore': '#/ai',
     '#/ai/persona': '#/ai',   // F3 (10.14)
+    // F1 (ADR-1025-1 D3/D6): подстраницы «Памяти» → родитель-хаб #/memory.
+    '#/memory/rag': '#/memory', '#/memory/lore': '#/memory',
+    '#/memory/relations': '#/memory',
     '#/access/roles': '#/access', '#/access/local': '#/access',
     '#/access/admins': '#/access',
     '#/modules/budgets': '#/modules',
@@ -782,8 +862,9 @@
   // D1: hub-роут доступен, если видна ХОТЯ БЫ ОДНА его карточка. НЕ гейтим
   // hub по одному «представительскому» tab (иначе роль с правами только на
   // prompts/limits получала редирект с #/ai).
-  function hubVisible(route, canViewTab) {
-    var hub = HUBS[route];
+  // F1: `hubs` — активная карта (HUBS_V2 при IA v2, иначе legacy HUBS).
+  function hubVisible(route, canViewTab, hubs) {
+    var hub = (hubs || HUBS)[route];
     if (!hub) return false;
     return hub.cards.some(function (c) {
       return !c.tab || canViewTab(c.tab);
@@ -810,6 +891,10 @@
   function initialRoute() {
     var h = normalizeRoute(window.location.hash);
     if (h) return h;
+    // F1 (T-2396): явный, но неизвестный hash '#/…' → Статус (без падения),
+    // а не восстанавливаем saved-маршрут (иначе мусор не приводил бы к '#/').
+    if (typeof window.location.hash === 'string' &&
+        window.location.hash.indexOf('#/') === 0) return '#/';
     try {
       var saved = normalizeRoute(sessionStorage.getItem('adminbot.route'));
       if (saved) return saved;
@@ -831,6 +916,7 @@
   var _boundBackApi = null;   // R10.5-1: к какому объекту уже привязан onClick
   var _routeApplied = false;
   var _onHashChange = null;
+  var _onResize = null;       // F1 (§6/§7): пересчёт shell-режима
   var _onKeydown = null;      // MODERATE-2: глобальный Esc (закрытие модалки)
   var _onVisibility = null;   // F5-Q3: пауза cognition-polling при hidden
   // F24 (ADR-1024-24 D1/C3): подписки на TMA-fullscreen-события. Ссылки на
@@ -881,6 +967,15 @@
         // нативный Telegram.WebApp.BackButton (иначе in-app fallback ←).
         route: '#/',
         backNative: false,
+        // F1 (§6/§7): shell-режим по ширине вьюпорта:
+        // mobile <768 | compact 768–1199 | desktop ≥1200.
+        shellMode: (typeof window !== 'undefined' && window.innerWidth)
+          ? (window.innerWidth < 768 ? 'mobile'
+            : (window.innerWidth < 1200 ? 'compact' : 'desktop'))
+          : 'desktop',
+        drawerOpen: false,   // 768–1199: временная навигация (не персистится)
+        moreOpen: false,     // <768: шторка «Ещё» в нижней навигации
+        helpQuery: '',       // T-2400: поиск по «Справке» (mobile)
         me: null,
         authError: null,
         authLocked: false,
@@ -1201,17 +1296,26 @@
         return routeDepth(this.route);
       },
       // T-1100: navbar-пункты, отфильтрованные по правам.
+      // F1 (ADR-1025-1 D5/D10): kill-switch новой IA. OFF → legacy-набор
+      // NAV_ITEMS/HUBS и .navbar-band байт-в-байт; ON → IA v2.
+      iaV2: function () {
+        return this.uiFlag('IA_V2_ENABLED');
+      },
       navItems: function () {
         var self = this;
         var canView = function (id) { return self.canViewTab(id); };
-        return NAV_ITEMS.filter(function (n) {
+        var items = this.iaV2 ? NAV_ITEMS_V2 : NAV_ITEMS;
+        var hubs = this.iaV2 ? HUBS_V2 : HUBS;
+        return items.filter(function (n) {
           if (n.id === 'status' || n.id === 'how') return true;
           if (n.id === 'permsoc') return self.canViewTab('permsoc');
           // A2/блокер-1: «Модули» — НЕ hub (список 11 модулей) → свой tab.
           if (n.id === 'modules') return canView('modules');
+          // F1: «Память» — свой hub (видна хотя бы одна карточка).
+          if (n.id === 'memory') return hubVisible('#/memory', canView, hubs);
           // D1: hub-пункты (ai/access) видимы, если видна хотя бы одна карточка.
           if (n.id === 'ai' || n.id === 'access') {
-            return hubVisible(n.route, canView);
+            return hubVisible(n.route, canView, hubs);
           }
           return false;
         });
@@ -1221,6 +1325,7 @@
         if (r === '#/' || r === '#/oversight') return 'status';
         if (r === '#/how') return 'how';
         if (r.indexOf('#/modules') === 0) return 'modules';
+        if (r.indexOf('#/memory') === 0) return 'memory';
         if (r.indexOf('#/ai') === 0) return 'ai';
         if (r === '#/permsoc') return 'permsoc';
         if (r.indexOf('#/access') === 0) return 'access';
@@ -1228,7 +1333,8 @@
       },
       // T-1100: карточки активного hub-экрана (или null, если не hub).
       hubCards: function () {
-        var hub = HUBS[this.route];
+        var map = this.iaV2 ? HUBS_V2 : HUBS;
+        var hub = map[this.route];
         if (!hub) return null;
         var self = this;
         var cards = hub.cards.filter(function (c) {
@@ -1236,6 +1342,68 @@
         });
         if (!cards.length) return null;
         return { title: hub.title, subtitle: hub.subtitle, cards: cards };
+      },
+      // F1 (§6/§7, UPD §8.4): пункты shell’ов.
+      // Desktop sidebar: публичные + админ + локальный (группы разделены).
+      sidebarItems: function () {
+        return this.navItems;
+      },
+      // Mobile bottom-nav: ровно 4 (админ: Статус/Модули/ИИ/Ещё;
+      // пользователь без прав — Статус/Справка).
+      bottomNavItems: function () {
+        var self = this;
+        var admin = this.canViewTab('modules') || this.canViewTab('llm_providers');
+        if (!admin) {
+          return this.navItems.filter(function (n) {
+            return n.id === 'status' || n.id === 'how';
+          });
+        }
+        var want = ['status', 'modules', 'ai'];
+        var base = this.navItems.filter(function (n) {
+          return want.indexOf(n.id) >= 0;
+        });
+        base.push({ id: 'more', label: 'Ещё', route: '', icon: 'expand_more',
+          more: true });
+        return base;
+      },
+      // Меню «Ещё» (шторка): Справка / Память / Доступы / PERMsoc.
+      // «Профиль» — существующий identity-блок (UPD §8.2), не новый экран.
+      mobileMoreItems: function () {
+        var want = ['how', 'memory', 'access', 'permsoc'];
+        return this.navItems.filter(function (n) {
+          return want.indexOf(n.id) >= 0;
+        });
+      },
+      // Управляемая мобильная навигация (<768) или drawer (768–1199).
+      isMobileShell: function () {
+        return this.shellMode === 'mobile';
+      },
+      hasSidebar: function () {
+        return this.shellMode === 'desktop';
+      },
+      // Drawer-навигация для планшета/компактного desktop (768–1199).
+      isCompactShell: function () {
+        return this.shellMode === 'compact';
+      },
+      // F1 (§4.2): группы sidebar — публичные / админ / локальный PERMsoc.
+      sidebarGroups: function () {
+        var pub = [], admin = [], local = [];
+        this.navItems.forEach(function (n) {
+          if (n.group === 'public') pub.push(n);
+          else if (n.group === 'local') local.push(n);
+          else admin.push(n);
+        });
+        return { pub: pub, admin: admin, local: local };
+      },
+      // UPD §8.4: «текущий раздел + путь назад» на вложенных страницах.
+      breadcrumb: function () {
+        var r = this.route || '#/';
+        var parent = routeParent(r);
+        if (!parent) return null;
+        var home = { label: 'Статус', route: '#/' };
+        if (parent === '#/') return { root: home, current: this._routeLabel(r) };
+        return { root: home, mid: { label: this._routeLabel(parent),
+          route: parent }, current: this._routeLabel(r) };
       },
       currentTab: function () {
         return this.tabs.find(function (t) { return t.id === this.activeTab; }, this) || null;
@@ -1752,6 +1920,25 @@
       sanitizedGuidePreviewHtml: function () {
         return this.sanitizeHtml(this.renderGuideMarkdown(this.guideDraft));
       },
+      // F1 (T-2400): «Справка» — оглавление + якоря заголовков. HTML берём
+      // уже санитайзенный; добавляем только id к h1..h3 (стиль не меняем).
+      helpContent: function () {
+        var info = this._anchorHtml(this.sanitizedInfoHtml, 'info');
+        var guide = this._anchorHtml(this.sanitizedGuideHtml, 'guide');
+        return {
+          infoHtml: info.html,
+          guideHtml: guide.html,
+          toc: info.anchors.concat(guide.anchors),
+        };
+      },
+      filteredHelpToc: function () {
+        var q = (this.helpQuery || '').trim().toLowerCase();
+        var toc = this.helpContent.toc;
+        if (!q) return toc;
+        return toc.filter(function (a) {
+          return a.text.toLowerCase().indexOf(q) >= 0;
+        });
+      },
       confirmText: function () {
         var labels = {
           restart: 'Перезапустить бота? Текущий процесс будет остановлен (graceful shutdown) и поднят заново.',
@@ -1845,6 +2032,7 @@
     // активной вкладки дёргается позже в mounted после auth.
     created: function () {
       getInitData();                       // кэш initData ДО записи hash
+      this._syncShellMode();               // F1: shell-режим по ширине
       this.initExpandState();              // F24: реактивный стейт аккордеонов
       var r = initialRoute();
       this.route = r;
@@ -1864,9 +2052,20 @@
       // перерегистрации → без накопления stale-колбэков/петель).
       _appVm = this;
       _onHashChange = function () {
-        _appVm.applyRoute(normalizeRoute(window.location.hash) || '#/');
+        // F1 (T-2396): неизвестный '#/…'-hash → канонический '#/' (replaceState),
+        // launch-hash без '#/' игнорируем как раньше.
+        var raw = window.location.hash;
+        var norm = normalizeRoute(raw);
+        if (!norm && typeof raw === 'string' && raw.indexOf('#/') === 0) {
+          try { history.replaceState(null, '', '#/'); } catch (e) { /* file:// */ }
+          norm = '#/';
+        }
+        _appVm.applyRoute(norm || '#/');
       };
       window.addEventListener('hashchange', _onHashChange);
+      // F1 (§6/§7): пересчёт shell-режима при ресайзе (sidebar строго ≥1200).
+      _onResize = function () { if (_appVm) _appVm._syncShellMode(); };
+      window.addEventListener('resize', _onResize);
       // MODERATE-2 + 10.8 (R10.8-1): глобальный Esc закрывает модалку модуля
       // И route-driven окна «Доступов» (фокус может быть вне модалки —
       // keydown на карточке недостаточно; закрытие окна = hash → #/access).
@@ -3044,10 +3243,11 @@
           return;
         }
         var tabId = routeToTab(route);
-        var isHub = Object.prototype.hasOwnProperty.call(HUBS, route);
+        var hubs = this.iaV2 ? HUBS_V2 : HUBS;
+        var isHub = Object.prototype.hasOwnProperty.call(hubs, route);
         if (this.me && isHub) {
           // D1: hub-роут гейтим по видимым карточкам, НЕ по representative tab.
-          if (!hubVisible(route, this.canViewTab.bind(this))) {
+          if (!hubVisible(route, this.canViewTab.bind(this), hubs)) {
             this.toast('Нет доступа к разделу', 'warn');
             route = '#/';
             tabId = routeToTab(route);
@@ -3101,6 +3301,80 @@
       },
       // T-1100: navbar → маршрут (hash).
       navTo: function (route) {
+        this.navigateTo(route);
+      },
+      // F1 (T-2400): инъекция id-анкеров в h1..h3 санитайзенного HTML +
+      // сбор оглавления. Без DOMParser (тесты/старый браузер) — no-op.
+      _anchorHtml: function (html, prefix) {
+        var anchors = [];
+        if (!html || typeof DOMParser === 'undefined') {
+          return { html: html, anchors: anchors };
+        }
+        try {
+          var doc = new DOMParser().parseFromString(html, 'text/html');
+          var hs = doc.body.querySelectorAll('h1, h2, h3');
+          for (var i = 0; i < hs.length; i++) {
+            var text = (hs[i].textContent || '').trim();
+            if (!text) continue;
+            var id = prefix + '-h' + (i + 1);
+            hs[i].setAttribute('id', id);
+            anchors.push({ id: id, text: text, level: Number(hs[i].tagName.slice(1)),
+              source: prefix });
+          }
+          return { html: doc.body.innerHTML, anchors: anchors };
+        } catch (e) {
+          return { html: html, anchors: anchors };
+        }
+      },
+      scrollToAnchor: function (id) {
+        try {
+          var el = document.getElementById(id);
+          if (el && typeof el.scrollIntoView === 'function') {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        } catch (e) { /* вне DOM */ }
+      },
+      // F1 (UPD §8.4): человекочитаемая подпись раздела для пути назад.
+      _routeLabel: function (route) {
+        var items = this.iaV2 ? NAV_ITEMS_V2 : NAV_ITEMS;
+        for (var i = 0; i < items.length; i++) {
+          if (items[i].route === route) return items[i].label;
+        }
+        var tabId = routeToTab(route);
+        var t = TABS.find(function (x) { return x.id === tabId; });
+        return (t && t.label) || String(route || '');
+      },
+      // F1 (§6/§7): shell-режим по ширине; постоянный sidebar строго ≥1200.
+      _syncShellMode: function () {
+        try {
+          var w = window.innerWidth || 0;
+          this.shellMode = w >= 1200 ? 'desktop' : (w >= 768 ? 'compact'
+            : 'mobile');
+        } catch (e) { /* вне браузера */ }
+      },
+      toggleDrawer: function () {
+        this.drawerOpen = !this.drawerOpen;
+        if (this.drawerOpen) this.moreOpen = false;
+      },
+      closeDrawer: function () {
+        this.drawerOpen = false;
+      },
+      toggleMore: function () {
+        this.moreOpen = !this.moreOpen;
+        if (this.moreOpen) this.drawerOpen = false;
+      },
+      closeMore: function () {
+        this.moreOpen = false;
+      },
+      // F1 (UPD §8.4/T-2399): путь назад на родителя (in-app + TMA BackButton).
+      goParent: function () {
+        var p = routeParent(this.route);
+        this.navigateTo(p || '#/');
+      },
+      // Навигация из shell (sidebar/bottom-nav/шторка): закрыть оверлеи.
+      shellNavTo: function (route) {
+        this.closeDrawer();
+        this.closeMore();
         this.navigateTo(route);
       },
       // A9/T-1206 + 10.8/ADR-001: «Доступы» — route-driven окна подразделов
@@ -7845,6 +8119,11 @@
       if (_onVisibility) {
         document.removeEventListener('visibilitychange', _onVisibility);
         _onVisibility = null;
+      }
+      // F1 (§6/§7): снимаем resize-листенер shell-режима.
+      if (_onResize) {
+        window.removeEventListener('resize', _onResize);
+        _onResize = null;
       }
       if (this.controlTimer) clearInterval(this.controlTimer);
     },

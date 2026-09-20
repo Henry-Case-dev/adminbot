@@ -375,6 +375,11 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
             # OFF → прежний (сломанный) watcher 'item.value'.
             "ALIASES_KEYSVALUE_RENDER_ENABLED":
                 bool(settings.ALIASES_KEYSVALUE_RENDER_ENABLED),
+            # F1 (10.25, ADR-1025-1 D5): гейт новой IA/app-shell. default ON;
+            # OFF → прежний navbar (6 пунктов) байт-в-байт, без sidebar/
+            # bottom-nav (возврат — env-флаг ON / git revert). ВРЕМЕННЫЙ
+            # механизм отката (UPD §9.5), удаляется post-Epic-1.
+            "IA_V2_ENABLED": bool(settings.IA_V2_ENABLED),
         },
     }
 

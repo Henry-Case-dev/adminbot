@@ -95,7 +95,9 @@ class TestChatLoreFrontAudit:
         """Hotfix-R10: isFullscreen — класс на корне (fullscreen-mode:
         height:100dvh, overflow:hidden), панель лора заполняет экран."""
         html, _css = self._html(), None
-        assert ":class=\"{ 'fullscreen-mode': isFullscreen }\"" in html
+        # F1 (T-2397): к fullscreen-классу добавлены shell-режимы (массив).
+        assert "{ 'fullscreen-mode': isFullscreen }" in html
+        assert "'shell-' + shellMode" in html
         # F4 10.16: CSS-канон вынесен из inline <style> в app.css.
         css = open("web/static/app.css", encoding="utf-8").read()
         assert ".fullscreen-mode" in css

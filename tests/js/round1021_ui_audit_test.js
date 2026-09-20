@@ -233,7 +233,12 @@ const CSS = fs.readFileSync(
   const navBlock = APP_JS.slice(APP_JS.indexOf('var NAV_ITEMS = ['),
     APP_JS.indexOf('];', APP_JS.indexOf('var NAV_ITEMS = [')));
   const navCount = (navBlock.match(/route:\s*'#/g) || []).length;
-  assert.strictEqual(navCount, 6, 'меню: ровно 6 NAV_ITEMS');
+  assert.strictEqual(navCount, 6, 'меню: legacy NAV_ITEMS = ровно 6 (OFF)');
+  // F1 (T-2393, SUPERSEDE): новая IA — NAV_ITEMS_V2 = 7 пунктов.
+  const v2Block = APP_JS.slice(APP_JS.indexOf('var NAV_ITEMS_V2 = ['),
+    APP_JS.indexOf('];', APP_JS.indexOf('var NAV_ITEMS_V2 = [')));
+  const v2Count = (v2Block.match(/route:\s*'#/g) || []).length;
+  assert.strictEqual(v2Count, 7, 'меню: NAV_ITEMS_V2 = ровно 7 (ON)');
 }
 
 // ── 7. Регресс round 10.21 (T-1998): _syntheticGroup — метод, не computed ───

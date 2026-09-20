@@ -91,10 +91,17 @@ const INDEX = fs.readFileSync(
   ];
   assert.deepStrictEqual(data.tabs.map((t) => t.id), expectedTabs,
     'T-1903: состав/порядок вкладок (меню) не изменился');
-  const nav = computed.navItems.call({ route: '#/', canViewTab() { return true; } });
-  assert.deepStrictEqual(nav.map((n) => n.id),
+  // F1 (T-2393, SUPERSEDE): OFF-режим — прежние 6; ON — 7 (+ «Память»).
+  const navLegacy = computed.navItems.call(
+    { route: '#/', iaV2: false, canViewTab() { return true; } });
+  assert.deepStrictEqual(navLegacy.map((n) => n.id),
     ['status', 'how', 'modules', 'ai', 'permsoc', 'access'],
-    'T-1903: navbar — те же 6 пунктов');
+    'T-1903/F1: legacy navbar — те же 6 пунктов');
+  const navV2 = computed.navItems.call(
+    { route: '#/', iaV2: true, canViewTab() { return true; } });
+  assert.deepStrictEqual(navV2.map((n) => n.id),
+    ['status', 'how', 'modules', 'ai', 'memory', 'access', 'permsoc'],
+    'F1: IA v2 navbar — 7 пунктов, «Память» отдельно');
   // Состав модулей (12 + «Генерация изображений») — F5 (10.24).
   assert.strictEqual(data.modules.length, 13, 'T-1903: карточек модулей — 13');
 })();

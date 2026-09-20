@@ -50,11 +50,19 @@ class TestNavigationSnapshot:
         ids = re.findall(r"\{ id: '([a-z_0-9]+)'", _tabs_block())
         assert ids == self.EXPECTED_TABS
 
-    def test_navbar_unchanged(self):
-        # navbar = те же 6 пунктов (status/how/modules/ai/permsoc/access).
-        nav_ids = ["status", "how", "modules", "ai", "permsoc", "access"]
-        for nid in nav_ids:
-            assert "'" + nid + "'" in APP_JS
+    def test_navbar_legacy_and_v2(self):
+        # F1 (T-2393, SUPERSEDE): legacy NAV_ITEMS (6, OFF-режим) остаётся
+        # неизменным; новый NAV_ITEMS_V2 = 7 пунктов (+ «Память»).
+        legacy = re.findall(
+            r"id:\s*'(\w+)',\s*label:\s*'[^']+',\s*route:\s*'#/",
+            APP_JS[APP_JS.index("var NAV_ITEMS = ["):
+                   APP_JS.index("var NAV_ITEMS_V2")])
+        assert legacy == ["status", "how", "modules", "ai", "permsoc", "access"]
+        v2 = re.findall(
+            r"id:\s*'(\w+)',\s*label:\s*'[^']+',\s*route:\s*'#/",
+            APP_JS[APP_JS.index("var NAV_ITEMS_V2 = ["):])
+        assert v2[:7] == ["status", "how", "modules", "ai", "memory",
+                          "access", "permsoc"]
         # Состав MODULES (12 модулей + «Генерация изображений») — F5 (10.24).
         mods = re.findall(r"\{ id: '(mod_[a-z_]+)',",
                           APP_JS[APP_JS.index("var MODULES = ["):])

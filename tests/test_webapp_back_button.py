@@ -117,7 +117,10 @@ class TestBackButtonIntegration:
     def test_hashchange_single_applier(self):
         js = _js()
         assert "window.addEventListener('hashchange'" in js
-        assert "_appVm.applyRoute(normalizeRoute(window.location.hash) || '#/')" in js
+        # F1 (T-2396): мусорный '#/…'-hash нормализуется в '#/' ПЕРЕД
+        # applyRoute; единственным «применителем» остаётся applyRoute.
+        assert "_appVm.applyRoute(norm || '#/')" in js
+        assert "var norm = normalizeRoute(raw);" in js
         # ❌ отдельный popstate рядом с hashchange (двойное применение).
         assert "addEventListener('popstate'" not in js
 

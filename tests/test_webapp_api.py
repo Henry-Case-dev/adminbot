@@ -1417,9 +1417,17 @@ class TestParamPermissionFlagsApi:
         assert items["keys.groq_api_key"]["tab"] == "llm_providers"
         assert items["prompts.summary_system_prompt"]["tab"] == "prompts"
         assert items["prompts.summary_system_prompt"]["tab_title"] == "Промпты"
+        # F1 (10.25, ADR-1025-1 D2): «Память» — отдельный nav-раздел;
+        # config-параметры памяти теперь nav="memory".
+        mem_key = next(
+            k for k, it in items.items()
+            if it["tab"] == "memory_rag" and it["nav"] is not None)
+        assert items[mem_key]["nav"] == "memory"
+        assert items[mem_key]["nav_title"] == "Память"
         # у каждого параметра секция-метаданные присутствуют (key есть);
         # F6: nav заполнен для config-параметров, None — для content без tab.
-        nav_titles = {"modules": "Модули", "ai": "ИИ", "permsoc": "PERMsoc"}
+        nav_titles = {"modules": "Модули", "ai": "ИИ", "memory": "Память",
+                      "permsoc": "PERMsoc"}
         for key, it in items.items():
             assert "tab" in it and "tab_title" in it, key
             if it["nav"] is not None:

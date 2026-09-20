@@ -60,14 +60,25 @@ class TestTabMappingAudit:
         assert set(pc.TAB_NAV.values()) <= set(pc.NAV_TITLES)
 
     def test_nav_order_and_titles(self):
-        assert pc.NAV_ORDER == ("modules", "ai", "permsoc")
+        # F1 (10.25, ADR-1025-1 D1/D2): «Память» — отдельный nav-раздел.
+        # SUPERSEDE menu-freeze 10.20/10.21 (Human Gate §7).
+        assert pc.NAV_ORDER == ("modules", "ai", "memory", "permsoc")
         assert pc.NAV_TITLES == {
-            "modules": "Модули", "ai": "ИИ", "permsoc": "PERMsoc"}
+            "modules": "Модули", "ai": "ИИ", "memory": "Память",
+            "permsoc": "PERMsoc"}
 
     def test_tab_nav_helper(self):
         assert pc.tab_nav(TAB_PERMSOC) == "permsoc"
         assert pc.tab_nav(TAB_MOD_SLEEP) == "modules"
-        assert pc.tab_nav(TAB_CHAT_LORE) == "ai"
+        # F1: memory_rag/chat_lore/relations уехали из «ИИ» в «Память».
+        assert pc.tab_nav(TAB_CHAT_LORE) == pc.NAV_MEMORY
+        assert pc.tab_nav(TAB_MEMORY_RAG) == pc.NAV_MEMORY
+        assert pc.tab_nav(TAB_RELATIONS) == pc.NAV_MEMORY
+        # «ИИ» сохранён: провайдеры/промпты/кэш/имена (ADR-1025-1 D1).
+        assert pc.tab_nav(TAB_LLM_PROVIDERS) == pc.NAV_AI
+        assert pc.tab_nav(TAB_PROMPTS) == pc.NAV_AI
+        assert pc.tab_nav(TAB_SMART_CACHE) == pc.NAV_AI
+        assert pc.tab_nav(TAB_PEOPLE_NAMES) == pc.NAV_AI
         assert pc.tab_nav(None) is None
         assert pc.tab_nav("unknown") is None
 
@@ -270,10 +281,17 @@ class TestJsMirror:
             assert "id: '%s'" % mid in self.JS, mid
         assert self.JS.count("mod_") >= 11
 
-    def test_no_sidebar(self):
+    def test_ia_v2_shell_markers(self):
+        """F1 (T-2393, SUPERSEDE menu-freeze 10.20/10.21): введён раздельный
+        app shell (ADR-1025-1 D6) — sidebar ≥1200, drawer 768–1199,
+        bottom-nav <768. Legacy dead-menu токены по-прежнему запрещены."""
         for token in ("sidebarOpen", "MENU_ORDER", "MENU_LABELS"):
             assert token not in self.JS, token
-        assert "sidebar" not in self.HTML
+        assert 'class="app-sidebar"' in self.HTML
+        assert 'class="bottom-nav"' in self.HTML
+        assert 'class="app-drawer"' in self.HTML
+        # OFF-режим (IA_V2_ENABLED=false) сохраняет navbar-полосу.
+        assert 'class="navbar-band' in self.HTML
         assert "☰" not in self.HTML
 
     def test_nav_labels(self):

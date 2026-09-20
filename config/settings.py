@@ -659,6 +659,13 @@ class Settings:
     # env-флаг ON или `git revert`.
     ALIASES_KEYSVALUE_RENDER_ENABLED: ClassVar[bool] = _env_bool(
         "ALIASES_KEYSVALUE_RENDER_ENABLED", True)
+    # ── Раунд 10.25 (F1, ADR-1025-1 D5): env-only ClassVar kill-switch новой
+    # IA/app-shell. default ON, Δ каталога = 0 (в param_catalog НЕ входит).
+    # Доставка — `GET /api/me.ui_flags` (ADR-1024-13), наружу только bool.
+    # OFF → прежний navbar (6 пунктов) байт-в-байт. Возврат ручки — env
+    # IA_V2_ENABLED=true или `git revert`. ВРЕМЕННЫЙ механизм отката
+    # (UPD §9.5) — не постоянная вторая архитектура (техдолг post-Epic-1).
+    IA_V2_ENABLED: ClassVar[bool] = _env_bool("IA_V2_ENABLED", True)
     # ── Раунд 10.22 (F8, ADR-1022-8): env-only ClassVar-рубильники
     # асинхронной пересборки досье из мини-аппа. Δ каталога = 0 (в
     # param_catalog не входят; прецедент MULTILAYER_EXTRACTION_ENABLED).

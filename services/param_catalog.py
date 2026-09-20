@@ -2028,20 +2028,23 @@ CONFIG_TAB_TITLES: dict[str, str] = {
 # GroupSpec → счётчики каталога (REGISTRY/GROUPS/TAB_RULES) НЕ растут.
 NAV_MODULES = "modules"
 NAV_AI = "ai"
+# F1 (ADR-1025-1 D1/D2): «Память» выделена в отдельный nav-раздел из «ИИ».
+NAV_MEMORY = "memory"
 NAV_PERMSOC = "permsoc"
 
 NAV_TITLES: dict[str, str] = {
     NAV_MODULES: "Модули",
     NAV_AI: "ИИ",
+    NAV_MEMORY: "Память",
     NAV_PERMSOC: "PERMsoc",
 }
 
-NAV_ORDER: tuple[str, ...] = (NAV_MODULES, NAV_AI, NAV_PERMSOC)
+NAV_ORDER: tuple[str, ...] = (NAV_MODULES, NAV_AI, NAV_MEMORY, NAV_PERMSOC)
 
-# tab_id → nav (исчерпывающе, все 19 config-вкладок TAB_RULES). Паритет с
-# фактической картой мини-аппа (web/app.js): 11 mod_* → Модули, 7 «ИИ» → ИИ,
-# permsoc → PERMsoc. `#/access` и `#/ai/persona` — НЕ per-param секции
-# матрицы (нет ParamSpec; ADR-1018-6 D5).
+# tab_id → nav (исчерпывающе, все 21 config-вкладок TAB_RULES). Паритет с
+# фактической картой мини-аппа (web/app.js): 13 mod_* → Модули, 4 «ИИ» → ИИ,
+# 3 «Память» → Память, permsoc → PERMsoc. `#/access` и `#/ai/persona` — НЕ
+# per-param секции матрицы (нет ParamSpec; ADR-1018-6 D5).
 TAB_NAV: dict[str, str] = {
     TAB_MOD_SUMMARY: NAV_MODULES,
     TAB_MOD_DIRECT: NAV_MODULES,
@@ -2058,11 +2061,11 @@ TAB_NAV: dict[str, str] = {
     TAB_MOD_IMAGES: NAV_MODULES,
     TAB_LLM_PROVIDERS: NAV_AI,
     TAB_PROMPTS: NAV_AI,
-    TAB_MEMORY_RAG: NAV_AI,
     TAB_SMART_CACHE: NAV_AI,
     TAB_PEOPLE_NAMES: NAV_AI,
-    TAB_RELATIONS: NAV_AI,
-    TAB_CHAT_LORE: NAV_AI,
+    TAB_MEMORY_RAG: NAV_MEMORY,
+    TAB_RELATIONS: NAV_MEMORY,
+    TAB_CHAT_LORE: NAV_MEMORY,
     TAB_PERMSOC: NAV_PERMSOC,
 }
 

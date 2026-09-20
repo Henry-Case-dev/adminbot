@@ -47,8 +47,11 @@ class TestRenames108:
         "«Как это работает»", "«Настройки AI»", "«Функции PERMsoc»",
         "«Доступы и Роли»",
     )
+    # F1 (10.25, ADR-1025-1 D1, Human Gate §8.1): «Сводка» → «Аналитика»
+    # (route #/oversight сохранён), «Память» — отдельный раздел.
     NEW_LABELS = ("label: 'Справка'", "label: 'ИИ'", "label: 'PERMsoc'",
-                  "label: 'Доступы'", "label: 'Сводка'")
+                  "label: 'Доступы'", "label: 'Аналитика'",
+                  "label: 'Память'")
 
     def test_old_labels_gone(self):
         for old in self.OLD_LABELS:

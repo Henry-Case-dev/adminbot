@@ -157,6 +157,8 @@ class TestNoOrphans:
 
     def test_oversight_extras_kept(self):
         # фичи, которых нет в эталоне, обязаны остаться (T-1090).
-        # 10.8 (§1): видимый заголовок «Сводка», route-ключ #/oversight цел.
+        # F1 (10.25, Human Gate §8.1): видимый заголовок «Аналитика»,
+        # технический route-ключ #/oversight цел (дубля страницы нет).
         assert "'#/oversight'" in _JS
-        assert "Сводка" in _HTML
+        assert "Аналитика" in _HTML
+        assert "label: 'Аналитика'" in _JS

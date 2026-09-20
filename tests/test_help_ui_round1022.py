@@ -298,8 +298,12 @@ class TestRender:
         assert "INVALID_TAGS" not in block
 
     def test_info_rendered_only_through_sanitized_computed(self):
-        assert 'v-html="sanitizedInfoHtml"' in INDEX
+        # F1 (T-2400): рендер идёт через helpContent.infoHtml (агрегат,
+        # построенный на sanitizedInfoHtml + id-анкеры заголовков).
+        assert 'v-html="helpContent.infoHtml"' in INDEX
         assert "sanitizedInfoHtml: function" in APP_JS
+        assert "helpContent: function" in APP_JS
+        assert "this._anchorHtml(this.sanitizedInfoHtml" in APP_JS
         # предпросмотр редактора тоже через санитайз.
         assert "sanitizeHtml(infoDraft)" in INDEX
 
