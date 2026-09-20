@@ -15,6 +15,7 @@ from __future__ import annotations
 import datetime
 import json
 import logging
+import time
 from urllib.parse import urlsplit
 
 import httpx
@@ -47,6 +48,66 @@ SOURCE_URL_DEFAULT = (
 _SOURCE_ID_MANUAL = "manual"
 MAX_SOURCE_CHARS = 60000
 REFRESH_DAYS = 7
+# F0.3 (раунд 10.25, ADR-1025-3 D2): bounded-цикл добора до ВМЕСТИМОСТИ.
+# Лимит раундов — env-only `settings.ANTICLICHE_MAX_ROUNDS` (default 3).
+_MAX_ROUNDS_DEFAULT = 3
+
+
+def max_patterns_per_run() -> int:
+    """F0.3: размер ПАРТИИ за один LLM-вызов (env-only, default 40).
+
+    Отдельно от ВМЕСТИМОСТИ `anticliche_cache.max_patterns()` (сколько держим
+    в БД). Clamp: `[1, capacity]` — партия не больше вместимости."""
+    default = 40
+    try:
+        value = int(getattr(settings, "ANTICLICHE_MAX_PATTERNS_PER_RUN",
+                            default))
+    except (TypeError, ValueError):  # pragma: no cover — defensive
+        value = default
+    return max(1, min(value, anticliche_cache.max_patterns()))
+
+
+def max_rounds() -> int:
+    """F0.3: лимит раундов добора (env-only, default 3; ≥1)."""
+    try:
+        value = int(getattr(settings, "ANTICLICHE_MAX_ROUNDS",
+                            _MAX_ROUNDS_DEFAULT))
+    except (TypeError, ValueError):  # pragma: no cover — defensive
+        value = _MAX_ROUNDS_DEFAULT
+    return max(1, value)
+
+
+def _event(name: str, **fields) -> None:
+    """F0.3 (§4.4): структурированное событие `event=ANTI_CLICHE_*`.
+
+    R17: логируем только коды/числа/идентификаторы и НИКОГДА — фразы/секреты."""
+    parts = " | ".join(f"{k}={v}" for k, v in fields.items())
+    logger.info("[anticliche] event=%s | %s", name, parts)
+
+
+def _normalize_stored(patterns) -> list[dict]:
+    """F0.3: уже сохранённые паттерны → нормализованный список (для merge).
+
+    Сохраняет `code`/`origin`/`added_at` как есть; дедуп по нормализованной
+    фразе. НЕ применяет вместимость (её контролирует цикл добора)."""
+    out: list[dict] = []
+    seen: set[str] = set()
+    if not isinstance(patterns, (list, tuple)):
+        return out
+    for item in patterns:
+        if not isinstance(item, dict):
+            continue
+        phrase = normalize_dynamic_phrase(item.get("phrase"))
+        if not phrase or phrase in seen:
+            continue
+        seen.add(phrase)
+        out.append({
+            "code": item.get("code") or dynamic_rule_code(phrase),
+            "phrase": phrase,
+            "origin": _safe_origin(item.get("origin")),
+            "added_at": item.get("added_at") or _now_iso(),
+        })
+    return out
 
 # Промпт извлечения паттернов — код-константа, НЕ перечисляет сами клише
 # (иначе grep-тест тропов поймал бы запрет; ADR-1023-4 D4). Динамические
@@ -384,74 +445,127 @@ class AntiClicheWorker:
             return {"status": "fetch_error", "count": 0, "version": 0,
                     "source": source_id}
 
-        # Review iter1 (L5): call списывается ровно перед LLM-вызовом
-        # (неудачный fetch LLM-call не расходует).
-        try:
-            allowed = await worker_budget.consume(
-                pg, "global", worker_budget.METRIC_CALLS)
-        except Exception:
-            allowed = True
-        if not allowed:
-            logger.info("[anticliche] skip: worker budget exhausted")
-            trace_step(logger, component="anticliche", step="budget",
-                       status="skip", reason="budget_skip",
-                       extra={"source": source_id})
-            return {"status": "budget_skip", "count": 0, "version": 0,
-                    "source": source_id}
+        # F0.3 (ADR-1025-3 D2): пакетное bounded-пополнение до ВМЕСТИМОСТИ.
+        # Партия за вызов ≤ per_run (в пределах выходного лимита модели);
+        # дедуп против уже сохранённых + внутри партии; «0 новых» = успех.
+        capacity = anticliche_cache.max_patterns()
+        per_run = max_patterns_per_run()
+        rounds_limit = max_rounds()
+        stored = await anticliche_cache.fetch_cache(pg)
+        merged = _normalize_stored((stored or {}).get("patterns"))
+        initial_count = len(merged)
+        seen = {p["phrase"] for p in merged}
+        new_total = 0
+        duplicates_total = 0
+        candidates_total = 0
+        final_status = "ok"
+        applied_limit = 0
+        rounds = 0
+        started = time.monotonic()
+        _event("ANTI_CLICHE_UPDATE_START", capacity=capacity, per_run=per_run,
+               initial_count=initial_count, source=source_id)
 
-        try:
-            raw = await self._call_llm(text)
-        except Exception as exc:
-            await anticliche_cache.mark_status(pg, "llm_error")
-            logger.warning("[anticliche] llm failed | error=%s",
-                           type(exc).__name__, exc_info=True)
-            trace_step(logger, component="anticliche", step="llm",
-                       status="error", reason="llm_error",
-                       extra={"source": source_id,
-                              "error": type(exc).__name__})
-            return {"status": "llm_error", "count": 0, "version": 0,
-                    "source": source_id}
+        while len(merged) < capacity and rounds < rounds_limit:
+            want = min(per_run, capacity - len(merged))
+            # Review iter1 (L5): call списывается ровно перед LLM-вызовом.
+            try:
+                allowed = await worker_budget.consume(
+                    pg, "global", worker_budget.METRIC_CALLS)
+            except Exception:
+                allowed = True
+            if not allowed:
+                final_status = "budget_skip"
+                break
+            _event("ANTI_CLICHE_MODEL_REQUEST", round=rounds + 1,
+                   per_run=per_run, applied_limit=want,
+                   model=self._model_label())
+            t0 = time.monotonic()
+            try:
+                raw = await self._call_llm(text, limit=want)
+            except Exception as exc:
+                await anticliche_cache.mark_status(pg, "llm_error")
+                logger.warning("[anticliche] llm failed | error=%s",
+                               type(exc).__name__, exc_info=True)
+                trace_step(logger, component="anticliche", step="llm",
+                           status="error", reason="llm_error",
+                           extra={"source": source_id,
+                                  "error": type(exc).__name__})
+                _event("ANTI_CLICHE_UPDATE_FAILED", status="llm_error",
+                       reason="llm_error", model=self._model_label())
+                return {"status": "llm_error", "count": 0, "version": 0,
+                        "source": source_id}
+            duration_ms = int((time.monotonic() - t0) * 1000)
+            # Review iter1 (L5): токены — сразу после ответа LLM.
+            try:
+                await worker_budget.consume(
+                    pg, "global", worker_budget.METRIC_TOKENS,
+                    worker_budget.estimate_tokens(text)
+                    + worker_budget.estimate_tokens(raw))
+            except Exception:
+                pass
+            entries = parse_patterns(raw)
+            if entries is None:
+                await anticliche_cache.mark_status(pg, "parse_error")
+                logger.warning("[anticliche] parse failed — cache kept")
+                trace_step(logger, component="anticliche", step="parse",
+                           status="error", reason="parse_error",
+                           extra={"source": source_id,
+                                  "raw_len": len(str(raw or ""))})
+                _event("ANTI_CLICHE_PARSE_ERROR", round=rounds + 1,
+                       raw_len=len(str(raw or "")))
+                _event("ANTI_CLICHE_UPDATE_FAILED", status="parse_error",
+                       reason="parse_error", model=self._model_label())
+                return {"status": "parse_error", "count": 0, "version": 0,
+                        "source": source_id}
+            candidates = build_patterns(entries, max_patterns=want)
+            candidates_total += len(candidates)
+            _event("ANTI_CLICHE_MODEL_RESPONSE", round=rounds + 1,
+                   candidates=len(candidates), duration_ms=duration_ms,
+                   model=self._model_label())
+            round_new = [p for p in candidates if p["phrase"] not in seen]
+            round_dups = max(0, len(candidates) - len(round_new))
+            duplicates_total += round_dups
+            _event("ANTI_CLICHE_DEDUP_COMPLETE", candidates=len(candidates),
+                   duplicates=round_dups)
+            if not round_new:
+                final_status = "empty"          # «нет новых» — валидный успех
+                break
+            for p in round_new:
+                seen.add(p["phrase"])
+                merged.append(p)
+            new_total += len(round_new)
+            applied_limit = want
+            rounds += 1
+            if len(candidates) < want:
+                # модель вернула меньше запрошенного → источник исчерпан
+                break
+        if (new_total == 0 and rounds == 0 and final_status == "ok"
+                and len(merged) >= capacity):
+            # кэш уже полон — добор не нужен (не ошибка)
+            final_status = "ok"
 
-        # Review iter1 (L5): токены — сразу после ответа LLM, независимо от
-        # исхода разбора (вызов уже состоялся).
-        try:
-            await worker_budget.consume(
-                pg, "global", worker_budget.METRIC_TOKENS,
-                worker_budget.estimate_tokens(text)
-                + worker_budget.estimate_tokens(raw))
-        except Exception:
-            pass
-
-        entries = parse_patterns(raw)
-        if entries is None:
-            await anticliche_cache.mark_status(pg, "parse_error")
-            logger.warning("[anticliche] parse failed — cache kept")
-            trace_step(logger, component="anticliche", step="parse",
-                       status="error", reason="parse_error",
-                       extra={"source": source_id,
-                              "raw_len": len(str(raw or ""))})
-            return {"status": "parse_error", "count": 0, "version": 0,
-                    "source": source_id}
-
-        patterns = build_patterns(entries)
-        # Review iter1 (H1): вырожденный (но валидный) ответ — эхо хардкода,
-        # пустой список и т.п. — НЕ затирает предыдущий кэш. Пустая запись
-        # допустима только через явный ручной PUT (`apply_manual`).
-        if not patterns:
-            data = await anticliche_cache.fetch_cache(pg)
-            version = int((data or {}).get("version") or 0)
-            await anticliche_cache.mark_status(pg, "empty")
-            logger.warning(
-                "[anticliche] empty result — cache kept | version=%s", version)
-            trace_step(logger, component="anticliche", step="empty",
-                       status="empty", reason="empty_result",
-                       extra={"source": source_id, "version": version})
-            return {"status": "empty", "count": 0, "version": version,
-                    "source": source_id}
+        if new_total == 0:
+            # Вырожденный/пустой результат НЕ затирает кэш (только ручной PUT).
+            version = int((stored or {}).get("version") or 0)
+            if final_status == "empty":
+                await anticliche_cache.mark_status(pg, "empty")
+                logger.warning(
+                    "[anticliche] no new patterns — cache kept | version=%s",
+                    version)
+                trace_step(logger, component="anticliche", step="empty",
+                           status="empty", reason="no_new",
+                           extra={"source": source_id, "version": version})
+            _event("ANTI_CLICHE_UPDATE_COMPLETE", status=final_status,
+                   initial_count=initial_count, final_count=len(merged),
+                   candidates=candidates_total, duplicates=duplicates_total,
+                   saved=0, rounds=rounds,
+                   duration_ms=int((time.monotonic() - started) * 1000))
+            return {"status": final_status, "count": 0, "version": version,
+                    "final_count": len(merged), "source": source_id}
 
         try:
             version = await anticliche_cache.write_patterns(
-                pg, patterns, source=source_id, source_url=self._source_url,
+                pg, merged, source=source_id, source_url=self._source_url,
                 fetched_at=datetime.datetime.now(datetime.timezone.utc))
         except Exception as exc:
             logger.warning("[anticliche] write failed | error=%s (cache kept)",
@@ -460,18 +574,40 @@ class AntiClicheWorker:
                        status="error", reason="write_error",
                        extra={"source": source_id,
                               "error": type(exc).__name__})
+            _event("ANTI_CLICHE_UPDATE_FAILED", status="write_error",
+                   reason="write_error", model=self._model_label())
             return {"status": "write_error", "count": 0, "version": 0,
                     "source": source_id}
-        return {"status": "ok", "count": len(patterns), "version": version,
+        _event("ANTI_CLICHE_SAVE_COMPLETE", saved=new_total,
+               final_count=len(merged), version=version, rounds=rounds)
+        _event("ANTI_CLICHE_UPDATE_COMPLETE", status="ok",
+               initial_count=initial_count, final_count=len(merged),
+               candidates=candidates_total, duplicates=duplicates_total,
+               saved=new_total, applied_limit=applied_limit, rounds=rounds,
+               capacity=capacity, per_run=per_run,
+               duration_ms=int((time.monotonic() - started) * 1000))
+        return {"status": "ok", "count": new_total,
+                "final_count": len(merged), "version": version,
                 "source": source_id}
 
-    async def _call_llm(self, source_text: str) -> str:
+    def _model_label(self) -> str:
+        """F0.3: метка модели для события (R17-safe: не секрет/не фраза)."""
+        llm = self._llm
+        for attr in ("model", "model_name", "_model"):
+            value = getattr(llm, attr, None)
+            if isinstance(value, str) and value:
+                return value
+        return ""
+
+    async def _call_llm(self, source_text: str, *, limit: int | None = None) -> str:
         if self._llm is None:
             raise RuntimeError("anticliche: LLM недоступен")
+        # F0.3 (ADR-1025-3 D1): просим РАЗМЕР ПАРТИИ (≤ per_run), а НЕ
+        # вместимость (200) — иначе ответ обрезается выходным лимитом модели.
+        count = max_patterns_per_run() if not limit else max(1, int(limit))
         messages = [
             {"role": "system",
-             "content": EXTRACT_SYSTEM_PROMPT.format(
-                 max=anticliche_cache.max_patterns())},
+             "content": EXTRACT_SYSTEM_PROMPT.format(max=count)},
             {"role": "user", "content": str(source_text or "")[:MAX_SOURCE_CHARS]},
         ]
         return await self._llm.generate_worker("background", messages)

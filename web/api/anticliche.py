@@ -84,6 +84,10 @@ async def anticliche_get(
         "last_status": str(data.get("last_status") or "never"),
         "count": len(patterns) if isinstance(patterns, (list, tuple)) else 0,
         "max_patterns": anticliche_cache.max_patterns(),
+        # F0.3 (ADR-1025-3 D1): размер партии за обновление (≤ per_run) —
+        # отдельно от вместимости max_patterns. Аддитивно (R16).
+        "per_run": anticliche_worker.max_patterns_per_run(),
+        "max_rounds": anticliche_worker.max_rounds(),
         "patterns": _pattern_view(patterns),
     }
 
