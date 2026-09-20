@@ -1594,3 +1594,17 @@ bot.py
   Стало: `padding-bottom:0` + `scroll-padding-bottom:var(--sticky-save-h)` + спейсер `.sticky-spacer` перед `<sticky-save>` (`bandBelow=0` на scrollTop 0/1000/max).
 - **Изменённые `web/*` (Δ backend/API/каталог=0):** `web/static/app.css`, `web/app.js`, `web/index.html`.
 - **Валидатор (финал):** pytest **6574 passed / 0 failed** (baseline 6546 → +28); JS-гейты `JS-UNIT-OK`×2 / `VUE-MOUNT-OK` / routing OK; `node --check web/app.js` OK; red→green (19 failed/7 passed → 26 passed); `git diff --check` clean. **✅ Деплой: commit `ec93c3d`** — прод-`/web/static/app.css` подтверждён (`blur(16px)`/`rgba(20,25,30,0.5)`/`#FF8A3D`/`6s`/`sticky-spacer`/`Cache-Control: no-store`); сервер `racknerd-f4e3456` — `systemctl` active, MainPID **2738993**, NRestarts=0; SQLite `user_version=12`; каталог-Δ=0. **⏸ Открыто (не блокеры):** живые WebView, скриншоты §7.5.
+
+## Round 10.25 — ASAP hotfix `hotfix-media-tma-round1025` (медиа/транскрибация + cache-bust TMA), Step 6 @Scanner (21.09.2026)
+
+- Diff `7c38f70..ee23e47` (коммиты `8b16c4a`, `ee23e47`). Отчёт: `plans/reports/round1025_hotfix_scanner_audit.md`.
+- Итог: Critical 0 / High 0 / Medium 2 / Low 4 / Info 4. Вердикт: к Шагу 7/9 — ДА. Факт: pytest 7976 passed / 0 failed (109.17s, 1 pre-existing warning); JS 19/19; новые тесты хотфикса 30 passed.
+- Новые связи:
+  - `docker-compose.yml` (сервис `telegram-bot-api`, env `TELEGRAM_LOCAL`) → образ `append_flag_from_env` → `--local`; тот же env читает хост-процесс (`config.settings.load_dotenv` + `handlers/youtube.py::telegram_local_mode_enabled`) — паритет 1:1 (непустое = local).
+  - `handlers/youtube.py::effective_video_max_size_mb` = min(configured, 2000|20) → ранний гейт `_process_video_media` (нативный TG-файл); ссылочные ветки (yt-dlp) → `_configured_video_max_size_mb`.
+  - `services/smartmodule_phrases.py::video_too_big_phrase` — единственный рендер `{limit}` → `handlers/youtube.py::_too_big_phrase` (4 call-sites); новый пул `VIDEO_MEDIA_PROVIDER_TIMEOUT_PHRASES` — ветка таймаута fetch.
+  - `services/media_download.py::local_file_path` → `_is_within_root` (resolve + is_relative_to): принимает относительный (root/<bot_id:token>/<path>) и абсолютный ТОЛЬКО внутри `TELEGRAM_API_FILES_DIR`; общий `_read_local_source` (youtube/voice/avatars `web/api/avatars.py`).
+  - `_safe_exc_text`: `handlers/youtube.py` (masker = `services.log_ring.sanitize`) и `services/llm_client.py` (masker = `_mask_secrets`) → диаг-WARNING; `llm_client._provider_host` — только hostname (R17).
+  - Cache-bust: `config.settings.APP_VERSION` (2.58.1) → `web/app.py::_render_index`/`_render_app_css` → `web/index.html` `?v=` (app.js/app.css/tailwind/telegram-init/@font-face).
+- Инварианты: Δ DDL=0, Δ каталога=0, F0/Эпик2 не тронуты, F1-WIP в `stash@{0}` цел (25 файлов / +971), zip не в git, `git diff --check` exit 0.
+- Латентные риски: M-1 (лог сырого absolute `file_path` может нести `<bot_id>:<token>`; в проде маскируется SecretMaskFilter/sanitize), M-2 (`TELEGRAM_LOCAL` vs `DOWNLOAD_ENABLED` — два рубильника; `.env.example`/README без `TELEGRAM_LOCAL`).

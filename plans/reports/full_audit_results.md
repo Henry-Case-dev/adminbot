@@ -1469,3 +1469,21 @@ golden-путь отдельным SQL-порогом; F6 `NAV_*`/`TAB_NAV`/`tab
   v12; канон v4 байт-в-байт; `git diff --check` exit 0. Новая Info **S10.22-4b** (ложное `as_ai` при запятой:
   «Он, как искусственный интеллект, …») — не блокер. **ВЕРДИКТ: 0 Critical / 0 High / 0 Medium открыто →
   раунд 10.22 передаётся на Merge/деплой.**
+
+## Round 10.25 hotfix `hotfix-media-tma-round1025` (медиа/транскрибация + cache-bust TMA) — 21.09.2026, Step 6 @Scanner
+
+Diff `7c38f70..ee23e47` (коммиты `8b16c4a`, `ee23e47`). Отчёт: `plans/reports/round1025_hotfix_scanner_audit.md`.
+**Итог: Critical 0 / High 0 / Medium 2 / Low 4 / Info 4.** Вердикт: к Шагу 7/9 — ДА.
+Прогоны: pytest **7976 passed / 0 failed** (109.17 s, 1 pre-existing warning); JS **19/19**; новые тесты хотфикса **30 passed**; `git diff --check` exit 0.
+
+**Medium:**
+- [M10.25-2] `services/media_download.py:99-101` (+ новая ветка `:68-70`) — лог сырого `file_path`; абсолютный путь внутри корня содержит `<bot_id>:<token>`. Регресс R17, внесён хотфиксом; в проде маскируется `SecretMaskFilter`/`sanitize` (не блокер). Фикс: логировать `Path(file_path).name`.
+- [M10.25-3] `handlers/youtube.py:164-197` vs `services/media_download.py:144` — «единый рубильник» ADR-1025-6 не единый: гейт размера читает `TELEGRAM_LOCAL`, диск-путь — `DOWNLOAD_ENABLED`; `status_service.local_api` расходится; `.env.example`/README без `TELEGRAM_LOCAL`. Риск отказа легитимных 20-50 МБ при `--local` мимо env.
+
+**Low:**
+- [L10.25-1] `tests/test_hotfix_round1025_media.py::TestLocalFilePathRound1025` — тесты абсолютного пути тавтологичны на win32 (новая POSIX-ветка не исполняется; старый код даёт тот же результат).
+- [L10.25-2] `web/index.html:15,3616,3623` — cache-bust частичный: `telegram-init.js` починен, 3 vendor-скрипта без `?v=`.
+- [L10.25-3] `handlers/youtube.py:1097-1121` — `_process_video_media` без пост-скачивающей проверки размера (предсуществующее; масштаб растёт с `--local`).
+- [L10.25-4] `.gitignore:101` — бланкетный `*.zip` (сейчас zip не отслеживаются; риск для будущих легитимных архивов).
+
+**Info:** I10.25-1 (паритет с образом подтверждён исходником `docker-entrypoint.sh`: `[ -n "$(printenv ...)" ]`); I10.25-2 (`_provider_host` — только hostname, `_safe_exc_text` безопасен); I10.25-3 (регрессий fetch/фраз нет, `{limit}` не утекает); I10.25-4 (README «Тестов: 5936» устарело — факт 7976).
