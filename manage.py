@@ -1764,8 +1764,11 @@ def _aliases_shape(value) -> dict:
     double_encoded = False
     if encoded_as_string:
         try:
-            json.loads(value)
-            double_encoded = True
+            parsed = json.loads(value)
+            # Двойное кодирование ИМЕННО объекта (dict) — скалярные JSON
+            # ("123"/"null"/"[…]") не отмечаем: _ensure_keyvalue_object
+            # вернёт {}, это не «двойной объект».
+            double_encoded = isinstance(parsed, dict)
         except ValueError:
             double_encoded = False
     effective = _ensure_keyvalue_object(value, pg_key=_ALIASES_PG_KEY)
@@ -1818,15 +1821,18 @@ async def _collect_aliases_diag(pg, *, chat_ids=None) -> dict:
             override_present = _ALIASES_PG_KEY in overrides
             override_value = overrides.get(_ALIASES_PG_KEY)
             # Эффективное значение API: override (если per-chat) иначе global.
+            # Паритет с GET /api/config (routes.py:442,450,459-462): в
+            # chat-скоупе не-секретного keyvalue `global_value` ВСЕГДА =
+            # эффективный глобальный объект (не None), независимо от наличия
+            # override. `None` был бы ложным сигналом «глобальных данных нет».
+            global_out = effective_global
             if override_present and is_per_chat:
                 effective = _ensure_keyvalue_object(
                     override_value, pg_key=_ALIASES_PG_KEY)
                 chat_source = "chat"
-                global_out = effective_global
             else:
                 effective = effective_global
                 chat_source = ""
-                global_out = effective_global if override_present else None
             report["chats"].append({
                 "chat_id": int(chat_id),
                 "profile_present": bool(profile),

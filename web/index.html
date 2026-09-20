@@ -3526,9 +3526,10 @@
       <!-- F10 (10.24, ADR-1024-11 D3): индикатор источника эффективного
            значения — «значение чата» (per-chat override) / «глобально». -->
       <div class="mb-1.5">
-        <span v-if="sourceLabel === 'значение чата'"
-              class="badge badge-info">{{ sourceLabel }}</span>
-        <span v-else class="badge badge-muted">{{ sourceLabel }}</span>
+        <span v-if="sourceLabel === 'значение чата'" class="badge badge-info"
+              :title="sourceHint">{{ sourceLabel }}</span>
+        <span v-else class="badge badge-muted"
+              :title="sourceHint">{{ sourceLabel }}</span>
       </div>
       <!-- F10: явный Empty State — пустой словарь не выглядит «сломанным». -->
       <div v-if="pairs.length === 0" class="text-xs text-gray-500 mb-1">

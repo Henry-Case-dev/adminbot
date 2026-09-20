@@ -222,8 +222,9 @@ class TestConfigApiContract:
 
 class TestDiagReadOnly:
     class _DiagConn:
-        def __init__(self):
+        def __init__(self, overrides):
             self.queries = []
+            self._overrides = overrides
 
         async def fetchrow(self, sql, *args):
             self.queries.append(sql)
@@ -231,19 +232,20 @@ class TestDiagReadOnly:
                 return {"key": ALIASES_KEY, "value": json.dumps(GLOBAL_ALIASES)}
             if "chat_profiles" in sql:
                 return {"chat_id": args[0],
-                        "chat_params": {"overrides": {ALIASES_KEY: {"1": "Иван"}
-                                                      }, "meta": {}}}
+                        "chat_params": {"overrides": dict(self._overrides),
+                                        "meta": {}}}
             return None
 
-    def _run(self, chat_ids):
+    def _run(self, chat_ids, *, overrides):
         import asyncio
-        conn = self._DiagConn()
+        conn = self._DiagConn(overrides)
         pg = _FakePg(conn)
         report = asyncio.run(manage._collect_aliases_diag(pg, chat_ids=chat_ids))
         return conn, report
 
     def test_shape_and_no_values_leak(self):
-        conn, report = self._run([CHAT_ID])
+        conn, report = self._run([CHAT_ID],
+                                 overrides={ALIASES_KEY: {"1": "Иван"}})
         assert report["key"] == ALIASES_KEY
         assert report["widget"] == "keyvalue"
         assert report["global_present"] is True
@@ -260,8 +262,32 @@ class TestDiagReadOnly:
         assert chat["api_chat_source"] == "chat"
         assert "Иван" not in json.dumps(report, ensure_ascii=False)
 
+    def test_no_override_global_value_matches_global(self):
+        """Review iter1 (Medium): chat БЕЗ override — `global_value` в diag
+        обязан быть объектом глобального слоя (паритет с `GET /api/config`,
+        routes.py:442/450/459-462), а не None."""
+        conn, report = self._run([CHAT_ID], overrides={})
+        chat = report["chats"][0]
+        assert chat["override_present"] is False
+        assert chat["override"] is None
+        assert chat["api_chat_source"] == ""
+        assert report["global"]["effective_keys"] == 2
+        assert chat["api_global_value_keys"] == report["global"]["effective_keys"]
+        assert chat["api_value_keys"] == report["global"]["effective_keys"]
+        # Без chat_id глобальный слой остаётся None (не chat-скоуп).
+        _, no_chat = self._run([], overrides={})
+        assert no_chat["chats"] == []
+
+    def test_scalar_json_not_double_encoded(self):
+        """Review iter1 (Low): скалярный JSON-строкой — не «двойное кодирование»."""
+        shape = manage._aliases_shape(json.dumps(123))
+        assert shape["encoded_as_string"] is True
+        assert shape["double_encoded"] is False
+        assert shape["effective_keys"] == 0
+
     def test_only_select_statements(self):
-        conn, _ = self._run([CHAT_ID])
+        conn, _ = self._run([CHAT_ID],
+                            overrides={ALIASES_KEY: {"1": "Иван"}})
         assert conn.queries, "диагностика должна выполнить SELECT-запросы"
         for sql in conn.queries:
             head = sql.strip().upper()

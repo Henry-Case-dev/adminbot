@@ -265,6 +265,24 @@ async function main() {
   assert(collectText(stGlob.root).join(' ').indexOf('глобально') >= 0,
     'global → бейдж «глобально»');
 
+  // 7b. sourceHint использует item.global_value (spec §3.2, review iter1 Low).
+  assert.strictEqual(
+    KV.computed.sourceHint.call({
+      item: aliasesItem({ '5': 'П' }, { global_value: { '1': 'A' } }),
+    }),
+    'Значение из глобального слоя');
+  assert.strictEqual(
+    KV.computed.sourceHint.call({
+      item: aliasesItem({ '5': 'П' },
+        { chat_source: 'chat', global_value: { '1': 'A' } }),
+    }),
+    'Значение переопределено для этого чата');
+  assert.strictEqual(
+    KV.computed.sourceHint.call({ item: aliasesItem({ '5': 'П' }) }),
+    'Глобальное значение');
+  assert(INDEX.indexOf(':title="sourceHint"') !== -1,
+    'бейдж источника должен использовать sourceHint (global_value)');
+
   // 8. Kill-switch OFF → прежний (сломанный) watcher по пути.
   const stOff = mount([aliasesItem({ '1': 'A' })], false);
   await tick();

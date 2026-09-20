@@ -7502,6 +7502,19 @@
         return (this.item && this.item.chat_source === 'chat')
           ? 'значение чата' : 'глобально';
       },
+      // F10 (spec §3.2; review iter1 Low): индикатор использует и
+      // `global_value` — подсказка поясняет, что значение пришло из
+      // глобального слоя (в chat-скоупе API всегда отдаёт global_value-объект).
+      sourceHint: function () {
+        var it = this.item || {};
+        if (it.chat_source === 'chat') {
+          return 'Значение переопределено для этого чата';
+        }
+        if (it.global_value && typeof it.global_value === 'object') {
+          return 'Значение из глобального слоя';
+        }
+        return 'Глобальное значение';
+      },
       // id непустой в одной паре при пустом имени (или наоборот) — ошибка
       partialRows: function () {
         return this.pairs.filter(function (p) {
