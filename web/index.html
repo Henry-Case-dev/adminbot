@@ -3196,6 +3196,7 @@
            class="drawer-backdrop" @click="closeDrawer()"></div>
       <aside v-if="iaV2 && isCompactShell"
              class="app-drawer" :class="{ open: drawerOpen }"
+             :inert="drawerOpen ? null : ''"
              :aria-hidden="drawerOpen ? 'false' : 'true'"
              aria-label="Навигация">
         <nav class="sidebar-nav">
@@ -3244,6 +3245,7 @@
            class="more-backdrop" @click="closeMore()"></div>
       <div v-if="iaV2 && isMobileShell" class="more-sheet"
            :class="{ open: moreOpen }" :aria-hidden="moreOpen ? 'false' : 'true'"
+           :inert="moreOpen ? null : ''"
            role="menu" aria-label="Ещё">
         <div class="more-sheet-handle" aria-hidden="true"></div>
         <button v-for="n in mobileMoreItems" :key="'mm-' + n.id"

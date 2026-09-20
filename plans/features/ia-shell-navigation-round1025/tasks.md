@@ -102,6 +102,14 @@
 - **F0-слой:** `persistItems`/`saveState`/`notify`/`stickyFieldFailed` не переписывались; F0-тесты зелёные.
 - **Открыто:** **T-2408** (@Reviewer) — не выполнено; **T-2409** — карта создана, очистка бэкапа ждёт утверждения владельца. Live-гейт хотфикса (T-2463/T-2472/T-2479) — вне F1.
 
+### Ревью-итерация T-2408 (Changes Requested → правки, 21.09.2026)
+- **[M] `activeNav`:** `#/memory*` теперь гейтится `iaV2` — при `IA_V2_ENABLED=false` активным подсвечивается «ИИ» (в legacy `NAV_ITEMS` раздела «Память» нет). Ассерт в `tests/js/round1025_ia_routing_test.js` (OFF + `#/memory` → `ai`).
+- **[M] safe-area:** `.app-sidebar`/`.app-drawer`/`.bottom-nav`/`.more-sheet` (bottom + padding-bottom) и padding-bottom контента под bottom-nav переведены на `max(env(safe-area-inset-bottom), --tg-safe-area-inset-bottom, --tg-content-safe-area-inset-bottom)` (образец F0 `app.css:567`).
+- **[L] `--tg-viewport-stable-height`:** задействован — `min-height` `.app-shell` (fallback `100vh`).
+- **[L] a11y:** `:inert` для закрытых `.app-drawer`/`.more-sheet`; `.help-toc-link` ≥44 px на mobile.
+- **[L] baseline-фикстура:** происхождение зафиксировано в `catalog_baseline.json` (`_provenance`) и в `spec.md` §8.4 (F1 меняет только nav-метаданные → множества идентичны до-правковому состоянию).
+- **Проверка после правок:** pytest **7996/0**; JS **21/21** (+ассерт); Playwright §71 — **0 нарушений**.
+
 ## Риски F1
 - **SUPERSEDE маркер-тестов без обновления** → красный CI и «подгонка эталонов» (**High**): T-2391/T-2393 атомарно.
 - **Потеря раздела/параметра при переносе IA** (**Critical**): T-2389/T-2402 + авто-тест покрытия.

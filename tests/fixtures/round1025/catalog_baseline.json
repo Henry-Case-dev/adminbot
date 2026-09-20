@@ -1,4 +1,9 @@
 {
+ "_provenance": {
+  "feature": "F1 ia-shell-navigation-round1025 (T-2402)",
+  "note": "Снимок множеств pg_key / групп / {group_id: tab_id} из services/param_catalog.py. F1 меняет ТОЛЬКО nav-метаданные (NAV_ORDER/NAV_TITLES/TAB_NAV); REGISTRY/GROUPS/TAB_RULES не тронуты, поэтому множества идентичны до-правковому (F0/F8) состоянию — эталон легитимно фиксирует неизменный каталог.",
+  "source": "services/param_catalog.py"
+ },
  "counts": {
   "GROUPS": 98,
   "REGISTRY": 459,

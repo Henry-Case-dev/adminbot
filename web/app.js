@@ -1325,7 +1325,9 @@
         if (r === '#/' || r === '#/oversight') return 'status';
         if (r === '#/how') return 'how';
         if (r.indexOf('#/modules') === 0) return 'modules';
-        if (r.indexOf('#/memory') === 0) return 'memory';
+        // Reviewer (M): `#/memory*` достижим и при OFF-откате (алиас/дееплинк),
+        // но в legacy `NAV_ITEMS` раздела «Память» нет — подсвечиваем «ИИ».
+        if (r.indexOf('#/memory') === 0) return this.iaV2 ? 'memory' : 'ai';
         if (r.indexOf('#/ai') === 0) return 'ai';
         if (r === '#/permsoc') return 'permsoc';
         if (r.indexOf('#/access') === 0) return 'access';

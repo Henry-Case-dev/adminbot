@@ -75,6 +75,19 @@ const computed = captured.computed;
     'ON: 7 пунктов, «Память» отдельным разделом');
 }
 
+// ── activeNav: OFF-откат + #/memory* → «ИИ» (Reviewer M) ─────────────────
+{
+  assert.strictEqual(
+    computed.activeNav.call({ route: '#/memory/rag', iaV2: false }), 'ai',
+    'OFF + #/memory* → активный «ИИ» (в legacy NAV_ITEMS «Памяти» нет)');
+  assert.strictEqual(
+    computed.activeNav.call({ route: '#/memory/rag', iaV2: true }), 'memory',
+    'ON + #/memory* → активный «Память»');
+  assert.strictEqual(
+    computed.activeNav.call({ route: '#/ai/prompts', iaV2: false }), 'ai',
+    'OFF + #/ai* → активный «ИИ»');
+}
+
 // ── bottom-nav ровно 4 (админ) + «Память» в «Ещё» ────────────────────────
 {
   const ctx = {
