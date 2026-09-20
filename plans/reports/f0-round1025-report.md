@@ -1,8 +1,8 @@
 # F0 `f0-config-bugfixes-round1025` — отчёт §54 (п.1–6), T-2441
 
 > Раунд 10.25, Эпик 1, Wave 0. Базовая линия HEAD `ce9f869` (docs-коммит после
-> `da561bc`): pytest **7911/0**. Итог: pytest **7941 passed / 0 failed**
-> (7911 + 30 новых). JS-гейты: **19/19** файлов зелёные. Тег отката
+> `da561bc`): pytest **7911/0**. Итог: pytest **7946 passed / 0 failed**
+> (7911 + 35 новых). JS-гейты: **19/19** файлов зелёные. Тег отката
 > `pre-round1025`/`pre-round1025-f0`; бэкап `var/backups/web-round1025-f0-<ts>/`
 > + `.env.bak.round1025-f0`. R17/R18: секретов в документах/диффе нет;
 > `plans/current_task.md` не коммитится.
@@ -81,7 +81,7 @@ kill-switch `DB_LOCK_RESILIENCE_ENABLED` (default ON). Детали и карт�
 
 ## Регресс
 
-- pytest: 7941 passed / 0 failed (было 7911/0; +30 новых).
+- pytest: 7946 passed / 0 failed (было 7911/0; +35 новых).
 - JS-гейты: `node --check web/app.js`, `tests/js/routing_test.js`,
   `tests/js/vue_mount_test.js`, все `tests/js/*` (19 файлов) — зелёные:
   `round1025_save_state_test.js` — **поведенческий** (реальные вызовы методов
@@ -107,6 +107,20 @@ kill-switch `DB_LOCK_RESILIENCE_ENABLED` (default ON). Детали и карт�
 | 8 | LRU-вытеснение только СВОБОДНЫХ `_chat_write_locks` | сделано | `services/chat_params.py:119-140` |
 | 9 | global per-key optimistic (`revalidated`/409), аддитивно | сделано | `web/api/routes.py` `_post_config_global`, `ConfigItemUpdate.updated_at` |
 | 10 | отчёты с фактическими цифрами; матрица F0.2 — честное покрытие | сделано | этот отчёт, `f0-save-audit-round1025.md` |
+
+## Правки по аудиту @Scanner (`round1025_f0_scanner_audit.md`)
+
+| # | Находка | Статус | Где / доказательство |
+|---|---|---|---|
+| **H-1** | `saveBlock` ложно сообщает «Сохранено» при частичном провале и полном in-flight-пропуске | ✅ | `web/app.js` `saveBlock`: успех только при `persistResult.state==='saved' && !failed.length && !skipped.length`, иначе warn/err с перечнем. JS-тест `tests/js/round1025_save_state_test.js` (10a частичный провал, 10b полный in-flight) — падает без фикса |
+| **M-1** | `write_transaction` не откатывал при `CancelledError` | ✅ | `services/database.py` — `except BaseException` (ON и OFF), rollback + re-raise, retry только для `locked`. Тест `test_cancelled_error_rolls_back` |
+| **M-3** | 409 глобального пути мог вернуть сырое значение секрета `keys.*` (R17) | ✅ | `web/api/routes.py` — для `CATEGORY_KEYS` `server_value: null` + `secret: true`. Тест `test_secret_conflict_does_not_leak_server_value` |
+| L-1 | Ложный `revalidated` для meta-only патча | ✅ | `services/chat_params.py` `_patch_already_applied` требует ≥1 value-ключа. Тест `test_patch_already_applied_requires_value_keys` |
+| L-5 | Мёртвая ветка `saved` в `stateLabel` | ✅ | `web/app.js` (карта без `saved`, комментарий) |
+| L-6 | Дубль `_REFRESH_ACTIVE_CAP` | ✅ | `services/database.py` — оставлено одно определение |
+| L-3 | `notify` читал `_opNotified` до проверки объекта | ✅ | `web/app.js` — нормализация хранилища до чтения ключа |
+| L-4 | Тост того же приоритета молча вытеснял новый | ✅ | `web/app.js` `toast` — вытесняется самый старый того же приоритета; тест 6 обновлён |
+| M-2 | Глобальный per-key optimistic не подключён на клиенте | ⏳ | Не в этом круге (аддитивная ветка; UI шлёт без токенов). Требует прокидывания `item.updated_at` в POST — отдельно |
 
 ## НЕ сделано / вне scope @Builder
 
