@@ -200,6 +200,50 @@ async def test_throttle_fail_open_on_exhaustion(no_backoff, monkeypatch):
         await d.close()
 
 
+# ── Ревью item 4: touch_graph_facts — commit только при изменениях ──────────
+
+@pytest.mark.asyncio
+async def test_touch_no_changes_no_commit_off(monkeypatch, no_backoff):
+    monkeypatch.setattr(dbmod, "_lock_resilience_enabled", lambda: False)
+    d = DatabaseService(":memory:")
+    await d.initialize()
+    try:
+        commits = {"n": 0}
+        real_commit = d.db.commit
+
+        async def counting_commit():
+            commits["n"] += 1
+            await real_commit()
+
+        monkeypatch.setattr(d.db, "commit", counting_commit)
+        # Нет подходящих origin/TTL → touched == 0 → commit не вызывается
+        # (baseline-паритет OFF-пути: `if touched: commit`).
+        touched = await d.touch_graph_facts([123456], 1, None, 0, 0)
+        assert touched == 0
+        assert commits["n"] == 0
+    finally:
+        await d.close()
+
+
+@pytest.mark.asyncio
+async def test_touch_no_changes_no_commit_on(monkeypatch, no_backoff):
+    d = DatabaseService(":memory:")
+    await d.initialize()
+    try:
+        commits = {"n": 0}
+        real_commit = d.db.commit
+
+        async def counting_commit():
+            commits["n"] += 1
+            await real_commit()
+
+        monkeypatch.setattr(d.db, "commit", counting_commit)
+        assert await d.touch_graph_facts([654321], 1, None, 0, 0) == 0
+        assert commits["n"] == 0
+    finally:
+        await d.close()
+
+
 # ── Тест-хук backoff (D7) существует и нулевой в тестах ─────────────────────
 
 def test_zero_backoff_hook_available():

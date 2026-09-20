@@ -83,8 +83,12 @@ kill-switch `DB_LOCK_RESILIENCE_ENABLED` (default ON). Детали и карт�
 
 - pytest: 7941 passed / 0 failed (было 7911/0; +30 новых).
 - JS-гейты: `node --check web/app.js`, `tests/js/routing_test.js`,
-  `tests/js/vue_mount_test.js`, все `tests/js/*` (19 файлов) — зелёные,
-  включая новые `round1025_save_state_test.js`, `round1025_cliche_ui_test.js`.
+  `tests/js/vue_mount_test.js`, все `tests/js/*` (19 файлов) — зелёные:
+  `round1025_save_state_test.js` — **поведенческий** (реальные вызовы методов
+  app.js: double-tap, 409-черновик, scopeEpoch, saveState sticky-save,
+  частичный провал saveModalEdits); `round1025_cliche_ui_test.js` —
+  **grep-тест** (проверка строк шаблона/кода, не выполнение: честная градация
+  доказательств).
 - Δ DDL = 0 (`user_version=12`; DDL в диффе нет).
 - Δ каталога = 0 (REGISTRY 459 / GROUPS 98 / `_TAB_BY_GROUP` 96; тест-инвариант
   зелёный). Новые флаги — env-only `ClassVar`.

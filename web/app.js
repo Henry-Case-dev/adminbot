@@ -5306,9 +5306,11 @@
 
       saveConfigItem: async function (item) {
         // F0.1: guard in-flight по ключу (двойной тап = один запрос).
+        // Возврат: true — сохранено; null — пропущено (уже в полёте);
+        // false — реальный провал.
         if (!item || item.key == null) return false;
         if (this.saving && this.saving.has && this.saving.has(item.key)) {
-          return false;
+          return null;                 // in-flight: не наш успех и не провал
         }
         var value = item.value;
         if (item.type === 'json') {
@@ -5359,9 +5361,9 @@
             return true;
           }
           if (res.skipped && res.skipped.indexOf(item.key) >= 0) {
-            // Ключ уже сохраняется другой (in-flight) операцией — не ошибка,
-            // но и не «наш» успех: baseline не двигаем здесь.
-            return true;
+            // Ключ уже сохраняется другой (in-flight) операцией — НЕ успех
+            // и НЕ провал: null (baseline здесь не двигаем).
+            return null;
           }
           // S10.20-6: неуспех → false (sticky-панель НЕ сдвигает baseline).
           return false;
@@ -8083,12 +8085,13 @@
     computed: {
       dirtyCount: function () { return this.root.stickyDirtyCount || 0; },
       // F0 (ревью, T-2416/T-2437): единое состояние формы из root.saveState,
-      // а не набор независимых флагов.
+      // а не набор независимых флагов. Корневой `saveState` — Vue computed
+      // (на инстансе это ЗНАЧЕНИЕ-строка, не функция); поддерживаем и
+      // функцию — на случай стаба/иного контракта (образец — stickyDirtyCount).
       saveState: function () {
-        if (typeof this.root.saveState === 'function') {
-          return this.root.saveState();
-        }
-        return this.dirtyCount ? 'dirty' : 'clean';
+        var s = this.root.saveState;
+        if (typeof s === 'function') { s = s.call(this.root); }
+        return s || (this.dirtyCount ? 'dirty' : 'clean');
       },
       stateLabel: function () {
         var map = { clean: '', dirty: 'Есть изменения', saving: 'Сохранение…',

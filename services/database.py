@@ -562,7 +562,7 @@ class DatabaseService:
             op_name, attempts, chat_id, exc, exc_info=True)
 
     async def write_transaction(self, op, *, op_name: str = "write",
-                                chat_id=None):
+                                chat_id=None, commit_if=None):
         """F0.5: single-writer обёртка логической транзакции.
 
         `op(conn)` выполняет НЕСКОЛЬКО стейтментов и НЕ коммитит сам; коммит
@@ -572,6 +572,10 @@ class DatabaseService:
         (`_LOCK_RETRIES`, backoff 0.1/0.2/0.4с), `rollback` перед повтором,
         повтор **всей** транзакции. Исчерпание → WARNING + счётчик + re-raise
         (fail-open остаётся за вызывающим хендлером — T-2450).
+
+        `commit_if(result)` — необязательный предикат: `False` → commit НЕ
+        делается (baseline-паритет для методов, коммитящих только при
+        изменениях, напр. `touch_graph_facts`). `None` → коммит всегда.
 
         Kill-switch OFF → ровно прежнее поведение: без блокировки и повторов
         (одна попытка, исключение наружу). НО rollback на исключение делается
@@ -583,7 +587,8 @@ class DatabaseService:
                 op_name)
             try:
                 result = await op(self.db)
-                await self.db.commit()
+                if commit_if is None or commit_if(result):
+                    await self.db.commit()
                 return result
             except Exception:
                 await self._best_effort_rollback(op_name)
@@ -593,7 +598,8 @@ class DatabaseService:
             try:
                 async with self._lock:
                     result = await op(self.db)
-                    await self.db.commit()
+                    if commit_if is None or commit_if(result):
+                        await self.db.commit()
                     return result
             except Exception as exc:
                 # F0.5 (ревью): rollback на ЛЮБОЕ исключение (и locked, и
@@ -4461,9 +4467,12 @@ class DatabaseService:
                 touched += cursor.rowcount
             return touched
 
-        # F0.5: сериализация + bounded retry (single-writer).
+        # F0.5: сериализация + bounded retry (single-writer). commit_if —
+        # baseline-паритет: коммит ТОЛЬКО если были изменения (touched > 0),
+        # как в исходном коде (`if touched: commit`).
         return await self.write_transaction(
-            _body, op_name="touch_graph_facts")
+            _body, op_name="touch_graph_facts",
+            commit_if=lambda touched: bool(touched))
 
     async def delete_graph_fact(self, fact_id: int) -> None:
         """66.4/66.11: полное удаление факта — graph_facts_fts + vec-строка

@@ -18,7 +18,11 @@ global.Vue = {
   createApp: function (opts) {
     captured = opts;
     return {
-      component() {}, provide() {}, use() {}, mount() {},
+      component(name, compOpts) {
+        global.__components = global.__components || {};
+        global.__components[name] = compOpts;
+      },
+      provide() {}, use() {}, mount() {},
     };
   },
 };
@@ -188,6 +192,59 @@ function item(key, value, perChat) {
     methods.notify.call(ctx, 'op-x', { saved: ['limits.a'] });
     assert.strictEqual(Object.keys(ctx._opNotified).length, 1,
       '_opNotified: одна запись на операцию (ленивая очистка)');
+  }
+
+  // ── 8) sticky-save: saveState (computed-ЗНАЧЕНИЕ) → stateLabel/data-state ─
+  {
+    const comp = global.__components && global.__components['sticky-save'];
+    assert.ok(comp, 'компонент sticky-save зарегистрирован');
+    // корневой saveState — ЗНАЧЕНИЕ (Vue computed), не функция
+    function mount(root) {
+      const vm = { root: root };
+      Object.keys(comp.computed).forEach(function (k) {
+        Object.defineProperty(vm, k, { get: comp.computed[k].bind(vm) });
+      });
+      return vm;
+    }
+    const conflict = mount({ saveState: 'conflict', stickyDirtyCount: 1 });
+    assert.strictEqual(conflict.saveState, 'conflict',
+      'значение computed читается как есть');
+    assert.strictEqual(conflict.stateLabel, 'Конфликт версии',
+      'conflict → корректная подпись');
+    const error = mount({ saveState: 'error', stickyDirtyCount: 1 });
+    assert.strictEqual(error.stateLabel, 'Ошибка сохранения',
+      'error → корректная подпись');
+    const dirtyFn = mount({
+      saveState: function () { return 'dirty'; }, stickyDirtyCount: 1,
+    });
+    assert.strictEqual(dirtyFn.saveState, 'dirty',
+      'функциональный стаб тоже поддержан');
+    assert.ok(comp.template.indexOf(':data-save-state="saveState"') >= 0,
+      'data-save-state привязан к saveState (CSS-состояния живые)');
+  }
+
+  // ── 9) saveModalEdits: частичный провал → warn, snapshot НЕ сдвинут ───
+  {
+    const ctx = makeCtx({
+      stickySaving: false,
+      stickyFailed: [], stickyFailedKeys: [],
+      dirtyItems: [item('a', 1), item('b', 2)],
+      dirtyKeyItems: [],
+      _snapshotConfig: function () { this.snapshotCalls += 1; },
+      snapshotCalls: 0,
+      persistItems: async function () {
+        return { saved: ['a'], failed: [{ key: 'b', reason: 'error' }],
+                 skipped: [], revalidated: false, state: 'saved' };
+      },
+    });
+    await methods.saveModalEdits.call(ctx);
+    assert.strictEqual(ctx.snapshotCalls, 0,
+      'baseline не сдвинут при неподтверждённом ключе');
+    assert.strictEqual(ctx.stickyFailed.length, 1,
+      'провал записан для панели');
+    assert.strictEqual(ctx.toasts.length, 1, 'один итог операции');
+    assert.notStrictEqual(ctx.toasts[0].kind, 'ok',
+      'частичный провал → warn/err, не ok');
   }
 
   console.log('ROUND1025-SAVE-STATE-OK');
