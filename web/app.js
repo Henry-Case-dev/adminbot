@@ -1350,18 +1350,20 @@
       sidebarItems: function () {
         return this.navItems;
       },
-      // Mobile bottom-nav: ровно 4 (админ: Статус/Модули/ИИ/Ещё;
-      // пользователь без прав — Статус/Справка).
+      // Mobile bottom-nav: не более 4 (админ/смешанная роль: Статус +
+      // Модули/ИИ (если видимы) + «Ещё»; чистый пользователь: Статус/Справка).
+      // H-1 (Scanner): «Ещё» обязателен при ЛЮБОМ непубличном разделе
+      // (Память/Доступы/PERMsoc/Модули/ИИ) — иначе раздел недостижим на <768.
       bottomNavItems: function () {
-        var self = this;
-        var admin = this.canViewTab('modules') || this.canViewTab('llm_providers');
-        if (!admin) {
-          return this.navItems.filter(function (n) {
+        var items = this.navItems;
+        var hasExtra = items.some(function (n) { return n.group !== 'public'; });
+        if (!hasExtra) {
+          return items.filter(function (n) {
             return n.id === 'status' || n.id === 'how';
           });
         }
         var want = ['status', 'modules', 'ai'];
-        var base = this.navItems.filter(function (n) {
+        var base = items.filter(function (n) {
           return want.indexOf(n.id) >= 0;
         });
         base.push({ id: 'more', label: 'Ещё', route: '', icon: 'expand_more',
@@ -3337,10 +3339,20 @@
         } catch (e) { /* вне DOM */ }
       },
       // F1 (UPD §8.4): человекочитаемая подпись раздела для пути назад.
+      // M-1 (Scanner): подстраницы/спец-экраны вне TABS (#/ai/persona,
+      // #/access/roles, #/memory/*) — подпись из карточки хаба, не сырой hash.
       _routeLabel: function (route) {
         var items = this.iaV2 ? NAV_ITEMS_V2 : NAV_ITEMS;
         for (var i = 0; i < items.length; i++) {
           if (items[i].route === route) return items[i].label;
+        }
+        var map = this.iaV2 ? HUBS_V2 : HUBS;
+        for (var rk in map) {
+          if (!Object.prototype.hasOwnProperty.call(map, rk)) continue;
+          var cards = map[rk].cards || [];
+          for (var c = 0; c < cards.length; c++) {
+            if (cards[c].route === route) return cards[c].title;
+          }
         }
         var tabId = routeToTab(route);
         var t = TABS.find(function (x) { return x.id === tabId; });

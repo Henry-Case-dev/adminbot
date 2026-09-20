@@ -113,6 +113,38 @@ const computed = captured.computed;
     ['status', 'how'], 'bottom-nav пользователя = Статус/Справка');
 }
 
+// ── H-1 (Scanner): «Ещё» обязателен при любом непубличном разделе ─────────
+{
+  const navFor = (canView) => computed.navItems.call(
+    { route: '#/', iaV2: true, canViewTab: canView });
+  const bottomFor = (canView) => computed.bottomNavItems.call(
+    { iaV2: true, navItems: navFor(canView) }).map((n) => n.id);
+  const moreFor = (canView) => computed.mobileMoreItems.call(
+    { iaV2: true, navItems: navFor(canView) }).map((n) => n.id);
+
+  const memoryOnly = (id) => id === 'status' || id === 'info' || id === 'chat_lore';
+  assert.deepStrictEqual(navFor(memoryOnly).map((n) => n.id),
+    ['status', 'how', 'memory'], 'роль «только Память»: раздел виден в nav');
+  assert.ok(bottomFor(memoryOnly).indexOf('more') >= 0,
+    'H-1: Память-only <768 → «Ещё» присутствует');
+  assert.ok(moreFor(memoryOnly).indexOf('memory') >= 0,
+    'H-1: Память-only → раздел достижим из «Ещё»');
+
+  const accessOnly = (id) => id === 'status' || id === 'info' || id === 'access';
+  assert.deepStrictEqual(navFor(accessOnly).map((n) => n.id),
+    ['status', 'how', 'access'], 'роль «только Доступы»: раздел виден в nav');
+  assert.ok(bottomFor(accessOnly).indexOf('more') >= 0,
+    'H-1: Доступы-only <768 → «Ещё» присутствует');
+  assert.ok(moreFor(accessOnly).indexOf('access') >= 0,
+    'H-1: Доступы-only → раздел достижим из «Ещё»');
+
+  const permsocOnly = (id) => id === 'status' || id === 'info' || id === 'permsoc';
+  assert.ok(bottomFor(permsocOnly).indexOf('more') >= 0,
+    'H-1: PERMsoc-only <768 → «Ещё» присутствует');
+  assert.ok(moreFor(permsocOnly).indexOf('permsoc') >= 0,
+    'H-1: PERMsoc-only → раздел достижим из «Ещё»');
+}
+
 // ── applyRoute: алиасы памяти + мусорный hash + nested parent ────────────
 function applyOnce(route) {
   const ctx = {
@@ -160,6 +192,19 @@ assert.strictEqual(applyOnce(''), '#/', 'пустой hash → #/');
   assert.strictEqual(computed.breadcrumb.call(
     { route: '#/', _routeLabel: methods._routeLabel }), null,
     'на корне breadcrumb нет');
+}
+
+// ── M-1 (Scanner): подпись special-screen/подстраниц (не сырой hash) ──────
+{
+  assert.strictEqual(methods._routeLabel.call({ iaV2: true }, '#/ai/persona'),
+    'Личность и стиль', 'M-1: #/ai/persona → человекочитаемая подпись');
+  assert.strictEqual(methods._routeLabel.call({ iaV2: true }, '#/memory/rag'),
+    'Память и RAG', 'M-1: подстраница Памяти — из карточки хаба');
+  const bc = computed.breadcrumb.call(
+    { route: '#/ai/persona', iaV2: true, _routeLabel: methods._routeLabel });
+  assert.strictEqual(bc.current, 'Личность и стиль',
+    'M-1: breadcrumb «Личность» без сырого #/ai/persona');
+  assert.strictEqual(bc.mid.label, 'ИИ', 'M-1: родитель — «ИИ»');
 }
 
 // ── shell-режимы по ширине: sidebar строго ≥1200 ─────────────────────────

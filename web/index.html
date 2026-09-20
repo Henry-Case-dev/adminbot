@@ -42,7 +42,7 @@
             <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
             <span class="sidebar-label">{{ n.label }}</span>
           </button>
-          <div class="sidebar-sep" role="presentation"></div>
+          <div v-if="sidebarGroups.admin.length" class="sidebar-sep" role="presentation"></div>
           <button v-for="n in sidebarGroups.admin" :key="'sb-' + n.id"
                   type="button" class="sidebar-link"
                   :class="{ active: activeNav === n.id }"
@@ -51,7 +51,7 @@
             <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
             <span class="sidebar-label">{{ n.label }}</span>
           </button>
-          <div class="sidebar-sep" role="presentation"></div>
+          <div v-if="sidebarGroups.local.length" class="sidebar-sep" role="presentation"></div>
           <button v-for="n in sidebarGroups.local" :key="'sb-' + n.id"
                   type="button" class="sidebar-link"
                   :class="{ active: activeNav === n.id }"
@@ -3207,7 +3207,7 @@
             <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
             <span class="sidebar-label">{{ n.label }}</span>
           </button>
-          <div class="sidebar-sep" role="presentation"></div>
+          <div v-if="sidebarGroups.admin.length" class="sidebar-sep" role="presentation"></div>
           <button v-for="n in sidebarGroups.admin" :key="'dr-' + n.id"
                   type="button" class="sidebar-link"
                   :class="{ active: activeNav === n.id }"
@@ -3215,7 +3215,7 @@
             <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
             <span class="sidebar-label">{{ n.label }}</span>
           </button>
-          <div class="sidebar-sep" role="presentation"></div>
+          <div v-if="sidebarGroups.local.length" class="sidebar-sep" role="presentation"></div>
           <button v-for="n in sidebarGroups.local" :key="'dr-' + n.id"
                   type="button" class="sidebar-link"
                   :class="{ active: activeNav === n.id }"
