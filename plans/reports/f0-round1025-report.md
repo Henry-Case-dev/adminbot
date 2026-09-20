@@ -1,11 +1,11 @@
 # F0 `f0-config-bugfixes-round1025` — отчёт §54 (п.1–6), T-2441
 
 > Раунд 10.25, Эпик 1, Wave 0. Базовая линия HEAD `ce9f869` (docs-коммит после
-> `da561bc`): pytest **7911/0**. Итог: pytest **7933 passed / 0 failed**
-> (7911 + 22 новых). Тег отката `pre-round1025`/`pre-round1025-f0`; бэкап
-> `var/backups/web-round1025-f0-<ts>/` + `.env.bak.round1025-f0`.
-> R17/R18: секретов в документах/диффе нет; `plans/current_task.md` не
-> коммитится.
+> `da561bc`): pytest **7911/0**. Итог: pytest **7941 passed / 0 failed**
+> (7911 + 30 новых). JS-гейты: **19/19** файлов зелёные. Тег отката
+> `pre-round1025`/`pre-round1025-f0`; бэкап `var/backups/web-round1025-f0-<ts>/`
+> + `.env.bak.round1025-f0`. R17/R18: секретов в документах/диффе нет;
+> `plans/current_task.md` не коммитится.
 
 ## п.1. Первопричина 409
 
@@ -81,12 +81,28 @@ kill-switch `DB_LOCK_RESILIENCE_ENABLED` (default ON). Детали и карт�
 
 ## Регресс
 
-- pytest: 7933 passed / 0 failed (было 7911/0).
+- pytest: 7941 passed / 0 failed (было 7911/0; +30 новых).
 - JS-гейты: `node --check web/app.js`, `tests/js/routing_test.js`,
-  `tests/js/vue_mount_test.js`, все `tests/js/*` — зелёные.
+  `tests/js/vue_mount_test.js`, все `tests/js/*` (19 файлов) — зелёные,
+  включая новые `round1025_save_state_test.js`, `round1025_cliche_ui_test.js`.
 - Δ DDL = 0 (`user_version=12`; DDL в диффе нет).
 - Δ каталога = 0 (REGISTRY 459 / GROUPS 98 / `_TAB_BY_GROUP` 96; тест-инвариант
   зелёный). Новые флаги — env-only `ClassVar`.
+
+## Правки по ревью (итерация 2)
+
+| # | Правка | Статус | Где |
+|---|---|---|---|
+| 1 | rollback на ЛЮБОЕ исключение в `write_transaction` | сделано | `services/database.py:589-607` (`_best_effort_rollback`) |
+| 2 | 409-recovery не уничтожает черновик (восстановление из `drafts`) | сделано | `web/app.js` persistItems recovery |
+| 3 | guard in-flight: skipped-ключи не молчат, baseline не сдвигается | сделано | `web/app.js` persistItems/saveModalEdits |
+| 4 | OFF-путь тоже откатывает + debug-лог; провал rollback — debug | сделано | `services/database.py:578-588, 609-614` |
+| 5 | per-field ошибки у полей + `saveState` в sticky-save | сделано | `web/app.js` (sticky-save, `stickyFieldFailed`), `web/index.html`, `web/static/app.css` |
+| 6 | `_opNotified` — ленивая очистка по окну тоста | сделано | `web/app.js` `notify` |
+| 7 | фолбэк на сырой путь — не молча (WARNING) + rollback | сделано | `services/persistent_throttling.py:66-82`, `services/summary_memory.py:1501-1515` |
+| 8 | LRU-вытеснение только СВОБОДНЫХ `_chat_write_locks` | сделано | `services/chat_params.py:119-140` |
+| 9 | global per-key optimistic (`revalidated`/409), аддитивно | сделано | `web/api/routes.py` `_post_config_global`, `ConfigItemUpdate.updated_at` |
+| 10 | отчёты с фактическими цифрами; матрица F0.2 — честное покрытие | сделано | этот отчёт, `f0-save-audit-round1025.md` |
 
 ## НЕ сделано / вне scope @Builder
 

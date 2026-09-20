@@ -32,14 +32,20 @@ GET для анти-клише) и пишется через единый кан
 ## 2. Цикл `load → edit → save → re-read → compare` (T-2421)
 
 HTTP 200 сам по себе не доказательство — во всех прогонах сравнение идёт с
-повторным чтением с сервера:
+повторным чтением. **Честная градация доказательств** (без «живого» прод-стенда
+в этой итерации): `unit` = автотест с повторным чтением на уровне API/сервиса;
+`live` = приёмка в Telegram/TMA (вне зоны @Builder).
 
-| Механизм | load | save 200 | re-read | compare |
-|---|---|---|---|---|
-| chat-override (Fallback/лимиты/флаги) | ✓ | ✓ | `GET /api/config` (X-Chat-Id) | совпадает (тест `test_normal_write_emits_notify_and_history`) |
-| глобальный (модели/промпты) | ✓ | ✓ | `GET /api/config` | совпадает (`test_summary_aliases_widget_keyvalue_and_json_roundtrip`) |
-| секреты (`keys.*`) | ✓ (`{configured,last4}`) | ✓ (BYOK) | `GET /api/config` | `configured=true`, значение не выводится |
-| анти-клише | ✓ | ✓ | `GET /api/anticliche` | `count`/`final_count` совпадают с БД |
+| Механизм | load | save 200 | re-read | compare | Доказательство |
+|---|---|---|---|---|---|
+| chat-override (Fallback/лимиты/флаги) | ✓ | ✓ | `set_chat_params` → root | совпадает | `unit`: `test_normal_write_emits_notify_and_history`, `test_scope_isolation_chat_a_not_b` |
+| глобальный (модели/промпты) | ✓ | ✓ | `GET /api/config` | совпадает | `unit`: `test_summary_aliases_widget_keyvalue_and_json_roundtrip`, `test_settings_persistence_round1014` |
+| глобальный per-key optimistic | ✓ | ✓/revalidated/409 | `cache.get_updated_at` | совпадает/конфликт | `unit`: `test_global_config_optimistic_round1025.py` (4 теста) |
+| секреты (`keys.*`) | ✓ (`{configured,last4}`) | ✓ (BYOK) | `GET /api/config` | `configured=true`, значение не выводится | `unit`: `test_webapp_api.py` |
+| анти-клише | ✓ | ✓ | `GET /api/anticliche` | `count`/`final_count` | `unit`: `test_anticliche_semantics_round1025.py` |
+
+`live`-подтверждение (скриншоты TMA, мобильный браузер) — T-2419/T-2433/T-2454;
+в этом отчёте **не заявляется** (нет прод-доступа).
 
 ## 3. Спец-кейсы §2.3 (T-2422)
 
@@ -68,7 +74,7 @@ HTTP 200 сам по себе не доказательство — во все�
 | `persistItems()` (единая точка клиента) | **канон** (F0) |
 | `saveConfigItem`/`saveBlock`/`saveModalEdits`/`savePromptFallbackMode`/`selectPromptMode` | делегируют в `persistItems` |
 | `POST /api/config` chat | `set_chat_params` (+ `D-409-1/2`) |
-| `POST /api/config` global | атомарный `ConfigCache.set_many` (`D-409-3`) |
+| `POST /api/config` global | атомарный `ConfigCache.set_many` (`D-409-3`) + per-key optimistic (`revalidated`/409 `conflicting`) |
 | `PUT /api/config/keys/own` | BYOK-путь секретов (не дублируется) |
 | `PUT /api/anticliche` | анти-клише (отдельная сущность) |
 
