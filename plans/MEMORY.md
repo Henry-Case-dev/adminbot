@@ -1,6 +1,6 @@
 # AdminBot — Memory Index (plans/MEMORY.md)
 
-Индекс долговременной памяти. Архитектура — `plans/ARCHITECTURE.md` (§1–§52);
+Индекс долговременной памяти. Архитектура — `plans/ARCHITECTURE.md` (§1–§54);
 бэклог — `plans/backlog.md`. Полная семантическая карта — knowledge graph
 (Memory MCP, entity `AdminBot` + модули `adminbot-*` + entity `feature-*`
 раунда 10).
@@ -23,7 +23,12 @@
 > **Деплой (Step 9 @DevOps):** commits **`8b16c4a`** (ядро) + **`ee23e47`** (ревью-итерация) + docs **`65e39fb`** (origin/master); прод `/var/www/admin_bot` → **`65e39fb`**; `TELEGRAM_LOCAL=1` + рестарт `telegram-bot-api` и `admin_bot`; `APP_VERSION` **2.58.1**; `/api/health` = **200**; `database is locked` = **0**; WAL **159 МБ → 0**. Откат: тег `pre-round1025-hotfix` + `git revert` (медиа — вернуть `TELEGRAM_LOCAL` в облако; cache-bust — вернуть версию + повторный bump).
 > **Live-гейт владельца (⏳ post-deploy, НЕ выполнено):** **T-2463** ⏸ (тестовое видео **> 20 МБ** — нужен файл от владельца), **T-2472** ⏸ (ручная проверка консоли TMA — нет `ReferenceError`, грузится новая версия ассетов), **T-2479** ⏸/✅ (частично: логи/health/WAL/версия подтверждены, сквозной live-тест — за владельцем). ✅ **T-2462** (локальный режим включён), ✅ **T-2480** (регрессий F0 нет).
 > **Изоляция F1-WIP:** `git stash@{0}` (`wip(f1)`, **25 файлов**) + untracked F1 в `var/backups/f1-wip-20260921-015653/`; теги/бэкапы `pre-round1025*` **НЕ удалять** до утверждения владельца (R18). **Возврат — T-2481** (`git stash pop` + вернуть untracked поверх `65e39fb`; ожидаемые конфликты — `?v=`/`APP_VERSION` и `IA_V2_ENABLED`). **F1-WIP НЕ трогать до явной задачи.**
-> **Техдолг:** `tech-debt-round10.25-hotfix` — **M-1**, **M-2**, LLM-таймауты/провайдер (T-2473/T-2474 открыты), RAM/swap/graceful-stop (`TimeoutStopSec`), `?v=` для 3 vendor-скриптов, точечный `.gitignore` (§53). **Следующий шаг — возврат к F1 (T-2481)** → F2–F11 → приёмка Эпика 1 (F10) → **Эпик 2** «Summary Hybrid Pipeline» (раунд 10.26) → **Эпик 3** «Agentic Intelligence».
+> **Техдолг:** `tech-debt-round10.25-hotfix` — **M-1**, **M-2**, LLM-таймауты/провайдер (T-2473/T-2474 открыты), RAM/swap/graceful-stop (`TimeoutStopSec`), `?v=` для 3 vendor-скриптов, точечный `.gitignore` (§53). **Следующий шаг — возврат к F1 (T-2481)** → F2–F11 → приёмка Эпика 1 (F10) → **Эпик 2** «Summary Hybrid Pipeline» (раунд 10.26) → **Эпик 3** «Agentic Intelligence». _(Актуально до завершения F1 — ниже.)_
+>
+> **✅ F1 ЭПИКА 10.25 (Wave 1) + P0-ФИКС (Step 10 @Memory, 21.09.2026): `F1-ia-shell-navigation-round1025` и `p0-fix-render-media-paths-round1025` — COMPLETED + MERGED + DEPLOYED + ARCHIVED.** Архитектура — `plans/ARCHITECTURE.md` **§54** (F1) + **§54.1** (P0-фикс); архивы — `plans/archive/ia-shell-navigation-round1025/` (`spec.md` + `adr-1025-1-ia-v2.md` D1–D8 + `tasks.md`) и `plans/archive/p0-fix-render-media-paths-round1025/tasks.md` (**FIX 1–4**; отдельного ADR нет).
+> **F1 (IA v2 + app-shell):** новая IA §4 — «Память» (`#/memory`) вынесен из «ИИ» (`memory_rag`/`chat_lore`/`relations`; `TAB_NAV` 3 переноса; `NAV_ORDER = (modules, ai, memory, permsoc)`), «Сводка»→«Аналитика» (label; hash `#/oversight` без дублирующей главной), hash-роуты `#/memory/{rag,lore,relations}` + legacy-алиасы `#/ai/{...}`; shell: sidebar ≥1200 / drawer 768–1199 / bottom-nav <768 («Ещё»); kill-switch **`IA_V2_ENABLED`** (env-only `ClassVar`, default ON, вне `param_catalog` → Δ каталога = 0) через `GET /api/me.ui_flags` (ADR-1024-13), OFF → legacy-navbar байт-в-байт (**граница OFF — только nav-scope**). Атомарная миграция 13 маркер-тестов. @Reviewer **2** (Changes Requested → Approved); @Builder **2** rework (ревью-правки + Scanner H-1); @Scanner **2** прохода (итер.1: **0C / 1H** `H-1` «Ещё» недостижимо для не-админ ролей на mobile + **2M** + **4L**; итер.2: **0C / 0H**). pytest **7976 → 7996/0** (+20); JS **19 → 21/21**; Playwright §71 (10 вьюпортов × маршруты) — **0 нарушений**. **Δ DDL = 0**, **Δ каталога = 0** (459/418/434/98/96/21), F0/Эпик 2 не тронуты. Деплой **`fe0f7bb`** (код `ff34115`+`b1c87b0`+`78e612a`), `APP_VERSION` **2.58.2**, health 200.
+> **P0-фикс после F1 (hotfix2):** (1) **render** — `stickyFieldFailed` **computed → methods** (регрессия F0 `d5750fc` → `TypeError` → пустые config-разделы ИИ llm/names/smart-cache/memory); (2) **container → host путь Bot API** — `normalize_api_file_path`/`read_host_file_bytes` (+`web/api/avatars.py`; traversal-guard `_is_within_root` **fail-closed сохранён**) → чинит видео/ГС/аватары; (3) `APP_VERSION` **2.58.2**; (4) усилена `tools/ui_round1025_matrix.py` (непустой config + AI-маршруты + FAIL на console/pageerror). @Reviewer **1** (Approved); @Scanner **1** проход — **0C / 0H** (**2M** → техдолг, **3L**). pytest **7996 → 8003/0** (+7); JS **21/21**; матрица **0** (впервые с непустым config). Деплой **`fea2daa`**; live: файл **28.7 МБ** (>20) на диске, нормализация → существующий host-файл, fail-closed сохранён, `database is locked` = **0**.
+> **Техдолг:** `tech-debt-round10.25-f1-p0` — **M-1** (сырой `file_path` в логе медиа → `name`/`sanitize`), **M-2** (avatars `exc_info` — трейсбек не маскируется), **TOCTOU-guard**, vendor-скрипты без `?v=`, matrix `_config_stub` → ложно-зелёная, **T-2409** (очистка бэкапа — после утверждения владельца). **⏳ live-гейт владельца (post-deploy):** реальные видео/ГС/аватары + открытие разделов TMA. **Релиз/метрика:** `release-round1025-f1`/`metric-snapshot-round1025-f1`, `release-round1025-p0`/`metric-snapshot-round1025-p0`, KG `incident-2026-09-21-f1-render-media`. **Следующий шаг — F2 `design-tokens-liquidglass-v2` ∥ F3 `global-scope-selector`** → F4–F11 → приёмка Эпика 1 (F10) → **Эпик 2** (10.26) → **Эпик 3**. **R17/R18:** секреты не цитировались; `current_task.md` не трогался; теги/бэкапы `pre-round1025*` **НЕ удалять**.
 >
 > **✅ ЗАВЕРШЁННЫЙ ЭПИК (Step 10 @Memory, 20.09.2026): `Epic round1024 (Disaster Recovery: UI & Backend Bloat)` — COMPLETED + DEPLOYED + ARCHIVED.** Архитектура — `plans/ARCHITECTURE.md` **§51** (итог/ADR-карта/SUPERSEDE-AMEND-карта, Merge @Architect) + **§50** (F16, YouTube-пайплайн); спеки/ADR — `plans/archive/*-round1024/` (**24 папки**; 23 с `ADR-1024-N`, F23 без ADR; `ADR-1024-13` — сквозной без файла). **Деплой:** feature-HEAD **`cf98b99`** + docs-коммит **`da561bc`** (Merge §51, архивация 24 фич, Scanner-аудит, техдолг, метрики); push **`00eab85..da561bc`**; прод `/var/www/admin_bot` → **`da561bc`**; `systemctl` **active**; `/api/health` + `/healthz` = **200** (**`version=2.58.0`**); aiogram **3.31.0**; PG **19 таблиц**; SQLite **`user_version=12`** (Δ DDL=0). **Финальные числа:** pytest **7911 passed / 0 failed** (baseline 7424 → **+487**; 1 сторонний `StarletteDeprecationWarning`); каталог **REGISTRY 459** (Δ+2 к 10.23), Settings **418**, GROUPS **98**, `_TAB_BY_GROUP` **96**, `TAB_RULES` = `TAB_NAV` = `CONFIG_TAB_TITLES` **21** (F5 `mod_images`), JS MODULES **13**, TABS **26**; **SQLite v12 (Δ DDL=0)**; PG **Δ DDL=0**; `DDL_STATEMENTS` **45**; **APP_VERSION 2.57.0 → 2.58.0**; **канон инструментов R9 9 → 10** (`transcribe_video`, 10-й; первые 9 байт-в-байт). **200 задач T-2188…T-2387 / ADR-1024-1…-24** (отменены владельцем T-2191/T-2192 — embeddings, UPD3 №7). **Ремонт бюджетов целевого чата `-1002661910336` (F20–F22):** `manage.py audit-chat-overrides` → **`ok=8 / absent=0 / different=0`** (seed применён при старте из `config/chat_settings_seed.json`; JSONL-аудиты в `var/audit/`); F20 (Critical) подтверждён live — одиночный save **не стирает** остальные per-chat значения. **Диск (F9):** до `used 17G / avail 5.8G`, `backups` **3.0 GiB**; `cleanup --apply` удалил **3 старых `memory_rebuild_*.db` = 2.2 GiB** (история/`media/**`/SQLite/`.env` **не тронуты** — immutable); после `used 15G / avail 8.0G`, `backups` **788.6 MiB**. **Ключевые фиксы:** F20 (Critical merge-фикс per-chat), F21 (master-тумблер `flags.budgets_enabled`, OFF = не ограничивать, учёт вёдётся), F22 (ремонт seed-overrides + fail-loud CLI), F9 (retention «история неприкосновенна»: 1 бэкап БД, логи 7 дней), F16 (YouTube download→мультимодалка→субтитры), F19 (инструмент транскрибации, канон 10), F13/F14 (медиа-маркер/native-first), F24 (fullscreen-sync/реактивный аккордеон). **Процесс:** @Reviewer — Approved по фичам, **~45 прогонов** (2 у большинства; 3 — F5/F11/F19; 1 — F13/F17/F18/F20; F23 — iter1 `Changes Requested` → fix `cf98b99`, подтверждено); @Builder — **~22 цикла доработок**; @Scanner — **0 Critical / 0 High / 0 Medium**, открыто **3 Low (L10.24-1/-2/-3) + 5 Info (I10.24-1…-5) + 2 деплой-пункта** (`--strict` семантика исторических вайпов F22; `var/` требует root F9). **Техдолг:** `tech-debt-round10.24`. **Metric:** `metric-snapshot-round1024-final`. **Release:** `release-round1024`. **Закрыто раундом:** техдолг 10.23 **I2**, **S10.19-24** (Won't Fix — история неприкосновенна), ложное закрытие 10.22 F2 (алиасы — RE-OPEN + live-доказательство). **Архив (Step 8 @PM):** `plans/archive/<feature>-round1024/` — **24 папки** + сквозные доки `round1024-architecture.md` / `round1024-web-architecture.md` / `round1024-upd4-architecture.md` → `plans/archive/`; `plans/features/` — только 6 backlog-папок; R18-скан чист. **⏸ Ручные приёмки владельца (живые, не блокеры): F4/F5/F6/F10/F11/F16/F19/F24** (Telegram/TMA). **R17/R18:** SSH/креды и значения секретов **не цитировались и не коммитились**; `plans/current_task.md` (untracked, `.gitignore`) не трогался; R17 — **Risk Accepted** (ротация SSH не делалась); R18 в силе. Предыдущий раунд — **10.23** (COMPLETED + DEPLOYED + ARCHIVED, `4314ea4`).
 >
@@ -1339,15 +1344,19 @@
 | `user-aliases-admin` (F-6) | Алиасы юзеров в разделе «Лор чатов» (частично в master; SUPERSEDED_BY round10.4) |
 | `post-deploy-admin-minors` (F-1) | Пост-деплойные миноры Epic 85 (T-648:T-655) |
 
-> **Свежие завершённые раунды (архив):** **10.25 (Эпик 1, в работе)** — **F0** `f0-config-bugfixes-round1025`
+> **Свежие завершённые раунды (архив):** **10.25 (Эпик 1, в работе — F1 закрыт)** — **F0** `f0-config-bugfixes-round1025`
 > (`plans/archive/f0-config-bugfixes-round1025/`, деплой `3a91c84`, pytest 7946/0, §52) +
 > **ASAP-хотфикс** `hotfix-media-tma-round1025` (`plans/archive/hotfix-media-tma-round1025/`,
-> commits `8b16c4a`+`ee23e47`+docs `65e39fb`, pytest 7976/0, §53; ⏳ live-гейт владельца T-2463/T-2472/T-2479);
+> commits `8b16c4a`+`ee23e47`+docs `65e39fb`, pytest 7976/0, §53; ⏳ live-гейт владельца T-2463/T-2472/T-2479) +
+> **F1** `ia-shell-navigation-round1025` (`plans/archive/ia-shell-navigation-round1025/`, `adr-1025-1-ia-v2.md`,
+> деплой `fe0f7bb`, pytest 7996/0, §54; kill-switch `IA_V2_ENABLED`) +
+> **P0-фикс** `p0-fix-render-media-paths-round1025` (`plans/archive/p0-fix-render-media-paths-round1025/`, FIX 1–4,
+> деплой `fea2daa`, pytest 8003/0, §54.1; ⏳ live-гейт владельца: видео/ГС/аватары + разделы TMA);
 > **10.24** «Disaster Recovery: UI & Backend Bloat» —
 > **24 папки** `plans/archive/*-round1024/` (+3 сквозных дока), деплой **`da561bc`**,
 > pytest 7911/0 (§51); **10.23** «Adaptive System 2 …» — **9 папок**
 > `plans/archive/*-round1023/` (+`round1023-architecture.md`), деплой **`4314ea4`**,
-> pytest 7424/0 (§49). `plans/features/` — **17 папок**: 6 backlog (сверху) + 11 фич раунда 10.25 (F1–F11).
+> pytest 7424/0 (§49). `plans/features/` — **16 папок**: 6 backlog (сверху) + 10 фич раунда 10.25 (F2–F11); следующий шаг — **F2 ∥ F3**.
 
 > **Раунд 10.14 — 8 фич ЗАВЕРШЁН, ЗАДЕПЛОЕН и ЗААРХИВИРОВАН (13.09.2026)** — F1
 > `anti-echo-self-reply`, F2 `persona-storage-core`, F3 `persona-ui-tab`, F4
@@ -2601,13 +2610,17 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
   CrowdSec как альтернатива fail2ban; перенос `migrate_history` (1.1G) вне
   диска.
 
-## Свежие архивы (plans/archive/ — 135 папок)
+## Свежие архивы (plans/archive/ — 137 папок)
 
 > **Раунд 10.25 (20–21.09.2026):** `f0-config-bugfixes-round1025` (F0, Wave 0, `spec.md` + 4 ADR
-> `adr-1025-2…-5` + `tasks.md` T-2410…T-2455, деплой `3a91c84`, §52) и `hotfix-media-tma-round1025`
+> `adr-1025-2…-5` + `tasks.md` T-2410…T-2455, деплой `3a91c84`, §52), `hotfix-media-tma-round1025`
 > (внеплановый ASAP-хотфикс, `spec.md` + `adr-1025-6-bot-api-local-mode.md` + `tasks.md` T-2456…T-2481,
-> commits `8b16c4a`+`ee23e47`+docs `65e39fb`, §53; ⏳ live-гейт владельца T-2463/T-2472/T-2479).
-> `plans/features/` — 17 папок (6 backlog + 11 фич раунда 10.25).
+> commits `8b16c4a`+`ee23e47`+docs `65e39fb`, §53; ⏳ live-гейт владельца T-2463/T-2472/T-2479),
+> `ia-shell-navigation-round1025` (F1, Wave 1, `spec.md` + `adr-1025-1-ia-v2.md` + `tasks.md`,
+> деплой `fe0f7bb`, pytest 7996/0, §54) и `p0-fix-render-media-paths-round1025`
+> (P0-фикс после F1, `tasks.md` FIX 1–4, деплой `fea2daa`, pytest 8003/0, §54.1;
+> ⏳ live-гейт владельца: видео/ГС/аватары + разделы TMA).
+> `plans/features/` — 16 папок (6 backlog + 10 фич раунда 10.25, F2–F11).
 
 > **Раунд 10.18 (15.09.2026, HEAD `16a8c0b`, §39)** — 7 фич заархивированы:
 > `betterstack-us-region-401` (F1, ADR-1018-1), `settings-worker-sync` (F7, ADR-1018-7),

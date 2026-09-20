@@ -1636,3 +1636,16 @@ bot.py
 - **Связь:** `services/media_download.py` ↔ `web/api/avatars.py` (общий helper), ↔ `handlers/{youtube,voice_transcription,video_download}.py` и `services/native_media.py` (через `fetch_media_to_tmp`).
 - **Остаточное (не блокер):** M-1 лог сырого `file_path` в `_read_local_source` достижим на контейнерном пути (маскируется `SecretMaskFilter`); M-2 трейсбек `bot.download_file` в avatars может нести токен (фильтр маскирует только `msg`, не `exc_info`).
 - Инварианты: Δ DDL=0, Δ каталога=0, F0/Эпик2 не тронуты, `stash@{0}` цел, zip не в git, `git diff --check`=0.
+
+## Round 10.25 hotfix3 `hotfix3-summary-stt-anticliche-round1025` (working tree, база `fe0f7bb`), Step 6 @Scanner (21.09.2026)
+
+- **Изменения не закоммичены** (диффа `fe0f7bb..HEAD` нет). Отчёт: `plans/reports/round1025_hotfix3_scanner_audit.md`.
+- **Итог: Critical 0 / High 0 / Medium 2 / Low 4 / Info 1 → к деплою — ДА.** pytest **8037 passed / 0 failed** (100.28 s); JS **22/22**.
+- **Новые связи:**
+  - `services/summary_generator.py::_run` → `_resolve_cover_prompt(draft, text)` → `_deliver_rich`/`_deliver_plain` (строго либо/либо, не двойная отправка); фолбэк Stage-1 при `SUMMARY_COVER_FALLBACK_ENABLED` (env-only `ClassVar`, default ON) даёт детерминированную обложку `_derive_fallback_cover_prompt` (без доп. LLM).
+  - `services/system2_handoff.py::parse_summary_handoff_ex` (reason: `empty`/`invalid_json`/`invalid_digest`/`ok`) ← обёртка `parse_summary_handoff`.
+  - `SmartModule/service.py::VoiceTranscriber` → `audio_prep.extract_audio_for_stt` (ffmpeg ogg/opus 16k mono + segment-чанкинг) — единая точка для видео и ГС; kill-switch `STT_AUDIO_COMPRESS_ENABLED` (env-only `ClassVar`).
+  - `web/api/anticliche.py` → `anticliche_worker.build_patterns_report` (manual=True не фильтрует хардкод, помечает `hardcoded_flagged`) → `web/app.js::saveCliche` (честное «Сохранено N из M», канон 120).
+  - `services/llm_client.py::llm_stats` (`requests/timeouts/fallbacks/timeout_share`) + `reason=<класс>`/`provider=<host>` в логах таймаутов.
+- **Техдолг:** M-1 prep внутри STT-семафора (до ~15 мин держит слот); M-2 `LLM_FALLBACK_TIMEOUT_SECONDS` — per-attempt, не бюджет цепочки (риск ложных таймаутов); L-1 temp-каталог `stt_seg_*` не удаляется; L-2 лишний ffmpeg для 20–25 МБ при доступном Groq; L-3 нет теста baseline `SYSTEM2_SUMMARY_ENABLED=False`; L-4 JS-тест grep-based.
+- **Инварианты:** Δ DDL=0, Δ каталога=0 (418, флаги `ClassVar`), `stash@{0}` цел, zip не в git, `git diff --check`=0.

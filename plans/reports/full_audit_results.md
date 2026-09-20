@@ -1547,3 +1547,29 @@ Diff `65e39fb..b1c87b0` (`1ebbd7b`, `ff34115`, `b1c87b0`). Отчёт: `plans/re
   `git diff --check`=0; `git ls-files "*.zip"` пусто; `stash@{0}` цел (25 файлов/+971).
 - Новые тесты (Python + JS) падали бы до фикса; L-1 — тавтологичный
   self-compare в JS-тесте; L-2 — `_config_stub()` при сбое импорта молча пуст.
+
+## Round 10.25 hotfix3 `hotfix3-summary-stt-anticliche-round1025` — 21.09.2026, Step 6 @Scanner
+
+Полный отчёт: `plans/reports/round1025_hotfix3_scanner_audit.md`. База HEAD `fe0f7bb`; изменения **в рабочем дереве (не закоммичены)**.
+Скоуп: `system2_handoff.py`, `summary_generator.py`, `anticliche_worker.py`, `web/api/anticliche.py`, `llm_client.py`, `config/settings.py`,
+`SmartModule/service.py`, `SmartModule/transcriber/audio_prep.py` (new), `web/app.js`, `web/index.html`, новые тесты.
+`services/telegram_send.py`, `handlers/{youtube,voice_transcription}.py`, `negative_constraints.py` — не менялись (реюз).
+
+**Сводка: Critical 0 / High 0 / Medium 2 / Low 4 / Info 1 → к деплою — ДА.**
+Прогоны: pytest **8037 passed / 0 failed** (100.28 s, 1 сторонний Starlette-warning); JS **22/22**; `git diff --check`=0.
+
+**Medium:**
+- [M10.25H3-1] `SmartModule/service.py:105-128` — `_prepare_for_stt` (ffmpeg, `_COMPRESS_TIMEOUT_S=300` × до 3 попыток) вызывается **внутри** `async with self._semaphore` → один большой файл держит слот STT до ~15 мин. Фикс: подготовка вне семафора/в отдельном пуле.
+- [M10.25H3-2] `config/settings.py:1087-1089`; `services/llm_client.py:133-135,879` — комментарий/ADR называют `LLM_FALLBACK_TIMEOUT_SECONDS` «бюджетом фоллбэк-цепочки», фактически это **per-attempt** таймаут одного POST (ретраи не менялись) → риск ложных таймаутов у медленного провайдера. Фикс: привести доки к реальности + наблюдать `llm_stats().timeout_share`.
+
+**Low:**
+- [L10.25H3-1] `SmartModule/transcriber/audio_prep.py::_chunk` — на успехе `outdir` (`stt_seg_*`) не удаляется; `cleanup()` (`:60-70`) удаляет только файлы (нет `rmtree`) → пустые temp-каталоги копятся.
+- [L10.25H3-2] `SmartModule/service.py::_compress_target_mb` — берёт `min(limits)`, т.е. сжимает файл 20–25 МБ при доступном Groq (25 МБ) вопреки докстрингу «влезает во ВСЕ»; фикс — `max(limits)`.
+- [L10.25H3-3] Нет теста baseline `SYSTEM2_SUMMARY_ENABLED=False` (ветка `_resolve_cover_prompt` → `""`/plain).
+- [L10.25H3-4] `tests/js/round1025_hotfix3_cliche_report_test.js` — grep-based (без исполнения `saveCliche`).
+**Info:** [I10.25H3-1] `_chunk` лексикографическая сортировка `part_*.ogg` (>999 частей — порядок сломается, нереалистично).
+
+**Верифицировано чисто:** нет двойной отправки (rich XOR plain, `summary_generator.py:397-403`); reason-ветви `parse_summary_handoff_ex` корректны;
+OFF-флаги (`SUMMARY_COVER_FALLBACK_ENABLED`, `STT_AUDIO_COMPRESS_ENABLED`) = baseline (тесты); ручные фразы не фильтруются, авто — фильтруются, `saved/dropped/count/total` честны,
+канон 120 согласован; ffmpeg без `shell=True` (list-args), temp 0600/0700, traversal нет, вход ограничен 1000×120; R17 — только числа/коды/hostname;
+Δ DDL=0; Δ каталога=0 (418, флаги `ClassVar`); `stash@{0}` цел; zip/секретов нет. `database is locked` по коду не оценивается — за @DevOps.
