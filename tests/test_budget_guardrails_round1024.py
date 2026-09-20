@@ -62,6 +62,19 @@ EXPECTED_MODULE_IDS = [
     "mod_checkup", "mod_sleep", "mod_nostalgia", "mod_budgets", "mod_images",
 ]
 
+# Витрина TABS (JS-порядок): 21 config-вкладка + 5 служебных
+# (modules/access/status/info/oversight). Пинится СОСТАВ, не только число —
+# иначе подмена вкладки при том же количестве проходит незамеченной
+# (rev1/R1: детект мутации `oversight` → `oversight_evil`).
+EXPECTED_TAB_IDS = [
+    "llm_providers", "prompts", "mod_summary", "mod_direct", "mod_factcheck",
+    "mod_search", "mod_transcribe", "mod_video_summary", "mod_media_download",
+    "mod_web", "mod_checkup", "mod_sleep", "mod_nostalgia", "mod_budgets",
+    "mod_images", "modules", "memory_rag", "smart_cache", "people_names",
+    "relations", "permsoc", "access", "chat_lore", "status", "info",
+    "oversight",
+]
+
 EXPECTED_BUDGET_GROUPS = {
     "flags_module_budgets",
     "limits_chat_key", "limits_chat_context", "limits_worker",
@@ -177,7 +190,12 @@ class TestNoCatalogDesync:
 
 class TestMenuFreeze:
     """`tma-menu-freeze` не снят: карточка «Бюджеты» уже существовала, F21 лишь
-    добавил тумблер. Новых пунктов/вкладок/карточек быть не должно."""
+    добавил тумблер. Новых пунктов/вкладок/карточек нет; состав и порядок
+    витрины (`MODULES`/`TABS`) заморожен точными списками id.
+
+    Глобальный freeze меню/каталога здесь — **осознанный frozen-contract**
+    (см. `spec.md` §Frozen-contract): любое санкционированное изменение
+    состава обязано обновить пины в том же коммите."""
 
     def test_modules_menu_composition_frozen(self):
         ids = _js_module_ids()
@@ -187,11 +205,12 @@ class TestMenuFreeze:
 
     def test_tabs_menu_composition_frozen(self):
         ids = _js_tab_ids()
-        assert ids.count("mod_budgets") == 1
-        # 21 config-вкладка + 5 служебных (modules/access/status/info/
-        # oversight) = 26 пунктов витрины.
+        # СОСТАВ и порядок (rev1: раньше пинилось только число — подмена
+        # вкладки при count=26 проходила молча).
+        assert ids == EXPECTED_TAB_IDS
         assert len(ids) == 26
         assert len(ids) == len(set(ids))
+        assert ids.count("mod_budgets") == 1
 
     def test_budget_card_reuses_existing_tab_not_new_menu_item(self):
         # Карточка — та же существующая вкладка mod_budgets (не новый пункт).
@@ -375,10 +394,12 @@ class TestR16SnapshotGuard:
                used={chat_usage.METRIC_CALLS: 999,
                      chat_usage.METRIC_TOKENS: 999})
         snap = await chat_usage.budget_snapshot(object(), -100)
-        # Старые ключи не удалены/не переименованы (R16)...
+        # R16 — контракт АДДИТИВНЫЙ, а не «ровно один ключ»: базовый набор
+        # обязан присутствовать целиком (rev1 Low: subset ловит и удаление,
+        # и переименование любого базового ключа), а будущие санкционированные
+        # аддитивные ключи не должны ронять страж.
         assert self.BASE_KEYS <= set(snap)
-        # ...и добавлен ровно один аддитивный ключ состояния рубильника.
-        assert set(snap) == self.BASE_KEYS | {"budgets_enabled"}
+        assert "budgets_enabled" in snap       # аддитивный ключ F21 на месте
         assert snap["budgets_enabled"] is False
         # При OFF enforcement выключен, но статистика сохранена.
         assert snap["exceeded"] is False
