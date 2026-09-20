@@ -94,3 +94,8 @@ build/
 # В репо остаются только tools/ui_audit_round1021.py и UI_AUDIT_REPORT.md.
 tools/_ui_audit_shots/
 tools/_ui_audit_raw.json
+
+# ── Крупные архивы исходников/бэкапов (round1025 hotfix, T-2460) ──
+# bot.zip / admin_bot.zip / adminbot.zip (~0.9 ГБ суммарно) — локальные
+# архивы, в git НЕ коммитить и НЕ удалять (владелец).
+*.zip

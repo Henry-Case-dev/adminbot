@@ -494,7 +494,12 @@ class TestUrlTranscriptFlows:
         msg = _msg(text=f"Бот, транскрипт {_PLATFORM}")
         await yt.youtube_handler(msg, bot=bot)
         sent = bot.send_message.await_args.args[1]
-        assert sent in VIDEO_MEDIA_TOO_BIG_PHRASES
+        # round1025 (T-2464): фраза-шаблон {limit} → настроенный лимит
+        # (ссылочная ветка yt-dlp — не Bot API getFile).
+        expected = {p.replace(
+            "{limit}", str(yt._configured_video_max_size_mb()))
+            for p in VIDEO_MEDIA_TOO_BIG_PHRASES}
+        assert sent in expected
         transcriber.transcribe_voice.assert_not_awaited()
 
     @pytest.mark.asyncio

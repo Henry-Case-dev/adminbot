@@ -38,6 +38,7 @@ from services.smartmodule_phrases import (
     YOUTUBE_ERROR_PHRASES,
     YOUTUBE_RETRY_PHRASES,
     VIDEO_MEDIA_EMPTY_PHRASES,
+    VIDEO_MEDIA_PROVIDER_TIMEOUT_PHRASES,
     VIDEO_MEDIA_TOO_BIG_PHRASES,
     VIDEO_MEDIA_TOO_LONG_PHRASES,
     VIDEO_MEDIA_UNAVAILABLE_PHRASES,
@@ -578,6 +579,8 @@ class TestVideoMediaPools:
         VIDEO_MEDIA_TOO_LONG_PHRASES,
         VIDEO_MEDIA_TOO_BIG_PHRASES,
         VIDEO_MEDIA_UNAVAILABLE_PHRASES,
+        # round1025 (T-2468): «провайдер не ответил» — отдельная причина.
+        VIDEO_MEDIA_PROVIDER_TIMEOUT_PHRASES,
         VIDEO_MEDIA_EMPTY_PHRASES,
         VIDEO_NO_SPEECH_PHRASES,
     )
@@ -589,6 +592,9 @@ class TestVideoMediaPools:
         assert len(set(VIDEO_MEDIA_TOO_BIG_PHRASES)) == 3
         assert len(VIDEO_MEDIA_UNAVAILABLE_PHRASES) == 3
         assert len(set(VIDEO_MEDIA_UNAVAILABLE_PHRASES)) == 3
+        # round1025 (T-2468): «провайдер не ответил» — 3 уникальные фразы.
+        assert len(VIDEO_MEDIA_PROVIDER_TIMEOUT_PHRASES) == 3
+        assert len(set(VIDEO_MEDIA_PROVIDER_TIMEOUT_PHRASES)) == 3
         assert len(VIDEO_MEDIA_EMPTY_PHRASES) == 3
         assert len(set(VIDEO_MEDIA_EMPTY_PHRASES)) == 3
         # 5.13 (раунд 3): «немое» видео — честная фраза
@@ -690,6 +696,7 @@ class TestChatMemoryPhrasePools:
             | set(VIDEO_MEDIA_TOO_LONG_PHRASES)
             | set(VIDEO_MEDIA_TOO_BIG_PHRASES)
             | set(VIDEO_MEDIA_UNAVAILABLE_PHRASES)
+            | set(VIDEO_MEDIA_PROVIDER_TIMEOUT_PHRASES)
             | set(VIDEO_MEDIA_EMPTY_PHRASES)
             | set(VIDEO_NO_SPEECH_PHRASES)
         )

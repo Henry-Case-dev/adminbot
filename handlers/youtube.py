@@ -76,11 +76,13 @@ from services.smartmodule_concurrency import (
     get_smartmodule_concurrency_pool,
     smartmodule_wait_seconds,
 )
+from services.log_ring import sanitize as _sanitize_log
 from services.smartmodule_phrases import (
     LLM_ERROR_PHRASES,
     COMMAND_NO_TARGET_PHRASES,
     SMARTMODULE_BUSY_PHRASES,
     VIDEO_MEDIA_EMPTY_PHRASES,
+    VIDEO_MEDIA_PROVIDER_TIMEOUT_PHRASES,
     VIDEO_MEDIA_TOO_BIG_PHRASES,
     VIDEO_MEDIA_TOO_LONG_PHRASES,
     VIDEO_MEDIA_UNAVAILABLE_PHRASES,
@@ -136,6 +138,78 @@ _media_downloader = None
 
 # Медиа-ветка: бюджет на скачивание TG-файла (NFR-4).
 _FETCH_TIMEOUT = 120.0
+
+# ── T-2464/T-2466 (ADR-1025-6 D2/D4): эффективный лимит размера по режиму
+#    telegram-bot-api + R17-safe текст исключения для логов ──────────────
+# Облачный Bot API отдаёт getFile только до 20 МБ; локальный режим (`--local`,
+# docker-compose.yml: TELEGRAM_LOCAL) — до 2000 МБ. Сигнал режима — env
+# TELEGRAM_LOCAL, читается при КАЖДОМ вызове (тесты/reload-friendly, как
+# config.settings.get_ytdlp_pot_provider). Клиент bot.py:231 уже is_local=True,
+# поэтому значение по умолчанию (env не задан) — локальный режим (primary-путь
+# ADR-1025-6 D1); облачный fallback (D3) — явный TELEGRAM_LOCAL=0/false.
+LOCAL_GETFILE_LIMIT_MB = 2000
+CLOUD_GETFILE_LIMIT_MB = 20
+_TELEGRAM_LOCAL_TRUTHY = frozenset({"1", "true", "yes", "on"})
+
+
+def telegram_local_mode_enabled() -> bool:
+    """True — telegram-bot-api в локальном режиме (getFile до 2000 МБ).
+
+    env TELEGRAM_LOCAL непустой → трактуем явный набор (1/true/yes/on как
+    local, прочее как cloud); не задан/пустой → local (клиент уже is_local).
+    """
+    raw = os.getenv("TELEGRAM_LOCAL")
+    if raw is None or raw.strip() == "":
+        return True
+    return raw.strip().lower() in _TELEGRAM_LOCAL_TRUTHY
+
+
+def video_bot_api_mode() -> str:
+    """`local` | `cloud` — режим для логов гейта (T-2464)."""
+    return "local" if telegram_local_mode_enabled() else "cloud"
+
+
+def _configured_video_max_size_mb() -> int:
+    """Настроенный лимит STT-загрузки (МБ) — `limits.video_transcribe_max_size_mb`
+    (дефолт 50). Применяется к ссылочным веткам (yt-dlp/cobalt — файл уже
+    локальный, потолок задаёт STT-провайдер, а не Bot API getFile)."""
+    return int(hot.get("limits.video_transcribe_max_size_mb",
+                       settings.VIDEO_TRANSCRIBE_MAX_SIZE_MB))
+
+
+def effective_video_max_size_mb() -> int:
+    """Эффективный потолок размера НАТИВНОГО TG-файла (МБ) по режиму Bot API.
+
+    local → конфиг (дефолт 50), но не выше LOCAL_GETFILE_LIMIT_MB; cloud → не
+    выше CLOUD_GETFILE_LIMIT_MB (20). Для ссылочных веток — настроенный лимит
+    (`_configured_video_max_size_mb`), Bot API там ни при чём.
+    """
+    ceiling = (LOCAL_GETFILE_LIMIT_MB if telegram_local_mode_enabled()
+               else CLOUD_GETFILE_LIMIT_MB)
+    return min(_configured_video_max_size_mb(), ceiling)
+
+
+def _too_big_phrase(limit_mb: int) -> str:
+    """Фраза 5.10 с ФАКТИЧЕСКИМ лимитом (шаблон {limit}); без хардкода."""
+    return random.choice(VIDEO_MEDIA_TOO_BIG_PHRASES).replace(
+        "{limit}", str(limit_mb))
+
+
+def _safe_exc_text(exc: BaseException, *, limit: int = 200) -> str:
+    """R17-safe текст исключения для логов (T-2466): str → repr при пустом
+    (httpx.ReadTimeout: str пуст), маскировка секретов log_ring.sanitize,
+    однострочно, с обрезкой. Никогда не бросает."""
+    try:
+        raw = str(exc) or repr(exc)
+    except Exception:            # pragma: no cover — str/repr не должны падать
+        return type(exc).__name__
+    try:
+        raw = _sanitize_log(raw)
+    except Exception:            # pragma: no cover — sanitize уже не бросает
+        pass
+    raw = raw.replace("\n", " ").replace("\r", " ").strip()
+    return raw[:limit] or type(exc).__name__
+
 
 # Раунд 3 (3.2, T-690): cap субтитров YouTube для mode=transcript.
 _YT_TRANSCRIPT_CAP = 20000
@@ -816,8 +890,8 @@ async def _download_or_phrase(bot, chat_id: int, url: str,
         logger.warning("[youtube] download too big | chat=%s | error=%s "
                        "reason=%s", chat_id, type(exc).__name__,
                        getattr(exc, "reason", "-"))
-        await _reply(bot, chat_id, random.choice(VIDEO_MEDIA_TOO_BIG_PHRASES),
-                     target_message_id)
+        await _reply(bot, chat_id, _too_big_phrase(
+            _configured_video_max_size_mb()), target_message_id)
         return None
     except DownloadError as exc:
         # R17: только класс + safe-reason (никогда str(exc)/URL).
@@ -854,9 +928,8 @@ async def _process_url_media(bot, message: types.Message,
             if _downloaded_too_big(path):          # 5.10 (проверка по st_size)
                 logger.info("[youtube] downloaded file too big for STT | "
                             "chat=%s", chat_id)
-                await _reply(bot, chat_id,
-                             random.choice(VIDEO_MEDIA_TOO_BIG_PHRASES),
-                             target_message_id)
+                await _reply(bot, chat_id, _too_big_phrase(
+                    _configured_video_max_size_mb()), target_message_id)
                 return
             transcript = await _stt_or_phrase(bot, chat_id, str(path),
                                               target_message_id)
@@ -976,9 +1049,8 @@ async def _process_youtube_transcript(bot, message: types.Message,
         if path is None:
             return
         if _downloaded_too_big(path):              # 5.10 (проверка по st_size)
-            await _reply(bot, chat_id,
-                         random.choice(VIDEO_MEDIA_TOO_BIG_PHRASES),
-                         target_message_id)
+            await _reply(bot, chat_id, _too_big_phrase(
+                _configured_video_max_size_mb()), target_message_id)
             return
         transcript = await _stt_or_phrase(bot, chat_id, str(path),
                                           target_message_id)
@@ -1009,16 +1081,17 @@ async def _process_video_media(bot, message: types.Message,
     mode = request.mode
     chat_id = media.source.chat.id
     target_message_id = media.source.message_id
-    size_mb = hot.get("limits.video_transcribe_max_size_mb",
-                      settings.VIDEO_TRANSCRIBE_MAX_SIZE_MB)
+    # T-2464 (ADR-1025-6 D2): эффективный лимит по режиму Bot API —
+    # local (--local) до 2000 МБ / конфиг; cloud-fallback → 20 МБ.
+    size_mb = effective_video_max_size_mb()
     dur_limit = hot.get("limits.video_transcribe_max_duration_seconds",
                         settings.VIDEO_TRANSCRIBE_MAX_DURATION_SECONDS)
     file_size = getattr(media.media, "file_size", None)
     if isinstance(file_size, int) and file_size > size_mb * 1024 * 1024:
-        await _reply(bot, chat_id, random.choice(VIDEO_MEDIA_TOO_BIG_PHRASES),
-                     target_message_id)
-        logger.info("[youtube] video-file too big | chat=%s bytes=%d",
-                    chat_id, file_size)
+        await _reply(bot, chat_id, _too_big_phrase(size_mb), target_message_id)
+        logger.info("[youtube] video-file too big | chat=%s bytes=%d "
+                    "limit_mb=%d mode=%s", chat_id, file_size, size_mb,
+                    video_bot_api_mode())
         return
     duration = getattr(media.media, "duration", None)   # Video: int; Document: нет
     if isinstance(duration, int) and duration > 0 and duration > dur_limit:
@@ -1038,10 +1111,22 @@ async def _process_video_media(bot, message: types.Message,
                 await asyncio.wait_for(
                     fetch_media_to_tmp(bot, media.media, path),
                     timeout=_FETCH_TIMEOUT)
-            except Exception as exc:
+            except (asyncio.TimeoutError, TimeoutError) as exc:
+                # T-2466/T-2468: «провайдер/сервис не ответил» — отдельная
+                # честная причина (не путать с «файл слишком большой» и
+                # «сервис недоступен»). Текст причины — R17-safe.
                 logger.warning(
-                    "[youtube] video-file fetch failed | chat=%s | %s",
-                    chat_id, type(exc).__name__)
+                    "[youtube] video-file fetch timeout | chat=%s | %s | %s",
+                    chat_id, type(exc).__name__, _safe_exc_text(exc))
+                await _reply(bot, chat_id, random.choice(
+                    VIDEO_MEDIA_PROVIDER_TIMEOUT_PHRASES), target_message_id)
+                return
+            except Exception as exc:
+                # T-2466 (ADR-1025-6 D4): логируем ТЕКСТ причины (R17-safe),
+                # не только класс исключения.
+                logger.warning(
+                    "[youtube] video-file fetch failed | chat=%s | %s | %s",
+                    chat_id, type(exc).__name__, _safe_exc_text(exc))
                 await _reply(bot, chat_id, random.choice(
                     VIDEO_MEDIA_UNAVAILABLE_PHRASES), target_message_id)
                 return

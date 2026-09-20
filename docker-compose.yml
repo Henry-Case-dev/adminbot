@@ -11,6 +11,15 @@ services:
     environment:
       TELEGRAM_API_ID: "${TELEGRAM_API_ID}"
       TELEGRAM_API_HASH: "${TELEGRAM_API_HASH}"
+      # ADR-1025-6 D1 (T-2462): локальный режим. Образ aiogram/telegram-bot-api
+      # транслирует ЛЮБОЕ непустое TELEGRAM_LOCAL в `--local`
+      # (docker-entrypoint.sh: append_flag_from_env "TELEGRAM_LOCAL" "--local").
+      # Без него getFile ограничен 20 МБ (облако) → крупные видео не доезжают
+      # до тома. С ним getFile отдаёт до 2000 МБ; клиент bot.py:231 уже
+      # is_local=True и читает файл из смонтированного тома (D263).
+      # OFF (облачный fallback, ADR-1025-6 D3) = убрать эту строку, НЕ "0"
+      # (пустое/«0» значение образ трактует как заданное и включит --local).
+      TELEGRAM_LOCAL: "1"
     volumes:
       # D263: путь на хосте == путь в контейнере → file_path резолвится напрямую
       - ./docker/telegram-bot-api:/var/lib/telegram-bot-api

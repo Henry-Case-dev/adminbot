@@ -227,7 +227,11 @@ class TestMediaLimits:
         bot = _make_bot()
         await youtube_mod.youtube_handler(msg, bot=bot)
         sent = bot.send_message.await_args.args[1]
-        assert sent in VIDEO_MEDIA_TOO_BIG_PHRASES
+        # round1025 (T-2464): фраза-шаблон {limit} → фактический лимит режима.
+        expected = {p.replace(
+            "{limit}", str(youtube_mod.effective_video_max_size_mb()))
+            for p in VIDEO_MEDIA_TOO_BIG_PHRASES}
+        assert sent in expected
         assert bot.send_message.await_args.kwargs.get("reply_to_message_id") == 11
         bot.download.assert_not_awaited()
         transcriber.transcribe_voice.assert_not_awaited()

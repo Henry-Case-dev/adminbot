@@ -1291,20 +1291,21 @@ class TestStatic:
         """84.21.2 + 10.8 (R10.8-5) + F4 10.16: app.js, app.css и woff2-субсет
         подключаются с ?v=__APP_VERSION__ → реальная версия (cache-bust CSS и
         субсета шрифта, который отдаётся с max-age=86400)."""
+        from config.settings import APP_VERSION   # round1025 (T-2470): динамически
         resp = client.get("/web/")
         text = resp.text
         assert "__APP_VERSION__" not in text              # заглушка заменена
-        assert "/web/app.js?v=2.58.0" in text
-        assert "/static/app.css?v=2.58.0" in text
+        assert f"/web/app.js?v={APP_VERSION}" in text
+        assert f"/static/app.css?v={APP_VERSION}" in text
         # F4: woff2 теперь объявлен в @font-face внутри app.css; версия
         # подставляется выделенным маршрутом /static/app.css (статика raw).
-        css = client.get("/static/app.css?v=2.58.0")
+        css = client.get(f"/static/app.css?v={APP_VERSION}")
         assert "__APP_VERSION__" not in css.text
-        assert ("/static/fonts/material-symbols-rounded.woff2?v=2.58.0"
+        assert (f"/static/fonts/material-symbols-rounded.woff2?v={APP_VERSION}"
                 in css.text)
         # URL субсета с версией реально отдаётся 200 (query не ломает static).
         font = client.get(
-            "/static/fonts/material-symbols-rounded.woff2?v=2.58.0")
+            f"/static/fonts/material-symbols-rounded.woff2?v={APP_VERSION}")
         assert font.status_code == 200
         assert font.content[:4] == b"wOF2"
 

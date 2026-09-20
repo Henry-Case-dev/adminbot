@@ -23,6 +23,7 @@ import re
 import time
 
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -75,6 +76,29 @@ def _sanitize_snippet(text: str, max_chars: int = _AUTH_BODY_MAX_CHARS) -> str:
     masked = _mask_secrets(text)
     masked = masked.replace("\n", " ").replace("\r", " ").strip()
     return masked[:max_chars]
+
+
+def _safe_exc_text(exc: BaseException, max_chars: int = 200) -> str:
+    """T-2467 (ADR-1025-6 D4): R17-safe текст исключения для диаг-логов.
+
+    У `httpx.ReadTimeout`/`asyncio.TimeoutError` `str(exc)` пуст — берём
+    `repr`, чтобы лог не превращался в `error=ReadTimeout: `. Маскировка
+    секретов (`_mask_secrets`), однострочно, с обрезкой. Никогда не бросает."""
+    try:
+        raw = str(exc) or repr(exc)
+    except Exception:                              # pragma: no cover
+        raw = ""
+    raw = _mask_secrets(raw).replace("\n", " ").replace("\r", " ").strip()
+    return raw[:max_chars] or type(exc).__name__
+
+
+def _provider_host(base_url: str) -> str:
+    """T-2467 (R17): только hostname провайдера — полный URL/креды в лог
+    НЕ попадают (запрещено R17)."""
+    try:
+        return urlsplit(str(base_url or "")).hostname or "-"
+    except ValueError:                             # pragma: no cover
+        return "-"
 
 
 async def _aclose(client: httpx.AsyncClient) -> None:
@@ -817,14 +841,24 @@ class LLMClient:
                 async with asyncio.timeout(self._fallback_timeout):
                     fb_resp = await self._post_fallback(payload)
             except Exception as fb_exc:
-                last_error = f"{type(fb_exc).__name__}: {fb_exc}"
+                # T-2467: содержательный R17-safe текст (repr при пустом
+                # str) вместо `Type: ` у ReadTimeout/TimeoutError.
+                last_error = (f"{type(fb_exc).__name__}: "
+                              f"{_safe_exc_text(fb_exc)}")
                 continue
             if fb_resp.status_code == 200:
                 return fb_resp
             last_error = f"status={fb_resp.status_code}"
             if not (fb_resp.status_code == 429 or 500 <= fb_resp.status_code < 600):
                 break
-        logger.warning("LLM fallback failed | error=%s", last_error)
+        # T-2467: контекст диагностики (провайдер/model/таймаут/число попыток)
+        # без секретов и полного URL. Логику ретраев выше НЕ меняем.
+        logger.warning(
+            "LLM fallback failed | error=%s | provider=%s | model=%s | "
+            "timeout=%s | attempts=%d",
+            last_error, _provider_host(self._fallback_base_url),
+            self._fallback_model, self._fallback_timeout, total_attempts,
+        )
         return None
 
     async def _post_embed_fallback(self, payload: dict,

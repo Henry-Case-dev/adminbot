@@ -1607,7 +1607,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.58.0"
+APP_VERSION = "2.58.1"   # round1025 hotfix: cache-bust ассетов TMA (T-2470)
 
 
 def get_ytdlp_pot_provider() -> str:
