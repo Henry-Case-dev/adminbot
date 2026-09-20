@@ -496,6 +496,17 @@ class StatusService:
         from services.log_ring import get_log_ring
         now = datetime.datetime.now(datetime.timezone.utc)
         buckets = self._bucketize(list(uptime_rows))
+        # Хотфикс-3 (T-2501, review fix M): аддитивная наблюдаемость доли
+        # таймаутов/fallback LLM. R17-safe — ТОЛЬКО числа (requests/timeouts/
+        # fallbacks/timeout_share), без ключей/URL/содержимого. Lazy import:
+        # `services.llm_client` импортирует status_service (цикл на уровне
+        # модулей недопустим); ошибка сбора не роняет сводку.
+        try:
+            from services.llm_client import llm_stats as _llm_stats
+            llm_stats_field = _llm_stats()
+        except Exception:  # pragma: no cover - defensive
+            logger.warning("[status] llm stats unavailable", exc_info=True)
+            llm_stats_field = None
         # F5 (cognition-dashboard-round1013, spec §3.6/F5-Q4): аддитивное поле
         # context — in-memory accounting последнего собранного контекста
         # (оценка токенов, cap, признак урезания). R17-safe: только числа;
@@ -580,6 +591,8 @@ class StatusService:
             },
             "server": self._server_metrics(),
             "llm": cards,
+            # Хотфикс-3 (T-2501): процессные числа LLM (таймауты/fallback).
+            "llm_stats": llm_stats_field,
             "permsoc": permsoc,
             "context": context_field,
             "uptime": {

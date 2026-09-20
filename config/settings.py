@@ -582,6 +582,14 @@ class Settings:
     # `sendRichMessage` (Article-ветка пропускается).
     SUMMARY_COVER_ARTICLE_ENABLED: ClassVar[bool] = _env_bool(
         "SUMMARY_COVER_ARTICLE_ENABLED", True)
+    # ── Хотфикс-3 (round10.25, ADR-1025-7 D1): env-only ClassVar kill-switch
+    # обложки на FALLBACK-пути саммари. default ON, Δ каталога = 0 (в
+    # param_catalog НЕ входит). ON → при фолбэке Stage-1 («Редактор») саммари
+    # НЕ теряет обложку: visual-промпт выводится из текста и уходит rich
+    # (прежний `SUMMARY_COVER_ARTICLE_ENABLED`-путь). OFF → plain-фолбэк
+    # байт-в-байт как до хотфикса (обратимость без `git revert`).
+    SUMMARY_COVER_FALLBACK_ENABLED: ClassVar[bool] = _env_bool(
+        "SUMMARY_COVER_FALLBACK_ENABLED", True)
     # ── Раунд 10.24 (F12, ADR-1024-4 D1/D2): env-only ClassVar-рубильники
     # универсального payload изображений и капа промпта обложки. Δ каталога = 0.
     #   * IMAGE_MODEL_COMPAT_ENABLED — ON: POST-тело строго
@@ -1076,8 +1084,12 @@ class Settings:
     # Фоллбэк-чат: до N повторов транзиентных отказов (429/5xx/транспорт);
     # общий бюджет одной фоллбэк-цепочки (было жёстко 30с — мало при 15с/запрос).
     LLM_FALLBACK_MAX_RETRIES: int = _env_int_min("LLM_FALLBACK_MAX_RETRIES", 2, 0)
+    # Хотфикс-3 (T-2500, ADR-1025-7 D4, ревью M-2): fail-fast — таймаут ОДНОЙ
+    # попытки фоллбэка 120 → 60с (`asyncio.timeout` вокруг одного POST; НЕ
+    # суммарный бюджет цепочки). Число ретраев (до 3 попыток) не менялось;
+    # значение каталогово/ENV-переопределяемо.
     LLM_FALLBACK_TIMEOUT_SECONDS: float = _env_float_min(
-        "LLM_FALLBACK_TIMEOUT_SECONDS", 120.0, 1.0)
+        "LLM_FALLBACK_TIMEOUT_SECONDS", 60.0, 1.0)
     # Периодический SQLite WAL-checkpoint(TRUNCATE) — удержание -wal
     # (наблюдался рост до 18 МБ без чекпоинта).
     DB_WAL_CHECKPOINT_ENABLED: bool = _env_bool("DB_WAL_CHECKPOINT_ENABLED", True)
@@ -1372,6 +1384,13 @@ class Settings:
     # ДО деплоя): Groq upload ~25МБ; OpenRouter input_audio base64 — консервативно 20МБ.
     STT_GROQ_MAX_UPLOAD_MB: int = _env_int("STT_GROQ_MAX_UPLOAD_MB", 25)
     STT_OPENROUTER_MAX_UPLOAD_MB: int = _env_int("STT_OPENROUTER_MAX_UPLOAD_MB", 20)
+    # ── Хотфикс-3 (round10.25, ADR-1025-7 D3): env-only ClassVar kill-switch
+    # сжатия/извлечения аудио перед STT. default ON, Δ каталога = 0 (в
+    # param_catalog НЕ входит). ON → файл > лимитов провайдеров сжимается
+    # (ffmpeg ogg/opus mono 16 kHz) до гейта, при необходимости — чанкинг;
+    # OFF → прежний размерный гейт байт-в-байт.
+    STT_AUDIO_COMPRESS_ENABLED: ClassVar[bool] = _env_bool(
+        "STT_AUDIO_COMPRESS_ENABLED", True)
 
     # ── Раунд 7 (chat-lore-management-v2, T-776): авто-лор чатов ──────────
     # Парные поля Settings для REGISTRY-записей limits.lore_*/flags.lore_*

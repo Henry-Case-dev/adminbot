@@ -128,7 +128,11 @@ class TestStatusEndpoint:
             # ФИКС S2/F-9 §6: + permsoc-телеметрия (N из M) в сводке.
             # F5 (cognition-dashboard, spec §3.6): + аддитивное context.
             assert set(body) == {"bot", "server", "llm", "uptime", "permsoc",
-                                 "context"}
+                                 "context", "llm_stats"}
+            # Хотфикс-3 (T-2501): аддитивная наблюдаемость LLM-таймаутов.
+            assert set(body["llm_stats"]) >= {"requests", "timeouts",
+                                              "fallbacks", "timeout_share"}
+            assert isinstance(body["llm_stats"]["timeout_share"], float)
             assert body["permsoc"]["total"] == 5
             assert body["bot"]["mode"] == "polling"
             assert body["bot"]["version"]

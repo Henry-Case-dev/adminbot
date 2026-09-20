@@ -214,6 +214,38 @@ def _validate_digest_text(text) -> str | None:
     return value
 
 
+def parse_summary_handoff_ex(raw: str) -> tuple[dict | None, str]:
+    """Тот же разбор, что :func:`parse_summary_handoff`, но с **причиной**.
+
+    T-2483/T-2484 (ADR-1025-7 D1): невалидный ответ Редактора больше не
+    «молчит» — наружу отдаётся код причины (``reason``), который попадает в
+    R17-safe лог вызывающего. Возвращает ``(parsed | None, reason)``:
+    ``ok`` | ``empty`` (пустой ответ) | ``invalid_json`` (JSON без корректной
+    выжимки) | ``invalid_digest`` (выжимка не прошла валидацию). Никогда не
+    бросает; поведение разбора байт-в-байт совпадает с ``parse_summary_handoff``.
+    """
+    source = str(raw or "")
+    if not source.strip():
+        return None, "empty"
+    data = parse_json_object(source)
+    if isinstance(data, dict) and "digest" in data:
+        digest = _validate_digest_text(data.get("digest"))
+        if digest is None:
+            return None, "invalid_digest"
+        return {
+            "response_mode": normalize_response_mode(data.get("response_mode")),
+            "digest": digest,
+            # F6 (additive): служебное поле визуального промпта обложки.
+            "cover_prompt": normalize_cover_prompt(data.get("cover_prompt")),
+        }, "ok"
+    digest = _validate_digest_text(source)
+    if digest is None:
+        return None, ("invalid_json" if data is not None else "invalid_digest")
+    # Legacy-выжимка (не JSON) режима/обложки не несёт → сигнал сбоя ("").
+    return {"response_mode": _MODE_UNSET, "digest": digest,
+            "cover_prompt": ""}, "ok"
+
+
 def parse_summary_handoff(raw: str) -> dict | None:
     """Строгий JSON Редактора: ``{"response_mode": …, "digest": …}``.
 
@@ -222,24 +254,10 @@ def parse_summary_handoff(raw: str) -> dict | None:
     (ADR-1023-3 §3): если raw — не JSON, но валидная Markdown-выжимка, то
     возвращаем ``digest=raw``, ``response_mode=""`` (режим не выбран — F6
     резолвит fallback-ключ). Невалидно → ``None``.
+
+    Тонкая обёртка над :func:`parse_summary_handoff_ex` (причина отбрасывается).
     """
-    source = str(raw or "")
-    data = parse_json_object(source)
-    if isinstance(data, dict) and "digest" in data:
-        digest = _validate_digest_text(data.get("digest"))
-        if digest is None:
-            return None
-        return {
-            "response_mode": normalize_response_mode(data.get("response_mode")),
-            "digest": digest,
-            # F6 (additive): служебное поле визуального промпта обложки.
-            "cover_prompt": normalize_cover_prompt(data.get("cover_prompt")),
-        }
-    digest = _validate_digest_text(source)
-    if digest is None:
-        return None
-    # Legacy-выжимка (не JSON) режима/обложки не несёт → сигнал сбоя ("").
-    return {"response_mode": _MODE_UNSET, "digest": digest, "cover_prompt": ""}
+    return parse_summary_handoff_ex(raw)[0]
 
 
 def validate_summary_digest(raw: str) -> str | None:

@@ -32,7 +32,7 @@ from services.chat_params import (
     get_chat_param as _chat_limit,  # G-3 per-chat
 )
 from services.database import row_get
-from services.llm_client import LLMBadResponseError, LLMError
+from services.llm_client import LLMBadResponseError, LLMError, LLMTimeoutError
 from services import anticliche_cache
 from services import usage_events
 from services.negative_constraints import (
@@ -53,7 +53,10 @@ from services.summary_prompts import (
     SUMMARY_NARRATOR_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
 )
-from services.system2_handoff import parse_summary_handoff
+from services.system2_handoff import (
+    normalize_cover_prompt,
+    parse_summary_handoff_ex,
+)
 from services.external_log import log_external_api
 from services.image_generation import generate_image_verbose
 from services.smartmodule_concurrency import get_smartmodule_concurrency_pool
@@ -386,7 +389,8 @@ class SummaryGenerator:
                     chat_id)
                 return
             text = self._ensure_shiz_postfix(raw, rows)
-            cover_prompt = draft.cover_prompt if draft is not None else ""
+            cover_prompt = self._resolve_cover_prompt(
+                draft, text, chat_id)
             # F6 (ADR-1023-6 §3.4): Article-ветка — только если флаг ON,
             # обложка возможна и aiogram поддерживает media. Иначе — прежний
             # plain-путь байт-в-байт (R11).
@@ -472,16 +476,33 @@ class SummaryGenerator:
                 SUMMARY_EDITOR_SYSTEM_PROMPT)},
             {"role": "user", "content": user_content},
         ]
-        editor_raw = await self._llm_generate(
-            editor_payload, chat_id, correlation_id=correlation_id,
-            step="stage1")
-        if editor_raw is None:
+        # T-2484 (ADR-1025-7 D1): таймаут/транзиент Stage-1 больше НЕ роняет
+        # всё саммари — фиксируем причину (R17-safe) и уходим на одиночный путь
+        # (обложку не теряем — см. `_run`). Повтор ровно один уже выполнен
+        # внутри `_llm_generate` (retry-once на LLMError) — границы держим.
+        try:
+            editor_raw = await self._llm_generate(
+                editor_payload, chat_id, correlation_id=correlation_id,
+                step="stage1")
+        except LLMError as exc:
+            reason = ("timeout" if isinstance(exc, LLMTimeoutError)
+                      else "llm_error")
+            logger.warning(
+                "summary system2: stage1 provider failure — fallback | "
+                "chat_id=%s | reason=%s | error=%s",
+                chat_id, reason, type(exc).__name__)
             return None
-        parsed = parse_summary_handoff(editor_raw)
+        if editor_raw is None:
+            # Пустой ответ Stage-1 (`_llm_generate` → None) — тоже фолбэк.
+            logger.info(
+                "summary system2: stage1 empty answer — fallback | "
+                "chat_id=%s | reason=empty", chat_id)
+            return None
+        parsed, parse_reason = parse_summary_handoff_ex(editor_raw)
         if parsed is None:
             logger.info(
-                "summary system2: невалидная выжимка редактора — fallback | "
-                "chat_id=%s", chat_id)
+                "summary system2: invalid editor handoff — fallback | "
+                "chat_id=%s | reason=%s", chat_id, parse_reason)
             return None
         digest = parsed["digest"]
         response_mode = parsed["response_mode"]
@@ -655,6 +676,64 @@ class SummaryGenerator:
         return "\n\n".join(parts)
 
     # ── Sending ───────────────────────────────────────────────
+
+    def _resolve_cover_prompt(self, draft: "SummaryDraft | None", text: str,
+                              chat_id: int) -> str:
+        """T-2485 (ADR-1025-7 D1, b): visual-промпт обложки для доставки.
+
+        Успешный Stage-1 → промпт Редактора (прежний путь байт-в-байт).
+        Фолбэк Stage-1 (``draft is None``) при ``SYSTEM2_SUMMARY_ENABLED`` и
+        ``SUMMARY_COVER_FALLBACK_ENABLED`` (env-only, default ON) → обложка
+        **не теряется**: детерминированный промпт из текста саммари. OFF/
+        rich-unsupported/без обложки → ``""`` (прежний plain-фолбэк, R11) с
+        явной R17-safe причиной в логе. Запуск генерации — существующий
+        rich-путь (`_deliver_rich`), контракт не меняется."""
+        if draft is not None:
+            return draft.cover_prompt
+        if not getattr(settings, "SYSTEM2_SUMMARY_ENABLED", True):
+            # Одиночный путь включён осознанно (kill-switch System 2), не фолбэк.
+            return ""
+        if not getattr(settings, "SUMMARY_COVER_FALLBACK_ENABLED", True):
+            # Kill-switch hotfix3 OFF → plain байт-в-байт (прежнее поведение).
+            return ""
+        if not getattr(settings, "SUMMARY_COVER_ARTICLE_ENABLED", True):
+            logger.info(
+                "summary cover: fallback path, cover disabled — plain | "
+                "chat_id=%s | reason=cover_disabled", chat_id)
+            return ""
+        if not _rich_media_supported():
+            logger.info(
+                "summary cover: fallback path, rich unsupported — plain | "
+                "chat_id=%s | reason=rich_unsupported", chat_id)
+            return ""
+        prompt = self._derive_fallback_cover_prompt(text)
+        if not prompt:
+            logger.info(
+                "summary cover: fallback path, empty cover prompt — plain | "
+                "chat_id=%s | reason=cover_prompt_empty", chat_id)
+            return ""
+        logger.info(
+            "summary cover: fallback path — rich with cover | chat_id=%s | "
+            "reason=stage1_fallback | prompt_len=%d", chat_id, len(prompt))
+        return prompt
+
+    @staticmethod
+    def _derive_fallback_cover_prompt(text: str) -> str:
+        """Детерминированный visual-промпт обложки из текста саммари (T-2485).
+
+        Без доп. LLM-вызова: корень фолбэка — провайдерские таймауты, поэтому
+        лишний вызов того же провайдера ненадёжен и/или зависает. Берём первую
+        фразу, снимаем rich-разметку и служебный шиз-постфикс, режем каноном
+        ``SUMMARY_COVER_PROMPT_MAX/300``. Никогда не бросает."""
+        try:
+            plain = downgrade_rich_to_plain(str(text or "")).strip()
+            plain = plain.replace(_SHIZ_MARKER, "").strip()
+            if not plain:
+                return ""
+            first = re.split(r"(?<=[.!?…])\s+", plain, maxsplit=1)[0].strip()
+            return normalize_cover_prompt(first)
+        except Exception:  # pragma: no cover - defensive
+            return ""
 
     async def _deliver_plain(self, chat_id: int, text: str) -> None:
         """Прежний plain-путь (стриминг/чанки) — R11, ``parse_mode=None``."""

@@ -167,7 +167,7 @@ class TestSnapshot:
         cache = _FakeCache(pg=_FakePg())
         snapshot = await self._build(svc, cache, monkeypatch)
         assert set(snapshot) == {"bot", "server", "llm", "uptime", "permsoc",
-                                 "context"}
+                                 "context", "llm_stats"}
         bot = snapshot["bot"]
         assert bot["state"] == "polling"
         assert bot["mode"] == "polling"

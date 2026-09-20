@@ -33,6 +33,27 @@ from services.status_service import status as status_service
 
 logger = logging.getLogger(__name__)
 
+# Хотфикс-3 (T-2501, ADR-1025-7 D4): лёгкие process-метрики доли таймаутов и
+# fallback-срабатываний. R17-safe: только числа (без ключей/URL/содержимого).
+# Снимок — `llm_stats()`; счётчики сбрасываются при рестарте процесса (этого
+# достаточно для мониторинга «прямо сейчас» + лог-события для истории).
+_LLM_STATS: dict[str, int] = {"requests": 0, "timeouts": 0, "fallbacks": 0}
+
+
+def llm_stats() -> dict:
+    """Снимок LLM-метрик: ``requests``/``timeouts``/``fallbacks`` + доля
+    таймаутов (0.0 без запросов). T-2501: наблюдаемость корня A — хронических
+    таймаутов провайдера (``nano-gpt.com``)."""
+    requests = _LLM_STATS["requests"]
+    timeouts = _LLM_STATS["timeouts"]
+    fallbacks = _LLM_STATS["fallbacks"]
+    return {
+        "requests": requests,
+        "timeouts": timeouts,
+        "fallbacks": fallbacks,
+        "timeout_share": (timeouts / requests) if requests else 0.0,
+    }
+
 _BODY_MAX_CHARS = 500   # Epic 49 (57.4) / Epic 53 (62.5): тело 4xx/5xx-ответа в диагн-логе
 _AUTH_BODY_MAX_CHARS = 200   # Задача 2 (01.09.2026): тело 401/403 в LLMAuthError
 
@@ -109,8 +130,10 @@ async def _aclose(client: httpx.AsyncClient) -> None:
 
 # Epic 53 (62.1): худший случай generate = бюджет primary + фоллбэк.
 # Epic 64: бюджет фоллбэка больше НЕ константа 30с — настройка
-# LLM_FALLBACK_TIMEOUT_SECONDS (дефолт 120с: реальный запрос к DeepSeek
-# занимает ~15с; при ретраях 30с не хватало даже на две попытки).
+# LLM_FALLBACK_TIMEOUT_SECONDS. Хотфикс-3 (T-2500, ADR-1025-7 D4, ревью M-2):
+# fail-fast — дефолт снижен 120 → 60с. Это таймаут ОДНОЙ попытки фоллбэка
+# (`asyncio.timeout` вокруг одного POST), НЕ суммарный бюджет цепочки; число
+# ретраев (до 3 попыток) не менялось.
 
 
 class LLMError(Exception):
@@ -669,6 +692,7 @@ class LLMClient:
         total_attempts = call_retries + 1
         started_total = time.monotonic()
         budget_exceeded = False
+        _LLM_STATS["requests"] += 1
         try:
             async with asyncio.timeout(call_budget):
                 for attempt in range(total_attempts):
@@ -690,7 +714,14 @@ class LLMClient:
                             await asyncio.sleep(sleep)
                             continue
                         if isinstance(exc, httpx.TimeoutException):
-                            logger.error("LLM timeout | url=%s attempt=%d", url, attempt)
+                            # T-2500 (ADR-1025-7 D4): R17-safe причина
+                            # (класс: ReadTimeout/ConnectTimeout/…) + провайдер.
+                            _LLM_STATS["timeouts"] += 1
+                            logger.error(
+                                "LLM timeout | url=%s | attempt=%d | "
+                                "reason=%s | provider=%s",
+                                url, attempt, type(exc).__name__,
+                                _provider_host(base))
                             raise LLMTimeoutError(
                                 f"LLM request timed out after {total_attempts} attempts: {url}"
                             ) from exc
@@ -783,10 +814,18 @@ class LLMClient:
                             )
                     return response
         except asyncio.TimeoutError:
+            _LLM_STATS["timeouts"] += 1
+            logger.error(
+                "LLM timeout | url=%s | reason=total_budget_exceeded | "
+                "provider=%s", url, _provider_host(base))
             raise LLMTimeoutError(
                 f"LLM request timed out after {total_attempts} attempts: {url}"
             ) from None
         if budget_exceeded:
+            _LLM_STATS["timeouts"] += 1
+            logger.error(
+                "LLM timeout | url=%s | reason=budget_exhausted | provider=%s",
+                url, _provider_host(base))
             raise LLMTimeoutError(
                 f"LLM request timed out after {total_attempts} attempts: {url}"
             )
@@ -950,7 +989,10 @@ class LLMClient:
         except LLMError as exc:
             if not self._fallback_active or isinstance(exc, LLMBadResponseError):
                 raise
-            logger.warning("LLM fallback attempt | primary_error=%s", exc)
+            _LLM_STATS["fallbacks"] += 1
+            logger.warning(
+                "LLM fallback attempt | primary_error=%s | provider=%s",
+                exc, _provider_host(self._fallback_base_url))
             fb_response = await self._fallback_with_retries(payload)
             if fb_response is None:
                 raise exc from None
@@ -1123,7 +1165,10 @@ class LLMClient:
         except LLMError as exc:
             if not self._fallback_active or isinstance(exc, LLMBadResponseError):
                 raise
-            logger.warning("LLM fallback attempt | primary_error=%s", exc)
+            _LLM_STATS["fallbacks"] += 1
+            logger.warning(
+                "LLM fallback attempt | primary_error=%s | provider=%s",
+                exc, _provider_host(self._fallback_base_url))
             fb_response = await self._fallback_with_retries(payload)
             if fb_response is None:
                 raise exc from None

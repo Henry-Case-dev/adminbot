@@ -1113,6 +1113,7 @@
         clicheBusy: false,         // форс-обновление/сохранение в процессе
         clicheEditing: false,      // режим ручного редактирования
         clicheDraft: '',           // черновик списка (по строке на фразу)
+        clicheLenWarned: false,    // review fix: одно предупреждение на сессию правки
         // F7 (10.24, ADR-1024-3 D1): черновик регулируемого лимита паттернов.
         clicheLimitDraft: '',
         saving: new Set(),
@@ -4933,16 +4934,43 @@
         if (this.clicheEditing) { this.clicheEditing = false; return; }
         var pats = (this.clicheMeta && this.clicheMeta.patterns) || [];
         this.clicheDraft = pats.map(function (p) { return p.phrase; }).join('\n');
+        this.clicheLenWarned = false;
         this.clicheEditing = true;
+      },
+      limitClicheDraft: function () {
+        // Review fix: канон 120 на ФРАЗУ. Поле многострочное (фраза на
+        // строку), поэтому HTML `maxlength` ограничил бы ВЕСЬ черновик —
+        // режем по строкам; о первом усечении честно предупреждаем.
+        var max = 120;
+        var trimmed = false;
+        var out = String(this.clicheDraft || '').split('\n').map(function (line) {
+          if (line.length > max) { trimmed = true; return line.slice(0, max); }
+          return line;
+        });
+        if (trimmed) {
+          this.clicheDraft = out.join('\n');
+          if (!this.clicheLenWarned) {
+            this.clicheLenWarned = true;
+            this.toast('Фраза-клише сокращена до ' + max + ' символов', 'warn');
+          }
+        }
       },
       saveCliche: async function () {
         if (this.clicheBusy) return;
+        var maxLen = 120;   // T-2488 (ADR-1025-7 D2): канон длины фразы
         var phrases = String(this.clicheDraft || '').split('\n')
           .map(function (s) { return s.trim(); })
           .filter(function (s) { return s.length > 0; });
+        var tooLong = phrases.filter(function (s) { return s.length > maxLen; });
+        if (tooLong.length) {
+          // Понятная ошибка, а НЕ тихий дроп усечённой фразы (T-2492).
+          this.toast('Фраз длиннее ' + maxLen + ' символов: ' + tooLong.length +
+                     '. Сократите их и сохраните заново.', 'err');
+          return;
+        }
         this.clicheBusy = true;
         try {
-          await this.api('/api/anticliche', {
+          var resp = await this.api('/api/anticliche', {
             method: 'PUT',
             body: JSON.stringify({ patterns: phrases.map(function (p) {
               return { phrase: p };
@@ -4950,7 +4978,31 @@
           });
           await this.loadCliche();
           this.clicheEditing = false;
-          this.toast('Список анти-клише сохранён', 'ok');
+          var total = phrases.length;
+          var savedN = (resp && typeof resp.count === 'number')
+            ? resp.count : total;
+          var dropped = (resp && resp.dropped) || {};
+          var clicheReasonLabels = {
+            invalid: 'некорректные', hardcoded: 'хардкод-клише',
+            duplicate: 'дубли', over_limit: 'сверх лимита',
+          };
+          var reasons = [];
+          ['invalid', 'hardcoded', 'duplicate', 'over_limit'].forEach(
+            function (k) {
+              var arr = dropped[k] || [];
+              if (arr.length) {
+                reasons.push(clicheReasonLabels[k] + ': ' + arr.length);
+              }
+            });
+          if (savedN >= total && reasons.length === 0) {
+            this.toast('Список анти-клише сохранён', 'ok');
+          } else {
+            // 200 ≠ «всё сохранено»: честно показываем, что отброшено и почему.
+            this.toast('Сохранено ' + savedN + ' из ' + total
+                       + (reasons.length ? '; отброшено — '
+                           + reasons.join(', ') : ''),
+                       savedN > 0 ? 'warn' : 'err');
+          }
         } catch (e) {
           this.toast('Не удалось сохранить список анти-клише', 'err');
         } finally {

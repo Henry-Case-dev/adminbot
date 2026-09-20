@@ -606,6 +606,10 @@ class TestOrchestratorCorrelation:
     async def test_summary_run_creates_single_id(self, monkeypatch):
         from services.summary_generator import SummaryGenerator
         monkeypatch.setattr(usage_events, "new_correlation_id", lambda: "SUM-1")
+        # Хотфикс-3 (round1025): на fallback-пути обложка генерируется по
+        # умолчанию — здесь проверяем корреляцию одиночного пути, поэтому
+        # фиксируем kill-switch OFF (прежний plain-путь).
+        monkeypatch.setattr(Settings, "SUMMARY_COVER_FALLBACK_ENABLED", False)
         gen = object.__new__(SummaryGenerator)
         gen.memory = AsyncMock()
         gen.memory.compress_and_purge = AsyncMock()

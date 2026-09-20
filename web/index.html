@@ -506,7 +506,12 @@
                   </div>
                   <textarea v-if="clicheEditing" class="field scroll-thin" rows="8"
                             placeholder="Одна фраза-клише на строку"
+                            @input="limitClicheDraft()"
                             v-model="clicheDraft"></textarea>
+                  <p v-if="clicheEditing" class="text-xs text-gray-500 mt-1">
+                    Одна фраза на строку, до 120 символов на фразу
+                    (лишнее в строке обрезается автоматически).
+                  </p>
                   <div v-if="clicheEditing" class="flex gap-2 mt-2">
                     <button class="btn-accent text-xs" :disabled="clicheBusy"
                             @click="saveCliche()">

@@ -223,39 +223,80 @@ def _safe_origin(value) -> str:
         return ""
 
 
-def build_patterns(entries, *,
-                   max_patterns: int | None = None) -> list[dict]:
-    """Нормализация/дедуп/лимит/фильтр хардкод-дублей → список паттернов.
+def _safe_phrase(value) -> str:
+    """R17-safe представление входной фразы для отчёта об отбросе.
 
-    ``max_patterns=None`` → резолвленный лимит `anticliche_cache.max_patterns()`
-    (default 200, регулируемый). Дедуп: по нормализованной фразе (внутри
-    динамики) и против захардкоженных правил (фраза, которую уже ловит
-    детектор, пропускается).
+    Отчёт отдаётся админу (не в лог): показываем, ЧТО именно не сохранилось,
+    чтобы UI мог предупредить («Сохранено N из M»). Длина ограничена."""
+    try:
+        return str(value or "")[:200]
+    except Exception:  # pragma: no cover - defensive
+        return ""
+
+
+def build_patterns_report(entries, *,
+                          max_patterns: int | None = None,
+                          manual: bool = False) -> dict:
+    """Честная разбивка нормализации/дедупа/лимита (T-2489/T-2490).
+
+    Возвращает ``{"saved": [...], "dropped": {"invalid", "hardcoded",
+    "duplicate", "over_limit"}, "count": N, "hardcoded_flagged": [...],
+    "total": M}`` — вместо молчаливого дропа. ``manual=True`` (ручная правка
+    пользователя) **НЕ фильтрует** ``find_forbidden_cliches``: пользователь
+    добавляет фразы осознанно, поэтому они сохраняются, а совпавшие с
+    захардкод-клише лишь помечаются в ``hardcoded_flagged``. Ограничения
+    ручного ввода — только длина/дубли/cap. ``max_patterns=None`` →
+    резолвленный лимит ``anticliche_cache.max_patterns()`` (default 200).
     """
+    dropped: dict[str, list[str]] = {
+        "invalid": [], "hardcoded": [], "duplicate": [], "over_limit": []}
+    flagged: list[str] = []
     out: list[dict] = []
     seen: set[str] = set()
     if not isinstance(entries, (list, tuple)):
-        return out
+        return {"saved": [], "dropped": dropped, "count": 0,
+                "hardcoded_flagged": flagged, "total": 0}
     limit = (max_patterns if max_patterns is not None
              else anticliche_cache.max_patterns())
+    limit = max(1, int(limit))
     for entry in entries:
         raw = entry.get("phrase") if isinstance(entry, dict) else entry
         origin = entry.get("origin") if isinstance(entry, dict) else ""
         phrase = normalize_dynamic_phrase(raw)
-        if not phrase or phrase in seen:
+        if not phrase:
+            dropped["invalid"].append(_safe_phrase(raw))
             continue
-        if find_forbidden_cliches(phrase, DEFAULT_ENABLED_RULES):
+        if phrase in seen:
+            dropped["duplicate"].append(phrase)
+            continue
+        hardcoded = bool(find_forbidden_cliches(phrase, DEFAULT_ENABLED_RULES))
+        if hardcoded and not manual:
+            dropped["hardcoded"].append(phrase)
+            continue
+        if len(out) >= limit:
+            dropped["over_limit"].append(phrase)
             continue
         seen.add(phrase)
+        if hardcoded:
+            flagged.append(phrase)
         out.append({
             "code": dynamic_rule_code(phrase),
             "phrase": phrase,
             "origin": _safe_origin(origin),
             "added_at": _now_iso(),
         })
-        if len(out) >= max(1, int(limit)):
-            break
-    return out
+    return {"saved": out, "dropped": dropped, "count": len(out),
+            "hardcoded_flagged": flagged, "total": len(entries)}
+
+
+def build_patterns(entries, *,
+                   max_patterns: int | None = None) -> list[dict]:
+    """Нормализация/дедуп/лимит/фильтр хардкод-дублей → список паттернов.
+
+    Тонкая обёртка над :func:`build_patterns_report` (авто-семантика:
+    хардкод-клише отбрасываются). ``max_patterns=None`` → резолвленный лимит
+    ``anticliche_cache.max_patterns()`` (default 200, регулируемый)."""
+    return build_patterns_report(entries, max_patterns=max_patterns)["saved"]
 
 
 async def fetch_source(url: str) -> str:
@@ -618,12 +659,21 @@ async def apply_manual(pg, entries) -> dict:
 
     Нормализация/дедуп/лимит серверные; пустая запись допустима (ручная
     очистка); ``fetched_at`` не трогается (review iter1 L3). Используется и
-    API `PUT /api/anticliche` — одна реализация бизнес-логики."""
-    patterns = build_patterns(entries)
+    API ``PUT /api/anticliche`` — одна реализация бизнес-логики.
+
+    T-2490/T-2491 (ADR-1025-7 D2): ручные фразы **НЕ** фильтруются
+    хардкод-правилами (``manual=True``) — пользователь добавляет их осознанно;
+    совпавшие лишь помечаются в ``hardcoded_flagged``. Наружу отдаётся
+    честный отчёт ``saved``/``dropped``/``count`` (200 ≠ «всё сохранено»)."""
+    report = build_patterns_report(entries, manual=True)
+    patterns = report["saved"]
     version = await anticliche_cache.write_patterns(
         pg, patterns, source=_SOURCE_ID_MANUAL, source_url="", fetched_at=None)
     return {"status": "ok", "count": len(patterns), "version": version,
-            "source": _SOURCE_ID_MANUAL}
+            "source": _SOURCE_ID_MANUAL,
+            "saved": report["saved"],
+            "dropped": report["dropped"],
+            "hardcoded_flagged": report["hardcoded_flagged"]}
 
 
 # ── runtime-держатель воркера (DI для API ручного запуска/правки) ────────────

@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from services import anticliche_cache
 from services import anticliche_worker
 from services import roles as roles_srv
+from services.negative_constraints import DYNAMIC_PHRASE_MAX
 from web.api.deps import get_cache, get_tma_user
 
 logger = logging.getLogger(__name__)
@@ -37,8 +38,10 @@ def _manual_input_cap() -> int:
 
 
 class PatternIn(BaseModel):
-    # Review iter1 (L4): верхние границы до regex-нормализации.
-    phrase: str = Field(default="", max_length=500)
+    # T-2488 (ADR-1025-7 D2): канон длины фразы — 2…120 (`DYNAMIC_PHRASE_MIN/
+    # MAX`). Длинная фраза → понятная 422 (не тихий дроп при нормализации);
+    # «лимит длины фразы» (120) отделён от «числа паттернов» (вместимость).
+    phrase: str = Field(default="", max_length=DYNAMIC_PHRASE_MAX)
     origin: str = Field(default="", max_length=200)
 
 
@@ -136,6 +139,14 @@ async def anticliche_put(
     except Exception:
         raise HTTPException(status_code=503,
                             detail="PostgreSQL недоступен (R6)")
-    logger.info("[anticliche] manual edit | count=%d | version=%d",
-                result["count"], result["version"])
+    # T-2491 (ADR-1025-7 D2): честный лог без фраз (R17) — только числа/коды.
+    dropped = result.get("dropped") or {}
+    logger.info(
+        "[anticliche] manual edit | saved=%d | dropped={invalid=%d hardcoded=%d "
+        "duplicate=%d over_limit=%d} | version=%d",
+        result["count"], len(dropped.get("invalid") or []),
+        len(dropped.get("hardcoded") or []),
+        len(dropped.get("duplicate") or []),
+        len(dropped.get("over_limit") or []),
+        result["version"])
     return result
