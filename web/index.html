@@ -785,7 +785,8 @@
                      пустых «(0)»-блоков). -->
                 <div class="grid gap-3 md:grid-cols-2" v-if="basicItems(grp).length">
                   <div v-for="item in basicItems(grp)"
-                       :key="item.key" class="card p-4" style="min-width:0;">
+                       :key="item.key" class="card p-4" style="min-width:0;"
+                       :class="{ 'is-save-failed': stickyFieldFailed(item.key) }">
                     <!-- Раунд 10 (F-7 T-855/T-868): роль-пикер (gear, global
                          admin) + бейджи «чат»/«скрыт» + сброс на глобальное -->
                     <div class="flex items-center gap-2 min-w-0 mb-1">
@@ -903,7 +904,8 @@
                   </summary>
                   <div class="grid gap-3 md:grid-cols-2 mt-3">
                     <div v-for="item in advancedItems(grp)"
-                         :key="item.key" class="card p-4" style="min-width:0;">
+                         :key="item.key" class="card p-4" style="min-width:0;"
+                         :class="{ 'is-save-failed': stickyFieldFailed(item.key) }">
                       <div class="flex items-center gap-2 min-w-0 mb-1">
                         <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
                         <button v-if="isGlobalAdmin" class="btn-ghost text-xs px-2 ml-auto shrink-0"

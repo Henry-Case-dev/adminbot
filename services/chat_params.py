@@ -117,14 +117,26 @@ _chat_write_locks_guard = asyncio.Lock()
 
 
 async def _chat_write_lock(chat_id: int) -> asyncio.Lock:
-    """Лок per-chat для сериализации мутаций профиля (F0.1 D-409-2)."""
+    """Лок per-chat для сериализации мутаций профиля (F0.1 D-409-2).
+
+    Soft-cap 1024: при переполнении вытесняем только СВОБОДНЫЕ локи (LRU) —
+    удерживаемый лок НИКОГДА не выбрасывается (иначе потерялась бы
+    сериализация «в полёте»)."""
     async with _chat_write_locks_guard:
         lock = _chat_write_locks.get(chat_id)
         if lock is None:
             if len(_chat_write_locks) >= 1024:
-                # soft-cap (F0): редкий случай — не растим память бесконечно.
-                _chat_write_locks.clear()
+                for old_id in list(_chat_write_locks.keys()):
+                    if len(_chat_write_locks) < 1024:
+                        break
+                    old = _chat_write_locks.get(old_id)
+                    if old is not None and not old.locked():
+                        del _chat_write_locks[old_id]
             lock = asyncio.Lock()
+            _chat_write_locks[chat_id] = lock
+        else:
+            # LRU-касание: используемый лок перемещаем в конец словаря.
+            _chat_write_locks.pop(chat_id, None)
             _chat_write_locks[chat_id] = lock
     return lock
 

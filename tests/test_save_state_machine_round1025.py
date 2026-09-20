@@ -206,6 +206,23 @@ async def test_chat_write_lock_is_stable_per_chat():
     assert l1 is not l3
 
 
+# ── Ревью item 8: вытесняются только СВОБОДНЫЕ локи (удерживаемый не теряем) ─
+
+@pytest.mark.asyncio
+async def test_chat_write_locks_evict_only_free(monkeypatch):
+    chat_params._chat_write_locks.clear()
+    held = await chat_params._chat_write_lock(-999)
+    await held.acquire()                     # лок «в полёте» — не выбрасывать
+    try:
+        for i in range(1100):
+            await chat_params._chat_write_lock(i)
+        assert -999 in chat_params._chat_write_locks
+        assert chat_params._chat_write_locks[-999] is held
+    finally:
+        held.release()
+        chat_params._chat_write_locks.clear()
+
+
 @pytest.mark.asyncio
 async def test_normal_write_emits_notify_and_history(conn, pg):
     conn.add_profile(-3, {"v": 1, "overrides": {}})

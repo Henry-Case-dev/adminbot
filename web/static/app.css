@@ -986,6 +986,22 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    /* F0.4 (ревью, T-2435): поле с ошибкой сохранения — подсветка рядом с полем
+       (per-field error map), а не только в панели. */
+    .is-save-failed {
+      border-color: #f87171 !important;
+      box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.5);
+    }
+    .sticky-save__state {
+      flex: 0 0 auto;
+      font-size: var(--tx-tiny);
+      color: var(--text-3);
+      opacity: 0.85;
+    }
+    .sticky-save[data-save-state="error"] .sticky-save__state,
+    .sticky-save[data-save-state="conflict"] .sticky-save__state {
+      color: #f87171;
+    }
 
     /* T-1897: «Живая лента досье» — бегущая строка (CSS, без библиотек).
        F4 (раунд 10.24, ADR-1024-8 D1): ON-режим — вертикальная лента

@@ -982,6 +982,9 @@
         // F0 (10.25, ADR-1025-2 D1): реальный 409 с непустым conflicting[] —
         // отдельное состояние формы `conflict` (черновик НЕ сбрасывается).
         stickyConflict: [],
+        // F0 (ревью): КЛЮЧИ полей с ошибкой сохранения — подсветка у полей
+        // (per-field error map), в отличие от `stickyFailed` (заголовки).
+        stickyFailedKeys: [],
         // F0 (10.25, ADR-1025-4 D1): типобезопасные id тостов и операций;
         // _opNotified — идемпотентность notify(operationId, …) (один тост на
         // операцию); _toastSeq — стабильный уникальный id тоста.
@@ -1661,6 +1664,10 @@
         if (this.stickyFailed && this.stickyFailed.length) return 'error';
         if (this.stickyDirtyCount > 0) return 'dirty';
         return 'clean';
+      },
+      // F0.4 (ревью, T-2435): per-field ошибка — подсветка рядом с полем.
+      stickyFieldFailed: function (key) {
+        return (this.stickyFailedKeys || []).indexOf(key) >= 0;
       },
       // ── Раунд 10.20 (БЛОК 3.3/T-1897): модель «Живой ленты досье» ──
       // Дублирование для seamless-скролла (тот же приём, что у лент
@@ -3215,6 +3222,7 @@
         // значения пишет persistItems (silent), секреты — saveKeyItem(silent),
         // итог озвучивается ниже один раз.
         var failed = [];
+        var failedKeys = [];
         var total = dirty.length + keys.length;
         try {
           if (typeof this.persistItems === 'function') {
@@ -3225,30 +3233,50 @@
               for (var i = 0; i < res.failed.length; i++) {
                 var fi = this._findConfigItem(res.failed[i].key);
                 failed.push((fi && fi.title) || res.failed[i].key);
+                failedKeys.push(res.failed[i].key);
+              }
+              // Ревью (item 3): пропущенные по guard in-flight ключи — НЕ
+              // молча: считаем неподтверждёнными (baseline не сдвигаем).
+              var skipped = res.skipped || [];
+              for (var sk = 0; sk < skipped.length; sk++) {
+                var skItem = this._findConfigItem(skipped[sk]);
+                failed.push((skItem && skItem.title) || skipped[sk]);
+                failedKeys.push(skipped[sk]);
               }
             }
             for (var j = 0; j < keys.length; j++) {
               var okKey = await this.saveKeyItem(keys[j], true);
-              if (okKey === false) failed.push(keys[j].title || keys[j].key);
+              if (okKey === false) {
+                failed.push(keys[j].title || keys[j].key);
+                failedKeys.push(keys[j].key);
+              }
             }
           } else {
             // Легаси-контекст (юнит-тесты) без единого write-path: поштучно.
             for (var i2 = 0; i2 < dirty.length; i2++) {
               var ok = await this.saveConfigItem(dirty[i2]);
-              if (ok === false) failed.push(dirty[i2].title || dirty[i2].key);
+              if (ok === false) {
+                failed.push(dirty[i2].title || dirty[i2].key);
+                failedKeys.push(dirty[i2].key);
+              }
             }
             for (var j2 = 0; j2 < keys.length; j2++) {
               var okKey2 = await this.saveKeyItem(keys[j2]);
-              if (okKey2 === false) failed.push(keys[j2].title || keys[j2].key);
+              if (okKey2 === false) {
+                failed.push(keys[j2].title || keys[j2].key);
+                failedKeys.push(keys[j2].key);
+              }
             }
           }
           if (failed.length) {
             this.stickyFailed = failed;
+            this.stickyFailedKeys = failedKeys;
             this.toast('Сохранено ' + (total - failed.length) + ' из ' +
                        total + '; не сохранено: ' + failed.join(', '),
                        failed.length === total ? 'err' : 'warn');
           } else {
             this.stickyFailed = [];
+            this.stickyFailedKeys = [];
             this._snapshotConfig();
             this.toast('Изменения сохранены (' + total + ')', 'ok');
           }
@@ -5085,17 +5113,30 @@
       notify: function (operationId, result, items) {
         if (operationId) {
           if (this._opNotified[operationId]) return;
+          if (!this._opNotified || typeof this._opNotified !== 'object') {
+            this._opNotified = {};
+          }
           this._opNotified[operationId] = result || true;
+          // F0.4 (ревью): ограничить рост — ленивая очистка по окну тоста,
+          // чтобы таблица идемпотентности не росла на каждую операцию.
+          var selfOp = this;
+          setTimeout(function () {
+            if (selfOp._opNotified) delete selfOp._opNotified[operationId];
+          }, 8000);
         }
         var res = result || {};
         var saved = res.saved || [];
         var failed = res.failed || [];
+        var skipped = res.skipped || [];
         var total = saved.length + failed.length;
         var self = this;
         var titleOf = function (key) {
           var it = self._findConfigItem(key);
           return (it && it.title) ? it.title : key;
         };
+        // Только in-flight-пропуски (ничего не отправляли) — без тоста:
+        // итог озвучит владелец летящей операции (не дублируем, не врём).
+        if (!saved.length && !failed.length && skipped.length) return;
         if (!failed.length) {
           if (saved.length === 1) {
             this.toast('Сохранено: ' + titleOf(saved[0]), 'ok');
@@ -5139,16 +5180,25 @@
           : function () { return true; };
         var list = (items || []).filter(Boolean);
         var drafts = {};
+        var skipped = [];
         var chatItems = [];
         var globalItems = [];
         for (var i = 0; i < list.length; i++) {
           var it = list[i];
           if (!it || it.key == null) continue;
           drafts[it.key] = serialize(it.value);
-          if (saving.has(it.key)) continue;           // guard in-flight
+          if (saving.has(it.key)) { skipped.push(it.key); continue; }  // in-flight
           saving.add(it.key);
           if (it.per_chat === false) globalItems.push(it);
           else chatItems.push(it);
+        }
+        // Все ключи уже в полёте (двойной тап/параллельный вызов): НЕ дублируем
+        // запрос и НЕ объявляем ложный успех — итог озвучит владелец in-flight
+        // операции. Пропущенные ключи возвращаем явно (не молча).
+        if (!chatItems.length && !globalItems.length) {
+          return { saved: [], failed: [], skipped: skipped,
+                   revalidated: false, state: 'saving',
+                   operationId: operationId, inFlight: true };
         }
         // RC-6: chat-scope с null-токеном (сменили scope) — сначала loadConfig.
         if (chatItems.length && this.configChatUpdatedAt == null) {
@@ -5218,6 +5268,17 @@
               revalidated = true;
             } else {
               stillFailed.push(cf);
+              // F0.1 (ревью): черновик пользователя НЕ уничтожаем — после
+              // loadConfig() возвращаем его в элемент (серверное значение
+              // остаётся прочитанным, но поле снова dirty и подсвечено conflict).
+              if (serverItem
+                  && Object.prototype.hasOwnProperty.call(drafts, cf.key)) {
+                var rawDraft = drafts[cf.key];
+                if (rawDraft !== undefined) {
+                  try { serverItem.value = JSON.parse(rawDraft); }
+                  catch (e) { /* не восстановить — оставляем серверное */ }
+                }
+              }
             }
           }
           failed = failed.filter(function (f) {
@@ -5232,9 +5293,11 @@
         var state = failed.length ? (saved.length ? 'saved' : 'error')
                                   : 'saved';
         var result = {
-          saved: saved, failed: failed, revalidated: revalidated,
-          state: state, operationId: operationId,
+          saved: saved, failed: failed, skipped: skipped,
+          revalidated: revalidated, state: state, operationId: operationId,
         };
+        // F0.4 (ревью): per-field карта провалов — подсветка у полей.
+        this.stickyFailedKeys = failed.map(function (f) { return f.key; });
         if (!opts.silent && typeof this.notify === 'function') {
           this.notify(operationId, result, list);
         }
@@ -5293,6 +5356,11 @@
                                                per_chat: item.per_chat }]);
           if (res.saved.indexOf(item.key) >= 0) {
             await this._preserveScroll(this.loadConfig);
+            return true;
+          }
+          if (res.skipped && res.skipped.indexOf(item.key) >= 0) {
+            // Ключ уже сохраняется другой (in-flight) операцией — не ошибка,
+            // но и не «наш» успех: baseline не двигаем здесь.
             return true;
           }
           // S10.20-6: неуспех → false (sticky-панель НЕ сдвигает baseline).
@@ -8014,7 +8082,23 @@
     },
     computed: {
       dirtyCount: function () { return this.root.stickyDirtyCount || 0; },
-      saving: function () { return !!this.root.stickySaving; },
+      // F0 (ревью, T-2416/T-2437): единое состояние формы из root.saveState,
+      // а не набор независимых флагов.
+      saveState: function () {
+        if (typeof this.root.saveState === 'function') {
+          return this.root.saveState();
+        }
+        return this.dirtyCount ? 'dirty' : 'clean';
+      },
+      stateLabel: function () {
+        var map = { clean: '', dirty: 'Есть изменения', saving: 'Сохранение…',
+                    saved: 'Сохранено', error: 'Ошибка сохранения',
+                    conflict: 'Конфликт версии' };
+        return map[this.saveState] || '';
+      },
+      saving: function () {
+        return this.saveState === 'saving' || !!this.root.stickySaving;
+      },
       active: function () { return this.dirtyCount > 0; },
       // S10.20-6: поля, которые не сохранились (ошибка/409) — подсветка.
       failed: function () { return this.root.stickyFailed || []; },
@@ -8024,10 +8108,12 @@
       save: function () { this.root.saveModalEdits(); },
     },
     template:
-      '<div class="sticky-save" role="group" aria-label="Сохранение изменений">'
+      '<div class="sticky-save" role="group" aria-label="Сохранение изменений"'
+      + ' :data-save-state="saveState">'
       + '<span class="sticky-save__count">'
       + '{{ dirtyCount ? ("Изменено: " + dirtyCount) : "Нет изменений" }}'
       + '</span>'
+      + '<span v-if="stateLabel" class="sticky-save__state">{{ stateLabel }}</span>'
       + '<span v-if="failed.length" class="sticky-save__failed">'
       + 'Не сохранено: {{ failed.join(", ") }}</span>'
       + '<button class="btn-ghost text-sm" type="button"'

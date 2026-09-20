@@ -94,6 +94,10 @@ _ACCESS_SECTION_TITLE = "Управление доступом"
 class ConfigItemUpdate(BaseModel):
     key: str
     value: Any
+    # F0.1 (ADR-1025-2 D-409-3): per-key optimistic-токен для глобального
+    # пути (аддитивно; клиент может не присылать). Несовпадение при
+    # совпадающем значении → revalidated; при отличающемся → 409 conflicting.
+    updated_at: str | None = None
 
 
 class ConfigUpdateRequest(BaseModel):
@@ -895,19 +899,35 @@ async def delete_chat_param(
     return {"reset": key, "chat_id": chat_id}
 
 
+def _same_global_value(a, b) -> bool:
+    """F0.1 (D-409-3): равенство значений глобального ключа (без секретов —
+    только сравнение; наружу значения не отдаются)."""
+    if isinstance(a, bool) or isinstance(b, bool):
+        return a is b
+    if a == b:
+        return True
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return float(a) == float(b)
+    try:
+        return json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+    except Exception:
+        return False
+
+
 async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
                               user: WebAppUser) -> dict:
     """Глобальный путь (no X-Chat-Id).
 
     F0.1 (ADR-1025-2 D-409-3): ДВА прохода — сперва ПОЛНАЯ валидация всего
-    пакета (права/типизация/опции/промпты), затем АТОМАРНАЯ запись через
-    `cache.set_many` (одна транзакция). Ранее запись шла по одному ключу в
-    цикле — ошибка в середине давала частичную запись."""
+    пакета (права/типизация/опции/промпты), затем per-key optimistic-проверка
+    (если клиент прислал `updated_at` для ключа) и АТОМАРНАЯ запись через
+    `cache.set_many` (одна транзакция). Несовпадение версии при совпадающем
+    значении → `revalidated`; при отличающемся → 409 `conflicting`."""
     cache: ConfigCache = get_cache(request)
     if not cache.pg_available:
         raise HTTPException(status_code=503,
                             detail="PostgreSQL недоступен (R6)")
-    prepared: list[tuple[str, object, str]] = []
+    prepared: list[dict] = []
     # ── Проход 1: валидация ВСЕГО пакета ДО любой записи ───────────────────
     for item in payload.items:
         spec = get_by_pg_key(item.key)
@@ -937,23 +957,67 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
                 raise HTTPException(
                     status_code=422,
                     detail=f"{item.key}: промпт не может быть пустым")
-        prepared.append((item.key, value, spec.category))
+        prepared.append({"key": item.key, "value": value,
+                         "category": spec.category,
+                         "token": getattr(item, "updated_at", None)})
     if not prepared:
         raise HTTPException(status_code=422, detail="items пуст")
-    # ── Проход 2: атомарная запись пакета ──────────────────────────────────
-    set_many = getattr(cache, "set_many", None)
-    if set_many is not None:
-        await set_many(prepared)
-    else:
-        # Совместимость с лёгкими кэшами-двойниками (юнит-тесты) без пакета.
-        for key, value, category in prepared:
-            await cache.set(key, value, category)
-    updated = [key for key, _value, _category in prepared]
+    # ── Проход 2: per-key optimistic + атомарная запись пакета ─────────────
+    to_write: list[tuple[str, object, str]] = []
+    updated: list[str] = []
+    conflicting: list[dict] = []
+    revalidated = False
+    tokens_used = False
+    for entry in prepared:
+        token = entry["token"]
+        if token is None:
+            to_write.append((entry["key"], entry["value"], entry["category"]))
+            updated.append(entry["key"])
+            continue
+        tokens_used = True
+        try:
+            current_token = cache.get_updated_at(entry["key"])
+        except Exception:
+            current_token = None
+        if current_token == token:
+            to_write.append((entry["key"], entry["value"], entry["category"]))
+            updated.append(entry["key"])
+            continue
+        # Токен устарел: D-409-1 — значение уже на сервере?
+        try:
+            current = cache.get(entry["key"])
+        except Exception:
+            current = None
+        if _same_global_value(current, entry["value"]):
+            revalidated = True                 # уже применено → успех
+            updated.append(entry["key"])
+        else:
+            conflicting.append({"key": entry["key"],
+                                "your_value": entry["value"],
+                                "server_value": current})
+    if conflicting:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "conflict", "current_updated_at": None,
+                    "conflicting": conflicting, "applied": []})
+    if to_write:
+        set_many = getattr(cache, "set_many", None)
+        if set_many is not None:
+            await set_many(to_write)
+        else:
+            # Совместимость с лёгкими кэшами-двойниками без пакета.
+            for key, value, category in to_write:
+                await cache.set(key, value, category)
     for key in updated:
         logger.info("[api] config updated | key=%s | by=%s", key, user.id)
     # R10.9-4 (F5 round1014): смена base_url/model/key → health переспрашивается.
     _invalidate_provider_health(updated)
-    return {"updated": updated}
+    out: dict = {"updated": updated}
+    if tokens_used:
+        # Аддитивно (R16): поле появляется только при per-key-токенах —
+        # базовая форма ответа `{"updated": [...]}` не меняется.
+        out["revalidated"] = revalidated
+    return out
 
 
 # ── Admins ──────────────────────────────────────────────────────────────────
