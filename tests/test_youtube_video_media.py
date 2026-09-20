@@ -16,7 +16,7 @@ from services.llm_client import LLMBadResponseError, LLMError
 from services.smartmodule_phrases import (
     LLM_ERROR_PHRASES,
     VIDEO_MEDIA_EMPTY_PHRASES,
-    VIDEO_MEDIA_TOO_BIG_PHRASES,
+    _VIDEO_MEDIA_TOO_BIG_TEMPLATES,
     VIDEO_MEDIA_TOO_LONG_PHRASES,
     VIDEO_MEDIA_UNAVAILABLE_PHRASES,
 )
@@ -230,7 +230,7 @@ class TestMediaLimits:
         # round1025 (T-2464): фраза-шаблон {limit} → фактический лимит режима.
         expected = {p.replace(
             "{limit}", str(youtube_mod.effective_video_max_size_mb()))
-            for p in VIDEO_MEDIA_TOO_BIG_PHRASES}
+            for p in _VIDEO_MEDIA_TOO_BIG_TEMPLATES}
         assert sent in expected
         assert bot.send_message.await_args.kwargs.get("reply_to_message_id") == 11
         bot.download.assert_not_awaited()

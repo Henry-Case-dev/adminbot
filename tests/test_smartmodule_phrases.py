@@ -39,10 +39,11 @@ from services.smartmodule_phrases import (
     YOUTUBE_RETRY_PHRASES,
     VIDEO_MEDIA_EMPTY_PHRASES,
     VIDEO_MEDIA_PROVIDER_TIMEOUT_PHRASES,
-    VIDEO_MEDIA_TOO_BIG_PHRASES,
     VIDEO_MEDIA_TOO_LONG_PHRASES,
     VIDEO_MEDIA_UNAVAILABLE_PHRASES,
     VIDEO_NO_SPEECH_PHRASES,
+    _VIDEO_MEDIA_TOO_BIG_TEMPLATES,
+    video_too_big_phrase,
 )
 
 # Каноны R33-5 (backlog, дословно)
@@ -577,7 +578,9 @@ class TestVideoMediaPools:
 
     VIDEO_POOLS = (
         VIDEO_MEDIA_TOO_LONG_PHRASES,
-        VIDEO_MEDIA_TOO_BIG_PHRASES,
+        # round1025 (T-2468): приватные ШАБЛОНЫ 5.10 ({limit}); наружу — только
+        # video_too_big_phrase(), чтобы литерал не утёк пользователю.
+        _VIDEO_MEDIA_TOO_BIG_TEMPLATES,
         VIDEO_MEDIA_UNAVAILABLE_PHRASES,
         # round1025 (T-2468): «провайдер не ответил» — отдельная причина.
         VIDEO_MEDIA_PROVIDER_TIMEOUT_PHRASES,
@@ -588,8 +591,12 @@ class TestVideoMediaPools:
     def test_pool_sizes_no_duplicates(self):
         assert len(VIDEO_MEDIA_TOO_LONG_PHRASES) == 4
         assert len(set(VIDEO_MEDIA_TOO_LONG_PHRASES)) == 4
-        assert len(VIDEO_MEDIA_TOO_BIG_PHRASES) == 3
-        assert len(set(VIDEO_MEDIA_TOO_BIG_PHRASES)) == 3
+        assert len(_VIDEO_MEDIA_TOO_BIG_TEMPLATES) == 3
+        assert len(set(_VIDEO_MEDIA_TOO_BIG_TEMPLATES)) == 3
+        # round1025 (T-2468): рендер подставляет {limit} без утечки литерала.
+        for limit in (20, 50, 2000):
+            assert "{limit}" not in video_too_big_phrase(limit)
+            assert str(limit) in video_too_big_phrase(limit)
         assert len(VIDEO_MEDIA_UNAVAILABLE_PHRASES) == 3
         assert len(set(VIDEO_MEDIA_UNAVAILABLE_PHRASES)) == 3
         # round1025 (T-2468): «провайдер не ответил» — 3 уникальные фразы.
@@ -694,7 +701,7 @@ class TestChatMemoryPhrasePools:
             | set(INFO_BAD_MARKUP_PHRASES)
             | set(INFO_EDIT_OK_PHRASES)
             | set(VIDEO_MEDIA_TOO_LONG_PHRASES)
-            | set(VIDEO_MEDIA_TOO_BIG_PHRASES)
+            | set(_VIDEO_MEDIA_TOO_BIG_TEMPLATES)
             | set(VIDEO_MEDIA_UNAVAILABLE_PHRASES)
             | set(VIDEO_MEDIA_PROVIDER_TIMEOUT_PHRASES)
             | set(VIDEO_MEDIA_EMPTY_PHRASES)

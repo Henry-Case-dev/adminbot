@@ -11,6 +11,14 @@ from web.app import _render_app_css, _render_index
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# Версия до хотфикса (cache-bust вскрыт в round1025): не пиним текущую —
+# требуем СТРОГО БОЛЬШУЮ (bump) + согласованность с README.
+_PRE_HOTFIX_VERSION = "2.58.0"
+
+
+def _ver(value: str) -> tuple:
+    return tuple(int(part) for part in value.split("."))
+
 
 def test_three_assets_share_single_version():
     html = _render_index()
@@ -31,12 +39,13 @@ def test_telegram_init_versioned():
 
 
 def test_version_bumped_and_matches_readme():
-    # T-2470: до хотфикса было 2.58.0 — bump обязателен (иначе WebView держит
-    # старый app.js при новом index.html → ReferenceError в config-разделах).
-    assert APP_VERSION == "2.58.1"
+    # T-2470: версия обязана быть СТРОГО выше до-хотфиксной (bump), иначе
+    # WebView держит старый app.js при новом index.html → ReferenceError в
+    # config-разделах. Значение не пиним — сравниваем версии.
+    assert _ver(APP_VERSION) > _ver(_PRE_HOTFIX_VERSION)
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert ("v" + APP_VERSION) in readme
 
 
 def test_no_previous_version_in_rendered_index():
-    assert "?v=2.58.0" not in _render_index()
+    assert f"?v={_PRE_HOTFIX_VERSION}" not in _render_index()

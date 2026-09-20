@@ -83,13 +83,13 @@ from services.smartmodule_phrases import (
     SMARTMODULE_BUSY_PHRASES,
     VIDEO_MEDIA_EMPTY_PHRASES,
     VIDEO_MEDIA_PROVIDER_TIMEOUT_PHRASES,
-    VIDEO_MEDIA_TOO_BIG_PHRASES,
     VIDEO_MEDIA_TOO_LONG_PHRASES,
     VIDEO_MEDIA_UNAVAILABLE_PHRASES,
     VIDEO_NO_SPEECH_PHRASES,
     YOUTUBE_AGE_RESTRICTED_PHRASES,
     YOUTUBE_ERROR_PHRASES,
     YOUTUBE_RETRY_PHRASES,   # НОВОЕ (5.8, R41-2)
+    video_too_big_phrase,    # round1025 (T-2468): единственный рендер {limit}
 )
 from services.smartmodule_throttling import CooldownTracker
 from services.smartmodule_urls import extract_urls, extract_youtube_video_id
@@ -141,27 +141,35 @@ _FETCH_TIMEOUT = 120.0
 
 # ── T-2464/T-2466 (ADR-1025-6 D2/D4): эффективный лимит размера по режиму
 #    telegram-bot-api + R17-safe текст исключения для логов ──────────────
-# Облачный Bot API отдаёт getFile только до 20 МБ; локальный режим (`--local`,
-# docker-compose.yml: TELEGRAM_LOCAL) — до 2000 МБ. Сигнал режима — env
-# TELEGRAM_LOCAL, читается при КАЖДОМ вызове (тесты/reload-friendly, как
-# config.settings.get_ytdlp_pot_provider). Клиент bot.py:231 уже is_local=True,
-# поэтому значение по умолчанию (env не задан) — локальный режим (primary-путь
-# ADR-1025-6 D1); облачный fallback (D3) — явный TELEGRAM_LOCAL=0/false.
+# Облачный Bot API отдаёт getFile только до 20 МБ; локальный режим (`--local`)
+# — до 2000 МБ. ЕДИНЫЙ рубильник — `TELEGRAM_LOCAL`, и он читается ОБОИМИ
+# сторонами из одного `.env`:
+#   * контейнер `telegram-bot-api` — compose прокидывает `${TELEGRAM_LOCAL}`
+#     (docker-compose.yml), образ транслирует ЛЮБОЕ непустое значение в
+#     `--local` (docker-entrypoint.sh: append_flag_from_env);
+#   * хостовый процесс бота (systemd admin_bot) — `config/settings`
+#     (`load_dotenv`) кладёт `.env` в `os.environ`, а `os.getenv` ниже читается
+#     при КАЖДОМ вызове (тесты/reload-friendly, как get_ytdlp_pot_provider).
+# Семантика приложения ТОЧНО совпадает с семантикой образа:
+#   непустое значение → local; не задано/пусто → cloud (20 МБ).
+# ОТКАТ/ПЕРЕХОД В CLOUD (ADR-1025-6 D3): убрать/закомментировать
+# `TELEGRAM_LOCAL` в `.env` и перезапустить ОБА (контейнер telegram-bot-api и
+# admin_bot). НЕ ставить «0» — образ трактует любое непустое значение как
+# `--local`, и приложение, по паритету, тоже уйдёт в local (рассинхрон
+# «контейнер local / приложение cloud» исключён by design).
 LOCAL_GETFILE_LIMIT_MB = 2000
 CLOUD_GETFILE_LIMIT_MB = 20
-_TELEGRAM_LOCAL_TRUTHY = frozenset({"1", "true", "yes", "on"})
 
 
 def telegram_local_mode_enabled() -> bool:
     """True — telegram-bot-api в локальном режиме (getFile до 2000 МБ).
 
-    env TELEGRAM_LOCAL непустой → трактуем явный набор (1/true/yes/on как
-    local, прочее как cloud); не задан/пустой → local (клиент уже is_local).
+    Паритет с образом `aiogram/telegram-bot-api`: ЛЮБОЕ непустое значение
+    `TELEGRAM_LOCAL` → local; не задано/пусто → cloud. Оба режима достижимы
+    (мёртвых ветвей нет): env-сигнал единый для контейнера и хоста.
     """
     raw = os.getenv("TELEGRAM_LOCAL")
-    if raw is None or raw.strip() == "":
-        return True
-    return raw.strip().lower() in _TELEGRAM_LOCAL_TRUTHY
+    return bool(raw and raw.strip())
 
 
 def video_bot_api_mode() -> str:
@@ -190,9 +198,9 @@ def effective_video_max_size_mb() -> int:
 
 
 def _too_big_phrase(limit_mb: int) -> str:
-    """Фраза 5.10 с ФАКТИЧЕСКИМ лимитом (шаблон {limit}); без хардкода."""
-    return random.choice(VIDEO_MEDIA_TOO_BIG_PHRASES).replace(
-        "{limit}", str(limit_mb))
+    """Фраза 5.10 с ФАКТИЧЕСКИМ лимитом; тонкая обёртка над единственным
+    рендером `video_too_big_phrase` (T-2468: литерал {limit} не утекает)."""
+    return video_too_big_phrase(limit_mb)
 
 
 def _safe_exc_text(exc: BaseException, *, limit: int = 200) -> str:

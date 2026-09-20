@@ -13,14 +13,17 @@
 import asyncio
 import logging
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from handlers import youtube as youtube_mod
+from services import media_download
 from services.smartmodule_phrases import (
     VIDEO_MEDIA_PROVIDER_TIMEOUT_PHRASES,
     VIDEO_MEDIA_UNAVAILABLE_PHRASES,
+    video_too_big_phrase,
 )
 
 CHAT_ID = -1001234567890
@@ -91,19 +94,23 @@ def _patch_fetch(monkeypatch, side_effect):
 
 
 class TestEffectiveLimitModeRound1025:
-    def test_unset_env_defaults_local(self, monkeypatch):
+    def test_unset_env_is_cloud(self, monkeypatch):
+        # Паритет с образом: не задано/пусто → облако (20 МБ). Ветка достижима
+        # (мёртвых ветвей нет) — это и есть fallback ADR-1025-6 D3.
         monkeypatch.delenv("TELEGRAM_LOCAL", raising=False)
-        assert youtube_mod.telegram_local_mode_enabled() is True
-        assert youtube_mod.video_bot_api_mode() == "local"
+        assert youtube_mod.telegram_local_mode_enabled() is False
+        assert youtube_mod.video_bot_api_mode() == "cloud"
 
-    def test_env_falsy_is_cloud(self, monkeypatch):
-        for value in ("0", "false", "no", "off"):
+    def test_any_nonempty_env_is_local(self, monkeypatch):
+        # Паритет с образом (append_flag_from_env): ЛЮБОЕ непустое = local,
+        # включая "0"/"off" — поэтому откат делается УДАЛЕНИЕМ env, не "0".
+        for value in ("1", "true", "0", "off", "yes"):
             monkeypatch.setenv("TELEGRAM_LOCAL", value)
-            assert youtube_mod.telegram_local_mode_enabled() is False
-            assert youtube_mod.video_bot_api_mode() == "cloud"
+            assert youtube_mod.telegram_local_mode_enabled() is True
+            assert youtube_mod.video_bot_api_mode() == "local"
 
     def test_cloud_limit_is_20(self, monkeypatch):
-        monkeypatch.setenv("TELEGRAM_LOCAL", "0")
+        monkeypatch.delenv("TELEGRAM_LOCAL", raising=False)
         assert youtube_mod.effective_video_max_size_mb() == 20
 
     def test_local_limit_uses_configured(self, monkeypatch):
@@ -128,7 +135,7 @@ class TestSizeGateByModeRound1025:
     @pytest.mark.asyncio
     async def test_cloud_rejects_25mb_before_fetch(self, monkeypatch, yv_cleanup,
                                                    caplog):
-        monkeypatch.setenv("TELEGRAM_LOCAL", "0")
+        monkeypatch.delenv("TELEGRAM_LOCAL", raising=False)   # облачный fallback
         _setup()
         fetch = _patch_fetch(monkeypatch, RuntimeError("must-not-run"))
         big = _media(file_id="f", file_size=25 * MB, duration=10)
@@ -208,8 +215,86 @@ class TestSafeExcTextRound1025:
 
 
 class TestComposeLocalModeRound1025:
-    def test_compose_sets_telegram_local(self):
+    def test_compose_reads_single_env_switch(self):
         text = Path("docker-compose.yml").read_text(encoding="utf-8")
-        assert 'TELEGRAM_LOCAL: "1"' in text
-        # сервис telegram-bot-api под локальным режимом (ADR-1025-6 D1)
+        # ЕДИНЫЙ рубильник из общего .env (тот же читает хостовый процесс).
+        assert 'TELEGRAM_LOCAL: "${TELEGRAM_LOCAL:-}"' in text
         assert "telegram-bot-api" in text
+        # документированная процедура откатa: убрать env, НЕ ставить "0".
+        assert "ОТКАТ" in text
+        assert '"0"' in text and "непустое" in text
+
+    def test_adr_documents_rollback_and_mode(self):
+        adr = (Path(__file__).resolve().parents[1]
+               / "plans/features/hotfix-media-tma-round1025"
+               / "adr-1025-6-bot-api-local-mode.md").read_text(encoding="utf-8")
+        assert "TELEGRAM_LOCAL" in adr
+        assert "убрать/закомментировать" in adr          # процедура откатa
+        assert "пути host" in adr or "host ≠ container" in adr  # уточнение D263
+
+
+class TestNoLimitPlaceholderLeakRound1025:
+    def test_renderer_never_leaks_placeholder(self):
+        for limit in (20, 50, 2000):
+            phrase = video_too_big_phrase(limit)
+            assert "{limit}" not in phrase
+            assert str(limit) in phrase
+
+    @pytest.mark.asyncio
+    async def test_user_facing_reply_has_no_placeholder(self, monkeypatch,
+                                                        yv_cleanup):
+        monkeypatch.delenv("TELEGRAM_LOCAL", raising=False)
+        _setup()
+        _patch_fetch(monkeypatch, RuntimeError("no"))
+        bot = _make_bot()
+        await youtube_mod.youtube_handler(
+            _make_media_msg("Бот, транскрипт",
+                            _media(file_id="f", file_size=25 * MB, duration=10)),
+            bot=bot)
+        assert "{limit}" not in bot.send_message.await_args.args[1]
+
+
+class TestLocalFilePathRound1025:
+    """`local_file_path` (правка ревью Medium): абсолютный путь локального
+    Bot API принимается ТОЛЬКО внутри TELEGRAM_API_FILES_DIR, иначе None."""
+
+    def _bot(self, bot_id=999):
+        bot = MagicMock()
+        bot.id = bot_id
+        return bot
+
+    def _patch_root(self, monkeypatch, root):
+        # config.settings — frozen dataclass → подменяем объект в модуле.
+        monkeypatch.setattr(
+            media_download, "settings",
+            SimpleNamespace(TELEGRAM_API_FILES_DIR=str(root),
+                            API_TOKEN="123456:secret"),
+            raising=False)
+
+    def test_relative_inside_root(self, tmp_path, monkeypatch):
+        self._patch_root(monkeypatch, tmp_path)
+        src = media_download.local_file_path(self._bot(), "videos/file_0.mp4")
+        assert src is not None
+        assert str(tmp_path) in str(src)
+
+    def test_absolute_inside_root_accepted(self, tmp_path, monkeypatch):
+        root = tmp_path / "files"
+        self._patch_root(monkeypatch, root)
+        inside = root / "7843:token" / "videos" / "file_0.mp4"
+        src = media_download.local_file_path(self._bot(), str(inside))
+        assert src == inside
+
+    def test_absolute_outside_root_rejected(self, tmp_path, monkeypatch):
+        self._patch_root(monkeypatch, tmp_path / "root")
+        outside = tmp_path / "other" / "file_0.mp4"
+        assert media_download.local_file_path(self._bot(), str(outside)) is None
+
+    def test_relative_escape_rejected(self, tmp_path, monkeypatch):
+        self._patch_root(monkeypatch, tmp_path)
+        assert media_download.local_file_path(
+            self._bot(), "../../escape.mp4") is None
+
+    def test_junk_and_none_rejected(self, tmp_path, monkeypatch):
+        self._patch_root(monkeypatch, tmp_path)
+        assert media_download.local_file_path(self._bot(), "") is None
+        assert media_download.local_file_path(self._bot(), None) is None

@@ -9,7 +9,7 @@
 ## Контекст
 
 1. Боевой дефект: крупные видео/транскрибация падают. Причина — контейнер `telegram-bot-api` запущен **без** `--local` (`docker-compose.yml:5-23`: только `TELEGRAM_API_ID/HASH`), поэтому `getFile` ограничен **20 МБ**; крупный файл не появляется на диске.
-2. Клиент **уже** сконфигурирован на локальный режим: `bot.py:230-231` — `TelegramAPIServer.from_base(settings.LOCAL_BOT_API_URL, is_local=True)`; `config/settings.py:1301` `LOCAL_BOT_API_URL="http://localhost:8081"`; `:1304-1305` `TELEGRAM_API_FILES_DIR="docker/telegram-bot-api"`; compose volume (`:16`) `./docker/telegram-bot-api:/var/lib/telegram-bot-api` — **host path == container path** (D263), порт `127.0.0.1:8081`.
+2. Клиент **уже** сконфигурирован на локальный режим: `bot.py:230-231` — `TelegramAPIServer.from_base(settings.LOCAL_BOT_API_URL, is_local=True)`; `config/settings.py:1301` `LOCAL_BOT_API_URL="http://localhost:8081"`; `:1304-1305` `TELEGRAM_API_FILES_DIR="docker/telegram-bot-api"`; compose volume (`:16`) `./docker/telegram-bot-api:/var/lib/telegram-bot-api`, порт `127.0.0.1:8081`. **Уточнение D263 (ревью round1025): пути host ≠ container** — bind-source `./docker/telegram-bot-api` (это и есть `TELEGRAM_API_FILES_DIR` хостового бота) монтируется в контейнер как `/var/lib/telegram-bot-api`; содержимое каталога одно, строки путей — разные.
 3. Итог: рассинхрон «клиент ждёт локальный файл — сервер его не кладёт» → `services/media_download.py:131-152` (3 попытки локального чтения → `bot.download` → `TelegramBadRequest`).
 4. Гейт размера в `handlers/youtube.py:1012-1022` использует `VIDEO_TRANSCRIBE_MAX_SIZE_MB` = **50** (`config/settings.py:1321`) — **выше** облачного потолка 20 МБ, поэтому крупные файлы проходят гейт и падают на `getFile`.
 5. Ограничения инфры: RAM **961 МБ**, swap почти исчерпан — включение локального режима увеличит дисковую нагрузку (`TELEGRAM_API_FILES_DIR` = том), поэтому нужен явный fallback.
@@ -17,9 +17,11 @@
 ## Решение
 
 ### D1. Включить локальный режим сервера
-- В `docker-compose.yml` (сервис `telegram-bot-api`) добавить env **`TELEGRAM_LOCAL=1`** (образ `aiogram/telegram-bot-api` транслирует его в `--local`; при необходимости продублировать `--local` в `command`). Подтвердить entrypoint образа (T-2461).
-- Перезапускать **только** контейнер `telegram-bot-api`; остальные сервисы не трогать.
-- Результат: `getFile` до **2000 МБ**, файл ложится в существующий том; клиент (`is_local=True`) читает его через `_read_local_source`/`local_file_path` без дублирования кода.
+- В `docker-compose.yml` (сервис `telegram-bot-api`) прокинуть env **`TELEGRAM_LOCAL`** — `"${TELEGRAM_LOCAL:-}"`. Образ `aiogram/telegram-bot-api` транслирует ЛЮБОЕ непустое значение в `--local` (`docker-entrypoint.sh`: `append_flag_from_env "TELEGRAM_LOCAL" "--local"`). Подтверждено (T-2461); дублировать `--local` в `command` не нужно (entrypoint собирает `COMMAND` сам, `command` игнорируется).
+- **Единый app-side рубильник (ревью round1025):** приложение читает ТУ ЖЕ переменную `TELEGRAM_LOCAL` из общего `.env` (хостовый процесс — `config/settings.load_dotenv`; `handlers/youtube.py::telegram_local_mode_enabled` — `os.getenv` при каждом вызове). Семантика **точно совпадает** с образом: непустое значение → local; не задано/пусто → cloud. Благодаря общему `.env` контейнер и приложение не могут разойтись (нет «контейнер local / приложение cloud»).
+- Хост обязан видеть тот же `.env`: systemd `EnvironmentFile=.env` либо запуск из корня проекта (`load_dotenv` найдёт `.env` сам).
+- Перезапускать контейнер `telegram-bot-api`; `admin_bot` — при изменении `.env`.
+- Результат: `getFile` до **2000 МБ**, файл ложится в существующий том; клиент (`is_local=True`) читает его через `_read_local_source`/`local_file_path` без дублирования кода (в т.ч. абсолютный путь локального API — `local_file_path` принимает его, если он внутри `TELEGRAM_API_FILES_DIR`).
 
 ### D2. Эффективный лимит размера — по фактическому режиму
 - Гейт `handlers/youtube.py:1012-1022` вычисляет **эффективный** потолок: local ON → `limits.video_transcribe_max_size_mb` / `settings.VIDEO_TRANSCRIBE_MAX_SIZE_MB` (50); local OFF → **20 МБ** (облачный ceiling).
@@ -57,10 +59,12 @@
 | Дублировать локальное чтение по хендлерам | Нарушает «общий helper»; фикс делается в одном месте (сервер + гейт) |
 
 ## Верификация (definition of done)
-- Файл **> 20 МБ** скачивается и транскрибируется; файл реально на диске в `TELEGRAM_API_FILES_DIR` (T-2463).
+- Файл **> 20 МБ** скачивается и транскрибируется; файл реально на диске в `TELEGRAM_API_FILES_DIR` (T-2463 — **live-гейт @DevOps на деплое**, локальным прогоном не доказывается).
 - При превышении эффективного лимита — понятная фраза до скачивания, без 3 бесполезных попыток и `TelegramBadRequest` (T-2464/T-2465).
 - Лог содержит текст причины, без секретов (T-2466/T-2469).
 - Регресс: pytest 7946/0, JS 19/19, `database is locked` = 0 (T-2480).
 
 ## Откат
-- Вернуть `TELEGRAM_LOCAL` в прежнее состояние (OFF) — облачное поведение 20 МБ; `git revert` коммита конфигурации; тег `pre-round1025-hotfix` как точка отката.
+- **Единый деплой-шаг (app + контейнер):** убрать/закомментировать `TELEGRAM_LOCAL` в `.env` → контейнер стартует без `--local` (облако, 20 МБ), приложение видит пустое значение → `telegram_local_mode_enabled() == False` → гейт 20 МБ. Перезапустить `telegram-bot-api` и `admin_bot`.
+- **НЕ** выставлять `TELEGRAM_LOCAL=0`: образ трактует любое непустое значение как `--local`, приложение — по паритету тоже local; значение `0` не означает «выключено».
+- `git revert` коммита(ов) хотфикса; тег `pre-round1025-hotfix` — точка отката; backup `var/backups/hotfix-round1025-<ts>/`.

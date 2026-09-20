@@ -27,7 +27,7 @@ from services.media_share import ShareTicket
 from services.smartmodule_phrases import (
     LLM_ERROR_PHRASES,
     VIDEO_MEDIA_EMPTY_PHRASES,
-    VIDEO_MEDIA_TOO_BIG_PHRASES,
+    _VIDEO_MEDIA_TOO_BIG_TEMPLATES,
     VIDEO_MEDIA_UNAVAILABLE_PHRASES,
     VIDEO_NO_SPEECH_PHRASES,
     YOUTUBE_ERROR_PHRASES,
@@ -498,7 +498,7 @@ class TestUrlTranscriptFlows:
         # (ссылочная ветка yt-dlp — не Bot API getFile).
         expected = {p.replace(
             "{limit}", str(yt._configured_video_max_size_mb()))
-            for p in VIDEO_MEDIA_TOO_BIG_PHRASES}
+            for p in _VIDEO_MEDIA_TOO_BIG_TEMPLATES}
         assert sent in expected
         transcriber.transcribe_voice.assert_not_awaited()
 

@@ -7,11 +7,11 @@ D292/Section 79) БЕЗ изменения поведения: голосовы�
 
 Гейт локального режима = hot.get("flags.download_enabled",
 settings.DOWNLOAD_ENABLED) (D262 import-time сессия с is_local=True).
-Локальный режим И относительный file_path → копирование с диска из
-TELEGRAM_API_FILES_DIR/<bot_id>:<token>/; файла нет / get_file упал / path
-абсолютный / облако → bot.download (облачный режим байт-в-байт, без
-get_file-двойного запроса). Секреты (R17): строка '<bot_id>:<token>'
-нигде не логируется.
+Локальный режим И file_path под корнем TELEGRAM_API_FILES_DIR (относительный
+→ root/<bot_id:token>/<path>; абсолютный — только если он внутри корня) →
+копирование с диска; файла нет / get_file упал / path вне корня / облако →
+bot.download (облачный режим байт-в-байт, без get_file-двойного запроса).
+Секреты (R17): строка '<bot_id>:<token>' нигде не логируется.
 """
 import asyncio
 import logging
@@ -40,23 +40,36 @@ def local_files_subdir(bot) -> str:
     return prefix + token
 
 
+def _is_within_root(candidate: Path, root: Path) -> bool:
+    """traversal-guard: candidate после resolve() лежит под root (resolve)."""
+    try:
+        return candidate.resolve().is_relative_to(root.resolve())
+    except OSError:
+        return False
+
+
 def local_file_path(bot, file_path) -> Path | None:
-    """Безопасный резолв ОТНОСИТЕЛЬНОГО file_path под корнем
-    TELEGRAM_API_FILES_DIR/<bot_id:token>/ (traversal-guard как в
-    fetch_media_to_tmp). Абсолютный путь / выход за корень / мусор → None.
-    R17: возвращаемый Path содержит '<bot_id>:<token>', наружу НЕ логируется."""
+    """Безопасный резолв file_path под корнем TELEGRAM_API_FILES_DIR.
+
+    Локальный Bot API (`--local`) может вернуть ОТНОСИТЕЛЬНЫЙ путь (обычный
+    случай: `videos/file_0.mp4` → root/<bot_id:token>/<path>) ЛИБО АБСОЛЮТНЫЙ
+    (путь внутри каталога Bot API). Абсолютный принимается ТОЛЬКО если он
+    лежит под `TELEGRAM_API_FILES_DIR`; выход за корень / чужая ФС / мусор →
+    None → fallback `bot.download` (в облаке — штатный путь). R17:
+    возвращаемый Path содержит '<bot_id>:<token>', наружу НЕ логируется.
+
+    D263/ADR-1025-6: `TELEGRAM_API_FILES_DIR` (host) — bind-source тома
+    `./docker/telegram-bot-api`, который в контейнере виден как
+    `/var/lib/telegram-bot-api`.
+    """
     if not isinstance(file_path, str) or not file_path:
         return None
-    if PurePosixPath(file_path).is_absolute():
-        return None
     root = Path(settings.TELEGRAM_API_FILES_DIR)
+    if PurePosixPath(file_path).is_absolute():
+        candidate = Path(file_path)
+        return candidate if _is_within_root(candidate, root) else None
     src = root / local_files_subdir(bot) / file_path
-    try:
-        if not src.resolve().is_relative_to(root.resolve()):
-            return None
-    except OSError:
-        return None
-    return src
+    return src if _is_within_root(src, root) else None
 
 
 async def _read_local_source(bot, file_id, on_found, *, attempts: int = 3,

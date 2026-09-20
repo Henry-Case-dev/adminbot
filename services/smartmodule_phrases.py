@@ -5,6 +5,7 @@
 строчными, без форматирования/эмодзи. 5.4 — два подпула (SmartSearch /
 FactCheck). 5.1 — плейсхолдер {remaining_time} (подстановка .replace).
 """
+import random
 
 # 5.1 — общий пул троттлинга, плейсхолдер {remaining_time}
 THROTTLE_PHRASES: tuple[str, ...] = (
@@ -217,13 +218,27 @@ VIDEO_MEDIA_TOO_LONG_PHRASES: tuple[str, ...] = (
 # 5.10 — слишком большой размер (file_size) — проверка ДО скачивания.
 # T-2464/T-2468 (ADR-1025-6 D2): шаблон с {limit} — фактический ЭФФЕКТИВНЫЙ
 # лимит по режиму Bot API (локальный --local → до 2000 МБ/конфиг 50; облачный
-# fallback → 20 МБ). Хардкод «50 мб» убран; подставляется в хендлере
-# (handlers/youtube.py::_too_big_phrase).
-VIDEO_MEDIA_TOO_BIG_PHRASES: tuple[str, ...] = (
+# fallback → 20 МБ). Хардкод «50 мб» убран.
+#
+# ИНКАПСУЛЯЦИЯ (ревью round1025): сам пул ШАБЛОНОВ приватный — наружу торчит
+# ТОЛЬКО `video_too_big_phrase(limit_mb)`. Иначе `random.choice(...)` из чужого
+# кода отправил бы пользователю сырой литерал «{limit}».
+_VIDEO_MEDIA_TOO_BIG_TEMPLATES: tuple[str, ...] = (
     "видос жирный, больше {limit} мб я не тяну",
     "файл тяжелее моей базы, лимит {limit} мб, режь и кидай кусками",
     "такой вес не подниму, ужми видео до {limit} мб",
 )
+
+
+def video_too_big_phrase(limit_mb: int) -> str:
+    """ЕДИНСТВЕННЫЙ рендер фразы 5.10: шаблон {limit} → фактический лимит.
+
+    Гарантирует, что в пользовательский текст никогда не утечёт литерал
+    `{limit}` (T-2468)."""
+    return random.choice(_VIDEO_MEDIA_TOO_BIG_TEMPLATES).replace(
+        "{limit}", str(int(limit_mb)))
+
+
 # 5.11 — STT-каскад/скачивание недоступно (общий пул отказа)
 VIDEO_MEDIA_UNAVAILABLE_PHRASES: tuple[str, ...] = (
     "нейронки не смогли разобрать видео, попробуй переслать еще раз",
