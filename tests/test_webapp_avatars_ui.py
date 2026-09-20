@@ -223,13 +223,19 @@ class TestAvatarFrontAudit:
         assert _Static.has_method(src, "toggleFullscreen")
 
     def test_toggle_fullscreen_method(self):
+        """F24 (10.24, ADR-1024-24 C3): ⛶ — user-action; флаг ПРОИЗВОДНЫЙ от
+        TMA (`wa.isFullscreen` + события). Синхронно устаревшее значение НЕ
+        фиксируется — отложенный re-read (setFullscreenFromTma); legacy-
+        инверсия остаётся фолбэком для SDK без boolean."""
         src = _Static.read("web/app.js")
         assert _Static.has_method(src, "toggleFullscreen")
         body = _Static.body(src, "toggleFullscreen")
         assert "Telegram.WebApp" in body
         assert "wa.requestFullscreen" in body
         assert "wa.exitFullscreen" in body
-        assert "this.isFullscreen = !this.isFullscreen" in body
+        assert "typeof wa.isFullscreen !== 'boolean'" in body
+        assert "setFullscreenFromTma" in body          # отложенный re-read
+        assert "this.isFullscreen = !this.isFullscreen" in body  # legacy-фолбэк
 
     def test_resolve_relation_name_no_id_fallback(self):
         """Раунд 10.2: resolveRelationName — alias → name → username (без

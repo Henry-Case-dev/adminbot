@@ -89,6 +89,28 @@ class TestFullscreenSync:
         assert "offEvent('fullscreenChanged'" in JS
         assert "offEvent('viewportChanged'" in JS
 
+    def test_toggle_fullscreen_defers_state(self):
+        """review iter1: ⛶ не фиксирует устаревшее `wa.isFullscreen`
+        синхронно — отложенный re-read; legacy-инверсия сохранена."""
+        start = JS.index("toggleFullscreen: function")
+        end = JS.index("initFullscreen: function", start)
+        body = JS[start:end]
+        assert "typeof wa.isFullscreen !== 'boolean'" in body
+        assert "this.isFullscreen = !this.isFullscreen;" in body  # legacy
+        assert "setFullscreenFromTma" in body                     # deferred
+        assert "requestAnimationFrame" in body
+
+    def test_init_fullscreen_cleans_up_on_error(self):
+        """review iter1: catch initFullscreen сбрасывает guard/ссылки и
+        best-effort снимает первый листенер."""
+        start = JS.index("initFullscreen: function")
+        end = JS.index("setFullscreenFromTma: function", start)
+        body = JS[start:end]
+        assert "_fsOnFullscreen = null;" in body
+        assert "_fsOnViewport = null;" in body
+        assert "_fsSubscribed = false;" in body
+        assert "offEvent('fullscreenChanged', _fsOnFullscreen)" in body
+
     def test_lifecycle_hooks(self):
         assert "this.initFullscreen();" in JS      # mounted
         assert "self.initFullscreen();" in JS      # ready-обработчик

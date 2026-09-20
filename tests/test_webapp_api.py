@@ -1294,17 +1294,17 @@ class TestStatic:
         resp = client.get("/web/")
         text = resp.text
         assert "__APP_VERSION__" not in text              # заглушка заменена
-        assert "/web/app.js?v=2.57.0" in text
-        assert "/static/app.css?v=2.57.0" in text
+        assert "/web/app.js?v=2.58.0" in text
+        assert "/static/app.css?v=2.58.0" in text
         # F4: woff2 теперь объявлен в @font-face внутри app.css; версия
         # подставляется выделенным маршрутом /static/app.css (статика raw).
-        css = client.get("/static/app.css?v=2.57.0")
+        css = client.get("/static/app.css?v=2.58.0")
         assert "__APP_VERSION__" not in css.text
-        assert ("/static/fonts/material-symbols-rounded.woff2?v=2.57.0"
+        assert ("/static/fonts/material-symbols-rounded.woff2?v=2.58.0"
                 in css.text)
         # URL субсета с версией реально отдаётся 200 (query не ломает static).
         font = client.get(
-            "/static/fonts/material-symbols-rounded.woff2?v=2.57.0")
+            "/static/fonts/material-symbols-rounded.woff2?v=2.58.0")
         assert font.status_code == 200
         assert font.content[:4] == b"wOF2"
 

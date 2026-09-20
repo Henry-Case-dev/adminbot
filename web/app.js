@@ -4068,9 +4068,11 @@
       // (свайп/системная кнопка); остаются ⛶ и мобильный ✕ сайдбара.
       // F24 (ADR-1024-24 D1, AMEND решения 10.10): ⛶ — user-action
       // (`requestFullscreen`/`exitFullscreen`). Флаг НЕ «угадывается»: если
-      // SDK отдаёт фактический boolean `isFullscreen` — берём его; иначе
-      // (старый SDK/вне TG) — legacy-инверсия локального флага. Окончательную
-      // коррекцию дают события `fullscreenChanged`/`viewportChanged`.
+      // SDK отдаёт фактический boolean `isFullscreen` — берём его, НО не
+      // синхронно (свойство обновляется асинхронно после transition; review
+      // iter1): основной путь — события fullscreenChanged/viewportChanged,
+      // плюс отложенный re-read (microtask + rAF). Иначе (старый SDK/вне TG)
+      // — legacy-инверсия локального флага.
       toggleFullscreen: function () {
         try {
           var wa = window.Telegram && Telegram.WebApp;
@@ -4080,11 +4082,16 @@
           } else {
             if (wa.requestFullscreen) wa.requestFullscreen();
           }
-          if (typeof wa.isFullscreen === 'boolean') {
-            this.isFullscreen = wa.isFullscreen;
-          } else {
-            this.isFullscreen = !this.isFullscreen;
+          if (typeof wa.isFullscreen !== 'boolean') {
+            this.isFullscreen = !this.isFullscreen;   // legacy-фолбэк
+            return;
           }
+          var self = this;
+          var reread = function () { self.setFullscreenFromTma(); };
+          try { Promise.resolve().then(reread); } catch (e1) { /* нет Promise */ }
+          try {
+            if (window.requestAnimationFrame) window.requestAnimationFrame(reread);
+          } catch (e2) { /* нет rAF */ }
         } catch (e) { /* вне TG/старый SDK — молча */ }
       },
 
@@ -4107,7 +4114,21 @@
           wa.onEvent('fullscreenChanged', _fsOnFullscreen);
           wa.onEvent('viewportChanged', _fsOnViewport);
           _fsSubscribed = true;
-        } catch (e) { /* вне TG/старый SDK — no-op */ }
+        } catch (e) {
+          // review iter1: исключение на втором onEvent не должно оставлять
+          // «бесхозную» подписку — best-effort снимаем уже зарегистрированный
+          // первый листенер и сбрасываем guard/ссылки, чтобы повторный
+          // initFullscreen() поднял состояние с чистого листа.
+          try {
+            var w = window.Telegram && Telegram.WebApp;
+            if (w && typeof w.offEvent === 'function' && _fsOnFullscreen) {
+              w.offEvent('fullscreenChanged', _fsOnFullscreen);
+            }
+          } catch (e1) { /* no-op */ }
+          _fsOnFullscreen = null;
+          _fsOnViewport = null;
+          _fsSubscribed = false;
+        }
       },
 
       // F24 (C3): локальный флаг — производный от фактического TMA. Если SDK

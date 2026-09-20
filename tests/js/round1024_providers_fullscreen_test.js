@@ -218,6 +218,72 @@ setTelegram({
     'C3: повторный teardownFullscreen не бросает');
 }
 
+// ── 5b) review iter1: исключение на втором onEvent не оставляет подписку ─────
+{
+  const c2 = { off: [] };
+  const wa = {
+    isFullscreen: false,
+    onEvent(n) { if (n === 'viewportChanged') throw new Error('boom'); },
+    offEvent(n, cb) { c2.off.push([n, cb]); },
+  };
+  setTelegram({ WebApp: wa });
+  const ectx = { isFullscreen: false,
+                 initFullscreen: methods.initFullscreen,
+                 setFullscreenFromTma: methods.setFullscreenFromTma,
+                 teardownFullscreen: methods.teardownFullscreen };
+  assert.doesNotThrow(() => methods.initFullscreen.call(ectx),
+    'review: initFullscreen глотает исключение onEvent');
+  assert.ok(c2.off.some((c) => c[0] === 'fullscreenChanged'),
+    'review: первый листенер снят best-effort при сбое второго');
+  // Guard сброшен → повторный init снова подписывается (не «залип»).
+  let resub = 0;
+  wa.onEvent = function () { resub++; };
+  methods.initFullscreen.call(ectx);
+  assert.strictEqual(resub, 2,
+    'review: guard сброшен — повторный init подписывает заново');
+  methods.teardownFullscreen.call(ectx);
+}
+
+// ── 5c) review iter1: toggleFullscreen не фиксирует устаревшее состояние ────
+{
+  const savedRaf = global.window.requestAnimationFrame;
+  let flushed = null;
+  global.window.requestAnimationFrame = (cb) => { flushed = cb; return 1; };
+  setTelegram({
+    WebApp: {
+      isFullscreen: false,
+      requestFullscreen() { this.isFullscreen = true; },
+      exitFullscreen() { this.isFullscreen = false; },
+    },
+  });
+  const tctx = { isFullscreen: false,
+                 toggleFullscreen: methods.toggleFullscreen,
+                 setFullscreenFromTma: methods.setFullscreenFromTma };
+  methods.toggleFullscreen.call(tctx);
+  // requestFullscreen уже сменил wa.isFullscreen на true, но синхронно флаг
+  // НЕ фиксируем — ждём событие/отложенный re-read (иначе UI врёт).
+  assert.strictEqual(tctx.isFullscreen, false,
+    'review: без синхронной фиксации устаревшего значения');
+  assert.strictEqual(typeof flushed, 'function',
+    'review: запланирован отложенный re-read (rAF)');
+  flushed();
+  assert.strictEqual(tctx.isFullscreen, true,
+    'review: отложенный re-read берёт фактический режим TMA');
+
+  // Legacy-фолбэк: SDK без boolean → прежняя инверсия (сразу).
+  setTelegram({ WebApp: { requestFullscreen() {}, exitFullscreen() {} } });
+  const lctx = { isFullscreen: false, toggleFullscreen: methods.toggleFullscreen };
+  methods.toggleFullscreen.call(lctx);
+  assert.strictEqual(lctx.isFullscreen, true,
+    'review: legacy-фолбэк (нет boolean) — инверсия');
+  methods.toggleFullscreen.call(lctx);
+  assert.strictEqual(lctx.isFullscreen, false,
+    'review: legacy-фолбэк — обратная инверсия');
+
+  if (savedRaf === undefined) delete global.window.requestAnimationFrame;
+  else global.window.requestAnimationFrame = savedRaf;
+}
+
 // ── 6) Безопасность вне TG / SDK без методов ────────────────────────────────
 {
   setTelegram(null);
