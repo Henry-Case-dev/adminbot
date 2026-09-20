@@ -129,3 +129,16 @@
 5. **STT — инфра:** гарантирован ли `ffmpeg` на прод-хосте/в контейнере; если нет — допустим ли fallback-чанкинг без ffmpeg или требуется установка (ops)? (T-2494)
 6. **D — провайдер:** менять таймауты/ретраи или fail-fast + **второй резервный провайдер**? Кто владелец деградации `nano-gpt.com`, нужна ли эскалация? (T-2500/T-2501)
 7. **Флаги:** имена/env-only `ClassVar` (`SUMMARY_COVER_FALLBACK_ENABLED`, `STT_AUDIO_COMPRESS_ENABLED`) — согласованы? Нужны ли отдельные UI-флаги (ADR-1024-13) или env достаточно? (T-2486/T-2498)
+
+---
+
+## Правки по ревью (итерация 2, commit `090d2e7`)
+
+- [x] **R-1 [High]** `SmartModule/transcriber/audio_prep.py`: temp-каталоги чанкинга (`stt_seg_*`) регистрируются в `AudioPrepResult.tmp_dirs` и удаляются в `cleanup()` (`shutil.rmtree`); тест «после cleanup нет файлов и каталогов».
+- [x] **R-2 [Medium]** `SmartModule/service.py::transcribe_voice`: сбой одной части чанкинга не теряет уже расшифрованные — частичный результат склеивается (лог `reason=partial`); тест «сбой одного чанка».
+- [x] **R-3 [Medium]** `services/llm_client.llm_stats` отдаётся аддитивно в `GET /api/status` (поле `llm_stats`, только числа); тесты `/api/status` и снимка.
+- [x] **R-4 [Medium]** `tests/test_hotfix3_summary_fallback_round1025.py`: стабит `sg.build_cover_media` — тесты не зависят от версии aiogram (`InputRichMessageMedia`); падения были средовыми (те же тесты падают и на `fe0f7bb`).
+- [x] **R-5 [Medium]** prep вынесена ДО `async with self._semaphore`; тест порядка (prep → семафор).
+- [x] **R-6 [Low]** `_compress_target_mb`: сжатие только при `size_mb > max(limits)`; тест «22 МБ при гейтах [25,20] не сжимается».
+- [x] **R-7 [Low]** UI: per-line кап 120 (`limitClicheDraft` в `app.js`, `@input` в `index.html`) + подсказка; HTML `maxlength` на многострочное поле не применяется (ограничил бы весь черновик).
+- [x] **R-8 [Low]** ADR-1025-7: обложка на fallback — детерминированная (без доп. LLM-вызова); `LLM_FALLBACK_TIMEOUT_SECONDS` — таймаут одной попытки, не бюджет цепочки (комментарии `settings.py`/`llm_client.py` синхронизированы).
