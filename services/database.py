@@ -47,6 +47,34 @@ def _infinite_retention_on() -> bool:
 
 _BUSY_TIMEOUT_MS = 5000          # R46-8: «database is locked» → ждём до 5с
 _REFRESH_ACTIVE_CAP = 5000       # recalc_chat_users: потолок участников окна
+
+# ── F0.5 (раунд 10.25, ADR-1025-5 — AMEND ADR-1024-18) ─────────────────────
+# Bounded retry на `database is locked` для main write-path + сериализация
+# многошаговых транзакций (single-writer). Зеркало memory_rebuild.py:71-72 и
+# smart_cache.py:33-35; значения — локальные константы.
+_LOCK_RETRIES = 3                # зеркало services/memory_rebuild.py:71
+_LOCK_BACKOFF = 0.1              # зеркало services/memory_rebuild.py:72
+
+# In-process счётчик исчерпаний (Δ DDL = 0: метрика = лог + счётчик; сброс
+# процесса = сброс счётчика — событие остаётся в логе).
+_lock_exhausted_total = 0
+
+
+def database_lock_exhausted_total() -> int:
+    """F0.5: число исчерпаний retry на `database is locked` в этом процессе.
+
+    Δ DDL = 0 (PG-таблиц/миграций нет). Сброс процесса = сброс счётчика;
+    само событие остаётся в логе (`event=database_lock_exhausted`)."""
+    return _lock_exhausted_total
+
+
+def _lock_resilience_enabled() -> bool:
+    """F0.5: kill-switch `DB_LOCK_RESILIENCE_ENABLED` (env-only ClassVar,
+    default ON). OFF → ровно прежнее поведение: без сериализации и повторов."""
+    return bool(getattr(settings, "DB_LOCK_RESILIENCE_ENABLED", True))
+
+
+_REFRESH_ACTIVE_CAP = 5000       # recalc_chat_users: потолок участников окна
 _SCHEMA_VERSION = 1              # PRAGMA user_version; 0 = до Epic 46 (R46-8)
 _SCHEMA_VERSION_DIRECT_CHAT = 2  # Epic 50 (58.7): user_version 1→2
 _SCHEMA_VERSION_EPIC60 = 3       # Epic 60 (63.3): user_version 2→3
@@ -508,7 +536,70 @@ class DatabaseService:
         self.db_path = Path(db_path)
         self.db: aiosqlite.Connection | None = None
         self._lock = asyncio.Lock()
-    
+
+    # ── F0.5 (раунд 10.25, ADR-1025-5): bounded retry + single-writer ──────
+
+    @staticmethod
+    def _is_locked(exc: BaseException) -> bool:
+        """F0.5: True только для `OperationalError` с `locked` в тексте.
+
+        Прочие исключения (в т.ч. OperationalError по другим причинам) не
+        ретраятся — маскирование неретраибельных дефектов запрещено."""
+        return (isinstance(exc, aiosqlite.OperationalError)
+                and "locked" in str(exc).lower())
+
+    def _note_lock_exhausted(self, op_name: str, attempts: int,
+                             exc: BaseException, chat_id=None) -> None:
+        """F0.5: явный структурный WARNING при исчерпании попыток + счётчик.
+
+        R17: логируем op/attempts/chat_id и текст исключения — содержимое
+        фактов/ответов в лог НЕ попадает. `exc_info=True` сохраняет причину."""
+        global _lock_exhausted_total
+        _lock_exhausted_total += 1
+        logger.warning(
+            "database: lock exhausted | event=database_lock_exhausted | "
+            "op=%s | attempts=%d | chat_id=%s | error=%s",
+            op_name, attempts, chat_id, exc, exc_info=True)
+
+    async def write_transaction(self, op, *, op_name: str = "write",
+                                chat_id=None):
+        """F0.5: single-writer обёртка логической транзакции.
+
+        `op(conn)` выполняет НЕСКОЛЬКО стейтментов и НЕ коммитит сам; коммит
+        делает эта обёртка. `self._lock` держится на всё время транзакции —
+        корутины не интерливинятся между `execute` и `commit` (устраняет
+        self-lock `database is locked`). При `locked` — bounded retry
+        (`_LOCK_RETRIES`, backoff 0.1/0.2/0.4с), `rollback` перед повтором,
+        повтор **всей** транзакции. Исчерпание → WARNING + счётчик + re-raise
+        (fail-open остаётся за вызывающим хендлером — T-2450).
+
+        Kill-switch OFF → ровно прежнее поведение: без блокировки и повторов
+        (одна попытка, исключение наружу)."""
+        if not _lock_resilience_enabled():
+            result = await op(self.db)
+            await self.db.commit()
+            return result
+        attempt = 0
+        while True:
+            try:
+                async with self._lock:
+                    result = await op(self.db)
+                    await self.db.commit()
+                    return result
+            except Exception as exc:
+                if not self._is_locked(exc):
+                    raise
+                if attempt >= _LOCK_RETRIES:
+                    self._note_lock_exhausted(op_name, attempt + 1, exc,
+                                              chat_id)
+                    raise
+                attempt += 1
+                try:
+                    await self.db.rollback()
+                except Exception:
+                    pass
+                await asyncio.sleep(_LOCK_BACKOFF * (2 ** (attempt - 1)))
+
     async def initialize(self) -> None:
         """Open connection, create tables, enable WAL mode."""
         self.db = await aiosqlite.connect(str(self.db_path))
@@ -2685,27 +2776,37 @@ class DatabaseService:
             "INSERT OR IGNORE INTO graph_facts "
             if or_ignore else
             "INSERT INTO graph_facts ")
-        cursor = await self.db.execute(
-            insert_sql +
-            "(chat_id, fact, origin, expires_at, created_at, "
-            "target_user, status, supersedes, weight, last_confirmed_at, "
-            "message_timestamp, importance, kind, source_ids, belief_meta, "
-            "tg_message_id, forward_from) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (chat_id, fact, origin, expires_at, now, target_user,
-             status, supersedes, w, now, message_timestamp, imp, k,
-             source_ids, belief_meta, tg_message_id,
-             str(forward_from or "")))
-        if cursor.rowcount == 0:
-            # дубль (INSERT OR IGNORE) — FTS-строку НЕ пишем (edge 5),
-            # коммитить нечего
-            return 0
-        fact_id = cursor.lastrowid
-        await self.db.execute(
-            "INSERT INTO graph_facts_fts(rowid, fact) VALUES (?, ?)", (fact_id, fact))
-        if commit:
-            await self.db.commit()
-        return fact_id
+        _insert_args = (chat_id, fact, origin, expires_at, now, target_user,
+                        status, supersedes, w, now, message_timestamp, imp, k,
+                        source_ids, belief_meta, tg_message_id,
+                        str(forward_from or ""))
+
+        async def _body(conn):
+            cursor = await conn.execute(
+                insert_sql +
+                "(chat_id, fact, origin, expires_at, created_at, "
+                "target_user, status, supersedes, weight, last_confirmed_at, "
+                "message_timestamp, importance, kind, source_ids, belief_meta, "
+                "tg_message_id, forward_from) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                _insert_args)
+            if cursor.rowcount == 0:
+                # дубль (INSERT OR IGNORE) — FTS-строку НЕ пишем (edge 5),
+                # коммитить нечего
+                return 0
+            fid = cursor.lastrowid
+            await conn.execute(
+                "INSERT INTO graph_facts_fts(rowid, fact) VALUES (?, ?)",
+                (fid, fact))
+            return fid
+
+        if not commit:
+            # B3-5 (атомарность fact+edge): вызывающий коммитит пару сам —
+            # обёртку write_transaction НЕ применяем (её commit сломал бы пару).
+            return await _body(self.db)
+        # F0.5: сериализация + bounded retry (одна логическая транзакция).
+        return await self.write_transaction(
+            _body, op_name="insert_graph_fact", chat_id=chat_id)
 
     # ── Раунд 9 (AGI Memory, spec §3.4, T-824/T-825): «сон» (DreamWorker) ──
     # Watermark/аудит-таблицы — dream_state/memory_dream_log (CREATE IF NOT
@@ -3607,25 +3708,30 @@ class DatabaseService:
     async def upsert_bot_reply(self, chat_id: int, tg_message_id: int,
                                text: str, now: float) -> None:
         """UPSERT текста ответа бота (63.1) + ленивый TTL-sweep + LRU-cap
-        (NOT IN … ORDER BY last_used_at DESC LIMIT N — тема 8)."""
-        await self.db.execute(
-            "DELETE FROM bot_replies WHERE last_used_at < ?",
-            (now - self._BOT_REPLIES_TTL_SECONDS,),
-        )
-        await self.db.execute(
-            "INSERT INTO bot_replies (chat_id, tg_message_id, text, last_used_at) "
-            "VALUES (?, ?, ?, ?) "
-            "ON CONFLICT(chat_id, tg_message_id) DO UPDATE SET "
-            "text = excluded.text, last_used_at = excluded.last_used_at",
-            (chat_id, tg_message_id, text, now),
-        )
-        await self.db.execute(
-            "DELETE FROM bot_replies WHERE (chat_id, tg_message_id) NOT IN "
-            "(SELECT chat_id, tg_message_id FROM bot_replies "
-            "ORDER BY last_used_at DESC LIMIT ?)",
-            (self._BOT_REPLIES_CAP,),
-        )
-        await self.db.commit()
+        (NOT IN … ORDER BY last_used_at DESC LIMIT N — тема 8).
+
+        F0.5: одна логическая транзакция под single-writer + bounded retry."""
+        async def _body(conn):
+            await conn.execute(
+                "DELETE FROM bot_replies WHERE last_used_at < ?",
+                (now - self._BOT_REPLIES_TTL_SECONDS,),
+            )
+            await conn.execute(
+                "INSERT INTO bot_replies (chat_id, tg_message_id, text, last_used_at) "
+                "VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(chat_id, tg_message_id) DO UPDATE SET "
+                "text = excluded.text, last_used_at = excluded.last_used_at",
+                (chat_id, tg_message_id, text, now),
+            )
+            await conn.execute(
+                "DELETE FROM bot_replies WHERE (chat_id, tg_message_id) NOT IN "
+                "(SELECT chat_id, tg_message_id FROM bot_replies "
+                "ORDER BY last_used_at DESC LIMIT ?)",
+                (self._BOT_REPLIES_CAP,),
+            )
+
+        await self.write_transaction(
+            _body, op_name="upsert_bot_reply", chat_id=chat_id)
 
     async def get_bot_reply(self, chat_id: int, tg_message_id: int,
                             now: float) -> str | None:
@@ -4320,23 +4426,27 @@ class DatabaseService:
             return 0
         placeholders = ",".join("?" for _ in fact_ids)
         extend = extend_days * 86400.0
-        touched = 0
-        for origins, ttl_days in ((
-            ("'search_fact'", "'youtube_content'", "'web_content'"),
-            archive_ttl_days), (("'bot_direct_reply'",), direct_ttl_days)):
-            if ttl_days in (None, 0):
-                continue
-            origin_sql = ",".join(origins)
-            cursor = await self.db.execute(
-                f"UPDATE graph_facts SET expires_at = "
-                f"MIN(expires_at + ?, created_at + ?) "
-                f"WHERE id IN ({placeholders}) AND expires_at IS NOT NULL "
-                f"AND origin IN ({origin_sql})",
-                (extend, 2 * ttl_days * 86400.0, *fact_ids))
-            touched += cursor.rowcount
-        if touched:
-            await self.db.commit()
-        return touched
+
+        async def _body(conn):
+            touched = 0
+            for origins, ttl_days in ((
+                ("'search_fact'", "'youtube_content'", "'web_content'"),
+                archive_ttl_days), (("'bot_direct_reply'",), direct_ttl_days)):
+                if ttl_days in (None, 0):
+                    continue
+                origin_sql = ",".join(origins)
+                cursor = await conn.execute(
+                    f"UPDATE graph_facts SET expires_at = "
+                    f"MIN(expires_at + ?, created_at + ?) "
+                    f"WHERE id IN ({placeholders}) AND expires_at IS NOT NULL "
+                    f"AND origin IN ({origin_sql})",
+                    (extend, 2 * ttl_days * 86400.0, *fact_ids))
+                touched += cursor.rowcount
+            return touched
+
+        # F0.5: сериализация + bounded retry (single-writer).
+        return await self.write_transaction(
+            _body, op_name="touch_graph_facts")
 
     async def delete_graph_fact(self, fact_id: int) -> None:
         """66.4/66.11: полное удаление факта — graph_facts_fts + vec-строка

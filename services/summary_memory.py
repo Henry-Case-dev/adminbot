@@ -1461,36 +1461,50 @@ class MemoryManager:
 
     async def _embed_cache_store(self, texts, vectors) -> None:
         """Write-back + ленивый TTL-sweep + LRU-cap (EMBED_CACHE_MAX_ROWS).
-        НЕ бросает (WARNING — кэш не блокирует, 64.4). Кэш хранит float."""
+        НЕ бросает (WARNING — кэш не блокирует, 64.4). Кэш хранит float.
+
+        F0.5 (ADR-1025-5): весь многошаговый write идёт ОДНОЙ логической
+        транзакцией через публичный `Database.write_transaction` (single-writer
+        + bounded retry); сырой `self.db.db` устранён (T-2449)."""
         try:
             now = time.time()
             ttl_seconds = (hot.get("limits.embed_cache_ttl_days", settings.EMBED_CACHE_TTL_DAYS) or 0) * 86400.0
-            await self.db.db.execute(
-                "DELETE FROM embedding_cache WHERE last_used_at < ?",
-                (now - ttl_seconds,),
-            )
-            cursor = await self.db.db.execute(
-                "SELECT COUNT(*) AS c FROM embedding_cache")
-            count = (await cursor.fetchone())["c"]
-            if count + len(texts) > (hot.get("limits.embed_cache_max_rows", settings.EMBED_CACHE_MAX_ROWS) or 0):
-                keep = max(0, (hot.get("limits.embed_cache_max_rows", settings.EMBED_CACHE_MAX_ROWS) or 0) - len(texts))
-                await self.db.db.execute(
-                    "DELETE FROM embedding_cache WHERE text_hash NOT IN "
-                    "(SELECT text_hash FROM embedding_cache "
-                    "ORDER BY last_used_at DESC LIMIT ?)", (keep,),
+            max_rows = (hot.get("limits.embed_cache_max_rows", settings.EMBED_CACHE_MAX_ROWS) or 0)
+
+            async def _body(conn):
+                await conn.execute(
+                    "DELETE FROM embedding_cache WHERE last_used_at < ?",
+                    (now - ttl_seconds,),
                 )
-            for text, vector in zip(texts, vectors):
-                await self.db.db.execute(
-                    "INSERT INTO embedding_cache "
-                    "(text_hash, text, vector, dim, created_at, last_used_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?) "
-                    "ON CONFLICT(text_hash) DO UPDATE SET "
-                    "text = excluded.text, vector = excluded.vector, "
-                    "dim = excluded.dim, last_used_at = excluded.last_used_at",
-                    (_embed_cache_key(text), text, _pack_vector(vector),
-                     len(vector), now, now),
-                )
-            await self.db.db.commit()
+                cursor = await conn.execute(
+                    "SELECT COUNT(*) AS c FROM embedding_cache")
+                count = (await cursor.fetchone())["c"]
+                if count + len(texts) > max_rows:
+                    keep = max(0, max_rows - len(texts))
+                    await conn.execute(
+                        "DELETE FROM embedding_cache WHERE text_hash NOT IN "
+                        "(SELECT text_hash FROM embedding_cache "
+                        "ORDER BY last_used_at DESC LIMIT ?)", (keep,),
+                    )
+                for text, vector in zip(texts, vectors):
+                    await conn.execute(
+                        "INSERT INTO embedding_cache "
+                        "(text_hash, text, vector, dim, created_at, last_used_at) "
+                        "VALUES (?, ?, ?, ?, ?, ?) "
+                        "ON CONFLICT(text_hash) DO UPDATE SET "
+                        "text = excluded.text, vector = excluded.vector, "
+                        "dim = excluded.dim, last_used_at = excluded.last_used_at",
+                        (_embed_cache_key(text), text, _pack_vector(vector),
+                         len(vector), now, now),
+                    )
+
+            tx = getattr(self.db, "write_transaction", None)
+            if tx is not None:
+                await tx(_body, op_name="embed_cache_store")
+            else:
+                # Фолбэк (тестовые двойники без публичного API).
+                await _body(self.db.db)
+                await self.db.db.commit()
         except Exception:
             logger.warning("SmartModule: embedding cache store failed",
                            exc_info=True)

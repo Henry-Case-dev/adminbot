@@ -243,6 +243,8 @@ async def import_history_fts(db_path: str, files: list[str],
         conn.row_factory = aiosqlite.Row
         await conn.execute(f"PRAGMA busy_timeout = {_BUSY_TIMEOUT_MS}")
         await conn.execute("PRAGMA journal_mode=WAL")
+        # F0.5 (ADR-1025-5 D3): PRAGMA-паритет с services/database.py:516-520.
+        await conn.execute("PRAGMA synchronous=NORMAL")
         await checkpoints.ensure_table(conn)
         if reset:
             await checkpoints.reset_many(conn, files, target_chat)
@@ -284,6 +286,7 @@ async def vacuum_db(db_path: str) -> bool:
     conn = await aiosqlite.connect(db_path)
     try:
         await conn.execute(f"PRAGMA busy_timeout = {_BUSY_TIMEOUT_MS}")
+        await conn.execute("PRAGMA synchronous=NORMAL")  # F0.5 D3: паритет
         cursor = await conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         row = await cursor.fetchone()
         await conn.execute("VACUUM")

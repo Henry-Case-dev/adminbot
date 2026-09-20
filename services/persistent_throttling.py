@@ -60,6 +60,19 @@ _UPSERT_TOUCH_SQL = (
 )
 
 
+async def _db_write(db, op, *, op_name: str, chat_id):
+    """F0.5 (ADR-1025-5): запись через публичный `Database.write_transaction`
+    (single-writer + bounded retry на `database is locked`). Сырой
+    `db.db.execute`/`commit` устранён (T-2449). Фолбэк на прежний путь — для
+    тестовых двойников без публичного API."""
+    tx = getattr(db, "write_transaction", None)
+    if tx is not None:
+        return await tx(op, op_name=op_name, chat_id=chat_id)
+    result = await op(db.db)
+    await db.db.commit()
+    return result
+
+
 class PersistentCooldownTracker:
     """Dict-TTL-кулдаун per (chat_id, user_id) в таблице throttle_state
     (cooldown-стиль: burst_left NULL). Семантики CooldownTracker
@@ -90,11 +103,16 @@ class PersistentCooldownTracker:
         return max(0.0, self._cooldown - (time.time() - row["last_ts"]))
 
     async def touch(self, chat_id: int, user_id: int) -> None:
-        """Поставить/обновить слот (валидный триггер). Fail-open → no-op."""
+        """Поставить/обновить слот (валидный триггер). Fail-open → no-op.
+
+        F0.5: через публичный write_transaction (single-writer + retry)."""
+        async def _body(conn):
+            await conn.execute(
+                _UPSERT_TOUCH_SQL,
+                (self._scope, chat_id, user_id, time.time()))
         try:
-            await self._db.db.execute(
-                _UPSERT_TOUCH_SQL, (self._scope, chat_id, user_id, time.time()))
-            await self._db.db.commit()
+            await _db_write(self._db, _body, op_name="throttle_touch",
+                            chat_id=chat_id)
         except Exception:
             logger.warning(
                 "persistent throttle: touch failed — fail-open | scope=%s",
@@ -115,17 +133,23 @@ class PersistentThrottle:
         self._db = db
 
     async def allow(self, chat_id: int, user_id: int) -> float:
-        """0.0 = допустимо (заряд списан); >0 = остаток кулдауна, сек."""
+        """0.0 = допустимо (заряд списан); >0 = остаток кулдауна, сек.
+
+        F0.5: атомарный UPSERT через публичный write_transaction."""
         now = time.time()
-        try:
-            cursor = await self._db.db.execute(
+
+        async def _body(conn):
+            cursor = await conn.execute(
                 _UPSERT_CONSUME_SQL,
                 (self._scope, chat_id, user_id, self._limit - 1, now,
                  self._cooldown, now, self._limit,
                  self._cooldown, now),
             )
-            row = await cursor.fetchone()
-            await self._db.db.commit()
+            return await cursor.fetchone()
+
+        try:
+            row = await _db_write(self._db, _body, op_name="throttle_allow",
+                                  chat_id=chat_id)
         except Exception:
             logger.warning(
                 "persistent throttle: allow failed — fail-open | scope=%s",
@@ -183,14 +207,17 @@ class SilenceStreak:
     async def bump(self, chat_id: int, user_id: int) -> int:
         """+1 к стачке (с ленивым сбросом по времени), возврат нового значения."""
         if self._db is not None:
-            try:
-                cursor = await self._db.db.execute(
+            async def _body(conn):
+                cursor = await conn.execute(
                     self._BUMP_SQL,
                     (self._SCOPE, chat_id, user_id, time.time(),
                      self._cooldown, time.time()),
                 )
-                row = await cursor.fetchone()
-                await self._db.db.commit()
+                return await cursor.fetchone()
+
+            try:
+                row = await _db_write(self._db, _body, op_name="silence_bump",
+                                      chat_id=chat_id)
                 if row is not None:
                     return int(row["burst_left"])
             except Exception:
@@ -213,12 +240,15 @@ class SilenceStreak:
     async def reset(self, chat_id: int, user_id: int) -> None:
         """Полный сброс стачки (успешный допуск — 65.3). Fail-open → no-op."""
         if self._db is not None:
-            try:
-                await self._db.db.execute(
+            async def _body(conn):
+                await conn.execute(
                     "DELETE FROM throttle_state "
                     "WHERE scope = ? AND chat_id = ? AND user_id = ?",
                     (self._SCOPE, chat_id, user_id))
-                await self._db.db.commit()
+
+            try:
+                await _db_write(self._db, _body, op_name="silence_reset",
+                                chat_id=chat_id)
                 return
             except Exception:
                 logger.warning(

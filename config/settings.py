@@ -976,6 +976,27 @@ class Settings:
     SMART_CACHE_LOCK_RESILIENCE_ENABLED: ClassVar[bool] = _env_bool(
         "SMART_CACHE_LOCK_RESILIENCE_ENABLED", True)
 
+    # F0.5 (раунд 10.25, ADR-1025-5 — AMEND ADR-1024-18): kill-switch
+    # устойчивости main write-path (`services/database.py`, summary_memory,
+    # persistent_throttling) к `database is locked` — single-writer
+    # (`Database.write_transaction`) + bounded retry на `locked` +
+    # структурный WARNING/счётчик при исчерпании. env-only ClassVar → в
+    # param_catalog НЕ добавляется (Δ каталога = 0). ON (default) = новое
+    # поведение; OFF = байт-в-байт прежнее (без сериализации/повторов).
+    DB_LOCK_RESILIENCE_ENABLED: ClassVar[bool] = _env_bool(
+        "DB_LOCK_RESILIENCE_ENABLED", True)
+
+    # F0.3 (раунд 10.25, ADR-1025-3): размер ПАРТИИ паттернов анти-клише за
+    # один LLM-вызов (в пределах выходного лимита модели) — отдельно от
+    # ВМЕСТИМОСТИ `limits.anticliche_max_patterns` (200). env-only ClassVar →
+    # в param_catalog НЕ добавляется (Δ каталога = 0). <1 → дефолт 40.
+    ANTICLICHE_MAX_PATTERNS_PER_RUN: ClassVar[int] = _env_int_min(
+        "ANTICLICHE_MAX_PATTERNS_PER_RUN", 40, 1)
+    # F0.3 (ADR-1025-3 D2): лимит раундов пакетного добора за один прогон
+    # (bounded; env-only ClassVar, default 3; <1 → 1). Δ каталога = 0.
+    ANTICLICHE_MAX_ROUNDS: ClassVar[int] = _env_int_min(
+        "ANTICLICHE_MAX_ROUNDS", 3, 1)
+
     # ── Epic 60 Фаза A (Section 63.5, R60-1/R60-2) ─────────────
     # Персистентный троттлинг (throttle_state/bot_replies, 63.1). false →
     # ровно старые in-memory инстансы (аварийный рубильник, прецедент
