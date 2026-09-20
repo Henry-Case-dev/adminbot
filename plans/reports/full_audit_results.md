@@ -6,6 +6,45 @@
 
 ---
 
+## Round 10.24 «Disaster Recovery: UI & Backend Bloat» (UPD2–UPD6) — 20.09.2026, Step 6 @Scanner
+
+**Baseline `00eab85` → HEAD `379cfdd`** (132 файла, +18264/−1016). Фичи F1–F24.
+Полный отчёт: `plans/reports/round1024_scanner_audit.md`.
+
+**Сводка: Critical 0 / High 0 / Medium 0 / Low 3 / Info 5.**
+Доказательство: полный `pytest -q` = **7911 passed / 0 failed** (103.71 s);
+SQLite v12 (Δ=0), PG DDL (Δ=0); канон инструментов = 10; `git diff --check` exit 0;
+секретов в диффе/трекаемых файлах нет (только тестовые плейсхолдеры).
+
+**Открытые Low (не блокеры):**
+- [L10.24-1] `handlers/voice_transcription.py::force_repeat_from_reply` +
+  `handlers/youtube.py::_handle_voice_command` — тристейт отдаёт `HANDLED`
+  при раннем `return False` (`from_user is None`/бот-автор) без отправленной фразы →
+  тихий пропуск ответа на командный форс-повтор.
+- [L10.24-2] `services/tool_router.py:112` `_DOWNLOAD_NATIVE_MAX_BYTES=2_000_000_000`
+  подписан «лимит Telegram», но это лимит локального Bot API server; для облачного
+  Bot API (~50 МБ) гейт не срабатывает рано → обобщённая ошибка отправки.
+- [L10.24-3] `services/image_generation.py::_download_bytes`/`_generate_get` —
+  тело ошибочного ответа логируется через `safe_text` без `_redact_secret`; подписанный
+  URL-токен может попасть в лог. Hardening R17.
+
+**Info:** I10.24-1 (F13 cap vs медиа-маркер при экстремально малом cap),
+I10.24-2 (неточный текст `GraphExtractionError`), I10.24-3 (N+1 alias-резолв в GLOBAL
+`dossier_feed`), I10.24-4 (F16 полная загрузка видео на cache-miss — ADR-1024-17,
+tmp чистится в `finally`), I10.24-5 (`bot.send_message` вне обёрток egress в F19 —
+покрыт SEND_ALLOWLIST, review-accepted).
+
+**Подтверждённые инварианты:** `physical-two-call` (F1 `generate_background` —
+отдельный канал, общий `_post` дефолты сохранены); `validator-loop` (negative_constraints
+не менялся); egress-реестр; `imported-history-immutable` (deny-list + sniff fail-closed
++ re-classify + verify); `manual-overrides-immutable` (F20 fix + merge-контракт
+`set_chat_params`); R16/R17/R18; `parse_mode=None`; порядок роутеров `bot.py`;
+каталог (GROUPS 98, `mod_images`/`mod_budgets`/`limits_anticliche`).
+**Critical F20:** per-chat overrides больше не стирают остальные; F21/F22 согласованы.
+**DDL:** новых PG-таблиц/колонок нет; SQLite v12 не тронут.
+
+---
+
 ## Audit Summary
 
 | Category | Files Scanned | Issues Found | Critical | High | Medium | Low |

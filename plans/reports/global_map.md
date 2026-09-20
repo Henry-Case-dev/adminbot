@@ -1,5 +1,59 @@
 # Global Map (architectural memory)
 
+## Round 10.24 «Disaster Recovery: UI & Backend Bloat» (UPD2–UPD6, 20.09.2026, Step 6 @Scanner)
+
+- **Baseline `00eab85` → HEAD `379cfdd`** (132 файла, +18264/−1016). 24 фичи F1–F24.
+- **Итог: 0 Critical / 0 High / 0 Medium / 3 Low / 5 Info.** Отчёт:
+  `plans/reports/round1024_scanner_audit.md`. Вердикт: Merge/деплой разрешён.
+- **Ключевые связности раунда:**
+  - **F20 (critical fix)** `web/api/routes.py::post_config` — разведены два namespace:
+    `perm_overrides` (матрица прав → только `effective_matrix`) и `overrides`
+    (значения per-chat → база merge). `services/chat_params.set_chat_params` заменяет
+    только `overrides`+`meta`; `perm_overrides`/`gates`/`keys` неприкосновенны. Тот же
+    merge-контракт в DELETE `/api/config/chat/{key}` и `services/chat_settings_seed.py`.
+  - **F21** `services/budget_gate.py::budgets_enabled()` (chat→global→default ON,
+    fail-open ON) → единая точка enforcement: `services/chat_usage.budget_snapshot`,
+    `services/worker_budget.global_degradation_allows`/`consume`,
+    `services/direct_chat_service._apply_context_budget`. Каталог-ключ
+    `flags.budgets_enabled` на вкладке `mod_budgets`; учёт статистики при OFF сохранён.
+  - **F22** `manage.py apply-chat-overrides` (merge current+patch) и
+    `audit-chat-overrides` (READ-ONLY SELECT, R17-safe, fail-loud, `--strict`).
+  - **F11** `/api/config/keys/own` получил scope `auto|global|chat`; global-ветка →
+    `is_global_admin` + `chat_keys.is_global_secret` (`keys.image_api_key`, kill-switch
+    `BYOK_IMAGE_KEY_ENABLED`) → глобальный слой `cache.set` + аудит в `chat_lore_history`
+    (sentinel `chat_id=0`, только `***`). `services/image_generation.KEY_API_KEY`.
+  - **F9** `services/disk_retention.py` — единый источник ротации (>1 DB-бэкапов
+    запрещено, `imported_history_*.jsonl` immutable, content-sniff fail-closed,
+    `apply_cleanup` re-classify + verify свежего бэкапа). Вызывается из
+    `services/memory_backup._rotate` и `services/memory_rebuild.create_safety_backup`;
+    CLI `manage.py disk audit|cleanup` (dry-run по умолчанию).
+  - **F13/F14/F19** `services/media_marker.py` (диалект `[медиа: type tg:id]`) →
+    `services/chat_context.format_chat_context` / `services/thread_chain.collect_thread_chain`
+    / `direct_chat_service._build_current_question`; `services/native_media.py`
+    (`resolve_reply_video`/`voice_media_message`/`download_to_tmp`) → `bot.py`
+    `ToolDeps(transcriber=voice_service)` → `services/tool_router` нативные пути
+    `summarize_video`/`download_media`, `transcribe_video` (10-й инструмент канона R9);
+    командный форс-повтор `handlers/youtube.py` → `handlers/voice_transcription.force_repeat_from_reply`.
+  - **F16** `handlers/youtube._process_youtube_summary`: A) тихая yt-dlp-загрузка →
+    B) `media_share` + `summarize_media_url` → C) субтитровый фолбэк (L3-only;
+    `YouTubeSummarizerService.summarize_cascade` больше не ходит мультимодалкой по
+    watch-URL). Причина `YouTubeTranscriptUnavailableException.reason` (`age_restricted`)
+    → отдельный пул фраз.
+  - **F17** `services/smart_cache.py` — PRAGMA WAL/busy_timeout/synchronous + bounded
+    retry на `database is locked` (kill-switch `SMART_CACHE_LOCK_RESILIENCE_ENABLED`).
+  - **F18** `services/database.row_get` применён в `web/api/chat_lore._participant_names`
+    (aiosqlite.Row без `.get` → терялись имена участников) и `web/api/oversight._feed_user_index`.
+  - **F1** `LLMClient.generate_background(purpose/deadline/max_attempts)` (отдельный
+    канал фонового graph-extract, чанки + единый батч-кап + per-chat счётчик фейлов);
+    **F8** `dream_worker._run_persona_traits_step` (traits перед paradigm-ветками);
+    **F2** `services/external_log.py` (`log_external_api`/`trace_step`/`log_dropped`).
+  - **Каталог/UI:** GROUPS 98 (+`limits_anticliche`, +`flags_module_budgets`, перенос
+    `flags_module_images` в новую `mod_images`); `GET /api/me.ui_flags` доставляет
+    env-only kill-switch'и (F3/F4/F5/F6/F10/F11) во фронт без inline-скриптов.
+- **Валидатор:** полный pytest **7911 passed / 0 failed** (103.71 s); SQLite **v12**
+  (Δ=0), PG DDL **Δ=0**; канон инструментов **10**; `git diff --check` exit 0; секретов
+  в диффе нет.
+
 > Архитектурная память Scanner. Не источник правды о коде — только карта связностей.
 >
 > **АКТУАЛЬНЫЙ baseline эпика 10.21 (`System 2 Reasoning & Memory Rebuild`, 18.09.2026, Step 6 @Scanner, re-audit):**

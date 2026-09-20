@@ -1,5 +1,44 @@
 # Audit Backlog
 
+## Round 10.24 scan (Step 6 @Scanner, 20.09.2026) — all scanned (diff-based, HEAD 379cfdd, 132 файла) — files processed
+- [x] web/api/routes.py (F20 critical: разведены `perm_overrides`/`overrides`; merge не стирает
+      остальные per-chat значения; `set_chat_params` пишет только overrides+meta; F11 scope
+      `auto|global|chat` с `is_global_admin`; F12 `POST /api/images/test` global-admin + rate-limit;
+      F8 `_persona_traits_meta` fail-open) — чисто
+- [x] services/chat_keys.py (_sign global secrets `keys.image_api_key`, kill-switch
+      `BYOK_IMAGE_KEY_ENABLED`, `record_global_secret_audit` только `***`, Δ DDL=0) — чисто
+- [x] services/budget_gate.py + chat_usage.py + worker_budget.py + direct_chat_service.py
+      (F21 master: chat→global→default ON, fail-open; enforcement direct/фон/контекст; учёт при OFF) — чисто
+- [x] manage.py (F9 `disk audit|cleanup` dry-run + verify fail-closed; F22 `apply-chat-overrides`
+      merge + `audit-chat-overrides` READ-ONLY/fail-loud/--strict; F10 `diag aliases` READ-ONLY) — чисто
+- [x] services/disk_retention.py + memory_backup.py + memory_rebuild.py + memory_maintenance.py
+      (F9: 1 DB-бэкап, immutable-история deny-list+sniff fail-closed+re-classify, facts 1) — чисто
+- [x] services/media_marker.py + native_media.py + chat_context.py + thread_chain.py
+      (F13/F14/F19: диалект маркера, единый резолвер, media-строки без потери окна/бюджета) — чисто
+- [x] services/tool_router.py + tool_schemas.py (F14/F19: native-first, `transcribe_video` 10-й,
+      первые 9 байт-в-байт, kill-switch'и OFF-тесты) — чисто; Low L10.24-2 (2 ГБ лимит)
+- [x] handlers/youtube.py + voice_transcription.py + video_download.py (F16 download→multimodal→subtitle,
+      F19 форс-повтор STT, idempotency `_row_has_transcript`, reason age_restricted) — чисто;
+      Low L10.24-1 (тристейт тихий пропуск), Info I10.24-5 (send_message вне обёрток, allowlisted)
+- [x] services/youtube_summarizer_service.py + youtube_transcript_engine.py (F16: L3-only cascade,
+      `reason` на исключении, credentialed kill-switch) — чисто
+- [x] services/smart_cache.py (F17 PRAGMA + bounded retry на locked, fail-open, счётчик) — чисто
+- [x] services/external_log.py + image_generation.py + summary_generator.py (F2 R17-safe хелперы,
+      F12 универсальный payload/b64/probe, красный ключ в body_excerpt) — чисто; Low L10.24-3 (body без `_redact_secret`)
+- [x] services/llm_client.py + dream_worker.py + summary_memory.py (F1 `generate_background`/чанки/батч-кап,
+      F8 traits перед paradigm-ветками, per-chat счётчик фейлов) — чисто; Info I10.24-2 (текст исключения)
+- [x] services/param_catalog.py + web/app.js + web/index.html + web/api/oversight.py + memory_agi.py
+      (F5/F21/F24/F3/F4/F10/F6: GROUPS 98, `mod_images`, `flags_module_budgets`, `limits_anticliche`,
+      `ui_flags`, dossier-feed user_id, XSS-санитизация) — чисто; Info I10.24-3 (N+1), I10.24-1 (cap)
+- [x] config/settings.py + bot.py + .env.example (env-only ClassVar-рубильники, DI `transcriber`, порядок
+      роутеров не сдвинут, Δ DDL=0) — чисто
+- [x] tests/* (полный pytest **7911 passed / 0 failed**, 103.71 s; JS round1024-тесты; grep секретов —
+      только тестовые плейсхолдеры) + `.env.example` без реальных значений; `git diff --check` exit 0
+- **СВОДКА 10.24: Critical 0 / High 0 / Medium 0 / Low 3 (open) / Info 5.**
+  Валидатор: SQLite v12 (Δ=0), PG DDL (Δ=0), канон инструментов 10, GROUPS 98.
+  Вердикт: **Merge/деплой разрешён**; обязательных возвратов @Builder нет.
+  Отчёт: `plans/reports/round1024_scanner_audit.md`.
+
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
