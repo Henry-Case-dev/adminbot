@@ -400,7 +400,7 @@ class TestApiAndUiMarkers:
         assert "openPermPicker(item)" in self.HTML
         assert "resetChatOverride(item)" in self.HTML
         assert "item.chat_source === 'chat'" in self.HTML
-        assert "expandOpen(activeTab)" in self.HTML  # basic/advanced дисклоузер
+        assert "advancedOpen" in self.HTML  # basic/advanced дисклоузер (F24)
 
     def test_html_cliche_block(self):
         assert "Режимы Вербализатора" in self.HTML

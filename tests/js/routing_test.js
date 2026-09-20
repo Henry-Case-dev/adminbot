@@ -1328,7 +1328,9 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       setItem(k, v) { store[k] = String(v); },
     };
     try {
-      const ctx = { expandOpen: methods.expandOpen,
+      // F24 (10.24, ADR-1024-24): методы читают/пишут РЕАКТИВНЫЙ this.expand
+      // (localStorage — только персист), поэтому ctx должен нести карту expand.
+      const ctx = { expand: {}, expandOpen: methods.expandOpen,
                     toggleExpand: methods.toggleExpand };
       // Открываем ТОЛЬКО внешнюю зону (scope='prov-advanced').
       methods.toggleExpand.call(ctx, 'llm_providers', 'prov-advanced');

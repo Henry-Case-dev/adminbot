@@ -207,14 +207,16 @@ class TestScannerLows1011:
 
     def test_advanced_zone_distinct_localstorage_key(self):
         # Внешняя зона advanced — отдельный стабильный ключ.
-        assert "expandOpen(activeTab, 'prov-advanced')" in HTML
-        assert "toggleExpand(activeTab, 'prov-advanced')" in HTML
+        # F24 (10.24, ADR-1024-24): `:open` завязан на реактивный computed
+        # provAdvancedOpen; toggle синхронизируется из факта DOM ($event).
+        assert "provAdvancedOpen" in HTML
+        assert "toggleExpand(activeTab, 'prov-advanced', $event)" in HTML
         # Хелперы принимают scope; есть общий построитель ключа.
         assert "expandOpen: function (tabId, scope)" in JS
-        assert "toggleExpand: function (tabId, scope)" in JS
+        assert "toggleExpand: function (tabId, scope, ev)" in JS
         assert "function _expandKey(tabId, scope)" in JS
         # Внутренние group-аккордеоны остаются на историческом ключе.
-        assert ':open="expandOpen(activeTab)"' in HTML
+        assert ':open="advancedOpen"' in HTML
 
     def test_embed_hints_point_to_miniapp_not_env(self):
         # Устаревших .env-подсказок по embed-ключам больше нет.

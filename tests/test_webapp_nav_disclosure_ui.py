@@ -133,10 +133,10 @@ class TestProgressiveDisclosure:
                 in html)
         assert 'v-if="basicItems(grp).length"' in html
         assert 'v-if="advancedItems(grp).length > 0"' in html
-        # Раунд 10.4 (D-1, AC-A2): :open — ТОЛЬКО expandOpen (ТЗ п.5:
-        # «Расширенные» свёрнуты по умолчанию всегда); эвристика
-        # basicItems(...)===0 удалена
-        assert ':open="expandOpen(activeTab)"' in html
+        # Раунд 10.4 (D-1, AC-A2): :open — ТОЛЬКО из реактивного стейта
+        # (F24/10.24: computed advancedOpen); «Расширенные» свёрнуты по
+        # умолчанию всегда; эвристика basicItems(...)===0 удалена
+        assert ':open="advancedOpen"' in html
         assert "basicItems(grp).length === 0 ||" not in html
         # AC-A1: итог анализа — комментарий над <details>
         assert "эвристика" in html or "УДАЛЕНА" in html
@@ -237,13 +237,14 @@ class TestRound104ReviewFixes:
 
     def test_relations_advanced_accordion(self):
         """Ревью-фикс (F): advanced-аккордеон в «Настройках отношений» —
-        D-канон (expandOpen(activeTab)); autoload-ветка setTab."""
+        D-канон (F24/10.24: реактивный computed advancedOpen); autoload-ветка
+        setTab."""
         html = _html()
         # 10.8 (§2): emoji ⚙️ заменён Material-иконкой settings.
         assert "iconGlyph('settings')" in html
         body = html[html.index("Настройки отношений"):]
         assert '<details class="advanced mt-4"' in body
-        assert "expandOpen(activeTab)" in body
+        assert "advancedOpen" in body
         js = _js()
         assert "id === 'relations' && this.canViewTab('relations')" in js
         assert "loadRelations(this.activeChatId)" in js

@@ -833,6 +833,12 @@
   var _onHashChange = null;
   var _onKeydown = null;      // MODERATE-2: глобальный Esc (закрытие модалки)
   var _onVisibility = null;   // F5-Q3: пауза cognition-polling при hidden
+  // F24 (ADR-1024-24 D1/C3): подписки на TMA-fullscreen-события. Ссылки на
+  // колбэки храним модульно — `offEvent` в beforeUnmount должен получить
+  // РОВНО ТУ ЖЕ функцию (иначе listener не снимается).
+  var _fsSubscribed = false;  // guard: подписки установлены ровно один раз
+  var _fsOnFullscreen = null;
+  var _fsOnViewport = null;
   // Категории вкладки для RBAC-проверок: явный список (не-конфиг вкладки)
   // либо уникальные категории источников (конфиг вкладки).
   function tabCategories(tab) {
@@ -866,7 +872,11 @@
         blockResults: {},
         blockTesting: {},
         blockSaving: {},
-        expand: {},              // F-11: localStorage adminbot.expand:<tab>
+        // F-11/F24 (ADR-1024-24 D2): РЕАКТИВНЫЙ стейт аккордеонов — единственный
+        // источник рендера `:open` (computed advancedOpen/provAdvancedOpen/
+        // chatLoreAdvancedOpen). localStorage `adminbot.expand:<tab>[:<scope>]` —
+        // только персист; инициализация — initExpandState() в created().
+        expand: {},
         // T-1099: hash-роутер — route (@see #6.3), backNative — есть ли
         // нативный Telegram.WebApp.BackButton (иначе in-app fallback ←).
         route: '#/',
@@ -1156,6 +1166,23 @@
       currentTabLabel: function () {
         var tab = this.currentTab;
         return tab ? tab.label : '';
+      },
+      // F24 (ADR-1024-24 D2/§4.1): реактивные аксессоры `:open`. computed читает
+      // реактивную карту `this.expand` (localStorage в рендере НЕ читается).
+      //   advancedOpen — inner-зоны вкладки (bare-ключ `adminbot.expand:<tab>`,
+      //     F-11/10.4): «Промпты», group-аккордеоны, «Настройки отношений»;
+      //   chatLoreAdvancedOpen — explicit-tab зона «Лор чатов» (тот же bare-ключ,
+      //     но фиксирует исходный tabId 'chat_lore');
+      //   provAdvancedOpen — внешняя зона «Провайдеров» (scope 'prov-advanced',
+      //     отдельный стабильный ключ — Scanner LOW 10.11).
+      advancedOpen: function () {
+        return !!this.expand[_expandKey(this.activeTab)];
+      },
+      chatLoreAdvancedOpen: function () {
+        return !!this.expand[_expandKey('chat_lore')];
+      },
+      provAdvancedOpen: function () {
+        return !!this.expand[_expandKey('llm_providers', 'prov-advanced')];
       },
       // T-1099: глубина текущего маршрута (0 = корень → нативный ✕).
       routeDepth: function () {
@@ -1790,6 +1817,7 @@
     // активной вкладки дёргается позже в mounted после auth.
     created: function () {
       getInitData();                       // кэш initData ДО записи hash
+      this.initExpandState();              // F24: реактивный стейт аккордеонов
       var r = initialRoute();
       this.route = r;
       var tabId = routeToTab(r);
@@ -1829,6 +1857,7 @@
         this.reducedMotion = !!(window.matchMedia &&
           window.matchMedia('(prefers-reduced-motion: reduce)').matches);
       } catch (e) { this.reducedMotion = false; }
+      this.initFullscreen();               // F24: синхронизация с TMA-fullscreen
       this.initBackButton();
       // Фин. доработка (DevOps): без Telegram-контекста — блокирующая
       // заглушка вместо бессмысленных 401 (ngrok-интерстициал ломал контекст).
@@ -1875,6 +1904,9 @@
           // R10.5-1: BackButton может стать доступен только к `ready` —
           // переинициализируем (onClick — ровно один раз) + sync видимости.
           self.initBackButton();
+          // F24 (C3): контекст Telegram может появиться ПОЗЖЕ монтирования —
+          // переинициализируем fullscreen (guard не даёт двойных подписок).
+          self.initFullscreen();
           self.retryInitData();
         });
       }
@@ -4034,10 +4066,12 @@
       // F-13 (AC-2): метод принудительного закрытия миниаппа удалён
       // вместе с крестиком ✕ выхода — закрытие в Telegram штатное
       // (свайп/системная кнопка); остаются ⛶ и мобильный ✕ сайдбара.
+      // F24 (ADR-1024-24 D1, AMEND решения 10.10): ⛶ — user-action
+      // (`requestFullscreen`/`exitFullscreen`). Флаг НЕ «угадывается»: если
+      // SDK отдаёт фактический boolean `isFullscreen` — берём его; иначе
+      // (старый SDK/вне TG) — legacy-инверсия локального флага. Окончательную
+      // коррекцию дают события `fullscreenChanged`/`viewportChanged`.
       toggleFullscreen: function () {
-        // Полноэкранный режим TMA (⛶): request/exitFullscreen обёрнуты в
-        // try/catch (SDK без поддержки/вне TG — бездействие). Флаг —
-        // локальный оптимистичный тоггл (события fullscreenChanged не ждём).
         try {
           var wa = window.Telegram && Telegram.WebApp;
           if (!wa) return;
@@ -4046,8 +4080,60 @@
           } else {
             if (wa.requestFullscreen) wa.requestFullscreen();
           }
-          this.isFullscreen = !this.isFullscreen;
+          if (typeof wa.isFullscreen === 'boolean') {
+            this.isFullscreen = wa.isFullscreen;
+          } else {
+            this.isFullscreen = !this.isFullscreen;
+          }
         } catch (e) { /* вне TG/старый SDK — молча */ }
+      },
+
+      // F24 (ADR-1024-24 C3): источник истины — TMA. Инициализируем флаг из
+      // `Telegram.WebApp.isFullscreen` и подписываемся на события (ровно раз —
+      // guard `_fsSubscribed`). Вызывается из mounted() и из `ready`
+      // (контекст Telegram может появиться позже). Вне TG/без методов — no-op.
+      initFullscreen: function () {
+        if (_fsSubscribed) { this.setFullscreenFromTma(); return; }
+        try {
+          var wa = window.Telegram && Telegram.WebApp;
+          if (!wa) return;
+          if (typeof wa.isFullscreen === 'boolean') {
+            this.isFullscreen = wa.isFullscreen;
+          }
+          if (typeof wa.onEvent !== 'function') return;
+          var self = this;
+          _fsOnFullscreen = function () { self.setFullscreenFromTma(); };
+          _fsOnViewport = function () { self.setFullscreenFromTma(); };
+          wa.onEvent('fullscreenChanged', _fsOnFullscreen);
+          wa.onEvent('viewportChanged', _fsOnViewport);
+          _fsSubscribed = true;
+        } catch (e) { /* вне TG/старый SDK — no-op */ }
+      },
+
+      // F24 (C3): локальный флаг — производный от фактического TMA. Если SDK
+      // не отдаёт boolean `isFullscreen` — НЕ угадываем (no-op).
+      setFullscreenFromTma: function () {
+        try {
+          var wa = window.Telegram && Telegram.WebApp;
+          if (wa && typeof wa.isFullscreen === 'boolean') {
+            this.isFullscreen = wa.isFullscreen;
+          }
+        } catch (e) { /* no-op */ }
+      },
+
+      // F24 (C3/C4): отписки в beforeUnmount — `offEvent` с ТЕМИ ЖЕ fn-ссылками
+      // (паттерн `_onVisibility`). Повторный вызов безопасен.
+      teardownFullscreen: function () {
+        try {
+          var wa = window.Telegram && Telegram.WebApp;
+          if (wa && typeof wa.offEvent === 'function') {
+            if (_fsOnFullscreen) wa.offEvent('fullscreenChanged', _fsOnFullscreen);
+            if (_fsOnViewport) wa.offEvent('viewportChanged', _fsOnViewport);
+          }
+        } catch (e) { /* no-op */ }
+        _fsOnFullscreen = null;
+        _fsOnViewport = null;
+        _fsSubscribed = false;
       },
 
       // ═══ Права (84.14.2 — зеркало requires_permission) ═══
@@ -4146,22 +4232,46 @@
         return !!(this.accessMy && this.accessMy.is_local_admin);
       },
 
-      // F-11 (4.2): аккордеон «Расширенные» — localStorage adminbot.expand:<tab>.
-      // Scanner LOW (10.11): опциональный `scope` даёт отдельный стабильный
-      // ключ — внешняя зона «Расширенные настройки» на «Провайдерах» и
-      // внутренние group-аккордеоны не должны делить один ключ (иначе
-      // раскрытие одного открывает/закрывает другое).
+      // F-11 (4.2) / F24 (ADR-1024-24 D2/C1): раскрытие аккордеона — чтение
+      // РЕАКТИВНОГО `this.expand` (единственный источник рендера `:open`).
+      // Сигнатура сохранена для JS-юнитов 10.11; localStorage — только персист
+      // (перенос в реактив закрывает дефект «advanced пропадает в fullscreen»).
       expandOpen: function (tabId, scope) {
-        try {
-          return localStorage.getItem(_expandKey(tabId, scope)) === '1';
-        } catch (e) { return false; }
+        return !!this.expand[_expandKey(tabId, scope)];
       },
-      toggleExpand: function (tabId, scope) {
+
+      // F24 (ADR-1024-24 D3/C2): синхронизация с фактом DOM, а НЕ инверсия.
+      // `@toggle` срабатывает и при программной установке `open` из Vue — при
+      // общих bare-ключах (несколько `details` на одной вкладке) инверсия дала
+      // бы осцилляцию (открыли A → Vue открыл B → toggle B инвертировал ключ →
+      // закрылись оба). `ev.target.open` идемпотентен. Без события (legacy/юниты
+      // без $event) — прежняя инверсия. Пишем в реактивный стейт И в localStorage.
+      toggleExpand: function (tabId, scope, ev) {
+        var k = _expandKey(tabId, scope);
+        var next;
+        if (ev && ev.target && typeof ev.target.open === 'boolean') {
+          next = ev.target.open;
+        } else {
+          next = !this.expand[k];
+        }
+        this.expand[k] = next;
+        try { localStorage.setItem(k, next ? '1' : ''); } catch (e) { /* quota */ }
+      },
+
+      // F24 (ADR-1024-24 D2/C1): однократная инициализация реактивного стейта
+      // аккордеонов из localStorage (скан по префиксу `adminbot.expand:`;
+      // значение `'1'` → раскрыто). Вызывается в created() ДО первого рендера.
+      // Приватный режим/недоступность localStorage → стейт пустой («свёрнуто»),
+      // без исключений. Ключи `_expandKey` не меняются (обратная совместимость).
+      initExpandState: function () {
         try {
-          var k = _expandKey(tabId, scope);
-          var cur = localStorage.getItem(k) === '1';
-          localStorage.setItem(k, cur ? '' : '1');
-        } catch (e) {}
+          var n = localStorage.length || 0;
+          for (var i = 0; i < n; i++) {
+            var k = localStorage.key(i);
+            if (!k || k.indexOf('adminbot.expand:') !== 0) continue;
+            if (localStorage.getItem(k) === '1') this.expand[k] = true;
+          }
+        } catch (e) { /* приватный режим — «свёрнуто» */ }
       },
       itemAdvanced: function (item) {
         return item && item.progressive_level === 'advanced';
@@ -7340,6 +7450,8 @@
       this.stopDossierFeedPolling();   // 10.20 (T-1897): нет stale-таймера
       this.stopDossierRebuildPolling(); // F8: нет stale-таймера пересборки
       this.destroyCognitionGraph();
+      // F24 (ADR-1024-24 C4): снимаем подписки TMA-fullscreen при unmount.
+      this.teardownFullscreen();
       // ISSUE-7: снимаем visibilitychange-листенер (F5-Q3) при unmount.
       if (_onVisibility) {
         document.removeEventListener('visibilitychange', _onVisibility);

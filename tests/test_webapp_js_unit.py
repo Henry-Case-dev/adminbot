@@ -108,3 +108,12 @@ def test_js_unit_round1024_dossier_feed():
     a11y (клоны aria-hidden/без таб-стопа), kill-switch uiFlag."""
     _run_js(os.path.join("tests", "js", "round1024_dossier_feed_test.js"),
             ok_marker="DOSSIER-FEED-OK")
+
+
+def test_js_unit_round1024_providers_fullscreen():
+    """F24 round 10.24 (ADR-1024-24): fullscreen-sync с TMA + реактивный
+    аккордеон — initExpandState/переживание ремаунта, C2 (синхронизация из
+    $event, идемпотентность), подписки/отписки fullscreen, безопасность вне TG."""
+    _run_js(os.path.join("tests", "js",
+                         "round1024_providers_fullscreen_test.js"),
+            ok_marker="PROVIDERS-FS-OK")

@@ -608,7 +608,7 @@
                                llm_providers не затронут. -->
                           <details class="advanced mt-4"
                                    v-if="promptsShowAccordion(sec)"
-                                   :open="expandOpen(activeTab)" @toggle="toggleExpand(activeTab)">
+                                   :open="advancedOpen" @toggle="toggleExpand(activeTab, null, $event)">
                             <summary class="select-none text-sm font-semibold">
                               Расширенные системные
                               <span class="text-xs text-gray-500 font-normal">({{ sec.advanced.length }})</span>
@@ -642,8 +642,8 @@
               </template>
               <component :is="activeTab === 'llm_providers' ? 'details' : 'div'"
                    class="col-span-full grid gap-4 advanced"
-                   :open="activeTab === 'llm_providers' ? expandOpen(activeTab, 'prov-advanced') : null"
-                   @toggle="activeTab === 'llm_providers' && toggleExpand(activeTab, 'prov-advanced')">
+                   :open="activeTab === 'llm_providers' ? provAdvancedOpen : null"
+                   @toggle="activeTab === 'llm_providers' && toggleExpand(activeTab, 'prov-advanced', $event)">
                 <summary v-if="activeTab === 'llm_providers'"
                          class="select-none text-sm font-bold text-violet-300 uppercase tracking-wide col-span-full">
                   Расширенные системные
@@ -891,8 +891,8 @@
                      (D-2): вкладка структурно не пустая; BUG-5 «(0)» — не
                      рендерится (D-4). -->
                 <details class="advanced mt-4" v-if="advancedItems(grp).length > 0"
-                         :open="expandOpen(activeTab)"
-                         @toggle="toggleExpand(activeTab)">
+                         :open="advancedOpen"
+                         @toggle="toggleExpand(activeTab, null, $event)">
                   <summary class="select-none text-sm font-semibold">
                     Расширенные системные
                     <span class="text-xs text-gray-500 font-normal">
@@ -2173,8 +2173,8 @@
                            limits.relations_recalc_ttl_minutes и другие
                            расширенные ключи достижимы. -->
                       <details class="advanced mt-4" v-if="advancedItems(grp).length > 0"
-                               :open="expandOpen(activeTab)"
-                               @toggle="toggleExpand(activeTab)">
+                               :open="advancedOpen"
+                               @toggle="toggleExpand(activeTab, null, $event)">
                         <summary class="select-none text-sm font-semibold">
                           Расширенные системные
                           <span class="text-xs text-gray-500 font-normal">({{ advancedItems(grp).length }})</span>
@@ -2541,8 +2541,8 @@
                         </div>
                       </div>
                       <details class="advanced mt-4" v-if="advancedItems(grp).length > 0"
-                               :open="expandOpen('chat_lore')"
-                               @toggle="toggleExpand('chat_lore')">
+                               :open="chatLoreAdvancedOpen"
+                               @toggle="toggleExpand('chat_lore', null, $event)">
                         <summary class="select-none text-sm font-semibold">
                           Расширенные системные
                           <span class="text-xs text-gray-500 font-normal">({{ advancedItems(grp).length }})</span>
