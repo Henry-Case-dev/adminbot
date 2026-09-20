@@ -1633,7 +1633,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.58.2"   # round1025 P0: cache-bust после F1 (render/save-слой, T-2470)
+APP_VERSION = "2.58.3"   # round1025 hotfix3: cache-bust после правок web/app.js+index.html (анти-клише UI)
 
 
 def get_ytdlp_pot_provider() -> str:
