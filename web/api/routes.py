@@ -992,9 +992,16 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
             revalidated = True                 # уже применено → успех
             updated.append(entry["key"])
         else:
-            conflicting.append({"key": entry["key"],
-                                "your_value": entry["value"],
-                                "server_value": current})
+            # M-3 (ревью, R17): для секретных ключей (keys.*) НЕ возвращаем
+            # сырое серверное значение — только признак конфликта/маску.
+            conflict_item = {"key": entry["key"],
+                             "your_value": entry["value"]}
+            if entry["category"] == CATEGORY_KEYS:
+                conflict_item["server_value"] = None
+                conflict_item["secret"] = True
+            else:
+                conflict_item["server_value"] = current
+            conflicting.append(conflict_item)
     if conflicting:
         raise HTTPException(
             status_code=409,

@@ -244,6 +244,42 @@ async def test_touch_no_changes_no_commit_on(monkeypatch, no_backoff):
         await d.close()
 
 
+# ── Ревью M-1: отмена корутины (CancelledError) тоже откатывается ───────────
+
+@pytest.mark.asyncio
+async def test_cancelled_error_rolls_back(no_backoff):
+    d = DatabaseService(":memory:")
+    await d.initialize()
+    try:
+        await d.db.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT)")
+        await d.db.commit()
+        started = asyncio.Event()
+
+        async def op(conn):
+            await conn.execute("INSERT INTO t (v) VALUES (?)", ("x",))
+            started.set()
+            await asyncio.sleep(10)              # точка отмены
+            return 1
+
+        task = asyncio.ensure_future(d.write_transaction(op, op_name="t"))
+        await started.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        cur = await d.db.execute("SELECT COUNT(*) AS c FROM t")
+        assert (await cur.fetchone())[0] == 0, "отмена → транзакция откатана"
+
+        # Следующий писатель не «подхватывает» незакоммиченные огрызки.
+        async def op2(conn):
+            await conn.execute("INSERT INTO t (v) VALUES (?)", ("y",))
+            return 1
+        assert await d.write_transaction(op2, op_name="t2") == 1
+        cur = await d.db.execute("SELECT v FROM t")
+        assert [r[0] for r in await cur.fetchall()] == ["y"]
+    finally:
+        await d.close()
+
+
 # ── Тест-хук backoff (D7) существует и нулевой в тестах ─────────────────────
 
 def test_zero_backoff_hook_available():

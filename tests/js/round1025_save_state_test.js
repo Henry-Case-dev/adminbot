@@ -181,8 +181,12 @@ function item(key, value, perChat) {
     assert.ok(ctx.toasts.length <= 3, 'одновременно ≤3 тоста');
     assert.ok(ctx.toasts.some(function (t) { return t.kind === 'err'; }),
       'err сохраняется (высший приоритет)');
-    assert.ok(!ctx.toasts.some(function (t) { return t.text === 'ok-2'; }),
-      'лишний ok вытеснен');
+    // L-4 (ревью): вытесняется самый СТАРЫЙ тост того же приоритета,
+    // новый (ok-2) остаётся видимым.
+    assert.ok(ctx.toasts.some(function (t) { return t.text === 'ok-2'; }),
+      'новый ok показан');
+    assert.ok(!ctx.toasts.some(function (t) { return t.text === 'ok-1'; }),
+      'старый ok того же приоритета вытеснен');
   }
 
   // ── 7) _opNotified не растёт на повтор той же операции ────────────────
@@ -245,6 +249,53 @@ function item(key, value, perChat) {
     assert.strictEqual(ctx.toasts.length, 1, 'один итог операции');
     assert.notStrictEqual(ctx.toasts[0].kind, 'ok',
       'частичный провал → warn/err, не ok');
+  }
+
+  // ── 10/11) H-1: saveBlock — частичный провал / полный in-flight ─────────
+  {
+    function blockCtx(persistImpl) {
+      return makeCtx({
+        blockSaving: {},
+        blockDrafts: { a: 1, b: 2 },
+        configItems: [
+          { key: 'a', type: 'int', per_chat: true, title: 'A' },
+          { key: 'b', type: 'int', per_chat: false, title: 'B' },
+        ],
+        persistItems: persistImpl,
+        _preserveScroll: function (fn) { return fn && fn.call(this); },
+        _findConfigItem: methods._findConfigItem,
+      });
+    }
+    const block = { id: 'blk', title: 'Карточка',
+                    fields: [{ key: 'a' }, { key: 'b' }] };
+
+    // (а) частичный провал: chat прошёл, global упал → НЕ «Сохранено».
+    {
+      const ctx = blockCtx(async function () {
+        return { saved: ['a'], failed: [{ key: 'b', reason: '503' }],
+                 skipped: [], revalidated: false, state: 'saved' };
+      });
+      await methods.saveBlock.call(ctx, block);
+      assert.ok(!ctx.toasts.some(function (t) { return t.kind === 'ok'; }),
+        'H-1a: частичный провал НЕ «Сохранено»');
+      assert.ok(ctx.toasts.some(function (t) {
+        return t.kind === 'warn' || t.kind === 'err';
+      }), 'H-1a: показан warn/err с частичным результатом');
+    }
+
+    // (б) полный in-flight-пропуск → НЕ «Сохранено».
+    {
+      const ctx = blockCtx(async function () {
+        return { saved: [], failed: [], skipped: ['a', 'b'],
+                 revalidated: false, state: 'saving', inFlight: true };
+      });
+      await methods.saveBlock.call(ctx, block);
+      assert.ok(!ctx.toasts.some(function (t) { return t.kind === 'ok'; }),
+        'H-1b: полный in-flight НЕ «Сохранено»');
+      assert.ok(ctx.toasts.some(function (t) {
+        return t.kind === 'warn' || t.kind === 'err';
+      }), 'H-1b: показан warn/err о пропуске');
+    }
   }
 
   console.log('ROUND1025-SAVE-STATE-OK');

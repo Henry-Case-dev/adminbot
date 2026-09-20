@@ -156,16 +156,21 @@ def _same_value(a, b) -> bool:
 
 
 def _patch_already_applied(patch: dict, current_root: dict) -> bool:
-    """D-409-1: все значения патча (value-namespace) уже на сервере."""
+    """D-409-1: все значения патча (value-namespace) уже на сервере.
+
+    L-1 (ревью): патч БЕЗ value-namespace (например, meta-only) НЕ считается
+    «уже применённым» — иначе ложный `revalidated` вместо реального конфликта."""
+    compared = False
     for ns in _VALUE_NAMESPACES:
         req = patch.get(ns)
         if not isinstance(req, dict) or not req:
             continue
         cur = current_root.get(ns) or {}
         for key, value in req.items():
+            compared = True
             if key not in cur or not _same_value(cur[key], value):
                 return False
-    return True
+    return compared
 
 
 def _diff_patch(patch: dict, current_root: dict) -> list[dict]:

@@ -2167,8 +2167,18 @@
                       priority: priority[k] || 1, expanded: false };
         var next = existing.concat([entry]);
         var MAX_VISIBLE = 3;
+        // L-4 (ревью): при переполнении вытесняем САМЫЙ СТАРЫЙ тост
+        // наименьшего приоритета (а не только что добавленный — новый виден).
+        while (next.length > MAX_VISIBLE) {
+          var dropIdx = 0;
+          for (var j = 1; j < next.length; j++) {
+            if ((next[j].priority || 1) < (next[dropIdx].priority || 1)) {
+              dropIdx = j;
+            }
+          }
+          next.splice(dropIdx, 1);
+        }
         next.sort(function (a, b) { return (b.priority || 1) - (a.priority || 1); });
-        if (next.length > MAX_VISIBLE) next = next.slice(0, MAX_VISIBLE);
         this.toasts = next;
         setTimeout(function () {
           self.toasts = (self.toasts || []).filter(function (t) {
@@ -3850,6 +3860,7 @@
           return;
         }
         this.blockSaving[b.id] = true;
+        var persistResult = null;
         try {
           // F11: секреты — ТОЛЬКО безопасным путём (по одному), никогда в
           // теле общего запроса. Никакой `keys.*` в items не попадает.
@@ -3860,12 +3871,9 @@
           if (items.length) {
             if (typeof this.persistItems === 'function') {
               // F0.1 (ADR-1025-2 D2): единый write-path — persistItems сам
-              // делает scope-split (chat/global) и guard in-flight; здесь
-              // silent (итоговый тост — по завершении карточки ниже).
-              var res = await this.persistItems(items, { silent: true });
-              if (!res.saved.length && res.failed.length) {
-                throw new Error((res.failed[0] && res.failed[0].key) || 'save');
-              }
+              // делает scope-split и guard in-flight; итог решаем ниже по
+              // РЕАЛЬНОМУ результату (H-1: частичный провал/in-flight ≠ успех).
+              persistResult = await this.persistItems(items, { silent: true });
             } else {
               // Легаси-контекст без единого write-path (юнит-тесты): прежний
               // прямой POST с scope-split по configItems.
@@ -3905,8 +3913,35 @@
               }
             }
           }
-          this.toast('Сохранено: ' + b.title, 'ok');
-          await this._preserveScroll(this.loadConfig);
+          if (persistResult) {
+            // H-1 (ревью): успех ТОЛЬКО если всё сохранено и ничего не
+            // пропущено in-flight; иначе честный warn/err с перечнем.
+            var failedKeys = (persistResult.failed || []).map(function (f) {
+              return f.key;
+            });
+            var skippedKeys = persistResult.skipped || [];
+            var allOk = (persistResult.state === 'saved'
+                         && !failedKeys.length && !skippedKeys.length);
+            if (allOk) {
+              this.toast('Сохранено: ' + b.title, 'ok');
+              await this._preserveScroll(this.loadConfig);
+            } else {
+              var badKeys = failedKeys.concat(skippedKeys);
+              var names = badKeys.map(function (k) {
+                var fi = (typeof self._findConfigItem === 'function')
+                  ? self._findConfigItem(k) : null;
+                return (fi && fi.title) || k;
+              }).join(', ');
+              var savedN = (persistResult.saved || []).length;
+              this.toast('Сохранено ' + savedN + ' из ' + items.length
+                         + '; не сохранено: ' + (names || '—'),
+                         savedN ? 'warn' : 'err');
+              await this._preserveScroll(this.loadConfig);
+            }
+          } else {
+            this.toast('Сохранено: ' + b.title, 'ok');
+            await this._preserveScroll(this.loadConfig);
+          }
         } catch (e) {
           if (e.status === 409 && e.message && e.message.code === 'conflict') {
             this.toast('Конфликт версии (409) — конфигурация обновлена', 'warn');
@@ -5112,10 +5147,11 @@
       // по частичному результату (никогда «success+error» без объяснения).
       notify: function (operationId, result, items) {
         if (operationId) {
-          if (this._opNotified[operationId]) return;
+          // L-3 (ревью): сначала нормализуем хранилище, потом читаем ключ.
           if (!this._opNotified || typeof this._opNotified !== 'object') {
             this._opNotified = {};
           }
+          if (this._opNotified[operationId]) return;
           this._opNotified[operationId] = result || true;
           // F0.4 (ревью): ограничить рост — ленивая очистка по окну тоста,
           // чтобы таблица идемпотентности не росла на каждую операцию.
@@ -8094,8 +8130,10 @@
         return s || (this.dirtyCount ? 'dirty' : 'clean');
       },
       stateLabel: function () {
+        // L-5 (ревью): `saved` — транзиентное состояние, root.saveState его
+        // сейчас не возвращает (после успеха → clean), поэтому ветки нет.
         var map = { clean: '', dirty: 'Есть изменения', saving: 'Сохранение…',
-                    saved: 'Сохранено', error: 'Ошибка сохранения',
+                    error: 'Ошибка сохранения',
                     conflict: 'Конфликт версии' };
         return map[this.saveState] || '';
       },

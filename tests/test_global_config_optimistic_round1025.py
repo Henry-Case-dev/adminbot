@@ -7,6 +7,8 @@
 """
 import types
 
+import json
+
 import pytest
 from fastapi import HTTPException
 
@@ -95,3 +97,26 @@ async def test_no_token_keeps_legacy_shape(cache):
         object(), _payload(44, None), types.SimpleNamespace(id=1))
     assert out == {"updated": [_KEY]}                # форма ответа не менялась
     assert cache.store[_KEY] == 44
+
+
+@pytest.mark.asyncio
+async def test_secret_conflict_does_not_leak_server_value(cache):
+    """M-3 (ревью, R17): 409 по секретному ключу НЕ отдаёт сырое значение."""
+    secret_key = "keys.llm_api_key"
+    cache.store[secret_key] = "SECRET-OLD-VALUE"
+    cache.updated[secret_key] = "t1"
+    payload = types.SimpleNamespace(
+        items=[types.SimpleNamespace(key=secret_key,
+                                     value="SECRET-NEW-VALUE",
+                                     updated_at="stale-token")],
+        updated_at=None)
+    with pytest.raises(HTTPException) as exc:
+        await routes._post_config_global(
+            object(), payload, types.SimpleNamespace(id=1))
+    assert exc.value.status_code == 409
+    item = exc.value.detail["conflicting"][0]
+    assert item["key"] == secret_key
+    assert item["server_value"] is None
+    assert item.get("secret") is True
+    dumped = json.dumps(exc.value.detail)
+    assert "SECRET-OLD-VALUE" not in dumped, "серверное значение не утекло"

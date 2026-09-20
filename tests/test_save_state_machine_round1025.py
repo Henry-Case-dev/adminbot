@@ -152,6 +152,13 @@ def test_patch_already_applied_and_diff():
     assert diff == [{"key": "b", "your_value": 2, "server_value": 3}]
 
 
+def test_patch_already_applied_requires_value_keys():
+    """L-1 (ревью): meta-only патч НЕ считается «уже применённым»."""
+    assert _patch_already_applied(
+        {"meta": {"updated_by": 1}}, {"overrides": {"a": 1}}) is False
+    assert _patch_already_applied({}, {"overrides": {"a": 1}}) is False
+
+
 # ── D-409-1 idempotent short-circuit ────────────────────────────────────────
 
 @pytest.mark.asyncio

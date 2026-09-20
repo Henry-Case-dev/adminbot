@@ -74,7 +74,6 @@ def _lock_resilience_enabled() -> bool:
     return bool(getattr(settings, "DB_LOCK_RESILIENCE_ENABLED", True))
 
 
-_REFRESH_ACTIVE_CAP = 5000       # recalc_chat_users: потолок участников окна
 _SCHEMA_VERSION = 1              # PRAGMA user_version; 0 = до Epic 46 (R46-8)
 _SCHEMA_VERSION_DIRECT_CHAT = 2  # Epic 50 (58.7): user_version 1→2
 _SCHEMA_VERSION_EPIC60 = 3       # Epic 60 (63.3): user_version 2→3
@@ -578,9 +577,10 @@ class DatabaseService:
         изменениях, напр. `touch_graph_facts`). `None` → коммит всегда.
 
         Kill-switch OFF → ровно прежнее поведение: без блокировки и повторов
-        (одна попытка, исключение наружу). НО rollback на исключение делается
-        всегда (OFF-путь тоже) — частичная транзакция не должна оставаться на
-        общем соединении и подхватываться чужой операцией."""
+        (одна попытка, исключение наружу). НО rollback делается на ЛЮБОЕ
+        исключение (включая `BaseException`/`CancelledError`; OFF-путь тоже) —
+        частичная транзакция не должна оставаться на общем соединении и
+        подхватываться чужой операцией."""
         if not _lock_resilience_enabled():
             logger.debug(
                 "database: write_transaction baseline (resilience OFF) | op=%s",
@@ -590,7 +590,9 @@ class DatabaseService:
                 if commit_if is None or commit_if(result):
                     await self.db.commit()
                 return result
-            except Exception:
+            except BaseException:
+                # M-1 (ревью): BaseException (в т.ч. CancelledError) — тоже
+                # откатываем, чтобы огрызки не подхватил следующий писатель.
                 await self._best_effort_rollback(op_name)
                 raise
         attempt = 0
@@ -601,10 +603,11 @@ class DatabaseService:
                     if commit_if is None or commit_if(result):
                         await self.db.commit()
                     return result
-            except Exception as exc:
-                # F0.5 (ревью): rollback на ЛЮБОЕ исключение (и locked, и
-                # прочие) — иначе частичная транзакция остаётся на общем
-                # соединении и может быть закоммичена следующей операцией.
+            except BaseException as exc:
+                # F0.5 (ревью): rollback на ЛЮБОЕ исключение (в т.ч.
+                # BaseException/CancelledError) — иначе частичная транзакция
+                # остаётся на общем соединении и может быть закоммичена
+                # следующей операцией. Retry — только для `locked`.
                 await self._best_effort_rollback(op_name)
                 if not self._is_locked(exc):
                     raise
