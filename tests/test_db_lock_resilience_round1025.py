@@ -205,3 +205,57 @@ async def test_throttle_fail_open_on_exhaustion(no_backoff, monkeypatch):
 def test_zero_backoff_hook_available():
     assert hasattr(dbmod, "_LOCK_BACKOFF")
     assert dbmod._LOCK_RETRIES == 3
+
+
+# ── Ревью item 1: rollback на ЛЮБОЕ исключение (не только locked) ────────────
+
+@pytest.mark.asyncio
+async def test_non_lock_error_rolls_back(no_backoff):
+    d = DatabaseService(":memory:")
+    await d.initialize()
+    try:
+        await d.db.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT)")
+        await d.db.commit()
+
+        async def op(conn):
+            await conn.execute("INSERT INTO t (v) VALUES (?)", ("x",))
+            raise ValueError("boom on 2nd statement")   # не locked
+
+        with pytest.raises(ValueError):
+            await d.write_transaction(op, op_name="t")
+        cur = await d.db.execute("SELECT COUNT(*) AS c FROM t")
+        assert (await cur.fetchone())[0] == 0, "частичная транзакция откатана"
+
+        # Следующий write_transaction не «подхватывает» огрызки.
+        async def op2(conn):
+            await conn.execute("INSERT INTO t (v) VALUES (?)", ("y",))
+            return 1
+        assert await d.write_transaction(op2, op_name="t2") == 1
+        cur = await d.db.execute("SELECT v FROM t")
+        rows = await cur.fetchall()
+        assert [r[0] for r in rows] == ["y"]
+    finally:
+        await d.close()
+
+
+# ── Ревью item 4/5: OFF-путь тоже откатывает транзакцию ─────────────────────
+
+@pytest.mark.asyncio
+async def test_off_path_rolls_back(monkeypatch, no_backoff):
+    monkeypatch.setattr(dbmod, "_lock_resilience_enabled", lambda: False)
+    d = DatabaseService(":memory:")
+    await d.initialize()
+    try:
+        await d.db.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT)")
+        await d.db.commit()
+
+        async def op(conn):
+            await conn.execute("INSERT INTO t (v) VALUES (?)", ("x",))
+            raise ValueError("boom")
+
+        with pytest.raises(ValueError):
+            await d.write_transaction(op, op_name="t")
+        cur = await d.db.execute("SELECT COUNT(*) AS c FROM t")
+        assert (await cur.fetchone())[0] == 0
+    finally:
+        await d.close()

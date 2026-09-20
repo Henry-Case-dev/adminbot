@@ -44,6 +44,10 @@ write-path, поэтому в этом раунде не менялся (Human G
     логической транзакции, коммитит, при `locked` — bounded retry
     (`_LOCK_RETRIES=3`, backoff 0.1/0.2/0.4с, `rollback` перед повтором,
     повтор ВСЕЙ транзакции); исчерпание → WARNING + счётчик + re-raise.
+  - **Ревью-итерация 2:** `rollback` выполняется на **любое** исключение (не
+    только `locked`), включая OFF-путь — частичная транзакция не остаётся на
+    общем соединении и не может быть закоммичена следующей операцией. Провал
+    самого `rollback` логируется на DEBUG (`_best_effort_rollback`).
   - `Database._note_lock_exhausted` + `database_lock_exhausted_total()` +
     `event=database_lock_exhausted`.
   - Обёрнуты `insert_graph_fact` (commit=True), `upsert_bot_reply`,

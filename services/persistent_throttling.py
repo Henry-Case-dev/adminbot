@@ -68,9 +68,21 @@ async def _db_write(db, op, *, op_name: str, chat_id):
     tx = getattr(db, "write_transaction", None)
     if tx is not None:
         return await tx(op, op_name=op_name, chat_id=chat_id)
-    result = await op(db.db)
-    await db.db.commit()
-    return result
+    # Фолбэк на сырой путь — ТОЛЬКО для тестовых двойников без публичного API
+    # (в проде `Database.write_transaction` всегда есть). Не молчаливо.
+    logger.warning(
+        "persistent throttle: write_transaction отсутствует — сырой путь "
+        "(тестовый двойник?) | op=%s", op_name)
+    try:
+        result = await op(db.db)
+        await db.db.commit()
+        return result
+    except Exception:
+        try:
+            await db.db.rollback()
+        except Exception:
+            pass
+        raise
 
 
 class PersistentCooldownTracker:

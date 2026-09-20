@@ -1502,9 +1502,19 @@ class MemoryManager:
             if tx is not None:
                 await tx(_body, op_name="embed_cache_store")
             else:
-                # Фолбэк (тестовые двойники без публичного API).
-                await _body(self.db.db)
-                await self.db.db.commit()
+                # Фолбэк (тестовые двойники без публичного API) — не молчаливо.
+                logger.warning(
+                    "SmartModule: Database.write_transaction отсутствует — "
+                    "сырой путь (тестовый двойник?)")
+                try:
+                    await _body(self.db.db)
+                    await self.db.db.commit()
+                except Exception:
+                    try:
+                        await self.db.db.rollback()
+                    except Exception:
+                        pass
+                    raise
         except Exception:
             logger.warning("SmartModule: embedding cache store failed",
                            exc_info=True)

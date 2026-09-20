@@ -574,11 +574,20 @@ class DatabaseService:
         (fail-open остаётся за вызывающим хендлером — T-2450).
 
         Kill-switch OFF → ровно прежнее поведение: без блокировки и повторов
-        (одна попытка, исключение наружу)."""
+        (одна попытка, исключение наружу). НО rollback на исключение делается
+        всегда (OFF-путь тоже) — частичная транзакция не должна оставаться на
+        общем соединении и подхватываться чужой операцией."""
         if not _lock_resilience_enabled():
-            result = await op(self.db)
-            await self.db.commit()
-            return result
+            logger.debug(
+                "database: write_transaction baseline (resilience OFF) | op=%s",
+                op_name)
+            try:
+                result = await op(self.db)
+                await self.db.commit()
+                return result
+            except Exception:
+                await self._best_effort_rollback(op_name)
+                raise
         attempt = 0
         while True:
             try:
@@ -587,6 +596,10 @@ class DatabaseService:
                     await self.db.commit()
                     return result
             except Exception as exc:
+                # F0.5 (ревью): rollback на ЛЮБОЕ исключение (и locked, и
+                # прочие) — иначе частичная транзакция остаётся на общем
+                # соединении и может быть закоммичена следующей операцией.
+                await self._best_effort_rollback(op_name)
                 if not self._is_locked(exc):
                     raise
                 if attempt >= _LOCK_RETRIES:
@@ -594,11 +607,15 @@ class DatabaseService:
                                               chat_id)
                     raise
                 attempt += 1
-                try:
-                    await self.db.rollback()
-                except Exception:
-                    pass
                 await asyncio.sleep(_LOCK_BACKOFF * (2 ** (attempt - 1)))
+
+    async def _best_effort_rollback(self, op_name: str = "write") -> None:
+        """F0.5: best-effort rollback; провал самого rollback — только debug."""
+        try:
+            await self.db.rollback()
+        except Exception:
+            logger.debug("database: rollback failed (best-effort) | op=%s",
+                         op_name, exc_info=True)
 
     async def initialize(self) -> None:
         """Open connection, create tables, enable WAL mode."""
