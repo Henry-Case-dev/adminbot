@@ -106,6 +106,16 @@ class ConfigCacheUnavailableError(RuntimeError):
     """Операция требует PostgreSQL, но он недоступен (R6 → 503 на уровне API)."""
 
 
+# F0.1 (ADR-1025-2 D-409-3): единый upsert-стейтмент settings (set/set_many).
+_UPSERT_SETTING_SQL = """
+INSERT INTO bot_settings (key, value, category)
+VALUES ($1, $2, $3)
+ON CONFLICT (key) DO UPDATE
+SET value = EXCLUDED.value, category = EXCLUDED.category,
+    updated_at = now()
+"""
+
+
 class ConfigCache:
     """Единый in-memory кэш конфигурации поверх PostgreSQL (asyncpg)."""
 
@@ -523,6 +533,34 @@ class ConfigCache:
     async def upsert(self, key: str, value, category: str) -> None:
         """Синоним set (контракт T-613)."""
         await self.set(key, value, category)
+
+    async def set_many(self, items: list) -> None:
+        """F0.1 (ADR-1025-2 D-409-3): атомарная запись ПАКЕТА bot_settings.
+
+        Вся валидация/коэрция сделана вызывающим ДО. Здесь — одна транзакция
+        (PG) + согласованное обновление in-memory. Устраняет частичную запись
+        глобального пути (`_post_config_global`)."""
+        normalized = [(k, normalize_value(k, v), c) for (k, v, c) in items]
+        async with self._lock:
+            pg_ok = self._pg_available and self._pg.pool is not None
+            if pg_ok:
+                async with self._pg.pool.acquire() as conn:
+                    tx = getattr(conn, "transaction", None)
+                    if tx is not None:
+                        async with tx():
+                            for key, value, category in normalized:
+                                await conn.execute(
+                                    _UPSERT_SETTING_SQL,
+                                    key, json.dumps(value), category)
+                    else:
+                        for key, value, category in normalized:
+                            await conn.execute(
+                                _UPSERT_SETTING_SQL,
+                                key, json.dumps(value), category)
+            for key, value, _category in normalized:
+                self._settings[key] = value
+                self._settings_updated_at.pop(key, None)
+        logger.info("[config_cache] set_many | keys=%d", len(normalized))
 
     # ── RBAC-операции (POST /api/admins|/api/roles) ────────────────────────
 

@@ -561,13 +561,16 @@
     /* Тосты */
     .toast-wrap {
       position: fixed;
-      top: 1rem;
-      right: 1rem;
+      /* F0.4 (ADR-1025-4 D3): safe area — max(env, --tg-content-safe-area-*,
+         --tg-safe-area-*) (образец .fullscreen-mode header ниже). Не
+         перекрываем header/навигацию/селектор области. */
+      top: calc(1rem + max(env(safe-area-inset-top, 0px), var(--tg-content-safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px)));
+      right: calc(1rem + max(env(safe-area-inset-right, 0px), var(--tg-content-safe-area-inset-right, 0px), var(--tg-safe-area-inset-right, 0px)));
       z-index: 60;
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
-      max-width: 340px;
+      max-width: min(340px, calc(100vw - 2rem));
     }
     .toast {
       padding: 0.7rem 1rem;
@@ -576,6 +579,29 @@
       animation: toast-in 0.25s ease;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
       border: var(--card-border);
+    }
+    /* F0.4 (ADR-1025-4 D2): длинная ошибка не «заливает» мобильную страницу —
+       показываем компактно + «Подробнее» (раскрытие). */
+    .toast-text--long {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .toast-text--long.is-open {
+      -webkit-line-clamp: unset;
+      overflow: auto;
+      max-height: 40vh;
+    }
+    .toast-more {
+      margin-top: 0.35rem;
+      padding: 0;
+      background: transparent;
+      border: none;
+      color: inherit;
+      font: inherit;
+      text-decoration: underline;
+      cursor: pointer;
     }
     @keyframes toast-in {
       from { opacity: 0; transform: translateY(-8px); }

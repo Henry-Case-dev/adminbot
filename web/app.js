@@ -979,6 +979,15 @@
         // S10.20-6: список полей, которые НЕ удалось сохранить sticky-панелью
         // (ошибка/409) — baseline НЕ сдвигается, панель подсвечивает провалы.
         stickyFailed: [],
+        // F0 (10.25, ADR-1025-2 D1): реальный 409 с непустым conflicting[] —
+        // отдельное состояние формы `conflict` (черновик НЕ сбрасывается).
+        stickyConflict: [],
+        // F0 (10.25, ADR-1025-4 D1): типобезопасные id тостов и операций;
+        // _opNotified — идемпотентность notify(operationId, …) (один тост на
+        // операцию); _toastSeq — стабильный уникальный id тоста.
+        _toastSeq: 0,
+        _opSeq: 0,
+        _opNotified: {},
         // UI-полировка TMA: meAvatarUrl — URL аватара текущего юзера (blob
         // через same-origin прокси avatarUrl; S10.16-8: без внешнего CDN) и
         // флаг полноэкранного режима TMA (кнопка ⛶ в шапке). Кэш blob-URL —
@@ -1641,6 +1650,18 @@
       stickyDirtyCount: function () {
         return (this.dirtyItems || []).length + (this.dirtyKeyItems || []).length;
       },
+      // F0 (10.25, ADR-1025-2 D1): ЕДИНОЕ вычисляемое состояние формы —
+      // loading | saving | error | conflict | dirty | clean (не набор флагов).
+      // Визуальный слой SaveBar читает его (F0/F9), не дублирует логику.
+      saveState: function () {
+        if (this.configLoading) return 'loading';
+        if (this.stickySaving) return 'saving';
+        if (this.saving && this.saving.size > 0) return 'saving';
+        if (this.stickyConflict && this.stickyConflict.length) return 'conflict';
+        if (this.stickyFailed && this.stickyFailed.length) return 'error';
+        if (this.stickyDirtyCount > 0) return 'dirty';
+        return 'clean';
+      },
       // ── Раунд 10.20 (БЛОК 3.3/T-1897): модель «Живой ленты досье» ──
       // Дублирование для seamless-скролла (тот же приём, что у лент
       // «Осмысления»/_ribbonLoop) + подпись чата из oversight-кэша.
@@ -2123,11 +2144,29 @@
       },
 
       toast: function (text, kind) {
+        // F0.4 (ADR-1025-4 D1/D3): стабильный id, дедуп (текст+kind) в окне,
+        // очередь ≤3 с приоритетом err>warn>ok. Сигнатура обратно совместима.
+        if (this._suppressToast) return;
+        if (text == null) return;
         var self = this;
-        var id = Date.now() + Math.random();
-        this.toasts.push({ id: id, text: text, kind: kind || 'ok' });
+        var k = kind || 'ok';
+        var existing = this.toasts || [];
+        for (var i = 0; i < existing.length; i++) {
+          if (existing[i].text === text && existing[i].kind === k) return;
+        }
+        var priority = { err: 3, warn: 2, ok: 1 };
+        var id = 'ts' + (++this._toastSeq);
+        var entry = { id: id, text: String(text), kind: k,
+                      priority: priority[k] || 1, expanded: false };
+        var next = existing.concat([entry]);
+        var MAX_VISIBLE = 3;
+        next.sort(function (a, b) { return (b.priority || 1) - (a.priority || 1); });
+        if (next.length > MAX_VISIBLE) next = next.slice(0, MAX_VISIBLE);
+        this.toasts = next;
         setTimeout(function () {
-          self.toasts = self.toasts.filter(function (t) { return t.id !== id; });
+          self.toasts = (self.toasts || []).filter(function (t) {
+            return t.id !== id;
+          });
         }, 4200);
       },
 
@@ -3172,24 +3211,46 @@
         this.stickySaving = true;
         // S10.20-6: собираем провалы; baseline сдвигаем ТОЛЬКО если всё
         // сохранилось — иначе ошибка «благословлялась» бы как новая норма.
+        // F0.4 (ADR-1025-4 D1): ОДНО итоговое уведомление на операцию —
+        // значения пишет persistItems (silent), секреты — saveKeyItem(silent),
+        // итог озвучивается ниже один раз.
         var failed = [];
+        var total = dirty.length + keys.length;
         try {
-          for (var i = 0; i < dirty.length; i++) {
-            var ok = await this.saveConfigItem(dirty[i]);
-            if (ok === false) failed.push(dirty[i].title || dirty[i].key);
-          }
-          for (var j = 0; j < keys.length; j++) {
-            var okKey = await this.saveKeyItem(keys[j]);
-            if (okKey === false) failed.push(keys[j].title || keys[j].key);
+          if (typeof this.persistItems === 'function') {
+            if (dirty.length) {
+              var res = await this.persistItems(dirty, {
+                operationId: 'sticky-' + (++this._opSeq), silent: true,
+              });
+              for (var i = 0; i < res.failed.length; i++) {
+                var fi = this._findConfigItem(res.failed[i].key);
+                failed.push((fi && fi.title) || res.failed[i].key);
+              }
+            }
+            for (var j = 0; j < keys.length; j++) {
+              var okKey = await this.saveKeyItem(keys[j], true);
+              if (okKey === false) failed.push(keys[j].title || keys[j].key);
+            }
+          } else {
+            // Легаси-контекст (юнит-тесты) без единого write-path: поштучно.
+            for (var i2 = 0; i2 < dirty.length; i2++) {
+              var ok = await this.saveConfigItem(dirty[i2]);
+              if (ok === false) failed.push(dirty[i2].title || dirty[i2].key);
+            }
+            for (var j2 = 0; j2 < keys.length; j2++) {
+              var okKey2 = await this.saveKeyItem(keys[j2]);
+              if (okKey2 === false) failed.push(keys[j2].title || keys[j2].key);
+            }
           }
           if (failed.length) {
             this.stickyFailed = failed;
-            this.toast('Не сохранено (' + failed.length + '): ' +
-                       failed.join(', '), 'err');
+            this.toast('Сохранено ' + (total - failed.length) + ' из ' +
+                       total + '; не сохранено: ' + failed.join(', '),
+                       failed.length === total ? 'err' : 'warn');
           } else {
             this.stickyFailed = [];
             this._snapshotConfig();
-            this.toast('Изменения сохранены (' + (dirty.length + keys.length) + ')', 'ok');
+            this.toast('Изменения сохранены (' + total + ')', 'ok');
           }
         } finally {
           this.stickySaving = false;
@@ -3743,7 +3804,9 @@
           }
           // MINOR-3: `draft == null` = «не трогать»; `''` (пусто) = очистить.
           if (draft == null) return;
-          if (draft === '') { items.push({ key: f.key, value: '' }); return; }
+          var perChat = it ? it.per_chat : undefined;
+          if (draft === '') { items.push({ key: f.key, value: '',
+                                           per_chat: perChat }); return; }
           var v = draft;
           if (it && it.type === 'int') v = parseInt(v, 10);
           else if (it && it.type === 'float') v = parseFloat(v, 10);
@@ -3752,7 +3815,7 @@
             self.toast('Некорректное значение: ' + f.key, 'err');
             return;
           }
-          items.push({ key: f.key, value: v });
+          items.push({ key: f.key, value: v, per_chat: perChat });
         });
         if (!items.length && !secrets.length) {
           this.toast('Нет изменений', 'warn');
@@ -3767,37 +3830,52 @@
                                           { scope: 'global' });
           }
           if (items.length) {
-          // Раунд 10.12 (ADR-1012-1 D2): глобальные (per_chat=false) ключи
-          // сохраняются БЕЗ X-Chat-Id (иначе 422). Смешанный случай — два
-          // последовательных запроса (chat + global).
-          function isGlobalKey(k) {
-            var spec = self.configItems.find(function (i) { return i.key === k; });
-            return !!(spec && spec.per_chat === false);
-          }
-          var globalItems = items.filter(function (i) { return isGlobalKey(i.key); });
-          var chatItems = items.filter(function (i) { return !isGlobalKey(i.key); });
-          if (globalItems.length && chatItems.length) {
-            await this.api('/api/config', {
-              method: 'POST',
-              body: JSON.stringify({ items: chatItems,
-                                     updated_at: this.configChatUpdatedAt }),
-            });
-            await this.api('/api/config', {
-              method: 'POST',
-              body: JSON.stringify({ items: globalItems }),
-              global: true,
-            });
-          } else {
-            var allGlobal = globalItems.length > 0;
-            await this.api('/api/config', {
-              method: 'POST',
-              body: JSON.stringify({
-                items: items,
-                updated_at: allGlobal ? null : this.configChatUpdatedAt,
-              }),
-              global: allGlobal,
-            });
-          }
+            if (typeof this.persistItems === 'function') {
+              // F0.1 (ADR-1025-2 D2): единый write-path — persistItems сам
+              // делает scope-split (chat/global) и guard in-flight; здесь
+              // silent (итоговый тост — по завершении карточки ниже).
+              var res = await this.persistItems(items, { silent: true });
+              if (!res.saved.length && res.failed.length) {
+                throw new Error((res.failed[0] && res.failed[0].key) || 'save');
+              }
+            } else {
+              // Легаси-контекст без единого write-path (юнит-тесты): прежний
+              // прямой POST с scope-split по configItems.
+              function isGlobalKey(k) {
+                var spec = self.configItems.find(function (i) {
+                  return i.key === k;
+                });
+                return !!(spec && spec.per_chat === false);
+              }
+              var globalItems = items.filter(function (i) {
+                return isGlobalKey(i.key);
+              });
+              var chatItems = items.filter(function (i) {
+                return !isGlobalKey(i.key);
+              });
+              if (globalItems.length && chatItems.length) {
+                await this.api('/api/config', {
+                  method: 'POST',
+                  body: JSON.stringify({ items: chatItems,
+                                         updated_at: this.configChatUpdatedAt }),
+                });
+                await this.api('/api/config', {
+                  method: 'POST',
+                  body: JSON.stringify({ items: globalItems }),
+                  global: true,
+                });
+              } else {
+                var allGlobal = globalItems.length > 0;
+                await this.api('/api/config', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    items: items,
+                    updated_at: allGlobal ? null : this.configChatUpdatedAt,
+                  }),
+                  global: allGlobal,
+                });
+              }
+            }
           }
           this.toast('Сохранено: ' + b.title, 'ok');
           await this._preserveScroll(this.loadConfig);
@@ -3806,7 +3884,7 @@
             this.toast('Конфликт версии (409) — конфигурация обновлена', 'warn');
             this._preserveScroll(this.loadConfig);
           } else {
-            this.toast('Ошибка сохранения: ' + e.message, 'err');
+            this.toast('Ошибка сохранения: ' + (e.message || e), 'err');
           }
         } finally {
           this.blockSaving[b.id] = false;
@@ -4395,7 +4473,7 @@
       // автосейв). Review iter1 (High): сохраняем по факту СМЕНЫ режима
       // (promptMode !== mode), а не по `item.value !== mode` — иначе селект
       // (аргумент = текущее item.value) никогда не сохранялся.
-      selectPromptMode: function (mode) {
+      selectPromptMode: async function (mode) {
         if (!mode) return;
         mode = String(mode);
         var changed = this.promptMode !== mode;
@@ -4403,7 +4481,7 @@
         var item = this.promptDefaultModeItem();
         if (item && changed && this.canEditConfig(item.key)) {
           item.value = mode;
-          this.saveConfigItem(item);
+          await this.saveConfigItem(item);
         }
       },
       // F6 (10.24, ADR-1024-10, review iter1): таб в V2 ТОЛЬКО переключает
@@ -4417,13 +4495,15 @@
       // Единственная точка записи ключа prompts.verbilizer_default_mode из V2:
       // вызывается только шапочным дропдауном по @change. v-model уже обновил
       // item.value; синхронизируем редактируемый режим и сохраняем ключ.
-      savePromptFallbackMode: function () {
+      savePromptFallbackMode: async function () {
         var item = this.promptDefaultModeItem();
         if (!item) return;
         var value = String(item.value == null ? '' : item.value);
         var allowed = this.promptModeTabs.map(function (t) { return t.id; });
         if (allowed.indexOf(value) >= 0) this.promptMode = value;
-        if (this.canEditConfig(item.key)) this.saveConfigItem(item);
+        // F0.1: await + guard in-flight внутри saveConfigItem — двойной тап
+        // дропдауна НЕ порождает второй POST.
+        if (this.canEditConfig(item.key)) await this.saveConfigItem(item);
       },
       // F6 (10.24, ADR-1024-10 D1): условие аккордеона на «Промптах».
       // V2 ON → всегда false (advanced-элементы идут в общий grid через
@@ -4522,12 +4602,21 @@
         }
       },
       clicheStatusLabel: function () {
+        // F0.3 (ADR-1025-3 D3): честные статусы; «нет новых» ≠ ошибка модели.
         var map = { ok: 'актуален', parse_error: 'ошибка разбора',
-                    fetch_error: 'ошибка загрузки', llm_error: 'ошибка модели',
-                    budget_skip: 'пропуск по бюджету', empty: 'пустой результат',
-                    disabled: 'отключён', never: 'ещё не обновлялся' };
+                    fetch_error: 'ошибка загрузки',
+                    llm_error: 'ошибка провайдера',
+                    budget_skip: 'пропуск по бюджету',
+                    empty: 'новых нет (успех)', no_new: 'новых нет (успех)',
+                    disabled: 'отключён', never: 'ещё не обновлялся',
+                    fresh: 'актуален (кэш свежий)' };
         var st = (this.clicheMeta && this.clicheMeta.last_status) || 'never';
         return map[st] || st;
+      },
+      // F0.3 (ADR-1025-3 D1): «за обновление ≤ K» — размер партии (per_run),
+      // отдельно от вместимости (max_patterns).
+      clichePerRun: function () {
+        return (this.clicheMeta && this.clicheMeta.per_run) || 0;
       },
       formatClicheDate: function (iso) {
         if (!iso) return '—';
@@ -4980,7 +5069,184 @@
         return 'text';
       },
 
+      // F0 (10.25, ADR-1025-2 D1): поиск конфиг-элемента по ключу (для
+      // заголовков уведомлений / сравнения черновика с сервером).
+      _findConfigItem: function (key) {
+        var items = this.configItems || [];
+        for (var i = 0; i < items.length; i++) {
+          if (items[i] && items[i].key === key) return items[i];
+        }
+        return null;
+      },
+
+      // F0 (10.25, ADR-1025-4 D1): ОДНО итоговое уведомление на операцию.
+      // Идемпотентен по operationId (повтор — игнор). ok/warn/err —
+      // по частичному результату (никогда «success+error» без объяснения).
+      notify: function (operationId, result, items) {
+        if (operationId) {
+          if (this._opNotified[operationId]) return;
+          this._opNotified[operationId] = result || true;
+        }
+        var res = result || {};
+        var saved = res.saved || [];
+        var failed = res.failed || [];
+        var total = saved.length + failed.length;
+        var self = this;
+        var titleOf = function (key) {
+          var it = self._findConfigItem(key);
+          return (it && it.title) ? it.title : key;
+        };
+        if (!failed.length) {
+          if (saved.length === 1) {
+            this.toast('Сохранено: ' + titleOf(saved[0]), 'ok');
+          } else if (saved.length > 1) {
+            this.toast('Сохранено: ' + saved.length + ' из ' + total, 'ok');
+          }
+          return;
+        }
+        var names = failed.map(function (f) {
+          return titleOf(f.key);
+        }).join(', ');
+        if (saved.length) {
+          this.toast('Сохранено ' + saved.length + ' из ' + total +
+                     '; не сохранено: ' + names, 'warn');
+        } else {
+          this.toast('Не сохранено: ' + names, 'err');
+        }
+      },
+
+      // F0 (10.25, ADR-1025-2 D2): ЕДИНАЯ точка сохранения.
+      // items, {reason, operationId, silent} → OperationResult
+      // {saved:[key], failed:[{key,reason,conflicting}], revalidated, state}.
+      // Guard in-flight по ключу (двойной тап = один запрос); scope-split
+      // (chat/global — отдельные POST); токен обязателен для chat (RC-6);
+      // 409-recovery — один re-read + сравнение, без авто-retry.
+      persistItems: async function (items, opts) {
+        opts = opts || {};
+        var self = this;
+        var operationId = opts.operationId || ('op-' + (++this._opSeq));
+        // Защита от «минимального» контекста (юнит-тесты вызывают методы
+        // напрямую): недостающие хелперы/Set не должны ронять запись.
+        var saving = this.saving;
+        if (!saving || typeof saving.has !== 'function') {
+          saving = this.saving = new Set();
+        }
+        var serialize = (typeof this._serializeValue === 'function')
+          ? this._serializeValue
+          : function (v) { return JSON.stringify(v); };
+        var inScope = (typeof this._scopeGuard === 'function')
+          ? function (ep) { return self._scopeGuard(ep); }
+          : function () { return true; };
+        var list = (items || []).filter(Boolean);
+        var drafts = {};
+        var chatItems = [];
+        var globalItems = [];
+        for (var i = 0; i < list.length; i++) {
+          var it = list[i];
+          if (!it || it.key == null) continue;
+          drafts[it.key] = serialize(it.value);
+          if (saving.has(it.key)) continue;           // guard in-flight
+          saving.add(it.key);
+          if (it.per_chat === false) globalItems.push(it);
+          else chatItems.push(it);
+        }
+        // RC-6: chat-scope с null-токеном (сменили scope) — сначала loadConfig.
+        if (chatItems.length && this.configChatUpdatedAt == null) {
+          try { await this.loadConfig(); } catch (e) { /* fail-open */ }
+        }
+        var saved = [];
+        var failed = [];
+        var revalidated = false;
+        var groups = [];
+        if (chatItems.length) groups.push({ items: chatItems, isGlobal: false });
+        if (globalItems.length) groups.push({ items: globalItems, isGlobal: true });
+        for (var g = 0; g < groups.length; g++) {
+          var grp = groups[g];
+          var epoch = this.scopeEpoch;
+          var body = {
+            items: grp.items.map(function (x) {
+              return { key: x.key, value: x.value };
+            }),
+            updated_at: grp.isGlobal ? null : this.configChatUpdatedAt,
+          };
+          try {
+            var resp = await this.api('/api/config', {
+              method: 'POST',
+              body: JSON.stringify(body),
+              global: grp.isGlobal,
+            });
+            if (!inScope(epoch)) continue;            // устаревший scope
+            if (resp && resp.revalidated) revalidated = true;
+            if (resp && resp.updated_at && !grp.isGlobal) {
+              this.configChatUpdatedAt = resp.updated_at;
+            }
+            for (var s = 0; s < grp.items.length; s++) {
+              saved.push(grp.items[s].key);
+            }
+          } catch (e) {
+            var isConflict = (e.status === 409 && e.message
+                              && e.message.code === 'conflict');
+            var conflicting = isConflict
+              ? (e.message.conflicting || []) : [];
+            for (var f = 0; f < grp.items.length; f++) {
+              failed.push({
+                key: grp.items[f].key,
+                reason: isConflict ? 'conflict' : (e.message || 'error'),
+                conflicting: conflicting,
+              });
+            }
+          } finally {
+            for (var d = 0; d < grp.items.length; d++) {
+              saving.delete(grp.items[d].key);
+            }
+          }
+        }
+        // §2.3 409-recovery: без авто-retry; один re-read + сравнение.
+        var conflictFailed = failed.filter(function (f) {
+          return f.reason === 'conflict';
+        });
+        if (conflictFailed.length) {
+          try { await this.loadConfig(); } catch (e) { /* fail-open */ }
+          var stillFailed = [];
+          for (var r = 0; r < conflictFailed.length; r++) {
+            var cf = conflictFailed[r];
+            var serverItem = (typeof this._findConfigItem === 'function')
+              ? this._findConfigItem(cf.key) : null;
+            var serverVal = serverItem ? serialize(serverItem.value) : null;
+            if (serverVal != null && serverVal === drafts[cf.key]) {
+              saved.push(cf.key);                     // выполнено после проверки
+              revalidated = true;
+            } else {
+              stillFailed.push(cf);
+            }
+          }
+          failed = failed.filter(function (f) {
+            return f.reason !== 'conflict';
+          }).concat(stillFailed);
+          this.stickyConflict = stillFailed.map(function (f) {
+            return f.key;
+          });
+        } else {
+          this.stickyConflict = [];
+        }
+        var state = failed.length ? (saved.length ? 'saved' : 'error')
+                                  : 'saved';
+        var result = {
+          saved: saved, failed: failed, revalidated: revalidated,
+          state: state, operationId: operationId,
+        };
+        if (!opts.silent && typeof this.notify === 'function') {
+          this.notify(operationId, result, list);
+        }
+        return result;
+      },
+
       saveConfigItem: async function (item) {
+        // F0.1: guard in-flight по ключу (двойной тап = один запрос).
+        if (!item || item.key == null) return false;
+        if (this.saving && this.saving.has && this.saving.has(item.key)) {
+          return false;
+        }
         var value = item.value;
         if (item.type === 'json') {
           // 3.5.1: json без widget редактируется текстом JSON → парсим.
@@ -5020,11 +5286,21 @@
           this.toast('Промпт не может быть пустым: ' + item.title, 'err');
           return false;
         }
-        this.saving.add(item.key);
+        if (typeof this.persistItems === 'function') {
+          // F0.1: единая точка сохранения (guard in-flight и scope-split —
+          // внутри; здесь атомарный одиночный ключ).
+          var res = await this.persistItems([{ key: item.key, value: value,
+                                               per_chat: item.per_chat }]);
+          if (res.saved.indexOf(item.key) >= 0) {
+            await this._preserveScroll(this.loadConfig);
+            return true;
+          }
+          // S10.20-6: неуспех → false (sticky-панель НЕ сдвигает baseline).
+          return false;
+        }
+        // Легаси-контекст без единого write-path (юнит-тесты): прежний путь.
+        var isGlobal = item.per_chat === false;
         try {
-          // Раунд 10.12 (ADR-1012-1 D2): per_chat=false → глобальный путь
-          // (без X-Chat-Id), иначе 422 «ключ нельзя переносить на уровень чата».
-          var isGlobal = item.per_chat === false;
           await this.api('/api/config', {
             method: 'POST',
             body: JSON.stringify({
@@ -5037,20 +5313,10 @@
           await this._preserveScroll(this.loadConfig);
           return true;
         } catch (e) {
-          if (e.status === 409 && e.message && e.message.code === 'conflict') {
-            this.toast('Конфликт версии (409) — конфигурация обновлена', 'warn');
-            this._preserveScroll(this.loadConfig);
-          } else {
-            this.toast('Ошибка сохранения: ' + e.message, 'err');
-          }
-          // S10.20-6: неуспех возвращает false — sticky-панель НЕ сдвигает
-          // baseline и подсвечивает поле как несохранённое.
+          this.toast('Ошибка сохранения: ' + (e.message || e), 'err');
           return false;
-        } finally {
-          this.saving.delete(item.key);
         }
       },
-
       // ФИКС 2026-09-03: статус ключа единой функцией — сервер отдаёт
       // {configured, last4} (без права на значение) ЛИБО саму строку
       // (право на значение/админ) — обе формы считаются «настроен»,
@@ -5070,18 +5336,14 @@
       isSecretMask: function (v) { return isSecretMask(v); },
       // UPD3-fix: композит `маска+ввод` тоже должен распознаваться как маска.
       hasSecretMask: function (v) { return hasSecretMask(v); },
-      saveKeyItem: async function (item) {
+      saveKeyItem: async function (item, silent) {
         var value = (this.keyDrafts[item.key] || '').trim();
-        // UPD3-fix/R31: маска/композит → no-op (0 POST), без «отрезания».
-        if (hasSecretMask(value)) { this.toast(SECRET_MASK_HINT, 'warn'); return false; }
-        if (!value) { this.toast('Введите новый ключ', 'warn'); return false; }
+        var isGlobal = item.per_chat === false;
+        if (hasSecretMask(value)) { if (!silent) this.toast(SECRET_MASK_HINT, 'warn'); return false; }
+        if (!value) { if (!silent) this.toast('Введите новый ключ', 'warn'); return false; }
         this.saving.add(item.key);
         try {
-          // F11: image-ключ — safe-эндпоинт.
-          if (item.key === 'keys.image_api_key') {
-            return await this.saveImageKeyItem(item, value);
-          }
-          var isGlobal = item.per_chat === false;
+          if (item.key === 'keys.image_api_key') { return await this.saveImageKeyItem(item, value); }
           await this.api('/api/config', {
             method: 'POST',
             body: JSON.stringify({
@@ -5091,12 +5353,12 @@
             global: isGlobal,
           });
           this.keyDrafts[item.key] = '';
-          this.toast('Ключ обновлён: ' + item.title, 'ok');
+          if (!silent) this.toast('Ключ обновлён: ' + item.title, 'ok');
           await this._preserveScroll(this.loadConfig);
           if (typeof this._seedSecretMasks === 'function') this._seedSecretMasks();
           return true;
         } catch (e) {
-          this.toast('Ошибка: ' + e.message, 'err');
+          if (!silent) this.toast('Ошибка: ' + e.message, 'err');
           return false;                          // S10.20-6
         } finally {
           this.saving.delete(item.key);

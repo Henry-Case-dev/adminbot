@@ -409,8 +409,9 @@
                     ручная правка применяется сразу.
                   </div>
                   <div class="text-xs text-gray-400 mb-2">
-                    паттернов: {{ (clicheMeta && clicheMeta.count) || 0 }}
-                    / {{ (clicheMeta && clicheMeta.max_patterns) || 0 }}
+                    сохранено {{ (clicheMeta && clicheMeta.count) || 0 }}
+                    / вместимость {{ (clicheMeta && clicheMeta.max_patterns) || 0 }};
+                    за обновление ≤ {{ clichePerRun() }}
                   </div>
                   <!-- F7 (10.24, ADR-1024-3 D1): регулируемый лимит паттернов
                        (каталоговый ключ limits.anticliche_max_patterns):
@@ -3510,10 +3511,17 @@
       </div>
     </div>
 
-    <!-- Тосты -->
+    <!-- Тосты (F0.4: дедуп/очередь в app.js; safe area — app.css) -->
     <div class="toast-wrap">
       <div v-for="toast in toasts" :key="toast.id" class="toast" :class="'toast-' + toast.kind">
-        {{ toast.text }}
+        <span class="toast-text"
+              :class="{ 'toast-text--long': (toast.text || '').length > 120,
+                        'is-open': toast.expanded }">{{ toast.text }}</span>
+        <button v-if="(toast.text || '').length > 120" type="button"
+                class="toast-more"
+                @click="toast.expanded = !toast.expanded">
+          {{ toast.expanded ? 'Свернуть' : 'Подробнее' }}
+        </button>
       </div>
     </div>
   </div>

@@ -618,12 +618,18 @@ async def post_config(
         raise HTTPException(
             status_code=409,
             detail={"code": "conflict",
-                    "current_updated_at": exc.current_updated_at})
-    logger.info("[api] config chat updated | chat=%s | keys=%d | by=%s",
-                chat_id, len(patch_overrides), user.id)
+                    "current_updated_at": exc.current_updated_at,
+                    "conflicting": getattr(exc, "conflicting", []) or [],
+                    "applied": []})
+    logger.info("[api] config chat updated | chat=%s | keys=%d | by=%s | "
+                "revalidated=%s",
+                chat_id, len(patch_overrides), user.id,
+                bool(getattr(new_root, "revalidated", False)))
     return {"updated": sorted(patch_overrides),
             "chat_id": chat_id,
-            "updated_at": await chat_params.get_chat_updated_at(chat_id)}
+            "revalidated": bool(getattr(new_root, "revalidated", False)),
+            "updated_at": (getattr(new_root, "updated_at", None)
+                           or await chat_params.get_chat_updated_at(chat_id))}
 
 
 @api_router.get("/config/params-meta")
@@ -881,7 +887,9 @@ async def delete_chat_param(
         raise HTTPException(
             status_code=409,
             detail={"code": "conflict",
-                    "current_updated_at": exc.current_updated_at})
+                    "current_updated_at": exc.current_updated_at,
+                    "conflicting": getattr(exc, "conflicting", []) or [],
+                    "applied": []})
     logger.info("[api] chat param reset | chat=%s | key=%s | by=%s",
                 chat_id, key, user.id)
     return {"reset": key, "chat_id": chat_id}
@@ -889,9 +897,18 @@ async def delete_chat_param(
 
 async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
                               user: WebAppUser) -> dict:
-    """Старый глобальный путь (no X-Chat-Id) — без изменений ровно."""
+    """Глобальный путь (no X-Chat-Id).
+
+    F0.1 (ADR-1025-2 D-409-3): ДВА прохода — сперва ПОЛНАЯ валидация всего
+    пакета (права/типизация/опции/промпты), затем АТОМАРНАЯ запись через
+    `cache.set_many` (одна транзакция). Ранее запись шла по одному ключу в
+    цикле — ошибка в середине давала частичную запись."""
     cache: ConfigCache = get_cache(request)
-    updated = []
+    if not cache.pg_available:
+        raise HTTPException(status_code=503,
+                            detail="PostgreSQL недоступен (R6)")
+    prepared: list[tuple[str, object, str]] = []
+    # ── Проход 1: валидация ВСЕГО пакета ДО любой записи ───────────────────
     for item in payload.items:
         spec = get_by_pg_key(item.key)
         if spec is None or spec.category is None:
@@ -904,9 +921,6 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
         if not allowed:
             raise HTTPException(status_code=403,
                                 detail=f"нет права на {item.key}")
-        if not cache.pg_available:
-            raise HTTPException(status_code=503,
-                                detail="PostgreSQL недоступен (R6)")
         try:
             value = _coerce_value(spec, item.value)
         except ValueError as exc:
@@ -923,9 +937,20 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
                 raise HTTPException(
                     status_code=422,
                     detail=f"{item.key}: промпт не может быть пустым")
-        await cache.set(item.key, value, spec.category)
-        updated.append(item.key)
-        logger.info("[api] config updated | key=%s | by=%s", item.key, user.id)
+        prepared.append((item.key, value, spec.category))
+    if not prepared:
+        raise HTTPException(status_code=422, detail="items пуст")
+    # ── Проход 2: атомарная запись пакета ──────────────────────────────────
+    set_many = getattr(cache, "set_many", None)
+    if set_many is not None:
+        await set_many(prepared)
+    else:
+        # Совместимость с лёгкими кэшами-двойниками (юнит-тесты) без пакета.
+        for key, value, category in prepared:
+            await cache.set(key, value, category)
+    updated = [key for key, _value, _category in prepared]
+    for key in updated:
+        logger.info("[api] config updated | key=%s | by=%s", key, user.id)
     # R10.9-4 (F5 round1014): смена base_url/model/key → health переспрашивается.
     _invalidate_provider_health(updated)
     return {"updated": updated}

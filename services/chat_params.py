@@ -47,14 +47,34 @@ class ChatParamsConflict(Exception):
     """Рассинхрон optimistic-метки (0 строк) либо профиля нет вовсе.
 
     current_updated_at — ISO-строка или None (профиля нет) → API 409.
+    conflicting — F0.1 (ADR-1025-2 D4/D-409-4): список реально конфликтующих
+    ключей `[{key, your_value, server_value}]` (пусто — конфликт без разницы
+    значений, напр. профиля нет).
     """
 
-    def __init__(self, chat_id: int, current_updated_at: str | None):
+    def __init__(self, chat_id: int, current_updated_at: str | None,
+                 conflicting=None):
         self.chat_id = chat_id
         self.current_updated_at = current_updated_at
+        self.conflicting = list(conflicting or [])
         super().__init__(
             f"chat_params conflict: chat_id={chat_id} "
             f"current_updated_at={current_updated_at}")
+
+
+class ChatParamsResult(dict):
+    """F0.1 (ADR-1025-2 D4): результат записи chat_params с признаком
+    идемпотентного short-circuit (`revalidated=True`) и актуальной меткой.
+
+    Наследник dict → полная обратная совместимость со всеми вызывающими
+    (они читают root как обычный словарь); `revalidated`/`updated_at` —
+    аддитивные атрибуты."""
+
+    def __init__(self, mapping, *, revalidated: bool = False,
+                 updated_at: str | None = None):
+        super().__init__(mapping)
+        self.revalidated = revalidated
+        self.updated_at = updated_at
 
 
 SELECT_PROFILE_SQL = (
@@ -85,6 +105,72 @@ INSERT_SCOPE_PROFILE_SQL = (
     "(chat_id, auto_enabled, is_active, chat_params, gates_opt_in) "
     "VALUES ($1, $2, $3, $4::jsonb, $5) ON CONFLICT (chat_id) DO NOTHING"
 )
+# F0.1 (ADR-1025-2 D-409-2): межпроцессная сериализация мутаций профиля —
+# PG advisory-lock на chat_id (транзакционный, снимается на commit/rollback).
+ADVISORY_LOCK_SQL = "SELECT pg_advisory_xact_lock(hashtext($1))"
+
+# F0.1 (ADR-1025-2 D-409-2): in-process сериализация мутаций профиля по
+# chat_id (эквивалент для одного воркера; с PG advisory-lock — для многих).
+_VALUE_NAMESPACES = ("overrides", "gates", "keys", "perm_overrides")
+_chat_write_locks: dict[int, asyncio.Lock] = {}
+_chat_write_locks_guard = asyncio.Lock()
+
+
+async def _chat_write_lock(chat_id: int) -> asyncio.Lock:
+    """Лок per-chat для сериализации мутаций профиля (F0.1 D-409-2)."""
+    async with _chat_write_locks_guard:
+        lock = _chat_write_locks.get(chat_id)
+        if lock is None:
+            if len(_chat_write_locks) >= 1024:
+                # soft-cap (F0): редкий случай — не растим память бесконечно.
+                _chat_write_locks.clear()
+            lock = asyncio.Lock()
+            _chat_write_locks[chat_id] = lock
+    return lock
+
+
+def _same_value(a, b) -> bool:
+    """D-409-1: значения совпадают (числа — c приведением int/float).
+
+    bool сопоставляется только с bool (True ≠ 1), чтобы revalidation не
+    «склеивал» разные типы каталога."""
+    if isinstance(a, bool) or isinstance(b, bool):
+        return a is b
+    if a == b:
+        return True
+    if (isinstance(a, (int, float)) and isinstance(b, (int, float))):
+        return float(a) == float(b)
+    return False
+
+
+def _patch_already_applied(patch: dict, current_root: dict) -> bool:
+    """D-409-1: все значения патча (value-namespace) уже на сервере."""
+    for ns in _VALUE_NAMESPACES:
+        req = patch.get(ns)
+        if not isinstance(req, dict) or not req:
+            continue
+        cur = current_root.get(ns) or {}
+        for key, value in req.items():
+            if key not in cur or not _same_value(cur[key], value):
+                return False
+    return True
+
+
+def _diff_patch(patch: dict, current_root: dict) -> list[dict]:
+    """D-409-4: реально конфликтующие ключи для тела 409 (без секретов —
+    chat-scope `keys.*` отклоняется валидацией ДО записи)."""
+    out: list[dict] = []
+    for ns in _VALUE_NAMESPACES:
+        req = patch.get(ns)
+        if not isinstance(req, dict):
+            continue
+        cur = current_root.get(ns) or {}
+        for key, value in req.items():
+            server = cur.get(key)
+            if key not in cur or not _same_value(server, value):
+                out.append({"key": key, "your_value": value,
+                            "server_value": server})
+    return out
 
 
 def _iso(value) -> str | None:
@@ -319,46 +405,79 @@ async def set_chat_params(chat_id: int, patch: dict, *, changed_by=None,
     pool = getattr(pg, "pool", None) if pg is not None else None
     if pool is None:
         raise _PgUnavailable("PostgreSQL недоступен (пул отсутствует)")
-    async with pool.acquire() as conn:
-        async with conn.transaction():
-            row = await conn.fetchrow(SELECT_PROFILE_SQL, chat_id)
-            if row is None:
-                raise ChatParamsConflict(chat_id, None)
-            old_raw = _load_chat_params(row.get("chat_params"))
-            old_root = _root_with_meta(old_raw)
-            new_root = _root_with_meta(old_root)
-            for ns in ("overrides", "gates", "keys", "perm_overrides",
-                       "meta"):
-                if ns in patch and isinstance(patch[ns], dict):
-                    new_root[ns] = dict(patch[ns])
-            new_root["v"] = patch.get("v", 1)
-            if expected_updated_at is not None:
-                sql = UPDATE_PARAMS_LOCKED_SQL
-                args = (chat_id, json.dumps(new_root),
-                        _parse_ts(expected_updated_at))
-            else:
-                sql = UPDATE_PARAMS_SQL
-                args = (chat_id, json.dumps(new_root))
-            updated = await conn.fetchrow(sql, *args)
-            if updated is None:
-                current = await conn.fetchrow(SELECT_PROFILE_SQL, chat_id)
-                raise ChatParamsConflict(
-                    chat_id, _iso(current["updated_at"]) if current else None)
-            old_json = json.dumps(old_root, ensure_ascii=False,
-                                  sort_keys=True)
-            new_json = json.dumps(new_root, ensure_ascii=False, sort_keys=True)
-            if record_history and old_json != new_json:
-                await conn.execute(
-                    INSERT_HISTORY_SQL, chat_id, history_field, changed_by,
-                    old_json, new_json)
-            await conn.execute(NOTIFY_SQL, str(chat_id))
+    # D-409-2: in-process сериализация мутаций профиля (одна операция = одна
+    # мутация). PG advisory-lock ниже — эквивалент для нескольких воркеров.
+    lock = await _chat_write_lock(chat_id)
+    async with lock:
+        revalidated = False
+        updated_at_out: str | None = None
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                try:
+                    await conn.execute(ADVISORY_LOCK_SQL, str(chat_id))
+                except Exception:
+                    # Не-PG двойник/недоступен advisory — остаётся in-process
+                    # lock (поведение не хуже прежнего).
+                    logger.debug(
+                        "[chat_params] advisory lock skipped | chat=%s",
+                        chat_id)
+                row = await conn.fetchrow(SELECT_PROFILE_SQL, chat_id)
+                if row is None:
+                    raise ChatParamsConflict(chat_id, None)
+                old_raw = _load_chat_params(row.get("chat_params"))
+                old_root = _root_with_meta(old_raw)
+                new_root = _root_with_meta(old_root)
+                for ns in ("overrides", "gates", "keys", "perm_overrides",
+                           "meta"):
+                    if ns in patch and isinstance(patch[ns], dict):
+                        new_root[ns] = dict(patch[ns])
+                new_root["v"] = patch.get("v", 1)
+                if expected_updated_at is not None:
+                    sql = UPDATE_PARAMS_LOCKED_SQL
+                    args = (chat_id, json.dumps(new_root),
+                            _parse_ts(expected_updated_at))
+                else:
+                    sql = UPDATE_PARAMS_SQL
+                    args = (chat_id, json.dumps(new_root))
+                updated = await conn.fetchrow(sql, *args)
+                if updated is None:
+                    current = await conn.fetchrow(SELECT_PROFILE_SQL, chat_id)
+                    cur_root = (_root_with_meta(
+                        _load_chat_params(current.get("chat_params")))
+                        if current is not None else {})
+                    if current is not None and _patch_already_applied(
+                            patch, cur_root):
+                        # D-409-1 (idempotent short-circuit): токен устарел,
+                        # но сервер УЖЕ содержит запрошенные значения —
+                        # операция выполнена, 409 не бросаем.
+                        revalidated = True
+                        new_root = cur_root
+                        updated_at_out = _iso(current.get("updated_at"))
+                    else:
+                        raise ChatParamsConflict(
+                            chat_id,
+                            _iso(current["updated_at"]) if current else None,
+                            conflicting=_diff_patch(patch, cur_root))
+                else:
+                    updated_at_out = _iso(updated.get("updated_at"))
+                    old_json = json.dumps(old_root, ensure_ascii=False,
+                                          sort_keys=True)
+                    new_json = json.dumps(new_root, ensure_ascii=False,
+                                          sort_keys=True)
+                    if record_history and old_json != new_json:
+                        await conn.execute(
+                            INSERT_HISTORY_SQL, chat_id, history_field,
+                            changed_by, old_json, new_json)
+                    await conn.execute(NOTIFY_SQL, str(chat_id))
     cache = _chat_params_cache
     if cache is not None:
         try:
             await cache.invalidate_chat(chat_id)
         except Exception:
             pass
-    return _root_with_meta(new_root)
+    return ChatParamsResult(_root_with_meta(new_root),
+                            revalidated=revalidated,
+                            updated_at=updated_at_out)
 
 
 async def set_gates_opt_in(chat_id: int, pg=None) -> None:
