@@ -1487,3 +1487,63 @@ Diff `7c38f70..ee23e47` (коммиты `8b16c4a`, `ee23e47`). Отчёт: `plan
 - [L10.25-4] `.gitignore:101` — бланкетный `*.zip` (сейчас zip не отслеживаются; риск для будущих легитимных архивов).
 
 **Info:** I10.25-1 (паритет с образом подтверждён исходником `docker-entrypoint.sh`: `[ -n "$(printenv ...)" ]`); I10.25-2 (`_provider_host` — только hostname, `_safe_exc_text` безопасен); I10.25-3 (регрессий fetch/фраз нет, `{limit}` не утекает); I10.25-4 (README «Тестов: 5936» устарело — факт 7976).
+
+
+## Round 10.25 F1 `ia-shell-navigation-round1025` (IA v2 + app-shell) — 21.09.2026, Step 6 @Scanner
+
+Diff `65e39fb..b1c87b0` (`1ebbd7b`, `ff34115`, `b1c87b0`). Отчёт: `plans/reports/round1025_f1_scanner_audit.md`.
+**Итог: Critical 0 / High 1 / Medium 2 / Low 4.** Вердикт: к Шагу 7 — нет (блокирует H-1).
+Факт: pytest **7996 passed / 0 failed** (108.41 s, 1 warning); JS **21/21**; `git diff --check`=0; `node --check`=0;
+Δ DDL=0; Δ каталога=0; F0/Epic-2 не тронуты; секретов/zip нет; `stash@{0}` цел.
+
+**High:**
+- [H10.25F1-1] `web/app.js:1355-1378` (`bottomNavItems`/`mobileMoreItems`) — bottom-nav считает роль «админской»
+  по `canViewTab('modules') || canViewTab('llm_providers')`; для роли с правом только на «Память» (`chat_lore`),
+  «Доступы» (`section.access`) или PERMsoc на <768 кнопка «Ещё» не рендерится → раздел недостижим из UI
+  (в legacy-navbar пункт был). Воспроизведено прогоном computed: `access-only | nav: status,how,access | bottom: status,how`.
+  Фикс: добавлять «Ещё», если в `navItems` есть любой `group !== 'public'`.
+
+**Medium:**
+- [M10.25F1-1] `web/app.js:3340-3349` (`_routeLabel`) — для `#/ai/persona` (нет в `TABS`) fallback отдаёт сырой hash;
+  breadcrumb на экране «Личность» показывает `#/ai/persona`. Фикс: подпись special-screen.
+- [M10.25F1-2] Kill-switch OFF откатывает только nav: help-layout (`index.html:3089`), mobile-редактор матрицы
+  (`:1927`), ренейм «Сводка»→«Аналитика» (`:1353,2669`) остаются. По spec D5 это nav-only, но Off ≠ прежний UI буквально.
+
+**Low:** L10.25F1-1 дубль `min-width` в `.bottom-nav-link` (`app.css:1352`); L10.25F1-2 `.more-sheet` `bottom:52px`
+может наезжать на `.bottom-nav`; L10.25F1-3 `test_ia_shell_round1025.py` grep-only + matrix только global_admin
+(H-1 не ловится); L10.25F1-4 baseline-фикстура post-change (см. `_provenance`); L10.25F1-5 пустые `.sidebar-sep`
+без админ/локальных прав.
+
+
+**Повторный аудит F1 после фикса `78e612a` (21.09.2026, Step 6 @Scanner):** **Critical 0 / High 0 → к Шагу 7 — ДА.**
+- H-1 закрыт: `web/app.js:1355-1371` — «Ещё» строится от `navItems` по `group`; роли access-only / permsoc-only / chat_lore
+  на <768 получают `bottom=[status,more]` с нужным пунктом. Поведенческий тест в `tests/js/round1025_ia_routing_test.js`
+  на `b1c87b0` падал бы (`bottom=[status,how]`), на `78e612a` — `[status,more]` (проверено прогоном).
+- M-1 закрыт: `_routeLabel` (`web/app.js:3339-3360`) — `#/ai/persona` → «Личность и стиль», `#/memory/rag` → «Память и RAG».
+- M-2 закрыт: nav-scope OFF зафиксирован в ADR-1025-1 D5 + spec §6.4; «мёртвых» состояний нет.
+- Low L-1 (дубль `min-width`) и L-5 (пустые `.sidebar-sep`) закрыты; L-2/L-3/L-4 — техдолг в `tasks.md`.
+- Цифры: pytest **7996/0** (112.26 s); JS **21/21**; `node --check`=0; `git diff --check`=0; Playwright-матрица §71 **0 нарушений**.
+- Инварианты: Δ DDL=0, Δ каталога=0, F0/Эпик 2 не тронуты, секретов нет, zip/env в индексе нет, `stash@{0}` цел.
+
+## Round 10.25 P0 hotfix2 `fea2daa` (прод-инцидент) — 21.09.2026, Step 6 @Scanner
+
+Полный отчёт: `plans/reports/round1025_hotfix2_scanner_audit.md`. Diff `78e612a..fea2daa`.
+
+**Сводка: Critical 0 / High 0 / Medium 2 / Low 3 → к деплою — ДА.**
+- P0-1 закрыт: `web/app.js:2142-2150` `stickyFieldFailed` вынесен computed→methods
+  (тело не менялось); `web/index.html:851,970` снова вызывает его как функцию.
+- P0-2 закрыт: `services/media_download.py:60-82` `normalize_api_file_path` —
+  контейнерный `/var/lib/telegram-bot-api/<bot_id>:<token>/…` → host-корень;
+  `read_host_file_bytes` подключён в `web/api/avatars.py:154` до прежнего fallback.
+  Guard `_is_within_root` (resolve+is_relative_to) сохранён, `..`/symlink/чужой
+  абсолют отсекаются → `bot.download`.
+- [M-1] `services/media_download.py:153-155` — лог сырого `file_path` снова
+  достижим (контейнерный путь в норме); в проде маскируется `SecretMaskFilter`,
+  поэтому Medium; фикс — логировать `PurePosixPath(file_path).name`.
+- [M-2] `web/api/avatars.py:157,199-201` — `exc_info=True` трейсбек при падении
+  `download_file` может нести `<bot_id>:<token>`; фильтр маскирует только `msg`.
+  Предсуществующий, фиксом не ухудшён.
+- Цифры: pytest **8003 passed / 0 failed** (117.37 s); JS **21/21**;
+  `git diff --check`=0; `git ls-files "*.zip"` пусто; `stash@{0}` цел (25 файлов/+971).
+- Новые тесты (Python + JS) падали бы до фикса; L-1 — тавтологичный
+  self-compare в JS-тесте; L-2 — `_config_stub()` при сбое импорта молча пуст.

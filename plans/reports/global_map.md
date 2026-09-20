@@ -1,5 +1,23 @@
 # Global Map (architectural memory)
 
+## Round 10.25 <F1: IA v2 + app-shell> (21.09.2026, Step 6 @Scanner)
+
+- **Diff `65e39fb..78e612a`** (коммиты `1ebbd7b`, `ff34115`, `b1c87b0`, фикс аудита `78e612a`). Фича `ia-shell-navigation-round1025`, Wave 1.
+- **Итог (повторный аудит после `78e612a`): 0 Critical / 0 High.** Отчёт: `plans/reports/round1025_f1_scanner_audit.md`.
+  Первично было 1 High / 2 Medium / 4 Low; всё закрыто.
+- **H-1 (закрыт `78e612a`):** `bottomNavItems` (`web/app.js:1355-1371`) строит «Ещё» от `navItems` по `group`
+  (`hasExtra = some(n.group !== 'public')`) — роли «только Память/Доступы/PERMsoc» на <768 получают шторку с пунктом.
+  Тест поведенческий в `tests/js/round1025_ia_routing_test.js`; на `b1c87b0` падал бы (`bottom=[status,how]`).
+- **M-1 (закрыт):** `_routeLabel` (`web/app.js:3339-3360`) берёт подпись из карточки хаба для маршрутов вне `TABS`
+  (`#/ai/persona` → «Личность и стиль»), сырой hash не показывается.
+- **M-2 (закрыт):** объём OFF (nav-scope: help-layout / matrix-table / «Аналитика» не откатываются) зафиксирован в ADR-1025-1 D5 и spec §6.4; «мёртвых» состояний нет.
+- **Low:** L-1 (дубль `min-width`) и L-5 (пустые `.sidebar-sep`) закрыты; L-2/L-3/L-4 — техдолг в `tasks.md`.
+- **Связи:** `NAV_MEMORY=memory` (`services/param_catalog.py` `NAV_ORDER/TAB_NAV`) ↔ `TABS[].menu:'memory'`
+  ↔ `NAV_ITEMS_V2`/`HUBS_V2['#/memory']` (`web/app.js`) ↔ sidebar/drawer/bottom-nav (`web/index.html`+`app.css`)
+  ↔ `ui_flags.IA_V2_ENABLED` (`web/api/routes.py` ← `config/settings.py`). Δ каталога=0, Δ DDL=0.
+- **Факт (повторный прогон):** pytest **7996/0** (112.26s), JS **21/21**, Playwright-матрица **0 нарушений**;
+  `git diff --check`=0, `node --check`=0; F0-слой (`persistItems/saveState/notify`) не тронут; `stash@{0}` (F1-WIP) цел.
+
 ## Round 10.25 «F0: конфигурация + устойчивость к database is locked» (20.09.2026, Step 6 @Scanner)
 
 - **Diff `pre-round1025..HEAD`** (коммиты `c0cb8aa`…`9a5f265`). Фича F0
@@ -1608,3 +1626,13 @@ bot.py
   - Cache-bust: `config.settings.APP_VERSION` (2.58.1) → `web/app.py::_render_index`/`_render_app_css` → `web/index.html` `?v=` (app.js/app.css/tailwind/telegram-init/@font-face).
 - Инварианты: Δ DDL=0, Δ каталога=0, F0/Эпик2 не тронуты, F1-WIP в `stash@{0}` цел (25 файлов / +971), zip не в git, `git diff --check` exit 0.
 - Латентные риски: M-1 (лог сырого absolute `file_path` может нести `<bot_id>:<token>`; в проде маскируется SecretMaskFilter/sanitize), M-2 (`TELEGRAM_LOCAL` vs `DOWNLOAD_ENABLED` — два рубильника; `.env.example`/README без `TELEGRAM_LOCAL`).
+
+## Round 10.25 P0 hotfix2 `fea2daa` (render `stickyFieldFailed` + container→host путь Bot API), Step 6 @Scanner (21.09.2026)
+
+- **Diff `78e612a..fea2daa`.** Отчёт: `plans/reports/round1025_hotfix2_scanner_audit.md`.
+- **Итог: Critical 0 / High 0 / Medium 2 / Low 3 → к деплою — ДА.** pytest **8003 passed / 0 failed** (117.37 s); JS **21/21**.
+- **P0-1 (render):** `web/app.js` `stickyFieldFailed` перенесён computed→methods (тело не менялось) — `web/index.html:851,970` вызывает его как функцию; computed-геттер давал boolean → `TypeError` → пустые `#/ai/llm`, `#/ai/names`, `#/ai/smart-cache`, `#/memory/rag`.
+- **P0-2 (путь):** `services/media_download.py::normalize_api_file_path` — контейнерный `/var/lib/telegram-bot-api/<bot_id>:<token>/…` → `settings.TELEGRAM_API_FILES_DIR/<bot_id>:<token>/…`; относительный → `root/<bot_id:token>/<path>`; иной абсолютный как есть; guard `_is_within_root` (resolve+is_relative_to) сохранён, fail-closed → `bot.download`. Новый `read_host_file_bytes` → `web/api/avatars.py` (host-чтение до прежнего `download_file` fallback).
+- **Связь:** `services/media_download.py` ↔ `web/api/avatars.py` (общий helper), ↔ `handlers/{youtube,voice_transcription,video_download}.py` и `services/native_media.py` (через `fetch_media_to_tmp`).
+- **Остаточное (не блокер):** M-1 лог сырого `file_path` в `_read_local_source` достижим на контейнерном пути (маскируется `SecretMaskFilter`); M-2 трейсбек `bot.download_file` в avatars может нести токен (фильтр маскирует только `msg`, не `exc_info`).
+- Инварианты: Δ DDL=0, Δ каталога=0, F0/Эпик2 не тронуты, `stash@{0}` цел, zip не в git, `git diff --check`=0.
