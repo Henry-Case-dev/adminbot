@@ -118,6 +118,13 @@
 - **[Low] L-2/L-3/L-4:** `.more-sheet`-offset / restricted-role-прогон матрицы / pre-change baseline — техдолг (не блокеры).
 - **Проверка после правок:** pytest **7996/0**; JS **21/21**; Playwright §71 — **0 нарушений**.
 
+### P0 prod-инцидент после F1 (21.09.2026) — фикс за одну итерацию
+- **FIX 1 (render):** `stickyFieldFailed` ошибочно в `computed` → шаблоны вызывали как функцию → `TypeError` в render → пустой generic config-раздел (`#/ai/llm`, `#/ai/names`, `#/smart-cache`, `#/memory/rag`). Перенесён в `methods` (`web/app.js:2149`); тест в `tests/js/round1025_save_state_test.js`.
+- **FIX 2 (media/аватары):** локальный Bot API отдаёт контейнерный абсолютный путь `/var/lib/telegram-bot-api/<id>:<token>/…` — нормализуется к host-корню (`services/media_download.py:normalize_api_file_path`/`read_host_file_bytes`), traversal-guard сохранён; `web/api/avatars.py` использует тот же helper. Тесты — `tests/test_media_local_path_round1025.py` (видео/ГС/escape/аватары).
+- **FIX 3 (cache-bust):** `APP_VERSION` **2.58.1 → 2.58.2** (`config/settings.py`, `README.md`); `?v=__APP_VERSION__` покрывает tailwind/app.css/app.js/telegram-init.js/font.
+- **FIX 4 (тест-инструмент):** `tools/ui_round1025_matrix.py` — непустой `/api/config` из `services/param_catalog.py` (458 items/98 groups), маршруты `#/ai/{llm,prompts,smart-cache,names}` и `#/memory/rag`, FAIL на console/pageerror.
+- **Проверка:** pytest **8003/0**; JS **21/21**; Playwright §71 — **0 нарушений**, console/pageerror пусты. (Сетевой `test_betterstack…302` — флак, зелёный в изоляции и на повторе.)
+
 ## Риски F1
 - **SUPERSEDE маркер-тестов без обновления** → красный CI и «подгонка эталонов» (**High**): T-2391/T-2393 атомарно.
 - **Потеря раздела/параметра при переносе IA** (**Critical**): T-2389/T-2402 + авто-тест покрытия.

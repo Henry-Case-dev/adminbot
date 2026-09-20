@@ -1837,10 +1837,6 @@
         if (this.stickyDirtyCount > 0) return 'dirty';
         return 'clean';
       },
-      // F0.4 (ревью, T-2435): per-field ошибка — подсветка рядом с полем.
-      stickyFieldFailed: function (key) {
-        return (this.stickyFailedKeys || []).indexOf(key) >= 0;
-      },
       // ── Раунд 10.20 (БЛОК 3.3/T-1897): модель «Живой ленты досье» ──
       // Дублирование для seamless-скролла (тот же приём, что у лент
       // «Осмысления»/_ribbonLoop) + подпись чата из oversight-кэша.
@@ -2144,6 +2140,15 @@
     },
 
     methods: {
+      // P0 (prod-incident F1, 21.09.2026): `stickyFieldFailed` ошибочно лежал
+      // в `computed` → шаблоны (`index.html`) вызывают его как функцию
+      // `stickyFieldFailed(item.key)`; computed-геттер отдавал boolean →
+      // `TypeError: stickyFieldFailed is not a function` в render → пустой
+      // generic config-раздел (`#/ai/llm`, `#/ai/names`, `#/ai/smart-cache`,
+      // `#/memory/rag`, …). Перенесён в `methods` (тело не менялось).
+      stickyFieldFailed: function (key) {
+        return (this.stickyFailedKeys || []).indexOf(key) >= 0;
+      },
       // F6 round 10.21 (T-1998): ранее объявлен в `computed` → вызывался как
       // функция и падал `this._syntheticGroup is not a function` при открытии
       // окна модуля «Выжимка видео» (Vue render-error, модалка не строилась).

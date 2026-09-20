@@ -8,7 +8,8 @@ D292/Section 79) БЕЗ изменения поведения: голосовы�
 Гейт локального режима = hot.get("flags.download_enabled",
 settings.DOWNLOAD_ENABLED) (D262 import-time сессия с is_local=True).
 Локальный режим И file_path под корнем TELEGRAM_API_FILES_DIR (относительный
-→ root/<bot_id:token>/<path>; абсолютный — только если он внутри корня) →
+→ root/<bot_id:token>/<path>; абсолютный — только если он внутри корня;
+контейнерный `/var/lib/telegram-bot-api/…` нормализуется к host-корню) →
 копирование с диска; файла нет / get_file упал / path вне корня / облако →
 bot.download (облачный режим байт-в-байт, без get_file-двойного запроса).
 Секреты (R17): строка '<bot_id>:<token>' нигде не логируется.
@@ -22,6 +23,14 @@ from config.settings import settings
 from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
+
+# D263 (ADR-1025-6) / P0 prod-incident (21.09.2026): каталог локального
+# Bot API В ПРОСТРАНСТВЕ КОНТЕЙНЕРА. bind-источник тома
+# `./docker/telegram-bot-api` (= settings.TELEGRAM_API_FILES_DIR на хосте)
+# виден в контейнере как `/var/lib/telegram-bot-api`. Локальный Bot API
+# (`--local`) отдаёт АБСОЛЮТНЫЙ контейнерный путь — его префикс
+# нормализуется к host-корню (без серверных симлинков).
+CONTAINER_API_FILES_ROOT = "/var/lib/telegram-bot-api"
 
 
 def local_files_subdir(bot) -> str:
@@ -48,12 +57,39 @@ def _is_within_root(candidate: Path, root: Path) -> bool:
         return False
 
 
+def normalize_api_file_path(bot, file_path: str, root: Path) -> Path | None:
+    """P0/ADAPTER: нормализует `file_path` локального Bot API к host-корню.
+
+    * контейнерный абсолютный (`/var/lib/telegram-bot-api/<bot_id>:<token>/…`,
+      как отдаёт `--local`) → `root/<bot_id>:<token>/…`;
+    * иной абсолютный (host, в т.ч. Windows `C:\\…`) → как есть;
+    * относительный → `root/<bot_id:token>/<file_path>`.
+    Возвращает путь БЕЗ проверки корня (её делает `_is_within_root`).
+    Ровно контейнерный root без хвоста → None (fail-closed).
+    R17: '<bot_id>:<token>' наружу не логируется.
+    """
+    pp = PurePosixPath(file_path)
+    if pp.is_absolute():
+        s = str(pp)
+        if s == CONTAINER_API_FILES_ROOT:
+            return None
+        if s.startswith(CONTAINER_API_FILES_ROOT + "/"):
+            rel = s[len(CONTAINER_API_FILES_ROOT) + 1:]
+            return root / rel
+        return Path(file_path)
+    if Path(file_path).is_absolute():      # Windows-host абсолютный (C:\\…)
+        return Path(file_path)
+    return root / local_files_subdir(bot) / file_path
+
+
 def local_file_path(bot, file_path) -> Path | None:
     """Безопасный резолв file_path под корнем TELEGRAM_API_FILES_DIR.
 
     Локальный Bot API (`--local`) может вернуть ОТНОСИТЕЛЬНЫЙ путь (обычный
     случай: `videos/file_0.mp4` → root/<bot_id:token>/<path>) ЛИБО АБСОЛЮТНЫЙ
-    (путь внутри каталога Bot API). Абсолютный принимается ТОЛЬКО если он
+    (путь внутри каталога Bot API, в т.ч. контейнерный
+    `/var/lib/telegram-bot-api/…` — нормализуется к host-корню, см.
+    `normalize_api_file_path`). Итоговый путь принимается ТОЛЬКО если он
     лежит под `TELEGRAM_API_FILES_DIR`; выход за корень / чужая ФС / мусор →
     None → fallback `bot.download` (в облаке — штатный путь). R17:
     возвращаемый Path содержит '<bot_id>:<token>', наружу НЕ логируется.
@@ -65,11 +101,29 @@ def local_file_path(bot, file_path) -> Path | None:
     if not isinstance(file_path, str) or not file_path:
         return None
     root = Path(settings.TELEGRAM_API_FILES_DIR)
-    if PurePosixPath(file_path).is_absolute():
-        candidate = Path(file_path)
-        return candidate if _is_within_root(candidate, root) else None
-    src = root / local_files_subdir(bot) / file_path
-    return src if _is_within_root(src, root) else None
+    candidate = normalize_api_file_path(bot, file_path, root)
+    if candidate is None:
+        return None
+    return candidate if _is_within_root(candidate, root) else None
+
+
+async def read_host_file_bytes(bot, file_path: str) -> bytes | None:
+    """P0: байты файла локального Bot API из host-корня по `file_path`.
+
+    Использует `local_file_path` (нормализация container→host + traversal-
+    guard). None — путь вне корня / файла нет / ошибка чтения (вызывающий
+    делает свой fallback, напр. `bot.download`/`bot.download_file`). R17:
+    путь с '<bot_id>:<token>' не логируется."""
+    src = local_file_path(bot, file_path)
+    if src is None:
+        return None
+    try:
+        if src.exists():
+            return await asyncio.to_thread(src.read_bytes)
+    except OSError:
+        return None
+    return None
+
 
 
 async def _read_local_source(bot, file_id, on_found, *, attempts: int = 3,

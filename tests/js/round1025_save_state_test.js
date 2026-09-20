@@ -298,6 +298,27 @@ function item(key, value, perChat) {
     }
   }
 
+  // ── 12) P0 prod-incident F1: stickyFieldFailed — METHOD, не computed ─────
+  // Иначе шаблон `stickyFieldFailed(item.key)` падал `is not a function`
+  // в render → пустой generic config-раздел (#/ai/llm, #/memory/rag, …).
+  // Рендер с непустым config реально прогоняется в tools/ui_round1025_matrix.py.
+  {
+    const computed = captured.computed;
+    assert.strictEqual(typeof methods.stickyFieldFailed, 'function',
+      'P0: stickyFieldFailed объявлен в methods');
+    assert.ok(!Object.prototype.hasOwnProperty.call(computed, 'stickyFieldFailed'),
+      'P0: stickyFieldFailed НЕ в computed (иначе render TypeError)');
+    const ctx = { stickyFailedKeys: ['a.c', 'b'] };
+    assert.strictEqual(methods.stickyFieldFailed.call(ctx, 'a.c'), true,
+      'ключ из stickyFailedKeys → true');
+    assert.strictEqual(methods.stickyFieldFailed.call(ctx, 'zzz'), false,
+      'неизвестный ключ → false');
+    assert.strictEqual(methods.stickyFieldFailed.call({}, 'a'), false,
+      'нет stickyFailedKeys → false (без падения)');
+    assert.strictEqual(methods.stickyFieldFailed, methods.stickyFieldFailed,
+      'единственное объявление (нет дублей)');
+  }
+
   console.log('ROUND1025-SAVE-STATE-OK');
   process.exit(0);          // не ждём setTimeout-очистку тостов/notify
 })().catch(function (e) {

@@ -35,6 +35,8 @@ except Exception:
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(REPO)
+if REPO not in sys.path:
+    sys.path.insert(0, REPO)
 PORT = 8791
 SHOTS = os.path.join(REPO, "tools", "_ui_round1025_shots")
 RAW = os.path.join(REPO, "tools", "_ui_round1025_raw.json")
@@ -44,7 +46,8 @@ VIEWPORTS = [
     (1024, 768), (1280, 800), (1440, 900), (1920, 1080), (2560, 1440),
 ]
 ROUTES = ["#/", "#/oversight", "#/how", "#/modules", "#/ai",
-          "#/memory", "#/memory/lore", "#/access"]
+          "#/ai/llm", "#/ai/prompts", "#/ai/smart-cache", "#/ai/names",
+          "#/memory", "#/memory/rag", "#/memory/lore", "#/access"]
 
 
 class _Handler(SimpleHTTPRequestHandler):
@@ -106,6 +109,66 @@ STATUS_STUB = {
     "context": {},
 }
 
+def _config_stub() -> dict:
+    """Непустой `/api/config` из `services/param_catalog.py` (P0-инцидент F1).
+
+    Даёт реальный рендер generic config-разделов (`#/ai/llm`, `#/ai/names`,
+    `#/ai/smart-cache`, `#/ai/prompts`, `#/memory/rag`) — чтобы render-ошибки
+    класса `stickyFieldFailed is not a function` ловились автоматически.
+    Секретов нет (R17): секретные значения — `{configured,last4}`."""
+    try:
+        from services import param_catalog as pc
+    except Exception as exc:  # noqa: BLE001
+        print("[matrix] config stub: param_catalog недоступен:", exc)
+        return {"items": [], "groups": []}
+    items = []
+    for key, spec in sorted(pc.REGISTRY.items()):
+        if getattr(spec, "hidden", False):
+            continue
+        secret = bool(getattr(spec, "secret", False))
+        widget = getattr(spec, "widget", "") or ""
+        stype = getattr(spec, "type", "str") or "str"
+        if secret:
+            value = {"configured": True, "last4": "0000"}
+        elif widget == "keyvalue":
+            value = {}
+        elif stype == "bool":
+            value = False
+        elif stype in ("int", "float"):
+            value = 1
+        elif widget == "select" and getattr(spec, "select_options", None):
+            value = list(spec.select_options)[0]
+        else:
+            value = ""
+        items.append({
+            "key": key, "value": value, "category": spec.category,
+            "secret": secret, "chat_source": "", "global_value": None,
+            "title": getattr(spec, "title_ru", key) or key, "type": stype,
+            "updated_at": None, "group": getattr(spec, "group", "") or "",
+            "description": getattr(spec, "description", "") or "",
+            "widget": widget,
+            "select_options": list(spec.select_options)
+            if widget == "select" and getattr(spec, "select_options", None)
+            else None,
+            "select_labels": list(spec.select_labels)
+            if widget == "select" and getattr(spec, "select_labels", None)
+            else None,
+            "per_chat": bool(getattr(spec, "per_chat", False)),
+            "progressive_level": "basic",
+            "stage": getattr(spec, "stage", None),
+            "view_roles": [], "edit_roles": [], "chat_updated_at": None,
+        })
+    present = {it["category"] for it in items}
+    groups = [{"id": g.id, "category": g.category, "title": g.title_ru,
+               "description": g.description, "order": g.order}
+              for g in pc.GROUPS if g.category in present]
+    groups.sort(key=lambda g: g["order"])
+    print("[matrix] config stub: items=%d groups=%d" % (len(items), len(groups)))
+    return {"items": items, "groups": groups}
+
+
+CONFIG_STUB = _config_stub()
+
 API_STUBS = [
     ("/api/me", ME_JSON),
     ("/api/status/key-history", {"providers": []}),
@@ -119,7 +182,7 @@ API_STUBS = [
     ("/api/oversight/summary", {"chats": [], "totals": {}}),
     ("/api/oversight/dossier_feed", {"items": []}),
     ("/api/workers/budget", {}),
-    ("/api/config", {"items": [], "groups": []}),
+    ("/api/config", CONFIG_STUB),
     ("/api/info/guide", {"markdown": "", "updated_at": None}),
     ("/api/info", {"html": "", "updated_at": None, "canon_drift": False}),
 ]
@@ -215,10 +278,11 @@ def main() -> int:
 
             ctx.route("**/api/**", _route)
             page = ctx.new_page()
-            page.on("console", lambda m: (
-                out["console"].append("%s: %s" % (m.type, m.text[:200]))
+            vp_errors = []
+            page.on("console", lambda m, b=vp_errors: (
+                b.append("%s: %s" % (m.type, m.text[:200]))
                 if m.type == "error" else None))
-            page.on("pageerror", lambda e: out["console"].append(
+            page.on("pageerror", lambda e, b=vp_errors: b.append(
                 "pageerror: " + str(e)[:300]))
             url = "http://127.0.0.1:%d/web/index.html" % PORT + "#/"
             page.goto(url, wait_until="load")
@@ -270,6 +334,11 @@ def main() -> int:
                     _snap(page, "%s_root" % vp_key)
                 if route == "#/memory":
                     _snap(page, "%s_memory" % vp_key)
+            # P0-инцидент F1: render-ошибки (console.error/pageerror) — FAIL,
+            # иначе класс «раздел пуст, но метрики чистые» не ловится.
+            for msg in vp_errors:
+                failures.append("%s console/pageerror: %s" % (vp_key, msg))
+            out["console"].extend("%s %s" % (vp_key, m) for m in vp_errors)
             print("[matrix] %-9s root: scrollW=%d innerW=%d sidebar=%s "
                   "bottomNav=%s(%d)" % (
                       vp_key, out["viewports"][vp_key]["routes"]["#/"]["scrollWidth"],

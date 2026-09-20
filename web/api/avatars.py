@@ -36,7 +36,7 @@ from fastapi.responses import Response
 from config.settings import settings
 from services import hot_config as hot
 from services import web_runtime
-from services.media_download import read_local_file_bytes
+from services.media_download import read_host_file_bytes, read_local_file_bytes
 from web.api.deps import get_tma_user
 
 logger = logging.getLogger(__name__)
@@ -147,9 +147,15 @@ async def fetch_avatar_bytes(kind: str, tid: int) -> bytes | None:
                     file = await bot.get_file(file_id)
                     path = getattr(file, "file_path", None)
                     if path:
-                        buf = io.BytesIO()
-                        await bot.download_file(path, destination=buf)
-                        data = buf.getvalue() or None
+                        # P0 (prod-incident): локальный Bot API отдаёт
+                        # контейнерный абсолютный путь; aiogram `download_file`
+                        # падал FileNotFoundError. Сначала читаем host-файл по
+                        # нормализованному пути (container→host).
+                        data = await read_host_file_bytes(bot, path)
+                        if data is None:
+                            buf = io.BytesIO()
+                            await bot.download_file(path, destination=buf)
+                            data = buf.getvalue() or None
         except (TelegramRetryAfter, TelegramNetworkError) as exc:
             # транзиентный сбой (лимиты/сеть): негатив НЕ пишем — иначе
             # фронт с onerror стаггерил бы пустые аватары на час
