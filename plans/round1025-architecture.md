@@ -31,6 +31,8 @@
 > **Итог Эпика 1:** Δ каталога = **0** (только nav-метаданные F1; реестр F8 — read-only инвентарь; F0 — багфикс); Δ DDL = **0** (SQLite `v12`, PG без изменений; **F0.5 — тоже Δ DDL = 0**, без миграций). Новые рубильники — env-only `ClassVar` (default ON), вне `param_catalog`. **F0.1–F0.4 — без флагов** (откат: `git revert` + точка отката T-2410); **F0.5 — `DB_LOCK_RESILIENCE_ENABLED`** (default ON, откат флагом OFF).
 >
 > **Статус F0 (обновлено на Archive/Шаг 8):** ✅ **COMPLETED + MERGED + ARCHIVED** — папка перенесена в `plans/archive/f0-config-bugfixes-round1025/` (spec.md + 4 ADR + tasks.md; содержимое/чекбоксы/UTF-8 сохранены); pytest **7946 passed / 0 failed** (база 7911 → +35); JS **19/19**; Δ DDL=0 (`user_version=12`); Δ каталога=0 (REGISTRY 459 / GROUPS 98 / `_TAB_BY_GROUP` 96 / Settings 418); `smart_cache` не переписан. Новые env-only `ClassVar`: `DB_LOCK_RESILIENCE_ENABLED` (ON), `ANTICLICHE_MAX_PATTERNS_PER_RUN` (40), `ANTICLICHE_MAX_ROUNDS` (3). **⚠️ Открыты live-приёмки @DevOps (post-deploy gate, НЕ выполнены): T-2419 / T-2433 / T-2454** (§52.9 `ARCHITECTURE.md`); **деплой в прод не подтверждён**. Бэкап/теги `pre-round1025*` не удаляются до утверждения владельцем (R18).
+>
+> **Статус ASAP-хотфикса `hotfix-media-tma-round1025` (обновлено на Archive/Шаг 8 @PM, 21.09.2026):** ✅ **COMPLETED + MERGED + DEPLOYED + ARCHIVED** — папка перенесена в **`plans/archive/hotfix-media-tma-round1025/`** (spec.md + adr-1025-6-bot-api-local-mode.md + tasks.md; содержимое/чекбоксы/UTF-8 сохранены). Коммиты `8b16c4a` (ядро) + `ee23e47` (ревью-итерация) + docs `65e39fb` (origin/master). @Reviewer Approved; @Scanner **Critical 0 / High 0** (2 Medium → техдолг, 4 Low, 4 Info). pytest **7976/0** (7946 + 30 новых), JS **19/19**. **Прод:** `TELEGRAM_LOCAL=1` (контейнер `--local`, общий `.env`), `APP_VERSION` **2.58.1**, `/api/health`=200, `database is locked`=**0**, WAL **159 МБ → 0**. Интеграция — `plans/ARCHITECTURE.md` **§53**; аудит — `plans/reports/round1025_hotfix_scanner_audit.md`. **⏳ Открыт live-гейт владельца (post-deploy, НЕ выполнено): T-2463 / T-2472 / T-2479** (тест видео >20 МБ, консоль TMA). **Следующая задача — возврат к F1 (T-2481):** `git stash pop` (`stash@{0}`, 25 файлов) + untracked F1 из `var/backups/f1-wip-20260921-015653/` поверх `65e39fb`; ожидаемые конфликты — `?v=`/`APP_VERSION` и `IA_V2_ENABLED`; **F1-WIP НЕ трогать до явной задачи**. F1-WIP цел (`git stash@{0}: wip(f1)`, 25 файлов). **Остаточный техдолг:** M-1 (R17 в логе медиа), M-2 (двойной рубильник `TELEGRAM_LOCAL`↔`DOWNLOAD_ENABLED`), LLM-таймауты (провайдер), RAM/swap/graceful-stop, `?v=` для 3 vendor-скриптов, точечный `.gitignore` (§53).
 
 ---
 
@@ -149,7 +151,7 @@ F8 (Wave 0 ∥ F0: инвентарь/бэкап/baseline) ──► читае�
 | Прод-потеря записи из-за `database is locked` (память/ответы/throttling) | Critical | **F0.5** до приёмки F0: диагностика первопричины (T-2443), bounded retry только на `locked` + сериализация (T-2445/T-2446), явный лог+счётчик (T-2448), live-приёмка (T-2454); **расширение ADR-1024-18**, не «лечение по симптому» |
 | Долгий retry подвешивает hot-path/хендлер | High | F0.5: попытки ограничены, fail-open последним рубежом, тесты (b)/(c)/(g) T-2452 |
 
-**Приёмка Эпика 1 (F10):** JS-гейты (`node --check`, `routing_test.js`, `vue_mount_test.js`) + полный `pytest` без регрессий к 7911/0 + Playwright-матрица §71 + сверка конфигурации до/после + отчётные карты (§117).
+**Приёмка Эпика 1 (F10):** JS-гейты (`node --check`, `routing_test.js`, `vue_mount_test.js`) + полный `pytest` без регрессий к **7976/0** (после хотфикса; база F0 — 7946/0) + Playwright-матрица §71 + сверка конфигурации до/после + отчётные карты (§117).
 
 ---
 
@@ -157,6 +159,7 @@ F8 (Wave 0 ∥ F0: инвентарь/бэкап/baseline) ──► читае�
 
 - **F0** (Wave 0, ✅ COMPLETED + MERGED + **ARCHIVED** → `plans/archive/f0-config-bugfixes-round1025/`): `spec.md` + `tasks.md` (T-2410…T-2455); ADR: **`adr-1025-2-save-state-machine.md`** (F0.1/F0.2), **`adr-1025-3-anticliche-semantics.md`** (F0.3), **`adr-1025-4-toasts-savebar.md`** (F0.4), **`adr-1025-5-db-lock-resilience.md`** (F0.5 — **AMEND/EXTEND `ADR-1024-18`**). Интеграция в глобальную архитектуру — `plans/ARCHITECTURE.md` **§52** (+ §9/§10/§49/§51).
 - F1: `plans/features/ia-shell-navigation-round1025/spec.md`, `adr-1025-1-ia-v2.md`.
+- **ASAP-хотфикс media/TMA** (✅ COMPLETED + MERGED + DEPLOYED + **ARCHIVED**): `plans/archive/hotfix-media-tma-round1025/{spec.md, tasks.md (T-2456…T-2481), adr-1025-6-bot-api-local-mode.md}`. ⏳ live-гейт владельца: T-2463/T-2472/T-2479. Интеграция — `plans/ARCHITECTURE.md` **§53**.
 - `plans/round1025-architecture.md` (этот файл; PM-аннотация по Wave 0/F0 — Step 1, детальная архитектура — Step 2).
 - **Эпик 3** (раунд 10.26+): `spec.md`/ADR — Step 2 @Architect при старте Эпика 3 (в т.ч. AMEND `physical-two-call-pipeline`).
 
@@ -169,5 +172,6 @@ F8 (Wave 0 ∥ F0: инвентарь/бэкап/baseline) ──► читае�
 - Прочие фичи: `plans/features/<name>-round1025/`
 - Отчёты: `plans/reports/round1024_scanner_audit.md`, `round1023_scanner_audit.md`, `round1020_ui_rework_scanner_audit.md`, `round1020_ui_rework_reviewer.md`
 - **F0-отчёты (Merge):** `plans/reports/f0-round1025-report.md` (§54), `f0-save-audit-round1025.md` (аудит 14 механизмов), `f0-5-db-lock-round1025.md` (карта соединений/первопричина DB-lock), `round1025_f0_scanner_audit.md` (§1–§4 аудит + §5 повторный аудит), `global_map.md`/`full_audit_results.md` (снимок @Scanner)
+- **Хотфикс-отчёты (Merge):** `plans/reports/round1025_hotfix_scanner_audit.md` (Critical 0/High 0; M-1/M-2 → техдолг), `global_map.md`/`full_audit_results.md` (снимок @Scanner); `plans/ARCHITECTURE.md` §53
 - Архив-образцы: `plans/archive/round1024-architecture.md`, `plans/archive/round1023-architecture.md`
 - Канон: `plans/ARCHITECTURE.md`, `plans/project.md`, `plans/docs/canon/architecture.md`

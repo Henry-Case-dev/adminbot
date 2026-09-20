@@ -226,7 +226,7 @@ class TestComposeLocalModeRound1025:
 
     def test_adr_documents_rollback_and_mode(self):
         adr = (Path(__file__).resolve().parents[1]
-               / "plans/features/hotfix-media-tma-round1025"
+               / "plans/archive/hotfix-media-tma-round1025"
                / "adr-1025-6-bot-api-local-mode.md").read_text(encoding="utf-8")
         assert "TELEGRAM_LOCAL" in adr
         assert "убрать/закомментировать" in adr          # процедура откатa

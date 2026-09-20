@@ -168,3 +168,18 @@ T-2456…T-2460 → §0; T-2461…T-2465 → §1 (ADR-1025-6); T-2466…T-2469 �
 - `plans/features/ia-shell-navigation-round1025/{spec.md, adr-1025-1-ia-v2.md}` (возврат F1, T-2481)
 - `plans/ARCHITECTURE.md` §9/§52 (F0 save-слой — не трогать), `plans/round1025-architecture.md`
 - Код: `docker-compose.yml`, `bot.py:230-231`, `services/media_download.py:116-152`, `handlers/youtube.py:138,1012-1047`, `services/llm_client.py:796-828`, `services/smartmodule_phrases.py:218-228`, `config/settings.py:379-381,1079-1080,1301-1321,1617`, `web/app.py:73-121,218-276`, `web/index.html:19,22,3624-3627` (база HEAD; F1-WIP смещает), `README.md:5`
+
+---
+
+## 13. Синхронизация после реализации (Merge/Шаг 7)
+
+Хотфикс реализован (`8b16c4a` + `ee23e47`), @Scanner **0 Critical / 0 High**, задеплоен; фактические отличия от дореализационной спеки (для точности при архивации):
+
+- **Режим Bot API — единый сигнал:** `docker-compose.yml:30` `TELEGRAM_LOCAL: "${TELEGRAM_LOCAL:-}"`; семантика — **непусто=local, unset/пусто=cloud**; **`0` не является «выключено»**. Паритет подтверждён по entrypoint образа (`append_flag_from_env`, `[ -n ... ]`). *(Low @Reviewer «host==container путь» — учтено: `TELEGRAM_API_FILES_DIR` = bind-source `./docker/telegram-bot-api`, absolute `file_path` валиден только внутри корня.)*
+- **Гейт размера:** `handlers/youtube.py:160-197` — константы `LOCAL_GETFILE_LIMIT_MB=2000` / `CLOUD_GETFILE_LIMIT_MB=20` + `effective_video_max_size_mb()=min(configured, ceiling)`; ранний гейт до `fetch`.
+- **Имя пула фраз (Low @Reviewer):** вместо `VIDEO_MEDIA_TOO_BIG_PHRASES` (больше не используется) — инкапсулированная функция **`video_too_big_phrase(limit_mb)`** (`services/smartmodule_phrases.py`); добавлен отдельный пул **`VIDEO_MEDIA_PROVIDER_TIMEOUT_PHRASES`** (таймаут провайдера отделён от generic-ошибки).
+- **`local_file_path`:** принимает абсолютный путь только внутри `TELEGRAM_API_FILES_DIR` (`_is_within_root` + `resolve().is_relative_to`), fail-closed; ср. §9.2.
+- **Cache-bust:** `APP_VERSION` → **2.58.1** (`config/settings.py:1610`) + `README.md`; `?v=__APP_VERSION__` у `tailwind.css`/`app.css`/`app.js` **и `telegram-init.js`** (`web/index.html:3627`); `web/index.html` синхронизирован.
+- **R17-логи:** `_safe_exc_text` (при пустом `str` → `repr`, маскировка, обрезка) в `handlers/youtube.py` и `services/llm_client.py`; `_provider_host` — только hostname.
+- **Итоги:** pytest **7976/0** (+30 новых), JS **19/19**; прод: `TELEGRAM_LOCAL=1`, `APP_VERSION 2.58.1`, health 200, `database is locked`=0, WAL 159 МБ→0.
+- **Остаточный техдолг:** M-1 (R17 в логе медиа — маскируется глобальным фильтром), M-2 (двойной рубильник `TELEGRAM_LOCAL`↔`DOWNLOAD_ENABLED`), LLM-таймауты (провайдер), RAM/swap/graceful-stop, `?v=` для 3 vendor-скриптов, точечный `.gitignore`. Подробно — `plans/ARCHITECTURE.md` §53.

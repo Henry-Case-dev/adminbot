@@ -25,6 +25,21 @@
 - **ExecutionGraph — REUSE, не дублировать.** Де-факто существует (`web/api/analytics.py` + `llm_usage_events` + `web/app.js::tokenFlowTree/tokenFlowNodes`, 10.23/10.24). Вторая визуализация запрещена — только **adapter** нормализованной модели §23 + новые kind-узлы §111.
 - **L1/L2 разведены (§81):** прямой чат — L1 Синтезатор / L2 Вербализатор; Саммари — L1 Кластеризатор / L2 Писатель; §82 — до 4 независимых слотов моделей (провайдер+модель+промпт+параметры+fallback).
 
+### ⚡ ASAP-хотфикс round1025 — `hotfix-media-tma-round1025` (внеплановый, между F0 и F1) — ✅ COMPLETED + MERGED + DEPLOYED (20.09.2026)
+
+**Триггер:** подтверждённые боевые дефекты после деплоя F0 (`3a91c84`): (1) видео/транскрибация падает (облачный лимит Bot API 20 МБ); (2) LLM `ReadTimeout` (провайдер); (3) «разделы миниаппа не открываются» (cache-bust); (4) диагностируемость логов.
+
+**Статус:** ✅ **COMPLETED + MERGED + DEPLOYED.** Коммиты `8b16c4a` (ядро) + `ee23e47` (ревью-итерация) + docs `65e39fb`; origin/master. @Reviewer **Approved**; @Scanner **Critical 0 / High 0** (2 Medium → техдолг, 4 Low, 4 Info). pytest **7976/0** (7946 + 30 новых), JS **19/19**. **Прод:** `TELEGRAM_LOCAL=1` (контейнер `--local`, общий `.env`), `APP_VERSION` **2.58.1**, `/api/health`=200, `database is locked`=**0**, WAL **159 МБ → 0**. Интеграция — `plans/ARCHITECTURE.md` **§53**; аудит — `plans/reports/round1025_hotfix_scanner_audit.md`. **Архив:** `plans/archive/hotfix-media-tma-round1025/` (spec.md + adr-1025-6-bot-api-local-mode.md + tasks.md; T-2456…T-2481).
+
+**⚠️ Открыто — live-гейт владельца (post-deploy, НЕ выполнено):**
+- **T-2463** — тест видео **> 20 МБ** (скачивание + файл на диске + транскрибация).
+- **T-2472** — консоль TMA: нет `ReferenceError` в config-разделах, грузится новая версия ассетов.
+- **T-2479** — пост-деплойная верификация медиа / cache-bust / логов.
+
+**Остаточный техдолг (§53, не блокеры):** **M-1** (R17 в логе медиа), **M-2** (двойной рубильник `TELEGRAM_LOCAL`↔`DOWNLOAD_ENABLED`), LLM-таймауты/провайдер, RAM/swap/graceful-stop, `?v=` для 3 vendor-скриптов, точечный `.gitignore` для zip-архивов.
+
+**Следующая задача — возврат к F1 (T-2481):** `git stash pop` (`stash@{0}`, 25 файлов) + вернуть untracked F1 из `var/backups/f1-wip-20260921-015653/` поверх `65e39fb`; ожидаемые конфликты — `?v=`/`APP_VERSION` и `IA_V2_ENABLED`; **F1-WIP НЕ трогать до явной задачи**; бэкапы/теги не удалять (R18).
+
 ### 🗺️ ЭПИК 1 (Раунд 10.25) — «Liquid Glass Control Center» — 12 фич (F0 + F1–F11; F0 добавлена UPD, F11 добавлена @PM)
 
 | # | Фича (папка `plans/features/…-round1025/`) | ТЗ | Тип | Приоритет | Зависит от | Задачи |
