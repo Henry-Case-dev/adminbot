@@ -1726,3 +1726,20 @@ bot.py
   NEW-L2 (`_initLiquidGlassObserver` после стартового reconcile); I-3 (`_onResize` без троттлинга); I-4 (inset box-shadow понижённого A).
 - **Инварианты:** Δ DDL=0, Δ каталога=0, `stash@{0}` цел, zip/секретов нет, `git diff --check`=0; matrix не воспроизведён (нет playwright).
 - **Регрессий нет:** handlers/bot/database/media/F0/Эпик2 вне диффа; JS 25/25 OK; 5 pytest-падений предсуществующие (env).
+
+## Round 10.25 hotfix6 `hotfix6-webview-shell-heartbeat-round1025` (22.09.2026, Step 6 @Scanner)
+
+- **Изменения НЕ закоммичены** — аудит рабочего дерева относительно HEAD `441e8f7`. Отчёт: `plans/reports/round1025_hotfix6_scanner_audit.md`.
+- **Итог: Critical 0 / High 0 / Medium 1 / Low 3 / Info 3 → к деплою — ДА.**
+- **Новые/уточнённые связи:**
+  - `web/index.html:37` inline-SVG `#lg-lens` (`feTurbulence`+`feGaussianBlur`+`feDisplacementMap`) ← `web/static/app.css:57 --glass-displace:url(#lg-lens)` → `[data-glass="a"]::before` (`app.css:1064-1082`, `z-index:-1`+`isolation:isolate`, radial-mask edge-весовка) — линза лежит ПОД контентом; `backdrop-filter:url()` удалён везде.
+  - `web/app.js::_liquidGlassSupported` (`:8449`) → feature-detect `CSS.supports('filter','url(#lg-lens)')` (UA-gate снят) → `reconcileLiquidGlass` (`:8481`) ведёт `data-glass-tier`/`data-glass-reason`/`data-glass-downgraded`; бюджет `_lensMaxNodes` (`:8465`, `UI_LENS_MAX_NODES=6`, `config/settings.py:711`).
+  - Стекло A2: `data-glass="a"` на `.app-sidebar`/`.app-drawer`/`header.main-header`/`.bottom-nav`/`.more-sheet` (`index.html:53/3311/89/3346/3362`) + blur-подложка в CSS (`app.css:1564+`); `@supports not(backdrop-filter)` — непрозрачный fallback всех панелей (`app.css:1162`).
+  - `web/static/telegram-init.js::computeBottomOffset` (`:36-50`, `window.__computeTgBottomOffset`) → `--tg-viewport-bottom-offset = max(innerHeight−stableHeight, contentSafeAreaInset.bottom, safeAreaInset.bottom)` (`:72-77`) → `.bottom-nav`/`.more-sheet` `bottom`.
+  - `web/app.js::heartbeatSample` (`:6512`, телеметрия из `/api/status`, `s.uptime.generated_at`) → `_heartbeatTransition` (`:6440`, EMA+dwell+гистерезис 0.70/0.65 · 0.90/0.85, `missing/stale→UNKNOWN`, `bot.state≠running→CRITICAL`) → `heartbeat` computed (`:1722`); OFF-путь `heartbeatLegacy` (`:1746`) байт-в-байт; Canvas 2D+rAF `startHeartbeatCanvas`/`_hbFrame`/`_hbDraw` (`:6589-6668`, только вкладка «Статус», пауза на hidden) ← `UI_HEARTBEAT_CANVAS_ENABLED`.
+  - `web/app.js::heartCompactV2`-гейт `headerCompactV2` (`:1820`) → двухстрочная шапка D (`.header-scope-row`, `header-fs-btn` ⛶ ≥44×44) + `_initHeaderHeight` (`:8564`, ResizeObserver → `--header-h`) → `app.css:817 scroll-padding-top`.
+  - `config/settings.py:695-712` env-only ClassVar-флаги (`UI_GLASS_TIER_OVERRIDE`/`UI_HEARTBEAT_CANVAS_ENABLED`/`UI_HEADER_COMPACT_V2`/`UI_LENS_MAX_NODES`) → `web/api/routes.py:383-392` (`/api/me.ui_flags`, аддитивно/R17-safe). `APP_VERSION=2.58.7`.
+- **Medium:** M-H6-1 — перф-цена foreground SVG-линзы на реальных WebKit/iOS не измерена (UA-gate снят, кап 6; преемник M10.25F2-3), не блокер.
+- **Low:** L-H6-1 canvas `role="img"`+интерактив и висячий `aria-describedby="hb-tip"`; L-H6-2 линза скролл-контейнера скроллится с контентом; L-H6-3 комментарий stale-порога (2×30с vs 120000мс).
+- **Инварианты:** Δ DDL=0, Δ каталога=0 (флаги ClassVar), `backdrop-filter:url(` в `web/**` отсутствует, маркер-тесты F2/F3/hotfix4 атомарны и усилены, `APP_VERSION` 2.58.7 синхронен (`?v=`/README/тесты), `stash@{0}`/теги целы, `.env`/zip/скриншотов в диффе нет, `git diff --check`=0. JS HOTFIX6-LENS-HEARTBEAT-SHELL-OK/hotfix4/design-tokens OK; целевые pytest 119 passed. Matrix не воспроизведён (нет playwright).
+- **Верифицировано чисто:** каскад `position` (панели остаются `fixed`, шапка `sticky`), CSP/zero-build (один inline-SVG, без data-URI/WebGL/новых зависимостей), rAF/observer дисциплина, F0/F1/F2/F3/hotfix3-5 совместимы.

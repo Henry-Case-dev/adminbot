@@ -1586,3 +1586,92 @@ F0.1–F0.4 — **без флагов** (обратимы `git revert` + точ�
 - **Пакет:** `plans/reports/round1025_package_scanner_audit.md`; снимки @Scanner — `plans/reports/global_map.md`, `full_audit_results.md`, `audit_backlog.md`; ступень-карта — `plans/round1025-architecture.md`.
 - **Следующие:** F4 `module-catalog-quickpanel-store-round1025` (зависит от F2, F3), далее F5… по порядку §2 `plans/round1025-architecture.md`.
 
+## 58. Раунд 10.25 (22.09.2026, Merge; деплой — Шаг 9) — Хотфикс-6: кросс-движковое преломление §9, стекло панелей, `contentSafeArea` нижней панели, Canvas-2D сердцебиение §15, двухстрочная шапка
+
+**Пакет «Волна 1.5»** (`hotfix6-webview-shell-heartbeat-round1025`), внеплановый после Волны 1 (§57), поверх `441e8f7`. Спека/ADR (⏳ **Шаг 8 — перенос в `plans/archive/`**): `plans/features/hotfix6-webview-shell-heartbeat-round1025/{spec.md, adr-1025-12-glass-lens-heartbeat-header-shell.md, tasks.md}` (**T-2581…T-2618, 38 задач**). **Статус: 🔶 MERGED @Architect (Шаг 7) — дизайн/реализация приняты в карту ARCHITECTURE; код НЕ закоммичен (рабочее дерево, `APP_VERSION` 2.58.6 → 2.58.7) → «ожидает Шаг 9» (@DevOps).** @Reviewer **Approved** (итерация 2; **12/12** замечаний закрыто). @Scanner (Шаг 6) — **Critical 0 / High 0 / Medium 1 / Low 3 / Info 3 → деплой разрешён** (`plans/reports/round1025_hotfix6_scanner_audit.md`). **AA-доказательство:** `plans/reports/round1025_hotfix6_contrast.md` — все панельные классы текста ≥ **4.5:1** на худшей фазе фона §10 (палитра §8 не менялась). **Прогоны:** целевые pytest **119 passed**; JS-маркеры `HOTFIX6-LENS-HEARTBEAT-SHELL-OK` / `JS-UNIT-OK`; `node --check web/app.js` + `telegram-init.js` OK; `git diff --check` exit 0; полный pytest/матрица Playwright в окружении **не воспроизведены** (нет `playwright` — см. техдолг). **Точка отката:** тег `pre-round1025-hotfix6` + бэкап `var/backups/hotfix6-round1025-<ts>/` + `.env.bak.round1025-hotfix6` (значения не печатались; R18). **Инварианты:** **Δ DDL = 0** (SQLite `user_version` 12; backend-модули вне диффа), **Δ каталога = 0** (`param_catalog` вне диффа; ручки — env-only `ClassVar`, аддитивно в `/api/me.ui_flags`), **CSP/zero-build** (один inline `<svg>`, без CDN/data-URI/новых библиотек), **запрет WebGL** (Canvas 2D), **нативные кнопки Telegram CSS не двигаются**. **Предшественники:** §54/§54.1 (F1/P0-fix), §55 (hotfix3), §56 (hotfix4), §57 (Волна 1: F2/hotfix5/F3).
+
+### 58.1. A — преломление без `backdrop-filter: url()` + стекло панелей (AMEND ADR-1025-9)
+
+- **Корень бага A (по коду):** уровень A опирался на `backdrop-filter: url(#lg-displace)` (в WKWebView не реализован, в Blink нестабилен), был **opt-in всего на 3 узлах**, гейтился **UA Blink-only** (`AppleWebKit` без `Chrome/Chromium/Edg/OPR`) и порогом `min-240`; карта смещения — **равномерный** `feTurbulence`. Панели/шапка — непрозрачный `--surface-1` / `--glass-bg-strong` без blur.
+- **Механизм (факт):** преломление перенесено на **foreground-линзу** — псевдо-элемент `[data-glass="a"]::before` (`position:absolute; inset:0; z-index:-1; pointer-events:none; border-radius:inherit`) в изолированном stacking-context (`isolation:isolate`), несущий градиент-реплику фона (`--grad-*`) и `filter: url(#lg-lens)`. Контент над линзой — **текст и кнопки не искажаются** (§9). Реальная прозрачность — от `backdrop-filter: blur() saturate()` (blur-уровень B).
+- **Edge-weighted карта:** весовка — **CSS radial-mask** на линзе (центр прозрачен 0–52 %, плотно к краям 78–100 %) + низкочастотная `feTurbulence` и `feDisplacementMap scale=10` (id `#lg-lens`, `web/index.html:37-42`) → эффект «как стекло», а не «песок». Это **документированное приближение** оптического преломления (не физика).
+- **`backdrop-filter: url(...)` удалён из `web/**`** (grep-инвариант: 0 совпадений), в т.ч. из JS.
+- **Лестница A→B→C по feature-detect, не по UA:** `_liquidGlassSupported = CSS.supports('filter','url(#lg-lens)')` (guard `try/catch`, вне DOM → `false`); UA-gate Blink-only **снят** → закрывает F2 **M-2** (WebKit терял blur) и **NEW-L1** (iOS Edge). `min-240` **заменён перф-капом** `UI_LENS_MAX_NODES=6` (env-only); deny-list §9 (textarea/таблицы/логи/длинные формы/редакторы) — всегда **C**.
+- **Обратимость/транзитивность:** `reconcileLiquidGlass` итерирует `[data-glass="a"]` в детерминированном DOM-порядке, снимает/ставит `data-glass-downgraded`, публикует `data-glass-tier`/`data-glass-reason` (feature-undetected / deny-list / budget / reduced-motion / override); opt-in `data-glass` **не перезаписывается** (b→a обратимо); новые узлы — `MutationObserver`, resize — `ResizeObserver`; пауза по `document.hidden` (в существующий обработчик, без второго конкурирующего).
+- **Стекло панелей (A2):** `.app-sidebar`/`.app-drawer`/`header.header-sticky`/`.bottom-nav`/`.more-sheet` получают glass tier A/B; **шапка получила blur** — закрывает F2 **L10.25F2-1**. Контраст AA подтверждён (см. выше). Каскад проверен: `position:fixed` панелей и `position:sticky` шапки не ломаются (`header.header-sticky` — большая специфичность).
+- **reduced-motion → tier B** (осознанно): дорогая линза отключается, остаётся статичная blur-подложка B; ручной откат `UI_GLASS_TIER_OVERRIDE=b`.
+
+### 58.2. B — нижняя панель целиком в экране (AMEND ADR-1025-8 / hotfix4)
+
+- В `web/static/telegram-init.js` введена чистая `computeBottomOffset()` = **`max(innerHeight − viewportStableHeight, contentSafeAreaInset.bottom, safeAreaInset.bottom)`** (`:36`, экспонирована `window.__computeTgBottomOffset`); применена к `--tg-viewport-bottom-offset` (`:72`). Сохранены `--tg-content-safe-area-inset-bottom`/`--tg-safe-area-inset-bottom` для `padding-bottom`; пересчёт на `viewportChanged`/`safeAreaChanged`/`contentSafeAreaChanged` + `resize` (страховка); guard `stableH>0`.
+- **Почему `max`, не сумма:** три величины описывают одну перекрывающуюся нижнюю зону (сумма дала бы ложный «задир» панели); при подтверждении разных баров — переключение одной строкой (зафиксировано).
+- Клиенты без инсетов → offset 0 (панель на `bottom:0`, без «магических» фикс-высот). `.bottom-nav`/`.more-sheet` — в пределах вьюпорта. **Порядок навигации F1/hotfix4 не изменён** (`Статус`+`Справка` первыми, ≤4 слота, «Ещё» без дубля).
+
+### 58.3. C — сердцебиение §15: Canvas 2D + rAF (SUPERSEDE из F11 `status-showcase-dashboard-round1025`)
+
+- **SUPERSEDE (перенос области):** «Живое сердцебиение §15» исключено из F11 и реализовано здесь (C2). В F11 остаются §12/§13/§14/§16–§21.
+- SVG-заглушка заменена **Canvas 2D + `requestAnimationFrame`** (`getContext('2d')`, WebGL запрещён); канвас масштабируется по DPR (`canvas.width/height = CSS×DPR`), CSS `width:100%; max-width:100%`.
+- **Телеметрия отделена от рендера:** источник — **существующий** `GET /api/status` (уже опрашивается `startStatusPolling` каждые **30 с**), компонент подписывается на готовый снимок; **нового поллера нет** → нагрузка не растёт (30 с ∈ §15 10–30 с).
+- **Источники → состояния:** доступность бота (`bot.state`/uptime), CPU (`cpu_percent`/`loadavg[0]/cpu_count`), RAM (`memory.percent`), диск (`disk.percent`), крит. процессы (`bot.state` + `process`), актуальность телеметрии (`generated_at`). **`missing ≠ bad`:** нет поля/устарело/ошибка → **UNKNOWN**, а не 0.
+- **Состояния:** HEALTHY / WARNING / CRITICAL / UNKNOWN — различаются цветом, интенсивностью свечения, частотой, амплитудой и характером импульса; пороги фронт-константы (WARNING ≥0.70, CRITICAL ≥0.90 либо `bot.state ≠ running`); **гистерезис** (enter 0.70/exit 0.65; enter 0.90/exit 0.85) + **EMA** + **dwell `DWELL_N=2`** — без дребезга на границе. **Выдуманного BPM нет.**
+- **Тултип hover/tap:** CPU / RAM / диск / статус / время обновления / **причина** (почему WARNING/CRITICAL/UNKNOWN); доступен на desktop (hover) и mobile (tap), не перекрывает системные элементы; a11y через `aria-label`/`aria-describedby`.
+- **reduced-motion → tier B / статичный кадр** (состояние корректно отражено цветом/подписью); **C1:** `.status-block` ограничен по ширине, на мобильном сердцебиение — **отдельная горизонтальная область** (§15), без общего горизонтального overflow.
+- **Жизненный цикл:** единственный rAF-цикл (останов по `document.hidden`, при уходе с вкладки `watch activeTab` → `stopHeartbeatCanvas` и в `beforeUnmount`); вне Canvas-окружения — деградация на SVG.
+- **Флаг отката `UI_HEARTBEAT_CANVAS_ENABLED`** (env-only, default ON): OFF → `heartbeatLegacy` воспроизводит семантику HEAD `441e8f7` **байт-в-байт** (пороги 0.5/0.8, метки «спокойный/повышен/пик N%», период; SVG-разметка сохранена под `v-else`).
+
+### 58.4. D — двухстрочная шапка, ⛶ по safe-area, резерв `--header-h`, fullscreen (AMEND ADR-1025-10 + ADR-1025-1; ADR-1024-24 сохранён)
+
+- Под флагом `UI_HEADER_COMPACT_V2` (только в IA v2): **строка 1** — навигация/drawer + заголовок/хлебные крошки + **⛶ в правом верхнем углу** (нативная `<button type="button">` с `:aria-pressed`, тач-цель ≥44×44, прижата к правому краю с учётом правой safe-area); **строка 2** — селектор области / бейдж `chat_id` / аватар / роль админа. При нехватке ширины — `ellipsis`, полный `chat_id` — только в техподробностях `<details class="scope-tech">` (паритет F3/§5).
+- **Нативные кнопки Telegram (⋮/Закрыть/Свернуть) — вне DOM; их CSS не двигается** (§604/§642/§56). Выравнивание ⛶ — **резервом safe-area-зон** (`max(env(safe-area-inset-top), --tg-safe-area-inset-top, --tg-content-safe-area-inset-top)` + база), а не сдвигом нативных кнопок.
+- **Резерв высоты `--header-h`** (ResizeObserver + CSS-фолбэк) снимает наложение контента на sticky-шапку; `scroll-padding-top`/резерв у `main.scroll-area` — без ширинозависимых «магических» отступов.
+- **Fullscreen-sync (ADR-1024-24) сохранён и починен:** источник истины — TMA (`wa.isFullscreen` + события `fullscreenChanged`/`viewportChanged`), локальный флаг не угадывается; `toggleFullscreen`/`initFullscreen`/`setFullscreenFromTma`/`teardownFullscreen` сохранены; клик по ⛶ в двухстрочной шапке не перекрывается/не смещается.
+- При `IA_V2_ENABLED=false` шапка остаётся legacy-композицией; F1 shell/safe-area и F3-селектор/guard не ломаются.
+
+### 58.5. Флаги (env-only, default ON, Δ каталога = 0)
+
+Доставка — аддитивно через `GET /api/me.ui_flags` (`web/api/routes.py:383-392`; ADR-1024-13/§56). Каждый флаг — **независимый** откат своей области без изменения остальных и без редеплоя кода:
+
+| Флаг | Тип | Default | Смысл / откат |
+|---|---|---|---|
+| `UI_GLASS_TIER_OVERRIDE` | env-only `ClassVar[str]` ∈ `auto\|a\|b\|c` | `auto` | принудительный tier стекла (диагностика/откат A→B/C) |
+| `UI_HEARTBEAT_CANVAS_ENABLED` | env-only `ClassVar[bool]` | ON | OFF → legacy SVG-виджет байт-в-байт (откат C) |
+| `UI_HEADER_COMPACT_V2` | env-only `ClassVar[bool]` | ON | OFF → прежняя компоновка шапки (откат D), только в IA v2 |
+| `UI_LENS_MAX_NODES` | env-only `ClassVar[int]` | 6 (min 1) | перф-кап числа узлов tier A (сверх — B); диагностический |
+
+Progressive delivery (10/50/100 %) **не применяется** (один прод, §53–§56); «поставка» = bump `APP_VERSION` 2.58.6 → **2.58.7** + cache-bust через `?v=`/`__APP_VERSION__`. Кандидаты отклонены: inline/сторонние флаги (запрещены), каталоговые ключи (Δ каталога ≠ 0), `UI_HEARTBEAT_POLL_SECONDS` (потенциальный рост нагрузки — будущее расширение).
+
+### 58.6. SUPERSEDE / AMEND-карта хотфикса-6
+
+| Ранее | Действие | Причина |
+|---|---|---|
+| **§15 «Живое сердцебиение» в F11 `status-showcase-dashboard-round1025`** | **SUPERSEDE (перенос области) → C (этот пакет)** | триггер приёмки владельца; в F11 остаются §12/§13/§14/§16–§21 |
+| **ADR-1025-9 D2** (уровень A = `backdrop-filter: url()`, UA-gate Blink-only, min-240, равномерный `feTurbulence`) | **AMEND → ADR-1025-12 D1** | §9 запрещает опираться на `backdrop-filter: url()`; нужен кросс-движковый A + edge-weighted карта |
+| **ADR-1025-8 / hotfix4 D2** (offset = `innerHeight − viewportStableHeight`) | **AMEND → ADR-1025-12 D3** | не учтён `contentSafeAreaInset.bottom` |
+| **ADR-1025-10 (F3)** (селектор в шапке) и **ADR-1025-1 (F1)** (shell/шапка) | **AMEND → ADR-1025-12 D5** | селектор/бейдж/аватар/роль переносятся в отдельную строку; перекомпоновка шапки |
+| **F2 L10.25F2-1** (header alpha без blur) | **ЗАКРЫТО → D2** | шапка получила blur |
+| **F2 M-2 / M-3 / NEW-L1** (WebKit теряет blur; цена A не измерена; iOS Edge не гейтится) | **ЗАКРЫТО / ПЕРЕСМОТР → D1** | feature-detect вместо UA-gate, перф-кап, уход от `url()` на backdrop (остаточная цена A — M-H6-1) |
+| **ADR-1024-24** (fullscreen-sync, источник истины TMA) | **НЕ отменяется; D5 чинит реализацию** | поведенческий баг, не смена контракта |
+| **НЕ отменяется:** CSP/zero-build; палитра §8 (ADR-1025-9 D1); механика фона §10; порядок навигации F1/hotfix4; семантика F3 (DELETE override ≠ factory-reset, guard, stale-epoch); save-path F0 (ADR-1025-2) | — | инварианты |
+
+### 58.7. Остаточный техдолг хотфикса-6 (не блокеры; Шаг 8/10 — оформление)
+
+- **[M-H6-1, Medium]** Перф-цена foreground SVG-линзы (`feTurbulence` + `feDisplacementMap`) на реальном WebKit/iOS **не измерена**; снятие UA-gate даёт tier A и WebView-клиентам (iOS/WebKit). Кап `UI_LENS_MAX_NODES=6` ограничивает число узлов, но абсолютная цена кадра на слабом устройстве не подтверждена. Преемник F2 **M10.25F2-3**; смягчено env-ручкой (без редеплоя) + live-гейт. Рекомендация: замер FPS (низкий Android + iOS) в T-2617; при деградации — снизить `UI_LENS_MAX_NODES`.
+- **[L-H6-1, Low]** Canvas-heartbeat: `role="img"` на интерактивном (фокусируемом/кликабельном) элементе → скринридер не анонсирует как кнопку; `aria-describedby="hb-tip"` ссылается на `#hb-tip`, существующий в DOM только при открытом тултипе («висячая» ссылка при закрытом). Функционально не ломает. Фикс — `role="button"` (+`aria-haspopup`) и держать `#hb-tip` через `v-show`/`hidden` вместо `v-if`.
+- **[L-H6-2, Low]** Псевдо-линза `position:absolute; inset:0` на скролл-контейнерах `.app-sidebar`/`.app-drawer` (`overflow-y:auto`) **скроллится вместе с контентом** → при длинном меню нижняя часть панели остаётся без edge-линзы. Чисто декоративно (`pointer-events:none`, `opacity .14`), контент/контраст не затронуты; при желании — вынести линзу в отдельный fixed-слой панели.
+- **[L-H6-3, Low]** Комментарий `web/app.js:6534-6535` говорит «старше 2× интервала поллинга (30 с)», фактический stale-порог в коде — `> 120000` мс (=120 с, 4× интервала). Формула консервативнее и безопасна, но текст вводит в заблуждение при сопровождении: поправить комментарий или вынести порог в константу.
+- **[I-H6-3, Info]** `README.md:5` «Тестов: 5936» устарело (факт больше) — предсуществующий **L10.25F2-4**, не относится к коду пакета; обновление — Шаг 8/10.
+- **[I-H6-1, Info]** `heartbeatCanvasEnabled` при вычислении создаёт одноразовый `<canvas>` + `getContext('2d')` для feature-detect (Vue-2 кэширует computed → дёшево; отмечено для чистоты).
+- **[Playwright Info]** UI-матрица `tools/ui_round1025_matrix.py` (в т.ч. усиленный вертикальный контроль B и AA-пробы A2) **не воспроизведена** — в окружении нет `playwright` (как и в прошлых раундах). Аналитическая AA-таблица корректна и покрыта Python-проверкой матрицы, но live-гейт за владельцем; «matrix 0» принято на доверии.
+- **[Процессный — pending sync]** @Scanner обновил `plans/reports/global_map.md`, но **не обновил** `full_audit_results.md`/`audit_backlog.md` (не блокер деплоя; закрыть на Шаге 8/10).
+
+### 58.8. Live-гейты владельца (T-2617, post-deploy — открыты)
+
+Реальный Telegram WebView: фактическое преломление и стекло панелей/шапки; панель целиком в экране; heartbeat (Canvas 2D, состояния, тултип, перф); ⛶ на уровне нативных кнопок и рабочий fullscreen; отсутствие регрессий F0–F3/hotfix* и `ReferenceError` в консоли TMA; замер FPS (M-H6-1). **Не воспроизводимо headless:** поведение `filter: url()` в WKWebView, реальные `safeAreaInset`/`contentSafeAreaInset`, геометрия native-кнопок, реальный fullscreen, устройство-зависимый FPS.
+
+### 58.9. Ссылки
+
+- **Спека/ADR (⏳ перенос в `archive` — Шаг 8 @PM):** `plans/features/hotfix6-webview-shell-heartbeat-round1025/{spec.md, adr-1025-12-glass-lens-heartbeat-header-shell.md, tasks.md}`.
+- **Аудиты/отчёты:** `plans/reports/round1025_hotfix6_scanner_audit.md` (Critical 0 / High 0 / M1 / L3 / I3 → деплой разрешён), `plans/reports/round1025_hotfix6_contrast.md` (AA-таблица панелей), `plans/reports/global_map.md`.
+- **Код:** `web/static/app.css` (линза `[data-glass="a"]::before`, radial-mask, glass панелей), `web/index.html` (inline `#lg-lens`, две строки шапки, canvas), `web/app.js` (`reconcileLiquidGlass`, tier/кап, heartbeat Canvas/`heartbeatLegacy`, fullscreen D5), `web/static/telegram-init.js` (`computeBottomOffset`), `config/settings.py:699-714,1685` (env-флаги + `APP_VERSION` 2.58.7), `web/api/routes.py:383-392` (аддитивный `ui_flags`).
+- **Следующие:** Шаг 8 @PM (архивация + синк backlog/MEMORY), Шаг 9 @DevOps (коммит + push + прод, `APP_VERSION` 2.58.7), Шаг 10 @Memory (metrics + KG). Далее — F4 `module-catalog-quickpanel-store-round1025` (§57).
+

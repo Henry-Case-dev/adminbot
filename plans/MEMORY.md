@@ -1,9 +1,11 @@
 # AdminBot — Memory Index (plans/MEMORY.md)
 
-Индекс долговременной памяти. Архитектура — `plans/ARCHITECTURE.md` (§1–§57);
+Индекс долговременной памяти. Архитектура — `plans/ARCHITECTURE.md` (§1–§58);
 бэклог — `plans/backlog.md`. Полная семантическая карта — knowledge graph
 (Memory MCP, entity `AdminBot` + модули `adminbot-*` + entity `feature-*`
 раунда 10).
+
+> **✅ ХОТФИКС-6 (пакет «Волна 1.5») ЭПИКА 10.25 (Шаг 8 @PM, 22.09.2026): `hotfix6-webview-shell-heartbeat-round1025` — COMPLETED + MERGED + ARCHIVED; код НЕ закоммичен → ⏳ deploy — Шаг 9 @DevOps.** Архитектура — `plans/ARCHITECTURE.md` **§58** (Merge @Architect: §58.1 A — преломление/стекло, §58.2 B — нижняя панель, §58.3 C — Canvas-2D §15, §58.4 D — шапка/⛶, §58.5 флаги, §58.6 SUPERSEDE/AMEND, §58.7 техдолг, §58.8 live-гейты). Архив — `plans/archive/hotfix6-webview-shell-heartbeat-round1025/` (`spec.md` + **ADR-1025-12** + `tasks.md`, **T-2581…T-2618, 38 задач**; T-2615 ревью/аудит ✅, T-2618 архивация ✅; **T-2616 deploy / T-2617 live — открыты**). Аудит — `plans/reports/round1025_hotfix6_scanner_audit.md` (**Critical 0 / High 0** / M1 / L3 / I3 → деплой разрешён) + AA-доказательство `plans/reports/round1025_hotfix6_contrast.md`. @Reviewer **Approved** (итер.2, 12/12); @Scanner — Critical 0 / High 0. `APP_VERSION` **2.58.6 → 2.58.7** (рабочее дерево). **Суть:** **A** — foreground-линза `[data-glass="a"]::before` + `filter:url(#lg-lens)` (edge-weighted radial-mask), `backdrop-filter:url()` удалён, UA-gate снят, перф-кап `UI_LENS_MAX_NODES=6`, стекло на sidebar/drawer/header/bottom-nav/more-sheet; **B** — `computeBottomOffset()=max(innerHeight−stableHeight, contentSafeAreaInset.bottom, safeAreaInset.bottom)`; **C** — Canvas 2D + rAF heartbeat §15 (HEALTHY/WARNING/CRITICAL/UNKNOWN + гистерезис/EMA/dwell, `missing≠bad`, телеметрия из `/api/status`, legacy-OFF `heartbeatLegacy`); **D** — двухстрочная шапка + ⛶ по safe-area + резерв `--header-h`; **§15 SUPERSEDE/вынесено из F11**. Флаги env-only (`UI_GLASS_TIER_OVERRIDE`/`UI_HEARTBEAT_CANVAS_ENABLED`/`UI_HEADER_COMPACT_V2`/`UI_LENS_MAX_NODES`, default ON, Δ каталога = 0). **Инварианты:** Δ DDL = 0, Δ каталога = 0, CSP/zero-build, запрет WebGL (Canvas 2D), нативные кнопки Telegram CSS не двигаются. **⏳ Открыто:** deploy **T-2616** (Шаг 9 @DevOps — коммит+push+прод, `APP_VERSION` 2.58.7) + **live-гейт владельца T-2617** (реальный Telegram WebView: преломление/стекло, панель в экране, heartbeat/перф, ⛶/fullscreen, консоль TMA). **Pending sync:** @Scanner не обновил `plans/reports/full_audit_results.md`/`audit_backlog.md` (только `global_map.md`) — закрыть на Шаге 10 @Memory. **Следующий шаг — Шаг 9 @DevOps (deploy), затем F4 `module-catalog-quickpanel-store-round1025`.** R17/R18: секреты не цитировались; теги `pre-round1025-hotfix6`/бэкапы/`stash@{0}` **НЕ удалять**.
 
 > **✅ ВОЛНА 1 ЭПИКА 10.25 (Шаг 8 @PM, 22.09.2026): `F2 design-tokens-liquidglass-v2-round1025` + hotfix5 `summary-cover-window-round1025` + `F3 global-scope-selector-round1025` — COMPLETED + MERGED + ARCHIVED + DEPLOYED (Шаг 8 @PM + Шаг 9 @DevOps, 22.09.2026).** Архитектура — `plans/ARCHITECTURE.md` **§57** (Merge @Architect): §57.1 (F2), §57.2 (hotfix5), §57.3 (F3), §57.4 (SUPERSEDE/AMEND-карта). Архивы — `plans/archive/design-tokens-liquidglass-v2-round1025/` (`spec.md` + **ADR-1025-9** + `tasks.md`, T-2529…T-2562), `plans/archive/hotfix5-summary-cover-window-round1025/` (ретро: `spec.md` + **ADR-1025-11** + `tasks.md`, T-2563…T-2573), `plans/archive/global-scope-selector-round1025/` (ретро: `spec.md` + **ADR-1025-10** + `tasks.md`, T-2574…T-2580). Аудит — `plans/reports/round1025_package_scanner_audit.md` (пакетный, **C0/H0**) + базовые `round1025_f2/hotfix5/f3_scanner_audit.md`.
 > **Числа пакета:** итоговый `APP_VERSION` **2.58.6**; полный pytest **8146 passed / 5 failed / 1 skipped** (5 падений — env `aiogram` без `InputRichMessageMedia`, файлы **вне** пакета → не регрессия); целевые тесты пакета **152 passed**; JS **25/25**; **Δ DDL = 0**, **Δ каталога = 0** (REGISTRY 459 / GROUPS 98 / `_TAB_BY_GROUP` 96 / TAB_RULES 21 / Settings 418); CSP/zero-build сохранены. Финальные коммиты кода: F2 **`d2df8ca`**, hotfix5 **`412f844`**, F3 **`4f31197`**.
@@ -1402,6 +1404,25 @@
 > `release-round1025-wave1`, `metric-snapshot-round1025-f2`/`-hotfix5`/`-f3`, `tech-debt-round10.25-f2`/`-f3`/`-hotfix5`.
 > **⏳ live-гейты владельца (F2 T-2561, F3, hotfix5) — открыты.**
 > **Следующая — F4 `module-catalog-quickpanel-store-round1025`** (Волна 2, зависит от F2/F3) → F5–F11 → приёмка Эпика 1 (F10).
+
+> **📌 Step 0 @Memory (22.09.2026): открыт внеплановый пакет по итогам ЖИВОЙ ПРИЁМКИ владельца после Волны 1 —
+> KG `HOTFIX6-webview-shell-heartbeat-round1025` (RECON; код не менялся).** Baseline: HEAD **`441e8f7`** (== origin/master,
+> worktree чистый), **`APP_VERSION` 2.58.6**, база pytest **8146/5/1** (5 — env aiogram, вне диффа), SQLite `v12`,
+> Δ каталога = 0. **Блоки:** **A** Liquid Glass фактически без преломления (уровень A `feDisplacementMap`, вероятно не
+> работает в реальном WebView; корень — опора на `backdrop-filter: url()` + UA-gate Blink-only + A opt-in лишь на 3 узлах
+> + карта-приближение) + стекло на **sidebar/header** (сейчас `--surface-1` / `--glass-bg-strong` без blur);
+> **B** `.bottom-nav` уползает за край на мобильном (недодел hotfix4/ADR-1025-8 D2; гипотеза — не учтён
+> `contentSafeAreaInset.bottom`); **C** heartbeats overflow на мобильном + переделать в реальный Canvas 2D + rAF по §15
+> (телеметрия отдельно, polling 10–30 с, HEALTHY/WARNING/CRITICAL/UNKNOWN, гистерезис, тултип, reduced-motion);
+> **D** кнопка ⛶ ниже нативных кнопок TG + header-перекомпоновка (селектор/бейдж/аватар/роль — отдельной строкой;
+> нативные кнопки CSS не двигать; D5 — фуллскрин должен работать).
+> **Пересечение:** **F11 `status-showcase-dashboard-round1025`** (§11–§21) — блок **§15 исключить из F11** (SUPERSEDE/AMEND);
+> KG-узел F11 создан (ранее отсутствовал). **AMEND задеплоенного:** F2/ADR-1025-9, F3/ADR-1025-10, hotfix4/ADR-1025-8, F1.
+> **Приёмка:** Playwright-матрица §71 + ОТДЕЛЬНО реальный Telegram WebView. KG: `status-showcase-dashboard-round1025`,
+> `SpecDecision-owner-acceptance-directive-round1025-hotfix6`, `ArchitecturalConstraint-{liquidglass-a-…,heartbeat-canvas2d-…,native-controls-…}`,
+> `Risk-hotfix6-{liquidglass-a-no-render,bottomnav-viewport-regress,heartbeat-overflow-mobile,header-native-controls-collision}`,
+> `ExternalDependency-telegram-webview-backdrop-filter`, `tech-debt-round10.25-hotfix6`, `metric-snapshot-round1025-hotfix6-step0`.
+> **Статус на 22.09.2026:** ✅ пройдены Step 1–8 (декомпозиция @PM, `spec.md` + ADR-1025-12 @Architect, реализация A–D @Builder, ревью @Reviewer **Approved**, аудит @Scanner **C0/H0**, Merge @Architect §58, архивация — Шаг 8 @PM; см. блок «✅ ХОТФИКС-6» выше). **⏳ deploy — Шаг 9 @DevOps (T-2616), ⏳ live-гейт владельца T-2617 — открыт; далее F4.**
 
 > **Раунд 10.14 — 8 фич ЗАВЕРШЁН, ЗАДЕПЛОЕН и ЗААРХИВИРОВАН (13.09.2026)** — F1
 > `anti-echo-self-reply`, F2 `persona-storage-core`, F3 `persona-ui-tab`, F4
