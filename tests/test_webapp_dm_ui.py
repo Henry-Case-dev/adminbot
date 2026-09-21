@@ -124,7 +124,10 @@ class TestDmSummaryGateMarkers:
 
     def test_s3_scheduler_skips_dm_positive_ids(self):
         src = open("services/summary_scheduler.py", encoding="utf-8").read()
-        assert "int(chat_id) > 0" in src
+        # Хотфикс-5: chat_id приводится к int (из PG может прийти строкой) ДО
+        # DM-фильтра — семантика «ЛС-рассылки нет» сохранена.
+        assert "chat_id = int(raw_chat_id)" in src
+        assert "if chat_id > 0" in src
         assert "continue" in src
 
     def test_s5_bot_router_gate_not_touched(self):

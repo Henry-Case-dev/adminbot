@@ -590,6 +590,21 @@ class Settings:
     # байт-в-байт как до хотфикса (обратимость без `git revert`).
     SUMMARY_COVER_FALLBACK_ENABLED: ClassVar[bool] = _env_bool(
         "SUMMARY_COVER_FALLBACK_ENABLED", True)
+    # ── Хотфикс-5 (round10.25): env-only ClassVar окна/ретраев генерации
+    # обложки. Δ каталога = 0 (в param_catalog НЕ входят).
+    # Почему окно 180 c, а не прежние 90: замеры успешных генераций nano-gpt
+    # давали ~83 c — окно 90 c было «впритык» и таймаутило на провайдерском
+    # джиттере (ReadTimeout в авто-прогоне 07:00). 180 c ≈ 2× наблюдаемого
+    # p-max + запас; суммарный бюджет 2 попытки × 180 c = 360 c (≤ ~2×окно),
+    # что приемлемо для фонового крона. `IMAGE_REQUEST_TIMEOUT_SECONDS`
+    # остаётся (используется диагностикой `probe`) — прежние настройки не
+    # ломаются.
+    IMAGE_ATTEMPT_TIMEOUT_SECONDS: ClassVar[float] = _env_float(
+        "IMAGE_ATTEMPT_TIMEOUT_SECONDS", 180.0)
+    IMAGE_GENERATION_MAX_ATTEMPTS: ClassVar[int] = _env_int(
+        "IMAGE_GENERATION_MAX_ATTEMPTS", 2)
+    IMAGE_GENERATION_RETRY_BACKOFF_SECONDS: ClassVar[float] = _env_float(
+        "IMAGE_GENERATION_RETRY_BACKOFF_SECONDS", 2.0)
     # ── Раунд 10.24 (F12, ADR-1024-4 D1/D2): env-only ClassVar-рубильники
     # универсального payload изображений и капа промпта обложки. Δ каталога = 0.
     #   * IMAGE_MODEL_COMPAT_ENABLED — ON: POST-тело строго
@@ -784,6 +799,17 @@ class Settings:
         "WORKER_DAILY_LLM_CALLS_PER_CHAT", 60)
     WORKER_DAILY_LLM_TOKENS_PER_CHAT: int = _env_int(
         "WORKER_DAILY_LLM_TOKENS_PER_CHAT", 300000)
+    # ── Хотфикс-5 (round10.25): отдельный (env-only ClassVar, вне каталога →
+    # Δ каталога = 0) суточный лимит генерации изображений. Прежде метрика
+    # `image_calls` реюзала `WORKER_DAILY_LLM_*` и обложка саммари конкурировала
+    # с обычными LLM-вызовами чата (`reason=budget`). Теперь — собственная
+    # ветка `worker_budget._metric_limit(METRIC_IMAGE_CALLS)`; лимит резолвится
+    # из этих env-значений без обращения к каталогу. Семантика sentinel та же
+    # (`0` = запрет, `<0` = безлимит).
+    WORKER_DAILY_IMAGE_CALLS_PER_CHAT: ClassVar[int] = _env_int(
+        "WORKER_DAILY_IMAGE_CALLS_PER_CHAT", 60)
+    WORKER_DAILY_IMAGE_CALLS_GLOBAL: ClassVar[int] = _env_int(
+        "WORKER_DAILY_IMAGE_CALLS_GLOBAL", 200)
     WORKER_PRIORITY_ORDER: str = os.getenv(
         "WORKER_PRIORITY_ORDER", "nostalgia,lore,dream")
     WORKER_BUDGET_JITTER_MINUTES: int = _env_int(

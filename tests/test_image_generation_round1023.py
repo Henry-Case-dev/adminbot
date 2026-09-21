@@ -471,7 +471,17 @@ class TestBudget:
         assert await ig._consume_budget(7) is True
 
     @pytest.mark.asyncio
-    async def test_metric_limit_reuses_per_chat_calls(self, monkeypatch):
+    async def test_metric_limit_image_calls_separate_env_branch(
+            self, monkeypatch):
+        """Хотфикс-5: `image_calls` резолвится из ОТДЕЛЬНЫХ env-only настроек,
+        а не из `limits.worker_daily_llm_calls_*` (`_resolve_limit` не зовётся)."""
+        monkeypatch.setattr(Settings, "WORKER_DAILY_IMAGE_CALLS_PER_CHAT", 7)
+        monkeypatch.setattr(Settings, "WORKER_DAILY_IMAGE_CALLS_GLOBAL", 9)
+        assert await worker_budget._metric_limit(
+            "chat:3", worker_budget.METRIC_IMAGE_CALLS) == 7
+        assert await worker_budget._metric_limit(
+            "global", worker_budget.METRIC_IMAGE_CALLS) == 9
+        # обычный `llm_calls` по-прежнему идёт через каталоговый ключ
         captured = []
 
         async def fake_resolve(key, *, chat_id, default):
@@ -479,8 +489,7 @@ class TestBudget:
             return 5
 
         monkeypatch.setattr(worker_budget, "_resolve_limit", fake_resolve)
-        await worker_budget._metric_limit("chat:3",
-                                          worker_budget.METRIC_IMAGE_CALLS)
+        await worker_budget._metric_limit("chat:3", worker_budget.METRIC_CALLS)
         assert captured == [worker_budget.LIMIT_CALLS_PER_CHAT]
 
     @pytest.mark.asyncio

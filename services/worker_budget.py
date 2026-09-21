@@ -28,9 +28,10 @@ logger = logging.getLogger(__name__)
 METRIC_CALLS = "llm_calls"
 METRIC_TOKENS = "llm_tokens"
 # Раунд 10.23 (F5, ADR-1023-5 §D4): платный вызов генерации изображения
-# индексируется вызовами (не токенами). Лимит ПЕРЕИСПОЛЬЗУЕТ существующий
-# per-chat paid-call лимит — новых каталоговых ключей нет (Δ каталога = 0
-# по лимитам; ключи image-групп относятся к провайдеру).
+# индексируется вызовами (не токенами). Хотфикс-5 (round10.25): отдельная
+# env-only ветка лимита (`WORKER_DAILY_IMAGE_CALLS_PER_CHAT/GLOBAL`), чтобы
+# обложка саммари не конкурировала за общий дневной лимит LLM чата; новых
+# каталоговых ключей нет (Δ каталога = 0).
 METRIC_IMAGE_CALLS = "image_calls"
 
 LIMIT_CALLS_GLOBAL = "limits.worker_daily_llm_calls_global"
@@ -274,9 +275,21 @@ async def _resolve_limit(key: str, *, chat_id: int | None, default: int) -> int:
 async def _metric_limit(scope: str, metric: str) -> int:
     """Суточный лимит метрики (per-chat для scope `'chat:<id>'`).
 
-    Sentinel (ADR-1019-8 §D2): `0` = запрет, `<0` = безлимит, `>0` = cap."""
+    Sentinel (ADR-1019-8 §D2): `0` = запрет, `<0` = безлимит, `>0` = cap.
+
+    Хотфикс-5: `image_calls` получил СОБСТВЕННУЮ env-only ветку (Δ каталога = 0) —
+    прежде реюзал `limits.worker_daily_llm_calls_*` и обложка саммари могла не
+    создаться (`reason=budget`) из-за общего лимита чата."""
     chat_id = _scope_chat_id(scope)
-    if metric in (METRIC_CALLS, METRIC_IMAGE_CALLS):
+    if metric == METRIC_IMAGE_CALLS:
+        default = (getattr(settings, "WORKER_DAILY_IMAGE_CALLS_GLOBAL", 200)
+                   if scope == "global" else
+                   getattr(settings, "WORKER_DAILY_IMAGE_CALLS_PER_CHAT", 60))
+        try:
+            return int(default)
+        except (TypeError, ValueError):
+            return 60
+    if metric == METRIC_CALLS:
         if scope == "global":
             key, default = LIMIT_CALLS_GLOBAL, \
                 settings.WORKER_DAILY_LLM_CALLS_GLOBAL

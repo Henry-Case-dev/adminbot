@@ -58,7 +58,11 @@ from services.system2_handoff import (
     parse_summary_handoff_ex,
 )
 from services.external_log import log_external_api
-from services.image_generation import generate_image_verbose
+from services.image_generation import (
+    generate_image_verbose,
+    provider_label,
+    reason_class,
+)
 from services.smartmodule_concurrency import get_smartmodule_concurrency_pool
 from services.summary_xml import escape_xml_text
 from services.telegram_send import (
@@ -730,30 +734,38 @@ class SummaryGenerator:
             # T-2512 (hotfix4, ADR-1025-8 D1): draft есть, но visual-промпт
             # пуст — НЕ теряем обложку молча: переходим в ветку фолбэка ниже
             # (детерминированный промпт + kill-switch/rich-guard).
-            logger.info(
+            logger.warning(
                 "summary cover: draft without visual prompt — fallback path | "
-                "chat_id=%s | reason=draft_cover_empty", chat_id)
+                "chat_id=%s | reason=draft_cover_empty | provider=%s",
+                chat_id, provider_label())
         if not getattr(settings, "SYSTEM2_SUMMARY_ENABLED", True):
             # Одиночный путь включён осознанно (kill-switch System 2), не фолбэк.
             return ""
         if not getattr(settings, "SUMMARY_COVER_FALLBACK_ENABLED", True):
             # Kill-switch hotfix3 OFF → plain байт-в-байт (прежнее поведение).
+            logger.info(
+                "summary cover: fallback disabled — plain | chat_id=%s | "
+                "reason=fallback_disabled | provider=%s",
+                chat_id, provider_label())
             return ""
         if not getattr(settings, "SUMMARY_COVER_ARTICLE_ENABLED", True):
             logger.info(
                 "summary cover: fallback path, cover disabled — plain | "
-                "chat_id=%s | reason=cover_disabled", chat_id)
+                "chat_id=%s | reason=cover_disabled | provider=%s",
+                chat_id, provider_label())
             return ""
         if not _rich_media_supported():
             logger.info(
                 "summary cover: fallback path, rich unsupported — plain | "
-                "chat_id=%s | reason=rich_unsupported", chat_id)
+                "chat_id=%s | reason=rich_unsupported | provider=%s",
+                chat_id, provider_label())
             return ""
         prompt = self._derive_fallback_cover_prompt(text)
         if not prompt:
-            logger.info(
+            logger.warning(
                 "summary cover: fallback path, empty cover prompt — plain | "
-                "chat_id=%s | reason=cover_prompt_empty", chat_id)
+                "chat_id=%s | reason=cover_prompt_empty | provider=%s",
+                chat_id, provider_label())
             return ""
         logger.info(
             "summary cover: fallback path — rich with cover | chat_id=%s | "
@@ -814,9 +826,10 @@ class SummaryGenerator:
                             correlation_id: str | None = None) -> None:
         """F6 (ADR-1023-6 §3.4): обложка (F5) → Article (`sendRichMessage`).
 
-        Тихий фолбэк (D8): любая ошибка генерации/отправки → plain-путь без
-        сообщений пользователю; лог — только класс ошибки (R17). Rich-ветка не
-        стримит → дублей нет. F7 rework: ``correlation_id`` саммари едет в
+        Тихий фолбэк (D8) для пользователя: любая ошибка генерации/отправки →
+        plain-путь без сообщений пользователю; в лог — WARNING с классом
+        причины и провайдером (R17-safe, хотфикс-5), без дампа промпта. Rich-ветка
+        не стримит → дублей нет. F7 rework: ``correlation_id`` саммари едет в
         генерацию обложки — событие ``step='image'`` остаётся в дереве."""
         tmp_path = None
         try:
@@ -842,13 +855,17 @@ class SummaryGenerator:
                 image_prompt, chat_id=chat_id,
                 correlation_id=correlation_id)
             if not tmp_path:
-                # F12/ADR-1024-4 D4: «тихий откат» для юзера ≠ тишина в логах —
-                # реальная причина (уже R17-safe код из image-слоя).
-                logger.info(
+                # F12/ADR-1024-4 D4: «тихий откат» для юзера ≠ тишина в логах.
+                # Хотфикс-5: WARNING (был INFO) с КЛАССОМ причины и провайдером
+                # (R17-safe: без дампа промпта/URL); attempt=N/M и длительность
+                # пишет image-слой (`generate_image_verbose`).
+                provider = provider_label()
+                logger.warning(
                     "summary cover: image unavailable (%s) — plain fallback | "
-                    "chat_id=%s", img_reason, chat_id)
+                    "reason_class=%s | provider=%s | chat_id=%s",
+                    img_reason, reason_class(img_reason), provider, chat_id)
                 log_external_api(
-                    logger, provider="image", method="post", status=None,
+                    logger, provider=provider, method="post", status=None,
                     reason=img_reason, level=logging.ERROR)
                 return await self._plain_fallback(chat_id, text)
             media = [build_cover_media(tmp_path)]

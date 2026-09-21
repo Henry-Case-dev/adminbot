@@ -278,6 +278,80 @@ def _reason_from_status(status: int) -> str:
     }.get(int(status), f"http_{int(status)}")
 
 
+# Обратный маппинг `_reason_from_status` → HTTP-код (для класса причины в логе).
+_HTTP_CODE_BY_REASON = {
+    "bad_request": 400, "unauthorized": 401, "payment_required": 402,
+    "forbidden": 403, "rate_limited": 429, "bad_gateway": 502,
+    "unavailable": 503,
+}
+
+
+def reason_class(reason: str) -> str:
+    """R17-safe КЛАСС причины отказа генерации (хотфикс-5, для WARNING-лога).
+
+    Таксономия: ``timeout`` / ``http_*`` / ``budget`` / ``bad_json`` / ``error``.
+    Никаких промптов/URL/секретов — только грубая категория для наблюдаемости
+    (`reason` — уже безопасный код из `generate`)."""
+    raw = str(reason or "error")
+    if raw == "timeout":
+        return "timeout"
+    if raw == "budget":
+        return "budget"
+    if raw in ("bad_json", "bad_b64", "no_url", "no_image"):
+        return "bad_json"
+    if raw.startswith("http_"):
+        return "http"
+    if raw.startswith("download_"):
+        raw = raw[len("download_"):]
+    code = _HTTP_CODE_BY_REASON.get(raw)
+    if code is not None:
+        return f"http_{code}"
+    if raw.startswith("http_"):
+        return "http"
+    return "error"
+
+
+def provider_label() -> str:
+    """R17-safe ярлык провайдера изображений (host без схемы) для логов.
+
+    Провайдер — из hot-конфига (fallback на env-настройку); неизвестен →
+    ``image``. Промпт/ключ в ярлык не попадают."""
+    try:
+        base_url = _resolve_str(KEY_BASE_URL, settings.IMAGE_BASE_URL)
+    except Exception:  # pragma: no cover — конфиг не должен ронять лог
+        base_url = ""
+    return _provider_from_url(base_url)
+
+
+def _image_attempt_timeout() -> float:
+    """Окно одной попытки генерации (env-only, default 180 c; см. settings)."""
+    try:
+        value = float(getattr(settings, "IMAGE_ATTEMPT_TIMEOUT_SECONDS",
+                              180.0))
+    except (TypeError, ValueError):
+        value = 180.0
+    return value if value > 0 else 180.0
+
+
+def _image_max_attempts() -> int:
+    """Число попыток генерации (env-only, default 2; <1 → 1)."""
+    try:
+        value = int(getattr(settings, "IMAGE_GENERATION_MAX_ATTEMPTS", 2))
+    except (TypeError, ValueError):
+        value = 2
+    return max(1, value)
+
+
+def _image_retry_backoff() -> float:
+    """Пауза между попытками (env-only, default 2 c; <0 → 0)."""
+    try:
+        value = float(getattr(settings,
+                              "IMAGE_GENERATION_RETRY_BACKOFF_SECONDS", 2.0))
+    except (TypeError, ValueError):
+        value = 2.0
+    return max(0.0, value)
+
+
 def _provider_from_url(url: str) -> str:
     """Ярлык провайдера для лога — host без схемы (R17-safe).
 
@@ -615,18 +689,28 @@ async def _record_image_event(correlation_id: str | None) -> None:
 
 
 async def generate(prompt: str, *, chat_id: int | None = None,
-                   correlation_id: str | None = None) -> GenerationResult:
-    """Платный вызов провайдера → байты изображения (fail-open контракт)."""
+                   correlation_id: str | None = None,
+                   timeout: float | None = None,
+                   consume_budget: bool = True) -> GenerationResult:
+    """Платный вызов провайдера → байты изображения (fail-open контракт).
+
+    ``timeout`` — переопределение окна одной попытки (хотфикс-5; ``None`` →
+    ``IMAGE_REQUEST_TIMEOUT_SECONDS``). ``consume_budget=False`` — бюджет уже
+    списан вызывающим (bounded-retry не должен списывать его на каждую попытку);
+    поведение по умолчанию (True) — прежнее."""
     prompt = str(prompt or "").strip()
     if not prompt:
         return GenerationResult(ok=False, reason="empty_prompt")
-    if not await _consume_budget(chat_id):
+    if consume_budget and not await _consume_budget(chat_id):
         return GenerationResult(ok=False, reason="budget")
     base_url = _resolve_str(KEY_BASE_URL, settings.IMAGE_BASE_URL)
     model = _resolve_str(KEY_MODEL, settings.IMAGE_MODEL)
     get_mode = _resolve_bool(KEY_GET_MODE, settings.IMAGE_GET_MODE)
     key = _resolve_str(KEY_API_KEY, getattr(settings, "IMAGE_API_KEY", "") or "")
-    timeout = float(getattr(settings, "IMAGE_REQUEST_TIMEOUT_SECONDS", 90.0))
+    if timeout is None:
+        timeout = float(getattr(settings, "IMAGE_REQUEST_TIMEOUT_SECONDS", 90.0))
+    else:
+        timeout = float(timeout)
     max_bytes = int(getattr(settings, "IMAGE_MAX_BYTES", 9 * 1024 * 1024))
     started = time.monotonic()
     try:
@@ -636,6 +720,21 @@ async def generate(prompt: str, *, chat_id: int | None = None,
         else:
             content = await _generate_post(base_url, model, prompt, key,
                                            timeout, max_bytes)
+    except httpx.TimeoutException:
+        # Хотфикс-5: таймаут провайдера — отдельный класс причины (прежде
+        # попадал в безликое "error").
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        logger.warning(
+            "[image] generation timeout | mode=%s | model=%s | timeout=%.0f "
+            "| latency_ms=%d", "get" if get_mode else "post", model, timeout,
+            elapsed_ms)
+        log_external_api(
+            logger, provider=_provider_from_url(base_url),
+            method="GET" if get_mode else "POST",
+            url=_endpoint_for_log(base_url, get_mode),
+            status=None, reason="timeout", duration_ms=elapsed_ms,
+            level=logging.ERROR)
+        return GenerationResult(ok=False, reason="timeout")
     except ImageGenerationError as exc:
         elapsed_ms = int((time.monotonic() - started) * 1000)
         logger.warning(
@@ -672,25 +771,62 @@ async def generate(prompt: str, *, chat_id: int | None = None,
     return GenerationResult(ok=True, content=content)
 
 
+def _write_temp_image(content: bytes) -> str | None:
+    """Байты → временный файл (вызывающий владеет и удаляет). None при сбое."""
+    try:
+        fd, path = tempfile.mkstemp(prefix="genimg_", suffix=".jpg")
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(content)
+        return path
+    except Exception:
+        logger.warning("[image] temp file write failed — fail-open")
+        return None
+
+
 async def generate_image_verbose(prompt: str, *, chat_id: int | None = None,
                                  correlation_id: str | None = None
                                  ) -> tuple[str | None, str]:
     """Как ``generate_image``, но возвращает ``(путь|None, reason)``.
 
     F12/ADR-1024-4 D4: причина отказа видна вызывающему — обложка саммари
-    пишет её в F2-лог вместо безликого «image unavailable». Fail-open."""
-    result = await generate(prompt, chat_id=chat_id,
-                            correlation_id=correlation_id)
-    if not result.ok or not result.content:
-        return None, result.reason or "error"
-    try:
-        fd, path = tempfile.mkstemp(prefix="genimg_", suffix=".jpg")
-        with os.fdopen(fd, "wb") as handle:
-            handle.write(result.content)
-        return path, "ok"
-    except Exception:
-        logger.warning("[image] temp file write failed — fail-open")
-        return None, "temp_write_failed"
+    пишет её в F2-лог вместо безликого «image unavailable». Fail-open.
+
+    Хотфикс-5 (round10.25): окно одной попытки берётся из env-only
+    ``IMAGE_ATTEMPT_TIMEOUT_SECONDS`` (default 180 c), добавлен ограниченный
+    ретрай (``IMAGE_GENERATION_MAX_ATTEMPTS``, default 2) с backoff; суммарный
+    бюджет ≤ ~2×окно. Бюджет списывается ОДИН раз на запрос (не на попытку).
+    Каждая неудачная попытка — WARNING с ``attempt=N/M``/классом причины/
+    провайдером/длительностью (R17-safe, без промпта)."""
+    prompt = str(prompt or "").strip()
+    if not prompt:
+        return None, "empty_prompt"
+    if not await _consume_budget(chat_id):
+        return None, "budget"
+    attempts = _image_max_attempts()
+    timeout = _image_attempt_timeout()
+    backoff = _image_retry_backoff()
+    provider = provider_label()
+    last_reason = "error"
+    for attempt in range(1, attempts + 1):
+        started = time.monotonic()
+        result = await generate(prompt, chat_id=chat_id,
+                                correlation_id=correlation_id, timeout=timeout,
+                                consume_budget=False)
+        latency_ms = int((time.monotonic() - started) * 1000)
+        if result.ok and result.content:
+            path = _write_temp_image(result.content)
+            if path is None:
+                return None, "temp_write_failed"
+            return path, "ok"
+        last_reason = result.reason or "error"
+        logger.warning(
+            "[image] attempt failed | attempt=%d/%d | reason_class=%s | "
+            "reason=%s | provider=%s | latency_ms=%d | chat_id=%s",
+            attempt, attempts, reason_class(last_reason), last_reason,
+            provider, latency_ms, chat_id)
+        if attempt < attempts and backoff > 0:
+            await asyncio.sleep(backoff)
+    return None, last_reason
 
 
 async def generate_image(prompt: str, *, chat_id: int | None = None,
