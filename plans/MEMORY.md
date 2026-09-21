@@ -5,10 +5,10 @@
 (Memory MCP, entity `AdminBot` + модули `adminbot-*` + entity `feature-*`
 раунда 10).
 
-> **✅ ВОЛНА 1 ЭПИКА 10.25 (Шаг 8 @PM, 22.09.2026): `F2 design-tokens-liquidglass-v2-round1025` + hotfix5 `summary-cover-window-round1025` + `F3 global-scope-selector-round1025` — COMPLETED + MERGED + ARCHIVED.** Архитектура — `plans/ARCHITECTURE.md` **§57** (Merge @Architect): §57.1 (F2), §57.2 (hotfix5), §57.3 (F3), §57.4 (SUPERSEDE/AMEND-карта). Архивы — `plans/archive/design-tokens-liquidglass-v2-round1025/` (`spec.md` + **ADR-1025-9** + `tasks.md`, T-2529…T-2562), `plans/archive/hotfix5-summary-cover-window-round1025/` (ретро: `spec.md` + **ADR-1025-11** + `tasks.md`, T-2563…T-2573), `plans/archive/global-scope-selector-round1025/` (ретро: `spec.md` + **ADR-1025-10** + `tasks.md`, T-2574…T-2580). Аудит — `plans/reports/round1025_package_scanner_audit.md` (пакетный, **C0/H0**) + базовые `round1025_f2/hotfix5/f3_scanner_audit.md`.
+> **✅ ВОЛНА 1 ЭПИКА 10.25 (Шаг 8 @PM, 22.09.2026): `F2 design-tokens-liquidglass-v2-round1025` + hotfix5 `summary-cover-window-round1025` + `F3 global-scope-selector-round1025` — COMPLETED + MERGED + ARCHIVED + DEPLOYED (Шаг 8 @PM + Шаг 9 @DevOps, 22.09.2026).** Архитектура — `plans/ARCHITECTURE.md` **§57** (Merge @Architect): §57.1 (F2), §57.2 (hotfix5), §57.3 (F3), §57.4 (SUPERSEDE/AMEND-карта). Архивы — `plans/archive/design-tokens-liquidglass-v2-round1025/` (`spec.md` + **ADR-1025-9** + `tasks.md`, T-2529…T-2562), `plans/archive/hotfix5-summary-cover-window-round1025/` (ретро: `spec.md` + **ADR-1025-11** + `tasks.md`, T-2563…T-2573), `plans/archive/global-scope-selector-round1025/` (ретро: `spec.md` + **ADR-1025-10** + `tasks.md`, T-2574…T-2580). Аудит — `plans/reports/round1025_package_scanner_audit.md` (пакетный, **C0/H0**) + базовые `round1025_f2/hotfix5/f3_scanner_audit.md`.
 > **Числа пакета:** итоговый `APP_VERSION` **2.58.6**; полный pytest **8146 passed / 5 failed / 1 skipped** (5 падений — env `aiogram` без `InputRichMessageMedia`, файлы **вне** пакета → не регрессия); целевые тесты пакета **152 passed**; JS **25/25**; **Δ DDL = 0**, **Δ каталога = 0** (REGISTRY 459 / GROUPS 98 / `_TAB_BY_GROUP` 96 / TAB_RULES 21 / Settings 418); CSP/zero-build сохранены. Финальные коммиты кода: F2 **`d2df8ca`**, hotfix5 **`412f844`**, F3 **`4f31197`**.
 > **Суть:** **F2** — палитра §8 (SUPERSEDE OD4 / glass 10.20 / `--grad-d #FF8A3D` / `--grad-speed:6s`; AMEND ADR-1020-9), Liquid Glass A/B/C §9 (`feDisplacementMap`, deny-list), фон 60–90/90–120 с §10, контраст AA. **hotfix5** — ≤2 попытки обложки, `retry=False`+`max_retries=0`, селективный ретрай (`is_transient_reason`), `wait_for`-дедлайн (**362 c**), отдельный env-only `image_calls`-бюджет (ровно одно списание), R17-safe логи, `int(chat_id)` в планировщике. **F3** — постоянный селектор области §5, «Вернуть глобальное» = **DELETE override** (не factory-reset), guard несохранённых (`blockDrafts`/API-ключ/persona/dossier), stale-эпоха (`scopeEpoch`/`_scopeGuard`), §43 N/A (read-through).
-> **⏳ Открыто:** Шаг 9 @DevOps (деплой пакетом) и **live-гейты владельца** (F2 **T-2561**, F3 live-приёмка, hotfix5 live-проверка) — **НЕ выполнены**. Ранее открытые live-гейты F1 (T-2409), hotfix-медиа (T-2463/T-2472/T-2479), P0-fix, hotfix3 (T-2505), hotfix4 (T-2527) — остаются за владельцем.
+> **✅ Шаг 9 @DevOps выполнен (деплой пакетом):** коммит **`4cde1bc`** (push origin/master, прод `/var/www/admin_bot` fast-forward), `systemctl restart admin_bot` → **active**, `/api/health` = **200**, `APP_VERSION` **2.58.6**, `database is locked` = **0**. **⏳ Открыто:** только **live-гейты владельца** (F2 **T-2561**, F3 live-приёмка, hotfix5 live-проверка) — **НЕ выполнены**. Ранее открытые live-гейты F1 (T-2409), hotfix-медиа (T-2463/T-2472/T-2479), P0-fix, hotfix3 (T-2505), hotfix4 (T-2527) — остаются за владельцем.
 > **Waiver/техдолг:** для F3 и hotfix5 Шаг 2 @Architect формально **не оформлялся** → артефакты восстановлены **ретро** (Шаг 8 @PM); процессный техдолг зафиксирован в ADR-1025-10/-11. Остаточный техдолг Волны 1 — §57.5 (F2 M-3, L-1/-2/-4, NEW-L1/-L2; hotfix5 L10.25H5-1/-3; F3 L-F3-1/-2/-4; Playwright-матрица не воспроизведена — нет `playwright`). **Следующий шаг — F4 `module-catalog-quickpanel-store-round1025`** (Волна 2, зависит от F2/F3) → F5–F11 → приёмка Эпика 1 (F10) → **Эпик 2** (10.26) → **Эпик 3**. **R17/R18:** секреты не цитировались; `current_task.md` не трогался; теги/бэкапы `pre-round1025*` и `stash@{0}` **НЕ удалять**.
 >
 > **✅ ФИЧА (Wave 0) ЭПИКА 10.25 (Step 10 @Memory, 20.09.2026): `F0 f0-config-bugfixes-round1025` — COMPLETED + MERGED + ARCHIVED + DEPLOYED.** Раунд **10.25 (Эпик 1 «Liquid Glass Control Center»), Wave 0** (P0, выполнялся ДО F1 «не переносить неисправный механизм сохранения в новые компоненты»); ниже — блок завершённого эпика 10.24. Архитектура — `plans/ARCHITECTURE.md` **§52** (Merge @Architect) + **§52.8** (техдолг F0); архив — `plans/archive/f0-config-bugfixes-round1025/` (`spec.md` + **4 ADR** `adr-1025-2-save-state-machine`/`adr-1025-3-anticliche-semantics`/`adr-1025-4-toasts-savebar`/`adr-1025-5-db-lock-resilience` + `tasks.md`, **T-2410…T-2455, 46 задач**).
@@ -1368,34 +1368,40 @@
 | `user-aliases-admin` (F-6) | Алиасы юзеров в разделе «Лор чатов» (частично в master; SUPERSEDED_BY round10.4) |
 | `post-deploy-admin-minors` (F-1) | Пост-деплойные миноры Epic 85 (T-648:T-655) |
 
-> **Свежие завершённые раунды (архив):** **10.25 (Эпик 1, в работе — F1 закрыт)** — **F0** `f0-config-bugfixes-round1025`
+> **Свежие завершённые раунды (архив):** **10.25 (Эпик 1, в работе — Волна 1 закрыта)** — **F0** `f0-config-bugfixes-round1025`
 > (`plans/archive/f0-config-bugfixes-round1025/`, деплой `3a91c84`, pytest 7946/0, §52) +
 > **ASAP-хотфикс** `hotfix-media-tma-round1025` (`plans/archive/hotfix-media-tma-round1025/`,
 > commits `8b16c4a`+`ee23e47`+docs `65e39fb`, pytest 7976/0, §53; ⏳ live-гейт владельца T-2463/T-2472/T-2479) +
 > **F1** `ia-shell-navigation-round1025` (`plans/archive/ia-shell-navigation-round1025/`, `adr-1025-1-ia-v2.md`,
 > деплой `fe0f7bb`, pytest 7996/0, §54; kill-switch `IA_V2_ENABLED`) +
 > **P0-фикс** `p0-fix-render-media-paths-round1025` (`plans/archive/p0-fix-render-media-paths-round1025/`, FIX 1–4,
-> деплой `fea2daa`, pytest 8003/0, §54.1; ⏳ live-гейт владельца: видео/ГС/аватары + разделы TMA);
+> деплой `fea2daa`, pytest 8003/0, §54.1) +
+> **Волна 1 (пакет, деплой `4cde1bc`, `APP_VERSION` 2.58.6, §57):** **F2** `design-tokens-liquidglass-v2-round1025`
+> (`plans/archive/design-tokens-liquidglass-v2-round1025/`, `adr-1025-9`, pytest 8096/0 → полный пакет 8146/5/1) +
+> **hotfix5** `summary-cover-window-round1025` (`plans/archive/hotfix5-…/`, ретро `adr-1025-11`, pytest 8124/0) +
+> **F3** `global-scope-selector-round1025` (`plans/archive/global-scope-selector-round1025/`, ретро `adr-1025-10`,
+> локально 8142/5/1); ⏳ live-гейты владельца F2 **T-2561** / F3 / hotfix5;
 > **10.24** «Disaster Recovery: UI & Backend Bloat» —
 > **24 папки** `plans/archive/*-round1024/` (+3 сквозных дока), деплой **`da561bc`**,
 > pytest 7911/0 (§51); **10.23** «Adaptive System 2 …» — **9 папок**
 > `plans/archive/*-round1023/` (+`round1023-architecture.md`), деплой **`4314ea4`**,
-> pytest 7424/0 (§49). `plans/features/` — **16 папок**: 6 backlog (сверху) + 10 фич раунда 10.25 (F2–F11); следующий шаг — **F2 ∥ F3**.
+> pytest 7424/0 (§49). `plans/features/` — **14 папок**: 6 backlog (сверху) + 8 фич раунда 10.25 (в т.ч. `epic1-verification-round1025`); следующий шаг — **F4 `module-catalog-quickpanel-store-round1025`**.
 > Также закрыты: **hotfix3** `hotfix3-summary-stt-anticliche-round1025` (§55, `APP_VERSION` 2.58.3,
 > pytest 8041/0) и **hotfix4** `hotfix4-cover-nav-shell-round1025` (`adr-1025-8-…`, §56, `APP_VERSION` 2.58.4,
 > pytest 8071/0, JS 23/23); у обоих ⏳ live-гейт владельца (T-2505 / T-2527).
 
-> **▶ АКТИВНО: F2 `design-tokens-liquidglass-v2-round1025` (Эпик 1, Step 0 @Memory, 21.09.2026).**
-> Скоуп — `web/static/app.css` / `web/index.html` / `web/app.js` (ступень F1 → **F2** → F3; от F2 зависят F4, F11; приёмка — F10/§71).
-> Текущий визуал = **OD4/Relume** (`--surface-1:#161616`, `--teal-500:#14CBB6`, градиент `--grad-d:#FF8A3D`,
-> `--grad-speed:6s`) → **SUPERSEDE**: палитра §8 (`#090D17`/`#151B2A`/`#1C2537`/`#42D6C4`/`#A78BFA`/`#77A8FF`),
-> градиент замедлить до **60–90 с** (вторичные слои 90–120 с), **AMEND ADR-1020-9** (D1 glass, D4 градиент).
-> Liquid Glass: уровни **B** (blur 16px + `saturate(140%)`) и **C** (`@supports not backdrop-filter` → `--glass-bg-strong`)
-> есть; уровень **A** (`feDisplacementMap`) — **отсутствует**. UPD §7 — палитра подтверждена, аккордеоны промптов
-> не основная навигация. Δ DDL=0, Δ каталога=0. KG: `F2-design-tokens-liquidglass-v2-round1025`,
-> `SpecDecision-human-gate-1025-f2`, `ArchitecturalConstraint-web-visual-system-round1025`,
-> `Risk-f2-visual-round1025`, `ExternalDependency-chromium-webkit-render-round1025`,
-> `tech-debt-round10.25-f2`, `metric-snapshot-round1025-f2-step0`.
+> **✅ ВОЛНА 1 ЗАКРЫТА (Step 10 @Memory, 22.09.2026): F2 `design-tokens-liquidglass-v2-round1025` + hotfix5
+> `summary-cover-window-round1025` + F3 `global-scope-selector-round1025` — COMPLETED + MERGED + ARCHIVED + DEPLOYED
+> (пакет, коммит `4cde1bc`, `APP_VERSION` 2.58.6, Merge `plans/ARCHITECTURE.md` §57).** Архивы —
+> `plans/archive/design-tokens-liquidglass-v2-round1025/` (F2, `spec.md` + **ADR-1025-9** + `tasks.md`),
+> `plans/archive/hotfix5-summary-cover-window-round1025/` (hotfix5, ретро `spec.md` + **ADR-1025-11** + `tasks.md`),
+> `plans/archive/global-scope-selector-round1025/` (F3, ретро `spec.md` + **ADR-1025-10** + `tasks.md`).
+> Аудит — `plans/reports/round1025_package_scanner_audit.md` (**C0/H0**) + базовые `round1025_f2/hotfix5/f3_scanner_audit.md`.
+> KG: `F2-design-tokens-liquidglass-v2-round1025`, `F3-global-scope-selector-round1025`,
+> `HOTFIX hotfix5-summary-cover-window-round1025`, `ADR-1025-9`/`-10`/`-11`, `round1025-package-scanner-audit`,
+> `release-round1025-wave1`, `metric-snapshot-round1025-f2`/`-hotfix5`/`-f3`, `tech-debt-round10.25-f2`/`-f3`/`-hotfix5`.
+> **⏳ live-гейты владельца (F2 T-2561, F3, hotfix5) — открыты.**
+> **Следующая — F4 `module-catalog-quickpanel-store-round1025`** (Волна 2, зависит от F2/F3) → F5–F11 → приёмка Эпика 1 (F10).
 
 > **Раунд 10.14 — 8 фич ЗАВЕРШЁН, ЗАДЕПЛОЕН и ЗААРХИВИРОВАН (13.09.2026)** — F1
 > `anti-echo-self-reply`, F2 `persona-storage-core`, F3 `persona-ui-tab`, F4
