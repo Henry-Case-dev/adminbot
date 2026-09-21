@@ -689,7 +689,7 @@
                                         title="Права ключа (min-роли view/edit)"
                                         @click="openPermPicker(item)"><span class="msr" aria-hidden="true">{{ iconGlyph('manage_accounts') }}</span></button>
                                 <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx() || isLocalAdminCtx())"
-                                        class="btn-ghost text-xs px-2 shrink-0"
+                                        class="btn-ghost text-xs px-2 shrink-0 btn-reset-global"
                                         :title="configSourceTitle(item)"
                                 aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                               </div>
@@ -729,7 +729,7 @@
                                           title="Права ключа (min-роли view/edit)"
                                           @click="openPermPicker(item)"><span class="msr" aria-hidden="true">{{ iconGlyph('manage_accounts') }}</span></button>
                                   <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx() || isLocalAdminCtx())"
-                                          class="btn-ghost text-xs px-2 shrink-0"
+                                          class="btn-ghost text-xs px-2 shrink-0 btn-reset-global"
                                           :title="configSourceTitle(item)"
                                 aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                                 </div>
@@ -909,7 +909,7 @@
                               title="Права ключа (min-роли view/edit)"
                               @click="openPermPicker(item)"><span class="msr" aria-hidden="true">{{ iconGlyph('manage_accounts') }}</span></button>
                       <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx() || isLocalAdminCtx())"
-                              class="btn-ghost text-xs px-2 shrink-0"
+                              class="btn-ghost text-xs px-2 shrink-0 btn-reset-global"
                               :title="configSourceTitle(item)"
                                 aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                     </div>
@@ -1034,7 +1034,7 @@
                                 title="Права ключа (min-роли view/edit)"
                                 @click="openPermPicker(item)"><span class="msr" aria-hidden="true">{{ iconGlyph('manage_accounts') }}</span></button>
                         <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx() || isLocalAdminCtx())"
-                                class="btn-ghost text-xs px-2 shrink-0"
+                                class="btn-ghost text-xs px-2 shrink-0 btn-reset-global"
                                 :title="configSourceTitle(item)"
                                 aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                       </div>
@@ -2283,7 +2283,7 @@
                           <div class="flex items-center gap-2 min-w-0 mb-1">
                             <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
                             <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx() || isLocalAdminCtx())"
-                                    class="btn-ghost text-xs px-2 ml-auto shrink-0"
+                                    class="btn-ghost text-xs px-2 ml-auto shrink-0 btn-reset-global"
                                     :title="configSourceTitle(item)"
                                 aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                           </div>
@@ -2326,7 +2326,7 @@
                             <div class="flex items-center gap-2 min-w-0 mb-1">
                               <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
                               <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx() || isLocalAdminCtx())"
-                                      class="btn-ghost text-xs px-2 ml-auto shrink-0"
+                                      class="btn-ghost text-xs px-2 ml-auto shrink-0 btn-reset-global"
                                       :title="configSourceTitle(item)"
                                 aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                             </div>
@@ -2656,7 +2656,7 @@
                           <div class="flex items-center gap-2 min-w-0 mb-1">
                             <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
                             <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx() || isLocalAdminCtx())"
-                                    class="btn-ghost text-xs px-2 ml-auto shrink-0"
+                                    class="btn-ghost text-xs px-2 ml-auto shrink-0 btn-reset-global"
                                     :title="configSourceTitle(item)"
                                 aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                           </div>
@@ -2696,7 +2696,7 @@
                             <div class="flex items-center gap-2 min-w-0 mb-1">
                               <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
                               <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx() || isLocalAdminCtx())"
-                                      class="btn-ghost text-xs px-2 ml-auto shrink-0"
+                                      class="btn-ghost text-xs px-2 ml-auto shrink-0 btn-reset-global"
                                       :title="configSourceTitle(item)"
                                 aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                             </div>

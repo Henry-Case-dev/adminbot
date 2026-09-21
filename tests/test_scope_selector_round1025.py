@@ -103,10 +103,21 @@ class TestReturnGlobal:
         assert 'v-if="itemOverriddenByChat(item)' in HTML
 
     def test_return_global_allowed_for_local_admin(self):
-        # Ревью Low: сервер разрешает снятие override и local_admin
-        # (routes.py::delete_chat_param) — кнопка видна и ему.
+        # Ревью Low/2: сервер разрешает снятие override и local_admin
+        # (routes.py::delete_chat_param) — кнопка видна и ему, а JS-guard
+        # НЕ блокирует. UI == права сервера.
         assert ("itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx() "
                 "|| isLocalAdminCtx())" in HTML)
+        body = _block(JS, "resetChatOverride: async function",
+                      "applyRoute: function")
+        assert ("if (!(this.isGlobalAdmin || this.isDmCtx() "
+                "|| this.isLocalAdminCtx()))" in body)
+
+    def test_return_button_class_stable(self):
+        # Ревью 2: стиль не завязан на текст aria-label — стабильный класс.
+        assert HTML.count("btn-reset-global") == 8
+        assert ".btn-reset-global {" in CSS
+        assert 'button[aria-label="Вернуть глобальное значение"] {' not in CSS
 
     def test_reset_uses_delete_override_endpoint(self):
         body = _block(JS, "resetChatOverride: async function",

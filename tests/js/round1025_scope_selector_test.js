@@ -250,6 +250,39 @@ function makeCtx(overrides) {
     global.window.confirm = function () { return false; };
     await methods.resetChatOverride.call(ctx2, item);
     assert.strictEqual(apiCalls2.length, 0, 'd: отмена → без мутации');
+
+    // Ревью 2 (UI↔сервер): локальный админ имеет право снять override
+    // (routes.py разрешает is_local_admin) — guard НЕ блокирует.
+    const apiLa = [];
+    const ctxLa = {
+      isGlobalAdmin: false, isDmCtx: function () { return false; },
+      isLocalAdminCtx: function () { return true; },
+      scopeKind: 'chat', saving: new Set(), toast: function () {},
+      api: async function (url, opts) { apiLa.push({ url: url }); return {}; },
+      _preserveScroll: function (fn) { return fn && fn.call(this); },
+      loadConfig: function () {}, loadKeyStatus: function () {},
+    };
+    global.window.confirm = function () { return true; };
+    await methods.resetChatOverride.call(ctxLa, item);
+    assert.strictEqual(apiLa.length, 1,
+      'd: local_admin → DELETE выполняется (паритет с сервером)');
+
+    // Без прав (не global/DM/local admin) → отказ, без мутации.
+    const apiDenied = [];
+    const ctxDenied = {
+      isGlobalAdmin: false, isDmCtx: function () { return false; },
+      isLocalAdminCtx: function () { return false; },
+      scopeKind: 'chat', saving: new Set(),
+      toasts: [],
+      toast: function (t, k) { this.toasts.push(k || 'ok'); },
+      api: async function () { apiDenied.push(1); return {}; },
+      _preserveScroll: function (fn) { return fn && fn.call(this); },
+      loadConfig: function () {}, loadKeyStatus: function () {},
+    };
+    global.window.confirm = function () { return true; };
+    await methods.resetChatOverride.call(ctxDenied, item);
+    assert.strictEqual(apiDenied.length, 0, 'd: нет прав → без мутации');
+    assert.ok(ctxDenied.toasts.indexOf('err') >= 0, 'd: нет прав → err-тост');
   }
 
   // ── (e) Несохранённые правки при переключении области ────────────────
@@ -329,6 +362,11 @@ function makeCtx(overrides) {
       methods.hasUnsavedEdits.call({
         dossierDraft: 'y', dossierData: { manual_traits: 'x' },
       }), true, 'e: досье изменено → есть правки');
+    // Ревью 2: ОЧИСТКА поля (было непустое → стало '') тоже правка.
+    assert.strictEqual(
+      methods.hasUnsavedEdits.call({
+        dossierDraft: '', dossierData: { manual_traits: 'x' },
+      }), true, 'e: очистка досье до пустой строки → есть правки');
 
     // Интеграция: введённый API-ключ блокирует смену области.
     const ctxB = makeCtx({ activeChatId: -100,

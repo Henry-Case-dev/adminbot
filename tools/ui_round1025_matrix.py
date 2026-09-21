@@ -98,6 +98,19 @@ ME_JSON = {
     },
 }
 
+# F3 (reviewer 2): локальный админ — UI должен совпадать с правами сервера
+# (DELETE-override разрешён is_local_admin, routes.py). Роль без wildcard;
+# секция «memory» открывает config-вкладку #/memory/rag для проверки кнопки.
+LOCAL_ADMIN_ME = dict(ME_JSON)
+LOCAL_ADMIN_ME.update({
+    "username": "localadmin",
+    "first_name": "Local",
+    "role_name": "local_admin",
+    "permissions": {"sections": ["memory"], "params": [], "keys": []},
+    "is_global_admin": False,
+})
+
+
 # Минимально достаточные ответы API, чтобы шаблоны монтировались без падений
 # (реальный бэкенд/БД не поднимаем; секретов нет — R17).
 STATUS_STUB = {
@@ -556,6 +569,23 @@ def main() -> int:
                 route.fulfill(status=200, content_type="application/json",
                               body=json.dumps(payload))
 
+            def _route_local(route):
+                # F3: стенд локального админа (тот же конфиг с override).
+                p = route.request.url.split("?")[0]
+                if p.endswith("/api/me"):
+                    payload = LOCAL_ADMIN_ME
+                elif p.endswith("/api/access/me"):
+                    payload = {"is_local_admin": True,
+                               "permissions": {"sections": ["memory"]}}
+                elif p.endswith("/api/config"):
+                    hdrs = route.request.headers or {}
+                    payload = (CONFIG_STUB_CHAT if hdrs.get("x-chat-id")
+                               else CONFIG_STUB)
+                else:
+                    payload = _stub_for(route.request.url)
+                route.fulfill(status=200, content_type="application/json",
+                              body=json.dumps(payload))
+
             ctx.route("**/api/**", _route)
             page = ctx.new_page()
             vp_errors = []
@@ -701,6 +731,51 @@ def main() -> int:
                 if not seen["button"]:
                     failures.append(
                         "%s chat-scope: нет кнопки «Вернуть глобальное»" % vp_key)
+            # F3 (reviewer 2): local_admin — кнопка возврата к глобальному
+            # видна (паритет UI↔сервер) и не даёт overflow на 320/360/390.
+            if w in (320, 360, 390):
+                la_ctx = browser.new_context(
+                    viewport={"width": w, "height": h})
+                la_ctx.add_init_script(TMA_STUB)
+                la_ctx.add_init_script(
+                    "() => localStorage.setItem('adminbot.active_chat_id',"
+                    " '-1001234567890')")
+                la_ctx.route("**/api/**", _route_local)
+                la_page = la_ctx.new_page()
+                la_errors = []
+                la_page.on("console", lambda m, b=la_errors: (
+                    b.append("%s: %s" % (m.type, m.text[:200]))
+                    if m.type == "error" else None))
+                la_page.on("pageerror", lambda e, b=la_errors: b.append(
+                    "pageerror: " + str(e)[:300]))
+                la_page.goto(url, wait_until="load")
+                try:
+                    la_page.wait_for_selector(".app-shell", timeout=8000)
+                except Exception:  # noqa: BLE001
+                    pass
+                la_page.wait_for_timeout(500)
+                la_page.evaluate(
+                    "() => { window.location.hash = '#/memory/rag'; }")
+                la_page.wait_for_timeout(900)
+                la_probe = la_page.evaluate(PROBE_JS)
+                out["viewports"][vp_key]["local_admin"] = la_probe
+                if la_probe["overflow"]:
+                    failures.append(
+                        "%s local_admin: horizontal overflow %d > %d"
+                        % (vp_key, la_probe["scrollWidth"],
+                           la_probe["innerWidth"]))
+                la_btn = bool(la_page.evaluate(
+                    "() => !!document.querySelector("
+                    "'button[aria-label=\"Вернуть глобальное значение\"]')"))
+                out["viewports"][vp_key]["local_admin_button"] = la_btn
+                if not la_btn:
+                    failures.append(
+                        "%s local_admin: нет кнопки «Вернуть глобальное»"
+                        % vp_key)
+                for msg in la_errors:
+                    failures.append("%s local_admin console/pageerror: %s"
+                                    % (vp_key, msg))
+                la_ctx.close()
             # F2 (T-2548): prefers-reduced-motion → animation-name: none.
             if (w, h) == VIEWPORTS[0]:
                 rm_ctx = browser.new_context(

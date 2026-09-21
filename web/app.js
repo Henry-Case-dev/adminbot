@@ -2507,7 +2507,8 @@
           }
         }
         // dossierDraft инициализируется серверным manual_traits → baseline.
-        if (this.dossierDraft && this.dossierData
+        // Сравниваем и пустую строку (очистка поля ≠ отсутствие правки).
+        if (this.dossierData
             && this.dossierDraft !== (this.dossierData.manual_traits || '')) {
           return true;
         }
@@ -3325,9 +3326,11 @@
         return '';
       },
       resetChatOverride: async function (item) {
-        // F-14 (§6.3): сброс своего override — global admin (любой чат)
-        // или DM-владелец (только свой ЛС; серверный гейт тот же).
-        if (!(this.isGlobalAdmin || this.isDmCtx())) {
+        // F-14 (§6.3) + F3 (ревью 2): сброс override — global admin (любой
+        // чат), DM-владелец (свой ЛС) ИЛИ локальный админ чата. Паритет с
+        // серверным гейтом `web/api/routes.py:871-876` (DELETE-override
+        // разрешён is_global_admin/is_local_admin; DM — is_dm_owner).
+        if (!(this.isGlobalAdmin || this.isDmCtx() || this.isLocalAdminCtx())) {
           this.toast('Нет права сбросить override', 'err');
           return;
         }

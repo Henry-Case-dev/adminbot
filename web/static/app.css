@@ -383,8 +383,9 @@
     /* Reviewer Critical: кнопка возврата к глобальному не должна давать
        горизонтальный overflow на узких экранах — снимаем Tailwind
        `shrink-0`, разрешаем сжатие/перенос (видимая подпись сокращена
-       до «↪ Глобальное», полный смысл — в aria-label/title). */
-    button[aria-label="Вернуть глобальное значение"] {
+       до «↪ Глобальное», полный смысл — в aria-label/title).
+       Селектор — стабильный класс (не зависит от текста aria-label). */
+    .btn-reset-global {
       flex-shrink: 1; min-width: 0; max-width: 100%; white-space: normal;
     }
     .scope-tech { position: relative; }
