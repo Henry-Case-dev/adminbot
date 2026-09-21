@@ -10,8 +10,11 @@
       --surface-border:rgba(170,182,200,.14);
       /* --surface-glass: legacy-алиас (стекло = --glass-bg ниже). */
       --surface-glass:rgba(21,27,42,.5);
-      /* text (§8: Primary #F4F7FB / Secondary #AAB6C8; --text-3 ≥4.5:1 на surface-0..3) */
-      --text-1:#F4F7FB; --text-2:#AAB6C8; --text-3:#94A3B8;
+      /* text (§8: Primary #F4F7FB / Secondary #AAB6C8). --text-3 скорректирован
+         (D4 «ради контраста») так, чтобы даже на САМОМ СВЕТЛОМ эффективном фоне
+         стекла (--glass-bg alpha .5 поверх анимированного wash) ratio ≥4.5:1
+         для .75rem: #94A3B8→#A2B0C6 (5.25 на стекле, 8.84 на surface-0). */
+      --text-1:#F4F7FB; --text-2:#AAB6C8; --text-3:#A2B0C6;
       /* brand/base palette (§8: Teal #42D6C4 / Violet #A78BFA / Blue #77A8FF) */
       --teal-500:#42D6C4; --teal-600:#2FB9A8; --purple-500:#A78BFA; --purple-400:#8B6FE8;
       --magenta-600:#E05A8A; --magenta-400:#F08BB0; --lilac-200:#CFC4F5; --indigo-300:#77A8FF;
@@ -37,7 +40,8 @@
       --page-padding:2.5rem;--navbar-height:4.5rem;
       /* Liquid Glass v2 (§9, раунд 10.25/F2; ADR-1025-9 D2) — уровни A/B/C.
          B (default, glass-set): blur + светлая кромка + блик + тень.
-         A (opt-in [data-glass="a"]): + оптическое преломление --glass-displace (Chromium).
+         A (opt-in [data-glass="a"]): + преломление --glass-displace (Chromium; UA-gate,
+         приближение feTurbulence — ADR-1025-9 D2).
          C ([data-glass="c"]/deny-list): непрозрачный fallback.
          Токены — единый источник для панелей/карточек/модалок/sticky. */
       --glass-bg: rgba(21, 27, 42, 0.5);
@@ -909,10 +913,11 @@
       box-shadow: var(--glass-shadow),
                   inset 0 1px 0 var(--glass-highlight);
     }
-    /* §9/F2 (T-2538/T-2539/T-2540): уровень A — оптическое преломление.
-       Только явный opt-in `data-glass="a"` (крупные элементы; JS-страховка
-       min-сторона ≥240px в reconcileLiquidGlass). Chromium — progressive
-       enhancement: вне поддержки backdrop-filter:url() остаётся уровень B. */
+    /* §9/F2 (T-2538/T-2539/T-2540): уровень A — преломление (документированное
+       приближение: сглаженный feTurbulence, НЕ радиальная edge-map; см.
+       ADR-1025-9 D2/@Reviewer). Только явный opt-in `data-glass="a"` (крупные
+       элементы; JS-страховка min-сторона ≥240px — обратимо, `data-glass-downgraded`).
+       Chromium — progressive enhancement (UA-gate Blink): вне поддержки → уровень B. */
     [data-glass="a"] {
       background-color: var(--glass-bg);
       -webkit-backdrop-filter: var(--glass-blur) saturate(140%) var(--glass-displace);
@@ -921,6 +926,14 @@
       box-shadow: var(--glass-shadow),
                   inset 0 1px 0 var(--glass-highlight),
                   inset 0 -1px 0 var(--glass-highlight-soft);
+    }
+    /* §9/F2 (T-2540, итерация @Reviewer): обратимое понижение A → B.
+       JS ставит `data-glass-downgraded` элементам с min-стороной <240px или
+       без поддержки url-фильтра; при росте элемента/поддержке атрибут снимается
+       (снова уровень A). `data-glass` (opt-in) не переписывается. */
+    [data-glass="a"][data-glass-downgraded="1"] {
+      -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
+      backdrop-filter: var(--glass-blur) saturate(140%);
     }
     /* §9/F2 (T-2538): явный уровень B — профиль для элементов, понижённых из A
        (нет поддержки url-фильтра или min-сторона <240px): blur без преломления. */

@@ -99,11 +99,36 @@ const OD4 = ['#0E0E0E', '#161616', '#1F1F1F', '#262626', '#F5F5F5', '#BABABA',
   assert.strictEqual(tokenValue('--surface-1').toUpperCase(), '#151B2A');
   assert.strictEqual(tokenValue('--text-1').toUpperCase(), '#F4F7FB');
   assert.strictEqual(tokenValue('--text-2').toUpperCase(), '#AAB6C8');
+  assert.strictEqual(tokenValue('--text-3').toUpperCase(), '#A2B0C6');
+  assert.strictEqual(tokenValue('--glass-bg').replace(/\s/g, ''),
+    'rgba(21,27,42,0.5)');
   assert.strictEqual(tokenValue('--teal-500').toUpperCase(), '#42D6C4');
   assert.strictEqual(tokenValue('--purple-500').toUpperCase(), '#A78BFA');
   assert.strictEqual(tokenValue('--indigo-300').toUpperCase(), '#77A8FF');
   assert.strictEqual(tokenValue('--warn').toUpperCase(), '#F6C56F');
   assert.strictEqual(tokenValue('--err').toUpperCase(), '#F07178');
+}
+
+// ── 1b. Симметричный инвентарь (D5/@Reviewer): пропажи И лишние маркеры ─────
+{
+  const prefixes = ['--surface-', '--text-', '--grad-', '--glass-', '--teal-',
+    '--purple-', '--indigo-', '--magenta-', '--lilac-'];
+  const status = ['--ok', '--warn', '--err', '--ok-bg', '--warn-bg', '--err-bg'];
+  const expectedInv = new Set(['--surface-0', '--surface-1', '--surface-2',
+    '--surface-3', '--surface-border', '--surface-glass', '--text-1', '--text-2',
+    '--text-3', '--grad-a', '--grad-b', '--grad-c', '--grad-d', '--grad-angle',
+    '--grad-ease', '--grad-speed', '--grad-speed-slow', '--glass-bg',
+    '--glass-bg-strong', '--glass-blur', '--glass-border',
+    '--glass-border-color', '--glass-displace', '--glass-highlight',
+    '--glass-highlight-soft', '--glass-shadow', '--teal-500', '--teal-600',
+    '--purple-400', '--purple-500', '--indigo-300', '--magenta-400',
+    '--magenta-600', '--lilac-200', ...status]);
+  const actualInv = new Set([...tokensOf(CSS)].filter((t) =>
+    prefixes.some((p) => t.indexOf(p) === 0) || status.indexOf(t) >= 0));
+  const extra = [...actualInv].filter((t) => !expectedInv.has(t));
+  const missing = [...expectedInv].filter((t) => !actualInv.has(t));
+  assert.deepStrictEqual({ extra, missing }, { extra: [], missing: [] },
+    'инвентарь: лишние=' + extra.join(',') + ' пропавшие=' + missing.join(','));
 }
 
 // ── 2. Отсутствие OD4-литералов (absence, сравнение множеств) ──────────────
@@ -184,9 +209,14 @@ const OD4 = ['#0E0E0E', '#161616', '#1F1F1F', '#262626', '#F5F5F5', '#BABABA',
     'T-2547: setBgPaused — метод');
   assert.strictEqual(typeof methods._liquidGlassSupported, 'function',
     'T-2540: _liquidGlassSupported — метод');
+  assert.strictEqual(typeof methods._initLiquidGlassObserver, 'function',
+    'T-2540/@Reviewer: _initLiquidGlassObserver — метод (транзитивность)');
   // Не нагромождаем обработчиков: visibilitychange объявлен ровно один раз.
   assert.strictEqual((APP_JS.match(/addEventListener\('visibilitychange'/g) || []).length,
     1, 'T-2547: один обработчик visibilitychange');
+  // reconcile не переписывает opt-in-декларацию data-glass (обратимость b→a).
+  assert.ok(APP_JS.indexOf("setAttribute('data-glass', 'b')") < 0,
+    'reconcile: data-glass (opt-in) не переписывается');
 
   // setBgPaused реально переключает класс.
   methods.setBgPaused.call({}, true);
@@ -196,14 +226,52 @@ const OD4 = ['#0E0E0E', '#161616', '#1F1F1F', '#262626', '#F5F5F5', '#BABABA',
   assert.strictEqual(global.document.documentElement.classList.contains('lg-bg-paused'),
     false, 'setBgPaused(false) → класс снят');
 
-  // Без поддержки url-фильтра (Node — нет window.CSS) уровень A понижается до B.
-  const fake = { attr: 'a', setAttribute(k, v) { this.attr = v; } };
+  // §9/T-2540/@Reviewer: понижение/повышение обратимо и зависит от min-стороны.
+  const mkEl = (w, h) => ({
+    _attrs: {},
+    getBoundingClientRect: () => ({ width: w, height: h }),
+    setAttribute(k, v) { this._attrs[k] = v; },
+    removeAttribute(k) { delete this._attrs[k]; },
+    hasAttribute(k) { return Object.prototype.hasOwnProperty.call(this._attrs, k); },
+  });
   const oldQSA = global.document.querySelectorAll;
+  const big = mkEl(320, 400), small = mkEl(200, 300);
   global.document.querySelectorAll = (sel) =>
-    sel === '[data-glass="a"]' ? [fake] : [];
-  methods.reconcileLiquidGlass.call({ _liquidGlassSupported: methods._liquidGlassSupported });
+    sel === '[data-glass="a"]' ? [big, small] : [];
+  methods.reconcileLiquidGlass.call({ _liquidGlassSupported: () => false });
+  assert.strictEqual(big.hasAttribute('data-glass-downgraded'), true,
+    'reconcile: нет поддержки → A понижен (big)');
+  assert.strictEqual(small.hasAttribute('data-glass-downgraded'), true,
+    'reconcile: нет поддержки → A понижен (small)');
+  // Поддержка есть: большой элемент повышается обратно (b→a), мелкий — остаётся B.
+  methods.reconcileLiquidGlass.call({ _liquidGlassSupported: () => true });
+  assert.strictEqual(big.hasAttribute('data-glass-downgraded'), false,
+    'reconcile: рост/поддержка → обратно уровень A (b→a)');
+  assert.strictEqual(small.hasAttribute('data-glass-downgraded'), true,
+    'reconcile: min-сторона <240 остаётся уровнем B');
   global.document.querySelectorAll = oldQSA;
-  assert.strictEqual(fake.attr, 'b', 'reconcile: без поддержки → уровень B');
+
+  // §9/T-2542: UA-gate — WebKit/WKWebView не получает уровень A.
+  const oldWin = global.window;
+  try {
+    global.window = {
+      navigator: { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like ' +
+        'Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 ' +
+        'Mobile/15E148 Safari/604.1' },
+      CSS: { supports: () => true },
+    };
+    assert.strictEqual(methods._liquidGlassSupported.call({}), false,
+      'UA-gate: Safari/WebKit → уровень B (не A)');
+    global.window = {
+      navigator: { userAgent: 'Mozilla/5.0 (X11; Linux x86_64) ' +
+        'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36' },
+      CSS: { supports: () => true },
+    };
+    assert.strictEqual(methods._liquidGlassSupported.call({}), true,
+      'UA-gate: Chromium + поддержка → уровень A');
+  } finally {
+    global.window = oldWin;
+  }
 }
 
 console.log('JS-UNIT-OK');

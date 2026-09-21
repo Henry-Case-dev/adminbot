@@ -2038,6 +2038,10 @@
           this._syncPromptModeFromConfig();
           this.maybeLoadCliche();
         }
+        // F2 (T-2540): после смены вкладки контент v-if достраивается позже —
+        // пересчитываем уровень стекла после рендера (в дополнение к observer).
+        var self = this;
+        this.$nextTick(function () { self.reconcileLiquidGlass(); });
       },
     },
 
@@ -2105,6 +2109,7 @@
       this.initBackButton();
       // F2 (T-2540): страховка «крупного элемента» для уровня A стекла.
       this.reconcileLiquidGlass();
+      this._initLiquidGlassObserver();
       // Фин. доработка (DevOps): без Telegram-контекста — блокирующая
       // заглушка вместо бессмысленных 401 (ngrok-интерстициал ломал контекст).
       if (!this.hasInitData()) {
@@ -7999,7 +8004,14 @@
       // enhancement. Проверяем, умеет ли движок backdrop-filter:url(#…).
       _liquidGlassSupported: function () {
         try {
-          var css = window.CSS;
+          // §9/T-2542: WKWebView отдаёт недостоверный CSS.supports для
+          // backdrop-filter:url() → уровень A только Blink (UA-gate), иначе B.
+          var win = (typeof window !== 'undefined' && window) || {};
+          var nav = win.navigator || (typeof navigator !== 'undefined' && navigator) || {};
+          var ua = String(nav.userAgent || '');
+          if (ua && /AppleWebKit/i.test(ua) &&
+              !/Chrome|Chromium|Edg|OPR/i.test(ua)) return false;
+          var css = win.CSS;
           if (!css || typeof css.supports !== 'function') return false;
           return css.supports('backdrop-filter', 'url(#lg-displace)') ||
                  css.supports('-webkit-backdrop-filter', 'url(#lg-displace)');
@@ -8007,20 +8019,44 @@
       },
       // Страховка «крупного элемента» (§9/T-2540): уровень A — только opt-in
       // `data-glass="a"` с min-стороной ≥240px и при поддержке url-фильтра.
-      // Иначе — уровень B (blur без преломления). Без второго обработчика.
+      // Обратимо (b→a при росте) и транзитивно: JS не трогает `data-glass`
+      // (это opt-in-декларация), а ставит/снимает `data-glass-downgraded`.
+      // Без второго `visibilitychange`-обработчика.
       reconcileLiquidGlass: function () {
         if (typeof document === 'undefined') return;
         var okA = this._liquidGlassSupported();
         var nodes = document.querySelectorAll('[data-glass="a"]');
         for (var i = 0; i < nodes.length; i++) {
           var el = nodes[i];
-          var small = false;
+          var big = true;
           try {
             var r = el.getBoundingClientRect();
-            small = Math.min(r.width, r.height) < 240;
-          } catch (e) { small = false; }
-          if (!okA || small) el.setAttribute('data-glass', 'b');
+            big = r.width >= 240 && r.height >= 240;
+          } catch (e) { big = true; }
+          if (okA && big) el.removeAttribute('data-glass-downgraded');
+          else el.setAttribute('data-glass-downgraded', '1');
         }
+      },
+      // Транзитивность (T-2540, итерация @Reviewer): `[data-glass="a"]`
+      // достраивается асинхронно (v-if/маршруты/данные) — наблюдаем за DOM и
+      // пересчитываем уровень после появления/смены узлов (debounce через rAF).
+      _initLiquidGlassObserver: function () {
+        if (typeof MutationObserver === 'undefined' || !document.body) return;
+        if (this._lgObserver) return;
+        var self = this;
+        this._lgObserver = new MutationObserver(function () {
+          if (self._lgPending) return;
+          self._lgPending = true;
+          var run = function () {
+            self._lgPending = false;
+            self.reconcileLiquidGlass();
+          };
+          if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+          else setTimeout(run, 0);
+        });
+        this._lgObserver.observe(document.body, {
+          childList: true, subtree: true, attributeFilter: ['data-glass'],
+        });
       },
       // §10/T-2547: пауза дорогих фоновых эффектов при скрытии TMA.
       setBgPaused: function (paused) {
@@ -8249,6 +8285,11 @@
       if (_onResize) {
         window.removeEventListener('resize', _onResize);
         _onResize = null;
+      }
+      // F2 (T-2540): снимаем DOM-observer уровня A стекла.
+      if (this._lgObserver) {
+        this._lgObserver.disconnect();
+        this._lgObserver = null;
       }
       if (this.controlTimer) clearInterval(this.controlTimer);
     },

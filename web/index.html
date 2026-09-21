@@ -26,8 +26,11 @@
 <body>
   <!-- §9/F2 (ADR-1025-9 D2/T-2540): inline SVG-фильтр уровня A Liquid Glass.
        CSP-safe (zero-build, без внешних ресурсов/data-URI), ОДИН фильтр на
-       документ; применяется только к opt-in [data-glass="a"]. Карта сглажена
-       (feGaussianBlur) — оптическое преломление, не случайный шум. -->
+       документ; применяется только к opt-in [data-glass="a"] (крупные, не
+       deny-list). ВАЖНО (ADR-1025-9 D2/@Reviewer): карта — сглаженный
+       низкочастотный feTurbulence; это ДОКУМЕНТИРОВАННОЕ ПРИБЛИЖЕНИЕ
+       («оптическое» преломление), НЕ радиально-взвешенная edge-map. Усиление
+       у краёв даёт CSS-кромка (inset box-shadow), а не карта смещения. -->
   <svg class="lg-filter-defs" width="0" height="0" aria-hidden="true" focusable="false"
        style="position:absolute;width:0;height:0;overflow:hidden">
     <defs>

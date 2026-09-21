@@ -27,6 +27,7 @@
 """
 import json
 import os
+import re
 import sys
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -277,8 +278,19 @@ F2_PROBE_JS = """
     return (st.backdropFilter || st.webkitBackdropFilter || '');
   };
   const before = getComputedStyle(document.body, '::before');
-  const a = document.querySelector('[data-glass="a"]');
   const c = document.querySelector('[data-glass="c"]');
+  // T-2540: по каждому allow-элементу — min-сторона, фактический фильтр и
+  // признак понижения (JS `data-glass-downgraded`).
+  const allow = Array.from(document.querySelectorAll('[data-glass="a"]'))
+    .map((el) => {
+      const r = el.getBoundingClientRect();
+      const st = getComputedStyle(el);
+      return {
+        minSide: Math.round(Math.min(r.width, r.height)),
+        bf: (st.backdropFilter || st.webkitBackdropFilter || ''),
+        downgraded: el.hasAttribute('data-glass-downgraded'),
+      };
+    });
   return {
     tokens: {
       s0: tok('--surface-0'), s1: tok('--surface-1'), teal: tok('--teal-500'),
@@ -288,9 +300,7 @@ F2_PROBE_JS = """
     },
     beforeAnim: before.animationName,
     beforeDur: before.animationDuration,
-    align: a ? Math.min(a.getBoundingClientRect().width,
-                       a.getBoundingClientRect().height) : null,
-    allowBf: bf(a),
+    allow: allow,
     denyBf: bf(c),
     denyCount: document.querySelectorAll('[data-glass="c"]').length,
     hasDisplaceFilter: !!document.getElementById('lg-displace'),
@@ -354,21 +364,34 @@ def _f2_failures(probe: dict, label: str) -> list:
     if "grad-spin" not in (probe.get("beforeAnim") or ""):
         out.append("%s фон: body::before без grad-spin (%r)"
                    % (label, probe.get("beforeAnim")))
-    dur = probe.get("beforeDur") or ""
-    if "75s" not in dur:
-        out.append("%s фон: основной цикл не 75s (%r)" % (label, dur))
-    if "105s" not in dur:
-        out.append("%s фон: вторичный цикл не 105s (%r)" % (label, dur))
+    # T-2544/итерация @Reviewer: диапазоны из computed animationDuration
+    # (без хардкода 75s/105s): основной 60–90 c, вторичный 90–120 c.
+    durs = [float(s) for s in re.findall(r"([\d.]+)s", probe.get("beforeDur") or "")]
+    if not any(60.0 <= s <= 90.0 for s in durs):
+        out.append("%s фон §10: основной цикл не в [60,90]s (%r)"
+                   % (label, probe.get("beforeDur")))
+    if not any(90.0 <= s <= 120.0 for s in durs):
+        out.append("%s фон §10: вторичный цикл не в [90,120]s (%r)"
+                   % (label, probe.get("beforeDur")))
     if not probe.get("hasDisplaceFilter"):
         out.append("%s glass: SVG-фильтр #lg-displace отсутствует" % label)
     displace = (t.get("displace") or "").replace(" ", "")
     if displace != "url(#lg-displace)":
         out.append("%s glass: --glass-displace=%r" % (label, displace))
-    allow = (probe.get("allowBf") or "").replace(" ", "").replace('"', "")
-    if not allow:
-        out.append("%s glass allow: нет [data-glass=\"a\"] на экране" % label)
-    elif "url(#lg-displace)" not in allow:
-        out.append("%s glass allow: нет преломления (%r)" % (label, probe.get("allowBf")))
+    # T-2540/итерация @Reviewer: страховка min-сторона ≥240 для КАЖДОГО
+    # allow-элемента, реально получившего преломление (url-фильтр).
+    allow = probe.get("allow") or []
+    active = [x for x in allow if "lg-displace" in
+              (x.get("bf") or "").replace(" ", "").replace('"', "")]
+    if not active:
+        out.append("%s glass allow: ни один [data-glass=\"a\"] не получил "
+                   "преломление" % label)
+    for x in active:
+        if x.get("minSide") is not None and x["minSide"] < 240:
+            out.append("%s glass allow: min-сторона %dpx < 240 при преломлении"
+                       % (label, x["minSide"]))
+        if x.get("downgraded"):
+            out.append("%s glass allow: элемент понижен, но с преломлением" % label)
     if probe.get("denyCount", 0) < 1:
         out.append("%s glass deny: нет [data-glass=\"c\"] на экране" % label)
     elif (probe.get("denyBf") or "none").replace(" ", "") not in ("none", ""):

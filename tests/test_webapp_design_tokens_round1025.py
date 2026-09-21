@@ -31,7 +31,7 @@ EXPECTED_TOKENS = {
 }
 EXPECTED_VALUES = {
     "--surface-0": "#090D17", "--surface-1": "#151B2A", "--surface-2": "#1C2537",
-    "--text-1": "#F4F7FB", "--text-2": "#AAB6C8",
+    "--text-1": "#F4F7FB", "--text-2": "#AAB6C8", "--text-3": "#A2B0C6",
     "--teal-500": "#42D6C4", "--purple-500": "#A78BFA", "--indigo-300": "#77A8FF",
     "--warn": "#F6C56F", "--err": "#F07178",
     "--grad-a": "#42D6C4", "--grad-b": "#77A8FF", "--grad-c": "#A78BFA",
@@ -39,6 +39,26 @@ EXPECTED_VALUES = {
     "--glass-bg": "rgba(21, 27, 42, 0.5)",
     "--glass-bg-strong": "rgba(21, 27, 42, 0.85)",
 }
+
+# D5 (симметрия, итерация @Reviewer): полный набор токенов дизайн-системы.
+# Сравниваем множество фактических токенов семейств с эталоном → ловим и
+# пропажи, и ЛИШНИЕ маркеры (напр. забытый --grad-old / --glass-foo).
+INVENTORY_PREFIXES = ("--surface-", "--text-", "--grad-", "--glass-",
+                      "--teal-", "--purple-", "--indigo-", "--magenta-",
+                      "--lilac-")
+INVENTORY_STATUS = {"--ok", "--warn", "--err", "--ok-bg", "--warn-bg", "--err-bg"}
+INVENTORY_TOKENS = {
+    "--surface-0", "--surface-1", "--surface-2", "--surface-3",
+    "--surface-border", "--surface-glass",
+    "--text-1", "--text-2", "--text-3",
+    "--grad-a", "--grad-b", "--grad-c", "--grad-d", "--grad-angle",
+    "--grad-ease", "--grad-speed", "--grad-speed-slow",
+    "--glass-bg", "--glass-bg-strong", "--glass-blur", "--glass-border",
+    "--glass-border-color", "--glass-displace", "--glass-highlight",
+    "--glass-highlight-soft", "--glass-shadow",
+    "--teal-500", "--teal-600", "--purple-400", "--purple-500", "--indigo-300",
+    "--magenta-400", "--magenta-600", "--lilac-200",
+} | INVENTORY_STATUS
 GLASS_LEVELS = {"a", "b", "c"}
 
 # OD4/Relume-литералы (SUPERSEDE, ADR-1025-9) — не должны остаться в web/**.
@@ -92,12 +112,45 @@ def _contrast(fg: str, bg: str) -> float:
     return (l1 + 0.05) / (l2 + 0.05)
 
 
+def _rgb(h: str) -> list:
+    h = h.lstrip("#")
+    return [int(h[i:i + 2], 16) for i in (0, 2, 4)]
+
+
+def _over(fg: list, a: float, bg: list) -> list:
+    return [round(fg[i] * a + bg[i] * (1 - a)) for i in range(3)]
+
+
+def _lum_rgb(rgb: list) -> float:
+    def f(c):
+        c = c / 255.0
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = (f(c) for c in rgb)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _contrast_rgb(a: list, b: list) -> float:
+    l1, l2 = _lum_rgb(a), _lum_rgb(b)
+    if l1 < l2:
+        l1, l2 = l2, l1
+    return (l1 + 0.05) / (l2 + 0.05)
+
+
 # ═══════════════════════ T-2550: inventory-множество ═══════════════════════
 class TestInventory:
     def test_expected_tokens_present(self):
         """Presence: каждый маркер присутствует (сравнение множеств, не in)."""
         missing = EXPECTED_TOKENS - _tokens(APP_CSS)
         assert not missing, f"потеряны токены-маркеры: {sorted(missing)}"
+
+    def test_inventory_symmetric_difference(self):
+        """D5/@Reviewer: симметрия — ловим и пропажи, и ЛИШНИЕ маркеры."""
+        actual = {t for t in _tokens(APP_CSS)
+                  if t.startswith(INVENTORY_PREFIXES) or t in INVENTORY_STATUS}
+        extra = sorted(actual - INVENTORY_TOKENS)
+        missing = sorted(INVENTORY_TOKENS - actual)
+        assert not extra and not missing, (
+            "лишние маркеры: %s; пропавшие: %s" % (extra, missing))
 
     def test_token_values_section8(self):
         wrong = {k: (_token_value(k), v) for k, v in EXPECTED_VALUES.items()
@@ -141,7 +194,7 @@ class TestPaletteSection8:
         """D4/T-2534: .75rem (12px, нормальный) ≥4.5:1 на surface-0..3."""
         surfaces = {"s0": "#090D17", "s1": "#151B2A", "s2": "#1C2537",
                     "s3": "#232E45"}
-        fgs = {"--text-1": "#F4F7FB", "--text-2": "#AAB6C8", "--text-3": "#94A3B8"}
+        fgs = {"--text-1": "#F4F7FB", "--text-2": "#AAB6C8", "--text-3": "#A2B0C6"}
         fails = []
         for fn, fv in fgs.items():
             for sn, sv in surfaces.items():
@@ -149,6 +202,24 @@ class TestPaletteSection8:
                 if ratio < 4.5:
                     fails.append((fn, sn, round(ratio, 2)))
         assert not fails, f"контраст ниже 4.5:1: {fails}"
+
+    def test_contrast_on_glass_effective_bg(self):
+        """D4/@Reviewer: текст читаем на эффективном фоне стекла
+        (--glass-bg alpha .5 поверх анимированного wash §10 alpha .42 поверх
+        surface-0). Берём САМЫЙ СВЕТЛЫЙ фон фазы — худший контраст."""
+        s0 = _rgb("#090D17")
+        glass = _rgb("#151B2A")
+        wash = ["#42D6C4", "#77A8FF", "#5C7CFA", "#A78BFA"]
+        effs = [_over(glass, 0.5, _over(_rgb(w), 0.42, s0)) for w in wash]
+        light = max(effs, key=_lum_rgb)
+        fails = []
+        for name, fg in (("--text-1", "#F4F7FB"), ("--text-2", "#AAB6C8"),
+                         ("--text-3", "#A2B0C6"), ("--warn", "#F6C56F"),
+                         ("--ok", "#3DD68C")):
+            ratio = _contrast_rgb(_rgb(fg), light)
+            if ratio < 4.5:
+                fails.append((name, round(ratio, 2)))
+        assert not fails, f"на стекле ниже 4.5:1: {fails}"
 
     def test_accent_contrast_on_dark(self):
         for a in ("#42D6C4", "#A78BFA", "#77A8FF", "#F6C56F", "#F07178"):
@@ -229,6 +300,31 @@ class TestLiquidGlassV2:
         assert 'data-glass="a"' in INDEX
         assert "getBoundingClientRect" in APP_JS
 
+    def test_downgrade_reversible_and_transitive(self):
+        """@Reviewer: обратимое понижение A↔B + транзитивность (observer)."""
+        # JS не переписывает opt-in data-glass, а ведёт data-glass-downgraded.
+        assert "data-glass-downgraded" in APP_JS
+        assert "setAttribute('data-glass', 'b')" not in APP_JS
+        assert "removeAttribute('data-glass-downgraded')" in APP_JS
+        # CSS-профиль понижения + транзитивность после смены вкладки/маршрута.
+        assert '[data-glass="a"][data-glass-downgraded="1"]' in APP_CSS
+        assert "_initLiquidGlassObserver" in APP_JS
+        assert "MutationObserver" in APP_JS
+        assert "$nextTick" in APP_JS
+
+    def test_webkit_ua_gate(self):
+        """@Reviewer: WKWebView не получает уровень A (UA-gate + feature-check)."""
+        assert "AppleWebKit" in APP_JS
+        assert re.search(r"Chrome\|Chromium\|Edg\|OPR", APP_JS)
+        assert "css.supports('backdrop-filter', 'url(#lg-displace)')" in APP_JS
+
+    def test_glass_approximation_documented(self):
+        """@Reviewer: приближение карты смещения зафиксировано (не выдаётся за оптику)."""
+        assert "это ДОКУМЕНТИРОВАННОЕ ПРИБЛИЖЕНИЕ" in INDEX
+        assert "feTurbulence" in INDEX and "feGaussianBlur" in INDEX
+        # усиление у краёв — CSS-кромка, а не карта смещения
+        assert "inset 0 1px 0 var(--glass-highlight)" in APP_CSS
+
 
 # ═══════════════ T-2544…T-2549: фон §10, пауза, reduced-motion ═══════════════
 class TestBackgroundSection10:
@@ -264,3 +360,50 @@ class TestBackgroundSection10:
             r"@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?body::before"
             r"[^}]*animation:\s*none", APP_CSS)
         assert "@media (prefers-contrast: more)" in APP_CSS
+
+
+# ═══════ T-2554/@Reviewer: сам F2-чекер матрицы (min-сторона, диапазоны) ═══════
+class TestMatrixF2Probe:
+    @staticmethod
+    def _checker():
+        # ленивый импорт: модуль харнесса делает os.chdir(REPO) на импорте.
+        from tools.ui_round1025_matrix import _f2_failures
+        return _f2_failures
+
+    def _base(self) -> dict:
+        return {
+            "tokens": {"s0": "#090D17", "s1": "#151B2A", "teal": "#42D6C4",
+                       "warn": "#F6C56F", "err": "#F07178",
+                       "gs": "75s", "gss": "105s",
+                       "glassBg": "rgba(21, 27, 42, 0.5)",
+                       "displace": "url(#lg-displace)"},
+            "beforeAnim": "grad-spin",
+            "beforeDur": "75s, 105s",
+            "hasDisplaceFilter": True,
+            "allow": [{"minSide": 320, "bf": 'blur(16px) url("#lg-displace")',
+                       "downgraded": False}],
+            "denyCount": 1, "denyBf": "none", "overflow": False,
+        }
+
+    def test_compliant_probe_passes(self):
+        assert self._checker()(self._base(), "t") == []
+
+    def test_catches_small_displaced_element(self):
+        p = self._base()
+        p["allow"] = [{"minSide": 208, "bf": 'url("#lg-displace")',
+                       "downgraded": False}]
+        fails = self._checker()(p, "320x700")
+        assert any("240" in f for f in fails), fails
+
+    def test_catches_downgraded_with_displacement(self):
+        p = self._base()
+        p["allow"] = [{"minSide": 320, "bf": 'url("#lg-displace")',
+                       "downgraded": True}]
+        fails = self._checker()(p, "t")
+        assert any("понижен" in f for f in fails), fails
+
+    def test_catches_out_of_range_duration(self):
+        p = self._base()
+        p["beforeDur"] = "6s"
+        fails = self._checker()(p, "t")
+        assert any("60,90" in f for f in fails), fails
