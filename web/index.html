@@ -1158,32 +1158,120 @@
             </template>
           </template>
           <template v-else-if="activeTab === 'modules'">
-            <!-- ═══ Модули (A2/T-1165): ровно 11; toggle + «Параметры» ═══ -->
+            <!-- ═══ Модули (A2/T-1165 + F4 §31–§45): оперативный пульт ═══ -->
             <div class="hub-head col-span-full">
               <div class="hub-title">Модули</div>
-              <div class="hub-sub">Модули, бюджет фона и интеллекта: честный тумблер и окно со всеми параметрами</div>
+              <div class="hub-sub">Оперативный пульт: найдите модуль, проверьте область и включите или выключите его — без открытия отдельной страницы параметров</div>
+              <!-- F4 §45: общие индикаторы для выбранной области -->
+              <div class="module-counters" role="status"
+                   aria-label="Сводка по модулям для выбранной области">
+                <span class="module-counter"><b>{{ moduleCounters.total }}</b> Всего</span>
+                <span class="module-counter module-counter--on"><b>{{ moduleCounters.on }}</b> Включено</span>
+                <span class="module-counter module-counter--off"><b>{{ moduleCounters.off }}</b> Выключено</span>
+                <span class="module-counter module-counter--issue"><b>{{ moduleCounters.issues }}</b> Есть проблемы</span>
+              </div>
             </div>
-            <div class="module-list col-span-full" role="list">
-              <article class="module-card card p-4" v-for="m in visibleModules" :key="m.id"
-                       role="listitem" :data-mod="m.id">
-                <span class="msr module-icon" aria-hidden="true">{{ iconGlyph(m.icon) }}</span>
-                <div class="module-meta min-w-0">
-                  <div class="module-title text-sm font-semibold">{{ m.title }}</div>
-                  <div class="module-sub text-xs text-gray-500">{{ m.subtitle }}</div>
+
+            <!-- F4 §34–§35: компактная панель избранных модулей -->
+            <section v-if="quickpickModules.length"
+                     class="module-quick-wrap col-span-full"
+                     aria-label="Быстрое управление модулями">
+              <div class="module-quick-head">
+                <span class="text-xs font-semibold">Быстрое управление</span>
+                <button v-if="quickpickHiddenCount || moduleQuickpicksOpen"
+                        type="button" class="btn-ghost text-xs ml-auto shrink-0"
+                        @click="moduleQuickpicksOpen = !moduleQuickpicksOpen">
+                  {{ moduleQuickpicksOpen ? 'Свернуть' : ('Все избранные (+' + quickpickHiddenCount + ')') }}
+                </button>
+              </div>
+              <div class="module-quick" role="list">
+                <div class="module-quick-item card" role="listitem"
+                     v-for="m in quickpickVisible" :key="'q-' + m.id" :data-mod="m.id">
+                  <span class="msr module-icon" aria-hidden="true">{{ iconGlyph(m.icon) }}</span>
+                  <div class="module-quick-meta min-w-0">
+                    <div class="module-title text-sm font-semibold">{{ m.title }}</div>
+                    <div class="module-sub text-xs text-gray-500">{{ moduleStateText(m) }}</div>
+                  </div>
+                  <label class="module-toggle relative inline-flex items-center cursor-pointer shrink-0"
+                         :class="{ 'is-saving': modulePendingFor(m) }">
+                    <input type="checkbox" class="sr-only peer" :checked="moduleEnabled(m)"
+                           :disabled="!canEditModule(m) || modulePendingFor(m)"
+                           @change="toggleModule(m, $event.target.checked)"
+                           :aria-label="'Включить модуль ' + m.title">
+                    <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
+                    <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                  </label>
+                  <button type="button" class="module-pin-btn btn-ghost text-xs shrink-0"
+                          :aria-label="'Убрать из быстрого управления: ' + m.title"
+                          title="Убрать из быстрого управления"
+                          @click.stop="toggleQuickpick(m)">★</button>
                 </div>
-                <!-- F3 (10.19): «Бюджеты» — config-раздел без master-тумблера. -->
-                <span v-if="m.noToggle" class="badge badge-muted shrink-0">лимиты</span>
-                <label v-else class="module-toggle relative inline-flex items-center cursor-pointer shrink-0">
-                  <input type="checkbox" class="sr-only peer" :checked="moduleEnabled(m)"
-                         :disabled="!canEditModule(m)"
-                         @change="toggleModule(m, $event.target.checked)"
-                         :aria-label="'Включить модуль ' + m.title">
-                  <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                  <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
-                </label>
-                <button class="btn-ghost module-params-btn text-xs shrink-0"
-                        @click="openModuleWindow(m)">Параметры</button>
-              </article>
+              </div>
+            </section>
+
+            <!-- F4 §32/§44: поиск по названию/описанию/тех.имени/синонимам -->
+            <div class="module-toolbar col-span-full">
+              <input class="field module-search" type="search"
+                     placeholder="Найти модуль…" v-model="moduleSearch"
+                     aria-label="Найти модуль">
+              <div class="module-filters" role="group" aria-label="Фильтр модулей">
+                <button type="button" v-for="f in moduleFilterOptions" :key="f.id"
+                        class="module-filter-btn" :class="{ active: moduleFilter === f.id }"
+                        :aria-pressed="moduleFilter === f.id"
+                        @click="moduleFilter = f.id">{{ f.label }}</button>
+              </div>
+            </div>
+
+            <!-- F4 §32/D7: каталог ≤3/2/1 изолированными правилами .module-list -->
+            <div class="module-catalog col-span-full">
+              <div class="module-list" role="list" v-if="filteredModules.length">
+                <article class="module-card card p-4" v-for="m in filteredModules" :key="m.id"
+                         role="listitem" :data-mod="m.id">
+                  <div class="module-card-head">
+                    <span class="msr module-icon" aria-hidden="true">{{ iconGlyph(m.icon) }}</span>
+                    <div class="module-meta min-w-0">
+                      <div class="module-title text-sm font-semibold">{{ m.title }}</div>
+                      <div class="module-sub text-xs text-gray-500">{{ m.subtitle }}</div>
+                    </div>
+                    <!-- F4 D6: карточка ≠ тумблер; noToggle — только «Всего» -->
+                    <span v-if="m.noToggle" class="badge badge-muted shrink-0">без тумблера</span>
+                    <label v-else class="module-toggle relative inline-flex items-center cursor-pointer shrink-0"
+                           :class="{ 'is-saving': modulePendingFor(m) }">
+                      <input type="checkbox" class="sr-only peer" :checked="moduleEnabled(m)"
+                             :disabled="!canEditModule(m) || modulePendingFor(m)"
+                             @change="toggleModule(m, $event.target.checked)"
+                             :aria-label="'Включить модуль ' + m.title">
+                      <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
+                      <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                    </label>
+                  </div>
+                  <!-- F4 §33/§43: фактическое состояние выбранной области -->
+                  <div class="module-state text-xs">
+                    <span class="module-state-value">{{ moduleStateText(m) }}</span>
+                    <span v-if="moduleSourceText(m)" class="module-source">
+                      · {{ moduleSourceText(m) }}</span>
+                  </div>
+                  <div v-if="moduleRuntimeNotice(m)" class="module-problem text-xs">
+                    ⚠ {{ moduleRuntimeNotice(m) }}
+                  </div>
+                  <div v-if="moduleSaveErrorFor(m)" class="module-error text-xs">
+                    {{ moduleSaveErrorFor(m) }}
+                  </div>
+                  <!-- F4 D6: «Настроить» — отдельное действие (шов F5) -->
+                  <div class="module-card-actions">
+                    <button type="button" class="btn-ghost module-pin-btn text-xs shrink-0"
+                            :aria-label="(isQuickpick(m) ? 'Убрать из быстрого управления: ' : 'Закрепить в быстром управлении: ') + m.title"
+                            @click="toggleQuickpick(m)">
+                      {{ isQuickpick(m) ? '★ В избранном' : '☆ В избранное' }}
+                    </button>
+                    <button class="btn-ghost module-params-btn text-xs shrink-0"
+                            @click="openModuleWorkspace(m)">Настроить</button>
+                  </div>
+                </article>
+              </div>
+              <div v-if="!filteredModules.length" class="module-empty">
+                Ничего не найдено. Измените запрос или фильтр.
+              </div>
             </div>
 
             <!-- F5 (T-1585, round1015, ТЗ §4): карточка метрик графа
@@ -1205,8 +1293,22 @@
                   <h2 class="modal-title text-base font-bold" :id="'mod-title-' + activeModule.id">
                     {{ activeModule.title }}
                   </h2>
-                  <button class="modal-close btn-ghost ml-auto text-sm px-2" @click="closeModule()"
-                          aria-label="Закрыть">✕</button>
+                  <!-- F4 §37/§40: головной тумблер модуля — тот же канонический
+                       store, что карточка каталога и панель избранного. -->
+                  <label v-if="!activeModule.noToggle"
+                         class="module-toggle relative inline-flex items-center cursor-pointer shrink-0 ml-auto"
+                         :class="{ 'is-saving': modulePendingFor(activeModule) }">
+                    <input type="checkbox" class="sr-only peer"
+                           :checked="moduleEnabled(activeModule)"
+                           :disabled="!canEditModule(activeModule) || modulePendingFor(activeModule)"
+                           @change="toggleModule(activeModule, $event.target.checked)"
+                           :aria-label="'Включить модуль ' + activeModule.title">
+                    <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
+                    <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                  </label>
+                  <button class="modal-close btn-ghost text-sm px-2"
+                          :class="activeModule.noToggle ? 'ml-auto' : ''"
+                          @click="closeModule()" aria-label="Закрыть">✕</button>
                 </header>
                 <div class="modal-body">
                   <div v-if="!activeModuleGroups.length" class="text-xs text-gray-500">

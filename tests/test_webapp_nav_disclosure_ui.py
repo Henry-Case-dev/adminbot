@@ -191,11 +191,18 @@ class TestModulesRework106:
 
     def test_modules_ui_and_modal(self):
         html = _html()
-        assert 'class="module-list ' in html
-        assert "openModuleWindow(m)" in html
+        js = _js()
+        assert 'class="module-list' in html
+        # F4 (10.25, ADR-1025-14 D6): точка входа «Настроить» — шов
+        # openModuleWorkspace → существующая модалка openModuleWindow
+        # (регресс-путь сохранён; новых маршрутов F4 не создаёт).
+        assert "openModuleWorkspace(m)" in html
+        assert "openModuleWindow: function" in js
         assert "activeModule" in html
         assert "toggleModule(m, $event.target.checked)" in html
-        assert "Параметры" in html
+        # L-F4-4: точная кнопка-шов (раньше «Параметры» ловилось вакуумно
+        # подстрокой «Параметры модуля ещё не загружены»).
+        assert ">Настроить</button>" in html
 
     def test_permsoc_kept(self):
         js, html = _js(), _html()

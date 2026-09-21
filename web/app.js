@@ -440,40 +440,74 @@
   // ═══ Раунд 10.6 (A2/T-1165): «Модули» = ровно 11; toggle + окно ═══
   // toggleKey — pg-ключ master-флага (реальный гейт), tab — config-вкладка
   // с операционными группами модуля (generic-рендер в модалке).
+  // F4 (10.25, ADR-1025-14 D5): `keywords` — описания/синонимы для поиска
+  // (§44), живут в витрине JS (services/param_catalog.py НЕ трогается →
+  // Δ каталога = 0). Старые названия оставлены синонимами (маркеры целы).
+  // F4 (D3/D6): `runtimeGate` — природа мастер-флага по КОДУ (global →
+  // hot.get без чата; per_chat → override→global→default); `parentGate` —
+  // глобальный родитель (регистрация роутеров 0a–0i по flags.summary_enabled).
   var MODULES = [
-    { id: 'mod_summary', title: 'Саммаризация',
+    { id: 'mod_summary', title: 'Сводки чатов',
       subtitle: 'Пересказы разговоров и каналов', icon: 'description',
-      toggleKey: 'flags.summary_enabled', tab: 'mod_summary' },
-    { id: 'mod_direct', title: 'Прямые ответы',
+      toggleKey: 'flags.summary_enabled', tab: 'mod_summary',
+      runtimeGate: 'global',
+      keywords: ['саммари', 'саммаризация', 'сводка', 'сводки', 'суммаризация',
+                 'summary', 'пересказ', 'пересказы'] },
+    { id: 'mod_direct', title: 'Ответы в чате',
       subtitle: 'Ответы бота на обращения', icon: 'smart_toy',
-      toggleKey: 'flags.direct_chat_botword_enabled', tab: 'mod_direct' },
+      toggleKey: 'flags.direct_chat_botword_enabled', tab: 'mod_direct',
+      runtimeGate: 'global', parentGate: 'flags.summary_enabled',
+      keywords: ['ответы', 'ответы в чате', 'прямые ответы', 'direct',
+                 'botword', 'реплай', 'reply', 'бот'] },
     { id: 'mod_factcheck', title: 'Фактчек',
       subtitle: 'Проверка фактов', icon: 'radar',
-      toggleKey: 'flags.factcheck_enabled', tab: 'mod_factcheck' },
+      toggleKey: 'flags.factcheck_enabled', tab: 'mod_factcheck',
+      runtimeGate: 'global', parentGate: 'flags.summary_enabled',
+      keywords: ['фактчек', 'фактчекинг', 'факты', 'проверка фактов',
+                 'factcheck', 'check'] },
     { id: 'mod_search', title: 'Поиск',
       subtitle: 'Интернет-поиск', icon: 'grid_view',
-      toggleKey: 'flags.search_enabled', tab: 'mod_search' },
+      toggleKey: 'flags.search_enabled', tab: 'mod_search',
+      runtimeGate: 'global', parentGate: 'flags.summary_enabled',
+      keywords: ['поиск', 'найди', 'загугли', 'интернет', 'search', 'google',
+                 'гугл'] },
     { id: 'mod_transcribe', title: 'Транскрипт голосовых и видео',
       subtitle: 'Распознавание речи', icon: 'play_circle',
-      toggleKey: 'flags.enable_voice_transcription', tab: 'mod_transcribe' },
+      toggleKey: 'flags.enable_voice_transcription', tab: 'mod_transcribe',
+      runtimeGate: 'global', parentGate: 'flags.summary_enabled',
+      keywords: ['транскрипт', 'транскрибация', 'голосовые', 'распознавание',
+                 'speech', 'stt', 'voice'] },
     { id: 'mod_video_summary', title: 'Выжимка видео',
       subtitle: 'Пересказ видео', icon: 'play_circle',
-      toggleKey: 'flags.video_summary_enabled', tab: 'mod_video_summary' },
+      toggleKey: 'flags.video_summary_enabled', tab: 'mod_video_summary',
+      runtimeGate: 'global', parentGate: 'flags.summary_enabled',
+      keywords: ['выжимка', 'видео', 'ютуб', 'youtube', 'video', 'пересказ'] },
     { id: 'mod_media_download', title: 'Скачивание медиа',
       subtitle: 'Скачивание видео по ссылке', icon: 'cloud',
-      toggleKey: 'flags.download_enabled', tab: 'mod_media_download' },
+      toggleKey: 'flags.download_enabled', tab: 'mod_media_download',
+      runtimeGate: 'global',
+      keywords: ['скачивание', 'медиа', 'download', 'видео', 'файлы'] },
     { id: 'mod_web', title: 'Веб-страницы',
       subtitle: 'Пересказ страниц', icon: 'auto_stories',
-      toggleKey: 'flags.webpage_enabled', tab: 'mod_web' },
+      toggleKey: 'flags.webpage_enabled', tab: 'mod_web',
+      runtimeGate: 'global', parentGate: 'flags.summary_enabled',
+      keywords: ['веб', 'веб-страницы', 'страницы', 'web', 'webpage', 'url'] },
     { id: 'mod_checkup', title: 'Диагностика',
       subtitle: 'Чекап, метрики и логи', icon: 'monitoring',
-      toggleKey: 'flags.checkup_enabled', tab: 'mod_checkup' },
+      toggleKey: 'flags.checkup_enabled', tab: 'mod_checkup',
+      runtimeGate: 'global', parentGate: 'flags.summary_enabled',
+      keywords: ['диагностика', 'чекап', 'метрики', 'логи', 'checkup',
+                 'status'] },
     { id: 'mod_sleep', title: 'Сон',
       subtitle: 'Синтез убеждений', icon: 'bedtime',
-      toggleKey: 'memory.dream_enabled', tab: 'mod_sleep' },
+      toggleKey: 'memory.dream_enabled', tab: 'mod_sleep',
+      runtimeGate: 'per_chat',
+      keywords: ['сон', 'сны', 'синтез', 'убеждения', 'dream', 'beliefs'] },
     { id: 'mod_nostalgia', title: 'Ностальгия',
       subtitle: '«Кстати…» по старым сообщениям', icon: 'history',
-      toggleKey: 'memory.nostalgia_enabled', tab: 'mod_nostalgia' },
+      toggleKey: 'memory.nostalgia_enabled', tab: 'mod_nostalgia',
+      runtimeGate: 'per_chat',
+      keywords: ['ностальгия', 'nostalgia', 'кстати', 'старые сообщения'] },
     // F3 (10.19, ADR-1019-3 D1): «Бюджеты» — карточка с параметрами раздела
     // (mod_budgets), внутри — тумблер «Безлимит по чату».
     // F21 (10.24, ADR-1024-22 D7): master-тумблер бюджетов (снят noToggle);
@@ -481,13 +515,18 @@
     { id: 'mod_budgets', title: 'Бюджеты',
       subtitle: 'Лимиты интеллекта и фона, безлимит по чату',
       icon: 'receipt_long', toggleKey: 'flags.budgets_enabled',
-      tab: 'mod_budgets' },
+      tab: 'mod_budgets', runtimeGate: 'per_chat',
+      keywords: ['бюджеты', 'бюджет', 'лимиты', 'безлимит', 'budget',
+                 'токены'] },
     // F5 (10.24, ADR-1024-9 D1/D4): отдельная карточка «Генерация
     // изображений» с главным тумблером (default ON); гейт видимости —
     // uiFlag('IMAGE_MODULE_CARD_ENABLED') в computed `visibleModules`.
     { id: 'mod_images', title: 'Генерация изображений',
       subtitle: 'Рисунки по просьбе', icon: 'grid_view',
-      toggleKey: 'flags.image_generation_module_enabled', tab: 'mod_images' },
+      toggleKey: 'flags.image_generation_module_enabled', tab: 'mod_images',
+      runtimeGate: 'per_chat',
+      keywords: ['изображения', 'картинки', 'рисунки', 'генерация', 'image',
+                 'generation'] },
   ];
 
   // A4/T-1207: «LLM Провайдеры» — блоки ПО МОДУЛЯМ (base_url+model+key).
@@ -952,6 +991,23 @@
         activeTab: 'status',
         openModuleId: null,       // A2/T-1167: открытая модалка параметров
         modules: MODULES,
+        // ── F4 (10.25, ADR-1025-14 D1/D2): ModuleConfigurationStore ──
+        // Канонический источник значений — существующий `configItems`
+        // (loadConfig → GET /api/config). Store добавляет ТОЛЬКО «оверлей
+        // операции»: оптимистичное значение в полёте (moduleOptimistic),
+        // блокировку повтора (modulePending) и понятную ошибку по ключу
+        // (moduleSaveError). Копий конфигурации на визуальный экземпляр нет.
+        // Ключ — `scope_type/scope_id/module_id` (§38).
+        moduleOptimistic: {},     // storeKey → { value, opId } (только в полёте)
+        modulePending: {},        // storeKey → true (in-flight)
+        moduleSaveError: {},      // storeKey → понятный текст ошибки
+        // F4 (D4/§34–§36): избранное — UI-предпочтение (localStorage), НЕ
+        // конфигурация бота; не включает/выключает модуль. Fail-open.
+        moduleQuickpicks: null,   // string[] id модулей (init в created/loadMe)
+        moduleQuickpicksOpen: false,   // «Все избранные» раскрыты
+        // F4 (D5/§32/§44): поиск/фильтр каталога — представление.
+        moduleSearch: '',
+        moduleFilter: 'all',      // all|on|off|issues|picks
         // A4/T-1207: LLM-блоки по модулям + черновики/результаты теста.
         providerBlocks: PROVIDER_BLOCKS,
         blockDrafts: {},
@@ -1468,6 +1524,86 @@
         return this.modules.filter(function (m) {
           if (m.id === 'mod_images') {
             return self.uiFlag('IMAGE_MODULE_CARD_ENABLED');
+          }
+          return true;
+        });
+      },
+      // ═══ F4 (10.25, ADR-1025-14 D1/D5/D6): store-производные каталога ═══
+      // §45: счётчики для ВЫБРАННОЙ области по набору visibleModules.
+      // Инвариант «неизвестное ≠ выключено»: unknown/blocked/inert и
+      // провал сохранения идут в «Есть проблемы», НЕ в «Выключено».
+      // noToggle входит ТОЛЬКО в «Всего»; uiFlag-скрытые модули (по
+      // visibleModules) не входят никуда.
+      moduleCounters: function () {
+        var self = this;
+        var scope = this.storeScope();
+        var total = 0, on = 0, off = 0, issues = 0;
+        this.visibleModules.forEach(function (m) {
+          total += 1;
+          if (m.noToggle) return;
+          var st = self.getModuleState(scope, m.id);
+          if (st.runtime === 'on') on += 1;
+          else if (st.runtime === 'off') off += 1;
+          if (st.runtime === 'unknown' || st.runtime === 'blocked'
+              || st.runtime === 'inert' || st.error
+              || self._moduleSaveFailed(m)) {
+            issues += 1;
+          }
+        });
+        return { total: total, on: on, off: off, issues: issues };
+      },
+      // §34–§35: кандидаты панели быстрого управления (витрина, без
+      // noToggle и uiFlag-скрытых).
+      quickpickCandidates: function () {
+        return this.visibleModules.filter(function (m) {
+          return !!m.toggleKey && !m.noToggle;
+        });
+      },
+      // §34: избранные модули в сохранённом порядке (после валидации).
+      quickpickModules: function () {
+        var byId = {};
+        this.quickpickCandidates.forEach(function (m) { byId[m.id] = m; });
+        return (this.moduleQuickpicks || []).map(function (id) {
+          return byId[id];
+        }).filter(Boolean);
+      },
+      // §35: лимит начального отображения (остальные — «Все избранные»).
+      quickpickVisible: function () {
+        var list = this.quickpickModules;
+        return this.moduleQuickpicksOpen ? list : list.slice(0, 4);
+      },
+      quickpickHiddenCount: function () {
+        return Math.max(0, this.quickpickModules.length - 4);
+      },
+      // §32/§44: фильтры каталога — представление (ноль мутаций).
+      moduleFilterOptions: function () {
+        return [
+          { id: 'all', label: 'Все' },
+          { id: 'on', label: 'Включённые' },
+          { id: 'off', label: 'Выключенные' },
+          { id: 'issues', label: 'Есть проблемы' },
+          { id: 'picks', label: 'Избранные' },
+        ];
+      },
+      // §32/§44: основной каталог после поиска+фильтра (генеральные
+      // тумблеры сохраняются — фильтр их не сбрасывает).
+      filteredModules: function () {
+        var self = this;
+        var scope = this.storeScope();
+        var q = String(this.moduleSearch || '').trim().toLowerCase();
+        var f = this.moduleFilter || 'all';
+        return this.visibleModules.filter(function (m) {
+          if (q && self._moduleSearchHaystack(m).indexOf(q) < 0) return false;
+          if (f === 'all') return true;
+          if (m.noToggle) return false;
+          if (f === 'picks') return self.isQuickpick(m);
+          var st = self.getModuleState(scope, m.id);
+          if (f === 'on') return st.runtime === 'on';
+          if (f === 'off') return st.runtime === 'off';
+          if (f === 'issues') {
+            return st.runtime === 'unknown' || st.runtime === 'blocked'
+              || st.runtime === 'inert' || !!st.error
+              || self._moduleSaveFailed(m);
           }
           return true;
         });
@@ -2149,6 +2285,7 @@
       getInitData();                       // кэш initData ДО записи hash
       this._syncShellMode();               // F1: shell-режим по ширине
       this.initExpandState();              // F24: реактивный стейт аккордеонов
+      this.initQuickpicks();               // F4 D4: избранное модулей (fail-open)
       var r = initialRoute();
       this.route = r;
       var tabId = routeToTab(r);
@@ -2642,6 +2779,12 @@
         // (обобщение R10.4-2): epoch отбрасывает устаревшие in-flight
         // ответы, чистим relations/лор/гейты/локальных админов/модалки.
         this.scopeEpoch++;
+        // F4 (L-F4-3): операции модулей привязаны к scope-ключу; при смене
+        // области карты overlay/блокировок/ошибок не переносятся в новую
+        // область (состояние читается из configItems новой области).
+        this.moduleOptimistic = {};
+        this.modulePending = {};
+        this.moduleSaveError = {};
         this.chatLoreProfile = null;
         this.chatLoreSelectedId = null;
         this.chatLoreHistory = [];
@@ -4127,24 +4270,399 @@
       canEditModule: function (m) {
         return !!m && this.canEditConfig(m.toggleKey);
       },
+
+      // ═══════ F4 (10.25, ADR-1025-14 D1/D2): ModuleConfigurationStore ═══════
+      // Тонкий слой над существующим `configItems` (§39: без новых
+      // библиотек). Канонический источник значений — configItems; store
+      // добавляет только оверлей операции (ovely/pending/error).
+      // §38: логический ключ — `scope_type/scope_id/module_id`.
+      storeScope: function () {
+        var kind = this.scopeKind;
+        if (kind !== 'chat' && kind !== 'dm') kind = 'global';
+        var id = (kind === 'global' || this.activeChatId == null)
+          ? null : this.activeChatId;
+        return { type: kind, id: id };
+      },
+      storeKey: function (scope, moduleId) {
+        scope = scope || this.storeScope();
+        var type = (scope && scope.type) ? scope.type : 'global';
+        var idPart = (scope && scope.id != null) ? String(scope.id) : 'null';
+        return type + '/' + idPart + '/' + moduleId;
+      },
+      _moduleById: function (moduleId) {
+        var list = this.modules || [];
+        for (var i = 0; i < list.length; i++) {
+          if (list[i] && list[i].id === moduleId) return list[i];
+        }
+        return null;
+      },
+      // Данные `configItems` относятся ТОЛЬКО к активной области
+      // (setActiveChat очищает+перезагружает их) → для чужой области
+      // фактическое состояние недоступно (не выдумываем его).
+      _isActiveScope: function (scope) {
+        if (!scope) return false;
+        var cur = this.storeScope();
+        var a = (cur.id == null) ? 'null' : String(cur.id);
+        var b = (scope.id == null) ? 'null' : String(scope.id);
+        return cur.type === scope.type && a === b;
+      },
+      _moduleConfigItem: function (m) {
+        if (!m || !m.toggleKey) return null;
+        var items = this.configItems || [];
+        for (var i = 0; i < items.length; i++) {
+          if (items[i] && items[i].key === m.toggleKey) return items[i];
+        }
+        return null;
+      },
+      // §39: производное состояние (overlay → configItems → «неизвестно»).
+      getModuleState: function (scope, moduleId) {
+        scope = scope || this.storeScope();
+        var key = this.storeKey(scope, moduleId);
+        var m = this._moduleById(moduleId);
+        var active = this._isActiveScope(scope);
+        var item = (active && m) ? this._moduleConfigItem(m) : null;
+        var known = !!(item && item.value !== null && item.value !== undefined);
+        var effective = known ? item.value : null;
+        var globalValue = (item && item.global_value !== undefined)
+          ? item.global_value : null;
+        var hasOverride = !!(item && scope.type !== 'global'
+          && item.chat_source === 'chat');
+        var overlay = this.moduleOptimistic ? this.moduleOptimistic[key] : null;
+        var pending = !!(this.modulePending && this.modulePending[key]);
+        var error = (this.moduleSaveError && this.moduleSaveError[key]) || '';
+        var display = (overlay && pending) ? !!overlay.value
+                                           : (known ? effective : null);
+        return {
+          key: key, known: known, effective: effective, globalValue: globalValue,
+          hasOverride: hasOverride, display: display,
+          runtime: this._moduleRuntimeState(m, item, scope, known),
+          pending: pending, error: error,
+        };
+      },
+      // §43: фактическое рабочее состояние (не просто значение флага):
+      //   on      — включён и реально работает;
+      //   off     — выключен (без конфликта);
+      //   blocked — включён, но глобальный/родительский гейт выключен;
+      //   inert   — локальный override для gate='global' не влияет;
+      //   unknown — нет элемента/значения (≠ выключено!).
+      _moduleRuntimeState: function (m, item, scope, known) {
+        if (!known || !item) return 'unknown';
+        var eff = (item.value === true);
+        var gate = (m && m.runtimeGate) || 'global';
+        if (!eff) {
+          if (item.chat_source === 'chat' && gate === 'global') return 'inert';
+          return 'off';
+        }
+        if (m && m.parentGate && m.parentGate !== m.toggleKey
+            && typeof this._findConfigItem === 'function') {
+          var p = this._findConfigItem(m.parentGate);
+          if (p && p.value === false) return 'blocked';
+        }
+        // F4-M1 (§43, ADR-1025-14 D3): включён локально, но gate='global'
+        // и глобально выключен → локальный override НЕ действует: модуль
+        // фактически не работает. Условие симметрично `moduleRuntimeNotice`
+        // (только НЕглобальная область: в глобальной effective === global_value).
+        if (gate === 'global' && scope && scope.type !== 'global'
+            && item.global_value === false) return 'blocked';
+        return 'on';
+      },
+      // §43: подпись фактического состояния для НЕглобальной области.
+      // Отдельный helper — `configItemNotice` (F3) НЕ изменяется.
+      moduleRuntimeNotice: function (m) {
+        if (!m) return '';
+        var scope = this.storeScope();
+        var item = this._moduleConfigItem(m);
+        if (!item) return '';
+        var gate = m.runtimeGate || 'global';
+        var gv = item.global_value;
+        var eff = item.value;
+        var hasOverride = item.chat_source === 'chat';
+        // Родительский гейт (флаги 0a–0i) — глобальный выключатель: показываем
+        // в ЛЮБОЙ области, если модуль включён, но фактически не работает.
+        if (m.parentGate && m.parentGate !== m.toggleKey && eff === true
+            && typeof this._findConfigItem === 'function') {
+          var p = this._findConfigItem(m.parentGate);
+          if (p && p.value === false) return 'Не работает: отключён глобально';
+        }
+        if (scope.type === 'global') return '';
+        if (gv === false && eff === true) {
+          if (gate === 'per_chat') {
+            return 'Включено для этой области (глобально выключено)';
+          }
+          if (gate === 'unknown') {
+            return 'Локальное значение сохранено; глобально модуль выключен';
+          }
+          return 'Не работает: отключён глобально (локальное значение сохранено)';
+        }
+        if (eff === false && hasOverride && gate === 'global') {
+          return 'Отключение для этой области не влияет: '
+            + 'модуль управляется глобально';
+        }
+        return '';
+      },
+      moduleStateText: function (m) {
+        if (!m) return '';
+        if (m.noToggle) return 'Управляется параметрами';
+        var st = this.getModuleState(this.storeScope(), m.id);
+        if (st.runtime === 'unknown' || st.display === null) {
+          return 'Состояние неизвестно';
+        }
+        if (st.runtime === 'blocked') return 'Включён, но не работает';
+        return st.display ? 'Включён' : 'Выключен';
+      },
+      moduleSourceText: function (m) {
+        if (!m || !m.toggleKey) return '';
+        var item = this._moduleConfigItem(m);
+        return item ? this.configSourceLabel(item) : '';
+      },
+      modulePendingFor: function (m) {
+        if (!m) return false;
+        var key = this.storeKey(this.storeScope(), m.id);
+        return !!(this.modulePending && this.modulePending[key]);
+      },
+      moduleSaveErrorFor: function (m) {
+        if (!m) return '';
+        var key = this.storeKey(this.storeScope(), m.id);
+        return (this.moduleSaveError && this.moduleSaveError[key]) || '';
+      },
+      _moduleSaveFailed: function (m) {
+        if (!m || !m.toggleKey) return false;
+        var keys = this.stickyFailedKeys || [];
+        return keys.indexOf(m.toggleKey) >= 0;
+      },
+      _moduleSearchHaystack: function (m) {
+        if (!m) return '';
+        var parts = [m.title, m.subtitle, m.toggleKey, m.id];
+        if (m.keywords && m.keywords.length) {
+          parts = parts.concat(m.keywords);
+        }
+        return parts.join(' ').toLowerCase();
+      },
+      // §39: адаптация существующих вызовов шаблона (внешнее поведение
+      // сохранено; RBAC — в canEditModule/setModuleState).
       moduleEnabled: function (m) {
         if (!m) return false;
-        var it = this.configItems.find(function (i) {
-          return i.key === m.toggleKey;
-        });
-        return !!(it && it.value);
+        return this.getModuleState(this.storeScope(), m.id).display === true;
       },
       toggleModule: async function (m, checked) {
-        if (!m || !this.canEditConfig(m.toggleKey)) return;
-        var it = this.configItems.find(function (i) {
-          return i.key === m.toggleKey;
-        });
-        if (!it) {
-          this.toast('Параметр недоступен: ' + m.toggleKey, 'warn');
-          return;
+        if (!m) return { ok: false, error: 'unknown-module' };
+        return await this.setModuleState(this.storeScope(), m.id, checked);
+      },
+      // §40–§42: ОДНА мутация на действие через канонический write-path F0.
+      setModuleState: async function (scope, moduleId, enabled) {
+        var self = this;
+        scope = scope || this.storeScope();
+        var m = this._moduleById(moduleId);
+        if (!m) return { ok: false, error: 'unknown-module' };
+        // 1) RBAC
+        if (typeof this.canEditModule === 'function' && !this.canEditModule(m)) {
+          this.toast('Нет права изменить модуль', 'err');
+          return { ok: false, error: 'forbidden' };
         }
-        it.value = !!checked;
-        await this.saveConfigItem(it);
+        // 2) данные чужой области в памяти отсутствуют → мутации нет.
+        if (!this._isActiveScope(scope)) {
+          return { ok: false, error: 'inactive-scope' };
+        }
+        // 3) канонический элемент конфигурации (нет → не выдумываем запись)
+        var item = this._moduleConfigItem(m);
+        if (!item) {
+          this.toast('Параметр недоступен: ' + m.toggleKey, 'warn');
+          return { ok: false, error: 'missing-item' };
+        }
+        var key = this.storeKey(scope, moduleId);
+        // 4) блокировка повтора (§41.2): повторный тап по ключу — no-op
+        if (this.modulePending && this.modulePending[key]) {
+          return { ok: false, skipped: true };
+        }
+        // fix scope + epoch ДО await (§42): «текущий чат на момент ответа»
+        // нигде не читается.
+        var epoch = this.scopeEpoch;
+        var opId = 'mod-' + (++this._opSeq);
+        var prevValue = item.value;
+        if (!this.modulePending) this.modulePending = {};
+        if (!this.moduleOptimistic) this.moduleOptimistic = {};
+        if (!this.moduleSaveError) this.moduleSaveError = {};
+        // 5) оптимистично — ТОЛЬКО overlay; configItems НЕ мутируем
+        //    (структурная гарантия отката §41).
+        this.moduleOptimistic[key] = { value: !!enabled, opId: opId };
+        this.modulePending[key] = true;
+        this.moduleSaveError[key] = '';
+        var res;
+        try {
+          // 6) ровно ОДНА мутация: один элемент → одна группа → один POST
+          res = await this.persistItems(
+            [{ key: m.toggleKey, value: !!enabled, per_chat: item.per_chat }],
+            { operationId: opId });
+        } catch (e) {
+          res = { saved: [], skipped: [],
+                  failed: [{ key: m.toggleKey,
+                             reason: (e && e.message) || 'error' }],
+                  revalidated: false, state: 'error' };
+        }
+        res = res || {};
+        var sameScope = (epoch === this.scopeEpoch);
+        var saved = (res.saved || []).indexOf(m.toggleKey) >= 0;
+        var skipped = (res.skipped || []).indexOf(m.toggleKey) >= 0;
+        var failedObj = null;
+        (res.failed || []).forEach(function (f) {
+          if (f && f.key === m.toggleKey) failedObj = f;
+        });
+        var reload = async function () {
+          if (!sameScope) return;   // чужая область: ничего не читаем/не меняем
+          try {
+            if (typeof self._preserveScroll === 'function') {
+              await self._preserveScroll(self.loadConfig);
+            } else if (typeof self.loadConfig === 'function') {
+              await self.loadConfig();
+            }
+          } catch (e) { /* fail-open */ }
+        };
+        if (skipped) {
+          // вторая линия in-flight-guard F0: запрос уже летит (не наш итог)
+          delete this.moduleOptimistic[key];
+          this.modulePending[key] = false;
+          return { ok: false, skipped: true };
+        }
+        if (saved || res.revalidated) {
+          await reload();           // значение подтверждено сервером
+          delete this.moduleOptimistic[key];
+          this.modulePending[key] = false;
+          return { ok: true };
+        }
+        // 7) ошибка/409: overlay снимаем → UI возвращается к серверному
+        // значению (configItems не мутировался). F0-ветка 409 возвращает
+        // черновик в элемент — восстанавливаем подтверждённое значение.
+        if (sameScope) {
+          var cur = (typeof this._findConfigItem === 'function')
+            ? this._findConfigItem(m.toggleKey) : null;
+          if (cur && prevValue !== undefined) cur.value = prevValue;
+          if (failedObj && failedObj.reason === 'conflict') await reload();
+        }
+        delete this.moduleOptimistic[key];
+        this.modulePending[key] = false;
+        this.moduleSaveError[key] = (failedObj && failedObj.reason === 'conflict')
+          ? 'Конфликт версии — значение перечитано'
+          : 'Не удалось сохранить';
+        return { ok: false, error: (failedObj && failedObj.reason) || 'error' };
+      },
+      // §39: re-read канонического конфига. Данных чужой области в памяти
+      // нет → для неактивной области no-op (новых API нет, R16).
+      refreshModuleState: async function (scope, moduleId) {
+        scope = scope || this.storeScope();
+        if (!this._isActiveScope(scope)) return false;
+        if (typeof this.loadConfig !== 'function') return false;
+        if (typeof this._preserveScroll === 'function') {
+          await this._preserveScroll(this.loadConfig);
+        } else {
+          await this.loadConfig();
+        }
+        return true;
+      },
+      // §39: подписка на состояние ключа. В Options API шаблоны реактивны
+      // неявно; метод даёт явный контракт + функцию отписки.
+      subscribeModuleState: function (scope, moduleId, cb) {
+        if (typeof cb !== 'function' || typeof this.$watch !== 'function') {
+          return function () {};
+        }
+        var self = this;
+        var fixedScope = scope || this.storeScope();
+        var stop = this.$watch(function () {
+          return JSON.stringify(self.getModuleState(fixedScope, moduleId));
+        }, function () { cb(self.getModuleState(fixedScope, moduleId)); });
+        return function () { try { stop(); } catch (e) { /* noop */ } };
+      },
+      // ═══ F4 D4/§34–§36: избранное — UI-предпочтение (localStorage) ═══
+      _quickpicksStorageKey: function () {
+        var suffix = '';
+        if (this.me && this.me.telegram_id != null) {
+          suffix = ':' + this.me.telegram_id;
+        }
+        return 'adminbot.modules_quickpicks.v1' + suffix;
+      },
+      _lsGet: function (k) {
+        try {
+          var ls = (typeof window !== 'undefined' && window.localStorage)
+            ? window.localStorage
+            : ((typeof localStorage !== 'undefined') ? localStorage : null);
+          return ls ? ls.getItem(k) : null;
+        } catch (e) { return null; }
+      },
+      _lsSet: function (k, v) {
+        try {
+          var ls = (typeof window !== 'undefined' && window.localStorage)
+            ? window.localStorage
+            : ((typeof localStorage !== 'undefined') ? localStorage : null);
+          if (!ls) return false;
+          ls.setItem(k, v);
+          return true;
+        } catch (e) { return false; }
+      },
+      _defaultQuickpicks: function () {
+        var base = ['mod_summary', 'mod_direct', 'mod_factcheck', 'mod_search'];
+        var allowed = {};
+        this.quickpickCandidates.forEach(function (m) { allowed[m.id] = true; });
+        var out = [];
+        base.forEach(function (id) { if (allowed[id]) out.push(id); });
+        if (!out.length) {
+          this.quickpickCandidates.slice(0, 4).forEach(function (m) {
+            out.push(m.id);
+          });
+        }
+        return out;
+      },
+      _sanitizeQuickpicks: function (ids) {
+        var allowed = {};
+        this.quickpickCandidates.forEach(function (m) { allowed[m.id] = true; });
+        var out = [];
+        (ids || []).forEach(function (id) {
+          if (allowed[id] && out.indexOf(id) < 0) out.push(id);
+        });
+        return out;
+      },
+      _readQuickpicks: function () {
+        var raw = this._lsGet(this._quickpicksStorageKey());
+        if (!raw) return null;
+        try {
+          var parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : null;
+        } catch (e) { return null; }
+      },
+      _writeQuickpicks: function () {
+        try {
+          return this._lsSet(this._quickpicksStorageKey(),
+            JSON.stringify(this.moduleQuickpicks || []));
+        } catch (e) { return false; }
+      },
+      // fail-open: нет localStorage / битый JSON → стартовый набор §34.
+      initQuickpicks: function () {
+        var stored = this._readQuickpicks();
+        if (!stored) {
+          if (Array.isArray(this.moduleQuickpicks)
+              && this.moduleQuickpicks.length) {
+            return;   // уже инициализировано (повторный вызов после loadMe)
+          }
+          stored = this._defaultQuickpicks();
+        }
+        this.moduleQuickpicks = this._sanitizeQuickpicks(stored);
+      },
+      isQuickpick: function (m) {
+        return !!m && (this.moduleQuickpicks || []).indexOf(m.id) >= 0;
+      },
+      // Закрепление/открепление НЕ включает/выключает модуль (§36).
+      toggleQuickpick: function (m) {
+        if (!m) return;
+        var ids = (this.moduleQuickpicks || []).slice();
+        var idx = ids.indexOf(m.id);
+        if (idx >= 0) ids.splice(idx, 1);
+        else ids.push(m.id);
+        this.moduleQuickpicks = this._sanitizeQuickpicks(ids);
+        this._writeQuickpicks();
+      },
+      // F4 (D6): единый шов точки входа рабочего пространства модуля. F5
+      // перенаправит его на маршрут «Модули → <модуль>» (§46); сейчас —
+      // существующая модалка параметров (регресс-путь, доступ не теряется).
+      openModuleWorkspace: function (m) {
+        return this.openModuleWindow(m);
       },
       // A4/T-1207: значение блока — черновик, иначе сохранённая строка.
       // 10.10 (п.3): `draft === ''` (явная очистка) ВОЗВРАЩАЕТ '' (не
@@ -5351,6 +5869,8 @@
         try {
           this.me = await this.api('/api/me');
           this.authError = null;
+          // F4 D4: ключ избранного модулей — с суффиксом аккаунта, если есть.
+          this.initQuickpicks();
           // UI-полировка TMA: свежий аватар (CDN photo_url / blob-прокси);
           // после ошибок поле сбрасывается — img может появиться вновь
           this.refreshMeAvatar();
@@ -5399,6 +5919,9 @@
           var data = await this.api('/api/config');
           if (!this._scopeGuard(epoch)) return;   // scope сменился — ответ старый
           this.configError = '';      // F-13 (AC-3): успех — баннер скрыт
+          // F4 (L-F4-2): успешный reload активной области снимает «залипшую»
+          // ошибку сохранения модуля (ключ принадлежит прочитанной области).
+          this.moduleSaveError = {};
           this.configItems = data.items || [];
           // F10 (ADR-1024-11 D2): reload → новая версия; :key kv-editor
           // перемонтирует редактор (created/immediate-watch видит финальное

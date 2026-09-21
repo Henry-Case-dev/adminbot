@@ -158,3 +158,22 @@ def test_js_unit_round1025_hotfix7_shell_glass_heartbeat():
     _run_js(os.path.join("tests", "js",
                          "round1025_hotfix7_shell_glass_heartbeat_test.js"),
             ok_marker="HOTFIX7-SHELL-GLASS-HEARTBEAT-OK")
+
+
+def test_js_unit_round1025_f4_module_store():
+    """F4 round 10.25 (ADR-1025-14 D1/D2): ModuleConfigurationStore —
+    ключ scope_type/scope_id/module_id, одна мутация на действие,
+    in-flight guard, структурный откат §41, stale §42, счётчики §45,
+    поиск/синонимы §44, избранное в localStorage §34–§36, §72/§73."""
+    _run_js(os.path.join("tests", "js",
+                         "round1025_f4_module_store_test.js"),
+            ok_marker="MODULE-STORE-OK")
+
+
+def test_js_unit_round1025_f4_catalog_ui():
+    """F4 round 10.25 (§32–§35/D6/D7): структура страницы «Модули», сетка
+    каталога ≤3/2/1 и панели ≤4/2/2–1, тач-цель ≥44×44, «карточка ≠ тумблер»,
+    «Настроить» → openModuleWorkspace → openModuleWindow, нет карусели."""
+    _run_js(os.path.join("tests", "js",
+                         "round1025_f4_catalog_ui_test.js"),
+            ok_marker="MODULE-CATALOG-OK")

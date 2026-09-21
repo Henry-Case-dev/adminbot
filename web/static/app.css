@@ -359,7 +359,9 @@
       justify-content: center; width: 100%; max-width: 1100px;
       justify-self: center; margin-inline: auto;
     }
-    .module-card { display: flex; align-items: center; gap: .75rem; }
+    .module-card { display: flex; flex-direction: column; align-items: stretch; gap: .5rem; }
+    /* F4 §33: верхняя строка карточки — иконка + название + тумблер. */
+    .module-card-head { display: flex; align-items: center; gap: .75rem; }
     .module-card .module-icon { color: var(--teal-500); font-size: 24px; flex-shrink: 0; }
     .module-meta { flex: 1 1 auto; min-width: 0; }
     /* Раунд 10.6 (A9) / 10.8 (§4): эксклюзивный аккордеон «Доступы» заменён
@@ -1813,7 +1815,9 @@
     /* Container queries (§70): раскладки, зависящие от ширины КОМПОНЕНТА
        (container-type задан в базовых правилах .module-list/.hub-grid). */
     @container (max-width: 359px) {
-      .module-card { flex-direction: column; align-items: flex-start; }
+      /* F4 §33: карточка модуля уже вертикальная (см. .module-card);
+         растягиваем детей по ширине, чтобы верхняя строка не сжималась. */
+      .module-card { flex-direction: column; align-items: stretch; }
     }
     @container (max-width: 420px) {
       .hub-card { width: 100%; }
@@ -1870,4 +1874,131 @@
         color: var(--text-3); font-size: .68rem; margin-bottom: .1rem;
       }
       .matrix-table td:last-child { padding-top: .4rem; }
+    }
+
+    /* ═══ F4 (10.25, ADR-1025-14 §32–§45): каталог/панель/поиск/фильтры ═══ */
+    /* §32/D7: изолированные правила каталога — колонок ≤3 при ЛЮБОЙ ширине
+       (устраняет возможность >3 из-за auto-fit). Тиры — по ширине
+       контейнера-обёртки. Общие .prov-grid/.hub-grid не изменяются. */
+    .module-catalog {
+      grid-column: 1 / -1; width: 100%; container-type: inline-size;
+    }
+    .module-catalog .module-list {
+      grid-column: auto; max-width: 1100px; margin-inline: auto;
+    }
+    @container (max-width: 1023px) {
+      .module-catalog .module-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @container (max-width: 479px) {
+      .module-catalog .module-list {
+        grid-template-columns: repeat(1, minmax(0, 1fr));
+      }
+    }
+
+    /* §45: общие индикаторы (Всего / Включено / Выключено / Есть проблемы). */
+    .module-counters {
+      display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .5rem;
+    }
+    .module-counter {
+      display: inline-flex; align-items: baseline; gap: .25rem;
+      padding: .15rem .55rem; border-radius: var(--radius-full);
+      background: rgba(255,255,255,.05);
+      border: 1px solid var(--surface-border);
+      color: var(--text-2); font-size: var(--tx-small); white-space: nowrap;
+    }
+    .module-counter b { color: var(--text-1); font-size: var(--tx-med); }
+    .module-counter--on b { color: var(--teal-500); }
+    .module-counter--off b { color: var(--text-3); }
+    .module-counter--issue b { color: var(--warn); }
+
+    /* §34–§35: панель быстрого управления (≤4/2/2–1). */
+    .module-quick-wrap {
+      grid-column: 1 / -1; width: 100%; max-width: 1100px;
+      justify-self: center; container-type: inline-size;
+    }
+    .module-quick-head {
+      display: flex; align-items: center; gap: .5rem; margin-bottom: .4rem;
+    }
+    .module-quick {
+      display: grid; gap: .5rem;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    @container (max-width: 1023px) {
+      .module-quick { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @container (max-width: 359px) {
+      .module-quick { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+    }
+    .module-quick-item {
+      display: flex; align-items: center; gap: .5rem; min-width: 0;
+      padding: .5rem .6rem;
+    }
+    .module-quick-item .module-icon {
+      color: var(--teal-500); font-size: 20px; flex-shrink: 0;
+    }
+    .module-quick-meta { flex: 1 1 auto; min-width: 0; }
+    .module-quick-meta .module-title {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* §32/§44: поиск + фильтры (представление, ноль мутаций). */
+    .module-toolbar {
+      grid-column: 1 / -1; width: 100%; max-width: 1100px;
+      justify-self: center; display: flex; flex-wrap: wrap;
+      gap: .5rem; align-items: center;
+    }
+    .module-search { flex: 1 1 200px; min-width: 0; }
+    .module-filters { display: flex; flex-wrap: wrap; gap: .25rem; }
+    .module-filter-btn {
+      min-height: 32px; padding: .25rem .6rem;
+      border-radius: var(--radius-full);
+      background: transparent; border: 1px solid var(--surface-border);
+      color: var(--text-2); font-size: var(--tx-small);
+      cursor: pointer; white-space: nowrap;
+    }
+    .module-filter-btn:hover {
+      background: rgba(255,255,255,.06); color: var(--text-1);
+    }
+    .module-filter-btn.active {
+      background: var(--surface-3); color: var(--text-1); font-weight: 600;
+    }
+
+    /* §33: «карточка ≠ тумблер»; «Настроить» — отдельное действие. */
+    .module-card { cursor: default; }
+    .module-state { color: var(--text-2); }
+    .module-source { color: var(--text-3); }
+    .module-problem { color: var(--warn); }
+    .module-error { color: var(--err); }
+    .module-card-actions {
+      display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+    }
+    .module-card-actions .module-params-btn { margin-left: auto; }
+    .module-empty {
+      padding: 1rem; color: var(--text-3); text-align: center;
+    }
+
+    /* §33/T-2625: тач-цель тумблера ≥44×44 CSS px (визуальный трек не
+       растёт; растёт hit-area метки). Без уменьшения ради 4 колонок §35. */
+    .module-toggle {
+      min-width: 44px; min-height: 44px; justify-content: flex-end;
+      position: relative;
+    }
+    .module-toggle.is-saving { opacity: .7; }
+    .module-toggle.is-saving::after {
+      content: ''; position: absolute; right: -4px; top: 50%;
+      width: 12px; height: 12px; margin-top: -6px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.25);
+      border-top-color: var(--teal-500);
+      animation: module-spin .7s linear infinite;
+    }
+    @keyframes module-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .module-toggle.is-saving::after { animation: none; }
+    }
+    .module-pin-btn { white-space: nowrap; }
+    /* Тач-цели фильтров — ≥44×44 на mobile. */
+    @media (max-width: 767px) {
+      .module-filter-btn { min-height: 44px; }
     }
