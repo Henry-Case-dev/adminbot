@@ -49,6 +49,16 @@ class TestSelectorPersistent:
         assert "return this.scopeKind === 'dm' ? 'ЛС' : 'ЧАТ';" in JS
         assert "if (this.activeChatId == null) return 'global';" in JS
 
+    def test_search_always_available(self):
+        # Ревью Low: поиск в селекторе доступен всегда, а не только при >8.
+        assert 'v-if="scopeOptions.length > 8"' not in HTML
+        assert 'placeholder="Поиск чата…"' in HTML
+
+    def test_source_rendered_in_v2_and_advanced_prompt_cards(self):
+        # §5/ревью Medium: источник наследования в ОБОИХ шаблонах «Промптов»
+        # (V2-плоский + advanced-аккордеон) и в generic-карточках.
+        assert HTML.count('v-if="configSourceLabel(item)"') >= 4
+
     def test_full_chat_id_only_in_tech_details(self):
         # §5: полный chat_id — только в «технических подробностях».
         assert 'class="scope-tech' in HTML
@@ -75,17 +85,28 @@ class TestValueSource:
         # §43: фактическое состояние / расхождение локального и глобального.
         body = _block(JS, "configItemNotice: function",
                       "resetChatOverride: async function")
-        assert "item.per_chat === false" in body
         assert "item.global_value === false" in body
         assert "Локально включено, хотя глобально выключено" in body
+        # ревью Medium: не шумим на per_chat===false (~101 параметр) —
+        # пометка только при фактическом расхождении override.
+        assert "item.per_chat === false" not in body
 
 
 class TestReturnGlobal:
     def test_action_named_not_factory_reset(self):
-        assert "↪ Вернуть глобальное значение" in HTML
+        # Видимая подпись сокращена (mobile overflow), полный смысл — в
+        # aria-label/title (ревью Critical).
+        assert 'aria-label="Вернуть глобальное значение"' in HTML
+        assert ">↪ Глобальное</button>" in HTML
         # «заводской сброс» — это отдельная семантика; кнопка возврата
         # вызывает ТОЛЬКО resetChatOverride (DELETE override).
         assert 'v-if="itemOverriddenByChat(item)' in HTML
+
+    def test_return_global_allowed_for_local_admin(self):
+        # Ревью Low: сервер разрешает снятие override и local_admin
+        # (routes.py::delete_chat_param) — кнопка видна и ему.
+        assert ("itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx() "
+                "|| isLocalAdminCtx())" in HTML)
 
     def test_reset_uses_delete_override_endpoint(self):
         body = _block(JS, "resetChatOverride: async function",

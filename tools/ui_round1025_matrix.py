@@ -171,7 +171,28 @@ def _config_stub() -> dict:
     return {"items": items, "groups": groups}
 
 
+def _chat_variant(base: dict) -> dict:
+    """F3 (reviewer High): chat-ответ `/api/config` с РЕАЛЬНЫМ override.
+
+    Без этого матрица ложно-зелёная: все items с `chat_source:""` →
+    кнопка «Вернуть глобальное» и §43-пометка не рендерятся. Помечаем
+    per_chat-bool как локально включённые при глобально выключенных
+    (per_chat override wins по серверной логике `routes.py::get_config`)."""
+    import copy
+    data = copy.deepcopy(base)
+    n = 0
+    for it in data.get("items", []):
+        if it.get("per_chat") and it.get("type") == "bool":
+            it["chat_source"] = "chat"
+            it["global_value"] = False
+            it["value"] = True
+            n += 1
+    print("[matrix] chat-вариант config: override items=%d" % n)
+    return data
+
+
 CONFIG_STUB = _config_stub()
+CONFIG_STUB_CHAT = _chat_variant(CONFIG_STUB)
 
 API_STUBS = [
     ("/api/me", ME_JSON),
@@ -523,7 +544,15 @@ def main() -> int:
             ctx.add_init_script(TMA_STUB)
 
             def _route(route):
-                payload = _stub_for(route.request.url)
+                url = route.request.url
+                if url.split("?")[0].endswith("/api/config"):
+                    # F3: chat-scope (X-Chat-Id) получает конфиг с override,
+                    # global — чистый (не путать источник значения).
+                    hdrs = route.request.headers or {}
+                    payload = (CONFIG_STUB_CHAT if hdrs.get("x-chat-id")
+                               else CONFIG_STUB)
+                else:
+                    payload = _stub_for(url)
                 route.fulfill(status=200, content_type="application/json",
                               body=json.dumps(payload))
 
@@ -625,14 +654,20 @@ def main() -> int:
             if not hid.get("cls") or hid.get("ap") != "paused":
                 failures.append("%s hidden: фон не на паузе (cls=%s, play=%s)"
                                 % (vp_key, hid.get("cls"), hid.get("ap")))
-            # F3 (§5): область ЧАТА — источник значения виден, нет
-            # горизонтального overflow (проверяем на краях диапазонов).
-            if (w, h) in ((320, 700), (1280, 800)):
+            # F3 (§5/§43, reviewer Critical+High): область ЧАТА с РЕАЛЬНЫМ
+            # override — источник значения, §43-пометка и кнопка возврата к
+            # глобальному рендерятся; нет горизонтального overflow на узких
+            # ширинах (320/360/390) и на desktop (1280).
+            if (w, h) in ((320, 700), (360, 780), (390, 844), (1280, 800)):
                 page.evaluate(
                     "() => localStorage.setItem('adminbot.active_chat_id',"
                     "  '-1001234567890')")
                 page.reload(wait_until="load")
-                page.wait_for_timeout(500)
+                try:
+                    page.wait_for_selector(".app-shell", timeout=8000)
+                except Exception:  # noqa: BLE001
+                    pass
+                page.wait_for_timeout(400)
                 page.set_viewport_size({"width": w, "height": h})
                 page.wait_for_timeout(200)
                 page.evaluate("() => { window.location.hash = '#/memory/rag'; }")
@@ -640,15 +675,32 @@ def main() -> int:
                 chat_probe = page.evaluate(PROBE_JS)
                 out["viewports"][vp_key]["chat_scope"] = chat_probe
                 if chat_probe["overflow"]:
-                    failures.append("%s chat-scope: horizontal overflow" % vp_key)
+                    failures.append(
+                        "%s chat-scope: horizontal overflow %d > %d"
+                        % (vp_key, chat_probe["scrollWidth"],
+                           chat_probe["innerWidth"]))
                 failures.extend(_scope_failures(
                     chat_probe, "%s chat-scope" % vp_key, w))
-                src_seen = page.evaluate(
-                    "() => document.body.innerText.indexOf('Источник:') >= 0")
-                out["viewports"][vp_key]["chat_source_visible"] = src_seen
-                if not src_seen:
+                chat_txt = page.evaluate("() => document.body.innerText")
+                btn = page.evaluate(
+                    "() => !!document.querySelector("
+                    "'button[aria-label=\"Вернуть глобальное значение\"]')")
+                seen = {
+                    "src": "Источник:" in chat_txt,
+                    "notice": ("Локально включено, хотя глобально выключено"
+                               in chat_txt),
+                    "button": bool(btn),
+                }
+                out["viewports"][vp_key]["chat_scope_ui"] = seen
+                if not seen["src"]:
                     failures.append(
                         "%s chat-scope: нет подписи «Источник:» (§5)" % vp_key)
+                if not seen["notice"]:
+                    failures.append(
+                        "%s chat-scope: нет §43-пометки о расхождении" % vp_key)
+                if not seen["button"]:
+                    failures.append(
+                        "%s chat-scope: нет кнопки «Вернуть глобальное»" % vp_key)
             # F2 (T-2548): prefers-reduced-motion → animation-name: none.
             if (w, h) == VIEWPORTS[0]:
                 rm_ctx = browser.new_context(

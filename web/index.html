@@ -147,7 +147,9 @@
             </button>
             <div v-if="scopeOpen" class="scope-panel card-solid" role="listbox"
                  aria-label="Выбор контекста" :style="scopePanelStyle">
-              <input v-if="scopeOptions.length > 8" class="field text-xs mb-1"
+              <!-- F3 (§5, reviewer Low): поиск в селекторе доступен ВСЕГДА,
+                   а не только при >8 опциях (единый способ найти чат/ЛС). -->
+              <input class="field text-xs mb-1"
                      type="search" placeholder="Поиск чата…" v-model="scopeSearch">
               <button v-for="(o, idx) in scopeOptions" :key="o.key" type="button"
                       class="scope-option" role="option"
@@ -686,10 +688,10 @@
                                 <button v-if="isGlobalAdmin" class="btn-ghost text-xs px-2 ml-auto shrink-0"
                                         title="Права ключа (min-роли view/edit)"
                                         @click="openPermPicker(item)"><span class="msr" aria-hidden="true">{{ iconGlyph('manage_accounts') }}</span></button>
-                                <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
+                                <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx() || isLocalAdminCtx())"
                                         class="btn-ghost text-xs px-2 shrink-0"
                                         :title="configSourceTitle(item)"
-                                @click="resetChatOverride(item)">↪ Вернуть глобальное значение</button>
+                                aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                               </div>
                               <!-- F3 (§5/§43): источник значения + фактическое состояние -->
                               <div v-if="configSourceLabel(item)" class="text-[10px] mb-1"
@@ -726,11 +728,19 @@
                                   <button v-if="isGlobalAdmin" class="btn-ghost text-xs px-2 ml-auto shrink-0"
                                           title="Права ключа (min-роли view/edit)"
                                           @click="openPermPicker(item)"><span class="msr" aria-hidden="true">{{ iconGlyph('manage_accounts') }}</span></button>
-                                  <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
+                                  <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx() || isLocalAdminCtx())"
                                           class="btn-ghost text-xs px-2 shrink-0"
                                           :title="configSourceTitle(item)"
-                                @click="resetChatOverride(item)">↪ Вернуть глобальное значение</button>
+                                aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                                 </div>
+                                <!-- F3 (§5/§43): источник значения + фактическое состояние -->
+                                <div v-if="configSourceLabel(item)" class="text-[10px] mb-1"
+                                     :title="configSourceTitle(item)"
+                                     :class="item.chat_source === 'chat' ? 'text-violet-300' : 'text-gray-500'">
+                                  {{ configSourceLabel(item) }}
+                                </div>
+                                <div v-if="configItemNotice(item)"
+                                     class="text-[10px] text-amber-300 mb-1">{{ configItemNotice(item) }}</div>
                                 <div class="text-sm font-semibold">{{ item.title }}</div>
                                 <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
                                 <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
@@ -898,10 +908,10 @@
                       <button v-if="isGlobalAdmin" class="btn-ghost text-xs px-2 ml-auto shrink-0"
                               title="Права ключа (min-роли view/edit)"
                               @click="openPermPicker(item)"><span class="msr" aria-hidden="true">{{ iconGlyph('manage_accounts') }}</span></button>
-                      <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
+                      <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx() || isLocalAdminCtx())"
                               class="btn-ghost text-xs px-2 shrink-0"
                               :title="configSourceTitle(item)"
-                                @click="resetChatOverride(item)">↪ Вернуть глобальное значение</button>
+                                aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                     </div>
                     <!-- F3 (§5/§43): источник значения + фактическое состояние -->
                     <div v-if="configSourceLabel(item)" class="text-[10px] mb-1"
@@ -1023,10 +1033,10 @@
                         <button v-if="isGlobalAdmin" class="btn-ghost text-xs px-2 ml-auto shrink-0"
                                 title="Права ключа (min-роли view/edit)"
                                 @click="openPermPicker(item)"><span class="msr" aria-hidden="true">{{ iconGlyph('manage_accounts') }}</span></button>
-                        <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
+                        <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx() || isLocalAdminCtx())"
                                 class="btn-ghost text-xs px-2 shrink-0"
                                 :title="configSourceTitle(item)"
-                                @click="resetChatOverride(item)">↪ Вернуть глобальное значение</button>
+                                aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                       </div>
                       <!-- F3 (§5/§43): источник значения + фактическое состояние -->
                       <div v-if="configSourceLabel(item)" class="text-[10px] mb-1"
@@ -2272,10 +2282,10 @@
                              class="card p-4" style="min-width:0;">
                           <div class="flex items-center gap-2 min-w-0 mb-1">
                             <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
-                            <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
+                            <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx() || isLocalAdminCtx())"
                                     class="btn-ghost text-xs px-2 ml-auto shrink-0"
                                     :title="configSourceTitle(item)"
-                                @click="resetChatOverride(item)">↪ Вернуть глобальное значение</button>
+                                aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                           </div>
                           <div class="text-sm font-semibold">{{ item.title }}</div>
                           <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
@@ -2315,10 +2325,10 @@
                                class="card p-4" style="min-width:0;">
                             <div class="flex items-center gap-2 min-w-0 mb-1">
                               <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
-                              <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
+                              <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx() || isLocalAdminCtx())"
                                       class="btn-ghost text-xs px-2 ml-auto shrink-0"
                                       :title="configSourceTitle(item)"
-                                @click="resetChatOverride(item)">↪ Вернуть глобальное значение</button>
+                                aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                             </div>
                             <div class="text-sm font-semibold">{{ item.title }}</div>
                             <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
@@ -2645,10 +2655,10 @@
                              class="card p-4" style="min-width:0;">
                           <div class="flex items-center gap-2 min-w-0 mb-1">
                             <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
-                            <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
+                            <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx() || isLocalAdminCtx())"
                                     class="btn-ghost text-xs px-2 ml-auto shrink-0"
                                     :title="configSourceTitle(item)"
-                                @click="resetChatOverride(item)">↪ Вернуть глобальное значение</button>
+                                aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                           </div>
                           <div class="text-sm font-semibold">{{ item.title }}</div>
                           <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
@@ -2685,10 +2695,10 @@
                                class="card p-4" style="min-width:0;">
                             <div class="flex items-center gap-2 min-w-0 mb-1">
                               <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
-                              <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
+                              <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx() || isLocalAdminCtx())"
                                       class="btn-ghost text-xs px-2 ml-auto shrink-0"
                                       :title="configSourceTitle(item)"
-                                @click="resetChatOverride(item)">↪ Вернуть глобальное значение</button>
+                                aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                             </div>
                             <div class="text-sm font-semibold">{{ item.title }}</div>
                             <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>

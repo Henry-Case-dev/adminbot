@@ -2478,6 +2478,39 @@
             && this.saving.size > 0) return true;
         if (this.dirtyItems && this.dirtyItems.length) return true;
         if (this.dirtyKeyItems && this.dirtyKeyItems.length) return true;
+        // F3 (reviewer High): state, который setActiveChat() молча чистит,
+        // тоже считается несохранёнными правками (иначе потеря ввода):
+        //   * blockDrafts — поля provider-блоков, в т.ч. введённый API-ключ
+        //     (в объект попадают ТОЛЬКО отредактированные поля → непусто=правка);
+        //   * ownKeyDraft — введённый BYOK-ключ активного чата.
+        if (this.blockDrafts && typeof this.blockDrafts === 'object') {
+          for (var bk in this.blockDrafts) {
+            if (Object.prototype.hasOwnProperty.call(this.blockDrafts, bk)) {
+              return true;
+            }
+          }
+        }
+        if (typeof this.ownKeyDraft === 'string' && this.ownKeyDraft.trim()) {
+          return true;
+        }
+        // personaDraft инициализируется серверными значениями → сравниваем
+        // с baseline (personaMeta.values), а не с null.
+        if (this.personaDraft) {
+          var pv = (this.personaMeta && this.personaMeta.values) || null;
+          if (!pv) return true;
+          if ((this.personaDraft.name || '') !== (pv.name || '')
+              || (this.personaDraft.biography || '') !== (pv.biography || '')
+              || (this.personaDraft.system_prompt_overrides || '')
+                 !== (pv.system_prompt_overrides || '')
+              || !!this.personaDraft.is_aware_ai !== !!pv.is_aware_ai) {
+            return true;
+          }
+        }
+        // dossierDraft инициализируется серверным manual_traits → baseline.
+        if (this.dossierDraft && this.dossierData
+            && this.dossierDraft !== (this.dossierData.manual_traits || '')) {
+          return true;
+        }
         return false;
       },
       setActiveChat: function (chatId) {
@@ -3281,9 +3314,10 @@
       // глобальные параметры. Приоритет локального НЕ предполагается.
       configItemNotice: function (item) {
         if (!item || this.scopeKind === 'global') return '';
-        if (item.per_chat === false) {
-          return 'Глобальный параметр — локальное значение не применяется';
-        }
+        // §43/ревью Medium: показываем ТОЛЬКО фактическое расхождение —
+        // локальное включение при глобально выключенном (per_chat override
+        // wins, см. web/api/routes.py::get_config). Не шумим на
+        // per_chat=false (~101 параметр) — там источник уже говорит всё.
         if (item.chat_source === 'chat' && item.global_value === false
             && item.value === true) {
           return 'Локально включено, хотя глобально выключено';

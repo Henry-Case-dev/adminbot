@@ -380,6 +380,13 @@
     .scope-option:hover, .scope-option.active { background: rgba(255,255,255,.08); }
     /* ═══ F3 round 10.25 (§5): селектор области — постоянно доступный ═══ */
     /* Полный chat_id — только в «технических подробностях» (не в основном UI). */
+    /* Reviewer Critical: кнопка возврата к глобальному не должна давать
+       горизонтальный overflow на узких экранах — снимаем Tailwind
+       `shrink-0`, разрешаем сжатие/перенос (видимая подпись сокращена
+       до «↪ Глобальное», полный смысл — в aria-label/title). */
+    button[aria-label="Вернуть глобальное значение"] {
+      flex-shrink: 1; min-width: 0; max-width: 100%; white-space: normal;
+    }
     .scope-tech { position: relative; }
     .scope-tech > summary { cursor: pointer; list-style: none; }
     .scope-tech > summary::-webkit-details-marker { display: none; }

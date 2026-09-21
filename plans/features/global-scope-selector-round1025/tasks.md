@@ -13,9 +13,21 @@
 - [x] При выбранном чате явно помечать, что серверные метрики относятся ко всему серверу §14. (`web/index.html` «Сервер»)
 - [x] Тесты §74 (глобальное наследование, локальные значения не исчезают) и §42 (stale-ответы при быстрой смене чата). (`tests/js/round1025_scope_selector_test.js`, `tests/test_scope_selector_round1025.py`)
 
+## §43 «Ожидает применения» — N/A (обоснование)
+- **Статус: не применимо.** Конфигурация — read-through: `ConfigCache` (in-memory)
+  + PG/`chat_params`; запись идёт через POST/`set_chat_params` и NOTIFY, а
+  `GET /api/config` сразу отдаёт **эффективное** значение (`web/api/routes.py:458-465`:
+  per_chat override → глобал → дефолт). Отдельного `applied-state`/асинхронного
+  применения с задержкой сервер не имеет → показывать «Ожидает применения»
+  нечего (иначе выдуманное состояние, запрещено §43 «без проверки серверной
+  логики»). «Фактическое состояние» отображается эффективным `value` +
+  пометкой `configItemNotice` при реальном расхождении. Трассируемость §43
+  закрыта явным N/A (ревью Medium).
+
 ## Статус
 - 🟩 Реализовано @Builder (21.09.2026). pytest **8148/0**, JS **+1 файл**, matrix **0**, `node --check` OK, `git diff --check` OK. `APP_VERSION` 2.58.6. Δ DDL=0, Δ каталога=0.
-- ⏳ Осталось: @Reviewer (QA), @Scanner (аудит), live-приёмка/deploy (@DevOps), синк ARCHITECTURE/архивация (после приёмки).
+- 🟨 Итерация @Reviewer 1 (21.09.2026): закрыты Critical (overflow кнопки возврата на mobile: подпись → «↪ Глобальное» + aria-label + CSS-снятие `shrink-0`), High (матрица теперь с override-состоянием: §43-пометка + кнопка + overflow на 320/360/390; `hasUnsavedEdits` учитывает blockDrafts/API-ключ/ownKeyDraft/persona по baseline/dossier), Medium (§43 applied-state N/A; `configItemNotice` без шума на `per_chat=false`; источник в обоих шаблонах «Промптов»), Low (поиск всегда; local_admin видит возврат к глобальному). Ожидается @Reviewer итерация 2.
+- ⏳ Осталось: @Reviewer (итерация 2 QA), @Scanner (аудит), live-приёмка/deploy (@DevOps), синк ARCHITECTURE/архивация (после приёмки).
 
 ## Зависимости / ступень
 - Ступень web: F1 → F2 → **F3** → F4 → …

@@ -75,11 +75,14 @@ class TestDmFrontend:
             in html
 
     def test_reset_override_visible_for_dm(self):
-        """«↪ глобальное» — (isGlobalAdmin || isDmCtx()) во всех местах
-        (basic/advanced generic-рендер + config-блок лора, 10.4 A-8) +
-        гейт в методе."""
+        """«Вернуть глобальное» — (isGlobalAdmin || isDmCtx() ||
+        isLocalAdminCtx()) во всех местах (basic/advanced generic-рендер +
+        config-блок лора, 10.4 A-8) + гейт в методе. F3 (10.25): добавлен
+        local_admin — сервер разрешает снятие override (routes.py)."""
         html = _html()
-        assert html.count("itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())") >= 4
+        assert html.count(
+            "itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx() "
+            "|| isLocalAdminCtx())") >= 4
         js = _js()
         body = js[js.index("resetChatOverride: async function"):]
         assert "this.isGlobalAdmin || this.isDmCtx()" in body

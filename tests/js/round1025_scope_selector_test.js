@@ -201,10 +201,16 @@ function makeCtx(overrides) {
     const noticeGlobal = methods.configItemNotice.call({ scopeKind: 'chat' },
       { per_chat: true, chat_source: '', global_value: false, value: false });
     assert.strictEqual(noticeGlobal, '', 'c: при согласии значений — без пометки');
+    // Ревью Medium: per_chat===false (~101 параметр) больше не шумит —
+    // пометка только при фактическом расхождении override.
     const noticeNonPerChat = methods.configItemNotice.call({ scopeKind: 'chat' },
       { per_chat: false });
-    assert.ok(noticeNonPerChat.indexOf('Глобальный параметр') === 0,
-      'c/§43: глобальный параметр локально не применяется');
+    assert.strictEqual(noticeNonPerChat, '',
+      'c/§43: без фактического расхождения — без пометки (нет шума)');
+    const noticeNoOverride = methods.configItemNotice.call({ scopeKind: 'chat' },
+      { per_chat: true, chat_source: '', global_value: true, value: true });
+    assert.strictEqual(noticeNoOverride, '',
+      'c/§43: наследование (нет override) — без пометки');
   }
 
   // ── (d) «Вернуть глобальное значение» = DELETE override (не сброс) ───
@@ -266,10 +272,11 @@ function makeCtx(overrides) {
     assert.strictEqual(ctx2.activeChatId, 777888, 'e: согласие → область сменена');
     assert.deepStrictEqual(ctx2.blockDrafts, {}, 'e: черновик сброшен после согласия');
 
-    // (e3) чистая форма → без подтверждения
+    // (e3) чистая форма → без подтверждения (все черновики пусты)
     let asked = 0;
     global.window.confirm = function () { asked += 1; return true; };
-    const ctx3 = makeCtx({ activeChatId: -100 });
+    const ctx3 = makeCtx({ activeChatId: -100, blockDrafts: {},
+      keyDrafts: {}, ownKeyDraft: '', personaDraft: null, personaMeta: null });
     methods.setActiveChat.call(ctx3, 777888);
     assert.strictEqual(asked, 0, 'e: без правок подтверждение не запрашивается');
     assert.strictEqual(ctx3.activeChatId, 777888, 'e: чистая форма → переключение');
@@ -282,6 +289,55 @@ function makeCtx(overrides) {
     assert.strictEqual(
       methods.hasUnsavedEdits.call({ saving: new Set(['k']) }), true,
       'e: in-flight сохранение → считаем правки');
+
+    // Ревью High: state, который setActiveChat() молча чистит, тоже
+    // блокирует переключение (иначе потеря ввода).
+    assert.strictEqual(
+      methods.hasUnsavedEdits.call({ blockDrafts: { 'keys.llm_api_key': 'sk-x' } }),
+      true, 'e: введённый API-ключ в blockDrafts → есть правки');
+    assert.strictEqual(
+      methods.hasUnsavedEdits.call({ blockDrafts: {} }), false,
+      'e: пустой blockDrafts → не правка');
+    assert.strictEqual(
+      methods.hasUnsavedEdits.call({ ownKeyDraft: '  sk-bot  ' }), true,
+      'e: BYOK-черновик чата → есть правки');
+    assert.strictEqual(
+      methods.hasUnsavedEdits.call({ ownKeyDraft: '   ' }), false,
+      'e: пустой BYOK-черновик → не правка');
+    // persona: baseline-сравнение (черновик инициализируется сервером).
+    const pBase = { name: 'A', biography: '', system_prompt_overrides: '',
+                    is_aware_ai: false };
+    assert.strictEqual(
+      methods.hasUnsavedEdits.call({
+        personaDraft: Object.assign({}, pBase),
+        personaMeta: { values: pBase },
+      }), false, 'e: persona без изменений (== baseline) → чисто');
+    assert.strictEqual(
+      methods.hasUnsavedEdits.call({
+        personaDraft: Object.assign({}, pBase, { name: 'B' }),
+        personaMeta: { values: pBase },
+      }), true, 'e: persona изменена → есть правки');
+    assert.strictEqual(
+      methods.hasUnsavedEdits.call({ personaDraft: Object.assign({}, pBase) }),
+      true, 'e: persona без baseline → консервативно считаем правкой');
+    // dossier: baseline manual_traits.
+    assert.strictEqual(
+      methods.hasUnsavedEdits.call({
+        dossierDraft: 'x', dossierData: { manual_traits: 'x' },
+      }), false, 'e: досье без изменений → чисто');
+    assert.strictEqual(
+      methods.hasUnsavedEdits.call({
+        dossierDraft: 'y', dossierData: { manual_traits: 'x' },
+      }), true, 'e: досье изменено → есть правки');
+
+    // Интеграция: введённый API-ключ блокирует смену области.
+    const ctxB = makeCtx({ activeChatId: -100,
+      blockDrafts: { 'keys.llm_api_key': 'sk-typed' } });
+    let askedB = 0;
+    global.window.confirm = function () { askedB += 1; return false; };
+    methods.setActiveChat.call(ctxB, 777888);
+    assert.strictEqual(askedB, 1, 'e: blockDrafts → запрос подтверждения');
+    assert.strictEqual(ctxB.activeChatId, -100, 'e: отказ → область не меняется');
   }
 
   console.log('SCOPE-SELECTOR-OK');
