@@ -2,7 +2,9 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <!-- hotfix4 (T-2516, ADR-1025-8 D2): viewport-fit=cover — корректные
+       safe-area на iOS (иначе env(safe-area-inset-*) = 0). -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <title>AdminBot — Админка</title>
   <!-- Официальный Telegram MiniApp SDK: БЕЗ него window.Telegram отсутствует
        → initData никогда не появляется → authLocked-баннер на всех клиентах
@@ -3231,8 +3233,9 @@
         </nav>
       </aside>
 
-      <!-- Bottom-nav (<768): РОВНО 4 пункта (админ: Статус/Модули/ИИ/Ещё;
-           пользователь: Статус/Справка). Память живёт в шторке «Ещё». -->
+      <!-- Bottom-nav (<768): ≤4 пункта. hotfix4 (T-2519): Статус+Справка —
+           всегда первые два для всех ролей; далее Модули (иначе ИИ); «Ещё» —
+           только при скрытых разделах. Пользователь: Статус/Справка. -->
       <nav v-if="iaV2 && isMobileShell" class="bottom-nav"
            aria-label="Нижняя навигация">
         <button v-for="n in bottomNavItems" :key="'bn-' + n.id"
@@ -3245,7 +3248,8 @@
           <span class="bottom-nav-label">{{ n.label }}</span>
         </button>
       </nav>
-      <!-- Шторка «Ещё»: Справка / Память / Доступы / PERMsoc / Профиль. -->
+      <!-- Шторка «Ещё» (T-2520): скрытые разделы (Память/Доступы/PERMsoc +
+           вытесненный ИИ) / Профиль. «Справка» здесь НЕ дублируется. -->
       <div v-if="iaV2 && isMobileShell && moreOpen"
            class="more-backdrop" @click="closeMore()"></div>
       <div v-if="iaV2 && isMobileShell" class="more-sheet"

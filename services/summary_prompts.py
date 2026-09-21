@@ -133,7 +133,19 @@ _SUMMARY_EDITOR_F6_FORMAT = (
     '{"response_mode": "serious", "digest": "готовая выжимка в Markdown", '
     '"cover_prompt": "english visual prompt"}')
 
+# T-2511 (hotfix4, ADR-1025-8 D1): запрет случайных надписей сохраняется для
+# «чистого visual», НО явно разрешается короткий заголовок, заданный владельцем
+# в «Стиле обложки» (напр. "PERMsoc"/heading/title) — модель не подавляет его.
 SUMMARY_EDITOR_COVER_PROMPT_BLOCK = """ПОЛЕ cover_prompt - короткий визуальный промпт для генерации обложки этой выжимки.
+- Строго на английском языке, не длиннее 300 символов.
+- Опиши ОДНУ сцену или образ по главной теме выжимки.
+- Без случайных надписей, букв и водяных знаков на картинке.
+- НО: если «Стиль обложки» владельца требует короткий заголовок/надпись (например "PERMsoc", "heading", "title"), включи этот заголовок в сцену как элемент композиции; других надписей самовольно не добавляй.
+- Одна фраза, без кавычек и переносов строк."""
+
+# T-2511 (hotfix4): слепок канона F6 (жёсткий запрет надписей) ДО правки —
+# для идемпотентной канон-миграции/отката PG (ADR-1013-3).
+SUMMARY_EDITOR_COVER_PROMPT_BLOCK_PREV_HOTFIX4 = """ПОЛЕ cover_prompt - короткий визуальный промпт для генерации обложки этой выжимки.
 - Строго на английском языке, не длиннее 300 символов.
 - Опиши ОДНУ сцену или образ по главной теме выжимки; без текста, букв и водяных знаков на картинке.
 - Одна фраза, без кавычек и переносов строк."""
@@ -141,6 +153,14 @@ SUMMARY_EDITOR_COVER_PROMPT_BLOCK = """ПОЛЕ cover_prompt - короткий 
 # Слепок канона F3 (с полем response_mode, без cover_prompt) ДО правки F6 —
 # для идемпотентной канон-миграции/отката PG (ADR-1013-3).
 PREV_SUMMARY_EDITOR_R1023_F6 = SUMMARY_EDITOR_SYSTEM_PROMPT
+
+# T-2511 (hotfix4): слепок канона F6 (жёсткий запрет надписей) ДО правки —
+# идемпотентная ступень канон-миграции PG (`prompts.summary_editor_system_prompt`).
+PREV_SUMMARY_EDITOR_R1025_HOTFIX4 = (
+    PREV_SUMMARY_EDITOR_R1023_F3 + "\n\n"
+    + _SUMMARY_EDITOR_F6_FORMAT + "\n\n" + _SUMMARY_EDITOR_MODE_RULES
+    + "\n" + SUMMARY_EDITOR_COVER_PROMPT_BLOCK_PREV_HOTFIX4
+)
 
 SUMMARY_EDITOR_SYSTEM_PROMPT = (
     PREV_SUMMARY_EDITOR_R1023_F3 + "\n\n"

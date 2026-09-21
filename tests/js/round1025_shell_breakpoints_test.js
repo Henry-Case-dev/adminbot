@@ -70,4 +70,9 @@ assert.ok(!inlineScript.test(stripped), 'нет inline-<script> (CSP script-src 
 assert.ok(!/\son\w+\s*=\s*"/.test(INDEX.replace(/<!--[\s\S]*?-->/g, '')),
   'нет inline on*-обработчиков');
 
+// ── hotfix4 (T-2514/T-2516): offset нижней панели + viewport-fit=cover ───
+assert.ok(/--tg-viewport-bottom-offset/.test(CSS),
+  'hotfix4: панель смещается на --tg-viewport-bottom-offset');
+assert.ok(/viewport-fit=cover/.test(INDEX), 'hotfix4: viewport-fit=cover');
+
 console.log('JS-UNIT-OK round1025_shell_breakpoints_test');

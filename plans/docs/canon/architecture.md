@@ -533,6 +533,18 @@ Egress: `sanitize_outgoing` дополнительно вырезает техн
   (EN, ≤300; нормализация/обрезка — `system2_handoff.normalize_cover_prompt`,
   never-raise). Слепок — `PREV_SUMMARY_EDITOR_R1023_F6`; ступень канон-миграции
   `… → F4 → F6`.
+- **hotfix4 (10.25, ADR-1025-8 D1):** блок `SUMMARY_EDITOR_COVER_PROMPT_BLOCK`
+  смягчён (T-2511): запрет случайных надписей сохраняется, но короткий заголовок
+  владельца из «Стиля обложки» (`heading`/`title`/`PERMsoc`) явно разрешён, чтобы
+  модель его не подавляла. Слепок прежнего канона —
+  `PREV_SUMMARY_EDITOR_R1025_HOTFIX4`; ступень канон-миграции/откат —
+  `PROMPT_MIGRATIONS`/`ROLLBACK_MIGRATIONS`.
+- **hotfix4 — применение стиля и фолбэк:** `resolve_cover_style` (код-дефолт
+  `SUMMARY_COVER_STYLE_DEFAULT` — только при реальном отсутствии/пустоте
+  значения) + R17-маркеры `style_is_default`/`has_comic`/`has_heading` в логе
+  `summary cover: prompt composed`; `_resolve_cover_prompt` при непустом `draft`
+  с пустым `cover_prompt` уходит в ветку фолбэка (`draft_cover_empty`) вместо
+  тихой потери rich-обложки (T-2512).
 - **Каталог:** `prompts.summary_cover_style` (группа `prompts_summary`,
   `advanced`), дефолт `SUMMARY_COVER_STYLE_DEFAULT`; Δ каталога = +1.
 - **Article (Сценарий Б):** `sendRichMessage` через egress-обёртку

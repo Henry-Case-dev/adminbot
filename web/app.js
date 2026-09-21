@@ -1351,32 +1351,45 @@
       sidebarItems: function () {
         return this.navItems;
       },
-      // Mobile bottom-nav: не более 4 (админ/смешанная роль: Статус +
-      // Модули/ИИ (если видимы) + «Ещё»; чистый пользователь: Статус/Справка).
+      // Mobile bottom-nav: не более 4. hotfix4 (T-2519/T-2520, ADR-1025-8 D3):
+      // Статус+Справка — ВСЕГДА первые два для ЛЮБОЙ роли; далее ОДИН
+      // приоритетный админ-раздел (Модули, иначе ИИ); «Ещё» — только при
+      // наличии реально скрытых (непубличных) разделов.
       // H-1 (Scanner): «Ещё» обязателен при ЛЮБОМ непубличном разделе
       // (Память/Доступы/PERMsoc/Модули/ИИ) — иначе раздел недостижим на <768.
       bottomNavItems: function () {
         var items = this.navItems;
-        var hasExtra = items.some(function (n) { return n.group !== 'public'; });
-        if (!hasExtra) {
-          return items.filter(function (n) {
-            return n.id === 'status' || n.id === 'how';
-          });
+        var byId = {};
+        items.forEach(function (n) { byId[n.id] = n; });
+        var out = [];
+        if (byId['status']) out.push(byId['status']);
+        if (byId['how']) out.push(byId['how']);
+        // Один приоритетный админ-раздел: Модули (иначе ИИ) — остальные
+        // непубличные уходят в «Ещё».
+        var pri = byId['modules'] || byId['ai'];
+        if (pri) out.push(pri);
+        var shown = {};
+        out.forEach(function (n) { shown[n.id] = true; });
+        var hiddenCount = items.filter(function (n) {
+          return n.group !== 'public' && !shown[n.id];
+        }).length;
+        if (hiddenCount) {
+          out.push({ id: 'more', label: 'Ещё', route: '', icon: 'expand_more',
+            more: true });
         }
-        var want = ['status', 'modules', 'ai'];
-        var base = items.filter(function (n) {
-          return want.indexOf(n.id) >= 0;
-        });
-        base.push({ id: 'more', label: 'Ещё', route: '', icon: 'expand_more',
-          more: true });
-        return base;
+        return out;
       },
-      // Меню «Ещё» (шторка): Справка / Память / Доступы / PERMsoc.
-      // «Профиль» — существующий identity-блок (UPD §8.2), не новый экран.
+      // Меню «Ещё» (шторка, T-2520): только реально скрытые непубличные
+      // разделы (Память/Доступы/PERMsoc + вытесненный ИИ); дубля «Справки»
+      // нет. «Профиль» — существующий identity-блок (UPD §8.2), не экран.
       mobileMoreItems: function () {
-        var want = ['how', 'memory', 'access', 'permsoc'];
-        return this.navItems.filter(function (n) {
-          return want.indexOf(n.id) >= 0;
+        var items = this.navItems;
+        var byId = {};
+        items.forEach(function (n) { byId[n.id] = n; });
+        var inlineId = byId['modules'] ? 'modules'
+          : (byId['ai'] ? 'ai' : '');
+        return items.filter(function (n) {
+          return n.group !== 'public' && n.id !== inlineId;
         });
       },
       // Управляемая мобильная навигация (<768) или drawer (768–1199).

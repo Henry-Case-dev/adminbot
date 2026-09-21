@@ -1340,9 +1340,15 @@
       position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 35;
     }
 
-    /* Bottom-nav (<768): РОВНО 4 пункта, safe-area, тач ≥44×44. */
+    /* Bottom-nav (<768): ≤4 пункта, safe-area, тач ≥44×44.
+       hotfix4 (T-2514, ADR-1025-8 D2): `bottom:0` = низ layout-вьюпорта, а
+       `--tg-viewport-stable-height` — уже видимая высота → панель уходила под
+       системный бар. Смещаем на `--tg-viewport-bottom-offset` (JS,
+       telegram-init.js); CSS-фолбэк — разница 100dvh и stable-height. */
     .bottom-nav {
-      position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+      position: fixed; left: 0; right: 0; z-index: 40;
+      bottom: var(--tg-viewport-bottom-offset,
+                  max(0px, calc(100dvh - var(--tg-viewport-stable-height, 100dvh))));
       display: flex; align-items: stretch; justify-content: space-around;
       background: var(--surface-1); border-top: 1px solid var(--surface-border);
       padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px));
@@ -1385,7 +1391,8 @@
     }
     .more-sheet {
       position: fixed; left: 0; right: 0;
-      bottom: calc(52px + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px))); z-index: 50;
+      /* hotfix4 (T-2515): та же компенсация нижнего смещения, что у панели. */
+      bottom: calc(52px + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px)) + var(--tg-viewport-bottom-offset, max(0px, calc(100dvh - var(--tg-viewport-stable-height, 100dvh))))); z-index: 50;
       display: flex; flex-direction: column; gap: .15rem;
       padding: .5rem .6rem calc(.75rem + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px))); max-height: 70dvh; overflow-y: auto;
       background: var(--surface-1); border-top: 1px solid var(--surface-border);

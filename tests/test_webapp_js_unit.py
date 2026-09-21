@@ -110,6 +110,15 @@ def test_js_unit_round1024_dossier_feed():
             ok_marker="DOSSIER-FEED-OK")
 
 
+def test_js_unit_round1025_hotfix4_shell():
+    """hotfix4 round 10.25 (ADR-1025-8 D2, T-2518): позиция mobile-панели —
+    `--tg-viewport-bottom-offset` + CSS-фолбэк, `viewport-fit=cover`,
+    touch/safe-area сохранены, матрица проверяет вертикаль."""
+    _run_js(os.path.join("tests", "js",
+                         "round1025_hotfix4_shell_test.js"),
+            ok_marker="JS-UNIT-OK round1025_hotfix4_shell_test")
+
+
 def test_js_unit_round1024_providers_fullscreen():
     """F24 round 10.24 (ADR-1024-24): fullscreen-sync с TMA + реактивный
     аккордеон — initExpandState/переживание ремаунта, C2 (синхронизация из

@@ -186,6 +186,13 @@
   обложки (EN, ≤300) в том же Stage-1 JSON (третьего LLM-вызова нет). Слепок
   прежнего канона — `PREV_SUMMARY_EDITOR_R1023_F6`; миграция/откат PG —
   `PROMPT_MIGRATIONS`/`ROLLBACK_MIGRATIONS` (ключ `prompts.summary_editor_system_prompt`).
+- **hotfix4 (10.25, ADR-1025-8 D1/T-2511):** `SUMMARY_EDITOR_COVER_PROMPT_BLOCK`
+  смягчён — запрет надписей сохраняется для «чистого visual», но **короткий
+  заголовок, заданный владельцем в «Стиле обложки»** (`heading`/`title`/
+  `PERMsoc`), явно разрешён; слепок прежнего канона —
+  `PREV_SUMMARY_EDITOR_R1025_HOTFIX4`, ступень `…F6 → HOTFIX4 → новый канон`,
+  откат — на `PREV_SUMMARY_EDITOR_R1025_HOTFIX4`
+  (`PROMPT_MIGRATIONS`/`ROLLBACK_MIGRATIONS`).
 - **«Стиль обложки»:** новый каталоговый ключ `prompts.summary_cover_style`
   (группа `prompts_summary`, `advanced`); дефолт — код-константа
   `SUMMARY_COVER_STYLE_DEFAULT`. Промпт image-API = `style + cover_prompt`,

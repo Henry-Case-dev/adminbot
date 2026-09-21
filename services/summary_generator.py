@@ -122,6 +122,36 @@ def compose_cover_image_prompt(style: str | None, cover_prompt: str) -> str:
     return " ".join(part for part in (s, v) if part)
 
 
+def resolve_cover_style(value) -> str:
+    """T-2509 (hotfix4, ADR-1025-8 D1): эффективный «Стиль обложки».
+
+    Настроенный владельцем стиль применяется как есть; код-дефолт — ТОЛЬКО
+    когда значение реально отсутствует или пусто (``None``/пробелы). Гарантия:
+    потеря «стиля владельца» не превращается в пустой стиль, а честно
+    откатывается к дефолту."""
+    if value is None:
+        return SUMMARY_COVER_STYLE_DEFAULT
+    text = value if isinstance(value, str) else str(value)
+    return text.strip() or SUMMARY_COVER_STYLE_DEFAULT
+
+
+def cover_style_markers(style: str) -> dict:
+    """T-2508 (hotfix4, R17): маркеры содержимого стиля — БЕЗ самого текста.
+
+    * ``has_comic`` — стиль требует комикс-подачу;
+    * ``has_heading`` — явно задан короткий заголовок
+      (``heading``/``title``/``PERMsoc``/«заголовок»);
+    * ``style_is_default`` — доехал код-дефолт (настроенный стиль НЕ пришёл).
+    """
+    text = (style or "").lower()
+    return {
+        "has_comic": "comic" in text,
+        "has_heading": any(tok in text for tok in
+                           ("heading", "title", "perm", "заголов")),
+        "style_is_default": (style or "").strip() == SUMMARY_COVER_STYLE_DEFAULT,
+    }
+
+
 @lru_cache(maxsize=1)
 def _rich_media_supported() -> bool:
     """Поддержка rich-обложек: поле ``media`` у ``InputRichMessage`` + метод
@@ -689,7 +719,15 @@ class SummaryGenerator:
         явной R17-safe причиной в логе. Запуск генерации — существующий
         rich-путь (`_deliver_rich`), контракт не меняется."""
         if draft is not None:
-            return draft.cover_prompt
+            draft_prompt = (draft.cover_prompt or "").strip()
+            if draft_prompt:
+                return draft_prompt
+            # T-2512 (hotfix4, ADR-1025-8 D1): draft есть, но visual-промпт
+            # пуст — НЕ теряем обложку молча: переходим в ветку фолбэка ниже
+            # (детерминированный промпт + kill-switch/rich-guard).
+            logger.info(
+                "summary cover: draft without visual prompt — fallback path | "
+                "chat_id=%s | reason=draft_cover_empty", chat_id)
         if not getattr(settings, "SYSTEM2_SUMMARY_ENABLED", True):
             # Одиночный путь включён осознанно (kill-switch System 2), не фолбэк.
             return ""
@@ -754,18 +792,25 @@ class SummaryGenerator:
         генерацию обложки — событие ``step='image'`` остаётся в дереве."""
         tmp_path = None
         try:
-            style = hot.get("prompts.summary_cover_style",
-                            SUMMARY_COVER_STYLE_DEFAULT)
+            # T-2509 (hotfix4): настроенный стиль применяется как есть; дефолт —
+            # только при реальном отсутствии/пустоте значения.
+            style = resolve_cover_style(
+                hot.get("prompts.summary_cover_style", None))
             image_prompt = compose_cover_image_prompt(style, cover_prompt)
-            # F12/ADR-1024-4 D2 (UPD2 п.10.1): доказательство подмешивания
-            # стиля — R17-safe, без полного текста промпта (только длины).
+            # F12/ADR-1024-4 D2 (UPD2 п.10.1) + T-2508 (hotfix4): доказательство
+            # подмешивания стиля — R17-safe, без полного текста промпта (только
+            # длины и МАРКЕРЫ содержимого).
             style_text = (style or "").strip()
             visual_text = (cover_prompt or "").strip()
+            markers = cover_style_markers(style)
             logger.info(
                 "summary cover: prompt composed | style_present=%s | "
-                "style_len=%d | visual_len=%d | final_len=%d | chat_id=%s",
+                "style_len=%d | visual_len=%d | final_len=%d | "
+                "style_is_default=%s | has_comic=%s | has_heading=%s | "
+                "chat_id=%s",
                 bool(style_text), len(style_text), len(visual_text),
-                len(image_prompt), chat_id)
+                len(image_prompt), markers["style_is_default"],
+                markers["has_comic"], markers["has_heading"], chat_id)
             tmp_path, img_reason = await generate_image_verbose(
                 image_prompt, chat_id=chat_id,
                 correlation_id=correlation_id)

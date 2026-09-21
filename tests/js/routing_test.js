@@ -373,7 +373,9 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     .indexOf('memory') < 0, 'F1: memory скрыт без прав');
 })();
 
-// ── F1 (§4.3): bottom-nav ровно 4 (Статус/Модули/ИИ/Ещё) ─────────────────
+// ── F1/hotfix4 (§4.3): bottom-nav ровно 4 ────────────────────────────────
+// hotfix4 (T-2519/T-2520, ADR-1025-8 D3): Статус+Справка — всегда первые два;
+// «Ещё» без дубля «Справки».
 (function () {
   const admin = {
     route: '#/', iaV2: true,
@@ -383,11 +385,13 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
   };
   const bottom = captured.computed.bottomNavItems.call(admin);
   assert.deepStrictEqual(bottom.map((n) => n.id),
-    ['status', 'modules', 'ai', 'more'],
-    'F1: bottom-nav админа = ровно 4 пункта (Память в «Ещё»).');
+    ['status', 'how', 'modules', 'more'],
+    'hotfix4: bottom-nav админа = Статус/Справка/Модули/Ещё.');
   const more = captured.computed.mobileMoreItems.call(admin).map((n) => n.id);
   assert.ok(more.indexOf('memory') >= 0,
     'F1: «Память» живёт в шторке «Ещё»');
+  assert.ok(more.indexOf('how') < 0,
+    'hotfix4: «Справка» НЕ дублируется в «Ещё»');
 })();
 
 // ── F1 (ADR-1025-1 D3): legacy-алиасы памяти → канон #/memory* ────────────

@@ -61,6 +61,7 @@ from services.summary_prompts import (
     PREV_SUMMARY_EDITOR_R1023,
     PREV_SUMMARY_EDITOR_R1023_F3,
     PREV_SUMMARY_EDITOR_R1023_F6,
+    PREV_SUMMARY_EDITOR_R1025_HOTFIX4,
     PREV_SUMMARY_SYSTEM_PROMPT,
     SUMMARY_EDITOR_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
@@ -150,7 +151,9 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # канон R1023 (снимает только F1, сохраняя блоки A/B 10.21/10.22).
     "prompts.direct_chat_system_prompt": PREV_CHAT_R1023_SYSTEM_PROMPT,
     # F6 (10.23): откат Редактора снимает ступень cover_prompt → канон F3.
-    "prompts.summary_editor_system_prompt": PREV_SUMMARY_EDITOR_R1023_F6,
+    # hotfix4 (10.25, T-2511): откат снимает ТОЛЬКО ступень HOTFIX4 (разрешение
+    # короткого заголовка) → слепок канона F6 (жёсткий запрет надписей).
+    "prompts.summary_editor_system_prompt": PREV_SUMMARY_EDITOR_R1025_HOTFIX4,
     # F2 (10.23): откат Аналитика снимал только правило веб-поиска; F3 (10.23)
     # снимает ступень response_mode → непосредственный прежний канон F2.
     "prompts.factcheck_analyst_system_prompt": PREV_FACTCHECK_ANALYST_R1023_F3,
@@ -411,10 +414,11 @@ class TestRound1023Migration:
         assert PREV_CHAT_R1023_SYSTEM_PROMPT != CHAT_SYSTEM_PROMPT
 
     def test_rollback_targets_r1023_for_stage1_keys(self):
-        # F6 (10.23): непосредственный прежний канон Редактора — F3-ступень
-        # (PREV_SUMMARY_EDITOR_R1023_F6), а не pre-F3 слепок _F3.
+        # hotfix4 (10.25, T-2511): непосредственный прежний канон Редактора —
+        # слепок HOTFIX4 (канон F6 с жёстким запретом надписей); каждая
+        # обратная ступень снимает ровно одну предыдущую.
         assert ROLLBACK_MIGRATIONS["prompts.summary_editor_system_prompt"] == \
-            (SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1023_F6)
+            (SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1025_HOTFIX4)
         # F3 (10.23): откат Аналитика снимает поле response_mode.
         assert ROLLBACK_MIGRATIONS["prompts.factcheck_analyst_system_prompt"] == \
             (FACTCHECK_ANALYST_SYSTEM_PROMPT, PREV_FACTCHECK_ANALYST_R1023_F3)

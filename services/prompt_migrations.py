@@ -65,6 +65,7 @@ from services.summary_prompts import (
     PREV_SUMMARY_EDITOR_R1023,
     PREV_SUMMARY_EDITOR_R1023_F3,
     PREV_SUMMARY_EDITOR_R1023_F6,
+    PREV_SUMMARY_EDITOR_R1025_HOTFIX4,
     PREV_SUMMARY_SYSTEM_PROMPT,
     SUMMARY_EDITOR_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
@@ -134,10 +135,13 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # migrate/skip (отсутствующий ключ → INFO, сид поставит канон).
     # 10.23 (F6, ADR-1023-6 §Decision 9): ступень F6 — поле cover_prompt в том
     # же JSON (слепок PREV_SUMMARY_EDITOR_R1023_F6 = канон F3 без обложки).
+    # 10.25 (hotfix4, ADR-1025-8 D1/T-2511): ступень HOTFIX4 — смягчение
+    # запрета надписей (разрешён короткий заголовок владельца в стиле).
     "prompts.summary_editor_system_prompt": [
         (PREV_SUMMARY_EDITOR_R1023, SUMMARY_EDITOR_SYSTEM_PROMPT),
         (PREV_SUMMARY_EDITOR_R1023_F3, SUMMARY_EDITOR_SYSTEM_PROMPT),
-        (PREV_SUMMARY_EDITOR_R1023_F6, SUMMARY_EDITOR_SYSTEM_PROMPT)],
+        (PREV_SUMMARY_EDITOR_R1023_F6, SUMMARY_EDITOR_SYSTEM_PROMPT),
+        (PREV_SUMMARY_EDITOR_R1025_HOTFIX4, SUMMARY_EDITOR_SYSTEM_PROMPT)],
     # 10.23 (F2, ADR-1023-2 §3.3): ступень Аналитика — правило обязательного
     # веб-поиска. Старые прод-значения (pre-F1 и F1) ведут на новый канон.
     # 10.23 (F3, ADR-1023-3): ступень F3 — поле response_mode в том же JSON.
@@ -180,8 +184,10 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # ровно предыдущую.
     # 10.23 (F3, ADR-1023-3): откат снимает только ступень F3 — на слепок без
     # поля response_mode (PREV_SUMMARY_EDITOR_R1023_F3/PREV_..._F3).
+    # 10.25 (hotfix4): откат снимает только ступень HOTFIX4 — на слепок
+    # канона F6 (жёсткий запрет надписей).
     "prompts.summary_editor_system_prompt":
-        (SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1023_F6),
+        (SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1025_HOTFIX4),
     "prompts.factcheck_analyst_system_prompt":
         (FACTCHECK_ANALYST_SYSTEM_PROMPT, PREV_FACTCHECK_ANALYST_R1023_F3),
 }

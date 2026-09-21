@@ -82,6 +82,20 @@ class TestShellMarkers:
         assert "contentSafeAreaInset" in TG_INIT
         assert "viewportStableHeight" in TG_INIT
 
+    def test_hotfix4_bottom_nav_order_and_viewport_offset(self):
+        """hotfix4 (T-2514/T-2516/T-2519, ADR-1025-8 D2/D3): offset-переменная + cover.
+        C: `status`+`how` — первые два для всех ролей."""
+        # B: viewport-fit=cover + CSS-компенсация нижнего бара (HTML = index + app.css).
+        assert "viewport-fit=cover" in HTML
+        assert "--tg-viewport-bottom-offset" in HTML
+        assert "100dvh - var(--tg-viewport-stable-height" in HTML
+        # C: порядок нижней навигации.
+        seg = JS[JS.index("bottomNavItems: function"):
+                 JS.index("mobileMoreItems: function")]
+        assert "byId['status']" in seg
+        assert "byId['how']" in seg
+        assert "byId['modules'] || byId['ai']" in seg
+
 
 class TestNoCompetingHome:
     def test_no_obzor_screen(self):

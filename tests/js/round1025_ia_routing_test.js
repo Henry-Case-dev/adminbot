@@ -1,7 +1,7 @@
 'use strict';
 /* F1 round 10.25 — РЕАЛЬНЫЙ JS-тест новой IA/роутинга (T-2392/T-2393/T-2396):
  *   * navItems: legacy 6 (OFF) ↔ IA v2 7 (ON), «Память» отдельно;
- *   * bottom-nav ровно 4 (Статус/Модули/ИИ/Ещё), «Память» — в «Ещё»;
+ *   * bottom-nav админ ≤4 (Статус/Справка/Модули/Ещё; hotfix4), «Память» — в «Ещё»;
  *   * legacy-алиасы #/ai/{memory,lore,relations} → #/memory*;
  *   * мусорный hash → '#/' без падения;
  *   * #/memory — hub из 3 карточек; ROUTE_PARENT подстраниц → #/memory;
@@ -89,6 +89,8 @@ const computed = captured.computed;
 }
 
 // ── bottom-nav ровно 4 (админ) + «Память» в «Ещё» ────────────────────────
+// hotfix4 (T-2519/T-2520, ADR-1025-8 D3): Статус+Справка — первые два для
+// всех ролей; «Справка» НЕ дублируется в «Ещё».
 {
   const ctx = {
     route: '#/', iaV2: true, canViewTab() { return true; },
@@ -96,12 +98,15 @@ const computed = captured.computed;
       { route: '#/', iaV2: true, canViewTab() { return true; } }),
   };
   assert.deepStrictEqual(computed.bottomNavItems.call(ctx).map((n) => n.id),
-    ['status', 'modules', 'ai', 'more'],
-    'bottom-nav админа = Статус/Модули/ИИ/Ещё');
+    ['status', 'how', 'modules', 'more'],
+    'bottom-nav админа = Статус/Справка/Модули/Ещё');
   const moreIds = computed.mobileMoreItems.call(ctx).map((n) => n.id);
   assert.ok(moreIds.indexOf('memory') >= 0, '«Память» — внутри «Ещё»');
-  assert.ok(moreIds.indexOf('how') >= 0 && moreIds.indexOf('access') >= 0,
-    '«Ещё»: Справка/Доступы доступны');
+  assert.ok(moreIds.indexOf('how') < 0,
+    '«Справка» НЕ дублируется в «Ещё» (hotfix4)');
+  assert.ok(moreIds.indexOf('ai') >= 0 && moreIds.indexOf('access') >= 0
+    && moreIds.indexOf('permsoc') >= 0,
+    '«Ещё»: вытесненные ИИ/Доступы/PERMsoc доступны');
   // Пользователь без прав: только Статус/Справка (≤4).
   const user = {
     route: '#/', iaV2: true, canViewTab(id) { return id === 'status' || id === 'info'; },

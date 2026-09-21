@@ -9,7 +9,10 @@
     (нет горизонтального скролла страницы);
   * реальные `getBoundingClientRect()` ключевых shell-элементов
     (sidebar ≥1200 / drawer 768–1199 / bottom-nav <768 — взаимоисключающе);
-  * нижняя навигация = ровно N пунктов (админ: 4);
+  * нижняя навигация = N пунктов (админ hotfix4: Статус/Справка/Модули/Ещё = 4);
+  * hotfix4 (T-2517): вертикальная граница — `.bottom-nav`/`.more-sheet`
+    целиком в экране: `rect.bottom <= innerHeight + 1` И (при наличии
+    системного бара) `rect.bottom <= stableHeight + 1` → FAIL при выходе;
   * touch-таргеты ≥44×44;
   * скриншоты desktop/mobile.
 
@@ -205,7 +208,13 @@ try {
 window.Telegram = { WebApp: {
   initData: 'user=%7B%22id%22%3A5885953495%7D&hash=audit',
   initDataUnsafe: { user: { id: 5885953495, first_name: 'Audit' } },
-  themeParams: {}, colorScheme: 'dark', viewportStableHeight: 800,
+  themeParams: {}, colorScheme: 'dark',
+  // hotfix4 (T-2517): имитируем системный нижний бар Telegram — visible
+  // (stable) высота меньше layout (innerHeight) на 56px. Тогда панель с
+  // bottom:0 выходит за видимую область, а с offset-компенсацией — нет.
+  get viewportStableHeight() {
+    return Math.max(0, (window.innerHeight || 800) - 56);
+  },
   safeAreaInset: { top: 0, bottom: 0, left: 0, right: 0 },
   contentSafeAreaInset: { top: 0, bottom: 0, left: 0, right: 0 },
   ready() {}, expand() {}, setHeaderColor() {}, setBackgroundColor() {},
@@ -224,6 +233,7 @@ PROBE_JS = """
     const st = getComputedStyle(el);
     return { x: Math.round(r.x), y: Math.round(r.y),
              w: Math.round(r.width), h: Math.round(r.height),
+             bottom: Math.round(r.bottom),
              display: st.display, visible: r.width > 0 && r.height > 0 };
   };
   const links = Array.from(document.querySelectorAll('.bottom-nav-link'));
@@ -231,13 +241,19 @@ PROBE_JS = """
     const r = el.getBoundingClientRect();
     return Math.min(m, Math.min(r.width || 999, r.height || 999));
   }, 999);
+  const stableRaw = getComputedStyle(de)
+    .getPropertyValue('--tg-viewport-stable-height').trim();
   return {
     innerWidth: window.innerWidth,
+    innerHeight: window.innerHeight,
+    stableHeight: parseFloat(stableRaw) || window.innerHeight,
     scrollWidth: de.scrollWidth,
     overflow: de.scrollWidth > window.innerWidth + 1,
     sidebar: rect('.app-sidebar'),
     drawer: rect('.app-drawer'),
     bottomNav: rect('.bottom-nav'),
+    moreSheet: rect('.more-sheet'),
+    moreOpen: !!document.querySelector('.more-sheet.open'),
     navbarBand: rect('.navbar-band'),
     bottomNavCount: links.length,
     minTouch: links.length ? Math.round(minTouch) : null,
@@ -247,6 +263,28 @@ PROBE_JS = """
   };
 })()
 """
+
+
+def _vertical_failures(probe: dict, label: str) -> list:
+    """hotfix4 (T-2517): нижняя панель/шторка целиком в видимой области.
+
+    Два инварианта: `rect.bottom <= innerHeight + 1` (layout-вьюпорт) и, при
+    смоделированном системном баре Telegram, `rect.bottom <= stableHeight + 1`
+    (именно этот инвариант ловил прод-дефект «панель под нижним баром»)."""
+    out = []
+    for name, box in (("bottom-nav", probe.get("bottomNav")),
+                      ("more-sheet", probe.get("moreSheet"))):
+        if not box or not box.get("visible"):
+            continue
+        if name == "more-sheet" and not probe.get("moreOpen"):
+            continue                      # закрытая шторка уехала трансформом
+        if box["bottom"] > probe["innerHeight"] + 1:
+            out.append("%s: %s выходит за экран (bottom=%d > innerHeight=%d)"
+                       % (label, name, box["bottom"], probe["innerHeight"]))
+        if box["bottom"] > probe["stableHeight"] + 1:
+            out.append("%s: %s ниже видимой области (bottom=%d > stable=%d)"
+                       % (label, name, box["bottom"], probe["stableHeight"]))
+    return out
 
 
 def _snap(page, name):
@@ -294,6 +332,25 @@ def main() -> int:
             # IA v2: shell-режим мог не пересчитаться после stub-me → ресайз.
             page.set_viewport_size({"width": w, "height": h})
             page.wait_for_timeout(300)
+            # hotfix4 (T-2517): имитируем системный нижний бар Telegram —
+            # visible (stable) высота = innerHeight − 56. Реальный
+            # `telegram-web-app.js` определяет viewportStableHeight как
+            # non-configurable getter (патч SDK невозможен), поэтому выставляем
+            # ровно те CSS-переменные, которые клиент бы сообщил: так проверяем
+            # РАСКЛАДКУ панели/шторки относительно видимой области (вычисление
+            # переменных в telegram-init.js покрыто unit/JS-тестами).
+            if w < 768:
+                page.evaluate(
+                    "() => {"
+                    "  var h = window.innerHeight || 0;"
+                    "  var visible = Math.max(0, h - 56);"
+                    "  var de = document.documentElement;"
+                    "  de.style.setProperty('--tg-viewport-stable-height',"
+                    "    visible + 'px');"
+                    "  de.style.setProperty('--tg-viewport-bottom-offset',"
+                    "    (h - visible) + 'px');"
+                    "}")
+                page.wait_for_timeout(150)
 
             vp_key = "%dx%d" % (w, h)
             out["viewports"][vp_key] = {"routes": {}}
@@ -324,16 +381,35 @@ def main() -> int:
                     if not (probe["bottomNav"] and probe["bottomNav"]["visible"]):
                         failures.append("%s %s: нет bottom-nav (<768)"
                                         % (vp_key, route))
-                    if probe["bottomNavCount"] not in (0, 4, 2):
-                        failures.append("%s %s: bottom-nav=%d (ожидалось 4 админ)"
+                    # hotfix4 (T-2522): админ hotfix4 = 4
+                    # (Статус/Справка/Модули/Ещё); чистый user = 2;
+                    # раздел-онли = 3 (Статус/Справка/Ещё).
+                    if probe["bottomNavCount"] not in (0, 2, 3, 4):
+                        failures.append("%s %s: bottom-nav=%d (ожидалось 2/3/4)"
                                         % (vp_key, route, probe["bottomNavCount"]))
                     if probe["sidebar"] and probe["sidebar"]["visible"]:
                         failures.append("%s %s: sidebar не должен быть <768"
                                         % (vp_key, route))
+                    # hotfix4 (T-2517): вертикальные границы панели.
+                    failures.extend(_vertical_failures(
+                        probe, "%s %s" % (vp_key, route)))
                 if route == "#/":
                     _snap(page, "%s_root" % vp_key)
                 if route == "#/memory":
                     _snap(page, "%s_memory" % vp_key)
+            # hotfix4 (T-2517): шторка «Ещё» — вертикаль ПРИ ОТКРЫТИИ.
+            if w < 768:
+                try:
+                    btn = page.query_selector('.bottom-nav-link[title="Ещё"]')
+                    if btn:
+                        btn.click()
+                        page.wait_for_timeout(300)
+                        probe_more = page.evaluate(PROBE_JS)
+                        failures.extend(_vertical_failures(
+                            probe_more, "%s more-sheet(open)" % vp_key))
+                except Exception as exc:  # noqa: BLE001
+                    failures.append("%s more-sheet probe: %s"
+                                    % (vp_key, str(exc)[:200]))
             # P0-инцидент F1: render-ошибки (console.error/pageerror) — FAIL,
             # иначе класс «раздел пуст, но метрики чистые» не ловится.
             for msg in vp_errors:

@@ -43,12 +43,29 @@
     if (typeof wa.viewportStableHeight === 'number') {
       setVar('--tg-viewport-stable-height', wa.viewportStableHeight);
     }
+    /* hotfix4 (T-2514/T-2516, ADR-1025-8 D2): нижняя панель/шторка позициони-
+     * руются по layout-вьюпорту (bottom:0 = под системным баром), а
+     * viewportStableHeight — уже видимая высота. Считаем разницу и прокидываем
+     * offset в CSS. UI-кламп: 0 при отсутствии разницы (Desktop/Android без
+     * бара), clamp по высоте вьюпорта; inset-ы учитываем через stableHeight. */
+    var layoutH = (window.innerHeight || 0);
+    var stableH = wa.viewportStableHeight;
+    var offset = 0;
+    if (typeof stableH === 'number' && layoutH > 0) {
+      offset = Math.max(0, Math.min(layoutH, layoutH - stableH));
+    }
+    setVar('--tg-viewport-bottom-offset', offset);
   }
   applyInsets();
   if (typeof wa.onEvent === 'function') {
     wa.onEvent('viewportChanged', applyInsets);
     wa.onEvent('safeAreaChanged', applyInsets);
     wa.onEvent('contentSafeAreaChanged', applyInsets);
+  }
+  /* hotfix4 (T-2516): пересчёт на resize окна/повороте — страховка, если
+   * клиент не прислал Telegram-событие (offset не должен «залипать»). */
+  if (typeof window.addEventListener === 'function') {
+    window.addEventListener('resize', applyInsets);
   }
 
   /* F1 (UPD §8.4): BackButton show/hide управляет app.js (syncBackButton);
