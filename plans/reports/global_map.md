@@ -1,5 +1,28 @@
 # Global Map (architectural memory)
 
+## Round 10.25 F4 `module-catalog-quickpanel-store-round1025` (§31–§45) — 22.09.2026, Step 6 @Scanner
+
+- **База:** HEAD `b5f8348` + рабочее дерево (правки не закоммичены, включая rework iter2). Отчёт: `plans/reports/round1025_f4_scanner_audit.md`.
+  **0 Critical / 0 High / 0 Medium / 2 Low / 3 Info** → к деплою — да.
+- **Новые связности:** `ModuleConfigurationStore` (`web/app.js:4279-4573`) — тонкий слой над существующим `configItems` (`GET /api/config`),
+  ключ `scope_type/scope_id/module_id` (`storeKey`) ↔ `scopeEpoch`/`_scopeGuard` (F3) ↔ канонический write-path F0 `persistItems`
+  (`web/app.js:6297-6437`; ровно один POST на действие). Overlay `moduleOptimistic`/`modulePending`/`moduleSaveError` — единственная
+  «оптимистичность» (структурный откат: `configItems[i].value` не мутируется до подтверждения).
+- **Витрина ↔ серверный код:** `MODULES[].runtimeGate` (9 `global` / 4 `per_chat`) + `parentGate: flags.summary_enabled` (7 модулей)
+  (`web/app.js:449-530`) ↔ аудит гейтов ADR-1025-14 §D3 ↔ `bot.py:752-786` (регистрация роутеров 0a–0i по глобальному
+  `hot.get("flags.summary_enabled")`), `handlers/*`, `services/feature_gates.py`, `services/budget_gate.py`, `services/image_generation.py`.
+- **Избранное (UI-предпочтение, не конфигурация):** `localStorage['adminbot.modules_quickpicks.v1'(:<telegram_id>)]`
+  (`web/app.js:4575-4660`) ↔ панель `.module-quick` §34–§36. Закрепление — ноль серверных мутаций.
+- **Точка входа F5:** шов `openModuleWorkspace(m)` (`web/app.js:4664-4666`) → существующая модалка `openModuleWindow(m)`
+  (регресс-путь сохранён); новых маршрутов F4 не создаёт (F5 заменит реализацию шва).
+- **Раскладка:** `.module-catalog` (`container-type: inline-size`) + изолированные `@container`-тиры `.module-list` ≤3/2/1 и
+  `.module-quick` ≤4/2/1 (`app.css:1878-1902+`); общий triple-rule `.prov-grid/.module-list/.hub-grid` не изменён; тач-цель 44×44.
+- **Проверки:** `node --check` OK; JS `MODULE-STORE-OK`/`MODULE-CATALOG-OK`/`JS-UNIT-OK`; целевые pytest **165 passed**;
+  полный pytest **8229/0**; Δ DDL=0, Δ каталога=0 (459/98/96/21/418), CSP/zero-build чист; `stash@{0}`/теги/бэкапы целы.
+- **Открытое (Low, не блокер):** `stickyFailedKeys` (F0) протекает между областями в счётчиках/фильтре [L-F4S-1];
+  parent-gate проверяется по эффективному `value`, а не `global_value` [L-F4S-2]. Info: kill-switch `flags.dream_enabled`/
+  `flags.nostalgia_enabled` вне `REGISTRY` (Δ каталога=0) — статус Сна/Ностальгии по нему не моделируется.
+
 ## Round 10.25 hotfix5 `summary-cover-window-round1025` (21.09.2026, Step 6 @Scanner)
 
 - **Дифф `0e43c37..b3fb6a5`**, коммит `b3fb6a5`. Отчёт: `plans/reports/round1025_hotfix5_scanner_audit.md`.

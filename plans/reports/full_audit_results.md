@@ -6,6 +6,23 @@
 
 ---
 
+## Round 10.25 F4 `module-catalog-quickpanel-store-round1025` (каталог/панель/store §31–§45) — 22.09.2026, Step 6 @Scanner
+
+**База:** HEAD `b5f8348` (`pre-round1025-f4`; правки **НЕ закоммичены** — аудит рабочего дерева, включая rework iter2 F4-M1). Отчёт: `plans/reports/round1025_f4_scanner_audit.md`. Вход: `spec.md`/`adr-1025-14`/`evidence.md` (iter1+iter2)/`review.md` (iter1 Changes requested).
+
+**Итог: Critical 0 / High 0 / Medium 0 / Low 2 / Info 3. Вердикт: к деплою — ДА.**
+Прогон (independent @Scanner): `node --check` OK; JS `MODULE-STORE-OK`/`MODULE-CATALOG-OK`/`JS-UNIT-OK`; целевые pytest **165 passed**; полный pytest **8229 passed / 0 failed**; `git diff --check` exit 0; Δ DDL=0 (`services/`/`web/api/`/миграции/`bot.py`/`handlers/` вне диффа); Δ каталога=0 (**459/98/96/21/418**, `services/param_catalog.py` не тронут); `APP_VERSION` **2.58.9** синхронен (`?v=__APP_VERSION__`/README/пины); тег `pre-round1025-f4`, бэкап `f4-round1025-20260922-073051`, `.env.bak.round1025-f4`, `stash@{0}` целы; `.env`/zip/скриншотов в изменениях нет.
+
+**Low:**
+- [L-F4S-1] `web/app.js:4428-4432`+`:6432`+`:2785-2787` — `stickyFailedKeys` (F0) не сбрасывается при `setActiveChat`/`loadConfig` → счётчик «Есть проблемы» и фильтр issues протекают между чатами. Только UI; фикс — сброс в `setActiveChat` или scope-ключ (follow-up F0).
+- [L-F4S-2] `web/app.js:4356-4360`+`:4382-4386` — parent-gate (`flags.summary_enabled`) проверяется по **эффективному** `p.value`, а регистрация роутеров 0a–0i (`bot.py:752-786`) — **по глобальному** `hot.get`; при chat-override родителя дочерний модуль может показать `on`. ТЗ/ADR говорят «выключен глобально». Фикс — сравнивать `global_value === false`.
+
+**Info:** I-F4S-1 (kill-switch `flags.dream_enabled`/`flags.nostalgia_enabled` вне `REGISTRY` → F4 их не видит при Δ каталога=0; статус Сна/Ностальгии по kill-switch не моделируется — известное ограничение); I-F4S-2 (Playwright-матрица и живой Telegram WebView T-2656 @Scanner не воспроизводились — опора на evidence/review); I-F4S-3 (техдолг L-F4-1/L-F4-6 из `review.md` оставлен @Builder явно — не блокеры).
+
+**Чисто:** CSP/zero-build (нет новых внешних URL/CDN/data-URI/inline-скриптов/WebGL; только CSS + `@keyframes module-spin`); XSS-safe (новых `v-html`/`innerHTML`/`insertAdjacentHTML` нет; id избранного валидируются по `MODULES`; рендер — из доверенных `MODULES`); утечек rAF/observer/таймеров в F4-коде нет; R17 (код/отчёты без секретов, console-логов нет); §40–§42 (одна мутация `persistItems`, overlay не мутирует `configItems`, откат конструктивен, `key`+`epoch`, stale A≠B; fix F4-M1 подтверждён); §38–§39 (три контекста-ключа global/chatA/chatB, `get/set/refresh/subscribe` без новых библиотек); §34–§36 (избранное в `localStorage` `adminbot.modules_quickpicks.v1`, fail-open, ноль мутаций на закрепление); §44 (синонимы «саммари»/«сводка» → «Сводки чатов»); §33 (тач-цель 44×44, «карточка ≠ тумблер», «Настроить» → `openModuleWorkspace` → существующая модалка); совместимость — IA F1, shell/glass hotfix6/7, токены/фон F2, F3 guard/RBAC, F0 save-path не тронуты; маркер-тесты сетки не ослаблены (`nav_disclosure` усилен). `configItemNotice` F3 не изменён.
+
+---
+
 ## Round 10.25 hotfix7 `hotfix7-shell-glass-heartbeat-round1025` (UPD «Срочный фикс фронта») — 22.09.2026, Step 6 @Scanner
 
 **База:** HEAD `5a5465c` (`pre-round1025-hotfix7`, == `origin/master`; правки НЕ закоммичены — аудит рабочего дерева). Отчёт: `plans/reports/round1025_hotfix7_scanner_audit.md`. AA: `plans/reports/round1025_hotfix7_contrast.md`. Матрица: `plans/reports/round1025_hotfix7_ui_report.md`. Вход — spec/ADR-1025-13/evidence/review (итер.2 Approved).

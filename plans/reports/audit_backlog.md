@@ -1,5 +1,17 @@
 # Audit Backlog
 
+## Round 10.25 F4 `module-catalog-quickpanel-store-round1025` (§31–§45 каталог/панель/store) — аудит рабочего дерева (Step 6 @Scanner, 22.09.2026) — all scanned, PENDING=0
+База — HEAD `b5f8348` (`pre-round1025-f4`; правки НЕ закоммичены, включая rework iter2 F4-M1). Отчёт: `plans/reports/round1025_f4_scanner_audit.md`.
+- [x] `web/app.js` — `MODULES` (`keywords`/`runtimeGate`/`parentGate`, витринные имена), `ModuleConfigurationStore` (`storeScope/storeKey/getModuleState/_moduleRuntimeState/moduleRuntimeNotice/moduleStateText/setModuleState/refreshModuleState/subscribeModuleState`), overlay `moduleOptimistic/Pending/SaveError`, избранное `localStorage`, шов `openModuleWorkspace` — чисто; Low L-F4S-1 (`stickyFailedKeys` между чатами), L-F4S-2 (parent-gate по эффективному `value`); F4-M1 fix подтверждён
+- [x] `web/index.html` — страница «Модули» §32 (счётчики → панель → поиск/фильтры → каталог), карточка §33, головной тумблер модалки — чисто
+- [x] `web/static/app.css` — `.module-catalog`/`.module-list` тиры ≤3/2/1, `.module-quick` ≤4/2/1, `.module-toggle` 44×44, счётчики/поиск/фильтры/empty-state — чисто
+- [x] `config/settings.py` + `README.md` — `APP_VERSION` 2.58.9 синхронен — чисто
+- [x] `tests/*` + `tests/js/*` — новые F4-раннеры/структурные тесты + регистрация; версии-пины; `nav_disclosure` усилен (L-F4-4) — чисто
+- [x] инварианты — Δ DDL=0, Δ каталога=0 (459/98/96/21/418), CSP/zero-build, без новых API/библиотек/эндпоинтов — чисто
+- **СВОДКА 10.25 F4: Critical 0 / High 0 / Medium 0 / Low 2 / Info 3. Вердикт: к деплою — ДА, обязательных возвратов @Builder нет.**
+  Independent: `node --check` OK, JS `MODULE-STORE-OK`/`MODULE-CATALOG-OK`/`JS-UNIT-OK`, целевые pytest **165 passed**, полный pytest **8229/0**, `git diff --check`=0; тег/бэкап/`stash@{0}` целы; `.env`/zip/скриншотов нет.
+  Follow-up (Low, не блокеры): L-F4S-1 (сброс `stickyFailedKeys` при смене области), L-F4S-2 (parent-gate по `global_value`). Live-гейт T-2656 (реальный Telegram WebView) — открыт за владельцем.
+
 ## Round 10.25 hotfix7 `hotfix7-shell-glass-heartbeat-round1025` (UPD «Срочный фикс фронта») — аудит рабочего дерева (Step 6 @Scanner, 22.09.2026) — all scanned, PENDING=0
 База/голова аудита — `5a5465c` (`pre-round1025-hotfix7`; правки НЕ закоммичены). Отчёт: `plans/reports/round1025_hotfix7_scanner_audit.md`; AA — `plans/reports/round1025_hotfix7_contrast.md`; матрица — `plans/reports/round1025_hotfix7_ui_report.md`.
 - [x] `web/static/app.css` — `--shell-h` (base `100vh` + dvh/min() строго в `@supports`), два режима normal/fullscreen, `--shell-*`/`--card-shadow`, shell-панели (sidebar/drawer/header/bottom-nav/more-sheet), specular/texture, `@supports`-фолбэк, `.shell-*-legacy`, виньетка .42→.30 — чисто; Low L-H7-1 (мёртвый @supports-фолбэк из-за порядка каскада), L-H7-2 (OFF-путь header: рамка+тень), L-H7-3 (specular∩texture 4.44:1)
