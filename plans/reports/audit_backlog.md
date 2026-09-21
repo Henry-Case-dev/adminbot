@@ -1,5 +1,17 @@
 # Audit Backlog
 
+## Round 10.25 hotfix6 `hotfix6-webview-shell-heartbeat-round1025` (пакет «Волна 1.5») — аудит рабочего дерева (Step 6 @Scanner, 22.09.2026) — all scanned, PENDING=0
+База/голова аудита — `441e8f7` (правки НЕ закоммичены на момент скана); диапазон правок пакета `441e8f7` → `055525c` (код+тесты) + docs `ba75751`. Отчёт: `plans/reports/round1025_hotfix6_scanner_audit.md`; AA — `plans/reports/round1025_hotfix6_contrast.md`.
+- [x] `web/static/app.css` — foreground-линза `[data-glass="a"]::before` (`filter:var(--glass-displace)`), radial-mask, стекло `.app-sidebar`/`.app-drawer`/`header.header-sticky`/`.bottom-nav`/`.more-sheet`, шапка с blur — чисто; Low L-H6-2 (линза на скролл-контейнерах)
+- [x] `web/index.html` — inline `#lg-lens` (единственный SVG-фильтр, CSP-safe), две строки шапки под `UI_HEADER_COMPACT_V2`, ⛶ (`:aria-pressed`, тач ≥44×44), canvas — чисто; Low L-H6-1 (`role="img"` у canvas, `aria-describedby` v-if)
+- [x] `web/app.js` — `reconcileLiquidGlass`/tier/кап `UI_LENS_MAX_NODES`, `_liquidGlassSupported` по feature-detect (UA-gate снят), heartbeat Canvas 2D+rAF + `heartbeatLegacy`, fullscreen D5, teardown rAF/ResizeObserver — чисто; Low L-H6-3 (stale-порог-комментарий)
+- [x] `web/static/telegram-init.js` — `computeBottomOffset()=max(...)`, пересчёт на `viewportChanged`/`safeAreaChanged`/`contentSafeAreaChanged`/`resize`, guard `stableH>0` — чисто
+- [x] `config/settings.py` + `web/api/routes.py` — env-only `ClassVar`-флаги (`UI_GLASS_TIER_OVERRIDE`/`UI_HEARTBEAT_CANVAS_ENABLED`/`UI_HEADER_COMPACT_V2`/`UI_LENS_MAX_NODES`), аддитивный `ui_flags` (383-392), `APP_VERSION` 2.58.7 — чисто
+- [x] `tests/*` + `tests/js/*` — маркер-тесты F2/F3/hotfix4 переведены на новую семантику и усилены (не ослаблены), `round1025_hotfix6_lens_heartbeat_shell_test.js` — чисто; Info Playwright (`tools/ui_round1025_matrix.py` не воспроизведён — нет `playwright`)
+- **СВОДКА 10.25 hotfix6: Critical 0 / High 0 / Medium 1 / Low 3 / Info 3. Вердикт: к деплою — ДА, обязательных возвратов @Builder нет.**
+  Целевые pytest **119 passed**, JS `HOTFIX6-LENS-HEARTBEAT-SHELL-OK`/`JS-UNIT-OK`, `node --check` OK, `git diff --check`=0; Δ DDL=0, Δ каталога=0, `backdrop-filter: url(` = 0, `stash@{0}`/теги целы, секретов/zip нет.
+  Итоговые прогоны пакета (после Scanner, @Builder/@DevOps): pytest **8185 passed / 0 failed**, JS **26/26**, matrix **0**; прод `ba75751`, `APP_VERSION` **2.58.7**, health **200**, `database is locked`=0.
+
 ## Round 10.25 ПАКЕТ F2+hotfix5+F3 — повторный аудит финальных коммитов (Step 6 @Scanner, 22.09.2026) — all scanned, PENDING=0
 Диапазон `f2328fb..HEAD` (`3caddeb`). Финалы: F2 `d2df8ca`, hotfix5 `412f844`, F3 `4f31197` (ревью-фиксы покрыты).
 - [x] `web/app.js` (reconcileLiquidGlass обратимо через `data-glass-downgraded`, `_lgSchedule` троттлинг+observer,

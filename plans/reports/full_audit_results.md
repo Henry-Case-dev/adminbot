@@ -6,6 +6,28 @@
 
 ---
 
+## Round 10.25 hotfix6 `hotfix6-webview-shell-heartbeat-round1025` (пакет «Волна 1.5») — 22.09.2026, Step 6 @Scanner
+
+**База:** HEAD `441e8f7` (аудит рабочего дерева — правки НЕ закоммичены на момент скана). Диапазон правок пакета: `441e8f7` → `055525c` (код+тесты) + docs `ba75751` (Merge §58 + архивация + сканер-аудит). Отчёт: `plans/reports/round1025_hotfix6_scanner_audit.md`. AA-доказательство: `plans/reports/round1025_hotfix6_contrast.md`.
+
+**Итог: Critical 0 / High 0 / Medium 1 / Low 3 / Info 3. Вердикт: к деплою — ДА.**
+Прогон (на момент аудита): целевые pytest **119 passed**; JS-маркеры `HOTFIX6-LENS-HEARTBEAT-SHELL-OK` / `JS-UNIT-OK`; `node --check` OK; `git diff --check` exit 0. Полный pytest/матрица в среде @Scanner не воспроизведены (нет `playwright`) — опора на итоговый прогон @Builder/@DevOps (**8185/0**, JS **26/26**, matrix **0**).
+Δ DDL=0, Δ каталога=0 (флаги env-only `ClassVar`), `backdrop-filter: url(` в `web/**` = 0, маркер-тесты F2/F3/hotfix4 переведены атомарно + усилены, `stash@{0}`/теги целы, `.env`/zip/секретов в диффе нет.
+
+**Medium:**
+- [M-H6-1] Перф-цена foreground SVG-линзы (`feTurbulence`+`feDisplacementMap`) на реальном WebKit/iOS **не измерена** (снятие UA-gate → tier A у WebView). Кап `UI_LENS_MAX_NODES=6` ограничивает узлы, абсолютная цена кадра не подтверждена. Не блокер; снимается env-ручкой без редеплоя + замер FPS в T-2617.
+
+**Low:**
+- [L-H6-1] `web/index.html:2793-2801` — Canvas-heartbeat `role="img"` на интерактивном элементе; `aria-describedby="hb-tip"` «висячая» ссылка при закрытом тултипе. Фикс — `role="button"`/`v-show`.
+- [L-H6-2] `web/static/app.css:1064-1066` — линза `.app-sidebar`/`.app-drawer` скроллится вместе с контентом (`overflow-y:auto`). Декоративно, контент/контраст не затронуты.
+- [L-H6-3] `web/app.js:6534-6535` — комментарий о stale-пороге (2×≈30 с) расходится с кодом (`> 120000` мс = 120 с). Формула безопасна.
+
+**Info:** I-H6-1 (одноразовый `<canvas>` для feature-detect heartbeat), I-H6-2 (UI-матрица не воспроизведена — нет `playwright`), I-H6-3 (`README.md:5` «Тестов: 5936» устарело — предсуществующий `L10.25F2-4`).
+
+**Чисто:** CSP/zero-build (один inline `<svg id="lg-lens">`, без `feImage`/data-URI/внешних ссылок, WebGL отсутствует); XSS-safe (нет `innerHTML`/`v-html`, `data-glass-*` из фиксированного множества, override санитизируется в `a|b|c|auto`, `_lensMaxNodes` — `parseInt`); утечек rAF/observer нет (останов по `document.hidden`, `watch activeTab`, `beforeUnmount`); R17 (диффы без новых логов с сырыми путями/токенами); R18 (`stash@{0}`/теги `pre-round1025-*` целы); доступность (⛶ — нативная `<button>` c `:aria-pressed`, тач-цель ≥44×44; canvas фокусируем, `@keydown.enter/esc`); каскад CSS панелей не ломается (`position:fixed`/`sticky` сохранены); C2-OFF откат `heartbeatLegacy` байт-в-байт подтверждён юнит-тестом; `APP_VERSION` 2.58.7 синхронен (`config/settings.py:1685`, `?v=`, README, тесты-пины).
+
+---
+
 ## Round 10.25 hotfix5 `summary-cover-window-round1025` — 21.09.2026, Step 6 @Scanner
 
 **Diff `0e43c37..b3fb6a5`** (коммит `b3fb6a5`, 9 файлов). Отчёт: `plans/reports/round1025_hotfix5_scanner_audit.md`.

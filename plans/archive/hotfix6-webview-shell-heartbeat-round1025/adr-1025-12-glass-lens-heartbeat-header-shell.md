@@ -1,6 +1,6 @@
 # ADR-1025-12 — Кросс-движковое преломление без `backdrop-filter: url()`, стекло панелей, компенсация `contentSafeAreaInset.bottom`, Canvas-2D сердцебиение, компоновка шапки
 
-- **Статус:** Proposed → **Approved** (Шаг 5 @Reviewer итер.2, 12/12 закрыто; Шаг 6 @Scanner — Critical 0 / High 0) → **MERGED в карту архитектуры (Шаг 7 @Architect, `plans/ARCHITECTURE.md` §58; код в рабочем дереве, НЕ закоммичен)** → Accepted после деплоя (Шаг 9 @DevOps).
+- **Статус:** Proposed → **Approved** (Шаг 5 @Reviewer итер.2, 12/12 закрыто; Шаг 6 @Scanner — Critical 0 / High 0) → **MERGED в карту архитектуры (Шаг 7 @Architect, `plans/ARCHITECTURE.md` §58)** → **Accepted** (MERGED §58 + **DEPLOYED**, Шаг 9 @DevOps, 22.09.2026: коммиты `055525c` + `ba75751`, `APP_VERSION` **2.58.7**, `/api/health`=200, `database is locked`=0; ⏳ live-гейт владельца T-2617 открыт).
 - **Дата:** 2026-09-22
 - **Раунд:** 10.25, внеплановый **хотфикс-6** `hotfix6-webview-shell-heartbeat-round1025` (T-2581…T-2618)
 - **Связано:** `spec.md` этой папки; ТЗ §5/§7/§8/§9/§10/§14/§15/§71/§116/§117; `plans/ARCHITECTURE.md` §56/§57 (+ §604/§642); ADR-1016-2 (CSP/zero-build), ADR-1024-13 (`ui_flags`), ADR-1024-24 (fullscreen-sync), ADR-1025-1 (F1 shell), ADR-1025-8 (hotfix4 viewport), ADR-1025-9 (F2 glass), ADR-1025-10 (F3 selector)
