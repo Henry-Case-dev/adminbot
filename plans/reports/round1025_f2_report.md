@@ -1,6 +1,7 @@
-# F2 `design-tokens-liquidglass-v2-round1025` — отчёт @Builder (итерация 1)
+# F2 `design-tokens-liquidglass-v2-round1025` — отчёт @Builder (итерация 2, финальная)
 
-- **Фича:** F2 (Эпик 1, Волна 1). **База:** `f2328fb`. **Коммит F2:** `e895726`.
+- **Фича:** F2 (Эпик 1, Волна 1). **База:** `f2328fb`.
+- **Коммиты:** `e895726` (итерация 1) → `0f227a5` (правки ревью 1) → **`d2df8ca`** (итерация 2).
 - **ADR:** `adr-1025-9-design-tokens-liquidglass-v2.md` (D1–D6; AMEND итерации @Reviewer).
 - **Точка отката:** тег `pre-round1025-f2`, бэкап `var/backups/f2-round1025-20260921-185357/`, `.env.bak.round1025-f2`.
 - **Инварианты:** Δ DDL = 0, Δ каталога = 0; CSP/zero-build (только inline SVG, без библиотек/WebGL).
@@ -44,6 +45,26 @@
 но статусный текст фактически лежит на `*-bg`-тинтах (err на `--err-bg` = **4.93**) или на
 уровне C `.keys-avail`/`.sticky-save` (`--glass-bg-strong`, err = **5.40**) — оба PASS.
 
+### 1.3 D-1/@Reviewer: Tailwind-утилиты 12px внутри стекла
+
+Реальная разметка кладёт Tailwind-утилиты внутрь стеклянных блоков
+(`web/index.html:2722` `.text-xs.text-gray-500` внутри `[data-glass="a"]` status-block;
+`:2742` `.text-red-400`; `:1378` панель «Сводка»). Дефолтные Tailwind-цвета — не из §8 и на
+эффективном стекле-B давали <4.5:1 для 12px.
+
+| Утилита | Было (Tailwind) | Стало (токен §8) | ratio @ худшее стекло | ratio @ surface-0 |
+|---|---|---|---|---|
+| `.text-gray-500` | `#6B7280` (2.38) | `--text-3 #A2B0C6` | **5.25 PASS** | 8.84 |
+| `.text-gray-600` | `#4B5563` (1.53) | `--text-3 #A2B0C6` | **5.25 PASS** | 8.84 |
+| `.text-gray-400` | `#9CA3AF` (4.54) | `--text-2 #AAB6C8` | **5.62 PASS** | 9.46 |
+| `.text-red-400` | `#F87171` (4.17) | `--err-text #FCA5A5` | **6.07 PASS** | 10.23 |
+
+Переопределения — в `web/static/app.css` (`.text-gray-{400,500,600}`,`.text-red-400`);
+`app.css` подключается **после** `tailwind.css` → равная специфичность, побеждает наше правило.
+Новый токен `--err-text` (`#FCA5A5`) добавлен, т.к. базовый `--err` на стекле-B = 4.03 (<4.5).
+Матрица подтвердила computed-цвет `.text-gray-500` в стекле = `rgb(162,176,198)` на всех 10 вьюпортах
+(`tools/_ui_round1025_raw.json`).
+
 ---
 
 ## 2. Liquid Glass A/B/C (§9) — итерация @Reviewer
@@ -71,6 +92,22 @@
   гейтится **UA-gate**: отвергаем `AppleWebKit` без `Chrome|Chromium|Edg|OPR`, плюс feature-check.
 - WebKit/иные движки получают уровень **B**. Движок WebKit в среде **недоступен**
   (`webkit-2336` не установлен) → ограничение пробы зафиксировано (прецедент ADR-1021-6).
+- **Граница применимости (D-4):** UA-gate покрывает **только WebKit/WKWebView** (недостоверный
+  `CSS.supports`). Gecko/Iceweasel и прочие движки UA-gate не трогает — они полагаются на
+  feature-check `CSS.supports('backdrop-filter','url(#…)')` (≥2023 отдаёт false либо не рисует url-фильтр).
+
+### 2.4 D-2/@Reviewer: производительность observer
+- `MutationObserver` сужен до `#app` (`document.getElementById('app') || document.body`), без `attributes`
+  (только `childList/subtree/attributeFilter:['data-glass']`).
+- Троттлинг **≥250 мс** (`_lgSchedule` + `_lgPending`/`_lgLastRun`); ранний выход при `document.hidden`
+  (`reconcileLiquidGlass`) и при отсутствии `[data-glass="a"]`; при возврате из скрытия — пересчёт в
+  `onVisibilityChange` (единственный существующий обработчик).
+- `ResizeObserver` создаётся один раз и наблюдает **только allow-узлы** (рост/смена размера → b↔a);
+  оба observer'а снимаются в `beforeUnmount`.
+- **Отсутствие деградации:** reconcile читает `getBoundingClientRect` у ≈2–3 allow-узлов и лишь
+  переключает атрибут `data-glass-downgraded` (не меняет геометрию → нет layout-thrash и петель);
+  работа ограничена ≤1 исполнением / 250 мс. Полный прогон `ui_round1025_matrix.py` при живом
+  поллинге/логах/графе — **69.2 c** (в пределах прежнего бюджета; failures 0).
 
 ---
 
@@ -85,19 +122,23 @@
 
 ---
 
-## 4. Метрики (итерация 1)
-- `python -m pytest -q`: **8096 passed / 0** (база 8071).
+## 4. Метрики (итерация 2, финальная)
+- `python -m pytest -q`: **8109 passed / 0** (база 8071; файл F2 — 38 тестов).
 - `node tests/js/*`: **24/24** (`node --check web/app.js` OK).
 - `python tools/ui_round1025_matrix.py`: **0** нарушений (10 вьюпортов × 13 маршрутов;
   F2-пробы: палитра §8, диапазоны 60–90/90–120 c из computed `animationDuration`,
   glass allow `url(#lg-displace)` c **min-стороной ≥240**, deny `none`, hidden-пауза,
   reduced-motion `animation-name: none`).
-- Red→green на старом `app.css`: matrix **130 failures**, новый pytest — 14 failed, JS — fail.
+- Доказательство ловли 240px: при отключённой транзитивности матрица — **6 failures**
+  (`min-сторона 209–229px < 240`); после возврата — **0**.
+- Red→green на старом `app.css` (итерация 2): F2-pytest — **19 failed** (вкл. `--err-text`/утилиты),
+  JS — fail (`потеряны токены … --err-text`); итерация 1: matrix **130 failures**.
 - `git diff --check` — exit 0.
 
 ---
 
 ## 5. Ограничения и остаток
-- WebKit-проба уровня A — недоступна в среде (осознанное ограничение; A = progressive enhancement Blink).
+- WebKit-проба уровня A — недоступна в среде (осознанное ограничение; A = progressive enhancement Blink;
+  UA-gate — см. §2.3/D-4).
 - Истинное радиальное edge-маскирование преломления — отложено (см. §2.2).
-- Далее: **@Reviewer итерация 2** → **@DevOps** T-2560 (деплой) / T-2561 (LIVE-гейт владельца).
+- Далее: **@Reviewer итерация 3** → **@DevOps** T-2560 (деплой) / T-2561 (LIVE-гейт владельца).
