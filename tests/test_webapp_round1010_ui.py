@@ -93,7 +93,9 @@ class TestProviderFieldHydration:
         chunk = JS[idx:idx + 1600]
         assert "this.blockDrafts = {};" in chunk
         sc = JS.index("setActiveChat: function")
-        sc_chunk = JS[sc:sc + 2200]
+        # F3 (10.25): тело setActiveChat выросло (guard несохранённых правок);
+        # берём блок до следующего метода, а не фиксированное окно.
+        sc_chunk = JS[sc:JS.index("isChatContext: function", sc)]
         assert "this.blockDrafts = {};" in sc_chunk
         assert "this.blockResults = {};" in sc_chunk
 

@@ -2466,10 +2466,36 @@
         this.activeChatTitle = (found && found.title)
           || ('Чат ' + this.activeChatId);
       },
+      // F3 (§5.1/§5.2): есть ли несохранённые правки формы. Проверяем
+      // защитно — тесты/минимальный контекст без полного стейта не должны
+      // падать (иначе возвращаем false = «чисто»).
+      hasUnsavedEdits: function () {
+        try {
+          if (typeof this.stickyDirtyCount === 'number'
+              && this.stickyDirtyCount > 0) return true;
+        } catch (e) { /* нет computed — считаем чисто */ }
+        if (this.saving && typeof this.saving.size === 'number'
+            && this.saving.size > 0) return true;
+        if (this.dirtyItems && this.dirtyItems.length) return true;
+        if (this.dirtyKeyItems && this.dirtyKeyItems.length) return true;
+        return false;
+      },
       setActiveChat: function (chatId) {
         var id = (chatId == null || chatId === '') ? null : parseInt(chatId, 10);
         this.scopeOpen = false;
         if (id === this.activeChatId) return;
+        // F3 (§5.1/§5.2): смена области при несохранённых правках — сначала
+        // предупредить; отказ = область НЕ меняем (черновик не теряем).
+        if (typeof this.hasUnsavedEdits === 'function' && this.hasUnsavedEdits()) {
+          var proceed = true;
+          try {
+            proceed = (typeof window === 'undefined'
+              || typeof window.confirm !== 'function')
+              || window.confirm('Есть несохранённые изменения. '
+                + 'Переключить область и потерять их?');
+          } catch (e) { proceed = true; }
+          if (!proceed) return;
+        }
         this.activeChatId = id;
         if (id == null) {
           localStorage.removeItem('adminbot.active_chat_id');
@@ -3229,6 +3255,40 @@
       // ═══ Индикатор «переопределено чатом» (F-7 T-868) ═══
       itemOverriddenByChat: function (item) {
         return this.isChatContext() && item && item.chat_source === 'chat';
+      },
+      // F3 (§5): источник эффективного значения для карточки параметра.
+      // В глобальной области не показываем (вся форма и так глобальная);
+      // в области чата/ЛС — «глобальная настройка» (наследование) либо
+      // «настройки чата» (локальное переопределение, PERMsoc).
+      configSourceLabel: function (item) {
+        if (!item || this.scopeKind === 'global') return '';
+        return (item.chat_source === 'chat')
+          ? 'Источник: настройки чата'
+          : 'Источник: глобальная настройка';
+      },
+      configSourceTitle: function (item) {
+        if (!item) return '';
+        if (item.chat_source === 'chat') {
+          return 'Локальное переопределение для этой области '
+            + '(настройки чата/PERMsoc) — не заводское значение';
+        }
+        return 'Значение наследуется из глобальной конфигурации';
+      },
+      // F3 (§43): фактическое состояние. Сервер отдаёт эффективное `value`
+      // (для per_chat-ключей override перекрывает глобальное — проверено по
+      // web/api/routes.py get_config). Явно отмечаем расхождение «локально
+      // включено при глобально выключенном» и не применяемые локально
+      // глобальные параметры. Приоритет локального НЕ предполагается.
+      configItemNotice: function (item) {
+        if (!item || this.scopeKind === 'global') return '';
+        if (item.per_chat === false) {
+          return 'Глобальный параметр — локальное значение не применяется';
+        }
+        if (item.chat_source === 'chat' && item.global_value === false
+            && item.value === true) {
+          return 'Локально включено, хотя глобально выключено';
+        }
+        return '';
       },
       resetChatOverride: async function (item) {
         // F-14 (§6.3): сброс своего override — global admin (любой чат)

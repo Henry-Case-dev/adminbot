@@ -1662,7 +1662,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.58.5"   # round1025 F2: дизайн-токены §8 + Liquid Glass v2 + фон §10
+APP_VERSION = "2.58.6"   # round1025 F2: дизайн-токены §8 + Liquid Glass v2 + фон §10
 
 
 def get_ytdlp_pot_provider() -> str:

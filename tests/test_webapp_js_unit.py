@@ -126,3 +126,14 @@ def test_js_unit_round1024_providers_fullscreen():
     _run_js(os.path.join("tests", "js",
                          "round1024_providers_fullscreen_test.js"),
             ok_marker="PROVIDERS-FS-OK")
+
+
+def test_js_unit_round1025_scope_selector():
+    """F3 round 10.25 (§5/§42/§43/§70): селектор области — три режима
+    (Глобально/Чат/ЛС), отсутствие смешивания значений/черновиков, отброс
+    stale-ответов старого scope, источник значения (global vs override),
+    «Вернуть глобальное значение» = DELETE override, предупреждение при
+    несохранённых правках."""
+    _run_js(os.path.join("tests", "js",
+                         "round1025_scope_selector_test.js"),
+            ok_marker="SCOPE-SELECTOR-OK")

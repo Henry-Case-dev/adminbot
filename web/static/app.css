@@ -378,6 +378,29 @@
       cursor: pointer; font-size: var(--tx-small);
     }
     .scope-option:hover, .scope-option.active { background: rgba(255,255,255,.08); }
+    /* ═══ F3 round 10.25 (§5): селектор области — постоянно доступный ═══ */
+    /* Полный chat_id — только в «технических подробностях» (не в основном UI). */
+    .scope-tech { position: relative; }
+    .scope-tech > summary { cursor: pointer; list-style: none; }
+    .scope-tech > summary::-webkit-details-marker { display: none; }
+    .scope-tech-body {
+      position: absolute; right: 0; top: calc(100% + 4px); z-index: 50;
+      padding: .3rem .5rem; border: var(--card-border);
+      border-radius: var(--radius-md); background: var(--glass-bg-strong);
+      font-size: 10px; color: var(--text-3); white-space: nowrap;
+      box-shadow: var(--shadow-xl);
+    }
+    /* ADS: §70/§5 mobile (<768) — селектор области ОТДЕЛЬНОЙ строкой ПОД
+       названием страницы (в шапке остаётся заголовок); тач-цель ≥44px;
+       не перекрывает нижнюю навигацию (та — fixed с offset). */
+    @media (max-width: 767px) {
+      .scope-wrap { flex: 1 1 100%; order: 5; max-width: 100%; }
+      .scope-trigger {
+        width: 100%; max-width: 100%; min-height: 44px;
+        justify-content: flex-start;
+      }
+      .scope-panel { min-width: 0; width: 100%; }
+    }
     .matrix-group summary { color: var(--text-2); }
     .matrix-group summary:hover { color: var(--text-1); }
 

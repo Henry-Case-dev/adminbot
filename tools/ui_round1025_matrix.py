@@ -180,7 +180,12 @@ API_STUBS = [
     ("/api/status", STATUS_STUB),
     ("/api/access/me", {"is_local_admin": False, "permissions": {}}),
     ("/api/access/param_permissions", {"items": {}, "roles": []}),
-    ("/api/access/chats", []),
+    # F3 (§5): ≥1 чат → селектор области постоянно доступен (проверяем
+    # позицию desktop/mobile). Без photo_file_id — без сетевых avatar-запросов.
+    ("/api/access/chats", [
+        {"chat_id": -1001234567890, "title": "Audit Chat", "is_dm": False,
+         "photo_file_id": None, "access": "admin"},
+    ]),
     ("/api/admins", {"admins": []}),
     ("/api/roles", {"roles": [{"role_name": "user", "permissions": {}}]}),
     ("/api/oversight/summary", {"chats": [], "totals": {}}),
@@ -259,6 +264,11 @@ PROBE_JS = """
     bottomNavCount: links.length,
     minTouch: links.length ? Math.round(minTouch) : null,
     hasAsideEl: !!document.querySelector('.app-sidebar'),
+    // F3 (§5/§70): селектор области — постоянно доступный; на mobile
+    // отдельной строкой ПОД заголовком, тач-цель ≥44px.
+    scopeWrap: rect('.scope-wrap'),
+    scopeTrigger: rect('.scope-trigger'),
+    headerTitle: rect('.header-title-wrap'),
     mediaMin1200: window.matchMedia('(min-width: 1200px)').matches,
     mediaMax767: window.matchMedia('(max-width: 767px)').matches,
   };
@@ -467,6 +477,29 @@ def _vertical_failures(probe: dict, label: str) -> list:
     return out
 
 
+def _scope_failures(probe: dict, label: str, width: int) -> list:
+    """F3 (§5/§70): селектор области — постоянно доступный элемент.
+
+    Проверяем, что при наличии ≥1 чата он реально виден; на mobile (<768)
+    расположен ОТДЕЛЬНОЙ строкой под заголовком страницы и его тач-цель ≥44px."""
+    out = []
+    wrap = probe.get("scopeWrap")
+    if not (wrap and wrap.get("visible")):
+        out.append("%s: селектор области не виден (постоянная доступность §5)"
+                   % label)
+        return out
+    if width < 768:
+        title = probe.get("headerTitle")
+        if title and title.get("visible") and wrap["y"] < title["bottom"] - 1:
+            out.append("%s: mobile-селектор не под заголовком "
+                       "(y=%d < title.bottom=%d)"
+                       % (label, wrap["y"], title["bottom"]))
+        trig = probe.get("scopeTrigger")
+        if trig and trig.get("visible") and trig["h"] < 44:
+            out.append("%s: тач-цель селектора %dpx < 44" % (label, trig["h"]))
+    return out
+
+
 def _snap(page, name):
     try:
         page.screenshot(path=os.path.join(SHOTS, name + ".png"), full_page=False)
@@ -573,6 +606,9 @@ def main() -> int:
                     # hotfix4 (T-2517): вертикальные границы панели.
                     failures.extend(_vertical_failures(
                         probe, "%s %s" % (vp_key, route)))
+                # F3 (§5/§70): позиция/размер селектора области.
+                failures.extend(_scope_failures(
+                    probe, "%s %s" % (vp_key, route), w))
                 if route == "#/":
                     _snap(page, "%s_root" % vp_key)
                 if route == "#/memory":
@@ -589,6 +625,30 @@ def main() -> int:
             if not hid.get("cls") or hid.get("ap") != "paused":
                 failures.append("%s hidden: фон не на паузе (cls=%s, play=%s)"
                                 % (vp_key, hid.get("cls"), hid.get("ap")))
+            # F3 (§5): область ЧАТА — источник значения виден, нет
+            # горизонтального overflow (проверяем на краях диапазонов).
+            if (w, h) in ((320, 700), (1280, 800)):
+                page.evaluate(
+                    "() => localStorage.setItem('adminbot.active_chat_id',"
+                    "  '-1001234567890')")
+                page.reload(wait_until="load")
+                page.wait_for_timeout(500)
+                page.set_viewport_size({"width": w, "height": h})
+                page.wait_for_timeout(200)
+                page.evaluate("() => { window.location.hash = '#/memory/rag'; }")
+                page.wait_for_timeout(900)
+                chat_probe = page.evaluate(PROBE_JS)
+                out["viewports"][vp_key]["chat_scope"] = chat_probe
+                if chat_probe["overflow"]:
+                    failures.append("%s chat-scope: horizontal overflow" % vp_key)
+                failures.extend(_scope_failures(
+                    chat_probe, "%s chat-scope" % vp_key, w))
+                src_seen = page.evaluate(
+                    "() => document.body.innerText.indexOf('Источник:') >= 0")
+                out["viewports"][vp_key]["chat_source_visible"] = src_seen
+                if not src_seen:
+                    failures.append(
+                        "%s chat-scope: нет подписи «Источник:» (§5)" % vp_key)
             # F2 (T-2548): prefers-reduced-motion → animation-name: none.
             if (w, h) == VIEWPORTS[0]:
                 rm_ctx = browser.new_context(

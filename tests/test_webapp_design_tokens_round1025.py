@@ -175,7 +175,8 @@ class TestInventory:
     def test_app_version_pinned(self):
         m = re.search(r'APP_VERSION\s*=\s*"([\d.]+)"', SETTINGS)
         assert m, "APP_VERSION не найден"
-        assert m.group(1) == "2.58.5", f"APP_VERSION = {m.group(1)} (ожидалось 2.58.5)"
+        # F3 (10.25) — bump 2.58.5 → 2.58.6 (web-ассеты менялись).
+        assert m.group(1) == "2.58.6", f"APP_VERSION = {m.group(1)} (ожидалось 2.58.6)"
 
 
 # ═══════════════ T-2531/T-2533/T-2534: палитра §8 и контраст ═══════════════

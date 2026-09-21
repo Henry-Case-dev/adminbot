@@ -168,11 +168,15 @@
                    class="text-xs text-gray-500 p-2">Ничего не найдено.</div>
             </div>
           </div>
-          <!-- F-13/F-14 (AC-1/§6.2): индикация выбора = текст опции
-               селектора + компактный бейдж; ЛС-скоуп — «ЛС #<id>». -->
-          <span v-if="isChatContext()" class="badge badge-info shrink-0">
-            {{ isDmCtx() ? 'ЛС #' + activeChatId : '#' + activeChatId }}
-          </span>
+          <!-- F-13/F-14 (AC-1/§6.2) + F3 (§5): индикация выбора = текст опции
+               селектора; ПОЛНЫЙ chat_id скрыт в «технических подробностях»
+               (в основном UI не показываем). -->
+          <details v-if="isChatContext()" class="scope-tech shrink-0">
+            <summary class="badge badge-info" title="Технические подробности области">ID</summary>
+            <div class="scope-tech-body">
+              {{ isDmCtx() ? 'ЛС #' + activeChatId : '#' + activeChatId }}
+            </div>
+          </details>
           <div class="ml-auto flex items-center gap-1.5 text-xs shrink-0">
             <!-- UI-полировка TMA: аватар текущего юзера — same-origin blob
                  через прокси avatarUrl('user', …) (S10.16-8: внешний CDN
@@ -684,8 +688,17 @@
                                         @click="openPermPicker(item)"><span class="msr" aria-hidden="true">{{ iconGlyph('manage_accounts') }}</span></button>
                                 <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
                                         class="btn-ghost text-xs px-2 shrink-0"
-                                        @click="resetChatOverride(item)">↪ глобальное</button>
+                                        :title="configSourceTitle(item)"
+                                @click="resetChatOverride(item)">↪ Вернуть глобальное значение</button>
                               </div>
+                              <!-- F3 (§5/§43): источник значения + фактическое состояние -->
+                              <div v-if="configSourceLabel(item)" class="text-[10px] mb-1"
+                                   :title="configSourceTitle(item)"
+                                   :class="item.chat_source === 'chat' ? 'text-violet-300' : 'text-gray-500'">
+                                {{ configSourceLabel(item) }}
+                              </div>
+                              <div v-if="configItemNotice(item)"
+                                   class="text-[10px] text-amber-300 mb-1">{{ configItemNotice(item) }}</div>
                               <div class="text-sm font-semibold">{{ item.title }}</div>
                               <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
                               <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
@@ -715,7 +728,8 @@
                                           @click="openPermPicker(item)"><span class="msr" aria-hidden="true">{{ iconGlyph('manage_accounts') }}</span></button>
                                   <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
                                           class="btn-ghost text-xs px-2 shrink-0"
-                                          @click="resetChatOverride(item)">↪ глобальное</button>
+                                          :title="configSourceTitle(item)"
+                                @click="resetChatOverride(item)">↪ Вернуть глобальное значение</button>
                                 </div>
                                 <div class="text-sm font-semibold">{{ item.title }}</div>
                                 <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
@@ -886,8 +900,17 @@
                               @click="openPermPicker(item)"><span class="msr" aria-hidden="true">{{ iconGlyph('manage_accounts') }}</span></button>
                       <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
                               class="btn-ghost text-xs px-2 shrink-0"
-                              @click="resetChatOverride(item)">↪ глобальное</button>
+                              :title="configSourceTitle(item)"
+                                @click="resetChatOverride(item)">↪ Вернуть глобальное значение</button>
                     </div>
+                    <!-- F3 (§5/§43): источник значения + фактическое состояние -->
+                    <div v-if="configSourceLabel(item)" class="text-[10px] mb-1"
+                         :title="configSourceTitle(item)"
+                         :class="item.chat_source === 'chat' ? 'text-violet-300' : 'text-gray-500'">
+                      {{ configSourceLabel(item) }}
+                    </div>
+                    <div v-if="configItemNotice(item)"
+                         class="text-[10px] text-amber-300 mb-1">{{ configItemNotice(item) }}</div>
                     <!-- bool → тумблер с автосейвом -->
                     <template v-if="item.type === 'bool'">
                       <div class="flex items-center justify-between gap-3">
@@ -1002,8 +1025,17 @@
                                 @click="openPermPicker(item)"><span class="msr" aria-hidden="true">{{ iconGlyph('manage_accounts') }}</span></button>
                         <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
                                 class="btn-ghost text-xs px-2 shrink-0"
-                                @click="resetChatOverride(item)">↪ глобальное</button>
+                                :title="configSourceTitle(item)"
+                                @click="resetChatOverride(item)">↪ Вернуть глобальное значение</button>
                       </div>
+                      <!-- F3 (§5/§43): источник значения + фактическое состояние -->
+                      <div v-if="configSourceLabel(item)" class="text-[10px] mb-1"
+                           :title="configSourceTitle(item)"
+                           :class="item.chat_source === 'chat' ? 'text-violet-300' : 'text-gray-500'">
+                        {{ configSourceLabel(item) }}
+                      </div>
+                      <div v-if="configItemNotice(item)"
+                           class="text-[10px] text-amber-300 mb-1">{{ configItemNotice(item) }}</div>
                       <div class="text-sm font-semibold">{{ item.title }}</div>
                       <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
                       <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
@@ -2242,7 +2274,8 @@
                             <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
                             <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
                                     class="btn-ghost text-xs px-2 ml-auto shrink-0"
-                                    @click="resetChatOverride(item)">↪ глобальное</button>
+                                    :title="configSourceTitle(item)"
+                                @click="resetChatOverride(item)">↪ Вернуть глобальное значение</button>
                           </div>
                           <div class="text-sm font-semibold">{{ item.title }}</div>
                           <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
@@ -2284,7 +2317,8 @@
                               <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
                               <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
                                       class="btn-ghost text-xs px-2 ml-auto shrink-0"
-                                      @click="resetChatOverride(item)">↪ глобальное</button>
+                                      :title="configSourceTitle(item)"
+                                @click="resetChatOverride(item)">↪ Вернуть глобальное значение</button>
                             </div>
                             <div class="text-sm font-semibold">{{ item.title }}</div>
                             <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
@@ -2613,7 +2647,8 @@
                             <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
                             <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
                                     class="btn-ghost text-xs px-2 ml-auto shrink-0"
-                                    @click="resetChatOverride(item)">↪ глобальное</button>
+                                    :title="configSourceTitle(item)"
+                                @click="resetChatOverride(item)">↪ Вернуть глобальное значение</button>
                           </div>
                           <div class="text-sm font-semibold">{{ item.title }}</div>
                           <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
@@ -2652,7 +2687,8 @@
                               <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
                               <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
                                       class="btn-ghost text-xs px-2 ml-auto shrink-0"
-                                      @click="resetChatOverride(item)">↪ глобальное</button>
+                                      :title="configSourceTitle(item)"
+                                @click="resetChatOverride(item)">↪ Вернуть глобальное значение</button>
                             </div>
                             <div class="text-sm font-semibold">{{ item.title }}</div>
                             <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
@@ -2759,6 +2795,11 @@
 
                 <section class="status-block__server">
                   <div class="text-sm font-bold mb-2"><span class="msr" aria-hidden="true">{{ iconGlyph('dns') }}</span> Сервер</div>
+                  <!-- F3 (§14): серверные метрики относятся ко всему серверу,
+                       а не к выбранному чату — явная пометка. -->
+                  <div v-if="isChatContext()" class="text-[10px] text-gray-500 mb-1">
+                    Метрики относятся ко всему серверу, а не к выбранному чату.
+                  </div>
                   <div v-if="!statusData" class="spinner"></div>
                   <div v-else class="text-sm space-y-2">
                     <div>
