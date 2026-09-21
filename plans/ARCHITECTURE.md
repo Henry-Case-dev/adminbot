@@ -1506,3 +1506,16 @@ F0.1–F0.4 — **без флагов** (обратимы `git revert` + точ�
 
 **Ссылки:** `plans/archive/hotfix3-summary-stt-anticliche-round1025/`; аудиты — `plans/reports/round1025_hotfix3_scanner_audit.md` (при наличии), `round1025_hotfix2_scanner_audit.md`; `plans/round1025-architecture.md`.
 
+## 56. Раунд 10.25 — Хотфикс-4: per-chat стиль обложки, mobile-viewport, порядок нижней навигации (21.09.2026, Deployed)
+
+Спека/ADR (✅ ARCHIVED): `plans/archive/hotfix4-cover-nav-shell-round1025/{spec.md, adr-1025-8-cover-style-viewport-shell.md, tasks.md}` (T-2507…T-2528; Шаг 8 @PM, 21.09.2026). **Статус: ✅ COMPLETED + MERGED + DEPLOYED + ARCHIVED; ⏳ live-гейт владельца T-2527 (post-deploy, НЕ выполнено).** @Reviewer **Approved**; @Scanner **Critical 0 / High 0**. **pytest 8071/0**, JS **23/23**, matrix **0**; прод `/api/health`=200, `database is locked`=0. **Δ DDL = 0**, **Δ каталога = 0** (правки только метаданных существующего ключа); F0/F1/hotfix/hotfix2/hotfix3/Эпик 2/промпты-каноны не ломаем. **Предшественники:** §54/§54.1 (F1/P0-fix), §55 (hotfix3).
+
+- **A (стиль обложки — корень подтверждён):** у чата есть **per-chat override** `prompts.summary_cover_style` (len=62, маркеры `has_comic`/`has_heading`), глобально — дефолт; **до фикса саммари читало только глобальный `hot.get`** → override игнорировался. Фикс: `services/summary_generator.py::_resolve_cover_style_text(chat_id)` (`:789`, через `chat_params.get_chat_param` `:803`, вызов `:825`) — резолв **chat override → global → default**, fail-open. `has_heading` — по **word-boundary** (`\b(?:permsoc|heading|title)\b`, `:151`); маркеры `has_heading`/`style_is_default` в R17-safe логе (`:142-156`), текст промпта не логируется.
+- **A (канон/фолбэк):** `SUMMARY_EDITOR_COVER_PROMPT_BLOCK` — канон **self-contained** (короткий заголовок владельца разрешён) + `PREV_*`-слепок для атомарной миграции; `_resolve_cover_prompt` (`:680-718`) при непустом `draft` с **пустым** `cover_prompt` переходит в фолбэк (rich с обложкой, plain только с залогированной причиной). Порядок `style → visual` и кап 500 — без изменений.
+- **B (mobile):** `telegram-init.js` → `--tg-viewport-bottom-offset` (= `max(0, innerHeight − viewportStableHeight)`, обновление на `viewportChanged`/`safeAreaChanged`/`contentSafeAreaChanged`); CSS-фолбэк `bottom: max(0px, calc(100dvh − var(--tg-viewport-stable-height, 100dvh)))` для `.bottom-nav` и `.more-sheet`; `viewport-fit=cover` в `web/index.html`; вертикальная проверка матрицы `rect.bottom <= innerHeight` (FAIL).
+- **C (навигация):** `bottomNavItems` — **`Статус` + `Справка` первыми для всех ролей** (включая админов), далее `modules‖ai`, лимит **≤4**; `mobileMoreItems` без дубля `how`, только скрытые разделы; OFF-режим `IA_V2_ENABLED=false` без изменений.
+
+**Остаточный техдолг (не блокеры):** fake-pool в `test_pg_backed`; доп. async `get_chat_param` на путь обложки (кэш TTL ~120 с для per-chat стиля); реальный **live-гейт владельца** (post-deploy, T-2527).
+
+**Ссылки:** `plans/archive/hotfix4-cover-nav-shell-round1025/`; аудит — `plans/reports/round1025_hotfix4_scanner_audit.md`; `plans/round1025-architecture.md`.
+

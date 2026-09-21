@@ -1,5 +1,18 @@
 # Audit Backlog
 
+## Round 10.25 F2 `design-tokens-liquidglass-v2-round1025` scan (Step 6 @Scanner, 21.09.2026) — all scanned (diff `f2328fb..HEAD`, `e895726`) — files processed
+- [x] web/static/app.css (токены §8 + Liquid Glass A/B/C + фон §10 + `@supports`-фолбэки) — чисто; Low L10.25F2-1 (sticky-header alpha 0.96→0.85)
+- [x] web/index.html (inline SVG `#lg-displace`; `data-glass="a"|"c"`) — чисто (CSP-safe, один фильтр, без layout shift)
+- [x] web/app.js (палитра графика §8, `reconcileLiquidGlass`/`_liquidGlassSupported`, `setBgPaused`) — чисто; **M10.25F2-1/-2/-3**
+- [x] web/static/telegram-init.js (фолбэки темы §8) — чисто
+- [x] tools/ui_round1025_matrix.py (F2-пробы: токены/диапазоны/glass/reduced-motion/hidden) — чисто; Low L10.25F2-3 (точные 75s/105s)
+- [x] tools/ui_audit_round1021.py (`--grad-speed-slow` в пробе) — чисто
+- [x] config/settings.py (`APP_VERSION 2.58.5`) + README.md — чисто; Low L10.25F2-4 (счётчик тестов устарел)
+- [x] tests/test_webapp_design_tokens_round1025.py + tests/js/round1025_design_tokens_test.js + правки старых UI-тестов — inventory на множествах, маркеры не ослаблены; Low L10.25F2-2 (тавтологичный `"240" in APP_JS`)
+- **СВОДКА 10.25 F2: Critical 0 / High 0 / Medium 3 / Low 4.** pytest **8096/0** (106.03 s), JS **24/24**;
+  Δ DDL=0, Δ каталога=0, `stash@{0}` цел, zip/секретов нет, `git diff --check`=0. Вердикт: **к деплою — ДА**,
+  обязательных возвратов @Builder нет. Отчёт: `plans/reports/round1025_f2_scanner_audit.md`.
+
 ## Round 10.24 scan (Step 6 @Scanner, 20.09.2026) — all scanned (diff-based, HEAD 379cfdd, 132 файла) — files processed
 - [x] web/api/routes.py (F20 critical: разведены `perm_overrides`/`overrides`; merge не стирает
       остальные per-chat значения; `set_chat_params` пишет только overrides+meta; F11 scope

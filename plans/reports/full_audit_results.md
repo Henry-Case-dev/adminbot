@@ -1603,3 +1603,40 @@ OFF-флаги (`SUMMARY_COVER_FALLBACK_ENABLED`, `STT_AUDIO_COMPRESS_ENABLED`) 
 Матрица проверена как детектор: с навязанным `.bottom-nav{bottom:0}` — **56 failures**, в baseline — 0.
 
 **Инварианты:** Δ DDL=0, Δ каталога=0, `stash@{0}` цел, zip/секретов нет, `git diff --check`=0.
+
+---
+
+## Round 10.25 «F2: дизайн-токены §8 + Liquid Glass v2 + фон §10» — 21.09.2026, Step 6 @Scanner
+
+**Дифф `f2328fb..HEAD`** (коммит `e895726`). Полный отчёт: `plans/reports/round1025_f2_scanner_audit.md`.
+Область: `web/**` (app.css, index.html, app.js, telegram-init.js), `tools/ui_round1025_matrix.py`,
+`tools/ui_audit_round1021.py`, `config/settings.py`, `README.md`, новые/обновлённые тесты.
+
+**Сводка: Critical 0 / High 0 / Medium 3 / Low 4. Вердикт: к деплою — ДА.**
+Цифры: pytest **8096 passed / 0 failed** (106.03 s); `tests/js/*` **24/24 OK**.
+Δ DDL=0, Δ каталога=0, `stash@{0}` цел, zip/секретов нет, `git diff --check`=0.
+
+**Medium:**
+- [M10.25F2-1] `web/app.js:8011-8027` — `reconcileLiquidGlass` понижает `data-glass="a"`→`b` необратимо
+  (апгрейд не предусмотрен), поэтому `_onResize` (`app.js:2082-2084`) после первого понижения мёртв;
+  к тому же reconcile вызывается только в `mounted()` и на resize → `[data-glass="a"]` вкладки Сводка
+  (`index.html:1375`, `activeTab==='oversight'`) на старте отсутствует в DOM и не проверяется вовсе.
+  *Фикс:* хранить намерение (`glass-a`/`data-glass-intent`), переключать A↔B в обе стороны, вызывать после смены вкладки.
+- [M10.25F2-2] `web/app.js:7998-8009` — `_liquidGlassSupported` оптимистичен на WebKit: `CSS.supports('backdrop-filter','url()')`
+  парсится, но reference-backdrop-filter отбрасывается целиком (WebKit #68614) → на iOS-Telegram (WKWebView)
+  `[data-glass="a"]`-панели могут потерять blur, `@supports`-фолбэк не сработает (регрессия против уровня B).
+  *Фикс:* gate по Blink-UA / иной детект рендера, на не-Blink — B; проверить на устройстве.
+- [M10.25F2-3] `web/app.css:916-924` + `index.html:1375/2713/2876` — цена `feTurbulence/feDisplacementMap`
+  в backdrop-filter поверх анимированного градиента не измерена, а 240px-отсечка (см. M-1) на этих узлах не работает.
+  *Фикс:* ограничить A одним узлом / ввести бюджет FPS в матрицу.
+
+**Low:** L10.25F2-1 `app.css:701` — sticky-header alpha 0.96→0.85 без blur, контент просвечивает (против комментария :693-694);
+L10.25F2-2 `tests/test_webapp_design_tokens_round1025.py:228` — `assert "240" in APP_JS` тавтологичен, min-ветка не покрыта;
+L10.25F2-3 `tools/ui_round1025_matrix.py:_f2_failures` — точные `75s/105s` при диапазонном чеке 60–90/90–120;
+L10.25F2-4 `README.md:5` — «Тестов: 5936» устарело (факт 8096).
+
+**Верифицировано чисто:** F1 shell/safe-area/навигация, hotfix1–4, F0 save-слой, Эпик 2 не задеты; `IA_V2_ENABLED` OFF не тронут;
+polling-пауза F8 цела (один `visibilitychange`, пауза фона до `return`); CSP/zero-build — только inline SVG, один `#lg-displace`,
+без внешних ссылок/data-URI/WebGL, `feDisplacementMap` через backdrop (текст/кнопки не искажаются), `@supports`-фолбэки корректны;
+blur не анимируется, hidden-пауза и reduced-motion гасят фон и преломление; SVG-дефы без layout shift; новых источников данных/R17-рисков нет;
+inventory-тесты на множествах (потеря маркера/OD4-литералов ловится, vendor исключён), маркеры не ослаблены.

@@ -1,5 +1,20 @@
 # Global Map (architectural memory)
 
+## Round 10.25 <F2: дизайн-токены §8 + Liquid Glass v2 + фон §10> (21.09.2026, Step 6 @Scanner)
+
+- **Дифф `f2328fb..HEAD`** (коммит `e895726`), фича `design-tokens-liquidglass-v2-round1025`.
+  Отчёт: `plans/reports/round1025_f2_scanner_audit.md`. **0 Critical / 0 High / 3 Medium / 4 Low.**
+- **Новые связности:** токены `--surface-*/--text-*/--teal/--warn/--err/--grad-*/--glass-*` (`app.css:5-56`)
+  ↔ потребители `web/index.html` + `web/app.js` (палитра графика `app.js:6349`, фолбэки темы `telegram-init.js`);
+  inline SVG `#lg-displace` (`index.html:27-42`, `feTurbulence→feGaussianBlur→feDisplacementMap`)
+  ↔ `--glass-displace: url(#lg-displace)` ↔ `[data-glass="a"|"b"|"c"]` (`app.css:916-960`)
+  ↔ `_liquidGlassSupported`/`reconcileLiquidGlass` (`app.js:7998-8027`).
+- **Фон §10:** `@property --grad-angle` + `grad-spin`(75s)/`grad-drift`(105s) (`--grad-speed`/`--grad-speed-slow`)
+  ↔ `html.lg-bg-paused` (`app.css:130-137`) ↔ `setBgPaused` внутри единственного `onVisibilityChange` (`app.js:8031`).
+- **Проверки:** pytest **8096/0** (106.03 s), JS **24/24**, Δ DDL=0, Δ каталога=0, `git diff --check`=0, `stash@{0}` цел.
+- **Открытое (Medium, не блокер):** необратимое понижение A→B + пропуск route-узлов [M-1]; оптимистичный детект
+  WebKit может лишить blur панели `[data-glass="a"]` на iOS [M-2]; цена преломления не измерена [M-3].
+
 ## Round 10.25 <F1: IA v2 + app-shell> (21.09.2026, Step 6 @Scanner)
 
 - **Diff `65e39fb..78e612a`** (коммиты `1ebbd7b`, `ff34115`, `b1c87b0`, фикс аудита `78e612a`). Фича `ia-shell-navigation-round1025`, Wave 1.
