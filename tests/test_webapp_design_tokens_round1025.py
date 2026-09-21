@@ -23,7 +23,7 @@ EXPECTED_TOKENS = {
     "--surface-0", "--surface-1", "--surface-2", "--surface-3",
     "--text-1", "--text-2", "--text-3",
     "--teal-500", "--teal-600", "--purple-500", "--purple-400", "--indigo-300",
-    "--ok", "--warn", "--err", "--ok-bg", "--warn-bg", "--err-bg",
+    "--ok", "--warn", "--err", "--err-text", "--ok-bg", "--warn-bg", "--err-bg",
     "--grad-a", "--grad-b", "--grad-c", "--grad-d",
     "--grad-speed", "--grad-speed-slow", "--grad-angle", "--accent-grad",
     "--glass-bg", "--glass-bg-strong", "--glass-blur", "--glass-border",
@@ -33,7 +33,7 @@ EXPECTED_VALUES = {
     "--surface-0": "#090D17", "--surface-1": "#151B2A", "--surface-2": "#1C2537",
     "--text-1": "#F4F7FB", "--text-2": "#AAB6C8", "--text-3": "#A2B0C6",
     "--teal-500": "#42D6C4", "--purple-500": "#A78BFA", "--indigo-300": "#77A8FF",
-    "--warn": "#F6C56F", "--err": "#F07178",
+    "--warn": "#F6C56F", "--err": "#F07178", "--err-text": "#FCA5A5",
     "--grad-a": "#42D6C4", "--grad-b": "#77A8FF", "--grad-c": "#A78BFA",
     "--grad-d": "#5C7CFA",
     "--glass-bg": "rgba(21, 27, 42, 0.5)",
@@ -46,7 +46,8 @@ EXPECTED_VALUES = {
 INVENTORY_PREFIXES = ("--surface-", "--text-", "--grad-", "--glass-",
                       "--teal-", "--purple-", "--indigo-", "--magenta-",
                       "--lilac-")
-INVENTORY_STATUS = {"--ok", "--warn", "--err", "--ok-bg", "--warn-bg", "--err-bg"}
+INVENTORY_STATUS = {"--ok", "--warn", "--err", "--err-text", "--ok-bg",
+                    "--warn-bg", "--err-bg"}
 INVENTORY_TOKENS = {
     "--surface-0", "--surface-1", "--surface-2", "--surface-3",
     "--surface-border", "--surface-glass",
@@ -253,6 +254,48 @@ class TestButtons:
         assert not re.search(r"\.card\s*\{[^}]*var\(--accent-grad\)", APP_CSS)
 
 
+# ═══════ D-1/@Reviewer: Tailwind-утилиты 12px в стекле ≥4.5:1 ═══════
+class TestUtilityColorsOnGlass:
+    CLASSES = {".text-gray-500": "--text-3", ".text-gray-600": "--text-3",
+               ".text-gray-400": "--text-2", ".text-red-400": "--err-text"}
+
+    @staticmethod
+    def _glass_worst() -> list:
+        s0 = _rgb("#090D17")
+        glass = _rgb("#151B2A")
+        wash = ["#42D6C4", "#77A8FF", "#5C7CFA", "#A78BFA"]
+        return max([_over(glass, 0.5, _over(_rgb(w), 0.42, s0)) for w in wash],
+                   key=_lum_rgb)
+
+    def test_utilities_overridden_to_tokens(self):
+        for cls, tok in self.CLASSES.items():
+            pat = (re.escape(cls) + r"\s*(?:,[^{]*)?\{[^}]*color:\s*var\("
+                   + re.escape(tok) + r"\)")
+            assert re.search(pat, APP_CSS), (cls, tok)
+
+    def test_overrides_win_over_tailwind_order(self):
+        # app.css подключается ПОСЛЕ tailwind.css (index.html) → равная
+        # специфичность, наше правило выигрывает.
+        assert INDEX.index("/static/app.css") > INDEX.index("tailwind.css")
+
+    def test_utilities_pass_on_worst_glass(self):
+        light = self._glass_worst()
+        fails = []
+        for cls, tok in self.CLASSES.items():
+            fg = _rgb(_token_value(tok))
+            ratio = _contrast_rgb(fg, light)
+            if ratio < 4.5:
+                fails.append((cls, tok, round(ratio, 2)))
+        assert not fails, f"утилиты на стекле <4.5:1: {fails}"
+
+    def test_old_tailwind_values_would_fail(self):
+        # Доказательство необходимости правки: исходные Tailwind-цвета <4.5:1.
+        light = self._glass_worst()
+        for name, rgb in ((".text-gray-500", _rgb("#6B7280")),
+                          (".text-red-400", _rgb("#F87171"))):
+            assert _contrast_rgb(rgb, light) < 4.5, name
+
+
 # ═══════════ T-2538…T-2543: Liquid Glass A/B/C, allow/deny ═══════════
 class TestLiquidGlassV2:
     def test_single_inline_svg_filter(self):
@@ -373,7 +416,7 @@ class TestMatrixF2Probe:
     def _base(self) -> dict:
         return {
             "tokens": {"s0": "#090D17", "s1": "#151B2A", "teal": "#42D6C4",
-                       "warn": "#F6C56F", "err": "#F07178",
+                       "warn": "#F6C56F", "err": "#F07178", "errText": "#FCA5A5",
                        "gs": "75s", "gss": "105s",
                        "glassBg": "rgba(21, 27, 42, 0.5)",
                        "displace": "url(#lg-displace)"},
@@ -382,6 +425,7 @@ class TestMatrixF2Probe:
             "hasDisplaceFilter": True,
             "allow": [{"minSide": 320, "bf": 'blur(16px) url("#lg-displace")',
                        "downgraded": False}],
+            "utility": "rgb(162, 176, 198)",  # --text-3
             "denyCount": 1, "denyBf": "none", "overflow": False,
         }
 
@@ -395,12 +439,12 @@ class TestMatrixF2Probe:
         fails = self._checker()(p, "320x700")
         assert any("240" in f for f in fails), fails
 
-    def test_catches_downgraded_with_displacement(self):
+    def test_catches_low_contrast_utility(self):
+        # orig Tailwind .text-gray-500 rgb(107,114,128) на стекле → ~2.4:1.
         p = self._base()
-        p["allow"] = [{"minSide": 320, "bf": 'url("#lg-displace")',
-                       "downgraded": True}]
+        p["utility"] = "rgb(107, 114, 128)"
         fails = self._checker()(p, "t")
-        assert any("понижен" in f for f in fails), fails
+        assert any("D-1" in f for f in fails), fails
 
     def test_catches_out_of_range_duration(self):
         p = self._base()

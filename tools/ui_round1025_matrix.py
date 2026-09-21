@@ -279,6 +279,10 @@ F2_PROBE_JS = """
   };
   const before = getComputedStyle(document.body, '::before');
   const c = document.querySelector('[data-glass="c"]');
+  // D-1/@Reviewer: фактический цвет Tailwind-утилиты внутри стекла (12px).
+  const utilEl = document.querySelector('[data-glass] .text-gray-500') ||
+                 document.querySelector('.text-gray-500');
+  const utility = utilEl ? getComputedStyle(utilEl).color : null;
   // T-2540: по каждому allow-элементу — min-сторона, фактический фильтр и
   // признак понижения (JS `data-glass-downgraded`).
   const allow = Array.from(document.querySelectorAll('[data-glass="a"]'))
@@ -297,10 +301,12 @@ F2_PROBE_JS = """
       warn: tok('--warn'), err: tok('--err'),
       gs: tok('--grad-speed'), gss: tok('--grad-speed-slow'),
       glassBg: tok('--glass-bg'), displace: tok('--glass-displace'),
+      errText: tok('--err-text'),
     },
     beforeAnim: before.animationName,
     beforeDur: before.animationDuration,
     allow: allow,
+    utility: utility,
     denyBf: bf(c),
     denyCount: document.querySelectorAll('[data-glass="c"]').length,
     hasDisplaceFilter: !!document.getElementById('lg-displace'),
@@ -341,6 +347,37 @@ F2_RM_PROBE_JS = """
 def _secs(raw: str):
     try:
         return float(str(raw).strip().rstrip("s"))
+    except Exception:  # noqa: BLE001
+        return None
+
+
+# D-1/@Reviewer: худший (самый светлый) эффективный фон стекла-B —
+# --glass-bg alpha .5 поверх wash §10 alpha .42 (teal-фаза) → rgb(27,62,69).
+GLASS_EFF_WORST = (27, 62, 69)
+
+
+def _lum_rgb(rgb) -> float:
+    def f(c):
+        c = c / 255.0
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = (f(c) for c in rgb)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _contrast_rgb(a, b) -> float:
+    l1, l2 = _lum_rgb(a), _lum_rgb(b)
+    if l1 < l2:
+        l1, l2 = l2, l1
+    return (l1 + 0.05) / (l2 + 0.05)
+
+
+def _parse_rgb(s):
+    m = re.match(r"rgba?\(([^)]+)\)", s or "")
+    if not m:
+        return None
+    parts = [p.strip() for p in m.group(1).split(",")]
+    try:
+        return [float(parts[0]), float(parts[1]), float(parts[2])]
     except Exception:  # noqa: BLE001
         return None
 
@@ -390,8 +427,14 @@ def _f2_failures(probe: dict, label: str) -> list:
         if x.get("minSide") is not None and x["minSide"] < 240:
             out.append("%s glass allow: min-сторона %dpx < 240 при преломлении"
                        % (label, x["minSide"]))
-        if x.get("downgraded"):
-            out.append("%s glass allow: элемент понижен, но с преломлением" % label)
+    # D-1/@Reviewer: 12px-утилита Tailwind внутри стекла — контраст ≥4.5:1
+    # на худшем эффективном фоне стекла.
+    util_rgb = _parse_rgb(probe.get("utility"))
+    if util_rgb is not None:
+        ratio = _contrast_rgb(util_rgb, list(GLASS_EFF_WORST))
+        if ratio < 4.5:
+            out.append("%s D-1: .text-gray-500 в стекле %.2f:1 (<4.5) %r"
+                       % (label, ratio, probe.get("utility")))
     if probe.get("denyCount", 0) < 1:
         out.append("%s glass deny: нет [data-glass=\"c\"] на экране" % label)
     elif (probe.get("denyBf") or "none").replace(" ", "") not in ("none", ""):

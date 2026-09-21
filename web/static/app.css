@@ -20,6 +20,9 @@
       --magenta-600:#E05A8A; --magenta-400:#F08BB0; --lilac-200:#CFC4F5; --indigo-300:#77A8FF;
       /* status (§8: warning #F6C56F / danger #F07178; ok согласован с палитрой) */
       --ok:#3DD68C; --warn:#F6C56F; --err:#F07178;
+      /* D-1/@Reviewer: danger-ТЕКСТ на стекле (12px) — светлее --err ради AA
+         (--err на эффективном стекле-B = 4.03 < 4.5; #FCA5A5 = 6.07). */
+      --err-text:#FCA5A5;
       --ok-bg:rgba(61,214,140,.14); --warn-bg:rgba(246,197,111,.14); --err-bg:rgba(240,113,120,.14);
       /* animated gradient tokens (§10: бирюза/синий/фиолет/приглушённый синий) */
       --grad-angle:135deg; --grad-a:#42D6C4; --grad-b:#77A8FF; --grad-c:#A78BFA;
@@ -430,6 +433,16 @@
     .badge-err   { background: var(--err-bg);  color: var(--err); }
     .badge-info  { background: rgba(59, 130, 246, 0.18); color: #93c5fd; }
     .badge-muted { background: rgba(255, 255, 255, 0.08); color: #9ca3af; }
+
+    /* ═══ D-1/@Reviewer: Tailwind-утилиты текста → токены §8 ═══
+       Дефолтные Tailwind-цвета не из §8: на эффективном стекле (--glass-bg
+       alpha .5 поверх wash §10) .text-gray-500 давал 2.38:1, .text-red-400 —
+       4.17:1 (<4.5:1 для .75rem). app.css грузится ПОСЛЕ tailwind.css →
+       равная специфичность, это правило выигрывает и покрывает стекло+фон. */
+    .text-gray-600,
+    .text-gray-500 { color: var(--text-3); }
+    .text-gray-400 { color: var(--text-2); }
+    .text-red-400 { color: var(--err-text); }
 
     /* B1/OD8 (T-1128): плотный список доступности ключей (мелкий шрифт,
        плотный line-height, без «карточечных» отступов) */

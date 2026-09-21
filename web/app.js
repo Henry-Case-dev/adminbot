@@ -2041,7 +2041,7 @@
         // F2 (T-2540): после смены вкладки контент v-if достраивается позже —
         // пересчитываем уровень стекла после рендера (в дополнение к observer).
         var self = this;
-        this.$nextTick(function () { self.reconcileLiquidGlass(); });
+        this.$nextTick(function () { self._lgSchedule(); });
       },
     },
 
@@ -8024,8 +8024,11 @@
       // Без второго `visibilitychange`-обработчика.
       reconcileLiquidGlass: function () {
         if (typeof document === 'undefined') return;
-        var okA = this._liquidGlassSupported();
+        // D-2/@Reviewer: ранний выход — скрытая вкладка и отсутствие цели.
+        if (document.hidden) return;
         var nodes = document.querySelectorAll('[data-glass="a"]');
+        if (!nodes.length) return;
+        var okA = this._liquidGlassSupported();
         for (var i = 0; i < nodes.length; i++) {
           var el = nodes[i];
           var big = true;
@@ -8035,28 +8038,50 @@
           } catch (e) { big = true; }
           if (okA && big) el.removeAttribute('data-glass-downgraded');
           else el.setAttribute('data-glass-downgraded', '1');
+          // D-2: рост/смена размера allow-узла → пересчёт (b↔a), наблюдаем точечно.
+          if (this._lgResizeObserver) {
+            try { this._lgResizeObserver.observe(el); } catch (e) { /* no-op */ }
+          }
         }
       },
-      // Транзитивность (T-2540, итерация @Reviewer): `[data-glass="a"]`
-      // достраивается асинхронно (v-if/маршруты/данные) — наблюдаем за DOM и
-      // пересчитываем уровень после появления/смены узлов (debounce через rAF).
+      // Транзитивность (T-2540/@Reviewer): `[data-glass="a"]` достраивается
+      // асинхронно (v-if/маршруты/данные). D-2/@Reviewer: троттлинг ≥250 мс,
+      // ранний выход при document.hidden/отсутствии цели, scope `#app`,
+      // ResizeObserver только на allow-узлы (не на весь body).
+      _lgSchedule: function () {
+        if (this._lgPending) return;
+        var self = this;
+        this._lgPending = true;
+        var now = Date.now();
+        var delay = 0;
+        if (this._lgLastRun && (now - this._lgLastRun) < 250) {
+          delay = 250 - (now - this._lgLastRun);
+        }
+        setTimeout(function () {
+          self._lgPending = false;
+          if (typeof document !== 'undefined' && document.hidden) return;
+          self._lgLastRun = Date.now();
+          self.reconcileLiquidGlass();
+        }, delay);
+      },
       _initLiquidGlassObserver: function () {
-        if (typeof MutationObserver === 'undefined' || !document.body) return;
+        if (typeof MutationObserver === 'undefined' || typeof document === 'undefined') {
+          return;
+        }
         if (this._lgObserver) return;
         var self = this;
-        this._lgObserver = new MutationObserver(function () {
-          if (self._lgPending) return;
-          self._lgPending = true;
-          var run = function () {
-            self._lgPending = false;
-            self.reconcileLiquidGlass();
-          };
-          if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
-          else setTimeout(run, 0);
-        });
-        this._lgObserver.observe(document.body, {
-          childList: true, subtree: true, attributeFilter: ['data-glass'],
-        });
+        this._lgObserver = new MutationObserver(function () { self._lgSchedule(); });
+        var root = document.getElementById('app') || document.body;
+        if (root) {
+          this._lgObserver.observe(root, {
+            childList: true, subtree: true, attributeFilter: ['data-glass'],
+          });
+        }
+        if (typeof ResizeObserver !== 'undefined') {
+          this._lgResizeObserver = new ResizeObserver(function () {
+            self._lgSchedule();
+          });
+        }
       },
       // §10/T-2547: пауза дорогих фоновых эффектов при скрытии TMA.
       setBgPaused: function (paused) {
@@ -8067,6 +8092,9 @@
       onVisibilityChange: function () {
         // F2 (§10/T-2547): фон пауза — до ранних return'ов (activeTab/Dossier).
         this.setBgPaused(!!document.hidden);
+        // F2 (T-2540/D-2): вернулись из скрытия — пересчитать стекло (reconcile
+        // пропускал работу при document.hidden).
+        if (!document.hidden) this._lgSchedule();
         // F8: свернули/вернули мини-апп с открытой модалкой Досье —
         // приостанавливаем/возобновляем опрос пересборки (источник — сервер).
         if (this.dossierOpen) {
@@ -8286,10 +8314,14 @@
         window.removeEventListener('resize', _onResize);
         _onResize = null;
       }
-      // F2 (T-2540): снимаем DOM-observer уровня A стекла.
+      // F2 (T-2540/D-2): снимаем DOM/Resize-observer уровня A стекла.
       if (this._lgObserver) {
         this._lgObserver.disconnect();
         this._lgObserver = null;
+      }
+      if (this._lgResizeObserver) {
+        this._lgResizeObserver.disconnect();
+        this._lgResizeObserver = null;
       }
       if (this.controlTimer) clearInterval(this.controlTimer);
     },

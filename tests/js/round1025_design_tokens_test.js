@@ -90,7 +90,7 @@ const OD4 = ['#0E0E0E', '#161616', '#1F1F1F', '#262626', '#F5F5F5', '#BABABA',
     '--indigo-300', '--ok', '--warn', '--err', '--grad-a', '--grad-b',
     '--grad-c', '--grad-d', '--grad-speed', '--grad-speed-slow',
     '--glass-bg', '--glass-bg-strong', '--glass-blur', '--glass-border',
-    '--glass-displace'];
+    '--glass-displace', '--err-text'];
   const actual = tokensOf(CSS);
   const missing = expected.filter((t) => !actual.has(t));
   assert.deepStrictEqual(missing, [],
@@ -107,13 +107,29 @@ const OD4 = ['#0E0E0E', '#161616', '#1F1F1F', '#262626', '#F5F5F5', '#BABABA',
   assert.strictEqual(tokenValue('--indigo-300').toUpperCase(), '#77A8FF');
   assert.strictEqual(tokenValue('--warn').toUpperCase(), '#F6C56F');
   assert.strictEqual(tokenValue('--err').toUpperCase(), '#F07178');
+  assert.strictEqual(tokenValue('--err-text').toUpperCase(), '#FCA5A5');
+}
+
+// ── 1a. D-1/@Reviewer: Tailwind-утилиты 12px в стекле ≥4.5:1 ────────────────
+{
+  const map = { '.text-gray-500': '--text-3', '.text-gray-600': '--text-3',
+    '.text-gray-400': '--text-2', '.text-red-400': '--err-text' };
+  for (const [cls, tok] of Object.entries(map)) {
+    const re = new RegExp(cls.replace(/\./g, '\\.') +
+      '\\s*(?:,[^{]*)?\\{[^}]*color:\\s*var\\(' + tok + '\\)');
+    assert.ok(re.test(CSS), 'D-1: ' + cls + ' → var(' + tok + ')');
+  }
+  // app.css идёт после tailwind.css → равная специфичность, выигрывает наше правило.
+  assert.ok(INDEX.indexOf('/static/app.css') > INDEX.indexOf('tailwind.css'),
+    'D-1: app.css после tailwind.css');
 }
 
 // ── 1b. Симметричный инвентарь (D5/@Reviewer): пропажи И лишние маркеры ─────
 {
   const prefixes = ['--surface-', '--text-', '--grad-', '--glass-', '--teal-',
     '--purple-', '--indigo-', '--magenta-', '--lilac-'];
-  const status = ['--ok', '--warn', '--err', '--ok-bg', '--warn-bg', '--err-bg'];
+  const status = ['--ok', '--warn', '--err', '--err-text', '--ok-bg',
+    '--warn-bg', '--err-bg'];
   const expectedInv = new Set(['--surface-0', '--surface-1', '--surface-2',
     '--surface-3', '--surface-border', '--surface-glass', '--text-1', '--text-2',
     '--text-3', '--grad-a', '--grad-b', '--grad-c', '--grad-d', '--grad-angle',
@@ -211,6 +227,13 @@ const OD4 = ['#0E0E0E', '#161616', '#1F1F1F', '#262626', '#F5F5F5', '#BABABA',
     'T-2540: _liquidGlassSupported — метод');
   assert.strictEqual(typeof methods._initLiquidGlassObserver, 'function',
     'T-2540/@Reviewer: _initLiquidGlassObserver — метод (транзитивность)');
+  // D-2/@Reviewer: троттлинг + ранний выход + scope + ResizeObserver.
+  assert.strictEqual(typeof methods._lgSchedule, 'function',
+    'D-2: _lgSchedule — метод (троттлинг)');
+  assert.ok(APP_JS.indexOf('250') >= 0, 'D-2: троттлинг ≥250 мс');
+  assert.ok(/getElementById\('app'\)/.test(APP_JS), 'D-2: observer на #app');
+  assert.ok(APP_JS.indexOf('ResizeObserver') >= 0, 'D-2: ResizeObserver на allow');
+  assert.ok(/document\.hidden\)\s*return/.test(APP_JS), 'D-2: ранний выход при hidden');
   // Не нагромождаем обработчиков: visibilitychange объявлен ровно один раз.
   assert.strictEqual((APP_JS.match(/addEventListener\('visibilitychange'/g) || []).length,
     1, 'T-2547: один обработчик visibilitychange');
