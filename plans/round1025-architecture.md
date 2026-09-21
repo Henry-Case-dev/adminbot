@@ -115,7 +115,7 @@ F8 (Wave 0 ∥ F0: инвентарь/бэкап/baseline) ──► читае�
 | menu-freeze 10.20/10.21 (`test_frontend_tab_mapping`, `test_webapp_nav_disclosure_ui`, `test_round106_ia_smoke`, `NAV_ORDER`/`TAB_NAV`/`NAV_ITEMS`) | **SUPERSEDE → ADR-1025-1 D4** | ТЗ §4 задаёт новую IA; заморозка снимается |
 | «navbar = ровно 6 пунктов» (7 тестовых файлов, см. F1 spec §3.5) | **SUPERSEDE** | Появление «Памяти» (7-й пункт) и sidebar |
 | «sidebar запрещён» (10.6 A1) | **SUPERSEDE** | ТЗ §6 вводит desktop-sidebar ≥1200 |
-| OD4 10.20 (`#161616`/`#14CBB6`) / 10.20-UPD3 orange | **SUPERSEDE → F2/ADR-1025-2** (палитра §8) | ТЗ §8/§9/§10 |
+| OD4 10.20 (`#161616`/`#14CBB6`) / 10.20-UPD3 orange | **SUPERSEDE → F2/ADR-1025-9** (палитра §8; AMEND ADR-1020-9) | ТЗ §8/§9/§10 |
 | 10.24 F6 `prompts-refactor-accordion-modes` | **REVISE → F5 (workspace-табы §48/§69)** | Аккордеоны как основная навигация запрещены |
 | «Сводка» (label 10.8) | **RENAME → «Аналитика»** | ТЗ §4/§21 |
 | Persistence/409/412/state-machine сохранения в F9 (исходная декомпозиция) | **MOVE → F0 (Wave 0)**; F9 сужена до UI-секретов + визуального SaveBar | UPD §2/§6: неисправное сохранение нельзя переносить в новые компоненты |

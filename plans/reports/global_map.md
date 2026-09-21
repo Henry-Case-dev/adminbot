@@ -1700,3 +1700,29 @@ bot.py
 - Связи: `web/index.html` (`.scope-wrap`/`.scope-trigger`/`.scope-panel`, `.scope-tech`) → `web/app.js` (`scopeKind`, `configSourceLabel`/`configSourceTitle`/`configItemNotice`, `hasUnsavedEdits`) → `scopeEpoch`/`_scopeGuard` (`loadConfig`, `persistItems`) → `resetChatOverride` → `DELETE /api/config/chat/{key}` (`web/api/routes.py:852`) → `chat_params.set_chat_params` (merge overrides/meta). `web/static/app.css` §70 mobile. `config.settings.APP_VERSION=2.58.6`.
 - M-F3-1 (`web/app.js:2472-2482` + `2538`): guard не покрывает `blockDrafts` (llm_providers) — вероятна тихая потеря черновика при смене scope.
 - Инварианты: Δ DDL=0, Δ каталога=0 (459), `stash@{0}` цел, zip не в git, `git diff --check`=0. pytest 8142/5/1 (5 — env aiogram InputRichMessageMedia), JS SCOPE-SELECTOR-OK, matrix не воспроизведён (нет playwright).
+
+## Round 10.25 ПАКЕТ F2+hotfix5+F3 (финал), Step 6 @Scanner (22.09.2026)
+
+- **Диапазон `f2328fb..HEAD` (`3caddeb`).** Отчёт: `plans/reports/round1025_package_scanner_audit.md`.
+  Финалы: F2 `d2df8ca`, hotfix5 `412f844`, F3 `4f31197` (ревью-фиксы `0f227a5`/`d2df8ca`, `cbaec05`/`412f844`, `fb49f29`/`4f31197`).
+- **Итог: Critical 0 / High 0 / Medium 1 / Low 5 / Info 4 → к деплою — ДА.** pytest **8146 passed / 5 failed / 1 skipped**
+  (5 — env aiogram InputRichMessageMedia, файлы вне пакета), целевые 152 passed, JS 25/25. Δ DDL=0, Δ каталога=0, `stash@{0}` цел.
+- **Новые/уточнённые связи:**
+  - `web/app.js::reconcileLiquidGlass` → ставит/снимает `data-glass-downgraded` (НЕ переписывает opt-in `data-glass`);
+    CSS `app.css:978 [data-glass="a"][data-glass-downgraded="1"]` → blur без преломления (обратимо A↔B).
+  - `web/app.js::_lgSchedule` (троттлинг ≥250 мс) ← `MutationObserver(#app)` + `ResizeObserver(allow-узлы)` + watch
+    `activeTab`→`$nextTick` + `_onResize` + `onVisibilityChange` (возврат из hidden); disconnect в `beforeUnmount`.
+  - `web/app.js::_liquidGlassSupported` → UA-gate `AppleWebKit && !/Chrome|Chromium|Edg|OPR/` (общий WKWebView → уровень B).
+  - `services/image_generation.py::generate_image_verbose` → `asyncio.wait_for(generate(..., retry=False), timeout=окно)`;
+    `retry=False` → `_request_with_retry(max_retries=0)` (внутренний HTTP-повтор выключен на период обложки);
+    `is_transient_reason` ограничивает внешний повтор `timeout/network/unreachable/429/502/503/504`.
+  - `services/image_generation.py::_consume_budget` → `worker_budget.consume(scope="global")` + `consume(scope="chat:<id>")`
+    (ОБА контура `image_calls`; отказ global → per-chat не тратится; env-only, `_metric_limit` не зовёт каталог).
+  - `web/app.js::hasUnsavedEdits` ← `blockDrafts`/`ownKeyDraft`/`personaDraft`(vs `personaMeta.values`)/`dossierDraft`(vs `manual_traits`).
+  - `web/app.js::resetChatOverride` → паритет с `web/api/routes.py:868-876` (`isGlobalAdmin || isDmCtx() || isLocalAdminCtx()`);
+    кнопка `.btn-reset-global` (селектор стабильный, `flex-shrink:1/min-width:0` — критичный mobile-overflow закрыт).
+- **Техдолг/остаток:** M10.25F2-3 (цена преломления не измерена; A на 3 узлах); L10.25F2-1 (sticky-header alpha без blur);
+  L10.25F2-2 (тавтологичный `"240" in APP_JS`); L10.25F2-4 (README-счётчик); NEW-L1 (iOS Edge `EdgiOS` не гейтится);
+  NEW-L2 (`_initLiquidGlassObserver` после стартового reconcile); I-3 (`_onResize` без троттлинга); I-4 (inset box-shadow понижённого A).
+- **Инварианты:** Δ DDL=0, Δ каталога=0, `stash@{0}` цел, zip/секретов нет, `git diff --check`=0; matrix не воспроизведён (нет playwright).
+- **Регрессий нет:** handlers/bot/database/media/F0/Эпик2 вне диффа; JS 25/25 OK; 5 pytest-падений предсуществующие (env).

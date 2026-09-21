@@ -1,6 +1,22 @@
 # Audit Backlog
 
-## Round 10.25 hotfix5 `summary-cover-window-round1025` scan (Step 6 @Scanner, 21.09.2026) — all scanned (diff `0e43c37..b3fb6a5`, `b3fb6a5`) — files processed
+## Round 10.25 ПАКЕТ F2+hotfix5+F3 — повторный аудит финальных коммитов (Step 6 @Scanner, 22.09.2026) — all scanned, PENDING=0
+Диапазон `f2328fb..HEAD` (`3caddeb`). Финалы: F2 `d2df8ca`, hotfix5 `412f844`, F3 `4f31197` (ревью-фиксы покрыты).
+- [x] `web/app.js` (reconcileLiquidGlass обратимо через `data-glass-downgraded`, `_lgSchedule` троттлинг+observer,
+      WebKit UA-gate, `hasUnsavedEdits`+blockDrafts/persona/dossier, `resetChatOverride` паритет local_admin) —
+      **M10.25F2-1 ЗАКРЫТ**, **M-F3-1 ЗАКРЫТ**; M10.25F2-2 частично (iOS Edge `EdgiOS` — Low)
+- [x] `web/static/app.css` (downgraded-правило, контраст Tailwind-утилит `--text-3/--err-text`, `.btn-reset-global`) —
+      контраст пересчитан (5.25:1/6.07:1); L10.25F2-1 (sticky-header) открыт
+- [x] `web/index.html` (кнопки возврата ×8, `btn-reset-global`, поиск scope всегда) — Critical mobile-overflow закрыт (CSS)
+- [x] `services/image_generation.py` (retry=False→max_retries=0, `is_transient_reason`, `wait_for`-дедлайн, global+per-chat budget) —
+      **M10.25H5-1 ЗАКРЫТ**
+- [x] `config/settings.py` + `.env.example` (клампы окно≤600/attempts≤5/backoff≤30; worst-case 362 c документирован) — чисто
+- [x] `tests/*` + `tools/ui_round1025_matrix.py` — целевые 152 passed, JS 25/25; matrix НЕ воспроизведён (нет playwright) — I-1
+- **СВОДКА ПАКЕТА: Critical 0 / High 0 / Medium 1 / Low 5 / Info 4. Вердикт: к деплою — ДА, возвратов @Builder нет.**
+  pytest **8146 passed / 5 failed / 1 skipped** (5 — env aiogram `InputRichMessageMedia`, вне пакета); Δ DDL=0, Δ каталога=0,
+  `stash@{0}` цел, zip/секретов нет. Отчёт: `plans/reports/round1025_package_scanner_audit.md`.
+
+## Round 10.25 hotfix5 `summary-cover-window-round1025` scan (Step 6 @Scanner, 21.09.2026) — all scanned (diff `0e43c37..b3fb6a5`, `b3fb6a5`) — ⚠️ SUPERSEDED повторным аудитом финальных коммитов выше (правки `cbaec05`,`412f844`)
 - [x] services/image_generation.py (окно 180 c + bounded-retry 2/backoff, `reason_class`/`provider_label`, timeout-класс, temp-хелпер) — чисто; **M10.25H5-1** (ретрай ×2 умножается на внутренний 429/503 → до 4 вызовов/~4×окна)
 - [x] services/worker_budget.py (env-only ветка `image_calls`, sentinel, изоляция от `llm_calls`/`llm_tokens`) — чисто
 - [x] services/summary_scheduler.py (`int(chat_id)` до DM-фильтра, мусор/NULL → skip без падения тика) — чисто
@@ -11,7 +27,7 @@
   Δ DDL=0, Δ каталога=0, `stash@{0}` цел, zip/секретов нет. Вердикт: **к деплою — ДА**, обязательных возвратов @Builder нет.
   Отчёт: `plans/reports/round1025_hotfix5_scanner_audit.md`.
 
-## Round 10.25 F2 `design-tokens-liquidglass-v2-round1025` scan (Step 6 @Scanner, 21.09.2026) — all scanned (diff `f2328fb..HEAD`, `e895726`) — files processed
+## Round 10.25 F2 `design-tokens-liquidglass-v2-round1025` scan (Step 6 @Scanner, 21.09.2026) — all scanned (diff `f2328fb..HEAD`, `e895726`) — ⚠️ SUPERSEDED повторным аудитом финальных коммитов выше (правки `0f227a5`,`d2df8ca`)
 - [x] web/static/app.css (токены §8 + Liquid Glass A/B/C + фон §10 + `@supports`-фолбэки) — чисто; Low L10.25F2-1 (sticky-header alpha 0.96→0.85)
 - [x] web/index.html (inline SVG `#lg-displace`; `data-glass="a"|"c"`) — чисто (CSP-safe, один фильтр, без layout shift)
 - [x] web/app.js (палитра графика §8, `reconcileLiquidGlass`/`_liquidGlassSupported`, `setBgPaused`) — чисто; **M10.25F2-1/-2/-3**
@@ -1114,7 +1130,7 @@
   Все — `plans/reports/round1022_scanner_audit.md`.
 
 
-## Round 10.25 F3 `global-scope-selector-round1025` (`76a6c40`), Step 6 @Scanner (21.09.2026)
+## Round 10.25 F3 `global-scope-selector-round1025` (`76a6c40`), Step 6 @Scanner (21.09.2026) — ⚠️ SUPERSEDED повторным аудитом финальных коммитов (правки `fb49f29`,`4f31197`)
 
 - **Diff `5dcc6bd..76a6c40`.** Отчёт: `plans/reports/round1025_f3_scanner_audit.md`.
 - **Итог: Critical 0 / High 0 / Medium 1 / Low 4 / Info 3 — к деплою да.**

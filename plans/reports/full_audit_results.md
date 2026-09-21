@@ -1676,3 +1676,37 @@ inventory-тесты на множествах (потеря маркера/OD4-
 - Связи: `web/index.html` (`.scope-wrap`/`.scope-trigger`/`.scope-panel`, `.scope-tech`) → `web/app.js` (`scopeKind`, `configSourceLabel`/`configSourceTitle`/`configItemNotice`, `hasUnsavedEdits`) → `scopeEpoch`/`_scopeGuard` (`loadConfig`, `persistItems`) → `resetChatOverride` → `DELETE /api/config/chat/{key}` (`web/api/routes.py:852`) → `chat_params.set_chat_params` (merge overrides/meta). `web/static/app.css` §70 mobile. `config.settings.APP_VERSION=2.58.6`.
 - M-F3-1 (`web/app.js:2472-2482` + `2538`): guard не покрывает `blockDrafts` (llm_providers) — вероятна тихая потеря черновика при смене scope.
 - Инварианты: Δ DDL=0, Δ каталога=0 (459), `stash@{0}` цел, zip не в git, `git diff --check`=0. pytest 8142/5/1 (5 — env aiogram InputRichMessageMedia), JS SCOPE-SELECTOR-OK, matrix не воспроизведён (нет playwright).
+
+---
+
+## Round 10.25 ПАКЕТ F2+hotfix5+F3 — повторный аудит финальных коммитов — 22.09.2026, Step 6 @Scanner
+
+**Диапазон `f2328fb..HEAD` (`3caddeb`).** Отчёт: `plans/reports/round1025_package_scanner_audit.md`.
+Финалы: F2 `d2df8ca` (ревью `0f227a5`,`d2df8ca`), hotfix5 `412f844` (ревью `cbaec05`,`412f844`), F3 `4f31197` (ревью `fb49f29`,`4f31197`).
+Пакет деплоится одним пакетом; базовые аудиты правки ревью не покрывали.
+
+**Итог: Critical 0 / High 0 / Medium 1 / Low 5 / Info 4 → к деплою — ДА.**
+Проверено по факту: `py -m pytest -q` → **8146 passed / 5 failed / 1 skipped** (5 — env `aiogram 3.29.1` без `InputRichMessageMedia`,
+файлы вне пакета → не регрессия); целевые 5 файлов → **152 passed**; JS **25/25 OK**.
+Δ DDL=0, Δ каталога=0, `stash@{0}` цел, zip/секретов нет, `git diff --check`=0.
+
+**Статусы ранее найденных Medium:**
+- [M10.25F2-1] `web/app.js:8122-8141` + `app.css:978-981` — **ЗАКРЫТ**: `reconcileLiquidGlass` не переписывает `data-glass`,
+  ставит/снимает `data-glass-downgraded` (обратимо A↔B); транзитивность — watch `activeTab`→`$nextTick`, `MutationObserver` на `#app`,
+  `ResizeObserver`, `_onResize`.
+- [M10.25F2-2] `web/app.js:8004-8014` — **ЧАСТИЧНО**: UA-gate `AppleWebKit && !/Chrome|Chromium|Edg|OPR/` уводит общий WKWebView на B.
+  Остаток (Low): iOS Edge UA `EdgiOS` содержит `Edg` → НЕ гейтится (воспроизведено regex-прогоном) — ниша, не блокер.
+- [M10.25F2-3] `web/app.css:916-924` + `index.html:1420/2762/2930` — **ЧАСТИЧНО/ОТКРЫТ**: min-240 теперь реально проверяется
+  (матрица + `TestMatrixF2Probe`), но цена `feTurbulence` не измерена и A по-прежнему на 3 узлах → остаточный **Medium**.
+- [M10.25H5-1] `services/image_generation.py:897-901` — **ЗАКРЫТ**: внешний цикл владеет повторами (`retry=False` → `max_retries=0`),
+  селективный `is_transient_reason`, дедлайн попытки `asyncio.wait_for` → worst-case = attempts×окно+backoff (362 c).
+- [M-F3-1] `web/app.js:2481-2516` — **ЗАКРЫТ**: `hasUnsavedEdits` покрывает `blockDrafts`/`ownKeyDraft`/`personaDraft`/`dossierDraft`;
+  guard вызывается до сброса (`:2521-2532`).
+
+**Остаточные Low/Info:** L10.25F2-1 (`app.css:745-749` sticky-header alpha 0.85 без blur — открыт);
+L10.25F2-2 (`tests/test_webapp_design_tokens_round1025.py:343` `assert "240" in APP_JS` — тавтологичен, поведенческое покрытие добавлено);
+L10.25F2-4 (`README.md:5` «Тестов: 5936» — устарело, открыт); NEW-L1 (iOS Edge `EdgiOS`); NEW-L2 (`_initLiquidGlassObserver`
+после стартового reconcile → стартовые allow-узлы не подписаны до следующего reconcile); I-3 (`_onResize` без троттлинга);
+I-4 (downgraded-A сохраняет лишний inset box-shadow); I-1 (matrix «0» не воспроизведён — нет playwright); I-2 (5 env-падений).
+Контраст D-1 пересчитан: `--text-3` 5.25:1, `--err-text` 6.07:1 (совпало). RBAC DELETE-override — паритет UI↔сервер (`routes.py:868-876`).
+**Регрессий не обнаружено** (пакет не касается handlers/bot/database/media/F0/Эпик 2).
