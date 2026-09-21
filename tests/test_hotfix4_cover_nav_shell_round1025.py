@@ -88,14 +88,17 @@ class TestCoverStyleApplied:
                                MagicMock(), concurrency_pool=MagicMock())
         monkeypatch.setattr(sg.hot, "get",
                             lambda key, default=None: _CUSTOM_STYLE)
-        monkeypatch.setattr(
-            sg, "generate_image_verbose",
-            AsyncMock(return_value=(None, "bad_request")))
+        image_mock = AsyncMock(return_value=(None, "bad_request"))
+        monkeypatch.setattr(sg, "generate_image_verbose", image_mock)
         monkeypatch.setattr(SummaryGenerator, "_plain_fallback", AsyncMock())
 
         with caplog.at_level(logging.INFO, logger=sg.__name__):
             await gen._deliver_rich(-100, "текст", "a lone cat")
 
+        # Настроенный стиль РЕАЛЬНО доходит до image-API (первым в промпте).
+        final_prompt = image_mock.await_args.args[0]
+        assert final_prompt.startswith(_CUSTOM_STYLE)
+        assert final_prompt.endswith("a lone cat")
         joined = "\n".join(r.getMessage() for r in caplog.records)
         assert "style_is_default=False" in joined
         assert "has_comic=True" in joined
