@@ -70,10 +70,13 @@ class TestCoverRetryWindow:
         monkeypatch.setattr(
             Settings, "IMAGE_GENERATION_RETRY_BACKOFF_SECONDS", 0.0)
         calls = {"n": 0}
+        seen = {}
 
         async def fake_generate(prompt, *, chat_id=None, correlation_id=None,
-                                timeout=None, consume_budget=True):
+                                timeout=None, consume_budget=True,
+                                retry=True):
             calls["n"] += 1
+            seen.setdefault("retry", retry)
             if calls["n"] == 1:
                 return ig.GenerationResult(ok=False, reason="timeout")
             return ig.GenerationResult(ok=True, content=b"\xff\xd8jpeg")
@@ -84,6 +87,7 @@ class TestCoverRetryWindow:
             await _make_gen()._deliver_rich(-100, "текст", "a lone cat")
 
         assert calls["n"] == 2                    # ровно 2 попытки
+        assert seen["retry"] is False             # внутренний HTTP-ретрай off
         assert len(rec.rich) == 1                 # rich доставлен
         assert rec.plain == []                    # текст не ушёл plain
         assert rec.rich[0]["media"]
@@ -118,6 +122,33 @@ class TestCoverRetryWindow:
         assert "reason_class=timeout" in joined
         assert "attempt=1/2" in joined and "attempt=2/2" in joined
         assert "image unavailable" in joined
+
+    @pytest.mark.asyncio
+    async def test_deterministic_failure_single_attempt(
+            self, monkeypatch, caplog):
+        """(1) детерминированный отказ (unauthorized) → ровно 1 попытка."""
+        rec = _Rec()
+        _patch_rich(monkeypatch, rec)
+        monkeypatch.setattr(ig, "_consume_budget", AsyncMock(return_value=True))
+        monkeypatch.setattr(
+            Settings, "IMAGE_GENERATION_RETRY_BACKOFF_SECONDS", 0.0)
+        calls = {"n": 0}
+
+        async def fake_generate(prompt, **kw):
+            calls["n"] += 1
+            return ig.GenerationResult(ok=False, reason="unauthorized")
+
+        monkeypatch.setattr(ig, "generate", fake_generate)
+
+        with caplog.at_level(logging.WARNING):
+            await _make_gen()._deliver_rich(-100, "текст", "a lone cat")
+
+        assert calls["n"] == 1                    # без повторов
+        assert rec.rich == [] and rec.plain
+        joined = "\n".join(r.getMessage() for r in caplog.records)
+        assert "attempt=1/2" in joined
+        assert "reason_class=http_401" in joined
+        assert "attempt=2/2" not in joined
 
     @pytest.mark.asyncio
     async def test_http_reason_class_in_warning(self, monkeypatch, caplog):
@@ -161,13 +192,34 @@ class TestCoverRetryWindow:
 class TestReasonClassTaxonomy:
     def test_mapping(self):
         assert ig.reason_class("timeout") == "timeout"
+        assert ig.reason_class("network") == "network"
         assert ig.reason_class("budget") == "budget"
         assert ig.reason_class("bad_json") == "bad_json"
+        assert ig.reason_class("bad_b64") == "bad_json"
         assert ig.reason_class("bad_request") == "http_400"
         assert ig.reason_class("unauthorized") == "http_401"
-        assert ig.reason_class("http_500") == "http"
+        assert ig.reason_class("http_500") == "http_500"
         assert ig.reason_class("download_rate_limited") == "http_429"
+        # item 4: явные классы вместо безликого `error`/ложного `bad_json`
+        assert ig.reason_class("no_url") == "bad_response"
+        assert ig.reason_class("no_image") == "bad_response"
+        assert ig.reason_class("empty") == "empty"
+        assert ig.reason_class("empty_prompt") == "empty"
+        assert ig.reason_class("too_large") == "too_large"
+        assert ig.reason_class("temp_write_failed") == "local"
         assert ig.reason_class("weird") == "error"
+
+    def test_transient_predicate(self):
+        """(1) транзиентные повторяемы; детерминированные — нет."""
+        for transient in ("timeout", "network", "unreachable",
+                          "rate_limited", "bad_gateway", "unavailable",
+                          "http_504", "download_unavailable"):
+            assert ig.is_transient_reason(transient) is True, transient
+        for deterministic in ("unauthorized", "bad_request", "forbidden",
+                              "payment_required", "bad_json", "too_large",
+                              "budget", "empty", "error"):
+            assert ig.is_transient_reason(deterministic) is False, \
+                deterministic
 
 
 class TestGenerateTimeoutClass:
@@ -189,7 +241,8 @@ class TestGenerateTimeoutClass:
         seen = {}
 
         async def fake_generate(prompt, *, chat_id=None, correlation_id=None,
-                                timeout=None, consume_budget=True):
+                                timeout=None, consume_budget=True,
+                                retry=True):
             seen["timeout"] = timeout
             return ig.GenerationResult(ok=True, content=b"\xff")
 
@@ -267,6 +320,43 @@ class TestImageBudgetIsolation:
             pg, "chat:-100", worker_budget.METRIC_IMAGE_CALLS, 1)
         assert allowed is True
         resolve.assert_not_awaited()             # каталоговый LLM-лимит не трогаем
+
+    @pytest.mark.asyncio
+    async def test_global_image_limit_blocks(self, monkeypatch):
+        """(2) global-лимит `image_calls` РЕАЛЬНО enforced (не декор)."""
+        monkeypatch.setattr(Settings, "WORKER_DAILY_IMAGE_CALLS_GLOBAL", 2)
+        monkeypatch.setattr(Settings, "WORKER_DAILY_IMAGE_CALLS_PER_CHAT", 5)
+        pg = _FakePg()
+        assert await worker_budget.consume(
+            pg, "global", worker_budget.METRIC_IMAGE_CALLS, 1) is True
+        assert await worker_budget.consume(
+            pg, "global", worker_budget.METRIC_IMAGE_CALLS, 1) is True
+        assert await worker_budget.consume(
+            pg, "global", worker_budget.METRIC_IMAGE_CALLS, 1) is False
+
+    @pytest.mark.asyncio
+    async def test_consume_budget_spends_global_and_per_chat(self, monkeypatch):
+        """(2) `_consume_budget` списывает ОБА контура; при отказе global
+        per-chat не тратится."""
+        seen = []
+
+        async def fake_consume(pg, scope, metric, amount=1):
+            seen.append(scope)
+            return scope != "global"            # global исчерпан → False
+
+        monkeypatch.setattr(worker_budget, "consume", fake_consume)
+        assert await ig._consume_budget(7) is False
+        assert seen == ["global"]               # до per-chat не дошли
+
+        seen.clear()
+
+        async def fake_consume_ok(pg, scope, metric, amount=1):
+            seen.append(scope)
+            return True
+
+        monkeypatch.setattr(worker_budget, "consume", fake_consume_ok)
+        assert await ig._consume_budget(7) is True
+        assert seen == ["global", "chat:7"]
 
 
 # ── C. Планировщик: int chat_id (d) ──────────────────────────────────────
@@ -346,10 +436,22 @@ class TestDefaults:
         assert ig._image_attempt_timeout() == 180.0
         assert ig._image_max_attempts() == 2
         assert ig._image_retry_backoff() == 2.0
+        # нижние клампы (item 3)
         monkeypatch.setattr(Settings, "IMAGE_GENERATION_MAX_ATTEMPTS", 0)
-        assert ig._image_max_attempts() == 1     # <1 → 1
+        assert ig._image_max_attempts() == 1
         monkeypatch.setattr(Settings, "IMAGE_ATTEMPT_TIMEOUT_SECONDS", 0.0)
         assert ig._image_attempt_timeout() == 180.0
+        monkeypatch.setattr(Settings, "IMAGE_GENERATION_RETRY_BACKOFF_SECONDS",
+                            -5.0)
+        assert ig._image_retry_backoff() == 0.0
+        # верхние клампы (item 3)
+        monkeypatch.setattr(Settings, "IMAGE_GENERATION_MAX_ATTEMPTS", 99)
+        assert ig._image_max_attempts() == 5
+        monkeypatch.setattr(Settings, "IMAGE_ATTEMPT_TIMEOUT_SECONDS", 9999.0)
+        assert ig._image_attempt_timeout() == 600.0
+        monkeypatch.setattr(Settings, "IMAGE_GENERATION_RETRY_BACKOFF_SECONDS",
+                            9999.0)
+        assert ig._image_retry_backoff() == 30.0
 
     def test_new_keys_not_in_param_catalog(self):
         """Δ каталога = 0: новые env-only ключи отсутствуют в param_catalog."""

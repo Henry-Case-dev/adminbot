@@ -285,30 +285,68 @@ _HTTP_CODE_BY_REASON = {
     "unavailable": 503,
 }
 
+# Явные классы причин (хотфикс-5, item 4): без «безликого error» для
+# диагностируемых отказов. Всё, чего нет в таблице и не HTTP/download, — `error`.
+_REASON_CLASS_BY_REASON = {
+    "timeout": "timeout",
+    "network": "network",
+    "budget": "budget",
+    "bad_json": "bad_json",
+    "bad_b64": "bad_json",
+    "no_url": "bad_response",
+    "no_image": "bad_response",
+    "empty": "empty",
+    "empty_prompt": "empty",
+    "too_large": "too_large",
+    "temp_write_failed": "local",
+}
+
+# Транзиентные (повторяемые) причины: таймаут/сеть и 429/5xx. Детерминированные
+# (`unauthorized`/`bad_request`/`bad_json`/…) повторять бессмысленно — лишние
+# окна и трафик (хотфикс-5, item 1).
+_TRANSIENT_REASONS = frozenset({"timeout", "network", "unreachable"})
+_RETRY_HTTP_CODES = frozenset({429, 502, 503, 504})
+
+
+def _http_status_of(reason: str) -> int | None:
+    """HTTP-код из R17-safe причины (`http_<n>` / имя из `_reason_from_status`
+    / `download_*`); None, если причина не HTTP-класса."""
+    raw = str(reason or "")
+    if raw.startswith("download_"):
+        raw = raw[len("download_"):]
+    if raw.startswith("http_"):
+        try:
+            return int(raw[len("http_"):])
+        except ValueError:
+            return None
+    return _HTTP_CODE_BY_REASON.get(raw)
+
 
 def reason_class(reason: str) -> str:
     """R17-safe КЛАСС причины отказа генерации (хотфикс-5, для WARNING-лога).
 
-    Таксономия: ``timeout`` / ``http_*`` / ``budget`` / ``bad_json`` / ``error``.
-    Никаких промптов/URL/секретов — только грубая категория для наблюдаемости
-    (`reason` — уже безопасный код из `generate`)."""
+    Диагностируемые отказы получают явный класс (`timeout`/`network`/`budget`/
+    `bad_json`/`bad_response`/`empty`/`too_large`/`local`/`http_*`); прочее —
+    `error`. Никаких промптов/URL/секретов — только категория."""
     raw = str(reason or "error")
-    if raw == "timeout":
-        return "timeout"
-    if raw == "budget":
-        return "budget"
-    if raw in ("bad_json", "bad_b64", "no_url", "no_image"):
-        return "bad_json"
-    if raw.startswith("http_"):
-        return "http"
-    if raw.startswith("download_"):
-        raw = raw[len("download_"):]
-    code = _HTTP_CODE_BY_REASON.get(raw)
+    cls = _REASON_CLASS_BY_REASON.get(raw)
+    if cls is not None:
+        return cls
+    code = _http_status_of(raw)
     if code is not None:
         return f"http_{code}"
-    if raw.startswith("http_"):
-        return "http"
     return "error"
+
+
+def is_transient_reason(reason: str) -> bool:
+    """True — отказ транзиентный и попытку имеет смысл повторить.
+
+    Транзиентные: `timeout`, сетевые и HTTP `429/502/503/504`. Детерминированные
+    (`unauthorized`/`bad_request`/`bad_json`/`too_large`/`budget`/…) — False."""
+    raw = str(reason or "")
+    if raw in _TRANSIENT_REASONS:
+        return True
+    return _http_status_of(raw) in _RETRY_HTTP_CODES
 
 
 def provider_label() -> str:
@@ -324,32 +362,37 @@ def provider_label() -> str:
 
 
 def _image_attempt_timeout() -> float:
-    """Окно одной попытки генерации (env-only, default 180 c; см. settings)."""
+    """Окно одной попытки генерации (env-only, default 180 c).
+
+    Не-положительное значение → дефолт 180 (не режем до секунды); верхний
+    кламп 600 c (item 3), чтобы случайный env не растянул фон без предела."""
     try:
         value = float(getattr(settings, "IMAGE_ATTEMPT_TIMEOUT_SECONDS",
                               180.0))
     except (TypeError, ValueError):
         value = 180.0
-    return value if value > 0 else 180.0
+    if value <= 0:
+        value = 180.0
+    return min(value, 600.0)
 
 
 def _image_max_attempts() -> int:
-    """Число попыток генерации (env-only, default 2; <1 → 1)."""
+    """Число попыток генерации (env-only, default 2; кламп ``[1, 5]``)."""
     try:
         value = int(getattr(settings, "IMAGE_GENERATION_MAX_ATTEMPTS", 2))
     except (TypeError, ValueError):
         value = 2
-    return max(1, value)
+    return max(1, min(value, 5))
 
 
 def _image_retry_backoff() -> float:
-    """Пауза между попытками (env-only, default 2 c; <0 → 0)."""
+    """Пауза между попытками (env-only, default 2 c; кламп ``[0, 30]``)."""
     try:
         value = float(getattr(settings,
                               "IMAGE_GENERATION_RETRY_BACKOFF_SECONDS", 2.0))
     except (TypeError, ValueError):
         value = 2.0
-    return max(0.0, value)
+    return max(0.0, min(value, 30.0))
 
 
 def _provider_from_url(url: str) -> str:
@@ -406,7 +449,8 @@ async def _request_with_retry(method: str, url: str, *,
                               headers: dict | None = None,
                               timeout: float = 90.0,
                               log_url: str | None = None,
-                              redact_key: str | None = None):
+                              redact_key: str | None = None,
+                              max_retries: int | None = None):
     """Запрос с ≤1 ретраем на 429/503 (учёт `Retry-After`).
 
     ``log_url`` — R17-safe URL для лога. GET-режим кодирует пользовательский
@@ -416,12 +460,18 @@ async def _request_with_retry(method: str, url: str, *,
 
     ``redact_key`` (R17): резолвнутый ключ провайдера, если он есть в области
     видимости — вырезается из тела ретрай-лога явно (``safe_text`` маскирует
-    только известные префиксы/env-секреты и PG-ключ без префикса не поймает)."""
+    только известные префиксы/env-секреты и PG-ключ без префикса не поймает).
+
+    ``max_retries`` (хотфикс-5, item 3): переопределение числа внутренних
+    ретраев. Обложка гоняет внешний bounded-retry (`generate_image_verbose`) и
+    передаёт `0`, чтобы не дублировать повторы (иначе worst-case раздувался бы
+    до ~4×окна). ``None`` → прежний `_RETRY_MAX` (=1)."""
+    limit = _RETRY_MAX if max_retries is None else max(0, int(max_retries))
     resp = await _http_request(method, url, json_body=json_body,
                                headers=headers, timeout=timeout)
     attempt = 0
     while (getattr(resp, "status_code", 0) in _RETRY_STATUSES
-           and attempt < _RETRY_MAX):
+           and attempt < limit):
         delay = _retry_delay(resp)
         safe_url = log_url or url
         log_external_api(
@@ -439,26 +489,37 @@ async def _request_with_retry(method: str, url: str, *,
 
 
 async def _consume_budget(chat_id: int | None) -> bool:
-    """Платный вызов в budget: `image_calls` (per-chat, реюз лимита)."""
+    """Платный вызов в budget: `image_calls` — **global И per-chat** (хотфикс-5).
+
+    Оба контура реально применяются (прецедент `dream_worker._consume`): сначала
+    глобальный дневной потолок (`WORKER_DAILY_IMAGE_CALLS_GLOBAL`), затем
+    per-chat (`WORKER_DAILY_IMAGE_CALLS_PER_CHAT`). При исчерпании global
+    per-chat не тратится. PG down → fail-open True."""
     try:
         from services import worker_budget
-        scope = f"chat:{chat_id}" if chat_id is not None else "global"
-        return await worker_budget.consume(
-            None, scope=scope, metric=worker_budget.METRIC_IMAGE_CALLS,
+        ok = await worker_budget.consume(
+            None, scope="global", metric=worker_budget.METRIC_IMAGE_CALLS,
             amount=1)
+        if ok and chat_id is not None:
+            ok = await worker_budget.consume(
+                None, scope=f"chat:{chat_id}",
+                metric=worker_budget.METRIC_IMAGE_CALLS, amount=1)
+        return ok
     except Exception:
         logger.warning("[image] budget consume failed — fail-open")
         return True
 
 
 async def _generate_post(base_url: str, model: str, prompt: str, key: str,
-                         timeout: float, max_bytes: int) -> bytes:
+                         timeout: float, max_bytes: int,
+                         retry: bool = True) -> bytes:
     """POST-режим: универсальное тело → байты (url скачиваем / b64 декодируем).
 
     Раунд 10.24 (F12/ADR-1024-4 D1): тело строго ``{prompt, model, n:1}``;
     ``size``/``response_format`` убраны (их отвергает часть моделей, напр.
     community/`gptimage`). Обе формы ответа — `data[0].url` и
-    `data[0].b64_json` — равноправны."""
+    `data[0].b64_json` — равноправны. ``retry=False`` — без внутреннего
+    ретрая (обложка владеет повторами сама, хотфикс-5 item 3)."""
     url = f"{str(base_url).rstrip('/')}/images/generations"
     headers = {"Content-Type": "application/json"}
     if key:
@@ -466,7 +527,8 @@ async def _generate_post(base_url: str, model: str, prompt: str, key: str,
     body = _build_post_body(prompt, model)
     resp = await _request_with_retry("POST", url, json_body=body,
                                      headers=headers, timeout=timeout,
-                                     redact_key=key)
+                                     redact_key=key,
+                                     max_retries=1 if retry else 0)
     status = int(getattr(resp, "status_code", 0))
     if status != 200:
         log_external_api(
@@ -499,17 +561,19 @@ async def _generate_post(base_url: str, model: str, prompt: str, key: str,
             body=_redact_secret(getattr(resp, "text", ""), key),
             level=logging.ERROR)
         raise ImageGenerationError("no_url")
-    return await _download_bytes(str(image_url), timeout, max_bytes)
+    return await _download_bytes(str(image_url), timeout, max_bytes,
+                                 retry=retry)
 
 
-async def _download_bytes(image_url: str, timeout: float,
-                          max_bytes: int) -> bytes:
+async def _download_bytes(image_url: str, timeout: float, max_bytes: int,
+                          retry: bool = True) -> bytes:
     """Скачать байты изображения (без авторизации — внешний URL)."""
     # R17: URL ресурса выдан провайдером (может содержать подписанный токен в
     # path) — в лог/ретрай уходит только host, без path/query.
     safe_url = _provider_from_url(image_url)
     resp = await _request_with_retry("GET", image_url, timeout=timeout,
-                                     log_url=safe_url)
+                                     log_url=safe_url,
+                                     max_retries=1 if retry else 0)
     status = int(getattr(resp, "status_code", 0))
     if status != 200:
         log_external_api(
@@ -527,14 +591,16 @@ async def _download_bytes(image_url: str, timeout: float,
 
 
 async def _generate_get(host: str, model: str, prompt: str,
-                        timeout: float, max_bytes: int) -> bytes:
+                        timeout: float, max_bytes: int,
+                        retry: bool = True) -> bytes:
     """GET-режим: `/image/{prompt}` — СТРОГО АНОНИМНЫЙ.
 
     Ключ доступа в query НЕ добавляется сознательно (review iter1, Finding 1):
     httpx логирует полный URL на INFO, а консольный/journald-обработчик не
     гарантирует маскировку — `?key=` утёк бы в журнал. Это ровно семантика UI:
     «в GET-режиме поле ключа блокируется». Провайдер для GET работает по
-    серверному лимиту без авторизации."""
+    серверному лимиту без авторизации. ``retry=False`` — без внутреннего
+    ретрая (хотфикс-5 item 3)."""
     params = {
         "model": model,
         "width": _IMAGE_WIDTH,
@@ -546,7 +612,8 @@ async def _generate_get(host: str, model: str, prompt: str,
     # (`_request_with_retry`), и в ошибке логируем только эндпоинт без промпта.
     safe_url = f"{host}/image"
     resp = await _request_with_retry("GET", url, timeout=timeout,
-                                     log_url=safe_url)
+                                     log_url=safe_url,
+                                     max_retries=1 if retry else 0)
     status = int(getattr(resp, "status_code", 0))
     if status != 200:
         log_external_api(
@@ -691,13 +758,15 @@ async def _record_image_event(correlation_id: str | None) -> None:
 async def generate(prompt: str, *, chat_id: int | None = None,
                    correlation_id: str | None = None,
                    timeout: float | None = None,
-                   consume_budget: bool = True) -> GenerationResult:
+                   consume_budget: bool = True,
+                   retry: bool = True) -> GenerationResult:
     """Платный вызов провайдера → байты изображения (fail-open контракт).
 
     ``timeout`` — переопределение окна одной попытки (хотфикс-5; ``None`` →
     ``IMAGE_REQUEST_TIMEOUT_SECONDS``). ``consume_budget=False`` — бюджет уже
     списан вызывающим (bounded-retry не должен списывать его на каждую попытку);
-    поведение по умолчанию (True) — прежнее."""
+    поведение по умолчанию (True) — прежнее. ``retry=False`` — без внутреннего
+    ретрая HTTP 429/503 (обложка владеет повторами сама, item 3)."""
     prompt = str(prompt or "").strip()
     if not prompt:
         return GenerationResult(ok=False, reason="empty_prompt")
@@ -716,10 +785,11 @@ async def generate(prompt: str, *, chat_id: int | None = None,
     try:
         if get_mode:
             content = await _generate_get(_host_from_base(base_url), model,
-                                          prompt, timeout, max_bytes)
+                                          prompt, timeout, max_bytes,
+                                          retry=retry)
         else:
             content = await _generate_post(base_url, model, prompt, key,
-                                           timeout, max_bytes)
+                                           timeout, max_bytes, retry=retry)
     except httpx.TimeoutException:
         # Хотфикс-5: таймаут провайдера — отдельный класс причины (прежде
         # попадал в безликое "error").
@@ -750,17 +820,21 @@ async def generate(prompt: str, *, chat_id: int | None = None,
             level=logging.ERROR)
         return GenerationResult(ok=False, reason=exc.reason)
     except Exception as exc:
+        # Хотфикс-5: сетевые (connect/read/protocol) — отдельный транзиентный
+        # класс `network` (повторяемый), прочее — `error`.
+        reason = ("network" if isinstance(exc, httpx.TransportError)
+                  else "error")
         elapsed_ms = int((time.monotonic() - started) * 1000)
         logger.warning(
-            "[image] generation error | mode=%s | model=%s | error=%s | "
-            "latency_ms=%d", "get" if get_mode else "post", model,
-            type(exc).__name__, elapsed_ms)
+            "[image] generation error | mode=%s | model=%s | reason=%s | "
+            "error=%s | latency_ms=%d", "get" if get_mode else "post", model,
+            reason, type(exc).__name__, elapsed_ms)
         log_external_api(
             logger, provider=_provider_from_url(base_url),
             method="GET" if get_mode else "POST",
-            status=None, reason=type(exc).__name__, duration_ms=elapsed_ms,
+            status=None, reason=reason, duration_ms=elapsed_ms,
             level=logging.ERROR)
-        return GenerationResult(ok=False, reason="error")
+        return GenerationResult(ok=False, reason=reason)
     if len(content) > max_bytes:
         return GenerationResult(ok=False, reason="too_large")
     logger.info(
@@ -793,10 +867,14 @@ async def generate_image_verbose(prompt: str, *, chat_id: int | None = None,
 
     Хотфикс-5 (round10.25): окно одной попытки берётся из env-only
     ``IMAGE_ATTEMPT_TIMEOUT_SECONDS`` (default 180 c), добавлен ограниченный
-    ретрай (``IMAGE_GENERATION_MAX_ATTEMPTS``, default 2) с backoff; суммарный
-    бюджет ≤ ~2×окно. Бюджет списывается ОДИН раз на запрос (не на попытку).
-    Каждая неудачная попытка — WARNING с ``attempt=N/M``/классом причины/
-    провайдером/длительностью (R17-safe, без промпта)."""
+    ретрай (``IMAGE_GENERATION_MAX_ATTEMPTS``, default 2) с backoff. Ретраятся
+    ТОЛЬКО транзиентные отказы (`timeout`/`network`/`http_429/502/503/504`);
+    детерминированные (`unauthorized`/`bad_request`/`bad_json`/`too_large`/…)
+    дают ровно одну попытку. Внутренний HTTP-ретрай на период обложки отключён
+    (`retry=False`) — повторами владеет этот цикл, поэтому worst-case бюджет
+    строго ≤ ``attempts × окно`` (item 3), а не ~4×окна. Бюджет списывается
+    ОДИН раз на запрос. Каждая неудачная попытка — WARNING с ``attempt=N/M``/
+    классом причины/провайдером/длительностью (R17-safe, без промпта)."""
     prompt = str(prompt or "").strip()
     if not prompt:
         return None, "empty_prompt"
@@ -811,7 +889,7 @@ async def generate_image_verbose(prompt: str, *, chat_id: int | None = None,
         started = time.monotonic()
         result = await generate(prompt, chat_id=chat_id,
                                 correlation_id=correlation_id, timeout=timeout,
-                                consume_budget=False)
+                                consume_budget=False, retry=False)
         latency_ms = int((time.monotonic() - started) * 1000)
         if result.ok and result.content:
             path = _write_temp_image(result.content)
@@ -824,6 +902,8 @@ async def generate_image_verbose(prompt: str, *, chat_id: int | None = None,
             "reason=%s | provider=%s | latency_ms=%d | chat_id=%s",
             attempt, attempts, reason_class(last_reason), last_reason,
             provider, latency_ms, chat_id)
+        if not is_transient_reason(last_reason):
+            break                       # детерминированный отказ — не повторяем
         if attempt < attempts and backoff > 0:
             await asyncio.sleep(backoff)
     return None, last_reason

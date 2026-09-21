@@ -10,6 +10,13 @@ DEFAULT-OFF): гейты конспекта зовут chat_summary_enabled, _ti
 исключает положительные id.
 """
 import re
+from dataclasses import replace
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+from config.settings import settings
+from services.summary_scheduler import SummarySchedulerService
 
 
 def _js() -> str:
@@ -123,12 +130,28 @@ class TestDmSummaryGateMarkers:
         assert "await chat_summary_enabled(chat_id)" in src
 
     def test_s3_scheduler_skips_dm_positive_ids(self):
+        """S3: статический пин (осознанный) — DM-фильтр `_tick` жив.
+        Поведенческая проверка семантики — в тесте ниже."""
         src = open("services/summary_scheduler.py", encoding="utf-8").read()
         # Хотфикс-5: chat_id приводится к int (из PG может прийти строкой) ДО
         # DM-фильтра — семантика «ЛС-рассылки нет» сохранена.
         assert "chat_id = int(raw_chat_id)" in src
         assert "if chat_id > 0" in src
         assert "continue" in src
+
+    @pytest.mark.asyncio
+    async def test_s3_scheduler_skips_dm_positive_ids_behavioral(self):
+        """S3 (поведенческий): положительные chat_id (DM-скоуп) не получают
+        периодическое саммари; отрицательные — получают (ровно один вызов)."""
+        generator = MagicMock()
+        generator.generate_and_send = AsyncMock()
+        db = MagicMock()
+        db.get_smart_chat_ids = AsyncMock(return_value=[-100, 555])
+        service = SummarySchedulerService(generator, db)
+        mod = replace(settings, SUMMARY_TARGET_CHAT_IDS=None)
+        with patch("services.summary_scheduler.settings", mod):
+            await service._tick()
+        generator.generate_and_send.assert_awaited_once_with(-100)
 
     def test_s5_bot_router_gate_not_touched(self):
         """bot.py: гейт flags.summary_enabled (613-643) — без дифов
