@@ -53,6 +53,12 @@ ROUTES = ["#/", "#/oversight", "#/how", "#/modules", "#/ai",
           "#/ai/llm", "#/ai/prompts", "#/ai/smart-cache", "#/ai/names",
           "#/memory", "#/memory/rag", "#/memory/lore", "#/access"]
 
+# HOTFIX7 (T-2681): 5 логических режимов обязательной приёмки UPD 6. Каждый
+# вьюпорт §71 прогоняется в normal и fullscreen (стаб isFullscreen +
+# fullscreenChanged); здесь — человекочитаемый перечень для отчёта.
+MODES = ("desktop_normal", "desktop_fullscreen", "tablet",
+         "mobile_regular", "mobile_fullscreen")
+
 
 class _Handler(SimpleHTTPRequestHandler):
     def translate_path(self, path):  # noqa: N802
@@ -258,7 +264,20 @@ window.Telegram = { WebApp: {
   safeAreaInset: { top: 0, bottom: 0, left: 0, right: 0 },
   contentSafeAreaInset: { top: 0, bottom: 0, left: 0, right: 0 },
   ready() {}, expand() {}, setHeaderColor() {}, setBackgroundColor() {},
-  setBottomBarColor() {}, onEvent() {}, offEvent() {}, isExpanded: true,
+  setBottomBarColor() {}, isExpanded: true,
+  // HOTFIX7 (T-2681): минимальная шина событий — fullscreenChanged/
+  // viewportChanged нужны для проверки перехода shell в fullscreen-режим.
+  _stubHandlers: {},
+  onEvent(ev, fn) {
+    (this._stubHandlers[ev] = this._stubHandlers[ev] || []).push(fn);
+  },
+  offEvent(ev, fn) {
+    var a = this._stubHandlers[ev] || [];
+    this._stubHandlers[ev] = a.filter(function (f) { return f !== fn; });
+  },
+  __emit(ev) {
+    (this._stubHandlers[ev] || []).forEach(function (f) { f(); });
+  },
   BackButton: { show() {}, hide() {}, onClick() {}, offClick() {} },
 } };
 """
@@ -450,6 +469,121 @@ MORE_ITEM_PROBE_JS = """
     panelText: { moreItem: el ? getComputedStyle(el).color : null },
     tokens: { glassBg: tok('--glass-bg'), s0: tok('--surface-0'),
               teal: tok('--teal-500') },
+  };
+})()
+"""
+
+
+# HOTFIX7 (T-2681, ADR-1025-13 D1/D2/D3): проба shell/glass/heartbeat в normal и
+# fullscreen. Считает computed-токены shell vs карточек (должны отличаться),
+# отсутствие виньетки (`body::before` opacity ≤0.32) и `backdrop-filter: url(`,
+# видимость heartbeat (существует, высота ≥1, не клипается overflow контейнера
+# после scrollIntoView) и активный класс состояния (`hb-<state>`).
+F7_PROBE_JS = """
+(() => {
+  const de = document.documentElement;
+  const tok = (n) => getComputedStyle(de).getPropertyValue(n).trim();
+  const box = (sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: Math.round(r.x), y: Math.round(r.y),
+             w: Math.round(r.width), h: Math.round(r.height),
+             bottom: Math.round(r.bottom), right: Math.round(r.right),
+             visible: r.width > 0 && r.height > 0 };
+  };
+  const style = (sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return null;
+    const c = getComputedStyle(el);
+    return { bg: c.backgroundColor, border: c.borderTopColor,
+             shadow: c.boxShadow,
+             bf: (c.backdropFilter || c.webkitBackdropFilter || '') };
+  };
+  const before = getComputedStyle(document.body, '::before');
+  // §9-инвариант: нигде не опираемся на backdrop url-фильтр.
+  let urlBf = 0;
+  try {
+    for (const sh of Array.from(document.styleSheets)) {
+      let rules = null;
+      try { rules = sh.cssRules; } catch (e) { continue; }
+      if (!rules) continue;
+      for (const r of Array.from(rules)) {
+        const t = r.cssText || '';
+        if (/backdrop-filter\\s*:\\s*url\\(/.test(t)) urlBf++;
+      }
+    }
+  } catch (e) { /* noop */ }
+  const cv = document.querySelector('.hb-canvas');
+  const hbBox = box('.hb-canvas');
+  if (cv && typeof cv.scrollIntoView === 'function') {
+    try { cv.scrollIntoView({ block: 'nearest' }); } catch (e) { /* noop */ }
+  }
+  const hbAfter = box('.hb-canvas');
+  const hbWrap = document.querySelector('.hb-wrap');
+  let hbState = '';
+  if (hbWrap) {
+    const m = /(hb-healthy|hb-warning|hb-critical|hb-unknown)/
+      .exec(hbWrap.className || '');
+    hbState = m ? m[1] : '';
+  }
+  const hbVisible = !!hbAfter && hbAfter.visible && hbAfter.h >= 1 &&
+    hbAfter.x >= -1 && hbAfter.right <= window.innerWidth + 1 &&
+    hbAfter.y >= -1 && hbAfter.bottom <= window.innerHeight + 1;
+  // F-2 (review): реальный фолбэк высоты shell. Значения custom properties не
+  // валидируются при разборе, поэтому сравниваем валидную prod-структуру
+  // (base 100vh + апгрейд строго за @supports) с прежней сломанной цепочкой.
+  // «Отсутствие dvh» эмулируем заведомо неподдерживаемой единицей qvh в
+  // @supports-условии: апгрейд не применяется → должен остаться валидный 100vh.
+  const f2ShellH = (function () {
+    const mk = (id, css) => {
+      const oldEl = document.getElementById(id);
+      if (oldEl && oldEl.parentNode) oldEl.parentNode.removeChild(oldEl);
+      const oldSt = document.getElementById(id + '_style');
+      if (oldSt && oldSt.parentNode) oldSt.parentNode.removeChild(oldSt);
+      const st = document.createElement('style');
+      st.id = id + '_style';
+      st.textContent = css;
+      document.head.appendChild(st);
+      const el = document.createElement('div');
+      el.id = id;
+      document.body.appendChild(el);
+      return el;
+    };
+    const pos = 'position:fixed;left:0;top:0;width:1px;height:0;'
+      + 'opacity:0;pointer-events:none;';
+    const base = mk('__f2_base', '#__f2_base{' + pos
+      + '--shell-h:100vh;min-height:var(--shell-h);}'
+      + '@supports (height: 100qvh){#__f2_base{'
+      + '--shell-h:min(100qvh,1px);}}');
+    const broken = mk('__f2_broken', '#__f2_broken{' + pos
+      + '--shell-h:100vh;--shell-h:100qvh;--shell-h:min(100qvh,1px);'
+      + 'min-height:var(--shell-h);}');
+    const shellEl = document.querySelector('.app-shell');
+    return {
+      fallback: getComputedStyle(base).minHeight,
+      broken: getComputedStyle(broken).minHeight,
+      dvhSupported: !!(window.CSS && CSS.supports &&
+                      CSS.supports('height', '100dvh')),
+      appShellMin: shellEl ? getComputedStyle(shellEl).minHeight : '',
+    };
+  })();
+  return {
+    fullscreenMode: !!document.querySelector('.app-shell.fullscreen-mode'),
+    shellBg: tok('--shell-bg'), shellBgStrong: tok('--shell-bg-strong'),
+    shellBlur: tok('--shell-blur'), glassBg: tok('--glass-bg'),
+    beforeOpacity: parseFloat(before.opacity),
+    urlBackdropFilter: urlBf,
+    hbCanvas: hbBox, hbState: hbState, hbVisible: hbVisible,
+    appShell: box('.app-shell'),
+    card: style('.card'),
+    shell: {
+      sidebar: style('.app-sidebar'), header: style('header.header-sticky'),
+      bottomNav: style('.bottom-nav'), moreSheet: style('.more-sheet'),
+    },
+    scrollW: de.scrollWidth, innerW: window.innerWidth,
+    innerH: window.innerHeight,
+    f2ShellH: f2ShellH,
   };
 })()
 """
@@ -700,6 +834,87 @@ def _hotfix6_failures(probe: dict, label: str) -> list:
     return out
 
 
+def _hotfix7_failures(probe: dict, label: str, expected_fs: bool) -> list:
+    """HOTFIX7 (T-2681, ADR-1025-13): shell/glass/heartbeat в normal/fullscreen.
+
+    Проверяем: режим fullscreen соответствует ожиданию; heartbeat существует,
+    имеет высоту и не клипается overflow контейнера (visible после
+    scrollIntoView); состояние `hb-<state>` проставлено; shell-токены отличны от
+    карточных (нет «слияния» слоёв); виньетка убрана (`body::before` opacity
+    ≤0.32); нигде нет `backdrop-filter: url(`."""
+    out = []
+    if bool(probe.get("fullscreenMode")) != bool(expected_fs):
+        out.append("%s fullscreen: режим=%r (ожидалось %r)"
+                   % (label, probe.get("fullscreenMode"), expected_fs))
+    if not probe.get("hbCanvas"):
+        out.append("%s heartbeat: .hb-canvas отсутствует" % label)
+    elif not probe.get("hbVisible"):
+        out.append("%s heartbeat: не виден/обрезан (rect=%r)"
+                   % (label, probe.get("hbCanvas")))
+    if not probe.get("hbState"):
+        out.append("%s heartbeat: класс состояния hb-<state> не проставлен"
+                   % label)
+    # F-2 (review): реальный 100vh-фолбэк `--shell-h`. «Старый WebView»
+    # эмулируется заведомо неподдерживаемой единицей в @supports-условии:
+    # апгрейд не применяется → base 100vh; прежняя цепочка объявлений custom
+    # property воспроизводит баг (invalid at computed-value time → auto).
+    f2 = probe.get("f2ShellH") or {}
+    if not f2:
+        out.append("%s F-2: проба фолбэка высоты отсутствует" % label)
+    else:
+        def _px(v):
+            mm = re.match(r"(-?[\d.]+)px", str(v or ""))
+            return float(mm.group(1)) if mm else None
+        fallback_px = _px(f2.get("fallback"))
+        broken_px = _px(f2.get("broken"))
+        inner_h = probe.get("innerH") or 0
+        # База (валидный 100vh) обязана дать высоту видимой области.
+        if fallback_px is None or abs(fallback_px - inner_h) > 1:
+            out.append("%s F-2: базовый 100vh-фолбэк не применился "
+                       "(fallback=%r, innerH=%s)"
+                       % (label, f2.get("fallback"), inner_h))
+        # Прежняя цепочка объявлений custom property должна НЕ давать высоту
+        # вьюпорта (в Chromium схлопывается в 0px/auto) — тем самым эмуляция
+        # старого WebView подтверждает, что баг F-2 реально воспроизводится.
+        if broken_px is not None and broken_px > 1:
+            out.append("%s F-2: эмуляция старого WebView не воспроизвела баг "
+                       "(broken min-height=%r)" % (label, f2.get("broken")))
+        app_min = f2.get("appShellMin")
+        if app_min in ("auto", "", None):
+            out.append("%s F-2: .app-shell min-height=%r (нужен валидный "
+                       "--shell-h)" % (label, app_min))
+    sbg, gbg = probe.get("shellBg"), probe.get("glassBg")
+    if not sbg:
+        out.append("%s glass: --shell-bg отсутствует" % label)
+    if sbg and gbg and sbg.replace(" ", "") == gbg.replace(" ", ""):
+        out.append("%s glass: --shell-bg == --glass-bg (слои слились)" % label)
+    op = probe.get("beforeOpacity")
+    if op is not None and op > 0.32:
+        out.append("%s фон: body::before opacity=%s > 0.32 (виньетка)"
+                   % (label, op))
+    if probe.get("urlBackdropFilter"):
+        out.append("%s §9: backdrop-filter: url( найден (%d)"
+                   % (label, probe["urlBackdropFilter"]))
+    card = probe.get("card") or {}
+    for name, box in (probe.get("shell") or {}).items():
+        if not box:
+            continue
+        if card.get("bg") and box.get("bg") == card.get("bg"):
+            out.append("%s glass: shell %s bg == card bg (не отделён)"
+                       % (label, name))
+    if probe.get("scrollW", 0) > probe.get("innerW", 0) + 1:
+        out.append("%s overflow: scrollW=%d > innerW=%d"
+                   % (label, probe.get("scrollW"), probe.get("innerW")))
+    sh = probe.get("appShell")
+    if expected_fs:
+        if not sh:
+            out.append("%s fullscreen: .app-shell отсутствует" % label)
+        elif sh["h"] > probe.get("innerH", 0) + 1:
+            out.append("%s fullscreen: shell выше видимой области (h=%d > %d)"
+                       % (label, sh["h"], probe.get("innerH")))
+    return out
+
+
 def _snap(page, name):
     try:
         page.screenshot(path=os.path.join(SHOTS, name + ".png"), full_page=False)
@@ -854,6 +1069,11 @@ def main() -> int:
             # glass allow-deny), затем пауза при document.hidden (§10/T-2547).
             page.evaluate("() => { window.location.hash = '#/'; }")
             page.wait_for_timeout(350)
+            # HOTFIX7 (T-2681): shell/glass/heartbeat в normal-режиме (на #/).
+            f7 = page.evaluate(F7_PROBE_JS)
+            out["viewports"][vp_key]["hotfix7_normal"] = f7
+            failures.extend(_hotfix7_failures(
+                f7, "%s normal" % vp_key, False))
             f2 = page.evaluate(F2_PROBE_JS)
             out["viewports"][vp_key]["f2"] = f2
             failures.extend(_f2_failures(f2, vp_key))
@@ -993,6 +1213,48 @@ def main() -> int:
                 except Exception as exc:  # noqa: BLE001
                     failures.append("%s more-sheet probe: %s"
                                     % (vp_key, str(exc)[:200]))
+            # HOTFIX7 (T-2681): fullscreen-режим — стаб isFullscreen=true +
+            # fullscreenChanged → `.app-shell.fullscreen-mode`; проверяем, что
+            # в fullscreen ничего не пропадает/не режется и heartbeat виден.
+            try:
+                page.evaluate(
+                    "() => { var m = document.querySelector('.more-backdrop');"
+                    " if (m) m.click(); }")
+                page.wait_for_timeout(150)
+                page.evaluate(
+                    "() => { var wv = window.Telegram &&"
+                    " window.Telegram.WebView;"
+                    " if (wv && typeof wv.receiveEvent === 'function') {"
+                    " wv.receiveEvent('fullscreen_changed',"
+                    " { is_fullscreen: true }); return; }"
+                    " var wa = window.Telegram && window.Telegram.WebApp;"
+                    " if (wa) { wa.isFullscreen = true;"
+                    " if (typeof wa.__emit === 'function')"
+                    " wa.__emit('fullscreenChanged'); } }")
+                page.wait_for_timeout(400)
+                page.evaluate("() => { window.location.hash = '#/'; }")
+                page.wait_for_timeout(350)
+                fs7 = page.evaluate(F7_PROBE_JS)
+                out["viewports"][vp_key]["hotfix7_fullscreen"] = fs7
+                failures.extend(_hotfix7_failures(
+                    fs7, "%s fullscreen" % vp_key, True))
+                _snap(page, "%s_fullscreen" % vp_key)
+                # Сброс в normal (не влияет на следующие вьюпорты, но чисто
+                # завершает контекст).
+                page.evaluate(
+                    "() => { var wv = window.Telegram &&"
+                    " window.Telegram.WebView;"
+                    " if (wv && typeof wv.receiveEvent === 'function') {"
+                    " wv.receiveEvent('fullscreen_changed',"
+                    " { is_fullscreen: false }); return; }"
+                    " var wa = window.Telegram && window.Telegram.WebApp;"
+                    " if (wa) { wa.isFullscreen = false;"
+                    " if (typeof wa.__emit === 'function')"
+                    " wa.__emit('fullscreenChanged'); } }")
+                page.wait_for_timeout(150)
+            except Exception as exc:  # noqa: BLE001
+                failures.append("%s fullscreen probe: %s"
+                                % (vp_key, str(exc)[:200]))
             # P0-инцидент F1: render-ошибки (console.error/pageerror) — FAIL,
             # иначе класс «раздел пуст, но метрики чистые» не ловится.
             for msg in vp_errors:

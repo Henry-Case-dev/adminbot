@@ -712,6 +712,23 @@ class Settings:
         "UI_HEADER_COMPACT_V2", True)
     UI_LENS_MAX_NODES: ClassVar[int] = _env_int_min(
         "UI_LENS_MAX_NODES", 6, 1)
+    # ── Хотфикс-7 (10.25, ADR-1025-13 D5.3): env-only ClassVar-флаги трёх
+    # областей (layout/fullscreen, glass-shell, premium-heartbeat). Δ каталога = 0
+    # (в param_catalog НЕ входят). Доставка — `GET /api/me.ui_flags`
+    # (ADR-1024-13), наружу только bool. Каждый — независимый откат своей
+    # области без редеплоя (default ON = штатное новое поведение):
+    #   * UI_SHELL_GLASS_V2 — OFF → shell-панели возвращаются к общим
+    #     карточным токенам `--glass-*` (поведение до HOTFIX7).
+    #   * UI_HEARTBEAT_PREMIUM — OFF → прежний canvas-рендер (синусоида +
+    #     импульс) для мягкого отката D2; `UI_HEARTBEAT_CANVAS_ENABLED=OFF`
+    #     по-прежнему даёт legacy SVG.
+    #   * UI_SHELL_LAYOUT_V2 — OFF → прежняя геометрия высот/выравнивания
+    #     (откат самого рискованного, не воспроизводимого headless изменения).
+    UI_SHELL_GLASS_V2: ClassVar[bool] = _env_bool("UI_SHELL_GLASS_V2", True)
+    UI_HEARTBEAT_PREMIUM: ClassVar[bool] = _env_bool(
+        "UI_HEARTBEAT_PREMIUM", True)
+    UI_SHELL_LAYOUT_V2: ClassVar[bool] = _env_bool(
+        "UI_SHELL_LAYOUT_V2", True)
     # ── Раунд 10.22 (F8, ADR-1022-8): env-only ClassVar-рубильники
     # асинхронной пересборки досье из мини-аппа. Δ каталога = 0 (в
     # param_catalog не входят; прецедент MULTILAYER_EXTRACTION_ENABLED).
@@ -1682,7 +1699,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.58.7"   # hotfix6: линза-преломление §9 + стекло панелей + contentSafeArea + Canvas-2D §15 + шапка D
+APP_VERSION = "2.58.8"   # hotfix7: единый --shell-h + 2 режима, ECG sweep-wipe heartbeat, серо-графитовый glass-shell
 
 
 def get_ytdlp_pot_provider() -> str:

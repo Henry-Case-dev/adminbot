@@ -147,3 +147,14 @@ def test_js_unit_round1025_hotfix6_lens_heartbeat_shell():
     _run_js(os.path.join("tests", "js",
                          "round1025_hotfix6_lens_heartbeat_shell_test.js"),
             ok_marker="HOTFIX6-LENS-HEARTBEAT-SHELL-OK")
+
+
+def test_js_unit_round1025_hotfix7_shell_glass_heartbeat():
+    """hotfix7 round 10.25 (ADR-1025-13, T-2658…T-2694): единый `--shell-h` +
+    два режима normal/fullscreen (legacy-откат UI_SHELL_LAYOUT_V2), premium
+    ECG sweep-wipe (нет pulseX, off-путь canvas-legacy UI_HEARTBEAT_PREMIUM),
+    серо-графитовый `--shell-*`-слой + specular/texture (UI_SHELL_GLASS_V2),
+    env-only флаги в settings/routes, матрица 5 режимов."""
+    _run_js(os.path.join("tests", "js",
+                         "round1025_hotfix7_shell_glass_heartbeat_test.js"),
+            ok_marker="HOTFIX7-SHELL-GLASS-HEARTBEAT-OK")

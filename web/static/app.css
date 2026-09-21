@@ -57,12 +57,49 @@
       --glass-displace: url(#lg-lens);
       --glass-highlight: rgba(255, 255, 255, 0.16);
       --glass-highlight-soft: rgba(255, 255, 255, 0.05);
-      --glass-shadow: 0 18px 40px -18px rgba(3, 7, 18, 0.75);
+      /* D3.5/ADR-1025-13: «грязь» убрана — alpha .75 → .55; карточкам даётся
+         отдельная лёгкая --card-shadow (ниже), модалки/тултипы остаются на
+         --glass-shadow (сохранён для них). */
+      --glass-shadow: 0 18px 40px -18px rgba(3, 7, 18, 0.55);
       --sticky-save-h: 4.5rem;
+      /* ═══ HOTFIX7 (ADR-1025-13 D1.1, ред. review F-2): ЕДИНЫЙ сток высоты shell ═══
+         ВАЖНО: значения custom properties НЕ валидируются при разборе — браузер
+         хранит почти любое значение и лишь при var()-подстановке объявляет
+         результат invalid at computed-value time. Поэтому прежняя цепочка
+         `100vh → 100dvh → min(100dvh,…)` в старом WebView без dvh/min() НЕ давала
+         фолбэк: `min-height: var(--shell-h)` становился невалидным и падал в
+         initial `auto` (в fullscreen — `height:auto`). Реальный фолбэк: базовое
+         значение — всегда валидный `100vh`; прогрессивное улучшение включается
+         отдельной @supports-веткой ниже ТОЛЬКО при доказанной поддержке dvh+min().
+         Конкурирующие min-height/height запрещены. */
+      --shell-h: 100vh;
+      /* ═══ HOTFIX7 (ADR-1025-13 D3.1): отдельный серо-графитовый glass-shell ═══
+         Значения derived из §8 neutrals; карточные --glass-* НЕ переопределены.
+         Shell — визуально отдельный слой (плотнее/серее/стекляннее карточек). */
+      --shell-bg: rgba(33, 37, 45, 0.62);
+      --shell-bg-strong: rgba(24, 28, 35, 0.90);
+      --shell-border-color: rgba(178, 190, 208, 0.20);
+      --shell-border: 1px solid var(--shell-border-color);
+      --shell-highlight: rgba(255, 255, 255, 0.18);
+      --shell-highlight-soft: rgba(255, 255, 255, 0.05);
+      --shell-shadow: 0 12px 30px -18px rgba(3, 7, 18, 0.55);
+      --shell-blur: blur(18px) saturate(120%);
+      --shell-specular: linear-gradient(160deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 42%, transparent 72%);
+      --shell-texture: repeating-linear-gradient(135deg, rgba(255,255,255,.020) 0 1px, transparent 1px 3px);
+      --card-shadow: 0 8px 20px -14px rgba(3, 7, 18, 0.45);
       /* compat-алиасы (хардкод прежней фиолетово-синей палитры удалён, §4.5) */
       --card-bg: var(--glass-bg);
       --card-border: 1px solid var(--surface-border);
       --accent-grad: linear-gradient(135deg, var(--purple-500), var(--grad-d), var(--teal-500));
+    }
+    /* Реальный фолбэк высоты shell (ADR-1025-13 D1.1, review F-2): апгрейд
+       `--shell-h` разрешён только при ДОКАЗАННОЙ поддержке dvh+min(); иначе
+       остаётся базовый валидный `100vh` (см. комментарий у `--shell-h` выше).
+       В TMA минимум с видимой областью → shell не выше неё (нет обрезки низа). */
+    @supports (height: 100dvh) and (height: min(100dvh, 100dvh)) {
+      :root {
+        --shell-h: min(100dvh, var(--tg-viewport-stable-height, 100dvh));
+      }
     }
     /* @property + inherits:false — быстрое (не)наследуемое вычисление и
        плавная интерполяция угла градиента (OD4/§4.3) */
@@ -134,7 +171,9 @@
       background-size: 200% 200%;
       animation: grad-spin var(--grad-speed) linear infinite,
                  grad-drift var(--grad-speed-slow) var(--grad-ease) infinite alternate;
-      opacity: .42;
+      /* D3.5/ADR-1025-13: «грязное затемнение» убрано (.42 → .30); механика,
+         цвета и длительности §10 сохранены (60–90 c / 90–120 c). */
+      opacity: .30;
     }
     /* §10/T-2547: пауза дорогих эффектов при скрытии TMA (класс ставит
        onVisibilityChange в app.js — единый обработчик, без второго listener'а). */
@@ -148,7 +187,7 @@
     @media (prefers-reduced-motion: reduce) {
       .grad-band, .btn-accent, .tab-btn.active { animation: none !important; }
       body::before {
-        animation: none !important; opacity: .35;
+        animation: none !important; opacity: .26;
         background: linear-gradient(135deg, var(--grad-a), var(--grad-b), var(--grad-c));
       }
       :root { --grad-angle: 135deg; }
@@ -748,12 +787,17 @@
       position: sticky;
       top: 0;
       z-index: 40;
-      background: var(--glass-bg-strong);
-      /* A2/T-2589 (ADR-1025-12 D2): шапка получает blur (закрывает F2
-         L10.25F2-1). Плотный --glass-bg-strong сохраняется — читаемость поверх
-         произвольного прокручиваемого контента. */
-      -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
-      backdrop-filter: var(--glass-blur) saturate(140%);
+      /* HOTFIX7 (ADR-1025-13 D3.2): шапка — отдельный серо-графитовый
+         shell-слой (--shell-bg-strong, плотнее карточек), не карточный
+         --glass-bg. Контент при скролле не «просвечивает грязно». */
+      background: var(--shell-bg-strong);
+      border-bottom: var(--shell-border);
+      box-shadow: var(--shell-shadow),
+                  inset 0 1px 0 var(--shell-highlight),
+                  inset 0 -1px 0 var(--shell-highlight-soft);
+      /* A2/T-2589 (ADR-1025-12 D2; AMEND ADR-1025-13 D3): стекляннее карточек. */
+      -webkit-backdrop-filter: var(--shell-blur);
+      backdrop-filter: var(--shell-blur);
       padding-right: calc(1rem + env(safe-area-inset-right, 0px));
       padding-left: calc(1rem + env(safe-area-inset-left, 0px));
     }
@@ -804,9 +848,12 @@
        в fullscreen (⛶); header остаётся sticky. */
     .app-shell {
       display: flex; flex-direction: column;
-      /* F1 (T-2399/review): стабильная высота TMA (viewportStableHeight) —
-         иначе fallback 100vh вне Telegram. */
-      min-height: var(--tg-viewport-stable-height, 100vh);
+      /* HOTFIX7 D1.2 (ADR-1025-13): normal-режим — нативный скролл страницы,
+         header sticky. Высота — из ЕДИНОГО стока `--shell-h`; конкурирующий
+         источник высоты (viewportStableHeight) убран. */
+      min-height: var(--shell-h);
+      height: auto;
+      overflow: visible;
     }
     .scroll-area {
       flex: 1 1 auto; min-height: 0; padding: 1rem;
@@ -816,8 +863,13 @@
          якорная прокрутка учитывает её высоту. */
       scroll-padding-top: calc(var(--header-h, 0px) + 1rem);
     }
+    /* HOTFIX7 D1.2 (ADR-1025-13): fullscreen — shell ровно по видимой области,
+       единственный скроллер внутри `.scroll-area`. Никаких смешанных
+       min-height/height с разными значениями (P4 устранён). */
     .fullscreen-mode {
-      height: 100dvh;
+      height: var(--shell-h);
+      max-height: var(--shell-h);
+      min-height: 0;
       overflow: hidden;
     }
     .fullscreen-mode .scroll-area {
@@ -825,6 +877,20 @@
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
       padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    }
+    /* HOTFIX7 D4.4 (ADR-1025-13): UI_SHELL_LAYOUT_V2=OFF → прежняя геометрия
+       высот (откат самого рискованного, не воспроизводимого headless изменения):
+       конкурирующий min-height(stable) + height:100dvh в fullscreen. */
+    .app-shell.shell-layout-legacy {
+      min-height: var(--tg-viewport-stable-height, 100vh);
+      height: auto;
+      overflow: visible;
+    }
+    .app-shell.shell-layout-legacy.fullscreen-mode {
+      height: 100dvh;
+      max-height: none;
+      min-height: var(--tg-viewport-stable-height, 100vh);
+      overflow: hidden;
     }
     /* Нет скролл-чейнинга у вложенных скроллеров (T-1163) */
     .log-panel, .scope-panel, .modal-body { overscroll-behavior: contain; }
@@ -886,7 +952,7 @@
        `.status-block` ограничен по ширине/overflow; canvas/линза — width:100%. */
     .status-block { max-width: 100%; overflow: hidden; }
     .status-block__pulse { min-width: 0; max-width: 100%; }
-    .hb-wrap { position: relative; width: 100%; max-width: 100%; }
+    .hb-wrap { position: relative; width: 100%; max-width: 100%; min-height: 56px; }
     .hb-canvas { display: block; width: 100%; max-width: 100%; height: 56px;
                  cursor: pointer; }
     .hb-tip {
@@ -909,7 +975,9 @@
       /* §15/C1: на мобильном сердебиение — отдельная полноширинная область
          под системными метриками (grid уже одноколоночный). */
       .status-block__pulse { width: 100%; }
+      /* HOTFIX7 D1.6: канвас/обёртка не схлопываются (в т.ч. в fullscreen). */
       .hb-canvas { height: 52px; }
+      .hb-wrap { min-height: 52px; }
     }
 
     /* F5 (T-1450..T-1456, ТЗ §5/§7): дашборд «Осмысление» — бегущие строки
@@ -1038,6 +1106,14 @@
       -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
       backdrop-filter: var(--glass-blur) saturate(140%);
       border: var(--glass-border);
+      /* D3.4/ADR-1025-13: карточки — тоньше и ближе к фону (низкая «высота»),
+         отдельная --card-shadow; модалки/тултипы возвращаются на --glass-shadow
+         ниже — сохраняется глубина «фон → карточки → shell → модалки». */
+      box-shadow: var(--card-shadow),
+                  inset 0 1px 0 var(--glass-highlight);
+    }
+    /* D3.4: модалки — над shell, сохраняют плотную --glass-shadow. */
+    .modal-card {
       box-shadow: var(--glass-shadow),
                   inset 0 1px 0 var(--glass-highlight);
     }
@@ -1159,10 +1235,16 @@
     @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
       .card, .modal-card, .module-card, .hub-card, .prov-block,
       details.advanced, .scope-panel, .glass-panel, .oversight-panel,
-      [data-glass="a"], [data-glass="c"],
+      [data-glass="a"], [data-glass="c"] {
+        background-color: var(--glass-bg-strong);
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+      }
+      /* HOTFIX7 (ADR-1025-13 D3.2): shell-панели — плотный серо-графитовый
+         фолбэк (раскладка/контраст сохранены, стекло честно исчезает). */
       .app-sidebar, .app-drawer, header.header-sticky,
       .bottom-nav, .more-sheet {
-        background-color: var(--glass-bg-strong);
+        background-color: var(--shell-bg-strong);
         -webkit-backdrop-filter: none;
         backdrop-filter: none;
       }
@@ -1170,6 +1252,28 @@
         content: none; -webkit-filter: none; filter: none;
         -webkit-mask-image: none; mask-image: none;
       }
+    }
+    /* HOTFIX7 D3.8 (ADR-1025-13): UI_SHELL_GLASS_V2=OFF → shell-панели
+       возвращаются к общим карточным токенам (поведение до HOTFIX7) —
+       независимый мягкий откат области D3 без редеплоя. */
+    .app-shell.shell-glass-legacy .app-sidebar,
+    .app-shell.shell-glass-legacy .app-drawer,
+    .app-shell.shell-glass-legacy .bottom-nav,
+    .app-shell.shell-glass-legacy .more-sheet {
+      background-color: var(--glass-bg);
+      background-image: none;
+      border-color: var(--glass-border-color);
+      box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+      -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
+      backdrop-filter: var(--glass-blur) saturate(140%);
+    }
+    .app-shell.shell-glass-legacy header.header-sticky {
+      background-color: var(--glass-bg-strong);
+      background-image: none;
+      border-bottom-color: var(--glass-border-color);
+      box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+      -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
+      backdrop-filter: var(--glass-blur) saturate(140%);
     }
 
     /* T-1900/UPD3 (T-1938): sticky-save — одна закреплённая панель внизу
@@ -1565,11 +1669,17 @@
         display: flex; flex-direction: column;
         position: fixed; top: 0; left: 0; bottom: 0; width: 232px;
         padding: .5rem .5rem calc(.5rem + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px)));
-        /* A2/T-2588 (ADR-1025-12 D2): стекло панели — blur + кромка; плотность
-           подложки достаточна для AA пунктов меню (--text-2 на --glass-bg). */
-        background: var(--glass-bg); border-right: var(--glass-border);
-        -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
-        backdrop-filter: var(--glass-blur) saturate(140%);
+        /* HOTFIX7 (ADR-1025-13 D3.2/D3.3): shell-панель — серо-графитовый
+           base + backdrop blur + мягкая внутренняя подсветка + specular +
+           аккуратная текстура; тон/глубина отличны от карточек. */
+        background-color: var(--shell-bg);
+        background-image: var(--shell-specular), var(--shell-texture);
+        border-right: var(--shell-border);
+        box-shadow: var(--shell-shadow),
+                    inset 0 1px 0 var(--shell-highlight),
+                    inset 0 -1px 0 var(--shell-highlight-soft);
+        -webkit-backdrop-filter: var(--shell-blur);
+        backdrop-filter: var(--shell-blur);
         overflow-y: auto; z-index: 30;
       }
       /* header ≈64 px (§6) */
@@ -1589,10 +1699,16 @@
     .app-drawer {
       position: fixed; top: 0; left: 0; bottom: 0; width: min(280px, 84vw);
       padding: .75rem .5rem calc(.75rem + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px)));
-      /* A2/T-2588 (ADR-1025-12 D2): стекло планшетного drawer (768–1199). */
-      background: var(--glass-bg); border-right: var(--glass-border);
-      -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
-      backdrop-filter: var(--glass-blur) saturate(140%);
+      /* HOTFIX7 (ADR-1025-13 D3.2): drawer — тот же серо-графитовый shell-слой,
+         что sidebar/bottom-nav (единый тон/граница/глубина/blur). */
+      background-color: var(--shell-bg);
+      background-image: var(--shell-specular), var(--shell-texture);
+      border-right: var(--shell-border);
+      box-shadow: var(--shell-shadow),
+                  inset 0 1px 0 var(--shell-highlight),
+                  inset 0 -1px 0 var(--shell-highlight-soft);
+      -webkit-backdrop-filter: var(--shell-blur);
+      backdrop-filter: var(--shell-blur);
       transform: translateX(-105%); transition: transform .2s ease;
       overflow-y: auto; z-index: 40;
     }
@@ -1614,10 +1730,15 @@
       bottom: var(--tg-viewport-bottom-offset,
                   max(0px, calc(100dvh - var(--tg-viewport-stable-height, 100dvh))));
       display: flex; align-items: stretch; justify-content: space-around;
-      /* A2/T-2590 (ADR-1025-12 D2): нижняя панель — стекло (blur + кромка). */
-      background: var(--glass-bg); border-top: var(--glass-border);
-      -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
-      backdrop-filter: var(--glass-blur) saturate(140%);
+      /* HOTFIX7 (ADR-1025-13 D3.2): нижняя панель — серо-графитовый shell-слой
+         (единый с sidebar/drawer); стекло поверх контента. */
+      background-color: var(--shell-bg);
+      background-image: var(--shell-specular), var(--shell-texture);
+      border-top: var(--shell-border);
+      box-shadow: var(--shell-shadow),
+                  inset 0 1px 0 var(--shell-highlight);
+      -webkit-backdrop-filter: var(--shell-blur);
+      backdrop-filter: var(--shell-blur);
       padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px));
       max-width: 100vw;
     }
@@ -1664,10 +1785,15 @@
       bottom: calc(52px + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px)) + var(--tg-viewport-bottom-offset, max(0px, calc(100dvh - var(--tg-viewport-stable-height, 100dvh))))); z-index: 50;
       display: flex; flex-direction: column; gap: .15rem;
       padding: .5rem .6rem calc(.75rem + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px))); max-height: 70dvh; overflow-y: auto;
-      /* A2/T-2590 (ADR-1025-12 D2): шторка «Ещё» — стекло (blur + кромка). */
-      background: var(--glass-bg); border-top: var(--glass-border);
-      -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
-      backdrop-filter: var(--glass-blur) saturate(140%);
+      /* HOTFIX7 (ADR-1025-13 D3.2): шторка «Ещё» — единый серо-графитовый
+         shell-слой. */
+      background-color: var(--shell-bg);
+      background-image: var(--shell-specular), var(--shell-texture);
+      border-top: var(--shell-border);
+      box-shadow: var(--shell-shadow),
+                  inset 0 1px 0 var(--shell-highlight);
+      -webkit-backdrop-filter: var(--shell-blur);
+      backdrop-filter: var(--shell-blur);
       border-radius: .9rem .9rem 0 0;
       transform: translateY(110%); transition: transform .2s ease;
       max-width: 100vw;

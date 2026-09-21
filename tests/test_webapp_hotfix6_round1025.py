@@ -8,7 +8,7 @@
   * C — §15: Canvas 2D (не SVG/WebGL), телеметрия отделена, состояния/гистерезис,
     UNKNOWN, тултип, reduced-motion, C1-overflow.
   * D — двухстрочная шапка под гейтом, резерв `--header-h`, fullscreen.
-  * Общее — `APP_VERSION` 2.58.7; env-only флаги вне `param_catalog` (Δ каталога=0).
+  * Общее — `APP_VERSION` 2.58.8 (bump hotfix7); env-only флаги вне `param_catalog` (Δ каталога=0).
 """
 import re
 from pathlib import Path
@@ -229,7 +229,7 @@ class TestAreaD:
 class TestCommon:
     def test_app_version_bumped(self):
         m = re.search(r'APP_VERSION\s*=\s*"([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.7", m and m.group(1)
+        assert m and m.group(1) == "2.58.8", m and m.group(1)
 
     def test_matrix_hotfix6_probes(self):
         """T-2598/T-2611: матрица проверяет C1-overflow и ⛶ в вьюпорте."""

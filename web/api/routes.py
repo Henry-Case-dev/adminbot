@@ -389,6 +389,12 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
                 bool(settings.UI_HEARTBEAT_CANVAS_ENABLED),
             "UI_HEADER_COMPACT_V2": bool(settings.UI_HEADER_COMPACT_V2),
             "UI_LENS_MAX_NODES": int(settings.UI_LENS_MAX_NODES),
+            # Хотфикс-7 (10.25, ADR-1025-13 D5.3): три независимых env-only
+            # отката областей layout/glass-shell/premium-heartbeat.
+            # R16-аддитивно, R17-безопасно (только bool), Δ каталога = 0.
+            "UI_SHELL_GLASS_V2": bool(settings.UI_SHELL_GLASS_V2),
+            "UI_HEARTBEAT_PREMIUM": bool(settings.UI_HEARTBEAT_PREMIUM),
+            "UI_SHELL_LAYOUT_V2": bool(settings.UI_SHELL_LAYOUT_V2),
         },
     }
 

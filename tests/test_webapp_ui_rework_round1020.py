@@ -349,8 +349,10 @@ class TestGradient:
         assert wash, "нет правила body::before"
         assert "conic-gradient" in wash[-1]
         assert "var(--grad-d)" in wash[-1]
-        assert re.search(r"opacity:\s*\.4", wash[-1] + " ") or \
-            re.search(r"opacity:\s*0\.4", wash[-1]), wash[-1]
+        # hotfix7 (ADR-1025-13 D3.5): плотность wash снижена .42 → .30 (снятие
+        # «грязного затемнения»); механика/цвета §10 сохранены.
+        assert re.search(r"opacity:\s*\.3", wash[-1] + " ") or \
+            re.search(r"opacity:\s*0\.3", wash[-1]), wash[-1]
 
     def test_reduced_motion_and_contrast_kept(self):
         assert "@media (prefers-reduced-motion: reduce)" in CSS

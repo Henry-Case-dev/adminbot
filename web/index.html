@@ -47,7 +47,9 @@
   <div id="app" v-cloak>
     <div class="app-shell"
          :class="[{ 'fullscreen-mode': isFullscreen }, 'shell-' + shellMode,
-                  iaV2 ? 'ia-v2' : 'ia-legacy']">
+                  iaV2 ? 'ia-v2' : 'ia-legacy',
+                  shellLayoutV2 ? 'shell-layout-v2' : 'shell-layout-legacy',
+                  shellGlassV2 ? 'shell-glass-v2' : 'shell-glass-legacy']">
       <!-- ═══ F1 (ADR-1025-1 D6, §4.2): desktop sidebar — СТРОГО ≥1200 px.
            В 768–1199 постоянной панели нет (drawer ниже); <768 — bottom-nav. -->
       <aside v-if="iaV2 && hasSidebar" class="app-sidebar" data-glass="a" aria-label="Боковая навигация">

@@ -1821,6 +1821,21 @@
       headerCompactV2: function () {
         return this.iaV2 && this.uiFlag('UI_HEADER_COMPACT_V2');
       },
+      // HOTFIX7 (ADR-1025-13 D3/D4): два независимых отката shell-областей.
+      // Default ON (штатное новое поведение); OFF → класс `.shell-*-legacy`
+      // возвращает прежние токены/геометрию без редеплоя.
+      shellGlassV2: function () {
+        return this.uiFlag('UI_SHELL_GLASS_V2');
+      },
+      shellLayoutV2: function () {
+        return this.uiFlag('UI_SHELL_LAYOUT_V2');
+      },
+      // HOTFIX7 (ADR-1025-13 D2.6): premium-рендер ECG; OFF → прежний
+      // canvas-рендер (синусоида + импульс). `UI_HEARTBEAT_CANVAS_ENABLED=OFF`
+      // по-прежнему уводит на legacy SVG (порядок: SVG → canvas legacy → ECG).
+      heartbeatPremium: function () {
+        return this.uiFlag('UI_HEARTBEAT_PREMIUM');
+      },
       // F5 (T-1586, round1015) + F3 (round1017): бейджи фаз — оконная
       // семантика (spec §3а/§4) сохранена. Вне фазы — не светится и
       // показывает ОСТАТОК до начала (`fmtCountdown`); в активной — `.glow`
@@ -6631,19 +6646,182 @@
           });
         }
       },
-      // Рисование только готового снимка состояния (сеть в кадре отсутствует).
-      _hbDraw: function (ts) {
-        var cv = this.$refs && this.$refs.hbCanvas;
-        if (!cv || typeof cv.getContext !== 'function') return;
-        var ctx = cv.getContext('2d');
-        if (!ctx) return;
-        var dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
-        var cssW = cv.clientWidth || 320, cssH = cv.clientHeight || 56;
-        if (cv.width !== Math.round(cssW * dpr)) cv.width = Math.round(cssW * dpr);
-        if (cv.height !== Math.round(cssH * dpr)) {
-          cv.height = Math.round(cssH * dpr);
+      // ═══ HOTFIX7 (ADR-1025-13 D2): premium-рендер сердцебиения ═══
+      // Форма сигнала — реалистичный кардиокомплекс P/Q/R/S/T (сумма гауссиан),
+      // НЕ синусоида. Развёртка sweep-wipe: луч идёт слева-вправо; позади —
+      // яркая трасса, впереди — приглушённая изолиния; «плавающей точки» и
+      // горизонтального переноса линии нет. Число комплексов/период — от
+      // состояния (не от выдуманного BPM). Свечение ограничено, есть дыхание
+      // яркости. Семантика `_heartbeatTransition`/`heartbeatSample` не меняется.
+      _hbEcg: function (u) {
+        var g = function (x, mu, sigma, a) {
+          var d = (x - mu) / sigma;
+          return a * Math.exp(-0.5 * d * d);
+        };
+        return g(u, 0.180, 0.030, 0.08)    // P
+             + g(u, 0.340, 0.012, -0.10)   // Q
+             + g(u, 0.365, 0.011, 1.00)    // R
+             + g(u, 0.390, 0.013, -0.22)   // S
+             + g(u, 0.550, 0.045, 0.20);   // T
+      },
+      _hbRgba: function (color, alpha) {
+        var s = String(color || '').trim();
+        var m = /^#([0-9a-fA-F]{6})$/.exec(s);
+        if (m) {
+          var h = m[1];
+          return 'rgba(' + parseInt(h.slice(0, 2), 16) + ',' +
+            parseInt(h.slice(2, 4), 16) + ',' + parseInt(h.slice(4, 6), 16) +
+            ',' + alpha + ')';
         }
-        var st = this.hbState || 'unknown';
+        var r = /^rgba?\(([^)]+)\)$/.exec(s);
+        if (r) {
+          var parts = r[1].split(',').map(function (p) { return p.trim(); });
+          return 'rgba(' + parts[0] + ',' + parts[1] + ',' + parts[2] +
+            ',' + alpha + ')';
+        }
+        return s;
+      },
+      // Цвет состояния — из СТАТУС-токенов §8 (--ok/--warn/--err/--text-3; тот же
+      // источник, что у бейджа `.hb-<state>` — review F-3) через getComputedStyle
+      // ОДНОКРАТНО на смену состояния (кэш) с фолбэками единого источника.
+      // Интенсивность свечения — лестница по состоянию (CRITICAL заметно сильнее,
+      // UNKNOWN без glow) — review F-4.
+      _hbPalette: function (st) {
+        if (this._hbPaletteState === st && this._hbPaletteCache) {
+          return this._hbPaletteCache;
+        }
+        var fallback = {
+          healthy: '#3DD68C', warning: '#F6C56F',
+          critical: '#F07178', unknown: '#A2B0C6',
+        };
+        var token = { healthy: '--ok', warning: '--warn',
+                      critical: '--err', unknown: '--text-3' };
+        var glowAlpha = { healthy: 0.45, warning: 0.60, critical: 0.85,
+                          unknown: 0 };
+        var core = fallback[st] || fallback.unknown;
+        try {
+          if (typeof getComputedStyle === 'function' &&
+              typeof document !== 'undefined' && document.documentElement) {
+            var v = getComputedStyle(document.documentElement)
+              .getPropertyValue(token[st] || token.unknown);
+            if (v && v.trim()) core = v.trim();
+          }
+        } catch (e) { /* фолбэк §8 */ }
+        var ga = glowAlpha[st];
+        if (ga == null) ga = glowAlpha.unknown;
+        var pal = { core: core, glow: this._hbRgba(core, ga),
+                    glowAlpha: ga };
+        this._hbPaletteState = st;
+        this._hbPaletteCache = pal;
+        return pal;
+      },
+      // Бледная сетка монитора (alpha ~0.06) — «язык» медицинского прибора.
+      _hbDrawGrid: function (ctx, w, h, dpr) {
+        if (!ctx || typeof ctx.beginPath !== 'function') return;
+        ctx.save();
+        ctx.globalAlpha = 0.06;
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = Math.max(0.5, 0.6 * dpr);
+        var step = Math.max(8, 26 * dpr);
+        for (var x = 0; x <= w; x += step) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+        }
+        for (var y = 0; y <= h; y += step) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        }
+        ctx.globalAlpha = 0.10;
+        ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+        ctx.restore();
+      },
+      // Premium ECG sweep-wipe. При reduced-motion — один статичный кадр
+      // (полная трасса в цвете состояния, без луча/свечения/дыхания).
+      _hbDrawPremium: function (ts, ctx, cv, dpr, st) {
+        var w = cv.width, h = cv.height, mid = h * 0.5;
+        var pal = this._hbPalette(st);
+        var reduced = this._prefersReducedMotion();
+        var amp = { healthy: 0.34, warning: 0.50, critical: 0.62, unknown: 0.14 };
+        var beats = { healthy: 3, warning: 4, critical: 5, unknown: 2 };
+        var period = { healthy: 4.2, warning: 3.1, critical: 2.2, unknown: 7.0 };
+        var a = amp[st] || amp.unknown;
+        var n = beats[st] || beats.unknown;
+        var sweep = period[st] || period.unknown;
+        var t = (ts || 0) / 1000;
+        var self = this;
+        var traceY = function (x) {
+          var u = (x / (w || 1)) * n;
+          var frac = u - Math.floor(u);
+          return mid - self._hbEcg(frac) * (h * 0.42) * a;
+        };
+        var step = Math.max(1, 2 * dpr);
+        ctx.clearRect(0, 0, w, h);
+        this._hbDrawGrid(ctx, w, h, dpr);
+        var beatFrac = reduced ? 0 : ((t / sweep) * n) % 1;
+        var head = reduced ? w : ((t / sweep) % 1) * w;
+        var breath = reduced ? 1 : (0.72 + 0.28 * Math.sin(t * 2 * Math.PI * 0.15));
+        // F-4/review: множитель свечения по состоянию (CRITICAL ×1.5, UNKNOWN 0).
+        var glowScale = { healthy: 0.9, warning: 1.1, critical: 1.5, unknown: 0 };
+        var gs = glowScale[st];
+        if (gs == null) gs = 0;
+        var glow = (st === 'unknown') ? 0
+          : Math.round(Math.max(6, Math.round(9 * dpr * (a + 0.4))) * gs);
+        var x;
+        // 1) приглушённая базовая изолиния на весь проход.
+        ctx.save();
+        ctx.globalAlpha = reduced ? 0.6 : (0.22 * breath);
+        ctx.strokeStyle = pal.core;
+        ctx.lineWidth = Math.max(1, 1.2 * dpr);
+        ctx.beginPath();
+        for (x = 0; x <= w; x += step) {
+          var y0 = traceY(x);
+          if (x === 0) ctx.moveTo(x, y0); else ctx.lineTo(x, y0);
+        }
+        ctx.stroke();
+        ctx.restore();
+        // 2) яркая трасса позади луча (sweep-wipe).
+        ctx.save();
+        ctx.globalAlpha = reduced ? 1 : breath;
+        ctx.strokeStyle = pal.core;
+        ctx.lineWidth = Math.max(1.6, 2.2 * dpr);
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        if (glow) { ctx.shadowBlur = glow; ctx.shadowColor = pal.glow; }
+        ctx.beginPath();
+        for (x = 0; x <= head; x += step) {
+          var y1 = traceY(x);
+          if (x === 0) ctx.moveTo(x, y1); else ctx.lineTo(x, y1);
+        }
+        ctx.stroke();
+        ctx.restore();
+        if (reduced) return;
+        // 3) «голова» луча + вспышка-взрыв на R-пике (затухание ≈0.35 c).
+        ctx.save();
+        ctx.globalAlpha = 0.9 * breath;
+        ctx.fillStyle = pal.core;
+        if (glow) { ctx.shadowColor = pal.glow; ctx.shadowBlur = glow; }
+        ctx.beginPath();
+        ctx.arc(head, traceY(head), Math.max(1.5, 2 * dpr), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        var dR = Math.abs(beatFrac - 0.365);
+        if (dR < 0.05 && typeof ctx.createRadialGradient === 'function') {
+          var burst = 1 - (dR / 0.05);
+          var rad = (10 + 16 * burst) * dpr;
+          var hy = traceY(head);
+          var grd = ctx.createRadialGradient(head, hy, 0, head, hy, rad);
+          grd.addColorStop(0, pal.glow);
+          grd.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.save();
+          ctx.globalAlpha = Math.min(0.9, pal.glowAlpha * 1.1) * burst * breath;
+          ctx.fillStyle = grd;
+          ctx.beginPath();
+          ctx.arc(head, hy, rad, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      },
+      // Canvas-legacy (UI_HEARTBEAT_PREMIUM=false): прежний рендер — бегущая
+      // синусоида + сдвигающийся отрезок-импульс (мягкий откат D2 без редеплоя).
+      _hbDrawLegacy: function (ts, ctx, cv, dpr, st) {
         var colors = { healthy: '#3DD68C', warning: '#F6C56F',
                        critical: '#EF4444', unknown: '#A2B0C6' };
         var freq = { healthy: 1, warning: 2, critical: 3, unknown: 0.6 };
@@ -6669,11 +6847,31 @@
         ctx.beginPath();
         var span = (st === 'unknown') ? 1e9
           : (st === 'critical' ? 600 : (st === 'warning' ? 1000 : 1500));
-        var pulseX = (((t * 1000) % span) / span) * w;
-        ctx.moveTo(pulseX, mid);
-        ctx.lineTo(Math.min(w, pulseX + 6 * dpr), mid);
+        var headX = (((t * 1000) % span) / span) * w;
+        ctx.moveTo(headX, mid);
+        ctx.lineTo(Math.min(w, headX + 6 * dpr), mid);
         ctx.stroke();
         ctx.globalAlpha = 1;
+      },
+      // Рисование только готового снимка состояния (сеть в кадре отсутствует).
+      _hbDraw: function (ts) {
+        var cv = this.$refs && this.$refs.hbCanvas;
+        if (!cv || typeof cv.getContext !== 'function') return;
+        var ctx = cv.getContext('2d');
+        if (!ctx) return;
+        var dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+        if (dpr > 2) dpr = 2;   // D2.5: DPR cap = 2 (перф-бюджет)
+        var cssW = cv.clientWidth || 320, cssH = cv.clientHeight || 56;
+        if (cv.width !== Math.round(cssW * dpr)) cv.width = Math.round(cssW * dpr);
+        if (cv.height !== Math.round(cssH * dpr)) {
+          cv.height = Math.round(cssH * dpr);
+        }
+        var st = this.hbState || 'unknown';
+        if (this.heartbeatPremium === false) {
+          this._hbDrawLegacy(ts, ctx, cv, dpr, st);
+        } else {
+          this._hbDrawPremium(ts, ctx, cv, dpr, st);
+        }
         this.hbLastDraw = ts || 0;
       },
       loadStatus: async function () {
