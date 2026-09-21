@@ -1649,3 +1649,16 @@ bot.py
   - `services/llm_client.py::llm_stats` (`requests/timeouts/fallbacks/timeout_share`) + `reason=<класс>`/`provider=<host>` в логах таймаутов.
 - **Техдолг:** M-1 prep внутри STT-семафора (до ~15 мин держит слот); M-2 `LLM_FALLBACK_TIMEOUT_SECONDS` — per-attempt, не бюджет цепочки (риск ложных таймаутов); L-1 temp-каталог `stt_seg_*` не удаляется; L-2 лишний ffmpeg для 20–25 МБ при доступном Groq; L-3 нет теста baseline `SYSTEM2_SUMMARY_ENABLED=False`; L-4 JS-тест grep-based.
 - **Инварианты:** Δ DDL=0, Δ каталога=0 (418, флаги `ClassVar`), `stash@{0}` цел, zip не в git, `git diff --check`=0.
+
+## Round 10.25 hotfix4 `hotfix4-cover-nav-shell-round1025` (21.09.2026, Step 6 @Scanner)
+
+- **Diff `5f624cd..HEAD`** (`55f286f`, `072800a`, `f458b8c`). Отчёт: `plans/reports/round1025_hotfix4_scanner_audit.md`.
+- **Итог: Critical 0 / High 0 / Medium 1 / Low 5** → к деплою да. pytest **8065/0** (106.91 s), JS ок, matrix 0.
+- **Новые связи:**
+  - `services/summary_generator.py::resolve_cover_style`/`cover_style_markers` ← `hot.get('prompts.summary_cover_style')` → `compose_cover_image_prompt` (порядок style→visual, кап 500/1000 без изменений); пустой `draft.cover_prompt` → `_derive_fallback_cover_prompt` (rich-путь, не тихий plain).
+  - `services/summary_prompts.py::PREV_SUMMARY_EDITOR_R1025_HOTFIX4` (== прод-канон до hotfix4) → `PROMPT_MIGRATIONS`/`ROLLBACK_MIGRATIONS` (ступень канона Редактора, идемпотентный откат).
+  - `web/static/telegram-init.js` (`--tg-viewport-bottom-offset` = `innerHeight − viewportStableHeight`) → `web/static/app.css` `.bottom-nav`/`.more-sheet` `bottom` (+ CSS-фолбэк `100dvh − stable-height`); `viewport-fit=cover` в `web/index.html`.
+  - `web/app.js::bottomNavItems`/`mobileMoreItems` ← `navItems` (status+how публичные) → bottom-nav ≤4, «Ещё» только при скрытых непубличных; `mobileMoreItems` без дубля «Справки» и без inline-раздела.
+- **Техдолг:** M-1 JS-тест дублирует формулу offset (тавтология, `tests/js/round1025_hotfix4_shell_test.js:47-53`); L-1 нет guard `stableH>0`; L-2 CSS-фолбэк на `dvh` (старые WebKit); L-3 `has_heading` по подстрокам; L-4 `viewport-fit=cover` не гейтится OFF; L-5 импорт приватных хелперов из hotfix3-тестов.
+- **Инварианты:** Δ DDL=0, Δ каталога=0, `stash@{0}` цел, секретов/zip в diff нет, `git diff --check`=0.
+- **Матрица верифицирована как детектор:** с навязанным `.bottom-nav{bottom:0}` → 56 failures (панель под видимой областью), baseline → 0.

@@ -6,6 +6,8 @@
 > **Приоритет:** **P0** (A/B/C — прод-деградация), **P1** (D). **Зависит от:** F1 (`ia-shell-navigation-round1025`, `fe0f7bb`) + hotfix2 (`p0-fix-render-media-paths-round1025`, `fea2daa`).
 > **Задачи:** **T-2482…T-2506 (25)**. Преемственность нумерации: максимум до хотфикса — **T-2481** (`plans/archive/hotfix-media-tma-round1025/`), дублей нет.
 > **Статус:** 🟦 Step 1 @PM — декомпозиция. `spec.md`/ADR — Step 2 @Architect **при необходимости** (PM не создаёт). Реализация — @Builder, деплой — @DevOps.
+> **✅ ARCHIVED (Шаг 8 @PM, 21.09.2026):** хотфикс-3 **COMPLETED + MERGED + DEPLOYED + ARCHIVED** (коммиты `090d2e7`+`fb65965`+`cfe7342`, docs `5f624cd`; `APP_VERSION` **2.58.3**); @Reviewer Approved, @Scanner **Critical 0/High 0**; pytest **8041/0**, JS **22/22**; интеграция — `plans/ARCHITECTURE.md` **§55**; папка — `plans/archive/hotfix3-summary-stt-anticliche-round1025/`. **⏳ T-2505 — live-гейт владельца (post-deploy, НЕ выполнено).**
+> **✅ Финализация @Memory (Step 10, 21.09.2026):** закрыты **T-2482…T-2504, T-2506**; **единственный открытый пункт — T-2505** (live-гейт владельца). Синхронизированы `plans/metrics.md` (разделы **10.25-HOTFIX3** + техдолг) и `plans/MEMORY.md`; KG-узлы `HOTFIX hotfix3-summary-stt-anticliche-round1025` / `ADR-1025-7` / `incident-2026-09-21-summary-stt-anticliche` / `release-round1025-hotfix3` / `metric-snapshot-round1025-hotfix3` / `tech-debt-round10.25-hotfix3` записаны. ⚠️ docs-коммит (эта папка + §55 + backlog) на момент Step 10 не зафиксирован — HEAD `5f624cd` (docs F1/P0).
 > **Инварианты:** R16/R17/R18; секреты не выводить/не копировать; **Δ DDL = 0** (если @Architect не санкционирует иное в `spec.md`); **Δ каталога `param_catalog` = 0** (флаги — env-only `ClassVar`); не ломать рабочий rich-путь саммари; бэкапы/теги `pre-round1025*`/`git stash@{0}` **НЕ удалять**; F0/Эпик 2/промпты-каноны не трогать; force-ru conventional commits, код+тесты атомарно.
 > **Базовая линия (hotfix2):** pytest **8003/0**, JS **21/21**, matrix **0**, `database is locked` = **0**, APP_VERSION **2.58.2**, HEAD **`fe0f7bb`** (+ hotfix2 `fea2daa`).
 
@@ -81,14 +83,14 @@
 
 - [x] **T-2502** — **Полный регресс:** pytest **8003/0 (+ новые), JS 21/21, matrix 0**; `database is locked` = **0**; `node --check web/app.js` OK; `git diff --check` exit 0; отсутствие регрессий F0/hotfix2/F1.
   **Готово, когда:** все показатели подтверждены логом/отчётом, расхождений нет.
-- [ ] **T-2503** — **Ревью/аудит:** @Reviewer **Approved**; @Scanner **Critical 0 / High 0** (Medium/Low — в техдолг) — отчёт `plans/reports/round1025_hotfix3_scanner_audit.md`.
-  **Готово, когда:** вердикты зафиксированы отчётом.
-- [ ] **T-2504** — **Деплой:** атомарные русские conventional commits (код+тесты) → push `origin/master` → прод `git pull --ff-only` → `systemctl restart admin_bot` (+ bump `APP_VERSION`/`?v=`, если менялись ассеты) → `/api/health` 200.
-  **Готово, когда:** прод обновлён, health 200, в отчёте commit(ы) и версия.
-- [ ] **T-2505** — **Live-верификация (post-deploy):** (1) саммари реально уходит **rich с обложкой** (и на fallback-пути); (2) видео **28 МБ** транскрибируется; (3) ручные фразы анти-клише сохраняются с **честным отчётом**; (4) таймауты логируются с причиной; (5) `database is locked` = 0; (6) нет регрессий разделов TMA (консоль без `ReferenceError`).
+- [x] **T-2503** — **Ревью/аудит:** @Reviewer **Approved**; @Scanner **Critical 0 / High 0** (2 Medium / 4 Low / 1 Info — в техдолг) — отчёт `plans/reports/round1025_hotfix3_scanner_audit.md`.
+  **Готово, когда:** вердикты зафиксированы отчётом. → ✅ **закрыто** (R-1…R-8 учтены в `fb65965`).
+- [x] **T-2504** — **Деплой:** атомарные русские conventional commits (код+тесты) → push `origin/master` → прод `git pull --ff-only` → `systemctl restart admin_bot` (+ bump `APP_VERSION`/`?v=`, если менялись ассеты) → `/api/health` 200.
+  **Готово, когда:** прод обновлён, health 200, в отчёте commit(ы) и версия. → ✅ **закрыто** (`090d2e7` + `fb65965` + `cfe7342`; `APP_VERSION` **2.58.3**; health **200**; `database is locked` = 0). ⚠️ docs-коммит (§55/backlog/архивация) на момент Step 10 — в рабочем дереве, **не зафиксирован**.
+- [ ] **T-2505** — ⏳ **LIVE-ГЕЙТ ВЛАДЕЛЬЦА (post-deploy, НЕ выполнено).** **Live-верификация:** (1) саммари реально уходит **rich с обложкой** (и на fallback-пути); (2) видео **28 МБ** транскрибируется; (3) ручные фразы анти-клише сохраняются с **честным отчётом**; (4) таймауты логируются с причиной; (5) `database is locked` = 0; (6) нет регрессий разделов TMA (консоль без `ReferenceError`).
   **Готово, когда:** приложены доказательства (лог/файл/скрин/версия) по каждому пункту.
-- [ ] **T-2506** — **Архивация (Шаг 8 @PM) + интеграция @Architect.** Перенос `plans/features/hotfix3-summary-stt-anticliche-round1025/` → `plans/archive/`; обновить `plans/ARCHITECTURE.md` (§) и `plans/backlog.md`; бэкапы/теги/`stash@{0}` не удалять (R18).
-  **Готово, когда:** папка в `plans/archive/`, ARCHITECTURE/backlog обновлены, отчёт оставлен.
+- [x] **T-2506** — **Архивация (Шаг 8 @PM) + интеграция @Architect.** Перенос `plans/features/hotfix3-summary-stt-anticliche-round1025/` → `plans/archive/`; обновить `plans/ARCHITECTURE.md` (§) и `plans/backlog.md`; бэкапы/теги/`stash@{0}` не удалять (R18).
+  **Готово, когда:** папка в `plans/archive/`, ARCHITECTURE/backlog обновлены, отчёт оставлен. → ✅ **закрыто** (Шаг 8 @PM: папка в `plans/archive/hotfix3-summary-stt-anticliche-round1025/`, `ARCHITECTURE.md` **§55**, `backlog.md`; метрики/MEMORY — Step 10 @Memory).
 
 ---
 

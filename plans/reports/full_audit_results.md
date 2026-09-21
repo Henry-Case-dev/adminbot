@@ -1573,3 +1573,33 @@ Diff `65e39fb..b1c87b0` (`1ebbd7b`, `ff34115`, `b1c87b0`). Отчёт: `plans/re
 OFF-флаги (`SUMMARY_COVER_FALLBACK_ENABLED`, `STT_AUDIO_COMPRESS_ENABLED`) = baseline (тесты); ручные фразы не фильтруются, авто — фильтруются, `saved/dropped/count/total` честны,
 канон 120 согласован; ffmpeg без `shell=True` (list-args), temp 0600/0700, traversal нет, вход ограничен 1000×120; R17 — только числа/коды/hostname;
 Δ DDL=0; Δ каталога=0 (418, флаги `ClassVar`); `stash@{0}` цел; zip/секретов нет. `database is locked` по коду не оценивается — за @DevOps.
+
+---
+
+## Round 10.25 hotfix4 `hotfix4-cover-nav-shell-round1025` — 21.09.2026, Step 6 @Scanner
+
+Полный отчёт: `plans/reports/round1025_hotfix4_scanner_audit.md`. Diff `5f624cd..HEAD` (HEAD `f458b8c`).
+Область: `services/{summary_generator,summary_prompts,prompt_migrations}.py`, `plans/docs/canon/**`, `web/app.js`,
+`web/static/{app.css,telegram-init.js}`, `web/index.html`, `tools/ui_round1025_matrix.py`, `config/settings.py`, новые тесты.
+
+**Итог: Critical 0 / High 0 / Medium 1 / Low 5 → к деплою да.**
+Прогоны: pytest **8065 passed / 0 failed** (106.91 s, 1 Starlette-warning); JS-тесты ок (в т.ч. hotfix4/ia_routing/shell_breakpoints/routing);
+`tools/ui_round1025_matrix.py` **failures 0** (mobile bottomNav=True(4)); `git diff --check`=0; `node --check`=0.
+
+**Medium:**
+- [M10.25H4-1] `tests/js/round1025_hotfix4_shell_test.js:47-53` — локальная копия формулы offset (тавтология); регресс арифметики
+  `telegram-init.js` может не поймать ни JS-unit, ни матрица (она выставляет CSS-переменную напрямую). Фикс: jsdom-стенд с реальным `applyInsets`.
+
+**Low:**
+- [L10.25H4-1] `telegram-init.js:54-56` — нет guard `stableH > 0`: при 0/отрицательном `viewportStableHeight` offset = `layoutH` → панель уезжает за экран.
+- [L10.25H4-2] `app.css:1350-1352` — фолбэк на `100dvh` невалиден на старых WebKit (<15.4)/Chromium<108 при невыставленной переменной → `bottom: auto`.
+- [L10.25H4-3] `summary_generator.py:149-150` — `has_heading` ловит подстроки `perm`/`title` → ложные срабатывания в логах.
+- [L10.25H4-4] `index.html:5-7` — `viewport-fit=cover` не гейтится `IA_V2_ENABLED` (OFF на iOS без нижней safe-area-компенсации).
+- [L10.25H4-5] `tests/test_hotfix4_...py` импортирует приватные хелперы hotfix3-тестов (хрупкая связность гейта).
+
+**Верифицировано чисто:** `compose_cover_image_prompt` не изменён (порядок style→visual, капы 500/1000); `resolve_cover_style` — дефолт только при `None`/пробелах;
+`PREV_SUMMARY_EDITOR_R1025_HOTFIX4` побайтово == прод-канон до правки (проверено по блобу `5f624cd`); R17 — логи без текста промпта (длины+маркеры),
+секретов нет, CSP без inline/eval; навигация: status+how первыми у всех ролей, ≤4, «Ещё» только при скрытых, без дублей и недостижимых разделов; OFF-режим не задет.
+Матрица проверена как детектор: с навязанным `.bottom-nav{bottom:0}` — **56 failures**, в baseline — 0.
+
+**Инварианты:** Δ DDL=0, Δ каталога=0, `stash@{0}` цел, zip/секретов нет, `git diff --check`=0.

@@ -1493,3 +1493,16 @@ F0.1–F0.4 — **без флагов** (обратимы `git revert` + точ�
 
 **Инварианты:** Δ DDL = 0, Δ каталога = 0, F0/Эпик 2/промпты не тронуты, `stash` F1-предыстории цел, секретов в диффе нет (R17/R18).
 
+## 55. Раунд 10.25 — Хотфикс-3: обложка саммари на fallback, честный анти-клише, STT-сжатие, LLM-метрика (21.09.2026, Deployed)
+
+Спека/ADR (✅ ARCHIVED): `plans/archive/hotfix3-summary-stt-anticliche-round1025/{spec.md, adr-1025-7-summary-fallback-stt-anticliche.md, tasks.md}` (T-2482…T-2506; Шаг 8 @PM, 21.09.2026). **Статус: ✅ COMPLETED + MERGED + DEPLOYED + ARCHIVED; ⏳ live-гейт владельца T-2505 (post-deploy, НЕ выполнено).** Коммиты `090d2e7` (ядро), `fb65965` (ревью R-1…R-8), `cfe7342` (bump); docs `5f624cd`. @Reviewer **Approved**; @Scanner **Critical 0 / High 0**. **pytest 8041/0**, JS **22/22**. **Прод:** `APP_VERSION` **2.58.3**, `/api/health`=200, `database is locked`=0. **Δ DDL = 0**, **Δ каталога = 0** (флаги — env-only `ClassVar`); F0/F1/P0-fix/Эпик 2/каноны промптов не тронуты.
+
+- **A (саммари/обложка):** `services/system2_handoff.py::parse_summary_handoff_ex(raw) -> (dict|None, reason)` (`:217`) — безопасный разбор с причиной; таймаут Stage-1 **не роняет** саммари; на fallback-пути обложка **детерминированная** (без доп. LLM-вызова) → **rich** через существующие `build_cover_media`/`send_rich_message`; plain — только с залогированной причиной. Kill-switch `SUMMARY_COVER_FALLBACK_ENABLED` (env-only, default **ON**; OFF → прежнее plain байт-в-байт) — `config/settings.py:591-592`.
+- **C (анти-клише):** единый канон длины **2…120**; ручные фразы **не** фильтруются хардкод-правилами (сохраняются, помечаются `hardcoded`); честный контракт API `{saved, dropped:{invalid, hardcoded, duplicate, over_limit}, count}`; UI — честный warn «Сохранено N из M» + причины (единственная правка `web/app.js`).
+- **B (STT):** новый `SmartModule/transcriber/audio_prep.py` — ffmpeg **opus mono 16 kHz ~24 kbps** + **чанкинг-fallback** + очистка `tmp_dirs`; врезка в **`VoiceTranscriber.transcribe_voice`** (покрывает видео и ГС/кружки); лог `reason=compressed|chunked|no_ffmpeg|partial`; kill-switch `STT_AUDIO_COMPRESS_ENABLED` (env-only, default **ON**) — `config/settings.py:1392-1393`.
+- **D (LLM):** `LLM_FALLBACK_TIMEOUT_SECONDS` **120 → 60** (таймаут **одной попытки**, не бюджет цепочки) — `config/settings.py:1091-1092`; в `/api/status` добавлен `llm_stats` (числа) — `services/status_service.py:505-509,595`. Второй резервный провайдер — **не внедряем** (корень провайдерский).
+
+**Остаточный техдолг (не блокеры):** grep-JS-тест анти-клише (статический, не поведенческий); реальный ffmpeg-прогон `-c copy` на 28 МБ (live-подтверждение); Info при >999 частях; второй LLM-провайдер (отложено).
+
+**Ссылки:** `plans/archive/hotfix3-summary-stt-anticliche-round1025/`; аудиты — `plans/reports/round1025_hotfix3_scanner_audit.md` (при наличии), `round1025_hotfix2_scanner_audit.md`; `plans/round1025-architecture.md`.
+
