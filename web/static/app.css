@@ -1347,6 +1347,9 @@
        telegram-init.js); CSS-фолбэк — разница 100dvh и stable-height. */
     .bottom-nav {
       position: fixed; left: 0; right: 0; z-index: 40;
+      /* Review L10.25H4-2: безопасный резерв для старых WebKit без `dvh` —
+         если объявление с var()/dvh невалидно, остаётся bottom:0 (не auto). */
+      bottom: 0;
       bottom: var(--tg-viewport-bottom-offset,
                   max(0px, calc(100dvh - var(--tg-viewport-stable-height, 100dvh))));
       display: flex; align-items: stretch; justify-content: space-around;
@@ -1391,6 +1394,8 @@
     }
     .more-sheet {
       position: fixed; left: 0; right: 0;
+      /* Review L10.25H4-2: безопасный резерв (без dvh/var) для старых WebKit. */
+      bottom: calc(52px + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px)));
       /* hotfix4 (T-2515): та же компенсация нижнего смещения, что у панели. */
       bottom: calc(52px + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px)) + var(--tg-viewport-bottom-offset, max(0px, calc(100dvh - var(--tg-viewport-stable-height, 100dvh))))); z-index: 50;
       display: flex; flex-direction: column; gap: .15rem;

@@ -142,12 +142,17 @@ def cover_style_markers(style: str) -> dict:
     * ``has_heading`` — явно задан короткий заголовок
       (``heading``/``title``/``PERMsoc``/«заголовок»);
     * ``style_is_default`` — доехал код-дефолт (настроенный стиль НЕ пришёл).
+
+    Review L10.25H4-3: токены заголовка — по ГРАНИЦАМ СЛОВ (``\\bpermsoc\\b``,
+    ``\\bheading\\b``, ``\\btitle\\b``) + «заголов» (рус.), чтобы не ловить
+    ложные подстроки («permanent», «permission», «entitled»).
     """
     text = (style or "").lower()
+    has_heading = bool(re.search(r"\b(?:permsoc|heading|title)\b", text)) \
+        or "заголов" in text
     return {
         "has_comic": "comic" in text,
-        "has_heading": any(tok in text for tok in
-                           ("heading", "title", "perm", "заголов")),
+        "has_heading": has_heading,
         "style_is_default": (style or "").strip() == SUMMARY_COVER_STYLE_DEFAULT,
     }
 
@@ -781,6 +786,29 @@ class SummaryGenerator:
         else:
             await self._send_chunked(chat_id, text)
 
+    async def _resolve_cover_style_text(self, chat_id: int) -> str:
+        """T-2509 (hotfix4): авторский «Стиль обложки» — scope-корректно.
+
+        ``prompts.*`` — per-chat-переносимые ключи (`ParamSpec.per_chat`), и
+        Mini App в контексте выбранного чата сохраняет значение в
+        ``chat_params.overrides`` этого чата, а НЕ в глобальный ``bot_settings``.
+        Прежде саммари читало только глобальный ``hot.get`` → настроенный стиль
+        «терялся» (уходил код-дефолт). Резолв как у алиасов
+        (`summary_aliases.build_alias_resolver`): override чата → глобал →
+        дефолт. Fail-open (R6): chat_params недоступен → прежний глобальный
+        путь. Возвращает уже нормализованный стиль (дефолт — только при пустоте).
+        """
+        try:
+            from services import chat_params
+            raw = await chat_params.get_chat_param(
+                chat_id, "prompts.summary_cover_style", None)
+        except Exception:
+            logger.warning(
+                "summary cover: per-chat style resolve failed — global | "
+                "chat_id=%s", chat_id)
+            raw = hot.get("prompts.summary_cover_style", None)
+        return resolve_cover_style(raw)
+
     async def _deliver_rich(self, chat_id: int, text: str,
                             cover_prompt: str,
                             correlation_id: str | None = None) -> None:
@@ -794,8 +822,7 @@ class SummaryGenerator:
         try:
             # T-2509 (hotfix4): настроенный стиль применяется как есть; дефолт —
             # только при реальном отсутствии/пустоте значения.
-            style = resolve_cover_style(
-                hot.get("prompts.summary_cover_style", None))
+            style = await self._resolve_cover_style_text(chat_id)
             image_prompt = compose_cover_image_prompt(style, cover_prompt)
             # F12/ADR-1024-4 D2 (UPD2 п.10.1) + T-2508 (hotfix4): доказательство
             # подмешивания стиля — R17-safe, без полного текста промпта (только

@@ -51,7 +51,10 @@
     var layoutH = (window.innerHeight || 0);
     var stableH = wa.viewportStableHeight;
     var offset = 0;
-    if (typeof stableH === 'number' && layoutH > 0) {
+    /* Review L10.25H4-1: stableH<=0 (свёрнутое окно/устаревшее событие,
+     * геттер SDK = raw − bar) НЕ должен давать offset = layoutH — иначе
+     * панель уезжает за экран до следующего события. Guard: stableH > 0. */
+    if (typeof stableH === 'number' && stableH > 0 && layoutH > 0) {
       offset = Math.max(0, Math.min(layoutH, layoutH - stableH));
     }
     setVar('--tg-viewport-bottom-offset', offset);

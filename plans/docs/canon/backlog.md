@@ -187,11 +187,12 @@
   прежнего канона — `PREV_SUMMARY_EDITOR_R1023_F6`; миграция/откат PG —
   `PROMPT_MIGRATIONS`/`ROLLBACK_MIGRATIONS` (ключ `prompts.summary_editor_system_prompt`).
 - **hotfix4 (10.25, ADR-1025-8 D1/T-2511):** `SUMMARY_EDITOR_COVER_PROMPT_BLOCK`
-  смягчён — запрет надписей сохраняется для «чистого visual», но **короткий
-  заголовок, заданный владельцем в «Стиле обложки»** (`heading`/`title`/
-  `PERMsoc`), явно разрешён; слепок прежнего канона —
-  `PREV_SUMMARY_EDITOR_R1025_HOTFIX4`, ступень `…F6 → HOTFIX4 → новый канон`,
-  откат — на `PREV_SUMMARY_EDITOR_R1025_HOTFIX4`
+  переформулирован **self-contained** — Редактор не видит «Стиль обложки», поэтому
+  в блоке нет ссылки на невидимый стиль и нет противоречия «без надписей, НО
+  включи заголовок»: свои надписи не добавляем, короткий заголовок владельца
+  задаёт сам стиль (конкатенация в image-промпт). Слепок прежнего канона (F6) —
+  `PREV_SUMMARY_EDITOR_R1025_HOTFIX4`, ступень `…F6 → новый канон`, откат — на
+  `PREV_SUMMARY_EDITOR_R1025_HOTFIX4`
   (`PROMPT_MIGRATIONS`/`ROLLBACK_MIGRATIONS`).
 - **«Стиль обложки»:** новый каталоговый ключ `prompts.summary_cover_style`
   (группа `prompts_summary`, `advanced`); дефолт — код-константа

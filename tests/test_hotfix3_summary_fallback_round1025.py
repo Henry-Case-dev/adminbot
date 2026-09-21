@@ -36,60 +36,14 @@ def no_sleep(monkeypatch):
     return fake.sleep
 
 
-class _Recorder:
-    def __init__(self):
-        self.plain = []
-        self.rich = []
-        self.image_prompts = []
-        self.ux = []
-
-
-def _patch_delivery(monkeypatch, rec):
-    async def _plain(self, chat_id, text):
-        rec.plain.append(text)
-
-    async def _rich(bot, chat_id, text, *, media=None, cover_id=None, **kwargs):
-        rec.rich.append({"media": media, "cover_id": cover_id, "text": text})
-
-    monkeypatch.setattr(SummaryGenerator, "_send_streaming", _plain)
-    monkeypatch.setattr(SummaryGenerator, "_send_chunked", _plain)
-    monkeypatch.setattr(sg, "send_rich_message", _rich)
-
-    async def _ux(self, chat_id, text):
-        rec.ux.append(text)
-
-    monkeypatch.setattr(SummaryGenerator, "_send_ux", _ux)
-
-
-def _env(monkeypatch, rec, *, cover_path, rich=True):
-    monkeypatch.setattr(Settings, "SYSTEM2_SUMMARY_ENABLED", True)
-    monkeypatch.setattr(Settings, "SUMMARY_COVER_ARTICLE_ENABLED", True)
-    monkeypatch.setattr(Settings, "SUMMARY_COVER_FALLBACK_ENABLED", True)
-    monkeypatch.setattr(sg, "_rich_media_supported", lambda: rich)
-    # Review fix: не зависим от наличия `InputRichMessageMedia` в версии
-    # aiogram — стабим сборку вложения (иначе среда без rich-типов даёт
-    # ImportError внутри `_deliver_rich`, и тест падает по среде, а не по коду).
-    monkeypatch.setattr(
-        sg, "build_cover_media",
-        lambda path, **kw: {"stub_path": path})
-    _patch_delivery(monkeypatch, rec)
-
-    async def _gen_image(prompt, *, chat_id=None, correlation_id=None):
-        rec.image_prompts.append(prompt)
-        return cover_path, ("ok" if cover_path else "error")
-
-    monkeypatch.setattr(sg, "generate_image_verbose", _gen_image)
-
-
-def _generator(side_effect):
-    from tests.test_summary_generator import FakeMemory, _row
-    from services.summary_xml import XmlGroundingBuilder
-
-    llm = MagicMock()
-    llm.generate = AsyncMock(side_effect=side_effect)
-    gen = SummaryGenerator(FakeMemory(rows=[_row(author_name="вася")]),
-                           XmlGroundingBuilder(), llm, AsyncMock())
-    return gen, llm
+# Review L10.25H4-5: общие хелперы вынесены из тест-модуля в
+# `tests/summary_cover_helpers.py` — hotfix3/hotfix4-гейты не зависят от
+# приватных символов друг друга.
+from tests.summary_cover_helpers import (  # noqa: E402
+    Recorder as _Recorder,
+    env as _env,
+    generator as _generator,
+)
 
 
 # ── A. Разбор handoff с причиной ────────────────────────────────────────
