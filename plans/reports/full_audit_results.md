@@ -6,6 +6,33 @@
 
 ---
 
+## Round 10.25 hotfix5 `summary-cover-window-round1025` — 21.09.2026, Step 6 @Scanner
+
+**Diff `0e43c37..b3fb6a5`** (коммит `b3fb6a5`, 9 файлов). Отчёт: `plans/reports/round1025_hotfix5_scanner_audit.md`.
+
+**Итог: Critical 0 / High 0 / Medium 1 / Low 3 / Info 1. Вердикт: к деплою — ДА.**
+Прогон: pytest **8124 passed / 0 failed** (113.19 s), `tests/js/*` **24/24 OK**.
+Δ DDL=0, Δ каталога=0, `stash@{0}` цел, трекаемых zip нет, секретов в диффе нет.
+
+**Medium:**
+- [M10.25H5-1] `services/image_generation.py:810-828` + `:423-437` — внешний ретрай (2) × внутренний 429/503-ретрай (2)
+  → до **4 HTTP-вызовов** и до ~4×окна (≈720 c) на обложку; комментарии заявляют «≤2×окно (360 c)». Проба: `HTTP_CALLS_ON_503 = 4`.
+  Фикс: либо скорректировать доки/бюджет, либо не дублировать ретрай на 429/502/503.
+
+**Low:**
+- [L10.25H5-1] `image_generation.py:300-311` — `reason_class` уводит `empty`/`too_large`/`empty_prompt`/`temp_write_failed` в `error`
+  (наблюдаемость), `no_image` — в `bad_json`.
+- [L10.25H5-2] `image_generation.py:810-828` — ретрай невосстановимых `bad_request`/`unauthorized`/`forbidden`/`payment_required` бесполезен.
+- [L10.25H5-3] `tests/test_webapp_dm_ui.py:124-131` — проверка планировщика через grep исходника (хрупко, дублирует поведенческие тесты).
+
+**Info:** корневые `*.zip` (+ `backups/pre-round1025-hotfix5-src.zip`) — git-ignored балласт, в индекс не входят.
+
+**Чисто:** бюджет — одно списание на запрос (`consume_budget=False` на попытках); отдельная env-ветка `image_calls`
+не ломает `llm_calls`/`llm_tokens` и не обходится; R17 в WARNING (только reason-код, host, chat_id, latency);
+`provider_label` = hostname (userinfo срезается), URL в `log_external_api` чистится `redact_url`;
+scheduler `int()` не роняет тик, DM-фильтр сохранён; `CancelledError` не проглатывается; `probe`-таймаут 90 c не тронут;
+новые тесты импортируют отсутствовавшие ранее символы/kwarg → падают на старом коде (не тавтологичны).
+
 ## Round 10.25 «F0: конфигурация + устойчивость к database is locked» — 20.09.2026, Step 6 @Scanner
 
 **Diff `pre-round1025..HEAD`** (коммиты `c0cb8aa`…`9a5f265`), фича F0 (P0, Wave 0).

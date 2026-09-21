@@ -1,5 +1,19 @@
 # Global Map (architectural memory)
 
+## Round 10.25 hotfix5 `summary-cover-window-round1025` (21.09.2026, Step 6 @Scanner)
+
+- **Дифф `0e43c37..b3fb6a5`**, коммит `b3fb6a5`. Отчёт: `plans/reports/round1025_hotfix5_scanner_audit.md`.
+  **0 Critical / 0 High / 1 Medium / 3 Low / 1 Info** → к деплою — да.
+- **Новые связности:** env-only окно `IMAGE_ATTEMPT_TIMEOUT_SECONDS` (180 c) → `_image_attempt_timeout` →
+  `generate(timeout=…)` (verbose-обложка) ↔ bounded-retry `IMAGE_GENERATION_MAX_ATTEMPTS`/
+  `IMAGE_GENERATION_RETRY_BACKOFF_SECONDS` (`image_generation.py:326-352`, `:786-829`). Прежнее
+  `IMAGE_REQUEST_TIMEOUT_SECONDS` (90 c) остаётся у `probe`/`generate`-default.
+- **Бюджет:** `METRIC_IMAGE_CALLS` ↔ собственная ветка `worker_budget._metric_limit` (`:284-291`) от
+  `WORKER_DAILY_IMAGE_CALLS_PER_CHAT/GLOBAL`; одно списание на запрос (`consume_budget=False` на попытках).
+- **Планировщик:** `summary_scheduler._tick` кастует `chat_id` из PG к `int` до DM-фильтра/`generate_and_send`
+  (per-chat override «Стиля обложки» резолвится) ↔ `summary_generator._resolve_cover_style_text`.
+- **Проверки:** pytest **8124/0** (113.19 s), JS **24/24**, Δ DDL=0, Δ каталога=0, `stash@{0}` цел, zip в индексе нет.
+
 ## Round 10.25 <F2: дизайн-токены §8 + Liquid Glass v2 + фон §10> (21.09.2026, Step 6 @Scanner)
 
 - **Дифф `f2328fb..HEAD`** (коммит `e895726`), фича `design-tokens-liquidglass-v2-round1025`.

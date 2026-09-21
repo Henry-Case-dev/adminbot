@@ -1,5 +1,16 @@
 # Audit Backlog
 
+## Round 10.25 hotfix5 `summary-cover-window-round1025` scan (Step 6 @Scanner, 21.09.2026) — all scanned (diff `0e43c37..b3fb6a5`, `b3fb6a5`) — files processed
+- [x] services/image_generation.py (окно 180 c + bounded-retry 2/backoff, `reason_class`/`provider_label`, timeout-класс, temp-хелпер) — чисто; **M10.25H5-1** (ретрай ×2 умножается на внутренний 429/503 → до 4 вызовов/~4×окна)
+- [x] services/worker_budget.py (env-only ветка `image_calls`, sentinel, изоляция от `llm_calls`/`llm_tokens`) — чисто
+- [x] services/summary_scheduler.py (`int(chat_id)` до DM-фильтра, мусор/NULL → skip без падения тика) — чисто
+- [x] services/summary_generator.py (WARNING с `reason_class`/provider, R17-safe; одно списание бюджета) — чисто
+- [x] config/settings.py + .env.example (env-only ClassVar, Δ каталога = 0) — чисто
+- [x] tests/* (новый hotfix5-файл + правки 1023/webapp_dm_ui; не тавтологичны, падают на старом коде) — чисто; L10.25H5-3 (grep-тест планировщика)
+- **СВОДКА 10.25 hotfix5: Critical 0 / High 0 / Medium 1 / Low 3 / Info 1.** pytest **8124/0** (113.19 s), JS **24/24**;
+  Δ DDL=0, Δ каталога=0, `stash@{0}` цел, zip/секретов нет. Вердикт: **к деплою — ДА**, обязательных возвратов @Builder нет.
+  Отчёт: `plans/reports/round1025_hotfix5_scanner_audit.md`.
+
 ## Round 10.25 F2 `design-tokens-liquidglass-v2-round1025` scan (Step 6 @Scanner, 21.09.2026) — all scanned (diff `f2328fb..HEAD`, `e895726`) — files processed
 - [x] web/static/app.css (токены §8 + Liquid Glass A/B/C + фон §10 + `@supports`-фолбэки) — чисто; Low L10.25F2-1 (sticky-header alpha 0.96→0.85)
 - [x] web/index.html (inline SVG `#lg-displace`; `data-glass="a"|"c"`) — чисто (CSP-safe, один фильтр, без layout shift)
