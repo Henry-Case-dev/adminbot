@@ -7,7 +7,7 @@
 - **HEAD при старте:** `441e8f7` (== origin/master)
 - **Активная фича:** `hotfix6-webview-shell-heartbeat-round1025`
 - **Папка:** `plans/archive/hotfix6-webview-shell-heartbeat-round1025/` (spec.md + adr-1025-12 + tasks.md, 38 задач T-2581…T-2618; перенесена из `plans/features/` на Шаге 8 @PM)
-- **APP_VERSION:** 2.58.6 → 2.58.7 (в рабочем дереве, НЕ закоммичено)
+- **APP_VERSION:** 2.58.7 (закоммичено `055525c`/`ba75751` и задеплоено на прод)
 
 ## Статус шагов (строгий воркфлоу)
 | Шаг | Агент | Статус | Evidence |
@@ -22,7 +22,7 @@
 | 6 audit | @Scanner | ✅ | `plans/reports/round1025_hotfix6_scanner_audit.md` — **Critical 0 / High 0** / M1 / L3 / I3 → деплой разрешён |
 | 7 merge | @Architect | ✅ | `plans/ARCHITECTURE.md` **§58** (§58.1–§58.9) |
 | 8 archive | @PM | ✅ | перенос → `plans/archive/hotfix6-webview-shell-heartbeat-round1025/`; tasks.md T-2615/T-2618 `[x]`; синк backlog (раздел «🌗 Хотфикс-6» + техдолг §58.7) / MEMORY (блок Волны 1.5, §58) |
-| 9 deploy | @DevOps | ⏳ | коммит+push + прод pull/restart/health 200 (2.58.7) |
+| 9 deploy | @DevOps | ✅ | коммиты `055525c`/`ba75751` → push `441e8f7..ba75751`; прод fast-forward `4cde1bc..ba75751`; health 200; APP_VERSION 2.58.7; served `?v=2.58.7`; database is locked 0 → `VERIFIED` |
 | 10 metrics | @Memory | ⏳ | `plans/metrics.md` + KG финал |
 
 ## Верифицированные результаты (evidence)
@@ -37,8 +37,8 @@
 - **Не трогать на Шаге 10 (метрики):** `plans/metrics.md` (Шаг 10 @Memory). `stash@{0}` / теги `pre-round1025*` / бэкапы — НЕ удалять (R18).
 
 ## Деплой
-- НЕ задеплоено. Прод — на 2.58.6 (пакет Волны 1). Пакет hotfix6 ждёт Шага 9 (@DevOps).
-- Откат: тег `pre-round1025-hotfix6` + `git revert`. Бэкапы/теги/`stash@{0}` не удалять (R18).
+- **ЗАДЕПЛОЕНО и `VERIFIED`** (Шаг 9 @DevOps). Прод HEAD `ba75751` (== origin/master), `APP_VERSION` **2.58.7**, health 200, `database is locked` 0. Evidence: `plans/archive/hotfix6-webview-shell-heartbeat-round1025/deployment.md`.
+- Откат: тег `pre-round1025-hotfix6` + `git revert`; soft-откат — env-флаги `UI_HEARTBEAT_CANVAS_ENABLED`/`UI_HEADER_COMPACT_V2`/`UI_GLASS_TIER_OVERRIDE`. Бэкапы/теги/`stash@{0}` не удалять (R18).
 
 ## Last update
-- 22.09.2026 — Шаг 8 @PM (Archive Phase) выполнен: папка перенесена в `plans/archive/`, tasks.md отмечен (T-2615/T-2618 `[x]`, T-2616/T-2617 `[ ]`), синк backlog/MEMORY. Следующий — Шаг 9 @DevOps (deploy), затем Шаг 10 @Memory (metrics + KG + pending sync).
+- 22.09.2026 — Шаг 9 @DevOps (Deploy Phase) выполнен: коммиты `055525c` (код+тесты) и `ba75751` (планы), push в origin/master, прод fast-forward `4cde1bc..ba75751`, рестарт, health 200, `APP_VERSION` 2.58.7, served `?v=2.58.7`, `database is locked` 0 → `VERIFIED`. Следующий — Шаг 10 @Memory (metrics + KG + pending sync).
