@@ -6,6 +6,24 @@
 
 ---
 
+## Round 10.25 hotfix7 `hotfix7-shell-glass-heartbeat-round1025` (UPD «Срочный фикс фронта») — 22.09.2026, Step 6 @Scanner
+
+**База:** HEAD `5a5465c` (`pre-round1025-hotfix7`, == `origin/master`; правки НЕ закоммичены — аудит рабочего дерева). Отчёт: `plans/reports/round1025_hotfix7_scanner_audit.md`. AA: `plans/reports/round1025_hotfix7_contrast.md`. Матрица: `plans/reports/round1025_hotfix7_ui_report.md`. Вход — spec/ADR-1025-13/evidence/review (итер.2 Approved).
+
+**Итог: Critical 0 / High 0 / Medium 0 / Low 3 / Info 3. Вердикт: к деплою — ДА.**
+Прогон (independent @Scanner): `node --check` OK; JS hotfix7-маркер OK + все `tests/js/*.js` PASS; полный pytest **8207 passed / 0 failed**; целевые 6 файлов **156 passed**, `test_hotfix4_cover_nav_shell_round1025.py` **28 passed**; `git diff --check` exit 0; Δ DDL=0; Δ каталога=0 (**459/98/96/21/418**, флаги вне `REGISTRY`); `backdrop-filter: url(`=0; WebGL=0 (только `getContext('2d')`); CSP/zero-build чист; `APP_VERSION` **2.58.8** синхронен (`?v=__APP_VERSION__`/README/пины). Playwright-матрица в среде @Scanner не перезапускалась (опора на @Builder `failures: 0`) — Info, не блокер.
+
+**Low:**
+- [L-H7-1] `web/static/app.css:1245-1250` — `@supports not (backdrop-filter)`-фолбэк shell-панелей «мёртв» для `.app-sidebar`/`.app-drawer`/`.bottom-nav`/`.more-sheet`: основные правила (`:1669/1699/1730/1785`, та же специфичность, позже) перекрывают `--shell-bg-strong` → фактический фон без blur = `--shell-bg` (.62). **Pre-existing** (в HEAD аналогично с `--glass-bg` .5), AA-безопасно (independent recompute `--text-2` = **6.46:1**). Фикс: перенести фолбэк ниже/продублировать в правилах панелей.
+- [L-H7-2] `app.css:1270-1277` + `app.js:6852` — OFF-пути флагов не «байт-в-байт»: при `UI_SHELL_GLASS_V2=false` шапка получает `border-bottom: 1px solid` + `--glass-shadow` (в HEAD их не было); при `UI_HEARTBEAT_PREMIUM=false` legacy-рендер капается DPR=2. Функциональный откат сохранён.
+- [L-H7-3] `app.css:87-88` — AA worst-case комбинированного specular(.10)+texture(.020) = **4.44:1** для `--text-2` (изолированно 4.73, без блика 6.46); тонкая 1px-полоса верхнего угла, не блокер. Fix: specular .10→.08 / texture .020→.015 либо допуск в AA-таблице.
+
+**Info:** I-H7-1 (бэкап `hotfix7-round1025-20260922-052812/` — снимок рабочего дерева итер.1, не pre-hotfix7 baseline; hard-rollback через tag корректный и запушен); I-H7-2 (`README.md:5` «Тестов: 5936» устарело — pre-existing `L10.25F2-4`); I-H7-3 (`workflow_state.md` Step 4/5/6 ещё pending — док-статус).
+
+**Чисто:** CSP/zero-build (нет CDN/внешних URL/`data:image`/новых inline-скриптов; specular/texture — CSS-градиенты); XSS-safe (новых `innerHTML`/`v-html` нет, рендер — canvas + `getComputedStyle`, классы `shell-*` статичны); утечек rAF/observer нет (lifecycle heartbeat не менялся); R17 (диффы/отчёты без секретов/сырых значений); R18 (tag `pre-round1025-hotfix7`→`5a5465c` запушен, 12 тегов `pre-round1025*`, `.env.bak.round1025-hotfix7`, `stash@{0}` целы; `.env`/zip/скриншотов в индексе нет); совместимость — IA F1/порядок hotfix4, write-path F0 `persistItems`, store §37–§42, fullscreen-sync ADR-1024-24, deny-list tier C — не тронуты; палитра §8/фон §10 сохранены (изменены только opacity wash .42→.30 и `--glass-shadow` .75→.55); `--shell-h`-фолбэк корректен (base `100vh` всегда + dvh/min() строго в `@supports`).
+
+---
+
 ## Round 10.25 hotfix6 `hotfix6-webview-shell-heartbeat-round1025` (пакет «Волна 1.5») — 22.09.2026, Step 6 @Scanner
 
 **База:** HEAD `441e8f7` (аудит рабочего дерева — правки НЕ закоммичены на момент скана). Диапазон правок пакета: `441e8f7` → `055525c` (код+тесты) + docs `ba75751` (Merge §58 + архивация + сканер-аудит). Отчёт: `plans/reports/round1025_hotfix6_scanner_audit.md`. AA-доказательство: `plans/reports/round1025_hotfix6_contrast.md`.

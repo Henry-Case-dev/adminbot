@@ -1,5 +1,17 @@
 # Audit Backlog
 
+## Round 10.25 hotfix7 `hotfix7-shell-glass-heartbeat-round1025` (UPD «Срочный фикс фронта») — аудит рабочего дерева (Step 6 @Scanner, 22.09.2026) — all scanned, PENDING=0
+База/голова аудита — `5a5465c` (`pre-round1025-hotfix7`; правки НЕ закоммичены). Отчёт: `plans/reports/round1025_hotfix7_scanner_audit.md`; AA — `plans/reports/round1025_hotfix7_contrast.md`; матрица — `plans/reports/round1025_hotfix7_ui_report.md`.
+- [x] `web/static/app.css` — `--shell-h` (base `100vh` + dvh/min() строго в `@supports`), два режима normal/fullscreen, `--shell-*`/`--card-shadow`, shell-панели (sidebar/drawer/header/bottom-nav/more-sheet), specular/texture, `@supports`-фолбэк, `.shell-*-legacy`, виньетка .42→.30 — чисто; Low L-H7-1 (мёртвый @supports-фолбэк из-за порядка каскада), L-H7-2 (OFF-путь header: рамка+тень), L-H7-3 (specular∩texture 4.44:1)
+- [x] `web/app.js` — computeds `shellGlassV2`/`shellLayoutV2`/`heartbeatPremium`,ECG sweep-wipe (`_hbEcg`/`_hbPalette`/`_hbDrawGrid`/`_hbDrawPremium`) + canvas-legacy (`_hbDrawLegacy`), DPR-cap 2, без WebGL/`pulseX`; семантика `_heartbeatTransition`/`heartbeatSample` не тронута — чисто
+- [x] `web/index.html` — привязка классов `.app-shell` (`shell-layout-v2/legacy`, `shell-glass-v2/legacy`) — чисто
+- [x] `config/settings.py` + `web/api/routes.py` + `.env.example` — env-only `ClassVar` (`UI_SHELL_GLASS_V2`/`UI_HEARTBEAT_PREMIUM`/`UI_SHELL_LAYOUT_V2`, default ON), аддитивный `ui_flags` (только bool), `APP_VERSION` 2.58.8 — чисто
+- [x] `tests/*` + `tests/js/*` — новый `round1025_hotfix7_shell_glass_heartbeat_test.js` + `test_webapp_hotfix7_round1025.py` + регистрация + пин версии/wash; маркеры атомарны и усилены (не ослаблены) — чисто
+- [x] `tools/ui_round1025_matrix.py` — 5 режимов, `F7_PROBE_JS`, `_hotfix7_failures`, `f2ShellH`/`__f2_broken`; воспроизведена @Builder (`failures: 0`), в среде @Scanner не перезапускалась — Info
+- **СВОДКА 10.25 hotfix7: Critical 0 / High 0 / Medium 0 / Low 3 / Info 3. Вердикт: к деплою — ДА, обязательных возвратов @Builder нет.**
+  Independent: `node --check` OK, JS hotfix7 + все `tests/js/*.js` PASS, pytest **8207/0**, целевые **156 passed** + nav **28 passed**, `git diff --check`=0; Δ DDL=0, Δ каталога=0 (459/98/96/21/418), `backdrop-filter: url(`=0, WebGL=0, `APP_VERSION` 2.58.8 синхронен, `stash@{0}`/теги/бэкапы целы, `.env`/zip/скриншотов нет.
+  Follow-up (Low, не блокеры): L-H7-1/L-H7-2/L-H7-3. Live-гейт T-2682 (реальный Telegram WebView + FPS) — открыт за владельцем.
+
 ## Round 10.25 hotfix6 `hotfix6-webview-shell-heartbeat-round1025` (пакет «Волна 1.5») — аудит рабочего дерева (Step 6 @Scanner, 22.09.2026) — all scanned, PENDING=0
 База/голова аудита — `441e8f7` (правки НЕ закоммичены на момент скана); диапазон правок пакета `441e8f7` → `055525c` (код+тесты) + docs `ba75751`. Отчёт: `plans/reports/round1025_hotfix6_scanner_audit.md`; AA — `plans/reports/round1025_hotfix6_contrast.md`.
 - [x] `web/static/app.css` — foreground-линза `[data-glass="a"]::before` (`filter:var(--glass-displace)`), radial-mask, стекло `.app-sidebar`/`.app-drawer`/`header.header-sticky`/`.bottom-nav`/`.more-sheet`, шапка с blur — чисто; Low L-H6-2 (линза на скролл-контейнерах)
