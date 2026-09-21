@@ -11,10 +11,12 @@
   var _tp = wa.themeParams || {};
   wa.ready();
   wa.expand();
-  wa.setHeaderColor(_tp.header_bg_color || '#161616');
-  wa.setBackgroundColor(_tp.bg_color || '#0E0E0E');
+  // F2 round 10.25 (ADR-1025-9 D1/T-2536): фолбэки темы → палитра §8
+  // (Background #090D17 / Surface #151B2A) вместо прежних OD4-фолбэков.
+  wa.setHeaderColor(_tp.header_bg_color || '#151B2A');
+  wa.setBackgroundColor(_tp.bg_color || '#090D17');
   if (typeof wa.setBottomBarColor === 'function') {
-    wa.setBottomBarColor(_tp.bottom_bar_bg_color || '#161616');
+    wa.setBottomBarColor(_tp.bottom_bar_bg_color || '#151B2A');
   }
 
   /* F1 round 10.25 (ADR-1025-1 D7/T-2399): прокидываем safe-area и стабильную

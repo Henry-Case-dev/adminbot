@@ -166,5 +166,5 @@ class TestMenuCommand:
         assert "themeParams" in src
         assert "wa.setBackgroundColor(" in src
         assert "wa.setBottomBarColor" in src
-        assert "'#161616'" in src          # фолбэк-палитра эталона (T-1098)
+        assert "'#151B2A'" in src          # фолбэк-палитра §8 (F2/T-2536)
         assert "wa.ready()" in src

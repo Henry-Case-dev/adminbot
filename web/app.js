@@ -2078,7 +2078,10 @@
       };
       window.addEventListener('hashchange', _onHashChange);
       // F1 (§6/§7): пересчёт shell-режима при ресайзе (sidebar строго ≥1200).
-      _onResize = function () { if (_appVm) _appVm._syncShellMode(); };
+      // F2 (T-2540): + пересчёт уровня A стекла (min-сторона ≥240).
+      _onResize = function () {
+        if (_appVm) { _appVm._syncShellMode(); _appVm.reconcileLiquidGlass(); }
+      };
       window.addEventListener('resize', _onResize);
       // MODERATE-2 + 10.8 (R10.8-1): глобальный Esc закрывает модалку модуля
       // И route-driven окна «Доступов» (фокус может быть вне модалки —
@@ -2100,6 +2103,8 @@
       } catch (e) { this.reducedMotion = false; }
       this.initFullscreen();               // F24: синхронизация с TMA-fullscreen
       this.initBackButton();
+      // F2 (T-2540): страховка «крупного элемента» для уровня A стекла.
+      this.reconcileLiquidGlass();
       // Фин. доработка (DevOps): без Telegram-контекста — блокирующая
       // заглушка вместо бессмысленных 401 (ngrok-интерстициал ломал контекст).
       if (!this.hasInitData()) {
@@ -6341,8 +6346,9 @@
           return (p.samples || []).length > 0;
         });
         if (!anySample) return null;
-        var palette = ['#14CBB6', '#8D6BDC', '#16B364', '#EAAA08',
-                       '#FF4848', '#A78DE4'];
+        // F2 round 10.25 (ADR-1025-9 D1/T-2536): палитра графиков → §8.
+        var palette = ['#42D6C4', '#A78BFA', '#3DD68C', '#F6C56F',
+                       '#F07178', '#77A8FF'];
         var endBucket = -Infinity;
         var firstBucket = Infinity;
         list.forEach(function (p) {
@@ -6465,7 +6471,7 @@
               },
               plugins: {
                 legend: { display: true, position: 'bottom',
-                          labels: { color: '#BABABA', boxWidth: 10,
+                          labels: { color: '#AAB6C8', boxWidth: 10,
                                     font: { size: 10 } } },
               },
             },
@@ -7989,7 +7995,42 @@
           }, restoreMs);
         }
       },
+      // F2 (ADR-1025-9 D2/T-2540): Liquid Glass уровень A — progressive
+      // enhancement. Проверяем, умеет ли движок backdrop-filter:url(#…).
+      _liquidGlassSupported: function () {
+        try {
+          var css = window.CSS;
+          if (!css || typeof css.supports !== 'function') return false;
+          return css.supports('backdrop-filter', 'url(#lg-displace)') ||
+                 css.supports('-webkit-backdrop-filter', 'url(#lg-displace)');
+        } catch (e) { return false; }
+      },
+      // Страховка «крупного элемента» (§9/T-2540): уровень A — только opt-in
+      // `data-glass="a"` с min-стороной ≥240px и при поддержке url-фильтра.
+      // Иначе — уровень B (blur без преломления). Без второго обработчика.
+      reconcileLiquidGlass: function () {
+        if (typeof document === 'undefined') return;
+        var okA = this._liquidGlassSupported();
+        var nodes = document.querySelectorAll('[data-glass="a"]');
+        for (var i = 0; i < nodes.length; i++) {
+          var el = nodes[i];
+          var small = false;
+          try {
+            var r = el.getBoundingClientRect();
+            small = Math.min(r.width, r.height) < 240;
+          } catch (e) { small = false; }
+          if (!okA || small) el.setAttribute('data-glass', 'b');
+        }
+      },
+      // §10/T-2547: пауза дорогих фоновых эффектов при скрытии TMA.
+      setBgPaused: function (paused) {
+        try {
+          document.documentElement.classList.toggle('lg-bg-paused', !!paused);
+        } catch (e) { /* no-op: document недоступен */ }
+      },
       onVisibilityChange: function () {
+        // F2 (§10/T-2547): фон пауза — до ранних return'ов (activeTab/Dossier).
+        this.setBgPaused(!!document.hidden);
         // F8: свернули/вернули мини-апп с открытой модалкой Досье —
         // приостанавливаем/возобновляем опрос пересборки (источник — сервер).
         if (this.dossierOpen) {

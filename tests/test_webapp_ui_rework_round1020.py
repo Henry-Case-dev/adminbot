@@ -202,11 +202,12 @@ class TestNavigationSnapshot:
 # ═══════════════════════════ Дефект 1: стекло ═════════════════════════════
 class TestLiquidGlass:
     def test_tokens_exact(self):
-        assert _token("--glass-bg").replace(" ", "") == "rgba(20,25,30,0.5)"
+        # F2/T-2538: значения §9 на палитре §8 (surface-1 #151B2A = rgb 21,27,42).
+        assert _token("--glass-bg").replace(" ", "") == "rgba(21,27,42,0.5)"
         assert _token("--glass-blur").replace(" ", "") == "blur(16px)"
-        assert _token("--glass-bg-strong").replace(" ", "") == "rgba(20,25,30,0.85)"
+        assert _token("--glass-bg-strong").replace(" ", "") == "rgba(21,27,42,0.85)"
         assert _token("--glass-border-color").replace(" ", "") == \
-            "rgba(255,255,255,0.12)"
+            "rgba(170,182,200,0.16)"
 
     def test_each_glass_selector_carries_glass(self):
         for sel in GLASS_SET:
@@ -322,14 +323,20 @@ class TestGrid:
 
 # ═══════════════════════════ Дефект 4: градиент ═══════════════════════════
 class TestGradient:
-    def test_orange_token(self):
-        assert _token("--grad-d").upper() == "#FF8A3D"
+    def test_no_orange_token(self):
+        # F2/T-2545: --grad-d больше не оранжевый (§10 — приглушённый синий).
+        assert _token("--grad-d").upper() == "#5C7CFA"
 
     def test_speed_in_range(self):
+        # F2/T-2544: основной цикл §10 — 60–90 c; вторичный — 90–120 c.
         raw = _token("--grad-speed")
         m = re.match(r"^([\d.]+)s$", raw)
         assert m, raw
-        assert 5.0 <= float(m.group(1)) <= 8.0, raw
+        assert 60.0 <= float(m.group(1)) <= 90.0, raw
+        raw2 = _token("--grad-speed-slow")
+        m2 = re.match(r"^([\d.]+)s$", raw2)
+        assert m2, raw2
+        assert 90.0 <= float(m2.group(1)) <= 120.0, raw2
 
     def test_orange_in_stops_and_wash(self):
         band = [b for ctx, sel, b in RULES

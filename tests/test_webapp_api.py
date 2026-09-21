@@ -1258,11 +1258,12 @@ class TestStatic:
         assert resp.status_code == 200
         assert "css" in resp.headers["content-type"]
         css = resp.text
-        assert "@property --grad-angle" in css          # OD4: inherits:false
-        assert "grad-drift var(--grad-speed)" in css   # page-wash (T2/UPD3)
+        assert "@property --grad-angle" in css          # §10: inherits:false (механика)
+        # F2/T-2544: вторичный слой фона — --grad-speed-slow (90–120 c), не 6 s.
+        assert "grad-drift var(--grad-speed-slow)" in css
         assert "conic-gradient(from var(--grad-angle)" in css
         assert "@media (prefers-reduced-motion: reduce)" in css
-        assert "--surface-1:#161616" in css             # палитра эталона
+        assert "--surface-1:#151B2A" in css             # палитра §8
         assert "backdrop-filter: var(--glass-blur) saturate(140%)" in css
         assert "--glass-blur: blur(16px)" in css
         assert "/static/fonts/material-symbols-rounded.woff2" in css

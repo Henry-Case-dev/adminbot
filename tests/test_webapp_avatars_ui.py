@@ -441,10 +441,10 @@ class TestAvatarFrontAudit:
     def test_gradient_animation_8s(self):
         # F4 10.16: CSS-канон вынесен из inline <style> в app.css.
         css = _Static.read("web/static/app.css")
-        # Редизайн 10.5 (T-1098/OD4): анимированные градиенты эталона.
-        # UPD3/T-1937: единый токен --grad-speed 6s (5–8 s), wash — conic+wash.
-        assert "grad-drift var(--grad-speed)" in css
-        assert "--grad-speed:6s" in css
+        # §10/F2 (T-2544/T-2545): основной цикл 60–90 c, вторичный слой 90–120 c.
+        assert "grad-drift var(--grad-speed-slow)" in css
+        assert "--grad-speed:75s" in css
+        assert "--grad-speed-slow:105s" in css
         assert "animation: grad-spin" in css
 
     def test_relations_enrich_fields_in_app_js(self):

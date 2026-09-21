@@ -197,8 +197,8 @@ class TestProviderForm:
 
 class TestGradient109:
     def test_faster_gradient(self):
-        # UPD3/T-1937: --grad-speed 14s → 6s (5–8 s) + оранжевый токен --grad-d.
-        assert "--grad-speed:6s" in HTML
+        # §10/F2 (T-2544/T-2545): --grad-speed 60–90 c; --grad-d без оранжевого.
+        assert "--grad-speed:75s" in HTML
         assert "var(--grad-d)" in HTML
         # reduced-motion/contrast сохранены
         assert "prefers-reduced-motion" in HTML

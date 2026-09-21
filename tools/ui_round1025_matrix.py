@@ -265,6 +265,120 @@ PROBE_JS = """
 """
 
 
+# F2 (T-2554, §8/§9/§10): F2-пробы — реальные computed-стили, диапазоны
+# длительностей, glass allow/deny, пауза при document.hidden.
+F2_PROBE_JS = """
+(() => {
+  const de = document.documentElement;
+  const tok = (n) => getComputedStyle(de).getPropertyValue(n).trim();
+  const bf = (el) => {
+    if (!el) return null;
+    const st = getComputedStyle(el);
+    return (st.backdropFilter || st.webkitBackdropFilter || '');
+  };
+  const before = getComputedStyle(document.body, '::before');
+  const a = document.querySelector('[data-glass="a"]');
+  const c = document.querySelector('[data-glass="c"]');
+  return {
+    tokens: {
+      s0: tok('--surface-0'), s1: tok('--surface-1'), teal: tok('--teal-500'),
+      warn: tok('--warn'), err: tok('--err'),
+      gs: tok('--grad-speed'), gss: tok('--grad-speed-slow'),
+      glassBg: tok('--glass-bg'), displace: tok('--glass-displace'),
+    },
+    beforeAnim: before.animationName,
+    beforeDur: before.animationDuration,
+    align: a ? Math.min(a.getBoundingClientRect().width,
+                       a.getBoundingClientRect().height) : null,
+    allowBf: bf(a),
+    denyBf: bf(c),
+    denyCount: document.querySelectorAll('[data-glass="c"]').length,
+    hasDisplaceFilter: !!document.getElementById('lg-displace'),
+    overflow: de.scrollWidth > window.innerWidth + 1,
+  };
+})()
+"""
+
+# §10/T-2547: пауза дорогих эффектов при document.hidden (через
+# Object.defineProperty + dispatch — единственный обработчик в app.js).
+HIDDEN_PROBE_JS = """
+(() => {
+  let cls = false, ap = '';
+  try {
+    Object.defineProperty(document, 'hidden',
+      { configurable: true, get: () => true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  } catch (e) {}
+  cls = document.documentElement.classList.contains('lg-bg-paused');
+  ap = getComputedStyle(document.body, '::before').animationPlayState;
+  try {
+    Object.defineProperty(document, 'hidden',
+      { configurable: true, get: () => false });
+    document.dispatchEvent(new Event('visibilitychange'));
+  } catch (e) {}
+  return { cls: cls, ap: ap };
+})()
+"""
+
+F2_RM_PROBE_JS = """
+(() => {
+  const before = getComputedStyle(document.body, '::before');
+  return { beforeAnim: before.animationName, beforeDur: before.animationDuration };
+})()
+"""
+
+
+def _secs(raw: str):
+    try:
+        return float(str(raw).strip().rstrip("s"))
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _f2_failures(probe: dict, label: str) -> list:
+    """F2 (T-2554): палитра §8 / длительности §10 / glass allow-deny."""
+    out = []
+    t = probe.get("tokens", {})
+    expect = {"s0": "#090D17", "s1": "#151B2A", "teal": "#42D6C4",
+              "warn": "#F6C56F", "err": "#F07178"}
+    for k, v in expect.items():
+        if (t.get(k) or "").upper() != v:
+            out.append("%s палитра §8: --%s=%r (ожидалось %s)"
+                       % (label, k, t.get(k), v))
+    gs, gss = _secs(t.get("gs")), _secs(t.get("gss"))
+    if gs is None or not (60.0 <= gs <= 90.0):
+        out.append("%s фон §10: --grad-speed=%r вне [60,90]s" % (label, t.get("gs")))
+    if gss is None or not (90.0 <= gss <= 120.0):
+        out.append("%s фон §10: --grad-speed-slow=%r вне [90,120]s"
+                   % (label, t.get("gss")))
+    if "grad-spin" not in (probe.get("beforeAnim") or ""):
+        out.append("%s фон: body::before без grad-spin (%r)"
+                   % (label, probe.get("beforeAnim")))
+    dur = probe.get("beforeDur") or ""
+    if "75s" not in dur:
+        out.append("%s фон: основной цикл не 75s (%r)" % (label, dur))
+    if "105s" not in dur:
+        out.append("%s фон: вторичный цикл не 105s (%r)" % (label, dur))
+    if not probe.get("hasDisplaceFilter"):
+        out.append("%s glass: SVG-фильтр #lg-displace отсутствует" % label)
+    displace = (t.get("displace") or "").replace(" ", "")
+    if displace != "url(#lg-displace)":
+        out.append("%s glass: --glass-displace=%r" % (label, displace))
+    allow = (probe.get("allowBf") or "").replace(" ", "").replace('"', "")
+    if not allow:
+        out.append("%s glass allow: нет [data-glass=\"a\"] на экране" % label)
+    elif "url(#lg-displace)" not in allow:
+        out.append("%s glass allow: нет преломления (%r)" % (label, probe.get("allowBf")))
+    if probe.get("denyCount", 0) < 1:
+        out.append("%s glass deny: нет [data-glass=\"c\"] на экране" % label)
+    elif (probe.get("denyBf") or "none").replace(" ", "") not in ("none", ""):
+        out.append("%s glass deny: backdrop-filter=%r (ожидалось none)"
+                   % (label, probe.get("denyBf")))
+    if probe.get("overflow"):
+        out.append("%s F2: horizontal overflow" % label)
+    return out
+
+
 def _vertical_failures(probe: dict, label: str) -> list:
     """hotfix4 (T-2517): нижняя панель/шторка целиком в видимой области.
 
@@ -397,6 +511,39 @@ def main() -> int:
                     _snap(page, "%s_root" % vp_key)
                 if route == "#/memory":
                     _snap(page, "%s_memory" % vp_key)
+            # F2 (T-2554): F2-пробы на корневой Статус-вкладке (палитра/фон/
+            # glass allow-deny), затем пауза при document.hidden (§10/T-2547).
+            page.evaluate("() => { window.location.hash = '#/'; }")
+            page.wait_for_timeout(350)
+            f2 = page.evaluate(F2_PROBE_JS)
+            out["viewports"][vp_key]["f2"] = f2
+            failures.extend(_f2_failures(f2, vp_key))
+            hid = page.evaluate(HIDDEN_PROBE_JS)
+            out["viewports"][vp_key]["hidden"] = hid
+            if not hid.get("cls") or hid.get("ap") != "paused":
+                failures.append("%s hidden: фон не на паузе (cls=%s, play=%s)"
+                                % (vp_key, hid.get("cls"), hid.get("ap")))
+            # F2 (T-2548): prefers-reduced-motion → animation-name: none.
+            if (w, h) == VIEWPORTS[0]:
+                rm_ctx = browser.new_context(
+                    viewport={"width": w, "height": h}, reduced_motion="reduce")
+                rm_ctx.add_init_script(TMA_STUB)
+                rm_ctx.route("**/api/**", _route)
+                rm_page = rm_ctx.new_page()
+                rm_page.goto(url, wait_until="load")
+                try:
+                    rm_page.wait_for_selector(".app-shell", timeout=8000)
+                except Exception:  # noqa: BLE001
+                    pass
+                rm_page.wait_for_timeout(500)
+                rm_page.evaluate("() => { window.location.hash = '#/'; }")
+                rm_page.wait_for_timeout(350)
+                rm_probe = rm_page.evaluate(F2_RM_PROBE_JS)
+                out["viewports"][vp_key]["reduced_motion"] = rm_probe
+                if rm_probe.get("beforeAnim") not in ("none", ""):
+                    failures.append("%s reduced-motion: animationName=%r"
+                                    % (vp_key, rm_probe.get("beforeAnim")))
+                rm_ctx.close()
             # hotfix4 (T-2517): шторка «Ещё» — вертикаль ПРИ ОТКРЫТИИ.
             if w < 768:
                 try:

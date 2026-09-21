@@ -24,6 +24,23 @@
   <link rel="stylesheet" href="/static/app.css?v=__APP_VERSION__">
 </head>
 <body>
+  <!-- §9/F2 (ADR-1025-9 D2/T-2540): inline SVG-фильтр уровня A Liquid Glass.
+       CSP-safe (zero-build, без внешних ресурсов/data-URI), ОДИН фильтр на
+       документ; применяется только к opt-in [data-glass="a"]. Карта сглажена
+       (feGaussianBlur) — оптическое преломление, не случайный шум. -->
+  <svg class="lg-filter-defs" width="0" height="0" aria-hidden="true" focusable="false"
+       style="position:absolute;width:0;height:0;overflow:hidden">
+    <defs>
+      <filter id="lg-displace" x="-20%" y="-20%" width="140%" height="140%"
+              color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.009 0.013"
+                      numOctaves="2" seed="11" result="lg-noise"/>
+        <feGaussianBlur in="lg-noise" stdDeviation="3.2" result="lg-map"/>
+        <feDisplacementMap in="SourceGraphic" in2="lg-map" scale="14"
+                           xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+    </defs>
+  </svg>
   <div id="app" v-cloak>
     <div class="app-shell"
          :class="[{ 'fullscreen-mode': isFullscreen }, 'shell-' + shellMode,
@@ -1355,7 +1372,7 @@
           </template>
           <template v-else-if="activeTab === 'oversight'">
             <!-- ═══ Сводка (F-12 C1/C2) — только global admin ═══ -->
-            <div class="card glass-panel p-4 col-span-full">
+            <div class="card glass-panel p-4 col-span-full" data-glass="a">
               <div class="flex items-center gap-2 flex-wrap mb-2">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('radar') }}</span> Аналитика</div>
                 <span class="text-xs text-gray-500">сводка всех чатов (кэш 60 с)</span>
@@ -2693,8 +2710,8 @@
                  визуальный блок с внутренними секциями (мобила — столбик,
                  десктоп — рядом). Строка со служебными полями удалена
                  (T-1820); API-контракт «Статуса» не менялся (R16). -->
-            <div class="card p-4 status-block">
-              <div class="status-block__grid">
+              <div class="card p-4 status-block" data-glass="a">
+                <div class="status-block__grid">
                 <section class="status-block__pulse">
                   <div class="flex items-center gap-2 mb-1 flex-wrap">
                     <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('monitoring') }}</span> Сердцебиение</div>
@@ -2856,7 +2873,7 @@
                           :disabled="!cognitionNetwork">Сбросить вид</button>
                   <span v-if="graphSearchStatus" class="text-xs text-gray-500">{{ graphSearchStatus }}</span>
                 </div>
-                <div ref="cognitionGraph" class="cognition-graph"></div>
+                <div ref="cognitionGraph" class="cognition-graph" data-glass="a"></div>
               </div>
               <!-- F7 (memory-retention-health, D-6): метрики здоровья памяти
                    (GET /api/memory/health) — аддитивно: просрочено,
@@ -2932,7 +2949,7 @@
             <!-- Доступность ключей API (B1/OD8, T-1128/T-1129): плотный
                  список + график по времени + легенда. Данные — leak-safe
                  GET /api/status/key-history (allowlist, R17). -->
-            <div class="card p-4 keys-avail" style="grid-column: 1 / -1;">
+            <div class="card p-4 keys-avail" data-glass="c" style="grid-column: 1 / -1;">
               <div class="flex items-center gap-2 mb-2 flex-wrap">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('key') }}</span> История доступности ключей</div>
                 <button class="btn-ghost text-xs ml-auto"
@@ -2971,7 +2988,7 @@
             </div>
 
             <!-- Логи -->
-            <div class="card p-4" style="grid-column: 1 / -1;">
+            <div class="card p-4" data-glass="c" style="grid-column: 1 / -1;">
               <div class="flex items-center gap-2 flex-wrap mb-2">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('receipt_long') }}</span> Логи</div>
                 <select class="field w-32 shrink-0" v-model="logLevel" aria-label="Уровень логов">

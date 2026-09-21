@@ -250,7 +250,9 @@ JS_PROBE = r"""
       masked: el.value === '\u2022'.repeat(12) }));
   const root = cs(document.documentElement);
   const before = getComputedStyle(document.body, '::before');
+  // F2/T-2544: основной цикл 60–90 c (--grad-speed), вторичный 90–120 c.
   const grad = { speed: root.getPropertyValue('--grad-speed').trim(),
+    slow: root.getPropertyValue('--grad-speed-slow').trim(),
     d: root.getPropertyValue('--grad-d').trim(),
     animName: before.animationName, animDur: before.animationDuration,
     opacity: before.opacity,

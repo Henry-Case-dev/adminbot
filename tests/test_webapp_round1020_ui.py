@@ -162,11 +162,11 @@ class TestLiquidGlassAndGrid:
     """T-1898/T-1899: дизайн-токены, grid, reduced-motion."""
 
     def test_glass_tokens(self):
-        # UPD3 (T-1934): alpha .5 + blur 16px (см. каскад-тесты
+        # §9/F2 (T-2538): alpha .5 + blur 16px на палитре §8 (см. каскад-тесты
         # tests/test_webapp_ui_rework_round1020.py).
-        assert "--glass-bg: rgba(20, 25, 30, 0.5)" in CSS
+        assert "--glass-bg: rgba(21, 27, 42, 0.5)" in CSS
         assert "--glass-blur: blur(16px)" in CSS
-        assert "--glass-border-color: rgba(255, 255, 255, 0.12)" in CSS
+        assert "--glass-border-color: rgba(170, 182, 200, 0.16)" in CSS
         assert "--glass-border: 1px solid var(--glass-border-color)" in CSS
         assert "backdrop-filter: var(--glass-blur)" in CSS
         assert ".modal-card" in CSS

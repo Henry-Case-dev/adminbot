@@ -2,25 +2,27 @@
     [v-cloak] { display: none; }
 
     :root {
-      /* ═══ Дизайн-токены (редизайн 10.5, T-1098; палитра эталона Relume) ═══ */
-      /* surfaces (плотные — гарантируют контраст WCAG AA) */
-      --surface-0:#0E0E0E; --surface-1:#161616; --surface-2:#1F1F1F; --surface-3:#262626;
-      --surface-border:rgba(255,255,255,.10);
-      /* UPD3: --surface-glass больше не потребляется (стекло = --glass-bg ниже);
-         оставлен как алиас для обратной совместимости. */
-      --surface-glass:rgba(20,25,30,.5);
-      /* text */
-      --text-1:#F5F5F5; --text-2:#BABABA; --text-3:#9E9E9E;
-      /* brand/base palette (эталон) */
-      --teal-500:#14CBB6; --teal-600:#12B7A4; --purple-500:#664EA0; --purple-400:#8D6BDC;
-      --magenta-600:#A91443; --magenta-400:#C25879; --lilac-200:#D9CDF3; --indigo-300:#A78DE4;
-      /* status */
-      --ok:#16B364; --warn:#EAAA08; --err:#FF4848;
-      --ok-bg:rgba(22,179,100,.14); --warn-bg:rgba(234,170,8,.14); --err-bg:rgba(255,72,72,.14);
-      /* animated gradient tokens (OD4) */
-      --grad-angle:135deg; --grad-a:#664EA0; --grad-b:#14CBB6; --grad-c:#8D6BDC;
-      --grad-d:#FF8A3D;   /* UPD3/T-1937: оранжевый к сиреневому/циану */
-      --grad-speed:6s;    /* UPD3/T-1937: 14s → 6s (диапазон 5–8 s) */
+      /* ═══ Дизайн-токены v2 (раунд 10.25/F2; палитра §8, ADR-1025-9 D1) ═══
+         Имена потребителей сохранены (surface/text/teal/purple/status/grad/glass) —
+         меняются значения; OD4/Relume-палитра SUPERSEDE. */
+      /* surfaces (§8: Background #090D17 / Surface #151B2A / Elevated #1C2537) */
+      --surface-0:#090D17; --surface-1:#151B2A; --surface-2:#1C2537; --surface-3:#232E45;
+      --surface-border:rgba(170,182,200,.14);
+      /* --surface-glass: legacy-алиас (стекло = --glass-bg ниже). */
+      --surface-glass:rgba(21,27,42,.5);
+      /* text (§8: Primary #F4F7FB / Secondary #AAB6C8; --text-3 ≥4.5:1 на surface-0..3) */
+      --text-1:#F4F7FB; --text-2:#AAB6C8; --text-3:#94A3B8;
+      /* brand/base palette (§8: Teal #42D6C4 / Violet #A78BFA / Blue #77A8FF) */
+      --teal-500:#42D6C4; --teal-600:#2FB9A8; --purple-500:#A78BFA; --purple-400:#8B6FE8;
+      --magenta-600:#E05A8A; --magenta-400:#F08BB0; --lilac-200:#CFC4F5; --indigo-300:#77A8FF;
+      /* status (§8: warning #F6C56F / danger #F07178; ok согласован с палитрой) */
+      --ok:#3DD68C; --warn:#F6C56F; --err:#F07178;
+      --ok-bg:rgba(61,214,140,.14); --warn-bg:rgba(246,197,111,.14); --err-bg:rgba(240,113,120,.14);
+      /* animated gradient tokens (§10: бирюза/синий/фиолет/приглушённый синий) */
+      --grad-angle:135deg; --grad-a:#42D6C4; --grad-b:#77A8FF; --grad-c:#A78BFA;
+      --grad-d:#5C7CFA;   /* §10/T-2545: приглушённый синий вместо оранжевого */
+      --grad-speed:75s;      /* §10/T-2544: основной цикл 60–90 c (было 6s) */
+      --grad-speed-slow:105s;/* §10/T-2544: вторичные слои 90–120 c */
       --grad-ease:cubic-bezier(0,0,.2,1);
       /* typography (значения эталона) */
       --font-body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
@@ -33,13 +35,20 @@
       --shadow-lg:0 10px 25px -3px rgba(0,0,0,.08);--shadow-xl:0 20px 50px -12px rgba(0,0,0,.12);
       --dur-fast:.15s;--dur-normal:.3s;--dur-slow:.5s;--ease-out:cubic-bezier(0,0,.2,1);
       --page-padding:2.5rem;--navbar-height:4.5rem;
-      /* Liquid Glass (раунд 10.20, БЛОК 3.4/T-1898): токены — единый источник.
-         Применяются к панелям «Сводка»/«Модули»/«ИИ» и всем модалкам. */
-      --glass-bg: rgba(20, 25, 30, 0.5);
-      --glass-bg-strong: rgba(20, 25, 30, 0.85);
+      /* Liquid Glass v2 (§9, раунд 10.25/F2; ADR-1025-9 D2) — уровни A/B/C.
+         B (default, glass-set): blur + светлая кромка + блик + тень.
+         A (opt-in [data-glass="a"]): + оптическое преломление --glass-displace (Chromium).
+         C ([data-glass="c"]/deny-list): непрозрачный fallback.
+         Токены — единый источник для панелей/карточек/модалок/sticky. */
+      --glass-bg: rgba(21, 27, 42, 0.5);
+      --glass-bg-strong: rgba(21, 27, 42, 0.85);
       --glass-blur: blur(16px);
-      --glass-border-color: rgba(255, 255, 255, 0.12);
+      --glass-border-color: rgba(170, 182, 200, 0.16);
       --glass-border: 1px solid var(--glass-border-color);
+      --glass-displace: url(#lg-displace);
+      --glass-highlight: rgba(255, 255, 255, 0.16);
+      --glass-highlight-soft: rgba(255, 255, 255, 0.05);
+      --glass-shadow: 0 18px 40px -18px rgba(3, 7, 18, 0.75);
       --sticky-save-h: 4.5rem;
       /* compat-алиасы (хардкод прежней фиолетово-синей палитры удалён, §4.5) */
       --card-bg: var(--glass-bg);
@@ -101,9 +110,10 @@
       background: transparent;
       position: relative;
     }
-    /* T2/UPD3 — большая мягкая page-wash (фон-подсветка), не под текстом напрямую.
-       UPD3/T-1937: conic-gradient + вращение угла, оранжевый stop, opacity .42 —
-       видимые переливы за 6 s; wash — backdrop для backdrop-filter стекла (RC-B). */
+    /* §10/F2 (T-2544/T-2545): мягкая page-wash — механику сохраняем
+       (@property --grad-angle + grad-spin/grad-drift), но цвета §10 (без оранжевого)
+       и длительности 60–90 c (основной) / 90–120 c (вторичный drift), opacity .42.
+       Blur viewport НЕ анимируется (T-2541): анимируются угол/позиция градиента. */
     body::before {
       content: '';
       position: fixed;
@@ -114,8 +124,16 @@
         var(--grad-a), var(--grad-b), var(--grad-d), var(--grad-c), var(--grad-a));
       background-size: 200% 200%;
       animation: grad-spin var(--grad-speed) linear infinite,
-                 grad-drift var(--grad-speed) var(--grad-ease) infinite alternate;
+                 grad-drift var(--grad-speed-slow) var(--grad-ease) infinite alternate;
       opacity: .42;
+    }
+    /* §10/T-2547: пауза дорогих эффектов при скрытии TMA (класс ставит
+       onVisibilityChange в app.js — единый обработчик, без второго listener'а). */
+    html.lg-bg-paused body::before,
+    html.lg-bg-paused .grad-band,
+    html.lg-bg-paused .btn-accent,
+    html.lg-bg-paused .tab-btn.active {
+      animation-play-state: paused;
     }
     #app { position: relative; z-index: 1; }
     @media (prefers-reduced-motion: reduce) {
@@ -125,6 +143,11 @@
         background: linear-gradient(135deg, var(--grad-a), var(--grad-b), var(--grad-c));
       }
       :root { --grad-angle: 135deg; }
+      /* T-2548: при reduced-motion гасим дорогое преломление уровня A (остаётся B). */
+      [data-glass="a"] {
+        -webkit-backdrop-filter: var(--glass-blur) saturate(140%) !important;
+        backdrop-filter: var(--glass-blur) saturate(140%) !important;
+      }
     }
     @media (prefers-contrast: more) {
       .grad-band, .btn-accent, .tab-btn.active, body::before {
@@ -144,7 +167,7 @@
     }
     /* G1.3: card-solid — плотная подложка только header-sticky/scope-panel. */
     .card-solid {
-      background: rgba(22, 22, 22, 0.88);
+      background: var(--glass-bg-strong);
     }
 
     /* F6 (10.14): рендер Markdown-гайда в «Справке» — читаемая типографика */
@@ -188,9 +211,10 @@
     .info-html blockquote b { font-weight: 700; }
     .info-html a { color: var(--teal-500); text-decoration: underline; }
 
-    /* Активные кнопки/выделения — фиолетово-синий градиент */
+    /* §8/T-2535: primary — акцентный градиент; тёмный текст на светлых стопах
+       (белый давал ~2:1 и проваливал AA). */
     .btn-accent {
-      color: #fff;
+      color: #081018;
       border: none;
       border-radius: 0.75rem;
       padding: 0.55rem 1rem;
@@ -201,26 +225,32 @@
     .btn-accent:hover:not(:disabled) { transform: translateY(-1px); }
     .btn-accent:disabled { opacity: 0.45; cursor: not-allowed; }
 
+    /* §8/T-2535: secondary — приглушённая заливка + бордер (не «ярче primary»). */
     .btn-ghost {
-      background: rgba(255, 255, 255, 0.06);
+      background: rgba(170, 182, 200, 0.10);
       border: var(--card-border);
       border-radius: 0.75rem;
       padding: 0.5rem 0.9rem;
-      color: #dcdcee;
+      color: var(--text-2);
       cursor: pointer;
-      transition: background 0.12s ease;
+      transition: background 0.12s ease, border-color 0.12s ease;
     }
-    .btn-ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+    .btn-ghost:hover:not(:disabled) {
+      background: rgba(170, 182, 200, 0.18); border-color: var(--glass-border-color);
+    }
     .btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+    /* §8/T-2535: danger — семантический красный, отличим от primary/secondary. */
     .btn-danger {
-      background: linear-gradient(135deg, #dc2626, #b91c1c);
-      color: #fff;
+      background: linear-gradient(135deg, var(--err), #C24A52);
+      color: #1B0B0E;
       border: none;
       border-radius: 0.75rem;
       padding: 0.5rem 0.9rem;
       cursor: pointer;
       font-weight: 600;
     }
+    .btn-danger:hover:not(:disabled) { transform: translateY(-1px); }
+    .btn-danger:disabled { opacity: 0.45; cursor: not-allowed; }
 
     .tab-btn {
       display: flex;
@@ -230,18 +260,18 @@
       text-align: left;
       padding: 0.65rem 0.9rem;
       border-radius: 0.75rem;
-      color: #b9b9d4;
+      color: var(--text-2);
       background: transparent;
       border: none;
       cursor: pointer;
       font-size: 0.92rem;
       transition: background 0.12s ease, color 0.12s ease;
     }
-    .tab-btn:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+    .tab-btn:hover { background: rgba(170, 182, 200, 0.10); color: var(--text-1); }
     .tab-btn.active {
-      color: #fff;
+      color: #081018;
       font-weight: 600;
-      box-shadow: 0 4px 18px rgba(20, 203, 182, 0.35);
+      box-shadow: 0 4px 18px rgba(66, 214, 196, 0.35);
     }
 
     /* T-1100/раунд 10.6 (A1): navbar-полоса (6 пунктов эталона) + hub */
@@ -361,7 +391,7 @@
       border: var(--card-border);
       border-radius: 0.6rem;
       padding: 0.5rem 0.7rem;
-      color: #e5e5f0;
+      color: var(--text-1);
       outline: none;
       font-size: 0.9rem;
     }
@@ -391,9 +421,9 @@
       font-size: 0.72rem;
       font-weight: 600;
     }
-    .badge-ok    { background: var(--ok-bg);   color: #4ade80; }
-    .badge-warn  { background: var(--warn-bg); color: #facc15; }
-    .badge-err   { background: var(--err-bg);  color: #f87171; }
+    .badge-ok    { background: var(--ok-bg);   color: var(--ok); }
+    .badge-warn  { background: var(--warn-bg); color: var(--warn); }
+    .badge-err   { background: var(--err-bg);  color: var(--err); }
     .badge-info  { background: rgba(59, 130, 246, 0.18); color: #93c5fd; }
     .badge-muted { background: rgba(255, 255, 255, 0.08); color: #9ca3af; }
 
@@ -526,7 +556,7 @@
       word-break: break-word; overflow-wrap: anywhere; white-space: pre-wrap;
     }
     /* 10.7 (3c): transient-подсветка скопированной строки. */
-    .log-copied { background: rgba(20, 203, 182, .18); transition: background .15s ease; }
+    .log-copied { background: rgba(66, 214, 196, .18); transition: background .15s ease; }
     /* Раунд 10 (F-8 T-874): чип «авто» вместо «— авто» */
     .chip-auto {
       background: rgba(245, 158, 11, 0.18);
@@ -668,7 +698,7 @@
       position: sticky;
       top: 0;
       z-index: 40;
-      background: rgba(22, 22, 22, 0.96);
+      background: var(--glass-bg-strong);
       padding-right: calc(1rem + env(safe-area-inset-right, 0px));
       padding-left: calc(1rem + env(safe-area-inset-left, 0px));
     }
@@ -860,8 +890,9 @@
        Раунд 10.20 — рефакторинг UX/UI мини-аппа (БЛОК 3). МЕНЮ НЕ МЕНЯЕТСЯ.
        ═══════════════════════════════════════════════════════════════════ */
 
-    /* T-1898/UPD3 (T-1934): Liquid Glass — карточки/панели/модалки/модальные
-       блоки. RC-A: `.card` (94 узла) обязан входить в glass-set; alpha .5. */
+    /* §9/F2 (ADR-1025-9 D2): Liquid Glass уровень B (default) — карточки/панели/
+       модалки/модальные блоки: backdrop blur + светлая кромка + внутренний блик +
+       мягкая тень. RC-A: `.card` (94 узла) обязан входить в glass-set; alpha .5. */
     .card,
     .modal-card,
     .module-card,
@@ -875,6 +906,49 @@
       -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
       backdrop-filter: var(--glass-blur) saturate(140%);
       border: var(--glass-border);
+      box-shadow: var(--glass-shadow),
+                  inset 0 1px 0 var(--glass-highlight);
+    }
+    /* §9/F2 (T-2538/T-2539/T-2540): уровень A — оптическое преломление.
+       Только явный opt-in `data-glass="a"` (крупные элементы; JS-страховка
+       min-сторона ≥240px в reconcileLiquidGlass). Chromium — progressive
+       enhancement: вне поддержки backdrop-filter:url() остаётся уровень B. */
+    [data-glass="a"] {
+      background-color: var(--glass-bg);
+      -webkit-backdrop-filter: var(--glass-blur) saturate(140%) var(--glass-displace);
+      backdrop-filter: var(--glass-blur) saturate(140%) var(--glass-displace);
+      border: var(--glass-border);
+      box-shadow: var(--glass-shadow),
+                  inset 0 1px 0 var(--glass-highlight),
+                  inset 0 -1px 0 var(--glass-highlight-soft);
+    }
+    /* §9/F2 (T-2538): явный уровень B — профиль для элементов, понижённых из A
+       (нет поддержки url-фильтра или min-сторона <240px): blur без преломления. */
+    [data-glass="b"] {
+      background-color: var(--glass-bg);
+      -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
+      backdrop-filter: var(--glass-blur) saturate(140%);
+      border: var(--glass-border);
+      box-shadow: var(--glass-shadow),
+                  inset 0 1px 0 var(--glass-highlight);
+    }
+    /* §9/F2 (T-2539): deny-list — уровень C. textarea/таблицы прав/логи/длинные
+       формы/редакторы промптов: никакого преломления и blur, плотная подложка. */
+    [data-glass="c"],
+    .keys-avail,
+    .avail-list,
+    .matrix-table,
+    .log-panel,
+    .log-code,
+    textarea,
+    textarea.field,
+    .prompt-editor {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+    }
+    [data-glass="c"] {
+      background-color: var(--glass-bg-strong);
+      box-shadow: var(--glass-shadow);
     }
     /* G1.6/UPD3 (T-1935): grid-контейнеры — ТОЛЬКО раскладка, без фона/
        бордера/blur (раньше фон висел на обёртке «панель-слэб»). */
@@ -910,11 +984,23 @@
       -webkit-backdrop-filter: var(--glass-blur);
       backdrop-filter: var(--glass-blur);
     }
-    /* webkit-фолбэк: плотный фон, если backdrop-filter не поддержан. */
+    /* webkit-фолбэк: плотный фон (уровень C), если backdrop-filter не поддержан.
+       Не полагаемся на backdrop-filter:url() — без поддержки читаемый fallback. */
     @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
       .card, .modal-card, .module-card, .hub-card, .prov-block,
-      details.advanced, .scope-panel, .glass-panel, .oversight-panel {
+      details.advanced, .scope-panel, .glass-panel, .oversight-panel,
+      [data-glass="a"], [data-glass="c"] {
         background-color: var(--glass-bg-strong);
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+      }
+    }
+    /* Уровень A (url-фильтр) — progressive enhancement: если движок не умеет
+       backdrop-filter:url(#…), гасим преломление, оставляя уровень B. */
+    @supports not ((backdrop-filter: url(#lg-displace)) or (-webkit-backdrop-filter: url(#lg-displace))) {
+      [data-glass="a"] {
+        -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
+        backdrop-filter: var(--glass-blur) saturate(140%);
       }
     }
 

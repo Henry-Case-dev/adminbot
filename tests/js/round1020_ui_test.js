@@ -449,8 +449,8 @@ const INDEX = fs.readFileSync(
 (function () {
   const CSS = fs.readFileSync(
     path.join(__dirname, '..', '..', 'web', 'static', 'app.css'), 'utf8');
-  assert.ok(CSS.indexOf('--glass-bg: rgba(20, 25, 30, 0.5)') >= 0,
-    'T-1898/UPD3: токен --glass-bg');
+  assert.ok(CSS.indexOf('--glass-bg: rgba(21, 27, 42, 0.5)') >= 0,
+    'F2/T-2538: токен --glass-bg (палитра §8)');
   assert.ok(CSS.indexOf('--glass-border') >= 0, 'T-1898: токен --glass-border');
   assert.ok(CSS.indexOf('backdrop-filter: var(--glass-blur)') >= 0,
     'T-1898/UPD3: backdrop-filter: blur(16px)');

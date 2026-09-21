@@ -94,12 +94,12 @@ const CSS = fs.readFileSync(
 
 // ── 1. Liquid Glass: токены + glass-set ─────────────────────────────────────
 {
-  assert.ok(/--glass-bg\s*:\s*rgba\(20,\s*25,\s*30,\s*0?\.5\)/.test(CSS),
-    'glass: токен --glass-bg = rgba(20,25,30,.5)');
+  assert.ok(/--glass-bg\s*:\s*rgba\(21,\s*27,\s*42,\s*0?\.5\)/.test(CSS),
+    'glass: токен --glass-bg = rgba(21,27,42,.5) (§8)');
   assert.ok(/--glass-blur\s*:\s*blur\(16px\)/.test(CSS),
     'glass: токен --glass-blur = blur(16px)');
-  assert.ok(/--glass-bg-strong\s*:\s*rgba\(20,\s*25,\s*30,\s*0?\.85\)/.test(CSS),
-    'glass: токен --glass-bg-strong = rgba(20,25,30,.85)');
+  assert.ok(/--glass-bg-strong\s*:\s*rgba\(21,\s*27,\s*42,\s*0?\.85\)/.test(CSS),
+    'glass: токен --glass-bg-strong = rgba(21,27,42,.85) (§8)');
   const glassSet = CSS.match(/\.card,\s*\.modal-card,[\s\S]*?\.oversight-panel\s*\{([^}]*)\}/);
   assert.ok(glassSet, 'glass: найдено правило glass-set');
   assert.ok(/background-color:\s*var\(--glass-bg\)/.test(glassSet[1]),
@@ -190,14 +190,18 @@ const CSS = fs.readFileSync(
   const speed = CSS.match(/--grad-speed\s*:\s*([\d.]+)s/);
   assert.ok(speed, 'градиент: --grad-speed задан');
   const val = parseFloat(speed[1]);
-  assert.ok(val >= 5 && val <= 8,
-    'градиент: --grad-speed ∈ [5,8]s (получено ' + val + ')');
+  assert.ok(val >= 60 && val <= 90,
+    'F2/T-2544: --grad-speed ∈ [60,90]s (получено ' + val + ')');
+  const slow = CSS.match(/--grad-speed-slow\s*:\s*([\d.]+)s/);
+  assert.ok(slow && parseFloat(slow[1]) >= 90 && parseFloat(slow[1]) <= 120,
+    'F2/T-2544: --grad-speed-slow ∈ [90,120]s');
   const d = CSS.match(/--grad-d\s*:\s*(#[0-9A-Fa-f]{6})/);
   assert.ok(d, 'градиент: --grad-d задан');
   const rgb = [parseInt(d[1].slice(1, 3), 16), parseInt(d[1].slice(3, 5), 16),
     parseInt(d[1].slice(5, 7), 16)];
-  assert.ok(rgb[0] > 200 && rgb[1] > 100 && rgb[1] < 200 && rgb[2] < 120,
-    'градиент: --grad-d оранжевый (' + d[1] + ')');
+  // F2/T-2545: оранжевый стоп убран — --grad-d приглушённый синий (B ≥ R).
+  assert.ok(rgb[2] > rgb[0] && rgb[1] > rgb[0],
+    'F2/T-2545: --grad-d не оранжевый (' + d[1] + ')');
   const rmBlocks = CSS.match(
     /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n    \}/g) || [];
   assert.ok(rmBlocks.some((b) => b.indexOf('body::before') >= 0 &&
