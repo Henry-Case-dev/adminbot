@@ -597,8 +597,9 @@ class Settings:
     # джиттере (ReadTimeout в авто-прогоне 07:00). 180 c ≈ 2× наблюдаемого
     # p-max + запас. Суммарный бюджет строго ограничен: ретраятся только
     # транзиентные отказы (timeout/сеть/http_429/502/503/504), внутренний
-    # HTTP-ретрай на период обложки отключён → worst-case = attempts × окно =
-    # 2×180 = 360 c. `IMAGE_REQUEST_TIMEOUT_SECONDS` (90) остаётся
+    # HTTP-ретрай на период обложки отключён, а каждая попытка обёрнута реальным
+    # дедлайном (POST+скачивание вместе) → worst-case = attempts × окно +
+    # backoff = 2×180 + 2 = 362 c. `IMAGE_REQUEST_TIMEOUT_SECONDS` (90) остаётся
     # (диагностика `probe` и default генерации) — прежние настройки не ломаются.
     # Резолверы клампят: окно (≤0 → 180, cap 600), attempts [1, 5], backoff [0, 30].
     IMAGE_ATTEMPT_TIMEOUT_SECONDS: ClassVar[float] = _env_float(

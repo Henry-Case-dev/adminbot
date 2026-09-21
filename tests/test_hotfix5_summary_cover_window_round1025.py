@@ -11,7 +11,9 @@
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 from dataclasses import replace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -257,6 +259,33 @@ class TestGenerateTimeoutClass:
             if path:
                 import os
                 os.remove(path)
+
+    @pytest.mark.asyncio
+    async def test_attempt_bounded_by_window_deadline(self, monkeypatch):
+        """Review iter1 (item 1): «одна попытка ≤ окно» — реальный дедлайн
+        покрывает POST+скачивание; суммарно ≤ attempts×окно + backoff.
+
+        Старо (без `wait_for`) две «зависшие» попытки шли бы ~10 c."""
+        monkeypatch.setattr(ig, "_consume_budget", AsyncMock(return_value=True))
+        monkeypatch.setattr(Settings, "IMAGE_ATTEMPT_TIMEOUT_SECONDS", 0.2)
+        monkeypatch.setattr(Settings, "IMAGE_GENERATION_MAX_ATTEMPTS", 2)
+        monkeypatch.setattr(
+            Settings, "IMAGE_GENERATION_RETRY_BACKOFF_SECONDS", 0.0)
+        calls = {"n": 0}
+
+        async def never_returns(prompt, **kw):
+            calls["n"] += 1
+            await asyncio.sleep(5.0)          # «зависший» провайдер
+            return ig.GenerationResult(ok=True, content=b"x")
+
+        monkeypatch.setattr(ig, "generate", never_returns)
+        started = time.monotonic()
+        path, reason = await ig.generate_image_verbose("кот", chat_id=1)
+        elapsed = time.monotonic() - started
+
+        assert path is None and reason == "timeout"
+        assert calls["n"] == 2                # обе попытки стартовали
+        assert elapsed < 0.2 * 2 + 0.5        # дедлайн каждой попытки сработал
 
 
 # ── B. Бюджет изображений (c) ────────────────────────────────────────────

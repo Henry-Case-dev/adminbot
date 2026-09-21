@@ -871,10 +871,15 @@ async def generate_image_verbose(prompt: str, *, chat_id: int | None = None,
     ТОЛЬКО транзиентные отказы (`timeout`/`network`/`http_429/502/503/504`);
     детерминированные (`unauthorized`/`bad_request`/`bad_json`/`too_large`/…)
     дают ровно одну попытку. Внутренний HTTP-ретрай на период обложки отключён
-    (`retry=False`) — повторами владеет этот цикл, поэтому worst-case бюджет
-    строго ≤ ``attempts × окно`` (item 3), а не ~4×окна. Бюджет списывается
-    ОДИН раз на запрос. Каждая неудачная попытка — WARNING с ``attempt=N/M``/
-    классом причины/провайдером/длительностью (R17-safe, без промпта)."""
+    (`retry=False`) — повторами владеет этот цикл.
+
+    Review iter1 (item 1): каждая попытка обёрнута в РЕАЛЬНЫЙ дедлайн
+    ``asyncio.wait_for(generate(...), timeout=окно)`` — POST + скачивание
+    (GET-режим) вместе ограничены одним окном, поэтому «одна попытка ≤ окно»
+    верно, а worst-case бюджета строго ≤ ``attempts × окно + backoff``
+    (2×180 + 2 = 362 c), а не 2×(POST+download). Бюджет списывается ОДИН раз
+    на запрос. Каждая неудачная попытка — WARNING с ``attempt=N/M``/классом
+    причины/провайдером/длительностью (R17-safe, без промпта)."""
     prompt = str(prompt or "").strip()
     if not prompt:
         return None, "empty_prompt"
@@ -887,16 +892,24 @@ async def generate_image_verbose(prompt: str, *, chat_id: int | None = None,
     last_reason = "error"
     for attempt in range(1, attempts + 1):
         started = time.monotonic()
-        result = await generate(prompt, chat_id=chat_id,
-                                correlation_id=correlation_id, timeout=timeout,
-                                consume_budget=False, retry=False)
+        result = None
+        try:
+            result = await asyncio.wait_for(
+                generate(prompt, chat_id=chat_id,
+                         correlation_id=correlation_id, timeout=timeout,
+                         consume_budget=False, retry=False),
+                timeout=timeout)
+            last_reason = "ok" if (result.ok and result.content) \
+                else (result.reason or "error")
+        except asyncio.TimeoutError:
+            # Дедлайн ПОПЫТКИ (POST + скачивание) — транзиентный отказ.
+            last_reason = "timeout"
         latency_ms = int((time.monotonic() - started) * 1000)
-        if result.ok and result.content:
+        if result is not None and result.ok and result.content:
             path = _write_temp_image(result.content)
             if path is None:
                 return None, "temp_write_failed"
             return path, "ok"
-        last_reason = result.reason or "error"
         logger.warning(
             "[image] attempt failed | attempt=%d/%d | reason_class=%s | "
             "reason=%s | provider=%s | latency_ms=%d | chat_id=%s",
