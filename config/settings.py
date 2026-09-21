@@ -1633,7 +1633,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.58.3"   # round1025 hotfix3: cache-bust после правок web/app.js+index.html (анти-клише UI)
+APP_VERSION = "2.58.4"   # round1025 hotfix4: cache-bust (app.js/index.html/app.css/telegram-init.js)
 
 
 def get_ytdlp_pot_provider() -> str:
