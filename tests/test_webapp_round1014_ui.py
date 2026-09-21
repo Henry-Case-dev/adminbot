@@ -328,8 +328,11 @@ class TestStatusLayoutOrderF7:
         block = _status_block()
         heartbeat = block[block.index(self.ORDER[1][1]):
                           block.index(self.ORDER[2][1])]
-        for marker in ("ekg-wrap", "ekg-base", "ekg-trace",
-                       "heartbeat.badge", "heartbeat.period"):
+        # hotfix6/C2 (ADR-1025-12 D4): SVG-EKG заменён на Canvas 2D + rAF;
+        # legacy-SVG сохранён под v-if/v-else (откат UI_HEARTBEAT_CANVAS_ENABLED).
+        for marker in ("hb-wrap", "hb-canvas", "ekg-base", "ekg-trace",
+                       "heartbeatCanvasEnabled", "heartbeat.badge",
+                       "heartbeat.period"):
             assert marker in heartbeat, marker
 
     def test_app_js_untouched(self):

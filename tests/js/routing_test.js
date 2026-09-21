@@ -1489,35 +1489,48 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       'LOW: высота сброшена при пустой истории');
   }
 
-  // ── F6 (T-1460): EKG-«сердцебиение» — computed, привязка к Load/CPU/RAM.
+  // ── §15/hotfix6 (ADR-1025-12 D4): «сердцебиение» — состояния + гистерезис.
   {
     const hb = computed.heartbeat;
-    assert.strictEqual(typeof hb, 'function', 'F6: heartbeat — computed');
-    // Linux: loadavg[0]/cpu_count = 1.0/2 = 0.5 → повышён (оранжевый)
-    const elev = hb.call({ statusData: { server: {
-      loadavg: [1.0, 0.8, 0.6], cpu_count: 2, cpu_percent: 10,
-      memory: { percent: 12 } } } });
-    assert.strictEqual(elev.level, 'elev', 'F6: 0.5 → elev');
-    assert.strictEqual(elev.badge, 'badge-warn', 'F6: elev → оранжевый');
-    assert.strictEqual(elev.period, 1.4, 'F6: elev → период 1.4s');
-    // >0.8 → пик (красный), учащённый пульс
-    const high = hb.call({ statusData: { server: {
-      loadavg: [3.2, 2.0, 1.0], cpu_count: 2 } } });
-    assert.strictEqual(high.level, 'high', 'F6: >0.8 → high');
-    assert.strictEqual(high.badge, 'badge-err', 'F6: high → красный');
-    assert.strictEqual(high.period, 0.8, 'F6: high → период 0.8s');
-    // Windows dev: loadavg = null → фолбэк max(CPU%, RAM%)
-    const calm = hb.call({ statusData: { server: {
-      loadavg: null, cpu_count: 8, cpu_percent: 20,
-      memory: { percent: 30 } } } });
-    assert.strictEqual(calm.level, 'calm', 'F6: CPU/RAM-фолбэк → calm');
-    assert.strictEqual(calm.badge, 'badge-ok', 'F6: calm → зелёный');
-    assert.strictEqual(calm.period, 2.4, 'F6: calm → период 2.4s');
-    // всё None/нет данных → нейтральный спокойный (не падает)
-    const neutral = hb.call({ statusData: { server: {} } });
-    assert.strictEqual(neutral.level, 'calm', 'F6: метрик нет → нейтраль');
-    assert.strictEqual(hb.call({ statusData: null }).level, 'calm',
-      'F6: statusData=null → нейтраль');
+    const tr = methods._heartbeatTransition;
+    assert.strictEqual(typeof hb, 'function', '§15: heartbeat — computed');
+    assert.strictEqual(typeof tr, 'function', '§15: _heartbeatTransition — метод');
+    // Низкая нагрузка → healthy (level calm).
+    const low = tr({ cpu: 0.2, mem: 0.1, disk: 0.1, botOk: true },
+      { state: 'unknown', ema: null });
+    assert.strictEqual(low.state, 'healthy', '§15: низкая нагрузка → healthy');
+    assert.strictEqual(hb.call({ hbState: 'healthy', hbReason: low.reason }).level,
+      'calm', '§15: healthy → calm');
+    assert.strictEqual(hb.call({ hbState: 'healthy', hbReason: '' }).badge,
+      'badge-ok', '§15: healthy → зелёный');
+    assert.strictEqual(hb.call({ hbState: 'healthy', hbReason: '' }).period, 2.4,
+      '§15: healthy → период 2.4s');
+    // 0.70 → warning (enter), level elev.
+    const warn = tr({ cpu: 0.70, botOk: true }, { state: 'healthy', ema: null });
+    assert.strictEqual(warn.state, 'warning', '§15: 0.70 → warning');
+    assert.strictEqual(hb.call({ hbState: 'warning', hbReason: '' }).level, 'elev',
+      '§15: warning → elev');
+    assert.strictEqual(hb.call({ hbState: 'warning', hbReason: '' }).badge,
+      'badge-warn', '§15: warning → оранжевый');
+    assert.strictEqual(hb.call({ hbState: 'warning', hbReason: '' }).period, 1.4,
+      '§15: warning → период 1.4s');
+    // ≥0.90 → critical (enter), level high.
+    const crit = tr({ cpu: 0.92, botOk: true }, { state: 'healthy', ema: null });
+    assert.strictEqual(crit.state, 'critical', '§15: 0.90 → critical');
+    assert.strictEqual(hb.call({ hbState: 'critical', hbReason: '' }).level, 'high',
+      '§15: critical → high');
+    assert.strictEqual(hb.call({ hbState: 'critical', hbReason: '' }).badge,
+      'badge-err', '§15: critical → красный');
+    assert.strictEqual(hb.call({ hbState: 'critical', hbReason: '' }).period, 0.8,
+      '§15: critical → период 0.8s');
+    // Нет данных/устарело → unknown (НЕ «0»).
+    assert.strictEqual(tr({ missing: true }, { state: 'healthy' }).state,
+      'unknown', '§15: нет данных → unknown');
+    assert.strictEqual(tr({ cpu: 0.1, stale: true }, { state: 'healthy' }).state,
+      'unknown', '§15: устаревшая телеметрия → unknown');
+    assert.strictEqual(
+      hb.call({ hbState: 'unknown', hbReason: 'нет данных' }).badge,
+      'badge-muted', '§15: unknown → нейтральный');
   }
 
   // ── F6 (T-1461/1462): дефолт логов = ERROR+WARNING, единый источник.

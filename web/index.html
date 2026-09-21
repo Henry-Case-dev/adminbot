@@ -24,22 +24,22 @@
   <link rel="stylesheet" href="/static/app.css?v=__APP_VERSION__">
 </head>
 <body>
-  <!-- §9/F2 (ADR-1025-9 D2/T-2540): inline SVG-фильтр уровня A Liquid Glass.
-       CSP-safe (zero-build, без внешних ресурсов/data-URI), ОДИН фильтр на
-       документ; применяется только к opt-in [data-glass="a"] (крупные, не
-       deny-list). ВАЖНО (ADR-1025-9 D2/@Reviewer): карта — сглаженный
-       низкочастотный feTurbulence; это ДОКУМЕНТИРОВАННОЕ ПРИБЛИЖЕНИЕ
-       («оптическое» преломление), НЕ радиально-взвешенная edge-map. Усиление
-       у краёв даёт CSS-кромка (inset box-shadow), а не карта смещения. -->
+  <!-- §9/F2 (AMEND ADR-1025-12 D1): inline SVG-ФОРГРАУНД-фильтр линзы уровня A
+       Liquid Glass. CSP-safe (zero-build, без внешних ресурсов/data-URI), ОДИН
+       фильтр на документ; применяется к `.lg-lens`-слою ([data-glass="a"]::before),
+       НЕ к backdrop (WebKit не поддерживает backdrop url-фильтр). Карта —
+       сглаженный низкочастотный feTurbulence + малая амплитуда displacement;
+       edge-весовка даётся CSS radial-mask линзы (центр прозрачен, края плотные).
+       Это ДОКУМЕНТИРОВАННОЕ ПРИБЛИЖЕНИЕ оптического преломления. -->
   <svg class="lg-filter-defs" width="0" height="0" aria-hidden="true" focusable="false"
        style="position:absolute;width:0;height:0;overflow:hidden">
     <defs>
-      <filter id="lg-displace" x="-20%" y="-20%" width="140%" height="140%"
+      <filter id="lg-lens" x="-20%" y="-20%" width="140%" height="140%"
               color-interpolation-filters="sRGB">
-        <feTurbulence type="fractalNoise" baseFrequency="0.009 0.013"
+        <feTurbulence type="fractalNoise" baseFrequency="0.008 0.012"
                       numOctaves="2" seed="11" result="lg-noise"/>
-        <feGaussianBlur in="lg-noise" stdDeviation="3.2" result="lg-map"/>
-        <feDisplacementMap in="SourceGraphic" in2="lg-map" scale="14"
+        <feGaussianBlur in="lg-noise" stdDeviation="3.6" result="lg-map"/>
+        <feDisplacementMap in="SourceGraphic" in2="lg-map" scale="10"
                            xChannelSelector="R" yChannelSelector="G"/>
       </filter>
     </defs>
@@ -50,7 +50,7 @@
                   iaV2 ? 'ia-v2' : 'ia-legacy']">
       <!-- ═══ F1 (ADR-1025-1 D6, §4.2): desktop sidebar — СТРОГО ≥1200 px.
            В 768–1199 постоянной панели нет (drawer ниже); <768 — bottom-nav. -->
-      <aside v-if="iaV2 && hasSidebar" class="app-sidebar" aria-label="Боковая навигация">
+      <aside v-if="iaV2 && hasSidebar" class="app-sidebar" data-glass="a" aria-label="Боковая навигация">
         <div class="sidebar-brand">
           <span class="msr" aria-hidden="true">{{ iconGlyph('monitoring') }}</span>
           <span class="sidebar-brand-title">AdminBot</span>
@@ -87,7 +87,17 @@
       <!-- Раунд 10.6 (A1): боковая панель удалена полностью — навигация только через
            верхний navbar (иконка + подпись); A9 — эксклюзивный аккордеон. -->
       <header class="main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap"
+              data-glass="a"
+              :class="{ 'header-compact-v2': headerCompactV2 }"
               style="border-radius:0;">
+        <!-- D (ADR-1025-12 D5, T-2606…T-2610): компактная двухстрочная шапка
+             при IA v2 + UI_HEADER_COMPACT_V2=ON. Строка 1 — навигация/
+             заголовок + ⛶ (правый верхний угол, в безопасной зоне; нативные
+             кнопки Telegram CSS НЕ двигаем). Строка 2 — селектор области /
+             бейдж chat_id / аватар / роль. OFF (флаг или IA legacy) — та же
+             разметка, но `.header-scope-row{display:contents}` + CSS order
+             возвращают прежний однорядный вид байт-в-байт (селектор — ОДИН
+             экземпляр, без дублирования). -->
           <!-- F1 (§7, drawer 768–1199): кнопка временной навигации. -->
           <button v-if="iaV2 && isCompactShell" class="btn-ghost text-base px-2 shrink-0"
                   title="Навигация" aria-label="Открыть навигацию"
@@ -116,6 +126,17 @@
             </nav>
             <div class="text-sm font-semibold truncate">{{ currentTabLabel }}</div>
           </div>
+          <!-- D1/T-2606: ⛶ — правый верхний угол (compact) / правый край строки
+               (legacy). Тач-цель ≥44×44 в compact; нативные кнопки Telegram
+               (⋮/Закрыть) CSS НЕ двигаем (ARCHITECTURE §604/§642/§56). -->
+          <button v-if="me" type="button"
+                  class="btn-ghost text-xs px-1.5 py-1 shrink-0 header-fs-btn"
+                  :title="isFullscreen ? 'Выйти из полноэкранного режима' : 'Полноэкранный режим'"
+                  :aria-pressed="isFullscreen ? 'true' : 'false'"
+                  @click="toggleFullscreen()">⛶</button>
+          <!-- D2/T-2608: обёртка строки 2 — селектор/бейдж/аватар/роль.
+               В legacy `display:contents` → дети снова flex-элементы шапки. -->
+          <div class="header-scope-row">
           <!-- Раунд 10 (F-7 T-854/F-11 T-906) + F-13 (AC-1): селектор —
                ЕДИНСТВЕННАЯ точка выбора чата в шапке (кнопка-дропдаун
                «Выбери чат» удалена). BUG-1 (рекон раунда 10): селектор
@@ -179,7 +200,7 @@
               {{ isDmCtx() ? 'ЛС #' + activeChatId : '#' + activeChatId }}
             </div>
           </details>
-          <div class="ml-auto flex items-center gap-1.5 text-xs shrink-0">
+          <div class="header-user ml-auto flex items-center gap-1.5 text-xs shrink-0">
             <!-- UI-полировка TMA: аватар текущего юзера — same-origin blob
                  через прокси avatarUrl('user', …) (S10.16-8: внешний CDN
                  me.photo_url убран — строгий CSP img-src не разрешает его
@@ -189,12 +210,7 @@
                  @error="onMeAvatarError()">
             <span v-if="me" class="text-gray-300 text-xs truncate whitespace-nowrap max-w-[7rem]">{{ me.first_name || me.username || ('@' + (me.username || me.telegram_id)) }}</span>
             <span v-if="me" class="badge badge-info text-[10px] px-1.5 py-0">{{ me.role_name }}</span>
-            <!-- Полноэкранный режим TMA (⛶). F-13 (AC-2): крестик ✕
-                 принудительного закрытия миниаппа удалён — закрытие в
-                 Telegram штатно (свайп/системная кнопка). -->
-            <button v-if="me" class="btn-ghost text-xs px-1.5 py-1 shrink-0"
-                    :title="isFullscreen ? 'Выйти из полноэкранного режима' : 'Полноэкранный режим'"
-                    @click="toggleFullscreen()">⛶</button>
+          </div>
           </div>
           <!-- Раунд 10.6 (A1/T-1158/T-1159): navbar — ровно 6 пунктов;
                иконка + МАЛЕНЬКАЯ подпись ПОД ней (видна mobile+desktop),
@@ -2767,15 +2783,35 @@
                     <span class="badge" :class="heartbeat.badge">{{ heartbeat.label }}</span>
                     <span class="text-xs text-gray-500">{{ heartbeat.detail }}</span>
                   </div>
-                  <div class="ekg-wrap" :class="'ekg-' + heartbeat.level"
-                       :style="{ '--ekg-period': heartbeat.period + 's' }">
-                    <svg class="ekg" viewBox="0 0 320 80" preserveAspectRatio="none"
-                         role="img" :aria-label="'Пульс сервера: ' + heartbeat.label">
+                  <div class="hb-wrap"
+                       :class="heartbeatCanvasEnabled ? ('hb-' + heartbeat.state) : ('ekg-' + heartbeat.level)">
+                    <!-- §15/C2 (ADR-1025-12 D4): реальный Canvas 2D + rAF.
+                         UI_HEARTBEAT_CANVAS_ENABLED=OFF → прежний SVG
+                         (байт-в-байт: класс ekg-<level> + --ekg-period), мягкий
+                         откат без редеплоя. -->
+                    <canvas v-if="heartbeatCanvasEnabled" ref="hbCanvas"
+                            class="hb-canvas" role="img" tabindex="0"
+                            aria-describedby="hb-tip"
+                            :aria-label="heartbeatAria"
+                            @click="toggleHeartbeatTip()"
+                            @keydown.enter.prevent="toggleHeartbeatTip()"
+                            @keydown.esc="hideHeartbeatTip()"
+                            @mouseenter="showHeartbeatTip()"
+                            @mouseleave="hideHeartbeatTip()"></canvas>
+                    <svg v-else class="ekg" viewBox="0 0 320 80"
+                         preserveAspectRatio="none" role="img"
+                         :style="{ '--ekg-period': heartbeat.period + 's' }"
+                         :aria-label="'Пульс сервера: ' + heartbeat.label">
                       <polyline class="ekg-base" vector-effect="non-scaling-stroke"
                                 points="0,40 38,40 52,40 58,32 63,48 68,12 73,62 79,40 92,40 118,40 132,40 138,34 143,46 148,18 153,60 159,40 172,40 320,40"></polyline>
                       <polyline class="ekg-trace" vector-effect="non-scaling-stroke"
                                 points="0,40 38,40 52,40 58,32 63,48 68,12 73,62 79,40 92,40 118,40 132,40 138,34 143,46 148,18 153,60 159,40 172,40 320,40"></polyline>
                     </svg>
+                    <div v-if="hbTipOpen" id="hb-tip" class="hb-tip" role="tooltip">
+                      <div><b>{{ heartbeat.label }}</b> — {{ heartbeat.reason }}</div>
+                      <div>CPU: {{ heartbeatTip.cpu }} · RAM: {{ heartbeatTip.mem }} · Диск: {{ heartbeatTip.disk }}</div>
+                      <div>Статус: {{ heartbeatTip.bot }} · Обновлено: {{ heartbeatTip.updated }}</div>
+                    </div>
                   </div>
                 </section>
 
@@ -3272,7 +3308,7 @@
       <!-- Drawer (768–1199): временная панель, состояние не персистится. -->
       <div v-if="iaV2 && isCompactShell && drawerOpen"
            class="drawer-backdrop" @click="closeDrawer()"></div>
-      <aside v-if="iaV2 && isCompactShell"
+      <aside v-if="iaV2 && isCompactShell" data-glass="a"
              class="app-drawer" :class="{ open: drawerOpen }"
              :inert="drawerOpen ? null : ''"
              :aria-hidden="drawerOpen ? 'false' : 'true'"
@@ -3307,7 +3343,7 @@
       <!-- Bottom-nav (<768): ≤4 пункта. hotfix4 (T-2519): Статус+Справка —
            всегда первые два для всех ролей; далее Модули (иначе ИИ); «Ещё» —
            только при скрытых разделах. Пользователь: Статус/Справка. -->
-      <nav v-if="iaV2 && isMobileShell" class="bottom-nav"
+      <nav v-if="iaV2 && isMobileShell" class="bottom-nav" data-glass="a"
            aria-label="Нижняя навигация">
         <button v-for="n in bottomNavItems" :key="'bn-' + n.id"
                 type="button" class="bottom-nav-link"
@@ -3323,7 +3359,7 @@
            вытесненный ИИ) / Профиль. «Справка» здесь НЕ дублируется. -->
       <div v-if="iaV2 && isMobileShell && moreOpen"
            class="more-backdrop" @click="closeMore()"></div>
-      <div v-if="iaV2 && isMobileShell" class="more-sheet"
+      <div v-if="iaV2 && isMobileShell" class="more-sheet" data-glass="a"
            :class="{ open: moreOpen }" :aria-hidden="moreOpen ? 'false' : 'true'"
            :inert="moreOpen ? null : ''"
            role="menu" aria-label="Ещё">

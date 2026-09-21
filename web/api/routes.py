@@ -380,6 +380,15 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
             # bottom-nav (возврат — env-флаг ON / git revert). ВРЕМЕННЫЙ
             # механизм отката (UPD §9.5), удаляется post-Epic-1.
             "IA_V2_ENABLED": bool(settings.IA_V2_ENABLED),
+            # Хотфикс-6 (10.25, ADR-1025-12 D6): env-only флаги областей
+            # A/B/C/D. R16-аддитивно, R17-безопасно (строки/числа/bool, без
+            # секретов). Не UI-тумблеры каталога — Δ каталога = 0.
+            "UI_GLASS_TIER_OVERRIDE":
+                str(settings.UI_GLASS_TIER_OVERRIDE or "auto"),
+            "UI_HEARTBEAT_CANVAS_ENABLED":
+                bool(settings.UI_HEARTBEAT_CANVAS_ENABLED),
+            "UI_HEADER_COMPACT_V2": bool(settings.UI_HEADER_COMPACT_V2),
+            "UI_LENS_MAX_NODES": int(settings.UI_LENS_MAX_NODES),
         },
     }
 

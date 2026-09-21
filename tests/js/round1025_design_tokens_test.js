@@ -183,12 +183,24 @@ const OD4 = ['#0E0E0E', '#161616', '#1F1F1F', '#262626', '#F5F5F5', '#BABABA',
 {
   assert.ok(CSS.indexOf('--glass-bg: rgba(21, 27, 42, 0.5)') >= 0,
     'glass: --glass-bg §8');
-  assert.ok(/--glass-displace\s*:\s*url\(#lg-displace\)/.test(CSS),
-    'glass: --glass-displace → url(#lg-displace)');
-  const a = CSS.match(
-    /\[data-glass="a"\]\s*\{([^}]*var\(--glass-displace\)[^}]*)\}/);
-  assert.ok(a, 'glass A: применение преломления через токен --glass-displace');
-  assert.ok(a[1].indexOf('var(--glass-blur)') >= 0, 'glass A: blur + преломление');
+  // AMEND ADR-1025-12 D1: токен указывает на foreground-фильтр линзы #lg-lens.
+  assert.ok(/--glass-displace\s*:\s*url\(#lg-lens\)/.test(CSS),
+    'glass: --glass-displace → url(#lg-lens)');
+  // A: базовая подложка — blur (без url()), линза — отдельный ::before.
+  const a = CSS.match(/\[data-glass="a"\]\s*\{([^}]*)\}/);
+  assert.ok(a, 'glass A: базовое правило [data-glass="a"]');
+  assert.ok(a[1].indexOf('var(--glass-blur)') >= 0, 'glass A: blur-подложка');
+  assert.ok(!/url\(#lg-lens\)/.test(a[1]), 'glass A: url() НЕ на backdrop');
+  const lens = CSS.match(/\[data-glass="a"\]::before\s*\{([^}]*)\}/);
+  assert.ok(lens, 'glass A: foreground-линза ::before');
+  assert.ok(lens[1].indexOf('var(--glass-displace)') >= 0,
+    'линза: filter → --glass-displace');
+  assert.ok(/radial-gradient/.test(lens[1]) && /mask-image/.test(lens[1]),
+    'edge-weighted: радиальная маска линзы');
+  assert.ok(/z-index:\s*-1/.test(lens[1]), 'линза под контентом (z-index:-1)');
+  // §9/инвариант: нигде в web/** не опираемся на backdrop url-фильтр.
+  assert.ok(!/backdrop-filter\s*:\s*url\(/.test(CSS),
+    'нет backdrop url-фильтра (инвариант §9)');
   const c = CSS.match(
     /\[data-glass="c"\][^{]*\{([^}]*backdrop-filter:\s*none[^}]*)\}/);
   assert.ok(c, 'glass C: deny-list без blur (backdrop-filter: none)');
@@ -197,8 +209,10 @@ const OD4 = ['#0E0E0E', '#161616', '#1F1F1F', '#262626', '#F5F5F5', '#BABABA',
     'glass C: textarea в deny-list');
   assert.ok(CSS.indexOf('@supports not ((backdrop-filter: blur(1px))') >= 0,
     'glass: @supports-фолбэк (уровень C)');
-  assert.ok(CSS.indexOf('@supports not ((backdrop-filter: url(#lg-displace))') >= 0,
-    'glass: @supports-фолбэк уровня A');
+  // A2/T-2591: панели входят в fallback-набор (непрозрачная подложка).
+  assert.ok(/\.app-sidebar[^{]*\.bottom-nav[\s\S]{0,400}backdrop-filter:\s*none/
+    .test(CSS) || (CSS.indexOf('.app-sidebar, .app-drawer') >= 0),
+    'панели в fallback-наборе уровня C');
   assert.ok(!/animation:[^;}]*filter/.test(CSS),
     'T-2541: blur/viewport не анимируется');
   assert.ok(CSS.indexOf('.lg-bg-paused') >= 0 &&
@@ -208,8 +222,8 @@ const OD4 = ['#0E0E0E', '#161616', '#1F1F1F', '#262626', '#F5F5F5', '#BABABA',
 
 // ── 5. Инлайн SVG-фильтр: ровно один, CSP-safe ─────────────────────────────
 {
-  const count = (INDEX.match(/id="lg-displace"/g) || []).length;
-  assert.strictEqual(count, 1, 'SVG: должен быть ровно один фильтр #lg-displace');
+  const count = (INDEX.match(/id="lg-lens"/g) || []).length;
+  assert.strictEqual(count, 1, 'SVG: должен быть ровно один фильтр #lg-lens');
   assert.ok(INDEX.indexOf('feDisplacementMap') >= 0, 'SVG: feDisplacementMap');
   assert.ok(INDEX.indexOf('feTurbulence') >= 0 && INDEX.indexOf('feGaussianBlur') >= 0,
     'SVG: оптическая карта (turbulence + blur), не чистый шум');
@@ -240,6 +254,16 @@ const OD4 = ['#0E0E0E', '#161616', '#1F1F1F', '#262626', '#F5F5F5', '#BABABA',
   // reconcile не переписывает opt-in-декларацию data-glass (обратимость b→a).
   assert.ok(APP_JS.indexOf("setAttribute('data-glass', 'b')") < 0,
     'reconcile: data-glass (opt-in) не переписывается');
+  // AMEND ADR-1025-12 D1: tier — feature-detect `filter:url(#lg-lens)` + перф-кап;
+  // UA-gate Blink-only и min-240 сняты.
+  assert.ok(APP_JS.indexOf("css.supports('filter', 'url(#lg-lens)')") >= 0,
+    'feature-detect filter:url(#lg-lens)');
+  assert.ok(APP_JS.indexOf('AppleWebKit') < 0, 'UA-gate снят (AMEND ADR-1025-12)');
+  assert.ok(APP_JS.indexOf('data-glass-tier') >= 0 &&
+    APP_JS.indexOf('data-glass-reason') >= 0,
+    'T-2583: R17-safe маркер tier/reason');
+  assert.strictEqual(typeof methods._lensMaxNodes, 'function',
+    'T-2585: перф-кап UI_LENS_MAX_NODES');
 
   // setBgPaused реально переключает класс.
   methods.setBgPaused.call({}, true);
@@ -249,7 +273,7 @@ const OD4 = ['#0E0E0E', '#161616', '#1F1F1F', '#262626', '#F5F5F5', '#BABABA',
   assert.strictEqual(global.document.documentElement.classList.contains('lg-bg-paused'),
     false, 'setBgPaused(false) → класс снят');
 
-  // §9/T-2540/@Reviewer: понижение/повышение обратимо и зависит от min-стороны.
+  // T-2585: tier-лестница feature-detect + кап (без min-стороны), обратимо.
   const mkEl = (w, h) => ({
     _attrs: {},
     getBoundingClientRect: () => ({ width: w, height: h }),
@@ -258,40 +282,54 @@ const OD4 = ['#0E0E0E', '#161616', '#1F1F1F', '#262626', '#F5F5F5', '#BABABA',
     hasAttribute(k) { return Object.prototype.hasOwnProperty.call(this._attrs, k); },
   });
   const oldQSA = global.document.querySelectorAll;
-  const big = mkEl(320, 400), small = mkEl(200, 300);
+  const el1 = mkEl(320, 400), el2 = mkEl(200, 300);
   global.document.querySelectorAll = (sel) =>
-    sel === '[data-glass="a"]' ? [big, small] : [];
-  methods.reconcileLiquidGlass.call({ _liquidGlassSupported: () => false });
-  assert.strictEqual(big.hasAttribute('data-glass-downgraded'), true,
-    'reconcile: нет поддержки → A понижен (big)');
-  assert.strictEqual(small.hasAttribute('data-glass-downgraded'), true,
-    'reconcile: нет поддержки → A понижен (small)');
-  // Поддержка есть: большой элемент повышается обратно (b→a), мелкий — остаётся B.
-  methods.reconcileLiquidGlass.call({ _liquidGlassSupported: () => true });
-  assert.strictEqual(big.hasAttribute('data-glass-downgraded'), false,
-    'reconcile: рост/поддержка → обратно уровень A (b→a)');
-  assert.strictEqual(small.hasAttribute('data-glass-downgraded'), true,
-    'reconcile: min-сторона <240 остаётся уровнем B');
+    sel === '[data-glass="a"]' ? [el1, el2] : [];
+  const fake = (sup, cap, ovr, rm) => ({
+    _liquidGlassSupported: () => sup,
+    _glassTierOverride: () => ovr || 'auto',
+    _lensMaxNodes: () => cap,
+    _prefersReducedMotion: () => !!rm,
+  });
+  methods.reconcileLiquidGlass.call(fake(true, 6));
+  assert.strictEqual(el1.hasAttribute('data-glass-downgraded'), false,
+    'поддержка+бюджет → A (без min-стороны)');
+  assert.strictEqual(el1._attrs['data-glass-tier'], 'a', 'маркер tier=a');
+  assert.strictEqual(el2._attrs['data-glass-tier'], 'a', 'оба в капе → A');
+  // Нет поддержки → честный B (не «пустое стекло»).
+  methods.reconcileLiquidGlass.call(fake(false, 6));
+  assert.strictEqual(el1.hasAttribute('data-glass-downgraded'), true,
+    'нет поддержки filter:url() → B');
+  assert.strictEqual(el1._attrs['data-glass-reason'], 'filter-unsupported',
+    'причина: filter-unsupported');
+  // Перф-кап: maxNodes=1 → второй узел в B.
+  methods.reconcileLiquidGlass.call(fake(true, 1));
+  assert.strictEqual(el1.hasAttribute('data-glass-downgraded'), false, 'кап: 1-й = A');
+  assert.strictEqual(el2.hasAttribute('data-glass-downgraded'), true, 'кап: 2-й = B');
+  assert.strictEqual(el2._attrs['data-glass-reason'], 'budget', 'причина: budget');
+  // reduced-motion → B.
+  methods.reconcileLiquidGlass.call(fake(true, 6, 'auto', true));
+  assert.strictEqual(el1._attrs['data-glass-reason'], 'reduced-motion',
+    'reduced-motion → B');
+  // override=b → все B (ручной откат).
+  methods.reconcileLiquidGlass.call(fake(true, 6, 'b'));
+  assert.strictEqual(el1.hasAttribute('data-glass-downgraded'), true, 'override=b → B');
+  assert.strictEqual(el1._attrs['data-glass-reason'], 'override-b', 'override-b');
   global.document.querySelectorAll = oldQSA;
 
-  // §9/T-2542: UA-gate — WebKit/WKWebView не получает уровень A.
+  // Feature-detect: WebKit-подобный движок тоже получает A, если умеет
+  // filter:url() — UA-gate Blink-only снят.
   const oldWin = global.window;
   try {
-    global.window = {
-      navigator: { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like ' +
-        'Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 ' +
-        'Mobile/15E148 Safari/604.1' },
-      CSS: { supports: () => true },
-    };
-    assert.strictEqual(methods._liquidGlassSupported.call({}), false,
-      'UA-gate: Safari/WebKit → уровень B (не A)');
-    global.window = {
-      navigator: { userAgent: 'Mozilla/5.0 (X11; Linux x86_64) ' +
-        'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36' },
-      CSS: { supports: () => true },
-    };
+    global.window = { CSS: { supports: (prop) => prop === 'filter' } };
     assert.strictEqual(methods._liquidGlassSupported.call({}), true,
-      'UA-gate: Chromium + поддержка → уровень A');
+      'feature-detect: filter:url() поддержан → A (без UA-gate)');
+    global.window = { CSS: { supports: () => false } };
+    assert.strictEqual(methods._liquidGlassSupported.call({}), false,
+      'feature-detect: нет поддержки → B');
+    global.window = {};
+    assert.strictEqual(methods._liquidGlassSupported.call({}), false,
+      'нет CSS.supports → B (guard)');
   } finally {
     global.window = oldWin;
   }

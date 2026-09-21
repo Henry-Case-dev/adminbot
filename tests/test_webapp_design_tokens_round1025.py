@@ -175,8 +175,8 @@ class TestInventory:
     def test_app_version_pinned(self):
         m = re.search(r'APP_VERSION\s*=\s*"([\d.]+)"', SETTINGS)
         assert m, "APP_VERSION не найден"
-        # F3 (10.25) — bump 2.58.5 → 2.58.6 (web-ассеты менялись).
-        assert m.group(1) == "2.58.6", f"APP_VERSION = {m.group(1)} (ожидалось 2.58.6)"
+        # hotfix6 (10.25) — bump 2.58.6 → 2.58.7 (web-ассеты менялись).
+        assert m.group(1) == "2.58.7", f"APP_VERSION = {m.group(1)} (ожидалось 2.58.7)"
 
 
 # ═══════════════ T-2531/T-2533/T-2534: палитра §8 и контраст ═══════════════
@@ -300,21 +300,27 @@ class TestUtilityColorsOnGlass:
 # ═══════════ T-2538…T-2543: Liquid Glass A/B/C, allow/deny ═══════════
 class TestLiquidGlassV2:
     def test_single_inline_svg_filter(self):
-        assert INDEX.count('id="lg-displace"') == 1, "должен быть ОДИН фильтр"
+        assert INDEX.count('id="lg-lens"') == 1, "должен быть ОДИН фильтр #lg-lens"
         assert "feDisplacementMap" in INDEX
         assert "feTurbulence" in INDEX and "feGaussianBlur" in INDEX
         # CSP/zero-build: без внешних ссылок/data-URI на фильтр.
-        assert "lg-displace" in INDEX.split("filter id=")[1][:2000]
-        assert 'href="http' not in INDEX.split("lg-displace")[0][-400:]
+        assert "lg-lens" in INDEX.split("filter id=")[1][:2000]
+        assert 'href="http' not in INDEX.split("lg-lens")[0][-400:]
 
     def test_level_a_opt_in_only(self):
-        # A применяется только к [data-glass="a"] и через токен --glass-displace.
-        m = re.search(
-            r'\[data-glass="a"\]\s*\{([^}]*var\(--glass-displace\)[^}]*)\}', APP_CSS)
-        assert m, "нет правила [data-glass=\"a\"] с преломлением"
+        # A (AMEND ADR-1025-12 D1): преломление на ФОРГРАУНД-линзе ::before через
+        # токен --glass-displace; backdrop несёт только blur (без url()).
+        base = re.search(r'\[data-glass="a"\]\s*\{([^}]*)\}', APP_CSS)
+        assert base, "нет базового правила [data-glass=\"a\"]"
+        assert "var(--glass-blur)" in base.group(1)
+        assert "url(#lg-lens)" not in base.group(1), "url() НЕ на backdrop"
+        m = re.search(r'\[data-glass="a"\]::before\s*\{([^}]*)\}', APP_CSS)
+        assert m, "нет foreground-линзы [data-glass=\"a\"]::before"
         body = m.group(1)
-        assert "var(--glass-blur)" in body
-        assert _token_value("--glass-displace").startswith("url(#lg-displace")
+        assert "var(--glass-displace)" in body
+        assert "radial-gradient" in body and "mask-image" in body
+        assert "z-index: -1" in body
+        assert _token_value("--glass-displace").startswith("url(#lg-lens")
 
     def test_level_b_default(self):
         assert "backdrop-filter: var(--glass-blur) saturate(140%)" in APP_CSS
@@ -331,7 +337,9 @@ class TestLiquidGlassV2:
 
     def test_supports_fallback_defined(self):
         assert "@supports not ((backdrop-filter: blur(1px))" in APP_CSS
-        assert "@supports not ((backdrop-filter: url(#lg-displace))" in APP_CSS
+        # §9: нигде не опираемся на backdrop url-фильтр (grep-инвариант).
+        assert not re.search(r"backdrop-filter\s*:\s*url\(", APP_CSS)
+        assert "backdrop-filter: url(" not in APP_CSS
 
     def test_no_animated_blur(self):
         # T-2541: никакой animation по filter/backdrop-filter на viewport-слоях.
@@ -340,7 +348,9 @@ class TestLiquidGlassV2:
     def test_glass_js_reconcile(self):
         assert "reconcileLiquidGlass" in APP_JS
         assert "_liquidGlassSupported" in APP_JS
-        assert "240" in APP_JS  # min-сторона страховки
+        # T-2585: перф-кап заменил min-240.
+        assert "_lensMaxNodes" in APP_JS
+        assert "data-glass-tier" in APP_JS and "data-glass-reason" in APP_JS
         assert 'data-glass="a"' in INDEX
         assert "getBoundingClientRect" in APP_JS
 
@@ -356,17 +366,18 @@ class TestLiquidGlassV2:
         assert "MutationObserver" in APP_JS
         assert "$nextTick" in APP_JS
 
-    def test_webkit_ua_gate(self):
-        """@Reviewer: WKWebView не получает уровень A (UA-gate + feature-check)."""
-        assert "AppleWebKit" in APP_JS
-        assert re.search(r"Chrome\|Chromium\|Edg\|OPR", APP_JS)
-        assert "css.supports('backdrop-filter', 'url(#lg-displace)')" in APP_JS
+    def test_feature_detect_tier(self):
+        """AMEND ADR-1025-12 D1: tier — feature-detect filter:url(#lg-lens),
+        БЕЗ UA-gate Blink-only (WKWebView/iOS-Edge учитываются честно)."""
+        assert "css.supports('filter', 'url(#lg-lens)')" in APP_JS
+        assert "AppleWebKit" not in APP_JS
 
     def test_glass_approximation_documented(self):
         """@Reviewer: приближение карты смещения зафиксировано (не выдаётся за оптику)."""
-        assert "это ДОКУМЕНТИРОВАННОЕ ПРИБЛИЖЕНИЕ" in INDEX
+        assert "ДОКУМЕНТИРОВАННОЕ" in INDEX and "ПРИБЛИЖЕНИЕ" in INDEX
         assert "feTurbulence" in INDEX and "feGaussianBlur" in INDEX
-        # усиление у краёв — CSS-кромка, а не карта смещения
+        # усиление у краёв — CSS radial-mask линзы, а не равномерный шум
+        assert "radial-gradient(ellipse at center" in APP_CSS
         assert "inset 0 1px 0 var(--glass-highlight)" in APP_CSS
 
 
@@ -420,25 +431,43 @@ class TestMatrixF2Probe:
                        "warn": "#F6C56F", "err": "#F07178", "errText": "#FCA5A5",
                        "gs": "75s", "gss": "105s",
                        "glassBg": "rgba(21, 27, 42, 0.5)",
-                       "displace": "url(#lg-displace)"},
+                       "displace": "url(#lg-lens)"},
             "beforeAnim": "grad-spin",
             "beforeDur": "75s, 105s",
-            "hasDisplaceFilter": True,
-            "allow": [{"minSide": 320, "bf": 'blur(16px) url("#lg-displace")',
+            "hasLensFilter": True,
+            "allow": [{"minSide": 120, "tier": "a", "reason": "auto",
                        "downgraded": False}],
             "utility": "rgb(162, 176, 198)",  # --text-3
-            "denyCount": 1, "denyBf": "none", "overflow": False,
+            "denyCount": 1, "denyBf": "none",
+            "panels": {"header": {"bf": "blur(16px) saturate(140%)"}},
+            "overflow": False,
         }
 
     def test_compliant_probe_passes(self):
         assert self._checker()(self._base(), "t") == []
 
-    def test_catches_small_displaced_element(self):
+    def test_catches_missing_tier_marker(self):
+        # reconcile не отработал → нет data-glass-tier.
         p = self._base()
-        p["allow"] = [{"minSide": 208, "bf": 'url("#lg-displace")',
+        p["allow"] = [{"minSide": 120, "tier": "", "reason": "",
                        "downgraded": False}]
         fails = self._checker()(p, "320x700")
-        assert any("240" in f for f in fails), fails
+        assert any("data-glass-tier" in f for f in fails), fails
+
+    def test_catches_all_downgraded(self):
+        # Ни один узел не получил A (напр. feature-detect сломан) → FAIL.
+        p = self._base()
+        p["allow"] = [{"minSide": 120, "tier": "b",
+                       "reason": "filter-unsupported", "downgraded": True}]
+        fails = self._checker()(p, "t")
+        assert any("tier A" in f for f in fails), fails
+
+    def test_catches_panel_without_blur(self):
+        # A2: стеклянная панель без backdrop-filter → FAIL.
+        p = self._base()
+        p["panels"] = {"bottomNav": {"bf": "none"}}
+        fails = self._checker()(p, "t")
+        assert any("panel bottomNav" in f for f in fails), fails
 
     def test_catches_low_contrast_utility(self):
         # orig Tailwind .text-gray-500 rgb(107,114,128) на стекле → ~2.4:1.

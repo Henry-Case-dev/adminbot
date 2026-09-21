@@ -303,6 +303,24 @@ PROBE_JS = """
     scopeWrap: rect('.scope-wrap'),
     scopeTrigger: rect('.scope-trigger'),
     headerTitle: rect('.header-title-wrap'),
+    // hotfix6/C1 (T-2598): сердебиение §15 в границах контейнера.
+    hbBlock: rect('.status-block'),
+    hbWrap: rect('.hb-wrap'),
+    hbCanvas: rect('.hb-canvas'),
+    hbOverflow: (() => {
+      const w = document.querySelector('.hb-wrap');
+      return w ? (w.scrollWidth - w.clientWidth) : 0;
+    })(),
+    // hotfix6/D (T-2611): компактная шапка, резерв высоты, ⛶ в вьюпорте.
+    headerCompact: !!document.querySelector(
+      'header.header-sticky.header-compact-v2'),
+    headerH: getComputedStyle(de).getPropertyValue('--header-h').trim(),
+    fsBtnInViewport: (() => {
+      const b = document.querySelector('.header-fs-btn');
+      if (!b) return null;
+      const r = b.getBoundingClientRect();
+      return r.right <= window.innerWidth + 1 && r.left >= -1;
+    })(),
     mediaMin1200: window.matchMedia('(min-width: 1200px)').matches,
     mediaMax767: window.matchMedia('(max-width: 767px)').matches,
   };
@@ -327,33 +345,67 @@ F2_PROBE_JS = """
   const utilEl = document.querySelector('[data-glass] .text-gray-500') ||
                  document.querySelector('.text-gray-500');
   const utility = utilEl ? getComputedStyle(utilEl).color : null;
-  // T-2540: по каждому allow-элементу — min-сторона, фактический фильтр и
-  // признак понижения (JS `data-glass-downgraded`).
+  // hotfix6/T-2591 (HIGH): реальные computed-цвета текста новых стеклянных
+  // панелей (`.sidebar-link`/`.bottom-nav-label` 10px/`.more-item`/`header`).
+  // Композит --glass-bg(.5)/--glass-bg-strong(.85) над худшей фазой фона
+  // считается в `_panel_contrast_failures` (Python) → FAIL при <4.5:1.
+  const panelTextColor = (sel) => {
+    const el = document.querySelector(sel);
+    return el ? getComputedStyle(el).color : null;
+  };
+  const panelText = {
+    sidebarLink: panelTextColor('.sidebar-link'),
+    bottomNavLabel: panelTextColor('.bottom-nav-label'),
+    bottomNavActive: panelTextColor('.bottom-nav-link.active'),
+    moreItem: panelTextColor('.more-sheet .more-item'),
+    headerTitle: panelTextColor('.header-title-wrap .text-sm'),
+    headerUser: panelTextColor('.header-scope-row .text-gray-300'),
+  };
+  // T-2585 (AMEND ADR-1025-12 D1): по каждому opt-in узлу A — выбранный tier
+  // (`data-glass-tier`), причина и признак понижения. Микроуровень — feature-
+  // detect в app.js, здесь фиксируем ФАКТ применения.
   const allow = Array.from(document.querySelectorAll('[data-glass="a"]'))
     .map((el) => {
       const r = el.getBoundingClientRect();
-      const st = getComputedStyle(el);
       return {
         minSide: Math.round(Math.min(r.width, r.height)),
-        bf: (st.backdropFilter || st.webkitBackdropFilter || ''),
+        tier: el.getAttribute('data-glass-tier') || '',
+        reason: el.getAttribute('data-glass-reason') || '',
         downgraded: el.hasAttribute('data-glass-downgraded'),
       };
     });
+  // A2/T-2588…T-2590: стеклянные панели текущего выюпорта — blur-подложка.
+  const panel = (sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    if (!(r.width > 0 && r.height > 0)) return null;
+    const st = getComputedStyle(el);
+    return { bf: (st.backdropFilter || st.webkitBackdropFilter || '') };
+  };
   return {
     tokens: {
       s0: tok('--surface-0'), s1: tok('--surface-1'), teal: tok('--teal-500'),
       warn: tok('--warn'), err: tok('--err'),
       gs: tok('--grad-speed'), gss: tok('--grad-speed-slow'),
-      glassBg: tok('--glass-bg'), displace: tok('--glass-displace'),
+      glassBg: tok('--glass-bg'), glassBgStrong: tok('--glass-bg-strong'),
+      displace: tok('--glass-displace'),
       errText: tok('--err-text'),
     },
     beforeAnim: before.animationName,
     beforeDur: before.animationDuration,
     allow: allow,
     utility: utility,
+    panelText: panelText,
     denyBf: bf(c),
     denyCount: document.querySelectorAll('[data-glass="c"]').length,
-    hasDisplaceFilter: !!document.getElementById('lg-displace'),
+    panels: {
+      sidebar: panel('.app-sidebar'), drawer: panel('.app-drawer'),
+      header: panel('header.header-sticky'),
+      bottomNav: panel('.bottom-nav'), moreSheet: panel('.more-sheet'),
+    },
+    hasLensFilter: !!document.getElementById('lg-lens'),
+    headerH: tok('--header-h'),
     overflow: de.scrollWidth > window.innerWidth + 1,
   };
 })()
@@ -384,6 +436,21 @@ F2_RM_PROBE_JS = """
 (() => {
   const before = getComputedStyle(document.body, '::before');
   return { beforeAnim: before.animationName, beforeDur: before.animationDuration };
+})()
+"""
+
+# hotfix6/T-2591 (HIGH): `.more-item` существует только при ОТКРЫТОЙ шторке
+# «Ещё» — отдельная проба рядом с открытием (тот же AA-композит).
+MORE_ITEM_PROBE_JS = """
+(() => {
+  const de = document.documentElement;
+  const tok = (n) => getComputedStyle(de).getPropertyValue(n).trim();
+  const el = document.querySelector('.more-sheet .more-item');
+  return {
+    panelText: { moreItem: el ? getComputedStyle(el).color : null },
+    tokens: { glassBg: tok('--glass-bg'), s0: tok('--surface-0'),
+              teal: tok('--teal-500') },
+  };
 })()
 """
 
@@ -426,6 +493,75 @@ def _parse_rgb(s):
         return None
 
 
+def _parse_rgba(s):
+    """rgba(...) → ([r,g,b], alpha); alpha по умолчанию 1."""
+    m = re.match(r"rgba?\(([^)]+)\)", str(s or ""))
+    if not m:
+        return None
+    parts = [p.strip() for p in m.group(1).split(",")]
+    try:
+        rgb = [float(parts[0]), float(parts[1]), float(parts[2])]
+    except Exception:  # noqa: BLE001
+        return None
+    try:
+        a = float(parts[3]) if len(parts) > 3 else 1.0
+    except Exception:  # noqa: BLE001
+        a = 1.0
+    return rgb, a
+
+
+def _parse_color(s):
+    """Поддержка `#RRGGBB` и `rgb()/rgba()`."""
+    if not s:
+        return None
+    m = re.match(r"#([0-9a-fA-F]{6})$", str(s).strip())
+    if m:
+        h = m.group(1)
+        return [int(h[i:i + 2], 16) for i in (0, 2, 4)]
+    return _parse_rgb(s)
+
+
+# hotfix6/T-2591 (HIGH): какие классы текста на какой подложке меряем AA.
+_PANEL_TEXT_TARGETS = (
+    ("sidebarLink", "glass"), ("bottomNavLabel", "glass"),
+    ("bottomNavActive", "glass"), ("moreItem", "glass"),
+    ("headerTitle", "strong"), ("headerUser", "strong"),
+)
+
+
+def _panel_contrast_failures(panel_text, tokens, label: str) -> list:
+    """AA ≥4.5:1 для текста стеклянных панелей на КОМПОЗИТЕ подложки.
+
+    Эффективный фон = `--glass-bg(.5)`/`--glass-bg-strong(.85)` поверх худшей
+    (самой светлой) фазы анимированного фона §10 — teal `--grad-a` при opacity
+    .42 над `--surface-0`. Это продолжение D-1 (та же worst-фаза, что у
+    GLASS_EFF_WORST), но по реальным computed-цветам классов панелей."""
+    out = []
+    if not panel_text:
+        return out
+    s0 = _parse_color(tokens.get("s0"))
+    phase = _parse_color(tokens.get("teal"))
+    if s0 is None or phase is None:
+        return out
+    wash = [0.42 * p + 0.58 * b for p, b in zip(phase, s0)]
+    bgs = {}
+    for kind, key in (("glass", "glassBg"), ("strong", "glassBgStrong")):
+        rgba = _parse_rgba(tokens.get(key))
+        if rgba:
+            base, a = rgba
+            bgs[kind] = [a * c + (1 - a) * w for c, w in zip(base, wash)]
+    for key, kind in _PANEL_TEXT_TARGETS:
+        rgb = _parse_color(panel_text.get(key))
+        bg = bgs.get(kind)
+        if rgb is None or bg is None:
+            continue
+        ratio = _contrast_rgb(rgb, bg)
+        if ratio < 4.5:
+            out.append("%s AA: %s %r на %s-подложке = %.2f:1 (<4.5)"
+                       % (label, key, panel_text.get(key), kind, ratio))
+    return out
+
+
 def _f2_failures(probe: dict, label: str) -> list:
     """F2 (T-2554): палитра §8 / длительности §10 / glass allow-deny."""
     out = []
@@ -454,23 +590,32 @@ def _f2_failures(probe: dict, label: str) -> list:
     if not any(90.0 <= s <= 120.0 for s in durs):
         out.append("%s фон §10: вторичный цикл не в [90,120]s (%r)"
                    % (label, probe.get("beforeDur")))
-    if not probe.get("hasDisplaceFilter"):
-        out.append("%s glass: SVG-фильтр #lg-displace отсутствует" % label)
+    if not probe.get("hasLensFilter"):
+        out.append("%s glass: SVG-фильтр #lg-lens отсутствует" % label)
     displace = (t.get("displace") or "").replace(" ", "")
-    if displace != "url(#lg-displace)":
+    if displace != "url(#lg-lens)":
         out.append("%s glass: --glass-displace=%r" % (label, displace))
-    # T-2540/итерация @Reviewer: страховка min-сторона ≥240 для КАЖДОГО
-    # allow-элемента, реально получившего преломление (url-фильтр).
+    # T-2585 (AMEND ADR-1025-12 D1): tier выбирается feature-detect + перф-кап.
+    # Фиксируем факт A и согласованность маркеров (нет tier=a с downgraded).
     allow = probe.get("allow") or []
-    active = [x for x in allow if "lg-displace" in
-              (x.get("bf") or "").replace(" ", "").replace('"', "")]
-    if not active:
+    if not any(x.get("tier") for x in allow):
+        out.append("%s glass allow: маркер data-glass-tier отсутствует "
+                   "(reconcile не отработал)" % label)
+    if not any(x.get("tier") == "a" for x in allow):
         out.append("%s glass allow: ни один [data-glass=\"a\"] не получил "
-                   "преломление" % label)
-    for x in active:
-        if x.get("minSide") is not None and x["minSide"] < 240:
-            out.append("%s glass allow: min-сторона %dpx < 240 при преломлении"
-                       % (label, x["minSide"]))
+                   "tier A" % label)
+    for x in allow:
+        if x.get("tier") == "a" and x.get("downgraded"):
+            out.append("%s glass allow: tier=a с data-glass-downgraded "
+                       "(несогласованность)" % label)
+    # A2 (T-2588…T-2591): стеклянные панели текущего вьюпорта несут blur
+    # (непрозрачный fallback допустим только на движке без backdrop-filter).
+    for name, box in (probe.get("panels") or {}).items():
+        if box is None:
+            continue
+        if (box.get("bf") or "none").replace(" ", "") in ("none", ""):
+            out.append("%s glass panel %s: нет backdrop-filter (ожидался blur)"
+                       % (label, name))
     # D-1/@Reviewer: 12px-утилита Tailwind внутри стекла — контраст ≥4.5:1
     # на худшем эффективном фоне стекла.
     util_rgb = _parse_rgb(probe.get("utility"))
@@ -479,6 +624,8 @@ def _f2_failures(probe: dict, label: str) -> list:
         if ratio < 4.5:
             out.append("%s D-1: .text-gray-500 в стекле %.2f:1 (<4.5) %r"
                        % (label, ratio, probe.get("utility")))
+    # hotfix6/T-2591 (HIGH): AA-контраст текста стеклянных панелей.
+    out.extend(_panel_contrast_failures(probe.get("panelText"), t, label))
     if probe.get("denyCount", 0) < 1:
         out.append("%s glass deny: нет [data-glass=\"c\"] на экране" % label)
     elif (probe.get("denyBf") or "none").replace(" ", "") not in ("none", ""):
@@ -531,6 +678,25 @@ def _scope_failures(probe: dict, label: str, width: int) -> list:
         trig = probe.get("scopeTrigger")
         if trig and trig.get("visible") and trig["h"] < 44:
             out.append("%s: тач-цель селектора %dpx < 44" % (label, trig["h"]))
+    return out
+
+
+def _hotfix6_failures(probe: dict, label: str) -> list:
+    """hotfix6 (T-2598/T-2611): C1 — сердебиение в границах контейнера;
+    D — кнопка ⛶ и селектор не выходят за вьюпорт."""
+    out = []
+    if probe.get("hbOverflow", 0) and probe["hbOverflow"] > 1:
+        out.append("%s C1: overflow сердебиения %d px > 1"
+                   % (label, probe["hbOverflow"]))
+    wrap = probe.get("hbWrap")
+    if wrap and wrap.get("visible"):
+        if wrap["x"] < -1:
+            out.append("%s C1: hb-wrap выходит влево (x=%d)" % (label, wrap["x"]))
+        if wrap["x"] + wrap["w"] > probe["innerWidth"] + 1:
+            out.append("%s C1: hb-wrap шире вьюпорта (%d > %d)"
+                       % (label, wrap["x"] + wrap["w"], probe["innerWidth"]))
+    if probe.get("fsBtnInViewport") is False:
+        out.append("%s D: кнопка ⛶ выходит за вьюпорт" % label)
     return out
 
 
@@ -611,16 +777,25 @@ def main() -> int:
             # ровно те CSS-переменные, которые клиент бы сообщил: так проверяем
             # РАСКЛАДКУ панели/шторки относительно видимой области (вычисление
             # переменных в telegram-init.js покрыто unit/JS-тестами).
+            # hotfix4+hotfix6 (T-2517/T-2595, ADR-1025-8 D2 / ADR-1025-12 D3):
+            # имитируем нижнюю «занятую» зону Telegram. Восстанавливаем
+            # системный бар как РАЗНИЦУ видимой высоты (`stable = innerHeight−56`
+            # → A=56), плюс contentSafeAreaInset.bottom=56 (B=56) — как клиент
+            # сообщил бы эти переменные. Инвариант `rect.bottom <= stableHeight`
+            # остаётся ЗНАЧАЩИМ: без offset-компенсации панель уходит за бар.
+            # Логика max(A,B,C) отдельно покрыта JS-юнитом
+            # (round1025_hotfix4_shell_test.js: A/B/C/max).
             if w < 768:
                 page.evaluate(
                     "() => {"
                     "  var h = window.innerHeight || 0;"
-                    "  var visible = Math.max(0, h - 56);"
                     "  var de = document.documentElement;"
                     "  de.style.setProperty('--tg-viewport-stable-height',"
-                    "    visible + 'px');"
+                    "    Math.max(0, h - 56) + 'px');"
+                    "  de.style.setProperty('--tg-content-safe-area-inset-bottom',"
+                    "    '56px');"
                     "  de.style.setProperty('--tg-viewport-bottom-offset',"
-                    "    (h - visible) + 'px');"
+                    "    '56px');"
                     "}")
                 page.wait_for_timeout(150)
 
@@ -668,6 +843,9 @@ def main() -> int:
                 # F3 (§5/§70): позиция/размер селектора области.
                 failures.extend(_scope_failures(
                     probe, "%s %s" % (vp_key, route), w))
+                # hotfix6 (T-2598/T-2611): C1-overflow / ⛶ в вьюпорте.
+                failures.extend(_hotfix6_failures(
+                    probe, "%s %s" % (vp_key, route)))
                 if route == "#/":
                     _snap(page, "%s_root" % vp_key)
                 if route == "#/memory":
@@ -807,6 +985,11 @@ def main() -> int:
                         probe_more = page.evaluate(PROBE_JS)
                         failures.extend(_vertical_failures(
                             probe_more, "%s more-sheet(open)" % vp_key))
+                        # T-2591: AA-контраст текста шторки (`.more-item`).
+                        more_txt = page.evaluate(MORE_ITEM_PROBE_JS)
+                        failures.extend(_panel_contrast_failures(
+                            more_txt.get("panelText"), more_txt.get("tokens"),
+                            "%s more-sheet(open)" % vp_key))
                 except Exception as exc:  # noqa: BLE001
                     failures.append("%s more-sheet probe: %s"
                                     % (vp_key, str(exc)[:200]))

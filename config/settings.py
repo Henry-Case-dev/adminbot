@@ -692,6 +692,26 @@ class Settings:
     # IA_V2_ENABLED=true или `git revert`. ВРЕМЕННЫЙ механизм отката
     # (UPD §9.5) — не постоянная вторая архитектура (техдолг post-Epic-1).
     IA_V2_ENABLED: ClassVar[bool] = _env_bool("IA_V2_ENABLED", True)
+    # ── Хотфикс-6 (10.25, ADR-1025-12 D6): env-only ClassVar-флаги четырёх
+    # областей A/B/C/D. Δ каталога = 0 (в param_catalog НЕ входят). Доставка —
+    # `GET /api/me.ui_flags` (ADR-1024-13). Каждый — независимый откат своей
+    # области без редеплоя кода:
+    #   * UI_GLASS_TIER_OVERRIDE ∈ {auto,a,b,c} — принудительный tier стекла
+    #     (диагностика/откат A→B/C); default auto.
+    #   * UI_HEARTBEAT_CANVAS_ENABLED — OFF → прежний SVG-виджет сердебиения
+    #     байт-в-байт (мягкий откат C2); default ON.
+    #   * UI_HEADER_COMPACT_V2 — OFF → прежняя компоновка шапки (откат D),
+    #     действует только в IA v2; default ON.
+    #   * UI_LENS_MAX_NODES — перф-кап числа узлов tier A (сверх — B);
+    #     диагностический, default 6 (min 1).
+    UI_GLASS_TIER_OVERRIDE: ClassVar[str] = _env_str(
+        "UI_GLASS_TIER_OVERRIDE", "auto")
+    UI_HEARTBEAT_CANVAS_ENABLED: ClassVar[bool] = _env_bool(
+        "UI_HEARTBEAT_CANVAS_ENABLED", True)
+    UI_HEADER_COMPACT_V2: ClassVar[bool] = _env_bool(
+        "UI_HEADER_COMPACT_V2", True)
+    UI_LENS_MAX_NODES: ClassVar[int] = _env_int_min(
+        "UI_LENS_MAX_NODES", 6, 1)
     # ── Раунд 10.22 (F8, ADR-1022-8): env-only ClassVar-рубильники
     # асинхронной пересборки досье из мини-аппа. Δ каталога = 0 (в
     # param_catalog не входят; прецедент MULTILAYER_EXTRACTION_ENABLED).
@@ -1662,7 +1682,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.58.6"   # round1025 F2: дизайн-токены §8 + Liquid Glass v2 + фон §10
+APP_VERSION = "2.58.7"   # hotfix6: линза-преломление §9 + стекло панелей + contentSafeArea + Canvas-2D §15 + шапка D
 
 
 def get_ytdlp_pot_provider() -> str:

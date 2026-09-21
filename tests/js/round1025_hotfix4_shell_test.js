@@ -27,15 +27,15 @@ const MATRIX = fs.readFileSync(
   path.join(ROOT, 'tools', 'ui_round1025_matrix.py'), 'utf8');
 
 // ── РЕАЛЬНЫЙ прогон telegram-init.js (VM) ────────────────────────────────
-function runTelegramInit(innerHeight, stableHeight) {
+function runTelegramInit(innerHeight, stableHeight, csaBottom, saBottom) {
   const vars = {};
   const style = { setProperty(k, v) { vars[k] = v; } };
   const wa = {
     themeParams: {}, ready() {}, expand() {},
     setHeaderColor() {}, setBackgroundColor() {}, setBottomBarColor() {},
     onEvent() {}, offEvent() {},
-    safeAreaInset: { top: 0, bottom: 0, left: 0, right: 0 },
-    contentSafeAreaInset: { top: 0, bottom: 0, left: 0, right: 0 },
+    safeAreaInset: { top: 0, bottom: saBottom || 0, left: 0, right: 0 },
+    contentSafeAreaInset: { top: 0, bottom: csaBottom || 0, left: 0, right: 0 },
     BackButton: { hide() {}, show() {} },
   };
   if (stableHeight !== undefined) wa.viewportStableHeight = stableHeight;
@@ -51,8 +51,8 @@ function runTelegramInit(innerHeight, stableHeight) {
   return vars;
 }
 
-function offsetFor(innerHeight, stableHeight) {
-  const vars = runTelegramInit(innerHeight, stableHeight);
+function offsetFor(innerHeight, stableHeight, csaBottom, saBottom) {
+  const vars = runTelegramInit(innerHeight, stableHeight, csaBottom, saBottom);
   const raw = vars['--tg-viewport-bottom-offset'];
   return raw === undefined ? undefined : parseFloat(raw);
 }
@@ -65,6 +65,16 @@ assert.strictEqual(offsetFor(700, 800), 0, 'stable>layout → offset 0 (клам
 assert.strictEqual(offsetFor(700, 0), 0, 'stable=0 → offset 0 (guard)');
 assert.strictEqual(offsetFor(700, -50), 0, 'stable<0 → offset 0 (guard)');
 assert.strictEqual(offsetFor(700, undefined), 0, 'stable отсутствует → offset 0');
+// hotfix6 (T-2593, ADR-1025-12 D3): offset = max(A,B,C).
+assert.strictEqual(offsetFor(800, 800, 56, 0), 56,
+  'contentSafeAreaInset.bottom → offset 56 (max, stable==layout)');
+assert.strictEqual(offsetFor(800, 800, 0, 34), 34,
+  'safeAreaInset.bottom → offset 34 (max)');
+assert.strictEqual(offsetFor(800, 700, 20, 10), 100,
+  'max(A,B,C): A=100 побеждает B=20/C=10');
+assert.strictEqual(offsetFor(800, 750, 40, 30), 50,
+  'max(A,B,C): A=50 побеждает B=40/C=30');
+assert.strictEqual(offsetFor(800, 800, 0, 0), 0, 'нет инсетов → offset 0');
 // stable-высота прокидывается как есть.
 assert.strictEqual(
   runTelegramInit(800, 744)['--tg-viewport-stable-height'], '744px',
@@ -81,8 +91,10 @@ assert.ok(/\.bottom-nav \{[^}]*bottom:\s*0;/.test(CSS),
   '.bottom-nav имеет безопасный резерв bottom:0 (L10.25H4-2)');
 assert.ok(/100dvh - var\(--tg-viewport-stable-height/.test(CSS),
   'CSS-фолбэк max(0px, 100dvh − stable-height) присутствует');
-const moreBlock = CSS.slice(CSS.indexOf('.more-sheet {'));
-assert.ok(moreBlock.slice(0, 800)
+const moreIdx = CSS.search(/^ {4}\.more-sheet \{/m);
+assert.ok(moreIdx >= 0, 'правило .more-sheet найдено');
+const moreBlock = CSS.slice(moreIdx);
+assert.ok(moreBlock.slice(0, 1200)
   .indexOf('--tg-viewport-bottom-offset') >= 0,
   '.more-sheet использует тот же offset');
 assert.ok(/\.more-sheet \{[^}]*bottom:\s*calc\(52px \+ max\(env\(safe-area-inset-bottom/.test(CSS),
@@ -95,6 +107,10 @@ for (const ev of ['viewportChanged', 'safeAreaChanged', 'contentSafeAreaChanged'
   assert.ok(TG.indexOf(ev) >= 0, 'подписка на ' + ev);
 }
 assert.ok(/addEventListener\('resize'/.test(TG), 'пересчёт на resize');
+assert.ok(TG.indexOf('__computeTgBottomOffset') >= 0,
+  'hotfix6: чистая функция computeBottomOffset экспонирована (юнит)');
+assert.ok(/contentSafeAreaInset/.test(TG) && /safeAreaInset/.test(TG),
+  'hotfix6: offset учитывает contentSafeAreaInset/safeAreaInset');
 assert.ok(TG.indexOf('eval(') < 0, 'telegram-init без eval');
 assert.ok(TG.indexOf('.onclick =') < 0, 'telegram-init без inline-обработчиков');
 

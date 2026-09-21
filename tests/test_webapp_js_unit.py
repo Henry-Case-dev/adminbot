@@ -137,3 +137,13 @@ def test_js_unit_round1025_scope_selector():
     _run_js(os.path.join("tests", "js",
                          "round1025_scope_selector_test.js"),
             ok_marker="SCOPE-SELECTOR-OK")
+
+
+def test_js_unit_round1025_hotfix6_lens_heartbeat_shell():
+    """hotfix6 round 10.25 (ADR-1025-12, T-2583…T-2613): линза-преломление без
+    backdrop url-фильтра (feature-detect+кап), offset max(A,B,C),
+    Canvas-2D §15 (гистерезис/UNKNOWN/телеметрия отдельно), двухстрочная шапка
+    + резерв --header-h + fullscreen."""
+    _run_js(os.path.join("tests", "js",
+                         "round1025_hotfix6_lens_heartbeat_shell_test.js"),
+            ok_marker="HOTFIX6-LENS-HEARTBEAT-SHELL-OK")

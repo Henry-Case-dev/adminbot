@@ -1203,6 +1203,17 @@
         _graphSearchLastQ: '',         // последний запрос (сброс перебора)
         memoryWidgetBusy: false,
         reducedMotion: false,          // prefers-reduced-motion (анимации off)
+        // hotfix6 (ADR-1025-12 D1/D4): диагностика tier стекла (R17-safe) +
+        // состояние §15 «Сердцебиение» (Canvas 2D, телеметрия отдельно от рендера).
+        glassTierDiag: null,           // {supported, override, maxNodes, active, reducedMotion}
+        hbState: 'unknown',            // HEALTHY | WARNING | CRITICAL | UNKNOWN
+        hbEma: null,                   // EMA-сглаживание метрики нагрузки (0..1)
+        hbReason: 'нет данных',        // причина состояния (для тултипа/подписи)
+        hbDwellPending: null,          // ожидаемый tier эскалации (dwell, N сэмплов)
+        hbDwellCount: 0,               // число подряд подтверждающих сэмплов
+        hbTipOpen: false,              // тултип hover/tap (CPU/RAM/диск/статус/время/причина)
+        hbCanvasRaf: null,             // id requestAnimationFrame (null — цикл остановлен)
+        hbLastDraw: 0,
         // C2 (D5/D8/Q9): переезд чата и per-chat админы — глобальный admin
         remapNewChatId: '',            // новый chat_id для «Переезда чата»
         remapBusy: false,              // POST remap в процессе
@@ -1703,12 +1714,36 @@
       warnLogs: function () {
         return this.logs.filter(function (l) { return l.level === 'WARNING'; });
       },
-      // F6 (T-1460, §4, F6-Q2/F6-Q5): «сердцебиение» сервера для SVG-EKG.
-      // ratio = loadavg[0]/cpu_count (Linux), иначе max(CPU%, RAM%)/100
-      // (Windows dev, loadavg=None); всё None → нейтральный «спокойный».
-      // Пороги — фронт-константы (каталог-Δ=0): <0.5 зелёный, 0.5..0.8
-      // оранжевый, >0.8 красный. Период анимации — CSS-переменная EKG.
+      // §15/C2 (ADR-1025-12 D4): «сердцебиение» — производное от состояния
+      // (HEALTHY/WARNING/CRITICAL/UNKNOWN), которое обновляет телеметрия
+      // (_applyHeartbeatSample). Рендер только отображает готовое состояние.
+      // C2-OFF (UI_HEARTBEAT_CANVAS_ENABLED=false) → байт-в-байт legacy-семантика
+      // (`heartbeatLegacy`): SVG-виджет с прежними порогами 0.5/0.8 и подписями.
       heartbeat: function () {
+        // Явное OFF-условие `=== false` (а не falsy): контексты без canvas-флага
+        // получают актуальную семантику; OFF-путь откатывает ИМЕННО флагом.
+        if (this.heartbeatCanvasEnabled === false) return this.heartbeatLegacy;
+        var st = this.hbState || 'unknown';
+        var label = { healthy: 'норма', warning: 'внимание',
+                      critical: 'критично', unknown: 'нет данных' }[st];
+        var badge = st === 'critical' ? 'badge-err'
+          : (st === 'warning' ? 'badge-warn'
+            : (st === 'unknown' ? 'badge-muted' : 'badge-ok'));
+        var period = st === 'critical' ? 0.8 : (st === 'warning' ? 1.4 : 2.4);
+        var level = st === 'critical' ? 'high' : (st === 'warning' ? 'elev' : 'calm');
+        return {
+          state: st, level: level, period: period,
+          label: label || 'нет данных',
+          detail: this.hbReason || '', reason: this.hbReason || '',
+          badge: badge,
+        };
+      },
+      // §15/C2-OFF (T-2599, мягкий откат C2): прежнее вычисление «сердцебиения»
+      // (HEAD 441e8f7) — ratio = loadavg[0]/cpu_count иначе max(CPU%,RAM%)/100;
+      // пороги 0.5/0.8; метки «спокойный/повышен/пик N%»; классы
+      // badge-ok/warn/err; период для `--ekg-period`. Байт-в-байт поведение при
+      // UI_HEARTBEAT_CANVAS_ENABLED=false (OFF реально откатывает семантику).
+      heartbeatLegacy: function () {
         var server = this.statusData ? this.statusData.server : null;
         var ratio = null;
         if (server) {
@@ -1746,6 +1781,45 @@
         }
         return { level: 'calm', period: 2.4, label: 'спокойный ' + pct + '%',
                  detail: 'нагрузка в норме', badge: 'badge-ok' };
+      },
+      // §15 (T-2602): поля тултипа hover/tap — CPU/RAM/диск/статус/время/причина.
+      heartbeatTip: function () {
+        var s = this.statusData || {};
+        var server = s.server || {};
+        var pct = function (v) {
+          return (v != null && !isNaN(Number(v))) ? Math.round(Number(v)) + '%' : '—';
+        };
+        var gen = (s.uptime && s.uptime.generated_at) || null;
+        var updated = '—';
+        if (gen) {
+          try { updated = new Date(gen).toLocaleTimeString(); } catch (e) { /* — */ }
+        }
+        return {
+          cpu: pct(server.cpu_percent),
+          mem: (server.memory && server.memory.percent != null)
+            ? pct(server.memory.percent) : '—',
+          disk: (server.disk && server.disk.percent != null)
+            ? pct(server.disk.percent) : '—',
+          bot: (s.bot && s.bot.state) || '—',
+          updated: updated,
+          reason: this.hbReason || '',
+        };
+      },
+      heartbeatAria: function () {
+        return 'Сердцебиение сервера: ' + this.heartbeat.label +
+          (this.hbReason ? ' — ' + this.hbReason : '');
+      },
+      // §15/C2 (T-2599): Canvas 2D доступен и флаг ON. OFF → SVG (откат).
+      heartbeatCanvasEnabled: function () {
+        if (!this.uiFlag('UI_HEARTBEAT_CANVAS_ENABLED')) return false;
+        try {
+          return !!(document.createElement('canvas').getContext('2d'));
+        } catch (e) { return false; }
+      },
+      // D (ADR-1025-12 D5): двухстрочная шапка только в IA v2 при флаге ON;
+      // иначе — legacy-разметка байт-в-байт (OFF-откат).
+      headerCompactV2: function () {
+        return this.iaV2 && this.uiFlag('UI_HEADER_COMPACT_V2');
       },
       // F5 (T-1586, round1015) + F3 (round1017): бейджи фаз — оконная
       // семантика (spec §3а/§4) сохранена. Вне фазы — не светится и
@@ -2042,6 +2116,14 @@
         // пересчитываем уровень стекла после рендера (в дополнение к observer).
         var self = this;
         this.$nextTick(function () { self._lgSchedule(); });
+        // hotfix6/C2 (T-2599, MEDIUM): rAF-цикл сердебиения живёт ТОЛЬКО на
+        // «Статусе»; возврат — перерисовка кадра после монтирования канваса
+        // (в т.ч. reduced-motion: статичный кадр, без пустого канваса).
+        if (id === 'status') {
+          this.$nextTick(function () { self.startHeartbeatCanvas(); });
+        } else {
+          this.stopHeartbeatCanvas();
+        }
       },
     },
 
@@ -2110,6 +2192,10 @@
       // F2 (T-2540): страховка «крупного элемента» для уровня A стекла.
       this.reconcileLiquidGlass();
       this._initLiquidGlassObserver();
+      // hotfix6/C2 (ADR-1025-12 D4): Canvas-2D «сердцебиение» §15 + D3 —
+      // измерение высоты шапки в `--header-h` (резерв контента).
+      this.$nextTick(function () { self.startHeartbeatCanvas(); });
+      this._initHeaderHeight();
       // Фин. доработка (DevOps): без Telegram-контекста — блокирующая
       // заглушка вместо бессмысленных 401 (ngrok-интерстициал ломал контекст).
       if (!this.hasInitData()) {
@@ -4632,10 +4718,17 @@
         try {
           var wa = window.Telegram && Telegram.WebApp;
           if (!wa) return;
+          // D5/T-2607: не полагаемся на единственное имя метода — Telegram SDK
+          // отдаёт `requestFullscreen`/`exitFullscreen` (Bot API 8.0), но в
+          // старых/нишевых клиентах встречаются камел-варианты. Fallback —
+          // ближайший доступный (без «мёртвой» кнопки).
           if (this.isFullscreen) {
-            if (wa.exitFullscreen) wa.exitFullscreen();
+            if (typeof wa.exitFullscreen === 'function') wa.exitFullscreen();
+            else if (typeof wa.expand === 'function') wa.expand();
           } else {
-            if (wa.requestFullscreen) wa.requestFullscreen();
+            if (typeof wa.requestFullscreen === 'function') wa.requestFullscreen();
+            else if (typeof wa.requestFullScreen === 'function') wa.requestFullScreen();
+            else if (typeof wa.expand === 'function') wa.expand();
           }
           if (typeof wa.isFullscreen !== 'boolean') {
             this.isFullscreen = !this.isFullscreen;   // legacy-фолбэк
@@ -6338,6 +6431,251 @@
       },
 
       // ═══ Статус ═══
+      // §15/C2 (ADR-1025-12 D4): ЧИСТАЯ машина состояний (юнит-тестируема).
+      // sample: {cpu,mem,disk — доли 0..1|null, botOk, stale, missing, reason};
+      // prev:   {state, ema, dwellPending, dwellCount}. Гистерезис вход≠выход
+      // (0.70/0.65; 0.90/0.85) + EMA + dwell (N подряд подтверждающих сэмплов
+      // на эскалацию); отсутствие/устаревание данных → UNKNOWN. Без выдуманных
+      // метрик/BPM.
+      _heartbeatTransition: function (sample, prev) {
+        // Dwell: смена tier применяется только после N последовательных
+        // подтверждающих сэмплов при УЖЕ установившемся состоянии (EMA была) —
+        // одиночный выброс не меняет состояние. Де-эскалация, первый сэмпл
+        // (EMA ещё не было), выход из UNKNOWN и отказ бота — сразу (восстановление
+        // и критический отказ не маскируются).
+        var DWELL_N = 2;
+        var state = (prev && prev.state) || 'unknown';
+        var ema = (prev && typeof prev.ema === 'number') ? prev.ema : null;
+        var dwellPending = (prev && prev.dwellPending) || null;
+        var dwellCount = (prev && prev.dwellCount) || 0;
+        if (!sample || sample.missing || sample.stale) {
+          return {
+            state: 'unknown', ema: ema, dwellPending: null, dwellCount: 0,
+            reason: (sample && sample.reason) ||
+              ((sample && sample.stale) ? 'телеметрия устарела' : 'нет данных'),
+          };
+        }
+        var vals = [];
+        if (typeof sample.cpu === 'number') vals.push(sample.cpu);
+        if (typeof sample.mem === 'number') vals.push(sample.mem);
+        if (typeof sample.disk === 'number') vals.push(sample.disk);
+        if (!vals.length) {
+          return { state: 'unknown', ema: ema, dwellPending: null,
+                   dwellCount: 0, reason: 'метрик нет' };
+        }
+        var m = Math.max.apply(null, vals);
+        var hadEma = (ema != null);
+        ema = hadEma ? (0.4 * m + 0.6 * ema) : m;
+        var rank = { unknown: 0, healthy: 1, warning: 2, critical: 3 };
+        var target;
+        if (sample.botOk === false) {
+          target = 'critical';
+        } else if (state === 'critical') {
+          target = (ema >= 0.85) ? 'critical' : (ema >= 0.65 ? 'warning' : 'healthy');
+        } else if (state === 'warning') {
+          target = (ema >= 0.90) ? 'critical' : (ema >= 0.65 ? 'warning' : 'healthy');
+        } else {
+          target = (ema >= 0.90) ? 'critical' : (ema >= 0.70 ? 'warning' : 'healthy');
+        }
+        var next = target;
+        var pending = null;
+        var count = 0;
+        var escalate = rank[target] > rank[state];
+        if (sample.botOk !== false && escalate && hadEma && state !== 'unknown') {
+          count = (dwellPending === target) ? (dwellCount + 1) : 1;
+          if (count >= DWELL_N) {
+            next = target; pending = null; count = 0;
+          } else {
+            next = state; pending = target;
+          }
+        }
+        var pct = Math.round(ema * 100);
+        var reason;
+        if (next === 'critical') {
+          reason = (sample.botOk === false) ? 'бот не работает'
+            : ('критическая нагрузка ' + pct + '%');
+        } else if (next === 'warning') {
+          reason = 'повышенная нагрузка ' + pct + '%';
+        } else if (next === 'healthy') {
+          reason = 'нагрузка в норме ' + pct + '%';
+        } else {
+          reason = 'нет данных';
+        }
+        if (pending) reason += ' — подтверждение';
+        return { state: next, ema: ema, dwellPending: pending,
+                 dwellCount: count, reason: reason };
+      },
+      // Снимок телеметрии §15 из УЖЕ полученного /api/status (без сети здесь).
+      // «missing» (поля НЕТ → UNKNOWN с причиной) отделено от «bad» (поле есть,
+      // но значение плохое → CRITICAL): `polling_error`/не-running → CRITICAL;
+      // отсутствие `bot.state`/`generated_at` → UNKNOWN, а не «свежо»/не «0».
+      heartbeatSample: function () {
+        var s = this.statusData;
+        if (!s) return { missing: true, reason: 'нет данных' };
+        var bot = s.bot || null;
+        if (!bot || !bot.state) {
+          return { missing: true, reason: 'нет состояния бота' };
+        }
+        var server = s.server || null;
+        if (!server) {
+          return { missing: true, reason: 'нет данных телеметрии' };
+        }
+        var sample = { missing: false, stale: false };
+        var gen = (s.uptime && s.uptime.generated_at) || null;
+        if (!gen) {
+          // §15: без отметки времени актуальность неизвестна → UNKNOWN.
+          sample.stale = true;
+          sample.reason = 'нет отметки времени';
+        } else {
+          var t = Date.parse(gen);
+          // stale: снимок старше 2× интервала поллинга (30 с) → UNKNOWN (§15).
+          if (!isNaN(t) && (Date.now() - t) > 120000) {
+            sample.stale = true;
+            sample.reason = 'телеметрия устарела';
+          }
+        }
+        // bad (значение есть, но бот не в рабочем состоянии) → CRITICAL.
+        if (bot.state === 'polling_error') sample.botOk = false;
+        else sample.botOk = (bot.state === 'running' || bot.state === 'polling');
+        var cpu = Number(server.cpu_percent);
+        var mem = (server.memory && server.memory.percent != null)
+          ? Number(server.memory.percent) : NaN;
+        var disk = (server.disk && server.disk.percent != null)
+          ? Number(server.disk.percent) : NaN;
+        if ((isNaN(cpu) || cpu <= 0) && Array.isArray(server.loadavg) &&
+            server.loadavg.length) {
+          var cores = Number(server.cpu_count) || 1;
+          var la = Number(server.loadavg[0]);
+          if (!isNaN(la)) cpu = (la / cores) * 100;
+        }
+        var clamp = function (v) {
+          return isNaN(v) ? null : Math.max(0, Math.min(1, v / 100));
+        };
+        sample.cpu = clamp(cpu);
+        sample.mem = clamp(mem);
+        sample.disk = clamp(disk);
+        if (sample.cpu == null && sample.mem == null && sample.disk == null) {
+          sample.missing = true;
+        }
+        return sample;
+      },
+      // Телеметрия → сглаженное состояние; рендер читает готовый снимок.
+      _applyHeartbeatSample: function (sample) {
+        var res = this._heartbeatTransition(sample, {
+          state: this.hbState, ema: this.hbEma,
+          dwellPending: this.hbDwellPending, dwellCount: this.hbDwellCount,
+        });
+        this.hbEma = res.ema;
+        this.hbReason = res.reason;
+        this.hbDwellPending = res.dwellPending || null;
+        this.hbDwellCount = res.dwellCount || 0;
+        if (res.state !== this.hbState) this.hbState = res.state;
+        // Перерисовка/возобновление цикла при обновлении снимка: reduced-motion
+        // — статичный кадр; иначе — (пере)запуск rAF (в т.ч. если канвас был
+        // размонтирован из-за ошибки/смены вкладки и вернулся).
+        if (this._prefersReducedMotion()) this._hbScheduleDraw();
+        else this.startHeartbeatCanvas();
+      },
+      // §15/C2 (T-2602): тултип hover (desktop) / tap (mobile).
+      toggleHeartbeatTip: function () { this.hbTipOpen = !this.hbTipOpen; },
+      showHeartbeatTip: function () { this.hbTipOpen = true; },
+      hideHeartbeatTip: function () { this.hbTipOpen = false; },
+      // §15/C2 (T-2599/T-2604): Canvas 2D + rAF (WebGL запрещён). Вне
+      // Canvas-окружения/при reduced-motion — статичный кадр без цикла.
+      // T-2599 (MEDIUM): цикл живёт ТОЛЬКО на вкладке «Статус» — вне неё
+      // останавливается (не крутим 60 fps в фоне). $nextTick — канвас монтируется
+      // по v-if/смене вкладки; на reduced-motion рисуем статичный кадр после
+      // монтирования (не остаётся пустого канваса при возврате).
+      startHeartbeatCanvas: function () {
+        if (!this.heartbeatCanvasEnabled) return;
+        if (this.activeTab && this.activeTab !== 'status') return;
+        if (typeof window === 'undefined' || !window.requestAnimationFrame) return;
+        if (this.hbCanvasRaf) return;
+        var self = this;
+        var go = function () {
+          if (self.hbCanvasRaf) return;
+          if (self.activeTab && self.activeTab !== 'status') return;
+          if (self._prefersReducedMotion()) { self._hbDraw(0); return; }
+          self.hbCanvasRaf = window.requestAnimationFrame(function (ts) {
+            self._hbFrame(ts);
+          });
+        };
+        if (typeof this.$nextTick === 'function') this.$nextTick(go);
+        else go();
+      },
+      stopHeartbeatCanvas: function () {
+        if (this.hbCanvasRaf && typeof window !== 'undefined' &&
+            window.cancelAnimationFrame) {
+          window.cancelAnimationFrame(this.hbCanvasRaf);
+        }
+        this.hbCanvasRaf = null;
+      },
+      // Телеметрия обновилась без активного rAF (reduced-motion) → статика.
+      _hbScheduleDraw: function () {
+        if (!this.heartbeatCanvasEnabled) return;
+        if (!this.hbCanvasRaf) this._hbDraw(this.hbLastDraw || 0);
+      },
+      _hbFrame: function (ts) {
+        this.hbCanvasRaf = null;
+        if (typeof document !== 'undefined' && document.hidden) return;
+        // T-2599 (MEDIUM): канвас не смонтирован / вкладка не «Статус» —
+        // кадр НЕ перепланируем (цикл останавливается, а не висит вхолостую).
+        var cv = this.$refs && this.$refs.hbCanvas;
+        if (!cv || (this.activeTab && this.activeTab !== 'status')) return;
+        this._hbDraw(ts);
+        if (!this._prefersReducedMotion() && typeof window !== 'undefined' &&
+            window.requestAnimationFrame) {
+          var self = this;
+          this.hbCanvasRaf = window.requestAnimationFrame(function (t) {
+            self._hbFrame(t);
+          });
+        }
+      },
+      // Рисование только готового снимка состояния (сеть в кадре отсутствует).
+      _hbDraw: function (ts) {
+        var cv = this.$refs && this.$refs.hbCanvas;
+        if (!cv || typeof cv.getContext !== 'function') return;
+        var ctx = cv.getContext('2d');
+        if (!ctx) return;
+        var dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+        var cssW = cv.clientWidth || 320, cssH = cv.clientHeight || 56;
+        if (cv.width !== Math.round(cssW * dpr)) cv.width = Math.round(cssW * dpr);
+        if (cv.height !== Math.round(cssH * dpr)) {
+          cv.height = Math.round(cssH * dpr);
+        }
+        var st = this.hbState || 'unknown';
+        var colors = { healthy: '#3DD68C', warning: '#F6C56F',
+                       critical: '#EF4444', unknown: '#A2B0C6' };
+        var freq = { healthy: 1, warning: 2, critical: 3, unknown: 0.6 };
+        var amp = { healthy: 0.35, warning: 0.6, critical: 0.9, unknown: 0.12 };
+        var col = colors[st] || colors.unknown;
+        var t = (ts || 0) / 1000;
+        var w = cv.width, h = cv.height, mid = h / 2;
+        ctx.clearRect(0, 0, w, h);
+        ctx.strokeStyle = col;
+        ctx.lineWidth = Math.max(1.5, 2 * dpr);
+        ctx.globalAlpha = 0.55;
+        ctx.beginPath();
+        var step = 4 * dpr;
+        for (var x = 0; x <= w; x += step) {
+          var phase = (x / (w || 1)) * Math.PI * 2 * 3;
+          var y = mid - Math.sin(phase + t * (freq[st] || 1)) *
+                  (h * 0.5) * (amp[st] || 0.2);
+          if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        // Импульс: частота зависит от состояния (характер, не только цвет).
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        var span = (st === 'unknown') ? 1e9
+          : (st === 'critical' ? 600 : (st === 'warning' ? 1000 : 1500));
+        var pulseX = (((t * 1000) % span) / span) * w;
+        ctx.moveTo(pulseX, mid);
+        ctx.lineTo(Math.min(w, pulseX + 6 * dpr), mid);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        this.hbLastDraw = ts || 0;
+      },
       loadStatus: async function () {
         var epoch = this.scopeEpoch;   // D2: снимок scope (permsoc-телеметрия per chat)
         try {
@@ -6345,6 +6683,11 @@
           if (!this._scopeGuard(epoch)) return;   // scope сменился — ответ старый
           this.statusData = st;
           this.statusError = null;
+          // hotfix6/C2 (ADR-1025-12 D4): телеметрия §15 ОТДЕЛЕНА от рендера.
+          // Обновляем снимок состояния из УЖЕ полученного /api/status (30 с,
+          // app.js::startStatusPolling) — новый поллер не вводим, сеть в кадре
+          // requestAnimationFrame отсутствует.
+          this._applyHeartbeatSample(this.heartbeatSample());
         } catch (e) {
           // 84.21.1: ошибка на ЛЮБОЙ не-OK (401/403/500/502/…), чтобы не
           // было вечных спиннеров; 401 — понятное сообщение, 403 — заглушка.
@@ -6356,9 +6699,11 @@
             this.statusError = 'Не удалось получить статус сервера (' +
               (e.status ? 'HTTP ' + e.status : 'ошибка сети') + ').';
           }
+          // §15: недоступность API → UNKNOWN (не «0»).
+          this._applyHeartbeatSample({ missing: true });
         }
-        // F6 (T-1460): линейный аптайм-график удалён; EKG — чистый CSS
-        // (реактивный computed heartbeat), JS-рендер не требуется.
+        // hotfix6/C2 (T-2599): EKG-SVG заменён на Canvas 2D + rAF (флаг
+        // UI_HEARTBEAT_CANVAS_ENABLED; OFF → прежний SVG байт-в-байт).
         this.loadKeyHistory();   // B1/T-1129: список + график доступности
       },
       startStatusPolling: function () {
@@ -8097,49 +8442,82 @@
           }, restoreMs);
         }
       },
-      // F2 (ADR-1025-9 D2/T-2540): Liquid Glass уровень A — progressive
-      // enhancement. Проверяем, умеет ли движок backdrop-filter:url(#…).
+      // F2/AMEND ADR-1025-12 D1 (T-2585): Liquid Glass уровень A — преломление
+      // на ФОРГРАУНД-линзе (`filter: url(#lg-lens)`), НЕ на backdrop
+      // url-фильтре (WebKit его не поддерживает). Выбор — чистая
+      // feature-detect, без UA-gate (WKWebView/iOS-Edge учитываются честно).
       _liquidGlassSupported: function () {
         try {
-          // §9/T-2542: WKWebView отдаёт недостоверный CSS.supports для
-          // backdrop-filter:url() → уровень A только Blink (UA-gate), иначе B.
           var win = (typeof window !== 'undefined' && window) || {};
-          var nav = win.navigator || (typeof navigator !== 'undefined' && navigator) || {};
-          var ua = String(nav.userAgent || '');
-          if (ua && /AppleWebKit/i.test(ua) &&
-              !/Chrome|Chromium|Edg|OPR/i.test(ua)) return false;
           var css = win.CSS;
           if (!css || typeof css.supports !== 'function') return false;
-          return css.supports('backdrop-filter', 'url(#lg-displace)') ||
-                 css.supports('-webkit-backdrop-filter', 'url(#lg-displace)');
+          return css.supports('filter', 'url(#lg-lens)');
         } catch (e) { return false; }
       },
-      // Страховка «крупного элемента» (§9/T-2540): уровень A — только opt-in
-      // `data-glass="a"` с min-стороной ≥240px и при поддержке url-фильтра.
-      // Обратимо (b→a при росте) и транзитивно: JS не трогает `data-glass`
-      // (это opt-in-декларация), а ставит/снимает `data-glass-downgraded`.
-      // Без второго `visibilitychange`-обработчика.
+      // Ручной откат/диагностика (env-only через GET /api/me.ui_flags).
+      _glassTierOverride: function () {
+        var flags = (this.me && this.me.ui_flags) || {};
+        var v = String(flags.UI_GLASS_TIER_OVERRIDE || 'auto').toLowerCase();
+        return (v === 'a' || v === 'b' || v === 'c') ? v : 'auto';
+      },
+      // Перф-кап числа узлов tier A (env-only, default 6; min 1) — заменяет
+      // старое правило min-стороны ≥240 (оно отсекало низкие панели).
+      _lensMaxNodes: function () {
+        var flags = (this.me && this.me.ui_flags) || {};
+        var n = parseInt(flags.UI_LENS_MAX_NODES, 10);
+        return (isFinite(n) && n > 0) ? n : 6;
+      },
+      _prefersReducedMotion: function () {
+        if (this.reducedMotion) return true;
+        try {
+          return !!(window.matchMedia &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        } catch (e) { return !!this.reducedMotion; }
+      },
+      // T-2585: tier выбирается feature-detect + перф-кап (не UA, не min-240),
+      // обратимо/транзитивно: `data-glass` (opt-in) НЕ переписывается, ведём
+      // `data-glass-downgraded` + диагностические `data-glass-tier/-reason`.
+      // Нет поддержки/бюджет/reduced-motion → честный B (не «пустое стекло»).
       reconcileLiquidGlass: function () {
         if (typeof document === 'undefined') return;
-        // D-2/@Reviewer: ранний выход — скрытая вкладка и отсутствие цели.
+        // D-2/@Reviewer: ранний выход — скрытая вкладка.
         if (document.hidden) return;
         var nodes = document.querySelectorAll('[data-glass="a"]');
         if (!nodes.length) return;
-        var okA = this._liquidGlassSupported();
+        var supported = this._liquidGlassSupported();
+        var override = this._glassTierOverride();
+        var maxNodes = this._lensMaxNodes();
+        var reduced = this._prefersReducedMotion();
+        var active = 0;
         for (var i = 0; i < nodes.length; i++) {
           var el = nodes[i];
-          var big = true;
-          try {
-            var r = el.getBoundingClientRect();
-            big = r.width >= 240 && r.height >= 240;
-          } catch (e) { big = true; }
-          if (okA && big) el.removeAttribute('data-glass-downgraded');
-          else el.setAttribute('data-glass-downgraded', '1');
+          var tier = 'b';
+          var reason = 'fallback';
+          if (!supported) reason = 'filter-unsupported';
+          else if (override === 'c') reason = 'override-c';
+          else if (override === 'b') reason = 'override-b';
+          else if (reduced) reason = 'reduced-motion';
+          else if (active >= maxNodes) reason = 'budget';
+          else { tier = 'a'; reason = override === 'a' ? 'override-a' : 'auto'; }
+          if (tier === 'a') {
+            active++;
+            el.removeAttribute('data-glass-downgraded');
+          } else {
+            el.setAttribute('data-glass-downgraded', '1');
+          }
+          el.setAttribute('data-glass-tier', tier);
+          el.setAttribute('data-glass-reason', reason);
           // D-2: рост/смена размера allow-узла → пересчёт (b↔a), наблюдаем точечно.
           if (this._lgResizeObserver) {
             try { this._lgResizeObserver.observe(el); } catch (e) { /* no-op */ }
           }
         }
+        // T-2583: R17-safe маркер выбранного tier (только числа/строки-флаги,
+        // без контента и секретов) — используется диагностикой и live-гейтом.
+        this.glassTierDiag = {
+          supported: supported, override: override, maxNodes: maxNodes,
+          active: active, reducedMotion: reduced,
+        };
       },
       // Транзитивность (T-2540/@Reviewer): `[data-glass="a"]` достраивается
       // асинхронно (v-if/маршруты/данные). D-2/@Reviewer: троттлинг ≥250 мс,
@@ -8180,6 +8558,32 @@
           });
         }
       },
+      // D3/T-2609 (ADR-1025-12 D5): измеряем фактическую высоту sticky-шапки
+      // (строка 1 + строка 2) и прокидываем в `--header-h` — резерв контента
+      // и scroll-padding без «магических» ширинозависимых отступов.
+      _initHeaderHeight: function () {
+        if (typeof document === 'undefined') return;
+        var apply = function () {
+          try {
+            var hdr = document.querySelector('header.header-sticky');
+            if (!hdr) return;
+            var h = Math.round(hdr.getBoundingClientRect().height);
+            if (h > 0) {
+              document.documentElement.style.setProperty('--header-h', h + 'px');
+            }
+          } catch (e) { /* no-op */ }
+        };
+        apply();
+        if (typeof ResizeObserver !== 'undefined') {
+          try {
+            var hdr = document.querySelector('header.header-sticky');
+            if (hdr && !this._headerObserver) {
+              this._headerObserver = new ResizeObserver(apply);
+              this._headerObserver.observe(hdr);
+            }
+          } catch (e) { /* no-op */ }
+        }
+      },
       // §10/T-2547: пауза дорогих фоновых эффектов при скрытии TMA.
       setBgPaused: function (paused) {
         try {
@@ -8189,6 +8593,10 @@
       onVisibilityChange: function () {
         // F2 (§10/T-2547): фон пауза — до ранних return'ов (activeTab/Dossier).
         this.setBgPaused(!!document.hidden);
+        // hotfix6/C2 (T-2604): пауза/возобновление rAF-цикла сердебиения при
+        // скрытии/возврате TMA (в существующем обработчике, без второго).
+        if (document.hidden) this.stopHeartbeatCanvas();
+        else this.startHeartbeatCanvas();
         // F2 (T-2540/D-2): вернулись из скрытия — пересчитать стекло (reconcile
         // пропускал работу при document.hidden).
         if (!document.hidden) this._lgSchedule();
@@ -8419,6 +8827,13 @@
       if (this._lgResizeObserver) {
         this._lgResizeObserver.disconnect();
         this._lgResizeObserver = null;
+      }
+      // hotfix6/C2 (D4): останавливаем Canvas-2D rAF-цикл сердебиения.
+      this.stopHeartbeatCanvas();
+      // D3/T-2609: снимаем ResizeObserver высоты шапки.
+      if (this._headerObserver) {
+        try { this._headerObserver.disconnect(); } catch (e) { /* no-op */ }
+        this._headerObserver = null;
       }
       if (this.controlTimer) clearInterval(this.controlTimer);
     },

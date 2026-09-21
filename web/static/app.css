@@ -41,18 +41,20 @@
       --shadow-lg:0 10px 25px -3px rgba(0,0,0,.08);--shadow-xl:0 20px 50px -12px rgba(0,0,0,.12);
       --dur-fast:.15s;--dur-normal:.3s;--dur-slow:.5s;--ease-out:cubic-bezier(0,0,.2,1);
       --page-padding:2.5rem;--navbar-height:4.5rem;
-      /* Liquid Glass v2 (§9, раунд 10.25/F2; ADR-1025-9 D2) — уровни A/B/C.
+      /* Liquid Glass v2 (§9, раунд 10.25/F2; AMEND ADR-1025-12 D1) — уровни A/B/C.
          B (default, glass-set): blur + светлая кромка + блик + тень.
-         A (opt-in [data-glass="a"]): + преломление --glass-displace (Chromium; UA-gate,
-         приближение feTurbulence — ADR-1025-9 D2).
-         C ([data-glass="c"]/deny-list): непрозрачный fallback.
+         A (opt-in [data-glass="a"]): + преломление --glass-displace на
+         ФОРГРАУНД-линзе (::before), НЕ на backdrop-фильтре с url(#…) (WebKit
+         его не поддерживает; ADR-1025-9 D2 — SUPERSEDE). Выбор tier — по
+         feature-detect `CSS.supports('filter','url(#lg-lens)')`, не по UA.
+         C ([data-glass="c"]/deny-list/без blur): непрозрачный fallback.
          Токены — единый источник для панелей/карточек/модалок/sticky. */
       --glass-bg: rgba(21, 27, 42, 0.5);
       --glass-bg-strong: rgba(21, 27, 42, 0.85);
       --glass-blur: blur(16px);
       --glass-border-color: rgba(170, 182, 200, 0.16);
       --glass-border: 1px solid var(--glass-border-color);
-      --glass-displace: url(#lg-displace);
+      --glass-displace: url(#lg-lens);
       --glass-highlight: rgba(255, 255, 255, 0.16);
       --glass-highlight-soft: rgba(255, 255, 255, 0.05);
       --glass-shadow: 0 18px 40px -18px rgba(3, 7, 18, 0.75);
@@ -747,8 +749,54 @@
       top: 0;
       z-index: 40;
       background: var(--glass-bg-strong);
+      /* A2/T-2589 (ADR-1025-12 D2): шапка получает blur (закрывает F2
+         L10.25F2-1). Плотный --glass-bg-strong сохраняется — читаемость поверх
+         произвольного прокручиваемого контента. */
+      -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
+      backdrop-filter: var(--glass-blur) saturate(140%);
       padding-right: calc(1rem + env(safe-area-inset-right, 0px));
       padding-left: calc(1rem + env(safe-area-inset-left, 0px));
+    }
+
+    /* D (ADR-1025-12 D5, T-2606…T-2610): компактная двухстрочная шапка.
+       Строка 1 — навигация/заголовок/⛶ (правый верхний угол, безопасная зона);
+       строка 2 — селектор области/бейдж/аватар/роль. Без горизонтального скролла.
+       `--header-h` задаёт резерв контента (ResizeObserver, app.js). */
+    header.header-sticky.header-compact-v2 {
+      flex-wrap: wrap;
+      gap: .4rem;
+      padding-top: calc(.6rem + max(env(safe-area-inset-top, 0px),
+                    var(--tg-content-safe-area-inset-top, 0px),
+                    var(--tg-safe-area-inset-top, 0px)));
+      padding-bottom: .6rem;
+    }
+    /* Legacy (не compact): обёртка прозрачна для flex; CSS `order`
+       восстанавливает прежний однорядный вид [scope][tech][tools][⛶][navbar]
+       при той же единственной разметке (без дублирования селектора). */
+    .header-scope-row { display: contents; }
+    header.header-sticky:not(.header-compact-v2) .header-scope-row .ml-auto {
+      order: 90;
+    }
+    header.header-sticky:not(.header-compact-v2) .header-fs-btn { order: 99; }
+    header.header-sticky:not(.header-compact-v2) .navbar-band { order: 100; }
+    /* Compact (IA v2 + UI_HEADER_COMPACT_V2): строка 1 — навигация/заголовок/⛶
+       (правый верхний угол, безопасная зона); строка 2 — область/бейдж/аватар. */
+    header.header-sticky.header-compact-v2 .header-title-wrap {
+      flex: 1 1 auto; min-width: 0;
+    }
+    header.header-sticky.header-compact-v2 .header-fs-btn {
+      order: 5; margin-left: auto;
+      min-width: 44px; min-height: 44px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    header.header-sticky.header-compact-v2 .header-scope-row {
+      order: 10; flex: 1 1 100%;
+      display: flex; align-items: center; flex-wrap: wrap;
+      gap: .5rem; min-width: 0;
+    }
+    .header-compact-v2 .header-scope-row .scope-trigger { max-width: 60vw; }
+    @media (max-width: 479px) {
+      .header-compact-v2 .header-scope-row .header-user span { max-width: 4.5rem; }
     }
 
     /* Раунд 10.6 (A1/T-1161/T-1162): модель скролла без боковой панели.
@@ -762,6 +810,11 @@
     }
     .scroll-area {
       flex: 1 1 auto; min-height: 0; padding: 1rem;
+      /* D3/T-2609 (ADR-1025-12 D5): резерв под sticky-шапку. `--header-h`
+         измеряется ResizeObserver'ом (реальная высота строк 1+2), а не
+         брейкпоинт-константой — верх контента не подлезает под панель и
+         якорная прокрутка учитывает её высоту. */
+      scroll-padding-top: calc(var(--header-h, 0px) + 1rem);
     }
     .fullscreen-mode {
       height: 100dvh;
@@ -804,8 +857,8 @@
        CSS-анимация (Chart.js key-history не трогаем). Период задаётся
        переменной --ekg-period из computed heartbeat; цвет — классом
        .ekg-calm/.ekg-elev/.ekg-high. */
-    .ekg-wrap { position: relative; width: 100%; }
-    .ekg { display: block; width: 100%; height: 56px; overflow: visible; }
+    .ekg-wrap { position: relative; width: 100%; max-width: 100%; }
+    .ekg { display: block; width: 100%; max-width: 100%; height: 56px; overflow: hidden; }
     .ekg-base {
       fill: none; stroke: currentColor; stroke-width: 1.5;
       stroke-linejoin: round; stroke-linecap: round; opacity: .18;
@@ -826,6 +879,37 @@
     .ekg-high { color: #ef4444; }   /* >0.8 → частый красный */
     @media (prefers-reduced-motion: reduce) {
       .ekg-trace { animation: none !important; stroke-dashoffset: 0; }
+      .hb-canvas { animation: none !important; }
+    }
+
+    /* §15/C1 (ADR-1025-12 D4): контейнер сердебиения не выходит за экран.
+       `.status-block` ограничен по ширине/overflow; canvas/линза — width:100%. */
+    .status-block { max-width: 100%; overflow: hidden; }
+    .status-block__pulse { min-width: 0; max-width: 100%; }
+    .hb-wrap { position: relative; width: 100%; max-width: 100%; }
+    .hb-canvas { display: block; width: 100%; max-width: 100%; height: 56px;
+                 cursor: pointer; }
+    .hb-tip {
+      position: absolute; left: 0; right: 0; top: calc(100% + 4px);
+      z-index: 5; margin: 0 auto; max-width: 320px;
+      background: var(--glass-bg-strong); border: var(--glass-border);
+      border-radius: var(--radius-md); padding: .5rem .6rem;
+      font-size: .72rem; line-height: 1.45; color: var(--text-2);
+      -webkit-backdrop-filter: var(--glass-blur);
+      backdrop-filter: var(--glass-blur);
+      box-shadow: var(--glass-shadow);
+    }
+    .hb-tip b { color: var(--text-1); }
+    /* Состояния §15: различимы цветом/интенсивностью (и характером в canvas). */
+    .hb-healthy  { color: var(--ok); }
+    .hb-warning  { color: var(--warn); }
+    .hb-critical { color: var(--err); }
+    .hb-unknown  { color: var(--text-3); }
+    @media (max-width: 767px) {
+      /* §15/C1: на мобильном сердебиение — отдельная полноширинная область
+         под системными метриками (grid уже одноколоночный). */
+      .status-block__pulse { width: 100%; }
+      .hb-canvas { height: 52px; }
     }
 
     /* F5 (T-1450..T-1456, ТЗ §5/§7): дашборд «Осмысление» — бегущие строки
@@ -957,27 +1041,54 @@
       box-shadow: var(--glass-shadow),
                   inset 0 1px 0 var(--glass-highlight);
     }
-    /* §9/F2 (T-2538/T-2539/T-2540): уровень A — преломление (документированное
-       приближение: сглаженный feTurbulence, НЕ радиальная edge-map; см.
-       ADR-1025-9 D2/@Reviewer). Только явный opt-in `data-glass="a"` (крупные
-       элементы; JS-страховка min-сторона ≥240px — обратимо, `data-glass-downgraded`).
-       Chromium — progressive enhancement (UA-gate Blink): вне поддержки → уровень B. */
+    /* §9/F2 (AMEND ADR-1025-12 D1, SUPERSEDE ADR-1025-9 D2): уровень A —
+       преломление на ФОРГРАУНД-линзе (::before `.lg-lens`), НЕ на backdrop
+       url-фильтре (WebKit его не поддерживает). Линза лежит над
+       полупрозрачным фоном панели, но ПОД контентом (z-index:-1 в изолированном
+       stacking-context `isolation:isolate`) → текст/кнопки НЕ искажаются.
+       Edge-weighted: CSS radial-mask (центр прозрачен 0–52 %, плотно к краям
+       78–100 %) + feDisplacementMap малой амплитуды. Это документированное
+       ПРИБЛИЖЕНИЕ оптического преломления (векторное поле + радиальная весовка),
+       не физическая рефракция. Выбор tier — feature-detect (app.js). */
     [data-glass="a"] {
+      position: relative;
+      isolation: isolate;
       background-color: var(--glass-bg);
-      -webkit-backdrop-filter: var(--glass-blur) saturate(140%) var(--glass-displace);
-      backdrop-filter: var(--glass-blur) saturate(140%) var(--glass-displace);
+      -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
+      backdrop-filter: var(--glass-blur) saturate(140%);
       border: var(--glass-border);
       box-shadow: var(--glass-shadow),
                   inset 0 1px 0 var(--glass-highlight),
                   inset 0 -1px 0 var(--glass-highlight-soft);
     }
-    /* §9/F2 (T-2540, итерация @Reviewer): обратимое понижение A → B.
-       JS ставит `data-glass-downgraded` элементам с min-стороной <240px или
-       без поддержки url-фильтра; при росте элемента/поддержке атрибут снимается
-       (снова уровень A). `data-glass` (opt-in) не переписывается. */
+    [data-glass="a"]::before {
+      content: "";
+      position: absolute; inset: 0; z-index: -1;
+      pointer-events: none; border-radius: inherit;
+      /* LOW (T-2591): градиент-реплика фона — на токенах §10 (--grad-*), без
+         хардкод-rgba; плотность слоя задаётся opacity (палитра §8 не меняется). */
+      background: linear-gradient(135deg,
+                  var(--grad-a), var(--grad-b) 45%, var(--grad-c));
+      opacity: .14;
+      -webkit-filter: var(--glass-displace);
+      filter: var(--glass-displace);
+      -webkit-mask-image: radial-gradient(ellipse at center,
+                  transparent 0%, transparent 52%, #000 78%, #000 100%);
+      mask-image: radial-gradient(ellipse at center,
+                  transparent 0%, transparent 52%, #000 78%, #000 100%);
+    }
+    /* §9/F2 (AMEND ADR-1025-12 D1): обратимое понижение A → B (нет поддержки
+       `filter:url()` / перф-кап / reduced-motion): JS ставит
+       `data-glass-downgraded`; линза отключается, остаётся blur-B. opt-in
+       `data-glass` (декларация) НЕ переписывается — b→a обратимо. */
     [data-glass="a"][data-glass-downgraded="1"] {
       -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
       backdrop-filter: var(--glass-blur) saturate(140%);
+    }
+    [data-glass="a"][data-glass-downgraded="1"]::before {
+      content: none;
+      -webkit-filter: none; filter: none;
+      -webkit-mask-image: none; mask-image: none;
     }
     /* §9/F2 (T-2538): явный уровень B — профиль для элементов, понижённых из A
        (нет поддержки url-фильтра или min-сторона <240px): blur без преломления. */
@@ -1042,22 +1153,22 @@
       backdrop-filter: var(--glass-blur);
     }
     /* webkit-фолбэк: плотный фон (уровень C), если backdrop-filter не поддержан.
-       Не полагаемся на backdrop-filter:url() — без поддержки читаемый fallback. */
+       Не полагаемся на backdrop url-фильтр — без поддержки читаемый fallback.
+       A2/T-2591: панели (sidebar/drawer/header/bottom-nav/more-sheet) тоже
+       уходят на непрозрачную плотную подложку — раскладка/контраст сохранены. */
     @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
       .card, .modal-card, .module-card, .hub-card, .prov-block,
       details.advanced, .scope-panel, .glass-panel, .oversight-panel,
-      [data-glass="a"], [data-glass="c"] {
+      [data-glass="a"], [data-glass="c"],
+      .app-sidebar, .app-drawer, header.header-sticky,
+      .bottom-nav, .more-sheet {
         background-color: var(--glass-bg-strong);
         -webkit-backdrop-filter: none;
         backdrop-filter: none;
       }
-    }
-    /* Уровень A (url-фильтр) — progressive enhancement: если движок не умеет
-       backdrop-filter:url(#…), гасим преломление, оставляя уровень B. */
-    @supports not ((backdrop-filter: url(#lg-displace)) or (-webkit-backdrop-filter: url(#lg-displace))) {
-      [data-glass="a"] {
-        -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
-        backdrop-filter: var(--glass-blur) saturate(140%);
+      [data-glass="a"]::before {
+        content: none; -webkit-filter: none; filter: none;
+        -webkit-mask-image: none; mask-image: none;
       }
     }
 
@@ -1454,7 +1565,11 @@
         display: flex; flex-direction: column;
         position: fixed; top: 0; left: 0; bottom: 0; width: 232px;
         padding: .5rem .5rem calc(.5rem + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px)));
-        background: var(--surface-1); border-right: 1px solid var(--surface-border);
+        /* A2/T-2588 (ADR-1025-12 D2): стекло панели — blur + кромка; плотность
+           подложки достаточна для AA пунктов меню (--text-2 на --glass-bg). */
+        background: var(--glass-bg); border-right: var(--glass-border);
+        -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
+        backdrop-filter: var(--glass-blur) saturate(140%);
         overflow-y: auto; z-index: 30;
       }
       /* header ≈64 px (§6) */
@@ -1474,7 +1589,10 @@
     .app-drawer {
       position: fixed; top: 0; left: 0; bottom: 0; width: min(280px, 84vw);
       padding: .75rem .5rem calc(.75rem + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px)));
-      background: var(--surface-1); border-right: 1px solid var(--surface-border);
+      /* A2/T-2588 (ADR-1025-12 D2): стекло планшетного drawer (768–1199). */
+      background: var(--glass-bg); border-right: var(--glass-border);
+      -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
+      backdrop-filter: var(--glass-blur) saturate(140%);
       transform: translateX(-105%); transition: transform .2s ease;
       overflow-y: auto; z-index: 40;
     }
@@ -1496,7 +1614,10 @@
       bottom: var(--tg-viewport-bottom-offset,
                   max(0px, calc(100dvh - var(--tg-viewport-stable-height, 100dvh))));
       display: flex; align-items: stretch; justify-content: space-around;
-      background: var(--surface-1); border-top: 1px solid var(--surface-border);
+      /* A2/T-2590 (ADR-1025-12 D2): нижняя панель — стекло (blur + кромка). */
+      background: var(--glass-bg); border-top: var(--glass-border);
+      -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
+      backdrop-filter: var(--glass-blur) saturate(140%);
       padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px));
       max-width: 100vw;
     }
@@ -1543,7 +1664,10 @@
       bottom: calc(52px + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px)) + var(--tg-viewport-bottom-offset, max(0px, calc(100dvh - var(--tg-viewport-stable-height, 100dvh))))); z-index: 50;
       display: flex; flex-direction: column; gap: .15rem;
       padding: .5rem .6rem calc(.75rem + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px))); max-height: 70dvh; overflow-y: auto;
-      background: var(--surface-1); border-top: 1px solid var(--surface-border);
+      /* A2/T-2590 (ADR-1025-12 D2): шторка «Ещё» — стекло (blur + кромка). */
+      background: var(--glass-bg); border-top: var(--glass-border);
+      -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
+      backdrop-filter: var(--glass-blur) saturate(140%);
       border-radius: .9rem .9rem 0 0;
       transform: translateY(110%); transition: transform .2s ease;
       max-width: 100vw;

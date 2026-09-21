@@ -27,6 +27,27 @@
     if (value === undefined || value === null || value === '') return;
     root.style.setProperty(name, value + 'px');
   }
+  /* hotfix6 (T-2593, AMEND ADR-1025-12 D3): нижний offset — МАКСИМУМ трёх
+   * кандидатов (все описывают одну нижнюю «занятую» зону; сумма дала бы ложный
+   * «задир» панели). A — разница layout/stable (hotfix4); B — Telegram UI снизу
+   * (contentSafeAreaInset.bottom); C — системная зона (safeAreaInset.bottom).
+   * Guard hotfix4 (stableH>0) сохранён. Клиенты без инсетов → 0 (панель на
+   * bottom:0). Чистая функция — юнит-тестируема (window.__computeTgBottomOffset). */
+  function computeBottomOffset(innerHeight, viewportStableHeight,
+                               contentSafeAreaInsetBottom, safeAreaInsetBottom) {
+    var a = 0;
+    var ih = (typeof innerHeight === 'number' && innerHeight > 0) ? innerHeight : 0;
+    if (ih > 0 && typeof viewportStableHeight === 'number' &&
+        viewportStableHeight > 0) {
+      a = Math.max(0, Math.min(ih, ih - viewportStableHeight));
+    }
+    var b = (typeof contentSafeAreaInsetBottom === 'number' &&
+             contentSafeAreaInsetBottom > 0) ? contentSafeAreaInsetBottom : 0;
+    var c = (typeof safeAreaInsetBottom === 'number' &&
+             safeAreaInsetBottom > 0) ? safeAreaInsetBottom : 0;
+    return Math.max(a, b, c);
+  }
+  window.__computeTgBottomOffset = computeBottomOffset;
   function applyInsets() {
     var sa = wa.safeAreaInset;
     if (sa) {
@@ -45,20 +66,14 @@
     if (typeof wa.viewportStableHeight === 'number') {
       setVar('--tg-viewport-stable-height', wa.viewportStableHeight);
     }
-    /* hotfix4 (T-2514/T-2516, ADR-1025-8 D2): нижняя панель/шторка позициони-
-     * руются по layout-вьюпорту (bottom:0 = под системным баром), а
-     * viewportStableHeight — уже видимая высота. Считаем разницу и прокидываем
-     * offset в CSS. UI-кламп: 0 при отсутствии разницы (Desktop/Android без
-     * бара), clamp по высоте вьюпорта; inset-ы учитываем через stableHeight. */
-    var layoutH = (window.innerHeight || 0);
-    var stableH = wa.viewportStableHeight;
-    var offset = 0;
-    /* Review L10.25H4-1: stableH<=0 (свёрнутое окно/устаревшее событие,
-     * геттер SDK = raw − bar) НЕ должен давать offset = layoutH — иначе
-     * панель уезжает за экран до следующего события. Guard: stableH > 0. */
-    if (typeof stableH === 'number' && stableH > 0 && layoutH > 0) {
-      offset = Math.max(0, Math.min(layoutH, layoutH - stableH));
-    }
+    /* hotfix6 (T-2593): offset = max(hotfix4-разница, contentSafeAreaInset.bottom,
+     * safeAreaInset.bottom) — учитываем Telegram UI снизу, а не только системный
+     * бар. Пересчёт на всех ниже-подписках + resize (страховка от «залипания»). */
+    var offset = computeBottomOffset(
+      window.innerHeight || 0,
+      wa.viewportStableHeight,
+      csa ? csa.bottom : 0,
+      sa ? sa.bottom : 0);
     setVar('--tg-viewport-bottom-offset', offset);
   }
   applyInsets();

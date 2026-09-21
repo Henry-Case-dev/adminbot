@@ -17,6 +17,7 @@
 """
 import json
 import logging
+import re
 import types
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
@@ -391,8 +392,11 @@ class TestBottomPanelInViewport:
         assert "100dvh - var(--tg-viewport-stable-height" in CSS
 
     def test_more_sheet_uses_same_offset(self):
-        seg = CSS[CSS.index(".more-sheet {"):]
-        assert "--tg-viewport-bottom-offset" in seg[:700]
+        # hotfix6 (T-2594): ищем РЕАЛЬНОЕ правило `.more-sheet {` (4 пробела
+        # в начале строки), а не вхождение в fallback-селекторе `…, .more-sheet {`.
+        m = re.search(r"^ {4}\.more-sheet \{", CSS, re.M)
+        assert m, "правило .more-sheet не найдено"
+        assert "--tg-viewport-bottom-offset" in CSS[m.start():m.start() + 900]
 
     def test_telegram_init_computes_and_updates(self):
         assert "--tg-viewport-bottom-offset" in TG_INIT
