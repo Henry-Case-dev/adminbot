@@ -1112,3 +1112,12 @@
 - [x] services/info_service.py + config/settings.py + .env.example (канон v4 байт-тест; .env.example — S10.22-7)
 - **Открыто (Round 10.22):** нет Critical/High. Non-blocking: S10.22-1/-2 (Medium), S10.22-3/-4/-5/-6 (Low), S10.22-7/-8/-9 (Info).
   Все — `plans/reports/round1022_scanner_audit.md`.
+
+
+## Round 10.25 F3 `global-scope-selector-round1025` (`76a6c40`), Step 6 @Scanner (21.09.2026)
+
+- **Diff `5dcc6bd..76a6c40`.** Отчёт: `plans/reports/round1025_f3_scanner_audit.md`.
+- **Итог: Critical 0 / High 0 / Medium 1 / Low 4 / Info 3 — к деплою да.**
+- Связи: `web/index.html` (`.scope-wrap`/`.scope-trigger`/`.scope-panel`, `.scope-tech`) → `web/app.js` (`scopeKind`, `configSourceLabel`/`configSourceTitle`/`configItemNotice`, `hasUnsavedEdits`) → `scopeEpoch`/`_scopeGuard` (`loadConfig`, `persistItems`) → `resetChatOverride` → `DELETE /api/config/chat/{key}` (`web/api/routes.py:852`) → `chat_params.set_chat_params` (merge overrides/meta). `web/static/app.css` §70 mobile. `config.settings.APP_VERSION=2.58.6`.
+- M-F3-1 (`web/app.js:2472-2482` + `2538`): guard не покрывает `blockDrafts` (llm_providers) — вероятна тихая потеря черновика при смене scope.
+- Инварианты: Δ DDL=0, Δ каталога=0 (459), `stash@{0}` цел, zip не в git, `git diff --check`=0. pytest 8142/5/1 (5 — env aiogram InputRichMessageMedia), JS SCOPE-SELECTOR-OK, matrix не воспроизведён (нет playwright).

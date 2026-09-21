@@ -1691,3 +1691,12 @@ bot.py
 - **Техдолг:** M-1 JS-тест дублирует формулу offset (тавтология, `tests/js/round1025_hotfix4_shell_test.js:47-53`); L-1 нет guard `stableH>0`; L-2 CSS-фолбэк на `dvh` (старые WebKit); L-3 `has_heading` по подстрокам; L-4 `viewport-fit=cover` не гейтится OFF; L-5 импорт приватных хелперов из hotfix3-тестов.
 - **Инварианты:** Δ DDL=0, Δ каталога=0, `stash@{0}` цел, секретов/zip в diff нет, `git diff --check`=0.
 - **Матрица верифицирована как детектор:** с навязанным `.bottom-nav{bottom:0}` → 56 failures (панель под видимой областью), baseline → 0.
+
+
+## Round 10.25 F3 `global-scope-selector-round1025` (`76a6c40`), Step 6 @Scanner (21.09.2026)
+
+- **Diff `5dcc6bd..76a6c40`.** Отчёт: `plans/reports/round1025_f3_scanner_audit.md`.
+- **Итог: Critical 0 / High 0 / Medium 1 / Low 4 / Info 3 — к деплою да.**
+- Связи: `web/index.html` (`.scope-wrap`/`.scope-trigger`/`.scope-panel`, `.scope-tech`) → `web/app.js` (`scopeKind`, `configSourceLabel`/`configSourceTitle`/`configItemNotice`, `hasUnsavedEdits`) → `scopeEpoch`/`_scopeGuard` (`loadConfig`, `persistItems`) → `resetChatOverride` → `DELETE /api/config/chat/{key}` (`web/api/routes.py:852`) → `chat_params.set_chat_params` (merge overrides/meta). `web/static/app.css` §70 mobile. `config.settings.APP_VERSION=2.58.6`.
+- M-F3-1 (`web/app.js:2472-2482` + `2538`): guard не покрывает `blockDrafts` (llm_providers) — вероятна тихая потеря черновика при смене scope.
+- Инварианты: Δ DDL=0, Δ каталога=0 (459), `stash@{0}` цел, zip не в git, `git diff --check`=0. pytest 8142/5/1 (5 — env aiogram InputRichMessageMedia), JS SCOPE-SELECTOR-OK, matrix не воспроизведён (нет playwright).
