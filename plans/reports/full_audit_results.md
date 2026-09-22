@@ -6,6 +6,17 @@
 
 ---
 
+## Round 10.25 F6 `memory-analytics-reorg-round1025` (Аналитика §21–§30 + adapter ExecutionGraph + «Память» §52–§59) — 23.09.2026, Step 6 @Scanner (T-2912) — **итерация 2**
+
+- **База:** HEAD `f103992` (тег `pre-round1025-f6` → `f103992`), правки **НЕ закоммичены**. Отчёт: `plans/reports/round1025_f6_scanner_audit.md`. Вход: `spec.md`/`adr-1025-19`/`adr-1025-19a`/`evidence.md`/`review.md`/`tasks.md`.
+- **Вердикт (итер.2): к деплою — ДА.** Critical 0 / High 0 / Medium 0 / Low 2 / Info 4. Обязательных возвратов @Builder нет. Live-гейт T-2917 (реальный Telegram WebView) — PENDING OWNER. (Итер.1 была Medium 1 / Low 5; все блокеры закрыты.)
+- **Контур:** adapter `web/static/execution_graph.js` (`window.ExecutionGraph`) между `GET /api/analytics/usage/{latest,summary}` и рендером `tokenFlowTree`; 2 несмешиваемых режима (§26), фильтры §27 (модуль/модель/этап/статус + поиск) / detail side-panel/bottom-sheet (§27/§29), honest `fmtCost(v,known)`/«Нет данных» (§28), превью Статуса (§21), «Память» — 3 раздела + 5 подгрупп (§52–§56, presentation-level). `web/api/analytics.py`/`services/**`/миграции — read-only (Δ DDL=0).
+- **Закрыто в итер.2:** **H2** (@Reviewer, поиск + фильтр «статус») — `input type="search" v-model="execFilterQuery"` + статус-селект/`execStatusOptions` + adapter `searchHaystack`/`query`-фильтр. **M-F6S-1** — `setExecMode` вызывает `resetExecFilters()` при смене режима, `execAggregate` применяет только `{module}`, кнопка «Сбросить» в обеих ветках. **L-F6S-3** — статус-селект. **L-F6S-4** — `aria-modal="true"` + `.exec-detail-backdrop` (`@click.self`) + `Esc` (`escClose`). **L-F6S-5** — мёртвый шов `card.memorySubgroup` удалён, `openHubCard` сбрасывает `memorySubgroup`. **H1 §52** — закрыт решением @Architect AMEND-1 (`adr-1025-19a`: 3 карточки, код не менялся).
+- **Открытый техдолг (Low):** L-F6S-1 (summary API без `price_known` → в агрегате возможен «$0» при неизвестной цене; trace честен), L-F6S-2 (OFF-ветка nodeflow «Итого» больше не byte-identical — честнее). Info: Live-гейт T-2917; нет frontend-zip; residual a11y (фокус не переносится в detail-панель).
+- **Инварианты ✔:** Δ DDL=0 (diff `services/handlers/migrations/alembic/web/api` пусто; analytics — те же 4 маршрута); Δ каталога=0 (459/98/96/21/418, `param_catalog.py` не тронут); `APP_VERSION` **2.58.14** синхронен; маркер-тесты не ослаблены; §57–§64/F1/F4/F5/F0/F9/ADR-1024-24/§20/§76 не тронуты; CSP `script-src 'self'`/zero-build (adapter — внешний same-origin `<script>`, без CDN/inline/`eval`); XSS-safe (`{{ }}`/`:attr`, без `v-html`/`innerHTML`); R17 (секретов нет); R18 (тег/`.env.bak.round1025-f6`/`stash@{0}`); `git diff --check`=0; индекса/`.env`/zip/скриншотов нет.
+- **Прогоны @Scanner (независимо, итер.2):** `node --check` OK; JS **37/37 PASS**; F6 pytest **19 passed**; полный `pytest -q` **8334 passed / 1 skipped / 5 env-failed** (outgoing_guard/summary_cover, вне F6).
+- **Handoff:** @Orchestrator → `SCANNED`.
+
 ## Round 10.25 F5 `module-workspace-tabs-round1025` (workspace модуля/промпты/модели §46–§49/§84/§85) — 22.09.2026, Step 6 @Scanner (повторный аудит после правки M-F5S-1)
 
 **База:** HEAD `12a55bb` (`pre-round1025-f5`; правки **НЕ закоммичены** — аудит рабочего дерева). Отчёт: `plans/reports/round1025_f5_scanner_audit.md`. Вход: `spec.md`/`adr-1025-15`/`evidence.md`/`review.md`/`tasks.md`.

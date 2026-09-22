@@ -2211,3 +2211,97 @@ Progressive delivery (10/50/100 %) **не применяется** (один п�
 - **Коммиты (Шаг 9 @DevOps, 23.09.2026; прод-clock `2026-09-22`):** **`bf086d4`** (код+тесты), **`24dc7e3`** (планы: Merge §64 + архивация + Scanner-аудит), **`8964f07`** (deploy-doc); push origin/master без force → прод fast-forward `8d61926..24dc7e3` → `systemctl restart admin_bot` (**active**) → `/api/health` = **200**, `database is locked` = **0**, served `?v=2.58.13`, `data-glass-surface` = **1**, `APP_VERSION` = **2.58.13**; `deployment.md` — **VERIFIED**; live-гейт **T-2862** остаётся **открыт** (deploy ✅ / live ⏳).
 - **Следующие:** ✅ Шаг 8 @PM — архивация выполнена (`plans/archive/hotfix10-liquidglass-rollback-shell-geometry-round1025/`; содержимое/чекбоксы сохранены, UTF-8; **27 [x] / 3 [ ]** на момент архивации — T-2862 live / T-2867 deploy / T-2869 F6), синхронизированы `backlog.md`/`MEMORY.md`/`workflow_state.md`; ✅ Шаг 9 @DevOps — деплой выполнен (23.09.2026; `bf086d4`/`24dc7e3`/`8964f07`, `APP_VERSION` **2.58.13**, `/api/health` **200**, `database is locked`=0, served `?v=2.58.13`, `data-glass-surface`=1, `deployment.md` VERIFIED; T-2867 закрыт); live-гейт **T-2862 — PENDING OWNER VERIFICATION** (владелец; **workflow не останавливает**, «HTTP 200 ≠ корректный layout»); Шаг 10 @Memory — `plans/metrics.md` строка `10.25-HOTFIX10` + KG + техдолг §64.9; далее **немедленно F6** `memory-analytics-reorg-round1025` (T-2869, без human gate — UPD4 §8).
 
+
+## 65. Раунд 10.25 (23.09.2026, Merge) — F6: «Аналитика» §21–§30 + «Память» §52–§59 — adapter `ExecutionGraph` (§22–§25), честный `ExecutionNode` §23/§24, два режима §26, §27/§29, честная стоимость §28, превью Статуса (граница F11), 3 карточки / 5 подгрупп — `APP_VERSION` 2.58.14
+
+**Фича** `memory-analytics-reorg-round1025` (F6, Эпик 1, **Волна 3**), поверх F5 (§61), F1/F2/F3/F4 (§54/§57/§60) и hotfix8/9/10 (§62–§64). Спека/ADR/задачи/доказательства/ревью: `plans/archive/memory-analytics-reorg-round1025/{spec.md, adr-1025-19-execution-graph-adapter-and-memory-section.md, adr-1025-19a-memory-section-52-amend.md, tasks.md, evidence.md, review.md}` (**✅ архивирована — Шаг 8 @PM, T-2915, 23.09.2026**). **T-2870…T-2920 (51)**. **Статус: ✅ COMPLETED + VERIFIED (Step 5 @Reviewer — Approved, итер. 2; Step 6 @Scanner — Critical 0 / High 0 / Medium 0 / Low 2 / Info 4 → «к деплою ДА»); 🔶 MERGE (Step 7 @Architect) — §65 зафиксирован; деплой и коммиты — Шаг 9 @DevOps (T-2916), ожидаются; ⏳ live-гейт владельца T-2917 — PENDING OWNER VERIFICATION (живой Telegram WebView + реальный PG-пайплайн `/analytics/*`).** 🔒 Merge фиксирует только фактически принятый объём (A–H); новых решений не вводит — **ADR-1025-19** и **ADR-1025-19a** (AMEND-1) приняты фактом ревью/аудита/мержа. **`APP_VERSION` 2.58.13 → 2.58.14** (bump @Builder, T-2910; деплой — Шаг 9).
+
+**Верификация перед мержем (независимая).** @Reviewer (T-2911) — **Approved, итерация 2**: блокеры H1 (§52 5 vs 3) и H2 (§27 поиск/статус) закрыты (H1 — решением @Architect AMEND-1 `adr-1025-19a`), M-F6S-1 (утечка фильтров в агрегат) и L-F6S-3/4/5 закрыты; остаются non-blocking L-F6S-1/L-F6S-2. @Scanner (T-2912, повторный) — **Critical 0 / High 0 / Medium 0 / Low 2 / Info 4 → «к деплою ДА»** (`plans/reports/round1025_f6_scanner_audit.md`). **Прогоны:** JS-тесты **37/37 PASS**; F6-pytest **19 passed**; полный pytest **8334 passed / 1 skipped / 5 failed** (5 — пред-существующий `ImportError` `rich`-fallback, `services/**` вне диффа → не регресс); `node --check web/app.js` + `execution_graph.js` OK; `git diff --check` = 0; Playwright F6-проба (поиск/статус/сброс/Esc/backdrop) **failures: 0**; матрица **failures: 0** (10 вьюпортов); **Δ DDL = 0**, **Δ каталога = 0**.
+
+**Инварианты (проверены в диффе/тестами).** **Δ DDL = 0** — SQLite `user_version=12`; `services/**`, миграции, БД, `handlers/**`, `bot.py` вне диффа; **`web/api/analytics.py` не тронут** (reuse as-is). **Δ каталога = 0** — REGISTRY **459** / GROUPS **98** / `_TAB_BY_GROUP` **96** / TAB_RULES **21** / Settings **418**; `services/param_catalog.py` не тронут. **Нет второй системы аналитики** (§111/§116) — единственный `.token-flow`/`ExecutionGraph`; adapter — не DOM и не источник данных. **CSP/zero-build** — `execution_graph.js` подключён внешним same-origin `<script src="…?v=__APP_VERSION__">`, без inline/CDN/data-URI/`eval`/`innerHTML`/`createElement`; `backdrop-filter: url(` = 0; новых библиотек/стейт-менеджеров/WebGL нет. **R16** — новых эндпоинтов/полей ответа/таблиц/каталоговых ключей **нет**; `chat_id` в аналитике не расширяется; RBAC «Аналитики» — существующий global-admin. R17/R18 — `plans/current_task.md` не изменялся/не коммитится; тег `pre-round1025-f6` → `f103992`, `.env.bak.round1025-f6`, `stash@{0}` целы.
+
+**Доказательная планка (§63 §13 UPD3, применительно к карте):** новый токен / подключённая библиотека / успешная сборка / вердикт **Approved @Reviewer** — **НЕ доказательства** честности карты. Честность adapter доказана **воспроизводимыми тестами** (red→green на §24 «фиктивные узлы», §25 «не придумывать связи», §28 «`$0` ≠ неизвестно»), а не bump'ом/сборкой; живой WebView и реальный PG-пайплайн остаются за владельцем (T-2917).
+
+### 65.1. A (§21) — «Аналитика» и компактное превью последнего вызова на Статусе (граница F11)
+
+- «Аналитика» (`#/oversight`, витринный label «Аналитика» — уже переименован F1) доведена до списка §21: расходы/бюджеты/токены/распределение по моделям и модулям/дерево вызовов/история + интерактивная карта LLM-вызовов на **существующем** ExecutionGraph.
+- На Статусе добавлено **компактное превью последнего вызова** (`execPreview` ← `ExecutionGraph.fromTrace('/analytics/usage/latest')`): корень + этапы + итог + честная цена/«Нет данных» — **не** одна строка с числом токенов (§21). Mount — в зоне существующей карточки-ссылки «Аналитика» (§12–§14).
+- **Граница с F11:** F6 поставляет **источник + компонент**, финальную композицию/позицию витрины Статуса §11–§20 владеет **F11** (контракт превью не меняется). F6 **не** строит витрину Статуса и **не** дублирует полный набор фильтров §27 в превью (§27 «не перегружать превью»).
+
+### 65.2. B (§22–§25) — adapter `ExecutionGraph` и честный `ExecutionNode`
+
+- **Adapter — чистый JS-модуль** `web/static/execution_graph.js` (`window.ExecutionGraph`, zero-build IIFE): `fromTrace(latest)`, `fromSummary(summary)`, `filter(...)`, `detail(node)`. Преобразование живёт **между** API и рендером (§25), не внутри SVG/Vue-шаблона; `web/api/analytics.py` и схема БД **не расширялись** (R16; Δ DDL = 0).
+- **`ExecutionNode` (только подтверждаемые поля, без вымысла):** `id = correlation_id:index` (порядок `ts ASC, id ASC`); `parentIds` — **только** подтверждённая линейная последовательность того же `correlation_id` по `ts` (`tool`-узел и первый узел → `[]`: `parent_id` в БД нет — связи не изобретаются §25); `status = 'unknown'` (не `'success'` — §24); `provider`/`durationMs`/`finishedAt` = `null` (в данных нет); `cost = null` при `price_known !== true`; `metadata = {toolName, source, tokensEstimated, priceKnown}`.
+- **kind-enum** `llm | algorithm | tool | format | publish | other`; в F6 **эмитятся только реальные** `step` (`single/stage1/stage2/image → llm`, `tool → tool`, иное/пусто → `other`). `algorithm`/`format`/`publish` **зарезервированы контрактом, но не эмитятся** — реальных `step` нет, фиктивные узлы запрещены (§24); **LLM-токены в `algorithm` не подставляются никогда**. Сопоставление `kind/stageLabel` — таблицами с безопасным fallback → узлы Эпика 2 принимаются без рефакторинга (§30/§111).
+- **Вторая визуализация не создана** (§111/§116): переиспользованы существующие `.token-flow*`/`tokenFlowTree`/`tokenSeriesBars`; вычисление узлов вынесено из `app.js` в adapter (AMEND ADR-1024-7). Прежний инференс «`tool` → ближайший Синтезатор» (`app.js:2229-2249`) — **SUPERSEDE** (нейтральная группировка без утверждения родителя).
+
+### 65.3. C (§26) — два несмешиваемых режима
+
+- Переключатель «Последний вызов | День | Неделя | Месяц» на **существующих** эндпоинтах: «Последний вызов» → `fromTrace('/analytics/usage/latest')` (конкретная цепочка); «День/Неделя/Месяц» → `fromSummary('/analytics/usage/summary?period=…')` (агрегат по этапам/модулям/моделям).
+- Ветки отрисовки **взаимно исключающие** (`execIsTrace`): трассировка не рисуется из агрегатов, агрегат — не из `latest`. Деградация: пусто → «Вызовов ещё не было» / «За период данных нет». Агрегатные узлы несут `status='unknown'`, `parentIds=[]` — временных/иерархических связей в агрегате не изобретаем.
+
+### 65.4. D (§27) — side-panel/bottom-sheet + поиск и фильтры (только «Аналитика»)
+
+- Desktop — **side-panel**, mobile — **bottom-sheet** (отдельный `.exec-detail`, не навигационный `.more-sheet`); показывает только реальные поля (этап/модуль/модель/вход/выход/цена/статус; отсутствующие → «Нет данных»). Закрытие: `Esc` (`escClose` первым закрывает detail) и клик по подложке (`.exec-detail-backdrop` `@click.self`); `role="dialog" aria-modal="true"`.
+- **Поиск + фильтры** (модуль/модель/этап/статус) — **только на «Аналитике»**; превью Статуса фильтров не получает. `select` статуса строится из реальных статусов узлов (`execStatusOptions`), сейчас честно «нет данных».
+- **M-F6S-1 (закрыт):** при смене режима `setExecMode` вызывает `resetExecFilters()`; `execAggregate` применяет **только** `{module}` — model/stage/status/query в агрегат не «протекают». Кнопка «Сбросить» доступна в обеих ветках.
+
+### 65.5. E (§28) — честные состояния стоимости/бюджета/ресурсов
+
+- `fmtCost(v, known)` даёт **`$0` только для подтверждённого нуля**; при `priceKnown !== true` — «Нет данных» (устранён прежний `$0`-дефолт; AMEND `fmtCost`). В трассировке неопределённая цена → «Нет данных»; подтверждённый ноль → `$0`.
+- Бюджет `∞` → **«Без лимита»** без заполненного progress bar (существующая ветка сохранена).
+- **«Стоимость LLM»** (токены/цена из `llm_usage_events`) и **«Ресурсы сервера»** (CPU/RAM/диск/аптайм из `/api/status`) — разные блоки с разными подписями и источниками; подмена исключается тестом.
+
+### 65.6. F (§29) — mobile-карта
+
+- Горизонтальный граф **не сжимается до 320 px**; для «Последнего вызова» — **вертикальная последовательность этапов**, для периода — раскрываемый агрегат (bottom-sheet `width:390, y=590` на вьюпорте 390×844). Обычные числовые значения доступны без пинч-зума; горизонтального overflow нет.
+
+### 65.7. G (§52–§59) — «Память»: 3 карточки + 5 подгрупп настроек (AMEND-1)
+
+- `HUBS_V2['#/memory']` — **3 карточки верхнего уровня**: **Настройки памяти** (`memory_rag`, generic config), **Лор чатов** (`chat_lore`), **Люди и связи** (`relations`). Существующие рендеры/маршруты `memory_rag`/`chat_lore`/`relations` **сохранены**; новых маршрутов/эндпоинтов нет (R16).
+- **AMEND-1 (H1 §52, `adr-1025-19a`, вариант A):** буквальный список §52 из 5 имён сведён к 3 карточкам **как честной реализации** (в коде только 3 distinct-рендера; карточки-заглушки запрещены §0/§57/§116). Карта «Досье»/«Факты» — через **существующие поверхности**: Досье — per-person модалка `openDossier` внутри «Люди и связи» + «Живая лента досье»/`dossierFeed` (§19); Факты — «Настройки памяти → Граф знаний» (§54) + живая лента/виджеты фактов (§18). Код не менялся.
+- «Настройки памяти» сгруппированы в **5 подгрупп** (Поиск / Граф знаний / Хранение / Ночной синтез / Отношения) — **витринная карта** `MEMORY_SUBGROUPS` в JS (подход F4/F5); `services/param_catalog.py` **не тронут** (Δ каталога = 0); ни один параметр не потерян (§116, карта §117(2,3)).
+- **Ручной лор не удаляется** при очистке авто (§58); **§59 «Умный кэш» остаётся в «ИИ → Умный кэш»**; алгоритм стадий relations не менялся (§57); просмотр людей не смешивается с настройками RAG (§52).
+
+### 65.8. H — тесты §75/§76/§116 и bump
+
+- **Новые:** `tests/js/round1025_f6_execution_graph_test.js` (маркер `F6-EXECGRAPH-OK`), `tests/js/round1025_f6_analytics_memory_test.js` (`F6-ANALYTICS-MEMORY-OK`), `tests/test_webapp_f6_round1025.py` (**19 passed**); регистрация 2 JS-раннеров в `tests/test_webapp_js_unit.py` (аддитивно).
+- **Доказательная падаемость (red→green):** синтетический `parentIds` при отсутствии `parent_id`; эмиссия `algorithm`/`format`/`publish`; `status='success'`; `$0` при `price_known=false`; смешивание режимов; «протекание» фильтров в агрегат (M-F6S-1); отсутствие сброса фильтров; детали без `aria-modal`/`Esc`/backdrop.
+- **§75/§76/§116:** 4 режима; выбор L1/L2/модели/модуля; поиск/статус; неизвестная цена; безлимит; отсутствие фиктивных этапов; mobile; §76 «Мониторинг интеллекта» (убеждения/парадигмы/эволюция/лента/сон/бейджи) **не изменён** — только проверка, скролл не сбрасывается; §116 — единственный `.token-flow`, adapter не DOM, CSP/zero-build, `backdrop-filter: url(` = 0, логи §20 в Статусе.
+- **Маркер-правки атомарно с кодом:** пины версии 2.58.13 → 2.58.14 и структурные маркеры (`round1024_nodeflow`, `round1025_hotfix7/8/9/10`, `round1025_ia_routing`, `routing`, `test_scope_selector_round1025`, `test_webapp_design_tokens_round1025`, `test_webapp_hotfix6/7/8/9/10_round1025`). Ослабления проверок нет.
+- **Bump:** `APP_VERSION` 2.58.13 → **2.58.14** (`config/settings.py:1739`) + `README.md` + cache-bust `?v=__APP_VERSION__` (перепроверено @Scanner).
+
+### 65.9. SUPERSEDE / AMEND-карта F6 (полностью — ADR-1025-19 + ADR-1025-19a)
+
+| Ранее | Действие | Что именно / почему |
+|---|---|---|
+| **ADR-1024-7** (token nodeflow: `tokenFlowTree`/`tokenFlowNodes`) | **AMEND → ADR-1025-19 D1/D2** | Эндпоинты `/analytics/*` и флаг `TOKEN_FLOW_NODEFLOW_ENABLED` **сохранены**; вычисление узлов вынесено в `ExecutionGraph` (§22/§25) |
+| Инференс «`tool` → ближайший Синтезатор» (`app.js:2229-2249`) | **SUPERSEDE → D2** | `parentIds=[]` + нейтральная группировка — §25 «не придумывать связи» |
+| `fmtCost(0) → '$0'` (`app.js:3754-3759`) | **AMEND → D5** | `$0` только для подтверждённого нуля; иначе «Нет данных» — §28 |
+| Раздел «Память» F1 (`#/memory`) | **AMEND → D7 + `adr-1025-19a` (AMEND-1)** | **3 карточки** (не 5); рендеры `relations`/`chat_lore`/`memory_rag` сохранены; «Досье»/«Факты» — карта через существующие поверхности; новых маршрутов нет |
+| Смешение агрегатов и трассировки в блоке «Аналитика токенов» | **AMEND → D3** | Два несмешиваемых режима §26 |
+| **НЕ отменяется:** `/analytics/*` (reuse), `TOKEN_ANALYTICS_ENABLED`, `TOKEN_FLOW_NODEFLOW_ENABLED`, §57–§64 (shell/glass/aurora/heartbeat/flex), F1/F4/F5, ADR-1024-24 (fullscreen-sync), write-path F0 `persistItems`, store F4, scope F3, Δ DDL = 0 / Δ каталога = 0, CSP/zero-build, R16/R17/R18 | — | инварианты |
+| **§85 / backend-пайплайн Эпика 2 (S1–S10)** | **НЕ трогается** | F6 — только контракт + UI-каркас (§111/§85) |
+| **ADR-1025-19** + **ADR-1025-19a** | **НОВЫЕ, Accepted** | Фактом мержа §65 (Step 7 @Architect) |
+
+### 65.10. Остаточный техдолг F6 (не блокеры; Шаг 10 @Memory — оформление)
+
+- **[L-F6S-1, Low, OPEN, R16]** `fromSummary` жёстко `priceKnown:true` (`execution_graph.js:183,198-205`), тогда как `summary`-ответ (`web/api/analytics.py:198-203`) не отдаёт `price_known` → в **агрегате** возможен «$0» при неизвестной цене (в трассировке честно «Нет данных»). Исправимо только сменой контракта API — сознательно **не** правится в F6 (R16). Follow-up.
+- **[L-F6S-2, Low, OPEN]** OFF-ветка `TOKEN_FLOW_NODEFLOW_ENABLED` больше **не byte-identical** 10.23: badge «Итого» берёт `tokenFlowTree.totals` (`web/index.html:2119`). Поведение честнее, но формулировка ADR неточна — уточнить.
+- **[Info I-F6S-1]** `evidence.md` «13 passed» устарело (факт **19** passed); Live WebView/PG — PENDING OWNER (T-2917).
+- **[Info I-F6S-2]** frontend-zip бэкапа нет; откат — тег `pre-round1025-f6` → `f103992` + `.env.bak.round1025-f6` + `stash@{0}`.
+- **[Info I-F6S-3]** AMEND `round1024_nodeflow_test.js` перенёс покрытие в adapter-тест; **ослабления, скрывающего регресс, нет**.
+- **[Info I-F6S-4]** residual a11y: фокус не переносится **внутрь** detail-панели при открытии (focus-trap не требовался L-F6S-4; не блокер).
+- **[Residual round1024]** регресс-кейсы «смешанный набор / дубликат `stage1`» не перенесены в новые тесты (adapter — 1:1-маппинг, не блокер).
+
+### 65.11. Live-гейт владельца (T-2917 — PENDING OWNER VERIFICATION; deploy/коммиты ⏳ Шаг 9)
+
+Реальный **Telegram WebView** (Android/iOS) + **реальный PG-пайплайн** `/analytics/*`: карта/дерево вызовов, превью «Последний вызов» на Статусе, два режима §26, фильтры/сброс, mobile bottom-sheet, «Память» (3 карточки, 5 подгрупп). Playwright-проба F6 и матрица выполнены **на стабах** `/analytics/*` → живой пайплайн/WebView **не воспроизводимы headless** и **не объявляются пройденными**; гейт **не останавливает workflow** (дополнительная проверка результата). **Деплой и коммиты — Шаг 9 @DevOps (T-2916), ожидаются:** код/спека лежат в рабочем дереве (HEAD `f103992`), bump 2.58.14 выполнен @Builder, но **не закоммичен** — статус коммитов: **«ожидает Шаг 9»**.
+
+### 65.12. Ссылки
+
+- **Спека/ADR/задачи/доказательства/ревью (✅ архивирована — T-2915, 23.09.2026):** `plans/archive/memory-analytics-reorg-round1025/{spec.md, adr-1025-19-execution-graph-adapter-and-memory-section.md, adr-1025-19a-memory-section-52-amend.md, tasks.md, evidence.md, review.md}` — **ADR-1025-19 / ADR-1025-19a Accepted** фактом мержа §65 (Step 7 @Architect).
+- **Аудиты/отчёты:** `plans/reports/round1025_f6_scanner_audit.md` (Critical 0 / High 0 / Medium 0 / Low 2 / Info 4 → к деплою ДА); `plans/reports/global_map.md`/`full_audit_results.md`/`audit_backlog.md`.
+- **Код:** `web/static/execution_graph.js` (`window.ExecutionGraph`: `fromTrace`/`fromSummary`/`filter`/`detail`), `web/app.js` (`tokenFlowTree` через adapter, `execMode`/`setExecMode`/`resetExecFilters`, `execTraceNodes`/`execAggregate`, `execDetail`/`selectExecNode`/`closeExecDetail`, `execPreview`/`loadExecPreview`, `fmtCost(v, known)`/`execCostLabel`, `MEMORY_SUBGROUPS`/`_memorySubgroupOf`, `HUBS_V2['#/memory']`), `web/index.html` (переключатель 4 режимов, взаимоисключающие ветки, фильтры, detail-overlay, превью Статуса, подгруппы «Памяти», `<script src="/static/execution_graph.js">` до `app.js`), `web/static/app.css` (аддитивно `.token-flow__node--llm/--algorithm/--format/--publish/--other`, `.exec-detail`, `.exec-preview`), `config/settings.py:1739` (`APP_VERSION` 2.58.14), `README.md`, `tests/js/round1025_f6_*`, `tests/test_webapp_f6_round1025.py`.
+- **Коммиты (Шаг 9 @DevOps, T-2916):** **ожидают Шаг 9** (пока — рабочее дерево поверх `f103992`; точка отката `pre-round1025-f6`).
+- **Следующие:** ✅ Шаг 8 @PM — архивация **выполнена** (T-2915, 23.09.2026; `plans/archive/memory-analytics-reorg-round1025/`); Шаг 9 @DevOps — bump+deploy (T-2916, ожидается); live-гейт **T-2917 — PENDING OWNER VERIFICATION**; Шаг 10 @Memory (T-2918) — `plans/metrics.md` строка `10.25-F6` + KG + техдолг §65.10. Далее по порядку §2 — **F7** `permsoc-local-space-round1025` (T-2919), затем F11/F9/F10.
