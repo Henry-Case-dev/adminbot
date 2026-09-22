@@ -1786,3 +1786,14 @@ L10.25F2-4 (`README.md:5` «Тестов: 5936» — устарело, откр�
 I-4 (downgraded-A сохраняет лишний inset box-shadow); I-1 (matrix «0» не воспроизведён — нет playwright); I-2 (5 env-падений).
 Контраст D-1 пересчитан: `--text-3` 5.25:1, `--err-text` 6.07:1 (совпало). RBAC DELETE-override — паритет UI↔сервер (`routes.py:868-876`).
 **Регрессий не обнаружено** (пакет не касается handlers/bot/database/media/F0/Эпик 2).
+
+## Round 10.25 hotfix8 `hotfix8-shell-glass-aurora-round1025` (22.09.2026, Step 6 @Scanner, UPD2)
+
+- **Найдено независимо** — аудит рабочего дерева относительно HEAD `a1e6db3` (`pre-round1025-hotfix8`); правки не закоммичены (bump 2.58.11 — Block G). Отчёт: `plans/reports/round1025_hotfix8_scanner_audit.md`; AA — `plans/reports/round1025_hotfix8_contrast.md`; UI — `plans/reports/round1025_hotfix8_ui_report.md`.
+- **Вердикт: Critical 0 / High 0 / Medium 0 / Low 3 / Info 3 → к деплою (блокеров нет).** Обязательный live-гейт T-2776 (реальный Telegram WebView, FPS blob/safe-area) — по ADR, не новый блокер.
+- **Новые зависимости/связи (подтверждены):**
+  - `web/index.html` статичный `.aurora-bg` (5 `.aurora-blob` + `.aurora-grain`, `aria-hidden`, `z-index:0`) ↔ `web/static/app.css` (`body::before`/`body::after`/`.aurora-bg`, keyframes `aurora-flow`/`aurora-flow-rev`/`aurora-morph`/`aurora-blob-1..4`; `@media reduced-motion`; `prefers-contrast`) ↔ `web/app.js::_syncBgLayer` → `html.bg-wash-legacy` (legacy conic `body::before`).
+  - Shell v3 §4: `data-glass="shell"` на sidebar/header/drawer/bottom-nav/more-sheet ↔ `app.css [data-glass="shell"]` (+ нейтральный `::after` sheen ≤.05, `#lg-lens`) ↔ `.app-shell.shell-v3`/`shell-v3-off` ↔ `web/app.js` computed `shellV3`/`auroraBgEnabled`.
+  - `config/settings.py` env-only `ClassVar` `UI_SHELL_V3`/`UI_AURORA_BG_ENABLED` (default ON) → `web/api/routes.py` `/api/me.ui_flags` (bool) → `.env.example`. Δ каталога = 0.
+- **Low:** L-H8S-1 перф-риск aurora (blur 64px + анимация `border-radius`/`background-position`, покрыт T-2776); L-H8S-2 mobile `.78` не ассертится матрицей, `None`-панель = pass; L-H8S-3 AA worst-case по одному blob (запас 7.33:1). **Info:** bump 2.58.11 в Block G; ослабление F2-чекера намеренно (есть `test_f2_checker_rejects_static_background`); `border-top:0` shorthand сбрасывает цвет рамки шапки (width 0).
+- **Инварианты:** Δ DDL=0, Δ каталога=0 (459/98/96/21/418), CSP/zero-build (нет CDN/inline/WebGL/`backdrop-filter:url(`/новых библиотек), R17/R18 чисто (тег `pre-round1025-hotfix8`→`a1e6db3`, `.env.bak.round1025-hotfix8`, `stash@{0}` цел), `git diff --check`=0, `.env`/zip/PNG не в индексе. IA F1/F5 §61/F4 §37–§42/F0/F3, `computeBottomOffset`/hotfix4, fullscreen-sync ADR-1024-24, deny-list tier C, карточные `--glass-*` — не тронуты. pytest 78 passed (target) / JS-маркеры OK / matrix failures 0.

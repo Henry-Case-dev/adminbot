@@ -1963,3 +1963,88 @@ Progressive delivery (10/50/100 %) **не применяется** (один п�
 - **Коммиты (Шаг 9 @DevOps, 22.09.2026):** **`63dddd3`** (код+тесты), **`0d3ea40`** (планы: Merge §61 + архивация + Scanner-аудит), **`af137cd`** (deploy-doc); push origin/master без force → прод `/var/www/admin_bot` fast-forward → `systemctl restart admin_bot` (**active**) → `/api/health` = **200**, `database is locked` = **0**, served `?v=2.58.10`, `APP_VERSION` = **2.58.10**; `deployment.md` — **VERIFIED**; точка отката `pre-round1025-f5`, бэкап `.env.bak.round1025-f5` (целы, R18); live-гейт T-2742 остаётся **открыт** (deploy ✅ / live ⏳).
 - **Следующие:** Шаг 8 @PM — ✅ архивация (T-2740, 22.09.2026); Шаг 9 @DevOps — ✅ деплой (T-2741, 22.09.2026; `63dddd3`/`0d3ea40`/`af137cd`, `APP_VERSION` **2.58.10**, `/api/health` **200**, `database is locked`=0, `deployment.md` VERIFIED); live-гейт **T-2742** (владелец, открыт); Шаг 10 @Memory — `plans/metrics.md` строка `10.25-F5` + KG. Далее по порядку §2 — **F6** `memory-analytics-reorg-round1025`.
 
+## 62. Раунд 10.25 (22.09.2026, Merge) — Хотфикс-8: shell v3 по §4 (графитовое стекло без цветной линзы), CSS-aurora/mesh вместо conic-фона, геометрия shell/mobile/fullscreen, эквивалент Framer Motion, `APP_VERSION` 2.58.10 (bump 2.58.11 — Block G)
+
+**Внеплановый приоритетный пакет «Волна 1.7»** (`hotfix8-shell-glass-aurora-round1025`), UPD2 «СРОЧНОЕ УТОЧНЕНИЕ ПО SHELL / LIQUID GLASS / BACKGROUND» (`plans/current_task.md:6156-6496`), поверх F5 (§61). Baseline HEAD **`a1e6db3`** (= tag `pre-round1025-hotfix8`). Спека/ADR/задачи (📁 `plans/features/hotfix8-shell-glass-aurora-round1025/`, архивация — Шаг 8 @PM/T-2788): `{spec.md, adr-1025-16-shell-glass-aurora-framer-equivalent.md, tasks.md, evidence.md, review.md, deployment.md}`. **T-2745…T-2789 (45)**. **Статус: ✅ COMPLETED + ✅ MERGED в планы (§62, Шаг 7 @Architect) + ⏳ DEPLOY/MERGE-код (ожидает Шаг 9 @DevOps); код — в рабочем дереве, НЕ закоммичен.** @Reviewer (T-2783) — **Approved**, блокеров нет. @Scanner (T-2784) — **Critical 0 / High 0 / Medium 0 / Low 3 / Info 3 → «к деплою ДА»** (`plans/reports/round1025_hotfix8_scanner_audit.md`). **`APP_VERSION` 2.58.10; bump 2.58.11 (T-2786) — Block G, ещё НЕ сделан.** Прогоны: полный pytest **8266 passed / 1 skipped / 5 failed** (5 = предсуществующие env `rich`/`InputRichMedia`, воспроизводятся на baseline), целевой pytest **100 passed** / **78 passed**; JS-маркер **`HOTFIX8-SHELL-AURORA-OK`**; `node --check web/app.js`+`telegram-init.js` OK; Playwright-матрица `tools/ui_round1025_matrix.py` — **failures: 0** (10 вьюпортов × 5 режимов, 40 скриншотов); `git diff --check` = 0. Точка отката: tag `pre-round1025-hotfix8` → `a1e6db3`, `.env.bak.round1025-hotfix8`, `stash@{0}` целы (R18).
+
+**Инварианты:** **Δ DDL = 0** (SQLite v12; `services/**`, миграции, БД вне диффа); **Δ каталога = 0** (REGISTRY 459 / GROUPS 98 / `_TAB_BY_GROUP` 96 / TAB_RULES 21 / Settings 418; `param_catalog.py` не тронут, флаги env-only и отсутствуют в REGISTRY); **CSP/zero-build** (`script-src 'self'`; без CDN/inline/data-URI/новых библиотек); **запрет WebGL** (0 совпадений); нативные кнопки Telegram/`--header-h`/`--shell-h`, fullscreen-sync ADR-1024-24, `computeBottomOffset`/hotfix4, IA F1, store F4 §37–§42, write-path F0 `persistItems`, SaveBar F9, F5 §61, палитра §8 — сохранены; R17/R18.
+
+### 62.1. A — геометрия shell/mobile/fullscreen/SaveBar (UPD2 §1.1/§5/§7)
+
+- **Desktop:** sidebar **216px** (∈[208,224]); gap header↔первая карточка **16px** (∈[16,20], в normal и fullscreen); floating-контролы не конфликтуют с контентом; высота не «прыгает».
+- **Mobile:** порядок header → строка селектор/профиль → контент → bottom-nav → safe-area-bottom; **горизонтальной прокрутки нет** (`scrollWidth ≤ innerWidth+1` на всех 10 вьюпортах); bottom-nav/more-sheet `rect.bottom ≤ innerHeight` (+ `stableHeight` при симуляции нативного бара), hit-area ≥44×44.
+- **Fullscreen:** ничего не исчезает; `.app-shell` виден, `h == innerH`, зоны (selector/cards/bottom-nav) сохраняют геометрию; единый источник высоты `--shell-h` (ADR-1025-13 D1) не дублируется.
+- **SaveBar↔скролл:** правок не потребовалось (T-2754/T-2755) — `sticky-save`/`scroll-padding-bottom`/`.sticky-spacer`/`:has()`-логика `app.css:1283-1337` не менялись; поведение на малой высоте/клавиатуре — live-гейт T-2776.
+
+### 62.2. B — shell v3: графитовое стекло §4 без цветной линзы/ореола (UPD2 §3/§4)
+
+- **Снята цветная линза.** Панели `sidebar/header/drawer/bottom-nav/more-sheet` переведены `data-glass="a"` → **`data-glass="shell"`**: `[data-glass="a"]::before` (цветная teal/blue/violet линза-радиал с mask = источник ореола/виньетки) на них отключён; носителями `"a"` остаются только контентные карточки-allow-узлы. Матрица: `shellA=False`, `shellLensPaint.content='none'`.
+- **Токены §4** (`:root`): `--shell-bg rgba(24,28,38,.72)`, mobile ≤767 `.78`; border `rgba(255,255,255,.08)`; highlight `.06`; shadow `0 8px 24px rgba(0,0,0,.18)`; `--shell-blur blur(18px) saturate(115%)` (+`-webkit-`). Карточные `--glass-*` (`bg .5`/`-strong .85`) и палитра §8 **не тронуты** (marker `test_cards_not_repainted`).
+- **Нейтральный sheen:** бесцветный `[data-glass="shell"]::after` (linear, `opacity ≤ .05`, `pointer-events:none`, `z-index:-1`, `filter: var(--glass-displace)` переиспользует `#lg-lens`, **без** radial-маски). Внешнего glow нет. `backdrop-filter: url(` = 0.
+- **Слои глубины:** фон (отдельный задний, `z-index:0` < `#app:1`) → карточки (`--glass-bg .5` + `--card-shadow`) → shell (плотнее/серее `.72/.78`, `--shell-shadow`) → модалки (плотнее card). Shell **не** окрашен в сине-фиолетовый тон карточек.
+- **AA ≥4.5:1** (`round1025_hotfix8_contrast.md`, худшая teal-фаза aurora): `.sidebar-link` **7.33:1**, mobile `.bottom-nav-label`/`.more-item` **7.55:1**, header **14.00:1**; пессимистичный пересчёт (3 наложенных teal-слоя `.30`) — text-2 **5.70:1** PASS.
+- **Побочный плюс:** shell выходит из перф-бюджета линзы `UI_LENS_MAX_NODES` (работает по `[data-glass="a"]`) — бюджет целиком у контента.
+
+### 62.3. C — CSS-aurora/mesh вместо conic page-wash (UPD2 §6, REVISE фона §10 F2)
+
+- **Мёртвый conic-wash** (`body::before`, `--grad-speed 75s`, opacity `.30`) заменён **CSS-aurora/mesh**: отдельный задний слой `.aurora-bg` (**5 blob** `.b1…b5`: radial-gradient + blur + мягкий morph формы) + `body::before aurora-flow 75s`/`aurora-morph 105s` + `body::after aurora-flow-rev` + слабый grain. Палитра teal/blue/violet/indigo (`--grad-a/b/c`), **без оранжевого**; разные длительности и отрицательные `animation-delay` (разные фазы), скорость «медленно, но заметно». Матрица: `auroraBlobs=5`, `auroraAnim=aurora-blob-1` (не static).
+- **Пауза/доступность:** существующий единый `visibilitychange`-обработчик → `html.lg-bg-paused` (`paused`); `prefers-reduced-motion` → `animation: none` (статичное атмосферное состояние). Новых rAF/observer/второго обработчика нет.
+- **Механика — CSS-first; Canvas 2D+rAF как фолбэк НЕ использован** (CSS признан достаточным — `evidence.md`). Blob анимируют `transform`/`opacity`/`border-radius`; `body::before/after` — `background-position` (слабое место по FPS — Low L-H8S-1, покрыт live T-2776). WebGL/новых библиотек нет.
+- **Разделение:** фон — отдельный слой, не создаёт ореол вокруг shell и не ухудшает контраст (см. §62.2). **Сохранение:** `@property --grad-angle` + `grad-spin`/`grad-drift` **остаются** для `.grad-band`/`.btn-accent`/`.tab-btn.active` (маркер-механика ADR-1025-9 D3 не сломана).
+
+### 62.4. D — Framer Motion: объективный отказ + эквивалент на текущем стеке (UPD2 §2)
+
+- **Отклонено как объективное ограничение стека, а не отказ от задачи:** Framer Motion — React-only + npm-сборка/bundler → несовместимо с **Vue 3 global zero-build** и CSP `script-src 'self'` (ADR-1016-2/ADR-1024-13); React меняет стек; CDN/inline запрещены. Зафиксировано в `spec.md` §3 (D1) и ADR-1025-16 D1.
+- **Эквивалент (реализовано):** CSS animations/transitions — основное (композиторные `transform`/`opacity`, keyframes, easing); SVG-фильтры (`#lg-lens` уже в `index.html`); WAAPI и Canvas 2D+rAF — доступные инструменты (Canvas не понадобился). Spring/инерция эмулируются `cubic-bezier`/WAAPI-`easing`. WebGL и сторонние библиотеки запрещены.
+
+### 62.5. Флаги (env-only, default ON, Δ каталога = 0)
+
+Доставка — аддитивно через `GET /api/me.ui_flags` (`web/api/routes.py`; ADR-1024-13); `config/settings.py:742-744`. Каждый флаг — независимый soft-откат без редеплоя:
+
+| Флаг | Тип | Default | Смысл / откат |
+|---|---|---|---|
+| `UI_SHELL_V3` | env-only `ClassVar[bool]` | ON | OFF → `.shell-v3-off`: значения `--shell-*` hotfix7; **цветная линза НЕ возвращается** (её снятие — часть фикса) — откат B |
+| `UI_AURORA_BG_ENABLED` | env-only `ClassVar[bool]` | ON | OFF → `.bg-wash-legacy`: прежний conic page-wash — откат C |
+
+Наследуемые `UI_SHELL_GLASS_V2`/`UI_SHELL_LAYOUT_V2`/hotfix6-флаги остаются рабочими. Progressive delivery 10/50/100 % не применяется (один прод).
+
+### 62.6. SUPERSEDE / AMEND-карта хотфикса-8 (полностью — ADR-1025-16)
+
+| Ранее | Действие | Что именно / почему |
+|---|---|---|
+| **ADR-1025-13 D3** (shell-токены `.62/.90/.20/.18`, `saturate(120%)`, shadow `0 12px 30px -18px`) | **AMEND → D2** | Значения → §4 (`rgba(24,28,38,.72)`/mobile `.78`, border `.08`, highlight `.06`, shadow `0 8px 24px rgba(0,0,0,.18)`, `saturate(115%)`); карточные `--glass-*`/§8 не меняются |
+| **ADR-1025-13 D3** (цветная линза `[data-glass="a"]` на панелях = ореол/виньетка) | **AMEND/REVISE → D2** | Панели → `data-glass="shell"`; цветная линза снята; введён нейтральный бесцветный sheen; прочие носители `data-glass="a"` не затронуты |
+| **ADR-1025-13 D4** (`UI_SHELL_LAYOUT_V2`, выравнивание) | **AMEND → D4** | Сохраняется; уточнены sidebar 216px, gap 16px, mobile-порядок, SaveBar↔скролл |
+| **ADR-1025-9 D2** (значения токенов/уровни glass) | **Уточнение → D2** | Добавлен shell-v3-рецепт; карточный `--glass-bg`, уровни A/B/C, deny-list — без изменений |
+| **ADR-1025-9 D3 + фон §10 (F2)** (conic page-wash `body::before`) | **REVISE → D3** | Page-wash заменён aurora/mesh; `@property --grad-angle`+`grad-spin`/`grad-drift` **сохраняются** для `.grad-band`/кнопок |
+| **ADR-1025-12 D1** (foreground-линза/feature-detect, `UI_LENS_MAX_NODES`) | **НЕ отменяется** | Механизм/тир-лестница сохранены; shell просто выходит из бюджета линзы |
+| **ADR-1025-12 D3** (`computeBottomOffset` = max) / **D5** (нативные кнопки, `--header-h`, fullscreen) / **ADR-1024-24** (fullscreen-sync) | **НЕ отменяется** | Нижняя панель/шторка, компоновка шапки, источник высоты — без изменений |
+| **ADR-1025-8/hotfix4, ADR-1025-1/F1, ADR-1025-10/F3, F0 `persistItems`, F4 §37–§42, F5 §61** | **НЕ отменяются** | safe-area, IA, write-path, store, workspace |
+| **НЕ отменяется:** Δ DDL/каталога = 0; CSP/zero-build; запрет WebGL/новых библиотек/Framer Motion/React; палитра §8; deny-list tier C; AA §8; нативные кнопки Telegram | — | инварианты |
+
+### 62.7. Остаточный техдолг хотфикса-8 (не блокеры; Шаг 8/10 @PM/@Memory — оформление)
+
+- **[L-H8R-1, Low, @Reviewer]** В `round1025_hotfix8_contrast.md` подпись `.bottom-nav-label` = `--text-2 #AAB6C8`, фактический computed — `#F4F7FB` (text-1); ошибка консервативна (реальность ярче → ratio выше). Действие: уточнить подпись.
+- **[L-H8R-2, Low, @Reviewer]** Матричный F2-чекер снял количественный bound яркости (`body::before opacity>0.32`) и заменил требование `grad-spin` на «любая живая анимация»; компенсировано `_hotfix8_failures` (blob≥3 + anim) и AA. Опционально вернуть bound яркости.
+- **[L-H8R-3, Low, @Reviewer]** `deployment.md` заявляет baseline `8251 passed / 0 failed / 0 skipped`; на окружении воспроизводятся 5 env-падений уже на `a1e6db3`. Документарное расхождение → поправить @DevOps при T-2787.
+- **[L-H8R-4, Low, @Reviewer]** reduced-motion в матрице проверяет только `body::before` (не `.aurora-blob`); legacy-путь флагов OFF проверен статикой/маркерами, не рендером. Bounded follow-up.
+- **[L-H8R-5, Low, @Reviewer]** `[data-glass="shell"]` навешивает полный `border`: у sidebar/bottom-nav видимы боковые/нижние 1px-кромки. Измеряемого влияния нет — косметика, опц.
+- **[L-H8S-1, Low, @Scanner]** Перф-риск aurora: 5 `.aurora-blob` 52vmax с `blur(64px)` + `will-change: transform` анимируют и `border-radius` (paint); `body::before/after` анимируют `background-position`. Митигации есть (`lg-bg-paused`, reduced-motion). **Покрыт live-гейтом T-2776** (FPS/батарея на low-end); при провале — статизировать/урезать blur. Не блокер (нет замеров, дизайн-требование «фон живой»).
+- **[L-H8S-2, Low, @Scanner]** `tools/ui_round1025_matrix.py:623` читает `--shell-bg` с `:root` (всегда `.72`), mobile `.78` не ассертится; `glass=None` считается валидным. Рекомендация: ассертить computed mobile-bg `.78` и `data-glass="shell"` у существующей панели.
+- **[L-H8S-3, Low, @Scanner]** AA worst-case посчитан по одному (самому светлому) teal-blob; перекрытие blob + `body::after` теоретически выше, но запас велик (минимум **7.33:1** при пороге 4.5). Пере-проверить AA на реальном фоне в T-2776.
+- **[I-H8S-1, Info]** `APP_VERSION 2.58.10` — bump `2.58.11` (T-2786) ожидаемо в Block G; тесты намеренно фиксируют 2.58.10. Не дефект.
+- **[I-H8S-2, Info]** F2-чекер ослаблен намеренно (убран `opacity>0.32`/`grad-spin`); инвариант «фон не static» сохранён новым `test_f2_checker_rejects_static_background`. Соответствует ADR-1025-16 D3.
+- **[I-H8S-3, Info]** `header.header-sticky { border-top/right/left: 0 }` shorthand сбрасывает `border-*-color` в `currentColor`, но ширина 0 — визуально ничего; видимая нижняя рамка `rgba(255,255,255,.08)`. Действий не требует.
+
+### 62.8. Live-гейт владельца (T-2776, post-deploy — открыт; deploy ⏳ / live ⏳)
+
+Реальный **Telegram WebView**, mobile fullscreen: shell серый/отделён, ореола нет, стекло subtle, фон живой (не статичный), ничего не съезжает, bottom-nav/SaveBar не перекрывают контент; **FPS 5×`52vmax` blob + SVG `filter:url(#lg-lens)` на 5 shell-`::after`** на слабом устройстве (L-H8S-1); `safeAreaInset`/`contentSafeAreaInset`, нативные кнопки; SaveBar↔клавиатура на малой высоте. **Не воспроизводимо headless** (Playwright — desktop-эмуляция; в среде @Scanner `playwright` отсутствует — прецедент §57/§58/§59).
+
+### 62.9. Ссылки
+
+- **Спека/ADR/задачи (📁 пока `plans/features/hotfix8-shell-glass-aurora-round1025/`, архивация — Шаг 8 @PM/T-2788):** `spec.md`, `adr-1025-16-shell-glass-aurora-framer-equivalent.md` (**Accepted** фактом мержа §62), `tasks.md`, `evidence.md`, `review.md` (Approved), `deployment.md`.
+- **Аудиты/отчёты:** `plans/reports/round1025_hotfix8_scanner_audit.md` (Critical 0 / High 0 / Medium 0 / Low 3 / Info 3 → к деплою ДА), `plans/reports/round1025_hotfix8_contrast.md` (AA-таблица shell v3/aurora), `plans/reports/round1025_hotfix8_ui_report.md` (матрица 5 режимов, failures 0), `tools/_ui_round1025_raw.json`.
+- **Код:** `web/static/app.css` (shell §4 токены, `[data-glass="shell"]` + sheen, `.shell-v3-off`/`.bg-wash-legacy`, aurora-слой/keyframes/pause/reduced-motion, sidebar 216px, `.scope-trigger` 16px), `web/index.html` (`.aurora-bg` 5 blob + grain, `data-glass="shell"` ×5), `web/app.js` (computed `shellV3`/`auroraBgEnabled`, `_syncBgLayer`), `config/settings.py:742-744` (+`APP_VERSION 2.58.10`), `web/api/routes.py` (`ui_flags`), `.env.example`, `tools/ui_round1025_matrix.py`, `tests/js/round1025_hotfix8_shell_aurora_test.js`, `tests/test_webapp_hotfix8_round1025.py`.
+- **Коммиты:** **ожидает Шаг 9 @DevOps** (T-2786 bump `2.58.10 → 2.58.11` → T-2787 push/deploy + live-гейт T-2776); код — в рабочем дереве, ещё НЕ закоммичен.
+- **Следующие:** Шаг 8 @PM — архивация (T-2788, `plans/backlog.md` — HOTFIX8 закрыт, F6 снимается с «ждёт»); Шаг 9 @DevOps — bump+deploy (T-2786/T-2787); live-гейт **T-2776** (владелец, открыт); Шаг 10 @Memory — `plans/metrics.md` строка `10.25-HOTFIX8` + KG + техдолг §62.7 (T-2789). Далее по порядку §2 — **F6** `memory-analytics-reorg-round1025`.
+
