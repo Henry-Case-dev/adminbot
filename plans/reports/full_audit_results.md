@@ -1818,3 +1818,22 @@ I-4 (downgraded-A сохраняет лишний inset box-shadow); I-1 (matrix
 - **Info:** I-H9S-1 (текст лицензий vendored не поставлен — pre-existing); I-H9S-2 (`glass_prototype_probe.py` — локальный `127.0.0.1`, dev-only); I-H9S-3 (`scrollActiveModalField` на visualViewport resize/scroll — низкий риск джанка, наблюдать на live).
 - **Инварианты:** Δ DDL=0; Δ каталога=0 (459/98/96/21/418); `APP_VERSION` 2.58.12; CSP same-origin (0 внешних src/href, 0 инлайн, 0 eval); `--shell-texture`=0; `backdrop-filter:url(`=0; SHA-256 vendored 3/3; R17/R18 (тег+stash); `git diff --check`=0; маркер-тесты не ослаблены.
 - **Прогоны @Scanner:** `node --check` OK; JS-тесты OK; `py -3 -m pytest -q` **8291 passed / 0 failed**.
+
+## Round 10.25 hotfix10 `hotfix10-liquidglass-rollback-shell-geometry-round1025` (22.09.2026, Step 6 @Scanner, UPD4) — SCANNED
+
+- **Границы:** дерево относительно HEAD `5184584` (`pre-round1025-hotfix10`), правки НЕ закоммичены. Отчёт: `plans/reports/round1025_hotfix10_scanner_audit.md`. Вход: `spec.md`/`adr-1025-18`/`evidence.md`/UI-отчёт.
+- **Вердикт: Critical 0 / High 0 / Medium 0 / Low 1 / Info 2 — к деплою ГОТОВО (блокеров нет).** Live Telegram WebView — PENDING OWNER VERIFICATION.
+- **Прод-дефект белых прямоугольников устранён:** `glass.js` `SELECTOR='[data-glass-surface]'` (TARGETS `.scope-trigger/.header-fs-btn/.status-block` удалён); флаг `UI_LIQUID_GLASS_LIB` default OFF; `mountGlass` на функциональные цели не вызывается; `--glass-paper` тёмный только на `.glass-surface` (`var(--surface-1)`); `backdrop-filter:url(`=0; vendored same-origin под CSP.
+- **[L-H10-1] Low (OPEN):** `web/index.html:3271-3272` — статичный `.glass-surface` (`app.css height:44px`) остаётся в сетке «Статус» и при OFF (прод-default) → ~44 px + grid-gap пустого места (`mountedCount=0`, `surfaceCount=1`). Не блокирует. Fix: `.glass-surface:not([data-lg-mounted="1"]){display:none}` или `v-if`.
+- **Info:** I-H10-1 OFF-проба матрицы не ассертит скрытие placeholder; I-H10-2 Playwright-матрица не перезапускалась @Scanner (опора на @Builder `failures:0`).
+- **Инварианты:** Δ DDL=0; Δ каталога=0 (459/98/96/21/418; `param_catalog.py` не тронут); `APP_VERSION` 2.58.13 синхронен; маркер-тесты атомарны; `--shell-texture`=0; R17/R18 (тег `pre-round1025-hotfix10`, `stash@{0}`); `git diff --check`=0; индекс без `.env`/zip/скриншотов.
+- **Совместимость:** IA F1/роуты, F4 §60, F5 §61, F0, F9, F3, ADR-1024-24, flex-геометрия/графит §63, сердцебиение — не тронуты; второй вычет safe-area снят; `.more-sheet` один offset; Main без полосы (`--work-surface-bg`, лимит 1100 px); `__AuroraFlow.resize` экспортирован и вызывается (resize/fullscreen/visualViewport/RO); режим честный `frosted`; unmount идемпотентен.
+- **Прогоны @Scanner:** `node --check` OK; JS `HOTFIX10-GLASS-GEOMETRY-BG-OK`; целевые pytest **166 passed**; полный `pytest -q` **8314 passed / 0 failed**.
+
+## Round 10.25 hotfix10 `hotfix10-liquidglass-rollback-shell-geometry-round1025` — ПОВТОРНЫЙ аудит после фиксов (22.09.2026, Step 6 @Scanner, UPD4) — SCANNED
+
+- **Границы:** то же дерево относительно HEAD `5184584`, не закоммичено. Отчёт: `plans/reports/round1025_hotfix10_scanner_audit.md`.
+- **Вердикт: Critical 0 / High 0 / Medium 0 / Low 0 / Info 1 — к деплою ГОТОВО (блокеров нет).** Live WebView — PENDING OWNER VERIFICATION.
+- **Закрыто:** H-1 (@Reviewer High) — `app.css` `main.scroll-area{grid-auto-rows:max-content}`; матрица @Scanner `failures:0`, `.status-block` `scrollH==clientH` (320/360/390/430: 567/532/508/508) + fullscreen, `elementFromPoint` `.hb-canvas`/`__bot`/`__server` `self=true`, дизайн сердцебиения не тронут; гейт §5 не вакуумный. L-H10-1 (Low @Scanner) — `v-if="liquidGlassLib"`, OFF-проба `surfaceCount==0` (320/360/390/430/1280). L-1 — `clearAttrs` снимает `data-glass`/`data-uid`/`--g-*` (node-юнит). L-2 — `.env.example` актуализирован.
+- **Инварианты:** Δ DDL=0; Δ каталога=0 (459/98/96/21/418; `param_catalog.py` не тронут); `APP_VERSION` 2.58.13; CSP same-origin (0 внешних src/href); `--shell-texture`=0; `backdrop-filter:url(`=0; маркер-тесты не ослаблены (только version-бампы/токены/эквивалентный regex); R17/R18 (тег `pre-round1025-hotfix10`, `stash@{0}`); `git diff --check`=0.
+- **Прогоны @Scanner:** `node --check` OK; JS `HOTFIX10-GLASS-GEOMETRY-BG-OK`; полный `pytest -q` **8319 passed / 0 failed**; матрица **failures: 0**.

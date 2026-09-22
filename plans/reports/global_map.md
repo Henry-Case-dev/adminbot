@@ -1818,3 +1818,19 @@ bot.py
 - **Подтверждённые связи:** `web/index.html:1920` — `footer.modal-actions` сиблинг `.modal-body` (парсер, все 5 футеров) → SaveBar в flex-колонке модалки pinned (`.modal-actions{flex:0 0 auto}`, `.modal-actions > .sticky-save{position:static}`). `web/static/aurora-flow.js` context-loss → `attach2dFallback()` (свежий canvas, `mode='canvas2d'`) + `detachCanvas()` в `stop()` (`UI_AURORA_FLOW_V2=OFF`). `web/app.js:2462–2468` `shellGraphiteV3 = UI_SHELL_GRAPHITE_V3 && UI_SHELL_V3` (legacy-алиас). `.status-block` без `data-glass="a"`.
 - **Открытые findings:** нет блокирующих; Info I-H9S-1..3. Деталь: `plans/reports/round1025_hotfix9_scanner_audit.md`.
 - **Инварианты:** Δ DDL=0; Δ каталога=0 (459/98/96/21/418); `APP_VERSION` 2.58.12; CSP same-origin; `--shell-texture`=0; `backdrop-filter:url(`=0; vendored SHA-256 3/3; R17/R18; `git diff --check`=0; pytest 8291/0.
+
+## Round 10.25 hotfix10 `hotfix10-liquidglass-rollback-shell-geometry-round1025` (22.09.2026, Step 6 @Scanner, UPD4) — SCANNED
+
+- **Статус:** Critical 0 / High 0 / Medium 0 / Low 1 / Info 2; блокеров нет. Отчёт: `plans/reports/round1025_hotfix10_scanner_audit.md`.
+- **Зависимости/связи (подтверждено):** `web/static/glass.js` `SELECTOR='[data-glass-surface]'` — единственная цель (TARGETS `.scope-trigger/.header-fs-btn/.status-block` удалён); функциональные цели стекла не получают. `[data-glass-surface]` (единственный экземпляр — `web/index.html:3271`, сетка «Статус») ← `web/static/app.css .glass-surface` (контракт: `isolation`, `contain:layout paint`, `pointer-events:none`, тёмная `--glass-paper:var(--surface-1)`) ← `web/app.js::_syncGlassLib` ← env-only `UI_LIQUID_GLASS_LIB` (default OFF) через `/api/me.ui_flags`.
+- **Фон (ADR-1025-18 D5):** `web/static/aurora-flow.js` `measure()` по `documentElement.clientWidth/Height`, `gl.viewport`/`uRes` из drawing buffer, `ResizeObserver(documentElement)`, экспорт `__AuroraFlow.resize` ← `web/app.js` `_auroraResize()` в `_onResize`/`setFullscreenFromTma`(rAF)/`_onVV`(visualViewport, с cleanup).
+- **Main/высота:** подложка `--work-surface-bg` на `main.scroll-area` (desktop `max-width`/центрирование сняты, лимит 1100 px на `.module-list/.module-quick-wrap/.module-toolbar`); `.fullscreen-mode .scroll-area` без второго safe-area; `.more-sheet` один offset (`--tg-viewport-bottom-offset`).
+- **Открытые findings:** L-H10-1 (Low, не блокирует): пустой 44 px `.glass-surface` при OFF; I-H10-1/I-H10-2 (Info).
+- **Инварианты:** Δ DDL=0; Δ каталога=0 (459/98/96/21/418); `APP_VERSION` 2.58.13; CSP same-origin; `--shell-texture`=0; `backdrop-filter:url(`=0; R17/R18 (тег `pre-round1025-hotfix10`, `stash@{0}`); `git diff --check`=0; pytest 8314/0.
+
+## Round 10.25 hotfix10 — повторный аудит после фиксов (22.09.2026, Step 6 @Scanner, UPD4) — SCANNED
+
+- **Статус:** Critical 0 / High 0 / Medium 0 / Low 0 / Info 1; H-1 + L-H10-1 + L-1 + L-2 закрыты; блокеров нет. Отчёт: `plans/reports/round1025_hotfix10_scanner_audit.md`.
+- **H-1 CLOSED:** `web/static/app.css main.scroll-area{grid-auto-rows:max-content}` → grid-строка с `.status-block` (`overflow:hidden`) не сжимается; матрица @Scanner `failures:0`, `scrollH==clientH` на 320/360/390/430 + fullscreen, hit-тесты `.hb-canvas`/`__bot`/`__server` `self=true`.
+- **L-1 CLOSED:** `web/static/glass.js::clearAttrs` снимает `data-glass`/`data-uid`/inline `--g-*`; **L-2 CLOSED:** `.env.example` (`UI_LIQUID_GLASS_LIB (default OFF)` + `[data-glass-surface]`); **L-H10-1 CLOSED:** `web/index.html v-if="liquidGlassLib"` (OFF → `surfaceCount=0`).
+- **Инварианты:** Δ DDL=0; Δ каталога=0 (459/98/96/21/418); `APP_VERSION` 2.58.13; CSP same-origin; `--shell-texture`=0; `backdrop-filter:url(`=0; маркер-тесты не ослаблены; R17/R18; `git diff --check`=0; pytest 8319/0; матрица failures 0.
