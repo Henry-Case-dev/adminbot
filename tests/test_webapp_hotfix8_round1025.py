@@ -166,9 +166,10 @@ class TestAurora:
 
 
 class TestFlagsAcceptance:
-    def test_app_version_unchanged(self):
+    def test_app_version_bumped(self):
+        # T-2786: bump 2.58.10 → 2.58.11 (cache-bust shell v3/aurora).
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.10", m and m.group(1)
+        assert m and m.group(1) == "2.58.11", m and m.group(1)
 
     def test_env_only_flags_delivered(self):
         for flag in HOTFIX8_FLAGS:

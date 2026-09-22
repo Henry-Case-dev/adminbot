@@ -202,8 +202,8 @@ function token(name) {
     assert.ok(ROUTES.indexOf(flag) >= 0, 'D: ui_flags доставка ' + flag);
     assert.ok(APP_JS.indexOf(flag) >= 0, 'D: фронт читает ' + flag);
   }
-  // F5 bump 2.58.10 не тронут (bump HOTFIX8 — T-2786 в Block G).
-  assert.ok(/APP_VERSION = "2\.58\.10"/.test(SETTINGS), 'D: APP_VERSION 2.58.10');
+  // T-2786: bump HOTFIX8 2.58.10 → 2.58.11 (cache-bust shell v3/aurora).
+  assert.ok(/APP_VERSION = "2\.58\.11"/.test(SETTINGS), 'D: APP_VERSION 2.58.11');
   for (const m of ['desktop_normal', 'desktop_fullscreen', 'tablet',
                    'mobile_regular', 'mobile_fullscreen']) {
     assert.ok(MATRIX.indexOf(m) >= 0, 'D: режим ' + m);

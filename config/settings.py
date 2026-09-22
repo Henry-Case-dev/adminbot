@@ -1712,7 +1712,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.58.10"   # F5 (10.25): рабочее пространство модуля (маршрут/вкладки/промпты/модели §46–§49/§84/§85), ADR-1025-15
+APP_VERSION = "2.58.11"   # HOTFIX8 (10.25): shell v3 (графитовый glass, снята цветная линза/ореол), CSS-aurora фон, геометрия mobile/fullscreen, ADR-1025-16
 
 
 def get_ytdlp_pot_provider() -> str:

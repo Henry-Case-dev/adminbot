@@ -176,5 +176,5 @@ class TestBackendContract:
         assert '"global_value": global_value' in ROUTES
 
     def test_app_version_bumped(self):
-        # F5 (10.25) — bump 2.58.9 → 2.58.10 (workspace-табы §46).
-        assert 'APP_VERSION = "2.58.10"' in SETTINGS
+        # HOTFIX8 (10.25) — bump 2.58.10 → 2.58.11 (shell v3/aurora, ADR-1025-16, T-2786).
+        assert 'APP_VERSION = "2.58.11"' in SETTINGS
