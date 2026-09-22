@@ -1736,7 +1736,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.58.13"   # HOTFIX10 (10.25, ADR-1025-18): откат стекла с функциональных целей + GlassSurface, единая рабочая поверхность Main, единая модель высоты без двойного safe-area, resize OGL-фона (fullscreen/viewport)
+APP_VERSION = "2.58.14"   # F6 (10.25, ADR-1025-19): adapter ExecutionGraph (web/static/execution_graph.js), два несмешиваемых режима карты вызовов, честные состояния §28, превью Статуса §21, структура «Память» §52–§56 (Δ DDL=0, Δ каталога=0)
 
 
 def get_ytdlp_pot_provider() -> str:

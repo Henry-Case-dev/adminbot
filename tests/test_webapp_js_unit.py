@@ -184,7 +184,7 @@ def test_js_unit_round1025_hotfix10_glass_geometry_bg():
     """hotfix10 round 10.25 (ADR-1025-18, T-2843…T-2864): откат стекла с
     функциональных целей + GlassSurface, единая рабочая поверхность Main, единая
     высота без двойного safe-area, resize OGL-фона (fullscreen/viewport),
-    APP_VERSION 2.58.13."""
+    APP_VERSION (bumped hotfix10→F6 2.58.14)."""
     _run_js(os.path.join("tests", "js",
                          "round1025_hotfix10_glass_geometry_bg_test.js"),
             ok_marker="HOTFIX10-GLASS-GEOMETRY-BG-OK")
@@ -237,3 +237,21 @@ def test_js_unit_round1025_f5_prompts_single_source():
     _run_js(os.path.join("tests", "js",
                          "round1025_f5_prompts_single_source_test.js"),
             ok_marker="PROMPTS-SINGLE-SOURCE-OK")
+
+
+def test_js_unit_round1025_f6_execution_graph():
+    """F6 round 10.25 (ADR-1025-19 D1/D2/D8, §24/§25/§28): adapter
+    ExecutionGraph — одно-/двухслойный вызов, tool без parent_id, unknown
+    шаг, неизвестная цена, агрегат, фильтры, расширяемость enum."""
+    _run_js(os.path.join("tests", "js",
+                         "round1025_f6_execution_graph_test.js"),
+            ok_marker="F6-EXECGRAPH-OK")
+
+
+def test_js_unit_round1025_f6_analytics_memory():
+    """F6 round 10.25 (ADR-1025-19 D2–D8, §21–§29/§52–§59/§75/§76/§116):
+    4 режима карты, фильтры L1/L2/модель/модуль, честные состояния §28,
+    превью Статуса §21, mobile §29, мониторинг §76, одна система §116."""
+    _run_js(os.path.join("tests", "js",
+                         "round1025_f6_analytics_memory_test.js"),
+            ok_marker="F6-ANALYTICS-MEMORY-OK")

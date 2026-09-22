@@ -417,16 +417,19 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     'F1: мусорный hash → #/');
 })();
 
-// ── F1 (§4.1): #/memory — hub из 3 карточек ──────────────────────────────
+// ── F1 (§4.1) + F6 (ADR-1025-19 D6/§52): #/memory — 3 карточки-раздела ───
 (function () {
   const ctx = {
     route: '#/memory', iaV2: true, canViewTab() { return true; },
   };
   const hub = captured.computed.hubCards.call(ctx);
-  assert.ok(hub && hub.cards.length === 3, 'F1: #/memory hub = 3 карточки');
+  assert.ok(hub && hub.cards.length === 3, 'F6: #/memory hub = 3 раздела');
+  assert.deepStrictEqual(hub.cards.map((c) => c.title),
+    ['Настройки памяти', 'Лор чатов', 'Люди и связи'],
+    'F6: разделы «Памяти» §52');
   assert.deepStrictEqual(hub.cards.map((c) => c.route),
     ['#/memory/rag', '#/memory/lore', '#/memory/relations'],
-    'F1: карточки «Памяти»');
+    'F6: маршруты «Памяти» (рендеры сохранены)');
 })();
 
 // ── MAJOR-2: открытие модалки Сон грузит beliefs/лог ─────────────────────

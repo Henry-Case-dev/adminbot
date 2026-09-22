@@ -169,13 +169,16 @@ assert.strictEqual(applyOnce('#/memory/rag'), '#/memory/rag', 'канон #/memo
 assert.strictEqual(applyOnce('#/garbage/route'), '#/', 'мусорный hash → #/');
 assert.strictEqual(applyOnce(''), '#/', 'пустой hash → #/');
 
-// ── #/memory hub: 3 карточки; #/ai без memory/lore/relations ─────────────
+// ── #/memory hub: 3 раздела (F6 ADR-1025-19 D6/§52) ──────────────────────
 {
   const mem = computed.hubCards.call(
     { route: '#/memory', iaV2: true, canViewTab() { return true; } });
-  assert.ok(mem && mem.cards.length === 3, '#/memory hub = 3 карточки');
+  assert.ok(mem && mem.cards.length === 3, '#/memory hub = 3 раздела');
   assert.deepStrictEqual(mem.cards.map((c) => c.route),
-    ['#/memory/rag', '#/memory/lore', '#/memory/relations'], 'карточки «Памяти»');
+    ['#/memory/rag', '#/memory/lore', '#/memory/relations'],
+    'маршруты «Памяти» (рендеры сохранены)');
+  assert.deepStrictEqual(mem.cards.map((c) => c.title),
+    ['Настройки памяти', 'Лор чатов', 'Люди и связи'], 'разделы «Памяти» §52');
   const ai = computed.hubCards.call(
     { route: '#/ai', iaV2: true, canViewTab() { return true; } });
   const aiRoutes = ai.cards.map((c) => c.route);
@@ -204,7 +207,7 @@ assert.strictEqual(applyOnce(''), '#/', 'пустой hash → #/');
   assert.strictEqual(methods._routeLabel.call({ iaV2: true }, '#/ai/persona'),
     'Личность и стиль', 'M-1: #/ai/persona → человекочитаемая подпись');
   assert.strictEqual(methods._routeLabel.call({ iaV2: true }, '#/memory/rag'),
-    'Память и RAG', 'M-1: подстраница Памяти — из карточки хаба');
+    'Настройки памяти', 'M-1: подстраница Памяти — из карточки хаба');
   const bc = computed.breadcrumb.call(
     { route: '#/ai/persona', iaV2: true, _routeLabel: methods._routeLabel });
   assert.strictEqual(bc.current, 'Личность и стиль',

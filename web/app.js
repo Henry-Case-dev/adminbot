@@ -424,16 +424,23 @@
     },
     '#/memory': {
       title: 'Память',
-      subtitle: 'Память и RAG, лор чата, участники и отношения',
+      subtitle: 'Настройки памяти, лор чатов, люди и связи',
+      // F6 (ADR-1025-19 D6/§52–§56): раздел «Память». Сохранены ВСЕ сущест-
+      // вующие рендеры: generic `memory_rag` (→ «Настройки памяти», 5 подгрупп
+      // Поиск/Граф знаний/Хранение/Ночной синтез/Отношения), `chat_lore`
+      // (→ «Лор чатов»), `relations` (→ «Люди и связи»: просмотр людей, НЕ
+      // RAG-настройки). Отдельных экранов «Досье»/«Факты» в F6 нет — они
+      // покрываются generic-настройками памяти и «Живой лентой досье» в
+      // «Аналитике»; новые страницы/маршруты = R16/вне скоупа (см. evidence).
       cards: [
-        { icon: 'memory', title: 'Память и RAG',
-          subtitle: 'Память, граф, хранение, RAG-доли',
+        { icon: 'settings', title: 'Настройки памяти',
+          subtitle: 'Поиск, граф знаний, хранение, ночной синтез, отношения',
           route: '#/memory/rag', tab: 'memory_rag' },
-        { icon: 'auto_stories', title: 'Лор чата',
-          subtitle: 'Ручной и авто-лор, история',
+        { icon: 'auto_stories', title: 'Лор чатов',
+          subtitle: 'Ручной и авто-лор, автогенерация, история',
           route: '#/memory/lore', tab: 'chat_lore' },
-        { icon: 'group', title: 'Участники и отношения',
-          subtitle: 'Участники чата и отношения',
+        { icon: 'group', title: 'Люди и связи',
+          subtitle: 'Участники и отношения (просмотр людей, не RAG-настройки)',
           route: '#/memory/relations', tab: 'relations' },
       ],
     },
@@ -605,6 +612,17 @@
     mod_sleep: [], mod_nostalgia: [], mod_budgets: [], mod_media_download: [],
   };
 
+  // F6 round1025 (ADR-1025-19 D6 §52–§56): 5 подгрупп витрины «Память →
+  // Настройки». Только presentation-level: классификация по ключу параметра,
+  // `services/param_catalog.py` НЕ правится (Δ каталога = 0, §116).
+  var MEMORY_SUBGROUPS = [
+    { id: 'search', title: 'Поиск' },
+    { id: 'graph', title: 'Граф знаний' },
+    { id: 'storage', title: 'Хранение' },
+    { id: 'dream', title: 'Ночной синтез' },
+    { id: 'relations', title: 'Отношения' },
+    { id: 'other', title: 'Прочее' },
+  ];
   // A4/T-1207: «LLM Провайдеры» — блоки ПО МОДУЛЯМ (base_url+model+key).
   // role задаёт, какое поле тела POST /api/llm/test заполняет значение.
   // 10.9 (T-1303): «Название модели» — ПЕРВОЕ поле каждого блока; label'ы —
@@ -1351,6 +1369,23 @@
         tokenAnalyticsSummary: null,    // GET /api/analytics/usage/summary
         tokenAnalyticsPeriod: 'day',    // day|week|month
         tokenAnalyticsBusy: false,
+        // F6 round1025 (ADR-1025-19 D2/D3): два несмешиваемых режима карты
+        // вызовов. 'latest' — трассировка (/usage/latest); 'day|week|month' —
+        // агрегат (/usage/summary). Ветки отрисовки взаимоисключающие (§26).
+        execMode: 'latest',
+        execSelected: null,             // выбранный узел (side-panel/bottom-sheet)
+        execDetailOpen: false,
+        // Фильтры §27 — только на «Аналитике» (превью Статуса их не получает).
+        execFilterModule: '',
+        execFilterModel: '',
+        execFilterStage: '',
+        execFilterStatus: '',
+        execFilterQuery: '',            // §27: поиск по строке (label/model/module/tool)
+        // F6 (D5/§21): компактное превью последнего вызова на Статусе.
+        execPreviewBusy: false,
+        // F6 (D6/§52–§56): presentation-подгруппа витрины «Память → Настройки»
+        // (Δ каталога = 0: только перегруппировка в JS-витрине).
+        memorySubgroup: '',
         // ── Раунд 10.20 (БЛОК 3.3/T-1897): «Живая лента досье» (тикер) ──
         dossierFeed: [],         // GET /api/oversight/dossier_feed
         dossierFeedBusy: false,
@@ -2108,11 +2143,28 @@
           return [];
         }
         if (t.id === 'permsoc') return this._permsocOwnerGroups();
+        // F6 (ADR-1025-19 D6/§52–§56): «Память → Настройки» — 5 подгрупп
+        // витрины (presentation-level; каталог не правится).
+        if (t.id === 'memory_rag') return this._memoryGroups();
         return this.groupedForTab(t);
       },
       currentTabItemCount: function () {
         var t = this.currentTab;
         return (t && t.type === 'config') ? this.tabItemCount(t) : 0;
+      },
+      // F6 (ADR-1025-19 D6/§53–§56): реально присутствующие подгруппы
+      // «Память → Настройки». Computed (не method) — реактивен к configItems
+      // и корректно итерируется в шаблоне.
+      memorySubgroupChips: function () {
+        var self = this;
+        var base = this.groupedForTab(this.currentTab);
+        var present = {};
+        (base || []).forEach(function (g) {
+          (g.items || []).forEach(function (it) {
+            present[self._memorySubgroupOf(it)] = true;
+          });
+        });
+        return MEMORY_SUBGROUPS.filter(function (s) { return present[s.id]; });
       },
       // F8 (ADR-1023-8): Tabs режимов Вербализатора (вкладка «Промпты»).
       promptModeTabs: function () {
@@ -2175,106 +2227,146 @@
         }
         return !!this.isGlobalAdmin;
       },
-      // F3 (раунд 10.24, ADR-1024-7): визуальное дерево вызова (Node Flow).
-      // Единый проход по фактическим `steps[]` — НИ ОДИН шаг не отбрасывается
-      // (повторы stage1/stage2 и нераспознанные `step` — отдельные ноды):
-      //   * спина: root → шаги в порядке steps[] → result;
-      //   * `tool` — под-нодами-ветками у ближайшего Синтезатора (рёбра
-      //     parent→child), НЕ на спине; `hasBranch` = есть ветки;
-      //   * `single`/`image`/прочее → без ложной ветки «Синтезатор→Вербализатор»;
-      //   * пусто → {nodes:[], edges:[], main:[], hasBranch:false, empty:true}.
-      // Нода: Вход/Выход/Цена (+ «оц.» при tokens_estimated, «цена неизвестна»
-      // при price_known=false). `main` — спина с `.children` для рендера веток
-      // по рёбрам (без `↓` внутри ветки); `nodes` — плоский контракт §5.
+      // F6 round1025 (ADR-1025-19 D1/D2/§25): adapter-слой
+      // `Backend metrics → Normalized execution graph → UI`. Вычисление узлов
+      // вынесено из компонента в `window.ExecutionGraph`; здесь — только
+      // view-проекция нормализованных узлов для существующего `.token-flow*`.
+      // Связи — ТОЛЬКО подтверждённые (parent_id в БД нет → tool без ветки).
       tokenFlowTree: function () {
-        var latest = this.tokenAnalyticsLatest;
-        var steps = (latest && latest.steps) || [];
-        var total = (latest && latest.total) || {};
-        var meta = {
-          stage1: { kind: 'synthesizer', title: 'Синтезатор' },
-          stage2: { kind: 'verbalizer', title: 'Вербализатор' },
-          single: { kind: 'single', title: 'Один вызов' },
-          image: { kind: 'image', title: 'Изображение' },
-        };
-        if (!steps.length) {
-          return { nodes: [], edges: [], main: [], hasBranch: false,
-                   empty: true };
-        }
-        function mk(s, kind, title, id) {
+        var EG = this.execGraphApi();
+        var empty = { nodes: [], edges: [], main: [], hasBranch: false,
+                      empty: true, runId: null, totals: null,
+                      startedAt: null };
+        if (!EG) return empty;
+        var graph = this.execTrace;
+        var all = graph.nodes || [];
+        if (!all.length) return empty;
+        var allowed = {};
+        var nodes = this.execTraceNodes.map(function (n) {
+          allowed[n.id] = true;
           return {
-            id: id, kind: kind, title: title, children: [],
-            input: s.input_tokens || 0,
-            output: s.output_tokens || 0,
-            cost: s.cost_usd || 0,
-            estimated: !!s.tokens_estimated,
-            price_known: s.price_known !== false,
-            note: '',
+            id: n.id, kind: n.kind, title: n.stageLabel, note: '',
+            input: n.inputTokens, output: n.outputTokens,
+            cost: n.cost, priceKnown: n.priceKnown,
+            estimated: n.metadata.tokensEstimated,
+            stageKey: n.stageKey, status: n.status, model: n.model,
+            moduleId: n.moduleId, runId: n.runId, parentIds: n.parentIds,
+            ref: n, children: [],
           };
-        }
-        function toolTitle(s) {
-          return 'Инструмент' + (s.tool_name ? (': ' + s.tool_name) : '');
-        }
-
-        var main = [];
-        var edges = [];
-        var hasBranch = false;
-        var root = {
-          id: 'root', kind: 'root', title: 'Запрос юзера', children: [],
-          input: 0, output: 0, cost: 0, estimated: false, price_known: true,
-          note: this._tokenFlowTimestamp(latest && latest.ts),
-        };
-        main.push(root);
-
-        var prevId = 'root';
-        var host = null;   // ближайший Синтезатор — хозяин tool-ветки
-        for (var i = 0; i < steps.length; i++) {
-          var s = steps[i];
-          if (s.step === 'tool') {
-            // tool — ветка у Синтезатора (или у корня, если Синтезатора нет);
-            // НЕ звено спины → в `main` не попадает.
-            var parent = host || root;
-            var tn = mk(s, 'tool', toolTitle(s), 'tool-' + i);
-            parent.children.push(tn);
-            edges.push({ from: parent.id, to: tn.id });
-            hasBranch = true;
-            continue;
-          }
-          var m = meta[s.step];
-          var kind = m ? m.kind : 'other';
-          var title = m ? m.title : ('Шаг: ' + (s.step || 'неизвестно'));
-          var node = mk(s, kind, title, 'n-' + i);
-          main.push(node);
-          edges.push({ from: prevId, to: node.id });
-          prevId = node.id;
-          if (kind === 'synthesizer') host = node;
-        }
-
-        // Агрегированные признаки «Итог»: «цена неизвестна», если хотя бы один
-        // шаг без цены; «оц.», если хотя бы один шаг — оценка.
-        var priceKnown = true, estimated = false;
-        for (var j = 0; j < steps.length; j++) {
-          if (steps[j].price_known === false) priceKnown = false;
-          if (steps[j].tokens_estimated) estimated = true;
-        }
-        var result = {
-          id: 'result', kind: 'result', title: 'Итог', children: [],
-          input: (total.input_tokens || 0),
-          output: (total.output_tokens || 0),
-          cost: (total.cost_usd || 0),
-          estimated: estimated, price_known: priceKnown, note: '',
-        };
-        main.push(result);
-        edges.push({ from: prevId, to: 'result' });
-
-        // Плоский `nodes` (контракт §5): спина + ветки сразу за родителем.
-        var nodes = [];
-        main.forEach(function (n) {
-          nodes.push(n);
-          n.children.forEach(function (c) { nodes.push(c); });
         });
-
-        return { nodes: nodes, edges: edges, main: main,
-                 hasBranch: hasBranch, empty: false };
+        var byId = {};
+        nodes.forEach(function (n) { byId[n.id] = n; });
+        // `edges` — подтверждённая последовательность (спина). `children` —
+        // ОТДЕЛЬНЫЙ контейнер веток: заполняется только реальными branch-
+        // рёбрами (§25/§30); sequence-рёбра спины в ветку НЕ дублируются.
+        // Сейчас branch-рёбер нет (tool без parent_id) → ветвления нет.
+        var edges = [];
+        (graph.edges || []).forEach(function (e) {
+          if (!allowed[e.from] || !allowed[e.to]) return;
+          edges.push({ from: e.from, to: e.to });
+          if (e.branch && byId[e.from]) byId[e.from].children.push(byId[e.to]);
+        });
+        var hasBranch = nodes.some(function (n) { return n.children.length > 0; });
+        return { nodes: nodes, edges: edges, main: nodes, hasBranch: hasBranch,
+                 empty: nodes.length === 0, runId: graph.runId,
+                 totals: graph.totals, startedAt: graph.startedAt,
+                 filtered: this.execFilterActive() };
+      },
+      // РЕЖИМ 1 (§26): нормализованная трассировка последнего вызова.
+      execTrace: function () {
+        var EG = this.execGraphApi();
+        return EG ? EG.fromTrace(this.tokenAnalyticsLatest) : {
+          runId: null, startedAt: null, nodes: [], edges: [], main: [],
+          hasBranch: false, empty: true, totals: null };
+      },
+      // РЕЖИМ 2 (§26): нормализованный агрегат периода — отдельный объект,
+      // никогда не смешивается с трассировкой.
+      execSummaryGraph: function () {
+        var EG = this.execGraphApi();
+        return EG ? EG.fromSummary(this.tokenAnalyticsSummary) : {
+          period: null, byModule: [], series: [], aggregate: [], totals: null,
+          empty: true };
+      },
+      execIsTrace: function () {
+        return this.execMode === 'latest';
+      },
+      // Трассировка с учётом фильтров §27 (модуль/модель/этап/статус).
+      execTraceNodes: function () {
+        var EG = this.execGraphApi();
+        if (!EG) return [];
+        return EG.filter(this.execTrace.nodes, this._execFilters());
+      },
+      // Агрегатные узлы с учётом ТОЛЬКО фильтра «модуль» (M-F6S-1): остальные
+      // поля (model/stage/status/query) у агрегата отсутствуют (null) и не
+      // выдумываются. Дополнительно при входе в период фильтры сбрасываются
+      // в setExecMode — здесь страховка от «утечки» трассировочных фильтров.
+      execAggregate: function () {
+        var EG = this.execGraphApi();
+        if (!EG) return [];
+        var moduleId = this.execFilterModule || '';
+        var list = this.execSummaryGraph.aggregate || [];
+        if (!moduleId) return list.slice();
+        return EG.filter(list, { module: moduleId });
+      },
+      // Есть ли данные в активном режиме (для honest empty-state §28).
+      execHasData: function () {
+        return this.execIsTrace
+          ? this.execTraceNodes.length > 0
+          : (this.execAggregate.length > 0
+             || this.execSummaryGraph.series.length > 0);
+      },
+      // Опции фильтров — только реально встречающиеся значения (без вымысла).
+      execModuleOptions: function () {
+        var set = {};
+        this.execTrace.nodes.forEach(function (n) {
+          if (n.moduleId) set[n.moduleId] = true;
+        });
+        return Object.keys(set);
+      },
+      execModelOptions: function () {
+        var set = {};
+        this.execTrace.nodes.forEach(function (n) {
+          if (n.model) set[n.model] = true;
+        });
+        return Object.keys(set);
+      },
+      execStageOptions: function () {
+        var seen = {}, out = [];
+        this.execTrace.nodes.forEach(function (n) {
+          if (n.stageKey && !seen[n.stageKey]) {
+            seen[n.stageKey] = true;
+            out.push({ key: n.stageKey, label: n.stageLabel });
+          }
+        });
+        return out;
+      },
+      // §27: фильтр «статус». Значения — только реально встречающиеся в
+      // трассировке (сейчас всегда 'unknown' — не выдумываем статусы).
+      execStatusOptions: function () {
+        var self = this;
+        var seen = {}, out = [];
+        this.execTrace.nodes.forEach(function (n) {
+          if (n.status && !seen[n.status]) {
+            seen[n.status] = true;
+            out.push({ value: n.status, label: self.execStatusLabel(n.status) });
+          }
+        });
+        return out;
+      },
+      // Детали выбранного узла (side-panel/bottom-sheet §27).
+      execDetail: function () {
+        var EG = this.execGraphApi();
+        return EG ? EG.detail(this.execSelected) : null;
+      },
+      // Компактное превью последнего вызова для Статуса (§21, граница с F11:
+      // F6 отдаёт источник + компактный компонент, композиция — F11).
+      execPreview: function () {
+        var EG = this.execGraphApi();
+        var g = EG ? EG.fromTrace(this.tokenAnalyticsLatest) : null;
+        if (!g || g.empty) return { empty: true, nodes: [], totals: null,
+                                    runId: null, startedAt: null };
+        return { empty: false, nodes: g.nodes.slice(0, 8),
+                 totals: g.totals, runId: g.runId, startedAt: g.startedAt };
       },
       // Столбики графика расходов: высота пропорциональна cost_usd бакета.
       // Tooltip — существующий title (bucket·цена·вызовы) в шаблоне.
@@ -3751,11 +3843,99 @@
         var v = Number(n) || 0;
         return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
       },
-      fmtCost: function (v) {
-        var n = Number(v) || 0;
+      // F6 (ADR-1025-19 D5/§28): `$0` — ТОЛЬКО для подтверждённого нуля.
+      // При `known === false` (price_known=false) или отсутствии числа —
+      // «Нет данных» (устраняет прежний `$0`-по-умолчанию).
+      fmtCost: function (v, known) {
+        if (known === false) return 'Нет данных';
+        if (v === null || v === undefined) return 'Нет данных';
+        var n = Number(v);
+        if (isNaN(n)) return 'Нет данных';
         if (n === 0) return '$0';
         if (n < 0.000001) return '$' + n.toExponential(2);
         return '$' + n.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+      },
+      // Честная подпись стоимости узла/итога (D5): неизвестная цена -> «Нет
+      // данных», подтверждённый ноль -> `$0`.
+      execCostLabel: function (node) {
+        if (!node) return 'Нет данных';
+        return this.fmtCost(node.cost, node.priceKnown);
+      },
+      fmtTokensCell: function (v) {
+        return (v === null || v === undefined) ? '—' : this.fmtExactTokens(v);
+      },
+      // Статус в данных не передаётся (ADR-1025-19 D1) — показываем честно.
+      execStatusLabel: function (status) {
+        return (status === 'unknown' || !status) ? 'нет данных' : String(status);
+      },
+      // F6 (D1): adapter из `window.ExecutionGraph` (загружается до app.js).
+      execGraphApi: function () {
+        if (typeof window !== 'undefined' && window.ExecutionGraph) {
+          return window.ExecutionGraph;
+        }
+        return null;
+      },
+      _execFilters: function () {
+        return { module: this.execFilterModule || '',
+                 model: this.execFilterModel || '',
+                 stage: this.execFilterStage || '',
+                 status: this.execFilterStatus || '',
+                 query: this.execFilterQuery || '' };
+      },
+      execFilterActive: function () {
+        return !!(this.execFilterModule || this.execFilterModel
+                  || this.execFilterStage || this.execFilterStatus
+                  || this.execFilterQuery);
+      },
+      // Переключение режима §26: 'latest' (трассировка) | day|week|month.
+      // Смена режима СБРАСЫВАЕТ фильтры §27 (M-F6S-1): агрегатные узлы не
+      // несут model/stage/status, иначе фильтр трассировки «протёк» бы в
+      // период и дал ложное «За период данных нет».
+      setExecMode: function (mode) {
+        if (mode !== this.execMode) this.resetExecFilters();
+        this.execMode = mode;
+        this.execSelected = null;
+        this.execDetailOpen = false;
+        if (mode !== 'latest') this.tokenAnalyticsPeriod = mode;
+        this.loadTokenAnalytics();
+      },
+      setExecFilter: function (name, value) {
+        if (name === 'module') this.execFilterModule = value;
+        else if (name === 'model') this.execFilterModel = value;
+        else if (name === 'stage') this.execFilterStage = value;
+        else if (name === 'status') this.execFilterStatus = value;
+        else if (name === 'query') this.execFilterQuery = value;
+      },
+      resetExecFilters: function () {
+        this.execFilterModule = '';
+        this.execFilterModel = '';
+        this.execFilterStage = '';
+        this.execFilterStatus = '';
+        this.execFilterQuery = '';
+      },
+      // Выбор узла: desktop side-panel / mobile bottom-sheet (§27). Показываем
+      // только реальные поля (отсутствующие -> «Нет данных»).
+      selectExecNode: function (node) {
+        this.execSelected = node;
+        this.execDetailOpen = true;
+      },
+      closeExecDetail: function () {
+        this.execDetailOpen = false;
+        this.execSelected = null;
+      },
+      // F6 (D5/§21): компактное превью последнего вызова для Статуса. Отдельный
+      // лёгкий путь (только `/usage/latest`), без фильтров §27 и без второго
+      // рендера — тот же adapter.
+      loadExecPreview: async function () {
+        if (this.tokenAnalyticsLatest) return;   // уже загружено на «Аналитике»
+        this.execPreviewBusy = true;
+        try {
+          this.tokenAnalyticsLatest = await this.api('/api/analytics/usage/latest');
+        } catch (e) {
+          this.tokenAnalyticsLatest = null;
+        } finally {
+          this.execPreviewBusy = false;
+        }
       },
       loadModules: async function () {
         if (this.modulesBusy) return;
@@ -4358,6 +4538,8 @@
       // открыто), иначе route-driven окно «Доступов». Вынесено из глобального
       // keydown ради юнит-тестируемости.
       escClose: function () {
+        // F6 (§27/L-F6S-4): side-panel/bottom-sheet деталей узла закрывается Esc.
+        if (this.execDetailOpen) { this.closeExecDetail(); return; }
         // 10.20 (T-1896): модалка досье — верхняя (её и закрываем первой).
         if (this.dossierOpen) { this.closeDossier(); return; }
         if (this.openModuleId != null) { this.closeModule(); return; }
@@ -5769,6 +5951,10 @@
       openHubCard: function (card) {
         var self = this;
         if (!card) return;
+        // F6 (L-F6S-5): presentation-подгруппа «Память → Настройки» не должна
+        // «залипать» между входами — при открытии карточки хаба сбрасываем её
+        // (мёртвый шов memorySubgroup у карточек удалён).
+        this.memorySubgroup = '';
         this.navigateTo(card.route);
         if (card.section) {
           this.$nextTick(function () { self.scrollToId(card.section); });
@@ -6828,6 +7014,58 @@
         var k = category + '/' + groupId;
         if (k in ruleOf) return ruleOf[k];
         return catFirst[category] != null ? catFirst[category] : 99;
+      },
+      // F6 (ADR-1025-19 D6): презентационная подгруппа параметра «Памяти».
+      // Классификация по ключу — без правки каталога (Δ каталога = 0).
+      _memorySubgroupOf: function (item) {
+        var u = String((item && item.key) || '').toUpperCase();
+        if (u.indexOf('DIG_') >= 0) return 'search';
+        if (u.indexOf('RELATIONS_') >= 0 || u.indexOf('IRONY_FILTER') >= 0) {
+          return 'relations';
+        }
+        if (u.indexOf('DEEP_SLEEP') >= 0 || u.indexOf('BELIEF_') >= 0
+            || u.indexOf('DREAM_') >= 0) {
+          return 'dream';
+        }
+        if (u.indexOf('VEC_INT8') >= 0 || u.indexOf('MEMORY_BACKUP') >= 0
+            || u.indexOf('FULL_MEMORY_RETENTION') >= 0
+            || u.indexOf('ARCHIVE_MEMORY_RETENTION') >= 0
+            || u.indexOf('GRAPH_USER_QUOTA') >= 0
+            || u.indexOf('EMBED_CACHE') >= 0) {
+          return 'storage';
+        }
+        if (u.indexOf('GRAPH_') >= 0) return 'graph';
+        return 'other';
+      },
+      setMemorySubgroup: function (id) {
+        this.memorySubgroup = id || '';
+      },
+      // F6 (D6): 5 подгрупп «Память → Настройки» вместо групп каталога.
+      // Возвращает псевдо-группы в порядке MEMORY_SUBGROUPS; при активной
+      // подгруппе — только она. Ни один параметр не теряется (§116).
+      _memoryGroups: function () {
+        var self = this;
+        var base = this.groupedForTab(this.currentTab);
+        var buckets = {};
+        MEMORY_SUBGROUPS.forEach(function (s) {
+          buckets[s.id] = {
+            uid: 'memsub:' + s.id, id: s.id, category: '',
+            subgroup: s.id, title: s.title,
+            meta: { id: s.id, title: s.title, order: 0 }, items: [],
+          };
+        });
+        (base || []).forEach(function (g) {
+          (g.items || []).forEach(function (it) {
+            var sid = self._memorySubgroupOf(it);
+            buckets[sid].items.push(it);
+          });
+        });
+        var want = this.memorySubgroup || '';
+        return MEMORY_SUBGROUPS.map(function (s) { return buckets[s.id]; })
+          .filter(function (g) {
+            if (!g.items.length) return false;
+            return !want || want === g.id;
+          });
       },
       // Группы-«витрины» активной конфиг-вкладки: [{id, meta, category,
       // items[]}]. Порядок — по flatGroupRank (порядок правил; для
@@ -8238,6 +8476,10 @@
           // §15: недоступность API → UNKNOWN (не «0»).
           this._applyHeartbeatSample({ missing: true });
         }
+        // F6 (ADR-1025-19 D5/§21): компактное превью последнего вызова на
+        // Статусе (global admin). Отдельный лёгкий путь — только /usage/latest;
+        // источник и компонент у F6, композиция витрины §11–§20 — у F11.
+        if (this.isGlobalAdmin) this.loadExecPreview();
         // hotfix6/C2 (T-2599): EKG-SVG заменён на Canvas 2D + rAF (флаг
         // UI_HEARTBEAT_CANVAS_ENABLED; OFF → прежний SVG байт-в-байт).
         this.loadKeyHistory();   // B1/T-1129: список + график доступности

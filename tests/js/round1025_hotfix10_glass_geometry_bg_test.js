@@ -11,7 +11,7 @@
  *   E — `.status-block` без стекла, дизайн сердцебиения не тронут.
  *   F — OGL-фон: экспорт `resize`, пересчёт по фактическому контейнеру,
  *       viewport/uniforms, вызовы из app.js (resize/fullscreen/visualViewport).
- *   G — APP_VERSION 2.58.13, env-only флаг default OFF.
+ *   G — APP_VERSION 2.58.14, env-only флаг default OFF.
  *
  * Запуск: node tests/js/round1025_hotfix10_glass_geometry_bg_test.js
  */
@@ -278,7 +278,7 @@ function token(name) {
 
 // ═══ G. Флаги / версия ═════════════════════════════════════════════════════
 {
-  assert.ok(/APP_VERSION = "2\.58\.13"/.test(SETTINGS), 'G: APP_VERSION 2.58.13');
+  assert.ok(/APP_VERSION = "2\.58\.14"/.test(SETTINGS), 'G: APP_VERSION 2.58.14');
   assert.ok(/UI_LIQUID_GLASS_LIB: ClassVar\[bool\] = _env_bool\(\s*"UI_LIQUID_GLASS_LIB", False\)/
     .test(SETTINGS), 'G: флаг default OFF');
   assert.ok(ROUTES.indexOf('UI_LIQUID_GLASS_LIB') >= 0, 'G: флаг доставлен');

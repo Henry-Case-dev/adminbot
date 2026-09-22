@@ -1237,6 +1237,18 @@
                    дочернем div (выражение то же); groupedForTab уже
                    фильтрует пустые группы — вторичный фильтр дефенсив
                    (BUG-5: «(0)»-карточек нет). -->
+              <!-- F6 (ADR-1025-19 D6/§53–§56): подгруппы «Память → Настройки».
+                   Только presentation-level; каталог/параметры не меняются. -->
+              <div v-if="currentTab && currentTab.id === 'memory_rag'"
+                   class="col-span-full flex flex-wrap items-center gap-1 mb-1">
+                <span class="text-xs font-bold mr-1">Разделы памяти</span>
+                <button class="btn-ghost text-xs" :class="{ 'font-bold': !memorySubgroup }"
+                        @click="setMemorySubgroup('')">Все</button>
+                <button v-for="s in memorySubgroupChips" :key="'ms' + s.id"
+                        class="btn-ghost text-xs"
+                        :class="{ 'font-bold': memorySubgroup === s.id }"
+                        @click="setMemorySubgroup(s.id)">{{ s.title }}</button>
+              </div>
               <template v-for="grp in currentTabGroups" :key="grp.uid">
               <!-- Раунд 10.4 (E-3): заголовок секции витрины — перед первой
                    группой секции (sectionTitle возвращает null для остальных:
@@ -1978,70 +1990,124 @@
                    Гейт uiFlag('TOKEN_FLOW_NODEFLOW_ENABLED'): OFF (v-else) —
                    прежние плоские бейджи 10.23 байт-в-байт. -->
               <div class="mb-3 rounded-lg border border-white/10 px-3 py-2">
+                <!-- F6 (ADR-1025-19 D2/§26): два НЕСМЕШИВАЕМЫХ режима.
+                     «Последний вызов» ← /usage/latest (трассировка);
+                     День/Неделя/Месяц ← /usage/summary (агрегат). -->
                 <div class="flex items-center gap-2 flex-wrap mb-2">
                   <div class="text-xs font-bold">Аналитика токенов</div>
-                  <span class="text-xs text-gray-500">последний вызов · графики</span>
+                  <span class="text-xs text-gray-500">карта вызовов · расходы</span>
                   <div class="ml-auto flex items-center gap-1">
-                    <button class="btn-ghost text-xs" :class="{ 'font-bold': tokenAnalyticsPeriod === 'day' }"
-                            @click="setTokenAnalyticsPeriod('day')">День</button>
-                    <button class="btn-ghost text-xs" :class="{ 'font-bold': tokenAnalyticsPeriod === 'week' }"
-                            @click="setTokenAnalyticsPeriod('week')">Неделя</button>
-                    <button class="btn-ghost text-xs" :class="{ 'font-bold': tokenAnalyticsPeriod === 'month' }"
-                            @click="setTokenAnalyticsPeriod('month')">Месяц</button>
+                    <button class="btn-ghost text-xs" :class="{ 'font-bold': execMode === 'latest' }"
+                            @click="setExecMode('latest')">Последний вызов</button>
+                    <button class="btn-ghost text-xs" :class="{ 'font-bold': execMode === 'day' }"
+                            @click="setExecMode('day')">День</button>
+                    <button class="btn-ghost text-xs" :class="{ 'font-bold': execMode === 'week' }"
+                            @click="setExecMode('week')">Неделя</button>
+                    <button class="btn-ghost text-xs" :class="{ 'font-bold': execMode === 'month' }"
+                            @click="setExecMode('month')">Месяц</button>
                     <button class="btn-ghost text-xs" :disabled="tokenAnalyticsBusy"
                             @click="loadTokenAnalytics()">⟳</button>
                   </div>
                 </div>
                 <div v-if="tokenAnalyticsBusy" class="spinner my-2"></div>
                 <template v-else>
-                  <!-- ── НОВЫЙ рендер (ADR-1024-7): дерево вызова ── -->
+                  <!-- ── НОВЫЙ рендер (ADR-1024-7, AMEND ADR-1025-19 D1/§25):
+                       узлы строит adapter ExecutionGraph, не шаблон ── -->
                   <template v-if="uiFlag('TOKEN_FLOW_NODEFLOW_ENABLED')">
-                    <div class="text-xs font-bold mb-1">Последний запрос (Дерево вызова)</div>
-                    <div v-if="tokenFlowTree.main.length" class="token-flow mb-3">
-                      <template v-for="(node, idx) in tokenFlowTree.main" :key="node.id">
-                        <!-- Нода спины: root/слои/итог -->
-                        <div class="token-flow__node"
-                             :class="'token-flow__node--' + node.kind">
-                          <div class="token-flow__head">{{ node.title }}</div>
-                          <div class="token-flow__note" v-if="node.note">{{ node.note }}</div>
-                          <div class="token-flow__metrics" v-if="node.kind !== 'root'">
-                            <span class="token-flow__metric">
-                              Вход: {{ fmtExactTokens(node.input) }}<template v-if="node.estimated"> (оц.)</template>
-                            </span>
-                            <span class="token-flow__metric">
-                              Выход: {{ fmtExactTokens(node.output) }}<template v-if="node.estimated"> (оц.)</template>
-                            </span>
-                            <span class="token-flow__metric">
-                              Цена: <template v-if="node.price_known">{{ fmtCost(node.cost) }}</template><template v-else>цена неизвестна</template>
-                            </span>
-                          </div>
-                        </div>
-                        <!-- ВЕТКА (рёбра parent→child): tool-под-ноды, НЕ на спине;
-                             коннектор ↓ внутри ветки не рисуется -->
-                        <div class="token-flow__branch"
-                             v-if="node.children && node.children.length">
-                          <div v-for="child in node.children" :key="child.id"
-                               class="token-flow__node token-flow__node--tool">
-                            <div class="token-flow__head">{{ child.title }}</div>
+                    <!-- РЕЖИМ 1 (§26): трассировка последнего вызова -->
+                    <template v-if="execIsTrace">
+                      <div class="flex items-center gap-2 flex-wrap mb-1">
+                        <div class="text-xs font-bold">Последний запрос (Дерево вызова)</div>
+                        <span class="text-xs text-gray-500" v-if="tokenFlowTree.startedAt">{{ tokenFlowTree.startedAt }}</span>
+                      </div>
+                      <!-- Фильтры §27 — только на «Аналитике» (превью Статуса их не получает) -->
+                      <div class="flex flex-wrap items-center gap-2 mb-2 text-xs">
+                        <input class="field w-40" type="search" v-model="execFilterQuery"
+                               placeholder="Поиск: этап/модель/модуль"
+                               aria-label="Поиск по вызовам">
+                        <select class="field w-36" v-model="execFilterModule">
+                          <option value="">Все модули</option>
+                          <option v-for="m in execModuleOptions" :key="'em' + m" :value="m">{{ m }}</option>
+                        </select>
+                        <select class="field w-36" v-model="execFilterModel">
+                          <option value="">Все модели</option>
+                          <option v-for="m in execModelOptions" :key="'emo' + m" :value="m">{{ m }}</option>
+                        </select>
+                        <select class="field w-36" v-model="execFilterStage">
+                          <option value="">Все этапы</option>
+                          <option v-for="s in execStageOptions" :key="'es' + s.key" :value="s.key">{{ s.label }}</option>
+                        </select>
+                        <select class="field w-36" v-model="execFilterStatus">
+                          <option value="">Все статусы</option>
+                          <option v-for="s in execStatusOptions" :key="'est' + s.value" :value="s.value">{{ s.label }}</option>
+                        </select>
+                        <button class="btn-ghost text-xs" v-if="execFilterActive()"
+                                @click="resetExecFilters()">Сбросить</button>
+                      </div>
+                      <div v-if="tokenFlowTree.main.length" class="token-flow mb-3">
+                        <template v-for="(node, idx) in tokenFlowTree.main" :key="node.id">
+                          <!-- Нода: нормализованный узел (kind/stageKey/статус) -->
+                          <div class="token-flow__node"
+                               :class="'token-flow__node--' + node.kind + ' token-flow__node--stage-' + node.stageKey"
+                               role="button" tabindex="0"
+                               @click="selectExecNode(node.ref)"
+                               @keydown.enter="selectExecNode(node.ref)"
+                               @keydown.space.prevent="selectExecNode(node.ref)">
+                            <div class="token-flow__head">{{ node.title }}</div>
+                            <div class="token-flow__note" v-if="node.note">{{ node.note }}</div>
                             <div class="token-flow__metrics">
                               <span class="token-flow__metric">
-                                Вход: {{ fmtExactTokens(child.input) }}<template v-if="child.estimated"> (оц.)</template>
+                                Вход: {{ fmtTokensCell(node.input) }}<template v-if="node.estimated"> (оц.)</template>
                               </span>
                               <span class="token-flow__metric">
-                                Выход: {{ fmtExactTokens(child.output) }}<template v-if="child.estimated"> (оц.)</template>
+                                Выход: {{ fmtTokensCell(node.output) }}<template v-if="node.estimated"> (оц.)</template>
                               </span>
                               <span class="token-flow__metric">
-                                Цена: <template v-if="child.price_known">{{ fmtCost(child.cost) }}</template><template v-else>цена неизвестна</template>
+                                Цена: {{ execCostLabel(node) }}
                               </span>
                             </div>
                           </div>
-                        </div>
-                        <!-- Коннектор спины: только если есть ребро к следующей ноде -->
-                        <div class="token-flow__edge"
-                             v-if="idx < tokenFlowTree.main.length - 1" aria-hidden="true">↓</div>
-                      </template>
-                    </div>
-                    <div v-else class="text-xs text-gray-500 mb-3">Вызовов ещё не было.</div>
+                          <!-- ВЕТКА (рёбра parent→child): только подтверждённые связи;
+                               parent_id в БД нет → ветки не выдумываются -->
+                          <div class="token-flow__branch"
+                               v-if="node.children && node.children.length">
+                            <div v-for="child in node.children" :key="child.id"
+                                 class="token-flow__node token-flow__node--tool">
+                              <div class="token-flow__head">{{ child.title }}</div>
+                              <div class="token-flow__metrics">
+                                <span class="token-flow__metric">
+                                  Вход: {{ fmtTokensCell(child.input) }}<template v-if="child.estimated"> (оц.)</template>
+                                </span>
+                                <span class="token-flow__metric">
+                                  Выход: {{ fmtTokensCell(child.output) }}<template v-if="child.estimated"> (оц.)</template>
+                                </span>
+                                <span class="token-flow__metric">
+                                  Цена: {{ execCostLabel(child) }}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <!-- Коннектор спины: только если есть ребро к следующей ноде -->
+                          <div class="token-flow__edge"
+                               v-if="idx < tokenFlowTree.main.length - 1" aria-hidden="true">↓</div>
+                        </template>
+                      </div>
+                      <div v-else-if="execFilterActive()" class="text-xs text-gray-500 mb-3">По фильтрам вызовов нет.</div>
+                      <div v-else class="text-xs text-gray-500 mb-3">Вызовов ещё не было.</div>
+                    </template>
+                    <!-- РЕЖИМ 2 (§26): агрегат периода — не смешивается с трассировкой -->
+                    <template v-else>
+                      <div class="flex items-center gap-2 mb-1">
+                        <div class="text-xs font-bold">Агрегат по модулям</div>
+                        <button class="btn-ghost text-xs ml-auto" v-if="execFilterActive()"
+                                @click="resetExecFilters()">Сбросить</button>
+                      </div>
+                      <div v-if="execAggregate.length" class="flex flex-wrap gap-2 mb-3 text-xs">
+                        <span v-for="a in execAggregate" :key="a.id"
+                              class="badge badge-muted">{{ a.stageLabel }}: {{ fmtCost(a.cost, a.priceKnown) }} · {{ a.metadata.calls }} выз.</span>
+                      </div>
+                      <div v-else class="text-xs text-gray-500 mb-3">За период данных нет.</div>
+                    </template>
                     <!-- Заголовок графика — только в новом рендере (OFF = 10.23) -->
                     <div class="text-xs font-bold mb-1">График расходов</div>
                   </template>
@@ -2053,7 +2119,7 @@
                           <span class="badge badge-muted" :title="n.module">{{ n.label }}: {{ fmtExactTokens(n.tokens) }} т.<template v-if="n.estimated"> (оц.)</template></span>
                           <span v-if="i < tokenFlowNodes().length - 1" class="text-gray-500">→</span>
                         </span>
-                        <span class="badge badge-info">Итого: {{ fmtCost(tokenAnalyticsLatest && tokenAnalyticsLatest.total ? tokenAnalyticsLatest.total.cost_usd : 0) }}</span>
+                        <span class="badge badge-info">Итого: {{ fmtCost(tokenFlowTree.totals ? tokenFlowTree.totals.cost : null, tokenFlowTree.totals ? tokenFlowTree.totals.priceKnown : false) }}</span>
                       </template>
                       <span v-else class="text-gray-500">Вызовов ещё не было.</span>
                     </div>
@@ -2073,11 +2139,13 @@
                     <span>{{ tokenSeriesBars[0].label }}</span>
                     <span v-if="tokenSeriesBars.length > 1">{{ tokenSeriesBars[tokenSeriesBars.length - 1].label }}</span>
                   </div>
+                  <!-- §28: «Стоимость LLM» (llm_usage_events) — НЕ смешивать с
+                       «Ресурсами сервера» (/api/status, отдельный блок Статуса). -->
                   <div class="flex flex-wrap gap-2 text-xs"
                        v-if="tokenAnalyticsSummary && tokenAnalyticsSummary.totals">
-                    <span class="badge badge-muted">Вызовов: {{ tokenAnalyticsSummary.totals.calls }}</span>
-                    <span class="badge badge-muted">Токены: {{ fmtExactTokens((tokenAnalyticsSummary.totals.input_tokens || 0) + (tokenAnalyticsSummary.totals.output_tokens || 0)) }}</span>
-                    <span class="badge badge-info">Итого: {{ fmtCost(tokenAnalyticsSummary.totals.cost_usd) }}</span>
+                    <span class="badge badge-muted">Стоимость LLM · вызовов: {{ tokenAnalyticsSummary.totals.calls }}</span>
+                    <span class="badge badge-muted">LLM-токены: {{ fmtTokensCell((tokenAnalyticsSummary.totals.input_tokens || 0) + (tokenAnalyticsSummary.totals.output_tokens || 0)) }}</span>
+                    <span class="badge badge-info">LLM-итого: {{ fmtCost(tokenAnalyticsSummary.totals.cost_usd) }}</span>
                   </div>
                   <div class="flex flex-wrap gap-1 mt-1 text-xs"
                        v-if="tokenAnalyticsSummary && tokenAnalyticsSummary.by_module && tokenAnalyticsSummary.by_module.length">
@@ -3384,6 +3452,34 @@
               </div>
             </div>
 
+            <!-- F6 (ADR-1025-19 D5/§21): компактное превью последнего вызова.
+                 Источник — /usage/latest через adapter (НЕ одна строка с
+                 числом токенов). Финальная композиция витрины Статуса — F11;
+                 F6 владеет данными и компонентом. Фильтры §27 сюда НЕ попадают.
+                 Размещено ПОСЛЕ .status-block: не сдвигает системные цели
+                 (glass-проба H10). -->
+            <div v-if="isGlobalAdmin" class="exec-preview card p-3"
+                 style="grid-column: 1 / -1;">
+              <div class="flex items-center gap-2 flex-wrap mb-1">
+                <span class="text-xs font-bold">Последний вызов</span>
+                <span class="text-xs text-gray-500" v-if="execPreview.startedAt">{{ execPreview.startedAt }}</span>
+                <button class="btn-ghost text-xs ml-auto" @click="loadExecPreview()">⟳</button>
+              </div>
+              <template v-if="!execPreview.empty">
+                <div class="flex flex-wrap items-center gap-1 text-xs mb-1">
+                  <template v-for="(n, i) in execPreview.nodes" :key="'ep' + n.id">
+                    <span class="badge badge-muted" :title="n.stageLabel">{{ n.stageLabel }}: {{ fmtTokensCell(n.inputTokens) }}/{{ fmtTokensCell(n.outputTokens) }}</span>
+                    <span v-if="i < execPreview.nodes.length - 1" class="text-gray-500">→</span>
+                  </template>
+                </div>
+                <div class="flex flex-wrap gap-2 text-xs">
+                  <span class="badge badge-muted">Стоимость LLM: {{ fmtCost(execPreview.totals.cost, execPreview.totals.priceKnown) }}</span>
+                  <span class="badge badge-muted" v-if="execPreview.totals.tokensEstimated">токены — оценка</span>
+                </div>
+              </template>
+              <div v-else class="text-xs text-gray-500">Нет данных: вызовов ещё не было.</div>
+            </div>
+
             <!-- F5 (T-1450..T-1452, ТЗ §5): «Мониторинг Интеллекта» — только
                  global admin. Две вертикальные бегущие строки (Убеждения/Сон,
                  Парадигмы/Глубокий сон, opacity 50→100), бейджи активных фаз
@@ -3909,6 +4005,33 @@
       </div>
     </div>
 
+    <!-- F6 (ADR-1025-19 D3/§27): детали узла карты вызовов. desktop — side-panel,
+         mobile — bottom-sheet (CSS). На корне #app (вне .scroll-area/transform-
+         контейнеров) — `position: fixed` реально привязан к viewport. Только
+         реальные поля; отсутствующие -> «Нет данных» (провайдер/длительность/
+         статус). Фильтры §27 — на «Аналитике», не здесь. -->
+    <div v-if="execDetailOpen && execDetail" class="exec-detail-backdrop"
+         @click.self="closeExecDetail()">
+      <div class="exec-detail" role="dialog" aria-modal="true"
+           aria-label="Детали шага вызова" tabindex="-1">
+      <div class="exec-detail__head">
+        <strong>{{ execDetail.stageLabel }}</strong>
+        <span class="badge badge-muted ml-2">{{ execDetail.kindLabel }}</span>
+        <button class="btn-ghost text-xs ml-auto" @click="closeExecDetail()">Закрыть</button>
+      </div>
+      <div class="exec-detail__rows text-xs">
+        <div class="exec-detail__row"><span class="text-gray-500">Модуль</span><span>{{ execDetail.moduleId || 'Нет данных' }}</span></div>
+        <div class="exec-detail__row"><span class="text-gray-500">Модель</span><span>{{ execDetail.model || 'Нет данных' }}</span></div>
+        <div class="exec-detail__row"><span class="text-gray-500">Провайдер</span><span>{{ execDetail.provider || 'Нет данных' }}</span></div>
+        <div class="exec-detail__row"><span class="text-gray-500">Вход</span><span>{{ fmtTokensCell(execDetail.inputTokens) }}</span></div>
+        <div class="exec-detail__row"><span class="text-gray-500">Выход</span><span>{{ fmtTokensCell(execDetail.outputTokens) }}</span></div>
+        <div class="exec-detail__row"><span class="text-gray-500">Стоимость LLM</span><span>{{ execCostLabel(execDetail) }}</span></div>
+        <div class="exec-detail__row"><span class="text-gray-500">Длительность</span><span>{{ execDetail.durationMs == null ? 'Нет данных' : execDetail.durationMs + ' мс' }}</span></div>
+        <div class="exec-detail__row"><span class="text-gray-500">Статус</span><span>{{ execStatusLabel(execDetail.status) }}</span></div>
+      </div>
+      </div>
+    </div>
+
     <!-- ═══ Раунд 10.20 (БЛОК 3.2/T-1896): модалка Досье участника ═══
          Авто-досье (черты от экстрактора Личности) + ручная правка админа.
          PATCH-контракт аддитивен (R16: user_id — ключ); пустая правка =
@@ -4423,6 +4546,11 @@
   <script src="/static/vendor/liquidglass.core.0.5.3.min.js?v=__APP_VERSION__"></script>
   <script src="/static/aurora-flow.js?v=__APP_VERSION__"></script>
   <script src="/static/glass.js?v=__APP_VERSION__"></script>
+  <!-- F6 (ADR-1025-19 D1): adapter-слой ExecutionGraph — CLIENT-side
+       нормализация `Backend metrics → Normalized execution graph → UI`
+       (ТЗ §25). Zero-build, CSP `script-src 'self'`, ДО app.js: app.js
+       читает `window.ExecutionGraph` в computed `tokenFlowTree`. -->
+  <script src="/static/execution_graph.js?v=__APP_VERSION__"></script>
   <script src="/web/app.js?v=__APP_VERSION__"></script>
   <!-- F4 10.16 (T-1653): Telegram-init вынесен из inline → external, чтобы
        CSP `script-src 'self'` работал без 'unsafe-inline'/nonce/hash. -->

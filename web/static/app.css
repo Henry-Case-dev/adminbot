@@ -1893,6 +1893,82 @@
     @media (prefers-reduced-motion: reduce) {
       .token-flow__node { transition: none !important; }
     }
+    /* ═══ F6 round1025 (ADR-1025-19 D1/D3): adapter-узлы ExecutionGraph ═══
+       Аддитивное расширение .token-flow*: kind-enum llm/algorithm/tool/format/
+       publish/other + stage-модификаторы. Рендер — тот же единственный
+       компонент (§116, вторая визуализация не создаётся). */
+    .token-flow__node--llm {
+      border-color: rgba(110, 168, 254, .55);
+      background: rgba(110, 168, 254, .08);
+    }
+    .token-flow__node--algorithm,
+    .token-flow__node--format,
+    .token-flow__node--publish {
+      border-color: rgba(167, 139, 250, .5);
+      background: rgba(167, 139, 250, .07);
+    }
+    .token-flow__node--other {
+      border-color: rgba(148, 163, 184, .45);
+      background: rgba(148, 163, 184, .06);
+    }
+    .token-flow__node[role="button"] { cursor: pointer; }
+    .token-flow__node[role="button"]:focus-visible {
+      outline: 2px solid rgba(110, 168, 254, .8);
+      outline-offset: 1px;
+    }
+
+    /* §27: детали узла — desktop side-panel справа. */
+    /* L-F6S-4: подложка (клик закрывает) + aria-modal на панели. */
+    .exec-detail-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 59;
+      background: rgba(0, 0, 0, .35);
+    }
+    .exec-detail {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(360px, 92vw);
+      z-index: 60;
+      padding: .75rem .9rem;
+      overflow-y: auto;
+      background: var(--surface-1, rgba(17, 24, 39, .97));
+      border-left: 1px solid var(--surface-border, rgba(255, 255, 255, .12));
+      box-shadow: -8px 0 24px rgba(0, 0, 0, .35);
+    }
+    .exec-detail__head {
+      display: flex;
+      align-items: center;
+      gap: .35rem;
+      margin-bottom: .5rem;
+    }
+    .exec-detail__row {
+      display: flex;
+      justify-content: space-between;
+      gap: .75rem;
+      padding: .2rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, .06);
+    }
+    .exec-preview { min-width: 0; }
+
+    /* §29 mobile: граф/детали — вертикально, без сжатия до 320 px.
+       Детали превращаются в bottom-sheet (не навигационный .more-sheet). */
+    @media (max-width: 767px) {
+      .exec-detail {
+        top: auto;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: auto;
+        max-height: 72vh;
+        border-left: none;
+        border-top: 1px solid var(--surface-border, rgba(255, 255, 255, .12));
+        border-radius: var(--radius-lg, .6rem) var(--radius-lg, .6rem) 0 0;
+        box-shadow: 0 -8px 24px rgba(0, 0, 0, .4);
+      }
+    }
 
     /* ═══════════════════════════════════════════════════════════════════
        F1 round 10.25 (ADR-1025-1 D6/D7): раздельные app shell’ы.
