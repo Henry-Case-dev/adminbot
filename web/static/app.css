@@ -73,19 +73,24 @@
          отдельной @supports-веткой ниже ТОЛЬКО при доказанной поддержке dvh+min().
          Конкурирующие min-height/height запрещены. */
       --shell-h: 100vh;
-      /* ═══ HOTFIX7 (ADR-1025-13 D3.1): отдельный серо-графитовый glass-shell ═══
-         Значения derived из §8 neutrals; карточные --glass-* НЕ переопределены.
-         Shell — визуально отдельный слой (плотнее/серее/стекляннее карточек). */
-      --shell-bg: rgba(33, 37, 45, 0.62);
+      /* ═══ HOTFIX8 (ADR-1025-16 D2): shell v3 — серо-графитовый glass §4 ═══
+         Значения строго по UPD2 §4 (не derived из карточных --glass-*).
+         Shell — визуально отдельный слой (плотнее/серее/стекляннее карточек),
+         без цветной линзы/ореола/виньетки. Мягкий откат рецепта при
+         UI_SHELL_V3=OFF → горячие значения hotfix7 (см. .app-shell.shell-v3-off),
+         цветная линза НЕ возвращается (её снятие — часть исправления). */
+      --shell-bg: rgba(24, 28, 38, 0.72);
+      --shell-bg-mobile: rgba(24, 28, 38, 0.78);
       --shell-bg-strong: rgba(24, 28, 35, 0.90);
-      --shell-border-color: rgba(178, 190, 208, 0.20);
+      --shell-border-color: rgba(255, 255, 255, 0.08);
       --shell-border: 1px solid var(--shell-border-color);
-      --shell-highlight: rgba(255, 255, 255, 0.18);
-      --shell-highlight-soft: rgba(255, 255, 255, 0.05);
-      --shell-shadow: 0 12px 30px -18px rgba(3, 7, 18, 0.55);
-      --shell-blur: blur(18px) saturate(120%);
-      --shell-specular: linear-gradient(160deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 42%, transparent 72%);
-      --shell-texture: repeating-linear-gradient(135deg, rgba(255,255,255,.020) 0 1px, transparent 1px 3px);
+      --shell-highlight: rgba(255, 255, 255, 0.06);
+      --shell-highlight-soft: rgba(255, 255, 255, 0.03);
+      --shell-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+      --shell-blur: blur(18px) saturate(115%);
+      --shell-specular: linear-gradient(160deg, rgba(255,255,255,.05), rgba(255,255,255,.015) 44%, transparent 74%);
+      --shell-texture: repeating-linear-gradient(135deg, rgba(255,255,255,.014) 0 1px, transparent 1px 3px);
+      --shell-sheen-opacity: .05;
       --card-shadow: 0 8px 20px -14px rgba(3, 7, 18, 0.45);
       /* compat-алиасы (хардкод прежней фиолетово-синей палитры удалён, §4.5) */
       --card-bg: var(--glass-bg);
@@ -156,11 +161,128 @@
       background: transparent;
       position: relative;
     }
-    /* §10/F2 (T-2544/T-2545): мягкая page-wash — механику сохраняем
-       (@property --grad-angle + grad-spin/grad-drift), но цвета §10 (без оранжевого)
-       и длительности 60–90 c (основной) / 90–120 c (вторичный drift), opacity .42.
-       Blur viewport НЕ анимируется (T-2541): анимируются угол/позиция градиента. */
+    /* ═══ HOTFIX8 (ADR-1025-16 D3): живой aurora/mesh фон (CSS-first) ═══
+       Заменяет «мёртвый» conic page-wash (§10/F2: 75 c, opacity .30). Слой —
+       отдельный задний (body::before/body::after/.aurora-bg, z-index:0 < #app),
+       палитра §8/§10 (teal/blue/violet/indigo, без оранжевого), 5 blob-слоёв,
+       разные фазы/длительности, лёгкий morph, слабый grain. Механика
+       `@property --grad-angle` + grad-spin/grad-drift СОХРАНЕНА для
+       .grad-band/.btn-accent/.tab-btn.active и как legacy-фолбэк фона
+       (UI_AURORA_BG_ENABLED=OFF → класс html.bg-wash-legacy ниже).
+       Blur viewport НЕ анимируется (T-2541): движемся transform/opacity/
+       background-position, но НЕ filter. */
     body::before {
+      content: '';
+      position: fixed;
+      inset: -12%;
+      z-index: 0;
+      pointer-events: none;
+      /* Медленный атмосферный mesh (3 blob) — не статичен, не «психоделика»:
+         основной цикл 60–90 c, вторичный morph 90–120 c (токены §10). */
+      background:
+        radial-gradient(42% 55% at 18% 22%, rgba(66, 214, 196, .30), transparent 64%),
+        radial-gradient(48% 54% at 82% 24%, rgba(119, 168, 255, .26), transparent 66%),
+        radial-gradient(46% 58% at 70% 84%, rgba(167, 139, 250, .30), transparent 66%),
+        var(--surface-0);
+      background-size: 180% 180%, 180% 180%, 180% 180%, 100% 100%;
+      animation: aurora-flow var(--grad-speed) ease-in-out infinite alternate,
+                 aurora-morph var(--grad-speed-slow) var(--grad-ease) infinite alternate;
+    }
+    /* Второй слой: ещё 2 blob + очень слабый grain (едва заметен). */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: -12%;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 2px),
+        repeating-linear-gradient(90deg, rgba(0,0,0,.020) 0 1px, transparent 1px 2px),
+        radial-gradient(40% 50% at 30% 74%, rgba(92, 124, 250, .24), transparent 64%),
+        radial-gradient(34% 42% at 62% 40%, rgba(66, 214, 196, .18), transparent 68%);
+      animation: aurora-flow-rev var(--grad-speed-slow) ease-in-out infinite alternate;
+      animation-delay: -21s;
+      opacity: .9;
+    }
+    /* Быстрые (но плавные) blob-слои 26–58 c: разные фазы через отрицательные
+       задержки — «медленно, но заметно», не «заморожено». */
+    .aurora-bg {
+      position: fixed; inset: -14%; z-index: 0;
+      pointer-events: none; overflow: hidden;
+    }
+    .aurora-bg .aurora-blob {
+      position: absolute; display: block;
+      width: 52vmax; height: 52vmax; border-radius: 50%;
+      filter: blur(64px); opacity: .5; will-change: transform;
+    }
+    .aurora-bg .aurora-blob.b1 {
+      left: -8%; top: -12%;
+      background: radial-gradient(circle at 42% 42%, rgba(66, 214, 196, .60), transparent 68%);
+      animation: aurora-blob-1 34s ease-in-out infinite alternate;
+    }
+    .aurora-bg .aurora-blob.b2 {
+      right: -10%; top: -6%;
+      background: radial-gradient(circle at 50% 50%, rgba(119, 168, 255, .55), transparent 68%);
+      animation: aurora-blob-2 46s ease-in-out -12s infinite alternate;
+    }
+    .aurora-bg .aurora-blob.b3 {
+      left: 6%; bottom: -18%;
+      background: radial-gradient(circle at 50% 50%, rgba(167, 139, 250, .55), transparent 68%);
+      animation: aurora-blob-3 40s ease-in-out -22s infinite alternate;
+    }
+    .aurora-bg .aurora-blob.b4 {
+      right: 2%; bottom: -14%;
+      background: radial-gradient(circle at 50% 50%, rgba(92, 124, 250, .50), transparent 68%);
+      animation: aurora-blob-4 52s ease-in-out -30s infinite alternate;
+    }
+    .aurora-bg .aurora-blob.b5 {
+      left: 38%; top: 26%; width: 40vmax; height: 40vmax;
+      background: radial-gradient(circle at 50% 50%, rgba(66, 214, 196, .30), transparent 70%);
+      animation: aurora-blob-1 58s ease-in-out -40s infinite alternate;
+    }
+    .aurora-bg .aurora-grain {
+      position: absolute; inset: 0; opacity: .5;
+      background-image:
+        repeating-linear-gradient(0deg, rgba(255,255,255,.014) 0 1px, transparent 1px 2px),
+        repeating-linear-gradient(90deg, rgba(0,0,0,.022) 0 1px, transparent 1px 2px);
+    }
+    @keyframes aurora-flow {
+      from { background-position: 0% 0%, 100% 0%, 60% 100%, 50% 50%; }
+      to   { background-position: 12% 14%, 84% 16%, 44% 82%, 50% 50%; }
+    }
+    @keyframes aurora-flow-rev {
+      from { background-position: 50% 50%, 50% 50%, 30% 74%, 62% 40%; }
+      to   { background-position: 50% 50%, 50% 50%, 40% 62%, 52% 44%; }
+    }
+    @keyframes aurora-morph {
+      from { transform: scale(1); }
+      to   { transform: scale(1.06); }
+    }
+    @keyframes aurora-blob-1 {
+      0%   { transform: translate3d(0, 0, 0) scale(1); border-radius: 50% 50% 50% 50%; }
+      50%  { transform: translate3d(7%, 5%, 0) scale(1.14); border-radius: 58% 42% 52% 48%; }
+      100% { transform: translate3d(-3%, 9%, 0) scale(.98); border-radius: 46% 54% 44% 56%; }
+    }
+    @keyframes aurora-blob-2 {
+      0%   { transform: translate3d(0, 0, 0) scale(1.06); border-radius: 50% 50% 50% 50%; }
+      50%  { transform: translate3d(-6%, 7%, 0) scale(.94); border-radius: 44% 56% 50% 50%; }
+      100% { transform: translate3d(4%, -5%, 0) scale(1.1); border-radius: 54% 46% 56% 44%; }
+    }
+    @keyframes aurora-blob-3 {
+      0%   { transform: translate3d(0, 0, 0) scale(1); border-radius: 50% 50% 50% 50%; }
+      50%  { transform: translate3d(5%, -6%, 0) scale(1.12); border-radius: 60% 40% 48% 52%; }
+      100% { transform: translate3d(-5%, 4%, 0) scale(.96); border-radius: 42% 58% 54% 46%; }
+    }
+    @keyframes aurora-blob-4 {
+      0%   { transform: translate3d(0, 0, 0) scale(1.04); border-radius: 50% 50% 50% 50%; }
+      50%  { transform: translate3d(-7%, -4%, 0) scale(.92); border-radius: 46% 54% 42% 58%; }
+      100% { transform: translate3d(3%, 6%, 0) scale(1.08); border-radius: 56% 44% 52% 48%; }
+    }
+    /* UI_AURORA_BG_ENABLED=OFF (класс ставит app.js): прежний conic page-wash
+       §10/F2 — механика/цвета/длительности 60–90 c / 90–120 c, opacity .30. */
+    html.bg-wash-legacy .aurora-bg { display: none !important; }
+    html.bg-wash-legacy body::after { content: none; }
+    html.bg-wash-legacy body::before {
       content: '';
       position: fixed;
       inset: -10%;
@@ -171,13 +293,13 @@
       background-size: 200% 200%;
       animation: grad-spin var(--grad-speed) linear infinite,
                  grad-drift var(--grad-speed-slow) var(--grad-ease) infinite alternate;
-      /* D3.5/ADR-1025-13: «грязное затемнение» убрано (.42 → .30); механика,
-         цвета и длительности §10 сохранены (60–90 c / 90–120 c). */
       opacity: .30;
     }
     /* §10/T-2547: пауза дорогих эффектов при скрытии TMA (класс ставит
        onVisibilityChange в app.js — единый обработчик, без второго listener'а). */
     html.lg-bg-paused body::before,
+    html.lg-bg-paused body::after,
+    html.lg-bg-paused .aurora-blob,
     html.lg-bg-paused .grad-band,
     html.lg-bg-paused .btn-accent,
     html.lg-bg-paused .tab-btn.active {
@@ -187,9 +309,11 @@
     @media (prefers-reduced-motion: reduce) {
       .grad-band, .btn-accent, .tab-btn.active { animation: none !important; }
       body::before {
-        animation: none !important; opacity: .26;
+        animation: none !important;
         background: linear-gradient(135deg, var(--grad-a), var(--grad-b), var(--grad-c));
       }
+      body::after { animation: none !important; }
+      .aurora-bg .aurora-blob { animation: none !important; }
       :root { --grad-angle: 135deg; }
       /* T-2548: при reduced-motion гасим дорогое преломление уровня A (остаётся B). */
       [data-glass="a"] {
@@ -198,10 +322,11 @@
       }
     }
     @media (prefers-contrast: more) {
-      .grad-band, .btn-accent, .tab-btn.active, body::before {
+      .grad-band, .btn-accent, .tab-btn.active, body::before, body::after {
         animation: none !important; background-image: none !important;
         background-color: var(--surface-3) !important; opacity: 1;
       }
+      .aurora-bg { display: none !important; }
     }
 
     /* Glass-карточки (84.7/UPD3): полупрозрачные — фон просвечивает */
@@ -401,6 +526,8 @@
     .scope-trigger {
       display: inline-flex; align-items: center; gap: .4rem; cursor: pointer;
       max-width: 260px;
+      /* HOTFIX8 (ADR-1025-16 D2 §4): selector/pill-floating — 16 px. */
+      border-radius: 16px;
     }
     .scope-initial {
       width: 20px; height: 20px; border-radius: 50%;
@@ -789,11 +916,14 @@
       position: sticky;
       top: 0;
       z-index: 40;
-      /* HOTFIX7 (ADR-1025-13 D3.2): шапка — отдельный серо-графитовый
-         shell-слой (--shell-bg-strong, плотнее карточек), не карточный
-         --glass-bg. Контент при скролле не «просвечивает грязно». */
-      background: var(--shell-bg-strong);
+      /* HOTFIX8 (ADR-1025-16 D2): шапка — отдельный серо-графитовый shell-слой
+         §4 (--shell-bg, glass), не карточный --glass-bg. Ширину рамки даёт
+         `[data-glass="shell"]`; сверху/сбоку рамка снята (full-bleed шапка). */
+      background-color: var(--shell-bg);
       border-bottom: var(--shell-border);
+      border-top: 0;
+      border-right: 0;
+      border-left: 0;
       box-shadow: var(--shell-shadow),
                   inset 0 1px 0 var(--shell-highlight),
                   inset 0 -1px 0 var(--shell-highlight-soft);
@@ -1155,6 +1285,38 @@
       mask-image: radial-gradient(ellipse at center,
                   transparent 0%, transparent 52%, #000 78%, #000 100%);
     }
+    /* ═══ HOTFIX8 (ADR-1025-16 D2): shell v3 — нейтральный графитовый glass ═══
+       Панели (sidebar/header/drawer/bottom-nav/more-sheet) больше НЕ несут
+       `data-glass="a"` → цветная teal/blue/violet линза-ореол
+       `[data-glass="a"]::before` к shell не применяется. Рецепт §4: `--shell-bg`
+       + тонкая обводка + мягкий inner highlight + subtle specular/текстура +
+       БЕСЦВЕТНЫЙ sheen ПОД контентом. Без внешнего glow/виньетки. */
+    [data-glass="shell"] {
+      position: relative;
+      isolation: isolate;
+      background-color: var(--shell-bg);
+      background-image: var(--shell-specular), var(--shell-texture);
+      border: var(--shell-border);
+      box-shadow: var(--shell-shadow),
+                  inset 0 1px 0 var(--shell-highlight);
+      -webkit-backdrop-filter: var(--shell-blur);
+      backdrop-filter: var(--shell-blur);
+    }
+    /* Очень слабый нейтральный specular (бесцветный, opacity ≤ .05, z-index:-1
+       в изолированном контексте → под контентом). `--glass-displace`
+       переиспользует #lg-lens: «заметно лишь при внимательном рассмотрении»,
+       не лупа/желе, текст и интерактив не искажаются. Цветной radial-маски-ореола
+       (как у уровня A) здесь НЕТ. */
+    [data-glass="shell"]::after {
+      content: "";
+      position: absolute; inset: 0; z-index: -1;
+      pointer-events: none; border-radius: inherit;
+      background: linear-gradient(135deg,
+                  rgba(255, 255, 255, .06), transparent 68%);
+      opacity: var(--shell-sheen-opacity, .05);
+      -webkit-filter: var(--glass-displace);
+      filter: var(--glass-displace);
+    }
     /* §9/F2 (AMEND ADR-1025-12 D1): обратимое понижение A → B (нет поддержки
        `filter:url()` / перф-кап / reduced-motion): JS ставит
        `data-glass-downgraded`; линза отключается, остаётся blur-B. opt-in
@@ -1242,11 +1404,13 @@
         -webkit-backdrop-filter: none;
         backdrop-filter: none;
       }
-      /* HOTFIX7 (ADR-1025-13 D3.2): shell-панели — плотный серо-графитовый
+      /* HOTFIX8 (ADR-1025-16 D2): shell-панели — плотный серо-графитовый
          фолбэк (раскладка/контраст сохранены, стекло честно исчезает). */
+      [data-glass="shell"],
       .app-sidebar, .app-drawer, header.header-sticky,
       .bottom-nav, .more-sheet {
         background-color: var(--shell-bg-strong);
+        background-image: none;
         -webkit-backdrop-filter: none;
         backdrop-filter: none;
       }
@@ -1254,6 +1418,26 @@
         content: none; -webkit-filter: none; filter: none;
         -webkit-mask-image: none; mask-image: none;
       }
+      [data-glass="shell"]::after {
+        content: none; -webkit-filter: none; filter: none;
+      }
+    }
+    /* HOTFIX8 (ADR-1025-16 D5): UI_SHELL_V3=OFF → значения `--shell-*` hotfix7
+       (мягкий откат рецепта §4 без возврата цветной линзы). */
+    .app-shell.shell-v3-off {
+      --shell-bg: rgba(33, 37, 45, 0.62);
+      --shell-bg-mobile: rgba(33, 37, 45, 0.62);
+      --shell-border-color: rgba(178, 190, 208, 0.20);
+      --shell-highlight: rgba(255, 255, 255, 0.18);
+      --shell-highlight-soft: rgba(255, 255, 255, 0.05);
+      --shell-shadow: 0 12px 30px -18px rgba(3, 7, 18, 0.55);
+      --shell-blur: blur(18px) saturate(120%);
+      --shell-specular: linear-gradient(160deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 42%, transparent 72%);
+      --shell-texture: repeating-linear-gradient(135deg, rgba(255,255,255,.020) 0 1px, transparent 1px 3px);
+    }
+    /* Мобильный shell плотнее (§4: 0.78) — только для shell v3 (default). */
+    @media (max-width: 767px) {
+      .app-shell:not(.shell-v3-off) { --shell-bg: var(--shell-bg-mobile); }
     }
     /* HOTFIX7 D3.8 (ADR-1025-13): UI_SHELL_GLASS_V2=OFF → shell-панели
        возвращаются к общим карточным токенам (поведение до HOTFIX7) —
@@ -1272,11 +1456,13 @@
     .app-shell.shell-glass-legacy header.header-sticky {
       background-color: var(--glass-bg-strong);
       background-image: none;
+      border-color: transparent;
       border-bottom-color: var(--glass-border-color);
       box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
       -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
       backdrop-filter: var(--glass-blur) saturate(140%);
     }
+    .app-shell.shell-glass-legacy [data-glass="shell"]::after { content: none; }
 
     /* T-1900/UPD3 (T-1938): sticky-save — одна закреплённая панель внизу
        скролл-контейнера (модалки/вкладки). */
@@ -1663,20 +1849,21 @@
     .sidebar-brand .msr { color: var(--teal-500); }
     .sidebar-brand-title { font-size: .95rem; letter-spacing: .01em; }
 
-    /* Desktop sidebar (≥1200): фикс. панель ≈232 px, sticky-контент. */
+    /* Desktop sidebar (≥1200): фикс. панель 216 px (§4: 208–224), sticky-контент. */
     .app-sidebar { display: none; }
     @media (min-width: 1200px) {
-      .app-shell.ia-v2 { padding-left: 232px; }
+      .app-shell.ia-v2 { padding-left: 216px; }
       .app-shell.ia-v2 .app-sidebar {
         display: flex; flex-direction: column;
-        position: fixed; top: 0; left: 0; bottom: 0; width: 232px;
+        position: fixed; top: 0; left: 0; bottom: 0; width: 216px;
         padding: .5rem .5rem calc(.5rem + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px)));
-        /* HOTFIX7 (ADR-1025-13 D3.2/D3.3): shell-панель — серо-графитовый
-           base + backdrop blur + мягкая внутренняя подсветка + specular +
-           аккуратная текстура; тон/глубина отличны от карточек. */
+        /* HOTFIX8 (ADR-1025-16 D2/D4): shell-панель — §4 base + backdrop blur +
+           мягкая внутренняя подсветка + subtle specular/текстура; тон/глубина
+           отличны от карточек; радиус 0 (стык к main content). */
         background-color: var(--shell-bg);
         background-image: var(--shell-specular), var(--shell-texture);
         border-right: var(--shell-border);
+        border-radius: 0;
         box-shadow: var(--shell-shadow),
                     inset 0 1px 0 var(--shell-highlight),
                     inset 0 -1px 0 var(--shell-highlight-soft);
@@ -1701,11 +1888,12 @@
     .app-drawer {
       position: fixed; top: 0; left: 0; bottom: 0; width: min(280px, 84vw);
       padding: .75rem .5rem calc(.75rem + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px)));
-      /* HOTFIX7 (ADR-1025-13 D3.2): drawer — тот же серо-графитовый shell-слой,
-         что sidebar/bottom-nav (единый тон/граница/глубина/blur). */
+      /* HOTFIX8 (ADR-1025-16 D2/D4): drawer — тот же §4 shell-слой, что
+         sidebar/bottom-nav; скруглён с внутренней стороны (18 px). */
       background-color: var(--shell-bg);
       background-image: var(--shell-specular), var(--shell-texture);
       border-right: var(--shell-border);
+      border-radius: 0 18px 18px 0;
       box-shadow: var(--shell-shadow),
                   inset 0 1px 0 var(--shell-highlight),
                   inset 0 -1px 0 var(--shell-highlight-soft);
@@ -1732,11 +1920,12 @@
       bottom: var(--tg-viewport-bottom-offset,
                   max(0px, calc(100dvh - var(--tg-viewport-stable-height, 100dvh))));
       display: flex; align-items: stretch; justify-content: space-around;
-      /* HOTFIX7 (ADR-1025-13 D3.2): нижняя панель — серо-графитовый shell-слой
-         (единый с sidebar/drawer); стекло поверх контента. */
+      /* HOTFIX8 (ADR-1025-16 D2/D4): нижняя панель — §4 shell-слой
+         (единый с sidebar/drawer); скруглена сверху (18 px, mobile shell block). */
       background-color: var(--shell-bg);
       background-image: var(--shell-specular), var(--shell-texture);
       border-top: var(--shell-border);
+      border-radius: 18px 18px 0 0;
       box-shadow: var(--shell-shadow),
                   inset 0 1px 0 var(--shell-highlight);
       -webkit-backdrop-filter: var(--shell-blur);
@@ -1787,8 +1976,8 @@
       bottom: calc(52px + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px)) + var(--tg-viewport-bottom-offset, max(0px, calc(100dvh - var(--tg-viewport-stable-height, 100dvh))))); z-index: 50;
       display: flex; flex-direction: column; gap: .15rem;
       padding: .5rem .6rem calc(.75rem + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px))); max-height: 70dvh; overflow-y: auto;
-      /* HOTFIX7 (ADR-1025-13 D3.2): шторка «Ещё» — единый серо-графитовый
-         shell-слой. */
+      /* HOTFIX8 (ADR-1025-16 D2/D4): шторка «Ещё» — §4 shell-слой,
+         mobile shell block радиус 18 px. */
       background-color: var(--shell-bg);
       background-image: var(--shell-specular), var(--shell-texture);
       border-top: var(--shell-border);
@@ -1796,7 +1985,7 @@
                   inset 0 1px 0 var(--shell-highlight);
       -webkit-backdrop-filter: var(--shell-blur);
       backdrop-filter: var(--shell-blur);
-      border-radius: .9rem .9rem 0 0;
+      border-radius: 18px 18px 0 0;
       transform: translateY(110%); transition: transform .2s ease;
       max-width: 100vw;
     }

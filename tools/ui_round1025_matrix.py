@@ -106,6 +106,12 @@ ME_JSON = {
         "DOSSIER_LIVE_FEED_ENABLED": True,
         "ALIASES_KEYSVALUE_RENDER_ENABLED": True,
         "IA_V2_ENABLED": True,
+        # hotfix7/hotfix8: default ON (штатное поведение shell v3 + aurora).
+        "UI_SHELL_GLASS_V2": True,
+        "UI_SHELL_LAYOUT_V2": True,
+        "UI_HEARTBEAT_PREMIUM": True,
+        "UI_SHELL_V3": True,
+        "UI_AURORA_BG_ENABLED": True,
     },
 }
 
@@ -395,6 +401,7 @@ F2_PROBE_JS = """
     return (st.backdropFilter || st.webkitBackdropFilter || '');
   };
   const before = getComputedStyle(document.body, '::before');
+  const after = getComputedStyle(document.body, '::after');
   const c = document.querySelector('[data-glass="c"]');
   // D-1/@Reviewer: фактический цвет Tailwind-утилиты внутри стекла (12px).
   const utilEl = document.querySelector('[data-glass] .text-gray-500') ||
@@ -449,6 +456,13 @@ F2_PROBE_JS = """
     },
     beforeAnim: before.animationName,
     beforeDur: before.animationDuration,
+    afterAnim: after.animationName,
+    afterDur: after.animationDuration,
+    auroraBlobs: document.querySelectorAll('.aurora-bg .aurora-blob').length,
+    auroraAnim: (() => {
+      const b = document.querySelector('.aurora-bg .aurora-blob');
+      return b ? getComputedStyle(b).animationName : '';
+    })(),
     allow: allow,
     utility: utility,
     panelText: panelText,
@@ -608,6 +622,7 @@ F7_PROBE_JS = """
     fullscreenMode: !!document.querySelector('.app-shell.fullscreen-mode'),
     shellBg: tok('--shell-bg'), shellBgStrong: tok('--shell-bg-strong'),
     shellBlur: tok('--shell-blur'), glassBg: tok('--glass-bg'),
+    shellBgMobileToken: tok('--shell-bg-mobile'),
     beforeOpacity: parseFloat(before.opacity),
     urlBackdropFilter: urlBf,
     hbCanvas: hbBox, hbState: hbState, hbVisible: hbVisible,
@@ -617,6 +632,48 @@ F7_PROBE_JS = """
       sidebar: style('.app-sidebar'), header: style('header.header-sticky'),
       bottomNav: style('.bottom-nav'), moreSheet: style('.more-sheet'),
     },
+    // HOTFIX8 (ADR-1025-16 D2/D4): shell-панели в нейтральном `data-glass="shell"`
+    // (цветная линза A снята); sidebar 208–224px; gap header↔первая карточка
+    // 16–20px; живые aurora-слои.
+    shellGlass: ['sidebar', 'header', 'drawer', 'bottomNav', 'moreSheet']
+      .map((n) => {
+        const sel = { sidebar: '.app-sidebar', header: 'header.header-sticky',
+                      drawer: '.app-drawer', bottomNav: '.bottom-nav',
+                      moreSheet: '.more-sheet' }[n];
+        const el = document.querySelector(sel);
+        return { name: n, glass: el ? el.getAttribute('data-glass') : null };
+      }),
+    shellA: ['sidebar', 'header', 'drawer', 'bottomNav', 'moreSheet']
+      .map((n) => {
+        const sel = { sidebar: '.app-sidebar', header: 'header.header-sticky',
+                      drawer: '.app-drawer', bottomNav: '.bottom-nav',
+                      moreSheet: '.more-sheet' }[n];
+        return !!document.querySelector(sel + '[data-glass="a"]');
+      }).some(Boolean),
+    shellLensPaint: (() => {
+      const el = document.querySelector('.app-sidebar')
+        || document.querySelector('header.header-sticky');
+      if (!el) return null;
+      const bf = getComputedStyle(el, '::before');
+      return { content: bf.content, bg: bf.backgroundImage };
+    })(),
+    sidebarW: (() => {
+      const el = document.querySelector('.app-sidebar');
+      return el ? Math.round(el.getBoundingClientRect().width) : null;
+    })(),
+    headerCardGap: (() => {
+      const h = document.querySelector('header.header-sticky');
+      const sa = document.querySelector('.scroll-area');
+      const c = sa && sa.firstElementChild;
+      if (!h || !c) return null;
+      return Math.round(c.getBoundingClientRect().top
+                        - h.getBoundingClientRect().bottom);
+    })(),
+    auroraBlobs: document.querySelectorAll('.aurora-bg .aurora-blob').length,
+    auroraAnim: (() => {
+      const b = document.querySelector('.aurora-bg .aurora-blob');
+      return b ? getComputedStyle(b).animationName : '';
+    })(),
     scrollW: de.scrollWidth, innerW: window.innerWidth,
     innerH: window.innerHeight,
     f2ShellH: f2ShellH,
@@ -748,9 +805,13 @@ def _f2_failures(probe: dict, label: str) -> list:
     if gss is None or not (90.0 <= gss <= 120.0):
         out.append("%s фон §10: --grad-speed-slow=%r вне [90,120]s"
                    % (label, t.get("gss")))
-    if "grad-spin" not in (probe.get("beforeAnim") or ""):
-        out.append("%s фон: body::before без grad-spin (%r)"
-                   % (label, probe.get("beforeAnim")))
+    # HOTFIX8 (ADR-1025-16 D3): фон «живой» (не static) — aurora
+    # (body::before/after/.aurora-blob) либо legacy conic grad-spin.
+    anims = [probe.get("beforeAnim"), probe.get("afterAnim"),
+             probe.get("auroraAnim")]
+    alive = [a for a in anims if a and a.strip() and a.strip() != "none"]
+    if not alive:
+        out.append("%s фон: анимация отсутствует (static) %r" % (label, anims))
     # T-2544/итерация @Reviewer: диапазоны из computed animationDuration
     # (без хардкода 75s/105s): основной 60–90 c, вторичный 90–120 c.
     durs = [float(s) for s in re.findall(r"([\d.]+)s", probe.get("beforeDur") or "")]
@@ -952,10 +1013,6 @@ def _hotfix7_failures(probe: dict, label: str, expected_fs: bool) -> list:
         out.append("%s glass: --shell-bg отсутствует" % label)
     if sbg and gbg and sbg.replace(" ", "") == gbg.replace(" ", ""):
         out.append("%s glass: --shell-bg == --glass-bg (слои слились)" % label)
-    op = probe.get("beforeOpacity")
-    if op is not None and op > 0.32:
-        out.append("%s фон: body::before opacity=%s > 0.32 (виньетка)"
-                   % (label, op))
     if probe.get("urlBackdropFilter"):
         out.append("%s §9: backdrop-filter: url( найден (%d)"
                    % (label, probe["urlBackdropFilter"]))
@@ -976,6 +1033,66 @@ def _hotfix7_failures(probe: dict, label: str, expected_fs: bool) -> list:
         elif sh["h"] > probe.get("innerH", 0) + 1:
             out.append("%s fullscreen: shell выше видимой области (h=%d > %d)"
                        % (label, sh["h"], probe.get("innerH")))
+    return out
+
+
+def _hotfix8_failures(probe: dict, label: str, width: int) -> list:
+    """HOTFIX8 (ADR-1025-16 D2/D3/D4): shell v3 §4, aurora-фон, геометрия.
+
+    Проверяем: shell-панели в нейтральном `data-glass="shell"` (нет цветной
+    линзы A/ореола); computed shell-bg/border/blur §4; sidebar 208–224px;
+    gap header↔первая карточка 16–20px; aurora-слои живы (не static);
+    scroll/bottom-инварианты (см. также `_vertical_failures`)."""
+    out = []
+    shell_glass = probe.get("shellGlass") or []
+    for it in shell_glass:
+        if it.get("glass") not in (None, "shell"):
+            out.append("%s shell8: панель %s несёт data-glass=%r "
+                       "(ожидалось 'shell' — цветная линза A снята)"
+                       % (label, it.get("name"), it.get("glass")))
+    if probe.get("shellA"):
+        out.append("%s shell8: панель с data-glass=\"a\" (цветной ореол A)"
+                   % label)
+    lens = probe.get("shellLensPaint") or {}
+    if lens:
+        bg = (lens.get("bg") or "")
+        if "linear-gradient" in bg and ("66, 214, 196" in bg
+                                        or "167, 139, 250" in bg
+                                        or "119, 168, 255" in bg):
+            out.append("%s shell8: цветная линза на shell (background-image=%r)"
+                       % (label, bg[:120]))
+    # §4 computed-значения: bg rgba(24,28,38,.72) (mobile .78), border
+    # rgba(255,255,255,.08), blur(18px) saturate(115%).
+    sbg = (probe.get("shellBg") or "").replace(" ", "")
+    if sbg and "24,28,38" not in sbg:
+        out.append("%s shell8: --shell-bg=%r (ожидалось rgba(24,28,38,.72/.78))"
+                   % (label, probe.get("shellBg")))
+    sblur = (probe.get("shellBlur") or "").replace(" ", "")
+    if sblur and "blur(18px)" not in sblur:
+        out.append("%s shell8: --shell-blur=%r (ожидалось blur(18px))"
+                   % (label, probe.get("shellBlur")))
+    for name, box in (probe.get("shell") or {}).items():
+        if not box:
+            continue
+        if box.get("bf") and "blur(18px)" not in box["bf"].replace(" ", ""):
+            out.append("%s shell8: %s backdrop-filter=%r (ожидалось blur(18px))"
+                       % (label, name, box.get("bf")))
+    # Desktop sidebar 208–224px (§5.1/§7).
+    sw = probe.get("sidebarW")
+    if width >= 1200 and sw is not None and not (208 <= sw <= 224):
+        out.append("%s shell8: sidebar width=%dpx вне [208,224]" % (label, sw))
+    # Gap header↔первая карточка 16–20px (допуск ±2 на округление).
+    gap = probe.get("headerCardGap")
+    if gap is not None and not (14 <= gap <= 22):
+        out.append("%s shell8: gap header↔карточка=%dpx вне [16,20]" % (label, gap))
+    # Живой aurora-фон (§6 «не static»): animated blob-слой.
+    anim = (probe.get("auroraAnim") or "").strip()
+    if anim in ("", "none"):
+        out.append("%s shell8: aurora не анимируется (animation-name=%r)"
+                   % (label, probe.get("auroraAnim")))
+    if probe.get("auroraBlobs", 0) < 3:
+        out.append("%s shell8: aurora blob-слоёв %d < 3"
+                   % (label, probe.get("auroraBlobs")))
     return out
 
 
@@ -1146,6 +1263,9 @@ def main() -> int:
             out["viewports"][vp_key]["hotfix7_normal"] = f7
             failures.extend(_hotfix7_failures(
                 f7, "%s normal" % vp_key, False))
+            out["viewports"][vp_key]["hotfix8_normal"] = f7
+            failures.extend(_hotfix8_failures(
+                f7, "%s normal" % vp_key, w))
             f2 = page.evaluate(F2_PROBE_JS)
             out["viewports"][vp_key]["f2"] = f2
             failures.extend(_f2_failures(f2, vp_key))
@@ -1310,6 +1430,9 @@ def main() -> int:
                 out["viewports"][vp_key]["hotfix7_fullscreen"] = fs7
                 failures.extend(_hotfix7_failures(
                     fs7, "%s fullscreen" % vp_key, True))
+                out["viewports"][vp_key]["hotfix8_fullscreen"] = fs7
+                failures.extend(_hotfix8_failures(
+                    fs7, "%s fullscreen" % vp_key, w))
                 _snap(page, "%s_fullscreen" % vp_key)
                 # Сброс в normal (не влияет на следующие вьюпорты, но чисто
                 # завершает контекст).

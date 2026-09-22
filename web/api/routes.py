@@ -395,6 +395,10 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
             "UI_SHELL_GLASS_V2": bool(settings.UI_SHELL_GLASS_V2),
             "UI_HEARTBEAT_PREMIUM": bool(settings.UI_HEARTBEAT_PREMIUM),
             "UI_SHELL_LAYOUT_V2": bool(settings.UI_SHELL_LAYOUT_V2),
+            # Хотфикс-8 (10.25, ADR-1025-16 D5): shell v3 (§4, графитовый glass)
+            # и aurora/mesh фон. R16-аддитивно, R17-safe (bool), Δ каталога = 0.
+            "UI_SHELL_V3": bool(settings.UI_SHELL_V3),
+            "UI_AURORA_BG_ENABLED": bool(settings.UI_AURORA_BG_ENABLED),
         },
     }
 

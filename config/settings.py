@@ -729,6 +729,19 @@ class Settings:
         "UI_HEARTBEAT_PREMIUM", True)
     UI_SHELL_LAYOUT_V2: ClassVar[bool] = _env_bool(
         "UI_SHELL_LAYOUT_V2", True)
+    # ── Хотфикс-8 (10.25, ADR-1025-16 D5): env-only ClassVar-флаги двух
+    # областей — shell v3 (§4, графитовый glass без цветной линзы) и
+    # aurora/mesh фон (D3). Δ каталога = 0 (в param_catalog НЕ входят).
+    # Доставка — `GET /api/me.ui_flags` (ADR-1024-13), наружу только bool.
+    # Default ON = штатное новое поведение; OFF → прежнее:
+    #   * UI_SHELL_V3 — OFF → значения `--shell-*` hotfix7 (класс
+    #     `.app-shell.shell-v3-off`); цветная линза НЕ возвращается (её снятие —
+    #     часть исправления §1.2, а не настройка).
+    #   * UI_AURORA_BG_ENABLED — OFF → прежний conic page-wash `body::before`
+    #     (класс `html.bg-wash-legacy`).
+    UI_SHELL_V3: ClassVar[bool] = _env_bool("UI_SHELL_V3", True)
+    UI_AURORA_BG_ENABLED: ClassVar[bool] = _env_bool(
+        "UI_AURORA_BG_ENABLED", True)
     # ── Раунд 10.22 (F8, ADR-1022-8): env-only ClassVar-рубильники
     # асинхронной пересборки досье из мини-аппа. Δ каталога = 0 (в
     # param_catalog не входят; прецедент MULTILAYER_EXTRACTION_ENABLED).

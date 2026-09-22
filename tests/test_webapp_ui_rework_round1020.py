@@ -343,16 +343,23 @@ class TestGradient:
                 if sel == ".grad-band" and ctx == "" and "conic-gradient" in b]
         assert band, "нет conic-gradient у .grad-band"
         assert "var(--grad-d)" in band[-1]
-        # body::before — конусный градиент с оранжевым
+        # HOTFIX8 (ADR-1025-16 D3): REVISE фона §10 — `body::before` теперь
+        # aurora/mesh (radial-gradient blob, палитра §8/§10 без оранжевого),
+        # прежний conic page-wash сохранён как legacy-фолбэк
+        # (UI_AURORA_BG_ENABLED=OFF → `html.bg-wash-legacy body::before`).
         wash = [b for ctx, sel, b in RULES
                 if sel == "body::before" and ctx == ""]
         assert wash, "нет правила body::before"
-        assert "conic-gradient" in wash[-1]
-        assert "var(--grad-d)" in wash[-1]
-        # hotfix7 (ADR-1025-13 D3.5): плотность wash снижена .42 → .30 (снятие
-        # «грязного затемнения»); механика/цвета §10 сохранены.
-        assert re.search(r"opacity:\s*\.3", wash[-1] + " ") or \
-            re.search(r"opacity:\s*0\.3", wash[-1]), wash[-1]
+        assert "radial-gradient" in wash[-1], "aurora: radial blob-слои"
+        assert "var(--surface-0)" in wash[-1], "aurora: подложка surface-0"
+        # оранжевого стопа в aurora-слое нет
+        assert "#FF8A3D" not in wash[-1]
+        legacy = [b for ctx, sel, b in RULES
+                  if sel == "html.bg-wash-legacy body::before"]
+        assert legacy and "conic-gradient" in legacy[-1], \
+            "net legacy conic page-wash (UI_AURORA_BG_ENABLED=OFF)"
+        assert re.search(r"opacity:\s*\.3", legacy[-1] + " ") or \
+            re.search(r"opacity:\s*0\.3", legacy[-1]), legacy[-1]
 
     def test_reduced_motion_and_contrast_kept(self):
         assert "@media (prefers-reduced-motion: reduce)" in CSS

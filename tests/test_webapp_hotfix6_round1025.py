@@ -65,12 +65,16 @@ class TestAreaA:
         assert "backdrop-filter', 'url(#lg-displace)" not in APP_JS
 
     def test_panels_in_allow_list(self):
-        """A2: панели (sidebar/drawer/header/bottom-nav/more-sheet) в allow-list."""
-        assert 'class="app-sidebar" data-glass="a"' in INDEX
-        assert 'class="app-drawer"' in INDEX and "data-glass=\"a\"" in INDEX
-        assert 'class="bottom-nav" data-glass="a"' in INDEX
-        assert 'class="more-sheet" data-glass="a"' in INDEX
-        assert "data-glass=\"a\"\n" in INDEX  # header (многострочный тег)
+        """A2 + HOTFIX8 (ADR-1025-16 D2): панели (sidebar/drawer/header/
+        bottom-nav/more-sheet) выведены из цветной allow-линзы A в нейтральный
+        `data-glass="shell"` (без teal/blue/violet ореола). Уровень A остаётся
+        у контентных карточек — allow-list непуст."""
+        assert 'class="app-sidebar" data-glass="shell"' in INDEX
+        assert 'class="app-drawer"' in INDEX and 'data-glass="shell"' in INDEX
+        assert 'class="bottom-nav" data-glass="shell"' in INDEX
+        assert 'class="more-sheet" data-glass="shell"' in INDEX
+        assert 'data-glass="shell"\n' in INDEX  # header (многострочный тег)
+        assert 'data-glass="a"' in INDEX        # контентный A сохранён
 
     def test_panels_glass_and_fallback(self):
         """A2: панели получают blur; @supports-фолбэк переводит их в C."""

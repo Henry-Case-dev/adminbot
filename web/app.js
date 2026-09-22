@@ -2445,6 +2445,14 @@
       shellLayoutV2: function () {
         return this.uiFlag('UI_SHELL_LAYOUT_V2');
       },
+      // HOTFIX8 (ADR-1025-16 D5): env-only мягкие откаты областей B/D.
+      // Default ON (штатное новое поведение); OFF → прежние значения/фон.
+      shellV3: function () {
+        return this.uiFlag('UI_SHELL_V3');
+      },
+      auroraBgEnabled: function () {
+        return this.uiFlag('UI_AURORA_BG_ENABLED');
+      },
       // HOTFIX7 (ADR-1025-13 D2.6): premium-рендер ECG; OFF → прежний
       // canvas-рендер (синусоида + импульс). `UI_HEARTBEAT_CANVAS_ENABLED=OFF`
       // по-прежнему уводит на legacy SVG (порядок: SVG → canvas legacy → ECG).
@@ -2819,6 +2827,7 @@
           window.matchMedia('(prefers-reduced-motion: reduce)').matches);
       } catch (e) { this.reducedMotion = false; }
       this.initFullscreen();               // F24: синхронизация с TMA-fullscreen
+      this._syncBgLayer();                 // HOTFIX8: aurora↔legacy page-wash
       this.initBackButton();
       // F2 (T-2540): страховка «крупного элемента» для уровня A стекла.
       this.reconcileLiquidGlass();
@@ -2837,6 +2846,7 @@
       }
       this.loadMe().then(function () {
         if (!self.me) return;             // 401/пусто — блокировка выше
+        self._syncBgLayer();              // HOTFIX8: флаги shell v3/aurora получены
         // Контекст чата (activeChatId) — ДО loadConfig: первый рендер сразу
         // в per-chat слое (F-7 T-854); без контекста — старый глобальный вид.
         self.loadAccessCtx().then(function () {
@@ -10030,6 +10040,16 @@
         try {
           document.documentElement.classList.toggle('lg-bg-paused', !!paused);
         } catch (e) { /* no-op: document недоступен */ }
+      },
+      // HOTFIX8 (ADR-1025-16 D3): UI_AURORA_BG_ENABLED=OFF → на <html> вешается
+      // `bg-wash-legacy`, возвращающий прежний conic page-wash (§10/F2).
+      // Default ON (aurora). Класс на documentElement — вне Vue-разметки,
+      // поэтому синхронизируется вручную (без inline-скриптов, CSP-safe).
+      _syncBgLayer: function () {
+        try {
+          document.documentElement.classList.toggle(
+            'bg-wash-legacy', !this.auroraBgEnabled);
+        } catch (e) { /* no-op */ }
       },
       onVisibilityChange: function () {
         // F2 (§10/T-2547): фон пауза — до ранних return'ов (activeTab/Dossier).

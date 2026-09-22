@@ -86,15 +86,19 @@ function firstPartyWeb() {
   assert.ok(lens[1].indexOf('var(--glass-displace)') >= 0, 'A: filter линзы');
   assert.ok(/radial-gradient/.test(lens[1]) && /mask-image/.test(lens[1]),
     'A: edge-weighted радиальная маска');
-  // Панели в allow-list (A2).
-  for (const sel of ['class="app-sidebar" data-glass="a"',
+  // HOTFIX8 (ADR-1025-16 D2): панели выведены из цветной allow-линзы A →
+  // нейтральный `data-glass="shell"` (без teal/blue/violet ореола). Уровень A
+  // остаётся у контентных карточек (allow-list непуст).
+  for (const sel of ['class="app-sidebar" data-glass="shell"',
                      'class="app-drawer" :class',
-                     'class="bottom-nav" data-glass="a"',
-                     'class="more-sheet" data-glass="a"']) {
-    assert.ok(INDEX.indexOf(sel) >= 0, 'A2: панель в allow-list: ' + sel);
+                     'class="bottom-nav" data-glass="shell"',
+                     'class="more-sheet" data-glass="shell"']) {
+    assert.ok(INDEX.indexOf(sel) >= 0, 'A2: панель в shell-слое: ' + sel);
   }
-  assert.ok(/header class="main-header header-sticky[^>]*\n[^>]*data-glass="a"/.test(INDEX),
-    'A2: шапка в allow-list');
+  assert.ok(/header class="main-header header-sticky[^>]*\n[^>]*data-glass="shell"/.test(INDEX),
+    'A2: шапка в shell-слое');
+  assert.ok(INDEX.indexOf('data-glass="a"') >= 0,
+    'A: контентный allow-list A сохранён');
   // Перф-кап + override.
   assert.strictEqual(methods._lensMaxNodes.call({ me: null }), 6,
     'A: дефолт UI_LENS_MAX_NODES=6');

@@ -160,6 +160,15 @@ def test_js_unit_round1025_hotfix7_shell_glass_heartbeat():
             ok_marker="HOTFIX7-SHELL-GLASS-HEARTBEAT-OK")
 
 
+def test_js_unit_round1025_hotfix8_shell_aurora():
+    """hotfix8 round 10.25 (ADR-1025-16, T-2748…T-2782): shell v3 §4
+    (`data-glass="shell"`, снятие цветной линзы A, sidebar 208–224px),
+    aurora/mesh (5 blob + legacy `bg-wash-legacy`), env-only флаги."""
+    _run_js(os.path.join("tests", "js",
+                         "round1025_hotfix8_shell_aurora_test.js"),
+            ok_marker="HOTFIX8-SHELL-AURORA-OK")
+
+
 def test_js_unit_round1025_f4_module_store():
     """F4 round 10.25 (ADR-1025-14 D1/D2): ModuleConfigurationStore —
     ключ scope_type/scope_id/module_id, одна мутация на действие,

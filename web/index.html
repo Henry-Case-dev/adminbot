@@ -44,15 +44,30 @@
       </filter>
     </defs>
   </svg>
+  <!-- ═══ HOTFIX8 (ADR-1025-16 D3): aurora/mesh фон — отдельный задний слой ═══
+       Статичная разметка (CSP/zero-build, без inline-скриптов и ассетов);
+       анимация — CSS @keyframes (transform/opacity/border-radius). Палитра §8/§10
+       (teal/blue/violet/indigo, без оранжевого). Слой лежит под #app (z-index:0),
+       pointer-events:none. UI_AURORA_BG_ENABLED=OFF → html.bg-wash-legacy
+       (app.js) возвращает прежний conic page-wash. -->
+  <div class="aurora-bg" aria-hidden="true">
+    <span class="aurora-blob b1"></span>
+    <span class="aurora-blob b2"></span>
+    <span class="aurora-blob b3"></span>
+    <span class="aurora-blob b4"></span>
+    <span class="aurora-blob b5"></span>
+    <span class="aurora-grain"></span>
+  </div>
   <div id="app" v-cloak>
     <div class="app-shell"
          :class="[{ 'fullscreen-mode': isFullscreen }, 'shell-' + shellMode,
                   iaV2 ? 'ia-v2' : 'ia-legacy',
                   shellLayoutV2 ? 'shell-layout-v2' : 'shell-layout-legacy',
-                  shellGlassV2 ? 'shell-glass-v2' : 'shell-glass-legacy']">
+                  shellGlassV2 ? 'shell-glass-v2' : 'shell-glass-legacy',
+                  shellV3 ? 'shell-v3' : 'shell-v3-off']">
       <!-- ═══ F1 (ADR-1025-1 D6, §4.2): desktop sidebar — СТРОГО ≥1200 px.
            В 768–1199 постоянной панели нет (drawer ниже); <768 — bottom-nav. -->
-      <aside v-if="iaV2 && hasSidebar" class="app-sidebar" data-glass="a" aria-label="Боковая навигация">
+      <aside v-if="iaV2 && hasSidebar" class="app-sidebar" data-glass="shell" aria-label="Боковая навигация">
         <div class="sidebar-brand">
           <span class="msr" aria-hidden="true">{{ iconGlyph('monitoring') }}</span>
           <span class="sidebar-brand-title">AdminBot</span>
@@ -89,7 +104,7 @@
       <!-- Раунд 10.6 (A1): боковая панель удалена полностью — навигация только через
            верхний navbar (иконка + подпись); A9 — эксклюзивный аккордеон. -->
       <header class="main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap"
-              data-glass="a"
+              data-glass="shell"
               :class="{ 'header-compact-v2': headerCompactV2 }"
               style="border-radius:0;">
         <!-- D (ADR-1025-12 D5, T-2606…T-2610): компактная двухстрочная шапка
@@ -3786,7 +3801,7 @@
       <!-- Drawer (768–1199): временная панель, состояние не персистится. -->
       <div v-if="iaV2 && isCompactShell && drawerOpen"
            class="drawer-backdrop" @click="closeDrawer()"></div>
-      <aside v-if="iaV2 && isCompactShell" data-glass="a"
+      <aside v-if="iaV2 && isCompactShell" data-glass="shell"
              class="app-drawer" :class="{ open: drawerOpen }"
              :inert="drawerOpen ? null : ''"
              :aria-hidden="drawerOpen ? 'false' : 'true'"
@@ -3821,7 +3836,7 @@
       <!-- Bottom-nav (<768): ≤4 пункта. hotfix4 (T-2519): Статус+Справка —
            всегда первые два для всех ролей; далее Модули (иначе ИИ); «Ещё» —
            только при скрытых разделах. Пользователь: Статус/Справка. -->
-      <nav v-if="iaV2 && isMobileShell" class="bottom-nav" data-glass="a"
+      <nav v-if="iaV2 && isMobileShell" class="bottom-nav" data-glass="shell"
            aria-label="Нижняя навигация">
         <button v-for="n in bottomNavItems" :key="'bn-' + n.id"
                 type="button" class="bottom-nav-link"
@@ -3837,7 +3852,7 @@
            вытесненный ИИ) / Профиль. «Справка» здесь НЕ дублируется. -->
       <div v-if="iaV2 && isMobileShell && moreOpen"
            class="more-backdrop" @click="closeMore()"></div>
-      <div v-if="iaV2 && isMobileShell" class="more-sheet" data-glass="a"
+      <div v-if="iaV2 && isMobileShell" class="more-sheet" data-glass="shell"
            :class="{ open: moreOpen }" :aria-hidden="moreOpen ? 'false' : 'true'"
            :inert="moreOpen ? null : ''"
            role="menu" aria-label="Ещё">
