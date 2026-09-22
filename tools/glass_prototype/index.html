@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Liquid Glass prototype — round1025 hotfix9 (T-2814/T-2815/T-2816)</title>
+<!-- Локальная same-origin раздача vendored-бандлов (CSP-safe); см. tools/vendor/build.mjs -->
+<link rel="stylesheet" href="/static/vendor/liquidglass.core.0.5.3.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #090D17; color: #F4F7FB;
+               font-family: system-ui, sans-serif; }
+  /* Реальный (не декоративный) фон приложения: анимированные ленты на canvas,
+     поверх которого лежит стекло. Это НЕ слой внутри стекла. */
+  #scene { position: fixed; inset: 0; z-index: 0; }
+  .stage { position: relative; z-index: 1; padding: 48px; display: grid;
+           grid-template-columns: 320px 320px; gap: 40px; }
+  .hole { width: 260px; height: 180px; border-radius: 22px; }
+  .glass-card { width: 260px; height: 180px; display: flex; flex-direction: column;
+                justify-content: center; gap: 8px; padding: 16px; color: #F4F7FB; }
+  .glass-card h2 { margin: 0; font-size: 18px; }
+  .glass-card p { margin: 0; font-size: 12px; color: #CFD8E6; }
+  .glass-btn { border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08);
+               color: #fff; border-radius: 10px; padding: 6px 12px; font: inherit; }
+  .glass-select { padding: 6px 10px; border-radius: 10px; }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div class="stage">
+  <!-- «Дыра» без стекла: тот же участок фона, что и под стеклом (для сравнения). -->
+  <div class="hole" data-probe="hole" aria-hidden="true"></div>
+  <div class="glass-card ps-glass" data-probe="glass" data-lg-opts='{"radius":22,"strength":14,"blur":2,"edge":0.8,"chroma":0.2,"spec":0.8,"tint":8}'>
+    <h2>Liquid Glass</h2>
+    <p data-probe="text">Текст поверх стекла должен остаться чётким.</p>
+    <button class="glass-btn ps-glass__content" type="button">Кнопка</button>
+    <select class="glass-select"><option>Селектор области</option><option>Ещё</option></select>
+  </div>
+</div>
+<script src="/static/vendor/liquidglass.core.0.5.3.min.js"></script>
+<script src="/glass-mount.js"></script>
+</body>
+</html>

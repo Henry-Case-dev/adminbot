@@ -41,27 +41,41 @@ def _first_party_web() -> dict:
 
 class TestAreaA_Layout:
     def test_single_height_token_chain(self):
-        # F-2 (review): custom properties не валидируются при разборе, поэтому
-        # dvh/min()-значение обязано быть за @supports, а база — валидный 100vh.
-        assert "--shell-h: 100vh;" in APP_CSS
-        assert "--shell-h: 100dvh;" not in APP_CSS, (
-            "висячий --shell-h:100dvh ломает фолбэк (invalid при подстановке)")
+        # HOTFIX9 (ADR-1025-17 D1): единственный источник — --app-usable-height
+        # (база 100vh, апгрейд 100dvh за @supports); --shell-h — алиас.
+        assert "--app-usable-height: 100vh;" in APP_CSS
+        assert "--shell-h: var(--app-usable-height);" in APP_CSS
         assert re.search(
-            r"@supports \(height: 100dvh\) and \(height: min\(100dvh, 100dvh\)\)"
-            r"[\s\S]{0,300}--shell-h:\s*min\(100dvh,"
-            r" var\(--tg-viewport-stable-height",
-            APP_CSS), "нет @supports-фолбэка min(dvh, stable)"
+            r"@supports \(height: 100dvh\)[\s\S]{0,200}"
+            r"--app-usable-height:\s*100dvh",
+            APP_CSS), "нет @supports-апгрейда до 100dvh"
 
     def test_two_explicit_modes(self):
         shell = re.search(r"\.app-shell \{([^}]*)\}", APP_CSS)
         assert shell and "min-height: var(--shell-h)" in shell.group(1)
-        fs = re.search(r"\n    \.fullscreen-mode \{([^}]*)\}", APP_CSS)
-        assert fs, "нет .fullscreen-mode"
+        fs = re.search(
+            r"\.app-shell\.fullscreen-mode:not\(\.shell-layout-legacy\)\s*\{"
+            r"([^}]*)\}", APP_CSS)
+        assert fs, "нет .app-shell.fullscreen-mode (flex-колонка)"
         body = fs.group(1)
-        assert "height: var(--shell-h)" in body
-        assert "max-height: var(--shell-h)" in body
+        assert "height: var(--app-usable-height" in body
+        assert "max-height: var(--app-usable-height" in body
         assert "min-height: 0" in body
         assert "overflow: hidden" in body
+        # mobile — та же фиксированная колонка.
+        mob = re.search(
+            r"\.app-shell\.shell-mobile:not\(\.shell-layout-legacy\)\s*[,{]"
+            r"([^}]*)\}", APP_CSS)
+        assert mob, "нет .app-shell.shell-mobile (flex-колонка)"
+        assert "height: var(--app-usable-height" in mob.group(1)
+        assert "min-height: 0" in mob.group(1)
+        # Скроллится только центральная зона.
+        assert re.search(
+            r"\.app-shell\.shell-mobile:not\(\.shell-layout-legacy\)"
+            r" > main\.scroll-area[\s\S]{0,200}overflow-y:\s*auto", APP_CSS)
+        # Навигация — последний flex-child, не fixed.
+        assert re.search(r"\.bottom-nav \{[^}]*flex: 0 0 auto", APP_CSS)
+        assert re.search(r"\.bottom-nav \{[^}]*position: relative", APP_CSS)
 
     def test_legacy_layout_rollback(self):
         assert ".app-shell.shell-layout-legacy" in APP_CSS
@@ -111,18 +125,22 @@ class TestAreaB_Heartbeat:
 
 class TestAreaC_GlassShell:
     def test_shell_tokens_present(self):
+        # HOTFIX9 (ADR-1025-17 D4): --shell-texture удалена; --shell-specular сохранён.
         for tok in ("--shell-bg", "--shell-bg-strong", "--shell-border-color",
                     "--shell-highlight", "--shell-highlight-soft",
                     "--shell-shadow", "--shell-blur", "--shell-specular",
-                    "--shell-texture", "--card-shadow"):
+                    "--card-shadow"):
             assert tok + ":" in APP_CSS, tok
+        assert "--shell-texture:" not in APP_CSS
+        assert "var(--shell-texture)" not in APP_CSS
 
     def test_shell_panels_use_shell_layer(self):
         for sel in (".app-sidebar", ".app-drawer", "header.header-sticky",
                     ".bottom-nav", ".more-sheet"):
             assert sel in APP_CSS
         assert "box-shadow: var(--shell-shadow)" in APP_CSS
-        assert re.search(
+        assert re.search(r"background-image: var\(--shell-specular\);", APP_CSS)
+        assert not re.search(
             r"background-image: var\(--shell-specular\), var\(--shell-texture\)",
             APP_CSS)
         assert re.search(r"\.bottom-nav \{[\s\S]{0,1200}"
@@ -154,7 +172,7 @@ class TestAreaC_GlassShell:
 class TestAreaD_FlagsAcceptance:
     def test_app_version_bumped(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.11", m and m.group(1)
+        assert m and m.group(1) == "2.58.12", m and m.group(1)
 
     def test_env_only_flags_delivered(self):
         for flag in HOTFIX7_FLAGS:

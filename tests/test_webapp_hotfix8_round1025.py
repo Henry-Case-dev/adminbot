@@ -46,16 +46,20 @@ def _token(name: str) -> str:
 
 class TestShellV3:
     def test_tokens_section4(self):
-        assert _token("--shell-bg").replace(" ", "") == "rgba(24,28,38,0.72)"
-        assert _token("--shell-bg-mobile").replace(" ", "") == "rgba(24,28,38,0.78)"
+        # HOTFIX9 (ADR-1025-17 D4): графитовые токены §8 UPD3.
+        assert _token("--shell-bg").replace(" ", "") == "rgba(27,29,34,0.94)"
+        assert _token("--shell-bg-mobile").replace(" ", "") == "rgba(27,29,34,0.96)"
         assert _token("--shell-border-color").replace(" ", "") == \
-            "rgba(255,255,255,0.08)"
+            "rgba(255,255,255,0.09)"
         assert _token("--shell-highlight").replace(" ", "") == \
-            "rgba(255,255,255,0.06)"
+            "rgba(255,255,255,0.055)"
         assert _token("--shell-shadow").replace(" ", "") == \
-            "08px24pxrgba(0,0,0,0.18)"
+            "04px16pxrgba(0,0,0,0.16)"
         blur = _token("--shell-blur").replace(" ", "")
-        assert "blur(18px)" in blur and "saturate(115%)" in blur
+        assert "blur(14px)" in blur and "saturate(105%)" in blur
+        # Диагональная текстура удалена полностью (UPD3 §7).
+        assert "--shell-texture:" not in APP_CSS
+        assert "var(--shell-texture)" not in APP_CSS
 
     def test_cards_not_repainted(self):
         assert "--glass-bg: rgba(21, 27, 42, 0.5)" in APP_CSS
@@ -101,8 +105,10 @@ class TestShellV3:
     def test_shell_v3_off_rollback(self):
         assert ".app-shell.shell-v3-off" in APP_CSS
         assert "shell-v3-off" in INDEX and "shell-v3" in INDEX
+        # UI_SHELL_GRAPHITE_V3=OFF → значения hotfix8 (текстура НЕ возвращается).
         assert re.search(r"\.app-shell\.shell-v3-off\s*\{[\s\S]{0,900}"
-                         r"--shell-bg:\s*rgba\(33, 37, 45, 0\.62\)", APP_CSS)
+                         r"--shell-bg:\s*rgba\(24, 28, 38, 0\.72\)", APP_CSS)
+        assert "shellGraphiteV3" in APP_JS
 
 
 class TestAurora:
@@ -167,9 +173,9 @@ class TestAurora:
 
 class TestFlagsAcceptance:
     def test_app_version_bumped(self):
-        # T-2786: bump 2.58.10 → 2.58.11 (cache-bust shell v3/aurora).
+        # T-2834: HOTFIX9 bump 2.58.11 → 2.58.12 (cache-bust shell/glass/aurora).
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.11", m and m.group(1)
+        assert m and m.group(1) == "2.58.12", m and m.group(1)
 
     def test_env_only_flags_delivered(self):
         for flag in HOTFIX8_FLAGS:

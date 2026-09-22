@@ -105,3 +105,10 @@ tools/_ui_round1025_raw.json
 # bot.zip / admin_bot.zip / adminbot.zip (~0.9 ГБ суммарно) — локальные
 # архивы, в git НЕ коммитить и НЕ удалять (владелец).
 *.zip
+
+# ══ round1025 hotfix9 (ADR-1025-17 D5/D6): npm — только инструмент сборки ══
+# Готовые bundles лежат в web/static/vendor/ (коммитятся); node_modules сборки — нет.
+tools/vendor/node_modules/
+
+# ══ round1025 hotfix9 (T-2816/T-2829): артефакты стеклянного прототипа (скриншоты/probe.json) ══
+tools/_hotfix9_glass_probe/

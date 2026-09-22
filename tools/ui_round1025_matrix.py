@@ -112,6 +112,11 @@ ME_JSON = {
         "UI_HEARTBEAT_PREMIUM": True,
         "UI_SHELL_V3": True,
         "UI_AURORA_BG_ENABLED": True,
+        # hotfix9: default ON (flex-геометрия, графит §8, Liquid Glass, Aurora Flow).
+        "UI_SHELL_FLEX_V3": True,
+        "UI_SHELL_GRAPHITE_V3": True,
+        "UI_LIQUID_GLASS_LIB": True,
+        "UI_AURORA_FLOW_V2": True,
     },
 }
 
@@ -682,6 +687,171 @@ F7_PROBE_JS = """
 """
 
 
+# HOTFIX9 (ADR-1025-17 D1/D3/D4/D6): проба геометрии/наложения/фона/стекла.
+H9_PROBE_JS = """
+(() => {
+  const de = document.documentElement;
+  const tok = (n) => getComputedStyle(de).getPropertyValue(n).trim();
+  const rect = (el) => {
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: Math.round(r.x), y: Math.round(r.y),
+             w: Math.round(r.width), h: Math.round(r.height),
+             bottom: Math.round(r.bottom), right: Math.round(r.right),
+             visible: r.width > 0 && r.height > 0 };
+  };
+  const q = (s) => document.querySelector(s);
+  const headerEl = q('header.header-sticky');
+  const firstCardEl = (() => {
+    const sa = q('.app-shell .scroll-area');
+    if (!sa) return null;
+    const list = sa.querySelectorAll('.card, .module-card, .hub-card, .prov-block');
+    for (const el of list) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) return el;
+    }
+    return null;
+  })();
+  const navLinks = Array.from(document.querySelectorAll('.bottom-nav-link')).map((el) => {
+    const r = el.getBoundingClientRect();
+    const cx = r.x + r.width / 2, cy = r.y + r.height / 2;
+    const hit = (cx >= 0 && cy >= 0 && cx <= window.innerWidth && cy <= window.innerHeight)
+      ? document.elementFromPoint(cx, cy) : null;
+    return { h: Math.round(r.height), w: Math.round(r.width),
+             bottom: Math.round(r.bottom), visible: r.width > 0 && r.height > 0,
+             hitSelf: !!(hit && (hit === el || el.contains(hit) || hit.contains(el))) };
+  });
+  const scopeEl = q('.scope-trigger');
+  let scopeClickable = null;
+  if (scopeEl) {
+    const r = scopeEl.getBoundingClientRect();
+    const hit = (r.width > 0)
+      ? document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) : null;
+    scopeClickable = !!(hit && (hit === scopeEl || scopeEl.contains(hit)));
+  }
+  const shellImg = (sel) => {
+    const el = q(sel);
+    return el ? getComputedStyle(el).backgroundImage : '';
+  };
+  const hb = rect(q('.hb-canvas'));
+  return {
+    header: rect(headerEl), scope: rect(scopeEl),
+    firstCard: rect(firstCardEl), bottomNav: rect(q('.bottom-nav')),
+    // Header НЕ перекрывает первую карточку (card.y >= header.bottom).
+    headerOverlapsCard: (headerEl && firstCardEl)
+      ? (firstCardEl.getBoundingClientRect().top
+         < headerEl.getBoundingClientRect().bottom - 1)
+      : null,
+    navLinks: navLinks, scopeClickable: scopeClickable,
+    shellTexture: ['.app-sidebar', 'header.header-sticky', '.app-drawer',
+                   '.bottom-nav', '.more-sheet'].map(shellImg).join('|'),
+    tokenShellTexture: tok('--shell-texture'),
+    auroraFlowClass: de.classList.contains('aurora-flow-v2'),
+    auroraCanvas: !!q('#aurora-flow-canvas'),
+    auroraMode: (window.__AuroraFlow && window.__AuroraFlow.mode)
+      ? window.__AuroraFlow.mode() : '',
+    glassMounted: document.querySelectorAll('[data-lg-mounted="1"]').length,
+    glassFailed: document.querySelectorAll('[data-lg-failed="1"]').length,
+    appUsable: tok('--app-usable-height'), shellH: tok('--shell-h'),
+    hbVisible: !!(hb && hb.visible && hb.bottom <= window.innerHeight + 1),
+  };
+})()
+"""
+
+# HOTFIX9 (ADR-1025-17 D3): модалка/SaveBar/последнее поле (route-driven окно
+# «Доступы → Роли»; .modal-card > .modal-body + footer.modal-actions).
+H9_MODAL_PROBE_JS = """
+(() => {
+  const q = (s) => document.querySelector(s);
+  const rect = (el) => {
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: Math.round(r.x), y: Math.round(r.y),
+             w: Math.round(r.width), h: Math.round(r.height),
+             bottom: Math.round(r.bottom), right: Math.round(r.right),
+             visible: r.width > 0 && r.height > 0 };
+  };
+  const card = q('.modal-card');
+  const body = q('.modal-card .modal-body');
+  const actions = q('.modal-card .modal-actions, .modal-card .modal-footer');
+  let lastField = null;
+  if (body) {
+    const fields = body.querySelectorAll('input, select, textarea, button');
+    if (fields.length) lastField = fields[fields.length - 1];
+    body.scrollTop = body.scrollHeight;
+  }
+  return {
+    modalVisible: !!(card && card.getBoundingClientRect().width > 0),
+    modalCard: rect(card), modalBody: rect(body), modalActions: rect(actions),
+    actionsBottom: actions ? Math.round(actions.getBoundingClientRect().bottom) : null,
+    lastField: rect(lastField), innerH: window.innerHeight,
+    appUsable: getComputedStyle(document.documentElement)
+      .getPropertyValue('--app-usable-height').trim(),
+    stickyInActions: !!q('.modal-actions > .sticky-save, .modal-footer > .sticky-save'),
+  };
+})()
+"""
+
+# HOTFIX9 H-H9S-1 (fix): регресс-окно МОДУЛЯ (`openModuleWindow`). Открываем
+# через публичный Vue-метод (шаблон зовёт workspace-навигацию); футер
+# `modal-actions` обязан быть СИБЛИНГОМ `.modal-body`, не внутри скроллера.
+H9_MODULE_MODAL_OPEN_JS = """
+(() => {
+  const el = document.querySelector('#app');
+  const app = el && el.__vue_app__;
+  const inst = (app && app._instance)
+    || (el && el._vnode && el._vnode.component);
+  const proxy = inst && (inst.proxy || inst.ctx);
+  if (!proxy) return { opened: false, reason: 'no-vue-instance' };
+  const list = proxy.modules || [];
+  const pick = list.find((m) => m && m.id === 'mod_sleep')
+    || list.find((m) => m && m.id === 'mod_summary')
+    || list.find((m) => m && m.tab) || list[0];
+  if (!pick) return { opened: false, reason: 'no-modules' };
+  try {
+    if (typeof proxy.openModuleWindow === 'function') proxy.openModuleWindow(pick);
+    if (proxy.openModuleId !== pick.id) proxy.openModuleId = pick.id;
+  } catch (e) { return { opened: false, reason: 'call-failed' }; }
+  return { opened: true, id: pick.id };
+})()
+"""
+
+# HOTFIX9 M-H9R-1 (fix): реальная потеря WebGL-контекста фонового canvas.
+H9_CONTEXT_LOSS_JS = """
+(() => {
+  const cv = document.querySelector('#aurora-flow-canvas');
+  if (!cv) return { ok: false, reason: 'no-canvas' };
+  const gl = cv.getContext('webgl2') || cv.getContext('webgl');
+  if (!gl) return { ok: false, reason: 'no-gl-context' };
+  const ext = gl.getExtension('WEBGL_lose_context');
+  if (!ext) return { ok: false, reason: 'no-lose-extension' };
+  ext.loseContext();
+  return { ok: true };
+})()
+"""
+
+# HOTFIX9 M-H9R-1 (fix): после потери контекста фон обязан быть НЕ webgl и
+# отдавать непустой кадр (mode() != 'webgl', яркость пробы > 0).
+H9_CONTEXT_LOSS_PROBE_JS = """
+(() => {
+  const cv = document.querySelector('#aurora-flow-canvas');
+  const f = window.__AuroraFlow;
+  let sample = null;
+  try { sample = (f && f.sample) ? f.sample() : null; } catch (e) { sample = null; }
+  let brightness = null;
+  if (sample && sample.length) {
+    let s = 0, n = 0;
+    for (const px of sample) { s += px[0] + px[1] + px[2]; n += 3; }
+    brightness = Math.round((s / Math.max(1, n)) * 10) / 10;
+  }
+  return {
+    present: !!cv, mode: (f && f.mode) ? f.mode() : '',
+    sampleCount: sample ? sample.length : 0, brightness: brightness,
+  };
+})()
+"""
+
+
 def _secs(raw: str):
     try:
         return float(str(raw).strip().rstrip("s"))
@@ -1061,21 +1231,21 @@ def _hotfix8_failures(probe: dict, label: str, width: int) -> list:
                                         or "119, 168, 255" in bg):
             out.append("%s shell8: цветная линза на shell (background-image=%r)"
                        % (label, bg[:120]))
-    # §4 computed-значения: bg rgba(24,28,38,.72) (mobile .78), border
-    # rgba(255,255,255,.08), blur(18px) saturate(115%).
+    # HOTFIX9 (ADR-1025-17 D4): §8 computed-значения: bg rgba(27,29,34,.94)
+    # (mobile .96), border rgba(255,255,255,.09), blur(14px) saturate(105%).
     sbg = (probe.get("shellBg") or "").replace(" ", "")
-    if sbg and "24,28,38" not in sbg:
-        out.append("%s shell8: --shell-bg=%r (ожидалось rgba(24,28,38,.72/.78))"
+    if sbg and "27,29,34" not in sbg:
+        out.append("%s shell9: --shell-bg=%r (ожидалось rgba(27,29,34,.94/.96))"
                    % (label, probe.get("shellBg")))
     sblur = (probe.get("shellBlur") or "").replace(" ", "")
-    if sblur and "blur(18px)" not in sblur:
-        out.append("%s shell8: --shell-blur=%r (ожидалось blur(18px))"
+    if sblur and "blur(14px)" not in sblur:
+        out.append("%s shell9: --shell-blur=%r (ожидалось blur(14px))"
                    % (label, probe.get("shellBlur")))
     for name, box in (probe.get("shell") or {}).items():
         if not box:
             continue
-        if box.get("bf") and "blur(18px)" not in box["bf"].replace(" ", ""):
-            out.append("%s shell8: %s backdrop-filter=%r (ожидалось blur(18px))"
+        if box.get("bf") and "blur(14px)" not in box["bf"].replace(" ", ""):
+            out.append("%s shell9: %s backdrop-filter=%r (ожидалось blur(14px))"
                        % (label, name, box.get("bf")))
     # Desktop sidebar 208–224px (§5.1/§7).
     sw = probe.get("sidebarW")
@@ -1094,6 +1264,98 @@ def _hotfix8_failures(probe: dict, label: str, width: int) -> list:
         out.append("%s shell8: aurora blob-слоёв %d < 3"
                    % (label, probe.get("auroraBlobs")))
     return out
+
+
+def _h9_failures(probe: dict, label: str, width: int) -> list:
+    """HOTFIX9 (ADR-1025-17 D1/D2/D4/D6): геометрия/наложения/клик/фон/стекло.
+
+    Проверяем: header не перекрывает первую карточку; 4 пункта nav видны и
+    нажимаемы (`elementFromPoint`), hit ≥44px; селектор области нажимаем;
+    `--shell-texture` удалена (нет повторяющегося градиента 135deg); активирован
+    Dark Aurora Flow (canvas) либо legacy-слои; Liquid Glass смонтировался без
+    ошибок."""
+    out = []
+    if probe.get("headerOverlapsCard") is True:
+        out.append("%s H9: header перекрывает первую карточку" % label)
+    for i, l in enumerate(probe.get("navLinks") or []):
+        if not l.get("visible"):
+            out.append("%s H9: nav-пункт %d не виден" % (label, i))
+        elif not l.get("hitSelf"):
+            out.append("%s H9: nav-пункт %d не нажимается (elementFromPoint)"
+                       % (label, i))
+        if l.get("h", 0) < 44:
+            out.append("%s H9: nav-пункт %d hit=%dpx < 44"
+                       % (label, i, l.get("h", 0)))
+    if probe.get("scopeClickable") is False:
+        out.append("%s H9: селектор области не нажимается" % label)
+    st = (probe.get("shellTexture") or "")
+    if "repeating-linear-gradient" in st and "135deg" in st:
+        out.append("%s H9: на shell осталась диагональная текстура" % label)
+    if (probe.get("tokenShellTexture") or "").strip():
+        out.append("%s H9: токен --shell-texture не удалён" % label)
+    if probe.get("auroraFlowClass") and not probe.get("auroraCanvas"):
+        out.append("%s H9: aurora-flow-v2 без фонового canvas" % label)
+    if probe.get("glassFailed"):
+        out.append("%s H9: Liquid Glass не смонтировался на %d целях"
+                   % (label, probe["glassFailed"]))
+    return out
+
+
+def _h9_modal_failures(probe: dict, label: str) -> list:
+    """HOTFIX9 (ADR-1025-17 D3): модалка/SaveBar/последнее поле в экране."""
+    out = []
+    if not probe.get("modalVisible"):
+        out.append("%s H9-modal: модалка не открыта" % label)
+        return out
+    ih = probe.get("innerH") or 0
+    card = probe.get("modalCard")
+    if card and card["h"] > ih + 1:
+        out.append("%s H9-modal: карточка выше экрана (h=%d > %d)"
+                   % (label, card["h"], ih))
+    ab = probe.get("actionsBottom")
+    if ab is not None and ab > ih + 1:
+        out.append("%s H9-modal: footer/SaveBar выходит за экран (bottom=%d)"
+                   % (label, ab))
+    lf = probe.get("lastField")
+    if lf and lf.get("visible") and lf["bottom"] > ih + 1:
+        out.append("%s H9-modal: последнее поле недоступно (bottom=%d > %d)"
+                   % (label, lf["bottom"], ih))
+    if probe.get("modalBody") and probe.get("modalActions"):
+        if probe["modalBody"]["bottom"] > probe["modalActions"]["y"] + 1:
+            out.append("%s H9-modal: modal-body перекрывает footer" % label)
+    return out
+
+
+def _bg_motion(page, label: str):
+    """HOTFIX9 (ADR-1025-17 D8/§12): кадры фона 0/5/10/20 с + числовое
+    подтверждение движения (не «пара пикселей»). Возвращает (diffs, failures)."""
+    samples = []
+    for wait in (0, 5000, 5000, 10000):
+        if wait:
+            page.wait_for_timeout(wait)
+        samples.append(page.evaluate(
+            "() => (window.__AuroraFlow && window.__AuroraFlow.sample)"
+            " ? window.__AuroraFlow.sample() : null"))
+    out = []
+    if any(s is None for s in samples):
+        out.append("%s bg: нет пиксельной пробы Aurora Flow" % label)
+        return [], out
+
+    def _diff(a, b):
+        n = min(len(a), len(b))
+        tot = 0
+        for i in range(n):
+            tot += (abs(a[i][0] - b[i][0]) + abs(a[i][1] - b[i][1])
+                    + abs(a[i][2] - b[i][2]))
+        return tot / max(1, n * 3)
+
+    diffs = [round(_diff(samples[i], samples[i + 1]), 3)
+             for i in range(len(samples) - 1)]
+    total = round(_diff(samples[0], samples[-1]), 3)
+    if total < 3.0 or max(diffs) < 1.0:
+        out.append("%s bg: фон практически неподвижен (diffs=%s, total=%s)"
+                   % (label, diffs, total))
+    return diffs, out
 
 
 def _snap(page, name):
@@ -1185,13 +1447,18 @@ def main() -> int:
                 page.evaluate(
                     "() => {"
                     "  var h = window.innerHeight || 0;"
+                    "  var usable = Math.max(0, h - 56);"
                     "  var de = document.documentElement;"
                     "  de.style.setProperty('--tg-viewport-stable-height',"
-                    "    Math.max(0, h - 56) + 'px');"
+                    "    usable + 'px');"
                     "  de.style.setProperty('--tg-content-safe-area-inset-bottom',"
                     "    '56px');"
                     "  de.style.setProperty('--tg-viewport-bottom-offset',"
                     "    '56px');"
+                    # HOTFIX9 (ADR-1025-17 D1): единый источник высоты — JS
+                    # вычислил бы ровно `innerHeight − offset`; симулируем это.
+                    "  de.style.setProperty('--app-usable-height',"
+                    "    usable + 'px');"
                     "}")
                 page.wait_for_timeout(150)
 
@@ -1266,6 +1533,17 @@ def main() -> int:
             out["viewports"][vp_key]["hotfix8_normal"] = f7
             failures.extend(_hotfix8_failures(
                 f7, "%s normal" % vp_key, w))
+            # HOTFIX9 (ADR-1025-17 D1/D2/D4/D6): геометрия/наложения/клик/фон.
+            h9 = page.evaluate(H9_PROBE_JS)
+            out["viewports"][vp_key]["hotfix9_normal"] = h9
+            failures.extend(_h9_failures(h9, "%s normal" % vp_key, w))
+            # Кадры фона 0/5/10/20 с (числовое подтверждение движения) — на
+            # репрезентативных мобильном и desktop-вьюпортах (перф прогона).
+            if (w, h) in ((390, 844), (1280, 800)):
+                diffs, bg_fail = _bg_motion(page, "%s normal" % vp_key)
+                out["viewports"][vp_key]["bg_motion"] = {
+                    "diffs": diffs, "mode": h9.get("auroraMode")}
+                failures.extend(bg_fail)
             f2 = page.evaluate(F2_PROBE_JS)
             out["viewports"][vp_key]["f2"] = f2
             failures.extend(_f2_failures(f2, vp_key))
@@ -1366,6 +1644,79 @@ def main() -> int:
                     failures.append("%s local_admin console/pageerror: %s"
                                     % (vp_key, msg))
                 la_ctx.close()
+            # HOTFIX9 (ADR-1025-17 D3, T-2807/T-2827): модалка/SaveBar/последнее
+            # поле — route-driven окно «Доступы → Роли» на репрезентативных
+            # вьюпортах. Проверяем высоту карточки, footer в экране, последнее
+            # поле доступно после скролла, modal-body не перекрывает footer.
+            if (w, h) in ((390, 844), (768, 1024), (1280, 800)):
+                try:
+                    page.evaluate("() => { window.location.hash = '#/access/roles'; }")
+                    page.wait_for_timeout(500)
+                    m9 = page.evaluate(H9_MODAL_PROBE_JS)
+                    out["viewports"][vp_key]["hotfix9_modal"] = m9
+                    failures.extend(_h9_modal_failures(m9, vp_key))
+                    page.evaluate("() => { window.location.hash = '#/'; }")
+                    page.wait_for_timeout(300)
+                except Exception as exc:  # noqa: BLE001
+                    failures.append("%s H9-modal probe: %s"
+                                    % (vp_key, str(exc)[:200]))
+            # HOTFIX9 H-H9S-1 (fix): модалка МОДУЛЯ — `footer.modal-actions`
+            # обязан быть СИБЛИНГОМ `.modal-body` (не внутри скроллера); проба
+            # ассертит `modalBody.bottom <= modalActions.y + 1`.
+            if (w, h) in ((390, 844), (768, 1024), (1280, 800)):
+                try:
+                    page.evaluate("() => { window.location.hash = '#/modules'; }")
+                    page.wait_for_timeout(500)
+                    opened = page.evaluate(H9_MODULE_MODAL_OPEN_JS)
+                    out["viewports"][vp_key]["hotfix9_module_modal_open"] = opened
+                    if not opened.get("opened"):
+                        failures.append(
+                            "%s H9-module-modal: не открылась (%s)"
+                            % (vp_key, opened.get("reason")))
+                    else:
+                        page.wait_for_timeout(250)
+                        m9m = page.evaluate(H9_MODAL_PROBE_JS)
+                        out["viewports"][vp_key]["hotfix9_module_modal"] = m9m
+                        failures.extend(
+                            _h9_modal_failures(m9m, "%s module" % vp_key))
+                        if not m9m.get("stickyInActions"):
+                            failures.append(
+                                "%s H9-module-modal: SaveBar не в "
+                                "footer.modal-actions" % vp_key)
+                    page.evaluate("() => { window.location.hash = '#/'; }")
+                    page.wait_for_timeout(300)
+                except Exception as exc:  # noqa: BLE001
+                    failures.append("%s H9-module-modal probe: %s"
+                                    % (vp_key, str(exc)[:200]))
+            # HOTFIX9 M-H9R-1 (fix): реальная потеря WebGL-контекста → 2D-фолбэк.
+            # Запускается ПОСЛЕ кадров фона и модалок, чтобы не искажать их.
+            if (w, h) in ((390, 844), (1280, 800)):
+                try:
+                    loss = page.evaluate(H9_CONTEXT_LOSS_JS)
+                    out["viewports"][vp_key]["hotfix9_context_loss_trigger"] = loss
+                    page.wait_for_timeout(500)
+                    cl = page.evaluate(H9_CONTEXT_LOSS_PROBE_JS)
+                    out["viewports"][vp_key]["hotfix9_context_loss"] = cl
+                    if not loss.get("ok"):
+                        failures.append(
+                            "%s H9-context-loss: контекст не потерян (%s)"
+                            % (vp_key, loss.get("reason")))
+                    else:
+                        if cl.get("mode") == "webgl":
+                            failures.append(
+                                "%s H9-context-loss: режим не переключился "
+                                "(mode=webgl)" % vp_key)
+                        if not cl.get("sampleCount"):
+                            failures.append(
+                                "%s H9-context-loss: нет кадра после потери "
+                                "контекста" % vp_key)
+                        if cl.get("brightness") is None or cl["brightness"] < 3:
+                            failures.append(
+                                "%s H9-context-loss: кадр пустой (brightness=%s)"
+                                % (vp_key, cl.get("brightness")))
+                except Exception as exc:  # noqa: BLE001
+                    failures.append("%s H9-context-loss probe: %s"
+                                    % (vp_key, str(exc)[:200]))
             # F2 (T-2548): prefers-reduced-motion → animation-name: none.
             if (w, h) == VIEWPORTS[0]:
                 rm_ctx = browser.new_context(
@@ -1433,6 +1784,15 @@ def main() -> int:
                 out["viewports"][vp_key]["hotfix8_fullscreen"] = fs7
                 failures.extend(_hotfix8_failures(
                     fs7, "%s fullscreen" % vp_key, w))
+                # HOTFIX9 (T-2805/T-2827): fullscreen — header/селектор целы,
+                # контент не под header, виджеты (heartbeat) видны, наложений нет.
+                h9fs = page.evaluate(H9_PROBE_JS)
+                out["viewports"][vp_key]["hotfix9_fullscreen"] = h9fs
+                failures.extend(_h9_failures(
+                    h9fs, "%s fullscreen" % vp_key, w))
+                if not h9fs.get("hbVisible"):
+                    failures.append(
+                        "%s H9: в fullscreen сердебиение не видно" % vp_key)
                 _snap(page, "%s_fullscreen" % vp_key)
                 # Сброс в normal (не влияет на следующие вьюпорты, но чисто
                 # завершает контекст).

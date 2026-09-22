@@ -393,7 +393,8 @@ class TestStickySave:
         cdecls = _parse_decls(cbody)
         assert cdecls.get("display") == "flex", cdecls
         assert cdecls.get("flex-direction") == "column", cdecls
-        assert "max-height" in cdecls and "46rem" in cdecls["max-height"], cdecls
+        # HOTFIX9 D3 (T-2807): высота от единого --app-usable-height (600–700 px).
+        assert "app-usable-height" in cdecls.get("max-height", ""), cdecls
 
     def test_scroll_area_reserve(self):
         joined = "\n".join(b for _, b, _ in _rules_for(".scroll-area"))
@@ -440,14 +441,15 @@ class TestStickySave:
         assert "max-height:80dvh" not in INDEX
         assert "max-height:70dvh" not in INDEX
 
-    def test_panel_inside_modal_body_markup(self):
-        # sticky-save не должен стоять в .modal-footer
-        for m in re.finditer(r'<footer class="modal-footer[^"]*">(.*?)</footer>',
-                             INDEX, flags=re.S):
-            assert "<sticky-save" not in m.group(1), "sticky-save в footer"
-        # досье-футер перенесён внутрь .modal-body
+    def test_panel_inside_modal_actions_markup(self):
+        # HOTFIX9 D3 (T-2806): SaveBar — отдельная нижняя область модалки
+        # (footer.modal-actions), НЕ sticky поверх полей и НЕ в .modal-body.
+        assert re.search(r'<footer class="modal-actions[^"]*">[\s\S]{0,400}'
+                         r"<sticky-save", INDEX), \
+            "нет <sticky-save> внутри footer.modal-actions (модалка модуля)"
+        # Ветки-скроллеры (config/modules/access) сохраняют sticky-панель внутри
+        # scroll-area — это НЕ модалки.
         assert INDEX.count("<sticky-save") >= 3
-        # панель в каждой ветке (config/modules/access) — S10.20-1
         config = INDEX[INDEX.index("currentTabIsConfig"):
                        INDEX.index("activeTab === 'modules'")]
         modules = INDEX[INDEX.index("activeTab === 'modules'"):
@@ -457,9 +459,14 @@ class TestStickySave:
         for name, block in (("config", config), ("modules", modules),
                             ("access", access)):
             assert "<sticky-save" in block, f"нет панели в ветке {name}"
+        # Досье: SaveBar вынесена из .modal-body в modal-actions.
+        dossier = INDEX[INDEX.index("dossierOpen"):INDEX.index("roleEditor.open")]
+        assert re.search(r'<footer class="modal-actions">[\s\S]{0,400}'
+                         r'<div class="sticky-save">', dossier), \
+            "досье: sticky-save не в modal-actions"
 
     def test_footer_static_defensive_rule(self):
-        assert ".modal-footer > .sticky-save" in CSS
-        _, body, _ = _last_rule_for(".modal-footer > .sticky-save",
+        assert ".modal-actions > .sticky-save" in CSS
+        _, body, _ = _last_rule_for(".modal-actions > .sticky-save",
                                     top_level_only=False)
         assert _parse_decls(body).get("position") == "static"

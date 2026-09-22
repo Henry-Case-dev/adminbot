@@ -734,14 +734,33 @@ class Settings:
     # aurora/mesh фон (D3). Δ каталога = 0 (в param_catalog НЕ входят).
     # Доставка — `GET /api/me.ui_flags` (ADR-1024-13), наружу только bool.
     # Default ON = штатное новое поведение; OFF → прежнее:
-    #   * UI_SHELL_V3 — OFF → значения `--shell-*` hotfix7 (класс
-    #     `.app-shell.shell-v3-off`); цветная линза НЕ возвращается (её снятие —
-    #     часть исправления §1.2, а не настройка).
+    #   * UI_SHELL_V3 — OFF → класс `.app-shell.shell-v3-off` (hotfix8-токены).
+    #     С hotfix9 сохранён как legacy-алиас `UI_SHELL_GRAPHITE_V3`
+    #     (L-H9S-2: OFF любого из двух даёт soft-откат); цветная линза НЕ
+    #     возвращается (её снятие — часть исправления §1.2, а не настройка).
     #   * UI_AURORA_BG_ENABLED — OFF → прежний conic page-wash `body::before`
     #     (класс `html.bg-wash-legacy`).
     UI_SHELL_V3: ClassVar[bool] = _env_bool("UI_SHELL_V3", True)
     UI_AURORA_BG_ENABLED: ClassVar[bool] = _env_bool(
         "UI_AURORA_BG_ENABLED", True)
+    # ── Хотфикс-9 (10.25, ADR-1025-17 D1/D4/D5/D6): env-only ClassVar-флаги
+    # четырёх областей — flex-геометрия, графитовый shell, Liquid Glass,
+    # Dark Aurora Flow. Δ каталога = 0 (в param_catalog НЕ входят). Доставка —
+    # `GET /api/me.ui_flags` (ADR-1024-13), наружу только bool. Default ON =
+    # штатное новое поведение; OFF → прежнее без редеплоя:
+    #   * UI_SHELL_FLEX_V3 — OFF → прежняя геометрия высот/fixed nav
+    #     (`.shell-layout-legacy`).
+    #   * UI_SHELL_GRAPHITE_V3 — OFF → значения `--shell-*` hotfix8
+    #     (`.shell-v3-off`); диагональная текстура НЕ возвращается.
+    #   * UI_LIQUID_GLASS_LIB — OFF → только frost-fallback (без библиотеки).
+    #   * UI_AURORA_FLOW_V2 — OFF → прежний CSS-aurora (hotfix8).
+    UI_SHELL_FLEX_V3: ClassVar[bool] = _env_bool("UI_SHELL_FLEX_V3", True)
+    UI_SHELL_GRAPHITE_V3: ClassVar[bool] = _env_bool(
+        "UI_SHELL_GRAPHITE_V3", True)
+    UI_LIQUID_GLASS_LIB: ClassVar[bool] = _env_bool(
+        "UI_LIQUID_GLASS_LIB", True)
+    UI_AURORA_FLOW_V2: ClassVar[bool] = _env_bool(
+        "UI_AURORA_FLOW_V2", True)
     # ── Раунд 10.22 (F8, ADR-1022-8): env-only ClassVar-рубильники
     # асинхронной пересборки досье из мини-аппа. Δ каталога = 0 (в
     # param_catalog не входят; прецедент MULTILAYER_EXTRACTION_ENABLED).
@@ -1712,7 +1731,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.58.11"   # HOTFIX8 (10.25): shell v3 (графитовый glass, снята цветная линза/ореол), CSS-aurora фон, геометрия mobile/fullscreen, ADR-1025-16
+APP_VERSION = "2.58.12"   # HOTFIX9 (10.25): flex-геометрия shell (единый --app-usable-height, nav в потоке), графитовый shell без текстуры, vendored Liquid Glass (OGL/стекло), Dark Aurora Flow, ADR-1025-17
 
 
 def get_ytdlp_pot_provider() -> str:

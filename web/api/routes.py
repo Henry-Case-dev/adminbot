@@ -399,6 +399,13 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
             # и aurora/mesh фон. R16-аддитивно, R17-safe (bool), Δ каталога = 0.
             "UI_SHELL_V3": bool(settings.UI_SHELL_V3),
             "UI_AURORA_BG_ENABLED": bool(settings.UI_AURORA_BG_ENABLED),
+            # Хотфикс-9 (10.25, ADR-1025-17 D1/D4/D5/D6): flex-геометрия,
+            # графитовый shell, Liquid Glass (vendored), Dark Aurora Flow.
+            # R16-аддитивно, R17-safe (bool), Δ каталога = 0.
+            "UI_SHELL_FLEX_V3": bool(settings.UI_SHELL_FLEX_V3),
+            "UI_SHELL_GRAPHITE_V3": bool(settings.UI_SHELL_GRAPHITE_V3),
+            "UI_LIQUID_GLASS_LIB": bool(settings.UI_LIQUID_GLASS_LIB),
+            "UI_AURORA_FLOW_V2": bool(settings.UI_AURORA_FLOW_V2),
         },
     }
 

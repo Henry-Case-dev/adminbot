@@ -23,8 +23,8 @@ const TG = fs.readFileSync(
 
 // ── Breakpoints: sidebar строго с 1200; bottom-nav <768 ──────────────────
 assert.ok(/@media \(min-width:\s*1200px\)/.test(CSS), 'есть @media 1200px');
-assert.ok(/\.app-shell\.ia-v2 \{ padding-left: 232px; \}/.test(CSS),
-  'desktop: контент смещён на 232px (sidebar)');
+assert.ok(/\.app-shell\.ia-v2 \{ padding-left: 216px; \}/.test(CSS),
+  'desktop: контент смещён на 216px (sidebar 208–224)');
 assert.ok(/\.app-shell\.ia-v2 \.app-sidebar \{/.test(CSS),
   'sidebar рендерится только в ia-v2 (≥1200)');
 assert.ok(CSS.indexOf('@media (min-width: 1200px)') >= 0,

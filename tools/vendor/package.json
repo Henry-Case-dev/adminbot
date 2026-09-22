@@ -1,0 +1,15 @@
+{
+  "name": "adminbot-vendor-build",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local build of vendored client libraries (round1025 hotfix9, ADR-1025-17 D5/D6). npm is a build tool only; the project keeps its zero-build runtime and serves the built bundles from web/static/vendor/ via same-origin <script src> (CSP script-src 'self').",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@liquidglassjs/core": "0.5.3",
+    "esbuild": "0.25.9",
+    "ogl": "1.0.11"
+  }
+}

@@ -75,17 +75,51 @@
       csa ? csa.bottom : 0,
       sa ? sa.bottom : 0);
     setVar('--tg-viewport-bottom-offset', offset);
+    /* HOTFIX9 (ADR-1025-17 D1, T-2794/T-2796): ЕДИНЫЙ источник высоты shell.
+     * `--app-usable-height = max(0, innerHeight − offset)`; `--shell-h` в CSS —
+     * алиас. Нижний safe-area учитывается РОВНО ОДИН РАЗ (здесь), панель
+     * `.bottom-nav` в flex-колонке НЕ добавляет собственный offset. */
+    var usable = (window.innerHeight || 0) - offset;
+    if (!(usable > 0)) usable = window.innerHeight || 0;
+    setVar('--app-usable-height', Math.max(0, usable));
+  }
+  /* HOTFIX9 (T-2800/T-2808/Low): клавиатура/визуальный вьюпорт меняет видимую
+   * высоту — пересчитываем `--app-usable-height`, чтобы активное поле и
+   * SaveBar оставались в экране. Только пересчёт единого источника. */
+  function scrollActiveModalField() {
+    /* D3 spec: активное поле внутри модалки приводится в видимость
+       (`scrollIntoView({block:'nearest'})`); логика сохранения не затрагивается. */
+    try {
+      var el = document.activeElement;
+      if (!el || typeof el.closest !== 'function') return;
+      var tag = (el.tagName || '').toLowerCase();
+      if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') return;
+      if (!el.closest('.modal-body')) return;
+      if (typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ block: 'nearest' });
+      }
+    } catch (e) { /* no-op */ }
+  }
+  function applyInsetSafe() {
+    try { applyInsets(); } catch (e) { /* no-op */ }
+    scrollActiveModalField();
   }
   applyInsets();
   if (typeof wa.onEvent === 'function') {
-    wa.onEvent('viewportChanged', applyInsets);
-    wa.onEvent('safeAreaChanged', applyInsets);
-    wa.onEvent('contentSafeAreaChanged', applyInsets);
+    wa.onEvent('viewportChanged', applyInsetSafe);
+    wa.onEvent('safeAreaChanged', applyInsetSafe);
+    wa.onEvent('contentSafeAreaChanged', applyInsetSafe);
   }
   /* hotfix4 (T-2516): пересчёт на resize окна/повороте — страховка, если
    * клиент не прислал Telegram-событие (offset не должен «залипать»). */
   if (typeof window.addEventListener === 'function') {
-    window.addEventListener('resize', applyInsets);
+    window.addEventListener('resize', applyInsetSafe);
+  }
+  /* HOTFIX9 (T-2800): изменение visualViewport (экранная клавиатура) —
+   * пересчёт единого `--app-usable-height`; layout не «уезжает». */
+  if (window.visualViewport && typeof window.visualViewport.addEventListener === 'function') {
+    window.visualViewport.addEventListener('resize', applyInsetSafe);
+    window.visualViewport.addEventListener('scroll', applyInsetSafe);
   }
 
   /* F1 (UPD §8.4): BackButton show/hide управляет app.js (syncBackButton);

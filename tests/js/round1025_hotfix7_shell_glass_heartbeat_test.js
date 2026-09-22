@@ -91,22 +91,29 @@ function canvasStub() {
 
 // ── A. Единый сток высоты + два режима ─────────────────────────────────────
 {
-  // F-2 (review): реальный фолбэк. Значения custom properties не валидируются
-  // при разборе, поэтому dvh/min()-апгрейд обязан жить за @supports, а базовое
-  // значение — всегда валидный 100vh (иначе старый WebView получает auto).
-  assert.ok(/--shell-h:\s*100vh;/.test(CSS), 'A: базовый --shell-h = 100vh');
-  assert.ok(!/--shell-h:\s*100dvh;/.test(CSS),
-    'A: нет висячего --shell-h:100dvh (invalid при подстановке)');
+  // HOTFIX9 (ADR-1025-17 D1): единственный источник — `--app-usable-height`
+  // (JS inline в TMA), всегда валидный CSS-фолбэк `100vh`; апгрейд до `100dvh`
+  // строго за @supports; `--shell-h` — только алиас (второго источника нет).
+  assert.ok(/--app-usable-height:\s*100vh;/.test(CSS),
+    'A: базовый --app-usable-height = 100vh');
+  assert.ok(/--shell-h:\s*var\(--app-usable-height\)/.test(CSS),
+    'A: --shell-h — алиас --app-usable-height');
+  assert.ok(!/--shell-h:\s*100dvh;/.test(CSS) && !/--shell-h:\s*100vh;/.test(CSS),
+    'A: у --shell-h нет собственного значения (только алиас)');
   assert.ok(
-    /@supports \(height: 100dvh\) and \(height: min\(100dvh, 100dvh\)\)[\s\S]{0,300}--shell-h:\s*min\(100dvh, var\(--tg-viewport-stable-height/
+    /@supports \(height: 100dvh\)[\s\S]{0,200}--app-usable-height:\s*100dvh/
       .test(CSS),
-    'A: dvh/min() только внутри @supports (реальный фолбэк)');
+    'A: dvh-апгрейд только внутри @supports (реальный фолбэк)');
   assert.ok(/\.app-shell \{[\s\S]{0,700}min-height: var\(--shell-h\)/.test(CSS),
     'A: .app-shell min-height из --shell-h');
-  assert.ok(/\.fullscreen-mode \{[\s\S]{0,400}height: var\(--shell-h\)/.test(CSS),
-    'A: fullscreen height = --shell-h');
-  assert.ok(/\.fullscreen-mode \{[\s\S]{0,400}max-height: var\(--shell-h\)/
-    .test(CSS), 'A: fullscreen max-height = --shell-h');
+  assert.ok(
+    /\.app-shell\.shell-mobile:not\(\.shell-layout-legacy\),[\s\S]{0,200}height:\s*var\(--app-usable-height/
+      .test(CSS),
+    'A: mobile flex-колонка height = --app-usable-height');
+  assert.ok(
+    /\.app-shell\.fullscreen-mode:not\(\.shell-layout-legacy\)[\s\S]{0,200}height:\s*var\(--app-usable-height/
+      .test(CSS),
+    'A: fullscreen height = --app-usable-height');
   // Конкурирующего min-height(stable) в базовом .app-shell больше нет.
   assert.ok(!/\.app-shell \{[\s\S]{0,400}min-height: var\(--tg-viewport-stable-height/
     .test(CSS), 'A: убран конкурирующий min-height(stable)');
@@ -118,6 +125,11 @@ function canvasStub() {
     'A: shellLayoutV2 default ON');
   assert.ok(computed.shellLayoutV2.call({ uiFlag: () => false }) === false,
     'A: UI_SHELL_LAYOUT_V2=OFF → legacy');
+  assert.ok(computed.shellFlexV3 &&
+    computed.shellFlexV3.call({ uiFlag: () => true }) === true,
+    'A: shellFlexV3 default ON');
+  assert.ok(computed.shellFlexV3.call({ uiFlag: () => false }) === false,
+    'A: UI_SHELL_FLEX_V3=OFF → legacy');
   assert.ok(INDEX.indexOf('shell-layout-legacy') >= 0,
     'A: класс legacy привязан в разметке');
   // heartbeat не схлопывается (D1.6).
@@ -235,11 +247,15 @@ function canvasStub() {
 
 // ── C. Серо-графитовый shell-слой + глубина ────────────────────────────────
 {
+  // HOTFIX9 (ADR-1025-17 D4): `--shell-texture` УДАЛЕНА; `--shell-specular`
+  // (не-repeating блик) сохранён.
   for (const tok of ['--shell-bg', '--shell-bg-strong', '--shell-border-color',
                      '--shell-highlight', '--shell-shadow', '--shell-blur',
-                     '--shell-specular', '--shell-texture', '--card-shadow']) {
+                     '--shell-specular', '--card-shadow']) {
     assert.ok(CSS.indexOf(tok + ':') >= 0, 'C: токен ' + tok);
   }
+  assert.ok(CSS.indexOf('--shell-texture:') < 0,
+    'C: --shell-texture удалена (UPD3 §7)');
   assert.ok(/--shell-blur:\s*blur\(/.test(CSS), 'C: shell-blur = blur()');
   assert.ok(/--glass-shadow:[^;]*0\.55/.test(CSS),
     'C: --glass-shadow смягчён (.55)');
@@ -256,8 +272,10 @@ function canvasStub() {
   }
   assert.ok(/box-shadow: var\(--shell-shadow\)/.test(CSS),
     'C: shell-shadow применён');
-  assert.ok(/background-image: var\(--shell-specular\), var\(--shell-texture\)/
-    .test(CSS), 'C: specular + текстура (CSS-градиенты)');
+  assert.ok(/background-image: var\(--shell-specular\);/
+    .test(CSS), 'C: specular (без текстуры, CSS-градиент)');
+  assert.ok(!/background-image: var\(--shell-specular\), var\(--shell-texture\)/
+    .test(CSS), 'C: диагональная текстура снята со всех shell-поверхностей');
   // @supports-фолбэк shell → --shell-bg-strong.
   assert.ok(/@supports not \(\(backdrop-filter: blur\(1px\)\)[\s\S]{0,900}background-color: var\(--shell-bg-strong\)/
     .test(CSS), 'C: @supports фолбэк shell');
@@ -289,8 +307,8 @@ function canvasStub() {
     assert.ok(ROUTES.indexOf(flag) >= 0, 'D: ui_flags доставка ' + flag);
     assert.ok(APP_JS.indexOf(flag) >= 0, 'D: фронт читает ' + flag);
   }
-  // HOTFIX8 (10.25) — bump 2.58.10 → 2.58.11 (shell v3/aurora, T-2786).
-  assert.ok(/APP_VERSION = "2\.58\.11"/.test(SETTINGS), 'D: APP_VERSION 2.58.11');
+  // HOTFIX9 (10.25) — bump 2.58.11 → 2.58.12 (shell/glass/aurora, T-2834).
+  assert.ok(/APP_VERSION = "2\.58\.12"/.test(SETTINGS), 'D: APP_VERSION 2.58.12');
   // Матрица: 5 режимов + пробы shell/glass/heartbeat.
   for (const m of ['desktop_normal', 'desktop_fullscreen', 'tablet',
                    'mobile_regular', 'mobile_fullscreen']) {

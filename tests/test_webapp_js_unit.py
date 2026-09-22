@@ -169,6 +169,17 @@ def test_js_unit_round1025_hotfix8_shell_aurora():
             ok_marker="HOTFIX8-SHELL-AURORA-OK")
 
 
+def test_js_unit_round1025_hotfix9_shell_flex_glass_aurora():
+    """hotfix9 round 10.25 (ADR-1025-17, T-2793…T-2836): единый источник
+    `--app-usable-height` (+ алиас `--shell-h`), flex-колонка shell-mobile/
+    fullscreen, nav в потоке (не fixed), модалка modal-actions, полное удаление
+    `--shell-texture`, графитовые токены §8, vendored Liquid Glass/OGL
+    (same-origin, CSP-safe), Dark Aurora Flow, env-only флаги, APP_VERSION."""
+    _run_js(os.path.join("tests", "js",
+                         "round1025_hotfix9_shell_flex_glass_aurora_test.js"),
+            ok_marker="HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK")
+
+
 def test_js_unit_round1025_f4_module_store():
     """F4 round 10.25 (ADR-1025-14 D1/D2): ModuleConfigurationStore —
     ключ scope_type/scope_id/module_id, одна мутация на действие,

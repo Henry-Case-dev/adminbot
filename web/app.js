@@ -2453,6 +2453,25 @@
       auroraBgEnabled: function () {
         return this.uiFlag('UI_AURORA_BG_ENABLED');
       },
+      // HOTFIX9 (ADR-1025-17 D1/D4/D5/D6): env-only мягкие откаты четырёх
+      // новых областей. Default ON (штатное новое поведение); OFF → прежнее
+      // (flex→legacy, графит→hotfix8, стекло→frost, aurora→legacy CSS).
+      shellFlexV3: function () {
+        return this.uiFlag('UI_SHELL_FLEX_V3');
+      },
+      shellGraphiteV3: function () {
+        // HOTFIX9 L-H9S-2: legacy-рубильник `UI_SHELL_V3` (hotfix8) больше не
+        // «мёртвый» — OFF любого из двух флагов возвращает hotfix8-токены
+        // (класс `.shell-v3-off`); дубль намерения сохранён как алиас.
+        return this.uiFlag('UI_SHELL_GRAPHITE_V3')
+          && this.uiFlag('UI_SHELL_V3');
+      },
+      liquidGlassLib: function () {
+        return this.uiFlag('UI_LIQUID_GLASS_LIB');
+      },
+      auroraFlowV2: function () {
+        return this.uiFlag('UI_AURORA_FLOW_V2');
+      },
       // HOTFIX7 (ADR-1025-13 D2.6): premium-рендер ECG; OFF → прежний
       // canvas-рендер (синусоида + импульс). `UI_HEARTBEAT_CANVAS_ENABLED=OFF`
       // по-прежнему уводит на legacy SVG (порядок: SVG → canvas legacy → ECG).
@@ -2754,6 +2773,9 @@
         // пересчитываем уровень стекла после рендера (в дополнение к observer).
         var self = this;
         this.$nextTick(function () { self._lgSchedule(); });
+        // HOTFIX9 D5 (T-2817): новые целевые узлы (Статус) могли появиться —
+        // точечно монтируем стекло после рендера.
+        this.$nextTick(function () { self._syncGlassLib(); });
         // hotfix6/C2 (T-2599, MEDIUM): rAF-цикл сердебиения живёт ТОЛЬКО на
         // «Статусе»; возврат — перерисовка кадра после монтирования канваса
         // (в т.ч. reduced-motion: статичный кадр, без пустого канваса).
@@ -2805,7 +2827,11 @@
       // F1 (§6/§7): пересчёт shell-режима при ресайзе (sidebar строго ≥1200).
       // F2 (T-2540): + пересчёт уровня A стекла (min-сторона ≥240).
       _onResize = function () {
-        if (_appVm) { _appVm._syncShellMode(); _appVm.reconcileLiquidGlass(); }
+        if (_appVm) {
+          _appVm._syncShellMode();
+          _appVm.reconcileLiquidGlass();
+          if (typeof _appVm._hbResize === 'function') _appVm._hbResize();
+        }
       };
       window.addEventListener('resize', _onResize);
       // MODERATE-2 + 10.8 (R10.8-1): глобальный Esc закрывает модалку модуля
@@ -5900,10 +5926,17 @@
         }
         // 84.24-ревью: поиск не переносится между вкладками
         if (this.configSearch) this.configSearch = '';
-        // 3.5.1 (UX): скролл контента в начало при переключении вкладки
+        // 3.5.1 (UX): скролл контента в начало при переключении вкладки.
+        // HOTFIX9 D2 (T-2804, ADR-1025-17): в TMA/mobile/fullscreen скроллится
+        // не document, а `main.scroll-area` (flex-колонка) — сбрасываем оба,
+        // чтобы новый основной раздел открывался с начала страницы.
         this.$nextTick(function () {
           var sc = document.scrollingElement || document.documentElement;
           if (sc) sc.scrollTop = 0;
+          if (typeof document.querySelector === 'function') {
+            var area = document.querySelector('.app-shell .scroll-area');
+            if (area) area.scrollTop = 0;
+          }
         });
         if (id === 'status') {
           this.loadStatus();
@@ -6051,6 +6084,18 @@
             this.isFullscreen = wa.isFullscreen;
           }
         } catch (e) { /* no-op */ }
+        // HOTFIX9 D7 (T-2832): после смены fullscreen даём Vue перерисовать
+        // разметку и перерисовываем canvas по новому размеру (иначе в fullscreen
+        // сердебиение могло «исчезнуть»). Дизайн/данные не затрагиваются.
+        var self = this;
+        var redraw = function () {
+          if (typeof self._hbResize === 'function') self._hbResize();
+        };
+        if (typeof this.$nextTick === 'function') {
+          this.$nextTick(redraw);
+        } else {
+          redraw();
+        }
       },
 
       // F24 (C3/C4): отписки в beforeUnmount — `offEvent` с ТЕМИ ЖЕ fn-ссылками
@@ -7882,6 +7927,15 @@
       _hbScheduleDraw: function () {
         if (!this.heartbeatCanvasEnabled) return;
         if (!this.hbCanvasRaf) this._hbDraw(this.hbLastDraw || 0);
+      },
+      // HOTFIX9 D7 (T-2831/T-2832, ADR-1025-17): при смене viewport/fullscreen
+      // canvas мог схлопнуться/потерять размер — перерисовываем кадр по фактическим
+      // clientWidth/clientHeight (дизайн/цвета/пороги/алгоритм НЕ меняются).
+      _hbResize: function () {
+        if (!this.heartbeatCanvasEnabled) return;
+        if (this.activeTab && this.activeTab !== 'status') return;
+        this._hbScheduleDraw();
+        this.startHeartbeatCanvas();
       },
       _hbFrame: function (ts) {
         this.hbCanvasRaf = null;
@@ -9988,6 +10042,9 @@
           if (typeof document !== 'undefined' && document.hidden) return;
           self._lgLastRun = Date.now();
           self.reconcileLiquidGlass();
+          // HOTFIX9 D5 (T-2817): поздние целевые узлы (селектор области и др.)
+          // получают стекло по факту появления (идемпотентно).
+          self._syncGlassLib();
         }, delay);
       },
       _initLiquidGlassObserver: function () {
@@ -10040,15 +10097,43 @@
         try {
           document.documentElement.classList.toggle('lg-bg-paused', !!paused);
         } catch (e) { /* no-op: document недоступен */ }
+        // HOTFIX9 D6: Dark Aurora Flow — стоп рендера при document.hidden.
+        try {
+          if (window.__AuroraFlow && window.__AuroraFlow.setPaused) {
+            window.__AuroraFlow.setPaused(!!paused);
+          }
+        } catch (e2) { /* no-op */ }
       },
       // HOTFIX8 (ADR-1025-16 D3): UI_AURORA_BG_ENABLED=OFF → на <html> вешается
       // `bg-wash-legacy`, возвращающий прежний conic page-wash (§10/F2).
-      // Default ON (aurora). Класс на documentElement — вне Vue-разметки,
-      // поэтому синхронизируется вручную (без inline-скриптов, CSP-safe).
+      // HOTFIX9 (ADR-1025-17 D6): UI_AURORA_FLOW_V2 (default ON) → один canvas
+      // Dark Aurora Flow (`html.aurora-flow-v2`); legacy-слои выводятся из
+      // активного пути. Default ON (aurora flow). Классы на documentElement —
+      // вне Vue-разметки, синхронизируются вручную (CSP-safe).
       _syncBgLayer: function () {
+        var flow = !!this.auroraFlowV2;
+        var aurora = !!this.auroraBgEnabled;
         try {
-          document.documentElement.classList.toggle(
-            'bg-wash-legacy', !this.auroraBgEnabled);
+          var de = document.documentElement;
+          de.classList.toggle('aurora-flow-v2', flow);
+          de.classList.toggle('bg-wash-legacy', !flow && !aurora);
+        } catch (e) { /* no-op */ }
+        try {
+          if (window.__AuroraFlow) {
+            if (flow) window.__AuroraFlow.start();
+            else window.__AuroraFlow.stop();
+          }
+        } catch (e2) { /* no-op */ }
+        if (typeof this._syncGlassLib === 'function') this._syncGlassLib();
+      },
+      // HOTFIX9 D5 (T-2817): точечное применение vendored Liquid Glass к
+      // целевым элементам (селектор области/⛶/декоративная карточка Статуса).
+      // OFF (UI_LIQUID_GLASS_LIB) или отсутствие библиотеки → frost-fallback.
+      _syncGlassLib: function () {
+        try {
+          if (window.__LiquidGlass && typeof window.__LiquidGlass.sync === 'function') {
+            window.__LiquidGlass.sync(!!this.liquidGlassLib);
+          }
         } catch (e) { /* no-op */ }
       },
       onVisibilityChange: function () {

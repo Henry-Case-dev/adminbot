@@ -67,21 +67,26 @@ function token(name) {
   return m ? m[1].trim() : '';
 }
 
-// ── A/B. Shell §4 + снятие цветной линзы ───────────────────────────────────
+// ── A/B. Shell §8 (HOTFIX9) + снятие цветной линзы ─────────────────────────
 {
+  // HOTFIX9 (ADR-1025-17 D4): графитовые токены §8 (UPD3 §8).
   assert.strictEqual(token('--shell-bg').replace(/\s/g, ''),
-    'rgba(24,28,38,0.72)', 'B: §4 shell-bg .72');
+    'rgba(27,29,34,0.94)', 'B: §8 shell-bg .94');
   assert.strictEqual(token('--shell-bg-mobile').replace(/\s/g, ''),
-    'rgba(24,28,38,0.78)', 'B: §4 mobile shell-bg .78');
+    'rgba(27,29,34,0.96)', 'B: §8 mobile shell-bg .96');
   assert.strictEqual(token('--shell-border-color').replace(/\s/g, ''),
-    'rgba(255,255,255,0.08)', 'B: §4 border .08');
+    'rgba(255,255,255,0.09)', 'B: §8 border .09');
   assert.strictEqual(token('--shell-highlight').replace(/\s/g, ''),
-    'rgba(255,255,255,0.06)', 'B: §4 inner highlight .06');
+    'rgba(255,255,255,0.055)', 'B: §8 inner highlight .055');
   assert.strictEqual(token('--shell-shadow').replace(/\s/g, ''),
-    '08px24pxrgba(0,0,0,0.18)', 'B: §4 shadow');
+    '04px16pxrgba(0,0,0,0.16)', 'B: §8 shadow');
   const blur = token('--shell-blur').replace(/\s/g, '');
-  assert.ok(blur.indexOf('blur(18px)') >= 0 && blur.indexOf('saturate(115%)') >= 0,
-    'B: §4 backdrop blur(18px) saturate(115%)');
+  assert.ok(blur.indexOf('blur(14px)') >= 0 && blur.indexOf('saturate(105%)') >= 0,
+    'B: §8 backdrop blur(14px) saturate(105%)');
+  // HOTFIX9 §7: диагональная текстура УДАЛЕНА полностью.
+  assert.ok(CSS.indexOf('--shell-texture:') < 0, 'B: --shell-texture удалена');
+  assert.ok(!/var\(--shell-texture\)/.test(CSS),
+    'B: --shell-texture не применяется ни на одной поверхности');
   // Sheen ≤ .05, бесцветный (без радиальной цветной маски).
   assert.ok(/--shell-sheen-opacity:\s*\.05/.test(CSS), 'B: sheen ≤ .05');
   const shell = CSS.match(/\[data-glass="shell"\]\s*\{([^}]*)\}/);
@@ -116,9 +121,10 @@ function token(name) {
     'A: more-sheet радиус 18px');
   assert.ok(/\.bottom-nav \{[\s\S]{0,1200}border-radius:\s*18px 18px 0 0/.test(CSS),
     'A: bottom-nav радиус 18px');
-  // UI_SHELL_V3=OFF → hotfix7 значения без возврата линзы.
-  assert.ok(/\.app-shell\.shell-v3-off\s*\{[\s\S]{0,900}--shell-bg:\s*rgba\(33, 37, 45, 0\.62\)/.test(CSS),
-    'B-OFF: shell-v3-off → hotfix7 значения');
+  // UI_SHELL_GRAPHITE_V3=OFF (класс shell-v3-off) → hotfix8 значения, без
+  // возврата линзы и БЕЗ возврата диагональной текстуры.
+  assert.ok(/\.app-shell\.shell-v3-off\s*\{[\s\S]{0,900}--shell-bg:\s*rgba\(24, 28, 38, 0\.72\)/.test(CSS),
+    'B-OFF: shell-v3-off → hotfix8 значения');
   assert.ok(INDEX.indexOf('shell-v3-off') >= 0 && INDEX.indexOf('shell-v3') >= 0,
     'B-OFF: класс shell-v3 в разметке');
   assert.ok(computed.shellV3.call({ uiFlag: () => true }) === true,
@@ -202,8 +208,8 @@ function token(name) {
     assert.ok(ROUTES.indexOf(flag) >= 0, 'D: ui_flags доставка ' + flag);
     assert.ok(APP_JS.indexOf(flag) >= 0, 'D: фронт читает ' + flag);
   }
-  // T-2786: bump HOTFIX8 2.58.10 → 2.58.11 (cache-bust shell v3/aurora).
-  assert.ok(/APP_VERSION = "2\.58\.11"/.test(SETTINGS), 'D: APP_VERSION 2.58.11');
+  // T-2834: HOTFIX9 bump 2.58.11 → 2.58.12 (cache-bust shell/glass/aurora).
+  assert.ok(/APP_VERSION = "2\.58\.12"/.test(SETTINGS), 'D: APP_VERSION 2.58.12');
   for (const m of ['desktop_normal', 'desktop_fullscreen', 'tablet',
                    'mobile_regular', 'mobile_fullscreen']) {
     assert.ok(MATRIX.indexOf(m) >= 0, 'D: режим ' + m);
