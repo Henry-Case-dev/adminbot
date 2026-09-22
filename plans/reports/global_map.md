@@ -1,5 +1,16 @@
 # Global Map (architectural memory)
 
+## Round 10.25 F5 `module-workspace-tabs-round1025` (§46–§49/§84/§85) — 22.09.2026, Step 6 @Scanner (повторный)
+
+- **База:** HEAD `12a55bb` (`pre-round1025-f5`) + рабочее дерево (правки не закоммичены). Отчёт: `plans/reports/round1025_f5_scanner_audit.md`; AI-карта: `plans/reports/round1025_f5_ai_map.md`. **0 Critical / 0 High / 0 Medium / 0 Low / 2 Info** → к деплою ДА (итер.1: [M-F5S-1] + [L-F5S-1..3] закрыты).
+- **Новые связности (подтверждены):** шов F4 `openModuleWorkspace(m)` (`web/app.js`) **заменён** на `navigateTo('#/modules/<slug>')`; прежняя реализация `openModuleWindow(m)` сохранена как регресс-путь/fallback (`file://`, unit-стаб без hashchange, отсутствие workspace-определения). Это закрывает «точку входа F5», отмеченную в F4-секции ниже.
+- **Динамический резолвер:** `parseWorkspaceRoute`/`parsePromptLibraryRoute`/`_wsModuleById` + `normalizeRoute`/`routeToTab`/`routeParent`/`routeDepth` (`web/app.js`) — маршруты `#/modules/<slug>[/<wt>[/<stage>/<key>]]` и `#/ai/prompts/<slug>[/<stage>[/<key>]]`; `routeToTab`= `m.tab` → RBAC (`canViewTab`) и kill-switch (`_flagTabHidden`) reuse без правок; `applyRoute` выводит производное `workspace` (door/tab/stage/promptKey) из hash, неизвестный slug → `#/modules`/`#/ai/prompts` + toast.
+- **Новые витринные константы (Δ каталога = 0, только `web/**`):** `WORKSPACE_TABS`/`WORKSPACE_TAB_LABELS`/`MODULE_PROMPT_GROUPS`/`PROVIDER_GROUPS`/`MODULE_MODEL_BLOCKS`; `services/param_catalog.py` read-only (459/98/96/21/418).
+- **§48 «один промпт — один источник»:** обе двери резолвят один `configItems`-элемент `prompts.*`; библиотечная дверь остаётся библиотекой (`#/ai/prompts/<slug>[/<stage>]/<key>`, M-F5S-1 fix) → редактор открывается и для `mod_summary`/`mod_sleep`; один write-path F0 (`saveConfigItem`→`persistItems`); новых хранилищ/эндпоинтов нет (reuse `POST /api/llm/test`,`/api/images/test`).
+- **§49-карточка подключения (T-2714):** `buildConnectionCard`/`workspaceModelCards`/`connectionCard`/`toggleConnectionSettings`/`testConnection` — производная от `PROVIDER_BLOCKS` (название/назначение/основная/резервная модель/статус + «Проверить»/«Настроить»); секреты `keys.*` не читаются, открытие/раскрытие = 0 POST, «Проверить» → существующий `testBlock`.
+- **Закрыто (итер.2):** [M-F5S-1] RESOLVED (probe PROBE-ALL-PASS на реальном `web/app.js`); [L-F5S-1] тач-цели ≥44px; [L-F5S-2] `role="group"` без `listitem`; [L-F5S-3] пустая дверь → `#/ai/prompts`.
+- **Тесты/инварианты:** `node --check` OK; JS `MODULE-WORKSPACE-OK`/`PROMPTS-SINGLE-SOURCE-OK`/`MODELS-GROUPS-OK`/`JS-UNIT-OK` + `IMAGE-MODULE-OK` + hotfix7 OK; целевые pytest **19 passed**, регресс-пины **202 passed**; Δ DDL=0, Δ каталога=0, CSP/zero-build чист (без WebGL/новых API/библиотек); `APP_VERSION` **2.58.10**; `stash@{0}`/теги/бэкапы целы; маркер-тесты не ослаблены.
+
 ## Round 10.25 F4 `module-catalog-quickpanel-store-round1025` (§31–§45) — 22.09.2026, Step 6 @Scanner
 
 - **База:** HEAD `b5f8348` + рабочее дерево (правки не закоммичены, включая rework iter2). Отчёт: `plans/reports/round1025_f4_scanner_audit.md`.

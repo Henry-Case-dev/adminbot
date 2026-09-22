@@ -2,11 +2,29 @@
 
 > Краткий оперативный чекпоинт оркестратора. Не транскрипт. Обновляется после каждого верифицированного шага.
 
-- **task_id:** round1025-hotfix7-shell-glass-heartbeat (закрыт) → **F4 `module-catalog-quickpanel-store-round1025` (закрыта, 22.09.2026)** → активна **F5 `module-workspace-tabs-round1025`** (Step 0/1).
-- **Запрос (источник):** `plans/current_task.md` (MASTER SPECIFICATION v6.0) — F4: §31–§45/§72/§73/§79/§116; активный запрос — **F5** §46/§48/§49/§84/§85 (файл untracked, **не изменялся**, R17/R18).
-- **HEAD:** `f0db773` (== `origin/master`; F4 код/тесты/планы/деплой-док закоммичены и задеплоены; рабочие правки @Memory — только `plans/**` + KG; docs-коммит синка — за @DevOps)
-- **Активная фича:** **F5 `module-workspace-tabs-round1025`** — **▶️ Step 0/1 (старт)**; **F4 `module-catalog-quickpanel-store-round1025`** — ✅ **COMPLETED + MERGED + ARCHIVED + DEPLOYED** (22.09.2026).
+- **task_id:** round1025-hotfix7-shell-glass-heartbeat (закрыт) → **F4 `module-catalog-quickpanel-store-round1025` (закрыта, 22.09.2026)** → активна **F5 `module-workspace-tabs-round1025`** (Шаг 0 ✅, Шаг 1 — следующий).
+- **Запрос (источник):** `plans/current_task.md` (MASTER SPECIFICATION v6.0) — F4: §31–§45/§72/§73/§79/§116; активный запрос — **F5** §46/§47/§48/§49/§84/§85 (файл untracked, **не изменялся**, R17/R18).
+- **HEAD:** `12a55bb` (== `origin/master`; F4 код/тесты/планы/деплой-док закоммичены и задеплоены; рабочие правки @Memory — только `plans/**` + KG; docs-коммит синка — за @DevOps)
+- **Активная фича:** **F5 `module-workspace-tabs-round1025`** — **✅ Step 0 (@Memory, контекст-синк + конфликт-чек)**; далее **▶️ Step 1 @PM (декомпозиция `tasks.md`)**; **F4 `module-catalog-quickpanel-store-round1025`** — ✅ **COMPLETED + MERGED + ARCHIVED + DEPLOYED** (22.09.2026).
 - **APP_VERSION:** **2.58.9** (задеплоено)
+
+## Статус шагов (строгий воркфлоу) — F5 `module-workspace-tabs-round1025` (Эпик 1, §46–§49/§84/§85) — 🟦 IN PROGRESS
+| Шаг | Агент | Статус | Evidence |
+|---|---|---|---|
+| 0 context | @Memory | ✅ | Initial sync + карта кода: модалка `openModuleWindow` (`web/app.js:3790-3809`, рендер `web/index.html:1286-1508`, computed `activeModule`/`activeModuleTab`/`activeModuleGroups` 1497-1517), шов F4 `openModuleWorkspace` (`web/app.js:4664-4666`, кнопка `index.html:1267`), `MODULES` 449-530, раздел ИИ `HUBS_V2 '#/ai'` 400-421 + TABS 42-160, промпт-редакторы `promptSections`/`promptModeTabs`/`providersShowAccordion` 5502-5638 + `index.html:617-760`, модели/подключения `PROVIDER_BLOCKS` 536+, `post_llm_test` (`web/api/routes.py:1764`), группы `prompts_*`/`models_*` (`services/param_catalog.py:147-186`); конфликт-чек (F4-шов/F9/аккордеоны §48-§69/«один источник»); baseline HEAD `12a55bb` / 2.58.9 / pytest 8229/0 / каталог 459/98/96/21/418; KG-узел `F5-module-workspace-tabs-round1025` + связи (part-of Epic, depends-on F4, reuses ADR-1025-14, mapped-in round1025-architecture; F4 unblocks/specifies F5). |
+| 1 plan | @PM | ⏭️ следующий | `plans/features/module-workspace-tabs-round1025/tasks.md` (заготовка Step 1 — детализировать: блоки §46/§47/§48/§49/§84/§85 + инварианты/тесты) |
+| 2 design | @Architect | ⬜ | ожидается `spec.md` + новый ADR (следующий свободный — **ADR-1025-15**) |
+| baseline | @DevOps | ⬜ | точка отката + бэкап (R18) |
+| 3 graph | @Memory | ⬜ | уточнение KG по spec/ADR |
+| 4 build | @Builder | ⬜ | — |
+| 5 review | @Reviewer | ⬜ | — |
+| 6 audit | @Scanner | ⬜ | — |
+| 7 merge | @Architect | ⬜ | ожидается новый § в `plans/ARCHITECTURE.md` (§61+) |
+| 8 archive | @PM | ⬜ | `plans/archive/module-workspace-tabs-round1025/` |
+| 9 deploy | @DevOps | ⬜ | — |
+| 10 metrics | @Memory | ⬜ | `plans/metrics.md` (10.25-F5) + KG |
+
+> **Открытые вопросы F5 (для Step 1 @PM / Step 2 @Architect):** (а) где «живёт» маршрут workspace (`#/modules/<id>` + алиасы) и как сохранить регресс-путь `openModuleWindow`/§60.2; (б) «применимые вкладки» — карта вкладок по модулям (метаданные в JS `MODULES` → Δ каталога=0 vs param_catalog); (в) §48 «один объект промпта» — как два маршрута (Модули→…→Синтезатор и ИИ→Библиотека→…) разделяют одну модель/один config-item без копий; (г) §49 группы моделей (генерация текста/речь/видео/эмбеддинги/фоновые/изображения) — источник истины и «не менять сохранённую модель при открытии»; (д) пересечение §48-промптов с канон-миграцией ADR-1013-3 (исходный текст сохранять без изменений).
 
 ## Статус шагов (строгий воркфлоу) — F4 `module-catalog-quickpanel-store-round1025` (Волна 2) — ✅ ЗАКРЫТ + DEPLOYED
 | Шаг | Агент | Статус | Evidence |
@@ -61,6 +79,7 @@
 - Откат: теги `pre-round1025*` + `git revert` (F4 — тег `pre-round1025-f4` → `b5f8348`); soft-откат hotfix7 — env-флаги `UI_SHELL_GLASS_V2`/`UI_HEARTBEAT_PREMIUM`/`UI_SHELL_LAYOUT_V2`; hotfix6 — env-флаги. Бэкапы/теги/`stash@{0}` не удалять (R18).
 
 ## Last update
+- 22.09.2026 — **Step 0 @Memory (старт F5 `module-workspace-tabs-round1025`):** активная фича — F5 (§46–§49/§84/§85; Эпик 1, UI+IA web). Сделан initial context sync + historical conflict check: карта кода (`openModuleWindow`/шов `openModuleWorkspace`/`MODULES`/раздел ИИ/промпт-редакторы/`PROVIDER_BLOCKS`), конфликт-чек (F4-шов §60: заменить реализацию, не ломая точку входа; §48/§69 — аккордеоны не основная навигация; «один промпт — один источник»; F9 SaveBar/секреты не дублировать; F6/F7/F11 не задевать), требования §46–§49/§84/§85, кандидаты в задачи (@PM), риски Critical/High. **Baseline: HEAD `12a55bb` (= origin/master), APP_VERSION 2.58.9, pytest 8229/0, каталог 459/98/96/21/418, SQLite v12 (Δ DDL=0).** KG: создан `F5-module-workspace-tabs-round1025` + связи (part-of `Epic round1025`; depends-on / F4 `unblocks`+`specifies`; `reuses` ADR-1025-14; mapped-in/contains `round1025-architecture`). `plans/workflow_state.md` — активная фича → F5, добавлен блок «Статус шагов F5» (Шаг 0 ✅, Шаг 1 ⏭️). Код не трогался (только `plans/**` + KG); `plans/current_task.md` не изменялся; docs-коммит — за @DevOps; R18. **Следующий шаг — Step 1 @PM.**
 - 22.09.2026 — **Step 10 @Memory (финал F4, Шаг 10 завершён):** F4 `module-catalog-quickpanel-store-round1025` закрыта — все шаги 0–10 ✅, deploy **VERIFIED** (`7f9fed1`/`28eb02d`/`f0db773`, `APP_VERSION` **2.58.9**, health **200**, `database is locked`=0, `deployment.md` VERIFIED). Метрики — `plans/metrics.md` строка + раздел **10.25-F4** + техдолг **§60.10**; KG — `F4…` → COMPLETED+MERGED+ARCHIVED+DEPLOYED, `ADR-1025-14` → Accepted, созданы `release-round1025-f4` + `metric-snapshot-round1025-f4-final` + `tech-debt-round10.25-f4`; синхронизированы `MEMORY.md`, `round1025-architecture`, `Epic round1025`. **Активная фича — F5 `module-workspace-tabs-round1025` (Step 0/1).** Открыт только live-гейт владельца **T-2656** (+ наследуемые T-2682/T-2617/…). Код не трогался; docs-коммит — за @DevOps; R18.
 - 22.09.2026 — **@Memory (решение владельца, R17):** зафиксирован осознанный отказ от ротации — `deploy_commands.txt` **не трогать**; security-рекомендации @DevOps/@Scanner закрыты (`metrics.md` 10.25-HOTFIX7 + архивы hotfix6/hotfix7 `deployment.md`). KG: `deploy_commands_policy_round1025` (**AcceptedDecision**) → `Epic round1025` (`has-decision`). Активная фича — **F4 `module-catalog-quickpanel-store-round1025` (Step 2 @Architect, по указанию владельца; `spec.md`/`ADR-1025-14` ещё не созданы)**. Код/секреты не трогались, содержимое `deploy_commands.txt` не читалось.
 - 22.09.2026 — **Step 10 @Memory (финал пакета HOTFIX7):** пакет закрыт — все шаги 0–9 ✅, deploy **VERIFIED** (`7073e34`/`a9cec67`/`2a67829`, `APP_VERSION` **2.58.8**, health 200, `database is locked`=0), Step 10 ✅ (метрики **10.25-HOTFIX7**, KG `release-round1025-hotfix7` + `metric-snapshot-round1025-hotfix7-final` + `tech-debt-round10.25-hotfix7`, `ADR-1025-13` → Accepted). Активная фича — **F5 `module-workspace-tabs-round1025`** (F4 закрыта и задеплоена). Код не трогался; docs-коммит — за @DevOps. Открыт только live-гейт владельца **T-2682**. Следующий шаг — **F5**.

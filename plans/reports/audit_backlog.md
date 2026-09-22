@@ -1,5 +1,18 @@
 # Audit Backlog
 
+## Round 10.25 F5 `module-workspace-tabs-round1025` (§46–§49/§84/§85 workspace/промпты/модели) — аудит рабочего дерева (Step 6 @Scanner, 22.09.2026; повторный после правки M-F5S-1 + T-2714/T-2703/T-2733) — all scanned, PENDING=0
+База — HEAD `12a55bb` (`pre-round1025-f5`; правки НЕ закоммичены). Отчёт: `plans/reports/round1025_f5_scanner_audit.md`; AI-карта — `plans/reports/round1025_f5_ai_map.md`.
+- [x] **[M-F5S-1] RESOLVED (итер.2)** `web/app.js` — `parsePromptLibraryRoute` читает `promptKey`; `workspace()` прокидывает `promptKey` для `door='library'`; `openWorkspacePrompt` для библиотеки строит `#/ai/prompts/<slug>[/<stage>]/<key>`; probe PROBE-ALL-PASS (summary/sleep/factcheck — редактор открыт, модульная дверь цела); покрыто блоком (g) + pytest
+- [x] `web/app.js` — маршрут `#/modules/<slug>[/<wt>[/<stage>/<key>]]` + `#/ai/prompts/<slug>[/<stage>[/<key>]]`, `routeToTab`=m.tab (RBAC/kill-switch целы), `routeParent`/`routeDepth`, шов `openModuleWorkspace`=навигация + fallback `openModuleWindow`, store F4-тумблер, `providerGrouped` 6 групп, single-write-path, `buildConnectionCard`/`workspaceModelCards`/`connectionCard`/`toggleConnectionSettings`/`testConnection` (§49) — чисто
+- [x] `web/index.html` — workspace-шапка/табы/overview, §85 placeholder, §84 L1/L2, §48 master-detail + «две двери», §49-карточка `data-connection-card` (название/назначение/основная/резервная/статус + «Проверить»/«Настроить») — чисто; L-F5S-2 (ARIA) закрыт (`role="group" aria-label`, без `listitem`)
+- [x] `web/static/app.css` — `.workspace-prompt-lib` 3→2→1, mobile list→editor, `.conn-*`, тач-цели ≥44px (`.prompt-tree-item`, `[data-workspace-tabs] button`, `[data-conn-*]`) — чисто; L-F5S-1 закрыт
+- [x] `config/settings.py` + `README.md` — `APP_VERSION` 2.58.10 синхронен — чисто
+- [x] `tests/*` + `tests/js/*` + `tools/ui_round1025_matrix.py` — 3 новых JS-раннера + `test_webapp_f5_round1025.py` (19) + регистрация; версии-пины и `providerGrouped`-маркеры обновлены атомарно (не ослаблены); новые тесты M-F5S-1/L-F5S-1..3/§49-карточка; T-2703 матрица (`F5_PROBE_JS`, 4 F5-маршрута) — чисто
+- [x] инварианты — Δ DDL=0, Δ каталога=0 (459/98/96/21/418), CSP/zero-build, без новых API/библиотек/WebGL, R17/R18 — чисто
+- **СВОДКА 10.25 F5: Critical 0 / High 0 / Medium 0 / Low 0 / Info 2. Вердикт: к деплою — ДА, обязательных возвратов @Builder нет.**
+  Independent (итер.2): `node --check` OK, JS `MODULE-WORKSPACE-OK`/`PROMPTS-SINGLE-SOURCE-OK`/`MODELS-GROUPS-OK`/`JS-UNIT-OK` + `IMAGE-MODULE-OK` + hotfix7 OK, целевые pytest **19 passed**, регресс-пины **202 passed**, `git diff --check`=0; тег/бэкап/`.env.bak`/`stash@{0}` целы; `.env`/zip/скриншотов нет.
+  Follow-up: Low закрыты. Live-гейт T-2742 (реальный Telegram WebView) — открыт за владельцем; Playwright T-2703 (`failures: 0`) @Scanner не воспроизводился (Info).
+
 ## Round 10.25 F4 `module-catalog-quickpanel-store-round1025` (§31–§45 каталог/панель/store) — аудит рабочего дерева (Step 6 @Scanner, 22.09.2026) — all scanned, PENDING=0
 База — HEAD `b5f8348` (`pre-round1025-f4`; правки НЕ закоммичены, включая rework iter2 F4-M1). Отчёт: `plans/reports/round1025_f4_scanner_audit.md`.
 - [x] `web/app.js` — `MODULES` (`keywords`/`runtimeGate`/`parentGate`, витринные имена), `ModuleConfigurationStore` (`storeScope/storeKey/getModuleState/_moduleRuntimeState/moduleRuntimeNotice/moduleStateText/setModuleState/refreshModuleState/subscribeModuleState`), overlay `moduleOptimistic/Pending/SaveError`, избранное `localStorage`, шов `openModuleWorkspace` — чисто; Low L-F4S-1 (`stickyFailedKeys` между чатами), L-F4S-2 (parent-gate по эффективному `value`); F4-M1 fix подтверждён

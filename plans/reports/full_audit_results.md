@@ -6,6 +6,25 @@
 
 ---
 
+## Round 10.25 F5 `module-workspace-tabs-round1025` (workspace модуля/промпты/модели §46–§49/§84/§85) — 22.09.2026, Step 6 @Scanner (повторный аудит после правки M-F5S-1)
+
+**База:** HEAD `12a55bb` (`pre-round1025-f5`; правки **НЕ закоммичены** — аудит рабочего дерева). Отчёт: `plans/reports/round1025_f5_scanner_audit.md`. Вход: `spec.md`/`adr-1025-15`/`evidence.md`/`review.md`/`tasks.md`.
+
+**Итог (итер.2): Critical 0 / High 0 / Medium 0 / Low 0 / Info 2. Вердикт: к деплою — ДА.** Итер.1: [M-F5S-1] + [L-F5S-1..3] закрыты по коду и доказательно; новых Critical/High/Medium от правки нет.
+Прогон (independent @Scanner, итер.2): `node --check` OK; JS `MODULE-WORKSPACE-OK`/`PROMPTS-SINGLE-SOURCE-OK`/`MODELS-GROUPS-OK`/`JS-UNIT-OK` + `IMAGE-MODULE-OK` + hotfix7 OK; целевые pytest F5 **19 passed**, регресс-пины **202 passed**; `git diff --check` exit 0; Δ DDL=0; Δ каталога=0 (**459/98/96/21/418**, `services/param_catalog.py` не тронут); новых эндпоинтов нет (reuse `/api/llm/test`,`/api/images/test`); `APP_VERSION` **2.58.10** синхронен; ноль backend-строк диффа; тег `pre-round1025-f5`→`940ba40`, бэкап `f5-round1025-20260922-142358`, `.env.bak.round1025-f5`, `stash@{0}` целы; `.env`/zip/скриншотов нет. Полный pytest не перезапускался (опора @Builder/@Reviewer: 8245/1/5 — предсуществующие/env).
+
+**Регресс итер.1 → закрытие:**
+- **[M-F5S-1] RESOLVED** — `parsePromptLibraryRoute` читает `promptKey` (3-й сегмент библиотечного маршрута), `workspace()` прокидывает `promptKey` для `door='library'`, `openWorkspacePrompt` для библиотеки строит `#/ai/prompts/<slug>[/<stage>]/<key>` (не модульную вкладку). Probe на реальном `web/app.js` (PROBE-ALL-PASS): summary/sleep/factcheck — дверь library, редактор открыт на выбранном промпте (list>0, focus совпал); модульная дверь/`m.tab` не тронуты. Покрыто блоком (g) `round1025_f5_prompts_single_source_test.js` и pytest.
+- **[L-F5S-1] RESOLVED** — `[data-workspace-tabs] button { min-height: 44px; }` (+ `.prompt-tree-item`); **[L-F5S-2] RESOLVED** — `role="group" aria-label`, без `listitem`; **[L-F5S-3] RESOLVED** — `applyRoute` при отсутствии `MODULE_PROMPT_GROUPS[m.id]` → `#/ai/prompts`.
+
+**§49-карточка (T-2714) — новая, проверена:** `buildConnectionCard`/`modelOf` читают только `role === 'model'` (секреты `keys.*` не читаются и не выводятся — спай-тест (g): `last4`/`configured` отсутствуют в значениях карточки); открытие/раскрытие — 0 POST (`toggleConnectionSettings` меняет только UI-объект, тест (h): `wrote===0`); «Проверить» → `testBlock` по клику (тест (i)); сохранённая модель не подменяется (тест (g)); поля/действия в шаблоне `data-connection-card`/`data-conn-field`/`data-conn-test`/`data-conn-configure`/`data-connection-settings`; тач-цели ≥44px.
+
+**Info:** I-F5S-1 (`directStageCards` L1/L2 — одна модель `models.llm_model_name`, честно по §84); I-F5S-2 (полный pytest/Playwright T-2703/live-гейт T-2742 не воспроизводились @Scanner; `tools/ui_round1025_matrix.py` — только `http://127.0.0.1`, без внешних URL/секретов).
+
+**Чисто:** CSP/zero-build (нет CDN/внешних URL/`data:`-URI/новых inline-скриптов/WebGL; grep добавленных строк — 0); XSS-safe (новых `innerHTML`/`v-html`/`insertAdjacentHTML` нет, рендер — `{{ }}`/`:bind`); утечек rAF/observer/таймеров нет; R17 (нет `console.*`/секретов/`keys.*`-копий/сырых путей в новых строках; R17-проба маски зелёная; `api_key` — только в комментарии); R18 (тег/бэкап/`.env.bak`/`stash@{0}` целы; `current_task.md` не изменялся); инварианты — store F4 §37–§42 и `persistItems` не переписаны, `openModuleWindow` — рабочий регресс-путь+fallback, RBAC/kill-switch `mod_images` целы (`routeToTab`=m.tab), IA F1/токены F2/shell hotfix6-7 не тронуты, канон промптов (`services/**`) не изменён, маркер-тесты не ослаблены (diff `tests/**`: версионные пины + `providerGrouped` + аддитивная регистрация; снятие проверок отсутствует).
+
+---
+
 ## Round 10.25 F4 `module-catalog-quickpanel-store-round1025` (каталог/панель/store §31–§45) — 22.09.2026, Step 6 @Scanner
 
 **База:** HEAD `b5f8348` (`pre-round1025-f4`; правки **НЕ закоммичены** — аудит рабочего дерева, включая rework iter2 F4-M1). Отчёт: `plans/reports/round1025_f4_scanner_audit.md`. Вход: `spec.md`/`adr-1025-14`/`evidence.md` (iter1+iter2)/`review.md` (iter1 Changes requested).
