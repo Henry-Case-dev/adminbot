@@ -21,8 +21,8 @@
 | **F3** | `global-scope-selector-round1025` | UI + state (web) | §5 селектор области | F1 | 0 | 0 | — |
 | **F4** ✅ | `module-catalog-quickpanel-store-round1025` (архив — `plans/archive/module-catalog-quickpanel-store-round1025/`) | UI + state (web) | §31–§45 каталог/избранное/store | F2, F3 | 0 | 0 | — |
 | **F5** ✅ | `plans/archive/module-workspace-tabs-round1025/` (ARCHIVED, Шаг 8 @PM; **ADR-1025-15**) | UI + IA (web) | §46/§48 workspace-табы | F4 ✅ | 0 | 0 | — (откат `git revert` + `openModuleWindow`) |
-| **F6** ▶️ | `memory-analytics-reorg-round1025` | UI + adapter (web/api) | §4/§21–§30 память↔аналитика, ExecutionGraph | F1, F4 | 0 | 0 | — |
-| **F7** | `permsoc-local-space-round1025` | UI + backend | §60–§67 локальное пространство PERMsoc | F3, F4 | 0 (ожид.) | 0 (ожид.) | — |
+| **F6** ✅ | `plans/archive/memory-analytics-reorg-round1025/` (ARCHIVED, Шаг 8 @PM; Merge §65) | UI + adapter (web/api) | §4/§21–§30 память↔аналитика, ExecutionGraph | F1, F4 | 0 | 0 | — |
+| **F7** ✅ | `plans/archive/permsoc-local-space-round1025/` (ARCHIVED, Шаг 8 @PM; Merge §66; **ADR-1025-20**) | UI + backend | §60–§67 локальное пространство PERMsoc | F3 ✅, F4 ✅ | 0 | 0 | — |
 | **F8** | `parameter-registry-widget-map-round1025` | реестр/инвентарь (enabler, **Wave 0**) | §1/§2/§3/§117 реестр + карта виджетов + бэкап | — | 0 | 0 | — |
 | **F9** | `secrets-and-save-states-round1025` | UI + API | §50 секреты + визуальный SaveBar §69/§78 (**persistence/409/state → F0**) | **F0**, F4, F5 | 0 | 0 | — |
 | **F10** | `epic1-verification-round1025` | верификация (gate) | §71–§79/§114/§116/§117 приёмка Эпика 1 (+ критерии §6 F0) | **F0**, F1–F9, F11 | — | — | — |
