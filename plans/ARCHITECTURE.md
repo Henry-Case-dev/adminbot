@@ -2500,3 +2500,64 @@ F8 = аудит/доки + read-only `tools/`, **не импортируемые
 - **Код:** `web/app.js` (`secretDisplayOf`/`secretDisplay`/`maskText`, `_seedSecretMasks`, `blockFieldValue`, guards `hasSecretMask`, `deleteKeyItem` — `DELETE … {global:true}` + F0 empty-write, `_syncKeyboardOffset`/`_onVV`, `stateLabel`), `web/index.html` (компонент `secret-field` + `#secret-field-tpl`, 7 шаблонов переведены), `web/static/app.css` (`.secret-field*`, `--kb-offset`, `scroll-margin-bottom`), `config/settings.py:1748` (`APP_VERSION` 2.58.16), `README.md`, `tests/js/round1025_f9_{secret_field,savebar_visual}_test.js`, `tests/test_webapp_f9_round1025.py` (+ атомарные маркер-правки UPD3/R31/F8).
 - **Коммиты (Шаг 9 @DevOps, T-3058/T-3059, 23.09.2026):** **`f5fbd5f`** (код+тесты, 31 файл), **`c610c5f`** (планы: Merge §68 + архивация + Scanner-аудит, 15 файлов), **`49c1ae1`** (deploy-doc); push origin/master без force → прод fast-forward `908f471..c610c5f` → `admin_bot` **active**, `/api/health` = **200**, `/healthz`/`APP_VERSION` = **2.58.16**, served `?v=2.58.16`, `database is locked` = **0**, `deployment.md` — **VERIFIED**; точка отката — тег `pre-round1025-f9` → `93432c0`; `stash@{0}` целы (R18); `.env.bak.round1025-f9` не создавался (F9 — UI-only, env не менялись — `deployment.md`).
 - **Следующие:** ✅ Шаг 7 @Architect (T-3056) — Merge §68; ✅ Шаг 8 @PM (T-3057) — архивация → `plans/archive/secrets-and-save-states-round1025/` (23.09.2026); ✅ Шаг 9 @DevOps (T-3058/T-3059) — bump+deploy **выполнен** (23.09.2026; `f5fbd5f`/`c610c5f`/`49c1ae1`, `APP_VERSION` **2.58.16**, `/api/health` **200**, `database is locked`=0, `deployment.md` **VERIFIED**); live-гейт **T-3059 — PENDING OWNER VERIFICATION** (живой WebView/TMA: клавиатура/safe-area; workflow не останавливает); Шаг 10 @Memory (T-3060) — `plans/metrics.md` + KG + техдолг §68.8. Далее по порядку §2 — **F11** `status-showcase-dashboard-round1025` (T-3061).
+
+## 69. Раунд 10.25 (23.09.2026, Merge) — F11: витрина «Статус» §11–§21 (12-кол. сетка §12, Hero/метрики §13/§14, сон §17, граф §16 + `#/status/graph`, «Новые факты»/бюджеты §19, счётчики §20, превью §21) — `APP_VERSION` 2.58.17
+
+**Фича** `status-showcase-dashboard-round1025` (F11, Эпик 1, **Волна 3**), поверх F0–F9 (§52–§68). **T-3063…T-3099**. **Статус: ✅ COMPLETED + MERGED + ARCHIVED (Шаг 7 @Architect + Шаг 8 @PM, T-3094/T-3095, 23.09.2026)**; deploy — **ожидает Шаг 9 @DevOps** (T-3096); live TMA — **PENDING OWNER VERIFICATION** (T-3097). Step 5 @Reviewer (T-3091) — **Approved** (итер.2); Step 6 @Scanner (T-3092) — **C0/H0/M0/L0/Info2 → «к деплою ДА»** (`plans/reports/round1025_f11_scanner_audit.md`). 🔒 Merge фиксирует принятый объём A–H; **ADR-1025-23 (D1–D7) Accepted** фактом мержа §69. **`APP_VERSION` 2.58.16 → 2.58.17** (bump @Builder; деплой не выполнен). Точка отката — тег `pre-round1025-f11` → `25cc19c`; `.env.bak.round1025-f11`; `stash@{0}` целы (R18). Спека/ADR/задачи/доказательства/ревью — `plans/archive/status-showcase-dashboard-round1025/{spec.md, adr-1025-23-status-grid-composition.md, tasks.md, evidence.md, review.md}` (Шаг 7 @Architect → Шаг 8 @PM, T-3095).
+
+**§15 — SUPERSEDE (не переделывалось).** «Живое сердцебиение» §15 реализовано вне F11 пакетом `hotfix6-webview-shell-heartbeat-round1025` (**ADR-1025-12 D4**, §58.3). F11 **не** менял Canvas 2D/rAF/пороги/гистерезис/EMA — только разместил `.status-block__pulse` внутри метрик §14 и верифицировал по §77 (T-3088, маркер `F11-HEARTBEAT-OK`).
+
+**Границы F6/F11 (§21).** F6 владеет данными и компонентом (`ExecutionGraph`, `execPreview`, `web/static/execution_graph.js`, `/api/analytics/*`, фильтры §27); F11 — только размещение/обёртка `exec-preview` (7 кол., строка 4). §18 и §20 viewer — **верификация/размещение, не переписывание** (§18 «работает как надо»; log viewer не тронут).
+
+### 69.1. A–H — принятый объём
+| Блок | § / задачи | Артефакт | Факт |
+|---|---|---|---|
+| **A** | §12 (T-3067…3072) | `web/index.html` `.status-grid` + обёртки `.sg-*` | 12 кол., DOM-порядок §12 (6 строк), адаптив 12/6/1; `main.scroll-area` и др. вкладки **не тронуты** |
+| **B** | §13/§14 (T-3073…3075) | Hero `.status-hero`(5) + метрики+HB(7) | `null`/`{}` → «нет данных», бар не залит; пометка «метрики всего сервера» в контексте чата |
+| **C** | §17 (T-3076…3078) | `.status-sleep`(4) | reuse `cognition`; `active` — только с сервера; единый источник времени; новых таймеров нет |
+| **D** | §16 (T-3079…3081) | `.status-graph`(8) + `#/status/graph` | поиск имя/алиас/фокус/ближайшие/фильтры/подробности/сброс; **вес/layout не менялись**; mobile-упрощение + аддитивный маршрут (fallback-шторка) |
+| **E** | §19 (T-3082…3083) | `.status-facts`(5) + `.status-budgets`(12) | «Новые факты» (вертикально, скролл не сбрасывается, время/тип только если есть); «Без лимита»/«Нет данных» |
+| **F** | §20 (T-3084) | `.status-counts` + `scrollToLogs` | один запрос + **аддитивное `counts:{ERROR,WARNING}`** (H-F11S-1); раздельная семантика; viewer не переписан |
+| **G** | §18/§11 (T-3085…3086) | `plans/reports/round1025_f11_verification.md` | §18 — только верификация (код не менялся); «0 потерянных виджетов» |
+| **H** | §70/§77/§117 (T-3087…3090) | `tools/ui_round1025_matrix.py`, `tests/**`, маркеры | 10 вьюпортов `failures: 0`; JS 42/42; pytest без env-модулей 0 fail; флаг `UI_STATUS_GRID_V2` |
+
+**Правило §11/§79/§116 — «0 потерянных виджетов/действий»:** все элементы §11 доступны в новой композиции (состояние бота, CPU/RAM/диск, аптайм, сердцебиение, граф, обычный/глубокий сон + бейджи, убеждения/парадигмы/эволюция, лента досье, бюджеты, превью LLM, события, логи; плюс «Доступность/История ключей», «Здоровье памяти», media-health); сверка — карта `plans/docs/widget-map-round1025.md`, проверено `tests/test_webapp_f11_round1025.py::TestD7WidgetPreservation`.
+
+### 69.2. Инварианты (проверены @Reviewer/@Scanner)
+**Δ DDL=0** (миграции/БД не трогались; SQLite `user_version=12`); **Δ каталога=0** (REGISTRY 459 / GROUPS 98 / `_TAB_BY_GROUP` 96 / TAB_RULES 21 / `_SETTINGS_FIELDS` 418); **CSP `script-src 'self'` / zero-build** (без CDN/inline/`eval`/`v-html`/WebGL); **«не подменять реальные данные»** (`null ≠ 0`, `budget=-1` → «Без лимита», нет выдуманного «запуска» по таймеру); **скролл живых лент не сбрасывается**. Единственный серверный дифф — обратно-совместимый read-only `services/log_ring.py::LogRingHandler.level_counts()` + аддитивное `counts` в `GET /api/status/logs` (corrective H-F11S-1) + аддитивный bool `UI_STATUS_GRID_V2` в `/api/me.ui_flags`; новых endpoint'ов/полей БД/каталоговых ключей нет. Не тронуты: §52–§68/F0–F9, `web/static/execution_graph.js`, `/analytics/*`, §15-heartbeat, §18-разметка, log viewer §20, F6-страница «Аналитика», `main.scroll-area`. Маркер-тесты **не ослаблены** (byte-freeze `web/api/routes.py` восстановлен — L-F11S-1; пин `count>1`).
+
+### 69.3. AMEND / REUSE-карта (полностью — ADR-1025-23)
+| Ранее | Действие | Что именно |
+|---|---|---|
+| `main.scroll-area` (`auto-fill minmax(320px,1fr)`) для Статуса | **AMEND (композиция)** | внутри `status`-ветки — `.status-grid` 12 кол.; сам `main` и другие вкладки не меняются |
+| Слитный `.status-block` (heartbeat+«Бот»+«Сервер») | **AMEND (композиция)** | разделение Hero(§13)/метрики+HB(§14); heartbeat-компонент и секции сохранены |
+| **ADR-1025-1** (роутер F1) | **AMEND (аддитивно)** | новый hash-маршрут `#/status/graph` → tab `status`; существующие маршруты/порядок не меняются |
+| §20 «два запроса `count`» | **AMEND (H-F11S-1)** | один запрос `?level=ALL&limit=1` + аддитивное `counts` (точные числа по буферу); `count` ограничен `limit` и не годится для счётчиков |
+| D6 kill-switch «OFF → legacy byte-identical» | **AMEND (M-F11S-1)** | OFF = **одноколоночный безопасный режим** (`.status-grid--legacy`), **не** прежний DOM |
+| **ADR-1025-12** (§15 heartbeat) | **REUSE / SUPERSEDE уже** | не переделывается; только размещение в сетке + §77-верификация |
+| **ADR-1025-19** (F6 §21), **ADR-1024-8** (досье F4) | **REUSE** | данные/компонент превью и лента фактов переиспользуются без изменений |
+| **ADR-1025-14 / -15 / -20 / -22** (store §37–§42 / workspace §61 / PERMsoc-гейты / F9) | **REUSE** | контракты не меняются |
+| **ADR-1016-2** (CSP/zero-build) | **НЕ отменяется** | инвариант |
+| **ADR-1025-23** | **НОВЫЙ, Accepted** | фактом мержа §69 (Шаг 7 @Architect) |
+
+### 69.4. Флаг `UI_STATUS_GRID_V2` (env-only, default ON)
+`ClassVar[bool]` (`config/settings.py`), доставка аддитивно в `/api/me.ui_flags`; OFF → `.status-grid--legacy` (одна колонка, **не byte-identical legacy**, M-F11S-1); новых каталоговых ключей нет (прецеденты ADR-1025-14 §D8 / -20 D7 / -12 D6). Документирован в `.env.example`. Полный откат — `git revert` + тег `pre-round1025-f11`.
+
+### 69.5. Deploy — ожидает Шаг 9 @DevOps (T-3096)
+Коммиты **не выполнены** (дифф в рабочем дереве относительно `25cc19c`); `APP_VERSION` **2.58.17** + `README.md` + cache-bust `?v=__APP_VERSION__` подготовлены @Builder. План: commit/push → `systemctl restart` → `/api/health` **200** → `/healthz`/`APP_VERSION` **2.58.17** → served `?v=2.58.17` → `database is locked`=0 → `deployment.md` **VERIFIED**. **«HTTP 200 ≠ корректный UI»**.
+
+### 69.6. Остаточный техдолг F11 (не блокеры; Шаг 10 @Memory)
+- **[F11-FU-DOSSIER-TS]** аддитивные `created_at`/`kind` в `/api/oversight/dossier_feed` (Δ DDL=0) для §19 «время/тип» — вне «композиции» F11 (`services/**`+`web/api/**`).
+- **[F11-FU-GRAPH-ALIAS]** полный маппинг «никнейм/username → узел графа» требует backend; сейчас честное «в графе нет узла».
+- **[I-F11S-3, Low]** mobile-fallback полного графа: нет полного focus-trap; тач-цели чипов/счётчиков < 44 px (не блокер для fallback).
+- **[Info]** I-F11S-1 закрыт (мёртвая ветка `$refs.statusLogs` удалена); I-F11S-2 — один лёгкий запрос вместо двух (принято).
+- **[Info]** 5 pytest-fail (`test_outgoing_guard_round1022` ×2 / `test_summary_cover_round1023` ×3, `ImportError` aiogram/rich) — предсуществующие, падают и на baseline `25cc19c`, `services/**` вне диффа F11, не регресс.
+
+### 69.7. Live-гейт владельца (T-3097 — PENDING OWNER VERIFICATION)
+Реальный **Telegram WebView/TMA**: 12-кол. сетка на mobile/fullscreen, граф `#/status/graph`, бейджи сна, ленты без сброса скролла, логи. Playwright-матрица выполнена **headless (Chromium)** — **живой WebView ≠ headless** и не объявляется пройденным; гейт **не останавливает workflow**. Деплой (Шаг 9) на момент мержа ещё не выполнен.
+
+### 69.8. Ссылки
+- **Спека/ADR/задачи/доказательства/ревью:** `plans/archive/status-showcase-dashboard-round1025/{spec.md, adr-1025-23-status-grid-composition.md, tasks.md, evidence.md, review.md}` (архивация — Шаг 8 @PM, T-3095). **ADR-1025-23 (D1–D7) Accepted** фактом мержа §69.
+- **Отчёты:** `plans/reports/round1025_f11_scanner_audit.md` (C0/H0/M0/L0/I2), `round1025_f11_ui_report.md`, `round1025_f11_verification.md`; карты `plans/docs/{widget-map-round1025,screen-map-round1025}.md`.
+- **Код:** `web/index.html` (`.status-grid`/`.sg-*`, Hero, сон, факты, бюджеты, счётчики, `#/status/graph`), `web/static/app.css` (§70-адаптив 12/6/1, `.status-grid--legacy`, `.status-graph-full`), `web/app.js` (computed `statusGridV2`/`statusSys`/`sleepWidget`/`factsFeed`, `loadLogCounts`/`scrollToLogs`, граф-методы, mobile-упрощение), `config/settings.py` (`UI_STATUS_GRID_V2`, `APP_VERSION` 2.58.17), `web/api/routes.py` (аддитивно `ui_flags`+`counts`), `services/log_ring.py` (`level_counts()`), `README.md`, `.env.example`, `tests/**`, `tools/ui_round1025_matrix.py`.
+- **Следующие:** ✅ Шаг 7 @Architect (T-3094) — Merge §69; Шаг 8 @PM (T-3095) — архивация; Шаг 9 @DevOps (T-3096) — bump+deploy (**ожидает**); live-гейт **T-3097 — PENDING OWNER VERIFICATION** (workflow не останавливает); Шаг 10 @Memory (T-3098) — `plans/metrics.md` + KG + техдолг §69.6; Шаг 11 @PM (T-3099) — следующая F (**F10** `epic1-verification-round1025`).

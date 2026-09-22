@@ -1,5 +1,16 @@
 # Audit Backlog
 
+## Round 10.25 F11 `status-showcase-dashboard-round1025` (витрина «Статус» §11–§21 + kill-switch `UI_STATUS_GRID_V2`) — Step 6 @Scanner (T-3092), 23.09.2026 — **итерация 2 (финал): SCANNED, все findings RESOLVED**
+Baseline — HEAD `25cc19c` (тег `pre-round1025-f11`); правки **НЕ закоммичены** (31 M + 10 ??). Отчёт: `plans/reports/round1025_f11_scanner_audit.md`.
+- [x] **[H-F11S-1] [high, RESOLVED]** аддитивный `counts` в `/api/status/logs` (`routes.py:1675-1685`) + read-only `LogRingHandler.level_counts()` (`services/log_ring.py:185-199`); `loadLogCounts` (`web/app.js:9308-9318`) — 1 запрос `level=ALL&limit=1`, читает `counts.ERROR`/`counts.WARNING` (реальные числа, раздельная семантика); нет `counts`/ошибка → «—». `count`/`logs` без изменений (`loadLogs` не тронут). Гейты: `test_level_counts_exact` (7→7/3→3), `test_level_counts_not_capped_by_limit`, API `test_logs_counts_not_capped_by_limit` (`count=1`, `counts.ERROR=5>1`), JS `F11-LOG-COUNTS-OK` — PASSED.
+- [x] **[M-F11S-1] [medium, RESOLVED]** формулировки приведены к факту: OFF = «одноколоночный безопасный режим» (`.status-grid--legacy`), НЕ byte-identical legacy-DOM (`spec.md:70/149`, `adr:48/52/73`, `.env.example`).
+- [x] **[L-F11S-1] [low, RESOLVED]** строгий byte-freeze `web/api/routes.py` восстановлен `ROUTES_SHA256_F11` (SHA совпал, тест PASSED).
+- [x] **[L-F11S-2] [low, RESOLVED]** `UI_STATUS_GRID_V2` задокументирован в `.env.example`.
+- [x] **[L-F11S-3] [low, RESOLVED]** initial focus (`ref="graphFullPanel" tabindex="-1"` + `_focusGraphFull`) + Esc-close (`escClose`→`closeGraphFull`). Остаток (Info, не блокер): нет полного focus-trap; тач-цели <44px.
+- [x] **I-F11S-1 [info, RESOLVED]** мёртвая ветка `$refs.statusLogs` удалена. Info: I-F11S-2 (1 запрос вместо 2, без новых таймеров); I-F11S-3 live Telegram WebView/TMA — PENDING OWNER (T-3097).
+- **Прогоны @Scanner (итер.2):** `node --check` OK; `tests/js/*.js` **42/42 PASS**; `py -3 -m pytest -q` **8457 passed / 5 failed / 1 skipped** (5 env pre-existing: `outgoing_guard_round1022` ×2 + `summary_cover_round1023` ×3, `ImportError` aiogram rich); `tests/test_webapp_f11_round1025.py` **33 passed**; каталог 459/98/96/21; Δ DDL=0; `git diff --check`=0; R17 0; R18 (тег/`stash@{0}`/`.env.bak`).
+- **Handoff @Scanner:** @Orchestrator → **SCANNED** (к деплою ДА, блокеров нет).
+
 ## Round 10.25 F9 `secrets-and-save-states-round1025` (UI секретов §50 + состояния §51 + визуальный добор SaveBar §69/§78) — Step 6 @Scanner (T-3055), 23.09.2026 — **итерация 2: SCANNED, все findings RESOLVED**
 Baseline — HEAD `93432c0` (тег `pre-round1025-f9`); правки **НЕ закоммичены** (focused diff-based; 32 M + 9 ??). Отчёт: `plans/reports/round1025_f9_scanner_audit.md`. Итер.1 (High 1 + Low 4) закрыта фиксами @Builder, воспроизведена @Scanner.
 - [x] R17 — сырых секретов в DOM/POST/логах/тестах/артефактах нет (regex-скан 0); поле ввода секрета всегда пусто (`_seedSecretMasks` только чистит; `blockFieldValue` секрет → `''`); guard'ы `hasSecretMask` целы (`dirtyKeyItems:2822`, `saveKeyItem:7951`, `saveBlock:6039`, `testBlock:5973`, `testField:6005`); маска в API не уходит (JS-тест, 0 запросов) — проверено.
