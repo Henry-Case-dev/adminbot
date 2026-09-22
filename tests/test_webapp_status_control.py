@@ -231,6 +231,34 @@ class TestStatusLogsEndpoint:
                           params={"level": "ALL", "limit": 3})
         assert resp.json()["count"] == 3
 
+    def test_logs_counts_not_capped_by_limit(self, client, monkeypatch):
+        """F11 (H-F11S-1, §20): аддитивный `counts` даёт РЕАЛЬНЫЕ числа по
+        уровням по всему буферу; `count` при limit=1 остаётся ограничен
+        (контракт сохранён). Дефект «счётчик всегда 0/1» не должен вернуться."""
+        from services import log_ring as log_ring_mod
+        # Изолированный буфер (не глобальный синглтон с логами других тестов).
+        fresh = log_ring_mod.LogRingHandler(maxlen=1000)
+        monkeypatch.setattr(log_ring_mod, "get_log_ring", lambda: fresh)
+        for i in range(5):
+            fresh.emit(logging.LogRecord(
+                name="test", level=logging.ERROR, pathname="x", lineno=1,
+                msg=f"h-f11s-1-error-{i}", args=(), exc_info=None))
+        for i in range(2):
+            fresh.emit(logging.LogRecord(
+                name="test", level=logging.WARNING, pathname="x", lineno=1,
+                msg=f"h-f11s-1-warn-{i}", args=(), exc_info=None))
+        resp = client.get("/api/status/logs", headers=_hdr(USER_ID),
+                          params={"level": "ERROR", "limit": 1})
+        assert resp.status_code == 200
+        body = resp.json()
+        # `count` ограничен limit — обратная совместимость сохранена.
+        assert body["count"] == 1
+        counts = body["counts"]
+        assert counts.get("ERROR") == 5 > 1
+        # «Предупреждения» — только WARNING, ошибки не вбирает.
+        assert counts.get("WARNING") == 2 > 1
+        assert "CRITICAL" not in counts
+
 
 class TestControlEndpoints:
     def test_restart_202_for_admin_and_moderator(self, client):

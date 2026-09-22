@@ -1041,6 +1041,9 @@
   // покрываются маркер-тестом test_webapp_back_button.
   var ROUTE_TO_TAB = {
     '#/': 'status',
+    // F11 (10.25, ADR-1025-23 D4): аддитивный маршрут полного исследования
+    // графа связей (mobile §16). Владелец routing — F1; родитель — `#/`.
+    '#/status/graph': 'status',
     '#/oversight': 'oversight',
     '#/how': 'info',
     '#/modules': 'modules',
@@ -1111,6 +1114,8 @@
     '#/modules/custom': '#/modules',
   };
   var ROUTE_PARENT = {
+    // F11 (10.25, ADR-1025-23 D4): полный граф — дочерний экран «Статуса».
+    '#/status/graph': '#/',
     '#/oversight': '#/',
     '#/ai/llm': '#/ai', '#/ai/prompts': '#/ai',
     '#/ai/smart-cache': '#/ai', '#/ai/names': '#/ai',
@@ -1687,6 +1692,7 @@
         cognitionNetwork: null,        // vis.Network (destroy-дисциплина)
         cognitionGraphData: null,      // {nodes, edges, truncated}
         _cognitionGraphSig: null,      // подпись данных (ISSUE-4: без пере-рендера)
+        _cognitionGraphMode: null,     // F11 §16: 'simple' (mobile) | 'full'
         cognitionVisLoaded: false,     // lazy-load vis-network
         // F2 (graph-frontend-physics-search-round1015, ТЗ §1 frontend):
         // «Поиск по графу» — центрирование камеры на узле по имени.
@@ -1740,6 +1746,20 @@
         // 10.7 (3c): transient-подсветка строки, скопированной по клику.
         copiedIndex: null,
         copiedTimer: null,
+        // ── F11 (10.25, ADR-1025-23): композиция витрины «Статус» ──
+        // §20/D5: счётчики «Ошибки/Предупреждения» — лёгкие запросы
+        // /api/status/logs?level=…&limit=1 (читаем `count`); viewer не тронут.
+        logErrorCount: null,
+        logWarnCount: null,
+        // §13/D2: имя бота из persona (из УЖЕ загружаемого /api/persona в
+        // loadCognition); пусто → нейтральное «Бот».
+        botDisplayName: '',
+        // §16/D4: расширение графа — витринный фильтр по group, подробности
+        // выбранного узла, ближайшие связи, mobile-экран полного исследования.
+        graphFilterGroup: '',
+        graphDetail: null,
+        graphNeighbors: [],
+        graphFullOpen: false,   // fallback при IA_V2_ENABLED=false (шторка)
         // control
         controlLocked: false,
         controlLockSeconds: 0,
@@ -1828,7 +1848,9 @@
       },
       activeNav: function () {
         var r = this.route || '#/';
-        if (r === '#/' || r === '#/oversight') return 'status';
+        if (r === '#/' || r === '#/oversight' || r === '#/status/graph') {
+          return 'status';
+        }
         if (r === '#/how') return 'how';
         if (r.indexOf('#/modules') === 0) return 'modules';
         // Reviewer (M): `#/memory*` достижим и при OFF-откате (алиас/дееплинк),
@@ -2795,6 +2817,107 @@
                  truncated: !!c.truncated, ratio: ratio,
                  red: !!c.truncated || ratio > 0.9 };
       },
+      // F11 (10.25, ADR-1025-23 D6): kill-switch композиции Статуса.
+      // Default ON; OFF → одноколоночный безопасный режим (`.status-grid--legacy`)
+      // — НЕ byte-identical legacy-DOM (осознанное решение, M-F11S-1).
+      statusGridV2: function () {
+        return this.uiFlag('UI_STATUS_GRID_V2');
+      },
+      // F11 (§14/D2): честные системные метрики — `null` (нет данных) ≠ 0.
+      // `ready` — пришла ли секция `server`; поля нормализованы в number|null.
+      statusSys: function () {
+        var s = (this.statusData && this.statusData.server) || null;
+        function num(v) {
+          return (v == null || v === '' || isNaN(Number(v))) ? null : Number(v);
+        }
+        function part(m) {
+          if (!m || typeof m !== 'object') return null;
+          return { used: num(m.used), total: num(m.total),
+                   percent: num(m.percent) };
+        }
+        return {
+          ready: !!s,
+          cpu: s ? num(s.cpu_percent) : null,
+          mem: s ? part(s.memory) : null,
+          disk: s ? part(s.disk) : null,
+          loadavg: (s && Array.isArray(s.loadavg)) ? s.loadavg : null,
+          process: (s && s.process) || null,
+        };
+      },
+      // F11 (§13/D2): последняя активность бота из uptime.last_heartbeat;
+      // нет данных → «—» (не выдумываем).
+      botLastActivity: function () {
+        var u = (this.statusData && this.statusData.uptime) || null;
+        if (!u || !u.last_heartbeat) return '—';
+        return this.fmtLogTs(u.last_heartbeat);
+      },
+      // F11 (§17/D3): виджет сна — ЕДИНЫЙ источник времени (cognition,
+      // серверный `generated_at`); активность ТОЛЬКО с сервера; countdown
+      // считается от серверного времени (новых таймеров нет).
+      sleepWidget: function () {
+        var c = this.cognition;
+        if (!c) return { ready: false, dream: null, deep: null, budget: null };
+        var self = this;
+        var now = Number(c.generated_at) || Math.floor(Date.now() / 1000);
+        function phase(p, nextKey) {
+          var active = !!p.active;
+          var until = p.active_until || null;
+          var next = (p[nextKey] != null) ? p[nextKey] : null;
+          var secs = (next != null) ? (Number(next) - now) : null;
+          return {
+            active: active,
+            until: until,
+            lastRun: p.last_run_at || null,
+            state: p.state || null,
+            countdownSecs: secs,
+            text: active
+              ? (until ? ('до ' + self.fmtClock(until)) : 'идёт')
+              : (secs != null ? ('через ' + self.fmtCountdown(secs)) : '—'),
+          };
+        }
+        var d = c.dream || {};
+        var ds = c.deep_sleep || {};
+        return {
+          ready: true,
+          dream: phase(d, 'next_wake_at'),
+          deep: phase(ds, 'next_run_at'),
+          budget: d.budget || null,
+        };
+      },
+      // F11 (§16/D4): группы узлов графа для витринного фильтра (вес/алгоритм
+      // и layout НЕ меняются — только клиентское выделение).
+      graphGroupOptions: function () {
+        var g = this.cognitionGraphData || {};
+        var seen = {}, out = [];
+        (g.nodes || []).forEach(function (n) {
+          var grp = n.group || 'other';
+          if (!seen[grp]) { seen[grp] = true; out.push(grp); }
+        });
+        return out;
+      },
+      // F11 (§19/D5): «Новые факты» — стабильный ключ (позиция скролла не
+      // сбрасывается); время/тип показываются ТОЛЬКО если есть в ответе
+      // (follow-up F11-FU-DOSSIER-TS — не выдумываем).
+      factsFeed: function () {
+        var items = this.dossierFeed || [];
+        return items.map(function (it) {
+          var t = (it.created_at != null) ? it.created_at
+            : (it.ts != null ? it.ts : null);
+          return {
+            key: 'ff|' + it.chat_id + '|' + it.name + '|' + (it.excerpt || ''),
+            name: it.user_name || it.name || '',
+            text: it.excerpt || '',
+            time: (t != null) ? t : null,
+            kind: it.kind || it.type || null,
+          };
+        });
+      },
+      // F11 (§16/D4): mobile-экран полного исследования графа доступен по
+      // аддитивному hash-маршруту `#/status/graph` (владелец — F1) либо по
+      // fallback-шторке (IA_V2_ENABLED=false).
+      graphFullVisible: function () {
+        return this.route === '#/status/graph' || this.graphFullOpen === true;
+      },
       // ── Раунд 10.20 (БЛОК 3.6/T-1900): sticky-save — dirty-поля модалки ──
       // Значения, изменённые относительно baseline (configSnapshot), для
       // которых есть право записи. Секреты — отдельно (dirtyKeyItems).
@@ -3024,6 +3147,22 @@
     watch: {
       logLevel: function () {
         this.loadLogs();
+      },
+      // F11 (§16/D4): смена режима графа (mobile-упрощение ↔ отдельный экран
+      // полного исследования) — пере-рендер vis.Network (режим входит в
+      // сигнатуру рендера). Сеть читается только на «Статусе».
+      graphFullVisible: function () {
+        var self = this;
+        this.$nextTick(function () {
+          self.renderCognitionGraph();
+          self._focusGraphFull();
+        });
+      },
+      // F11 (§16/D4): смена shell-режима (пересечение 768px) — граф
+      // переключается между упрощённым и полным.
+      shellMode: function () {
+        var self = this;
+        this.$nextTick(function () { self.renderCognitionGraph(); });
       },
       // F8 (ADR-1023-8): при переходе на «Промпты» синхронизируем режим и
       // подтягиваем блок анти-клише (идемпотентно, fail-open).
@@ -4667,6 +4806,8 @@
       // M-1 (Scanner): подстраницы/спец-экраны вне TABS (#/ai/persona,
       // #/access/roles, #/memory/*) — подпись из карточки хаба, не сырой hash.
       _routeLabel: function (route) {
+        // F11 (10.25, ADR-1025-23 D4): заголовок экрана полного графа.
+        if (route === '#/status/graph') return 'Граф связей';
         var items = this.iaV2 ? NAV_ITEMS_V2 : NAV_ITEMS;
         for (var i = 0; i < items.length; i++) {
           if (items[i].route === route) return items[i].label;
@@ -4733,6 +4874,9 @@
       // открыто), иначе route-driven окно «Доступов». Вынесено из глобального
       // keydown ради юнит-тестируемости.
       escClose: function () {
+        // F11 (L-F11S-3, §16/D4): полноэкранный граф — верхний слой;
+        // Esc закрывает его первым (fallback-шторка или hash-маршрут).
+        if (this.graphFullVisible) { this.closeGraphFull(); return; }
         // F6 (§27/L-F6S-4): side-panel/bottom-sheet деталей узла закрывается Esc.
         if (this.execDetailOpen) { this.closeExecDetail(); return; }
         // 10.20 (T-1896): модалка досье — верхняя (её и закрываем первой).
@@ -8898,7 +9042,15 @@
         // F6 (ADR-1025-19 D5/§21): компактное превью последнего вызова на
         // Статусе (global admin). Отдельный лёгкий путь — только /usage/latest;
         // источник и компонент у F6, композиция витрины §11–§20 — у F11.
-        if (this.isGlobalAdmin) this.loadExecPreview();
+        if (this.isGlobalAdmin) {
+          this.loadExecPreview();
+          // F11 (§19/D5): бюджеты/факты — на СУЩЕСТВУЮЩИХ путях (без новых
+          // поллеров; переиспользуем ритм статус-поллинга 30с).
+          this.loadBudgetInfo();
+          this.loadDossierFeed();
+        }
+        // F11 (§20/D5): счётчики ошибок/предупреждений (viewer не тронут).
+        this.loadLogCounts();
         // hotfix6/C2 (T-2599): EKG-SVG заменён на Canvas 2D + rAF (флаг
         // UI_HEARTBEAT_CANVAS_ENABLED; OFF → прежний SVG байт-в-байт).
         this.loadKeyHistory();   // B1/T-1129: список + график доступности
@@ -9147,6 +9299,40 @@
           });
         } catch (e) { this.logs = []; }
         finally { this.logsLoading = false; }
+      },
+      // F11 (§20/D5): счётчики «Ошибки» (только ERROR) и «Предупреждения»
+      // (только WARNING) — из СУЩЕСТВУЮЩЕГО /api/status/logs. Поле `count`
+      // там ограничено `limit`, поэтому читаем аддитивный `counts` (точные
+      // числа по всему ring-буферу, H-F11S-1). Раскрытие/копирование/
+      // столбцы/viewer НЕ меняются.
+      loadLogCounts: async function () {
+        try {
+          var res = await this.api('/api/status/logs?level=ALL&limit=1');
+          var counts = (res && res.counts) || null;
+          this.logErrorCount = counts ? (counts.ERROR || 0) : null;
+          this.logWarnCount = counts ? (counts.WARNING || 0) : null;
+        } catch (e) {
+          this.logErrorCount = null;
+          this.logWarnCount = null;
+        }
+      },
+      // F11 (§20/D5): клик по счётчику — плавный скролл к карточке логов.
+      // I-F11S-1: `$refs.statusLogs` в разметке нет — мёртвая ветка удалена.
+      scrollToLogs: function () {
+        var self = this;
+        this.$nextTick(function () {
+          var el = (typeof document !== 'undefined')
+            ? document.getElementById('status-logs') : null;
+          if (!el || typeof el.scrollIntoView !== 'function') return;
+          try {
+            el.scrollIntoView({
+              behavior: self.reducedMotion ? 'auto' : 'smooth',
+              block: 'start',
+            });
+          } catch (e) {
+            el.scrollIntoView();
+          }
+        });
       },
       levelBadge: function (level) {
         if (level === 'ERROR' || level === 'CRITICAL') return 'badge-err';
@@ -10340,6 +10526,10 @@
             var persona = await this.api('/api/persona' + q);
             this.cognitionTraits = this._traitsAdapter(
               persona && persona.dynamic_traits);
+            // F11 (§13/D2): имя бота для Hero — из того же ответа persona
+            // (новых запросов нет; пусто → нейтральное «Бот»).
+            var pv = (persona && persona.values) || {};
+            this.botDisplayName = (pv.name || '').trim();
             // F8 (ADR-1024-5 D3): причина/статус черт + self-факты.
             this.cognitionTraitsStatus =
               (persona && persona.traits_status) || null;
@@ -10443,8 +10633,14 @@
         if (!el) return;
         var g = this.cognitionGraphData || { nodes: [], edges: [] };
         var sig = this._graphSignature(g);
-        // ISSUE-4: экземпляр жив и данные не изменились → не трогаем сеть.
-        if (this.cognitionNetwork && sig === this._cognitionGraphSig) return;
+        // F11 (§16/D4): mobile — упрощённый граф (без физики/перетаскивания,
+        // фиксированный fit); на отдельном экране полного исследования —
+        // полный режим. Смена режима → пере-рендер (instance пересоздаётся).
+        var simpleGraph = this.isMobileShell && !this.graphFullVisible;
+        var mode = simpleGraph ? 'simple' : 'full';
+        // ISSUE-4: экземпляр жив и данные/режим не изменились → не трогаем сеть.
+        if (this.cognitionNetwork && sig === this._cognitionGraphSig
+            && mode === this._cognitionGraphMode) return;
         this.destroyCognitionGraph();
         var nodes = new window.vis.DataSet(g.nodes || []);
         var edges = new window.vis.DataSet(g.edges || []);
@@ -10454,10 +10650,13 @@
           edges: { arrows: 'to', smooth: true,
                    color: { color: 'rgba(148,163,184,.45)' },
                    font: { size: 10, color: '#94a3b8' } },
-          interaction: { hover: true, dragNodes: true, dragView: true,
+          // F11 (§16/D4): mobile-упрощение — без перетаскивания узлов;
+          // desktop/полный экран — прежнее поведение.
+          interaction: { hover: true, dragNodes: !simpleGraph, dragView: true,
                          zoomView: true },
           // F2 (T-1559): физика отталкивания barnesHut — кластеры
           // разлетаются, а не слипаются. reducedMotion → физика выключена.
+          // F11: mobile-упрощение → физика сразу off (см. ниже, после создания).
           physics: this.reducedMotion
             ? false
             : {
@@ -10481,6 +10680,27 @@
         this.cognitionNetwork = new window.vis.Network(
           el, { nodes: nodes, edges: edges }, options);
         this._cognitionGraphSig = sig;
+        this._cognitionGraphMode = mode;
+        // F11 (§16/D4): mobile-упрощение — физика сразу выключена
+        // (фиксированный fit), перетаскивание — через `dragNodes`.
+        if (simpleGraph) {
+          try {
+            this.cognitionNetwork.setOptions({ physics: { enabled: false } });
+          } catch (e) { /* noop */ }
+        }
+        // F11 (§16/D4): подробности выбранного узла + ближайшие связи. `on`
+        // (не `once`) — обработчики живут с инстансом и снимаются его destroy.
+        if (this.cognitionNetwork
+            && typeof this.cognitionNetwork.on === 'function') {
+          var selfSel = this;
+          this.cognitionNetwork.on('selectNode', function (params) {
+            var id = params && params.nodes && params.nodes[0];
+            if (id != null) selfSel.graphSelectNode(id);
+          });
+          this.cognitionNetwork.on('deselectNode', function () {
+            selfSel.graphClearDetail();
+          });
+        }
         // F4 (ADR-1018-4 D2): выключаем physics ПОСЛЕ первичной расстановки.
         // `once` (не `on`) — обработчики не копятся при повторных рендерах.
         // B3-1: guard ТОЛЬКО по тождеству инстанса — после
@@ -10517,8 +10737,21 @@
         if (!q) { this.clearCognitionGraphSearch(); return; }
         var nodes = (this.cognitionGraphData &&
                      this.cognitionGraphData.nodes) || [];
+        // F11 (§16/D4): поиск по имени (label) И по алиасу. Алиасы берём из
+        // УЖЕ загруженного `summaryAliasesMap()` (limits.summary_aliases);
+        // новых endpoint'ов/полей нет. Если совпал только алиас, для которого
+        // в графе нет узла — честное «в графе нет узла …» (без выдумывания).
+        var aliases = this.summaryAliasesMap ? this.summaryAliasesMap() : {};
+        var aliasIds = {};
+        Object.keys(aliases).forEach(function (uid) {
+          var val = aliases[uid];
+          if (val && String(val).toLowerCase().indexOf(q) !== -1) {
+            aliasIds[String(uid)] = true;
+          }
+        });
         var hits = nodes.filter(function (n) {
-          return String(n.label || '').toLowerCase().indexOf(q) !== -1;
+          if (String(n.label || '').toLowerCase().indexOf(q) !== -1) return true;
+          return !!aliasIds[String(n.id)];
         });
         if (!hits.length) {
           this._graphSearchMatches = [];
@@ -10555,12 +10788,125 @@
           this.cognitionNetwork.fit(anim);
         }
       },
+      // F11 (§16/D4): «ближайшие связи» узла — соседи по существующим рёбрам
+      // (реальные данные; вес/семантика/алгоритм НЕ меняются).
+      graphNeighborsOf: function (nodeId) {
+        var g = this.cognitionGraphData || {};
+        var byId = {};
+        (g.nodes || []).forEach(function (n) { byId[String(n.id)] = n; });
+        var seen = {}, out = [];
+        (g.edges || []).forEach(function (e) {
+          var other = null;
+          if (String(e.from) === String(nodeId)) other = e.to;
+          else if (String(e.to) === String(nodeId)) other = e.from;
+          if (other == null) return;
+          var k = String(other);
+          if (seen[k]) return;
+          seen[k] = true;
+          var n = byId[k] || {};
+          out.push({ id: other, label: n.label || k, group: n.group || 'other' });
+        });
+        return out;
+      },
+      // F11 (§16/D4): выбрали узел → подробности (реальные label/group/degree)
+      // + ближайшие связи.
+      graphSelectNode: function (nodeId) {
+        var detail = null;
+        if (nodeId != null) {
+          var nodes = (this.cognitionGraphData
+            && this.cognitionGraphData.nodes) || [];
+          for (var i = 0; i < nodes.length; i++) {
+            if (String(nodes[i].id) === String(nodeId)) {
+              var n = nodes[i];
+              detail = { id: n.id, label: n.label || String(n.id),
+                         group: n.group || 'other',
+                         degree: (n.degree != null ? n.degree : null) };
+              break;
+            }
+          }
+        }
+        this.graphDetail = detail;
+        this.graphNeighbors = (nodeId != null)
+          ? this.graphNeighborsOf(nodeId) : [];
+      },
+      graphClearDetail: function () {
+        this.graphDetail = null;
+        this.graphNeighbors = [];
+      },
+      // F11 (§16/D4): фокус на узле/соседе — камера + выделение (сеть не
+      // пересоздаётся; layout не трогается).
+      focusGraphNode: function (nodeId) {
+        if (!this.cognitionNetwork || nodeId == null) return;
+        var anim = this.reducedMotion
+          ? false : { duration: 500, easingFunction: 'easeInOutQuad' };
+        try {
+          this.cognitionNetwork.focus(nodeId, { scale: 1.1, animation: anim });
+          this.cognitionNetwork.selectNodes([nodeId]);
+        } catch (e) { /* noop: сеть уничтожена */ }
+        this.graphSelectNode(nodeId);
+      },
+      // F11 (§16/D4): витринный клиентский фильтр по group — выделяем
+      // совпадающие узлы и подгоняем камеру. Физика/вес/дефолтный layout
+      // НЕ меняются.
+      applyGraphFilter: function () {
+        if (!this.cognitionNetwork) return;
+        var grp = this.graphFilterGroup;
+        if (!grp) { this.clearCognitionGraphSearch(); return; }
+        var nodes = (this.cognitionGraphData
+          && this.cognitionGraphData.nodes) || [];
+        var ids = nodes.filter(function (n) {
+          return (n.group || 'other') === grp;
+        }).map(function (n) { return n.id; });
+        if (!ids.length) {
+          this.graphSearchStatus = 'В группе нет узлов';
+          return;
+        }
+        try {
+          this.cognitionNetwork.selectNodes(ids);
+          this.cognitionNetwork.fit({
+            nodes: ids,
+            animation: this.reducedMotion ? false : { duration: 500 },
+          });
+        } catch (e) { /* noop */ }
+        this.graphSearchStatus = 'Группа «' + grp + '»: ' + ids.length + ' узлов';
+      },
+      // F11 (§16/D4): сброс вида — фильтр/подробности/выделение + fit().
+      graphResetView: function () {
+        this.graphFilterGroup = '';
+        this.graphClearDetail();
+        this.clearCognitionGraphSearch();
+      },
+      // F11 (§16/D4): mobile — отдельный экран полного исследования. Основной
+      // путь — аддитивный hash-маршрут `#/status/graph` (владелец — F1);
+      // fallback при IA_V2_ENABLED=false — полноэкранная шторка.
+      openGraphFull: function () {
+        this.graphClearDetail();
+        if (this.iaV2) {
+          if (typeof this.navTo === 'function') this.navTo('#/status/graph');
+          else this.route = '#/status/graph';
+        } else {
+          this.graphFullOpen = true;
+        }
+      },
+      closeGraphFull: function () {
+        if (this.graphFullOpen) { this.graphFullOpen = false; return; }
+        if (typeof this.goBack === 'function') this.goBack();
+      },
+      // F11 (L-F11S-3, §16/D4): initial focus на полноэкранном диалоге графа —
+      // Esc/навигация с клавиатуры работают без мыши (preventScroll ≠ прыжок).
+      _focusGraphFull: function () {
+        var el = this.$refs && this.$refs.graphFullPanel;
+        if (!el || typeof el.focus !== 'function' || !this.graphFullVisible) return;
+        try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
+      },
       destroyCognitionGraph: function () {
         if (this.cognitionNetwork) {
           try { this.cognitionNetwork.destroy(); } catch (e) { /* noop */ }
           this.cognitionNetwork = null;
         }
         this._cognitionGraphSig = null;
+        this._cognitionGraphMode = null;
+        if (typeof this.graphClearDetail === 'function') this.graphClearDetail();
       },
       // ── Polling 15с с паузой при document.hidden (F5-Q3, R10.11-5) ─────
       // D2/R10.18: единый старт таймера БЕЗ раннего выхода по cognitionTimer

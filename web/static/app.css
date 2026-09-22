@@ -1247,6 +1247,94 @@
         grid-template-columns: 1.4fr 1fr 1.2fr; align-items: start;
       }
     }
+
+    /* ═══ F11 (10.25, ADR-1025-23 D1): композиция витрины «Статус» ═══
+       Единый 12-колоночный контейнер внутри ветки `activeTab === 'status'`;
+       `main.scroll-area` и прочие вкладки НЕ меняются. Адаптив §70:
+       ≥992 — 12 колонок; 768–991 — 6 (карточки span 6); ≤767 — 1 колонка
+       (тот же DOM-порядок §12). Анти-overflow: minmax(0,1fr) + min-width:0. */
+    .status-grid {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 1rem;
+      align-content: start;
+      min-width: 0;
+    }
+    .status-grid > * { min-width: 0; }
+    /* База: всё на всю ширину (legacy-безопасность). */
+    .status-grid > .sg { grid-column: 1 / -1; }
+    /* Спаны §12 (12-кол. база). */
+    .status-grid > .sg-5 { grid-column: span 5; }
+    .status-grid > .sg-7 { grid-column: span 7; }
+    .status-grid > .sg-8 { grid-column: span 8; }
+    .status-grid > .sg-4 { grid-column: span 4; }
+    .status-grid > .sg-12 { grid-column: 1 / -1; }
+    /* §14: метрики+heartbeat — 7 колонок (класс `.status-block` сохранён
+       байт-в-байт для hotfix6/10-контракта; спаны задаются селектором). */
+    .status-grid > .status-block { grid-column: span 7; }
+    .status-grid > .glass-surface { grid-column: 1 / -1; }
+    @media (max-width: 991px) {
+      .status-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+      .status-grid > .sg-5,
+      .status-grid > .sg-7,
+      .status-grid > .sg-8,
+      .status-grid > .sg-4,
+      .status-grid > .status-block { grid-column: span 6; }
+    }
+    @media (max-width: 767px) {
+      .status-grid { grid-template-columns: minmax(0, 1fr); }
+      .status-grid > .sg-5,
+      .status-grid > .sg-7,
+      .status-grid > .sg-8,
+      .status-grid > .sg-4,
+      .status-grid > .sg-12,
+      .status-grid > .status-block { grid-column: 1 / -1; }
+    }
+    /* Kill-switch UI_STATUS_GRID_V2=OFF → одноколоночный безопасный режим
+       (НЕ byte-identical legacy-DOM; M-F11S-1) без редеплоя. */
+    .status-grid--legacy { grid-template-columns: minmax(0, 1fr) !important; }
+    .status-grid--legacy > * { grid-column: 1 / -1 !important; }
+
+    /* L-F11S-3: тач-цели ≥44px — быстрый переход §20 и контролы/чипы-соседи
+       полноэкранного графа. */
+    .status-counts .btn-ghost { min-height: 44px; }
+    .status-graph-full .btn-ghost { min-height: 44px; }
+    .status-graph-full .badge {
+      min-height: 44px; display: inline-flex; align-items: center;
+    }
+
+    /* §13 Hero: компактная карточка состояния бота (Liquid Glass, без
+       длинной таблицы/постоянной пульсации). */
+    .status-hero__title { font-size: .95rem; font-weight: 700; }
+    /* §20: быстрый переход «Ошибки/Предупреждения» (вверху Статуса). */
+    .status-counts { display: flex; align-items: center; gap: .5rem;
+      flex-wrap: wrap; }
+    /* §17: виджет сна — бейджи + последнее выполнение; свечение активных
+       — существующий `.badge.glow`. */
+    .status-sleep .sleep-phase { border-top: 1px solid rgba(255,255,255,.08);
+      padding-top: .5rem; margin-top: .5rem; }
+    .status-sleep .sleep-phase:first-of-type { border-top: none;
+      padding-top: 0; margin-top: 0; }
+    /* §19 «Новые факты» — ТОЛЬКО вертикальный пользовательский скролл;
+       позиция не сбрасывается (список не пересоздаётся, без автопрокрутки). */
+    .status-facts .facts-list { max-height: 260px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: .4rem; }
+    .status-facts .facts-item { border: 1px solid rgba(255,255,255,.08);
+      border-radius: var(--radius-md); padding: .4rem .55rem; }
+    .status-facts .facts-item b { color: var(--text-1); }
+    /* §19 «Бюджеты интеллекта». */
+    .status-budgets .budget-row { margin-bottom: .6rem; }
+    .status-budgets .budget-row:last-child { margin-bottom: 0; }
+    /* §16/D4: mobile — отдельный экран полного исследования графа
+       (fallback-шторка при IA_V2_ENABLED=false/нет hash-навигации). */
+    .status-graph-full { position: fixed; inset: 0; z-index: 60;
+      display: flex; flex-direction: column; gap: .5rem;
+      padding: .75rem; background: var(--glass-bg-strong);
+      -webkit-backdrop-filter: var(--glass-blur);
+      backdrop-filter: var(--glass-blur); min-width: 0; }
+    .status-graph-full .cognition-graph--full { flex: 1 1 auto;
+      height: auto; min-height: 240px; }
     /* HOTFIX10 (ADR-1025-18 D1, T-2848/T-2849): КОНТРАКТ GlassSurface.
        Контейнер задаёт геометрию заранее; декоративные слои библиотеки
        (`absolute; inset:0; pointer-events:none` из vendored CSS) лежат НИЖЕ

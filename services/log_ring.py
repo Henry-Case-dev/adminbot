@@ -182,6 +182,21 @@ class LogRingHandler(logging.Handler):
                        if logging.getLevelName(e["level"]) >= threshold]
         return entries[-limit:][::-1]
 
+    def level_counts(self) -> dict[str, int]:
+        """F11 (H-F11S-1, §20): ТОЧНЫЕ счётчики по уровням по ВСЕМУ буферу.
+
+        `get_entries(...)` применяет `limit`, поэтому `len(entries)` не годится
+        для счётчиков «Ошибки/Предупреждения» (при `limit=1` максимум 1).
+        Возвращает несжатую агрегацию, напр. `{"ERROR": 5, "WARNING": 2}`.
+        Read-only, под тем же локом; поведение `get_entries` не меняется."""
+        with self._lock:
+            entries = list(self._buffer)
+        counts: dict[str, int] = {}
+        for entry in entries:
+            lvl = str(entry.get("level") or "").upper()
+            counts[lvl] = counts.get(lvl, 0) + 1
+        return counts
+
     def get_errors_total(self) -> int:
         return self.errors_total
 

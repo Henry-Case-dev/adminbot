@@ -3400,6 +3400,28 @@
               {{ statusError }}
             </div>
             <template v-if="!statusError">
+            <!-- F11 (§20/D5): быстрый переход «Ошибки: N · Предупреждения: N» —
+                 из существующего /api/status/logs (один лёгкий запрос, читается
+                 аддитивный `counts` по всему буферу — H-F11S-1); клик
+                 прокручивает к карточке логов. ВНЕ `.status-grid` (над ним),
+                 чтобы строки §12 остались ровно шесть. -->
+            <div class="status-counts card p-3" style="grid-column: 1 / -1;"
+                 role="group" aria-label="Сводка логов">
+              <button type="button" class="btn-ghost text-sm"
+                      @click="scrollToLogs()" title="Прокрутить к логам">
+                <span class="badge badge-err mr-1">Ошибки: {{ logErrorCount == null ? '—' : logErrorCount }}</span>
+                <span class="badge badge-warn">Предупреждения: {{ logWarnCount == null ? '—' : logWarnCount }}</span>
+                <span class="text-xs text-gray-500 ml-1">↓ к логам</span>
+              </button>
+            </div>
+            <!-- F11 (§12/D1, ADR-1025-23): ЕДИНЫЙ 12-колоночный контейнер
+                 витрины «Статус» внутри ветки `activeTab === 'status'`.
+                 `main.scroll-area` и прочие вкладки НЕ меняются (контейнер —
+                 единственный ребёнок, `grid-column: 1 / -1`). Kill-switch
+                 UI_STATUS_GRID_V2=OFF → `.status-grid--legacy` — одноколоночный
+                 безопасный режим (НЕ byte-identical legacy-DOM; M-F11S-1). -->
+            <div class="status-grid"
+                 :class="{ 'status-grid--legacy': !statusGridV2 }">
             <!-- HOTFIX10 (ADR-1025-18 D1, T-2848/T-2849): изолированный
                  декоративный GlassSurface — ЕДИНСТВЕННАЯ цель vendored Liquid
                  Glass. Без данных/контролов/ссылок. Декор библиотеки ложится
@@ -3424,6 +3446,41 @@
                  визуальный блок с внутренними секциями (мобила — столбик,
                  десктоп — рядом). Строка со служебными полями удалена
                  (T-1820); API-контракт «Статуса» не менялся (R16). -->
+            <!-- ═══ F11 (§12/§13, ADR-1025-23 D2): Строка 1 — Hero — 5 кол.
+                 Название/статус/последняя активность/компактная ошибка +
+                 контролы. Liquid Glass; без длинной таблицы/постоянной
+                 пульсации. Секции метрик остаются в `.status-block` (7 кол.). -->
+            <div class="card p-4 status-hero sg-5" data-glass="a">
+              <div class="flex items-center gap-2 flex-wrap mb-2">
+                <span class="msr" aria-hidden="true">{{ iconGlyph('smart_toy') }}</span>
+                <div class="status-hero__title">{{ botDisplayName || 'Бот' }}</div>
+                <span v-if="statusData" class="badge"
+                      :class="stateBadge(statusData.bot.state)">{{ statusData.bot.state }}</span>
+                <span v-else class="spinner"></span>
+              </div>
+              <template v-if="statusData">
+                <div class="text-xs text-gray-400 space-y-1.5">
+                  <div>Последняя активность: <b>{{ botLastActivity }}</b></div>
+                  <div v-if="statusData.bot.errors_total > 0" class="text-red-300">
+                    ⚠ Ошибок с момента старта: {{ statusData.bot.errors_total }}
+                  </div>
+                </div>
+                <div class="flex gap-2 pt-3">
+                  <button v-if="hasPerm('action.control.restart')" class="btn-ghost text-sm"
+                          :disabled="controlLocked" @click="requestControl('restart')">
+                    <span class="msr" aria-hidden="true">{{ iconGlyph('restart_alt') }}</span> {{ controlLocked ? controlLockSeconds + 'с' : 'Рестарт' }}
+                  </button>
+                  <button v-if="hasPerm('action.control.stop')" class="btn-ghost text-sm"
+                          :disabled="controlLocked" @click="requestControl('stop')">
+                    <span class="msr" aria-hidden="true">{{ iconGlyph('stop') }}</span> {{ controlLocked ? controlLockSeconds + 'с' : 'Стоп' }}
+                  </button>
+                  <button v-if="hasPerm('action.control.start')" class="btn-ghost text-sm"
+                          :disabled="controlLocked" @click="requestControl('start')">
+                    <span class="msr" aria-hidden="true">{{ iconGlyph('play_arrow') }}</span> {{ controlLocked ? controlLockSeconds + 'с' : 'Старт' }}
+                  </button>
+                </div>
+              </template>
+            </div>
               <div class="card p-4 status-block">
                 <div class="status-block__grid">
                 <section class="status-block__pulse">
@@ -3471,20 +3528,6 @@
                     <div>Аптайм: <b>{{ humanizeUptime(statusData.bot.uptime_seconds) }}</b></div>
                     <div>Состояние: <span class="badge" :class="stateBadge(statusData.bot.state)">{{ statusData.bot.state }}</span></div>
                     <div>Ошибок с момента старта: <b :class="statusData.bot.errors_total ? 'text-red-400' : ''">{{ statusData.bot.errors_total }}</b></div>
-                    <div class="flex gap-2 pt-2">
-                      <button v-if="hasPerm('action.control.restart')" class="btn-ghost text-sm"
-                              :disabled="controlLocked" @click="requestControl('restart')">
-                        <span class="msr" aria-hidden="true">{{ iconGlyph('restart_alt') }}</span> {{ controlLocked ? controlLockSeconds + 'с' : 'Рестарт' }}
-                      </button>
-                      <button v-if="hasPerm('action.control.stop')" class="btn-ghost text-sm"
-                              :disabled="controlLocked" @click="requestControl('stop')">
-                        <span class="msr" aria-hidden="true">{{ iconGlyph('stop') }}</span> {{ controlLocked ? controlLockSeconds + 'с' : 'Стоп' }}
-                      </button>
-                      <button v-if="hasPerm('action.control.start')" class="btn-ghost text-sm"
-                              :disabled="controlLocked" @click="requestControl('start')">
-                        <span class="msr" aria-hidden="true">{{ iconGlyph('play_arrow') }}</span> {{ controlLocked ? controlLockSeconds + 'с' : 'Старт' }}
-                      </button>
-                    </div>
                   </div>
                 </section>
 
@@ -3497,67 +3540,132 @@
                   </div>
                   <div v-if="!statusData" class="spinner"></div>
                   <div v-else class="text-sm space-y-2">
+                    <!-- F11 (§14/D2): честные `null` — «нет данных», бар не
+                         заливается (устранён `(cpu_percent || 0)` → 0 при null). -->
                     <div>
-                      <div class="flex justify-between text-xs text-gray-400"><span>CPU</span><span>{{ statusData.server.cpu_percent ?? '—' }}%</span></div>
-                      <div class="progress"><div :style="{ width: (statusData.server.cpu_percent || 0) + '%' }"></div></div>
+                      <div class="flex justify-between text-xs text-gray-400"><span>CPU</span><span>{{ statusSys.cpu == null ? 'нет данных' : statusSys.cpu + '%' }}</span></div>
+                      <div class="progress"><div :style="{ width: (statusSys.cpu == null ? 0 : Math.min(100, statusSys.cpu)) + '%' }"></div></div>
                     </div>
                     <div>
                       <div class="flex justify-between text-xs text-gray-400">
                         <span>RAM</span>
-                        <span>{{ fmtBytes(statusData.server.memory.used) }} / {{ fmtBytes(statusData.server.memory.total) }} ({{ statusData.server.memory.percent }}%)</span>
+                        <span v-if="statusSys.mem && statusSys.mem.percent != null">{{ fmtBytes(statusSys.mem.used) }} / {{ fmtBytes(statusSys.mem.total) }} ({{ statusSys.mem.percent }}%)</span>
+                        <span v-else>нет данных</span>
                       </div>
-                      <div class="progress"><div :style="{ width: statusData.server.memory.percent + '%' }"></div></div>
+                      <div class="progress"><div :style="{ width: (statusSys.mem && statusSys.mem.percent != null ? Math.min(100, statusSys.mem.percent) : 0) + '%' }"></div></div>
                     </div>
                     <div>
                       <div class="flex justify-between text-xs text-gray-400">
                         <span>Диск</span>
-                        <span>{{ fmtBytes(statusData.server.disk.used) }} / {{ fmtBytes(statusData.server.disk.total) }} ({{ statusData.server.disk.percent }}%)</span>
+                        <span v-if="statusSys.disk && statusSys.disk.percent != null">{{ fmtBytes(statusSys.disk.used) }} / {{ fmtBytes(statusSys.disk.total) }} ({{ statusSys.disk.percent }}%)</span>
+                        <span v-else>нет данных</span>
                       </div>
-                      <div class="progress"><div :style="{ width: statusData.server.disk.percent + '%' }"></div></div>
+                      <div class="progress"><div :style="{ width: (statusSys.disk && statusSys.disk.percent != null ? Math.min(100, statusSys.disk.percent) : 0) + '%' }"></div></div>
                     </div>
-                    <div class="text-xs text-gray-400">Load: {{ statusData.server.loadavg ? statusData.server.loadavg.map(x => x.toFixed(2)).join(' / ') : '—' }}</div>
-                    <div class="text-xs text-gray-400">PID {{ statusData.server.process.pid }} · RSS {{ statusData.server.process.rss_mb }} МБ · потоков {{ statusData.server.process.threads }}</div>
+                    <div class="text-xs text-gray-400">Аптайм: {{ statusData ? humanizeUptime(statusData.bot.uptime_seconds) : '—' }}</div>
+                    <div class="text-xs text-gray-400">Load: {{ statusSys.loadavg ? statusSys.loadavg.map(x => Number(x).toFixed(2)).join(' / ') : '—' }}</div>
+                    <div class="text-xs text-gray-400" v-if="statusSys.process">PID {{ statusSys.process.pid }} · RSS {{ statusSys.process.rss_mb }} МБ · потоков {{ statusSys.process.threads }}</div>
                   </div>
                 </section>
               </div>
             </div>
 
-            <!-- F6 (ADR-1025-19 D5/§21): компактное превью последнего вызова.
-                 Источник — /usage/latest через adapter (НЕ одна строка с
-                 числом токенов). Финальная композиция витрины Статуса — F11;
-                 F6 владеет данными и компонентом. Фильтры §27 сюда НЕ попадают.
-                 Размещено ПОСЛЕ .status-block: не сдвигает системные цели
-                 (glass-проба H10). -->
-            <div v-if="isGlobalAdmin" class="exec-preview card p-3"
-                 style="grid-column: 1 / -1;">
-              <div class="flex items-center gap-2 flex-wrap mb-1">
-                <span class="text-xs font-bold">Последний вызов</span>
-                <span class="text-xs text-gray-500" v-if="execPreview.startedAt">{{ execPreview.startedAt }}</span>
-                <button class="btn-ghost text-xs ml-auto" @click="loadExecPreview()">⟳</button>
+            <!-- ═══ F11 (§12/§16, ADR-1025-23 D1/D4): Строка 2 — Граф связей — 8 кол.
+                 Расширение на месте: поиск (имя/алиас), фокус, ближайшие связи,
+                 фильтры (витринные, клиентские), подробности, сброс вида.
+                 Алгоритм/семантика веса и layout НЕ меняются; lazy-загрузка
+                 vis-network сохранена. Mobile — упрощённый граф + отдельный
+                 экран полного исследования. -->
+            <div v-if="isGlobalAdmin && !graphFullVisible"
+                 class="card p-4 status-graph sg-8">
+              <div class="flex items-center gap-2 mb-1 flex-wrap">
+                <div class="text-xs font-bold">Граф связей</div>
+                <span v-if="cognitionGraphData" class="text-xs text-gray-500">
+                  {{ (cognitionGraphData.nodes || []).length }} узлов · {{ (cognitionGraphData.edges || []).length }} рёбер<template v-if="cognitionGraphData.truncated"> · показаны не все</template>
+                </span>
+                <span v-if="!cognitionVisLoaded" class="text-xs text-gray-500">vis-network грузится при открытии…</span>
+                <button class="btn-ghost text-xs ml-auto" type="button"
+                        @click="openGraphFull()"
+                        title="Полное исследование графа">⛶ Полный экран</button>
               </div>
-              <template v-if="!execPreview.empty">
-                <div class="flex flex-wrap items-center gap-1 text-xs mb-1">
-                  <template v-for="(n, i) in execPreview.nodes" :key="'ep' + n.id">
-                    <span class="badge badge-muted" :title="n.stageLabel">{{ n.stageLabel }}: {{ fmtTokensCell(n.inputTokens) }}/{{ fmtTokensCell(n.outputTokens) }}</span>
-                    <span v-if="i < execPreview.nodes.length - 1" class="text-gray-500">→</span>
-                  </template>
+              <div class="graph-search">
+                <input type="search" class="field input graph-search__input"
+                       placeholder="Поиск по имени или алиасу…"
+                       aria-label="Поиск узла по имени или алиасу"
+                       v-model.trim="graphSearchQuery"
+                       @keydown.enter.prevent="searchCognitionGraph()"
+                       @keydown.esc="clearCognitionGraphSearch()">
+                <button class="btn-ghost text-xs" type="button"
+                        @click="searchCognitionGraph()"
+                        :disabled="!cognitionNetwork">Найти</button>
+                <select class="field text-xs w-28 shrink-0" aria-label="Фильтр по группе"
+                        v-model="graphFilterGroup" @change="applyGraphFilter()">
+                  <option value="">Все группы</option>
+                  <option v-for="g in graphGroupOptions" :key="'gg' + g" :value="g">{{ g }}</option>
+                </select>
+                <button class="btn-ghost text-xs" type="button"
+                        @click="graphResetView()"
+                        :disabled="!cognitionNetwork">Сбросить вид</button>
+                <span v-if="graphSearchStatus" class="text-xs text-gray-500">{{ graphSearchStatus }}</span>
+              </div>
+              <div ref="cognitionGraph" class="cognition-graph" data-glass="a"></div>
+              <!-- §16: подробности выбранного узла + ближайшие связи (реальные
+                   label/group/degree, без выдумывания связей). -->
+              <div v-if="graphDetail" class="mt-2 text-xs">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="badge badge-info">{{ graphDetail.label }}</span>
+                  <span class="badge badge-muted">{{ graphDetail.group }}</span>
+                  <span class="badge badge-muted" v-if="graphDetail.degree != null">связей: {{ graphDetail.degree }}</span>
+                  <button class="btn-ghost text-[10px] ml-auto" type="button"
+                          @click="graphClearDetail()">скрыть</button>
                 </div>
-                <div class="flex flex-wrap gap-2 text-xs">
-                  <span class="badge badge-muted">Стоимость LLM: {{ fmtCost(execPreview.totals.cost, execPreview.totals.priceKnown) }}</span>
-                  <span class="badge badge-muted" v-if="execPreview.totals.tokensEstimated">токены — оценка</span>
+                <div v-if="graphNeighbors.length" class="flex flex-wrap gap-1 mt-1">
+                  <button v-for="nb in graphNeighbors" :key="'nb' + nb.id"
+                          type="button" class="badge badge-muted"
+                          @click="focusGraphNode(nb.id)">→ {{ nb.label }}</button>
                 </div>
-              </template>
-              <div v-else class="text-xs text-gray-500">Нет данных: вызовов ещё не было.</div>
+                <div v-else class="text-gray-500 mt-1">Ближайших связей нет.</div>
+              </div>
+            </div>
+
+            <!-- ═══ F11 (§12/§17, ADR-1025-23 D1/D3): Строка 2 — Виджет сна — 4 кол.
+                 Единый источник времени — существующий cognition (серверный
+                 `generated_at`); активность ТОЛЬКО с сервера (таймер ≠ запуск);
+                 новых таймеров/поллеров нет. Бейджи/эмодзи/glow сохранены. -->
+            <div v-if="isGlobalAdmin" class="card p-4 status-sleep sg-4">
+              <div class="flex items-center gap-2 mb-2 flex-wrap">
+                <div class="text-sm font-bold">🌙 Сон и активность</div>
+                <button class="btn-ghost text-xs ml-auto" :disabled="cognitionBusy"
+                        @click="loadCognition()">⟳</button>
+              </div>
+              <div class="flex flex-wrap gap-1 mb-2">
+                <span class="badge" :class="dreamPhaseBadge.cls">{{ dreamPhaseBadge.text }}</span>
+                <span class="badge" :class="deepPhaseBadge.cls">{{ deepPhaseBadge.text }}</span>
+              </div>
+              <div v-if="!sleepWidget.ready" class="text-xs text-gray-500">Нет данных о сне.</div>
+              <div v-else class="text-xs text-gray-400">
+                <div class="sleep-phase">
+                  <div class="text-gray-300 font-semibold mb-1">Обычный сон</div>
+                  <div>Сейчас: <b>{{ sleepWidget.dream.active ? 'активен' : 'не активен' }}</b></div>
+                  <div>Следующий запуск: {{ sleepWidget.dream.text }}</div>
+                  <div>Последнее выполнение: {{ sleepWidget.dream.lastRun ? fmtLogTs(sleepWidget.dream.lastRun) : '—' }}</div>
+                </div>
+                <div class="sleep-phase">
+                  <div class="text-gray-300 font-semibold mb-1">Глубокий сон</div>
+                  <div>Сейчас: <b>{{ sleepWidget.deep.active ? 'активен' : 'не активен' }}</b></div>
+                  <div>Следующий запуск: {{ sleepWidget.deep.text }}</div>
+                  <div>Последнее выполнение: {{ sleepWidget.deep.lastRun ? fmtLogTs(sleepWidget.deep.lastRun) : '—' }}</div>
+                </div>
+              </div>
             </div>
 
             <!-- F5 (T-1450..T-1452, ТЗ §5): «Мониторинг Интеллекта» — только
-                 global admin. Две вертикальные бегущие строки (Убеждения/Сон,
-                 Парадигмы/Глубокий сон, opacity 50→100), бейджи активных фаз
-                 в реальном времени, force-directed граф (vis-network,
-                 lazy self-host, drag/zoom).
-                 F7 (T-1537, ТЗ §7): блок опущен под «Сервер» (перед
-                 «Доступностью ключей»). -->
-            <div v-if="isGlobalAdmin" class="card p-4" style="grid-column: 1 / -1;">
+                 global admin. Три самостоятельные области (Убеждения,
+                 Парадигмы, Эволюция характера) — НЕ смешиваются; §18
+                 (код/разметка лент не меняются — только композиция).
+                 F11 (§12, ADR-1025-23 D1): Строка 3 — вся ширина (12 кол.);
+                 граф §16 вынесен в отдельную карточку строки 2. -->
+            <div v-if="isGlobalAdmin" class="card p-4 sg-12">
               <div class="intel-header mb-2">
                 <div class="intel-title text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span> Мониторинг Интеллекта</div>
                 <span class="badge" :class="dreamPhaseBadge.cls">{{ dreamPhaseBadge.text }}</span>
@@ -3617,31 +3725,6 @@
                   </div>
                 </div>
               </div>
-              <div class="mt-3">
-                <div class="flex items-center gap-2 mb-1 flex-wrap">
-                  <div class="text-xs font-bold">Граф связей</div>
-                  <span v-if="cognitionGraphData" class="text-xs text-gray-500">
-                    {{ (cognitionGraphData.nodes || []).length }} узлов · {{ (cognitionGraphData.edges || []).length }} рёбер<template v-if="cognitionGraphData.truncated"> · показаны не все</template>
-                  </span>
-                  <span v-if="!cognitionVisLoaded" class="text-xs text-gray-500">vis-network грузится при открытии…</span>
-                </div>
-                <div class="graph-search">
-                  <input type="search" class="field input graph-search__input"
-                         placeholder="Поиск по графу…"
-                         aria-label="Поиск узла по имени"
-                         v-model.trim="graphSearchQuery"
-                         @keydown.enter.prevent="searchCognitionGraph()"
-                         @keydown.esc="clearCognitionGraphSearch()">
-                  <button class="btn-ghost text-xs" type="button"
-                          @click="searchCognitionGraph()"
-                          :disabled="!cognitionNetwork">Найти</button>
-                  <button class="btn-ghost text-xs" type="button"
-                          @click="clearCognitionGraphSearch()"
-                          :disabled="!cognitionNetwork">Сбросить вид</button>
-                  <span v-if="graphSearchStatus" class="text-xs text-gray-500">{{ graphSearchStatus }}</span>
-                </div>
-                <div ref="cognitionGraph" class="cognition-graph" data-glass="a"></div>
-              </div>
               <!-- F7 (memory-retention-health, D-6): метрики здоровья памяти
                    (GET /api/memory/health) — аддитивно: просрочено,
                    не подтверждено, сырьё (smart_messages), хранилище.
@@ -3681,10 +3764,108 @@
               </div>
             </div>
 
+            <!-- F6 (ADR-1025-19 D5/§21): компактное превью последнего вызова.
+                 Источник — /usage/latest через adapter (НЕ одна строка с
+                 числом токенов). Финальная композиция витрины Статуса — F11;
+                 F6 владеет данными и компонентом. Фильтры §27 сюда НЕ попадают.
+                 Размещено ПОСЛЕ .status-block: не сдвигает системные цели
+                 (glass-проба H10). -->
+            <div v-if="isGlobalAdmin" class="exec-preview card p-3 sg-7">
+              <div class="flex items-center gap-2 flex-wrap mb-1">
+                <span class="text-xs font-bold">Последний вызов</span>
+                <span class="text-xs text-gray-500" v-if="execPreview.startedAt">{{ execPreview.startedAt }}</span>
+                <button class="btn-ghost text-xs ml-auto" @click="loadExecPreview()">⟳</button>
+              </div>
+              <template v-if="!execPreview.empty">
+                <div class="flex flex-wrap items-center gap-1 text-xs mb-1">
+                  <template v-for="(n, i) in execPreview.nodes" :key="'ep' + n.id">
+                    <span class="badge badge-muted" :title="n.stageLabel">{{ n.stageLabel }}: {{ fmtTokensCell(n.inputTokens) }}/{{ fmtTokensCell(n.outputTokens) }}</span>
+                    <span v-if="i < execPreview.nodes.length - 1" class="text-gray-500">→</span>
+                  </template>
+                </div>
+                <div class="flex flex-wrap gap-2 text-xs">
+                  <span class="badge badge-muted">Стоимость LLM: {{ fmtCost(execPreview.totals.cost, execPreview.totals.priceKnown) }}</span>
+                  <span class="badge badge-muted" v-if="execPreview.totals.tokensEstimated">токены — оценка</span>
+                </div>
+              </template>
+              <div v-else class="text-xs text-gray-500">Нет данных: вызовов ещё не было.</div>
+            </div>
+
+            <!-- ═══ F11 (§12/§19, ADR-1025-23 D1/D5): Строка 4 — «Новые факты» — 5 кол.
+                 reuse `dossierFeed`/`loadDossierFeed` (/api/oversight/dossier_feed);
+                 ТОЛЬКО вертикальный пользовательский скролл, позиция не
+                 сбрасывается (стабильный :key, без автопрокрутки). Полная
+                 работа с памятью остаётся в «Память»/«Аналитика».
+                 Время/тип — ТОЛЬКО если есть в ответе (не выдумываем). -->
+            <div v-if="isGlobalAdmin" class="card p-4 status-facts sg-5">
+              <div class="flex items-center gap-2 flex-wrap mb-1">
+                <div class="text-sm font-bold">Новые факты</div>
+                <span class="text-xs text-gray-500">Что бот недавно запомнил</span>
+                <button class="btn-ghost text-xs ml-auto" :disabled="dossierFeedBusy"
+                        @click="loadDossierFeed()">⟳</button>
+              </div>
+              <div v-if="dossierFeedError" class="text-xs text-red-300">Ошибка ленты: {{ dossierFeedError }}</div>
+              <div v-else-if="!factsFeed.length" class="text-xs text-gray-500">
+                Пока нечего показать — в графе памяти нет подтверждённых фактов.
+              </div>
+              <div v-else class="facts-list scroll-thin">
+                <div v-for="fact in factsFeed" :key="fact.key" class="facts-item">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <b>{{ fact.name }}</b>
+                    <span class="text-gray-500 text-[10px]" v-if="fact.time">{{ fmtLogTs(fact.time) }}</span>
+                    <span class="badge badge-muted text-[10px]" v-if="fact.kind">{{ fact.kind }}</span>
+                  </div>
+                  <div class="text-gray-300">{{ fact.text }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ F11 (§12/§19, ADR-1025-23 D1/D5): Строка 5 — «Бюджеты
+                 интеллекта» — 12 кол. reuse /api/status.context, /api/workers/budget,
+                 cognition.dream.budget. «Без лимита» — без заполненного бара;
+                 «Нет данных» вместо $0; Δ каталога = 0 (новых параметров нет). -->
+            <div v-if="isGlobalAdmin" class="card p-4 status-budgets sg-12">
+              <div class="flex items-center gap-2 flex-wrap mb-2">
+                <div class="text-sm font-bold">Бюджеты интеллекта</div>
+                <span class="text-xs text-gray-500">контекст · фон · сон</span>
+                <button class="btn-ghost text-xs ml-auto" :disabled="budgetBusy"
+                        @click="loadBudgetInfo()">⟳</button>
+              </div>
+              <div class="budget-row">
+                <div class="flex justify-between text-xs text-gray-400">
+                  <span>Бюджет контекста</span>
+                  <span v-if="memoryContext.unlimited">{{ memoryContext.used == null ? 'Нет данных' : memoryContext.used }} токенов · Безлимит (∞)<template v-if="memoryContext.truncated"> · урезание</template></span>
+                  <span v-else-if="memoryContext.used == null || memoryContext.limit == null">Нет данных</span>
+                  <span v-else>{{ memoryContext.used }} / {{ memoryContext.limit }} токенов<template v-if="memoryContext.truncated"> · урезание</template></span>
+                </div>
+                <div class="progress" v-if="!memoryContext.unlimited && memoryContext.used != null && memoryContext.limit"><div :class="{ 'bar-red': memoryContext.red }" :style="{ width: Math.min(100, (memoryContext.ratio || 0) * 100) + '%' }"></div></div>
+              </div>
+              <div class="budget-row" v-if="budgetInfo && budgetInfo.global">
+                <div class="flex justify-between text-xs text-gray-400">
+                  <span>Дневной фон (вызовы)</span>
+                  <span v-if="budgetInfo.global.calls && budgetInfo.global.calls.limit != null">{{ budgetInfo.global.calls.used }} / {{ budgetInfo.global.calls.limit }}</span>
+                  <span v-else>Без лимита</span>
+                </div>
+                <div class="progress" v-if="budgetInfo.global.calls && budgetInfo.global.calls.limit"><div :style="{ width: (budgetRatio(budgetInfo.global.calls) * 100) + '%' }"></div></div>
+              </div>
+              <div class="budget-row" v-if="cognition && cognition.dream && cognition.dream.budget">
+                <div class="flex justify-between text-xs text-gray-400">
+                  <span>Сон (токены за сутки)</span>
+                  <span v-if="cognition.dream.budget.tokens_limit == null">Нет данных</span>
+                  <span v-else>{{ fmtTokens(cognition.dream.budget.tokens_today) }} / {{ fmtTokens(cognition.dream.budget.tokens_limit) }}</span>
+                </div>
+                <div class="progress" v-if="cognition.dream.budget.tokens_limit"><div :style="{ width: Math.min(100, (cognition.dream.budget.tokens_today / cognition.dream.budget.tokens_limit) * 100) + '%' }"></div></div>
+              </div>
+              <div class="text-xs text-gray-500" v-if="!budgetInfo && !(cognition && cognition.dream && cognition.dream.budget) && memoryContext.used == null">
+                Нет данных о бюджетах.
+              </div>
+            </div>
+
             <!-- LLM: ОДИН блок «Доступность ключей», 4 группы функций
                  (10.9/п.7.1). Провайдер/модель — реальные (host), без
-                 хардкода имён; Health — реальный probe (timeout/502). -->
-            <div class="card p-4" style="grid-column: 1 / -1;">
+                 хардкода имён; Health — реальный probe (timeout/502).
+                 F11 (§11/§12): карточка сохранена (12 кол.). -->
+            <div class="card p-4 sg-12">
               <div class="flex items-center gap-2 mb-2 flex-wrap">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('key') }}</span> Доступность ключей</div>
                 <button class="btn-ghost text-xs ml-auto" @click="loadStatus()">⟳</button>
@@ -3716,7 +3897,7 @@
             <!-- Доступность ключей API (B1/OD8, T-1128/T-1129): плотный
                  список + график по времени + легенда. Данные — leak-safe
                  GET /api/status/key-history (allowlist, R17). -->
-            <div class="card p-4 keys-avail" data-glass="c" style="grid-column: 1 / -1;">
+            <div class="card p-4 keys-avail sg-12" data-glass="c">
               <div class="flex items-center gap-2 mb-2 flex-wrap">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('key') }}</span> История доступности ключей</div>
                 <button class="btn-ghost text-xs ml-auto"
@@ -3755,7 +3936,9 @@
             </div>
 
             <!-- Логи -->
-            <div class="card p-4" data-glass="c" style="grid-column: 1 / -1;">
+            <!-- F11 (§12/§20, ADR-1025-23 D1/D5): строка 6 — вся ширина;
+                 viewer/столбцы/фильтры/копирование НЕ переписываются. -->
+            <div class="card p-4 status-logs sg-12" id="status-logs" data-glass="c">
               <div class="flex items-center gap-2 flex-wrap mb-2">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('receipt_long') }}</span> Логи</div>
                 <select class="field w-32 shrink-0" v-model="logLevel" aria-label="Уровень логов">
@@ -3802,6 +3985,59 @@
                       <div v-if="log.expanded && log.exc_text" class="log-exc">{{ log.exc_text }}</div>
                     </div>
                   </template>
+                </div>
+              </div>
+            </div>
+            </div><!-- /F11 §12 .status-grid -->
+            <!-- F11 (§16/D4, ADR-1025-23 D4): mobile — отдельный экран полного
+                 исследования графа связей. Основной путь — аддитивный
+                 hash-маршрут `#/status/graph` (владелец routing — F1; нативная
+                 «назад»); fallback при IA_V2_ENABLED=false — полноэкранная
+                 шторка (тот же компонент). DOM-порядок §12 не затрагивается:
+                 экран рендерится ВНЕ `.status-grid`. -->
+            <div v-if="isGlobalAdmin && graphFullVisible"
+                 ref="graphFullPanel" tabindex="-1"
+                 class="status-graph-full" role="dialog" aria-modal="true"
+                 aria-label="Полное исследование графа связей">
+              <div class="flex items-center gap-2 flex-wrap">
+                <div class="text-sm font-bold">Граф связей</div>
+                <span v-if="cognitionGraphData" class="text-xs text-gray-500">
+                  {{ (cognitionGraphData.nodes || []).length }} узлов · {{ (cognitionGraphData.edges || []).length }} рёбер
+                </span>
+                <button class="btn-ghost text-xs ml-auto" type="button"
+                        @click="closeGraphFull()">✕ Закрыть</button>
+              </div>
+              <div class="graph-search">
+                <input type="search" class="field input graph-search__input"
+                       placeholder="Поиск по имени или алиасу…"
+                       aria-label="Поиск узла по имени или алиасу"
+                       v-model.trim="graphSearchQuery"
+                       @keydown.enter.prevent="searchCognitionGraph()"
+                       @keydown.esc="clearCognitionGraphSearch()">
+                <button class="btn-ghost text-xs" type="button"
+                        @click="searchCognitionGraph()"
+                        :disabled="!cognitionNetwork">Найти</button>
+                <select class="field text-xs w-28 shrink-0" aria-label="Фильтр по группе"
+                        v-model="graphFilterGroup" @change="applyGraphFilter()">
+                  <option value="">Все группы</option>
+                  <option v-for="g in graphGroupOptions" :key="'ggf' + g" :value="g">{{ g }}</option>
+                </select>
+                <button class="btn-ghost text-xs" type="button"
+                        @click="graphResetView()"
+                        :disabled="!cognitionNetwork">Сбросить вид</button>
+              </div>
+              <div ref="cognitionGraph"
+                   class="cognition-graph cognition-graph--full" data-glass="a"></div>
+              <div v-if="graphDetail" class="text-xs">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="badge badge-info">{{ graphDetail.label }}</span>
+                  <span class="badge badge-muted">{{ graphDetail.group }}</span>
+                  <span class="badge badge-muted" v-if="graphDetail.degree != null">связей: {{ graphDetail.degree }}</span>
+                </div>
+                <div v-if="graphNeighbors.length" class="flex flex-wrap gap-1 mt-1">
+                  <button v-for="nb in graphNeighbors" :key="'nbf' + nb.id"
+                          type="button" class="badge badge-muted"
+                          @click="focusGraphNode(nb.id)">→ {{ nb.label }}</button>
                 </div>
               </div>
             </div>

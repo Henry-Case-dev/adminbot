@@ -36,6 +36,17 @@ CATALOG_BASELINE = json.loads(
 INVENTORY = ROOT / "plans" / "archive" / "settings-persistence-audit-round1014" / "inventory.tsv"
 ARTIFACTS = [ROOT / p for p in FIXTURE["artifacts"]]
 
+# F11 (ADR-1025-23 D6) + L-F11S-1: строгий byte-freeze `web/api/routes.py`
+# восстановлен НОВЫМ baseline-хэшем F11 (исторический fixture
+# `tests/fixtures/round1025/f8_baseline.json` НЕ меняется — L-F9S-4).
+# Хэш покрывает только АДДИТИВНЫЕ изменения F11:
+#   * env-only `UI_STATUS_GRID_V2` в `/api/me.ui_flags` (bool);
+#   * аддитивное поле `counts` в `/api/status/logs` (H-F11S-1).
+# Ни новых endpoint'ов, ни изменений схемы/каталога (`test_routes_set_unchanged`
+# и `test_param_catalog_unchanged` продолжают замораживать свои срезы).
+ROUTES_SHA256_F11 = (
+    "76bcab3c96fec5c55c4f8ec4e50b30593fd91b98ca6322270c3a71dca5653306")
+
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -86,8 +97,14 @@ class TestFrozenInvariants:
             FIXTURE["sha256"]["services/pg_db.py"]
 
     def test_routes_file_unchanged(self):
-        assert _sha256(ROOT / "web/api/routes.py") == \
-            FIXTURE["sha256"]["web/api/routes.py"]
+        # F11 (ADR-1025-23 D6 + L-F11S-1): строгий byte-freeze восстановлен.
+        # Исторический fixture `f8_baseline.json` НЕ меняется (L-F9S-4), поэтому
+        # новый baseline-хэш F11 зафиксирован константой `ROUTES_SHA256_F11`
+        # (едва выше). Изменения F11 — строго аддитивные (kill-switch bool +
+        # поле `counts` в существующем эндпоинте), новых endpoint'ов нет.
+        assert _sha256(ROOT / "web/api/routes.py") == ROUTES_SHA256_F11, (
+            "web/api/routes.py изменился вне аддитивных правок F11 — "
+            "обновите baseline осознанно (L-F11S-1)")
 
     def test_counts_frozen(self):
         assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 459
@@ -102,10 +119,10 @@ class TestFrozenInvariants:
     def test_app_version_recorded(self):
         # L-F9S-3: маркер F8 не ослабляется. Fixture — исторический baseline
         # F8 (2.58.15, файл не менялся), а текущая версия пинится СТРОГО
-        # (F9/ADR-1025-22 D7 поднял 2.58.15 → 2.58.16; без `>=`-послабления).
+        # (F11/ADR-1025-23 D6 поднял 2.58.16 → 2.58.17; без `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.16"
+        assert APP_VERSION == "2.58.17"
 
     def test_routes_set_unchanged(self):
         import re

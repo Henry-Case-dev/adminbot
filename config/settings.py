@@ -775,6 +775,14 @@ class Settings:
         "UI_LIQUID_GLASS_LIB", False)
     UI_AURORA_FLOW_V2: ClassVar[bool] = _env_bool(
         "UI_AURORA_FLOW_V2", True)
+    # ── Раунд 10.25 (F11, ADR-1025-23 D6): env-only kill-switch композиции
+    # витрины «Статус» (§12: 12-колоночная сетка, Hero/метрики, сон, факты,
+    # бюджеты, счётчики §20). Default ON; OFF → одноколоночный безопасный
+    # режим (`.status-grid--legacy`), НЕ byte-identical legacy-DOM (M-F11S-1)
+    # без редеплоя. Δ каталога = 0 (в param_catalog не входит; прецедент
+    # ADR-1025-14 §D8 / ADR-1025-20 D7).
+    UI_STATUS_GRID_V2: ClassVar[bool] = _env_bool(
+        "UI_STATUS_GRID_V2", True)
     # ── Раунд 10.22 (F8, ADR-1022-8): env-only ClassVar-рубильники
     # асинхронной пересборки досье из мини-аппа. Δ каталога = 0 (в
     # param_catalog не входят; прецедент MULTILAYER_EXTRACTION_ENABLED).
@@ -1745,7 +1753,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.58.16"   # F9 (10.25, ADR-1025-22): секрет-поле — маска как display-индикатор (не значение input, §50/R17), «Заменить»/«Удалить» для глобальных секретов (reuse keys/own + F0 empty-write), единый Vue-компонент secret-field (28 секретов), визуальный добор Sticky SaveBar (клавиатура/последнее поле/одно уведомление) (Δ DDL=0, Δ каталога=0)
+APP_VERSION = "2.58.17"   # F11 (10.25, ADR-1025-23): композиция витрины «Статус» — 12-кол. сетка §12, Hero/метрики §13/§14, виджет сна §17, расширение графа §16, «Новые факты»/«Бюджеты» §19, счётчики §20; kill-switch `UI_STATUS_GRID_V2` (Δ DDL=0, Δ каталога=0). Ранее F9 (10.25, ADR-1025-22): секрет-поле — маска как display-индикатор (не значение input, §50/R17), «Заменить»/«Удалить» для глобальных секретов (reuse keys/own + F0 empty-write), единый Vue-компонент secret-field (28 секретов), визуальный добор Sticky SaveBar (клавиатура/последнее поле/одно уведомление) (Δ DDL=0, Δ каталога=0)
 
 
 def get_ytdlp_pot_provider() -> str:

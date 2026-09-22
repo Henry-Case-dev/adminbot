@@ -55,7 +55,10 @@ ROUTES = ["#/", "#/oversight", "#/how", "#/modules", "#/ai",
           # F7 (10.25, ADR-1025-20 D1): PERMsoc — локальное пространство.
           # В global-скоупе блоков НЕТ (empty-state); проверка «без чата не
           # рендерится» + отсутствие горизонтального скролла.
-          "#/permsoc"]
+          "#/permsoc",
+          # F11 (10.25, ADR-1025-23 D4): аддитивный маршрут полного
+          # исследования графа связей (mobile §16; desktop — тоже проверяем).
+          "#/status/graph"]
 # F5 (T-2703): workspace-маршруты модулей (§46/§49) — адаптивность карточек
 # подключения и табов; те же вьюпорты §71. Отдельная проба `F5_PROBE_JS`.
 F5_ROUTES = ("#/modules/factcheck", "#/modules/factcheck/models",
@@ -121,6 +124,9 @@ ME_JSON = {
         "UI_SHELL_GRAPHITE_V3": True,
         "UI_LIQUID_GLASS_LIB": True,
         "UI_AURORA_FLOW_V2": True,
+        # F11 (10.25, ADR-1025-23 D6): kill-switch композиции Статуса
+        # (default ON). В матрице — ON (целевая 12-кол. композиция §12).
+        "UI_STATUS_GRID_V2": True,
     },
 }
 
@@ -709,6 +715,12 @@ F7_PROBE_JS = """
   } catch (e) { /* noop */ }
   const cv = document.querySelector('.hb-canvas');
   const hbBox = box('.hb-canvas');
+  // F11 (ADR-1025-23 D1): проба НЕ должна менять scroll-состояние страницы —
+  // иначе последующие пробы (headerCardGap/H9) видят прокрученный layout.
+  // Сохраняем позицию и восстанавливаем сразу после замера hbVisible.
+  const _scr = document.querySelector('.app-shell .scroll-area');
+  const _prevTop = _scr ? _scr.scrollTop : 0;
+  const _prevWinY = window.scrollY || 0;
   if (cv && typeof cv.scrollIntoView === 'function') {
     try { cv.scrollIntoView({ block: 'nearest' }); } catch (e) { /* noop */ }
   }
@@ -723,6 +735,8 @@ F7_PROBE_JS = """
   const hbVisible = !!hbAfter && hbAfter.visible && hbAfter.h >= 1 &&
     hbAfter.x >= -1 && hbAfter.right <= window.innerWidth + 1 &&
     hbAfter.y >= -1 && hbAfter.bottom <= window.innerHeight + 1;
+  try { if (_scr) _scr.scrollTop = _prevTop; } catch (e) { /* noop */ }
+  try { window.scrollTo(0, _prevWinY); } catch (e) { /* noop */ }
   // F-2 (review): реальный фолбэк высоты shell. Значения custom properties не
   // валидируются при разборе, поэтому сравниваем валидную prod-структуру
   // (base 100vh + апгрейд строго за @supports) с прежней сломанной цепочкой.
@@ -871,7 +885,20 @@ H9_PROBE_JS = """
     const el = q(sel);
     return el ? getComputedStyle(el).backgroundImage : '';
   };
-  const hb = rect(q('.hb-canvas'));
+  // F11 (ADR-1025-23 D1): heartbeat переехал в «метрики» (строка 1 §12,
+  // после Hero/счётчиков) — на узком экране он ниже фолда. Для `hbVisible`
+  // (виджет не обрезан, внутри вьюпорта) центрируем его, затем возвращаем
+  // скролл, чтобы последующие rect'ы (header/firstCard) были топ-якорными.
+  const _hbScr = q('.app-shell .scroll-area');
+  const _hbPrev = _hbScr ? _hbScr.scrollTop : 0;
+  const _hbPrevWin = window.scrollY || 0;
+  const _hbEl = q('.hb-canvas');
+  if (_hbEl && typeof _hbEl.scrollIntoView === 'function') {
+    try { _hbEl.scrollIntoView({ block: 'nearest' }); } catch (e) { /* noop */ }
+  }
+  const hb = rect(_hbEl);
+  try { if (_hbScr) _hbScr.scrollTop = _hbPrev; } catch (e) { /* noop */ }
+  try { window.scrollTo(0, _hbPrevWin); } catch (e) { /* noop */ }
   return {
     header: rect(headerEl), scope: rect(scopeEl),
     firstCard: rect(firstCardEl), bottomNav: rect(q('.bottom-nav')),
@@ -1109,11 +1136,24 @@ H10_GLASS_ISOLATION_JS = """
   const snap = () => sel.map((s) => {
     const el = document.querySelector(s);
     if (!el) return null;
-    const r = el.getBoundingClientRect();
-    const hit = (r.width > 0)
-      ? document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) : null;
-    return { r: rect(el),
-             hitSelf: !!(hit && (hit === el || el.contains(hit) || hit.contains(el))) };
+    // F11 (ADR-1025-23 D1): цель могла быть НИЖЕ фолда (`.status-block` —
+    // строка 1 §12 после Hero/счётчиков на узком экране). Для hit-теста
+    // центрируем цель (как H10 hitCenter), затем возвращаем скролл — rect
+    // по-прежнему меряется в топ-якорном состоянии (стабильная геометрия).
+    const scr = document.querySelector('.app-shell .scroll-area');
+    const prev = scr ? scr.scrollTop : 0;
+    const prevWin = window.scrollY || 0;
+    if (typeof el.scrollIntoView === 'function') {
+      try { el.scrollIntoView({ block: 'center' }); } catch (e) { /* noop */ }
+    }
+    const rHit = el.getBoundingClientRect();
+    const hit = (rHit.width > 0)
+      ? document.elementFromPoint(rHit.x + rHit.width / 2,
+                                  rHit.y + rHit.height / 2) : null;
+    const hitSelf = !!(hit && (hit === el || el.contains(hit) || hit.contains(el)));
+    try { if (scr) scr.scrollTop = prev; } catch (e) { /* noop */ }
+    try { window.scrollTo(0, prevWin); } catch (e) { /* noop */ }
+    return { r: rect(el), hitSelf: hitSelf };
   });
   const psFunc = () => sel.map((s) => {
     const el = document.querySelector(s);
@@ -1133,6 +1173,61 @@ H10_GLASS_ISOLATION_JS = """
     psFunc: psFunc(),
   };
   return { ok: true, off: off, on: on, after: after };
+})()
+"""
+
+# F11 (10.25, ADR-1025-23 D1/D2/D5): композиция витрины «Статус» — 12-кол.
+# сетка §12 (спаны Hero 5 / метрики 7 / граф 8 / сон 4), строки §12, счётчики
+# §20, превью §21 / факты §19, отсутствие горизонтального скролла.
+F11_PROBE_JS = """
+(() => {
+  const de = document.documentElement;
+  const rect = (sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: Math.round(r.x), y: Math.round(r.y),
+             w: Math.round(r.width), h: Math.round(r.height),
+             right: Math.round(r.right), top: Math.round(r.top),
+             visible: r.width > 0 && r.height > 0 };
+  };
+  return {
+    innerWidth: window.innerWidth,
+    scrollWidth: de.scrollWidth,
+    overflow: de.scrollWidth > window.innerWidth + 1,
+    grid: rect('.status-grid'),
+    count: document.querySelectorAll('.status-grid > *').length,
+    hero: rect('.status-hero'),
+    metrics: rect('.status-block'),
+    graph: rect('.status-graph'),
+    sleep: rect('.status-sleep'),
+    preview: rect('.exec-preview'),
+    facts: rect('.status-facts'),
+    budgets: rect('.status-budgets'),
+    logs: rect('#status-logs'),
+    counters: rect('.status-counts'),
+    hasLegacy: !!document.querySelector('.status-grid--legacy'),
+    hasFull: !!document.querySelector('.status-graph-full'),
+  };
+})()
+"""
+
+# F11 §16/D4: отдельный экран полного исследования графа (`#/status/graph`).
+F11_FULL_PROBE_JS = """
+(() => {
+  const el = document.querySelector('.status-graph-full');
+  const r = el ? el.getBoundingClientRect() : null;
+  const btns = Array.from(
+    document.querySelectorAll('.status-graph-full button'));
+  return {
+    visible: !!(r && r.width > 0 && r.height > 0),
+    hasGraph: !!document.querySelector(
+      '.status-graph-full .cognition-graph'),
+    hasClose: btns.some((b) => (b.textContent || '').indexOf('Закрыть') >= 0),
+    innerWidth: window.innerWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+    overflow: document.documentElement.scrollWidth > window.innerWidth + 1,
+  };
 })()
 """
 
@@ -1769,6 +1864,70 @@ def _h10_glass_off_failures(probe: dict, label: str) -> list:
     return out
 
 
+def _f11_status_failures(probe: dict, label: str, width: int) -> list:
+    """F11 (ADR-1025-23 D1): 12-кол. сетка §12, спаны, строки, нет overflow.
+
+    ≥992 — спаны §12 (5/7/8/4); 768–991 (6 кол.) и ≤767 (1 кол.) — карточки
+    на всю ширину; строки §12 совпадают по `top` только на desktop."""
+    out = []
+    if not probe:
+        return ["%s F11: probe пуст" % label]
+    grid = probe.get("grid")
+    if not grid or not grid.get("visible"):
+        out.append("%s F11: .status-grid не виден" % label)
+        return out
+    gw = grid["w"] or 1
+    for name, key, num in (("Hero", "hero", 5), ("метрики", "metrics", 7),
+                           ("граф", "graph", 8), ("сон", "sleep", 4)):
+        r = probe.get(key)
+        if not r or not r.get("visible"):
+            out.append("%s F11: %s не виден" % (label, name))
+            continue
+        ratio = r["w"] / gw
+        if width >= 992:
+            want = num / 12.0
+            if abs(ratio - want) > 0.06:
+                out.append("%s F11: %s ширина %.2f (ожидалось ~%.2f)"
+                           % (label, name, ratio, want))
+        elif ratio < 0.9:
+            out.append("%s F11: %s не на всю ширину (%.2f)"
+                       % (label, name, ratio))
+    if width >= 992:
+        for a, b, nm in (("hero", "metrics", "Hero/метрики"),
+                         ("graph", "sleep", "граф/сон"),
+                         ("preview", "facts", "превью/факты")):
+            ra, rb = probe.get(a), probe.get(b)
+            if ra and rb and abs(ra["top"] - rb["top"]) > 2:
+                out.append("%s F11: %s не в одной строке §12" % (label, nm))
+    if probe.get("budgets") and not probe["budgets"].get("visible"):
+        out.append("%s F11: бюджеты не видны" % label)
+    if probe.get("hasLegacy"):
+        out.append("%s F11: legacy-композиция при UI_STATUS_GRID_V2=ON" % label)
+    if probe.get("hasFull"):
+        out.append("%s F11: полный экран графа активен на #/" % label)
+    if probe.get("scrollWidth", 0) > probe.get("innerWidth", 0) + 1:
+        out.append("%s F11: horizontal overflow %d > %d"
+                   % (label, probe.get("scrollWidth"), probe.get("innerWidth")))
+    return out
+
+
+def _f11_full_failures(probe: dict, label: str) -> list:
+    """F11 (ADR-1025-23 D4): отдельный экран полного графа доступен."""
+    out = []
+    if not probe:
+        return ["%s F11-graph: probe пуст" % label]
+    if not probe.get("visible"):
+        out.append("%s F11-graph: экран полного графа не виден" % label)
+    if not probe.get("hasGraph"):
+        out.append("%s F11-graph: нет контейнера графа" % label)
+    if not probe.get("hasClose"):
+        out.append("%s F11-graph: нет кнопки «Закрыть»" % label)
+    if probe.get("scrollWidth", 0) > probe.get("innerWidth", 0) + 1:
+        out.append("%s F11-graph: horizontal overflow %d > %d"
+                   % (label, probe.get("scrollWidth"), probe.get("innerWidth")))
+    return out
+
+
 def _bg_motion(page, label: str):
     """HOTFIX9 (ADR-1025-17 D8/§12): кадры фона 0/5/10/20 с + числовое
     подтверждение движения (не «пара пикселей»). Возвращает (diffs, failures)."""
@@ -1799,6 +1958,19 @@ def _bg_motion(page, label: str):
         out.append("%s bg: фон практически неподвижен (diffs=%s, total=%s)"
                    % (label, diffs, total))
     return diffs, out
+
+
+def _reset_scroll(page):
+    """F11 (ADR-1025-23 D4): детерминированная позиция скролла.
+
+    Навигация внутри ОДНОЙ вкладки (`#/status/graph` → `#/`) не сбрасывает
+    скролл (by design F1: сброс — только при смене вкладки). Перед
+    геометрическими пробами (`shell8`/H9/H10) явно возвращаем top, иначе
+    карточка оказывается выше header'а (ложное «перекрытие»)."""
+    page.evaluate(
+        "() => { window.scrollTo(0, 0);"
+        " const a = document.querySelector('.app-shell .scroll-area');"
+        " if (a) a.scrollTop = 0; }")
 
 
 def _snap(page, name):
@@ -1966,7 +2138,18 @@ def main() -> int:
                     failures.extend(_permsoc_failures(
                         pp, "%s %s" % (vp_key, route)))
                 if route == "#/":
+                    # F11 (ADR-1025-23 D1): композиция витрины «Статус» §12.
+                    f11 = page.evaluate(F11_PROBE_JS)
+                    out["viewports"][vp_key]["f11_status"] = f11
+                    failures.extend(_f11_status_failures(
+                        f11, "%s #/" % vp_key, w))
                     _snap(page, "%s_root" % vp_key)
+                if route == "#/status/graph":
+                    # F11 (ADR-1025-23 D4): экран полного исследования графа.
+                    f11f = page.evaluate(F11_FULL_PROBE_JS)
+                    out["viewports"][vp_key]["f11_full_graph"] = f11f
+                    failures.extend(_f11_full_failures(
+                        f11f, "%s #/status/graph" % vp_key))
                 if route == "#/memory":
                     _snap(page, "%s_memory" % vp_key)
                 if route == "#/modules/factcheck/models":
@@ -1975,6 +2158,7 @@ def main() -> int:
             # glass allow-deny), затем пауза при document.hidden (§10/T-2547).
             page.evaluate("() => { window.location.hash = '#/'; }")
             page.wait_for_timeout(350)
+            _reset_scroll(page)
             # HOTFIX7 (T-2681): shell/glass/heartbeat в normal-режиме (на #/).
             f7 = page.evaluate(F7_PROBE_JS)
             out["viewports"][vp_key]["hotfix7_normal"] = f7
@@ -2331,6 +2515,7 @@ def main() -> int:
                 page.wait_for_timeout(400)
                 page.evaluate("() => { window.location.hash = '#/'; }")
                 page.wait_for_timeout(350)
+                _reset_scroll(page)
                 fs7 = page.evaluate(F7_PROBE_JS)
                 out["viewports"][vp_key]["hotfix7_fullscreen"] = fs7
                 failures.extend(_hotfix7_failures(

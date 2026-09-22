@@ -210,6 +210,30 @@ class TestHandler:
         monkeypatch.setenv("LOG_RING_MAX_ENTRIES", "мусор")
         assert LogRingHandler().maxlen == 1000
 
+    def test_level_counts_exact(self):
+        """F11 (H-F11S-1, §20): `level_counts` возвращает ТОЧНЫЕ числа по
+        уровням (ERROR — только ERROR; WARNING — только WARNING)."""
+        handler = self._make()
+        for _ in range(7):
+            self._emit(handler, "x", logging.ERROR, "err")
+        for _ in range(3):
+            self._emit(handler, "x", logging.WARNING, "warn")
+        self._emit(handler, "x", logging.INFO, "info")
+        counts = handler.level_counts()
+        assert counts.get("ERROR") == 7
+        assert counts.get("WARNING") == 3
+        assert counts.get("INFO") == 1
+        assert counts.get("CRITICAL") is None
+
+    def test_level_counts_not_capped_by_limit(self):
+        """F11 (H-F11S-1): `count` через `get_entries` ограничен `limit`, а
+        `level_counts` — реальное число (иначе счётчик §20 «залипает» на 1)."""
+        handler = self._make(maxlen=1000)
+        for _ in range(5):
+            self._emit(handler, "x", logging.ERROR, "e")
+        assert len(handler.get_entries(level="ERROR", limit=1)) == 1
+        assert handler.level_counts()["ERROR"] == 5 > 1
+
 
 def test_module_singleton_receives_records_when_attached():
     """ФИКС 2026-09-03: МОДУЛЬНЫЙ синглтон get_log_ring() — тот же объект,

@@ -412,6 +412,12 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
             # R16-аддитивно, R17-safe (bool), Δ каталога = 0.
             "PERMSOC_BLOCK_GATES_ENABLED":
                 bool(settings.PERMSOC_BLOCK_GATES_ENABLED),
+            # F11 (10.25, ADR-1025-23 D6): env-only kill-switch композиции
+            # витрины «Статус» (§12-сетка, Hero/метрики, сон, факты, счётчики).
+            # Default ON; OFF → одноколоночный безопасный режим (не byte-identical
+            # legacy-DOM; M-F11S-1) без редеплоя. R16-аддитивно, R17-safe (bool),
+            # Δ каталога = 0.
+            "UI_STATUS_GRID_V2": bool(settings.UI_STATUS_GRID_V2),
         },
     }
 
@@ -1669,8 +1675,14 @@ async def get_status_logs(
     ERROR+WARNING (F6/§3.1: ERROR+WARNING = WARNING ∪ ERROR ∪ CRITICAL;
     дефолт INFO = INFO и выше); от новых к старым."""
     from services.log_ring import get_log_ring
-    entries = get_log_ring().get_entries(level=level, limit=limit)
-    return {"count": len(entries), "logs": entries}
+    ring = get_log_ring()
+    entries = ring.get_entries(level=level, limit=limit)
+    # F11 (H-F11S-1, §20): аддитивный `counts` — точные числа по уровням по
+    # ВСЕМУ ring-буферу. Поле `count` ограничено `limit` (обратная
+    # совместимость сохранена). Новых endpoint'ов/DDL/каталога нет
+    # (R16-аддитивно, R17-безопасно: те же значения уровней, что и в логах).
+    return {"count": len(entries), "counts": ring.level_counts(),
+            "logs": entries}
 
 
 # ── Control (84.15, T-641): POST /api/control/restart|stop|start ────────────

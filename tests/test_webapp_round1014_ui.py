@@ -322,7 +322,13 @@ class TestStatusLayoutOrderF7:
         assert "cognitionBeliefsLoop" in segment
         assert "cognitionParadigmsLoop" in segment
         assert "cognitionTraitsLoop" in segment
-        assert "cognitionGraph" in segment
+        # F11 (10.25, ADR-1025-23 D1/D4, §12): граф связей ВЫНЕСЕН в отдельную
+        # карточку строки 2 (`.sg-8`, перед «Мониторингом Интеллекта») — это
+        # AMEND целевой композиции «Статуса». Виджет не потерян: контейнер
+        # `ref="cognitionGraph"` сохранён и присутствует в ветке «Статуса».
+        assert "cognitionGraph" in block, "F11: граф не потерян"
+        assert block.index("cognitionGraph") < cognition, \
+            "F11 §12: граф — строка 2 (перед «Мониторингом Интеллекта»)"
 
     def test_heartbeat_block_intact(self):
         block = _status_block()
