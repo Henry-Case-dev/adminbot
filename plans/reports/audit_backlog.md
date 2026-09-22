@@ -1,5 +1,21 @@
 # Audit Backlog
 
+## Round 10.25 F8 `parameter-registry-widget-map-round1025` (реестр параметров §2 + сохранность конфигурации §3 + §117 п.1–4) — Step 6 @Scanner (T-3016), 23.09.2026 — all scanned, PENDING=0
+Baseline — HEAD `a40f244` (== `origin/master`, тег `pre-round1025-f8`); правки **НЕ закоммичены** (focused diff-based, рабочие артефакты `plans/docs/**` + `tools/**` + тесты). Отчёт: `plans/reports/round1025_f8_scanner_audit.md`. Тип — read-only enabler (Δ DDL=0, Δ каталога=0, deploy NOT_APPLICABLE).
+- [x] Реестр/полнота — 459 строк × 23 кол. × 0 пустых; `set(internal_key)` == `{s.pg_key}` == 459 (биекция); каталог 459/98/96/21/418 — проверено.
+- [x] Дельта 411→459 = **48**; набор `status=new` == `pg_keys − inventory(411)`; список в `.meta.md` совпал (проверено программно) — проверено.
+- [x] Карта экранов 459 ⊇ каталог, «без места»=0, `registry-only`=0; карта виджетов — маркер + `api-only`-секция (`≠ сохранено`) — проверено.
+- [x] R17 — секретов 28, все `current_value`/`default_value` = `{configured,last4}`; ручной скан bot-token/`sk-`/hex32/DSN по всем артефактам и отчётам чист (совпадения — синтетические тест-токены и SHA256 freeze-хэши) — проверено.
+- [x] Инструменты — `gen --check` exit 0 + детект искусственного расхождения; `config_snapshot_diff --selftest` OK; F8-`tools/*` рантаймом не импортируются; маркер-тесты **29 passed** — проверено.
+- [x] Инварианты — `git diff a40f244 -- migrations alembic services/pg_db.py services/param_catalog.py` = 0 файлов; `services/web/handlers/config/settings.py/web/api/routes.py` без изменений; роуты 31; `APP_VERSION` 2.58.15; `plans/docs/canon/` не тронут; CSP/zero-build; `git diff --check`=0 — проверено.
+- [x] R18 — тег `pre-round1025-f8`@`a40f244`; бэкапы `f8-round1025-20260923-044606` + `f8-round1025-config`; `.env.bak.round1025-f8`; `stash@{0}` на месте; `var/` не в индексе; гигиена (`.env`/zip/скриншоты/`tools/_ui_*`/`var/backups`) чистая; `plans/current_task.md` не изменён (gitignored, `.gitignore:70`) — проверено.
+- **Severity 10.25 F8 (итер.1): Critical 0 / High 0 / Medium 0 / Low 3 / Info 4. Вердикт: к приёмке — ДА, блокеров нет.**
+  - [ ] **[L-F8S-1] [low, new, honesty]** `plans/reports/round1025_f8_config_diff.md:12–14` — пустые срезы `chats`/`dm`/`permsoc` показаны как `OK (без изменений)` при `unchanged=0` (offline-baseline, живой снимок не снимался; T-2998/T-3000 @DevOps) → «0 из 0» вакуумно, не доказательство сохранности. **Fix:** помечать `н/д (нет живых данных)` и уточнить в `results.md` §5. (не блокирует)
+  - [ ] **[L-F8S-2] [low, new, regression-gate]** `tools/config_snapshot_diff.py:299–302` — `--diff` всегда `return 0`, даже при реальных added/removed/changed (в отличие от `gen --check`); метод заявлен как гейт для **F10** → риск ложного «зелёного». **Fix:** `--fail-on-changes` (exit≠0). (не блокирует)
+  - [ ] **[L-F8S-3] [low, new, R17-coverage]** `tools/gen_param_registry_round1025.py:505–513` сканирует 4 артефакта; `tests/test_round1025_f8_registry.py:156–158` — `ARTIFACTS` без `round1025_f8_results.md`; `run_check` не читает `config_diff.md`. **Fix:** расширить список. Ручной скан @Scanner чист. (не блокирует)
+  - Info (не блокируют): I-F8S-1 (`tools/` не полностью изолирован — pre-existing `tools.video_downloader`; F8-инструменты чисты), I-F8S-2 (мёртвый `scan_for_secret_patterns`), I-F8S-3 (spec §3.2 «== ключи REGISTRY» неточен — фактически `{s.pg_key}`; сверка корректна), I-F8S-4 (живой PG-diff отложен, раскрыто).
+  - **Handoff @Scanner:** @Orchestrator → `SCANNED`. Deploy — NOT_APPLICABLE.
+
 ## Round 10.25 F7 `permsoc-local-space-round1025` (PERMsoc — локальное пространство чата §60–§67 + per-chat блок-гейты) — аудит рабочего дерева (Step 6 @Scanner, 23.09.2026, T-2957; **итерации 2–3, финал: +H-F7-7/L-F7-8/L-F7-9**) — all scanned, PENDING=0
 База — HEAD `551847d` (тег `pre-round1025-f7`; правки НЕ закоммичены). Отчёт: `plans/reports/round1025_f7_scanner_audit.md`. @Reviewer итер.3 — **Approved**. **Итерация 3 (финал): Critical 0 / High 0 / Medium 0 / Low 3 / Info 3 — к деплою ДА.**
 - [x] A — scope «Только этот чат»/`.scope-tech`, guard `PERMSOC_LOCAL_KEYS` в `persistItems`/`saveConfigItem` (явный `failed{reason:'permsoc-global'}` + toast, не молча) — чисто; **guard цел**

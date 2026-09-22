@@ -6,6 +6,16 @@
 
 ---
 
+## Round 10.25 F8 `parameter-registry-widget-map-round1025` (реестр параметров §2 + сохранность конфигурации §3 + §117 п.1–4) — 23.09.2026, Step 6 @Scanner (T-3016) — **итерация 1**
+
+- **Baseline:** HEAD `a40f244` (== `origin/master`, тег `pre-round1025-f8`), правки **НЕ закоммичены** — focused diff-based аудит рабочего дерева. Отчёт: `plans/reports/round1025_f8_scanner_audit.md`. Тип: read-only enabler (additive: `plans/docs/**` + `tools/**` + тесты).
+- **Вердикт (итер.1): БЛОКЕРОВ НЕТ — к приёмке ДА.** Critical 0 / High 0 / Medium 0 / Low 3 / Info 4. Открытых секретов, изменений рантайма, Δ DDL/каталога, ослабления маркеров и утечек R17/R18 не найдено. Deploy **NOT_APPLICABLE**.
+- **Независимая проверка @Scanner:** реестр 459 строк × 23 кол. × 0 пустых; `set(internal_key)` == `{pg_key}` == 459 (биекция); каталог 459/98/96/21/418; дельта 411→459 = **48** (набор `status=new` == `pg_keys − inventory`, список в `.meta.md` совпал); карта экранов 459 ⊇ каталог, «без места»=0; секретов 28, все `{configured,last4}`; `ui_visibility` visible 433 / hidden 1 / api-only 25; `--check` exit 0 + детект расхождения; `config_snapshot_diff --selftest` OK; маркер-тесты F8 **29 passed**; `git diff a40f244 -- migrations alembic services/pg_db.py services/param_catalog.py` = 0 файлов; роуты 31 без изменений; `APP_VERSION` 2.58.15; `plans/docs/canon/` не тронут; F8-`tools/*` рантаймом не импортируются; гигиена/`git diff --check`=0.
+- **Low (OPEN, owned follow-up, не блокируют):** **L-F8S-1** — `round1025_f8_config_diff.md` помечает пустые срезы chats/dm/permsoc как «OK (без изменений)», хотя живые снимки не снимались (offline-baseline) → «0 из 0» вакуумно; пометить `н/д (T-2998/T-3000)`. **L-F8S-2** — `tools/config_snapshot_diff.py --diff` возвращает exit 0 при реальных added/removed/changed (заявлен как гейт для F10) → добавить `--fail-on-changes`. **L-F8S-3** — R17-скан автоматики не покрывает `round1025_f8_results.md` (и `run_check` не читает `config_diff.md`) → расширить список артефактов.
+- **Info:** I-F8S-1 `tools/` не полностью изолирован от рантайма (pre-existing `tools.video_downloader`), F8-инструменты чисты; I-F8S-2 мёртвый `scan_for_secret_patterns`; I-F8S-3 spec §3.2 неточен («== ключи REGISTRY» вместо `{s.pg_key}`; фактическая сверка корректна); I-F8S-4 живой PG-diff отложен (T-2998/T-3000).
+- **R18:** тег `pre-round1025-f8`@`a40f244`; бэкапы `f8-round1025-20260923-044606` + `f8-round1025-config`; `.env.bak.round1025-f8`; `stash@{0}` на месте; `var/` не в индексе; `plans/current_task.md` не изменён.
+- **Handoff:** @Orchestrator → `SCANNED`.
+
 ## Round 10.25 F7 `permsoc-local-space-round1025` (PERMsoc — локальное пространство чата §60–§67 + per-chat блок-гейты) — 23.09.2026, Step 6 @Scanner (T-2957) — **итерации 2–3 (финал)**
 
 - **База:** HEAD `551847d` (тег `pre-round1025-f7`), правки **НЕ закоммичены**. Отчёт: `plans/reports/round1025_f7_scanner_audit.md`. Вход: `spec.md`/`adr-1025-20`/`evidence.md`/`tasks.md`/`review.md` (@Reviewer итер.3 — **Approved**).
