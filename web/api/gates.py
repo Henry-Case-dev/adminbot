@@ -75,7 +75,10 @@ async def gates_get(
                                             root=root)
     who = {}
     for f in sorted(ALL):
-        who[f] = "global" if f == "permsoc" else (
+        # F7 (ADR-1025-20 D3/§5.2): ВСЁ семейство `permsoc*` (мастер +
+        # блок-гейты) — только global admin; UI не обещает локальному админу
+        # невозможное.
+        who[f] = "global" if f.startswith("permsoc") else (
             "global" if (ctx.is_global_admin or ctx.is_dm_owner) else "local")
     return {
         "chat_id": chat_id,
@@ -107,7 +110,9 @@ async def gates_put(
         raise HTTPException(status_code=422,
                             detail=f"неизвестная фича: {payload.feature}")
     if not ctx.is_global_admin:
-        if payload.feature == "permsoc":
+        # F7 (ADR-1025-20 D3): permsoc-семейство (мастер + блок-гейты) —
+        # только global admin; локальный админ — тяжёлые (Q3).
+        if payload.feature.startswith("permsoc"):
             raise HTTPException(status_code=403,
                                 detail="permsoc — только global admin")
         if payload.feature in HEAVY and ctx.role_chat == "local_admin":

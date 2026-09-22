@@ -33,6 +33,15 @@ logger = logging.getLogger(__name__)
 
 MASTER_FLAG_KEY = "flags.permsoc_enabled"
 
+# F7 (10.25, ADR-1025-20 D3): per-chat блок-гейты (feature_gates.gates).
+# Новые блоки «Общие реакции»/«Расписания» — независимая ось от master:
+# war/danger/goodmorning живые функции (master default False), распространение
+# мастера на них дало бы регрессию (приоритет №1 ТЗ).
+BLOCK_FEATURES: dict[str, str] = {
+    "reactions": "permsoc_reactions",
+    "schedule": "permsoc_schedule",
+}
+
 
 @dataclass(frozen=True)
 class PermsocModule:
@@ -165,4 +174,52 @@ class PermsocGateFilter(BaseFilter):
             logger.warning(
                 "[permsoc] gate failed — FAIL-OPEN OFF | chat=%s module=%s",
                 chat_id, self.module_id, exc_info=True)
+            return False
+
+
+async def block_enabled(chat_id: int, block_id: str) -> bool:
+    """F7 (ADR-1025-20 D3): per-chat блок-гейт «Общие реакции»/«Расписания».
+
+    `block_id` ∈ {'reactions', 'schedule'} → feature `permsoc_<block_id>`.
+    Kill-switch `PERMSOC_BLOCK_GATES_ENABLED` OFF → True (baseline: новые
+    гейты не влияют, поведение 10.24). Иначе — `gates_enabled` (явный
+    chat-гейт → default ON). При исключении → False (fail-open OFF)."""
+    if not settings.PERMSOC_BLOCK_GATES_ENABLED:
+        return True                            # baseline-путь (soft rollback)
+    feature = BLOCK_FEATURES.get(block_id)
+    if feature is None:
+        return True
+    try:
+        from services import feature_gates
+        return await feature_gates.gates_enabled(chat_id, feature)
+    except Exception:
+        logger.warning("[permsoc] block gate check failed — FAIL-OPEN OFF | "
+                       "chat=%s block=%s", chat_id, block_id, exc_info=True)
+        return False
+
+
+class PermsocBlockGate(BaseFilter):
+    """F7 (ADR-1025-20 D3): BaseFilter per-chat блок-гейта.
+
+    Проверяет ТОЛЬКО блок-гейт (мастер на новые блоки не применяется —
+    D2/ADR). Ставится ДОБАВКОЙ к существующим фильтрам ранее негейтированных
+    хендлеров (war/common/vasya/kucha) и РЯДОМ с `PermsocGateFilter` у alan
+    (master остаётся). Возвращает True/False."""
+
+    def __init__(self, block_id: str):
+        self.block_id = block_id
+
+    async def __call__(self, obj) -> bool:
+        chat = getattr(obj, "chat", None)
+        if chat is None:
+            return False
+        chat_id = getattr(chat, "id", None)
+        if chat_id is None:
+            return False
+        try:
+            return await block_enabled(chat_id, self.block_id)
+        except Exception:
+            logger.warning(
+                "[permsoc] block gate failed — FAIL-OPEN OFF | chat=%s block=%s",
+                chat_id, self.block_id, exc_info=True)
             return False

@@ -12,7 +12,7 @@ from services import hot_config as hot
 from services.mimic_transform import mimic_transform, count_words
 # Раунд 10 (F-9 B2): плагин-гейт 5 персон-триггеров (замену фильтра
 # НЕ делаем — PermsocGateFilter первым, UserIdFilter остаётся вторым).
-from services.permsoc import PermsocGateFilter
+from services.permsoc import PermsocBlockGate, PermsocGateFilter
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +150,7 @@ def _slavik_mimic_should_trigger(
 
 
 # Handler 1: F4 — KUCHA words → "ДАЛБАЕБ"
-@slavik_router.message(KuchaWordFilter())
+@slavik_router.message(PermsocBlockGate("reactions"), KuchaWordFilter())
 async def kucha_handler(message: types.Message, data: dict | None = None):
     # T-410 (Section 61.4.1): строгая семантика «одно действие» — если гифка
     # уже ушла (data-флаг от миддлвари), ДАЛБАЕБ не шлём.

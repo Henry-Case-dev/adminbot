@@ -19,7 +19,7 @@ from aiogram.types import FSInputFile
 from config.settings import settings
 from services import hot_config as hot
 # Раунд 10 (F-9 B3): greeting-ветка Алана — тот же модуль-гейт.
-from services.permsoc import PermsocGateFilter
+from services.permsoc import PermsocBlockGate, PermsocGateFilter
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +88,7 @@ async def _send_greeting(bot, chat_id: int) -> bool:
 
 @alan_greeting_router.chat_member(
     PermsocGateFilter("alan"),
+    PermsocBlockGate("reactions"),
     ChatMemberUpdatedFilter(
         member_status_changed=IS_NOT_MEMBER >> IS_MEMBER
     ),
@@ -123,7 +124,8 @@ async def on_alan_join(event: types.ChatMemberUpdated):
             _last_greeting.pop(chat_id, None)
 
 
-@alan_greeting_router.message(PermsocGateFilter("alan"), F.new_chat_members)
+@alan_greeting_router.message(PermsocGateFilter("alan"),
+                              PermsocBlockGate("reactions"), F.new_chat_members)
 async def on_alan_new_member(message: types.Message):
     """Fallback: detect Alan join via new_chat_members field."""
     if not message.new_chat_members:

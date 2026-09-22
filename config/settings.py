@@ -685,6 +685,15 @@ class Settings:
     # env-флаг ON или `git revert`.
     ALIASES_KEYSVALUE_RENDER_ENABLED: ClassVar[bool] = _env_bool(
         "ALIASES_KEYSVALUE_RENDER_ENABLED", True)
+    # ── Раунд 10.25 (F7, ADR-1025-20 D7): env-only ClassVar kill-switch
+    # per-chat блок-гейтов «Общие реакции»/«Расписания». default ON,
+    # Δ каталога = 0 (в param_catalog НЕ входит). Доставка — `GET
+    # /api/me.ui_flags` (ADR-1024-13), наружу только bool. OFF → baseline:
+    # `block_enabled` всегда True (новые гейты не влияют на хендлеры),
+    # goodmorning без per-chat проверки, новые блок-тумблеры — честный
+    # read-only. Возврат ручки — env-флаг ON или `git revert`.
+    PERMSOC_BLOCK_GATES_ENABLED: ClassVar[bool] = _env_bool(
+        "PERMSOC_BLOCK_GATES_ENABLED", True)
     # ── Раунд 10.25 (F1, ADR-1025-1 D5): env-only ClassVar kill-switch новой
     # IA/app-shell. default ON, Δ каталога = 0 (в param_catalog НЕ входит).
     # Доставка — `GET /api/me.ui_flags` (ADR-1024-13), наружу только bool.
@@ -1736,7 +1745,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.58.14"   # F6 (10.25, ADR-1025-19): adapter ExecutionGraph (web/static/execution_graph.js), два несмешиваемых режима карты вызовов, честные состояния §28, превью Статуса §21, структура «Память» §52–§56 (Δ DDL=0, Δ каталога=0)
+APP_VERSION = "2.58.15"   # F7 (10.25, ADR-1025-20): PERMsoc — локальное пространство чата (6 блоков, канонический chat_id, guard «нет записи в global»), per-chat блок-гейты «Общие реакции»/«Расписания» (feature_gates, Δ DDL=0, Δ каталога=0)
 
 
 def get_ytdlp_pot_provider() -> str:

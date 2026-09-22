@@ -14,13 +14,14 @@ from config.settings import settings
 from services import hot_config as hot
 from filters.vasya_name import VasyaFilter
 from filters.admin_word import StrictAdminFilter
+from services.permsoc import PermsocBlockGate
 
 logger = logging.getLogger(__name__)
 
 vasya_router = Router()
 
 
-@vasya_router.message(VasyaFilter())
+@vasya_router.message(PermsocBlockGate("reactions"), VasyaFilter())
 async def reply_to_vasya(message: types.Message):
     """If someone writes VASYA → reply ADMIN"""
     if not hot.get("reactions.vasya_enabled", settings.VASYA_ENABLED):
@@ -30,7 +31,7 @@ async def reply_to_vasya(message: types.Message):
     await message.reply("АДМИН")
 
 
-@vasya_router.message(StrictAdminFilter())
+@vasya_router.message(PermsocBlockGate("reactions"), StrictAdminFilter())
 async def reply_to_admin(message: types.Message):
     """If someone writes ADMIN → reply VASYA"""
     if not hot.get("reactions.vasya_enabled", settings.VASYA_ENABLED):

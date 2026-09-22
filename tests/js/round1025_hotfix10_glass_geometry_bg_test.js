@@ -278,7 +278,7 @@ function token(name) {
 
 // ═══ G. Флаги / версия ═════════════════════════════════════════════════════
 {
-  assert.ok(/APP_VERSION = "2\.58\.14"/.test(SETTINGS), 'G: APP_VERSION 2.58.14');
+  assert.ok(/APP_VERSION = "2\.58\.15"/.test(SETTINGS), 'G: APP_VERSION 2.58.15');
   assert.ok(/UI_LIQUID_GLASS_LIB: ClassVar\[bool\] = _env_bool\(\s*"UI_LIQUID_GLASS_LIB", False\)/
     .test(SETTINGS), 'G: флаг default OFF');
   assert.ok(ROUTES.indexOf('UI_LIQUID_GLASS_LIB') >= 0, 'G: флаг доставлен');

@@ -209,7 +209,7 @@ function token(name) {
     assert.ok(APP_JS.indexOf(flag) >= 0, 'D: фронт читает ' + flag);
   }
   // T-2864: HOTFIX10 bump 2.58.12 → 2.58.13 (cache-bust glass/geometry/bg).
-  assert.ok(/APP_VERSION = "2\.58\.14"/.test(SETTINGS), 'D: APP_VERSION 2.58.14');
+  assert.ok(/APP_VERSION = "2\.58\.15"/.test(SETTINGS), 'D: APP_VERSION 2.58.15');
   for (const m of ['desktop_normal', 'desktop_fullscreen', 'tablet',
                    'mobile_regular', 'mobile_fullscreen']) {
     assert.ok(MATRIX.indexOf(m) >= 0, 'D: режим ' + m);

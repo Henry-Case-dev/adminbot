@@ -30,7 +30,7 @@ from filters.user_id import UserIdFilter
 from filters.work_word import WorkWordFilter
 # Раунд 10 (F-9 B5): «Передразнивания» — модуль плагина PERMsoc (гейт по
 # чату-сообщению, у самого mimic_handler).
-from services.permsoc import PermsocGateFilter
+from services.permsoc import PermsocBlockGate, PermsocGateFilter
 
 if TYPE_CHECKING:
     from services.common_relay import CommonRelay
@@ -58,7 +58,7 @@ def setup_common_mimic(mimic_relay: MimicRelay) -> None:
     logger.info("Common Service: mimic relay injected")
 
 
-@common_router.message(OtboyWordFilter())
+@common_router.message(PermsocBlockGate("reactions"), OtboyWordFilter())
 async def otboy_handler(
     message: types.Message,
     matched_word: str,
@@ -89,7 +89,7 @@ async def otboy_handler(
     return UNHANDLED
 
 
-@common_router.message(DangerWordFilter())
+@common_router.message(PermsocBlockGate("reactions"), DangerWordFilter())
 async def danger_handler(
     message: types.Message,
     matched_word: str,
@@ -120,7 +120,7 @@ async def danger_handler(
     return UNHANDLED
 
 
-@common_router.message(SelfdevWordFilter())
+@common_router.message(PermsocBlockGate("reactions"), SelfdevWordFilter())
 async def selfdev_handler(
     message: types.Message,
     matched_word: str,
@@ -151,7 +151,7 @@ async def selfdev_handler(
     return UNHANDLED
 
 
-@common_router.message(WorkWordFilter())
+@common_router.message(PermsocBlockGate("reactions"), WorkWordFilter())
 async def work_handler(
     message: types.Message,
     matched_word: str,

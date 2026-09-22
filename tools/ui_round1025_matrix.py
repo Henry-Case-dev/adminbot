@@ -51,7 +51,11 @@ VIEWPORTS = [
 ]
 ROUTES = ["#/", "#/oversight", "#/how", "#/modules", "#/ai",
           "#/ai/llm", "#/ai/prompts", "#/ai/smart-cache", "#/ai/names",
-          "#/memory", "#/memory/rag", "#/memory/lore", "#/access"]
+          "#/memory", "#/memory/rag", "#/memory/lore", "#/access",
+          # F7 (10.25, ADR-1025-20 D1): PERMsoc — локальное пространство.
+          # В global-скоупе блоков НЕТ (empty-state); проверка «без чата не
+          # рендерится» + отсутствие горизонтального скролла.
+          "#/permsoc"]
 # F5 (T-2703): workspace-маршруты модулей (§46/§49) — адаптивность карточек
 # подключения и табов; те же вьюпорты §71. Отдельная проба `F5_PROBE_JS`.
 F5_ROUTES = ("#/modules/factcheck", "#/modules/factcheck/models",
@@ -188,7 +192,11 @@ def _config_stub() -> dict:
         else:
             value = ""
         items.append({
-            "key": key, "value": value, "category": spec.category,
+            # F7 (fix): реальный `/api/config` отдаёт `key` = pg_key
+            # (`{category}.{snake}`), а не имя поля Settings — иначе
+            # витринные PERMsoc-подгруппы (§62/§64) не матчатся.
+            "key": getattr(spec, "pg_key", None) or key,
+            "value": value, "category": spec.category,
             "secret": secret, "chat_source": "", "global_value": None,
             "title": getattr(spec, "title_ru", key) or key, "type": stype,
             "updated_at": None, "group": getattr(spec, "group", "") or "",
@@ -541,6 +549,128 @@ MORE_ITEM_PROBE_JS = """
 # fullscreen. Считает computed-токены shell vs карточек (должны отличаться),
 # отсутствие виньетки (`body::before` opacity ≤0.32) и `backdrop-filter: url(`,
 # видимость heartbeat (существует, высота ≥1, не клипается overflow контейнера
+# F7 (10.25, ADR-1025-20 D1/D2) — PERMsoc: локальное пространство чата.
+# Global-скоуп: блоков НЕТ + empty-state. Chat-скоуп: 6 owner-блоков,
+# заголовок «PERMsoc · Только этот чат», тумблеры ≥44px по ширине, нет
+# горизонтального скролла.
+PERMSOC_PROBE_JS = """
+(() => {
+  const q = (s) => !!document.querySelector(s);
+  const owners = document.querySelectorAll('.owner-block');
+  const labels = Array.from(
+    document.querySelectorAll('.owner-block summary label'));
+  const rects = labels.map((el) => {
+    const r = el.getBoundingClientRect();
+    return { w: Math.round(r.width), h: Math.round(r.height),
+             right: Math.round(r.right) };
+  });
+  // H-F7-1 (fix): витринные подгруппы §62/§64/§66 внутри owner-блоков.
+  const subgroups = Array.from(
+    document.querySelectorAll('.owner-block .permsoc-subgroup'))
+    .map((el) => (el.textContent || '').trim());
+  // M-F7-2 (§64): карточка списка ID Оли — list-editor, НЕ сырой textarea.
+  const olyaListStructured = (() => {
+    const keyEl = Array.from(document.querySelectorAll('.owner-block .font-mono'))
+      .find((el) => (el.textContent || '').trim()
+        === 'reactions.olya_saveasbot_user_ids');
+    if (!keyEl) return null;
+    const card = keyEl.closest('.card');
+    if (!card) return null;
+    return {
+      hasListBtn: Array.from(card.querySelectorAll('button'))
+        .some((b) => (b.textContent || '').indexOf('Добавить ID') >= 0),
+      hasTextarea: !!card.querySelector('textarea'),
+    };
+  })();
+  return {
+    ownerCount: owners.length,
+    hasHeader: q('.permsoc-scope-title'),
+    hasNoChatBanner: q('.permsoc-nochat'),
+    hasMaster: q('.permsoc-master'),
+    scrollWidth: document.documentElement.scrollWidth,
+    innerWidth: window.innerWidth,
+    labels: rects,
+    subgroups: subgroups,
+    olyaListStructured: olyaListStructured,
+  };
+})()
+"""
+
+
+def _permsoc_failures(probe: dict, label: str) -> list:
+    """F7 (ADR-1025-20 D1/D2): без чата — 0 блоков + empty-state; с чатом —
+    6 блоков + заголовок + мастер-уровень, тумблеры не обрезаны."""
+    out = []
+    if not probe:
+        out.append("%s permsoc: probe пуст" % label)
+        return out
+    if probe.get("hasNoChatBanner"):
+        if probe.get("ownerCount"):
+            out.append("%s permsoc: блоки отрендерены без чата (%s)"
+                       % (label, probe.get("ownerCount")))
+        if probe.get("hasMaster"):
+            out.append("%s permsoc: мастер-уровень без чата" % label)
+    else:
+        if probe.get("ownerCount") != 6:
+            out.append("%s permsoc: owner-блоков %s (ожидалось 6)"
+                       % (label, probe.get("ownerCount")))
+        if not probe.get("hasHeader"):
+            out.append("%s permsoc: нет заголовка «Только этот чат»" % label)
+        if not probe.get("hasMaster"):
+            out.append("%s permsoc: нет мастер-уровня §61" % label)
+        # H-F7-1 (fix): подгруппы §62/§64/§66 витринно видны.
+        subs = probe.get("subgroups") or []
+        if not subs:
+            out.append("%s permsoc: нет витринных подгрупп (§62/§64/§66)"
+                       % label)
+        else:
+            for t in ("Основное", "Источники", "Приветствия", "Рассылка"):
+                if t not in subs:
+                    out.append("%s permsoc: нет подгруппы «%s»" % (label, t))
+        # M-F7-2 (§64): списки ID Оли — list-editor, не сырой textarea.
+        ol = probe.get("olyaListStructured")
+        if ol is None:
+            out.append("%s permsoc: карточка списка ID Оли не найдена" % label)
+        elif ol.get("hasTextarea"):
+            out.append("%s permsoc: список ID Оли — сырой textarea (§64)"
+                       % label)
+        elif not ol.get("hasListBtn"):
+            out.append("%s permsoc: список ID Оли — не list-editor (§64)"
+                       % label)
+        for r in probe.get("labels", []):
+            if r.get("w", 0) < 44:
+                out.append("%s permsoc: тумблер <44px (w=%s)"
+                           % (label, r.get("w")))
+            if r.get("right", 0) > probe.get("innerWidth", 0) + 1:
+                out.append("%s permsoc: тумблер обрезан по правому краю"
+                           % label)
+    if probe.get("scrollWidth", 0) > probe.get("innerWidth", 0) + 1:
+        out.append("%s permsoc: horizontal overflow %d > %d"
+                   % (label, probe.get("scrollWidth"), probe.get("innerWidth")))
+    return out
+
+
+def _permsoc_nochat_failures(probe: dict, label: str) -> list:
+    """F7 (L-F7-3): честный «без чата» — banner «выбери чат», блоков нет."""
+    out = []
+    if not probe:
+        out.append("%s permsoc no-chat: probe пуст" % label)
+        return out
+    if not probe.get("hasNoChatBanner"):
+        out.append("%s permsoc no-chat: нет banner «выбери чат»" % label)
+    if probe.get("ownerCount"):
+        out.append("%s permsoc no-chat: блоки без чата (%s)"
+                   % (label, probe.get("ownerCount")))
+    if probe.get("subgroups"):
+        out.append("%s permsoc no-chat: подгруппы без чата" % label)
+    if probe.get("hasMaster"):
+        out.append("%s permsoc no-chat: мастер-уровень без чата" % label)
+    if probe.get("scrollWidth", 0) > probe.get("innerWidth", 0) + 1:
+        out.append("%s permsoc no-chat: horizontal overflow %d > %d"
+                   % (label, probe.get("scrollWidth"), probe.get("innerWidth")))
+    return out
+
+
 # после scrollIntoView) и активный класс состояния (`hb-<state>`).
 F7_PROBE_JS = """
 (() => {
@@ -1828,6 +1958,13 @@ def main() -> int:
                     out["viewports"][vp_key].setdefault("f5_routes", {})[route] = f5
                     failures.extend(_f5_failures(
                         f5, "%s %s" % (vp_key, route), w))
+                # F7 (10.25, ADR-1025-20 D1): PERMsoc global-скоуп —
+                # блоков нет, empty-state «выбери чат».
+                if route == "#/permsoc":
+                    pp = page.evaluate(PERMSOC_PROBE_JS)
+                    out["viewports"][vp_key]["permsoc_global"] = pp
+                    failures.extend(_permsoc_failures(
+                        pp, "%s %s" % (vp_key, route)))
                 if route == "#/":
                     _snap(page, "%s_root" % vp_key)
                 if route == "#/memory":
@@ -1966,6 +2103,56 @@ def main() -> int:
                 if not seen["button"]:
                     failures.append(
                         "%s chat-scope: нет кнопки «Вернуть глобальное»" % vp_key)
+                # F7 (10.25, ADR-1025-20 D1/D2): PERMsoc chat-скоуп —
+                # 6 блоков + заголовок «Только этот чат», тумблеры не обрезаны.
+                page.evaluate("() => { window.location.hash = '#/permsoc'; }")
+                page.wait_for_timeout(900)
+                pp_chat = page.evaluate(PERMSOC_PROBE_JS)
+                out["viewports"][vp_key]["permsoc_chat"] = pp_chat
+                failures.extend(_permsoc_failures(
+                    pp_chat, "%s chat-scope" % vp_key))
+            # F7 (L-F7-3, fix): ЧЕСТНЫЙ «без чата» — /api/access/chats пуст.
+            # Проверяем, что блоки/подгруппы НЕ рендерятся и виден banner
+            # «выбери чат» (§60). Один репрезентативный вьюпорт (перф).
+            if (w, h) in ((390, 844),):
+                nc_ctx = browser.new_context(
+                    viewport={"width": w, "height": h})
+                nc_ctx.add_init_script(TMA_STUB)
+
+                def _route_nochat(route):
+                    p = route.request.url.split("?")[0]
+                    if p.endswith("/api/access/chats"):
+                        payload = []
+                    else:
+                        payload = _stub_for(route.request.url)
+                    route.fulfill(status=200,
+                                  content_type="application/json",
+                                  body=json.dumps(payload))
+
+                nc_ctx.route("**/api/**", _route_nochat)
+                nc_page = nc_ctx.new_page()
+                nc_errors = []
+                nc_page.on("console", lambda m, b=nc_errors: (
+                    b.append("%s: %s" % (m.type, m.text[:200]))
+                    if m.type == "error" else None))
+                nc_page.on("pageerror", lambda e, b=nc_errors: b.append(
+                    "pageerror: " + str(e)[:300]))
+                nc_page.goto(url, wait_until="load")
+                try:
+                    nc_page.wait_for_selector(".app-shell", timeout=8000)
+                except Exception:  # noqa: BLE001
+                    pass
+                nc_page.wait_for_timeout(500)
+                nc_page.evaluate("() => { window.location.hash = '#/permsoc'; }")
+                nc_page.wait_for_timeout(900)
+                nc_probe = nc_page.evaluate(PERMSOC_PROBE_JS)
+                out["viewports"][vp_key]["permsoc_nochat"] = nc_probe
+                failures.extend(_permsoc_nochat_failures(
+                    nc_probe, "%s no-chat" % vp_key))
+                for msg in nc_errors:
+                    failures.append("%s no-chat console/pageerror: %s"
+                                    % (vp_key, msg))
+                nc_ctx.close()
             # F3 (reviewer 2): local_admin — кнопка возврата к глобальному
             # видна (паритет UI↔сервер) и не даёт overflow на 320/360/390.
             if w in (320, 360, 390):

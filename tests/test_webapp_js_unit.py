@@ -255,3 +255,14 @@ def test_js_unit_round1025_f6_analytics_memory():
     _run_js(os.path.join("tests", "js",
                          "round1025_f6_analytics_memory_test.js"),
             ok_marker="F6-ANALYTICS-MEMORY-OK")
+
+
+def test_js_unit_round1025_f7_permsoc_local():
+    """F7 round 10.25 (ADR-1025-20 D1–D7, §60–§67): PERMsoc — локальное
+    пространство чата. Без чата блоков нет; 6 блоков + partition «ключ ровно
+    в одном блоке»; guard «PERMsoc-ключ не пишется в global»; OFF блока
+    сохраняет дочерние; блок-гейты reactions/schedule + kill-switch;
+    единицы kostik_reply_probability (round-trip 0–1 ↔ 0–100 %)."""
+    _run_js(os.path.join("tests", "js",
+                         "round1025_f7_permsoc_local_test.js"),
+            ok_marker="F7-PERMSOC-LOCAL-UNIT-OK")

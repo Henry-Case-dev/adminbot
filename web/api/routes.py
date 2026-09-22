@@ -406,6 +406,12 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
             "UI_SHELL_GRAPHITE_V3": bool(settings.UI_SHELL_GRAPHITE_V3),
             "UI_LIQUID_GLASS_LIB": bool(settings.UI_LIQUID_GLASS_LIB),
             "UI_AURORA_FLOW_V2": bool(settings.UI_AURORA_FLOW_V2),
+            # F7 (10.25, ADR-1025-20 D7): env-only kill-switch per-chat
+            # блок-гейтов «Общие реакции»/«Расписания» (default ON; OFF →
+            # baseline + новые блок-тумблеры честно read-only).
+            # R16-аддитивно, R17-safe (bool), Δ каталога = 0.
+            "PERMSOC_BLOCK_GATES_ENABLED":
+                bool(settings.PERMSOC_BLOCK_GATES_ENABLED),
         },
     }
 

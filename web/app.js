@@ -819,20 +819,30 @@
       ] },
   ];
 
-  // ═══ Раунд 10.9 (spec §1.2): PERMsoc owner-блоки ═══
-  // Вкладка «PERMsoc» рендерится 4 collapsible <details class="owner-block">;
-  // в каждом ровно ОДИН тумблер — в <summary> (generic-bool исключён телом).
-  // Принадлежность: key ∈ owner.keys ИЛИ (group ∈ owner.groups и key не
-  // заявлен ни одним персональным owner'ом). «Общее» получает остаток.
+  // ═══ Раунд 10.25 (F7, ADR-1025-20 D1/D2): PERMsoc — 6 функциональных
+  // блоков ЛОКАЛЬНОГО пространства чата. Владение — key-level (группы каталога
+  // смешивают блоки, Ф13); `groups` — только добор невзятых ключей. «Общее»/
+  // «Мастер» больше НЕ owner-блок: мастер выведен в отдельный уровень §61.
+  // Новые блоки «Общие реакции»/«Расписания» пишут собственный per-chat
+  // блок-гейт (D3, `gate`) и НЕ зависят от мастер-плагина; персональные —
+  // `toggleKey` + master. Ключ попадает ровно в один блок (partition-тест).
   var PERMSOC_OWNER_BLOCKS = [
     { id: 'slavik', title: 'Славик', icon: 'smart_toy',
       toggleKey: 'flags.slavik_enabled',
-      keys: ['reactions.slavik_user_id', 'limits.slavik_mimic_min_words',
-             'limits.slavik_mimic_cooldown', 'limits.gif_interval',
-             'limits.slavic_photo_interval'],
+      keys: ['reactions.slavik_user_id',
+             'reactions.dead_page_relay_channel_id',
+             'reactions.dead_page_source_channel_id',
+             'reactions.dead_page_source_channel_username',
+             'reactions.dead_page_dir', 'reactions.slavic_random_dir',
+             'reactions.gif_path',
+             'limits.slavik_mimic_cooldown', 'limits.slavik_mimic_min_words',
+             'limits.gif_interval', 'limits.slavic_photo_interval',
+             'limits.dead_page_cooldown',
+             'limits.dead_page_caption_max_chars',
+             'limits.dead_page_max_forward_retries',
+             // §62: deprecated, НЕ удалять — код читает legacy-fallback.
+             'reactions.slavic_photo_path'],
       groups: ['reactions_slavik', 'reactions_deadpage', 'limits_deadpage'] },
-    // Раунд 10.12 (ADR-1012-1 D3/D4): блок Костика — ID + список фраз +
-    // вероятность (группы reactions_kostik/limits_kostik).
     { id: 'kostik', title: 'Костик', icon: 'smart_toy',
       toggleKey: 'flags.kostik_enabled',
       keys: ['reactions.kostik_user_id', 'reactions.kostik_replies',
@@ -840,25 +850,147 @@
       groups: ['reactions_kostik', 'limits_kostik'] },
     { id: 'olya', title: 'Оля', icon: 'play_circle',
       toggleKey: 'flags.olya_enabled',
-      keys: ['reactions.olya_user_id', 'flags.olya_caption_enabled',
-             'flags.olya_repost_enabled', 'flags.olya_always_send',
-             'flags.olya_caption_mention_enabled', 'limits.olya_cooldown'],
+      keys: ['reactions.olya_user_id', 'reactions.olya_saveasbot_channel_ids',
+             'reactions.olya_saveasbot_user_ids', 'reactions.olya_media_base',
+             'reactions.olya_caption_text', 'reactions.olya_media_type',
+             'flags.olya_caption_enabled', 'flags.olya_repost_enabled',
+             'flags.olya_always_send',
+             'flags.olya_caption_mention_enabled',
+             'limits.olya_cooldown'],
       groups: ['reactions_olya'] },
     { id: 'mimic', title: 'Мимикрия', icon: 'psychology',
       toggleKey: 'flags.mimic_enabled',
-      keys: ['reactions.mimic_victim_user_ids', 'limits.mimic_min_words',
-             'limits.mimic_cooldown', 'flags.mimic_forwards_enabled',
-             'reactions.alan_mimic_enabled', 'reactions.kucha_enabled'],
-      groups: [] },
-    { id: 'common', title: 'Общее / Мастер', icon: 'admin_panel_settings',
-      toggleKey: 'flags.permsoc_enabled', keys: [], groups: [] },
+      keys: ['reactions.mimic_victim_user_ids',
+             'reactions.alan_mimic_enabled', 'reactions.kucha_enabled',
+             'flags.mimic_forwards_enabled', 'limits.mimic_cooldown',
+             'limits.mimic_min_words'],
+      groups: ['reactions_mimic', 'reactions_permsoc'] },
+    // D3: собственный per-chat блок-гейт (feature_gates), не мастер.
+    { id: 'reactions', title: 'Общие реакции', icon: 'forum',
+      gate: 'permsoc_reactions',
+      keys: ['reactions.alan_user_id', 'reactions.alan_username',
+             'reactions.alan_greeting_dir', 'reactions.war_channel_ids',
+             'reactions.war_channel_usernames', 'reactions.war_replies',
+             'reactions.danger_words', 'reactions.vasya_enabled',
+             'flags.alan_replies_enabled', 'flags.dead_page_post_on_join',
+             'reactions.admin_user_id', 'reactions.common_media_base',
+             'flags.common_media_enabled', 'flags.common_work_media_enabled'],
+      groups: ['reactions_alan', 'reactions_war', 'reactions_common',
+               'reactions_admin', 'reactions_word_reactions',
+               'flags_permsoc_behavior', 'flags_media'] },
+    { id: 'schedule', title: 'Расписания', icon: 'schedule',
+      gate: 'permsoc_schedule',
+      keys: ['reactions.goodmorning_time', 'reactions.goodmorning_media_dir',
+             'reactions.goodmorning_target_chat_ids',
+             'reactions.goodmorning_tz',
+             'limits.alan_reply_interval', 'limits.alan_greeting_cooldown',
+             'limits.alan_silence_greeting_hours', 'limits.danger_cooldown',
+             'limits.selfdev_cooldown', 'limits.work_cooldown',
+             'limits.common_cooldown'],
+      groups: ['reactions_goodmorning', 'limits_alan',
+               'limits_media_permsoc'] },
   ];
-  // Ключи-тумблеры рендерятся ТОЛЬКО в <summary> owner-блоков.
+  // D5: русские названия/порядок подгрупп внутри блока (§62–§67) —
+  // presentation-level (каталог не правим; Δ каталога=0). Каждая подгруппа —
+  // {title, keys}: `keys` — те же ключи, что в `keys` owner-блока, разложенные
+  // по §-подгруппам (Основное/Контент/Мимикрия/…). Объединение всех `keys`
+  // подгрупп == `keys` блока (partition-тест). Рендер — `permsocRenderItems`.
+  var PERMSOC_BLOCK_SUBGROUPS = {
+    slavik: [
+      { title: 'Основное', keys: ['reactions.slavik_user_id'] },
+      { title: 'Контент', keys: [
+        'reactions.dead_page_relay_channel_id',
+        'reactions.dead_page_source_channel_id',
+        'reactions.dead_page_source_channel_username',
+        'reactions.dead_page_dir', 'reactions.slavic_random_dir',
+        'reactions.gif_path'] },
+      { title: 'Мимикрия', keys: [
+        'limits.slavik_mimic_cooldown', 'limits.slavik_mimic_min_words'] },
+      { title: 'Ограничения', keys: [
+        'limits.gif_interval', 'limits.slavic_photo_interval',
+        'limits.dead_page_cooldown', 'limits.dead_page_caption_max_chars',
+        'limits.dead_page_max_forward_retries'] },
+      { title: 'Дополнительно', keys: ['reactions.slavic_photo_path'] },
+    ],
+    kostik: [
+      { title: 'Основное', keys: ['reactions.kostik_user_id'] },
+      { title: 'Ответы', keys: ['reactions.kostik_replies'] },
+      { title: 'Ограничения', keys: ['limits.kostik_reply_probability'] },
+    ],
+    olya: [
+      { title: 'Основное', keys: ['reactions.olya_user_id'] },
+      { title: 'Источники', keys: [
+        'reactions.olya_saveasbot_channel_ids',
+        'reactions.olya_saveasbot_user_ids'] },
+      { title: 'Ответы', keys: [
+        'reactions.olya_media_base', 'reactions.olya_caption_text',
+        'reactions.olya_media_type', 'flags.olya_caption_enabled',
+        'flags.olya_repost_enabled', 'flags.olya_always_send',
+        'flags.olya_caption_mention_enabled'] },
+      { title: 'Ограничения', keys: ['limits.olya_cooldown'] },
+    ],
+    mimic: [
+      { title: 'Кого передразнивать', keys: ['reactions.mimic_victim_user_ids'] },
+      { title: 'Реакции', keys: [
+        'reactions.alan_mimic_enabled', 'reactions.kucha_enabled'] },
+      { title: 'Пересланные', keys: ['flags.mimic_forwards_enabled'] },
+      { title: 'Пауза', keys: ['limits.mimic_cooldown'] },
+      { title: 'Длина', keys: ['limits.mimic_min_words'] },
+    ],
+    reactions: [
+      { title: 'Приветствия', keys: [
+        'reactions.alan_user_id', 'reactions.alan_username',
+        'reactions.alan_greeting_dir'] },
+      { title: 'Оповещения', keys: [
+        'reactions.war_channel_ids', 'reactions.war_channel_usernames',
+        'reactions.war_replies'] },
+      { title: 'Триггеры', keys: [
+        'reactions.danger_words', 'reactions.vasya_enabled',
+        'flags.alan_replies_enabled', 'flags.dead_page_post_on_join',
+        'reactions.admin_user_id'] },
+      { title: 'Медиа', keys: [
+        'reactions.common_media_base', 'flags.common_media_enabled',
+        'flags.common_work_media_enabled'] },
+    ],
+    schedule: [
+      { title: 'Рассылка', keys: [
+        'reactions.goodmorning_time',
+        'reactions.goodmorning_target_chat_ids',
+        'reactions.goodmorning_tz'] },
+      { title: 'Медиа', keys: ['reactions.goodmorning_media_dir'] },
+      { title: 'Доп. ограничения', keys: [
+        'limits.alan_reply_interval', 'limits.alan_greeting_cooldown',
+        'limits.alan_silence_greeting_hours', 'limits.danger_cooldown',
+        'limits.selfdev_cooldown', 'limits.work_cooldown',
+        'limits.common_cooldown'] },
+    ],
+  };
+  // M-F7-2 (§64): presentation-оверрайд виджета. В каталоге списки ID Оли —
+  // `type=json, widget=''` (Δ каталога=0, не меняем): в UI рендерим
+  // структурированный `list-editor` (строки/чипы), а не сырой textarea/CSV.
+  var PERMSOC_LIST_WIDGET_KEYS = {
+    'reactions.olya_saveasbot_channel_ids': true,
+    'reactions.olya_saveasbot_user_ids': true,
+  };
+  // Ключи-тумблеры рендерятся ТОЛЬКО в <summary> owner-блоков; мастер
+  // выведен в отдельный уровень §61 (не в тело блока).
   var PERMSOC_TOGGLE_KEYS = {
     'flags.permsoc_enabled': true, 'flags.slavik_enabled': true,
     'flags.kostik_enabled': true,
     'flags.olya_enabled': true, 'flags.mimic_enabled': true,
   };
+  // D1-защита записи: набор PERMsoc-ключей (мастер + тумблеры блоков + все
+  // ключи §62–§67). Попытка записи любого из них при scope=global
+  // блокируется (persistItems/saveConfigItem) — §4/§60 «не глобальная
+  // конфигурация». Строится из PERMSOC_OWNER_BLOCKS (единый источник).
+  var PERMSOC_LOCAL_KEYS = (function () {
+    var m = {};
+    Object.keys(PERMSOC_TOGGLE_KEYS).forEach(function (k) { m[k] = true; });
+    PERMSOC_OWNER_BLOCKS.forEach(function (o) {
+      (o.keys || []).forEach(function (k) { m[k] = true; });
+    });
+    return m;
+  })();
 
   // UI-полировка TMA (fix-раунд ревью): blob-аватары через прокси.
   // Прямой <img :src="'/api/avatar/...'"> НЕ работает: картинку грузит
@@ -2125,7 +2257,7 @@
         return !!(t && t.type === 'config');
       },
       // 3.5.1: группы активной конфиг-вкладки (для generic-шаблона).
-      // 10.9: PERMsoc — 4 owner-блока (псевдо-группы с `owner`).
+      // 10.9 → 10.25 (F7): PERMsoc — 6 owner-блоков (псевдо-группы `owner`);
       currentTabGroups: function () {
         var t = this.currentTab;
         if (!t || t.type !== 'config') return [];
@@ -6904,6 +7036,28 @@
         }
       },
 
+      // F7 (M-F7-2, §64): нормализация витрины конфига после загрузки.
+      // 1) widget отсутствует у старого сервера — дефолт '';
+      // 2) presentation-оверрайд: списки ID Оли (`type=json, widget=''` в
+      //    каталоге, Δ каталога=0) → `list` (структурированный редактор, не
+      //    сырой CSV/textarea);
+      // 3) остальные json без виджета — строкифаем (textarea-текст как раньше);
+      //    json с widget='keyvalue'/'list' НЕ строкифаим (остаётся объектом/
+      //    массивом для компонента-редактора).
+      _normalizeConfigItems: function (items) {
+        (items || []).forEach(function (item) {
+          if (!item.widget) item.widget = '';
+          if (!item.widget && PERMSOC_LIST_WIDGET_KEYS[item.key]) {
+            item.widget = 'list';
+          }
+          if (item.type === 'json' && !item.widget &&
+              typeof item.value === 'object' && item.value !== null) {
+            item.value = JSON.stringify(item.value, null, 2);
+          }
+        });
+        return items;
+      },
+
       loadConfig: async function () {
         var epoch = this.scopeEpoch;   // D2: снимок scope
         this.configLoading = true;
@@ -6926,16 +7080,7 @@
           // старые черновики сбрасываем (draft==null = «не трогать»), иначе
           // черновик «переживал» бы reload и показывал стейл.
           this.blockDrafts = {};
-          this.configItems.forEach(function (item) {
-            // 3.5.1/FR-28: widget отсутствует у старого сервера — дефолт '';
-            // json с widget='keyvalue' НЕ строкифайм (остаётся объектом для
-            // KV-редактора), остальные json — textarea-текст как раньше.
-            if (!item.widget) item.widget = '';
-            if (item.type === 'json' && !item.widget &&
-                typeof item.value === 'object' && item.value !== null) {
-              item.value = JSON.stringify(item.value, null, 2);
-            }
-          });
+          this._normalizeConfigItems(this.configItems);
           // 3.5.2: после перезагрузки KV-редакторы (компоненты) сами
           // пересоберут пары из item.value — внешних черновиков нет.
           // 10.20 (T-1900): baseline sticky-save = свежезагруженный конфиг.
@@ -7140,27 +7285,31 @@
         });
       },
 
-      // Раунд 10.9 (spec §1.2): owner-блоки PERMsoc. Превращаем обычные
-      // группы (groupedForTab) в 4 «псевдо-группы» с `owner`; элементы
-      // распределяются по владельцу, ключи-тумблеры исключаются из тела.
+      // Раунд 10.25 (F7, ADR-1025-20 D1/D2/D3): owner-блоки PERMsoc.
+      // Без выбранного чата редактируемых блоков НЕТ (§60): PERMsoc —
+      // локальное пространство. Элементы распределяются по владельцу
+      // (key-level), ключи-тумблеры исключаются из тела; мастер — отдельно.
       _permsocOwnerGroups: function () {
         var self = this;
+        if (typeof this.isChatContext === 'function' && !this.isChatContext()) {
+          return [];   // §60: не правим глобал — блоки не рендерятся
+        }
         var grouped = this.groupedForTab(this.currentTab);
         var claimed = {};
         PERMSOC_OWNER_BLOCKS.forEach(function (o) {
-          if (o.id === 'common') return;
           (o.keys || []).forEach(function (k) { claimed[k] = true; });
         });
+        // Ключ ровно в одном блоке: explicit `keys` (приоритет) → `groups`
+        // (добор невзятых). Незнакомый ключ остаётся без блока (не свалка).
         function ownerOf(it) {
           for (var i = 0; i < PERMSOC_OWNER_BLOCKS.length; i++) {
             var o = PERMSOC_OWNER_BLOCKS[i];
-            if (o.id === 'common') continue;
             if ((o.keys || []).indexOf(it.key) >= 0) return o.id;
             if ((o.groups || []).indexOf(it.group) >= 0 && !claimed[it.key]) {
               return o.id;
             }
           }
-          return 'common';
+          return null;
         }
         var result = PERMSOC_OWNER_BLOCKS.map(function (o) {
           return {
@@ -7175,10 +7324,11 @@
         grouped.forEach(function (g) {
           g.items.forEach(function (it) {
             if (PERMSOC_TOGGLE_KEYS[it.key]) return;   // только в <summary>
-            byId[ownerOf(it)].items.push(it);
+            var oid = ownerOf(it);
+            if (oid && byId[oid]) byId[oid].items.push(it);
           });
         });
-        // LOW-6: ВСЕ 4 owner-блока рендерятся всегда (тумблер — в <summary>),
+        // LOW-6: все owner-блоки рендерятся всегда (тумблер — в <summary>),
         // даже если тело пустое/скрыто правами. Не фильтруем по items.length.
         return result;
       },
@@ -7188,37 +7338,117 @@
           kostik: 'ID, фразы-реплики и вероятность ответа.',
           olya: 'Реакции бота на видео Оли и подписи к ним.',
           mimic: 'Кого бот передразнивает и как часто.',
-          common:
-            'Мастер-выключатель и всё, что не привязано к одной персоне.',
+          reactions: 'Приветствия Лехи, военные оповещения, триггеры и общие медиа.',
+          schedule: 'Утренняя рассылка и дополнительные ограничения по времени.',
         }[o.id] || '';
       },
-      // Текущее состояние owner-тумблера: мастер-блок в чате читается из
-      // gates.permsoc, остальные — из config-значения (bool).
+      // D5: витринные подгруппы блока (§62–§67) — presentation-level.
+      // [{title, keys}] — порядок отображения из ТЗ/спеки.
+      permsocOwnerSubgroups: function (owner) {
+        if (!owner) return [];
+        return PERMSOC_BLOCK_SUBGROUPS[owner.id] || [];
+      },
+      // H-F7-1 (fix): плоский список витрины для owner-блока с РУССКИМИ
+      // заголовками подгрупп (§62/§64/§66 и др.). Возвращает элементы
+      // `basicItems(grp)` + псевдо-элементы-заголовки `{__subheader, key}`.
+      // Для не-owner групп и при отсутствии подгрупп — прежний плоский
+      // список (остальные вкладки не меняются). Элементы, не попавшие ни в
+      // одну подгруппу, идут в конец без шапки (страховка; partition-тест
+      // гарантирует, что таких нет).
+      permsocRenderItems: function (grp) {
+        var items = this.basicItems(grp);
+        if (!grp || !grp.owner) return items;
+        var groups = this.permsocOwnerSubgroups(grp.owner);
+        if (!groups.length) return items;
+        var byKey = {};
+        items.forEach(function (i) { byKey[i.key] = i; });
+        var out = [];
+        var used = {};
+        groups.forEach(function (sg) {
+          var sgItems = [];
+          (sg.keys || []).forEach(function (k) {
+            if (byKey[k] && !used[k]) {
+              sgItems.push(byKey[k]);
+              used[k] = true;
+            }
+          });
+          if (!sgItems.length) return;
+          out.push({ __subheader: sg.title, key: 'subheader:' + sg.title });
+          sgItems.forEach(function (it) { out.push(it); });
+        });
+        items.forEach(function (i) { if (!used[i.key]) out.push(i); });
+        return out;
+      },
+      // M-F7-2 (§64): list-редактор для списков ID Оли использует подписи
+      // «ID» (variant='ids'), а не «фразы»/«Костик молчит» (дефолт). Объект
+      // для v-bind; дефолт Костика не меняется (тексты — в шаблоне).
+      listEditorProps: function (item) {
+        if (item && PERMSOC_LIST_WIDGET_KEYS[item.key]) {
+          return { variant: 'ids' };
+        }
+        return {};
+      },
+      // §63 (D4): `limits.kostik_reply_probability` — сервер хранит float
+      // 0.0–1.0, UI показывает проценты 0–100 %. Конвертация ТОЛЬКО на
+      // границе виджета (клип [0,1] / [0,100]); серверную шкалу не меняем.
+      permsocProbToPercent: function (v) {
+        var n = Number(v);
+        if (!isFinite(n)) return 0;
+        if (n < 0) n = 0;
+        if (n > 1) n = 1;
+        return Math.round(n * 100);
+      },
+      permsocPercentToProb: function (p) {
+        var n = Number(p);
+        if (!isFinite(n)) return 0;
+        if (n < 0) n = 0;
+        if (n > 100) n = 100;
+        return n / 100;
+      },
+      saveKostikProbability: async function (item, percent) {
+        if (!item) return;
+        item.value = this.permsocPercentToProb(percent);
+        await this.saveConfigItem(item);
+      },
+      // Состояние owner-тумблера. Персональные — per-chat config-флаг;
+      // новые блоки — per-chat блок-гейт (gates.permsoc_*); мастер — gates.
       permsocOwnerOn: function (owner) {
         if (!owner) return false;
-        if (owner.id === 'common' && this.isChatContext()) {
-          return this.permsocMasterOn();
-        }
+        if (owner.gate) return this.permsocBlockGateOn(owner.gate);
         var it = this.configItems.find(function (i) {
           return i.key === owner.toggleKey;
         });
         return !!(it && it.value);
       },
+      permsocBlockGateOn: function (feature) {
+        var g = this.gateInfo && this.gateInfo.gates;
+        return !!(g && g[feature]);
+      },
       canToggleOwner: function (owner) {
         if (!owner) return false;
-        if (owner.id === 'common' && this.isChatContext()) {
+        if (owner.gate) {
+          // D3/§61: блок-гейт — global-admin; при OFF kill-switch тумблер
+          // честно read-only (серверный эффект отключён).
+          if (!this.uiFlag('PERMSOC_BLOCK_GATES_ENABLED')) return false;
           return !!this.isGlobalAdmin;
         }
         return this.canEditConfig(owner.toggleKey);
       },
-      // Единственный путь записи owner-тумблера: чат-мастер → gates, иначе
-      // config — НЕ оба одновременно (spec §1.6).
+      // Мастер-тумблер §61 — только global admin (PUT /gates).
+      canToggleMaster: function () {
+        return !!this.isGlobalAdmin;
+      },
+      // Единственный путь записи owner-тумблера: блок-гейт → gates,
+      // персональный — config; НЕ оба одновременно. OFF блока пишет ТОЛЬКО
+      // собственный ключ (`toggleKey`/`gate`) — дочерние не сбрасываются.
       toggleOwner: async function (owner, checked) {
         if (!owner) return;
-        if (owner.id === 'common' && this.isChatContext()) {
-          await this.togglePermsoc(!!checked);
+        if (owner.gate) {
+          if (!this.canToggleOwner(owner)) return;
+          await this.toggleGate(owner.gate, !!checked);
           return;
         }
+        if (!this.canToggleOwner(owner)) return;
         var it = this.configItems.find(function (i) {
           return i.key === owner.toggleKey;
         });
@@ -7357,12 +7587,21 @@
         var list = (items || []).filter(Boolean);
         var drafts = {};
         var skipped = [];
+        var guardBlocked = [];   // F7 D1: PERMsoc-ключи при scope=global
         var chatItems = [];
         var globalItems = [];
         for (var i = 0; i < list.length; i++) {
           var it = list[i];
           if (!it || it.key == null) continue;
           drafts[it.key] = serialize(it.value);
+          // F7 (ADR-1025-20 D1/§60): PERMsoc — НЕ глобальная конфигурация.
+          // Без выбранного чата (scope=global) либо с per_chat=false запись
+          // PERMsoc-ключа ЗАПРЕЩЕНА (ban + уведомление, не молча).
+          if (PERMSOC_LOCAL_KEYS[it.key]
+              && (this.activeChatId == null || it.per_chat === false)) {
+            guardBlocked.push(it.key);
+            continue;
+          }
           if (saving.has(it.key)) { skipped.push(it.key); continue; }  // in-flight
           saving.add(it.key);
           if (it.per_chat === false) globalItems.push(it);
@@ -7372,6 +7611,19 @@
         // запрос и НЕ объявляем ложный успех — итог озвучит владелец in-flight
         // операции. Пропущенные ключи возвращаем явно (не молча).
         if (!chatItems.length && !globalItems.length) {
+          if (guardBlocked.length) {
+            var gbFailed = guardBlocked.map(function (k) {
+              return { key: k, reason: 'permsoc-global' };
+            });
+            var gbResult = { saved: [], failed: gbFailed, skipped: skipped,
+                             revalidated: false, state: 'error',
+                             operationId: operationId };
+            this.stickyFailedKeys = guardBlocked.slice();
+            if (!opts.silent && typeof this.notify === 'function') {
+              this.notify(operationId, gbResult, list);
+            }
+            return gbResult;
+          }
           return { saved: [], failed: [], skipped: skipped,
                    revalidated: false, state: 'saving',
                    operationId: operationId, inFlight: true };
@@ -7466,6 +7718,10 @@
         } else {
           this.stickyConflict = [];
         }
+        // F7 D1: заблокированные PERMsoc-ключи — явный провал (не молча).
+        for (var gb2 = 0; gb2 < guardBlocked.length; gb2++) {
+          failed.push({ key: guardBlocked[gb2], reason: 'permsoc-global' });
+        }
         var state = failed.length ? (saved.length ? 'saved' : 'error')
                                   : 'saved';
         var result = {
@@ -7485,6 +7741,15 @@
         // Возврат: true — сохранено; null — пропущено (уже в полёте);
         // false — реальный провал.
         if (!item || item.key == null) return false;
+        // F7 (ADR-1025-20 D1/§60): PERMsoc-ключ нельзя записать как global.
+        // Без выбранного чата или с per_chat=false — отказ с понятным текстом
+        // (защита от любого обхода UI; §4 «PERMsoc не глобальная конфигурация»).
+        if (PERMSOC_LOCAL_KEYS[item.key]
+            && (this.activeChatId == null || item.per_chat === false)) {
+          this.toast('PERMsoc: выбери чат — эти настройки не меняются глобально',
+                     'warn');
+          return false;
+        }
         if (this.saving && this.saving.has && this.saving.has(item.key)) {
           return null;                 // in-flight: не наш успех и не провал
         }
@@ -10871,6 +11136,10 @@
     props: {
       item: { type: Object, required: true },
       canEdit: { type: Boolean, default: false },
+      // F7 (M-F7-2, §64): variant='ids' — списки ID Оли (подписи «ID», не
+      // «фразы»); '' — дефолт Костика (строки-фразы). Дефолтный текст живёт
+      // в шаблоне `#list-editor-tpl` (не переписывается).
+      variant: { type: String, default: '' },
     },
     data: function () {
       // rowIds — стабильные ключи строк для v-for :key (не index: удаление
@@ -10914,14 +11183,36 @@
         this.rowIds.splice(i, 1);
       },
       save: async function () {
+        var self = this;
+        // Защита от «минимального» контекста (юнит-тесты вызывают метод
+        // напрямую): без toStoredValue — прежнее поведение (строка).
+        var conv = (typeof self.toStoredValue === 'function')
+          ? function (x) { return self.toStoredValue(x); }
+          : function (x) { return x; };
         var cleaned = [];
         this.rows.forEach(function (r) {
           if (r == null) return;
           var v = String(r).trim();
-          if (v) cleaned.push(v);            // пустые строки отбрасываются
+          if (v) cleaned.push(conv(v));  // пустые строки отбрасываются
         });
         this.item.value = cleaned;           // json-массив без парсинга
         await this.root.saveConfigItem(this.item);
+      },
+      // H-F7-7 (§64): список строк — это ФРАЗЫ (Костик) ИЛИ ID (Оля). Списки
+      // ID сервер сравнивает с int (`origin.chat.id`/`sender_user.id` в
+      // `filters/olya_video.py`), поэтому для ключей из
+      // `PERMSOC_LIST_WIDGET_KEYS` возвращаем числовой тип (чисто-числовые
+      // строки → Number), нечисловые остаются строками; фразы Костика не
+      // затронуты.
+      _numericList: function () {
+        return !!(this.item && PERMSOC_LIST_WIDGET_KEYS[this.item.key]);
+      },
+      toStoredValue: function (s) {
+        if (this._numericList && this._numericList() && /^-?\d+$/.test(s)) {
+          var n = Number(s);
+          if (Number.isSafeInteger(n)) return n;
+        }
+        return s;
       },
     },
     template: '#list-editor-tpl',

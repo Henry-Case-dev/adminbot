@@ -24,6 +24,7 @@ from services import hot_config as hot
 from filters.target_channel import TargetChannelFilter
 from filters.user_id import UserIdFilter
 from filters.danger_word import DangerWordFilter
+from services.permsoc import PermsocBlockGate
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +117,7 @@ _target_channel_usernames_set: set[str] = set(_parse_str_list(hot.get("reactions
 @war_alert_router.message(
     # N3 (ЧЕСТНО): импорт-time декоратор — значение из админки НЕ применяется
     # без рефакторинга фильтра; на каждом старте — фолбек settings.
+    PermsocBlockGate("reactions"),
     UserIdFilter(hot.get("reactions.slavik_user_id", settings.SLAVIK_USER_ID)),
     DangerWordFilter(),
 )
@@ -161,6 +163,7 @@ async def war_keyword_handler(message: types.Message):
 # ── Handler 2: Channel reposts ──
 
 @war_alert_router.message(
+    PermsocBlockGate("reactions"),
     TargetChannelFilter(_target_channel_ids_set, _target_channel_usernames_set),
 )
 async def war_channel_repost_handler(message: types.Message):

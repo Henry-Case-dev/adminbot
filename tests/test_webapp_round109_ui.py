@@ -38,7 +38,7 @@ FORBIDDEN = (
 class TestPermsocOwnerBlocks:
     def test_owner_blocks_constant(self):
         assert "PERMSOC_OWNER_BLOCKS" in JS
-        assert "owner-block" in JS
+        assert "owner-block" in HTML
         assert "PERMSOC_TOGGLE_KEYS" in JS
         for toggle in ("flags.slavik_enabled", "flags.olya_enabled",
                        "flags.mimic_enabled", "flags.permsoc_enabled"):
@@ -54,9 +54,13 @@ class TestPermsocOwnerBlocks:
         assert "canToggleOwner: function" in JS
 
     def test_master_map_removed(self):
-        # Старая отдельная мастер-карта удалена.
-        assert "activeTab === 'permsoc'" not in HTML
+        # F7 (10.25, ADR-1025-20 D1): старая мастер-карта удалена; дефектный
+        # текст «Без чата меняются только общие значения ниже» убран —
+        # PERMsoc не правит глобал. `activeTab === 'permsoc'` теперь
+        # легитимно используется scope-заголовком «Только этот чат».
         assert "master: {{ permsocMasterOn()" not in HTML
+        assert "Без чата меняются только общие значения ниже" not in HTML
+        assert "PERMsoc · Только этот чат" in HTML
 
     def test_backend_slavik_sub_flag(self):
         assert "SLAVIK_ENABLED" in CATALOG
@@ -65,15 +69,18 @@ class TestPermsocOwnerBlocks:
         assert "GroupSpec(\"reactions_persons\"" not in CATALOG
 
     def test_common_block_module_summary(self):
-        # Сводка 5 модулей жила в удалённой мастер-карте — переехала
-        # внутрь owner-блока «Общее / Мастер» (spec §1.2/§1.3) и снова
-        # использует permsocModuleBadge (не мёртвый код).
-        assert "grp.owner.id === 'common'" in HTML
+        # F7 (10.25, ADR-1025-20 D2): «Общее / Мастер» перестало быть
+        # owner-блоком — мастер выведен в ОТДЕЛЬНЫЙ уровень §61 (шаблон),
+        # read-only сводка 5 модулей сохранена (permsocModuleBadge).
+        assert "canToggleMaster: function" in JS
+        assert "permsocMasterOn()" in HTML
         assert "permsocModuleBadge(module)" in HTML
+        assert "grp.owner.id === 'common'" not in HTML
 
-    def test_all_four_owner_blocks_always_render(self):
-        # LOW-6: owner-блоки не фильтруются по items.length — рендерятся ВСЕ
-        # 4, даже если тело пустое (единственный тумблер в <summary>).
+    def test_all_six_owner_blocks_always_render(self):
+        # LOW-6 → F7 (L-F7-5): owner-блоки не фильтруются по items.length —
+        # рендерятся ВСЕ 6 (Славик/Костик/Оля/Мимикрия/Общие реакции/
+        # Расписания), даже если тело пустое (тумблер в <summary>).
         assert "grp.owner || basicItems(grp).length || advancedItems(grp).length" in HTML
         assert "PERMSOC_OWNER_BLOCKS.map" in JS
         assert "result.filter(function (r) { return r.items.length > 0; })" not in JS

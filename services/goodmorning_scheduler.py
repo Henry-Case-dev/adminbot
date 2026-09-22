@@ -95,6 +95,15 @@ class GoodmorningSchedulerService:
     async def _tick(self) -> None:
         for chat_id in self._target_chat_ids:
             try:
+                # F7 (10.25, ADR-1025-20 D3): per-chat блок-гейт «Расписания».
+                # OFF → рассылка этому чату НЕ отправляется (фоновая задача
+                # «прекращается» для чата); остальные чаты не затронуты.
+                from services import permsoc
+                if not await permsoc.block_enabled(chat_id, "schedule"):
+                    logger.info(
+                        "Goodmorning tick skipped (permsoc_schedule OFF) | "
+                        "chat_id=%s", chat_id)
+                    continue
                 sent = await self._relay.send_goodmorning(chat_id)
                 logger.info("Goodmorning tick: chat_id=%s sent=%s", chat_id, sent)
             except Exception:

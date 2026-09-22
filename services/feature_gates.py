@@ -27,12 +27,17 @@ logger = logging.getLogger(__name__)
 HEAVY_FEATURES: frozenset[str] = frozenset({"dream", "nostalgia",
                                             "lore_auto"})
 # Все гейтящиеся фичи (тяжёлые + лёгкий master PERMsoc, F-9).
+# F7 (10.25, ADR-1025-20 D3): + per-chat блок-гейты «Общие реакции» и
+# «Расписания» (память — `chat_params["gates"]`, Δ DDL = 0).
 ALL_GATED_FEATURES: frozenset[str] = frozenset(
-    {"dream", "nostalgia", "lore_auto", "permsoc"})
+    {"dream", "nostalgia", "lore_auto", "permsoc",
+     "permsoc_reactions", "permsoc_schedule"})
 
 # Канонические флаги (F-10 §3 таблица: flags.<feature>_enabled); для
 # dream/nostalgia в каталоге лежат memory.dream_enabled/memory.nostalgia_enabled
 # (workers читают их) — первый найденный не-None выигрывает.
+# F7: у `permsoc_reactions`/`permsoc_schedule` канонического флага НЕТ —
+# только явный chat-гейт + default (baseline ON).
 FLAG_KEYS: dict[str, tuple[str, ...]] = {
     "dream": ("flags.dream_enabled", "memory.dream_enabled"),
     "nostalgia": ("flags.nostalgia_enabled", "memory.nostalgia_enabled"),
@@ -45,6 +50,10 @@ DEFAULT_BY_FEATURE = {
     "nostalgia": False,
     "lore_auto": True,      # settings.LORE_AUTO_ENABLED (живые чаты ON)
     "permsoc": False,
+    # F7 D3: нет явного гейта → функция работает (сохраняем baseline;
+    # war/danger/goodmorning раньше НЕ гейтировались мастером — не регрессия).
+    "permsoc_reactions": True,
+    "permsoc_schedule": True,
 }
 
 # F7/R10.18-3: фичи, у которых есть ОТДЕЛЬНЫЙ per-chat master-флаг, который

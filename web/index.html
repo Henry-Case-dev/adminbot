@@ -821,9 +821,9 @@
                 </section>
                 </template>
               </div>
-              <!-- 10.9 (п.1): отдельная мастер-карта удалена — тумблер
-                   «Общее / Мастер» теперь в <summary> owner-блока, а
-                   персоны/ID/рубильники — в 4 collapsible owner-блоках
+              <!-- 10.9 (п.1) → 10.25 (F7): отдельная мастер-карта удалена —
+                   мастер выведен в ОТДЕЛЬНЫЙ уровень §61, а персоны/ID/
+                   рубильники — в 6 collapsible owner-блоках PERMsoc
                    (currentTabGroups → _permsocOwnerGroups). -->
               <div class="card p-3 col-span-full flex items-center gap-2">
                 <input class="field flex-1" placeholder="Поиск по параметрам…" v-model="configSearch">
@@ -1249,6 +1249,66 @@
                         :class="{ 'font-bold': memorySubgroup === s.id }"
                         @click="setMemorySubgroup(s.id)">{{ s.title }}</button>
               </div>
+              <!-- F7 (10.25, ADR-1025-20 D1/D2): PERMsoc — локальное
+                   пространство ВЫБРАННОГО чата (§60). Без чата редактируемых
+                   блоков нет (banner): PERMsoc не правит глобальные значения.
+                   Второй селектор области не создаётся (reuse F3 activeChatId);
+                   полный chat_id — в конвенции `.scope-tech`. -->
+              <template v-if="activeTab === 'permsoc'">
+                <div class="col-span-full flex items-center gap-2 flex-wrap">
+                  <div class="permsoc-scope-title text-sm font-bold text-violet-300 uppercase tracking-wide">
+                    PERMsoc · Только этот чат
+                  </div>
+                  <details v-if="isChatContext()" class="scope-tech shrink-0">
+                    <summary class="badge badge-info" title="Технические подробности области">ID</summary>
+                    <div class="scope-tech-body">
+                      {{ isDmCtx() ? 'ЛС #' + activeChatId : '#' + activeChatId }}
+                    </div>
+                  </details>
+                </div>
+                <div v-if="!isChatContext()" class="permsoc-nochat card p-6 text-gray-400 col-span-full">
+                  PERMsoc работает только для конкретного чата. Выбери чат или ЛС
+                  в шапке.
+                </div>
+                <!-- §61: мастер-тумблер — ОТДЕЛЬНЫЙ уровень иерархии (не блок).
+                     Глобальный рубильник плагина персонажей + read-only сводка
+                     5 модулей. Новые блоки «Общие реакции»/«Расписания» им НЕ
+                     управляются (собственные блок-гейты, D3). -->
+                <div v-else class="permsoc-master card p-4 col-span-full">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="msr" aria-hidden="true">{{ iconGlyph('admin_panel_settings') }}</span>
+                    <span class="text-sm font-bold">Мастер PERMsoc</span>
+                    <span class="text-xs text-gray-500 flex-1 min-w-0">
+                      Глобальный рубильник плагина персонажей (Славик, Костик,
+                      Оля, Мимикрия, Лёха). «Общие реакции» и «Расписания» им не
+                      управляются.
+                    </span>
+                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input type="checkbox" class="sr-only peer"
+                             :checked="permsocMasterOn()"
+                             :disabled="!canToggleMaster()"
+                             aria-label="Мастер PERMsoc"
+                             @change.stop="togglePermsoc($event.target.checked)">
+                      <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
+                      <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                    </label>
+                  </div>
+                  <div class="grid gap-2 md:grid-cols-2 mt-3">
+                    <div v-for="module in ['slavik','kostik','alan','olya','mimic']"
+                         :key="'pm-' + module"
+                         class="rounded-lg border border-white/10 px-3 py-2 text-xs flex items-center justify-between gap-2">
+                      <span class="text-sm font-semibold">{{ module }}</span>
+                      <span class="badge"
+                            :class="permsocModuleBadge(module) === 'derived (master)'
+                              ? 'badge-info'
+                              : (permsocModuleBadge(module) === 'OFF (master)'
+                                ? 'badge-muted' : 'badge-ok')">
+                        {{ permsocModuleBadge(module) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </template>
               <template v-for="grp in currentTabGroups" :key="grp.uid">
               <!-- Раунд 10.4 (E-3): заголовок секции витрины — перед первой
                    группой секции (sectionTitle возвращает null для остальных:
@@ -1286,31 +1346,6 @@
                 </summary>
                 <div v-else class="text-sm font-bold">{{ groupTitle(grp) }}</div>
                 <div class="text-xs text-gray-500 mb-3" :class="grp.owner ? 'mt-3' : ''">{{ groupDescription(grp) }}</div>
-                <!-- 10.9 (п.1, spec §1.2/§1.3): read-only сводка 5 модулей
-                     переехала внутрь owner-блока «Общее / Мастер» (старая
-                     отдельная мастер-карта удалена). Тумблера здесь нет —
-                     он один, в <summary>. -->
-                <div v-if="grp.owner && grp.owner.id === 'common'" class="mb-3">
-                  <div v-if="!isChatContext()" class="text-xs text-gray-500">
-                    Тумблер действует на выбранный чат. Выбери чат или «Личные
-                    сообщения» в шапке — модули включаются отдельно для каждого.
-                    Без чата меняются только общие значения ниже.
-                  </div>
-                  <div v-else class="grid gap-2 md:grid-cols-2">
-                    <div v-for="module in ['slavik','kostik','alan','olya','mimic']"
-                         :key="module"
-                         class="rounded-lg border border-white/10 px-3 py-2 text-xs flex items-center justify-between gap-2">
-                      <span class="text-sm font-semibold">{{ module }}</span>
-                      <span class="badge"
-                            :class="permsocModuleBadge(module) === 'derived (master)'
-                              ? 'badge-info'
-                              : (permsocModuleBadge(module) === 'OFF (master)'
-                                ? 'badge-muted' : 'badge-ok')">
-                        {{ permsocModuleBadge(module) }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
                 <!-- Раунд 10 (F-11 Q3/4.2): прогрессивное раскрытие — Базовые
                      (как раньше) + <details> «Расширенные настройки» (нативные,
                      localStorage adminbot.expand:<tab>; закрыт по умолчанию).
@@ -1318,10 +1353,22 @@
                      BUG-5 (ре-дизайн 10.2): сетка «Базовых» — только при
                      basicItems>0; «Расширенные» при advancedItems>0 (без
                      пустых «(0)»-блоков). -->
-                <div class="grid gap-3 md:grid-cols-2" v-if="basicItems(grp).length">
-                  <div v-for="item in basicItems(grp)"
-                       :key="item.key" class="card p-4" style="min-width:0;"
-                       :class="{ 'is-save-failed': stickyFieldFailed(item.key) }">
+                 <div class="grid gap-3 md:grid-cols-2" v-if="basicItems(grp).length">
+                   <!-- H-F7-1 (fix, §62/§64/§66): внутри owner-блока (PERMsoc)
+                        элементы раскладываются по витринным подгруппам с
+                        РУССКИМИ заголовками; для прочих вкладок
+                        permsocRenderItems → обычный плоский basicItems. -->
+                   <template v-for="item in permsocRenderItems(grp)"
+                             :key="item.__subheader ? 'subheader:' + item.__subheader : 'it:' + item.key">
+                   <div v-if="item.__subheader"
+                        class="permsoc-subgroup col-span-full flex items-center gap-2 pt-1">
+                     <div class="text-xs font-bold text-violet-300 uppercase tracking-wide">
+                       {{ item.__subheader }}
+                     </div>
+                     <div class="flex-1 h-px bg-white/10"></div>
+                   </div>
+                   <div v-else class="card p-4" style="min-width:0;"
+                        :class="{ 'is-save-failed': stickyFieldFailed(item.key) }">
                     <!-- Раунд 10 (F-7 T-855/T-868): роль-пикер (gear, global
                          admin) + бейджи «чат»/«скрыт» + сброс на глобальное -->
                     <div class="flex items-center gap-2 min-w-0 mb-1">
@@ -1376,7 +1423,8 @@
                       <div class="text-sm font-semibold">{{ item.title }}</div>
                       <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
                       <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
-                      <list-editor :item="item" :can-edit="canEditConfig(item.key)"></list-editor>
+                      <list-editor :item="item" :can-edit="canEditConfig(item.key)"
+                                         v-bind="listEditorProps(item)"></list-editor>
                     </template>
                     <template v-else-if="item.type === 'json' || item.category === 'prompts' || item.category === 'content'">
                       <div class="text-sm font-semibold">{{ item.title }}</div>
@@ -1418,6 +1466,21 @@
                                 :value="o">{{ (item.select_labels && item.select_labels[i]) || o }}</option>
                       </select>
                     </template>
+                    <!-- F7 (10.25, ADR-1025-20 D4/§63): вероятность ответа
+                         Костика — сервер float 0.0–1.0, UI проценты 0–100 %
+                         (конвертация на границе виджета). -->
+                    <template v-else-if="item.key === 'limits.kostik_reply_probability'">
+                      <div class="text-sm font-semibold">{{ item.title }}</div>
+                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
+                      <div class="flex items-center gap-2">
+                        <input class="field" type="number" min="0" max="100" step="1"
+                               :value="permsocProbToPercent(item.value)"
+                               :disabled="!canEditConfig(item.key)"
+                               @change="saveKostikProbability(item, $event.target.value)">
+                        <span class="text-xs text-gray-500">%</span>
+                      </div>
+                    </template>
                     <template v-else>
                       <div class="text-sm font-semibold">{{ item.title }}</div>
                       <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
@@ -1425,6 +1488,7 @@
                       <input class="field" :type="inputType(item)" v-model="item.value">
                     </template>
                   </div>
+                  </template>
                 </div>
                 <!-- F-11 (Q3/4.2): «Расширенные настройки» — нативный
                      аккордеон (closed по умолчанию; localStorage).
@@ -1505,6 +1569,17 @@
                           <option v-for="(o, i) in (item.select_options || [])" :key="o"
                                   :value="o">{{ (item.select_labels && item.select_labels[i]) || o }}</option>
                         </select>
+                      </div>
+                      <!-- F7 (10.25, ADR-1025-20 D4/§63): вероятность ответа
+                           Костика — сервер float 0.0–1.0, UI 0–100 %. -->
+                      <div v-else-if="item.key === 'limits.kostik_reply_probability'" class="mt-2">
+                        <div class="flex items-center gap-2">
+                          <input class="field" type="number" min="0" max="100" step="1"
+                                 :value="permsocProbToPercent(item.value)"
+                                 :disabled="!canEditConfig(item.key)"
+                                 @change="saveKostikProbability(item, $event.target.value)">
+                          <span class="text-xs text-gray-500">%</span>
+                        </div>
                       </div>
                       <div v-else>
                         <input class="field" :type="inputType(item)" v-model="item.value">
@@ -1755,7 +1830,8 @@
                           <template v-else-if="item.widget === 'list'">
                             <div class="text-sm font-semibold">{{ item.title }}</div>
                             <div class="text-xs text-gray-400 mb-1">{{ item.description }}</div>
-                            <list-editor :item="item" :can-edit="canEditConfig(item.key)"></list-editor>
+                            <list-editor :item="item" :can-edit="canEditConfig(item.key)"
+                                   v-bind="listEditorProps(item)"></list-editor>
                           </template>
                           <template v-else-if="item.category === 'keys' || item.secret">
                             <div class="text-sm font-semibold">{{ item.title }}</div>
@@ -4498,23 +4574,25 @@
   <script type="text/x-template" id="list-editor-tpl">
     <div>
       <div v-if="rows.length === 0" class="text-xs text-gray-500 mb-1">
-        Список пуст — Костик молчит.
+        <template v-if="variant === 'ids'">Список пуст — добавь ID.</template>
+        <template v-else>Список пуст — Костик молчит.</template>
       </div>
       <div v-for="(row, i) in rows" :key="rowIds[i]" class="flex items-center gap-2 mb-1">
         <input class="field flex-1 min-w-0" type="text"
-               placeholder="Фраза…"
+               :placeholder="variant === 'ids' ? 'ID (число)…' : 'Фраза…'"
                :disabled="!canEdit" v-model="rows[i]">
-        <button class="btn-ghost text-xs shrink-0" title="Удалить фразу"
+        <button class="btn-ghost text-xs shrink-0"
+                :title="variant === 'ids' ? 'Удалить ID' : 'Удалить фразу'"
                 :disabled="!canEdit" @click="removeRow(i)">
           <span class="msr" aria-hidden="true">{{ root.iconGlyph('delete') }}</span>
-          <span class="sr-only">Удалить</span>
+          <span class="sr-only">{{ variant === 'ids' ? 'Удалить ID' : 'Удалить фразу' }}</span>
         </button>
       </div>
       <div class="flex flex-wrap items-center gap-2 text-xs mt-1">
         <button class="btn-ghost text-xs" :disabled="!canEdit || rows.length >= maxRows"
-                @click="addRow()">+ Добавить фразу</button>
+                @click="addRow()">{{ variant === 'ids' ? '+ Добавить ID' : '+ Добавить фразу' }}</button>
         <span v-if="rows.length >= maxRows" class="text-yellow-300">
-          Лимит {{ maxRows }} фраз
+          Лимит {{ maxRows }} {{ variant === 'ids' ? 'ID' : 'фраз' }}
         </span>
       </div>
       <div class="mt-2 flex justify-end">
