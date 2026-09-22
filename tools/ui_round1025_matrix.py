@@ -71,6 +71,15 @@ ROUTES = ROUTES + list(F5_ROUTES)
 MODES = ("desktop_normal", "desktop_fullscreen", "tablet",
          "mobile_regular", "mobile_fullscreen")
 
+# F10 (10.25, ADR-1025-24 D5 / §71): НИЗКОЕ окно Telegram Desktop —
+# аддитивный проход. Короткий `viewportStableHeight` (innerHeight −
+# `stable_offset`) моделирует окно TG Desktop малой высоты с системным
+# нижним баром; базовые 10 размеров × 5 режимов НЕ изменяются
+# (baseline-пробы остаются `failures: 0`). Проверяются §71-инварианты:
+# отсутствие h-scroll, реальные `boundingClientRect` в границах видимой
+# области, touch-таргеты.
+LOW_TG_WINDOW = {"width": 1280, "height": 400, "stable_offset": 120}
+
 
 class _Handler(SimpleHTTPRequestHandler):
     def translate_path(self, path):  # noqa: N802
@@ -1439,6 +1448,39 @@ def _vertical_failures(probe: dict, label: str) -> list:
     return out
 
 
+def _low_tg_failures(probe: dict, label: str) -> list:
+    """F10 (ADR-1025-24 D5 / §71): низкое окно TG Desktop.
+
+    Инварианты: нет горизонтального скролла; sidebar/header реально в границах
+    вьюпорта (`boundingClientRect`); нижние панели (если есть — mobile) внутри
+    короткой `stableHeight`; touch-таргеты ≥44px."""
+    out = []
+    if not probe:
+        return ["%s low-tg: probe пуст" % label]
+    if probe.get("overflow"):
+        out.append("%s low-tg: horizontal overflow %d > %d"
+                   % (label, probe.get("scrollWidth"), probe.get("innerWidth")))
+    sb = probe.get("sidebar")
+    if sb and sb.get("visible"):
+        if sb.get("x", 0) < -1:
+            out.append("%s low-tg: sidebar выходит влево (x=%d)"
+                       % (label, sb.get("x")))
+        if sb.get("x", 0) + sb.get("w", 0) > probe.get("innerWidth", 0) + 1:
+            out.append("%s low-tg: sidebar шире вьюпорта (%d > %d)"
+                       % (label, sb.get("x", 0) + sb.get("w", 0),
+                          probe.get("innerWidth")))
+    nav = probe.get("bottomNav")
+    if nav and nav.get("visible") and nav.get("bottom", 0) > probe.get(
+            "stableHeight", probe.get("innerHeight", 0)) + 1:
+        out.append("%s low-tg: bottom-nav ниже stableHeight (bottom=%d > %d)"
+                   % (label, nav.get("bottom"), probe.get("stableHeight")))
+    mt = probe.get("minTouch")
+    if mt is not None and mt < 44:
+        out.append("%s low-tg: touch-таргет %dpx < 44" % (label, mt))
+    out.extend(_vertical_failures(probe, "%s low-tg" % label))
+    return out
+
+
 def _scope_failures(probe: dict, label: str, width: int) -> list:
     """F3 (§5/§70): селектор области — постоянно доступный элемент.
 
@@ -2568,6 +2610,76 @@ def main() -> int:
                       bool(out["viewports"][vp_key]["routes"]["#/"]["bottomNav"]),
                       out["viewports"][vp_key]["routes"]["#/"]["bottomNavCount"]))
             ctx.close()
+        # F10 (ADR-1025-24 D5 / §71): НИЗКОЕ окно Telegram Desktop —
+        # аддитивный проход (базовые 10 размеров × 5 режимов выше не меняются).
+        out["low_tg_desktop"] = {"routes": {}}
+        try:
+            lw = LOW_TG_WINDOW["width"]
+            lh = LOW_TG_WINDOW["height"]
+            off = LOW_TG_WINDOW["stable_offset"]
+            lctx = browser.new_context(viewport={"width": lw, "height": lh})
+            lctx.add_init_script(TMA_STUB)
+            lctx.route("**/api/**", _route)
+            lpage = lctx.new_page()
+            l_errors = []
+            lpage.on("console", lambda m, b=l_errors: (
+                b.append("%s: %s" % (m.type, m.text[:200]))
+                if m.type == "error" else None))
+            lpage.on("pageerror", lambda e, b=l_errors: b.append(
+                "pageerror: " + str(e)[:300]))
+            lpage.goto(url, wait_until="load")
+            try:
+                lpage.wait_for_selector(".app-shell", timeout=8000)
+            except Exception:  # noqa: BLE001
+                pass
+            lpage.wait_for_timeout(600)
+            lpage.set_viewport_size({"width": lw, "height": lh})
+            lpage.wait_for_timeout(300)
+            # Короткая видимая область (как окно TG Desktop с системным баром):
+            # задаём ровно те CSS-переменные, что сообщил бы клиент.
+            lpage.evaluate(
+                "(off) => {"
+                "  var h = window.innerHeight || 0;"
+                "  var usable = Math.max(0, h - (off | 0));"
+                "  var de = document.documentElement;"
+                "  de.style.setProperty('--tg-viewport-stable-height',"
+                "    usable + 'px');"
+                "  de.style.setProperty('--tg-content-safe-area-inset-bottom',"
+                "    (off | 0) + 'px');"
+                "  de.style.setProperty('--tg-viewport-bottom-offset',"
+                "    (off | 0) + 'px');"
+                "  de.style.setProperty('--app-usable-height', usable + 'px');"
+                "}", off)
+            lpage.wait_for_timeout(200)
+            low_key = "%dx%d" % (lw, lh)
+            low_fail = []
+            for route in ROUTES:
+                lpage.evaluate("(r) => { window.location.hash = r; }", route)
+                lpage.wait_for_timeout(300)
+                lprobe = lpage.evaluate(PROBE_JS)
+                out["low_tg_desktop"]["routes"][route] = {
+                    "innerWidth": lprobe["innerWidth"],
+                    "innerHeight": lprobe["innerHeight"],
+                    "stableHeight": lprobe["stableHeight"],
+                    "scrollWidth": lprobe["scrollWidth"],
+                    "overflow": lprobe["overflow"],
+                    "sidebar": (lprobe.get("sidebar") or {}).get("w"),
+                    "bottomNav": lprobe.get("bottomNav"),
+                    "minTouch": lprobe.get("minTouch"),
+                }
+                low_fail.extend(_low_tg_failures(
+                    lprobe, "%s low-tg %s" % (low_key, route)))
+            out["low_tg_desktop"]["failures"] = low_fail
+            failures.extend(low_fail)
+            _snap(lpage, "%s_low_tg_root" % low_key)
+            for msg in l_errors:
+                failures.append("%s low-tg console/pageerror: %s"
+                                % (low_key, msg))
+            lctx.close()
+            print("[matrix] low-tg %s: failures=%d routes=%d"
+                  % (low_key, len(low_fail), len(ROUTES)))
+        except Exception as exc:  # noqa: BLE001
+            failures.append("low-tg pass: %s" % str(exc)[:200])
         browser.close()
 
     httpd.shutdown()

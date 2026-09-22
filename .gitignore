@@ -100,6 +100,9 @@ tools/_ui_audit_raw.json
 # В репо остаётся только tools/ui_round1025_matrix.py.
 tools/_ui_round1025_shots/
 tools/_ui_round1025_raw.json
+# F10 round1025 (T-3126): скриншоты сводной приёмки Эпика 1 (8 PNG, ~1 МБ) —
+# локальные артефакты прогонов, в git НЕ коммитим.
+plans/reports/round1025_f10_shots/
 
 # ── Крупные архивы исходников/бэкапов (round1025 hotfix, T-2460) ──
 # bot.zip / admin_bot.zip / adminbot.zip (~0.9 ГБ суммарно) — локальные
