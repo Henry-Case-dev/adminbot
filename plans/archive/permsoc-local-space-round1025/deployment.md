@@ -17,11 +17,11 @@
 | Коммит кода/тестов | `6bf00e7` — `feat(round1025): F7 — локальное пространство PERMsoc (только чат, guard против записи в глобал), 6 блоков, OFF блока сохраняет дочерние, серверные per-chat гейты (реакции/расписания), подгруппы + ID-списки, APP_VERSION 2.58.15` (**33 файла, +1563/−133**; backend `services/{permsoc,feature_gates,goodmorning_scheduler}.py`, `handlers/{alan,alan_greeting,common,slavik,vasya,war_alert}.py`, `web/api/{gates,routes}.py`, `config/settings.py`, `README.md`; frontend `web/app.js`, `web/index.html`; `tools/ui_round1025_matrix.py`; новые F7-тесты + правки маркеров) |
 | Коммит планов | `908f471` — `docs(plans): round1025 F7 — Merge §66 + архивация + Scanner-аудит` (**15 файлов, +925/−31**; §66, MEMORY, backlog, workflow_state, round1025-architecture, reports, архив фичи, `plans/features/…/tasks.md` → `plans/archive/…/tasks.md`) |
 | Коммит деплой-дока | `docs(deploy): round1025 F7 — прод-деплой VERIFIED (APP_VERSION 2.58.15) + deployment.md` (этот файл; последний коммит `master`) |
-| Push | `origin/master`: `551847d..908f471` (exit 0, без force); `git ls-remote` → `refs/heads/master` = `908f471` |
+| Push | `origin/master`: `551847d..908f471` (код+планы, exit 0, без force) и `908f471..e2b452c` (деплой-док); `git ls-remote` → `refs/heads/master` = `e2b452c` |
 | Прод HEAD (было → стало) | `cddacda` → **`908f471`** (`git pull --ff-only origin master`, **Fast-forward** `cddacda..908f471`; reflog `HEAD@{0}: pull --ff-only origin master: Fast-forward`) |
 | `APP_VERSION` (прод) | 2.58.14 → **2.58.15** (`config/settings.py:1748`) |
 | Точка отката | аннотированный тег `pre-round1025-f7` (объект `8c2e608`) → **`551847d`** (`^{commit}` = `551847db4b6462fe998b64aa466503373740697a`); прилетел на прод при `git fetch --tags`, сохранён |
-| Бэкапы (R18) | `var/backups/**` (root-owned, не тронут); теги `pre-round1025*` (19 штук на WC, 19 на проде, включая `pre-round1025-f7`); `stash@{0}` — **не удалялась** (на проде `git stash list` = 1 запись, pre-existing); `deploy_commands.txt` / `plans/current_task.md` не изменялись; force-push не применялся |
+| Бэкапы (R18) | `var/backups/**` (root-owned) и `./backups` — **не тронуты** (ротация не выполнялась); тег `pre-round1025-f7` + ранее существовавшие теги (прод: **9** тегов всего, WC: **19**) — **не удалялись**; `stash@{0}` — **не удалялась** (прод: `pre-10.15-deploy info_text.md drift`, WC: `wip(f1)…`, обе pre-existing); `deploy_commands.txt` / `plans/current_task.md` не изменялись; force-push не применялся |
 
 ## Ход релиза
 
