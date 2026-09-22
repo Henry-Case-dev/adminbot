@@ -85,8 +85,10 @@
     { id: 'mod_summary', icon: 'description', label: 'Саммаризация',
       type: 'config', menu: 'modules',
       sources: [
-        { category: 'flags', groups: ['flags_module_summary', 'flags_summary'] },
-        { category: 'limits', groups: ['limits_summary'] },
+        { category: 'flags', groups: ['flags_module_summary', 'flags_summary',
+            'flags_summary_filter'] },
+        { category: 'limits', groups: ['limits_summary',
+            'limits_summary_filter'] },
         { category: 'reactions', groups: ['reactions_summary'] },
       ] },
     { id: 'mod_direct', icon: 'smart_toy', label: 'Прямые ответы',
@@ -2097,7 +2099,7 @@
         var seen = {};
         function add(g) { if (g && g.id) seen[g.id] = true; }
         // 1) группы, достижимые в применимых вкладках workspace (m.tabs учтён).
-        ['settings', 'models', 'limits'].forEach(function (wt) {
+        ['settings', 'models', 'limits', 'prep'].forEach(function (wt) {
           if (!_workspaceTabApplicable(m, wt)) return;
           self._workspaceGroupsFor(m, wt).forEach(add);
         });
@@ -2315,6 +2317,7 @@
           }
           if (wt === 'models') return this._workspaceGroupsFor(m, 'models');
           if (wt === 'limits') return this._workspaceGroupsFor(m, 'limits');
+          if (wt === 'prep') return this._workspaceGroupsFor(m, 'prep');
           if (wt === 'settings') return this._workspaceGroupsFor(m, 'settings');
           return [];
         }
@@ -5870,8 +5873,13 @@
         return grp.items || [];
       },
       // Раскладка вкладки модуля по workspace-вкладкам (settings/models/limits).
+      // S1 round1026 (ADR-1026-1 D6): группы префильтра Саммари — на вкладке
+      // «Подготовка сообщений» (§87: Модули → Сводки чатов → Подготовка
+      // сообщений). Витрина JS — Δ каталога = 0.
       workspaceGroupTab: function (m, grp) {
         if (!grp) return 'settings';
+        if (grp.id === 'flags_summary_filter'
+            || grp.id === 'limits_summary_filter') return 'prep';
         if (grp.category === 'models') return 'models';
         if (grp.category === 'limits') return 'limits';
         return 'settings';

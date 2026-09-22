@@ -45,6 +45,7 @@ from services.prompt_style_blocks import (
     resolve_prompt,
 )
 from services.summary_cleanup import cleanup_llm_text
+from services.summary_filter import FilterParams, filter_window
 from services.summary_memory import _build_batch_text, fire_and_forget
 from services.summary_prompts import (
     PREV_SUMMARY_NARRATOR_R1023,
@@ -76,6 +77,7 @@ from services.telegram_send import (
 from services.token_counter import (
     count_tokens,
     resolve_chat_limit,
+    resolve_context_tokens,
     safe_budget,
     truncate_to_tokens,
 )
@@ -88,6 +90,12 @@ except ImportError:  # pragma: no cover
     _SQLITE_ERRORS = (sqlite3.Error,)
 
 logger = logging.getLogger(__name__)
+
+# Токенный потолок контекста Саммари при незаданном значении (F4/64.7).
+# Согласован с `resolve_chat_limit(..., 30000, ...)` в `_run` и с
+# `resolve_context_tokens` (L-R1026S1-1): `0`/`None` → этот дефолт, `-1` → потолок
+# «безлимита». Единая точка, чтобы нарезка/бюджет §93 не вырождались.
+_SUMMARY_CONTEXT_TOKEN_DEFAULT = 30000
 
 # Раунд 10.23 (F6, ADR-1023-6): прежний жёсткий кап (историческое имя —
 # используется тестами 10.23 как справка). Раунд 10.24 (F12/ADR-1024-4 D2):
@@ -283,6 +291,9 @@ class SummaryGenerator:
         self.aliases = aliases
         self._pool = (concurrency_pool if concurrency_pool is not None
                       else get_smartmodule_concurrency_pool())
+        # S1 (ADR-1026-1 D6/T-3148): аддитивные метрики префильтра (S8 читает
+        # при эмиссии узла kind=algorithm; UI/ExecutionGraph здесь не трогаем).
+        self._filter_metrics: dict = {}
 
     async def generate_and_send(self, chat_id: int, manual: bool = False,
                                 focus: str | None = None,
@@ -324,7 +335,20 @@ class SummaryGenerator:
                     chat_id, manual,
                 )
                 return
-            xml_context = self.xml.build(rows, self.aliases, trigger_message_id)
+            # S1 (ADR-1026-1 D6): префильтр входа L1 — строго между чтением
+            # окна и сборкой XML. Фильтруется ТОЛЬКО XML-история; все прочие
+            # потребители `rows` (RAG/память/graph/memorize) остаются на
+            # исходных строках. 0 LLM-вызовов; OFF → байт-в-байт прежний путь.
+            xml_rows = rows
+            # T-3160 (M-1, spec §6.1/SC-05): мастер-тумблер резолвится per-chat
+            # (чат A ≠ чат B), симметрично flags.summary_filter_reply_context_enabled.
+            if bool(await _chat_limit(
+                    chat_id, "flags.summary_filter_enabled",
+                    hot.get("flags.summary_filter_enabled",
+                            settings.SUMMARY_FILTER_ENABLED))):
+                xml_rows = await self._apply_filter(
+                    chat_id, rows, correlation_id, trigger_message_id)
+            xml_context = self.xml.build(xml_rows, self.aliases, trigger_message_id)
             keywords = self._extract_keywords(rows)
             l2_rows = await self.memory.search_long_term(
                 chat_id, keywords, await _chat_limit(
@@ -368,7 +392,8 @@ class SummaryGenerator:
             kind, limit = resolve_chat_limit(
                 await _chat_limit(chat_id, "limits.summary_max_context_tokens",
                     hot.get("limits.summary_max_context_tokens",
-                            settings.SUMMARY_MAX_CONTEXT_TOKENS)), 30000,
+                            settings.SUMMARY_MAX_CONTEXT_TOKENS)),
+                _SUMMARY_CONTEXT_TOKEN_DEFAULT,
                 "SUMMARY_MAX_CONTEXT_CHARS",
                 await _chat_limit(chat_id, "limits.summary_max_context_chars",
                     hot.get("limits.summary_max_context_chars",
@@ -449,6 +474,99 @@ class SummaryGenerator:
         except Exception:
             logger.exception("summary: unexpected failure | chat_id=%s", chat_id)
             await self._send_ux(chat_id, _UX_GENERIC_FAILED)
+
+    async def _apply_filter(self, chat_id: int, rows: list,
+                            correlation_id: str | None,
+                            trigger_message_id: int | None) -> list:
+        """S1 (ADR-1026-1 D4/D6): алгоритмический префильтр входа L1.
+
+        Возвращает строки для XML-истории (``kept``). Fail-open: любая ошибка
+        → WARNING ``event=FILTER_ERROR`` и НЕфильтрованное окно (Саммари
+        работает, тихой потери нет). 0 LLM-вызовов. Метрики §109 кладутся в
+        аддитивную структуру ``self._filter_metrics`` (S8); в логи идут только
+        числа/коды/``run_id`` (R17/R18).
+        """
+        try:
+            params = FilterParams(
+                min_weight=await _chat_limit(
+                    chat_id, "limits.summary_filter_min_weight",
+                    hot.get("limits.summary_filter_min_weight",
+                            settings.SUMMARY_FILTER_MIN_WEIGHT)),
+                min_words_for_bonus=await _chat_limit(
+                    chat_id, "limits.summary_filter_min_words_for_bonus",
+                    hot.get("limits.summary_filter_min_words_for_bonus",
+                            settings.SUMMARY_FILTER_MIN_WORDS_FOR_BONUS)),
+                burst_window_seconds=await _chat_limit(
+                    chat_id, "limits.summary_filter_burst_window_seconds",
+                    hot.get("limits.summary_filter_burst_window_seconds",
+                            settings.SUMMARY_FILTER_BURST_WINDOW_SECONDS)),
+                min_burst_density=await _chat_limit(
+                    chat_id, "limits.summary_filter_min_burst_density",
+                    hot.get("limits.summary_filter_min_burst_density",
+                            settings.SUMMARY_FILTER_MIN_BURST_DENSITY)),
+                reply_context_enabled=bool(await _chat_limit(
+                    chat_id, "flags.summary_filter_reply_context_enabled",
+                    hot.get("flags.summary_filter_reply_context_enabled",
+                            settings.SUMMARY_FILTER_REPLY_CONTEXT_ENABLED))),
+            )
+            # L-R1026S1-1: sentinel-нормализация потолка токенов перед бюджетом
+            # §93 (`0`/`None` → дефолт, `-1` → потолок «безлимита»), как в
+            # resolve_chat_limit/_run; иначе нарезка/бюджет вырождаются при
+            # per-chat override.
+            token_limit = resolve_context_tokens(
+                await _chat_limit(
+                    chat_id, "limits.summary_max_context_tokens",
+                    hot.get("limits.summary_max_context_tokens",
+                            settings.SUMMARY_MAX_CONTEXT_TOKENS)),
+                _SUMMARY_CONTEXT_TOKEN_DEFAULT)
+            char_limit = await _chat_limit(
+                chat_id, "limits.summary_max_context_chars",
+                hot.get("limits.summary_max_context_chars",
+                        settings.SUMMARY_MAX_CONTEXT_CHARS))
+            logger.info(
+                "summary filter: event=FILTER_START | run_id=%s chat_id=%s "
+                "source_count=%d", correlation_id, chat_id, len(rows))
+            result = filter_window(
+                rows, params, bot_id=getattr(self.bot, "id", None),
+                trigger_message_id=trigger_message_id,
+                token_limit=token_limit, char_limit=char_limit)
+            if result.status == "error":
+                logger.warning(
+                    "summary filter: event=FILTER_ERROR | run_id=%s chat_id=%s "
+                    "source_count=%d duration_ms=%.1f — fail-open (unfiltered)",
+                    correlation_id, chat_id, result.source_count,
+                    result.duration_ms)
+            else:
+                logger.info(
+                    "summary filter: event=FILTER_COMPLETE | run_id=%s chat_id=%s "
+                    "source_count=%d saved_count=%d restored_count=%d "
+                    "drop_percent=%.1f status=%s duration_ms=%.1f",
+                    correlation_id, chat_id, result.source_count,
+                    result.saved_count, result.restored_count,
+                    result.drop_percent, result.status, result.duration_ms)
+                if result.status == "empty_fallback":
+                    logger.warning(
+                        "summary filter: event=FILTER_EMPTY_FALLBACK | "
+                        "run_id=%s chat_id=%s source_count=%d",
+                        correlation_id, chat_id, result.source_count)
+            # Аддитивные метрики для §111/§112 (S8) — без узлов ExecutionGraph.
+            self._filter_metrics[chat_id] = {
+                "run_id": correlation_id,
+                "source_count": result.source_count,
+                "saved_count": result.saved_count,
+                "restored_count": result.restored_count,
+                "drop_percent": result.drop_percent,
+                "duration_ms": result.duration_ms,
+                "status": result.status,
+                "budget": result.budget,
+            }
+            return result.kept
+        except Exception:
+            logger.warning(
+                "summary filter: event=FILTER_ERROR | run_id=%s chat_id=%s — "
+                "fail-open (unfiltered)", correlation_id, chat_id,
+                exc_info=True)
+            return rows
 
     async def _llm_generate(self, payload: list[dict], chat_id: int, *,
                             correlation_id: str | None = None,

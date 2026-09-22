@@ -568,8 +568,8 @@ class TestCatalog:
     def test_counts(self):
         import dataclasses
         from config.settings import Settings
-        assert len(pc.REGISTRY) == 459
-        assert len(pc.GROUPS) == 98
-        assert len(pc._TAB_BY_GROUP) == 96
+        assert len(pc.REGISTRY) == 467
+        assert len(pc.GROUPS) == 100
+        assert len(pc._TAB_BY_GROUP) == 98
         assert len(pc.TAB_RULES) == 21
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 418
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 426

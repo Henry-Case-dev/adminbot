@@ -931,6 +931,23 @@ class Settings:
     SUMMARY_RAG_L2_LIMIT: int = _env_int("SUMMARY_RAG_L2_LIMIT", 10)
     SUMMARY_RAG_L3_LIMIT: int = _env_int("SUMMARY_RAG_L3_LIMIT", 10)
     SUMMARY_COMPRESS_BATCH: int = _env_int("SUMMARY_COMPRESS_BATCH", 100)
+    # ── Эпик 2 / S1 round1026 (ADR-1026-1 D1): алгоритмическая предфильтрация
+    # Саммари (§80/§87–§89). 0 LLM-вызовов, Δ DDL=0; дефолт главного
+    # тумблера — ВКЛЮЧЁН (§107). Правится только вход L1 (XML-история).
+    SUMMARY_FILTER_ENABLED: bool = _env_bool("SUMMARY_FILTER_ENABLED", True)
+    SUMMARY_FILTER_REPLY_CONTEXT_ENABLED: bool = _env_bool(
+        "SUMMARY_FILTER_REPLY_CONTEXT_ENABLED", True)
+    SUMMARY_FILTER_MIN_WEIGHT: int = _env_int("SUMMARY_FILTER_MIN_WEIGHT", 1)
+    SUMMARY_FILTER_MIN_WORDS_FOR_BONUS: int = _env_int(
+        "SUMMARY_FILTER_MIN_WORDS_FOR_BONUS", 5)
+    SUMMARY_FILTER_BURST_WINDOW_SECONDS: int = _env_int(
+        "SUMMARY_FILTER_BURST_WINDOW_SECONDS", 120)
+    SUMMARY_FILTER_MIN_BURST_DENSITY: int = _env_int(
+        "SUMMARY_FILTER_MIN_BURST_DENSITY", 4)
+    SUMMARY_FILTER_CONTEXT_NEIGHBORS: int = _env_int(
+        "SUMMARY_FILTER_CONTEXT_NEIGHBORS", 1)
+    SUMMARY_FILTER_CONTEXT_MAX_MESSAGES: int = _env_int(
+        "SUMMARY_FILTER_CONTEXT_MAX_MESSAGES", 50)
 
     # ── GraphRAG (Epic 26) ─────────────────────────────────────────
     # False = extraction-вызов при архивации не делается (ровно старое поведение)
@@ -1753,7 +1770,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.58.17"   # F11 (10.25, ADR-1025-23): композиция витрины «Статус» — 12-кол. сетка §12, Hero/метрики §13/§14, виджет сна §17, расширение графа §16, «Новые факты»/«Бюджеты» §19, счётчики §20; kill-switch `UI_STATUS_GRID_V2` (Δ DDL=0, Δ каталога=0). Ранее F9 (10.25, ADR-1025-22): секрет-поле — маска как display-индикатор (не значение input, §50/R17), «Заменить»/«Удалить» для глобальных секретов (reuse keys/own + F0 empty-write), единый Vue-компонент secret-field (28 секретов), визуальный добор Sticky SaveBar (клавиатура/последнее поле/одно уведомление) (Δ DDL=0, Δ каталога=0)
+APP_VERSION = "2.58.18"   # S1 (10.26, ADR-1026-1 D1/D7): алгоритмический префильтр Саммари — новый модуль services/summary_filter.py (§87–§89, §93), врезка в SummaryGenerator._run (вход L1, 0 LLM-вызовов, публикация не тронута), каталог summary_filter_* (+8 записей, +2 группы; вкладка mod_summary), UI «Подготовка сообщений»; Δ DDL=0. Ранее F11 (10.25, ADR-1025-23): композиция витрины «Статус» — 12-кол. сетка §12, Hero/метрики §13/§14, виджет сна §17, расширение графа §16, «Новые факты»/«Бюджеты» §19, счётчики §20; kill-switch `UI_STATUS_GRID_V2` (Δ DDL=0, Δ каталога=0)
 
 
 def get_ytdlp_pot_provider() -> str:

@@ -361,9 +361,13 @@
               </div>
 
               <!-- §85: стадии Саммари — честный placeholder Эпика 2 (без
-                   выдуманных этапов/цифр; backend не создаётся). -->
+                   выдуманных этапов/цифр; backend не создаётся).
+                   S1 round1026: вкладка «Подготовка сообщений» (prep) теперь
+                   несёт РЕАЛЬНЫЕ параметры префильтра (groups
+                   flags_summary_filter/limits_summary_filter) и рендерится
+                   generic-сеткой; placeholder остаётся для clusterizer/writer. -->
               <div v-if="workspaceModule
-                        && (workspaceTab === 'prep' || workspaceTab === 'clusterizer'
+                        && (workspaceTab === 'clusterizer'
                             || workspaceTab === 'writer')"
                    class="col-span-full card p-4" :data-workspace-stage="workspaceTab">
                 <div class="text-sm font-bold mb-1">{{ workspaceTabLabel(workspaceTab) }}</div>

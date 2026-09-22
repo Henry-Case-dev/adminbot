@@ -90,7 +90,7 @@ class TestCompleteness:
         #   (flags.budgets_enabled, default True) = 418.
         #   ANTICLICHE_FIRST_RUN_DELAY_MINUTES — ClassVar (env-only, в
         #   dataclass.fields не входит).
-        assert len(fields) == 418
+        assert len(fields) == 426
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -306,7 +306,7 @@ class TestGroups8424:
         # клише, вкладка prompts) → GROUPS 97.
         # 10.24 (F21/ADR-1024-22 D8): +1 — flags_module_budgets (master-группа
         # бюджетов, вкладка mod_budgets) → GROUPS 98.
-        assert len(GROUPS) == 98
+        assert len(GROUPS) == 100
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -389,7 +389,7 @@ class TestGroups8424:
         # content без изменений (phantom content.dynamic_cliche_list удалён —
         # F4 хранит клише в PG-таблице, ключ был бы «мёртвой ручкой»).
         assert counts == {"prompts": 21, "models": 56, "keys": 20,
-                          "limits": 192, "flags": 67, "reactions": 39,
+                          "limits": 198, "flags": 69, "reactions": 39,
                           "content": 5, "memory": 34}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

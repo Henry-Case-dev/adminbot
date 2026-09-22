@@ -208,15 +208,15 @@ class TestAuroraResize:
 class TestVersionAndInvariants:
     def test_app_version_bumped(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.17", m and m.group(1)
+        assert m and m.group(1) == "2.58.18", m and m.group(1)
 
     def test_catalog_invariants(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 459
-        assert len(pc.GROUPS) == 98
-        assert len(pc._TAB_BY_GROUP) == 96
+        assert len(pc.REGISTRY) == 467
+        assert len(pc.GROUPS) == 100
+        assert len(pc._TAB_BY_GROUP) == 98
         assert len(pc.TAB_RULES) == 21
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 418
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 426
 
     def test_csp_no_external(self):
         assert not re.search(r'src="https?://', INDEX)

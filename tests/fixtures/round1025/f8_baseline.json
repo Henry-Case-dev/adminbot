@@ -8,11 +8,11 @@
     "plans/reports/round1025_f8_config_diff.md"
   ],
   "counts": {
-    "GROUPS": 98,
-    "REGISTRY": 459,
-    "TAB_BY_GROUP": 96,
+    "GROUPS": 100,
+    "REGISTRY": 467,
+    "TAB_BY_GROUP": 98,
     "TAB_RULES": 21,
-    "delta": 48,
+    "delta": 56,
     "inventory": 411
   },
   "round": "1025-f8",
@@ -54,8 +54,9 @@
     "config_snapshot_diff"
   ],
   "sha256": {
-    "services/param_catalog.py": "adf9861d83ec1de32eb372a2e110fb9899cd500a454de0636dd54565d210ca61",
+    "services/param_catalog.py": "aed3114da7d97dd13b4ce4a9989c55e5d2ff2350cbb5c953314967af1f211ccc",
     "services/pg_db.py": "12a881915d8fb691530695b13bdbb2ee47deb14156758d44189ea010bfa2e768",
     "web/api/routes.py": "33fb6b1c817d0ebb533dc9943de53f00321421aa4753826ab08394cedd64d098"
-  }
+  },
+  "superseded_by": "round1026 S1 summary-filter (ADR-1026-1 D1): санкционированная Δ каталога +8/+2; counts и sha256 param_catalog.py обновлены, app_version оставлен историческим (2.58.15)."
 }

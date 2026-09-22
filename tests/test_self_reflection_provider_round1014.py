@@ -72,14 +72,14 @@ class TestCatalogAndSettingsF8:
         # +3 GROUPS/mapped → 446/95/93/20/416/421.
         # 10.24 (F21/ADR-1024-22 D8): +1 REGISTRY/Settings/categorized,
         # +1 GROUPS/mapped → 459/98/96/20/418/434.
-        assert len(pc.REGISTRY) == 459
-        assert len(pc.GROUPS) == 98
-        assert len(pc._TAB_BY_GROUP) == 96
+        assert len(pc.REGISTRY) == 467
+        assert len(pc.GROUPS) == 100
+        assert len(pc._TAB_BY_GROUP) == 98
         assert len(pc.TAB_RULES) == 21
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 418
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 426
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 434
+        assert len(categorized) == 442
 
 
 class TestWorkerRoleF8:

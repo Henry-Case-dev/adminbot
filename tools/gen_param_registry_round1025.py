@@ -311,7 +311,7 @@ def render_screen_map(rows: list[dict] | None = None) -> str:
         "> Сгенерировано `tools/gen_param_registry_round1025.py` (read-only). "
         "Провенанс — `param-registry-round1025.meta.md`.",
         "> Инвариант «ни один параметр не остался без нового места»: "
-        "`set(param_key) ⊇ REGISTRY(459)`, «без места» = 0. "
+        f"`set(param_key) ⊇ REGISTRY({len(pc.REGISTRY)})`, «без места» = 0. "
         "Неизвестные ключи (нет в каталоге) → секция `registry-only` реестра.",
         "> `ui_visibility ∈ {visible,hidden,api-only}`; **api-only ≠ сохранено** "
         "(REQ-F8-08). Секреты без открытого значения (R17).",
@@ -327,7 +327,8 @@ def render_screen_map(rows: list[dict] | None = None) -> str:
         "",
         "## registry-only (неизвестные каталогу параметры)",
         "",
-        "Нет: множество `internal_key` каталога == множество `REGISTRY` == 459; "
+        f"Нет: множество `internal_key` каталога == множество `REGISTRY` == "
+        f"{len(pc.REGISTRY)}; "
         "все ключи получили новое место. Расхождений нет.",
         "",
     ]
@@ -357,7 +358,8 @@ def render_meta(rows: list[dict]) -> str:
         f"TAB_RULES **{len(pc.TAB_RULES)}**.",
         f"- **Реестр:** {len(rows)} строк == REGISTRY.",
         f"- **inventory.tsv (10.14):** {inv_count} baseline-ключей.",
-        f"- **Дельта 411 → 459 = {len(delta)}** новых ключей (`status=new`).",
+        f"- **Дельта 411 → {len(rows)} = {len(delta)}** новых ключей "
+        "(`status=new`).",
         "- **Команда генерации:** "
         "`python tools/gen_param_registry_round1025.py`",
         "- **Проверка (маркер):** "
@@ -380,8 +382,8 @@ def render_meta(rows: list[dict]) -> str:
         "- `ui_visibility=api-only` — ключ существует (env/каталог), но UI-места "
         "нет → **не** считается сохранённым в UI.",
         "",
-        "## Дельта 411 → 459 = %d (ключи, отсутствовавшие в inventory.tsv)"
-        % len(delta),
+        "## Дельта 411 → %d = %d (ключи, отсутствовавшие в inventory.tsv)"
+        % (len(rows), len(delta)),
         "",
     ]
     lines += [f"- `{k}`" for k in delta]

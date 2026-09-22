@@ -155,16 +155,17 @@ class TestTabMappingAudit:
         # 10.24 (F5/ADR-1024-9 D3): Δ REGISTRY/GROUPS/_TAB_BY_GROUP = 0
         # (группа flags_module_images лишь меняет вкладку-владельца) →
         # 459/98/96; TAB_RULES 20→21 (+mod_images).
-        assert len(pc._TAB_BY_GROUP) == 96
-        assert len(GROUPS) == 98
-        assert len(pc.REGISTRY) == 459
+        assert len(pc._TAB_BY_GROUP) == 98
+        assert len(GROUPS) == 100
+        assert len(pc.REGISTRY) == 467
 
 
 class TestModuleTabs:
     def test_mod_summary_composition(self):
+        # round1026 S1 (ADR-1026-1 D1): +flags_summary_filter / +limits_summary_filter.
         assert tab_group_ids(TAB_MOD_SUMMARY) == {
-            "flags_module_summary", "flags_summary", "limits_summary",
-            "reactions_summary"}
+            "flags_module_summary", "flags_summary", "flags_summary_filter",
+            "limits_summary", "limits_summary_filter", "reactions_summary"}
 
     def test_mod_direct_composition(self):
         assert tab_group_ids(TAB_MOD_DIRECT) == {
