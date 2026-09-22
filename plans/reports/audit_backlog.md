@@ -1192,3 +1192,23 @@
 - [ ] **L-H8S-2** [low, new, test-coverage] -- `tools/ui_round1025_matrix.py`: `shellBg` читает root-токен (mobile `.78` не ассертится, только computed панелей); `_hotfix8_failures` `glass=None` = pass; `test_webapp_hotfix6_round1025.py:73` -- drawer-подстрока «где угодно». Действие: позитивный ассерт mobile `.78` + `data-glass="shell"` у существующей панели.
 - [ ] **L-H8S-3** [low, new, a11y-margin] -- AA-отчёт `round1025_hotfix8_contrast.md` считает worst-case по одному blob; перекрытие blob/`body::after` (opacity .9) теоретически светлее. Запас 7.33:1 при пороге 4.5:1. Действие: пере-проверка AA в live-гейте **T-2776**.
 - Info: I-H8S-1 (APP_VERSION 2.58.10 → bump 2.58.11 в Block G/T-2786); I-H8S-2 (F2-чекер ослаблен намеренно, static-инвариант сохранён `test_f2_checker_rejects_static_background`); I-H8S-3 (`header border-top:0` сбрасывает цвет рамки в currentColor, width 0 -- без действий).
+
+## Round 10.25 hotfix9 `hotfix9-shell-liquidglass-darkaurora-round1025` (22.09.2026, Step 6 @Scanner, UPD3) — NOT READY (High)
+
+- **Diff:** дерево относительно HEAD `b374c0f` (не закоммичено). Отчёт: `plans/reports/round1025_hotfix9_scanner_audit.md`.
+- **Итог: Critical 0 / High 1 / Medium 0 / Low 3 / Info 2.**
+- [ ] **[H-H9S-1] [high, new, structure, blocking]** `web/index.html:1919–1924` — пропущен `</div>` закрытия `.modal-body` модульной модалки: `footer.modal-actions` внутри `.modal-body`, `.modal-backdrop` неявно закрывается на `</template>` (`:1930`). SaveBar (`position:static`) скроллится с полями (в HEAD была pinned). Проверка: HTML-парсер (ancestor-chain + IMPLICIT-CLOSE) vs HEAD (clean). Фикс: вернуть `</div>` после `:1919`; покрыть модульную модалку в `H9_MODAL_PROBE_JS`.
+- [ ] **[L-H9S-1] [low, new, rollback]** `web/static/aurora-flow.js:217–221` — `stop()` не убирает `#aurora-flow-canvas` (застывший кадр при `UI_AURORA_FLOW_V2=OFF`; при OFF+OFF перекрывает `bg-wash-legacy`). Фикс: hide/remove canvas в `stop()`.
+- [ ] **[L-H9S-2] [low, new, drift]** `UI_SHELL_V3` без потребителя: `shellV3` (`web/app.js:2450`) не читается шаблоном; флаг всё ещё в `config/settings.py:742`/`/api/me`/`.env.example`. Фикс: deprecated/alias на `UI_SHELL_GRAPHITE_V3`.
+- [ ] **[L-H9S-3] [low, new, interaction]** `.status-block` двойная обработка стекла: `data-glass="a"` legacy-lens + цель `glass.js`. Фикс: снять `data-glass` у library-managed целей.
+- Info: I-H9S-1 (текст MIT/Unlicense не поставлен — паттерн pre-existing); I-H9S-2 (`glass_prototype_probe.py` — локальный `127.0.0.1`, dev-only).
+- **Инварианты OK:** Δ DDL=0; Δ каталога=0 (459/98/96/21/418); `APP_VERSION` 2.58.12; `--shell-texture`=0; CSP same-origin/без CDN+inline+eval; SHA-256 vendored 3/3; нет root package.json; R17/R18; `git diff --check`=0; pytest hotfix9 17/0 + группа 183/0.
+
+## Round 10.25 hotfix9 `hotfix9-shell-liquidglass-darkaurora-round1025` — ПОВТОРНЫЙ аудит (22.09.2026, Step 6 @Scanner, UPD3): H-H9S-1/M-H9R-1/L-H9S-1..3 CLOSED → SCANNED
+- [x] **[H-H9S-1] RESOLVED** — `web/index.html:1920` восстановлен `</div>`; парсер: `footer.modal-actions` сиблинг `.modal-body` (0 вложенных, стек пуст); парсер-тест red-on-regression; матрица модульной модалки `modalBody.bottom <= modalActions.y+1` + `stickyInActions=true`.
+- [x] **[M-H9R-1] RESOLVED** — `aurora-flow.js:101–122/153–167`: свежий canvas + реальный 2D-контекст при `webglcontextlost`; матрица `mode!=webgl`, `sampleCount>0`, `brightness>=3`.
+- [x] **[L-H9S-1] RESOLVED** — `stop()` → `detachCanvas()` (removeChild + renderer.destroy + сброс mode).
+- [x] **[L-H9S-2] RESOLVED** — `web/app.js:2462–2468` `shellGraphiteV3 && UI_SHELL_V3` (legacy-алиас, задокументирован).
+- [x] **[L-H9S-3] RESOLVED** — `.status-block` без `data-glass="a"` (нет двойной обработки стекла).
+- Info (не блокирует): I-H9S-1 текст лицензий vendored; I-H9S-2 `glass_prototype_probe.py` dev-only localhost; I-H9S-3 `scrollActiveModalField` на visualViewport scroll — низкий риск джанка, live-наблюдение.
+- **Прогоны @Scanner:** `node --check` OK; JS hotfix7/8/9 OK; `py -3 -m pytest -q` **8291 passed / 0 failed**; `git diff --check`=0; Δ DDL=0; Δ каталога=0 (459/98/96/21/418); `APP_VERSION` 2.58.12; CSP/`--shell-texture`/`backdrop-filter:url(` инварианты OK; R17/R18 OK.
