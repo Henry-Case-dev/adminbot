@@ -10,6 +10,11 @@
       --surface-border:rgba(170,182,200,.14);
       /* --surface-glass: legacy-алиас (стекло = --glass-bg ниже). */
       --surface-glass:rgba(21,27,42,.5);
+      /* HOTFIX10 (ADR-1025-18 D2, T-2852): единая подложка рабочей поверхности
+         Main — согласована с --surface-0, полупрозрачна (фон Dark Aurora Flow
+         остаётся виден, но нет яркой вертикальной полосы в зазоре у sidebar).
+         Слой 3 порядка: фон → графит sidebar/header → рабочая поверхность. */
+      --work-surface-bg: rgba(9, 13, 23, 0.62);
       /* text (§8: Primary #F4F7FB / Secondary #AAB6C8). --text-3 скорректирован
          (D4 «ради контраста») так, чтобы даже на САМОМ СВЕТЛОМ эффективном фоне
          стекла (--glass-bg alpha .5 поверх анимированного wash) ratio ≥4.5:1
@@ -1039,7 +1044,11 @@
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
-      padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+      /* HOTFIX10 (ADR-1025-18 D3, T-2853/T-2854): нижний safe-area учитывается
+         РОВНО ОДИН РАЗ — в `--app-usable-height` (telegram-init.js). Второй
+         вычет `env(safe-area-inset-bottom)` здесь давал двойной учёт и обрезал
+         нижнюю навигацию. Оставлен только базовый отступ. */
+      padding-bottom: 1rem;
     }
     /* HOTFIX7 D4.4 (ADR-1025-13): UI_SHELL_LAYOUT_V2=OFF → прежняя геометрия
        высот (откат самого рискованного, не воспроизводимого headless изменения):
@@ -1115,6 +1124,14 @@
        `.status-block` ограничен по ширине/overflow; canvas/линза — width:100%. */
     .status-block { max-width: 100%; overflow: hidden; }
     .status-block__pulse { min-width: 0; max-width: 100%; }
+    /* HOTFIX10 H-1 (round1025, T-2855): grid-контейнер `main.scroll-area` с
+       ОПРЕДЕЛЁННОЙ высотой сжимал auto-строку с элементом, у которого
+       `overflow:hidden` (`.status-block`, §15/C1), до padding+border (34px):
+       карточка «Статус» обрезала сердцебиение/метрики, а следующая карточка
+       наезжала поверх (mobile и desktop fullscreen). `max-content` возвращает
+       строке реальную высоту контента. Дизайн сердцебиения и flex/графит §63
+       не затрагиваются — меняется только трек grid. */
+    main.scroll-area { grid-auto-rows: max-content; }
     .hb-wrap { position: relative; width: 100%; max-width: 100%; min-height: 56px; }
     .hb-canvas { display: block; width: 100%; max-width: 100%; height: 56px;
                  cursor: pointer; }
@@ -1225,6 +1242,29 @@
       .status-block__grid {
         grid-template-columns: 1.4fr 1fr 1.2fr; align-items: start;
       }
+    }
+    /* HOTFIX10 (ADR-1025-18 D1, T-2848/T-2849): КОНТРАКТ GlassSurface.
+       Контейнер задаёт геометрию заранее; декоративные слои библиотеки
+       (`absolute; inset:0; pointer-events:none` из vendored CSS) лежат НИЖЕ
+       контента; `isolation:isolate` не даёт микшировать слои с фоном;
+       `contain:layout paint` не выпускает декор за пределы блока. Стекло — на
+       ОДНОМ изолированном декоративном элементе (без данных/контролов). */
+    .glass-surface {
+      grid-column: 1 / -1;
+      position: relative;
+      height: 44px;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      isolation: isolate;
+      contain: layout paint;
+      pointer-events: none;
+      /* Тёмная «бумага» frost-слоя (не белая) — честный frosted, не рефракция. */
+      --glass-paper: var(--surface-1);
+      --glass-ink: #000;
+    }
+    /* Контент (если появится) — строго ВЫШЕ декоративных слоёв библиотеки. */
+    .glass-surface > .glass-surface__content {
+      position: relative; z-index: 1;
     }
     .badge.glow {
       box-shadow: 0 0 10px currentColor;
@@ -1928,9 +1968,16 @@
       }
       /* header ≈64 px (§6) */
       .app-shell.ia-v2 header.main-header { min-height: 64px; }
-      /* Формы 1200–1440; шире — только графики (skeleton F1). */
+      /* HOTFIX10 (ADR-1025-18 D2, T-2852): единая рабочая поверхность Main.
+         `max-width:1440px; margin-inline:auto` сняты — контент более не
+         центрируется внутри широкой области, поэтому между sidebar (x=216) и
+         рабочей областью НЕТ яркой вертикальной полосы. Подложка — на самой
+         `main.scroll-area` (начинается ровно за sidebar, тянется до правого
+         края), а не на `.app-shell`: canvas не обрезается. Лимит карточек
+         1100px сохранён на `.module-list`/`.module-quick-wrap`/`.module-toolbar`. */
       .app-shell.ia-v2 main.scroll-area {
-        width: 100%; max-width: 1440px; margin-inline: auto;
+        width: 100%; max-width: none; margin-inline: 0;
+        background: var(--work-surface-bg);
       }
       .app-shell.ia-v2 .app-drawer,
       .app-shell.ia-v2 .bottom-nav,
@@ -2032,10 +2079,12 @@
     }
     .more-sheet {
       position: fixed; left: 0; right: 0;
-      /* Review L10.25H4-2: безопасный резерв (без dvh/var) для старых WebKit. */
-      bottom: calc(52px + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px)));
-      /* hotfix4 (T-2515): та же компенсация нижнего смещения, что у панели. */
-      bottom: calc(52px + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px)) + var(--tg-viewport-bottom-offset, max(0px, calc(100dvh - var(--tg-viewport-stable-height, 100dvh))))); z-index: 50;
+      /* HOTFIX10 (ADR-1025-18 D3, T-2854): якорь к nav (52px) + РОВНО ОДИН
+         нижний offset. `--tg-viewport-bottom-offset` уже = max(safe-area A/B/C)
+         (telegram-init.js), поэтому НЕ складываем его с max(safe-area…) —
+         иначе одна зона вычиталась дважды. Fallback для старых WebKit — env. */
+      bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+      bottom: calc(52px + var(--tg-viewport-bottom-offset, max(0px, calc(100dvh - var(--tg-viewport-stable-height, 100dvh))))); z-index: 50;
       display: flex; flex-direction: column; gap: .15rem;
       padding: .5rem .6rem calc(.75rem + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px))); max-height: 70dvh; overflow-y: auto;
       /* HOTFIX8 (ADR-1025-16 D2/D4): шторка «Ещё» — §4 shell-слой,

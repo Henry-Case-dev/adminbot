@@ -21,6 +21,7 @@
     canvas: null, renderer: null, mesh: null, program: null,
     gl: null, ctx2d: null, raf: 0, running: false, mode: 'none',
     t0: 0, pause: false, reduced: false, lastFrame: 0, lost: false,
+    ro: null,
   };
 
   function isMobile() {
@@ -71,21 +72,64 @@
     return cv;
   }
 
+  /* HOTFIX10 (ADR-1025-18 D5, T-2856/T-2857/T-2858): размер — по ФАКТИЧЕСКОМУ
+   * размеру canvas-контейнера (элемент `position:fixed; inset:0`), а не по
+   * `window.innerWidth/innerHeight`; при недоступности rect — визуальный
+   * viewport, затем окно. Единицы согласованы: CSS-px для `setSize`, пиксели
+   * drawing buffer (CSS-px × DPR) для `gl.viewport` и uniform `uRes`. */
+  function measure() {
+    // Канвас — `position:fixed; inset:0`, т.е. его контейнер = viewport
+    // (`<html>`). Берём ФАКТИЧЕСКИЙ размер контейнера, а не canvas: OGL в
+    // конструкторе выставляет inline 300×150, поэтому rect самого canvas
+    // недостоверен на первом кадре.
+    var de = document.documentElement;
+    var w = de && de.clientWidth, h = de && de.clientHeight;
+    if (!(w >= 1) || !(h >= 1)) {
+      try {
+        var r = (de && typeof de.getBoundingClientRect === 'function')
+          ? de.getBoundingClientRect() : null;
+        if (r && r.width >= 1 && r.height >= 1) { w = r.width; h = r.height; }
+      } catch (e) { /* fallback ниже */ }
+    }
+    if (!(w >= 1)) w = window.innerWidth || 1;
+    if (!(h >= 1)) h = window.innerHeight || 1;
+    return { w: w, h: h };
+  }
+
   function resize() {
     var cv = state.canvas;
     if (!cv) return;
-    var w = window.innerWidth || 1, h = window.innerHeight || 1;
+    var m = measure();
+    var w = Math.max(1, Math.round(m.w)), h = Math.max(1, Math.round(m.h));
     var dpr = Math.min(window.devicePixelRatio || 1, dprCap());
     var pw = Math.max(1, Math.round(w * dpr)), ph = Math.max(1, Math.round(h * dpr));
     if (state.renderer) {
       state.renderer.setSize(w, h);
+      // Фактический drawing buffer после setSize (OGL ставит w*dpr); viewport и
+      // uniform разрешения — из него, чтобы не оставалось старых размеров.
+      var bw = cv.width || pw, bh = cv.height || ph;
+      try {
+        if (state.gl) state.gl.viewport(0, 0, bw, bh);
+      } catch (e) { /* no-op */ }
       if (state.program && state.program.uniforms.uRes) {
-        state.program.uniforms.uRes.value = [pw, ph];
+        state.program.uniforms.uRes.value = [bw, bh];
       }
     } else {
       cv.width = pw; cv.height = ph;
       cv.style.width = w + 'px'; cv.style.height = h + 'px';
     }
+  }
+
+  /* Опциональный ResizeObserver по фактическому контейнеру: fullscreen/поворот
+   * без window-resize (также страховка для TMA viewport). */
+  function ensureResizeObserver() {
+    if (typeof window.ResizeObserver === 'undefined' || state.ro) return;
+    var de = document.documentElement;
+    if (!de) return;
+    try {
+      state.ro = new window.ResizeObserver(function () { resize(); });
+      state.ro.observe(de);
+    } catch (e) { state.ro = null; }
   }
 
   function initGL(cv) {
@@ -163,6 +207,7 @@
     state.canvas = cv;
     state.gl = null;
     state.ctx2d = null;
+    ensureResizeObserver();
     return init2d(cv);
   }
 
@@ -170,6 +215,10 @@
      «застывший» кадр не перекрывал legacy-wash; GL/2D-состояние сбрасывается,
      чтобы последующий start() поднял слой заново. */
   function detachCanvas() {
+    if (state.ro) {
+      try { state.ro.disconnect(); } catch (e0) { /* no-op */ }
+      state.ro = null;
+    }
     var cv = state.canvas;
     if (cv && cv.parentNode) {
       try { cv.parentNode.removeChild(cv); } catch (e) { /* no-op */ }
@@ -255,6 +304,7 @@
       if (!initGL(cv) && !init2d(cv)) return;
     }
     resize();
+    ensureResizeObserver();
     state.running = true;
     state.pause = false;
     state.t0 = (window.performance && performance.now) ? performance.now() : Date.now();
@@ -311,6 +361,10 @@
 
   window.__AuroraFlow = {
     start: start, stop: stop,
+    // HOTFIX10 (ADR-1025-18 D5, T-2857): публичный resize — пересчёт
+    // setSize/buffer/viewport/uRes по фактическому контейнеру (fullscreen/
+    // viewport-смена). Безопасен без canvas/renderer (no-op).
+    resize: resize,
     setPaused: function (p) {
       state.pause = !!p;
       if (!state.pause && state.running && !state.raf) {

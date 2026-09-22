@@ -97,7 +97,9 @@ const moreBlock = CSS.slice(moreIdx);
 assert.ok(moreBlock.slice(0, 1200)
   .indexOf('--tg-viewport-bottom-offset') >= 0,
   '.more-sheet использует тот же offset');
-assert.ok(/\.more-sheet \{[^}]*bottom:\s*calc\(52px \+ max\(env\(safe-area-inset-bottom/.test(CSS),
+// HOTFIX10 (ADR-1025-18 D3): safe-reserve остаётся, но БЕЗ сложения с
+// --tg-viewport-bottom-offset (один offset). Fallback для старых WebKit — env.
+assert.ok(/\.more-sheet \{[^}]*bottom:\s*calc\(52px \+ env\(safe-area-inset-bottom/.test(CSS),
   '.more-sheet имеет безопасный резерв bottom (L10.25H4-2)');
 assert.ok(/min-height:\s*44px/.test(CSS), 'touch ≥44px сохранён');
 assert.ok(/env\(safe-area-inset-bottom/.test(CSS), 'safe-area сохранён');

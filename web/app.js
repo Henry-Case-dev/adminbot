@@ -1191,6 +1191,7 @@
   var _routeApplied = false;
   var _onHashChange = null;
   var _onResize = null;       // F1 (§6/§7): пересчёт shell-режима
+  var _onVV = null;           // HOTFIX10: visualViewport → resize OGL-фона
   var _onKeydown = null;      // MODERATE-2: глобальный Esc (закрытие модалки)
   var _onVisibility = null;   // F5-Q3: пауза cognition-polling при hidden
   // F24 (ADR-1024-24 D1/C3): подписки на TMA-fullscreen-события. Ссылки на
@@ -1199,6 +1200,15 @@
   var _fsSubscribed = false;  // guard: подписки установлены ровно один раз
   var _fsOnFullscreen = null;
   var _fsOnViewport = null;
+  // HOTFIX10 (ADR-1025-18 D5, T-2857): пересчёт геометрии OGL-фона по
+  // фактическому размеру контейнера. Безопасный no-op вне/без библиотеки.
+  function _auroraResize() {
+    try {
+      if (window.__AuroraFlow && typeof window.__AuroraFlow.resize === 'function') {
+        window.__AuroraFlow.resize();
+      }
+    } catch (e) { /* no-op */ }
+  }
   // Категории вкладки для RBAC-проверок: явный список (не-конфиг вкладки)
   // либо уникальные категории источников (конфиг вкладки).
   function tabCategories(tab) {
@@ -2832,8 +2842,21 @@
           _appVm.reconcileLiquidGlass();
           if (typeof _appVm._hbResize === 'function') _appVm._hbResize();
         }
+        // HOTFIX10 (ADR-1025-18 D5, T-2857): пересчёт геометрии OGL-фона по
+        // фактическому размеру контейнера (buffer/viewport/uniforms).
+        _auroraResize();
       };
       window.addEventListener('resize', _onResize);
+      // HOTFIX10 (ADR-1025-18 D5): visualViewport (fullscreen/клавиатура/поворот)
+      // может менять видимую область без window-resize — пересчитываем фон.
+      if (window.visualViewport
+          && typeof window.visualViewport.addEventListener === 'function') {
+        _onVV = function () {
+          if (_appVm && typeof _appVm._hbResize === 'function') _appVm._hbResize();
+          _auroraResize();
+        };
+        window.visualViewport.addEventListener('resize', _onVV);
+      }
       // MODERATE-2 + 10.8 (R10.8-1): глобальный Esc закрывает модалку модуля
       // И route-driven окна «Доступов» (фокус может быть вне модалки —
       // keydown на карточке недостаточно; закрытие окна = hash → #/access).
@@ -6090,12 +6113,20 @@
         var self = this;
         var redraw = function () {
           if (typeof self._hbResize === 'function') self._hbResize();
+          // HOTFIX10 (ADR-1025-18 D5, T-2857): после входа/выхода из fullscreen
+          // пересчитываем фон по новому размеру контейнера (не оставляем старые
+          // drawing buffer/viewport/uniforms).
+          _auroraResize();
         };
         if (typeof this.$nextTick === 'function') {
           this.$nextTick(redraw);
         } else {
           redraw();
         }
+        // Страховка: layout/viewport Telegram может «доехать» после transition.
+        try {
+          if (window.requestAnimationFrame) window.requestAnimationFrame(redraw);
+        } catch (e3) { /* no-op */ }
       },
 
       // F24 (C3/C4): отписки в beforeUnmount — `offEvent` с ТЕМИ ЖЕ fn-ссылками
@@ -10126,9 +10157,11 @@
         } catch (e2) { /* no-op */ }
         if (typeof this._syncGlassLib === 'function') this._syncGlassLib();
       },
-      // HOTFIX9 D5 (T-2817): точечное применение vendored Liquid Glass к
-      // целевым элементам (селектор области/⛶/декоративная карточка Статуса).
-      // OFF (UI_LIQUID_GLASS_LIB) или отсутствие библиотеки → frost-fallback.
+      // HOTFIX10 (ADR-1025-18 D1): vendored Liquid Glass применяется ТОЛЬКО к
+      // изолированному декоративному `[data-glass-surface]` (см. glass.js).
+      // Функциональные цели (селектор/⛶/карточка) стекло НЕ получают.
+      // OFF (UI_LIQUID_GLASS_LIB, default) или отсутствие библиотеки → полный
+      // cleanup без остаточных `.ps-glass*`.
       _syncGlassLib: function () {
         try {
           if (window.__LiquidGlass && typeof window.__LiquidGlass.sync === 'function') {
@@ -10364,6 +10397,16 @@
       if (_onResize) {
         window.removeEventListener('resize', _onResize);
         _onResize = null;
+      }
+      // HOTFIX10 (ADR-1025-18 D5): снимаем visualViewport-листенер фона.
+      if (_onVV) {
+        try {
+          if (window.visualViewport
+              && typeof window.visualViewport.removeEventListener === 'function') {
+            window.visualViewport.removeEventListener('resize', _onVV);
+          }
+        } catch (e) { /* no-op */ }
+        _onVV = null;
       }
       // F2 (T-2540/D-2): снимаем DOM/Resize-observer уровня A стекла.
       if (this._lgObserver) {

@@ -233,7 +233,7 @@ class TestAreaD:
 class TestCommon:
     def test_app_version_bumped(self):
         m = re.search(r'APP_VERSION\s*=\s*"([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.12", m and m.group(1)
+        assert m and m.group(1) == "2.58.13", m and m.group(1)
 
     def test_matrix_hotfix6_probes(self):
         """T-2598/T-2611: матрица проверяет C1-overflow и ⛶ в вьюпорте."""

@@ -754,11 +754,16 @@ class Settings:
     #     (`.shell-v3-off`); диагональная текстура НЕ возвращается.
     #   * UI_LIQUID_GLASS_LIB — OFF → только frost-fallback (без библиотеки).
     #   * UI_AURORA_FLOW_V2 — OFF → прежний CSS-aurora (hotfix8).
+    # HOTFIX10 (10.25, ADR-1025-18 D1): default → OFF. Эксперимент hotfix9
+    # монтировал библиотеку напрямую на функциональные Vue-компоненты
+    # (белые непрозрачные прямоугольники). Теперь библиотека применяется
+    # ТОЛЬКО к изолированному декоративному `[data-glass-surface]`; флаг
+    # сохранён как env-only kill-switch (без редеплоя).
     UI_SHELL_FLEX_V3: ClassVar[bool] = _env_bool("UI_SHELL_FLEX_V3", True)
     UI_SHELL_GRAPHITE_V3: ClassVar[bool] = _env_bool(
         "UI_SHELL_GRAPHITE_V3", True)
     UI_LIQUID_GLASS_LIB: ClassVar[bool] = _env_bool(
-        "UI_LIQUID_GLASS_LIB", True)
+        "UI_LIQUID_GLASS_LIB", False)
     UI_AURORA_FLOW_V2: ClassVar[bool] = _env_bool(
         "UI_AURORA_FLOW_V2", True)
     # ── Раунд 10.22 (F8, ADR-1022-8): env-only ClassVar-рубильники
@@ -1731,7 +1736,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.58.12"   # HOTFIX9 (10.25): flex-геометрия shell (единый --app-usable-height, nav в потоке), графитовый shell без текстуры, vendored Liquid Glass (OGL/стекло), Dark Aurora Flow, ADR-1025-17
+APP_VERSION = "2.58.13"   # HOTFIX10 (10.25, ADR-1025-18): откат стекла с функциональных целей + GlassSurface, единая рабочая поверхность Main, единая модель высоты без двойного safe-area, resize OGL-фона (fullscreen/viewport)
 
 
 def get_ytdlp_pot_provider() -> str:

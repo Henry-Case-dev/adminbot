@@ -180,6 +180,16 @@ def test_js_unit_round1025_hotfix9_shell_flex_glass_aurora():
             ok_marker="HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK")
 
 
+def test_js_unit_round1025_hotfix10_glass_geometry_bg():
+    """hotfix10 round 10.25 (ADR-1025-18, T-2843…T-2864): откат стекла с
+    функциональных целей + GlassSurface, единая рабочая поверхность Main, единая
+    высота без двойного safe-area, resize OGL-фона (fullscreen/viewport),
+    APP_VERSION 2.58.13."""
+    _run_js(os.path.join("tests", "js",
+                         "round1025_hotfix10_glass_geometry_bg_test.js"),
+            ok_marker="HOTFIX10-GLASS-GEOMETRY-BG-OK")
+
+
 def test_js_unit_round1025_f4_module_store():
     """F4 round 10.25 (ADR-1025-14 D1/D2): ModuleConfigurationStore —
     ключ scope_type/scope_id/module_id, одна мутация на действие,

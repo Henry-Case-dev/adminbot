@@ -208,8 +208,8 @@ function token(name) {
     assert.ok(ROUTES.indexOf(flag) >= 0, 'D: ui_flags доставка ' + flag);
     assert.ok(APP_JS.indexOf(flag) >= 0, 'D: фронт читает ' + flag);
   }
-  // T-2834: HOTFIX9 bump 2.58.11 → 2.58.12 (cache-bust shell/glass/aurora).
-  assert.ok(/APP_VERSION = "2\.58\.12"/.test(SETTINGS), 'D: APP_VERSION 2.58.12');
+  // T-2864: HOTFIX10 bump 2.58.12 → 2.58.13 (cache-bust glass/geometry/bg).
+  assert.ok(/APP_VERSION = "2\.58\.13"/.test(SETTINGS), 'D: APP_VERSION 2.58.13');
   for (const m of ['desktop_normal', 'desktop_fullscreen', 'tablet',
                    'mobile_regular', 'mobile_fullscreen']) {
     assert.ok(MATRIX.indexOf(m) >= 0, 'D: режим ' + m);

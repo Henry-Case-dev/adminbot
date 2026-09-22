@@ -307,8 +307,8 @@ function canvasStub() {
     assert.ok(ROUTES.indexOf(flag) >= 0, 'D: ui_flags доставка ' + flag);
     assert.ok(APP_JS.indexOf(flag) >= 0, 'D: фронт читает ' + flag);
   }
-  // HOTFIX9 (10.25) — bump 2.58.11 → 2.58.12 (shell/glass/aurora, T-2834).
-  assert.ok(/APP_VERSION = "2\.58\.12"/.test(SETTINGS), 'D: APP_VERSION 2.58.12');
+  // HOTFIX10 (10.25) — bump 2.58.12 → 2.58.13 (ADR-1025-18, T-2864).
+  assert.ok(/APP_VERSION = "2\.58\.13"/.test(SETTINGS), 'D: APP_VERSION 2.58.13');
   // Матрица: 5 режимов + пробы shell/glass/heartbeat.
   for (const m of ['desktop_normal', 'desktop_fullscreen', 'tablet',
                    'mobile_regular', 'mobile_fullscreen']) {

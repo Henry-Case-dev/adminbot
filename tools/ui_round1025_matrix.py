@@ -120,6 +120,14 @@ ME_JSON = {
     },
 }
 
+# HOTFIX10 (ADR-1025-18 D1/D7): «Набор 1» — стекло ВЫКЛЮЧЕНО (прод-default):
+# интерфейс исправен/читаем, `.ps-glass*` нет вовсе (у функциональных целей и
+# у декоративной поверхности).
+ME_GLASS_OFF = dict(ME_JSON)
+ME_GLASS_OFF["ui_flags"] = dict(ME_JSON["ui_flags"])
+ME_GLASS_OFF["ui_flags"]["UI_LIQUID_GLASS_LIB"] = False
+
+
 # F3 (reviewer 2): локальный админ — UI должен совпадать с правами сервера
 # (DELETE-override разрешён is_local_admin, routes.py). Роль без wildcard;
 # секция «memory» открывает config-вкладку #/memory/rag для проверки кнопки.
@@ -852,6 +860,153 @@ H9_CONTEXT_LOSS_PROBE_JS = """
 """
 
 
+# HOTFIX10 (ADR-1025-18): геометрия GlassSurface/Main/высоты/OGL-фона.
+H10_PROBE_JS = """
+(() => {
+  const rect = (el) => {
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: Math.round(r.x), y: Math.round(r.y),
+             w: Math.round(r.width), h: Math.round(r.height),
+             bottom: Math.round(r.bottom), right: Math.round(r.right),
+             visible: r.width > 0 && r.height > 0 };
+  };
+  const q = (s) => document.querySelector(s);
+  const surfaces = document.querySelectorAll('[data-glass-surface]');
+  const psAll = document.querySelectorAll(
+    '.ps-glass__surface, .ps-glass__tint, .ps-glass__rim, .ps-glass');
+  const functional = ['.scope-trigger', '.header-fs-btn', '.status-block'];
+  const psFunctional = functional.map((s) => {
+    const el = q(s);
+    return el ? el.querySelectorAll('[class*="ps-glass"]').length : -1;
+  });
+  const scopeEl = q('.scope-trigger');
+  let scopeClickable = null;
+  if (scopeEl) {
+    const r = scopeEl.getBoundingClientRect();
+    const hit = (r.width > 0)
+      ? document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) : null;
+    scopeClickable = !!(hit && (hit === scopeEl || scopeEl.contains(hit)));
+  }
+  const status = q('.status-block');
+  const bodyText = document.body.innerText || '';
+  const needs = ['Сердцебиение', 'Бот', 'Сервер', 'CPU', 'RAM', 'Диск',
+                 'Аптайм', 'Load'];
+  const cv = q('#aurora-flow-canvas');
+  const main = q('main.scroll-area');
+  const de = document.documentElement;
+  const tok = (n) => getComputedStyle(de).getPropertyValue(n).trim();
+  // H-1 (round1025): сердцебиение и ключевые секции должны быть не только
+  // «в innerText», но и реально hit-testable по центру (не перекрыты чужой
+  // карточкой из схлопнувшейся grid-строки). Скроллим цель в видимую область.
+  const hitCenter = (el, scroll) => {
+    if (!el) return null;
+    if (scroll) { try { el.scrollIntoView({ block: 'center' }); } catch (e) {} }
+    const r = el.getBoundingClientRect();
+    if (!(r.width > 0 && r.height > 0)) return { visible: false };
+    const x = r.x + r.width / 2, y = r.y + r.height / 2;
+    const inView = x >= 0 && y >= 0 && x <= window.innerWidth + 1 &&
+      y <= window.innerHeight + 1;
+    let self = false, got = null;
+    if (inView) {
+      const h = document.elementFromPoint(x, y);
+      self = !!(h && (h === el || el.contains(h) || h.contains(el)));
+      got = h ? (h.tagName + '.' + String(h.className || '').slice(0, 40)) : null;
+    }
+    // Центр цели обязан лежать внутри бокса карточки «Статус» — иначе цель
+    // обрезана `overflow:hidden` (даже если hit-test случайно попал в неё).
+    let inBlock = null;
+    if (status) {
+      const cb = status.getBoundingClientRect();
+      inBlock = y >= cb.top - 1 && y <= cb.bottom + 1;
+    }
+    return { visible: true, inView: inView, self: self, got: got,
+             inBlock: inBlock, y: Math.round(y) };
+  };
+  const statusBlock = status ? {
+    clientH: status.clientHeight, scrollH: status.scrollHeight,
+  } : null;
+  // Скролл для hit-теста НЕ должен менять состояние следующих проб — сохраняем
+  // и восстанавливаем позицию скроллера после проверок.
+  const scrollRoot = main || document.scrollingElement;
+  const prevTop = scrollRoot ? scrollRoot.scrollTop : 0;
+  const prevWinY = window.scrollY || 0;
+  const hbHit = hitCenter(q('.hb-canvas'), true);
+  const botHit = hitCenter(q('.status-block__bot'), true);
+  const serverHit = hitCenter(q('.status-block__server'), true);
+  try { if (scrollRoot) scrollRoot.scrollTop = prevTop; } catch (e) {}
+  try { if (prevWinY) window.scrollTo(0, prevWinY); } catch (e) {}
+  return {
+    surfaceCount: surfaces.length,
+    surfaceMode: surfaces.length
+      ? surfaces[0].getAttribute('data-lg-mode') : null,
+    mountedCount: document.querySelectorAll('[data-lg-mounted="1"]').length,
+    failedCount: document.querySelectorAll('[data-lg-failed="1"]').length,
+    psTotal: psAll.length,
+    psFunctional: psFunctional,
+    glassTargets: (window.__LiquidGlass && window.__LiquidGlass.targets)
+      ? window.__LiquidGlass.targets() : '',
+    scopeClickable: scopeClickable,
+    statusVisible: !!(status && status.getBoundingClientRect().height > 0),
+    statusBlock: statusBlock,
+    hbHit: hbHit, botHit: botHit, serverHit: serverHit,
+    statusTexts: needs.map((t) => bodyText.indexOf(t) >= 0),
+    mainRect: rect(main), workSurfaceBg: getComputedStyle(main || de).background,
+    innerW: window.innerWidth, innerH: window.innerHeight,
+    canvasRect: rect(cv),
+    auroraMode: (window.__AuroraFlow && window.__AuroraFlow.mode)
+      ? window.__AuroraFlow.mode() : '',
+    auroraResize: !!(window.__AuroraFlow
+      && typeof window.__AuroraFlow.resize === 'function'),
+    usableH: tok('--app-usable-height'),
+  };
+})()
+"""
+
+# HOTFIX10 (ADR-1025-18 D1/D2): «Набор 2» — включение стекла на ОДНОМ
+# изолированном элементе не меняет rects/нажимаемость функциональных целей;
+# после unmount в DOM не остаётся `.ps-glass*`.
+H10_GLASS_ISOLATION_JS = """
+(() => {
+  const LG = window.__LiquidGlass;
+  const sel = ['.scope-trigger', '.header-fs-btn', '.status-block'];
+  const rect = (el) => {
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: Math.round(r.x), y: Math.round(r.y),
+             w: Math.round(r.width), h: Math.round(r.height) };
+  };
+  const snap = () => sel.map((s) => {
+    const el = document.querySelector(s);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    const hit = (r.width > 0)
+      ? document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) : null;
+    return { r: rect(el),
+             hitSelf: !!(hit && (hit === el || el.contains(hit) || hit.contains(el))) };
+  });
+  const psFunc = () => sel.map((s) => {
+    const el = document.querySelector(s);
+    return el ? el.querySelectorAll('[class*="ps-glass"]').length : -1;
+  });
+  if (!LG || typeof LG.sync !== 'function') {
+    return { ok: false, reason: 'no-lib' };
+  }
+  LG.dispose();
+  const off = { rects: snap(), ps: document.querySelectorAll('[class*="ps-glass"]').length };
+  LG.sync(true);
+  const on = { rects: snap(), ps: psFunc(),
+               mode: (typeof LG.mode === 'function') ? LG.mode() : null };
+  LG.dispose();
+  const after = {
+    rects: snap(), ps: document.querySelectorAll('[class*="ps-glass"]').length,
+    psFunc: psFunc(),
+  };
+  return { ok: true, off: off, on: on, after: after };
+})()
+"""
+
+
 def _secs(raw: str):
     try:
         return float(str(raw).strip().rstrip("s"))
@@ -1326,6 +1481,164 @@ def _h9_modal_failures(probe: dict, label: str) -> list:
     return out
 
 
+def _h10_status_card_failures(probe: dict, label: str) -> list:
+    """H-1 (round1025): карточка «Статус» не схлопнута/не обрезана.
+
+    Системный дефект: grid-item с `overflow:hidden` в grid'е с определённой
+    высотой схлопывал auto-строку до padding+border (34px) на mobile →
+    `scrollHeight > clientHeight`, а следующая карточка перекрывала
+    сердцебиение/метрики. Проверяем отсутствие обрезки и реальную
+    hit-testability центра `.hb-canvas`/`__bot`/`__server` (не по innerText)."""
+    out = []
+    st = probe.get("statusBlock")
+    if st is None:
+        out.append("%s: .status-block не найден" % label)
+    elif st.get("clientH") is not None and st.get("scrollH", 0) > st["clientH"] + 1:
+        out.append("%s: системная карточка обрезана (scrollH=%d > clientH=%d)"
+                   % (label, st["scrollH"], st["clientH"]))
+    for key, name in (("hbHit", "сердцебиение"),
+                      ("botHit", "секция «Бот»"),
+                      ("serverHit", "секция «Сервер»")):
+        hit = probe.get(key)
+        if not hit or not hit.get("visible"):
+            out.append("%s: %s не видно" % (label, name))
+        elif not hit.get("inView"):
+            out.append("%s: %s не в видимой области (scrollIntoView)"
+                       % (label, name))
+        elif hit.get("inBlock") is False:
+            out.append("%s: %s вне бокса карточки (обрезано overflow)"
+                       % (label, name))
+        elif not hit.get("self"):
+            out.append("%s: %s перекрыт чужим элементом (elementFromPoint=%s)"
+                       % (label, name, hit.get("got")))
+    return out
+
+
+def _h10_failures(probe: dict, label: str, w: int, h: int) -> list:
+    """HOTFIX10 (ADR-1025-18): GlassSurface/Main/высота/OGL-фон.
+
+    Проверяем: фон покрывает весь viewport (canvas fixed inset:0), resize
+    экспортирован; стекло — только на изолированном `[data-glass-surface]`,
+    функциональные цели (селектор/⛶/карточка) без `.ps-glass*`; карточка
+    «Статус» показывает все данные; селектор нажимаем."""
+    out = []
+    if probe.get("auroraResize") is not True:
+        out.append("%s H10: __AuroraFlow.resize не экспортирован" % label)
+    cv = probe.get("canvasRect")
+    iw, ih = probe.get("innerW") or 0, probe.get("innerH") or 0
+    if cv is None:
+        out.append("%s H10: фоновый canvas отсутствует" % label)
+    else:
+        if cv["x"] > 1 or cv["y"] > 1:
+            out.append("%s H10: canvas смещён (x=%d,y=%d)"
+                       % (label, cv["x"], cv["y"]))
+        if cv["w"] < iw - 2 or cv["h"] < ih - 2:
+            out.append("%s H10: canvas не покрывает viewport (%dx%d < %dx%d)"
+                       % (label, cv["w"], cv["h"], iw, ih))
+    for i, n in enumerate(probe.get("psFunctional") or []):
+        if n and n > 0:
+            out.append("%s H10: .ps-glass* внутри функциональной цели #%d (%d)"
+                       % (label, i, n))
+    if probe.get("scopeClickable") is False:
+        out.append("%s H10: селектор области не нажимается" % label)
+    if probe.get("statusVisible") is not True:
+        out.append("%s H10: системная карточка не видна" % label)
+    for i, ok in enumerate(probe.get("statusTexts") or []):
+        if not ok:
+            out.append("%s H10: в карточке нет обязательного текста #%d"
+                       % (label, i))
+    # H-1 (round1025, §5): нет скрытой обрезки и перекрытия метрик.
+    out.extend(_h10_status_card_failures(probe, "%s H10" % label))
+    if probe.get("surfaceCount", 0) > 1:
+        out.append("%s H10: более одной GlassSurface (%d)"
+                   % (label, probe.get("surfaceCount")))
+    # D2: на desktop подложка Main идёт от края sidebar (208–224) до правого края
+    # и не прозрачна — нет «полосы» между sidebar и рабочей областью.
+    if w >= 1200:
+        mr = probe.get("mainRect")
+        if not mr:
+            out.append("%s H10: main.scroll-area не найден (≥1200)" % label)
+        else:
+            if not (208 <= mr["x"] <= 224):
+                out.append("%s H10: main начинается не у края sidebar (x=%d)"
+                           % (label, mr["x"]))
+            if mr["right"] < iw - 2:
+                out.append("%s H10: подложка Main не доходит до правого края "
+                           "(right=%d < %d)" % (label, mr["right"], iw))
+            if "rgba(9, 13, 23, 0.62)" not in (probe.get("workSurfaceBg") or ""):
+                out.append("%s H10: нет подложки --work-surface-bg (%s)"
+                           % (label, probe.get("workSurfaceBg")))
+    return out
+
+
+def _h10_glass_failures(result: dict, label: str) -> list:
+    """HOTFIX10 «Набор 2»: стекло на 1 элементе не меняет геометрию/клики."""
+    out = []
+    if not result.get("ok"):
+        out.append("%s H10-glass: библиотека/API недоступны (%s)"
+                   % (label, result.get("reason")))
+        return out
+    off, on, after = result.get("off") or {}, result.get("on") or {}, result.get("after") or {}
+    off_r, on_r = off.get("rects") or [], on.get("rects") or []
+    if len(off_r) != len(on_r):
+        out.append("%s H10-glass: разное число целей" % label)
+    else:
+        for i, (a, b) in enumerate(zip(off_r, on_r)):
+            if (a is None) != (b is None):
+                out.append("%s H10-glass: цель #%d исчезла/появилась" % (label, i))
+            elif a is not None and a.get("r") != b.get("r"):
+                out.append("%s H10-glass: rect #%d изменился %s→%s"
+                           % (label, i, a.get("r"), b.get("r")))
+            elif a is not None and a.get("hitSelf") != b.get("hitSelf"):
+                out.append("%s H10-glass: нажимаемость #%d изменилась" % (label, i))
+            if b is not None and b.get("hitSelf") is False:
+                out.append("%s H10-glass: цель #%d не нажимается при ON" % (label, i))
+    if any((n or 0) > 0 for n in (on.get("ps") or [])):
+        out.append("%s H10-glass: .ps-glass* на функциональной цели при ON" % label)
+    if off.get("ps"):
+        out.append("%s H10-glass: .ps-glass* остались при OFF (%d)"
+                   % (label, off.get("ps")))
+    if after.get("ps"):
+        out.append("%s H10-glass: после unmount остались .ps-glass* (%d)"
+                   % (label, after.get("ps")))
+    if any((n or 0) > 0 for n in (after.get("psFunc") or [])):
+        out.append("%s H10-glass: .ps-glass* на функциональной цели после unmount"
+                   % label)
+    return out
+
+
+def _h10_glass_off_failures(probe: dict, label: str) -> list:
+    """HOTFIX10 «Набор 1» (UI_LIQUID_GLASS_LIB=OFF): эффекта нет, интерфейс цел."""
+    out = []
+    if probe.get("mountedCount"):
+        out.append("%s H10-off: стекло смонтировано при OFF (%d)"
+                   % (label, probe.get("mountedCount")))
+    if probe.get("psTotal"):
+        out.append("%s H10-off: .ps-glass* присутствуют при OFF (%d)"
+                   % (label, probe.get("psTotal")))
+    if probe.get("scopeClickable") is False:
+        out.append("%s H10-off: селектор области не нажимается" % label)
+    if probe.get("statusVisible") is not True:
+        out.append("%s H10-off: системная карточка не видна" % label)
+    for i, ok in enumerate(probe.get("statusTexts") or []):
+        if not ok:
+            out.append("%s H10-off: в карточке нет обязательного текста #%d"
+                       % (label, i))
+    # L-H10-1 (round1025): при OFF пустой декоративный GlassSurface не рендерится.
+    if probe.get("surfaceCount"):
+        out.append("%s H10-off: пустой GlassSurface не скрыт при OFF (%d)"
+                   % (label, probe.get("surfaceCount")))
+    # H-1: та же проверка обрезки/перекрытия, что и при ON (прод-default).
+    out.extend(_h10_status_card_failures(probe, "%s H10-off" % label))
+    cv = probe.get("canvasRect")
+    iw, ih = probe.get("innerW") or 0, probe.get("innerH") or 0
+    if cv is None or cv["w"] < iw - 2 or cv["h"] < ih - 2:
+        out.append("%s H10-off: фон не покрывает viewport (%s)" % (label, cv))
+    if probe.get("auroraResize") is not True:
+        out.append("%s H10-off: __AuroraFlow.resize недоступен" % label)
+    return out
+
+
 def _bg_motion(page, label: str):
     """HOTFIX9 (ADR-1025-17 D8/§12): кадры фона 0/5/10/20 с + числовое
     подтверждение движения (не «пара пикселей»). Возвращает (diffs, failures)."""
@@ -1537,6 +1850,60 @@ def main() -> int:
             h9 = page.evaluate(H9_PROBE_JS)
             out["viewports"][vp_key]["hotfix9_normal"] = h9
             failures.extend(_h9_failures(h9, "%s normal" % vp_key, w))
+            # HOTFIX10 (ADR-1025-18): GlassSurface/Main/высота/OGL-фон.
+            h10 = page.evaluate(H10_PROBE_JS)
+            out["viewports"][vp_key]["hotfix10_normal"] = h10
+            failures.extend(_h10_failures(h10, "%s normal" % vp_key, w, h))
+            # L-H10-1 (round1025): OFF-проба (прод-default) — placeholder скрыт —
+            # обязательна на всех мобильных ширинах 320/360/390/430 + desktop.
+            if (w, h) in ((320, 700), (360, 780), (390, 844), (430, 932),
+                          (1280, 800)):
+                iso = page.evaluate(H10_GLASS_ISOLATION_JS)
+                out["viewports"][vp_key]["hotfix10_glass_isolation"] = iso
+                failures.extend(_h10_glass_failures(
+                    iso, "%s normal" % vp_key))
+                # «Набор 1»: отдельный контекст с UI_LIQUID_GLASS_LIB=OFF —
+                # прод-default без стеклянной интеграции.
+                try:
+                    off_ctx = browser.new_context(
+                        viewport={"width": w, "height": h})
+                    off_ctx.add_init_script(TMA_STUB)
+
+                    def _route_off(route):
+                        p = route.request.url.split("?")[0]
+                        payload = (ME_GLASS_OFF if p.endswith("/api/me")
+                                   else _stub_for(route.request.url))
+                        route.fulfill(status=200,
+                                      content_type="application/json",
+                                      body=json.dumps(payload))
+
+                    off_ctx.route("**/api/**", _route_off)
+                    off_page = off_ctx.new_page()
+                    off_errors = []
+                    off_page.on("console", lambda m, b=off_errors: (
+                        b.append("%s: %s" % (m.type, m.text[:200]))
+                        if m.type == "error" else None))
+                    off_page.on("pageerror", lambda e, b=off_errors: b.append(
+                        "pageerror: " + str(e)[:300]))
+                    off_page.goto(url, wait_until="load")
+                    try:
+                        off_page.wait_for_selector(".app-shell", timeout=8000)
+                    except Exception:  # noqa: BLE001
+                        pass
+                    off_page.wait_for_timeout(450)
+                    off_page.evaluate("() => { window.location.hash = '#/'; }")
+                    off_page.wait_for_timeout(450)
+                    off = off_page.evaluate(H10_PROBE_JS)
+                    out["viewports"][vp_key]["hotfix10_glass_off"] = off
+                    failures.extend(_h10_glass_off_failures(
+                        off, "%s normal glass-off" % vp_key))
+                    for msg in off_errors:
+                        failures.append("%s glass-off console/pageerror: %s"
+                                        % (vp_key, msg))
+                    off_ctx.close()
+                except Exception as exc:  # noqa: BLE001
+                    failures.append("%s glass-off probe: %s"
+                                    % (vp_key, str(exc)[:200]))
             # Кадры фона 0/5/10/20 с (числовое подтверждение движения) — на
             # репрезентативных мобильном и desktop-вьюпортах (перф прогона).
             if (w, h) in ((390, 844), (1280, 800)):
@@ -1793,6 +2160,12 @@ def main() -> int:
                 if not h9fs.get("hbVisible"):
                     failures.append(
                         "%s H9: в fullscreen сердебиение не видно" % vp_key)
+                # HOTFIX10 (ADR-1025-18 D5): в fullscreen фон пересчитан по
+                # фактическому размеру контейнера (canvas покрывает viewport).
+                h10fs = page.evaluate(H10_PROBE_JS)
+                out["viewports"][vp_key]["hotfix10_fullscreen"] = h10fs
+                failures.extend(_h10_failures(
+                    h10fs, "%s fullscreen" % vp_key, w, h))
                 _snap(page, "%s_fullscreen" % vp_key)
                 # Сброс в normal (не влияет на следующие вьюпорты, но чисто
                 # завершает контекст).

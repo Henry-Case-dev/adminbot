@@ -3262,6 +3262,19 @@
               {{ statusError }}
             </div>
             <template v-if="!statusError">
+            <!-- HOTFIX10 (ADR-1025-18 D1, T-2848/T-2849): изолированный
+                 декоративный GlassSurface — ЕДИНСТВЕННАЯ цель vendored Liquid
+                 Glass. Без данных/контролов/ссылок. Декор библиотеки ложится
+                 ниже контента (`absolute; inset:0; pointer-events:none`), сам
+                 слой не меняет геометрию и не перехватывает клики. Стекло НЕ
+                 возвращается на селектор области, ⛶ и системную карточку. -->
+            <!-- L-H10-1 (round1025): при UI_LIQUID_GLASS_LIB=OFF (прод-default)
+                 пустой декоративный контейнер НЕ рендерится вовсе — не оставляет
+                 44px + grid-gap мёртвой пустоты над карточкой «Статус». При ON
+                 место резервируется (нет скачка раскладки при монтировании). -->
+            <div v-if="liquidGlassLib" class="glass-surface"
+                 data-glass-surface aria-hidden="true"
+                 role="presentation"></div>
             <!-- F6 (T-1460, ТЗ §8): SVG-EKG «Сердцебиение» вместо
                  бесполезного линейного графика аптайма. Пульс =
                  loadavg[0]/cpu_count (Linux) или max(CPU%, RAM%)/100

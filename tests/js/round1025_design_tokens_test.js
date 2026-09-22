@@ -136,7 +136,10 @@ const OD4 = ['#0E0E0E', '#161616', '#1F1F1F', '#262626', '#F5F5F5', '#BABABA',
     '--grad-ease', '--grad-speed', '--grad-speed-slow', '--glass-bg',
     '--glass-bg-strong', '--glass-blur', '--glass-border',
     '--glass-border-color', '--glass-displace', '--glass-highlight',
-    '--glass-highlight-soft', '--glass-shadow', '--teal-500', '--teal-600',
+    '--glass-highlight-soft', '--glass-shadow',
+    // HOTFIX10 (ADR-1025-18 D1): тема frosted-слоя GlassSurface (dark paper/ink
+    // вместо белого дефолта библиотеки) — контракт, не новая палитра.
+    '--glass-paper', '--glass-ink', '--teal-500', '--teal-600',
     '--purple-400', '--purple-500', '--indigo-300', '--magenta-400',
     '--magenta-600', '--lilac-200', ...status]);
   const actualInv = new Set([...tokensOf(CSS)].filter((t) =>
