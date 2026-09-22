@@ -177,3 +177,33 @@ def test_js_unit_round1025_f4_catalog_ui():
     _run_js(os.path.join("tests", "js",
                          "round1025_f4_catalog_ui_test.js"),
             ok_marker="MODULE-CATALOG-OK")
+
+
+def test_js_unit_round1025_f5_workspace_route():
+    """F5 round 10.25 (ADR-1025-15 D1/D2/D6, §46): workspace-маршрут
+    `#/modules/<slug>[/<wt>[/<stage>/<key>]]`, routeToTab = m.tab
+    (RBAC/kill-switch), неизвестный slug → витрина, шов openModuleWorkspace →
+    страница + fallback openModuleWindow, тумблер из store F4, инвариант
+    покрытия групп."""
+    _run_js(os.path.join("tests", "js",
+                         "round1025_f5_workspace_route_test.js"),
+            ok_marker="MODULE-WORKSPACE-OK")
+
+
+def test_js_unit_round1025_f5_models():
+    """F5 round 10.25 (ADR-1025-15 D4/§49): 6 групп «Моделей и подключений»
+    (каждый блок ровно раз), advanced-блоки, workspace-модели модуля,
+    «Проверить» → /api/llm/test,/api/images/test, §49 «сохранённая модель не
+    подменяется» (0 POST при открытии), R17."""
+    _run_js(os.path.join("tests", "js",
+                         "round1025_f5_models_test.js"),
+            ok_marker="MODELS-GROUPS-OK")
+
+
+def test_js_unit_round1025_f5_prompts_single_source():
+    """F5 round 10.25 (ADR-1025-15 D3/§48/§85): «один промпт — один источник»
+    (два маршрута → один configItem `prompts.*`), фокус промпта, редактор не в
+    аккордеоне, один write-path, две двери-маршрута, канон не в web."""
+    _run_js(os.path.join("tests", "js",
+                         "round1025_f5_prompts_single_source_test.js"),
+            ok_marker="PROMPTS-SINGLE-SOURCE-OK")

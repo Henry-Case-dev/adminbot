@@ -52,6 +52,11 @@ VIEWPORTS = [
 ROUTES = ["#/", "#/oversight", "#/how", "#/modules", "#/ai",
           "#/ai/llm", "#/ai/prompts", "#/ai/smart-cache", "#/ai/names",
           "#/memory", "#/memory/rag", "#/memory/lore", "#/access"]
+# F5 (T-2703): workspace-маршруты модулей (§46/§49) — адаптивность карточек
+# подключения и табов; те же вьюпорты §71. Отдельная проба `F5_PROBE_JS`.
+F5_ROUTES = ("#/modules/factcheck", "#/modules/factcheck/models",
+             "#/modules/direct/models", "#/modules/summary")
+ROUTES = ROUTES + list(F5_ROUTES)
 
 # HOTFIX7 (T-2681): 5 логических режимов обязательной приёмки UPD 6. Каждый
 # вьюпорт §71 прогоняется в normal и fullscreen (стаб isFullscreen +
@@ -342,6 +347,37 @@ PROBE_JS = """
     })(),
     mediaMin1200: window.matchMedia('(min-width: 1200px)').matches,
     mediaMax767: window.matchMedia('(max-width: 767px)').matches,
+  };
+})()
+"""
+
+
+# F5 (T-2703, §49/§70/§71): workspace-проба — overflow страницы, контейнер
+# табов (без горизонтального скролла), тач-цели табов и карточек подключения
+# ≥44px (на mobile), рендер карточек §49.
+F5_PROBE_JS = """
+(() => {
+  const de = document.documentElement;
+  const minTouch = (sel) => {
+    const els = Array.from(document.querySelectorAll(sel));
+    if (!els.length) return null;
+    return Math.round(els.reduce((m, el) => {
+      const r = el.getBoundingClientRect();
+      return Math.min(m, Math.min(r.width || 999, r.height || 999));
+    }, 999));
+  };
+  const tabsBox = document.querySelector('[data-workspace-tabs]');
+  return {
+    innerWidth: window.innerWidth,
+    scrollWidth: de.scrollWidth,
+    overflow: de.scrollWidth > window.innerWidth + 1,
+    workspace: !!document.querySelector('[data-workspace-head]'),
+    tabsCount: document.querySelectorAll('[data-workspace-tabs] button').length,
+    tabsWrap: tabsBox ? (tabsBox.scrollWidth - tabsBox.clientWidth) : 0,
+    tabsMinTouch: minTouch('[data-workspace-tabs] button'),
+    cardCount: document.querySelectorAll('[data-connection-card]').length,
+    cardTestMinTouch: minTouch('[data-conn-test]'),
+    cardCfgMinTouch: minTouch('[data-conn-configure]'),
   };
 })()
 """
@@ -815,6 +851,34 @@ def _scope_failures(probe: dict, label: str, width: int) -> list:
     return out
 
 
+def _f5_failures(probe: dict, label: str, width: int) -> list:
+    """F5 (T-2703, §49/§70/§71): адаптивность workspace.
+
+    Нет горизонтального скролла страницы; workspace отрендерен; контейнер
+    табов не скроллится по горизонтали; на mobile тач-цели табов и карточек
+    подключения ≥44×44.
+    """
+    out = []
+    if probe.get("overflow"):
+        out.append("%s: horizontal overflow %d > %d"
+                   % (label, probe.get("scrollWidth"), probe.get("innerWidth")))
+    if not probe.get("workspace"):
+        out.append("%s: workspace не отрендерен (нет data-workspace-head)" % label)
+    if probe.get("tabsCount", 0) < 1:
+        out.append("%s: табы workspace отсутствуют" % label)
+    if probe.get("tabsWrap", 0) > 1:
+        out.append("%s: контейнер табов скроллится по горизонтали (%d)"
+                   % (label, probe.get("tabsWrap")))
+    if width < 1024:
+        for key, name in (("tabsMinTouch", "таб"),
+                          ("cardTestMinTouch", "«Проверить»"),
+                          ("cardCfgMinTouch", "«Настроить»")):
+            v = probe.get(key)
+            if v is not None and v < 44:
+                out.append("%s: тач-цель %s %dpx < 44" % (label, name, v))
+    return out
+
+
 def _hotfix6_failures(probe: dict, label: str) -> list:
     """hotfix6 (T-2598/T-2611): C1 — сердебиение в границах контейнера;
     D — кнопка ⛶ и селектор не выходят за вьюпорт."""
@@ -1061,10 +1125,18 @@ def main() -> int:
                 # hotfix6 (T-2598/T-2611): C1-overflow / ⛶ в вьюпорте.
                 failures.extend(_hotfix6_failures(
                     probe, "%s %s" % (vp_key, route)))
+                # F5 (T-2703): workspace-маршруты — карточки/табы §49/§46.
+                if route in F5_ROUTES:
+                    f5 = page.evaluate(F5_PROBE_JS)
+                    out["viewports"][vp_key].setdefault("f5_routes", {})[route] = f5
+                    failures.extend(_f5_failures(
+                        f5, "%s %s" % (vp_key, route), w))
                 if route == "#/":
                     _snap(page, "%s_root" % vp_key)
                 if route == "#/memory":
                     _snap(page, "%s_memory" % vp_key)
+                if route == "#/modules/factcheck/models":
+                    _snap(page, "%s_ws_models" % vp_key)
             # F2 (T-2554): F2-пробы на корневой Статус-вкладке (палитра/фон/
             # glass allow-deny), затем пауза при document.hidden (§10/T-2547).
             page.evaluate("() => { window.location.hash = '#/'; }")

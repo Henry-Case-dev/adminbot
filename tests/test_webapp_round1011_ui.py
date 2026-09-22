@@ -55,7 +55,10 @@ class TestZonesAndLayout:
     """пп.2.1–2.2: зоны, nav/профиль/сетка."""
 
     def test_zones(self):
-        assert "v-for=\"b in providerConnectionBlocks\"" in HTML
+        # F5 (10.25, §49): блоки-подключения рендерятся по 6 группам —
+        # computed `providerGrouped` (bare-ref), внутри `g.blocks`.
+        assert "v-for=\"g in providerGrouped\"" in HTML
+        assert "v-for=\"b in g.blocks\"" in HTML
         assert "v-for=\"b in providerAdvancedBlocks\"" in HTML
         assert "Расширенные настройки" in HTML
         assert ":is=\"activeTab === 'llm_providers' ? 'details' : 'div'\"" in HTML

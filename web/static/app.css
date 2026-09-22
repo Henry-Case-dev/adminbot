@@ -2002,3 +2002,61 @@
     @media (max-width: 767px) {
       .module-filter-btn { min-height: 44px; }
     }
+
+    /* ═══ F5 (ADR-1025-15 D3/§48): master-detail библиотеки промптов ═══
+       desktop: дерево | редактор | описание+параметры; mobile (<768):
+       список → полноэкранный редактор; без горизонтального скролла. */
+    .workspace-prompt-lib {
+      display: grid; gap: 12px;
+      grid-template-columns: 220px minmax(0, 1fr) 260px;
+      align-items: start;
+    }
+    .prompt-tree { max-height: 60vh; overflow: auto; }
+    .prompt-tree-item {
+      display: block; padding: 6px 8px; border-radius: 8px;
+      color: var(--text-2, #AAB6C8); background: transparent;
+      border: 1px solid transparent; cursor: pointer; font-size: .8rem;
+    }
+    .prompt-tree-item:hover { background: rgba(255,255,255,.05); }
+    .prompt-tree-item.is-active {
+      background: rgba(139,92,246,.18); border-color: rgba(139,92,246,.5);
+      color: var(--text-1, #F4F7FB);
+    }
+    .prompt-editor textarea { width: 100%; }
+    @media (max-width: 1023px) {
+      .workspace-prompt-lib { grid-template-columns: 200px minmax(0, 1fr); }
+      .prompt-meta { display: none; }
+    }
+    @media (max-width: 767px) {
+      .workspace-prompt-lib { grid-template-columns: minmax(0, 1fr); }
+      .workspace-prompt-lib .prompt-meta { display: none; }
+      .workspace-prompt-lib .prompt-editor { display: none; }
+      .workspace-prompt-lib.is-editing .prompt-tree { display: none; }
+      .workspace-prompt-lib.is-editing .prompt-editor { display: block; }
+      .prompt-tree { max-height: none; }
+      .prompt-tree-item { min-height: 44px; }
+      [data-workspace-tabs] button { min-height: 44px; }
+      .workspace-head .prov-test-btn,
+      .direct-stage-card .prov-test-btn { min-height: 44px; }
+    }
+
+    /* ═══ F5 (ADR-1025-15 D4/§49, T-2714): карточка подключения ═══
+       название / назначение / основная модель / резервная модель / статус
+       + «Проверить» / «Настроить». Без горизонтального скролла; длинные
+       значения моделей переносятся, тач-цели ≥44×44 на mobile. */
+    .conn-card { min-width: 0; }
+    .conn-facts { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .conn-fact { display: flex; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+    .conn-fact-label { flex: 0 0 auto; color: var(--text-3, #8A94A6); }
+    .conn-settings { border-top: 1px solid rgba(255, 255, 255, .08); }
+    @media (max-width: 767px) {
+      [data-conn-test],
+      [data-conn-configure],
+      [data-connection-settings] button { min-height: 44px; }
+    }
+    /* Тач-цели workspace (табы/карточки) — ≥44×44 на всех ширинах §70:
+       это управляющие кнопки, размер выровнен независимо от вьюпорта. */
+    [data-workspace-tabs] button,
+    [data-conn-test],
+    [data-conn-configure],
+    [data-connection-settings] button { min-height: 44px; }

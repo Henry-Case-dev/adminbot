@@ -281,6 +281,342 @@
               Нет доступа к параметрам этой вкладки.
             </div>
             <template v-else>
+              <!-- ═══ F5 (ADR-1025-15 D1/D6, §46): страница рабочего
+                   пространства модуля. Маршрут `#/modules/<slug>[/<wt> ...]`,
+                   тумблер — из канонического store F4 (без локального
+                   boolean); навигация — табы, не аккордеоны. ═══ -->
+              <div v-if="workspaceModule && workspace.door === 'modules'"
+                   class="col-span-full card p-4 workspace-head"
+                   :data-module="workspaceModule.id" data-workspace-head>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="msr" aria-hidden="true">{{ iconGlyph(workspaceModule.icon) }}</span>
+                  <div class="min-w-0">
+                    <div class="text-base font-bold truncate">{{ workspaceModule.title }}</div>
+                    <div class="text-xs text-gray-500 truncate">{{ workspaceModule.subtitle }}</div>
+                  </div>
+                  <span class="flex-1"></span>
+                  <span class="badge" :class="moduleEnabled(workspaceModule) ? 'badge-ok' : 'badge-muted'">
+                    {{ moduleStateText(workspaceModule) }}
+                  </span>
+                  <label v-if="!workspaceModule.noToggle"
+                         class="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input type="checkbox" class="sr-only peer"
+                           :checked="moduleEnabled(workspaceModule)"
+                           :disabled="!canEditModule(workspaceModule) || modulePendingFor(workspaceModule)"
+                           @change="toggleModule(workspaceModule, $event.target.checked)"
+                           :aria-label="'Включить модуль ' + workspaceModule.title">
+                    <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
+                    <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                  </label>
+                </div>
+                <div v-if="moduleRuntimeNotice(workspaceModule)" class="text-xs text-amber-300 mt-1">
+                  {{ moduleRuntimeNotice(workspaceModule) }}
+                </div>
+                <div v-if="moduleSourceText(workspaceModule)" class="text-[10px] text-gray-500 mt-1">
+                  {{ moduleSourceText(workspaceModule) }}
+                </div>
+                <div class="flex gap-2 flex-wrap mt-3" role="tablist" data-workspace-tabs>
+                  <button v-for="wt in workspaceTabs" :key="'wt-' + wt.id" role="tab"
+                          :data-workspace-tab="wt.id"
+                          :aria-selected="workspaceTab === wt.id"
+                          class="btn-ghost text-xs"
+                          :class="workspaceTab === wt.id ? 'btn-accent' : ''"
+                          @click="openWorkspaceTab(wt.id)">{{ wt.label }}</button>
+                </div>
+              </div>
+
+              <!-- Обзор: реальные данные/состояние, без фиктивных чисел. -->
+              <div v-if="workspaceModule && workspaceTab === 'overview'"
+                   class="col-span-full card p-4" data-workspace-overview>
+                <div class="text-sm font-bold mb-1">Обзор модуля</div>
+                <div class="text-xs text-gray-400 mb-2">
+                  {{ workspaceModule.subtitle }}. Настройки модуля сгруппированы по
+                  вкладкам; генеральный переключатель — сверху.
+                </div>
+                <div class="text-xs text-gray-500">
+                  Состояние: <b>{{ moduleStateText(workspaceModule) }}</b>
+                  <span v-if="moduleSourceText(workspaceModule)"> · {{ moduleSourceText(workspaceModule) }}</span>
+                </div>
+                <div v-if="!moduleEnabled(workspaceModule)" class="text-xs text-amber-300 mt-1">
+                  Модуль выключен — включите его тумблером сверху.
+                </div>
+              </div>
+
+              <!-- §85: стадии Саммари — честный placeholder Эпика 2 (без
+                   выдуманных этапов/цифр; backend не создаётся). -->
+              <div v-if="workspaceModule
+                        && (workspaceTab === 'prep' || workspaceTab === 'clusterizer'
+                            || workspaceTab === 'writer')"
+                   class="col-span-full card p-4" :data-workspace-stage="workspaceTab">
+                <div class="text-sm font-bold mb-1">{{ workspaceTabLabel(workspaceTab) }}</div>
+                <div class="text-xs text-gray-400">
+                  Раздел появится после обновления пайплайна; данные пока не собираются.
+                </div>
+              </div>
+
+              <!-- §84: L1/L2 прямого чата — только UI поверх существующих
+                   стадий (двухвызовный пайплайн не меняется). -->
+              <div v-if="workspaceModule && workspaceModule.id === 'mod_direct'
+                        && workspaceTab === 'models'"
+                   class="col-span-full grid gap-3 md:grid-cols-2" data-direct-stages>
+                <div v-for="c in directStageCards()" :key="'ds-' + c.id"
+                     class="card p-4 direct-stage-card" :data-stage="c.id">
+                  <div class="text-sm font-bold mb-1">{{ c.title }}</div>
+                  <div class="text-xs text-gray-500 mb-1">
+                    Провайдер: {{ c.provider || '—' }}
+                  </div>
+                  <div class="text-xs text-gray-400 mb-1">
+                    Модель: {{ c.modelName || '—' }}
+                  </div>
+                  <div class="text-xs text-gray-500 mb-2">
+                    {{ c.source || 'Источник: глобальная настройка' }}
+                  </div>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <button class="btn-accent prov-test-btn text-xs"
+                            :disabled="blockTesting['direct_main']"
+                            @click="testDirectStage(c)">Проверить</button>
+                    <span v-if="blockResults['direct_main']" class="prov-test-status text-xs"
+                          :class="blockResults['direct_main'].ok ? 'text-green-400' : 'text-red-400'">
+                      {{ blockResults['direct_main'].text }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- §46/T-2700: вкладка «Тестирование» — РЕАЛЬНЫЙ применимый
+                   контент (проверка подключений модуля, reuse `testBlock`,
+                   без записи). Пусто → вкладка не показывается. -->
+              <div v-if="workspaceModule && workspaceTab === 'testing'
+                        && workspaceTestingBlocks.length"
+                   class="col-span-full card p-4" data-workspace-testing>
+                <div class="text-sm font-bold mb-1">Тестирование подключений</div>
+                <div class="text-xs text-gray-400 mb-3">
+                  Проверка соединений этого модуля на существующих эндпоинтах;
+                  параметры при проверке не записываются.
+                </div>
+                <div class="flex flex-col gap-2">
+                  <div v-for="b in workspaceTestingBlocks" :key="'wt-test-' + b.id"
+                       class="prov-row flex items-center gap-2 flex-wrap">
+                    <span class="text-sm font-semibold">{{ b.title }}</span>
+                    <span class="flex-1"></span>
+                    <button class="btn-accent prov-test-btn text-xs"
+                            :disabled="blockTesting[b.id]" @click="testBlock(b)">
+                      {{ blockTesting[b.id] ? 'Проверка…' : 'Проверить' }}
+                    </button>
+                    <span v-if="blockResults[b.id]" class="prov-test-status text-xs"
+                          :class="blockResults[b.id].ok ? 'text-green-400' : 'text-red-400'">
+                      {{ blockResults[b.id].text }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- §49 (T-2714): карточки подключений модуля —
+                   название / назначение / основная модель / резервная модель /
+                   статус + «Проверить» / «Настроить». Значения — из
+                   существующей структуры (`PROVIDER_BLOCKS`/`models_*`), ключи
+                   как значения не выводятся (F9/§46). «Настроить» раскрывает
+                   существующую форму блока (reuse `saveBlock`); «Проверить» —
+                   reuse `testBlock`. -->
+              <template v-if="workspaceModule && workspaceTab === 'models'">
+              <section v-for="g in workspaceModelCards" :key="'wmg-' + g.id"
+                       class="col-span-full prov-grid" :data-provider-group="g.id">
+                <div class="hub-head" style="max-width: none;">
+                  <div class="hub-title">{{ g.title }}</div>
+                </div>
+                <div class="prov-block card p-4 w-full conn-card" v-for="c in g.cards"
+                     :key="'wmb-' + c.id" :data-block="c.id"
+                     :data-connection-card="c.id">
+                  <header class="prov-head flex items-center gap-2 mb-2">
+                    <span class="prov-title text-sm font-bold">{{ c.title }}</span>
+                    <span v-if="c.display" class="prov-modules text-xs text-gray-500">{{ c.display }}</span>
+                    <span class="flex-1"></span>
+                    <span class="badge" data-connection-status
+                          :class="c.status.ok === true ? 'badge-ok'
+                                  : (c.status.ok === false ? 'badge-err' : 'badge-muted')">
+                      {{ c.status.text }}
+                    </span>
+                  </header>
+                  <div class="conn-facts text-xs text-gray-400">
+                    <div class="conn-fact" data-conn-field="title">
+                      <span class="conn-fact-label">Название:</span> {{ c.title }}
+                    </div>
+                    <div class="conn-fact" data-conn-field="purpose">
+                      <span class="conn-fact-label">Назначение:</span> {{ c.purpose || '—' }}
+                    </div>
+                    <div class="conn-fact" data-conn-field="primary-model">
+                      <span class="conn-fact-label">Основная модель:</span> {{ c.primary || '—' }}
+                    </div>
+                    <div class="conn-fact" data-conn-field="fallback-model">
+                      <span class="conn-fact-label">Резервная модель:</span>
+                      {{ c.hasFallback ? (c.fallback || '—') : '—' }}
+                    </div>
+                    <div class="conn-fact" data-conn-field="status">
+                      <span class="conn-fact-label">Статус:</span> {{ c.status.text }}
+                    </div>
+                  </div>
+                  <div v-if="c.note" class="text-xs text-gray-500 mt-2">{{ c.note }}</div>
+                  <div class="flex items-center gap-2 flex-wrap mt-3">
+                    <button v-if="c.canTest" class="btn-accent prov-test-btn text-xs"
+                            data-conn-test
+                            :disabled="blockTesting[c.testTarget.id]"
+                            @click="testConnection(c.block)">
+                      {{ blockTesting[c.testTarget.id] ? 'Проверка…' : 'Проверить' }}
+                    </button>
+                    <button class="btn-ghost text-xs" data-conn-configure
+                            :aria-expanded="!!connectionSettingsOpen[c.id]"
+                            @click="toggleConnectionSettings(c.block)">
+                      {{ connectionSettingsOpen[c.id] ? 'Скрыть настройки' : 'Настроить' }}
+                    </button>
+                  </div>
+                  <div v-if="connectionSettingsOpen[c.id]" class="conn-settings mt-3"
+                       data-connection-settings>
+                    <template v-if="c.block.subBlocks">
+                      <div v-for="sb in c.block.subBlocks" :key="sb.id" class="mb-3" :data-block="sb.id">
+                        <div class="text-xs font-bold text-gray-300 mb-1">{{ sb.title }}</div>
+                        <div class="prov-row flex items-start gap-2 mb-2" v-for="f in sb.fields" :key="f.key">
+                          <label class="prov-label text-xs w-36 shrink-0 pt-2">{{ f.label }}</label>
+                          <div class="flex-1 min-w-0">
+                            <input class="field w-full"
+                                   :type="f.secret && !keyReveal[f.key] ? 'password' : 'text'"
+                                   autocomplete="off" :placeholder="blockFieldPlaceholder(f)"
+                                   :value="blockFieldValue(f)"
+                                   @input="blockDrafts[f.key] = $event.target.value"
+                                   :disabled="!canEditConfig(f.key)">
+                          </div>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <button class="btn-ghost text-xs" :disabled="blockSaving[sb.id]"
+                                  @click="saveBlock(sb)">{{ blockSaving[sb.id] ? 'Сохранение…' : 'Сохранить' }}</button>
+                          <button class="btn-accent prov-test-btn text-xs"
+                                  :disabled="blockTesting[sb.id]"
+                                  @click="testBlock(sb)">Проверить</button>
+                          <span v-if="blockResults[sb.id]" class="prov-test-status text-xs"
+                                :class="blockResults[sb.id].ok ? 'text-green-400' : 'text-red-400'">
+                            {{ blockResults[sb.id].text }}
+                          </span>
+                        </div>
+                      </div>
+                    </template>
+                    <template v-else>
+                      <div class="prov-row flex items-start gap-2 mb-2" v-for="f in c.block.fields" :key="f.key">
+                        <label class="prov-label text-xs w-36 shrink-0 pt-2">{{ f.label }}</label>
+                        <div class="flex-1 min-w-0">
+                          <template v-if="f.checkbox">
+                            <label class="flex items-center gap-2 text-sm pt-2 cursor-pointer">
+                              <input type="checkbox" class="w-4 h-4"
+                                     :checked="blockFieldBool(f)"
+                                     :disabled="!canEditConfig(f.key)"
+                                     @change="setBlockBool(c.block, f, $event.target.checked)">
+                              <span class="text-gray-300">{{ f.hint || f.label }}</span>
+                            </label>
+                          </template>
+                          <template v-else>
+                            <input class="field w-full"
+                                   :type="f.secret && !keyReveal[f.key] ? 'password' : 'text'"
+                                   autocomplete="off" :placeholder="blockFieldPlaceholder(f)"
+                                   :value="blockFieldValue(f)"
+                                   @input="blockDrafts[f.key] = $event.target.value"
+                                   :disabled="!canEditConfig(f.key) || blockDependsOn(f)">
+                            <div v-if="f.secret && blockFieldConfigured(f)"
+                                 class="text-[10px] text-gray-500 mt-0.5">
+                              Ключ сохранён (••••{{ last4ByKey(f.key) }}) — можно проверить без ввода
+                            </div>
+                          </template>
+                        </div>
+                      </div>
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <button class="btn-ghost text-xs" :disabled="blockSaving[c.id]"
+                                @click="saveBlock(c.block)">{{ blockSaving[c.id] ? 'Сохранение…' : 'Сохранить' }}</button>
+                        <button v-if="c.canTest" class="btn-accent prov-test-btn text-xs"
+                                :disabled="blockTesting[c.id]" @click="testBlock(c.block)">Проверить</button>
+                        <span v-if="c.canTest && blockResults[c.id]" class="prov-test-status text-xs"
+                              :class="blockResults[c.id].ok ? 'text-green-400' : 'text-red-400'">
+                          {{ blockResults[c.id].text }}
+                        </span>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </section>
+              </template>
+
+              <!-- §48: две двери в одну комнату. Из модуля → «Открыть в
+                   библиотеке промптов»; из библиотеки → «Открыть страницу
+                   модуля». Объект один — config-item `prompts.*`. -->
+              <div v-if="workspaceModule
+                        && (workspaceTab === 'prompts' || workspaceTab === 'synthesizer'
+                            || workspaceTab === 'verbalizer')"
+                   class="col-span-full flex items-center gap-2 flex-wrap"
+                   data-prompt-doors>
+                <button v-if="workspace.door === 'modules'" class="btn-ghost text-xs"
+                        @click="openPromptLibrary(workspaceModule, workspace.stage)">
+                  Открыть в библиотеке промптов
+                </button>
+                <button v-else class="btn-ghost text-xs"
+                        @click="openWorkspaceTab('overview')">
+                  ← Открыть страницу модуля
+                </button>
+                <span class="text-[10px] text-gray-500">Один промпт — один источник</span>
+              </div>
+
+              <!-- §48: гибридная библиотека промптов (master-detail).
+                   Основной редактор виден сразу (НЕ в аккордеоне);
+                   объект — config-item `prompts.*` (один источник). -->
+              <div v-if="workspaceModule
+                        && (workspaceTab === 'prompts' || workspaceTab === 'synthesizer'
+                            || workspaceTab === 'verbalizer')
+                        && workspacePromptList.length"
+                   class="col-span-full workspace-prompt-lib"
+                   :class="(workspace && workspace.promptKey) ? 'is-editing' : ''"
+                   data-workspace-prompts>
+                <aside class="prompt-tree card p-3" role="group"
+                       aria-label="Промпты" data-prompt-tree>
+                  <div class="text-xs font-bold uppercase tracking-wide mb-2">Промпты</div>
+                  <button v-for="it in workspacePromptList" :key="'pt-' + it.key"
+                          class="prompt-tree-item w-full text-left"
+                          :class="workspacePromptFocus && workspacePromptFocus.key === it.key ? 'is-active' : ''"
+                          :data-prompt-key="it.key"
+                          @click="openWorkspacePrompt(it)">
+                    {{ it.title }}
+                  </button>
+                </aside>
+                <section v-if="workspacePromptFocus" class="prompt-editor card p-4"
+                         data-prompt-editor>
+                  <div class="text-sm font-bold">{{ workspacePromptFocus.title }}</div>
+                  <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ workspacePromptFocus.key }}</div>
+                  <div v-if="configSourceLabel(workspacePromptFocus)" class="text-[10px] text-gray-500 mb-1">
+                    {{ configSourceLabel(workspacePromptFocus) }}
+                  </div>
+                  <div v-if="configItemNotice(workspacePromptFocus)"
+                       class="text-[10px] text-amber-300 mb-1">{{ configItemNotice(workspacePromptFocus) }}</div>
+                  <textarea class="field scroll-thin" rows="12"
+                            :data-prompt-textarea="workspacePromptFocus.key"
+                            v-model="workspacePromptFocus.value"
+                            :disabled="!canEditConfig(workspacePromptFocus.key)"></textarea>
+                </section>
+                <section v-else class="prompt-editor card p-4 text-xs text-gray-500">
+                  Выберите промпт в списке.
+                </section>
+                <aside v-if="workspacePromptFocus" class="prompt-meta card p-4" data-prompt-meta>
+                  <div class="text-xs font-bold uppercase tracking-wide mb-2">Описание</div>
+                  <div class="text-xs text-gray-400 mb-3">{{ workspacePromptFocus.description }}</div>
+                  <div class="text-xs font-bold uppercase tracking-wide mb-2">Параметры</div>
+                  <div class="text-xs text-gray-400 mb-1">
+                    Ключ: <span class="font-mono">{{ workspacePromptFocus.key }}</span>
+                  </div>
+                  <div v-if="workspacePromptFocus.group" class="text-xs text-gray-400 mb-1">
+                    Группа: <span class="font-mono">{{ workspacePromptFocus.group }}</span>
+                  </div>
+                  <div v-if="workspacePromptFocus.stage" class="text-xs text-gray-400 mb-1">
+                    Этап: {{ workspacePromptFocus.stage }}
+                  </div>
+                  <div v-if="configSourceLabel(workspacePromptFocus)" class="text-xs text-gray-400 mb-1">
+                    {{ configSourceTitle(workspacePromptFocus) }}
+                  </div>
+                </aside>
+              </div>
+
               <!-- F3 (10.19, ADR-1019-3 D1/D4, UPD3 п.2-4): «Бюджеты» —
                    оба контура + лимит контекста; тумблер «Безлимит по чату»
                    пишет существующие per-chat ключи = −1 (механизм F2).
@@ -320,13 +656,18 @@
               <!-- A4/T-1207: LLM Провайдеры — блоки ПО МОДУЛЯМ; каждый =
                    base_url + model + api key + «Проверить» (POST /api/llm/test). -->
               <div v-if="activeTab === 'llm_providers'" class="col-span-full prov-grid">
-                <!-- 2.2.1 «Подключения»: только блоки настройки моделей. -->
+                <!-- 2.2.1 «Подключения» + F5 (§49): 6 групп «Моделей и
+                     подключений» из существующих PROVIDER_BLOCKS (Δ каталога=0). -->
                 <div class="hub-head" style="max-width: none;">
-                  <div class="hub-title">Подключения</div>
-                  <div class="hub-sub">Адреса, модели и ключи провайдеров. Технические параметры — ниже, в «Расширенных настройках».</div>
+                  <div class="hub-title">Модели и подключения</div>
+                  <div class="hub-sub">Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках».</div>
                 </div>
+                <template v-for="g in providerGrouped" :key="'pg-' + g.id">
+                <div v-if="g.blocks.length"
+                     class="col-span-full text-sm font-bold text-violet-300 uppercase tracking-wide"
+                     :data-provider-group="g.id">{{ g.title }}</div>
                 <section class="prov-block card p-4 w-full"
-                         v-for="b in providerConnectionBlocks" :key="b.id" :data-block="b.id">
+                         v-for="b in g.blocks" :key="b.id" :data-block="b.id">
                   <header class="prov-head flex items-center gap-2 mb-2">
                     <span class="prov-title text-sm font-bold">{{ b.title }}</span>
                     <span v-if="blockDisplayName(b)" class="prov-modules text-xs text-gray-500">{{ blockDisplayName(b) }}</span>
@@ -460,6 +801,7 @@
                     </div>
                   </template>
                 </section>
+                </template>
               </div>
               <!-- 10.9 (п.1): отдельная мастер-карта удалена — тумблер
                    «Общее / Мастер» теперь в <summary> owner-блока, а
@@ -487,7 +829,8 @@
               <div v-if="currentTabItemCount === 0 && !configError" class="card p-6 text-gray-400 col-span-full">
                 Параметры этой вкладки ещё не загружены в базу (вкладка пустая).
               </div>
-              <div v-else-if="currentTabGroups.length === 0 && !configError" class="card p-6 text-gray-400 col-span-full">
+              <div v-else-if="currentTabGroups.length === 0 && !configError && !workspaceModule"
+                   class="card p-6 text-gray-400 col-span-full">
                 Ничего не найдено по запросу «{{ configSearch }}».
               </div>
               <!-- 2.2.2 «Расширенные настройки»: на вкладке «LLM Провайдеры»
@@ -500,6 +843,37 @@
                    анти-клише (API F4, fail-open). Freeze-меню не тронут:
                    меняется только внутренний рендер вкладки. ═══ -->
               <template v-if="activeTab === 'prompts'">
+                <!-- §47/§48 (ADR-1025-15 D3): рабочая точка входа в
+                     библиотеку промптов ИЗ РАЗДЕЛА ИИ — «вторая дверь».
+                     Клик ведёт на `#/ai/prompts/<slug>[/<stage>]` и открывает
+                     тот же config-item `prompts.*`, что и страница модуля. -->
+                <div v-if="!workspaceModule && promptLibraryEntries.length"
+                     class="card p-4 col-span-full" data-prompt-library-modules>
+                  <div class="text-sm font-bold mb-1">Промпты по модулям</div>
+                  <div class="text-xs text-gray-500 mb-3">
+                    Выберите модуль — откроется тот же промпт, что и на его
+                    странице. Один промпт — один источник.
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <div v-for="e in promptLibraryEntries" :key="'plm-' + e.slug"
+                         class="card p-3">
+                      <div class="text-sm font-semibold">{{ e.module.title }}</div>
+                      <div class="flex items-center gap-1 flex-wrap mt-1">
+                        <button class="btn-ghost text-xs"
+                                :data-prompt-library="e.slug"
+                                @click="openPromptLibrary(e.module)">
+                          Открыть
+                        </button>
+                        <button v-for="st in e.stages" :key="'plm-' + e.slug + '-' + st"
+                                class="btn-ghost text-xs"
+                                :data-prompt-library="e.slug + '/' + st"
+                                @click="openPromptLibrary(e.module, st)">
+                          {{ workspaceTabLabel(st) }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <!-- Блок мониторинга content.dynamic_cliche_list (F4-API) -->
                 <div v-if="isGlobalAdmin && clicheAvailable"
                      class="card p-4 col-span-full" data-block="anticliche-monitor">

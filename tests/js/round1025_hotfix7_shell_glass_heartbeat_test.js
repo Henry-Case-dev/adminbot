@@ -289,8 +289,8 @@ function canvasStub() {
     assert.ok(ROUTES.indexOf(flag) >= 0, 'D: ui_flags доставка ' + flag);
     assert.ok(APP_JS.indexOf(flag) >= 0, 'D: фронт читает ' + flag);
   }
-  // F4 (10.25) — bump 2.58.8 → 2.58.9 (web-ассеты менялись).
-  assert.ok(/APP_VERSION = "2\.58\.9"/.test(SETTINGS), 'D: APP_VERSION 2.58.9');
+  // F5 (10.25) — bump 2.58.9 → 2.58.10 (workspace-табы §46).
+  assert.ok(/APP_VERSION = "2\.58\.10"/.test(SETTINGS), 'D: APP_VERSION 2.58.10');
   // Матрица: 5 режимов + пробы shell/glass/heartbeat.
   for (const m of ['desktop_normal', 'desktop_fullscreen', 'tablet',
                    'mobile_regular', 'mobile_fullscreen']) {

@@ -401,22 +401,25 @@
     '#/ai': {
       title: 'ИИ',
       subtitle: 'Провайдеры, промпты, кэш, имена и личность',
+      // F5 (ADR-1025-15 D2/§47): ровно 5 внутренних страниц в порядке ТЗ.
+      // «LLM Провайдеры» → витринное «Модели и подключения» (route/tab НЕ
+      // меняются: `#/ai/llm` / `llm_providers`).
       cards: [
-        { icon: 'smart_toy', title: 'LLM Провайдеры',
-          subtitle: 'Блоки по модулям: base_url, модель, ключ, тест',
-          route: '#/ai/llm', tab: 'llm_providers' },
         { icon: 'description', title: 'Библиотека промптов',
           subtitle: 'Все системные промпты модулей',
           route: '#/ai/prompts', tab: 'prompts' },
-        { icon: 'bolt', title: 'Умный кэш',
-          subtitle: 'Exact Match Cache: TTL и строки',
-          route: '#/ai/smart-cache', tab: 'smart_cache' },
-        { icon: 'badge', title: 'Имена и алиасы',
-          subtitle: 'Имена людей (алиасы, per-chat/ЛС)',
-          route: '#/ai/names', tab: 'people_names' },
+        { icon: 'smart_toy', title: 'Модели и подключения',
+          subtitle: 'Блоки по модулям: base_url, модель, ключ, тест',
+          route: '#/ai/llm', tab: 'llm_providers' },
         { icon: 'psychology', title: 'Личность и стиль',
           subtitle: 'Имя, биография, характер, осознание ИИ',
           route: '#/ai/persona', tab: 'persona' },
+        { icon: 'badge', title: 'Имена и алиасы',
+          subtitle: 'Имена людей (алиасы, per-chat/ЛС)',
+          route: '#/ai/names', tab: 'people_names' },
+        { icon: 'bolt', title: 'Умный кэш',
+          subtitle: 'Exact Match Cache: TTL и строки',
+          route: '#/ai/smart-cache', tab: 'smart_cache' },
       ],
     },
     '#/memory': {
@@ -528,6 +531,79 @@
       keywords: ['изображения', 'картинки', 'рисунки', 'генерация', 'image',
                  'generation'] },
   ];
+
+  // ═══ F5 (ADR-1025-15 D1/D6): витринные метаданные workspace-маршрута ═══
+  // `routeSlug` и `tabs` живут В JS-витрине (services/param_catalog.py НЕ
+  // трогается → Δ каталога = 0). routeSlug = id без префикса `mod_`.
+  // `tabs` — применимые вкладки страницы модуля (§46/§4.2 spec.md); вкладка
+  // без содержимого не рендерится (`workspaceTabHasContent`).
+  var WORKSPACE_TABS = {
+    mod_summary: ['overview', 'settings', 'prep', 'clusterizer', 'writer',
+      'models', 'limits', 'testing'],
+    mod_direct: ['overview', 'settings', 'synthesizer', 'verbalizer', 'models',
+      'limits', 'testing'],
+    mod_factcheck: ['overview', 'settings', 'synthesizer', 'verbalizer',
+      'models', 'limits', 'testing'],
+    mod_search: ['overview', 'settings', 'prompts', 'models', 'limits',
+      'testing'],
+    mod_transcribe: ['overview', 'settings', 'models', 'limits', 'testing'],
+    mod_video_summary: ['overview', 'settings', 'prompts', 'models', 'limits',
+      'testing'],
+    mod_media_download: ['overview', 'settings', 'limits'],
+    mod_web: ['overview', 'settings', 'prompts', 'models', 'limits',
+      'testing'],
+    mod_checkup: ['overview', 'settings', 'prompts', 'models', 'limits',
+      'testing'],
+    mod_sleep: ['overview', 'settings', 'limits'],
+    mod_nostalgia: ['overview', 'settings', 'limits'],
+    mod_budgets: ['overview', 'settings', 'limits'],
+    mod_images: ['overview', 'settings', 'models', 'testing'],
+  };
+  MODULES.forEach(function (m) {
+    if (!m.routeSlug) m.routeSlug = String(m.id).replace(/^mod_/, '');
+    if (!m.tabs) m.tabs = WORKSPACE_TABS[m.id] || ['overview', 'settings'];
+  });
+  // Тексты вкладок workspace (i18n-канон §46/§85).
+  var WORKSPACE_TAB_LABELS = {
+    overview: 'Обзор', settings: 'Основные настройки', prompts: 'Промпты',
+    synthesizer: 'Синтезатор', verbalizer: 'Вербализатор', models: 'Модели',
+    limits: 'Лимиты', testing: 'Тестирование', prep: 'Подготовка сообщений',
+    clusterizer: 'Кластеризатор', writer: 'Писатель',
+  };
+  // Модуль → группа промптов каталога (F5 D3/§48: один объект на два маршрута).
+  var MODULE_PROMPT_GROUPS = {
+    mod_factcheck: 'prompts_factcheck',
+    mod_search: 'prompts_search',
+    mod_checkup: 'prompts_checkup',
+    mod_direct: 'prompts_direct_chat',
+    mod_summary: 'prompts_summary',
+    mod_video_summary: 'prompts_youtube',
+    mod_web: 'prompts_web',
+    mod_sleep: 'prompts_memory',
+  };
+
+  // ═══ F5 (ADR-1025-15 D4/§49): 6 групп «Моделей и подключений» ═══
+  // Группировка — ВИТРИНА (Δ каталога = 0): каждый блок-подключение
+  // (`providerConnectionBlocks`) принадлежит ровно одной группе; advanced
+  // блоки (`llm_guard`/`search_keys`/`media_share`) остаются «техническими».
+  var PROVIDER_GROUPS = [
+    { id: 'prov_text', title: 'Генерация текста', blocks: ['direct'] },
+    { id: 'prov_stt', title: 'Распознавание речи', blocks: ['transcription'] },
+    { id: 'prov_video', title: 'Видео', blocks: ['video_summary'] },
+    { id: 'prov_embeddings', title: 'Эмбеддинги', blocks: ['embeddings'] },
+    { id: 'prov_background', title: 'Фоновые задачи',
+      blocks: ['intel_history', 'intel_background', 'intel_reflection'] },
+    { id: 'prov_images', title: 'Генерация изображений',
+      blocks: ['image_generation'] },
+  ];
+  // Модуль → блоки-подключения для его вкладки «Модели» (§46/§49).
+  var MODULE_MODEL_BLOCKS = {
+    mod_summary: ['direct'], mod_direct: ['direct'],
+    mod_factcheck: ['direct'], mod_search: ['direct'], mod_web: ['direct'],
+    mod_transcribe: ['transcription'], mod_video_summary: ['video_summary'],
+    mod_checkup: [], mod_images: ['image_generation'],
+    mod_sleep: [], mod_nostalgia: [], mod_budgets: [], mod_media_download: [],
+  };
 
   // A4/T-1207: «LLM Провайдеры» — блоки ПО МОДУЛЯМ (base_url+model+key).
   // role задаёт, какое поле тела POST /api/llm/test заполняет значение.
@@ -877,15 +953,152 @@
     '#/modules/images': '#/modules',
   };
 
+  // ═══ F5 (ADR-1025-15 D1/D6): динамический резолвер workspace-маршрутов ═══
+  // Грамматика: `#/modules/<slug>[/<wt>[/<stage>/<promptKey>]]`. Резолвер
+  // распознаёт ЛЮБОЙ `<slug>` ∈ MODULES[].routeSlug, НЕ перечисляя 13 записей
+  // в статической карте. Существующие `#/modules/budgets|images` совместимы
+  // (они уже в ROUTE_TO_TAB → обрабатываются раньше).
+  function parseWorkspaceRoute(route) {
+    var r = String(route || '').split('?')[0];
+    if (r.indexOf('#/modules/') !== 0) return null;
+    var parts = r.substring('#/modules/'.length).split('/').filter(Boolean);
+    if (!parts.length) return null;
+    return { slug: parts[0] || '', tab: parts[1] || '',
+             stage: parts[2] || '', promptKey: parts[3] || '' };
+  }
+  function isWorkspaceRoute(route) {
+    return parseWorkspaceRoute(route) !== null;
+  }
+  // D3/§48: «ИИ → Библиотека промптов → <slug>/<stage>» — вторая дверь в ту
+  // же комнату (`#/ai/prompts/<slug>[/<stage>]`).
+  function parsePromptLibraryRoute(route) {
+    var r = String(route || '').split('?')[0];
+    if (r.indexOf('#/ai/prompts/') !== 0) return null;
+    var parts = r.substring('#/ai/prompts/'.length).split('/').filter(Boolean);
+    if (!parts.length) return null;
+    var stage = parts[1] || '';
+    var promptKey = parts[2] || '';
+    // `#/ai/prompts/<slug>/<stage>/<promptKey>` — фокус промпта (M-F5S-1).
+    // Для модуля без промежуточного stage ключ config-item (`prompts.*`)
+    // занимает слот stage: этапы (`synthesizer`/`verbalizer`) так выглядеть
+    // не могут, поэтому префикс `prompts.` однозначен.
+    if (stage && stage.indexOf('prompts.') === 0) {
+      promptKey = stage; stage = '';
+    }
+    return { slug: parts[0] || '', stage: stage, promptKey: promptKey };
+  }
+  function _wsModuleById(slug) {
+    if (!slug) return null;
+    for (var i = 0; i < MODULES.length; i++) {
+      var m = MODULES[i];
+      var s = m.routeSlug || String(m.id || '').replace(/^mod_/, '');
+      if (s === slug) return m;
+    }
+    return null;
+  }
+  // D3/§48: вкладка промптов модуля для второй двери (библиотеки). Приоритет
+  // объявленных вкладок; `prompts` — логический дефолт (mod_summary и др.).
+  function _workspacePromptTabOf(m) {
+    var declared = (m && m.tabs) || [];
+    var order = ['prompts', 'synthesizer', 'verbalizer'];
+    for (var i = 0; i < order.length; i++) {
+      if (declared.indexOf(order[i]) >= 0) return order[i];
+    }
+    return 'prompts';
+  }
+  // §4.3 п.2 (T-2700): вкладка применима по СТАТИЧЕСКОЙ витрине (не требует
+  // данных конфига). `testing` показывается только если у модуля есть
+  // тестируемые подключения (`MODULE_MODEL_BLOCKS`); пустая вкладка не рендерится.
+  function _workspaceTabApplicable(m, tabId) {
+    if (!m || !tabId) return false;
+    if ((m.tabs || []).indexOf(tabId) < 0) return false;
+    if (tabId === 'testing') {
+      return (MODULE_MODEL_BLOCKS[m.id] || []).length > 0;
+    }
+    return true;
+  }
+
+  // F5 (ADR-1025-15 D4/§49, T-2714): карточка подключения.
+  // Значения — ТОЛЬКО из существующей структуры `PROVIDER_BLOCKS`/`models_*`
+  // через `blockFieldValue` (сохранённое значение, без подстановки дефолта —
+  // §49 «не менять сохранённую модель при открытии»). Секреты (`keys.*`) в
+  // карточку как значения не выводятся (F9/§46): поля-секреты пропускаются.
+  // «Настроить» раскрывает существующую форму блока (reuse `saveBlock`),
+  // «Проверить» — существующий `testBlock` (reuse эндпоинтов).
+  function buildConnectionCard(ctx, b) {
+    if (!b) return null;
+    var subs = (b.subBlocks && b.subBlocks.length) ? b.subBlocks : [];
+    var primary = subs.length ? subs[0] : b;
+    var fallback = subs.length > 1 ? subs[1] : null;
+    function modelOf(blk) {
+      if (!blk) return '';
+      var fields = blk.fields || [];
+      for (var i = 0; i < fields.length; i++) {
+        // role === 'model' — «Модель»; секреты роли `api_key` не читаем.
+        if (fields[i].role === 'model') {
+          var v = ctx.blockFieldValue ? ctx.blockFieldValue(fields[i]) : '';
+          return (v == null) ? '' : String(v);
+        }
+      }
+      return '';
+    }
+    var results = ctx.blockResults || {};
+    var testing = ctx.blockTesting || {};
+    var res = results[primary.id] || results[b.id] || null;
+    var isTesting = !!(testing[primary.id] || testing[b.id]);
+    var status;
+    if (isTesting) {
+      status = { ok: null, text: 'Проверка…' };
+    } else if (res) {
+      status = { ok: !!res.ok,
+                 text: (res.ok ? 'Подключение OK' : 'Ошибка')
+                       + (res.text ? ' · ' + res.text : '') };
+    } else {
+      status = { ok: null, text: 'Не проверено' };
+    }
+    return {
+      id: b.id,
+      block: b,
+      title: b.title,
+      display: ctx.blockDisplayName ? (ctx.blockDisplayName(b) || '') : '',
+      purpose: b.modules || b.title || '',
+      note: b.note || '',
+      primary: modelOf(primary),
+      primaryLabel: primary.title || 'Основная модель',
+      fallback: modelOf(fallback),
+      fallbackLabel: fallback ? (fallback.title || 'Резервная модель') : '',
+      hasFallback: !!fallback,
+      status: status,
+      testTarget: primary,
+      canTest: b.testable !== false,
+    };
+  }
+
   // Маршрут валиден ТОЛЬКО если hash начинается с '#/' (иначе launch-hash).
   function normalizeRoute(hash) {
     if (typeof hash !== 'string') return null;
     if (hash.indexOf('#/') !== 0) return null;
     var r = hash.split('?')[0];           // отбросить query после маршрута
-    return Object.prototype.hasOwnProperty.call(ROUTE_TO_TAB, r) ? r : null;
+    if (Object.prototype.hasOwnProperty.call(ROUTE_TO_TAB, r)) return r;
+    // F5: динамические workspace/prompt-library маршруты (без статической карты).
+    if (isWorkspaceRoute(r)) return r;
+    if (parsePromptLibraryRoute(r)) return r;
+    return null;
   }
   function routeToTab(route) {
-    return ROUTE_TO_TAB[normalizeRoute(route) || '#/'] || 'status';
+    var r = normalizeRoute(route);
+    if (r && !Object.prototype.hasOwnProperty.call(ROUTE_TO_TAB, r)) {
+      var ws = parseWorkspaceRoute(r);
+      if (ws) {
+        var m = _wsModuleById(ws.slug);
+        if (m && m.tab) return m.tab;   // RBAC + kill-switch работают как были
+      }
+      // D3/§48: вторая дверь `#/ai/prompts/<slug>[/<stage>]` открывает
+      // Библиотеку промптов (tab `prompts`); фокус модуля выводит
+      // производное `workspace` из того же hash.
+      if (parsePromptLibraryRoute(r)) return 'prompts';
+    }
+    return ROUTE_TO_TAB[r || '#/'] || 'status';
   }
   function tabToRoute(tabId) {
     return TAB_TO_ROUTE[tabId] || '#/';
@@ -893,10 +1106,32 @@
   function routeParent(route) {
     var r = normalizeRoute(route);
     if (!r || ROOT_ROUTES.indexOf(r) >= 0) return null;
+    var ws = parseWorkspaceRoute(r);
+    if (ws) {
+      if (!_wsModuleById(ws.slug)) return '#/modules';
+      if (ws.promptKey) return '#/modules/' + ws.slug + '/' + ws.stage;
+      if (ws.tab) return '#/modules/' + ws.slug;
+      return '#/modules';
+    }
+    var pl = parsePromptLibraryRoute(r);
+    if (pl) {
+      if (pl.promptKey && pl.stage) {
+        return '#/ai/prompts/' + pl.slug + '/' + pl.stage;
+      }
+      if (pl.promptKey) return '#/ai/prompts/' + pl.slug;
+      return pl.stage ? ('#/ai/prompts/' + pl.slug) : '#/ai/prompts';
+    }
     return ROUTE_PARENT[r] || '#/';
   }
   function routeDepth(route) {
-    return routeParent(route) ? 1 : 0;
+    var r = normalizeRoute(route);
+    if (!r || ROOT_ROUTES.indexOf(r) >= 0) return 0;
+    var base = routeParent(route) ? 1 : 0;
+    var ws = parseWorkspaceRoute(r);
+    if (ws && _wsModuleById(ws.slug) && (ws.tab || ws.promptKey)) {
+      return base + 1;                 // 0/1/2: каталог ← модуль ← вкладка
+    }
+    return base;
   }
   // D1: hub-роут доступен, если видна ХОТЯ БЫ ОДНА его карточка. НЕ гейтим
   // hub по одному «представительскому» tab (иначе роль с правами только на
@@ -1014,6 +1249,10 @@
         blockResults: {},
         blockTesting: {},
         blockSaving: {},
+        // F5 (ADR-1025-15 D4/§49, T-2714): раскрытие формы настроек карточки
+        // подключения («Настроить»). Значение — только UI-состояние раскрытия;
+        // сохранение идёт существующим F0 write-path (`saveBlock`).
+        connectionSettingsOpen: {},
         // F-11/F24 (ADR-1024-24 D2): РЕАКТИВНЫЙ стейт аккордеонов — единственный
         // источник рендера `:open` (computed advancedOpen/provAdvancedOpen/
         // chatLoreAdvancedOpen). localStorage `adminbot.expand:<tab>[:<scope>]` —
@@ -1516,6 +1755,233 @@
         }
         return groups;
       },
+      // ═══ F5 (ADR-1025-15 D1/D3/D6): workspace модуля — производная hash ═══
+      // Своей копии маршрута НЕТ: всё выводится из `this.route`.
+      // Поддерживаются ОБЕ двери §48: `#/modules/<slug>[/<wt>[/<key>]]`
+      // (door='modules') и `#/ai/prompts/<slug>[/<stage>]` (door='library') —
+      // объект один и тот же config-item `prompts.*`, копий нет.
+      workspace: function () {
+        var route = this.route || '';
+        var parsed = parseWorkspaceRoute(route);
+        var door = 'modules';
+        if (!parsed) {
+          var lib = parsePromptLibraryRoute(route);
+          if (!lib) return null;
+          door = 'library';
+          parsed = { slug: lib.slug, tab: '', stage: lib.stage,
+                     promptKey: lib.promptKey || '' };
+        }
+        var m = (typeof this.moduleBySlug === 'function')
+          ? this.moduleBySlug(parsed.slug) : _wsModuleById(parsed.slug);
+        if (!m) return null;
+        var declared = m.tabs || [];
+        var tab;
+        if (door === 'library') {
+          // Библиотека открывает ту же комнату: stage → соответствующая
+          // вкладка, иначе первая промптовая вкладка модуля.
+          tab = (parsed.stage && declared.indexOf(parsed.stage) >= 0)
+            ? parsed.stage : _workspacePromptTabOf(m);
+        } else {
+          tab = parsed.tab || 'overview';
+          if (declared.indexOf(tab) < 0) tab = 'overview';
+        }
+        var stage = parsed.stage || '';
+        var promptKey = parsed.promptKey || '';
+        // §48: короткая форма `#/modules/<slug>/<wt>/<promptKey>` (без
+        // отдельного stage) — 3-й сегмент = ключ промпта. Только для
+        // door='modules': у библиотеки `<stage>` — это реальный этап.
+        if (door === 'modules' && !promptKey && stage) {
+          promptKey = stage; stage = '';
+        }
+        return { module: m, slug: parsed.slug, tab: tab,
+                 stage: stage, promptKey: promptKey, door: door };
+      },
+      workspaceModule: function () {
+        return this.workspace ? this.workspace.module : null;
+      },
+      workspaceTab: function () {
+        return this.workspace ? this.workspace.tab : '';
+      },
+      // Применимые вкладки: объявленные ∩ имеющие содержимое (§46/§4.3).
+      workspaceTabs: function () {
+        var ws = this.workspace;
+        if (!ws) return [];
+        var self = this;
+        return (ws.module.tabs || []).map(function (id) {
+          return { id: id, label: WORKSPACE_TAB_LABELS[id] || id };
+        }).filter(function (t) {
+          return self.workspaceTabHasContent(ws.module, t.id);
+        });
+      },
+      // §48: фокус промпта (объект один — config-item `prompts.*`).
+      workspacePromptFocus: function () {
+        var ws = this.workspace;
+        if (!ws) return null;
+        var items = this.workspacePromptItems(ws.module, ws.stage || '');
+        if (!items.length) items = this.workspacePromptItems(ws.module);
+        if (!items.length) return null;
+        var key = ws.promptKey;
+        if (key) {
+          for (var i = 0; i < items.length; i++) {
+            if (items[i].key === key) return items[i];
+          }
+          return null;   // ключ не найден → дерево открыто, фокус не назначен
+        }
+        return items[0];
+      },
+      // §48: плоский список промптов активной workspace-вкладки.
+      workspacePromptList: function () {
+        var ws = this.workspace;
+        if (!ws) return [];
+        if (ws.tab === 'prompts') return this.workspacePromptItems(ws.module);
+        if (ws.tab === 'synthesizer') {
+          return this.workspacePromptItems(ws.module, 'synthesizer');
+        }
+        if (ws.tab === 'verbalizer') {
+          return this.workspacePromptItems(ws.module, 'verbalizer');
+        }
+        return [];
+      },
+      // §47/§48: рабочая точка входа в библиотеку промптов из раздела ИИ —
+      // модули, чьи промпты там представлены (вторая дверь). Клик ведёт
+      // на `#/ai/prompts/<slug>[/<stage>]` → тот же config-item, что и
+      // страница модуля (копий нет).
+      promptLibraryEntries: function () {
+        var self = this;
+        var out = [];
+        (this.modules || []).forEach(function (m) {
+          var gid = MODULE_PROMPT_GROUPS[m.id];
+          if (!gid) return;
+          var count = self.workspacePromptItems(m).length;
+          if (!count) return;
+          var stages = [];
+          ['synthesizer', 'verbalizer'].forEach(function (st) {
+            if (self.workspacePromptItems(m, st).length) stages.push(st);
+          });
+          out.push({ module: m, slug: self.routeSlugOf(m),
+                     count: count, stages: stages });
+        });
+        return out;
+      },
+      // §9.3 spec: инвариант покрытия §117(1–4) — ДОКАЗАТЕЛЬНЫЙ.
+      // `old` — статически объявленные группы источника вкладки модуля
+      // (`TABS[m.tab].sources`); `seen` — группы, реально достижимые в
+      // ПРИМЕНИМЫХ вкладках workspace (учитывается `m.tabs`). Расхождение =
+      // провал (потеря группы/параметра при переработке UI). «Старое»
+      // множество НЕ выводится из `groupedForTab` → проверка не тавтологична.
+      workspaceCoverage: function () {
+        var m = this.workspaceModule;
+        if (!m) return { groups: [], missing: [] };
+        var self = this;
+        var seen = {};
+        function add(g) { if (g && g.id) seen[g.id] = true; }
+        // 1) группы, достижимые в применимых вкладках workspace (m.tabs учтён).
+        ['settings', 'models', 'limits'].forEach(function (wt) {
+          if (!_workspaceTabApplicable(m, wt)) return;
+          self._workspaceGroupsFor(m, wt).forEach(add);
+        });
+        // 2) промпты модуля: вкладка промптов workspace ИЛИ вторая дверь §48.
+        var pg = MODULE_PROMPT_GROUPS[m.id];
+        if (pg) seen[pg] = true;
+        // 3) синтетическая группа Видео (эквивалент activeModuleGroups).
+        if (m.id === 'mod_video_summary') {
+          var extra = this._syntheticGroup('content', 'content_media');
+          if (extra) add(extra);
+        }
+        // 4) эталон — статические источники вкладки модуля (`TABS[m.tab]`).
+        var t = (this.tabs || []).find(function (x) { return x.id === m.tab; });
+        var old = {};
+        (t && t.sources ? t.sources : []).forEach(function (s) {
+          if (s.groups && s.groups.length) {
+            s.groups.forEach(function (gid) { old[gid] = true; });
+            return;
+          }
+          // groups: null → вся категория (для prompts — группа модуля).
+          if (s.category === 'prompts') {
+            if (pg) old[pg] = true;
+            return;
+          }
+          self.groupedForTab(t).forEach(function (g) {
+            if (g && g.category === s.category && g.id) old[g.id] = true;
+          });
+        });
+        var groups = Object.keys(seen);
+        var missing = Object.keys(old).filter(function (gid) {
+          return !seen[gid] && gid !== 'content_media';
+        });
+        return { groups: groups, missing: missing };
+      },
+      // §49: 6 групп «Моделей и подключений» (все блоки-подключения ровно раз).
+      providerGrouped: function () {
+        var blocks = this.providerConnectionBlocks || [];
+        var byId = {};
+        blocks.forEach(function (b) { byId[b.id] = b; });
+        var groups = [];
+        var seen = {};
+        PROVIDER_GROUPS.forEach(function (g) {
+          var list = [];
+          (g.blocks || []).forEach(function (id) {
+            if (byId[id] && !seen[id]) { list.push(byId[id]); seen[id] = true; }
+          });
+          groups.push({ id: g.id, title: g.title, blocks: list });
+        });
+        var rest = blocks.filter(function (b) { return !seen[b.id]; });
+        if (rest.length) {
+          groups.push({ id: 'technical', title: 'Технические подключения',
+                        blocks: rest });
+        }
+        return groups;
+      },
+      // Модели workspace-модуля: его блоки-подключения (§49) в его группах.
+      workspaceModelGroups: function () {
+        var m = this.workspaceModule;
+        if (!m) return [];
+        var blockIds = MODULE_MODEL_BLOCKS[m.id] || [];
+        var groups = this.providerGrouped || [];
+        var out = [];
+        groups.forEach(function (g) {
+          var list = (g.blocks || []).filter(function (b) {
+            return blockIds.indexOf(b.id) >= 0;
+          });
+          if (list.length) out.push({ id: g.id, title: g.title, blocks: list });
+        });
+        return out;
+      },
+      // F5 (D4/§49, T-2714): карточки подключений модуля — 6 групп, в каждой
+      // карточка с полями «название/назначение/основная модель/резервная
+      // модель/статус» + действия «Проверить»/«Настроить». Значения — из
+      // существующей структуры (см. `buildConnectionCard`), без секретов.
+      workspaceModelCards: function () {
+        var self = this;
+        return (this.workspaceModelGroups || []).map(function (g) {
+          return {
+            id: g.id, title: g.title,
+            cards: (g.blocks || []).map(function (b) {
+              return buildConnectionCard(self, b);
+            }),
+          };
+        });
+      },
+      // §46: вкладка «Тестирование» — РЕАЛЬНЫЙ контент (T-2700): тестируемые
+      // подключения модуля (подблоки разворачиваются), reuse `testBlock` без
+      // записи. Пусто → вкладка не рендерится (`workspaceTabHasContent`).
+      workspaceTestingBlocks: function () {
+        var out = [];
+        var groups = this.workspaceModelGroups || [];
+        groups.forEach(function (g) {
+          (g.blocks || []).forEach(function (b) {
+            if (!b || b.testable === false) return;
+            if (b.subBlocks && b.subBlocks.length) {
+              b.subBlocks.forEach(function (sb) {
+                if (sb && sb.testable !== false) out.push(sb);
+              });
+            } else {
+              out.push(b);
+            }
+          });
+        });
+        return out;
+      },
       // F5 (10.24, ADR-1024-9 D6): карточка «Генерация изображений» видна
       // только при uiFlag('IMAGE_MODULE_CARD_ENABLED') (default ON). OFF →
       // витрина без карточки; вкладка также недоступна (см. _flagTabHidden).
@@ -1618,6 +2084,19 @@
       currentTabGroups: function () {
         var t = this.currentTab;
         if (!t || t.type !== 'config') return [];
+        // F5 (§46): на странице модуля generic-группы фильтруются вкладкой.
+        if (this.workspaceModule) {
+          var m = this.workspaceModule;
+          var wt = this.workspaceTab;
+          // §48: промпты рендерит master-detail (не generic-сетка).
+          if (wt === 'prompts' || wt === 'synthesizer' || wt === 'verbalizer') {
+            return [];
+          }
+          if (wt === 'models') return this._workspaceGroupsFor(m, 'models');
+          if (wt === 'limits') return this._workspaceGroupsFor(m, 'limits');
+          if (wt === 'settings') return this._workspaceGroupsFor(m, 'settings');
+          return [];
+        }
         if (t.id === 'permsoc') return this._permsocOwnerGroups();
         return this.groupedForTab(t);
       },
@@ -3612,6 +4091,38 @@
           try { history.replaceState(null, '', aliasTarget); } catch (e) { /* file:// */ }
           route = aliasTarget;
         }
+        // F5 (D1): неизвестный slug → витрина «Модули» + toast (не белый
+        // экран); неприменимая вкладка → дефолт «Обзор».
+        var wsParsed = parseWorkspaceRoute(route);
+        if (wsParsed) {
+          var wsm = _wsModuleById(wsParsed.slug);
+          if (!wsm) {
+            this.toast('Модуль не найден', 'warn');
+            route = '#/modules';
+            try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
+          } else if (wsParsed.tab
+                     && !_workspaceTabApplicable(wsm, wsParsed.tab)) {
+            route = '#/modules/' + wsParsed.slug;
+            try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
+          }
+        }
+        // D3/§48: вторая дверь `#/ai/prompts/<slug>[/<stage>]`. Неизвестный
+        // модуль → чистая библиотека (без белого экрана); существующий slug
+        // открывает тот же config-item, что и страница модуля.
+        var plParsed = parsePromptLibraryRoute(route);
+        if (plParsed) {
+          var plm = _wsModuleById(plParsed.slug);
+          if (!plm) {
+            this.toast('Модуль не найден', 'warn');
+            route = '#/ai/prompts';
+            try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
+          } else if (!MODULE_PROMPT_GROUPS[plm.id]) {
+            // L-F5S-3: у модуля нет промптов — «пустая» библиотечная дверь
+            // ведёт в чистую библиотеку (без шапки-перехода в никуда).
+            route = '#/ai/prompts';
+            try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
+          }
+        }
         if (route === this.route && _routeApplied) {
           this.syncBackButton();
           return;
@@ -3653,6 +4164,16 @@
           ? route.substring('#/access/'.length) : null;
         var found = this.tabs.find(function (t) { return t.id === tabId; });
         if (tabId && tabId !== this.activeTab) this.setTab(tabId);
+        // F5 (§46): страница модуля гарантирует конфиг и данные модуля.
+        var wsm2 = this.workspace ? this.workspace.module : null;
+        if (wsm2) {
+          if (!this.configItems.length && typeof this.loadConfig === 'function') {
+            this.loadConfig();
+          }
+          if (typeof this._ensureModuleData === 'function') {
+            this._ensureModuleData(wsm2);
+          }
+        }
         this.syncBackButton();
       },
       // D2/§15.1.7 (R10.4-2): отбрасывание устаревших in-flight ответов при
@@ -4658,11 +5179,210 @@
         this.moduleQuickpicks = this._sanitizeQuickpicks(ids);
         this._writeQuickpicks();
       },
-      // F4 (D6): единый шов точки входа рабочего пространства модуля. F5
-      // перенаправит его на маршрут «Модули → <модуль>» (§46); сейчас —
-      // существующая модалка параметров (регресс-путь, доступ не теряется).
+      // F5 (ADR-1025-15 D2/§46): шов F4 меняет РЕАЛИЗАЦИЮ — теперь это
+      // навигация на страницу модуля `#/modules/<slug>` (§46). Точка входа
+      // (кнопка «Настроить») не меняется. Если workspace-определение или
+      // hash-навигация недоступны (file://, unit-стаб) — fallback на
+      // регресс-путь `openModuleWindow` (модалка, §60.2/§79/§116).
       openModuleWorkspace: function (m) {
-        return this.openModuleWindow(m);
+        if (!m) return;
+        if (typeof this.canViewTab === 'function'
+            && !this.canViewTab('modules')) {
+          this.toast('Нет доступа к модулям', 'warn');
+          return;
+        }
+        var slug = this.routeSlugOf ? this.routeSlugOf(m)
+          : (m.routeSlug || String(m.id || '').replace(/^mod_/, ''));
+        var navOk = (typeof this._workspaceNavAvailable === 'function')
+          ? this._workspaceNavAvailable() : true;
+        if (typeof this.navigateTo !== 'function' || !navOk) {
+          return this.openModuleWindow(m);
+        }
+        this.navigateTo('#/modules/' + slug);
+      },
+      // file:// / unit-стаб без hashchange → модалка (мягкий регресс-путь).
+      _workspaceNavAvailable: function () {
+        try {
+          if (typeof window === 'undefined') return false;
+          if (window.location && window.location.protocol === 'file:') {
+            return false;
+          }
+          return true;
+        } catch (e) { return false; }
+      },
+      routeSlugOf: function (m) {
+        if (!m) return '';
+        return m.routeSlug || String(m.id || '').replace(/^mod_/, '');
+      },
+      // Поиск модуля по slug среди ТЕКУЩЕГО `this.modules` (production/MODULES).
+      moduleBySlug: function (slug) {
+        var list = this.modules || MODULES;
+        if (!slug) return null;
+        for (var i = 0; i < list.length; i++) {
+          var m = list[i];
+          var s = m.routeSlug || String(m.id || '').replace(/^mod_/, '');
+          if (s === slug) return m;
+        }
+        return null;
+      },
+      // Навигация по вкладке workspace (hash — источник истины).
+      openWorkspaceTab: function (tabId) {
+        var ws = this.workspace;
+        if (!ws) return;
+        var next = '#/modules/' + ws.slug;
+        if (tabId && tabId !== 'overview') next += '/' + tabId;
+        this.navigateTo(next);
+      },
+      workspaceTabLabel: function (tabId) {
+        return WORKSPACE_TAB_LABELS[tabId] || tabId || '';
+      },
+      // §48: выбор промпта в дереве (desktop — центр; mobile — полный экран).
+      openWorkspacePrompt: function (item, stage) {
+        var ws = this.workspace;
+        if (!ws || !item) return;
+        var seg = stage || ws.stage || item.stage || '';
+        // §48 (M-F5S-1): из двери библиотеки остаёмся в библиотеке —
+        // `#/ai/prompts/<slug>[/<stage>]/<key>`. Нельзя строить
+        // `#/modules/<slug>/<wt>/<key>` для модуля без объявленной
+        // промпт-вкладки (напр. mod_summary/mod_sleep): `applyRoute`
+        // редиректит такую вкладку на «Обзор» и редактор не открывается.
+        if (ws.door === 'library') {
+          var lib = '#/ai/prompts/' + ws.slug;
+          if (seg && seg !== 'prompts') lib += '/' + seg;
+          lib += '/' + encodeURIComponent(item.key);
+          this.navigateTo(lib);
+          return;
+        }
+        var wt = ws.tab || 'prompts';
+        var next = '#/modules/' + ws.slug + '/' + wt;
+        if (seg && seg !== wt) next += '/' + seg;
+        next += '/' + encodeURIComponent(item.key);
+        this.navigateTo(next);
+      },
+      // §48/§85: вторая дверь — тот же объект через библиотеку промптов.
+      openPromptLibrary: function (m, stage) {
+        if (!m) return;
+        var slug = this.routeSlugOf(m);
+        var next = '#/ai/prompts/' + slug;
+        if (stage) next += '/' + stage;
+        this.navigateTo(next);
+      },
+      // Группа промптов каталога, принадлежащая модулю (D3).
+      _workspacePromptGroup: function (m) {
+        if (!m) return null;
+        var gid = MODULE_PROMPT_GROUPS[m.id];
+        if (!gid) return null;
+        var pt = (this.tabs || []).find(function (t) { return t.id === 'prompts'; });
+        if (!pt) return null;
+        var groups = this.groupedForTab(pt);
+        for (var i = 0; i < groups.length; i++) {
+          if (groups[i].id === gid) return groups[i];
+        }
+        return null;
+      },
+      workspacePromptItems: function (m, stage) {
+        var grp = this._workspacePromptGroup(m);
+        if (!grp) return [];
+        if (stage) return this.promptStageItems(grp, stage);
+        return grp.items || [];
+      },
+      // Раскладка вкладки модуля по workspace-вкладкам (settings/models/limits).
+      workspaceGroupTab: function (m, grp) {
+        if (!grp) return 'settings';
+        if (grp.category === 'models') return 'models';
+        if (grp.category === 'limits') return 'limits';
+        return 'settings';
+      },
+      _workspaceGroupsFor: function (m, tabId) {
+        if (!m) return [];
+        var t = (this.tabs || []).find(function (x) { return x.id === m.tab; });
+        if (!t) return [];
+        var self = this;
+        return this.groupedForTab(t).filter(function (g) {
+          return self.workspaceGroupTab(m, g) === tabId;
+        });
+      },
+      // Вкладка рендерится, только если у неё есть содержимое (§4.3 п.2).
+      // Стадии Саммари §85 — честный placeholder (не декоративная пустышка).
+      // `testing` (T-2700) — только при наличии тестируемых подключений.
+      workspaceTabHasContent: function (m, tabId) {
+        if (!m) return false;
+        if (!_workspaceTabApplicable(m, tabId)) return false;
+        if (tabId === 'overview') return true;
+        if (tabId === 'prep' || tabId === 'clusterizer'
+            || tabId === 'writer') return true;
+        if (tabId === 'synthesizer' || tabId === 'verbalizer') {
+          return this.workspacePromptItems(m, tabId).length > 0;
+        }
+        if (tabId === 'prompts') return this.workspacePromptItems(m).length > 0;
+        if (tabId === 'models') {
+          return this.workspaceModelGroups.length > 0
+            || this._workspaceGroupsFor(m, 'models').length > 0;
+        }
+        if (tabId === 'limits') return this._workspaceGroupsFor(m, 'limits').length > 0;
+        if (tabId === 'testing') {
+          var tb = this.workspaceTestingBlocks;
+          return !!(tb && tb.length > 0);
+        }
+        return this._workspaceGroupsFor(m, 'settings').length > 0;
+      },
+      // §84: карточки L1/L2 прямого чата из СУЩЕСТВУЮЩИХ стадий/ключей.
+      directStageCards: function () {
+        var self = this;
+        function stageCard(id, title, promptKey, modelKey) {
+          var prompt = (self.configItems || []).find(function (i) {
+            return i.key === promptKey;
+          }) || null;
+          var model = (self.configItems || []).find(function (i) {
+            return i.key === modelKey;
+          }) || null;
+          return {
+            id: id, title: title, prompt: prompt, model: model,
+            provider: self.blockFieldValue
+              ? self.blockFieldValue({ key: 'models.llm_base_url' }) : '',
+            modelName: model ? String(model.value == null ? '' : model.value) : '',
+            source: model ? self.configSourceLabel(model) : '',
+            checkable: true,
+          };
+        }
+        return [
+          stageCard('l1', 'L1 · Синтезатор',
+                    'prompts.direct_chat_synthesizer_system_prompt',
+                    'models.llm_model_name'),
+          stageCard('l2', 'L2 · Вербализатор',
+                    'prompts.direct_chat_verbalizer_system_prompt',
+                    'models.llm_model_name'),
+        ];
+      },
+      // §84: «Проверить» для L1/L2 — reuse существующего блока `direct`.
+      testDirectStage: async function (card) {
+        if (!card) return;
+        var block = (this.providerBlocks || []).find(function (b) {
+          return b.id === 'direct';
+        });
+        if (block) {
+          await this.testBlock(block.subBlocks && block.subBlocks[0]
+            ? block.subBlocks[0] : block);
+        }
+      },
+      // F5 (§49/T-2714): карточка подключения — производная от существующей
+      // структуры `PROVIDER_BLOCKS`; секреты не читаются.
+      connectionCard: function (b) {
+        return buildConnectionCard(this, b);
+      },
+      // T-2714: «Настроить» — раскрытие/скрытие существующей формы блока.
+      // Само раскрытие НИЧЕГО не пишет (§49): сохранение — только `saveBlock`.
+      toggleConnectionSettings: function (b) {
+        if (!b || !b.id) return;
+        this.connectionSettingsOpen[b.id] = !this.connectionSettingsOpen[b.id];
+      },
+      // T-2714: «Проверить» карточки — существующий `testBlock` (reuse
+      // `/api/llm/test` / `/api/images/test`); новых API нет (R16).
+      testConnection: async function (b) {
+        if (!b) return;
+        var card = buildConnectionCard(this, b);
+        var target = (card && card.testTarget) ? card.testTarget : b;
+        await this.testBlock(target);
       },
       // A4/T-1207: значение блока — черновик, иначе сохранённая строка.
       // 10.10 (п.3): `draft === ''` (явная очистка) ВОЗВРАЩАЕТ '' (не

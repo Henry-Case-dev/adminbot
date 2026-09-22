@@ -1030,8 +1030,8 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     // computed как функцию нельзя.
     const html = require('fs').readFileSync(
       path.join(__dirname, '..', '..', 'web', 'index.html'), 'utf8');
-    assert.ok(html.indexOf('v-for="b in providerConnectionBlocks"') >= 0,
-      '2.2: шаблон итерирует computed providerConnectionBlocks');
+    assert.ok(html.indexOf('v-for="g in providerGrouped"') >= 0,
+      '2.2/F5: шаблон итерирует computed providerGrouped (6 групп §49)');
     assert.ok(html.indexOf('v-for="b in providerAdvancedBlocks"') >= 0,
       '2.2: шаблон итерирует computed providerAdvancedBlocks');
     assert.ok(html.indexOf('providerConnectionBlocks()') < 0

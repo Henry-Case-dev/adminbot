@@ -1699,7 +1699,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.58.9"   # F4 (10.25): ModuleConfigurationStore/каталог/панель избранного (§31–§45), ADR-1025-14
+APP_VERSION = "2.58.10"   # F5 (10.25): рабочее пространство модуля (маршрут/вкладки/промпты/модели §46–§49/§84/§85), ADR-1025-15
 
 
 def get_ytdlp_pot_provider() -> str:
