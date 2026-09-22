@@ -1,12 +1,12 @@
 # F8 — `param-registry-round1025` — провенанс `.meta.md`
 
-- **APP_VERSION:** `2.58.15`
-- **HEAD (short):** `a40f244`
+- **APP_VERSION:** `2.58.18`
+- **HEAD (short):** `01f3c57`
 - **Источник:** `services/param_catalog.py` (REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES) + `inventory.tsv` (10.14) для дельты.
-- **Счётчики каталога:** REGISTRY **459** / GROUPS **98** / `_TAB_BY_GROUP` **96** / TAB_RULES **21**.
-- **Реестр:** 459 строк == REGISTRY.
+- **Счётчики каталога:** REGISTRY **467** / GROUPS **100** / `_TAB_BY_GROUP` **98** / TAB_RULES **21**.
+- **Реестр:** 467 строк == REGISTRY.
 - **inventory.tsv (10.14):** 411 baseline-ключей.
-- **Дельта 411 → 459 = 48** новых ключей (`status=new`).
+- **Дельта 411 → 467 = 56** новых ключей (`status=new`).
 - **Команда генерации:** `python tools/gen_param_registry_round1025.py`
 - **Проверка (маркер):** `python tools/gen_param_registry_round1025.py --check`
 
@@ -22,7 +22,7 @@
 - `-` = поле неприменимо/отсутствует (документированное отсутствие).
 - `ui_visibility=api-only` — ключ существует (env/каталог), но UI-места нет → **не** считается сохранённым в UI.
 
-## Дельта 411 → 459 = 48 (ключи, отсутствовавшие в inventory.tsv)
+## Дельта 411 → 467 = 56 (ключи, отсутствовавшие в inventory.tsv)
 
 - `api_token`
 - `betterstack_host`
@@ -36,6 +36,8 @@
 - `flags.budgets_enabled`
 - `flags.image_generation_module_enabled`
 - `flags.lore_compiler_enabled`
+- `flags.summary_filter_enabled`
+- `flags.summary_filter_reply_context_enabled`
 - `info_text_file`
 - `keys.image_api_key`
 - `limits.anticliche_max_patterns`
@@ -43,6 +45,12 @@
 - `limits.factcheck_context_after`
 - `limits.factcheck_context_before`
 - `limits.import_history_retention_days`
+- `limits.summary_filter_burst_window_seconds`
+- `limits.summary_filter_context_max_messages`
+- `limits.summary_filter_context_neighbors`
+- `limits.summary_filter_min_burst_density`
+- `limits.summary_filter_min_weight`
+- `limits.summary_filter_min_words_for_bonus`
 - `local_bot_api_url`
 - `log_ring_max_entries`
 - `logtail_source_token`

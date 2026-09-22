@@ -6,6 +6,20 @@
 
 ---
 
+## Эпик 2 / S1 `summary-filter-round1026` (алгоритмический префильтр Саммари §87–§89/§93; каталог `summary_filter_*` +8/+2; врезка в `SummaryGenerator._run`) — 23.09.2026, Step 6 @Scanner (T-3153) — **SCANNED (итер.2, финал)**
+
+- **Baseline:** HEAD `01f3c57` (annotated-тег `pre-round1026-s1` → `01f3c57`), правки **НЕ закоммичены** — focused diff-based аудит (57 M + 6 ??). Отчёт: `plans/reports/round1026_s1_scanner_audit.md`. Bump `APP_VERSION` 2.58.18; deploy — T-3157.
+- **Вердикт (итер.2, финал): Critical 0 / High 0 / Medium 0 / Low 1 (новый, не блокер) / Info 0 — к деплою ДА.** Итер.1 закрыта: **M-R1026S1-1** + **L-R1026S1-1** + **L-R1026S1-2** (rework @Builder, блок H) + **B-1** @Reviewer (@Architect — ADR-1026-2).
+- **[M-R1026S1-1] Medium — RESOLVED (итер.2):** `services/summary_generator.py:343-348` — тумблер теперь `bool(await _chat_limit(chat_id, "flags.summary_filter_enabled", hot.get(...)))` (симметрично `reply_context_enabled`); тесты `tests/test_summary_filter_integration.py::TestPerChatToggle` — A/C ON, B OFF (`applied == [A, C]`), OFF → исходный объект `rows` + пустые метрики. spec §6.1 + каталог не ослаблены.
+- **[L-R1026S1-1] Low — RESOLVED (итер.2):** `summary_generator.py:512-521` — `token_limit = resolve_context_tokens(await _chat_limit(...), _SUMMARY_CONTEXT_TOKEN_DEFAULT)`; тесты `0 → дефолт`, `-1 → потолок безлимита` (`fits is True`).
+- **[L-R1026S1-2] Low — RESOLVED (итер.2):** добавлен `tests/test_summary_filter_integration.py` (7 тестов) — OFF байт-в-байт (тот же объект), RAG/graph по исходному окну, fail-open, ровно 2 LLM-вызова, sentinel.
+- **[L-R1026S1-3] Low (NEW, OPEN, non-blocking):** после нормализации `token_limit` всегда не-`None` → `estimate_and_split` всегда идёт по tokens-ветке, `char_limit` в `_run` фактически не используется; при env-конфиге с chars-fallback (tokens не задан, `SUMMARY_MAX_CONTEXT_CHARS` задан) `budget.kind` фильтра разойдётся с `_run` (`resolve_chat_limit`). Влияние — только информационный `budget`/S8 (S1 на него не действует). Fix: `resolve_chat_limit` либо убрать мёртвый `char_limit`.
+- **B-1 (@Reviewer High, governance) — RESOLVED:** **ADR-1026-2** (Accepted, Step 2b @Architect) AMEND ADR-1025-21 D6; `plans/ARCHITECTURE.md` §67.6 + `adr-1026-1` AMEND-секция обновлены. Санкция переиздания frozen F8 при санкционированном Δ каталога зафиксирована.
+- **Суперсессия round1025 F8:** санкционирована (ADR-1026-2); байтфризы/строгие пины не ослаблены (`sha256(param_catalog.py)` = `aed3114d…1ccc` совпал с фикстурой; `ROUTES_SHA256_F11` не тронут; `app_version` фикстуры исторический 2.58.15); counts 467/100/98/21, delta 56; генератор — динамический.
+- **Инварианты:** D4-гейт публикации (diff `image_generation.py`/`telegram_send.py`/`summary_prompts.py`/`summary_xml.py`/`routes.py` пуст; `_deliver_*`/`generate_image`/`send_rich_message` не тронуты); 2-вызовность; Δ DDL=0 (diff `database.py`/`pg_db.py`/`summary_memory.py` пуст); каталог 467/426/442/100/98/21; R17/R18 (`pre-round1026-s1`, `var/backups/`, `stash@{0}`); CSP/zero-build; `git diff --check`=0; F0/F4/F5/F6/F7/F9/F11 зелёные.
+- **Прогоны @Scanner (итер.2):** `.venv` pytest **8501/0** (107.37 s); JS **42/42**; `node --check` OK; интеграционный фильтр-блок **38 passed** (31 unit + 7 интеграционных); импорт каталога 467/426/442/100/98/21; `git diff --check`=0. `py -3` (системный aiogram) — 8495/5env/1 (5 pre-existing `rich`/`InputRichMessageMedia`).
+- **Handoff:** @Orchestrator → **SCANNED** (блокеров нет; L-R1026S1-3 — owned follow-up).
+
 ## Round 10.25 F10 `epic1-verification-round1025` (верификационный стоп-гейт Эпика 1: §71 Playwright + низкое окно TG Desktop, E2E §72/§73/§74, своды §75–§78, чек-листы §79/§116, §117 п.1–12) — 23.09.2026, Step 6 @Scanner (T-3122) — **SCANNED**
 
 - **Baseline:** HEAD `57b325c` (== `origin/master`; annotated-тег `pre-round1025-f10` → `57b325c`), правки **НЕ закоммичены** — focused diff-based аудит рабочего дерева (5 M + 18 ??). Отчёт: `plans/reports/round1025_f10_scanner_audit.md`. Тип: verification-only (аддитивные `tools/**`, код не пишет); deploy **NOT_APPLICABLE**; `APP_VERSION` **2.58.17** без bump.
