@@ -1,0 +1,61 @@
+{
+  "app_version": "2.58.15",
+  "artifacts": [
+    "plans/docs/param-registry-round1025.tsv",
+    "plans/docs/param-registry-round1025.meta.md",
+    "plans/docs/screen-map-round1025.md",
+    "plans/docs/widget-map-round1025.md",
+    "plans/reports/round1025_f8_config_diff.md"
+  ],
+  "counts": {
+    "GROUPS": 98,
+    "REGISTRY": 459,
+    "TAB_BY_GROUP": 96,
+    "TAB_RULES": 21,
+    "delta": 48,
+    "inventory": 411
+  },
+  "round": "1025-f8",
+  "routes": [
+    "/admins",
+    "/admins/remove",
+    "/config",
+    "/config/chat/{key}",
+    "/config/keys/own",
+    "/config/keys/own/{key_name}",
+    "/config/keys/status",
+    "/config/params-meta",
+    "/control/restart",
+    "/control/start",
+    "/control/stop",
+    "/debug/config",
+    "/health",
+    "/images/test",
+    "/info",
+    "/info/guide",
+    "/info/guide/backup",
+    "/info/guide/reset",
+    "/info/reset-canon",
+    "/llm/test",
+    "/me",
+    "/persona",
+    "/persona/health",
+    "/roles",
+    "/roles/tree",
+    "/roles/{role_name}",
+    "/roles/{role_name}/rename",
+    "/status",
+    "/status/key-history",
+    "/status/logs",
+    "/status/media-health"
+  ],
+  "runtime_import_forbidden": [
+    "gen_param_registry_round1025",
+    "config_snapshot_diff"
+  ],
+  "sha256": {
+    "services/param_catalog.py": "adf9861d83ec1de32eb372a2e110fb9899cd500a454de0636dd54565d210ca61",
+    "services/pg_db.py": "12a881915d8fb691530695b13bdbb2ee47deb14156758d44189ea010bfa2e768",
+    "web/api/routes.py": "33fb6b1c817d0ebb533dc9943de53f00321421aa4753826ab08394cedd64d098"
+  }
+}
