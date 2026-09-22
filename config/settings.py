@@ -1745,7 +1745,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.58.15"   # F7 (10.25, ADR-1025-20): PERMsoc — локальное пространство чата (6 блоков, канонический chat_id, guard «нет записи в global»), per-chat блок-гейты «Общие реакции»/«Расписания» (feature_gates, Δ DDL=0, Δ каталога=0)
+APP_VERSION = "2.58.16"   # F9 (10.25, ADR-1025-22): секрет-поле — маска как display-индикатор (не значение input, §50/R17), «Заменить»/«Удалить» для глобальных секретов (reuse keys/own + F0 empty-write), единый Vue-компонент secret-field (28 секретов), визуальный добор Sticky SaveBar (клавиатура/последнее поле/одно уведомление) (Δ DDL=0, Δ каталога=0)
 
 
 def get_ytdlp_pot_provider() -> str:

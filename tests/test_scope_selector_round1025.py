@@ -178,4 +178,4 @@ class TestBackendContract:
     def test_app_version_bumped(self):
         # HOTFIX10 (10.25) — bump 2.58.12 → 2.58.13 (откат стекла/GlassSurface,
         # рабочая поверхность Main, высота, resize OGL-фона, ADR-1025-18, T-2864).
-        assert 'APP_VERSION = "2.58.15"' in SETTINGS
+        assert 'APP_VERSION = "2.58.16"' in SETTINGS

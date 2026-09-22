@@ -99,9 +99,13 @@ class TestFrozenInvariants:
         # F1-baseline фиксирует ключи REGISTRY (settings_field/env), не pg_key.
         assert set(pc.REGISTRY.keys()) == set(CATALOG_BASELINE["registry_keys"])
 
-    def test_app_version_unchanged(self):
+    def test_app_version_recorded(self):
+        # L-F9S-3: маркер F8 не ослабляется. Fixture — исторический baseline
+        # F8 (2.58.15, файл не менялся), а текущая версия пинится СТРОГО
+        # (F9/ADR-1025-22 D7 поднял 2.58.15 → 2.58.16; без `>=`-послабления).
+        assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == FIXTURE["app_version"] == "2.58.15"
+        assert APP_VERSION == "2.58.16"
 
     def test_routes_set_unchanged(self):
         import re

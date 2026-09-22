@@ -126,19 +126,25 @@ const INDEX = fs.readFileSync(
   assert.strictEqual(
     methods.blockFieldValue.call(ctx, { key: 'limits.llm_timeout' }),
     12.5, 'T-1895a: число из БД попадает в инпут');
-  // UPD3 (T-1936/INV-3): секрет configured → инпут показывает МАСКУ, не ''.
+  // F9 (ADR-1025-22 D1, отменяет засев UPD3/R31): секрет configured → инпут
+  // ПУСТОЙ (маска — display-индикатор `secretDisplay`, НЕ значение input).
   assert.strictEqual(
     methods.blockFieldValue.call(ctx, { key: 'keys.llm_api_key', secret: true }),
-    '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022',
-    'T-1895a: секрет префиллится маской');
+    '',
+    'F9/D1: секрет configured → пустое поле (маска — индикатор, не значение)');
   assert.strictEqual(
     methods.blockFieldValue.call(ctx, { key: 'models.empty' }), '',
     'T-1895a: пусто только при реальном null');
-  // Маска «configured ••••1234» из placeholder.
+  // F9/D1: подсказка секрета — «заменить», а не маска как значение.
   assert.ok(
     methods.blockFieldPlaceholder.call(ctx, { key: 'keys.llm_api_key', label: 'Ключ' })
-      .indexOf('configured ••••1234') >= 0,
-    'T-1895a: заглушка секрета = configured ••••1234');
+      .indexOf('заменить') >= 0,
+    'F9/D1: placeholder секрета = «Новый ключ (заменить)…»');
+  // F9/D3: display-индикатор отдаёт маску ••••••••1234 / «Ключ установлен».
+  assert.strictEqual(
+    methods.secretDisplay.call(ctx, { key: 'keys.llm_api_key' }).maskText,
+    '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022' + '1234',
+    'F9/D3: secretDisplay → ••••••••last4');
   assert.strictEqual(
     methods.blockFieldConfigured.call(ctx, { key: 'keys.llm_api_key' }), true,
     'T-1895a: badge «configured» для сохранённого ключа');

@@ -230,8 +230,12 @@ function makeBlockCtx(drafts, opts) {
       methods.blockFieldConfigured.call(ctx, keyField), true,
       'F11: ключ в БД виден как configured');
     assert.strictEqual(
-      methods.blockFieldValue.call(ctx, keyField), SECRET_MASK,
-      'F11: поле снова показывает заглушку из БД');
+      methods.blockFieldValue.call(ctx, keyField), '',
+      'F9/D1: поле снова ПУСТОЕ (маска — display-индикатор, не значение)');
+    assert.strictEqual(
+      methods.secretDisplay.call(ctx, keyField).maskText,
+      '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022abcd',
+      'F9/D1: display-индикатор показывает ••••••••last4 из БД');
   }
 
   // ── 5) saveKeyItem (карточка-модалка): image-ключ → safe-эндпоинт ────────

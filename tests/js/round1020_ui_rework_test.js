@@ -7,7 +7,7 @@
  *   * blockFieldValue: секрет {configured:true} → маска;
  *   * GUARD R31: маска НЕ уходит в POST (saveKeyItem / saveBlock → 0 запросов);
  *   * dirtyKeyItems/stickyDirtyCount считают маску не-изменением;
- *   * cancelModalEdits пере-сеет маски;
+ *   * cancelModalEdits очищает черновики (F9/D1: маска — не значение);
  *   * grid-маркеры «ИИ» (prov-grid, без max-w-3xl) + снимок навигации.
  *
  * Запуск: node tests/js/round1020_ui_rework_test.js   (печатает JS-UNIT-OK)
@@ -128,11 +128,11 @@ function makeSaveCtx(configItems, keyDrafts) {
     assert.strictEqual(methods.isSecretMask(null), false);
   }
 
-  // ── _seedSecretMasks: configured → маска, иначе пусто ──────────────────
+  // ── F9/D1: _seedSecretMasks больше НЕ засеивает маску в keyDrafts ──────
   {
     const ctx = {
       isKeyConfigured: methods.isKeyConfigured,
-      keyDrafts: {},
+      keyDrafts: { legacy: SECRET_MASK + 'typed' },
       configItems: [
         { key: 'CHECKUP_BETTERSTACK_SQL_PASSWORD', category: 'keys',
           secret: true, value: { configured: true, last4: 'FAKE' } },
@@ -147,8 +147,8 @@ function makeSaveCtx(configItems, keyDrafts) {
     ctx.keyDrafts['keys.keep_draft'] = 'user-typed';
     methods._seedSecretMasks.call(ctx);
     assert.strictEqual(
-      ctx.keyDrafts['CHECKUP_BETTERSTACK_SQL_PASSWORD'], SECRET_MASK,
-      'configured-секрет → маска в keyDrafts');
+      ctx.keyDrafts['CHECKUP_BETTERSTACK_SQL_PASSWORD'], undefined,
+      'F9/D1: configured-секрет НЕ засеивается маской (поле пустое)');
     assert.strictEqual(ctx.keyDrafts['CHECKUP_BETTERSTACK_SQL_USER'], undefined,
       'configured:false → поле не засеяно (пусто)');
     assert.strictEqual(ctx.keyDrafts['keys.empty'], undefined,
@@ -156,10 +156,12 @@ function makeSaveCtx(configItems, keyDrafts) {
     assert.strictEqual(ctx.keyDrafts['models.llm_base_url'], undefined,
       'не-секрет не трогаем (two-way item.value)');
     assert.strictEqual(ctx.keyDrafts['keys.keep_draft'], 'user-typed',
-      'реальный черновик не перетирается маской');
+      'реальный черновик не перетирается');
+    assert.strictEqual(ctx.keyDrafts.legacy, undefined,
+      'F9/D1: legacy/композитная маска вычищена (в API не уйдёт)');
   }
 
-  // ── blockFieldValue: секрет {configured:true} → маска ──────────────────
+  // ── F9/D1: blockFieldValue для секрета → '' (маска — display) ──────────
   {
     const ctx = {
       blockDrafts: {},
@@ -174,7 +176,7 @@ function makeSaveCtx(configItems, keyDrafts) {
     };
     assert.strictEqual(
       methods.blockFieldValue.call(ctx, { key: 'keys.llm_api_key', secret: true }),
-      SECRET_MASK, 'секрет configured → маска (INV-3)');
+      '', 'F9/D1: секрет configured → пустое поле (не маска)');
     assert.strictEqual(
       methods.blockFieldValue.call(ctx, { key: 'keys.off', secret: true }), '',
       'configured:false → пусто');
@@ -184,6 +186,14 @@ function makeSaveCtx(configItems, keyDrafts) {
     assert.strictEqual(
       methods.blockFieldValue.call(ctx, { key: 'models.llm_base_url' }),
       'https://db/v1', 'не-секрет → фактическое значение');
+    // F9/D3: display-индикатор несёт маску/«Ключ установлен».
+    assert.strictEqual(
+      methods.secretDisplay.call(ctx, { key: 'keys.llm_api_key' }).maskText,
+      '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022' + '1234',
+      'F9/D3: secretDisplay → ••••••••last4');
+    assert.strictEqual(
+      methods.secretDisplay.call(ctx, { key: 'keys.off' }).maskText,
+      'Не настроен', 'F9/D3: не настроен → «Не настроен»');
   }
 
   // ── R31 GUARD: маска НЕ уходит в POST (saveKeyItem) ────────────────────
@@ -332,20 +342,21 @@ function makeSaveCtx(configItems, keyDrafts) {
       'композит маски не считается изменением');
   }
 
-  // Critical-2 (G3.6) + L-1: select-all/mouseup-guard — ТОЛЬКО для секретных
-  // provider-полей. Не-секретные (base_url/model/display_name) должны ставить
-  // каретку мышью, поэтому обработчики условны по `f.secret`.
+  // F9/D4 (ранее Critical-2 G3.6 + L-1): секрет-поля вынесены в единый
+  // компонент `secret-field` — старые условные @focus select/@mouseup в
+  // index.html отсутствуют (пароль-инпут + reveal внутри компонента).
   {
-    const conditional = INDEX.match(
-      /@focus="f\.secret && \$event\.target\.select\(\)" @mouseup="f\.secret && \$event\.preventDefault\(\)"/g) || [];
-    assert.strictEqual(conditional.length, 3,
-      'provider-инпуты: ровно 3× условный (secret-only) @focus select + @mouseup preventDefault');
+    assert.strictEqual(
+      (INDEX.match(/@focus="f\.secret && \$event\.target\.select\(\)"/g) || []).length,
+      0, 'F9/D4: условных secret @focus select в index.html больше нет');
+    assert.strictEqual(
+      (INDEX.match(/@mouseup="f\.secret && \$event\.preventDefault\(\)"/g) || []).length,
+      0, 'F9/D4: mouseup-гард переехал в компонент secret-field');
     assert.strictEqual(
       (INDEX.match(/@focus="\$event\.target\.select\(\)" @mouseup\.prevent/g) || []).length,
       0, 'L-1: безусловных @focus select + @mouseup.prevent быть не должно');
-    assert.strictEqual(
-      (INDEX.match(/@mouseup="f\.secret && \$event\.preventDefault\(\)"/g) || []).length,
-      3, 'L-1: mouseup-гард условен на всех 3 provider-полях');
+    assert.ok(INDEX.indexOf('id="secret-field-tpl"') >= 0,
+      'F9/D4: шаблон secret-field на месте');
   }
 
   // M-1: sticky-панель прилипает к самому низу скролл-порта — у скролл-
@@ -413,7 +424,7 @@ function makeSaveCtx(configItems, keyDrafts) {
       'реальный ключ → dirty');
   }
 
-  // ── cancelModalEdits пере-сеет маски ───────────────────────────────────
+  // ── F9/D1: «Отмена» очищает черновики (маска — display, не значение) ────
   {
     const ctx = {
       configSnapshot: {},
@@ -429,8 +440,8 @@ function makeSaveCtx(configItems, keyDrafts) {
       toast() {},
     };
     methods.cancelModalEdits.call(ctx);
-    assert.strictEqual(ctx.keyDrafts['keys.x'], SECRET_MASK,
-      '«Отмена» возвращает маску, а не пустое поле');
+    assert.strictEqual(ctx.keyDrafts['keys.x'], undefined,
+      'F9/D1: «Отмена» возвращает ПУСТОЕ поле (маска — индикатор, не значение)');
   }
 
   // ── grid/маска-маркеры разметки и кода ─────────────────────────────────
@@ -444,10 +455,18 @@ function makeSaveCtx(configItems, keyDrafts) {
     assert.ok(branch.indexOf('prov-grid') >= 0,
       'ветка «ИИ» использует prov-grid');
     assert.ok(INDEX.indexOf('max-w-3xl') < 0, 'max-w-3xl снят с prov-block');
-    // 3 точки бинда keyDrafts получают @focus select (замена маски)
+    // F9/D4: единый компонент `secret-field` вместо копий инпутов; шаблон
+    // вынесен в x-template `#secret-field-tpl`, привязок keyDrafts в
+    // index.html больше нет (они внутри компонента).
+    assert.ok(APP_JS.indexOf("component('secret-field'") >= 0,
+      'F9/D4: компонент secret-field зарегистрирован');
+    assert.ok(INDEX.indexOf('id="secret-field-tpl"') >= 0,
+      'F9/D4: x-template #secret-field-tpl есть');
+    assert.ok(INDEX.indexOf('update:draft="keyDrafts[item.key] = $event"') >= 0,
+      'F9/D4: generic-ключи через secret-field (update:draft)');
     assert.strictEqual(
-      (INDEX.match(/v-model="keyDrafts\[item\.key\]"/g) || []).length, 3,
-      'ровно 3 точки бинда keyDrafts');
+      (INDEX.match(/v-model="keyDrafts\[item\.key\]"/g) || []).length, 0,
+      'F9/D4: прямых v-model keyDrafts в index.html нет');
   }
 
   console.log('JS-UNIT-OK');

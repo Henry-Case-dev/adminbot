@@ -31,8 +31,11 @@ class TestProviderKeyHint:
     def test_hint_marker(self):
         assert "blockFieldConfigured: function" in JS
         assert "last4ByKey: function" in JS
-        assert "Ключ сохранён (••••" in HTML
-        assert "можно проверить без ввода" in HTML
+        # F9 (ADR-1025-22 D1/D3): маска/«Ключ установлен» — display-индикатор
+        # единого компонента secret-field (НЕ значение input).
+        assert "secret-field__mask" in HTML
+        assert "Ключ установлен" in HTML
+        assert "secretDisplay: function" in JS
         # Сырой ключ по-прежнему не идёт в value (маска/placeholder).
         assert ':value="blockFieldValue(f)"' in HTML
         assert 'v-model="blockDrafts[f.key]"' not in HTML

@@ -495,8 +495,17 @@
                         <div class="prov-row flex items-start gap-2 mb-2" v-for="f in sb.fields" :key="f.key">
                           <label class="prov-label text-xs w-36 shrink-0 pt-2">{{ f.label }}</label>
                           <div class="flex-1 min-w-0">
-                            <input class="field w-full"
-                                   :type="f.secret && !keyReveal[f.key] ? 'password' : 'text'"
+                            <!-- F9 (ADR-1025-22 D4): секрет-поля — единый
+                                 компонент (маска — индикатор, не значение). -->
+                            <secret-field v-if="f.secret"
+                              :configured="blockFieldConfigured(f)" :last4="last4ByKey(f.key)"
+                              :draft="blockDrafts[f.key] || ''"
+                              :disabled="!canEditConfig(f.key)"
+                              placeholder="Новый ключ (заменить)…"
+                              @update:draft="blockDrafts[f.key] = $event"
+                              @delete="deleteKeyItem(f.key)"></secret-field>
+                            <input v-else class="field w-full"
+                                   type="text"
                                    autocomplete="off" :placeholder="blockFieldPlaceholder(f)"
                                    :value="blockFieldValue(f)"
                                    @input="blockDrafts[f.key] = $event.target.value"
@@ -530,16 +539,21 @@
                             </label>
                           </template>
                           <template v-else>
-                            <input class="field w-full"
-                                   :type="f.secret && !keyReveal[f.key] ? 'password' : 'text'"
+                            <!-- F9 (ADR-1025-22 D4): секрет-поля — единый
+                                 компонент; маска не значение input. -->
+                            <secret-field v-if="f.secret"
+                              :configured="blockFieldConfigured(f)" :last4="last4ByKey(f.key)"
+                              :draft="blockDrafts[f.key] || ''"
+                              :disabled="!canEditConfig(f.key) || blockDependsOn(f)"
+                              placeholder="Новый ключ (заменить)…"
+                              @update:draft="blockDrafts[f.key] = $event"
+                              @delete="deleteKeyItem(f.key)"></secret-field>
+                            <input v-else class="field w-full"
+                                   type="text"
                                    autocomplete="off" :placeholder="blockFieldPlaceholder(f)"
                                    :value="blockFieldValue(f)"
                                    @input="blockDrafts[f.key] = $event.target.value"
                                    :disabled="!canEditConfig(f.key) || blockDependsOn(f)">
-                            <div v-if="f.secret && blockFieldConfigured(f)"
-                                 class="text-[10px] text-gray-500 mt-0.5">
-                              Ключ сохранён (••••{{ last4ByKey(f.key) }}) — можно проверить без ввода
-                            </div>
                           </template>
                         </div>
                       </div>
@@ -704,17 +718,20 @@
                       <div class="prov-row flex items-start gap-2 mb-2" v-for="f in sb.fields" :key="f.key">
                         <label class="prov-label text-xs w-36 shrink-0 pt-2">{{ f.label }}</label>
                         <div class="flex-1 min-w-0">
-                          <input class="field w-full"
-                                 :type="f.secret && !keyReveal[f.key] ? 'password' : 'text'"
+                          <!-- F9 (ADR-1025-22 D4): секрет-поля — единый
+                               компонент (маска — индикатор, не значение). -->
+                          <secret-field v-if="f.secret"
+                            :configured="blockFieldConfigured(f)" :last4="last4ByKey(f.key)"
+                            :draft="blockDrafts[f.key] || ''"
+                            :disabled="!canEditConfig(f.key)"
+                            placeholder="Новый ключ (заменить)…"
+                            @update:draft="blockDrafts[f.key] = $event"
+                            @delete="deleteKeyItem(f.key)"></secret-field>
+                          <input v-else class="field w-full" type="text"
                                  autocomplete="off" :placeholder="blockFieldPlaceholder(f)"
                                  :value="blockFieldValue(f)"
-                                 @focus="f.secret && $event.target.select()" @mouseup="f.secret && $event.preventDefault()"
                                  @input="blockDrafts[f.key] = $event.target.value"
                                  :disabled="!canEditConfig(f.key)">
-                          <div v-if="f.secret && blockFieldConfigured(f)"
-                               class="text-[10px] text-gray-500 mt-0.5">
-                            Ключ сохранён (••••{{ last4ByKey(f.key) }}) — можно проверить без ввода
-                          </div>
                         </div>
                       </div>
                       <div class="flex items-center gap-2 flex-wrap">
@@ -752,34 +769,26 @@
                           </label>
                         </template>
                         <template v-else>
-                        <!-- 10.10 (п.3): контролируемое :value из configItems —
-                             реальное текущее значение; черновик пишется только
-                             при правке (@input), поэтому draft==null остаётся
-                             «не трогать» (MINOR-3). GET-режим блокирует ввод
-                             ключа (blockDependsOn, F5).
-                             F11 (ADR-1024-12 D3): при {configured:true}
-                             blockFieldValue отдаёт заглушку ••••••••••••,
-                             рядом — явный бейдж «Ключ установлен». -->
-                        <input class="field w-full"
-                               :type="f.secret && !keyReveal[f.key] ? 'password' : 'text'"
+                        <!-- F9 (ADR-1025-22 D1/D4): секрет-поле — единый
+                             компонент; маска/«Ключ установлен» — display-
+                             индикатор, а НЕ значение input (§50/R17). -->
+                        <secret-field v-if="f.secret"
+                          :configured="blockFieldConfigured(f)" :last4="last4ByKey(f.key)"
+                          :draft="blockDrafts[f.key] || ''"
+                          :disabled="!canEditConfig(f.key) || blockDependsOn(f)"
+                          placeholder="Новый ключ (заменить)…"
+                          @update:draft="blockDrafts[f.key] = $event"
+                          @delete="deleteKeyItem(f.key)"></secret-field>
+                        <input v-else class="field w-full" type="text"
                                autocomplete="off" :placeholder="blockFieldPlaceholder(f)"
                                :value="blockFieldValue(f)"
-                               @focus="f.secret && $event.target.select()" @mouseup="f.secret && $event.preventDefault()"
                                @input="blockDrafts[f.key] = $event.target.value"
                                :disabled="!canEditConfig(f.key) || blockDependsOn(f)">
-                        <div v-if="f.globalSecret && blockFieldConfigured(f)"
-                             class="text-[10px] text-green-400 mt-0.5">
-                          Ключ установлен
-                        </div>
                         <!-- F11 (ADR-1024-12): глобальный секрет правит только
                              глобальный админ — паритет с safe-эндпоинтом (403). -->
                         <div v-if="f.globalSecret && !canEditConfig(f.key)"
                              class="text-[10px] text-gray-500 mt-0.5">
                           Ключ глобальный — изменить может только глобальный администратор
-                        </div>
-                        <div v-if="f.secret && !f.globalSecret && blockFieldConfigured(f)"
-                             class="text-[10px] text-gray-500 mt-0.5">
-                          Ключ сохранён (••••{{ last4ByKey(f.key) }}) — можно проверить без ввода
                         </div>
                         <div v-if="f.dependsOn && blockDependsOn(f)"
                              class="text-[10px] text-gray-500 mt-0.5">
@@ -1187,17 +1196,20 @@
                     <div class="prov-row flex items-start gap-2 mb-2" v-for="f in b.fields" :key="f.key">
                       <label class="prov-label text-xs w-36 shrink-0 pt-2">{{ f.label }}</label>
                       <div class="flex-1 min-w-0">
-                        <input class="field w-full"
-                               :type="f.secret && !keyReveal[f.key] ? 'password' : 'text'"
+                        <!-- F9 (ADR-1025-22 D4): секрет-поля — единый
+                             компонент; маска — display-индикатор. -->
+                        <secret-field v-if="f.secret"
+                          :configured="blockFieldConfigured(f)" :last4="last4ByKey(f.key)"
+                          :draft="blockDrafts[f.key] || ''"
+                          :disabled="!canEditConfig(f.key)"
+                          placeholder="Новый ключ (заменить)…"
+                          @update:draft="blockDrafts[f.key] = $event"
+                          @delete="deleteKeyItem(f.key)"></secret-field>
+                        <input v-else class="field w-full" type="text"
                                autocomplete="off" :placeholder="blockFieldPlaceholder(f)"
                                :value="blockFieldValue(f)"
-                               @focus="f.secret && $event.target.select()" @mouseup="f.secret && $event.preventDefault()"
                                @input="blockDrafts[f.key] = $event.target.value"
                                :disabled="!canEditConfig(f.key)">
-                        <div v-if="f.secret && blockFieldConfigured(f)"
-                             class="text-[10px] text-gray-500 mt-0.5">
-                          Ключ сохранён (••••{{ last4ByKey(f.key) }}) — можно проверить без ввода
-                        </div>
                       </div>
                       <button v-if="f.probeTarget" class="btn-accent prov-test-btn text-xs shrink-0"
                               :data-block="f.probeTarget"
@@ -1434,25 +1446,17 @@
                                 v-model="item.value"></textarea>
                     </template>
                     <template v-else-if="item.category === 'keys' || item.secret">
-                      <div class="text-sm font-semibold">{{ item.title }}</div>
-                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
-                      <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
-                      <div class="mb-2">
-                        <span v-if="isKeyConfigured(item)" class="badge badge-ok">configured ••••{{ last4(item) }}</span>
-                        <span v-else class="badge badge-muted">не настроен</span>
-                      </div>
-                      <div class="flex gap-2">
-                        <input class="field flex-1 min-w-0" autocomplete="off"
-                               :type="keyReveal[item.key] ? 'text' : 'password'"
-                               :placeholder="isKeyConfigured(item) ? 'Новый ключ (заменить)…' : 'Ключ…'"
-                               @focus="$event.target.select()"
-                               v-model="keyDrafts[item.key]">
-                        <button class="btn-ghost text-xs shrink-0"
-                                :title="keyReveal[item.key] ? 'Скрыть ключ' : 'Показать ключ'"
-                                @click="toggleKeyReveal(item.key)">
-                          <span class="msr" aria-hidden="true">{{ iconGlyph(keyReveal[item.key] ? 'visibility_off' : 'visibility') }}</span>
-                        </button>
-                      </div>
+                      <!-- F9 (ADR-1025-22 D4): единый компонент секрет-поля.
+                           Маска — display-индикатор, поле ввода всегда пустое. -->
+                      <secret-field
+                        :title="item.title" :tech-key="item.key"
+                        :description="item.description"
+                        :configured="isKeyConfigured(item)" :last4="last4(item)"
+                        :draft="keyDrafts[item.key] || ''"
+                        :disabled="!canEditConfig(item.key)"
+                        placeholder="Новый ключ (заменить)…"
+                        @update:draft="keyDrafts[item.key] = $event"
+                        @delete="deleteKeyItem(item)"></secret-field>
                     </template>
                     <template v-else-if="item.widget === 'select'">
                       <div class="text-sm font-semibold">{{ item.title }}</div>
@@ -1549,17 +1553,16 @@
                                   v-model="item.value"></textarea>
                       </div>
                       <div v-else-if="item.category === 'keys' || item.secret">
-                        <div class="mb-2">
-                          <span v-if="isKeyConfigured(item)" class="badge badge-ok">configured ••••{{ last4(item) }}</span>
-                          <span v-else class="badge badge-muted">не настроен</span>
-                        </div>
-                        <div class="flex gap-2">
-                          <input class="field flex-1 min-w-0" autocomplete="off"
-                                 :type="keyReveal[item.key] ? 'text' : 'password'"
-                                 :placeholder="isKeyConfigured(item) ? 'Новый ключ (заменить)…' : 'Ключ…'"
-                                 @focus="$event.target.select()"
-                                 v-model="keyDrafts[item.key]">
-                        </div>
+                        <!-- F9 (ADR-1025-22 D4): единый компонент секрет-поля. -->
+                        <secret-field
+                          :title="item.title" :tech-key="item.key"
+                          :description="item.description"
+                          :configured="isKeyConfigured(item)" :last4="last4(item)"
+                          :draft="keyDrafts[item.key] || ''"
+                          :disabled="!canEditConfig(item.key)"
+                          placeholder="Новый ключ (заменить)…"
+                          @update:draft="keyDrafts[item.key] = $event"
+                          @delete="deleteKeyItem(item)"></secret-field>
                       </div>
                       <div v-else-if="item.widget === 'select'" class="mt-2">
                         <!-- Раунд 10.4 (B-10): выпадающий список — автосейв -->
@@ -1598,21 +1601,16 @@
               <div v-if="activeTab === 'llm_providers' && isChatContext() && !isGlobalAdmin"
                    class="card p-4" style="grid-column: 1 / -1;">
                 <div class="text-sm font-bold mb-1">Ключ чата (BYOK)</div>
-                <div class="text-xs text-gray-500 mb-2">
-                  Ваш ключ — ТОЛЬКО для этого чата (не виден глобальному
-                  прочтению; маска {configured, last4}). Глобальный ключ
-                  тратится общим суточным бюджетом.
-                </div>
-                <div class="flex gap-2 mb-2">
-                  <input class="field flex-1 min-w-0" type="password" autocomplete="off"
-                         placeholder="Ваш ключ чата…" v-model="ownKeyDraft">
-                  <button class="btn-accent text-sm shrink-0"
-                          :disabled="ownKeySaving"
-                          @click="saveOwnKey()">Использовать мой</button>
-                  <button class="btn-ghost text-sm shrink-0"
-                          :disabled="ownKeySaving"
-                          @click="deleteOwnKey()">Удалить</button>
-                </div>
+                <!-- F9 (ADR-1025-22 D4): BYOK — тот же компонент, scope='chat';
+                     статус {configured,last4} из keyStatusOwn, маска — индикатор. -->
+                <secret-field
+                  :description="'Ваш ключ — ТОЛЬКО для этого чата (не виден глобальному прочтению; маска {configured, last4}). Глобальный ключ тратится общим суточным бюджетом.'"
+                  :configured="byokSecret.configured" :last4="byokSecret.last4"
+                  :draft="ownKeyDraft" scope="chat" :disabled="ownKeySaving"
+                  placeholder="Ваш ключ чата…" replace-label="Использовать мой"
+                  @update:draft="ownKeyDraft = $event"
+                  @replace="saveOwnKey()"
+                  @delete="deleteOwnKey()"></secret-field>
                 <div v-if="keyStatusOwn" class="text-xs space-y-1">
                   <div v-for="mask in Object.values(keyStatusOwn.own || {})" :key="mask.key_name">
                     <span class="badge badge-ok">свой ключ: ••••{{ mask.last4 }}</span>
@@ -1834,21 +1832,17 @@
                                    v-bind="listEditorProps(item)"></list-editor>
                           </template>
                           <template v-else-if="item.category === 'keys' || item.secret">
-                            <div class="text-sm font-semibold">{{ item.title }}</div>
-                            <div class="text-xs text-gray-400 mb-1">{{ item.description }}</div>
-                            <!-- G3.5 (UPD3): бейдж маски — место без маски нельзя
-                                 спутать с «не настроено». -->
-                            <div class="mb-2">
-                              <span v-if="isKeyConfigured(item)" class="badge badge-ok">configured ••••{{ last4(item) }}</span>
-                              <span v-else class="badge badge-muted">не настроен</span>
-                            </div>
-                            <div class="flex gap-2 mt-1">
-                              <input class="field flex-1 min-w-0" autocomplete="off"
-                                     :type="keyReveal[item.key] ? 'text' : 'password'"
-                                     :placeholder="isKeyConfigured(item) ? 'Новый ключ (заменить)…' : 'Ключ…'"
-                                     @focus="$event.target.select()"
-                                     v-model="keyDrafts[item.key]">
-                            </div>
+                            <!-- F9 (ADR-1025-22 D4): единый компонент секрет-поля;
+                                 маска — display-индикатор, не значение input. -->
+                            <secret-field
+                              :title="item.title" :tech-key="item.key"
+                              :description="item.description"
+                              :configured="isKeyConfigured(item)" :last4="last4(item)"
+                              :draft="keyDrafts[item.key] || ''"
+                              :disabled="!canEditConfig(item.key)"
+                              placeholder="Новый ключ (заменить)…"
+                              @update:draft="keyDrafts[item.key] = $event"
+                              @delete="deleteKeyItem(item)"></secret-field>
                           </template>
                           <template v-else-if="item.type === 'json' || item.category === 'prompts' || item.category === 'content'">
                             <div class="text-sm font-semibold">{{ item.title }}</div>
@@ -4520,6 +4514,39 @@
       </div>
     </div>
   </div>
+
+  <!-- F9 (10.25, ADR-1025-22 D1/D4): единый шаблон секрет-поля.
+       Маска/«Ключ установлен» — display-индикатор, НЕ значение input (§50).
+       Компонент зарегистрирован в web/app.js (provide/inject: root). -->
+  <script type="text/x-template" id="secret-field-tpl">
+    <div class="secret-field" :data-secret-configured="configured ? '1' : '0'"
+         :data-secret-scope="scope">
+      <div v-if="title" class="secret-field__title">{{ title }}</div>
+      <div v-if="techKey" class="secret-field__key">{{ techKey }}</div>
+      <div v-if="description" class="secret-field__desc">{{ description }}</div>
+      <div class="secret-field__mask" :class="configured ? 'badge badge-ok' : 'badge badge-muted'">
+        {{ maskText }}
+      </div>
+      <div class="secret-field__row">
+        <input ref="secretInput" class="field secret-field__input" autocomplete="off"
+               :type="inputType" :value="draft" :placeholder="placeholder"
+               :disabled="disabled"
+               @input="onInput">
+        <button type="button" class="btn-ghost secret-field__reveal"
+                :aria-pressed="reveal ? 'true' : 'false'"
+                :title="reveal ? 'Скрыть ключ' : 'Показать ключ'"
+                @click="toggleReveal">
+          <span class="msr" aria-hidden="true">{{ iconGlyph(reveal ? 'visibility_off' : 'visibility') }}</span>
+        </button>
+      </div>
+      <div class="secret-field__actions">
+        <button type="button" class="btn-ghost text-xs"
+                :disabled="disabled" @click="replace">{{ replaceLabel }}</button>
+        <button type="button" class="btn-ghost text-xs"
+                :disabled="disabled || !configured" @click="onDelete">{{ deleteLabel }}</button>
+      </div>
+    </div>
+  </script>
 
   <!-- KV-редактор (3.5.2): шаблон компонента kv-editor для полей c
        widget='keyvalue' (limits.summary_aliases и любые будущие пары).

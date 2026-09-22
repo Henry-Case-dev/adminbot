@@ -29,6 +29,27 @@
   // сохранено» вводит в заблуждение и ввод молча теряется).
   var SECRET_MASK_HINT = 'Поле содержит маску сохранённого секрета — выделите поле и введите значение заново';
 
+  // F9 (10.25, ADR-1025-22 D1/D3): display-индикатор секрета — `••••••••last4`
+  // (last4 есть) / «Ключ установлен» (configured без last4) / «Не настроен».
+  // Вход: `{configured,last4}` ЛИБО непустое не-объектное значение ЛИБО пусто.
+  // Сырой секрет сюда не попадает (R17); маска — НЕ значение input (§50).
+  function secretDisplayOf(v) {
+    var configured = false;
+    var tail = '';
+    if (v != null && v !== '') {
+      if (typeof v === 'object') {
+        configured = !!v.configured;
+        tail = v.last4 || '';
+      } else {
+        configured = true;               // непустое не-объектное значение
+      }
+    }
+    var mask = tail
+      ? ('\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022' + tail)
+      : (configured ? 'Ключ установлен' : 'Не настроен');
+    return { configured: configured, last4: tail, maskText: mask };
+  }
+
   // F11 (10.24, ADR-1024-12): ГЛОБАЛЬНЫЕ провайдерские секреты — сохраняются
   // безопасным путём и правятся ТОЛЬКО глобальным админом (паритет с
   // `PUT /api/config/keys/own scope=global`, который иначе отдаёт 403).
@@ -1591,7 +1612,8 @@
         saving: new Set(),
         keyDrafts: {},
         secretMask: SECRET_MASK,  // контракт/тесты; рантайм-guard'ы читают SECRET_MASK напрямую
-        keyReveal: {},           // 3.5.1: показать/скрыть маску ключа (по item.key)
+        // 3.5.1: показать/скрыть маску ключа — F9/ADR-1025-22 D4: локально в
+        // компоненте `secret-field` (`reveal`), per-key `keyReveal` не нужен.
         // access
         admins: [],
         adminsLoading: false,
@@ -2804,6 +2826,13 @@
       stickyDirtyCount: function () {
         return (this.dirtyItems || []).length + (this.dirtyKeyItems || []).length;
       },
+      // F9 (ADR-1025-22 D3): статус BYOK-ключа чата — из `keyStatusOwn`
+      // (GET /api/config/keys/status; R17: только {configured,last4}).
+      byokSecret: function () {
+        var own = (this.keyStatusOwn && this.keyStatusOwn.own) || {};
+        var v = own['keys.llm_api_key'] || null;
+        return { configured: !!v, last4: (v && v.last4) || '' };
+      },
       // F0 (10.25, ADR-1025-2 D1): ЕДИНОЕ вычисляемое состояние формы —
       // loading | saving | error | conflict | dirty | clean (не набор флагов).
       // Визуальный слой SaveBar читает его (F0/F9), не дублирует логику.
@@ -3073,13 +3102,19 @@
       window.addEventListener('resize', _onResize);
       // HOTFIX10 (ADR-1025-18 D5): visualViewport (fullscreen/клавиатура/поворот)
       // может менять видимую область без window-resize — пересчитываем фон.
+      // F9 (ADR-1025-22 D5): + keyboard-offset для SaveBar/последнего поля.
       if (window.visualViewport
           && typeof window.visualViewport.addEventListener === 'function') {
         _onVV = function () {
           if (_appVm && typeof _appVm._hbResize === 'function') _appVm._hbResize();
           _auroraResize();
+          if (_appVm && typeof _appVm._syncKeyboardOffset === 'function') {
+            _appVm._syncKeyboardOffset();
+          }
         };
         window.visualViewport.addEventListener('resize', _onVV);
+        // F9 (D5): клавиатура/скролл visualViewport без resize (iOS) — тоже.
+        window.visualViewport.addEventListener('scroll', _onVV);
       }
       // MODERATE-2 + 10.8 (R10.8-1): глобальный Esc закрывает модалку модуля
       // И route-driven окна «Доступов» (фокус может быть вне модалки —
@@ -3380,6 +3415,34 @@
       // тот не дал бы img показаться при ре-рендере.
       avatarError: function (obj) {
         if (obj) obj.avatarUrl = null;
+      },
+
+      // F9 (10.25, ADR-1025-22 D5): keyboard-offset для SaveBar/последнего поля.
+      // visualViewport-геометрия: `innerHeight - (vv.height + vv.offsetTop)`
+      // (экранная клавиатура). CSS-переменная `--kb-offset` применяется к
+      // `.modal-actions`/`.sticky-save`/`.modal-card` (safe-area уже учтён
+      // РОВНО ОДИН РАЗ в `.sticky-save` — здесь только клавиатура). Активное
+      // поле в скролл-области приводим в видимость `block:'nearest'`.
+      _syncKeyboardOffset: function () {
+        var vv = window.visualViewport;
+        var root = (typeof document !== 'undefined') ? document.documentElement : null;
+        var offset = 0;
+        if (vv && typeof vv.height === 'number') {
+          var innerH = window.innerHeight || 0;
+          offset = Math.max(0, Math.round(innerH - (vv.height + (vv.offsetTop || 0))));
+        }
+        if (root && root.style) {
+          root.style.setProperty('--kb-offset', offset + 'px');
+        }
+        if (!offset || typeof document === 'undefined') return;
+        var el = document.activeElement;
+        if (!el || typeof el.closest !== 'function') return;
+        var tag = (el.tagName || '').toLowerCase();
+        if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') return;
+        if (!el.closest('.modal-body, .scroll-area')) return;
+        if (typeof el.scrollIntoView === 'function') {
+          try { el.scrollIntoView({ block: 'nearest' }); } catch (e) { /* no-op */ }
+        }
       },
 
       toast: function (text, kind) {
@@ -4738,22 +4801,25 @@
           if (it && it.key != null) snap[it.key] = JSON.stringify(it.value);
         });
         this.configSnapshot = snap;
-        // UPD3 (T-1936): (пере)сеем маски секретов в keyDrafts, чтобы инпут
-        // не был пустым при configured-значении (INV-3).
+        // F9 (10.25, ADR-1025-22 D1): маска больше НЕ засеивается в значение
+        // input. Оставляем вызов — страховочная очистка legacy/композитных
+        // черновиков (маска не является значением поля, §50/R17).
         if (typeof this._seedSecretMasks === 'function') this._seedSecretMasks();
       },
-      // INV-3: configured-секрет → в keyDrafts лежит SECRET_MASK (а не '').
-      // Пусто — только при null/{configured:false}; реальный черновик не
-      // перетирается. Маска не сохраняется (dirtyKeyItems/saveKeyItem guard).
+      // F9 (ADR-1025-22 D1, отменяет засев UPD3/R31): маска — display-
+      // индикатор (`secretDisplay`), а НЕ значение `input`. Поле ввода
+      // configured-секрета всегда пустое: не трогали → draft пуст → не
+      // сохраняется; замена → реальный ввод. Здесь лишь убираем остатки
+      // маски/композита из черновиков (defense-in-depth; в API они не уйдут
+      // и благодаря guard'ам dirtyKeyItems/saveKeyItem/saveBlock).
       _seedSecretMasks: function () {
         var self = this;
-        if (!this.keyDrafts) this.keyDrafts = {};
-        (this.configItems || []).forEach(function (it) {
-          if (!it || it.key == null) return;
-          if (!(it.category === 'keys' || it.secret)) return;
-          if (typeof self.isKeyConfigured === 'function'
-              && !self.isKeyConfigured(it)) return;
-          if (!self.keyDrafts[it.key]) self.keyDrafts[it.key] = SECRET_MASK;
+        if (!this.keyDrafts || typeof this.keyDrafts !== 'object') {
+          this.keyDrafts = {};
+          return;
+        }
+        Object.keys(this.keyDrafts).forEach(function (k) {
+          if (hasSecretMask(self.keyDrafts[k])) delete self.keyDrafts[k];
         });
       },
       cancelModalEdits: function () {
@@ -5760,17 +5826,19 @@
       // A4/T-1207: значение блока — черновик, иначе сохранённая строка.
       // 10.10 (п.3): `draft === ''` (явная очистка) ВОЗВРАЩАЕТ '' (не
       // откатывается к configItems); отсутствие черновика — реальное
-      // значение из configItems (fallback), секреты → '' (маска).
+      // значение из configItems (fallback), секреты → ''.
+      // F9 (ADR-1025-22 D1): секрет-поле ВСЕГДА пустое без черновика —
+      // маска/«Ключ установлен» — display-индикатор (`secretDisplay`), а не
+      // значение `input` (§50/R17). Сырое значение даже при праве админа НЕ
+      // подставляем: ввод — только новый ключ.
       blockFieldValue: function (f) {
         var draft = this.blockDrafts[f.key];
         if (draft != null) return draft;
         var it = this.configItems.find(function (i) { return i.key === f.key; });
         if (!it) return '';
-        // UPD3 (T-1936): credential-поле с {configured:true} → маска, а не ''.
-        if (it.value && typeof it.value === 'object') {
-          var isSecret = !!(f.secret || it.secret || it.category === 'keys');
-          return (isSecret && it.value.configured) ? SECRET_MASK : '';
-        }
+        var isSecret = !!(f.secret || it.secret || it.category === 'keys');
+        if (isSecret) return '';
+        if (it.value && typeof it.value === 'object') return '';
         if (typeof it.value === 'string') return it.value;
         if (it.type !== 'bool' && it.value != null) return it.value;
         return '';
@@ -5841,11 +5909,12 @@
       },
       blockFieldPlaceholder: function (f) {
         var it = this.configItems.find(function (i) { return i.key === f.key; });
-        if (it && typeof it.value === 'object' && it.value) {
-          // F11 (10.24, spec §3.3): не задан → обычный пустой инпут с
-          // placeholder-подписью поля (не «не настроен»).
-          return it.value.configured
-            ? ('configured ••••' + (it.value.last4 || '')) : f.label;
+        // F9 (ADR-1025-22 D1): секрет-поле — всегда пустое; подсказка говорит,
+        // что делать (заменить), а не показывает маску как значение.
+        if (it && (f.secret || it.secret || it.category === 'keys')) {
+          var configured = !!(it.value && typeof it.value === 'object'
+                              && it.value.configured);
+          return configured ? 'Новый ключ (заменить)…' : 'Ключ…';
         }
         return f.label;
       },
@@ -5863,6 +5932,8 @@
         }
         return '';
       },
+      // F9 (ADR-1025-22 D1/D3): display-строка секрет-поля БЛОКА —
+      // `••••••••last4` / «Ключ установлен» / «Не настроен». Не значение input.
       testBlock: async function (b) {
         if (!b || this.blockTesting[b.id]) return;
         this.blockTesting[b.id] = true;
@@ -7492,10 +7563,9 @@
       clearConfigSearch: function () {
         this.configSearch = '';
       },
-      // 3.5.1: маска секрета с кнопкой показать (per-key, keyReveal)
-      toggleKeyReveal: function (key) {
-        this.keyReveal[key] = !this.keyReveal[key];
-      },
+      // 3.5.1: маска секрета с кнопкой показать — перенесено в компонент
+      // `secret-field` (F9/ADR-1025-22 D4: локальный `reveal`), per-key
+      // `keyReveal`/`toggleKeyReveal` удалены как мёртвый код.
 
       inputType: function (item) {
         if (item.type === 'int' || item.type === 'float') return 'number';
@@ -7839,10 +7909,34 @@
         return true;                       // непустая строка-значение
       },
       last4: function (item) {
-        var v = item.value;
+        var v = item && item.value;
         if (v && typeof v === 'object') return v.last4 || '';
-        if (v && typeof v === 'string') return '••••';   // значение видно, хвост не показываем
+        // F9 (ADR-1025-22 D3): значение-строку хвостом не раскрываем — нет
+        // last4 → display даст «Ключ установлен».
         return '';
+      },
+      // F9 (10.25, ADR-1025-22 D1/D3): единый display-индикатор секрета.
+      // `item` — configItem (со `value`), `{key}`-поле блока ИЛИ строковый ключ
+      // (ищем в configItems). Возврат { configured, last4, maskText }.
+      secretDisplay: function (item) {
+        var v;
+        if (typeof item === 'string') {
+          var found = (this.configItems || []).find(function (i) {
+            return i && i.key === item;
+          });
+          v = found ? found.value : null;
+        } else if (item && typeof item === 'object'
+                   && Object.prototype.hasOwnProperty.call(item, 'value')) {
+          v = item.value;
+        } else if (item && typeof item === 'object' && item.key != null) {
+          var byKey = (this.configItems || []).find(function (i) {
+            return i && i.key === item.key;
+          });
+          v = byKey ? byKey.value : null;
+        } else {
+          v = item;
+        }
+        return secretDisplayOf(v);
       },
       isSecretMask: function (v) { return isSecretMask(v); },
       // UPD3-fix: композит `маска+ввод` тоже должен распознаваться как маска.
@@ -7873,6 +7967,66 @@
           return false;                          // S10.20-6
         } finally {
           this.saving.delete(item.key);
+        }
+      },
+      // F9 (10.25, ADR-1025-22 D2): удаление ГЛОБАЛЬНОГО секрета — отдельное
+      // подтверждаемое действие. Без НОВОГО endpoint (R16):
+      //   * `isGlobalSecretKey(key) && BYOK_IMAGE_KEY_ENABLED` →
+      //     существующий `DELETE /api/config/keys/own/{key}` (глобальная ветка
+      //     safe-эндпоинта + аудит `record_global_secret_audit`);
+      //   * иначе → F0 write-path empty-write: `persistItems([{key,value:'',…}])`
+      //     → global POST /api/config. Пусто = «не настроен» (`_mask_secret`).
+      // `DELETE /api/config/chat/{key}` НЕ используем (это сброс override).
+      deleteKeyItem: async function (item) {
+        var key = (typeof item === 'string') ? item : (item && item.key);
+        if (!key) return false;
+        var it = (typeof this._findConfigItem === 'function')
+          ? this._findConfigItem(key) : null;
+        var title = (item && item.title) || (it && it.title) || key;
+        if (!window.confirm('Удалить секрет «' + title + '»? Ключ станет '
+                            + '«не настроен», отменить нельзя.')) {
+          return false;
+        }
+        try {
+          var flagOn = (typeof this.uiFlag === 'function')
+            ? this.uiFlag('BYOK_IMAGE_KEY_ENABLED') : true;
+          if (isGlobalSecretKey(key) && flagOn) {
+            // H-F9S-1: `global:true` — иначе `api()` подставит `X-Chat-Id`
+            // (выбранный чат) → сервер уйдёт в chat-ветку → `delete_chat_key`
+            // (whitelist = `{keys.llm_api_key}`) → ValueError/HTTP 422. Паритет
+            // с `saveProviderSecret` (`global:true`) и ADR-1025-22 D2.
+            await this.api('/api/config/keys/own/' + encodeURIComponent(key),
+                           { method: 'DELETE', global: true });
+          } else if (typeof this.persistItems === 'function') {
+            var perChat = it ? it.per_chat : undefined;
+            var opId = 'del-' + (++this._opSeq);
+            var res = await this.persistItems(
+              [{ key: key, value: '', per_chat: perChat }],
+              { operationId: opId, silent: true });
+            if (!res || res.state !== 'saved'
+                || (res.failed || []).length || (res.skipped || []).length) {
+              this.toast('Не удалось удалить: ' + title, 'err');
+              return false;
+            }
+          } else {
+            // Легаси-контекст без единого write-path (юнит-тесты).
+            await this.api('/api/config', {
+              method: 'POST',
+              body: JSON.stringify({ items: [{ key: key, value: '' }],
+                                     updated_at: null }),
+              global: true,
+            });
+          }
+          if (this.keyDrafts) delete this.keyDrafts[key];
+          if (this.blockDrafts) delete this.blockDrafts[key];
+          this.toast('Удалено: ' + title, 'ok');
+          if (typeof this._preserveScroll === 'function' && this.loadConfig) {
+            await this._preserveScroll(this.loadConfig);
+          }
+          return true;
+        } catch (e) {
+          this.toast('Ошибка удаления: ' + ((e && e.message) || e), 'err');
+          return false;
         }
       },
 
@@ -11241,9 +11395,13 @@
         return s || (this.dirtyCount ? 'dirty' : 'clean');
       },
       stateLabel: function () {
-        // L-5 (ревью): `saved` — транзиентное состояние, root.saveState его
-        // сейчас не возвращает (после успеха → clean), поэтому ветки нет.
-        var map = { clean: '', dirty: 'Есть изменения', saving: 'Сохранение…',
+        // F9 (ADR-1025-22 D6)/L-F9S-2: подписываем только состояния, которые
+        // реально отдаёт root.saveState (loading|saving|conflict|error|dirty|
+        // clean). `saved` здесь НЕ отображается: после подтверждения сервера
+        // F0 переходит в `clean`, а «Сохранено» доставляет тост F0 (мёртвую
+        // ветку не держим).
+        var map = { clean: '', loading: 'Загрузка…', dirty: 'Есть изменения',
+                    saving: 'Сохранение…',
                     error: 'Ошибка сохранения',
                     conflict: 'Конфликт версии' };
         return map[this.saveState] || '';
@@ -11274,6 +11432,66 @@
       + ' :disabled="saving || !active" @click="save">'
       + '{{ saving ? "Сохранение…" : label }}</button>'
       + '</div>',
+  });
+
+  // ═══ F9 (10.25, ADR-1025-22 D1/D3/D4): единый компонент секрет-поля ═══════
+  // Маска — DISPLAY-индикатор (не значение input, §50/R17): заголовок → тех.
+  // ключ → описание → индикатор → пустой password-инпут + reveal →
+  // «Заменить»/«Удалить». Zero-build (template: #secret-field-tpl), без
+  // библиотек. Используется и для generic-ключей (`scope='global'`), и для
+  // provider-блоков, и для BYOK (`scope='chat'`).
+  app.component('secret-field', {
+    name: 'secret-field',
+    inject: ['root'],
+    props: {
+      title: { type: String, default: '' },
+      techKey: { type: String, default: '' },
+      description: { type: String, default: '' },
+      configured: { type: Boolean, default: false },
+      last4: { type: String, default: '' },
+      draft: { type: String, default: '' },
+      scope: { type: String, default: 'global' },
+      disabled: { type: Boolean, default: false },
+      placeholder: { type: String, default: 'Ключ…' },
+      replaceLabel: { type: String, default: 'Заменить' },
+    },
+    data: function () {
+      return { reveal: false };
+    },
+    computed: {
+      // D1/D3: display-индикатор — `••••••••last4` / «Ключ установлен» /
+      // «Не настроен». Значение поля НИКОГДА не равно маске.
+      // L-F9S-1: единый источник форматирования — `secretDisplayOf`
+      // (дубль строки маски устранён; display-строка, не значение input).
+      maskText: function () {
+        return secretDisplayOf({ configured: this.configured, last4: this.last4 })
+          .maskText;
+      },
+      inputType: function () { return this.reveal ? 'text' : 'password'; },
+      deleteLabel: function () {
+        return this.scope === 'chat' ? 'Удалить ключ чата' : 'Удалить';
+      },
+    },
+    methods: {
+      onInput: function (e) {
+        this.$emit('update:draft', e && e.target ? e.target.value : '');
+      },
+      // Замена = ввод нового значения + SaveBar; кнопка лишь фокусирует поле.
+      replace: function () {
+        var el = this.$refs.secretInput;
+        if (el && typeof el.focus === 'function') el.focus();
+        this.$emit('replace');
+      },
+      onDelete: function () { this.$emit('delete'); },
+      toggleReveal: function () { this.reveal = !this.reveal; },
+      iconGlyph: function (name) {
+        if (this.root && typeof this.root.iconGlyph === 'function') {
+          return this.root.iconGlyph(name);
+        }
+        return '';
+      },
+    },
+    template: '#secret-field-tpl',
   });
 
   app.mount('#app');

@@ -146,18 +146,19 @@ const CSS = fs.readFileSync(
     'grid: с .prov-block снят max-w-3xl');
 }
 
-// ── 3. Data binding: маска секретов ────────────────────────────────────────
+// ── 3. Data binding: маска секретов (F9/ADR-1025-22 D1) ─────────────────────
 {
   assert.strictEqual(SECRET_MASK.length, 12, 'маска: ровно 12 символов');
   assert.strictEqual(typeof methods._seedSecretMasks, 'function',
-    'маска: _seedSecretMasks — метод');
+    'маска: _seedSecretMasks — метод (страховочная очистка)');
   assert.strictEqual(methods.isSecretMask(SECRET_MASK), true);
   assert.strictEqual(methods.isSecretMask('real'), false);
   assert.strictEqual(methods.hasSecretMask(SECRET_MASK + 'X'), true);
   assert.strictEqual(methods.hasSecretMask('X'), false);
+  // F9/D1: _seedSecretMasks больше НЕ засеивает маску в keyDrafts.
   const ctx = {
     isKeyConfigured: methods.isKeyConfigured,
-    keyDrafts: {},
+    keyDrafts: { legacy: SECRET_MASK + 'typed' },
     configItems: [
       { key: 'CHECKUP_BETTERSTACK_SQL_PASSWORD', category: 'keys', secret: true,
         value: { configured: true, last4: 'FAKE' } },
@@ -165,11 +166,13 @@ const CSS = fs.readFileSync(
     ],
   };
   methods._seedSecretMasks.call(ctx);
-  assert.strictEqual(ctx.keyDrafts['CHECKUP_BETTERSTACK_SQL_PASSWORD'],
-    SECRET_MASK, 'маска: configured-секрет засеян маской');
+  assert.strictEqual(ctx.keyDrafts['CHECKUP_BETTERSTACK_SQL_PASSWORD'], undefined,
+    'F9/D1: configured-секрет НЕ засеивается маской');
   assert.strictEqual(ctx.keyDrafts['keys.none'], undefined,
     'маска: null → поле пустое');
-  // INV-3: blockFieldValue для configured-секрета → маска, null → ''
+  assert.strictEqual(ctx.keyDrafts.legacy, undefined,
+    'F9/D1: legacy/композитная маска вычищена из черновиков');
+  // F9/D1: blockFieldValue для секрета → '' (маска — display-индикатор).
   const bctx = {
     blockDrafts: {},
     configItems: [
@@ -179,10 +182,15 @@ const CSS = fs.readFileSync(
     ],
   };
   assert.strictEqual(methods.blockFieldValue.call(
-    bctx, { key: 'keys.llm_api_key', secret: true }), SECRET_MASK,
-    'маска: provider-секрет rendered маской');
+    bctx, { key: 'keys.llm_api_key', secret: true }), '',
+    'F9/D1: provider-секрет → пустое поле (не маска)');
   assert.strictEqual(methods.blockFieldValue.call(
     bctx, { key: 'models.empty' }), '', 'маска: null → пусто');
+  // F9/D3: display-индикатор отдаёт маску.
+  assert.strictEqual(methods.secretDisplay.call(
+    bctx, { key: 'keys.llm_api_key' }).maskText,
+    '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022' + '1234',
+    'F9/D3: secretDisplay → ••••••••last4');
 }
 
 // ── 4. Градиент: скорость, оранжевый, reduced-motion ───────────────────────

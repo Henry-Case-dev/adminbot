@@ -79,8 +79,10 @@ class TestCriticalBugMarkers:
     def test_binding_is_two_way(self):
         # generic-инпуты конфига — v-model (two-way).
         assert 'v-model="item.value"' in INDEX
-        # секреты — маска configured ••••last4 (R16), а не пустой инпут.
-        assert "configured ••••" in INDEX
+        # F9 (ADR-1025-22 D1): секреты — display-индикатор (••••••••last4 /
+        # «Ключ установлен»), НЕ значение input.
+        assert "secret-field__mask" in INDEX
+        assert "secretDisplay: function" in APP_JS
         assert "blockFieldConfigured" in APP_JS
 
     def test_module_window_not_gated_by_config_tab(self):

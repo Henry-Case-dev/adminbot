@@ -523,8 +523,11 @@ class TestReloadAndLogs:
 
 class TestIndexMarkup:
     def test_installed_badge_present(self):
+        # F9 (ADR-1025-22 D1/D3): «Ключ установлен» — display-индикатор
+        # компонента secret-field (маска ≠ значение input).
         assert "Ключ установлен" in _INDEX
-        assert "f.globalSecret && blockFieldConfigured(f)" in _INDEX
+        assert 'id="secret-field-tpl"' in _INDEX
+        assert "secret-field__mask" in _INDEX
 
     def test_global_secret_admin_only_hint(self):
         assert "f.globalSecret && !canEditConfig(f.key)" in _INDEX

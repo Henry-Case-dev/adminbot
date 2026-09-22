@@ -105,7 +105,8 @@ class TestEmojiToIcons108:
         # owner-блока «Мимикрия» приходит из PERMSOC_OWNER_BLOCKS в JS).
         assert "psychology:" in JS
         assert "'psychology'" in JS
-        assert "iconGlyph(keyReveal[item.key] ? 'visibility_off' : 'visibility')" in HTML
+        # F9 (ADR-1025-22 D4): reveal секрет-поля — в компоненте secret-field.
+        assert "iconGlyph(reveal ? 'visibility_off' : 'visibility')" in HTML
 
     def test_logs_toggle_uses_material_icon(self):
         assert "iconGlyph(log.expanded ? 'expand_more' : 'chevron_right')" in HTML

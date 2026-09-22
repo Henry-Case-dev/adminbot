@@ -266,3 +266,23 @@ def test_js_unit_round1025_f7_permsoc_local():
     _run_js(os.path.join("tests", "js",
                          "round1025_f7_permsoc_local_test.js"),
             ok_marker="F7-PERMSOC-LOCAL-UNIT-OK")
+
+
+def test_js_unit_round1025_f9_secret_field():
+    """F9 round 10.25 (ADR-1025-22 D1–D4, §50/§78): маска — display-индикатор,
+    не значение input; guard R31 (маска не в API); «Заменить»/«Удалить»
+    (empty-write / keys-own); пустое поле не удаляет; единый компонент
+    secret-field."""
+    _run_js(os.path.join("tests", "js",
+                         "round1025_f9_secret_field_test.js"),
+            ok_marker="F9-SECRET-OK")
+
+
+def test_js_unit_round1025_f9_savebar_visual():
+    """F9 round 10.25 (ADR-1025-22 D5/D6, §69/§78): клавиатура
+    (visualViewport → --kb-offset + scrollIntoView), safe-area ровно один раз,
+    последнее поле, SaveBar в footer.modal-actions, одно уведомление/«Подробнее»,
+    состояния saveState — движок F0 не переписан."""
+    _run_js(os.path.join("tests", "js",
+                         "round1025_f9_savebar_visual_test.js"),
+            ok_marker="F9-SAVEBAR-OK")
