@@ -1,12 +1,19 @@
-"""S7 round1026 (ADR-1026-9 D1/D2/D6) — сквозной ``run_id`` и события §108/§109.
+"""S7 round1026 (ADR-1026-9 D1/D2/D6) + S6 round1026 (ADR-1026-11 D5/D6) —
+сквозной ``run_id`` и события §108/§109.
 
 Единая точка форматирования логов **жизненного цикла** Саммари
-(``SUMMARY_START``/``SUMMARY_COMPLETE``/``SUMMARY_FAILED``) и общий
-R17-safe набор полей ошибки §109. `run_id` = существующий
-``correlation_id`` (``usage_events.new_correlation_id()``, UUID4 hex);
-**второй идентификатор не вводится** (D1). Одна точка создания на прогон —
-живой путь ``summary_generator._run`` и dry-run ``summary_test_run``;
+(``SUMMARY_START``/``SUMMARY_COMPLETE``/``SUMMARY_FAILED``), этапных
+(``FORMAT_*``/``COVER_*``) и **публикационных** событий (``PUBLISH_RICH_*``/
+``PUBLISH_TEXT_*``, S6/D6) и общий R17-safe набор полей ошибки §109.
+`run_id` = существующий ``correlation_id`` (``usage_events.new_correlation_id()``,
+UUID4 hex); **второй идентификатор не вводится** (D1). Одна точка создания на
+прогон — живой путь ``summary_generator._run`` и dry-run ``summary_test_run``;
 этапные события получают его параметром.
+
+S6 (ADR-1026-11 D5): четыре §106-кода различаются аддитивным полем ``code=``
+(``SUMMARY_GENERATION_FAILED``/``COVER_GENERATION_FAILED``/
+``RICH_MESSAGE_SEND_FAILED``/``TEXT_FALLBACK_FAILED``) в существующих событиях
+и ``PUBLISH_*``.
 
 Инварианты (ADR-1026-9 D6/D7):
   * **R17**: только числа/коды/id/host/HTTP-статус/тип ошибки/причина/попытки;
@@ -43,6 +50,13 @@ STATUS_OK = "ok"
 STATUS_EMPTY = "empty"
 STATUS_DEGRADED = "degraded"
 STATUS_FAILED = "failed"
+
+# §106-коды S6 (ADR-1026-11 D5): аддитивное R17-safe поле `code=` в
+# существующих событиях (`SUMMARY_*`/`COVER_*`/`FORMAT_*`) и в `PUBLISH_*`.
+CODE_SUMMARY_GENERATION_FAILED = "SUMMARY_GENERATION_FAILED"
+CODE_COVER_GENERATION_FAILED = "COVER_GENERATION_FAILED"
+CODE_RICH_MESSAGE_SEND_FAILED = "RICH_MESSAGE_SEND_FAILED"
+CODE_TEXT_FALLBACK_FAILED = "TEXT_FALLBACK_FAILED"
 
 # Причина обрезается — в лог не должен попасть длинный текст (R17).
 _REASON_MAX = 200
@@ -135,6 +149,13 @@ class RunContext:
     format_channel: str | None = None
     format_status: str | None = None
     format_duration_ms: float | None = None
+    # S6 (ADR-1026-11 D5/D6): публикационный срез — канал/статус/длительность/
+    # message_id первого чанка; `code` — §106-класс (аддитивно, R17-safe).
+    publish_channel: str | None = None    # rich | text
+    publish_status: str | None = None     # ok | failed
+    publish_duration_ms: float | None = None
+    publish_message_id: int | None = None
+    code: str | None = None
     status: str = STATUS_OK
     stage: str | None = None
     model: str | None = None
@@ -152,7 +173,8 @@ class RunContext:
             return 0.0
 
     def fail(self, *, stage: str, reason=None, model=None, provider=None,
-             http_status=None, error_type=None, attempts=None) -> None:
+             http_status=None, error_type=None, attempts=None,
+             code=None) -> None:
         """Пометить прогон как провалившийся (§109-поля, R17-safe)."""
         self.status = STATUS_FAILED
         self.stage = stage or self.stage
@@ -168,8 +190,11 @@ class RunContext:
             self.error_type = error_type
         if attempts is not None:
             self.attempts = attempts
+        if code is not None:
+            self.code = code
 
-    def fail_from_exc(self, *, stage: str, exc: BaseException) -> None:
+    def fail_from_exc(self, *, stage: str, exc: BaseException,
+                      code=None) -> None:
         """§109-поля из исключения (без сырого текста: тип/код/host)."""
         reason = getattr(exc, "reason", None)
         self.fail(
@@ -178,6 +203,7 @@ class RunContext:
             error_type=type(exc).__name__,
             http_status=http_status_of(exc),
             attempts=attempts_of(exc),
+            code=code,
         )
 
 
@@ -199,11 +225,12 @@ def log_summary_complete(ctx: RunContext) -> None:
         logger.info(
             "SUMMARY_COMPLETE | run_id=%s | chat_id=%s | mode=%s | status=%s | "
             "duration_ms=%.0f | source_count=%s | saved_count=%s | "
-            "restored_count=%s | threads=%s | paragraphs=%s | cover_status=%s",
+            "restored_count=%s | threads=%s | paragraphs=%s | cover_status=%s | "
+            "code=%s",
             ctx.run_id or "none", ctx.chat_id, ctx.mode, ctx.status,
             ctx.duration_ms(), _num(ctx.source_count), _num(ctx.saved_count),
             _num(ctx.restored_count), _num(ctx.threads), _num(ctx.paragraphs),
-            ctx.cover_status or "-")
+            ctx.cover_status or "-", ctx.code or "-")
     except Exception:  # pragma: no cover - лог не должен ронять прогон
         pass
 
@@ -213,11 +240,11 @@ def log_summary_failed(ctx: RunContext) -> None:
         logger.warning(
             "SUMMARY_FAILED | run_id=%s | chat_id=%s | stage=%s | model=%s | "
             "provider=%s | http_status=%s | error_type=%s | reason=%s | "
-            "attempts=%s | duration_ms=%.0f",
+            "attempts=%s | duration_ms=%.0f | code=%s",
             ctx.run_id or "none", ctx.chat_id, ctx.stage or "-",
             ctx.model or "-", ctx.provider or "-", _num(ctx.http_status),
             ctx.error_type or "-", ctx.reason or "-", _num(ctx.attempts),
-            ctx.duration_ms())
+            ctx.duration_ms(), ctx.code or "-")
     except Exception:  # pragma: no cover - лог не должен ронять прогон
         pass
 
@@ -264,12 +291,12 @@ def log_format_complete(*, run_id, chat_id, channel, paragraphs,
         pass
 
 
-def log_format_error(*, run_id, chat_id, channel, reason) -> None:
+def log_format_error(*, run_id, chat_id, channel, reason, code=None) -> None:
     try:
         logger.warning(
-            "FORMAT_ERROR | run_id=%s | chat_id=%s | channel=%s | reason=%s "
-            "— downgrade", run_id or "none", chat_id, channel,
-            _safe_reason(reason) or "-")
+            "FORMAT_ERROR | run_id=%s | chat_id=%s | channel=%s | reason=%s | "
+            "code=%s — downgrade", run_id or "none", chat_id, channel,
+            _safe_reason(reason) or "-", code or "-")
     except Exception:  # pragma: no cover - best-effort
         pass
 
@@ -284,24 +311,119 @@ def log_cover_start(*, run_id, chat_id, provider) -> float:
     return time.perf_counter()
 
 
-def log_cover_complete(*, run_id, chat_id, status, started=None) -> None:
+def log_cover_complete(*, run_id, chat_id, status, started=None,
+                       code=None) -> None:
     try:
         logger.info(
             "COVER_COMPLETE | run_id=%s | chat_id=%s | status=%s | "
-            "duration_ms=%.0f", run_id or "none", chat_id, status or "-",
-            _elapsed_ms(started))
+            "duration_ms=%.0f | code=%s", run_id or "none", chat_id,
+            status or "-", _elapsed_ms(started), code or "-")
     except Exception:  # pragma: no cover - best-effort
         pass
 
 
 def log_cover_error(*, run_id, chat_id, provider, error_type, reason,
-                    started=None) -> None:
+                    started=None, code=None) -> None:
     try:
         logger.warning(
             "COVER_ERROR | run_id=%s | chat_id=%s | provider=%s | "
-            "error_type=%s | reason=%s | duration_ms=%.0f",
+            "error_type=%s | reason=%s | duration_ms=%.0f | code=%s",
             run_id or "none", chat_id, provider or "-",
             error_type or "-", _safe_reason(reason) or "-",
+            _elapsed_ms(started), code or "-")
+    except Exception:  # pragma: no cover - best-effort
+        pass
+
+
+# ── §108/§109: публикация PUBLISH_* (S6, D5/D6; R17-safe, best-effort) ─────
+
+def _mid(value) -> str:
+    """message_id в лог: только int/короткая строка, иначе ``-`` (R17)."""
+    if isinstance(value, bool) or value is None:
+        return "-"
+    if isinstance(value, int):
+        return str(value)
+    text = str(value)
+    if not text or len(text) > 32:
+        return "-"
+    return text
+
+
+def log_publish_rich_start(*, run_id, chat_id, method="sendRichMessage",
+                           reason=None) -> float:
+    """``PUBLISH_RICH_START``: старт rich-отправки; возвращает метку старта."""
+    try:
+        logger.info(
+            "PUBLISH_RICH_START | run_id=%s | chat_id=%s | stage=publish | "
+            "method=%s | reason=%s", run_id or "none", chat_id, method or "-",
+            _safe_reason(reason) or "-")
+    except Exception:  # pragma: no cover - best-effort
+        pass
+    return time.perf_counter()
+
+
+def log_publish_rich_complete(*, run_id, chat_id, message_id, started=None,
+                              method="sendRichMessage") -> None:
+    try:
+        logger.info(
+            "PUBLISH_RICH_COMPLETE | run_id=%s | chat_id=%s | stage=publish | "
+            "method=%s | message_id=%s | duration_ms=%.0f",
+            run_id or "none", chat_id, method or "-", _mid(message_id),
             _elapsed_ms(started))
+    except Exception:  # pragma: no cover - best-effort
+        pass
+
+
+def log_publish_rich_error(*, run_id, chat_id, error_type, reason,
+                           http_status=None, attempts=None, started=None,
+                           method="sendRichMessage", code=None) -> None:
+    try:
+        logger.warning(
+            "PUBLISH_RICH_ERROR | run_id=%s | chat_id=%s | stage=publish | "
+            "method=%s | error_type=%s | reason=%s | http_status=%s | "
+            "attempts=%s | duration_ms=%.0f | code=%s",
+            run_id or "none", chat_id, method or "-", error_type or "-",
+            _safe_reason(reason) or "-", _num(http_status), _num(attempts),
+            _elapsed_ms(started), code or "-")
+    except Exception:  # pragma: no cover - best-effort
+        pass
+
+
+def log_publish_text_start(*, run_id, chat_id, reason=None,
+                           method="sendMessage") -> float:
+    """``PUBLISH_TEXT_START``: старт plain-отправки; возвращает метку старта."""
+    try:
+        logger.info(
+            "PUBLISH_TEXT_START | run_id=%s | chat_id=%s | stage=publish | "
+            "method=%s | reason=%s", run_id or "none", chat_id, method or "-",
+            _safe_reason(reason) or "-")
+    except Exception:  # pragma: no cover - best-effort
+        pass
+    return time.perf_counter()
+
+
+def log_publish_text_complete(*, run_id, chat_id, message_id, started=None,
+                              method="sendMessage", reason=None) -> None:
+    try:
+        logger.info(
+            "PUBLISH_TEXT_COMPLETE | run_id=%s | chat_id=%s | stage=publish | "
+            "method=%s | message_id=%s | reason=%s | duration_ms=%.0f",
+            run_id or "none", chat_id, method or "-", _mid(message_id),
+            _safe_reason(reason) or "-", _elapsed_ms(started))
+    except Exception:  # pragma: no cover - best-effort
+        pass
+
+
+def log_publish_text_error(*, run_id, chat_id, error_type, reason,
+                           http_status=None, attempts=None, started=None,
+                           method="sendMessage", code=None) -> None:
+    try:
+        logger.warning(
+            "PUBLISH_TEXT_ERROR | run_id=%s | chat_id=%s | stage=publish | "
+            "method=%s | error_type=%s | reason=%s | http_status=%s | "
+            "attempts=%s | duration_ms=%.0f | code=%s",
+            run_id or "none", chat_id, method or "-", error_type or "-",
+            _safe_reason(reason) or "-", _num(http_status), _num(attempts),
+            _elapsed_ms(started), code or "-")
     except Exception:  # pragma: no cover - best-effort
         pass

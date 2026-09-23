@@ -1052,11 +1052,12 @@ class TestLivePathInvariants:
 
         delivered: list = []
 
-        async def _capture(self, chat_id, text):
+        async def _capture(bot, chat_id, text, **kw):
             delivered.append(text)
 
         monkeypatch.setattr(SummaryGenerator, "_send_streaming", _capture)
-        monkeypatch.setattr(SummaryGenerator, "_send_chunked", _capture)
+        # S6 (D2): публикационный plain-путь — чанки `send_text`.
+        monkeypatch.setattr("services.summary_generator.send_text", _capture)
 
         gen = SummaryGenerator(FakeMemory(rows=[_row(author_name="вася")]),
                                XmlGroundingBuilder(), TwoCallLLM(), AsyncMock())
@@ -1086,11 +1087,11 @@ class TestLivePathInvariants:
 
         delivered: list = []
 
-        async def _capture(self, chat_id, text):
+        async def _capture(bot, chat_id, text, **kw):
             delivered.append(text)
 
         monkeypatch.setattr(SummaryGenerator, "_send_streaming", _capture)
-        monkeypatch.setattr(SummaryGenerator, "_send_chunked", _capture)
+        monkeypatch.setattr("services.summary_generator.send_text", _capture)
 
         llm = OneCallLLM()
         gen = SummaryGenerator(FakeMemory(rows=[_row(author_name="вася")]),

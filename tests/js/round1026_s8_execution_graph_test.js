@@ -3,13 +3,14 @@
  * D2/D3/D4/D6/D8) — unit-тесты adapter-слоя `web/static/execution_graph.js`
  * для реальных этапов Эпика 2 и backend-графа одного прогона Саммари.
  *
- * Покрытие:
+ * Покрытие (S6/T-3446/T-3450 — перепрофилирование publish; не удаление):
  *   - маппинг реальных шагов (§111/D2): filter→algorithm, l1_clusterizer→llm,
  *     l2_writer→llm, formatting/format→format; publication→publish
- *     (зарезервирован, GATED);
+ *     (**активирован в S6**);
  *   - `fromExecution` — вертикальная последовательность одного run_id
- *     (filter → L1 → L2 → format), только реальные узлы;
- *   - publish-узлы отбрасываются (GATED, S6/D4);
+ *     (filter → L1 → L2 → format → publish), только реальные узлы;
+ *   - publish-узлы рендерятся (не отбрасываются), `publicationStatus` —
+ *     реальный, нет данных → null (не 'gated');
  *   - честная стоимость: неизвестная цена → null («Нет данных»), не $0;
  *   - `L-F6S-1`: fromSummary честен по `price_known`;
  *   - статика: одна визуализация, CSP/zero-build, §112-блок, интеграция app.js.
@@ -37,7 +38,7 @@ function kinds(g) { return g.nodes.map(function (n) { return n.kind; }); }
   assert.strictEqual(G.kindOf('l2_writer'), 'llm');
   assert.strictEqual(G.kindOf('formatting'), 'format');
   assert.strictEqual(G.kindOf('format'), 'format');
-  // publication зарезервирован (GATED): маппинг есть, но не активируется.
+  // publication активирован в S6 (ADR-1026-11 D6): маппинг/подпись есть.
   assert.strictEqual(G.kindOf('publication'), 'publish');
   assert.strictEqual(G.kindOf('publish'), 'publish');
   // Ни один реальный шаг Эпика 2 не попадает в other.
@@ -55,7 +56,7 @@ function kinds(g) { return g.nodes.map(function (n) { return n.kind; }); }
 (function () {
   const payload = {
     run_id: 'r1', started_at: '2026-09-24T10:00:00+00:00',
-    publication_status: 'gated',
+    publication_status: 'published_rich',
     nodes: [
       { id: 'r1:filter', runId: 'r1', parentIds: [], kind: 'algorithm',
         stageKey: 'filter', stageLabel: 'Алгоритмический фильтр', status: 'ok',
@@ -94,7 +95,8 @@ function kinds(g) { return g.nodes.map(function (n) { return n.kind; }); }
                 l2: { input_tokens: 200, output_tokens: 80, price_known: true },
                 total: { price_known: true } },
       cost: { l1: 0.001, l2: 0.002, total: 0.003 },
-      duration_ms: 900.0, cover_status: 'ok', publication_status: 'gated',
+      duration_ms: 900.0, cover_status: 'ok',
+      publication_status: 'published_rich',
     },
   };
   const g = G.fromExecution(payload);
@@ -115,28 +117,36 @@ function kinds(g) { return g.nodes.map(function (n) { return n.kind; }); }
   assert.strictEqual(alg.cost, null);
   assert.strictEqual(alg.metrics.source_count, 10);
   assert.strictEqual(alg.metrics.drop_percent, 30.0);
-  // §112 пробрасывается как есть; публикация gated.
-  assert.strictEqual(g.metrics.publication_status, 'gated');
-  assert.strictEqual(g.publicationStatus, 'gated');
+  // §112 пробрасывается как есть; публикация — реальный статус (S6).
+  assert.strictEqual(g.metrics.publication_status, 'published_rich');
+  assert.strictEqual(g.publicationStatus, 'published_rich');
   assert.strictEqual(g.totals.calls, 2);
   assert.strictEqual(g.totals.priceKnown, true);
   assert.strictEqual(g.totals.cost, 0.003);
 })();
 
-// ── 3. publish GATED: узлы kind='publish' отбрасываются (§111/D8) ─────────
+// ── 3. Publish активирован (S6): узел рендерится, статус реален ───────────
 (function () {
   const g = G.fromExecution({
-    run_id: 'r2', nodes: [
+    run_id: 'r2', publication_status: 'published_text', nodes: [
       { id: 'r2:l2_writer', kind: 'llm', stageKey: 'l2_writer',
         parentIds: [], priceKnown: false, metrics: null, metadata: {} },
       { id: 'r2:publication', kind: 'publish', stageKey: 'publication',
-        parentIds: ['r2:l2_writer'], priceKnown: false, metrics: null,
+        parentIds: ['r2:l2_writer'], status: 'ok', priceKnown: false,
+        metrics: { channel: 'text', message_id: 7, status: 'ok' },
         metadata: {} },
     ], edges: [{ from: 'r2:l2_writer', to: 'r2:publication' }],
   });
-  assert.deepStrictEqual(kinds(g), ['llm'],
-    'publish-узел не должен активироваться (GATED)');
-  assert.deepStrictEqual(g.edges, [], 'ребро к publish не остаётся');
+  assert.deepStrictEqual(kinds(g), ['llm', 'publish'],
+    'publish-узел активирован в S6 (не отбрасывается)');
+  assert.strictEqual(g.edges.length, 1, 'ребро к publish сохранено');
+  assert.strictEqual(g.publicationStatus, 'published_text');
+  assert.strictEqual(g.nodes[1].metrics.message_id, 7);
+  assert.strictEqual(g.nodes[1].stageLabel, 'Публикация');
+  // Нет данных о публикации → null («Нет данных»), не 'gated'.
+  const empty = G.fromExecution({ run_id: 'r3', nodes: [] });
+  assert.strictEqual(empty.publicationStatus, null,
+    'нет данных → null, не gated');
 })();
 
 // ── 4. Честная стоимость: неизвестная цена → null, не $0 (§28/D4) ────────
@@ -204,7 +214,11 @@ function kinds(g) { return g.nodes.map(function (n) { return n.kind; }); }
   assert(APP_JS.indexOf('/api/analytics/execution/latest') !== -1,
     'эндпоинт графа не запрашивается');
   assert(APP_JS.indexOf('execPublicationLabel') !== -1, 'честная подпись публикации');
-  assert(APP_JS.indexOf('недоступна (гейт S6)') !== -1);
+  assert(APP_JS.indexOf('недоступна (гейт S6)') === -1,
+    'S6: подписи гейта больше нет');
+  assert(APP_JS.indexOf("'published_rich'") !== -1 &&
+    APP_JS.indexOf("'published_text'") !== -1,
+    'S6: подписи реальных статусов публикации');
 })();
 
 console.log('S8-EXECGRAPH-OK');

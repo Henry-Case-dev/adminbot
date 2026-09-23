@@ -636,7 +636,7 @@ class TestOrchestratorCorrelation:
             captured["single"] = correlation_id
             return "текст"
 
-        async def _fake_deliver(chat_id, text):
+        async def _fake_deliver(chat_id, text, *a, **kw):
             captured["delivered"] = text
 
         gen._generate_two_call = _fake_two_call

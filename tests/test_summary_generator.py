@@ -862,7 +862,10 @@ class TestCleanupApplied:
         sent = bot.send_message.call_args.args[1]
         assert "«" not in sent and "»" not in sent
         assert "—" not in sent and "–" not in sent
-        assert 'саммари с "ёлочками" и тире - длинным - коротким' in sent
+        # S6 (D2/§102): plain-канал — HTML (`parse_mode="HTML"`), кавычки
+        # экранируются кодом форматтера (`&quot;`), сырых «ёлочек» нет.
+        assert ('саммари с &quot;ёлочками&quot; и тире - длинным - коротким'
+                in sent)
 
     @pytest.mark.asyncio
     async def test_cleanup_applied_before_shiz_postfix(self, no_sleep):

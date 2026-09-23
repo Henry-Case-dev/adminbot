@@ -11,7 +11,9 @@
   * SC-08/SC-12 — R17 (без ключей/промптов/сырых текстов); Δ каталога=0;
   * SC-13 — OFF-путь по артефактам/поведению неизменен, 2-вызовность;
   * SC-14 — dry-run S9: `TEST_*` + этапные, без `SUMMARY_*`/`PUBLISH_*`;
-  * SC-15 — `PUBLISH_RICH_*`/`PUBLISH_TEXT_*` отсутствуют (GATED).
+  * SC-15 — `PUBLISH_RICH_*`/`PUBLISH_TEXT_*` — S6: реализованы в живом
+    публикационном контуре, события только при реальной публикации;
+    dry-run S9 — без `PUBLISH_*` (перепрофилировано, не удалено).
 """
 from __future__ import annotations
 
@@ -309,7 +311,9 @@ class TestRunLifecycleOff:
         assert gen.llm.correlation_ids == [_RID, _RID]
         assert rec["plain"] and "дерзкий рассказ" in rec["plain"][0]
         text = caplog.text
-        assert "PUBLISH_" not in text                  # GATED
+        # S6 (ADR-1026-11 D6): доставка замокана → реальной публикации нет →
+        # PUBLISH_* не эмитятся (события только при реальной публикации).
+        assert "PUBLISH_" not in text
         start = _lines(caplog, "SUMMARY_START")
         assert start and "mode=off" in start[0]
         assert "source_count=-" in start[0]            # окно ещё не прочитано
@@ -466,7 +470,17 @@ class TestHybridLogging:
             for line in lines:
                 assert _rid(line) == _RID, line
         assert "channel=plain" in _lines(caplog, "FORMAT_START")[0]
-        assert "PUBLISH_" not in caplog.text            # GATED
+        # S6 (D6): реальная публикация plain → PUBLISH_TEXT_* с тем же run_id;
+        # rich-событий нет (канал plain).
+        pub_start = _lines(caplog, "PUBLISH_TEXT_START")
+        pub_done = _lines(caplog, "PUBLISH_TEXT_COMPLETE")
+        assert pub_start and pub_done
+        assert "method=sendMessage" in pub_start[0]
+        assert "message_id=" in pub_done[0]
+        for line in pub_start + pub_done:
+            assert _rid(line) == _RID, line
+        assert not _lines(caplog, "PUBLISH_RICH_START")
+        assert not _lines(caplog, "PUBLISH_RICH_COMPLETE")
 
     @pytest.mark.asyncio
     async def test_hybrid_l1_not_usable_degraded(self, monkeypatch, caplog):
@@ -550,15 +564,21 @@ class TestHybridLogging:
 
     @pytest.mark.asyncio
     async def test_format_error_has_run_id_and_reason(self, monkeypatch, caplog):
+        """S6 (D5): HTML-чанки упали → FORMAT_ERROR + финальный даунгрейд
+        (текст без разметки), PUBLISH_TEXT_ERROR не эмитится (доставка удалась)."""
         _fixed_rid(monkeypatch)
         gen = _gen(FakeMemory(), MagicMock())
         doc = {"schema_version": 1, "title": "Т",
                "paragraphs": [{"text": "Абзац.", "emphasis": None}]}
-        monkeypatch.setattr(sg, "send_text",
-                            AsyncMock(side_effect=RuntimeError("network down")))
         fallback = []
-        monkeypatch.setattr(gen, "_send_chunked",
-                            AsyncMock(side_effect=lambda *a, **k: fallback.append(a)))
+
+        async def _fake_send(bot, chat_id, text, **kw):
+            if kw.get("parse_mode") == "HTML":
+                raise RuntimeError("network down")
+            fallback.append(text)
+            return MagicMock(message_id=77)
+
+        monkeypatch.setattr(sg, "send_text", _fake_send)
         with caplog.at_level(logging.INFO):
             await gen._deliver_l2_plain(CHAT, doc, _RID)
         err = _lines(caplog, "FORMAT_ERROR")
@@ -566,6 +586,9 @@ class TestHybridLogging:
         assert "reason=RuntimeError" in err[0]
         assert not _lines(caplog, "FORMAT_COMPLETE")
         assert fallback                                 # текст не потерян
+        assert not _lines(caplog, "PUBLISH_TEXT_ERROR")  # финал удался
+        done = _lines(caplog, "PUBLISH_TEXT_COMPLETE")
+        assert done and "message_id=77" in done[0]      # первый чанк даунгрейда
 
     @pytest.mark.asyncio
     async def test_cover_complete_ok_and_format_rich(self, monkeypatch, caplog,
@@ -852,16 +875,21 @@ class TestInvariants:
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.27"
+        assert APP_VERSION == "2.58.28"
 
-    def test_publish_events_absent_gated(self):
+    def test_publish_events_only_on_real_publication(self):
+        """S6 (D6): PUBLISH_* реализованы в живом публикационном контуре; S9
+        dry-run (`summary_test_run.py`) публикационных событий не эмитит."""
         for name in ("services/summary_run_log.py",
                      "services/summary_generator.py",
-                     "services/summary_test_run.py",
                      "web/app.js"):
             src = (ROOT / name).read_text(encoding="utf-8")
-            assert "PUBLISH_RICH" not in src, name
-            assert "PUBLISH_TEXT" not in src, name
+            assert "PUBLISH_RICH" in src, name
+            assert "PUBLISH_TEXT" in src, name
+        dry = (ROOT / "services/summary_test_run.py").read_text(
+            encoding="utf-8")
+        assert "PUBLISH_RICH" not in dry, "dry-run S9 не публикует"
+        assert "PUBLISH_TEXT" not in dry, "dry-run S9 не публикует"
 
     def test_forbidden_modules_untouched(self):
         routes = (ROOT / "web/api/routes.py").read_text(encoding="utf-8")

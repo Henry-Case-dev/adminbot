@@ -24,10 +24,12 @@
  *
  * S8 round1026 (ADR-1026-10 D2/D3/D4/D6): добавлены реальные этапы Эпика 2
  * (`filter`→algorithm, `l1_clusterizer`/`l2_writer`→llm, `formatting`→format;
- * `publication`→publish ЗАРЕЗЕРВИРОВАН, GATED) и `fromExecution(payload)` —
- * проекция backend-нормализованного графа одного прогона (узлы + §112).
- * Publish-узлы отбрасываются (S6/D4); связи — подтверждённая линейная
- * последовательность одного `run_id` (D6), ветвление не достраивается.
+ * `publication`→publish) и `fromExecution(payload)` — проекция
+ * backend-нормализованного графа одного прогона (узлы + §112). S6
+ * (ADR-1026-11 D6): publish-узлы активированы (рендерятся существующим
+ * GraphViewer); `publicationStatus` — реальный, нет данных → null; связи —
+ * подтверждённая линейная последовательность одного `run_id` (D6), ветвление
+ * не достраивается.
  */
 (function (root, factory) {
   'use strict';
@@ -50,8 +52,8 @@
   };
   // Сырой `step` -> kind (§111/D2). Реальные этапы Эпика 2: filter ->
   // algorithm, l1_clusterizer/l2_writer -> llm, formatting/format -> format.
-  // `publication` -> publish — ЗАРЕЗЕРВИРОВАН, но GATED (S6/D4): источник
-  // данных отсутствует, поэтому publish-узлы не активируются.
+  // `publication` -> publish — S6 (ADR-1026-11 D6): узел строится только из
+  // реальных данных backend-снапшота, здесь — маппинг/подпись.
   var STEP_KIND = {
     single: 'llm', stage1: 'llm', stage2: 'llm', image: 'llm',
     tool: 'tool',
@@ -265,13 +267,13 @@
     };
   }
 
-  // S8 (ADR-1026-10 D3/D4/D6): backend-нормализованный ExecutionNode-shape ->
-  // клиентская модель. Только реальные поля; publish GATED (узел
-  // kind='publish' отбрасывается — S6/D4, вторая визуализация не создаётся).
+  // S8 (ADR-1026-10 D3/D4/D6) + S6 (ADR-1026-11 D6): backend-нормализованный
+  // ExecutionNode-shape -> клиентская модель. Только реальные поля; publish-узел
+  // активирован (рендерится существующим GraphViewer, вторая визуализация не
+  // создаётся).
   function normalizeExecutionNode(n, runId, index) {
     if (!n || typeof n !== 'object') return null;
     var kind = (n.kind && KIND_ENUM.indexOf(n.kind) >= 0) ? n.kind : 'other';
-    if (kind === 'publish') return null;   // GATED: publish-узлы не активируются
     var meta = (n.metadata && typeof n.metadata === 'object') ? n.metadata : {};
     var rid = (n.runId != null && n.runId !== '') ? String(n.runId)
               : (runId != null ? runId : null);
@@ -332,9 +334,10 @@
     };
   }
 
-  // РЕЖИМ 3 (S8/§29): граф ОДНОГО прогона Саммари — конкретная вертикальная
-  // последовательность этапов filter → L1 → L2 → formatting (подтверждённый
-  // порядок пайплайна, D6). Агрегат периода сюда не подмешивается (fromSummary).
+  // РЕЖИМ 3 (S8/§29 + S6): граф ОДНОГО прогона Саммари — конкретная
+  // вертикальная последовательность этапов filter → L1 → L2 → formatting →
+  // publication (подтверждённый порядок пайплайна, D6). Агрегат периода сюда
+  // не подмешивается (fromSummary).
   function fromExecution(payload) {
     var p = payload || {};
     var rawNodes = Array.isArray(p.nodes) ? p.nodes : [];
@@ -362,8 +365,9 @@
       empty: nodes.length === 0,
       totals: executionTotals(nodes, metrics),
       metrics: metrics,
+      // S6 (D6): реальный статус публикации; нет данных → null («Нет данных»).
       publicationStatus: (p.publication_status != null)
-        ? String(p.publication_status) : 'gated',
+        ? String(p.publication_status) : null,
     };
   }
 

@@ -121,9 +121,9 @@ class TestInvariants:
 
     def test_app_version_bump(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.27", m and m.group(1)
+        assert m and m.group(1) == "2.58.28", m and m.group(1)
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        assert "v2.58.27" in readme
+        assert "v2.58.28" in readme
 
     def test_no_second_store_or_write_path(self):
         assert JS.count("persistItems: async function") == 1

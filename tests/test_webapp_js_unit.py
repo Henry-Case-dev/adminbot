@@ -330,3 +330,12 @@ def test_js_unit_round1026_s7_log_summary_filter():
     _run_js(os.path.join("tests", "js",
                          "round1026_s7_log_summary_filter_test.js"),
             ok_marker="S7-LOG-SUMMARY-OK")
+
+
+def test_js_unit_round1026_s6_publish():
+    """S6 round 10.26 (ADR-1026-11 D6, §108/§110/§112): публикационная
+    наблюдаемость — маркеры PUBLISH_* в §110-фильтре, подписи ошибок
+    публикации, реальные `execPublicationLabel`-статусы, `fromExecution`
+    publicationStatus (нет данных → null, не 'gated'); viewer не переписан."""
+    _run_js(os.path.join("tests", "js", "round1026_s6_publish_test.js"),
+            ok_marker="S6-PUBLISH-OK")

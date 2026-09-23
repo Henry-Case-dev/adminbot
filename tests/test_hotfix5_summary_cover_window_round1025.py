@@ -46,8 +46,12 @@ def _patch_rich(monkeypatch, rec):
 
     monkeypatch.setattr(sg, "send_rich_message", _send)
 
-    async def _plain(self, chat_id, text):
-        rec.plain.append(text)
+    async def _plain(self, chat_id, document, *a, **kw):
+        # S6 (ADR-1026-11 D2): plain-фолбэк принимает §99-документ; для проверки
+        # «текст не потерян» берём его plain-текст (без разметки).
+        from services.summary_article_formatter import format_plain_text
+        rec.plain.append(document if isinstance(document, str)
+                         else format_plain_text(document))
 
     monkeypatch.setattr(SummaryGenerator, "_plain_fallback", _plain)
     monkeypatch.setattr(SummaryGenerator, "_resolve_cover_style_text",

@@ -2550,17 +2550,19 @@
                  metrics: useExec ? graph.metrics : null,
                  filtered: this.execFilterActive() };
       },
-      // S8 (ADR-1026-10 D3/D6): нормализованный граф ОДНОГО прогона Саммари —
-      // клиентская проекция backend-ответа тем же ExecutionGraph (не вторая
-      // визуализация). Узлы только реальные; publish GATED.
+      // S8 (ADR-1026-10 D3/D6) + S6 (ADR-1026-11 D6): нормализованный граф
+      // ОДНОГО прогона Саммари — клиентская проекция backend-ответа тем же
+      // ExecutionGraph (не вторая визуализация). Узлы только реальные
+      // (включая publish — активирован в S6).
       execGraph: function () {
         var EG = this.execGraphApi();
         return EG ? EG.fromExecution(this.tokenAnalyticsExecution) : {
           runId: null, startedAt: null, nodes: [], edges: [], main: [],
           hasBranch: false, empty: true, totals: null, metrics: null };
       },
-      // §112 (REQ-S8-09): честные строки метрик Саммари («Нет данных» вместо
-      // выдуманного $0; публикация — gated). Источник — execGraph.metrics.
+      // §112 (REQ-S8-09) + S6/D6: честные строки метрик Саммари («Нет данных»
+      // вместо выдуманного $0; публикация — реальный статус). Источник —
+      // execGraph.metrics.
       execMetricsRows: function () {
         var g = this.execGraph;
         if (!g || !g.metrics) return [];
@@ -2614,9 +2616,12 @@
         if (status === 'none') return 'не генерировалась';
         return 'Нет данных';
       },
-      // §112/D4: публикация GATED (S6) — честный факт, не выдуманное «опубликовано».
+      // §112/D6: реальные статусы публикации (S6); нет данных → «Нет данных».
       execPublicationLabel: function (status) {
-        if (status === 'gated') return 'недоступна (гейт S6)';
+        if (status === 'published_rich') return 'опубликовано (статья)';
+        if (status === 'published_text') return 'опубликовано (текст)';
+        if (status === 'failed') return 'ошибка публикации';
+        if (status === 'skipped') return 'не публиковалось';
         return (status === null || status === undefined) ? 'Нет данных'
                                                          : String(status);
       },
@@ -9626,11 +9631,12 @@
           }
         });
       },
-      // S7 (ADR-1026-9 D4, §110): маркеры событий Саммари (§108/§109) для
-      // клиентского фильтра. `run_id=` — любая строка этапа несёт сквозной id.
+      // S7 (ADR-1026-9 D4, §110) + S6 (ADR-1026-11 D6): маркеры событий Саммари
+      // (§108/§109) для клиентского фильтра. `run_id=` — любая строка этапа
+      // несёт сквозной id; `PUBLISH_` — публикационные события S6.
       logSummaryMarkers: function () {
         return ['SUMMARY_', 'FILTER_', 'RESTORE_', 'L1_', 'L2_', 'FORMAT_',
-                'COVER_', 'TEST_', 'run_id='];
+                'COVER_', 'PUBLISH_', 'TEST_', 'run_id='];
       },
       isSummaryLog: function (log) {
         var msg = (log && log.message) || '';
@@ -9649,6 +9655,8 @@
           ['L2_ERROR', 'Саммари: ошибка генерации статьи'],
           ['FORMAT_ERROR', 'Саммари: ошибка форматирования'],
           ['COVER_ERROR', 'Саммари: ошибка обложки'],
+          ['PUBLISH_RICH_ERROR', 'Саммари: ошибка публикации (Rich)'],
+          ['PUBLISH_TEXT_ERROR', 'Саммари: ошибка публикации (текст)'],
           ['FILTER_ERROR', 'Саммари: ошибка фильтра'],
           ['RESTORE_ERROR', 'Саммари: ошибка восстановления контекста'],
           ['SUMMARY_FAILED', 'Саммари: прогон не удался'],

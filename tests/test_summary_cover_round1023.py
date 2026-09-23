@@ -233,7 +233,7 @@ class _Recorder:
 
 
 def _patch_delivery(monkeypatch, rec):
-    async def _plain(self, chat_id, text):
+    async def _plain(self, chat_id, text, *a, **kw):
         rec.plain.append(text)
 
     async def _rich(bot, chat_id, text, *, media=None, cover_id=None,
@@ -242,6 +242,9 @@ def _patch_delivery(monkeypatch, rec):
 
     monkeypatch.setattr(SummaryGenerator, "_send_streaming", _plain)
     monkeypatch.setattr(SummaryGenerator, "_send_chunked", _plain)
+    # S6 (D2): публикационный plain-путь — чанки `send_text`
+    # (parse_mode="HTML"); rich — прежний `send_rich_message`.
+    monkeypatch.setattr(sg, "send_text", _plain)
     monkeypatch.setattr(sg, "send_rich_message", _rich)
 
     async def _ux(self, chat_id, text):

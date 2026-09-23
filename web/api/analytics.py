@@ -11,11 +11,14 @@ RBAC — глобальный админ (образец `/api/workers/budget`).
 * GET  /analytics/prices         — таблица цен;
 * PUT  /analytics/prices         — upsert цены (admin-only);
 * GET  /analytics/execution/latest — S8 (ADR-1026-10 D3): нормализованный
-  граф одного прогона Саммари (узлы `algorithm`/`llm`/`format` + §112).
+  граф одного прогона Саммари (узлы `algorithm`/`llm`/`format`/`publish` +
+  §112).
 
 S8-эндпоинт аддитивен и read-only (R16: одна минимальная поверхность §111
-«расширить backend adapter»). Publish-срез GATED (D1/D8): узлы
-`kind="publish"` не эмитятся.
+«расширить backend adapter»). Publish-срез активирован в S6 (ADR-1026-11 D6):
+узел `kind="publish"` строится только из реальных данных снапшота, статус —
+реальный (`published_rich`/`published_text`/`failed`/`skipped`; нет данных →
+`None`).
 """
 import logging
 from typing import Annotated
@@ -284,10 +287,10 @@ async def execution_latest(
     """S8 (ADR-1026-10 D3): нормализованный граф одного прогона Саммари.
 
     Источники: LLM-узлы — PG ``llm_usage_events`` по ``correlation_id``
-    (=``run_id``, D5); filter/format/§112 — in-memory снапшот прогона (S7).
-    Публикация — ``gated`` (D1/D8). Fail-open: нет данных/PG down/телеметрия
-    OFF → shape-совместимый пустой граф без ошибок UI (узлы только реальные,
-    §24/§25/§30).
+    (=``run_id``, D5); filter/format/publish/§112 — in-memory снапшот прогона
+    (S7/S6). Публикация — реальный статус из снапшота (S6/D6; нет данных →
+    ``None``). Fail-open: нет данных/PG down/телеметрия OFF → shape-совместимый
+    пустой граф без ошибок UI (узлы только реальные, §24/§25/§30).
     """
     cache = get_cache(request)
     pool = _pool(cache)

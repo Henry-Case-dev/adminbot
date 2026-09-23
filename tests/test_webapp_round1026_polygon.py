@@ -145,9 +145,9 @@ class TestFlagsAndInvariants:
         assert len({f.name for f in dataclasses.fields(Settings)}) == 426
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.27", APP_VERSION
-        assert "v2.58.27" in README, "README не синхронизирован"
-        assert 'APP_VERSION = "2.58.27"' in SETTINGS
+        assert APP_VERSION == "2.58.28", APP_VERSION
+        assert "v2.58.28" in README, "README не синхронизирован"
+        assert 'APP_VERSION = "2.58.28"' in SETTINGS
 
     def test_zero_ddl(self):
         # Δ DDL = 0: никаких новых таблиц/миграций эпиком не добавляется.

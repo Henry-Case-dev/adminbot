@@ -220,11 +220,12 @@ class TestAnalyticsExecutionS8:
         assert resp.status_code == 200
         body = resp.json()
         assert body["run_id"] == "cid-1"
-        assert body["publication_status"] == "gated"
+        # S6 (D6): нет снапшота публикации → «Нет данных» (None), не `gated`.
+        assert body["publication_status"] is None
         kinds = [n["kind"] for n in body["nodes"]]
         assert kinds == ["llm"], kinds
-        assert "publish" not in kinds, "publish GATED (D1/D8)"
-        assert body["metrics"]["publication_status"] == "gated"
+        assert "publish" not in kinds, "нет данных публикации → нет узла"
+        assert body["metrics"]["publication_status"] is None
         assert body["metrics"]["cover_status"] is None
 
     def test_summary_reports_price_known(self, client):

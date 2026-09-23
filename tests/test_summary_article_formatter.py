@@ -82,10 +82,14 @@ class TestRich:
         assert "- пункт" not in out
         assert "**" not in out
 
-    def test_rich_cap_drops_tail_paragraphs(self):
+    def test_rich_full_text_no_silent_trim(self):
+        # S6 rework B-R1026S6-1: форматтер отдаёт ПОЛНЫЙ текст (без тихого
+        # среза хвоста); о переполнении rich-канала сообщает
+        # `rich_document_limits`, решение о даунгрейде — у доставки.
         paragraphs = [{"text": "я" * 890, "emphasis": None} for _ in range(45)]
         out = format_rich_html(_doc(paragraphs=paragraphs), sanitize=_no_sanitize)
-        assert len(out) <= RICH_MAX_CHARS + 64   # грубая граница блока
+        assert out.count("<p>") == 45
+        assert len(out) > RICH_MAX_CHARS
 
 
 # ── SC-05: plain §105 ──────────────────────────────────────────────────────

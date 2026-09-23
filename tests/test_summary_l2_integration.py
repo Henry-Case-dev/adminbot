@@ -389,10 +389,13 @@ class TestOffPathDirect:
 
         delivered = {}
 
-        async def deliver_plain(chat_id, text):
+        async def _capture(bot, chat_id, text, **kw):
             delivered["text"] = text
 
-        monkeypatch.setattr(gen, "_deliver_plain", deliver_plain)
+        # S6 (D2): OFF-доставка — единое plain-ядро (`send_text`,
+        # parse_mode="HTML"); rich-ветка выключена — детерминированно, без сети.
+        monkeypatch.setattr(sg, "send_text", _capture)
+        monkeypatch.setattr(sg, "_rich_media_supported", lambda: False)
 
         await gen._run(-100, True)
 

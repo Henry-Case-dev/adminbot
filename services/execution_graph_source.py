@@ -1,5 +1,6 @@
-"""S8 round1026 (ADR-1026-10 D2/D3/D4/D5/D6/D7) — backend-нормализация
-«Backend metrics → Normalized execution graph» для карты вызовов Саммари.
+"""S8 round1026 (ADR-1026-10 D2/D3/D4/D5/D6/D7) + S6 round1026
+(ADR-1026-11 D6) — backend-нормализация «Backend metrics → Normalized
+execution graph» для карты вызовов Саммари.
 
 Отдельный **чистый** слой (D3/§25): преобразование сырых источников в
 канонический ``ExecutionNode``-shape (§23/§24) живёт здесь, а НЕ внутри
@@ -8,17 +9,20 @@ SVG/Vue-компонента. Модуль:
     ``RunContext`` + S1 ``_filter_metrics``) — без DDL/persistence
     (прецедент S9 ``_RunStore``, Δ DDL=0, D7);
   * строит узлы ``algorithm`` (Filter) / ``llm`` (L1/L2) / ``format``
-    (Formatting) только из **реальных** данных; нет данных/этапа → нет узла
-    (§24/§25/§30);
+    (Formatting) / ``publish`` (Публикация) только из **реальных** данных;
+    нет данных/этапа → нет узла (§24/§25/§30);
   * формирует §112-метрики честно: неизвестная стоимость → ``None``
     («Нет данных»), **никогда** выдуманный ``$0``; ``-1``-sentinel →
-    «Без лимита»; ``publication_status="gated"``.
+    «Без лимита»; ``publication_status`` — реальный
+    (``published_rich``/``published_text``/``failed``/``skipped``; нет данных
+    → ``None``, AMEND ADR-1026-10 D1/D4/D8, S6).
 
 Границы (D1/D5/D8/D10):
   * единый ключ ``run_id`` = ``correlation_id`` (S7 = S1–S5/S9); второй
     идентификатор/учёт не вводится;
-  * publish-срез **GATED** (S6/D4): узлы ``kind="publish"`` не создаются,
-    ``PUBLISH_*`` не эмитятся;
+  * publish-срез **активирован в S6** (ADR-1026-11 D6): узел ``kind="publish"``
+    строится только из реальных полей снапшота (channel/status/duration/
+    message_id; без LLM-токенов/стоимости);
   * LLM-токены/стоимость — из ``llm_usage_events`` (передаются сюда готовыми
     строками; второй сборщик не создаётся), §112 — из снапшота прогона;
   * R17: наружу только числа/коды/id/строки статусов — без ключей, промптов,
@@ -34,7 +38,7 @@ import time
 KIND_LLM = "llm"
 KIND_ALGORITHM = "algorithm"
 KIND_FORMAT = "format"
-KIND_PUBLISH = "publish"          # зарезервирован, GATED — не эмитится
+KIND_PUBLISH = "publish"          # S6 (ADR-1026-11 D6): активирован
 KIND_OTHER = "other"
 
 KIND_LABELS = {
@@ -50,18 +54,20 @@ STAGE_FILTER = "filter"
 STAGE_L1 = "l1_clusterizer"
 STAGE_L2 = "l2_writer"
 STAGE_FORMAT = "formatting"
+STAGE_PUBLISH = "publication"     # S6 (D6): после formatting
 
 STAGE_LABELS = {
     STAGE_FILTER: "Алгоритмический фильтр",
     STAGE_L1: "L1 Кластеризатор",
     STAGE_L2: "L2 Писатель",
     STAGE_FORMAT: "Форматирование",
+    STAGE_PUBLISH: "Публикация",
 }
 
 # Канонический порядок этапов одного прогона (подтверждённая линейная
-# последовательность §111/D6): filter → L1 → L2 → formatting. Публикация
-# (publish) в порядок НЕ входит — GATED.
-STAGE_ORDER = (STAGE_FILTER, STAGE_L1, STAGE_L2, STAGE_FORMAT)
+# последовательность §111/D6): filter → L1 → L2 → formatting → publication
+# (S6: публикация после форматирования).
+STAGE_ORDER = (STAGE_FILTER, STAGE_L1, STAGE_L2, STAGE_FORMAT, STAGE_PUBLISH)
 
 # step → kind (LLM-строки из `llm_usage_events`; legacy-шаги — как в F6).
 STEP_KIND = {
@@ -71,7 +77,9 @@ STEP_KIND = {
     "tool": "tool",
     STAGE_FILTER: KIND_ALGORITHM, STAGE_FORMAT: KIND_FORMAT,
     "format": KIND_FORMAT,
-    "publication": KIND_PUBLISH,       # зарезервирован (GATED)
+    # S6 (D6): публикация — не LLM-строка; publish-узел строится отдельно из
+    # снапшота (`publish_node`), llm_node такие строки не превращает в узлы.
+    STAGE_PUBLISH: KIND_PUBLISH,
 }
 STEP_LABEL = {
     "single": "Один вызов", "stage1": "Слой 1", "stage2": "Слой 2",
@@ -80,13 +88,17 @@ STEP_LABEL = {
     STAGE_L1: STAGE_LABELS[STAGE_L1],
     STAGE_L2: STAGE_LABELS[STAGE_L2],
     STAGE_FORMAT: STAGE_LABELS[STAGE_FORMAT],
-    "publication": KIND_LABELS[KIND_PUBLISH],
+    STAGE_PUBLISH: KIND_LABELS[KIND_PUBLISH],
 }
 
 # §112: честные подписи (без выдуманных значений).
 NO_DATA = "Нет данных"
 UNLIMITED_LABEL = "Без лимита"
-PUBLICATION_STATUS_GATED = "gated"
+# S6 (D6): реальные статусы публикации (нет данных → None, не `gated`).
+PUBLISHED_RICH = "published_rich"
+PUBLISHED_TEXT = "published_text"
+PUBLICATION_FAILED = "failed"
+PUBLICATION_SKIPPED = "skipped"
 
 # §112: step → слот токенов/стоимости L1/L2 (единый учёт, как S9).
 _USAGE_STEP_MAP = {STAGE_L1: "l1", STAGE_L2: "l2"}
@@ -163,6 +175,9 @@ _SNAPSHOT_FIELDS = (
     "restored_count", "drop_percent", "filter_duration_ms", "filter_status",
     "threads", "paragraphs", "cover_status", "format_channel",
     "format_status", "format_duration_ms", "status", "duration_ms",
+    # S6 (D6): публикационный срез (только id/коды/числа — R17-safe).
+    "publish_channel", "publish_status", "publish_duration_ms",
+    "publish_message_id",
 )
 
 
@@ -218,6 +233,10 @@ def record_run_from_context(ctx, filter_metrics=None) -> None:
             "format_channel": getattr(ctx, "format_channel", None),
             "format_status": getattr(ctx, "format_status", None),
             "format_duration_ms": getattr(ctx, "format_duration_ms", None),
+            "publish_channel": getattr(ctx, "publish_channel", None),
+            "publish_status": getattr(ctx, "publish_status", None),
+            "publish_duration_ms": getattr(ctx, "publish_duration_ms", None),
+            "publish_message_id": getattr(ctx, "publish_message_id", None),
         }
         record_run(run_id=run_id, **fields)
     except Exception:      # pragma: no cover - best-effort
@@ -355,18 +374,72 @@ def format_node(run_id, snapshot) -> dict | None:
     )
 
 
+def publish_node(run_id, snapshot) -> dict | None:
+    """Узел ``publish`` (Публикация) — ТОЛЬКО реальные данные снапшота (S6/D6).
+
+    Нет данных публикации (``publish_status``/``publish_channel``/
+    ``publish_duration_ms``/``publish_message_id``) → ``None`` (нет узла, §30).
+    LLM-токены/стоимость здесь **никогда** не выставляются; ``status`` —
+    реальный статус публикации (``ok``/``failed``); ``message_id`` — id
+    первого сообщения (R17-safe).
+    """
+    if not isinstance(snapshot, dict):
+        return None
+    channel = _str_or_none(snapshot.get("publish_channel"))
+    status = _str_or_none(snapshot.get("publish_status"))
+    duration_ms = _num_or_none(snapshot.get("publish_duration_ms"))
+    message_id = _int_or_none(snapshot.get("publish_message_id"))
+    if channel is None and status is None and duration_ms is None \
+            and message_id is None:
+        return None
+    return _node(
+        run_id, STAGE_PUBLISH, KIND_PUBLISH,
+        stage_label=STAGE_LABELS[STAGE_PUBLISH],
+        status=status or "unknown", duration_ms=duration_ms,
+        metrics={"channel": channel, "message_id": message_id,
+                 "status": status},
+        metadata={"kindGroup": KIND_PUBLISH},
+    )
+
+
+def publication_status_of(snapshot) -> str | None:
+    """§112/D6: реальный ``publication_status`` (нет данных → ``None``).
+
+    ``published_rich``/``published_text`` — успешная публикация соответствующим
+    каналом; ``failed`` — публикация упала; ``skipped`` — прогон завершился
+    до публикации (empty/degraded/failed, попытки публикации не было).
+    Никакого ``gated``/выдуманного «опубликовано».
+    """
+    if not isinstance(snapshot, dict):
+        return None
+    status = _str_or_none(snapshot.get("publish_status"))
+    channel = _str_or_none(snapshot.get("publish_channel"))
+    if status == "ok":
+        if channel == "rich":
+            return PUBLISHED_RICH
+        if channel == "text":
+            return PUBLISHED_TEXT
+        return None
+    if status == "failed":
+        return PUBLICATION_FAILED
+    if _str_or_none(snapshot.get("status")) in ("empty", "degraded", "failed"):
+        return PUBLICATION_SKIPPED
+    return None
+
+
 def llm_node(run_id, row) -> dict | None:
     """Узел ``llm`` из реальной строки ``llm_usage_events`` (§24/D4).
 
     ``model``/токены — реальные; ``cost`` — только при ``price_known=true``
     (иначе ``None`` → «Нет данных», не ``$0``); ``provider``/``durationMs`` —
-    ``None`` (нет в данных). ``publish``-строки не создают узлов (GATED).
+    ``None`` (нет в данных). ``publication``-строки LLM-узлов не создают:
+    публикация — не LLM-вызов, её узел строится из снапшота (`publish_node`).
     """
     if not isinstance(row, dict):
         return None
     step = _str_or_none(row.get("step")) or ""
     kind = STEP_KIND.get(step, KIND_OTHER)
-    if kind == KIND_PUBLISH:        # GATED (D1/D8): publish-узлы не эмитятся
+    if kind == KIND_PUBLISH:        # S6: публикация не LLM-событие
         return None
     if kind == KIND_OTHER and not step:
         return None                 # пустой шаг → нет узла (§30)
@@ -412,9 +485,10 @@ def _link_sequence(nodes: list) -> list:
 def build_graph(run_id, snapshot, llm_rows) -> dict:
     """Собрать нормализованный граф одного прогона (§25/D3/D6).
 
-    Порядок узлов — канонический: filter → LLM (L1 → L2) → formatting.
-    ``llm_rows`` — уже прочитанные строки ``llm_usage_events`` (второй
-    сборщик не создаётся). Нет ни одного реального узла → ``empty=true``.
+    Порядок узлов — канонический: filter → LLM (L1 → L2) → formatting →
+    publication (S6/D6). ``llm_rows`` — уже прочитанные строки
+    ``llm_usage_events`` (второй сборщик не создаётся). Нет ни одного
+    реального узла → ``empty=true``.
     """
     run_id = str(run_id or "")
     snapshot = snapshot if isinstance(snapshot, dict) else {}
@@ -434,6 +508,9 @@ def build_graph(run_id, snapshot, llm_rows) -> dict:
     fmt = format_node(run_id, snapshot)
     if fmt is not None:
         nodes.append(fmt)
+    pub = publish_node(run_id, snapshot)
+    if pub is not None:
+        nodes.append(pub)
     _link_sequence(nodes)
     edges = [{"from": n["parentIds"][0], "to": n["id"]}
              for n in nodes if n["parentIds"]]
@@ -445,7 +522,7 @@ def build_graph(run_id, snapshot, llm_rows) -> dict:
         "nodes": nodes,
         "edges": edges,
         "metrics": metrics_block(snapshot, llm_rows),
-        "publication_status": PUBLICATION_STATUS_GATED,
+        "publication_status": publication_status_of(snapshot),
         "empty": len(nodes) == 0,
     }
 
@@ -499,8 +576,9 @@ def _usage_by_step(llm_rows) -> dict:
 def metrics_block(snapshot, llm_rows) -> dict:
     """§112: полный перечень метрик (§112/REQ-S8-09) — честные значения.
 
-    Стоимость неизвестна → ``None`` («Нет данных»); ``publication_status`` =
-    ``gated`` (S6/D4). Токены/стоимость L1/L2 — единый учёт S1–S5/S9.
+    Стоимость неизвестна → ``None`` («Нет данных»); ``publication_status`` —
+    реальный (S6/D6; нет данных → ``None``). Токены/стоимость L1/L2 — единый
+    учёт S1–S5/S9.
     """
     snapshot = snapshot if isinstance(snapshot, dict) else {}
     usage = _usage_by_step(llm_rows)
@@ -522,6 +600,6 @@ def metrics_block(snapshot, llm_rows) -> dict:
         },
         "duration_ms": _num_or_none(snapshot.get("duration_ms")),
         "cover_status": _str_or_none(snapshot.get("cover_status")),
-        "publication_status": PUBLICATION_STATUS_GATED,
+        "publication_status": publication_status_of(snapshot),
         "run_status": _str_or_none(snapshot.get("status")),
     }

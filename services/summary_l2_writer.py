@@ -101,9 +101,11 @@ _DETAIL_PARAGRAPH_HINT = {"casual": 4, "serious": 6, "deep_research": 10}
 
 # Цитаты: «…» "…" „…" “…” ‹…› (разные кавычки одного уровня) + одиночные
 # `'…'`/`‚…‘` и восточные `「…」`/`『…』` (S-R1026S5-2, defense-in-depth).
+# L-R1026S5-6 (S6/ADR-1026-11 D7): ASCII-апостроф — кавычка ТОЛЬКО по границам
+# слова: `'` внутри слова (`don't`, `it's`) не открывает/не закрывает цитату.
 _QUOTE_RE = re.compile(
     r"«[^»]*»|\"[^\"]*\"|„[^“]*“|“[^”]*”|‹[^›]*›|"
-    r"『[^』]*』|「[^」]*」|‚[^‘]*‘|'[^']*'")
+    r"『[^』]*』|「[^」]*」|‚[^‘]*‘|(?<!\w)'[^']*'(?!\w)")
 _WS_RE = re.compile(r"\s+")
 # Сырые ID/служебные метки (§4.4/D6): вырезаются из текста.
 _FACT_ID_RE = re.compile(r"\bfact\s*:\s*\d+\b", re.IGNORECASE)
@@ -369,14 +371,19 @@ def _quote_matches_pool(quote: str, pool_normalized: list[str]) -> bool:
 
 
 def _strip_quotes(quote: str) -> str:
-    """Снять обрамляющие кавычки (перевести в косвенную речь, §4.4)."""
+    """Снять обрамляющие кавычки (перевести в косвенную речь, §4.4).
+
+    L-R1026S5-6: ASCII-апостроф снимается только как ПАРНАЯ кавычка `'…'`
+    (её матчит `_QUOTE_RE` по границам слова); одиночный `'` из fallback-strip
+    исключён — апостроф внутри слова (`don't`) кавычкой не считается.
+    """
     for left, right in (("«", "»"), ("„", "“"), ("“", "”"), ("‹", "›"),
                         ("『", "』"), ("「", "」"), ("‚", "‘"),
                         ("'", "'"), ("\"", "\"")):
         if (len(quote) > len(left) + len(right)
                 and quote.startswith(left) and quote.endswith(right)):
             return quote[len(left):len(quote) - len(right)]
-    return quote.strip("\"«»„“”‹›『』「」‚‘'")
+    return quote.strip("\"«»„“”‹›『』「」‚‘")
 
 
 def _strip_raw_ids(text: str) -> tuple[str, int]:

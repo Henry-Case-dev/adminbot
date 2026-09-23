@@ -1,19 +1,21 @@
 """S8 round1026 (`summary-analytics-adapter-round1026`, ADR-1026-10 D1–D10) —
 backend-нормализация карты вызовов Саммари (§23–§25/§30/§111/§112).
 
-Покрытие (T-3413…T-3427):
+Покрытие (T-3413…T-3427; S6/T-3446/T-3450 — перепрофилирование publish):
   * маппинг реальных этапов → ``kind`` (§111/D2) и правило «нет данных → нет
     узла» (§24/§25/§30);
-  * ``algorithm``/``format`` — только реальные метрики, БЕЗ выдуманных
-    LLM-токенов (§24);
-  * publish-срез GATED: ``kind="publish"``-узлы не эмитятся, ``PUBLISH_*``
-    отсутствуют (D1/D8);
+  * ``algorithm``/``format``/``publish`` — только реальные метрики/поля, БЕЗ
+    выдуманных LLM-токенов (§24); publish — из снапшота (S6/D6), нет данных →
+    узла нет;
   * §112 честен: неизвестная стоимость → ``None`` («Нет данных»), никогда
-    ``$0``; ``publication_status="gated"``; ``-1``-sentinel → «Без лимита»;
+    ``$0``; ``publication_status`` — реальный (``published_rich``/
+    ``published_text``/``failed``/``skipped``), нет данных → ``None``
+    (не ``gated``);
   * R17: узлы/снапшот не содержат промптов/сырых текстов/ключей;
-  * инварианты: Δ DDL=0, Δ каталога=0, 2-вызовность, publish-путь вне diff.
+  * инварианты: Δ DDL=0, Δ каталога=0, 2-вызовность, publish-путь вне diff
+    (`telegram_send.py`/`summary_test_run.py` и т.д.).
 
-Автор: @Builder (S8, Step 4).
+Автор: @Builder (S8, Step 4; S6-перепрофилирование — S6 Step 4).
 """
 import re
 import subprocess
@@ -48,7 +50,7 @@ class TestStepKindMapping:
         assert egs.STEP_KIND["l2_writer"] == "llm"
         assert egs.STEP_KIND["formatting"] == "format"
         assert egs.STEP_KIND["format"] == "format"
-        # publication зарезервирован, но GATED (не эмитится).
+        # S6 (D6): publication — publish (узел строится из снапшота).
         assert egs.STEP_KIND["publication"] == "publish"
 
     def test_no_real_stage_falls_into_other(self):
@@ -56,8 +58,10 @@ class TestStepKindMapping:
             assert egs.STEP_KIND.get(step) != egs.KIND_OTHER
 
     def test_stage_order_is_pipeline_order(self):
+        # S6 (D6): публикация — после форматирования.
         assert egs.STAGE_ORDER == (
-            "filter", "l1_clusterizer", "l2_writer", "formatting")
+            "filter", "l1_clusterizer", "l2_writer", "formatting",
+            "publication")
 
 
 # ── D2/§24: узлы только из реальных данных ─────────────────────────────────
@@ -108,6 +112,61 @@ class TestFormatNode:
         assert egs.format_node("r1", None) is None
 
 
+class TestPublishNode:
+    """S6 (ADR-1026-11 D6): publish-узел — только из реальных данных снапшота."""
+
+    def test_real_publish_data_builds_node(self):
+        node = egs.publish_node("r1", {
+            "publish_channel": "rich", "publish_status": "ok",
+            "publish_duration_ms": 8.0, "publish_message_id": 42})
+        assert node is not None
+        assert node["kind"] == "publish"
+        assert node["stageKey"] == "publication"
+        assert node["status"] == "ok"
+        assert node["durationMs"] == 8.0
+        assert node["metrics"] == {"channel": "rich", "message_id": 42,
+                                   "status": "ok"}
+        # §24: без LLM-токенов/стоимости.
+        assert node["inputTokens"] is None
+        assert node["cost"] is None
+        assert node["priceKnown"] is False
+
+    def test_no_data_no_node(self):
+        assert egs.publish_node("r1", {}) is None
+        assert egs.publish_node("r1", None) is None
+        assert egs.publish_node("r1", {"status": "ok"}) is None
+
+    def test_publication_status_mapping(self):
+        assert egs.publication_status_of(
+            {"publish_channel": "rich", "publish_status": "ok"}) == \
+            "published_rich"
+        assert egs.publication_status_of(
+            {"publish_channel": "text", "publish_status": "ok"}) == \
+            "published_text"
+        assert egs.publication_status_of(
+            {"publish_status": "failed"}) == "failed"
+        assert egs.publication_status_of(
+            {"status": "degraded"}) == "skipped"
+        assert egs.publication_status_of(
+            {"status": "failed"}) == "skipped"
+        # Нет данных → None (не `gated`, не выдуманное «опубликовано»).
+        assert egs.publication_status_of({}) is None
+        assert egs.publication_status_of(None) is None
+
+    def test_graph_order_and_link_after_formatting(self):
+        snap = {"format_channel": "rich", "format_status": "ok",
+                "format_duration_ms": 5.0, "paragraphs": 2,
+                "publish_channel": "rich", "publish_status": "ok",
+                "publish_duration_ms": 3.0, "publish_message_id": 7,
+                "status": "ok"}
+        graph = egs.build_graph("r1", snap, [])
+        assert [n["stageKey"] for n in graph["nodes"]] == [
+            "formatting", "publication"]
+        assert graph["nodes"][1]["parentIds"] == ["r1:formatting"]
+        assert graph["publication_status"] == "published_rich"
+        assert graph["metrics"]["publication_status"] == "published_rich"
+
+
 class TestLlmNode:
     def test_honest_cost_known(self):
         node = egs.llm_node("r1", {
@@ -127,8 +186,9 @@ class TestLlmNode:
         assert node["cost"] is None, "$0 запрещён при неизвестной цене (§112)"
         assert node["costCurrency"] is None
 
-    def test_publish_gated(self):
-        # D1/D8: publish-строки не создают узлов (GATED).
+    def test_publish_row_not_llm_node(self):
+        # S6/D6: publication — не LLM-событие; строка llm_usage_events не
+        # создаёт узел (publish-узел строится отдельно из снапшота).
         assert egs.llm_node("r1", {"step": "publication",
                                    "price_known": True}) is None
 
@@ -167,7 +227,8 @@ class TestBuildGraph:
         assert graph["empty"] is True
         assert graph["nodes"] == []
         assert graph["edges"] == []
-        assert graph["publication_status"] == "gated"
+        # S6/D6: нет снапшота → «Нет данных» (None), не `gated`.
+        assert graph["publication_status"] is None
 
     def test_gap_does_not_glue_distant_stages(self):
         # Нет filter → L1 становится первым (parentIds=[]) и не «склеивается»
@@ -181,7 +242,7 @@ class TestBuildGraph:
 # ── §112/D4: честные метрики ───────────────────────────────────────────────
 
 class TestMetricsBlock:
-    def test_full_list_and_gated(self):
+    def test_full_list_and_publication_none(self):
         snap = {"source_count": 10, "saved_count": 7, "restored_count": 2,
                 "drop_percent": 30.0, "threads": 3, "cover_status": "ok",
                 "status": "ok", "duration_ms": 900.0}
@@ -201,7 +262,12 @@ class TestMetricsBlock:
         assert m["cost"]["l1"] == 0.001
         assert m["cost"]["total"] == 0.003
         assert m["cover_status"] == "ok"
-        assert m["publication_status"] == "gated"
+        # S6/D6: данных публикации нет → None («Нет данных»), не `gated`.
+        assert m["publication_status"] is None
+        # С реальными данными публикации — реальный статус.
+        snap2 = dict(snap, publish_channel="text", publish_status="ok")
+        assert egs.metrics_block(snap2, rows)["publication_status"] == \
+            "published_text"
 
     def test_unknown_cost_no_fake_zero(self):
         m = egs.metrics_block({"source_count": 1}, [
@@ -318,11 +384,15 @@ class TestR17:
         assert set(node["metadata"]) == {"tokensEstimated", "module",
                                          "source", "toolName"}
 
-    def test_no_publish_strings_in_s8_sources(self):
-        # D8: PUBLISH_* не реализуются в S8 (GATED).
-        for src in (_SOURCE, _ANALYTICS):
-            assert "PUBLISH_RICH" not in src
-            assert "PUBLISH_TEXT" not in src
+    def test_publish_activated_no_gated_claims(self):
+        # S6 (D6/AMEND ADR-1026-10 D1/D4/D8): publish активирован; в analytics
+        # (только docstring) и модуле источника нет утверждений «GATED».
+        assert "gated" not in _ANALYTICS.lower()
+        assert egs.PUBLISHED_RICH == "published_rich"
+        assert egs.PUBLISHED_TEXT == "published_text"
+        assert egs.PUBLICATION_FAILED == "failed"
+        assert egs.PUBLICATION_SKIPPED == "skipped"
+        assert not hasattr(egs, "PUBLICATION_STATUS_GATED")
 
 
 # ── Инварианты D7/D10: Δ DDL=0, Δ каталога=0, 2-вызовность, publish вне diff ─

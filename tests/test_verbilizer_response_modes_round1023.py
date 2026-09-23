@@ -519,17 +519,24 @@ class TestFinalDeliveryNoHtml:
 
         delivered: list = []
 
-        async def _capture(self, chat_id, text):
+        async def _capture(bot, chat_id, text, **kw):
             delivered.append(text)
 
         monkeypatch.setattr(SummaryGenerator, "_send_streaming", _capture)
-        monkeypatch.setattr(SummaryGenerator, "_send_chunked", _capture)
+        # S6 (D2): публикационный plain-путь — чанки `send_text`
+        # (parse_mode="HTML"), детерминированно без rich-ветки/сети.
+        monkeypatch.setattr("services.summary_generator.send_text", _capture)
+        monkeypatch.setattr("services.summary_generator._rich_media_supported",
+                            lambda: False)
         gen = SummaryGenerator(FakeMemory(rows=[_row(author_name="вася")]),
                                XmlGroundingBuilder(), TwoCallLLM(), AsyncMock())
         await gen._run(-100, False)
         assert delivered
-        assert "<b>" not in delivered[0]
+        # H2/S6: HTML модели (`<b>жирный</b>`) снят кодом — в теле тега нет;
+        # `<b>` в строке — заголовок digest, собранный форматтером (§105).
+        assert "<b>жирный</b>" not in delivered[0]
         assert "жирный" in delivered[0]
+        assert "<b>Событие</b>" in delivered[0]   # заголовок digest (форматтер)
 
     @pytest.mark.asyncio
     async def test_factcheck_final_strips_html_bold(self):
