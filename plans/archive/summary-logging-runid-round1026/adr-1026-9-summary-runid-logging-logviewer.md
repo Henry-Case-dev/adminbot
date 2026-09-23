@@ -1,6 +1,6 @@
 # ADR-1026-9 — S7 «Логирование Саммари»: сквозной `run_id`, каталог событий §108/§109, §110-фильтр в существующем log viewer, Δ DDL=0
 
-- **Статус:** Proposed (Step 2 @Architect, 24.09.2026; Accepted — фактом мержа T-3406)
+- **Статус:** ✅ **Accepted** (Step 2 @Architect, 24.09.2026 — Proposed; финализирован **T-3406** при Merge `plans/ARCHITECTURE.md` **§78**: merge + deploy T-3408 **VERIFIED** (`APP_VERSION` **2.58.26**), 24.09.2026)
 - **Фича:** S7 `summary-logging-runid-round1026` (Эпик 2, шаги «Логирование» §108–§110)
 - **Тип:** backend (логи/телеметрия, аддитивно) + UI (Mini App log viewer, zero-build)
 - **Связано:** **ADR-1026-5/-6/-7/-8** (S3/S4/S5/S9 — модули/контуры, REUSE); **ADR-1025-24 D4** (публикационный гейт S6/S10 — governed-by); **ADR-1026-1/-4** (S1/S2 логи, REUSE); **ADR-1022-4/1023-6/1023-7** (2-вызовность/`correlation_id`, REUSE); §104 (обложка) — REUSE read-only; §106 (fail-closed) — REUSE; §111 (ExecutionGraph) — boundary S8
@@ -62,6 +62,19 @@
 | **§106** | **REUSE** | Fail-closed; без бесконечных повторов |
 | **ADR-1026-9** | **НОВЫЙ** | Step 2 @Architect |
 
+## Карта D1–D8 → реализация (факт T-3406; merge §78 + deploy 2.58.26 VERIFIED)
+
+| D | Решение | Реализация (факт) | Верификация |
+|---|---|---|---|
+| **D1** | `run_id` = `correlation_id` | `services/summary_run_log.py` (`RunContext`/`finish_run`); одна точка — `summary_generator._run` / `summary_test_run.run_summary_test`; проброс параметром; `llm.generate(correlation_id=)` | `test_single_run_id_all_events`, `test_hybrid_events_same_run_id` (SC-01/SC-11) |
+| **D2** | Каталог событий §108 | `summary_run_log.py` (`log_summary_*`/`log_format_*`/`log_cover_*`), `summary_generator` (жизненный цикл, `FORMAT_*`/`COVER_*`), `summary_l1_clusterizer`/`summary_l2_writer` (+`http_status`/`attempts`), `summary_test_run` (dry-run `FORMAT_*`); `PUBLISH_*` отсутствуют | SC-03…SC-06; `test_publish_events_absent_gated` (SC-15) |
+| **D3** | Δ DDL=0 | ring-buffer/файлы (retention без изменений); `llm_usage_events` по `run_id`; `RunContext` in-memory; `db/**` вне diff; F8 не переиздавался | SC-11/SC-12 (review T-3404) |
+| **D4** | §110 клиентский фильтр | `web/app.js` (`logSummaryOnly`/`isSummaryLog`/`summaryErrorLabel`/`toggleLogSummary`/`shownLogs`), `web/index.html`, `web/static/app.css`; `web/api/routes.py` вне diff | `tests/js/round1026_s7_log_summary_filter_test.js` (SC-09/SC-10) |
+| **D5** | Dry-run S9: 0/0/0 + `run_id` | `services/summary_test_run.py`, `web/api/summary_test.py`; `TEST_*` без `SUMMARY_*`/`PUBLISH_*`/`COVER_*`; второй контур не создан | `TestDryRunContour` (SC-14) |
+| **D6** | Fail-closed §109/R17 | `summary_run_log.py` (`provider_host`/`http_status_of`/`attempts_of`); `*_ERROR` + `SUMMARY_FAILED`; best-effort лог-стор | `TestStageErrorDetails`, R17-пины (SC-07/SC-08) |
+| **D7** | Инварианты | 0 новых зависимостей; `param_catalog.py`/`db/**`/§104/XML/публикация вне diff; 2-вызовность (`await_count==2`) | review T-3403/T-3404: pytest 8890/0, JS 45/45, каталог 469/426/444/100/98/21 (Δ=0) |
+| **D8** | Deploy 2.58.26 | `config/settings.py` (`APP_VERSION`), `README.md`, cache-bust; `deployment.md` **VERIFIED**; откат `pre-round1026-s7` → `f774ecc` | `test_app_version_bumped`; прод: health 200, `/healthz` 2.58.26 (SC-16) |
+
 ## Последствия
 
 - Каждый прогон Саммари (живой и dry-run) наблюдаем сквозным `run_id`; ошибки диагностируемы по §109 без утечек (R17).
@@ -71,6 +84,6 @@
 
 ## Ссылки
 
-- `plans/features/summary-logging-runid-round1026/{spec.md, tasks.md}`; `plans/ARCHITECTURE.md` §74–§77 (S7 — T-3406).
+- `plans/features/summary-logging-runid-round1026/{spec.md, tasks.md, evidence.md, review.md, deployment.md}`; `plans/ARCHITECTURE.md` **§78** (S7 — Merge T-3406); baseline-тег `pre-round1026-s7` → `f774ecc`.
 - Код: `services/summary_generator.py` (`_run`/`_run_hybrid_l2`/`_apply_filter`/`_restore`/`_deliver_l2_rich`/`_deliver_l2_plain`, `correlation_id`), `services/summary_l1_clusterizer.py` (`_log_*`), `services/summary_l2_writer.py` (`_log_*`), `services/summary_article_formatter.py` (`format_*`), `services/summary_test_run.py` (`TEST_*`, `run_id`), `services/usage_events.py` (`new_correlation_id`), `services/log_ring.py` (`sanitize`/`get_entries`), `web/api/routes.py` (`GET /api/status/logs`), `web/app.js` (`loadLogs`/`logText`/`copyLogRow`), `web/index.html`.
 - Архивы: ADR-1026-1/-4/-5/-6/-7/-8, ADR-1022-4, ADR-1023-6/-7, ADR-1025-24, ADR-1026-2.
