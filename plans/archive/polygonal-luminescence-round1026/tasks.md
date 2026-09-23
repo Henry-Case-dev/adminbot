@@ -2,7 +2,7 @@
 
 > **Источник:** `plans/current_task.md`, строки **7485–8755** (§0–§17) — прочитано **дословно**; файл НЕ изменялся (R17/R18).
 > **Статус:** ✅ **COMPLETED + MERGED (§72) + ARCHIVED** (Шаг 8 @PM, T-3216, 23.09.2026; архив — `plans/archive/polygonal-luminescence-round1026/`). Step 2 @Architect ✅ (`spec.md` + ADR-1026-3 Accepted фактом мержа §72). **Step 4 @Builder — РЕАЛИЗОВАНО** (блоки 0/A–I, K; `APP_VERSION` 2.58.19). Блок **J — BLOCKED (PENDING OWNER, §12/§13.2)**: прототип не проходит п.1/5/7 headless → glass-интеграция не выполнена, `UI_LIQUID_GLASS_LIB` default OFF (**не `[x]`**). @Reviewer **Approved** (T-3213); @Scanner **C0/H0/M0/L3/I4 → «к деплою ДА»** (T-3214; `plans/reports/round1026_visual_scanner_audit.md`); Merge `plans/ARCHITECTURE.md` **§72** (T-3215). Полный pytest **8520/0**, JS **43/43**, Playwright polygon **0 failures**, матрица §71 **0 failures**. Маркер `POLYGON-LUMINESCENCE-OK`.
-> **Deploy:** ⏳ **Шаг 9 @DevOps (T-3217) — ожидает** (код в рабочем дереве, НЕ закоммичен; bump `APP_VERSION` 2.58.18 → 2.58.19). **Метрики:** T-3218 (Шаг 10 @Memory) — `plans/metrics.md` **не трогается**. **Live-гейты — `[ ]` PENDING OWNER VERIFICATION** (реальный Telegram WebView/WebKit; стекло п.1/5/7; §17).
+> **Deploy:** ✅ **Шаг 9 @DevOps (T-3217) — VERIFIED** (`APP_VERSION` 2.58.18 → **2.58.19** → **2.58.20**; `deployment.md` VERIFIED). Правка владельца v2.58.20 — мерцание свечения фона ×2 медленнее. **Метрики:** ✅ T-3218 (Шаг 10 @Memory) — `plans/metrics.md` строка + раздел **10.26-VISUAL** + KG-синк (не коммичено до закрывающего docs-коммита @DevOps). **Live-гейты — `[ ]` PENDING OWNER VERIFICATION** (реальный Telegram WebView/WebKit; стекло п.1/5/7; §17).
 > **Baseline (Step 0):** HEAD **`9d046e5`** (== `origin/master`), `APP_VERSION` **2.58.18**; pytest `.venv` **8501/0**, JS **42/42**; каталог **467/426/442/100/98/21**; **Δ DDL = 0**.
 > **ID:** **T-3162…T-3219 (58)**; дублей нет (максимум занятого — S1 Эпика 2 **T-3161**).
 > **Маркер:** `POLYGON-LUMINESCENCE-OK`.
@@ -168,11 +168,11 @@
 
 ## Блок P — Deploy (T-3217)
 
-- [ ] **T-3217 · @DevOps** — **Готово, когда:** bump `APP_VERSION`, push без force, прод ff, `/api/health` 200, served `?v=`, `database is locked`=0, `deployment.md` VERIFIED. **Файлы:** `web/app.py`/`index.html`, `deployment.md`. **Статус:** ⏳ ожидает Шаг 9.
+- [x] **T-3217 · @DevOps** — **Готово, когда:** bump `APP_VERSION`, push без force, прод ff, `/api/health` 200, served `?v=`, `database is locked`=0, `deployment.md` VERIFIED. **Файлы:** `web/app.py`/`index.html`, `deployment.md`. **Статус:** ✅ **VERIFIED** (Шаг 9 @DevOps + addendum-правка), коммиты `76fc5e1`/`bf46360`/`1ad98ca` (2.58.19) + `306778a`/`a50b014`/`54c6445` (2.58.20); health 200, `database is locked`=0; `deployment.md` VERIFIED.
 
 ## Блок Q — Метрики/KG + продолжение §17 (T-3218…T-3219)
 
-- [ ] **T-3218 · @Memory** — **Готово, когда:** `plans/metrics.md` строка + KG-синк. **Файлы:** `plans/metrics.md`, KG. **Статус:** ⏳ Шаг 10 (не трогать).
+- [x] **T-3218 · @Memory** — **Готово, когда:** `plans/metrics.md` строка + KG-синк. **Файлы:** `plans/metrics.md`, KG. **Статус:** ✅ выполнено (Шаг 10 @Memory, 23.09.2026): `plans/metrics.md` строка + раздел **10.26-VISUAL** + техдолг §72.5; KG — `VISUAL-polygonal-luminescence-round1026` → DEPLOYED, созданы `release-round1026-visual` + `metric-snapshot-round1026-visual-final` + `tech-debt-round10.26-visual`. Закрывающий docs-коммит — @DevOps.
 - [ ] **T-3219 · @PM/@Orchestrator** — **продолжение `current_task.md` (§17).** **Готово, когда:** остаток ТЗ сверен, следующий actionable пункт назван; **возобновлена приостановленная S2**; live-гейты помечены PENDING OWNER VERIFICATION. **Не зацикливаться на декоре.** **Файлы:** `plans/workflow_state.md`, `plans/backlog.md`. **Статус:** ⏳ PENDING (S2 `summary-context-restore` возобновляется после деплоя, Шаг 9).
 
 ---
@@ -190,6 +190,7 @@
 ## Handoff
 
 - **✅ Завершено:** Step 2 @Architect (`spec.md`/ADR-1026-3), Step 3 @Memory (KG), блок 0 @DevOps (тег `pre-round1026-visual` + бэкап), T-3165 @PM реконсиляция, блоки A–L, @Reviewer/@Scanner, Merge §72, **архивация (Шаг 8 @PM, T-3216)**.
-- **▶️ Далее:** **Шаг 9 @DevOps (T-3217)** — деплой (bump `APP_VERSION` 2.58.19, push/прод/health) → **Шаг 10 @Memory (T-3218)** — `plans/metrics.md` + KG + техдолг §72.5 → **Шаг 11 @PM/@Orchestrator (T-3219)** — продолжить `plans/current_task.md`, **возобновить S2 `summary-context-restore` после деплоя** (§17/§90–§92), не зацикливаться на декоре.
+- **✅ Выполнено:** **Шаг 9 @DevOps (T-3217)** — деплой **VERIFIED** (bump `APP_VERSION` 2.58.18 → 2.58.19 → **2.58.20**, push/прод/health) → **Шаг 10 @Memory (T-3218)** — `plans/metrics.md` + KG + техдолг §72.5.
+- **▶️ Далее:** **Шаг 11 @PM/@Orchestrator (T-3219)** — продолжить `plans/current_task.md`, **возобновить S2 `summary-context-restore`** (§17/§90–§92), не зацикливаться на декоре.
 - Гейт **S6/S10** не снимается; **S2 — PAUSED до деплоя EXTRA-эпика** (§72.8).
 - Live-гейты — **`[ ]` PENDING OWNER VERIFICATION**; блок **J/стекло** — BLOCKED гейтом §13.2.
