@@ -335,30 +335,30 @@
 <!-- OPENCODE_WORKFLOW_STATE_V1
 {
   "schema_version": 1,
-  "state_revision": 34,
+  "state_revision": 41,
   "task_id": "adminbot-master-spec-v6",
   "request_fingerprint": "sha256:31c6ab5c87949ec63ee64a0627e2221055f6dc0915ee15c3b361d2ce7f04a4cc",
   "task_status": "in_progress",
-  "active_feature": "summary-publish-integration-round1026",
-  "feature_status": "S6 COMPLETED + MERGED (§80) + ARCHIVED + DEPLOYED (2.58.28 VERIFIED). Archive: plans/archive/summary-publish-integration-round1026/ (6 files, SHA match; 25/26 tasks closed, T-3460 handoff open). Backlog normalized: only S10 summary-deploy remains in Epic 2 (last item); D4 closed by owner; live checks PENDING OWNER VERIFICATION. Pending: DevOps closing commit; then S10 Step 0 @Memory.",
-  "phase": "select_next",
+  "active_feature": "summary-deploy-round1026",
+  "feature_status": "S10 unified Reviewer gate APPROVED (C0/H0; binding: Reviewed-Commit 76abf91, WTH a17093d8…, Spec-Hash 41ee0c6e…; deviations D-a meta-stamp / D-b explicit-OFF tests / D-c flake acceptable; non-blocking L-R1026S10-1/-2/-3). Ready for delivery: deploy + activation of hybrid pipeline (APP_VERSION 2.58.29).",
+  "phase": "delivery",
   "risk_level": "R2",
   "next_agent": "DevOps",
-  "next_action": "S6 closing docs commit: commit plans/** closure (ARCHITECTURE §80, ADR-1026-11 Accepted, round1025-architecture, MEMORY banner, metrics 10.26-S6, backlog S6 normalization, archive move, tasks closure, workflow_state human update) and push without force; then proceed to S10 Step 0 @Memory",
+  "next_action": "T-3478 deploy + activation S10: commit code+tests (2.58.29) and plans/** (feature docs + audit_backlog), push without force, prod ff + restart; verify effective activation (SUMMARY_HYBRID_L2_ENABLED default ON, no .env override forcing off; hybrid resolved ON), health 200 / served 2.58.29 / database is locked=0 / no Traceback / scheduler running; perform §115 checks possible now and mark live standard-run + publication as PENDING OWNER VERIFICATION (next scheduled tick 0/6/12/18); write deployment.md VERIFIED (rollback soft SUMMARY_HYBRID_L2_ENABLED=false + hard pre-round1026-s10 -> 76abf91 / git revert); commit deploy-doc",
   "human_gate": false,
   "blocked": false,
   "blocker_type": null,
   "auto_resume_enabled": true,
   "review": {
     "status": "approved",
-    "reviewed_commit": "197891fdb643a914f771b818d9f84c385dc0706b",
-    "working_tree_hash": "4c7b2917205e14a682f495adfadb13bbfc1f949f8dc56deda1960b83c97f59c4",
-    "spec_hash": "77c1777558e5e842aa0bc01f84b21dd31deaa2fcbab51b2b5df06b47ea3bf11a"
+    "reviewed_commit": "76abf911eee7ffc731cbf0fa9a2227b1a21f8c38",
+    "working_tree_hash": "a17093d83db7a8434411567090611b1502264d4eb52a38c60a07ca6ea18646a9",
+    "spec_hash": "41ee0c6e7b102a21be34223578df0fbb03b759741a911ce39be9b34c8079ae3c"
   },
   "deployment": {
     "required": true,
-    "status": "verified",
-    "deployed_commit": "d0d634c"
+    "status": "pending",
+    "deployed_commit": null
   },
   "resume": {
     "last_resume_key": null,
@@ -366,6 +366,6 @@
     "last_resumed_at": null,
     "last_session_id": null
   },
-  "updated_at": "2026-09-23T21:53:34.505Z"
+  "updated_at": "2026-09-23T22:52:53.042Z"
 }
 OPENCODE_WORKFLOW_STATE_V1 -->
