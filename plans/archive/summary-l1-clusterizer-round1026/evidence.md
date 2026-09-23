@@ -50,3 +50,14 @@ SC-02…SC-18: структура §95 (матрица валид/невалид
 
 ### Handoff
 @Orchestrator → **T-3275 @Reviewer** (ревью S3), затем **T-3276 @Scanner** (аудит: Δ DDL=0/R17/2 вызова/D4). Замечания для ревью: `PREV_SUMMARY_L1_CLUSTERIZER_R1026` — слепок базы канона S3 без общего блока маркировки (прецедент `PREV_SUMMARY_EDITOR_R1023`), поэтому ступень миграции/откат содержательны (не identity; тесты `updated`/`rolled_back`); `id_space_mismatch` эмитится на пути конвертации DB→TG (§93-фрагменты), в неразбитом входе конвертация не требуется.
+
+## T-3280 [@DevOps] — прод-деплой VERIFIED (23.09.2026)
+
+- **Коммиты/пуш:** `b31c2a6` (код+тесты+канон, APP_VERSION 2.58.22) → `3ccb1bb` (планы/архив/Scanner-аудит); push `4007081..3ccb1bb master -> master` в `origin` (без force).
+- **Локальный гейт:** pytest 5 затронутых файлов — **372 passed / 0 failed**; JS **43/43**; `git diff --check` чисто; секрет-скан стейджа пуст; Δ DDL=0 (schema/DDL-файлов в diff нет).
+- **Прод:** `/var/www/admin_bot`, `989ff8d` → **`3ccb1bb`** (ff-only pull); `sudo systemctl restart admin_bot` → **active**, MainPID **413635**, ActiveEnterTimestamp **2026-09-23 07:57:19 UTC**.
+- **Прод-факты:** `APP_VERSION` = **2.58.22**; `/api/health` **200** `{"status":"ok"}`; `/web/` 200, served `?v=2.58.22`; `database is locked` = **0**; `L1_*` в логах = **0** (модуль не врезан); планировщик `services.summary_scheduler - SmartModule scheduler started (cron 0,6,12,18 Asia/Yekaterinburg)`; бот `@PERMsoc_bot` (id=8802473181) polling; импорт `summary_l1_contract`/`summary_l1_clusterizer` OK; каталог рантайм REGISTRY **468** / GROUPS **100**; Traceback/CRITICAL/ImportError = 0; миграции не запускались.
+- **Откат:** `git fetch --tags && git reset --hard pre-round1026-s3` (tag-object `7637cc4e…` → commit `4007081`) + рестарт; тег подтверждён на проде (fetch --tags). R18: теги/бэкапы/`stash@{0}`/`.env.bak*` не удалялись; `deploy_commands.txt` не изменялся.
+- **Заметка:** `plans/features/` — S3-папка отсутствует (уже в архиве); прочие feature-папки не трогались. Эта строка добавлена после коммита `3ccb1bb` и входит в будущий closing-коммит планов (метрики @Memory).
+
+**Handoff:** @Orchestrator — T-3280 закрыт, прод **VERIFIED**; далее Architect reconciliation §74, PM-архив, Memory sync/metrics, следующий F.
