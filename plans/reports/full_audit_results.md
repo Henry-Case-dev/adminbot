@@ -6,6 +6,17 @@
 
 ---
 
+## Правка владельца v2.58.20 «мерцание свечения фона ×2» в `polygonal-luminescence-round1026` (T-3220…T-3223) — 23.09.2026, Step 6 @Scanner — **SCANNED**
+
+- **Baseline:** HEAD `1ad98ca` (прод-деплой 2.58.19), правки **НЕ закоммичены** — focused diff-based аудит (25 M / 0 ??). Отчёт: `plans/reports/round1026_visual_scanner_audit.md` (Addendum). Спека правки: `plans/archive/polygonal-luminescence-round1026/{tasks.md (блок R),spec.md,evidence.md}`.
+- **Вердикт: Critical 0 / High 0 / Medium 0 / Low 0 (новых) / Info 1 (pre-existing) — к деплою ДА.** Блокеров нет.
+- **Существо:** `web/static/polygon-background.js` — `PULSE_SPEED_MIN 0.05→0.025`, `PULSE_SPEED_MAX 0.15→0.075`, `GLOW_SHIMMER_SPEED 0.06→0.03` (ровно ×0.5, период ×2); применение через именованные константы; старые магические скорости удалены. **НЕ тронуты:** движение узлов §9, morph §8.1, дрейф §8.2, `TOPO_HZ=4`; `Math.random`=0; DPR-кап/NODES/reduced-motion/hidden/context-loss без изменений.
+- **Тест-гейт (не тавтологичен):** Python `TestGlowFlickerSlowdown` (5) + JS блок **F** — `const*2 == base` (0.05/0.15/0.06), возврат старых значений роняет тест; `getDiagnostics()` = **11 полей**. Прогоны @Scanner: `test_webapp_round1026_polygon.py` **23 passed**; re-pin pytest **295 passed**; JS `POLYGON-LUMINESCENCE-OK`, hotfix7/8/9/10 JS OK; всего JS = 43.
+- **Diff-scope:** вне `^(web/static/polygon-background.js|README.md|config/settings.py|plans/|tests/)` — пусто; `services/**`/схема/`param_catalog.py`/стекло/публикация/сердцебиение/IA не тронуты; `current_task.md` не тронут.
+- **Инварианты ✅:** Δ DDL=0 (diff `services/`,`db/` пуст); Δ каталога=0 (467/426/442/100/98/21; `param_catalog.py` не тронут); CSP/zero-build (`eval`/`innerHTML`=0, только `/static/**`; `script-src 'self'` + pre-existing `'unsafe-eval'`=L-POLY1026-3); один активный рендерер; R17/R18 (tag `pre-round1026-visual`→`9d046e5`, `stash@{0}`, бэкап); `APP_VERSION` 2.58.20 синхронен (28 ссылок, старых пинов нет); маркер-тесты не ослаблены (только version re-pin); `git diff --check`=0.
+- **[I-POLY1026-5] Info (non-blocking, pre-existing):** docstring `tests/test_webapp_round1026_polygon.py:7`/evidence упоминают `user_version=12`, но схема версионируется в `services/database.py`, `db/**/*.sql` отсутствует (`test_zero_ddl` вакуумный); Δ DDL=0 доказан diff-скоупом. Расхождение — evidence-точность.
+- **Handoff:** @Orchestrator → **SCANNED** (блокеров нет; L-POLY1026-1..3 — owned follow-up, не относятся к правке; live-гейты перфа/стекла/WebView — PENDING OWNER).
+
 ## EXTRA-визуальный эпик `polygonal-luminescence-round1026` (Polygon Canvas2D + Delaunator 5.0.0, адаптер `__AuroraFlow`, env-only `UI_POLYGON_BG_ENABLED` default ON, Decoupled glass-прототип) — 23.09.2026, Step 6 @Scanner (T-3214) — **SCANNED**
 
 - **Baseline:** HEAD `9d046e5` (annotated-тег `pre-round1026-visual` → `9d046e5`), правки **НЕ закоммичены** — focused diff-based аудит (34 M + 10 ??). Отчёт: `plans/reports/round1026_visual_scanner_audit.md`. Bump `APP_VERSION` 2.58.19; deploy — T-3217.

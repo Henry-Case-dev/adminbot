@@ -1,5 +1,13 @@
 # Audit Backlog
 
+## Правка владельца v2.58.20 «мерцание свечения фона ×2» в `polygonal-luminescence-round1026` (T-3220…T-3223) — Step 6 @Scanner, 23.09.2026 — **SCANNED: блокеров нет; новых Low/Medium — 0**
+Baseline — HEAD `1ad98ca` (прод-деплой 2.58.19); правки **НЕ закоммичены** (25 M / 0 ??). Отчёт: `plans/reports/round1026_visual_scanner_audit.md` (Addendum). Bump `APP_VERSION` 2.58.20.
+- [ ] **I-POLY1026-5 [info, new]** Docstring `tests/test_webapp_round1026_polygon.py:7` / `evidence.md` упоминают `SQLite user_version=12`, тогда как схема версионируется в `services/database.py` (`_SCHEMA_VERSION*`), `db/**/*.sql` отсутствует → `test_zero_ddl` вакуумный. Δ DDL=0 доказан diff-скоупом. **Fix:** уточнить формулировку. (не блокирует; pre-existing)
+- **Проверено (инварианты/гигиена):** Δ DDL=0; Δ каталога=0 (467/426/442/100/98/21; `param_catalog.py` не тронут); CSP/zero-build (`eval`/`innerHTML`=0; только `/static/**`; `script-src 'self'` + pre-existing `'unsafe-eval'`); один активный рендерер; `Math.random`=0; DPR-кап/NODES/`TOPO_HZ=4`/reduced-motion/hidden/context-loss без изменений; `APP_VERSION` 2.58.20 синхронен; R17 (`current_task.md` не тронут)/R18 (tag `pre-round1026-visual`→`9d046e5`, `stash@{0}`, бэкап); `git diff --check`=0; маркер-тесты не ослаблены (только version re-pin).
+- **Severity 10.26 owner-edit v2.58.20:** Critical 0 / High 0 / Medium 0 / Low 0 (новых) / Info 1 (pre-existing). **Вердикт: К ДЕПЛОЮ — ДА (блокеров нет).** Live-гейты (перф/стекло/WebView) — PENDING OWNER.
+- **Прогоны @Scanner:** `test_webapp_round1026_polygon.py` **23 passed**; re-pin pytest **295 passed**; JS `POLYGON-LUMINESCENCE-OK` + hotfix7/8/9/10 OK (всего 43); `git diff --check`=0.
+- **Handoff @Scanner:** @Orchestrator → **SCANNED**.
+
 ## EXTRA-визуальный эпик `polygonal-luminescence-round1026` (Polygon Canvas2D + Delaunator 5.0.0; env-only `UI_POLYGON_BG_ENABLED`; glass-прототип) — Step 6 @Scanner (T-3214), 23.09.2026 — **SCANNED: блокеров нет; Low(3) — owned follow-up**
 Baseline — HEAD `9d046e5` (annotated-тег `pre-round1026-visual` → `9d046e5`); правки **НЕ закоммичены** (34 M + 10 ??). Отчёт: `plans/reports/round1026_visual_scanner_audit.md`. Bump `APP_VERSION` 2.58.19; deploy — T-3217.
 - [ ] **[L-POLY1026-1] [low, new, perf/gc]** `web/static/polygon-background.js:425-534` (`drawFacets`/`drawNodes`) — на каждый кадр аллоцируются массивы `ca/cb/mix` (по грани) и `rgba()`-строки (~500–1000+ объектов/кадр). SC-33 не нарушен (точки не аллоцируют), но GC-давление на mobile. **Fix:** скретч-массивы/кэш `rgba` по PAL. (не блокирует; live-перф — PENDING OWNER)

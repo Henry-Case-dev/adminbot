@@ -52,3 +52,45 @@ Fullscreen: `frameCount` растёт (521→570 / 666→715), `nodeCount` не�
 ## Handoff
 
 **RESULT: Approved @Orchestrator** — Critical/High = 0, Medium-блокеров нет; `review.md` = `plans/archive/polygonal-luminescence-round1026/review.md`. Эпик готов к T-3214 @Scanner и деплою (T-3217). Low-1…3 — в техдолг; живой WebView-гейт не останавливает workflow (§17), но не помечен пройденным.
+
+---
+
+# Addendum — правка владельца T-3220/T-3221 (v2.58.20, re-review @Reviewer)
+
+- **Status:** **Approved**. База diff — `1ad98ca` (HEAD, == tag `pre-round1026-visual`). Изменения — рабочим деревом.
+- **Суть правки:** «мерцание свечения фона в 2× медленнее» — замедлены только интенсивность/радиус свечения, ровно ×2.
+
+## Проверка → результат (независимо воспроизведено)
+
+| Проверка | Результат |
+|---|---|
+| `PULSE_SPEED_MIN` 0.05→0.025, `PULSE_SPEED_MAX` 0.15→0.075, `GLOW_SHIMMER_SPEED` 0.06→0.03 | ✅ ровно ÷2 (проверено значением: `0.025*2===0.05`, `0.075*2===0.15`, `0.03*2===0.06`) |
+| Затронуто только свечение | ✅ `pulseSp` влияет лишь на альфу/радиус ореолов (стр. 512/521-522/532/540); `GLOW_SHIMMER_SPEED` — только на радиус radial-glow (стр. 418) |
+| Позиция/оттенок/дрейф не тронуты | ✅ `sp1 0.10+rng()*0.22`, `sp2 0.08+rng()*0.18`, `morphPhase sin(t*0.06+ph)`, `sin(t*0.045)`, `cos(t*0.038)` — без изменений |
+| Топология/перф | ✅ `TOPO_HZ = 4`, DPR-кап, бюджеты узлов не менялись |
+| Тест red→green | ✅ Копия с откатом констант → `ERR_ASSERTION` (actual 0.1 vs expected 0.05); Python-гейт аналогично (`abs(val*2-base)`). Не тавтологичен |
+| `getDiagnostics()` | ✅ 11 полей, без расширения |
+| `Math.random()` / один рендерер | ✅ 0 вхождений (кроме комментариев); Playwright `visibleBgCanvases=1`, `#aurora-flow-canvas` отсутствует |
+| `node --check` | ✅ OK |
+| все `tests/js/*.js` | ✅ **43/43, 0 failing** |
+| `.venv\Scripts\python.exe -m pytest -q` | ✅ **8525 passed, 0 failed** (1 stdlib-warning) |
+| `tools/ui_round1026_polygon.py` | ✅ **0 failures** (desktop+mobile; свежий `_ui_round1026_raw.json`) |
+| `git diff --check` | ✅ чисто (только LF→CRLF) |
+| Δ DDL / Δ каталога | ✅ 0: `services/**`, `db/**`, `param_catalog.py` вне диффа; 467/426/442/100/98/21 проходит |
+| Версия / стекло / маркеры | ✅ `APP_VERSION` 2.58.20 синхронен settings/README; `web/static/` тронут только polygon-background.js (glass J не тронут); re-pin — только строки версии, `==` не ослаблен |
+| R17/R18 | ✅ tag `pre-round1026-visual` цел; `*.bak.*` на месте; `stash@{0}` присутствует |
+
+## §15 (качество не ухудшено)
+
+Позиционное движение сохранено (`total_shift 1.41`, `corr(0,20с) 0.941/0.895`), `frameCount` растёт, `nodeCount` не сброшен, `rect.x=0`, `rect.w==vw` → нет полосы/скачка. Композиция/палитра в допуске §14.3 (lilac/cyan/edge/local_ratio). Замедлено только свечение — по прямому требованию владельца.
+
+## Находки
+
+- **Blocking:** нет.
+- **Low (техдолг):** наследуются L-1…L-3 базового review без изменений.
+
+## Unavailable
+
+Живое качество (плавность/заметность мерцания в Telegram WebView, «на глаз») — **PENDING OWNER VERIFICATION**.
+
+**RESULT: Approved @Orchestrator** — T-3220/T-3221 подтверждены; блокеров нет, `review.md` обновлён.

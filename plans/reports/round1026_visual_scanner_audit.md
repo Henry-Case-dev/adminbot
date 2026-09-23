@@ -94,3 +94,63 @@
 ## Handoff
 
 **RESULT: SCANNED @Orchestrator** — Critical 0 / High 0 / Medium 0 / Low 3 (L-POLY1026-1..3, все non-blocking, owned follow-up) / Info 4. К деплою **ДА**. Инварианты ✅. Live-гейты (стекло п.1/5/7, перф/видео, реальный Telegram WebView) — **PENDING OWNER VERIFICATION**; блок J — заблокирован гейтом §13.2.
+
+---
+
+# Addendum — правка владельца v2.58.20 «мерцание свечения ×2» (T-3220…T-3223)
+
+> Дата: 2026-09-23 · Роль: @Scanner (focused diff-based, код не правился).
+> Базис: HEAD `1ad98ca` (прод-деплой 2.58.19), правки **НЕ закоммичены** — аудит рабочего дерева относительно `1ad98ca` (25 M / 0 ??).
+> Спека правки: `plans/archive/polygonal-luminescence-round1026/tasks.md` (блок **R**), `spec.md`, `evidence.md` (addendum).
+
+## Вердикт
+
+**К деплою — ДА.** Critical 0 / High 0 / **Medium 0** / Low 0 (новых) / Info 1 (pre-existing, non-blocking). Блокеров нет.
+
+## Diff-scope (гигиена)
+
+- Изменён ровно ожидаемый набор: `web/static/polygon-background.js` (ядро), `config/settings.py` + `README.md` + `plans/docs/param-registry-round1025.meta.md` (bump 2.58.20), `plans/archive/polygonal-luminescence-round1026/{spec,tasks,evidence}.md` (блок R), 19 test-файлов (re-pin версии).
+- `git diff --name-only 1ad98ca` вне `^(web/static/polygon-background.js|README.md|config/settings.py|plans/|tests/)` → **пусто**. НЕТ правок `services/**`, схемы/миграций, `param_catalog.py`, стекла (J), публикации, сердцебиения, IA (`web/app.js` вне диффа). `plans/current_task.md` не тронут (R17).
+- `git diff --check 1ad98ca` → 0 (только LF→CRLF warnings); запрещённых файлов в индексе/untracked нет.
+
+## Существо правки (построчно)
+
+- Константы: `PULSE_SPEED_MIN 0.05→0.025`, `PULSE_SPEED_MAX 0.15→0.075`, `GLOW_SHIMMER_SPEED 0.06→0.03` — ровно ×0.5 (период ×2).
+- Точки применения: `pulseSp: PULSE_SPEED_MIN + rng()*(MAX-MIN)`; `Math.sin(t*GLOW_SHIMMER_SPEED + cl.ph)`. Прежние магические скорости (`pulseSp: 0.05 +`, `sin(t*0.06 …)`) удалены.
+- **НЕ тронуты:** движение узлов §9 (`sp1 0.10+0.22`, `sp2 0.08+0.18`), morph §8.1 (`sin(t*0.06+ph)`), дрейф световых центров §8.2 (`sin(t*0.045)`,`cos(t*0.038)`), топология §6.4 (`TOPO_HZ=4`).
+- Перф/детерминизм: `Math.random` = 0; `DPR_CAP 2/1.5`, `NODES 110/55`, `TOPO_FADE_MS=320`, `MAX_EDGE_NORM/MAX_TRI_AREA` не изменены; reduced-motion/`document.hidden`/context-loss-код не тронут.
+
+## Тест-гейт (не тавтологичен)
+
+- Python `TestGlowFlickerSlowdown` (5 тестов): `_const(name)*2 == BASE` (BASE=0.05/0.15/0.06) — **возврат старых значений роняет тест**; применение только через константы; отсутствие старых магических скоростей; не-мерцание (§9/§8.1/§8.2/`TOPO_HZ=4`) как неизменные.
+- JS блок **F**: `strictEqual(value*2, base)` + `strictEqual(TAU/speed / (TAU/base), 2)` (float-exact), те же негативы/неизменности.
+- `getDiagnostics()` = **11 полей** (renderer, canvasWidth, canvasHeight, devicePixelRatio, nodeCount, triangleCount, frameCount, lastFrameTime, isPaused, isReducedMotion, contextLost).
+
+## Инварианты (воспроизведено @Scanner)
+
+| Инвариант | Результат | Доказательство |
+|---|---|---|
+| Δ DDL = 0 | ✅ | `git diff 1ad98ca -- services/ db/` пусто; схема не тронута |
+| Δ каталога = 0 | ✅ | REGISTRY 467 / GROUPS 100 / `_TAB_BY_GROUP` 98 / TAB_RULES 21 / fields(Settings) 426 (+442 categorized); `param_catalog.py` не тронут |
+| CSP/zero-build | ✅ | `polygon-background.js`: `eval(`/`new Function`/`innerHTML`/`document.write` = 0; `index.html` — только `/static/**`, без CDN; `script-src 'self'` (+ pre-existing `'unsafe-eval'` для Vue full — L-POLY1026-3, не new) |
+| Один активный рендерер | ✅ | `window.__PolygonBackground` singleton-адаптер; `web/app.js` (`_syncBgLayer`) вне диффа |
+| R17 / R18 | ✅ | `current_task.md` не тронут; tag `pre-round1026-visual`→`9d046e5` цел; `stash@{0}` цел (1 шт.); бэкап `var/backups/visual-round1026-20260923-142355/` есть |
+| `APP_VERSION` 2.58.20 | ✅ | settings/README/meta синхронны; 28 ссылок `2.58.20`; «висящих» пинов `2.58.19` в тестах нет |
+| Маркер-тесты не ослаблены | ✅ | `git diff tests/` — только version re-pin (нет `skip`/`xfail`/удалённых assert); 295 re-pin тестов зелёные |
+
+## Прогоны @Scanner (независимо)
+
+- `node tests/js/round1026_polygon_background_test.js` → `POLYGON-LUMINESCENCE-OK`
+- re-pin JS hotfix7/8/9/10 → OK; всего `tests/js/*.js` = 43
+- `pytest tests/test_webapp_round1026_polygon.py -q` → **23 passed**
+- `pytest` re-pin (12 файлов) → **295 passed**
+- `git diff --check` → 0; tag/stash/backup → OK
+
+## Замечания
+
+- **I-POLY1026-5 [Info, pre-existing, non-blocking]:** docstring `tests/test_webapp_round1026_polygon.py:7` (и evidence) упоминают `SQLite user_version=12`, тогда как схема версионируется в `services/database.py` (`_SCHEMA_VERSION*`), а `db/**/*.sql` отсутствует (`test_zero_ddl` проходит вакуумно). Δ DDL=0 для данной правки доказан diff-скоупом (в `services/**`/`db/**` ничего не менялось). Расхождение — evidence-точность, не регрессия.
+- L-POLY1026-1..3 — остаются OPEN owned-follow-up (к данной правке не относятся: код рендера/матрицы не менялся).
+
+## Handoff
+
+**RESULT: SCANNED @Orchestrator** — Critical 0 / High 0 / Medium 0 / Low 0 (новых) / Info 1 (I-POLY1026-5, pre-existing). Правка v2.58.20 (мерцание свечения ×2) — **к деплою ДА**, блокеров нет. Инварианты ✅. Live-гейты (перф/стекло/реальный WebView) — PENDING OWNER VERIFICATION.

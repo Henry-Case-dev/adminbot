@@ -52,3 +52,74 @@ SC-01…SC-08 (замена/адаптер/один рендерер), SC-09…S
 - Блок **J** (glass-интеграция) — **заблокирован** гейтом §13.2 (см. отчёт).
 - `prefers-reduced-motion` статика и `document.hidden` pause/resume покрыты кодом и unit-тестом, но **не** измерены в headless-прогоне (нет эмуляции reduced-motion/hidden с пиксельной пробой).
 - Δ DDL подтверждён отсутствием правок `services/pg_db.py`/`db/**` и зелёными заморозками; `user_version=12` не перечитывался отдельно (не менялся).
+
+---
+
+## Addendum — правка владельца (v2.58.20): «мерцание свечения» ×2
+
+> **Основание:** owner-правка после прод-деплоя 2.58.19 (HEAD `1ad98ca`):
+> «сделай мерцание свечения фона в два раза медленнее». Это уточнение
+> **временно́го параметра**, не смена дизайна (палитра/композиция/структура
+> не меняются). Задачи — блок **R** (T-3220…T-3223) в `tasks.md`.
+
+### Что именно = «мерцание свечения» (определено по коду)
+Колебание **интенсивности/радиуса свечения** (не позиции и не оттенка):
+- **§8.3 «редкие импульсы»** — `nd.pulse` модулирует альфу/радиус свечения узлов
+  и ореолов (`0.22 + 0.12*pulse`, `arc(r = 14 + 4*pulse)`, `0.55 + 0.35*pulse`),
+  частота `pulseSp` (было `0.05 + rng()*0.10`).
+- **§7.1 фоновое излучение** — «дыхание» радиуса radial-glow
+  (`0.04 * Math.sin(t * 0.06 + cl.ph)`) — было `0.06` rad/s.
+
+### Замедлено ровно ×2 (частота ÷2 → период ×2)
+| Параметр | Было | Стало | Что это |
+|---|---|---|---|
+| `PULSE_SPEED_MIN` | `0.05` rad/s | `0.025` rad/s | импульсы свечения §8.3 (период ~42 → ~84 с) |
+| `PULSE_SPEED_MAX` | `0.15` rad/s | `0.075` rad/s | импульсы свечения §8.3 (~126 → ~251 с) |
+| `GLOW_SHIMMER_SPEED` | `0.06` rad/s | `0.03` rad/s | «дыхание» свечения §7.1 (~105 → ~209 с) |
+
+### НЕ замедлено (не является мерцанием свечения) — с обоснованием
+- Движение узлов §9 (`sp1: 0.10 + rng()*0.22`, `sp2: 0.08 + rng()*0.18`) — **позиция**.
+- Цветовой morph §8.1 (`return 0.5 + 0.5 * Math.sin(t * 0.06 + ph)`) — **оттенок**, не интенсивность.
+- Дрейф световых центров §8.2 (`sin(t*0.045 + cl.ph)`, `cos(t*0.038 + cl.ph*1.3)`) — **перемещение**, не мерцание.
+- Каденция топологии §6.4 (`TOPO_HZ = 4`, `TOPO_FADE_MS = 320`) — перестройка сети (SC-15), не свечение; оставлена ≤4 Гц.
+
+### Изменённые файлы (addendum)
+- `web/static/polygon-background.js` — константы `PULSE_SPEED_MIN/MAX`, `GLOW_SHIMMER_SPEED` + 2 точки применения.
+- `tests/js/round1026_polygon_background_test.js` — блок **F** (мерцание ×2; не-мерцание не тронуто).
+- `tests/test_webapp_round1026_polygon.py` — `TestGlowFlickerSlowdown` (5 тестов).
+- Версия: `config/settings.py` (`APP_VERSION` 2.58.20 + комментарий), `README.md` (v2.58.20), `plans/docs/param-registry-round1025.meta.md`.
+- Re-pin версии: `tests/test_webapp_hotfix{6,7,8,9,10}_round1025.py`, `tests/test_webapp_{f6,f7,f9,f11}_round1025.py`, `tests/test_webapp_design_tokens_round1025.py`, `tests/test_scope_selector_round1025.py`, `tests/test_round1025_f8_registry.py`, `tests/js/round1025_hotfix{7,8,9,10}_*.js`.
+
+### Прогоны (факт, v2.58.20)
+| Команда | Результат |
+|---|---|
+| `node --check web/static/polygon-background.js` | OK |
+| `node tests/js/round1026_polygon_background_test.js` | `POLYGON-LUMINESCENCE-OK` |
+| все `node tests/js/*.js` | **43 файла, 0 failing** |
+| `.venv/Scripts/python.exe -m pytest -q` | **8525 passed, 0 failed** (baseline 8520; +5 новых) |
+| `.venv/Scripts/python.exe tools/ui_round1026_polygon.py` | **0 failures** (desktop+mobile; motion 0/5/10/20 с) |
+| `git diff --check` | чисто (только warning LF→CRLF) |
+
+### Регресс-тест (падает при возврате прежней скорости)
+`tests/js/round1026_polygon_background_test.js` блок **F** +
+`tests/test_webapp_round1026_polygon.py::TestGlowFlickerSlowdown`: константы
+обязаны равняться прежним / 2 (`0.025*2 == 0.05`, `0.075*2 == 0.15`,
+`0.03*2 == 0.06`); применение — только через именованные константы; старые
+магические скорости (`pulseSp: 0.05 +`, `Math.sin(t * 0.06 + cl.ph)`)
+отсутствуют. Движение §9 / morph §8.1 / дрейф §8.2 / `TOPO_HZ = 4` — проверены
+как **не** изменённые.
+
+### Playwright — движение/композиция/перф не ухудшены (факт, `tools/_ui_round1026_raw.json`)
+- Узлы/грани: desktop **110 / 189**, mobile **55 / 93** — без изменений.
+- Композиция: desktop lilac **0.0708** / cyan **0.0664** / edge **0.3003** / local_ratio **2.18**;
+  mobile **0.0378 / 0.0424 / 0.2758 / 2.29** — пороги §14.3 пройдены.
+- Движение: median_shifts **1.41** (0/5/10/20 с), corr(0,20с) **0.941 / 0.895**;
+  fullscreen — `frameCount` растёт, `nodeCount` не сброшен, `rect.x=0`, `rect.w==vw`.
+- visibleBgCanvases **1**; `#aurora-flow-canvas` отсутствует (один активный рендерер).
+
+### Инварианты
+Δ DDL = 0 (`services/**`, `db/**` вне диффа), Δ каталога = 0 (467/426/442/100/98/21;
+`param_catalog.py` не тронут), CSP/zero-build (CDN/data-URI/eval = 0),
+`Math.random()` = 0, один рендерер, reduced-motion→статика, `document.hidden`→pause,
+DPR-кап, mobile ~30 FPS, §15-критерии сохранены. `plans/current_task.md` не
+изменялся (R17); деплой/merge не выполнялись.
