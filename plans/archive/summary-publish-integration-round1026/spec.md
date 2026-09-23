@@ -3,7 +3,7 @@
 - **Статус:** Step 2 @Architect (24.09.2026, T-3436). Код — не в этом шаге. Сверка `tasks.md` ↔ spec/ADR — @PM (T-3437); `tasks.md` (T-3435…T-3460) не переписывался.
 - **Тип:** backend/публикация (живой публикационный путь Саммари; reuse существующих rich/plain-каналов). **P0.**
 - **Risk-Level:** **R2** — S6 меняет форматирование/доставку живой публикации Саммари во всех чатах (blast radius: каждый прогон), при этом: 0 новых LLM-вызовов (2-вызовность), Δ DDL=0, Δ каталога=0, retry ограничены, фолбэк без потери текста, откат `git revert`. **Повышает до R3:** любое касание `generate_image`/механизма прикрепления обложки, изменение OFF-генерации (промпты/вызовы/XML/память), DDL/каталог/новые зависимости, изменение обращения с секретами.
-- **ADR:** `adr-1026-11-summary-publication-integration.md` (D1–D10; Proposed → Accepted по T-3457, merge §80).
+- **ADR:** `adr-1026-11-summary-publication-integration.md` (D1–D10; **Accepted** — T-3457, merge §80; deploy VERIFIED 2.58.28).
 - **Гейт D4 (ADR-1025-24) — ✅ закрыт владельцем 24.09.2026** (live-приёмка Эпика 1 подтверждена) — S6 разблокирована.
 - **Baseline:** HEAD `197891f` == `origin/master`; `APP_VERSION` **2.58.27** (прод активен, MainPID 540872); pytest `.venv` **8926/0**; JS **46/46**; каталог **469/426/444/100/98/21**; **Δ DDL=0** (SQLite v12). Подтверждается baseline @DevOps (T-3435).
 
@@ -184,7 +184,7 @@ _deliver_plain(...), _plain_fallback(...), _deliver_l2_plain(...)  # обёрт�
 - **Снапшот S8:** те же поля переносятся `record_run_from_context` (R17-safe).
 - **Граф:** `STAGE_PUBLISH="publication"` в `STAGE_ORDER` (после `formatting`); узел `kind="publish"` из реальных полей; `publication_status ∈ {published_rich, published_text, failed, skipped}`; нет снапшота → `None`.
 - **События (§108/§109):** `PUBLISH_RICH_START/COMPLETE/ERROR`, `PUBLISH_TEXT_START/COMPLETE/ERROR`; поля — method (`sendRichMessage`/`sendMessage`), chat_id, message_id (первый чанк для text), reason (fallback), duration_ms; ошибки — §109-набор. `code=` добавляется в `SUMMARY_COMPLETE/FAILED`, `COVER_COMPLETE/ERROR`, `FORMAT_ERROR`.
-- **Совместимость:** `send_rich_message`/`build_cover_article_html`/`build_cover_media`/`format_rich_html`/`format_plain_html`/`format_plain_text` — без изменений контракта; новые параметры аддитивны с дефолтами.
+- **Совместимость:** `send_rich_message`/`build_cover_article_html`/`build_cover_media`/`format_plain_html`/`format_plain_text` — без изменений контракта; новые параметры аддитивны с дефолтами. **Уточнение контракта `format_rich_html` (merge T-3457, §80; L-R1026S6-D1):** форматтер **не усекает** — возвращает полный текст; вместимость rich-канала проверяет `rich_document_limits` на уровне доставки (≤498 абзацев + h1/img = ≤500 блоков; ≤ `RICH_MAX_CHARS`=32000 симв.), переполнение → WARN/`FORMAT_ERROR`/`reason=rich_overflow` + plain-фолбэк с полным текстом. Правка документационная (post-approval, по прямому пункту review L-R1026S6-D1); product code не менялся, bindings кода (Reviewed-Commit `197891f`, WTH `4c7b2917…`) сохраняются.
 
 ## 8. §103 — проверенные утверждения (снимок 24.09.2026)
 

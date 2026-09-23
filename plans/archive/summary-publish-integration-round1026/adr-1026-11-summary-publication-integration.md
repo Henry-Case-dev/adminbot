@@ -1,6 +1,6 @@
 # ADR-1026-11 — S6 «Публикационная интеграция Саммари»: reuse `sendRichMessage`, единый Rich HTML (обложка → H1 → абзацы), §105 plain по абзацам, §106-коды, `PUBLISH_*`/publish-узел, Δ DDL=0/Δ каталога=0
 
-- **Статус:** **Proposed** (Step 2 @Architect, T-3436, 24.09.2026) → **Accepted по T-3457** (Merge `plans/ARCHITECTURE.md` **§80**, ожидаемый номер). Сверка @PM — T-3437.
+- **Статус:** **Accepted** (T-3457, Merge `plans/ARCHITECTURE.md` **§80**, 24.09.2026; основание — единый Reviewer gate **Approved C0/H0** + deploy **VERIFIED 2.58.28**, T-3459). Ранее: Proposed (Step 2 @Architect, T-3436, 24.09.2026). Сверка @PM — T-3437. Реализация — факт (карта D1–D10 ниже).
 - **Фича:** S6 `summary-publish-integration-round1026` (Эпик 2, §100–§106; P0).
 - **Тип:** backend/публикация (живой публикационный путь Саммари; reuse существующих rich/plain-каналов) + аддитивный UI-срез §112 (publish-статус).
 - **Связано:** **ADR-1026-7** (S5 L2/форматтер; **AMEND D5** — OFF байт-в-байт сужается до генерации), **ADR-1026-9** (S7 `run_id`/события; **AMEND D2/D7** — `PUBLISH_*` реализуются в S6), **ADR-1026-10** (S8 adapter; **AMEND D1/D4/D8** — publish-срез активируется в S6), **ADR-1022-4** (2-вызовность — REUSE), **ADR-1022-6** (egress-guard — REUSE), **ADR-1023-6** (rich/plain-каналы, обложка — REUSE), **ADR-1013-3** (каноны — не запускается), **ADR-1026-2** (F8 — не запускается), **ADR-1025-24 D4** (публикационный гейт — **закрыт владельцем 24.09.2026**).
@@ -94,6 +94,21 @@
 
 **Решение.** S10 = §107 (прямой деплой/активация: Hybrid основным, фильтр default ON, раздельный роутинг), §114 (чек-лист), §115 (первый рабочий запуск: Hybrid активен, модели/промпты, публикация — статья с H1 либо текст с жирным заголовком), §117 (результаты Эпика 2) + остаток §85-UI (при отдельной санкции). S6 ничего из этого не реализует и не дублирует.
 
+## Реализация (факт) — merge §80, deploy VERIFIED 2.58.28
+
+| D | Факт (файлы/тесты) |
+|---|---|
+| **D1** | Diff S6 (коммит `d0d634c`, 46 файлов, +2505/−361): `services/summary_generator.py` (ядра `_publish_rich_document`/`_publish_plain_document`, обёртки `_deliver_*`, §106/`PUBLISH_*`), `services/summary_article_formatter.py` (аддитивные `document_from_plain_text`/`extract_title_from_markdown`/`chunk_plain_text`/`rich_document_limits`/`_plain_html_blocks`/`sanitize`), `services/summary_l2_writer.py` (только L-R1026S5-6), `services/summary_run_log.py` (`PUBLISH_*`/`code`), `services/execution_graph_source.py` + `web/static/execution_graph.js` + `web/app.js` (publish-узел/статус/маркеры), `web/api/analytics.py` (**только docstring**; AST-равенство без докстрингов — проверено @Reviewer), `config/settings.py` (2.58.28), `README.md`; **вне diff** (пустой `git diff --name-only`): `telegram_send.py`/`image_generation.py`/`summary_prompts.py`/`summary_test_run.py`/`routes.py`/`db/**`/`param_catalog.py`/`bot.py`. |
+| **D2** | Rich: `<img>` → `<h1>` → `<p>`, `content_format="html"`; plain: `<b>title</b>` + абзацы (единый `_plain_html_blocks`); `document_from_plain_text` — 0 LLM. Тесты: `tests/test_summary_publish_integration_round1026.py` (**69**), `tests/test_summary_article_formatter.py` (**16**), `tests/js/round1026_s6_publish_test.js`; пробы @Reviewer d/f (chunks == `format_plain_html` байт-в-байт; whitelist `img/h1/p/b`; `img→h1→p`). |
+| **D3** | AMEND ADR-1026-7 D5 / ADR-1026-9 D7 — зафиксированы (§80.6); OFF-генерация AST-идентична baseline (кроме аддитивного `title` в `_generate_two_call`); `await_count==2` на обоих путях (pytest `-k two_calls` — 3 passed); откат `pre-round1026-s6` → `197891f` + `git revert`. |
+| **D4** | Утверждения spec §8 (Bot API 10.3, снимок 24.09.2026; aiogram 3.31.0) + §80.5; канон L2 байт-идентичен (промпт не менялся); `RICH_MAX_CHARS=32000 ≤ 32768`, ≤498 абзацев + h1/img (≤500 блоков). |
+| **D5** | Коды `SUMMARY_GENERATION_FAILED`/`COVER_GENERATION_FAILED`/`RICH_MESSAGE_SEND_FAILED`/`TEXT_FALLBACK_FAILED` + `code=`; fail-closed L1/L2; ≤1 retry на отправку (тест «вечно RetryAfter»); пробы @Reviewer a/b/c/e; закрыт L-R1026S5-4. |
+| **D6** | `PUBLISH_RICH_*`/`PUBLISH_TEXT_*` (call-sites ×2 в артефакте прода); publish-узел `kind="publish"` из реальных данных; `publication_status` без `gated`; GATED-тесты S7/S8 перепрофилированы (`test_publish_events_only_on_real_publication`, `TestPublishNode`, JS-S8); dry-run S9 — без `PUBLISH_*`. |
+| **D7** | L-R1026S5-3 — подтверждён (без изменения кода); -4 — закрыт (D5); -5 — `sanitize` в `chunk_plain_blocks` (sanitize → clean → escape) + байт-тест «egress-guard — no-op на выводе `format_rich_html`»; -6 — `_QUOTE_RE`/`_strip_quotes` с границами слова (тесты `don't/it's`); S-R1026S5-7 — `memorize_facts` на ON ровно 1 раз (тест). |
+| **D8** | Δ DDL=0; Δ каталога=0 (469/426/444/100/98/21; F8 не переиздавался; `param_catalog.py` вне diff); 0 новых зависимостей; 2-вызовность; CSP/zero-build; R17/R18 (тег/бэкапы/`stash@{0}` целы). |
+| **D9** | Deploy **VERIFIED** (T-3459): `d0d634c`/`cebd950`/`b889019`; прод ff `7c5338e..cebd950`; MainPID 575712; `/api/health` 200; `/healthz` 2.58.28; served `?v=2.58.28`; `database is locked`=0; `PUBLISH_*`=0 (аддитивны); откат `pre-round1026-s6` → `197891f` + `git revert d0d634c cebd950`; новый kill-switch не вводился. |
+| **D10** | S10-остаток не реализован: §107/§114/§115/§117 + UI-слоты §85 — вне diff; `summary_test_run.py`/`routes.py`/`param_catalog.py` вне diff. |
+
 ---
 
 ## AMEND / REUSE-карта
@@ -108,7 +123,7 @@
 | **ADR-1023-6** (rich/plain-каналы, обложка) | **REUSE** | Обложка — часть статьи; §104-контур не тронут |
 | **ADR-1013-3 / ADR-1026-2** | **не запускаются** | Каноны не меняются; Δ каталога=0 → F8 не переиздаётся |
 | **ADR-1025-24 D4** | **gate closed** | Владелец подтвердил live-приёмку Эпика 1 (24.09.2026) — публикационный пайплайн разблокирован |
-| **ADR-1026-11** | **НОВЫЙ** | Step 2 @Architect (T-3436); Proposed → Accepted по T-3457 |
+| **ADR-1026-11** | **НОВЫЙ → Accepted** | Step 2 @Architect (T-3436); **Accepted по T-3457** (merge §80 + deploy VERIFIED 2.58.28) |
 
 ## Последствия
 
@@ -120,7 +135,7 @@
 
 ## Ссылки
 
-- `plans/features/summary-publish-integration-round1026/{spec.md, tasks.md}`; Merge — `plans/ARCHITECTURE.md` **§80** (ожидаемо, T-3457); baseline-тег `pre-round1026-s6` → `197891f` (T-3435).
+- `plans/features/summary-publish-integration-round1026/{spec.md, tasks.md}`; Merge — `plans/ARCHITECTURE.md` **§80** (**выполнен**, T-3457); baseline-тег `pre-round1026-s6` → `197891f` (T-3435); архивация — T-3458 @PM → `plans/archive/summary-publish-integration-round1026/`.
 - Архивы: `plans/archive/summary-l2-writer-formatter-round1026/adr-1026-7-*.md`, `plans/archive/summary-logging-runid-round1026/adr-1026-9-*.md`, `plans/archive/summary-analytics-adapter-round1026/adr-1026-10-*.md`, `plans/archive/epic1-verification-round1025/adr-1025-24-*.md`.
 - Код: `services/{summary_generator.py, telegram_send.py, summary_article_formatter.py, summary_l2_writer.py, summary_run_log.py, execution_graph_source.py, image_generation.py (read-only)}, web/static/execution_graph.js, web/app.js`.
 - Внешние: `https://core.telegram.org/bots/api` (Rich Messages; снимок 24.09.2026), aiogram **3.31.0**.
