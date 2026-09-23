@@ -2,7 +2,7 @@
 
 > Краткий оперативный чекпоинт оркестратора. Не транскрипт. Обновляется после каждого верифицированного шага.
 
-- **🔓 ОБНОВЛЕНО (S6 Step 0 @Memory, 24.09.2026): гейт ADR-1025-24 D4 ЗАКРЫТ — владелец подтвердил live-приёмку Эпика 1 (owner declaration, 24.09.2026); все owner live-гейты (Эпик 1, S1–S5, S7, S8, S9) считаются подтверждёнными владельцем.** **S6 `summary-publish-integration` разблокирован** — Step 0 ✅ (карта кода §100–§106, конфликт-чек S5/S7/S8/S9; baseline HEAD `197891f` == `origin/master`, `APP_VERSION` 2.58.27, pytest `.venv` 8926/0, JS 46/46, каталог 469/426/444/100/98/21, Δ DDL=0; код НЕ менялся — только `plans/**` + KG); **S10 `summary-deploy` зависит только от завершения S6**. Открытые вопросы (границы diff публикационного пайплайна, `SUMMARY_HYBRID_L2_ENABLED`/OFF байт-в-байт, §103, коды §106, publish-узел S8/`PUBLISH_*`, форматтер/канон, deploy/bump, остаток S10) — за Step 2 @Architect; **следующий шаг — Step 1 @PM** (`tasks.md`). Прежние записи «S6/S10 ⛔ GATED» — исторический слой.
+- **✅ ЭПИК 2 «Summary Hybrid Pipeline» — ЗАВЕРШЁН (авто-часть), 24.09.2026.** S1–S10: все COMPLETED + MERGED (§71–§81) + DEPLOYED (2.58.18 → **2.58.29**). Финал — **S10 `summary-deploy`**: активация Hybrid = code-default `SUMMARY_HYBRID_L2_ENABLED=True` (kill-switch `per-chat → hot → env/default` сохранён, ручной активации/legacy-селектора нет), §114-harness 11/11 без публикаций в основной чат, §115-процедура, §117 `results.md`; deploy/активация **VERIFIED** (`415a861`/`04f5ae1`/`7bf716e`; прод ff `cebd950..04f5ae1`, MainPID **595858**, health 200, `/healthz` **2.58.29**, effective `SUMMARY_HYBRID_L2_ENABLED=True`, `database is locked`=0); merge **§81** + **ADR-1026-12 Accepted**; метрики **10.26-S10** + агрегат Эпика 2; архив `plans/archive/summary-deploy-round1026/`. **Live-часть §115/§117** (первый рабочий запуск Саммари и публикация rich/plain) — **PENDING OWNER VERIFICATION** (ближайший платик 0/6/12/18 Asia/Yekaterinburg); **§85-UI — отдельная санкция (Δ каталога ≠ 0)**. Эпик 1 — авто ✅ ранее. **Предусловие Эпика 3 «Agentic Intelligence» (после Эпиков 1 и 2) формально достигнуто** — решение о старте за `select_next`. Closing-коммит S10 — @DevOps.
 
 - **▶️ S7 ЭПИКА 2 (Step 1 @PM + Step 2 @Architect + Step 3 @Memory, 24.09.2026): `summary-logging-runid-round1026` (§108–§110) — `tasks.md` (T-3380…T-3409) + `spec.md` (REQ-S7-01…-13, SC-01…SC-16) + **ADR-1026-9** (D1–D8, Accepted) + KG ✅.** Решения: `run_id`=существующий `correlation_id` (D1); аддитивные `SUMMARY_*`/`FORMAT_*`/`COVER_*`, **`PUBLISH_*` GATED (S6/D4)** (D2); **Δ DDL=0** (D3); §110 клиентский фильтр в существующем viewer (D4); dry-run 0/0/0 + `run_id` (D5); fail-closed §109/R17 (D6); **Δ каталога=0** (F8 не переиздаётся), CSP/zero-build, 2-вызовность (D7); **deploy=ДА, bump 2.58.25→2.58.26**, откат annotated-тег `pre-round1026-s7` → `f774ecc` (D8). Baseline HEAD `59e5b12`, APP_VERSION 2.58.25, pytest 8854/0, JS 44/44, каталог 469/426/444/100/98/21, Δ DDL=0. Код НЕ менялся (только `plans/**` + KG). ✅ **S7 ЗАВЕРШЁН (24.09.2026):** единый Reviewer gate **Approved** (C0/H0; binding `f774ecc`/`6c7c9061…`/`d9d11797…`) → merge **§78** + **ADR-1026-9 Accepted** → deploy **VERIFIED 2.58.26** (`5cba5df` код+тесты / `aa42a04` планы / `1684da9`+`4c22e2c` deploy-doc; прод ff `59e5b12..aa42a04`, MainPID **522392**, health 200, `database is locked`=0) → метрики **10.26-S7** + KG → **архив `plans/archive/summary-logging-runid-round1026/`** (T-3407). ✅ **S8 ЗАВЕРШЁН (24.09.2026):** единый Reviewer gate **Approved** (C0/H0; binding `2ffeb6a`/`4151d36d…`/`f397f3fd…`) → merge **§79** + **ADR-1026-10 Accepted** → deploy **VERIFIED 2.58.27** (`64cdb0e` код / `7c5338e` планы / `f14ae56` deploy-doc; MainPID **540872**, health 200, `database is locked`=0, роут `GET /api/analytics/execution/latest` жив) → метрики **10.26-S8** + KG (`L-F6S-1` CLOSED) → **архив `plans/archive/summary-analytics-adapter-round1026/`**. ✅ **S6 ЗАВЕРШЁН (24.09.2026):** единый Reviewer gate (Needs Fixes → rework T-3456 → **Approved** C0/H0; binding `197891f`/`4c7b2917…`/`77c17775…`) → merge **§80** + **ADR-1026-11 Accepted** (doc-drift L-R1026S6-D1 закрыт) → deploy **VERIFIED 2.58.28** (`d0d634c` код / `cebd950` планы / `b889019` deploy-doc; MainPID **575712**, health 200, `database is locked`=0; `PUBLISH_*`=0 до первого реального прогона) → метрики **10.26-S6** + KG (follow-up S5 закрыты) → **архив `plans/archive/summary-publish-integration-round1026/`**. ▶️ Остался только **S10 `summary-deploy`** (§107/§114/§115/§117 + §85-UI отдельной санкцией) — последний пункт Эпика 2; D4 закрыт владельцем; live-приёмки — PENDING OWNER VERIFICATION. Closing-коммит S6 — @DevOps.
 
@@ -335,16 +335,16 @@
 <!-- OPENCODE_WORKFLOW_STATE_V1
 {
   "schema_version": 1,
-  "state_revision": 41,
+  "state_revision": 44,
   "task_id": "adminbot-master-spec-v6",
   "request_fingerprint": "sha256:31c6ab5c87949ec63ee64a0627e2221055f6dc0915ee15c3b361d2ce7f04a4cc",
   "task_status": "in_progress",
   "active_feature": "summary-deploy-round1026",
-  "feature_status": "S10 unified Reviewer gate APPROVED (C0/H0; binding: Reviewed-Commit 76abf91, WTH a17093d8…, Spec-Hash 41ee0c6e…; deviations D-a meta-stamp / D-b explicit-OFF tests / D-c flake acceptable; non-blocking L-R1026S10-1/-2/-3). Ready for delivery: deploy + activation of hybrid pipeline (APP_VERSION 2.58.29).",
-  "phase": "delivery",
+  "feature_status": "S10 COMPLETED + MERGED (§81) + ARCHIVED + DEPLOYED/ACTIVATED (2.58.29 VERIFIED). Epic 2 auto-part COMPLETED (S1–S10); live §115/§117 PENDING OWNER VERIFICATION; §85-UI separate sanction. Backlog normalized; links synced. Pending: DevOps closing commit; then select_next (Epic 3 precondition reached).",
+  "phase": "select_next",
   "risk_level": "R2",
   "next_agent": "DevOps",
-  "next_action": "T-3478 deploy + activation S10: commit code+tests (2.58.29) and plans/** (feature docs + audit_backlog), push without force, prod ff + restart; verify effective activation (SUMMARY_HYBRID_L2_ENABLED default ON, no .env override forcing off; hybrid resolved ON), health 200 / served 2.58.29 / database is locked=0 / no Traceback / scheduler running; perform §115 checks possible now and mark live standard-run + publication as PENDING OWNER VERIFICATION (next scheduled tick 0/6/12/18); write deployment.md VERIFIED (rollback soft SUMMARY_HYBRID_L2_ENABLED=false + hard pre-round1026-s10 -> 76abf91 / git revert); commit deploy-doc",
+  "next_action": "S10 closing docs commit: commit plans/** closure (ARCHITECTURE §81, ADR-1026-12 Accepted, round1025-architecture Epic 2 summary, MEMORY, metrics 10.26-S10 + Epic 2 aggregate, backlog Epic 2 normalization, archive move, tasks closure, workflow_state human update) and push without force; then proceed to select_next (PM assessment of Epic 3 precondition/next feature)",
   "human_gate": false,
   "blocked": false,
   "blocker_type": null,
@@ -357,8 +357,8 @@
   },
   "deployment": {
     "required": true,
-    "status": "pending",
-    "deployed_commit": null
+    "status": "verified",
+    "deployed_commit": "415a861"
   },
   "resume": {
     "last_resume_key": null,
@@ -366,6 +366,6 @@
     "last_resumed_at": null,
     "last_session_id": null
   },
-  "updated_at": "2026-09-23T22:52:53.042Z"
+  "updated_at": "2026-09-23T23:28:28.237Z"
 }
 OPENCODE_WORKFLOW_STATE_V1 -->

@@ -1,6 +1,6 @@
 # ADR-1026-12 — S10 «Прямой деплой и активация Hybrid-пайплайна Саммари»: code-default **ON** (`SUMMARY_HYBRID_L2_ENABLED`) как активация без ручного гейта, аварийный kill-switch, §114-предполётный harness без публикации, §115 первый рабочий запуск, §117-результаты Эпика 2, Δ DDL=0 / Δ каталога=0
 
-- **Статус:** **Proposed** (Step 2 @Architect, T-3462, 24.09.2026) → **Accepted** фактом merge (T-3476/T-3477; раздел `plans/ARCHITECTURE.md` — номер по факту, ожидается **§81**).
+- **Статус:** **✅ Accepted** (Step 2 @Architect, T-3462, 24.09.2026 → **Accepted** фактом merge **T-3476** + deploy/активация **VERIFIED 2.58.29** (T-3478); раздел `plans/ARCHITECTURE.md` — **§81**).
 - **Фича:** S10 `summary-deploy-round1026` (Эпик 2, §107/§114/§115/§116/§117; **P0, gate-фича** — закрывает Эпик 2 и является предусловием Эпика 3).
 - **Тип:** deploy/ops (§107 прямой деплой/активация, §114 предполётная проверка, §115 первый рабочий запуск) + активация/наблюдаемость (§117-результаты).
 - **Связано:** **ADR-1026-7** (S5: L2/форматтер, kill-switch `SUMMARY_HYBRID_L2_ENABLED` default OFF; **AMEND D3/D5** — default переворачивается на ON, OFF становится аварийным), **ADR-1026-11** (S6: публикация; **REUSE** — §115 публикует через тот же rich/plain-путь), **ADR-1026-8** (S9 dry-run; **REUSE** — основа §114-harness), **ADR-1026-9** (S7 `run_id`/события; **REUSE** — наблюдаемость §115), **ADR-1026-10** (S8 ExecutionGraph; **REUSE** — §117 п.12), **ADR-1026-5/-6** (L1/пакет; REUSE), **ADR-1022-4** (2-вызовность; REUSE), **ADR-1023-6** (rich/plain-каналы; REUSE), **ADR-1025-24 D4** (гейт старта/публикации — **закрыт владельцем 24.09.2026**).
@@ -46,7 +46,7 @@
 ### D2. Механика активации §107 (ответ (a)) — ГЛАВНОЕ
 
 **Решение.**
-1. **Активация = смена code-default, а не ручной тумблер.** `config/settings.py`: `SUMMARY_HYBRID_L2_ENABLED: ClassVar[bool] = _env_bool("SUMMARY_HYBRID_L2_ENABLED", True)` (**OFF→ON**). После деплоя (при отсутствии явного `false`) новый пайплайн — основной во всех чатах: `_run` резолвит `hybrid=True` и уходит в `_run_hybrid_l2` **без какого-либо действия оператора**.
+1. **Активация = смена code-default, а не ручной тумблер.** `config/settings.py:988–989`: `SUMMARY_HYBRID_L2_ENABLED: ClassVar[bool] = _env_bool("SUMMARY_HYBRID_L2_ENABLED", True)` (**OFF→ON**). После деплоя (при отсутствии явного `false`) новый пайплайн — основной во всех чатах: `_run` резолвит `hybrid=True` и уходит в `_run_hybrid_l2` **без какого-либо действия оператора**.
 2. **Семантика слоёв сохраняется, смысл переворачивается.** Резолв-цепочка `per-chat override → hot (flags.summary_hybrid_l2_enabled) → env/default` **не меняется** (байт-в-байт); меняется только значение по умолчанию. Отсутствие override → **ON (основной путь)**; любой явный `false` → **аварийное выключение** (kill-switch).
 3. **«Ручная активация» запрещена, «аварийное выключение» разрешено.**
    - *Запрещено:* требовать ON-действие (тумблер/интерфейс) для запуска пайплайна; вводить UI/селектор Legacy↔Hybrid; оставлять фичу выключенной «до ручного включения».
@@ -145,9 +145,11 @@
 
 ---
 
-## Карта решений ADR → ожидаемые в `tasks.md` (сверка @PM T-3463)
+## Карта решений ADR → факт (сверка @PM T-3463; merge §81)
 
-| ADR-1026-12 | Ожидалось в `tasks.md` | Задачи |
+**Все D1–D8 реализованы как спроектировано** (факт §81; отклонения @Builder D-a/D-b/D-c — допустимы, non-blocking); единственная doc-правка — уточнение номеров строк (`config/settings.py:988–989`, `:1827`; L-R1026S10-2).
+
+| ADR-1026-12 | Решение (факт §81) | Задачи |
 |---|---|---|
 | D1 (границы diff) | D1 | T-3465, T-3473 |
 | D2 (механика активации) | D2 | T-3464, T-3465, T-3466 |
@@ -170,7 +172,7 @@
 | **ADR-1022-4** (2-вызовность) | **REUSE** | 0 новых LLM-вызовов |
 | **ADR-1023-6** (rich/plain/обложка) | **REUSE** | §115 артефакты; §104-контур не тронут |
 | **ADR-1025-24 D4** | **gate closed** | Владелец подтвердил live-приёмку Эпика 1 (24.09.2026) — активация разрешена |
-| **ADR-1026-12** | **НОВЫЙ → Accepted** | Step 2 @Architect (T-3462); **Accepted по merge** (T-3476/T-3477, ожидается §81) |
+| **ADR-1026-12** | **НОВЫЙ → Accepted** | Step 2 @Architect (T-3462); **Accepted** фактом merge **§81** + deploy/активация VERIFIED 2.58.29 (T-3476/T-3478) |
 
 ## Последствия
 
@@ -182,7 +184,7 @@
 
 ## Ссылки
 
-- `plans/features/summary-deploy-round1026/{spec.md, tasks.md}`; merge — `plans/ARCHITECTURE.md` (ожидается **§81**, T-3476); baseline-тег `pre-round1026-s10` → `76abf91` (T-3461); архив — T-3477 → `plans/archive/summary-deploy-round1026/`.
+- `plans/features/summary-deploy-round1026/{spec.md, tasks.md, evidence.md, review.md, deployment.md, procedure-115.md, sec114-harness.md, results.md}`; merge — `plans/ARCHITECTURE.md` **§81** (T-3476 ✅); baseline-тег `pre-round1026-s10` → `76abf91` (T-3461); архив — T-3477 → `plans/archive/summary-deploy-round1026/`.
 - Архивы: `plans/archive/summary-l2-writer-formatter-round1026/adr-1026-7-*.md`, `plans/archive/summary-publish-integration-round1026/adr-1026-11-*.md`, `plans/archive/summary-testing-ui-round1026/adr-1026-8-*.md`, `plans/archive/summary-logging-runid-round1026/adr-1026-9-*.md`, `plans/archive/summary-analytics-adapter-round1026/adr-1026-10-*.md`, `plans/archive/epic1-verification-round1025/adr-1025-24-*.md`.
 - Код (read-only/минимальный diff): `config/settings.py` (default + `APP_VERSION`), `services/summary_generator.py` (`_hybrid_l2_enabled`, `_run`), `services/summary_test_run.py` (reuse), `services/summary_run_log.py`, `services/execution_graph_source.py`, `services/param_catalog.py` (read-only).
 - ТЗ: `plans/current_task.md` §107 (`:3250–3276`), §114 (`:3528–3557`), §115 (`:3559–3581`), §116 (`:3584–3626`), §117 (`:3627+`); §85-UI (`:2646+`, отдельная санкция).
