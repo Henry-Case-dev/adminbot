@@ -2,6 +2,8 @@
 
 > Краткий оперативный чекпоинт оркестратора. Не транскрипт. Обновляется после каждого верифицированного шага.
 
+- **🔓 ОБНОВЛЕНО (S6 Step 0 @Memory, 24.09.2026): гейт ADR-1025-24 D4 ЗАКРЫТ — владелец подтвердил live-приёмку Эпика 1 (owner declaration, 24.09.2026); все owner live-гейты (Эпик 1, S1–S5, S7, S8, S9) считаются подтверждёнными владельцем.** **S6 `summary-publish-integration` разблокирован** — Step 0 ✅ (карта кода §100–§106, конфликт-чек S5/S7/S8/S9; baseline HEAD `197891f` == `origin/master`, `APP_VERSION` 2.58.27, pytest `.venv` 8926/0, JS 46/46, каталог 469/426/444/100/98/21, Δ DDL=0; код НЕ менялся — только `plans/**` + KG); **S10 `summary-deploy` зависит только от завершения S6**. Открытые вопросы (границы diff публикационного пайплайна, `SUMMARY_HYBRID_L2_ENABLED`/OFF байт-в-байт, §103, коды §106, publish-узел S8/`PUBLISH_*`, форматтер/канон, deploy/bump, остаток S10) — за Step 2 @Architect; **следующий шаг — Step 1 @PM** (`tasks.md`). Прежние записи «S6/S10 ⛔ GATED» — исторический слой.
+
 - **▶️ S7 ЭПИКА 2 (Step 1 @PM + Step 2 @Architect + Step 3 @Memory, 24.09.2026): `summary-logging-runid-round1026` (§108–§110) — `tasks.md` (T-3380…T-3409) + `spec.md` (REQ-S7-01…-13, SC-01…SC-16) + **ADR-1026-9** (D1–D8, Accepted) + KG ✅.** Решения: `run_id`=существующий `correlation_id` (D1); аддитивные `SUMMARY_*`/`FORMAT_*`/`COVER_*`, **`PUBLISH_*` GATED (S6/D4)** (D2); **Δ DDL=0** (D3); §110 клиентский фильтр в существующем viewer (D4); dry-run 0/0/0 + `run_id` (D5); fail-closed §109/R17 (D6); **Δ каталога=0** (F8 не переиздаётся), CSP/zero-build, 2-вызовность (D7); **deploy=ДА, bump 2.58.25→2.58.26**, откат annotated-тег `pre-round1026-s7` → `f774ecc` (D8). Baseline HEAD `59e5b12`, APP_VERSION 2.58.25, pytest 8854/0, JS 44/44, каталог 469/426/444/100/98/21, Δ DDL=0. Код НЕ менялся (только `plans/**` + KG). ✅ **S7 ЗАВЕРШЁН (24.09.2026):** единый Reviewer gate **Approved** (C0/H0; binding `f774ecc`/`6c7c9061…`/`d9d11797…`) → merge **§78** + **ADR-1026-9 Accepted** → deploy **VERIFIED 2.58.26** (`5cba5df` код+тесты / `aa42a04` планы / `1684da9`+`4c22e2c` deploy-doc; прод ff `59e5b12..aa42a04`, MainPID **522392**, health 200, `database is locked`=0) → метрики **10.26-S7** + KG → **архив `plans/archive/summary-logging-runid-round1026/`** (T-3407). ✅ **S8 ЗАВЕРШЁН (24.09.2026):** единый Reviewer gate **Approved** (C0/H0; binding `2ffeb6a`/`4151d36d…`/`f397f3fd…`) → merge **§79** + **ADR-1026-10 Accepted** → deploy **VERIFIED 2.58.27** (`64cdb0e` код / `7c5338e` планы / `f14ae56` deploy-doc; MainPID **540872**, health 200, `database is locked`=0, роут `GET /api/analytics/execution/latest` жив) → метрики **10.26-S8** + KG (`L-F6S-1` CLOSED) → **архив `plans/archive/summary-analytics-adapter-round1026/`**. ▶️ Остались только **S6 ⛔ / S10 ⛔** — оба до **live-приёмки Эпика 1 (D4)**; независимых задач Эпика 2 нет. Live S1–S5/S7/S8/S9/Эпика 1 — PENDING OWNER VERIFICATION. Closing-коммит S8 — @DevOps.
 
 - **workflow_status: ACTIVE** (обновлено @Memory, Шаг 10, 23.09.2026). Предыдущая завершённая — **S5 `summary-l2-writer-formatter-round1026` (Эпик 2, §97–§103)**: ✅ **DONE / VERIFIED** — deploy **2.58.24 VERIFIED** (коммиты `03a4d55` код+тесты+канон, `ae5a147` планы/архив; прод active, health 200, `database is locked`=0, `L2_*`/`FORMAT_*`=0 — флаг OFF, модули не врезаны, каталог **469**; откат `pre-round1026-s5`→`e3ea608`); Merge **§76**, архив `plans/archive/summary-l2-writer-formatter-round1026/`. Автономный контур: @Reviewer итер.1 Changes requested (блокер **B-R1026S5-1**) → итер.2 **Approved** C0/H0; @Scanner итер.2 **C0/H0/блокирующих 0/L4/I2 → «к деплою ДА»**; rework 1; pytest **8807/0 (+70)**, JS 43/43; **Δ DDL=0**; Δ каталога = +1 (санкция ADR-1026-7 D3, F8 переиздан delta 58). Завершённые чекпоинты-предшественники — S4 `summary-fact-package` (2.58.23), S3 `summary-l1-clusterizer` (2.58.22). **✅ ЗАВЕРШЁННАЯ — S9 `summary-testing-ui` (Эпик 2, §113 + §112)**: ✅ **DONE / VERIFIED** — deploy **2.58.25 VERIFIED** (коммиты `ac3f8fc` код+тесты, `59e5b12` планы/архив; прод active MainPID `467979`, health 200 `version 2.58.25`, `database is locked`=0, `TEST_*`/`L2_*`/`FORMAT_*`=0, каталог **469**; откат `pre-round1026-s9`→`cc6105c`; hot-OFF `SUMMARY_TEST_UI_ENABLED=false`); Merge **§77**, архив `plans/archive/summary-testing-ui-round1026/`. Автономный контур: @Reviewer итер.1 **Changes requested** (блокеры **B-R1026S9-2** High — краш вкладки на error-путях, **B-R1026S9-1** Medium — §112 «Процент отсева») → итер.2 **Approved** C0/H0; @Scanner итер.2 **C0/H0/блокирующих 0/L5/I2 → «к деплою ДА»**; rework **1**; pytest **8854/0 (+47)**, JS **44/44**; **Δ DDL=0**, **Δ каталога=0** (F8 не переиздаётся). **▶️ АКТИВНАЯ — S7 `summary-logging-runid`** (§108–§110; ядро `run_id`/события FILTER/L1/L2/FORMAT/обложки независимо от S6; события `PUBLISH_RICH_*`/`PUBLISH_TEXT_*` — **GATED вместе с S6/D4**, нарезка — Step 2 @Architect; **S8 зависит от S7**; **статус 24.09.2026: build B–F + rework ×2 ✅ → review Approved итер.3 (единый Reviewer gate) → миграция Scanner→Reviewer ✅ (@Orchestrator) → следующий T-3404 (линза 2 + пересчёт binding) → merge → archive → deploy 2.58.26**). **S6 `summary-publish-integration` — ⛔ BLOCKED** (гейт **D4**/ADR-1025-24: до live-приёмки Эпика 1). Гейты: S6/S10 + D4 — закрыты до live-приёмки Эпика 1; live-приёмки S1/S2/S3/S4/S5 и Эпика 1 — PENDING OWNER VERIFICATION (workflow не останавливают). Врезка L1→пакет→L2 (ON, `SUMMARY_HYBRID_L2_ENABLED` default OFF) — **GATED** (S6).
@@ -333,30 +335,30 @@
 <!-- OPENCODE_WORKFLOW_STATE_V1
 {
   "schema_version": 1,
-  "state_revision": 20,
+  "state_revision": 31,
   "task_id": "adminbot-master-spec-v6",
   "request_fingerprint": "sha256:31c6ab5c87949ec63ee64a0627e2221055f6dc0915ee15c3b361d2ce7f04a4cc",
   "task_status": "in_progress",
-  "active_feature": "summary-analytics-adapter-round1026",
-  "feature_status": "S8 COMPLETED + MERGED (§79) + ARCHIVED + DEPLOYED (2.58.27 VERIFIED). Archive: plans/archive/summary-analytics-adapter-round1026/ (6 files, SHA match; tasks 24/25 closed, T-3434 handoff open). Remaining Epic 2: S6 BLOCKED and S10 GATED — both until owner live acceptance of Epic 1 (ADR-1025-24 D4); no independent Epic-2 tasks left. Pending: DevOps closing commit; PM select_next assessment.",
-  "phase": "select_next",
+  "active_feature": "summary-publish-integration-round1026",
+  "feature_status": "S6 re-review APPROVED (C0/H0; blockers closed; format_rich_html no-truncation compliant; binding: Reviewed-Commit 197891f, WTH 4c7b2917…, Spec-Hash 77c17775…; non-blocking doc-drift to fix at merge T-3457). Ready for delivery (T-3459 deploy, APP_VERSION 2.58.28).",
+  "phase": "delivery",
   "risk_level": "R2",
-  "next_agent": "PM",
-  "next_action": "select_next assessment: map remaining requirements from full plans/current_task.md against verified features; confirm S6/S10 are gated by owner live acceptance of Epic 1 (D4) and Epic 3 is preconditioned on Epics 1–2; determine whether any independent unfinished feature remains and report; in parallel DevOps closing docs commit for S8 closure",
+  "next_agent": "DevOps",
+  "next_action": "T-3459 deploy S6: commit code+tests (APP_VERSION 2.58.28) and plans/** (feature docs + audit_backlog), push without force, prod ff + restart, verify health 200 / served 2.58.28 / database is locked=0 / publication path healthy (imports, no Traceback; PUBLISH_* emitted only on real publication) / §104 contour untouched; write deployment.md VERIFIED (rollback pre-round1026-s6 -> 197891f + git revert); commit deploy-doc",
   "human_gate": false,
   "blocked": false,
   "blocker_type": null,
   "auto_resume_enabled": true,
   "review": {
     "status": "approved",
-    "reviewed_commit": "2ffeb6a3f95922ed4833110fe90634794ace0804",
-    "working_tree_hash": "4151d36d7f87809e574c386d1a853ccc10307493049a3b23ff1f910e5681b014",
-    "spec_hash": "f397f3fd378625c9ea958dcd934595316f28fdb6668ff3a970a2c21138d71a6f"
+    "reviewed_commit": "197891fdb643a914f771b818d9f84c385dc0706b",
+    "working_tree_hash": "4c7b2917205e14a682f495adfadb13bbfc1f949f8dc56deda1960b83c97f59c4",
+    "spec_hash": "77c1777558e5e842aa0bc01f84b21dd31deaa2fcbab51b2b5df06b47ea3bf11a"
   },
   "deployment": {
     "required": true,
-    "status": "verified",
-    "deployed_commit": "64cdb0e"
+    "status": "pending",
+    "deployed_commit": null
   },
   "resume": {
     "last_resume_key": null,
@@ -364,6 +366,6 @@
     "last_resumed_at": null,
     "last_session_id": null
   },
-  "updated_at": "2026-09-23T18:45:57.001Z"
+  "updated_at": "2026-09-23T21:22:17.432Z"
 }
 OPENCODE_WORKFLOW_STATE_V1 -->
