@@ -2808,3 +2808,54 @@ S1 поставляет рантайм (`services/**`, `config/settings.py`, `se
 
 ### 74.8. Live-гейт (PENDING OWNER VERIFICATION)
 Реальные провайдерские ответы L1 и живой пайплайн станут наблюдаемыми **только после врезки S5/S6** (сейчас модуль вызывается лишь тестами с моками); слот `SUMMARY_L1_*` до S5 не имеет витрины (UI честно не показывает несуществующую возможность). **«HTTP 200 / зелёная сборка / вердикт Reviewer ≠ готово»** — workflow не останавливает; live — за владельцем (D4).
+
+## 75. Раунд 10.26 (23.09.2026, Merge) — Эпик 2 / S4: Пакет фактов для L2 (§96, детерминированный) `summary-fact-package-round1026` — контракт `FactPackage` v1 (description = детерминированная агрегация фактов L1, chronology = ASC из §92, `service{response_mode,cover_prompt}`, `budget`), 0 LLM-вызовов (2-вызовность сохранена), reuse `limits.summary_max_context_*` (Δ каталога=0), fail-closed `ok/truncated/empty/invalid/error/not_built` (§106), ID TG/DB, логи `FACT_PACKAGE_*`; врезка — DEFERRED (S5/S6) — `APP_VERSION` 2.58.22 → **2.58.23** (deploy T-3305 @DevOps)
+
+**Фича** `summary-fact-package-round1026` (S4, Эпик 2, **этап «Пакет фактов для L2»** §80/§96), поверх S1 (§71), S2 (§73), S3 (§74). **T-3283…T-3305** (блоки 0/A–H). **Статус: ✅ COMPLETED + MERGED (§75, Шаг 7 @Architect T-3303, 23.09.2026); deploy = ДА (T-3305 @DevOps применим); откат — annotated-тег `pre-round1026-s4` → `59f5921`; врезка — DEFERRED (S5/S6).** Step 5 @Reviewer (T-3300) — **Approved** (C0/H0; блокирующих нет; live — **PENDING OWNER VERIFICATION**); Step 6 @Scanner (T-3301) — **C0/H0/M1(процесс, снят ревью)/L2/I2 → «к деплою ДА»** (`plans/reports/round1026_s4_scanner_audit.md`). 🔒 Merge фиксирует принятый объём A–F/G–H; **ADR-1026-6 (D1–D6) Accepted** фактом мержа §75 (**новых решений §75 не вводит**; AMEND-части ADR-1022-4/1023-3/-6 вступают в силу на S5 — при врезке).
+
+**Назначение (D1).** Целевой пайплайн Эпика 2: S1-фильтр → S2-восстановление → L1 «Кластеризатор» (S3, `L1Result.payload` §95) → **пакет фактов §96 (S4, 0 вызовов)** → L2 «Писатель» (§97–§99, S5, 1 вызов) → форматирование → существующая публикация. §96 требует на тему: **название, описание, хронологию, факты, подтверждающие ID, необходимые исходные фрагменты текста**; **весь сырой лог повторно не передаётся**; **доказательства не генерируются**. Пакет строится из **валидированного** `L1Result` (S3) и §92-payload (`build_l1_payload`) **детерминированно, без единого LLM-вызова** — иначе нарушится инвариант ровно 2 физических вызовов (ADR-1022-3/4/5, ADR-1026-5 D1).
+
+**Ключевое ограничение (D1).** В §95-JSON **нет** `description` и **нет** хронологии. Источник — **детерминированный, 0 LLM**: описание = компактная агрегация `facts[].text` (уже валидированных, evidence-backed); хронология = ASC `(timestamp,message_id)` по `message_ids` темы из §92-payload. **Описание моделью не генерируется** (третий вызов — блокер). Альтернативы «описание = сырой текст темы» и «хронология-дамп» отклонены (дубль лога/раздувание бюджета).
+
+### 75.1. Схема и интерфейс (D1)
+Модуль `services/summary_fact_package.py` (**новый**, 694 стр.; **чистый**: без БД/сети/часов/LLM). Интерфейс для S5 (объявлен, не вызывается): `build_fact_package(l1_result, payload_items, *, budget=None, correlation_id=None) -> FactPackageResult{status, package|None, reason, metrics, budget}`; `L1Result` (S3) — единственный вход L1-данных.
+- **Топ-уровень:** `{schema_version:1, status, threads[], unassigned_message_ids[], service{response_mode,cover_prompt}, budget{kind,limit,estimated,fits}}`. **PackageThread:** `{thread_id, name, description, chronology[], facts[], evidence_ids[], fragments[]}`. Фиксированный порядок ключей; двойной прогон байт-идентичен; вход не мутируется.
+- **`name`** = `topic` verbatim (0 генерации). **`description`** = дедуп (casefold+схлопывание пробелов) `facts[].text`, фикс-разделитель `" · "`, кап `DESCRIPTION_MAX=500` по границе слова; нет фактов → `""` (**не выдумывается**). **`chronology`** = ASC `(timestamp,message_id)` из §92-payload (id+время, без текста). **`facts`/`evidence_ids`** = verbatim из L1 + union evidence темы. **`fragments`** = evidence-first отбор из §92 (`FRAGMENT_MAX_CHARS=1000`, `MAX_FRAGMENTS_PER_THREAD=30`, `MAX_FRAGMENTS_TOTAL=500`); тексты `unassigned`/прочих строк не попадают. **`service`** (`cover_prompt`/`response_mode`) — транзит, **вне L2-контента** (D3; §104/обложка/`compose_cover_image_prompt`/hotfix4 — без изменений).
+
+### 75.2. Бюджет L2-входа (D2)
+Переиспользование существующих `limits.summary_max_context_tokens`/`_chars` через `resolve_chat_limit(token_value, _SUMMARY_CONTEXT_TOKEN_DEFAULT=30000, "SUMMARY_MAX_CONTEXT_CHARS", chars_value, "SUMMARY_FACT_PACKAGE")` — паритет с `resolve_l1_budget` (`summary_l1_clusterizer.py:305-320`). **Δ каталога=0**, новых env-переменных/ключей нет; per-chat-резолв — S5. Приоритет усечения (детерминированный): `fragments` (старые первыми, **последние сохраняются** — §93) → `description` (→`""`) → целые темы (старая первой); факты/evidence не обрезаются частично. Любое вытеснение → `status="truncated"` + `skipped_ids`/`skipped_threads` + WARN `FACT_PACKAGE_TRUNCATED` («не резать молча», §93/§96); ни одна тема не влезает → `empty` → L2 не вызывается.
+
+### 75.3. Fail-closed / ID-пространства / детерминизм (D5)
+| `L1Result.status` | Пакет | В L2? |
+|---|---|---|
+| `ok` | `ok` (или `truncated` при усечении пакета) | да |
+| `truncated` | `truncated` + проброс + WARN | да |
+| `empty` | `empty`, `threads=[]` | **нет** (§106) |
+| `invalid` | `invalid` + `reason`, `threads=[]` | **нет** (§95) |
+| `error` | `error` + `reason`, `threads=[]` | **нет** (§106) |
+| нет `usable`/`payload=None` | пакет **не строится**, `not_built` | **нет** |
+
+Пакет оперирует **TG `message_id`** (пространство §92/§95); DB `id` — только внутренняя бухгалтерия усечения в логах, **не** публичное поле. Все id обязаны существовать в §95- и §92-payload; висячие/дублированные/перекрёстные/фабрикованные → `invalid` (код причины); `evidence_ids ⊆ message_ids` темы (defense-in-depth); `unassigned_message_ids` — транзит без изменения. Детерминизм: фикс-порядок, ASC, дедуп, вход не мутируется. Любое исключение → `error`/`internal_error`.
+
+### 75.4. Инварианты (проверены @Reviewer/@Scanner)
+**0 LLM-вызовов** — модуль не импортирует `llm_client` (только stdlib + `config.settings`/`summary_l1_contract`/`token_counter`), синхронный; живой путь (`await_count==2`, `steps=[stage1,stage2]`, `step="fact_package"` отсутствует) — **вне diff**. **Δ DDL=0** (SQLite v12; `database.py`/`pg_db.py`/SQL вне diff). **Δ каталога=0** (REGISTRY **468** / Settings **426** / categorized **443** / GROUPS **100** / `_TAB_BY_GROUP` **98** / TAB_RULES **21**; `param_catalog.py` вне diff; F8 **не переиздавался**, `--check` OK). Живой путь/публикация/обложка/XML/`web/**` — вне diff; CSP/zero-build. **R17** — логи `FACT_PACKAGE_START/COMPLETE/ERROR/TRUNCATED` только числа/коды/id/host (тест `test_logs_r17_safe`); `correlation_id` — существующий (формальный `run_id` — S7). **R18** — тег `pre-round1026-s4` → `59f5921` (annotated), `.env.bak.round1026-s4`, бэкап `var/backups/s4-round1026-20260923-202326/`, `stash@{0}` цел; `git diff --check`=0. Прогоны: @Reviewer — pytest `.venv` **8737/0** (baseline 8685, **+52**), JS **43/43**; @Scanner — новый файл **52 passed / 0 failed**. `APP_VERSION` 2.58.22 → **2.58.23** (+`README.md`).
+
+### 75.5. Врезка — DEFERRED (границы S4/S5)
+S4 активирует модуль + схему + валидатор + бюджет + логи + тесты; **врезки нет** — GATED: не раньше S5/S6, гейт **S6/S10 + D4/ADR-1025-24** (модуль нигде не импортируется в `services/**` — grep по коду/тестам). **S5 получает:** врезку `L1 → пакет → L2`, слот/UI L2-модели и каталог, per-chat-резолв бюджета; follow-up S3 (`L-R1026S3-1/-2/-3`, `R-R1026S3-1/-2`). `run_id` — S7; ExecutionGraph-узлы — S8; §113 (Mini App) → S9 (отдельная фича). Альтернатива «врезать сразу с kill-switch» отклонена (L2 ещё не существует; изменила бы публикационный контур до live-приёмки Эпика 1).
+
+### 75.6. Deploy — T-3305 (2.58.23); точка отката
+**Deploy = ДА:** в деплой-дерево добавляется новый рантайм-модуль (артефакт поставки), version-tracking/откат требуют маркера → **bump `APP_VERSION` 2.58.22 → 2.58.23** + `README.md` (`test_app_version_matches_readme`) + cache-bust; перед деплоем — минимальные §114-тесты. Наблюдаемое поведение/каталог/DDL **не меняются** (подтверждено тестами). Альтернатива **NOT_APPLICABLE** отклонена: оставила бы прод и master рассинхронизированными до S5. **Точка отката:** annotated-тег **`pre-round1026-s4`** → `59f5921`; hard — `git revert`; **hot-OFF не требуется** (живой путь не тронут).
+
+### 75.7. Техдолг / follow-up → S5 (не блокеры)
+- **[L-R1026S4-1, Low]** обрезка фрагмента >`FRAGMENT_MAX_CHARS` не помечает пакет `truncated` и не даёт WARN (только `metrics.fragment_char_truncated_count`; наблюдаемо, не «молча»; §6 «вытеснение» ≠ char-обрезка).
+- **[L-R1026S4-2, Low]** `_enforce_budget` — O(n²) пересчёт JSON+токенов на каждое вытеснение (проба: 341 вытеснение, 0.29 s CPU — не блокирует).
+- **[L-R1026S4-3, Low]** §9/ADR D5 «проброс `skipped_ids`/`skipped_tg_ids`» выполнен **счётчиками** (`l1_skipped_count`/`l1_chunk_count`); сами id-списки не переносятся — данные остаются на `L1Result` (S5 получает его напрямую) → функциональной потери нет; уточнить формулировку либо донести ids в S5.
+- **[I-R1026S4-1, Info]** `unassigned_message_ids` не усекаются бюджетом (транзит §5); при перевесе только unassigned → `empty`/`fits=False`.
+- **[I-R1026S4-2, Info]** `invalid`/`error` без `invalid_reason` → `result.reason=None`, а `metrics.reason`/лог = `ok` (вводит в заблуждение диагностику).
+- **Follow-up S3 → S5:** `L-R1026S3-1/-2/-3`, `R-R1026S3-1/-2`; per-chat-резолв бюджета; каталог/UI L2.
+
+### 75.8. Ссылки
+- **Спека/ADR/задачи/доказательства/ревью:** `plans/features/summary-fact-package-round1026/{spec.md, adr-1026-6-fact-package-contract-deterministic-s5.md, tasks.md, evidence.md, review.md}`. **ADR-1026-6 (D1–D6) Accepted** фактом мержа §75.
+- **Отчёты:** `plans/reports/round1026_s4_scanner_audit.md` (**C0/H0/M1(процесс)/L2/I2 → «к деплою ДА»**).
+- **Код:** `services/summary_fact_package.py` (**новый**, 694 стр., 0 LLM), `config/settings.py` (`APP_VERSION` 2.58.23), `README.md`, `tests/test_summary_fact_package.py` (**52 теста**); **вне diff** — `summary_generator.py`/`summary_xml.py`/публикация/обложка/`web/**`/`param_catalog.py`.
+- **Следующие:** ✅ T-3303 Merge §75 (Шаг 7 @Architect) → T-3304 @PM (архивация/метрики) → **T-3305 @DevOps deploy 2.58.23**; далее **S5** (`L1 → пакет → L2`, врезка по санкции @Architect после live-приёмки Эпика 1). Гейты: **S6/S10 — закрыт** (ADR-1025-24 D4); live-гейты (Эпик 1, S1/S2/S3) — ⏳ **PENDING OWNER VERIFICATION**.
