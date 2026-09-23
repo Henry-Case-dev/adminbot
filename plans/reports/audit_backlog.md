@@ -1,5 +1,12 @@
 # Audit Backlog
 
+## Эпик 2 / S2 `summary-context-restore-round1026` (Шаг 6, T-3246) — Step 6 @Scanner, 23.09.2026 — **SCANNED: блокеров нет; Critical/High/Medium — 0; Low 2 (owned follow-up)**
+Baseline — HEAD `7895e77` (тег `pre-round1026-s2`); правки **НЕ закоммичены**. Отчёт: `plans/reports/round1026_s2_scanner_audit.md`. Bump `APP_VERSION` 2.58.21; Δ DDL=0; Δ каталога=0 (467/426/442/100/98/21).
+- [ ] **[L-R1026S2-1] [low, new, doc]** `services/summary_context_restore.py:4-6` — docstring «без системных часов», но `duration_ms` считается через `time.perf_counter()` (недетерминирован лишь метрический таймер; `kept`/`restored` детерминированы). **Fix:** уточнить формулировку либо вынести таймер в адаптер. (Не блокирует)
+- [ ] **[L-R1026S2-2] [low, new, perf]** `services/summary_generator.py::_collect_extra_parents` — до 50 последовательных `collect_thread_chain` (глубина 10) + повторное чтение строк цепочки из БД; ограниченный рост латентности на «звонких» чатах. **Fix:** наблюдать в проде; при необходимости batch-чтение/кэш. (Не блокирует)
+- **Инварианты OK:** D4-гейт (XML/промпты/публикация вне diff; 2 LLM; нет новых зависимостей/CDN); Δ DDL=0; Δ каталога=0 (`param_catalog.py` не тронут; 467/426/442/100/98/21); `APP_VERSION` 2.58.21; R17 (логи — числа/коды/id)/R18 (тег `pre-round1026-s2`, бэкапы, `stash@{0}`); `git diff --check`=0; гигиена индекса (нет `.env`/`current_task.md`/zip/`tools/_ui_*`/`var/backups`).
+- **Handoff @Scanner:** @Orchestrator → **SCANNED** (к деплою ДА; live-приёмка — PENDING OWNER).
+
 ## Правка владельца v2.58.20 «мерцание свечения фона ×2» в `polygonal-luminescence-round1026` (T-3220…T-3223) — Step 6 @Scanner, 23.09.2026 — **SCANNED: блокеров нет; новых Low/Medium — 0**
 Baseline — HEAD `1ad98ca` (прод-деплой 2.58.19); правки **НЕ закоммичены** (25 M / 0 ??). Отчёт: `plans/reports/round1026_visual_scanner_audit.md` (Addendum). Bump `APP_VERSION` 2.58.20.
 - [ ] **I-POLY1026-5 [info, new]** Docstring `tests/test_webapp_round1026_polygon.py:7` / `evidence.md` упоминают `SQLite user_version=12`, тогда как схема версионируется в `services/database.py` (`_SCHEMA_VERSION*`), `db/**/*.sql` отсутствует → `test_zero_ddl` вакуумный. Δ DDL=0 доказан diff-скоупом. **Fix:** уточнить формулировку. (не блокирует; pre-existing)

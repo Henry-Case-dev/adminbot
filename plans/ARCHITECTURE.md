@@ -2700,3 +2700,52 @@ S1 поставляет рантайм (`services/**`, `config/settings.py`, `se
 **Live-гейт (PENDING OWNER VERIFICATION):** (1) **блок J/стекло** — реальная оптическая рефракция / внешний ореол / перф и плавность в живом Telegram WebView (Android/iOS/WebKit), не воспроизводимо headless; (2) **качество фона** — субъективный **темп мерцания** после ×2 (константы и тест-гейт подтверждены, визуальное впечатление — за владельцем). **«HTTP 200 ≠ субъективный темп мерцания»**; workflow не останавливает.
 
 **§17 — продолжение `plans/current_task.md`:** эпик закрыт; следующий шаг — **возобновить приостановленную S2 `summary-context-restore`** (§90–§92, Эпик 2), **не зацикливаться на декоре**; гейт **S6/S10** (публикация) остаётся закрыт (ADR-1025-24 D4).
+
+## 73. Раунд 10.26 (23.09.2026, Merge) — Эпик 2 / S2: восстановление контекста `summary-context-restore-round1026` §90–§92 — транзитивные reply-родители (сквозь бот-ответы; вне окна — reuse `thread_chain`), ограниченные соседи (cap 50), единая ASC-хронология/дедуп, бюджет `resolve_context_tokens`/`resolve_chat_limit`, `RestoreResult` → XML, UI NOT_APPLICABLE — `APP_VERSION` 2.58.21
+
+**Фича** `summary-context-restore-round1026` (S2, Эпик 2, **этап «Восстановление контекста»** §80), поверх **S1 `summary-filter-round1026`** (§71, ✅ Deployed 2.58.18) и визуального эпика (§72). **T-3224…T-3252** (блоки 0/A–I). **Статус: ✅ COMPLETED + MERGED (Шаг 7 @Architect T-3248, 23.09.2026); ДЕПЛОЙ — ожидает Шаг 9 @DevOps (T-3250); архивация — Шаг 8 @PM (T-3249).** Step 5 @Reviewer (T-3245) — **Approved**; Step 6 @Scanner (T-3246) — **C0/H0/M0/L2/I2 → «к деплою ДА»** (`plans/reports/round1026_s2_scanner_audit.md`). Коммиты — **ожидает Шаг 9** (bump `APP_VERSION` **2.58.20 → 2.58.21** выполнен @Builder). 🔒 Merge фиксирует принятый объём A–F; **ADR-1026-4 Accepted** фактом мержа §73 (новых решений не вводит).
+
+**Связь с Эпиком 1 (D4).** S2 — детерминированный участок **входа** L1 между S1-фильтром и XML (0 LLM-вызовов): публикационный путь (`image_generation.py`/`telegram_send.py`/`media_send.py`), промпт-каноны (`summary_prompts.py`) и XML (`summary_xml.py`) **не тронуты**; смена публикационного/hybrid-пайплайна — за отдельным гейтом **S6/S10** — 🔒 **гейт закрыт** (ADR-1025-24 D4; S2 его не открывает).
+
+### 73.1. A–F + интеграция — принятый объём
+| Блок | § / задачи | Артефакт | Факт |
+|---|---|---|---|
+| **A** | §90 (T-3227…T-3229) | `services/summary_context_restore.py` (**новый**) | pure-core `restore_context(kept, dropped, window, params, *, extra_parents, token_limit, char_limit, bot_id) -> RestoreResult{kept,restored,restored_count,parent_count,neighbor_count,restored_tg_ids,skipped_ids,budget,status,duration_ms}`; транзитивные reply-родители (пример §90 `100→101→102`), проход **сквозь бот-ответы**; родители **вне окна** — через `extra_parents`, добытые async-адаптером reuse `thread_chain.collect_thread_chain` (глубина `RESTORE_CHAIN_DEPTH=10`); `thread_chain.py` **не изменён**, второй обход не создан; гейт `flags.summary_filter_reply_context_enabled` |
+| **B** | §89/§90 (T-3230…T-3231) | `summary_context_restore.py` | соседи `context_neighbors` (=1) с **каждой стороны** (только `dropped`), cap `context_max_messages` (=50) на **добавления** (приоритет родители→соседи, тай-брейк `(timestamp,id)`); «всплеск → только ближайшие», не весь 6-часовой лог |
+| **C** | §90 (T-3232…T-3233) | `summary_context_restore.py` | единая ASC-хронология `(timestamp,id)`, дедуп по `id` (`kept∩restored∩dropped`), двойной прогон байт-идентичен; исходные `id`/`tg_message_id`/`reply_to_id` **не подменяются** |
+| **D** | §91 (T-3234…T-3237) | `summary_context_restore.py` | короткий важный тред — приоритет родителей; параллельные ветки **не склеиваются**; медиа/подпись/транскрипт сохранены (пустой текст при медиа — не повод дропнуть); **бот-ответ и прошлое Саммари — не события** (`is_bot`/`user_id==bot_id` не восстанавливаются, сквозь бот-ход проходим); `mentions` **не выдумывается** |
+| **E** | §89/§93 (T-3238…T-3239) | `summary_context_restore.py` | бюджет через существующие `resolve_context_tokens`/`resolve_chat_limit` (**без новых ключей**); `kept` **не удаляется никогда**; усечение (cap/бюджет) → `status='truncated'` + `skipped_ids` + лог («не резать молча») |
+| **F** | §92 (T-3240…T-3241) | `summary_context_restore.py::build_l1_payload` | только реальные поля (`message_id←tg_message_id`, `author_id←user_id`, `display_name←author_name`, `message_type←media_type`, `reply_to_id`, `timestamp`), `chat_id` из запуска; отсутствующие поля **не фабрикуются** |
+| **D6/H** | §80/§107–§109 (T-3242…T-3244) | `services/summary_generator.py::_apply_filter` (`_restore`/`_collect_extra_parents`/`_is_open_anchor`/`_chain_tg_id`), `config/settings.py` | врезка строго между `filter_window` и `xml.build`; XML-вход = `RestoreResult.kept`; RAG/память — исходные `rows`; **0 новых LLM-вызовов** (2-вызовность); fail-open; OFF → S2 не вызывается (байт-в-байт S1); логи `RESTORE_START/COMPLETE/ERROR` + `FILTER_COMPLETE.restored_count`; блок **H = NOT_APPLICABLE** (Δ каталога=0); bump `APP_VERSION` 2.58.21 |
+
+### 73.2. Инварианты (проверены @Reviewer/@Scanner)
+**Δ DDL=0** (SQLite `user_version=12`; `services/database.py`/`db/**`/миграции вне diff). **Δ каталога = 0** (`param_catalog.py` не тронут; REGISTRY **467** / Settings **426** / categorized **442** / GROUPS **100** / `_TAB_BY_GROUP` **98** / TAB_RULES **21**; ключи §89 заведены ещё S1). **D4-гейт:** `summary_xml.py`/`summary_prompts.py`/публикация вне diff. **Ровно 2 LLM-вызова** (`test_exactly_two_llm_calls_with_restore`, `await_count==2`). **CSP/zero-build:** импорты модуля — stdlib + `database`/`token_counter`, без новых либ. **R17/R18:** в `RESTORE_*` только числа/коды/id; `thread_chain.py` вне diff; маркер-тесты не ослаблены (только version re-pin + изоляция `_S2_FLAG`). @Reviewer: pytest **8569/0**, JS **43/43**; @Scanner: focused **105 passed**, двойной прогон идентичен, `git diff --check`=0.
+
+### 73.3. AMEND / REUSE-карта (полностью — ADR-1026-4)
+| Ранее | Действие | Что именно |
+|---|---|---|
+| **ADR-1026-1 D5** (границы S1↔S3) | **AMEND (уточнение)** | S2 **не потребляет** `fragments` (они адресованы S3); работает с полным окном и `kept`/`dropped` |
+| **ADR-1026-1 D6** (врезка) | **AMEND (уточнение)** | добавлена врезка S2 внутри `_apply_filter` (после `filter_window`, до `xml.build`); XML по-прежнему вне diff |
+| **ADR-1022-3/4/5**, **ADR-1023-1/-2**, **ADR-1013-3**, **ADR-1025-24 D4**, **ADR-1026-1 (D1–D4,D7)**, **ADR-1026-2** | **REUSE** | контракты/2-вызовность/промпт-канон/гейт S6/S10 — без изменений |
+| **ADR-1026-2** (переиздание frozen F8) | **НЕ запускается** | Δ каталога=0 → переиздание не требуется |
+| **ADR-1026-4** | **НОВЫЙ, Accepted** | фактом мержа §73 (Шаг 7 @Architect) |
+| **SUPERSEDE** | **нет** | — |
+
+### 73.4. Deploy — ожидает Шаг 9 @DevOps (T-3250); точка отката
+Меняется рантайм (`services/summary_context_restore.py` новый + `services/summary_generator.py`) → **Deploy = ДА**: **bump `APP_VERSION` 2.58.20 → 2.58.21** (выполнен @Builder), синхронизация `README.md` (`test_app_version_matches_readme`), cache-bust `?v=2.58.21`. **Коммиты — ожидает Шаг 9** (не выполнены; правки в дереве). **Точка отката:** annotated-тег **`pre-round1026-s2`** → commit `7895e77` (tag-object `8aa7b2b9`, в origin); бэкап `var/backups/s2-round1026-20260923-164410/`; `.env.bak.round1026-s2`; `stash@{0}` цел (R18). **Soft-откат (hot):** `flags.summary_filter_reply_context_enabled=false` → байт-в-байт S1; далее `flags.summary_filter_enabled=false` → XML-вход = `rows`. **Hard:** `git revert` + тег. **«HTTP 200 ≠ корректный контекст»** — живая корректность восстановления проверяется владельцем (§73.7).
+
+### 73.5. Техдолг §73.x (не блокеры; Шаг 10 @Memory — оформление)
+- **[L-R1026S2-1, Low]** docstring заявляет «без системных часов», но `duration_ms` считается через `time.perf_counter()` — недетерминирован только метрический `duration_ms`, `kept`/`restored` детерминированы. Fix — уточнить формулировку docstring либо вынести таймер в адаптер.
+- **[L-R1026S2-2, Low, perf watch]** `_collect_extra_parents`: до `RESTORE_CHAIN_CALLS_MAX=50` последовательных `collect_thread_chain` (глубина 10) + повторное чтение строк цепочки из БД — ограниченный рост латентности на «звонких» чатах (фон, не интерактив). Fix — batch-чтение/кэш строк цепочки.
+- **[L-R1026S2-3, Low]** на «открытом» якоре адаптер не находит родителя, если строки-родителя нет в `smart_messages` — родитель остаётся не восстановленным (fail-open, `kept` цел); ограничение хранилища (ADR-1026-4 D1). Плюс фактор среды: реальный проход зависит от наполнения `bot_replies` — подтвердить live (§73.7).
+- **[I-R1026S2-1, Info]** приоритет бюджета `token_limit > char_limit`; при заданном `token_limit` `char_limit` игнорируется — идентично S1 `estimate_and_split`.
+- **[I-R1026S2-2, Info]** `_filter_metrics["status"]` остаётся S1-статусом; статус восстановления — в `restore_status` (by design, ADR-1026-4 D3/D6).
+
+### 73.6. Ссылки
+- **Спека/ADR/задачи/доказательства/ревью (✅ архивация выполнена — Шаг 8 @PM T-3249, 23.09.2026; папка — `plans/archive/summary-context-restore-round1026/`):** `{spec.md, adr-1026-4-context-restore-contract.md, tasks.md, evidence.md, review.md}`. **ADR-1026-4 Accepted** фактом мержа §73.
+- **Отчёты:** `plans/reports/round1026_s2_scanner_audit.md` (**C0/H0/M0/L2/I2 → «к деплою ДА»**).
+- **Код:** `services/summary_context_restore.py` (**новый**), `services/summary_generator.py` (`_apply_filter`/`_restore`/`_collect_extra_parents`/`_is_open_anchor`/`_chain_tg_id`), `config/settings.py` (`APP_VERSION` 2.58.21), `README.md`, `plans/docs/param-registry-round1025.meta.md`; `services/thread_chain.py` **не изменён**; тесты `tests/test_summary_context_restore{,_integration}.py`.
+- **Следующие:** ✅ Шаг 5 @Reviewer Approved (T-3245) → ✅ Шаг 6 @Scanner C0/H0/M0 (T-3246) → ✅ Шаг 7 @Architect Merge §73 (T-3248) → Шаг 8 @PM архивация (T-3249) → Шаг 9 @DevOps deploy (T-3250; **коммиты/деплой — ожидает**) → Шаг 10 @Memory (T-3251) — `plans/metrics.md` + KG + техдолг §73.5 → Шаг 11 @PM/@Orchestrator (T-3252): продолжить **S3 `summary-l1-clusterizer`** (§94–§95), гейт S6/S10 закрыт.
+
+### 73.7. Live-гейт (PENDING OWNER VERIFICATION)
+Живое поведение Telegram — наполнение `bot_replies` и родители **вне окна**, per-chat A/B, served `?v=2.58.21` — **не воспроизводимо headless**, **не объявляется пройденным** и **workflow не останавливает** (§17). **«HTTP 200 / зелёная сборка / вердикт Reviewer ≠ готово»**; деплой — Шаг 9 @DevOps (ожидает).

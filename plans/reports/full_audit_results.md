@@ -6,6 +6,21 @@
 
 ---
 
+## Эпик 2 / S2 `summary-context-restore-round1026` (Шаг 6, T-3246) — 23.09.2026, Step 6 @Scanner — **SCANNED (к деплою ДА)**
+
+- **Baseline:** HEAD `7895e77` (тег `pre-round1026-s2` == `7895e77`), правки **НЕ закоммичены** — focused diff-based аудит дерева. Отчёт: `plans/reports/round1026_s2_scanner_audit.md`. Спека/ADR: `plans/features/summary-context-restore-round1026/{spec.md,adr-1026-4-context-restore-contract.md,evidence.md}`.
+- **Severity:** Critical 0 / High 0 / Medium 0 (блокирующих) / Low 2 (owned follow-up) / Info 2 — **блокеров нет**.
+- **Изменённые файлы:** new `services/summary_context_restore.py` (pure-core `restore_context`→`RestoreResult`, `build_l1_payload`, `RESTORE_CHAIN_DEPTH=10`); new `tests/test_summary_context_restore.py` (34) + `..._integration.py` (10); `services/summary_generator.py` (`_apply_filter` врезка между `filter_window` и `xml.build`, `_restore`, `_collect_extra_parents` через reuse `thread_chain.collect_thread_chain`, логи `RESTORE_*`); `config/settings.py`/`README.md`/`plans/docs/param-registry-round1025.meta.md` (bump 2.58.21); тесты — version re-pin + `_S2_FLAG` изоляция.
+- **D4-гейт:** `summary_xml.py`/`summary_prompts.py`/публикация (`image_generation.py`,`telegram_send.py`,`build_cover_media`/`send_rich_message`) **вне diff**; **2 LLM-вызова** не нарушены (третьего нет, `test_exactly_two_llm_calls_with_restore`); новых внешних зависимостей/CDN нет (stdlib + internal; CSP/JS не тронуты); R17 (логи — числа/коды/id, тест `test_logs_have_run_id_without_content`); R18 (тег `pre-round1026-s2`, `var/backups/s2-round1026-20260923-164410/`, `stash@{0}`).
+- **Инварианты:** Δ DDL=0 (`database.py`/`db/**` вне diff); Δ каталога=0 (`param_catalog.py` не тронут; рантайм REGISTRY **467**/GROUPS **100**/`_TAB_BY_GROUP` **98**/TAB_RULES **21**; Settings fields **426**); `APP_VERSION` **2.58.21** синхронен; маркер-тесты не ослаблены.
+- **Логика/детерминизм:** `restore_context` без I/O/сети/БД; двойной прогон идентичен (`kept`/`restored` совпадают, входы не мутируются); `kept` не удаляется при cap/бюджете; cap/`truncated`/`skipped_ids` корректны; fail-open (`status='error'` → S1-`kept`); OFF → S2 не вызывается (`_filter_metrics` без S2-ключей, `test_off_gate_no_db_touch`); `thread_chain.py` не изменён (reuse).
+- **Совместимость:** XML-вход = `RestoreResult.kept`/`FilterResult.kept`; RAG/память/graph/memorize — исходные `rows`; §57–§72/F0–F11/S1/IA/сердцебиение вне diff; S1 при OFF байт-в-байт.
+- **[L-R1026S2-1] Low (OPEN, non-blocking):** docstring `summary_context_restore.py:4-6` заявляет «без системных часов», но `duration_ms` использует `time.perf_counter()` (недетерминирован лишь метрический таймер). **Fix:** уточнить docstring/вынести таймер в адаптер.
+- **[L-R1026S2-2] Low (OPEN, perf watch):** `_collect_extra_parents` — до 50 последовательных `collect_thread_chain` (глубина 10) + повторное чтение строк цепочки; ограниченный рост латентности на «звонких» чатах. **Fix:** наблюдать/батч-чтение.
+- **Info:** I-R1026S2-1 (приоритет бюджета token>char — идентично S1, не регрессия); I-R1026S2-2 (`_filter_metrics.status` = S1, restore-статус в `restore_status`; by design).
+- **Тесты @Scanner:** pytest `test_summary_filter.py`+`_integration`+`test_summary_context_restore.py`+`..._integration.py`+`test_webapp_round1026_polygon.py` → **105 passed / 0 failed** (новые 44). `git diff --check`=0; гигиена индекса OK.
+- **Handoff:** @Orchestrator → **SCANNED** (блокеров нет; L-R1026S2-1/-2 — owned follow-up; live-приёмка — PENDING OWNER).
+
 ## Правка владельца v2.58.20 «мерцание свечения фона ×2» в `polygonal-luminescence-round1026` (T-3220…T-3223) — 23.09.2026, Step 6 @Scanner — **SCANNED**
 
 - **Baseline:** HEAD `1ad98ca` (прод-деплой 2.58.19), правки **НЕ закоммичены** — focused diff-based аудит (25 M / 0 ??). Отчёт: `plans/reports/round1026_visual_scanner_audit.md` (Addendum). Спека правки: `plans/archive/polygonal-luminescence-round1026/{tasks.md (блок R),spec.md,evidence.md}`.
