@@ -2070,6 +2070,17 @@
       outline: 2px solid rgba(110, 168, 254, .8);
       outline-offset: 1px;
     }
+    /* ═══ S8 round1026 (ADR-1026-10 D6/§29): mobile-карта вызовов ═══
+       Конкретный вызов — вертикальная последовательность этапов (flex-column
+       выше); граф не сжимается до 320px, числовые значения переносятся и
+       доступны без pinch-zoom. Только аддитивные правила — рендер F6 не
+       переписывается (§111/§30). */
+    .token-flow { min-width: 0; }
+    .token-flow__metrics { overflow-wrap: anywhere; }
+    @media (max-width: 360px) {
+      .token-flow__node { min-width: 0; }
+      .token-flow__metric { white-space: normal; }
+    }
 
     /* §27: детали узла — desktop side-panel справа. */
     /* L-F6S-4: подложка (клик закрывает) + aria-modal на панели. */

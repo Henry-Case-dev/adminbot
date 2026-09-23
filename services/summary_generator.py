@@ -300,6 +300,18 @@ _UX_GENERIC_FAILED = "не смог сделать саммари"
 _UX_EMPTY = "тут тишина, саммарить нечего"        # B4: пустое окно L1, только manual
 _UX_BUSY = "уже делаю саммари, подожди"          # B5: lock занят, только manual
 
+
+def _elapsed_since(started) -> float | None:
+    """Монотонная длительность с метки старта (S8: формат-метрика §112).
+
+    ``None`` при отсутствии метки — честное «Нет данных», не выдуманный 0.
+    """
+    try:
+        return (time.perf_counter() - started) * 1000.0 if started else None
+    except Exception:  # pragma: no cover - защитная ветка
+        return None
+
+
 _SHIZ_MARKER = "самым главным шизом объявляется"
 _SHIZ_AT_RE = re.compile(r"(самым главным шизом объявляется\s+)@+")
 
@@ -417,6 +429,11 @@ class SummaryGenerator:
                 if metrics.get("run_id") == correlation_id:
                     ctx.saved_count = metrics.get("saved_count")
                     ctx.restored_count = metrics.get("restored_count")
+                    # S8 (ADR-1026-10 D2): реальные метрики S1 для узла
+                    # `algorithm`/§112 (только числа/коды; R17-safe).
+                    ctx.drop_percent = metrics.get("drop_percent")
+                    ctx.filter_status = metrics.get("status")
+                    ctx.filter_duration_ms = metrics.get("duration_ms")
             # S5 (ADR-1026-7 D5/§80): ON-ветка врезается ПОСЛЕ S1/S2 — L1
             # получает уже отфильтрованный/восстановленный вход (`xml_rows`),
             # а не сырое окно. `trigger_message_id` учтён S1-фильтром выше,
@@ -565,6 +582,17 @@ class SummaryGenerator:
             try:
                 finish_run(ctx)
             except Exception:  # pragma: no cover - лог не должен ронять прогон
+                pass
+            # S8 (ADR-1026-10 D2/D7): фиксация in-memory снапшота прогона для
+            # карты вызовов (`/api/analytics/execution/latest`): узлы
+            # `algorithm`/`format` + §112. Без DDL/persistence; best-effort —
+            # ошибка снапшота пайплайн не рвёт и поведение не меняет.
+            try:
+                from services import execution_graph_source as _exec_graph
+                _filter_slot = getattr(self, "_filter_metrics", None) or {}
+                _exec_graph.record_run_from_context(
+                    ctx, _filter_slot.get(chat_id))
+            except Exception:  # pragma: no cover - снапшот не должен ронять прогон
                 pass
 
     async def _hybrid_l2_enabled(self, chat_id: int) -> bool:
@@ -773,9 +801,19 @@ class SummaryGenerator:
             log_format_complete(
                 run_id=correlation_id, chat_id=chat_id, channel="plain",
                 paragraphs=paragraphs, started=started)
+            if ctx is not None:
+                # S8 (ADR-1026-10 D2/D4): реальное состояние форматирования
+                # для узла `format` (канал/абзацы/длительность/статус).
+                ctx.format_channel = "plain"
+                ctx.format_status = "ok"
+                ctx.format_duration_ms = _elapsed_since(started)
         except Exception as exc:
             # §105: HTML-отправка недоступна/упала → финальный даунгрейд в
             # низкоуровневый текст (без разметки); текст не теряется.
+            if ctx is not None:
+                ctx.format_channel = "plain"
+                ctx.format_status = "downgrade"
+                ctx.format_duration_ms = _elapsed_since(started)
             log_format_error(
                 run_id=correlation_id, chat_id=chat_id, channel="plain",
                 reason=type(exc).__name__)
@@ -848,6 +886,11 @@ class SummaryGenerator:
                 run_id=correlation_id, chat_id=chat_id, channel="rich",
                 paragraphs=len((document or {}).get("paragraphs") or []),
                 started=format_started)
+            if ctx is not None:
+                # S8 (ADR-1026-10 D2/D4): rich-канал форматирования — факт.
+                ctx.format_channel = "rich"
+                ctx.format_status = "ok"
+                ctx.format_duration_ms = _elapsed_since(format_started)
             logger.info("summary cover: article sent | chat_id=%s", chat_id)
         except Exception as exc:
             if ctx is not None:

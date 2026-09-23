@@ -179,7 +179,7 @@ class TestInventory:
         m = re.search(r'APP_VERSION\s*=\s*"([\d.]+)"', SETTINGS)
         assert m, "APP_VERSION не найден"
         # HOTFIX10 (10.25) — bump 2.58.12 → 2.58.13 (ADR-1025-18, T-2864).
-        assert m.group(1) == "2.58.26", f"APP_VERSION = {m.group(1)} (ожидалось 2.58.26)"
+        assert m.group(1) == "2.58.27", f"APP_VERSION = {m.group(1)} (ожидалось 2.58.27)"
 
 
 # ═══════════════ T-2531/T-2533/T-2534: палитра §8 и контраст ═══════════════

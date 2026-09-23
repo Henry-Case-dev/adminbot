@@ -122,11 +122,11 @@ class TestFrozenInvariants:
         # L-F9S-3: маркер F8 не ослабляется. Fixture — исторический baseline
         # F8 (2.58.15, файл не менялся), а текущая версия пинится СТРОГО
         # (F11/ADR-1025-23 D6 поднял 2.58.16 → 2.58.20; S5/ADR-1026-7 D7 —
-        # 2.58.24 → 2.58.25; S7/ADR-1026-9 D8 — 2.58.25 → 2.58.26; без
+        # 2.58.24 → 2.58.25; S7/ADR-1026-9 D8 — 2.58.25 → 2.58.27; без
         # `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.26"
+        assert APP_VERSION == "2.58.27"
 
     def test_routes_set_unchanged(self):
         import re

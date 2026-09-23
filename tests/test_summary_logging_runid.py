@@ -852,7 +852,7 @@ class TestInvariants:
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.26"
+        assert APP_VERSION == "2.58.27"
 
     def test_publish_events_absent_gated(self):
         for name in ("services/summary_run_log.py",

@@ -9,7 +9,13 @@ RBAC — глобальный админ (образец `/api/workers/budget`).
 * GET  /analytics/usage/latest   — дерево последнего вызова (Flow node);
 * GET  /analytics/usage/summary  — агрегаты день/неделя/месяц (+ by_module);
 * GET  /analytics/prices         — таблица цен;
-* PUT  /analytics/prices         — upsert цены (admin-only).
+* PUT  /analytics/prices         — upsert цены (admin-only);
+* GET  /analytics/execution/latest — S8 (ADR-1026-10 D3): нормализованный
+  граф одного прогона Саммари (узлы `algorithm`/`llm`/`format` + §112).
+
+S8-эндпоинт аддитивен и read-only (R16: одна минимальная поверхность §111
+«расширить backend adapter»). Publish-срез GATED (D1/D8): узлы
+`kind="publish"` не эмитятся.
 """
 import logging
 from typing import Annotated
@@ -18,7 +24,7 @@ from aiogram.utils.web_app import WebAppUser
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
-from services import llm_pricing, usage_events
+from services import execution_graph_source, llm_pricing, usage_events
 from web.api.deps import get_cache, requires_global_admin
 
 logger = logging.getLogger(__name__)
@@ -43,16 +49,22 @@ _SELECT_STEPS_SQL = (
     "output_tokens, tokens_estimated, cost_usd, price_known "
     "FROM llm_usage_events WHERE correlation_id = $1 ORDER BY ts ASC, id ASC"
 )
+# S8/`L-F6S-1` (ADR-1026-10 D4): аддитивный `price_known` = BOOL_AND(price_known)
+# — агрегат честно показывает «Нет данных» вместо выдуманного `$0`, когда цена
+# хотя бы одного события неизвестна. `COALESCE(..., true)` — пустое окно
+# остаётся shape-совместимым (нет событий → нечего считать неизвестным).
 _SELECT_TOTALS_SQL = (
     "SELECT COALESCE(SUM(cost_usd), 0) AS cost_usd, "
     "COALESCE(SUM(input_tokens), 0) AS input_tokens, "
-    "COALESCE(SUM(output_tokens), 0) AS output_tokens, COUNT(*) AS calls "
+    "COALESCE(SUM(output_tokens), 0) AS output_tokens, COUNT(*) AS calls, "
+    "COALESCE(BOOL_AND(price_known), true) AS price_known "
     "FROM llm_usage_events WHERE ts >= now() - ($1::int * interval '1 day')"
 )
 _SELECT_BY_MODULE_SQL = (
     "SELECT module, COALESCE(SUM(cost_usd), 0) AS cost_usd, "
     "COALESCE(SUM(input_tokens), 0) AS input_tokens, "
-    "COALESCE(SUM(output_tokens), 0) AS output_tokens, COUNT(*) AS calls "
+    "COALESCE(SUM(output_tokens), 0) AS output_tokens, COUNT(*) AS calls, "
+    "COALESCE(BOOL_AND(price_known), true) AS price_known "
     "FROM llm_usage_events WHERE ts >= now() - ($1::int * interval '1 day') "
     "GROUP BY module ORDER BY cost_usd DESC, module ASC"
 )
@@ -60,7 +72,8 @@ _SELECT_SERIES_SQL = (
     "SELECT date_trunc('{unit}', ts) AS bucket, "
     "COALESCE(SUM(cost_usd), 0) AS cost_usd, "
     "COALESCE(SUM(input_tokens), 0) AS input_tokens, "
-    "COALESCE(SUM(output_tokens), 0) AS output_tokens, COUNT(*) AS calls "
+    "COALESCE(SUM(output_tokens), 0) AS output_tokens, COUNT(*) AS calls, "
+    "COALESCE(BOOL_AND(price_known), true) AS price_known "
     "FROM llm_usage_events WHERE ts >= now() - ($1::int * interval '1 day') "
     "GROUP BY bucket ORDER BY bucket ASC"
 )
@@ -109,6 +122,17 @@ def _int(value) -> int:
         return 0
 
 
+def _bool(row, key, default=True) -> bool:
+    """Значение BOOL-колонки; отсутствие ключа → безопасный default (True).
+
+    Fake-пулы/старые ответы без `price_known` не должны падать (аддитивность).
+    """
+    try:
+        return bool(row[key])
+    except (KeyError, TypeError, IndexError):
+        return default
+
+
 def _step_row(row) -> dict:
     return {
         "ts": row["ts"].isoformat() if hasattr(row["ts"], "isoformat")
@@ -132,8 +156,35 @@ def _empty_latest() -> dict:
 
 
 def _empty_summary(period: str, days: int) -> dict:
-    return {"period": period, "since": f"{days}d", "totals": dict(_EMPTY_TOTAL),
+    totals = dict(_EMPTY_TOTAL)
+    totals["price_known"] = True        # S8/`L-F6S-1`: нет событий → нет $0
+    return {"period": period, "since": f"{days}d", "totals": totals,
             "by_module": [], "series": []}
+
+
+def _context_limit_info() -> dict:
+    """§112: контекст-лимит Саммари; `-1`-sentinel → «Без лимита» (D4).
+
+    R17-safe: только bool/подпись, без значений секретов.
+    """
+    try:
+        from config.settings import settings
+        from services import hot_config as hot
+        from services.budget_limits import context_state
+        raw = hot.get("limits.summary_max_context_tokens",
+                      getattr(settings, "SUMMARY_MAX_CONTEXT_TOKENS", None))
+        if context_state(raw) == "unlimited":
+            return {"unlimited": True, "display": "Без лимита"}
+        return {"unlimited": False, "display": None}
+    except Exception:      # pragma: no cover - защитная ветка (fail-open)
+        return {"unlimited": False, "display": None}
+
+
+def _execution_response(run_id: str, snapshot, rows: list) -> dict:
+    """Нормализованный граф прогона + §112 (fail-open shape, D3/D6)."""
+    graph = execution_graph_source.build_graph(run_id, snapshot, rows)
+    graph["metrics"]["context"] = _context_limit_info()
+    return graph
 
 
 @analytics_router.get("/analytics/usage/latest")
@@ -200,6 +251,7 @@ async def usage_summary(
         "output_tokens": _int(totals_row["output_tokens"]),
         "cost_usd": _num(totals_row["cost_usd"]),
         "calls": _int(totals_row["calls"]),
+        "price_known": _bool(totals_row, "price_known", True),
     }
     by_module = [{
         "module": str(row["module"] or ""),
@@ -207,6 +259,7 @@ async def usage_summary(
         "input_tokens": _int(row["input_tokens"]),
         "output_tokens": _int(row["output_tokens"]),
         "calls": _int(row["calls"]),
+        "price_known": _bool(row, "price_known", True),
     } for row in module_rows]
     series = [{
         "bucket": (row["bucket"].isoformat()
@@ -216,9 +269,45 @@ async def usage_summary(
         "input_tokens": _int(row["input_tokens"]),
         "output_tokens": _int(row["output_tokens"]),
         "calls": _int(row["calls"]),
+        "price_known": _bool(row, "price_known", True),
     } for row in series_rows]
     return {"period": period, "since": f"{days}d", "totals": totals,
             "by_module": by_module, "series": series}
+
+
+@analytics_router.get("/analytics/execution/latest")
+async def execution_latest(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
+    run_id: str = Query(default=""),
+):
+    """S8 (ADR-1026-10 D3): нормализованный граф одного прогона Саммари.
+
+    Источники: LLM-узлы — PG ``llm_usage_events`` по ``correlation_id``
+    (=``run_id``, D5); filter/format/§112 — in-memory снапшот прогона (S7).
+    Публикация — ``gated`` (D1/D8). Fail-open: нет данных/PG down/телеметрия
+    OFF → shape-совместимый пустой граф без ошибок UI (узлы только реальные,
+    §24/§25/§30).
+    """
+    cache = get_cache(request)
+    pool = _pool(cache)
+    rid = str(run_id or "").strip()
+    if not rid:
+        rid = execution_graph_source.latest_run_id() or ""
+    if not rid:
+        return _execution_response("", None, [])
+    snapshot = execution_graph_source.get_run(rid)
+    rows: list = []
+    if pool is not None and usage_events.is_enabled():
+        try:
+            async with pool.acquire() as conn:
+                raw = await conn.fetch(_SELECT_STEPS_SQL, rid)
+            rows = [_step_row(row) for row in raw]
+        except Exception:
+            logger.warning("[analytics] execution read failed — fail-open",
+                           exc_info=True)
+            rows = []
+    return _execution_response(rid, snapshot, rows)
 
 
 @analytics_router.get("/analytics/prices")

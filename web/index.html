@@ -2303,6 +2303,18 @@
                       </div>
                       <div v-else-if="execFilterActive()" class="text-xs text-gray-500 mb-3">По фильтрам вызовов нет.</div>
                       <div v-else class="text-xs text-gray-500 mb-3">Вызовов ещё не было.</div>
+                      <!-- §112 (S8/ADR-1026-10 D4): метрики прогона — честные
+                           («Нет данных» вместо выдуманного $0; публикация gated).
+                           Источник — execMetricsRows (adapter ExecutionGraph). -->
+                      <details v-if="execMetricsRows().length" class="mb-3 text-xs">
+                        <summary class="cursor-pointer text-gray-400">Метрики Саммари</summary>
+                        <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                          <span v-for="row in execMetricsRows()" :key="'m' + row.label"
+                                class="token-flow__metric">
+                            {{ row.label }}: {{ row.value }}
+                          </span>
+                        </div>
+                      </details>
                     </template>
                     <!-- РЕЖИМ 2 (§26): агрегат периода — не смешивается с трассировкой -->
                     <template v-else>

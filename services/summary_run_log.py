@@ -126,6 +126,15 @@ class RunContext:
     threads: int | None = None
     paragraphs: int | None = None
     cover_status: str | None = None   # ok | unavailable | none
+    # S8 (ADR-1026-10 D2): аддитивные поля снапшота прогона для карты вызовов
+    # (§112/§111) — filter-метрики S1 и состояние серверного форматирования.
+    # Заполняются этапами; в лог §108 НЕ выводятся (R17-поверхность не растёт).
+    drop_percent: float | None = None
+    filter_status: str | None = None
+    filter_duration_ms: float | None = None
+    format_channel: str | None = None
+    format_status: str | None = None
+    format_duration_ms: float | None = None
     status: str = STATUS_OK
     stage: str | None = None
     model: str | None = None

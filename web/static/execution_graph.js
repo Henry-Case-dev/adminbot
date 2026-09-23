@@ -21,6 +21,13 @@
  *  - `algorithm`/`format`/`publish` зарезервированы контрактом, но из текущих
  *    данных (`step`) НЕ эмитятся: в `llm_usage_events` таких шагов нет.
  *    LLM-токены для `algorithm` не подставляются никогда.
+ *
+ * S8 round1026 (ADR-1026-10 D2/D3/D4/D6): добавлены реальные этапы Эпика 2
+ * (`filter`→algorithm, `l1_clusterizer`/`l2_writer`→llm, `formatting`→format;
+ * `publication`→publish ЗАРЕЗЕРВИРОВАН, GATED) и `fromExecution(payload)` —
+ * проекция backend-нормализованного графа одного прогона (узлы + §112).
+ * Publish-узлы отбрасываются (S6/D4); связи — подтверждённая линейная
+ * последовательность одного `run_id` (D6), ветвление не достраивается.
  */
 (function (root, factory) {
   'use strict';
@@ -41,18 +48,27 @@
     llm: 'LLM', algorithm: 'Алгоритм', tool: 'Инструмент',
     format: 'Форматирование', publish: 'Публикация', other: 'Шаг',
   };
-  // Сырой `step` -> kind. `algorithm`/`format`/`publish` — зарезервированы
-  // под Эпик 2 (сейчас таких `step` нет, значит и узлов нет — §24).
+  // Сырой `step` -> kind (§111/D2). Реальные этапы Эпика 2: filter ->
+  // algorithm, l1_clusterizer/l2_writer -> llm, formatting/format -> format.
+  // `publication` -> publish — ЗАРЕЗЕРВИРОВАН, но GATED (S6/D4): источник
+  // данных отсутствует, поэтому publish-узлы не активируются.
   var STEP_KIND = {
     single: 'llm', stage1: 'llm', stage2: 'llm', image: 'llm',
     tool: 'tool',
-    algorithm: 'algorithm', format: 'format', publish: 'publish',
+    filter: 'algorithm',
+    l1_clusterizer: 'llm', l2_writer: 'llm',
+    formatting: 'format', format: 'format',
+    algorithm: 'algorithm', publish: 'publish', publication: 'publish',
   };
-  // ru-словарь этапов (§24): Слой 1/Слой 2/Один вызов/Изображение/Инструмент.
+  // ru-словарь этапов (§24): Слой 1/Слой 2/Один вызов/Изображение/Инструмент
+  // + реальные этапы Эпика 2.
   var STEP_LABEL = {
     single: 'Один вызов', stage1: 'Слой 1', stage2: 'Слой 2',
     image: 'Изображение', tool: 'Инструмент',
-    algorithm: 'Алгоритм', format: 'Форматирование', publish: 'Публикация',
+    filter: 'Алгоритмический фильтр',
+    l1_clusterizer: 'L1 Кластеризатор', l2_writer: 'L2 Писатель',
+    formatting: 'Форматирование', format: 'Форматирование',
+    algorithm: 'Алгоритм', publish: 'Публикация', publication: 'Публикация',
   };
 
   function has(obj, key) {
@@ -177,31 +193,40 @@
   // временных/иерархических связей не изобретаем (parentIds=[]).
   function fromSummary(summary) {
     var s = summary || {};
+    // `L-F6S-1` (S8/D4): агрегат честен по `price_known` (BOOL_AND на сервере).
+    // Отсутствие поля (старый ответ) → true (обратная совместимость).
+    function known(flag) { return flag !== false; }
     var byModule = (s.by_module || []).map(function (m) {
+      var k = known(m.price_known);
       return {
         module: strOrNull(m.module),
-        cost: num(m.cost_usd),        // агрегат: цена известна по построению
+        cost: k ? num(m.cost_usd) : null,
         inputTokens: num(m.input_tokens),
         outputTokens: num(m.output_tokens),
         calls: num(m.calls) || 0,
+        priceKnown: k,
       };
     });
     var series = (s.series || []).map(function (b) {
+      var k = known(b.price_known);
       return {
         bucket: strOrNull(b.bucket),
-        cost: num(b.cost_usd),
+        cost: k ? num(b.cost_usd) : null,
         inputTokens: num(b.input_tokens),
         outputTokens: num(b.output_tokens),
         calls: num(b.calls) || 0,
+        priceKnown: k,
       };
     });
+    var t = s.totals || {};
+    var totalsKnown = known(t.price_known);
     var totals = {
-      inputTokens: num((s.totals || {}).input_tokens) || 0,
-      outputTokens: num((s.totals || {}).output_tokens) || 0,
-      cost: num((s.totals || {}).cost_usd),
-      costCurrency: 'USD',
-      priceKnown: true,
-      calls: num((s.totals || {}).calls) || 0,
+      inputTokens: num(t.input_tokens) || 0,
+      outputTokens: num(t.output_tokens) || 0,
+      cost: totalsKnown ? num(t.cost_usd) : null,
+      costCurrency: totalsKnown ? 'USD' : null,
+      priceKnown: totalsKnown,
+      calls: num(t.calls) || 0,
     };
     var aggregate = byModule.map(function (m, i) {
       return {
@@ -219,8 +244,8 @@
         inputTokens: m.inputTokens,
         outputTokens: m.outputTokens,
         cost: m.cost,
-        costCurrency: 'USD',
-        priceKnown: true,
+        costCurrency: m.priceKnown ? 'USD' : null,
+        priceKnown: m.priceKnown,
         durationMs: null,
         startedAt: null,
         finishedAt: null,
@@ -237,6 +262,108 @@
       totals: totals,
       empty: aggregate.length === 0 && series.length === 0
              && !totals.calls,
+    };
+  }
+
+  // S8 (ADR-1026-10 D3/D4/D6): backend-нормализованный ExecutionNode-shape ->
+  // клиентская модель. Только реальные поля; publish GATED (узел
+  // kind='publish' отбрасывается — S6/D4, вторая визуализация не создаётся).
+  function normalizeExecutionNode(n, runId, index) {
+    if (!n || typeof n !== 'object') return null;
+    var kind = (n.kind && KIND_ENUM.indexOf(n.kind) >= 0) ? n.kind : 'other';
+    if (kind === 'publish') return null;   // GATED: publish-узлы не активируются
+    var meta = (n.metadata && typeof n.metadata === 'object') ? n.metadata : {};
+    var rid = (n.runId != null && n.runId !== '') ? String(n.runId)
+              : (runId != null ? runId : null);
+    var priceKnown = n.priceKnown === true;
+    return {
+      id: strOrNull(n.id) || ((rid == null ? 'run' : rid) + ':' + index),
+      runId: rid,
+      parentIds: Array.isArray(n.parentIds) ? n.parentIds.slice() : [],
+      kind: kind,
+      kindLabel: KIND_LABELS[kind] || KIND_LABELS.other,
+      stageKey: strOrNull(n.stageKey) || kind,
+      stageLabel: strOrNull(n.stageLabel) || stageLabelOf(n.stageKey, null),
+      moduleId: strOrNull(meta.module),
+      status: strOrNull(n.status) || 'unknown',
+      provider: strOrNull(n.provider),
+      model: strOrNull(n.model),
+      inputTokens: num(n.inputTokens),
+      outputTokens: num(n.outputTokens),
+      cost: priceKnown ? num(n.cost) : null,
+      costCurrency: priceKnown ? (strOrNull(n.costCurrency) || 'USD') : null,
+      priceKnown: priceKnown,
+      durationMs: num(n.durationMs),
+      startedAt: strOrNull(n.startedAt),
+      finishedAt: strOrNull(n.finishedAt),
+      metrics: n.metrics || null,
+      metadata: {
+        toolName: strOrNull(meta.toolName),
+        source: strOrNull(meta.source),
+        tokensEstimated: !!meta.tokensEstimated,
+        priceKnown: priceKnown,
+      },
+      children: [],
+    };
+  }
+
+  // Итоги прогона: честны только при подтверждённой цене (§28/D4).
+  function executionTotals(nodes, metrics) {
+    var inTok = 0, outTok = 0, calls = 0, anyUnknown = false, estimated = false;
+    nodes.forEach(function (n) {
+      if (n.kind !== 'llm') return;
+      inTok += n.inputTokens || 0;
+      outTok += n.outputTokens || 0;
+      calls += 1;
+      if (!n.priceKnown) anyUnknown = true;
+      if (n.metadata.tokensEstimated) estimated = true;
+    });
+    var totalUsage = (metrics && metrics.tokens && metrics.tokens.total) || null;
+    var costTotal = (metrics && metrics.cost) ? metrics.cost.total : null;
+    var known = totalUsage ? totalUsage.price_known === true : !anyUnknown;
+    return {
+      inputTokens: inTok,
+      outputTokens: outTok,
+      cost: known ? num(costTotal) : null,
+      costCurrency: known ? 'USD' : null,
+      priceKnown: !!known,
+      calls: calls,
+      tokensEstimated: estimated,
+    };
+  }
+
+  // РЕЖИМ 3 (S8/§29): граф ОДНОГО прогона Саммари — конкретная вертикальная
+  // последовательность этапов filter → L1 → L2 → formatting (подтверждённый
+  // порядок пайплайна, D6). Агрегат периода сюда не подмешивается (fromSummary).
+  function fromExecution(payload) {
+    var p = payload || {};
+    var rawNodes = Array.isArray(p.nodes) ? p.nodes : [];
+    var runId = (p.run_id != null && p.run_id !== '') ? String(p.run_id) : null;
+    var nodes = [];
+    for (var i = 0; i < rawNodes.length; i++) {
+      var node = normalizeExecutionNode(rawNodes[i], runId, i);
+      if (node) nodes.push(node);
+    }
+    var allowed = {};
+    nodes.forEach(function (n) { allowed[n.id] = true; });
+    var edges = [];
+    (Array.isArray(p.edges) ? p.edges : []).forEach(function (e) {
+      if (!e || !allowed[e.from] || !allowed[e.to]) return;
+      edges.push({ from: String(e.from), to: String(e.to) });
+    });
+    var metrics = (p.metrics && typeof p.metrics === 'object') ? p.metrics : null;
+    return {
+      runId: runId,
+      startedAt: strOrNull(p.started_at),
+      nodes: nodes,
+      edges: edges,
+      main: nodes,                 // вертикальная последовательность (§29)
+      hasBranch: false,            // ветвление не достраивается (§25/D6)
+      empty: nodes.length === 0,
+      totals: executionTotals(nodes, metrics),
+      metrics: metrics,
+      publicationStatus: (p.publication_status != null)
+        ? String(p.publication_status) : 'gated',
     };
   }
 
@@ -306,6 +433,7 @@
     stageLabelOf: stageLabelOf,
     fromTrace: fromTrace,
     fromSummary: fromSummary,
+    fromExecution: fromExecution,
     filter: filter,
     detail: detail,
   };

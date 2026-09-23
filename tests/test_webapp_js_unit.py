@@ -310,6 +310,17 @@ def test_js_unit_round1026_s9_testing_ui():
             ok_marker="SUMMARY-TESTING-UI-OK")
 
 
+def test_js_unit_round1026_s8_execution_graph():
+    """S8 round 10.26 (ADR-1026-10 D2/D3/D4/D6/D8, §24/§29/§111/§112):
+    маппинг реальных этапов Эпика 2 (filter/l1/l2/formatting), `fromExecution`
+    (вертикальная последовательность одного run_id), publish GATED, честная
+    стоимость (нет $0), `L-F6S-1` (fromSummary price_known), §112-блок и
+    интеграция app.js без второй визуализации."""
+    _run_js(os.path.join("tests", "js",
+                         "round1026_s8_execution_graph_test.js"),
+            ok_marker="S8-EXECGRAPH-OK")
+
+
 def test_js_unit_round1026_s7_log_summary_filter():
     """S7 round 10.26 (ADR-1026-9 D4, §110): клиентский чип «Саммари» в
     существующем log viewer — маркеры SUMMARY_/FILTER_/RESTORE_/L1_/L2_/

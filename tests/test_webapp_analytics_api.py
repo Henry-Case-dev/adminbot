@@ -202,6 +202,38 @@ class TestAnalyticsRbac:
         assert resp.status_code == 403
 
 
+class TestAnalyticsExecutionS8:
+    """S8 (ADR-1026-10 D3/D5/D6/D8): аддитивный граф прогона + честный §112."""
+
+    def test_401_without_init_data(self, client):
+        assert client.get(
+            "/api/analytics/execution/latest").status_code == 401
+
+    def test_user_403(self, client):
+        assert client.get(
+            "/api/analytics/execution/latest",
+            headers=_hdr(USER_NO_ROLE)).status_code == 403
+
+    def test_admin_200_llm_nodes_from_pg(self, client):
+        resp = client.get("/api/analytics/execution/latest?run_id=cid-1",
+                          headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["run_id"] == "cid-1"
+        assert body["publication_status"] == "gated"
+        kinds = [n["kind"] for n in body["nodes"]]
+        assert kinds == ["llm"], kinds
+        assert "publish" not in kinds, "publish GATED (D1/D8)"
+        assert body["metrics"]["publication_status"] == "gated"
+        assert body["metrics"]["cover_status"] is None
+
+    def test_summary_reports_price_known(self, client):
+        # S8/`L-F6S-1` (D4): аддитивный price_known в агрегате.
+        body = client.get("/api/analytics/usage/summary?period=day",
+                          headers=_hdr(ADMIN_ID)).json()
+        assert body["totals"]["price_known"] is True
+
+
 class TestAnalyticsPricesPut:
     def test_put_ok_and_invalidates_cache(self, client):
         llm_pricing._CACHE["deepseek-v4-flash"] = ((9.0, 9.0), 1e18)

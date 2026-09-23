@@ -1555,6 +1555,7 @@
         // ── Раунд 10.23 (F7, ADR-1023-7 §2.8): аналитика токенов в «Сводке» ──
         tokenAnalyticsLatest: null,     // GET /api/analytics/usage/latest
         tokenAnalyticsSummary: null,    // GET /api/analytics/usage/summary
+        tokenAnalyticsExecution: null,  // S8: GET /api/analytics/execution/latest
         tokenAnalyticsPeriod: 'day',    // day|week|month
         tokenAnalyticsBusy: false,
         // F6 round1025 (ADR-1025-19 D2/D3): два несмешиваемых режима карты
@@ -2490,16 +2491,38 @@
         var EG = this.execGraphApi();
         var empty = { nodes: [], edges: [], main: [], hasBranch: false,
                       empty: true, runId: null, totals: null,
-                      startedAt: null };
+                      startedAt: null, metrics: null };
         if (!EG) return empty;
-        var graph = this.execTrace;
+        // S8 (ADR-1026-10 D3/D6): в режиме «последний вызов» приоритет —
+        // реальный граф прогона Саммари (filter → L1 → L2 → format + §112),
+        // если он не пуст; иначе — F6-трассировка (обратная совместимость).
+        // Агрегат периода (fromSummary) сюда не подмешивается (§26).
+        var ex = (this.execMode === 'latest') ? this.execGraph : null;
+        var useExec = !!(ex && ex.nodes && ex.nodes.length);
+        var graph = useExec ? ex : this.execTrace;
         var all = graph.nodes || [];
         if (!all.length) return empty;
+        var source = useExec ? EG.filter(all, this._execFilters())
+                             : this.execTraceNodes;
         var allowed = {};
-        var nodes = this.execTraceNodes.map(function (n) {
+        var nodes = source.map(function (n) {
           allowed[n.id] = true;
+          // §24: для algorithm/format — только реальные метрики (без LLM-токенов).
+          var note = '';
+          var m = n.metrics || {};
+          var bits = [];
+          if (n.kind === 'algorithm') {
+            if (m.source_count != null) bits.push('Обработано: ' + m.source_count);
+            if (m.saved_count != null) bits.push('Сохранено: ' + m.saved_count);
+            if (m.drop_percent != null) bits.push('Отсев: ' + m.drop_percent + '%');
+          } else if (n.kind === 'format') {
+            if (m.channel) bits.push('Канал: ' + m.channel);
+            if (m.paragraphs != null) bits.push('Абзацев: ' + m.paragraphs);
+          }
+          if (n.durationMs != null) bits.push('Время: ' + Math.round(n.durationMs) + ' мс');
+          note = bits.join(' · ');
           return {
-            id: n.id, kind: n.kind, title: n.stageLabel, note: '',
+            id: n.id, kind: n.kind, title: n.stageLabel, note: note,
             input: n.inputTokens, output: n.outputTokens,
             cost: n.cost, priceKnown: n.priceKnown,
             estimated: n.metadata.tokensEstimated,
@@ -2524,7 +2547,78 @@
         return { nodes: nodes, edges: edges, main: nodes, hasBranch: hasBranch,
                  empty: nodes.length === 0, runId: graph.runId,
                  totals: graph.totals, startedAt: graph.startedAt,
+                 metrics: useExec ? graph.metrics : null,
                  filtered: this.execFilterActive() };
+      },
+      // S8 (ADR-1026-10 D3/D6): нормализованный граф ОДНОГО прогона Саммари —
+      // клиентская проекция backend-ответа тем же ExecutionGraph (не вторая
+      // визуализация). Узлы только реальные; publish GATED.
+      execGraph: function () {
+        var EG = this.execGraphApi();
+        return EG ? EG.fromExecution(this.tokenAnalyticsExecution) : {
+          runId: null, startedAt: null, nodes: [], edges: [], main: [],
+          hasBranch: false, empty: true, totals: null, metrics: null };
+      },
+      // §112 (REQ-S8-09): честные строки метрик Саммари («Нет данных» вместо
+      // выдуманного $0; публикация — gated). Источник — execGraph.metrics.
+      execMetricsRows: function () {
+        var g = this.execGraph;
+        if (!g || !g.metrics) return [];
+        var m = g.metrics;
+        var self = this;
+        function int(v) {
+          return (v === null || v === undefined) ? 'Нет данных' : String(v);
+        }
+        function pct(v) {
+          return (v === null || v === undefined)
+            ? 'Нет данных' : (Math.round(v * 10) / 10) + '%';
+        }
+        function costSlot(slot) {
+          if (!slot || slot.price_known !== true) return 'Нет данных';
+          return self.fmtCost(slot.cost_usd, true);
+        }
+        var l1 = (m.tokens || {}).l1;
+        var l2 = (m.tokens || {}).l2;
+        var totalKnown = ((m.tokens || {}).total || {}).price_known === true;
+        return [
+          { label: 'Исходные сообщения', value: int(m.source_count) },
+          { label: 'После фильтра', value: int(m.filtered_count) },
+          { label: 'Восстановленные', value: int(m.restored_count) },
+          { label: 'Процент отсева', value: pct(m.drop_percent) },
+          { label: 'Темы', value: int(m.threads_count) },
+          { label: 'Токены L1', value: self.execTokenPair(l1) },
+          { label: 'Токены L2', value: self.execTokenPair(l2) },
+          { label: 'Стоимость L1', value: costSlot(l1) },
+          { label: 'Стоимость L2', value: costSlot(l2) },
+          { label: 'Общая стоимость',
+            value: totalKnown ? self.fmtCost(m.cost ? m.cost.total : null, true)
+                             : 'Нет данных' },
+          { label: 'Время выполнения', value: self.execDuration(m.duration_ms) },
+          { label: 'Статус обложки', value: self.execCoverLabel(m.cover_status) },
+          { label: 'Статус публикации',
+            value: self.execPublicationLabel(m.publication_status) },
+        ];
+      },
+      execTokenPair: function (slot) {
+        if (!slot) return 'Нет данных';
+        return this.fmtExactTokens(slot.input_tokens) + ' / '
+             + this.fmtExactTokens(slot.output_tokens);
+      },
+      execDuration: function (ms) {
+        return (ms === null || ms === undefined)
+          ? 'Нет данных' : Math.round(ms) + ' мс';
+      },
+      execCoverLabel: function (status) {
+        if (status === 'ok') return 'готова';
+        if (status === 'unavailable') return 'недоступна';
+        if (status === 'none') return 'не генерировалась';
+        return 'Нет данных';
+      },
+      // §112/D4: публикация GATED (S6) — честный факт, не выдуманное «опубликовано».
+      execPublicationLabel: function (status) {
+        if (status === 'gated') return 'недоступна (гейт S6)';
+        return (status === null || status === undefined) ? 'Нет данных'
+                                                         : String(status);
       },
       // РЕЖИМ 1 (§26): нормализованная трассировка последнего вызова.
       execTrace: function () {
@@ -4206,15 +4300,21 @@
         this.tokenAnalyticsBusy = true;
         try {
           var period = this.tokenAnalyticsPeriod || 'day';
+          // S8 (ADR-1026-10 D3): граф прогона Саммари — отдельный аддитивный
+          // источник; его отказ не должен ронять аналитику F6 (fail-open).
           var res = await Promise.all([
             this.api('/api/analytics/usage/latest'),
             this.api('/api/analytics/usage/summary?period=' + period),
+            this.api('/api/analytics/execution/latest')
+              .catch(function () { return null; }),
           ]);
           this.tokenAnalyticsLatest = res[0];
           this.tokenAnalyticsSummary = res[1];
+          this.tokenAnalyticsExecution = res[2];
         } catch (e) {
           this.tokenAnalyticsLatest = null;
           this.tokenAnalyticsSummary = null;
+          this.tokenAnalyticsExecution = null;
         } finally {
           this.tokenAnalyticsBusy = false;
         }

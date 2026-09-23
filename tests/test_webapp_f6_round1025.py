@@ -107,12 +107,15 @@ class TestInvariant116:
         assert "backdrop-filter: url(" not in _CSS
 
     def test_analytics_api_read_only(self):
-        # R16: новых эндпоинтов нет — ровно существующие 4 маршрута.
+        # R16 (трактовка S8/ADR-1026-10 D3): одна аддитивная read-only
+        # поверхность §111 «расширить backend adapter» — 5 маршрутов
+        # (4 F7 + аддитивный GET /analytics/execution/latest).
         routes = re.findall(r"@analytics_router\.(get|put|post|delete)\(\"([^\"]+)\"",
                             _ANALYTICS)
-        assert len(routes) == 4, f"изменён контракт analytics API: {routes}"
+        assert len(routes) == 5, f"изменён контракт analytics API: {routes}"
         assert "/analytics/usage/latest" in _ANALYTICS
         assert "/analytics/usage/summary" in _ANALYTICS
+        assert "/analytics/execution/latest" in _ANALYTICS
 
     def test_status_preview_present(self):
         assert "Последний вызов" in _INDEX
@@ -152,4 +155,4 @@ class TestAnalyticsFilters:
 class TestVersionBump:
     def test_app_version(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', _SETTINGS)
-        assert m and m.group(1) == "2.58.26", m and m.group(1)
+        assert m and m.group(1) == "2.58.27", m and m.group(1)
