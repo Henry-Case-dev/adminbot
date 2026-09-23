@@ -333,30 +333,30 @@
 <!-- OPENCODE_WORKFLOW_STATE_V1
 {
   "schema_version": 1,
-  "state_revision": 9,
+  "state_revision": 17,
   "task_id": "adminbot-master-spec-v6",
   "request_fingerprint": "sha256:31c6ab5c87949ec63ee64a0627e2221055f6dc0915ee15c3b361d2ce7f04a4cc",
   "task_status": "in_progress",
   "active_feature": "summary-analytics-adapter-round1026",
-  "feature_status": "S7 fully closed (approved review f774ecc/6c7c9061/d9d11797; merge §78; deploy 2.58.26 VERIFIED; metrics 10.26-S7; archive done). S8 selected next; S6/S10 GATED (D4). Pending: DevOps closing docs commit for S7 closure; then S8 Step 0 @Memory.",
-  "phase": "select_next",
+  "feature_status": "S8 unified Reviewer gate APPROVED (C0/H0; non-blocking L-R1026S8-1/-2/-3; Q1/Q2/Q3 in-scope). Bindings: Reviewed-Commit 2ffeb6a, WTH 4151d36d…, Spec-Hash f397f3fd…. Next: T-3433 deploy (APP_VERSION 2.58.27).",
+  "phase": "delivery",
   "risk_level": "R2",
   "next_agent": "DevOps",
-  "next_action": "S7 closing docs commit: commit plans/** closure (ARCHITECTURE §78, ADR-1026-9 Accepted, round1025-architecture pointer, MEMORY banner, metrics 10.26-S7, backlog S7 normalization, archive move, tasks closure, workflow_state human update) and push without force; then proceed to S8 Step 0 @Memory",
+  "next_action": "T-3433 deploy S8: commit code+tests (APP_VERSION 2.58.27) and plans/** (feature docs + audit_backlog), push without force, prod ff + restart, verify health 200 / served 2.58.27 / database is locked=0 / PUBLISH_* = 0 / new GET /api/analytics/execution/latest route alive / publication path unchanged; write deployment.md VERIFIED (rollback pre-round1026-s8 -> 2ffeb6a + git revert); commit deploy-doc",
   "human_gate": false,
   "blocked": false,
   "blocker_type": null,
   "auto_resume_enabled": true,
   "review": {
     "status": "approved",
-    "reviewed_commit": "f774ecc6af823c4191dd5f833fa2cce1d0a5bad2",
-    "working_tree_hash": "6c7c90618755f82665361b3060bf1e568f107799e780a6cea4f092f274026891",
-    "spec_hash": "d9d11797fbc1e290825a53053ac90d7a49b16af324375305506cae54b74a9ac0"
+    "reviewed_commit": "2ffeb6a3f95922ed4833110fe90634794ace0804",
+    "working_tree_hash": "4151d36d7f87809e574c386d1a853ccc10307493049a3b23ff1f910e5681b014",
+    "spec_hash": "f397f3fd378625c9ea958dcd934595316f28fdb6668ff3a970a2c21138d71a6f"
   },
   "deployment": {
     "required": true,
-    "status": "verified",
-    "deployed_commit": "5cba5df"
+    "status": "pending",
+    "deployed_commit": null
   },
   "resume": {
     "last_resume_key": null,
@@ -364,6 +364,6 @@
     "last_resumed_at": null,
     "last_session_id": null
   },
-  "updated_at": "2026-09-23T17:25:13.699Z"
+  "updated_at": "2026-09-23T18:21:40.641Z"
 }
 OPENCODE_WORKFLOW_STATE_V1 -->
