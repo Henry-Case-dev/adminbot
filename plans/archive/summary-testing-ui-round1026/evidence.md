@@ -80,3 +80,15 @@
 4. **Live-приёмка владельца** S1–S5/Эпика 1/S9 — PENDING OWNER VERIFICATION (не в скоупе Builder).
 5. Cover-эндпоинт переиспользует существующий `generate_image_verbose` (0 новых LLM-вызовов) — тест с моком; реальная генерация изображения в этом прогоне не выполнялась.
 6. **`summary_generator.py` в diff — намеренно:** задача Step 4 просит проверить «`summary_generator.py` вне diff», но spec §2/T-3348 и ADR-1026-8 D2 **требуют** аддитивный `SummaryGenerator.build_test_rows`. Diff файла — **только добавление** метода (+51 строк, 0 удалений): тела `_run`/`_run_hybrid_l2`/`_apply_filter` не тронуты; поведение OFF-пути не изменено. Публикация (`telegram_send.py`), `image_generation.py`, `summary_memory.py`, `summary_xml.py` — **вне diff**. Расхождение формулировок — на подтверждение @Architect.
+
+## Деплой (T-3378, Шаг 9 @DevOps, 24.09.2026) — **VERIFIED**
+
+- **Окружение:** прод VPS `racknerd-f4e3456` (`/var/www/admin_bot`, systemd-юнит `admin_bot`, `venv/bin/python bot.py`). Локальная дата — 24.09.2026; часы VPS — UTC `2026-09-23 12:22:30`.
+- **Коммиты:** `ac3f8fc` (код+тесты, 2.58.24 → **2.58.25**) → `59e5b12` (планы/архив, Merge §77). Push `origin/master` без force: **`cc6105c..59e5b12`**.
+- **Релиз-команды (прод):** `git pull --ff-only` (ff `ae5a147..59e5b12`, без конфликтов) → `sudo -n systemctl restart admin_bot` (NOPASSWD-правило sudoers).
+- **Преддеплойный гейт (локально):** pytest `.venv` по затронутым (`test_summary_test_run.py`, `test_summary_test_api.py`, `test_webapp_api.py`, `test_settings_helpers.py`, `test_param_catalog.py`) — **286 passed / 0 failed**; JS — **44/44** (`node tests/js/*_test.js`, в т.ч. `round1026_s9_testing_test.js` → `SUMMARY-TESTING-UI-OK`); Δ DDL=0. Секрет-скан diff/новых файлов — чисто (креды `deploy_commands.txt`/`.env*` не коммитились — gitignored).
+- **Прод-факты (после рестарта):** `systemctl` active (running), MainPID `467979`; `/api/health` **200** `{"status":"ok","version":"2.58.25"}`; `/healthz` → `2.58.25`; планировщик Саммари стартовал (`SmartModule scheduler started (cron 0,6,12,18 Asia/Yekaterinburg)`), polling стартовал; каталог импортом — **469**; `SUMMARY_TEST_UI_ENABLED` в `.env` отсутствует → **default ON**, `GET /api/summary/test/availability` → **401** (маршрут зарегистрирован; OFF-семантика 404 проверена юнит-тестами).
+- **Инварианты dry-run/живого пути (лог рестарта):** Traceback/CRITICAL/ImportError = **0**; `database is locked` = **0**; `L2_*` = **0**; `FORMAT_*` = **0**; `TEST_*` = **0**; `generate_image` = **0**; публикации (`PUBLISH_*`/`send_rich_message`) = **0** (гибридный живой путь OFF).
+- **Миграции:** Δ DDL=0 — SQL/DB-файлы вне релиза; миграции не запускались.
+- **Откат (readiness):** annotated-тег `pre-round1026-s9` (объект `9f4305a`, deref **`cc6105c`**) есть на `origin`; план — `git reset --hard pre-round1026-s9` + рестарт `admin_bot`. Hot-OFF без отката — `SUMMARY_TEST_UI_ENABLED=false` (+ рестарт) → вкладка скрыта, API 404. `deploy_commands.txt` не изменялся (R18).
+- **Статус:** **VERIFIED**. Live-приёмка владельца (реальный TMA/WebView) — ⏳ PENDING OWNER VERIFICATION.
