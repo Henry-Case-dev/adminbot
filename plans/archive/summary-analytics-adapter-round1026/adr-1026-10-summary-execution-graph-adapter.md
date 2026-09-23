@@ -1,6 +1,6 @@
 # ADR-1026-10 — S8 «Adapter аналитики Саммари»: ядро без S6 (publish GATED), backend-источник узлов через тот же `ExecutionNode`-контракт, честные §112-метрики, Δ DDL=0
 
-- **Статус:** Proposed (Step 2 @Architect, T-3411, 24.09.2026) → **Accepted по T-3431** (merge `plans/ARCHITECTURE.md` §79, после ревью/аудита и rework).
+- **Статус:** **Accepted** — Proposed (Step 2 @Architect, T-3411, 24.09.2026) → **Accepted фактом мержа `plans/ARCHITECTURE.md` §79** (T-3431, Шаг 7 @Architect, 24.09.2026) после **единого Reviewer gate** (Approved C0/H0) и deploy **VERIFIED 2.58.27** (T-3433 @DevOps).
 - **Фича:** S8 `summary-analytics-adapter-round1026` (Эпик 2, шаги §23–§25/§29/§30/§111/§112).
 - **Тип:** web + api adapter (backend-источник узлов/метрик + клиентский `ExecutionGraph`-нормализатор, zero-build).
 - **Связано:** **F6 `ADR-1025-19`** (ExecutionGraph-адаптер, `ExecutionNode`, kinds `algorithm`/`format`/`publish` — **REUSE**); **S7 `ADR-1026-9`** (`run_id`=`correlation_id`, события §108/§109 — источник снапшота прогона); **governed-by `ADR-1025-24 D4`** (публикационный гейт S6/S10); **`ADR-1023-7`** (`llm_usage_events`/`llm_pricing`/`/analytics/*` — REUSE); **`ADR-1022-4`/`ADR-1023-6`** (2-вызовность); **`ADR-1026-8`** (S9 dry-run — не дублировать); §28 (честная стоимость) — REUSE.
@@ -123,23 +123,23 @@
 | **§28/§112** | **REUSE** | Честная стоимость: «Нет данных», «Без лимита», без смешения LLM-стоимости и ресурсов сервера |
 | **ADR-1026-10** | **НОВЫЙ** | Step 2 @Architect (T-3411) |
 
-## Карта D1–D10 → реализация (план; факт — после T-3431)
+## Карта D1–D10 → реализация (факт после T-3431)
 
-| D | Решение | Реализация (план) | Верификация |
+| D | Решение | Реализация (факт) | Верификация (факт) |
 |---|---|---|---|
-| **D1** | Ядро без S6; publish GATED | publish-путь вне diff; маппинг `publication→publish` зарезервирован | SC-12; «нет publish-узла»/«нет `PUBLISH_*`» |
-| **D2** | Источник узлов + `step→kind` | `web/static/execution_graph.js` (`STEP_KIND`/`STEP_LABEL`); `llm_usage_events` + in-memory снапшот | SC-01/SC-02/SC-06 |
-| **D3** | Backend adapter vs клиентский | `services/execution_graph_source.py` (NEW) + `web/api/analytics.py` (эндпоинт) + `fromExecution` | SC-03/SC-04/SC-07 |
-| **D4** | Состав §112 + честная стоимость | поля по `kind`; `price_known` в summary; `publication_status=gated` | SC-05/SC-08/SC-09 |
-| **D5** | Корреляция | `run_id`=`correlation_id` | SC-06 |
-| **D6** | Режимы/агрегаты/связи | два несмешиваемых режима; `parentIds` только подтверждённые | SC-10/SC-11 |
-| **D7** | Санкции | Δ DDL=0; Δ каталога=0; без нового флага | SC-13 |
-| **D8** | Граница S6/publish | publish вне diff | SC-12 |
-| **D9** | Deploy bump | `APP_VERSION` 2.58.27 + `README.md` + cache-bust; откат `pre-round1026-s8` | SC-17 |
-| **D10** | Reuse/инварианты | 2-вызовность, CSP/zero-build, R17/R18, §110/S9 вне diff | SC-14/SC-15/SC-16 |
+| **D1** | Ядро без S6; publish GATED | publish-путь вне diff; маппинг `publication→publish` **зарезервирован** (`web/static/execution_graph.js:55`); `PUBLISH_*` в исходниках S8 = 0 | SC-12; `TestBoundaries`/«нет publish-узла»/«нет `PUBLISH_*`»; JS к.3 |
+| **D2** | Источник узлов + `step→kind` | `STEP_KIND`/`STEP_LABEL` (`execution_graph.js:55`); `llm_usage_events` (`_SELECT_STEPS_SQL`) + `RunSnapshotStore` (`services/execution_graph_source.py:97`) | SC-01/SC-02/SC-06; `TestStepKindMapping`, `TestRunSnapshotStore`, `test_no_data_no_node`; JS к.1 |
+| **D3** | Backend adapter vs клиентский | `services/execution_graph_source.py` (**NEW**, 527 стр.) + `web/api/analytics.py:279` (`GET /analytics/execution/latest`) + `fromExecution` (`execution_graph.js:338`) | SC-03/SC-04/SC-07; `test_single_visualization_and_no_rewrite`; JS к.7 |
+| **D4** | Состав §112 + честная стоимость | `metrics_block` (`execution_graph_source.py:499`) + `price_known` (`web/api/analytics.py:52,60,67,76`); `publication_status="gated"` | SC-05/SC-08/SC-09; `TestMetricsBlock`, `test_unknown_price_never_zero`, `TestContextLimit`; JS к.4/к.6 |
+| **D5** | Корреляция | `run_id`=`correlation_id` (SQL по `correlation_id` + снапшот по `run_id`) | SC-06; `test_admin_200_llm_nodes_from_pg`; JS к.2 |
+| **D6** | Режимы/агрегаты/связи | `fromExecution` (прогон) vs `fromSummary` (период) — несмешиваемые; `parentIds` только подтверждённые (`build_graph`, `hasBranch=false`) | SC-10/SC-11; `test_order_and_linear_links`, `test_gap_does_not_glue_distant_stages`; JS к.2/к.3 |
+| **D7** | Санкции | Δ DDL=0 (снапшот in-memory); Δ каталога=0 (`param_catalog.py` вне diff); без нового флага | SC-13; `test_no_ddl_in_s8_source`, `test_catalog_delta_zero`, `test_no_new_catalog_flag` |
+| **D8** | Граница S6/publish | publish вне diff (`telegram_send.py`/`summary_xml.py`/`image_generation.py`/`routes.py`/`param_catalog.py`/`db/**`/`summary_test_run.py`) | SC-12; `TestBoundaries`; JS к.3 |
+| **D9** | Deploy bump | `APP_VERSION` 2.58.27 + `README.md` + cache-bust; откат `pre-round1026-s8`→`2ffeb6a`; deploy **VERIFIED** (`64cdb0e`/`7c5338e`/`f14ae56`, MainPID 540872, health 200) | SC-17; `deployment.md` **VERIFIED** |
+| **D10** | Reuse/инварианты | 2-вызовность (`await_count==2`), CSP/zero-build, R17/R18, §110-viewer/S9 вне diff; F6 `ExecutionGraph` — REUSE | SC-14/SC-15/SC-16; `TestInvariants`, `TestR17`, `test_no_llm_calls_in_s8_source` |
 
 ## Ссылки
 
-- `plans/features/summary-analytics-adapter-round1026/{spec.md, tasks.md}`; ТЗ `plans/current_task.md` §23–§25/§29/§30/§111/§112; `plans/ARCHITECTURE.md` §65 (F6), §78 (S7).
+- `plans/features/summary-analytics-adapter-round1026/{spec.md, tasks.md, evidence.md, review.md, deployment.md}`; ТЗ `plans/current_task.md` §23–§25/§29/§30/§111/§112; `plans/ARCHITECTURE.md` §65 (F6), §78 (S7), **§79 (S8, Merge — ADR Accepted)**.
 - Архивы: `plans/archive/memory-analytics-reorg-round1025/adr-1025-19-…`, `plans/archive/summary-logging-runid-round1026/adr-1026-9-…`, `plans/archive/epic1-verification-round1025/adr-1025-24-…`.
 - Код: `web/static/execution_graph.js`, `web/app.js` (`tokenFlowTree`/`execTrace`/`execPreview`/`execGraphApi`), `web/api/analytics.py`, `services/usage_events.py`, `services/summary_run_log.py` (`RunContext`/`finish_run`), `services/summary_generator.py` (`_run`/`_apply_filter`/`_deliver_l2_*`), `services/summary_test_run.py` (`_collect_usage`/`_metrics`), `services/log_ring.py`.
