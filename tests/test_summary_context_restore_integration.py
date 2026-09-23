@@ -28,6 +28,7 @@ from tests.test_summary_filter_integration import (
     CHAT_A,
     CHAT_B,
     _FLAG,
+    _HYBRID_FLAG,
     _S2_FLAG,
     _gen,
     _patch_chat_limit,
@@ -89,7 +90,8 @@ class TestRestoreIntegration:
         rec = {"plain": [], "rich": []}
         _patch_delivery(monkeypatch, rec)
         monkeypatch.setattr(Settings, "SYSTEM2_SUMMARY_ENABLED", False)
-        _patch_chat_limit(monkeypatch, {(CHAT_A, _FLAG): True})
+        _patch_chat_limit(monkeypatch, {(CHAT_A, _FLAG): True,
+                                        (CHAT_A, _HYBRID_FLAG): False})
         gen = _gen(memory, llm)
         captured = {}
         _spy_build(gen, monkeypatch, captured)
@@ -136,6 +138,7 @@ class TestOffByteIdentical:
         _patch_chat_limit(monkeypatch, {
             (CHAT_A, _FLAG): True,
             (CHAT_A, _S2_FLAG): False,
+            (CHAT_A, _HYBRID_FLAG): False,
         })
         gen = _gen(memory, llm)
         captured = {}
@@ -232,7 +235,8 @@ class TestFailOpenIntegration:
         rec = {"plain": [], "rich": []}
         _patch_delivery(monkeypatch, rec)
         monkeypatch.setattr(Settings, "SYSTEM2_SUMMARY_ENABLED", False)
-        _patch_chat_limit(monkeypatch, {(CHAT_A, _FLAG): True})
+        _patch_chat_limit(monkeypatch, {(CHAT_A, _FLAG): True,
+                                        (CHAT_A, _HYBRID_FLAG): False})
         gen = _gen(memory, llm)
         captured = {}
         _spy_build(gen, monkeypatch, captured)
@@ -295,7 +299,8 @@ class TestTwoLlmCalls:
         _patch_delivery(monkeypatch, rec)
         monkeypatch.setattr(Settings, "SYSTEM2_SUMMARY_ENABLED", True)
         monkeypatch.setattr(Settings, "SUMMARY_COVER_ARTICLE_ENABLED", False)
-        _patch_chat_limit(monkeypatch, {(CHAT_A, _FLAG): True})
+        _patch_chat_limit(monkeypatch, {(CHAT_A, _FLAG): True,
+                                        (CHAT_A, _HYBRID_FLAG): False})
         gen = _gen(memory, llm)
 
         await gen._run(CHAT_A, False)

@@ -67,4 +67,7 @@ def generator(side_effect):
     llm.generate = AsyncMock(side_effect=side_effect)
     gen = SummaryGenerator(FakeMemory(rows=[_row(author_name="вася")]),
                            XmlGroundingBuilder(), llm, AsyncMock())
+    # S10 (ADR-1026-12 D2): Hybrid default ON — legacy-тесты обложки/фолбэка
+    # фиксируют ЯВНЫЙ аварийный OFF (`_generate_two_call`), а не дефолт.
+    gen._hybrid_l2_enabled = AsyncMock(return_value=False)
     return gen, llm

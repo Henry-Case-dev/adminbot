@@ -642,6 +642,9 @@ class TestOrchestratorCorrelation:
         gen._generate_two_call = _fake_two_call
         gen._llm_generate = _fake_llm_generate
         gen._deliver_plain = _fake_deliver
+        # S10 (ADR-1026-12 D2): Hybrid default ON — legacy-путь одиночного
+        # саммари фиксируется явным аварийным OFF.
+        gen._hybrid_l2_enabled = AsyncMock(return_value=False)
         await gen._run(1, manual=True)
         assert captured.get("id") == "SUM-1"
         assert captured.get("single") == "SUM-1"

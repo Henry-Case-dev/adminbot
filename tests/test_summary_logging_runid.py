@@ -88,10 +88,17 @@ def _rows():
 
 
 def _patch_chat_limit(monkeypatch, overrides=None):
-    overrides = overrides or {}
+    overrides = dict(overrides or {})
 
     async def _fake(chat_id, key, default=None):
-        return overrides.get((chat_id, key), default)
+        if (chat_id, key) in overrides:
+            return overrides[(chat_id, key)]
+        if key == _HYBRID_FLAG:
+            # S10 (ADR-1026-12 D2): Hybrid default ON — legacy/ON-тесты этого
+            # модуля включают режим ЯВНО (`_HYBRID_FLAG: True`), остальные
+            # (OFF-lifecycle) фиксируют явный аварийный OFF.
+            return False
+        return default
 
     monkeypatch.setattr(sg, "_chat_limit", _fake)
 
@@ -875,7 +882,7 @@ class TestInvariants:
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.28"
+        assert APP_VERSION == "2.58.29"
 
     def test_publish_events_only_on_real_publication(self):
         """S6 (D6): PUBLISH_* реализованы в живом публикационном контуре; S9

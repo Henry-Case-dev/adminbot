@@ -530,6 +530,9 @@ class TestFinalDeliveryNoHtml:
                             lambda: False)
         gen = SummaryGenerator(FakeMemory(rows=[_row(author_name="вася")]),
                                XmlGroundingBuilder(), TwoCallLLM(), AsyncMock())
+        # S10 (ADR-1026-12 D2): Hybrid default ON — legacy rich→plain путь
+        # фиксируем явным аварийным OFF.
+        gen._hybrid_l2_enabled = AsyncMock(return_value=False)
         await gen._run(-100, False)
         assert delivered
         # H2/S6: HTML модели (`<b>жирный</b>`) снят кодом — в теле тега нет;

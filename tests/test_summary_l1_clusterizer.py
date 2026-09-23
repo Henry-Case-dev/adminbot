@@ -1007,9 +1007,10 @@ class TestCanonMigrations:
 
 class TestLivePathInvariants:
     def test_generator_l1_wiring_is_flag_gated(self):
-        # S5 (ADR-1026-7 D5): врезка L1 в живой путь появилась, но строго ЗА
-        # kill-switch (`SUMMARY_HYBRID_L2_ENABLED`, default OFF); OFF-путь
-        # `_generate_two_call` (Stage-1/Stage-2) сохранён байт-в-байт.
+        # S5 (ADR-1026-7 D5), AMEND S10 (ADR-1026-12 D2): врезка L1 в живой путь
+        # за флагом (`SUMMARY_HYBRID_L2_ENABLED`, default ON с S10; явный false —
+        # аварийный kill-switch); OFF-путь `_generate_two_call` (Stage-1/Stage-2)
+        # сохранён байт-в-байт.
         text = (ROOT / "services/summary_generator.py").read_text(encoding="utf-8")
         assert "summary_l1_clusterizer" in text
         assert "_generate_two_call" in text
@@ -1061,6 +1062,10 @@ class TestLivePathInvariants:
 
         gen = SummaryGenerator(FakeMemory(rows=[_row(author_name="вася")]),
                                XmlGroundingBuilder(), TwoCallLLM(), AsyncMock())
+        # S10 (ADR-1026-12 D2): Hybrid default ON — legacy-путь проверяем при
+        # ЯВНОМ аварийном OFF (kill-switch), а не по дефолту.
+        monkeypatch.setattr(gen, "_hybrid_l2_enabled",
+                            AsyncMock(return_value=False))
         await gen._run(-100, False)
         assert len(gen.llm.calls) == 2
         assert [c.get("step") for c in gen.llm.calls] == ["stage1", "stage2"]
@@ -1096,6 +1101,8 @@ class TestLivePathInvariants:
         llm = OneCallLLM()
         gen = SummaryGenerator(FakeMemory(rows=[_row(author_name="вася")]),
                                XmlGroundingBuilder(), llm, AsyncMock())
+        monkeypatch.setattr(gen, "_hybrid_l2_enabled",
+                            AsyncMock(return_value=False))
         await gen._run(-100, False)
         assert llm.calls == 1
         # OFF-цепочка: прежний одиночный канон (с {max_symbols}) — L1 не протёк.

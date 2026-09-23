@@ -1,8 +1,10 @@
-"""S5 round1026 (ADR-1026-7 D5/D6) — интеграция L1→пакет→L2 за kill-switch.
+"""S5 round1026 (ADR-1026-7 D5/D6), AMEND S10 (ADR-1026-12 D2/D7) — L1→пакет→L2.
 
 Покрытие SC-02/SC-14: OFF-путь байт-в-байт (`_generate_two_call`), ровно 2
-LLM-вызова на ОБОИХ путях (ON — на моках), флаг OFF по умолчанию, fail-closed
-(не usable вход → L2 не вызывается), `content_format="html"` не ломает legacy.
+LLM-вызова на ОБОИХ путях (ON — на моках), с S10 флаг **ON по умолчанию**
+(основной путь, без ручной активации), явный `false` — аварийный kill-switch,
+fail-closed (не usable вход → L2 не вызывается), `content_format="html"` не
+ломает legacy.
 """
 from __future__ import annotations
 
@@ -24,11 +26,13 @@ def _generator(side_effect):
     return gen, llm
 
 
-# ── SC-02/SC-14: kill-switch default OFF + OFF-путь ────────────────────────
+# ── SC-02/SC-14: флаг ON по умолчанию (S10) + аварийный OFF ────────────────
 
 class TestKillSwitch:
-    def test_flag_default_off(self):
-        assert getattr(settings, "SUMMARY_HYBRID_L2_ENABLED", None) is False
+    def test_flag_default_on(self):
+        # S10 (ADR-1026-12 D2): code-default перевёрнут OFF→ON; после деплоя
+        # новый пайплайн — основной без ручного действия (§107).
+        assert getattr(settings, "SUMMARY_HYBRID_L2_ENABLED", None) is True
 
     def test_env_only_no_catalog_key(self):
         from services import param_catalog as pc
@@ -37,7 +41,16 @@ class TestKillSwitch:
                 settings.__class__)}
 
     @pytest.mark.asyncio
-    async def test_hybrid_disabled_by_default(self, monkeypatch):
+    async def test_hybrid_enabled_by_default(self, monkeypatch):
+        # Без override/hot → резолв берёт env/default (ON с S10).
+        gen, _ = _generator([])
+        from services import hot_config as hot
+        monkeypatch.setattr(hot, "get", lambda k, d=None: d)
+        assert await gen._hybrid_l2_enabled(-100) is True
+
+    @pytest.mark.asyncio
+    async def test_hybrid_disabled_by_explicit_false(self, monkeypatch):
+        # Явный `false` (hot) → аварийное выключение (kill-switch).
         gen, _ = _generator([])
         from services import hot_config as hot
         monkeypatch.setattr(hot, "get", lambda k, d=None: (

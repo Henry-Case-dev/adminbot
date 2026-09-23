@@ -540,9 +540,10 @@ class TestBudget:
 
 class TestLivePathInvariants:
     def test_generator_fact_package_wiring_is_flag_gated(self):
-        # S5 (ADR-1026-7 D5): врезка пакета фактов в живой путь появилась, но
-        # строго ЗА kill-switch (`SUMMARY_HYBRID_L2_ENABLED`, default OFF);
-        # OFF-путь `_generate_two_call` (Stage-1/Stage-2) сохранён байт-в-байт.
+        # S5 (ADR-1026-7 D5), AMEND S10 (ADR-1026-12 D2): врезка пакета фактов
+        # в живой путь за флагом (`SUMMARY_HYBRID_L2_ENABLED`, default ON с S10);
+        # явный `false` — аварийный kill-switch; OFF-путь `_generate_two_call`
+        # (Stage-1/Stage-2) сохранён байт-в-байт.
         text = (ROOT / "services/summary_generator.py").read_text(encoding="utf-8")
         assert "summary_fact_package" in text
         assert "_generate_two_call" in text
@@ -568,7 +569,7 @@ class TestLivePathInvariants:
             f.name for f in dataclasses.fields(Settings)}
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.28"
+        assert APP_VERSION == "2.58.29"
 
     @pytest.mark.asyncio
     async def test_two_calls_stage1_stage2(self):

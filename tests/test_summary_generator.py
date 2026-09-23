@@ -134,7 +134,13 @@ def _row(author_name="вася", text="какое-то сообщение", **kw
 
 
 def _make_generator(memory, llm, bot, monkeypatch=None, aliases=None):
-    return SummaryGenerator(memory, XmlGroundingBuilder(), llm, bot, aliases=aliases)
+    gen = SummaryGenerator(memory, XmlGroundingBuilder(), llm, bot,
+                           aliases=aliases)
+    # S10 (ADR-1026-12 D2): Hybrid-пайплайн default ON — базовые тесты этого
+    # модуля (legacy Stage-1/Stage-2) фиксируют ЯВНЫЙ аварийный OFF, а не
+    # полагаются на дефолт. ON-путь проверяется отдельным §114-harness.
+    gen._hybrid_l2_enabled = AsyncMock(return_value=False)
+    return gen
 
 
 class TestPipeline:
@@ -488,6 +494,9 @@ class TestEmptyAnswerSilence:
         bot = AsyncMock()
         generator = SummaryGenerator(
             FakeMemory([_row()]), XmlGroundingBuilder(), llm, bot)
+        # S10 (ADR-1026-12 D2): Hybrid default ON — тест legacy-молчания
+        # фиксирует явный аварийный OFF.
+        generator._hybrid_l2_enabled = AsyncMock(return_value=False)
         with caplog.at_level(logging.WARNING):
             await generator.generate_and_send(-100, manual=True)
         bot.send_message.assert_not_called()              # молчание гарантировано
@@ -499,6 +508,7 @@ class TestEmptyAnswerSilence:
         bot = AsyncMock()
         generator = SummaryGenerator(
             FakeMemory([_row()]), XmlGroundingBuilder(), llm, bot)
+        generator._hybrid_l2_enabled = AsyncMock(return_value=False)
         with caplog.at_level(logging.WARNING):
             await generator.generate_and_send(-100, manual=True)
         bot.send_message.assert_not_called()

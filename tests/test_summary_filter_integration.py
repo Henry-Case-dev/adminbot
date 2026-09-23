@@ -31,6 +31,9 @@ CHAT_B = -1002
 CHAT_C = -1003
 
 _FLAG = "flags.summary_filter_enabled"
+# S10 (ADR-1026-12 D2): флаг Hybrid default ON — тесты legacy-пути (`_run`)
+# обязаны ЯВНО включать аварийный OFF, а не полагаться на дефолт.
+_HYBRID_FLAG = "flags.summary_hybrid_l2_enabled"
 # S2 (ADR-1026-4 D4): тот же ключ — мастер-гейт восстановления контекста.
 # В S1-изолированных кейсах выключаем его, чтобы XML-вход был байт-в-байт S1.
 _S2_FLAG = "flags.summary_filter_reply_context_enabled"
@@ -140,7 +143,8 @@ class TestPerChatToggle:
         rec = {"plain": [], "rich": []}
         _patch_delivery(monkeypatch, rec)
         monkeypatch.setattr(Settings, "SYSTEM2_SUMMARY_ENABLED", False)
-        _patch_chat_limit(monkeypatch, {(CHAT_B, _FLAG): False})
+        _patch_chat_limit(monkeypatch, {(CHAT_B, _FLAG): False,
+                                        (CHAT_B, _HYBRID_FLAG): False})
         gen = _gen(memory, llm)
         captured = {}
         _spy_build(gen, monkeypatch, captured)
@@ -168,6 +172,7 @@ class TestFilterIntegration:
         _patch_chat_limit(monkeypatch, {
             (CHAT_A, _FLAG): True,
             (CHAT_A, _S2_FLAG): False,      # изоляция S1 от S2 (ADR-1026-4)
+            (CHAT_A, _HYBRID_FLAG): False,  # legacy-путь (S10: явный kill-switch)
         })
         gen = _gen(memory, llm)
         captured = {}
@@ -190,7 +195,8 @@ class TestFilterIntegration:
         rec = {"plain": [], "rich": []}
         _patch_delivery(monkeypatch, rec)
         monkeypatch.setattr(Settings, "SYSTEM2_SUMMARY_ENABLED", False)
-        _patch_chat_limit(monkeypatch, {(CHAT_A, _FLAG): True})
+        _patch_chat_limit(monkeypatch, {(CHAT_A, _FLAG): True,
+                                        (CHAT_A, _HYBRID_FLAG): False})
         gen = _gen(memory, llm)
         captured = {}
         _spy_build(gen, monkeypatch, captured)
@@ -221,7 +227,8 @@ class TestFilterIntegration:
         _patch_delivery(monkeypatch, rec)
         monkeypatch.setattr(Settings, "SYSTEM2_SUMMARY_ENABLED", True)
         monkeypatch.setattr(Settings, "SUMMARY_COVER_ARTICLE_ENABLED", False)
-        _patch_chat_limit(monkeypatch, {(CHAT_A, _FLAG): True})
+        _patch_chat_limit(monkeypatch, {(CHAT_A, _FLAG): True,
+                                        (CHAT_A, _HYBRID_FLAG): False})
         gen = _gen(memory, llm)
 
         await gen._run(CHAT_A, False)

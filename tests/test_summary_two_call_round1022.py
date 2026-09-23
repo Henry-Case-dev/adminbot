@@ -132,6 +132,9 @@ class TestSummaryRunBranchOn:
 
         gen = SummaryGenerator(FakeMemory(rows=[_row(author_name="вася")]),
                                XmlGroundingBuilder(), TwoCallLLM(), AsyncMock())
+        # S10 (ADR-1026-12 D2): Hybrid default ON — legacy-ветки `_run`
+        # проверяем при ЯВНОМ аварийном OFF (kill-switch), а не по дефолту.
+        gen._hybrid_l2_enabled = AsyncMock(return_value=False)
         await gen._run(-100, False)
         assert gen.llm.calls == 2          # Редактор + Рассказчик
         assert delivered and "связный дерзкий рассказ" in delivered[0]
@@ -162,6 +165,7 @@ class TestSummaryRunBranchOn:
 
         gen = SummaryGenerator(FakeMemory(rows=[_row(author_name="вася")]),
                                XmlGroundingBuilder(), OneCallLLM(), AsyncMock())
+        gen._hybrid_l2_enabled = AsyncMock(return_value=False)
         await gen._run(-100, False)
         assert gen.llm.calls == 1          # OFF → одиночный путь 10.21
         assert delivered and "одиночный текст" in delivered[0]

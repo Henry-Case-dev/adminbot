@@ -76,8 +76,12 @@ def _make_generator(llm):
     from tests.test_summary_generator import FakeMemory, _row
     from services.summary_xml import XmlGroundingBuilder
 
-    return SummaryGenerator(FakeMemory(rows=[_row(author_name="вася")]),
-                            XmlGroundingBuilder(), llm, AsyncMock())
+    gen = SummaryGenerator(FakeMemory(rows=[_row(author_name="вася")]),
+                           XmlGroundingBuilder(), llm, AsyncMock())
+    # S10 (ADR-1026-12 D2): Hybrid default ON — тесты rich/сover legacy-пути
+    # фиксируют ЯВНЫЙ аварийный OFF, а не полагаются на дефолт.
+    gen._hybrid_l2_enabled = AsyncMock(return_value=False)
+    return gen
 
 
 # ── A. normalize_cover_prompt ────────────────────────────────────────
@@ -438,6 +442,8 @@ class TestRichDelivery:
         monkeypatch.setattr(sg, "send_rich_message", _boom)
         gen = SummaryGenerator(FakeMemory(rows=[_row(author_name="вася")]),
                                XmlGroundingBuilder(), llm, AsyncMock())
+        # S10 (ADR-1026-12 D2): legacy rich→plain даунгрейд — явный аварийный OFF.
+        gen._hybrid_l2_enabled = AsyncMock(return_value=False)
 
         await gen._run(-100, False)
 

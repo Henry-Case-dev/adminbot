@@ -109,8 +109,12 @@ def _row(author_name="вася", text="какое-то сообщение", **kw
 
 
 def _make_generator(memory, llm, bot, aliases=None):
-    return SummaryGenerator(memory, XmlGroundingBuilder(), llm, bot,
-                            aliases=aliases)
+    gen = SummaryGenerator(memory, XmlGroundingBuilder(), llm, bot,
+                           aliases=aliases)
+    # S10 (ADR-1026-12 D2): Hybrid-пайплайн default ON — тесты пула проверяют
+    # legacy-генерацию, поэтому фиксируют явный аварийный OFF (kill-switch).
+    gen._hybrid_l2_enabled = AsyncMock(return_value=False)
+    return gen
 
 
 async def _until(pred, ticks: int = 30) -> bool:

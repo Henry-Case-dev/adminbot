@@ -650,12 +650,15 @@ class SummaryGenerator:
                 pass
 
     async def _hybrid_l2_enabled(self, chat_id: int) -> bool:
-        """S5 (ADR-1026-7 D3/D5): kill-switch гибридного L2-пути.
+        """S5 (ADR-1026-7 D3/D5), AMEND S10 (ADR-1026-12 D2): режим генерации.
 
-        env-only ``SUMMARY_HYBRID_L2_ENABLED`` (default False) + hot-first
-        ``flags.summary_hybrid_l2_enabled`` + per-chat через ``_chat_limit``.
-        OFF (default) → прежний ``_generate_two_call`` байт-в-байт; новые
-        модули L2 в живом пути не импортируются.
+        env-only ``SUMMARY_HYBRID_L2_ENABLED`` (**default True** с S10) +
+        hot-first ``flags.summary_hybrid_l2_enabled`` + per-chat через
+        ``_chat_limit``; цепочка резолва байт-в-байт. Отсутствие override →
+        ON (основной гибридный путь ``L1 → пакет → L2``); явный ``false``
+        (env/default/hot/per-chat) → **аварийное выключение** (kill-switch) →
+        прежний ``_generate_two_call`` байт-в-байт. «Ручная активация» не
+        требуется (§107): после деплоя пайплайн включён по умолчанию.
         """
         try:
             return bool(await _chat_limit(
@@ -676,8 +679,9 @@ class SummaryGenerator:
         ``trigger_message_id`` — через S1-фильтр выше. Ровно **2** физических
         LLM-вызова (L1+L2); fail-closed §106: не usable/deliverable вход → L2
         не вызывается; L2-провал → без legacy-фолбэка, публикации нет; текст
-        готов, обложки нет → публикуется текст (§105). ON активируется
-        владельцем только после live-приёмки Эпика 1; в S5 проверяется на моках.
+        готов, обложки нет → публикуется текст (§105). С S10 (ADR-1026-12 D2)
+        это **основной** путь (``SUMMARY_HYBRID_L2_ENABLED`` default ON, без
+        ручной активации); в S5 проверялся на моках.
 
         S7 (ADR-1026-9 D1/D2): ``ctx`` (необязательный) заполняется для
         ``SUMMARY_COMPLETE``/``SUMMARY_FAILED``; lifecycle эмитит ``_run`` —

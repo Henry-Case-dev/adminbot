@@ -3,7 +3,8 @@
 Покрытие (spec §9, SC-01…SC-13; задачи T-3348…T-3371):
   * SC-04/SC-12 — dry-run инварианты: 0 публикаций / 0 изменений памяти /
     0 `generate_image`; `await_count==2`; глобальный `SUMMARY_HYBRID_L2_ENABLED`
-    не читается/не меняется; OFF-путь живого пайплайна не вызывается;
+    (с S10 default ON) не читается/не меняется; OFF-путь живого пайплайна
+    не вызывается;
   * SC-05 — полнота артефактов §113 (source/filtered/clusters/package/article/
     rich/plain) реальными объектами S1–S5;
   * SC-06 — пустое окно → `empty`/`TEST_WINDOW_EMPTY`, LLM не вызывается;
@@ -185,8 +186,8 @@ async def test_dry_run_happy_path_two_calls_no_side_effects(monkeypatch):
     assert llm.generate.await_count == 2
     steps = [c.kwargs.get("step") for c in llm.generate.await_args_list]
     assert steps == ["l1_clusterizer", "l2_writer"]
-    # глобальный kill-switch не читается/не меняется.
-    assert flag_before == flag_after is False
+    # глобальный kill-switch не читается/не меняется (S10: default ON).
+    assert flag_before == flag_after is True
     assert hybrid.await_count == 0 and run_hybrid.await_count == 0
     # 0 публикаций / 0 image / 0 памяти.
     send_text.assert_not_called()
@@ -467,7 +468,7 @@ def test_no_new_env_catalog_key():
 
 
 def test_app_version_bumped():
-    assert APP_VERSION == "2.58.28"
+    assert APP_VERSION == "2.58.29"
 
 
 def test_forbidden_modules_outside_diff():
