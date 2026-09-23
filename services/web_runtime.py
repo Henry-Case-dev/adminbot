@@ -15,6 +15,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 _bot = None
+_summary_generator = None
 
 
 def set_web_bot(bot) -> None:
@@ -23,12 +24,29 @@ def set_web_bot(bot) -> None:
     _bot = bot
 
 
+def set_summary_generator(generator) -> None:
+    """S9 (ADR-1026-8 D1): внедрение SummaryGenerator для dry-run тест-контура.
+
+    Зеркало ``set_web_bot``: bot.py вызывает после создания генератора; web-API
+    берёт его через ``get_summary_generator`` (тест-прогон читает окно read-only
+    и вызывает run_l1/run_l2 — без публикации/записи).
+    """
+    global _summary_generator
+    _summary_generator = generator
+
+
 def reset_web_runtime() -> None:
     """Полный сброс (shutdown/тесты)."""
-    global _bot
+    global _bot, _summary_generator
     _bot = None
+    _summary_generator = None
 
 
 def get_web_bot():
     """Bot для web-API (аватары/обогащение); None — не установлен."""
     return _bot
+
+
+def get_summary_generator():
+    """SummaryGenerator для dry-run тест-контура; None — не установлен."""
+    return _summary_generator

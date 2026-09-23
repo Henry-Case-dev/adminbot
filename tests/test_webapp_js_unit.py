@@ -298,3 +298,13 @@ def test_js_unit_round1026_polygon_background():
     _run_js(os.path.join("tests", "js",
                          "round1026_polygon_background_test.js"),
             ok_marker="POLYGON-LUMINESCENCE-OK")
+
+
+def test_js_unit_round1026_s9_testing_ui():
+    """S9 round 10.26 (ADR-1026-8 D1/D3/D8, §113): UI вкладки «Тестирование»
+    модуля «Сводки чатов» — форма (чат/окно/«Проверить пайплайн»), dry-run
+    пометки, секции артефактов/метрик, обложка по подтверждению, probe
+    доступности (флаг OFF → секция скрыта), tab-id `testing` уже объявлен
+    (Δ каталога=0)."""
+    _run_js(os.path.join("tests", "js", "round1026_s9_testing_test.js"),
+            ok_marker="SUMMARY-TESTING-UI-OK")

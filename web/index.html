@@ -433,6 +433,141 @@
                 </div>
               </div>
 
+              <!-- S9 round1026 (ADR-1026-8 D1/D3, §113): dry-run «Тестирование»
+                   пайплайна «Сводок чатов» — выбор чата и окна, «Проверить
+                   пайплайн», предпросмотр артефактов + метрики §112. Публикации
+                   и записи в память нет; обложка — отдельным подтверждением. -->
+              <div v-if="summaryTestVisible"
+                   class="col-span-full card p-4" data-summary-test>
+                <div class="text-sm font-bold mb-1">Тестирование пайплайна</div>
+                <div class="text-xs text-gray-400 mb-3" data-summary-test-notice>
+                  Dry-run: сообщение в чат <b>не публикуется</b>, память
+                  <b>не изменяется</b>. Прогон делает 2 обращения к модели
+                  (L1 + L2) — учитывайте расход.
+                </div>
+                <div class="flex flex-col gap-2 md:flex-row md:items-end">
+                  <label class="flex flex-col text-xs gap-1">
+                    <span class="text-gray-500">Чат</span>
+                    <select class="field" v-model.number="summaryTest.chatId"
+                            data-summary-test-chat>
+                      <option v-for="c in accessChats" :key="'stc-' + c.chat_id"
+                              :value="c.chat_id">
+                        {{ c.title || ('Чат ' + c.chat_id) }}
+                      </option>
+                    </select>
+                  </label>
+                  <label class="flex flex-col text-xs gap-1">
+                    <span class="text-gray-500">Временное окно</span>
+                    <select class="field" v-model.number="summaryTest.hours"
+                            data-summary-test-window>
+                      <option v-for="h in summaryTestWindows" :key="'stw-' + h"
+                              :value="h">{{ h }} ч</option>
+                    </select>
+                  </label>
+                  <button class="btn-accent text-xs min-h-[44px]" data-summary-test-run
+                          :disabled="summaryTest.running || !summaryTest.chatId"
+                          @click="summaryTestRun">
+                    {{ summaryTest.running ? 'Проверка…' : 'Проверить пайплайн' }}
+                  </button>
+                </div>
+                <div v-if="summaryTest.error" class="text-xs text-red-400 mt-2"
+                     data-summary-test-error>{{ summaryTest.error }}</div>
+
+                <div v-if="summaryTest.result" class="mt-4 flex flex-col gap-3"
+                     data-summary-test-result>
+                  <div class="text-xs text-gray-400">
+                    Статус: <b>{{ summaryTest.result.status }}</b>
+                    · публикация: <b>{{ summaryTestMetrics ? summaryTestMetrics.publication_status : '—' }}</b>
+                  </div>
+
+                  <!-- §112: метрики (B-R1026S9-2: guard — error-путь без метрик
+                       не роняет рендер; сервер всегда отдаёт полные структуры) -->
+                  <div v-if="summaryTestMetrics"
+                       class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3"
+                       data-summary-test-metrics>
+                    <div class="text-xs">Исходных: <b>{{ summaryTestMetrics.source_count }}</b></div>
+                    <div class="text-xs">После фильтра: <b>{{ summaryTestMetrics.filtered_count }}</b></div>
+                    <div class="text-xs">Восстановлено: <b>{{ summaryTestMetrics.restored_count }}</b></div>
+                    <div class="text-xs" data-summary-test-drop>Процент отсева: <b>{{ summaryTestDropPercent }}</b></div>
+                    <div class="text-xs">Тем L1: <b>{{ summaryTestMetrics.threads_count }}</b></div>
+                    <div class="text-xs">Токены L1 (вх/исх): {{ summaryTestMetrics.tokens.l1.input }} / {{ summaryTestMetrics.tokens.l1.output }}</div>
+                    <div class="text-xs">Токены L2 (вх/исх): {{ summaryTestMetrics.tokens.l2.input }} / {{ summaryTestMetrics.tokens.l2.output }}</div>
+                    <div class="text-xs">Стоимость L1: {{ summaryTestMetrics.cost.l1 }}</div>
+                    <div class="text-xs">Стоимость L2: {{ summaryTestMetrics.cost.l2 }}</div>
+                    <div class="text-xs">Стоимость всего: {{ summaryTestMetrics.cost.total }}</div>
+                    <div class="text-xs">Бюджет: {{ summaryTestMetrics.budget.display }}</div>
+                    <div class="text-xs">Обложка: {{ summaryTestMetrics.cover_status }}</div>
+                    <div class="text-xs">Время: {{ summaryTestMetrics.duration_ms }} мс</div>
+                  </div>
+
+                  <!-- Диагностика (R17-safe: коды/числа/host) -->
+                  <div v-if="summaryTest.result.diagnostics && summaryTest.result.diagnostics.length"
+                       class="text-xs text-amber-300" data-summary-test-diagnostics>
+                    <div v-for="(d, i) in summaryTest.result.diagnostics" :key="'std-' + i">
+                      {{ d.stage }} · {{ d.code }} · {{ d.reason || '—' }}
+                      <span v-if="d.provider_host"> · {{ d.provider_host }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Артефакты §113 (реальные объекты S1–S5; guard B-R1026S9-2) -->
+                  <template v-if="summaryTestArtifacts">
+                  <details class="text-xs" data-summary-test-artifacts>
+                    <summary class="cursor-pointer">Исходные сообщения ({{ summaryTestArtifacts.source.length }})</summary>
+                    <div v-for="(m, i) in summaryTestArtifacts.source" :key="'sts-' + i"
+                         class="mt-1 border-t border-white/10 pt-1">
+                      <span class="text-gray-500">{{ m.author || '—' }}</span>: {{ m.text }}<span v-if="m.truncated"> …обрезано</span>
+                    </div>
+                  </details>
+                  <details class="text-xs">
+                    <summary class="cursor-pointer">Результат фильтра ({{ summaryTestArtifacts.filtered.length }})</summary>
+                    <div v-for="(m, i) in summaryTestArtifacts.filtered" :key="'stf-' + i"
+                         class="mt-1 border-t border-white/10 pt-1">
+                      <span class="text-gray-500">{{ m.author || '—' }}</span>: {{ m.text }}<span v-if="m.truncated"> …обрезано</span>
+                    </div>
+                  </details>
+                  <details class="text-xs">
+                    <summary class="cursor-pointer">Кластеры L1 ({{ summaryTestArtifacts.clusters.length }})</summary>
+                    <div v-for="(t, i) in summaryTestArtifacts.clusters" :key="'stl-' + i"
+                         class="mt-1 border-t border-white/10 pt-1">
+                      <b>{{ t.topic }}</b>
+                      <div v-for="(f, j) in t.facts" :key="'stlf-' + i + '-' + j">• {{ f.text }}</div>
+                    </div>
+                  </details>
+                  <details class="text-xs">
+                    <summary class="cursor-pointer">Пакет фактов (§96)</summary>
+                    <pre class="whitespace-pre-wrap break-words">{{ JSON.stringify(summaryTestArtifacts.package) }}</pre>
+                  </details>
+                  <details class="text-xs">
+                    <summary class="cursor-pointer">Статья L2 (§98/§99)</summary>
+                    <div v-if="summaryTestArtifacts.article">
+                      <div class="font-bold">{{ summaryTestArtifacts.article.title }}</div>
+                      <p v-for="(p, i) in summaryTestArtifacts.article.paragraphs" :key="'stp-' + i">{{ p.text }}</p>
+                    </div>
+                  </details>
+                  <details class="text-xs">
+                    <summary class="cursor-pointer">Предпросмотр Rich Message</summary>
+                    <div class="summary-rich-preview" v-html="summaryTestArtifacts.rich_preview"></div>
+                  </details>
+                  <details class="text-xs">
+                    <summary class="cursor-pointer">Предпросмотр plain (§105)</summary>
+                    <div v-html="summaryTestArtifacts.plain_preview"></div>
+                  </details>
+                  </template>
+
+                  <!-- Отдельное подтверждение обложки (§113/D3, §104 не трогаем) -->
+                  <div class="flex items-center gap-2 flex-wrap" data-summary-test-cover>
+                    <button class="btn-ghost text-xs min-h-[44px]"
+                            :disabled="summaryTest.coverBusy"
+                            @click="summaryTestConfirmCover">
+                      {{ summaryTest.coverBusy ? 'Генерация…' : 'Сгенерировать обложку (отдельно)' }}
+                    </button>
+                    <span v-if="summaryTest.cover" class="text-xs">
+                      {{ summaryTest.cover.cover_status }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               <!-- §49 (T-2714): карточки подключений модуля —
                    название / назначение / основная модель / резервная модель /
                    статус + «Проверить» / «Настроить». Значения — из

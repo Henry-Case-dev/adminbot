@@ -1483,6 +1483,19 @@
         activeChatId: null,
         accessChats: [],              // GET /api/access/chats (селектор F-11)
         accessMy: null,               // GET /api/access/me
+        // S9 round1026 (ADR-1026-8 D1/D3, §113): dry-run «Тестирование» пайплайна
+        // Сводок чатов. available=null → probe ещё не выполнен (секция скрыта).
+        summaryTest: {
+          available: null,
+          chatId: null,
+          hours: 24,
+          running: false,
+          testId: null,
+          result: null,
+          error: '',
+          coverBusy: false,
+          cover: null,
+        },
         // A9/T-1206/10.8: «Доступы» — id открытого окна подраздела (route-driven).
         accessOpen: null,             // null | 'roles' | 'local' | 'admins'
         activeChatTitle: 'Весь бот',  // индикатор активного скоупа в шапке
@@ -2039,6 +2052,48 @@
       },
       workspaceTab: function () {
         return this.workspace ? this.workspace.tab : '';
+      },
+      // S9 (ADR-1026-8 D1/D8): секция «Тестирование пайплайна» видна только для
+      // модуля «Сводки чатов» на вкладке `testing` и при подтверждённой
+      // доступности API (env-флаг ON → probe 200; OFF → 404 → скрыта).
+      summaryTestVisible: function () {
+        var ws = this.workspace;
+        return !!(ws && ws.module && ws.module.id === 'mod_summary'
+          && ws.tab === 'testing' && this.summaryTest.available === true);
+      },
+      // §113: пресеты временного окна (часы).
+      summaryTestWindows: function () {
+        return [6, 12, 24, 72, 168];
+      },
+      // B-R1026S9-2: безопасный доступ к §112-метрикам — на error/running
+      // payload без полной структуры секция метрик не рендерится (нет
+      // `undefined.l1`). Сервер отдаёт полные структуры, это второй барьер.
+      summaryTestMetrics: function () {
+        var r = this.summaryTest.result;
+        var m = (r && r.metrics) || null;
+        if (!m || !m.tokens || !m.tokens.l1 || !m.cost || !m.budget) {
+          return null;
+        }
+        return m;
+      },
+      // B-R1026S9-2: безопасный доступ к §113-артефактам (аналогично).
+      summaryTestArtifacts: function () {
+        var r = this.summaryTest.result;
+        var a = (r && r.artifacts) || null;
+        if (!a || !Array.isArray(a.source) || !Array.isArray(a.filtered)
+            || !Array.isArray(a.clusters)) {
+          return null;
+        }
+        return a;
+      },
+      // §112: «Процент отсева» (null/неизвестно → «Нет данных», без выдумок).
+      summaryTestDropPercent: function () {
+        var r = this.summaryTest.result;
+        var m = (r && r.metrics) || null;
+        if (!m || !m.tokens || !m.cost || !m.budget) return 'Нет данных';
+        var v = m.drop_percent;
+        if (v === null || v === undefined || v === '') return 'Нет данных';
+        return v + '%';
       },
       // Применимые вкладки: объявленные ∩ имеющие содержимое (§46/§4.3).
       workspaceTabs: function () {
@@ -3210,6 +3265,11 @@
         } else {
           this.stopHeartbeatCanvas();
         }
+      },
+      // S9 (ADR-1026-8 D1): при открытии вкладки «Тестирование» модуля «Сводки
+      // чатов» — однократный probe доступности API (идемпотентно, fail-open).
+      workspaceTab: function (tab) {
+        if (tab === 'testing') this.maybeLoadSummaryTest();
       },
     },
 
@@ -5842,6 +5902,94 @@
       },
       workspaceTabLabel: function (tabId) {
         return WORKSPACE_TAB_LABELS[tabId] || tabId || '';
+      },
+      // ── S9 round1026 (ADR-1026-8 D1/D3/D4, §113): dry-run «Тестирование» ──
+      // Probe доступности: env-флаг OFF → API 404 → секция скрыта (D8).
+      maybeLoadSummaryTest: function () {
+        var ws = this.workspace;
+        if (!ws || !ws.module || ws.module.id !== 'mod_summary'
+            || ws.tab !== 'testing') {
+          return;
+        }
+        if (this.summaryTest.available !== null || this.summaryTest._probing) {
+          return;
+        }
+        this.summaryTest._probing = true;
+        var self = this;
+        this.api('/api/summary/test/availability')
+          .then(function () { self.summaryTest.available = true; })
+          .catch(function () { self.summaryTest.available = false; })
+          .then(function () {
+            self.summaryTest._probing = false;
+            if (self.summaryTest.available && !self.summaryTest.chatId
+                && self.accessChats.length) {
+              self.summaryTest.chatId = self.accessChats[0].chat_id;
+            }
+          });
+      },
+      // «Проверить пайплайн»: async-запуск + опрос результата (D4).
+      summaryTestRun: function () {
+        var self = this;
+        var st = this.summaryTest;
+        if (st.running) return;
+        if (!st.chatId) { this.toast('Выберите чат для проверки', 'err'); return; }
+        st.running = true;
+        st.error = '';
+        st.result = null;
+        st.testId = null;
+        st.cover = null;
+        this.api('/api/summary/test/run', {
+          method: 'POST', global: true,
+          body: JSON.stringify({ chat_id: st.chatId, window_hours: st.hours }),
+        }).then(function (data) {
+          st.testId = data.test_id;
+          self.summaryTestPoll();
+        }).catch(function (e) {
+          st.running = false;
+          st.error = (e && e.message) ? e.message : 'Не удалось запустить проверку';
+        });
+      },
+      summaryTestPoll: function () {
+        var self = this;
+        var st = this.summaryTest;
+        if (!st.testId) { st.running = false; return; }
+        this.api('/api/summary/test/' + st.testId + '?limit=200', { global: true })
+          .then(function (data) {
+            if (data && data.status === 'running') {
+              setTimeout(function () { self.summaryTestPoll(); }, 1500);
+              return;
+            }
+            st.result = data;
+            st.running = false;
+          }).catch(function (e) {
+            st.running = false;
+            st.error = (e && e.message) ? e.message : 'Не удалось получить результат';
+          });
+      },
+      // Отдельное подтверждение обложки (§113/D3) — с предупреждением о расходе.
+      summaryTestConfirmCover: function () {
+        var self = this;
+        var st = this.summaryTest;
+        if (!st.testId || st.coverBusy) return;
+        if (!window.confirm('Сгенерировать обложку для тестового прогона? '
+            + 'Это отдельный вызов генерации изображения (расход).')) {
+          return;
+        }
+        st.coverBusy = true;
+        this.api('/api/summary/test/' + st.testId + '/cover', {
+          method: 'POST', global: true,
+          body: JSON.stringify({ confirm: true }),
+        }).then(function (data) {
+          st.coverBusy = false;
+          st.cover = data;
+          if (data && data.cover_status !== 'generated') {
+            self.toast('Обложка не сгенерирована: '
+              + ((data && data.cover_status) || ''), 'err');
+          }
+        }).catch(function (e) {
+          st.coverBusy = false;
+          self.toast('Ошибка обложки: ' + ((e && e.message) || ''), 'err');
+        });
       },
       // §48: выбор промпта в дереве (desktop — центр; mobile — полный экран).
       openWorkspacePrompt: function (item, stage) {

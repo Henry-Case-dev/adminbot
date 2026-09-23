@@ -214,6 +214,11 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
     # (read-side PG; RBAC глобального админа).
     from web.api.analytics import analytics_router
     app.include_router(analytics_router, prefix="/api")
+    # Эпик 2 / S9 round1026 (ADR-1026-8 D1/D4): dry-run тест-контур
+    # «Тестирование» (§113) — отдельный роутер (routes.py вне diff); флаг
+    # SUMMARY_TEST_UI_ENABLED OFF → 404. Публикации/записи нет.
+    from web.api.summary_test import summary_test_router
+    app.include_router(summary_test_router, prefix="/api")
 
     rendered_index = _render_index()   # один раз at startup (84.21.2)
     rendered_css = _render_app_css()   # F4 10.16: подстановка ?v= в @font-face

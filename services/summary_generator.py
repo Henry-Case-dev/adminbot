@@ -589,6 +589,61 @@ class SummaryGenerator:
             logger.exception("summary: unexpected failure | chat_id=%s", chat_id)
             await self._send_ux(chat_id, _UX_GENERIC_FAILED)
 
+    async def build_test_rows(self, chat_id: int, *, since_ts: int,
+                              limit: int | None = None,
+                              correlation_id: str | None = None,
+                              trigger_message_id: int | None = None) -> dict:
+        """S9 (ADR-1026-8 D2): read-only окно + S1/S2 для dry-run тест-прогона.
+
+        Аддитивный публичный метод (тело ``_run``/``_run_hybrid_l2`` НЕ
+        меняется): читает окно **read-only** через
+        ``memory.db.get_smart_window`` (без ``compress_and_purge`` /
+        ``get_window_messages`` — fire-and-forget бегущего конспекта не
+        триггерится), применяет существующие ``_apply_filter`` (S1) и
+        ``_restore`` (S2) без дублирования резолва параметров. 0 LLM-вызовов,
+        0 публикаций, 0 записей в память/досье.
+
+        Возвращает ``{"source","filtered","dropped","restored",
+        "filter_metrics","source_count","filtered_count","restored_count",
+        "limit"}`` — строки схемы окна (``sqlite3.Row``), без мутации входа.
+        """
+        if limit is None:
+            limit = int(await _chat_limit(
+                chat_id, "limits.summary_max_window_messages",
+                hot.get("limits.summary_max_window_messages",
+                        settings.SUMMARY_MAX_WINDOW_MESSAGES)))
+        db = getattr(self.memory, "db", None)
+        source: list = []
+        if db is not None:
+            rows = await db.get_smart_window(chat_id, int(since_ts), int(limit))
+            source = list(rows or [])
+        filtered = source
+        filter_metrics: dict = {}
+        if source:
+            # L-R1026S9-5: сброс слота перед вызовом — fail-open ветка
+            # `_apply_filter` его не перезаписывает, поэтому иначе в отчёт
+            # тест-прогона могли попасть устаревшие метрики прошлого прогона.
+            self._filter_metrics.pop(chat_id, None)
+            filtered = list(await self._apply_filter(
+                chat_id, source, correlation_id, trigger_message_id) or [])
+            filter_metrics = dict(self._filter_metrics.get(chat_id) or {})
+        source_ids = {id(row) for row in source}
+        filtered_ids = {id(row) for row in filtered}
+        dropped = [row for row in source if id(row) not in filtered_ids]
+        restored = [row for row in filtered if id(row) not in source_ids]
+        return {
+            "source": source,
+            "filtered": filtered,
+            "dropped": dropped,
+            "restored": restored,
+            "filter_metrics": filter_metrics,
+            "source_count": len(source),
+            "filtered_count": len(filtered),
+            "restored_count": int(
+                filter_metrics.get("restored_count") or len(restored)),
+            "limit": int(limit),
+        }
+
     async def _deliver_l2_plain(self, chat_id: int, document: dict) -> None:
         """§105: plain-канал L2 (H1 → жирный, чанки по абзацам)."""
         from services.summary_article_formatter import (

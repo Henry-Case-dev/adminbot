@@ -25,6 +25,7 @@ from services.uptime_heartbeat import UptimeHeartbeatService
 from web.app import create_app
 # UI-полировка TMA: Bot для web-api (аватар-прокси / обогащение chat_lore).
 from services.web_runtime import set_web_bot
+from services.web_runtime import set_summary_generator
 
 # Initialize Sentry error tracking (Better Stack)
 sentry_dsn = os.getenv("SENTRY_DSN")
@@ -393,6 +394,9 @@ async def on_startup():
         )
         xml_builder = XmlGroundingBuilder()
         generator = SummaryGenerator(memory, xml_builder, _llm_client, bot, aliases)
+        # S9 (ADR-1026-8 D1): dry-run тест-контур «Тестирование» (§113) берёт
+        # генератор из runtime-держателя (read-only окно + run_l1/run_l2).
+        set_summary_generator(generator)
         setup_summary(generator, db, aliases, bot.id)
         _summary_service = SummarySchedulerService(generator, db)
         _summary_service.start()  # BEFORE dp.start_polling (RESEARCH §c)

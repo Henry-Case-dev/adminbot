@@ -641,3 +641,32 @@ class TestInfiniteRetentionEnv:
             monkeypatch.setenv("INFINITE_RETENTION", raw)
             importlib.reload(settings_mod)
             assert settings_mod.settings.INFINITE_RETENTION is False, raw
+
+
+class TestSummaryTestUiEnabledEnv:
+    """S9 round1026 (ADR-1026-8 D1/D8): env-only флаг тест-контура «Тестирование».
+
+    Default ON (тумблер доступности UI/API, не гейт публикации); явный
+    ``SUMMARY_TEST_UI_ENABLED=false`` — hot-OFF (вкладка скрыта + API 404).
+    """
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        monkeypatch.delenv("SUMMARY_TEST_UI_ENABLED", raising=False)
+        yield
+        importlib.reload(settings_mod)   # вернуть продовый инстанс
+
+    def test_default_on_without_env(self):
+        importlib.reload(settings_mod)
+        assert settings_mod.settings.SUMMARY_TEST_UI_ENABLED is True
+
+    def test_explicit_env_false_hot_off(self, monkeypatch):
+        monkeypatch.setenv("SUMMARY_TEST_UI_ENABLED", "false")
+        importlib.reload(settings_mod)
+        assert settings_mod.settings.SUMMARY_TEST_UI_ENABLED is False
+
+    def test_true_forms(self, monkeypatch):
+        for raw in ("true", "True", "1", "on", "yes"):
+            monkeypatch.setenv("SUMMARY_TEST_UI_ENABLED", raw)
+            importlib.reload(settings_mod)
+            assert settings_mod.settings.SUMMARY_TEST_UI_ENABLED is True, raw
