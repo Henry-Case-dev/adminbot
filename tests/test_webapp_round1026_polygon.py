@@ -145,9 +145,9 @@ class TestFlagsAndInvariants:
         assert len({f.name for f in dataclasses.fields(Settings)}) == 426
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.19", APP_VERSION
-        assert "v2.58.19" in README, "README не синхронизирован"
-        assert 'APP_VERSION = "2.58.19"' in SETTINGS
+        assert APP_VERSION == "2.58.20", APP_VERSION
+        assert "v2.58.20" in README, "README не синхронизирован"
+        assert 'APP_VERSION = "2.58.20"' in SETTINGS
 
     def test_zero_ddl(self):
         # Δ DDL = 0: никаких новых таблиц/миграций эпиком не добавляется.
@@ -164,6 +164,47 @@ class TestFlagsAndInvariants:
         # Стекло по-прежнему только на изолированном [data-glass-surface],
         # без mountGlass без источника (защита от hotfix10).
         assert "SELECTOR = '[data-glass-surface]'" in glass
+
+
+class TestGlowFlickerSlowdown:
+    """Правка владельца (v2.58.20): «мерцание свечения» фона замедлено ровно
+    ×2 (частота ÷2 → период ×2). Мерцание свечения = импульсы свечения узлов
+    (§8.3) и «дыхание» радиуса фонового свечения (§7.1). Регресс-гейт: возврат
+    прежней скорости (0.05/0.15/0.06 rad/s) роняет тест."""
+
+    BASE = {"PULSE_SPEED_MIN": 0.05, "PULSE_SPEED_MAX": 0.15,
+            "GLOW_SHIMMER_SPEED": 0.06}
+
+    def _const(self, name: str) -> float:
+        m = re.search(name + r"\s*=\s*([0-9.]+)", POLY)
+        assert m, f"нет константы {name}"
+        return float(m.group(1))
+
+    def test_glow_flicker_slowed_by_two(self):
+        for name, base in self.BASE.items():
+            val = self._const(name)
+            assert abs(val * 2 - base) < 1e-12, (name, val, base)
+
+    def test_glow_uses_named_constants(self):
+        assert "pulseSp: PULSE_SPEED_MIN +" in POLY
+        assert "rng() * (PULSE_SPEED_MAX - PULSE_SPEED_MIN)" in POLY
+        assert "Math.sin(t * GLOW_SHIMMER_SPEED + cl.ph)" in POLY
+
+    def test_old_speeds_removed(self):
+        assert "pulseSp: 0.05 + rng() * 0.10" not in POLY
+        assert "Math.sin(t * 0.06 + cl.ph)" not in POLY
+
+    def test_non_flicker_timings_untouched(self):
+        # движение узлов §9 / morph §8.1 / дрейф световых центров §8.2.
+        assert "sp1: 0.10 + rng() * 0.22" in POLY
+        assert "sp2: 0.08 + rng() * 0.18" in POLY
+        assert "return 0.5 + 0.5 * Math.sin(t * 0.06 + ph);" in POLY
+        assert "Math.sin(t * 0.045 + cl.ph)" in POLY
+        assert "Math.cos(t * 0.038 + cl.ph * 1.3)" in POLY
+
+    def test_topology_cap_unchanged(self):
+        # §6.4/SC-15: топология пересчитывается ≤4 Гц (не «мерцание свечения»).
+        assert "TOPO_HZ = 4" in POLY
 
 
 class TestJsSyntax:

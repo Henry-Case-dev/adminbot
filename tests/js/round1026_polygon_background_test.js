@@ -12,6 +12,9 @@
  *     (нет `ctx.filter`/`filter: blur` на полноэкранном canvas); §5 палитра (11);
  *   * CSP/zero-build: нет CDN, нет data-URI; порядок script (delaunator →
  *     polygon-background → app.js).
+ *   * F: §8 «мерцание свечения» замедлено ровно ×2 (правка владельца,
+ *     v2.58.20): PULSE_SPEED_MIN/MAX и GLOW_SHIMMER_SPEED = прежние / 2;
+ *     движение §9 / morph §8.1 / дрейф §8.2 НЕ замедлены.
  * Запуск: node tests/js/round1026_polygon_background_test.js
  */
 const path = require('path');
@@ -307,6 +310,58 @@ const AF = global.window.__AuroraFlow;
     'E: Aurora-канвас скрыт при polygon-bg');
   assert.ok(/html\.polygon-bg \.aurora-bg \{ display: none/.test(CSS),
     'E: legacy aurora скрыта при polygon-bg');
+}
+
+/* ── F. §8 «мерцание свечения» замедлено ровно ×2 (правка владельца) ─────── */
+{
+  const TAU_STUB = Math.PI * 2;
+  const pm = POLY.match(/PULSE_SPEED_MIN\s*=\s*([0-9.]+)/);
+  const px = POLY.match(/PULSE_SPEED_MAX\s*=\s*([0-9.]+)/);
+  const gs = POLY.match(/GLOW_SHIMMER_SPEED\s*=\s*([0-9.]+)/);
+  assert.ok(pm && px && gs,
+    'F: константы мерцания свечения (PULSE_SPEED_MIN/MAX, GLOW_SHIMMER_SPEED)');
+  const PULSE_SPEED_MIN = parseFloat(pm[1]);
+  const PULSE_SPEED_MAX = parseFloat(px[1]);
+  const GLOW_SHIMMER_SPEED = parseFloat(gs[1]);
+  // Прежние (до правки) базовые скорости: новые РОВНО вдвое медленнее.
+  const BASE_PULSE_MIN = 0.05, BASE_PULSE_MAX = 0.15, BASE_SHIMMER = 0.06;
+  assert.strictEqual(PULSE_SPEED_MIN * 2, BASE_PULSE_MIN,
+    'F: pulse min ×2 == прежние 0.05 rad/s (' + PULSE_SPEED_MIN + ')');
+  assert.strictEqual(PULSE_SPEED_MAX * 2, BASE_PULSE_MAX,
+    'F: pulse max ×2 == прежние 0.15 rad/s (' + PULSE_SPEED_MAX + ')');
+  assert.strictEqual(GLOW_SHIMMER_SPEED * 2, BASE_SHIMMER,
+    'F: shimmer ×2 == прежние 0.06 rad/s (' + GLOW_SHIMMER_SPEED + ')');
+  // Период = TAU / скорость → удвоился ровно вдвое.
+  assert.strictEqual(TAU_STUB / PULSE_SPEED_MIN / (TAU_STUB / BASE_PULSE_MIN), 2,
+    'F: период импульсов ×2');
+  assert.strictEqual(
+    TAU_STUB / GLOW_SHIMMER_SPEED / (TAU_STUB / BASE_SHIMMER), 2,
+    'F: период «дыхания» свечения ×2');
+  // Использование — через именованные константы (значение явное).
+  assert.ok(
+    /pulseSp:\s*PULSE_SPEED_MIN\s*\+\s*rng\(\)\s*\*\s*\(PULSE_SPEED_MAX\s*-\s*PULSE_SPEED_MIN\)/
+      .test(POLY), 'F: pulseSp вычисляется из констант');
+  assert.ok(/Math\.sin\(t \* GLOW_SHIMMER_SPEED \+ cl\.ph\)/.test(POLY),
+    'F: «дыхание» свечения использует константу');
+  // Прежние «магические» скорости удалены — откат скорости уронит тест.
+  assert.ok(!/pulseSp:\s*0\.05\s*\+/.test(POLY),
+    'F: прежняя скорость импульсов (0.05) удалена');
+  assert.ok(!/Math\.sin\(t \* 0\.06 \+ cl\.ph\)/.test(POLY),
+    'F: прежняя скорость «дыхания» (0.06) удалена');
+  // НЕ мерцание свечения — НЕ замедлено: движение узлов §9, morph §8.1,
+  // дрейф световых центров §8.2.
+  assert.ok(/sp1: 0\.10 \+ rng\(\) \* 0\.22/.test(POLY),
+    'F: движение узлов §9 (sp1) не тронуто');
+  assert.ok(/sp2: 0\.08 \+ rng\(\) \* 0\.18/.test(POLY),
+    'F: движение узлов §9 (sp2) не тронуто');
+  assert.ok(/return 0\.5 \+ 0\.5 \* Math\.sin\(t \* 0\.06 \+ ph\);/.test(POLY),
+    'F: цветовой morph §8.1 не тронут');
+  assert.ok(/Math\.sin\(t \* 0\.045 \+ cl\.ph\)/.test(POLY),
+    'F: дрейф световых центров §8.2 (x) не тронут');
+  assert.ok(/Math\.cos\(t \* 0\.038 \+ cl\.ph \* 1\.3\)/.test(POLY),
+    'F: дрейф световых центров §8.2 (y) не тронут');
+  // §6.4/SC-15: топология остаётся ≤4 Гц (не часть «мерцания свечения»).
+  assert.ok(/TOPO_HZ = 4/.test(POLY), 'F: топология ≤4 Гц не изменена');
 }
 
 console.log('POLYGON-LUMINESCENCE-OK');

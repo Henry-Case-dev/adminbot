@@ -34,6 +34,18 @@
   var NODES_MOBILE = 55;          // диапазон §6.1: 45–75 (цель ~55)
   var TOPO_HZ = 4;                // §6.4: топология пересчитывается ≤ 4 Гц
   var TOPO_FADE_MS = 320;         // плавное смешивание при смене топологии
+  /* §8 «мерцание свечения» — правка владельца (v2.58.20): ровно ×2 медленнее
+   * (частота ÷2 → период ×2). Мерцание свечения = колебание ИНТЕНСИВНОСТИ/
+   * радиуса свечения: импульсы свечения узлов и ореолов (§8.3) и «дыхание»
+   * радиуса фонового излучения (§7.1). Было → стало:
+   *   pulseSp      0.05..0.15 rad/s (период ~42..126 с) → 0.025..0.075 (~84..251 с)
+   *   glow radius  0.06 rad/s      (период ~105 с)      → 0.03 rad/s      (~209 с)
+   * НЕ замедляются (не являются мерцанием свечения): движение узлов §9
+   * (sp1/sp2), цветовой morph §8.1 (morphPhase 0.06), дрейф световых центров
+   * §8.2 (0.045/0.038) — это позиция/оттенок, а не свечение. */
+  var PULSE_SPEED_MIN = 0.025;    // было 0.05 — импульсы свечения узлов (§8.3)
+  var PULSE_SPEED_MAX = 0.075;    // было 0.15 — импульсы свечения узлов (§8.3)
+  var GLOW_SHIMMER_SPEED = 0.03;  // было 0.06 — «дыхание» радиуса свечения (§7.1)
   var AMP_MIN_PX = 4;             // §9: амплитуда движения узлов 4–18 CSS px
   var AMP_MAX_PX = 18;
   var DPR_CAP_DESKTOP = 2;
@@ -250,7 +262,9 @@
         ph1: rng() * TAU, ph2: rng() * TAU,
         cluster: ci, tier: tier,
         colA: ca, colB: cb, colPh: rng() * TAU,
-        pulsePh: rng() * TAU, pulseSp: 0.05 + rng() * 0.10,
+        pulsePh: rng() * TAU,
+        pulseSp: PULSE_SPEED_MIN +
+          rng() * (PULSE_SPEED_MAX - PULSE_SPEED_MIN),
         baseAlpha: tier === 2 ? 0.95 : (tier === 1 ? 0.7 : 0.42),
       };
     }
@@ -401,7 +415,7 @@
       var cl = CLUSTERS[i];
       var cx = (cl.cx + 0.035 * Math.sin(t * 0.045 + cl.ph)) * st.cssW;
       var cy = (cl.cy + 0.03 * Math.cos(t * 0.038 + cl.ph * 1.3)) * st.cssH;
-      var r = (cl.glow + 0.04 * Math.sin(t * 0.06 + cl.ph)) *
+      var r = (cl.glow + 0.04 * Math.sin(t * GLOW_SHIMMER_SPEED + cl.ph)) *
               Math.min(st.cssW, st.cssH) * 1.6;
       ctx.fillStyle = radial(cx, cy, r, RGB[cl.light], 0.16);
       ctx.fillRect(0, 0, st.cssW, st.cssH);

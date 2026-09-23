@@ -1781,7 +1781,9 @@ settings = Settings()
 # round 10.26 (ADR-1026-3 D8): bump 2.58.18 → 2.58.19 — cache-bust ассетов
 # эпика `polygonal-luminescence-round1026` (polygon-background.js,
 # vendor/delaunator.5.0.0.min.js, app.js, app.css, index.html). Δ DDL=0.
-APP_VERSION = "2.58.19"   # S1 (10.26, ADR-1026-1 D1/D7): алгоритмический префильтр Саммари — новый модуль services/summary_filter.py (§87–§89, §93), врезка в SummaryGenerator._run (вход L1, 0 LLM-вызовов, публикация не тронута), каталог summary_filter_* (+8 записей, +2 группы; вкладка mod_summary), UI «Подготовка сообщений»; Δ DDL=0. Ранее F11 (10.25, ADR-1025-23): композиция витрины «Статус» — 12-кол. сетка §12, Hero/метрики §13/§14, виджет сна §17, расширение графа §16, «Новые факты»/«Бюджеты» §19, счётчики §20; kill-switch `UI_STATUS_GRID_V2` (Δ DDL=0, Δ каталога=0)
+# Правка владельца (v2.58.20): «мерцание свечения» фона замедлено ×2
+# (PULSE_SPEED_*/GLOW_SHIMMER_SPEED в polygon-background.js) — cache-bust ассета.
+APP_VERSION = "2.58.20"   # S1 (10.26, ADR-1026-1 D1/D7): алгоритмический префильтр Саммари — новый модуль services/summary_filter.py (§87–§89, §93), врезка в SummaryGenerator._run (вход L1, 0 LLM-вызовов, публикация не тронута), каталог summary_filter_* (+8 записей, +2 группы; вкладка mod_summary), UI «Подготовка сообщений»; Δ DDL=0. Ранее F11 (10.25, ADR-1025-23): композиция витрины «Статус» — 12-кол. сетка §12, Hero/метрики §13/§14, виджет сна §17, расширение графа §16, «Новые факты»/«Бюджеты» §19, счётчики §20; kill-switch `UI_STATUS_GRID_V2` (Δ DDL=0, Δ каталога=0)
 
 
 def get_ytdlp_pot_provider() -> str:
