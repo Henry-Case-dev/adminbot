@@ -157,7 +157,7 @@ class TestTabMappingAudit:
         # 459/98/96; TAB_RULES 20→21 (+mod_images).
         assert len(pc._TAB_BY_GROUP) == 98
         assert len(GROUPS) == 100
-        assert len(pc.REGISTRY) == 468
+        assert len(pc.REGISTRY) == 469
 
 
 class TestModuleTabs:

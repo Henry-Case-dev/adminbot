@@ -539,17 +539,25 @@ class TestBudget:
 # ── SC-02/SC-10: 0 LLM, каталог без изменений, живой путь ─────────────────
 
 class TestLivePathInvariants:
-    def test_generator_has_no_fact_package_wiring(self):
-        for rel in ("services/summary_generator.py", "services/summary_xml.py"):
-            text = (ROOT / rel).read_text(encoding="utf-8")
-            assert "fact_package" not in text, rel
-            assert "summary_fact_package" not in text, rel
+    def test_generator_fact_package_wiring_is_flag_gated(self):
+        # S5 (ADR-1026-7 D5): врезка пакета фактов в живой путь появилась, но
+        # строго ЗА kill-switch (`SUMMARY_HYBRID_L2_ENABLED`, default OFF);
+        # OFF-путь `_generate_two_call` (Stage-1/Stage-2) сохранён байт-в-байт.
+        text = (ROOT / "services/summary_generator.py").read_text(encoding="utf-8")
+        assert "summary_fact_package" in text
+        assert "_generate_two_call" in text
+        assert "_hybrid_l2_enabled" in text
+        assert "SUMMARY_HYBRID_L2_ENABLED" in text
+        # XML-модуль не тронут (S5 публикацию/XML не меняет, §104).
+        xml = (ROOT / "services/summary_xml.py").read_text(encoding="utf-8")
+        assert "fact_package" not in xml
+        assert "summary_fact_package" not in xml
 
     def test_catalog_zero_delta(self):
-        assert len(pc.REGISTRY) == 468
+        assert len(pc.REGISTRY) == 469
         assert len({f.name for f in dataclasses.fields(Settings)}) == 426
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 443
+                    if s.category is not None]) == 444
         assert len(pc.GROUPS) == 100
         assert len(pc._TAB_BY_GROUP) == 98
         assert len(pc.TAB_RULES) == 21
@@ -560,7 +568,7 @@ class TestLivePathInvariants:
             f.name for f in dataclasses.fields(Settings)}
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.23"
+        assert APP_VERSION == "2.58.24"
 
     @pytest.mark.asyncio
     async def test_two_calls_stage1_stage2(self):

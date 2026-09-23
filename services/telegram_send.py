@@ -188,19 +188,25 @@ def build_cover_media(photo_source, *,
 
 
 async def send_rich_message(bot, chat_id: int, text: str, *, media=None,
-                            cover_id: str | None = None, **kwargs: Any):
+                            cover_id: str | None = None,
+                            content_format: str = "auto", **kwargs: Any):
     """Egress-обёртка rich-канала (``sendRichMessage``, Bot API 10.1+).
 
-    Plain-источник проходит ``sanitize_outgoing`` ДО сборки HTML (инвариант 3);
+    ``content_format="auto"`` (default) — прежнее поведение байт-в-байт:
+    plain-источник проходит ``sanitize_outgoing`` ДО сборки HTML (инвариант 3),
     plain-текст → ``InputRichMessage(html=…, media=…)`` с ``<p>``-абзацами и
-    обложкой; rich-контент (Markdown/HTML/таблицы, Сценарий Б) →
-    ``InputRichMessage(markdown=…)``. Заполняется РОВНО одно из
-    ``html``/``markdown``; ``blocks`` не используется.
+    обложкой; rich-контент (Markdown/HTML/таблицы) → ``InputRichMessage(
+    markdown=…)``. ``content_format="html"`` (S5/ADR-1026-7 D2) — источник есть
+    УЖЕ готовый Rich HTML серверного форматтера (``summary_article_formatter``):
+    отправляется как ``html`` без авто-детектора ``_looks_rich`` (который принял
+    бы ``<h1`` за markdown). Заполняется РОВНО одно из ``html``/``markdown``.
     """
     from aiogram.types import InputRichMessage
     clean = _maybe_sanitize(text)
     media_list = list(media) if media else None
-    if _looks_rich(clean):
+    if content_format == "html":
+        rich = InputRichMessage(html=clean, media=media_list)
+    elif _looks_rich(clean):
         # review iter1 (High-1): в markdown-режиме обложка — Markdown-ссылка
         # на вложение (`![alt](tg://photo?id=…)`), а НЕ сырой HTML `<img>`:
         # HTML-форма документирована только для `html`-режима.

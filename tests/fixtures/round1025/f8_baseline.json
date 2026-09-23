@@ -9,10 +9,10 @@
   ],
   "counts": {
     "GROUPS": 100,
-    "REGISTRY": 468,
+    "REGISTRY": 469,
     "TAB_BY_GROUP": 98,
     "TAB_RULES": 21,
-    "delta": 57,
+    "delta": 58,
     "inventory": 411
   },
   "round": "1025-f8",
@@ -54,9 +54,9 @@
     "config_snapshot_diff"
   ],
   "sha256": {
-    "services/param_catalog.py": "6531f653b74bf10ac7e98dc351587a2efe79312eb60c25b120935322729dd812",
+    "services/param_catalog.py": "8928c1d1b3354d5b8a51561621adfe95cbf346fd9e1455c4e4e5762bcd499e0e",
     "services/pg_db.py": "12a881915d8fb691530695b13bdbb2ee47deb14156758d44189ea010bfa2e768",
     "web/api/routes.py": "33fb6b1c817d0ebb533dc9943de53f00321421aa4753826ab08394cedd64d098"
   },
-  "superseded_by": "round1026 S1 summary-filter (ADR-1026-1 D1): санкционированная Δ каталога +8/+2; round1026 S3 summary-l1-clusterizer (ADR-1026-5 D4): санкционированная Δ каталога +1 (промпт-ключ `prompts.summary_l1_clusterizer_system_prompt`; REGISTRY 467→468, delta 56→57; GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений). counts и sha256 param_catalog.py обновлены, app_version оставлен историческим (2.58.15)."
+  "superseded_by": "round1026 S1 summary-filter (ADR-1026-1 D1): санкционированная Δ каталога +8/+2; round1026 S3 summary-l1-clusterizer (ADR-1026-5 D4): санкционированная Δ каталога +1 (промпт-ключ `prompts.summary_l1_clusterizer_system_prompt`; REGISTRY 467→468, delta 56→57; GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений). counts и sha256 param_catalog.py обновлены, app_version оставлен историческим (2.58.15).; round1026 S5 summary-l2-writer-formatter (ADR-1026-7 D3): санкционированная Δ каталога +1 (промпт-ключ prompts.summary_l2_writer_system_prompt; REGISTRY 468→469, delta 57→58, categorized 443→444; GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений). counts и sha256 param_catalog.py обновлены, app_version остаётся историческим (2.58.15)."
 }

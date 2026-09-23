@@ -916,10 +916,10 @@ class TestCanon:
         assert pc.tab_nav(pc.TAB_PROMPTS) == pc.NAV_AI
 
     def test_catalog_delta_sanctioned(self):
-        assert len(pc.REGISTRY) == 468
+        assert len(pc.REGISTRY) == 469
         assert len({f.name for f in dataclasses.fields(Settings)}) == 426
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 443
+                    if s.category is not None]) == 444
         assert len(pc.GROUPS) == 100
         assert len(pc._TAB_BY_GROUP) == 98
         assert len(pc.TAB_RULES) == 21
@@ -1006,11 +1006,17 @@ class TestCanonMigrations:
 # ── SC-14/SC-16/SC-19: живой путь не тронут, ровно 2 вызова ────────────────
 
 class TestLivePathInvariants:
-    def test_generator_source_has_no_l1_wiring(self):
-        for rel in ("services/summary_generator.py", "services/summary_xml.py"):
-            text = (ROOT / rel).read_text(encoding="utf-8")
-            assert "l1_clusterizer" not in text, rel
-            assert "summary_l1_" not in text, rel
+    def test_generator_l1_wiring_is_flag_gated(self):
+        # S5 (ADR-1026-7 D5): врезка L1 в живой путь появилась, но строго ЗА
+        # kill-switch (`SUMMARY_HYBRID_L2_ENABLED`, default OFF); OFF-путь
+        # `_generate_two_call` (Stage-1/Stage-2) сохранён байт-в-байт.
+        text = (ROOT / "services/summary_generator.py").read_text(encoding="utf-8")
+        assert "summary_l1_clusterizer" in text
+        assert "_generate_two_call" in text
+        assert "_hybrid_l2_enabled" in text
+        xml = (ROOT / "services/summary_xml.py").read_text(encoding="utf-8")
+        assert "l1_clusterizer" not in xml
+        assert "summary_l1_" not in xml
 
     @pytest.mark.asyncio
     async def test_two_calls_stage1_stage2(self):

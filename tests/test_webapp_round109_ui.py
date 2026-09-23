@@ -222,7 +222,7 @@ class TestCatalog109:
         # +2 GROUPS, +2 mapped, +1 TAB_RULES → 437/92/90/20/407.
         # 10.23 (F5/ADR-1023-5 D5): +5/+3/+3 → 446/95/93/20/416.
         # 10.24 (F21/ADR-1024-22 D8): +1/+1/+1 → 459/98/96/20/418.
-        assert len(pc.REGISTRY) == 468
+        assert len(pc.REGISTRY) == 469
         assert len(pc.GROUPS) == 100
         assert len(pc._TAB_BY_GROUP) == 98
         assert len(pc.TAB_RULES) == 21

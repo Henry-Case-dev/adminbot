@@ -457,14 +457,18 @@ def _log_error(*, correlation_id, chat_id, model, base_url, reason, error_type,
 # ── Ядро запуска L1 (без врезки в живой путь) ──────────────────────────────
 
 async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
-                 budget=None, system_prompt=None, llm_call=None) -> L1Result:
+                 budget=None, system_prompt=None, llm_call=None,
+                 focus_block=None) -> L1Result:
     """Один прогон L1: §92-вход → §93-упаковка → **1 LLM-вызов** → §95.
 
     ``llm`` — LLMClient (или совместимый мок); ``llm_call`` — инъекция канала
     (S5/тесты). ``budget`` — ``(kind, limit)``; ``None`` → существующие ключи
-    ``limits.summary_max_context_*``. Fail-closed: любое исключение/``LLMError``
-    → ``error``/``invalid`` с кодом причины, ``payload=None`` (в L2 не
-    передаётся); ровно один физический вызов на запуск.
+    ``limits.summary_max_context_*``. ``focus_block`` — необязательный префикс
+    user-контента (S5/§80: focus «/summary про X» на ON-пути — как в legacy;
+    ``None``/пусто → вход байт-в-байт прежний). Fail-closed: любое
+    исключение/``LLMError`` → ``error``/``invalid`` с кодом причины,
+    ``payload=None`` (в L2 не передаётся); ровно один физический вызов на
+    запуск.
     """
     started = time.perf_counter()
     slot = resolve_l1_slot()
@@ -528,11 +532,16 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
     call = llm_call or _make_llm_call(llm, slot, correlation_id)
     system = system_prompt or resolve_prompt(PROMPT_PG_KEY,
                                              SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT)
+    user_content = build_l1_user_content(
+        pack.payload, chunk_count=pack.chunk_count,
+        chunk_starts=pack.chunk_starts)
+    if focus_block:
+        # S5/§80: focus «/summary про X» — как в legacy-пути (`_apply_focus`),
+        # блок в НАЧАЛО user-контента; system-канон не тронут.
+        user_content = focus_block + user_content
     messages = [
         {"role": "system", "content": system},
-        {"role": "user", "content": build_l1_user_content(
-            pack.payload, chunk_count=pack.chunk_count,
-            chunk_starts=pack.chunk_starts)},
+        {"role": "user", "content": user_content},
     ]
 
     try:

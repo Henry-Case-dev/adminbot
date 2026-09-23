@@ -370,6 +370,14 @@ class SummaryGenerator:
                             settings.SUMMARY_FILTER_ENABLED))):
                 xml_rows = await self._apply_filter(
                     chat_id, rows, correlation_id, trigger_message_id)
+            # S5 (ADR-1026-7 D5/§80): ON-ветка врезается ПОСЛЕ S1/S2 — L1
+            # получает уже отфильтрованный/восстановленный вход (`xml_rows`),
+            # а не сырое окно. `trigger_message_id` учтён S1-фильтром выше,
+            # `focus` — focus-блоком в L1 (как в legacy-пути). OFF-путь ниже
+            # байт-в-байт.
+            if await self._hybrid_l2_enabled(chat_id):
+                return await self._run_hybrid_l2(
+                    chat_id, xml_rows, focus, correlation_id)
             xml_context = self.xml.build(xml_rows, self.aliases, trigger_message_id)
             keywords = self._extract_keywords(rows)
             l2_rows = await self.memory.search_long_term(
@@ -496,6 +504,149 @@ class SummaryGenerator:
         except Exception:
             logger.exception("summary: unexpected failure | chat_id=%s", chat_id)
             await self._send_ux(chat_id, _UX_GENERIC_FAILED)
+
+    async def _hybrid_l2_enabled(self, chat_id: int) -> bool:
+        """S5 (ADR-1026-7 D3/D5): kill-switch гибридного L2-пути.
+
+        env-only ``SUMMARY_HYBRID_L2_ENABLED`` (default False) + hot-first
+        ``flags.summary_hybrid_l2_enabled`` + per-chat через ``_chat_limit``.
+        OFF (default) → прежний ``_generate_two_call`` байт-в-байт; новые
+        модули L2 в живом пути не импортируются.
+        """
+        try:
+            return bool(await _chat_limit(
+                chat_id, "flags.summary_hybrid_l2_enabled",
+                hot.get("flags.summary_hybrid_l2_enabled",
+                        getattr(settings, "SUMMARY_HYBRID_L2_ENABLED", False))))
+        except Exception:  # pragma: no cover - защитная ветка
+            return False
+
+    async def _run_hybrid_l2(self, chat_id: int, rows: list,
+                             focus: str | None,
+                             correlation_id: str) -> None:
+        """S5 (ADR-1026-7 D5/D6): ON-ветка L1 → пакет → L2 → форматтер.
+
+        Вызывается из ``_run`` **после S1/S2** и получает уже
+        отфильтрованный/восстановленный ``rows`` (§80 «фильтр → восстановление →
+        L1»); ``focus`` учтён как в legacy-пути (focus-блок в L1),
+        ``trigger_message_id`` — через S1-фильтр выше. Ровно **2** физических
+        LLM-вызова (L1+L2); fail-closed §106: не usable/deliverable вход → L2
+        не вызывается; L2-провал → без legacy-фолбэка, публикации нет; текст
+        готов, обложки нет → публикуется текст (§105). ON активируется
+        владельцем только после live-приёмки Эпика 1; в S5 проверяется на моках.
+        """
+        # Ленивые импорты: OFF-путь не тянет модули L2 (байт-в-байт).
+        from services.summary_context_restore import build_l1_payload
+        from services.summary_fact_package import build_fact_package
+        from services.summary_l1_clusterizer import run_l1
+        from services.summary_l2_writer import run_l2
+        try:
+            l1_result = await run_l1(
+                llm=self.llm, rows=rows, chat_id=chat_id,
+                correlation_id=correlation_id,
+                focus_block=_apply_focus("", focus))
+            # §106: не usable L1 → L2 не вызывается, публикации нет.
+            if not l1_result.usable:
+                logger.warning(
+                    "L2_SKIPPED | run_id=%s | chat_id=%s | reason=l1_not_usable",
+                    correlation_id, chat_id)
+                return
+            payload_items = build_l1_payload(rows, chat_id)
+            package_result = build_fact_package(
+                l1_result, payload_items, correlation_id=correlation_id)
+            if not package_result.deliverable:
+                logger.warning(
+                    "L2_SKIPPED | run_id=%s | chat_id=%s | reason=package_%s",
+                    correlation_id, chat_id, package_result.reason or "empty")
+                return
+            service = (package_result.package or {}).get("service") or {}
+            l2_result = await run_l2(
+                self.llm, package_result.package, service=service,
+                correlation_id=correlation_id, chat_id=chat_id)
+            if not l2_result.usable:
+                # §106: L2-провал → без legacy-фолбэка (3-й вызов запрещён).
+                logger.warning(
+                    "L2_ERROR | run_id=%s | chat_id=%s | reason=%s — не публикуем",
+                    correlation_id, chat_id, l2_result.invalid_reason or "error")
+                return
+            document = l2_result.document
+            cover_prompt = normalize_cover_prompt(service.get("cover_prompt"))
+            if (cover_prompt
+                    and getattr(settings, "SUMMARY_COVER_ARTICLE_ENABLED", True)
+                    and _rich_media_supported()):
+                await self._deliver_l2_rich(
+                    chat_id, document, cover_prompt, correlation_id)
+            else:
+                await self._deliver_l2_plain(chat_id, document)
+        except LLMError as exc:
+            logger.warning("summary: LLM failed | chat_id=%s | error=%s",
+                           chat_id, exc)
+            await self._send_ux(chat_id, _UX_LLM_FAILED)
+        except _SQLITE_ERRORS:
+            logger.exception("summary: DB failed | chat_id=%s", chat_id)
+            await self._send_ux(chat_id, _UX_DB_FAILED)
+        except Exception:
+            logger.exception("summary: unexpected failure | chat_id=%s", chat_id)
+            await self._send_ux(chat_id, _UX_GENERIC_FAILED)
+
+    async def _deliver_l2_plain(self, chat_id: int, document: dict) -> None:
+        """§105: plain-канал L2 (H1 → жирный, чанки по абзацам)."""
+        from services.summary_article_formatter import (
+            chunk_plain_blocks,
+            format_plain_text,
+        )
+        try:
+            chunks = chunk_plain_blocks(document, limit=4096)
+            for index, chunk in enumerate(chunks):
+                await send_text(self.bot, chat_id, chunk, parse_mode="HTML")
+                if index < len(chunks) - 1:
+                    await asyncio.sleep(hot.get("limits.summary_chunk_delay",
+                                                settings.SUMMARY_CHUNK_DELAY))
+        except Exception:
+            # §105: HTML-отправка недоступна/упала → финальный даунгрейд в
+            # низкоуровневый текст (без разметки); текст не теряется.
+            logger.warning("FORMAT_ERROR | chat_id=%s | channel=plain — downgrade",
+                           chat_id)
+            plain = format_plain_text(document)
+            if plain:
+                await self._send_chunked(chat_id, plain)
+
+    async def _deliver_l2_rich(self, chat_id: int, document: dict,
+                               cover_prompt: str,
+                               correlation_id: str) -> None:
+        """§101/§102: rich-канал L2 (обложка + настоящий ``<h1>``)."""
+        from services.summary_article_formatter import format_rich_html
+        tmp_path = None
+        try:
+            style = await self._resolve_cover_style_text(chat_id)
+            image_prompt = compose_cover_image_prompt(style, cover_prompt)
+            tmp_path, img_reason = await generate_image_verbose(
+                image_prompt, chat_id=chat_id, correlation_id=correlation_id)
+            if not tmp_path:
+                # §106: текст готов, обложки нет → публикуем текст (§105).
+                logger.warning(
+                    "summary cover: image unavailable (%s) — plain fallback | "
+                    "reason_class=%s | provider=%s | chat_id=%s",
+                    img_reason, reason_class(img_reason), provider_label(),
+                    chat_id)
+                return await self._deliver_l2_plain(chat_id, document)
+            media = [build_cover_media(tmp_path)]
+            rich_html = format_rich_html(document, cover_id=SUMMARY_COVER_MEDIA_ID)
+            await send_rich_message(
+                self.bot, chat_id, rich_html, media=media,
+                cover_id=SUMMARY_COVER_MEDIA_ID, content_format="html")
+            logger.info("summary cover: article sent | chat_id=%s", chat_id)
+        except Exception as exc:
+            logger.warning(
+                "summary cover: rich fallback | chat_id=%s | error=%s",
+                chat_id, type(exc).__name__)
+            return await self._deliver_l2_plain(chat_id, document)
+        finally:
+            if tmp_path:
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
 
     async def _apply_filter(self, chat_id: int, rows: list,
                             correlation_id: str | None,

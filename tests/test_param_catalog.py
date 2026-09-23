@@ -208,8 +208,10 @@ class TestPromptsContentPgOnly:
                    if s.category == pc.CATEGORY_PROMPTS]
         # + prompts.youtube_video_system_prompt (04.09.2026);
         # + prompts.summary_cover_style (10.23 F6/ADR-1023-6) = 11;
-        # + 10 ключей F8 (Stage-1/Stage-2 + режимы Вербализатора) = 21.
-        assert len(prompts) == 22
+        # + 10 ключей F8 (Stage-1/Stage-2 + режимы Вербализатора) = 21;
+        # + prompts.summary_l1_clusterizer_system_prompt (10.26 S3) = 22;
+        # + prompts.summary_l2_writer_system_prompt (10.26 S5/ADR-1026-7 D3) = 23.
+        assert len(prompts) == 23
         for spec in prompts:
             assert spec.settings_field is None
             assert spec.env_name is None
@@ -386,9 +388,11 @@ class TestGroups8424:
                 counts[s.category] += 1
         # 10.23 (F6/ADR-1023-6): prompts +1 (prompts.summary_cover_style).
         # 10.23 (F8/ADR-1023-8, review iter1): prompts +10 (Stage-1/2 + режимы);
+        # 10.26 (S3/ADR-1026-5 D4): prompts +1 (Кластеризатор L1);
+        # 10.26 (S5/ADR-1026-7 D3): prompts +1 (Писатель L2).
         # content без изменений (phantom content.dynamic_cliche_list удалён —
         # F4 хранит клише в PG-таблице, ключ был бы «мёртвой ручкой»).
-        assert counts == {"prompts": 22, "models": 56, "keys": 20,
+        assert counts == {"prompts": 23, "models": 56, "keys": 20,
                           "limits": 198, "flags": 69, "reactions": 39,
                           "content": 5, "memory": 34}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)

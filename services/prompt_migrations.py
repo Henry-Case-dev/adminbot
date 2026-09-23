@@ -71,9 +71,11 @@ from services.summary_prompts import (
     PREV_SUMMARY_EDITOR_R1023_F6,
     PREV_SUMMARY_EDITOR_R1025_HOTFIX4,
     PREV_SUMMARY_L1_CLUSTERIZER_R1026,
+    PREV_SUMMARY_L2_WRITER_R1026,
     PREV_SUMMARY_SYSTEM_PROMPT,
     SUMMARY_EDITOR_SYSTEM_PROMPT,
     SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT,
+    SUMMARY_L2_WRITER_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
 )
 from services.web_prompts import (
@@ -161,6 +163,13 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # канон → no-op, кастом юзера не перезаписывается.
     "prompts.summary_l1_clusterizer_system_prompt": [
         (PREV_SUMMARY_L1_CLUSTERIZER_R1026, SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT)],
+    # 10.26 (S5, ADR-1026-7 D4; ADR-1013-3): новый PG-ключ L2-Писателя
+    # (`prompts.summary_l2_writer_system_prompt`; слепок PREV — база канона S5
+    # без правила маркировки целевого сообщения). Ступень идемпотентна: до сида
+    # — skip (сид ConfigCache поставит канон), текущий канон → no-op, кастом юзера
+    # не перезаписывается.
+    "prompts.summary_l2_writer_system_prompt": [
+        (PREV_SUMMARY_L2_WRITER_R1026, SUMMARY_L2_WRITER_SYSTEM_PROMPT)],
 }
 # prompts.extract_system_prompt НЕ входит (EXTRACT_PROMPT не трогаем)
 
@@ -207,6 +216,12 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # поэтому откат значения поведения не меняет; ключ в PG не удаляется.
     "prompts.summary_l1_clusterizer_system_prompt":
         (SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT, PREV_SUMMARY_L1_CLUSTERIZER_R1026),
+    # 10.26 (S5, ADR-1026-7 D4): откат снимает ключ L2 на слепок базы канона S5
+    # (без правила маркировки целевого сообщения). L2 врезан за kill-switch
+    # (default OFF), поэтому откат значения поведения не меняет; ключ в PG не
+    # удаляется.
+    "prompts.summary_l2_writer_system_prompt":
+        (SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1026),
 }
 
 

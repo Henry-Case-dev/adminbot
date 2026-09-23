@@ -138,16 +138,16 @@ class TestFlagsAndInvariants:
     def test_catalog_invariants(self):
         from services import param_catalog as pc
         # Базовые числа round1026: 467/426/442/100/98/21 — эпик их не меняет.
-        assert len(pc.REGISTRY) == 468
+        assert len(pc.REGISTRY) == 469
         assert len(pc.GROUPS) == 100
         assert len(pc._TAB_BY_GROUP) == 98
         assert len(pc.TAB_RULES) == 21
         assert len({f.name for f in dataclasses.fields(Settings)}) == 426
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.23", APP_VERSION
-        assert "v2.58.23" in README, "README не синхронизирован"
-        assert 'APP_VERSION = "2.58.23"' in SETTINGS
+        assert APP_VERSION == "2.58.24", APP_VERSION
+        assert "v2.58.24" in README, "README не синхронизирован"
+        assert 'APP_VERSION = "2.58.24"' in SETTINGS
 
     def test_zero_ddl(self):
         # Δ DDL = 0: никаких новых таблиц/миграций эпиком не добавляется.

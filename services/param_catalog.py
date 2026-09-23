@@ -473,6 +473,13 @@ _PROMPTS: list[tuple] = [
      "prompts_summary",
      "Разбирает историю на темы и проверяемые факты с подтверждающими ID (первый проход L1). Саммари не пишет. Изменения применяются сразу.",
      "advanced", "synthesizer"),
+    # Раунд 10.26 (S5, ADR-1026-7 D3/D4): L2 «Писатель» — отдельный канон
+    # (§97–§99, не общий с L1/Рассказчиком); Δ каталога +1 санкционирована.
+    ("prompts.summary_l2_writer_system_prompt", "Писатель саммари (L2)",
+     "services.summary_prompts.SUMMARY_L2_WRITER_SYSTEM_PROMPT",
+     "prompts_summary",
+     "Собирает качественную статью по пакету фактов: H1, абзацы, запрет выдуманных цитат (второй проход L2). HTML не форматирует. Изменения применяются сразу.",
+     "advanced", "synthesizer"),
     ("prompts.direct_chat_synthesizer_system_prompt", "Синтезатор прямого чата (Логика)",
      "services.chat_prompts.DIRECT_SYNTHESIZER_SYSTEM_PROMPT", "prompts_direct_chat",
      "Собирает выводы инструментов в справку (первый проход прямого чата). Изменения применяются сразу.",

@@ -966,6 +966,23 @@ class Settings:
     SUMMARY_L1_BASE_URL: ClassVar[str] = _env_str("SUMMARY_L1_BASE_URL", "")
     SUMMARY_L1_MODEL_NAME: ClassVar[str] = _env_str("SUMMARY_L1_MODEL_NAME", "")
     SUMMARY_L1_API_KEY: ClassVar[str] = _env_str("SUMMARY_L1_API_KEY", "")
+    # ── Эпик 2 / S5 round1026 (ADR-1026-7 D3): слот модели summary L2 «Писатель»
+    # (§82) — env-only ClassVar (НЕ dataclass-поля → вне каталога, Δ каталога = 0;
+    # UI-слот/каталог — S6 при врезке). Пусто → глобальная основная модель
+    # (наследование ≠ аварийное резервирование). Резолвер L2 читает hot-first
+    # (`models.summary_l2_*`/`keys.summary_l2_api_key`) — forward-compatible.
+    # Секрет не логируется (R17).
+    SUMMARY_L2_BASE_URL: ClassVar[str] = _env_str("SUMMARY_L2_BASE_URL", "")
+    SUMMARY_L2_MODEL_NAME: ClassVar[str] = _env_str("SUMMARY_L2_MODEL_NAME", "")
+    SUMMARY_L2_API_KEY: ClassVar[str] = _env_str("SUMMARY_L2_API_KEY", "")
+    # ── Эпик 2 / S5 round1026 (ADR-1026-7 D3/D5): kill-switch гибридного L2-пути
+    # (L1 → пакет → L2). env-only ClassVar (Δ каталога = 0; каталог-ключ флага —
+    # S6 при врезке). Default OFF: прежний `_generate_two_call` (Stage-1/Stage-2)
+    # байт-в-байт, новые модули L2 в живом пути не импортируются. ON активируется
+    # владельцем только после live-приёмки Эпика 1 (гейт S6/S10+D4). Рантайм —
+    # hot-first `flags.summary_hybrid_l2_enabled` + per-chat через `_chat_limit`.
+    SUMMARY_HYBRID_L2_ENABLED: ClassVar[bool] = _env_bool(
+        "SUMMARY_HYBRID_L2_ENABLED", False)
 
     # ── GraphRAG (Epic 26) ─────────────────────────────────────────
     # False = extraction-вызов при архивации не делается (ровно старое поведение)
@@ -1796,7 +1813,7 @@ settings = Settings()
 # S4 (10.26, ADR-1026-6 D1–D6): bump 2.58.22 → 2.58.23 — новый рантайм-модуль
 # `services/summary_fact_package.py` (детерминированный «пакет фактов §96»,
 # 0 LLM-вызовов; Δ каталога=0, Δ DDL=0; в живой путь НЕ врезан — GATED S5/S6).
-APP_VERSION = "2.58.23"   # S4 (10.26, ADR-1026-6 D1–D6): пакет фактов §96 — новый чистый модуль services/summary_fact_package.py (FactPackage v1: name=topic verbatim, description=детерминированная агрегация facts[].text, chronology=ASC (timestamp,message_id) из §92, facts/evidence_ids verbatim+union, fragments evidence-first, service{response_mode,cover_prompt}); бюджет L2-входа — reuse limits.summary_max_context_tokens/_chars через resolve_chat_limit (Δ каталога=0, новых env нет); усечение fragments→description→целые темы + truncated/skipped_ids/WARN; fail-closed ok/truncated/empty/invalid/error + not_built (§95/§106); ID — TG message_id; 0 LLM-вызовов; в живой путь НЕ врезан (GATED S5/S6), ровно 2 вызова сохранены, публикация/обложка/XML вне diff; Δ DDL=0. Ранее S3 (10.26, ADR-1026-5 D1–D6): L1 «Кластеризатор» — модули services/summary_l1_contract.py (строгий JSON §95, ID-пространства TG/DB, fail-closed L1Result) и services/summary_l1_clusterizer.py (§92-вход → §93-упаковка в один вход → ровно 1 LLM-вызов → §95-валидатор; логи L1_START/COMPLETE/ERROR), промпт-канон L1 (+1 каталог, PREV_*/ROLLBACK, эталон canon), env-only слот SUMMARY_L1_*; Δ DDL=0. Ранее S2 (10.26, ADR-1026-4 D1/D7): восстановление контекста Саммари — services/summary_context_restore.py, врезка в SummaryGenerator._apply_filter (0 LLM-вызовов). Ранее S1 (10.26, ADR-1026-1 D1/D7): алгоритмический префильтр — services/summary_filter.py, врезка в SummaryGenerator._run (0 LLM-вызовов).
+APP_VERSION = "2.58.24"   # S5 (10.26, ADR-1026-7 D1–D7): L2 «Писатель» + серверный форматтер статьи — новые модули services/summary_l2_writer.py (build_l2_input/run_l2/parse_l2_document/validate_l2_document, L2Result; вход = контент-секция FactPackage §96, выход = документ §99, ровно 1 LLM-вызов, step=l2_writer; пост-валидация цитат/атрибуции, fail-closed) и services/summary_article_formatter.py (0 LLM: rich H1/p/≤1 b + sanitize→html.escape, plain <b>-заголовок, чанки по абзацам; лимиты 200/max_summary_parts/498/32000/900); промпт-канон L2 (+1 каталог, PREV_*/ROLLBACK, эталон canon), env-only слот SUMMARY_L2_* и kill-switch SUMMARY_HYBRID_L2_ENABLED (default OFF, врезка за флагом в summary_generator._run, OFF-путь байт-в-байт); send_rich_message content_format="html"; Δ DDL=0. Ранее S4 (10.26, ADR-1026-6 D1–D6): пакет фактов §96 — новый чистый модуль services/summary_fact_package.py (FactPackage v1: name=topic verbatim, description=детерминированная агрегация facts[].text, chronology=ASC (timestamp,message_id) из §92, facts/evidence_ids verbatim+union, fragments evidence-first, service{response_mode,cover_prompt}); бюджет L2-входа — reuse limits.summary_max_context_tokens/_chars через resolve_chat_limit (Δ каталога=0, новых env нет); усечение fragments→description→целые темы + truncated/skipped_ids/WARN; fail-closed ok/truncated/empty/invalid/error + not_built (§95/§106); ID — TG message_id; 0 LLM-вызовов; в живой путь НЕ врезан (GATED S5/S6), ровно 2 вызова сохранены, публикация/обложка/XML вне diff; Δ DDL=0. Ранее S3 (10.26, ADR-1026-5 D1–D6): L1 «Кластеризатор» — модули services/summary_l1_contract.py (строгий JSON §95, ID-пространства TG/DB, fail-closed L1Result) и services/summary_l1_clusterizer.py (§92-вход → §93-упаковка в один вход → ровно 1 LLM-вызов → §95-валидатор; логи L1_START/COMPLETE/ERROR), промпт-канон L1 (+1 каталог, PREV_*/ROLLBACK, эталон canon), env-only слот SUMMARY_L1_*; Δ DDL=0. Ранее S2 (10.26, ADR-1026-4 D1/D7): восстановление контекста Саммари — services/summary_context_restore.py, врезка в SummaryGenerator._apply_filter (0 LLM-вызовов). Ранее S1 (10.26, ADR-1026-1 D1/D7): алгоритмический префильтр — services/summary_filter.py, врезка в SummaryGenerator._run (0 LLM-вызовов).
 
 
 def get_ytdlp_pot_provider() -> str:
