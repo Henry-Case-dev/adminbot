@@ -59,6 +59,21 @@ from services.summary_prompts import (
     SUMMARY_NARRATOR_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
 )
+# S7 (ADR-1026-9 D1/D2/D6): сквозной `run_id` + события жизненного цикла §108.
+from services.summary_run_log import (
+    STATUS_DEGRADED,
+    STATUS_EMPTY,
+    RunContext,
+    finish_run,
+    log_cover_complete,
+    log_cover_error,
+    log_cover_start,
+    log_format_complete,
+    log_format_error,
+    log_format_start,
+    log_summary_start,
+    provider_host,
+)
 from services.system2_handoff import (
     normalize_cover_prompt,
     parse_summary_handoff_ex,
@@ -345,10 +360,34 @@ class SummaryGenerator:
     async def _run(self, chat_id: int, manual: bool, focus: str | None = None,
                    trigger_message_id: int | None = None) -> None:
         # F7 (ADR-1023-7 D4): один сквозной id на саммари.
+        # S7 (ADR-1026-9 D1): он же формальный `run_id` — второй id не вводим.
         correlation_id = usage_events.new_correlation_id()
+        # S7 (ADR-1026-9 D2): режим (off|hybrid_l2) резолвим ОДИН раз и кладём
+        # в SUMMARY_* (повторный вызов `_hybrid_l2_enabled` ниже не нужен).
+        hybrid = await self._hybrid_l2_enabled(chat_id)
+        ctx = RunContext(
+            run_id=correlation_id, chat_id=chat_id,
+            mode="hybrid_l2" if hybrid else "off", manual=manual,
+            has_trigger=trigger_message_id is not None)
+        # S7 (B-R1026S7-1, §109/D6): R17-safe модель/провайдер для
+        # SUMMARY_FAILED на ОБОИХ путях — OFF (default) тоже error-поверхность;
+        # `provider` — host без схемы/ключа; ON-ветка дублирует идемпотентно.
+        # Best-effort: частично инициализированный инстанс (object.__new__ в
+        # legacy-тестах) не должен падать из-за телеметрии.
+        llm = getattr(self, "llm", None)
+        ctx.model = str(getattr(llm, "_chat_model", "") or "") or None
+        ctx.provider = provider_host(
+            str(getattr(llm, "_base_url", "") or "")) or None
+        # S7: жизненный цикл — SUMMARY_START; завершение (COMPLETE/FAILED)
+        # эмитится в `finally` (в т.ч. на early-return и на исключении).
+        try:
+            log_summary_start(ctx)
+        except Exception:  # pragma: no cover - лог best-effort, пайплайн не рвём
+            pass
         try:
             await self.memory.compress_and_purge(chat_id)
             rows = await self.memory.get_window_messages(chat_id)
+            ctx.source_count = len(rows)
             if not rows:
                 if manual:
                     await self._send_ux(chat_id, _UX_EMPTY)     # B4
@@ -356,6 +395,7 @@ class SummaryGenerator:
                     "summary: empty window | chat_id=%s manual=%s — no LLM call",
                     chat_id, manual,
                 )
+                ctx.status = STATUS_EMPTY
                 return
             # S1 (ADR-1026-1 D6): префильтр входа L1 — строго между чтением
             # окна и сборкой XML. Фильтруется ТОЛЬКО XML-история; все прочие
@@ -370,14 +410,22 @@ class SummaryGenerator:
                             settings.SUMMARY_FILTER_ENABLED))):
                 xml_rows = await self._apply_filter(
                     chat_id, rows, correlation_id, trigger_message_id)
+                # S7 (ADR-1026-9 D2): §109-поля SUMMARY_COMPLETE — только из
+                # метрик ЭТОГО прогона (run_id), без устаревшего слота fail-open.
+                metrics = getattr(self, "_filter_metrics", None) or {}
+                metrics = metrics.get(chat_id) or {}
+                if metrics.get("run_id") == correlation_id:
+                    ctx.saved_count = metrics.get("saved_count")
+                    ctx.restored_count = metrics.get("restored_count")
             # S5 (ADR-1026-7 D5/§80): ON-ветка врезается ПОСЛЕ S1/S2 — L1
             # получает уже отфильтрованный/восстановленный вход (`xml_rows`),
             # а не сырое окно. `trigger_message_id` учтён S1-фильтром выше,
             # `focus` — focus-блоком в L1 (как в legacy-пути). OFF-путь ниже
             # байт-в-байт.
-            if await self._hybrid_l2_enabled(chat_id):
-                return await self._run_hybrid_l2(
-                    chat_id, xml_rows, focus, correlation_id)
+            if hybrid:
+                await self._run_hybrid_l2(
+                    chat_id, xml_rows, focus, correlation_id, ctx=ctx)
+                return
             xml_context = self.xml.build(xml_rows, self.aliases, trigger_message_id)
             keywords = self._extract_keywords(rows)
             l2_rows = await self.memory.search_long_term(
@@ -472,6 +520,7 @@ class SummaryGenerator:
                     payload, chat_id, correlation_id=correlation_id,
                     step="single")
             if raw is None:
+                ctx.status = STATUS_DEGRADED
                 return
             raw = cleanup_llm_text(raw)                   # Epic 28 (R28-3)
             raw = _strip_safe_html(raw)                   # review iter1 (H2)
@@ -481,6 +530,7 @@ class SummaryGenerator:
                 logger.warning(
                     "summary: empty answer after cleanup — silence | chat_id=%s",
                     chat_id)
+                ctx.status = STATUS_EMPTY
                 return
             text = self._ensure_shiz_postfix(raw, rows)
             cover_prompt = self._resolve_cover_prompt(
@@ -492,18 +542,30 @@ class SummaryGenerator:
                     and getattr(settings, "SUMMARY_COVER_ARTICLE_ENABLED", True)
                     and _rich_media_supported()):
                 await self._deliver_rich(chat_id, text, cover_prompt,
-                                         correlation_id=correlation_id)
+                                         correlation_id=correlation_id,
+                                         ctx=ctx)
             else:
+                ctx.cover_status = "unavailable"
                 await self._deliver_plain(chat_id, text)
         except LLMError as exc:
+            ctx.fail_from_exc(stage="run", exc=exc)
             logger.warning("summary: LLM failed | chat_id=%s | error=%s", chat_id, exc)
             await self._send_ux(chat_id, _UX_LLM_FAILED)
         except _SQLITE_ERRORS:
+            ctx.fail(stage="db", reason="db_error", error_type="DatabaseError")
             logger.exception("summary: DB failed | chat_id=%s", chat_id)
             await self._send_ux(chat_id, _UX_DB_FAILED)
-        except Exception:
+        except Exception as exc:
+            ctx.fail_from_exc(stage="run", exc=exc)
             logger.exception("summary: unexpected failure | chat_id=%s", chat_id)
             await self._send_ux(chat_id, _UX_GENERIC_FAILED)
+        finally:
+            # S7 (ADR-1026-9 D2/D6): SUMMARY_COMPLETE (ok/empty/degraded) либо
+            # SUMMARY_FAILED; best-effort — ошибка логирования пайплайн не рвёт.
+            try:
+                finish_run(ctx)
+            except Exception:  # pragma: no cover - лог не должен ронять прогон
+                pass
 
     async def _hybrid_l2_enabled(self, chat_id: int) -> bool:
         """S5 (ADR-1026-7 D3/D5): kill-switch гибридного L2-пути.
@@ -523,7 +585,7 @@ class SummaryGenerator:
 
     async def _run_hybrid_l2(self, chat_id: int, rows: list,
                              focus: str | None,
-                             correlation_id: str) -> None:
+                             correlation_id: str, ctx=None) -> None:
         """S5 (ADR-1026-7 D5/D6): ON-ветка L1 → пакет → L2 → форматтер.
 
         Вызывается из ``_run`` **после S1/S2** и получает уже
@@ -534,23 +596,42 @@ class SummaryGenerator:
         не вызывается; L2-провал → без legacy-фолбэка, публикации нет; текст
         готов, обложки нет → публикуется текст (§105). ON активируется
         владельцем только после live-приёмки Эпика 1; в S5 проверяется на моках.
+
+        S7 (ADR-1026-9 D1/D2): ``ctx`` (необязательный) заполняется для
+        ``SUMMARY_COMPLETE``/``SUMMARY_FAILED``; lifecycle эмитит ``_run`` —
+        второй пары ``SUMMARY_*`` здесь НЕТ (дубля нет). Прямой вызов без
+        ``ctx`` (тесты S5) поведения не меняет.
         """
         # Ленивые импорты: OFF-путь не тянет модули L2 (байт-в-байт).
         from services.summary_context_restore import build_l1_payload
         from services.summary_fact_package import build_fact_package
         from services.summary_l1_clusterizer import run_l1
         from services.summary_l2_writer import run_l2
+        # S7: R17-safe модель/провайдер для SUMMARY_FAILED (host, без ключа).
+        if ctx is not None:
+            ctx.model = str(getattr(self.llm, "_chat_model", "") or "") or None
+            ctx.provider = provider_host(
+                str(getattr(self.llm, "_base_url", "") or "")) or None
+        stage = "l1"
         try:
             l1_result = await run_l1(
                 llm=self.llm, rows=rows, chat_id=chat_id,
                 correlation_id=correlation_id,
                 focus_block=_apply_focus("", focus))
+            if ctx is not None:
+                ctx.threads = getattr(l1_result, "threads_count", None)
             # §106: не usable L1 → L2 не вызывается, публикации нет.
             if not l1_result.usable:
                 logger.warning(
                     "L2_SKIPPED | run_id=%s | chat_id=%s | reason=l1_not_usable",
                     correlation_id, chat_id)
+                if ctx is not None:
+                    ctx.status = STATUS_DEGRADED
+                    ctx.stage = "l1"
+                    ctx.reason = getattr(l1_result, "invalid_reason", None) \
+                        or getattr(l1_result, "status", None)
                 return
+            stage = "package"
             payload_items = build_l1_payload(rows, chat_id)
             package_result = build_fact_package(
                 l1_result, payload_items, correlation_id=correlation_id)
@@ -558,7 +639,12 @@ class SummaryGenerator:
                 logger.warning(
                     "L2_SKIPPED | run_id=%s | chat_id=%s | reason=package_%s",
                     correlation_id, chat_id, package_result.reason or "empty")
+                if ctx is not None:
+                    ctx.status = STATUS_DEGRADED
+                    ctx.stage = "package"
+                    ctx.reason = package_result.reason or "not_deliverable"
                 return
+            stage = "l2"
             service = (package_result.package or {}).get("service") or {}
             l2_result = await run_l2(
                 self.llm, package_result.package, service=service,
@@ -568,24 +654,41 @@ class SummaryGenerator:
                 logger.warning(
                     "L2_ERROR | run_id=%s | chat_id=%s | reason=%s — не публикуем",
                     correlation_id, chat_id, l2_result.invalid_reason or "error")
+                if ctx is not None:
+                    ctx.status = STATUS_DEGRADED
+                    ctx.stage = "l2"
+                    ctx.reason = l2_result.invalid_reason or "error"
                 return
+            stage = "deliver"
             document = l2_result.document
+            if ctx is not None:
+                ctx.paragraphs = len((document or {}).get("paragraphs") or [])
             cover_prompt = normalize_cover_prompt(service.get("cover_prompt"))
             if (cover_prompt
                     and getattr(settings, "SUMMARY_COVER_ARTICLE_ENABLED", True)
                     and _rich_media_supported()):
                 await self._deliver_l2_rich(
-                    chat_id, document, cover_prompt, correlation_id)
+                    chat_id, document, cover_prompt, correlation_id, ctx=ctx)
             else:
-                await self._deliver_l2_plain(chat_id, document)
+                if ctx is not None:
+                    ctx.cover_status = "unavailable"
+                await self._deliver_l2_plain(
+                    chat_id, document, correlation_id, ctx=ctx)
         except LLMError as exc:
+            if ctx is not None:
+                ctx.fail_from_exc(stage=stage, exc=exc)
             logger.warning("summary: LLM failed | chat_id=%s | error=%s",
                            chat_id, exc)
             await self._send_ux(chat_id, _UX_LLM_FAILED)
         except _SQLITE_ERRORS:
+            if ctx is not None:
+                ctx.fail(stage=stage, reason="db_error",
+                         error_type="DatabaseError")
             logger.exception("summary: DB failed | chat_id=%s", chat_id)
             await self._send_ux(chat_id, _UX_DB_FAILED)
-        except Exception:
+        except Exception as exc:
+            if ctx is not None:
+                ctx.fail_from_exc(stage=stage, exc=exc)
             logger.exception("summary: unexpected failure | chat_id=%s", chat_id)
             await self._send_ux(chat_id, _UX_GENERIC_FAILED)
 
@@ -644,12 +747,22 @@ class SummaryGenerator:
             "limit": int(limit),
         }
 
-    async def _deliver_l2_plain(self, chat_id: int, document: dict) -> None:
-        """§105: plain-канал L2 (H1 → жирный, чанки по абзацам)."""
+    async def _deliver_l2_plain(self, chat_id: int, document: dict,
+                                correlation_id: str | None = None,
+                                ctx=None) -> None:
+        """§105: plain-канал L2 (H1 → жирный, чанки по абзацам).
+
+        S7 (ADR-1026-9 D2): аддитивные ``FORMAT_START``/``FORMAT_COMPLETE``/
+        ``FORMAT_ERROR`` (§109) с тем же ``run_id``; при ошибке — прежний
+        финальный даунгрейд в текст (поведение §105 не меняется).
+        """
         from services.summary_article_formatter import (
             chunk_plain_blocks,
             format_plain_text,
         )
+        paragraphs = len((document or {}).get("paragraphs") or [])
+        started = log_format_start(
+            run_id=correlation_id, chat_id=chat_id, channel="plain")
         try:
             chunks = chunk_plain_blocks(document, limit=4096)
             for index, chunk in enumerate(chunks):
@@ -657,45 +770,93 @@ class SummaryGenerator:
                 if index < len(chunks) - 1:
                     await asyncio.sleep(hot.get("limits.summary_chunk_delay",
                                                 settings.SUMMARY_CHUNK_DELAY))
-        except Exception:
+            log_format_complete(
+                run_id=correlation_id, chat_id=chat_id, channel="plain",
+                paragraphs=paragraphs, started=started)
+        except Exception as exc:
             # §105: HTML-отправка недоступна/упала → финальный даунгрейд в
             # низкоуровневый текст (без разметки); текст не теряется.
-            logger.warning("FORMAT_ERROR | chat_id=%s | channel=plain — downgrade",
-                           chat_id)
+            log_format_error(
+                run_id=correlation_id, chat_id=chat_id, channel="plain",
+                reason=type(exc).__name__)
             plain = format_plain_text(document)
             if plain:
                 await self._send_chunked(chat_id, plain)
 
     async def _deliver_l2_rich(self, chat_id: int, document: dict,
                                cover_prompt: str,
-                               correlation_id: str) -> None:
-        """§101/§102: rich-канал L2 (обложка + настоящий ``<h1>``)."""
+                               correlation_id: str,
+                               ctx=None) -> None:
+        """§101/§102: rich-канал L2 (обложка + настоящий ``<h1>``).
+
+        S7 (ADR-1026-9 D2): аддитивные ``COVER_*``/``FORMAT_*`` (§109) с тем
+        же ``run_id``; §104 (модель/провайдер/ключ/промпт/порядок) не тронут.
+        """
         from services.summary_article_formatter import format_rich_html
         tmp_path = None
+        cover_started = None
         try:
             style = await self._resolve_cover_style_text(chat_id)
             image_prompt = compose_cover_image_prompt(style, cover_prompt)
-            tmp_path, img_reason = await generate_image_verbose(
-                image_prompt, chat_id=chat_id, correlation_id=correlation_id)
+            cover_started = log_cover_start(
+                run_id=correlation_id, chat_id=chat_id,
+                provider=provider_label())
+            try:
+                tmp_path, img_reason = await generate_image_verbose(
+                    image_prompt, chat_id=chat_id,
+                    correlation_id=correlation_id)
+            except Exception as exc:
+                log_cover_error(
+                    run_id=correlation_id, chat_id=chat_id,
+                    provider=provider_label(), error_type=type(exc).__name__,
+                    reason=type(exc).__name__, started=cover_started)
+                raise
             if not tmp_path:
                 # §106: текст готов, обложки нет → публикуем текст (§105).
+                log_cover_complete(
+                    run_id=correlation_id, chat_id=chat_id,
+                    status="unavailable", started=cover_started)
                 logger.warning(
                     "summary cover: image unavailable (%s) — plain fallback | "
                     "reason_class=%s | provider=%s | chat_id=%s",
                     img_reason, reason_class(img_reason), provider_label(),
                     chat_id)
-                return await self._deliver_l2_plain(chat_id, document)
-            media = [build_cover_media(tmp_path)]
-            rich_html = format_rich_html(document, cover_id=SUMMARY_COVER_MEDIA_ID)
-            await send_rich_message(
-                self.bot, chat_id, rich_html, media=media,
-                cover_id=SUMMARY_COVER_MEDIA_ID, content_format="html")
+                if ctx is not None:
+                    ctx.cover_status = "unavailable"
+                return await self._deliver_l2_plain(
+                    chat_id, document, correlation_id, ctx=ctx)
+            log_cover_complete(
+                run_id=correlation_id, chat_id=chat_id, status="ok",
+                started=cover_started)
+            if ctx is not None:
+                ctx.cover_status = "ok"
+            format_started = log_format_start(
+                run_id=correlation_id, chat_id=chat_id, channel="rich")
+            try:
+                media = [build_cover_media(tmp_path)]
+                rich_html = format_rich_html(
+                    document, cover_id=SUMMARY_COVER_MEDIA_ID)
+                await send_rich_message(
+                    self.bot, chat_id, rich_html, media=media,
+                    cover_id=SUMMARY_COVER_MEDIA_ID, content_format="html")
+            except Exception as exc:
+                log_format_error(
+                    run_id=correlation_id, chat_id=chat_id, channel="rich",
+                    reason=type(exc).__name__)
+                raise
+            log_format_complete(
+                run_id=correlation_id, chat_id=chat_id, channel="rich",
+                paragraphs=len((document or {}).get("paragraphs") or []),
+                started=format_started)
             logger.info("summary cover: article sent | chat_id=%s", chat_id)
         except Exception as exc:
+            if ctx is not None:
+                ctx.cover_status = "unavailable"
             logger.warning(
                 "summary cover: rich fallback | chat_id=%s | error=%s",
                 chat_id, type(exc).__name__)
-            return await self._deliver_l2_plain(chat_id, document)
+            return await self._deliver_l2_plain(
+                chat_id, document, correlation_id, ctx=ctx)
         finally:
             if tmp_path:
                 try:
@@ -1332,15 +1493,20 @@ class SummaryGenerator:
 
     async def _deliver_rich(self, chat_id: int, text: str,
                             cover_prompt: str,
-                            correlation_id: str | None = None) -> None:
+                            correlation_id: str | None = None,
+                            ctx=None) -> None:
         """F6 (ADR-1023-6 §3.4): обложка (F5) → Article (`sendRichMessage`).
 
         Тихий фолбэк (D8) для пользователя: любая ошибка генерации/отправки →
         plain-путь без сообщений пользователю; в лог — WARNING с классом
         причины и провайдером (R17-safe, хотфикс-5), без дампа промпта. Rich-ветка
         не стримит → дублей нет. F7 rework: ``correlation_id`` саммари едет в
-        генерацию обложки — событие ``step='image'`` остаётся в дереве."""
+        генерацию обложки — событие ``step='image'`` остаётся в дереве.
+        S7 (ADR-1026-9 D2): ``ctx.cover_status`` отражает ФАКТИЧЕСКИЙ исход
+        (ok/unavailable) для ``SUMMARY_COMPLETE``; аддитивные ``COVER_*`` (§109)
+        пишутся с тем же ``run_id``. Поведение §104 не меняется."""
         tmp_path = None
+        cover_started = None
         try:
             # T-2509 (hotfix4): настроенный стиль применяется как есть; дефолт —
             # только при реальном отсутствии/пустоте значения.
@@ -1360,6 +1526,9 @@ class SummaryGenerator:
                 bool(style_text), len(style_text), len(visual_text),
                 len(image_prompt), markers["style_is_default"],
                 markers["has_comic"], markers["has_heading"], chat_id)
+            cover_started = log_cover_start(
+                run_id=correlation_id, chat_id=chat_id,
+                provider=provider_label())
             tmp_path, img_reason = await generate_image_verbose(
                 image_prompt, chat_id=chat_id,
                 correlation_id=correlation_id)
@@ -1369,6 +1538,11 @@ class SummaryGenerator:
                 # (R17-safe: без дампа промпта/URL); attempt=N/M и длительность
                 # пишет image-слой (`generate_image_verbose`).
                 provider = provider_label()
+                log_cover_complete(
+                    run_id=correlation_id, chat_id=chat_id,
+                    status="unavailable", started=cover_started)
+                if ctx is not None:
+                    ctx.cover_status = "unavailable"
                 logger.warning(
                     "summary cover: image unavailable (%s) — plain fallback | "
                     "reason_class=%s | provider=%s | chat_id=%s",
@@ -1379,8 +1553,19 @@ class SummaryGenerator:
                 return await self._plain_fallback(chat_id, text)
             media = [build_cover_media(tmp_path)]
             await self._send_rich_with_retry(chat_id, text, media)
+            log_cover_complete(
+                run_id=correlation_id, chat_id=chat_id, status="ok",
+                started=cover_started)
+            if ctx is not None:
+                ctx.cover_status = "ok"
             logger.info("summary cover: article sent | chat_id=%s", chat_id)
         except Exception as exc:
+            log_cover_error(
+                run_id=correlation_id, chat_id=chat_id,
+                provider=provider_label(), error_type=type(exc).__name__,
+                reason=type(exc).__name__, started=cover_started)
+            if ctx is not None:
+                ctx.cover_status = "unavailable"
             logger.warning(
                 "summary cover: rich fallback | chat_id=%s | error=%s",
                 chat_id, type(exc).__name__)

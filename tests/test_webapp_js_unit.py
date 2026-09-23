@@ -308,3 +308,14 @@ def test_js_unit_round1026_s9_testing_ui():
     (Δ каталога=0)."""
     _run_js(os.path.join("tests", "js", "round1026_s9_testing_test.js"),
             ok_marker="SUMMARY-TESTING-UI-OK")
+
+
+def test_js_unit_round1026_s7_log_summary_filter():
+    """S7 round 10.26 (ADR-1026-9 D4, §110): клиентский чип «Саммари» в
+    существующем log viewer — маркеры SUMMARY_/FILTER_/RESTORE_/L1_/L2_/
+    FORMAT_/COVER_/TEST_/run_id=, shownLogs (OFF → passthrough), понятные
+    формулировки ошибок, ON → INFO / OFF → прежний уровень; раскрытие и
+    копирование сохранены; без нового endpoint/routes.py."""
+    _run_js(os.path.join("tests", "js",
+                         "round1026_s7_log_summary_filter_test.js"),
+            ok_marker="S7-LOG-SUMMARY-OK")

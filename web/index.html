@@ -4083,8 +4083,16 @@
                 <select class="field w-32 shrink-0" v-model="logLevel" aria-label="Уровень логов">
                   <option v-for="lvl in ['ERROR+WARNING','ERROR','WARNING','INFO','DEBUG','CRITICAL','ALL']" :key="lvl" :value="lvl">{{ lvl }}</option>
                 </select>
+                <!-- S7 (ADR-1026-9 D4, §110): клиентский чип «Саммари» —
+                     существующий viewer, без нового endpoint; раскрытие и
+                     копирование строк сохраняются. -->
+                <button class="btn-ghost log-chip text-xs shrink-0"
+                        :class="{ active: logSummaryOnly }"
+                        :aria-pressed="logSummaryOnly ? 'true' : 'false'"
+                        title="Показать только события Саммари (run_id, этапы, ошибки)"
+                        @click="toggleLogSummary()">Саммари</button>
                 <button class="btn-ghost text-sm shrink-0" @click="loadLogs()">Обновить</button>
-                <span class="text-xs text-gray-500 min-w-0 truncate">показано {{ logs.length }} из {{ logsCount }}</span>
+                <span class="text-xs text-gray-500 min-w-0 truncate">показано {{ shownLogs.length }} из {{ logsCount }}</span>
                 <button class="btn-ghost text-xs ml-auto shrink-0" @click="copyAllLogs()">Копировать всё</button>
               </div>
               <div class="text-xs mb-2">
@@ -4098,9 +4106,9 @@
                    ВЕРХУ (сервер отдаёт новые сверху). -->
               <div class="log-panel scroll-thin" ref="logPanel">
                 <div v-if="logsLoading" class="spinner my-4"></div>
-                <div v-else-if="logs.length === 0" class="text-gray-500 text-sm py-2">Логов нет.</div>
+                <div v-else-if="shownLogs.length === 0" class="text-gray-500 text-sm py-2">Логов нет.</div>
                 <div v-else class="log-code">
-                  <template v-for="(log, i) in logs">
+                  <template v-for="(log, i) in shownLogs">
                     <div :key="i" class="log-row border-b border-white/5 py-1.5 cursor-pointer"
                          title="Клик — копировать строку"
                          :class="{ 'log-copied': copiedIndex === i }"
@@ -4120,7 +4128,10 @@
                         <span class="log-ts" :title="fmtLogTs(log.ts)">{{ fmtLogTime(log.ts) }}</span>
                         <span class="log-logger text-gray-400">{{ log.logger }}</span>
                       </div>
-                      <div class="log-msg text-gray-200">{{ log.message }}</div>
+                      <div class="log-msg text-gray-200">
+                        <span v-if="logSummaryOnly && summaryErrorLabel(log)"
+                              class="badge badge-err mr-1">{{ summaryErrorLabel(log) }}</span>{{ log.message }}
+                      </div>
                       <div v-if="log.expanded && log.exc_text" class="log-exc">{{ log.exc_text }}</div>
                     </div>
                   </template>

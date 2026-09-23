@@ -268,10 +268,12 @@ async def _execute(entry: _RunEntry, generator, pg) -> None:
             correlation_id=entry.test_id, generator=generator, pg=pg)
         entry.result = result
         entry.status = result.status
-    except Exception:
+    except Exception as exc:
+        # S7 (T-3400, L-R1026S9-8): R17 — без traceback/сырых текстов; только
+        # тип ошибки (маскировка/полнота деталей — на этапных событиях §109).
         logger.warning(
-            "SUMMARY_TEST_RUN_FAILED | run_id=%s | chat_id=%s",
-            entry.test_id, entry.chat_id, exc_info=True)
+            "SUMMARY_TEST_RUN_FAILED | run_id=%s | chat_id=%s | error_type=%s",
+            entry.test_id, entry.chat_id, type(exc).__name__)
         entry.status = "error"
         entry.error = "run_failed"
         # B-R1026S9-2: синтетический контракт-валидный error-результат с
@@ -369,10 +371,11 @@ async def summary_test_cover(
         tmp_path, img_reason = await generate_image_verbose(
             image_prompt, chat_id=entry.chat_id,
             correlation_id=entry.test_id)
-    except Exception:
+    except Exception as exc:
+        # S7 (T-3400, L-R1026S9-8): R17 — без traceback/сырых текстов.
         logger.warning(
-            "SUMMARY_TEST_COVER_FAILED | run_id=%s | chat_id=%s",
-            test_id, entry.chat_id, exc_info=True)
+            "SUMMARY_TEST_COVER_FAILED | run_id=%s | chat_id=%s | error_type=%s",
+            test_id, entry.chat_id, type(exc).__name__)
         entry.cover_status = "COVER_GENERATION_FAILED"
         entry.cover_error = "generation_error"
         return {"cover_status": entry.cover_status, "preview_url": None}

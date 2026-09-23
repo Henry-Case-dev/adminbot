@@ -56,6 +56,8 @@ from services.summary_l1_contract import (
     validate_l1_response,
 )
 from services.summary_prompts import SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT
+# S7 (ADR-1026-9 D6/SC-07): §109-детали ошибки — http_status/attempts.
+from services.summary_run_log import attempts_of, http_status_of
 from services.token_counter import count_tokens, resolve_chat_limit
 
 logger = logging.getLogger(__name__)
@@ -446,12 +448,14 @@ def _log_complete(*, correlation_id, chat_id, result: L1Result, model,
 
 
 def _log_error(*, correlation_id, chat_id, model, base_url, reason, error_type,
-               duration_ms) -> None:
+               duration_ms, http_status=None, attempts=None) -> None:
     logger.warning(
         "L1_ERROR | run_id=%s | chat_id=%s | provider=%s | model=%s | "
-        "error=%s | reason=%s | duration_ms=%.0f",
+        "error=%s | reason=%s | http_status=%s | attempts=%s | duration_ms=%.0f",
         correlation_id or "none", chat_id, provider_host(base_url) or "-",
-        model or "-", error_type or "-", reason or "-", duration_ms)
+        model or "-", error_type or "-", reason or "-",
+        http_status if http_status is not None else "-",
+        attempts if attempts is not None else "-", duration_ms)
 
 
 # ── Ядро запуска L1 (без врезки в живой путь) ──────────────────────────────
@@ -498,14 +502,16 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
         _log_error(correlation_id=correlation_id, chat_id=chat_id,
                    model=slot.model, base_url=slot.base_url,
                    reason=REASON_ID_SPACE_MISMATCH,
-                   error_type=type(exc).__name__, duration_ms=duration)
+                   error_type=type(exc).__name__, duration_ms=duration,
+                   http_status=http_status_of(exc), attempts=attempts_of(exc))
         return invalid_result(REASON_ID_SPACE_MISMATCH, duration_ms=duration)
     except Exception as exc:  # pragma: no cover - защитная ветка
         duration = (time.perf_counter() - started) * 1000.0
         _log_error(correlation_id=correlation_id, chat_id=chat_id,
                    model=slot.model, base_url=slot.base_url,
                    reason=REASON_INTERNAL_ERROR, error_type=type(exc).__name__,
-                   duration_ms=duration)
+                   duration_ms=duration,
+                   http_status=http_status_of(exc), attempts=attempts_of(exc))
         return error_result(REASON_INTERNAL_ERROR, duration_ms=duration)
 
     model = _effective_model(llm, slot) if llm is not None else slot.model
@@ -562,7 +568,8 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                   else REASON_LLM_ERROR)
         _log_error(correlation_id=correlation_id, chat_id=chat_id,
                    model=model, base_url=base_url, reason=reason,
-                   error_type=type(exc).__name__, duration_ms=duration)
+                   error_type=type(exc).__name__, duration_ms=duration,
+                   http_status=http_status_of(exc), attempts=attempts_of(exc))
         return error_result(reason, duration_ms=duration, **{
             key: value for key, value in base_kwargs.items()
             if key != "duration_ms"})
@@ -570,7 +577,8 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
         duration = (time.perf_counter() - started) * 1000.0
         _log_error(correlation_id=correlation_id, chat_id=chat_id,
                    model=model, base_url=base_url, reason=REASON_LLM_ERROR,
-                   error_type=type(exc).__name__, duration_ms=duration)
+                   error_type=type(exc).__name__, duration_ms=duration,
+                   http_status=http_status_of(exc), attempts=attempts_of(exc))
         return error_result(REASON_LLM_ERROR, duration_ms=duration, **{
             key: value for key, value in base_kwargs.items()
             if key != "duration_ms"})

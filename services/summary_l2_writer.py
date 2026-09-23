@@ -41,6 +41,8 @@ from config.settings import settings
 from services.llm_client import LLMBadResponseError, LLMError
 from services.prompt_style_blocks import resolve_prompt
 from services.summary_prompts import SUMMARY_L2_WRITER_SYSTEM_PROMPT
+# S7 (ADR-1026-9 D6/SC-07): §109-детали ошибки — http_status/attempts.
+from services.summary_run_log import attempts_of, http_status_of
 from services.system2_handoff import parse_json_object
 from services.token_counter import count_tokens
 
@@ -672,12 +674,14 @@ def _log_complete(*, correlation_id, chat_id, result: L2Result, model,
 
 
 def _log_error(*, correlation_id, chat_id, model, base_url, reason, error_type,
-               duration_ms) -> None:
+               duration_ms, http_status=None, attempts=None) -> None:
     logger.warning(
         "L2_ERROR | run_id=%s | chat_id=%s | provider=%s | model=%s | "
-        "error=%s | reason=%s | duration_ms=%.0f",
+        "error=%s | reason=%s | http_status=%s | attempts=%s | duration_ms=%.0f",
         correlation_id or "none", chat_id, provider_host(base_url) or "-",
-        model or "-", error_type or "-", reason or "-", duration_ms)
+        model or "-", error_type or "-", reason or "-",
+        http_status if http_status is not None else "-",
+        attempts if attempts is not None else "-", duration_ms)
 
 
 def _log_skipped(*, correlation_id, chat_id, reason) -> None:
@@ -730,7 +734,8 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
     except L2SlotError as exc:
         _log_error(correlation_id=correlation_id, chat_id=chat_id, model="-",
                    base_url="-", reason=REASON_INTERNAL_ERROR,
-                   error_type=type(exc).__name__, duration_ms=_elapsed())
+                   error_type=type(exc).__name__, duration_ms=_elapsed(),
+                   http_status=http_status_of(exc), attempts=attempts_of(exc))
         return error_result(REASON_INTERNAL_ERROR, duration_ms=_elapsed())
 
     if llm_call is None and llm is None:
@@ -767,12 +772,14 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
                   else REASON_LLM_ERROR)
         _log_error(correlation_id=correlation_id, chat_id=chat_id, model=model,
                    base_url=base_url, reason=reason, error_type=type(exc).__name__,
-                   duration_ms=_elapsed())
+                   duration_ms=_elapsed(),
+                   http_status=http_status_of(exc), attempts=attempts_of(exc))
         return error_result(reason, duration_ms=_elapsed())
     except Exception as exc:
         _log_error(correlation_id=correlation_id, chat_id=chat_id, model=model,
                    base_url=base_url, reason=REASON_LLM_ERROR,
-                   error_type=type(exc).__name__, duration_ms=_elapsed())
+                   error_type=type(exc).__name__, duration_ms=_elapsed(),
+                   http_status=http_status_of(exc), attempts=attempts_of(exc))
         return error_result(REASON_LLM_ERROR, duration_ms=_elapsed())
 
     usage = {"input_tokens": tokens_in, "output_tokens": tokens_out}

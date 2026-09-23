@@ -40,6 +40,8 @@ from services.summary_context_restore import build_l1_payload
 from services.summary_fact_package import build_fact_package
 from services.summary_l1_clusterizer import provider_host as _host_of, run_l1
 from services.summary_l2_writer import run_l2
+# S7 (ADR-1026-9 D2/D5): этапные FORMAT_* переиспользуются тест-контуром.
+from services.summary_run_log import log_format_complete, log_format_start
 
 logger = logging.getLogger(__name__)
 
@@ -517,10 +519,12 @@ async def run_summary_test(chat_id, window, *, allow_cover=False,
     try:
         rows_info = await generator.build_test_rows(
             int(chat_id), since_ts=since_ts, correlation_id=correlation_id)
-    except Exception:
+    except Exception as exc:
+        # S7 (T-3400, L-R1026S9-8): R17 — без traceback/сырых текстов; только
+        # тип ошибки (диагностика кода — в diagnostics, §109-детали — в TEST_*).
         logger.warning(
-            "SUMMARY_TEST_WINDOW_FAILED | run_id=%s | chat_id=%s",
-            correlation_id, chat_id, exc_info=True)
+            "SUMMARY_TEST_WINDOW_FAILED | run_id=%s | chat_id=%s | error_type=%s",
+            correlation_id, chat_id, type(exc).__name__)
         result.status = STATUS_ERROR
         result.diagnostics.append(_diag(
             "filter", TEST_WINDOW_EMPTY, "window_read_error",
@@ -631,17 +635,28 @@ async def run_summary_test(chat_id, window, *, allow_cover=False,
                          started=started)
 
     # Форматтер §105 (локальный рендер, без отправки).
+    # S7 (ADR-1026-9 D2/D5): этапные FORMAT_START/COMPLETE — тот же run_id;
+    # ошибка остаётся тест-кодом TEST_FORMAT_ERROR (§113), не FORMAT_ERROR.
     document = l2_result.document
+    paragraphs = len((document or {}).get("paragraphs") or [])
     rich = plain = ""
+    format_started = log_format_start(
+        run_id=correlation_id, chat_id=int(chat_id), channel="rich")
     try:
         rich = format_rich_html(document)
         plain = format_plain_html(document)
+        log_format_complete(
+            run_id=correlation_id, chat_id=int(chat_id), channel="rich",
+            paragraphs=paragraphs, started=format_started)
         result.stages["format"] = {"status": "ok", "rich_len": len(rich),
                                    "plain_len": len(plain)}
-    except Exception:
+    except Exception as exc:
+        # L-R1026S7-3 (R17-хардненинг, как T-3400): без traceback/сырых
+        # текстов — только тип ошибки и стабильный reason.
         logger.warning(
-            "SUMMARY_TEST_FORMAT_ERROR | run_id=%s | chat_id=%s",
-            correlation_id, chat_id, exc_info=True)
+            "SUMMARY_TEST_FORMAT_ERROR | run_id=%s | chat_id=%s | "
+            "error_type=%s | reason=formatter_error",
+            correlation_id, chat_id, type(exc).__name__)
         try:
             plain = format_plain_html(document)
         except Exception:

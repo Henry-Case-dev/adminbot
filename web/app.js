@@ -1773,6 +1773,11 @@
         // логов; дефолт при каждом первичном открытии приложения —
         // комбинированный тег ERROR+WARNING (сессионно, без localStorage).
         logLevel: 'ERROR+WARNING',
+        // S7 (ADR-1026-9 D4, §110): клиентский чип «Саммари» в СУЩЕСТВУЮЩЕМ
+        // log viewer. Активация → logLevel='INFO' + фильтрация this.logs по
+        // маркерам событий Саммари; нового endpoint/routes.py нет.
+        logSummaryOnly: false,
+        logLevelBeforeSummary: null,
         // 10.7 (3c): transient-подсветка строки, скопированной по клику.
         copiedIndex: null,
         copiedTimer: null,
@@ -2679,6 +2684,16 @@
       },
       warnLogs: function () {
         return this.logs.filter(function (l) { return l.level === 'WARNING'; });
+      },
+      // S7 (ADR-1026-9 D4, §110): отображаемый список логов. Чип «Саммари»
+      // активен → только события Саммари (this.logs уже загружены сервером);
+      // иначе — прежнее поведение (level-фильтр/счётчики не затронуты).
+      shownLogs: function () {
+        if (!this.logSummaryOnly) return this.logs;
+        var self = this;
+        return this.logs.filter(function (log) {
+          return self.isSummaryLog(log);
+        });
       },
       // §15/C2 (ADR-1025-12 D4): «сердцебиение» — производное от состояния
       // (HEALTHY/WARNING/CRITICAL/UNKNOWN), которое обновляет телеметрия
@@ -9510,6 +9525,59 @@
             el.scrollIntoView();
           }
         });
+      },
+      // S7 (ADR-1026-9 D4, §110): маркеры событий Саммари (§108/§109) для
+      // клиентского фильтра. `run_id=` — любая строка этапа несёт сквозной id.
+      logSummaryMarkers: function () {
+        return ['SUMMARY_', 'FILTER_', 'RESTORE_', 'L1_', 'L2_', 'FORMAT_',
+                'COVER_', 'TEST_', 'run_id='];
+      },
+      isSummaryLog: function (log) {
+        var msg = (log && log.message) || '';
+        var markers = this.logSummaryMarkers();
+        for (var i = 0; i < markers.length; i++) {
+          if (msg.indexOf(markers[i]) !== -1) return true;
+        }
+        return false;
+      },
+      // S7 (§110/D4): понятная формулировка ошибки из кода события; детали
+      // (run_id/время/модель/причина) остаются в раскрываемой строке.
+      summaryErrorLabel: function (log) {
+        var msg = (log && log.message) || '';
+        var map = [
+          ['L1_ERROR', 'Саммари: ошибка кластеризации'],
+          ['L2_ERROR', 'Саммари: ошибка генерации статьи'],
+          ['FORMAT_ERROR', 'Саммари: ошибка форматирования'],
+          ['COVER_ERROR', 'Саммари: ошибка обложки'],
+          ['FILTER_ERROR', 'Саммари: ошибка фильтра'],
+          ['RESTORE_ERROR', 'Саммари: ошибка восстановления контекста'],
+          ['SUMMARY_FAILED', 'Саммари: прогон не удался'],
+        ];
+        for (var i = 0; i < map.length; i++) {
+          if (msg.indexOf(map[i][0]) !== -1) return map[i][1];
+        }
+        return '';
+      },
+      // S7 (§110/D4): переключатель чипа «Саммари». Включение поднимает
+      // уровне-фильтр до INFO (INFO-события этапов видны), выключение
+      // возвращает прежний уровень, только если его не сменили вручную
+      // (L-R1026S7-2: ручной выбор не перетирается); раскрытие/копирование
+      // не затрагиваются.
+      toggleLogSummary: function () {
+        this.logSummaryOnly = !this.logSummaryOnly;
+        if (this.logSummaryOnly) {
+          this.logLevelBeforeSummary = this.logLevel;
+          if (this.logLevel !== 'INFO') {
+            this.logLevel = 'INFO';           // watcher перезагрузит лог
+            return;
+          }
+        } else if (this.logLevel === 'INFO' &&
+                   this.logLevelBeforeSummary &&
+                   this.logLevelBeforeSummary !== 'INFO') {
+          this.logLevel = this.logLevelBeforeSummary;  // watcher перезагрузит
+          return;
+        }
+        this.loadLogs();
       },
       levelBadge: function (level) {
         if (level === 'ERROR' || level === 'CRITICAL') return 'badge-err';

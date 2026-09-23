@@ -449,6 +449,14 @@
       background: rgba(170, 182, 200, 0.18); border-color: var(--glass-border-color);
     }
     .btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+    /* S7 (ADR-1026-9 D4, §110): активный чип «Саммари» в существующем log
+       viewer — тот же btn-ghost, только подсветка состояния (viewer не
+       переписывается; CSP/zero-build). */
+    .btn-ghost.log-chip.active {
+      color: var(--teal-500);
+      border-color: rgba(66, 214, 196, 0.55);
+      background: rgba(66, 214, 196, 0.12);
+    }
     /* §8/T-2535: danger — семантический красный, отличим от primary/secondary. */
     .btn-danger {
       background: linear-gradient(135deg, var(--err), #C24A52);
