@@ -57,7 +57,7 @@ AdminBot — юмористический Telegram-бот «товарищ» д�
 
 - Прежний инвариант **«ноль новых PG-DDL»** действовал с раунда 10.4 и **СНЯТ владельцем** (`current_task.md` UPD п.1, 13.09.2026): изменение структуры БД и миграции (PostgreSQL и SQLite) **РАЗРЕШЕНЫ**.
 - Прежний инвариант **«SQLite остаётся v8; `graph_facts.origin` CHECK заморожен»** — **СНЯТ**: раунд 10.14 поднимает SQLite до **v9** (новый origin `bot_self_reply`).
-- Требования к новым миграциям (проверяет @Scanner):
+- Требования к новым миграциям (проверяет @Reviewer; обязанности бывшего @Scanner окончательно включены в единый Reviewer gate, 24.09.2026):
   - PostgreSQL: идемпотентный `CREATE TABLE IF NOT EXISTS`/`ADD COLUMN IF NOT EXISTS` + `ON CONFLICT DO NOTHING` сиды; индексы по месту использования; FK — где уместно; повторный `PgDatabase.init()` — no-op.
   - SQLite: rebuild-миграция сохраняет **все** колонки и `id` (FTS/vec валидны), повторный запуск — no-op (guard + `PRAGMA user_version`), обратный путь документирован; данные не теряются.
 - **Остаются неизменными:** R17 (секреты только `{configured,last4}`, не логировать), R16 (id — ключ, не имя), порядок роутеров `bot.py` (только DI-kwargs), `media/` и `.env` не трогать (в git — `.env.example` с плейсхолдерами), русские conventional commits, атомарность (код + эталон + тесты).
