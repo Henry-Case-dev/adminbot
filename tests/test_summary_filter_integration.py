@@ -31,6 +31,9 @@ CHAT_B = -1002
 CHAT_C = -1003
 
 _FLAG = "flags.summary_filter_enabled"
+# S2 (ADR-1026-4 D4): тот же ключ — мастер-гейт восстановления контекста.
+# В S1-изолированных кейсах выключаем его, чтобы XML-вход был байт-в-байт S1.
+_S2_FLAG = "flags.summary_filter_reply_context_enabled"
 
 
 def _rows():
@@ -162,7 +165,10 @@ class TestFilterIntegration:
         rec = {"plain": [], "rich": []}
         _patch_delivery(monkeypatch, rec)
         monkeypatch.setattr(Settings, "SYSTEM2_SUMMARY_ENABLED", False)
-        _patch_chat_limit(monkeypatch, {(CHAT_A, _FLAG): True})
+        _patch_chat_limit(monkeypatch, {
+            (CHAT_A, _FLAG): True,
+            (CHAT_A, _S2_FLAG): False,      # изоляция S1 от S2 (ADR-1026-4)
+        })
         gen = _gen(memory, llm)
         captured = {}
         _spy_build(gen, monkeypatch, captured)
@@ -233,6 +239,7 @@ class TestTokenCeilingNormalised:
         gen = _gen(memory, MagicMock())
         _patch_chat_limit(monkeypatch, {
             (CHAT_A, _FLAG): True,
+            (CHAT_A, _S2_FLAG): False,      # изоляция S1 от S2 (ADR-1026-4)
             (CHAT_A, "limits.summary_max_context_tokens"): 0,
         })
 
@@ -251,6 +258,7 @@ class TestTokenCeilingNormalised:
         gen = _gen(memory, MagicMock())
         _patch_chat_limit(monkeypatch, {
             (CHAT_A, _FLAG): True,
+            (CHAT_A, _S2_FLAG): False,      # изоляция S1 от S2 (ADR-1026-4)
             (CHAT_A, "limits.summary_max_context_tokens"): -1,
         })
 

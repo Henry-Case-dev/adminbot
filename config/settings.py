@@ -1783,7 +1783,7 @@ settings = Settings()
 # vendor/delaunator.5.0.0.min.js, app.js, app.css, index.html). Δ DDL=0.
 # Правка владельца (v2.58.20): «мерцание свечения» фона замедлено ×2
 # (PULSE_SPEED_*/GLOW_SHIMMER_SPEED в polygon-background.js) — cache-bust ассета.
-APP_VERSION = "2.58.20"   # S1 (10.26, ADR-1026-1 D1/D7): алгоритмический префильтр Саммари — новый модуль services/summary_filter.py (§87–§89, §93), врезка в SummaryGenerator._run (вход L1, 0 LLM-вызовов, публикация не тронута), каталог summary_filter_* (+8 записей, +2 группы; вкладка mod_summary), UI «Подготовка сообщений»; Δ DDL=0. Ранее F11 (10.25, ADR-1025-23): композиция витрины «Статус» — 12-кол. сетка §12, Hero/метрики §13/§14, виджет сна §17, расширение графа §16, «Новые факты»/«Бюджеты» §19, счётчики §20; kill-switch `UI_STATUS_GRID_V2` (Δ DDL=0, Δ каталога=0)
+APP_VERSION = "2.58.21"   # S2 (10.26, ADR-1026-4 D1/D7): восстановление контекста Саммари — новый модуль services/summary_context_restore.py (reply-родители §90 через reuse thread_chain, ограниченный соседний контекст §89, хронология/дедуп/ID §90/§92, спец-случаи §91, бюджет §93), врезка в SummaryGenerator._apply_filter (после фильтра, до XML; 0 LLM-вызовов; публикация/промпты/XML вне diff), `restored_count` §109 + логи RESTORE_*; Δ DDL=0, Δ каталога=0. Ранее S1 (10.26, ADR-1026-1 D1/D7): алгоритмический префильтр Саммари — новый модуль services/summary_filter.py (§87–§89, §93), врезка в SummaryGenerator._run (вход L1, 0 LLM-вызовов, публикация не тронута), каталог summary_filter_* (+8 записей, +2 группы; вкладка mod_summary), UI «Подготовка сообщений»; Δ DDL=0.
 
 
 def get_ytdlp_pot_provider() -> str:

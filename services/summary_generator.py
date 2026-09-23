@@ -45,6 +45,11 @@ from services.prompt_style_blocks import (
     resolve_prompt,
 )
 from services.summary_cleanup import cleanup_llm_text
+from services.summary_context_restore import (
+    RESTORE_CHAIN_DEPTH,
+    RestoreParams,
+    restore_context,
+)
 from services.summary_filter import FilterParams, filter_window
 from services.summary_memory import _build_batch_text, fire_and_forget
 from services.summary_prompts import (
@@ -66,6 +71,7 @@ from services.image_generation import (
 )
 from services.smartmodule_concurrency import get_smartmodule_concurrency_pool
 from services.summary_xml import escape_xml_text
+from services.thread_chain import collect_thread_chain
 from services.telegram_send import (
     SUMMARY_COVER_MEDIA_ID,
     build_cover_media,
@@ -96,6 +102,22 @@ logger = logging.getLogger(__name__)
 # `resolve_context_tokens` (L-R1026S1-1): `0`/`None` → этот дефолт, `-1` → потолок
 # «безлимита». Единая точка, чтобы нарезка/бюджет §93 не вырождались.
 _SUMMARY_CONTEXT_TOKEN_DEFAULT = 30000
+
+# S2 (ADR-1026-4 D1/D7): адаптер восстановления дёргает канонический
+# `thread_chain.collect_thread_chain` только для «открытых» якорей (reply-цепочка
+# уходит за окно / сквозь бот-ответ). Число обходов ограничено (cap по числу
+# добавлений), чтобы прогон не деградировал на «звонких» чатах.
+RESTORE_CHAIN_CALLS_MAX = 50
+
+
+def _chain_tg_id(item_id) -> int | None:
+    """Telegram id из канонического ``item_id`` (``tg:<id>``); иначе None."""
+    if not item_id or not isinstance(item_id, str) or not item_id.startswith("tg:"):
+        return None
+    try:
+        return int(item_id[3:])
+    except (TypeError, ValueError):
+        return None
 
 # Раунд 10.23 (F6, ADR-1023-6): прежний жёсткий кап (историческое имя —
 # используется тестами 10.23 как справка). Раунд 10.24 (F12/ADR-1024-4 D2):
@@ -478,13 +500,16 @@ class SummaryGenerator:
     async def _apply_filter(self, chat_id: int, rows: list,
                             correlation_id: str | None,
                             trigger_message_id: int | None) -> list:
-        """S1 (ADR-1026-1 D4/D6): алгоритмический префильтр входа L1.
+        """S1 (ADR-1026-1 D4/D6) + S2 (ADR-1026-4 D1/D6): префильтр входа L1 и
+        детерминированное восстановление контекста.
 
-        Возвращает строки для XML-истории (``kept``). Fail-open: любая ошибка
-        → WARNING ``event=FILTER_ERROR`` и НЕфильтрованное окно (Саммари
-        работает, тихой потери нет). 0 LLM-вызовов. Метрики §109 кладутся в
-        аддитивную структуру ``self._filter_metrics`` (S8); в логи идут только
-        числа/коды/``run_id`` (R17/R18).
+        Возвращает строки для XML-истории: ``RestoreResult.kept`` при ON
+        (S1 ``kept`` ∪ добавленные) либо ``FilterResult.kept`` при OFF /
+        fail-open. Fail-open: любая ошибка → WARNING ``FILTER_ERROR`` /
+        ``RESTORE_ERROR`` и безопасный вход (Саммари работает, тихой потери
+        нет). 0 LLM-вызовов. Метрики §109 кладутся в аддитивную структуру
+        ``self._filter_metrics`` (S8); в логи идут только числа/коды/``run_id``
+        (R17/R18).
         """
         try:
             params = FilterParams(
@@ -509,6 +534,9 @@ class SummaryGenerator:
                     hot.get("flags.summary_filter_reply_context_enabled",
                             settings.SUMMARY_FILTER_REPLY_CONTEXT_ENABLED))),
             )
+            # S2 (ADR-1026-4 D4): тот же ключ — мастер-гейт всего восстановления
+            # (OFF → S2 не вызывается, XML-вход байт-в-байт равен S1-выходу).
+            reply_context_enabled = bool(params.reply_context_enabled)
             # L-R1026S1-1: sentinel-нормализация потолка токенов перед бюджетом
             # §93 (`0`/`None` → дефолт, `-1` → потолок «безлимита»), как в
             # resolve_chat_limit/_run; иначе нарезка/бюджет вырождаются при
@@ -530,6 +558,11 @@ class SummaryGenerator:
                 rows, params, bot_id=getattr(self.bot, "id", None),
                 trigger_message_id=trigger_message_id,
                 token_limit=token_limit, char_limit=char_limit)
+            # S2 (ADR-1026-4 D6): врезка строго между `filter_window` и
+            # `xml.build`; `effective` нужен только для метрик/логов (D1).
+            xml_rows = result.kept
+            effective = result
+            restore_metrics = None
             if result.status == "error":
                 logger.warning(
                     "summary filter: event=FILTER_ERROR | run_id=%s chat_id=%s "
@@ -537,12 +570,16 @@ class SummaryGenerator:
                     correlation_id, chat_id, result.source_count,
                     result.duration_ms)
             else:
+                if reply_context_enabled:
+                    xml_rows, effective, restore_metrics = await self._restore(
+                        chat_id, rows, result, correlation_id, token_limit,
+                        char_limit)
                 logger.info(
                     "summary filter: event=FILTER_COMPLETE | run_id=%s chat_id=%s "
                     "source_count=%d saved_count=%d restored_count=%d "
                     "drop_percent=%.1f status=%s duration_ms=%.1f",
                     correlation_id, chat_id, result.source_count,
-                    result.saved_count, result.restored_count,
+                    result.saved_count, effective.restored_count,
                     result.drop_percent, result.status, result.duration_ms)
                 if result.status == "empty_fallback":
                     logger.warning(
@@ -550,23 +587,171 @@ class SummaryGenerator:
                         "run_id=%s chat_id=%s source_count=%d",
                         correlation_id, chat_id, result.source_count)
             # Аддитивные метрики для §111/§112 (S8) — без узлов ExecutionGraph.
-            self._filter_metrics[chat_id] = {
+            metrics = {
                 "run_id": correlation_id,
                 "source_count": result.source_count,
                 "saved_count": result.saved_count,
-                "restored_count": result.restored_count,
+                "restored_count": effective.restored_count,
                 "drop_percent": result.drop_percent,
                 "duration_ms": result.duration_ms,
                 "status": result.status,
                 "budget": result.budget,
             }
-            return result.kept
+            # S2-метрики добавляются только когда восстановление реально
+            # выполнялось: при OFF `_filter_metrics` байт-в-байт как у S1.
+            if restore_metrics is not None:
+                metrics.update(restore_metrics)
+            self._filter_metrics[chat_id] = metrics
+            return xml_rows
         except Exception:
             logger.warning(
                 "summary filter: event=FILTER_ERROR | run_id=%s chat_id=%s — "
                 "fail-open (unfiltered)", correlation_id, chat_id,
                 exc_info=True)
             return rows
+
+    async def _restore(self, chat_id: int, rows: list, result,
+                       correlation_id: str | None, token_limit,
+                       char_limit) -> tuple:
+        """S2 (ADR-1026-4 D1/D3/D6): восстановление контекста после S1.
+
+        Возвращает ``(xml_rows, effective_result, metrics|None)``. Fail-open:
+        любая ошибка (в т.ч. БД/цепочка) → S1-выход ``result.kept`` + WARNING
+        ``RESTORE_ERROR``; ``kept`` не теряется никогда. 0 LLM-вызовов.
+        """
+        try:
+            rparams = RestoreParams(
+                context_neighbors=await _chat_limit(
+                    chat_id, "limits.summary_filter_context_neighbors",
+                    hot.get("limits.summary_filter_context_neighbors",
+                            settings.SUMMARY_FILTER_CONTEXT_NEIGHBORS)),
+                context_max_messages=await _chat_limit(
+                    chat_id, "limits.summary_filter_context_max_messages",
+                    hot.get("limits.summary_filter_context_max_messages",
+                            settings.SUMMARY_FILTER_CONTEXT_MAX_MESSAGES)),
+            )
+            bot_id = getattr(self.bot, "id", None)
+            extra_parents = await self._collect_extra_parents(
+                chat_id, result.kept, rows, bot_id)
+            logger.info(
+                "summary filter: event=RESTORE_START | run_id=%s chat_id=%s "
+                "kept_count=%d extra_parents=%d",
+                correlation_id, chat_id, len(result.kept), len(extra_parents))
+            restore = restore_context(
+                result.kept, result.dropped, rows, rparams,
+                extra_parents=extra_parents, token_limit=token_limit,
+                char_limit=char_limit, bot_id=bot_id)
+            if restore.status == "error":
+                logger.warning(
+                    "summary filter: event=RESTORE_ERROR | run_id=%s chat_id=%s "
+                    "duration_ms=%.1f — fail-open (S1 output)",
+                    correlation_id, chat_id, restore.duration_ms)
+            else:
+                logger.info(
+                    "summary filter: event=RESTORE_COMPLETE | run_id=%s "
+                    "chat_id=%s status=%s restored_count=%d parent_count=%d "
+                    "neighbor_count=%d skipped_count=%d budget_kind=%s "
+                    "budget_fits=%s duration_ms=%.1f",
+                    correlation_id, chat_id, restore.status,
+                    restore.restored_count, restore.parent_count,
+                    restore.neighbor_count, len(restore.skipped_ids),
+                    restore.budget.get("kind"), restore.budget.get("fits"),
+                    restore.duration_ms)
+            metrics = {
+                "restored_count": restore.restored_count,
+                "parent_count": restore.parent_count,
+                "neighbor_count": restore.neighbor_count,
+                "skipped_count": len(restore.skipped_ids),
+                "restore_status": restore.status,
+                "restore_budget": restore.budget,
+            }
+            if restore.status == "error":
+                # Внутренний сбой core — S1-выход (тихой потери нет).
+                return result.kept, result, metrics
+            effective = dataclasses.replace(
+                result, kept=restore.kept,
+                restored_count=restore.restored_count)
+            return restore.kept, effective, metrics
+        except Exception:
+            logger.warning(
+                "summary filter: event=RESTORE_ERROR | run_id=%s chat_id=%s — "
+                "fail-open (S1 output)", correlation_id, chat_id, exc_info=True)
+            return result.kept, result, None
+
+    async def _collect_extra_parents(self, chat_id: int, kept: list,
+                                     window: list, bot_id) -> list:
+        """S2 (ADR-1026-4 D1/D7): родители **вне окна / сквозь бот-ответы**.
+
+        Переиспользует канонический ``thread_chain.collect_thread_chain``
+        (вторая реализация обхода цепочки не создаётся); обход выполняется
+        только для «открытых» якорей (цепочка уходит за пределы окна) и
+        ограничен ``RESTORE_CHAIN_CALLS_MAX``. Возвращает строки схемы окна,
+        fail-open → ``[]``.
+        """
+        db = getattr(self.memory, "db", None)
+        if db is None:
+            return []
+        win_by_tg: dict = {}
+        for row in window or []:
+            tg = row_get(row, "tg_message_id")
+            if tg is not None and tg not in win_by_tg:
+                win_by_tg[tg] = row
+        extra: dict = {}
+        calls = 0
+        for anchor in kept or []:
+            if calls >= RESTORE_CHAIN_CALLS_MAX:
+                break
+            if not self._is_open_anchor(anchor, win_by_tg):
+                continue
+            tg = row_get(anchor, "tg_message_id")
+            if tg is None:
+                continue
+            calls += 1
+            try:
+                chain = await collect_thread_chain(
+                    db, chat_id, tg, RESTORE_CHAIN_DEPTH)
+            except Exception:
+                logger.warning(
+                    "summary filter: thread chain failed — skip anchor | "
+                    "chat_id=%s", chat_id, exc_info=True)
+                continue
+            for item in chain:
+                if getattr(item, "is_bot", False):
+                    continue
+                item_tg = _chain_tg_id(getattr(item, "item_id", ""))
+                if item_tg is None or item_tg in win_by_tg:
+                    continue
+                try:
+                    row = await db.get_smart_message_by_tg_id(chat_id, item_tg)
+                except Exception:
+                    logger.warning(
+                        "summary filter: thread chain row read failed | "
+                        "chat_id=%s", chat_id, exc_info=True)
+                    continue
+                if row is None:
+                    continue
+                rid = row_get(row, "id")
+                if rid is not None and rid not in extra:
+                    extra[rid] = row
+        return list(extra.values())
+
+    @staticmethod
+    def _is_open_anchor(anchor, win_by_tg) -> bool:
+        """Reply-цепочка якоря уходит за пределы окна (или сквозь бот-ответ)?
+
+        Чистая in-memory проверка по окну (без БД): обход ``reply_to_id`` до
+        корня; отсутствие родителя в окне → нужен ``collect_thread_chain``.
+        """
+        current = anchor
+        for _ in range(max(0, RESTORE_CHAIN_DEPTH)):
+            parent_tg = row_get(current, "reply_to_id")
+            if parent_tg is None:
+                return False
+            parent = win_by_tg.get(parent_tg)
+            if parent is None:
+                return True
+            current = parent
+        return False
 
     async def _llm_generate(self, payload: list[dict], chat_id: int, *,
                             correlation_id: str | None = None,
