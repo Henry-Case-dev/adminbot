@@ -1,5 +1,65 @@
 # Audit Backlog
 
+## Эпик 2 / S9 `summary-testing-ui-round1026` (T-3374, Step 6 @Scanner, ИТЕРАЦИЯ 2 — rework T-3375), 24.09.2026 — **SCANNED: к деплою ДА (C0/H0/блокирующих Medium 0; Low 5 + 1 новый Low doc-drift); live — PENDING OWNER VERIFICATION**
+
+Baseline — HEAD `cc6105c` == annotated-тег `pre-round1026-s9` (`for-each-ref` tag `9f4305a` → `git rev-list -n 1` = `cc6105c`); правки **НЕ закоммичены**. Отчёт: `plans/reports/round1026_s9_scanner_audit.md` (итерация 2). Воспроизведено @Scanner: pytest `.venv` **8854/0** (120.75 s), JS **44/44** + `node --check` OK, каталог импортом **469/426/444/100/98/21**, `APP_VERSION` 2.58.25, `git diff --check`=0, `summary_generator.py` **55+/0−**, **Δ DDL=0**, R18 OK; свой шпион-прогон → 0 публикаций/памяти/`generate_image`, `await_count==2`, флаг до==после.
+- [x] **[S-R1026S9-1] [medium, ui-render] — RESOLVED** (== `B-R1026S9-2` High): 4 пробы payload (`no-generator`/`error_result`/`running`/`window-read-error`) → полные `metrics`/`artifacts`/`display` + диагностика; guards не скрывают успех (JS-блок g).
+- [x] **[S-R1026S9-2] [low, robustness] — RESOLVED** (== `L-R1026S9-3`): `_purge`/эвикция исключают `running`; пробы — KEPT после TTL, сохранён при переполнении.
+- [x] **[S-R1026S9-3] [low, contract/docs] — RESOLVED** (== `L-R1026S9-4`) для spec §5.2 + README; **остаточный doc-drift → [S-R1026S9-5] ниже.**
+- [x] **[S-R1026S9-4] [low, metrics] — RESOLVED** (== `L-R1026S9-5`): reset `_filter_metrics` в `build_test_rows`; проба fail-open → `{}`/0.
+- [ ] **[S-R1026S9-5] [low, contract/docs] — NEW, OPEN (non-blocking):** `services/summary_test_run.py:489` docstring и `adr-1026-8` D4 всё ещё указывают `503 (TEST_NO_GENERATOR)`; реализация + spec §5.2 — `202`/`200`+`status="error"`. Fix: docstring + ADR.
+- [ ] **[L-R1026S9-2] [low, env/evidence]** — OPEN (non-blocking): 5 пред-существующих падений rich-media на глобальном `py -3` (aiogram 3.29.1), воспроизведены на base `cc6105c`; `.venv` (3.31.0) — 0.
+- [ ] **[L-R1026S9-6] [low, shared state]** — OPEN (non-blocking): dry-run пишет `SummaryGenerator._filter_metrics[chat_id]`.
+- [ ] **[L-R1026S9-7] [low, API]** — OPEN (non-blocking): `window_hours` клампится вместо 422.
+- [ ] **[L-R1026S9-8] [low, R17]** — OPEN (non-blocking): catch-all `exc_info=True` в `_execute`/чтении окна.
+- Info: **[I-R1026S9-1]** `present_result.has_more` — эвристика; **[I-R1026S9-2]** == `L-R1026S9-8`.
+- **Новых Critical/High — нет.** Low-фиксы без регрессий (retention/fail-open + pytest 8854/0). Живой ON-путь (S6/S10) — GATED.
+- **Handoff @Scanner:** @Orchestrator → **SCANNED — к деплою ДА**; Low/Info — owned follow-up; далее @DevOps T-3378; live — PENDING OWNER VERIFICATION.
+
+## Эпик 2 / S9 `summary-testing-ui-round1026` (T-3373, Step 5 @Reviewer, ИТЕРАЦИЯ 2), 23.09.2026 — **APPROVED: прежние блокеры закрыты (B-R1026S9-2 High UI-краш + B-R1026S9-1 Medium «Процент отсева»); остаток Low/Info — non-blocking; live — PENDING OWNER VERIFICATION**
+
+Baseline — HEAD `cc6105c` == annotated-тег `pre-round1026-s9` (`git cat-file -p` → `cc6105c`); правки **НЕ закоммичены** (33 M + 5 ??). Отчёт: `plans/features/summary-testing-ui-round1026/review.md`. @Reviewer итерация 2: pytest `.venv` **8854/0**, JS **44/44**, каталог **469/426/444/100/98/21**, `git diff --check`=0, `summary_generator.py` **55+/0−**, **Δ DDL=0**, `APP_VERSION` 2.58.25, R18 OK.
+- [x] **[B-R1026S9-2] [high, ui-render]** — **RESOLVED** (подтверждено кодом/тестами/прогоном): полные `metrics/artifacts/display` на всех путях (`_base_result`/`present_result`/`error_result`/`empty_payload`/`_result_payload`/`_execute`) + guard `v-if` в `index.html` и computed-guard в `app.js`; диагностика видна; тесты `test_no_generator_error_payload_contract`, `test_error_result_has_diagnostics_and_full_structures`, `test_empty_payload_running_contract`, `test_execute_exception_payload_contract`, JS (g).
+- [x] **[B-R1026S9-1] [medium, requirement gap]** — **RESOLVED**: `data-summary-test-drop` «Процент отсева» + computed `summaryTestDropPercent` (null → «Нет данных»); JS (h).
+- [x] **[L-R1026S9-1] [low, docs/R18]** — **RESOLVED**: `evidence.md`/`tasks.md` → `cc6105c` (проверено `git cat-file -p`).
+- [x] **[L-R1026S9-3] [low, robustness]** — **RESOLVED**: `_purge`/эвикция исключают `status=="running"`; `test_store_ttl_keeps_running`, `test_store_eviction_keeps_running`.
+- [x] **[L-R1026S9-4] [low, contract/docs]** — **RESOLVED**: spec §5.2 (503 убран), §7 `TEST_RUN_FAILED`, README-оговорка об обложке.
+- [x] **[L-R1026S9-5] [low, metrics]** — **RESOLVED**: reset `_filter_metrics` в `build_test_rows` + тест.
+- [ ] **[L-R1026S9-2] [low, env/evidence]** — OPEN (non-blocking): 5 пред-существующих падений rich-media на глобальном `py -3` (aiogram 3.29.1), воспроизведены на base `cc6105c`; `.venv` (3.31.0) — 0.
+- [ ] **[L-R1026S9-6] [low, shared state]** — OPEN (non-blocking): dry-run пишет `SummaryGenerator._filter_metrics[chat_id]`.
+- [ ] **[L-R1026S9-7] [low, API]** — OPEN (non-blocking): `window_hours` клампится вместо 422.
+- [ ] **[L-R1026S9-8] [low, R17]** — OPEN (non-blocking): catch-all `exc_info=True` в `_execute`/чтении окна.
+- Info: **[I-R1026S9-1]** `present_result.has_more` — эвристика.
+- **Handoff @Reviewer:** @Orchestrator → **APPROVED**; далее @Scanner T-3374 + @DevOps T-3378; live — PENDING OWNER VERIFICATION.
+
+## Эпик 2 / S9 `summary-testing-ui-round1026` (T-3373, Step 5 @Reviewer, ИТЕРАЦИЯ 1), 23.09.2026 — **CHANGES REQUESTED: 2 блокирующих (High UI-краш error-результатов + Medium §112 «Процент отсева»); Low non-blocking; live — PENDING OWNER VERIFICATION**
+
+Baseline — HEAD `cc6105c` == annotated-тег `pre-round1026-s9` (`git rev-parse pre-round1026-s9^{commit}` = `cc6105c`); правки **НЕ закоммичены** (33 M + 5 ??). Отчёт: `plans/features/summary-testing-ui-round1026/review.md`. @Reviewer: pytest `.venv` **8847/0**, JS **44/44**, каталог **469/426/444/100/98/21**, `git diff --check`=0, `summary_generator.py` 51+/0−, **Δ DDL=0**, `APP_VERSION` 2.58.25, R18 OK.
+- [ ] **[B-R1026S9-2] [high, ui-render, BLOCKING]** — **OPEN; подтверждён @Reviewer независимо (== [M-R1026S9-1] @Scanner).** `web/index.html:490/:511` — error-результаты (`TEST_NO_GENERATOR`, ошибка чтения окна, исключение в `_execute`) не содержат `metrics`/`artifacts` → TypeError в render Vue, диагностика §5.3/§7 не видна. Проба: `present_result(_base_result(status="error"))` → `metrics={}`, `artifacts={}`. **Fix:** guard в HTML и/или пустые `metrics`/`artifacts`/`display` в `_result_payload`. **Verify:** JS-маркер + re-review.
+- [ ] **[B-R1026S9-1] [medium, requirement gap, BLOCKING]** — **OPEN.** `web/index.html` L484–497 не рендерит `metrics.drop_percent` (§112 «Процент отсева»; tasks инвариант 8; REQ-S9-09). **Fix:** строка «Процент отсева: …» (null → «Нет данных»).
+- [ ] **[L-R1026S9-1] [low, docs/R18]** — тег фактически `cc6105c`, в `evidence.md`/`tasks.md` T-3345 указан `ae5a147`. OPEN.
+- [ ] **[L-R1026S9-2] [low, env/evidence]** — 5 пред-существующих падений rich-media на глобальном `py -3` (aiogram 3.29.1), воспроизведены на base `cc6105c`; `.venv` (3.31.0) — 0. OPEN.
+- [ ] **[L-R1026S9-3] [low, robustness]** — `_RunStore._purge`/эвикция не исключают running (== L-R1026S9-1 @Scanner). OPEN.
+- [ ] **[L-R1026S9-4] [low, contract/docs]** — spec §5.2 обещает 503; реализация 202+`status="error"` (== L-R1026S9-2 @Scanner). OPEN.
+- [ ] **[L-R1026S9-5] [low, metrics]** — fail-open `_apply_filter` не пишет `_filter_metrics` (== L-R1026S9-3 @Scanner). OPEN.
+- [ ] **[L-R1026S9-6] [low, shared state]** — dry-run пишет `SummaryGenerator._filter_metrics[chat_id]`. OPEN.
+- [ ] **[L-R1026S9-7] [low, API]** — `window_hours` клампится вместо 422 (spec §5.2 vs §4.2). OPEN.
+- [ ] **[L-R1026S9-8] [low, R17]** — catch-all `exc_info=True` в `_execute`/чтении окна (== I-R1026S9-2 @Scanner). OPEN.
+- **Инварианты OK:** 0 публикаций/0 памяти/0 `generate_image` (шпионы); ON per-run ровно 2 вызова, флаг не читается/не пишется; `_run`/`_run_hybrid_l2` байт-в-байт; async 202+polling + in-memory TTL/≤20; global admin; флаг default ON + hot-OFF false → 404+скрытие; fail-closed-коды `TEST_*`; S6 GATED; Δ DDL=0; Δ каталога=0; CSP/zero-build; R17/R18; bump 2.58.25.
+- **Handoff @Reviewer:** @Orchestrator → **CHANGES REQUESTED**; @Builder — [B-R1026S9-2] + [B-R1026S9-1] → повторный прогон → re-review.
+
+## Эпик 2 / S9 `summary-testing-ui-round1026` (T-3374, Step 6 @Scanner) — 23.09.2026 — **NOT READY: C0/H0; 2 блокирующих (B-R1026S9-1 Medium + UI-render S-R1026S9-1 Medium, эскалирован @Reviewer в B-R1026S9-2 High); Low/Info non-blocking**
+
+Baseline — HEAD `cc6105c`; правки **НЕ закоммичены** (33 M + 5 ?? кода/тестов + каталог фичи). Отчёт: `plans/reports/round1026_s9_scanner_audit.md`. **ID @Scanner — `S-R1026S9-*`** (переименовано из `M-R1026S9-1`/`L-R1026S9-1..4`; карта: `S-R1026S9-1`==`M-R1026S9-1`==эскалация @Reviewer `B-R1026S9-2 High`; `S-R1026S9-2`==`L-R1026S9-1 @Scanner`==`L-R1026S9-3 @Reviewer`; `S-R1026S9-3`==`L-R1026S9-2 @Scanner`==`L-R1026S9-4 @Reviewer`; `S-R1026S9-4`==`L-R1026S9-3 @Scanner`==`L-R1026S9-5 @Reviewer`). Воспроизведено @Scanner: pytest **8847/0**, JS **44/44** + `node --check` OK, каталог **469/426/444/100/98/21**, `APP_VERSION` 2.58.25, `git diff --check`=0, R18 (тег `pre-round1026-s9`→`cc6105c`, `stash@{0}`); шпион-проба `run_summary_test` → 0 публикаций/памяти/`generate_image`, `await_count==2`.
+- [ ] **[B-R1026S9-1] [medium, requirement-gap, BLOCKING] — @Reviewer Step 5, подтверждён @Scanner (OPEN).** §112 «Процент отсева» не рендерится: `Select-String "отсев|drop_percent" web/index.html web/app.js` → **0**, при том что `_metrics` возвращает `drop_percent`. **Fix:** строка «Процент отсева: …» (`null` → «Нет данных»).
+- [ ] **[S-R1026S9-1] [medium, ui-render, BLOCKING] — == [M-R1026S9-1] @Scanner, эскалирован @Reviewer в [B-R1026S9-2] High.** `web/index.html:490/:511` — без guard читаются `metrics.tokens.l1`/`artifacts.source.length`; error-результаты (`TEST_NO_GENERATOR`, ошибка чтения окна, исключение в `_execute`) не содержат `metrics`/`artifacts` → TypeError в render Vue, диагностика §5.3/§7 не видна. **Fix:** `v-if="summaryTest.result.metrics && summaryTest.result.metrics.tokens"` (+ `artifacts`) и/или всегда отдавать пустые `metrics`/`artifacts` из `_base_result` в `_result_payload`.
+- [ ] **[S-R1026S9-2] [low, robustness] — == L-R1026S9-1 @Scanner == L-R1026S9-3 @Reviewer.** `web/api/summary_test.py:84-102` — `_purge`/эвикция не исключают running: прогон >15 мин вычищается (poll 404 + возможен повторный параллельный запуск). **Fix:** исключать `status=="running"` из purge/эвикции.
+- [ ] **[S-R1026S9-3] [low, contract/docs] — == L-R1026S9-2 @Scanner == L-R1026S9-4 @Reviewer.** spec §5.2 обещает `503 (TEST_NO_GENERATOR)` — реализация 202 + 200/`status="error"`; README/ADR «0 `generate_image`» без оговорки про подтверждение обложки. **Fix:** 503-маппинг либо правка формулировок.
+- [ ] **[S-R1026S9-4] [low, metrics] — == L-R1026S9-3 @Scanner == L-R1026S9-5 @Reviewer.** `services/summary_generator.py:808-813` fail-open `_apply_filter` не пишет `_filter_metrics` → `build_test_rows:625` вернёт устаревшие `status`/`restored_count` предыдущего прогона.
+- Info: **I-R1026S9-1** (`present_result` `has_more` — сумма по всем list-артефактам, эвристика); **I-R1026S9-2** (== `L-R1026S9-8 @Reviewer`: `SUMMARY_TEST_*_FAILED` с `exc_info=True`; секретов/сырых текстов не найдено).
+- **Инварианты OK:** Δ DDL=0; Δ каталога=0; `routes.py`/`image_generation.py`/`telegram_send.py`/`database.py`/`pg_db.py`/`param_catalog.py` вне diff; `summary_generator.py` аддитивно (51+/0−); ON живого пайплайна не активируется; CSP/zero-build; флаг default ON, OFF→404+скрытие вкладки; §112 «Нет данных»/«Без лимита»; маркер-тесты не ослаблены.
+- **Handoff @Scanner:** @Orchestrator → **NOT READY** (блокируют B-R1026S9-1 + S-R1026S9-1/B-R1026S9-2; возврат в @Builder → @Reviewer + @Scanner). Low/Info — owned follow-up.
+
 ## Эпик 2 / S5 `summary-l2-writer-formatter-round1026` (T-3338, Step 6 @Scanner) — re-audit итерация 2 (rework T-3339), 23.09.2026 — **SCANNED: C0/H0; блокирующих Medium 0; Low/Info non-blocking — к деплою ДА по коду (OFF-безопасное; ON — GATED; live — PENDING OWNER VERIFICATION)**
 
 Baseline — HEAD `e3ea608` == annotated-тег `pre-round1026-s5` (`a6be444`→`e3ea608`); правки **НЕ закоммичены** (59 M + 6 ??). Отчёт: `plans/reports/round1026_s5_scanner_audit.md` (итерация 2). Воспроизведено @Scanner: pytest **8807/0**, JS **30/0** + `node --check` **43/43**, целевые L1/L2/F8/IA **222 passed**, каталог **469/426/444/100/98/21**, F8 `--check` **OK**, **Δ DDL=0**, `APP_VERSION` 2.58.24, `git diff --check`=0, R18 OK.
