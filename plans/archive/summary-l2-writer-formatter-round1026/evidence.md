@@ -133,3 +133,15 @@ F8 `--check` **CHECK OK**; fixture-diff **3+/2−** (0 mojibake).
 - **F8 config-diff артефакт** (`plans/reports/round1025_f8_config_diff.md`) — исторический baseline (2.58.15), не переиздавался (в него дельта не входит; pinned-тесты зелёные).
 - Слот модели/флаг без UI — S6; реальный ON — гейт S6/S10+D4.
 - **Ревью/аудит/merge/deploy** — блок H (T-3337…T-3344), не выполнены @Builder.
+
+## Deploy (Шаг 9 @DevOps, T-3342) — ✅ VERIFIED (OFF-безопасное состояние; ON — GATED)
+
+- **Среда:** прод VPS `198.46.175.136` (`/var/www/admin_bot`), unit `admin_bot`; `APP_VERSION` **2.58.24** (было 2.58.23).
+- **Артефакт:** код+тесты+канон **`03a4d55`** + планы/архив **`ae5a147`**; push `origin/master` `e3ea608..ae5a147` (без force). Прод `git pull --ff-only`: `7722d66..ae5a147`.
+- **Преддеплойный гейт (локально, `.venv`):** affected-набор `test_summary_l2_writer|l2_integration|article_formatter|param_catalog|round1025_f8_registry|webapp_api` — **294 passed / 0**; JS-юнит **30 passed**, файлов `tests/js/*.js` **43**; каталог импортом **469**; F8 `--check` **OK**. **Δ DDL=0.**
+- **Релиз (23.09.2026):** `git pull --ff-only` → `ae5a147`; `systemctl restart admin_bot` (MainPID `425178` → **`446993`**, `active`).
+- **Прод-факты:** `/api/health` **200** (`{"status":"ok"}`, 127.0.0.1:8000); served `?v=2.58.24`; логи процесса 446993 — `database is locked`=**0**, `L2_*`=**0**, `FORMAT_*`=**0**, `Traceback`/`CRITICAL`/`ImportError`=**0**; `services.summary_scheduler` — «SmartModule scheduler started (cron 0,6,12,18 Asia/Yekaterinburg)»; `prompt_migration` — «уже новый канон» для `summary_l1_clusterizer_system_prompt`/`summary_l2_writer_system_prompt`; `webapp lifespan started | pg_available=True`; polling `@PERMsoc_bot`. Каталог рантайм **469** (F8 `--check` OK).
+- **Флаг:** `SUMMARY_HYBRID_L2_ENABLED` **OFF** (default) → ON-путь L2 не активен; врезка GATED до S6/S10 + live-приёмки Эпика 1 (ADR-1025-24 D4).
+- **Миграции:** Δ DDL=**0** (DDL не выполнялся).
+- **Откат:** тег `pre-round1026-s5` → `e3ea608` (в origin и на прод после `git fetch --tags`); `git reset --hard pre-round1026-s5` + рестарт. `deploy_commands.txt`/`stash@{0}` не тронуты (R18).
+- **Вердикт:** **VERIFIED.** ON в прод включать только после live-приёмки Эпика 1 (гейт S6/S10+D4).
