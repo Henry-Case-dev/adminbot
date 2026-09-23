@@ -2,7 +2,7 @@
 
 *Решение для тех, кто хочет токсичности в чате, но ленится писать сам. Теперь с памятью слона, терпением снайпера и запасным аэродромом для нейронки.*
 
-**Версия:** v2.58.22 | **Тестов:** 5936 | **Раунд:** 10 (10.26 — S3 `summary-l1-clusterizer`: L1 «Кластеризатор» §94–§95 — новые модули `services/summary_l1_contract.py` (строгий JSON §95, пространства ID TG/DB, fail-closed `L1Result`) и `services/summary_l1_clusterizer.py` (§92-вход → §93-упаковка в один вход → ровно 1 LLM-вызов → §95-валидатор; логи `L1_START/COMPLETE/ERROR` §108/§109), промпт-канон L1 (+1 каталог `prompts.summary_l1_clusterizer_system_prompt`, `PREV_*`/миграция/ROLLBACK, эталон canon), env-only слот `SUMMARY_L1_*` §82; в живой путь не врезан (S5/S6), 2 вызова сохранены; Δ DDL=0) | **Язык:** русский (как сами ответы, так и этот файл)
+**Версия:** v2.58.23 | **Тестов:** 5936 | **Раунд:** 10 (10.26 — S4 `summary-fact-package`: пакет фактов §96 — новый чистый модуль `services/summary_fact_package.py` (`FactPackage` v1: `name`=topic verbatim, `description`=детерминированная агрегация `facts[].text`, `chronology`=ASC `(timestamp,message_id)` из §92, `facts`/`evidence_ids` verbatim+union, `fragments` evidence-first, `service{response_mode,cover_prompt}`); бюджет L2-входа — reuse `limits.summary_max_context_tokens/_chars` через `resolve_chat_limit`, усечение fragments→description→целые темы + `truncated`/`skipped_ids`/WARN; fail-closed `ok/truncated/empty/invalid/error`/`not_built`; 0 LLM-вызовов; Δ каталога=0, Δ DDL=0; в живой путь не врезан (GATED S5/S6)) | **Язык:** русский (как сами ответы, так и этот файл)
 
 > **EXTRA (10.26, ADR-1026-3):** `polygonal-luminescence-round1026` — фоновый
 > рендерер заменён на полигональную светящуюся сеть (Canvas 2D + vendored
