@@ -1,12 +1,12 @@
 # F8 — `param-registry-round1025` — провенанс `.meta.md`
 
-- **APP_VERSION:** `2.58.21`
-- **HEAD (short):** `01f3c57`
+- **APP_VERSION:** `2.58.22`
+- **HEAD (short):** `4007081`
 - **Источник:** `services/param_catalog.py` (REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES) + `inventory.tsv` (10.14) для дельты.
-- **Счётчики каталога:** REGISTRY **467** / GROUPS **100** / `_TAB_BY_GROUP` **98** / TAB_RULES **21**.
-- **Реестр:** 467 строк == REGISTRY.
+- **Счётчики каталога:** REGISTRY **468** / GROUPS **100** / `_TAB_BY_GROUP` **98** / TAB_RULES **21**.
+- **Реестр:** 468 строк == REGISTRY.
 - **inventory.tsv (10.14):** 411 baseline-ключей.
-- **Дельта 411 → 467 = 56** новых ключей (`status=new`).
+- **Дельта 411 → 468 = 57** новых ключей (`status=new`).
 - **Команда генерации:** `python tools/gen_param_registry_round1025.py`
 - **Проверка (маркер):** `python tools/gen_param_registry_round1025.py --check`
 
@@ -22,7 +22,7 @@
 - `-` = поле неприменимо/отсутствует (документированное отсутствие).
 - `ui_visibility=api-only` — ключ существует (env/каталог), но UI-места нет → **не** считается сохранённым в UI.
 
-## Дельта 411 → 467 = 56 (ключи, отсутствовавшие в inventory.tsv)
+## Дельта 411 → 468 = 57 (ключи, отсутствовавшие в inventory.tsv)
 
 - `api_token`
 - `betterstack_host`
@@ -68,6 +68,7 @@
 - `prompts.factcheck_verbalizer_system_prompt`
 - `prompts.summary_cover_style`
 - `prompts.summary_editor_system_prompt`
+- `prompts.summary_l1_clusterizer_system_prompt`
 - `prompts.summary_narrator_system_prompt`
 - `prompts.verbilizer_default_mode`
 - `prompts.verbilizer_mode_casual`
