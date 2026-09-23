@@ -96,3 +96,69 @@ sudo systemctl restart admin_bot       # активен, MainPID 353131, NRestar
 ## 3. Handoff
 
 **RESULT: VERIFIED (Шаг 9 / T-3217) @Orchestrator** — коммиты `76fc5e1` (код+тесты+vendor) + `bf46360` (планы: §72 + архивация + Scanner-аудит) + deploy-doc (этот файл); push `origin/master` `9d046e5..bf46360` без force; прод `/var/www/admin_bot` fast-forward `89bda3d..bf46360`; `systemctl restart admin_bot` → **active** (MainPID 353131, NRestarts 0); `/api/health` **200**, `/healthz` **200** (`version 2.58.19`); `APP_VERSION` **2.58.19**; served `?v=2.58.19` (×12, placeholder 0); `polygon-background.js` и `vendor/delaunator.5.0.0.min.js` — **200** same-origin (off-origin 0); `database is locked`=**0**; бот/планировщик стартуют. Откат: тег `pre-round1026-visual` → `9d046e5` + `git revert`; soft — `UI_POLYGON_BG_ENABLED=false`. **HTTP 200 ≠ качество фона; живой WebView/стекло — PENDING OWNER VERIFICATION.** Далее: Шаг 10 @Memory (`plans/metrics.md` ещё не затронут).
+
+---
+
+## 4. Addendum — v2.58.20 «мерцание свечения фона ×2 медленнее»: **VERIFIED** ✅
+
+> **Контекст:** правка владельца поверх эпика round1026. Мерцание свечения (импульсы свечения узлов §8.3 + «дыхание» радиуса фонового излучения §7.1) замедлено **ровно ×2** (частота ÷2 → период ×2). Дизайн/позиция/оттенок не менялись. Ветка/маркер: `polygonal-luminescence-round1026`.
+
+### 4.1 Коммиты и рассылка
+
+| Роль | Commit | Содержимое |
+|---|---|---|
+| код + тесты + версия | **`306778a`** | `fix(round1026): … мерцание свечения фона ×2 медленнее (PULSE_SPEED_*/GLOW_SHIMMER_SPEED), APP_VERSION 2.58.20` — `web/static/polygon-background.js`, `config/settings.py`, `README.md`, тесты JS+py (новый гейт `TestGlowFlickerSlowdown` + re-pin версий) — 21 файл |
+| планы / Scanner | **`a50b014`** | `docs(plans): round1026 — evidence/review/spec §8.3 уточнение (мерцание ×2), scanner-аудит, метарегистр` — 8 файлов |
+| deploy-doc (этот раздел) | см. docs-коммит ниже | `plans/archive/polygonal-luminescence-round1026/deployment.md` |
+
+- **Push** `origin/master`, без force: **`1ad98ca..a50b014`**.
+- **Прод fast-forward** `bf46360..a50b014` (`git pull --ff-only`, **2026-09-23T04:07:48Z**).
+- `APP_VERSION`: **2.58.19 → 2.58.20** (cache-bust `polygon-background.js`).
+
+### 4.2 Diff-scope (инспекция перед коммитом)
+
+- Изменения ровно в ожидаемых зонах: `web/static/polygon-background.js` (§7.1/§8.3 — введены `PULSE_SPEED_MIN/MAX`, `GLOW_SHIMMER_SPEED`), `config/settings.py` (`APP_VERSION`), `README.md` (версия), тесты, `plans/**`.
+- Вне scope — **пусто**: `services/**`, схема БД, `services/param_catalog.py`, `web/static/glass.js`, публикация — не тронуты.
+- Секретов/`.env*`/`current_task.md`/zip/`deploy_commands.txt`/`var/backups`/`tools/_ui_*` в наборе коммита **нет** (перечисленные — gitignored, в diff не попадали). Скан diff по паттернам секретов — чисто.
+- Тесты локально перед пушем: JS `POLYGON-LUMINESCENCE-OK`; pytest `test_webapp_round1026_polygon.py` **23 passed** (в т.ч. гейт ×2).
+
+### 4.3 Релизные команды (фактические)
+
+```
+# локально
+git commit -m "fix(round1026): … ×2 медленнее …, APP_VERSION 2.58.20"   # -> 306778a
+git commit -m "docs(plans): round1026 — evidence/review/spec §8.3 …"     # -> a50b014
+git push origin master                        # 1ad98ca..a50b014 (без force)
+
+# прод /var/www/admin_bot
+git fetch origin && git pull --ff-only        # bf46360..a50b014 (2026-09-23T04:07:48Z)
+sudo systemctl restart admin_bot              # active, MainPID 366068, NRestarts 0 (2026-09-23T04:09:00Z)
+```
+
+### 4.4 Health и версии
+
+- `/api/health` (`127.0.0.1:8000`) → **HTTP 200** `{"status":"ok"}`.
+- Фактический `APP_VERSION` в проде (`venv/bin/python -c "import config.settings"`): **`2.58.20`**.
+- Отдаваемый `index` (`/web/`): `?v=2.58.20` — **12** вхождений; плейсхолдер `__APP_VERSION__` = **0**.
+- `static/polygon-background.js?v=2.58.20` → **HTTP 200**, **35 296** Б; в теле присутствуют новые константы: `PULSE_SPEED_MIN = 0.025`, `PULSE_SPEED_MAX = 0.075`, `GLOW_SHIMMER_SPEED = 0.03` (ровно прежние/2).
+
+### 4.5 Стабильность и логи
+
+- Окно рестарта (~6 мин, MainPID **366068**): `database is locked` = **0**, `Traceback` = **0**, `ERROR/CRITICAL` = **0**.
+- Старт бота/планировщика — OK: `Scheduler started`, `Goodmorning scheduler started`, `Start polling` / `Run polling for bot @PERMsoc_bot`.
+- **Миграции:** не выполнялись; **Δ DDL = 0**; `services/param_catalog.py` не изменён (**Δ каталога = 0**).
+
+### 4.6 Откат (готовность)
+
+- **Hard:** аннотированный тег **`pre-round1026-visual`** → `9d046e5` (в origin) + `git revert 306778a` (и `a50b014` — только доки); бэкапы `var/backups/visual-round1026-20260923-142355/` и `.env.bak.round1026-visual` целы.
+- **Soft (без редеплоя):** `UI_POLYGON_BG_ENABLED=false` + рестарт → Dark Aurora Flow (кэш-баст версии не требуется).
+- R18: теги/бэкапы/`stash@{0}` **не удалялись**; force-push не выполнялся; `deploy_commands.txt` не трогался.
+
+### 4.7 Честные ограничения
+
+- Подтверждена **доставка/целостность/отсутствие регрессий** и факт замедления (константы/тесты), но **не** субъективное визуальное впечатление от темпа мерцания — живой **Telegram WebView/стекло** остаётся **PENDING OWNER VERIFICATION**.
+- Кэш браузера: ассет отдаётся с `?v=2.58.20`; у клиента с активной старой сессией возможен старый канвас до перезагрузки страницы (не дефект сервера).
+
+### 4.8 Handoff
+
+**RESULT: VERIFIED (Addendum v2.58.20) @Orchestrator** — коммиты `306778a` (код+тесты+версия) + `a50b014` (планы/Scanner); push `origin/master` `1ad98ca..a50b014` без force; прод `/var/www/admin_bot` fast-forward `bf46360..a50b014` (04:07:48Z, `--ff-only`); `systemctl restart admin_bot` → **active** (MainPID 366068, NRestarts 0, 04:09:00Z); `/api/health` **200**; `APP_VERSION` **2.58.20**; served `?v=2.58.20` (×12, placeholder 0); `static/polygon-background.js` **200** (35 296 Б) с `PULSE_SPEED_MIN/MAX=0.025/0.075`, `GLOW_SHIMMER_SPEED=0.03`; `database is locked`=**0**; бот/планировщик стартуют. Откат: тег `pre-round1026-visual` → `9d046e5` + `git revert 306778a`; soft — `UI_POLYGON_BG_ENABLED=false`. **HTTP 200 ≠ субъективный темп мерцания; живой WebView/стекло — PENDING OWNER VERIFICATION.** Далее по процессу: @Architect (reconciliation), @PM (архив), @Memory (sync), запись метрик, следующий F.
