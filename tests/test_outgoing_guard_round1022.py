@@ -227,10 +227,12 @@ class TestCanonR1022:
         }
         # F1 (10.23): каталог расширен ключами Stage-1 промптов
         # (summary_editor/factcheck_analyst) — они не относятся к R1022.
+        # S3 (10.26): ключ L1-Кластеризатора — тоже вне R1022.
         assert set(pairs) == {k for k in PROMPT_MIGRATIONS if k not in (
             "prompts.compress_system_prompt",
             "prompts.summary_editor_system_prompt",
-            "prompts.factcheck_analyst_system_prompt")}
+            "prompts.factcheck_analyst_system_prompt",
+            "prompts.summary_l1_clusterizer_system_prompt")}
         from services import (chat_prompts, checkup_prompts, factcheck_prompts,
                               search_prompts, summary_prompts, web_prompts,
                               youtube_prompts)

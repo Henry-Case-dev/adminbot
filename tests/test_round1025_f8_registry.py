@@ -109,7 +109,7 @@ class TestFrozenInvariants:
             "обновите baseline осознанно (L-F11S-1)")
 
     def test_counts_frozen(self):
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 467
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 468
         assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 100
         assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 98
         assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 21
@@ -124,7 +124,7 @@ class TestFrozenInvariants:
         # (F11/ADR-1025-23 D6 поднял 2.58.16 → 2.58.20; без `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.21"
+        assert APP_VERSION == "2.58.22"
 
     def test_routes_set_unchanged(self):
         import re
@@ -148,7 +148,7 @@ class TestFrozenInvariants:
 class TestRegistry:
     def test_rows_complete_no_empty(self):
         rows = _read_registry_rows()
-        assert len(rows) == 467
+        assert len(rows) == 468
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -156,7 +156,7 @@ class TestRegistry:
     def test_delta_explicit(self):
         # round1026 S1 (ADR-1026-1 D1): санкционированная Δ +8 → дельта 56.
         delta = _registry_keys() - _inventory_keys()
-        assert len(delta) == FIXTURE["counts"]["delta"] == 56
+        assert len(delta) == FIXTURE["counts"]["delta"] == 57
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -184,7 +184,7 @@ class TestRegistry:
     def test_meta_provenance(self):
         meta = (ROOT / "plans/docs/param-registry-round1025.meta.md").read_text(
             encoding="utf-8")
-        assert "467" in meta and "411" in meta and "56" in meta
+        assert "468" in meta and "411" in meta and "57" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -195,7 +195,7 @@ class TestScreenMap:
     def test_all_params_have_a_place(self):
         keys = _parse_screen_keys()
         assert keys == _registry_keys()  # ⊇ и == (каталог — источник)
-        assert len(keys) == 467
+        assert len(keys) == 468
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

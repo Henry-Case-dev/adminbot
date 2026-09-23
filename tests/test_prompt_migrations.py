@@ -62,8 +62,10 @@ from services.summary_prompts import (
     PREV_SUMMARY_EDITOR_R1023_F3,
     PREV_SUMMARY_EDITOR_R1023_F6,
     PREV_SUMMARY_EDITOR_R1025_HOTFIX4,
+    PREV_SUMMARY_L1_CLUSTERIZER_R1026,
     PREV_SUMMARY_SYSTEM_PROMPT,
     SUMMARY_EDITOR_SYSTEM_PROMPT,
+    SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
 )
 from services.web_prompts import (
@@ -93,6 +95,8 @@ _ALL_KEYS = [
     # Раунд 10.23 (F1, ADR-1023-1): Stage-1 промпты (PG-ключи создаёт F8).
     "prompts.summary_editor_system_prompt",
     "prompts.factcheck_analyst_system_prompt",
+    # Раунд 10.26 (S3, ADR-1026-5 D4): новый ключ L1-Кластеризатора.
+    "prompts.summary_l1_clusterizer_system_prompt",
 ]
 
 # prev-эталон (слепок HEAD 68fb03e) для каждой ступени — первая пара.
@@ -109,6 +113,9 @@ _PREV_BY_KEY: dict[str, str] = {
     # Раунд 10.23 (F1): слепок прод-канона Stage-1 промптов ДО F1.
     "prompts.summary_editor_system_prompt": PREV_SUMMARY_EDITOR_R1023,
     "prompts.factcheck_analyst_system_prompt": PREV_FACTCHECK_ANALYST_R1023,
+    # Раунд 10.26 (S3): слепок базы канона L1 ДО правила маркировки.
+    "prompts.summary_l1_clusterizer_system_prompt":
+        PREV_SUMMARY_L1_CLUSTERIZER_R1026,
 }
 
 # new-канон (раунд 5) для каждого ключа.
@@ -125,6 +132,9 @@ _NEW_BY_KEY: dict[str, str] = {
     # Раунд 10.23 (F1): Stage-1 каноны с правилом маркировки.
     "prompts.summary_editor_system_prompt": SUMMARY_EDITOR_SYSTEM_PROMPT,
     "prompts.factcheck_analyst_system_prompt": FACTCHECK_ANALYST_SYSTEM_PROMPT,
+    # Раунд 10.26 (S3): канон L1 с правилом маркировки.
+    "prompts.summary_l1_clusterizer_system_prompt":
+        SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT,
 }
 
 # Слепки прод-канона раунда 10.21 (F2+F3) — для новой ступени.
@@ -144,6 +154,8 @@ _PREV_R1021_BY_KEY: dict[str, str] = {
 _ROLLBACK_KEYS = list(_PREV_R1021_BY_KEY) + [
     "prompts.summary_editor_system_prompt",
     "prompts.factcheck_analyst_system_prompt",
+    # Раунд 10.26 (S3, ADR-1026-5 D4): откат ключа L1.
+    "prompts.summary_l1_clusterizer_system_prompt",
 ]
 _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     **dict(_PREV_R1021_BY_KEY),
@@ -157,6 +169,9 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # F2 (10.23): откат Аналитика снимал только правило веб-поиска; F3 (10.23)
     # снимает ступень response_mode → непосредственный прежний канон F2.
     "prompts.factcheck_analyst_system_prompt": PREV_FACTCHECK_ANALYST_R1023_F3,
+    # S3 (10.26): откат L1 снимает ступень маркировки → слепок базы канона S3.
+    "prompts.summary_l1_clusterizer_system_prompt":
+        PREV_SUMMARY_L1_CLUSTERIZER_R1026,
 }
 
 

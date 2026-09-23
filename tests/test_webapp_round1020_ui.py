@@ -247,7 +247,7 @@ class TestHumanReadableLabels:
         # 10.23 (F5/ADR-1023-5 D5): рост каталога — отдельная фича → 446/95.
         # 10.24 (F21/ADR-1024-22 D8): +1 REGISTRY/GROUPS (BUDGETS_ENABLED,
         # flags_module_budgets) → 459/98.
-        assert len(pc.REGISTRY) == 467
+        assert len(pc.REGISTRY) == 468
         assert len(pc.GROUPS) == 100
 
 

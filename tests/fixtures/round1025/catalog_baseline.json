@@ -1,12 +1,12 @@
 {
  "_provenance": {
   "feature": "F1 ia-shell-navigation-round1025 (T-2402)",
-  "note": "Снимок множеств pg_key / групп / {group_id: tab_id} из services/param_catalog.py. Обновлён round1026 S1 (ADR-1026-1 D1): санкционированная Δ каталога +8 записей / +2 группы (REGISTRY 459→467, GROUPS 98→100, _TAB_BY_GROUP 96→98). Множество = источник истины инвентаря (ни один параметр не потерян).",
+  "note": "Снимок множеств pg_key / групп / {group_id: tab_id} из services/param_catalog.py. Обновлён round1026 S1 (ADR-1026-1 D1): санкционированная Δ каталога +8 записей / +2 группы (REGISTRY 459→467, GROUPS 98→100, _TAB_BY_GROUP 96→98); round1026 S3 (ADR-1026-5 D4): санкционированная Δ каталога +1 (промпт-ключ prompts.summary_l1_clusterizer_system_prompt; REGISTRY 467→468, GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений). Множество = источник истины инвентаря (ни один параметр не потерян).",
   "source": "services/param_catalog.py"
  },
  "counts": {
   "GROUPS": 100,
-  "REGISTRY": 467,
+  "REGISTRY": 468,
   "TAB_RULES": 21,
   "_TAB_BY_GROUP": 98
  },
@@ -685,6 +685,7 @@
   "prompts.search_system_prompt",
   "prompts.summary_cover_style",
   "prompts.summary_editor_system_prompt",
+  "prompts.summary_l1_clusterizer_system_prompt",
   "prompts.summary_narrator_system_prompt",
   "prompts.summary_system_prompt",
   "prompts.verbilizer_default_mode",

@@ -956,6 +956,16 @@ class Settings:
         "SUMMARY_FILTER_CONTEXT_NEIGHBORS", 1)
     SUMMARY_FILTER_CONTEXT_MAX_MESSAGES: int = _env_int(
         "SUMMARY_FILTER_CONTEXT_MAX_MESSAGES", 50)
+    # ── Эпик 2 / S3 round1026 (ADR-1026-5 D4): слот модели summary L1 (§82) —
+    # env-only ClassVar (НЕ dataclass-поля → вне каталога, Δ каталога = 0;
+    # UI-слот/каталог — S5 при врезке). Пусто → глобальная основная модель
+    # (наследование ≠ аварийное резервирование: ошибка dedicated уходит в
+    # существующую политику LLM_FALLBACK_*). Резолвер L1 читает hot-first
+    # (`models.summary_l1_*`/`keys.summary_l1_api_key`) — forward-compatible.
+    # Секрет не логируется (R17).
+    SUMMARY_L1_BASE_URL: ClassVar[str] = _env_str("SUMMARY_L1_BASE_URL", "")
+    SUMMARY_L1_MODEL_NAME: ClassVar[str] = _env_str("SUMMARY_L1_MODEL_NAME", "")
+    SUMMARY_L1_API_KEY: ClassVar[str] = _env_str("SUMMARY_L1_API_KEY", "")
 
     # ── GraphRAG (Epic 26) ─────────────────────────────────────────
     # False = extraction-вызов при архивации не делается (ровно старое поведение)
@@ -1783,7 +1793,7 @@ settings = Settings()
 # vendor/delaunator.5.0.0.min.js, app.js, app.css, index.html). Δ DDL=0.
 # Правка владельца (v2.58.20): «мерцание свечения» фона замедлено ×2
 # (PULSE_SPEED_*/GLOW_SHIMMER_SPEED в polygon-background.js) — cache-bust ассета.
-APP_VERSION = "2.58.21"   # S2 (10.26, ADR-1026-4 D1/D7): восстановление контекста Саммари — новый модуль services/summary_context_restore.py (reply-родители §90 через reuse thread_chain, ограниченный соседний контекст §89, хронология/дедуп/ID §90/§92, спец-случаи §91, бюджет §93), врезка в SummaryGenerator._apply_filter (после фильтра, до XML; 0 LLM-вызовов; публикация/промпты/XML вне diff), `restored_count` §109 + логи RESTORE_*; Δ DDL=0, Δ каталога=0. Ранее S1 (10.26, ADR-1026-1 D1/D7): алгоритмический префильтр Саммари — новый модуль services/summary_filter.py (§87–§89, §93), врезка в SummaryGenerator._run (вход L1, 0 LLM-вызовов, публикация не тронута), каталог summary_filter_* (+8 записей, +2 группы; вкладка mod_summary), UI «Подготовка сообщений»; Δ DDL=0.
+APP_VERSION = "2.58.22"   # S3 (10.26, ADR-1026-5 D1–D6): L1 «Кластеризатор» — новые модули services/summary_l1_contract.py (строгий JSON §95, ID-пространства TG/DB, fail-closed L1Result) и services/summary_l1_clusterizer.py (§92-вход → §93-упаковка в один вход → ровно 1 LLM-вызов → §95-валидатор; логи L1_START/COMPLETE/ERROR §108/§109), промпт-канон L1 (+1 каталог `prompts.summary_l1_clusterizer_system_prompt`, PREV_*/PROMPT_MIGRATIONS/ROLLBACK, эталон canon), env-only слот SUMMARY_L1_* (§82; Δ каталога=0 в части слота); в живой путь НЕ врезан (S5/S6), ровно 2 вызова сохранены, публикация/обложка/XML вне diff; Δ DDL=0. Ранее S2 (10.26, ADR-1026-4 D1/D7): восстановление контекста Саммари — services/summary_context_restore.py (reply-родители §90 через reuse thread_chain, соседний контекст §89, хронология/дедуп/ID §90/§92, спец-случаи §91, бюджет §93), врезка в SummaryGenerator._apply_filter (0 LLM-вызовов), `restored_count` §109 + логи RESTORE_*; Δ каталога=0. Ранее S1 (10.26, ADR-1026-1 D1/D7): алгоритмический префильтр Саммари — services/summary_filter.py (§87–§89, §93), врезка в SummaryGenerator._run (0 LLM-вызовов, публикация не тронута), каталог summary_filter_* (+8 записей, +2 группы; вкладка mod_summary); Δ DDL=0.
 
 
 def get_ytdlp_pot_provider() -> str:

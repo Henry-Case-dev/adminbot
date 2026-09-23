@@ -155,7 +155,7 @@ class TestD6NoF0Duplication:
 class TestInvariants:
     def test_catalog_delta_zero(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 467
+        assert len(pc.REGISTRY) == 468
         assert len(pc.GROUPS) == 100
         assert len(pc._TAB_BY_GROUP) == 98
         assert len(pc.TAB_RULES) == 21
@@ -167,9 +167,9 @@ class TestInvariants:
 
     def test_app_version_bump(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.21", m and m.group(1)
+        assert m and m.group(1) == "2.58.22", m and m.group(1)
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        assert "v2.58.21" in readme
+        assert "v2.58.22" in readme
 
     def test_no_ddl_change(self):
         # F9 — UI-only: миграции/схема не трогаются.

@@ -19,6 +19,10 @@ no-op; отсутствующий ключ → skip (сид ConfigCache пост
 
 prompts.extract_system_prompt НЕ входит (EXTRACT_PROMPT — ETL-экстрактор,
 не user-facing; не правится).
+
+Раунд 10.26 (S3, ADR-1026-5 D4): новая ступень L1-Кластеризатора
+(`prompts.summary_l1_clusterizer_system_prompt`; слепок
+`PREV_SUMMARY_L1_CLUSTERIZER_R1026` — база канона S3 без ступени маркировки).
 """
 import logging
 
@@ -66,8 +70,10 @@ from services.summary_prompts import (
     PREV_SUMMARY_EDITOR_R1023_F3,
     PREV_SUMMARY_EDITOR_R1023_F6,
     PREV_SUMMARY_EDITOR_R1025_HOTFIX4,
+    PREV_SUMMARY_L1_CLUSTERIZER_R1026,
     PREV_SUMMARY_SYSTEM_PROMPT,
     SUMMARY_EDITOR_SYSTEM_PROMPT,
+    SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
 )
 from services.web_prompts import (
@@ -149,6 +155,12 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         (PREV_FACTCHECK_ANALYST_R1023, FACTCHECK_ANALYST_SYSTEM_PROMPT),
         (PREV_FACTCHECK_ANALYST_R1023_F2, FACTCHECK_ANALYST_SYSTEM_PROMPT),
         (PREV_FACTCHECK_ANALYST_R1023_F3, FACTCHECK_ANALYST_SYSTEM_PROMPT)],
+    # 10.26 (S3, ADR-1026-5 D4; ADR-1013-3): новый PG-ключ L1-Кластеризатора.
+    # Ступень — правило маркировки целевого сообщения (TARGET_INSTRUCTION_BLOCK);
+    # идемпотентна: до сида — skip (сид ConfigCache поставит канон), текущий
+    # канон → no-op, кастом юзера не перезаписывается.
+    "prompts.summary_l1_clusterizer_system_prompt": [
+        (PREV_SUMMARY_L1_CLUSTERIZER_R1026, SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT)],
 }
 # prompts.extract_system_prompt НЕ входит (EXTRACT_PROMPT не трогаем)
 
@@ -190,6 +202,11 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
         (SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1025_HOTFIX4),
     "prompts.factcheck_analyst_system_prompt":
         (FACTCHECK_ANALYST_SYSTEM_PROMPT, PREV_FACTCHECK_ANALYST_R1023_F3),
+    # 10.26 (S3, ADR-1026-5 D4): откат снимает ключ L1 на слепок базы канона S3
+    # (без правила маркировки целевого сообщения). L1 не врезан в живой путь,
+    # поэтому откат значения поведения не меняет; ключ в PG не удаляется.
+    "prompts.summary_l1_clusterizer_system_prompt":
+        (SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT, PREV_SUMMARY_L1_CLUSTERIZER_R1026),
 }
 
 

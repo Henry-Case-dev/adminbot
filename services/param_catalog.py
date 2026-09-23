@@ -466,6 +466,13 @@ _PROMPTS: list[tuple] = [
      "services.summary_prompts.SUMMARY_NARRATOR_SYSTEM_PROMPT", "prompts_summary",
      "Пересказывает выжимку саммари живым языком. Изменения применяются сразу.",
      "advanced", "verbalizer"),
+    # Раунд 10.26 (S3, ADR-1026-5 D4): L1 «Кластеризатор» — отдельный канон
+    # (§94–§95, не общий с L2); Δ каталога +1 санкционирована (промпт-ключ).
+    ("prompts.summary_l1_clusterizer_system_prompt", "Кластеризатор саммари (L1)",
+     "services.summary_prompts.SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT",
+     "prompts_summary",
+     "Разбирает историю на темы и проверяемые факты с подтверждающими ID (первый проход L1). Саммари не пишет. Изменения применяются сразу.",
+     "advanced", "synthesizer"),
     ("prompts.direct_chat_synthesizer_system_prompt", "Синтезатор прямого чата (Логика)",
      "services.chat_prompts.DIRECT_SYNTHESIZER_SYSTEM_PROMPT", "prompts_direct_chat",
      "Собирает выводы инструментов в справку (первый проход прямого чата). Изменения применяются сразу.",

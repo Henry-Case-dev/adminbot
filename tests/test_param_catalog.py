@@ -209,7 +209,7 @@ class TestPromptsContentPgOnly:
         # + prompts.youtube_video_system_prompt (04.09.2026);
         # + prompts.summary_cover_style (10.23 F6/ADR-1023-6) = 11;
         # + 10 ключей F8 (Stage-1/Stage-2 + режимы Вербализатора) = 21.
-        assert len(prompts) == 21
+        assert len(prompts) == 22
         for spec in prompts:
             assert spec.settings_field is None
             assert spec.env_name is None
@@ -388,7 +388,7 @@ class TestGroups8424:
         # 10.23 (F8/ADR-1023-8, review iter1): prompts +10 (Stage-1/2 + режимы);
         # content без изменений (phantom content.dynamic_cliche_list удалён —
         # F4 хранит клише в PG-таблице, ключ был бы «мёртвой ручкой»).
-        assert counts == {"prompts": 21, "models": 56, "keys": 20,
+        assert counts == {"prompts": 22, "models": 56, "keys": 20,
                           "limits": 198, "flags": 69, "reactions": 39,
                           "content": 5, "memory": 34}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
