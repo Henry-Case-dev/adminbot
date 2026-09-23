@@ -775,6 +775,14 @@ class Settings:
         "UI_LIQUID_GLASS_LIB", False)
     UI_AURORA_FLOW_V2: ClassVar[bool] = _env_bool(
         "UI_AURORA_FLOW_V2", True)
+    # ── round 10.26 (ADR-1026-3 D2/D3): env-only kill-switch полигонального
+    # фона (Canvas 2D + Delaunator 5.0.0, `web/static/polygon-background.js`).
+    # Default ON = штатный новый фон; OFF → мягкий откат к Dark Aurora Flow
+    # (далее по UI_AURORA_FLOW_V2 / UI_AURORA_BG_ENABLED) без редеплоя.
+    # Δ каталога = 0 (прецедент UI_AURORA_FLOW_V2/UI_LIQUID_GLASS_LIB),
+    # Δ DDL = 0; `aurora-flow.js` остаётся в поставке (откатный путь).
+    UI_POLYGON_BG_ENABLED: ClassVar[bool] = _env_bool(
+        "UI_POLYGON_BG_ENABLED", True)
     # ── Раунд 10.25 (F11, ADR-1025-23 D6): env-only kill-switch композиции
     # витрины «Статус» (§12: 12-колоночная сетка, Hero/метрики, сон, факты,
     # бюджеты, счётчики §20). Default ON; OFF → одноколоночный безопасный
@@ -1770,7 +1778,10 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.58.18"   # S1 (10.26, ADR-1026-1 D1/D7): алгоритмический префильтр Саммари — новый модуль services/summary_filter.py (§87–§89, §93), врезка в SummaryGenerator._run (вход L1, 0 LLM-вызовов, публикация не тронута), каталог summary_filter_* (+8 записей, +2 группы; вкладка mod_summary), UI «Подготовка сообщений»; Δ DDL=0. Ранее F11 (10.25, ADR-1025-23): композиция витрины «Статус» — 12-кол. сетка §12, Hero/метрики §13/§14, виджет сна §17, расширение графа §16, «Новые факты»/«Бюджеты» §19, счётчики §20; kill-switch `UI_STATUS_GRID_V2` (Δ DDL=0, Δ каталога=0)
+# round 10.26 (ADR-1026-3 D8): bump 2.58.18 → 2.58.19 — cache-bust ассетов
+# эпика `polygonal-luminescence-round1026` (polygon-background.js,
+# vendor/delaunator.5.0.0.min.js, app.js, app.css, index.html). Δ DDL=0.
+APP_VERSION = "2.58.19"   # S1 (10.26, ADR-1026-1 D1/D7): алгоритмический префильтр Саммари — новый модуль services/summary_filter.py (§87–§89, §93), врезка в SummaryGenerator._run (вход L1, 0 LLM-вызовов, публикация не тронута), каталог summary_filter_* (+8 записей, +2 группы; вкладка mod_summary), UI «Подготовка сообщений»; Δ DDL=0. Ранее F11 (10.25, ADR-1025-23): композиция витрины «Статус» — 12-кол. сетка §12, Hero/метрики §13/§14, виджет сна §17, расширение графа §16, «Новые факты»/«Бюджеты» §19, счётчики §20; kill-switch `UI_STATUS_GRID_V2` (Δ DDL=0, Δ каталога=0)
 
 
 def get_ytdlp_pot_provider() -> str:

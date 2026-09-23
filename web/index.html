@@ -4889,7 +4889,16 @@
        app.js вызывает window.__AuroraFlow / window.__LiquidGlass. -->
   <script src="/static/vendor/ogl.1.0.11.min.js?v=__APP_VERSION__"></script>
   <script src="/static/vendor/liquidglass.core.0.5.3.min.js?v=__APP_VERSION__"></script>
+  <!-- round 10.26 (ADR-1026-3 D3/T-3168): Delaunator 5.0.0 (vendored IIFE,
+       ISC) — ДО polygon-background.js, который строит триангуляцию. -->
+  <script src="/static/vendor/delaunator.5.0.0.min.js?v=__APP_VERSION__"></script>
   <script src="/static/aurora-flow.js?v=__APP_VERSION__"></script>
+  <!-- round 10.26 (ADR-1026-3 D1/D4/T-3170/T-3171): новый фоновый рендерер
+       (Canvas 2D, полигональная сеть). Загружается ПОСЛЕ aurora-flow.js:
+       сохраняет его контракт как `__AuroraFlowLegacy` и подменяет
+       `window.__AuroraFlow` совместимым фасадом (вызовы app.js не меняются).
+       Dark Aurora Flow остаётся как soft-откат (UI_POLYGON_BG_ENABLED=false). -->
+  <script src="/static/polygon-background.js?v=__APP_VERSION__"></script>
   <script src="/static/glass.js?v=__APP_VERSION__"></script>
   <!-- F6 (ADR-1025-19 D1): adapter-слой ExecutionGraph — CLIENT-side
        нормализация `Backend metrics → Normalized execution graph → UI`

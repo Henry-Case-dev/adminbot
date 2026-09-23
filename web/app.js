@@ -1387,6 +1387,21 @@
       }
     } catch (e) { /* no-op */ }
   }
+  // round 10.26 (ADR-1026-3 D1/D4): исходный Dark Aurora Flow сохранён модулем
+  // `polygon-background.js` как `__AuroraFlowLegacy` (публичный `__AuroraFlow`
+  // подменён совместимым фасадом Polygon). `_syncBgLayer` выбирает ровно один
+  // активный рендерер по матрице §4.2: ON → Polygon, OFF → legacy Aurora.
+  function _legacyAuroraFlow() {
+    try {
+      if (window.__AuroraFlowLegacy
+          && typeof window.__AuroraFlowLegacy.start === 'function') {
+        return window.__AuroraFlowLegacy;
+      }
+      var f = window.__AuroraFlow;
+      if (f && !f.__polygonAdapter && typeof f.start === 'function') return f;
+    } catch (e) { /* no-op */ }
+    return null;
+  }
   // Категории вкладки для RBAC-проверок: явный список (не-конфиг вкладки)
   // либо уникальные категории источников (конфиг вкладки).
   function tabCategories(tab) {
@@ -2752,6 +2767,12 @@
       },
       auroraFlowV2: function () {
         return this.uiFlag('UI_AURORA_FLOW_V2');
+      },
+      // round 10.26 (ADR-1026-3 D2/D4): env-only флаг активного полигонального
+      // фона (Canvas 2D + Delaunator). Default ON; OFF → мягкий откат к
+      // Dark Aurora Flow по `auroraFlowV2`. Δ каталога = 0.
+      polygonBgEnabled: function () {
+        return this.uiFlag('UI_POLYGON_BG_ENABLED');
       },
       // HOTFIX7 (ADR-1025-13 D2.6): premium-рендер ECG; OFF → прежний
       // canvas-рендер (синусоида + импульс). `UI_HEARTBEAT_CANVAS_ENABLED=OFF`
@@ -11157,17 +11178,34 @@
       // активного пути. Default ON (aurora flow). Классы на documentElement —
       // вне Vue-разметки, синхронизируются вручную (CSP-safe).
       _syncBgLayer: function () {
+        // round 10.26 (ADR-1026-3 D1/D4/D5): активный фон — полигональная сеть
+        // на Canvas 2D (`__PolygonBackground`), если флаг ON и модуль загружен.
+        // Иначе — прежний Dark Aurora Flow (hotfix9), но уже через сохранённый
+        // `__AuroraFlowLegacy` (публичный `__AuroraFlow` — фасад Polygon).
+        var polygon = !!this.polygonBgEnabled &&
+          !!(window.__PolygonBackground &&
+             typeof window.__PolygonBackground.start === 'function');
+        var legacy = _legacyAuroraFlow();
         var flow = !!this.auroraFlowV2;
         var aurora = !!this.auroraBgEnabled;
         try {
           var de = document.documentElement;
-          de.classList.toggle('aurora-flow-v2', flow);
-          de.classList.toggle('bg-wash-legacy', !flow && !aurora);
+          de.classList.toggle('polygon-bg', polygon);
+          de.classList.toggle('aurora-flow-v2', !polygon && flow);
+          de.classList.toggle('bg-wash-legacy', !polygon && !flow && !aurora);
         } catch (e) { /* no-op */ }
         try {
-          if (window.__AuroraFlow) {
-            if (flow) window.__AuroraFlow.start();
-            else window.__AuroraFlow.stop();
+          if (polygon) {
+            window.__PolygonBackground.start();   // единственный активный rAF
+            if (legacy && typeof legacy.stop === 'function') legacy.stop();
+          } else {
+            if (window.__PolygonBackground &&
+                typeof window.__PolygonBackground.stop === 'function') {
+              window.__PolygonBackground.stop();  // снимает canvas из DOM
+            }
+            if (legacy) {
+              if (flow) legacy.start(); else legacy.stop();
+            }
           }
         } catch (e2) { /* no-op */ }
         if (typeof this._syncGlassLib === 'function') this._syncGlassLib();

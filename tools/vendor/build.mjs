@@ -6,6 +6,7 @@
 // Выход:   web/static/vendor/ogl.1.0.11.min.js
 //          web/static/vendor/liquidglass.core.0.5.3.min.js
 //          web/static/vendor/liquidglass.core.0.5.3.css
+//          web/static/vendor/delaunator.5.0.0.min.js   (round 10.26, ADR-1026-3 D3)
 import { build } from 'esbuild';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -19,8 +20,14 @@ mkdirSync(outdir, { recursive: true });
 // Промежуточные entry-файлы (ESM re-export) — генерируются на лету.
 const oglEntry = join(here, '.ogl-entry.mjs');
 const lgEntry = join(here, '.liquidglass-entry.mjs');
+const delaunatorEntry = join(here, '.delaunator-entry.mjs');
 writeFileSync(oglEntry, "export * from 'ogl';\n", 'utf8');
 writeFileSync(lgEntry, "export * from '@liquidglassjs/core';\n", 'utf8');
+// ADR-1026-3 D3/T-3166: `delaunator` — default-export класса; явно присваиваем
+// конструктор в globalThis (см. комментарий в самом entry-файле).
+writeFileSync(delaunatorEntry,
+  "import Delaunator from 'delaunator';\n\nglobalThis.Delaunator = Delaunator;\n",
+  'utf8');
 
 await build({
   entryPoints: [oglEntry],
@@ -37,6 +44,15 @@ await build({
   entryPoints: [join(here, 'node_modules', '@liquidglassjs', 'core', 'src', 'css', 'glass.css')],
   bundle: true, minify: true,
   outfile: join(outdir, 'liquidglass.core.0.5.3.css'),
+});
+// round 10.26 (ADR-1026-3 D3, T-3166/T-3167): Delaunator 5.0.0 — единственная
+// новая внешняя зависимость эпика (ISC), собирается в IIFE same-origin.
+// globalName не используется: entry-шим явно ставит `globalThis.Delaunator`.
+await build({
+  entryPoints: [delaunatorEntry],
+  bundle: true, format: 'iife', minify: true,
+  legalComments: 'none',
+  outfile: join(outdir, 'delaunator.5.0.0.min.js'),
 });
 
 console.log('vendored bundles written to', outdir);

@@ -269,6 +269,20 @@
     html.aurora-flow-v2 .aurora-bg { display: none !important; }
     html.aurora-flow-v2 body::before,
     html.aurora-flow-v2 body::after { content: none; }
+    /* ═══ round 10.26 (ADR-1026-3 D1/D4/D5): Polygonal Luminescence — ОДИН
+       фоновый canvas на Canvas 2D (Delaunator 5.0.0). Прямой потомок body,
+       вне max-width/scroll-контейнеров, z-index:0 (НЕ отрицательный), позади
+       #app. `html.polygon-bg` (ставит app.js::_syncBgLayer) выводит из
+       активного пути Aurora (OGL-канвас) и legacy-слои — ровно один фон.
+       Только при UI_POLYGON_BG_ENABLED=ON. Откат — OFF → `.aurora-flow-v2`. */
+    .polygon-background-canvas {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      display: block; width: 100%; height: 100%;
+    }
+    html.polygon-bg .aurora-bg { display: none !important; }
+    html.polygon-bg .aurora-flow-canvas { display: none !important; }
+    html.polygon-bg body::before,
+    html.polygon-bg body::after { content: none; }
     @keyframes aurora-flow {
       from { background-position: 0% 0%, 100% 0%, 60% 100%, 50% 50%; }
       to   { background-position: 12% 14%, 84% 16%, 44% 82%, 50% 50%; }

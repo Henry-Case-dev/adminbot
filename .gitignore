@@ -115,3 +115,10 @@ tools/vendor/node_modules/
 
 # ══ round1025 hotfix9 (T-2816/T-2829): артефакты стеклянного прототипа (скриншоты/probe.json) ══
 tools/_hotfix9_glass_probe/
+
+# ══ round1026 (ADR-1026-3 D6/D8): прототип стекла и артефакты Playwright-прогона ══
+# Прототип (index.html/mount.js) и его probe.json/скриншоты — служебные, не в git.
+tools/_polygon_glass_prototype/
+# Скриншоты/сырой JSON прогона tools/ui_round1026_polygon.py (материалы §14.4).
+tools/_ui_round1026_shots/
+tools/_ui_round1026_raw.json

@@ -42,10 +42,12 @@ ARTIFACTS = [ROOT / p for p in FIXTURE["artifacts"]]
 # Хэш покрывает только АДДИТИВНЫЕ изменения F11:
 #   * env-only `UI_STATUS_GRID_V2` в `/api/me.ui_flags` (bool);
 #   * аддитивное поле `counts` в `/api/status/logs` (H-F11S-1).
+# round 10.26 (ADR-1026-3 D2/D8): эволюция — аддитивный env-only флаг
+# `UI_POLYGON_BG_ENABLED` (bool) в `/api/me.ui_flags` (новых endpoint'ов нет).
 # Ни новых endpoint'ов, ни изменений схемы/каталога (`test_routes_set_unchanged`
 # и `test_param_catalog_unchanged` продолжают замораживать свои срезы).
 ROUTES_SHA256_F11 = (
-    "76bcab3c96fec5c55c4f8ec4e50b30593fd91b98ca6322270c3a71dca5653306")
+    "4b652cb102a63543000cf39a0d4b54b9efa188c72deeee2791734ba3ad86551b")
 
 
 def _sha256(path: Path) -> str:
@@ -119,10 +121,10 @@ class TestFrozenInvariants:
     def test_app_version_recorded(self):
         # L-F9S-3: маркер F8 не ослабляется. Fixture — исторический baseline
         # F8 (2.58.15, файл не менялся), а текущая версия пинится СТРОГО
-        # (F11/ADR-1025-23 D6 поднял 2.58.16 → 2.58.18; без `>=`-послабления).
+        # (F11/ADR-1025-23 D6 поднял 2.58.16 → 2.58.19; без `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.18"
+        assert APP_VERSION == "2.58.19"
 
     def test_routes_set_unchanged(self):
         import re

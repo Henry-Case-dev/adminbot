@@ -286,3 +286,15 @@ def test_js_unit_round1025_f9_savebar_visual():
     _run_js(os.path.join("tests", "js",
                          "round1025_f9_savebar_visual_test.js"),
             ok_marker="F9-SAVEBAR-OK")
+
+
+def test_js_unit_round1026_polygon_background():
+    """EXTRA round 10.26 (ADR-1026-3 D1/D3/D4/D5/D7/D8): фоновый рендерер
+    `polygon-background.js` — контракт `__PolygonBackground` + адаптер
+    `__AuroraFlow`/`__AuroraFlowLegacy`, жизненный цикл start/stop/pause/resume/
+    resize, `getDiagnostics` (11 полей), детерминизм (фикс. SEED, без
+    Math.random), бюджеты узлов/топология/DPR/амплитуда, offscreen-bloom,
+    палитра §5, один рендерер + no-CDN/порядок script."""
+    _run_js(os.path.join("tests", "js",
+                         "round1026_polygon_background_test.js"),
+            ok_marker="POLYGON-LUMINESCENCE-OK")

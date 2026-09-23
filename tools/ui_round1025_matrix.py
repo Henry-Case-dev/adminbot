@@ -133,6 +133,12 @@ ME_JSON = {
         "UI_SHELL_GRAPHITE_V3": True,
         "UI_LIQUID_GLASS_LIB": True,
         "UI_AURORA_FLOW_V2": True,
+        # round 10.26 (ADR-1026-3 D2/D4): матрица §71 ЗАФИКСИРОВАНА на откатном
+        # пути Aurora (polygon OFF) — её Aurora-специфичные пробы (context-loss
+        # WebGL, `#aurora-flow-canvas`) проверяют сохранённый Dark Aurora Flow.
+        # Полигональный фон (default ON в проде) покрыт отдельным прогоном
+        # `tools/ui_round1026_polygon.py`.
+        "UI_POLYGON_BG_ENABLED": False,
         # F11 (10.25, ADR-1025-23 D6): kill-switch композиции Статуса
         # (default ON). В матрице — ON (целевая 12-кол. композиция §12).
         "UI_STATUS_GRID_V2": True,

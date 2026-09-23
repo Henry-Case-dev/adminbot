@@ -406,6 +406,11 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
             "UI_SHELL_GRAPHITE_V3": bool(settings.UI_SHELL_GRAPHITE_V3),
             "UI_LIQUID_GLASS_LIB": bool(settings.UI_LIQUID_GLASS_LIB),
             "UI_AURORA_FLOW_V2": bool(settings.UI_AURORA_FLOW_V2),
+            # round 10.26 (ADR-1026-3 D2/T-3166): env-only kill-switch
+            # полигонального фона (Canvas 2D + Delaunator 5.0.0). Default ON;
+            # OFF → мягкий откат к Dark Aurora Flow. R16-аддитивно, R17-safe
+            # (bool), Δ каталога = 0.
+            "UI_POLYGON_BG_ENABLED": bool(settings.UI_POLYGON_BG_ENABLED),
             # F7 (10.25, ADR-1025-20 D7): env-only kill-switch per-chat
             # блок-гейтов «Общие реакции»/«Расписания» (default ON; OFF →
             # baseline + новые блок-тумблеры честно read-only).

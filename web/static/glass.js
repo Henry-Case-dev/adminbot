@@ -117,11 +117,19 @@
     return o;
   }
 
-  /* Честный детект режима (T-2850): источник преломления считается
-   * предоставленным только если библиотека реально создала слой преломления
-   * (`.ps-glass__refract`). Иначе — `frosted` (никогда не называем рефракцией). */
+  /* Честный детект режима (T-2850; round 10.26 ADR-1026-3 D6/T-3203):
+   * источник преломления считается предоставленным, если библиотека реально
+   * создала слой преломления (`.ps-glass__refract`) ИЛИ выбрала WebGL-путь
+   * (`data-render="webgl"` — единственный путь рефракции анимированного canvas,
+   * см. GOTCHAS 0.5.3). Иначе — `frosted` (никогда не называем рефракцией).
+   * Требуемый по ADR источник (`source`) не задан здесь, поэтому при обычном
+   * `sync()` без слоя преломления честный ответ остаётся `frosted`. */
   function detectMode(root) {
     try {
+      if (root && root.getAttribute &&
+          root.getAttribute('data-render') === 'webgl') {
+        return 'refraction';
+      }
       if (root && root.querySelector &&
           root.querySelector('.ps-glass__refract, .ps-glass__refract-inner')) {
         return 'refraction';

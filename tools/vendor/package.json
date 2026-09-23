@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@liquidglassjs/core": "0.5.3",
+    "delaunator": "5.0.0",
     "esbuild": "0.25.9",
     "ogl": "1.0.11"
   }
