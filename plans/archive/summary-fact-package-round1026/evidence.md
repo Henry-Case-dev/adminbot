@@ -85,3 +85,14 @@ SC-09 ✅ (транзит `service`) · SC-10 ✅ (Δ каталога=0, жив
 
 @Orchestrator → **T-3300 @Reviewer** (ревью S4: §96-полнота/компактность/доказательства, fail-closed D5, ID-пространства, отсутствие врезки/3-го вызова, Δ каталога=0, отсутствие ложных закрытий) и **T-3301 @Scanner** (независимый аудит: Δ DDL=0, Δ каталога=0, R17/R18, CSP/zero-build, публикация/`summary_generator` вне diff, 0 новых зависимостей).
 Блок **G (T-3299)** — **GATED, не трогался**.
+
+## T-3305 [@DevOps] — пост-деплой VERIFIED (23.09.2026)
+
+- **Коммиты/пуш:** `08219ab` (код+тесты, `APP_VERSION` 2.58.23) → `7722d66` (планы/архив: Merge §75 + архивация + Scanner/Reviewer-аудит); push `59f5921..7722d66 master -> master` в `origin` (без force). `origin/master` = `7722d66`.
+- **Преддеплойный гейт (`.venv`):** `tests/test_summary_fact_package.py` + `test_param_catalog.py` + `test_webapp_api.py` — **247 passed / 0 failed**; JS **43/43**; `git diff --check` = 0; **Δ DDL=0** (БД/миграции вне diff); каталог импортом REGISTRY **468**, F8 `--check` **OK**.
+- **Прод:** `/var/www/admin_bot`, `3ccb1bb..7722d66` **ff-only** pull (40 файлов); `sudo systemctl restart admin_bot` → **active (running)**, MainPID **425178**, ActiveEnterTimestamp **2026-09-23 08:52:54 UTC**.
+- **Прод-факты:** `APP_VERSION` = **2.58.23**; `/api/health` **200** `{"status":"ok"}`; served `?v=2.58.23`; `database is locked` = **0**; `FACT_PACKAGE_*` в логах = **0** (модуль не врезан — GATED S5/S6); планировщик `services.summary_scheduler - SmartModule scheduler started (cron 0,6,12,18 Asia/Yekaterinburg)`; бот `@PERMsoc_bot` (id=8802473181) polling; каталог **468**; Traceback/CRITICAL/ImportError от нового PID = **0** (единственный `Traceback` в журнале — от прежнего PID 394949, 07:01:24, LLM-timeout `summary_memory`, обработан, с S4 не связан); миграции не запускались.
+- **Откат:** `git fetch --tags && git reset --hard pre-round1026-s4` (annotated → `59f5921`) + рестарт; hot-OFF не требуется (живой путь не тронут). R18: теги/бэкапы `var/backups/s4-round1026-20260923-202326/`, `.env.bak.round1026-s4`, `stash@{0}` не удалялись; `deploy_commands.txt` не изменялся.
+- **Оговорка:** HTTP 200 и старт сервиса ≠ корректность построения пакета фактов — врезка `L1→пакет→L2` GATED (S5/S6); live-приёмка — PENDING OWNER VERIFICATION. Гигиена секретов: `deploy_commands.txt` (gitignored) хранит SSH/sudo-креды в открытом виде — рекомендован secret-manager и ротация (вне рамок S4).
+
+**Handoff:** @Orchestrator → T-3305 закрыт, поставка **VERIFIED**; далее Architect reconciliation §75, PM-архив, Memory sync/metrics, следующий F.
