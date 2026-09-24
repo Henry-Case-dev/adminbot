@@ -2,6 +2,7 @@
 
 > Краткий оперативный чекпоинт оркестратора. Не транскрипт. Обновляется после каждого верифицированного шага.
 
+- **✅ A0 `agentic-audit` (Эпик 3, Wave 0) — COMPLETED (read-only) + ARCHIVED + deploy NOT_APPLICABLE, 24.09.2026.** Единый Reviewer gate **Approved** C0/H0 (binding `e8065e9`/`805c4680…`/`1B2AE779…`); durable-артефакт **`plans/docs/agentic-audit-round1026.md`** (15/15 §12, карта инструментов 10×8/8, 34 EVIDENCE / 6 HYPOTHESIS, 38 стабильных анкоров, handoff к A1–A10; **не архивируется** — им пользуются A1–A10); **ADR-1026-13 Accepted**; запись **`ARCHITECTURE.md` §82**; метрики **10.26-A0** + KG (HY-01…HY-06 → A3/A4); архив `plans/archive/agentic-audit-round1026/`; закрыто 19 задач (T-3481…T-3499). **▶️ Следующая — A1 `tool-coordinator`** (§13–§14; вход — durable-артефакт по анкорам). Closing-коммит A0 — @DevOps.
 - **✅ ЭПИК 2 «Summary Hybrid Pipeline» — ЗАВЕРШЁН (авто-часть), 24.09.2026.** S1–S10: все COMPLETED + MERGED (§71–§81) + DEPLOYED (2.58.18 → **2.58.29**). Финал — **S10 `summary-deploy`**: активация Hybrid = code-default `SUMMARY_HYBRID_L2_ENABLED=True` (kill-switch `per-chat → hot → env/default` сохранён, ручной активации/legacy-селектора нет), §114-harness 11/11 без публикаций в основной чат, §115-процедура, §117 `results.md`; deploy/активация **VERIFIED** (`415a861`/`04f5ae1`/`7bf716e`; прод ff `cebd950..04f5ae1`, MainPID **595858**, health 200, `/healthz` **2.58.29**, effective `SUMMARY_HYBRID_L2_ENABLED=True`, `database is locked`=0); merge **§81** + **ADR-1026-12 Accepted**; метрики **10.26-S10** + агрегат Эпика 2; архив `plans/archive/summary-deploy-round1026/`. **Live-часть §115/§117** (первый рабочий запуск Саммари и публикация rich/plain) — **PENDING OWNER VERIFICATION** (ближайший платик 0/6/12/18 Asia/Yekaterinburg); **§85-UI — отдельная санкция (Δ каталога ≠ 0)**. Эпик 1 — авто ✅ ранее. **Предусловие Эпика 3 «Agentic Intelligence» (после Эпиков 1 и 2) формально достигнуто** — решение о старте за `select_next`. Closing-коммит S10 — @DevOps.
 
 - **▶️ S7 ЭПИКА 2 (Step 1 @PM + Step 2 @Architect + Step 3 @Memory, 24.09.2026): `summary-logging-runid-round1026` (§108–§110) — `tasks.md` (T-3380…T-3409) + `spec.md` (REQ-S7-01…-13, SC-01…SC-16) + **ADR-1026-9** (D1–D8, Accepted) + KG ✅.** Решения: `run_id`=существующий `correlation_id` (D1); аддитивные `SUMMARY_*`/`FORMAT_*`/`COVER_*`, **`PUBLISH_*` GATED (S6/D4)** (D2); **Δ DDL=0** (D3); §110 клиентский фильтр в существующем viewer (D4); dry-run 0/0/0 + `run_id` (D5); fail-closed §109/R17 (D6); **Δ каталога=0** (F8 не переиздаётся), CSP/zero-build, 2-вызовность (D7); **deploy=ДА, bump 2.58.25→2.58.26**, откат annotated-тег `pre-round1026-s7` → `f774ecc` (D8). Baseline HEAD `59e5b12`, APP_VERSION 2.58.25, pytest 8854/0, JS 44/44, каталог 469/426/444/100/98/21, Δ DDL=0. Код НЕ менялся (только `plans/**` + KG). ✅ **S7 ЗАВЕРШЁН (24.09.2026):** единый Reviewer gate **Approved** (C0/H0; binding `f774ecc`/`6c7c9061…`/`d9d11797…`) → merge **§78** + **ADR-1026-9 Accepted** → deploy **VERIFIED 2.58.26** (`5cba5df` код+тесты / `aa42a04` планы / `1684da9`+`4c22e2c` deploy-doc; прод ff `59e5b12..aa42a04`, MainPID **522392**, health 200, `database is locked`=0) → метрики **10.26-S7** + KG → **архив `plans/archive/summary-logging-runid-round1026/`** (T-3407). ✅ **S8 ЗАВЕРШЁН (24.09.2026):** единый Reviewer gate **Approved** (C0/H0; binding `2ffeb6a`/`4151d36d…`/`f397f3fd…`) → merge **§79** + **ADR-1026-10 Accepted** → deploy **VERIFIED 2.58.27** (`64cdb0e` код / `7c5338e` планы / `f14ae56` deploy-doc; MainPID **540872**, health 200, `database is locked`=0, роут `GET /api/analytics/execution/latest` жив) → метрики **10.26-S8** + KG (`L-F6S-1` CLOSED) → **архив `plans/archive/summary-analytics-adapter-round1026/`**. ✅ **S6 ЗАВЕРШЁН (24.09.2026):** единый Reviewer gate (Needs Fixes → rework T-3456 → **Approved** C0/H0; binding `197891f`/`4c7b2917…`/`77c17775…`) → merge **§80** + **ADR-1026-11 Accepted** (doc-drift L-R1026S6-D1 закрыт) → deploy **VERIFIED 2.58.28** (`d0d634c` код / `cebd950` планы / `b889019` deploy-doc; MainPID **575712**, health 200, `database is locked`=0; `PUBLISH_*`=0 до первого реального прогона) → метрики **10.26-S6** + KG (follow-up S5 закрыты) → **архив `plans/archive/summary-publish-integration-round1026/`**. ▶️ Остался только **S10 `summary-deploy`** (§107/§114/§115/§117 + §85-UI отдельной санкцией) — последний пункт Эпика 2; D4 закрыт владельцем; live-приёмки — PENDING OWNER VERIFICATION. Closing-коммит S6 — @DevOps.
@@ -335,30 +336,30 @@
 <!-- OPENCODE_WORKFLOW_STATE_V1
 {
   "schema_version": 1,
-  "state_revision": 44,
+  "state_revision": 56,
   "task_id": "adminbot-master-spec-v6",
   "request_fingerprint": "sha256:31c6ab5c87949ec63ee64a0627e2221055f6dc0915ee15c3b361d2ce7f04a4cc",
   "task_status": "in_progress",
-  "active_feature": "summary-deploy-round1026",
-  "feature_status": "S10 COMPLETED + MERGED (§81) + ARCHIVED + DEPLOYED/ACTIVATED (2.58.29 VERIFIED). Epic 2 auto-part COMPLETED (S1–S10); live §115/§117 PENDING OWNER VERIFICATION; §85-UI separate sanction. Backlog normalized; links synced. Pending: DevOps closing commit; then select_next (Epic 3 precondition reached).",
+  "active_feature": "agentic-audit-round1026",
+  "feature_status": "A0 COMPLETED (read-only) + APPROVED + ARCHIVED + deploy NOT_APPLICABLE. Durable artifact plans/docs/agentic-audit-round1026.md stays in place (A1–A10 use it by anchors); ADR-1026-13 Accepted; ARCHITECTURE §82; metrics 10.26-A0 + KG (HY-01…HY-06 → A3/A4); archive plans/archive/agentic-audit-round1026/ (19 tasks T-3481…T-3499 closed); backlog handoff to A1 recorded. Pending: DevOps closing commit; then select_next (A1 tool-coordinator).",
   "phase": "select_next",
   "risk_level": "R2",
   "next_agent": "DevOps",
-  "next_action": "S10 closing docs commit: commit plans/** closure (ARCHITECTURE §81, ADR-1026-12 Accepted, round1025-architecture Epic 2 summary, MEMORY, metrics 10.26-S10 + Epic 2 aggregate, backlog Epic 2 normalization, archive move, tasks closure, workflow_state human update) and push without force; then proceed to select_next (PM assessment of Epic 3 precondition/next feature)",
+  "next_action": "A0 closing docs commit: commit plans/** closure (ARCHITECTURE §82, ADR-1026-13 Accepted, round1025-architecture, MEMORY, metrics 10.26-A0, backlog A0 normalization + A1 handoff, archive move, tasks closure, workflow_state human update) and push without force; then proceed to select_next (A1 tool-coordinator Step 0)",
   "human_gate": false,
   "blocked": false,
   "blocker_type": null,
   "auto_resume_enabled": true,
   "review": {
     "status": "approved",
-    "reviewed_commit": "76abf911eee7ffc731cbf0fa9a2227b1a21f8c38",
-    "working_tree_hash": "a17093d83db7a8434411567090611b1502264d4eb52a38c60a07ca6ea18646a9",
-    "spec_hash": "41ee0c6e7b102a21be34223578df0fbb03b759741a911ce39be9b34c8079ae3c"
+    "reviewed_commit": "e8065e9257077098476e5bf3892ccaeefe775717",
+    "working_tree_hash": "805c46805201716ce0fd9e1e893a5c48f278655a190d19727a0e5b227752bf76",
+    "spec_hash": "1B2AE779BB3AF9A69A4B18237F5A7417D753AF5CC8D644F103A7FC781A835261"
   },
   "deployment": {
-    "required": true,
-    "status": "verified",
-    "deployed_commit": "415a861"
+    "required": false,
+    "status": "not_applicable",
+    "deployed_commit": null
   },
   "resume": {
     "last_resume_key": null,
@@ -366,6 +367,6 @@
     "last_resumed_at": null,
     "last_session_id": null
   },
-  "updated_at": "2026-09-23T23:28:28.237Z"
+  "updated_at": "2026-09-24T00:30:49.173Z"
 }
 OPENCODE_WORKFLOW_STATE_V1 -->

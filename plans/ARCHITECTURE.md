@@ -3178,3 +3178,38 @@ S4 активирует модуль + схему + валидатор + бюд�
 - **Отчёты:** единый Reviewer gate (T-3474/T-3475) — запись в `plans/reports/audit_backlog.md`; отдельного Scanner-approval не существует (Scanner удалён намеренно 24.09.2026).
 - **Код:** `config/settings.py` (`SUMMARY_HYBRID_L2_ENABLED` default ON + комментарий + `APP_VERSION` 2.58.29), `services/summary_generator.py` (docstrings), `services/summary_l2_writer.py` (docstring), `README.md`, `plans/docs/param-registry-round1025.meta.md` (провенанс-штамп), `tests/test_summary_deploy_round1026.py` (**25**), 17 pytest + 4 JS version-pins (2.58.28→2.58.29); **вне diff:** `image_generation.py`/`telegram_send.py`/`summary_prompts.py`/`prompt_migrations.py`/`summary_filter.py`/`summary_context_restore.py`/`summary_l1_clusterizer.py`/`summary_fact_package.py`/`summary_article_formatter.py`/`summary_test_run.py`/`routes.py`/`web/**`/`db/**`/`param_catalog.py`/`bot.py`.
 - **Следующие:** ✅ T-3478 @DevOps deploy/активация **VERIFIED** (2.58.29) → ✅ T-3476 Merge §81 → ✅ **T-3477 @PM (архивация — `plans/archive/summary-deploy-round1026/`, 24.09.2026)** → T-3479/T-3480 handoff (`[ ]` OPEN); далее **Эпик 3** (предусловие авто ✅; старт — `select_next`/@PM). Live-гейты (Эпик 1, S1–S10, §115/§117) — ⏳ **PENDING OWNER VERIFICATION**.
+
+---
+
+## 82. Раунд 10.26 (24.09.2026, read-only) — Эпик 3 / Wave 0: durable-аудит `agentic-audit-round1026` (A0) — карта 10 инструментов × 8 полей, первопричина image-tool-calling (34 EVIDENCE / 6 HYPOTHESIS), freeze канона 10, handoff к A1–A10 — **deploy NOT_APPLICABLE**
+
+**Фича** `agentic-audit-round1026` (A0, Эпик 3 «Agentic Intelligence», Wave 0; **P0, read-only enabler**, разблокирует A1–A10). **T-3481…T-3499** (блоки 0/A–F). **Статус: ✅ COMPLETED — Approved** (единый Reviewer gate T-3498, **C0/H0**, обе линзы; binding Reviewed-Commit `e8065e9`, Working-Tree-Hash `805c4680…`, Spec-Hash `1B2AE779…`) + **deploy NOT_APPLICABLE** (0 изменений рантайма/ассетов/каталога/DDL/env; `APP_VERSION` **2.58.29** без bump; прод не трогался). **ADR-1026-13 (D1–D3) Accepted**; архивация feature-папки — **T-3499 @PM ✅** (24.09.2026 → `plans/archive/agentic-audit-round1026/`); точка отката — annotated-тег `pre-round1026-a0` → `e8065e9` (R18). Risk **R2** (эпистемический риск «ложная первопричина» / «аудит принят за реализацию»; продуктовый diff пуст).
+
+### 82.1. Durable-аудит-артефакт — место, роль, ссылки
+- **Место:** `plans/docs/agentic-audit-round1026.md` — существующий cross-feature durable-контур `plans/docs/` (как `factcheck-audit.md`, `screen-map-round1025.md`). Файл **НЕ архивируется** вместе с feature-папкой и остаётся доступен A1–A10 после T-3499 (ADR-1026-13 **D1**; §54 п.1 «durable/переиспользуемый»).
+- **Ссылки (A1–A10):** `plans/docs/agentic-audit-round1026.md#<anchor>` — **38 явных** анкоров (`<a id="…">`, не зависят от перестановки разделов); полный реестр — `#anchors`. После Verified артефакт **заморожен**; изменения — только AMEND-записью.
+- **Состав:** карта инструментов **10 × 8/8 полей** (§12 + §54 п.1) + JSON Schema/аргументы; tool-loop (4 раунда / ≤2 вызова за раунд); image (прямой vs tool); память/досье/RAG/фактчек/Markdown/Decision Making/JSON L1↔L2/реакции/тумблеры; первопричина; дубликаты; handoff. Трассировка: §12 — **15/15**, §54 п.1 — 1/1, REQ — **19/19**, SC — **23/23**, orphan'ов нет.
+
+### 82.2. Инварианты аудита (что зафиксировано)
+- **Канон инструментов заморожен на 10** (ADR-1026-13 **D3**): `TOOL_CALLING_TOOLS` = **10** (`services/tool_schemas.py:337–348`; ADR-1020-4 → ADR-1023-5 → ADR-1024-20) — состав/порядок/`required` не менялись; A0 новых инструментов **не создавал**; расширение канона (координатор, `get_user_context`, image request) — предмет **A1/A2**.
+- **Дисциплина EVIDENCE/HYPOTHESIS** (ADR-1026-13 **D2**): каждый вывод — ровно одна метка; **EVIDENCE** = `file:line` baseline `e8065e9` | лог с кодом/статусом/`error_type` | воспроизводимая проба; **HYPOTHESIS** — только с планом проверки и волной A1–A10. Итог: **34 EVIDENCE / 6 HYPOTHESIS**; критерий достаточности первопричины — **code-path | проба | лог**; вывод «причина только в промпте» запрещён и по коду опровергнут (места №1/№2/№9 исправны; место №7 — второй шаг существует).
+- **Read-only:** product code/тесты/конфиги/DDL/env/каталог не менялись; **Δ DDL=0** (SQLite v12), **Δ каталога=0** (469/426/444/100/98/21); R17/R18 соблюдены.
+
+### 82.3. Вход A1–A10 (обязательные контракты-предпосылки; не дублировать)
+| Точка | Что использовать (REUSE) | Что НЕ делать |
+|---|---|---|
+| Пайплайн | `physical-two-call-pipeline` (ADR-1022-4 / ADR-1023-3/-6 / ADR-1026-5) — ровно 2 LLM-вызова (§13) | Не вводить 3-й LLM-вызов там, где хватает программной логики |
+| Решение | расширять существующий `response_mode` (STYLE) | `action ∈ {reply,react,silent,tool}` отдельно от `style` — **ADR-1023-3**, §38–§40 (**A8**); не заменять контракт |
+| Аналитика | `services/execution_graph_source.build_graph` + `web/api/analytics.py` + `web/static/execution_graph.js` (**§65** F6 / **§79** S8) | Не создавать вторую систему аналитики; без выдуманных токенов |
+| Генерация изображений | существующий `image_generation.generate_and_send` (прямой + tool входы; общий бюджет `worker_budget.image_calls`) | **§104 `generate_image` — НЕ трогать** (модель/провайдер/ключи/промпт/параметры/ошибки/порядок); учесть конфликт image-путей (пре-гейт выключает tool-путь на ход) |
+| Промпты | канон **ADR-1013-3** (`PREV_*`-слепки, `PROMPT_MIGRATIONS`, эталон) | Не менять промпты вне канона; «один промпт — один источник данных» |
+| UI/каталог | — | **§85 UI Саммари — отдельная санкция**; Δ каталога ≠ 0 в A0 не допускался |
+| Досье / RAG / фактчек / бюджет | `build_persona_card` + `format_dossier_block`, `get_rag_context`/`vector_search`/`search_long_term`, `FactCheckService.check_claim` + `factcheck_tools`, `worker_budget.image_calls` | Не дублировать; **`get_user_context` отсутствует** — вводится в **A6**; бюджет расширять (**A5**) |
+- **Открытые гипотезы HY-01…HY-06** (провайдер/модель, реальная ошибка генератора, фактическое состояние рубильников, факт срабатывания plain-fallback, влияние описания/схемы, форма наблюдаемого запроса) — **вход для A3/A4** с планами проверки (`#labels-hypothesis`); **A1–A2 не строятся на неподтверждённой причине**.
+- **Границы:** A0 ничего не реализует (§13–§51 — целевой контур A1–A10; §104 и §85 — вне scope). Старт **A1** — после архивации **T-3499 ✅** (выполнена @PM 24.09.2026).
+
+### 82.4. Ссылки
+- **Спека/ADR/задачи/доказательства/ревью/deploy:** `plans/archive/agentic-audit-round1026/{spec.md, adr-1026-13-agentic-audit-artifact-and-evidence-discipline.md, tasks.md, evidence.md, review.md, deployment.md}` (**архивировано** — T-3499 @PM ✅, 24.09.2026; UTF-8, SHA-256 до/после).
+- **Durable-артефакт (не архивируется):** `plans/docs/agentic-audit-round1026.md`.
+- **Код-инварианты (baseline `e8065e9`):** `services/tool_schemas.py:337–348` (канон 10), `services/tool_loop.py:38,39,125–135,167–190` (лимиты/plain-fallback/второй шаг), `services/image_generation.py:93,163,170,936,968`, `services/tool_router.py:1437`, `services/direct_chat_service.py:688–693,748–749`.
+- **Следующие:** **T-3499 @PM ✅** (архивация A0 + финальный handoff, 24.09.2026) → **A1 `tool-coordinator`** (Wave 1 Эпика 3, §13–§14; вход — durable-артефакт по анкорам, реестр `#anchors`).
