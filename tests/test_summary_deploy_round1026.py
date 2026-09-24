@@ -477,9 +477,9 @@ class TestBounds:
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.29"
+        assert APP_VERSION == "2.58.30"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        assert "v2.58.29" in readme
+        assert "v2.58.30" in readme
 
     def test_no_ddl_in_touched_sources(self):
         """Δ DDL=0: в изменённых модулях нет DDL-операторов."""

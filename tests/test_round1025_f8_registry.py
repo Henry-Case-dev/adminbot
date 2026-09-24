@@ -124,11 +124,12 @@ class TestFrozenInvariants:
         # (F11/ADR-1025-23 D6 поднял 2.58.16 → 2.58.20; S5/ADR-1026-7 D7 —
         # 2.58.24 → 2.58.25; S7/ADR-1026-9 D8 — 2.58.25 → 2.58.26; S8 —
         # 2.58.26 → 2.58.27; S6/ADR-1026-11 D9 — 2.58.27 → 2.58.28;
-        # S10/ADR-1026-12 D7 — 2.58.28 → 2.58.29; без
+        # S10/ADR-1026-12 D7 — 2.58.28 → 2.58.29; A1/ADR-1026-14 D7 —
+        # 2.58.29 → 2.58.30; без
         # `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.29"
+        assert APP_VERSION == "2.58.30"
 
     def test_routes_set_unchanged(self):
         import re

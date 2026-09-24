@@ -78,6 +78,7 @@ import logging
 import random
 import re
 import time
+from dataclasses import dataclass
 
 from aiogram.exceptions import TelegramBadRequest
 
@@ -455,6 +456,192 @@ def trim_verbatim_lines(lines: list[str], max_units: int, *,
     return kept
 
 
+# ── A1 (round 10.26, ADR-1026-14 D1/D2/D9): Координатор инструментов ──────
+# Программный слой принятия решения ВНУТРИ существующего Синтезатора
+# (direct-контур). 0 LLM-вызовов (§13 «не создавать дополнительный LLM-вызов
+# там, где достаточно программной логики»); модельный выбор инструментов
+# сохранён (`tool_choice='auto'`); wire-поле `action` НЕ вводится (граница
+# A7). Решение — внутренний объект; логи — R17-safe (числа/коды/имена
+# инструментов, без сырья/промптов/сырых ответов LLM).
+
+ACTION_REPLY = "reply"      # доставка текста (готовый текст / Вербализатор)
+ACTION_REACT = "react"      # не-текстовый исход (существующая 🗿-реакция)
+ACTION_SILENT = "silent"    # молчание без реакции (резерв A8; политика не вводится)
+ACTION_TOOL = "tool"        # ход с реально вызванными инструментами → Stage-2
+COORDINATOR_ACTIONS = (ACTION_REPLY, ACTION_REACT, ACTION_SILENT, ACTION_TOOL)
+
+# R17-safe коды намерения (не сырой текст запроса).
+INTENT_IMAGE = "image"
+INTENT_NOSTALGIA = "nostalgia"
+INTENT_FORWARD = "forward"
+INTENT_QUESTION = "question"
+INTENT_CHAT = "chat"
+
+# R17-safe коды адресата (роль, не имя).
+ADDRESSEE_AUTHOR = "author"
+ADDRESSEE_FORWARD = "forward"
+ADDRESSEE_REPLY = "reply"
+ADDRESSEE_UNKNOWN = "unknown"
+
+# Оценка результатов инструментов (R17-safe код).
+EVAL_NONE = "none"
+EVAL_OK = "ok"
+EVAL_PARTIAL = "partial"
+EVAL_FAILED = "failed"
+EVAL_DEGRADED = "degraded"
+
+# Инструменты памяти — программная классификация «необходимость памяти».
+_MEMORY_TOOLS = frozenset(
+    {"query_chat_memory", "dig_into_lore", "get_recent_history"})
+
+
+@dataclass
+class CoordinatorDecision:
+    """Внутренний объект решения Координатора (ADR-1026-14 D2).
+
+    НЕ сериализуется в Stage-1/Stage-2 JSON (wire-`action` не вводится —
+    граница A7). ``action`` — пред-текстовое решение (``tool``/``reply``);
+    ``style`` — режим-стиль (``response_mode``), заполняется после Stage-1.
+    """
+
+    intent: str
+    addressee: str
+    memory_need: bool
+    tool_calls: tuple
+    evaluation: str
+    action: str
+    style: str = ""
+    enabled: bool = True
+
+
+def coordinator_enabled() -> bool:
+    """Kill-switch Координатора (env-only ClassVar, default ON; D6/D7).
+
+    Резолв per-call (не кэшируется): OFF → точный legacy-путь. Никогда не
+    бросает (R3)."""
+    return bool(getattr(settings, "DIRECT_COORDINATOR_ENABLED", True))
+
+
+def _coordinator_intent(query: str, *, image_fired: bool, dig_fired: bool,
+                        forward: bool) -> str:
+    """Намерение — программно (существующие маркеры пре-гейтов), без LLM."""
+    if image_fired:
+        return INTENT_IMAGE
+    if dig_fired:
+        return INTENT_NOSTALGIA
+    if forward:
+        return INTENT_FORWARD
+    text = str(query or "").strip()
+    if text.endswith("?"):
+        return INTENT_QUESTION
+    return INTENT_CHAT
+
+
+def _coordinator_addressee(message, *, forward: bool, has_author: bool) -> str:
+    """Адресат — существующий программный резолв (роль, R17-safe)."""
+    if forward:
+        return ADDRESSEE_FORWARD
+    reply = getattr(message, "reply_to_message", None)
+    if reply is not None and getattr(reply, "from_user", None) is not None:
+        return ADDRESSEE_REPLY
+    if has_author:
+        return ADDRESSEE_AUTHOR
+    return ADDRESSEE_UNKNOWN
+
+
+def _coordinator_tool_names(tool_trace) -> tuple:
+    """Имена фактически вызванных инструментов (модельный выбор) — порядок
+    сохранён, дубликаты убраны; R17-safe (имена — коды канона)."""
+    seen: list[str] = []
+    for entry in tool_trace or []:
+        name = str(entry.get("tool") or "").strip()
+        if name and name not in seen:
+            seen.append(name)
+    return tuple(seen)
+
+
+def _coordinator_evaluate(tool_trace, degraded: bool) -> str:
+    """Оценка результатов инструментов — программно, без LLM."""
+    if degraded:
+        return EVAL_DEGRADED
+    trace = list(tool_trace or [])
+    if not trace:
+        return EVAL_NONE
+    ok = sum(1 for entry in trace if entry.get("ok"))
+    if ok == len(trace):
+        return EVAL_OK
+    if ok == 0:
+        return EVAL_FAILED
+    return EVAL_PARTIAL
+
+
+def _coordinator_choose_action(*, has_tools: bool, degraded: bool,
+                               lore_compiled: bool) -> str:
+    """Пред-текстовое решение о действии (до генерации итогового текста).
+
+    Зеркалит существующий гейт Stage-2 (`direct_chat_service.py:814–818`):
+    ``tool`` ⇔ есть реально вызванные инструменты, финал не деградировал и не
+    ``lore_compiled``. Иначе — ``reply``. Поведенчески-сохраняюще: гейт
+    Вербализатора не меняется (политика молчания/реакций — A8)."""
+    if lore_compiled:
+        return ACTION_REPLY
+    if has_tools and not degraded:
+        return ACTION_TOOL
+    return ACTION_REPLY
+
+
+def _coordinator_memory_need(tool_names, *, dig_fired: bool,
+                             lore_compiled: bool) -> bool:
+    """Необходимость памяти — по существующим контурам (RAG/память/инстру-
+    менты памяти), без LLM."""
+    if dig_fired or lore_compiled:
+        return True
+    return bool(set(tool_names) & _MEMORY_TOOLS)
+
+
+def build_coordinator_decision(*, query: str, message, raw, user_id,
+                               image_fired: bool, dig_fired: bool,
+                               lore_compiled: bool) -> CoordinatorDecision:
+    """Собрать внутреннее решение Координатора (0 LLM). Никогда не бросает."""
+    forward = bool(_forward_source_of(message))
+    tool_trace = getattr(raw, "tool_trace", None) or []
+    tool_names = _coordinator_tool_names(tool_trace)
+    degraded = bool(getattr(raw, "degraded", False))
+    return CoordinatorDecision(
+        intent=_coordinator_intent(query, image_fired=image_fired,
+                                   dig_fired=dig_fired, forward=forward),
+        addressee=_coordinator_addressee(message, forward=forward,
+                                         has_author=bool(user_id)),
+        memory_need=_coordinator_memory_need(
+            tool_names, dig_fired=dig_fired, lore_compiled=lore_compiled),
+        tool_calls=tool_names,
+        evaluation=_coordinator_evaluate(tool_trace, degraded),
+        action=_coordinator_choose_action(
+            has_tools=bool(tool_trace), degraded=degraded,
+            lore_compiled=lore_compiled),
+    )
+
+
+def _log_coordinator_decision(decision: CoordinatorDecision, *,
+                              chat_id: int) -> None:
+    """R17-safe событие решения (числа/коды/имена инструментов)."""
+    logger.info(
+        "[coordinator] decision | chat=%s | intent=%s | addressee=%s | "
+        "memory=%d | tools=%s | eval=%s | action=%s",
+        chat_id, decision.intent, decision.addressee,
+        1 if decision.memory_need else 0,
+        ",".join(decision.tool_calls) or "-",
+        decision.evaluation, decision.action)
+
+
+def _log_coordinator_outcome(*, chat_id: int, action: str, style: str,
+                             chars: int) -> None:
+    """R17-safe исход (код действия / режим-стиль / длина текста)."""
+    logger.info(
+        "[coordinator] outcome | chat=%s | action=%s | style=%s | chars=%d",
+        chat_id, action, style or "-", int(chars))
+
+
 class DirectChatThrottle:
     """Token Bucket (R50-7): per (chat_id, user_id). In-memory; рестарт сбрасывает
     (принято, прецедент CooldownTracker smartmodule_throttling.py). Полное
@@ -676,9 +863,11 @@ class DirectChatService:
             # маркеров ностальгии — принудительный dig ДО генерации, результат
             # в <dig_result> ПЕРЕД <Target_User> (флаг off/нет маркера/нет
             # роутера → ничего; раунды TOOL_MAX_ROUNDS не тратятся).
+            dig_fired = False
             if self.tool_router is not None:
                 dig_block = await self._dig_pre_gate_block(chat_id, query)
                 if dig_block:
+                    dig_fired = True
                     user_blocks = self._insert_dig_result(user_blocks,
                                                           dig_block)
             # Раунд 10.23 (F5, ADR-1023-5 §D2): пре-гейт ключевиков генерации
@@ -806,22 +995,43 @@ class DirectChatService:
                 logger.warning(
                     "[direct] tool-loop degraded | chat=%s | reason=%s | "
                     "rounds_used=%d", chat_id, raw.reason, raw.rounds_used)
+            # A1 (round 10.26, ADR-1026-14 D1/D2): программный слой решения о
+            # действии ВНУТРИ существующего Синтезатора — координатор строит
+            # внутреннее решение ДО генерации итогового текста (§14 «решение о
+            # действии и итоговый текст — разные задачи»). 0 LLM-вызовов;
+            # wire-`action` не вводится. Kill-switch OFF → координатор не
+            # строится (точный legacy-путь, без лишних логов).
+            coordinator = None
+            if coordinator_enabled():
+                coordinator = build_coordinator_decision(
+                    query=query, message=message, raw=raw, user_id=user_id,
+                    image_fired=image_pre_gate_fired, dig_fired=dig_fired,
+                    lore_compiled=bool(
+                        getattr(tool_ctx, "lore_compiled", False)))
+                _log_coordinator_decision(coordinator, chat_id=chat_id)
             # Раунд 10.22 (F5, ADR-1022-5): System 2 (Синтезатор тулов →
             # Вербализатор) — ТОЛЬКО при реально вызванных тулах, успешном
             # tool-финале и НЕ lore_compiled (детерминированная HTML-история
             # остаётся вне System 2, Д-9). Любой сбой → финал tool-loop.
+            # A1 (D4): то же условие, выраженное через решение координатора
+            # (`action == tool` ⇔ те же условия) — Вербализатор не запускается
+            # при не-текстовом решении (молчание/реакция не генерируют текст).
             response_mode = "serious"      # F3: fail-safe до Stage-2
             if (getattr(settings, "SYSTEM2_DIRECT_ENABLED", True)
                     and isinstance(raw, ToolLoopResult)
                     and not raw.degraded
                     and bool(getattr(raw, "tool_trace", None))
-                    and not getattr(tool_ctx, "lore_compiled", False)):
+                    and not getattr(tool_ctx, "lore_compiled", False)
+                    and (coordinator is None
+                         or coordinator.action == ACTION_TOOL)):
                 synthesized = await self._synthesize_direct_answer(
                     chat_id, query, raw, temperature,
                     correlation_id=correlation_id)
                 if synthesized:
                     # F3 (ADR-1023-3): режим несёт и стиль, и канал доставки.
                     raw, response_mode = synthesized
+                    if coordinator is not None:
+                        coordinator.style = response_mode
             # БЛОК 7.2b (T-1921): единая стадия пост-обработки — reasoning-
             # теги-черновики не уходят пользователю (no-op без тегов).
             answer = strip_reasoning_tags(str(raw).strip())
@@ -832,11 +1042,19 @@ class DirectChatService:
             if getattr(tool_ctx, "lore_compiled", False) and lore_story:
                 answer = strip_reasoning_tags(lore_story)
             if not answer:
+                if coordinator is not None:
+                    _log_coordinator_outcome(
+                        chat_id=chat_id, action=ACTION_REACT,
+                        style=response_mode, chars=0)
                 logger.warning(
                     "[direct] empty answer — silence | chat=%s user=%s",
                     chat_id, target_name)
                 await react_moai(bot, chat_id, message.message_id)
                 return
+            if coordinator is not None:
+                _log_coordinator_outcome(
+                    chat_id=chat_id, action=ACTION_REPLY,
+                    style=response_mode, chars=len(answer))
             sent_id = await self._send_direct_answer(
                 bot, chat_id, answer, message.message_id,
                 lore=bool(getattr(tool_ctx, "lore_compiled", False)),

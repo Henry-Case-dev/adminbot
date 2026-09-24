@@ -308,7 +308,7 @@ function canvasStub() {
     assert.ok(APP_JS.indexOf(flag) >= 0, 'D: фронт читает ' + flag);
   }
   // HOTFIX10 (10.25) — bump 2.58.12 → 2.58.13 (ADR-1025-18, T-2864).
-  assert.ok(/APP_VERSION = "2\.58\.29"/.test(SETTINGS), 'D: APP_VERSION 2.58.29');
+  assert.ok(/APP_VERSION = "2\.58\.30"/.test(SETTINGS), 'D: APP_VERSION 2.58.30');
   // Матрица: 5 режимов + пробы shell/glass/heartbeat.
   for (const m of ['desktop_normal', 'desktop_fullscreen', 'tablet',
                    'mobile_regular', 'mobile_fullscreen']) {
