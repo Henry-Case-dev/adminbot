@@ -336,29 +336,29 @@
 <!-- OPENCODE_WORKFLOW_STATE_V1
 {
   "schema_version": 1,
-  "state_revision": 56,
+  "state_revision": 63,
   "task_id": "adminbot-master-spec-v6",
   "request_fingerprint": "sha256:31c6ab5c87949ec63ee64a0627e2221055f6dc0915ee15c3b361d2ce7f04a4cc",
   "task_status": "in_progress",
-  "active_feature": "agentic-audit-round1026",
-  "feature_status": "A0 COMPLETED (read-only) + APPROVED + ARCHIVED + deploy NOT_APPLICABLE. Durable artifact plans/docs/agentic-audit-round1026.md stays in place (A1–A10 use it by anchors); ADR-1026-13 Accepted; ARCHITECTURE §82; metrics 10.26-A0 + KG (HY-01…HY-06 → A3/A4); archive plans/archive/agentic-audit-round1026/ (19 tasks T-3481…T-3499 closed); backlog handoff to A1 recorded. Pending: DevOps closing commit; then select_next (A1 tool-coordinator).",
-  "phase": "select_next",
+  "active_feature": "tool-coordinator-round1026",
+  "feature_status": "A1 unified Reviewer gate APPROVED (C0/H0; binding: Reviewed-Commit e3ea367, WTH 4361f011…, Spec-Hash b37b9a50…; lens 1 verified programmatic coordinator inside Synthesizer with OFF/legacy equivalence across 9 combinations; lens 2 verified ΔDDL=0/Δcatalog=0, boundaries outside diff, 2-call; deviations D-a/D-b/D-c acceptable). Ready for delivery: deploy T-3522 (APP_VERSION 2.58.30).",
+  "phase": "delivery",
   "risk_level": "R2",
   "next_agent": "DevOps",
-  "next_action": "A0 closing docs commit: commit plans/** closure (ARCHITECTURE §82, ADR-1026-13 Accepted, round1025-architecture, MEMORY, metrics 10.26-A0, backlog A0 normalization + A1 handoff, archive move, tasks closure, workflow_state human update) and push without force; then proceed to select_next (A1 tool-coordinator Step 0)",
+  "next_action": "T-3522 deploy A1: commit code+tests (APP_VERSION 2.58.30) and plans/** (feature docs + audit_backlog), push without force, prod ff + restart, verify health 200 / served 2.58.30 / database is locked=0 / no Traceback / kill-switch DIRECT_COORDINATOR_ENABLED env-only default ON effective / no prompts-canon change / no DDL; write deployment.md VERIFIED (rollback env DIRECT_COORDINATOR_ENABLED=false + hard pre-round1026-a1 → e3ea367 / git revert); commit deploy-doc",
   "human_gate": false,
   "blocked": false,
   "blocker_type": null,
   "auto_resume_enabled": true,
   "review": {
     "status": "approved",
-    "reviewed_commit": "e8065e9257077098476e5bf3892ccaeefe775717",
-    "working_tree_hash": "805c46805201716ce0fd9e1e893a5c48f278655a190d19727a0e5b227752bf76",
-    "spec_hash": "1B2AE779BB3AF9A69A4B18237F5A7417D753AF5CC8D644F103A7FC781A835261"
+    "reviewed_commit": "e3ea367a5dd9961365e89f40eb183b86e20f1cf4",
+    "working_tree_hash": "4361f0111fcd87414c5e20fe9932df447bb5125a26a2b2ce0f74da5020b5a67f",
+    "spec_hash": "b37b9a509cf868ac752cbf9043cd306bbea7bd481d517eda9131dd68f85c2821"
   },
   "deployment": {
-    "required": false,
-    "status": "not_applicable",
+    "required": true,
+    "status": "pending",
     "deployed_commit": null
   },
   "resume": {
@@ -367,6 +367,6 @@
     "last_resumed_at": null,
     "last_session_id": null
   },
-  "updated_at": "2026-09-24T00:30:49.173Z"
+  "updated_at": "2026-09-24T01:24:25.591Z"
 }
 OPENCODE_WORKFLOW_STATE_V1 -->
