@@ -3213,3 +3213,49 @@ S4 активирует модуль + схему + валидатор + бюд�
 - **Durable-артефакт (не архивируется):** `plans/docs/agentic-audit-round1026.md`.
 - **Код-инварианты (baseline `e8065e9`):** `services/tool_schemas.py:337–348` (канон 10), `services/tool_loop.py:38,39,125–135,167–190` (лимиты/plain-fallback/второй шаг), `services/image_generation.py:93,163,170,936,968`, `services/tool_router.py:1437`, `services/direct_chat_service.py:688–693,748–749`.
 - **Следующие:** **T-3499 @PM ✅** (архивация A0 + финальный handoff, 24.09.2026) → **A1 `tool-coordinator`** (Wave 1 Эпика 3, §13–§14; вход — durable-артефакт по анкорам, реестр `#anchors`).
+
+---
+
+## 83. Раунд 10.26 (24.09.2026) — Эпик 3 / Wave 1: A1 «Tool Coordinator» `tool-coordinator-round1026` — программный слой решения о действии внутри Синтезатора (без 3-го LLM-вызова и wire-`action`), reuse `tool_loop` как общего механизма цепочек, изоляция Вербализатора, env-only kill-switch — **deploy VERIFIED 2.58.30**
+
+**Фича** `tool-coordinator-round1026` (A1, Эпик 3 «Agentic Intelligence», Wave 1; **P0**). **T-3500…T-3524** (блоки 0/A–H, 25). **Статус: ✅ COMPLETED + MERGED (§83) + ARCHIVED + DEPLOYED (2.58.30 VERIFIED)**. Ревью — **единый Reviewer gate** (T-3518 линза 1 requirements/correctness + T-3519 линза 2 focused change audit; Scanner удалён — обязанности в линзе 2) — **Approved C0/H0** (binding Reviewed-Commit `e3ea367`, Working-Tree-Hash `4361f011…`, Spec-Hash `b37b9a50…`; отклонения @Builder **D-a/D-b/D-c — допустимы, non-blocking**). Deploy — **`b32c46a`** (код+тесты+`config/settings.py`+`README.md`+meta, `APP_VERSION` 2.58.29→**2.58.30**) / **`b1c02a3`** (планы: feature-артефакты+аудит) / **`7c79df3`** (deploy-doc **VERIFIED**); прод ff **`04f5ae1..b1c02a3`**, active MainPID **652183**, `/api/health` **200**, `/healthz` **2.58.30**, served `?v=2.58.30` (×12), `database is locked`=**0**, **эффективный `DIRECT_COORDINATOR_ENABLED`=True** (code-default ON, `.env` без override). **ADR-1026-14 (D1–D10) Accepted**; архивация — **T-3521 @PM ✅ (24.09.2026)**. Risk **R2** (подтверждён фактическим diff).
+
+### 83.1. Координатор — программный слой решения о действии внутри Синтезатора
+- **Вариант (i) (ADR-1026-14 D1):** модельный выбор инструментов сохранён (`tool_choice='auto'` в `tool_loop.chat_with_tools:89` — **не** форсируется и **не** дублируется); добавлен **программный слой** решения о действии в существующем direct-контуре.
+- **Код:** `services/direct_chat_service.py:467–643` — enum `ACTION_REPLY/REACT/SILENT/TOOL`, R17-коды `INTENT_*`/`ADDRESSEE_*`/`EVAL_*`, `@dataclass CoordinatorDecision` (intent/addressee/memory_need/tool_calls/evaluation/action/style), `coordinator_enabled()`, `_coordinator_intent/_addressee/_tool_names/_evaluate/_choose_action/_memory_need`, `build_coordinator_decision`, `_log_coordinator_decision/_log_coordinator_outcome`; интеграция решения **до** Stage-2 (`:1004–1011`), гейт — существующая точка Stage-2 (`:1019–1026`).
+- **0 новых LLM-вызовов** (§13); 2-вызовность System 2 (`await_count==2`) сохранена; координатор — чистые функции без I/O. **Wire-`action` не введён** (граница A7; `CoordinatorDecision` не сериализуется; JSON Stage-1 `parse_direct_synthesis`/Stage-2 `stage2_payload` без `action`).
+
+### 83.2. Общий механизм цепочек + изоляция Вербализатора
+- **Цепочки (D3):** reuse существующего многораундового `tool_loop` (`services/tool_loop.py` **вне diff**; `TOOL_MAX_ROUNDS=4`, `_TOOL_CALLS_PER_ROUND_MAX=2`, role `tool`, второй шаг после tool response, fail-open `degraded`/`round_limit`/`llm_error`). **Per-combination обработчики запрещены**; второго роутера/дубликатов нет. §15–§17 (полноценные цепочки/контракты/лимиты) — **A2**.
+- **Вербализатор (D4):** `_synthesize_direct_answer` **не менялся**; Stage-2 получает только `stage2_payload(data)` + стиль (`compose_verbalizer_system`); серверных операций не выполняет; при молчании не запускается, при реакции текст не генерируется (существующее поведение; политика — A8).
+
+### 83.3. Kill-switch и AMEND-карта
+- **Kill-switch `DIRECT_COORDINATOR_ENABLED`** — env-only `ClassVar`, **default ON**, Δ каталога=0 (`config/settings.py:552–553`, резолв per-call); **OFF → точный legacy-путь** (координатор не строится, `coordinator is None` ⇒ гейт байт-в-байт). `SYSTEM2_DIRECT_ENABLED=false` по-прежнему отключает System-2-путь.
+- **AMEND-карта (D5):** ADR-1022-4 — **NOT_APPLICABLE** (саммари); ADR-1022-5 — **effective заметка** (координатор внутри пайплайна, 2 вызова сохранены); ADR-1023-3 — **effective заметка** (внутреннее решение о действии; wire-`action`/полное разведение — A7); ADR-1013-3 — **NOT_APPLICABLE** (промпты не менялись, `PREV_*`/миграции/эталоны не добавлялись, T-3511); ADR-1026-13 — REUSE (durable-аудит/freeze 10); ADR-1025-24 — REUSE (верификационный гейт).
+
+### 83.4. Инварианты (нарушение = не принято)
+- **freeze канона 10** (`TOOL_CALLING_TOOLS`, `tool_schemas.py:337–348`); **Δ DDL=0** (SQLite v12, `db/**` вне diff); **Δ каталога=0** (`param_catalog.py` вне diff, `--check` OK: реестр 469); **§104 `generate_image`** и **§85-UI** вне diff; **R17** (логи — только числа/коды/id/`error_type`/имена инструментов) / **R18** (тег `pre-round1026-a1`→`e3ea367`, бэкапы целы); **OFF/legacy байт-в-байт** (проверено 9 комбинациями @Reviewer); REUSE ExecutionGraph (`execution_graph_source.py` вне diff, вторая аналитика не создана). pytest **9082/0** (+56), JS **47/47**, `git diff --check`=0.
+
+### 83.5. Deploy-запись и откат
+- **Коммиты:** `b32c46a` (код+тесты+`config/settings.py`+`README.md`+meta) / `b1c02a3` (планы) / `7c79df3` (deploy-doc); push `origin/master` без force.
+- **Прод:** ff `04f5ae1..b1c02a3`, `systemctl restart` → active (MainPID **652183**, NRestarts 0); `/api/health` 200; `/healthz` **2.58.30**; served `?v=2.58.30` ×12 (placeholder 0); эффективный `DIRECT_COORDINATOR_ENABLED`=**True** (`.env` без override); prompt-синк «уже новый канон» ×13/обновлён ×0; `database is locked`=0; Traceback/ImportError/ERROR/CRITICAL=0; DDL=0; бот/планировщики стартуют.
+- **Откат:** soft — `DIRECT_COORDINATOR_ENABLED=false` + рестарт (legacy-путь); hard — annotated-тег **`pre-round1026-a1`** → `e3ea367` + `git revert b32c46a b1c02a3`; **канон-откат не требуется** (промпты не менялись). R18 — тег/бэкапы/`stash@{0}` не удалялись.
+
+### 83.6. Явный allowlist файлов diff (D-a — зафиксировано на merge)
+- **Разрешённые tracked:** `services/direct_chat_service.py` (координатор + интеграция), `config/settings.py` (kill-switch `:552–553` + `APP_VERSION` `:1835`), `README.md` (v2.58.30 + A1-раздел), `plans/docs/param-registry-round1025.meta.md` (провенанс-штамп версии, прецедент S10), `plans/reports/audit_backlog.md` (запись gate); **re-pin версии** `tests/**`/`tests/js/**` (21/22 файла, только строки `2.58.29→2.58.30`).
+- **Untracked (на момент merge):** `plans/features/tool-coordinator-round1026/{spec.md, adr-1026-14-…, tasks.md, evidence.md, review.md, deployment.md}` → **архивировано T-3521** в `plans/archive/tool-coordinator-round1026/`; `tests/test_tool_coordinator_round1026.py` (56 тестов).
+- **Запрещённые (вне diff, подтверждено):** `services/tool_loop.py` (reuse), `services/image_generation.py` (§104), `services/summary_prompts.py`, `services/prompt_migrations.py`, `services/param_catalog.py`, `services/chat_prompts.py`, `services/telegram_send.py`, `services/execution_graph_source.py` (REUSE), `web/**`, `web/api/routes.py`, `db/**`, `plans/current_task.md`, манифесты/локи зависимостей (0 новых).
+
+### 83.7. Техдолг (non-blocking, открыт)
+- **[D-a]** отсутствие явного allowlist файлов — **закрыто** здесь (§83.6, doc-only).
+- **[D-b]** `plans/docs/param-registry-round1025.meta.md` — провенанс-штамп версии (обязателен для зелёного `test_meta_provenance`; прецедент S10) — зафиксирован, non-blocking.
+- **[D-c]** enum `silent` без политики молчания/реакций → **A8** (§41/§44).
+- **Non-blocking findings @Reviewer:** `L-R1026A1-1` (allowlist — закрыт §83.6), `L-R1026A1-2` (SC-A1-09 «reuse ExecutionGraph» удовлетворён негативно — граница A9), `L-R1026A1-3` (`build_coordinator_decision` вне try/except — defensive wrap при следующем касании/A2).
+- **Pre-existing flake:** `tests/test_betterstack_handler.py::test_real_302_not_followed_by_opener` (вне diff A1; документирован с 10.19).
+
+### 83.8. Ссылки
+- **Спека/ADR/задачи/доказательства/ревью/deploy:** `plans/archive/tool-coordinator-round1026/{spec.md, adr-1026-14-coordinator-scope-in-synthesizer.md, tasks.md, evidence.md, review.md, deployment.md}`.
+- **Архив:** `plans/archive/tool-coordinator-round1026/` (**T-3521 @PM ✅, 24.09.2026**).
+- **Durable-вход:** `plans/docs/agentic-audit-round1026.md` (анкоры `#tool-map-llm`, `#tool-map-direct`, `#s12-12`, `#epic3-reuse`, `#epic3-a1-a10`, `#epic3-summary`).
+- **Код (baseline `e3ea367` / релиз `b32c46a`):** `services/direct_chat_service.py:467–643,998–1057`, `config/settings.py:552–553,1835`, `services/tool_loop.py:38–39,89,112–196` (reuse), `services/tool_schemas.py:337–348` (канон 10).
+- **Следующие:** **T-3521 @PM ✅ (архивация, 24.09.2026)** → **T-3523** (handoff, открыт) / **T-3524** (резерв N/A) → **A2 `tool-chains`** (Wave 2 Эпика 3, §15–§17). Live-приёмка §13/§14 — **PENDING OWNER VERIFICATION**.

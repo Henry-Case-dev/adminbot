@@ -2,6 +2,7 @@
 
 > Краткий оперативный чекпоинт оркестратора. Не транскрипт. Обновляется после каждого верифицированного шага.
 
+- **✅ A1 `tool-coordinator` (Эпик 3, Wave 1) — COMPLETED + MERGED (§83) + DEPLOYED (2.58.30 VERIFIED), 24.09.2026.** Единый Reviewer gate **Approved** C0/H0 (binding `e3ea367`/`4361f011…`/`b37b9a50…`); программный слой `CoordinatorDecision` внутри Синтезатора (`direct_chat_service.py`), без 3-го LLM-вызова и без wire-`action`, reuse `tool_loop` для цепочек, изоляция Вербализатора, env-only kill-switch `DIRECT_COORDINATOR_ENABLED` (default ON); **ADR-1026-14 Accepted**; `ARCHITECTURE.md` **§83**; метрики **10.26-A1** + KG; deploy (`b32c46a`/`b1c02a3`/`7c79df3`, MainPID **652183**, health 200, `/healthz` 2.58.30, `database is locked`=0); архив `plans/archive/tool-coordinator-round1026/`. **▶️ Следующая — A2 `tool-chains`** (§15–§17). Closing-коммит A1 — @DevOps.
 - **✅ A0 `agentic-audit` (Эпик 3, Wave 0) — COMPLETED (read-only) + ARCHIVED + deploy NOT_APPLICABLE, 24.09.2026.** Единый Reviewer gate **Approved** C0/H0 (binding `e8065e9`/`805c4680…`/`1B2AE779…`); durable-артефакт **`plans/docs/agentic-audit-round1026.md`** (15/15 §12, карта инструментов 10×8/8, 34 EVIDENCE / 6 HYPOTHESIS, 38 стабильных анкоров, handoff к A1–A10; **не архивируется** — им пользуются A1–A10); **ADR-1026-13 Accepted**; запись **`ARCHITECTURE.md` §82**; метрики **10.26-A0** + KG (HY-01…HY-06 → A3/A4); архив `plans/archive/agentic-audit-round1026/`; закрыто 19 задач (T-3481…T-3499). **▶️ Следующая — A1 `tool-coordinator`** (§13–§14; вход — durable-артефакт по анкорам). Closing-коммит A0 — @DevOps.
 - **✅ ЭПИК 2 «Summary Hybrid Pipeline» — ЗАВЕРШЁН (авто-часть), 24.09.2026.** S1–S10: все COMPLETED + MERGED (§71–§81) + DEPLOYED (2.58.18 → **2.58.29**). Финал — **S10 `summary-deploy`**: активация Hybrid = code-default `SUMMARY_HYBRID_L2_ENABLED=True` (kill-switch `per-chat → hot → env/default` сохранён, ручной активации/legacy-селектора нет), §114-harness 11/11 без публикаций в основной чат, §115-процедура, §117 `results.md`; deploy/активация **VERIFIED** (`415a861`/`04f5ae1`/`7bf716e`; прод ff `cebd950..04f5ae1`, MainPID **595858**, health 200, `/healthz` **2.58.29**, effective `SUMMARY_HYBRID_L2_ENABLED=True`, `database is locked`=0); merge **§81** + **ADR-1026-12 Accepted**; метрики **10.26-S10** + агрегат Эпика 2; архив `plans/archive/summary-deploy-round1026/`. **Live-часть §115/§117** (первый рабочий запуск Саммари и публикация rich/plain) — **PENDING OWNER VERIFICATION** (ближайший платик 0/6/12/18 Asia/Yekaterinburg); **§85-UI — отдельная санкция (Δ каталога ≠ 0)**. Эпик 1 — авто ✅ ранее. **Предусловие Эпика 3 «Agentic Intelligence» (после Эпиков 1 и 2) формально достигнуто** — решение о старте за `select_next`. Closing-коммит S10 — @DevOps.
 
@@ -336,16 +337,16 @@
 <!-- OPENCODE_WORKFLOW_STATE_V1
 {
   "schema_version": 1,
-  "state_revision": 63,
+  "state_revision": 66,
   "task_id": "adminbot-master-spec-v6",
   "request_fingerprint": "sha256:31c6ab5c87949ec63ee64a0627e2221055f6dc0915ee15c3b361d2ce7f04a4cc",
   "task_status": "in_progress",
   "active_feature": "tool-coordinator-round1026",
-  "feature_status": "A1 unified Reviewer gate APPROVED (C0/H0; binding: Reviewed-Commit e3ea367, WTH 4361f011…, Spec-Hash b37b9a50…; lens 1 verified programmatic coordinator inside Synthesizer with OFF/legacy equivalence across 9 combinations; lens 2 verified ΔDDL=0/Δcatalog=0, boundaries outside diff, 2-call; deviations D-a/D-b/D-c acceptable). Ready for delivery: deploy T-3522 (APP_VERSION 2.58.30).",
-  "phase": "delivery",
+  "feature_status": "A1 COMPLETED + MERGED (§83) + ARCHIVED + DEPLOYED (2.58.30 VERIFIED); archive plans/archive/tool-coordinator-round1026/ (T-3500…T-3522 closed; T-3523 handoff open); backlog handoff to A2 tool-chains recorded. Pending: DevOps closing commit; then select_next (A2 tool-chains Step 0).",
+  "phase": "select_next",
   "risk_level": "R2",
   "next_agent": "DevOps",
-  "next_action": "T-3522 deploy A1: commit code+tests (APP_VERSION 2.58.30) and plans/** (feature docs + audit_backlog), push without force, prod ff + restart, verify health 200 / served 2.58.30 / database is locked=0 / no Traceback / kill-switch DIRECT_COORDINATOR_ENABLED env-only default ON effective / no prompts-canon change / no DDL; write deployment.md VERIFIED (rollback env DIRECT_COORDINATOR_ENABLED=false + hard pre-round1026-a1 → e3ea367 / git revert); commit deploy-doc",
+  "next_action": "A1 closing docs commit: commit plans/** closure (ARCHITECTURE §83, ADR-1026-14 Accepted, round1025-architecture, MEMORY, metrics 10.26-A1, backlog A1 normalization + A2 handoff, archive move, tasks closure, workflow_state human update) and push without force; then proceed to select_next (A2 tool-chains Step 0)",
   "human_gate": false,
   "blocked": false,
   "blocker_type": null,
@@ -358,8 +359,8 @@
   },
   "deployment": {
     "required": true,
-    "status": "pending",
-    "deployed_commit": null
+    "status": "verified",
+    "deployed_commit": "b32c46a"
   },
   "resume": {
     "last_resume_key": null,
@@ -367,6 +368,6 @@
     "last_resumed_at": null,
     "last_session_id": null
   },
-  "updated_at": "2026-09-24T01:24:25.591Z"
+  "updated_at": "2026-09-24T04:48:28.157Z"
 }
 OPENCODE_WORKFLOW_STATE_V1 -->

@@ -1,6 +1,6 @@
 # ADR-1026-14 — A1 «Tool Coordinator»: scope Координатора внутри существующего Синтезатора, общий механизм цепочек, изоляция Вербализатора, границы A2/A7
 
-- **Статус:** **Proposed** → **Accepted по merge** (T-3519/T-3520; номер финального шага — по факту). Основание для Proposed: Step 2 @Architect (T-3501); сверка @PM (T-3502).
+- **Статус:** ✅ **Accepted** (24.09.2026) — основание: **merge `plans/ARCHITECTURE.md` §83 (T-3520 @Architect)** + **deploy VERIFIED 2.58.30 (T-3522 @DevOps)**. Решения **D1–D10 — без изменений**. Единый Reviewer gate — **Approved C0/H0** (binding Reviewed-Commit `e3ea367`, Working-Tree-Hash `4361f011…`, Spec-Hash `b37b9a50…`; отклонения @Builder D-a/D-b/D-c — допустимы, non-blocking). Основание для Proposed (историческое): Step 2 @Architect (T-3501); сверка @PM (T-3502).
 - **Фича:** A1 `tool-coordinator-round1026` (Эпик 3 «Agentic Intelligence», Wave 1, Раунд 10.26). **P0.**
 - **Тип:** backend/agentic (оркестрация инструментов) — **расширение существующего контура**; без нового агента, без 3-го LLM-вызова, без DDL/каталога, без правки промптов.
 - **ТЗ-основание:** `plans/current_task.md` **§13** (`:4440–4479`), **§14** (`:4482–4517`); границы §15–§17 (A2), §18–§25 (A3/A4), §32–§35 (A6), §38–§40/§42–§48 (A7), §41/§44 (A8), §49/§51 (A9), §85 (UI — отдельная санкция), §104 (`generate_image` — не трогать).
@@ -97,6 +97,24 @@
 - Живой direct-чат не регрессирует: OFF/legacy байт-в-байт (kill-switch), откат — тег + `git revert`; канон-откат не нужен.
 - Δ DDL=0, Δ каталога=0, §104/§85-UI вне diff; REUSE ExecutionGraph.
 - A2 получает чистую границу (§15–§17), A7 — (`action`/`style`).
+
+## Реализация (факт) — D1–D10 → файлы/тесты (merge §83, deploy VERIFIED 2.58.30)
+
+| D | Решение | Реализация (файлы / тесты) |
+|---|---|---|
+| **D1** | scope = вариант (i): модельный выбор инструментов + программный слой решения | `services/direct_chat_service.py:467–643` (enum `ACTION_*`, `CoordinatorDecision`, `_coordinator_*`, `build_coordinator_decision`); интеграция до Stage-2 `:998–1057`; 0 новых LLM-вызовов |
+| **D2** | внутренний объект решения, не wire-`action` | `CoordinatorDecision` `:499–515` не сериализуется; `parse_direct_synthesis`/`stage2_payload` без `action`; `TestBounds` (отсутствие wire-`action`) |
+| **D3** | общий механизм цепочек = reuse `tool_loop` | `services/tool_loop.py` **вне diff**; `TestChainMechanism` (последовательность, лимиты 4/2, fail-open, tool-agnostic) |
+| **D4** | изоляция Вербализатора | `_synthesize_direct_answer` не менялся; `TestVerbalizerIsolation`, `TestHandleGate` |
+| **D5** | AMEND-карта / канон промптов NOT_APPLICABLE | промпты вне diff (`chat_prompts.py`, `prompt_migrations.py`, `summary_prompts.py`); T-3511 NOT_APPLICABLE |
+| **D6** | Δ DDL=0 / Δ каталога=0 | `db/**`, `param_catalog.py` вне diff; kill-switch env-only `ClassVar` `config/settings.py:552–553` |
+| **D7** | deploy ДА, bump 2.58.29→2.58.30 | `config/settings.py:1835`, `README.md:5`; прод ff + health — `deployment.md` VERIFIED |
+| **D8** | границы волн / REUSE ExecutionGraph / §104 | §104/§85-UI/`web/**` вне diff; `execution_graph_source.py` вне diff (REUSE); `TestBounds` |
+| **D9** | R17-safe наблюдаемость | `_log_coordinator_decision`/`_log_coordinator_outcome` `:625–645`; `TestCoordinatorObservability::test_r17_no_raw_text_in_logs` |
+| **D10** | Risk-Level R2 | подтверждён фактическим diff (`review.md` §2/§4; повышение до R3 не требуется) |
+
+- **Новый тест-файл:** `tests/test_tool_coordinator_round1026.py` (**56 тестов**, `pytestmark = pytest.mark.system2`); регресс — `await_count==2`, OFF/legacy байт-в-байт, R17, границы diff/версия/канон.
+- **Регресс-числа:** pytest `.venv` **9082/0** (+56); JS **47/47**; `git diff --check`=0; Δ DDL=0; Δ каталога=0 (469/426/444/100/98/21).
 
 ## AMEND / REUSE-карта
 
