@@ -174,16 +174,18 @@ class TestDefinitions:
 
 
 class TestCanon:
-    def test_ten_tools_transcribe_last(self):
+    def test_twelve_tools_transcribe_tenth(self):
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
-        assert len(names) == 10
-        assert names[:9] == _FIRST_NINE
-        assert names[-1] == "transcribe_video"
-        assert TOOL_CALLING_TOOLS[-1] is TOOL_TRANSCRIBE_VIDEO
+        assert len(names) == 12
+        assert names[:10] == _FIRST_NINE + ["transcribe_video"]
+        assert names[9] == "transcribe_video"
+        assert names[10] == "fetch_article"      # A2 (ADR-1026-15 D5)
+        assert names[11] == "get_user_context"   # A6 (ADR-1026-18 D1)
+        assert TOOL_CALLING_TOOLS[9] is TOOL_TRANSCRIBE_VIDEO
 
     def test_counter_comment_actualized(self):
         import services.tool_schemas as ts
-        assert "R9 = **10**" in (ts.__doc__ or "")
+        assert "R9 = **12**" in (ts.__doc__ or "")
 
 
 # ── (h) флаг гейтит LLM-список, но не схему/канон ────────────────────────
@@ -196,15 +198,17 @@ class TestFlag:
         names = [t["function"]["name"]
                  for t in active_tools(True, image_generation_enabled=True)]
         assert "transcribe_video" not in names
-        assert len(names) == 9                  # 8 базовых + generate_image
-        assert len(TOOL_CALLING_TOOLS) == 10    # схема/канон безусловны
+        assert len(names) == 11                 # 9 базовых + generate_image +
+        #                                         fetch_article + get_user_context
+        assert len(TOOL_CALLING_TOOLS) == 12    # схема/канон безусловны
 
     def test_flag_on_includes(self, monkeypatch):
         monkeypatch.setattr(type(settings),
                             "MEDIA_TRANSCRIBE_TOOL_ENABLED", True)
         names = [t["function"]["name"]
                  for t in active_tools(True, image_generation_enabled=True)]
-        assert names[-1] == "transcribe_video"
+        assert "transcribe_video" in names
+        assert names.index("transcribe_video") == 9
 
 
 # ── (b)/(h) команда «транскрипт» по ГС/кружку ────────────────────────────

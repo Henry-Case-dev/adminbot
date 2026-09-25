@@ -221,4 +221,41 @@ function kinds(g) { return g.nodes.map(function (n) { return n.kind; }); }
     'S6: подписи реальных статусов публикации');
 })();
 
+// ── 8. A9 (ADR-1026-22 D7/D10): 9 этапов §51 display-only ─────────────────
+(function () {
+  var expected = {
+    decision: 'algorithm', memory_lookup: 'tool', rag: 'tool',
+    web_extraction: 'tool', factcheck: 'tool', image_prompt: 'algorithm',
+    image_generation: 'tool', reaction: 'tool', text_generation: 'llm',
+  };
+  Object.keys(expected).forEach(function (s) {
+    assert.strictEqual(G.kindOf(s), expected[s], 'kind ' + s);
+    assert(G.STEP_LABEL[s], 'label ' + s);
+  });
+  // fromExecution пропускает агентные узлы без изменений (только отображение):
+  // algorithmic-узел честно без токенов, text_generation — реальные токены.
+  var g = G.fromExecution({
+    run_id: 'r9',
+    nodes: [
+      { id: 'r9:decision', kind: 'algorithm', stageKey: 'decision',
+        parentIds: [], status: 'ok', priceKnown: false,
+        metrics: { action: 'reply' }, metadata: { agentic: true } },
+      { id: 'r9:text_generation', kind: 'llm', stageKey: 'text_generation',
+        parentIds: ['r9:decision'], status: 'ok', model: 'm1',
+        inputTokens: 10, outputTokens: 5, cost: 0.001, costCurrency: 'USD',
+        priceKnown: true, metrics: null, metadata: {} },
+    ],
+    edges: [{ from: 'r9:decision', to: 'r9:text_generation' }],
+    metrics: null,
+  });
+  assert.deepStrictEqual(g.nodes.map(function (n) { return n.stageKey; }),
+    ['decision', 'text_generation']);
+  assert.strictEqual(g.nodes[0].kind, 'algorithm');
+  assert.strictEqual(g.nodes[0].status, 'ok');
+  assert.strictEqual(g.nodes[0].inputTokens, null);
+  assert.strictEqual(g.nodes[1].kind, 'llm');
+  assert.strictEqual(g.nodes[1].inputTokens, 10);
+  assert.strictEqual(g.edges.length, 1);
+})();
+
 console.log('S8-EXECGRAPH-OK');

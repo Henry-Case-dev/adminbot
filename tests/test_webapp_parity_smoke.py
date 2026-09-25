@@ -1,4 +1,4 @@
-"""Редизайн 10.5 (T-1115) — parity smoke: каждый параметр (387) достижим.
+﻿"""Редизайн 10.5 (T-1115) — parity smoke: каждый параметр (387) достижим.
 
 Доказывает без потери фич:
   * каталог 387 параметров, каждый имеет группу и попадает на вкладку;
@@ -55,11 +55,13 @@ class TestCatalogParity:
         # 10.23 (F5/ADR-1023-5 D5): +5 REGISTRY/Settings, +3 GROUPS →
         # 446/95/416; 10.24 (F21/ADR-1024-22 D8): +1 REGISTRY/Settings,
         # +1 GROUPS/mapped → 459/98/418.
-        assert len(REGISTRY) == 469, len(REGISTRY)
-        assert len(GROUPS) == 100
+        # 10.26 (A7/ADR-1026-20 D6): +3 REGISTRY/Settings, +1 GROUPS
+        # (flags_decision_making → mod_direct) → 473/102/430.
+        assert len(REGISTRY) == 473, len(REGISTRY)
+        assert len(GROUPS) == 102
         from config.settings import Settings
         import dataclasses
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 426
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
 
     def test_every_param_has_group_and_reachable(self):
         for spec in _catalog_specs():

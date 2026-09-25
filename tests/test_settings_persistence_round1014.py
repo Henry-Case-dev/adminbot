@@ -1,4 +1,4 @@
-"""F5 `settings-persistence-audit-round1014` — регресс сохранения/реактивности.
+﻿"""F5 `settings-persistence-audit-round1014` — регресс сохранения/реактивности.
 
 Покрытие (spec F5 §3-§6, задачи T-1512…T-1522):
   * T-1512 инвентарь: каталог-инвариант F5 (Δ=0) + классификация per_chat
@@ -42,14 +42,14 @@ class TestCatalogInvariant:
         import dataclasses
 
         from config.settings import Settings
-        assert len(pc.REGISTRY) == 469
-        assert len(pc.GROUPS) == 100
-        assert len(pc._TAB_BY_GROUP) == 98
+        assert len(pc.REGISTRY) == 473
+        assert len(pc.GROUPS) == 102
+        assert len(pc._TAB_BY_GROUP) == 100
         assert len(pc.TAB_RULES) == 21
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 426
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 444
+        assert len(categorized) == 448
 
     def test_per_chat_classification(self):
         """Маршрутизация scope: models.*/keys.* — строго глобальные (per_chat

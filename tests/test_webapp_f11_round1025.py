@@ -1,4 +1,4 @@
-"""F11 round 10.25 — витрина «Статус» (status-showcase-dashboard-round1025).
+﻿"""F11 round 10.25 — витрина «Статус» (status-showcase-dashboard-round1025).
 
 ADR-1025-23 (D1–D7), ТЗ §11–§21, §70, §77, §117 (п.7–10).
 
@@ -217,14 +217,14 @@ class TestD5FactsBudgetsCounters:
 
 class TestD6Invariants:
     def test_version_bump(self):
-        assert 'APP_VERSION = "2.58.30"' in SETTINGS
-        assert "v2.58.30" in README
+        assert 'APP_VERSION = "2.58.31"' in SETTINGS
+        assert "v2.58.31" in README
 
     def test_catalog_delta_zero(self):
         import services.param_catalog as pc
-        assert len(pc.REGISTRY) == 469
-        assert len(pc.GROUPS) == 100
-        assert len(pc._TAB_BY_GROUP) == 98
+        assert len(pc.REGISTRY) == 473
+        assert len(pc.GROUPS) == 102
+        assert len(pc._TAB_BY_GROUP) == 100
         assert len(pc.TAB_RULES) == 21
 
     def test_no_new_routes(self):

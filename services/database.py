@@ -4650,6 +4650,30 @@ class DatabaseService:
         links = [dict(row) for row in await cursor.fetchall()]
         return {"facts": facts, "links": links}
 
+    async def get_user_context_facts(self, chat_id: int, target_user: str,
+                                     limit: int, now_ts: int) -> list:
+        """A6/ADR-1026-18 D4 (read-only): confirmed-факты участника с
+        провенанс-метаданными для envelope `get_user_context` (sources/
+        confidence §3.3/D4).
+
+        Тот же скоуп, что у `get_persona_card` (target_user + status='confirmed'
+        + неистёкшие), но строки отдаются с полями `origin`/`created_at`/
+        `tg_message_id`/`weight`/`status`/`last_confirmed_at`/
+        `message_timestamp`/`kind`. Сортировка `weight DESC, created_at DESC`.
+        Только чтение; схема/DDL не меняются (SQLite v12)."""
+        target = str(target_user or "").strip()
+        if not target:
+            return []
+        cursor = await self.db.execute(
+            "SELECT id, fact, origin, created_at, target_user, weight, status, "
+            "last_confirmed_at, tg_message_id, message_timestamp, kind "
+            "FROM graph_facts WHERE chat_id = ? AND target_user = ? "
+            "AND status = 'confirmed' "
+            "AND (expires_at IS NULL OR expires_at > ?) "
+            "ORDER BY weight DESC, created_at DESC LIMIT ?",
+            (int(chat_id), target, int(now_ts), int(limit)))
+        return [dict(row) for row in await cursor.fetchall()]
+
     async def get_persona_names(self, chat_id: int, now_ts: int) -> list:
         """66.9: /persona list (только админ) — имена + счётчики прямых фактов
         (живых, confirmed)."""

@@ -1,4 +1,4 @@
-"""F23 (раунд 10.24, `budget-guardrails-round1024`) — защитные пин-инварианты
+﻿"""F23 (раунд 10.24, `budget-guardrails-round1024`) — защитные пин-инварианты
 бюджетного контура после F20/F21/F22.
 
 Задача F23 — не дать бюджетному регрессу вернуться (R2/F21, R3/F22 и сквозные
@@ -125,9 +125,9 @@ class TestCatalogPins:
     вкладка) валит пин — это и есть защита от регресса F21."""
 
     def test_registry_counts_pinned(self):
-        assert len(pc.REGISTRY) == 469
-        assert len(pc.GROUPS) == 100
-        assert len(pc._TAB_BY_GROUP) == 98
+        assert len(pc.REGISTRY) == 473
+        assert len(pc.GROUPS) == 102
+        assert len(pc._TAB_BY_GROUP) == 100
         assert len(pc.TAB_RULES) == 21
         assert len(pc.TAB_NAV) == 21
         assert len(pc.CONFIG_TAB_TITLES) == 21
@@ -411,10 +411,12 @@ class TestR16SnapshotGuard:
 class TestDeltaZeroGuard:
     def test_ddl_statements_pinned(self):
         from services import pg_db
-        assert len(pg_db.DDL_STATEMENTS) == 45
+        # NOTE (A5, ADR-1026-17 D1): +1 (image_reservation — санкция
+        # Δ DDL ≠ 0, verbatim §7 ADR); 45 → 46.
+        assert len(pg_db.DDL_STATEMENTS) == 46
 
     def test_catalog_counts_unchanged_by_guardrails(self):
         # F23 — только тесты: значения совпадают с Δ F21 (D8).
-        assert len(pc.REGISTRY) == 469
-        assert len(pc.GROUPS) == 100
-        assert len(pc._TAB_BY_GROUP) == 98
+        assert len(pc.REGISTRY) == 473
+        assert len(pc.GROUPS) == 102
+        assert len(pc._TAB_BY_GROUP) == 100

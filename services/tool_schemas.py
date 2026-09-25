@@ -44,6 +44,17 @@ query_chat_memory → dig_into_lore → execute_web_search — при носта
 техдолг 10.23 I2 (комментарий-счётчик) закрыт. LLM-доступность
 `transcribe_video` гейтится env-only `MEDIA_TRANSCRIBE_TOOL_ENABLED`
 (`active_tools`); само наличие схемы/счётчик — безусловны.
+
+Раунд 10.26 (A2, ADR-1026-15 D5 — санкция ADR-1026-13 D3): канон R9 = **11**;
+11-й — `fetch_article` (`TOOL_FETCH_ARTICLE`, в конец, первые 10 — байт-в-байт),
+URL→Markdown+метаданные. LLM-доступность гейтится env-only
+`ARTICLE_TOOL_ENABLED` (`active_tools`); схема/канон безусловны (Δ каталога=0).
+
+Раунд 10.26 (A6, ADR-1026-18 D1 — новая санкция, ADR-1026-13 D3 исчерпана A2):
+канон R9 = **12**; 12-й — `get_user_context` (`TOOL_GET_USER_CONTEXT`, в конец,
+первые 11 — байт-в-байт), structured memory lookup поверх существующего
+досье/RAG (§32–§35). LLM-доступность гейтится env-only
+`MEMORY_LOOKUP_ENABLED` (`active_tools`); схема/канон безусловны (Δ каталога=0).
 """
 from config.settings import settings
 from tools.video_downloader import QUALITY_ENUM
@@ -308,11 +319,20 @@ TOOL_COMPILE_LORE_STORY = {
 # Раунд 10.23 (F5, ADR-1023-5 §D2): +generate_image → 9 (в КОНЕЦ).
 # Раунд 10.24 (F19, ADR-1024-20 §2.1, UPD5): канон R9 → **10**; 10-й —
 # transcribe_video (в КОНЕЦ, контракт `TOOL_TRANSCRIBE_VIDEO` выше; ступень
-# F14 → F19). Порядок первых 9 имён — байт-в-байт. Техдолг 10.23 I2 закрыт:
-# комментарий-счётчик соответствует фактическому набору (**10**).
+# F14 → F19). Порядок первых 9 имён — байт-в-байт.
+# Раунд 10.26 (A2, ADR-1026-15 D5): канон → **11**; 11-й — `fetch_article`
+# (в КОНЕЦ, контракт `TOOL_FETCH_ARTICLE` ниже; санкция ADR-1026-13 D3).
+# Порядок первых 10 имён — байт-в-байт. Комментарий-счётчик соответствует
+# фактическому набору (**11**).
 # Имена/состав/порядок сохраняют канон R9 (память → лор → веб) и добавляют
 # новые в конце; `description` — EN (T-1925, ревизия канона 3.3).
-TOOL_GENERATE_IMAGE = {
+# A3 (ADR-1026-16 D4, санкция — ТОЛЬКО текст описания; состав/имена/порядок/
+# required/additionalProperties не меняются; канон = 11): описание приведено
+# к 6 пунктам §21 (когда вызывать / обязательные аргументы / как формировать
+# описание / что при отсутствии контекста / как интерпретировать результат /
+# как сообщать об ошибке). OFF-киль-свитч `UNIFIED_IMAGE_REQUEST_ENABLED`
+# возвращает прежний текст (D6: OFF → legacy).
+TOOL_GENERATE_IMAGE_LEGACY = {
     "type": "function",
     "function": {
         "name": "generate_image",
@@ -333,7 +353,139 @@ TOOL_GENERATE_IMAGE = {
     },
 }
 
-# Канон R9 = **10** (UPD5): первые 9 — байт-в-байт, transcribe_video — в конец.
+TOOL_GENERATE_IMAGE_V21 = {
+    "type": "function",
+    "function": {
+        "name": "generate_image",
+        "description": (
+            "Generate an image from a text description and send it to this "
+            "chat. WHEN TO CALL: the user asks (in free form) to draw, "
+            "create, generate or imagine a picture, meme, art or "
+            "illustration. Do NOT call it for a direct \"Bot/bot, draw ...\" "
+            "command - the backend already handles that automatically. "
+            "REQUIRED ARGUMENT: prompt (string, mandatory). HOW TO BUILD THE "
+            "PROMPT: describe what to draw as a rich visual description "
+            "(subject, composition, style, colors); follow the meaning of "
+            "the user's request and do not add content they did not ask for. "
+            "WITHOUT EXTRA CONTEXT: plain understanding of the user's "
+            "description is enough - do not search memory or documents for "
+            "every request. HOW TO INTERPRET THE RESULT: the tool returns "
+            "JSON; the backend delivers the image (or a friendly failure "
+            "message) to the chat itself - do not describe or repeat the "
+            "image afterward. ON ERROR: the JSON contains the actual failure "
+            "reason; tell the user briefly that generating the image failed "
+            "just now and suggest trying later - do not invent a different "
+            "reason and do not claim the model refused."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string",
+                           "description": ("What to draw - a short visual "
+                                           "description in any language.")}
+            },
+            "required": ["prompt"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+# A3 (D4/D6): активный текст описания выбирается env-киль-свитчем
+# `UNIFIED_IMAGE_REQUEST_ENABLED` (default ON → уточнённое описание;
+# OFF → байт-в-байт прежний текст legacy-пути). Структура (name/тип/схема/
+# required) идентична в обоих вариантах — канон не меняется.
+TOOL_GENERATE_IMAGE = (
+    TOOL_GENERATE_IMAGE_V21
+    if getattr(settings, "UNIFIED_IMAGE_REQUEST_ENABLED", True)
+    else TOOL_GENERATE_IMAGE_LEGACY
+)
+
+# Раунд 10.26 (A2, ADR-1026-15 D5): 11-й инструмент — `fetch_article`
+# (URL → Markdown+метаданные). Атомарное расширение канона 10 → 11:
+# схема + регистрация (в КОНЕЦ, «новое — в хвост», ADR-1020-4) + метод
+# роутера + `active_tools` + тесты. Фактчек-инструмент/§36–§37 — граница A7.
+TOOL_FETCH_ARTICLE = {
+    "type": "function",
+    "function": {
+        "name": "fetch_article",
+        "description": (
+            "Fetch a web ARTICLE by link and return its text as Markdown with "
+            "metadata. Call when the user shares a link (or replies to a "
+            "message with a link) and wants its content, a summary, or facts "
+            "from it. Source is the url field OR a link already available in "
+            "the context (omit url then). Returns Markdown text, not a raw "
+            "HTML page."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string",
+                        "description": ("Article link (http/https). Omit when "
+                                        "the link is already available in the "
+                                        "context (current message/reply).")},
+            },
+            "required": [],
+            "additionalProperties": False,
+        },
+    },
+}
+
+# Раунд 10.26 (A6, ADR-1026-18 D1/D2): 12-й инструмент — `get_user_context`
+# (structured memory lookup поверх существующего досье/RAG; §32–§35).
+# Атомарное расширение канона 11 → 12: схема + регистрация (в КОНЕЦ, «новое —
+# в хвост», ADR-1020-4) + метод роутера + `active_tools` + тесты `len==12`.
+# Память ≠ фактчек (§35): набор `factcheck_tools` остаётся 3 и не расширяется.
+TOOL_GET_USER_CONTEXT = {
+    "type": "function",
+    "function": {
+        "name": "get_user_context",
+        "description": (
+            "Look up what is KNOWN ABOUT one specific person (dossier + "
+            "long-term memory). Call on your own initiative when the answer "
+            "needs facts about a person: 'what do you know about X', 'who is "
+            "X', 'describe X', 'how does X usually talk', 'who is X related "
+            "to', 'what did X say'. Required: person (name/@username/numeric "
+            "id as a string) and purpose. purpose=identity (who this is), "
+            "appearance (looks), speech_style (how this person talks), "
+            "biography (life facts), relationships (connections), general "
+            "(relevant messages/facts). Pass user_id when you already know it "
+            "- it takes priority over person. This tool returns MEMORY only: "
+            "it confirms what was SAID, never whether it is TRUE - it is NOT "
+            "fact-checking; to verify the CONTENT of a claim use the "
+            "fact-check tools. Missing data is reported honestly (no_data) - "
+            "never present unconfirmed information as an established fact."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "person": {
+                    "type": "string",
+                    "description": ("Name, @username or numeric id of the "
+                                    "person (as a string).")},
+                "user_id": {
+                    "type": "integer",
+                    "description": ("Optional numeric Telegram user id; takes "
+                                    "priority over person when provided.")},
+                "purpose": {
+                    "type": "string",
+                    "enum": ["identity", "appearance", "speech_style",
+                             "biography", "relationships", "general"],
+                    "description": ("What to look up: identity - who this is; "
+                                    "appearance - looks; speech_style - how "
+                                    "they talk; biography - life facts; "
+                                    "relationships - connections; general - "
+                                    "relevant messages/facts.")},
+                "max_items": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": ("Optional cap on returned items "
+                                    "(default per purpose; hard ceiling 20).")},
+            },
+            "required": ["person", "purpose"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+# Канон R9 = **12** (A6, ADR-1026-18 D1): первые 11 — байт-в-байт,
+# get_user_context — в конец.
 TOOL_CALLING_TOOLS: list[dict] = [
     TOOL_QUERY_CHAT_MEMORY,
     TOOL_DIG_INTO_LORE,
@@ -345,6 +497,8 @@ TOOL_CALLING_TOOLS: list[dict] = [
     TOOL_COMPILE_LORE_STORY,
     TOOL_GENERATE_IMAGE,
     TOOL_TRANSCRIBE_VIDEO,
+    TOOL_FETCH_ARTICLE,
+    TOOL_GET_USER_CONTEXT,
 ]
 
 # Имя флагового инструмента (гейт flags.lore_compiler_enabled, О3).
@@ -353,6 +507,10 @@ LORE_COMPILER_TOOL_NAME = "compile_lore_story"
 IMAGE_GENERATION_TOOL_NAME = "generate_image"
 # F14: имя контракта сырой транскрибации (регистрацию/гейт ведёт F19).
 TRANSCRIBE_TOOL_NAME = "transcribe_video"
+# A2 (ADR-1026-15 D5): имя инструмента извлечения статьи (env-only гейт).
+ARTICLE_TOOL_NAME = "fetch_article"
+# A6 (ADR-1026-18 D1): имя инструмента structured memory lookup (env-only гейт).
+MEMORY_LOOKUP_TOOL_NAME = "get_user_context"
 
 
 def _transcribe_tool_enabled() -> bool:
@@ -364,16 +522,39 @@ def _transcribe_tool_enabled() -> bool:
     return bool(getattr(settings, "MEDIA_TRANSCRIBE_TOOL_ENABLED", True))
 
 
+def _article_tool_enabled() -> bool:
+    """env-only kill-switch ``ARTICLE_TOOL_ENABLED`` (A2, ADR-1026-15 D5; ON).
+
+    Гейтит только LLM-доступность ``fetch_article``: OFF → инструмент не
+    объявляется (эффективный канон 10). Наличие схемы ``TOOL_FETCH_ARTICLE``
+    и канон ``TOOL_CALLING_TOOLS == 11`` — безусловны (Δ каталога = 0)."""
+    return bool(getattr(settings, "ARTICLE_TOOL_ENABLED", True))
+
+
+def _memory_lookup_enabled() -> bool:
+    """env-only kill-switch ``MEMORY_LOOKUP_ENABLED`` (A6, ADR-1026-18 D1; ON).
+
+    Гейтит только LLM-доступность ``get_user_context``: OFF → инструмент не
+    объявляется (эффективный канон без него), остальные имена — байт-в-байт.
+    Наличие схемы ``TOOL_GET_USER_CONTEXT`` и канон ``TOOL_CALLING_TOOLS == 12``
+    — безусловны (Δ каталога = 0)."""
+    return bool(getattr(settings, "MEMORY_LOOKUP_ENABLED", True))
+
+
 def active_tools(lore_compiler_enabled: bool = True,
                  image_generation_enabled: bool = False) -> list[dict]:
     """Tool-сет для LLM с учётом флагов «Летописец» (О3, T-1887),
-    генерации изображений (F5, ADR-1023-5 §D2) и транскрибации (F19,
-    ADR-1024-20 §2.4).
+    генерации изображений (F5, ADR-1023-5 §D2), транскрибации (F19,
+    ADR-1024-20 §2.4), извлечения статьи (A2, ADR-1026-15 D5) и memory
+    lookup (A6, ADR-1026-18 D1).
 
     ``lore_compiler_enabled=False`` → compile_lore_story исключается.
     ``image_generation_enabled=False`` (дефолт) → generate_image исключён
-    (список 8 имён байт-в-байт как до F5).
+    (список из 11 имён, как после A2).
     ``MEDIA_TRANSCRIBE_TOOL_ENABLED`` OFF (env) → transcribe_video исключён.
+    ``ARTICLE_TOOL_ENABLED`` OFF (env) → fetch_article исключён.
+    ``MEMORY_LOOKUP_ENABLED`` OFF (env) → get_user_context исключён
+    (первые 11 имён — байт-в-байт).
     Возвращается новый список — TOOL_CALLING_TOOLS (снапшот) не мутируется.
     """
     disabled: set[str] = set()
@@ -383,6 +564,10 @@ def active_tools(lore_compiler_enabled: bool = True,
         disabled.add(IMAGE_GENERATION_TOOL_NAME)
     if not _transcribe_tool_enabled():
         disabled.add(TRANSCRIBE_TOOL_NAME)
+    if not _article_tool_enabled():
+        disabled.add(ARTICLE_TOOL_NAME)
+    if not _memory_lookup_enabled():
+        disabled.add(MEMORY_LOOKUP_TOOL_NAME)
     if not disabled:
         return list(TOOL_CALLING_TOOLS)
     return [tool for tool in TOOL_CALLING_TOOLS

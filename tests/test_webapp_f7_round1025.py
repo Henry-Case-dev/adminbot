@@ -1,4 +1,4 @@
-"""F7 round 10.25 — UI/инвариант-маркеры PERMsoc (ADR-1025-20 D1–D7, §60–§67).
+﻿"""F7 round 10.25 — UI/инвариант-маркеры PERMsoc (ADR-1025-20 D1–D7, §60–§67).
 
 Поведение (6 блоков, guard, round-trip единиц) реально прогоняется в
 `tests/js/round1025_f7_permsoc_local_test.js`; серверные гейты — в
@@ -113,17 +113,17 @@ class TestKillSwitch:
 class TestInvariants:
     def test_catalog_delta_zero(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 469
-        assert len(pc.GROUPS) == 100
-        assert len(pc._TAB_BY_GROUP) == 98
+        assert len(pc.REGISTRY) == 473
+        assert len(pc.GROUPS) == 102
+        assert len(pc._TAB_BY_GROUP) == 100
         assert len(pc.TAB_RULES) == 21
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 426
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
 
     def test_app_version_bump(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.30", m and m.group(1)
+        assert m and m.group(1) == "2.58.31", m and m.group(1)
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        assert "v2.58.30" in readme
+        assert "v2.58.31" in readme
 
     def test_no_second_store_or_write_path(self):
         assert JS.count("persistItems: async function") == 1

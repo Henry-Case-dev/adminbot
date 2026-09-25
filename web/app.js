@@ -94,7 +94,8 @@
     { id: 'mod_direct', icon: 'smart_toy', label: 'Прямые ответы',
       type: 'config', menu: 'modules',
       sources: [
-        { category: 'flags', groups: ['flags_module_direct', 'flags_chat_behavior'] },
+        { category: 'flags', groups: ['flags_module_direct',
+            'flags_chat_behavior', 'flags_decision_making'] },
         { category: 'limits', groups: ['limits_chat', 'limits_chat_behavior',
             'limits_chat_budgets', 'limits_temperature'] },
         { category: 'reactions', groups: ['reactions_chat'] },
@@ -587,7 +588,7 @@
     mod_sleep: ['overview', 'settings', 'limits'],
     mod_nostalgia: ['overview', 'settings', 'limits'],
     mod_budgets: ['overview', 'settings', 'limits'],
-    mod_images: ['overview', 'settings', 'models', 'testing'],
+    mod_images: ['overview', 'settings', 'limits', 'models', 'testing'],
   };
   MODULES.forEach(function (m) {
     if (!m.routeSlug) m.routeSlug = String(m.id).replace(/^mod_/, '');
@@ -3332,6 +3333,27 @@
         });
         return (c && c.avatarUrl) || '';
       },
+      // A5 (T-3603/D9, §27): срез image-врезки для активного чата из
+      // существующего GET /api/workers/budget (аддитивные поля
+      // image_usage/image_calls + global.image_calls). Источник данных —
+      // бэкенд; UI не создаёт второй счётчик и не дублирует настройку.
+      imageUsage: function () {
+        if (!this.budgetInfo) return null;
+        var scope = (this.activeChatId == null)
+          ? 'global' : ('chat:' + this.activeChatId);
+        var entry = (this.budgetInfo.chats || []).find(function (c) {
+          return c.scope === scope;
+        });
+        var chat = (entry && (entry.image_usage || entry.image_calls)) || null;
+        if (!chat && (this.budgetInfo.chats || []).length === 1) {
+          // Глобальный админ без выбранного чата: единственный чат — покажем.
+          chat = this.budgetInfo.chats[0].image_usage
+            || this.budgetInfo.chats[0].image_calls || null;
+        }
+        var shared = (this.budgetInfo.global || {}).image_calls || null;
+        if (!chat && !shared) return null;
+        return { chat: chat, shared: shared };
+      },
     },
 
     // F6 (T-1461, §3.2): изменение селектора уровня сразу перезагружает лог —
@@ -4549,6 +4571,20 @@
         if (!pair || !pair.limit || pair.limit <= 0) return 0;
         if (pair.unlimited) return 0;
         return Math.min(1, (pair.used || 0) / pair.limit);
+      },
+      // A5 (T-3603/D9, §27): человекочитаемый источник лимита изображений.
+      imageSourceLabel: function (src) {
+        if (src === 'chat') return 'Локальный (чат)';
+        if (src === 'global') return 'Глобальный (по умолчанию)';
+        if (src === 'env') return 'Общий бюджет (env)';
+        return 'Значение по умолчанию';
+      },
+      // A5 (T-3603): «точное время следующего сброса» (ISO → дата+время).
+      imageResetLabel: function (iso) {
+        if (!iso) return '—';
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso);
+        return d.toLocaleString();
       },
       // F3 (10.19, ADR-1019-8 D6): человекочитаемый текст метрики —
       // «Безлимит (∞)» / «Запрещено» / «used / limit».

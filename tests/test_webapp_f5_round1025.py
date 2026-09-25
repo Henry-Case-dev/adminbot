@@ -1,4 +1,4 @@
-"""F5 round 10.25 — рабочее пространство модуля (ADR-1025-15).
+﻿"""F5 round 10.25 — рабочее пространство модуля (ADR-1025-15).
 
 Проверяет:
   * D1/D6: витринные метаданные workspace (`routeSlug`, `tabs`) в JS `MODULES`;
@@ -36,7 +36,7 @@ def test_workspace_metadata_present():
     for entry in (
         "mod_summary: ['overview', 'settings', 'prep', 'clusterizer', 'writer',",
         "mod_factcheck: ['overview', 'settings', 'synthesizer', 'verbalizer',",
-        "mod_images: ['overview', 'settings', 'models', 'testing']",
+        "mod_images: ['overview', 'settings', 'limits', 'models', 'testing']",
         "mod_media_download: ['overview', 'settings', 'limits']",
     ):
         assert entry in APP_JS, entry
@@ -312,11 +312,11 @@ def test_ai_hub_five_pages_order():
 def test_catalog_delta_zero():
     import services.param_catalog as pc
     from config.settings import Settings
-    assert len(pc.REGISTRY) == 469
-    assert len(pc.GROUPS) == 100
-    assert len(pc._TAB_BY_GROUP) == 98
+    assert len(pc.REGISTRY) == 473
+    assert len(pc.GROUPS) == 102
+    assert len(pc._TAB_BY_GROUP) == 100
     assert len(pc.TAB_RULES) == 21
-    assert len({f.name for f in dataclasses.fields(Settings)}) == 426
+    assert len({f.name for f in dataclasses.fields(Settings)}) == 430
 
 
 def test_no_webgl_and_no_new_libraries():

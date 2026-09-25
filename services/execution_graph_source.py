@@ -40,12 +40,16 @@ KIND_ALGORITHM = "algorithm"
 KIND_FORMAT = "format"
 KIND_PUBLISH = "publish"          # S6 (ADR-1026-11 D6): активирован
 KIND_OTHER = "other"
+# A9 (ADR-1026-22 D7): kind `tool` уже зарезервирован в JS `KIND_ENUM` — новых
+# kinds не вводится; Python-константа добавлена для агентных tool-узлов.
+KIND_TOOL = "tool"
 
 KIND_LABELS = {
     KIND_LLM: "LLM",
     KIND_ALGORITHM: "Алгоритм",
     KIND_FORMAT: "Форматирование",
     KIND_PUBLISH: "Публикация",
+    KIND_TOOL: "Инструмент",
     KIND_OTHER: "Шаг",
 }
 
@@ -56,12 +60,34 @@ STAGE_L2 = "l2_writer"
 STAGE_FORMAT = "formatting"
 STAGE_PUBLISH = "publication"     # S6 (D6): после formatting
 
+# A9 (ADR-1026-22 D7): 9 реальных этапов §51 агентного прогона — существующие
+# kinds, без новых. Нет данных этапа → нет узла (§24/§25/§30).
+STAGE_DECISION = "decision"
+STAGE_MEMORY_LOOKUP = "memory_lookup"
+STAGE_RAG = "rag"
+STAGE_WEB_EXTRACTION = "web_extraction"
+STAGE_FACTCHECK = "factcheck"
+STAGE_IMAGE_PROMPT = "image_prompt"
+STAGE_IMAGE_GENERATION = "image_generation"
+STAGE_REACTION = "reaction"
+STAGE_TEXT_GENERATION = "text_generation"
+
 STAGE_LABELS = {
     STAGE_FILTER: "Алгоритмический фильтр",
     STAGE_L1: "L1 Кластеризатор",
     STAGE_L2: "L2 Писатель",
     STAGE_FORMAT: "Форматирование",
     STAGE_PUBLISH: "Публикация",
+    # A9/§51.
+    STAGE_DECISION: "Решение",
+    STAGE_MEMORY_LOOKUP: "Поиск в памяти",
+    STAGE_RAG: "RAG",
+    STAGE_WEB_EXTRACTION: "Извлечение из веба",
+    STAGE_FACTCHECK: "Фактчек",
+    STAGE_IMAGE_PROMPT: "Подготовка промпта изображения",
+    STAGE_IMAGE_GENERATION: "Генерация изображения",
+    STAGE_REACTION: "Реакция",
+    STAGE_TEXT_GENERATION: "Генерация текста",
 }
 
 # Канонический порядок этапов одного прогона (подтверждённая линейная
@@ -69,17 +95,34 @@ STAGE_LABELS = {
 # (S6: публикация после форматирования).
 STAGE_ORDER = (STAGE_FILTER, STAGE_L1, STAGE_L2, STAGE_FORMAT, STAGE_PUBLISH)
 
+# A9 (D7): канонический порядок 9 агентных этапов §51.
+AGENTIC_STAGE_ORDER = (
+    STAGE_DECISION, STAGE_MEMORY_LOOKUP, STAGE_RAG, STAGE_WEB_EXTRACTION,
+    STAGE_FACTCHECK, STAGE_IMAGE_PROMPT, STAGE_IMAGE_GENERATION,
+    STAGE_REACTION, STAGE_TEXT_GENERATION,
+)
+
 # step → kind (LLM-строки из `llm_usage_events`; legacy-шаги — как в F6).
 STEP_KIND = {
     "single": KIND_LLM, "stage1": KIND_LLM, "stage2": KIND_LLM,
     "image": KIND_LLM,
     STAGE_L1: KIND_LLM, STAGE_L2: KIND_LLM,
-    "tool": "tool",
+    "tool": KIND_TOOL,
     STAGE_FILTER: KIND_ALGORITHM, STAGE_FORMAT: KIND_FORMAT,
     "format": KIND_FORMAT,
     # S6 (D6): публикация — не LLM-строка; publish-узел строится отдельно из
     # снапшота (`publish_node`), llm_node такие строки не превращает в узлы.
     STAGE_PUBLISH: KIND_PUBLISH,
+    # A9 (D7): 9 агентных этапов → существующие kinds.
+    STAGE_DECISION: KIND_ALGORITHM,
+    STAGE_MEMORY_LOOKUP: KIND_TOOL,
+    STAGE_RAG: KIND_TOOL,
+    STAGE_WEB_EXTRACTION: KIND_TOOL,
+    STAGE_FACTCHECK: KIND_TOOL,
+    STAGE_IMAGE_PROMPT: KIND_ALGORITHM,
+    STAGE_IMAGE_GENERATION: KIND_TOOL,
+    STAGE_REACTION: KIND_TOOL,
+    STAGE_TEXT_GENERATION: KIND_LLM,
 }
 STEP_LABEL = {
     "single": "Один вызов", "stage1": "Слой 1", "stage2": "Слой 2",
@@ -89,6 +132,15 @@ STEP_LABEL = {
     STAGE_L2: STAGE_LABELS[STAGE_L2],
     STAGE_FORMAT: STAGE_LABELS[STAGE_FORMAT],
     STAGE_PUBLISH: KIND_LABELS[KIND_PUBLISH],
+    STAGE_DECISION: STAGE_LABELS[STAGE_DECISION],
+    STAGE_MEMORY_LOOKUP: STAGE_LABELS[STAGE_MEMORY_LOOKUP],
+    STAGE_RAG: STAGE_LABELS[STAGE_RAG],
+    STAGE_WEB_EXTRACTION: STAGE_LABELS[STAGE_WEB_EXTRACTION],
+    STAGE_FACTCHECK: STAGE_LABELS[STAGE_FACTCHECK],
+    STAGE_IMAGE_PROMPT: STAGE_LABELS[STAGE_IMAGE_PROMPT],
+    STAGE_IMAGE_GENERATION: STAGE_LABELS[STAGE_IMAGE_GENERATION],
+    STAGE_REACTION: STAGE_LABELS[STAGE_REACTION],
+    STAGE_TEXT_GENERATION: STAGE_LABELS[STAGE_TEXT_GENERATION],
 }
 
 # §112: честные подписи (без выдуманных значений).
@@ -105,6 +157,20 @@ _USAGE_STEP_MAP = {STAGE_L1: "l1", STAGE_L2: "l2"}
 
 
 # ── in-memory реестр снапшотов прогона (D7: Δ DDL=0) ────────────────────────
+
+# A9 (D1/D5): агентные события живут в ТОМ ЖЕ in-memory снапшоте (под ключом
+# `agentic_events`), отдельный store/PG-таблица не создаётся. Бounded-лимит —
+# не раздуваем снапшот; R17-safe поля (фильтрует `agentic_events`).
+_AGENTIC_KEY = "agentic_events"
+_AGENTIC_MAX_EVENTS = 64
+_AGENTIC_EVENT_FIELDS = frozenset({
+    "event", "schema_version", "run_id", "chat_id", "message_id", "action",
+    "tools", "reason", "duration_ms", "errors", "ts", "outcome", "reaction",
+    "target", "stage", "tool", "round", "status", "error_code", "counts",
+    "source", "resolution", "reason_class", "latency_ms", "chars",
+    "prompt_chars", "facts", "slice", "sources", "mode", "out_chars",
+})
+
 
 class RunSnapshotStore:
     """Ограниченный in-memory реестр снапшотов прогона (без persistence).
@@ -127,11 +193,44 @@ class RunSnapshotStore:
         if not run_id or not isinstance(snapshot, dict):
             return
         now = time.monotonic()
+        snapshot = dict(snapshot)
         with self._lock:
-            self._items[run_id] = (now, dict(snapshot))
+            prior = self._items.get(run_id)
+            # A9: не терять агентные события, если поверх лёг новый снапшот
+            # (record_run summary-пути) без `agentic_events`.
+            if (prior is not None and _AGENTIC_KEY not in snapshot
+                    and _AGENTIC_KEY in prior[1]):
+                snapshot[_AGENTIC_KEY] = prior[1][_AGENTIC_KEY]
+            self._items[run_id] = (now, snapshot)
             self._items.move_to_end(run_id)
             while len(self._items) > self._maxlen:
                 self._items.popitem(last=False)
+
+    def append_agentic(self, run_id, event: dict) -> None:
+        """A9 (D1): аддитивно добавить агентное событие к снапшоту run_id.
+
+        Создаёт/дополняет запись, сохраняя прочие поля; лимит событий — bounded.
+        Fail-open: некорректный вход/ошибка не роняет вызывающий поток."""
+        try:
+            run_id = str(run_id or "")
+            if not run_id or not isinstance(event, dict):
+                return
+            now = time.monotonic()
+            with self._lock:
+                prior = self._items.get(run_id)
+                snapshot = dict(prior[1]) if prior is not None \
+                    else {"run_id": run_id}
+                events = list(snapshot.get(_AGENTIC_KEY) or [])
+                events.append(dict(event))
+                if len(events) > _AGENTIC_MAX_EVENTS:
+                    events = events[-_AGENTIC_MAX_EVENTS:]
+                snapshot[_AGENTIC_KEY] = events
+                self._items[run_id] = (now, snapshot)
+                self._items.move_to_end(run_id)
+                while len(self._items) > self._maxlen:
+                    self._items.popitem(last=False)
+        except Exception:      # pragma: no cover - best-effort
+            return
 
     def _fresh(self, now: float) -> None:
         if self._ttl <= 0:
@@ -266,6 +365,170 @@ def store_size() -> int:
 def reset() -> None:
     """Полный сброс реестра (для тестов/детерминизма)."""
     _store.clear()
+
+
+# ── A9: агентные события в существующем store (D1/D5/D7) ───────────────────
+
+def record_agentic_event(event, **fields) -> None:
+    """Аддитивно записать агентное событие §49 в существующий in-memory store.
+
+    Только известные R17-safe поля (неизвестные игнорируются — не расширяем
+    поверхность утечки). Без ``run_id`` (воркер ``ANTI_CLICHE_*``) событие НЕ
+    попадает в чат-граф (D11) — остаётся только structured-log. Fail-open."""
+    try:
+        name = str(event or "")
+        if not name:
+            return
+        safe = {k: v for k, v in fields.items()
+                if k in _AGENTIC_EVENT_FIELDS}
+        safe["event"] = name
+        rid = str(fields.get("run_id") or "")
+        if not rid:
+            return
+        _store.append_agentic(rid, safe)
+    except Exception:      # pragma: no cover - best-effort
+        return
+
+
+def get_agentic_events(run_id) -> list:
+    """Агентные события прогона (пусто → ``[]``; не бросает)."""
+    try:
+        snapshot = _store.get(run_id)
+        if not isinstance(snapshot, dict):
+            return []
+        events = snapshot.get(_AGENTIC_KEY)
+        return list(events) if isinstance(events, list) else []
+    except Exception:      # pragma: no cover - защитная ветка
+        return []
+
+
+# tool-имя → §51-этап (подстроки; R17-safe имена инструментов).
+_AGENTIC_TOOL_STAGE_PATTERNS = (
+    (STAGE_MEMORY_LOOKUP, ("user_context", "memory", "get_user")),
+    (STAGE_RAG, ("rag", "knowledge", "search_knowledge")),
+    (STAGE_WEB_EXTRACTION, ("web", "fetch_article", "extract", "download",
+                            "summarize_video", "transcribe")),
+    (STAGE_FACTCHECK, ("factcheck", "fact_check", "fact-check")),
+)
+
+
+def _stage_for_tool(name) -> str | None:
+    low = str(name or "").lower()
+    if not low:
+        return None
+    for stage, patterns in _AGENTIC_TOOL_STAGE_PATTERNS:
+        if any(pattern in low for pattern in patterns):
+            return stage
+    return None
+
+
+_AGENTIC_METRIC_KEYS = (
+    "action", "reason", "tool", "round", "status", "error_code", "outcome",
+    "reaction", "resolution", "sources", "facts", "slice", "prompt_chars",
+    "latency_ms", "source", "reason_class", "out_chars", "duration_ms",
+)
+
+
+def _agentic_event_metrics(event: dict) -> dict:
+    metrics = {}
+    for key in _AGENTIC_METRIC_KEYS:
+        value = event.get(key)
+        if value is not None:
+            metrics[key] = value
+    return metrics
+
+
+def _agentic_text_generation_node(run_id, llm_rows) -> dict | None:
+    """Узел ``text_generation`` (kind ``llm``) — ТОЛЬКО из реальных строк
+    ``llm_usage_events`` (D7/D8): токены/стоимость реальные, ничего не
+    выдумывается. Нет реальных LLM-строк → ``None`` (нет узла, §30)."""
+    rows = [row for row in (llm_rows or []) if isinstance(row, dict)
+            and STEP_KIND.get(_str_or_none(row.get("step")) or "") == KIND_LLM]
+    if not rows:
+        return None
+    total_in = total_out = 0
+    total_cost = 0.0
+    known = True
+    model = None
+    for row in rows:
+        if row.get("price_known") is not True:
+            known = False
+        total_in += _int_or_none(row.get("input_tokens")) or 0
+        total_out += _int_or_none(row.get("output_tokens")) or 0
+        if row.get("price_known") is True:
+            total_cost += _num_or_none(row.get("cost_usd")) or 0.0
+        model = _str_or_none(row.get("model")) or model
+    return _node(
+        run_id, STAGE_TEXT_GENERATION, KIND_LLM,
+        stage_label=STAGE_LABELS[STAGE_TEXT_GENERATION], status="ok",
+        model=model, input_tokens=total_in, output_tokens=total_out,
+        cost=(round(total_cost, 6) if known else None), price_known=known,
+        metadata={"kindGroup": KIND_LLM, "agentic": True})
+
+
+def _build_agentic_nodes(run_id, events, llm_rows) -> list:
+    """Собрать 9 §51-этапов из агентных событий + реальных LLM-строк (D7/D8).
+
+    Каждый этап → узел только при наличии реального события/строки. Узлы
+    ``algorithm``/``tool`` несут честный ``None`` вместо LLM-токенов/стоимости.
+    Связи ставятся по каноническому ``AGENTIC_STAGE_ORDER`` (``_link_sequence``).
+    """
+    decision = None
+    by_stage: dict = {}
+    for event in (events or []):
+        if not isinstance(event, dict):
+            continue
+        name = str(event.get("event") or "")
+        if name == "DECISION_COMPLETE":
+            decision = event
+        elif name == "DECISION_START" and decision is None:
+            decision = event
+        elif name in ("TOOL_CALL_COMPLETE", "TOOL_CALL_FAILED"):
+            stage = _stage_for_tool(event.get("tool"))
+            if stage:
+                by_stage[stage] = event
+        elif name == "IMAGE_CONTEXT_RESOLVED":
+            by_stage[STAGE_IMAGE_PROMPT] = event
+        elif name.startswith("IMAGE_GENERATION_"):
+            by_stage[STAGE_IMAGE_GENERATION] = event
+        elif name == "REACTION_SENT":
+            by_stage[STAGE_REACTION] = event
+
+    nodes: list = []
+    if decision is not None:
+        nodes.append(_node(
+            run_id, STAGE_DECISION, KIND_ALGORITHM,
+            stage_label=STAGE_LABELS[STAGE_DECISION], status="ok",
+            duration_ms=_num_or_none(decision.get("duration_ms")),
+            metrics=_agentic_event_metrics(decision),
+            metadata={"kindGroup": KIND_ALGORITHM, "agentic": True}))
+    for stage in AGENTIC_STAGE_ORDER:
+        if stage in (STAGE_DECISION, STAGE_TEXT_GENERATION):
+            continue
+        event = by_stage.get(stage)
+        if event is None:
+            continue
+        kind = STEP_KIND.get(stage, KIND_OTHER)
+        name = str(event.get("event") or "")
+        if event.get("status") is not None:
+            status = str(event.get("status"))
+        elif name.endswith("_FAILED") or name == "TOOL_CALL_FAILED":
+            status = "failed"
+        else:
+            status = "ok"
+        nodes.append(_node(
+            run_id, stage, kind, stage_label=STAGE_LABELS[stage],
+            status=status,
+            duration_ms=_num_or_none(event.get("duration_ms")
+                                     or event.get("latency_ms")),
+            metrics=_agentic_event_metrics(event),
+            metadata={"kindGroup": kind, "agentic": True,
+                      "tool": event.get("tool")}))
+    text_generation = _agentic_text_generation_node(run_id, llm_rows)
+    if text_generation is not None:
+        nodes.append(text_generation)
+    nodes.sort(key=lambda node: AGENTIC_STAGE_ORDER.index(node["stageKey"]))
+    return nodes
 
 
 # ── нормализация: raw sources → canonical ExecutionNode (§23/§24) ───────────
@@ -492,25 +755,33 @@ def build_graph(run_id, snapshot, llm_rows) -> dict:
     """
     run_id = str(run_id or "")
     snapshot = snapshot if isinstance(snapshot, dict) else {}
+    agentic_events = snapshot.get(_AGENTIC_KEY)
+    if not isinstance(agentic_events, list):
+        agentic_events = []
     nodes: list = []
-    alg = algorithm_node(run_id, snapshot)
-    if alg is not None:
-        nodes.append(alg)
-    # LLM-узлы: стабильный порядок — L1 перед L2, legacy — по ts.
-    llm_nodes = []
-    for row in (llm_rows or []):
-        node = llm_node(run_id, row)
-        if node is not None:
-            llm_nodes.append(node)
-    llm_nodes.sort(key=lambda n: (STAGE_ORDER.index(n["stageKey"])
-                                  if n["stageKey"] in STAGE_ORDER else 99))
-    nodes.extend(llm_nodes)
-    fmt = format_node(run_id, snapshot)
-    if fmt is not None:
-        nodes.append(fmt)
-    pub = publish_node(run_id, snapshot)
-    if pub is not None:
-        nodes.append(pub)
+    llm_nodes: list = []
+    if agentic_events:
+        # A9 (D7): агентный прогон — 9 §51-этапов; legacy per-step LLM-узлы
+        # заменены единым `text_generation`-узлом (без дублей одного вызова).
+        nodes.extend(_build_agentic_nodes(run_id, agentic_events, llm_rows))
+    else:
+        alg = algorithm_node(run_id, snapshot)
+        if alg is not None:
+            nodes.append(alg)
+        # LLM-узлы: стабильный порядок — L1 перед L2, legacy — по ts.
+        for row in (llm_rows or []):
+            node = llm_node(run_id, row)
+            if node is not None:
+                llm_nodes.append(node)
+        llm_nodes.sort(key=lambda n: (STAGE_ORDER.index(n["stageKey"])
+                                      if n["stageKey"] in STAGE_ORDER else 99))
+        nodes.extend(llm_nodes)
+        fmt = format_node(run_id, snapshot)
+        if fmt is not None:
+            nodes.append(fmt)
+        pub = publish_node(run_id, snapshot)
+        if pub is not None:
+            nodes.append(pub)
     _link_sequence(nodes)
     edges = [{"from": n["parentIds"][0], "to": n["id"]}
              for n in nodes if n["parentIds"]]

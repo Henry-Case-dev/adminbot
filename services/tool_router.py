@@ -52,6 +52,7 @@ bounded попытка `download(url, None)`. Кулдаун (D279) — толь
 """
 import asyncio
 import datetime
+import hashlib
 import json
 import logging
 import re
@@ -59,6 +60,7 @@ import time
 
 from config.settings import settings
 from services import hot_config as hot
+from services import image_context_memory
 from services import image_generation
 from services import media_share
 from services import native_media
@@ -70,7 +72,9 @@ from services.persistent_throttling import (
     cooldown_touch,
 )
 from services.search_aggregator import AllSearchEnginesFailedException
-from services.smartmodule_urls import extract_youtube_video_id
+from services.smartmodule_urls import extract_urls, extract_youtube_video_id
+from services.tool_schemas import _memory_lookup_enabled
+from services.web_content_extractor import WebContentExtractionFailedException
 from tools.video_downloader import DownloadError, is_direct_media_url
 
 logger = logging.getLogger(__name__)
@@ -110,6 +114,48 @@ _SUMMARIZE_TRANSCRIPT_CAP = 20000
 # (`VIDEO_KINDS` для summarize/download; `MEDIA_KINDS` — включая voice/video_note
 # для `transcribe_video`), без дублирующих локальных констант.
 _DOWNLOAD_NATIVE_MAX_BYTES = 2_000_000_000
+
+# Раунд 10.26 (A2, ADR-1026-15 D5): инструмент `fetch_article` — извлечение
+# статьи по URL в Markdown+метаданные через reuse `WebContentExtractor.extract`
+# (каскад trafilatura 10 c / Tavily 15 c / Exa 15 c + запас). Код-константы
+# (Δ каталога = 0).
+_ARTICLE_TOOL_TIMEOUT = 45.0
+_ARTICLE_MAX_SYMBOLS = 8000        # markdown-статья богаче поиска; всё ещё bounded
+
+# ── A6 (раунд 10.26, ADR-1026-18 D3/D4/D5): structured memory lookup
+# `get_user_context`. Капы — код-константы (Δ каталога = 0); инструмент
+# read-only и free/local (не в METERED_TOOLS). R17: в логи — только
+# purpose/user_id/chat_id/count/latency/empty_reason.
+_MEMORY_LOOKUP_MAX_ITEMS_HARD = 20          # hard-ceiling max_items (D5)
+_MEMORY_LOOKUP_MESSAGE_SLICE_MAX = 5        # срез сообщений (hard 10)
+_MEMORY_LOOKUP_MESSAGE_SLICE_HARD = 10
+_MEMORY_LOOKUP_SLICE_MAX_CHARS = 240        # символов на фрагмент сообщения
+_MEMORY_LOOKUP_RESULT_MAX_CHARS = 4000      # общий бюджет результата
+_MEMORY_LOOKUP_CONFIRMED_WEIGHT = 0.5       # graph_facts.weight → confirmed/likely
+_MEMORY_LOOKUP_APPEARANCE_SCAN = 200        # bounded-пул под лексиконный фильтр
+_MEMORY_LOOKUP_STYLE_SCAN = 120             # bounded-пул recent-сообщений
+_MEMORY_LOOKUP_STYLE_MIN_MESSAGES = 2       # ниже минимума — включаем RAG (D3)
+_MEMORY_LOOKUP_PORTRAIT_MAX_CHARS = 600     # портрет/профиль (производные)
+_MEMORY_LOOKUP_RAG_FACT_CHARS = 240         # фрагмент RAG-факта
+# Per-purpose дефолты max_items (D5, spec §3.5).
+_MEMORY_LOOKUP_PURPOSE_DEFAULTS = {
+    "identity": 5,
+    "appearance": 10,
+    "speech_style": 5,
+    "biography": 10,
+    "relationships": 10,
+    "general": 8,
+}
+_MEMORY_LOOKUP_PURPOSES = tuple(_MEMORY_LOOKUP_PURPOSE_DEFAULTS)
+# Лексикон внешности — generic-фильтр поверх graph_facts (A6). Извлечение/
+# классификация внешности (в т.ч. из изображений) — граница A4 (U1).
+_APPEARANCE_LEXICON = (
+    "внешн", "выгляд", "причёс", "причес", "волос", "бород", "усы", "очк",
+    "одет", "одежд", "носит", "высок", "низк", "худ", "полн", "толст",
+    "стройн", "глаз", "улыб", "тату", "шрам", "рост", "лицо", "шляп", "кепк",
+    "куртк", "костюм", "кроссовк", "пальто", "стриж", "бров", "родинк",
+    "веснушк", "седин", "лыс", "модн",
+)
 
 # Раунд 10.17 (F2, ADR-1017-2 §2.1/§2.6): tool-скачивание спрашивает качество
 # (probe → инлайн-меню `tdq:<height>` → callback доводит download). Таймаут
@@ -268,6 +314,25 @@ def _truncate(text: str, limit: int) -> str:
     return text[:limit].rstrip() + "…"
 
 
+def _image_memory_note(request) -> str:
+    """A4 (ADR-1026-19 D5/D6): reply-заметка tool-пути (уточнение/
+    дисклеймер/запрос фото) — только при memory-aware запросе.
+
+    F2 (T-3640): `exact_likeness` — независимый интент-сигнал, поэтому
+    заметка эмитится при `context_required OR exact_likeness` (иначе
+    exact-запрос с неразрешённым субъектом молча терял ветку фото/референса)."""
+    if request is None:
+        return ""
+    mc = getattr(request, "memory_context", None)
+    exact = bool(mc.get("exact_likeness")) if isinstance(mc, dict) else False
+    if not (bool(getattr(request, "context_required", False)) or exact):
+        return ""
+    try:
+        return image_context_memory.build_reply_note(mc)
+    except Exception:  # pragma: no cover
+        return ""
+
+
 def _dig_json_payload(result: dict, limit: int) -> str:
     """S10.20-3: сериализовать dig-контракт, ужимая СЕКЦИИ по бюджету.
 
@@ -365,7 +430,8 @@ class ToolDeps:
 
     def __init__(self, search, memory, aliases=None, *, video=None,
                  downloader=None, health=None, db=None,
-                 download_cooldown=None, llm=None, transcriber=None) -> None:
+                 download_cooldown=None, llm=None, transcriber=None,
+                 extractor=None) -> None:
         self.search = search            # SearchAggregator
         self.memory = memory            # MemoryManager
         self.aliases = aliases          # AliasResolver | None
@@ -385,6 +451,10 @@ class ToolDeps:
         # пути summarize_video (STT-фолбэк выжимки). Тот же инстанс, что у
         # youtube/voice (DI в bot.py). None → честная деградация.
         self.transcriber = transcriber  # VoiceTranscriber | None
+        # Раунд 10.26 (A2, ADR-1026-15 D5): extractor для `fetch_article`
+        # (reuse `WebContentExtractor`; тот же инстанс, что у web-модуля).
+        # None → инструмент честно вернёт структурный error.
+        self.extractor = extractor      # WebContentExtractor | None
 
 
 class ToolContext:
@@ -406,7 +476,9 @@ class ToolContext:
                  reply_to_message_id=None, user_id=None,
                  lore_verbatim_instruction: bool = True,
                  correlation_id: str | None = None,
-                 native_media=None) -> None:
+                 native_media=None,
+                 resolved_url: str | None = None,
+                 image_request_handled: bool = False) -> None:
         self.chat_id = chat_id
         self.query = str(query or "")
         self.bot = bot
@@ -419,6 +491,20 @@ class ToolContext:
         # нативного медиа (``native_media.NativeMedia`` | None). Заполняется
         # DirectChat (F13), потребляется нативным путём инструментов (F14).
         self.native_media = native_media
+        # Раунд 10.26 (A2, ADR-1026-15 D6): общий контекстный резолв ссылки
+        # (текущее сообщение → reply). `fetch_article` без `url` берёт её
+        # отсюда; None → честный `no_url`.
+        self.resolved_url = str(resolved_url or "").strip() or None
+        # A3 (ADR-1026-16 D3): авторитетный маркер прогона «изображение уже
+        # обработано на этом ходу» (срабатывание пре-гейта ключевика →
+        # direct_chat_service прокидывает image_pre_gate_fired). Читается
+        # _generate_image ПЕРВЫМ делом → skipped/already_handled не сгенерирует.
+        self.image_request_handled = bool(image_request_handled)
+        # Раунд 10.26 (A2, ADR-1026-15 D1): out-of-band envelope-журнал
+        # прогона (структурные результаты/ошибки/лимиты) — программный
+        # A→B-handoff для инструментов и Синтезатора. В модельный ввод НЕ
+        # сериализуется.
+        self.tool_results: list[dict] = []
         self.lore_compiled = False
         # Раунд 10.20 (БЛОК 7.2c, ADR-1020-7 §2, T-1922): готовый текст
         # истории «Летописца» (HTML). DirectChat при `lore_compiled` доставляет
@@ -428,6 +514,18 @@ class ToolContext:
         # DirectChat (там сигнал доставки уже есть, это мягкая страховка).
         # В фактчеке она провоцировала вердикт-историю → caller ставит False.
         self.lore_verbatim_instruction = bool(lore_verbatim_instruction)
+
+    def result_for(self, tool_name: str) -> dict | None:
+        """A2 (ADR-1026-15 D1/D6): последний envelope-результат инструмента.
+
+        Общий (не per-combination) программный handoff A→B: инструмент B
+        (или Синтезатор) может прочитать структурный результат A. Возвращает
+        envelope-запись или ``None`` (инструмент не вызывался).
+        """
+        for entry in reversed(getattr(self, "tool_results", []) or []):
+            if entry.get("tool") == tool_name:
+                return entry
+        return None
 
 
 # ── dig_into_lore (раунд 9, T-820): код-дефолты (spec §3.6.4; REGISTRY-ключи
@@ -465,6 +563,8 @@ class ToolRouter:
             "compile_lore_story": self._compile_lore_story,
             "generate_image": self._generate_image,
             "transcribe_video": self._transcribe_video,
+            "fetch_article": self._fetch_article,
+            "get_user_context": self._get_user_context,
         }
         method = registry.get(name)
         if method is None:
@@ -992,6 +1092,767 @@ class ToolRouter:
         return await transcriber.transcribe_voice(str(path), ext,
                                                   timeout=timeout)
 
+    # ── fetch_article (A2, раунд 10.26, ADR-1026-15 D5) ──────────────────
+
+    async def _fetch_article(self, arguments: dict, ctx: ToolContext) -> str:
+        """Извлечение статьи по URL → JSON `{status,url,source_id,chars,
+        truncated,markdown[,title]}` (ADR-1026-15 D5). Источник: http(s)-
+        ``url`` аргумента; иначе общий ``ctx.resolved_url`` (D6). Reuse
+        ``WebContentExtractor.extract`` (каскад trafilatura→Tavily→Exa); НЕ
+        второй контур (тот же роутер/`tool_loop`/`ToolDeps`). НИКОГДА не
+        бросает (контракт dispatch). R17: в логи — только ``source``/``chars``/
+        класс ошибки, без URL/текста/заголовка."""
+        args = arguments if isinstance(arguments, dict) else {}
+        raw_url = str(args.get("url") or "").strip()
+        source = "argument"
+        if raw_url:
+            candidates = extract_urls(raw_url)    # reuse smartmodule_urls
+            url = candidates[0] if candidates else ""
+        else:
+            source = "context"
+            url = str(getattr(ctx, "resolved_url", "") or "").strip()
+        if not url:
+            # Честный no_url: нет ссылки в аргументах и однозначной в контексте.
+            return json.dumps({"status": "error", "error": "no_url"},
+                              ensure_ascii=False)
+        source_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:12]
+        extractor = getattr(self.deps, "extractor", None)
+        if extractor is None:
+            return json.dumps({"status": "error",
+                               "error": "service_unavailable",
+                               "url": url, "source_id": source_id},
+                              ensure_ascii=False)
+        try:
+            text = await asyncio.wait_for(
+                extractor.extract(url, _ARTICLE_MAX_SYMBOLS),
+                timeout=_ARTICLE_TOOL_TIMEOUT)
+        except asyncio.TimeoutError:
+            logger.warning("[tools] fetch_article timeout | source=%s", source)
+            return json.dumps({"status": "error", "error": "timeout",
+                               "url": url, "source_id": source_id},
+                              ensure_ascii=False)
+        except WebContentExtractionFailedException as exc:
+            logger.warning("[tools] fetch_article failed | source=%s | error=%s",
+                           source, type(exc).__name__)
+            return json.dumps({"status": "error", "error": "extract_failed",
+                               "url": url, "source_id": source_id},
+                              ensure_ascii=False)
+        except Exception as exc:
+            logger.warning("[tools] fetch_article failed | source=%s | error=%s",
+                           source, type(exc).__name__)
+            return json.dumps({"status": "error", "error": type(exc).__name__,
+                               "url": url, "source_id": source_id},
+                              ensure_ascii=False)
+        markdown = str(text or "")
+        chars = len(markdown)
+        if chars <= 0:
+            return json.dumps({"status": "error", "error": "empty",
+                               "url": url, "source_id": source_id},
+                              ensure_ascii=False)
+        truncated = chars >= _ARTICLE_MAX_SYMBOLS
+        payload = {"status": "ok", "url": url, "source_id": source_id,
+                   "chars": chars, "truncated": truncated,
+                   "markdown": markdown}
+        title = self._article_title(markdown)
+        if title:
+            payload["title"] = title
+        logger.info("[tools] fetch_article | source=%s | chars=%d | "
+                    "truncated=%s", source, chars, truncated)
+        return json.dumps(payload, ensure_ascii=False)
+
+    @staticmethod
+    def _article_title(markdown: str) -> str:
+        """Best-effort заголовок статьи: первый markdown-заголовок `# …`."""
+        for line in str(markdown or "").splitlines():
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                title = stripped.lstrip("#").strip()
+                if title:
+                    return title[:200]
+        return ""
+
+    # ── get_user_context (A6, раунд 10.26, ADR-1026-18 D1–D8) ───────────
+
+    async def _get_user_context(self, arguments: dict,
+                                ctx: ToolContext) -> str:
+        """Structured memory lookup по инициативе LLM (ADR-1026-18).
+
+        Единая точка: валидация аргументов (§52 п.14) → резолв субъекта
+        существующим AliasResolver (`chat_id` — из ``ToolContext``, НЕ параметр
+        модели, D2) → purpose-роутинг (D3; lazy RAG только general/speech_style)
+        → envelope из 5 полей §33 (D4: facts/sources/confidence/time/no_data) →
+        R17-лог (purpose/user_id/chat_id/count/latency/empty_reason). Read-only,
+        reuse существующего досье/RAG (D9): НЕ второй резолвер/RAG/БД.
+        НИКОГДА не бросает (контракт dispatch)."""
+        started = time.monotonic()
+        purpose = ""
+        try:
+            if not _memory_lookup_enabled():
+                return self._memory_lookup_finish(
+                    ctx, purpose, None, 0, started, "disabled",
+                    {"status": "error", "error": "disabled"})
+            args = arguments if isinstance(arguments, dict) else {}
+            raw_purpose = str(args.get("purpose") or "").strip().lower()
+            parsed, detail = self._memory_lookup_parse(args)
+            if detail is not None:
+                return self._memory_lookup_finish(
+                    ctx, raw_purpose, None, 0, started, detail,
+                    {"status": "error", "error": "invalid_arguments",
+                     "detail": detail})
+            purpose = parsed["purpose"]
+            aliases = await self._memory_lookup_aliases(ctx)
+            person = self._memory_lookup_resolve(parsed, aliases)
+            payload = await self._memory_lookup_build(ctx, parsed, person)
+            return self._memory_lookup_finish(
+                ctx, purpose, person.get("user_id"),
+                len(payload.get("facts") or []), started,
+                str(payload.get("empty_reason") or ""), payload)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning("[tools] memory lookup failed | purpose=%s | "
+                           "error=%s", purpose or "-", type(exc).__name__)
+            return self._memory_lookup_finish(
+                ctx, purpose, None, 0, started, "lookup_failed",
+                {"status": "error", "error": "lookup_failed"})
+
+    @staticmethod
+    def _memory_lookup_finish(ctx, purpose, user_id, count, started,
+                              empty_reason, payload) -> str:
+        """R17-лог (только разрешённые поля) + JSON результата (кап 4000)."""
+        latency = int((time.monotonic() - started) * 1000)
+        label = purpose if purpose in _MEMORY_LOOKUP_PURPOSE_DEFAULTS else "-"
+        logger.info(
+            "[memory] lookup | purpose=%s | user_id=%s | chat_id=%s | "
+            "count=%d | latency_ms=%d | empty_reason=%s",
+            label, user_id if user_id is not None else "-",
+            getattr(ctx, "chat_id", None), int(count), latency,
+            empty_reason or "")
+        return ToolRouter._memory_lookup_serialize(payload)
+
+    @staticmethod
+    def _memory_lookup_serialize(payload: dict) -> str:
+        """JSON-строка результата в бюджете `_MEMORY_LOOKUP_RESULT_MAX_CHARS`.
+
+        При переполнении честно урезаются хвостовые facts/sources (и тексты
+        фактов) с ``truncated: true`` — валидный JSON сохраняется."""
+        budget = _MEMORY_LOOKUP_RESULT_MAX_CHARS
+        text = json.dumps(payload, ensure_ascii=False)
+        if len(text) <= budget:
+            return text
+        out = dict(payload)
+        out["facts"] = list(payload.get("facts") or [])
+        out["sources"] = list(payload.get("sources") or [])
+        out["truncated"] = True
+
+        def _size() -> int:
+            return len(json.dumps(out, ensure_ascii=False))
+
+        while out["facts"] and _size() > budget:
+            out["facts"].pop()
+            if out["sources"]:
+                out["sources"].pop()
+        for _ in range(100):
+            if _size() <= budget or not out["facts"]:
+                break
+            idx = max(range(len(out["facts"])),
+                      key=lambda k: len(str(out["facts"][k].get("text") or "")))
+            item = out["facts"][idx]
+            current = str(item.get("text") or "")
+            if len(current) <= 1:
+                break
+            overshoot = _size() - budget
+            item["text"] = current[:max(1, len(current) - overshoot - 8)]
+        return json.dumps(out, ensure_ascii=False)
+
+    @staticmethod
+    def _memory_lookup_parse(arguments):
+        """Валидация аргументов (§52 п.14/D2) → (parsed | None, detail | None).
+
+        detail ∈ {missing_person, invalid_person, invalid_purpose,
+        invalid_max_items}. НИКОГДА не бросает."""
+        args = arguments if isinstance(arguments, dict) else {}
+        raw_person = args.get("person")
+        if raw_person is not None and not isinstance(raw_person, str):
+            return None, "invalid_person"
+        person = str(raw_person or "").strip()
+        raw_uid = args.get("user_id")
+        uid = None
+        if raw_uid not in (None, ""):
+            if isinstance(raw_uid, bool):
+                return None, "invalid_person"
+            try:
+                uid = int(raw_uid)
+            except (TypeError, ValueError):
+                return None, "invalid_person"
+        if not person and uid is None:
+            return None, "missing_person"
+        purpose = str(args.get("purpose") or "").strip().lower()
+        if purpose not in _MEMORY_LOOKUP_PURPOSE_DEFAULTS:
+            return None, "invalid_purpose"
+        max_items = _MEMORY_LOOKUP_PURPOSE_DEFAULTS[purpose]
+        raw_max = args.get("max_items")
+        if raw_max not in (None, ""):
+            if isinstance(raw_max, bool):
+                return None, "invalid_max_items"
+            try:
+                value = int(raw_max)
+            except (TypeError, ValueError):
+                return None, "invalid_max_items"
+            if value < 1:
+                return None, "invalid_max_items"
+            max_items = value
+        max_items = min(int(max_items), _MEMORY_LOOKUP_MAX_ITEMS_HARD)
+        return ({"person": person, "user_id": uid, "purpose": purpose,
+                 "max_items": max_items}, None)
+
+    async def _memory_lookup_aliases(self, ctx):
+        """Существующий AliasResolver (deps.aliases) либо per-chat fail-open
+        `build_alias_resolver` — второй резолвер НЕ создаётся (D9)."""
+        aliases = getattr(self.deps, "aliases", None)
+        if aliases is not None:
+            return aliases
+        try:
+            from services.summary_aliases import build_alias_resolver
+            return await build_alias_resolver(ctx.chat_id)
+        except Exception:
+            logger.warning("[tools] memory lookup aliases unavailable | "
+                           "chat=%s", getattr(ctx, "chat_id", None))
+            return None
+
+    def _memory_lookup_resolve(self, parsed: dict, aliases) -> dict:
+        """Идентичность субъекта (D2): user_id → AliasResolver; иначе alias-карта
+        (коллизия одинаковых имён → ambiguous, без слияния фактов); иначе
+        canon-имя для точечного чтения. Возврат: name/user_id/resolution/
+        aliases/candidates."""
+        uid = parsed.get("user_id")
+        person = str(parsed.get("person") or "").strip().lstrip("@")
+        mapping = (getattr(aliases, "_aliases", None)
+                   if aliases is not None else None)
+        if uid is None and person.isdigit():
+            uid = int(person)
+        if uid is not None:
+            name = self._memory_lookup_resolve_name(aliases, uid, person)
+            return {"name": name, "user_id": uid, "resolution": "resolved",
+                    "aliases": self._memory_lookup_person_aliases(
+                        mapping, uid, name),
+                    "candidates": []}
+        candidates = self._memory_lookup_alias_candidates(mapping, person)
+        if len(candidates) > 1:
+            return {"name": "", "user_id": None, "resolution": "ambiguous",
+                    "aliases": [], "candidates": candidates}
+        if len(candidates) == 1:
+            uid = candidates[0]
+            name = self._memory_lookup_resolve_name(aliases, uid, person)
+            return {"name": name, "user_id": uid, "resolution": "resolved",
+                    "aliases": self._memory_lookup_person_aliases(
+                        mapping, uid, name),
+                    "candidates": []}
+        name = person
+        if aliases is not None and hasattr(aliases, "canon_name"):
+            try:
+                name = str(aliases.canon_name(person) or person)
+            except Exception:
+                name = person
+        return {"name": name, "user_id": None, "resolution": "resolved",
+                "aliases": [], "candidates": []}
+
+    @staticmethod
+    def _memory_lookup_resolve_name(aliases, uid, fallback) -> str:
+        if aliases is not None and hasattr(aliases, "resolve"):
+            try:
+                return str(aliases.resolve(int(uid), fallback or None, None))
+            except Exception:
+                pass
+        return str(fallback or uid)
+
+    @staticmethod
+    def _memory_lookup_alias_candidates(mapping, person) -> list:
+        if not isinstance(mapping, dict) or not person:
+            return []
+        low = str(person).casefold()
+        out: list[int] = []
+        for key, value in mapping.items():
+            if str(value).casefold() != low:
+                continue
+            try:
+                uid = int(key)
+            except (TypeError, ValueError):
+                continue
+            if uid not in out:
+                out.append(uid)
+        return sorted(out)
+
+    @staticmethod
+    def _memory_lookup_person_aliases(mapping, uid, name) -> list:
+        if not isinstance(mapping, dict) or uid is None:
+            return []
+        value = mapping.get(str(uid), mapping.get(uid))
+        if not value:
+            return []
+        value = str(value).strip()
+        return [value] if value and value != name else []
+
+    async def _memory_lookup_build(self, ctx, parsed: dict,
+                                   person: dict) -> dict:
+        """Purpose-роутинг (D3) — единая таблица без per-combination веток."""
+        purpose = parsed["purpose"]
+        max_items = parsed["max_items"]
+        if person.get("resolution") == "ambiguous":
+            return self._memory_lookup_payload(
+                "ok", purpose, person, [], [], no_data=True,
+                empty_reason="ambiguous")
+        if not person.get("name") and person.get("user_id") is None:
+            return self._memory_lookup_payload(
+                "ok", purpose, person, [], [], no_data=True,
+                empty_reason="unknown_person")
+        handler = {
+            "identity": self._memory_lookup_identity,
+            "appearance": self._memory_lookup_appearance,
+            "speech_style": self._memory_lookup_speech_style,
+            "biography": self._memory_lookup_biography,
+            "relationships": self._memory_lookup_relationships,
+            "general": self._memory_lookup_general,
+        }[purpose]
+        return await handler(ctx, person, max_items)
+
+    async def _memory_lookup_identity(self, ctx, person, max_items) -> dict:
+        """identity: AliasResolver (name/aliases/id) + existing persona facts."""
+        facts, sources = [], []
+        db = getattr(self.deps, "db", None)
+        reader = getattr(db, "get_user_context_facts", None)
+        if callable(reader) and person.get("name"):
+            rows = await reader(ctx.chat_id, person["name"], max_items,
+                                int(time.time()))
+            for row in rows or []:
+                facts.append(self._memory_lookup_fact_item(row))
+                sources.append(self._memory_lookup_source_item(row))
+        if not facts:
+            return self._memory_lookup_payload(
+                "ok", "identity", person, [], [], no_data=True,
+                empty_reason="unknown_person")
+        return self._memory_lookup_payload(
+            "ok", "identity", person, facts, sources,
+            extra=self._memory_lookup_dossier_extra(facts))
+
+    async def _memory_lookup_appearance(self, ctx, person, max_items) -> dict:
+        """appearance: generic-фильтр поверх graph_facts + honest no_data.
+
+        Извлечение/классификация внешности (в т.ч. из изображений) — A4 (U1);
+        здесь только лексиконный отбор существующих подтверждённых фактов."""
+        db = getattr(self.deps, "db", None)
+        reader = getattr(db, "get_user_context_facts", None)
+        if not callable(reader) or not person.get("name"):
+            return self._memory_lookup_payload(
+                "ok", "appearance", person, [], [], no_data=True,
+                empty_reason="no_storage_for_purpose")
+        rows = await reader(ctx.chat_id, person["name"],
+                            _MEMORY_LOOKUP_APPEARANCE_SCAN, int(time.time()))
+        facts, sources = [], []
+        for row in rows or []:
+            if not self._memory_lookup_is_appearance(str(row.get("fact") or "")):
+                continue
+            facts.append(self._memory_lookup_fact_item(row))
+            sources.append(self._memory_lookup_source_item(row))
+            if len(facts) >= max_items:
+                break
+        if not facts:
+            return self._memory_lookup_payload(
+                "ok", "appearance", person, [], [], no_data=True,
+                empty_reason="no_storage_for_purpose")
+        return self._memory_lookup_payload(
+            "ok", "appearance", person, facts, sources)
+
+    async def _memory_lookup_biography(self, ctx, person, max_items) -> dict:
+        """biography: graph_facts (weight DESC) + generated слоя Б (portrait)."""
+        facts, sources = [], []
+        db = getattr(self.deps, "db", None)
+        reader = getattr(db, "get_user_context_facts", None)
+        if callable(reader) and person.get("name"):
+            rows = await reader(ctx.chat_id, person["name"], max_items,
+                                int(time.time()))
+            for row in rows or []:
+                facts.append(self._memory_lookup_fact_item(row))
+                sources.append(self._memory_lookup_source_item(row))
+        dossier = await self._memory_lookup_generated_dossier(db, ctx, person)
+        if dossier:
+            facts.append(self._memory_lookup_portrait_item(dossier))
+            sources.append({
+                "kind": "dossier_portrait", "ref": "dossier_portrait",
+                "origin": "dossier_portrait",
+                "ts": int(dossier.get("updated_at") or 0) or None})
+        if not facts:
+            return self._memory_lookup_payload(
+                "ok", "biography", person, [], [], no_data=True,
+                empty_reason="unknown_person")
+        return self._memory_lookup_payload(
+            "ok", "biography", person, facts, sources,
+            extra=self._memory_lookup_dossier_extra(facts))
+
+    async def _memory_lookup_relationships(self, ctx, person,
+                                           max_items) -> dict:
+        """relationships: edges из `db.get_persona_card.links` (D3)."""
+        facts, sources = [], []
+        db = getattr(self.deps, "db", None)
+        getter = getattr(db, "get_persona_card", None)
+        if callable(getter) and person.get("name"):
+            card = await getter(ctx.chat_id, person["name"], max_items,
+                                int(time.time()))
+            for link in (card or {}).get("links") or []:
+                source_name = str(link.get("source_name") or "").strip()
+                target_name = str(link.get("target_name") or "").strip()
+                relation = str(link.get("relation_type") or "").strip()
+                if not source_name and not target_name:
+                    continue
+                facts.append({
+                    "text": f"{source_name} ({relation}) {target_name}".strip(),
+                    "confidence": "unknown", "weight": None, "time": None,
+                    "source_id": ""})
+                sources.append({"kind": "edge", "ref": "",
+                                "origin": "graph_edge", "ts": None})
+                if len(facts) >= max_items:
+                    break
+        if not facts:
+            return self._memory_lookup_payload(
+                "ok", "relationships", person, [], [], no_data=True,
+                empty_reason="empty")
+        return self._memory_lookup_payload(
+            "ok", "relationships", person, facts, sources)
+
+    async def _memory_lookup_general(self, ctx, person, max_items) -> dict:
+        """general: lazy RAG — graph-факты + релевантные сообщения (D3)."""
+        memory = getattr(self.deps, "memory", None)
+        name = person.get("name") or ""
+        message_cap = min(max_items, _MEMORY_LOOKUP_MESSAGE_SLICE_MAX,
+                          _MEMORY_LOOKUP_MESSAGE_SLICE_HARD)
+        facts, sources = [], []
+        if memory is not None and hasattr(memory, "get_rag_facts"):
+            try:
+                rag = await memory.get_rag_facts(ctx.chat_id, name)
+            except Exception:
+                rag = []
+            for entry in rag or []:
+                built = self._memory_lookup_rag_fact_item(entry)
+                if built is None:
+                    continue
+                facts.append(built["fact"])
+                sources.append(built["source"])
+                if len(facts) >= max_items:
+                    break
+        if (memory is not None and hasattr(memory, "search_long_term")
+                and len(facts) < max_items):
+            try:
+                rows = await memory.search_long_term(
+                    ctx.chat_id, keywords(name), limit=message_cap)
+            except Exception:
+                rows = []
+            for row in rows or []:
+                built = self._memory_lookup_message_item(row)
+                if built is None:
+                    continue
+                facts.append(built["fact"])
+                sources.append(built["source"])
+                if len(facts) >= max_items:
+                    break
+        if not facts and memory is not None \
+                and hasattr(memory, "get_rag_context"):
+            try:
+                text = await memory.get_rag_context(ctx.chat_id, name)
+            except Exception:
+                text = ""
+            text = str(text or "").strip()
+            if text:
+                facts.append({
+                    "text": _truncate(text, _MEMORY_LOOKUP_RAG_FACT_CHARS),
+                    "confidence": "unknown", "weight": None, "time": None,
+                    "source_id": "rag:context"})
+                sources.append({"kind": "rag", "ref": "rag:context",
+                                "origin": "rag", "ts": None})
+        if not facts:
+            return self._memory_lookup_payload(
+                "ok", "general", person, [], [], no_data=True,
+                empty_reason="empty")
+        return self._memory_lookup_payload(
+            "ok", "general", person, facts, sources)
+
+    async def _memory_lookup_speech_style(self, ctx, person,
+                                          max_items) -> dict:
+        """speech_style: bounded per-user slice + patterns досье → compact
+        профиль. Lazy RAG — только если срез не дал минимума характерных
+        сообщений (D3). Системная личность бота НЕ меняется (стилизация —
+        дело caller'а, §34)."""
+        db = getattr(self.deps, "db", None)
+        memory = getattr(self.deps, "memory", None)
+        name = person.get("name") or ""
+        uid = person.get("user_id")
+        slice_cap = min(max_items, _MEMORY_LOOKUP_MESSAGE_SLICE_MAX,
+                        _MEMORY_LOOKUP_MESSAGE_SLICE_HARD)
+        facts, sources = [], []
+        if db is not None and uid is not None \
+                and hasattr(db, "get_recent_messages"):
+            rows = await db.get_recent_messages(ctx.chat_id,
+                                                _MEMORY_LOOKUP_STYLE_SCAN)
+            user_msgs = []
+            for row in rows or []:
+                item = dict(row)
+                if int(item.get("user_id") or 0) != int(uid):
+                    continue
+                if not str(item.get("text") or "").strip():
+                    continue
+                user_msgs.append(item)
+            for item in user_msgs[-slice_cap:]:
+                built = self._memory_lookup_message_item(item)
+                if built is not None:
+                    facts.append(built["fact"])
+                    sources.append(built["source"])
+        if len(facts) < _MEMORY_LOOKUP_STYLE_MIN_MESSAGES \
+                and memory is not None \
+                and hasattr(memory, "search_long_term"):
+            try:
+                rows = await memory.search_long_term(
+                    ctx.chat_id, keywords(name), limit=slice_cap)
+            except Exception:
+                rows = []
+            for row in rows or []:
+                if uid is not None:
+                    item = dict(row)
+                    if int(item.get("user_id") or 0) != int(uid):
+                        continue
+                    row = item
+                built = self._memory_lookup_message_item(row)
+                if built is not None:
+                    facts.append(built["fact"])
+                    sources.append(built["source"])
+                    if len(facts) >= slice_cap:
+                        break
+        dossier = await self._memory_lookup_generated_dossier(db, ctx, person)
+        if dossier:
+            patterns = [str(x).strip() for x in (dossier.get("patterns") or [])
+                        if str(x).strip()]
+            themes = [str(x).strip() for x in (dossier.get("themes") or [])
+                      if str(x).strip()]
+            profile = self._memory_lookup_style_profile(patterns, themes)
+            if profile:
+                ts = int(dossier.get("updated_at") or 0) or None
+                facts.append({"text": profile, "confidence": "unknown",
+                              "weight": None, "time": ts,
+                              "source_id": "dossier_portrait"})
+                sources.append({"kind": "profile", "ref": "dossier_patterns",
+                                "origin": "dossier_portrait", "ts": ts})
+        if not facts:
+            return self._memory_lookup_payload(
+                "ok", "speech_style", person, [], [], no_data=True,
+                empty_reason="empty")
+        return self._memory_lookup_payload(
+            "ok", "speech_style", person, facts, sources)
+
+    async def _memory_lookup_generated_dossier(self, db, ctx, person):
+        """Reuse `db.get_generated_dossier` (Слой Б) — fail-open → None."""
+        getter = getattr(db, "get_generated_dossier", None)
+        name = person.get("name")
+        if not callable(getter) or not name:
+            return None
+        try:
+            return await getter(ctx.chat_id, name)
+        except Exception:
+            logger.warning("[tools] memory lookup dossier read failed | "
+                           "chat=%s", getattr(ctx, "chat_id", None))
+            return None
+
+    def _memory_lookup_fact_item(self, row: dict) -> dict:
+        """graph_facts-строка → факт envelope (per-fact confidence/source)."""
+        weight = row.get("weight")
+        return {
+            "text": str(row.get("fact") or "").strip(),
+            "confidence": self._memory_lookup_conf_label(
+                str(row.get("status") or ""), weight),
+            "weight": float(weight) if weight is not None else None,
+            "time": int(row.get("message_timestamp")
+                        or row.get("created_at") or 0) or None,
+            "source_id": resolve_item_id(
+                tg_message_id=row.get("tg_message_id"), fact_id=row.get("id")),
+        }
+
+    def _memory_lookup_source_item(self, row: dict) -> dict:
+        return {
+            "kind": "graph_fact",
+            "ref": resolve_item_id(tg_message_id=row.get("tg_message_id"),
+                                   fact_id=row.get("id")),
+            "origin": str(row.get("origin") or ""),
+            "ts": int(row.get("message_timestamp")
+                      or row.get("created_at") or 0) or None,
+        }
+
+    def _memory_lookup_rag_fact_item(self, entry):
+        """RAG-факт (4-кортеж origin/fact/ts/target или dict) → fact+source."""
+        if isinstance(entry, dict):
+            origin = str(entry.get("origin") or "")
+            text = str(entry.get("fact") or entry.get("text") or "").strip()
+            ts = int(entry.get("rag_ts") or entry.get("message_timestamp")
+                     or entry.get("created_at") or 0) or None
+        elif isinstance(entry, (tuple, list)) and len(entry) >= 2:
+            origin = str(entry[0] or "")
+            text = str(entry[1] or "").strip()
+            ts = (int(entry[2] or 0) or None) if len(entry) > 2 else None
+        else:
+            return None
+        if not text:
+            return None
+        fact = {"text": _truncate(text, _MEMORY_LOOKUP_RAG_FACT_CHARS),
+                "confidence": "unknown", "weight": None, "time": ts,
+                "source_id": ""}
+        source = {"kind": "rag", "ref": "", "origin": origin or "rag",
+                  "ts": ts}
+        return {"fact": fact, "source": source}
+
+    def _memory_lookup_message_item(self, row):
+        """smart_messages-строка → короткий факт (slice ≤240) + msg/tg-источник."""
+        try:
+            item = dict(row)
+        except (TypeError, ValueError):
+            return None
+        text = str(item.get("text") or "").strip()
+        if not text:
+            return None
+        ts = int(item.get("timestamp") or 0) or None
+        ref = resolve_item_id(tg_message_id=item.get("tg_message_id"),
+                              message_id=item.get("id"))
+        fact = {"text": _truncate(text, _MEMORY_LOOKUP_SLICE_MAX_CHARS),
+                "confidence": "unknown", "weight": None, "time": ts,
+                "source_id": ref}
+        source = {"kind": "message", "ref": ref, "origin": "chat_history",
+                  "ts": ts}
+        return {"fact": fact, "source": source}
+
+    @staticmethod
+    def _memory_lookup_dossier_extra(facts) -> dict:
+        """Reuse `format_dossier_block` для компактного рендера фактов."""
+        try:
+            from services.dossier_prompts import format_dossier_block
+            texts = [str(f.get("text") or "") for f in facts
+                     if str(f.get("text") or "").strip()]
+            block = format_dossier_block(texts, [],
+                                         _MEMORY_LOOKUP_RESULT_MAX_CHARS)
+        except Exception:
+            block = ""
+        return {"dossier": block} if block else {}
+
+    @staticmethod
+    def _memory_lookup_portrait_item(dossier: dict) -> dict:
+        text = str(dossier.get("portrait") or "").strip()
+        if not text:
+            patterns = [str(x).strip() for x in (dossier.get("patterns") or [])
+                        if str(x).strip()]
+            themes = [str(x).strip() for x in (dossier.get("themes") or [])
+                      if str(x).strip()]
+            parts = []
+            if patterns:
+                parts.append("Паттерны: " + "; ".join(patterns))
+            if themes:
+                parts.append("Темы: " + "; ".join(themes))
+            text = " ".join(parts)
+        return {"text": text[:_MEMORY_LOOKUP_PORTRAIT_MAX_CHARS],
+                "confidence": "unknown", "weight": None,
+                "time": int(dossier.get("updated_at") or 0) or None,
+                "source_id": "dossier_portrait"}
+
+    @staticmethod
+    def _memory_lookup_style_profile(patterns, themes) -> str:
+        parts = []
+        if patterns:
+            parts.append("Паттерны речи: " + "; ".join(patterns[:5]))
+        if themes:
+            parts.append("Темы: " + "; ".join(themes[:5]))
+        return _truncate(" ".join(parts), _MEMORY_LOOKUP_PORTRAIT_MAX_CHARS)
+
+    @staticmethod
+    def _memory_lookup_conf_label(status, weight) -> str:
+        """graph_facts.status+weight → confirmed/likely/unconfirmed (D4)."""
+        if str(status or "").strip().lower() != "confirmed":
+            return "unconfirmed"
+        try:
+            value = float(weight) if weight is not None else None
+        except (TypeError, ValueError):
+            value = None
+        if value is None or value >= _MEMORY_LOOKUP_CONFIRMED_WEIGHT:
+            return "confirmed"
+        return "likely"
+
+    @staticmethod
+    def _memory_lookup_is_appearance(text: str) -> bool:
+        low = str(text or "").casefold()
+        return any(stem in low for stem in _APPEARANCE_LEXICON)
+
+    @staticmethod
+    def _memory_lookup_person_dict(person: dict) -> dict:
+        out = {
+            "name": str(person.get("name") or ""),
+            "user_id": person.get("user_id"),
+            "resolution": str(person.get("resolution") or "resolved"),
+        }
+        aliases = list(person.get("aliases") or [])
+        if aliases:
+            out["aliases"] = aliases
+        if out["resolution"] == "ambiguous":
+            out["candidates"] = list(person.get("candidates") or [])
+        return out
+
+    @staticmethod
+    def _memory_lookup_confidence(facts) -> dict:
+        """Агрегат подтверждённости (D4): нет носителя → available=false/unknown;
+        ни один элемент не помечен confirmed без подтверждения носителем."""
+        labels = [str(f.get("confidence") or "unknown") for f in facts or []]
+        weights = [float(f.get("weight")) for f in facts or []
+                   if f.get("weight") is not None]
+        if not labels or all(lbl == "unknown" for lbl in labels):
+            return {"available": False, "label": "unknown", "value": None}
+        if "confirmed" in labels:
+            label = "confirmed"
+        elif "likely" in labels:
+            label = "likely"
+        else:
+            label = "unconfirmed"
+        return {"available": True, "label": label,
+                "value": max(weights) if weights else None}
+
+    @staticmethod
+    def _memory_lookup_time_context(facts) -> dict:
+        times = [int(f.get("time")) for f in facts or [] if f.get("time")]
+        if not times:
+            return {"from": None, "to": None, "label": ""}
+        lo, hi = min(times), max(times)
+        try:
+            y_lo = datetime.datetime.fromtimestamp(lo).year
+            y_hi = datetime.datetime.fromtimestamp(hi).year
+        except (ValueError, OSError, OverflowError):
+            return {"from": lo, "to": hi, "label": ""}
+        label = str(y_lo) if y_lo == y_hi else f"{y_lo}–{y_hi}"
+        return {"from": lo, "to": hi, "label": label}
+
+    def _memory_lookup_payload(self, status, purpose, person, facts, sources,
+                               *, no_data=False, empty_reason="",
+                               extra=None) -> dict:
+        """Envelope из 5 полей §33 (D4) + служебные (status/purpose/person/
+        no_data/empty_reason/truncated)."""
+        facts = list(facts or [])[:_MEMORY_LOOKUP_MAX_ITEMS_HARD]
+        sources = list(sources or [])[:_MEMORY_LOOKUP_MAX_ITEMS_HARD]
+        is_empty = bool(no_data) or not facts
+        payload = {
+            "status": status,
+            "purpose": purpose,
+            "person": self._memory_lookup_person_dict(person),
+            "facts": facts,
+            "sources": sources,
+            "confidence": self._memory_lookup_confidence(facts),
+            "time_context": self._memory_lookup_time_context(facts),
+            "no_data": is_empty,
+            "empty_reason": (empty_reason if is_empty else ""),
+            "truncated": False,
+        }
+        if extra:
+            payload.update(extra)
+        return payload
+
     def _resolve_tool_source(self, arguments: dict, ctx: ToolContext,
                              kinds: tuple[str, ...] | None = None):
         """Общий резолв источника медиа-инструментов (F14, §4.5):
@@ -1441,7 +2302,28 @@ class ToolRouter:
         модели возвращается короткий JSON-статус (прецедент `download_media`).
         Гейт модуля: env-рубильник + каталоговый тумблер (per-chat). Провал
         провайдера/бюджета → циничная отмазка в статусе, бот жив. R17: без
-        промпта/URL/ключа в логах."""
+        промпта/URL/ключа в логах.
+
+        A3 (§21/ADR-1026-16 D3/D2/D4): (1) ПЕРВЫМ делом проверяется
+        авторитетный маркер прогона ``ctx.image_request_handled`` — True →
+        ``{"status":"skipped","reason":"already_handled"}`` без генерации/
+        списания бюджета (двойная генерация исключена); гейтился киль-свитчем
+        ``UNIFIED_IMAGE_REQUEST_ENABLED``; (2) запрос строится как единый
+        ``ImageRequest`` (source="tool") → единый раннер → существующий
+        ``generate_and_send``; OFF — прежний прямой вызов; (3) валидация
+        аргументов fail-closed (статус `error` НЕ роняет цикл, FAIL-closed
+        исключений нет); (4) реальный `reason` генератора доводится —
+        вымышленный «отказ модели» не подставляется."""
+        # D3, слой 2: маркер прогона — до любого гейта модуля/генерации.
+        if image_generation.unified_image_request_enabled() \
+                and getattr(ctx, "image_request_handled", False):
+            logger.info("[tools] generate_image skipped | reason="
+                        "already_handled | chat=%s", ctx.chat_id)
+            return json.dumps(
+                {"status": "skipped", "reason": "already_handled",
+                 "message": "Изображение на этом ходу уже обработано "
+                            "(генерация выполняется один раз)"},
+                ensure_ascii=False)
         if not await image_generation.resolve_module_enabled(ctx.chat_id):
             return json.dumps({"status": "error",
                                "message": "Генерация изображений отключена"},
@@ -1451,15 +2333,41 @@ class ToolRouter:
             return json.dumps({"status": "error",
                                "message": "Не указан prompt"},
                               ensure_ascii=False)
-        result = await image_generation.generate_and_send(
-            ctx.bot, ctx.chat_id, prompt,
-            reply_to_message_id=ctx.reply_to_message_id,
-            correlation_id=getattr(ctx, "correlation_id", None))
+        if image_generation.unified_image_request_enabled():
+            request = image_generation.build_image_request(
+                "tool", ctx.chat_id, prompt,
+                requester_id=getattr(ctx, "user_id", None),
+                original_message_id=getattr(ctx, "reply_to_message_id", None))
+            # A4 (ADR-1026-19 D1/D2/§7.3): тот же helper, что у direct-пути;
+            # память читается только при ON kill-switch и разрешённом субъекте.
+            if image_generation.image_context_memory_enabled():
+                deps = getattr(self, "deps", None)
+                data = await image_context_memory.build_image_memory_context(
+                    chat_id=ctx.chat_id, user_request=prompt,
+                    requester_id=getattr(ctx, "user_id", None),
+                    aliases=getattr(deps, "aliases", None),
+                    db=getattr(deps, "db", None),
+                    memory=getattr(deps, "memory", None))
+                image_context_memory.attach_image_memory(request, data)
+            result = await image_generation.run_image_request(
+                request, bot=ctx.bot,
+                correlation_id=getattr(ctx, "correlation_id", None))
+        else:
+            # A5 (ADR-1026-17 D3): source="tool" — idem-дискриминатор
+            # входа (резерв/журнал); генератор и контракт прежние.
+            request = None
+            result = await image_generation.generate_and_send(
+                ctx.bot, ctx.chat_id, prompt,
+                reply_to_message_id=ctx.reply_to_message_id,
+                correlation_id=getattr(ctx, "correlation_id", None),
+                source="tool")
         if result.ok:
-            return json.dumps(
-                {"status": "success",
-                 "message": "Изображение сгенерировано и отправлено в чат"},
-                ensure_ascii=False)
+            payload = {"status": "success",
+                       "message": "Изображение сгенерировано и отправлено в чат"}
+            note = _image_memory_note(request)
+            if note:
+                payload["note"] = note
+            return json.dumps(payload, ensure_ascii=False)
         logger.info("[tools] generate_image failed | chat=%s | reason=%s",
                     ctx.chat_id, result.reason)
         return json.dumps(

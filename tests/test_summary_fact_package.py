@@ -1,4 +1,4 @@
-"""S4 round1026 (ADR-1026-6 D1–D6) — пакет фактов §96: схема, детерминизм,
+﻿"""S4 round1026 (ADR-1026-6 D1–D6) — пакет фактов §96: схема, детерминизм,
 fail-closed, ID-целостность, бюджет/усечение, транзит `service`, 0 LLM-вызовов
 и инварианты живого пути.
 
@@ -555,12 +555,12 @@ class TestLivePathInvariants:
         assert "summary_fact_package" not in xml
 
     def test_catalog_zero_delta(self):
-        assert len(pc.REGISTRY) == 469
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 426
+        assert len(pc.REGISTRY) == 473
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 444
-        assert len(pc.GROUPS) == 100
-        assert len(pc._TAB_BY_GROUP) == 98
+                    if s.category is not None]) == 448
+        assert len(pc.GROUPS) == 102
+        assert len(pc._TAB_BY_GROUP) == 100
         assert len(pc.TAB_RULES) == 21
 
     def test_no_new_env_key(self):
@@ -569,7 +569,7 @@ class TestLivePathInvariants:
             f.name for f in dataclasses.fields(Settings)}
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.30"
+        assert APP_VERSION == "2.58.31"
 
     @pytest.mark.asyncio
     async def test_two_calls_stage1_stage2(self):

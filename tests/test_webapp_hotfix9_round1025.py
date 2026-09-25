@@ -1,4 +1,4 @@
-"""hotfix9 round 10.25 — маркер-гейт `hotfix9-shell-liquidglass-darkaurora-round1025`.
+﻿"""hotfix9 round 10.25 — маркер-гейт `hotfix9-shell-liquidglass-darkaurora-round1025`.
 
 Задачи T-2793…T-2836 (ADR-1025-17 D1–D8). Поведение (rendering/CSP) — в
 `tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js` (запускается из
@@ -195,7 +195,7 @@ class TestVendoredGlassAurora:
 class TestFlagsAcceptance:
     def test_app_version_bumped(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.30", m and m.group(1)
+        assert m and m.group(1) == "2.58.31", m and m.group(1)
 
     def test_env_only_flags_delivered(self):
         for flag in HOTFIX9_FLAGS:
@@ -211,11 +211,11 @@ class TestFlagsAcceptance:
 
     def test_catalog_invariants(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 469
-        assert len(pc.GROUPS) == 100
-        assert len(pc._TAB_BY_GROUP) == 98
+        assert len(pc.REGISTRY) == 473
+        assert len(pc.GROUPS) == 102
+        assert len(pc._TAB_BY_GROUP) == 100
         assert len(pc.TAB_RULES) == 21
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 426
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
 
     def test_matrix_hotfix9_probes(self):
         for mode in ("desktop_normal", "desktop_fullscreen", "tablet",

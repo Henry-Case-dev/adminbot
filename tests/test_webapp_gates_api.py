@@ -46,11 +46,12 @@ class _FakeConn:
     """PG-заглушка: bot_roles/bot_admins/chat_admins/worker_budget."""
 
     def __init__(self, grants: dict[int, set[int]], budget_rows: list,
-                 roles, admins):
+                 roles, admins, image_used: dict | None = None):
         self.grants = grants
         self.budget_rows = budget_rows
         self._roles = roles
         self._admins = admins
+        self.image_used = image_used or {}
         self.notifies = []
 
     async def execute(self, sql, *args):
@@ -72,6 +73,9 @@ class _FakeConn:
                 return [r for r in self.budget_rows
                         if r["day"] == str(day) and r["scope"] == args[1]]
             return [r for r in self.budget_rows if r["day"] == str(day)]
+        # A5 (T-3603): aggregate image_reservation per (chat_id, day).
+        if "FROM image_reservation" in sql:
+            return [{"status": "committed", "n": 3, "df": 0}]
         return []
 
     async def fetchrow(self, sql, *args):
@@ -82,6 +86,9 @@ class _FakeConn:
             return None
         if "INSERT INTO worker_budget" in sql:
             return {"used": 0}
+        # A5 (T-3603): aggregate image_reservation per (chat_id, day).
+        if "FROM image_reservation" in sql:
+            return {"status": "committed", "n": 3, "df": 0}
         return None
 
 
@@ -160,7 +167,9 @@ def client(monkeypatch):
              "used": 5},
             {"day": day, "scope": "chat:-2002", "metric": "llm_calls",
              "used": 7},
-        ], roles=_roles(), admins=_admins())
+        ], roles=_roles(), admins=_admins(),
+        # A5 (T-3603): image-расход (image_calls) дня chat:-1001 → N/M.
+        image_used={"chat:-1001": 3})
     cache = ConfigCache(pg=_FakePg(conn), retry_attempts=1, retry_delay=0)
     app = create_app(cache)
     with TestClient(app) as tc:
@@ -205,6 +214,27 @@ class TestWorkersBudget:
         assert body["global"]["calls"]["used"] == 42
         scopes = {c["scope"] for c in body["chats"]}
         assert scopes == {"chat:-1001"}, body
+
+    # A5 (T-3603, D9/§27): аддитивные поля image-врезки из журнала — не
+    # ломают существующий контракт (R16); источник/день/сброс/TZ/расход.
+    def test_image_usage_additive_fields(self, client):
+        resp = client.get("/api/workers/budget", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        body = resp.json()
+        entry = next(c for c in body["chats"] if c["scope"] == "chat:-1001")
+        iu = entry["image_usage"]
+        assert iu["success"] == 3              # из журнала image_reservation
+        assert iu["requests"] == 3
+        assert iu["limit"] == 60               # каталожный per-chat дефолт
+        assert iu["source"] in ("chat", "global", "default")
+        assert iu["timezone"]
+        assert iu["next_reset_at"]
+        assert "requests" in iu and "success" in iu and "errors" in iu
+        # Shared-строка — env-only 200, отдельно от per-chat дефолта (§30).
+        gl = body["global"]["image_calls"]
+        assert gl["limit"] == 200
+        assert gl["source"] == "env"
+        assert gl["day"] and gl["timezone"] and gl["next_reset_at"]
 
 
 # ═══ F-14 (T-956, spec §3.2): gates в DM-скоупе — READ-only ════════════════

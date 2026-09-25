@@ -1,4 +1,4 @@
-"""Раунд 10.11 (llm-providers-refactor-round1011) — UI-маркеры + инварианты.
+﻿"""Раунд 10.11 (llm-providers-refactor-round1011) — UI-маркеры + инварианты.
 
 Покрывается (spec §6.3):
   * п.1 (ADR-1011-1) — R17-индикатор сохранённого ключа + hint «без ввода»;
@@ -151,11 +151,11 @@ class TestCatalogDelta1011:
         # 10.19 (F3/ADR-1019-3 D3, UPD3 п.5): → 437/92/90/20/407.
         # 10.23 (F5/ADR-1023-5 D5): +5/+3/+3 → 446/95/93/20/416.
         # 10.24 (F21/ADR-1024-22 D8): +1/+1/+1 → 459/98/96/20/418.
-        assert len(pc.REGISTRY) == 469
-        assert len(pc.GROUPS) == 100
-        assert len(pc._TAB_BY_GROUP) == 98
+        assert len(pc.REGISTRY) == 473
+        assert len(pc.GROUPS) == 102
+        assert len(pc._TAB_BY_GROUP) == 100
         assert len(pc.TAB_RULES) == 21
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 426
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
 
     def test_moved_entries_are_catalog(self):
         from services import param_catalog as pc

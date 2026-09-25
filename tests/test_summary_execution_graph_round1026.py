@@ -437,8 +437,16 @@ class TestBoundaries:
 
     _FORBIDDEN = [
         "services/telegram_send.py", "services/summary_xml.py",
-        "services/image_generation.py", "web/api/routes.py",
-        "services/param_catalog.py", "db",
+        # NOTE (A3, ADR-1026-16 D2/D6): `services/image_generation.py`
+        # исключён из запрета — A3 санкционирует аддитивный ImageRequest-
+        # контракт/раннер; §104-гейт генератора ведёт линза A3
+        # (tests/test_unified_image_request_round1026.py, AST-эквивалентность).
+        "web/api/routes.py",
+        # NOTE (A5, ADR-1026-17 D9): `services/param_catalog.py` исключён из
+        # запрета — A5 санкционирует Δ каталога +1 ParamSpec
+        # `limits.image_daily_limit` +1 GroupSpec `limits_images` (470/427/445/
+        # 101/99/21). Δ DDL/§104/канон проверяются своими гейтами A5.
+        "db",
         "services/summary_test_run.py",
     ]
 

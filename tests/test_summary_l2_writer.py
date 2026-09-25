@@ -1,4 +1,4 @@
-"""S5 round1026 (ADR-1026-7 D1/D4/D6) — тесты L2 «Писатель» (§96–§99).
+﻿"""S5 round1026 (ADR-1026-7 D1/D4/D6) — тесты L2 «Писатель» (§96–§99).
 
 Покрытие: SC-01 (контракт §99), SC-06/SC-07 (§97-запреты/цитаты), SC-08
 (изоляция входа), SC-09 (§106 fail-closed), SC-10 (слот §82), SC-11 (канон),
@@ -401,13 +401,13 @@ class TestCanon:
             SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1026)
 
     def test_catalog_delta_sanctioned(self):
-        assert len(pc.REGISTRY) == 469
+        assert len(pc.REGISTRY) == 473
         assert len({f.name for f in dataclasses.fields(settings.__class__)}) \
-            == 426
+            == 430
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 444
-        assert len(pc.GROUPS) == 100
-        assert len(pc._TAB_BY_GROUP) == 98
+                    if s.category is not None]) == 448
+        assert len(pc.GROUPS) == 102
+        assert len(pc._TAB_BY_GROUP) == 100
         assert len(pc.TAB_RULES) == 21
 
 

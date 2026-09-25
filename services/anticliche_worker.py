@@ -26,6 +26,7 @@ from config.settings import settings
 from services import anticliche_cache
 from services import hot_config as hot
 from services import worker_budget
+from services.agentic_events import emit_agentic_event
 from services.external_log import log_external_api, trace_step
 from services.negative_constraints import (
     DEFAULT_ENABLED_RULES,
@@ -78,11 +79,12 @@ def max_rounds() -> int:
 
 
 def _event(name: str, **fields) -> None:
-    """F0.3 (§4.4): структурированное событие `event=ANTI_CLICHE_*`.
+    """F0.3 (§4.4) + A9 (ADR-1026-22 D11): структурированное событие
+    ``event=ANTI_CLICHE_*`` через единую R17-safe обёртку ``emit_agentic_event``
+    (второй логгер/канал не создаётся; kill-switch ``AGENTIC_EVENTS_ENABLED``).
 
     R17: логируем только коды/числа/идентификаторы и НИКОГДА — фразы/секреты."""
-    parts = " | ".join(f"{k}={v}" for k, v in fields.items())
-    logger.info("[anticliche] event=%s | %s", name, parts)
+    emit_agentic_event(name, **fields)
 
 
 def _normalize_stored(patterns) -> list[dict]:

@@ -1,4 +1,4 @@
-"""F6 `help-guide-integration-round1014` — гайд в БД + Markdown-редактор.
+﻿"""F6 `help-guide-integration-round1014` — гайд в БД + Markdown-редактор.
 
 Покрытие (spec §2/§5/§6):
   * каталог-инвариант: +1 PG-only ключ content.intelligence_guide
@@ -204,14 +204,14 @@ class TestCatalogDelta:
         # +3 GROUPS/mapped → 446/95/93/20/416/421.
         # 10.24 (F21/ADR-1024-22 D8): +1 REGISTRY/Settings/categorized,
         # +1 GROUPS/mapped → 459/98/96/20/418/434.
-        assert len(pc.REGISTRY) == 469
-        assert len(pc.GROUPS) == 100
-        assert len(pc._TAB_BY_GROUP) == 98
+        assert len(pc.REGISTRY) == 473
+        assert len(pc.GROUPS) == 102
+        assert len(pc._TAB_BY_GROUP) == 100
         assert len(pc.TAB_RULES) == 21
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 426
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 444
+        assert len(categorized) == 448
 
     def test_guide_spec(self):
         from services import param_catalog as pc

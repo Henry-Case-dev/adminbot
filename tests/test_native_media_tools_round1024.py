@@ -480,11 +480,14 @@ class TestSchemasContract:
 
     def test_transcribe_contract_registered_as_tenth(self):
         """F14 фиксирует контракт; F19 (ADR-1024-20 §2.1) регистрирует его
-        10-м в конец (первые 9 — байт-в-байт канонического порядка)."""
+        10-м (первые 9 — байт-в-байт канонического порядка); A2
+        (ADR-1026-15 D5) добавляет 11-м fetch_article; A6 (ADR-1026-18 D1)
+        добавляет 12-м get_user_context."""
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
-        assert names == _FIRST_NINE + ["transcribe_video"]
+        assert names == _FIRST_NINE + ["transcribe_video", "fetch_article",
+                                       "get_user_context"]
         assert TOOL_TRANSCRIBE_VIDEO in TOOL_CALLING_TOOLS
-        assert TOOL_CALLING_TOOLS[-1] is TOOL_TRANSCRIBE_VIDEO
+        assert TOOL_CALLING_TOOLS[9] is TOOL_TRANSCRIBE_VIDEO
         assert TOOL_TRANSCRIBE_VIDEO["function"]["name"] == "transcribe_video"
         params = TOOL_TRANSCRIBE_VIDEO["function"]["parameters"]
         assert params["required"] == []

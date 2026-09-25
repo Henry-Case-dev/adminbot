@@ -530,10 +530,12 @@ class TestGraphFactsV12:
 
 
 class TestToolSchemasEnCanon:
-    def test_all_ten_descriptions_are_english(self):
+    def test_all_descriptions_are_english(self):
         # 10.23 (F5/ADR-1023-5 D2): +generate_image → 9;
-        # 10.24 (F19/ADR-1024-20 §2.1): +transcribe_video → 10.
-        assert len(TOOL_CALLING_TOOLS) == 10
+        # 10.24 (F19/ADR-1024-20 §2.1): +transcribe_video → 10;
+        # 10.26 (A2/ADR-1026-15 D5): +fetch_article → 11;
+        # 10.26 (A6/ADR-1026-18 D1): +get_user_context → 12.
+        assert len(TOOL_CALLING_TOOLS) == 12
         for tool in TOOL_CALLING_TOOLS:
             fn = tool["function"]
             desc = fn["description"]
@@ -571,7 +573,7 @@ class TestToolSchemasEnCanon:
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "generate_image",
-            "transcribe_video"]
+            "transcribe_video", "fetch_article", "get_user_context"]
         assert TOOL_CALLING_TOOLS[0]["function"]["parameters"]["required"] == ["query"]
 
     def test_description_snapshot(self):

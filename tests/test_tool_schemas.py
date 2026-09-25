@@ -19,17 +19,20 @@ from services.tool_schemas import (
 
 
 class TestToolSchemas:
-    def test_ten_tools_in_expected_order(self):
+    def test_twelve_tools_in_expected_order(self):
         # Раунд 10.15 (F8, T-1611): канон R9 (память → лор → веб) + 4 новых
         # в конце; 10.20 (C/T-1887): +compile_lore_story → 8;
         # 10.23 (F5/ADR-1023-5 D2): +generate_image → 9;
         # 10.24 (F19/ADR-1024-20 §2.1): +transcribe_video → 10 (в конец,
-        # первые 9 байт-в-байт). Существующие имена/схемы не меняются.
+        # первые 9 байт-в-байт); 10.26 (A2/ADR-1026-15 D5): +fetch_article → 11
+        # (в конец, первые 10 байт-в-байт); 10.26 (A6/ADR-1026-18 D1):
+        # +get_user_context → 12 (в конец, первые 11 байт-в-байт).
+        # Существующие имена/схемы не меняются.
         assert [t["function"]["name"] for t in TOOL_CALLING_TOOLS] == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "generate_image",
-            "transcribe_video"]
+            "transcribe_video", "fetch_article", "get_user_context"]
 
     def _assert_function_schema(self, tool, name, required):
         assert tool["type"] == "function"
@@ -99,46 +102,50 @@ class TestToolSchemas:
             "Heavy narrative tool.")
 
     def test_active_tools_flag_on_off(self):
-        """10.20 (О3/T-1887) + 10.23 (F5): lore OFF → compile_lore_story
-        исключён; image ON → generate_image присутствует 9-м."""
+        """10.20 (О3/T-1887) + 10.23 (F5) + 10.26 (A2): lore OFF →
+        compile_lore_story исключён; image ON → generate_image присутствует
+        9-м; fetch_article (A2, default ON) — в хвосте."""
         assert [t["function"]["name"]
                 for t in active_tools(True, image_generation_enabled=True)] == [
             t["function"]["name"] for t in TOOL_CALLING_TOOLS]
-        # F19: transcribe_video (default ON) остаётся в списке при любых
-        # per-chat флагах — гейтится только env-флагом MEDIA_TRANSCRIBE_TOOL_ENABLED.
+        # F19: transcribe_video (default ON) и A2 fetch_article (default ON)
+        # остаются в списке при любых per-chat флагах — гейтятся env-флагами.
         disabled = [t["function"]["name"] for t in active_tools(False)]
         assert disabled == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
-            "get_recent_history", "transcribe_video"]
+            "get_recent_history", "transcribe_video", "fetch_article",
+            "get_user_context"]
         assert LORE_COMPILER_TOOL_NAME not in disabled
 
     def test_active_tools_image_flag_gate(self):
-        """F5 (ADR-1023-5 D2): image OFF (дефолт) → 8 без generate_image;
-        image ON → 9 (generate_image перед transcribe_video, F19)."""
+        """F5 (ADR-1023-5 D2): image OFF (дефолт) → без generate_image;
+        image ON → полный канон 11 (F19/A2 — в хвосте)."""
         names_off = [t["function"]["name"] for t in active_tools()]
         assert names_off == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
-            "get_recent_history", "compile_lore_story", "transcribe_video"]
+            "get_recent_history", "compile_lore_story", "transcribe_video",
+            "fetch_article", "get_user_context"]
         names_on = [t["function"]["name"]
                     for t in active_tools(image_generation_enabled=True)]
         assert names_on == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "generate_image",
-            "transcribe_video"]
+            "transcribe_video", "fetch_article", "get_user_context"]
 
     def test_active_tools_default_on(self):
-        """О3: код-дефолт «Летописца» — ON; F19 transcribe_video default ON
-        (список без аргумента = 8 базовых + transcribe_video = 9)."""
-        assert len(active_tools()) == 9
+        """О3: код-дефолт «Летописца» — ON; F19 transcribe_video, A2
+        fetch_article и A6 get_user_context — ON по умолчанию (image OFF →
+        11 имён)."""
+        assert len(active_tools()) == 11
 
     def test_active_tools_does_not_mutate_snapshot(self):
         """active_tools возвращает новый список — снапшот не мутируется."""
         off = active_tools(False)
-        assert len(off) == 8
-        assert len(TOOL_CALLING_TOOLS) == 10
+        assert len(off) == 10
+        assert len(TOOL_CALLING_TOOLS) == 12
 
     # Bugfix 04.09.2026 (Часть 2, AC-3.4): расширенные description'ы.
     # 10.20 (БЛОК 7.4, T-1925): все description — EN (ревизия канона 3.3).
@@ -157,5 +164,5 @@ class TestToolSchemas:
         assert "memory" in desc
 
     def test_all_tools_list_is_mutable_snapshot(self):
-        # F19 (ADR-1024-20 §2.1): канон R9 = 10.
-        assert len(TOOL_CALLING_TOOLS) == 10
+        # A6 (ADR-1026-18 D1): канон R9 = 12.
+        assert len(TOOL_CALLING_TOOLS) == 12

@@ -289,6 +289,13 @@ GROUPS: tuple[GroupSpec, ...] = (
     GroupSpec("limits_summary_filter", "limits", "Предфильтрация: тонкая настройка",
               "Порог веса, длина бонуса, всплеск по плотности и параметры "
               "восстановления контекста (§89).", 32),
+    # limits (33; Раунд 10.26 A5, ADR-1026-17 D9): секция «Лимиты» на вкладке
+    # «Генерация изображений» (§27) — «глобальный дневной лимит» по умолчанию
+    # (`limits.image_daily_limit`); НЕ смешивается с общим бюджетом всех чатов
+    # (env-only, остаётся вне каталога).
+    GroupSpec("limits_images", "limits", "Лимиты",
+              "Дневной лимит генерации изображений: глобальное значение по "
+              "умолчанию и локальное значение конкретного чата.", 33),
     # ── flags (19; раунд 10.6 T-1201/T-1180) ───────────────────────────────
     # flags_modules(9) → 7 групп + checkup-флаг в flags_service;
     # flags_chat_behavior(11) → 3 группы; +3 master-флага (D1/A1).
@@ -347,6 +354,12 @@ GROUPS: tuple[GroupSpec, ...] = (
     GroupSpec("flags_summary_filter", "flags", "Предфильтрация",
               "Алгоритмическая предфильтрация сообщений перед пересказом: "
               "главный тумблер (по умолчанию включён) и учёт ответов.", 22),
+    # flags (23; раунд 10.26 A7, ADR-1026-20 D6/§48): секция «Принятие
+    # решений» внутри mod_direct — ровно 3 тумблера (молчание/реакции).
+    GroupSpec("flags_decision_making", "flags", "Принятие решений",
+              "Когда бот отвечает, ставит реакцию или молчит: незначимые "
+              "обращения, реакции вместо текста, короткие ответы к своим "
+              "изображениям.", 23),
     # ── reactions (15; раунд 10.6 T-1185; 10.9: reactions_persons удалена) ──
     # Ре-дизайн 10.2, BUG-3 (spec §10 B): Telegram ID админа — отдельная
     # группа (перенос из reactions_persons).
@@ -838,6 +851,18 @@ _FLAGS: list[tuple] = [
      "Для YouTube бот запускает локальный движок. Выключишь — вернётся прежний способ."),
     ("CHAT_SILENCE_ENABLED", "Стачка кулдаунов → молчание", "flags_chat_behavior",
      "После нескольких кулдаунов подряд бот замолкает на время. Выключено — бот отвечает, как только можно."),
+    # ── Раунд 10.26 (A7, ADR-1026-20 D6/§48): «Принятие решений» (mod_direct),
+    # ровно 3 параметра, default ON, категория flags (per-chat). ────────────
+    ("CHAT_DECISION_IGNORE_TRIVIAL_ENABLED", "Игнорировать незначимые обращения",
+     "flags_decision_making",
+     "Позволяет боту не отвечать на сообщения, которые не требуют продолжения разговора."),
+    ("CHAT_DECISION_REACTIONS_ENABLED", "Использовать реакции вместо ответа",
+     "flags_decision_making",
+     "Бот может поставить реакцию, если полноценный текст не нужен."),
+    ("CHAT_DECISION_IMAGE_REACTIONS_ENABLED",
+     "Реакции на короткие ответы к собственным изображениям",
+     "flags_decision_making",
+     "Позволяет использовать реакции или молчание вместо развёрнутого ответа."),
     ("CHAT_STYLE_ANCHORS_ENABLED", "Стилевые якоря", "flags_chat_behavior",
      "Бот запоминает фразы, сказанные вами, и повторяет их стиль. Выключено — стиль не копируется."),
     ("CHAT_MOOD_ENABLED", "Определение настроения собеседника", "flags_chat_behavior",
@@ -1491,6 +1516,15 @@ _LIMITS: list[tuple] = [
      "limits_anticliche",
      "Сколько клише забирать из источника и держать в детекторе (1–1000). "
      "По умолчанию 200; больше — полнее фильтр, но дороже проверка."),
+    # ── Раунд 10.26 (A5, ADR-1026-17 D9/D4): «Дневной лимит изображений» —
+    # глобальное значение по умолчанию + per-chat override (существующее
+    # наследование ADR-1018-7 D1). Sentinel `0`=запрет/<0`=безлимит/>0`=cap.
+    # Дефолт 60 == env `WORKER_DAILY_IMAGE_CALLS_PER_CHAT`; общая квота
+    # всех чатов (`WORKER_DAILY_IMAGE_CALLS_GLOBAL`, env-only) остаётся
+    # отдельной UI-строкой и НЕ дублируется этот параметр.
+    ("IMAGE_DAILY_LIMIT", "Дневной лимит изображений", "int", "limits_images",
+     "Сколько картинок в сутки может выдержать генерация для чата. "
+     "0 — генерация запрещена; −1 — безлимит. По умолчанию 60."),
 ]
 
 # ── reactions: id-списки, слова, пути, названия (не секреты) ────────────────
@@ -2132,7 +2166,8 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
     )),
     (TAB_MOD_DIRECT, (
         (CATEGORY_FLAGS,
-         frozenset({"flags_module_direct", "flags_chat_behavior"})),
+         frozenset({"flags_module_direct", "flags_chat_behavior",
+                    "flags_decision_making"})),
         (CATEGORY_LIMITS, frozenset({
             "limits_chat", "limits_chat_behavior", "limits_chat_budgets",
             "limits_temperature"})),
@@ -2189,8 +2224,11 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
     # F5 (10.24, ADR-1024-9 D1): «Генерация изображений» — главный тумблер
     # модуля (group flags_module_images перенесена из mod_direct; провайдер
     # models_images/keys_images остаётся «одним домом» в llm_providers).
+    # A5 (10.26, ADR-1026-17 D9): + секция «Лимиты» (§27): «Дневной лимит
+    # изображений» без дублирования настройки в независимых формах (§50).
     (TAB_MOD_IMAGES, (
         (CATEGORY_FLAGS, frozenset({"flags_module_images"})),
+        (CATEGORY_LIMITS, frozenset({"limits_images"})),
     )),
     # ── Настройки AI (7 подразделов) ───────────────────────────────────────
     # A8: keys_youtube → М6, models_checkup/keys_betterstack → М9.

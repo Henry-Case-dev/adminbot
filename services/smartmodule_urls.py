@@ -39,3 +39,24 @@ def extract_urls(text: str) -> list[str]:
     (прецедент handlers/video_download._URL_RE, без дублирования)."""
     return [m.group(0).rstrip(_TRAILING_PUNCT)
             for m in _WEB_URL_RE.finditer(str(text or ""))]
+
+
+def resolve_context_url(*texts) -> str | None:
+    """A2 (ADR-1026-15 D6): общий резолв ОДНОЗНАЧНОЙ ссылки из контекста.
+
+    Источники перебираются в порядке передачи (обычно текущее сообщение →
+    reply). Источник используется, если в нём есть http(s)-URL; при ровно
+    одном УНИКАЛЬНОМ URL он возвращается, при нескольких разных —
+    неоднозначно (``None``, честный ``no_url``; не угадываем). Пустые
+    источники без URL пропускаются. Никаких новых I/O; НЕ per-phrase —
+    применяется к любой ссылке, доступной в контексте.
+    """
+    for text in texts:
+        urls = extract_urls(text)
+        if not urls:
+            continue
+        unique = list(dict.fromkeys(urls))
+        if len(unique) == 1:
+            return unique[0]
+        return None
+    return None

@@ -350,6 +350,34 @@ DDL_STATEMENTS: tuple[str, ...] = (
         ('gpt-4o-mini', 0.15, 0.60)
     ON CONFLICT (model) DO NOTHING
     """,
+    # ── Раунд 10.26 (A5 image-daily-limit, ADR-1026-17 D1, санкция Δ DDL ≠ 0 —
+    # НИКЧЕМНЫЙ вентилятор verbatim §7 ADR) ──────────────────────────────────
+    # Журнал резейвов (ledger, НЕ второй счётчик; `worker_budget` — без
+    # изменения схемы PK(day,scope,metric)). SQLite Δ DDL = 0 (остаётся v12):
+    # таблица живёт только в PG, где и счётчик `image_calls`. Идемпотентно
+    # (IF NOT EXISTS), применяется PgDatabase.init() при старте прода.
+    # R17: только id/source/status/error_code/day/delivery_failed — без
+    # промптов/текстов/URL/ключей.
+    """
+    CREATE TABLE IF NOT EXISTS image_reservation (
+        reservation_key TEXT PRIMARY KEY,
+        chat_id         BIGINT,
+        source          TEXT NOT NULL DEFAULT 'direct',
+        message_id      BIGINT,
+        day             DATE NOT NULL,
+        status          TEXT NOT NULL DEFAULT 'reserved',
+        error_code      TEXT NOT NULL DEFAULT '',
+        delivery_failed BOOLEAN NOT NULL DEFAULT false,
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+        CONSTRAINT image_reservation_status_chk
+            CHECK (status IN ('reserved','committed','released','denied'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_image_reservation_day_status
+        ON image_reservation (day, status);
+    CREATE INDEX IF NOT EXISTS idx_image_reservation_chat_day
+        ON image_reservation (chat_id, day);
+    """,
 )
 
 # ── Сиды ────────────────────────────────────────────────────────────────────
@@ -529,7 +557,7 @@ class PgDatabase:
         async with self._pool.acquire() as conn:
             for statement in DDL_STATEMENTS:
                 await conn.execute(statement)
-            logger.info("[pg_db] DDL ok (8 таблиц + индексы)")
+            logger.info("[pg_db] DDL ok (таблицы + индексы)")
             await self._seed_roles(conn)
             await self._seed_admins(conn)
             if seed_settings:

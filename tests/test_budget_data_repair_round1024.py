@@ -1,4 +1,4 @@
-"""F22 (раунд 10.24, `budget-data-repair-round1024`, ADR-1024-23) — ремонт
+﻿"""F22 (раунд 10.24, `budget-data-repair-round1024`, ADR-1024-23) — ремонт
 потерянных per-chat seed-overrides + read-only аудит + fail-loud CLI PG.
 
 Покрытие (spec §6.1, review iter1):
@@ -594,9 +594,11 @@ class TestFlagBoundary:
 
     def test_delta_ddl_zero(self):
         from services import pg_db
-        assert len(pg_db.DDL_STATEMENTS) == 45
+        # NOTE (A5, ADR-1026-17 D1): +1 (image_reservation — санкция
+        # Δ DDL ≠ 0, verbatim §7 ADR); 45 → 46.
+        assert len(pg_db.DDL_STATEMENTS) == 46
 
     def test_delta_catalog_zero(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 469
-        assert len(pc.GROUPS) == 100
+        assert len(pc.REGISTRY) == 473
+        assert len(pc.GROUPS) == 102

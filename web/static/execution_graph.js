@@ -61,6 +61,10 @@
     l1_clusterizer: 'llm', l2_writer: 'llm',
     formatting: 'format', format: 'format',
     algorithm: 'algorithm', publish: 'publish', publication: 'publish',
+    // A9 (ADR-1026-22 D7/D10): 9 этапов §51 — существующие kinds, display-only.
+    decision: 'algorithm', memory_lookup: 'tool', rag: 'tool',
+    web_extraction: 'tool', factcheck: 'tool', image_prompt: 'algorithm',
+    image_generation: 'tool', reaction: 'tool', text_generation: 'llm',
   };
   // ru-словарь этапов (§24): Слой 1/Слой 2/Один вызов/Изображение/Инструмент
   // + реальные этапы Эпика 2.
@@ -71,6 +75,12 @@
     l1_clusterizer: 'L1 Кластеризатор', l2_writer: 'L2 Писатель',
     formatting: 'Форматирование', format: 'Форматирование',
     algorithm: 'Алгоритм', publish: 'Публикация', publication: 'Публикация',
+    // A9/§51 (display-only).
+    decision: 'Решение', memory_lookup: 'Поиск в памяти', rag: 'RAG',
+    web_extraction: 'Извлечение из веба', factcheck: 'Фактчек',
+    image_prompt: 'Подготовка промпта изображения',
+    image_generation: 'Генерация изображения', reaction: 'Реакция',
+    text_generation: 'Генерация текста',
   };
 
   function has(obj, key) {

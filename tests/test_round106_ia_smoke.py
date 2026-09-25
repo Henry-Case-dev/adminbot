@@ -1,4 +1,4 @@
-"""Раунд 10.6 (T-1211) — smoke/маркеры новой IA TMA (A1–A9).
+﻿"""Раунд 10.6 (T-1211) — smoke/маркеры новой IA TMA (A1–A9).
 
 Покрытие: каталог-инвариант 392/91/364/mapped 89; 5 master-флагов default ON;
 реальные гейты; 11 модулей/7 AI; нет sidebar; scroll-модель; emoji→icon;
@@ -41,11 +41,11 @@ class TestCatalogInvariant106:
         # 459/98/96/20/418; TAB_RULES 20 — новых вкладок нет.
         # 10.24 (F5/ADR-1024-9 D3): Δ REGISTRY/GROUPS/_TAB_BY_GROUP = 0
         # (group переносит вкладку) → 459/98/96; TAB_RULES 20→21 (+mod_images).
-        assert len(pc.REGISTRY) == 469
-        assert len(pc.GROUPS) == 100
-        assert len(pc._TAB_BY_GROUP) == 98
+        assert len(pc.REGISTRY) == 473
+        assert len(pc.GROUPS) == 102
+        assert len(pc._TAB_BY_GROUP) == 100
         assert len(pc.TAB_RULES) == 21
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 426
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
 
     def test_five_master_flags_default_true(self):
         s = Settings()

@@ -1,4 +1,4 @@
-"""Раунд 10.6 (T-1211) — тест-аудит маппинга групп → вкладок новой IA:
+﻿"""Раунд 10.6 (T-1211) — тест-аудит маппинга групп → вкладок новой IA:
 11 модулей (mod_*) + 7 подразделов AI; каждая конфиг-группа ровно на одной
 вкладке; зеркало TABS (web/app.js) синхронно с TAB_RULES.
 """
@@ -155,9 +155,9 @@ class TestTabMappingAudit:
         # 10.24 (F5/ADR-1024-9 D3): Δ REGISTRY/GROUPS/_TAB_BY_GROUP = 0
         # (группа flags_module_images лишь меняет вкладку-владельца) →
         # 459/98/96; TAB_RULES 20→21 (+mod_images).
-        assert len(pc._TAB_BY_GROUP) == 98
-        assert len(GROUPS) == 100
-        assert len(pc.REGISTRY) == 469
+        assert len(pc._TAB_BY_GROUP) == 100
+        assert len(GROUPS) == 102
+        assert len(pc.REGISTRY) == 473
 
 
 class TestModuleTabs:
@@ -168,8 +168,11 @@ class TestModuleTabs:
             "limits_summary", "limits_summary_filter", "reactions_summary"}
 
     def test_mod_direct_composition(self):
+        # A7 (10.26, ADR-1026-20 D6): +flags_decision_making (секция
+        # «Принятие решений», §48).
         assert tab_group_ids(TAB_MOD_DIRECT) == {
-            "flags_module_direct", "flags_chat_behavior", "limits_chat",
+            "flags_module_direct", "flags_chat_behavior",
+            "flags_decision_making", "limits_chat",
             "limits_chat_behavior", "limits_chat_budgets", "limits_temperature",
             "reactions_chat"}
         # F5 (10.24, ADR-1024-9 D1): тумблер изображений ПЕРЕНЕСЁН из
@@ -178,8 +181,10 @@ class TestModuleTabs:
 
     def test_mod_images_composition(self):
         """F5 (10.24, ADR-1024-9 D1): отдельная вкладка «Генерация
-        изображений» — ровно одна группа flags_module_images, nav «Модули»."""
-        assert tab_group_ids(TAB_MOD_IMAGES) == {"flags_module_images"}
+        изображений» — flags_module_images; 10.26 (A5, ADR-1026-17 D9):
+        + секция «Лимиты» (limits_images, §27). Nav «Модули»."""
+        assert tab_group_ids(TAB_MOD_IMAGES) == {
+            "flags_module_images", "limits_images"}
         assert pc.tab_nav(TAB_MOD_IMAGES) == pc.NAV_MODULES
         assert pc.CONFIG_TAB_TITLES[TAB_MOD_IMAGES] == "Генерация изображений"
         # провайдер остаётся «одним домом» на llm_providers.

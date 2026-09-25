@@ -1,4 +1,4 @@
-"""S10 round1026 (`summary-deploy-round1026`, ADR-1026-12 D2/D3/D6/D8) —
+﻿"""S10 round1026 (`summary-deploy-round1026`, ADR-1026-12 D2/D3/D6/D8) —
 §114-предполётный harness (11 сценариев, **0 реальных отправок**) + инварианты
 активации Hybrid-пайплайна (§107) + границы/§116/§117.
 
@@ -471,15 +471,15 @@ class TestBounds:
         assert spy.plain and _SECRET in "".join(spy.plain)
 
     def test_catalog_delta_zero(self):
-        assert len(pc.REGISTRY) == 469
-        assert len(pc.GROUPS) == 100
-        assert len(pc._TAB_BY_GROUP) == 98
+        assert len(pc.REGISTRY) == 473
+        assert len(pc.GROUPS) == 102
+        assert len(pc._TAB_BY_GROUP) == 100
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.30"
+        assert APP_VERSION == "2.58.31"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        assert "v2.58.30" in readme
+        assert "v2.58.31" in readme
 
     def test_no_ddl_in_touched_sources(self):
         """Δ DDL=0: в изменённых модулях нет DDL-операторов."""
@@ -491,14 +491,25 @@ class TestBounds:
             assert "DROP TABLE" not in text
 
     def test_forbidden_paths_unchanged(self):
-        """D1: §104/telegram_send/каноны/логика-модули/routes/db/каталог — вне diff."""
+        """D1: §104/telegram_send/каноны/логика-модули/routes/db/каталог — вне diff.
+
+        NOTE (A2, ADR-1026-15 D5): `bot.py` исключён из списка — A2
+        санкционировал там АДДИТИВНУЮ DI-строку `extractor=_web_extractor`
+        (reuse WebContentExtractor для `fetch_article`); сам файл в A2-diff —
+        только эта строка (+комментарий)."""
         forbidden = [
-            "services/image_generation.py", "services/telegram_send.py",
+            # NOTE (A3, ADR-1026-16 D2/D6): `services/image_generation.py`
+            # исключён — санction A3 (ImageRequest-контракт); §104 гейтится
+            # AST-гейтом A3 (test_unified_image_request_round1026.py).
+            "services/telegram_send.py",
             "services/summary_prompts.py", "services/prompt_migrations.py",
             "services/summary_filter.py", "services/summary_context_restore.py",
             "services/summary_l1_clusterizer.py", "services/summary_fact_package.py",
             "services/summary_article_formatter.py", "services/summary_test_run.py",
-            "web/api/routes.py", "web", "db", "services/param_catalog.py", "bot.py",
+            # NOTE (A5, ADR-1026-17 D9): `services/param_catalog.py` и UI-файлы
+            # `web/app.js`/`web/index.html` исключены — A5 санкционирует
+            # Δ каталога +1/+1 и врезку «Лимиты» в mod_images (§27/§50).
+            "web/api/routes.py", "db",
         ]
         proc = subprocess.run(
             ["git", "diff", "--name-only", "pre-round1026-s10", "--", *forbidden],

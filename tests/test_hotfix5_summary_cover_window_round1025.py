@@ -343,16 +343,24 @@ class TestImageBudgetIsolation:
     @pytest.mark.asyncio
     async def test_image_consume_allowed_when_llm_exhausted(
             self, monkeypatch):
-        """LLM-лимит чата исчерпан (`0` = запрет), но image-ветка отдельная."""
+        """LLM-лимит чата исчерпан (`0` = запрет), но image-ветка отдельная.
+
+        NOTE (A5, ADR-1026-17 D4): per-chat `image_calls` теперь резолвится
+        через каталожный ключ `limits.image_daily_limit` (chat → global →
+        env-дефолт), а не env-only. Изоляция от LLM сохранена: `_resolve_limit`
+        вызывается для image-ключа и возвращает допустимый лимит, LLM-ключ не
+        задействован."""
         monkeypatch.setattr(Settings, "WORKER_DAILY_LLM_CALLS_PER_CHAT", 0)
         monkeypatch.setattr(Settings, "WORKER_DAILY_IMAGE_CALLS_PER_CHAT", 3)
-        resolve = AsyncMock(return_value=0)
+        resolve = AsyncMock(return_value=3)       # image-лимит допустим
         monkeypatch.setattr(worker_budget, "_resolve_limit", resolve)
         pg = _FakePg()
         allowed = await worker_budget.consume(
             pg, "chat:-100", worker_budget.METRIC_IMAGE_CALLS, 1)
         assert allowed is True
-        resolve.assert_not_awaited()             # каталоговый LLM-лимит не трогаем
+        resolve.assert_awaited()                  # A5/D4: каталожный image-ключ
+        key = resolve.await_args.args[0]
+        assert key == "limits.image_daily_limit"  # не LLM-ключ
 
     @pytest.mark.asyncio
     async def test_global_image_limit_blocks(self, monkeypatch):

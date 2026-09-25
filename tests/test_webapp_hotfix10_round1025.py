@@ -1,4 +1,4 @@
-"""hotfix10 round 10.25 — маркер-гейт `hotfix10-liquidglass-rollback-shell-geometry-round1025`.
+﻿"""hotfix10 round 10.25 — маркер-гейт `hotfix10-liquidglass-rollback-shell-geometry-round1025`.
 
 Задачи T-2843…T-2864 (ADR-1025-18 D1–D6). Поведение (DOM/Playwright) —
 в `tests/js/round1025_hotfix10_glass_geometry_bg_test.js` (запускается из
@@ -208,15 +208,15 @@ class TestAuroraResize:
 class TestVersionAndInvariants:
     def test_app_version_bumped(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.30", m and m.group(1)
+        assert m and m.group(1) == "2.58.31", m and m.group(1)
 
     def test_catalog_invariants(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 469
-        assert len(pc.GROUPS) == 100
-        assert len(pc._TAB_BY_GROUP) == 98
+        assert len(pc.REGISTRY) == 473
+        assert len(pc.GROUPS) == 102
+        assert len(pc._TAB_BY_GROUP) == 100
         assert len(pc.TAB_RULES) == 21
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 426
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
 
     def test_csp_no_external(self):
         assert not re.search(r'src="https?://', INDEX)

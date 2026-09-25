@@ -1,4 +1,4 @@
-"""Раунд 10.20 / Фаза D (БЛОК 3) — тесты UX/UI-рефакторинга мини-аппа.
+﻿"""Раунд 10.20 / Фаза D (БЛОК 3) — тесты UX/UI-рефакторинга мини-аппа.
 
 Покрытие (T-1903):
   * T-1895  критические баги: binding (маски/значения), роутинг модулей,
@@ -247,8 +247,8 @@ class TestHumanReadableLabels:
         # 10.23 (F5/ADR-1023-5 D5): рост каталога — отдельная фича → 446/95.
         # 10.24 (F21/ADR-1024-22 D8): +1 REGISTRY/GROUPS (BUDGETS_ENABLED,
         # flags_module_budgets) → 459/98.
-        assert len(pc.REGISTRY) == 469
-        assert len(pc.GROUPS) == 100
+        assert len(pc.REGISTRY) == 473
+        assert len(pc.GROUPS) == 102
 
 
 class TestAdvancedAccordion:

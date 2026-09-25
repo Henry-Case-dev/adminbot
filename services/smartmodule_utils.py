@@ -19,7 +19,11 @@ import random
 import re
 
 from aiogram import types
-from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
+from aiogram.exceptions import (
+    TelegramBadRequest,
+    TelegramForbiddenError,
+    TelegramRetryAfter,
+)
 
 from config.settings import settings
 from services import hot_config as hot
@@ -90,21 +94,156 @@ def _escape_chunk(chunk: str) -> str:
             .replace(">", "&gt;"))
 
 
-async def react_moai(bot, chat_id: int, message_id: int | None) -> None:
-    """🗿 на триггер-сообщение (best-effort, 65.1). НЕ бросает: любая ошибка
-    реакции (в т.ч. удалённый триггер) → WARNING, молчание НЕ нарушается.
-    Q8 (aiogram 3.29.1): Bot.set_message_reaction(chat_id, message_id,
-    reaction=[ReactionTypeEmoji], is_big=None) — сигнатура подтверждена
-    inspect-ом при реализации."""
-    if bot is None or message_id is None:
-        return
+# ── A8 (раунд 10.26, ADR-1026-21 D1/D3/D5/D8/D10): механика реакции ─────────
+# §41: официальный `setMessageReaction` — единственный путь; доступность
+# разрешается реактивно; недоступная реакция → детерминированная альтернатива
+# или тихий отказ; ошибка реакции НИКОГДА не становится текстом.
+# Курируемый стандартный набор (боты — без custom/premium/paid; одна реакция).
+REACTION_DEFAULT = "🗿"
+REACTION_LAUGH = "😂"
+REACTION_APPROVE = "👍"
+REACTION_FIRE = "🔥"
+STANDARD_REACTION_EMOJIS = frozenset(
+    {REACTION_DEFAULT, REACTION_LAUGH, REACTION_APPROVE, REACTION_FIRE})
+# Детерминированный порядок альтернатив (без случайности — REQ-A8-09).
+REACTION_FALLBACK_ORDER = (REACTION_LAUGH, REACTION_APPROVE, REACTION_FIRE,
+                           REACTION_DEFAULT)
+# ≤2 попытки на реакцию (D3): достаточно для §41 «альтернатива/отказ»,
+# дружелюбно к rate-limit.
+MAX_REACTION_ATTEMPTS = 2
+
+# Закрытый R17-safe словарь исходов (D5; ровно 7).
+REACTION_OK = "ok"
+REACTION_UNAVAILABLE = "unavailable"
+REACTION_FORBIDDEN = "forbidden"
+REACTION_MESSAGE_GONE = "message_gone"
+REACTION_SERVICE = "service"
+REACTION_RATE_LIMITED = "rate_limited"
+REACTION_UNKNOWN = "unknown"
+REACTION_OUTCOMES = frozenset({
+    REACTION_OK, REACTION_UNAVAILABLE, REACTION_FORBIDDEN,
+    REACTION_MESSAGE_GONE, REACTION_SERVICE, REACTION_RATE_LIMITED,
+    REACTION_UNKNOWN,
+})
+
+# Классификационные маркеры Telegram-ошибок (lowercase-подстроки; D5).
+_REACTION_UNAVAILABLE_MARKERS = ("reaction_invalid",)
+_REACTION_FORBIDDEN_MARKERS = (
+    "not enough rights", "chat_write_forbidden", "chat_admin_required",
+    "bot was blocked",
+)
+_REACTION_GONE_MARKERS = (
+    "message to react not found", "message not found", "message_id_invalid",
+)
+_REACTION_SERVICE_MARKERS = ("can't react to this message type",)
+
+
+def reaction_mechanics_enabled() -> bool:
+    """A8 kill-switch `REACTION_MECHANICS_ENABLED` (env-only, default ON; D10).
+
+    Резолв per-call; никогда не бросает (fail-safe ON). OFF → точный legacy."""
     try:
-        await bot.set_message_reaction(
-            chat_id, message_id,
-            reaction=[types.ReactionTypeEmoji(emoji="🗿")], is_big=False)
+        return bool(getattr(settings, "REACTION_MECHANICS_ENABLED", True))
     except Exception:
-        logger.warning("SmartModule: moai reaction failed | chat=%s msg=%s",
-                       chat_id, message_id, exc_info=True)
+        return True
+
+
+def _classify_reaction_error(exc: TelegramBadRequest) -> str:
+    """R17-safe классификация ``TelegramBadRequest`` (D5).
+
+    ``REACTION_INVALID`` → unavailable (единственный retryable); права/блок →
+    forbidden; удалённое/служебное → gone/service; иначе unknown (безопасно)."""
+    msg = str(getattr(exc, "message", "") or "").lower()
+    if any(m in msg for m in _REACTION_UNAVAILABLE_MARKERS):
+        return REACTION_UNAVAILABLE
+    if any(m in msg for m in _REACTION_FORBIDDEN_MARKERS):
+        return REACTION_FORBIDDEN
+    if any(m in msg for m in _REACTION_GONE_MARKERS):
+        return REACTION_MESSAGE_GONE
+    if any(m in msg for m in _REACTION_SERVICE_MARKERS):
+        return REACTION_SERVICE
+    return REACTION_UNKNOWN
+
+
+def _reaction_candidates(primary: str | None) -> tuple[str, ...]:
+    """Детерминированные кандидаты: primary (или 🗿) + первые альтернативы из
+    ``REACTION_FALLBACK_ORDER`` без primary, всего ≤ ``MAX_REACTION_ATTEMPTS``."""
+    base = primary if primary in STANDARD_REACTION_EMOJIS else REACTION_DEFAULT
+    alts = tuple(e for e in REACTION_FALLBACK_ORDER
+                 if e != base)[:MAX_REACTION_ATTEMPTS - 1]
+    return (base,) + alts
+
+
+def _warn_reaction_failed(chat_id: int, message_id: int, code: str,
+                          reason_code: str | None, *, exc_info: bool = False
+                          ) -> None:
+    """Единая R17-safe WARNING-строка (сохраняет подстроку
+    ``moai reaction failed`` — регресс-совместимость `test_smartmodule_utils`);
+    только id/enum/reason/эмодзи-код, без контента (R17)."""
+    logger.warning(
+        "SmartModule: moai reaction failed | chat=%s msg=%s code=%s reason=%s",
+        chat_id, message_id, code, reason_code or "-", exc_info=exc_info)
+
+
+async def react_moai(bot, chat_id: int, message_id: int | None, *,
+                     reaction: str | None = None,
+                     reason_code: str | None = None) -> str:
+    """Реакция на триггер-сообщение (best-effort, 65.1 + A8 §41-механика).
+
+    Аддитивное расширение: позиционные 3 аргумента сохранены → legacy-сайты
+    (handlers/direct safety-net) работают байт-в-байт (🗿, одиночная попытка).
+    Новые возможности (контекстный эмодзи + детерминированный fallback)
+    включаются ТОЛЬКО при ``reaction is not None`` И kill-switch ON (D11).
+
+    Всегда возвращает R17-safe код исхода (старые вызовы игнорируют возврат).
+    НЕ бросает: любая ошибка → WARNING, молчание/текст НЕ порождаются."""
+    if bot is None or message_id is None:
+        return REACTION_UNKNOWN
+    legacy = (reaction is None) or (not reaction_mechanics_enabled())
+    candidates = (REACTION_DEFAULT,) if legacy else _reaction_candidates(reaction)
+    for index, emoji in enumerate(candidates):
+        try:
+            # Q8 (aiogram 3.29.1/3.31.0): set_message_reaction(chat_id,
+            # message_id, reaction=[ReactionTypeEmoji], is_big=False).
+            await bot.set_message_reaction(
+                chat_id, message_id,
+                reaction=[types.ReactionTypeEmoji(emoji=emoji)], is_big=False)
+            if not legacy:
+                logger.info(
+                    "SmartModule: moai reaction sent | chat=%s msg=%s "
+                    "emoji=%s reason=%s",
+                    chat_id, message_id, emoji, reason_code or "-")
+            return REACTION_OK
+        except TelegramRetryAfter:
+            # D6: повтор НЕ выполняется (реакция некритична; sleep блокировал
+            # бы handler); тихий отказ.
+            _warn_reaction_failed(chat_id, message_id, REACTION_RATE_LIMITED,
+                                  reason_code, exc_info=True)
+            return REACTION_RATE_LIMITED
+        except TelegramBadRequest as exc:
+            code = _classify_reaction_error(exc)
+            # Только `unavailable` retryable → следующая попытка; иначе стоп.
+            if code == REACTION_UNAVAILABLE and index + 1 < len(candidates):
+                continue
+            _warn_reaction_failed(chat_id, message_id, code, reason_code,
+                                  exc_info=True)
+            return code
+        except TelegramForbiddenError:
+            # L-1 (REQ-A9-12, ADR-1026-22 D13): HTTP 403 (нет прав/бот
+            # заблокирован) — отдельный класс, НЕ подкласс TelegramBadRequest;
+            # раньше попадал в generic → REACTION_UNKNOWN. Поведение
+            # безопасности идентично (тихий отказ, 0 текста/fallback).
+            _warn_reaction_failed(chat_id, message_id, REACTION_FORBIDDEN,
+                                  reason_code, exc_info=True)
+            return REACTION_FORBIDDEN
+        except Exception:
+            _warn_reaction_failed(chat_id, message_id, REACTION_UNKNOWN,
+                                  reason_code, exc_info=True)
+            return REACTION_UNKNOWN
+    # Все кандидаты недоступны → тихий отказ (0 реакций, 0 текста).
+    _warn_reaction_failed(chat_id, message_id, REACTION_UNAVAILABLE,
+                          reason_code)
+    return REACTION_UNAVAILABLE
 
 
 def _is_reply_target_gone(exc: TelegramBadRequest) -> bool:

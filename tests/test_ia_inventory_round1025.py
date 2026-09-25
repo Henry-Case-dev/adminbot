@@ -1,4 +1,4 @@
-"""F1 round 10.25 — инвентарь/покрытие IA (T-2402, spec §8.4).
+﻿"""F1 round 10.25 — инвентарь/покрытие IA (T-2402, spec §8.4).
 
 Доказывает БЕЗ потери функционала:
   * Zаморозка каталога: множества `pg_key`/групп и `{group_id: tab_id}`
@@ -50,9 +50,9 @@ class TestCatalogFrozen:
         assert current == BASELINE["group_tab"]
 
     def test_counters_unchanged(self):
-        assert len(pc.REGISTRY) == BASELINE["counts"]["REGISTRY"] == 469
-        assert len(pc.GROUPS) == BASELINE["counts"]["GROUPS"] == 100
-        assert len(pc._TAB_BY_GROUP) == BASELINE["counts"]["_TAB_BY_GROUP"] == 98
+        assert len(pc.REGISTRY) == BASELINE["counts"]["REGISTRY"] == 473
+        assert len(pc.GROUPS) == BASELINE["counts"]["GROUPS"] == 102
+        assert len(pc._TAB_BY_GROUP) == BASELINE["counts"]["_TAB_BY_GROUP"] == 100
         assert len(pc.TAB_RULES) == BASELINE["counts"]["TAB_RULES"] == 21
 
 

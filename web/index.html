@@ -1460,6 +1460,41 @@
                   </div>
                 </div>
               </template>
+              <!-- A5 (T-3603/D9, §27): врезка «Лимиты» модуля «Генерация
+                   изображений» — дневной лимит, фактический расход,
+                   источник, время сброса и TZ; read-only строка общего
+                   бюджета всех чатов (env-only, не дублирует настройку). -->
+              <div v-if="workspaceModule && workspaceModule.id === 'mod_images'
+                        && workspaceTab === 'limits' && imageUsage"
+                   class="col-span-full grid gap-3 md:grid-cols-2"
+                   data-image-limits>
+                <div v-if="imageUsage.chat" class="card p-4" data-image-limit-chat>
+                  <div class="text-sm font-bold mb-1">Дневной лимит изображений</div>
+                  <div class="text-xs text-gray-400 mb-1">Использовано сегодня:</div>
+                  <div class="text-lg font-bold" data-image-used>
+                    {{ imageUsage.chat.used }} / {{ imageUsage.chat.limit }}
+                  </div>
+                  <div class="progress mb-2"><div
+                    :style="{ width: (budgetRatio(imageUsage.chat) * 100) + '%' }"></div></div>
+                  <div class="text-xs text-gray-400">Источник: {{ imageSourceLabel(imageUsage.chat.source) }}</div>
+                  <div class="text-xs text-gray-400">Временная зона: {{ imageUsage.chat.timezone || '—' }}</div>
+                  <div class="text-xs text-gray-400">Следующий сброс: {{ imageResetLabel(imageUsage.chat.next_reset_at) }}</div>
+                  <div v-if="imageUsage.chat.requests != null" class="text-xs text-gray-500 mt-1">
+                    Запросов: {{ imageUsage.chat.requests }} · успешных: {{ imageUsage.chat.success }} · ошибок: {{ imageUsage.chat.errors }}
+                  </div>
+                </div>
+                <div v-if="imageUsage.shared" class="card p-4" data-image-limit-shared>
+                  <div class="text-sm font-bold mb-1">Общий бюджет всех чатов</div>
+                  <div class="text-xs text-gray-400 mb-1">read-only, env-only (отдельно от лимита чата)</div>
+                  <div class="text-lg font-bold" data-image-shared-used>
+                    {{ imageUsage.shared.used }} / {{ imageUsage.shared.limit }}
+                  </div>
+                  <div class="progress mb-2"><div
+                    :style="{ width: (budgetRatio(imageUsage.shared) * 100) + '%' }"></div></div>
+                  <div class="text-xs text-gray-400">Временная зона: {{ imageUsage.shared.timezone || '—' }}</div>
+                  <div class="text-xs text-gray-400">Следующий сброс: {{ imageResetLabel(imageUsage.shared.next_reset_at) }}</div>
+                </div>
+              </div>
               <template v-for="grp in currentTabGroups" :key="grp.uid">
               <!-- Раунд 10.4 (E-3): заголовок секции витрины — перед первой
                    группой секции (sectionTitle возвращает null для остальных:

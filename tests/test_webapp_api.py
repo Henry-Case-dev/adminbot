@@ -1,4 +1,4 @@
-"""Epic 85 (T-617/T-638, 84.5) — тесты REST-эндпоинтов /api/*.
+﻿"""Epic 85 (T-617/T-638, 84.5) — тесты REST-эндпоинтов /api/*.
 
 TestClient + ConfigCache-стаб (роли/админы в памяти; PG-операции — мок пула
 как в test_config_cache). Покрытие: health/me/config (маскировка секретов
@@ -1397,7 +1397,7 @@ class TestParamPermissionFlagsApi:
         # (IMPORT_HISTORY_RETENTION_DAYS) → categorized 412.
         # 10.23 (F5/ADR-1023-5 D5): +5 categorized → 421.
         # 10.24 (F21/ADR-1024-22 D8): +1 categorized (BUDGETS_ENABLED) → 434.
-        assert len(items) == len(categorized) == 444
+        assert len(items) == len(categorized) == 448
         m = items["limits.search_max_symbols"]
         assert m["category"] == "limits"
         assert m["group"] == "limits_search"

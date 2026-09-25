@@ -11,7 +11,11 @@ import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
+from aiogram.exceptions import (
+    TelegramBadRequest,
+    TelegramForbiddenError,
+    TelegramRetryAfter,
+)
 
 from services import smartmodule_utils as utils_mod
 from services.smartmodule_phrases import THROTTLE_PHRASES
@@ -347,3 +351,105 @@ class TestReactMoai:
         with caplog.at_level(logging.WARNING):
             await utils_mod.react_moai(bot, CHAT_ID, 77)   # НЕ бросает
         assert any("moai reaction failed" in r.message for r in caplog.records)
+
+
+class TestReactMoaiMechanicsA8:
+    """A8 (ADR-1026-21 D1/D3/D5/D6/D10): аддитивные кейсы к legacy
+    `TestReactMoai` — контекстный эмодзи, детерминированный fallback,
+    таксономия, rate-limit без повтора, OFF-паритет (единственная 🗿)."""
+
+    @pytest.mark.asyncio
+    async def test_contextual_emoji_sent_single_attempt(self, monkeypatch):
+        # Патчим тип живого синглтона (часть тестов reload'ит config.settings).
+        monkeypatch.setattr(type(utils_mod.settings),
+                            "REACTION_MECHANICS_ENABLED", True)
+        bot = AsyncMock()
+        code = await utils_mod.react_moai(
+            bot, CHAT_ID, 77, reaction=utils_mod.REACTION_FIRE,
+            reason_code="emotion")
+        assert code == utils_mod.REACTION_OK
+        bot.set_message_reaction.assert_awaited_once()
+        reaction = bot.set_message_reaction.await_args.kwargs["reaction"]
+        assert len(reaction) == 1 and reaction[0].emoji == "🔥"
+
+    @pytest.mark.asyncio
+    async def test_invalid_then_deterministic_alternative(self, monkeypatch):
+        monkeypatch.setattr(type(utils_mod.settings),
+                            "REACTION_MECHANICS_ENABLED", True)
+        bot = AsyncMock()
+        bot.set_message_reaction = AsyncMock(side_effect=[
+            TelegramBadRequest(method=None,
+                               message="Bad Request: REACTION_INVALID"),
+            True,
+        ])
+        code = await utils_mod.react_moai(
+            bot, CHAT_ID, 77, reaction=utils_mod.REACTION_LAUGH)
+        assert code == utils_mod.REACTION_OK
+        assert bot.set_message_reaction.await_count == 2
+        reaction = bot.set_message_reaction.await_args.kwargs["reaction"]
+        assert reaction[0].emoji == "👍"
+
+    @pytest.mark.asyncio
+    async def test_retry_after_no_retry(self, monkeypatch):
+        monkeypatch.setattr(type(utils_mod.settings),
+                            "REACTION_MECHANICS_ENABLED", True)
+        bot = AsyncMock()
+        bot.set_message_reaction = AsyncMock(
+            side_effect=TelegramRetryAfter(method=None, message="flood",
+                                           retry_after=3))
+        code = await utils_mod.react_moai(
+            bot, CHAT_ID, 77, reaction=utils_mod.REACTION_LAUGH)
+        assert code == utils_mod.REACTION_RATE_LIMITED
+        bot.set_message_reaction.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_off_parity_fixed_moai_single_attempt(self, monkeypatch):
+        monkeypatch.setattr(type(utils_mod.settings),
+                            "REACTION_MECHANICS_ENABLED", False)
+        bot = AsyncMock()
+        bot.set_message_reaction = AsyncMock(side_effect=[
+            TelegramBadRequest(method=None,
+                               message="Bad Request: REACTION_INVALID"),
+            True,
+        ])
+        code = await utils_mod.react_moai(
+            bot, CHAT_ID, 77, reaction=utils_mod.REACTION_LAUGH)
+        assert code == utils_mod.REACTION_UNAVAILABLE
+        bot.set_message_reaction.assert_awaited_once()
+        reaction = bot.set_message_reaction.await_args.kwargs["reaction"]
+        assert reaction[0].emoji == "🗿"
+
+
+class TestReactMoaiL1A9:
+    """A9 (ADR-1026-22 D13, REQ-A9-12): `TelegramForbiddenError` (HTTP 403) →
+    `REACTION_FORBIDDEN`, не `unknown`; поведение безопасности идентично
+    (1 вызов `set_message_reaction`, 0 текста, тот же R17-safe WARNING)."""
+
+    @pytest.mark.asyncio
+    async def test_forbidden_classified_and_no_text(self, monkeypatch, caplog):
+        monkeypatch.setattr(type(utils_mod.settings),
+                            "REACTION_MECHANICS_ENABLED", True)
+        bot = AsyncMock()
+        bot.set_message_reaction = AsyncMock(side_effect=TelegramForbiddenError(
+            method=None, message="Forbidden: bot is not a member"))
+        with caplog.at_level(logging.WARNING):
+            code = await utils_mod.react_moai(
+                bot, CHAT_ID, 77, reaction=utils_mod.REACTION_LAUGH,
+                reason_code="emoji_reaction")
+        assert code == utils_mod.REACTION_FORBIDDEN
+        bot.set_message_reaction.assert_awaited_once()
+        # Нет fallback-повтора и НЕТ текстового ответа на ошибку (§41).
+        assert [c[0] for c in bot.method_calls] == ["set_message_reaction"]
+        assert any("moai reaction failed" in r.message
+                   and "forbidden" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_generic_exception_still_unknown(self, monkeypatch):
+        monkeypatch.setattr(type(utils_mod.settings),
+                            "REACTION_MECHANICS_ENABLED", True)
+        bot = AsyncMock()
+        bot.set_message_reaction = AsyncMock(side_effect=RuntimeError("boom"))
+        code = await utils_mod.react_moai(
+            bot, CHAT_ID, 77, reaction=utils_mod.REACTION_LAUGH)
+        assert code == utils_mod.REACTION_UNKNOWN
+        bot.set_message_reaction.assert_awaited_once()

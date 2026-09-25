@@ -678,7 +678,10 @@ class TestOrchestratorCorrelation:
         captured = {}
 
         async def _fake_send(bot, chat_id, prompt, *,
-                             reply_to_message_id=None, correlation_id=None):
+                             reply_to_message_id=None, correlation_id=None,
+                             source="direct", **kwargs):
+            # NOTE (A5, ADR-1026-17 D3): `generate_and_send` получил
+            # аддитивный kwarg `source` (idem-дискриминатор входа).
             captured["correlation_id"] = correlation_id
             return SimpleNamespace(ok=True, reason="")
 

@@ -58,9 +58,12 @@ def _patch_budget(monkeypatch, ok=True):
 class TestToolSchema:
     def test_generate_image_is_ninth(self):
         # F19 (ADR-1024-20 §2.1): +transcribe_video → 10 (generate_image
-        # остаётся 9-м; transcribe_video — в конец).
+        # остаётся 9-м; transcribe_video — в конец); A2 (ADR-1026-15 D5):
+        # +fetch_article → 11.
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
-        assert names == _FIRST_EIGHT + ["generate_image", "transcribe_video"]
+        assert names == _FIRST_EIGHT + [
+            "generate_image", "transcribe_video", "fetch_article",
+            "get_user_context"]
         assert names[8] == "generate_image"
         assert IMAGE_GENERATION_TOOL_NAME == "generate_image"
 
@@ -77,12 +80,15 @@ class TestToolSchema:
         json.dumps(tool)
 
     def test_active_tools_gate(self):
-        # F19: transcribe_video default ON присутствует в обоих наборах.
+        # F19: transcribe_video default ON; A2: fetch_article default ON
+        # (оба присутствуют в обоих наборах).
         assert [t["function"]["name"] for t in active_tools()] == \
-            _FIRST_EIGHT + ["transcribe_video"]
+            _FIRST_EIGHT + ["transcribe_video", "fetch_article",
+                            "get_user_context"]
         assert [t["function"]["name"]
                 for t in active_tools(image_generation_enabled=True)] == \
-            _FIRST_EIGHT + ["generate_image", "transcribe_video"]
+            _FIRST_EIGHT + ["generate_image", "transcribe_video",
+                            "fetch_article", "get_user_context"]
 
     def test_factcheck_tools_unchanged(self):
         from services.tool_schemas import factcheck_tools
@@ -251,8 +257,9 @@ class TestPreGateIntegration:
         await service.handle(bot, dc_message(text="привет", message_id=1,
                                              user=user), user)
         names = [t["function"]["name"] for t in captured["tools"]]
-        # F19: transcribe_video (default ON) входит в список → 8 базовых + 1.
-        assert len(names) == 9
+        # F19: transcribe_video (default ON); A2: fetch_article (default ON);
+        # A6: get_user_context (default ON) → 8 базовых + 3 хвостовых.
+        assert len(names) == 11
         assert "generate_image" not in names
 
     @pytest.mark.asyncio
@@ -574,7 +581,8 @@ class TestErrors:
         captured = {}
 
         async def fake_send(bot, chat_id, prompt, *,
-                            reply_to_message_id=None, correlation_id=None):
+                            reply_to_message_id=None, correlation_id=None,
+                            source="direct"):
             captured["correlation_id"] = correlation_id
             return ig.GenerationResult(ok=True, content=b"x")
 

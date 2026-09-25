@@ -130,13 +130,18 @@ from services.smartmodule_phrases import (
 )
 from services.smartmodule_throttling import format_remaining_time
 from services.smartmodule_utils import (
+    REACTION_APPROVE,
+    REACTION_FIRE,
+    REACTION_LAUGH,
     _reply,
     escape_lore_html,
     react_moai,
+    reaction_mechanics_enabled,
     send_chunked_reply,
     strip_lore_html,
 )
 from services.smart_cache import normalize_text
+from services.smartmodule_urls import resolve_context_url
 from services.self_reflection import extract_self_essence, record_extractor_status
 from services.summary_memory import (
     _SELF_ECHO_INSTRUCTION,
@@ -158,6 +163,7 @@ from services.token_counter import (
 from services.context_middleware import truncate_keep_header
 from services.reply_postprocess import strip_reasoning_tags
 from services import anticliche_cache
+from services.agentic_events import emit_agentic_event
 from services import usage_events
 from services.negative_constraints import (
     channel_enabled_rules,
@@ -470,6 +476,119 @@ ACTION_SILENT = "silent"    # молчание без реакции (резер
 ACTION_TOOL = "tool"        # ход с реально вызванными инструментами → Stage-2
 COORDINATOR_ACTIONS = (ACTION_REPLY, ACTION_REACT, ACTION_SILENT, ACTION_TOOL)
 
+# ── A7 (round 10.26, ADR-1026-20 D1/D3/D5/D9): Decision Making ──────────────
+# Программная политика §42–§45 (Фаза P) + контекст §47 + R17-safe reason_code.
+# 0 LLM-вызовов; реакции — reuse существующего `react_moai` (D5).
+REACTION_MOAI = "🗿"
+
+# Закрытый R17-safe словарь причин решения (D9; ровно 15 кодов).
+REASON_EXPLICIT_REQUEST = "explicit_request"
+REASON_QUESTION = "question"
+REASON_IMAGE_REACTION = "image_reaction"
+REASON_LAUGHTER = "laughter"
+REASON_EMOTION = "emotion"
+REASON_ACKNOWLEDGEMENT = "acknowledgement"
+REASON_EMOJI_REACTION = "emoji_reaction"
+REASON_NOT_ADDRESSED = "not_addressed"
+REASON_DIALOGUE_COMPLETED = "dialogue_completed"
+REASON_RECENT_REPLY = "recent_reply"
+REASON_TOOL_RESULT = "tool_result"
+REASON_TOOL_UNAVAILABLE = "tool_unavailable"
+REASON_DISABLED = "disabled"
+REASON_DEFAULT = "default"
+REASON_ERROR = "error"
+REASON_CODES = frozenset({
+    REASON_EXPLICIT_REQUEST, REASON_QUESTION, REASON_IMAGE_REACTION,
+    REASON_LAUGHTER, REASON_EMOTION, REASON_ACKNOWLEDGEMENT,
+    REASON_EMOJI_REACTION, REASON_NOT_ADDRESSED, REASON_DIALOGUE_COMPLETED,
+    REASON_RECENT_REPLY, REASON_TOOL_RESULT, REASON_TOOL_UNAVAILABLE,
+    REASON_DISABLED, REASON_DEFAULT, REASON_ERROR,
+})
+
+# A8 (round 10.26, ADR-1026-21 D1): детерминированная карта `reason_code →
+# эмодзи` (механика, делегированная A7→A8 в ADR-1026-20 D5). A7-политика
+# «когда/какую» (классы/приоритеты/`action`) НЕ меняется — меняется только
+# значение эмодзи уже выбранной ветки `react`. `REACTION_MOAI` 🗿 — дефолт/
+# fallback. Строки `:832/839/847/859` используют `_reaction_for_reason(...)`.
+_REACTION_BY_REASON = {
+    REASON_IMAGE_REACTION: REACTION_LAUGH,
+    REASON_LAUGHTER: REACTION_LAUGH,
+    REASON_EMOJI_REACTION: REACTION_APPROVE,
+    REASON_EMOTION: REACTION_FIRE,
+}
+
+
+def _reaction_for_reason(reason: str | None) -> str:
+    """Контекстный эмодзи для reason-кода A7 (D1); 🗿 — дефолт/fallback.
+
+    Kill-switch OFF → всегда 🗿 (OFF-лог и OFF-поведение совпадают, D10)."""
+    if not reaction_mechanics_enabled():
+        return REACTION_MOAI
+    return _REACTION_BY_REASON.get(reason, REACTION_MOAI)
+
+
+# Программные классы сообщений (§3.3) — R17-safe (внутренние коды).
+MSG_EXPLICIT = "explicit_request"
+MSG_QUESTION = "question"
+MSG_LAUGHTER = "laughter"
+MSG_EMOJI = "emoji_only"
+MSG_ACK = "acknowledgement"
+MSG_OTHER = "other"
+
+# §43-маркеры явных содержательных обращений (программно, без LLM).
+_EXPLICIT_MARKERS = (
+    "нарисуй", "сгенерируй", "картинк", "изображени", "фактчек",
+    "проверь факт", "правда ли", "найди", "загугли", "поищи", "объясни",
+    "расскажи", "что ты знаешь", "ответь в стиле", "переведи", "прочитай",
+    "скачай", "сделай", "покажи", "напиши", "составь", "придумай", "помоги",
+)
+# Вопросительные конструкции (без «?») — считаем question (§42/§43).
+_QUESTION_STARTS = ("кто", "что", "где", "когда", "почему", "зачем", "как",
+                    "какой", "какая", "какие", "сколько", "куда", "чей",
+                    "можно ли")
+_LAUGH_RE = re.compile(
+    r"а?хах|хаха|хех|кек|лол|ржу|ору\b|смешно|😂|🤣|😆|😹|🙈",
+    re.IGNORECASE)
+# Одиночный эмодзи/знак (без букв и цифр), короткий.
+_EMOJI_ONLY_RE = re.compile(r"^[^\w]{1,8}$", re.UNICODE)
+# A7 (F-3): вопросительная пунктуация без слов («?», «???», «?!») — это
+# короткий, но реальный вопрос (§42/REQ-A7-12), а не эмодзи-реакция.
+_QUESTION_PUNCT_RE = re.compile(r"^[^\w]*\?[^\w]*$", re.UNICODE)
+# A7 (F-3): прочая «пустая» пунктуация без слов («...», «..») — тоже НЕ
+# эмодзи-реакция; fail-safe → other (политика ответит, не «съест»).
+_ELLIPSIS_ONLY_RE = re.compile(r"^[.\s…]+$", re.UNICODE)
+# Короткие подтверждения (§42) — точные формы (нормализованные).
+_ACK_WORDS = frozenset({
+    "ок", "окей", "ok", "okay", "понял", "поняла", "понятно", "спасибо",
+    "благодарю", "ясно", "принято", "ладно", "хорошо", "угу", "ага",
+    "плюс", "👍", "🔥",
+})
+_BOTWORD_RE = re.compile(r"(?i)\bбот\w*")
+_ACK_STRIP = " \t!.,…"
+
+
+@dataclass
+class DecisionContext:
+    """Контекст §47 (R17-safe признаки, без сырого текста) для Фазы P."""
+
+    reply_to_bot: bool = False
+    reply_to_is_image: bool = False
+    reply_to_is_article: bool = False
+    has_question: bool = False
+    bot_replied_recently: bool = False
+    expects_tool_result: bool = False
+    is_private: bool = False
+    addressed: bool = True
+
+
+@dataclass
+class DecisionToggles:
+    """3 тумблера §48 (per-chat override→global→default)."""
+
+    ignore_trivial: bool = True
+    reactions: bool = True
+    image_reactions: bool = True
+
 # R17-safe коды намерения (не сырой текст запроса).
 INTENT_IMAGE = "image"
 INTENT_NOSTALGIA = "nostalgia"
@@ -512,6 +631,24 @@ class CoordinatorDecision:
     action: str
     style: str = ""
     enabled: bool = True
+    # A7 (ADR-1026-20 D1): аддитивные поля контракта решения. `action` — не
+    # tool; `style=silent` недопустим (нормализуется ниже).
+    target_message_id: int | None = None
+    reaction: str | None = None
+    reason_code: str = REASON_DEFAULT
+    needs_tools: bool = False
+
+    def __post_init__(self) -> None:
+        # Инварианты 1/2 (ADR D1/§39): action ∈ {reply,react,silent,tool};
+        # `style=silent` невозможен; реакция — только при action=react.
+        if self.action not in COORDINATOR_ACTIONS:
+            self.action = ACTION_REPLY
+        if self.style == "silent":
+            self.style = ""
+        if self.action != ACTION_REACT:
+            self.reaction = None
+        if self.reason_code not in REASON_CODES:
+            self.reason_code = REASON_DEFAULT
 
 
 def coordinator_enabled() -> bool:
@@ -520,6 +657,14 @@ def coordinator_enabled() -> bool:
     Резолв per-call (не кэшируется): OFF → точный legacy-путь. Никогда не
     бросает (R3)."""
     return bool(getattr(settings, "DIRECT_COORDINATOR_ENABLED", True))
+
+
+def decision_making_enabled() -> bool:
+    """Kill-switch A7 `DIRECT_DECISION_MAKING_ENABLED` (env-only, default ON).
+
+    Резолв per-call; OFF → точный A1-baseline (политика §42–§45 не строится;
+    `action` ∈ {tool,reply}). Никогда не бросает (R3)."""
+    return bool(getattr(settings, "DIRECT_DECISION_MAKING_ENABLED", True))
 
 
 def _coordinator_intent(query: str, *, image_fired: bool, dig_fired: bool,
@@ -599,14 +744,38 @@ def _coordinator_memory_need(tool_names, *, dig_fired: bool,
     return bool(set(tool_names) & _MEMORY_TOOLS)
 
 
+def _coordinator_reason(*, action: str, tool_names: tuple, evaluation: str,
+                        degraded: bool, lore_compiled: bool,
+                        pre_reason: str) -> str:
+    """R17-safe причина итогового действия Фазы T (D9)."""
+    if action == ACTION_TOOL:
+        # Провал инструмента при ожидании результата → честная ошибка (§43);
+        # итоговый текст даёт существующий Stage-2 (не молчание).
+        return (REASON_TOOL_UNAVAILABLE if evaluation == EVAL_FAILED
+                else REASON_TOOL_RESULT)
+    if tool_names and (degraded or evaluation == EVAL_FAILED):
+        return REASON_TOOL_UNAVAILABLE
+    if lore_compiled:
+        return REASON_TOOL_RESULT
+    return pre_reason or REASON_DEFAULT
+
+
 def build_coordinator_decision(*, query: str, message, raw, user_id,
                                image_fired: bool, dig_fired: bool,
-                               lore_compiled: bool) -> CoordinatorDecision:
+                               lore_compiled: bool,
+                               pre_reason: str = REASON_DEFAULT,
+                               pre_reaction: str | None = None,
+                               target_message_id: int | None = None
+                               ) -> CoordinatorDecision:
     """Собрать внутреннее решение Координатора (0 LLM). Никогда не бросает."""
     forward = bool(_forward_source_of(message))
     tool_trace = getattr(raw, "tool_trace", None) or []
     tool_names = _coordinator_tool_names(tool_trace)
     degraded = bool(getattr(raw, "degraded", False))
+    evaluation = _coordinator_evaluate(tool_trace, degraded)
+    action = _coordinator_choose_action(
+        has_tools=bool(tool_trace), degraded=degraded,
+        lore_compiled=lore_compiled)
     return CoordinatorDecision(
         intent=_coordinator_intent(query, image_fired=image_fired,
                                    dig_fired=dig_fired, forward=forward),
@@ -615,23 +784,148 @@ def build_coordinator_decision(*, query: str, message, raw, user_id,
         memory_need=_coordinator_memory_need(
             tool_names, dig_fired=dig_fired, lore_compiled=lore_compiled),
         tool_calls=tool_names,
-        evaluation=_coordinator_evaluate(tool_trace, degraded),
-        action=_coordinator_choose_action(
-            has_tools=bool(tool_trace), degraded=degraded,
-            lore_compiled=lore_compiled),
+        evaluation=evaluation,
+        action=action,
+        target_message_id=target_message_id,
+        reaction=pre_reaction if action == ACTION_REACT else None,
+        reason_code=_coordinator_reason(
+            action=action, tool_names=tool_names, evaluation=evaluation,
+            degraded=degraded, lore_compiled=lore_compiled,
+            pre_reason=pre_reason),
+        needs_tools=bool(tool_names),
     )
 
 
+def _decision_message_class(text: str) -> str:
+    """Программная классификация сообщения (§3.3), без LLM/случайности."""
+    raw = str(text or "").strip()
+    if not raw:
+        return MSG_OTHER
+    low = raw.lower().strip(_ACK_STRIP)
+    if low in _ACK_WORDS:
+        return MSG_ACK
+    # A7 (F-3): «?»/«???»/«?!» — короткий реальный вопрос, не эмодзи (§42).
+    if _QUESTION_PUNCT_RE.match(raw):
+        return MSG_QUESTION
+    # A7 (F-3): «...»/«..» — не эмодзи-реакция; fail-safe → other.
+    if _ELLIPSIS_ONLY_RE.match(raw):
+        return MSG_OTHER
+    if _EMOJI_ONLY_RE.match(raw):
+        return MSG_EMOJI
+    if _LAUGH_RE.search(raw):
+        return MSG_LAUGHTER
+    if raw.endswith("?"):
+        return MSG_QUESTION
+    if any(marker in low for marker in _EXPLICIT_MARKERS):
+        return MSG_EXPLICIT
+    first = low.split(" ", 1)[0]
+    if any(low.startswith(word) for word in _QUESTION_STARTS) or \
+            first in _QUESTION_STARTS:
+        return MSG_QUESTION
+    return MSG_OTHER
+
+
+def _decision_pre_action(*, message_class: str, context: DecisionContext,
+                         toggles: DecisionToggles, target_message_id=None,
+                         image_pre_gate_fired: bool = False,
+                         dig_pre_gate_fired: bool = False
+                         ) -> tuple[str, str, str | None, int | None]:
+    """Фаза P (§3.3): (action, reason_code, reaction, target_message_id).
+
+    Детерминированный приоритет: реальные задачи (explicit/question) всегда
+    перевешивают; без случайности; fail-safe → ``reply``."""
+    try:
+        # (3) пре-гейт (image/dig) уже отправил результат — не глушим.
+        if image_pre_gate_fired or dig_pre_gate_fired:
+            return ACTION_REPLY, REASON_TOOL_RESULT, None, target_message_id
+        # (1) явные содержательные обращения / (2) вопросы.
+        if message_class == MSG_EXPLICIT:
+            return ACTION_REPLY, REASON_EXPLICIT_REQUEST, None, target_message_id
+        if message_class == MSG_QUESTION or context.has_question:
+            return ACTION_REPLY, REASON_QUESTION, None, target_message_id
+        # (4) ожидается результат инструмента / ответ на статью-результат —
+        # отвечаем итогом (не глушим и не уходим в «эмоциональную» реакцию).
+        # F-2: поля §47 теперь реально прочитываются политикой.
+        if context.expects_tool_result or (
+                context.reply_to_bot and context.reply_to_is_article):
+            return ACTION_REPLY, REASON_TOOL_RESULT, None, target_message_id
+        # (5/6) эмоциональные короткие — реакция (не универсальный исход).
+        if message_class in (MSG_LAUGHTER, MSG_EMOJI):
+            if context.reply_to_bot and context.reply_to_is_image:
+                if toggles.image_reactions:
+                    reason = (REASON_IMAGE_REACTION
+                              if message_class == MSG_LAUGHTER
+                              else REASON_EMOJI_REACTION)
+                    return (ACTION_REACT, reason, _reaction_for_reason(reason),
+                            target_message_id)
+                # IMAGE_REACTIONS OFF → существующий текстовый путь.
+                return ACTION_REPLY, REASON_DEFAULT, None, target_message_id
+            if toggles.reactions:
+                reason = (REASON_LAUGHTER if message_class == MSG_LAUGHTER
+                          else REASON_EMOJI_REACTION)
+                return (ACTION_REACT, reason, _reaction_for_reason(reason),
+                        target_message_id)
+            return ACTION_REPLY, REASON_DEFAULT, None, target_message_id
+        # (7) подтверждения (§42).
+        if message_class == MSG_ACK:
+            if toggles.ignore_trivial:
+                return (ACTION_SILENT, REASON_ACKNOWLEDGEMENT, None,
+                        target_message_id)
+            if toggles.reactions:
+                return (ACTION_REACT, REASON_EMOTION,
+                        _reaction_for_reason(REASON_EMOTION),
+                        target_message_id)
+            return ACTION_REPLY, REASON_DEFAULT, None, target_message_id
+        # (8) не адресовано боту (§45). F-2: в ЛС (private) любое сообщение
+        # адресовано боту — «не адресовано» применимо только в групповом
+        # контексте, поэтому там ветку молчания не включаем.
+        if not context.addressed and not context.is_private:
+            if toggles.ignore_trivial:
+                reason = (REASON_RECENT_REPLY if context.bot_replied_recently
+                          else REASON_NOT_ADDRESSED)
+                return ACTION_SILENT, reason, None, target_message_id
+            if toggles.reactions:
+                return (ACTION_REACT, REASON_EMOTION,
+                        _reaction_for_reason(REASON_EMOTION),
+                        target_message_id)
+            return ACTION_REPLY, REASON_DEFAULT, None, target_message_id
+        # (9) бот недавно ответил, продолжение не нужно (reply-ветка §45).
+        if context.bot_replied_recently and toggles.ignore_trivial:
+            return ACTION_SILENT, REASON_RECENT_REPLY, None, target_message_id
+        # (10) иначе — ответ.
+        return ACTION_REPLY, REASON_DEFAULT, None, target_message_id
+    except Exception:      # fail-safe: никогда не ложное молчание
+        logger.warning("[decision] policy error — reply", exc_info=True)
+        return ACTION_REPLY, REASON_ERROR, None, target_message_id
+
+
 def _log_coordinator_decision(decision: CoordinatorDecision, *,
-                              chat_id: int) -> None:
-    """R17-safe событие решения (числа/коды/имена инструментов)."""
+                              chat_id: int,
+                              with_decision_fields: bool = False) -> None:
+    """R17-safe событие решения (числа/коды/имена инструментов).
+
+    ``with_decision_fields`` (A7) добавляет ``reason_code``/``target_id``/
+    ``needs_tools``/``reaction``; OFF → строка байт-в-байт как A1."""
+    if not with_decision_fields:
+        logger.info(
+            "[coordinator] decision | chat=%s | intent=%s | addressee=%s | "
+            "memory=%d | tools=%s | eval=%s | action=%s",
+            chat_id, decision.intent, decision.addressee,
+            1 if decision.memory_need else 0,
+            ",".join(decision.tool_calls) or "-",
+            decision.evaluation, decision.action)
+        return
     logger.info(
         "[coordinator] decision | chat=%s | intent=%s | addressee=%s | "
-        "memory=%d | tools=%s | eval=%s | action=%s",
+        "memory=%d | tools=%s | eval=%s | action=%s | reason=%s | target=%s | "
+        "needs_tools=%d | reaction=%s",
         chat_id, decision.intent, decision.addressee,
         1 if decision.memory_need else 0,
         ",".join(decision.tool_calls) or "-",
-        decision.evaluation, decision.action)
+        decision.evaluation, decision.action, decision.reason_code,
+        decision.target_message_id if decision.target_message_id is not None
+        else "-",
+        1 if decision.needs_tools else 0, decision.reaction or "-")
 
 
 def _log_coordinator_outcome(*, chat_id: int, action: str, style: str,
@@ -640,6 +934,17 @@ def _log_coordinator_outcome(*, chat_id: int, action: str, style: str,
     logger.info(
         "[coordinator] outcome | chat=%s | action=%s | style=%s | chars=%d",
         chat_id, action, style or "-", int(chars))
+
+
+def _log_decision_short_circuit(*, chat_id: int, action: str, reason_code: str,
+                                target_id: int | None,
+                                reaction: str | None = None) -> None:
+    """R17-safe лог Фазы P (silent/react): только id/enum (§3.9)."""
+    logger.info(
+        "[decision] action | chat=%s | action=%s | reason=%s | target=%s | "
+        "reaction=%s",
+        chat_id, action, reason_code,
+        target_id if target_id is not None else "-", reaction or "-")
 
 
 class DirectChatThrottle:
@@ -762,6 +1067,99 @@ class DirectChatService:
                 chat_id, tg_message_id, exc_info=True)
             return None
 
+    # ── A7 Decision Making (round 10.26, ADR-1026-20 D3/D6/D8) ──
+
+    def _decision_addressed(self, message, query: str, reply,
+                            reply_to_bot: bool,
+                            is_private: bool = False) -> bool:
+        """Адресовано ли сообщение боту (§45). Консервативно: при
+        отсутствии явного встречного сигнала — ``True`` (handle вызывается
+        только после trigger-гейта; ложное молчание недопустимо). F-2:
+        в ЛС (``private``) сообщение всегда адресовано боту."""
+        if reply_to_bot or is_private:
+            return True
+        text = str(query or "")
+        if self.bot_username and ("@" + self.bot_username) in text.lower():
+            return True
+        if _BOTWORD_RE.search(text):
+            return True
+        if reply is None:
+            return True
+        reply_from = getattr(reply, "from_user", None)
+        rid = getattr(reply_from, "id", None) if reply_from is not None else None
+        if (isinstance(rid, int) and self.bot_id is not None
+                and rid != self.bot_id):
+            return False          # явный ответ другому пользователю
+        return True
+
+    async def _decision_context(self, chat_id: int, message,
+                                query: str) -> DecisionContext:
+        """Контекст §47 из существующих источников (без нового хранилища).
+        Fail-open → консервативный контекст (addressed=True → reply)."""
+        try:
+            reply = getattr(message, "reply_to_message", None)
+            reply_to_bot = False
+            if reply is not None:
+                reply_from = getattr(reply, "from_user", None)
+                rid = (getattr(reply_from, "id", None)
+                       if reply_from is not None else None)
+                if (isinstance(rid, int) and self.bot_id is not None
+                        and rid == self.bot_id):
+                    reply_to_bot = True
+            reply_media = (message_media_type(reply)
+                           if reply is not None else None)
+            reply_is_image = reply_media == "photo"
+            reply_is_article = bool(getattr(reply, "web_page", None)) \
+                if reply is not None else False
+            is_private = (getattr(getattr(message, "chat", None), "type", None)
+                          == "private")
+            # F-2 / §47(6): «ожидается результат инструмента». Pre-LLM (до
+            # tool_trace) — эвристика по replied-сообщению бота-результата:
+            # статья (fetch_article) или не-фото медиа (document/video/…).
+            # Фото ведёт отдельная image-ветка (5/6), поэтому в expects не
+            # входит. Только для ответа на сообщение бота.
+            expects_tool_result = bool(
+                reply_to_bot and (reply_is_article
+                                  or reply_media not in (None, "photo")))
+            return DecisionContext(
+                reply_to_bot=reply_to_bot,
+                reply_to_is_image=reply_is_image,
+                reply_to_is_article=reply_is_article,
+                has_question=_decision_message_class(query) == MSG_QUESTION,
+                bot_replied_recently=reply_to_bot,
+                expects_tool_result=expects_tool_result,
+                is_private=is_private,
+                addressed=self._decision_addressed(
+                    message, query, reply, reply_to_bot,
+                    is_private=is_private),
+            )
+        except Exception:
+            logger.warning("[decision] context error — conservative reply",
+                           exc_info=True)
+            return DecisionContext(addressed=True)
+
+    async def _decision_toggles(self, chat_id: int) -> DecisionToggles:
+        """3 тумблера §48: per-chat override→global→default (fail-open)."""
+        try:
+            from services.chat_params import get_chat_param as _cpg
+            ignore = await _cpg(
+                chat_id, "flags.chat_decision_ignore_trivial_enabled",
+                hot.get("flags.chat_decision_ignore_trivial_enabled",
+                        settings.CHAT_DECISION_IGNORE_TRIVIAL_ENABLED))
+            reactions = await _cpg(
+                chat_id, "flags.chat_decision_reactions_enabled",
+                hot.get("flags.chat_decision_reactions_enabled",
+                        settings.CHAT_DECISION_REACTIONS_ENABLED))
+            image_reactions = await _cpg(
+                chat_id, "flags.chat_decision_image_reactions_enabled",
+                hot.get("flags.chat_decision_image_reactions_enabled",
+                        settings.CHAT_DECISION_IMAGE_REACTIONS_ENABLED))
+            return DecisionToggles(bool(ignore), bool(reactions),
+                                   bool(image_reactions))
+        except Exception:
+            logger.warning("[decision] toggles error — defaults", exc_info=True)
+            return DecisionToggles()
+
     # ── Поток хендлера (58.4) ─────────────────────────────────
 
     async def handle(self, bot, message, user) -> None:
@@ -880,6 +1278,70 @@ class DirectChatService:
             image_pre_gate_fired = bool(image_block)
             if image_block:
                 user_blocks = self._insert_dig_result(user_blocks, image_block)
+            # A7 (round 10.26, ADR-1026-20 D2/D3/D4): Фаза P — программное
+            # решение о действии ДО генерации текста (0 LLM-вызовов).
+            # `silent`/`react` — короткое замыкание; `reply` — существующий
+            # путь. OFF kill-switch → точный A1-baseline (политика не
+            # строится). Реальные задачи (explicit/question) никогда не
+            # глушатся (§43).
+            pre_action = ACTION_REPLY
+            decision_on = decision_making_enabled()
+            # A9 (ADR-1026-22 D5/D6): DECISION_START — вход Фазы P (0 LLM).
+            _p_started = time.monotonic()
+            _trigger_id = getattr(message, "message_id", None)
+            emit_agentic_event(
+                "DECISION_START", run_id=correlation_id, chat_id=chat_id,
+                message_id=_trigger_id)
+            # F-5 / §3.3 (строка 0): OFF kill-switch → политика не строится,
+            # но причина решения фиксируется как `disabled` (диагностический
+            # контракт). Наблюдаемый формат A1-лога сохраняется байт-в-байт.
+            pre_reason = REASON_DEFAULT if decision_on else REASON_DISABLED
+            pre_reaction = None
+            pre_target = None
+            if decision_on:
+                _dctx = await self._decision_context(chat_id, message, query)
+                _toggles = await self._decision_toggles(chat_id)
+                pre_action, pre_reason, pre_reaction, pre_target = \
+                    _decision_pre_action(
+                        message_class=_decision_message_class(query),
+                        context=_dctx, toggles=_toggles,
+                        target_message_id=getattr(message, "message_id", None),
+                        image_pre_gate_fired=image_pre_gate_fired,
+                        dig_pre_gate_fired=dig_fired)
+                # A9 (D5/D6): DECISION_COMPLETE — уже принятое решение
+                # (A9 только наблюдает; политика A7 не дублируется).
+                emit_agentic_event(
+                    "DECISION_COMPLETE", run_id=correlation_id, chat_id=chat_id,
+                    message_id=_trigger_id, action=pre_action,
+                    reason=pre_reason,
+                    duration_ms=int((time.monotonic() - _p_started) * 1000))
+                if pre_action == ACTION_SILENT:
+                    _log_decision_short_circuit(
+                        chat_id=chat_id, action=ACTION_SILENT,
+                        reason_code=pre_reason, target_id=pre_target)
+                    # A9 (D6): silent-short-circuit → MESSAGE_IGNORED.
+                    emit_agentic_event(
+                        "MESSAGE_IGNORED", run_id=correlation_id,
+                        chat_id=chat_id, message_id=_trigger_id,
+                        action=ACTION_SILENT, reason=pre_reason,
+                        target=pre_target)
+                    return
+                if pre_action == ACTION_REACT:
+                    _log_decision_short_circuit(
+                        chat_id=chat_id, action=ACTION_REACT,
+                        reason_code=pre_reason, target_id=pre_target,
+                        reaction=pre_reaction)
+                    _reaction_outcome = await react_moai(
+                        bot, chat_id, pre_target,
+                        reaction=pre_reaction,
+                        reason_code=pre_reason)
+                    # A9 (D5): REACTION_SENT — после outcome A8 (7-enum).
+                    emit_agentic_event(
+                        "REACTION_SENT", run_id=correlation_id,
+                        chat_id=chat_id, message_id=pre_target,
+                        outcome=_reaction_outcome, reaction=pre_reaction,
+                        reason=pre_reason)
+                    return
             # T-619: системный промпт — горячая точка (фолбек код-канона).
             # Раунд 10 (F-7 §4.5): per-chat override (chat_params → глобал →
             # канон) — «Использовать мой» локального админа работает ТОЛЬКО
@@ -942,13 +1404,29 @@ class DirectChatService:
             # `services.native_media` (зафиксировано в tasks.md F14). Резолвер
             # безопасен (никогда не бросает). При OFF-флаге значение не мешает:
             # нативный резолв в `tool_router` гейтится `NATIVE_MEDIA_TOOLS_ENABLED`.
+            # A2 (ADR-1026-15 D6): общий контекстный резолв ссылки — текущее
+            # сообщение → reply (без новых I/O; не per-phrase). Однозначная
+            # ссылка доступна `fetch_article` без повторной присылки.
+            _reply_message = getattr(message, "reply_to_message", None)
+            _reply_text = ""
+            if _reply_message is not None:
+                _reply_text = (getattr(_reply_message, "text", None)
+                               or getattr(_reply_message, "caption", None) or "")
             tool_ctx = ToolContext(chat_id, query, bot=bot,
                                    reply_to_message_id=message.message_id,
                                    user_id=user_id,
                                    correlation_id=correlation_id,
+                                   resolved_url=resolve_context_url(
+                                       query, _reply_text),
                                    native_media=
                                    native_media_module.resolve_reply_video(
-                                       message))
+                                       message),
+                                   # A3 (ADR-1026-16 D3): авторитетный маркер
+                                   # прогона — пре-гейт сработал → 'generate_
+                                   # image' на этом же ходу вернёт skipped
+                                   # даже если модель его вызовет.
+                                   image_request_handled=
+                                   image_pre_gate_fired)
             try:
                 async with typing_active(bot, chat_id):
                     if self.tool_router is not None:
@@ -1007,8 +1485,12 @@ class DirectChatService:
                     query=query, message=message, raw=raw, user_id=user_id,
                     image_fired=image_pre_gate_fired, dig_fired=dig_fired,
                     lore_compiled=bool(
-                        getattr(tool_ctx, "lore_compiled", False)))
-                _log_coordinator_decision(coordinator, chat_id=chat_id)
+                        getattr(tool_ctx, "lore_compiled", False)),
+                    pre_reason=pre_reason, pre_reaction=pre_reaction,
+                    target_message_id=getattr(message, "message_id", None))
+                _log_coordinator_decision(
+                    coordinator, chat_id=chat_id,
+                    with_decision_fields=decision_on)
             # Раунд 10.22 (F5, ADR-1022-5): System 2 (Синтезатор тулов →
             # Вербализатор) — ТОЛЬКО при реально вызванных тулах, успешном
             # tool-финале и НЕ lore_compiled (детерминированная HTML-история
@@ -1582,7 +2064,17 @@ class DirectChatService:
                 reply_to_message_id=getattr(message, "message_id", None),
                 user_id=user_id,
                 correlation_id=correlation_id)
-            return await image_generation.maybe_handle_keyword(tool_ctx, query)
+            # A4 (ADR-1026-19 D1/§7.3): те же источники, что у tool-пути —
+            # один helper, две точки вызова (второго резолвера/RAG нет).
+            # Зависимости передаются только если доступны (совместимость с
+            # прежними вызовами/фасадами без memory/db/aliases).
+            deps = {}
+            for name in ("aliases", "db", "memory"):
+                value = getattr(self, name, None)
+                if value is not None:
+                    deps[name] = value
+            return await image_generation.maybe_handle_keyword(
+                tool_ctx, query, **deps)
         except asyncio.CancelledError:
             raise
         except Exception:

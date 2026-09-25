@@ -1,4 +1,4 @@
-"""F3 `persona-ui-tab-round1014` — UI подраздела «Личность» (#/ai/persona).
+﻿"""F3 `persona-ui-tab-round1014` — UI подраздела «Личность» (#/ai/persona).
 
 Покрытие (spec §2/§6/§7):
   * карточка «Личность» в Hub «ИИ» и special-маршрут #/ai/persona;
@@ -36,14 +36,14 @@ class TestCatalogInvariant:
         # 10.19 (F3/ADR-1019-3 D3, UPD3 п.5): → 437/92/90/20/407/412.
         # 10.23 (F5/ADR-1023-5 D5): +5/+3/+3 → 446/95/93/20/416/421.
         # 10.24 (F21/ADR-1024-22 D8): +1/+1/+1 → 459/98/96/20/418/434.
-        assert len(pc.REGISTRY) == 469
-        assert len(pc.GROUPS) == 100
-        assert len(pc._TAB_BY_GROUP) == 98
+        assert len(pc.REGISTRY) == 473
+        assert len(pc.GROUPS) == 102
+        assert len(pc._TAB_BY_GROUP) == 100
         assert len(pc.TAB_RULES) == 21
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 426
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 444
+        assert len(categorized) == 448
 
     def test_persona_not_config_tab(self):
         # «Личность» — special-screen, НЕ запись TABS (иначе ломается

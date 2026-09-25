@@ -325,9 +325,11 @@ class TestToolSetIntegration:
         # 10.20 (C/T-1887): tool-сет 7 → 8 (последним добавлен
         # compile_lore_story); 10.23 (F5/ADR-1023-5 D2): +generate_image → 9;
         # 10.24 (F19/ADR-1024-20 §2.1): +transcribe_video → 10;
+        # 10.26 (A2/ADR-1026-15 D5): +fetch_article → 11;
+        # 10.26 (A6/ADR-1026-18 D1): +get_user_context → 12;
         # get_recent_history сохранён по имени.
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
-        assert len(TOOL_CALLING_TOOLS) == 10
+        assert len(TOOL_CALLING_TOOLS) == 12
         assert "get_recent_history" in names
         assert TOOL_GET_RECENT_HISTORY in TOOL_CALLING_TOOLS
 

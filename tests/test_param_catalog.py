@@ -1,4 +1,4 @@
-"""Epic 85 (T-636) — тесты каталога-реестра параметров (84.12.2).
+﻿"""Epic 85 (T-636) — тесты каталога-реестра параметров (84.12.2).
 
 DoD: полнота (каждое поле Settings покрыто), категории каноничны,
 секретность (все keys + прокси → secret), инфраструктура исключена
@@ -88,9 +88,11 @@ class TestCompleteness:
         #   (limits.anticliche_max_patterns, default 200) = 417.
         #   + раунд 10.24 (F21/ADR-1024-22 D8): +1 — BUDGETS_ENABLED
         #   (flags.budgets_enabled, default True) = 418.
+        #   + раунд 10.26 (A5/ADR-1026-17 D4): +1 — IMAGE_DAILY_LIMIT
+        #   (limits.image_daily_limit, default 60) = 427.
         #   ANTICLICHE_FIRST_RUN_DELAY_MINUTES — ClassVar (env-only, в
         #   dataclass.fields не входит).
-        assert len(fields) == 426
+        assert len(fields) == 430
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -308,7 +310,9 @@ class TestGroups8424:
         # клише, вкладка prompts) → GROUPS 97.
         # 10.24 (F21/ADR-1024-22 D8): +1 — flags_module_budgets (master-группа
         # бюджетов, вкладка mod_budgets) → GROUPS 98.
-        assert len(GROUPS) == 100
+        # 10.26 (A5/ADR-1026-17 D9): +1 — limits_images (секция «Лимиты»,
+        # вкладка mod_images) → GROUPS 101.
+        assert len(GROUPS) == 102
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -390,10 +394,12 @@ class TestGroups8424:
         # 10.23 (F8/ADR-1023-8, review iter1): prompts +10 (Stage-1/2 + режимы);
         # 10.26 (S3/ADR-1026-5 D4): prompts +1 (Кластеризатор L1);
         # 10.26 (S5/ADR-1026-7 D3): prompts +1 (Писатель L2).
+        # 10.26 (A5/ADR-1026-17 D9): limits +1 (IMAGE_DAILY_LIMIT,
+        # группа limits_images, вкладка mod_images) → limits 199.
         # content без изменений (phantom content.dynamic_cliche_list удалён —
         # F4 хранит клише в PG-таблице, ключ был бы «мёртвой ручкой»).
         assert counts == {"prompts": 23, "models": 56, "keys": 20,
-                          "limits": 198, "flags": 69, "reactions": 39,
+                          "limits": 199, "flags": 72, "reactions": 39,
                           "content": 5, "memory": 34}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

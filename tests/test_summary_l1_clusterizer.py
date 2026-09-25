@@ -1,4 +1,4 @@
-"""S3 round1026 (ADR-1026-5) — L1 «Кластеризатор»: контракт §95, ядро, слот §82,
+﻿"""S3 round1026 (ADR-1026-5) — L1 «Кластеризатор»: контракт §95, ядро, слот §82,
 логи §108/§109, канон ADR-1013-3 и инварианты живого пути.
 
 Покрытие (spec §6, T-3270…T-3272):
@@ -916,12 +916,12 @@ class TestCanon:
         assert pc.tab_nav(pc.TAB_PROMPTS) == pc.NAV_AI
 
     def test_catalog_delta_sanctioned(self):
-        assert len(pc.REGISTRY) == 469
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 426
+        assert len(pc.REGISTRY) == 473
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 444
-        assert len(pc.GROUPS) == 100
-        assert len(pc._TAB_BY_GROUP) == 98
+                    if s.category is not None]) == 448
+        assert len(pc.GROUPS) == 102
+        assert len(pc._TAB_BY_GROUP) == 100
         assert len(pc.TAB_RULES) == 21
 
     def test_migration_step_present(self):

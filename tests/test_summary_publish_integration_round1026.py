@@ -1,4 +1,4 @@
-"""S6 round1026 (`summary-publish-integration-round1026`, ADR-1026-11 D1–D10)
+﻿"""S6 round1026 (`summary-publish-integration-round1026`, ADR-1026-11 D1–D10)
 — публикационная интеграция живой доставки Саммари (§100–§106).
 
 Покрытие T-3438…T-3453 (SC-01…SC-20):
@@ -1192,18 +1192,18 @@ class TestBoundaries:
                 re.IGNORECASE), name
 
     def test_catalog_zero_delta(self):
-        assert len(pc.REGISTRY) == 469
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 426
+        assert len(pc.REGISTRY) == 473
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 444
-        assert len(pc.GROUPS) == 100
-        assert len(pc._TAB_BY_GROUP) == 98
+                    if s.category is not None]) == 448
+        assert len(pc.GROUPS) == 102
+        assert len(pc._TAB_BY_GROUP) == 100
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version(self):
-        assert APP_VERSION == "2.58.30"
+        assert APP_VERSION == "2.58.31"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        assert "v2.58.30" in readme
+        assert "v2.58.31" in readme
 
     def test_analytics_docstring_only_changed(self):
         """web/api/analytics.py: S6 меняет только docstring (код эндпоинта —
@@ -1235,11 +1235,18 @@ class TestBoundaries:
         assert _strip_docstrings(old.stdout) == _strip_docstrings(current)
 
     def test_forbidden_paths_outside_diff(self):
+        # NOTE (A2, ADR-1026-15 D5): `bot.py` исключён — A2 санкционировал там
+        # аддитивную DI-строку `extractor=_web_extractor` (reuse
+        # WebContentExtractor для `fetch_article`); больше bot.py A2 не менял.
         forbidden = [
-            "services/telegram_send.py", "services/image_generation.py",
+            "services/telegram_send.py",
+            # NOTE (A3, ADR-1026-16 D2/D6): `services/image_generation.py`
+            # исключён — санction A3 (ImageRequest-контракт); §104 гейтится
+            # AST-гейтом A3 (test_unified_image_request_round1026.py).
             "services/summary_prompts.py", "services/summary_test_run.py",
-            "web/api/routes.py", "db", "services/param_catalog.py",
-            "bot.py",
+            "web/api/routes.py", "db",
+            # NOTE (A5, ADR-1026-17 D9): `services/param_catalog.py` исключён —
+            # A5 санкционирует Δ каталога +1 ParamSpec +1 GroupSpec.
         ]
         try:
             proc = subprocess.run(

@@ -1,4 +1,4 @@
-"""S9 round1026 (ADR-1026-8 D2/D3/D5) — dry-run тест-контур «Тестирование» (§113).
+﻿"""S9 round1026 (ADR-1026-8 D2/D3/D5) — dry-run тест-контур «Тестирование» (§113).
 
 Покрытие (spec §9, SC-01…SC-13; задачи T-3348…T-3371):
   * SC-04/SC-12 — dry-run инварианты: 0 публикаций / 0 изменений памяти /
@@ -452,12 +452,12 @@ async def test_build_test_rows_fail_open_resets_stale_filter_metrics(monkeypatch
 # ── Δ каталога=0 / bump / границы ──────────────────────────────────────────
 
 def test_catalog_zero_delta():
-    assert len(pc.REGISTRY) == 469
-    assert len({f.name for f in dataclasses.fields(Settings)}) == 426
+    assert len(pc.REGISTRY) == 473
+    assert len({f.name for f in dataclasses.fields(Settings)}) == 430
     assert len([s for s in pc.REGISTRY.values()
-                if s.category is not None]) == 444
-    assert len(pc.GROUPS) == 100
-    assert len(pc._TAB_BY_GROUP) == 98
+                if s.category is not None]) == 448
+    assert len(pc.GROUPS) == 102
+    assert len(pc._TAB_BY_GROUP) == 100
     assert len(pc.TAB_RULES) == 21
 
 
@@ -468,7 +468,7 @@ def test_no_new_env_catalog_key():
 
 
 def test_app_version_bumped():
-    assert APP_VERSION == "2.58.30"
+    assert APP_VERSION == "2.58.31"
 
 
 def test_forbidden_modules_outside_diff():

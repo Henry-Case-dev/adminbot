@@ -503,7 +503,11 @@ async def on_startup():
             llm=_llm_client,
             # Раунд 10.24 (F14, ADR-1024-15 §2.3): STT-сервис для нативного
             # пути инструмента summarize_video (тот же инстанс, что youtube/0i).
-            transcriber=voice_service))
+            transcriber=voice_service,
+            # Раунд 10.26 (A2, ADR-1026-15 D5): extractor для `fetch_article`
+            # (reuse WebContentExtractor — тот же инстанс, что у web-модуля,
+            # без дубля сервиса).
+            extractor=_web_extractor))
         # 10.20 (БЛОК 6.2, ADR-1020-5 п.1, T-1907): тот же ToolRouter получает
         # фактчекер (Full Tool Access: dig_into_lore/compile_lore_story/веб).
         # DI-kwarg, порядок роутеров и setup-последовательность не меняются.

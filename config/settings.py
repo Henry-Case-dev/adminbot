@@ -551,6 +551,29 @@ class Settings:
     # (координатор не строится, лишних логов нет).
     DIRECT_COORDINATOR_ENABLED: ClassVar[bool] = _env_bool(
         "DIRECT_COORDINATOR_ENABLED", True)
+    # ── Раунд 10.26 (A7, ADR-1026-20 D7): env-only ClassVar kill-switch
+    # «Принятия решений» direct-чата (программная политика §42–§45:
+    # reply/react/silent/tool, контекст §47, 3 тумблера §48). default ON,
+    # Δ каталога = 0 (в param_catalog НЕ входит). Резолв per-call. OFF →
+    # точный A1-baseline: политика не строится (`action` ∈ {tool,reply}),
+    # `CHAT_SILENCE_*`/legacy-фолбэки как сегодня.
+    DIRECT_DECISION_MAKING_ENABLED: ClassVar[bool] = _env_bool(
+        "DIRECT_DECISION_MAKING_ENABLED", True)
+    # ── Раунд 10.26 (A8, ADR-1026-21 D10): env-only ClassVar kill-switch
+    # механики исполнения реакции (§41: доступность/детерминированная
+    # альтернатива/отказ, контекстный стандартный эмодзи, no-text-on-error).
+    # default ON, Δ каталога = 0 (в param_catalog НЕ входит). Резолв per-call.
+    # OFF → точный legacy: фиксированная 🗿, одиночная best-effort-попытка,
+    # без fallback/таксономии (hot-откат к pre-A8).
+    REACTION_MECHANICS_ENABLED: ClassVar[bool] = _env_bool(
+        "REACTION_MECHANICS_ENABLED", True)
+    # ── Раунд 10.26 (A9, ADR-1026-22 D3): env-only ClassVar kill-switch
+    # эмиссии диагностических событий §49 (децisions/tools/reaction/image) в
+    # существующий ExecutionGraph. default ON, Δ каталога = 0 (в param_catalog
+    # НЕ входит; новых PG-ключей/Settings нет). Резолв per-call. OFF → 0
+    # событий/узлов, поведение и логи baseline (паритет; hot-откат).
+    AGENTIC_EVENTS_ENABLED: ClassVar[bool] = _env_bool(
+        "AGENTIC_EVENTS_ENABLED", True)
     # ── Раунд 10.23 (F4, ADR-1023-4 D3/D6): env-only ClassVar kill-switch
     # динамического анти-клише кэша. default ON, Δ каталога = 0 (в
     # param_catalog не входит). OFF → `anticliche_cache.get_rules()` = (),
@@ -880,6 +903,37 @@ class Settings:
     # флагом НЕ гейтятся (безусловная ревизия канона, прецедент 8→9).
     MEDIA_TRANSCRIBE_TOOL_ENABLED: ClassVar[bool] = _env_bool(
         "MEDIA_TRANSCRIBE_TOOL_ENABLED", True)
+    # ── Раунд 10.26 (A2, ADR-1026-15 D3/D5): env-only ClassVar kill-switch'и
+    # цепочек инструментов (`tool_loop`). Δ каталога = 0 (в param_catalog НЕ
+    # входят). Default ON.
+    #   * TOOL_CHAIN_LIMITS_ENABLED — OFF → §17-лимиты (суммарный cap 6,
+    #     мягкий тайм-аут 360 c, дедуп ≤2, лимит платных 4) НЕ применяются;
+    #     поведение цикла — baseline. Envelope остаётся out-of-band и
+    #     модельно-видимый контур не затрагивает.
+    #   * ARTICLE_TOOL_ENABLED — OFF → инструмент `fetch_article` не
+    #     объявляется LLM (эффективный канон 10); схема/канон безусловны.
+    TOOL_CHAIN_LIMITS_ENABLED: ClassVar[bool] = _env_bool(
+        "TOOL_CHAIN_LIMITS_ENABLED", True)
+    ARTICLE_TOOL_ENABLED: ClassVar[bool] = _env_bool(
+        "ARTICLE_TOOL_ENABLED", True)
+    # ── Раунд 10.26 (A6, ADR-1026-18 D1/D10): env-only ClassVar kill-switch
+    # инструмента `get_user_context` (structured memory lookup поверх
+    # существующего досье/RAG). Δ каталога = 0 (в param_catalog НЕ входит,
+    # прецедент ARTICLE_TOOL_ENABLED). Default ON.
+    #   MEMORY_LOOKUP_ENABLED — OFF → инструмент не объявляется LLM
+    #   (`active_tools`); наличие схемы `TOOL_GET_USER_CONTEXT` и канон
+    #   `TOOL_CALLING_TOOLS == 12` — безусловны; первые 11 имён — байт-в-байт.
+    MEMORY_LOOKUP_ENABLED: ClassVar[bool] = _env_bool(
+        "MEMORY_LOOKUP_ENABLED", True)
+    # ── Раунд 10.26 (A3, ADR-1026-16 D6): env-only ClassVar киль-свитч
+    # единого ImageRequest (§18–§21). Δ каталога = 0 (в param_catalog НЕ
+    # входит). Default ON.
+    #   UNIFIED_IMAGE_REQUEST_ENABLED — OFF → legacy-путь: пре-гейт ключевика
+    #   строит вызов напрямую (как в baseline), tool-путь не проверяет маркер
+    #   прогона (нет skipped/already_handled), описание `generate_image` —
+    #   байт-в-байт прежний текст (tool_schemas.py D4/D6).
+    UNIFIED_IMAGE_REQUEST_ENABLED: ClassVar[bool] = _env_bool(
+        "UNIFIED_IMAGE_REQUEST_ENABLED", True)
     # Лимит Telegram: число частей ответа (чанкинг 4096).
     MAX_SUMMARY_PARTS: int = _env_int("MAX_SUMMARY_PARTS", 1)
     SUMMARY_TIMEZONE: str = os.getenv("SUMMARY_TIMEZONE", "Asia/Yekaterinburg")
@@ -920,6 +974,37 @@ class Settings:
         "WORKER_DAILY_IMAGE_CALLS_PER_CHAT", 60)
     WORKER_DAILY_IMAGE_CALLS_GLOBAL: ClassVar[int] = _env_int(
         "WORKER_DAILY_IMAGE_CALLS_GLOBAL", 200)
+    # ── Раунд 10.26 (A5, ADR-1026-17 D4/D11): env-only ClassVar киль-свитч
+    # атомарного резерва дневного лимита изображений (kill-switch, default ON).
+    # Δ каталога = 0 (sam флаг В param_catalog НЕ входит; каталожный ключ —
+    # отдельный `limits.image_daily_limit`, ParamSpec IMAGE_DAILY_LIMIT).
+    #   IMAGE_DAILY_LIMIT_ENABLED — OFF → legacy `consume`-путь (байт-в-байт
+    #   поведение baseline hotfix-5: без резерва/журнала/commit-release).
+    IMAGE_DAILY_LIMIT_ENABLED: ClassVar[bool] = _env_bool(
+        "IMAGE_DAILY_LIMIT_ENABLED", True)
+    # ── Раунд 10.26 (A4, ADR-1026-19 D7/D4): env-only киль-свитч памяти в
+    # image-пути (§22–§25) + image-специфичные капы визуального среза.
+    # Δ каталога = 0 (в param_catalog НЕ входят; ClassVar — не dataclass-поля).
+    #   IMAGE_CONTEXT_MEMORY_ENABLED — OFF → режим A3: память не читается,
+    #   `context_required=False`, промпт = `extract_prompt` (байт-в-байт).
+    #   Капы строже A6 и в его потолках (A6 appearance 10/20, slice 5/10,
+    #   result 4000). Hard-потолки — код-константы в helper-модуле.
+    IMAGE_CONTEXT_MEMORY_ENABLED: ClassVar[bool] = _env_bool(
+        "IMAGE_CONTEXT_MEMORY_ENABLED", True)
+    IMAGE_CONTEXT_FACTS_MAX: ClassVar[int] = _env_int(
+        "IMAGE_CONTEXT_FACTS_MAX", 8)
+    IMAGE_CONTEXT_FACT_MAX_CHARS: ClassVar[int] = _env_int(
+        "IMAGE_CONTEXT_FACT_MAX_CHARS", 160)
+    IMAGE_CONTEXT_SLICE_MAX: ClassVar[int] = _env_int(
+        "IMAGE_CONTEXT_SLICE_MAX", 3)
+    IMAGE_CONTEXT_SLICE_MAX_CHARS: ClassVar[int] = _env_int(
+        "IMAGE_CONTEXT_SLICE_MAX_CHARS", 200)
+    IMAGE_CONTEXT_TOTAL_MAX_CHARS: ClassVar[int] = _env_int(
+        "IMAGE_CONTEXT_TOTAL_MAX_CHARS", 1200)
+    # Retention журнала резейвов (ledger `image_reservation`, PG-only):
+    # env-only, дней; opportunistic-purge ≤1/сутки/процесс (ADR-1026-17 D3).
+    IMAGE_RESERVATION_RETENTION_DAYS: ClassVar[int] = _env_int(
+        "IMAGE_RESERVATION_RETENTION_DAYS", 30)
     WORKER_PRIORITY_ORDER: str = os.getenv(
         "WORKER_PRIORITY_ORDER", "nostalgia,lore,dream")
     WORKER_BUDGET_JITTER_MINUTES: int = _env_int(
@@ -1330,6 +1415,16 @@ class Settings:
     CHAT_SILENCE_ENABLED: bool = _env_bool("CHAT_SILENCE_ENABLED", True)
     # Кулдаунов подряд до молчания; <1 → дефолт 5 (WARNING).
     CHAT_SILENCE_AFTER_COOLDOWNS: int = _env_int_min("CHAT_SILENCE_AFTER_COOLDOWNS", 5, 1)
+    # ── Раунд 10.26 (A7, ADR-1026-20 D6/§48): 3 тумблера секции
+    # «Принятие решений» (Модули → Ответы в чате → Принятие решений),
+    # категория flags, default ON, per-chat override→global→default.
+    # Один параметр — один источник (§50); «десятки коэффициентов» запрещены.
+    CHAT_DECISION_IGNORE_TRIVIAL_ENABLED: bool = _env_bool(
+        "CHAT_DECISION_IGNORE_TRIVIAL_ENABLED", True)
+    CHAT_DECISION_REACTIONS_ENABLED: bool = _env_bool(
+        "CHAT_DECISION_REACTIONS_ENABLED", True)
+    CHAT_DECISION_IMAGE_REACTIONS_ENABLED: bool = _env_bool(
+        "CHAT_DECISION_IMAGE_REACTIONS_ENABLED", True)
     # Стилевые якоря (65.4): секция <style_anchors> с последними ответами
     # бота из bot_replies. false → секция не строится.
     CHAT_STYLE_ANCHORS_ENABLED: bool = _env_bool("CHAT_STYLE_ANCHORS_ENABLED", True)
@@ -1677,6 +1772,14 @@ class Settings:
     IMAGE_API_KEY: str = os.getenv("IMAGE_API_KEY", "")
     IMAGE_GENERATION_MODULE_ENABLED: bool = _env_bool(
         "IMAGE_GENERATION_MODULE_ENABLED", True)
+    # Раунд 10.26 (A5, ADR-1026-17 D4): каталожное поле дневного лимита
+    # изображений `limits.image_daily_limit` (группа limits_images, вкладка
+    # mod_images) — «глобальный лимит по умолчанию» с per-chat override через
+    # существующее наследование (ADR-1018-7 D1). Дефолт 60 ==
+    # `WORKER_DAILY_IMAGE_CALLS_PER_CHAT`; sentinel `0`=запрет/<0`=безлимит/
+    # `>0`=cap (ADR-1019-8 D2). Shared-квота `WORKER_DAILY_IMAGE_CALLS_GLOBAL`
+    # остаётся env-only — НЕ смешивается с этим «дефолтом» (§30).
+    IMAGE_DAILY_LIMIT: int = _env_int("IMAGE_DAILY_LIMIT", 60)
 
     # ── Раунд 9 (AGI Memory, spec §3.6.4/Q12, T-824/T-825): «сон» ──────────
     # Парные Settings-поля для REGISTRY-записей категории memory (группа
@@ -1832,7 +1935,7 @@ settings = Settings()
 # S4 (10.26, ADR-1026-6 D1–D6): bump 2.58.22 → 2.58.23 — новый рантайм-модуль
 # `services/summary_fact_package.py` (детерминированный «пакет фактов §96»,
 # 0 LLM-вызовов; Δ каталога=0, Δ DDL=0; в живой путь НЕ врезан — GATED S5/S6).
-APP_VERSION = "2.58.30"   # A1 (10.26, ADR-1026-14 D1–D10): Эпик 3 Wave 1 «Tool Coordinator» — программный слой решения о действии ВНУТРИ существующего Синтезатора direct-чата (намерение/адресат/память/выбор инструментов/оценка/действие) без 3-го LLM-вызова (2-вызовность System 2 сохранена, await_count==2) и без wire-поля action (граница A7); модельный выбор инструментов сохранён (tool_choice='auto'), общий механизм цепочек — reuse существующего многораундового tool_loop (TOOL_MAX_ROUNDS=4, ≤2/раунд, fail-open; per-combination обработчиков нет); изоляция Вербализатора (только факты stage2_payload + стиль response_mode; при молчании/реакции не запускается); R17-safe наблюдаемость координатора (числа/коды/id/имена инструментов, без сырья), REUSE ExecutionGraph (вторая аналитика не создаётся); env-only ClassVar kill-switch DIRECT_COORDINATOR_ENABLED (default ON, Δ каталога=0, резолв per-call, OFF → точный legacy-путь); Δ DDL=0/Δ каталога=0, §104 generate_image и §85-UI вне diff, промпты не меняются (ADR-1013-3 NOT_APPLICABLE); откат soft OFF + annotated-тег pre-round1026-a1 → e3ea367; bump 2.58.29→2.58.30. S10 (10.26, ADR-1026-12 D1–D8): прямой деплой и активация Эпика 2 — code-default SUMMARY_HYBRID_L2_ENABLED OFF→ON (§107: новый пайплайн — основной сразу после деплоя, «не оставлять выключенной в ожидании ручной активации»; резолв per-chat→hot→env/default сохранён как аварийный kill-switch; «ручная активация»/UI-селектор Legacy↔Hybrid запрещены, «аварийное выключение» разрешено), §114-предполётный harness (11 сценариев, 0 отправок в основной чат), §115-процедура (7 проверок) + артефакты rich/plain, §117-результаты Эпика 2 (results.md, 14 пунктов); Δ DDL=0/Δ каталога=0 (F8 не переиздаётся), CSP/zero-build, 0 новых зависимостей, 2-вызовность, R17/R18; откат soft OFF + annotated-тег pre-round1026-s10; bump 2.58.28→2.58.29. S6 (10.26, ADR-1026-11 D1–D10): публикационная интеграция Саммари — reuse существующего sendRichMessage (services/telegram_send.py вне diff): rich-путь <img>→настоящий <h1>→<p> через серверный форматтер S5 (services/summary_article_formatter.py: document_from_plain_text/extract_title_from_markdown/chunk_plain_text/chunk_plain_blocks+sanitize), plain §105 (<b>title</b>+абзацы, нарезка по границам абзацев, финальный даунгрейд format_plain_text/chunk_plain_text), §106-коды (SUMMARY_GENERATION_FAILED/COVER_GENERATION_FAILED/RICH_MESSAGE_SEND_FAILED/TEXT_FALLBACK_FAILED) + аддитивный code=, PUBLISH_RICH_*/PUBLISH_TEXT_* + publish-узел ExecutionGraph (publication_status published_rich/published_text/failed/skipped, нет данных → None), follow-up S5 закрыт (L-R1026S5-4/-5/-6, S-R1026S5-7: memorize_facts и на ON), AMEND ADR-1026-7 D5/ADR-1026-9 D2/D7/ADR-1026-10 D1/D4/D8, Δ DDL=0/Δ каталога=0, 2-вызовность, ON (SUMMARY_HYBRID_L2_ENABLED) не активируется; bump 2.58.27→2.58.28. S8 (10.26, ADR-1026-10 D1–D10): adapter аналитики Саммари — backend-нормализация services/execution_graph_source.py (in-memory снапшот прогона, Δ DDL=0) + аддитивный read-only GET /api/analytics/execution/latest (web/api/analytics.py) + клиентский ExecutionGraph.fromExecution/STEP_KIND (web/static/execution_graph.js, real stages filter/l1_clusterizer/l2_writer/formatting), §112-метрики («Нет данных» вместо $0, «Без лимита», publication_status=gated), закрытие L-F6S-1 (аддитивный price_known в /analytics/usage/summary), publish-срез GATED (S6/D4), Δ каталога=0, 2-вызовность; bump 2.58.26→2.58.27. S7 (10.26, ADR-1026-9 D1–D8): сквозной run_id = correlation_id (UUID4 hex, одна точка на прогон — summary_generator._run / summary_test_run.run_summary_test) + аддитивные R17-safe события SUMMARY_*/FORMAT_*/COVER_* (§108/§109; PUBLISH_* GATED), §110-фильтр «Саммари» в существующем log viewer (web/app.js/index.html, routes.py вне diff), Δ DDL=0/Δ каталога=0, 2-вызовность; bump 2.58.25→2.58.26. S9 (10.26, ADR-1026-8 D1–D8): dry-run тест-контур «Тестирование» (§113) — новый сервис services/summary_test_run.py (0 публикаций / 0 памяти / 0 generate_image; ON per-run прямыми run_l1/run_l2, ровно 2 LLM-вызова, глобальный SUMMARY_HYBRID_L2_ENABLED не читается/не пишется), additive SummaryGenerator.build_test_rows (read-only окно db.get_smart_window + S1/S2, тело _run/_run_hybrid_l2 не меняется), новый роутер web/api/summary_test.py (async 202 + polling, in-memory store TTL 15 мин/≤20, Δ DDL=0, routes.py вне diff), UI-вкладка testing (#/modules/summary/testing, Δ каталога=0), env-only SUMMARY_TEST_UI_ENABLED (default ON; hot-OFF false → 404), bump 2.58.24→2.58.25. S5 (10.26, ADR-1026-7 D1–D7): L2 «Писатель» + серверный форматтер статьи — новые модули services/summary_l2_writer.py (build_l2_input/run_l2/parse_l2_document/validate_l2_document, L2Result; вход = контент-секция FactPackage §96, выход = документ §99, ровно 1 LLM-вызов, step=l2_writer; пост-валидация цитат/атрибуции, fail-closed) и services/summary_article_formatter.py (0 LLM: rich H1/p/≤1 b + sanitize→html.escape, plain <b>-заголовок, чанки по абзацам; лимиты 200/max_summary_parts/498/32000/900); промпт-канон L2 (+1 каталог, PREV_*/ROLLBACK, эталон canon), env-only слот SUMMARY_L2_* и kill-switch SUMMARY_HYBRID_L2_ENABLED (default OFF, врезка за флагом в summary_generator._run, OFF-путь байт-в-байт); send_rich_message content_format="html"; Δ DDL=0. Ранее S4 (10.26, ADR-1026-6 D1–D6): пакет фактов §96 — новый чистый модуль services/summary_fact_package.py (FactPackage v1: name=topic verbatim, description=детерминированная агрегация facts[].text, chronology=ASC (timestamp,message_id) из §92, facts/evidence_ids verbatim+union, fragments evidence-first, service{response_mode,cover_prompt}); бюджет L2-входа — reuse limits.summary_max_context_tokens/_chars через resolve_chat_limit (Δ каталога=0, новых env нет); усечение fragments→description→целые темы + truncated/skipped_ids/WARN; fail-closed ok/truncated/empty/invalid/error + not_built (§95/§106); ID — TG message_id; 0 LLM-вызовов; в живой путь НЕ врезан (GATED S5/S6), ровно 2 вызова сохранены, публикация/обложка/XML вне diff; Δ DDL=0. Ранее S3 (10.26, ADR-1026-5 D1–D6): L1 «Кластеризатор» — модули services/summary_l1_contract.py (строгий JSON §95, ID-пространства TG/DB, fail-closed L1Result) и services/summary_l1_clusterizer.py (§92-вход → §93-упаковка в один вход → ровно 1 LLM-вызов → §95-валидатор; логи L1_START/COMPLETE/ERROR), промпт-канон L1 (+1 каталог, PREV_*/ROLLBACK, эталон canon), env-only слот SUMMARY_L1_*; Δ DDL=0. Ранее S2 (10.26, ADR-1026-4 D1/D7): восстановление контекста Саммари — services/summary_context_restore.py, врезка в SummaryGenerator._apply_filter (0 LLM-вызовов). Ранее S1 (10.26, ADR-1026-1 D1/D7): алгоритмический префильтр — services/summary_filter.py, врезка в SummaryGenerator._run (0 LLM-вызовов).
+APP_VERSION = "2.58.31"   # Эпик 3 aggregate (round1026, A0–A10; ADR-1026-23 D7/D10): A2 tool-chains + A3 unified-image-request + A5 image-daily-limit + A6 memory-lookup-api + A4 image-context-memory + A7 decision-making + A8 telegram-reactions + A9 agentic-events-graph + A10 agentic-verification (A1 уже на проде с 2.58.30); 10 env-only kill-switch'ей default ON; Δ каталога=0; A5 PG-DDL image_reservation идемпотентно; bump 2.58.30 → 2.58.31. A1 (10.26, ADR-1026-14 D1–D10): Эпик 3 Wave 1 «Tool Coordinator» — программный слой решения о действии ВНУТРИ существующего Синтезатора direct-чата (намерение/адресат/память/выбор инструментов/оценка/действие) без 3-го LLM-вызова (2-вызовность System 2 сохранена, await_count==2) и без wire-поля action (граница A7); модельный выбор инструментов сохранён (tool_choice='auto'), общий механизм цепочек — reuse существующего многораундового tool_loop (TOOL_MAX_ROUNDS=4, ≤2/раунд, fail-open; per-combination обработчиков нет); изоляция Вербализатора (только факты stage2_payload + стиль response_mode; при молчании/реакции не запускается); R17-safe наблюдаемость координатора (числа/коды/id/имена инструментов, без сырья), REUSE ExecutionGraph (вторая аналитика не создаётся); env-only ClassVar kill-switch DIRECT_COORDINATOR_ENABLED (default ON, Δ каталога=0, резолв per-call, OFF → точный legacy-путь); Δ DDL=0/Δ каталога=0, §104 generate_image и §85-UI вне diff, промпты не меняются (ADR-1013-3 NOT_APPLICABLE); откат soft OFF + annotated-тег pre-round1026-a1 → e3ea367; bump 2.58.29→2.58.30. S10 (10.26, ADR-1026-12 D1–D8): прямой деплой и активация Эпика 2 — code-default SUMMARY_HYBRID_L2_ENABLED OFF→ON (§107: новый пайплайн — основной сразу после деплоя, «не оставлять выключенной в ожидании ручной активации»; резолв per-chat→hot→env/default сохранён как аварийный kill-switch; «ручная активация»/UI-селектор Legacy↔Hybrid запрещены, «аварийное выключение» разрешено), §114-предполётный harness (11 сценариев, 0 отправок в основной чат), §115-процедура (7 проверок) + артефакты rich/plain, §117-результаты Эпика 2 (results.md, 14 пунктов); Δ DDL=0/Δ каталога=0 (F8 не переиздаётся), CSP/zero-build, 0 новых зависимостей, 2-вызовность, R17/R18; откат soft OFF + annotated-тег pre-round1026-s10; bump 2.58.28→2.58.29. S6 (10.26, ADR-1026-11 D1–D10): публикационная интеграция Саммари — reuse существующего sendRichMessage (services/telegram_send.py вне diff): rich-путь <img>→настоящий <h1>→<p> через серверный форматтер S5 (services/summary_article_formatter.py: document_from_plain_text/extract_title_from_markdown/chunk_plain_text/chunk_plain_blocks+sanitize), plain §105 (<b>title</b>+абзацы, нарезка по границам абзацев, финальный даунгрейд format_plain_text/chunk_plain_text), §106-коды (SUMMARY_GENERATION_FAILED/COVER_GENERATION_FAILED/RICH_MESSAGE_SEND_FAILED/TEXT_FALLBACK_FAILED) + аддитивный code=, PUBLISH_RICH_*/PUBLISH_TEXT_* + publish-узел ExecutionGraph (publication_status published_rich/published_text/failed/skipped, нет данных → None), follow-up S5 закрыт (L-R1026S5-4/-5/-6, S-R1026S5-7: memorize_facts и на ON), AMEND ADR-1026-7 D5/ADR-1026-9 D2/D7/ADR-1026-10 D1/D4/D8, Δ DDL=0/Δ каталога=0, 2-вызовность, ON (SUMMARY_HYBRID_L2_ENABLED) не активируется; bump 2.58.27→2.58.28. S8 (10.26, ADR-1026-10 D1–D10): adapter аналитики Саммари — backend-нормализация services/execution_graph_source.py (in-memory снапшот прогона, Δ DDL=0) + аддитивный read-only GET /api/analytics/execution/latest (web/api/analytics.py) + клиентский ExecutionGraph.fromExecution/STEP_KIND (web/static/execution_graph.js, real stages filter/l1_clusterizer/l2_writer/formatting), §112-метрики («Нет данных» вместо $0, «Без лимита», publication_status=gated), закрытие L-F6S-1 (аддитивный price_known в /analytics/usage/summary), publish-срез GATED (S6/D4), Δ каталога=0, 2-вызовность; bump 2.58.26→2.58.27. S7 (10.26, ADR-1026-9 D1–D8): сквозной run_id = correlation_id (UUID4 hex, одна точка на прогон — summary_generator._run / summary_test_run.run_summary_test) + аддитивные R17-safe события SUMMARY_*/FORMAT_*/COVER_* (§108/§109; PUBLISH_* GATED), §110-фильтр «Саммари» в существующем log viewer (web/app.js/index.html, routes.py вне diff), Δ DDL=0/Δ каталога=0, 2-вызовность; bump 2.58.25→2.58.26. S9 (10.26, ADR-1026-8 D1–D8): dry-run тест-контур «Тестирование» (§113) — новый сервис services/summary_test_run.py (0 публикаций / 0 памяти / 0 generate_image; ON per-run прямыми run_l1/run_l2, ровно 2 LLM-вызова, глобальный SUMMARY_HYBRID_L2_ENABLED не читается/не пишется), additive SummaryGenerator.build_test_rows (read-only окно db.get_smart_window + S1/S2, тело _run/_run_hybrid_l2 не меняется), новый роутер web/api/summary_test.py (async 202 + polling, in-memory store TTL 15 мин/≤20, Δ DDL=0, routes.py вне diff), UI-вкладка testing (#/modules/summary/testing, Δ каталога=0), env-only SUMMARY_TEST_UI_ENABLED (default ON; hot-OFF false → 404), bump 2.58.24→2.58.25. S5 (10.26, ADR-1026-7 D1–D7): L2 «Писатель» + серверный форматтер статьи — новые модули services/summary_l2_writer.py (build_l2_input/run_l2/parse_l2_document/validate_l2_document, L2Result; вход = контент-секция FactPackage §96, выход = документ §99, ровно 1 LLM-вызов, step=l2_writer; пост-валидация цитат/атрибуции, fail-closed) и services/summary_article_formatter.py (0 LLM: rich H1/p/≤1 b + sanitize→html.escape, plain <b>-заголовок, чанки по абзацам; лимиты 200/max_summary_parts/498/32000/900); промпт-канон L2 (+1 каталог, PREV_*/ROLLBACK, эталон canon), env-only слот SUMMARY_L2_* и kill-switch SUMMARY_HYBRID_L2_ENABLED (default OFF, врезка за флагом в summary_generator._run, OFF-путь байт-в-байт); send_rich_message content_format="html"; Δ DDL=0. Ранее S4 (10.26, ADR-1026-6 D1–D6): пакет фактов §96 — новый чистый модуль services/summary_fact_package.py (FactPackage v1: name=topic verbatim, description=детерминированная агрегация facts[].text, chronology=ASC (timestamp,message_id) из §92, facts/evidence_ids verbatim+union, fragments evidence-first, service{response_mode,cover_prompt}); бюджет L2-входа — reuse limits.summary_max_context_tokens/_chars через resolve_chat_limit (Δ каталога=0, новых env нет); усечение fragments→description→целые темы + truncated/skipped_ids/WARN; fail-closed ok/truncated/empty/invalid/error + not_built (§95/§106); ID — TG message_id; 0 LLM-вызовов; в живой путь НЕ врезан (GATED S5/S6), ровно 2 вызова сохранены, публикация/обложка/XML вне diff; Δ DDL=0. Ранее S3 (10.26, ADR-1026-5 D1–D6): L1 «Кластеризатор» — модули services/summary_l1_contract.py (строгий JSON §95, ID-пространства TG/DB, fail-closed L1Result) и services/summary_l1_clusterizer.py (§92-вход → §93-упаковка в один вход → ровно 1 LLM-вызов → §95-валидатор; логи L1_START/COMPLETE/ERROR), промпт-канон L1 (+1 каталог, PREV_*/ROLLBACK, эталон canon), env-only слот SUMMARY_L1_*; Δ DDL=0. Ранее S2 (10.26, ADR-1026-4 D1/D7): восстановление контекста Саммари — services/summary_context_restore.py, врезка в SummaryGenerator._apply_filter (0 LLM-вызовов). Ранее S1 (10.26, ADR-1026-1 D1/D7): алгоритмический префильтр — services/summary_filter.py, врезка в SummaryGenerator._run (0 LLM-вызовов).
 
 
 def get_ytdlp_pot_provider() -> str:

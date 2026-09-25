@@ -1,4 +1,4 @@
-"""A1 `tool-coordinator-round1026` (Эпик 3 Wave 1, §13/§14, ADR-1026-14 D1–D10).
+﻿"""A1 `tool-coordinator-round1026` (Эпик 3 Wave 1, §13/§14, ADR-1026-14 D1–D10).
 
 Покрытие:
   * Координатор (программный слой в существующем Синтезаторе): намерение /
@@ -617,34 +617,51 @@ class TestBounds:
     def test_forbidden_paths_out_of_diff(self):
         names = self._diff_names()
         forbidden = [
-            "services/image_generation.py",
+            # NOTE (A3, ADR-1026-16 D2/D6): `services/image_generation.py`
+            # исключён — санction A3 (ImageRequest-контракт); §104 гейтится
+            # AST-гейтом A3 (test_unified_image_request_round1026.py).
             "services/summary_prompts.py",
             "services/prompt_migrations.py",
-            "services/param_catalog.py",
+            # NOTE (A5, ADR-1026-17 D9): `services/param_catalog.py` исключён —
+            # A5 санкционирует Δ каталога +1 ParamSpec +1 GroupSpec.
             "services/telegram_send.py",
             "services/chat_prompts.py",
-            "services/execution_graph_source.py",
+            # NOTE (A9, ADR-1026-22 D1/D7/D10): `services/execution_graph_source.py`
+            # и `web/static/execution_graph.js` исключены — A9 санкционирует
+            # аддитивное расширение СУЩЕСТВУЮЩЕГО ExecutionGraph (9 этапов §51,
+            # display-only; второй аналитики/endpoint/панели нет; Δ DDL=0;
+            # Δ каталога=0). Гейтится A9-тестами (test_agentic_events_round1026.py
+            # + round1026_s8_execution_graph_test.js).
             "web/api/routes.py",
             "plans/current_task.md",
         ]
         for path in forbidden:
             assert path not in names, path
         assert not any(n.startswith("db/") for n in names)
-        assert not any(n.startswith("web/") for n in names)
+        # NOTE (A5, ADR-1026-17 D9): web/app.js, web/index.html санкционированы
+        # для UI-врезки §27/§50; A9 (ADR-1026-22 D10): + web/static/
+        # execution_graph.js (display-only 9 этапов §51); api/routes.py
+        # остаётся запрещён (список выше).
+        assert not any(n.startswith("web/")
+                       and not n.startswith(("web/app.js", "web/index.html",
+                                             "web/static/execution_graph.js"))
+                       for n in names)
         assert not any(n.startswith("services/summary_") for n in names)
 
     def test_version_and_catalog(self):
-        assert APP_VERSION == "2.58.30"
-        assert len(pc.REGISTRY) == 469
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 426
+        assert APP_VERSION == "2.58.31"
+        assert len(pc.REGISTRY) == 473
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 444
-        assert len(pc.GROUPS) == 100
-        assert len(pc._TAB_BY_GROUP) == 98
+                    if s.category is not None]) == 448
+        assert len(pc.GROUPS) == 102
+        assert len(pc._TAB_BY_GROUP) == 100
         assert len(pc.TAB_RULES) == 21
 
-    def test_canon_ten_tools(self):
-        assert len(TOOL_CALLING_TOOLS) == 10
+    def test_canon_twelve_tools(self):
+        # A2 (ADR-1026-15 D5): канон 10 → 11 (+fetch_article);
+        # A6 (ADR-1026-18 D1): 11 → 12 (+get_user_context, в хвост).
+        assert len(TOOL_CALLING_TOOLS) == 12
 
     def test_kill_switch_not_in_catalog(self):
         assert "DIRECT_COORDINATOR_ENABLED" not in pc.REGISTRY
