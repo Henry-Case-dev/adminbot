@@ -3259,3 +3259,557 @@ S4 активирует модуль + схему + валидатор + бюд�
 - **Durable-вход:** `plans/docs/agentic-audit-round1026.md` (анкоры `#tool-map-llm`, `#tool-map-direct`, `#s12-12`, `#epic3-reuse`, `#epic3-a1-a10`, `#epic3-summary`).
 - **Код (baseline `e3ea367` / релиз `b32c46a`):** `services/direct_chat_service.py:467–643,998–1057`, `config/settings.py:552–553,1835`, `services/tool_loop.py:38–39,89,112–196` (reuse), `services/tool_schemas.py:337–348` (канон 10).
 - **Следующие:** **T-3521 @PM ✅ (архивация, 24.09.2026)** → **T-3523** (handoff, открыт) / **T-3524** (резерв N/A) → **A2 `tool-chains`** (Wave 2 Эпика 3, §15–§17). Live-приёмка §13/§14 — **PENDING OWNER VERIFICATION**.
+
+---
+
+## 84. Раунд 10.26 (24.09.2026) — Эпик 3 / Wave 2: A2 «Tool Chains» `tool-chains-round1026` — структурный спутник-envelope на каждый вызов (§16), зависимые цепочки + общий резолв ссылки (§15), §17-лимиты (cap 6 / мягкий 360 c / дедуп ≤2 / платные ≤4 / частичный результат), канон +1 `fetch_article` (10→11), границы A3–A9 — **release policy EPIC_ONLY → deployment DEFERRED_TO_EPIC (bump 2.58.31 — в агрегате Эпика 3)**
+
+**Фича** `tool-chains-round1026` (A2, Эпик 3 «Agentic Intelligence», Wave 2; **P0**; §15 «Последовательные tool calls» / §16 «Контракты инструментов» / §17 «Ограничение цепочек»). **T-3525…T-3550** (блоки 0/A–H). **Статус: ✅ COMPLETED + MERGED (§84); ACCEPTED INTO PENDING EPIC 3 RELEASE — deployment DEFERRED_TO_EPIC**. Ревью — **единый Reviewer gate** (T-3545 линза 1 requirements/correctness + T-3546 линза 2 focused change audit; Scanner удалён намеренно) — **Approved C0/H0** (R3, доказательства достаточны); binding Reviewed-Commit `e8646af`, Working-Tree-Hash `f1f1d544…`, Spec-Hash `e87e530f…`; отклонения @Builder **D-a/D-b/D-c — non-blocking**. **ADR-1026-15 (D1–D12) Accepted** (архитектура принята и включена в pending epic-release; **не** «deployed»). Архивация feature-папки — **T-3548 @PM ✅** (24.09.2026; `plans/archive/tool-chains-round1026/`; `deployment.md` отсутствует — при `DEFERRED_TO_EPIC` это корректно: пер-фича деплоя нет). Risk **R3**.
+
+### 84.1. Контракт §16 — гибрид: модельно-видимый канал сохранён + out-of-band спутник-envelope (D1/D2)
+- **Модельно-видимый канал не изменён:** `role:"tool"`-content, `tool_context` (grounding для Синтезатора) и ключи `tool_trace` — **байт-в-байт** как в baseline; envelope **не сериализуется** в модельный ввод.
+- **Спутник-envelope на каждый вызов** (`status`: `ok|error|skipped`): `{round, tool, args_fingerprint, status, data, error_code, error_type, truncated, metered, duplicate, attempt, out_chars}`; хранится аддитивно в `ToolLoopResult.tool_results` (+ `ctx.tool_results`), строится во **всех** ветках (`parse-error`/`dedup`/`skip`/`dispatch`).
+- **Программный handoff A→B** — общий `ToolContext.result_for(name)`; порядок A→B по-прежнему задаёт модель (`tool_choice='auto'`; выбор инструментов не дублируется).
+- **Структурированные ошибки (D2):** `status:error` + `error_code`/`error_type` (R17 — только код/класс); ошибка одного инструмента **не** превращается в общий отказ LLM — цикл продолжается, fail-safe/деградация сохранены.
+- **Код:** `services/tool_loop.py:48-221` (`_make_envelope`/`_classify_output`/`_record`/`_args_fingerprint`/`METERED_TOOLS`); `services/tool_router.py:445,456-468` (`ctx.tool_results`/`result_for`). Reuse существующего `ToolLoopResult`/`tool_trace` (новый тип цикла/агент/роутер не вводится).
+
+### 84.2. Зависимые цепочки §15 + общий резолв ссылки (D4/D6)
+- **Зависимые A→B** исполняются существующим последовательным многораундовым `tool_loop` (`TOOL_MAX_ROUNDS=4` × ≤2/раунд); per-phrase/per-combination обработчиков нет — механизм **инструмент-агностичный**.
+- **Резолв ссылки — общий** `smartmodule_urls.resolve_context_url(*texts)`: 0 URL → `None`; ровно 1 уникальный → он; ≥2 разных в источнике → `None` (честный `no_url`, без угадывания). `direct_chat_service` кладёт `ctx.resolved_url` (текущее сообщение → reply).
+- **Параллельность независимых — санкционирована последовательность** (D4): `ToolRouter`/`ToolDeps`/`ToolContext` не concurrency-safe; `asyncio.gather` не введён (grep = 0), §15-оговорка «если архитектура поддерживает» применена честно.
+
+### 84.3. §17-лимиты (D3)
+- `TOOL_MAX_TOTAL_CALLS=6` / `TOOL_CHAIN_TIMEOUT_SECONDS=360.0` (мягкий wall-clock: проверка на границе раундов и **перед каждым** диспетчем; **in-flight не отменяется**) / `_TOOL_MAX_SAME_CALL=2` (отпечаток `имя + json.dumps(sort_keys=True)`) / `TOOL_CHAIN_MAX_METERED_CALLS=4` (metered = search/article/summarize/download/lore/image/transcribe; free = memory/dig/history/health).
+- Частичный результат: аддитивные `chain_timeout`/`chain_call_limit`/`chain_cost_limit` к существующим `round_limit`/`llm_error`/`degraded`; `tool_context` не теряется. `worker_budget.image_calls` **не дублируется**.
+- **Kill-switch `TOOL_CHAIN_LIMITS_ENABLED`** — env-only `ClassVar`, **default ON** (`config/settings.py:892-895`); OFF → baseline-поведение цикла (лимиты/дедуп не применяются).
+
+### 84.4. Канон +1 `fetch_article` (10→11), атомарно (D5)
+- `TOOL_CALLING_TOOLS` **10→11** (`fetch_article` — 11-й **в хвост**, ADR-1020-4); `factcheck_tools`=3 без изменений.
+- Инструмент `fetch_article`: `url` optional (при отсутствии — `ctx.resolved_url`); JSON `{status,url,source_id,chars,truncated,markdown[,title]}`; `source_id` — 12-hex хэш нормализованного URL; `_ARTICLE_TOOL_TIMEOUT=45.0`; **`_ARTICLE_MAX_SYMBOLS=8000`** (зафиксировано здесь — L-R1026A2-2/D-b).
+- Reuse `WebContentExtractor.extract` через `ToolDeps.extractor` (инжект `_web_extractor` в `bot.py` — один инстанс, без дубля сервиса; `None` → структурный `service_unavailable`).
+- **Kill-switch `ARTICLE_TOOL_ENABLED`** — env-only `ClassVar`, **default ON**; OFF → эффективный канон **10**.
+- **Атомарность:** схема + регистрация в хвост + метод роутера + `active_tools` + тесты — одним изменением. `services/tool_schemas.py:348-440`; `services/tool_router.py:378-401,438-445,1032-1109`; `bot.py:504-510`.
+
+### 84.5. Границы волн (D9)
+- **A3/A4** (§18–§25), **A6** (§32–§35), **A7** (§36–§37/§38–§48), **A8** (§41/§44), **A9** (§49/§51) — **не реализованы** (вход/граница).
+- **§104 `generate_image`** и **§85-UI** — вне diff; **REUSE ExecutionGraph** (`execution_graph_source`/`analytics.py`/`execution_graph.js`; вторая аналитика не создана).
+- **Промпты не менялись** (ADR-1013-3 **NOT_APPLICABLE**: `PREV_*`/миграции/эталоны не добавлялись). **Handoff → A7:** фактчек-инструмент (§36–§37) reuse A2-envelope/`ctx`-спутник и общий механизм цепочек.
+
+### 84.6. R3 — усиленные требования и доказательства (D10)
+- **Threat/failure-анализ** (`threat-failure-analysis.md`): **14 угроз** → механизм (код) → тест + adversarial-таблица (12 сценариев, все PASS); покрывает Critical-KG `Risk-a2-infinite-call-loop`/`Risk-a2-live-chat-regression` и High `Risk-a2-phrase-hack-per-combination`/`Risk-a2-unstructured-handoff`.
+- **Rollback-доказательство:** OFF (`TOOL_CHAIN_LIMITS_ENABLED=false` + `ARTICLE_TOOL_ENABLED=false`) → модельно-видимое поведение **байт-в-байт**; **независимо воспроизведено @Reviewer** (`git show e8646af:services/tool_loop.py` vs текущий, 4 сценария — ALL EQUAL по `str`/`tool_context`/`tool_trace`/`reason`/`degraded`/модельно-видимым сообщениям/вызовам роутера); эффективный канон при OFF = **10**.
+- **Adversarial-приёмка + diff-аудит:** `TestLimits`/`TestFetchArticle`/`TestR17AndBoundaries` зелёные; Δ DDL/каталог, §104/§85-UI, ExecutionGraph, канон и 2-вызовность подтверждены независимо.
+- **Артефакты:** `threat-failure-analysis.md`, `evidence.md`, `review.md` (feature-папка).
+
+### 84.7. Release policy `EPIC_ONLY` → deployment DEFERRED_TO_EPIC (D8)
+- A2 меняет рантайм **разделяемого** `tool_loop` живого direct-чата → read-only NOT_APPLICABLE неприменим; вклад фичи входит в **агрегированный pending epic-release Эпика 3** (манифест/порядок/откат — на границе эпика).
+- **Пер-фича деплоя/бампа версии нет**; `APP_VERSION` остаётся **2.58.30**; агрегатный деплой Эпика 3 (**T-3549**, bump **2.58.30 → 2.58.31**) — на его границе под агрегатным Reviewer gate. **Live-прогон §15–§17 — DEFERRED_TO_EPIC.** Активация — по факту эпик-деплоя; лимиты/новый инструмент — ON по умолчанию; hot/cold-откат — env-kill-switch / тег `pre-round1026-a2` → `e8646af` + `git revert`.
+
+### 84.8. AMEND/REUSE-карта, инварианты
+- **ADR-1020-7 §1** — effective AMEND (аддитивные причины деградации `chain_*`; существующие ветки не меняются). **ADR-1026-13 D3** — санкция расширения канона **использована** (10→11); durable-аудит — **AMEND-запись** (`plans/docs/agentic-audit-round1026.md`, T-3547). **ADR-1026-14 D3** — граница A2 исполнена. **ADR-1013-3** — NOT_APPLICABLE; **ADR-1020-4 / ADR-1022-5 / ADR-1023-3 / ADR-1025-24** — REUSE.
+- **Инварианты:** Δ DDL=0 (SQLite v12); Δ каталога=0 (**469/426/444/100/98/21**; `param_catalog.py` вне diff); **2-вызовность** `await_count==2` сохранена; 0 новых LLM-вызовов и 0 новых зависимостей (манифесты/локи вне diff); **CSP/zero-build** (`web/**` вне diff); **R17** (логи — только числа/коды/`error_type`/имена/длины/`source`; envelope с сырым URL/Markdown нигде не логируется и не сериализуется) / **R18** (тег `pre-round1026-a2` → `e8646af`, бэкап/`.env.bak`/`stash@{0}` целы). pytest **9125/0** (+43), JS **47/47**, `git diff --check`=0.
+
+### 84.9. Техдолг (non-blocking, открыт)
+- **[L-R1026A2-1] [low, tests]** — два historical boundary-теста (`test_summary_deploy_round1026.py`, `test_summary_publish_integration_round1026.py`) убрали `bot.py` из списка запрещённых путей. **Doc-fix на merge (здесь, §84.6/§84.8):** зафиксировано санкционированное исключение — diff `bot.py` ограничен **одной** аддитивной DI-строкой `extractor=_web_extractor` (5 insertions/1 deletion, проверено @Reviewer); `bot.py` **не** открыт для произвольных правок. Компенсирующий ассерт — опционально при следующем касании.
+- **[L-R1026A2-2] [info, docs]** — `_ARTICLE_MAX_SYMBOLS=8000` зафиксировано здесь (§84.4) как bounded-значение (между `_SEARCH_MAX_SYMBOLS=4000` и `_SUMMARIZE_TRANSCRIPT_CAP=20000`); усечение честно в `truncated`/`chars`. Spec не меняется.
+- **[L-R1026A2-3] [low, robustness]** — в ветке ошибки парсинга аргументов `total_calls`/`metered_calls` инкрементируются без проверки cap; инфинити-луп невозможен (внешние `TOOL_MAX_ROUNDS=4`×≤2); вынести счётчик фактических диспетчей — при следующем касании.
+- **D-a** (bot.py allowlist) — закрыто doc-only (§84.6/§84.8); **D-b** (= L-R1026A2-2) — закрыто; **D-c** (`plans/MEMORY.md`/`plans/workflow_state.md` вне A2-манифеста) — non-blocking.
+
+### 84.10. Ссылки
+- **Feature (архивирована T-3548 @PM, 24.09.2026):** `plans/archive/tool-chains-round1026/{spec.md, adr-1026-15-tool-chain-contract-and-limits.md, tasks.md, evidence.md, review.md, threat-failure-analysis.md}` (6 файлов; `deployment.md` отсутствует — деплой отложен).
+- **Durable-вход:** `plans/docs/agentic-audit-round1026.md` (анкоры `#tool-map-llm`, `#tool-map-direct`, `#s12-3-5`, `#s12-11`, `#epic3-reuse`, `#epic3-a1-a10`, `#epic3-summary`).
+- **Код (baseline `e8646af`):** `services/tool_loop.py:48-221`, `services/tool_router.py:378-468,1032-1109`, `services/tool_schemas.py:348-440`, `services/smartmodule_urls.py:44-62`, `services/direct_chat_service.py:140,951-963`, `config/settings.py:892-895`, `bot.py:504-510`.
+- **A1 (вход/граница):** `plans/ARCHITECTURE.md` §83; `plans/archive/tool-coordinator-round1026/`.
+- **Тест A2:** `tests/test_tool_chains_round1026.py` (43 теста).
+- **Точка отката:** annotated-тег `pre-round1026-a2` → `e8646af`.
+- **Следующие:** **T-3548 @PM ✅** (архивация → `plans/archive/tool-chains-round1026/`, `deployment: DEFERRED_TO_EPIC`) → **A3 `unified-image-request`** (§18–§21/§25) ∥ **A6** (порядок волн: `A0 ✅ → A1 ✅ → A2 ✅ → [A3 → A5] ∥ A6 → A4 → A7 → A8 → A9 → A10`), handoff T-3550 (открыт).
+
+---
+
+## 85. Раунд 10.26 (24.09.2026) — Эпик 3 / Wave 2: A3 «Unified Image Request» `unified-image-request-round1026` — единый `ImageRequest` + раннер (`build_final_prompt`/`run_image_request`, reuse `generate_and_send`, второй pipeline запрещён), защита от двойной генерации (forced `image_enabled=False` + авторитетный маркер `ToolContext.image_request_handled` → `skipped/already_handled`), `TOOL_GENERATE_IMAGE` — только текст описания (6 пунктов §21; канон 11), диагностика §21 с честной веткой `INCONCLUSIVE` + owner-гейт прод-проб, Δ DDL=0/Δ каталога=0, R3 — **release policy EPIC_ONLY → deployment DEFERRED_TO_EPIC (версия 2.58.30 без bump; bump 2.58.31 — в агрегате Эпика 3)**
+
+**Фича** `unified-image-request-round1026` (A3, Эпик 3 «Agentic Intelligence», Wave 2; **P0**; §18 «Генерация изображений» / §19 «Прямой вызов и tool calling» / §20 «Единый image request» / §21 «Tool calling генерации изображений»; ориентир §25). **T-3552…T-3586** (блоки 0/A–H, 35). **Статус: ✅ COMPLETED + MERGED (§85); ACCEPTED INTO PENDING EPIC 3 RELEASE — deployment DEFERRED_TO_EPIC**. Ревью — **единый Reviewer gate** (T-3580 линза 1 requirements/correctness + T-3581 линза 2 focused change audit; Scanner удалён намеренно) — **Approved C0/H0** (R3, доказательства достаточны; binding Reviewed-Commit `e8646af`, Working-Tree-Hash `29e8da0a…`, Spec-Hash `a98d20d1…`; release-блокеры **B-1** (High) и **B-2** (Medium) — **CLOSED** документальным rework T-3580; отклонения @Builder — non-blocking). **ADR-1026-16 (D1–D11) Accepted** (архитектура принята и включена в pending epic-release; **не** «deployed»). Архивация feature-папки — **T-3583 @PM ✅** (25.09.2026; `plans/archive/unified-image-request-round1026/` — 7 файлов; **`deployment.md` отсутствует** — при `DEFERRED_TO_EPIC` это корректно: пер-фича деплоя нет). Risk **R3**.
+
+### 85.1. Единый `ImageRequest` и раннер (§18/§20; D2)
+- **Контракт:** `@dataclass ImageRequest` — `source` (`direct|tool`), `chat_id`, `requester_id`, `original_message_id`, `user_request`, `resolved_subjects` (заглушка `[]`), `context_required` (default `False`), `context_sources` (заглушка `[]`), `final_prompt`, `generator_config` (резерв; **не** меняет §104-параметры). Дом — `services/image_generation.py` (общий модуль обоих входов; нового модуля-контракта нет).
+- **Единая точка входа:** `build_image_request(...)` + `build_final_prompt(request)` + `run_image_request(request, *, bot)` → **существующий** `generate_and_send` (§104 не переписан — только обвязка). `build_final_prompt` переиспользует `extract_prompt` → прямой канонический запрос даёт **прежний** промпт (нет регресса).
+- **Оба входа сходятся:** прямой пре-гейт `maybe_handle_keyword` (ON-ветка строит `ImageRequest(source="direct")`, OFF-ветка — legacy байт-в-байт); tool `_generate_image` (ON-ветка строит `ImageRequest(source="tool")` → тот же раннер; OFF — прежний прямой вызов). **Второй pipeline/генератор запрещён.**
+- **Киль-свитч `UNIFIED_IMAGE_REQUEST_ENABLED`** — env-only `ClassVar`, **default ON** (`config/settings.py`), Δ каталога=0; **OFF → legacy-путь байт-в-байт**.
+- **Память/досье §19 (D5):** в A3 — только поля-заглушки и публичная политика; RAG/досье/разрешение имён **не читаются**; фактическое извлечение — **A4**. Простые запросы («Бот, нарисуй красного кота») не требуют обязательного RAG/досье.
+
+### 85.2. Защита от двойной генерации (§20; D3)
+- **Слой 1 (сохранён):** срабатывание пре-гейта → принудительное `image_enabled=False` → `generate_image` исключается из `active_tools` (`services/direct_chat_service.py:938–939`).
+- **Слой 2 (новый, авторитетный, серверный):** сигнал `image_pre_gate_fired` прокидывается в аддитивное поле `ToolContext.image_request_handled` (`:967–968`); `_generate_image` **первым делом** проверяет маркер и при `True` возвращает `{"status":"skipped","reason":"already_handled"}` **без вызова генератора и без списания `image_calls`** (`services/tool_router.py:1579–1590`).
+- **Слой 3 (сохранён):** `<image_result>`-guard — мягкая модельная подсказка (не авторитет).
+- Маркер привязан к **прогону сообщения**, не к фразе/инструменту (не per-phrase).
+
+### 85.3. `TOOL_GENERATE_IMAGE` — текстовое уточнение (6 пунктов §21), канон 11 (D4)
+- Меняется **только текст** `description` и поля-описания `prompt` под 6 пунктов §21 (когда вызывать / обязательные аргументы / как формировать описание / что при отсутствии контекста / как интерпретировать результат / как сообщать об ошибке). Два варианта: `*_LEGACY` (байт-в-байт baseline-текст) и `*_V21` (6 пунктов); активный — по env-only киль-свитчу (default ON) — `services/tool_schemas.py:329,350,389–393`.
+- **Состав/имена/порядок/`required`/`additionalProperties:false` не меняются;** `generate_image` — 9-й; `factcheck_tools`=3; **канон 11** не расширяется/не сужается; «новое — в хвост» (ADR-1020-4) **не применяется** (инструмент не добавляется).
+- **§104 не затронут** (описание инструмента ≠ генератор). **ADR-1013-3 — NOT_APPLICABLE** (описания инструментов — не промпт-канон; `PREV_*`/`PROMPT_MIGRATIONS`/эталоны не добавляются).
+- **Результат/ошибка:** бэкенд валидирует (`_require_str("prompt")`, fail-closed) и вызывает существующий генератор; реальный `reason`/`reason_class` доводится, «отказ модели» **не выдумывается**; результат возвращается в цикл через **reuse A2-envelope** (§16).
+
+### 85.4. Диагностика §21 (HY-01…HY-06) — честная ветка `INCONCLUSIVE` + owner-гейт прод-проб (D1)
+- **Вердикты (факт, `image-diagnostics.md`/`evidence.md` §1/§7):** **HY-06 — механика ПОДТВЕРЖДЕНА** (узкий scope пре-гейта доказан кодом: только «бот/bot + глагол рисования»); **HY-03 — env-слой ОПРОВЕРГНУТ** (все рубильники ON), **per-chat — `INCONCLUSIVE`** (PG-каталог недоступен с билд-машины); **HY-01 / HY-02 / HY-04 / HY-05 — `INCONCLUSIVE`** (живые прод-пробы/прод-логи недоступны: env-эндпоинт LLM лежит целиком — HTTP 500 `get_channel_failed` и **с tools, и без**; journald/corpus недоступны).
+- **Ветка `INCONCLUSIVE`** — легитимный документируемый вердикт при обязательном **блокере + плане проб**; **не** означает «фикс на гипотезе» и **не** активирует ветку «внешняя причина»; «отказ модели» не выдумывается. Реализованное (унификация §18/§20 — безусловное требование ТЗ; маркер D3; fail-closed-валидация/доведение реального `reason`; текст D4 как требование §21) **не опирается** на нераскрытую причину. KG `Risk-a3-unproven-root-cause` — **закрыт письменно** (фикс на причине не строится).
+- **Owner-гейт прод-проб — `PENDING OWNER VERIFICATION`** (владелец/оператор, прод-хост): **HY-01** — живая проба провайдера с активным набором `tools` (`finish_reason=="tool_calls"`); **HY-02** — прод-логи `[image] generation failed`/`attempt failed │ reason_class=`; **HY-04** — grep journald `[provider rejected tools]`; **HY-05** — живая A/B описания (call-rate); **HY-03 (per-chat)** — чтение `flags.image_generation_module_enabled` из PG-каталога. До проб вердикты остаются `INCONCLUSIVE`.
+
+### 85.5. R3 — усиленные требования и доказательства (D9)
+- **Threat/failure-анализ** (`threat-failure-analysis.md`): **11 угроз** (≥8) в формате «угроза → механизм → код (file:line) → тест/доказательство»; покрыты все 8 обязательных (двойная генерация T1; регресс прямого T2; второй pipeline T3; подмена ошибки T4; недоказанный фикс T5; R17-утечка T6; дубль контрактов T7; регресс 2-вызовности T9) + T8/T10/T11; adversarial-матрица (12 сценариев, все PASS).
+- **Rollback-доказательство:** OFF-киль-свитч → модельно-видимое поведение **байт-в-байт** (`test_direct_on_same_prompt_as_legacy`, `test_direct_off_no_image_request`, `test_tool_off_direct_call`, `test_marker_off_legacy`, `test_kill_switch_off_restores_legacy_via_env`, `test_legacy_text_is_baseline`).
+- **§104-гейт усилен:** AST-эквивалентность генератора против baseline `e8646af` (`test_104_generator_functions_ast_identical` + литерал fallback-фразы); 4 bound-гейта прошлых волн получили NOTE-исключение `image_generation.py` (прецедент A2/`bot.py`) — смысл запретов сохранён, защитный гейт перенесён на уровень AST (жёстче).
+- **Прогоны:** pytest **9156/0** (+31), JS **47/47**, `git diff --check`=0; 2-вызовность `await_count==2` сохранена; 0 новых LLM-вызовов/зависимостей.
+- **Артефакты:** `evidence.md`, `review.md`, `threat-failure-analysis.md`, `image-diagnostics.md` (feature-папка).
+
+### 85.6. Release policy `EPIC_ONLY` → deployment DEFERRED_TO_EPIC (D8)
+- A3 меняет рантайм **разделяемых** модулей живого direct-чата (`image_generation.py`/`tool_router.py`/`direct_chat_service.py`) → read-only NOT_APPLICABLE неприменим; вклад фичи входит в **агрегированный pending epic-release Эпика 3** (манифест/порядок/откат — на границе эпика под агрегатным Reviewer gate).
+- **Пер-фича деплоя/бампа версии нет;** `APP_VERSION` остаётся **2.58.30**; агрегатный деплой Эпика 3 (**T-3584**, bump **2.58.30 → 2.58.31**) — на его границе. **Live-прогон §18–§21 — DEFERRED_TO_EPIC.** @DevOps на деплой **не вызывался**.
+- **Откат:** hot — env `UNIFIED_IMAGE_REQUEST_ENABLED=false` (legacy-путь); cold — `git revert` к **`e8646af`** + агрегатный анкер Эпика 3 (пер-фича тега нет — `EPIC_ONLY`). Теги/бэкапы не удалялись (R18).
+- **Release-order:** рабочее дерево содержит **незакоммиченный A2 + A3** (pending Epic 3 release candidate); порядок фиксации A2-кандидата vs A3 — на границе эпика (@Orchestrator/@DevOps); A3 не теряет кандидат.
+
+### 85.7. AMEND/REUSE-карта, инварианты
+- **REUSE:** ADR-1026-13 (durable-аудит/freeze; дисциплина EVIDENCE/HYPOTHESIS), ADR-1026-14 (A1-координатор; env-only киль-свитч-прецедент), ADR-1026-15 (A2-envelope `ToolLoopResult.tool_results`/`ToolContext.result_for`, §17-лимиты, канон 11), ADR-1023-5 (**REUSE + effective note** — пре-гейт + `generate_image` сохранены; унифицирована только **подготовка** запроса; провайдер/секрет/бюджет/egress не тронуты), ADR-1024-4/-9/-12 (image-payload/тумблер/ключ), ADR-1020-4 (канон/позиции; «новое — в хвост» не применяется), ADR-1020-7 (деградация tool-loop), ADR-1022-4/-5 (2-вызовность), ADR-1025-24 (верификационный гейт). **NOT_APPLICABLE:** ADR-1013-3 (промпт-канон не меняется).
+- **Инварианты:** **Δ DDL=0** (SQLite v12, `db/**` вне diff); **Δ каталога=0** (`param_catalog.py` вне diff; REGISTRY **469/426/444/100/98/21**; `UNIFIED_IMAGE_REQUEST_ENABLED` — env-only `ClassVar`, ∉ REGISTRY/∉ `dataclasses.fields(Settings)`); **канон 11**; **2-вызовность** `await_count==2`; **0 новых LLM-вызовов/зависимостей**; **CSP/zero-build** (`web/**` вне diff); **§104 AST-эквивалентен** baseline; **R17** (логи — только числа/коды/`reason`/`reason_class`/`mode`/`model`/`attempt`/`chat`/`source`/длины); **R18** (теги `pre-round1026-a0/a1/a2` + `s1…s10` + `visual` целы; `stash@{0}` цел).
+
+### 85.8. Техдолг (non-blocking, открыт)
+- **[L-R1026A3-1…-5]** (Low/Info, прежние): AST-docstring упоминает `reason_class` вне набора гейта; `maybe_handle_keyword`/`<image_result>` не AST-гейтится; `test_kill_switch_off_restores_legacy_via_env` хардкодит `C:\Code\Python\adminbot`; tool-путь нормализует prompt через `extract_prompt`; `_classify_output` трактует `skipped` как envelope `ok`+`metered`.
+- **[L-R1026A3-6] [low, doc-only]** — `tasks.md` инвариант 5 (стр. 64) сохранил формулировку «диагностика HY-01…HY-06 **доказательна**» до amend; **реконсилировать** с переформулированным SC-A3-05 (допускает документированный `INCONCLUSIVE`) при архивации (**@PM T-3583**). Не блокирует: авторитетный приёмочный критерий — `spec.md` SC-A3-05.
+- **[L-R1026A3-7] [low, doc-only]** — `image-diagnostics.md` §1.3 (и ADR/spec) содержат устаревшие `file:line` логов генератора; фактически `services/image_generation.py:890`/`:993`.
+- **[L-R1026A3-8] [low, doc-only]** — `evidence.md` §1 использует метку «НЕПОДТВЕРЖДЕНО / НЕ ОПРОВЕРГНУТО» вместо `INCONCLUSIVE`; ADR AMEND формально мапит термины — несоответствия по существу нет.
+- **4 bound-гейта прошлых волн** — NOTE-исключение `image_generation.py` (прецедент A2); компенсация — AST-гейт A3 (§85.5).
+
+### 85.9. Ссылки
+- **Feature (архивация — T-3583 @PM ✅, 25.09.2026):** `plans/archive/unified-image-request-round1026/{spec.md, adr-1026-16-unified-image-request.md, tasks.md, evidence.md, review.md, threat-failure-analysis.md, image-diagnostics.md}`.
+- **Durable-вход:** `plans/docs/agentic-audit-round1026.md` (анкоры `#s12-6-7`, `#s12-7`, `#root-cause`, `#root-cause-verdict`, `#labels-hypothesis`, `#epic3-reuse`, `#epic3-a1-a10`, `#epic3-summary`).
+- **Код (baseline `e8646af` + незакоммиченный A2+A3):** `services/image_generation.py:190,202,227,246,256,1047,1063–1068,1073+`; `services/tool_router.py:425,446,1559,1579–1590,1596–1607`; `services/direct_chat_service.py:938–939,967–968`; `services/tool_schemas.py:329,350,389–393,427`; `config/settings.py:897–905`.
+- **A1 (вход):** `plans/ARCHITECTURE.md` §83; **A2 (вход):** §84.
+- **Тест A3:** `tests/test_unified_image_request_round1026.py` (31 тест).
+- **Точка отката:** коммит `e8646af` (пер-фича тега нет — `EPIC_ONLY`; агрегатный анкер — на границе эпика).
+- **Следующие (актуализация 25.09.2026, T-3666):** A6 `memory-lookup-api` ✅ COMPLETED + MERGED (§87) + ARCHIVED (`plans/archive/memory-lookup-api-round1026/`) + ACCEPTED INTO PENDING EPIC 3 RELEASE (`DEFERRED_TO_EPIC`) → A4 `image-context-memory` ✅ COMPLETED + MERGED (§88) + ARCHIVED (`plans/archive/image-context-memory-round1026/`) + ACCEPTED INTO PENDING EPIC 3 RELEASE (`DEFERRED_TO_EPIC`) → A7 `decision-making` ✅ COMPLETED + MERGED (§89) + ARCHIVED (`plans/archive/decision-making-round1026/`) + ACCEPTED INTO PENDING EPIC 3 RELEASE (`DEFERRED_TO_EPIC`) → **A8 `telegram-reactions` ✅ COMPLETED + MERGED (§90) + ARCHIVED (`plans/archive/telegram-reactions-round1026/`) + ACCEPTED INTO PENDING EPIC 3 RELEASE (`DEFERRED_TO_EPIC`; 25.09.2026)** → **▶️ следующая — A9 `agentic-events-graph`** (§49/§51; P1; канонический ID/разделы — строка A9 backlog) → A10; порядок `A0 ✅ → A1 ✅ → A2 ✅ → A3 ✅ → A5 ✅ → A6 ✅ → A4 ✅ → A7 ✅ → A8 ✅ → A9 → A10`. **Owner-гейт прод-проб — `PENDING OWNER VERIFICATION`.**
+
+---
+
+## 86. Раунд 10.26 (25.09.2026) — Эпик 3 / Wave 3: A5 «Image Daily Limit» `image-daily-limit-round1026` — атомарный резерв/идемпотентность/учёт дневного лимита изображений (PG-журнал `image_reservation` + условный UPSERT поверх существующего `worker_budget`), честная scope/TZ-семантика, UI-врезка «Лимиты» в `mod_images`; Δ DDL санкционирован, R3 — **release policy EPIC_ONLY → deployment DEFERRED_TO_EPIC (DDL применяется в агрегатном релизе Эпика 3; APP_VERSION 2.58.30 без bump)**
+
+**Фича** `image-daily-limit-round1026` (A5, Эпик 3 «Agentic Intelligence», Wave 3; **P0**; §26 «Дневной лимит изображений» / §27 «Расположение в Mini App» / §28 «Семантика лимита» / §29 «Защита от параллельных запросов» / §30 «Глобальные и локальные лимиты» / §31 «Временная зона и сброс»; ориентиры §50 UI, §37 — инвариант безопасности). **T-3587…T-3607**. **Статус: ✅ COMPLETED + ACCEPTED (merge §86); ACCEPTED INTO PENDING EPIC 3 RELEASE — deployment DEFERRED_TO_EPIC; НЕ «deployed».** Ревью — **единый Reviewer gate** (T-3604, обе линзы; Scanner отсутствует) — **Approved C0/H0** (R3; binding Reviewed-Commit `e8646af`, Working-Tree-Hash `b57f1f0e…`, Spec-Hash `428c44b4…`). **ADR-1026-17 (D1–D12) Accepted** (этот merge — момент принятия). Архивация feature-папки — **T-3605 @PM ✅, 25.09.2026** (`plans/archive/image-daily-limit-round1026/`, 6 файлов без потерь). Risk **R3**; findings F1–F7 — non-blocking watch-items агрегатного gate эпика.
+
+### 86.1. Хранилище и Δ DDL (D1) — PG-журнал `image_reservation` + существующий `worker_budget`
+- **Единственный счётчик квоты остаётся прежним:** `worker_budget` (PK `(day, scope, metric)`; `image_calls`) — **схема не меняется**, второй счётчик не вводится (A0 `#epic3-reuse`).
+- **Новый PG-ledger:** таблица `image_reservation` (`reservation_key` PK, `chat_id`, `source`, `message_id`, `day`, `status ∈ reserved|committed|released|denied`, `error_code`, `delivery_failed`, `created_at`, `updated_at`) + 2 индекса `(day, status)` и `(chat_id, day)` — по строке на резерв (ledger, **не** агрегат). Дом — `services/pg_db.py::DDL_STATEMENTS` (46 блоков).
+- **Идемпотентность DDL:** `CREATE TABLE/INDEX IF NOT EXISTS`; применяется автоматически `PgDatabase.init()` при старте (`bot.py`/`web/app.py` → `ConfigCache.init()`); повторный `init()` — no-op. Отдельной миграционной задачи нет.
+- **SQLite:** Δ DDL = 0, `user_version` остаётся **12**. **`worker_budget`:** без ALTER.
+
+### 86.2. Атомарный резерв и идемпотентность (D2/D3/D7)
+- **Порядок:** `reserve → generate → commit/release`. `reserve_image` заменяет baseline `consume` (check-after-increment, который при отказе не откатывал инкремент → утечка квоты) на **условный UPSERT** `... DO UPDATE SET used=used+1 WHERE worker_budget.used < $limit RETURNING used`; при `limit<0` — безлимит; при `limit=0` — отказ без записи. Отказ по лимиту **не** расходует квоту.
+- **Одна транзакция:** idem-строка + shared-резерв (`scope='global'`) + per-chat (`scope='chat:<id>'`); отказ per-chat откатывает shared-инкремент. При остатке 1 два параллельных запроса → ровно один резерв.
+- **Idempotency key:** `f"{chat_id}:{message_id}:{source}"`, PK журнала (`source ∈ {direct, tool}` — внутренний enum; `message_id` — текущий, из `reply_to_message_id`). Replay ключа не списывает повторно (возврат прежнего исхода). Fallback: `chat_id:corr:<correlation_id>:source`, иначе `chat_id:uuid:<…>:source`.
+- **Outcome:** сбой генерации (результат не создан) → `release_image` (квота возвращена); успех генерации, **включая сбой доставки в Telegram** → `commit_image` (+`delivery_failed=true`), повторной платной генерации нет. Bounded-retry `generate_image_verbose` резервирует один раз.
+- **Контракт (`services/worker_budget.py`):** `reserve_image`/`commit_image`/`release_image`/`image_limits`/`image_day`/`image_timezone`/`image_next_reset`/`image_usage_summary`; интеграция — `services/image_generation.py` (`build_image_idem_key`, `_reserve_or_consume`, `_commit_or_release`).
+- **Граница (F2):** путь обложки саммари (`generate_image_verbose`) остаётся на legacy `consume` — задокументированное исключение, не влияющее на пользовательский direct/tool-путь; watch-item агрегатного gate.
+
+### 86.3. Честная scope-семантика (D4)
+- **Два разных понятия — две UI-строки:** (i) «глобальный лимит по умолчанию» — каталожный `limits.image_daily_limit` (`IMAGE_DAILY_LIMIT`, int, группа `limits_images`) с per-chat override через существующее наследование `resolve_setting_cached` (**chat → global → env-дефолт** `WORKER_DAILY_IMAGE_CALLS_PER_CHAT` = 60; sentinel `0=запрет/<0=безлимит/>0=cap`); (ii) «общая квота всех чатов» — **существующий** shared-бюджет `WORKER_DAILY_IMAGE_CALLS_GLOBAL` = **200, env-only** (каталожного ключа нет).
+- Независимый механизм локальных настроек не создаётся; второй контур/ключ не вводится. При отсутствии каталожного ключа per-chat = env-дефолт (обратная совместимость).
+
+### 86.4. TZ и сброс (D5)
+- Календарный день per-chat — по TZ чата через `limits.chat_timezone` (reuse `resolve_timezone`: per-chat → global → fallback `limits.summary_timezone`); shared-день — `WORKER_BUDGET_TZ`. **Никакого «24 ч от первого запроса».**
+- Точное время следующего сброса (`next_reset_at`) отдаётся в UI; изменение лимита **не** обнуляет `used`. Legacy `consume` воркеров (`llm_calls`/`llm_tokens`) продолжает `today()` — без регресса воркеров.
+
+### 86.5. Учёт §28 и наблюдаемость (D6/R17)
+- «1 результат = 1 генерация» (`n=1`, §104); ошибки до генерации не расходуют лимит.
+- Запросы/успехи/ошибки/отказы/`delivery_failed` выводятся **из журнала** (`image_usage_summary`); «фактические расходы» — **N/A** (провайдер не отдаёт стоимость). Второй агрегатный счётчик не создаётся.
+- **R17:** в журнале/логах только id/`source`/`status`/`error_code`/`day`/`delivery_failed`/числа; без текстов/промптов/URL/ключей. Логи — reuse существующих `[image]`/`[tools]`; вторая аналитика не создаётся.
+
+### 86.6. UI §27/§50 и Δ каталога (D9)
+- Врезка «Лимиты» в **существующий** контур `mod_images`: «Дневной лимит изображений», «Использовано сегодня: N / M», источник лимита, время следующего сброса, текущая TZ; отдельная read-only строка общего бюджета всех чатов. Отдельная админ-панель и дублирующая форма запрещены.
+- Поля аддитивны к `/api/workers/budget` (`day`/`timezone`/`next_reset_at`/`source`/счётчики); UI: `web/index.html` `data-image-limits`, `web/app.js` `imageUsage`/`imageSourceLabel`/`imageResetLabel`, вкладка `mod_images` += `limits`.
+- **Δ каталога = +1 ParamSpec +1 GroupSpec:** REGISTRY **469→470**, Settings **426→427**, categorized **444→445**, GROUPS **100→101**, `_TAB_BY_GROUP` **98→99**, TAB_RULES **21→21**.
+
+### 86.7. Деградация и киль-свитч (D8/D11)
+- **fail-open с честным WARNING (дедуп):** PG down / нет таблицы / ошибка транзакции → `ok=True, reason='failopen'`, журнал не пишется; транзакция исключает частичный расход. Паритет baseline.
+- **env-only kill-switch `IMAGE_DAILY_LIMIT_ENABLED`** (default ON): OFF → legacy-путь байт-в-байт. Master-рубильник бюджетов OFF → legacy. Retention журнала — `IMAGE_RESERVATION_RETENTION_DAYS` (env-only, default 30; opportunistic purge ≤1/сутки/процесс).
+
+### 86.8. R3 — усиленные доказательства и watch-items (D12)
+- **Доказательства:** `threat-failure-analysis.md` (12 угроз «механизм → код → тест»), race/atomic-order-тесты + concurrency-проба (T1/SC-A5-04), rollback-доказательства (OFF/legacy, hot/cold, анкер `e8646af`, отсутствие DDL-отката), adversarial-приёмка + diff-аудит. Прогоны: pytest **9170/0**, JS **47/47**, `git diff --check`=0, каталог 470/427/445/101/99/21, SQLite v12, §104 AST-гейт (ядро `generate` SAME), канон **11**.
+- **Non-blocking findings T-3604 (watch-items агрегатного gate эпика, не дефекты): F1** сила race-теста (stub не отличает conditional UPSERT от baseline); **F2** путь обложки саммари на legacy `consume` (граница §86.2); **F3** добавленный `source="tool"` в `tool_router` (неточность декларации границы); **F4** UTF-8 BOM в ~40 тест-файлах; **F5** неоднородность `reason` при replay denied; **F6** `retention=0` трактуется как 1 день; **F7** purge внутри success-`try` (риск неверной классификации `failopen`). Разбираются на агрегатном gate Эпика 3.
+
+### 86.9. Release policy EPIC_ONLY → DEFERRED_TO_EPIC; откат (D11)
+- A5 меняет рантайм **разделяемого** бюджета живого direct-чата/tool-пути → вклад входит в **агрегированный pending epic-release Эпика 3** (манифест/порядок/откат — на границе эпика под агрегатным Reviewer gate).
+- **Пер-фича деплоя/тега/бампа нет;** `APP_VERSION` остаётся **2.58.30**; агрегатный bump **2.58.30 → 2.58.31** — на границе эпика. **DDL `image_reservation` применяется автоматически при старте прод** (`PgDatabase.init()`, идемпотентно) **в составе агрегатного релиза** — до него в прод НЕ попадает. @DevOps на пер-фича деплой не вызывается.
+- **Откат:** hot — `IMAGE_DAILY_LIMIT_ENABLED=OFF` (legacy baseline); cold — `git revert` к **`e8646af`** + агрегатный анкер Эпика 3 (пер-фича тега нет). **DDL-откат не требуется:** таблица аддитивна и инертна без кода (`DROP TABLE IF EXISTS image_reservation` — опционально/документировано). Теги/бэкапы не удалялись (R18).
+
+### 86.10. AMEND/REUSE-карта, инварианты
+- **REUSE:** ADR-1026-16 (A3: `ImageRequest`/`run_image_request`, маркер `image_request_handled`), ADR-1026-15 (A2-envelope/§17-лимиты/канон 11), ADR-1026-14 (A1 env-only kill-switch-прецедент), ADR-1026-13 (A0 durable-аудит, `#epic3-reuse`), ADR-1018-7 D1 (scope-наследование), ADR-1019-8 D2 (sentinel), ADR-1020-3 (`limits.chat_timezone`), ADR-1023-5 (**REUSE + effective note** — пре-гейт + `generate_image` сохранены; меняется только механизм списания), ADR-1025-11 D3 (hotfix5 env-only ветка `image_calls`/fail-open), ADR-1025-24 (дисциплина гейта). **NOT_APPLICABLE:** ADR-1013-3 (промптов в A5 нет).
+- **Инварианты:** §104/§85-UI/A4/A6/A7 — вне diff; **канон 11**; **2-вызовность** `await_count==2`; **второй счётчик отсутствует**; REUSE ExecutionGraph (новых `IMAGE_GENERATION_*`-событий нет — A9); §37 — лимиты/TZ/idem-key только из админ-конфига, не из контента; **R17/R18**.
+
+### 86.11. Ссылки
+- **Feature (архивация — T-3605 @PM ✅, 25.09.2026):** `plans/archive/image-daily-limit-round1026/{spec.md, adr-1026-17-image-daily-limit.md, tasks.md, evidence.md, threat-failure-analysis.md, review-T-3604.md}` (6 файлов; SHA-256 до/после переноса идентичны 6/6).
+- **Durable-вход:** `plans/docs/agentic-audit-round1026.md` (анкоры `#s12-6-7`, `#epic3-reuse`, `#epic3-handoff`).
+- **A3 (вход):** `plans/ARCHITECTURE.md` §85; **A2:** §84; **A1:** §83; **A0:** §82.
+- **Код (baseline `e8646af` + незакоммиченный A2/A3):** `services/pg_db.py` (`image_reservation` DDL); `services/worker_budget.py` (reserve/commit/release/journal/summary/TZ); `services/image_generation.py` (`build_image_idem_key`/`_reserve_or_consume`/`_commit_or_release`); `config/settings.py` (`IMAGE_DAILY_LIMIT_ENABLED`, `IMAGE_RESERVATION_RETENTION_DAYS`); `services/param_catalog.py` (`IMAGE_DAILY_LIMIT`, `limits_images`); `web/app.js` + `web/index.html` (UI-врезка).
+- **Тест:** `tests/test_image_daily_limit_round1026.py` (13), `tests/test_webapp_gates_api.py::TestWorkersBudget::test_image_usage_additive_fields`.
+- **Точка отката:** коммит **`e8646af`** (пер-фича тега нет — EPIC_ONLY; агрегатный анкер — на границе эпика).
+- **Следующие:** **T-3605 @PM ✅** (архивация → `plans/archive/image-daily-limit-round1026/`) · **T-3606 = `DEFERRED_TO_EPIC` ✅** (per-фича деплоя/bампа нет; @DevOps не вызывался) · **T-3607 @PM ✅** (handoff → **A6 `memory-lookup-api`**, затем A4); агрегатный релиз Эпика 3 (bump 2.58.31) — на его границе.
+
+---
+
+## 87. Раунд 10.26 (25.09.2026) — Эпик 3 / Wave 4: A6 «Memory Lookup API» `memory-lookup-api-round1026` — новый LLM-видимый инструмент `get_user_context` (досье+RAG по требованию LLM), атомарное расширение канона инструментов 11→12 (хвост; первые 11 байт-в-байт), envelope из 5 полей §33, purpose-роутинг + lazy RAG, env-only `MEMORY_LOOKUP_ENABLED`, Δ DDL=0 / Δ каталога=0, R2 — **release policy EPIC_ONLY → deployment DEFERRED_TO_EPIC (APP_VERSION 2.58.30 без bump)**
+
+**Фича** `memory-lookup-api-round1026` (A6, Эпик 3 «Agentic Intelligence», Wave 4; **P0**; §32 «Досье как инструмент» / §33 «Структурированный memory lookup» / §34 «Досье + RAG» / §35 «Досье и фактчек»; ориентиры §52 п.11/12/14, §53, §54 п.6). **T-3608…T-3625**. **Статус: ✅ COMPLETED + ACCEPTED (merge §87); ACCEPTED INTO PENDING EPIC 3 RELEASE — deployment DEFERRED_TO_EPIC; НЕ «deployed».** Ревью — **единый Reviewer gate** (T-3622, обе линзы; Scanner отсутствует) — **Approved C0/H0** (R2; binding Reviewed-Commit `e8646af`, Working-Tree-Hash `05d882ea…`, Spec-Hash `4d819180…`). **ADR-1026-18 (D1–D11) Accepted** (этот merge — момент принятия). Risk **R2**; findings L-A6-01…-06 — non-blocking watch-items агрегатного gate эпика. Архивация feature-папки — **T-3623 @PM ✅, 25.09.2026** (`plans/archive/memory-lookup-api-round1026/`, 5 файлов без потерь).
+
+### 87.1. Инструмент `get_user_context` — контракт (D2)
+- **Новый LLM-видимый инструмент `get_user_context`** (имя рабочее, из §33) поверх **существующих** досье + RAG; **read-only**. LLM вызывает его **по своей инициативе** (on-demand); универсального dump-инструмента нет. `MEMORY_LOOKUP_TOOL_NAME="get_user_context"`.
+- **Параметры:** `person` (required, string: имя/алиас/`@username`/id строкой), `user_id` (optional, integer — альтернативный якорь, приоритет над `person`), `purpose` (required, enum 6), `max_items` (optional, integer ≥1). `additionalProperties:false`.
+- **`chat_id` — не параметр модели:** берётся из `ToolContext` (как у всех существующих инструментов) — это и есть адаптация контракта §33 (`:5116–5118`), снижающая риск подмены чата.
+- **Невалидные аргументы (§52 п.14):** нет `person`+`user_id`; неизвестный `purpose`; не-строковый `person`; не-int/`<1` `max_items` → `{"status":"error","error":"invalid_arguments","detail":"<code>"}`; инструмент **не бросает**, цепочка/другие инструменты продолжают работу.
+- **Честный empty:** неизвестный человек → `status:"ok"`, `no_data:true`, `empty_reason:"unknown_person"` (не ошибка). Неоднозначное имя (§53) → `person.resolution:"ambiguous"`, `no_data:true`, `empty_reason:"ambiguous"`, кандидаты — только id/ref; факты двух людей **не сливаются и не возвращаются**.
+- Резолв — существующий `AliasResolver` (`deps.aliases` либо fail-open `build_alias_resolver`); **второй резолвер не создаётся**.
+
+### 87.2. Канон инструментов 11 → 12 — атомарно (D1)
+- `TOOL_CALLING_TOOLS` расширен **ровно на +1** (`get_user_context` **в хвост**); **первые 11 — байт-в-байт** (ADR-1020-4). Санкция — новая (ADR-1026-18 D1); санкция ADR-1026-13 D3 исчерпана A2 и повторно НЕ используется.
+- **Атомарные части одного изменения:** JSON-схема `TOOL_GET_USER_CONTEXT`; хвост `TOOL_CALLING_TOOLS`; `_memory_lookup_enabled()` + env-only `MEMORY_LOOKUP_ENABLED` в `active_tools`; запись `"get_user_context": self._get_user_context` в диспетчер `tool_router`; тесты `len==12` + ре-пин ~11 канон-тестов; `MEMORY_LOOKUP_TOOL_NAME`.
+- **Лимиты/статус:** `get_user_context` — **free/local** (не в `METERED_TOOLS`), подчиняется общим A2 `TOOL_MAX_TOTAL_CALLS=6`/дедупу, не расходует `TOOL_CHAIN_MAX_METERED_CALLS`.
+- **Δ каталога = 0:** kill-switch и капы — env-only/код-константы; счётчики **470/427/445/101/99/21** без изменений; F8/ADR-1026-2 не переиздаётся. **Δ DDL = 0** (SQLite **v12**; новых таблиц/колонок/индексов/PG нет).
+
+### 87.3. Kill-switch `MEMORY_LOOKUP_ENABLED` и effective-набор (D1)
+- env-only `ClassVar[bool]`, **default ON** (`config/settings.py`); OFF → инструмент **не объявляется** в `active_tools`; наличие схемы и `len(TOOL_CALLING_TOOLS)==12` **безусловны**. Прямой вызов при OFF → `{"status":"error","error":"disabled"}`.
+- **Уточнение (L-A6-05):** канон = **12**; `active_tools()` default (image OFF) = **11** (12 − `generate_image`); при `MEMORY_LOOKUP_ENABLED=OFF` активный набор = **10** (baseline-паритет после A2/A3/A5), а «остальные 11» относятся к канону.
+
+### 87.4. Purpose → источники + lazy RAG (D3)
+| purpose | Источники (reuse) | RAG? |
+|---|---|---|
+| `identity` | `AliasResolver` + `db.get_persona_card` | нет |
+| `appearance` | `graph_facts` (target_user, `status='confirmed'`) — generic-лексиконный **фильтр** | нет |
+| `speech_style` | bounded per-user slice + patterns `db.get_generated_dossier` → compact style profile | да (bounded) |
+| `biography` | `graph_facts` (confirmed, weight DESC) + `db.get_generated_dossier` | нет |
+| `relationships` | edges из `db.get_persona_card.links` (`origin != bot_direct_reply`) | нет |
+| `general` | FTS/vec RAG: `search_long_term`/`vector_search`/`get_rag_context`/`get_rag_facts` | да |
+
+- **Lazy RAG — детерминированная карта `{general, speech_style}`** (не «всегда»); для `speech_style` RAG включается только если bounded-slice не даёт минимума характерных сообщений. Для остальных 4 purpose RAG **не вызывается** (spy-тест `memory.calls == []`).
+- **`appearance`:** выделенного хранилища нет → generic-фильтр + честный `no_data`/`no_storage_for_purpose`; извлечение/классификация внешности — **граница A4**. **`speech_style`:** профиль строится на лету из существующих данных (без нового хранилища и без нового LLM-вызова); `_build_style_anchors` (chat-anchored к ответам бота) как per-user профиль **не переиспользуется**; системная личность бота не меняется.
+- **0 новых LLM-вызовов;** 2-вызовность System 2 (`await_count==2`) сохранена; lookup — обычный tool call внутри существующего `chat_with_tools` (reuse A1/A2), нового pre-gate нет.
+
+### 87.5. Envelope результата — 5 полей §33 (D4)
+- Результат — **JSON-объект** (строка), который A2 (`_classify_output`/`_make_envelope`) разворачивает в `data` envelope; доступен через `ToolContext.result_for("get_user_context")`/`ctx.tool_results`; envelope живёт **in-memory на прогон**, не логируется/не персистится (R17).
+- **Поля:** `facts[]` (текст + per-fact `confidence`/`weight`/`time`/`source_id`), `sources[]` (`kind`/`ref`/`origin`/`ts`), `confidence` (`available`/`label`/`value`), `time_context` (`from`/`to`/`label`), `no_data` + `empty_reason`; служебные `status`/`purpose`/`person`/`truncated`.
+- **Честность:** `confidence` ← `graph_facts.status`+`weight`(+`last_confirmed_at`): `confirmed`+weight≥0.5 → `confirmed`; `confirmed`+weight<0.5 → `likely`; иной status → `unconfirmed`; носителя нет → `available=false`, `label:"unknown"`. Ни один элемент не помечается `confirmed` без подтверждения носителем; `no_data`/`empty_reason` обязательны. Источники — идентификаторы (`tg:`/`msg:`, ADR-1020-1), не сырые тексты.
+
+### 87.6. Капы (D5)
+- `max_items` — предел элементов `facts[]`/срезов; per-purpose дефолты (`identity=5`, `appearance=10`, `biography=10`, `relationships=10`, `general=8`, `speech_style=5`); hard-ceiling `MEMORY_LOOKUP_MAX_ITEMS_HARD=20` (clamp).
+- Срезы сообщений: `MEMORY_LOOKUP_MESSAGE_SLICE_MAX=5` (hard 10), `MEMORY_LOOKUP_SLICE_MAX_CHARS=240`/фрагмент, `MEMORY_LOOKUP_RESULT_MAX_CHARS=4000` на результат (+`truncated`). «Сотни сообщений» и крупные куски личной переписки невозможны by design (§34).
+
+### 87.7. Reuse map / anti-duplication (D9)
+- **Идентичность:** `AliasResolver` (`summary_aliases.py`). **Досье/факты:** `db.get_persona_card` (читатель за `build_persona_card`), `db.get_generated_dossier`, **read-only** `db.get_user_context_facts` (новый тонкий `SELECT` по существующему `graph_facts` + provenance `last_confirmed_at`/`message_timestamp`/`kind`), `dossier_prompts.format_dossier_block`. **RAG/сообщения:** `summary_memory.search_long_term`/`get_rag_context`/`get_rag_facts`/`vector_search`. **Связи:** edges `get_persona_card.links`.
+- **Не делать:** второй резолвер, второй RAG-контур, второе хранилище, вторую аналитику/ExecutionGraph-события, второй механизм цепочек, 3-й LLM-вызов. `get_user_context` вводится впервые (A0 EV-21), без дублирования `build_persona_card`/`format_dossier_block`.
+- **Наблюдаемость:** только новые `[memory] lookup`-логи + существующие `[tools]`; **фактчек-набор остаётся 3** (`dig_into_lore`/`compile_lore_story`/`execute_web_search`); память подтверждает **высказывание**, фактчек — **содержание** (документировано в `description`).
+
+### 87.8. R17 (D8)
+- Единственная новая строка: `[memory] lookup | purpose=%s | user_id=%s | chat_id=%s | count=%d | latency_ms=%d | empty_reason=%s` (`_memory_lookup_finish` в `tool_router`).
+- **Никогда:** текст досье/сообщений/цитат, имена, промпты, ключи, сырые аргументы; исключение логируется только классом. `empty_reason` ∈ `{"", empty, unknown_person, ambiguous, no_storage_for_purpose, disabled, lookup_failed}` — закрывает §53 «почему инструмент не сработал».
+
+### 87.9. Границы волн и anti-duplication (D9)
+- **A4** (§22–§25) — потребитель контракта (имена/визуальный срез/image-prompt/заполнение appearance-заглушек); в A6 **не реализуется**. **A5** (`worker_budget`/image-пути/`limits.*`) — **вне diff**. **A7** (§36–§48) — вне diff (фактчек не расширяется). **§104 `generate_image`** — AST-гейт A3 зелёный, не тронут. **A9** — новых событий A6 не создаёт. **Промпты:** системные/воркерные не меняются → ADR-1013-3 **NOT_APPLICABLE** (единственное промпт-соседнее изменение — `description` новой схемы, атомарно).
+
+### 87.10. Release policy EPIC_ONLY → DEFERRED_TO_EPIC; откат (D10)
+- A6 меняет **общий канон/меню инструментов** живого чата → вклад входит в **агрегированный pending epic-release Эпика 3** (манифест/порядок/rollback — на границе эпика под агрегатным Reviewer gate). **Пер-фича деплоя/тега/бампа нет;** `APP_VERSION` остаётся **2.58.30**; агрегатный bump **2.58.30 → 2.58.31** — на границе эпика. @DevOps на пер-фича деплой не вызывается.
+- **Откат:** hot — env-only `MEMORY_LOOKUP_ENABLED=OFF` (инструмент исчезает, остальные 11 байт-в-байт); cold — `git revert` к **`e8646af`** + агрегатный анкер Эпика 3. **DDL-откат не требуется** (Δ DDL=0). **Release-order:** A6 до **A4** (A4 потребляет контракт); совместим с A1/A2/A3/A5.
+
+### 87.11. Доказательства и watch-items (D11; R2)
+- **Прогоны:** pytest **9213/0** (baseline 9170 + новый `tests/test_memory_lookup_round1026.py` 43), JS **47/47**, `git diff --check`=0, каталог **470/427/445/101/99/21**, SQLite v12, `APP_VERSION` 2.58.30. Review — **Approved C0/H0**, R2 не повышен (control-flow `tool_loop` не менялся; изменения аддитивны/обратимы).
+- **Non-blocking findings T-3622 (watch-items агрегатного gate эпика, не дефекты): L-A6-01** byte-parity-тест `test_first_eleven_byte_identical` тавтологичен (требование независимо подтверждено diff-инспекцией; для регресс-мощности — сравнение со снимком); **L-A6-02** при усечении >4000 симв. `facts[]` может опустеть при `no_data:false`; **L-A6-03** устаревший комментарий «полный канон 11» в `tests/test_tool_schemas.py`; **L-A6-04** для неизвестного человека `appearance` даёт `no_storage_for_purpose` вместо `unknown_person`; **L-A6-05** неоднозначная формулировка active-набора при OFF (уточнена в §87.3); **L-A6-06** `user_id`/`max_items` коэрцятся лояльнее JSON-схемы. Разбираются на агрегатном gate Эпика 3.
+
+### 87.12. Ссылки
+- **Feature (merge §87 @Architect; архивация — T-3623 @PM ✅, 25.09.2026):** `plans/archive/memory-lookup-api-round1026/{spec.md, adr-1026-18-memory-lookup-and-canon-extension.md, tasks.md, evidence.md, review-T-3622.md}` (5 файлов, SHA-256 до/после переноса идентичны).
+- **Durable-вход:** `plans/docs/agentic-audit-round1026.md` (EV-21 «`get_user_context` отсутствует»; `#duplicates`, `#epic3-reuse`, `#epic3-summary`).
+- **A5 (вход):** `plans/ARCHITECTURE.md` §86; **A3:** §85; **A2:** §84; **A1:** §83; **A0:** §82.
+- **Код (baseline `e8646af` + незакоммиченный epic-release A2/A3/A5):** `config/settings.py:903-904` (`MEMORY_LOOKUP_ENABLED`); `services/tool_schemas.py:436-487/489-502/513/534-541` (схема, канон 12, имя, env-гейт); `services/tool_router.py:547/1154+` (диспетчер + `_get_user_context`); `services/database.py:4653-4675` (read-only `get_user_context_facts`).
+- **Тест:** `tests/test_memory_lookup_round1026.py` (43) + ре-пин канон-тестов (11 файлов).
+- **Точка отката:** коммит **`e8646af`** (пер-фича тега нет — EPIC_ONLY; агрегатный анкер — на границе эпика).
+- **Следующие:** **T-3623 @PM ✅** — архивация `plans/archive/memory-lookup-api-round1026/` · **T-3624 = `DEFERRED_TO_EPIC` ✅** (accepted into pending epic release; @DevOps не вызывался) · **T-3625 @PM ✅** — handoff → **A4 `image-context-memory`**; агрегатный релиз Эпика 3 (bump 2.58.31) — на его границе.
+
+---
+
+## 88. Раунд 10.26 (25.09.2026) — Эпик 3 / Wave 4: A4 «Image Context Memory» `image-context-memory-round1026` — memory-aware image-поток (§22–§25 + §37): детерминированный helper `image_context_memory` над источниками A6, класс-закрывающий корроборационный шлюз идентичности D13/G0–G3, ограниченный визуальный срез, 5-частная сборка `build_final_prompt` с §37-обёрткой, Δ DDL=0 / Δ каталога=0, канон 12, R3 — **release policy EPIC_ONLY → deployment DEFERRED_TO_EPIC (APP_VERSION 2.58.30 без bump)**
+
+**Фича** `image-context-memory-round1026` (A4, Эпик 3 «Agentic Intelligence», Wave 4; **P0**; §22 «Изображения на основе памяти» / §23 «Какие данные использовать» / §24 «Разрешение имён» / §25 «Сборка image prompt» / §37 «Безопасность tool output»; ориентиры §52 п.3/4/5, §53, §54 п.6). **T-3626…T-3645** (+ cycle-3 **T-3646**). **Статус: ✅ COMPLETED + ACCEPTED (merge §88); ACCEPTED INTO PENDING EPIC 3 RELEASE — deployment DEFERRED_TO_EPIC; НЕ «deployed».** Ревью — **единый Reviewer gate** (T-3640, обе линзы; Scanner отсутствует) — **Approved** на **4-м цикле** (R3 сохранён; binding Reviewed-Commit `e8646af`, Working-Tree-Hash `5f9ac819…`, Spec-Hash `63064ccb…`). **ADR-1026-19 (D1–D13) Accepted** (этот merge — момент принятия). Risk **R3**; findings **C4-N1/C4-N2/N2** + унаследованные **F1–F7 (A5)** / **L-A6-01…-06 (A6)** — non-blocking watch-items агрегатного gate эпика. Архивация feature-папки — **T-3641 @PM ✅ (25.09.2026)** — `plans/archive/image-context-memory-round1026/` (6 файлов без потерь; SHA-256 до/после идентичны; spec `63064ccb…` байт-в-байт).
+
+### 88.1. Helper `image_context_memory` + корроборационный шлюз идентичности (D1/D2/D13)
+- **Дом:** `services/image_context_memory.py` — детерминированный **image-scoped** helper (не второй pipeline и не второй контракт); **одна реализация — две точки вызова** (direct `image_generation.maybe_handle_keyword` + tool `tool_router._generate_image`). Вход: `build_image_memory_context(*, chat_id, user_request, requester_id=None, aliases=None, db=None, memory=None)`; выход — `{resolved_subjects, context_required, context_sources, memory_context}` (аддитивно к `ImageRequest`).
+- **REUSE A6 (CONSUME, не AMEND):** существующие `AliasResolver`/`build_alias_resolver`, `db.get_user_context_facts`, RAG-ридеры `summary_memory`; helper **не импортирует** `tool_router` (нет цикла `tool_router`→`image_generation`→helper→`tool_router`); `_memory_lookup_*`/`get_user_context`/purpose-роутинг/envelope/капы A6 не переписываются.
+- **alias-совпадение — только кандидат; `resolved` выдаёт корроборационный шлюз** (D13; spec §3.1):
+  - **G0 — eligibility (defense-in-depth):** alias-слово `len ≥ 4` (`_MIN_ALIAS_TOKEN_LEN`) и не в `_ALIAS_STOPLIST`; `_stem`/casefold сохранены (склонения «Лёха»→«Лёху» работают). G0 класс **не** закрывает.
+  - **G1 — person-intent (обязателен; класс-закрывающий):** совпадение по **точному closed-set** `_PERSON_INTENT_TOKENS` + `_PERSON_INTENT_MARKER_FORMS` (стем-равенство, **не** `startswith`), включая `похож/похожа/…`; фраза «в образе» — exact-bigram. **Предлог `про/о/об` удовлетворяет G1 только перед явной person-формой** (`_PERSON_ABOUT_OBJECTS` = person-существительные ∪ self-tokens ∪ person-местоимения), а не как самостоятельный маркер. Провал → `none`, `empty_reason="no_person_intent"`, память **не читается**.
+  - **G2 — независимая корроборация (обязателен; REQ-A4-09):** alias-derived имя кандидата присутствует в `db.get_persona_names(chat_id, now)` (только имя+счётчик; **текст фактов не читается**). Провал/ридер недоступен → `none`, `empty_reason="unknown_person"`. Корроборированных **≥2 → `ambiguous`** (кандидаты только `user_id`; 0 чтений досье; нейтральный арт + уточнение); **ровно 1 → `resolved`**.
+  - **G3 — image-object cross-check (defense-in-depth; применяется после G2):** `_IMAGE_OBJECT_LEXICON` (производный от `_ALIAS_STOPLIST` + `_IMAGE_OBJECT_EXTRA`, вкл. артефакты `фото/снимок/досье/портрет`) + cross-check `_classify_visual`; срабатывание → `none`, `empty_reason="no_person_intent"`. Порядок **G0→G1→G2→G3** соответствует spec §3.1.
+- **Класс-инвариант:** рядовой generic image-запрос («нарисуй <существительное>» / «сделай картинку <существительное>») **не может** разблокировать персонализацию независимо от того, входит ли существительное в какой-либо лексикон, — закрытие не зависит от полноты списка; новая image-лексема утечку не открывает (подтверждено 4-м циклом ревью).
+- **first-person + `requester_id`** → `resolved` по id (субъект = автор; строка имени не используется); **fail-open:** недоступность alias/db/memory → `none` + honest `empty_reason`.
+- **Осознанная цена:** рост false-negative (короткое имя «Лёв»; запрос без person-маркера) — принято §24 («отказ важнее неверной персонализации»).
+
+### 88.2. Ограниченный визуальный срез и капы (D4)
+- **Источники:** подтверждённые `graph_facts` через `db.get_user_context_facts` (тот же ридер A6) → классификация по A4-лексикону; **ленивый** bounded срез сообщений/RAG через существующие ридеры `summary_memory` — только при недостатке подтверждённых визуальных фактов; `dossier_portrait` — **только не-визуальный контекст** (никогда источник черт лица/внешности, §23).
+- **Лексикон внешности + психологический denylist:** категории `glasses`/`beard`/`hairstyle`/`clothing`/`appearance`/`preferences`; `_PSYCH_DENY` проверяется **приоритетно** и исключает факт из визуальных утверждений («психология ≠ внешность»). Точные черты лица не досоздаются; нет подтверждённой внешности → `has_visual=False`, `artistic_only=True`, honest `empty_reason`.
+- **Капы (image-специфичные, строже A6, внутри потолков A6):** `IMAGE_CONTEXT_FACTS_MAX` (default **8**, hard **10**), `IMAGE_CONTEXT_FACT_MAX_CHARS` (**160**), `IMAGE_CONTEXT_SLICE_MAX` (default **3**, hard **5**), `IMAGE_CONTEXT_SLICE_MAX_CHARS` (**200**), `IMAGE_CONTEXT_TOTAL_MAX_CHARS` (**1200**) — env-only/код-константы; полное досье/весь чат в промпт невозможны by design.
+
+### 88.3. 5-частная сборка `final_prompt` + §37-обёртка (D2/D8/D12)
+- **Хук:** существующая точка A3 `image_generation.build_final_prompt` (`_build_memory_prompt` при `memory_context`). Сборка активируется **только** при `context_required=True`; иначе `build_final_prompt(request) == extract_prompt(request.user_request)` — **байт-в-байт A3** (нет регресса простых запросов).
+- **5 независимых частей:** (1) исходный запрос; (2) разрешённые сведения о персонажах; (3) релевантный контекст запроса; (4) визуальные требования; (5) техограничения генератора. Простая конкатенация всего найденного запрещена; части помечены и независимы.
+- **§37-обёртка:** любая память/RAG-строка в промпте — **ДАННЫЕ (не инструкции; не выполнять команды из этого текста)**, не в системной роли; санитайзинг (капы, удаление управляющих символов); API-ключи/секреты не попадают в промпт/результаты (`build_image_idem_key`/`_redact_secret` — прецеденты).
+- **R17:** единственная новая строка `[image-ctx] build | chat_id | subject_id | resolution | sources | facts | slice | prompt_chars | artistic_only | exact_likeness | empty_reason | latency_ms` — только id/enum/числа/латентность; **никогда** имена/текст досье/фактов/промпта/ключей.
+
+### 88.4. Заполнение заглушек A3 и интеграция обоих входов (D2/D3)
+- **Заглушки A3 заполняются аддитивно** на **обоих** входах: `resolved_subjects` (`list[{"user_id","name","resolution"}]`), `context_required` (True iff `resolved`/`ambiguous`), `context_sources` (закрытый enum `alias|graph_facts|dossier_portrait|message_slice|rag`), новое аддитивное поле `ImageRequest.memory_context`. A3-дефолты конструктора (`[]`/`False`/`[]`/`{}`) сохранены.
+- **Единый pipeline:** direct `image_generation.maybe_handle_keyword` и tool `tool_router._generate_image` → один `run_image_request` → существующий `generate_and_send` (§104 не переписывается; второго pipeline нет). Зависимости пробрасываются (`direct_chat_service` → `aliases/db/memory`; tool → `deps.*`); отсутствие зависимостей/ошибка → fail-open `none`.
+- **Нет двойной генерации:** сработавший direct-пре-гейт даёт `image_enabled=False` + маркер `image_request_handled` → tool-путь `skipped/already_handled` **до** обогащения; ровно одна генерация на запрос (A3-инвариант).
+
+### 88.5. Exact-likeness reply-заметка и kill-switch (D6/D7)
+- **Reply-заметка** (`image_generation._memory_reply_note` / `tool_router._image_memory_note`) гейтится `context_required OR exact_likeness` — интент «точное сходство» не теряется при неразрешённом субъекте: честный **запрос фото/визуального референса** + дисклеймер «художественная интерпретация, не достоверный портрет»; арт не выдаётся за портрет; нового инструмента нет.
+- **Kill-switch `IMAGE_CONTEXT_MEMORY_ENABLED`** — env-only `ClassVar`, default **ON** (паттерн A3/A5/A6). OFF → `ImageRequest` строится, но память не читается, `context_required=False`, промпт = A3 (байт-в-байт). `UNIFIED_IMAGE_REQUEST_ENABLED=OFF` (A3) → legacy, helper не вызывается. **Δ каталога = 0** (ClassVar, не поля `Settings`).
+
+### 88.6. Границы волн и anti-duplication (D9/D11)
+- **§104 `generate_image`:** `generate`/`generate_image(_verbose)`/`extract_prompt`/`is_image_keyword` AST-идентичны baseline `e8646af` (AST-гейт `TestBoundsA3` зелёный); модель/провайдер/ключи/параметры/ошибки/публикация не тронуты.
+- **A5 no-go:** `worker_budget`/`image_reservation`/`limits.*` — вне diff. **A6: CONSUME, не AMEND** — `get_user_context`/purpose-роутинг/envelope/капы/канон не переписываются; второго резолвера/RAG-контура/generic-lookup/envelope/image-pipeline нет (инвариант 12).
+- **Канон 12 без изменений:** 13-й инструмент не вводится; описание/схема `generate_image` не меняются (NOT_REQUIRED); Δ DDL = 0 (SQLite v12; только существующий read `get_persona_names`); A7/A9 вне diff; ADR-1013-3 **NOT_APPLICABLE** (сборка image-prompt — не системный/воркерный промпт-канон).
+
+### 88.7. Известный остаточный предел C4-N1 + watch-items (review T-3640 cycle 4)
+- **C4-N1 (MEDIUM, non-blocking, spec-санкционированный residual; документирован как known architectural boundary):** alias, **равный слову-person-маркеру** (например «Друг», «Человек», «Фотограф», «Девушка», «Подруга», «Мужчина», «Женщина», «Образ»), на голом generic-запросе («нарисуй друга/фотографа/…») проходит G1 **by design** (это слова из Architect-санкционированного closed-set G1 spec §3.1/D13), затем G2 подтверждает roster-участника с таким alias → `resolved` и чтение его визуального факта в промпт. **Полное закрытие класса требует reply/sender-плумбинга** (независимый сигнал ответа/отправителя) — **вне scope A4** (spec §3.1 «Известный остаточный предел», потенциальный follow-up). Это residual **принятого G1-набора**, а не реализационная over-generalization (в отличие от закрытого C3-H1); ограничен G2 (нужен подтверждённый persona-рекорд) и admin-сконфигурированным alias (≥4, вне stoplist). Документируется здесь **без правки spec.md** — для сохранения binding approval (spec-hash `63064ccb…`). **Watch-item агрегатного gate Эпика 3.**
+- **C4-N2 (Low, over-block):** over-tightening false-negative сверх §24 («нарисуй фотографию Лёхи», «фотку», «личико/облик», «похожая») → `no_person_intent`; утечки нет; §24 допускает false-negative. **N2 (Low, cap-заметка, унаследован из cycle 1):** `_apply_total_cap` может превысить бюджет на один элемент (первый добавляется безусловно), а `context`-блок не входит в total; в дефолтах практически не превышается — документировано.
+- **Унаследованные watch-items агрегатного gate:** A5 **F1–F7** (§86.8), A6 **L-A6-01…-06** (§87.11) — non-blocking, разбираются на агрегатном gate Эпика 3.
+
+### 88.8. Release policy EPIC_ONLY → DEFERRED_TO_EPIC; откат (D7)
+- A4 меняет содержимое `final_prompt` и обвязку **разделяемых** image-модулей живого direct-чата → вклад входит в **агрегированный pending epic-release Эпика 3** (манифест/порядок/rollback — на границе эпика под агрегатным Reviewer gate). **Пер-фича деплоя/тега/бампа нет;** `APP_VERSION` остаётся **2.58.30**; агрегатный bump — на границе эпика. @DevOps на пер-фича деплой не вызывается.
+- **Откат:** hot — `IMAGE_CONTEXT_MEMORY_ENABLED=OFF` (режим A3, байт-в-байт) и/или `UNIFIED_IMAGE_REQUEST_ENABLED=OFF` (legacy); cold — `git revert` к **`e8646af`** + агрегатный анкер Эпика 3. **DDL-откат не требуется** (Δ DDL=0). **Release-order:** A4 после A3/A5/A6, до A7.
+
+### 88.9. Доказательства (review T-3640 cycle 4)
+- **Прогоны:** A4 suite **90/0**; §104 AST-гейт `TestBoundsA3` **7/0**; полный pytest **9303/0**; JS **47/0**; каталог **470/427/445/101/99/21**; SQLite v12; канон **12**; `APP_VERSION` **2.58.30**; `git diff --check` 0; scope без расширения. R3-артефакт `threat-failure-analysis.md` (12 threats, threat→mechanism→code→named test). Закрыты: F1 (cycle 2), C3-H1/C3-M1 (cycle 4), F2/N1/N3 retained. R3 сохранён (egress приватных данных/injection-поверхность реальны).
+
+### 88.10. Ссылки
+- **Feature (merge §88 @Architect; архивация — T-3641 @PM ✅, 25.09.2026):** `plans/archive/image-context-memory-round1026/{spec.md, adr-1026-19-image-context-memory.md, tasks.md, evidence.md, threat-failure-analysis.md, review-T-3640.md}` (6 файлов; SHA-256 до/после переноса идентичны; spec `63064ccb…` байт-в-байт).
+- **Durable-вход:** `plans/docs/agentic-audit-round1026.md` (EV-21; `#duplicates`, `#epic3-reuse`).
+- **A6 (вход/граница):** §87; **A5:** §86; **A3:** §85; **A2:** §84; **A1:** §83; **A0:** §82.
+- **Код (baseline `e8646af` + незакоммиченный epic-release A2/A3/A5/A6):** `services/image_context_memory.py` (helper: `build_image_memory_context`, `_corroborate_subject`/`_has_person_intent`/`_persona_names`/`_candidate_is_image_object`, `attach_image_memory`, `build_reply_note`, `log_image_context_build`); `services/image_generation.py:213` (`image_context_memory_enabled`), `:271` (`ImageRequest.memory_context`), `:293`/`:318` (`build_final_prompt`/`_build_memory_prompt` §37 DATA-метка), `:1331` (`maybe_handle_keyword`), `:1402` (`_memory_reply_note`); `services/tool_router.py:317` (`_image_memory_note`), `:2292+` (`_generate_image`); `services/direct_chat_service.py:1610-1611` (проброс deps); `config/settings.py:969-980` (kill-switch + капы).
+- **Тест:** `tests/test_image_context_memory_round1026.py` (90, вкл. `TestCorroborationGateD13`, `TestG1ExactMarkerCycle4`, `TestAliasCollisionGuard`, `TestExactLikenessGate`, `TestSection37`, `TestKillSwitch`); `tests/test_unified_image_request_round1026.py::TestBoundsA3` (§104 AST-гейт).
+- **Точка отката:** коммит **`e8646af`** (пер-фича тега нет — EPIC_ONLY; агрегатный анкер — на границе эпика).
+- **Следующие:** **T-3641 @PM ✅** — архивация `plans/archive/image-context-memory-round1026/` · **T-3642 = `DEFERRED_TO_EPIC` ✅** (accepted into pending epic release; @DevOps не вызывался) · **T-3643 @PM ✅** — handoff → **A7 `decision-making`** (§38–§40/§42–§48); агрегатный релиз Эпика 3 (bump 2.58.31) — на его границе.
+
+---
+
+## 89. Раунд 10.26 (25.09.2026) — Эпик 3 / Wave 5: A7 «Decision Making» `decision-making-round1026` — явное решение о действии (`action` {reply/react/silent/tool}) отдельно от стиля, программная 2-фазная политика §42–§45 без 3-го LLM-вызова, порядок §46 (silent/react без Вербализатора, reuse `react_moai`), контекст §47 из существующих `bot_replies`/маркеров, ровно 3 настройки §48 в `mod_direct` (санкция Δ каталога +3/+1), env-only `DIRECT_DECISION_MAKING_ENABLED`, Δ DDL=0, канон 12, R3 — **release policy EPIC_ONLY → deployment DEFERRED_TO_EPIC (APP_VERSION 2.58.30 без bump; агрегатный bump 2.58.30 → 2.58.31 — на границе эпика)**
+
+**Фича** `decision-making-round1026` (A7, Эпик 3 «Agentic Intelligence», Wave 5; **P0**; §38 «Новый Decision Making» / §39 «Не смешивать действие и стиль» / §40 «Контракт решения» / §42 «Когда молчать» / §43 «Когда отвечать» / §44 «Когда ставить реакцию» / §45 «Когда выбирать silent» / §46 «Не запускать L2 без необходимости» / §47 «Контекст предыдущих действий» / §48 «Настройки Decision Making»; ориентиры §52 п.16–20/22/23, §53, §54 п.6/8/9). **T-3647…T-3666** (Step 2 — T-3649; сверка — T-3650; build — T-3651…T-3662; gate — T-3663; merge — T-3664). **Статус: ✅ COMPLETED + ACCEPTED (merge §89); ACCEPTED INTO PENDING EPIC 3 RELEASE — deployment DEFERRED_TO_EPIC; НЕ «deployed».** Ревью — **единый Reviewer gate** (T-3663, обе линзы; Scanner отсутствует) — **Approved на 2-м цикле** (R3 сохранён; binding Reviewed-Commit `e8646af`, Working-Tree-Hash `4b3df140…`, Spec-Hash `950c5f80…`). **ADR-1026-20 (D1–D12) Accepted** (этот merge — момент принятия). Risk **R3**; findings — non-blocking **watch-items агрегатного gate Эпика 3** (см. §89.11). Архивация feature-папки — **T-3664 @PM ✅ (25.09.2026; 6 файлов, SHA-256 идентичны)** — `plans/archive/decision-making-round1026/`.
+
+### 89.1. Контракт решения `CoordinatorDecision` — аддитивное расширение A1 (D1)
+- **Дом контракта — существующий A1-объект `CoordinatorDecision`** (`services/direct_chat_service.py`), **аддитивно** расширенный; второй контракт/второй координатор не вводится (A1 — **AMEND**, не дублирование).
+- **Новые поля:** `action` ∈ {`reply`,`react`,`silent`,`tool`} (A1-константы `ACTION_*`); `style` ∈ {`casual`,`serious`,`deep_research`} | `""`; `target_message_id: int|None` (цель — id trigger-сообщения пользователя); `reaction: str|None` (🗿 только при `react`); `reason_code` — закрытый enum 15 кодов (§89.8); `needs_tools: bool` + `tool_calls`. A1-поля (`intent`/`addressee`/`memory_need`/`evaluation`/`enabled`) сохранены.
+- **`style` никогда не `silent`:** недопустимое значение нормализуется в `""` (`__post_init__`); молчание/реакция — не стили Вербализатора. Недопустимый `action` нормализуется в `reply`; `reaction` — только при `react`; `reason_code` принудительно из закрытого enum.
+- **Внутренний объект:** в чат не выводится; Stage-1/Stage-2 JSON (`services/system2_handoff.py`) **не изменены**; `action` — поле решения, **не** инструмент.
+
+### 89.2. Программный слой решения — 2 фазы, без 3-го LLM-вызова (D2)
+- **Фаза P (до генерации текста):** `_decision_pre_action` — детерминированная политика над сигналами §42–§45/§47; `silent`/`react` — короткое замыкание **до** сборки system prompt и любого LLM-вызова; `reply` — продолжение существующего пути. Точка вставки — после throttle/CB/dedup и dig/image-пре-гейтов.
+- **Фаза T (после LLM/tool-loop):** `build_coordinator_decision` расширяет существующий `_coordinator_choose_action` причиной/`needs_tools`/целью: инструменты вызваны и финал не деградировал → `tool`, иначе `reply`.
+- **Инвариант `physical-two-call-pipeline` (AMEND ADR-1022-5):** на tool-ходе `llm.generate.await_count == 2` (Stage-1 + Stage-2), на `silent`/`react` — **0** вызовов вывода текста; новых точек LLM-вызова нет; `system2_handoff.py` вне diff.
+
+### 89.3. Детерминированная политика §42–§45 (D3)
+- **Приоритет (первое совпадение):** explicit_request/§43-маркер → `reply` (или `tool`); question (в т.ч. голая пунктуация `?`/`???`/`?!`) → `reply`; article/expects-tool-контекст → `reply`/`tool_result`; эмоция/смех на своё изображение + toggle → `react`; эмоция без ожидания контента + toggle → `react`; acknowledgement + ignore-toggle → `silent` (или `react`); не адресовано → `silent`; диалог завершён/бот недавно ответил → `silent`; иначе → `reply`; ошибка политики → `reply` (`error`) — fail-safe.
+- **§42:** нет жёсткого правила «короткое → молчание» (длина не решающий признак; «Почему?» и вопросительная пунктуация → `reply`/`question`). **§43:** явные обращения/вопросы **никогда** не `silent`; недоступный инструмент при ожидании результата → `reply`/`tool_unavailable` (не молчание и не выдуманный успех). **§44:** реакция — контекстный класс, не универсальный исход; **случайности нет** (повторный вход → тот же исход). **§45:** бот не становится полностью пассивным; автономная активность вне direct-сообщений не затрагивается.
+
+### 89.4. Порядок исполнения §46 и реакция (D4/D5)
+- **`silent`** → Вербализатор не запускается, сообщение не отправляется (0 LLM-вызовов текста). **`react`** → Вербализатор не запускается; исполнение — **reuse существующего** примитива `smartmodule_utils.react_moai` (best-effort, fail-silently) на `target_message_id` (trigger-сообщение пользователя); фиксированная реакция 🗿. **`reply`** → существующий текстовый путь (стиль; на tool-пути — Stage-2, как сегодня). **`tool`** → существующий `tool_loop` (A2; не переписывается) → итоговое действие; degraded/ошибка → `reply`/`tool_unavailable`.
+- **Safety-net-фолбэки сохранены ниже слоя решения:** пустой reply → `react_moai`; провайдер-пустой (`LLMBadResponseError`) → `react_moai`; пустой текст «на удаление» не генерируется.
+- **Граница A8:** A7 поставляет решение `action=react` (+`target_message_id`/`reaction`/`reason_code`) и переиспользует `react_moai`; полная §41-механика (`setMessageReaction`: доступность/альтернатива/правильное сообщение/«не превращать ошибку реакции в длинный текст») — **A8**; `set_message_reaction` в direct-сервисе отсутствует.
+
+### 89.5. Контекст предыдущих действий §47 (D8)
+- **Источники — существующие, без нового хранилища:** `message.reply_to_message`; `bot_replies`/`remember_bot_reply`/`get_bot_reply_parent`; маркеры A1/A2/A3 (изображение/статья/вопрос). Поля контекста: `reply_to_is_image` (photo), `reply_to_is_article` (web_page), `is_private` (ЛС → всегда addressed), `expects_tool_result` (pre-LLM-эвристика: ответ на сообщение бота — статья или не-фото медиа) — все читаются политикой; «АХАХА» на своё изображение → `react`, «Почему?/шесть пальцев?» → `reply`.
+- **Остаточная грубость (watch-item R-2):** эвристика `expects_tool_result` шире буквального §47 — `video/sticker/voice` от бота + «АХАХА» → `reply`/`tool_result` вместо `react`/`laughter`. Направление **fail-safe** (лишний ответ, не ложное молчание), spec §3.5(6) разрешает pre-LLM-эвристику; задокументировано. `bot_replied_recently` — алиас `reply_to_bot` (осознанное ограничение; тонкая детекция «продолжение не нужно» — дальняя волна).
+
+### 89.6. Настройки §48 + санкционированная Δ каталога (D6)
+- **Маршрут** «Модули → Ответы в чате → Принятие решений» — новая группа `GroupSpec("flags_decision_making", "flags", "Принятие решений")` внутри `mod_direct`; новых вкладок/TAB_RULES-записей нет.
+- **Ровно 3 параметра** (`flags`, bool, default ON, per-chat): `CHAT_DECISION_IGNORE_TRIVIAL_ENABLED` («Игнорировать незначимые обращения»), `CHAT_DECISION_REACTIONS_ENABLED` («Использовать реакции вместо ответа»), `CHAT_DECISION_IMAGE_REACTIONS_ENABLED` («Реакции на короткие ответы к собственным изображениям»); global/local через `get_chat_param` (override → global → default).
+- **Δ каталога — санкционированная (ADR-1026-20 D6):** `REGISTRY` **473** · Settings fields **430** · categorized **448** · `GROUPS` **102** · `_TAB_BY_GROUP` **100** · `TAB_RULES` **21** (F8 переиздан по ADR-1026-2; `--check` OK). Иных параметров/групп нет.
+
+### 89.7. Kill-switch и сосуществование (D7)
+- **`DIRECT_DECISION_MAKING_ENABLED`** — env-only `ClassVar`, default **ON**; резолв per-call, никогда не бросает. **OFF → точный A1-baseline** (политика не строится; `action` ограничен `tool|reply`; OFF-строка лога — байт-в-байт A1-формат); 3 тумблера OFF → эффект baseline. Δ каталога не растёт.
+- **`REASON_DISABLED`** проставляется на объекте решения при OFF, но OFF-строка лога сохраняет A1-формат **байт-в-байт** (без полей reason/target/needs_tools/reaction) — осознанный компромисс (watch-item; ON-строка `[decision] … reason=<код>` работает).
+- **`CHAT_SILENCE_*` не поглощается и не пересекается:** throttle/кулдаун-стек — анти-абьюз до Phase P; двойного молчания нет.
+
+### 89.8. R17-диагностика (D9)
+- **Закрытый enum `reason_code` (15):** `explicit_request`, `question`, `image_reaction`, `laughter`, `emotion`, `acknowledgement`, `emoji_reaction`, `not_addressed`, `dialogue_completed`, `recent_reply`, `tool_result`, `tool_unavailable`, `disabled`, `default`, `error`.
+- **Логи** `[decision]`/`[coordinator]` (расширение A1-логов при ON) — только chat id, action, reason-enum, target id, needs_tools, reaction, имена инструментов; **никогда** текст сообщений/имена/ключи/промпты. Система событий/ExecutionGraph не создаётся (граница A9).
+
+### 89.9. Границы волн / anti-duplication (D10/D11)
+- **A1 — AMEND, не дублирование** (единственный `CoordinatorDecision`); **A2** (`tool_loop`/envelope) — не переписывается, только consume; **A3/A4/A5/A6** — не переписываются (consume маркеры/контекст); **§41 — A8**; **§49/§51 — A9**; **§104 `generate_image`** — no-go.
+- **Канон 12 без изменений** (`action` — не tool; JSON-схемы не меняются); **Δ DDL = 0** (SQLite v12); промпты не меняются (ADR-1013-3 **NOT_APPLICABLE**); scope — **только direct-чат**; второй пайплайн/хранилище/аналитика не создаются.
+
+### 89.10. Release policy EPIC_ONLY → DEFERRED_TO_EPIC; откат (D12)
+- A7 меняет кор-поведение живого direct-чата и каталожно-UI-модель → вклад входит в **агрегированный pending epic-release Эпика 3** (манифест/порядок/rollback — на границе эпика под агрегатным Reviewer gate). **Пер-фича деплоя/тега/бампа нет;** `APP_VERSION` остаётся **2.58.30**; агрегатный bump **2.58.30 → 2.58.31** — на границе эпика. @DevOps на пер-фича деплой не вызывается.
+- **Откат:** hot — `DIRECT_DECISION_MAKING_ENABLED=false` (A1-baseline) и/или 3 тумблера OFF; cold — `git revert` к **`e8646af`** + откат F8-артефактов + агрегатный анкер Эпика 3; **DDL-откат не требуется** (Δ DDL=0). **Release-order:** A7 после A3/A4/A5/A6, до **A8** (`telegram-reactions` — потребитель контракта `action=react`).
+
+### 89.11. Доказательства и watch-items (review T-3663 cycle 2)
+- **Прогоны (независимо воспроизведены Reviewer):** A7 suite **89/0**; direct+каталог+F8 **222/0**; полный pytest **9392/0** (0 регрессий); JS **47/47**; F8 `--check` **OK (473)**; канон **12**; Δ DDL=0; `APP_VERSION` **2.58.30**; `git diff --check`=0. Cycle-1 блокеры F-1/F-2 (High), F-3/F-5 (Medium) закрыты; Low F-4/F-6/F-8 закрыты; R3 сохранён (кор-поведение живого чата + AMEND пайплайна + каталожно-UI). R3-артефакт `threat-failure-analysis.md` (15 threats). Глубина доказательств: «нет 3-го LLM-вызова» подтверждён реальными `await_count`-ассертами (2 tool / 0 silent), не только mock-границей.
+- **Watch-items агрегатного gate Эпика 3 (non-blocking):** **F-9/D-2** — A1-тест `test_forbidden_paths_out_of_diff` расширен под санкционированные A3/A5-diff (повторное сужение сломало бы зелёные A3/A5; A7-дельта каталога независимо пиннится `TestBounds::test_counts_sanctioned` + F8 `--check`); **R-1** — устаревший code-указатель в `threat-failure-analysis.md` row 15 (`:1377–1380` вместо `:1402–1410`); **R-2** — грубость `expects_tool_result` (§89.5); **R-3** — алиас `bot_replied_recently`; **`REASON_DISABLED`** на объекте, не в OFF-строке лога (§89.7); **D-3** — feature-папка untracked, включить в архив-манифест; унаследованные A4 **C4-N1/C4-N2/N2**, A5 **F1–F7**, A6 **L-A6-01…-06**; owner-gate A3 `PENDING OWNER VERIFICATION` — внешний, A7 не закрывает.
+
+### 89.12. Ссылки
+- **Feature (merge §89 @Architect, 25.09.2026; архивация — T-3664 @PM ✅, 25.09.2026):** `plans/archive/decision-making-round1026/{spec.md, adr-1026-20-decision-making-policy-and-action-contract.md, tasks.md, evidence.md, threat-failure-analysis.md, review-T-3663.md}`.
+- **Durable-вход:** `plans/docs/agentic-audit-round1026.md` (EV-26/EV-32; `#epic3-reuse`, `#epic3-summary`).
+- **A4 (вход):** §88; **A6:** §87; **A5:** §86; **A3:** §85; **A2:** §84; **A1:** §83 (AMEND-источник — `CoordinatorDecision`); **A0:** §82.
+- **Код (baseline `e8646af` + незакоммиченный epic-release A2/A3/A5/A6/A4):** `services/direct_chat_service.py` (`REASON_CODES`/`DecisionContext`/`DecisionToggles`, `CoordinatorDecision`, `decision_making_enabled`, `_coordinator_reason`, `build_coordinator_decision`, `_decision_message_class`/`_decision_pre_action`/`_decision_context`/`_decision_toggles`, Phase P в `handle()`, логи `_log_coordinator_decision`/`_log_decision_short_circuit`); `config/settings.py` (`DIRECT_DECISION_MAKING_ENABLED`, `CHAT_DECISION_*`); `services/param_catalog.py` (`flags_decision_making`, `TAB_MOD_DIRECT`); `web/app.js` (`mod_direct`).
+- **Тест:** `tests/test_decision_making_round1026.py` (89) + ре-пин счётчиков каталога (44 файла) + F8-фикстуры.
+- **Точка отката:** коммит **`e8646af`** (пер-фича тега нет — EPIC_ONLY; агрегатный анкер — на границе эпика).
+- **Следующие:** **T-3664 @PM ✅** — архивация `plans/archive/decision-making-round1026/` (25.09.2026; 6 файлов, SHA-256 идентичны) · **T-3665 = `DEFERRED_TO_EPIC` ✅** (accepted into pending epic release; @DevOps не вызывался) · **T-3666 @PM ✅** — handoff → **A8 `telegram-reactions`** (§41/§44-механика — следующий шаг; Step 0 @Memory); агрегатный релиз Эпика 3 (bump 2.58.30 → 2.58.31) — на его границе.
+
+---
+
+## 90. Раунд 10.26 (25.09.2026) — Эпик 3 / Wave 5: A8 «Telegram Reactions» `telegram-reactions-round1026` — механика исполнения реакции (§41) поверх контракта A7: официальный `setMessageReaction` в единственном примитиве `react_moai`, реактивная доступность + детерминированная альтернатива/тихий отказ (≤2 попытки, без рандома), корректная цель (trigger/`target_message_id`; media-group — серверное «первое неудалённое»), контекстная карта `reason_code→эмодзи` ({🗿,😂,👍,🔥}, standard-only), no-text-on-error + закрытый enum 7 исходов, 429 без повтора, env-only `REACTION_MECHANICS_ENABLED`, Δ DDL=0 / Δ каталога=0, канон 12, R2 — **release policy EPIC_ONLY → deployment DEFERRED_TO_EPIC (APP_VERSION 2.58.30 без bump; агрегатный bump 2.58.30 → 2.58.31 — на границе эпика)**
+
+**Фича** `telegram-reactions-round1026` (A8, Эпик 3 «Agentic Intelligence», Wave 5 — продолжение; **P0**; §41 «Реакции Telegram» / §44-механика «Когда ставить реакцию»; приёмка §52 п.21, §53, §54 п.9). **T-3667…T-3686** (Step 0 — T-3667; Step 1 — T-3668; Step 2 — T-3669; сверка — T-3670; build — T-3671…T-3682; gate — T-3683; merge — T-3684). **Статус: ✅ COMPLETED + ACCEPTED (merge §90); ACCEPTED INTO PENDING EPIC 3 RELEASE — deployment DEFERRED_TO_EPIC; НЕ «deployed».** Ревью — **единый Reviewer gate** (T-3683, обе линзы; Scanner отсутствует) — **Approved на 1-м цикле** (R2 подтверждён по фактическому diff; binding Reviewed-Commit `e8646af`, Working-Tree-Hash `ec57a951…`, Spec-Hash `6e5cfc80…`). **ADR-1026-21 (D1–D14) Accepted** (этот merge — момент принятия). Risk **R2**; `threat-failure-analysis.md` — **`NOT_APPLICABLE`** (D12). **Архивация feature-папки — ✅ T-3684 @PM (25.09.2026):** `plans/archive/telegram-reactions-round1026/` (5 файлов; SHA-256 до/после идентичны, кроме регламентных пометок в `tasks.md`); source-папка `plans/features/telegram-reactions-round1026/` удалена.
+
+### 90.1. Исполнитель реакции — аддитивный апгрейд единственного примитива `react_moai` (D1/D3/D5/D8/D11)
+- **Дом:** `services/smartmodule_utils.py` — существующий примитив `react_moai` расширен **аддитивно** (`*, reaction=None, reason_code=None`); позиционные 3 аргумента сохранены; второй исполнитель/HTTP/`Message.react` не вводится; `await bot.set_message_reaction(` — **единственный** call-site (`:204`).
+- **Сигнатура/поведение:** при `reaction is None` или kill-switch OFF — **точное legacy** (одиночная best-effort попытка 🗿, `is_big=False`, fail-silently); иначе контекстный эмодзи + детерминированный fallback. Возврат — R17-safe код исхода (старые вызовы игнорируют).
+- **Закрытый enum 7 исходов (`:112–123`):** `REACTION_OK`, `REACTION_UNAVAILABLE`, `REACTION_FORBIDDEN`, `REACTION_MESSAGE_GONE`, `REACTION_SERVICE`, `REACTION_RATE_LIMITED`, `REACTION_UNKNOWN`.
+- **Классификация ошибок** (`_classify_reaction_error:147`, маркеры `:126–134`, lowercase-подстроки `TelegramBadRequest.message`): `REACTION_INVALID`→unavailable; `not enough rights`/`CHAT_WRITE_FORBIDDEN`/`CHAT_ADMIN_REQUIRED`/`bot was blocked`→forbidden; `message to react not found`/`message not found`/`MESSAGE_ID_INVALID`→message_gone; `can't react to this message type`→service; иначе unknown. `TelegramRetryAfter`→rate_limited; прочее → unknown.
+- **Детерминированный порядок альтернатив** (`_reaction_candidates:164`): `primary` (или 🗿, если не из набора) + первые `MAX_REACTION_ATTEMPTS-1` из `REACTION_FALLBACK_ORDER=(😂,👍,🔥,🗿)`; **≤2 попытки**; только `unavailable` retryable; все недоступны → `REACTION_UNAVAILABLE`, 0 реакций, 0 текста; **`random` не используется**.
+- **no-text:** ни один исход не вызывает `send_message`/`_send_direct_answer`; R17-логи — только `chat_id`/`message_id`/enum/`reason_code`/эмодзи/код ошибки; подстрока `"SmartModule: moai reaction failed"` сохранена (регресс-совместимость).
+- **Стандартный набор, одна реакция (D8):** `STANDARD_REACTION_EMOJIS = frozenset({🗿,😂,👍,🔥})`; всегда ровно один `ReactionTypeEmoji`; `ReactionTypeCustomEmoji`/`ReactionTypePaid` и списки >1 не используются.
+
+### 90.2. Контекстная карта `reason_code→эмодзи` — только в `direct_chat_service` (D1; делегирование A7→A8)
+- **Дом выбора** — `services/direct_chat_service.py` (дом reason-кодов A7): `_REACTION_BY_REASON:512` + `_reaction_for_reason(reason):520` (гейт kill-switch: OFF → 🗿); на 4 `react`-ветках `_decision_pre_action` (`:858/865/875/888`) значение эмодзи берётся из карты вместо константы 🗿. **Классы/приоритеты/`action`/`reason_code` не меняются.**
+- **Карта:** `image_reaction`/`laughter`→😂, `emoji_reaction`→👍, `emotion`→🔥, иной/`None`/неизвестный→🗿 (`REACTION_DEFAULT`).
+- **Граница A7:** **правила §44** («когда/какую», приоритеты `react`) остаются **A7** — не переопределяются (C-1); A8 владеет **механикой** (конкретный эмодзи/доступность/доставка), прямо делегированной ADR-1026-20 D5. Точка выбора в `direct_chat_service` (дом кодов) избегает цикла импорта с `smartmodule_utils`.
+
+### 90.3. Проброс `reaction`/`reason_code` и корректная цель (D4/D13)
+- **Разрыв T-3678 закрыт:** в ветке `pre_action == ACTION_REACT` (`direct_chat_service.py:1313–1315`) — `react_moai(bot, chat_id, pre_target, reaction=pre_reaction, reason_code=pre_reason)`; контракт A1 `CoordinatorDecision` переиспользуется, не дублируется; `reason_code` в чат не выводится.
+- **Цель = trigger:** `target_message_id = message.message_id`; `reply_to_id` и id предыдущего сообщения бота **никогда** не используются. **media-group** — серверное «первое неудалённое» (verbatim Bot API); специальный код не нужен, тест фиксирует неизменность переданного id. Служебные сообщения → `service` → тихий отказ.
+
+### 90.4. Права/типы чатов и rate limits — реактивно (D6/D7)
+- **Права/типы чатов:** private/group/channel/supergroup различаются доступностью; проактивные `getChat.available_reactions`/`getChatMember`/`can_react_to_messages` **не читаются** — доступность разрешается авторитетно результатом доставки; ошибки `forbidden`/`unavailable` классифицируются, при отсутствии прав → тихий отказ. (Опциональный warm-кэш `available_reactions` — вне scope.)
+- **429/`TelegramRetryAfter`:** повтор **не** выполняется (реакция некритична; `sleep` блокировал бы handler; очередь = новое состояние) → `rate_limited`, тихий отказ.
+
+### 90.5. Kill-switch `REACTION_MECHANICS_ENABLED` (D10)
+- Env-only `ClassVar` (`config/settings.py:562–569`; паттерн `DIRECT_DECISION_MAKING_ENABLED`), default **ON**, резолв per-call, никогда не бросает; **не** каталог-параметр (Δ каталога не растёт).
+- **OFF → legacy:** одиночная best-effort попытка фиксированной 🗿, без контекстного выбора/fallback/таксономии; `_reaction_for_reason` также возвращает 🗿 (лог совпадает с реально отправленным эмодзи). Hot-откат к pre-A8.
+
+### 90.6. Границы волн и anti-duplication (D11/D14)
+- **A7-правила §44 / `_decision_pre_action`** — не переопределены (изменено только значение эмодзи в существующих `react`-ветках). **A9** (§49/§51 — события `REACTION_SENT`/`MESSAGE_IGNORED`, ExecutionGraph, апдейты реакций) — **вне diff**; `MessageReactionUpdated`/`MessageReactionCountUpdated` не подписываются. **A1** `CoordinatorDecision` — reuse. **A2–A6, A10** — вне diff.
+- **Прочие `react_moai`-сайты (U11):** `handlers/{youtube,web,search,factcheck,checkup}.py` и safety-net `direct_chat_service.py:1440/1506` — **не тронуты**, зовут legacy 3-аргументную форму → байт-в-байт legacy (🗿, одиночная попытка); их миграция — вне scope (нет `reason_code`-контекста).
+- **Канон 12** без изменений (`action` — не tool; JSON-схемы не меняются); **Δ DDL=0** (SQLite v12); **Δ каталога=0** (`473/430/448/102/100/21`); промпты не меняются (ADR-1013-3 `NOT_APPLICABLE`); §104 `generate_image` — no-go.
+
+### 90.7. Threat-вердикт (D12)
+- **`threat-failure-analysis.md` — `NOT_APPLICABLE`, Risk R2** (подтверждён Reviewer по фактическому diff): локальная механика (один примитив + одна точка потребления), без LLM-вызова/DDL/каталога/нового пайплайна/auth/секретов/персистентного состояния; все отказные пути fail-silently и **без текста**; blast radius ограничен direct-чатом и значением эмодзи; ни один R3-триггер spec §13 не сработал.
+
+### 90.8. Release policy EPIC_ONLY → DEFERRED_TO_EPIC; откат (D14)
+- A8 входит в **агрегированный pending epic-release Эпика 3** (манифест/порядок/rollback — на границе эпика под агрегатным Reviewer gate). **Пер-фича деплоя/тега/bump нет;** `APP_VERSION` остаётся **2.58.30**; агрегатный bump **2.58.30 → 2.58.31** — на границе эпика. @DevOps на пер-фича деплой не вызывается.
+- **Откат:** hot — `REACTION_MECHANICS_ENABLED=false` (legacy 🗿) и/или OFF A7-тумблеров REACTIONS/IMAGE_REACTIONS; cold — `git revert` к **`e8646af`** + агрегатный анкер Эпика 3; DDL-откат не требуется (Δ DDL=0). **Release-order:** A8 после A7, до A9.
+
+### 90.9. Доказательства и watch-items (review T-3683 cycle 1)
+- **Прогоны (независимо воспроизведены Reviewer):** A8 suite **186/0**; новый файл **63**; полный pytest **9459/0** (0 регрессий, baseline A7 9392); JS **47/47**; F8 `--check` **OK (473)**; каталог **473/430/448/102/100/21**; канон **12**; Δ DDL=0 (SQLite v12); `APP_VERSION` **2.58.30**; `git diff --check`=0. Единственный `set_message_reaction`; A9-маркеры отсутствуют; REQ-A8-01…-13 → SC-A8-01…-15 без orphan. 2 A7-теста (`test_laughter_reacts`, `test_image_reaction_on_own_image`) re-pinned на контекстный эмодзи — санкционированная делегация A7→A8 (ADR-1026-20 D5), не A7-регрессия.
+- **Watch-items агрегатного gate Эпика 3 (non-blocking):**
+  - **L-1 (Low, OPEN)** — `TelegramForbiddenError` не является подклассом `TelegramBadRequest`, поэтому реальный HTTP 403 классифицируется как `unknown`, а не `forbidden`; поведение безопасности идентично (тихий отказ, без fallback/текста/повтора) — неточность спеки, не нарушение санкции. **Follow-up (A9/мелкий hotfix):** добавить `except TelegramForbiddenError: return REACTION_FORBIDDEN` + unit-тест.
+  - **A7-без-byte-снапшота (честное ограничение, зафиксировано ревью):** A7-код был незакоммичен, точный `byte-diff` A7→A8 по `_decision_pre_action` git-средствами невычислим; заменено структурной инспекцией + line-baseline ADR + зелёными A7-тестами (поведенческая эквивалентность A7-правил подтверждена).
+  - **Унаследованные:** A7 **F-9/R-1/R-2/R-3/`REASON_DISABLED`** (§89.11); A4 **C4-N1/C4-N2/N2** (§88.7); A5 **F1–F7** (§86.8); A6 **L-A6-01…-06** (§87.11); **D-3** — feature-папка untracked (включить в архив-манифест); **ADR hash re-pins** (в binding-рецепт T-3683 не входят — смена Status ADR-1026-21 вердикт не инвалидирует); owner-gate A3 `PENDING OWNER VERIFICATION` — внешний, A8 его не закрывает.
+- **Ограничение проверки (честно):** серверное поведение Telegram (media-group «first non-deleted», реальные классы 403/400) локально эмулировано fakes; сетевых вызовов не делалось (соответствует scope).
+
+### 90.10. Ссылки
+- **Feature (merge §90 @Architect, 25.09.2026; архивация — ✅ T-3684 @PM, 25.09.2026):** `plans/archive/telegram-reactions-round1026/{spec.md, adr-1026-21-reaction-mechanics.md, tasks.md, evidence.md, review-T-3683.md}` (spec-hash `6e5cfc80…` байт-в-байт; `threat-failure-analysis.md` отсутствует — `NOT_APPLICABLE` при R2).
+- **Durable-вход:** `plans/docs/agentic-audit-round1026.md` (EV-26/EV-32; `#epic3-reuse`, `#epic3-summary`).
+- **A7 (вход/граница):** §89; **A4:** §88; **A6:** §87; **A5:** §86; **A3:** §85; **A2:** §84; **A1:** §83; **A0:** §82.
+- **Код (baseline `e8646af` + незакоммиченный epic-release A2–A7):** `services/smartmodule_utils.py:93–234` (механика `react_moai`; единственный `set_message_reaction:204`); `services/direct_chat_service.py` (`_REACTION_BY_REASON:512`/`_reaction_for_reason:520`; 4 react-ветки `:858/865/875/888`; проброс `:1313–1315`; safety-net `:1440/1506` — legacy); `config/settings.py:562–569` (`REACTION_MECHANICS_ENABLED`).
+- **Тест:** `tests/test_telegram_reactions_round1026.py` (63, new) + `tests/test_smartmodule_utils.py` (+4) + `tests/test_decision_making_round1026.py` (2 A7-test re-pin на контекстный эмодзи).
+- **Точка отката:** коммит **`e8646af`** (пер-фича тега нет — EPIC_ONLY; агрегатный анкер — на границе эпика).
+- **Закрытие (T-3684…T-3686 ✅, @PM 25.09.2026):** **T-3684 ✅** — архивация `plans/archive/telegram-reactions-round1026/` (5 файлов; source-папка удалена) · **T-3685 ✅ = `DEFERRED_TO_EPIC`** (accepted into pending epic release; @DevOps не вызывался) · **T-3686 ✅** — handoff → **A9 `agentic-events-graph`** (§49/§51; события `REACTION_SENT`/`MESSAGE_IGNORED`, ExecutionGraph — без переписывания механики A8); агрегатный релиз Эпика 3 (bump 2.58.30 → 2.58.31) — на его границе.
+
+## 91. Раунд 10.26 (25.09.2026) — Эпик 3 / Wave 5: A9 «Agentic Events Graph» `agentic-events-graph-round1026` — диагностические события §49 поверх существующего ExecutionGraph §51 + display-only срез Mini App §50: закрытый 20-типовой event-enum (12 §49 + 8 `ANTI_CLICHE_*`) + R17-whitelist (id/enum/числа/имена инструментов/`reason_code`), fail-open `emit_agentic_event` над structured-logger + in-memory расширением `RunSnapshotStore` (Δ DDL=0), 9 реальных этапов без выдуманных LLM-токенов и silent без фиктивного Вербализатора, аддитивность через существующий `GET /analytics/execution/latest` (`analytics.py` не менялся), env-only `AGENTIC_EVENTS_ENABLED`, L-1 `TelegramForbiddenError`→`REACTION_FORBIDDEN`, канон 12, R2 — **release policy EPIC_ONLY → deployment DEFERRED_TO_EPIC (APP_VERSION 2.58.30 без bump; агрегатный bump 2.58.30 → 2.58.31 — на границе эпика)**
+
+**Фича** `agentic-events-graph-round1026` (A9, Эпик 3 «Agentic Intelligence», Wave 5 — продолжение; **P1**; §49 «Диагностика решений» / §51 «Интеграция с картой вызовов» + §50-граница «Мини-апп»; приёмочный ориентир §53). **T-3687…T-3705** (Step 0 — T-3687; Step 1 — T-3688; Step 2 — T-3689; сверка — T-3690; build — T-3691…T-3701; gate — T-3702; merge — T-3703). **Статус: ✅ COMPLETED + ACCEPTED (merge §91); ACCEPTED INTO PENDING EPIC 3 RELEASE — deployment DEFERRED_TO_EPIC; НЕ «deployed».** Ревью — **единый Reviewer gate** (T-3702, обе линзы; Scanner отсутствует) — **Approved на 1-м цикле** (R2 подтверждён по фактическому diff; binding Reviewed-Commit `e8646af`, Working-Tree-Hash `84d6df00…`, Spec-Hash `3f703584…`). **ADR-1026-22 (D1–D14) Accepted** (этот merge — момент принятия). Risk **R2**; `threat-failure-analysis.md` — **`NOT_APPLICABLE`** (D1). **Архивация feature-папки — @PM (T-3703, ✅ выполнена 25.09.2026):** `plans/archive/agentic-events-graph-round1026/`.
+
+### 91.1. Дом и эмиссия — единый R17-safe модуль + fail-open обёртка над logger и in-memory store (D1/D2/D3/D5/D11)
+- **Дом:** `services/agentic_events.py` (NEW, ~230 строк) — **единственная** точка эмиссии §49/F0.3; **не** система аналитики. `AGENTIC_EVENT_TYPES` — закрытый enum **20** типов (12 §49 + 8 `ANTI_CLICHE_*`), `SCHEMA_VERSION="1"`, `EVENT_FIELDS`-whitelist, `filter_event_fields`, синхронный fail-open `emit_agentic_event`, `agentic_events_enabled`.
+- **Обёртка:** per-call kill-switch → whitelist-фильтр → structured-log строка (`event=<TYPE> | k=v`, прецедент F0.3 `_event`) → аддитивная запись в **существующий** in-memory `RunSnapshotStore` (`append_agentic`/`record_agentic_event`/`get_agentic_events`). Синхронная, без `await`/`create_task`, без блокирующего I/O, **никогда не бросает** (fail-open). Второй event-store/logger не создаётся.
+- **R17:** только id/enum/числа/имена инструментов/`reason_code`; строки-значения валидируются «идентификатором без пробелов» → текст сообщений/досье/промптов/сырых ответов/URL-секретов не проходит. Негативные тесты + независимая проба Reviewer (smuggling) — PASS.
+- **Персистентность:** in-memory (Δ DDL=0; SQLite v12); рестарт-потери live-графа приемлемы (журнал — в logs/journald); новых таблиц/миграций/retention нет. **Δ каталога=0.**
+
+### 91.2. Граф — 9 реальных этапов в существующем ExecutionGraph (D7/D8)
+- **Дом:** `services/execution_graph_source.py` — аддитивно: `KIND_TOOL="tool"`; 9 stage-констант `STAGE_DECISION…STAGE_TEXT_GENERATION` + `AGENTIC_STAGE_ORDER` + `STAGE_LABELS`/`STEP_KIND`/`STEP_LABEL`; `_AGENTIC_MAX_EVENTS=64`; node-builders; агентная ветка `build_graph` при наличии событий (legacy-путь без агентных данных — байт-в-байт). **Новых kind-ов нет** (JS `KIND_ENUM:48` уже содержал `tool`).
+- **Маппинг kind:** Decision → `algorithm`; Memory Lookup/RAG/Web Extraction/Factcheck/Image Generation/Reaction → `tool`; Image Prompt Preparation → `algorithm`; Text Generation → `llm`. **Нет данных этапа → нет узла.**
+- **Честные метрики:** algorithmic/tool-узлы — `inputTokens=outputTokens=cost=None`, `priceKnown=false` (`null` ≠ `$0`); токены — только из реальных `llm_usage_events`. **Silent:** узел Decision с `reason_code`, узел Text Generation/Вербализатор **не создаётся**.
+
+### 91.3. API — без изменений, аддитивно через существующий endpoint (D9)
+- `web/api/analytics.py` — **diff пуст** (подтверждено Reviewer `git diff`); агентные узлы доходят до `GET /analytics/execution/latest` (`:281`) через неизменённые `build_graph` → `_execution_response`. RBAC `requires_global_admin()` и fail-open shape сохранены; **нового endpoint/обязательных полей контракта нет**.
+
+### 91.4. Mini App §50 — display-only в существующей вкладке (D10)
+- `web/static/execution_graph.js` — только аддитивные записи `STEP_KIND`/`STEP_LABEL` (+9); renderer/`fromExecution`/вкладка «Аналитика» существующие; отдельный компонент/панель/вкладка **не создаётся**; настройки §50 не дублируются. **Δ каталога=0.**
+
+### 91.5. Точки эмиссии (D5/D6/D11)
+- `services/direct_chat_service.py` — Phase P: `DECISION_START`, `DECISION_COMPLETE` (после `_decision_pre_action`), `MESSAGE_IGNORED` (silent-ветка), `REACTION_SENT` (после `react_moai`, outcome 7-enum A8); `run_id = correlation_id` (S7, без второго идентификатора).
+- `services/tool_loop.py` — `TOOL_PLAN_CREATED`/`TOOL_CALL_START`/`TOOL_CALL_COMPLETE`/`TOOL_CALL_FAILED` (invalid_args / chain-skip / dispatch-исключение / дедуп).
+- `services/image_generation.py` (`run_image_request`) — `IMAGE_CONTEXT_RESOLVED` + `IMAGE_GENERATION_START/COMPLETE/FAILED`; §104 `generate_and_send` не тронут.
+- `services/anticliche_worker.py` — `_event` маршрутизирован через общую обёртку (8 `ANTI_CLICHE_*` в enum/whitelist/kill-switch); в чат-граф **не** форсируется (нет `run_id`/`chat_id`).
+- **Границы не переписаны:** A7-правила §44 / `_decision_pre_action`, A8-механика `set_message_reaction`, A1 `CoordinatorDecision`, A2–A6 — только точки эмиссии.
+
+### 91.6. L-1 follow-up — forbidden-классификация (D13)
+- `services/smartmodule_utils.py`: импорт `TelegramForbiddenError` (`:22`) + `except TelegramForbiddenError: return REACTION_FORBIDDEN` **перед** generic `except Exception`; тот же R17-safe `_warn_reaction_failed`, 1 вызов, 0 текста. `TelegramForbiddenError` не подкласс `TelegramBadRequest` (aiogram 3.31.0) — закрывает L-1 из §90.9 (**FIXED в A9**).
+
+### 91.7. Kill-switch `AGENTIC_EVENTS_ENABLED` (D3)
+- Env-only `ClassVar` (`config/settings.py`, рядом с `REACTION_MECHANICS_ENABLED`), default **ON**, резолв per-call, никогда не бросает; **не** каталог-параметр (Δ каталога=0). **OFF →** 0 событий/узлов/логов, поведение baseline (паритет). Hot-откат.
+
+### 91.8. Threat-вердикт и границы (D12/D14)
+- **`threat-failure-analysis.md` — `NOT_APPLICABLE`, Risk R2** (D1): Δ DDL=0 (in-memory), fail-open без блокирующего hot-path (лог + in-memory под коротким lock; BetterStack-хендлер буферизует, сеть — в фоне), без второй аналитики/R17-утечки/LLM-вызова. R3-триггеры не наступили; при подъёме (DDL/блокирующий hot-path/утечка R17/вторая аналитика) артефакт обязателен.
+- **Границы:** вторая аналитика/новый endpoint/панель/инструмент — **нет**; канон **12**; нет 3-го LLM-вызова; §104 `generate_image` — no-go; **Δ каталога=0** (`473/430/448/102/100/21`); **Δ DDL=0** (SQLite v12).
+
+### 91.9. Доказательства и watch-items (review T-3702)
+- **Прогоны (независимо воспроизведены Reviewer):** A9 core `tests/test_agentic_events_round1026.py` **52/0**; L-1 **+2**; полный pytest **9513/0** (0 регрессий, baseline 9459 → +54); JS **47/47**; F8 `--check` **OK (473)**; каталог **473/430/448/102/100/21**; канон **12**; Δ DDL=0 (SQLite v12); `APP_VERSION` **2.58.30**; `git diff --check`=0; `web/api/analytics.py` diff пуст. Все REQ-A9-01…-14 → SC покрыты. *(Имя тест-файла: актуально `tests/test_agentic_events_round1026.py`; в spec §9/T-3698 указано `test_agentic_events_graph_round1026.py` — расхождение имени, не состава; для doc-maintenance.)*
+- **Watch-items агрегатного gate Эпика 3 (non-blocking):**
+  - **L-A9-3702-01 (Low, точность evidence):** `evidence.md` T-3699 заявляет адверсариал-покрытие «конкурентность/bounded 64/`message_id=None`», но явных тестов нет (Reviewer подтвердил корректность независимо) — добавить 1–2 теста или уточнить формулировку.
+  - **L-A9-3702-02 (Low, наблюдаемость §51):** RAG/Factcheck-паттерны не совпадают ни с одним из канонических 12 инструментов → реально достижимы 7 из 9 этапов; требованию не противоречит («нет данных → нет узла»); при следующем касании — маппинг или фиксация в A10/доке.
+  - **L-A9-3702-03 (Low, косметика):** top-level `started_at` вычисляется только из `llm_nodes` → у агентного прогона `started_at=null`.
+  - **L-A9-3702-04 (Low, формат логов):** `_event` F0.3 теперь через логгер `services.agentic_events` (без префикса `[anticliche] `) и молчит при OFF — внешний парсинг журнала может требовать обновления.
+  - **Ревью-флейк:** 1 из 3 полных прогонов дал флейк в `tests/test_betterstack_handler.py` (localhost) — не связан с A9 (среда).
+  - **Унаследованные:** D-3 staging (feature-папка untracked → в архив-манифест); ADR hash re-pins (1026-20/21/22); T-3667/T-3668 hygiene; F-9/R-set (A7, §89.11); C4-set (A4, §88.7); F1–F7 (A5, §86.8); L-A6-set (A6, §87.11); owner-gate A3 `PENDING OWNER VERIFICATION` — внешний. **L-1 — ✅ FIXED в A9 (§91.6).**
+
+### 91.10. Ссылки
+- **Feature (merge §91 @Architect, 25.09.2026; архивация — @PM T-3703, ✅ выполнена 25.09.2026):** `plans/archive/agentic-events-graph-round1026/{spec.md, adr-1026-22-agentic-events-graph.md, tasks.md, evidence.md, review-T-3702.md}` (5 файлов; SHA-256 до/после переноса идентичны, spec-hash `3f703584…` байт-в-байт; `threat-failure-analysis.md` отсутствует — `NOT_APPLICABLE` при R2/D1).
+- **Durable-вход:** `plans/docs/agentic-audit-round1026.md` (`#epic3-reuse`, `#tool-map`, `#duplicates`; EV-26/EV-32).
+- **A8 (вход/граница):** §90; **A7:** §89; **A4:** §88; **A6:** §87; **A5:** §86; **A3:** §85; **A2:** §84; **A1:** §83; **A0:** §82.
+- **Код (baseline `e8646af` + незакоммиченный epic-release A2–A8):** `services/agentic_events.py` (new); `services/execution_graph_source.py`; `services/direct_chat_service.py`; `services/tool_loop.py`; `services/image_generation.py`; `services/anticliche_worker.py`; `services/smartmodule_utils.py` (L-1); `config/settings.py` (`AGENTIC_EVENTS_ENABLED`); `web/static/execution_graph.js`; **`web/api/analytics.py` — не изменён**.
+- **Тест:** `tests/test_agentic_events_round1026.py` (52, new) + `tests/test_smartmodule_utils.py` (+2 L-1) + `tests/js/round1026_s8_execution_graph_test.js` (+1 секция) + санкционированные реконсиляции boundary A1/A3/A8.
+- **Точка отката:** коммит **`e8646af`** (пер-фича тега нет — EPIC_ONLY; агрегатный анкер — на границе эпика). Hot-откат — `AGENTIC_EVENTS_ENABLED=false`.
+- **Release-order:** A9 после A8, до A10 (A10 зависит A0–A9; `backlog:312`). **Закрытие (25.09.2026, ✅): T-3703 @PM архивация (5 файлов, SHA-256 сохранены) · T-3704 = `DEFERRED_TO_EPIC` · T-3705 handoff → A10. ▶️ Следующая — A10 `agentic-verification` (§52–§54; P0; зависит A0–A9) — ПОСЛЕДНЯЯ фича Эпика 3 перед агрегатным Reviewer release gate.**
+
+## 92. Раунд 10.26 (25.09.2026) — Эпик 3 / Wave 5 (продолжение): A10 «Agentic Verification» `agentic-verification-round1026` — финальный read-only верификационный гейт Эпика 3 (§52 23 сценария / §53 15 критериев / §54 12 результатов): приёмочный отчёт 23/23 PASS multi-source + 6 PENDING OWNER VERIFICATION (не закрыты), §53 15/15 YES, §54 12/12 связаны; watch-register CLOSE/PASS-THROUGH/PENDING без «тихого» закрытия; defect-rule D5 (4 residual зарегистрированы, не фиксятся); собственный Reviewer gate T-3726 Approved; read-only (Δ DDL=0, Δ каталога=0, канон 12, `APP_VERSION` 2.58.30); вывод — обязательный вход агрегатного Reviewer release gate — **release policy EPIC_ONLY → deployment `epic deployment not applicable` (APP_VERSION 2.58.30 без bump; агрегатный bump 2.58.30 → 2.58.31 — на границе эпика)**
+
+**Фича** `agentic-verification-round1026` (A10, Эпик 3 «Agentic Intelligence», Wave 5 — продолжение; **P0**; §52 «Тестовые сценарии Эпика 3» / §53 «Критерии приёмки Эпика 3» / §54 «Результаты работы»; тип — **verification (gate), read-only**). **T-3706…T-3729** (Step 0 — T-3706; Step 1 — T-3707; Step 2 spec+ADR — T-3708; сверка — T-3709; build/evidence — T-3710…T-3725; gate — T-3726; merge — T-3727; вердикт deploy — T-3728; handoff — T-3729). **ПОСЛЕДНЯЯ фича Эпика 3.** **Статус: COMPLETED + ACCEPTED (merge §92); ACCEPTED INTO PENDING EPIC 3 RELEASE — deployment `epic deployment not applicable`; НЕ «deployed».** Ревью — **единый Reviewer gate T-3726** (обе линзы; Scanner отсутствует) — **Approved** (binding Reviewed-Commit `e8646af`, Working-Tree-Hash `2264399e…`, Spec-Hash `a50b7cb0…`, ADR-Hash `2fc5a010…`). **ADR-1026-23 (D1–D10) Accepted** (этот merge — момент принятия). Risk **R1**; `threat-failure-analysis.md` — **`NOT_APPLICABLE`** (D8). **Архивация feature-папки — ✅ @PM (T-3727, выполнена 25.09.2026):** `plans/archive/agentic-verification-round1026/` (5 файлов; приёмочный отчёт `plans/reports/round1026_a10_acceptance.md` остаётся вне архива).
+
+### 92.1. Приёмочный отчёт — §52/§53/§54 (D3)
+- **Отчёт:** `plans/reports/round1026_a10_acceptance.md` (форма spec §7.1; прецедент F10 `plans/reports/round1025_f10_acceptance.md`). Его вывод — **не** замена агрегатного gate, а обязательный вход (инвариант 12).
+- **§52 — 23 сценария:** **23/23 PASS (auto-evidence)**, **0 FAIL**; **6/23** (пп. 1, 2, 4, 10, 18, 22) несут поверх **PENDING OWNER VERIFICATION** (live-пробы/Telegram WebView) и **никогда не закрыты**. Каждая строка — multi-source (существующий тест/прогон **и** контракт §84–§91/архив): закрывающее правило `current_task.md:5803–5804` («один успешный тест ≠ подтверждение архитектуры») соблюдено.
+- **§53 — 15 критериев:** **15/15 YES** (описанный незавершённый сценарий не воспроизводится); **0 NO / 0 BLOCKED**; критерий 1 несёт внешний прод-нюанс HY-01/02 (PENDING OWNER). Эпик 3 **не** объявлен завершённым.
+- **§54 — 12 результатов:** **12/12** связаны с существующими артефактами/разделами §82–§91 + архивами A0–A9; выдуманных деливераблов нет; новых недостающих документов не создавалось.
+- **Явный список «НЕ принято»** — 4 строки (3 live-owner + финализация/деплой Эпика 3); ни один PENDING не помечен закрытым.
+
+### 92.2. Эпик-wide гарнесс (T-3720/T-3721; независимо воспроизведено Reviewer)
+- Полный pytest **9513/0** (Δ 0 к baseline — A10 тестов не добавляет); JS **47/47**; F8 `--check` **473 OK**; каталог **473/430/448/102/100/21**; канон **12**; SQLite **v12** (Δ DDL=0); `git diff --check`=0; `APP_VERSION` **2.58.30**; `test_direct_chat` **159 passed** (§53-15/§54-12); §104 AST-гейт **7 passed**. Известный флейк `test_betterstack_handler` (localhost, среда) не воспроизвёлся — non-blocker.
+
+### 92.3. Watch-item register — гибрид CLOSE / PASS-THROUGH / PENDING (D4)
+- **CLOSED in A10** (read-only-диспозиция/evidence): группы **1, 2, 6, 7, 8, 9, 11** (A9 L-01…-04, дискрепансия имени тест-файла, F-9/R-set A7 как accepted boundary, C4-set A4, F1–F7 A5, L-A6-set A6, среда/док). **PASS-THROUGH** на агрегатный gate с владельцем: **3** (D-3 staging), **4** (ADR hash re-pins 1026-20/21/22 + **1026-23** (`37d8cef7…`, Accepted post-review)), **5** (архивные чекбоксы T-3667/3668 — doc-maintenance), **7(residual)/9(residual)** и **11(флейк/маркеры)**. **PENDING (owner):** **10** (owner-gate A3 — прод-пробы изображений). **«Тихое» закрытие отсутствует.**
+
+### 92.4. Defect-rule D5 — найденные дефекты не фиксятся в A10
+- **Блокирующих рантайм-дефектов нет**, product-код не менялся. Зарегистрированы **4 non-blocking residual** (не исправлены): **A4** alias=профессия («Фотограф») + named-person-after-preposition (conservative false-negative); **A7 F-4** (probe `IMAGE_REACTIONS_ENABLED=OFF` при `reply_to_is_image=False` — re-scoped Low); **A9 L-A9-3702-01** (evidence-strength: bounded 64/truncated/`message_id=None` без именованных тестов); **A9 L-A9-3702-02** (7 из 9 §51-стадий через канонические имена). Путь: отчёт §6 → watch-item register → эскалация @Orchestrator → отдельная фича/hotfix **или** агрегатный release-блокер.
+
+### 92.5. Собственный Reviewer gate T-3726 (D1)
+- **Approved** (обе линзы, независимо воспроизведено); блокирующих findings нет; 12 приёмочных инвариантов, закрывающее правило §52, owner-гейт-честность, D5-чистота, EPIC_ONLY, threat-N/A (R1) подтверждены. **Non-blocking Low (1–4):** **Low-1** — Tasks-Hash в отчёте провизорный/устарел (**✅ закрыт при архивации T-3727, @PM: авторитетный хэш `tasks.md` зафиксирован в SHA-блоке архива; отчёт review-bound — не редактировался**); **Low-2** — §54-9 цитирует test-имена, которых нет в архиве A8 (указать фактический раздел/тест-файл); **Low-3** — A7 F-4 не перечислен явно в группе 6 регистра; **Low-4** — §2 строка 4 без именованного test-node. Все — открыты, non-blocking; агрегатный gate получает их как inherited list.
+
+### 92.6. Read-only scope и deploy-вердикт (D2/D9)
+- **Read-only (D9):** периметр A10 — **только** `plans/archive/agentic-verification-round1026/**` (на момент выполнения — `plans/features/agentic-verification-round1026/**`; архив — T-3727) + `plans/reports/**`; product-код/`config/**`/`web/**`/миграции/каталог/`current_task.md`/машинный блок — вне diff; A0–A9-артефакты не переписаны; фичевые тесты не дублированы; харнесс переиспользован как есть (аддитивных расширений нет → Risk остаётся R1).
+- **Deploy A10 = `epic deployment not applicable`** (D2): рантайм-вклада нет → bump `APP_VERSION` не делается (остаётся **2.58.30**); @DevOps внутри A10 не вызывается; пер-фича тега нет. **Release note:** A10 — gate/evidence-артефакт pending epic-release, не поставляемый рантайм; доставка эпика отложена до агрегатного approval.
+
+### 92.7. Агрегатный handoff-контракт (D7/D10)
+- **Mandatory вход агрегатного Reviewer release gate Эпика 3 (следующий workflow-шаг ПОСЛЕ A10, не ещё одна фича):** приёмочный отчёт A10 + watch-item register + чек-листы §52/§53/§54.
+- Агрегатный gate **дополнительно обязан покрыть:** полный эпик-diff **A2–A9+A10**; кросс-фичевые взаимодействия; интеграцию/регресс; миграции (**A5 DDL** `image_reservation` + индексы); конфиг/наблюдаемость (env-only kill-switches, каталог, R17-логи); обратную совместимость; безопасность (R17/R18); готовность отката (анкер `e8646af` + per-feature kill-switches + путь отката миграций); согласованность с каждой принятой feature-spec; **binding** к точному релиз-коммиту + детерминированному working-tree-hash + агрегатному spec-manifest-hash.
+- **Только после агрегатного approval** — доставка + @DevOps bump **2.58.30 → 2.58.31**. Агрегатный анкер отката — `e8646af`.
+
+### 92.8. Ссылки
+- **Feature (merge §92 @Architect, 25.09.2026; архивация ✅ @PM T-3727, 25.09.2026):** `plans/archive/agentic-verification-round1026/{spec.md, adr-1026-23-verification-gate.md, tasks.md, evidence.md, review-T-3726.md}`; приёмка — `plans/reports/round1026_a10_acceptance.md`; `threat-failure-analysis.md` отсутствует — `NOT_APPLICABLE` (R1/D8).
+- **A9 (вход/граница):** §91; **A8:** §90; **A7:** §89; **A4:** §88; **A6:** §87; **A5:** §86; **A3:** §85; **A2:** §84; **A1:** §83; **A0:** §82.
+- **ТЗ:** `plans/current_task.md` §52 (`:5748–5804`), §53 (`:5806–5851`), §54 (`:5852–5889`).
+- **Прецедент:** `plans/archive/epic1-verification-round1025/{tasks.md, spec.md, adr-1025-24-verification-gate.md}`; отчёт — `plans/reports/round1025_f10_acceptance.md`.
+- **Точка отката:** коммит **`e8646af`** (пер-фича тега нет — EPIC_ONLY; A10 рантайм-откат не требуется).
+- **Release-order:** A10 после A0–A9; далее — **агрегатный Reviewer release gate Эпика 3** (агрегатное ревью → доставка → @DevOps bump 2.58.31) → закрытие эпика. **Закрытие (25.09.2026, ✅ A10 reconcile @PM): T-3726 Approved; T-3727 @Architect merge §92 выполнен / @PM архивация выполнена; T-3728 вердикт deploy A10 = `epic deployment not applicable` (граница эпика: деплой остаётся требуемым и отложен, bump 2.58.30 → 2.58.31); T-3729 handoff выполнен → следующий шаг — агрегатный Reviewer release gate Эпика 3.**

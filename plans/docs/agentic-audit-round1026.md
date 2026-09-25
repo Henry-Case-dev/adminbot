@@ -417,6 +417,7 @@
 | `#invariants` | §9 инварианты |
 | `#traceability` | §10 трассировочная матрица |
 | `#anchors` | §10.1 реестр анкоров |
+| `#amend-a2-canon-11` | AMEND — A2 `tool-chains` (канон 10→11) |
 | `#labels` | Приложение A |
 | `#labels-evidence` / `#labels-hypothesis` / `#labels-forbidden` | Приложение A: EVIDENCE / HYPOTHESIS / запрещённый вывод |
 
@@ -568,3 +569,16 @@
 - **«Причина только в промпте»** — **не подтверждён и опровергнут** по коду: описание (№1), схема (№2) и передача промпта (№9) исправны (EV-02, EV-16); см. §6.2/§6.3.
 
 **Анкоры:** `#labels`, `#labels-evidence`, `#labels-hypothesis`, `#labels-forbidden`.
+
+---
+
+<a id="amend-a2-canon-11"></a>
+## AMEND — A2 `tool-chains-round1026` (T-3547 @Architect, 24.09.2026)
+
+> Политика артефакта: обновление после Verified — **только AMEND-записью**. Исторический слой A0 (канон **10**, §7 `#duplicates`) **не переписывается** — фиксируется факт санкционированного расширения.
+
+- **Канон инструментов: 10 → 11.** Санкция расширения (ADR-1026-13 **D3**, «расширение — предмет A1/A2») **использована** фичей A2 `tool-chains-round1026` (**ADR-1026-15 D5 → Accepted**; `plans/ARCHITECTURE.md` **§84**): добавлен 11-й инструмент **`fetch_article`** (в хвост `TOOL_CALLING_TOOLS`, ADR-1020-4); `factcheck_tools`=3 без изменений; kill-switch env-only `ARTICLE_TOOL_ENABLED` (OFF → эффективный канон 10).
+- **Выводы A0 остаются в силе:** карта «10 × 8/8» (§1), дубликаты/прямые пути (§7), первопричина image-tool-calling (§6), HY-01…HY-06 — **не изменялись**; A0 остаётся read-only.
+- **Прочие контракты A2 (без изменения этого артефакта):** envelope §16 (out-of-band спутник; модельно-видимый канал сохранён), §17-лимиты (cap 6 / мягкий 360 c / дедуп ≤2 / платные ≤4 / частичный результат), общий резолв ссылки `ctx.resolved_url`; границы A3/A4/A6/A7/A8/A9; §104/§85-UI не тронуты; REUSE ExecutionGraph; Δ DDL=0/Δ каталога=0.
+- **Статус A2:** единый Reviewer gate **Approved C0/H0** (R3); **release policy EPIC_ONLY → deployment DEFERRED_TO_EPIC** (агрегат Эпика 3).
+- **Ссылки:** `plans/features/tool-chains-round1026/{spec.md, adr-1026-15-tool-chain-contract-and-limits.md, review.md, evidence.md, threat-failure-analysis.md}` (на момент merge T-3547; **архивирована T-3548 @PM, 24.09.2026 → `plans/archive/tool-chains-round1026/`**); `plans/ARCHITECTURE.md` §84.

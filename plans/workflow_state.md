@@ -337,30 +337,29 @@
 <!-- OPENCODE_WORKFLOW_STATE_V1
 {
   "schema_version": 1,
-  "state_revision": 66,
   "task_id": "adminbot-master-spec-v6",
   "request_fingerprint": "sha256:31c6ab5c87949ec63ee64a0627e2221055f6dc0915ee15c3b361d2ce7f04a4cc",
   "task_status": "in_progress",
-  "active_feature": "tool-coordinator-round1026",
-  "feature_status": "A1 COMPLETED + MERGED (§83) + ARCHIVED + DEPLOYED (2.58.30 VERIFIED); archive plans/archive/tool-coordinator-round1026/ (T-3500…T-3522 closed; T-3523 handoff open); backlog handoff to A2 tool-chains recorded. Pending: DevOps closing commit; then select_next (A2 tool-chains Step 0).",
-  "phase": "select_next",
-  "risk_level": "R2",
+  "active_feature": "epic3-aggregate-release-gate",
+  "feature_status": "EPIC 3 AGGREGATE RELEASE GATE APPROVED (plans/reports/round1026_epic3_aggregate_review.md): all 11 features A0-A10 Approved + archived (sections 82-92); aggregate binding: reviewed_commit e8646af / WTH 8a00476a9d5294b6752d84ac1ffb960137d8d1120e4ef3fee12325dc4db9f7fa / spec-manifest d7d8a926e0edc356b95e8f9fcbb34a7fee80a394eb1ee01d5da11f4138e59a9f. GO for delivery + bump 2.58.31 + D-3 staging. Entering delivery.",
+  "phase": "delivery",
+  "risk_level": "R3",
   "next_agent": "DevOps",
-  "next_action": "A1 closing docs commit: commit plans/** closure (ARCHITECTURE §83, ADR-1026-14 Accepted, round1025-architecture, MEMORY, metrics 10.26-A1, backlog A1 normalization + A2 handoff, archive move, tasks closure, workflow_state human update) and push without force; then proceed to select_next (A2 tool-chains Step 0)",
+  "next_action": "DEVOPS EPIC 3 RELEASE HANDOFF: Epic=3 Agentic Intelligence (round1026); included: A0 agentic-audit (docs), A1 tool-coordinator (on prod since 2.58.30), A2 tool-chains, A3 unified-image-request, A5 image-daily-limit, A6 memory-lookup-api, A4 image-context-memory, A7 decision-making, A8 telegram-reactions, A9 agentic-events-graph, A10 agentic-verification (acceptance report plans/reports/round1026_a10_acceptance.md 23/15/12 + watch register + 6 owner-gates PENDING non-blocking). Individual reviews: plans/archive/*-round1026/review-*.md. Aggregate binding: plans/reports/round1026_epic3_aggregate_review.md (e8646af / 8a00476a... / d7d8a926...). Target: prod /var/www/admin_bot (A1 precedent). Rollout plan: (1) R18 pre-flight: exclude plans/current_task.md (untracked by policy), .env, media/, deploy_commands.txt from staging; tags pre-round1026-* and stash@{0} intact; (2) stage ALL epic work incl D-3 (9+ plans/archive/*-round1026/ folders, plans/reports/, plans docs, tests, code); (3) bump APP_VERSION 2.58.30->2.58.31 in config/settings.py + README version/cache lines; commit split A1-style: commit A product code+tests+settings+README+bump, commit B plans/archives/reports/docs; (4) push origin master NO force; (5) deploy: fast-forward pull /var/www/admin_bot, requirements.txt unchanged (verify - no new deps), systemctl restart; verify: /api/health 200, /healthz 2.58.31, static ?v=2.58.31, kill-switch defaults effective (DIRECT_COORDINATOR_ENABLED, TOOL_CHAIN_LIMITS_ENABLED, UNIFIED_IMAGE_REQUEST_ENABLED, IMAGE_DAILY_LIMIT_ENABLED, MEMORY_LOOKUP_ENABLED, IMAGE_CONTEXT_MEMORY_ENABLED, DIRECT_DECISION_MAKING_ENABLED, REACTION_MECHANICS_ENABLED, AGENTIC_EVENTS_ENABLED all true), image_reservation table created by PgDatabase.init (PG), logs Traceback=0/ERROR=0/CRITICAL=0, database is locked=0, catalog 473 if exposed; (6) write deployment doc VERIFIED (A1 pattern: plans/deployment.md or deploy-doc commit like 7c79df3) with commands, PIDs, health outputs, DDL-applied, kill-switch inventory, watch-items note (6 owner-gates PENDING OWNER VERIFICATION non-blocking), rollback evidence (hot: 9 env kill-switches; cold: git revert to e8646af; A5 DDL inert no DROP); (7) report commit hashes, push result, MainPID, health outputs. STOP on any failed health check - no force push, no tag deletion.",
   "human_gate": false,
   "blocked": false,
   "blocker_type": null,
   "auto_resume_enabled": true,
   "review": {
     "status": "approved",
-    "reviewed_commit": "e3ea367a5dd9961365e89f40eb183b86e20f1cf4",
-    "working_tree_hash": "4361f0111fcd87414c5e20fe9932df447bb5125a26a2b2ce0f74da5020b5a67f",
-    "spec_hash": "b37b9a509cf868ac752cbf9043cd306bbea7bd481d517eda9131dd68f85c2821"
+    "reviewed_commit": "e8646af2bcaa79b55cadda756d0e8cc7789fe24f",
+    "working_tree_hash": "8a00476a9d5294b6752d84ac1ffb960137d8d1120e4ef3fee12325dc4db9f7fa",
+    "spec_hash": "d7d8a926e0edc356b95e8f9fcbb34a7fee80a394eb1ee01d5da11f4138e59a9f"
   },
   "deployment": {
     "required": true,
-    "status": "verified",
-    "deployed_commit": "b32c46a"
+    "status": "pending",
+    "deployed_commit": null
   },
   "resume": {
     "last_resume_key": null,
@@ -368,6 +367,7 @@
     "last_resumed_at": null,
     "last_session_id": null
   },
-  "updated_at": "2026-09-24T04:48:28.157Z"
+  "updated_at": "2026-09-25T04:57:02.186Z",
+  "state_revision": 171
 }
 OPENCODE_WORKFLOW_STATE_V1 -->
