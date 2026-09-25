@@ -337,24 +337,25 @@
 <!-- OPENCODE_WORKFLOW_STATE_V1
 {
   "schema_version": 1,
-  "task_id": "adminbot-master-spec-v6",
-  "request_fingerprint": "sha256:31c6ab5c87949ec63ee64a0627e2221055f6dc0915ee15c3b361d2ce7f04a4cc",
+  "state_revision": 178,
+  "task_id": "memory-context-autonomy",
+  "request_fingerprint": "sha256:9af36041520a0d6058e2a92533a5ad71bd911d152a5f269fcf13fe9c0f7b46ab",
   "task_status": "in_progress",
-  "active_feature": "epic3-aggregate-release-gate",
-  "feature_status": "EPIC 3 AGGREGATE RELEASE GATE APPROVED (plans/reports/round1026_epic3_aggregate_review.md): all 11 features A0-A10 Approved + archived (sections 82-92); aggregate binding: reviewed_commit e8646af / WTH 8a00476a9d5294b6752d84ac1ffb960137d8d1120e4ef3fee12325dc4db9f7fa / spec-manifest d7d8a926e0edc356b95e8f9fcbb34a7fee80a394eb1ee01d5da11f4138e59a9f. GO for delivery + bump 2.58.31 + D-3 staging. Entering delivery.",
-  "phase": "delivery",
+  "active_feature": null,
+  "feature_status": "Step 0 @Memory выполнен (baseline HEAD 7165ff7, 2.58.31, каталог 473/430/448/102/100/21, DDL v12; конфликт-карта по 12 блокам MCA; KG-узел memory-context-autonomy + 6 Risk)",
+  "phase": "planning",
   "risk_level": "R3",
   "next_agent": "DevOps",
-  "next_action": "DEVOPS EPIC 3 RELEASE HANDOFF: Epic=3 Agentic Intelligence (round1026); included: A0 agentic-audit (docs), A1 tool-coordinator (on prod since 2.58.30), A2 tool-chains, A3 unified-image-request, A5 image-daily-limit, A6 memory-lookup-api, A4 image-context-memory, A7 decision-making, A8 telegram-reactions, A9 agentic-events-graph, A10 agentic-verification (acceptance report plans/reports/round1026_a10_acceptance.md 23/15/12 + watch register + 6 owner-gates PENDING non-blocking). Individual reviews: plans/archive/*-round1026/review-*.md. Aggregate binding: plans/reports/round1026_epic3_aggregate_review.md (e8646af / 8a00476a... / d7d8a926...). Target: prod /var/www/admin_bot (A1 precedent). Rollout plan: (1) R18 pre-flight: exclude plans/current_task.md (untracked by policy), .env, media/, deploy_commands.txt from staging; tags pre-round1026-* and stash@{0} intact; (2) stage ALL epic work incl D-3 (9+ plans/archive/*-round1026/ folders, plans/reports/, plans docs, tests, code); (3) bump APP_VERSION 2.58.30->2.58.31 in config/settings.py + README version/cache lines; commit split A1-style: commit A product code+tests+settings+README+bump, commit B plans/archives/reports/docs; (4) push origin master NO force; (5) deploy: fast-forward pull /var/www/admin_bot, requirements.txt unchanged (verify - no new deps), systemctl restart; verify: /api/health 200, /healthz 2.58.31, static ?v=2.58.31, kill-switch defaults effective (DIRECT_COORDINATOR_ENABLED, TOOL_CHAIN_LIMITS_ENABLED, UNIFIED_IMAGE_REQUEST_ENABLED, IMAGE_DAILY_LIMIT_ENABLED, MEMORY_LOOKUP_ENABLED, IMAGE_CONTEXT_MEMORY_ENABLED, DIRECT_DECISION_MAKING_ENABLED, REACTION_MECHANICS_ENABLED, AGENTIC_EVENTS_ENABLED all true), image_reservation table created by PgDatabase.init (PG), logs Traceback=0/ERROR=0/CRITICAL=0, database is locked=0, catalog 473 if exposed; (6) write deployment doc VERIFIED (A1 pattern: plans/deployment.md or deploy-doc commit like 7c79df3) with commands, PIDs, health outputs, DDL-applied, kill-switch inventory, watch-items note (6 owner-gates PENDING OWNER VERIFICATION non-blocking), rollback evidence (hot: 9 env kill-switches; cold: git revert to e8646af; A5 DDL inert no DROP); (7) report commit hashes, push result, MainPID, health outputs. STOP on any failed health check - no force push, no tag deletion.",
+  "next_action": "Закрыть хвосты round1026 и intake-артефакты MCA: коммит docs(plans), push без force, annotated-тег pre-mca-round1027; проверить отсутствие секретов",
   "human_gate": false,
   "blocked": false,
   "blocker_type": null,
   "auto_resume_enabled": true,
   "review": {
-    "status": "approved",
-    "reviewed_commit": "e8646af2bcaa79b55cadda756d0e8cc7789fe24f",
-    "working_tree_hash": "8a00476a9d5294b6752d84ac1ffb960137d8d1120e4ef3fee12325dc4db9f7fa",
-    "spec_hash": "d7d8a926e0edc356b95e8f9fcbb34a7fee80a394eb1ee01d5da11f4138e59a9f"
+    "status": "pending",
+    "reviewed_commit": null,
+    "working_tree_hash": null,
+    "spec_hash": null
   },
   "deployment": {
     "required": true,
@@ -367,7 +368,6 @@
     "last_resumed_at": null,
     "last_session_id": null
   },
-  "updated_at": "2026-09-25T04:57:02.186Z",
-  "state_revision": 171
+  "updated_at": "2026-09-25T18:56:27.118Z"
 }
 OPENCODE_WORKFLOW_STATE_V1 -->
