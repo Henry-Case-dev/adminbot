@@ -1,4 +1,4 @@
-﻿"""S6 round1026 (`summary-publish-integration-round1026`, ADR-1026-11 D1–D10)
+"""S6 round1026 (`summary-publish-integration-round1026`, ADR-1026-11 D1–D10)
 — публикационная интеграция живой доставки Саммари (§100–§106).
 
 Покрытие T-3438…T-3453 (SC-01…SC-20):
@@ -1201,9 +1201,9 @@ class TestBoundaries:
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version(self):
-        assert APP_VERSION == "2.58.31"
+        assert APP_VERSION == "2.58.32"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        assert "v2.58.31" in readme
+        assert "v2.58.32" in readme
 
     def test_analytics_docstring_only_changed(self):
         """web/api/analytics.py: S6 меняет только docstring (код эндпоинта —
@@ -1244,7 +1244,10 @@ class TestBoundaries:
             # исключён — санction A3 (ImageRequest-контракт); §104 гейтится
             # AST-гейтом A3 (test_unified_image_request_round1026.py).
             "services/summary_prompts.py", "services/summary_test_run.py",
-            "web/api/routes.py", "db",
+            # NOTE (round1027, mca-17a / ADR-1027-8 D13/§4.10): `web/api/routes.py`
+            # исключён — санкционированы аддитивные query-фильтры существующего
+            # `GET /api/status/logs` (REUSE viewer, новых endpoint'ов нет).
+            "db",
             # NOTE (A5, ADR-1026-17 D9): `services/param_catalog.py` исключён —
             # A5 санкционирует Δ каталога +1 ParamSpec +1 GroupSpec.
         ]

@@ -1,4 +1,4 @@
-﻿"""A3 `unified-image-request-round1026` (Эпик 3, Wave 2; ADR-1026-16; risk R3).
+"""A3 `unified-image-request-round1026` (Эпик 3, Wave 2; ADR-1026-16; risk R3).
 
 Покрытие §18/§19/§20/§21:
 * §20/§18 (T-3559…T-3562): единый ``ImageRequest`` + единственная сборка
@@ -609,7 +609,10 @@ class TestBoundsA3:
             # и `web/static/execution_graph.js` исключены — A9 санкционирует
             # аддитивное расширение СУЩЕСТВУЮЩЕГО ExecutionGraph (9 этапов §51,
             # display-only; Δ DDL=0; Δ каталога=0). §104 не затронут (A3 AST).
-            "web/api/routes.py", "plans/current_task.md",
+            # NOTE (round1027, mca-17a / ADR-1027-8 D13/§4.10): `web/api/routes.py`
+            # исключён — санкционированы аддитивные query-фильтры существующего
+            # `GET /api/status/logs` (REUSE viewer, новых endpoint'ов нет).
+            "plans/current_task.md",
         ]
         proc = subprocess.run(
             ["git", "-C", str(self._root()), "diff", "--name-only",
@@ -621,11 +624,14 @@ class TestBoundsA3:
         assert not any(ln.startswith("db/") for ln in self._diff_names())
         # NOTE (A5, ADR-1026-17 D9): web/app.js, web/index.html санкционированы
         # для UI-врезки §27/§50; A9 (ADR-1026-22 D10): + web/static/
-        # execution_graph.js (display-only 9 этапов §51); api/routes.py
-        # остаётся запрещён (список выше).
+        # execution_graph.js (display-only 9 этапов §51); mca-17a (ADR-1027-8
+        # D13/§4.10): + web/api/routes.py (фильтры log viewer) и
+        # web/api/oversight.py (аддитивный mca_metrics на существующей витрине).
         assert not any(ln.startswith("web/")
                        and not ln.startswith(("web/app.js", "web/index.html",
-                                              "web/static/execution_graph.js"))
+                                              "web/static/execution_graph.js",
+                                              "web/api/routes.py",
+                                              "web/api/oversight.py"))
                        for ln in self._diff_names())
 
     def _diff_names(self):
@@ -650,7 +656,7 @@ class TestBoundsA3:
         import dataclasses
         from services import param_catalog as pc
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.31"            # bump запрещён (D8)
+        assert APP_VERSION == "2.58.32"            # bump запрещён (D8)
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in pc.REGISTRY
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}

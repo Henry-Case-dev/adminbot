@@ -632,7 +632,9 @@ class TestBounds:
             # display-only; второй аналитики/endpoint/панели нет; Δ DDL=0;
             # Δ каталога=0). Гейтится A9-тестами (test_agentic_events_round1026.py
             # + round1026_s8_execution_graph_test.js).
-            "web/api/routes.py",
+            # NOTE (round1027, mca-17a / ADR-1027-8 D13/§4.10): `web/api/routes.py`
+            # исключён — санкционированы аддитивные query-фильтры существующего
+            # `GET /api/status/logs` (REUSE viewer).
             "plans/current_task.md",
         ]
         for path in forbidden:
@@ -640,16 +642,34 @@ class TestBounds:
         assert not any(n.startswith("db/") for n in names)
         # NOTE (A5, ADR-1026-17 D9): web/app.js, web/index.html санкционированы
         # для UI-врезки §27/§50; A9 (ADR-1026-22 D10): + web/static/
-        # execution_graph.js (display-only 9 этапов §51); api/routes.py
-        # остаётся запрещён (список выше).
+        # execution_graph.js (display-only 9 этапов §51); mca-17a (ADR-1027-8
+        # D13/§4.10): + web/api/routes.py (фильтры log viewer) и
+        # web/api/oversight.py (аддитивный mca_metrics на существующей витрине).
         assert not any(n.startswith("web/")
                        and not n.startswith(("web/app.js", "web/index.html",
-                                             "web/static/execution_graph.js"))
+                                             "web/static/execution_graph.js",
+                                             "web/api/routes.py",
+                                             "web/api/oversight.py"))
                        for n in names)
-        assert not any(n.startswith("services/summary_") for n in names)
+        # NOTE (round1027, MCA-01 / ADR-1027-3 D3): `services/summary_memory.py`
+        # санкционированно переведён на единый single-writer
+        # (`db.serialized()`) для embedding cache/backfill/сводок; остальные
+        # `services/summary_*` по-прежнему вне diff.
+        # NOTE (round1027, ASAP hotfix суммари — прямое требование владельца,
+        # current_task.md «# ASAP», прод-инцидент 27.09 03:17):
+        # `services/summary_l2_writer.py` — точечный фикс публикации
+        # (`run_l2`: детерминированная обрезка до мягкого капа абзацев с
+        # маркером `trimmed_for_publication`, env-only
+        # `SUMMARY_L2_TRIM_ENABLED`); жёсткий контракт §99 (498/32000/900)
+        # и логика fail-closed не меняются.
+        summary_changed = {n for n in names
+                           if n.startswith("services/summary_")}
+        assert summary_changed <= {"services/summary_memory.py",
+                                   "services/summary_l2_writer.py"}, \
+            summary_changed
 
     def test_version_and_catalog(self):
-        assert APP_VERSION == "2.58.31"
+        assert APP_VERSION == "2.58.32"
         assert len(pc.REGISTRY) == 473
         assert len({f.name for f in dataclasses.fields(Settings)}) == 430
         assert len([s for s in pc.REGISTRY.values()

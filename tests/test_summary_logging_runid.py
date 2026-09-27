@@ -1,4 +1,4 @@
-﻿"""S7 round1026 (ADR-1026-9 D1–D8) — сквозной `run_id` и логирование Саммари.
+"""S7 round1026 (ADR-1026-9 D1–D8) — сквозной `run_id` и логирование Саммари.
 
 Покрытие SC-01…SC-15 (задачи T-3383…T-3401):
   * SC-01 — один `run_id` (= `correlation_id`) на прогон; все этапные строки
@@ -882,7 +882,7 @@ class TestInvariants:
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.31"
+        assert APP_VERSION == "2.58.32"
 
     def test_publish_events_only_on_real_publication(self):
         """S6 (D6): PUBLISH_* реализованы в живом публикационном контуре; S9

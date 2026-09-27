@@ -6,6 +6,17 @@
 
 ---
 
+
+## Раунд 10.27 / ASAP-хотфикс (`mca-asap-summary-hotfix`, prod-инцидент 27.09 03:17) — 27.09.2026 — **APPROVED (C0/H0; 2 Low non-blocking)**
+
+- **База:** HEAD `05bc8704c2de5e7de1d5d04ac34df763d35219aa` (прод 2.58.31); правки **НЕ закоммичены** (поверх pre-existing MCA-волны round1027, ~94 tracked + untracked mca-модули). Отчёт: `plans/features/mca-asap-summary-hotfix/review.md` (binding). Working-Tree-Hash (33 hotfix-файла, восстановленное состояние) `c0f1634f47e2124a77801417f6fbfc1a5e32300016b4999fb1b8aacf7c2da928`; tasks/evidence SHA — там же.
+- **[Hotfix] — блокирующих НЕТ.** Требование владельца (current_task.md:1882 «Саммари срочно починить и деплой») закрыто: детерминированная обрезка L2-статьи до мягкого капа `limits.max_summary_parts` (`_trim_document_for_publication`, маркер `trimmed_for_publication`, R17-safe числа), env-only kill-switch `SUMMARY_L2_TRIM_ENABLED` (ClassVar, default ON; OFF = байт-в-байт прежний reject). Жёсткий контракт §99 (498/32000/900) НЕ ослаблен — независимо пробами (499 абзацев → reject; 36000 → too_long; абзац 950 → invalid_paragraph; атрибуция-цитата → quote_attribution reject). GraphExtractionError при LLMTimeoutError подтверждён не-срывом публикации (batch kept / break / GraphExtractDropped→mark — код+тесты). Прод-репро @Reviewer: 6 абзацев при капе 1 → ok/1 абзац/trimmed=True; OFF → invalid/too_many_paragraphs; hard-498 → reject.
+- **Воспроизведено @Reviewer (финальное, на восстановленном состоянии):** полный pytest `.venv` **9839 passed / 0 failed** (~229s); сфокусированно: hotfix 10/10, hotfix+L2 52/52, S5/S6/S8/S9/deploy/coordinator/F8 342/342, байт-чувствительные freeze/JS-обёртки 63/63; JS vm-харнесс **48/48 exit 0**; `git diff --check`=0; каталог 473/430/102/21, APP_VERSION 2.58.32 (пины 26 файлов синхронны); R17 новых логов — чисто; Δ DDL=0/Δ каталога=0/0 зависимостей; freeze-пины mca-волны (routes.py SHA f2ff90b6…) консистентны.
+- **Прозрачность:** stash-проба baseline при ревью перемотала EOL 94 изменённых tracked-файлов (autocrlf=true при stash pop); восстановлено CRLF→LF и верифицировано байт-точно (routes.py == freeze-пину). Два «упавших» теста на промежуточном состоянии были артефактом пробы, не дефектом.
+- **[L-HOTFIX-1] Low — OPEN:** README «Тестов: 5946» = +10, фактический прирост +11. Косметика. **[L-HOTFIX-2] Low — OPEN:** `REASON_TRIMMED_FOR_PUBLICATION` объявлена, runtime не использует; недостижимая ветка trim→None при прямом `max_paragraphs≤0` даёт invalid_result(reason="ok") — прод-путь закрыт клампом resolve_l2_max_paragraphs (≤0→6, ≥498).
+- **Недоступно:** актуальное hot-значение `limits.max_summary_parts` в прод-БД/env сервера (вне сессии; аудит от 06.09 показывал 1; не блокирует — фикс корректен при любом значении); прод-верификация «саммари публикуется» — после деплоя (evidence §6 п.4).
+- **Handoff:** @Orchestrator → **APPROVED + разрешение деплоя 2.58.32 @DevOps** (штатный pull+restart; откат env `SUMMARY_L2_TRIM_ENABLED=false`; после деплоя hot-ключ → 6; при коммите отделить хотфикс-файлы от mca-волны).
+
 ## Эпик 2 / S7 `summary-logging-runid-round1026` (T-3403, Step 5 @Reviewer, **ИТЕРАЦИЯ 3 — rework 2: B-R1026S7-2**) — 24.09.2026 — **APPROVED (C0/H0/M0; B-R1026S7-2 закрыт; live — PENDING OWNER VERIFICATION)**
 
 - **База:** HEAD `f774ecc6af823c4191dd5f833fa2cce1d0a5bad2` (== `origin/master` == annotated-тег `pre-round1026-s7` → `f774ecc`); правки **НЕ закоммичены** (35 M + 4 ??). Отчёт: `plans/features/summary-logging-runid-round1026/review.md`; Working-Tree-Hash/Spec-Hash — там же.

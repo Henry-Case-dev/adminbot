@@ -1,4 +1,4 @@
-﻿"""S10 round1026 (`summary-deploy-round1026`, ADR-1026-12 D2/D3/D6/D8) —
+"""S10 round1026 (`summary-deploy-round1026`, ADR-1026-12 D2/D3/D6/D8) —
 §114-предполётный harness (11 сценариев, **0 реальных отправок**) + инварианты
 активации Hybrid-пайплайна (§107) + границы/§116/§117.
 
@@ -477,9 +477,9 @@ class TestBounds:
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.31"
+        assert APP_VERSION == "2.58.32"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        assert "v2.58.31" in readme
+        assert "v2.58.32" in readme
 
     def test_no_ddl_in_touched_sources(self):
         """Δ DDL=0: в изменённых модулях нет DDL-операторов."""
@@ -509,7 +509,11 @@ class TestBounds:
             # NOTE (A5, ADR-1026-17 D9): `services/param_catalog.py` и UI-файлы
             # `web/app.js`/`web/index.html` исключены — A5 санкционирует
             # Δ каталога +1/+1 и врезку «Лимиты» в mod_images (§27/§50).
-            "web/api/routes.py", "db",
+            # NOTE (round1027, mca-17a / ADR-1027-8 D13/§4.10):
+            # `web/api/routes.py` исключён из запрета — санкционированы
+            # аддитивные query-фильтры существующего `GET /api/status/logs`
+            # (REUSE viewer, новых endpoint'ов нет).
+            "db",
         ]
         proc = subprocess.run(
             ["git", "diff", "--name-only", "pre-round1026-s10", "--", *forbidden],

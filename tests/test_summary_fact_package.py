@@ -1,4 +1,4 @@
-﻿"""S4 round1026 (ADR-1026-6 D1–D6) — пакет фактов §96: схема, детерминизм,
+"""S4 round1026 (ADR-1026-6 D1–D6) — пакет фактов §96: схема, детерминизм,
 fail-closed, ID-целостность, бюджет/усечение, транзит `service`, 0 LLM-вызовов
 и инварианты живого пути.
 
@@ -569,7 +569,7 @@ class TestLivePathInvariants:
             f.name for f in dataclasses.fields(Settings)}
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.31"
+        assert APP_VERSION == "2.58.32"
 
     @pytest.mark.asyncio
     async def test_two_calls_stage1_stage2(self):

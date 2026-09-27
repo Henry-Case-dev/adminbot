@@ -1,4 +1,4 @@
-﻿"""F9 round 10.25 — секрет-поле (display-маска) + визуальный добор SaveBar.
+"""F9 round 10.25 — секрет-поле (display-маска) + визуальный добор SaveBar.
 
 ADR-1025-22 (D1–D7), §50/§51/§69/§78, R17/R18.
 
@@ -167,9 +167,9 @@ class TestInvariants:
 
     def test_app_version_bump(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.31", m and m.group(1)
+        assert m and m.group(1) == "2.58.32", m and m.group(1)
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        assert "v2.58.31" in readme
+        assert "v2.58.32" in readme
 
     def test_no_ddl_change(self):
         # F9 — UI-only: миграции/схема не трогаются.

@@ -1,4 +1,4 @@
-﻿"""hotfix9 round 10.25 — маркер-гейт `hotfix9-shell-liquidglass-darkaurora-round1025`.
+"""hotfix9 round 10.25 — маркер-гейт `hotfix9-shell-liquidglass-darkaurora-round1025`.
 
 Задачи T-2793…T-2836 (ADR-1025-17 D1–D8). Поведение (rendering/CSP) — в
 `tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js` (запускается из
@@ -195,7 +195,7 @@ class TestVendoredGlassAurora:
 class TestFlagsAcceptance:
     def test_app_version_bumped(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.31", m and m.group(1)
+        assert m and m.group(1) == "2.58.32", m and m.group(1)
 
     def test_env_only_flags_delivered(self):
         for flag in HOTFIX9_FLAGS:

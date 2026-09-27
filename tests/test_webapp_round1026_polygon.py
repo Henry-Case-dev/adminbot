@@ -1,4 +1,4 @@
-﻿"""EXTRA round 10.26 `polygonal-luminescence-round1026` (ADR-1026-3) —
+"""EXTRA round 10.26 `polygonal-luminescence-round1026` (ADR-1026-3) —
 атомарные маркеры/инварианты эпика. Поведение рендерера — в
 `tests/js/round1026_polygon_background_test.js` (запускается из
 `tests/test_webapp_js_unit.py`); здесь — vendor/флаги/CSP/один рендерер/версия.
@@ -145,9 +145,9 @@ class TestFlagsAndInvariants:
         assert len({f.name for f in dataclasses.fields(Settings)}) == 430
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.31", APP_VERSION
-        assert "v2.58.31" in README, "README не синхронизирован"
-        assert 'APP_VERSION = "2.58.31"' in SETTINGS
+        assert APP_VERSION == "2.58.32", APP_VERSION
+        assert "v2.58.32" in README, "README не синхронизирован"
+        assert 'APP_VERSION = "2.58.32"' in SETTINGS
 
     def test_zero_ddl(self):
         # Δ DDL = 0: никаких новых таблиц/миграций эпиком не добавляется.

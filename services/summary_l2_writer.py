@@ -94,6 +94,9 @@ REASON_NOT_BUILT = "not_built"
 REASON_LLM_ERROR = "llm_error"
 REASON_LLM_TIMEOUT = "llm_timeout"
 REASON_INTERNAL_ERROR = "internal_error"
+# ASAP hotfix round1027: R17-safe код-маркер мягкой обрезки (не причина
+# отбраковки: статус остаётся ``ok``; только числа для логов §109).
+REASON_TRIMMED_FOR_PUBLICATION = "trimmed_for_publication"
 
 # Режимы детализации ON-пути (D4): serious/casual — короче, deep_research —
 # больше абзацев. Legacy-блоки `MODE_CASUAL_*` на ON НЕ применяются.
@@ -558,6 +561,58 @@ def _validate(document, package, metrics):
     return document_out, metrics
 
 
+# ── Мягкая обрезка (ASAP hotfix round1027) ────────────────────────────────
+
+def _trim_document_for_publication(document: dict, cap: int,
+                                   metrics: dict) -> dict | None:
+    """Детерминированная обрезка валидной §99-статьи до мягкого капа абзацев.
+
+    Инцидент 27.09 (прод): валидная статья длиннее ``limits.max_summary_parts``
+    (легаси-ключ, settings-дефолт 1) отбраковывалась жёстко
+    (``too_many_paragraphs``) → публикация отменялась целиком. Владелец:
+    единичная L2-ошибка не должна отменять публикацию — «либо безопасно
+    обрезать/сжать до допустимого (маркер ``trimmed_for_publication``), либо
+    использовать существующий fallback-путь публикации».
+
+    Правила (детерминированно, без повторного разбора текста):
+      * сохраняются ПЕРВЫЕ ``cap`` абзацев (порядок уже канонический, L1 wisdom
+        приоритетнее; title сохраняется без изменений);
+      * после обрезки по абзацам проверяется бюджет ``RICH_MAX_CHARS``: если
+        превышен — абзацы снимаются С КОНЦА, пока не влезает; title > бюджета
+        невозможен (``TITLE_MAX`` = 200);
+      * абзац длиннее ``PARAGRAPH_MAX`` (900) уже невозможен (валидатор);
+      * если после обрезки абзацев не осталось → ``None`` (fail-closed —
+        публиковать нечего).
+    Маркеры (R17-safe, только числа): ``trimmed_for_publication=1``,
+    ``paragraphs_before``/``paragraphs_dropped_count``, ``reason`` остаётся
+    штатным ``ok``-потоком (статус ``ok``).
+    """
+    paragraphs = list(document.get("paragraphs") or [])
+    keep = paragraphs[:max(int(cap), 0)]
+    total_chars = len(document.get("title") or "")
+    total_chars += sum(len(p.get("text") or "")
+                       + (len(p["emphasis"]) if p.get("emphasis") else 0)
+                       for p in keep)
+    while keep and total_chars > RICH_MAX_CHARS:
+        dropped = keep.pop()
+        total_chars -= len(dropped.get("text") or "")
+        if dropped.get("emphasis"):
+            total_chars -= len(dropped["emphasis"])
+    if not keep:
+        return None
+    metrics["status"] = STATUS_OK
+    metrics["reason"] = REASON_OK
+    metrics["trimmed_for_publication"] = True
+    metrics["paragraphs_before"] = len(paragraphs)
+    metrics["paragraphs_dropped_count"] = len(paragraphs) - len(keep)
+    metrics["paragraphs_count"] = len(keep)
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "title": document.get("title"),
+        "paragraphs": keep,
+    }
+
+
 # ── Вызов LLM: ровно один, через слот или глобальную модель ────────────────
 
 def _extract_usage(value):
@@ -666,19 +721,32 @@ def _log_start(*, correlation_id, chat_id, paragraphs_hint, model, base_url,
 def _log_complete(*, correlation_id, chat_id, result: L2Result, model,
                   base_url, tokens_in, tokens_out) -> None:
     metrics = result.metrics or {}
+    # ASAP hotfix round1027: маркер мягкой обрезки в L2_COMPLETE (R17-safe).
+    trimmed = bool(metrics.get("trimmed_for_publication"))
     logger.info(
         "L2_COMPLETE | run_id=%s | chat_id=%s | provider=%s | model=%s | "
         "tokens_in=%s | tokens_out=%s | paragraphs=%d | title_len=%d | "
         "quote_unverified=%d | ids_stripped=%d | emphasis_dropped=%d | "
-        "status=%s | invalid_reason=%s | duration_ms=%.0f",
+        "trimmed=%s | status=%s | invalid_reason=%s | duration_ms=%.0f",
         correlation_id or "none", chat_id, provider_host(base_url) or "-",
         model or "-", tokens_in if tokens_in is not None else "-",
         tokens_out if tokens_out is not None else "-",
         metrics.get("paragraphs_count", 0), metrics.get("title_len", 0),
         metrics.get("quote_unverified_count", 0),
         metrics.get("ids_stripped_count", 0),
-        metrics.get("emphasis_dropped_count", 0), result.status,
+        metrics.get("emphasis_dropped_count", 0),
+        ("1" if trimmed else "no"), result.status,
         result.invalid_reason or "-", result.duration_ms)
+    if trimmed:
+        logger.info(
+            "L2 trimmed_for_publication | run_id=%s | chat_id=%s | "
+            "paragraphs_before=%s | paragraphs_kept=%s | "
+            "paragraphs_dropped=%s | status=%s",
+            correlation_id or "none", chat_id,
+            metrics.get("paragraphs_before", "-"),
+            metrics.get("paragraphs_count", "-"),
+            metrics.get("paragraphs_dropped_count", "-"),
+            result.status)
 
 
 def _log_error(*, correlation_id, chat_id, model, base_url, reason, error_type,
@@ -798,11 +866,19 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
     else:
         document, metrics = validate_l2_document(data, package)
         # Эффективный кап абзацев (limits.max_summary_parts, D2/D4).
+        # ASAP hotfix round1027: мягкий кап больше не отбраковывает валидную
+        # по §99 статью целиком — детерминированная обрезка «первые N абзацев»
+        # с R17-safe маркером ``trimmed_for_publication`` (env-only
+        # kill-switch, default ON). OFF → прежний fail-closed reject.
         if document is not None and len(document["paragraphs"]) > cap:
-            document = None
-            metrics = dict(metrics)
-            metrics["status"] = STATUS_INVALID
-            metrics["reason"] = REASON_TOO_MANY_PARAGRAPHS
+            if bool(getattr(settings, "SUMMARY_L2_TRIM_ENABLED", True)):
+                document = _trim_document_for_publication(document, cap,
+                                                           metrics)
+            else:
+                document = None
+                metrics = dict(metrics)
+                metrics["status"] = STATUS_INVALID
+                metrics["reason"] = REASON_TOO_MANY_PARAGRAPHS
         if document is None:
             result = invalid_result(
                 metrics.get("reason", REASON_INVALID_PARAGRAPH),

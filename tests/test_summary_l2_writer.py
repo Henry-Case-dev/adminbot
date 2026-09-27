@@ -15,7 +15,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 CANON_PATH = ROOT / "plans" / "docs" / "canon" / "architecture.md"
 
-from config.settings import settings
+from config.settings import Settings, settings
 from services import param_catalog as pc
 from services import prompt_migrations as pm
 from services.summary_l2_writer import (
@@ -292,13 +292,38 @@ class TestRunL2:
         assert llm.calls == 1
 
     async def test_too_many_paragraphs(self):
+        # ASAP hotfix round1027: дефолт (SUMMARY_L2_TRIM_ENABLED ON) — детер-
+        # минированная обрезка до капа вместо отбраковки всей статьи.
         paragraphs = [{"text": f"Абзац {i}.", "emphasis": None}
                       for i in range(5)]
         llm = ScriptedLLM(json.dumps(_doc(paragraphs=paragraphs),
                                      ensure_ascii=False))
         result = await run_l2(llm, _package(), slot=_SlotStub(),
                               max_paragraphs=3)
+        assert result.status == STATUS_OK
+        assert result.usable
+        assert len(result.document["paragraphs"]) == 3
+        assert result.document["paragraphs"] == [
+            {"text": f"Абзац {i}.", "emphasis": None} for i in range(3)]
+        assert result.metrics.get("trimmed_for_publication") is True
+        assert result.metrics.get("paragraphs_before") == 5
+        assert result.metrics.get("paragraphs_dropped_count") == 2
+
+    async def test_too_many_paragraphs_trim_off_fail_closed(self):
+        # Kill-switch OFF → точный прежний fail-closed-путь S5 (§106).
+        paragraphs = [{"text": f"Абзац {i}.", "emphasis": None}
+                      for i in range(5)]
+        llm = ScriptedLLM(json.dumps(_doc(paragraphs=paragraphs),
+                                     ensure_ascii=False))
+        monkeypatch = pytest.MonkeyPatch()
+        monkeypatch.setattr(Settings, "SUMMARY_L2_TRIM_ENABLED", False)
+        try:
+            result = await run_l2(llm, _package(), slot=_SlotStub(),
+                                  max_paragraphs=3)
+        finally:
+            monkeypatch.undo()
         assert result.status == STATUS_INVALID
+        assert result.document is None
         assert result.invalid_reason == REASON_TOO_MANY_PARAGRAPHS
 
     async def test_no_legacy_fallback_on_llm_error(self):
