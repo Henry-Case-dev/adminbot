@@ -1,7 +1,13 @@
 # ADR-1027-10 — `mca-asap2-summary-pipeline`: двухконтурная архитектура Summary (Hybrid + Legacy fallback), §95-v2 semantic graph c many-to-many, deterministic repair + correction retry, bounded recovery-бюджет LLM, раздельные Hybrid/Legacy настройки — Δ DDL = 0, Δ каталога = +16/+5 групп, R1
 
-- **Статус:** **Proposed** (Accepted — по Merge в `plans/ARCHITECTURE.md` в фазе
-  reconcile, T-3963).
+- **Статус:** **✅ Accepted** (reconcile @Architect, 28.09.2026 — условие Acceptance
+  выполнено: Merge в `plans/ARCHITECTURE.md` **§101** + прод-деплой **VERIFIED
+  2.58.33** — feat `3e8594b`, binding D0A5E27C побайтово; смоук §18 с публикацией,
+  fail-soft матрица строки 3/6/9 отработала живьём: L1_REPAIR → L1_CORRECTION_RETRY
+  → llm_timeout → L1_FALLBACK_PACKAGE → L2 → PUBLISH_RICH_COMPLETE; worst-case ≤5
+  соблюдён; rollback-путь верифицирован (deployment.md §8/§9 — VERIFIED).
+  Ранее: **Proposed** (Step 2 @Architect — design-фаза; Accepted — по Merge в
+  `plans/ARCHITECTURE.md` в фазе reconcile, T-3963).
 - **Фича:** `mca-asap2-summary-pipeline` (round 10.27, P0 владельца). **Deploy:** REQUIRED (prod, ≥2.58.33).
 - **ТЗ-основание:** `plans/current_task.md:1884–2768` (`# ASAP 2 / P0`, §0–§21);
   спецификация — `plans/features/mca-asap2-summary-pipeline/spec.md` (контракты (a)–(n), Q1–Q8).
