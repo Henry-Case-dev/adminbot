@@ -956,12 +956,12 @@ class TestCanon:
         assert pc.tab_nav(pc.TAB_PROMPTS) == pc.NAV_AI
 
     def test_catalog_delta_sanctioned(self):
-        assert len(pc.REGISTRY) == 489
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
+        assert len(pc.REGISTRY) == 481
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 422
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 464
-        assert len(pc.GROUPS) == 107
-        assert len(pc._TAB_BY_GROUP) == 105
+                    if s.category is not None]) == 456
+        assert len(pc.GROUPS) == 105
+        assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
 
     def test_migration_step_present(self):

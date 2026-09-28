@@ -495,17 +495,17 @@ class TestBoundaries:
         assert src.count("await react_moai(bot, chat_id, message.message_id)") == 2
 
     def test_counts_unchanged(self):
-        assert len(pc.REGISTRY) == 473
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
+        assert len(pc.REGISTRY) == 481
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 422
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 448
-        assert len(pc.GROUPS) == 102
-        assert len(pc._TAB_BY_GROUP) == 100
+                    if s.category is not None]) == 456
+        assert len(pc.GROUPS) == 105
+        assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
 
     def test_canon_twelve_and_version(self):
         assert len(TOOL_CALLING_TOOLS) == 12
-        assert APP_VERSION == "2.58.32"
+        assert APP_VERSION == "2.58.34"
 
     def test_kill_switch_env_only_not_catalog(self):
         assert "REACTION_MECHANICS_ENABLED" not in pc.REGISTRY

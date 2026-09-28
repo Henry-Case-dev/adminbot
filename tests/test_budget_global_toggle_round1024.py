@@ -465,7 +465,9 @@ class _StubDirectChat:
                 return ""
 
             def _apply_context_budget(self, blocks, enabled=None,
-                                      budget_tokens=None):
+                                      budget_tokens=None, **kwargs):
+                # MCA-07 (T-3852): реальная точка принимает out_excluded/
+                # external_tokens; заглушка игнорирует доп. kwargs (паритет).
                 captured_holder.captured = {"enabled": enabled}
                 return []
 
@@ -568,8 +570,8 @@ class TestCatalog:
     def test_counts(self):
         import dataclasses
         from config.settings import Settings
-        assert len(pc.REGISTRY) == 473
-        assert len(pc.GROUPS) == 102
-        assert len(pc._TAB_BY_GROUP) == 100
+        assert len(pc.REGISTRY) == 481
+        assert len(pc.GROUPS) == 105
+        assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 422

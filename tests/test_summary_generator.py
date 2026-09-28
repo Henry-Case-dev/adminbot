@@ -159,7 +159,9 @@ class TestPipeline:
         assert '<message id="1"' in user
         bot.send_message.assert_called_once()
         sent = bot.send_message.call_args.args[1]
-        assert "самым главным шизом объявляется" in sent
+        # ASAP-2.1 (контракт (e)): код НЕ дописывает «главного шиза» —
+        # текст публикации == текст модели (после cleanup).
+        assert sent == "саммари текста"
 
     @pytest.mark.asyncio
     async def test_empty_window_no_llm_call(self, no_sleep):
@@ -201,7 +203,8 @@ class TestPipeline:
         bot.send_message.assert_called_once()
         sent = bot.send_message.call_args.args[1]
         assert "выжимка без нейронки:" not in sent
-        assert "самым главным шизом объявляется" in sent
+        # ASAP-2.1 (контракт (e)): никакого кодового шиз-постфикса.
+        assert sent == "саммари текста"
         assert any("summary: LLM failed — retry-once" in r.message
                    for r in caplog.records)
 
@@ -247,35 +250,40 @@ class TestPipeline:
 
 
 class TestShizPostfix:
-    def test_postfix_added_when_missing(self):
-        rows = [_row(author_name="вася"), _row(author_name="петя"), _row(author_name="вася")]
-        text = SummaryGenerator._ensure_shiz_postfix(None, "было всякое", rows)
-        assert text.endswith("самым главным шизом объявляется вася")
+    """ASAP-2.1 (контракт (e)/T-3979, инвариант §40-19): «главного шиза»
+    выбирает LLM; code НЕ выбирает winner и не дописывает строку. Символы
+    алгоритмического выбора удалены; `_SHIZ_MARKER` остался только как
+    strip-константа в `_derive_fallback_cover_prompt`."""
 
-    def test_most_active_author_chosen(self):
-        rows = [_row(author_name="петя"), _row(author_name="вася"), _row(author_name="вася")]
-        text = SummaryGenerator._ensure_shiz_postfix(None, "текст", rows)
-        assert text.endswith("самым главным шизом объявляется вася")
+    def test_no_algorithmic_shiz_symbols_in_source(self):
+        import inspect
 
-    def test_existing_postfix_not_duplicated(self):
-        text = "тут уже есть самым главным шизом объявляется петя приписка"
-        result = SummaryGenerator._ensure_shiz_postfix(None, text, [_row()])
-        assert result == text
-        assert result.count("самым главным шизом") == 1
+        import services.summary_generator as sg_module
+        source = inspect.getsource(sg_module)
+        assert "most_active_author" not in source
+        assert "ensure_shiz_postfix" not in source
+        assert "SHIZ_AT_RE" not in source
 
-    def test_at_symbol_stripped_from_llm_name(self):
-        text = "конец. самым главным шизом объявляется @вася"
-        result = SummaryGenerator._ensure_shiz_postfix(None, text, [_row()])
-        assert "самым главным шизом объявляется вася" in result
-        assert "объявляется @" not in result
+    def test_marker_is_strip_only(self):
+        import inspect
 
-    def test_no_rows_fallback_name(self):
-        text = SummaryGenerator._ensure_shiz_postfix(None, "текст", [])
-        assert text.endswith("самым главным шизом объявляется кто-то")
+        import services.summary_generator as sg_module
+        source = inspect.getsource(sg_module)
+        # Единственное использование маркера — strip в fallback-промпте обложки
+        # (шутка модели не должна попасть в visual-промпт).
+        assert source.count("_SHIZ_MARKER") == 2  # определение + strip
+        assert ".replace(_SHIZ_MARKER" in source
 
-    def test_empty_author_rows_fallback(self):
-        text = SummaryGenerator._ensure_shiz_postfix(None, "текст", [_row(author_name="")])
-        assert text.endswith("самым главным шизом объявляется кто-то")
+    @pytest.mark.asyncio
+    async def test_pipeline_does_not_append_winner(self, no_sleep):
+        """Публикация == текст модели: код не дописывает шиза поверх."""
+        memory = FakeMemory(rows=[_row(author_name="петя")])
+        llm = FakeLLM(text="итог")
+        bot = AsyncMock()
+        generator = _make_generator(memory, llm, bot)
+        await generator.generate_and_send(-100)
+        sent = bot.send_message.call_args.args[1]
+        assert sent == "итог"
 
 
 class TestChunking:
@@ -751,7 +759,8 @@ class TestManualFlag:
         holder.release()
         await task
         texts = [call.args[1] for call in bot.send_message.await_args_list]
-        assert any("самым главным шизом" in t for t in texts)
+        # ASAP-2.1: публикация == текст модели (без кодового шиз-постфикса).
+        assert any("саммари текста" == t for t in texts)
 
     @pytest.mark.asyncio
     async def test_lock_busy_cron_no_ux(self, no_sleep, caplog,
@@ -773,7 +782,8 @@ class TestManualFlag:
             holder.release()
             await task
         texts = [call.args[1] for call in bot.send_message.await_args_list]
-        assert any("самым главным шизом" in t for t in texts)
+        # ASAP-2.1: публикация == текст модели (без кодового шиз-постфикса).
+        assert any("саммари текста" == t for t in texts)
 
     @pytest.mark.asyncio
     async def test_lock_busy_logged_with_manual(self, no_sleep, caplog,
@@ -829,36 +839,16 @@ class TestL2QuoteForward:
 
 
 class TestMostActiveAuthorAliases:
-    def test_alias_overrides_stored_name(self):
-        rows = [
-            _row(author_name="старый вася"),
-            _row(author_name="петя"),
-            _row(author_name="старый вася"),
-        ]
-        aliases = AliasResolver('{"10": "шкет"}')
-        assert SummaryGenerator._most_active_author(rows, aliases) == "шкет"
+    """ASAP-2.1 (контракт (e)): алгоритмический выбор «шиза» удалён —
+    алиасы потребляются только `_resolve_author`/`_format_l2_quote`."""
 
-    def test_without_aliases_old_behavior(self):
-        rows = [
-            _row(author_name="старый вася"),
-            _row(author_name="петя"),
-            _row(author_name="старый вася"),
-        ]
-        assert SummaryGenerator._most_active_author(rows, None) == "старый вася"
+    def test_symbols_removed(self):
+        import inspect
 
-    def test_ensure_shiz_postfix_uses_generator_aliases(self):
-        generator = _make_generator(
-            FakeMemory(), FakeLLM(), AsyncMock(),
-            aliases=AliasResolver('{"10": "шкет"}'),
-        )
-        text = generator._ensure_shiz_postfix("текст", [_row(author_name="старый вася")])
-        assert text.endswith("самым главным шизом объявляется шкет")
-
-    def test_ensure_shiz_postfix_none_self_old_behavior(self):
-        text = SummaryGenerator._ensure_shiz_postfix(
-            None, "текст", [_row(author_name="старый вася")]
-        )
-        assert text.endswith("самым главным шизом объявляется старый вася")
+        import services.summary_generator as sg_module
+        source = inspect.getsource(sg_module)
+        assert "most_active_author" not in source
+        assert "aliases.resolve" in source  # алиасы живы в цитатах L2
 
 
 class TestCleanupApplied:
@@ -878,7 +868,9 @@ class TestCleanupApplied:
                 in sent)
 
     @pytest.mark.asyncio
-    async def test_cleanup_applied_before_shiz_postfix(self, no_sleep):
+    async def test_cleanup_applied_before_publish(self, no_sleep):
+        """ASAP-2.1: cleanup применяется к тексту модели ДО публикации
+        (шиз-постфикса больше нет — контракт (e))."""
         memory = FakeMemory(rows=[_row()])
         llm = FakeLLM(text="итог «шикарный» — ок")
         bot = AsyncMock()
@@ -887,7 +879,7 @@ class TestCleanupApplied:
         sent = bot.send_message.call_args.args[1]
         assert "«" not in sent
         assert "—" not in sent
-        assert sent.endswith("самым главным шизом объявляется вася")
+        assert "итог" in sent
 
     @pytest.mark.asyncio
     async def test_llm_log_has_no_content(self, no_sleep, caplog):

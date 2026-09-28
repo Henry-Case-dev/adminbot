@@ -1,14 +1,14 @@
 {
   "_provenance": {
     "feature": "F1 ia-shell-navigation-round1025 (T-2402)",
-    "note": "Снимок множеств pg_key / групп / {group_id: tab_id} из services/param_catalog.py. Обновлён round1026 S1 (ADR-1026-1 D1): санкционированная Δ каталога +8 записей / +2 группы (REGISTRY 459→467, GROUPS 98→100, _TAB_BY_GROUP 96→98); round1026 S3 (ADR-1026-5 D4): санкционированная Δ каталога +1 (промпт-ключ prompts.summary_l1_clusterizer_system_prompt; REGISTRY 467→468, GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений). Множество = источник истины инвентаря (ни один параметр не потерян). round1026 S5 summary-l2-writer-formatter (ADR-1026-7 D3): санкционированная Δ каталога +1 (промпт-ключ prompts.summary_l2_writer_system_prompt; REGISTRY 468→469, categorized 443→444; GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений). round1026 A7 decision-making (ADR-1026-20 D6): санкционированная Δ каталога +3 CHAT_DECISION_* + 1 группа flags_decision_making (REGISTRY 470→473, GROUPS 101→102, _TAB_BY_GROUP 99→100, TAB_RULES 21 без изменений).",
+    "note": "Снимок множеств pg_key / групп / {group_id: tab_id} из services/param_catalog.py. Обновлён round1026 S1 (ADR-1026-1 D1): санкционированная Δ каталога +8 записей / +2 группы (REGISTRY 459→467, GROUPS 98→100, _TAB_BY_GROUP 96→98); round1026 S3 (ADR-1026-5 D4): санкционированная Δ каталога +1 (промпт-ключ prompts.summary_l1_clusterizer_system_prompt; REGISTRY 467→468, GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений). Множество = источник истины инвентаря (ни один параметр не потерян). round1026 S5 summary-l2-writer-formatter (ADR-1026-7 D3): санкционированная Δ каталога +1 (промпт-ключ prompts.summary_l2_writer_system_prompt; REGISTRY 468→469, categorized 443→444; GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений). round1026 A7 decision-making (ADR-1026-20 D6): санкционированная Δ каталога +3 CHAT_DECISION_* + 1 группа flags_decision_making (REGISTRY 470→473, GROUPS 101→102, _TAB_BY_GROUP 99→100, TAB_RULES 21 без изменений). ASAP-2.1 mca-asap21-summary-quality-ui-cleanup (ADR-1028-1 D1, контракт (i)): санкционированная ОТРИЦАТЕЛЬНАЯ Δ каталога: -8 ключей summary_filter_* и -2 группы (flags_summary_filter, limits_summary_filter); TAB_RULES 21 без изменений (in-place). REGISTRY 489→481, GROUPS 107→105, _TAB_BY_GROUP 105→103. Титулы 6 промпт-ключей приведены к §9 (контент-дифф, Δ количества=0). Старые БД-значения summary_filter_* игнорируются безопасно (читателей нет, startup не валидирует каталог против БД).",
     "source": "services/param_catalog.py"
   },
   "counts": {
-    "GROUPS": 107,
-    "REGISTRY": 489,
+    "GROUPS": 105,
+    "REGISTRY": 481,
     "TAB_RULES": 21,
-    "_TAB_BY_GROUP": 105
+    "_TAB_BY_GROUP": 103
   },
   "group_ids": [
     "content_info",
@@ -34,7 +34,6 @@
     "flags_service",
     "flags_smart_cache",
     "flags_summary",
-    "flags_summary_filter",
     "flags_summary_hybrid",
     "flags_summary_legacy",
     "flags_throttle",
@@ -70,7 +69,6 @@
     "limits_service",
     "limits_smart_cache",
     "limits_summary",
-    "limits_summary_filter",
     "limits_summary_hybrid",
     "limits_summary_legacy",
     "limits_temperature",
@@ -143,7 +141,6 @@
     "flags_service": "mod_checkup",
     "flags_smart_cache": "smart_cache",
     "flags_summary": "mod_summary",
-    "flags_summary_filter": "mod_summary",
     "flags_summary_hybrid": "mod_summary",
     "flags_summary_legacy": "mod_summary",
     "flags_throttle": "mod_checkup",
@@ -179,7 +176,6 @@
     "limits_service": "mod_checkup",
     "limits_smart_cache": "smart_cache",
     "limits_summary": "mod_summary",
-    "limits_summary_filter": "mod_summary",
     "limits_summary_hybrid": "mod_summary",
     "limits_summary_legacy": "mod_summary",
     "limits_temperature": "mod_direct",
@@ -614,14 +610,6 @@
     "SUMMARY_CHUNK_DELAY",
     "SUMMARY_COMPRESS_BATCH",
     "SUMMARY_ENABLED",
-    "SUMMARY_FILTER_BURST_WINDOW_SECONDS",
-    "SUMMARY_FILTER_CONTEXT_MAX_MESSAGES",
-    "SUMMARY_FILTER_CONTEXT_NEIGHBORS",
-    "SUMMARY_FILTER_ENABLED",
-    "SUMMARY_FILTER_MIN_BURST_DENSITY",
-    "SUMMARY_FILTER_MIN_WEIGHT",
-    "SUMMARY_FILTER_MIN_WORDS_FOR_BONUS",
-    "SUMMARY_FILTER_REPLY_CONTEXT_ENABLED",
     "SUMMARY_MAX_CONTEXT_CHARS",
     "SUMMARY_MAX_CONTEXT_TOKENS",
     "SUMMARY_MAX_MESSAGE_CHARS",

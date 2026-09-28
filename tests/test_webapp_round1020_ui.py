@@ -147,7 +147,7 @@ class TestDossierBackend:
             cur = await db.db.execute("PRAGMA user_version")
             row = await cur.fetchone()
             # Аддитивная таблица — user_version НЕ поднимается (О7-прецедент).
-            assert row[0] == 12
+            assert row[0] == 19
         finally:
             await db.close()
 
@@ -247,8 +247,8 @@ class TestHumanReadableLabels:
         # 10.23 (F5/ADR-1023-5 D5): рост каталога — отдельная фича → 446/95.
         # 10.24 (F21/ADR-1024-22 D8): +1 REGISTRY/GROUPS (BUDGETS_ENABLED,
         # flags_module_budgets) → 459/98.
-        assert len(pc.REGISTRY) == 473
-        assert len(pc.GROUPS) == 102
+        assert len(pc.REGISTRY) == 481
+        assert len(pc.GROUPS) == 105
 
 
 class TestAdvancedAccordion:

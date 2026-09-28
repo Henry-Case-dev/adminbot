@@ -90,10 +90,10 @@
       // workspaceGroupTab (id-маппинг важнее категории).
       sources: [
         { category: 'flags', groups: ['flags_module_summary', 'flags_summary',
-            'flags_summary_filter', 'flags_summary_hybrid',
+            'flags_summary_hybrid',
             'flags_summary_legacy'] },
         { category: 'limits', groups: ['limits_summary',
-            'limits_summary_filter', 'limits_summary_hybrid',
+            'limits_summary_hybrid',
             'limits_summary_legacy'] },
         { category: 'models', groups: ['models_summary_hybrid'] },
         { category: 'keys', groups: ['models_summary_hybrid'] },
@@ -581,7 +581,10 @@
     // модуля «Саммаризация» — 'hybrid' (HYBRID SUMMARY) и 'legacy'
     // (LEGACY SUMMARY FALLBACK); маппинг групп — в `workspaceGroupTab`
     // (прецедент 'prep'), общие группы остаются ВНЕ обеих секций (§21).
-    mod_summary: ['overview', 'settings', 'prep', 'clusterizer', 'writer',
+    // ASAP-2.1 (T-3973, контракт (i)): вкладка 'prep' («Подготовка
+    // сообщений») УДАЛЕНА вместе с группами префильтра — вкладка неприменима,
+    // мёртвых тумблеров нет (§5:2963).
+    mod_summary: ['overview', 'settings', 'clusterizer', 'writer',
       'hybrid', 'legacy', 'models', 'limits', 'testing'],
     mod_direct: ['overview', 'settings', 'synthesizer', 'verbalizer', 'models',
       'limits', 'testing'],
@@ -610,7 +613,7 @@
   var WORKSPACE_TAB_LABELS = {
     overview: 'Обзор', settings: 'Основные настройки', prompts: 'Промпты',
     synthesizer: 'Синтезатор', verbalizer: 'Вербализатор', models: 'Модели',
-    limits: 'Лимиты', testing: 'Тестирование', prep: 'Подготовка сообщений',
+    limits: 'Лимиты', testing: 'Тестирование',
     clusterizer: 'Кластеризатор', writer: 'Писатель',
     // ASAP-2 §13: две секции Summary (названия — по контракту (j) D11).
     hybrid: 'HYBRID SUMMARY', legacy: 'LEGACY SUMMARY FALLBACK',
@@ -626,6 +629,50 @@
     mod_web: 'prompts_web',
     mod_sleep: 'prompts_memory',
   };
+
+  // ═══ ASAP-2.1 (T-3984, §9/§10, Q9): витрина runtime-ролей Summary-промптов ═══
+  // Presentation-слой БЕЗ Δ каталога (прецедент MEMORY_SUBGROUPS): один config
+  // key = один source of truth; каталоговые stage='synthesizer'/'verbalizer'
+  // на Hybrid L1/L2 НЕ переименовываются — ложная лексика снимается подписью
+  // витрины. Группы §9: Hybrid Summary / Обложка / Legacy Summary Fallback.
+  var SUMMARY_PROMPT_META = {
+    'prompts.summary_l1_clusterizer_system_prompt': {
+      pipeline: 'Hybrid', stageLabel: 'L1 «Кластеризатор»',
+      runtime: 'Primary', group: 'Hybrid Summary', badge: '',
+      order: 1,
+    },
+    'prompts.summary_l2_writer_system_prompt': {
+      pipeline: 'Hybrid', stageLabel: 'L2 «Писатель статьи»',
+      runtime: 'Primary', group: 'Hybrid Summary',
+      badge: 'АКТИВНЫЙ HYBRID OUTPUT', order: 2,
+    },
+    'prompts.summary_cover_style': {
+      pipeline: 'Cover', stageLabel: 'Стиль обложки',
+      runtime: 'Primary', group: 'Обложка', badge: '', order: 3,
+    },
+    'prompts.summary_system_prompt': {
+      pipeline: 'Legacy', stageLabel: 'Single-call',
+      runtime: 'Fallback', group: 'Legacy Summary Fallback',
+      badge: 'Legacy fallback', order: 4,
+    },
+    'prompts.summary_editor_system_prompt': {
+      pipeline: 'Legacy', stageLabel: 'Editor (Stage-1)',
+      runtime: 'Fallback', group: 'Legacy Summary Fallback',
+      badge: 'Legacy fallback', order: 5,
+    },
+    'prompts.summary_narrator_system_prompt': {
+      pipeline: 'Legacy', stageLabel: 'Narrator/Рассказчик (Stage-2)',
+      runtime: 'Fallback', group: 'Legacy Summary Fallback',
+      badge: 'Legacy fallback', order: 6,
+    },
+  };
+  // Порядок групп §9 (стабильный, без Δ каталога).
+  var SUMMARY_PROMPT_GROUP_ORDER = ['Hybrid Summary', 'Обложка',
+                                    'Legacy Summary Fallback'];
+
+  function summaryPromptMetaOf(key) {
+    return (key && SUMMARY_PROMPT_META[key]) || null;
+  }
 
   // ═══ F5 (ADR-1025-15 D4/§49): 6 групп «Моделей и подключений» ═══
   // Группировка — ВИТРИНА (Δ каталога = 0): каждый блок-подключение
@@ -2143,21 +2190,39 @@
         });
       },
       // §48: фокус промпта (объект один — config-item `prompts.*`).
+      // ASAP-2.1 (T-3981, Q6 фикс 2): ключ не найден в непустом stage-списке
+      // → фолбэк на ПОЛНЫЙ список модуля (stale stage не глушит редактор);
+      // ключ не найден нигде → null (stale-guard T-3982: список + redirect).
       workspacePromptFocus: function () {
         var ws = this.workspace;
         if (!ws) return null;
-        var items = this.workspacePromptItems(ws.module, ws.stage || '');
-        if (!items.length) items = this.workspacePromptItems(ws.module);
-        if (!items.length) return null;
+        var stageItems = this.workspacePromptItems(ws.module, ws.stage || '');
+        var allItems = this.workspacePromptItems(ws.module);
+        var search = stageItems.length ? stageItems : allItems;
         var key = ws.promptKey;
         if (key) {
-          for (var i = 0; i < items.length; i++) {
-            if (items[i].key === key) return items[i];
+          for (var i = 0; i < search.length; i++) {
+            if (search[i].key === key) return search[i];
           }
-          return null;   // ключ не найден → дерево открыто, фокус не назначен
+          if (search !== allItems) {
+            for (var j = 0; j < allItems.length; j++) {
+              if (allItems[j].key === key) return allItems[j];
+            }
+          }
+          return null;   // ключ не найден нигде → дерево открыто, фокус null
         }
-        return items[0];
+        return search.length ? search[0] : null;
       },
+      // ASAP-2.1 (T-3982, stale-guard §13:3212–3219): в URL есть promptKey,
+      // но валидного item нет → UI остаётся в режиме списка, URL редиректит
+      // на канонический `#/ai/prompts/<slug>` (редактор-заглушка невозможна).
+      workspacePromptStale: function () {
+        var ws = this.workspace;
+        if (!ws || ws.door !== 'library' || !ws.promptKey) return false;
+        if (this.workspacePromptFocus) return false;
+        return this.workspacePromptItems(ws.module).length > 0;
+      },
+      // promptBackToList(key) — METHODS (навигация; см. methods-секцию).
       // §48: плоский список промптов активной workspace-вкладки.
       workspacePromptList: function () {
         var ws = this.workspace;
@@ -2171,6 +2236,43 @@
         }
         return [];
       },
+      // ═══ ASAP-2.1 (T-3984, §9): витрина групп библиотеки Саммаризации ═══
+      // Только presentation: элементы те же config-item'ы (один источник),
+      // группировка/бейджи — из SUMMARY_PROMPT_META. Для НЕ-summary модулей
+      // список пуст → дерево рендерит прежний плоский список.
+      workspacePromptGroups: function () {
+        var ws = this.workspace;
+        if (!ws || ws.module.id !== 'mod_summary') return [];
+        var items = this.workspacePromptList;
+        if (!items || !items.length) return [];
+        var byGroup = {};
+        items.forEach(function (it) {
+          var meta = summaryPromptMetaOf(it.key);
+          var title = meta ? meta.group : 'Прочие';
+          (byGroup[title] = byGroup[title] || []).push({
+            item: it, order: meta ? meta.order : 99,
+          });
+        });
+        var groups = SUMMARY_PROMPT_GROUP_ORDER
+          .filter(function (g) { return byGroup[g]; })
+          .map(function (g) {
+            return {
+              title: g,
+              items: byGroup[g].sort(function (a, b) {
+                return a.order - b.order;
+              }).map(function (r) { return r.item; }),
+            };
+          });
+        if (byGroup['Прочие']) {
+          groups.push({
+            title: 'Прочие',
+            items: byGroup['Прочие'].map(function (r) { return r.item; }),
+          });
+        }
+        return groups;
+      },
+      // summaryPromptMeta(key) — METHODS (принимает аргумент; computed с
+      // аргументами в Vue невозможен).
       // §47/§48: рабочая точка входа в библиотеку промптов из раздела ИИ —
       // модули, чьи промпты там представлены (вторая дверь). Клик ведёт
       // на `#/ai/prompts/<slug>[/<stage>]` → тот же config-item, что и
@@ -2207,7 +2309,8 @@
         // 1) группы, достижимые в применимых вкладках workspace (m.tabs учтён).
         // ASAP-2 round1027: секции Summary ('hybrid'/'legacy') несут свои
         // группы — включены в обход покрытия (иначе инвариант §9.3 теряет их).
-        ['settings', 'models', 'limits', 'prep', 'hybrid', 'legacy'].forEach(function (wt) {
+        // ASAP-2.1 (T-3973): 'prep' удалён вместе с группами префильтра.
+        ['settings', 'models', 'limits', 'hybrid', 'legacy'].forEach(function (wt) {
           if (!_workspaceTabApplicable(m, wt)) return;
           self._workspaceGroupsFor(m, wt).forEach(add);
         });
@@ -2425,7 +2528,6 @@
           }
           if (wt === 'models') return this._workspaceGroupsFor(m, 'models');
           if (wt === 'limits') return this._workspaceGroupsFor(m, 'limits');
-          if (wt === 'prep') return this._workspaceGroupsFor(m, 'prep');
           // ASAP-2 §13: generic-сетка групп для двух новых секций Summary.
           if (wt === 'hybrid') return this._workspaceGroupsFor(m, 'hybrid');
           if (wt === 'legacy') return this._workspaceGroupsFor(m, 'legacy');
@@ -3396,6 +3498,13 @@
     watch: {
       logLevel: function () {
         this.loadLogs();
+      },
+      // ASAP-2.1 (T-3982, §13:3212–3219): stale/invalid promptKey в URL —
+      // не переключать UI в пустой editing state; вернуть на канонический
+      // маршрут списка `#/ai/prompts/<slug>`. Fail-open: конфиг ещё не
+      // загружен (0 items) → редиректа нет, обычный рендер списка.
+      workspacePromptStale: function (stale) {
+        if (stale) this.promptBackToList();
       },
       // F11 (§16/D4): смена режима графа (mobile-упрощение ↔ отдельный экран
       // полного исследования) — пере-рендер vis.Network (режим входит в
@@ -6244,11 +6353,24 @@
           self.toast('Ошибка обложки: ' + ((e && e.message) || ''), 'err');
         });
       },
+      // ═══ ASAP-2.1 (T-3984): витрина runtime-роли prompt-ключа ═══
+      summaryPromptMeta: function (key) {
+        return summaryPromptMetaOf(key);
+      },
+      // ═══ ASAP-2.1 (T-3982, §13:3199): явный back «editor → список» ═══
+      promptBackToList: function () {
+        var ws = this.workspace;
+        if (!ws) return;
+        this.navigateTo('#/ai/prompts/' + ws.slug);
+      },
       // §48: выбор промпта в дереве (desktop — центр; mobile — полный экран).
+      // ASAP-2.1 (T-3981, Q6 фикс 1): URL строится ПО stage КЛИКНУТОГО item'а —
+      // залипший `ws.stage` убран из цепочки (он имел приоритет и создавал
+      // битые URL `…/verbalizer/<чужой-ключ>` → «ничего не происходит»).
       openWorkspacePrompt: function (item, stage) {
         var ws = this.workspace;
         if (!ws || !item) return;
-        var seg = stage || ws.stage || item.stage || '';
+        var seg = stage || item.stage || '';
         // §48 (M-F5S-1): из двери библиотеки остаёмся в библиотеке —
         // `#/ai/prompts/<slug>[/<stage>]/<key>`. Нельзя строить
         // `#/modules/<slug>/<wt>/<key>` для модуля без объявленной
@@ -6295,9 +6417,9 @@
         return grp.items || [];
       },
       // Раскладка вкладки модуля по workspace-вкладкам (settings/models/limits).
-      // S1 round1026 (ADR-1026-1 D6): группы префильтра Саммари — на вкладке
-      // «Подготовка сообщений» (§87: Модули → Сводки чатов → Подготовка
-      // сообщений). Витрина JS — Δ каталога = 0.
+      // ASAP-2.1 (T-3973, контракт (i)): маппинг групп префильтра в 'prep'
+      // УДАЛЕН вместе с самими группами (flags/limits_summary_filter больше
+      // не существуют в каталоге).
       workspaceGroupTab: function (m, grp) {
         if (!grp) return 'settings';
         // ASAP-2 §13 (D11): секции Hybrid/Legacy — маппинг ПО ID групп
@@ -6309,8 +6431,6 @@
             || grp.id === 'limits_summary_hybrid') return 'hybrid';
         if (grp.id === 'flags_summary_legacy'
             || grp.id === 'limits_summary_legacy') return 'legacy';
-        if (grp.id === 'flags_summary_filter'
-            || grp.id === 'limits_summary_filter') return 'prep';
         if (grp.category === 'models') return 'models';
         if (grp.category === 'limits') return 'limits';
         return 'settings';
@@ -6331,8 +6451,8 @@
         if (!m) return false;
         if (!_workspaceTabApplicable(m, tabId)) return false;
         if (tabId === 'overview') return true;
-        if (tabId === 'prep' || tabId === 'clusterizer'
-            || tabId === 'writer') return true;
+        // ASAP-2.1 (T-3973): 'prep' удалён; стадии §85 — честный placeholder.
+        if (tabId === 'clusterizer' || tabId === 'writer') return true;
         // ASAP-2 §13: вкладки секций Summary рендерятся только при наличии
         // своих групп (generic-сетка, как 'prep').
         if (tabId === 'hybrid' || tabId === 'legacy') {
@@ -7403,11 +7523,17 @@
       // F6 (10.24, ADR-1024-10 D1): условие аккордеона на «Промптах».
       // V2 ON → всегда false (advanced-элементы идут в общий grid через
       // promptVisibleItems); OFF → как в 10.23 (basic + <details>).
+      // ASAP-2.1 (T-3985, §9:3093–3104): «Стиль обложки» аккордеоном НЕ
+      // скрывается — ключ виден сразу.
       promptsShowAccordion: function (sec) {
         if (!sec) return false;
         var v2 = (typeof this.uiFlag === 'function')
           ? this.uiFlag('PROMPTS_UI_V2_ENABLED') : true;
-        return !v2 && (sec.advanced || []).length > 0;
+        if (v2) return false;
+        var advanced = (sec.advanced || []).filter(function (it) {
+          return it.key !== 'prompts.summary_cover_style';
+        });
+        return advanced.length > 0;
       },
       _syncPromptModeFromConfig: function () {
         var item = this.promptDefaultModeItem();
@@ -7425,7 +7551,15 @@
         if (!sec) return [];
         var v2 = (typeof this.uiFlag === 'function')
           ? this.uiFlag('PROMPTS_UI_V2_ENABLED') : true;
-        if (!v2) return sec.basic || [];
+        if (!v2) {
+          // ASAP-2.1 (T-3985): «Стиль обложки» виден сразу (§9:3093–3104) —
+          // не прячется под advanced-аккордеон.
+          var visible = (sec.basic || []).slice();
+          (sec.advanced || []).forEach(function (it) {
+            if (it.key === 'prompts.summary_cover_style') visible.push(it);
+          });
+          return visible;
+        }
         return (sec.basic || []).concat(sec.advanced || []);
       },
       // ── Блок мониторинга динамического анти-клише (API F4) ────────────
@@ -9856,8 +9990,10 @@
       // S7 (ADR-1026-9 D4, §110) + S6 (ADR-1026-11 D6): маркеры событий Саммари
       // (§108/§109) для клиентского фильтра. `run_id=` — любая строка этапа
       // несёт сквозной id; `PUBLISH_` — публикационные события S6.
+      // ASAP-2.1 (T-3986, раздел 4 spec): FILTER_/RESTORE_ удалены вместе с
+      // S1/S2; SOURCE_WINDOW/L1_CONTEXT_PACK покрыты префиксами SOURCE_/L1_.
       logSummaryMarkers: function () {
-        return ['SUMMARY_', 'FILTER_', 'RESTORE_', 'L1_', 'L2_', 'FORMAT_',
+        return ['SUMMARY_', 'SOURCE_WINDOW', 'L1_', 'L2_', 'FORMAT_',
                 'COVER_', 'PUBLISH_', 'TEST_', 'run_id='];
       },
       isSummaryLog: function (log) {
@@ -9879,8 +10015,7 @@
           ['COVER_ERROR', 'Саммари: ошибка обложки'],
           ['PUBLISH_RICH_ERROR', 'Саммари: ошибка публикации (Rich)'],
           ['PUBLISH_TEXT_ERROR', 'Саммари: ошибка публикации (текст)'],
-          ['FILTER_ERROR', 'Саммари: ошибка фильтра'],
-          ['RESTORE_ERROR', 'Саммари: ошибка восстановления контекста'],
+          // ASAP-2.1 (T-3986): FILTER_/RESTORE_ ошибки удалены вместе с S1/S2.
           ['SUMMARY_FAILED', 'Саммари: прогон не удался'],
         ];
         for (var i = 0; i < map.length; i++) {

@@ -51,10 +51,14 @@ class TestRich:
         assert "<b>" not in out
 
     def test_only_allowed_tags(self):
+        # ASAP-2.1 (ADR-1028-1 D4): deterministic cut добавляет единственную
+        # обёртку details/summary (много-абзацный _doc() → cut применён).
         import re
         out = format_rich_html(_doc(), cover_id="c", sanitize=_no_sanitize)
         tags = set(re.findall(r"</?([a-zA-Z0-9]+)", out))
-        assert tags <= {"img", "h1", "p", "b"}
+        assert tags <= {"img", "h1", "p", "b", "details", "summary"}
+        assert out.count("<details>") == out.count("</details>") == 1
+        assert 'open' not in out.split("<details")[1].split(">")[0]
 
     def test_escaping_special_chars(self):
         doc = _doc(title="A < B & C > D",

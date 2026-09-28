@@ -216,9 +216,9 @@ class TestContract:
         assert "MEMORY_LOOKUP_ENABLED" not in pc.REGISTRY
         assert "MEMORY_LOOKUP_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}
-        assert len(pc.REGISTRY) == 473
-        assert len(pc.GROUPS) == 102
-        assert len(pc._TAB_BY_GROUP) == 100
+        assert len(pc.REGISTRY) == 481
+        assert len(pc.GROUPS) == 105
+        assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
 
 

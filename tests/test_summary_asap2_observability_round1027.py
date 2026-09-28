@@ -139,8 +139,10 @@ def _fake_memory():
 
 
 def test_t3956_existing_event_names_not_renamed():
-    """Инвариант (k): пины S7/S8 не сломаны — имена существующих событий
-    на месте в коде (grep-уровень)."""
+    """Инвариант (k) + ASAP-2.1 (T-3986, раздел 4 spec): пины S7/S8 не
+    сломаны — имена существующих событий на месте в коде (grep-уровень).
+    FILTER_COMPLETE/RESTORE_* УДАЛЕНЫ вместе с S1/S2 (замещены
+    SOURCE_WINDOW/L1_CONTEXT_PACK); новые имена на месте."""
     import pathlib
     files = ["services/summary_l1_clusterizer.py", "services/summary_l2_writer.py",
              "services/summary_fact_package.py", "services/summary_run_log.py",
@@ -149,6 +151,13 @@ def test_t3956_existing_event_names_not_renamed():
                    for f in files)
     for name in ("L1_START", "L1_COMPLETE", "L1_ERROR", "L2_START",
                  "L2_COMPLETE", "L2_SKIPPED", "FACT_PACKAGE_START",
-                 "FACT_PACKAGE_COMPLETE", "FILTER_COMPLETE", "SUMMARY_START",
-                 "SUMMARY_COMPLETE", "SUMMARY_FAILED"):
+                 "FACT_PACKAGE_COMPLETE", "SUMMARY_START",
+                 "SUMMARY_COMPLETE", "SUMMARY_FAILED",
+                 # ASAP-2.1: новые события §36:
+                 "SOURCE_WINDOW", "L1_CONTEXT_PACK"):
         assert name in blob, name
+    # Удалённые события S1/S2 не реинкарнировались (строки-эмиттеры нет):
+    assert 'event=FILTER_START' not in blob
+    assert 'event=FILTER_COMPLETE' not in blob
+    assert 'event=RESTORE_START' not in blob
+    assert 'event=RESTORE_COMPLETE' not in blob

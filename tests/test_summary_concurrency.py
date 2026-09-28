@@ -76,7 +76,7 @@ class GateLLM:
     """LLM под асинхронным затвором: generate висит до release — измеряем
     реальную параллельность генераций."""
 
-    def __init__(self, text="саммари текста"):
+    def __init__(self, text="Тестовое саммари"):
         self.text = text
         self.gate = asyncio.Event()
         self.call_count = 0
@@ -142,7 +142,7 @@ class TestSummaryConcurrency:
         llm.gate.set()
         await asyncio.gather(task_a, task_b)
         texts = [c.args[1] for c in bot.send_message.await_args_list]
-        assert sum("самым главным шизом" in t for t in texts) == 2
+        assert sum("Тестовое саммари" in t for t in texts) == 2  # ASAP-2.1: публикация == текст модели (без кодового шиз-постфикса)
 
     @pytest.mark.asyncio
     async def test_same_chat_manual_queued_after_cron(self, busy_pool_n,
@@ -167,7 +167,7 @@ class TestSummaryConcurrency:
         llm.gate.set()
         await asyncio.gather(cron, manual)
         texts = [c.args[1] for c in bot.send_message.await_args_list]
-        assert sum("самым главным шизом" in t for t in texts) == 2
+        assert sum("Тестовое саммари" in t for t in texts) == 2  # ASAP-2.1: публикация == текст модели (без кодового шиз-постфикса)
 
     @pytest.mark.asyncio
     async def test_same_chat_cron_queued_silent(self, busy_pool_n, caplog):
@@ -192,4 +192,4 @@ class TestSummaryConcurrency:
             llm.gate.set()
             await asyncio.gather(manual, cron)
         texts = [c.args[1] for c in bot.send_message.await_args_list]
-        assert sum("самым главным шизом" in t for t in texts) == 2
+        assert sum("Тестовое саммари" in t for t in texts) == 2  # ASAP-2.1: публикация == текст модели (без кодового шиз-постфикса)

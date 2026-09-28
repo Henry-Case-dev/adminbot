@@ -74,10 +74,15 @@ from services.summary_prompts import (
     PREV_SUMMARY_L1_CLUSTERIZER_R1027,
     PREV_SUMMARY_L2_WRITER_R1026,
     PREV_SUMMARY_L2_WRITER_R1027,
+    PREV_SUMMARY_L2_WRITER_R1028,
+    PREV_SUMMARY_NARRATOR_R1023,
+    PREV_SUMMARY_NARRATOR_R1028,
     PREV_SUMMARY_SYSTEM_PROMPT,
+    PREV_SUMMARY_SYSTEM_R1028,
     SUMMARY_EDITOR_SYSTEM_PROMPT,
     SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT,
     SUMMARY_L2_WRITER_SYSTEM_PROMPT,
+    SUMMARY_NARRATOR_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
 )
 from services.web_prompts import (
@@ -113,7 +118,9 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         (PREV_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
         (PREV_R2020_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
         (PREV_R1021_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
-        (PREV_R1022_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT)],
+        (PREV_R1022_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
+        # ASAP-2.1 (контракт (g)/§25): строка шиза — выбор модели, опциональна.
+        (PREV_SUMMARY_SYSTEM_R1028, SYSTEM_PROMPT)],
     "prompts.compress_system_prompt": [(PREV_COMPRESS_PROMPT, COMPRESS_PROMPT)],
     "prompts.checkup_system_prompt": [
         (PREV_CHECKUP_SYSTEM_PROMPT, CHECKUP_SYSTEM_PROMPT),
@@ -177,9 +184,17 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # 10.27 (ASAP-2, контракт (l)/T-3942): ступень R1026→R1027 (блок ДЛИНА/
     # ДЕДУПЛИКАЦИЯ + авторы/ответы пакета v2; числа — в length-блоке user-
     # контента, НЕ в каноне).
+    # 10.28 (ASAP-2.1, контракт (g)): ступень R1027→R1028 (грамматика §15 +
+    # двачерский голос §16 + typography §17 + emphasis_spans/finale §18–§19).
     "prompts.summary_l2_writer_system_prompt": [
         (PREV_SUMMARY_L2_WRITER_R1026, SUMMARY_L2_WRITER_SYSTEM_PROMPT),
-        (PREV_SUMMARY_L2_WRITER_R1027, SUMMARY_L2_WRITER_SYSTEM_PROMPT)],
+        (PREV_SUMMARY_L2_WRITER_R1027, SUMMARY_L2_WRITER_SYSTEM_PROMPT),
+        (PREV_SUMMARY_L2_WRITER_R1028, SUMMARY_L2_WRITER_SYSTEM_PROMPT)],
+    # 10.28 (ASAP-2.1, контракт (g)/§25): ступени Рассказчика — шиза выбирает
+    # модель (строка опциональна); прежние каноны R1023/R1028 ведут на новый.
+    "prompts.summary_narrator_system_prompt": [
+        (PREV_SUMMARY_NARRATOR_R1023, SUMMARY_NARRATOR_SYSTEM_PROMPT),
+        (PREV_SUMMARY_NARRATOR_R1028, SUMMARY_NARRATOR_SYSTEM_PROMPT)],
 }
 # prompts.extract_system_prompt НЕ входит (EXTRACT_PROMPT не трогаем)
 
@@ -193,7 +208,7 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     "prompts.direct_chat_system_prompt":
         (CHAT_SYSTEM_PROMPT, PREV_CHAT_R1023_SYSTEM_PROMPT),
     "prompts.summary_system_prompt":
-        (SYSTEM_PROMPT, PREV_R1021_SUMMARY_SYSTEM_PROMPT),
+        (SYSTEM_PROMPT, PREV_SUMMARY_SYSTEM_R1028),
     "prompts.checkup_system_prompt":
         (CHECKUP_SYSTEM_PROMPT, PREV_CHECKUP_R1021_SYSTEM_PROMPT),
     "prompts.factcheck_system_prompt":
@@ -234,8 +249,14 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # (default OFF), поэтому откат значения поведения не меняет; ключ в PG не
     # удаляется.
     # 10.27 (ASAP-2): откат ступени R1027 — на канон R1026 (PREV_*_R1027).
+    # 10.28 (ASAP-2.1): откат ступени R1028 — на НЕПОСРЕДСТВЕННО прежний
+    # канон PREV_*_R1028 (полный канон ASAP-2 R1027).
     "prompts.summary_l2_writer_system_prompt":
-        (SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1027),
+        (SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1028),
+    # 10.28 (ASAP-2.1): откат Рассказчика — на прежний канон R1028 (до правки
+    # §25); ключ в PG не удаляется.
+    "prompts.summary_narrator_system_prompt":
+        (SUMMARY_NARRATOR_SYSTEM_PROMPT, PREV_SUMMARY_NARRATOR_R1028),
 }
 
 

@@ -211,7 +211,7 @@ def _hybrid_env(monkeypatch):
     monkeypatch.setattr("services.summary_fact_package.build_fact_package",
                         fake_build_package)
     monkeypatch.setattr(
-        "services.summary_context_restore.build_l1_payload",
+        "services.summary_l1_clusterizer.build_l1_payload",
         lambda rows, chat_id: [{"message_id": 101, "timestamp": 1,
                                 "text": "шёл дождь"}])
 
@@ -284,17 +284,20 @@ class TestRunLogHelpers:
         assert failed and "stage=l2" in failed[0] and _RID in failed[0]
 
     def test_lifecycle_fields(self, caplog):
+        # ASAP-2.1 (T-3986): S1-поля saved_count/restored_count удалены из
+        # SUMMARY_COMPLETE вместе с префильтром.
         ctx = RunContext(run_id=_RID, chat_id=CHAT, mode="hybrid_l2",
                          manual=True, has_trigger=True, source_count=5,
-                         saved_count=3, restored_count=2, threads=1,
-                         paragraphs=4, cover_status="ok")
+                         threads=1, paragraphs=4, cover_status="ok")
         with caplog.at_level(logging.INFO):
             finish_run(ctx)
         line = _lines(caplog, "SUMMARY_COMPLETE")[0]
         for needle in ("mode=hybrid_l2", "status=ok", "source_count=5",
-                       "saved_count=3", "restored_count=2", "threads=1",
-                       "paragraphs=4", "cover_status=ok", "duration_ms="):
+                       "threads=1", "paragraphs=4", "cover_status=ok",
+                       "duration_ms="):
             assert needle in line, needle
+        assert "saved_count=" not in line
+        assert "restored_count=" not in line
 
 
 # ── SC-01/SC-02/SC-03: живой OFF-путь `_run` ───────────────────────────────
@@ -303,8 +306,7 @@ class TestRunLifecycleOff:
     @pytest.mark.asyncio
     async def test_single_run_id_all_events(self, monkeypatch, caplog):
         _fixed_rid(monkeypatch)
-        _patch_chat_limit(monkeypatch, {(CHAT, _FLAG): True,
-                                        (CHAT, _S2_FLAG): False})
+        _patch_chat_limit(monkeypatch, {})
         monkeypatch.setattr(Settings, "SYSTEM2_SUMMARY_ENABLED", True)
         monkeypatch.setattr(Settings, "SUMMARY_COVER_ARTICLE_ENABLED", False)
         rec = _patch_delivery(monkeypatch)
@@ -321,21 +323,24 @@ class TestRunLifecycleOff:
         # S6 (ADR-1026-11 D6): доставка замокана → реальной публикации нет →
         # PUBLISH_* не эмитятся (события только при реальной публикации).
         assert "PUBLISH_" not in text
+        # ASAP-2.1 (T-3986): FILTER_*/RESTORE_* удалены вместе с S1/S2.
+        assert "FILTER_" not in text
+        assert "RESTORE_" not in text
         start = _lines(caplog, "SUMMARY_START")
         assert start and "mode=off" in start[0]
         assert "source_count=-" in start[0]            # окно ещё не прочитано
         complete = _lines(caplog, "SUMMARY_COMPLETE")
         assert complete and "status=ok" in complete[0]
         assert "source_count=2" in complete[0]
-        assert "saved_count=1" in complete[0]          # §109: из метрик прогона
-        assert "restored_count=0" in complete[0]
-        assert (_event_lines(caplog, "FILTER_START")
-                and _event_lines(caplog, "FILTER_COMPLETE"))
+        assert "saved_count=" not in complete[0]
+        assert "restored_count=" not in complete[0]
+        # ASAP-2.1: SOURCE_WINDOW — первое событие после SUMMARY_START.
+        window = _lines(caplog, "SOURCE_WINDOW")
+        assert window and "messages=2" in window[0]
         # SC-01: каждая этапная строка несёт ОДИН и тот же run_id.
         stage_lines = (_lines(caplog, "SUMMARY_START")
                        + _lines(caplog, "SUMMARY_COMPLETE")
-                       + _event_lines(caplog, "FILTER_START")
-                       + _event_lines(caplog, "FILTER_COMPLETE"))
+                       + window)
         assert stage_lines
         for line in stage_lines:
             assert _rid(line) == _RID, line
@@ -922,16 +927,19 @@ class TestDryRunContour:
 
 class TestInvariants:
     def test_catalog_zero_delta(self):
-        assert len(pc.REGISTRY) == 489
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
+        # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): санкционированная
+        # ОТРИЦАТЕЛЬНАЯ Δ каталога — -8 ключей summary_filter_*, -2 группы,
+        # -8 env-констант Settings (S1-слой удалён).
+        assert len(pc.REGISTRY) == 481
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 422
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 464
-        assert len(pc.GROUPS) == 107
-        assert len(pc._TAB_BY_GROUP) == 105
+                    if s.category is not None]) == 456
+        assert len(pc.GROUPS) == 105
+        assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.33"
+        assert APP_VERSION == "2.58.34"
 
     def test_publish_events_only_on_real_publication(self):
         """S6 (D6): PUBLISH_* реализованы в живом публикационном контуре; S9

@@ -3,10 +3,18 @@
 ``_chars``.
 
 Полное разделение (§11:2344–2356): Hybrid (упаковка L1 ``pack_l1_input``,
-FactPackage-бюджет, S1/S2-фильтр в hybrid-режиме) читает ТОЛЬКО эти ключи;
-Legacy — только старые ``limits.summary_max_context_*``. Hot-first
-(PG-каталог → env ClassVar), масштаб дефолтов паритетен общим
-(30000 токенов / 120000 симв.), но значения НЕ перетекают между контурами.
+FactPackage-бюджет) читает ТОЛЬКО эти ключи; Legacy — только старые
+``limits.summary_max_context_*``. Hot-first (PG-каталог → env ClassVar),
+масштаб дефолтов паритетен общим (30000 токенов / 120000 симв.), но значения
+НЕ перетекают между контурами.
+
+ASAP-2.1 (ADR-1028-1 D1, контракт (a) spec): модуль стал ЕДИНСТВЕННОЙ
+нейтральной точкой технического packing. Сюда переехали из удалённого
+S1-модуля ТОЛЬКО технические примитивы (имена/сигнатуры без изменений):
+``estimate_and_split``, ``Fragment``, ``DEFAULT_FRAGMENT_OVERLAP``.
+Heuristic scoring (весовые/burst/mention-эвристики) НЕ переносится
+ни под каким именем (§3:2919, §38:3773) — модуль решает только «как физически
+вместить payload», не «какие сообщения кажутся важными» (§3:2894–2906).
 
 Формула входа (Q5):
 
@@ -22,9 +30,11 @@ ClassVar (Δ каталога=0): инфраструктурная защита 
 """
 from __future__ import annotations
 
+import dataclasses
 import logging
 
 from config.settings import settings
+from services.database import row_get
 from services.token_counter import (
     count_tokens,
     resolve_chat_limit,
@@ -116,3 +126,85 @@ def hybrid_output_reserve_tokens(*, kind: str = "l1", settings_obj=None) -> int:
         return max(0, int(getattr(st, field, 0)))
     except (TypeError, ValueError):  # pragma: no cover - защитная ветка
         return 0
+
+
+# ── ASAP-2.1 (контракт (a)): нейтральные технические примитивы packing ─────
+# Переезд из удалённого S1-модуля, имена/сигнатуры без изменений.
+# ТОЛЬКО длина/токены/нарезка — без весовых/burst/mention-эвристик
+# (grep-инвариант (a): "score_message" по services/ → 0).
+
+# §93: перекрытие фрагментов по умолчанию — 1 сообщение (хвост предыдущего
+# фрагмента повторяется в начале следующего; последние сообщения не режутся).
+DEFAULT_FRAGMENT_OVERLAP = 1
+
+
+def _row_text(row) -> str:
+    """Однострочная обёртка потребителя (контракт (a): хелперы НЕ дублируются,
+    ``services.database.row_get`` — канонический доступ к полю строки)."""
+    value = row_get(row, "text")
+    return "" if value is None else str(value)
+
+
+@dataclasses.dataclass(frozen=True)
+class Fragment:
+    """Механический перекрывающийся фрагмент (§93)."""
+
+    index: int
+    message_ids: tuple
+    overlap_message_ids: tuple
+    reason: str
+
+
+def estimate_and_split(kept, *, token_limit=None, char_limit=None):
+    """Оценить объём ``kept`` и, если «не влезает», нарезать на
+    перекрывающиеся фрагменты по границам сообщений.
+
+    Возвращает ``(fragments | None, budget)``. Приоритет — токены
+    (``token_limit``), иначе символы (``char_limit``). Последний фрагмент
+    всегда заканчивается последним ``kept`` — «не отрезать последние
+    сообщения молча».
+    """
+    rows = list(kept or [])
+    if token_limit is not None:
+        kind, limit = "tokens", int(token_limit)
+        units = [count_tokens(_row_text(r)) for r in rows]
+    elif char_limit is not None:
+        kind, limit = "chars", int(char_limit)
+        units = [len(_row_text(r)) for r in rows]
+    else:
+        tokens = sum(count_tokens(_row_text(r)) for r in rows)
+        return None, {"fits": True, "estimated_tokens": tokens,
+                      "limit": 0, "kind": "tokens"}
+
+    estimated = sum(units)
+    budget = {"fits": estimated <= limit, "estimated_tokens": estimated,
+              "limit": limit, "kind": kind}
+    if estimated <= limit or not rows:
+        return None, budget
+
+    fragments: list = []
+    start = 0
+    total = len(rows)
+    overlap = max(0, int(DEFAULT_FRAGMENT_OVERLAP))
+    while start < total:
+        end = start
+        acc = 0
+        # Одно сообщение длиннее лимита всё равно кладётся в свой фрагмент
+        # (без потери — status/лог сообщает о бюджете).
+        while end < total and (acc + units[end] <= limit or end == start):
+            acc += units[end]
+            end += 1
+        if start > 0 and overlap:
+            ov_start = max(0, start - overlap)
+            message_ids = tuple(row_get(r, "id") for r in rows[ov_start:end])
+            overlap_ids = tuple(row_get(r, "id") for r in rows[ov_start:start])
+        else:
+            message_ids = tuple(row_get(r, "id") for r in rows[start:end])
+            overlap_ids = ()
+        fragments.append(Fragment(
+            index=len(fragments), message_ids=message_ids,
+            overlap_message_ids=overlap_ids, reason="token_budget"))
+        if end >= total:
+            break
+        start = max(start + 1, end - overlap)
+    return fragments, budget

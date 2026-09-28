@@ -41,11 +41,11 @@ class TestCatalogInvariant106:
         # 459/98/96/20/418; TAB_RULES 20 — новых вкладок нет.
         # 10.24 (F5/ADR-1024-9 D3): Δ REGISTRY/GROUPS/_TAB_BY_GROUP = 0
         # (group переносит вкладку) → 459/98/96; TAB_RULES 20→21 (+mod_images).
-        assert len(pc.REGISTRY) == 473
-        assert len(pc.GROUPS) == 102
-        assert len(pc._TAB_BY_GROUP) == 100
+        assert len(pc.REGISTRY) == 481
+        assert len(pc.GROUPS) == 105
+        assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 422
 
     def test_five_master_flags_default_true(self):
         s = Settings()

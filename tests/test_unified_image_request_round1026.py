@@ -600,7 +600,11 @@ class TestBoundsA3:
 
     def test_forbidden_paths_out_of_diff_vs_baseline(self):
         forbidden = [
-            "services/summary_prompts.py", "services/prompt_migrations.py",
+            # NOTE (round1027, ASAP-2 `mca-asap2-summary-pipeline`, контракт (l)/
+            # ADR-1027-10): `services/summary_prompts.py` и
+            # `services/prompt_migrations.py` ИСКЛЮЧЕНЫ — санкционированы каноны
+            # R1027 L1/L2 (PREV_*/ROLLBACK, ADR-1013-3); §104/A3-контракт не
+            # затронуты (AST-гейт A3 ниже сохраняет пин).
             # NOTE (A5, ADR-1026-17 D9): `services/param_catalog.py` исключён —
             # A5 санкционирует Δ каталога +1 ParamSpec +1 GroupSpec.
             "services/telegram_send.py",
@@ -627,9 +631,12 @@ class TestBoundsA3:
         # execution_graph.js (display-only 9 этапов §51); mca-17a (ADR-1027-8
         # D13/§4.10): + web/api/routes.py (фильтры log viewer) и
         # web/api/oversight.py (аддитивный mca_metrics на существующей витрине).
+        # ASAP-2.1 (round1028, T-3982): + web/static/app.css (тач-цель кнопки
+        # «← К списку» ≥44px в mobile media-query; без правок токенов/палитры).
         assert not any(ln.startswith("web/")
                        and not ln.startswith(("web/app.js", "web/index.html",
                                               "web/static/execution_graph.js",
+                                              "web/static/app.css",
                                               "web/api/routes.py",
                                               "web/api/oversight.py"))
                        for ln in self._diff_names())
@@ -656,16 +663,16 @@ class TestBoundsA3:
         import dataclasses
         from services import param_catalog as pc
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.32"            # bump запрещён (D8)
+        assert APP_VERSION == "2.58.34"            # bump запрещён (D8)
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in pc.REGISTRY
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}
 
     def test_catalog_counts_unchanged(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 473
-        assert len(pc.GROUPS) == 102
-        assert len(pc._TAB_BY_GROUP) == 100
+        assert len(pc.REGISTRY) == 481
+        assert len(pc.GROUPS) == 105
+        assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
 
     def test_two_llm_calls_intact(self):

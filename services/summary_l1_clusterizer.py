@@ -1,12 +1,18 @@
 """S3 round1026 (ADR-1026-5 D1/D2/D4/D5) — L1 «Кластеризатор» (§92–§95).
 
-**Автономный модуль S3** (в живой путь НЕ врезан — врезка S5/S6 по санкции):
-вход §92 (``build_l1_payload`` из восстановленного контекста) → упаковка
-§93-фрагментов в **один** вход → **ровно 1 LLM-вызов** L1 → парсер →
-валидатор §95 (``summary_l1_contract``) → fail-closed ``L1Result``.
+ASAP-2.1 (ADR-1028-1 D1/D2): вход §92 строится из ПОЛНОГО окна (heuristic
+prefilter S1 удалён из live-пути); ``build_l1_payload`` перенесён сюда из
+распущенного S2-модуля (единственный живой символ того
+модуля). Технические примитивы нарезки/оценки объёма — из
+``summary_hybrid_budget`` (нейтральный модуль бюджета Hybrid).
 
-Инварианты (ADR-1026-5):
-  * **ровно 1 вызов L1-слоя** (целевой пайплайн S5 = 2: L1+L2; третий вызов —
+**Автономный модуль** (живой путь — ``summary_generator._run_hybrid_l2``):
+вход §92 (``build_l1_payload``) → упаковка §93-фрагментов в **один** вход →
+**ровно 1 LLM-вызов** L1 → парсер → валидатор §95 (``summary_l1_contract``)
+→ fail-closed ``L1Result``.
+
+Инварианты (ADR-1026-5 + ADR-1028-1):
+  * **ровно 1 вызов L1-слоя** (целевой пайплайн = 2: L1+L2; третий вызов —
     блокер). Фрагменты §93 (``estimate_and_split``, overlap=1) упаковываются
     в один вход (ASC, дедуп, маркеры границ); при нехватке бюджета —
     детерминированный ``truncated`` + ``skipped_ids`` + WARN («не резать
@@ -21,6 +27,8 @@
     /``SUMMARY_L1_API_KEY`` (ClassVar, Δ каталога=0), hot-first резолв,
     пусто → глобальная основная модель (наследование ≠ аварийное
     резервирование);
+  * **eviction чисто технический** (ADR-1028-1 D1): ключ
+    ``(reply_protected, timestamp, db_id)`` — БЕЗ весового члена S1;
   * **логи §108/§109 аддитивны и R17-safe**: ``L1_START``/``L1_COMPLETE``/
     ``L1_ERROR`` — только числа/коды/id (без ключей, текстов и сырого ответа);
     узлы ExecutionGraph НЕ эмитятся (их эмитит S8).
@@ -35,11 +43,11 @@ import time
 from config.settings import settings
 from services.llm_client import LLMBadResponseError, LLMError
 from services.prompt_style_blocks import resolve_prompt
-from services.summary_context_restore import build_l1_payload
-from services.summary_filter import (
-    FilterParams,
+from services.summary_hybrid_budget import (
     estimate_and_split,
-    score_message,
+    hybrid_input_budget,
+    hybrid_output_reserve_tokens,
+    resolve_hybrid_context_budget,
 )
 from services.summary_l1_contract import (
     REASON_BAD_SCHEMA_VERSION,
@@ -70,11 +78,6 @@ from services.summary_l1_contract import (
     validate_l1_response,
 )
 from services.summary_l1_repair import repair_l1
-from services.summary_hybrid_budget import (
-    hybrid_input_budget,
-    hybrid_output_reserve_tokens,
-    resolve_hybrid_context_budget,
-)
 from services.summary_prompts import SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT
 # S7 (ADR-1026-9 D6/SC-07): §109-детали ошибки — http_status/attempts.
 from services.summary_run_log import attempts_of, http_status_of
@@ -329,31 +332,66 @@ def _row_reply_to(row):
         return None
 
 
-# Переиспользование S1-скоринга (spec Q5: «второй не изобретать»): вес для
-# eviction = score_message из summary_filter (bursts здесь недоступны —
-# пакет идёт ПОСЛЕ S1-префильтра, который снимает очевидный шум ДО бюджета;
-# дефолтные параметры — только как стабилизатор ранга, не новая настройка).
-_EVICTION_PARAMS = FilterParams()
-
+# ── ASAP-2.1 (ADR-1028-1 D1, контракт (a)): ЧИСТО ТЕХНИЧЕСКИЙ eviction ─────
+# Весовой член S1 УДАЛЁН: модуль больше не решает,
+# «какие сообщения кажутся важными». Ключ вытеснения —
+# (reply_protected, timestamp, db_id): reply-цепочки (физическая связность
+# пакета) вытесняются последними, внутри приоритета — старые раньше свежих.
 
 def _eviction_key(row, *, kept_tg: set, children_by_tg: dict):
-    """Ключ вытеснения ASC `(reply_protected, −weight_S1, timestamp, db_id)`
-    (spec Q5/§11:2344–2351): сначала старый малозначимый контекст без
-    reply-связей; участники reply-цепочек (своё `reply_to_id` на сохраняемое
-    ИЛИ сохраняемое указывает на него) и высокий вес S1 — вытесняются
-    последними."""
+    """Ключ вытеснения ASC ``(reply_protected, timestamp, db_id)``:
+    reply-защита — целостность reply-цепочек внутри пакета (физическая
+    связность, НЕ «важность»); дальше — старый контекст вытесняется первым."""
     tg = _row_tg(row)
     reply = _row_reply_to(row)
     protected = 1 if ((reply is not None and reply in kept_tg)
                       or (tg is not None and children_by_tg.get(tg, 0) > 0)) \
         else 0
-    try:
-        weight = score_message(row, children_by_tg=children_by_tg,
-                               burst_ids=frozenset(),
-                               params=_EVICTION_PARAMS, bot_id=None)
-    except Exception:  # pragma: no cover - защитная ветка: вес не критичен
-        weight = 0
-    return (protected, -weight, _row_ts(row), _id_key(_row_id(row)))
+    return (protected, _row_ts(row), _id_key(_row_id(row)))
+
+
+# ── §92: структурированный вход L1 (ASAP-2.1: перенос из распущенного
+#    S2-модуля, сигнатура без изменений) ──────────
+
+_L1_FIELDS = (
+    "message_id",
+    "chat_id",
+    "timestamp",
+    "author_id",
+    "display_name",
+    "text",
+    "reply_to_id",
+    "message_type",
+)
+
+
+def build_l1_payload(rows, chat_id) -> list:
+    """Структурированные сообщения §92 для L1-кластеризатора.
+
+    Используются **только фактически доступные** поля строки окна:
+    ``message_id ← tg_message_id``, ``author_id ← user_id``,
+    ``display_name ← author_name``, ``message_type ← media_type``,
+    ``reply_to_id``, ``timestamp``, ``text``; ``chat_id`` — из контекста
+    запуска. Отсутствующие метаданные не выдумываются: ``mentions`` (поля в
+    окне нет) в элемент не попадает вовсе.
+    """
+    payload: list = []
+    for row in rows or []:
+        item = {
+            "message_id": _row_tg(row),
+            "chat_id": chat_id,
+            "timestamp": _row_get(row, "timestamp"),
+            "author_id": _row_get(row, "user_id"),
+            "display_name": _row_get(row, "author_name"),
+            "text": _row_get(row, "text"),
+            "reply_to_id": _row_get(row, "reply_to_id"),
+            "message_type": _row_get(row, "media_type"),
+        }
+        mentions = _row_get(row, "mentions")
+        if mentions is not None:
+            item["mentions"] = mentions
+        payload.append(item)
+    return payload
 
 
 # ── §93: упаковка фрагментов в один вход (без второго вызова) ──────────────
@@ -385,16 +423,15 @@ def pack_l1_input(rows, chat_id, *, token_limit=None, char_limit=None,
 
     Оценка объёма — существующий ``estimate_and_split`` (overlap=1, последний
     фрагмент всегда заканчивается последним сообщением); фрагменты
-    объединяются в один вход (дедуп DB id, ASC, маркеры границ). Итоговый
+    объединяются в один вход (дедуп DB id, ASC, маркеры границ).     Итоговый
     бюджет-тест — по РЕАЛЬНОМУ serialized §92-элементу (ASAP-2 Q5:
     ``count_tokens(json.dumps(item))``, имена полей учтены), а не по голому
-    тексту. Если итог не влезает — DEMOCRATIC eviction (spec Q5/§11):
-    victim = min ASC ``(reply_protected, −weight_S1, timestamp, id)`` —
-    сначала старый малозначимый контекст без reply-связей; reply-цепочки и
-    ключевые события вытесняются последними; ПОСЛЕДНЕЕ сообщение сохраняется
-    всегда (§93); любое вытеснение → ``truncated=True`` + ``skipped_ids`` +
-    WARN («не резать молча»). DB id → TG message_id — только через
-    :func:`build_db_tg_map`.
+    тексту. Если итог не влезает — ЧИСТО ТЕХНИЧЕСКИЙ eviction (ASAP-2.1
+    ADR-1028-1 D1): victim = min ASC ``(reply_protected, timestamp, id)`` —
+    сначала старый контекст без reply-связей; reply-цепочки вытесняются
+    последними; ПОСЛЕДНЕЕ сообщение сохраняется всегда (§93); любое
+    вытеснение → ``truncated=True`` + ``skipped_ids`` + WARN («не резать
+    молча»). DB id → TG message_id — только через :func:`build_db_tg_map`.
     """
     rows_sorted = _sort_rows(list(rows or []))
     fragments, budget = estimate_and_split(
@@ -435,8 +472,8 @@ def pack_l1_input(rows, chat_id, *, token_limit=None, char_limit=None,
     truncated = False
     skipped_rows: list = []
     if limit and total > limit:
-        # ASAP-2 Q5/§11: democratic eviction — НЕ «самые старые первыми»:
-        #victim = min ASC (reply_protected, −weight_S1, timestamp, id);
+        # ASAP-2.1 (ADR-1028-1 D1): eviction чисто технический —
+        # victim = min ASC (reply_protected, timestamp, id);
         # последнее сообщение сохраняется всегда (§93); любое вытеснение →
         # truncated + skipped_ids + WARN (без молчаливого среза).
         truncated = True
@@ -731,6 +768,15 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
         pack = pack_l1_input(source_rows, chat_id, token_limit=token_limit,
                              char_limit=char_limit)
         chunk_count = pack.chunk_count
+        # ASAP-2.1 (T-3986, раздел 4 spec): L1_CONTEXT_PACK после pack_l1_input
+        # (замещает FILTER_*; R17 — только числа/id; текстов нет).
+        logger.info(
+            "L1_CONTEXT_PACK | run_id=%s | chat_id=%s | source_messages=%d | "
+            "packed_messages=%d | serialized_tokens=%d | physical_budget=%d | "
+            "overflow=%d | skipped=%d | kind=%s",
+            correlation_id or "none", chat_id, pack.source_count,
+            len(pack.payload), pack.estimated_tokens, pack.limit,
+            1 if pack.truncated else 0, len(pack.skipped_ids), pack.kind)
         if pack.truncated:
             # §93/§4.2: «не резать молча» — вытесненные бюджетом сообщения
             # видны WARN-логом (R17: только числа/id, без текстов).

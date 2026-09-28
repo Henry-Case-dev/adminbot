@@ -298,11 +298,9 @@ GROUPS: tuple[GroupSpec, ...] = (
     # (замаплена на вкладку prompts — рядом с карточкой монитора анти-клише).
     GroupSpec("limits_anticliche", "limits", "Анти-клише: лимиты",
               "Сколько клише забирать из источника и держать в детекторе.", 31),
-    # limits (32; Эпик 2 / S1 round1026, ADR-1026-1 D1): тонкая настройка
-    # алгоритмического префильтра Саммари (§87/§89). Вкладка mod_summary.
-    GroupSpec("limits_summary_filter", "limits", "Предфильтрация: тонкая настройка",
-              "Порог веса, длина бонуса, всплеск по плотности и параметры "
-              "восстановления контекста (§89).", 32),
+    # limits (32; Эпик 2 / S1 round1026, ADR-1026-1 D1) — УДАЛЕНА
+    # (ASAP-2.1, контракт (i)): группа `limits_summary_filter` упразднена
+    # вместе с префильтром; санкция отрицательного Δ каталога — Architect.
     # limits (33; Раунд 10.26 A5, ADR-1026-17 D9): секция «Лимиты» на вкладке
     # «Генерация изображений» (§27) — «глобальный дневной лимит» по умолчанию
     # (`limits.image_daily_limit`); НЕ смешивается с общим бюджетом всех чатов
@@ -363,11 +361,9 @@ GROUPS: tuple[GroupSpec, ...] = (
     GroupSpec("flags_module_budgets", "flags", "Модуль: Бюджеты",
               "Главный тумблер бюджетов: выключение лимитов целиком (direct и "
               "фон, усечение контекста). Учёт статистики ведётся всегда.", 21),
-    # flags (22; Эпик 2 / S1 round1026, ADR-1026-1 D1): рубильники
-    # алгоритмического префильтра Саммари (§87). Вкладка mod_summary.
-    GroupSpec("flags_summary_filter", "flags", "Предфильтрация",
-              "Алгоритмическая предфильтрация сообщений перед пересказом: "
-              "главный тумблер (по умолчанию включён) и учёт ответов.", 22),
+    # flags (22; Эпик 2 / S1 round1026, ADR-1026-1 D1) — УДАЛЕНА
+    # (ASAP-2.1, контракт (i)): группа `flags_summary_filter` упразднена
+    # вместе с префильтром; санкция отрицательного Δ каталога — Architect.
     # flags (23; раунд 10.26 A7, ADR-1026-20 D6/§48): секция «Принятие
     # решений» внутри mod_direct — ровно 3 тумблера (молчание/реакции).
     GroupSpec("flags_decision_making", "flags", "Принятие решений",
@@ -451,15 +447,17 @@ _PROMPTS: list[tuple] = [
      "services.search_prompts.SEARCH_SYSTEM_PROMPT", "prompts_search",
      "Инструкция нейросети при поиске: как формулировать ответ. Изменения применяются сразу после сохранения.",
      "", "verbalizer"),
-    ("prompts.summary_system_prompt", "Системный промпт саммари",
+    ("prompts.summary_system_prompt", "Legacy Single-call",
      "services.summary_prompts.SYSTEM_PROMPT", "prompts_summary",
-     "Инструкция нейросети для пересказов: стиль и структура. Изменения применяются сразу после сохранения."),
+     "Legacy fallback, не основной Hybrid writer: одиночный проход резервного "
+     "контура саммари. Изменения применяются сразу после сохранения."),
     # Раунд 10.23 (F6, ADR-1023-6 §Decision 2): авторский «Стиль обложки» —
     # конкатенируется с visual prompt перед image-API (F5). advanced (6-й
     # элемент кортежа — явный progressive_level).
     ("prompts.summary_cover_style", "Стиль обложки",
      "services.summary_prompts.SUMMARY_COVER_STYLE_DEFAULT", "prompts_summary",
-     "Авторский стиль обложек саммари: конкатенируется с визуальным промптом перед генерацией изображения.",
+     "Редактируемый визуальный стиль обложки Summary: конкатенируется с "
+     "визуальным промптом перед генерацией изображения.",
      "advanced"),
     ("prompts.checkup_system_prompt", "Системный промпт чекапа",
      "services.checkup_prompts.CHECKUP_SYSTEM_PROMPT", "prompts_checkup",
@@ -496,27 +494,31 @@ _PROMPTS: list[tuple] = [
      "services.factcheck_prompts.FACTCHECK_VERBALIZER_SYSTEM_PROMPT", "prompts_factcheck",
      "Превращает разбор фактчека в финальный текст. Изменения применяются сразу.",
      "advanced", "verbalizer"),
-    ("prompts.summary_editor_system_prompt", "Синтезатор саммари (Редактор)",
+    ("prompts.summary_editor_system_prompt", "Legacy Editor",
      "services.summary_prompts.SUMMARY_EDITOR_SYSTEM_PROMPT", "prompts_summary",
-     "Сжимает историю в короткую выжимку (первый проход саммари). Изменения применяются сразу.",
+     "Legacy fallback, не основной Hybrid writer: сжимает историю в выжимку "
+     "(первый проход двухпроходного Legacy). Изменения применяются сразу.",
      "advanced", "synthesizer"),
-    ("prompts.summary_narrator_system_prompt", "Вербализатор саммари (Рассказчик)",
+    ("prompts.summary_narrator_system_prompt", "Legacy Narrator/Рассказчик",
      "services.summary_prompts.SUMMARY_NARRATOR_SYSTEM_PROMPT", "prompts_summary",
-     "Пересказывает выжимку саммари живым языком. Изменения применяются сразу.",
+     "Legacy fallback, не основной Hybrid writer: пересказывает выжимку "
+     "живым языком (второй проход Legacy). Изменения применяются сразу.",
      "advanced", "verbalizer"),
     # Раунд 10.26 (S3, ADR-1026-5 D4): L1 «Кластеризатор» — отдельный канон
-    # (§94–§95, не общий с L2); Δ каталога +1 санкционирована (промпт-ключ).
-    ("prompts.summary_l1_clusterizer_system_prompt", "Кластеризатор саммари (L1)",
+    # (§94–§95, не общий с L2); ASAP-2.1: титул §9 без ложной лексики стадий.
+    ("prompts.summary_l1_clusterizer_system_prompt", "Кластеризатор (L1)",
      "services.summary_prompts.SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT",
      "prompts_summary",
-     "Разбирает историю на темы и проверяемые факты с подтверждающими ID (первый проход L1). Саммари не пишет. Изменения применяются сразу.",
+     "Структурирует исходные сообщения в темы и факты. Не пишет "
+     "пользовательский текст. Изменения применяются сразу.",
      "advanced", "synthesizer"),
     # Раунд 10.26 (S5, ADR-1026-7 D3/D4): L2 «Писатель» — отдельный канон
-    # (§97–§99, не общий с L1/Рассказчиком); Δ каталога +1 санкционирована.
-    ("prompts.summary_l2_writer_system_prompt", "Писатель саммари (L2)",
+    # (§97–§99, не общий с L1/Рассказчиком). ASAP-2.1: титул §9.
+    ("prompts.summary_l2_writer_system_prompt", "Писатель статьи (L2)",
      "services.summary_prompts.SUMMARY_L2_WRITER_SYSTEM_PROMPT",
      "prompts_summary",
-     "Собирает качественную статью по пакету фактов: H1, абзацы, запрет выдуманных цитат (второй проход L2). HTML не форматирует. Изменения применяются сразу.",
+     "Пишет финальный текст обычного Hybrid Summary. Изменения применяются "
+     "сразу.",
      "advanced", "synthesizer"),
     ("prompts.direct_chat_synthesizer_system_prompt", "Синтезатор прямого чата (Логика)",
      "services.chat_prompts.DIRECT_SYNTHESIZER_SYSTEM_PROMPT", "prompts_direct_chat",
@@ -1059,15 +1061,9 @@ _FLAGS: list[tuple] = [
       "Бот постит dead page при вступлении участника. Выключено — постится только по команде."),
     ("SUMMARY_ADMIN_ONLY", "Саммари только для админа", "flags_summary",
       "Пересказы доступны только админу. Выключено — по списку разрешённых."),
-    # ── Эпик 2 / S1 round1026 (ADR-1026-1 D1): префильтрация Саммари ──
-    ("SUMMARY_FILTER_ENABLED", "Алгоритмическая предфильтрация",
-      "flags_summary_filter",
-      "Бот отсеивает мусорные сообщения перед пересказом (адресные, ответы, "
-      "всплески, длинные). По умолчанию включено."),
-    ("SUMMARY_FILTER_REPLY_CONTEXT_ENABLED", "Учитывать ответы (reply-контекст)",
-      "flags_summary_filter",
-      "Сообщение, на которое кто-то ответил, получает повышенный вес. "
-      "Выключено — этот критерий не начисляется."),
+    # ── ASAP-2.1 (ADR-1028-1 D1, §5): ключи S1-префильтра УДАЛЕНЫ из каталога
+    # (8 keys + 2 группы; санкция отрицательного Δ — spec раздел 9). Старые
+    # строки в БД остаются и безопасно игнорируются (читателей нет).
     # ── Раунд 7 (T-776, spec §3.11): лор чатов — рубильники ──
     ("LORE_WORKER_ENABLED", "Лор чатов: фоновый воркер", "flags_lore",
      "Планирует тик-цикл воркера (обход активных чатов и генерация лора). Выключено — воркер не запускается."),
@@ -1202,19 +1198,8 @@ _LIMITS: list[tuple] = [
       "int", "limits_summary_legacy",
       "Потолок текста обычного (Legacy) саммари, отдаваемого нейросети. Больше "
       "— точнее, но дороже и медленнее. На Hybrid-статью не влияет."),
-    # ── Эпик 2 / S1 round1026 (ADR-1026-1 D1): тонкая настройка §87/§89 ──
-    ("SUMMARY_FILTER_MIN_WEIGHT", "Минимальный вес сообщения", "int", "limits_summary_filter",
-      "Сколько баллов нужно, чтобы сообщение попало в пересказ. 0 — сохранять всё."),
-    ("SUMMARY_FILTER_MIN_WORDS_FOR_BONUS", "Минимальная длина для бонуса (слов)", "int", "limits_summary_filter",
-      "Сообщения длиннее этого числа слов получают дополнительный балл."),
-    ("SUMMARY_FILTER_BURST_WINDOW_SECONDS", "Окно временного всплеска, сек", "int", "limits_summary_filter",
-      "Промежуток, в котором сообщения считаются всплеском активности."),
-    ("SUMMARY_FILTER_MIN_BURST_DENSITY", "Минимальная плотность всплеска", "int", "limits_summary_filter",
-      "Сколько сообщений в окне всплеска нужно, чтобы считать его всплеском."),
-    ("SUMMARY_FILTER_CONTEXT_NEIGHBORS", "Ближайших контекстных сообщений", "int", "limits_summary_filter",
-      "Сколько соседних сообщений восстанавливать вокруг важного. Используется восстановлением контекста."),
-    ("SUMMARY_FILTER_CONTEXT_MAX_MESSAGES", "Лимит восстановленного контекста", "int", "limits_summary_filter",
-      "Максимум сообщений, добавляемых при восстановлении контекста."),
+     # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): 6 limits.summary_filter_* ключей
+     # УДАЛЕНЫ из каталога вместе с префильтром (старые БД-значения игнорируются).
     ("SUMMARY_RAG_L2_LIMIT", "Сколько фактов памяти берётся (средний уровень)", "int", "limits_graph",
      "Сколько фактов памяти берётся на втором уровне. Больше — контекстнее, дороже."),
     ("SUMMARY_RAG_L3_LIMIT", "Сколько фактов памяти берётся (глубокий уровень)", "int", "limits_graph",
@@ -2286,9 +2271,9 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
         # остаются в нейтральных группах вне двух секций.
         (CATEGORY_FLAGS,
          frozenset({"flags_module_summary", "flags_summary",
-                    "flags_summary_filter", "flags_summary_hybrid",
+                    "flags_summary_hybrid",
                     "flags_summary_legacy"})),
-        (CATEGORY_LIMITS, frozenset({"limits_summary", "limits_summary_filter",
+        (CATEGORY_LIMITS, frozenset({"limits_summary",
                                      "limits_summary_hybrid",
                                      "limits_summary_legacy"})),
         (CATEGORY_MODELS, frozenset({"models_summary_hybrid"})),

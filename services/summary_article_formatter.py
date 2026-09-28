@@ -1,16 +1,26 @@
 """S5 round1026 (ADR-1026-7 D2) + S6 round1026 (ADR-1026-11 D2/D7) — серверный
 форматтер статьи §98/§99/§101/§102/§105.
 
+ASAP-2.1 (ADR-1028-1 D3/D4): §99 v1.1 — секвенциальный рендер принятых
+``emphasis_spans`` (≤1 `<b>` на абзац заменён walk-рендером списка; derived-
+``emphasis`` — fallback при пустом списке) + **детерминированный Rich cut**:
+при len(абзацев) > 1 всё после первого абзаца (и finale) уходит под ОДИН
+закрытый ``<details><summary>Читать дальше</summary>`` (0–1 абзац — ката нет).
+Cut — presentation layer: документ не меняется, plain-каналы отдают ПОЛНЫЙ
+текст без ката; ``rich_document_limits`` считает лимиты по полному HTML
+(обёртка ~50–60 симв. внутри headroom 32000).
+
 **Чистый детерминированный** модуль (stdlib; без БД/сети/LLM/часов): превращает
-структурированный §99-документ (``{schema_version,title,paragraphs[{text,
-emphasis}]}``) в Telegram-канальные представления:
+структурированный §99-документ в Telegram-канальные представления:
 
   * **rich HTML** (§101/§102, основной путь): ``<img src="tg://photo?id=…">``
-    (если задана обложка), затем **настоящий `<h1>`**, затем ``<p>`` с ≤1
-    ``<b>``-акцентом; только теги ``img/h1/p/b``; MarkdownV2 не смешивается;
+    (если задана обложка), затем **настоящий `<h1>`**, затем ``<p>`` с `<b>`-
+    акцентами по принятым спанам + deterministic cut; теги ``img/h1/p/b``
+    + ``details/summary`` (только cut-обёртка); MarkdownV2 не смешивается;
   * **plain HTML** (§105, fallback без обложки): ``<b>title</b>`` + абзацы/
-    совместимые ``<b>``-акценты через ``sendMessage parse_mode="HTML"``;
-  * **plain text** (§105, финальный даунгрейд) — без разметки;
+    совместимые ``<b>``-акценты через ``sendMessage parse_mode="HTML"`` —
+    БЕЗ ката (полный текст, §1:2837);
+  * **plain text** (§105, финальный даунгрейд) — без разметки, полный текст;
   * **chunk_plain_blocks** — разбивка по **границам абзацев** (≤4096), без
     молчаливого обрезания; акценты абзацев рендерятся тем же каноном, что и
     ``format_plain_html`` (единый источник, B-R1026S6-2); ``sanitize``
@@ -28,12 +38,10 @@ legacy-text → §99-документ для OFF-пути (заголовок п
 Экранирование — **кодом**: ``sanitize_outgoing`` (существующая обёртка egress)
 → затем ``html.escape(..., quote=True)`` (порядок обязателен — инвариант 3
 ``telegram_send``). Лимиты D2 (технические, §99/§101): ``title`` ≤200/одна
-строка, абзацев ≤498 (единственный кап статьи; ASAP-2 §1:
-``limits.max_summary_parts`` — строго Legacy-чанки, Hybrid-статью не каппит),
-rich ≤32000, абзац ≤900;
-``emphasis`` — дословная подстрока своего абзаца, иначе снимается. Ни один
-путь не теряет текст молча: превышение rich-лимитов — сигнал
-``rich_document_limits`` (даунгрейд в plain с полным текстом), не усечение.
+строка, абзацев ≤498 (единственный кап статьи), rich ≤32000, абзац ≤900;
+спаны — дословные подстроки своего абзаца, иначе игнор. Ни один путь не теряет
+текст молча: превышение rich-лимитов — сигнал ``rich_document_limits``
+(даунгрейд в plain с полным текстом), не усечение.
 """
 from __future__ import annotations
 
@@ -47,8 +55,8 @@ MAX_PARAGRAPHS_HARD = 498
 RICH_MAX_CHARS = 32000
 PLAIN_CHUNK_LIMIT = 4096
 
-# Разрешённые теги rich-пути (§102): img/h1/p/b. Пользовательский текст и
-# модель Markdown/буллиты сюда попасть не должны.
+# Разрешённые теги rich-пути (§102 + ADR-1028-1 D4): img/h1/p/b + cut.
+_RICH_TAG_RE = re.compile(r"</?(?:img|h1|p|b|details|summary)\b")
 _MD_HEADING_RE = re.compile(r"(?m)^\s{0,3}#{1,6}\s+")
 _MD_BULLET_RE = re.compile(r"(?m)^\s*(?:[-*•]|\d+[.)])\s+")
 _MD_EMPHASIS_RE = re.compile(r"(\*\*|__|`)")
@@ -58,6 +66,9 @@ _MD_TITLE_LINE_RE = re.compile(r"(?m)^\s{0,3}#{1,6}\s+(.+?)\s*$")
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?…])\s+")
 # Разбивка plain-текста на абзацы (пустая строка — граница).
 _PARAGRAPH_SPLIT_RE = re.compile(r"\n{2,}")
+
+# Детерминированный cut (§1/ADR-1028-1 D4): текст summary константен.
+CUT_SUMMARY_TEXT = "Читать дальше"
 
 
 def _sanitizer(sanitize):
@@ -111,53 +122,135 @@ def _title_of(document) -> str:
     return re.sub(r"\s+", " ", title).strip()[:TITLE_MAX]
 
 
-def _emphasis_of(paragraph, clean_text: str):
-    """Акцент — дословная подстрока СВОЕГО абзаца, иначе ``None`` (D2)."""
-    emphasis = paragraph.get("emphasis")
-    if not isinstance(emphasis, str):
-        return None
-    candidate = emphasis.strip()
-    if not candidate:
-        return None
-    if candidate in clean_text:
-        return candidate
-    return None
+def _emphasis_spans_of(paragraph, clean_text: str) -> list[str]:
+    """Принятые спаны абзаца — дословные подстроки СВОЕГО текста (D3).
+
+    Рендер идёт по ``emphasis_spans``; при пустом/отсутствующем списке —
+    по legacy ``emphasis`` (совместимость документов прежнего канона и
+    plain-адаптера). Invalid/чужой-абзац спан игнорируется (defense:
+    валидатор уже отфильтровал, здесь — последняя линия).
+    """
+    raw_spans = paragraph.get("emphasis_spans")
+    candidates: list[str] = []
+    if isinstance(raw_spans, list) and raw_spans:
+        for span in raw_spans:
+            if isinstance(span, dict):
+                value = span.get("text")
+            else:
+                value = span
+            if isinstance(value, str) and value.strip():
+                candidates.append(value.strip())
+    else:
+        legacy = paragraph.get("emphasis")
+        if isinstance(legacy, str) and legacy.strip():
+            candidates.append(legacy.strip())
+    out: list[str] = []
+    for candidate in candidates:
+        if candidate in clean_text and candidate not in out:
+            out.append(candidate)
+    return out
 
 
-def _render_plain_html_paragraph(text: str, emphasis, sanitize) -> str:
-    """Один ``<p>``/абзац с ≤1 ``<b>``-акцентом; sanitize ДО escape."""
+def _resolve_span_positions(spans: list[str], clean_text: str) -> list:
+    """Детерминированные позиции (первое вхождение; сортировка
+    ``(start ASC, length DESC, порядок ASC)``; жадный приём без пересечений)."""
+    positioned = [(clean_text.find(s), -len(s), order, s)
+                  for order, s in enumerate(spans)
+                  if clean_text.find(s) >= 0]
+    positioned.sort(key=lambda item: (item[0], item[1], item[2]))
+    accepted: list = []
+    last_end = -1
+    for start, neg_len, _order, span in positioned:
+        if start < last_end:
+            continue
+        accepted.append((start, span))
+        last_end = start + len(span)
+    return accepted
+
+
+def _render_with_spans(clean_text: str, spans: list[str], escape) -> str:
+    """Секвенциальный walk-рендер: текст между спанами escape, каждый спан —
+    в ``<b>…</b>`` (тоже escape). Один и тот же код для rich и plain-HTML."""
+    accepted = _resolve_span_positions(spans, clean_text)
+    if not accepted:
+        return escape(clean_text)
+    parts: list[str] = []
+    cursor = 0
+    for start, span in accepted:
+        parts.append(escape(clean_text[cursor:start]))
+        parts.append("<b>" + escape(span) + "</b>")
+        cursor = start + len(span)
+    parts.append(escape(clean_text[cursor:]))
+    return "".join(parts)
+
+
+def _render_plain_html_paragraph(text: str, spans, sanitize) -> str:
+    """Один ``<p>``-блок абзаца с ``<b>``-акцентами; sanitize ДО escape."""
     clean = _clean_text(sanitize(text))
-    if emphasis and emphasis in clean:
-        head, _, tail = clean.partition(emphasis)
-        return "{}{}{}".format(
-            _escape(head), "<b>" + _escape(emphasis) + "</b>", _escape(tail))
-    return _escape(clean)
+    return _render_with_spans(clean, spans, _escape)
 
 
-# ── Rich HTML (§101/§102) ──────────────────────────────────────────────────
+def _finale_of(document) -> str:
+    """Валидированный ``finale`` (§99 v1.1/Q4): одна строка ≤200, иначе ''."""
+    if not isinstance(document, dict):
+        return ""
+    finale = document.get("finale")
+    if not isinstance(finale, str):
+        return ""
+    cleaned = re.sub(r"\s+", " ", finale).strip()
+    if not cleaned or len(cleaned) > 200:
+        return ""
+    return cleaned
+
+
+# ── Rich HTML (§101/§102 + ADR-1028-1 D4) ──────────────────────────────────
 
 def format_rich_html(document, *, cover_id=None, sanitize=None) -> str:
-    """§99-документ → Rich HTML: (обложка) + ``<h1>`` + ``<p>`` (+ ``<b>``).
+    """§99-документ → Rich HTML с детерминированным cut.
 
-    Порядок обязателен (§101): обложка первой, заголовок — **настоящий**
-    ``<h1>`` (не жирный). Заголовок/абзацы экранируются кодом (sanitize →
-    escape). Возвращает **полный** текст без усечения (B-R1026S6-1):
-    вместимость rich-канала проверяет :func:`rich_document_limits` до
-    отправки; молчаливого среза хвоста здесь нет.
+    Порядок обязателен (§101 + ADR-1028-1 D4): обложка первой, заголовок —
+    **настоящий** ``<h1>``, ``<p>`` абзац 1; при **len(абзацев) > 1** — ОДИН
+    закрытый ``<details><summary>Читать дальше</summary>`` с абзацами 2..N и
+    finale-блоком внутри (атрибут ``open`` НЕ ставится). 0–1 абзац → ката нет,
+    finale — видимый концевой блок. Cut — presentation layer: документ не
+    меняется, plain-каналы отдают полный текст. Возвращает **полный** текст
+    без усечения; вместимость rich-канала проверяет
+    :func:`rich_document_limits` до отправки.
     """
     sanitize = _sanitizer(sanitize)
     title = _title_of(document)
+    paragraphs = _iter_paragraphs(document)
+    finale = _finale_of(document)
     parts: list[str] = []
     if cover_id:
         parts.append('<img src="tg://photo?id={}">'.format(_escape(str(cover_id))))
     if title:
         parts.append("<h1>{}</h1>".format(_escape(sanitize(title))))
-    for paragraph in _iter_paragraphs(document):
+
+    def _paragraph_html(paragraph) -> str:
         body = _render_plain_html_paragraph(
-            paragraph.get("text", ""), _emphasis_of(paragraph,
-                                                    _clean_text(paragraph.get("text", ""))),
+            paragraph.get("text", ""),
+            _emphasis_spans_of(paragraph, _clean_text(paragraph.get("text", ""))),
             sanitize)
-        parts.append("<p>{}</p>".format(body))
+        return "<p>{}</p>".format(body)
+
+    def _finale_html() -> str:
+        if not finale:
+            return ""
+        return "<p>{}</p>".format(_escape(sanitize(finale)))
+
+    cut = len(paragraphs) > 1
+    if paragraphs:
+        parts.append(_paragraph_html(paragraphs[0]))
+    if cut:
+        parts.append("<details><summary>{}</summary>".format(
+            _escape(CUT_SUMMARY_TEXT)))
+        for paragraph in paragraphs[1:]:
+            parts.append(_paragraph_html(paragraph))
+        parts.append(_finale_html())
+        parts.append("</details>")
+    else:
+        parts.append(_finale_html())
     return "".join(parts)
 
 
@@ -195,12 +288,14 @@ def rich_document_limits(document, *, cover_id=None, sanitize=None) -> dict:
 # ── Plain HTML (§105) ──────────────────────────────────────────────────────
 
 def _plain_html_blocks(document, sanitize) -> list[str]:
-    """Единый канон plain-блоков (§105): ``<b>title</b>`` + абзацы (≤1 ``<b>``).
+    """Единый канон plain-блоков (§105): ``<b>title</b>`` + абзацы + finale.
 
     Один источник для предпросмотра (:func:`format_plain_html`) и фактической
     доставки (:func:`chunk_plain_blocks`) — B-R1026S6-2: абзацные акценты
-    рендерятся одинаково, экранирование сохраняется (sanitize → clean →
-    escape), пустые абзацы пропускаются.
+    рендерятся одинаково (тот же walk-рендер спанов, ADR-1028-1 D3),
+    экранирование сохраняется (sanitize → clean → escape), пустые абзацы
+    пропускаются. ``finale`` — последним блоком (полный текст, §20;
+    ADR-1028-1 Q4). Ката здесь НЕТ: plain-канал — полный текст.
     """
     title = _title_of(document)
     blocks: list[str] = []
@@ -208,11 +303,14 @@ def _plain_html_blocks(document, sanitize) -> list[str]:
         blocks.append("<b>{}</b>".format(_escape(sanitize(title))))
     for paragraph in _iter_paragraphs(document):
         body = _render_plain_html_paragraph(
-            paragraph.get("text", ""), _emphasis_of(paragraph,
-                                                    _clean_text(paragraph.get("text", ""))),
+            paragraph.get("text", ""),
+            _emphasis_spans_of(paragraph, _clean_text(paragraph.get("text", ""))),
             sanitize)
         if body:
             blocks.append(body)
+    finale = _finale_of(document)
+    if finale:
+        blocks.append(_escape(sanitize(finale)))
     return blocks
 
 
@@ -227,13 +325,17 @@ def format_plain_html(document, *, sanitize=None) -> str:
 
 
 def format_plain_text(document) -> str:
-    """§105 финальный даунгрейд: низкоуровневый текст без разметки."""
+    """§105 финальный даунгрейд: низкоуровневый текст без разметки, ПОЛНЫЙ
+    текст (включая finale последним блоком — ADR-1028-1 Q4/§20)."""
     title = _title_of(document)
     blocks: list[str] = []
     if title:
         blocks.append(title)
     for paragraph in _iter_paragraphs(document):
         blocks.append(_clean_text(str(paragraph.get("text", ""))))
+    finale = _finale_of(document)
+    if finale:
+        blocks.append(finale)
     return "\n\n".join(block for block in blocks if block)
 
 

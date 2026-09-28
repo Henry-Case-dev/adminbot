@@ -158,21 +158,25 @@ class TestTabMappingAudit:
         # ASAP-2 round1027 (ADR-1027-10 D11): +16 REGISTRY, +5 GROUPS,
         # +5 mapped (секции Hybrid/Legacy на mod_summary); TAB_RULES 21
         # (правило mod_summary правится in-place) → 489/107/105.
-        assert len(pc._TAB_BY_GROUP) == 105
-        assert len(GROUPS) == 107
-        assert len(pc.REGISTRY) == 489
+        # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): санкционированная
+        # ОТРИЦАТЕЛЬНАЯ Δ — -8 ключей summary_filter_*, -2 группы;
+        # TAB_RULES 21 in-place → 481/105/103.
+        assert len(pc._TAB_BY_GROUP) == 103
+        assert len(GROUPS) == 105
+        assert len(pc.REGISTRY) == 481
 
 
 class TestModuleTabs:
     def test_mod_summary_composition(self):
-        # round1026 S1 (ADR-1026-1 D1): +flags_summary_filter / +limits_summary_filter.
-        # ASAP-2 round1027 (ADR-1027-10 D11/§13): +5 групп секций Hybrid/Legacy
+        # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): группы префильтра
+        # flags/limits_summary_filter УДАЛЕНЫ из правила mod_summary (in-place).
+        # ASAP-2 round1027 (ADR-1027-10 D11/§13): 5 групп секций Hybrid/Legacy
         # (workspace-вкладки mod_summary; общие группы — ВНЕ двух секций).
         assert tab_group_ids(TAB_MOD_SUMMARY) == {
-            "flags_module_summary", "flags_summary", "flags_summary_filter",
+            "flags_module_summary", "flags_summary",
             "flags_summary_hybrid", "flags_summary_legacy",
             "models_summary_hybrid",
-            "limits_summary", "limits_summary_filter",
+            "limits_summary",
             "limits_summary_hybrid", "limits_summary_legacy",
             "reactions_summary"}
 

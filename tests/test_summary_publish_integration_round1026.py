@@ -356,9 +356,12 @@ class TestRichFormatter:
         assert "</h1><p>" in html
 
     def test_tags_whitelist_only(self):
+        # ASAP-2.1 (ADR-1028-1 D4): deterministic cut добавляет единственную
+        # обёртку details/summary (closed, без open-атрибута).
         html = format_rich_html(self._doc(), cover_id="summary_cover")
         tags = set(re.findall(r"</?([a-z0-9]+)", html))
-        assert tags <= {"img", "h1", "p", "b"}
+        assert tags <= {"img", "h1", "p", "b", "details", "summary"}
+        assert html.count("<details>") == html.count("</details>")
 
     def test_h1_not_bold_and_single_b_per_paragraph(self):
         html = format_rich_html(self._doc(), cover_id="summary_cover")
@@ -1288,18 +1291,21 @@ class TestBoundaries:
                 re.IGNORECASE), name
 
     def test_catalog_zero_delta(self):
-        assert len(pc.REGISTRY) == 489
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
+        # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): санкционированная
+        # ОТРИЦАТЕЛЬНАЯ Δ каталога — -8 ключей summary_filter_*, -2 группы,
+        # -8 env-констант Settings (S1-слой удалён).
+        assert len(pc.REGISTRY) == 481
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 422
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 464
-        assert len(pc.GROUPS) == 107
-        assert len(pc._TAB_BY_GROUP) == 105
+                    if s.category is not None]) == 456
+        assert len(pc.GROUPS) == 105
+        assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version(self):
-        assert APP_VERSION == "2.58.33"
+        assert APP_VERSION == "2.58.34"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        assert "v2.58.33" in readme
+        assert "v2.58.34" in readme
 
     def test_analytics_docstring_only_changed(self):
         """web/api/analytics.py: S6 меняет только docstring (код эндпоинта —
@@ -1344,7 +1350,9 @@ class TestBoundaries:
             # санкционирован канон R1027 L1/L2 (many-to-many §95-v2, ДЛИНА/
             # ДЕДУП/авторы) со снимками PREV_*_R1027 и ROLLBACK-миграцией
             # (ADR-1013-3); §104/цитат-валидаторы не менялись.
-            "services/summary_test_run.py",
+            # NOTE (round1028, ASAP-2.1, ADR-1028-1 D1/D2, контракт (i) spec):
+            # S1/S2 модули УДАЛЕНЫ целиком (git-статус D);
+            # `summary_test_run.py` переподключён (контракт (j)) — исключён.
             # NOTE (round1027, mca-17a / ADR-1027-8 D13/§4.10): `web/api/routes.py`
             # исключён — санкционированы аддитивные query-фильтры существующего
             # `GET /api/status/logs` (REUSE viewer, новых endpoint'ов нет).

@@ -135,17 +135,14 @@ class RunContext:
     manual: bool = False
     has_trigger: bool = False
     source_count: int | None = None
-    saved_count: int | None = None
-    restored_count: int | None = None
     threads: int | None = None
     paragraphs: int | None = None
     cover_status: str | None = None   # ok | unavailable | none
     # S8 (ADR-1026-10 D2): аддитивные поля снапшота прогона для карты вызовов
-    # (§112/§111) — filter-метрики S1 и состояние серверного форматирования.
-    # Заполняются этапами; в лог §108 НЕ выводятся (R17-поверхность не растёт).
-    drop_percent: float | None = None
-    filter_status: str | None = None
-    filter_duration_ms: float | None = None
+    # (§112/§111) — состояние серверного форматирования. Заполняются этапами;
+    # в лог §108 НЕ выводятся (R17-поверхность не растёт). ASAP-2.1 (D1):
+    # S1-поля saved_count/restored_count/drop_percent/filter_status/
+    # filter_duration_ms УДАЛЕНЫ вместе с префильтром.
     format_channel: str | None = None
     format_status: str | None = None
     format_duration_ms: float | None = None
@@ -228,15 +225,17 @@ def log_summary_complete(ctx: RunContext) -> None:
     try:
         # ASAP-2 §18 (контракт (k)): аддитивно fallback=none/legacy и
         # publication_status (publication-срез S6 для §112; R17-safe коды).
+        # ASAP-2.1 (T-3986, раздел 4 spec): S1-поля saved_count/restored_count
+        # УДАЛЕНЫ из события вместе с префильтром; fallback=/
+        # publication_status= сохранены.
         logger.info(
             "SUMMARY_COMPLETE | run_id=%s | chat_id=%s | mode=%s | status=%s | "
-            "duration_ms=%.0f | source_count=%s | saved_count=%s | "
-            "restored_count=%s | threads=%s | paragraphs=%s | cover_status=%s | "
-            "code=%s | fallback=%s | publication_status=%s",
+            "duration_ms=%.0f | source_count=%s | threads=%s | "
+            "paragraphs=%s | cover_status=%s | code=%s | fallback=%s | "
+            "publication_status=%s",
             ctx.run_id or "none", ctx.chat_id, ctx.mode, ctx.status,
-            ctx.duration_ms(), _num(ctx.source_count), _num(ctx.saved_count),
-            _num(ctx.restored_count), _num(ctx.threads), _num(ctx.paragraphs),
-            ctx.cover_status or "-", ctx.code or "-",
+            ctx.duration_ms(), _num(ctx.source_count), _num(ctx.threads),
+            _num(ctx.paragraphs), ctx.cover_status or "-", ctx.code or "-",
             str(getattr(ctx, "fallback", "none") or "none"),
             ctx.publish_status or "-")
     except Exception:  # pragma: no cover - лог не должен ронять прогон
@@ -288,13 +287,27 @@ def log_format_start(*, run_id, chat_id, channel) -> float:
 
 
 def log_format_complete(*, run_id, chat_id, channel, paragraphs,
-                        started=None) -> None:
+                        started=None, rich_cut=None, visible_paragraphs=None,
+                        collapsed_paragraphs=None) -> None:
+    """``FORMAT_COMPLETE`` (§109) + ASAP-2.1 (T-3986, раздел 4 spec):
+    channel=rich — ``rich_cut=`` (0/1), ``visible_paragraphs=``,
+    ``collapsed_paragraphs=``; channel=plain — rich_cut=0, visible=all.
+    Параметры аддитивны/опциональны (совместимость существующих вызовов)."""
     try:
-        logger.info(
-            "FORMAT_COMPLETE | run_id=%s | chat_id=%s | channel=%s | "
-            "paragraphs=%s | status=ok | duration_ms=%.0f",
-            run_id or "none", chat_id, channel, _num(paragraphs),
-            _elapsed_ms(started))
+        if rich_cut is None:
+            logger.info(
+                "FORMAT_COMPLETE | run_id=%s | chat_id=%s | channel=%s | "
+                "paragraphs=%s | status=ok | duration_ms=%.0f",
+                run_id or "none", chat_id, channel, _num(paragraphs),
+                _elapsed_ms(started))
+        else:
+            logger.info(
+                "FORMAT_COMPLETE | run_id=%s | chat_id=%s | channel=%s | "
+                "paragraphs=%s | rich_cut=%d | visible_paragraphs=%s | "
+                "collapsed_paragraphs=%s | status=ok | duration_ms=%.0f",
+                run_id or "none", chat_id, channel, _num(paragraphs),
+                1 if rich_cut else 0, _num(visible_paragraphs),
+                _num(collapsed_paragraphs), _elapsed_ms(started))
     except Exception:  # pragma: no cover - best-effort
         pass
 

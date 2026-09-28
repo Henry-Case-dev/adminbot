@@ -43,7 +43,8 @@ import unicodedata
 
 from config.settings import settings
 from services.llm_client import LLMBadResponseError, LLMError
-from services.prompt_style_blocks import resolve_prompt
+from services.prompt_style_blocks import resolve_prompt, resolve_prompt_with_source
+from services.summary_cleanup import cleanup_llm_text
 from services.summary_prompts import SUMMARY_L2_WRITER_SYSTEM_PROMPT
 # S7 (ADR-1026-9 D6/SC-07): §109-детали ошибки — http_status/attempts.
 from services.summary_run_log import attempts_of, http_status_of
@@ -84,8 +85,20 @@ HYBRID_MODE_DEFAULT = "serious"
 HYBRID_MAX_CHARS_DEFAULT = 24000
 
 TOP_LEVEL_FIELDS: frozenset[str] = frozenset(
-    {"schema_version", "title", "paragraphs"})
-PARAGRAPH_FIELDS: frozenset[str] = frozenset({"text", "emphasis"})
+    {"schema_version", "title", "paragraphs", "finale"})
+PARAGRAPH_FIELDS: frozenset[str] = frozenset(
+    {"text", "emphasis", "emphasis_spans"})
+
+# ── ASAP-2.1 (§99 v1.1, ADR-1028-1 D3): акценты/финал ──────────────────────
+# emphasis_spans — массив {text, kind}; kind ∈ {"person","event"} (прочие
+# kind НЕ бракуют документ — рендер одинаково bold, но пишутся в счётчик);
+# schema_version остаётся 1 — аддитивно, документы без новых полей валидны.
+EMPHASIS_SPAN_MAX = 4          # кап принятых span'ов на абзац (анти «жирная каша»)
+EMPHASIS_KINDS = ("person", "event")
+# Тегоподобные span'ы отбрасываются (raw HTML от L2 не проходит как разметка).
+_TAGLIKE_RE = re.compile(r"</?[A-Za-z]")
+# finale: одна строка, после cleanup+strip 1..200 симв.; иначе отброшен.
+FINALE_MAX = 200
 
 # Статусы L2Result (D6). ok — публикуемо; empty/invalid/error — fail-closed.
 STATUS_OK = "ok"
@@ -525,6 +538,8 @@ def validate_l2_document(document: dict,
         "quote_unverified_count": 0,
         "quote_attribution_count": 0,
         "emphasis_dropped_count": 0,
+        "emphasis_spans_count": 0,
+        "finale_present": 0,
         "ids_stripped_count": 0,
     }
     try:
@@ -562,6 +577,95 @@ def _valid_paragraph_text(value):
     return text
 
 
+def _clean_span_text(value) -> str:
+    """Спан чистится ТОЙ ЖЕ картой замен, что и текст абзаца (Q3 п.1)."""
+    if not isinstance(value, str):
+        return ""
+    return cleanup_llm_text(value).strip()
+
+
+def _valid_span(candidate: str, final_text: str) -> bool:
+    """span валиден ⟺ непустая точная подстрока финального текста абзаца,
+    len ≤ ``PARAGRAPH_MAX``, без тегоподобных конструкций (Q3 п.2)."""
+    if not candidate or len(candidate) > PARAGRAPH_MAX:
+        return False
+    if _TAGLIKE_RE.search(candidate):
+        return False
+    return candidate in final_text
+
+
+def _canonicalize_spans(raw_spans, legacy_emphasis, final_text, metrics):
+    """Детерминированная канонизация акцентов абзаца (Q3 п.3–7).
+
+    Очередь кандидатов: legacy ``emphasis`` (строка) — ПЕРВЫМ, затем
+    ``emphasis_spans`` в порядке JSON. Позиция = первое вхождение; сортировка
+    ``(start ASC, length DESC, порядок_в_JSON ASC)``; жадный приём без
+    пересечений; дедуп по text; кап ``EMPHASIS_SPAN_MAX``. Invalid — молча в
+    счётчик. Возвращает ``(accepted, first_text|None)``.
+    """
+    candidates: list = []
+    if isinstance(legacy_emphasis, str):
+        cleaned = _clean_span_text(legacy_emphasis)
+        if cleaned:
+            candidates.append(cleaned)
+    if raw_spans is not None:
+        for raw in raw_spans:
+            if not isinstance(raw, dict):
+                metrics["emphasis_dropped_count"] += 1
+                continue
+            cleaned = _clean_span_text(raw.get("text"))
+            if not cleaned:
+                metrics["emphasis_dropped_count"] += 1
+                continue
+            candidates.append(cleaned)
+
+    accepted: list = []
+    seen_texts: set = set()
+    positioned: list = []
+    for order, candidate in enumerate(candidates):
+        if not _valid_span(candidate, final_text):
+            metrics["emphasis_dropped_count"] += 1
+            continue
+        if candidate in seen_texts:
+            metrics["emphasis_dropped_count"] += 1
+            continue
+        seen_texts.add(candidate)
+        positioned.append((final_text.find(candidate), -len(candidate),
+                           order, candidate))
+    positioned.sort(key=lambda item: (item[0], item[1], item[2]))
+    last_end = -1
+    for start, _neg_len, _order, candidate in positioned:
+        if len(accepted) >= EMPHASIS_SPAN_MAX:
+            metrics["emphasis_dropped_count"] += 1
+            continue
+        if start < last_end:            # пересечение с уже принятым — жадно мимо
+            metrics["emphasis_dropped_count"] += 1
+            continue
+        accepted.append(candidate)
+        last_end = start + len(candidate)
+    return accepted, (accepted[0] if accepted else None)
+
+
+def _valid_finale(value, metrics):
+    """finale: строка, ОДНА строка, после cleanup+strip 1..200 (Q4).
+    Невалидное/отсутствующее → ``None`` (canonical без finale)."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        metrics["finale_present"] = 0
+        return None
+    if "\n" in value or "\r" in value:
+        # Одна строка required (как title): многострочный финал не канонизируем.
+        metrics["finale_present"] = 0
+        return None
+    finale = _WS_RE.sub(" ", cleanup_llm_text(value)).strip()
+    if not finale or len(finale) > FINALE_MAX:
+        metrics["finale_present"] = 0
+        return None
+    metrics["finale_present"] = 1
+    return finale
+
+
 def _validate(document, package, metrics):
     if not isinstance(document, dict):
         return _reject(metrics, REASON_BAD_TYPE)
@@ -574,9 +678,15 @@ def _validate(document, package, metrics):
             or version != SCHEMA_VERSION):
         return _reject(metrics, REASON_BAD_SCHEMA_VERSION)
 
-    title = _valid_title(document.get("title"))
+    # ASAP-2.1 (T-3978, контракт (d)): typography normalizer на канонизации —
+    # title проходит cleanup_llm_text (те же 6 замен, содержание не трогает).
+    title = _valid_title(cleanup_llm_text(document.get("title") or ""))
     if title is None:
         return _reject(metrics, REASON_INVALID_TITLE)
+
+    # ASAP-2.1 (Q4/T-3979): structured finale — code валидирует/показывает,
+    # НЕ выбирает winner; невалидное → canonical без finale.
+    finale = _valid_finale(document.get("finale"), metrics)
 
     paragraphs_raw = document.get("paragraphs")
     if not isinstance(paragraphs_raw, list):
@@ -595,7 +705,10 @@ def _validate(document, package, metrics):
             return _reject(metrics, REASON_BAD_TYPE)
         if set(raw_paragraph) - PARAGRAPH_FIELDS:
             return _reject(metrics, REASON_UNKNOWN_FIELD)
-        text = _valid_paragraph_text(raw_paragraph.get("text"))
+        # T-3978: текст абзаца проходит cleanup_llm_text ДО substring-
+        # проверок спанов/цитат (§99 v1.1 Q3 п.1).
+        text = _valid_paragraph_text(
+            cleanup_llm_text(raw_paragraph.get("text") or ""))
         if text is None:
             return _reject(metrics, REASON_INVALID_PARAGRAPH)
 
@@ -617,19 +730,24 @@ def _validate(document, package, metrics):
                 metrics["quote_attribution_count"] += 1
                 return _reject(metrics, REASON_QUOTE_ATTRIBUTION)
 
+        # §99 v1.1 (Q3): секвенциальная канонизация emphasis_spans;
+        # derived-`emphasis` = первый принятый span (совместимость читателей).
         emphasis_raw = raw_paragraph.get("emphasis")
-        emphasis = None
-        if emphasis_raw is not None:
-            if not isinstance(emphasis_raw, str):
-                return _reject(metrics, REASON_BAD_TYPE)
-            candidate = emphasis_raw.strip()
-            if candidate and candidate in text:
-                emphasis = candidate
-            else:
-                metrics["emphasis_dropped_count"] += 1
+        if emphasis_raw is not None and not isinstance(emphasis_raw, str):
+            return _reject(metrics, REASON_BAD_TYPE)
+        spans_raw = raw_paragraph.get("emphasis_spans")
+        if spans_raw is not None and not isinstance(spans_raw, list):
+            return _reject(metrics, REASON_BAD_TYPE)
+        accepted, first = _canonicalize_spans(
+            spans_raw, emphasis_raw, text, metrics)
+        metrics["emphasis_spans_count"] += len(accepted)
 
-        canonical.append({"text": text, "emphasis": emphasis})
-        total_chars += len(text) + (len(emphasis) if emphasis else 0)
+        canonical.append({
+            "text": text,
+            "emphasis": first,
+            "emphasis_spans": accepted,
+        })
+        total_chars += len(text) + (len(first) if first else 0)
 
     if not canonical:
         return _reject(metrics, REASON_INVALID_PARAGRAPH)
@@ -641,6 +759,8 @@ def _validate(document, package, metrics):
         "title": title,
         "paragraphs": canonical,
     }
+    if finale is not None:
+        document_out["finale"] = finale
     metrics["status"] = STATUS_OK
     metrics["reason"] = REASON_OK
     metrics["paragraphs_count"] = len(canonical)
@@ -745,15 +865,19 @@ def provider_host(base_url: str) -> str:
 
 def _log_start(*, correlation_id, chat_id, paragraphs_hint, model, base_url,
                dedicated, response_mode="", target_chars=0,
-               target_paragraphs=0) -> None:
+               target_paragraphs=0, prompt_key="", prompt_source="") -> None:
     # ASAP-2 §18 (контракт (k)): аддитивные поля длины; paragraphs_hint
     # сохраняется (пин тестов/JS-харнесса).
+    # ASAP-2.1 (T-3986, раздел 4 spec): + effective_prompt_key/prompt_source
+    # (chat/global/default; проверка T-3977 в проде — DoD-21).
     logger.info(
         "L2_START | run_id=%s | chat_id=%s | paragraphs_hint=%d | "
         "response_mode=%s | target_chars=%d | target_paragraphs=%d | "
+        "prompt_key=%s | prompt_source=%s | "
         "model=%s | provider=%s | dedicated=%s",
         correlation_id or "none", chat_id, paragraphs_hint,
         response_mode or "-", int(target_chars), int(target_paragraphs),
+        prompt_key or "-", prompt_source or "-",
         model or "-", provider_host(base_url) or "-", bool(dedicated))
 
 
@@ -761,12 +885,15 @@ def _log_complete(*, correlation_id, chat_id, result: L2Result, model,
                   base_url, tokens_in, tokens_out) -> None:
     # ASAP-2 §16: `trimmed=` УДАЛЁН (trim-костыль 2.58.32 демонтирован);
     # аддитивно `chars` (§18 L2_RESULT: chars=, paragraphs=).
+    # ASAP-2.1 (T-3986, раздел 4 spec): + emphasis_spans (принято шт.),
+    # emphasis_dropped, finale_present (0/1). Только числа — R17.
     metrics = result.metrics or {}
     logger.info(
         "L2_COMPLETE | run_id=%s | chat_id=%s | provider=%s | model=%s | "
         "tokens_in=%s | tokens_out=%s | chars=%s | paragraphs=%d | "
         "title_len=%d | quote_unverified=%d | ids_stripped=%d | "
-        "emphasis_dropped=%d | status=%s | invalid_reason=%s | duration_ms=%.0f",
+        "emphasis_spans=%d | emphasis_dropped=%d | finale_present=%d | "
+        "status=%s | invalid_reason=%s | duration_ms=%.0f",
         correlation_id or "none", chat_id, provider_host(base_url) or "-",
         model or "-", tokens_in if tokens_in is not None else "-",
         tokens_out if tokens_out is not None else "-",
@@ -774,7 +901,9 @@ def _log_complete(*, correlation_id, chat_id, result: L2Result, model,
         metrics.get("paragraphs_count", 0), metrics.get("title_len", 0),
         metrics.get("quote_unverified_count", 0),
         metrics.get("ids_stripped_count", 0),
+        metrics.get("emphasis_spans_count", 0),
         metrics.get("emphasis_dropped_count", 0),
+        metrics.get("finale_present", 0),
         result.status, result.invalid_reason or "-", result.duration_ms)
 
 
@@ -886,16 +1015,23 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
         else resolved_slot.base_url
 
     content = build_l2_input(package, length=length)
+    # ASAP-2.1 (Q10/T-3965): эффективный prompt + честный источник для
+    # observability. Резолв до _log_start (ключ/источник известны к событию).
+    if system_prompt:
+        system = system_prompt
+        prompt_source = "param"
+    else:
+        system, prompt_source = resolve_prompt_with_source(
+            PROMPT_PG_KEY, SUMMARY_L2_WRITER_SYSTEM_PROMPT)
     _log_start(correlation_id=correlation_id, chat_id=chat_id,
                paragraphs_hint=int(length["target_paragraphs"]),
                model=model, base_url=base_url,
                dedicated=resolved_slot.dedicated,
                response_mode=length["response_mode"],
                target_chars=length["target_chars"],
-               target_paragraphs=length["target_paragraphs"])
+               target_paragraphs=length["target_paragraphs"],
+               prompt_key=PROMPT_PG_KEY, prompt_source=prompt_source)
     call = llm_call or _make_llm_call(llm, resolved_slot, correlation_id)
-    system = system_prompt or resolve_prompt(
-        PROMPT_PG_KEY, SUMMARY_L2_WRITER_SYSTEM_PROMPT)
     messages = [
         {"role": "system", "content": system},
         {"role": "user", "content": content},

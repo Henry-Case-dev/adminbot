@@ -732,28 +732,65 @@
               </div>
 
               <!-- §48: гибридная библиотека промптов (master-detail).
-                   Основной редактор виден сразу (НЕ в аккордеоне);
-                   объект — config-item `prompts.*` (один источник). -->
+                    Основной редактор виден сразу (НЕ в аккордеоне);
+                    объект — config-item `prompts.*` (один источник).
+                    ASAP-2.1 (T-3982): is-editing — ТОЛЬКО при валидном
+                    workspacePromptFocus (найденный item) И явном promptKey
+                    в URL: без ключа mobile показывает СПИСОК (flow §13:
+                    список → editor → save → «← К списку» → список);
+                    desktop-грид показывает дерево+editor и так. -->
               <div v-if="workspaceModule
                         && (workspaceTab === 'prompts' || workspaceTab === 'synthesizer'
                             || workspaceTab === 'verbalizer')
                         && workspacePromptList.length"
                    class="col-span-full workspace-prompt-lib"
-                   :class="(workspace && workspace.promptKey) ? 'is-editing' : ''"
+                   :class="(workspacePromptFocus && workspace && workspace.promptKey) ? 'is-editing' : ''"
                    data-workspace-prompts>
                 <aside class="prompt-tree card p-3" role="group"
                        aria-label="Промпты" data-prompt-tree>
                   <div class="text-xs font-bold uppercase tracking-wide mb-2">Промпты</div>
-                  <button v-for="it in workspacePromptList" :key="'pt-' + it.key"
-                          class="prompt-tree-item w-full text-left"
-                          :class="workspacePromptFocus && workspacePromptFocus.key === it.key ? 'is-active' : ''"
-                          :data-prompt-key="it.key"
-                          @click="openWorkspacePrompt(it)">
-                    {{ it.title }}
-                  </button>
+                  <!-- ASAP-2.1 (T-3984, §9): группы витрины для Саммаризации
+                       (Hybrid Summary / Обложка / Legacy Summary Fallback);
+                       прочие модули — прежний плоский список. -->
+                  <template v-if="workspacePromptGroups.length">
+                    <div v-for="grp in workspacePromptGroups"
+                         :key="'pg-' + grp.title" class="mb-2"
+                         :data-prompt-group="grp.title">
+                      <div class="text-[10px] uppercase tracking-wide text-gray-500 mb-1">
+                        {{ grp.title }}
+                      </div>
+                      <button v-for="it in grp.items" :key="'pt-' + it.key"
+                              class="prompt-tree-item w-full text-left"
+                              :class="workspacePromptFocus && workspacePromptFocus.key === it.key ? 'is-active' : ''"
+                              :data-prompt-key="it.key"
+                              @click="openWorkspacePrompt(it)">
+                        {{ it.title }}
+                        <span v-if="summaryPromptMeta(it.key) && summaryPromptMeta(it.key).badge"
+                              class="badge badge-info ml-1">{{ summaryPromptMeta(it.key).badge }}</span>
+                      </button>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <button v-for="it in workspacePromptList" :key="'pt-' + it.key"
+                            class="prompt-tree-item w-full text-left"
+                            :class="workspacePromptFocus && workspacePromptFocus.key === it.key ? 'is-active' : ''"
+                            :data-prompt-key="it.key"
+                            @click="openWorkspacePrompt(it)">
+                      {{ it.title }}
+                    </button>
+                  </template>
                 </aside>
                 <section v-if="workspacePromptFocus" class="prompt-editor card p-4"
                          data-prompt-editor>
+                  <div class="flex items-center gap-2 flex-wrap mb-1">
+                    <!-- ASAP-2.1 (T-3982, §13:3199): явный back «editor → список». -->
+                    <button class="btn-ghost text-xs prompt-back-btn"
+                            data-prompt-back
+                            @click="promptBackToList()">← К списку</button>
+                    <span v-if="summaryPromptMeta(workspacePromptFocus.key)
+                              && summaryPromptMeta(workspacePromptFocus.key).badge"
+                          class="badge badge-info">{{ summaryPromptMeta(workspacePromptFocus.key).badge }}</span>
+                  </div>
                   <div class="text-sm font-bold">{{ workspacePromptFocus.title }}</div>
                   <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ workspacePromptFocus.key }}</div>
                   <div v-if="configSourceLabel(workspacePromptFocus)" class="text-[10px] text-gray-500 mb-1">
@@ -785,6 +822,27 @@
                   <div v-if="configSourceLabel(workspacePromptFocus)" class="text-xs text-gray-400 mb-1">
                     {{ configSourceTitle(workspacePromptFocus) }}
                   </div>
+                  <!-- ASAP-2.1 (T-3984, §10): metadata-панель runtime-роли
+                       (Pipeline/Stage/Runtime/Key/Source) — снимает вопрос
+                       «какой именно prompt реально используется». -->
+                  <template v-if="summaryPromptMeta(workspacePromptFocus.key)">
+                    <div class="text-xs font-bold uppercase tracking-wide mt-3 mb-2">Роль в пайплайне</div>
+                    <div class="text-xs text-gray-400 mb-1" data-meta-pipeline>
+                      Pipeline: {{ summaryPromptMeta(workspacePromptFocus.key).pipeline }}
+                    </div>
+                    <div class="text-xs text-gray-400 mb-1" data-meta-stage>
+                      Stage: {{ summaryPromptMeta(workspacePromptFocus.key).stageLabel }}
+                    </div>
+                    <div class="text-xs text-gray-400 mb-1" data-meta-runtime>
+                      Runtime: {{ summaryPromptMeta(workspacePromptFocus.key).runtime }}
+                    </div>
+                    <div class="text-xs text-gray-400 mb-1" data-meta-key>
+                      Key: <span class="font-mono">{{ workspacePromptFocus.key }}</span>
+                    </div>
+                    <div class="text-xs text-gray-400 mb-1" data-meta-source>
+                      Source: {{ configSourceTitle(workspacePromptFocus) }}
+                    </div>
+                  </template>
                 </aside>
               </div>
 
@@ -1040,78 +1098,12 @@
                     </div>
                   </div>
                 </div>
-                <!-- Блок мониторинга content.dynamic_cliche_list (F4-API) -->
-                <div v-if="isGlobalAdmin && clicheAvailable"
-                     class="card p-4 col-span-full" data-block="anticliche-monitor">
-                  <div class="flex items-center gap-2 flex-wrap mb-1">
-                    <span class="text-sm font-bold">Анти-клише: динамический список</span>
-                    <span class="badge badge-info">{{ clicheStatusLabel() }}</span>
-                    <span class="flex-1"></span>
-                    <span class="text-xs text-gray-500">
-                      обновлён: {{ formatClicheDate(clicheMeta && clicheMeta.fetched_at) }}
-                    </span>
-                  </div>
-                  <div class="text-xs text-gray-500 mb-2">
-                    Фразы, которые детектор Вербализатора бракует и просит
-                    перегенерировать. Список обновляет недельный воркер;
-                    ручная правка применяется сразу.
-                  </div>
-                  <div class="text-xs text-gray-400 mb-2">
-                    сохранено {{ (clicheMeta && clicheMeta.count) || 0 }}
-                    / вместимость {{ (clicheMeta && clicheMeta.max_patterns) || 0 }};
-                    за обновление ≤ {{ clichePerRun() }}
-                  </div>
-                  <!-- F7 (10.24, ADR-1024-3 D1): регулируемый лимит паттернов
-                       (каталоговый ключ limits.anticliche_max_patterns):
-                       числовой ввод 1..1000, дефолт 200. Сохранение — штатным
-                       путём конфига (hot-reload). -->
-                  <div class="flex items-center gap-2 flex-wrap mb-2">
-                    <label class="text-xs text-gray-400"
-                           for="cliche-limit-input">Лимит паттернов</label>
-                    <input id="cliche-limit-input" class="field"
-                           type="number" min="1" max="1000" style="max-width:7rem"
-                           v-model="clicheLimitDraft"
-                           :disabled="!canEditClicheLimit()"
-                           @keyup.enter="saveClicheLimit()">
-                    <button class="btn-accent text-xs"
-                            :disabled="clicheBusy || !canEditClicheLimit()"
-                            @click="saveClicheLimit()">
-                      {{ clicheBusy ? 'Сохранение…' : 'Сохранить' }}
-                    </button>
-                    <span class="text-xs text-gray-500">1–1000, по умолчанию 200</span>
-                  </div>
-                  <div class="flex gap-2 flex-wrap mb-2">
-                    <button class="btn-accent text-xs" :disabled="clicheBusy"
-                            @click="forceRefreshCliche()">
-                      {{ clicheBusy ? 'Обновление…' : 'Обновить сейчас' }}
-                    </button>
-                    <button class="btn-ghost text-xs" :disabled="clicheBusy"
-                            @click="toggleClicheEdit()">
-                      {{ clicheEditing ? 'Отменить правку' : 'Ручное редактирование' }}
-                    </button>
-                  </div>
-                  <textarea v-if="clicheEditing" class="field scroll-thin" rows="8"
-                            placeholder="Одна фраза-клише на строку"
-                            @input="limitClicheDraft()"
-                            v-model="clicheDraft"></textarea>
-                  <p v-if="clicheEditing" class="text-xs text-gray-500 mt-1">
-                    Одна фраза на строку, до 120 символов на фразу
-                    (лишнее в строке обрезается автоматически).
-                  </p>
-                  <div v-if="clicheEditing" class="flex gap-2 mt-2">
-                    <button class="btn-accent text-xs" :disabled="clicheBusy"
-                            @click="saveCliche()">
-                      {{ clicheBusy ? 'Сохранение…' : 'Сохранить список' }}
-                    </button>
-                  </div>
-                  <ul v-else-if="clicheMeta && clicheMeta.patterns && clicheMeta.patterns.length"
-                      class="text-xs text-gray-400 grid gap-1 md:grid-cols-2 list-none">
-                    <li v-for="p in clicheMeta.patterns" :key="p.code || p.phrase">
-                      • {{ p.phrase }}
-                    </li>
-                  </ul>
-                  <div v-else class="text-xs text-gray-500">Список пуст.</div>
-                </div>
+                <!-- Блок мониторинга content.dynamic_cliche_list (F4-API).
+                     ASAP-2.1 (T-3983, §14): блок ПЕРЕНЕСЁН НИЖЕ промпт-контента
+                     и свёрнут в <details> по умолчанию — анти-клише не
+                     занимает место prompt editor, не скрывает список и не
+                     является первым экраном на mobile (editor доступен при
+                     открытом/свёрнутом блоке). -->
 
                 <!-- F6 (10.24, ADR-1024-10 D2): «Резервный режим (Fallback)» —
                      предохранитель СБОЙНОГО пути (Stage-1 не отдал валидный
@@ -1312,6 +1304,84 @@
                   </div>
                 </template>
               </template>
+
+              <!-- Блок мониторинга content.dynamic_cliche_list (F4-API).
+                   ASAP-2.1 (T-3983, §14): НИЖЕ промпт-контента, свёрнут по
+                   умолчанию (<details>; state не сохраняется — механика
+                   сохранения V2-раскладки не меняется). Editor/список доступны
+                   при открытом и свёрнутом блоке. -->
+              <details v-if="isGlobalAdmin && clicheAvailable"
+                       class="card p-4 col-span-full" data-block="anticliche-monitor">
+                <summary class="flex items-center gap-2 flex-wrap cursor-pointer select-none">
+                  <span class="text-sm font-bold">Анти-клише: динамический список</span>
+                  <span class="badge badge-info">{{ clicheStatusLabel() }}</span>
+                  <span class="text-xs text-gray-500">
+                    (свёрнуто — развернуть)
+                  </span>
+                </summary>
+                <div class="mt-2">
+                  <div class="text-xs text-gray-500 mb-2">
+                    Фразы, которые детектор Вербализатора бракует и просит
+                    перегенерировать. Список обновляет недельный воркер;
+                    ручная правка применяется сразу.
+                  </div>
+                  <div class="text-xs text-gray-400 mb-2">
+                    сохранено {{ (clicheMeta && clicheMeta.count) || 0 }}
+                    / вместимость {{ (clicheMeta && clicheMeta.max_patterns) || 0 }};
+                    за обновление ≤ {{ clichePerRun() }}
+                  </div>
+                  <!-- F7 (10.24, ADR-1024-3 D1): регулируемый лимит паттернов
+                       (каталоговый ключ limits.anticliche_max_patterns):
+                       числовой ввод 1..1000, дефолт 200. Сохранение — штатным
+                       путём конфига (hot-reload). -->
+                  <div class="flex items-center gap-2 flex-wrap mb-2">
+                    <label class="text-xs text-gray-400"
+                           for="cliche-limit-input">Лимит паттернов</label>
+                    <input id="cliche-limit-input" class="field"
+                           type="number" min="1" max="1000" style="max-width:7rem"
+                           v-model="clicheLimitDraft"
+                           :disabled="!canEditClicheLimit()"
+                           @keyup.enter="saveClicheLimit()">
+                    <button class="btn-accent text-xs"
+                            :disabled="clicheBusy || !canEditClicheLimit()"
+                            @click="saveClicheLimit()">
+                      {{ clicheBusy ? 'Сохранение…' : 'Сохранить' }}
+                    </button>
+                    <span class="text-xs text-gray-500">1–1000, по умолчанию 200</span>
+                  </div>
+                  <div class="flex gap-2 flex-wrap mb-2">
+                    <button class="btn-accent text-xs" :disabled="clicheBusy"
+                            @click="forceRefreshCliche()">
+                      {{ clicheBusy ? 'Обновление…' : 'Обновить сейчас' }}
+                    </button>
+                    <button class="btn-ghost text-xs" :disabled="clicheBusy"
+                            @click="toggleClicheEdit()">
+                      {{ clicheEditing ? 'Отменить правку' : 'Ручное редактирование' }}
+                    </button>
+                  </div>
+                  <textarea v-if="clicheEditing" class="field scroll-thin" rows="8"
+                            placeholder="Одна фраза-клише на строку"
+                            @input="limitClicheDraft()"
+                            v-model="clicheDraft"></textarea>
+                  <p v-if="clicheEditing" class="text-xs text-gray-500 mt-1">
+                    Одна фраза на строку, до 120 символов на фразу
+                    (лишнее в строке обрезается автоматически).
+                  </p>
+                  <div v-if="clicheEditing" class="flex gap-2 mt-2">
+                    <button class="btn-accent text-xs" :disabled="clicheBusy"
+                            @click="saveCliche()">
+                      {{ clicheBusy ? 'Сохранение…' : 'Сохранить список' }}
+                    </button>
+                  </div>
+                  <ul v-else-if="clicheMeta && clicheMeta.patterns && clicheMeta.patterns.length"
+                      class="text-xs text-gray-400 grid gap-1 md:grid-cols-2 list-none">
+                    <li v-for="p in clicheMeta.patterns" :key="p.code || p.phrase">
+                      • {{ p.phrase }}
+                    </li>
+                  </ul>
+                  <div v-else class="text-xs text-gray-500">Список пуст.</div>
+                </div>
+              </details>
               <component :is="activeTab === 'llm_providers' ? 'details' : 'div'"
                    class="col-span-full grid gap-4 advanced"
                    :open="activeTab === 'llm_providers' ? provAdvancedOpen : null"

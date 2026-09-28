@@ -441,13 +441,17 @@ class TestBoundaries:
         # исключён из запрета — A3 санкционирует аддитивный ImageRequest-
         # контракт/раннер; §104-гейт генератора ведёт линза A3
         # (tests/test_unified_image_request_round1026.py, AST-эквивалентность).
-        "web/api/routes.py",
+        # NOTE (round1027, mca-17a / ADR-1027-8 D13/§4.10): `web/api/routes.py`
+        # исключён — санкционированы аддитивные query-фильтры существующего
+        # `GET /api/status/logs` (REUSE viewer, новых endpoint'ов нет).
         # NOTE (A5, ADR-1026-17 D9): `services/param_catalog.py` исключён из
         # запрета — A5 санкционирует Δ каталога +1 ParamSpec
         # `limits.image_daily_limit` +1 GroupSpec `limits_images` (470/427/445/
         # 101/99/21). Δ DDL/§104/канон проверяются своими гейтами A5.
+        # NOTE (round1028, ASAP-2.1, ADR-1028-1 D1/D2, контракт (i) spec):
+        # `services/summary_test_run.py` исключён — переподключён на новую
+        # семантику без S1/S2 (контракт (j)); S1/S2 модули удалены целиком.
         "db",
-        "services/summary_test_run.py",
     ]
 
     def test_forbidden_paths_outside_diff(self):

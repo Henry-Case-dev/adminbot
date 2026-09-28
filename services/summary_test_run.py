@@ -36,7 +36,7 @@ from services.summary_article_formatter import (
     format_plain_html,
     format_rich_html,
 )
-from services.summary_context_restore import build_l1_payload
+from services.summary_l1_clusterizer import build_l1_payload
 from services.summary_fact_package import build_fact_package
 from services.summary_l1_clusterizer import provider_host as _host_of, run_l1
 from services.summary_l2_writer import run_l2
@@ -532,14 +532,17 @@ async def run_summary_test(chat_id, window, *, allow_cover=False,
         return result
 
     window_info["messages"] = rows_info.get("source_count", 0)
-    fm = rows_info.get("filter_metrics") or {}
+    # ASAP-2.1 (T-3972, контракт (j)): stage «filter» переименован по смыслу
+    # в «окно/упаковка» БЕЗ смены API-ключа (UI-совместимость). S1/S2 нет:
+    # короткие сообщения присутствуют; packing-счётчики L1 (truncated/skipped)
+    # показывают физическое усечение, если оно было.
     result.stages["filter"] = {
-        "status": fm.get("status") or ("ok" if rows_info.get("source") else "empty"),
+        "status": "ok" if rows_info.get("source") else "empty",
         "source_count": rows_info.get("source_count", 0),
-        "saved_count": fm.get("saved_count", rows_info.get("filtered_count", 0)),
-        "restored_count": rows_info.get("restored_count", 0),
-        "drop_percent": fm.get("drop_percent"),
-        "duration_ms": fm.get("duration_ms"),
+        "saved_count": rows_info.get("filtered_count", 0),
+        "restored_count": 0,
+        "drop_percent": None,
+        "duration_ms": None,
     }
 
     # §106: пустое окно → LLM не вызывается.
@@ -560,6 +563,7 @@ async def run_summary_test(chat_id, window, *, allow_cover=False,
         "facts": getattr(l1_result, "facts_count", 0),
         "auto_unassigned": getattr(l1_result, "auto_unassigned_count", 0),
         "truncated": getattr(l1_result, "truncated", False),
+        "skipped": len(getattr(l1_result, "skipped_ids", ()) or ()),
         "model": model,
         "duration_ms": getattr(l1_result, "duration_ms", None),
     }

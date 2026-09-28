@@ -79,7 +79,10 @@ function main() {
   // ── S2/S3/S4: workspaceGroupTab — маппинг групп вкладки ──────────────────
   const wt = methods.workspaceGroupTab;
   assert.ok(typeof wt === 'function', 'workspaceGroupTab есть');
-  const SUMMARY_TABS = ['overview', 'settings', 'prep', 'clusterizer',
+  // ASAP-2.1 (T-3973, контракт (i)): вкладка 'prep' УДАЛЕНА из mod_summary.
+  assert.ok(!/mod_summary: \[[^\]]*'prep'/.test(APP),
+    'S1: вкладка prep удалена из mod_summary (T-3973)');
+  const SUMMARY_TABS = ['overview', 'settings', 'clusterizer',
                         'writer', 'hybrid', 'legacy', 'models', 'limits',
                         'testing'];
   const summary = { id: 'mod_summary', tab: 'mod_summary',
@@ -108,9 +111,19 @@ function main() {
     'limits', 'S4: limits_summary — вне секций');
   assert.strictEqual(wt.call({}, summary, group('flags_summary', 'flags')),
     'settings', 'S4: flags_summary — вне секций');
-  assert.strictEqual(wt.call(
-    {}, summary, group('limits_summary_filter', 'limits')), 'prep',
-    'S4: limits_summary_filter — prep (как раньше)');
+  // ASAP-2.1 (T-3973): группы префильтра удалены — маппинг 'prep' больше
+  // не существует; несуществующие группы не рендерятся нигде (нет мёртвых
+  // тумблеров, §5:2963). Проверяем fallback-семантику: гипотетическая группа
+  // filter-типа НЕ попала бы в hybrid/legacy (cross-isolation сохранён).
+  assert.notStrictEqual(
+    wt.call({}, summary, group('limits_summary_filter', 'limits')), 'prep',
+    'S4: маппинг prep удалён (T-3973)');
+  assert.notStrictEqual(
+    wt.call({}, summary, group('limits_summary_filter', 'limits')), 'hybrid',
+    'S4: filter-группа не уезжает в hybrid');
+  assert.notStrictEqual(
+    wt.call({}, summary, group('limits_summary_filter', 'limits')), 'legacy',
+    'S4: filter-группа не уезжает в legacy');
   assert.strictEqual(wt.call({}, summary, group('models_main', 'models')),
     'models', 'S4: чужие модели — по-прежнему models');
 
@@ -119,7 +132,7 @@ function main() {
   assert.ok(typeof has === 'function', 'workspaceTabHasContent есть');
   function ctx(groups) {
     return {
-      tabs: ['overview', 'settings', 'prep', 'clusterizer', 'writer',
+      tabs: ['overview', 'settings', 'clusterizer', 'writer',
              'hybrid', 'legacy', 'models', 'limits', 'testing'],
       workspaceGroupTab: wt,
       groupedForTab: function () {

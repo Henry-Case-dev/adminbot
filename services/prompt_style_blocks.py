@@ -177,6 +177,20 @@ def resolve_prompt(pg_key: str, code_default: str) -> str:
     return code_default
 
 
+def resolve_prompt_with_source(pg_key: str, code_default: str) -> tuple:
+    """ASAP-2.1 (T-3986): ``(effective, source)`` для observability.
+
+    source ∈ ``{"global", "default"}``: непустое PG-значение → ``global``
+    (hot-слой bot_settings; per-chat-слот для stage-ключей не читается —
+    аудит T-3965/prompt-map-audit.md), иначе ``default`` (код-канон).
+    """
+    from services import hot_config as hot
+    value = hot.get(pg_key, code_default)
+    if isinstance(value, str) and value.strip():
+        return value, "global"
+    return code_default, "default"
+
+
 def _resolve_mode_block(mode: str) -> str:
     """F8: режимный блок из PG (hot) с fallback на код-канон."""
     return resolve_prompt(f"prompts.verbilizer_mode_{mode}", MODE_BLOCKS[mode])

@@ -66,10 +66,15 @@ from services.summary_prompts import (
     PREV_SUMMARY_L1_CLUSTERIZER_R1027,
     PREV_SUMMARY_L2_WRITER_R1026,
     PREV_SUMMARY_L2_WRITER_R1027,
+    PREV_SUMMARY_L2_WRITER_R1028,
+    PREV_SUMMARY_NARRATOR_R1023,
+    PREV_SUMMARY_NARRATOR_R1028,
+    PREV_SUMMARY_SYSTEM_R1028,
     PREV_SUMMARY_SYSTEM_PROMPT,
     SUMMARY_EDITOR_SYSTEM_PROMPT,
     SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT,
     SUMMARY_L2_WRITER_SYSTEM_PROMPT,
+    SUMMARY_NARRATOR_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
 )
 from services.web_prompts import (
@@ -103,6 +108,8 @@ _ALL_KEYS = [
     "prompts.summary_l1_clusterizer_system_prompt",
     # Раунд 10.26 (S5, ADR-1026-7 D3/D4): новый ключ L2-Писателя.
     "prompts.summary_l2_writer_system_prompt",
+    # ASAP-2.1 (round1028, контракт g): Narrator получает ступени миграции.
+    "prompts.summary_narrator_system_prompt",
 ]
 
 # prev-эталон (слепок HEAD 68fb03e) для каждой ступени — первая пара.
@@ -124,6 +131,8 @@ _PREV_BY_KEY: dict[str, str] = {
         PREV_SUMMARY_L1_CLUSTERIZER_R1026,
     # Раунд 10.26 (S5): слепок базы канона L2 ДО правила маркировки.
     "prompts.summary_l2_writer_system_prompt": PREV_SUMMARY_L2_WRITER_R1026,
+    # ASAP-2.1 (round1028, контракт g): слепок прод-канона Рассказчика ДО правки.
+    "prompts.summary_narrator_system_prompt": PREV_SUMMARY_NARRATOR_R1023,
 }
 
 # new-канон (раунд 5) для каждого ключа.
@@ -145,6 +154,9 @@ _NEW_BY_KEY: dict[str, str] = {
         SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT,
     # Раунд 10.26 (S5): канон L2 с правилом маркировки.
     "prompts.summary_l2_writer_system_prompt": SUMMARY_L2_WRITER_SYSTEM_PROMPT,
+    # ASAP-2.1 (round1028, контракт g): канон Рассказчика (§25 — шиза —
+    # творческое решение модели).
+    "prompts.summary_narrator_system_prompt": SUMMARY_NARRATOR_SYSTEM_PROMPT,
 }
 
 # Слепки прод-канона раунда 10.21 (F2+F3) — для новой ступени.
@@ -168,12 +180,18 @@ _ROLLBACK_KEYS = list(_PREV_R1021_BY_KEY) + [
     "prompts.summary_l1_clusterizer_system_prompt",
     # Раунд 10.26 (S5, ADR-1026-7 D4): откат ключа L2.
     "prompts.summary_l2_writer_system_prompt",
+    # ASAP-2.1 (round1028, контракт g): откат ключа Narrator.
+    "prompts.summary_narrator_system_prompt",
 ]
 _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     **dict(_PREV_R1021_BY_KEY),
     # F1 (10.23, R1023F1-07): чат откатывается на непосредственный прежний
     # канон R1023 (снимает только F1, сохраняя блоки A/B 10.21/10.22).
     "prompts.direct_chat_system_prompt": PREV_CHAT_R1023_SYSTEM_PROMPT,
+    # ASAP-2.1 (round1028, контракт g): откат Legacy Single ведёт на
+    # непосредственный прежний канон PREV_SUMMARY_SYSTEM_R1028 (байт-в-байт
+    # канон 2.58.33), снимая только ступень §25.
+    "prompts.summary_system_prompt": PREV_SUMMARY_SYSTEM_R1028,
     # F6 (10.23): откат Редактора снимает ступень cover_prompt → канон F3.
     # hotfix4 (10.25, T-2511): откат снимает ТОЛЬКО ступень HOTFIX4 (разрешение
     # короткого заголовка) → слепок канона F6 (жёсткий запрет надписей).
@@ -188,7 +206,11 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
         PREV_SUMMARY_L1_CLUSTERIZER_R1027,
     # S5 (10.26): откат L2 снимает ступень маркировки → слепок базы канона S5.
     # ASAP-2: откат ступени R1027 (ДЛИНА/ДЕДУП/авторы) → канон R1026.
-    "prompts.summary_l2_writer_system_prompt": PREV_SUMMARY_L2_WRITER_R1027,
+    # ASAP-2.1 (round1028): откат ступени R1028 → НЕПОСРЕДСТВЕННО прежний
+    # канон PREV_*_R1028 (контракт (g)).
+    "prompts.summary_l2_writer_system_prompt": PREV_SUMMARY_L2_WRITER_R1028,
+    # ASAP-2.1 (round1028): откат Рассказчика → прежний канон R1028.
+    "prompts.summary_narrator_system_prompt": PREV_SUMMARY_NARRATOR_R1028,
 }
 
 

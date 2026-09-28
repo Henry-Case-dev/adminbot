@@ -162,7 +162,7 @@ class TestOnPath:
             "services.summary_fact_package.build_fact_package",
             fake_build_package)
         monkeypatch.setattr(
-            "services.summary_context_restore.build_l1_payload",
+            "services.summary_l1_clusterizer.build_l1_payload",
             lambda rows, chat_id: [{"message_id": 101, "timestamp": 1,
                                     "text": "дождь"}])
 
@@ -250,7 +250,7 @@ class TestOnPath:
             "services.summary_fact_package.build_fact_package",
             fake_build_package)
         monkeypatch.setattr(
-            "services.summary_context_restore.build_l1_payload",
+            "services.summary_l1_clusterizer.build_l1_payload",
             lambda rows, chat_id: [{"message_id": 101, "timestamp": 1,
                                     "text": "x"}])
 
@@ -297,25 +297,19 @@ class TestContentFormat:
         assert getattr(captured["rich"], "html", None) == html
 
 
-# ── S-R1026S5-1: ON-ветка ПОСЛЕ S1/S2 (фильтр → восстановление → L1) ───────
+# ── ASAP-2.1 (T-3969, §2): ON-ветка БЕЗ префильтра — L1 получает ВСЁ окно ──
 
-class TestOnPathAppliesS1S2:
+class TestOnPathNoPrefilter:
     @pytest.mark.asyncio
-    async def test_on_path_runs_filter_restore_and_feeds_l1(self, monkeypatch):
-        """ON применяет S1 (`_apply_filter`) и S2 (`restore_context`), а L1
-        получает уже отфильтрованный/восстановленный вход + focus-блок."""
-        import services.summary_generator as sg
-        from services.summary_filter import FilterResult
-        from services.summary_context_restore import RestoreResult
+    async def test_on_path_feeds_full_window_to_l1(self, monkeypatch):
+        """ASAP-2.1 (ADR-1028-1 D1): S1/S2 удалены — L1 получает исходное
+        окно БЕЗ изменений; короткое сообщение не может быть удалено только
+        за короткость; focus-блок по-прежнему учтён."""
         from services.summary_l1_contract import invalid_result
 
         raw_rows = [{"id": 1, "tg_message_id": 101, "timestamp": 1,
-                     "text": "сырое", "user_id": 7, "author_name": "A",
+                     "text": "у кота рак", "user_id": 7, "author_name": "A",
                      "reply_to_id": None, "media_type": None}]
-        filtered_rows = [{"id": 1, "tg_message_id": 101, "timestamp": 1,
-                          "text": "отфильтровано", "user_id": 7,
-                          "author_name": "A", "reply_to_id": None,
-                          "media_type": None}]
 
         gen, _ = _generator([])
         gen.memory.compress_and_purge = AsyncMock()
@@ -325,38 +319,6 @@ class TestOnPathAppliesS1S2:
             return True
 
         monkeypatch.setattr(gen, "_hybrid_l2_enabled", hybrid_on)
-
-        async def chat_limit(chat_id, key, default):
-            if key in ("flags.summary_filter_enabled",
-                       "flags.summary_filter_reply_context_enabled"):
-                return True
-            return default
-
-        monkeypatch.setattr(sg, "_chat_limit", chat_limit)
-        fw_calls = {}
-
-        def fake_filter_window(rows, params, **kw):
-            fw_calls.update(kw)
-            return FilterResult(
-                kept=list(filtered_rows), dropped=[],
-                fragments=None, source_count=len(rows),
-                saved_count=len(filtered_rows),
-                restored_count=0, drop_percent=0.0,
-                counts={}, scores={}, budget={},
-                status="ok", duration_ms=0.1)
-
-        monkeypatch.setattr(sg, "filter_window", fake_filter_window)
-        restore_calls = {"n": 0}
-
-        def fake_restore(kept, dropped, window, params, **kw):
-            restore_calls["n"] += 1
-            return RestoreResult(
-                kept=list(kept), restored=[], restored_count=0,
-                parent_count=0, neighbor_count=0, restored_tg_ids=(),
-                skipped_ids=(), budget={"fits": True}, status="ok",
-                duration_ms=0.1)
-
-        monkeypatch.setattr(sg, "restore_context", fake_restore)
 
         captured = {}
 
@@ -370,11 +332,28 @@ class TestOnPathAppliesS1S2:
 
         await gen._run(-100, True, "тема X", 555)
 
-        assert restore_calls["n"] == 1                     # S2 вызван
-        assert fw_calls.get("trigger_message_id") == 555   # маркер учтён S1
-        assert captured["rows"] == filtered_rows           # L1 = S1/S2-вход
-        assert captured["rows"] is not raw_rows
+        assert captured["rows"] == raw_rows                # L1 = ВСЁ окно
+        assert captured["rows"] is not None
+        assert len(captured["rows"]) == 1                  # ничего не выброшено
         assert "тема X" in (captured["focus_block"] or "")  # focus учтён
+
+    @pytest.mark.asyncio
+    async def test_no_filter_symbols_in_run_source(self):
+        """Инвариант (a) spec: live-путь `_run` не содержит S1/S2-вызовов."""
+        import inspect
+
+        import services.summary_generator as sg
+        run_source = inspect.getsource(sg.SummaryGenerator._run)
+        assert "filter_window" not in run_source
+        assert "restore_context" not in run_source
+        assert "summary_filter" not in run_source
+        # `xml_rows` больше не существует как отдельная сущность (нет
+        # присваиваний/использований; упоминание в комментарии — документация).
+        import re as _re
+        assert not _re.search(r"\bxml_rows\b\s*(=|\)|,)", run_source)
+        hybrid_source = inspect.getsource(sg.SummaryGenerator._run_hybrid_l2)
+        assert "filter_window" not in hybrid_source
+        assert "restore_context" not in hybrid_source
 
 
 # ── L-R1026S5-2: прямой OFF-тест `_run` (legacy-цепочка + эталонный текст) ──
@@ -424,6 +403,8 @@ class TestOffPathDirect:
         await gen._run(-100, True)
 
         two_call.assert_awaited_once()                     # legacy-путь
+        # ASAP-2.1 (контракт (e)): код не дописывает шиза — текст публикации
+        # == текст модели (эталон Stage-2) байт-в-байт.
         assert delivered["text"].startswith("ЭТАЛОН OFF-ПУТИ")
-        assert "самым главным шизом объявляется A" in delivered["text"]
+        assert "самым главным шизом объявляется" not in delivered["text"]
 

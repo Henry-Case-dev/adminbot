@@ -1,12 +1,12 @@
 # F8 — `param-registry-round1025` — провенанс `.meta.md`
 
-- **APP_VERSION:** `2.58.33`
-- **HEAD (short):** `e882d58`
+- **APP_VERSION:** `2.58.34`
+- **HEAD (short):** `8663214`
 - **Источник:** `services/param_catalog.py` (REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES) + `inventory.tsv` (10.14) для дельты.
-- **Счётчики каталога:** REGISTRY **489** / GROUPS **107** / `_TAB_BY_GROUP` **105** / TAB_RULES **21**.
-- **Реестр:** 489 строк == REGISTRY.
+- **Счётчики каталога:** REGISTRY **481** / GROUPS **105** / `_TAB_BY_GROUP` **103** / TAB_RULES **21**.
+- **Реестр:** 481 строк == REGISTRY.
 - **inventory.tsv (10.14):** 411 baseline-ключей.
-- **Дельта 411 → 489 = 78** новых ключей (`status=new`).
+- **Дельта 411 → 481 = 70** новых ключей (`status=new`).
 - **Команда генерации:** `python tools/gen_param_registry_round1025.py`
 - **Проверка (маркер):** `python tools/gen_param_registry_round1025.py --check`
 
@@ -22,7 +22,7 @@
 - `-` = поле неприменимо/отсутствует (документированное отсутствие).
 - `ui_visibility=api-only` — ключ существует (env/каталог), но UI-места нет → **не** считается сохранённым в UI.
 
-## Дельта 411 → 489 = 78 (ключи, отсутствовавшие в inventory.tsv)
+## Дельта 411 → 481 = 70 (ключи, отсутствовавшие в inventory.tsv)
 
 - `api_token`
 - `betterstack_host`
@@ -39,8 +39,6 @@
 - `flags.chat_decision_reactions_enabled`
 - `flags.image_generation_module_enabled`
 - `flags.lore_compiler_enabled`
-- `flags.summary_filter_enabled`
-- `flags.summary_filter_reply_context_enabled`
 - `flags.summary_hybrid_l1_repair_enabled`
 - `flags.summary_hybrid_l1_retry_enabled`
 - `flags.summary_hybrid_l2_enabled`
@@ -55,12 +53,6 @@
 - `limits.factcheck_context_before`
 - `limits.image_daily_limit`
 - `limits.import_history_retention_days`
-- `limits.summary_filter_burst_window_seconds`
-- `limits.summary_filter_context_max_messages`
-- `limits.summary_filter_context_neighbors`
-- `limits.summary_filter_min_burst_density`
-- `limits.summary_filter_min_weight`
-- `limits.summary_filter_min_words_for_bonus`
 - `limits.summary_hybrid_context_chars`
 - `limits.summary_hybrid_context_tokens`
 - `limits.summary_hybrid_max_chars`

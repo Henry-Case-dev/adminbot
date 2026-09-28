@@ -646,9 +646,12 @@ class TestBounds:
         # execution_graph.js (display-only 9 этапов §51); mca-17a (ADR-1027-8
         # D13/§4.10): + web/api/routes.py (фильтры log viewer) и
         # web/api/oversight.py (аддитивный mca_metrics на существующей витрине).
+        # ASAP-2.1 (round1028, T-3982): + web/static/app.css (тач-цель кнопки
+        # «← К списку» ≥44px; токены/палитра не менялись).
         assert not any(n.startswith("web/")
                        and not n.startswith(("web/app.js", "web/index.html",
                                              "web/static/execution_graph.js",
+                                             "web/static/app.css",
                                              "web/api/routes.py",
                                              "web/api/oversight.py"))
                        for n in names)
@@ -665,6 +668,11 @@ class TestBounds:
         # l1_contract/l1_clusterizer/l2_writer/fact_package/generator/
         # prompts/run_log + новый l1_repair (двухконтурная архитектура
         # Hybrid+Legacy fallback; hard-контракты §95/§99 не ослабляются).
+        # NOTE (round1028, ASAP-2.1 `mca-asap21-summary-quality-ui-cleanup`,
+        # ADR-1028-1 D1/D2 + контракт (i) spec): + summary_test_run.py
+        # (контракт (j), переподключён без S1/S2); `services/summary_filter.py`
+        # и `services/summary_context_restore.py` УДАЛЕНЫ целиком (санкция
+        # Architect, отрицательная Δ каталога -8/-2 — grep-инварианты (a)).
         summary_changed = {n for n in names
                            if n.startswith("services/summary_")}
         assert summary_changed <= {"services/summary_memory.py",
@@ -677,17 +685,23 @@ class TestBounds:
                                    "services/summary_article_formatter.py",
                                    "services/summary_generator.py",
                                    "services/summary_prompts.py",
-                                   "services/summary_run_log.py"}, \
+                                   "services/summary_run_log.py",
+                                   "services/summary_test_run.py",
+                                   # ASAP-2.1: модули S1/S2 удалены целиком
+                                   # (D-статус в diff против baseline —
+                                   # санкция ADR-1028-1 D1/D2, контракт (i)).
+                                   "services/summary_filter.py",
+                                   "services/summary_context_restore.py"}, \
             summary_changed
 
     def test_version_and_catalog(self):
-        assert APP_VERSION == "2.58.33"
-        assert len(pc.REGISTRY) == 489
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
+        assert APP_VERSION == "2.58.34"
+        assert len(pc.REGISTRY) == 481
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 422
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 464
-        assert len(pc.GROUPS) == 107
-        assert len(pc._TAB_BY_GROUP) == 105
+                    if s.category is not None]) == 456
+        assert len(pc.GROUPS) == 105
+        assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
 
     def test_canon_twelve_tools(self):

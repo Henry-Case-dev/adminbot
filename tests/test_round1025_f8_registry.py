@@ -114,9 +114,13 @@ class TestFrozenInvariants:
             "обновите baseline осознанно (L-F11S-1)")
 
     def test_counts_frozen(self):
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 489
-        assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 107
-        assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 105
+        # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): санкционированная
+        # ОТРИЦАТЕЛЬНАЯ Δ каталога — -8 ключей summary_filter_* и -2 группы;
+        # TAB_RULES 21 in-place (счётчик не менялся). 489→481 / 107→105 /
+        # 105→103; delta 78→70 (8 удалённых ключей были частью Δ round1026).
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 481
+        assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 105
+        assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 103
         assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 21
 
     def test_registry_keys_match_catalog_baseline(self):
@@ -134,7 +138,7 @@ class TestFrozenInvariants:
         # `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.33"
+        assert APP_VERSION == "2.58.34"
 
     def test_routes_set_unchanged(self):
         import re
@@ -158,8 +162,8 @@ class TestFrozenInvariants:
 class TestRegistry:
     def test_rows_complete_no_empty(self):
         rows = _read_registry_rows()
-        # A5 (ADR-1026-17 D9): +1 → 470.
-        assert len(rows) == 489
+        # ASAP-2.1 (ADR-1028-1 D1): санкционированная Δ −8 → 481.
+        assert len(rows) == 481
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -167,8 +171,10 @@ class TestRegistry:
     def test_delta_explicit(self):
         # round1026 S1 (ADR-1026-1 D1): санкционированная Δ +8 → дельта 56.
         # round1026 A5 (ADR-1026-17 D9): санкционированная Δ +1 → дельта 59.
+        # ASAP-2.1 (ADR-1028-1 D1): санкционированная ОТРИЦАТЕЛЬНАЯ Δ −8
+        # (все 8 были частью Δ round1026 S1) → дельта 70.
         delta = _registry_keys() - _inventory_keys()
-        assert len(delta) == FIXTURE["counts"]["delta"] == 78
+        assert len(delta) == FIXTURE["counts"]["delta"] == 70
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -196,7 +202,8 @@ class TestRegistry:
     def test_meta_provenance(self):
         meta = (ROOT / "plans/docs/param-registry-round1025.meta.md").read_text(
             encoding="utf-8")
-        assert "489" in meta and "411" in meta and "78" in meta
+        # ASAP-2.1 (ADR-1028-1 D1): переиздание после отрицательной Δ −8.
+        assert "481" in meta and "411" in meta and "70" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -207,7 +214,8 @@ class TestScreenMap:
     def test_all_params_have_a_place(self):
         keys = _parse_screen_keys()
         assert keys == _registry_keys()  # ⊇ и == (каталог — источник)
-        assert len(keys) == 489
+        # ASAP-2.1 (ADR-1028-1 D1): санкционированная Δ −8 → 481.
+        assert len(keys) == 481
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

@@ -68,8 +68,8 @@ const INDEX = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
   const ctx = { logSummaryMarkers: methods.logSummaryMarkers };
   const markers = [
     'SUMMARY_START | run_id=x', 'SUMMARY_COMPLETE | run_id=x',
-    'SUMMARY_FAILED | run_id=x', 'FILTER_COMPLETE | run_id=x',
-    'RESTORE_ERROR | run_id=x', 'L1_COMPLETE | run_id=x',
+    'SUMMARY_FAILED | run_id=x', 'SOURCE_WINDOW | run_id=x',
+    'L1_CONTEXT_PACK | run_id=x', 'L1_COMPLETE | run_id=x',
     'L2_ERROR | run_id=x', 'FORMAT_START | run_id=x',
     'COVER_COMPLETE | run_id=x', 'TEST_WINDOW_EMPTY | run_id=x',
     'L2_SKIPPED | run_id=abc',
@@ -78,7 +78,11 @@ const INDEX = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
     assert.ok(methods.isSummaryLog.call(ctx, { message: msg }),
       'маркер должен ловиться: ' + msg);
   });
-  assert.ok(!methods.isSummaryLog.call(ctx, { message: 'heartbeat sample ok' }),
+  // ASAP-2.1 (T-3986): FILTER_*/RESTORE_* удалены из маркеров вместе с S1/S2.
+  const removed = methods.logSummaryMarkers.call(ctx);
+  assert.ok(removed.indexOf('FILTER_') < 0, 'FILTER_ маркер удалён');
+  assert.ok(removed.indexOf('RESTORE_') < 0, 'RESTORE_ маркер удалён');
+  assert.ok(methods.isSummaryLog.call(ctx, { message: 'heartbeat sample ok' }) === false,
     'чужой лог не проходит фильтр');
   assert.ok(!methods.isSummaryLog.call(ctx, { message: '' }),
     'пустая строка не проходит');
@@ -121,9 +125,10 @@ const INDEX = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
     ['L2_ERROR | run_id=x | reason=invalid', 'Саммари: ошибка генерации статьи'],
     ['FORMAT_ERROR | run_id=x | reason=RuntimeError', 'Саммари: ошибка форматирования'],
     ['COVER_ERROR | run_id=x | provider=h', 'Саммари: ошибка обложки'],
-    ['FILTER_ERROR | run_id=x', 'Саммари: ошибка фильтра'],
-    ['RESTORE_ERROR | run_id=x', 'Саммари: ошибка восстановления контекста'],
     ['SUMMARY_FAILED | run_id=x | stage=l2', 'Саммари: прогон не удался'],
+    // ASAP-2.1 (T-3986): FILTER_/RESTORE_ ошибок больше нет — коды удалены.
+    ['FILTER_ERROR | run_id=x', ''],
+    ['RESTORE_ERROR | run_id=x', ''],
   ];
   cases.forEach(function (c) {
     assert.strictEqual(label.call({}, { message: c[0] }), c[1], c[0]);

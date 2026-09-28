@@ -45,12 +45,6 @@ from services.prompt_style_blocks import (
     resolve_prompt,
 )
 from services.summary_cleanup import cleanup_llm_text
-from services.summary_context_restore import (
-    RESTORE_CHAIN_DEPTH,
-    RestoreParams,
-    restore_context,
-)
-from services.summary_filter import FilterParams, filter_window
 from services.summary_memory import _build_batch_text, fire_and_forget
 from services.summary_prompts import (
     PREV_SUMMARY_NARRATOR_R1023,
@@ -103,7 +97,6 @@ from services.smartmodule_concurrency import get_smartmodule_concurrency_pool
 # ASAP-2 §11 (контракт (g)): единая точка Hybrid-бюджета для режима фильтра.
 from services.summary_hybrid_budget import resolve_hybrid_context_budget
 from services.summary_xml import escape_xml_text
-from services.thread_chain import collect_thread_chain
 from services.telegram_send import (
     SUMMARY_COVER_MEDIA_ID,
     build_cover_media,
@@ -134,12 +127,6 @@ logger = logging.getLogger(__name__)
 # `resolve_context_tokens` (L-R1026S1-1): `0`/`None` → этот дефолт, `-1` → потолок
 # «безлимита». Единая точка, чтобы нарезка/бюджет §93 не вырождались.
 _SUMMARY_CONTEXT_TOKEN_DEFAULT = 30000
-
-# S2 (ADR-1026-4 D1/D7): адаптер восстановления дёргает канонический
-# `thread_chain.collect_thread_chain` только для «открытых» якорей (reply-цепочка
-# уходит за окно / сквозь бот-ответ). Число обходов ограничено (cap по числу
-# добавлений), чтобы прогон не деградировал на «звонких» чатах.
-RESTORE_CHAIN_CALLS_MAX = 50
 
 
 # ── ASAP-2 §1/D5 (контракт (d)): send-time кап Legacy-доставки ─────────────
@@ -373,8 +360,12 @@ def _generation_code(stage: str | None) -> str | None:
             if stage in ("l1", "package", "l2", "run") else None)
 
 
+# ASAP-2.1 (контракт (e)/T-3979): «главный шиз» — семантическое решение LLM.
+# Символы алгоритмического выбора (ensure-shiz-postfix / most-active-author /
+# @-regex) УДАЛЕНЫ из responsibility кода. Константа ниже — ТОЛЬКО strip-
+# защита в `_derive_fallback_cover_prompt`: модель может написать шутку в
+# тексте — в visual-промпт обложки она попасть не должна.
 _SHIZ_MARKER = "самым главным шизом объявляется"
-_SHIZ_AT_RE = re.compile(r"(самым главным шизом объявляется\s+)@+")
 
 _KEYWORD_RE = re.compile(r"[а-яёa-z0-9]{3,}", re.IGNORECASE)
 
@@ -401,9 +392,6 @@ class SummaryGenerator:
         self.aliases = aliases
         self._pool = (concurrency_pool if concurrency_pool is not None
                       else get_smartmodule_concurrency_pool())
-        # S1 (ADR-1026-1 D6/T-3148): аддитивные метрики префильтра (S8 читает
-        # при эмиссии узла kind=algorithm; UI/ExecutionGraph здесь не трогаем).
-        self._filter_metrics: dict = {}
 
     async def generate_and_send(self, chat_id: int, manual: bool = False,
                                 focus: str | None = None,
@@ -461,6 +449,11 @@ class SummaryGenerator:
             await self.memory.compress_and_purge(chat_id)
             rows = await self.memory.get_window_messages(chat_id)
             ctx.source_count = len(rows)
+            # ASAP-2.1 (T-3986, раздел 4 spec): SOURCE_WINDOW — первое событие
+            # после SUMMARY_START (замещает FILTER_*; R17 — только числа).
+            logger.info(
+                "SOURCE_WINDOW | run_id=%s | chat_id=%s | messages=%d",
+                correlation_id, chat_id, len(rows))
             if not rows:
                 if manual:
                     await self._send_ux(chat_id, _UX_EMPTY)     # B4
@@ -470,37 +463,12 @@ class SummaryGenerator:
                 )
                 ctx.status = STATUS_EMPTY
                 return
-            # S1 (ADR-1026-1 D6): префильтр входа L1 — строго между чтением
-            # окна и сборкой XML. Фильтруется ТОЛЬКО XML-история; все прочие
-            # потребители `rows` (RAG/память/graph/memorize) остаются на
-            # исходных строках. 0 LLM-вызовов; OFF → байт-в-байт прежний путь.
-            xml_rows = rows
-            # T-3160 (M-1, spec §6.1/SC-05): мастер-тумблер резолвится per-chat
-            # (чат A ≠ чат B), симметрично flags.summary_filter_reply_context_enabled.
-            if bool(await _chat_limit(
-                    chat_id, "flags.summary_filter_enabled",
-                    hot.get("flags.summary_filter_enabled",
-                            settings.SUMMARY_FILTER_ENABLED))):
-                xml_rows = await self._apply_filter(
-                    chat_id, rows, correlation_id, trigger_message_id,
-                    hybrid=hybrid)
-                # S7 (ADR-1026-9 D2): §109-поля SUMMARY_COMPLETE — только из
-                # метрик ЭТОГО прогона (run_id), без устаревшего слота fail-open.
-                metrics = getattr(self, "_filter_metrics", None) or {}
-                metrics = metrics.get(chat_id) or {}
-                if metrics.get("run_id") == correlation_id:
-                    ctx.saved_count = metrics.get("saved_count")
-                    ctx.restored_count = metrics.get("restored_count")
-                    # S8 (ADR-1026-10 D2): реальные метрики S1 для узла
-                    # `algorithm`/§112 (только числа/коды; R17-safe).
-                    ctx.drop_percent = metrics.get("drop_percent")
-                    ctx.filter_status = metrics.get("status")
-                    ctx.filter_duration_ms = metrics.get("duration_ms")
-            # S5 (ADR-1026-7 D5/§80): ON-ветка врезается ПОСЛЕ S1/S2 — L1
-            # получает уже отфильтрованный/восстановленный вход (`xml_rows`),
-            # а не сырое окно. `trigger_message_id` учтён S1-фильтром выше,
-            # `focus` — focus-блоком в L1 (как в legacy-пути). OFF-путь ниже
-            # байт-в-байт.
+            # ASAP-2.1 (ADR-1028-1 D1, §2:2866): heuristic prefilter S1/S2
+            # УДАЛЁН из live-пути полностью (не «выключен»): Hybrid И Legacy
+            # получают ИСХОДНОЕ окно `rows`; отдельной сущности `xml_rows`
+            # больше не существует. Физическое переполнение контекста
+            # обрабатывает technical packing внутри run_l1/pack_l1_input
+            # (eviction без весового члена, последнее сообщение неприкосновенно).
             if hybrid:
                 # S6 (S-R1026S5-7, ADR-1026-11 D7): единый контур памяти —
                 # `memorize_facts` вызывается и на ON (те же исходные `rows`,
@@ -513,14 +481,14 @@ class SummaryGenerator:
                             "chat_history"),
                          "summary")
                 await self._run_hybrid_l2(
-                    chat_id, xml_rows, focus, correlation_id, ctx=ctx,
-                    source_rows=rows, trigger_message_id=trigger_message_id)
+                    chat_id, rows, focus, correlation_id, ctx=ctx,
+                    trigger_message_id=trigger_message_id)
                 return
             # ── ASAP-2 (контракт (i)/T-3950): тело OFF-ветки извлечено в
             # общий `_run_legacy_pipeline` (тот же метод для OFF-режима и
             # LEVEL-3 emergency fallback). OFF-поведение байт-в-байт. ────────
             await self._run_legacy_pipeline(
-                chat_id, rows, xml_rows, focus, trigger_message_id,
+                chat_id, rows, focus, trigger_message_id,
                 correlation_id, ctx)
         except LLMError as exc:
             ctx.fail_from_exc(stage="run", exc=exc,
@@ -544,14 +512,14 @@ class SummaryGenerator:
             except Exception:  # pragma: no cover - лог не должен ронять прогон
                 pass
             # S8 (ADR-1026-10 D2/D7): фиксация in-memory снапшота прогона для
-            # карты вызовов (`/api/analytics/execution/latest`): узлы
-            # `algorithm`/`format` + §112. Без DDL/persistence; best-effort —
-            # ошибка снапшота пайплайн не рвёт и поведение не меняет.
+            # карты вызовов (`/api/analytics/execution/latest`): узел `format`
+            # + §112. С удалением S1 (ASAP-2.1) узел `algorithm` исчезает из
+            # карты вызовов (замещается событиями §36: SOURCE_WINDOW /
+            # L1_CONTEXT_PACK). Без DDL/persistence; best-effort — ошибка
+            # снапшота пайплайн не рвёт и поведение не меняет.
             try:
                 from services import execution_graph_source as _exec_graph
-                _filter_slot = getattr(self, "_filter_metrics", None) or {}
-                _exec_graph.record_run_from_context(
-                    ctx, _filter_slot.get(chat_id))
+                _exec_graph.record_run_from_context(ctx, None)
             except Exception:  # pragma: no cover - снапшот не должен ронять прогон
                 pass
 
@@ -588,7 +556,7 @@ class SummaryGenerator:
             return True
 
     async def _run_legacy_pipeline(self, chat_id: int, rows: list,
-                                   xml_rows: list, focus: str | None,
+                                   focus: str | None,
                                    trigger_message_id: int | None,
                                    correlation_id: str, ctx=None, *,
                                    max_parts: int | None = None,
@@ -596,13 +564,13 @@ class SummaryGenerator:
         """ASAP-2 (контракт (i)/T-3950): ПОЛНЫЙ Legacy-пайплайн — общий метод
         OFF-режима (kill-switch Hybrid) и LEVEL-3 emergency fallback.
 
-        Тело байт-в-байт прежней OFF-ветки ``_run`` (XML+RAG+graph-подмешивание
-        → System2 two-call/single по ``SYSTEM2_SUMMARY_ENABLED`` → cover →
-        rich/plain-доставка; plain-чанки ≤ ``limits.max_summary_parts`` —
-        send-кап контракта (d)). LEVEL-3 вызывает с уже готовыми ``rows``/
-        ``xml_rows`` (окно НЕ перечитывается, фильтр НЕ перезапускается) и
-        ``skip_memorize=True`` (fire-and-forget memorize уже сделан в
-        hybrid-ветке ``_run`` — дубля памяти нет).
+        Тело прежней OFF-ветки ``_run`` (XML+RAG+graph-подмешивание → System2
+        two-call/single по ``SYSTEM2_SUMMARY_ENABLED`` → cover → rich/plain-
+        доставка; plain-чанки ≤ ``limits.max_summary_parts`` — send-кап
+        контракта (d)). LEVEL-3 вызывает с уже готовыми ``rows`` (окно НЕ
+        перечитывается) и ``skip_memorize=True`` (fire-and-forget memorize уже
+        сделан в hybrid-ветке ``_run`` — дубля памяти нет). ASAP-2.1 (D1):
+        префильтра больше нет — ``rows`` здесь всегда исходное окно.
 
         ``max_parts=None`` → резолв hot→env (OFF-путь как раньше).
         Возвращает ``True``, если что-то опубликовано (для guard'а LEVEL-3);
@@ -611,7 +579,7 @@ class SummaryGenerator:
         if max_parts is None:
             max_parts = int(hot.get("limits.max_summary_parts",
                                     settings.MAX_SUMMARY_PARTS))
-        xml_context = self.xml.build(xml_rows, self.aliases, trigger_message_id)
+        xml_context = self.xml.build(rows, self.aliases, trigger_message_id)
         keywords = self._extract_keywords(rows)
         l2_rows = await self.memory.search_long_term(
             chat_id, keywords, await _chat_limit(
@@ -726,7 +694,9 @@ class SummaryGenerator:
                 # §106/D5: пустой текст после cleanup — класс генерации.
                 ctx.code = CODE_SUMMARY_GENERATION_FAILED
             return False
-        text = self._ensure_shiz_postfix(raw, rows)
+        # ASAP-2.1 (контракт (e)/§25): код больше НЕ дописывает «главного
+        # шиза» поверх текста модели — выбор за LLM (инструкция в каноне).
+        text = raw
         cover_prompt = self._resolve_cover_prompt(
             draft, text, chat_id)
         # S6 (ADR-1026-11 D2): заголовок digest Stage-1 → настоящий H1 в
@@ -755,15 +725,13 @@ class SummaryGenerator:
     async def _run_hybrid_l2(self, chat_id: int, rows: list,
                              focus: str | None,
                              correlation_id: str, ctx=None, *,
-                             source_rows: list | None = None,
                              trigger_message_id: int | None = None) -> None:
         """S5 + ASAP-2 (ADR-1027-10 D3/D4/D8, контракты (i)): ON-ветка —
         двухконтурная fail-soft цепочка.
 
-        ``rows`` — отфильтрованный/восстановленный вход (§80; для LEVEL-2
-        fallback-пакета и Legacy-пересборки окна НЕ перечитывается);
-        ``source_rows`` — исходные строки окна (для LEVEL-3: у legacy-ветки те
-        же ``rows`` для RAG/graph, что у OFF).
+        ``rows`` — исходное окно (ASAP-2.1/ADR-1028-1 D1: префильтра больше
+        нет; для LEVEL-2 fallback-пакета, LEVEL-3 Legacy-пересборки окно НЕ
+        перечитывается — те же строки).
 
         LEVEL-1: run_l1 (repair + correction retry внутри).
         LEVEL-2: L1 непригоден (ЛЮБАЯ причина: invalid после retry, error/
@@ -783,12 +751,14 @@ class SummaryGenerator:
         когда и Legacy провалился (матрица строка 11).
         """
         # Ленивые импорты: OFF-путь не тянет модули L2 (байт-в-байт).
-        from services.summary_context_restore import build_l1_payload
         from services.summary_fact_package import (
             build_fact_package,
             build_fallback_package,
         )
-        from services.summary_l1_clusterizer import run_l1
+        from services.summary_l1_clusterizer import (
+            build_l1_payload,
+            run_l1,
+        )
         from services.summary_l2_writer import run_l2
         # S7: R17-safe модель/провайдер для SUMMARY_FAILED (host, без ключа).
         if ctx is not None:
@@ -819,9 +789,8 @@ class SummaryGenerator:
                 reason, calls_so_far)
             try:
                 delivered = await self._run_legacy_pipeline(
-                    chat_id, source_rows if source_rows is not None else rows,
-                    rows, focus, trigger_message_id, correlation_id, ctx,
-                    skip_memorize=True)
+                    chat_id, rows, focus, trigger_message_id, correlation_id,
+                    ctx, skip_memorize=True)
             except LLMError as exc:
                 logger.warning("summary legacy fallback: LLM failed | "
                                "chat_id=%s | error=%s", chat_id, exc)
@@ -1004,19 +973,21 @@ class SummaryGenerator:
                               limit: int | None = None,
                               correlation_id: str | None = None,
                               trigger_message_id: int | None = None) -> dict:
-        """S9 (ADR-1026-8 D2): read-only окно + S1/S2 для dry-run тест-прогона.
+        """ASAP-2.1 (T-3972, контракт (j)): read-only окно для dry-run.
 
-        Аддитивный публичный метод (тело ``_run``/``_run_hybrid_l2`` НЕ
-        меняется): читает окно **read-only** через
+        Аддитивный публичный метод: читает окно **read-only** через
         ``memory.db.get_smart_window`` (без ``compress_and_purge`` /
         ``get_window_messages`` — fire-and-forget бегущего конспекта не
-        триггерится), применяет существующие ``_apply_filter`` (S1) и
-        ``_restore`` (S2) без дублирования резолва параметров. 0 LLM-вызовов,
+        триггерится). S1/S2 удалены из live-пути (ADR-1028-1 D1/D2) — test path
+        НЕ продолжает запускать старую filtering logic: L1 получает полный
+        source, packing идёт внутри ``run_l1`` идентично продy. 0 LLM-вызовов,
         0 публикаций, 0 записей в память/досье.
 
-        Возвращает ``{"source","filtered","dropped","restored",
-        "filter_metrics","source_count","filtered_count","restored_count",
-        "limit"}`` — строки схемы окна (``sqlite3.Row``), без мутации входа.
+        Возвращает прежний shape для UI (API-форма не менялась):
+        ``{"source","filtered","dropped","restored","filter_metrics",
+        "source_count","filtered_count","restored_count","limit"}`` — строки
+        схемы окна (``sqlite3.Row``), ``filtered = source``, ``dropped``/
+        ``restored`` пусты, ``filter_metrics = {}``. Без мутации входа.
         """
         if limit is None:
             limit = int(await _chat_limit(
@@ -1028,35 +999,15 @@ class SummaryGenerator:
         if db is not None:
             rows = await db.get_smart_window(chat_id, int(since_ts), int(limit))
             source = list(rows or [])
-        filtered = source
-        filter_metrics: dict = {}
-        if source:
-            # L-R1026S9-5: сброс слота перед вызовом — fail-open ветка
-            # `_apply_filter` его не перезаписывает, поэтому иначе в отчёт
-            # тест-прогона могли попасть устаревшие метрики прошлого прогона.
-            self._filter_metrics.pop(chat_id, None)
-            # ASAP-2 T-3941(б): dry-run контур (S9/§113) идёт гибрид-путём по
-            # определению («ON per-run», ADR-1026-8) — режим передаётся ЯВНО:
-            # глобальный flags.summary_hybrid_l2_enabled тест-контуром НЕ
-            # читается (инвариант S9 сохранён), бюджет S1/S2 — hybrid-ключи.
-            filtered = list(await self._apply_filter(
-                chat_id, source, correlation_id, trigger_message_id,
-                hybrid=True) or [])
-            filter_metrics = dict(self._filter_metrics.get(chat_id) or {})
-        source_ids = {id(row) for row in source}
-        filtered_ids = {id(row) for row in filtered}
-        dropped = [row for row in source if id(row) not in filtered_ids]
-        restored = [row for row in filtered if id(row) not in source_ids]
         return {
             "source": source,
-            "filtered": filtered,
-            "dropped": dropped,
-            "restored": restored,
-            "filter_metrics": filter_metrics,
+            "filtered": source,
+            "dropped": [],
+            "restored": [],
+            "filter_metrics": {},
             "source_count": len(source),
-            "filtered_count": len(filtered),
-            "restored_count": int(
-                filter_metrics.get("restored_count") or len(restored)),
+            "filtered_count": len(source),
+            "restored_count": 0,
             "limit": int(limit),
         }
 
@@ -1124,9 +1075,13 @@ class SummaryGenerator:
                     await asyncio.sleep(hot.get(
                         "limits.summary_chunk_delay",
                         settings.SUMMARY_CHUNK_DELAY))
+            # ASAP-2.1 (T-3986): plain-канал — rich_cut=0, visible=all
+            # (полный текст без ката).
             log_format_complete(
                 run_id=correlation_id, chat_id=chat_id, channel="plain",
-                paragraphs=paragraphs, started=started)
+                paragraphs=paragraphs, rich_cut=False,
+                visible_paragraphs=paragraphs, collapsed_paragraphs=0,
+                started=started)
             log_publish_text_complete(
                 run_id=correlation_id, chat_id=chat_id, message_id=message_id,
                 reason=reason, started=publish_started)
@@ -1349,9 +1304,15 @@ class SummaryGenerator:
                     chat_id, document, correlation_id=correlation_id, ctx=ctx,
                     reason="rich_error", max_chunks=max_chunks)
             message_id = getattr(message, "message_id", None)
+            # ASAP-2.1 (T-3986): rich_cut/visible/collapsed — факты cut'а.
+            _para_count = len((document or {}).get("paragraphs") or [])
+            _cut = _para_count > 1
             log_format_complete(
                 run_id=correlation_id, chat_id=chat_id, channel="rich",
-                paragraphs=len((document or {}).get("paragraphs") or []),
+                paragraphs=_para_count,
+                rich_cut=_cut,
+                visible_paragraphs=(1 if _cut else _para_count),
+                collapsed_paragraphs=(_para_count - 1 if _cut else 0),
                 started=format_started)
             log_publish_rich_complete(
                 run_id=correlation_id, chat_id=chat_id, message_id=message_id,
@@ -1389,308 +1350,6 @@ class SummaryGenerator:
                 except OSError:
                     pass
 
-    async def _apply_filter(self, chat_id: int, rows: list,
-                            correlation_id: str | None,
-                            trigger_message_id: int | None,
-                            hybrid: bool | None = None) -> list:
-        """S1 (ADR-1026-1 D4/D6) + S2 (ADR-1026-4 D1/D6): префильтр входа L1 и
-        детерминированное восстановление контекста.
-
-        ``hybrid`` (ASAP-2 T-3941(б)): режим, уже резолвнутый `_run`
-        (`hybrid=True/False`); ``None`` → собственный резолв (test-контур
-        ``build_test_rows`` — dry-run идёт hybrid-путём, но budget-ключи
-        резолвятся по факту режима). Бюджет S1/S2 — по режиму (§11).
-
-        Возвращает строки для XML-истории: ``RestoreResult.kept`` при ON
-        (S1 ``kept`` ∪ добавленные) либо ``FilterResult.kept`` при OFF /
-        fail-open. Fail-open: любая ошибка → WARNING ``FILTER_ERROR`` /
-        ``RESTORE_ERROR`` и безопасный вход (Саммари работает, тихой потери
-        нет). 0 LLM-вызовов. Метрики §109 кладутся в аддитивную структуру
-        ``self._filter_metrics`` (S8); в логи идут только числа/коды/``run_id``
-        (R17/R18).
-        """
-        try:
-            params = FilterParams(
-                min_weight=await _chat_limit(
-                    chat_id, "limits.summary_filter_min_weight",
-                    hot.get("limits.summary_filter_min_weight",
-                            settings.SUMMARY_FILTER_MIN_WEIGHT)),
-                min_words_for_bonus=await _chat_limit(
-                    chat_id, "limits.summary_filter_min_words_for_bonus",
-                    hot.get("limits.summary_filter_min_words_for_bonus",
-                            settings.SUMMARY_FILTER_MIN_WORDS_FOR_BONUS)),
-                burst_window_seconds=await _chat_limit(
-                    chat_id, "limits.summary_filter_burst_window_seconds",
-                    hot.get("limits.summary_filter_burst_window_seconds",
-                            settings.SUMMARY_FILTER_BURST_WINDOW_SECONDS)),
-                min_burst_density=await _chat_limit(
-                    chat_id, "limits.summary_filter_min_burst_density",
-                    hot.get("limits.summary_filter_min_burst_density",
-                            settings.SUMMARY_FILTER_MIN_BURST_DENSITY)),
-                reply_context_enabled=bool(await _chat_limit(
-                    chat_id, "flags.summary_filter_reply_context_enabled",
-                    hot.get("flags.summary_filter_reply_context_enabled",
-                            settings.SUMMARY_FILTER_REPLY_CONTEXT_ENABLED))),
-            )
-            # S2 (ADR-1026-4 D4): тот же ключ — мастер-гейт всего восстановления
-            # (OFF → S2 не вызывается, XML-вход байт-в-байт равен S1-выходу).
-            reply_context_enabled = bool(params.reply_context_enabled)
-            # L-R1026S1-1: sentinel-нормализация потолка токенов перед бюджетом
-            # §93 (`0`/`None` → дефолт, `-1` → потолок «безлимита»), как в
-            # resolve_chat_limit/_run; иначе нарезка/бюджет вырождаются при
-            # per-chat override.
-            # ASAP-2 §11/контракт (g)/T-3941(б): бюджет фильтрации/восстановления
-            # резолвится ПО РЕЖИМУ: hybrid → `limits.summary_hybrid_context_*`
-            # (единая точка resolve_hybrid_context_budget), OFF → старые
-            # `limits.summary_max_context_*`. Режим известен до фильтра:
-            # `_run` резолвит `hybrid` раньше `_apply_filter` и передаёт его;
-            # per-chat-слой гибрид-ключа — hot-first ниже.
-            if hybrid is None:
-                hybrid = await self._hybrid_l2_enabled(chat_id)
-            if hybrid:
-                h_kind, h_limit = resolve_hybrid_context_budget()
-                token_limit = (resolve_context_tokens(
-                    h_limit, _SUMMARY_CONTEXT_TOKEN_DEFAULT)
-                    if h_kind == "tokens" else None)
-                char_limit = (h_limit if h_kind == "chars" else int(
-                    getattr(settings, "SUMMARY_HYBRID_CONTEXT_CHARS", 120000)))
-            else:
-                token_limit = resolve_context_tokens(
-                    await _chat_limit(
-                        chat_id, "limits.summary_max_context_tokens",
-                        hot.get("limits.summary_max_context_tokens",
-                                settings.SUMMARY_MAX_CONTEXT_TOKENS)),
-                    _SUMMARY_CONTEXT_TOKEN_DEFAULT)
-                char_limit = await _chat_limit(
-                    chat_id, "limits.summary_max_context_chars",
-                    hot.get("limits.summary_max_context_chars",
-                            settings.SUMMARY_MAX_CONTEXT_CHARS))
-            logger.info(
-                "summary filter: event=FILTER_START | run_id=%s chat_id=%s "
-                "source_count=%d", correlation_id, chat_id, len(rows))
-            result = filter_window(
-                rows, params, bot_id=getattr(self.bot, "id", None),
-                trigger_message_id=trigger_message_id,
-                token_limit=token_limit, char_limit=char_limit)
-            # S2 (ADR-1026-4 D6): врезка строго между `filter_window` и
-            # `xml.build`; `effective` нужен только для метрик/логов (D1).
-            xml_rows = result.kept
-            effective = result
-            restore_metrics = None
-            if result.status == "error":
-                logger.warning(
-                    "summary filter: event=FILTER_ERROR | run_id=%s chat_id=%s "
-                    "source_count=%d duration_ms=%.1f — fail-open (unfiltered)",
-                    correlation_id, chat_id, result.source_count,
-                    result.duration_ms)
-            else:
-                if reply_context_enabled:
-                    xml_rows, effective, restore_metrics = await self._restore(
-                        chat_id, rows, result, correlation_id, token_limit,
-                        char_limit)
-                # ASAP-2 §18 (контракт (k)): messages_before/after +
-                # serialized_chars/tokens по РЕАЛЬНОЙ serialized §92-оценке
-                # (Q5/T-3941(а): json.dumps элемента, не только text).
-                try:
-                    from services.summary_context_restore import (
-                        build_l1_payload as _b92,
-                    )
-                    from services.summary_l1_clusterizer import (
-                        _serialized_len as _ser92,
-                    )
-                    _ser_items = _b92(list(xml_rows or []), chat_id)
-                    _ser_kind = "tokens" if token_limit is not None else "chars"
-                    _ser_total = sum(_ser92(it, _ser_kind)
-                                     for it in _ser_items)
-                    if _ser_kind == "tokens":
-                        ser_tokens, ser_chars = _ser_total, 0
-                    else:
-                        ser_tokens = sum(_ser92(it, "tokens")
-                                         for it in _ser_items)
-                        ser_chars = _ser_total
-                except Exception:  # pragma: no cover - телеметрия best-effort
-                    ser_tokens = ser_chars = -1
-                logger.info(
-                    "summary filter: event=FILTER_COMPLETE | run_id=%s chat_id=%s "
-                    "source_count=%d saved_count=%d restored_count=%d "
-                    "drop_percent=%.1f status=%s duration_ms=%.1f "
-                    "messages_before=%d messages_after=%d "
-                    "serialized_chars=%d serialized_tokens=%d",
-                    correlation_id, chat_id, result.source_count,
-                    result.saved_count, effective.restored_count,
-                    result.drop_percent, result.status, result.duration_ms,
-                    len(rows), len(xml_rows or []), ser_chars, ser_tokens)
-                if result.status == "empty_fallback":
-                    logger.warning(
-                        "summary filter: event=FILTER_EMPTY_FALLBACK | "
-                        "run_id=%s chat_id=%s source_count=%d",
-                        correlation_id, chat_id, result.source_count)
-            # Аддитивные метрики для §111/§112 (S8) — без узлов ExecutionGraph.
-            metrics = {
-                "run_id": correlation_id,
-                "source_count": result.source_count,
-                "saved_count": result.saved_count,
-                "restored_count": effective.restored_count,
-                "drop_percent": result.drop_percent,
-                "duration_ms": result.duration_ms,
-                "status": result.status,
-                "budget": result.budget,
-            }
-            # S2-метрики добавляются только когда восстановление реально
-            # выполнялось: при OFF `_filter_metrics` байт-в-байт как у S1.
-            if restore_metrics is not None:
-                metrics.update(restore_metrics)
-            self._filter_metrics[chat_id] = metrics
-            return xml_rows
-        except Exception:
-            logger.warning(
-                "summary filter: event=FILTER_ERROR | run_id=%s chat_id=%s — "
-                "fail-open (unfiltered)", correlation_id, chat_id,
-                exc_info=True)
-            return rows
-
-    async def _restore(self, chat_id: int, rows: list, result,
-                       correlation_id: str | None, token_limit,
-                       char_limit) -> tuple:
-        """S2 (ADR-1026-4 D1/D3/D6): восстановление контекста после S1.
-
-        Возвращает ``(xml_rows, effective_result, metrics|None)``. Fail-open:
-        любая ошибка (в т.ч. БД/цепочка) → S1-выход ``result.kept`` + WARNING
-        ``RESTORE_ERROR``; ``kept`` не теряется никогда. 0 LLM-вызовов.
-        """
-        try:
-            rparams = RestoreParams(
-                context_neighbors=await _chat_limit(
-                    chat_id, "limits.summary_filter_context_neighbors",
-                    hot.get("limits.summary_filter_context_neighbors",
-                            settings.SUMMARY_FILTER_CONTEXT_NEIGHBORS)),
-                context_max_messages=await _chat_limit(
-                    chat_id, "limits.summary_filter_context_max_messages",
-                    hot.get("limits.summary_filter_context_max_messages",
-                            settings.SUMMARY_FILTER_CONTEXT_MAX_MESSAGES)),
-            )
-            bot_id = getattr(self.bot, "id", None)
-            extra_parents = await self._collect_extra_parents(
-                chat_id, result.kept, rows, bot_id)
-            logger.info(
-                "summary filter: event=RESTORE_START | run_id=%s chat_id=%s "
-                "kept_count=%d extra_parents=%d",
-                correlation_id, chat_id, len(result.kept), len(extra_parents))
-            restore = restore_context(
-                result.kept, result.dropped, rows, rparams,
-                extra_parents=extra_parents, token_limit=token_limit,
-                char_limit=char_limit, bot_id=bot_id)
-            if restore.status == "error":
-                logger.warning(
-                    "summary filter: event=RESTORE_ERROR | run_id=%s chat_id=%s "
-                    "duration_ms=%.1f — fail-open (S1 output)",
-                    correlation_id, chat_id, restore.duration_ms)
-            else:
-                logger.info(
-                    "summary filter: event=RESTORE_COMPLETE | run_id=%s "
-                    "chat_id=%s status=%s restored_count=%d parent_count=%d "
-                    "neighbor_count=%d skipped_count=%d budget_kind=%s "
-                    "budget_fits=%s duration_ms=%.1f",
-                    correlation_id, chat_id, restore.status,
-                    restore.restored_count, restore.parent_count,
-                    restore.neighbor_count, len(restore.skipped_ids),
-                    restore.budget.get("kind"), restore.budget.get("fits"),
-                    restore.duration_ms)
-            metrics = {
-                "restored_count": restore.restored_count,
-                "parent_count": restore.parent_count,
-                "neighbor_count": restore.neighbor_count,
-                "skipped_count": len(restore.skipped_ids),
-                "restore_status": restore.status,
-                "restore_budget": restore.budget,
-            }
-            if restore.status == "error":
-                # Внутренний сбой core — S1-выход (тихой потери нет).
-                return result.kept, result, metrics
-            effective = dataclasses.replace(
-                result, kept=restore.kept,
-                restored_count=restore.restored_count)
-            return restore.kept, effective, metrics
-        except Exception:
-            logger.warning(
-                "summary filter: event=RESTORE_ERROR | run_id=%s chat_id=%s — "
-                "fail-open (S1 output)", correlation_id, chat_id, exc_info=True)
-            return result.kept, result, None
-
-    async def _collect_extra_parents(self, chat_id: int, kept: list,
-                                     window: list, bot_id) -> list:
-        """S2 (ADR-1026-4 D1/D7): родители **вне окна / сквозь бот-ответы**.
-
-        Переиспользует канонический ``thread_chain.collect_thread_chain``
-        (вторая реализация обхода цепочки не создаётся); обход выполняется
-        только для «открытых» якорей (цепочка уходит за пределы окна) и
-        ограничен ``RESTORE_CHAIN_CALLS_MAX``. Возвращает строки схемы окна,
-        fail-open → ``[]``.
-        """
-        db = getattr(self.memory, "db", None)
-        if db is None:
-            return []
-        win_by_tg: dict = {}
-        for row in window or []:
-            tg = row_get(row, "tg_message_id")
-            if tg is not None and tg not in win_by_tg:
-                win_by_tg[tg] = row
-        extra: dict = {}
-        calls = 0
-        for anchor in kept or []:
-            if calls >= RESTORE_CHAIN_CALLS_MAX:
-                break
-            if not self._is_open_anchor(anchor, win_by_tg):
-                continue
-            tg = row_get(anchor, "tg_message_id")
-            if tg is None:
-                continue
-            calls += 1
-            try:
-                chain = await collect_thread_chain(
-                    db, chat_id, tg, RESTORE_CHAIN_DEPTH)
-            except Exception:
-                logger.warning(
-                    "summary filter: thread chain failed — skip anchor | "
-                    "chat_id=%s", chat_id, exc_info=True)
-                continue
-            for item in chain:
-                if getattr(item, "is_bot", False):
-                    continue
-                item_tg = _chain_tg_id(getattr(item, "item_id", ""))
-                if item_tg is None or item_tg in win_by_tg:
-                    continue
-                try:
-                    row = await db.get_smart_message_by_tg_id(chat_id, item_tg)
-                except Exception:
-                    logger.warning(
-                        "summary filter: thread chain row read failed | "
-                        "chat_id=%s", chat_id, exc_info=True)
-                    continue
-                if row is None:
-                    continue
-                rid = row_get(row, "id")
-                if rid is not None and rid not in extra:
-                    extra[rid] = row
-        return list(extra.values())
-
-    @staticmethod
-    def _is_open_anchor(anchor, win_by_tg) -> bool:
-        """Reply-цепочка якоря уходит за пределы окна (или сквозь бот-ответ)?
-
-        Чистая in-memory проверка по окну (без БД): обход ``reply_to_id`` до
-        корня; отсутствие родителя в окне → нужен ``collect_thread_chain``.
-        """
-        current = anchor
-        for _ in range(max(0, RESTORE_CHAIN_DEPTH)):
-            parent_tg = row_get(current, "reply_to_id")
-            if parent_tg is None:
-                return False
-            parent = win_by_tg.get(parent_tg)
-            if parent is None:
-                return True
-            current = parent
-        return False
 
     async def _llm_generate(self, payload: list[dict], chat_id: int, *,
                             correlation_id: str | None = None,
@@ -1866,34 +1525,6 @@ class SummaryGenerator:
             source = (row_get(row, "forward_source") or "").replace('"', "'").strip()
             name = f'{name} (репост из "{source}")' if source else f"{name} (репост)"
         return f'{name}: {row["text"]}'
-
-    def _ensure_shiz_postfix(self, text: str, rows: list) -> str:
-        """Guarantee the 'самым главным шизом объявляется …' postfix (A14)."""
-        text = text or ""
-        if _SHIZ_MARKER in text:
-            # PM note: strip '@' if the LLM wrote the name with it
-            return _SHIZ_AT_RE.sub(r"\1", text)
-        name = SummaryGenerator._most_active_author(rows, getattr(self, "aliases", None))
-        text = text.rstrip()
-        if text:
-            text += "\n"
-        return text + f"самым главным шизом объявляется {name}"
-
-    @staticmethod
-    def _most_active_author(rows: list, aliases=None) -> str:
-        counter: dict[str, int] = {}
-        for row in rows:
-            stored = (row["author_name"] or "").strip().lstrip("@")
-            if aliases is not None:
-                # Epic 28 (T-214-B): заданный алиас побеждает сохранённое имя
-                name = aliases.resolve(int(row["user_id"] or 0), stored or None, None)
-            else:
-                name = stored
-            if name:
-                counter[name] = counter.get(name, 0) + 1
-        if not counter:
-            return "кто-то"
-        return sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))[0][0]
 
     @staticmethod
     def _chunk_by_whitespace(text: str, limit: int) -> list[str]:

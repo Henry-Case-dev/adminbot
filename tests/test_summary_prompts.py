@@ -81,15 +81,19 @@ class TestSystemPrompt:
         assert "<bot_knowledge>" in SYSTEM_PROMPT
 
     def test_max_symbols_is_the_only_placeholder(self):
-        """D72: unique placeholders are exactly {max_symbols, username} (3 brace pairs)."""
+        """D72 + ASAP-2.1 (контракт (e)/§25): единственный шаблонный placeholder
+        — {max_symbols} (подстановка runtime). `{username}` УДАЛЕН из канона:
+        строка шиза — опциональное творческое решение модели, имя берётся
+        дословно из атрибута author без шаблонной подстановки."""
         placeholders = set(re.findall(r"\{(\w+)\}", SYSTEM_PROMPT))
-        assert placeholders == {"max_symbols", "username"}
+        assert placeholders == {"max_symbols"}
 
     def test_format_max_symbols(self):
         formatted = SYSTEM_PROMPT.replace("{max_symbols}", "3800")
         assert "3800 символов" in formatted
         assert "{max_symbols}" not in formatted
-        assert "{username}" in formatted  # username stays literal for the LLM
+        # Шиза-строка — опциональная инструкция модели (без шаблона).
+        assert "твоё творческое решение" in SYSTEM_PROMPT
 
     def test_shiz_marker_present(self):
         assert "самым главным шизом объявляется" in SYSTEM_PROMPT

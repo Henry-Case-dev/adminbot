@@ -155,21 +155,23 @@ class TestD6NoF0Duplication:
 class TestInvariants:
     def test_catalog_delta_zero(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 473
-        assert len(pc.GROUPS) == 102
-        assert len(pc._TAB_BY_GROUP) == 100
+        assert len(pc.REGISTRY) == 481
+        assert len(pc.GROUPS) == 105
+        assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 422
 
     def test_secrets_count_28(self):
         # 20 category=keys (UI) + 8 env-only infra — состав НЕ изменён.
-        assert len(pc_secret_names()) == 28
+        # ASAP-2 round1027 (контракт (j)): +2 UI-секрета (keys.summary_l1/
+        # l2_api_key, masked-виджет adr-1025-22) → 30.
+        assert len(pc_secret_names()) == 30
 
     def test_app_version_bump(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.32", m and m.group(1)
+        assert m and m.group(1) == "2.58.34", m and m.group(1)
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        assert "v2.58.32" in readme
+        assert "v2.58.34" in readme
 
     def test_no_ddl_change(self):
         # F9 — UI-only: миграции/схема не трогаются.

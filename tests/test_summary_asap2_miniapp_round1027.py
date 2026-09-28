@@ -174,9 +174,13 @@ def test_t3960_tab_rules_mod_summary_covers_new_groups():
     for _cat, sel in rules:
         claimed |= pc._resolve_tab_groups(_cat, sel)
     assert claimed >= HYBRID_GROUPS | LEGACY_GROUPS
-    # прежние общие группы НЕ переехали (нейтральные вне секций остаются)
-    assert {"limits_summary", "flags_summary", "flags_summary_filter",
-            "limits_summary_filter", "reactions_summary"} <= claimed
-    assert len(pc._TAB_BY_GROUP) == 105
-    assert len(pc.GROUPS) == 107
-    assert len(pc.REGISTRY) == 489
+    # прежние общие группы НЕ переехали (нейтральные вне секций остаются);
+    # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): группы префильтра удалены —
+    # в правиле mod_summary их больше нет, счётчики 481/105/103.
+    assert {"limits_summary", "flags_summary",
+            "reactions_summary"} <= claimed
+    assert "flags_summary_filter" not in claimed
+    assert "limits_summary_filter" not in claimed
+    assert len(pc._TAB_BY_GROUP) == 103
+    assert len(pc.GROUPS) == 105
+    assert len(pc.REGISTRY) == 481

@@ -603,12 +603,12 @@ class TestLivePathInvariants:
         assert "summary_fact_package" not in xml
 
     def test_catalog_zero_delta(self):
-        assert len(pc.REGISTRY) == 489
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
+        assert len(pc.REGISTRY) == 481
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 422
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 464
-        assert len(pc.GROUPS) == 107
-        assert len(pc._TAB_BY_GROUP) == 105
+                    if s.category is not None]) == 456
+        assert len(pc.GROUPS) == 105
+        assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
 
     def test_no_new_env_key(self):
@@ -617,7 +617,7 @@ class TestLivePathInvariants:
             f.name for f in dataclasses.fields(Settings)}
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.33"
+        assert APP_VERSION == "2.58.34"
 
     @pytest.mark.asyncio
     async def test_two_calls_stage1_stage2(self):

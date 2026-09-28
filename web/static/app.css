@@ -2572,10 +2572,14 @@
       .workspace-prompt-lib { grid-template-columns: minmax(0, 1fr); }
       .workspace-prompt-lib .prompt-meta { display: none; }
       .workspace-prompt-lib .prompt-editor { display: none; }
+      /* ASAP-2.1 (T-3982): is-editing навешивается ТОЛЬКО на валидный фокус
+         (workspacePromptFocus), поэтому stale-ключ дерево не скрывает. */
       .workspace-prompt-lib.is-editing .prompt-tree { display: none; }
       .workspace-prompt-lib.is-editing .prompt-editor { display: block; }
       .prompt-tree { max-height: none; }
       .prompt-tree-item { min-height: 44px; }
+      /* T-3982: явный back «editor → список» — тач-цель ≥44px. */
+      .prompt-back-btn { min-height: 44px; }
       [data-workspace-tabs] button { min-height: 44px; }
       .workspace-head .prov-test-btn,
       .direct-stage-card .prov-test-btn { min-height: 44px; }

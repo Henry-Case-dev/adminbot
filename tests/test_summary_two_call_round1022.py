@@ -138,7 +138,10 @@ class TestSummaryRunBranchOn:
         await gen._run(-100, False)
         assert gen.llm.calls == 2          # Редактор + Рассказчик
         assert delivered and "связный дерзкий рассказ" in delivered[0]
-        assert "самым главным шизом объявляется" in delivered[0]
+        # ASAP-2.1 (контракт (e)): код НЕ дописывает шиза — текст публикации ==
+        # текст модели.
+        # §105-доставка: <b>title</b> (из digest Stage-1) + тело.
+        assert delivered[0].endswith("связный дерзкий рассказ")
 
     @pytest.mark.asyncio
     async def test_run_off_branch_single_call(self, monkeypatch):

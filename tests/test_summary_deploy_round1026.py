@@ -378,8 +378,10 @@ class TestActivation:
         assert settings.SUMMARY_HYBRID_L2_ENABLED is True
 
     def test_filter_default_on(self):
-        # SC-04: алгоритмический фильтр ON по умолчанию (не менялся).
-        assert settings.SUMMARY_FILTER_ENABLED is True
+        # ASAP-2.1 (ADR-1028-1 D1, §38): префильтр удалён как сущность —
+        # env-слой S1 констант больше не существует (не «default false»).
+        assert not hasattr(settings, "SUMMARY_FILTER_ENABLED")
+        assert not hasattr(settings, "SUMMARY_FILTER_REPLY_CONTEXT_ENABLED")
 
     @pytest.mark.asyncio
     async def test_run_reaches_hybrid_without_manual_action(self, spy,
@@ -442,33 +444,26 @@ class TestActivation:
 
 class TestFilterAndRouting:
     @pytest.mark.asyncio
-    async def test_filter_default_on_is_applied(self, monkeypatch, spy):
-        """SC-04: при default-резолве фильтр (S1) вызывается в `_run`."""
-        _limits(monkeypatch, filter_on=True)
-        called = {"n": 0}
-        from services.summary_filter import FilterResult
-        from services.summary_context_restore import RestoreResult
+    async def test_no_prefilter_in_live_path(self, monkeypatch, spy):
+        """ASAP-2.1 (ADR-1028-1 D1, §27): префильтра в live-пути НЕТ —
+        Hybrid получает полное окно; короткое сообщение доходит до L1."""
+        rows = _rows({"text": "у кота рак"}, {"text": "Леха уехал"})
+        gen, llm = _make_gen(rows, [L1_JSON, L2_JSON])
+        captured = {}
 
-        def _filter_window(rows, params, **kw):
-            called["n"] += 1
-            return FilterResult(kept=list(rows), dropped=[], fragments=None,
-                                source_count=len(rows), saved_count=len(rows),
-                                restored_count=0, drop_percent=0.0, counts={},
-                                scores={}, budget={}, status="ok",
-                                duration_ms=0.1)
+        async def fake_run_l1(**kwargs):
+            captured["rows"] = kwargs.get("rows")
+            from services.summary_l1_contract import L1Result
+            return L1Result(
+                status="ok", payload={"schema_version": 1, "threads": []},
+                invalid_reason=None, threads_count=0, facts_count=0,
+                auto_unassigned_count=0, skipped_ids=(), skipped_tg_ids=(),
+                response_mode="serious", cover_prompt="", duration_ms=1.0)
 
-        def _restore(kept, dropped, window, params, **kw):
-            return RestoreResult(kept=list(kept), restored=[], restored_count=0,
-                                 parent_count=0, neighbor_count=0,
-                                 restored_tg_ids=(), skipped_ids=(),
-                                 budget={"fits": True}, status="ok",
-                                 duration_ms=0.1)
-
-        monkeypatch.setattr(sg, "filter_window", _filter_window)
-        monkeypatch.setattr(sg, "restore_context", _restore)
-        gen, llm = _make_gen(_rows(), [L1_JSON, L2_JSON])
+        monkeypatch.setattr(
+            "services.summary_l1_clusterizer.run_l1", fake_run_l1)
         await _run(gen)
-        assert called["n"] == 1                    # S1 отработал
+        assert captured["rows"] == rows       # L1 = ВСЁ окно (без потерь)
         assert llm.generate.await_count == 2
         assert spy.plain
 
@@ -503,15 +498,17 @@ class TestBounds:
         assert spy.plain and _SECRET in "".join(spy.plain)
 
     def test_catalog_delta_zero(self):
-        assert len(pc.REGISTRY) == 489
-        assert len(pc.GROUPS) == 107
-        assert len(pc._TAB_BY_GROUP) == 105
+        # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): санкционированная
+        # ОТРИЦАТЕЛЬНАЯ Δ каталога — -8 ключей summary_filter_*, -2 группы.
+        assert len(pc.REGISTRY) == 481
+        assert len(pc.GROUPS) == 105
+        assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.33"
+        assert APP_VERSION == "2.58.34"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        assert "v2.58.33" in readme
+        assert "v2.58.34" in readme
 
     def test_no_ddl_in_touched_sources(self):
         """Δ DDL=0: в изменённых модулях нет DDL-операторов."""
@@ -544,8 +541,13 @@ class TestBounds:
             # limits.max_summary_parts, контракт (d)), новый
             # `summary_l1_repair.py` (контракт (b)). Жёсткие ядра (§95/§99
             # валидаторы, §104, цитат-валидация L2) усилены, не ослаблены.
-            "services/summary_filter.py", "services/summary_context_restore.py",
-            "services/summary_test_run.py",
+            # NOTE (round1028, ASAP-2.1 `mca-asap21-summary-quality-ui-cleanup`,
+            # ADR-1028-1 D1/D2 — санкция Architect, контракт (i) spec): S1/S2
+            # модули УДАЛЕНЫ целиком (git-статус D), `summary_test_run.py`
+            # переподключён на новую семантику (контракт (j)), а
+            # `summary_l1_clusterizer.py`/`summary_run_log.py`/
+            # `summary_hybrid_budget.py` несут переносы контрактов (a)/(b) —
+            # все исключены из запрещённых осознанно.
             # NOTE (round1027, ASAP-2 hotfix суммари — прямое требование
             # владельца, current_task.md «# ASAP»): `summary_l1_clusterizer.py`
             # исключён из списка запрещённых — санкционирован correction retry
@@ -615,8 +617,11 @@ class TestBounds:
                 f"логика {name} изменилась (D1/ASAP-2 byte-parity Legacy)"
         # Тело LEVEL-3 = извлечённый OFF-конур: пин структуры Legacy-контура —
         # `_run_legacy_pipeline` обязан содержать те же вызовы ядра.
+        # NOTE (round1028, ASAP-2.1, контракт (e)): `_ensure_shiz_postfix`
+        # УДАЛЁН из responsibility кода — из пина токенов исключён; шута пишет
+        # модель (канон), `_SHIZ_MARKER` остался только strip-константой.
         tree_dump = _func_dump(current, "_run_legacy_pipeline")
-        for token in ("_generate_two_call", "_llm_generate", "_ensure_shiz_postfix",
+        for token in ("_generate_two_call", "_llm_generate",
                       "_resolve_cover_prompt", "_deliver_rich", "_deliver_plain",
                       "search_long_term", "vector_search", "get_graph_facts",
                       "get_rag_context"):

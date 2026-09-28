@@ -197,7 +197,8 @@ async def test_dry_run_happy_path_two_calls_no_side_effects(monkeypatch):
     cover_media.assert_not_called()
     gen_image.assert_not_called()
     assert gen.memory.writes == 0
-    assert gen._filter_metrics  # S1/S2 метрики собраны (read-only)
+    # ASAP-2.1: S1/S2 удалены — слот filter-метрик больше не существует.
+    assert not hasattr(gen, "_filter_metrics")
 
 
 @pytest.mark.asyncio
@@ -436,33 +437,33 @@ def test_empty_payload_running_contract():
 
 
 @pytest.mark.asyncio
-async def test_build_test_rows_fail_open_resets_stale_filter_metrics(monkeypatch):
-    # L-R1026S9-5: fail-open `_apply_filter` не перезаписывает слот — тест-прогон
-    # не должен подтянуть устаревшие метрики предыдущего прогона.
+async def test_build_test_rows_full_window_no_filter(monkeypatch):
+    # ASAP-2.1 (T-3972, контракт (j)): S1 удалён из test path — dry-run идёт
+    # по тому же semantic input path, что production: filtered == source,
+    # метрик фильтра нет, restored_count == 0.
     rows = _rows()
     gen = _real_generator(rows, _fake_llm([L1_JSON, L2_JSON]))
-    gen._filter_metrics[CHAT_ID] = {"status": "ok", "restored_count": 99,
-                                    "drop_percent": 42.0}
-
-    async def _fail_open(chat_id, src, correlation_id, trigger_message_id,
-                         hybrid=None):
-        return src  # fail-open: слот не пишется
-
-    monkeypatch.setattr(gen, "_apply_filter", _fail_open)
     info = await gen.build_test_rows(CHAT_ID, since_ts=0, correlation_id="c")
+    assert info["filtered"] == info["source"]
+    assert info["dropped"] == []
+    assert info["restored"] == []
     assert info["filter_metrics"] == {}
     assert info["restored_count"] == 0
+    assert info["filtered_count"] == len(rows)
 
 
-# ── Δ каталога=0 / bump / границы ──────────────────────────────────────────
+# ── Δ каталога / bump / границы ────────────────────────────────────────────
 
 def test_catalog_zero_delta():
-    assert len(pc.REGISTRY) == 489
-    assert len({f.name for f in dataclasses.fields(Settings)}) == 430
+    # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): санкционированная
+    # ОТРИЦАТЕЛЬНАЯ Δ каталога — -8 ключей summary_filter_*, -2 группы
+    # (REGISTRY 489→481, GROUPS 107→105, _TAB_BY_GROUP 105→103).
+    assert len(pc.REGISTRY) == 481
+    assert len({f.name for f in dataclasses.fields(Settings)}) == 422
     assert len([s for s in pc.REGISTRY.values()
-                if s.category is not None]) == 464
-    assert len(pc.GROUPS) == 107
-    assert len(pc._TAB_BY_GROUP) == 105
+                if s.category is not None]) == 456
+    assert len(pc.GROUPS) == 105
+    assert len(pc._TAB_BY_GROUP) == 103
     assert len(pc.TAB_RULES) == 21
 
 
@@ -473,7 +474,7 @@ def test_no_new_env_catalog_key():
 
 
 def test_app_version_bumped():
-    assert APP_VERSION == "2.58.33"
+    assert APP_VERSION == "2.58.34"
 
 
 def test_forbidden_modules_outside_diff():

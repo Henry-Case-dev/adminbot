@@ -92,7 +92,7 @@ class TestCompleteness:
         #   (limits.image_daily_limit, default 60) = 427.
         #   ANTICLICHE_FIRST_RUN_DELAY_MINUTES — ClassVar (env-only, в
         #   dataclass.fields не входит).
-        assert len(fields) == 430
+        assert len(fields) == 422
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -324,8 +324,9 @@ class TestGroups8424:
         # ASAP-2 round1027 (ADR-1027-10 D11): +5 — flags_summary_hybrid,
         # models_summary_hybrid, limits_summary_hybrid, flags_summary_legacy,
         # limits_summary_legacy (секции Hybrid/Legacy в mod_summary, §13)
-        # → GROUPS 107.
-        assert len(GROUPS) == 107
+        # → GROUPS 107. ASAP-2.1 (ADR-1028-1 D1, контракт i): -2 группы
+        # префильтра (flags/limits_summary_filter) → GROUPS 105.
+        assert len(GROUPS) == 105
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -415,7 +416,7 @@ class TestGroups8424:
         # context ×2 + длина ×4), flags +4 (hybrid enabled/repair/retry +
         # legacy fallback) → models 60 / keys 22 / limits 205 / flags 76.
         assert counts == {"prompts": 23, "models": 60, "keys": 22,
-                          "limits": 205, "flags": 76, "reactions": 39,
+                          "limits": 199, "flags": 74, "reactions": 39,
                           "content": 5, "memory": 34}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

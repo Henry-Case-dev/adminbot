@@ -33,8 +33,9 @@ def test_workspace_metadata_present():
     assert "m.routeSlug = String(m.id).replace(/^mod_/, '')" in APP_JS
     assert "m.tabs = WORKSPACE_TABS[m.id]" in APP_JS
     # Карта вкладок §4.2 spec.md (выборочно, ключевые модули).
+    # ASAP-2.1 (T-3973, контракт i): 'prep' удалён из mod_summary.
     for entry in (
-        "mod_summary: ['overview', 'settings', 'prep', 'clusterizer', 'writer',",
+        "mod_summary: ['overview', 'settings', 'clusterizer', 'writer',",
         "mod_factcheck: ['overview', 'settings', 'synthesizer', 'verbalizer',",
         "mod_images: ['overview', 'settings', 'limits', 'models', 'testing']",
         "mod_media_download: ['overview', 'settings', 'limits']",
@@ -43,11 +44,13 @@ def test_workspace_metadata_present():
 
 
 def test_workspace_tab_labels():
+    # ASAP-2.1 (T-3973): label 'prep' удалён вместе с вкладкой.
     for label in ("overview: 'Обзор'", "settings: 'Основные настройки'",
                   "synthesizer: 'Синтезатор'", "verbalizer: 'Вербализатор'",
-                  "prep: 'Подготовка сообщений'", "clusterizer: 'Кластеризатор'",
+                  "clusterizer: 'Кластеризатор'",
                   "writer: 'Писатель'", "testing: 'Тестирование'"):
         assert label in APP_JS, label
+    assert "prep: 'Подготовка сообщений'" not in APP_JS
 
 
 # ── D1: динамический резолвер (без 13 статических записей) ─────────────────
@@ -312,11 +315,11 @@ def test_ai_hub_five_pages_order():
 def test_catalog_delta_zero():
     import services.param_catalog as pc
     from config.settings import Settings
-    assert len(pc.REGISTRY) == 473
-    assert len(pc.GROUPS) == 102
-    assert len(pc._TAB_BY_GROUP) == 100
+    assert len(pc.REGISTRY) == 481
+    assert len(pc.GROUPS) == 105
+    assert len(pc._TAB_BY_GROUP) == 103
     assert len(pc.TAB_RULES) == 21
-    assert len({f.name for f in dataclasses.fields(Settings)}) == 430
+    assert len({f.name for f in dataclasses.fields(Settings)}) == 422
 
 
 def test_no_webgl_and_no_new_libraries():

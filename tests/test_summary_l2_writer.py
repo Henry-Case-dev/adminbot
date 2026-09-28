@@ -190,12 +190,17 @@ class TestQuotes:
         assert metrics["quote_unverified_count"] == 1
 
     def test_grounded_quote_kept(self):
+        # ASAP-2.1 (T-3978, контракт d): typography normalizer на канонизации
+        # переводит ёлочки в обычные кавычки ДО quote-проверки; заземлённая
+        # цитата (есть в пакете) сохраняется — уже в нормализованной форме.
         doc = _doc(paragraphs=[
             {"text": "В чате прозвучало «на улице шёл сильный дождь».",
              "emphasis": None}])
         document, metrics = validate_l2_document(doc, _package())
         assert document is not None
-        assert "«" in document["paragraphs"][0]["text"]
+        text = document["paragraphs"][0]["text"]
+        assert "«" not in text and "»" not in text
+        assert '"на улице шёл сильный дождь"' in text
         assert metrics["quote_unverified_count"] == 0
 
     def test_named_attribution_fail_closed(self):
@@ -329,8 +334,11 @@ class TestRunL2:
         assert result.status == STATUS_OK
         assert result.usable
         assert len(result.document["paragraphs"]) == 5
+        # ASAP-2.1: канонический абзац несёт emphasis_spans (пустой список —
+        # валидное отсутствие акцентов).
         assert result.document["paragraphs"] == [
-            {"text": f"Абзац {i}.", "emphasis": None} for i in range(5)]
+            {"text": f"Абзац {i}.", "emphasis": None, "emphasis_spans": []}
+            for i in range(5)]
 
     async def test_hard_cap_498_scenario(self):
         # §99 технический hard-лимит 498 блоков остаётся fail-closed
@@ -409,8 +417,10 @@ class TestCanon:
             "\n\n" + TARGET_INSTRUCTION_BLOCK)
 
     def test_canon_v2_length_dedup_authors(self):
-        """Т-3942: канон R1027 = правила §97/§98 (сохранены) + ДЛИНА/
-        ДЕДУПЛИКАЦИЯ + авторский контекст пакета v2; ЧИСЕЛ в каноне нет —
+        """T-3942 + ASAP-2.1 (контракт g): канон R1028 = правила §97/§98
+        (сохранены) + ДЛИНА/ДЕДУПЛИКАЦИЯ + авторский контекст пакета v2 +
+        грамматика §15 / двачерский голос §16 / typography §17 /
+        emphasis_spans §18–19 / finale §21–24; ЧИСЕЛ целей в каноне нет —
         они в детерминированном length-блоке user-контента."""
         canon = SUMMARY_L2_WRITER_SYSTEM_PROMPT
         assert "ДЛИНА И ДЕДУПЛИКАЦИЯ" in canon
@@ -423,7 +433,16 @@ class TestCanon:
         assert "не приписывай реплики другим" in canon
         # §97/§98 базы сохранены:
         assert "Не выдумывай цитаты" in canon
-        assert "приоритет — точность" in canon
+        # ASAP-2.1 §16: запрет сленга снят владельцем.
+        assert "никакого сленга" not in canon
+        # §15 грамматика:
+        assert "заглавной буквы" in canon
+        # §17 typography:
+        assert "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНЫ длинные тире" in canon
+        # §18–19 акценты:
+        assert "emphasis_spans" in canon
+        # §21–24 finale:
+        assert '"finale"' in canon
         # Числа целей длины — НЕ в каноне (иначе hot-правка канона ломала бы
         # подстановку; см. length-блок build_l2_input):
         assert "6500" not in canon and "target_chars" not in canon
@@ -462,7 +481,10 @@ class TestCanon:
             "services.summary_prompts.SUMMARY_L2_WRITER_SYSTEM_PROMPT"
 
     def test_migration_and_rollback(self):
-        from services.summary_prompts import PREV_SUMMARY_L2_WRITER_R1027
+        from services.summary_prompts import (
+            PREV_SUMMARY_L2_WRITER_R1027,
+            PREV_SUMMARY_L2_WRITER_R1028,
+        )
         assert (PREV_SUMMARY_L2_WRITER_R1026,
                 SUMMARY_L2_WRITER_SYSTEM_PROMPT) in \
             pm.PROMPT_MIGRATIONS[PROMPT_PG_KEY]
@@ -470,17 +492,23 @@ class TestCanon:
         assert (PREV_SUMMARY_L2_WRITER_R1027,
                 SUMMARY_L2_WRITER_SYSTEM_PROMPT) in \
             pm.PROMPT_MIGRATIONS[PROMPT_PG_KEY]
+        # ASAP-2.1: ступень R1027→R1028 (контракт (g)).
+        assert (PREV_SUMMARY_L2_WRITER_R1028,
+                SUMMARY_L2_WRITER_SYSTEM_PROMPT) in \
+            pm.PROMPT_MIGRATIONS[PROMPT_PG_KEY]
         assert pm.ROLLBACK_MIGRATIONS[PROMPT_PG_KEY] == (
-            SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1027)
+            SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1028)
 
     def test_catalog_delta_sanctioned(self):
-        assert len(pc.REGISTRY) == 489
+        # ASAP-2.1 (ADR-1028-1 D1, контракт i): санкционированная
+        # ОТРИЦАТЕЛЬНАЯ Δ каталога — -8/-2; env-слой Settings -8.
+        assert len(pc.REGISTRY) == 481
         assert len({f.name for f in dataclasses.fields(settings.__class__)}) \
-            == 430
+            == 422
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 464
-        assert len(pc.GROUPS) == 107
-        assert len(pc._TAB_BY_GROUP) == 105
+                    if s.category is not None]) == 456
+        assert len(pc.GROUPS) == 105
+        assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
 
 
