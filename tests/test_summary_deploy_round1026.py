@@ -54,10 +54,13 @@ _FILTER_FLAG = "flags.summary_filter_enabled"
 _S2_FLAG = "flags.summary_filter_reply_context_enabled"
 _SECRET = "СЕКРЕТ_R17_НЕ_ДОЛЖЕН_БЫТЬ_В_ЛОГАХ"
 
-# ── §114: детерминированные L1/L2-ответы (реальные S3/S4/S5-модули) ─────────
+# ── §114: детерминированные L1/L2-ответы (реальные S3/S4/S5-модули).
+# ASAP-2 §95-v2: L1-выход — schema_version строго 2 (иначе валидатор
+# bad_schema_version → correction-retry/LEVEL-2; детерминизм harness пропал).
+# L2 (§99) остаётся schema_version 1 — контракт выходного документа не менялся.
 
 L1_JSON = json.dumps({
-    "schema_version": 1,
+    "schema_version": 2,
     "threads": [{
         "thread_id": "t1", "topic": "Тема", "message_ids": [101, 102],
         "facts": [{"text": "Важный факт", "evidence_message_ids": [101]}],
@@ -66,7 +69,7 @@ L1_JSON = json.dumps({
 }, ensure_ascii=False)
 
 L1_JSON_ONE = json.dumps({
-    "schema_version": 1,
+    "schema_version": 2,
     "threads": [{
         "thread_id": "t1", "topic": "Тема", "message_ids": [101],
         "facts": [{"text": "Важный факт", "evidence_message_ids": [101]}],
@@ -75,7 +78,7 @@ L1_JSON_ONE = json.dumps({
 }, ensure_ascii=False)
 
 L1_JSON_RICH = json.dumps({
-    "schema_version": 1,
+    "schema_version": 2,
     "cover_prompt": "rain",
     "threads": [{
         "thread_id": "t1", "topic": "Тема", "message_ids": [101, 102],
@@ -257,16 +260,45 @@ class TestSec114Scenarios:
 
     @pytest.mark.asyncio
     async def test_scenario_07_invalid_json_l1_fail_closed(self, spy, caplog):
-        """(7) Невалидный JSON L1 → fail-closed, L2 не вызывается, 0 публикаций."""
-        gen, llm = _make_gen(_rows(), ["это не JSON"])
+        """(7) ASAP-2 AMEND (§8/§9, ADR-1027-10 D3/D4; T-3952): невалидный JSON
+        L1 ×2 попытки (correction retry) → НЕ «L2 не вызывается»: LEVEL-2 —
+        deterministic fallback-пакет → L2 вызывается в любом случае → статья
+        публикуется (availability invariant). Прежний терминальный fail-closed
+        скопирован ниже в scenario_07b (L2 тоже мёртв + Legacy мёртв)."""
+        gen, llm = _make_gen(_rows(), ["это не JSON", "это не JSON",
+                                       L2_JSON, L2_JSON])
         with caplog.at_level(logging.INFO):
             await _run(gen)
-        assert llm.generate.await_count == 1          # L2 не вызывался
-        assert spy.plain == [] and spy.rich == []      # публикации нет
-        assert "PUBLISH_" not in caplog.text
+        assert llm.generate.await_count == 3          # 2×L1 + 1×L2 (retry нет)
+        assert spy.plain, "LEVEL-2: fallback-статья публикуется"
+        assert "L1_FALLBACK_PACKAGE" in caplog.text
+        assert "LEGACY_FALLBACK" not in caplog.text   # hybrid сам довёл
         complete = [r.getMessage() for r in caplog.records
                     if r.getMessage().startswith("SUMMARY_COMPLETE |")]
-        assert complete and f"code={CODE_SUMMARY_GENERATION_FAILED}" in complete[0]
+        assert complete and "status=ok" in complete[0]
+        assert "fallback=none" in complete[0]
+
+    @pytest.mark.asyncio
+    async def test_scenario_07b_both_contours_dead_terminal(self, spy, caplog):
+        """(7b) Анти-лавина §9: L1 мёртв ×2 → LEVEL-2 L2 мёртв → LEVEL-3
+        Legacy (мок падения) → только тогда SUMMARY_GENERATION_FAILED
+        (матрица строка 11), публикаций нет, UX-кодов промежуточных нет."""
+        gen, llm = _make_gen(_rows(), ["не JSON", "не JSON", "не JSON"])
+
+        async def _dead_legacy(*a, **k):
+            return False                      # Legacy тоже провалился
+
+        gen._run_legacy_pipeline = _dead_legacy
+        with caplog.at_level(logging.INFO):
+            await _run(gen)
+        assert spy.plain == [] and spy.rich == []
+        assert "LEGACY_FALLBACK" in caplog.text
+        assert "reason=l2_unusable" in caplog.text
+        complete = [r.getMessage() for r in caplog.records
+                    if r.getMessage().startswith("SUMMARY_COMPLETE |")]
+        assert complete and f"code={CODE_SUMMARY_GENERATION_FAILED}" \
+            in complete[0]
+        assert "fallback=none" in complete[0]
 
     @pytest.mark.asyncio
     async def test_scenario_08_llm_error_no_publication(self, spy, caplog):
@@ -471,15 +503,15 @@ class TestBounds:
         assert spy.plain and _SECRET in "".join(spy.plain)
 
     def test_catalog_delta_zero(self):
-        assert len(pc.REGISTRY) == 473
-        assert len(pc.GROUPS) == 102
-        assert len(pc._TAB_BY_GROUP) == 100
+        assert len(pc.REGISTRY) == 489
+        assert len(pc.GROUPS) == 107
+        assert len(pc._TAB_BY_GROUP) == 105
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.32"
+        assert APP_VERSION == "2.58.33"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        assert "v2.58.32" in readme
+        assert "v2.58.33" in readme
 
     def test_no_ddl_in_touched_sources(self):
         """Δ DDL=0: в изменённых модулях нет DDL-операторов."""
@@ -502,13 +534,32 @@ class TestBounds:
             # исключён — санction A3 (ImageRequest-контракт); §104 гейтится
             # AST-гейтом A3 (test_unified_image_request_round1026.py).
             "services/telegram_send.py",
-            "services/summary_prompts.py", "services/prompt_migrations.py",
+            # NOTE (round1027, ASAP-2 `mca-asap2-summary-pipeline` — прямое
+            # требование владельца «# ASAP 2 / P0», spec контракты (a)–(n),
+            # ADR-1027-10): из запрещённых ИСКЛЮЧЕНЫ изменённые фичей файлы —
+            # `summary_prompts.py`/`prompt_migrations.py` (каноны R1027
+            # PREV_*/ROLLBACK, контракт (l)), `summary_fact_package.py`
+            # (FactPackage v2 + build_fallback_package, контракты (h)/(i)),
+            # `summary_article_formatter.py` (docstring-фикс Legacy-семантики
+            # limits.max_summary_parts, контракт (d)), новый
+            # `summary_l1_repair.py` (контракт (b)). Жёсткие ядра (§95/§99
+            # валидаторы, §104, цитат-валидация L2) усилены, не ослаблены.
             "services/summary_filter.py", "services/summary_context_restore.py",
-            "services/summary_l1_clusterizer.py", "services/summary_fact_package.py",
-            "services/summary_article_formatter.py", "services/summary_test_run.py",
+            "services/summary_test_run.py",
+            # NOTE (round1027, ASAP-2 hotfix суммари — прямое требование
+            # владельца, current_task.md «# ASAP»): `summary_l1_clusterizer.py`
+            # исключён из списка запрещённых — санкционирован correction retry
+            # run_l1 после deterministic repair (§15; hot-first флаги
+            # flags.summary_hybrid_l1_repair/_retry_enabled; hard-контракт §95-v2
+            # не ослаблен, too_many_*/LLMError не ретраятся, гейтится
+            # test_summary_asap2_l1_retry_round1027.py +
+            # test_summary_l1_repair_round1027.py).
             # NOTE (A5, ADR-1026-17 D9): `services/param_catalog.py` и UI-файлы
             # `web/app.js`/`web/index.html` исключены — A5 санкционирует
-            # Δ каталога +1/+1 и врезку «Лимиты» в mod_images (§27/§50).
+            # Δ каталога +1/+1 и врезку «Лимиты» в mod_images (§27/§50);
+            # NOTE (round1027, ASAP-2 §13/§14/ADR-1027-10 D11): те же файлы
+            # дополнительно несут Δ каталога +16/+5 групп (Hybrid/Legacy секции
+            # miniapp) — см. evidence F8-переиздание.
             # NOTE (round1027, mca-17a / ADR-1027-8 D13/§4.10):
             # `web/api/routes.py` исключён из запрета — санкционированы
             # аддитивные query-фильтры существующего `GET /api/status/logs`
@@ -537,7 +588,7 @@ class TestBounds:
         def _func_dump(src, name):
             tree = ast.parse(src)
             for node in ast.walk(tree):
-                if (isinstance(node, ast.AsyncFunctionDef)
+                if (isinstance(node, (ast.AsyncFunctionDef, ast.FunctionDef))
                         and node.name == name):
                     body = node.body
                     if (body and isinstance(body[0], ast.Expr)
@@ -547,6 +598,26 @@ class TestBounds:
                     return ast.dump(node)
             raise AssertionError(f"{name} не найден")
 
-        for name in ("_run", "_run_hybrid_l2", "_hybrid_l2_enabled"):
+        # D1 (round1026-S10): слой генерации Legacy OFF-контура не менялся.
+        # NOTE (round1027, ASAP-2 `mca-asap2-summary-pipeline`, ADR-1027-10
+        # D3/D8 — прямая отмена «L2-провал → без legacy-фолбэка» владельцем
+        # §8/§9): `_run`/`_run_hybrid_l2` намеренно ИЗМЕНЕНЫ (LEVEL-2/3,
+        # guard published, общий `_run_legacy_pipeline`), поэтому из AST-пина
+        # исключены; пинуются функции, которые ASAP-2 НЕ трогал (генерация/
+        # промпты/чанкинг Legacy-слоя — byte-parity DoD-10).
+        for name in ("_hybrid_l2_enabled", "_llm_generate",
+                     "_generate_two_call", "_compose_user_content",
+                     "_extract_keywords", "_format_l2_quote",
+                     "_resolve_cover_prompt", "_derive_fallback_cover_prompt",
+                     "_chunk_by_whitespace", "_send_text_with_retry",
+                     "_send_rich_with_retry", "_send_one_chunk", "_send_ux"):
             assert _func_dump(current, name) == _func_dump(proc.stdout, name), \
-                f"логика {name} изменилась (D1 запрещает)"
+                f"логика {name} изменилась (D1/ASAP-2 byte-parity Legacy)"
+        # Тело LEVEL-3 = извлечённый OFF-конур: пин структуры Legacy-контура —
+        # `_run_legacy_pipeline` обязан содержать те же вызовы ядра.
+        tree_dump = _func_dump(current, "_run_legacy_pipeline")
+        for token in ("_generate_two_call", "_llm_generate", "_ensure_shiz_postfix",
+                      "_resolve_cover_prompt", "_deliver_rich", "_deliver_plain",
+                      "search_long_term", "vector_search", "get_graph_facts",
+                      "get_rag_context"):
+            assert token in tree_dump, token

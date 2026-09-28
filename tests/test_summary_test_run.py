@@ -57,7 +57,9 @@ ROOT = Path(__file__).resolve().parents[1]
 CHAT_ID = 100
 
 L1_JSON = json.dumps({
-    "schema_version": 1,
+    # ASAP-2 §95-v2: schema_version строго 2 (bad_schema_version иначе
+    # спровоцировал бы correction-retry и 3 LLM-вызова вместо happy-path 2).
+    "schema_version": 2,
     "threads": [
         {"thread_id": "t1", "topic": "Тема",
          "message_ids": [101],
@@ -212,7 +214,7 @@ async def test_artifacts_completeness_and_previews(monkeypatch):
     assert art["source"][0]["message_id"] == 101
     assert art["clusters"][0]["topic"] == "Тема"
     assert art["clusters"][0]["facts"][0]["text"] == "Важный факт"
-    assert art["package"]["schema_version"] == 1
+    assert art["package"]["schema_version"] == 2   # FactPackage v2 (§12/контракт (h))
     assert art["article"]["title"] == "Тестовая статья"
     # SC-10/SC-11: rich с настоящим H1, plain — с <b>-заголовком.
     assert "<h1>Тестовая статья</h1>" in art["rich_preview"]
@@ -247,13 +249,15 @@ async def test_empty_window_no_llm():
 
 @pytest.mark.asyncio
 async def test_invalid_l1_fail_closed_no_l2():
-    llm = _fake_llm(["не json"])
+    # ASAP-2 hotfix round1027: L1 делает ровно один ретрай на invalid_json;
+    # обе попытки невалидны → прежний fail-closed (L2 не вызывается).
+    llm = _fake_llm(["не json", "не json"])
     gen = _real_generator(_rows(), llm)
     result = await run_summary_test(CHAT_ID, {"hours": 24}, generator=gen,
                                     correlation_id="cid-l1bad", pg=None)
     assert result.status == STATUS_INVALID
     assert result.diagnostics[-1]["code"] == TEST_L1_INVALID
-    assert llm.generate.await_count == 1  # L2 не вызывается
+    assert llm.generate.await_count == 2  # 2×L1 (ретрай), L2 не вызывается
     assert result.publication["status"] == "not_published"
 
 
@@ -440,7 +444,8 @@ async def test_build_test_rows_fail_open_resets_stale_filter_metrics(monkeypatch
     gen._filter_metrics[CHAT_ID] = {"status": "ok", "restored_count": 99,
                                     "drop_percent": 42.0}
 
-    async def _fail_open(chat_id, src, correlation_id, trigger_message_id):
+    async def _fail_open(chat_id, src, correlation_id, trigger_message_id,
+                         hybrid=None):
         return src  # fail-open: слот не пишется
 
     monkeypatch.setattr(gen, "_apply_filter", _fail_open)
@@ -452,12 +457,12 @@ async def test_build_test_rows_fail_open_resets_stale_filter_metrics(monkeypatch
 # ── Δ каталога=0 / bump / границы ──────────────────────────────────────────
 
 def test_catalog_zero_delta():
-    assert len(pc.REGISTRY) == 473
+    assert len(pc.REGISTRY) == 489
     assert len({f.name for f in dataclasses.fields(Settings)}) == 430
     assert len([s for s in pc.REGISTRY.values()
-                if s.category is not None]) == 448
-    assert len(pc.GROUPS) == 102
-    assert len(pc._TAB_BY_GROUP) == 100
+                if s.category is not None]) == 464
+    assert len(pc.GROUPS) == 107
+    assert len(pc._TAB_BY_GROUP) == 105
     assert len(pc.TAB_RULES) == 21
 
 
@@ -468,7 +473,7 @@ def test_no_new_env_catalog_key():
 
 
 def test_app_version_bumped():
-    assert APP_VERSION == "2.58.32"
+    assert APP_VERSION == "2.58.33"
 
 
 def test_forbidden_modules_outside_diff():

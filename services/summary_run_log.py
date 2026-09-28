@@ -155,6 +155,10 @@ class RunContext:
     publish_status: str | None = None     # ok | failed
     publish_duration_ms: float | None = None
     publish_message_id: int | None = None
+    # ASAP-2 (§18/контракт (k), ADR-1027-10): итог recovery-контура на момент
+    # завершения прогона — "none" (hybrid довёл сам) | "legacy" (LEVEL-3).
+    # R17-safe код, без деталей текстов.
+    fallback: str = "none"
     code: str | None = None
     status: str = STATUS_OK
     stage: str | None = None
@@ -222,15 +226,19 @@ def log_summary_start(ctx: RunContext) -> None:
 
 def log_summary_complete(ctx: RunContext) -> None:
     try:
+        # ASAP-2 §18 (контракт (k)): аддитивно fallback=none/legacy и
+        # publication_status (publication-срез S6 для §112; R17-safe коды).
         logger.info(
             "SUMMARY_COMPLETE | run_id=%s | chat_id=%s | mode=%s | status=%s | "
             "duration_ms=%.0f | source_count=%s | saved_count=%s | "
             "restored_count=%s | threads=%s | paragraphs=%s | cover_status=%s | "
-            "code=%s",
+            "code=%s | fallback=%s | publication_status=%s",
             ctx.run_id or "none", ctx.chat_id, ctx.mode, ctx.status,
             ctx.duration_ms(), _num(ctx.source_count), _num(ctx.saved_count),
             _num(ctx.restored_count), _num(ctx.threads), _num(ctx.paragraphs),
-            ctx.cover_status or "-", ctx.code or "-")
+            ctx.cover_status or "-", ctx.code or "-",
+            str(getattr(ctx, "fallback", "none") or "none"),
+            ctx.publish_status or "-")
     except Exception:  # pragma: no cover - лог не должен ронять прогон
         pass
 

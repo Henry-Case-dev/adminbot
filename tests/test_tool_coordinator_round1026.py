@@ -620,10 +620,11 @@ class TestBounds:
             # NOTE (A3, ADR-1026-16 D2/D6): `services/image_generation.py`
             # исключён — санction A3 (ImageRequest-контракт); §104 гейтится
             # AST-гейтом A3 (test_unified_image_request_round1026.py).
-            "services/summary_prompts.py",
-            "services/prompt_migrations.py",
-            # NOTE (A5, ADR-1026-17 D9): `services/param_catalog.py` исключён —
-            # A5 санкционирует Δ каталога +1 ParamSpec +1 GroupSpec.
+            # NOTE (round1027, ASAP-2 `mca-asap2-summary-pipeline`, контракт (l)/
+            # ADR-1027-10): `services/summary_prompts.py` и
+            # `services/prompt_migrations.py` ИСКЛЮЧЕНЫ из запрещённых —
+            # санкционированы каноны R1027 L1/L2 (many-to-many §95-v2, ДЛИНА/
+            # ДЕДУП/авторы; PREV_SUMMARY_*_R1027 + ROLLBACK, ADR-1013-3).
             "services/telegram_send.py",
             "services/chat_prompts.py",
             # NOTE (A9, ADR-1026-22 D1/D7/D10): `services/execution_graph_source.py`
@@ -655,27 +656,38 @@ class TestBounds:
         # санкционированно переведён на единый single-writer
         # (`db.serialized()`) для embedding cache/backfill/сводок; остальные
         # `services/summary_*` по-прежнему вне diff.
-        # NOTE (round1027, ASAP hotfix суммари — прямое требование владельца,
-        # current_task.md «# ASAP», прод-инцидент 27.09 03:17):
-        # `services/summary_l2_writer.py` — точечный фикс публикации
-        # (`run_l2`: детерминированная обрезка до мягкого капа абзацев с
-        # маркером `trimmed_for_publication`, env-only
-        # `SUMMARY_L2_TRIM_ENABLED`); жёсткий контракт §99 (498/32000/900)
-        # и логика fail-closed не меняются.
+        # NOTE (round1027, ASAP-2 `mca-asap2-summary-pipeline` — прямое
+        # требование владельца current_task.md «# ASAP 2 / P0», spec
+        # plans/features/mca-asap2-summary-pipeline/spec.md, ADR-1027-10):
+        # легаси-NOTE про trim-костыль 2.58.32 СНЯТ (обрезка удалена по §16;
+        # `SUMMARY_L2_TRIM_ENABLED`/`_trim_document_for_publication` не
+        # существуют). Санкционированный набор правок Summary-контура:
+        # l1_contract/l1_clusterizer/l2_writer/fact_package/generator/
+        # prompts/run_log + новый l1_repair (двухконтурная архитектура
+        # Hybrid+Legacy fallback; hard-контракты §95/§99 не ослабляются).
         summary_changed = {n for n in names
                            if n.startswith("services/summary_")}
         assert summary_changed <= {"services/summary_memory.py",
-                                   "services/summary_l2_writer.py"}, \
+                                   "services/summary_l2_writer.py",
+                                   "services/summary_l1_clusterizer.py",
+                                   "services/summary_l1_contract.py",
+                                   "services/summary_l1_repair.py",
+                                   "services/summary_hybrid_budget.py",
+                                   "services/summary_fact_package.py",
+                                   "services/summary_article_formatter.py",
+                                   "services/summary_generator.py",
+                                   "services/summary_prompts.py",
+                                   "services/summary_run_log.py"}, \
             summary_changed
 
     def test_version_and_catalog(self):
-        assert APP_VERSION == "2.58.32"
-        assert len(pc.REGISTRY) == 473
+        assert APP_VERSION == "2.58.33"
+        assert len(pc.REGISTRY) == 489
         assert len({f.name for f in dataclasses.fields(Settings)}) == 430
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 448
-        assert len(pc.GROUPS) == 102
-        assert len(pc._TAB_BY_GROUP) == 100
+                    if s.category is not None]) == 464
+        assert len(pc.GROUPS) == 107
+        assert len(pc._TAB_BY_GROUP) == 105
         assert len(pc.TAB_RULES) == 21
 
     def test_canon_twelve_tools(self):

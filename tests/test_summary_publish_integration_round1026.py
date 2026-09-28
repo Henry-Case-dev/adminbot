@@ -80,7 +80,8 @@ _NARRATOR = "Первый абзац рассказа. Второй абзац �
 _SECRET_TEXT = "СЕКРЕТНЫЙ_ТЕКСТ_САММАРИ_R17"
 
 _L1_JSON = json.dumps({
-    "schema_version": 1,
+    # ASAP-2 §95-v2: L1 выход — schema_version строго 2.
+    "schema_version": 2,
     "threads": [{
         "thread_id": "t1", "topic": "Тема", "message_ids": [101],
         "facts": [{"text": "Важный факт", "evidence_message_ids": [101]}],
@@ -98,7 +99,7 @@ _L2_JSON = json.dumps({
 
 # ON rich: `cover_prompt` в L1-контракте (top-level) → service → rich-путь.
 _L1_JSON_RICH = json.dumps({
-    "schema_version": 1,
+    "schema_version": 2,               # ASAP-2 §95-v2
     "cover_prompt": "rain",
     "threads": [{
         "thread_id": "t1", "topic": "Тема", "message_ids": [101],
@@ -654,7 +655,12 @@ class TestOnDelivery:
             "published_rich"
 
     @pytest.mark.asyncio
-    async def test_on_l1_not_usable_fail_closed(self, monkeypatch, caplog):
+    async def test_on_l1_not_usable_level2_l2_publishes_article(
+            self, monkeypatch, caplog):
+        """ASAP-2 §8/LEVEL-2 (T-3952, AMEND §106): L1 unusable больше НЕ
+        терминален: deterministic fallback-пакет → L2 вызывается в любом
+        случае → статья публикуется (plain без cover). `L2_SKIPPED
+        l1_not_usable → degraded → SUMMARY_GENERATION_FAILED` снят."""
         _fixed_rid(monkeypatch)
         _patch_chat_limit(monkeypatch, {(CHAT, _HYBRID_FLAG): True})
         from services.summary_l1_contract import invalid_result
@@ -667,20 +673,67 @@ class TestOnDelivery:
         llm = MagicMock()
         llm.generate = AsyncMock(return_value=_L2_JSON)
         gen = _gen(FakeMemory(rows=_rows()), llm)
-        # Доставка не должна вызываться (fail-closed).
-        gen._deliver_l2_plain = AsyncMock()
-        gen._deliver_l2_rich = AsyncMock()
-
+        gen._deliver_l2_rich = AsyncMock(return_value=True)
         with caplog.at_level(logging.INFO):
             await gen._run(CHAT, False)
-
-        assert llm.generate.await_count == 0          # L2 не вызван
-        gen._deliver_l2_plain.assert_not_awaited()
-        gen._deliver_l2_rich.assert_not_awaited()
-        assert "PUBLISH_" not in caplog.text
+        assert llm.generate.await_count == 1          # L2 на fallback-пакете
+        # DoD-14 на деградированном пути: обложка LEVEL-2 — детерминированная
+        # `_derive_fallback_cover_prompt` (0 LLM) → rich-публикация.
+        gen._deliver_l2_rich.assert_awaited_once()
+        fallback = _lines(caplog, "L1_FALLBACK_PACKAGE")
+        assert fallback and "reason=invalid_json" in fallback[0]
         complete = _lines(caplog, "SUMMARY_COMPLETE")
-        assert complete and "status=degraded" in complete[0]
-        assert f"code={CODE_SUMMARY_GENERATION_FAILED}" in complete[0]
+        assert complete and "status=ok" in complete[0]
+        assert "fallback=none" in complete[0]         # статья hybrid, не Legacy
+        assert "code=-" in complete[0]
+
+    @pytest.mark.asyncio
+    async def test_on_l2_unusable_level3_legacy_guard(self, monkeypatch,
+                                                      caplog):
+        """ASAP-2 §8/§9/LEVEL-3 (матрица строка 6): L2 unusable (обычный И
+        fallback-пакет) → полный Legacy-пайплайн (`_run_legacy_pipeline`,
+        skip_memorize), guard `published` — не входим, если уже отправили.
+        L2 correction retry НЕ вводится (Q2/ADR-1027-10 D3)."""
+        _fixed_rid(monkeypatch)
+        _patch_chat_limit(monkeypatch, {(CHAT, _HYBRID_FLAG): True})
+        llm = MagicMock()
+        llm.generate = AsyncMock(return_value="не json")   # L2 invalid
+        gen = _gen(FakeMemory(rows=_rows()), llm)
+        legacy = AsyncMock(return_value=True)
+        gen._run_legacy_pipeline = legacy
+        with caplog.at_level(logging.INFO):
+            await gen._run(CHAT, False)
+        assert llm.generate.await_count == 3          # L1 + ≤1 correction + L2
+        # (L2 correction retry НЕ вводится — Q2; calls_so_far=2 до LEVEL-3)
+        legacy.assert_awaited_once()
+        kwargs = legacy.await_args.kwargs
+        assert kwargs.get("skip_memorize") is True        # дубля памяти нет
+        warn = _lines(caplog, "LEGACY_FALLBACK")
+        assert warn and "reason=l2_unusable" in warn[0]
+        complete = _lines(caplog, "SUMMARY_COMPLETE")
+        assert complete and "fallback=legacy" in complete[0]
+        assert "status=ok" in complete[0]                 # цепочка довела
+
+    @pytest.mark.asyncio
+    async def test_level3_kill_switch_off_terminal(self, monkeypatch, caplog):
+        """OFF `flags.summary_legacy_fallback_enabled` → LEVEL-3 не выполняется,
+        hybrid-провал терминален (аварийный режим, Q6): SUMMARY_GENERATION_FAILED
+        остаётся, Legacy НЕ вызывается."""
+        _fixed_rid(monkeypatch)
+        _patch_chat_limit(monkeypatch, {(CHAT, _HYBRID_FLAG): True,
+                                         (CHAT, "flags.summary_legacy_fallback_enabled"): False})
+        llm = MagicMock()
+        llm.generate = AsyncMock(return_value="не json")
+        gen = _gen(FakeMemory(rows=_rows()), llm)
+        legacy = AsyncMock(return_value=True)
+        gen._run_legacy_pipeline = legacy
+        with caplog.at_level(logging.INFO):
+            await gen._run(CHAT, False)
+        legacy.assert_not_awaited()
+        warn = _lines(caplog, "LEGACY_FALLBACK")
+        assert warn and "ВЫКЛЮЧЕН" in warn[0]
+        complete = _lines(caplog, "SUMMARY_COMPLETE")
+        assert complete and f"code={CODE_SUMMARY_GENERATION_FAILED}" in complete[0]
 
     @pytest.mark.asyncio
     async def test_on_parallel_memory_off_also_once(self, monkeypatch):
@@ -936,24 +989,60 @@ class TestNoLossPublication:
     @pytest.mark.asyncio
     async def test_plain_600_paragraphs_delivered_no_loss(self, monkeypatch,
                                                           caplog):
-        """B-R1026S6-1 (проба a): 600 абзацев через `_deliver_plain` — каждый
-        доставлен ровно один раз (ранее кап 498 терял 101 без WARN)."""
+        """ASAP-2 (контракт (d)/§17 тест 1/2 — переписка B-R1026S6-1):
+        «no loss» теперь принадлежит HYBRID-plain (`_deliver_l2_plain`,
+        max_chunks=None — полный текст); Legacy-plain (`_deliver_plain`)
+        возвращён к старой семантике: ≤ MAX_SUMMARY_PARTS sendMessage-частей
+        с явным WARN ``LEGACY_CHUNKS_CAPPED`` (не молча)."""
         _fixed_rid(monkeypatch)
         gen = _gen(FakeMemory(), MagicMock())
+        document = {"schema_version": 1, "title": "Заголовок",
+                    "paragraphs": [{"text": f"Абзац {i}. " + "я" * 60,
+                                    "emphasis": None} for i in range(600)]}
+        sent = []
+        _capture_send_text(monkeypatch, sent)
+        ctx = RunContext(run_id=_RID, chat_id=CHAT)
+        with caplog.at_level(logging.INFO):
+            published = await gen._deliver_l2_plain(
+                CHAT, document, correlation_id=_RID, ctx=ctx)
+        assert published is True
+        joined = "\n\n".join(item["text"] for item in sent)
+        missing = [i for i in range(600)
+                   if joined.count(f"Абзац {i}.") != 1]
+        assert missing == []                        # hybrid-plain = полнота
+        assert "LEGACY_CHUNKS_CAPPED" not in caplog.text
+        assert ctx.publish_channel == "text" and ctx.publish_status == "ok"
+        done = _lines(caplog, "PUBLISH_TEXT_COMPLETE")
+        assert done and f"message_id={ctx.publish_message_id}" in done[0]
+        assert ctx.publish_message_id == 101          # id первого чанка
+
+    @pytest.mark.asyncio
+    async def test_legacy_plain_capped_at_max_summary_parts_with_warn(
+            self, monkeypatch, caplog):
+        """§17 тест 2 / контракт (d): Legacy plain-доставка при
+        ``limits.max_summary_parts=1` отправляет РОВНО одну sendMessage-часть,
+        избыток — WARN ``LEGACY_CHUNKS_CAPPED | chunks_total= | chunks_sent=``
+        (без молчаливой потери; prompt-бюджета alone недостаточно)."""
+        _fixed_rid(monkeypatch)
+        gen = _gen(FakeMemory(), MagicMock())
+        real_get = sg.hot.get
+
+        def _hot_get(key, default=None):
+            if key == "limits.max_summary_parts":
+                return 1
+            return real_get(key, default)
+
+        monkeypatch.setattr(sg.hot, "get", _hot_get)
         text = "\n\n".join(f"Абзац {i}. " + "я" * 60 for i in range(600))
         sent = []
         _capture_send_text(monkeypatch, sent)
         ctx = RunContext(run_id=_RID, chat_id=CHAT)
         with caplog.at_level(logging.INFO):
             await gen._deliver_plain(CHAT, text, correlation_id=_RID, ctx=ctx)
-        joined = "\n\n".join(item["text"] for item in sent)
-        missing = [i for i in range(600)
-                   if joined.count(f"Абзац {i}.") != 1]
-        assert missing == []
-        assert ctx.publish_channel == "text" and ctx.publish_status == "ok"
-        done = _lines(caplog, "PUBLISH_TEXT_COMPLETE")
-        assert done and f"message_id={ctx.publish_message_id}" in done[0]
-        assert ctx.publish_message_id == 101          # id первого чанка
+        assert len(sent) == 1                       # ровно одна часть
+        done = _lines(caplog, "LEGACY_CHUNKS_CAPPED")
+        assert done and "chunks_total=11" in done[0] and "chunks_sent=1" in done[0]
+        assert ctx.publish_status == "ok"
 
     @pytest.mark.asyncio
     async def test_rich_char_overflow_plain_fallback_full_text(
@@ -1120,6 +1209,13 @@ class TestSpec103Statements:
         # 32 000 ≤ 32 768; абзацев ≤ 498; plain-чанк 4096.
         assert RICH_MAX_CHARS == 32000
         assert MAX_PARAGRAPHS_HARD == 498
+        # ASAP-2 §1 (контракт (d)): `limits.max_summary_parts` — ТОЛЬКО
+        # Legacy-контур: prompt-бюджет legacy-системного промпта
+        # parts×4000−200 остаётся ниже лимита sendMessage-одиночки (32768)
+        # и не относится к Hybrid Article (там cap/trim отсутствуют —
+        # «полная статья при parts=1» закрывает
+        # tests/test_summary_asap_hotfix_round1027.py::
+        # test_l2_article_above_legacy_parts_publishes_complete).
         assert sg.hot.get("limits.max_summary_parts",
                           Settings.MAX_SUMMARY_PARTS) * 4000 - 200 < 32768
 
@@ -1192,18 +1288,18 @@ class TestBoundaries:
                 re.IGNORECASE), name
 
     def test_catalog_zero_delta(self):
-        assert len(pc.REGISTRY) == 473
+        assert len(pc.REGISTRY) == 489
         assert len({f.name for f in dataclasses.fields(Settings)}) == 430
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 448
-        assert len(pc.GROUPS) == 102
-        assert len(pc._TAB_BY_GROUP) == 100
+                    if s.category is not None]) == 464
+        assert len(pc.GROUPS) == 107
+        assert len(pc._TAB_BY_GROUP) == 105
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version(self):
-        assert APP_VERSION == "2.58.32"
+        assert APP_VERSION == "2.58.33"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        assert "v2.58.32" in readme
+        assert "v2.58.33" in readme
 
     def test_analytics_docstring_only_changed(self):
         """web/api/analytics.py: S6 меняет только docstring (код эндпоинта —
@@ -1243,7 +1339,12 @@ class TestBoundaries:
             # NOTE (A3, ADR-1026-16 D2/D6): `services/image_generation.py`
             # исключён — санction A3 (ImageRequest-контракт); §104 гейтится
             # AST-гейтом A3 (test_unified_image_request_round1026.py).
-            "services/summary_prompts.py", "services/summary_test_run.py",
+            # NOTE (round1027, ASAP-2 `mca-asap2-summary-pipeline`, контракт (l)/
+            # ADR-1027-10): `services/summary_prompts.py` ИСКЛЮЧЁН из forbidden —
+            # санкционирован канон R1027 L1/L2 (many-to-many §95-v2, ДЛИНА/
+            # ДЕДУП/авторы) со снимками PREV_*_R1027 и ROLLBACK-миграцией
+            # (ADR-1013-3); §104/цитат-валидаторы не менялись.
+            "services/summary_test_run.py",
             # NOTE (round1027, mca-17a / ADR-1027-8 D13/§4.10): `web/api/routes.py`
             # исключён — санкционированы аддитивные query-фильтры существующего
             # `GET /api/status/logs` (REUSE viewer, новых endpoint'ов нет).

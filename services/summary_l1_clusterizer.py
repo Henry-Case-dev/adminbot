@@ -36,13 +36,27 @@ from config.settings import settings
 from services.llm_client import LLMBadResponseError, LLMError
 from services.prompt_style_blocks import resolve_prompt
 from services.summary_context_restore import build_l1_payload
-from services.summary_filter import estimate_and_split
+from services.summary_filter import (
+    FilterParams,
+    estimate_and_split,
+    score_message,
+)
 from services.summary_l1_contract import (
+    REASON_BAD_SCHEMA_VERSION,
+    REASON_BAD_TYPE,
+    REASON_EMPTY_RESPONSE,
     REASON_ID_SPACE_MISMATCH,
     REASON_INTERNAL_ERROR,
+    REASON_INVALID_FACT,
+    REASON_INVALID_JSON,
+    REASON_INVALID_THREAD_ID,
+    REASON_INVALID_TOPIC,
+    REASON_L1_USELESS_AFTER_REPAIR,
     REASON_LLM_ERROR,
     REASON_LLM_TIMEOUT,
     REASON_OK,
+    REASON_UNKNOWN_FIELD,
+    REASON_UNKNOWN_MESSAGE_ID,
     STATUS_INVALID,
     STATUS_OK,
     STATUS_TRUNCATED,
@@ -55,6 +69,12 @@ from services.summary_l1_contract import (
     parse_l1_response,
     validate_l1_response,
 )
+from services.summary_l1_repair import repair_l1
+from services.summary_hybrid_budget import (
+    hybrid_input_budget,
+    hybrid_output_reserve_tokens,
+    resolve_hybrid_context_budget,
+)
 from services.summary_prompts import SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT
 # S7 (ADR-1026-9 D6/SC-07): §109-детали ошибки — http_status/attempts.
 from services.summary_run_log import attempts_of, http_status_of
@@ -66,8 +86,13 @@ MODULE = "summary"
 STEP = "l1_clusterizer"
 PROMPT_PG_KEY = "prompts.summary_l1_clusterizer_system_prompt"
 
-# §5.6: бюджет — существующие ключи (`limits.summary_max_context_*`); дефолт
-# токенов паритетен `_SUMMARY_CONTEXT_TOKEN_DEFAULT` summary_generator (30000).
+# ASAP-2 §11 (контракт (g)): бюджет входа L1 — ТОЛЬКО hybrid-ключи
+# `limits.summary_hybrid_context_*` (единая точка
+# `summary_hybrid_budget.resolve_hybrid_context_budget`; legacy
+# `limits.summary_max_context_*` в Hybrid не читаются). Константы ниже —
+# исторический паритет дефолтов (30000 токенов ==
+# `_SUMMARY_CONTEXT_TOKEN_DEFAULT` summary_generator; масштаб hybrid-ключа
+# тот же), потребителями бюджета больше не являются.
 L1_CONTEXT_TOKEN_DEFAULT = 30000
 CHARS_ENV = "SUMMARY_MAX_CONTEXT_CHARS"
 
@@ -77,6 +102,136 @@ CHUNK_MARKER_TEMPLATE = "=== ЧАСТЬ {index}/{total} ==="
 # Оценка накладных расходов маркеров при упаковке (детерминированно).
 _MARKER_OVERHEAD_TOKENS = count_tokens(CHUNK_MARKER_TEMPLATE.format(
     index=999, total=999))
+
+# ── ASAP-2 round1027 (контракт (c)/§15): correction retry ПОСЛЕ repair ─────
+# Retryable-набор — причины ПОСЛЕ deterministic repair + validate: классы
+# формата/структуры/ссылок ответа модели и «useless после ремонта». Жёсткие
+# лимиты контракта (too_many_*) — переполнение, НЕ retryable (→ LEVEL-2);
+# транспорт (LLMError/LLMTimeoutError) — error_result без ретрая;
+# id_space_mismatch/internal_error — наши баги, ретрай бессмысленен.
+# `message_in_multiple_threads` в v2 НЕ СУЩЕСТВУЕТ (пересечение — норма).
+_RETRYABLE_REASONS: frozenset[str] = frozenset({
+    REASON_INVALID_JSON,
+    REASON_EMPTY_RESPONSE,
+    REASON_BAD_TYPE,
+    REASON_UNKNOWN_FIELD,
+    REASON_BAD_SCHEMA_VERSION,
+    REASON_INVALID_THREAD_ID,
+    REASON_INVALID_TOPIC,
+    REASON_INVALID_FACT,
+    REASON_L1_USELESS_AFTER_REPAIR,
+    REASON_UNKNOWN_MESSAGE_ID,   # defense: repair должен был спасти
+})
+
+# Максимум id в correction-тексте (§15:2496–2499; списки id — ТОЛЬКО в
+# промпт второй попытки, в логи уходят счётчики — R17).
+_CORRECTION_ID_CAP = 20
+
+
+def _hot_flag(key: str, env_default) -> bool:
+    """Hot-first резолв recovery-тумблера (паттерн `_hybrid_l2_enabled`:
+    PG-ключ каталога → env ClassVar-дефолт; fail-open к env)."""
+    try:
+        from services import hot_config as hot
+        return bool(hot.get(key, env_default))
+    except Exception:  # pragma: no cover - защитная ветка
+        return bool(env_default)
+
+
+def _repair_enabled() -> bool:
+    return _hot_flag("flags.summary_hybrid_l1_repair_enabled",
+                     bool(getattr(settings, "SUMMARY_L1_REPAIR_ENABLED", True)))
+
+
+def _retry_enabled() -> bool:
+    return _hot_flag("flags.summary_hybrid_l1_retry_enabled",
+                     bool(getattr(settings, "SUMMARY_L1_RETRY_ENABLED", True)))
+
+
+def _collect_unknown_ids(data, id_space, cap=_CORRECTION_ID_CAP) -> list:
+    """Числовые message_id, выдуманные моделью (для correction-текста;
+    только id, без контента — R17-safe в промпте, в логи НЕ пишутся)."""
+    unknown: list = []
+    try:
+        for thread in (data or {}).get("threads") or []:
+            if not isinstance(thread, dict):
+                continue
+            collections = [thread.get("message_ids") or []]
+            for fact in thread.get("facts") or []:
+                if isinstance(fact, dict):
+                    collections.append(fact.get("evidence_message_ids") or [])
+            for collection in collections:
+                for mid in collection:
+                    value = mid if isinstance(mid, int) and not isinstance(
+                        mid, bool) else None
+                    if value is not None and not id_space.contains(value) \
+                            and value not in unknown:
+                        unknown.append(value)
+        for mid in (data or {}).get("unassigned_message_ids") or []:
+            value = mid if isinstance(mid, int) and not isinstance(
+                mid, bool) else None
+            if value is not None and not id_space.contains(value) \
+                    and value not in unknown:
+                unknown.append(value)
+    except Exception:  # pragma: no cover - защитная ветка
+        return unknown[:cap]
+    return unknown[:cap]
+
+
+def _correction_block(reason: str, *, unknown_ids: list,
+                      useless_reason: str = "") -> str:
+    """Correction-блок второй попытки (текст контракта (c)): append к
+    исходному user-контенту; system-канон не дублируется; §15:2496–2499."""
+    lines = [f"ПРЕДЫДУЩИЙ ОТВЕТ ОТКЛОНЁН: {reason}."]
+    if reason in (REASON_UNKNOWN_MESSAGE_ID, REASON_L1_USELESS_AFTER_REPAIR) \
+            and useless_reason == "mass_unknown_ids":
+        lines.append(
+            "неизвестные message_id ["
+            + ", ".join(str(value) for value in unknown_ids)
+            + "]. Используй ТОЛЬКО message_id из входных данных. "
+              "Не выдумывай идентификаторы. Do not invent message ids.")
+    if reason == REASON_L1_USELESS_AFTER_REPAIR:
+        lines.append(
+            "после ремонта не осталось пригодных тем/фактов (причина: "
+            f"{useless_reason or '-'}). Верни структуру, опирающуюся только "
+            "на реальные message_id. Не выдумывай идентификаторы. "
+            "Do not invent message ids.")
+    elif reason == REASON_UNKNOWN_MESSAGE_ID:
+        lines.append(
+            "неизвестные message_id ["
+            + ", ".join(str(value) for value in unknown_ids)
+            + "]. Используй ТОЛЬКО message_id из входных данных. "
+              "Не выдумывай идентификаторы. Do not invent message ids.")
+    elif reason in (REASON_INVALID_JSON, REASON_EMPTY_RESPONSE,
+                    REASON_BAD_SCHEMA_VERSION, REASON_BAD_TYPE,
+                    REASON_UNKNOWN_FIELD):
+        lines.append(
+            "верни СТРОГО валидный JSON-объект по схеме (schema_version: 2), "
+            "без текста вокруг.")
+    else:
+        # invalid_thread_id / invalid_topic / invalid_fact — структура цела,
+        # нарушены текстовые/ссылочные требования схемы.
+        lines.append(
+            "верни строго валидный JSON-объект по схеме (schema_version: 2): "
+            "thread_id вида thread_NNN; topic — одна строка ≤200 символов; "
+            "каждый fact — атомарный ≤500 символов с ≥1 evidence_message_ids "
+            "из входных данных, без системных тегов и markdown-заголовков.")
+    lines.append("Верни исправленный JSON.")
+    return "\n".join(lines)
+
+
+def _build_correction_messages(messages, reason: str, *, unknown_ids: list,
+                               useless_reason: str = "") -> list:
+    """Сообщения второй попытки: system + исходный user + correction-блок
+    (append; system-канон НЕ дублируется — контракт (c))."""
+    corrected = [dict(messages[0])]
+    user = dict(messages[1])
+    user["content"] = (str(user.get("content") or "")
+                       + "\n\n" + _correction_block(
+                           reason, unknown_ids=unknown_ids,
+                           useless_reason=useless_reason))
+    corrected.append(user)
+    return corrected
 
 
 class IdSpaceMismatch(ValueError):
@@ -152,9 +307,53 @@ def _sort_rows(rows):
     return sorted(rows or [], key=lambda r: (_row_ts(r), _id_key(_row_id(r))))
 
 
-def _unit(row, kind: str) -> int:
-    text = _row_text(row)
+def _payload_item(row, chat_id) -> dict:
+    """Один §92-элемент (тот же канон, что ``build_l1_payload``) — для
+    serialized-оценки бюджета упаковки (Q5)."""
+    return build_l1_payload([row], chat_id)[0]
+
+
+def _serialized_len(item, kind: str) -> int:
+    """Оценка ЭЛЕМЕНТА §92 по реальному serialized JSON (ASAP-2 Q5/контракт
+    (k): serialized_chars/serialized_tokens честные): имена полей/типы
+    учитываются (раньше — только text, ~15–20 токенов/сообщение терялось)."""
+    text = json.dumps(item, ensure_ascii=False, separators=(",", ":"))
     return count_tokens(text) if kind == "tokens" else len(text)
+
+
+def _row_reply_to(row):
+    value = _row_get(row, "reply_to_id")
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+# Переиспользование S1-скоринга (spec Q5: «второй не изобретать»): вес для
+# eviction = score_message из summary_filter (bursts здесь недоступны —
+# пакет идёт ПОСЛЕ S1-префильтра, который снимает очевидный шум ДО бюджета;
+# дефолтные параметры — только как стабилизатор ранга, не новая настройка).
+_EVICTION_PARAMS = FilterParams()
+
+
+def _eviction_key(row, *, kept_tg: set, children_by_tg: dict):
+    """Ключ вытеснения ASC `(reply_protected, −weight_S1, timestamp, db_id)`
+    (spec Q5/§11:2344–2351): сначала старый малозначимый контекст без
+    reply-связей; участники reply-цепочек (своё `reply_to_id` на сохраняемое
+    ИЛИ сохраняемое указывает на него) и высокий вес S1 — вытесняются
+    последними."""
+    tg = _row_tg(row)
+    reply = _row_reply_to(row)
+    protected = 1 if ((reply is not None and reply in kept_tg)
+                      or (tg is not None and children_by_tg.get(tg, 0) > 0)) \
+        else 0
+    try:
+        weight = score_message(row, children_by_tg=children_by_tg,
+                               burst_ids=frozenset(),
+                               params=_EVICTION_PARAMS, bot_id=None)
+    except Exception:  # pragma: no cover - защитная ветка: вес не критичен
+        weight = 0
+    return (protected, -weight, _row_ts(row), _id_key(_row_id(row)))
 
 
 # ── §93: упаковка фрагментов в один вход (без второго вызова) ──────────────
@@ -186,11 +385,16 @@ def pack_l1_input(rows, chat_id, *, token_limit=None, char_limit=None,
 
     Оценка объёма — существующий ``estimate_and_split`` (overlap=1, последний
     фрагмент всегда заканчивается последним сообщением); фрагменты
-    объединяются в один вход (дедуп DB id, ASC, маркеры границ). Если итог
-    всё равно не влезает в бюджет — детерминированно вытесняются САМЫЕ
-    СТАРЫЕ сообщения (последнее сохраняется всегда), ``truncated=True`` +
-    ``skipped_ids`` (§93 «не резать молча»). DB id → TG message_id — только
-    через :func:`build_db_tg_map`.
+    объединяются в один вход (дедуп DB id, ASC, маркеры границ). Итоговый
+    бюджет-тест — по РЕАЛЬНОМУ serialized §92-элементу (ASAP-2 Q5:
+    ``count_tokens(json.dumps(item))``, имена полей учтены), а не по голому
+    тексту. Если итог не влезает — DEMOCRATIC eviction (spec Q5/§11):
+    victim = min ASC ``(reply_protected, −weight_S1, timestamp, id)`` —
+    сначала старый малозначимый контекст без reply-связей; reply-цепочки и
+    ключевые события вытесняются последними; ПОСЛЕДНЕЕ сообщение сохраняется
+    всегда (§93); любое вытеснение → ``truncated=True`` + ``skipped_ids`` +
+    WARN («не резать молча»). DB id → TG message_id — только через
+    :func:`build_db_tg_map`.
     """
     rows_sorted = _sort_rows(list(rows or []))
     fragments, budget = estimate_and_split(
@@ -218,7 +422,8 @@ def pack_l1_input(rows, chat_id, *, token_limit=None, char_limit=None,
         chunk_count = len(fragments)
         chunk_starts = tuple(starts)
 
-    unit = lambda row: _unit(row, kind)  # noqa: E731 - локальный алиас
+    unit = lambda row: _serialized_len(  # noqa: E731 - локальный алиас
+        _payload_item(row, chat_id), kind)  # serialized-учёт §92-элемента (Q5)
     units = [unit(row) for row in used]
     overhead = _MARKER_OVERHEAD_TOKENS * max(0, chunk_count - 1) \
         if (marker_overhead and kind == "tokens") else 0
@@ -230,10 +435,30 @@ def pack_l1_input(rows, chat_id, *, token_limit=None, char_limit=None,
     truncated = False
     skipped_rows: list = []
     if limit and total > limit:
+        # ASAP-2 Q5/§11: democratic eviction — НЕ «самые старые первыми»:
+        #victim = min ASC (reply_protected, −weight_S1, timestamp, id);
+        # последнее сообщение сохраняется всегда (§93); любое вытеснение →
+        # truncated + skipped_ids + WARN (без молчаливого среза).
         truncated = True
         while len(used) > 1 and total > limit:
-            removed = used.pop(0)
-            total -= units.pop(0)
+            kept_tg = {_row_tg(r) for r in used if _row_tg(r) is not None}
+            children: dict = {}
+            for r in used:
+                reply = _row_reply_to(r)
+                if reply is not None:
+                    children[reply] = children.get(reply, 0) + 1
+            best_key = None
+            best_index = 0
+            # последнее сообщение (индекс len-1) — неприкосновенно (§93).
+            for index in range(len(used) - 1):
+                key = _eviction_key(used[index], kept_tg=kept_tg,
+                                    children_by_tg=children)
+                if best_key is None or key < best_key:
+                    best_key = key
+                    best_index = index
+            removed = used.pop(best_index)
+            units.pop(best_index)
+            total -= _serialized_len(_payload_item(removed, chat_id), kind)
             skipped_rows.append(removed)
 
     skipped_ids = tuple(_row_id(r) for r in skipped_rows)
@@ -305,21 +530,14 @@ def resolve_l1_slot(*, hot_get=None, settings_obj=None) -> L1Slot:
 
 
 def resolve_l1_budget(*, hot_get=None, settings_obj=None) -> tuple[str, int]:
-    """Бюджет входа L1 из существующих ключей ``limits.summary_max_context_*``.
-
-    Токенный приоритет + аварийный chars-fallback — штатная семантика
-    ``resolve_chat_limit`` (§5.6); per-chat-резолв — S5 при врезке.
+    """Бюджет входа L1 — hybrid-ключи ``limits.summary_hybrid_context_*``
+    (ASAP-2 §11/контракт (g): полная separация Legacy/Hybrid; единая точка
+    ``resolve_hybrid_context_budget``). Токенный приоритет + аварийный
+    chars-fallback — штатная семантика ``resolve_chat_limit``;
+    per-chat-резолв — при врезке в генераторе (ctx-слой `_chat_limit`).
     """
-    if hot_get is None:
-        from services import hot_config as hot
-        hot_get = hot.get
-    st = settings_obj or settings
-    token_value = hot_get("limits.summary_max_context_tokens",
-                          getattr(st, "SUMMARY_MAX_CONTEXT_TOKENS", None))
-    chars_value = hot_get("limits.summary_max_context_chars",
-                          getattr(st, "SUMMARY_MAX_CONTEXT_CHARS", 120000))
-    return resolve_chat_limit(token_value, L1_CONTEXT_TOKEN_DEFAULT,
-                              CHARS_ENV, int(chars_value or 0), "SUMMARY_L1")
+    return resolve_hybrid_context_budget(hot_get=hot_get,
+                                         settings_obj=settings_obj)
 
 
 def provider_host(base_url: str) -> str:
@@ -432,18 +650,21 @@ def _log_start(*, correlation_id, chat_id, source_count, estimated_tokens,
 
 def _log_complete(*, correlation_id, chat_id, result: L1Result, model,
                   base_url, tokens_in, tokens_out, tokens_estimated,
-                  chunk_count) -> None:
+                  chunk_count, attempts: int = 1) -> None:
+    # ASAP-2 hotfix round1027: аддитивное поле attempts (1 — single-shot,
+    # 2 — была повторная попытка; R17-safe число).
     logger.info(
         "L1_COMPLETE | run_id=%s | chat_id=%s | provider=%s | model=%s | "
         "tokens_in=%s | tokens_out=%s | tokens_estimated=%s | threads=%d | "
         "facts=%d | chunks=%d | auto_unassigned=%d | skipped=%d | "
-        "truncated=%s | status=%s | invalid_reason=%s | duration_ms=%.0f",
+        "truncated=%s | attempts=%d | status=%s | invalid_reason=%s | "
+        "duration_ms=%.0f",
         correlation_id or "none", chat_id, provider_host(base_url) or "-",
         model or "-", tokens_in if tokens_in is not None else "-",
         tokens_out if tokens_out is not None else "-", bool(tokens_estimated),
         result.threads_count, result.facts_count, chunk_count,
         result.auto_unassigned_count, len(result.skipped_ids),
-        bool(result.truncated), result.status,
+        bool(result.truncated), max(int(attempts), 1), result.status,
         result.invalid_reason or "-", result.duration_ms)
 
 
@@ -463,27 +684,48 @@ def _log_error(*, correlation_id, chat_id, model, base_url, reason, error_type,
 async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                  budget=None, system_prompt=None, llm_call=None,
                  focus_block=None) -> L1Result:
-    """Один прогон L1: §92-вход → §93-упаковка → **1 LLM-вызов** → §95.
+    """Один прогон L1: §92-вход → §93-упаковка → LLM-вызов(ы) → §95-v2.
 
     ``llm`` — LLMClient (или совместимый мок); ``llm_call`` — инъекция канала
-    (S5/тесты). ``budget`` — ``(kind, limit)``; ``None`` → существующие ключи
-    ``limits.summary_max_context_*``. ``focus_block`` — необязательный префикс
+    (S5/тесты). ``budget`` — ``(kind, limit)``; ``None`` → hybrid-ключи
+    ``limits.summary_hybrid_context_*`` через ``resolve_hybrid_context_budget``
+    (ASAP-2 §11/D7: Q5-формула safe−system−markers−reserve; legacy
+    ``limits.summary_max_context_*`` не читаются; явный budget из тестов
+    применяется как есть). ``focus_block`` — необязательный префикс
     user-контента (S5/§80: focus «/summary про X» на ON-пути — как в legacy;
     ``None``/пусто → вход байт-в-байт прежний). Fail-closed: любое
     исключение/``LLMError`` → ``error``/``invalid`` с кодом причины,
-    ``payload=None`` (в L2 не передаётся); ровно один физический вызов на
-    запуск.
+    ``payload=None`` (в L2 не передаётся).
+
+    ASAP-2 round1027 (§15/§16, контракты (b)/(c)): порядок строго
+    ``call → parse → [deterministic repair → validate]``; при retryable-
+    причине ПОСЛЕ ремонта — РОВНО одна исправляющая повторная попытка
+    (second messages = system + исходный user + correction-блок с текстом
+    причины; kill-switch'и hot-first: ``flags.summary_hybrid_l1_repair_enabled``
+    / ``flags.summary_hybrid_l1_retry_enabled``). Транспорт
+    (LLMError/LLMTimeoutError) и переполнение контракта (too_many_*) не
+    ретраятся; L1-провал (после repair/retry) НЕ терминален — вызывающий
+    контур уходит в LEVEL-2 fallback-пакет (§8/ADR-1027-10 D3/D4).
     """
     started = time.perf_counter()
     slot = resolve_l1_slot()
     source_rows = list(rows or [])
     chunk_count = 0
-    tokens_estimated = True
     if llm_call is None and llm is None:
         return error_result(REASON_INTERNAL_ERROR, duration_ms=0.0)
 
+    # System-канон резолвится ДО упаковки: по формуле Q5 его токены вычитаются
+    # из входного бюджета (маркер-оверхед учитывает сам pack_l1_input).
+    system = system_prompt or resolve_prompt(
+        PROMPT_PG_KEY, SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT)
     try:
-        kind, limit = budget if budget else resolve_l1_budget()
+        if budget:
+            kind, limit = budget
+        else:
+            kind, raw_limit = resolve_l1_budget()
+            limit = hybrid_input_budget(
+                kind, raw_limit, system_text=system,
+                output_reserve=hybrid_output_reserve_tokens(kind="l1"))
         token_limit = limit if kind == "tokens" else None
         char_limit = limit if kind == "chars" else None
         pack = pack_l1_input(source_rows, chat_id, token_limit=token_limit,
@@ -536,8 +778,6 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                chunk_count=pack.chunk_count, model=model, base_url=base_url,
                dedicated=slot.dedicated)
     call = llm_call or _make_llm_call(llm, slot, correlation_id)
-    system = system_prompt or resolve_prompt(PROMPT_PG_KEY,
-                                             SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT)
     user_content = build_l1_user_content(
         pack.payload, chunk_count=pack.chunk_count,
         chunk_starts=pack.chunk_starts)
@@ -550,57 +790,139 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
         {"role": "user", "content": user_content},
     ]
 
-    try:
-        raw_value = await call(messages)
-        raw, usage = _normalise_call_result(raw_value)
-        tokens_in, tokens_out = _extract_usage(usage)
-        if tokens_in is None:
-            tokens_in = pack.estimated_tokens
-        if tokens_out is None:
-            tokens_out = count_tokens(raw)
-            tokens_estimated = True
-        else:
-            tokens_estimated = False
-    except LLMError as exc:
-        duration = (time.perf_counter() - started) * 1000.0
-        reason = (REASON_LLM_TIMEOUT
-                  if type(exc).__name__ == "LLMTimeoutError"
-                  else REASON_LLM_ERROR)
-        _log_error(correlation_id=correlation_id, chat_id=chat_id,
-                   model=model, base_url=base_url, reason=reason,
-                   error_type=type(exc).__name__, duration_ms=duration,
-                   http_status=http_status_of(exc), attempts=attempts_of(exc))
-        return error_result(reason, duration_ms=duration, **{
-            key: value for key, value in base_kwargs.items()
-            if key != "duration_ms"})
-    except Exception as exc:
-        duration = (time.perf_counter() - started) * 1000.0
-        _log_error(correlation_id=correlation_id, chat_id=chat_id,
-                   model=model, base_url=base_url, reason=REASON_LLM_ERROR,
-                   error_type=type(exc).__name__, duration_ms=duration,
-                   http_status=http_status_of(exc), attempts=attempts_of(exc))
-        return error_result(REASON_LLM_ERROR, duration_ms=duration, **{
-            key: value for key, value in base_kwargs.items()
-            if key != "duration_ms"})
+    # ── ASAP-2 (контракт (b)/(c)/§15): call → parse → repair → validate →
+    #    (ровно одна correction-повторная попытка, если причина всё ещё
+    #    retryable ПОСЛЕ ремонта). Транспортные ошибки (LLMError/
+    #    LLMTimeoutError) и переполнение контракта (too_many_*) — без ретрая.
+    #    Kill-switch'и hot-first: flags.summary_hybrid_l1_repair_enabled /
+    #    flags.summary_hybrid_l1_retry_enabled (env-слой — ClassVar'ы).
+    repair_on = _repair_enabled()
+    retry_enabled = _retry_enabled()
+    max_attempts = 2 if retry_enabled else 1
+    attempts = 1
+    tokens_in = None
+    tokens_out = None
+    tokens_estimated = True
+    result: L1Result | None = None
+    base_kwargs.pop("duration_ms", None)
+    for attempt in range(1, max_attempts + 1):
+        attempts = attempt
+        try:
+            raw_value = await call(messages)
+            raw, usage = _normalise_call_result(raw_value)
+            tokens_in, tokens_out = _extract_usage(usage)
+            if tokens_in is None:
+                tokens_in = pack.estimated_tokens
+            if tokens_out is None:
+                tokens_out = count_tokens(raw)
+                tokens_estimated = True
+            else:
+                tokens_estimated = False
+        except LLMError as exc:
+            duration = (time.perf_counter() - started) * 1000.0
+            reason = (REASON_LLM_TIMEOUT
+                      if type(exc).__name__ == "LLMTimeoutError"
+                      else REASON_LLM_ERROR)
+            _log_error(correlation_id=correlation_id, chat_id=chat_id,
+                       model=model, base_url=base_url, reason=reason,
+                       error_type=type(exc).__name__, duration_ms=duration,
+                       http_status=http_status_of(exc),
+                       attempts=attempts_of(exc))
+            return error_result(reason, duration_ms=duration, **base_kwargs)
+        except Exception as exc:
+            duration = (time.perf_counter() - started) * 1000.0
+            _log_error(correlation_id=correlation_id, chat_id=chat_id,
+                       model=model, base_url=base_url, reason=REASON_LLM_ERROR,
+                       error_type=type(exc).__name__, duration_ms=duration,
+                       http_status=http_status_of(exc),
+                       attempts=attempts_of(exc))
+            return error_result(REASON_LLM_ERROR, duration_ms=duration,
+                                **base_kwargs)
 
-    data, parse_reason = parse_l1_response(raw)
-    duration = (time.perf_counter() - started) * 1000.0
-    if data is None:
-        if parse_reason == REASON_OK:  # pragma: no cover - защитная ветка
-            parse_reason = REASON_INTERNAL_ERROR
-        result = invalid_result(parse_reason, duration_ms=duration,
-                                **{key: value for key, value in
-                                   base_kwargs.items()
-                                   if key != "duration_ms"})
-    else:
         space: IdSpace = build_id_space(pack.payload)
-        result = validate_l1_response(
-            data, space, duration_ms=duration, skipped_ids=pack.skipped_ids,
-            skipped_tg_ids=pack.skipped_tg_ids, truncated=pack.truncated,
-            chunk_count=pack.chunk_count)
-        if result.status == STATUS_OK and pack.truncated:
-            result = dataclasses.replace(
-                result, status=STATUS_TRUNCATED, truncated=True)
+        data, parse_reason = parse_l1_response(raw)
+        duration = (time.perf_counter() - started) * 1000.0
+        # §18 (контракт (k)): L1_PARSE — attempt/parse_status/raw_chars
+        # (только числа/коды, R17).
+        logger.info(
+            "L1_PARSE | run_id=%s | chat_id=%s | attempt=%d | parse_status=%s"
+            " | raw_chars=%d",
+            correlation_id or "none", chat_id, attempt,
+            (parse_reason if data is None else "ok"), len(raw or ""))
+        useless_reason = ""
+        # Unknown-id список собирается ВСЕГДА (в т.ч. repair OFF): он нужен
+        # correction-блоку; в ЛОГИ не уходит никогда (R17 — только счётчики).
+        unknown_ids = (_collect_unknown_ids(data, space)
+                       if data is not None else [])
+        if data is None:
+            if parse_reason == REASON_OK:  # pragma: no cover - защитная ветка
+                parse_reason = REASON_INTERNAL_ERROR
+            result = invalid_result(parse_reason, duration_ms=duration,
+                                    **base_kwargs)
+        else:
+            # repair МЕЖДУ parse и validate (kill-switch OFF → пропускается:
+            # прежняя строгость валидатора v2 минус partition-правила).
+            if repair_on:
+                data, report = repair_l1(data, space)
+                logger.info(
+                    "L1_REPAIR | run_id=%s | chat_id=%s | attempt=%d | "
+                    "overlapping_topic_memberships=%d | unknown_ids_removed=%d"
+                    " | facts_removed=%d | topics_removed=%d | "
+                    "evidence_membership_added=%d | "
+                    "unassigned_conflicts_resolved=%d | topics_before=%d | "
+                    "topics_after=%d | facts_before=%d | facts_after=%d | "
+                    "useless=%d | useless_reason=%s",
+                    correlation_id or "none", chat_id, attempt,
+                    report.overlapping_topic_memberships,
+                    report.unknown_ids_removed, report.facts_removed,
+                    report.topics_removed, report.evidence_membership_added,
+                    report.unassigned_conflicts_resolved,
+                    report.topics_before, report.topics_after,
+                    report.facts_before, report.facts_after,
+                    1 if report.useless else 0,
+                    report.useless_reason or "-")
+                if report.useless:
+                    useless_reason = report.useless_reason
+                    result = invalid_result(REASON_L1_USELESS_AFTER_REPAIR,
+                                            duration_ms=duration,
+                                            **base_kwargs)
+                else:
+                    result = validate_l1_response(
+                        data, space, duration_ms=duration,
+                        skipped_ids=pack.skipped_ids,
+                        skipped_tg_ids=pack.skipped_tg_ids,
+                        truncated=pack.truncated,
+                        chunk_count=pack.chunk_count)
+                    if result.status == STATUS_OK and pack.truncated:
+                        result = dataclasses.replace(
+                            result, status=STATUS_TRUNCATED, truncated=True)
+            else:
+                # Kill-switch repair OFF → валидатор v2 без ремонта (прежняя
+                # строгость минус partition-правила).
+                result = validate_l1_response(
+                    data, space, duration_ms=duration,
+                    skipped_ids=pack.skipped_ids,
+                    skipped_tg_ids=pack.skipped_tg_ids,
+                    truncated=pack.truncated, chunk_count=pack.chunk_count)
+                if result.status == STATUS_OK and pack.truncated:
+                    result = dataclasses.replace(
+                        result, status=STATUS_TRUNCATED, truncated=True)
+
+        # Ровно одна исправляющая повторная попытка:retryable-причина ПОСЛЕ
+        # repair+validate; вторая попытка = system + исходный user +
+        # correction-блок (id-списки — только в промпт, в лог — код/числа).
+        if (attempt < max_attempts and result.status == STATUS_INVALID
+                and result.invalid_reason in _RETRYABLE_REASONS):
+            logger.warning(
+                "L1_CORRECTION_RETRY | run_id=%s | chat_id=%s | "
+                "attempt=%d/%d | reason=%s",
+                correlation_id or "none", chat_id, attempt, max_attempts,
+                result.invalid_reason or "-")
+            messages = _build_correction_messages(
+                messages, result.invalid_reason or REASON_INVALID_JSON,
+                unknown_ids=unknown_ids, useless_reason=useless_reason)
+            continue
+        break
 
     if result.status in (STATUS_INVALID,):
         logger.warning(
@@ -610,5 +932,6 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
     _log_complete(correlation_id=correlation_id, chat_id=chat_id,
                   result=result, model=model, base_url=base_url,
                   tokens_in=tokens_in, tokens_out=tokens_out,
-                  tokens_estimated=tokens_estimated, chunk_count=chunk_count)
+                  tokens_estimated=tokens_estimated, chunk_count=chunk_count,
+                  attempts=attempts)
     return result

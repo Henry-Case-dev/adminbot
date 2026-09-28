@@ -84,11 +84,19 @@
     // ── Раунд 10.6 (T-1165/T-1201): 11 модулей (config-источники для окна) ──
     { id: 'mod_summary', icon: 'description', label: 'Саммаризация',
       type: 'config', menu: 'modules',
+      // ASAP-2 round1027 (ADR-1027-10 D11): зеркало TAB_RULES — секции
+      // HYBRID (flags/limits/models+keys группы models_summary_hybrid) и
+      // LEGACY FALLBACK; маппинг в workspace-вкладки hybrid/legacy —
+      // workspaceGroupTab (id-маппинг важнее категории).
       sources: [
         { category: 'flags', groups: ['flags_module_summary', 'flags_summary',
-            'flags_summary_filter'] },
+            'flags_summary_filter', 'flags_summary_hybrid',
+            'flags_summary_legacy'] },
         { category: 'limits', groups: ['limits_summary',
-            'limits_summary_filter'] },
+            'limits_summary_filter', 'limits_summary_hybrid',
+            'limits_summary_legacy'] },
+        { category: 'models', groups: ['models_summary_hybrid'] },
+        { category: 'keys', groups: ['models_summary_hybrid'] },
         { category: 'reactions', groups: ['reactions_summary'] },
       ] },
     { id: 'mod_direct', icon: 'smart_toy', label: 'Прямые ответы',
@@ -569,8 +577,12 @@
   // `tabs` — применимые вкладки страницы модуля (§46/§4.2 spec.md); вкладка
   // без содержимого не рендерится (`workspaceTabHasContent`).
   var WORKSPACE_TABS = {
+    // ASAP-2 round1027 (§13, ADR-1027-10 D11): две workspace-вкладки
+    // модуля «Саммаризация» — 'hybrid' (HYBRID SUMMARY) и 'legacy'
+    // (LEGACY SUMMARY FALLBACK); маппинг групп — в `workspaceGroupTab`
+    // (прецедент 'prep'), общие группы остаются ВНЕ обеих секций (§21).
     mod_summary: ['overview', 'settings', 'prep', 'clusterizer', 'writer',
-      'models', 'limits', 'testing'],
+      'hybrid', 'legacy', 'models', 'limits', 'testing'],
     mod_direct: ['overview', 'settings', 'synthesizer', 'verbalizer', 'models',
       'limits', 'testing'],
     mod_factcheck: ['overview', 'settings', 'synthesizer', 'verbalizer',
@@ -600,6 +612,8 @@
     synthesizer: 'Синтезатор', verbalizer: 'Вербализатор', models: 'Модели',
     limits: 'Лимиты', testing: 'Тестирование', prep: 'Подготовка сообщений',
     clusterizer: 'Кластеризатор', writer: 'Писатель',
+    // ASAP-2 §13: две секции Summary (названия — по контракту (j) D11).
+    hybrid: 'HYBRID SUMMARY', legacy: 'LEGACY SUMMARY FALLBACK',
   };
   // Модуль → группа промптов каталога (F5 D3/§48: один объект на два маршрута).
   var MODULE_PROMPT_GROUPS = {
@@ -1788,6 +1802,21 @@
         // /api/status/logs?level=…&limit=1 (читаем `count`); viewer не тронут.
         logErrorCount: null,
         logWarnCount: null,
+        // ── mca-17a (10.27, carry-over §94.5/SC-14): аддитивные фильтры
+        // связанных событий trace в СУЩЕСТВУЮЩЕМ log viewer (без новых
+        // панелей/маршрутов/endpoint; переход из карточки — по ID).
+        mcaLogFilter: { trace_id: '', chat_id: '', component: '',
+                        reason_code: '' },
+        mcaEvents: [],
+        // mca-17a (§4.6/SC-16, AMEND F5/D16): refresh СУЩЕСТВУЮЩЕГО компактного
+        // индикатора инцидентов через read-only `incident_changes` (cursor ≤10с);
+        // без новой панели/маршрута.
+        incidentPushTimer: null,
+        incidentPushBusy: false,
+        incidentPollingActive: false,
+        incidentCursor: 0,
+        incidentInterval: 10,          // секунды (≤10; уточняется с сервера)
+        incidentPushError: '',
         // §13/D2: имя бота из persona (из УЖЕ загружаемого /api/persona в
         // loadCognition); пусто → нейтральное «Бот».
         botDisplayName: '',
@@ -2176,7 +2205,9 @@
         var seen = {};
         function add(g) { if (g && g.id) seen[g.id] = true; }
         // 1) группы, достижимые в применимых вкладках workspace (m.tabs учтён).
-        ['settings', 'models', 'limits', 'prep'].forEach(function (wt) {
+        // ASAP-2 round1027: секции Summary ('hybrid'/'legacy') несут свои
+        // группы — включены в обход покрытия (иначе инвариант §9.3 теряет их).
+        ['settings', 'models', 'limits', 'prep', 'hybrid', 'legacy'].forEach(function (wt) {
           if (!_workspaceTabApplicable(m, wt)) return;
           self._workspaceGroupsFor(m, wt).forEach(add);
         });
@@ -2395,6 +2426,9 @@
           if (wt === 'models') return this._workspaceGroupsFor(m, 'models');
           if (wt === 'limits') return this._workspaceGroupsFor(m, 'limits');
           if (wt === 'prep') return this._workspaceGroupsFor(m, 'prep');
+          // ASAP-2 §13: generic-сетка групп для двух новых секций Summary.
+          if (wt === 'hybrid') return this._workspaceGroupsFor(m, 'hybrid');
+          if (wt === 'legacy') return this._workspaceGroupsFor(m, 'legacy');
           if (wt === 'settings') return this._workspaceGroupsFor(m, 'settings');
           return [];
         }
@@ -4691,6 +4725,12 @@
           this.loadBudgetInfo();
           // F7 (раунд 10.23): аналитика токенов — Flow node + графики.
           this.loadTokenAnalytics();
+          // mca-17a (§4.6/SC-16): интервал refresh индикатора инцидентов (≤10с).
+          var inc = this.oversightData && this.oversightData.mca_metrics
+            && this.oversightData.mca_metrics.incidents;
+          if (inc && inc.push_interval_seconds) {
+            this.incidentInterval = inc.push_interval_seconds;
+          }
         } catch (e) {
           this.oversightData = null;
           if (e.status !== 401 && e.status !== 403) {
@@ -5611,6 +5651,63 @@
         }
       },
 
+      // mca-17a (§4.6/SC-16, AMEND F5/D16): refresh СУЩЕСТВУЮЩЕГО индикатора
+      // инцидентов через read-only `incident_changes` с cursor, интервал ≤10 с.
+      // Гейты OFF (`enabled=false`) → polling останавливается (паритет).
+      pollIncidentChanges: async function () {
+        if (this.incidentPushBusy) return;
+        this.incidentPushBusy = true;
+        try {
+          var data = await this.api(
+            '/api/oversight/incidents/changes?since_ts='
+            + (this.incidentCursor || 0));
+          if (data && data.push_interval_seconds) {
+            this.incidentInterval = data.push_interval_seconds;
+          }
+          if (data && data.enabled === false) {
+            this.stopIncidentPolling();     // гейт OFF — без обновлений
+            this.incidentPushError = '';
+            return;
+          }
+          if (data && typeof data.cursor === 'number') {
+            this.incidentCursor = data.cursor;   // reconnect-догон по cursor
+          }
+          if (data && data.indicator) {
+            if (this.oversightData && this.oversightData.mca_metrics) {
+              this.oversightData.mca_metrics.incidents = data.indicator;
+            }
+          }
+          this.incidentPushError = '';
+        } catch (e) {
+          // fail-open: индикатор не подменяем выдуманным нулём (honest stale).
+          this.incidentPushError = 'stale';
+        } finally {
+          this.incidentPushBusy = false;
+        }
+      },
+      startIncidentPolling: function () {
+        var self = this;
+        this.stopIncidentPolling();
+        this.incidentPollingActive = true;
+        // Само-пере-планирование (setTimeout-цепочка): серверный интервал
+        // (`push_interval_seconds`) применяется со следующего тика; ≤10 с.
+        var tick = function () {
+          Promise.resolve(self.pollIncidentChanges()).then(function () {
+            if (!self.incidentPollingActive) return;
+            var secs = Math.max(1, Math.min(self.incidentInterval || 10, 10));
+            self.incidentPushTimer = setTimeout(tick, secs * 1000);
+          });
+        };
+        tick();
+      },
+      stopIncidentPolling: function () {
+        this.incidentPollingActive = false;
+        if (this.incidentPushTimer) {
+          clearTimeout(this.incidentPushTimer);
+          this.incidentPushTimer = null;
+        }
+      },
+
       canEditModule: function (m) {
         return !!m && this.canEditConfig(m.toggleKey);
       },
@@ -6203,6 +6300,15 @@
       // сообщений). Витрина JS — Δ каталога = 0.
       workspaceGroupTab: function (m, grp) {
         if (!grp) return 'settings';
+        // ASAP-2 §13 (D11): секции Hybrid/Legacy — маппинг ПО ID групп
+        // (прецедент 'prep'), независимо от категории: в 'hybrid' попадают
+        // flags/limits/models(и keys-слоты этой же группы), в 'legacy' —
+        // flags/limits Legacy. Ни один hybrid-ключ не рендерится в legacy и
+        // наоборот (§21 «не смешивать», DOM-assert S4).
+        if (grp.id === 'flags_summary_hybrid' || grp.id === 'models_summary_hybrid'
+            || grp.id === 'limits_summary_hybrid') return 'hybrid';
+        if (grp.id === 'flags_summary_legacy'
+            || grp.id === 'limits_summary_legacy') return 'legacy';
         if (grp.id === 'flags_summary_filter'
             || grp.id === 'limits_summary_filter') return 'prep';
         if (grp.category === 'models') return 'models';
@@ -6227,6 +6333,11 @@
         if (tabId === 'overview') return true;
         if (tabId === 'prep' || tabId === 'clusterizer'
             || tabId === 'writer') return true;
+        // ASAP-2 §13: вкладки секций Summary рендерятся только при наличии
+        // своих групп (generic-сетка, как 'prep').
+        if (tabId === 'hybrid' || tabId === 'legacy') {
+          return this._workspaceGroupsFor(m, tabId).length > 0;
+        }
         if (tabId === 'synthesizer' || tabId === 'verbalizer') {
           return this.workspacePromptItems(m, tabId).length > 0;
         }
@@ -6845,8 +6956,17 @@
           if (typeof this.startDossierFeedPolling === 'function') {
             this.startDossierFeedPolling();
           }
-        } else if (typeof this.stopDossierFeedPolling === 'function') {
-          this.stopDossierFeedPolling();    // вне «Сводки» — без polling
+          // mca-17a (§4.6/SC-16): refresh индикатора инцидентов ≤10 с.
+          if (typeof this.startIncidentPolling === 'function') {
+            this.startIncidentPolling();
+          }
+        } else {
+          if (typeof this.stopDossierFeedPolling === 'function') {
+            this.stopDossierFeedPolling();    // вне «Сводки» — без polling
+          }
+          if (typeof this.stopIncidentPolling === 'function') {
+            this.stopIncidentPolling();       // вне «Сводки» — без polling
+          }
         }
         if (id === 'info') {
           if (!this.infoHtml && !this.infoLoading) this.loadInfo();
@@ -9633,6 +9753,72 @@
         } catch (e) { this.logs = []; }
         finally { this.logsLoading = false; }
       },
+
+      // mca-17a (10.27, carry-over §94.5/SC-14): связанные события trace из
+      // СУЩЕСТВУЮЩЕГО /api/status/logs (аддитивные фильтры). Пустой
+      // результат — честный empty state; новых endpoint нет.
+      loadRelatedEvents: async function () {
+        var f = this.mcaLogFilter || {};
+        var params = [];
+        if (f.trace_id) params.push('trace_id=' + encodeURIComponent(f.trace_id));
+        if (f.chat_id) params.push('chat_id=' + encodeURIComponent(f.chat_id));
+        if (f.component) params.push('component=' + encodeURIComponent(f.component));
+        if (f.reason_code) params.push('reason_code=' + encodeURIComponent(f.reason_code));
+        if (!params.length) { this.mcaEvents = []; return; }
+        try {
+          var data = await this.api('/api/status/logs?level=ALL&limit=200&'
+                                    + params.join('&'));
+          this.mcaEvents = data.events || [];
+        } catch (e) { this.mcaEvents = []; }
+      },
+      clearMcaLogFilter: function () {
+        this.mcaLogFilter = { trace_id: '', chat_id: '', component: '',
+                              reason_code: '' };
+        this.mcaEvents = [];
+      },
+      // Компактный индикатор инцидентов (§27.6): acknowledged ≠ resolved.
+      mcaIncidentLabel: function (inc) {
+        if (!inc || inc.available === false || inc.active === null
+            || inc.active === undefined) {
+          return 'неизвестно';
+        }
+        var active = inc.active || 0;
+        var unack = inc.unacknowledged || 0;
+        return active + (unack ? (' (' + unack + ' не подтв.)') : '');
+      },
+      incidentBadge: function (inc) {
+        if (!inc || inc.available === false || inc.active === null
+            || inc.active === undefined) {
+          return 'badge-muted';
+        }
+        return (inc.active > 0) ? 'badge-warn' : 'badge-ok';
+      },
+      // F3/SC-13/§27.5: метрики недоступны/неполны → честный unknown (muted),
+      // НЕ «зелёный» badge-ok; старый «зелёный» при потере backend не держим.
+      mcaMetricsAvailable: function (m) {
+        return !!(m && m.available !== false
+                  && m.degraded_share !== null
+                  && m.degraded_share !== undefined);
+      },
+      mcaMetricsBadge: function (m) {
+        if (!this.mcaMetricsAvailable(m)) {
+          return 'badge-muted';
+        }
+        return m.telemetry_degraded ? 'badge-warn' : 'badge-ok';
+      },
+      mcaDegradedLabel: function (m) {
+        if (!this.mcaMetricsAvailable(m)) {
+          return 'degraded: неизвестно';
+        }
+        return 'degraded ' + m.degraded_share;
+      },
+      mcaErrorsLabel: function (m) {
+        if (!m || m.available === false || m.errors_total === null
+            || m.errors_total === undefined) {
+          return 'неизвестно';
+        }
+        return m.errors_total;
+      },
       // F11 (§20/D5): счётчики «Ошибки» (только ERROR) и «Предупреждения»
       // (только WARNING) — из СУЩЕСТВУЮЩЕГО /api/status/logs. Поле `count`
       // там ограничено `limit`, поэтому читаем аддитивный `counts` (точные
@@ -11797,6 +11983,7 @@
       this.stopStatusPolling();
       this.stopCognitionPolling();     // F5/R10.11-5: нет stale-таймера
       this.stopDossierFeedPolling();   // 10.20 (T-1897): нет stale-таймера
+      this.stopIncidentPolling();      // mca-17a (§4.6/SC-16): нет stale-таймера
       this.stopDossierRebuildPolling(); // F8: нет stale-таймера пересборки
       this.destroyCognitionGraph();
       // F24 (ADR-1024-24 C4): снимаем подписки TMA-fullscreen при unmount.

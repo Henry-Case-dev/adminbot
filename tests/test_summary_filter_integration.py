@@ -119,7 +119,8 @@ class TestPerChatToggle:
 
         applied = []
 
-        async def _spy(self, chat_id, rows, correlation_id, trigger_message_id):
+        async def _spy(self, chat_id, rows, correlation_id, trigger_message_id,
+                       hybrid=None):
             applied.append(chat_id)
             return rows
 
@@ -241,7 +242,9 @@ class TestFilterIntegration:
 class TestTokenCeilingNormalised:
     @pytest.mark.asyncio
     async def test_zero_cap_falls_back_to_default(self, monkeypatch):
-        """override 0 → дефолт (бюджет не вырождается в «фрагмент на сообщение»)."""
+        """override 0 → дефолт (бюджет не вырождается «фрагмент на сообщение»).
+        ASAP-2 T-3941(б): кейс про LEGACY-бюджет → hybrid=False явно (per-mode
+        резолв: hybrid читал бы limits.summary_hybrid_context_*)."""
         memory = FakeMemory(rows=_rows())
         gen = _gen(memory, MagicMock())
         _patch_chat_limit(monkeypatch, {
@@ -250,7 +253,8 @@ class TestTokenCeilingNormalised:
             (CHAT_A, "limits.summary_max_context_tokens"): 0,
         })
 
-        kept = await gen._apply_filter(CHAT_A, _rows(), "run-1", None)
+        kept = await gen._apply_filter(CHAT_A, _rows(), "run-1", None,
+                                       hybrid=False)
 
         assert [r["id"] for r in kept] == [1]          # обычная фильтрация
         budget = gen._filter_metrics[CHAT_A]["budget"]
@@ -260,7 +264,10 @@ class TestTokenCeilingNormalised:
 
     @pytest.mark.asyncio
     async def test_negative_cap_is_unlimited_ceiling(self, monkeypatch):
-        """override -1 → потолок «безлимита» (как resolve_context_tokens)."""
+        """override -1 → потолок «безлимита» (как resolve_context_tokens);
+        ASAP-2 T-3941(б): LEGACY-бюджет → hybrid=False явно (per-mode резолв;
+        hybrid-контур читает limits.summary_hybrid_context_* и использует
+        тот же sentinel — см. test_hybrid_mode_uses_hybrid_context_keys)."""
         memory = FakeMemory(rows=_rows())
         gen = _gen(memory, MagicMock())
         _patch_chat_limit(monkeypatch, {
@@ -269,8 +276,28 @@ class TestTokenCeilingNormalised:
             (CHAT_A, "limits.summary_max_context_tokens"): -1,
         })
 
-        await gen._apply_filter(CHAT_A, _rows(), "run-2", None)
+        await gen._apply_filter(CHAT_A, _rows(), "run-2", None, hybrid=False)
 
         budget = gen._filter_metrics[CHAT_A]["budget"]
         assert budget["limit"] == resolve_context_tokens(-1, 30000)
         assert budget["fits"] is True
+
+    @pytest.mark.asyncio
+    async def test_hybrid_mode_uses_hybrid_context_keys(self, monkeypatch):
+        """ASAP-2 §11 (полное разделение): hybrid-режим резолвит бюджет S1/S2
+        из `limits.summary_hybrid_context_*` и НЕ трогает legacy-ключ."""
+        memory = FakeMemory(rows=_rows())
+        gen = _gen(memory, MagicMock())
+        _patch_chat_limit(monkeypatch, {
+            (CHAT_A, _FLAG): True,
+            (CHAT_A, _S2_FLAG): False,
+            (CHAT_A, "limits.summary_max_context_tokens"): -1,   # legacy
+        })
+        monkeypatch.setattr(
+            sg, "resolve_hybrid_context_budget",
+            lambda **kw: ("tokens", 12345))
+
+        await gen._apply_filter(CHAT_A, _rows(), "run-3", None, hybrid=True)
+
+        budget = gen._filter_metrics[CHAT_A]["budget"]
+        assert budget["limit"] == 12345       # hybrid-ключ, не legacy -1

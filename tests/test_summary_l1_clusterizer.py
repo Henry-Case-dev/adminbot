@@ -56,7 +56,6 @@ from services.summary_l1_contract import (
     REASON_INVALID_TOPIC,
     REASON_LLM_ERROR,
     REASON_LLM_TIMEOUT,
-    REASON_MESSAGE_IN_MULTIPLE_THREADS,
     REASON_TOO_MANY_FACTS,
     REASON_TOO_MANY_FACTS_TOTAL,
     REASON_TOO_MANY_THREADS,
@@ -111,7 +110,8 @@ def _space(*ids):
 
 
 def _obj(threads=None, unassigned=None, **extra):
-    data = {"schema_version": 1, "threads": threads if threads is not None else [],
+    # ASAP-2 §95-v2: schema_version строго 2.
+    data = {"schema_version": 2, "threads": threads if threads is not None else [],
             "unassigned_message_ids": unassigned if unassigned is not None else []}
     data.update(extra)
     return data
@@ -212,7 +212,7 @@ class TestContractSchema:
         assert result.auto_unassigned_count == 0
         assert result.payload["unassigned_message_ids"] == [103]
 
-    @pytest.mark.parametrize("version", [0, 2, "1", 1.0, True, None])
+    @pytest.mark.parametrize("version", [0, 1, "2", 2.0, True, None])
     def test_bad_schema_version(self, version):
         result = validate_l1_response(_obj(schema_version=version), _space(101))
         assert result.status == STATUS_INVALID
@@ -323,23 +323,31 @@ class TestIdMatrix:
         assert result.invalid_reason == REASON_UNKNOWN_MESSAGE_ID
         assert result.payload is None
 
-    def test_evidence_outside_thread(self):
+    def test_evidence_id_must_exist_in_payload(self):
+        """ASAP-2 v2: evidence вне СВОЕГО треда больше НЕ fatal (repair
+        расширяет membership, контракт (b) шаг 2). Но unknown id (вне payload)
+        — fatal defense-in-depth (контракт (a) п.3)."""
         result = validate_l1_response(
-            _obj(threads=[_thread(ids=(101,), facts=[_fact(evidence=(102,))])]),
+            _obj(threads=[_thread(ids=(101,), facts=[_fact(evidence=(103,))])]),
             _space(101, 102))
-        assert result.invalid_reason == REASON_EVIDENCE_NOT_IN_THREAD
+        assert result.invalid_reason == REASON_UNKNOWN_MESSAGE_ID
 
-    def test_message_in_multiple_threads(self):
+    def test_message_in_multiple_threads_is_valid(self):
+        """§4:2097–2102 (many-to-many): один id в двух тредах — ВАЛИДНО."""
         result = validate_l1_response(
             _obj(threads=[_thread(ids=(101,), thread_id="a"),
-                          _thread(ids=(101,), thread_id="b")]),
-            _space(101))
-        assert result.invalid_reason == REASON_MESSAGE_IN_MULTIPLE_THREADS
+                          _thread(ids=(101, 102), thread_id="b")]),
+            _space(101, 102))
+        assert result.status == STATUS_OK and result.usable
 
-    def test_unassigned_conflict(self):
+    def test_unassigned_conflict_not_fatal(self):
+        """ASAP-2 v2: «id и в треде, и в unassigned» больше не fatal —
+        конфликт снимает детерминированный repair (membership побеждает).
+        Валидатор без repair оставляет оба упоминания (не падает)."""
         result = validate_l1_response(
             _obj(threads=[_thread(ids=(101,))], unassigned=[101]), _space(101))
-        assert result.invalid_reason == REASON_UNASSIGNED_CONFLICT
+        assert result.status != STATUS_INVALID
+        assert result.invalid_reason != REASON_UNASSIGNED_CONFLICT
 
     def test_unknown_unassigned_id(self):
         result = validate_l1_response(_obj(unassigned=[999]), _space(101))
@@ -528,10 +536,21 @@ class TestL1DoesNotWriteSummary:
     def test_canon_forbids_writing_summary(self):
         assert "НЕ ПИШЕШЬ САММАРИ" in SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT
         assert TARGET_MARKER_CORE in SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT
-        for token in ('"schema_version": 1', "evidence_message_ids",
+        for token in ('"schema_version": 2', "evidence_message_ids",
                       "unassigned_message_ids", "response_mode",
                       "cover_prompt", "threads"):
             assert token in SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT, token
+
+    def test_canon_v2_allows_many_to_many(self):
+        """ASAP-2 §7/контракт (l): канон ЯВНО разрешает несколько тем и
+        неполное покрытие; прежнее правило «ровно в одной теме» заменено."""
+        canon = SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT
+        assert "может встречаться в нескольких темах — это нормально" in canon
+        assert "Не заставляй себя выбирать одну-единственную тему" in canon
+        assert "unassigned_message_ids" in canon
+        assert "что происходило в этом чате" in canon
+        assert "Один message_id — ровно в одной теме" not in canon
+        assert "ТОЛЬКО message_id из входных данных" in canon
 
 
 # ── SC-08: §93-упаковка, чанки, бюджет, усечение ───────────────────────────
@@ -592,25 +611,36 @@ class TestPackAndBudget:
             build_db_tg_map([_row(1, 101, 100), _row(1, 102, 110)])
 
     def test_budget_resolver_tokens(self):
-        hot = {"limits.summary_max_context_tokens": 5000}
+        # ASAP-2 §11: Hybrid-контур читает ТОЛЬКО limits.summary_hybrid_*
+        # (Legacy-ключи не перетекают; контракт (g)).
+        hot = {"limits.summary_hybrid_context_tokens": 5000}
         kind, limit = resolve_l1_budget(
             hot_get=lambda key, default=None: hot.get(key, default))
         assert (kind, limit) == ("tokens", 5000)
 
     def test_budget_resolver_chars_fallback(self, monkeypatch):
-        monkeypatch.setenv("SUMMARY_MAX_CONTEXT_CHARS", "7000")
-        hot = {"limits.summary_max_context_tokens": None,
-               "limits.summary_max_context_chars": 7000}
+        monkeypatch.setenv("SUMMARY_HYBRID_CONTEXT_CHARS", "7000")
+        hot = {"limits.summary_hybrid_context_tokens": None,
+               "limits.summary_hybrid_context_chars": 7000}
         kind, limit = resolve_l1_budget(
             hot_get=lambda key, default=None: hot.get(key, default))
         assert (kind, limit) == ("chars", 7000)
 
     def test_budget_resolver_unlimited_sentinel(self):
-        hot = {"limits.summary_max_context_tokens": -1}
+        hot = {"limits.summary_hybrid_context_tokens": -1}
         kind, limit = resolve_l1_budget(
             hot_get=lambda key, default=None: hot.get(key, default))
         assert kind == "tokens"
         assert limit == Settings.CHAT_CONTEXT_UNLIMITED_CEILING_TOKENS
+
+    def test_budget_resolver_ignores_legacy_keys(self):
+        """Legacy `limits.summary_max_context_*` НЕ влияют на Hybrid-резолв
+        (§11:2353–2356 «не обрезать данные из-за маленького legacy limit»)."""
+        hot = {"limits.summary_max_context_tokens": 100,
+               "limits.summary_hybrid_context_tokens": 9000}
+        kind, limit = resolve_l1_budget(
+            hot_get=lambda key, default=None: hot.get(key, default))
+        assert (kind, limit) == ("tokens", 9000)
 
 
 # ── SC-13: слот §82 (env-only, hot-first, наследование) ────────────────────
@@ -674,7 +704,7 @@ class TestSlotResolution:
 class TestRunCore:
     @pytest.mark.asyncio
     async def test_exactly_one_llm_call(self):
-        llm = ScriptedLLM(_valid_json([_thread(ids=(101, 102))]))
+        llm = ScriptedLLM(_valid_json([_thread(ids=(101, 102), facts=[_fact("факт", (101,))])]))
         result = await run_l1(llm=llm, rows=_rows3(), chat_id=-100,
                               correlation_id="run-1")
         assert len(llm.calls) == 1
@@ -687,7 +717,7 @@ class TestRunCore:
 
     @pytest.mark.asyncio
     async def test_one_call_even_with_many_chunks(self):
-        llm = ScriptedLLM(_valid_json([_thread(ids=(103,))]))
+        llm = ScriptedLLM(_valid_json([_thread(ids=(103,), facts=[_fact("факт", (103,))])]))
         result = await run_l1(llm=llm, rows=_rows3(), chat_id=-100,
                               budget=("tokens", 1))
         assert len(llm.calls) == 1
@@ -700,7 +730,7 @@ class TestRunCore:
 
         async def _call(messages):
             calls.append(messages)
-            return _valid_json([_thread(ids=(101,))])
+            return _valid_json([_thread(ids=(101,), facts=[_fact("факт", (101,))])])
 
         result = await run_l1(llm=object(), rows=_rows3(), chat_id=-100,
                               llm_call=_call)
@@ -710,7 +740,7 @@ class TestRunCore:
 
     @pytest.mark.asyncio
     async def test_empty_input_no_llm_call(self):
-        llm = ScriptedLLM(_valid_json([_thread(ids=(101,))]))
+        llm = ScriptedLLM(_valid_json([_thread(ids=(101,), facts=[_fact("факт", (101,))])]))
         result = await run_l1(llm=llm, rows=[], chat_id=-100)
         assert llm.calls == []
         assert result.status == STATUS_EMPTY
@@ -752,7 +782,7 @@ class TestRunCore:
     @pytest.mark.asyncio
     async def test_dedicated_slot_uses_slot_pair(self):
         import services.summary_l1_clusterizer as module
-        llm = DedicatedLLM(_valid_json([_thread(ids=(101,))]))
+        llm = DedicatedLLM(_valid_json([_thread(ids=(101,), facts=[_fact("факт", (101,))])]))
         slot = L1Slot(base_url="https://dedicated/v1", model="l1-model",
                       api_key="l1-key", dedicated=True)
         original = module.resolve_l1_slot
@@ -771,7 +801,7 @@ class TestRunCore:
     async def test_dedicated_error_uses_existing_fallback(self):
         import services.summary_l1_clusterizer as module
         llm = DedicatedLLM(error=LLMError("primary down"),
-                           fallback_raw=_valid_json([_thread(ids=(101,))]))
+                           fallback_raw=_valid_json([_thread(ids=(101,), facts=[_fact("факт", (101,))])]))
         slot = L1Slot(base_url="https://dedicated/v1", model="l1-model",
                       api_key="l1-key", dedicated=True)
         original = module.resolve_l1_slot
@@ -800,7 +830,7 @@ class TestRunCore:
 
     @pytest.mark.asyncio
     async def test_payload_fields_only_real(self):
-        llm = ScriptedLLM(_valid_json([_thread(ids=(101,))]))
+        llm = ScriptedLLM(_valid_json([_thread(ids=(101,), facts=[_fact("факт", (101,))])]))
         await run_l1(llm=llm, rows=_rows3(), chat_id=-100)
         content = llm.calls[0]["messages"][1]["content"]
         assert "101" in content and "Вася" in content
@@ -854,7 +884,7 @@ class TestLogs:
 
     @pytest.mark.asyncio
     async def test_truncation_logged_not_silent(self, caplog):
-        llm = ScriptedLLM(_valid_json([_thread(ids=(103,))]))
+        llm = ScriptedLLM(_valid_json([_thread(ids=(103,), facts=[_fact("факт", (103,))])]))
         with caplog.at_level("INFO"):
             result = await run_l1(llm=llm, rows=_rows3(), chat_id=-100,
                                   budget=("tokens", 1))
@@ -878,11 +908,21 @@ class TestLogs:
 
 class TestCanon:
     def test_prev_snapshot_is_canon_base(self):
-        """PREV — слепок базы канона S3 (без общего блока маркировки, ADR-1023-1)."""
+        """ASAP-2 (контракт l): PREV_R1026 и PREV_R1027 — слепки ПРЕЖНИХ
+        канонов; текущий канон = база R1027 + блок маркировки; PREV_R1027 =
+        байт-в-байт прежний канон R1026 (база+блок)."""
         assert PREV_SUMMARY_L1_CLUSTERIZER_R1026 != \
             SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT
-        assert SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT == (
-            PREV_SUMMARY_L1_CLUSTERIZER_R1026 + "\n\n" + TARGET_INSTRUCTION_BLOCK)
+        from services.summary_prompts import (
+            PREV_SUMMARY_L1_CLUSTERIZER_R1027,
+        )
+        assert SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT != \
+            PREV_SUMMARY_L1_CLUSTERIZER_R1027
+        assert PREV_SUMMARY_L1_CLUSTERIZER_R1027 == (
+            PREV_SUMMARY_L1_CLUSTERIZER_R1026 + "\n\n"
+            + TARGET_INSTRUCTION_BLOCK)
+        assert SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT.endswith(
+            "\n\n" + TARGET_INSTRUCTION_BLOCK)
 
     def test_separate_from_l2_canons(self):
         assert SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT not in (
@@ -916,12 +956,12 @@ class TestCanon:
         assert pc.tab_nav(pc.TAB_PROMPTS) == pc.NAV_AI
 
     def test_catalog_delta_sanctioned(self):
-        assert len(pc.REGISTRY) == 473
+        assert len(pc.REGISTRY) == 489
         assert len({f.name for f in dataclasses.fields(Settings)}) == 430
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 448
-        assert len(pc.GROUPS) == 102
-        assert len(pc._TAB_BY_GROUP) == 100
+                    if s.category is not None]) == 464
+        assert len(pc.GROUPS) == 107
+        assert len(pc._TAB_BY_GROUP) == 105
         assert len(pc.TAB_RULES) == 21
 
     def test_migration_step_present(self):
@@ -930,9 +970,14 @@ class TestCanon:
                 SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT) in steps
 
     def test_rollback_documented(self):
+        # ASAP-2: откат ступени R1027 ведёт на непосредственный прежний канон
+        # PREV_SUMMARY_L1_CLUSTERIZER_R1027 (= база S3 + блок маркировки).
+        from services.summary_prompts import (
+            PREV_SUMMARY_L1_CLUSTERIZER_R1027,
+        )
         assert pm.ROLLBACK_MIGRATIONS[PROMPT_PG_KEY] == (
             SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT,
-            PREV_SUMMARY_L1_CLUSTERIZER_R1026)
+            PREV_SUMMARY_L1_CLUSTERIZER_R1027)
 
 
 class _FakeCache:
@@ -991,14 +1036,20 @@ class TestCanonMigrations:
 
     @pytest.mark.asyncio
     async def test_rollback_returns_prev(self):
+        from services.summary_prompts import (
+            PREV_SUMMARY_L1_CLUSTERIZER_R1027,
+        )
         cache = _FakeCache({PROMPT_PG_KEY: SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT})
         report = await pm.rollback_prompt_canons(cache)
         assert report == {PROMPT_PG_KEY: "rolled_back"}
-        assert cache.values[PROMPT_PG_KEY] == PREV_SUMMARY_L1_CLUSTERIZER_R1026
+        assert cache.values[PROMPT_PG_KEY] == PREV_SUMMARY_L1_CLUSTERIZER_R1027
 
     @pytest.mark.asyncio
     async def test_rollback_idempotent(self):
-        cache = _FakeCache({PROMPT_PG_KEY: PREV_SUMMARY_L1_CLUSTERIZER_R1026})
+        from services.summary_prompts import (
+            PREV_SUMMARY_L1_CLUSTERIZER_R1027,
+        )
+        cache = _FakeCache({PROMPT_PG_KEY: PREV_SUMMARY_L1_CLUSTERIZER_R1027})
         report = await pm.rollback_prompt_canons(cache)
         assert PROMPT_PG_KEY not in report and cache.sets == []
 

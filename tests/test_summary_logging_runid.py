@@ -490,7 +490,12 @@ class TestHybridLogging:
         assert not _lines(caplog, "PUBLISH_RICH_COMPLETE")
 
     @pytest.mark.asyncio
-    async def test_hybrid_l1_not_usable_degraded(self, monkeypatch, caplog):
+    async def test_hybrid_l1_not_usable_level2_recovers(self, monkeypatch,
+                                                         caplog):
+        """ASAP-2 §8/LEVEL-2 (T-3952): L1 unusable — НЕ degraded-терминал:
+        L1_FALLBACK_PACKAGE (run_id) → L2 вызывается на fallback-пакете →
+        публикация; SUMMARY_COMPLETE status=ok fallback=none, SUMMARY_FAILED
+        нет."""
         _fixed_rid(monkeypatch)
         _patch_chat_limit(monkeypatch, {(CHAT, _HYBRID_FLAG): True})
 
@@ -505,32 +510,73 @@ class TestHybridLogging:
         gen = _gen(FakeMemory(rows=_rows()), llm)
         with caplog.at_level(logging.INFO):
             await gen._run(CHAT, False)
-        assert llm.generate.await_count == 0
+        assert llm.generate.await_count == 1          # L2 на fallback-пакете
+        fb = _lines(caplog, "L1_FALLBACK_PACKAGE")
+        assert fb and "reason=invalid_json" in fb[0] and _rid(fb[0]) == _RID
         complete = _lines(caplog, "SUMMARY_COMPLETE")
-        assert complete and "status=degraded" in complete[0]
-        assert not _lines(caplog, "FORMAT_START")
+        assert complete and "status=ok" in complete[0]
+        assert "fallback=none" in complete[0]
         assert not _lines(caplog, "SUMMARY_FAILED")
 
     @pytest.mark.asyncio
-    async def test_hybrid_l2_error_degraded(self, monkeypatch, caplog):
+    async def test_hybrid_l2_error_legacy_disabled_terminal(self, monkeypatch,
+                                                             caplog):
+        """ASAP-2 матрица строка 6 + Q6: L2 unusable → LEVEL-3; при
+        ``flags.summary_legacy_fallback_enabled=OFF`` — терминальный degraded
+        SUMMARY_GENERATION_FAILED (аварийный режим), Legacy не вызывается."""
+        _fixed_rid(monkeypatch)
+        _patch_chat_limit(monkeypatch, {(CHAT, _HYBRID_FLAG): True,
+                                         (CHAT, "flags.summary_legacy_fallback_enabled"): False})
+        _hybrid_env(monkeypatch)
+        llm = MagicMock()
+        llm.generate = AsyncMock(return_value="{ не json")
+        gen = _gen(FakeMemory(rows=_rows()), llm)
+        legacy = AsyncMock()
+        gen._run_legacy_pipeline = legacy
+        with caplog.at_level(logging.INFO):
+            await gen._run(CHAT, False)
+        legacy.assert_not_awaited()
+        assert _lines(caplog, "L2_ERROR")
+        warn = _lines(caplog, "LEGACY_FALLBACK")
+        assert warn and "ВЫКЛЮЧЕН" in warn[0] and _rid(warn[0]) == _RID
+        complete = _lines(caplog, "SUMMARY_COMPLETE")
+        assert complete and "status=degraded" in complete[0]
+        assert not _lines(caplog, "FORMAT_START")
+
+    @pytest.mark.asyncio
+    async def test_hybrid_l2_error_legacy_published(self, monkeypatch, caplog):
+        """ASAP-2 матрица строки 6/11 (анти-лавина §8): L2 unusable →
+        LEGACY_FALLBACK (reason=l2_unusable, calls_so_far) → Legacy публикация
+        удалась → SUMMARY_COMPLETE status=ok fallback=legacy (промежуточный
+        degraded снят, code=-)."""
         _fixed_rid(monkeypatch)
         _patch_chat_limit(monkeypatch, {(CHAT, _HYBRID_FLAG): True})
         _hybrid_env(monkeypatch)
         llm = MagicMock()
         llm.generate = AsyncMock(return_value="{ не json")
         gen = _gen(FakeMemory(rows=_rows()), llm)
+
+        async def fake_legacy(*a, **k):
+            return True                     # «Legacy» доставил (мок)
+
+        gen._run_legacy_pipeline = fake_legacy
         with caplog.at_level(logging.INFO):
             await gen._run(CHAT, False)
-        assert _lines(caplog, "L2_ERROR")
+        warn = _lines(caplog, "LEGACY_FALLBACK")
+        assert warn and "reason=l2_unusable" in warn[0]
+        assert "calls_so_far=" in warn[0] and _rid(warn[0]) == _RID
         complete = _lines(caplog, "SUMMARY_COMPLETE")
-        assert complete and "status=degraded" in complete[0]
-        assert not _lines(caplog, "FORMAT_START")
+        assert complete and "fallback=legacy" in complete[0]
+        assert "status=ok" in complete[0] and "code=-" in complete[0]
 
     @pytest.mark.asyncio
     async def test_hybrid_l2_llm_error_http_details(self, monkeypatch, caplog):
-        """L2-провал на ON-пути: `L2_ERROR` с HTTP-статусом, прогон degraded."""
+        """L2-провал на ON-пути: `L2_ERROR` с HTTP-статусом; ASAP-2: LEVEL-3
+        на моках (детерминизм) с reason=l2_unusable; Legacy тоже мёртв →
+        degraded (матрица строка 11-гейт OFF без UX-спама)."""
         _fixed_rid(monkeypatch)
-        _patch_chat_limit(monkeypatch, {(CHAT, _HYBRID_FLAG): True})
+        _patch_chat_limit(monkeypatch, {(CHAT, _HYBRID_FLAG): True,
+                                         (CHAT, "flags.summary_legacy_fallback_enabled"): False})
         _hybrid_env(monkeypatch)
         llm = MagicMock()
         llm.generate = AsyncMock(
@@ -547,9 +593,12 @@ class TestHybridLogging:
 
     @pytest.mark.asyncio
     async def test_hybrid_package_raise_summary_failed(self, monkeypatch, caplog):
-        """Неожиданный сбой этапа пакета → SUMMARY_FAILED (§106/D6), не COMPLETE."""
+        """Неожиданный сбой этапа пакета → SUMMARY_FAILED (§106/D6), не COMPLETE.
+        ASAP-2 матрица строка 10: LEVEL-3 best-effort включён в гейт — здесь
+        он ВЫКЛЮЧЕН (kill-switch), прогон остаётся терминально failed."""
         _fixed_rid(monkeypatch)
-        _patch_chat_limit(monkeypatch, {(CHAT, _HYBRID_FLAG): True})
+        _patch_chat_limit(monkeypatch, {(CHAT, _HYBRID_FLAG): True,
+                                         (CHAT, "flags.summary_legacy_fallback_enabled"): False})
         _hybrid_env(monkeypatch)
 
         def _boom(*a, **k):
@@ -873,16 +922,16 @@ class TestDryRunContour:
 
 class TestInvariants:
     def test_catalog_zero_delta(self):
-        assert len(pc.REGISTRY) == 473
+        assert len(pc.REGISTRY) == 489
         assert len({f.name for f in dataclasses.fields(Settings)}) == 430
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 448
-        assert len(pc.GROUPS) == 102
-        assert len(pc._TAB_BY_GROUP) == 100
+                    if s.category is not None]) == 464
+        assert len(pc.GROUPS) == 107
+        assert len(pc._TAB_BY_GROUP) == 105
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.32"
+        assert APP_VERSION == "2.58.33"
 
     def test_publish_events_only_on_real_publication(self):
         """S6 (D6): PUBLISH_* реализованы в живом публикационном контуре; S9

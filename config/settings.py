@@ -934,7 +934,11 @@ class Settings:
     #   байт-в-байт прежний текст (tool_schemas.py D4/D6).
     UNIFIED_IMAGE_REQUEST_ENABLED: ClassVar[bool] = _env_bool(
         "UNIFIED_IMAGE_REQUEST_ENABLED", True)
-    # Лимит Telegram: число частей ответа (чанкинг 4096).
+    # Максимальное число Telegram sendMessage-частей, на которые можно
+    # разбить LONG legacy-саммари (~4000 симв./часть): prompt-бюджет
+    # parts×4000−200 + send-time кап чанков (_send_chunked/…_publish_plain_
+    # document из legacy-контура). ТОЛЬКО Legacy-контур (ASAP-2 §1): на
+    # Hybrid Article не влияет.
     MAX_SUMMARY_PARTS: int = _env_int("MAX_SUMMARY_PARTS", 1)
     SUMMARY_TIMEZONE: str = os.getenv("SUMMARY_TIMEZONE", "Asia/Yekaterinburg")
     # ── 10.20 (БЛОК 5.1, О4 FINAL, ADR-1020-3): «Часовой пояс чата» —
@@ -1049,13 +1053,13 @@ class Settings:
         "SUMMARY_FILTER_CONTEXT_NEIGHBORS", 1)
     SUMMARY_FILTER_CONTEXT_MAX_MESSAGES: int = _env_int(
         "SUMMARY_FILTER_CONTEXT_MAX_MESSAGES", 50)
-    # ── Эпик 2 / S3 round1026 (ADR-1026-5 D4): слот модели summary L1 (§82) —
-    # env-only ClassVar (НЕ dataclass-поля → вне каталога, Δ каталога = 0;
-    # UI-слот/каталог — S5 при врезке). Пусто → глобальная основная модель
+    # ── Эпик 2 / S3 round1026 (ADR-1026-5 D4): слот модели summary L1 (§82).
+    # Env ClassVar = дефолтный слой; с ASAP-2 round1027 (ADR-1027-10 D11/§13)
+    # ключи КАТАЛОГИЗИРОВАНЫ как PG-only `models.summary_l1_base_url`/
+    # `models.summary_l1_model_name`/`keys.summary_l1_api_key` (secret) —
+    # рантайм резолвит hot-first, пусто → глобальная основная модель
     # (наследование ≠ аварийное резервирование: ошибка dedicated уходит в
-    # существующую политику LLM_FALLBACK_*). Резолвер L1 читает hot-first
-    # (`models.summary_l1_*`/`keys.summary_l1_api_key`) — forward-compatible.
-    # Секрет не логируется (R17).
+    # существующую политику LLM_FALLBACK_*). Секрет не логируется (R17).
     SUMMARY_L1_BASE_URL: ClassVar[str] = _env_str("SUMMARY_L1_BASE_URL", "")
     SUMMARY_L1_MODEL_NAME: ClassVar[str] = _env_str("SUMMARY_L1_MODEL_NAME", "")
     SUMMARY_L1_API_KEY: ClassVar[str] = _env_str("SUMMARY_L1_API_KEY", "")
@@ -1087,18 +1091,68 @@ class Settings:
     # → вкладка UI скрыта + API 404. Живой пайплайн/публикация не затрагиваются.
     SUMMARY_TEST_UI_ENABLED: ClassVar[bool] = _env_bool(
         "SUMMARY_TEST_UI_ENABLED", True)
-    # ── ASAP hotfix round1027 (прод-инцидент 27.09 03:17,
-    # chat_id=-1002661910336): L2-статья, валидная по §98/§99, но длиннее
-    # мягкого капа ``limits.max_summary_parts`` (легаси-ключ, settings-дефолт
-    # 1 — семантика «частей ×4000 симв.» legacy-промпта), отбраковывалась
-    # жёстко (``too_many_paragraphs`` → L2_ERROR → публикация отменялась
-    # ЦЕЛИКОМ). Default ON: мягкий кап — НЕ жёсткий контракт §99, допустима
-    # детерминированная обрезка до капа с маркером ``trimmed_for_publication``
-    # (R17-safe, числа). Env-only ClassVar (Δ каталога = 0). OFF → точный
-    # прежний fail-closed-путь (S5 §106). Жёсткий потолок
-    # ``MAX_PARAGRAPHS_HARD`` (498) не касается: он остаётся в валидаторе.
-    SUMMARY_L2_TRIM_ENABLED: ClassVar[bool] = _env_bool(
-        "SUMMARY_L2_TRIM_ENABLED", True)
+    # ── ASAP-2 round1027 (mca-asap2-summary-pipeline, ADR-1027-10): слой
+    # настроек Hybrid-контура. Каждый ключ — hot-ключ PG-каталога
+    # (`limits.summary_hybrid_*`, §13/§14), env ClassVar — дефолтный слой
+    # (резолв hot-first; per-chat для limits-класса — существующий паттерн).
+    # Trim-костыль 2.58.32 (`SUMMARY_L2_TRIM_ENABLED`) УДАЛЁН по §16:2536–2545
+    # (параграфы Hybrid-статьи не режутся и не бракуются ни одним капом).
+    # `limits.max_summary_parts` здесь НЕ наследуется: он выведен из Hybrid
+    # полностью и остался строго Legacy-контуру (prompt-бюджет parts×4000−200
+    # + send-кап plain-чанков, контракт (d)/§1/D5).
+    # Режим статьи (casual|serious|deep_research), default serious (§2:2011).
+    SUMMARY_HYBRID_RESPONSE_MODE: ClassVar[str] = _env_str(
+        "SUMMARY_HYBRID_RESPONSE_MODE", "serious")
+    # Мягкие цели длины статьи: 0 — по пресету (casual 4000/5,
+    # serious 6500/8, deep_research 11000/14 — spec Q4); явное >0 побеждает
+    # пресет. Это TARGETS (инструкция в L2-промпте), НЕ валидатор и НЕ ножницы.
+    SUMMARY_HYBRID_TARGET_CHARS: ClassVar[int] = _env_int(
+        "SUMMARY_HYBRID_TARGET_CHARS", 0)
+    SUMMARY_HYBRID_TARGET_PARAGRAPHS: ClassVar[int] = _env_int(
+        "SUMMARY_HYBRID_TARGET_PARAGRAPHS", 0)
+    # Широкий safety ceiling НАБЛЮДЕНИЯ (default 24000 = 0.75×RICH_MAX_CHARS):
+    # 24000<chars≤32000 → публикуем + WARN `L2_OVER_SOFT_CEILING`; chars>32000
+    # → технический fail-closed `too_long` (§99) → LEVEL-3 Legacy. Никогда не
+    # механическая обрезка (spec Q4/T-3939).
+    SUMMARY_HYBRID_MAX_CHARS: ClassVar[int] = _env_int(
+        "SUMMARY_HYBRID_MAX_CHARS", 24000)
+    # ── §11/D7: РАЗДЕЛЬНЫЕ бюджеты контекста. Hybrid читает ТОЛЬКО эти
+    # ключи (`limits.summary_hybrid_context_*`); Legacy — только старые
+    # `limits.summary_max_context_*`. Масштаб дефолтов паритетен общим
+    # (30000 токенов / 120000 симв.), но ключи независимы (§11:2353–2356).
+    SUMMARY_HYBRID_CONTEXT_TOKENS: ClassVar[int | None] = _env_int_optional(
+        "SUMMARY_HYBRID_CONTEXT_TOKENS", None)   # None → 30000 (резолвер)
+    SUMMARY_HYBRID_CONTEXT_CHARS: ClassVar[int] = _env_int(
+        "SUMMARY_HYBRID_CONTEXT_CHARS", 120000)
+    # Output reserve (env-only ClassVar, Δ каталога = 0 — инфраструктурная
+    # защита окна ответа, не пользовательская настройка; spec Q5): из бюджета
+    # L1/L2-входа вычитаются до упаковки/сборки пакета.
+    SUMMARY_L1_OUTPUT_RESERVE_TOKENS: ClassVar[int] = _env_int(
+        "SUMMARY_L1_OUTPUT_RESERVE_TOKENS", 4000)
+    SUMMARY_L2_OUTPUT_RESERVE_TOKENS: ClassVar[int] = _env_int(
+        "SUMMARY_L2_OUTPUT_RESERVE_TOKENS", 6000)
+    # ── §15/§8/§9: Recovery-тумблеры — hot-ключи каталога + env-слой
+    # (резолв hot-first, kill-switch'и аварийного режима; spec Q6):
+    # ON (default): детерминированный локальный ремонт ответа L1 между parse и
+    # validate (unknown-id → удалить, evidence→membership расширить, пустые
+    # fact/topic → снять; `services/summary_l1_repair.py`, 0 LLM). OFF →
+    # строгий валидатор v2 без ремонта (unknown id → fatal).
+    SUMMARY_L1_REPAIR_ENABLED: ClassVar[bool] = _env_bool(
+        "SUMMARY_L1_REPAIR_ENABLED", True)
+    # ON (default): РОВНО одна исправляющая повторная LLM-попытка в run_l1 при
+    # невалидном ответе ПОСЛЕ deterministic repair (reason в user-контенте,
+    # §15:2508–2520; НЕ same-prompt). НЕ ретраятся: транспорт
+    # (LLMError/LLMTimeoutError) и переполнение контракта too_many_*.
+    # Hot-слой: `flags.summary_hybrid_l1_retry_enabled`. OFF → single-shot.
+    SUMMARY_L1_RETRY_ENABLED: ClassVar[bool] = _env_bool(
+        "SUMMARY_L1_RETRY_ENABLED", True)
+    # ON (default): LEVEL-3 — при недоведении Hybrid-контура до публикации
+    # выполняется полный Legacy-пайплайн (`_run_legacy_pipeline`, System2
+    # two-call/single по SYSTEM2_SUMMARY_ENABLED, чанки ≤ MAX_SUMMARY_PARTS).
+    # Hot-слой: `flags.summary_legacy_fallback_enabled`. OFF → hybrid-провал
+    # терминален (осознанный аварийный режим, §9/ADR-1027-10 D8).
+    SUMMARY_LEGACY_FALLBACK_ENABLED: ClassVar[bool] = _env_bool(
+        "SUMMARY_LEGACY_FALLBACK_ENABLED", True)
 
     # ── GraphRAG (Epic 26) ─────────────────────────────────────────
     # False = extraction-вызов при архивации не делается (ровно старое поведение)
@@ -1288,6 +1342,186 @@ class Settings:
     # поведение; OFF = байт-в-байт прежнее (без сериализации/повторов).
     DB_LOCK_RESILIENCE_ENABLED: ClassVar[bool] = _env_bool(
         "DB_LOCK_RESILIENCE_ENABLED", True)
+
+    # ── Раунд 10.27 (MCA Wave 0, ADR-1027-3 D9 / ADR-1027-1 D7) ────────────
+    # Единая политика kill-switch волны 0: env-only ClassVar, default ON,
+    # резолв per-call, никогда не бросает; OFF = точный паритет baseline
+    # (без новых записей/эффектов). В param_catalog НЕ добавляются
+    # (Δ каталога = 0). Существующий DB_LOCK_RESILIENCE_ENABLED уважается.
+    # `MCA_TX_OWNERSHIP_ENABLED` (default ON; OFF → прежний write_transaction,
+    # как в baseline: rollback вне lock).
+    MCA_TX_OWNERSHIP_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_TX_OWNERSHIP_ENABLED", True)
+    # `MCA_TASK_SUPERVISOR_ENABLED` (default ON; OFF → без реестра/durable/
+    # coalescing). Объявлен/резолвится уже сейчас; durable `task_jobs` — v14.
+    MCA_TASK_SUPERVISOR_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_TASK_SUPERVISOR_ENABLED", True)
+    # `MCA_SCHEMA_MIGRATIONS_ENABLED` (default ON; OFF → legacy-путь миграций
+    # без нового runner/backup-обвязки, паритет baseline).
+    MCA_SCHEMA_MIGRATIONS_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_SCHEMA_MIGRATIONS_ENABLED", True)
+    # `MCA_EVENT_CONTRACT_ENABLED` (default ON; OFF → события как в baseline:
+    # `emit_agentic_event` без start/outcome/durable). ADR-1027-2 D10.
+    MCA_EVENT_CONTRACT_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_EVENT_CONTRACT_ENABLED", True)
+    # `MCA_TELEMETRY_STORE_ENABLED` (default ON; OFF → только структурный лог,
+    # без durable-персистенции `mca_events`). ADR-1027-2 D10.
+    MCA_TELEMETRY_STORE_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_TELEMETRY_STORE_ENABLED", True)
+    # Ретенция MCA-13 (env-only ClassVar, Δ каталога=0): подробные строки —
+    # 14 суток, терминальные события — 90 суток (ADR-1027-2 D4; §17.3).
+    MCA_DETAILED_LOG_RETENTION_DAYS: ClassVar[int] = _env_int(
+        "MCA_DETAILED_LOG_RETENTION_DAYS", 14)
+    MCA_TERMINAL_EVENT_RETENTION_DAYS: ClassVar[int] = _env_int(
+        "MCA_TERMINAL_EVENT_RETENTION_DAYS", 90)
+    # ── Раунд 10.27 (MCA Wave 1, `mca-03-message-identity`, ADR-1027-4 D9) ──
+    # env-only ClassVar, default ON, резолв per-call, Δ каталога = 0.
+    # `MCA_MESSAGE_IDENTITY_ENABLED` (OFF → legacy ingestion/импорт без
+    # канонической идентичности/source records; паритет baseline 7165ff7).
+    MCA_MESSAGE_IDENTITY_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_MESSAGE_IDENTITY_ENABLED", True)
+    # `MCA_MESSAGE_REVISION_TRACKING_ENABLED` (OFF → редакции без
+    # версионирования; текущее поведение baseline).
+    MCA_MESSAGE_REVISION_TRACKING_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_MESSAGE_REVISION_TRACKING_ENABLED", True)
+    # ── Раунд 10.27 (MCA Wave 1, `mca-02-safe-fetch-cookies`, ADR-1027-5 D12) ──
+    # env-only ClassVar, default ON, резолв per-call, Δ каталога = 0.
+    # `MCA_SAFE_FETCH_ENABLED` (OFF → legacy-путь загрузки: без SSRF/лимитов).
+    MCA_SAFE_FETCH_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_SAFE_FETCH_ENABLED", True)
+    # `MCA_EGRESS_GUARD_ENABLED` (OFF → без loopback egress-контроля для
+    # медиа-подпроцессов/yt-dlp/прокси; паритет baseline).
+    MCA_EGRESS_GUARD_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_EGRESS_GUARD_ENABLED", True)
+    # Отдельная env-only конфигурация доверенных API/локальных служб (D4):
+    # приватные/loopback-цели допустимы ТОЛЬКО для этих хостов/портов и
+    # НИКОГДА для пользовательских URL. Пусто → дефолт localhost/loopback.
+    SAFE_FETCH_TRUSTED_HOSTS: ClassVar[str] = _env_str(
+        "SAFE_FETCH_TRUSTED_HOSTS", "")
+    SAFE_FETCH_TRUSTED_PORTS: ClassVar[str] = _env_str(
+        "SAFE_FETCH_TRUSTED_PORTS", "9000,11434,8081,5432,4416")
+    # Опциональный upstream-прокси для egress-guard (гео/резидентный доступ).
+    SAFE_FETCH_UPSTREAM_PROXY: ClassVar[str] = _env_str(
+        "SAFE_FETCH_UPSTREAM_PROXY", "")
+    # Лимиты SafeFetcher (env-only, Δ каталога = 0).
+    SAFE_FETCH_HTML_MAX_BYTES: ClassVar[int] = _env_int(
+        "SAFE_FETCH_HTML_MAX_BYTES", 5 * 1024 * 1024)
+    SAFE_FETCH_HTML_MAX_DECOMPRESSED_BYTES: ClassVar[int] = _env_int(
+        "SAFE_FETCH_HTML_MAX_DECOMPRESSED_BYTES", 8 * 1024 * 1024)
+    SAFE_FETCH_HTML_TIMEOUT_SECONDS: ClassVar[float] = _env_float(
+        "SAFE_FETCH_HTML_TIMEOUT_SECONDS", 10.0)
+    SAFE_FETCH_IMAGE_MAX_BYTES: ClassVar[int] = _env_int(
+        "SAFE_FETCH_IMAGE_MAX_BYTES", 25 * 1024 * 1024)
+    SAFE_FETCH_VIDEO_MAX_BYTES: ClassVar[int] = _env_int(
+        "SAFE_FETCH_VIDEO_MAX_BYTES", 2_000_000_000)
+    SAFE_FETCH_VIDEO_MAX_DECOMPRESSED_BYTES: ClassVar[int] = _env_int(
+        "SAFE_FETCH_VIDEO_MAX_DECOMPRESSED_BYTES", 2_000_000_000)
+    SAFE_FETCH_VIDEO_TIMEOUT_SECONDS: ClassVar[float] = _env_float(
+        "SAFE_FETCH_VIDEO_TIMEOUT_SECONDS", 240.0)
+    # ── Раунд 10.27 (MCA Wave 1, `mca-04a-provenance-contract`, ADR-1027-6 D11) ─
+    # Единая политика kill-switch 04a: env-only ClassVar, default ON, резолв
+    # per-call, никогда не бросает; OFF = точный паритет baseline; в
+    # `param_catalog` НЕ добавляются (Δ каталога = 0; F8 NOT_APPLICABLE).
+    # `MCA_PROVENANCE_ENABLED` (OFF → legacy-путь без типизированных
+    # SourceRef/EvidenceLink/статусов; новые записи/связи не создаются).
+    MCA_PROVENANCE_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_PROVENANCE_ENABLED", True)
+    # `MCA_FACT_ATTRIBUTION_ENABLED` (OFF → legacy-атрибуция фактов: target=asker,
+    # name-scope читатели, Layer B person_facts не сохраняются). Инертен при
+    # `MCA_PROVENANCE_ENABLED=OFF`.
+    MCA_FACT_ATTRIBUTION_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_FACT_ATTRIBUTION_ENABLED", True)
+    # `MCA_EVIDENCE_RECONSTRUCTION_ENABLED` (OFF → восстановление старых
+    # записей не запускается; прямо сохранённое происхождение фиксируется).
+    # Инертен при `MCA_PROVENANCE_ENABLED=OFF`.
+    MCA_EVIDENCE_RECONSTRUCTION_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_EVIDENCE_RECONSTRUCTION_ENABLED", True)
+    # ── Раунд 10.27 (MCA Wave 1, `mca-07-retrieval-context`, ADR-1027-7 D12) ─
+    # Единая политика kill-switch mca-07: env-only ClassVar, default ON,
+    # резолв per-call, никогда не бросает; OFF = точный паритет baseline; в
+    # `param_catalog` НЕ добавляются (Δ каталога = 0; F8 NOT_APPLICABLE).
+    # ON (default) = новые политики mca-07; OFF = байт-в-байт прежний путь.
+    # `MCA_RETRIEVAL_CONTEXT_ENABLED` — ON: единый retrieval-контракт
+    # (комбинация каналов + эпизоды-первыми) и embedding-identity-политика;
+    # OFF: legacy-путь retrieval/embedding (без объединённого контракта).
+    MCA_RETRIEVAL_CONTEXT_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_RETRIEVAL_CONTEXT_ENABLED", True)
+    # `MCA_EVIDENCE_BUNDLE_ENABLED` — ON: единый in-memory EvidenceBundle;
+    # OFF: legacy-сборка контекста без bundle.
+    MCA_EVIDENCE_BUNDLE_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_EVIDENCE_BUNDLE_ENABLED", True)
+    # `MCA_ADAPTIVE_CONTEXT_BUDGET_ENABLED` — ON: полный учёт payload +
+    # адаптивность + protected spans + pre-flight; OFF: прежний
+    # `_apply_context_budget` (паритет baseline).
+    MCA_ADAPTIVE_CONTEXT_BUDGET_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_ADAPTIVE_CONTEXT_BUDGET_ENABLED", True)
+    # `MCA_TYPED_RERANKER_ENABLED` — ON: типизированный список ID + отдельный
+    # статус/детерминированный bounded fallback; OFF: прежний reranker.
+    MCA_TYPED_RERANKER_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_TYPED_RERANKER_ENABLED", True)
+    # `MCA_SUMMARY_SINGLEFLIGHT_ENABLED` — ON: singleflight/coalescing +
+    # high-watermark/CAS сводок; OFF: прежний fire-and-forget/HWM-less upsert.
+    MCA_SUMMARY_SINGLEFLIGHT_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_SUMMARY_SINGLEFLIGHT_ENABLED", True)
+    # `MCA_CONTEXT_ANSWER_CACHE_ENABLED` — ON (default): активна MCA-07
+    # context-keyed политика (legacy text-replay по одному нормализованному
+    # query/chat/user для контекстных ответов ОТКЛЮЧЁН; update-дедуп по
+    # (chat_id, tg_message_id) сохранён). OFF: прежний ответный кеш (baseline).
+    MCA_CONTEXT_ANSWER_CACHE_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_CONTEXT_ANSWER_CACHE_ENABLED", True)
+    # ── Раунд 10.27 (MCA Wave 0 — остаток, `mca-17a-observability-core`, ADR-1027-8 D12) ─
+    # Ядро наблюдаемости: реестр процессов/trace-span/lifecycle/watchdog/
+    # инциденты/телеметрия. Единая политика kill-switch: env-only ClassVar,
+    # default ON, резолв per-call, никогда не бросает; OFF = точный паритет
+    # baseline. В `param_catalog` НЕ добавляются (Δ каталога = 0; F8
+    # NOT_APPLICABLE).
+    # Мастер: OFF → паритет baseline целиком (без реестра/span/lifecycle/
+    # watchdog/инцидентов; `emit_mca_event`/ExecutionGraph как есть).
+    MCA_OBSERVABILITY_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_OBSERVABILITY_ENABLED", True)
+    # OFF → реестр процессов не публикуется/не регистрируется.
+    MCA_PROCESS_REGISTRY_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_PROCESS_REGISTRY_ENABLED", True)
+    # OFF → события без расширенных span-полей (только контракт MCA-13).
+    MCA_TRACE_SPAN_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_TRACE_SPAN_ENABLED", True)
+    # OFF → lifecycle/`partial`/`degraded`/linked job не вычисляются.
+    MCA_JOB_LIFECYCLE_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_JOB_LIFECYCLE_ENABLED", True)
+    # OFF → нет watchdog/takeover/stale-детекта (heartbeat только как данные).
+    MCA_HEARTBEAT_WATCHDOG_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_HEARTBEAT_WATCHDOG_ENABLED", True)
+    # OFF → инциденты не группируются/не ведутся.
+    MCA_INCIDENTS_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_INCIDENTS_ENABLED", True)
+    # OFF → доставка в миниапп выключена (нет push/polling-выдачи инцидентов).
+    MCA_INCIDENT_PUSH_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_INCIDENT_PUSH_ENABLED", True)
+    # OFF → нет дискового spool/degraded-счётчика (только structural fallback).
+    MCA_TELEMETRY_SPOOL_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_TELEMETRY_SPOOL_ENABLED", True)
+    # Fault injection — default OFF, dev/test-only, НЕ product-функция/виджет,
+    # вне effective-state §20.2 (ADR-1027-8 D6/§5.5).
+    MCA_FAULT_INJECTION_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_FAULT_INJECTION_ENABLED", False)
+    # Пороги/лимиты (env-only): heartbeat 15s / stale 60s / progress-stall по
+    # типу стадии / push ≤10s / spool-потолок (ADR-1027-8 D7/D10/D11).
+    MCA_JOB_HEARTBEAT_SECONDS: ClassVar[int] = _env_int(
+        "MCA_JOB_HEARTBEAT_SECONDS", 15)
+    MCA_JOB_STALE_SECONDS: ClassVar[int] = _env_int(
+        "MCA_JOB_STALE_SECONDS", 60)
+    MCA_INCIDENT_PUSH_INTERVAL_SECONDS: ClassVar[int] = _env_int(
+        "MCA_INCIDENT_PUSH_INTERVAL_SECONDS", 10)
+    MCA_TELEMETRY_SPOOL_MAX_EVENTS: ClassVar[int] = _env_int(
+        "MCA_TELEMETRY_SPOOL_MAX_EVENTS", 2000)
+    MCA_PROGRESS_STALL_DEFAULT_SECONDS: ClassVar[int] = _env_int(
+        "MCA_PROGRESS_STALL_DEFAULT_SECONDS", 600)
+    MCA_PROGRESS_STALL_LLM_SECONDS: ClassVar[int] = _env_int(
+        "MCA_PROGRESS_STALL_LLM_SECONDS", 300)
+    MCA_PROGRESS_STALL_VIDEO_SECONDS: ClassVar[int] = _env_int(
+        "MCA_PROGRESS_STALL_VIDEO_SECONDS", 1800)
+    MCA_PROGRESS_STALL_ARCHIVE_SECONDS: ClassVar[int] = _env_int(
+        "MCA_PROGRESS_STALL_ARCHIVE_SECONDS", 3600)
 
     # F0.3 (раунд 10.25, ADR-1025-3): размер ПАРТИИ паттернов анти-клише за
     # один LLM-вызов (в пределах выходного лимита модели) — отдельно от
@@ -1947,7 +2181,7 @@ settings = Settings()
 # S4 (10.26, ADR-1026-6 D1–D6): bump 2.58.22 → 2.58.23 — новый рантайм-модуль
 # `services/summary_fact_package.py` (детерминированный «пакет фактов §96»,
 # 0 LLM-вызовов; Δ каталога=0, Δ DDL=0; в живой путь НЕ врезан — GATED S5/S6).
-APP_VERSION = "2.58.32"   # ASAP hotfix round1027 (прод-инцидент 27.09 03:17, требование владельца «Саммари не публикуется → срочно починить и деплой»): env-only kill-switch SUMMARY_L2_TRIM_ENABLED (default ON, Δ каталога=0) + run_l2 — детерминированная обрезка до мягкого капа limits.max_summary_parts (легаси-дефолт 1 от Epic 24), валидная §99-статья больше не отбраковывается по too_many_paragraphs (маркер trimmed_for_publication в L2_COMPLETE, paragraphs_before/kept/dropped); OFF → точный прежний fail-closed S5; жёсткий контракт §99 (498 абзацев/32000/900) сохранён; GraphExtractionError при LLMTimeoutError не срывает публикацию (проверено тестами: batch kept, pipeline continues, GraphExtractDropped → mark). Δ DDL=0, Δ каталога=0, промпты не меняются, R17-safe. Откат: env SUMMARY_L2_TRIM_ENABLED=false + рестарт. bump 2.58.31 → 2.58.32. Эпик 3 aggregate (round1026, A0–A10; ADR-1026-23 D7/D10): A2 tool-chains + A3 unified-image-request + A5 image-daily-limit + A6 memory-lookup-api + A4 image-context-memory + A7 decision-making + A8 telegram-reactions + A9 agentic-events-graph + A10 agentic-verification (A1 уже на проде с 2.58.30); 10 env-only kill-switch'ей default ON; Δ каталога=0; A5 PG-DDL image_reservation идемпотентно; bump 2.58.30 → 2.58.31. A1 (10.26, ADR-1026-14 D1–D10): Эпик 3 Wave 1 «Tool Coordinator» — программный слой решения о действии ВНУТРИ существующего Синтезатора direct-чата (намерение/адресат/память/выбор инструментов/оценка/действие) без 3-го LLM-вызова (2-вызовность System 2 сохранена, await_count==2) и без wire-поля action (граница A7); модельный выбор инструментов сохранён (tool_choice='auto'), общий механизм цепочек — reuse существующего многораундового tool_loop (TOOL_MAX_ROUNDS=4, ≤2/раунд, fail-open; per-combination обработчиков нет); изоляция Вербализатора (только факты stage2_payload + стиль response_mode; при молчании/реакции не запускается); R17-safe наблюдаемость координатора (числа/коды/id/имена инструментов, без сырья), REUSE ExecutionGraph (вторая аналитика не создаётся); env-only ClassVar kill-switch DIRECT_COORDINATOR_ENABLED (default ON, Δ каталога=0, резолв per-call, OFF → точный legacy-путь); Δ DDL=0/Δ каталога=0, §104 generate_image и §85-UI вне diff, промпты не меняются (ADR-1013-3 NOT_APPLICABLE); откат soft OFF + annotated-тег pre-round1026-a1 → e3ea367; bump 2.58.29→2.58.30. S10 (10.26, ADR-1026-12 D1–D8): прямой деплой и активация Эпика 2 — code-default SUMMARY_HYBRID_L2_ENABLED OFF→ON (§107: новый пайплайн — основной сразу после деплоя, «не оставлять выключенной в ожидании ручной активации»; резолв per-chat→hot→env/default сохранён как аварийный kill-switch; «ручная активация»/UI-селектор Legacy↔Hybrid запрещены, «аварийное выключение» разрешено), §114-предполётный harness (11 сценариев, 0 отправок в основной чат), §115-процедура (7 проверок) + артефакты rich/plain, §117-результаты Эпика 2 (results.md, 14 пунктов); Δ DDL=0/Δ каталога=0 (F8 не переиздаётся), CSP/zero-build, 0 новых зависимостей, 2-вызовность, R17/R18; откат soft OFF + annotated-тег pre-round1026-s10; bump 2.58.28→2.58.29. S6 (10.26, ADR-1026-11 D1–D10): публикационная интеграция Саммари — reuse существующего sendRichMessage (services/telegram_send.py вне diff): rich-путь <img>→настоящий <h1>→<p> через серверный форматтер S5 (services/summary_article_formatter.py: document_from_plain_text/extract_title_from_markdown/chunk_plain_text/chunk_plain_blocks+sanitize), plain §105 (<b>title</b>+абзацы, нарезка по границам абзацев, финальный даунгрейд format_plain_text/chunk_plain_text), §106-коды (SUMMARY_GENERATION_FAILED/COVER_GENERATION_FAILED/RICH_MESSAGE_SEND_FAILED/TEXT_FALLBACK_FAILED) + аддитивный code=, PUBLISH_RICH_*/PUBLISH_TEXT_* + publish-узел ExecutionGraph (publication_status published_rich/published_text/failed/skipped, нет данных → None), follow-up S5 закрыт (L-R1026S5-4/-5/-6, S-R1026S5-7: memorize_facts и на ON), AMEND ADR-1026-7 D5/ADR-1026-9 D2/D7/ADR-1026-10 D1/D4/D8, Δ DDL=0/Δ каталога=0, 2-вызовность, ON (SUMMARY_HYBRID_L2_ENABLED) не активируется; bump 2.58.27→2.58.28. S8 (10.26, ADR-1026-10 D1–D10): adapter аналитики Саммари — backend-нормализация services/execution_graph_source.py (in-memory снапшот прогона, Δ DDL=0) + аддитивный read-only GET /api/analytics/execution/latest (web/api/analytics.py) + клиентский ExecutionGraph.fromExecution/STEP_KIND (web/static/execution_graph.js, real stages filter/l1_clusterizer/l2_writer/formatting), §112-метрики («Нет данных» вместо $0, «Без лимита», publication_status=gated), закрытие L-F6S-1 (аддитивный price_known в /analytics/usage/summary), publish-срез GATED (S6/D4), Δ каталога=0, 2-вызовность; bump 2.58.26→2.58.27. S7 (10.26, ADR-1026-9 D1–D8): сквозной run_id = correlation_id (UUID4 hex, одна точка на прогон — summary_generator._run / summary_test_run.run_summary_test) + аддитивные R17-safe события SUMMARY_*/FORMAT_*/COVER_* (§108/§109; PUBLISH_* GATED), §110-фильтр «Саммари» в существующем log viewer (web/app.js/index.html, routes.py вне diff), Δ DDL=0/Δ каталога=0, 2-вызовность; bump 2.58.25→2.58.26. S9 (10.26, ADR-1026-8 D1–D8): dry-run тест-контур «Тестирование» (§113) — новый сервис services/summary_test_run.py (0 публикаций / 0 памяти / 0 generate_image; ON per-run прямыми run_l1/run_l2, ровно 2 LLM-вызова, глобальный SUMMARY_HYBRID_L2_ENABLED не читается/не пишется), additive SummaryGenerator.build_test_rows (read-only окно db.get_smart_window + S1/S2, тело _run/_run_hybrid_l2 не меняется), новый роутер web/api/summary_test.py (async 202 + polling, in-memory store TTL 15 мин/≤20, Δ DDL=0, routes.py вне diff), UI-вкладка testing (#/modules/summary/testing, Δ каталога=0), env-only SUMMARY_TEST_UI_ENABLED (default ON; hot-OFF false → 404), bump 2.58.24→2.58.25. S5 (10.26, ADR-1026-7 D1–D7): L2 «Писатель» + серверный форматтер статьи — новые модули services/summary_l2_writer.py (build_l2_input/run_l2/parse_l2_document/validate_l2_document, L2Result; вход = контент-секция FactPackage §96, выход = документ §99, ровно 1 LLM-вызов, step=l2_writer; пост-валидация цитат/атрибуции, fail-closed) и services/summary_article_formatter.py (0 LLM: rich H1/p/≤1 b + sanitize→html.escape, plain <b>-заголовок, чанки по абзацам; лимиты 200/max_summary_parts/498/32000/900); промпт-канон L2 (+1 каталог, PREV_*/ROLLBACK, эталон canon), env-only слот SUMMARY_L2_* и kill-switch SUMMARY_HYBRID_L2_ENABLED (default OFF, врезка за флагом в summary_generator._run, OFF-путь байт-в-байт); send_rich_message content_format="html"; Δ DDL=0. Ранее S4 (10.26, ADR-1026-6 D1–D6): пакет фактов §96 — новый чистый модуль services/summary_fact_package.py (FactPackage v1: name=topic verbatim, description=детерминированная агрегация facts[].text, chronology=ASC (timestamp,message_id) из §92, facts/evidence_ids verbatim+union, fragments evidence-first, service{response_mode,cover_prompt}); бюджет L2-входа — reuse limits.summary_max_context_tokens/_chars через resolve_chat_limit (Δ каталога=0, новых env нет); усечение fragments→description→целые темы + truncated/skipped_ids/WARN; fail-closed ok/truncated/empty/invalid/error + not_built (§95/§106); ID — TG message_id; 0 LLM-вызовов; в живой путь НЕ врезан (GATED S5/S6), ровно 2 вызова сохранены, публикация/обложка/XML вне diff; Δ DDL=0. Ранее S3 (10.26, ADR-1026-5 D1–D6): L1 «Кластеризатор» — модули services/summary_l1_contract.py (строгий JSON §95, ID-пространства TG/DB, fail-closed L1Result) и services/summary_l1_clusterizer.py (§92-вход → §93-упаковка в один вход → ровно 1 LLM-вызов → §95-валидатор; логи L1_START/COMPLETE/ERROR), промпт-канон L1 (+1 каталог, PREV_*/ROLLBACK, эталон canon), env-only слот SUMMARY_L1_*; Δ DDL=0. Ранее S2 (10.26, ADR-1026-4 D1/D7): восстановление контекста Саммари — services/summary_context_restore.py, врезка в SummaryGenerator._apply_filter (0 LLM-вызовов). Ранее S1 (10.26, ADR-1026-1 D1/D7): алгоритмический префильтр — services/summary_filter.py, врезка в SummaryGenerator._run (0 LLM-вызовов).
+APP_VERSION = "2.58.33"   # ASAP-2 `mca-asap2-summary-pipeline` round1027 (П0 владельца, current_task.md «# ASAP 2 / P0» §0–§21, spec + ADR-1027-10; пост-деплой 2.58.32: 16/17 саммари degraded за 30 дней — fail-closed §106 без фолбэка + partition-контракт §95): ДВУХКОНТУРНАЯ архитектура Summary. HYBRID: L1 threads-v2 `schema_version: 2` — many-to-many message↔topics (§4/§5: partition-правило снято, `message_in_multiple_threads` УДАЛЁН из фатальных проверок валидатора И из retryable-набора); deterministic repair `services/summary_l1_repair.py` МЕЖДУ parse и validate (§6: unknown-id удалить, evidence→membership расширить, пустые fact/topic снять; verdict useless = topics_after==0 ∨ facts_after==0 ∨ unknown/referenced>0.5 → reason `l1_useless_after_repair`); correction retry ≤1 СТРОГО после repair (§15: вторая попытка = system + исходный user + correction-блок с текстом причины и «Do not invent message ids»; списки id — только в промпт; транспорт LLMError/LLMTimeout и too_many_* не ретраящиеся) — ОТВЕРГНУТЫЙ same-prompt partial не коммитился и переработан. Length Hybrid: `limits.summary_hybrid_response_mode/_target_chars/_target_paragraphs/_max_chars` (presets casual 4000/5, serious 6500/8 default, deep_research 11000/14; target — мягкий ориентир в детерминированном length-блоке L2-промпта, валидатором НЕ сравнивается; 24000 = WARN `L2_OVER_SOFT_CEILING` БЕЗ обрезки; >32000 = технический `too_long` → Legacy; §2/§3/§10). Бюджеты раздельны (§11): Hybrid читает ТОЛЬКО `limits.summary_hybrid_context_tokens/_chars` (единая точка `resolve_hybrid_context_budget`, serialized-учёт §92-JSON, margin TOKEN_SAFETY ~1.15, output reserve L1 4000/L2 6000, democratic eviction (reply_protected, −weight_S1, timestamp), последнее сообщение неприкосновенно); Legacy — только старые `limits.summary_max_context_*`. `limits.max_summary_parts` ВЫВЕДЕН из Hybrid полностью — строго Legacy-семантика (§1): prompt-бюджет parts×4000−200 + send-кап plain-чанков ≤parts с WARN `LEGACY_CHUNKS_CAPPED` (hybrid-plain доставляет ПОЛНЫЙ текст max_chunks=None; rich-путь не каппуется); trim-костыль 2.58.32 (`SUMMARY_L2_TRIM_ENABLED`/`_trim_document_for_publication`/`trimmed_for_publication`) УДАЛЁН полностью (§16; тесты, защищавшие trim, переписаны). Fail-soft §8/§9: LEVEL-1 repair+correction; LEVEL-2 deterministic `build_fallback_package` «Общий ход обсуждения» (0 LLM) → L2 вызывается в ЛЮБОМ случае, обложка деградированного пути — детерминированный cover-fallback; LEVEL-3 общий `_run_legacy_pipeline` (OFF-режим и emergency fallback; skip_memorize, гейт `flags.summary_legacy_fallback_enabled`), цепочка article→rich→plain→Legacy, guard двойной публикации `published`, worst-case ≤5 LLM-генераций (ADR-1027-10 D3; AMEND ADR-1026-7 D5 «без legacy-фолбэка» отменён владельцем). Observability §18 аддитивно: +7 событий L1_PARSE/L1_REPAIR/L1_CORRECTION_RETRY/L1_FALLBACK_PACKAGE/LEGACY_FALLBACK/LEGACY_CHUNKS_CAPPED/L2_OVER_SOFT_CEILING; поля messages_before/after + serialized_chars/tokens в FILTER_COMPLETE, response_mode/target_chars/target_paragraphs в L2_START, chars в L2_COMPLETE, topics/messages в FACT_PACKAGE_COMPLETE, fallback=none/legacy в SUMMARY_COMPLETE; имена существующих событий НЕ переименованы. Каталог Δ=+16 hot-ключей/+5 групп (flags/models/limits_summary_hybrid + flags/limits_summary_legacy; F8 переиздан 489/430/464/107/105/21): Recovery-тумблеры — hot-ключи `flags.summary_hybrid_l1_repair_enabled`/`flags.summary_hybrid_l1_retry_enabled`/`flags.summary_legacy_fallback_enabled` + впервые каталогизирован `flags.summary_hybrid_l2_enabled` (env-слой SUMMARY_L1_REPAIR_ENABLED/SUMMARY_L1_RETRY_ENABLED/SUMMARY_LEGACY_FALLBACK_ENABLED/SUMMARY_HYBRID_L2_ENABLED default ON поверх hot); каталогизированы слоты models/keys.summary_l1_*/summary_l2_*; Miniapp §13: workspace-вкладки HYBRID SUMMARY / LEGACY SUMMARY FALLBACK (cross-isolation §21; подпись MAX_SUMMARY_PARTS verbatim «Не влияет на Hybrid Article»). Каноны L1/L2 ЗАМЕНЕНЫ на R1027 (§7 «что происходило» + many-to-many; §10 ДЛИНА/ДЕДУП/авторы; PREV_SUMMARY_*_R1027-слепки + идемпотентная канон-миграция и ROLLBACK ADR-1013-3) — ПРОМПТЫ ИЗМЕНЕНЫ (не «не меняются»). GraphRAG не тронут (§19 verification-only). Δ DDL=0, Δ внешних зависимостей=0, R17/R18-safe. Откат: soft — env `SUMMARY_HYBRID_L2_ENABLED=false` (весь трафик Legacy, байт-в-байт OFF-путь) либо точечно `SUMMARY_L1_REPAIR_ENABLED`/`SUMMARY_L1_RETRY_ENABLED`/`SUMMARY_LEGACY_FALLBACK_ENABLED=false` + рестарт; промпты — ROLLBACK на PREV_*_R1027; cold — revert коммита фичи (прод-базис 2.58.32/`270c277`). bump 2.58.32 → 2.58.33. ASAP hotfix round1027 (прод-инцидент 27.09 03:17, требование владельца — ИСТОРИЧ: SUPERSEDED в 2.58.33, trim-костыль удалён §16, «Саммари не публикуется → срочно починить и деплой»): env-only kill-switch SUMMARY_L2_TRIM_ENABLED (default ON, Δ каталога=0) + run_l2 — детерминированная обрезка до мягкого капа limits.max_summary_parts (легаси-дефолт 1 от Epic 24), валидная §99-статья больше не отбраковывается по too_many_paragraphs (маркер trimmed_for_publication в L2_COMPLETE, paragraphs_before/kept/dropped); OFF → точный прежний fail-closed S5; жёсткий контракт §99 (498 абзацев/32000/900) сохранён; GraphExtractionError при LLMTimeoutError не срывает публикацию (проверено тестами: batch kept, pipeline continues, GraphExtractDropped → mark). Δ DDL=0, Δ каталога=0, промпты не меняются, R17-safe. Откат: env SUMMARY_L2_TRIM_ENABLED=false + рестарт. bump 2.58.31 → 2.58.32. Эпик 3 aggregate (round1026, A0–A10; ADR-1026-23 D7/D10): A2 tool-chains + A3 unified-image-request + A5 image-daily-limit + A6 memory-lookup-api + A4 image-context-memory + A7 decision-making + A8 telegram-reactions + A9 agentic-events-graph + A10 agentic-verification (A1 уже на проде с 2.58.30); 10 env-only kill-switch'ей default ON; Δ каталога=0; A5 PG-DDL image_reservation идемпотентно; bump 2.58.30 → 2.58.31. A1 (10.26, ADR-1026-14 D1–D10): Эпик 3 Wave 1 «Tool Coordinator» — программный слой решения о действии ВНУТРИ существующего Синтезатора direct-чата (намерение/адресат/память/выбор инструментов/оценка/действие) без 3-го LLM-вызова (2-вызовность System 2 сохранена, await_count==2) и без wire-поля action (граница A7); модельный выбор инструментов сохранён (tool_choice='auto'), общий механизм цепочек — reuse существующего многораундового tool_loop (TOOL_MAX_ROUNDS=4, ≤2/раунд, fail-open; per-combination обработчиков нет); изоляция Вербализатора (только факты stage2_payload + стиль response_mode; при молчании/реакции не запускается); R17-safe наблюдаемость координатора (числа/коды/id/имена инструментов, без сырья), REUSE ExecutionGraph (вторая аналитика не создаётся); env-only ClassVar kill-switch DIRECT_COORDINATOR_ENABLED (default ON, Δ каталога=0, резолв per-call, OFF → точный legacy-путь); Δ DDL=0/Δ каталога=0, §104 generate_image и §85-UI вне diff, промпты не меняются (ADR-1013-3 NOT_APPLICABLE); откат soft OFF + annotated-тег pre-round1026-a1 → e3ea367; bump 2.58.29→2.58.30. S10 (10.26, ADR-1026-12 D1–D8): прямой деплой и активация Эпика 2 — code-default SUMMARY_HYBRID_L2_ENABLED OFF→ON (§107: новый пайплайн — основной сразу после деплоя, «не оставлять выключенной в ожидании ручной активации»; резолв per-chat→hot→env/default сохранён как аварийный kill-switch; «ручная активация»/UI-селектор Legacy↔Hybrid запрещены, «аварийное выключение» разрешено), §114-предполётный harness (11 сценариев, 0 отправок в основной чат), §115-процедура (7 проверок) + артефакты rich/plain, §117-результаты Эпика 2 (results.md, 14 пунктов); Δ DDL=0/Δ каталога=0 (F8 не переиздаётся), CSP/zero-build, 0 новых зависимостей, 2-вызовность, R17/R18; откат soft OFF + annotated-тег pre-round1026-s10; bump 2.58.28→2.58.29. S6 (10.26, ADR-1026-11 D1–D10): публикационная интеграция Саммари — reuse существующего sendRichMessage (services/telegram_send.py вне diff): rich-путь <img>→настоящий <h1>→<p> через серверный форматтер S5 (services/summary_article_formatter.py: document_from_plain_text/extract_title_from_markdown/chunk_plain_text/chunk_plain_blocks+sanitize), plain §105 (<b>title</b>+абзацы, нарезка по границам абзацев, финальный даунгрейд format_plain_text/chunk_plain_text), §106-коды (SUMMARY_GENERATION_FAILED/COVER_GENERATION_FAILED/RICH_MESSAGE_SEND_FAILED/TEXT_FALLBACK_FAILED) + аддитивный code=, PUBLISH_RICH_*/PUBLISH_TEXT_* + publish-узел ExecutionGraph (publication_status published_rich/published_text/failed/skipped, нет данных → None), follow-up S5 закрыт (L-R1026S5-4/-5/-6, S-R1026S5-7: memorize_facts и на ON), AMEND ADR-1026-7 D5/ADR-1026-9 D2/D7/ADR-1026-10 D1/D4/D8, Δ DDL=0/Δ каталога=0, 2-вызовность, ON (SUMMARY_HYBRID_L2_ENABLED) не активируется; bump 2.58.27→2.58.28. S8 (10.26, ADR-1026-10 D1–D10): adapter аналитики Саммари — backend-нормализация services/execution_graph_source.py (in-memory снапшот прогона, Δ DDL=0) + аддитивный read-only GET /api/analytics/execution/latest (web/api/analytics.py) + клиентский ExecutionGraph.fromExecution/STEP_KIND (web/static/execution_graph.js, real stages filter/l1_clusterizer/l2_writer/formatting), §112-метрики («Нет данных» вместо $0, «Без лимита», publication_status=gated), закрытие L-F6S-1 (аддитивный price_known в /analytics/usage/summary), publish-срез GATED (S6/D4), Δ каталога=0, 2-вызовность; bump 2.58.26→2.58.27. S7 (10.26, ADR-1026-9 D1–D8): сквозной run_id = correlation_id (UUID4 hex, одна точка на прогон — summary_generator._run / summary_test_run.run_summary_test) + аддитивные R17-safe события SUMMARY_*/FORMAT_*/COVER_* (§108/§109; PUBLISH_* GATED), §110-фильтр «Саммари» в существующем log viewer (web/app.js/index.html, routes.py вне diff), Δ DDL=0/Δ каталога=0, 2-вызовность; bump 2.58.25→2.58.26. S9 (10.26, ADR-1026-8 D1–D8): dry-run тест-контур «Тестирование» (§113) — новый сервис services/summary_test_run.py (0 публикаций / 0 памяти / 0 generate_image; ON per-run прямыми run_l1/run_l2, ровно 2 LLM-вызова, глобальный SUMMARY_HYBRID_L2_ENABLED не читается/не пишется), additive SummaryGenerator.build_test_rows (read-only окно db.get_smart_window + S1/S2, тело _run/_run_hybrid_l2 не меняется), новый роутер web/api/summary_test.py (async 202 + polling, in-memory store TTL 15 мин/≤20, Δ DDL=0, routes.py вне diff), UI-вкладка testing (#/modules/summary/testing, Δ каталога=0), env-only SUMMARY_TEST_UI_ENABLED (default ON; hot-OFF false → 404), bump 2.58.24→2.58.25. S5 (10.26, ADR-1026-7 D1–D7): L2 «Писатель» + серверный форматтер статьи — новые модули services/summary_l2_writer.py (build_l2_input/run_l2/parse_l2_document/validate_l2_document, L2Result; вход = контент-секция FactPackage §96, выход = документ §99, ровно 1 LLM-вызов, step=l2_writer; пост-валидация цитат/атрибуции, fail-closed) и services/summary_article_formatter.py (0 LLM: rich H1/p/≤1 b + sanitize→html.escape, plain <b>-заголовок, чанки по абзацам; лимиты 200/max_summary_parts/498/32000/900); промпт-канон L2 (+1 каталог, PREV_*/ROLLBACK, эталон canon), env-only слот SUMMARY_L2_* и kill-switch SUMMARY_HYBRID_L2_ENABLED (default OFF, врезка за флагом в summary_generator._run, OFF-путь байт-в-байт); send_rich_message content_format="html"; Δ DDL=0. Ранее S4 (10.26, ADR-1026-6 D1–D6): пакет фактов §96 — новый чистый модуль services/summary_fact_package.py (FactPackage v1: name=topic verbatim, description=детерминированная агрегация facts[].text, chronology=ASC (timestamp,message_id) из §92, facts/evidence_ids verbatim+union, fragments evidence-first, service{response_mode,cover_prompt}); бюджет L2-входа — reuse limits.summary_max_context_tokens/_chars через resolve_chat_limit (Δ каталога=0, новых env нет); усечение fragments→description→целые темы + truncated/skipped_ids/WARN; fail-closed ok/truncated/empty/invalid/error + not_built (§95/§106); ID — TG message_id; 0 LLM-вызовов; в живой путь НЕ врезан (GATED S5/S6), ровно 2 вызова сохранены, публикация/обложка/XML вне diff; Δ DDL=0. Ранее S3 (10.26, ADR-1026-5 D1–D6): L1 «Кластеризатор» — модули services/summary_l1_contract.py (строгий JSON §95, ID-пространства TG/DB, fail-closed L1Result) и services/summary_l1_clusterizer.py (§92-вход → §93-упаковка в один вход → ровно 1 LLM-вызов → §95-валидатор; логи L1_START/COMPLETE/ERROR), промпт-канон L1 (+1 каталог, PREV_*/ROLLBACK, эталон canon), env-only слот SUMMARY_L1_*; Δ DDL=0. Ранее S2 (10.26, ADR-1026-4 D1/D7): восстановление контекста Саммари — services/summary_context_restore.py, врезка в SummaryGenerator._apply_filter (0 LLM-вызовов). Ранее S1 (10.26, ADR-1026-1 D1/D7): алгоритмический префильтр — services/summary_filter.py, врезка в SummaryGenerator._run (0 LLM-вызовов).
 
 
 def get_ytdlp_pot_provider() -> str:

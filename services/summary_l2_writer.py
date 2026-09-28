@@ -1,16 +1,17 @@
-"""S5 round1026 (ADR-1026-7 D1/D4/D6) — L2 «Писатель» (§96–§99).
+"""S5 round1026 (ADR-1026-7 D1/D4/D6) + ASAP-2 round1027 (ADR-1027-10 D5/D6).
 
-**Автономный модуль S5** (в живой путь врезается за флагом
-``flags.summary_hybrid_l2_enabled``; с S10/ADR-1026-12 D2 default **ON**,
-явный ``false`` — аварийный kill-switch): вход — контент-секция
+**Модуль L2 «Писатель»** (живой путь за флагом
+``flags.summary_hybrid_l2_enabled``; default **ON**, явный ``false`` —
+аварийный kill-switch): вход — контент-секция
 ``FactPackage`` (S4, §96) → **ровно 1 LLM-вызов** L2 → парсер строгого
 JSON-документа §99 → детерминированный валидатор (структура §98, запрет
 выдуманных цитат/приписанных реплик, изоляция ID) → fail-closed ``L2Result``.
 
-Инварианты (ADR-1026-7):
-  * **ровно 1 вызов L2-слоя** (целевой пайплайн S5 = 2: L1+L2; третий вызов —
-    блокер). Вход — контент пакета (§96), без ``service``/``budget``/
-    ``unassigned_message_ids`` и без сырого лога;
+Инварианты (ADR-1026-7 + AMEND ADR-1027-10):
+  * **ровно 1 вызов L2-слоя** (happy path = 2: L1+L2). Recovery-бюджет
+    (ADR-1027-10 D3): при негодности L2 — LEVEL-3 Legacy fallback в
+    ``summary_generator`` (AMEND ADR-1026-7 D5: «legacy-фолбэка нет»
+    отменён владельцем §8/§9); L2 correction retry НЕ вводится;
   * **выход §99** — структурированный документ
     ``{schema_version:1, title, paragraphs:[{text, emphasis|null}]}``;
     лишние поля/типы → ``invalid``; L2 НЕ форматирует HTML (§99);
@@ -19,15 +20,17 @@ JSON-документа §99 → детерминированный валида
     текстами пакета → снятие кавычек + WARN), **приписанные реплики** →
     fail-closed ``invalid`` (``quote_attribution``); сырые ID/``fact:``/``msg:``
     вырезаются;
-  * **слот §82 — env-only** (D3): ``SUMMARY_L2_BASE_URL``/``SUMMARY_L2_MODEL_NAME``
-    /``SUMMARY_L2_API_KEY`` (ClassVar, Δ каталога = 0), hot-first резолв,
-    пусто → глобальная основная модель (наследование ≠ аварийное
-    резервирование);
-  * **логи §108/§109 аддитивны и R17-safe**: ``L2_START``/``L2_COMPLETE``/
-    ``L2_ERROR``/``L2_SKIPPED`` — только числа/коды/id (без ключей, текстов и
-    сырого ответа); узлы ExecutionGraph НЕ эмитятся (их эмитит S8);
-  * fail-closed (§106): ``empty``/``invalid``/``error`` → публикации нет,
-    legacy-фолбэка НЕТ (это был бы третий вызов).
+  * **ASAP-2 §1/§2/§3/§10/§16**: `limits.max_summary_parts` из Hybrid ВЫВЕДЕН
+    (ни кап абзацев, ни trim); длина — мягкие targets из НОВЫХ
+    ``limits.summary_hybrid_*`` (пресеты casual/serious/deep_research) в
+    детерминированном length-блоке user-контента; hard-проверки — только
+    технические §99 (200/900/498/32000); `summary_hybrid_max_chars` —
+    WARN-порог наблюдения (`L2_OVER_SOFT_CEILING`), никогда не обрезка;
+  * **слот §82**: hot-first ``models/keys.summary_l2_*`` (каталог с ASAP-2
+    §13), дефолты env ClassVar ``SUMMARY_L2_*``;
+  * **логи §108/§109/§18 аддитивны и R17-safe**: ``L2_START`` (+=
+    response_mode/target_chars/target_paragraphs)/``L2_COMPLETE`` (+= chars;
+    ``trimmed=`` УДАЛЁН)/``L2_ERROR``/``L2_SKIPPED`` — только числа/коды/id.
 """
 from __future__ import annotations
 
@@ -59,11 +62,26 @@ SCHEMA_VERSION = 1
 TITLE_MAX = 200
 PARAGRAPH_MAX = 900
 # Жёсткий потолок блоков Article (Bot API 500 блоков; 498 — с запасом на
-# служебный H1/обложку, D2).
+# служебный H1/обложку, D2). Единственный кап числа абзацев Hybrid-статьи
+# (ASAP-2 §1/§3: `limits.max_summary_parts` из Hybrid выведен полностью).
 MAX_PARAGRAPHS_HARD = 498
-# Совместимость с `limits.max_summary_parts` (существующий ключ, D2/D4).
-MAX_PARAGRAPHS_DEFAULT = 6
 RICH_MAX_CHARS = 32000
+
+# ── ASAP-2 §2/§10 (ADR-1027-10 D6): пресеты мягких целей Hybrid-статьи ─────
+# (target_chars, target_paragraphs) — середины диапазонов владельца
+# §2:2011–2018; serious=6500/8 подтверждён примером §10:2316–2318. Все
+# пресеты влезают в rich-канал (RICH_MAX_CHARS=32000) с запасом ≥2.9×.
+# Это TARGETS: валидатор НИКОГДА не сравнивает результат с целями (§3:2071).
+HYBRID_PRESETS: dict[str, tuple[int, int]] = {
+    "casual": (4000, 5),
+    "serious": (6500, 8),
+    "deep_research": (11000, 14),
+}
+HYBRID_MODE_DEFAULT = "serious"
+# Широкий safety ceiling наблюдения (0.75×RICH_MAX_CHARS): 24000<chars≤32000 →
+# публикуем + WARN `L2_OVER_SOFT_CEILING`; chars>32000 → технический
+# fail-closed `too_long` (§99 hard limit). Никогда не механическая обрезка.
+HYBRID_MAX_CHARS_DEFAULT = 24000
 
 TOP_LEVEL_FIELDS: frozenset[str] = frozenset(
     {"schema_version", "title", "paragraphs"})
@@ -94,14 +112,6 @@ REASON_NOT_BUILT = "not_built"
 REASON_LLM_ERROR = "llm_error"
 REASON_LLM_TIMEOUT = "llm_timeout"
 REASON_INTERNAL_ERROR = "internal_error"
-# ASAP hotfix round1027: R17-safe код-маркер мягкой обрезки (не причина
-# отбраковки: статус остаётся ``ok``; только числа для логов §109).
-REASON_TRIMMED_FOR_PUBLICATION = "trimmed_for_publication"
-
-# Режимы детализации ON-пути (D4): serious/casual — короче, deep_research —
-# больше абзацев. Legacy-блоки `MODE_CASUAL_*` на ON НЕ применяются.
-DETAIL_DEFAULT = "serious"
-_DETAIL_PARAGRAPH_HINT = {"casual": 4, "serious": 6, "deep_research": 10}
 
 # Цитаты: «…» "…" „…" “…” ‹…› (разные кавычки одного уровня) + одиночные
 # `'…'`/`‚…‘` и восточные `「…」`/`『…』` (S-R1026S5-2, defense-in-depth).
@@ -233,21 +243,80 @@ def resolve_l2_slot_safe(*, hot_get=None, settings_obj=None) -> L2Slot:
         raise L2SlotError("l2 slot resolve failed") from exc
 
 
-def resolve_l2_max_paragraphs(*, hot_get=None, settings_obj=None) -> int:
-    """Эффективный кап абзацев: ``limits.max_summary_parts`` (D2/D4)."""
+# ── Hybrid-длина (ASAP-2 §2/§10/§13, ADR-1027-10 D6): резолв целей ─────────
+
+def _read_hot_int(hot_get, key: str, default) -> int:
+    try:
+        return int(hot_get(key, default))
+    except (TypeError, ValueError):
+        return int(default)
+
+
+def resolve_hybrid_length(chat_id=None, *, hot_get=None, settings_obj=None,
+                          per_chat_get=None) -> dict:
+    """Эффективные цели Hybrid-статьи: per-chat → hot → env → пресет.
+
+    Ключи (контракт (f)): ``limits.summary_hybrid_response_mode`` (default
+    ``serious``), ``limits.summary_hybrid_target_chars``/
+    ``_target_paragraphs`` (``0`` — по пресету; явное >0 побеждает пресет),
+    ``limits.summary_hybrid_max_chars`` (default 24000 — WARN-порог, НЕ
+    обрезка). Конфиг-режим ПОЛЬЗОВАТЕЛЯ побеждает L1-``response_mode`` (spec
+    (f)): длина больше не определяется моделью. Не бросает: любое значение
+    вне диапазона/непарсится → дефолт.
+    """
     if hot_get is None:
         from services import hot_config as hot
         hot_get = hot.get
     st = settings_obj or settings
-    raw = hot_get("limits.max_summary_parts",
-                  getattr(st, "MAX_SUMMARY_PARTS", MAX_PARAGRAPHS_DEFAULT))
-    try:
-        value = int(raw)
-    except (TypeError, ValueError):
-        value = MAX_PARAGRAPHS_DEFAULT
-    if value <= 0:
-        value = MAX_PARAGRAPHS_DEFAULT
-    return min(value, MAX_PARAGRAPHS_HARD)
+
+    def _env(field: str, default):
+        return getattr(st, field, default)
+
+    mode = str(hot_get("limits.summary_hybrid_response_mode",
+                       _env("SUMMARY_HYBRID_RESPONSE_MODE",
+                            HYBRID_MODE_DEFAULT)) or "").strip().lower()
+    if mode not in HYBRID_PRESETS:
+        mode = HYBRID_MODE_DEFAULT
+    # per-chat override (существующий `_chat_limit`-паттерн: None → нет
+    # override; инъекция для тестов).
+    if per_chat_get is not None:
+        try:
+            pc_mode = per_chat_get("limits.summary_hybrid_response_mode")
+            pc_mode = str(pc_mode or "").strip().lower()
+            if pc_mode in HYBRID_PRESETS:
+                mode = pc_mode
+        except Exception:  # pragma: no cover - fail-open к глобальному
+            pass
+    preset_chars, preset_paragraphs = HYBRID_PRESETS[mode]
+
+    def _override(key: str, env_field: str, fallback: int) -> int:
+        raw = hot_get(key, _env(env_field, 0))
+        if per_chat_get is not None:
+            try:
+                pc_raw = per_chat_get(key)
+                if pc_raw is not None and str(pc_raw) != "":
+                    raw = pc_raw
+            except Exception:  # pragma: no cover - fail-open к глобальному
+                pass
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            value = 0
+        # 0/отрицательное/мусор → по пресету.
+        return value if value > 0 else fallback
+
+    target_chars = _override("limits.summary_hybrid_target_chars",
+                             "SUMMARY_HYBRID_TARGET_CHARS", preset_chars)
+    target_paragraphs = _override(
+        "limits.summary_hybrid_target_paragraphs",
+        "SUMMARY_HYBRID_TARGET_PARAGRAPHS", preset_paragraphs)
+    max_chars = _read_hot_int(hot_get, "limits.summary_hybrid_max_chars",
+                              _env("SUMMARY_HYBRID_MAX_CHARS",
+                                   HYBRID_MAX_CHARS_DEFAULT))
+    if max_chars <= 0:
+        max_chars = HYBRID_MAX_CHARS_DEFAULT
+    return {"response_mode": mode, "target_chars": target_chars,
+            "target_paragraphs": target_paragraphs, "max_chars": max_chars}
 
 
 # ── Пакет §96: доступ к контент-секции (изоляция) ──────────────────────────
@@ -278,24 +347,26 @@ def _package_text_pool(package) -> list[str]:
     return pool
 
 
-# ── Вход L2 (§96, компактность) ────────────────────────────────────────────
+# ── Вход L2 (§96/§12, компактность) ────────────────────────────────────────
 
-def build_l2_input(package: dict, *, detail: str = "serious") -> str:
-    """Собрать контент-секцию ``FactPackage`` для L2 (§96, D1).
+def build_l2_input(package: dict, *, length: dict | None = None) -> str:
+    """Собрать контент-секцию ``FactPackage`` для L2 (§96/§12) + length-блок.
 
-    На тему: ``name``/``description``/``chronology`` (только timestamp/порядок)
-    /``facts[].text`` + ``evidence_message_ids``/отобранные ``fragments[].text``.
-    ``service``/``budget``/``unassigned_message_ids`` в контент НЕ идут; сырой
-    лог повторно не передаётся. Формат — компактные JSON-строки, детерминиро-
-    ванный порядок; ``detail`` — уровень детализации (serious/casual — короче,
-    deep_research — подробнее).
+    На тему: ``name``/``description``/``chronology`` (message_id/timestamp/
+    ``topic_ids`` — many-to-many карта §12)/``facts[].text`` +
+    ``evidence_message_ids``/отобранные ``fragments`` (v2: author_id,
+    display_name, timestamp, reply_to_id, text — рассказчик понимает «кто что
+    сказал / кто кому отвечал», §12). ``service``/``budget``/
+    ``unassigned_message_ids`` в контент НЕ идут; сырой лог повторно не
+    передаётся. Формат — компактные JSON-строки, детерминированный порядок.
+
+    ``length`` (контракт (l)/T-3942) — детерминированный length-блок ПОСЛЕ
+    JSON пакета (response_mode/target_chars/target_paragraphs): числа НЕ в
+    PG-каноне (hot-правки канона не могут сломать подстановку); это ориентиры,
+    а не лимиты; ``max_chars`` в промпт НЕ передаётся (post-hoc guard).
     """
-    detail_value = str(detail or DETAIL_DEFAULT).strip().lower()
-    if detail_value not in _DETAIL_PARAGRAPH_HINT:
-        detail_value = DETAIL_DEFAULT
     content = {
         "schema_version": SCHEMA_VERSION,
-        "detail": detail_value,
         "threads": [],
     }
     for thread in _package_threads(package):
@@ -307,6 +378,7 @@ def build_l2_input(package: dict, *, detail: str = "serious") -> str:
                 chronology.append({
                     "message_id": entry.get("message_id"),
                     "timestamp": entry.get("timestamp"),
+                    "topic_ids": list(entry.get("topic_ids") or []),
                 })
         facts = []
         for fact in thread.get("facts") or []:
@@ -321,6 +393,10 @@ def build_l2_input(package: dict, *, detail: str = "serious") -> str:
             if isinstance(fragment, dict):
                 fragments.append({
                     "message_id": fragment.get("message_id"),
+                    "author_id": fragment.get("author_id"),
+                    "display_name": fragment.get("display_name"),
+                    "timestamp": fragment.get("timestamp"),
+                    "reply_to_id": fragment.get("reply_to_id"),
                     "text": fragment.get("text"),
                 })
         content["threads"].append({
@@ -332,8 +408,18 @@ def build_l2_input(package: dict, *, detail: str = "serious") -> str:
             "fragments": fragments,
         })
     body = json.dumps(content, ensure_ascii=False, separators=(",", ":"))
-    return ("ПАКЕТ ФАКТОВ (компактный JSON; пиши статью по нему; "
-            "служебные поля не передаются):\n" + body)
+    out = ("ПАКЕТ ФАКТОВ (компактный JSON; пиши статью по нему; "
+           "служебные поля не передаются):\n" + body)
+    if isinstance(length, dict):
+        out += (
+            "\n\nЗАДАНИЕ ПО ДЛИНЕ И ДЕТАЛИЗАЦИИ: response_mode="
+            + str(length.get("response_mode") or HYBRID_MODE_DEFAULT)
+            + "; цель ≈ " + str(int(length.get("target_chars") or 0))
+            + " символов (мягкий ориентир); абзацев ≈ "
+            + str(int(length.get("target_paragraphs") or 0))
+            + " (рекомендация). Это ориентиры, а не лимиты: не обрывай события"
+              " и не выбрасывай важные темы ради точного числа.")
+    return out
 
 
 # ── Парсер (переиспользует политику system2_handoff) ───────────────────────
@@ -561,58 +647,6 @@ def _validate(document, package, metrics):
     return document_out, metrics
 
 
-# ── Мягкая обрезка (ASAP hotfix round1027) ────────────────────────────────
-
-def _trim_document_for_publication(document: dict, cap: int,
-                                   metrics: dict) -> dict | None:
-    """Детерминированная обрезка валидной §99-статьи до мягкого капа абзацев.
-
-    Инцидент 27.09 (прод): валидная статья длиннее ``limits.max_summary_parts``
-    (легаси-ключ, settings-дефолт 1) отбраковывалась жёстко
-    (``too_many_paragraphs``) → публикация отменялась целиком. Владелец:
-    единичная L2-ошибка не должна отменять публикацию — «либо безопасно
-    обрезать/сжать до допустимого (маркер ``trimmed_for_publication``), либо
-    использовать существующий fallback-путь публикации».
-
-    Правила (детерминированно, без повторного разбора текста):
-      * сохраняются ПЕРВЫЕ ``cap`` абзацев (порядок уже канонический, L1 wisdom
-        приоритетнее; title сохраняется без изменений);
-      * после обрезки по абзацам проверяется бюджет ``RICH_MAX_CHARS``: если
-        превышен — абзацы снимаются С КОНЦА, пока не влезает; title > бюджета
-        невозможен (``TITLE_MAX`` = 200);
-      * абзац длиннее ``PARAGRAPH_MAX`` (900) уже невозможен (валидатор);
-      * если после обрезки абзацев не осталось → ``None`` (fail-closed —
-        публиковать нечего).
-    Маркеры (R17-safe, только числа): ``trimmed_for_publication=1``,
-    ``paragraphs_before``/``paragraphs_dropped_count``, ``reason`` остаётся
-    штатным ``ok``-потоком (статус ``ok``).
-    """
-    paragraphs = list(document.get("paragraphs") or [])
-    keep = paragraphs[:max(int(cap), 0)]
-    total_chars = len(document.get("title") or "")
-    total_chars += sum(len(p.get("text") or "")
-                       + (len(p["emphasis"]) if p.get("emphasis") else 0)
-                       for p in keep)
-    while keep and total_chars > RICH_MAX_CHARS:
-        dropped = keep.pop()
-        total_chars -= len(dropped.get("text") or "")
-        if dropped.get("emphasis"):
-            total_chars -= len(dropped["emphasis"])
-    if not keep:
-        return None
-    metrics["status"] = STATUS_OK
-    metrics["reason"] = REASON_OK
-    metrics["trimmed_for_publication"] = True
-    metrics["paragraphs_before"] = len(paragraphs)
-    metrics["paragraphs_dropped_count"] = len(paragraphs) - len(keep)
-    metrics["paragraphs_count"] = len(keep)
-    return {
-        "schema_version": SCHEMA_VERSION,
-        "title": document.get("title"),
-        "paragraphs": keep,
-    }
-
-
 # ── Вызов LLM: ровно один, через слот или глобальную модель ────────────────
 
 def _extract_usage(value):
@@ -710,43 +744,38 @@ def provider_host(base_url: str) -> str:
 # ── §109: логи (аддитивные, R17-safe) ──────────────────────────────────────
 
 def _log_start(*, correlation_id, chat_id, paragraphs_hint, model, base_url,
-               dedicated) -> None:
+               dedicated, response_mode="", target_chars=0,
+               target_paragraphs=0) -> None:
+    # ASAP-2 §18 (контракт (k)): аддитивные поля длины; paragraphs_hint
+    # сохраняется (пин тестов/JS-харнесса).
     logger.info(
-        "L2_START | run_id=%s | chat_id=%s | paragraphs_hint=%d | model=%s | "
-        "provider=%s | dedicated=%s",
-        correlation_id or "none", chat_id, paragraphs_hint, model or "-",
-        provider_host(base_url) or "-", bool(dedicated))
+        "L2_START | run_id=%s | chat_id=%s | paragraphs_hint=%d | "
+        "response_mode=%s | target_chars=%d | target_paragraphs=%d | "
+        "model=%s | provider=%s | dedicated=%s",
+        correlation_id or "none", chat_id, paragraphs_hint,
+        response_mode or "-", int(target_chars), int(target_paragraphs),
+        model or "-", provider_host(base_url) or "-", bool(dedicated))
 
 
 def _log_complete(*, correlation_id, chat_id, result: L2Result, model,
                   base_url, tokens_in, tokens_out) -> None:
+    # ASAP-2 §16: `trimmed=` УДАЛЁН (trim-костыль 2.58.32 демонтирован);
+    # аддитивно `chars` (§18 L2_RESULT: chars=, paragraphs=).
     metrics = result.metrics or {}
-    # ASAP hotfix round1027: маркер мягкой обрезки в L2_COMPLETE (R17-safe).
-    trimmed = bool(metrics.get("trimmed_for_publication"))
     logger.info(
         "L2_COMPLETE | run_id=%s | chat_id=%s | provider=%s | model=%s | "
-        "tokens_in=%s | tokens_out=%s | paragraphs=%d | title_len=%d | "
-        "quote_unverified=%d | ids_stripped=%d | emphasis_dropped=%d | "
-        "trimmed=%s | status=%s | invalid_reason=%s | duration_ms=%.0f",
+        "tokens_in=%s | tokens_out=%s | chars=%s | paragraphs=%d | "
+        "title_len=%d | quote_unverified=%d | ids_stripped=%d | "
+        "emphasis_dropped=%d | status=%s | invalid_reason=%s | duration_ms=%.0f",
         correlation_id or "none", chat_id, provider_host(base_url) or "-",
         model or "-", tokens_in if tokens_in is not None else "-",
         tokens_out if tokens_out is not None else "-",
+        metrics.get("chars", "-"),
         metrics.get("paragraphs_count", 0), metrics.get("title_len", 0),
         metrics.get("quote_unverified_count", 0),
         metrics.get("ids_stripped_count", 0),
         metrics.get("emphasis_dropped_count", 0),
-        ("1" if trimmed else "no"), result.status,
-        result.invalid_reason or "-", result.duration_ms)
-    if trimmed:
-        logger.info(
-            "L2 trimmed_for_publication | run_id=%s | chat_id=%s | "
-            "paragraphs_before=%s | paragraphs_kept=%s | "
-            "paragraphs_dropped=%s | status=%s",
-            correlation_id or "none", chat_id,
-            metrics.get("paragraphs_before", "-"),
-            metrics.get("paragraphs_count", "-"),
-            metrics.get("paragraphs_dropped_count", "-"),
-            result.status)
+        result.status, result.invalid_reason or "-", result.duration_ms)
 
 
 def _log_error(*, correlation_id, chat_id, model, base_url, reason, error_type,
@@ -768,16 +797,56 @@ def _log_skipped(*, correlation_id, chat_id, reason) -> None:
 
 # ── Ядро запуска L2 ────────────────────────────────────────────────────────
 
+async def _hybrid_length_for_chat(chat_id) -> dict:
+    """Резолв Hybrid-длины с per-chat слоем (существующий `_chat_limit`-паттерн).
+
+    Fail-open: chat_params недоступен/нет override → глобальный hot→env→пресет.
+    """
+    per_chat_get = None
+    if chat_id is not None:
+        try:
+            from services import chat_params
+
+            async def _pc(key: str):
+                return await chat_params.get_chat_param(chat_id, key, None)
+
+            # Разрешаем лениво: per_chat_get вызывается синхронно внутри
+            # резолвера → оборачиваем в await-цикл ниже.
+            keys = ("limits.summary_hybrid_response_mode",
+                    "limits.summary_hybrid_target_chars",
+                    "limits.summary_hybrid_target_paragraphs",
+                    "limits.summary_hybrid_max_chars")
+            overrides = {}
+            for key in keys:
+                try:
+                    value = await _pc(key)
+                except Exception:  # pragma: no cover - fail-open
+                    value = None
+                if value is not None and str(value) != "":
+                    overrides[key] = value
+
+            def per_chat_get(key: str):  # noqa: D103 - closure-резолвер
+                return overrides.get(key)
+        except Exception:  # pragma: no cover - защитная ветка
+            per_chat_get = None
+    return resolve_hybrid_length(per_chat_get=per_chat_get)
+
+
 async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
-                 slot=None, max_paragraphs=None, chat_id=None,
+                 slot=None, chat_id=None,
                  system_prompt=None, llm_call=None) -> L2Result:
     """Один прогон L2: контент пакета §96 → **1 LLM-вызов** → §99-документ.
 
     ``llm`` — LLMClient (или совместимый мок); ``llm_call`` — инъекция канала
-    (тесты/врезка). ``service`` — служебная секция пакета (уровень детализации);
-    в контент НЕ попадает (§96/§104). Fail-closed: ``empty``/``invalid``/
-    ``error`` → ``document=None``, публикации нет, legacy-фолбэка НЕТ (§106).
-    Ровно один физический вызов на запуск.
+    (тесты/врезка). ``service`` — служебная секция пакета (response_mode L1
+    остаётся observability/обложкой; ДЛИНУ определяет конфиг пользователя —
+    контракт (f)/ADR-1027-10 D6). Fail-closed по hard-контракту §99
+    (200/900/498/32000); превышение мягкой цели — НЕ ошибка (§3);
+    ``chars > summary_hybrid_max_chars`` → WARN ``L2_OVER_SOFT_CEILING`` и
+    публикация (никогда не обрезка). Провал L2 → recovery-контур (LEVEL-3
+    Legacy) решает вызывающий ``summary_generator`` (AMEND ADR-1026-7 D5,
+    ADR-1027-10 D3): здесь — только ``document=None``.
+    Ровно один физический вызов на запуск (L2 correction retry не вводится).
     """
     started = time.perf_counter()
 
@@ -796,15 +865,9 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
         return empty_result(reason=REASON_PACKAGE_NOT_DELIVERABLE,
                             duration_ms=_elapsed())
 
-    detail = DETAIL_DEFAULT
-    if isinstance(service, dict):
-        detail = str(service.get("response_mode") or DETAIL_DEFAULT)
-    paragraphs_hint = _DETAIL_PARAGRAPH_HINT.get(
-        str(detail or "").strip().lower(),
-        _DETAIL_PARAGRAPH_HINT[DETAIL_DEFAULT])
-    cap = max_paragraphs if max_paragraphs is not None \
-        else resolve_l2_max_paragraphs()
-
+    # 2. Цели длины Hybrid (per-chat → hot → env → пресет): config-режим
+    # пользователя побеждает L1-`response_mode` (контракт (f)).
+    length = await _hybrid_length_for_chat(chat_id)
     try:
         resolved_slot = slot or resolve_l2_slot_safe()
     except L2SlotError as exc:
@@ -822,10 +885,14 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
     base_url = _effective_base_url(llm, resolved_slot) if llm is not None \
         else resolved_slot.base_url
 
-    content = build_l2_input(package, detail=detail)
+    content = build_l2_input(package, length=length)
     _log_start(correlation_id=correlation_id, chat_id=chat_id,
-               paragraphs_hint=paragraphs_hint, model=model, base_url=base_url,
-               dedicated=resolved_slot.dedicated)
+               paragraphs_hint=int(length["target_paragraphs"]),
+               model=model, base_url=base_url,
+               dedicated=resolved_slot.dedicated,
+               response_mode=length["response_mode"],
+               target_chars=length["target_chars"],
+               target_paragraphs=length["target_paragraphs"])
     call = llm_call or _make_llm_call(llm, resolved_slot, correlation_id)
     system = system_prompt or resolve_prompt(
         PROMPT_PG_KEY, SUMMARY_L2_WRITER_SYSTEM_PROMPT)
@@ -865,20 +932,6 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
         result = invalid_result(reason, duration_ms=_elapsed(), usage=usage)
     else:
         document, metrics = validate_l2_document(data, package)
-        # Эффективный кап абзацев (limits.max_summary_parts, D2/D4).
-        # ASAP hotfix round1027: мягкий кап больше не отбраковывает валидную
-        # по §99 статью целиком — детерминированная обрезка «первые N абзацев»
-        # с R17-safe маркером ``trimmed_for_publication`` (env-only
-        # kill-switch, default ON). OFF → прежний fail-closed reject.
-        if document is not None and len(document["paragraphs"]) > cap:
-            if bool(getattr(settings, "SUMMARY_L2_TRIM_ENABLED", True)):
-                document = _trim_document_for_publication(document, cap,
-                                                           metrics)
-            else:
-                document = None
-                metrics = dict(metrics)
-                metrics["status"] = STATUS_INVALID
-                metrics["reason"] = REASON_TOO_MANY_PARAGRAPHS
         if document is None:
             result = invalid_result(
                 metrics.get("reason", REASON_INVALID_PARAGRAPH),
@@ -886,6 +939,20 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
         else:
             metrics = dict(metrics)
             metrics["title_len"] = len(document["title"])
+            # §18: chars-итог статьи (title + абзацы, та же мера, что hard-
+            # проверка `too_long`).
+            chars = len(document["title"]) + sum(
+                len(p["text"]) + (len(p["emphasis"]) if p["emphasis"] else 0)
+                for p in document["paragraphs"])
+            metrics["chars"] = chars
+            # WARN-полоса 24000<chars≤32000 (контракт Q4/T-3939): публикуем,
+            # НЕ обрезаем; chars>32000 уже отбракован валидатором (too_long).
+            if chars > int(length["max_chars"]):
+                logger.warning(
+                    "L2_OVER_SOFT_CEILING | run_id=%s | chat_id=%s | "
+                    "chars=%d | max_chars=%d — публикуем без обрезки",
+                    correlation_id or "none", chat_id, chars,
+                    int(length["max_chars"]))
             result = _make_result(STATUS_OK, document=document, usage=usage,
                                   metrics=metrics, duration_ms=_elapsed())
 

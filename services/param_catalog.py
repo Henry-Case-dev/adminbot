@@ -185,6 +185,11 @@ GROUPS: tuple[GroupSpec, ...] = (
     # models (9; раунд 10.23, F5/ADR-1023-5 §D5): генерация изображений.
     GroupSpec("models_images", "models", "Генерация изображений",
               "Адрес, модель и режим запроса к провайдеру генерации картинок.", 9),
+    # ASAP-2 round1027 (§13/§14, ADR-1027-10 D11): слоты моделей Hybrid-саммари
+    # (L1-Кластеризатор / L2-Писатель). Пусто — наследуют основную модель.
+    GroupSpec("models_summary_hybrid", "models", "Hybrid Summary: модели L1/L2",
+              "Отдельные модель и адрес для каждого шага новой статьи-саммари. "
+              "Пусто — наследуется основная нейросеть.", 10),
     # keys (7)
     GroupSpec("keys_llm", "keys", "Основная нейросеть",
               "Пароли доступа к основной и запасной нейросети.", 1),
@@ -217,7 +222,16 @@ GROUPS: tuple[GroupSpec, ...] = (
     GroupSpec("limits_deadpage", "limits", "Dead page",
               "Подписи, паузы и повторы постов dead page.", 5),
     GroupSpec("limits_summary", "limits", "Саммари",
-              "Окно сбора, длина ответа, лимиты и паузы генерации.", 6),
+              "Окно сбора, паузы и интервалы генерации (общая инфраструктура).", 6),
+    # ── ASAP-2 round1027 (mca-asap2-summary-pipeline, §13/§14, ADR-1027-10
+    # D11): две секции Summary — Hybrid (качественная Article) и Legacy
+    # (надёжный fallback с Telegram PARTS). Настройки НЕ смешиваются (§21).
+    GroupSpec("limits_summary_hybrid", "limits", "Hybrid Summary: длина статьи и контекст",
+              "Мягкие цели длины, режим и бюджет контекста нового (Hybrid) "
+              "пайплайна. К Legacy-лимитам не относятся.", 34),
+    GroupSpec("limits_summary_legacy", "limits", "Legacy Summary: контекст и части Telegram",
+              "Бюджет текста и максимум частей Telegram сообщения у обычного "
+              "(Legacy) саммари. На Hybrid-статью не влияют.", 35),
     GroupSpec("limits_search", "limits", "Поиск: лимиты",
               "Длина ответа, окно контекста и кулдаун поиска.", 7),
     GroupSpec("limits_factcheck", "limits", "Фактчек: лимиты",
@@ -360,6 +374,17 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Когда бот отвечает, ставит реакцию или молчит: незначимые "
               "обращения, реакции вместо текста, короткие ответы к своим "
               "изображениям.", 23),
+    # ── ASAP-2 round1027 (§13/§14, ADR-1027-10 D11): тумблеры двух контуров
+    # Summary. Hybrid — основной пайплайн + Recovery (repair/retry); Legacy —
+    # аварийный fallback. ЕДИНСТВЕННЫЙ ключ «Fallback to Legacy» — в секции
+    # LEGACY (дубль в двух секциях запрещён §13:2451–2452).
+    GroupSpec("flags_summary_hybrid", "flags", "Hybrid Summary: рубильники",
+              "Основной пайплайн статьи-саммари и его восстановление: локальный "
+              "ремонт ответа кластеризатора и одна исправляющая повторная попытка.",
+              24),
+    GroupSpec("flags_summary_legacy", "flags", "Legacy Summary: fallback",
+              "Обычное текстовое саммари как страховка: если Hybrid не справился, "
+              "пользователь всё равно получит пересказ.", 25),
     # ── reactions (15; раунд 10.6 T-1185; 10.9: reactions_persons удалена) ──
     # Ре-дизайн 10.2, BUG-3 (spec §10 B): Telegram ID админа — отдельная
     # группа (перенос из reactions_persons).
@@ -819,6 +844,79 @@ _MODELS_PG_ONLY: list[tuple] = [
      "Модель OpenRouter для распознавания голосовых. По умолчанию openrouter/free."),
 ]
 
+# ── ASAP-2 round1027 (`mca-asap2-summary-pipeline`, §13/§14, ADR-1027-10
+# D11): +16 PG-only записей Hybrid/Legacy контуров Summary. Слоты и тумблеры
+# живут env ClassVar-дефолтами (`getattr(settings, ...)`), которые НЕ являются
+# dataclass-полями Settings → в реестр попадают как PG-only с явными pg_id
+# (прецедент _MODELS_PG_ONLY; settings_field/env_name = None → coverage-аудит
+# не нарушается, миграция бот_settings не перезаписывает env-слой).
+# (pg_id, category, title_ru, type, secret, group, description)
+_SUMMARY_HYBRID_PG_ONLY: list[tuple] = [
+    # flags (4): Recovery-тумблеры + kill-switch'и контуров.
+    ("flags.summary_hybrid_l2_enabled", "flags",
+     "Hybrid Summary включён", "bool", False, "flags_summary_hybrid",
+     "Основной пайплайн саммари: статья с обложкой (кластеризатор → факты → "
+     "писатель). Выключение — аварийный переход на обычное Legacy-саммари."),
+    ("flags.summary_hybrid_l1_repair_enabled", "flags",
+     "Локальный ремонт ответа L1", "bool", False, "flags_summary_hybrid",
+     "Вместо отбраковки всего саммари: выдуманные идентификаторы и пустые "
+     "факты убираются по правилам, реальная структура сохраняется."),
+    ("flags.summary_hybrid_l1_retry_enabled", "flags",
+     "Одна исправляющая попытка L1", "bool", False, "flags_summary_hybrid",
+     "Если ответ всё ещё сломан после ремонта — ровно одна повторная попытка "
+     "с указанием ошибки. Полный отказ Hybrid → Legacy: см. секцию LEGACY "
+     "SUMMARY FALLBACK."),
+    ("flags.summary_legacy_fallback_enabled", "flags",
+     "Legacy fallback включён", "bool", False, "flags_summary_legacy",
+     "Если Hybrid не смог, пользователь всё равно получит обычное текстовое "
+     "саммари. Выключается только осознанно (hybrid-провал станет терминальным)."),
+    # models (4) + keys (2): слоты L1/L2 (пусто — наследуют основную модель).
+    ("models.summary_l1_base_url", "models",
+     "Hybrid: адрес модели кластеризатора (L1)", "str", False, "models_summary_hybrid",
+     "Адрес сервера нейросети для шага разметки тем (L1). Пусто — наследуется основная модель."),
+    ("models.summary_l1_model_name", "models",
+     "Hybrid: модель кластеризатора (L1)", "str", False, "models_summary_hybrid",
+     "Модель для шага разметки тем (L1). Пусто — наследуется основная модель."),
+    ("keys.summary_l1_api_key", "keys",
+     "Hybrid: ключ кластеризатора (L1)", "str", True, "models_summary_hybrid",
+     "Ключ для модели L1. Пусто — используется ключ основной нейросети. "
+     "Хранится маской, в логи не попадает."),
+    ("models.summary_l2_base_url", "models",
+     "Hybrid: адрес модели рассказчика (L2)", "str", False, "models_summary_hybrid",
+     "Адрес сервера нейросети для шага написания статьи (L2). Пусто — наследуется основная модель."),
+    ("models.summary_l2_model_name", "models",
+     "Hybrid: модель рассказчика (L2)", "str", False, "models_summary_hybrid",
+     "Модель для написания статьи (L2). Пусто — наследуется основная модель."),
+    ("keys.summary_l2_api_key", "keys",
+     "Hybrid: ключ рассказчика (L2)", "str", True, "models_summary_hybrid",
+     "Ключ для модели L2. Пусто — используется ключ основной нейросети. "
+     "Хранится маской, в логи не попадает."),
+    # limits (6): контекст + мягкие цели длины Hybrid-статьи.
+    ("limits.summary_hybrid_context_tokens", "limits",
+     "Hybrid: потолок контекста (слов)", "int", False, "limits_summary_hybrid",
+     "Сколько слов-кусочков контекста видит Hybrid-пайплайн. Не связано с "
+     "лимитами обычного Legacy-саммари."),
+    ("limits.summary_hybrid_context_chars", "limits",
+     "Hybrid: потолок текста (символов)", "int", False, "limits_summary_hybrid",
+     "Аварийный символьный потолок контекста Hybrid (когда словесный не задан). "
+     "К Legacy не относится."),
+    ("limits.summary_hybrid_response_mode", "limits",
+     "Режим статьи (Hybrid)", "str", False, "limits_summary_hybrid",
+     "Casual — коротко (≈4000 симв.), Serious — средний рассказ (≈6500, по "
+     "умолчанию), Deep research — подробно (≈11000)."),
+    ("limits.summary_hybrid_target_chars", "limits",
+     "Ориентир длины статьи (символов)", "int", False, "limits_summary_hybrid",
+     "Мягкий ориентир длины статьи; 0 — по режиму. Это цель для писателя, а "
+     "не отсечка: статью по нему не режут и не бракуют."),
+    ("limits.summary_hybrid_target_paragraphs", "limits",
+     "Ориентир числа абзацев", "int", False, "limits_summary_hybrid",
+     "Мягкий ориентир числа абзацев; не жёсткий лимит и не условие проверки."),
+    ("limits.summary_hybrid_max_chars", "limits",
+     "Потолок наблюдения за аномалией", "int", False, "limits_summary_hybrid",
+     "Широкий аварийный потолок наблюдения: при перелёте — предупреждение в "
+     "журнал; статья НЕ обрезается и НЕ отбраковывается по нему."),
+]
+
 # ── flags: рубильники модулей ───────────────────────────────────────────────
 # (field, title_ru, group, description)
 _FLAGS: list[tuple] = [
@@ -1076,8 +1174,12 @@ _LIMITS: list[tuple] = [
      "Сколько дней хранить исходные сообщения. Больше — память полнее, но тяжелее."),
     ("ARCHIVE_MEMORY_RETENTION_DAYS", "Срок жизни архивных фактов, дней", "int", "limits_memory",
      "Сколько дней живут факты в архиве памяти. Больше — дольше помнит, но растёт база."),
-    ("MAX_SUMMARY_PARTS", "Макс. частей ответа саммари", "int", "limits_summary",
-     "На сколько частей может разбиться пересказ длинного разговора. Больше — длиннее ответ."),
+     # ASAP-2 §1/§13 (контракт (j)): ключ — строго Legacy-секция; подпись
+     # verbatim §13:2445–2449 («не влияет на Hybrid Article»).
+     ("MAX_SUMMARY_PARTS", "Макс. частей Legacy-саммари (Telegram)", "int",
+      "limits_summary_legacy",
+      "Максимальное число обычных Telegram-сообщений, на которые может быть "
+      "разбит Legacy Summary. Не влияет на Hybrid Article."),
     ("SUMMARY_TIMEZONE", "Часовой пояс саммари", "str", "limits_summary",
      "Часовой пояс для границ дня пересказа. Меняется, если бот в другом поясе."),
     # 10.20 (БЛОК 5.1, О4 FINAL, ADR-1020-3): «Часовой пояс чата» — per-chat
@@ -1094,8 +1196,12 @@ _LIMITS: list[tuple] = [
      "Сколько сообщений максимум берётся в пересказ. Больше — полнее, но дороже."),
     ("SUMMARY_MAX_MESSAGE_CHARS", "Макс. длина одного сообщения (символов)", "int", "limits_summary",
      "Максимальная длина одного сообщения в пересказе. Больше — учитываются длинные сообщения."),
-    ("SUMMARY_MAX_CONTEXT_CHARS", "Потолок текста для нейросети (символов)", "int", "limits_summary",
-      "Потолок текста, отдаваемого нейросети. Больше — точнее, но дороже и медленнее."),
+     # ASAP-2 §11 (полное разделение бюджетов): Legacy-секция; Hybrid читает
+     # свои limits.summary_hybrid_context_* (эти ключи его не касаются).
+     ("SUMMARY_MAX_CONTEXT_CHARS", "Legacy: потолок текста для нейросети (символов)",
+      "int", "limits_summary_legacy",
+      "Потолок текста обычного (Legacy) саммари, отдаваемого нейросети. Больше "
+      "— точнее, но дороже и медленнее. На Hybrid-статью не влияет."),
     # ── Эпик 2 / S1 round1026 (ADR-1026-1 D1): тонкая настройка §87/§89 ──
     ("SUMMARY_FILTER_MIN_WEIGHT", "Минимальный вес сообщения", "int", "limits_summary_filter",
       "Сколько баллов нужно, чтобы сообщение попало в пересказ. 0 — сохранять всё."),
@@ -1264,8 +1370,11 @@ _LIMITS: list[tuple] = [
      "Сколько символов широкого фона показывать в Global_Context. Больше — глубже история, но дороже."),
     ("CHAT_RAG_DEDUP_OVERLAP_RATIO", "Порог совпадения факта с фоном, доля", "float", "limits_rag",
      "Доля слов факта, уже найденных в фоне, после которой факт не повторяется в блоке памяти."),
-    ("SUMMARY_MAX_CONTEXT_TOKENS", "Потолок контекста пересказа, слов", "int", "limits_summary",
-     "Максимальный размер пересказа. Больше — полнее, но дороже."),
+    # ASAP-2 §11: Legacy-секция (Hybrid — limits.summary_hybrid_context_tokens).
+    ("SUMMARY_MAX_CONTEXT_TOKENS", "Legacy: потолок контекста пересказа, слов",
+     "int", "limits_summary_legacy",
+     "Максимальный размер контекста обычного (Legacy) пересказа. Больше — "
+     "полнее, но дороже. На Hybrid-статью не влияет."),
     ("CHAT_SILENCE_AFTER_COOLDOWNS", "Кулдаунов подряд до молчания", "int", "limits_chat_behavior",
      "Сколько кулдаунов подряд до «молчания». Меньше — бот быстрее замолкает."),
     ("CHAT_STYLE_ANCHORS_COUNT", "Число стилевых якорей", "int", "limits_chat_behavior",
@@ -1861,6 +1970,11 @@ def _build_registry() -> dict[str, ParamSpec]:
         add(ParamSpec(None, None, CATEGORY_MODELS, title, "str",
                       code_source=code_source, pg_id=pg_id,
                       group=group, description=desc))
+    # ASAP-2 round1027: 16 PG-only записей Hybrid/Legacy Summary (см. список).
+    for (pg_id, category, title, typ, secret, group, desc
+         ) in _SUMMARY_HYBRID_PG_ONLY:
+        add(ParamSpec(None, None, category, title, typ, secret=secret,
+                      pg_id=pg_id, group=group, description=desc))
     for row in _FLAGS:
         field, title, group, desc = row
         add(ParamSpec(field, field, CATEGORY_FLAGS, title, "bool",
@@ -1971,6 +2085,13 @@ _SELECT_WIDGET_PRESETS: dict[str, dict] = {
         "widget": "select",
         "select_options": ("casual", "serious", "deep_research"),
         "select_labels": ("Casual", "Serious", "Deep Research"),
+    },
+    # ASAP-2 round1027 §13 (контракт (j)): режим Hybrid-статьи — ровно три
+    # пресета (casual 4000/5, serious 6500/8, deep_research 11000/14).
+    "limits.summary_hybrid_response_mode": {
+        "widget": "select",
+        "select_options": ("casual", "serious", "deep_research"),
+        "select_labels": ("Casual", "Serious", "Deep research"),
     },
 }
 for _name, _opts in _SELECT_WIDGET_PRESETS.items():
@@ -2158,10 +2279,20 @@ def tab_nav(tab_id: str | None) -> str | None:
 TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
     # ── 11 модулей (spec §4.2) ─────────────────────────────────────────────
     (TAB_MOD_SUMMARY, (
+        # ASAP-2 round1027 (§13, ADR-1027-10 D11): правило правится IN-PLACE
+        # (TAB_RULES 21 без роста) — в mod_summary добавлены workspace-секции
+        # Hybrid (flags/limits/models + keys-слоты в группе models_...) и
+        # Legacy (flags/limits). Общие ключи (throttle/timezone/паузы/окно)
+        # остаются в нейтральных группах вне двух секций.
         (CATEGORY_FLAGS,
          frozenset({"flags_module_summary", "flags_summary",
-                    "flags_summary_filter"})),
-        (CATEGORY_LIMITS, frozenset({"limits_summary", "limits_summary_filter"})),
+                    "flags_summary_filter", "flags_summary_hybrid",
+                    "flags_summary_legacy"})),
+        (CATEGORY_LIMITS, frozenset({"limits_summary", "limits_summary_filter",
+                                     "limits_summary_hybrid",
+                                     "limits_summary_legacy"})),
+        (CATEGORY_MODELS, frozenset({"models_summary_hybrid"})),
+        (CATEGORY_KEYS, frozenset({"models_summary_hybrid"})),
         (CATEGORY_REACTIONS, frozenset({"reactions_summary"})),
     )),
     (TAB_MOD_DIRECT, (

@@ -44,10 +44,15 @@ ARTIFACTS = [ROOT / p for p in FIXTURE["artifacts"]]
 #   * аддитивное поле `counts` в `/api/status/logs` (H-F11S-1).
 # round 10.26 (ADR-1026-3 D2/D8): эволюция — аддитивный env-only флаг
 # `UI_POLYGON_BG_ENABLED` (bool) в `/api/me.ui_flags` (новых endpoint'ов нет).
-# Ни новых endpoint'ов, ни изменений схемы/каталога (`test_routes_set_unchanged`
-# и `test_param_catalog_unchanged` продолжают замораживать свои срезы).
+# round 10.27 (mca-17a, ADR-1027-8 D13/§4.10): эволюция — аддитивные
+# query-фильтры `trace_id`/`chat_id`/`component`/`reason_code`/
+# `pipeline_run_id` + поле `events` в СУЩЕСТВУЮЩЕМ `GET /api/status/logs`
+# (REUSE viewer; новых endpoint'ов/панелей/маршрутов нет). Хэш переутверждён
+# осознанно (L-F11S-1); ни новых endpoint'ов, ни изменений схемы/каталога
+# (`test_routes_set_unchanged`/`test_param_catalog_unchanged` продолжают
+# замораживать свои срезы).
 ROUTES_SHA256_F11 = (
-    "4b652cb102a63543000cf39a0d4b54b9efa188c72deeee2791734ba3ad86551b")
+    "f2ff90b650f18713bb22ae5126eeb6a607670e2ef70a47a5308976dccfabdc5d")
 
 
 def _sha256(path: Path) -> str:
@@ -109,9 +114,9 @@ class TestFrozenInvariants:
             "обновите baseline осознанно (L-F11S-1)")
 
     def test_counts_frozen(self):
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 473
-        assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 102
-        assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 100
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 489
+        assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 107
+        assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 105
         assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 21
 
     def test_registry_keys_match_catalog_baseline(self):
@@ -129,7 +134,7 @@ class TestFrozenInvariants:
         # `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.32"
+        assert APP_VERSION == "2.58.33"
 
     def test_routes_set_unchanged(self):
         import re
@@ -154,7 +159,7 @@ class TestRegistry:
     def test_rows_complete_no_empty(self):
         rows = _read_registry_rows()
         # A5 (ADR-1026-17 D9): +1 → 470.
-        assert len(rows) == 473
+        assert len(rows) == 489
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -163,7 +168,7 @@ class TestRegistry:
         # round1026 S1 (ADR-1026-1 D1): санкционированная Δ +8 → дельта 56.
         # round1026 A5 (ADR-1026-17 D9): санкционированная Δ +1 → дельта 59.
         delta = _registry_keys() - _inventory_keys()
-        assert len(delta) == FIXTURE["counts"]["delta"] == 62
+        assert len(delta) == FIXTURE["counts"]["delta"] == 78
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -171,7 +176,7 @@ class TestRegistry:
     def test_secret_rows_masked(self):
         rows = _read_registry_rows()
         secret_rows = [r for r in rows if r["secret"] == "true"]
-        assert len(secret_rows) == 28
+        assert len(secret_rows) == 30
         for row in secret_rows:
             assert row["current_value"] == gen.SECRET_MASK
             assert row["default_value"] == gen.SECRET_MASK
@@ -191,7 +196,7 @@ class TestRegistry:
     def test_meta_provenance(self):
         meta = (ROOT / "plans/docs/param-registry-round1025.meta.md").read_text(
             encoding="utf-8")
-        assert "473" in meta and "411" in meta and "62" in meta
+        assert "489" in meta and "411" in meta and "78" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -202,7 +207,7 @@ class TestScreenMap:
     def test_all_params_have_a_place(self):
         keys = _parse_screen_keys()
         assert keys == _registry_keys()  # ⊇ и == (каталог — источник)
-        assert len(keys) == 473
+        assert len(keys) == 489
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

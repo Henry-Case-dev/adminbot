@@ -1,4 +1,4 @@
-﻿"""Раунд 10.6 (T-1211) — тест-аудит маппинга групп → вкладок новой IA:
+"""Раунд 10.6 (T-1211) — тест-аудит маппинга групп → вкладок новой IA:
 11 модулей (mod_*) + 7 подразделов AI; каждая конфиг-группа ровно на одной
 вкладке; зеркало TABS (web/app.js) синхронно с TAB_RULES.
 """
@@ -155,17 +155,26 @@ class TestTabMappingAudit:
         # 10.24 (F5/ADR-1024-9 D3): Δ REGISTRY/GROUPS/_TAB_BY_GROUP = 0
         # (группа flags_module_images лишь меняет вкладку-владельца) →
         # 459/98/96; TAB_RULES 20→21 (+mod_images).
-        assert len(pc._TAB_BY_GROUP) == 100
-        assert len(GROUPS) == 102
-        assert len(pc.REGISTRY) == 473
+        # ASAP-2 round1027 (ADR-1027-10 D11): +16 REGISTRY, +5 GROUPS,
+        # +5 mapped (секции Hybrid/Legacy на mod_summary); TAB_RULES 21
+        # (правило mod_summary правится in-place) → 489/107/105.
+        assert len(pc._TAB_BY_GROUP) == 105
+        assert len(GROUPS) == 107
+        assert len(pc.REGISTRY) == 489
 
 
 class TestModuleTabs:
     def test_mod_summary_composition(self):
         # round1026 S1 (ADR-1026-1 D1): +flags_summary_filter / +limits_summary_filter.
+        # ASAP-2 round1027 (ADR-1027-10 D11/§13): +5 групп секций Hybrid/Legacy
+        # (workspace-вкладки mod_summary; общие группы — ВНЕ двух секций).
         assert tab_group_ids(TAB_MOD_SUMMARY) == {
             "flags_module_summary", "flags_summary", "flags_summary_filter",
-            "limits_summary", "limits_summary_filter", "reactions_summary"}
+            "flags_summary_hybrid", "flags_summary_legacy",
+            "models_summary_hybrid",
+            "limits_summary", "limits_summary_filter",
+            "limits_summary_hybrid", "limits_summary_legacy",
+            "reactions_summary"}
 
     def test_mod_direct_composition(self):
         # A7 (10.26, ADR-1026-20 D6): +flags_decision_making (секция
@@ -244,9 +253,10 @@ class TestAiTabs:
         models = {g.id for g in GROUPS if g.category == "models"}
         keys = {g.id for g in GROUPS if g.category == "keys"}
         # A8: checkup-настройки ушли в М9, keys_youtube — в М6.
+        # ASAP-2: models_summary_hybrid живёт на mod_summary (секция Hybrid).
         assert tab_group_ids(TAB_LLM_PROVIDERS) == (
             models | keys) - {"models_checkup", "keys_betterstack",
-                              "keys_youtube"}
+                              "keys_youtube", "models_summary_hybrid"}
 
     def test_memory_rag_has_limits_rag(self):
         # A3/T-1208: RAG-доли/дедуп → «Память».
@@ -387,6 +397,9 @@ def test_widget_keyvalue_on_summary_aliases():
         "limits.chat_timezone",
         # 10.23 (F8/ADR-1023-8): режим Вербализатора по умолчанию — select.
         "prompts.verbilizer_default_mode",
+        # ASAP-2 round1027 (§13/контракт (j)): режим Hybrid-статьи — select
+        # (ровно 3 пресета casual/serious/deep_research).
+        "limits.summary_hybrid_response_mode",
     }
     for spec in sel:
         assert spec.select_options and spec.select_labels

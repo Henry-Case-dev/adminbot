@@ -1,28 +1,37 @@
-"""ASAP hotfix round1027 — точечные тесты прод-инцидента 27.09 03:17.
+"""ASAP hotfix round1027 (2.58.32) + переписка тестов по ASAP-2 §16.
 
-Прод-цепочка (chat_id=-1002661910336):
-  1. Graph L3-фон: все чанки упали с LLMTimeoutError (nano-gpt ReadTimeout)
-     → GraphExtractionError → «batch kept, pipeline continues» (лечится уже
-     существующей защитой — здесь проверяем, что она держит и что публикация
-     саммари графом не срывается).
-  2. Публикация: L2-статья длиннее мягкого капа `limits.max_summary_parts`
-     отбраковывалась жёстко (too_many_paragraphs → L2_ERROR «не публикуем»)
-     → публикация отменялась целиком. Фикс: детерминированная обрезка
-     (маркер trimmed_for_publication), env-only `SUMMARY_L2_TRIM_ENABLED`.
+История: прод-цепочка (chat_id=-1002661910336) 27.09 — L2-статья, валидная
+по §98/§99, отбраковывалась по мягкому капу ``limits.max_summary_parts`` →
+публикации не было. Hotfix 2.58.32 добавил trim-обрезку — ВЛАДЕЛЕЦ ASAP-2 §16
+потребовал ЕЁ УДАЛИТЬ («paragraphs[:cap] — удалить; тесты, утверждающие, что
+такой trim правильный, тоже переписать»).
+
+ASAP-2 (spec контракт (e)/(d)) — новая связка инвариантов:
+  * ``limits.max_summary_parts`` — строго Legacy (число Telegram-частей);
+    Hybrid его НЕ читает: статья с любым числом абзацев ≤498 публикуется
+    ПОЛНОЙ (§17 тест 1);
+  * превышение/недобор мягкой цели Hybrid — НЕ ошибка и НЕ обрезка
+    (§17 тесты 8–9; WARN-полоса только логируется);
+  * жёсткие тех-лимиты §99 (title≤200, абзац≤900, ≤498 блоков, rich≤32000)
+    остаются fail-closed — это НЕ trim;
+  * trim-костыль (`_trim_document_for_publication`,
+    ``SUMMARY_L2_TRIM_ENABLED``) удалён полностью.
+Граф-сценарии (ниже) сохранены без изменений (ASAP-2 §19 verification-only,
+T-3957).
 """
 from __future__ import annotations
 
 import dataclasses
 import json
+from types import SimpleNamespace
 
 import pytest
 
-from config.settings import Settings, settings
+from config.settings import settings
 from services import summary_memory as sm
 from services.summary_l2_writer import (
     MAX_PARAGRAPHS_HARD,
     REASON_TOO_MANY_PARAGRAPHS,
-    STATUS_INVALID,
     STATUS_OK,
     run_l2,
 )
@@ -39,74 +48,45 @@ class ScriptedLLM:
         return self.response
 
 
-# ── Фикс №1: L2 too_many_paragraphs не отменяет публикацию ────────────────
+# ── Инвариант №1 (замена trim-сценариев 2.58.32): Hybrid не режет и не
+#    бракует статью по мягким целям; MAX_SUMMARY_PARTS Hybrid не касается ──
 
 @pytest.mark.asyncio
-async def test_l2_article_over_cap_is_trimmed_and_publishable():
-    """(а) Прод-сценарий: LLM вернул 6 абзацев, мягкий кап = 1 (легаси-дефолт
-    MAX_SUMMARY_PARTS) → публикация ПОЛУЧАЕТ документ (обрезка до 1 абзаца),
-    а не «не публикуем»."""
+async def test_l2_article_above_legacy_parts_publishes_complete():
+    """§17 тест 1 / инверсия (а): Hybrid-статья из 6 абзацев публикуется
+    ПОЛНОЙ: `limits.max_summary_parts` из Hybrid-кода выведен полностью
+    (контракт (d)) — резолвера абзацев больше не существует, а Settings —
+    frozen dataclass (instance-поля Hybrid-резолверов не читают legacy-ключ)."""
+    from services import summary_l2_writer as l2w
+    assert not hasattr(l2w, "resolve_l2_max_paragraphs")
+    assert not hasattr(l2w, "MAX_PARAGRAPHS_DEFAULT")
     paragraphs = [{"text": f"Абзац номер {i}.", "emphasis": None}
                   for i in range(6)]
     llm = ScriptedLLM(json.dumps(_doc(paragraphs=paragraphs),
                                  ensure_ascii=False))
-    result = await run_l2(llm, _package(), slot=_SlotStub(),
-                          max_paragraphs=1)
+    result = await run_l2(llm, _package(), slot=_SlotStub())
     assert result.status == STATUS_OK
     assert result.usable
     assert result.document is not None
-    assert len(result.document["paragraphs"]) == 1
-    assert result.document["paragraphs"][0]["text"] == "Абзац номер 0."
-    assert result.metrics.get("trimmed_for_publication") is True
+    assert len(result.document["paragraphs"]) == 6      # полная, без обрезки
+    assert result.metrics.get("trimmed_for_publication") is None
+    assert "trimmed" not in result.as_metrics()
 
 
-def test_l2_trim_respects_rich_char_budget(monkeypatch):
-    """После обрезки по капу абзацев бюджет RICH_MAX_CHARS тоже соблюдён:
-    длинные абзацы снимаются с конца, публикация остаётся возможной."""
+def test_trim_costume_fully_removed():
+    """§16:2536–2545 — trim-костыль УДАЛЁН, а не «оставлен выключенным»:
+    функций, маркеров и env-ключа не существует."""
     from services import summary_l2_writer as l2w
-    monkeypatch.setattr(l2w, "RICH_MAX_CHARS", 2200)
-    long_text = "ы" * 900
-    document = {"schema_version": 1, "title": "Дождь",
-                "paragraphs": [{"text": long_text, "emphasis": None}
-                               for _ in range(5)]}
-    metrics = {"status": "ok", "reason": "ok"}
-    trimmed = l2w._trim_document_for_publication(document, 4, metrics)
-    assert trimmed is not None
-    kept = trimmed["paragraphs"]
-    assert len(kept) < 4
-    total = len(trimmed["title"]) + sum(
-        len(p["text"]) + (len(p["emphasis"]) if p.get("emphasis") else 0)
-        for p in kept)
-    assert total <= 2200
-    assert metrics.get("trimmed_for_publication") is True
-    assert metrics.get("paragraphs_before") == 5
-    assert metrics.get("paragraphs_dropped_count", 0) >= 5 - len(kept) - 1
+    assert not hasattr(l2w, "_trim_document_for_publication")
+    assert not hasattr(l2w, "REASON_TRIMMED_FOR_PUBLICATION")
+    assert not hasattr(l2w.settings, "SUMMARY_L2_TRIM_ENABLED")
+    assert "SUMMARY_L2_TRIM_ENABLED" not in dir(type(l2w.settings))
 
 
 @pytest.mark.asyncio
-async def test_l2_trim_kill_switch_off_exact_legacy_reject():
-    """env-only kill-switch OFF → точный прежний fail-closed: invalid +
-    reason=too_many_paragraphs (S5 §106, байт-в-байт поведение)."""
-    paragraphs = [{"text": f"Абзац номер {i}.", "emphasis": None}
-                  for i in range(6)]
-    llm = ScriptedLLM(json.dumps(_doc(paragraphs=paragraphs),
-                                 ensure_ascii=False))
-    monkeypatch = pytest.MonkeyPatch()
-    monkeypatch.setattr(Settings, "SUMMARY_L2_TRIM_ENABLED", False)
-    try:
-        result = await run_l2(llm, _package(), slot=_SlotStub(),
-                              max_paragraphs=1)
-    finally:
-        monkeypatch.undo()
-    assert result.status == STATUS_INVALID
-    assert result.invalid_reason == REASON_TOO_MANY_PARAGRAPHS
-    assert result.document is None
-
-
-@pytest.mark.asyncio
-async def test_l2_llm_timeout_still_error_when_trim_on():
-    """Обрезка не размывает fail-closed на реальных ошибках: LLMError →
-    status=error, документа нет, повторного L2-вызова нет."""
+async def test_l2_llm_timeout_still_error():
+    """Отбраковка реальной ошибки не размывается: LLMError → status=error,
+    документа нет, повторного L2-вызова нет (L2-retry не вводится — ADR D3)."""
     class TimeoutLLM:
         calls = 0
 
@@ -115,8 +95,7 @@ async def test_l2_llm_timeout_still_error_when_trim_on():
             TimeoutLLM.calls += 1
             raise LLMError("timeout")
 
-    result = await run_l2(TimeoutLLM(), _package(), slot=_SlotStub(),
-                          max_paragraphs=1)
+    result = await run_l2(TimeoutLLM(), _package(), slot=_SlotStub())
     assert result.status == "error"
     assert result.invalid_reason == "llm_error"
     assert result.document is None
@@ -124,58 +103,55 @@ async def test_l2_llm_timeout_still_error_when_trim_on():
 
 
 @pytest.mark.asyncio
-async def test_l2_hard_cap_498_not_trimmed():
-    """Жёсткий потолок §99 (MAX_PARAGRAPHS_HARD) остаётся fail-closed даже
-    при trim ON: обрезка применяется ТОЛЬКО к мягкому капу."""
+async def test_l2_hard_cap_498_still_fail_closed():
+    """Жёсткий технический потолок §99 (MAX_PARAGRAPHS_HARD=498) — fail-closed
+    и после демонтажа trim (это Telegram blocks limit, не «мягкий кап»)."""
     paragraphs = [{"text": "Х", "emphasis": None}
                   for _ in range(MAX_PARAGRAPHS_HARD + 1)]
     document = {"schema_version": 1, "title": "Т", "paragraphs": paragraphs}
     llm = ScriptedLLM(json.dumps(document, ensure_ascii=False))
-    result = await run_l2(llm, _package(), slot=_SlotStub(),
-                          max_paragraphs=MAX_PARAGRAPHS_HARD)
-    assert result.status == STATUS_INVALID
+    result = await run_l2(llm, _package(), slot=_SlotStub())
+    assert result.status != STATUS_OK
     assert result.invalid_reason == REASON_TOO_MANY_PARAGRAPHS
     assert result.document is None
 
 
 @pytest.mark.asyncio
-async def test_l2_over_cap_document_reaches_deliver_stage(caplog, monkeypatch):
-    """(б) Интеграционный срез гибридного пути: L2-статья с абзацами > капа
-    доходит до delivery-блока (publish), а не обрывается ранним return
-    «не публикуем». Plain-путь (без rich-обложки) — публикация есть."""
+async def test_l2_full_document_reaches_deliver_stage(caplog, monkeypatch):
+    """(б→инверсия) Интеграционный срез: L2-статья с абзацами «больше старой
+    легаси-parts» доходит до delivery и публикуется ПОЛНОСТЬЮ — все абзацы
+    уходят в plain-чанки, ничего не отброшено."""
     from services.summary_generator import SummaryGenerator
-    from services.summary_l2_writer import L2Result
 
     paragraphs = [{"text": f"Абзац для публикации {i}.", "emphasis": None}
                   for i in range(6)]
-    document, metrics = {}, {}
     llm = ScriptedLLM(json.dumps(_doc(paragraphs=paragraphs),
                                  ensure_ascii=False))
     result = await run_l2(llm, _package(
         service={"response_mode": "serious", "cover_prompt": ""}),
-        slot=_SlotStub(), max_paragraphs=1)
+        slot=_SlotStub())
     assert result.usable
-    document, metrics = result.document, result.as_metrics()
+    document = result.document
 
     generator = SummaryGenerator.__new__(SummaryGenerator)
     sent = []
 
     async def _send_text(chat_id, text, parse_mode=None):
         sent.append(text)
-        return dataclasses.SimpleNamespace(message_id=77)
+        return SimpleNamespace(message_id=77)
 
     generator._send_text_with_retry = _send_text
     monkeypatch.setattr("services.summary_generator.hot.get",
                         lambda k, d=None: d)
 
-    class _Cfg:
-        SUMMARY_CHUNK_DELAY = 0.0
-
-    await generator._publish_plain_document(
+    published = await generator._publish_plain_document(
         -1002661910336, document, correlation_id="run-hotfix", ctx=None,
         reason="plain")
+    assert published is True
     assert sent, "plain-публикация должна была состояться"
-    assert all("Абзац для публикации" in s for s in sent)
+    joined = "".join(sent)
+    for i in range(6):
+        assert f"Абзац для публикации {i}." in joined  # полнота текста
 
 
 # ── Фикс №2: GraphExtractionError не срывает пайплайн ─────────────────────
@@ -259,11 +235,3 @@ async def test_graph_success_batch_marks_processed():
     memory._extract_and_save_graph = _ok_extract
     await memory._compress_purge_extract_only(-1002661910336)
     assert db.marked == [[11, 12]]
-
-
-def test_settings_trim_env_only_no_catalog_delta():
-    """Δ каталога = 0: новый env-only ClassVar не попадает в dataclass-поля
-    (== каталог F8) и default ON."""
-    assert getattr(settings, "SUMMARY_L2_TRIM_ENABLED") is True
-    assert "SUMMARY_L2_TRIM_ENABLED" not in [
-        f.name for f in dataclasses.fields(Settings)]

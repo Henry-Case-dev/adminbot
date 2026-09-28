@@ -63,7 +63,9 @@ from services.summary_prompts import (
     PREV_SUMMARY_EDITOR_R1023_F6,
     PREV_SUMMARY_EDITOR_R1025_HOTFIX4,
     PREV_SUMMARY_L1_CLUSTERIZER_R1026,
+    PREV_SUMMARY_L1_CLUSTERIZER_R1027,
     PREV_SUMMARY_L2_WRITER_R1026,
+    PREV_SUMMARY_L2_WRITER_R1027,
     PREV_SUMMARY_SYSTEM_PROMPT,
     SUMMARY_EDITOR_SYSTEM_PROMPT,
     SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT,
@@ -180,10 +182,13 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # снимает ступень response_mode → непосредственный прежний канон F2.
     "prompts.factcheck_analyst_system_prompt": PREV_FACTCHECK_ANALYST_R1023_F3,
     # S3 (10.26): откат L1 снимает ступень маркировки → слепок базы канона S3.
+    # ASAP-2 (round1027, контракт l): откат снимает ступень R1027 →
+    # непосредственный прежний канон R1026 (PREV_*_R1027 = база+блок).
     "prompts.summary_l1_clusterizer_system_prompt":
-        PREV_SUMMARY_L1_CLUSTERIZER_R1026,
+        PREV_SUMMARY_L1_CLUSTERIZER_R1027,
     # S5 (10.26): откат L2 снимает ступень маркировки → слепок базы канона S5.
-    "prompts.summary_l2_writer_system_prompt": PREV_SUMMARY_L2_WRITER_R1026,
+    # ASAP-2: откат ступени R1027 (ДЛИНА/ДЕДУП/авторы) → канон R1026.
+    "prompts.summary_l2_writer_system_prompt": PREV_SUMMARY_L2_WRITER_R1027,
 }
 
 

@@ -1,38 +1,51 @@
-"""S4 round1026 (ADR-1026-6 D1–D6) — «Пакет фактов §96» (вход L2).
+"""S4 round1026 (ADR-1026-6 D1–D6) + ASAP-2 round1027 (ADR-1027-10 D10/D4) —
+«Пакет фактов §96» v2 (вход L2) + deterministic fallback-пакет LEVEL-2.
 
 **Чистый** модуль (0 LLM-вызовов, без БД/сети/системных часов бизнес-логики):
-из валидированного ``L1Result`` (§95, S3) и §92-payload
+из валидированного ``L1Result`` (§95-v2, S3) и §92-payload
 (``summary_context_restore.build_l1_payload``) детерминированно собирает
-пакет фактов для L2 (§96): на каждую тему — название, описание, хронологию,
-факты, подтверждающие ID и необходимые исходные фрагменты текста. Весь сырой
-лог повторно НЕ передаётся; «доказательства» не генерируются.
+пакет фактов для L2 (§96/§12): на каждую тему — название, описание, хронологию,
+факты, подтверждающие ID и исходные фрагменты с ПОЛНЫМ авторским контекстом.
+Весь сырой лог повторно НЕ передаётся; «доказательства» не генерируются.
 
-Контракт пакета ``FactPackage`` v1 (D1):
-  * топ-уровень ровно: ``{schema_version, status, threads[],
+Контракт пакета ``FactPackage`` v2 (контракт (h)):
+  * топ-уровень ровно: ``{schema_version: 2, status, threads[],
     unassigned_message_ids[], service{response_mode, cover_prompt},
     budget{kind, limit, estimated, fits}}``;
   * тема ровно: ``{thread_id, name, description, chronology[], facts[],
     evidence_ids[], fragments[]}``;
+  * ``fragments`` — v2: ``{message_id, author_id, display_name, timestamp,
+    reply_to_id, text}`` (§12: рассказчик видит, «кто что сказал / кто кому
+    отвечал»; ``reply_to_id`` = null без ответа); внутренняя техническая
+    metadata (chat_id/DB id/message_type/mentions/budget/service/веса) НЕ
+    тащится (§12:2397);
+  * ``chronology`` = ASC ``(timestamp, message_id)`` + ``topic_ids[]`` —
+    many-to-many карта всех тем, содержащих сообщение (производная графа, D1);
+  * membership-пересечения тем больше НЕ рвут сборку
+    (``message_in_multiple_threads`` УДАЛЁН; дедуп фрагментов между темами не
+    выполняется — локальность важнее экономии, D10; пределы — капы 30/500 +
+    бюджет); ``unassigned_conflict`` — только defense-in-depth (чинит repair);
   * ``name`` = ``topic`` verbatim; ``description`` = детерминированная
-    агрегация ``facts[].text`` (дедуп/схлопывание пробелов/кап
-    ``DESCRIPTION_MAX``; нет фактов → ``""``) — **не LLM/проза**;
-  * ``chronology`` = ASC ``(timestamp, message_id)`` из §92-payload;
-  * ``facts`` / ``evidence_ids`` — verbatim-факты L1 + union evidence (ASC);
-  * ``fragments`` = §92-текст, приоритет evidence-first + лимиты;
-  * ``service`` — транзит служебных полей (D3), вне L2-контента;
+    агрегация ``facts[].text`` (дедуп/схлопывание/кап ``DESCRIPTION_MAX``);
   * фиксированный порядок ключей; двойной прогон байт-идентичен.
 
-Бюджет L2-входа (D2) — переиспользование существующих
-``limits.summary_max_context_tokens``/``_chars`` через ``resolve_chat_limit``
-(Δ каталога = 0, новых env нет). Усечение: фрагменты (старые первыми,
-последние сохраняются, §93) → ``description`` → целые темы; факты/evidence
-не режутся частично; любое вытеснение → ``truncated`` + ``skipped_ids``/WARN.
+LEVEL-2 fallback (контракт (i), §8:2243–2260): ``build_fallback_package`` —
+детерминированный пакет «Общий ход обсуждения» (0 LLM) из filtered §92-
+сообщений, когда L1 непригоден ЛЮБАЯ причина; chronology = все сообщения ASC,
+fragments = v2 (author+text+reply), статус ok/truncated (обязан проходить
+deliverability-гейт ``run_l2``) → L2 вызывается в любом случае.
 
-Fail-closed (D5): ``ok`` → ``ok``; ``truncated`` → ``truncated`` + проброс;
-``empty``/``invalid``/``error`` → ``threads=[]`` и в L2 НЕ передаётся
-(§95/§106); нет ``usable``/``payload`` → ``not_built`` (пакет не строится).
-ID — TG ``message_id`` (§92/§95); DB ``id`` в публичное поле пакета не
-попадает. Висячие/фабрикованные ссылки → ``invalid``. Вход не мутируется.
+Бюджет L2-входа — hybrid-ключи ``limits.summary_hybrid_context_*``
+(ASAP-2 §11/D7; единая точка ``resolve_hybrid_context_budget`` +
+L2-output-reserve, контракт (g)). Legacy-ключи НЕ читаются. Усечение:
+фрагменты (старые первыми) → ``description`` → целые темы; любое вытеснение →
+``truncated`` + ``skipped_ids``/WARN.
+
+Fail-closed (D5): ``empty``/``invalid``/``error`` → ``threads=[]`` и в L2 НЕ
+передаётся (§95/§106 — для ОСНОВНОГО пакета; L1-непригодность обрабатывает
+LEVEL-2 вызывающий контур); нет ``usable``/``payload`` → ``not_built``.
+ID — TG ``message_id`` (§92/§95); DB ``id`` в публичное поле не попадает.
+Висячие/фабрикованные ссылки → ``invalid``. Вход не мутируется.
 """
 from __future__ import annotations
 
@@ -51,16 +64,24 @@ from services.summary_l1_contract import (
     STATUS_TRUNCATED,
     build_id_space,
 )
-from services.token_counter import count_tokens, resolve_chat_limit
+from services.summary_hybrid_budget import (
+    hybrid_input_budget,
+    hybrid_output_reserve_tokens,
+    resolve_hybrid_context_budget,
+)
+from services.token_counter import count_tokens
 
 logger = logging.getLogger(__name__)
 
 MODULE = "summary"
 STEP = "fact_package"
 
-# ── Схема пакета v1 ────────────────────────────────────────────────────────
+# ── Схема пакета v2 (ASAP-2 контракт (h)) ──────────────────────────────────
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+# Тема LEVEL-2 fallback-пакета (§8:2252): одна хронологическая тема.
+FALLBACK_THREAD_ID = "thread_001"
+FALLBACK_TOPIC_NAME = "Общий ход обсуждения"
 
 TOP_LEVEL_FIELDS: tuple = ("schema_version", "status", "threads",
                            "unassigned_message_ids", "service", "budget")
@@ -76,6 +97,8 @@ _KNOWN_L1_STATUSES: frozenset = frozenset(
     {STATUS_OK, STATUS_TRUNCATED, STATUS_EMPTY, STATUS_INVALID, STATUS_ERROR})
 
 # Коды причин (R17-safe: только коды, без контента).
+# ASAP-2 v2: REASON_MESSAGE_IN_MULTIPLE_THREADS УДАЛЁН (контракт (a)/(h)):
+# пересечение membership — норма many-to-many, сборку не рвёт.
 REASON_OK = "ok"
 REASON_EMPTY = "empty"
 REASON_NO_RESULT = "no_result"
@@ -85,7 +108,6 @@ REASON_BAD_INPUT = "bad_type"
 REASON_MISSING_SOURCE = "missing_source"
 REASON_UNKNOWN_MESSAGE_ID = "unknown_message_id"
 REASON_EVIDENCE_NOT_IN_THREAD = "evidence_not_in_thread"
-REASON_MESSAGE_IN_MULTIPLE_THREADS = "message_in_multiple_threads"
 REASON_UNASSIGNED_CONFLICT = "unassigned_conflict"
 REASON_BUDGET_EMPTY = "budget_empty"
 REASON_INTERNAL_ERROR = "internal_error"
@@ -98,10 +120,9 @@ FRAGMENT_MAX_CHARS = 1000
 MAX_FRAGMENTS_PER_THREAD = 30
 MAX_FRAGMENTS_TOTAL = 500
 
-# §5.6: бюджет — существующие ключи (`limits.summary_max_context_*`); дефолт
-# токенов паритетен `_SUMMARY_CONTEXT_TOKEN_DEFAULT` (30000).
-TOKEN_DEFAULT = 30000
-CHARS_ENV = "SUMMARY_MAX_CONTEXT_CHARS"
+# §5.6/ASAP-2 D7: бюджет — hybrid-ключи `limits.summary_hybrid_context_*`
+# (единая точка `summary_hybrid_budget`); токенный дефолт паритетен общему
+# (30000). Legacy `limits.summary_max_context_*` в Hybrid не читаются.
 
 _WS_RE = re.compile(r"\s+")
 
@@ -157,40 +178,54 @@ def _timestamp_of(id_space, message_id):
         return 0
 
 
-def _payload_text_map(payload_items) -> dict:
-    """``TG message_id → text`` (§92, первое вхождение). Не выдумывается."""
-    texts: dict = {}
+def _payload_item_map(payload_items) -> dict:
+    """``TG message_id → элемент §92`` (первое вхождение). Не выдумывается.
+
+    ASAP-2 контракт (h): фрагменты пакета v2 несут ПОЛНЫЙ авторский контекст
+    (author_id/display_name/timestamp/reply_to_id/text) — рассказчик
+    понимает «кто что сказал / кто кому отвечал» (§12). Внутренняя техническая
+    metadata (chat_id/DB id/message_type/mentions) в фрагмент НЕ попадает.
+    """
+    items: dict = {}
     for item in payload_items or []:
         if not isinstance(item, dict):
             continue
         mid = _as_int(item.get("message_id"))
-        if mid is None or mid in texts:
+        if mid is None or mid in items:
             continue
-        value = item.get("text")
-        texts[mid] = "" if value is None else str(value)
-    return texts
+        items[mid] = item
+    return items
 
 
-# ── Бюджет (D2) ────────────────────────────────────────────────────────────
+def _payload_text_map(payload_items) -> dict:
+    """``TG message_id → text`` (§92, первое вхождение) — из item-карты."""
+    return {mid: ("" if item.get("text") is None else str(item.get("text")))
+            for mid, item in _payload_item_map(payload_items).items()}
+
+
+# ── Бюджет (ASAP-2 D7/контракт (g): hybrid-ключи) ──────────────────────────
 
 def resolve_fact_package_budget(*, hot_get=None,
                                 settings_obj=None) -> tuple[str, int]:
-    """Бюджет пакета L2-входа из ``limits.summary_max_context_*`` (D2).
-
-    Токенный приоритет + аварийный chars-fallback — штатная семантика
-    ``resolve_chat_limit``; новых env/каталога нет (Δ каталога = 0).
-    Per-chat-резолв — S5 (при врезке).
-    """
-    if hot_get is None:
-        from services import hot_config as hot
-        hot_get = hot.get
-    st = settings_obj or settings
-    token_value = hot_get("limits.summary_max_context_tokens",
-                          getattr(st, "SUMMARY_MAX_CONTEXT_TOKENS", None))
-    chars_value = hot_get("limits.summary_max_context_chars",
-                          getattr(st, "SUMMARY_MAX_CONTEXT_CHARS", 120000))
-    return resolve_chat_limit(token_value, TOKEN_DEFAULT, CHARS_ENV,
-                              int(chars_value or 0), "SUMMARY_FACT_PACKAGE")
+    """Бюджет пакета L2-входа — ТОЛЬКО ``limits.summary_hybrid_context_*``
+    (единая точка ``resolve_hybrid_context_budget``) минус L2 output reserve
+    и системный промпт (formula Q5; chars-режим симметрично). Legacy
+    ``limits.summary_max_context_*`` НЕ читаются (§11:2353–2356). Per-chat-
+    резолв — при врезке (генератор передаёт budget явным параметром)."""
+    kind, limit = resolve_hybrid_context_budget(hot_get=hot_get,
+                                                settings_obj=settings_obj)
+    if limit <= 0:
+        return kind, limit
+    try:
+        from services.summary_prompts import SUMMARY_L2_WRITER_SYSTEM_PROMPT
+        system_text = SUMMARY_L2_WRITER_SYSTEM_PROMPT
+    except Exception:  # pragma: no cover - защитная ветка
+        system_text = ""
+    effective = hybrid_input_budget(
+        kind, limit, system_text=system_text,
+        output_reserve=hybrid_output_reserve_tokens(
+            kind="l2", settings_obj=settings_obj))
+    return kind, effective
 
 
 def _resolve_budget(budget):
@@ -230,9 +265,14 @@ def _description(facts) -> tuple[str, bool]:
     return cut.rstrip(" ·"), True
 
 
-def _select_fragments(message_ids, evidence_ids, text_map, id_space,
+def _select_fragments(message_ids, evidence_ids, item_map, id_space,
                       stats) -> list:
-    """§4.5: evidence-first отбор фрагментов из §92 (текст verbatim)."""
+    """§4.5 + контракт (h): evidence-first отбор фрагментов из §92.
+
+    Фрагмент v2 = ``{message_id, author_id, display_name, timestamp,
+    reply_to_id, text}`` (text verbatim; ``reply_to_id`` — null без ответа).
+    Пустой text в fragments не попадает (остаётся в хронологии).
+    """
     ordered: list = []
     seen: set = set()
     for mid in sorted(evidence_ids, key=id_space.sort_key):
@@ -245,22 +285,34 @@ def _select_fragments(message_ids, evidence_ids, text_map, id_space,
             ordered.append(mid)
     fragments: list = []
     for mid in ordered:
-        text = text_map.get(mid, "")
+        item = item_map.get(mid)
+        if item is None:
+            continue
+        raw_text = item.get("text")
+        text = "" if raw_text is None else str(raw_text)
         if not text:
             continue  # пустой text в fragments не попадает (остаётся в хронологии)
         if len(text) > FRAGMENT_MAX_CHARS:
             text = text[:FRAGMENT_MAX_CHARS]
             stats["fragment_char_truncated_count"] += 1
-        fragments.append({"message_id": mid,
-                          "timestamp": _timestamp_of(id_space, mid),
-                          "text": text})
+        reply_to = item.get("reply_to_id")
+        fragments.append({
+            "message_id": mid,
+            "author_id": item.get("author_id"),
+            "display_name": item.get("display_name"),
+            "timestamp": _timestamp_of(id_space, mid),
+            "reply_to_id": reply_to,
+            "text": text,
+        })
     return fragments
 
 
-def _build_thread(thread, id_space, text_map, stats):
+def _build_thread(thread, id_space, item_map, stats, topic_map=None):
     """Собрать ``PackageThread`` из канонического §95-треда.
 
-    Возвращает ``(thread | None, message_ids, reason)``.
+    ``topic_map``: ``TG id → [thread_id…]`` (many-to-many карта контракта (h))
+    — в хронологии каждого сообщения перечисляются ВСЕ темы, его содержащие
+    (детерминированно из L1-выхода). Возвращает ``(thread|None, ids, reason)``.
     """
     if not isinstance(thread, dict):
         return None, [], REASON_BAD_INPUT
@@ -304,6 +356,9 @@ def _build_thread(thread, id_space, text_map, stats):
             if value is None:
                 return None, [], REASON_BAD_INPUT
             if value not in message_ids:
+                # defense-in-depth: repair (контракт (b) шаг 2) обязан было
+                # расширить membership; если id всё же вне — это missing
+                # источник (в.payload уже прошёл валидатор v2).
                 return None, [], REASON_EVIDENCE_NOT_IN_THREAD
             if value not in evidence_ids:
                 evidence_ids.append(value)
@@ -314,14 +369,17 @@ def _build_thread(thread, id_space, text_map, stats):
         timestamp = _timestamp_of(id_space, mid)
         if timestamp is None:
             return None, [], REASON_MISSING_SOURCE
-        chronology.append({"message_id": mid, "timestamp": timestamp})
+        entry = {"message_id": mid, "timestamp": timestamp}
+        if topic_map is not None:
+            entry["topic_ids"] = list(topic_map.get(mid, [thread_id]))
+        chronology.append(entry)
 
     evidence_union: set = set()
     for fact in facts:
         evidence_union.update(fact["evidence_message_ids"])
     evidence_ids = sorted(evidence_union, key=id_space.sort_key)
 
-    fragments = _select_fragments(message_ids, evidence_ids, text_map,
+    fragments = _select_fragments(message_ids, evidence_ids, item_map,
                                   id_space, stats)
 
     description, description_truncated = _description(facts)
@@ -441,11 +499,19 @@ def _metrics(status, reason, *, l1_status, threads=(),
              descriptions_cleared=0, budget=None, l1_result=None,
              duration_ms=0.0, fragment_char_truncated=0) -> dict:
     budget = budget or {}
+    messages = {entry["message_id"] for t in threads
+                for entry in t.get("chronology") or []
+                if isinstance(entry, dict)
+                and entry.get("message_id") is not None}
     return {
         "status": status,
         "reason": reason or REASON_OK,
         "l1_status": l1_status,
         "threads_count": len(threads),
+        # §18 (контракт (k)): FACT_PACKAGE topics= (дубль threads на переходный
+        # период) и messages= (уникальные id в тредах).
+        "topics_count": len(threads),
+        "messages_count": len(messages),
         "facts_count": sum(len(t["facts"]) for t in threads),
         "fragments_count": sum(len(t["fragments"]) for t in threads),
         "evidence_count": sum(len(t["evidence_ids"]) for t in threads),
@@ -484,7 +550,7 @@ def _fail_result(status, reason, l1_result, kind, limit, duration_ms, *,
 def _build_from_payload(l1_result, payload, payload_items, kind, limit,
                         duration_ms):
     id_space = build_id_space(payload_items)
-    text_map = _payload_text_map(payload_items)
+    item_map = _payload_item_map(payload_items)
     stats = {"description_truncated": False,
              "fragment_char_truncated_count": 0}
 
@@ -493,21 +559,35 @@ def _build_from_payload(l1_result, payload, payload_items, kind, limit,
         return _fail_result(STATUS_INVALID, REASON_BAD_INPUT, l1_result,
                             kind, limit, duration_ms, l1_status=STATUS_OK)
 
+    # many-to-many карта topic_ids (контракт (h)): TG id → [thread_id…] —
+    # ВСЕ темы, содержащие сообщение; порядок тем = порядок payload (детерм.).
+    topic_map: dict = {}
+    for raw_thread in raw_threads:
+        if not isinstance(raw_thread, dict):
+            continue
+        tid = raw_thread.get("thread_id")
+        if not isinstance(tid, str) or not tid:
+            continue
+        for mid in raw_thread.get("message_ids") or []:
+            value = _as_int(mid)
+            if value is None:
+                continue
+            bucket = topic_map.setdefault(value, [])
+            if tid not in bucket:
+                bucket.append(tid)
+
     threads: list = []
-    seen: set = set()
+    in_threads: set = set()
+    # ASAP-2 v2: пересечение membership между темами — НОРМА (many-to-many);
+    # прежний fail-closed `message_in_multiple_threads` УДАЛЁН (контракт (h)).
     for raw_thread in raw_threads:
         thread, message_ids, reason = _build_thread(raw_thread, id_space,
-                                                    text_map, stats)
+                                                    item_map, stats,
+                                                    topic_map=topic_map)
         if thread is None:
             return _fail_result(STATUS_INVALID, reason, l1_result, kind,
                                 limit, duration_ms, l1_status=STATUS_OK)
-        for mid in message_ids:
-            if mid in seen:
-                return _fail_result(STATUS_INVALID,
-                                    REASON_MESSAGE_IN_MULTIPLE_THREADS,
-                                    l1_result, kind, limit, duration_ms,
-                                    l1_status=STATUS_OK)
-            seen.add(mid)
+        in_threads.update(message_ids)
         threads.append(thread)
 
     raw_unassigned = payload.get("unassigned_message_ids", [])
@@ -524,7 +604,9 @@ def _build_from_payload(l1_result, payload, payload_items, kind, limit,
             return _fail_result(STATUS_INVALID, REASON_MISSING_SOURCE,
                                 l1_result, kind, limit, duration_ms,
                                 l1_status=STATUS_OK)
-        if value in seen:
+        if value in in_threads:
+            # defense-in-depth: конфликт разрешает repair (membership
+            # побеждает, контракт (b) шаг 5); до пакета доходить не должен.
             return _fail_result(STATUS_INVALID, REASON_UNASSIGNED_CONFLICT,
                                 l1_result, kind, limit, duration_ms,
                                 l1_status=STATUS_OK)
@@ -583,13 +665,13 @@ def _build_from_payload(l1_result, payload, payload_items, kind, limit,
 
 def build_fact_package(l1_result, payload_items, *, budget=None,
                        correlation_id=None) -> FactPackageResult:
-    """Собрать ``FactPackage`` v1 из ``L1Result`` + §92-payload (D1/D5).
+    """Собрать ``FactPackage`` v2 из ``L1Result`` + §92-payload (D1/D5).
 
-    ``budget`` — ``(kind, limit)``; ``None`` → существующие
-    ``limits.summary_max_context_*`` (D2). 0 LLM-вызовов, вход не мутируется;
-    любое исключение → fail-closed ``error``/``internal_error`` (в L2 не
-    передаётся). ``correlation_id`` — аддитивный R17-safe параметр логирования
-    (§109; формальный ``run_id`` вводит S7).
+    ``budget`` — ``(kind, limit)``; ``None`` → hybrid-ключи
+    ``limits.summary_hybrid_context_*`` (контракт (g)). 0 LLM-вызовов, вход не
+    мутируется; любое исключение → fail-closed ``error``/``internal_error``
+    (в L2 не передаётся). ``correlation_id`` — аддитивный R17-safe параметр
+    логирования (§109; формальный ``run_id`` вводит S7).
     """
     started = time.perf_counter()
     kind, limit = _resolve_budget(budget)
@@ -645,6 +727,83 @@ def _dispatch(l1_result, payload_items, kind, limit, correlation_id, started):
                         l1_status=status)
 
 
+# ── LEVEL-2: deterministic fallback-пакет (ASAP-2 §8/контракт (i), D4) ─────
+
+def build_fallback_package(payload_items, *, budget=None,
+                           correlation_id=None, chat_id=None,
+                           reason: str = "l1_unusable"):
+    """Пакет «Общий ход обсуждения» (0 LLM) для LEVEL-2, когда L1 непригоден
+    ЛЮБАЯ причина (invalid после correction, error/timeout, useless,
+    too_many_*, empty).
+
+    §8:2243–2260: одна тема ``thread_001`` с ``name="Общий ход обсуждения"``;
+    ``description=""``, ``facts=[]``;
+    ``chronology`` = ВСЕ filtered source-сообщения (§92, после S1/S2) ASC c
+    ``topic_ids=["thread_001"]``; ``fragments`` = все сообщения с полями v2
+    (author + text + reply links, контракт (h)) и существующими капами/бюджетом
+    (fragments→description→темы, «старые первыми»). Статус ``ok``/``truncated``
+    — обязан проходить deliverability-гейт ``run_l2`` → L2 вызывается в любом
+    случае (§8:2260). Пустой payload (0 сообщений) → ``None``: пакет не
+    строится — НЕ failure, существующая empty-семантика (матрица строка 2).
+    """
+    items = [item for item in (payload_items or []) if isinstance(item, dict)]
+    if not items:
+        return None
+    started = time.perf_counter()
+    kind, limit = _resolve_budget(budget)
+    id_space = build_id_space(items)
+    item_map = _payload_item_map(items)
+    ordered_ids = sorted(id_space.ids, key=id_space.sort_key)
+    stats = {"fragment_char_truncated_count": 0}
+    # Фрагменты = ВСЕ сообщения (хронология = тот же порядок ASC).
+    fragments = _select_fragments(ordered_ids, [], item_map, id_space, stats)
+    thread = {
+        "thread_id": FALLBACK_THREAD_ID,
+        "name": FALLBACK_TOPIC_NAME,
+        "description": "",
+        "chronology": [
+            {"message_id": mid, "timestamp": _timestamp_of(id_space, mid),
+             "topic_ids": [FALLBACK_THREAD_ID]}
+            for mid in ordered_ids
+        ],
+        "facts": [],
+        "evidence_ids": [],
+        "fragments": fragments,
+    }
+    threads = [thread]
+    skipped_ids = _apply_fragment_caps(threads)
+    budget_skipped, skipped_threads, _cleared, _cut = _enforce_budget(
+        threads, [], kind, limit)
+    skipped_ids.extend(budget_skipped)
+    estimated = _estimate(threads, [], kind)
+    budget_dict = {"kind": kind, "limit": limit, "estimated": estimated,
+                   "fits": bool(not limit or limit <= 0
+                                or estimated <= limit)}
+    truncated = bool(skipped_ids or skipped_threads)
+    status = STATUS_TRUNCATED if truncated else STATUS_OK
+    service = {"response_mode": "", "cover_prompt": ""}
+    package = _base_package(status, service, budget_dict, threads, [])
+    metrics = _metrics(status, REASON_OK, l1_status="fallback",
+                       threads=threads, skipped_ids=skipped_ids,
+                       skipped_threads=skipped_threads, budget=budget_dict,
+                       l1_result=None,
+                       duration_ms=(time.perf_counter() - started) * 1000.0,
+                       fragment_char_truncated=stats[
+                           "fragment_char_truncated_count"])
+    # §18 (контракт (k)): L1_FALLBACK_PACKAGE — WARN с причиной отказа L1 и
+    # размерами пакета (только числа/коды, R17-safe).
+    metrics["fallback_reason"] = str(reason or "l1_unusable")
+    logger.warning(
+        "L1_FALLBACK_PACKAGE | run_id=%s | chat_id=%s | reason=%s | "
+        "fragments=%d | chronology=%d",
+        correlation_id or "none", chat_id if chat_id is not None else "-",
+        metrics["fallback_reason"],
+        metrics.get("fragments_count", 0),
+        metrics.get("messages_count", 0))
+    return FactPackageResult(status=status, package=package, reason=REASON_OK,
+                             metrics=metrics, budget=budget_dict)
+
+
 # ── §109: логи (аддитивные, R17-safe) ──────────────────────────────────────
 
 def _log_start(*, correlation_id, l1_status, kind, limit):
@@ -655,13 +814,18 @@ def _log_start(*, correlation_id, l1_status, kind, limit):
 
 def _log_complete(*, correlation_id, result: FactPackageResult):
     metrics = result.metrics or {}
+    # §18 (контракт (k)): аддитивно topics= (дубль threads на переходный
+    # период) и messages= (уникальные id в тредах).
     logger.info(
         "FACT_PACKAGE_COMPLETE | run_id=%s | status=%s | reason=%s | "
-        "threads=%d | facts=%d | fragments=%d | evidence=%d | "
+        "threads=%d | topics=%d | messages=%d | facts=%d | fragments=%d | "
+        "evidence=%d | "
         "skipped_fragments=%d | skipped_threads=%d | descriptions_cleared=%d | "
         "estimated=%s | limit=%s | fits=%s | duration_ms=%.0f",
         correlation_id or "none", result.status, result.reason or REASON_OK,
-        metrics.get("threads_count", 0), metrics.get("facts_count", 0),
+        metrics.get("threads_count", 0), metrics.get("topics_count", 0),
+        metrics.get("messages_count", 0),
+        metrics.get("facts_count", 0),
         metrics.get("fragments_count", 0), metrics.get("evidence_count", 0),
         metrics.get("skipped_fragments_count", 0),
         metrics.get("skipped_threads_count", 0),

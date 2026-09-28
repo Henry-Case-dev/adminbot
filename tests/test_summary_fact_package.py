@@ -35,7 +35,6 @@ from services.summary_fact_package import (
     REASON_BUDGET_EMPTY,
     REASON_EMPTY,
     REASON_EVIDENCE_NOT_IN_THREAD,
-    REASON_MESSAGE_IN_MULTIPLE_THREADS,
     REASON_MISSING_SOURCE,
     REASON_NO_RESULT,
     REASON_PAYLOAD_MISSING,
@@ -82,7 +81,7 @@ def _items(rows):
 
 
 def _payload(threads, unassigned=(), response_mode=None, cover_prompt=None):
-    data = {"schema_version": 1, "threads": threads,
+    data = {"schema_version": 2, "threads": threads,
             "unassigned_message_ids": list(unassigned)}
     if response_mode is not None:
         data["response_mode"] = response_mode
@@ -151,9 +150,13 @@ class TestSchema:
         l1 = _ok_l1(data, items)
         result = build_fact_package(l1, items, budget=("tokens", 100000))
         chronology = result.package["threads"][0]["chronology"]
-        assert chronology == [{"message_id": 101, "timestamp": 100},
-                              {"message_id": 102, "timestamp": 110},
-                              {"message_id": 103, "timestamp": 120}]
+        # v2 (контракт (h)): chronology несёт topic_ids — many-to-many карту.
+        assert [{k: v for k, v in c.items() if k != "topic_ids"}
+                for c in chronology] == [
+            {"message_id": 101, "timestamp": 100},
+            {"message_id": 102, "timestamp": 110},
+            {"message_id": 103, "timestamp": 120}]
+        assert all(c["topic_ids"] == ["thread_001"] for c in chronology)
 
     def test_facts_verbatim_and_evidence_union(self):
         l1, items = _simple()
@@ -350,13 +353,21 @@ class TestIdIntegrity:
         message_ids = {c["message_id"] for c in thread["chronology"]}
         assert set(thread["evidence_ids"]) <= message_ids
 
-    def test_message_in_multiple_threads_invalid(self):
-        items = _items([(101, 100, "а")])
-        payload = _payload([_thread("а", (101,), thread_id="a"),
+    def test_message_in_multiple_threads_is_valid(self):
+        """ASAP-2 v2 (контракт (h)): пересечение membership между темами —
+        НОРМА; пакет строится, topic_ids отражают many-to-many карту."""
+        items = _items([(101, 100, "а"), (102, 110, "б")])
+        payload = _payload([_thread("а", (101, 102), thread_id="a"),
                             _thread("б", (101,), thread_id="b")])
-        result = build_fact_package(_raw_l1(payload), items)
-        assert result.status == STATUS_INVALID
-        assert result.reason == REASON_MESSAGE_IN_MULTIPLE_THREADS
+        result = build_fact_package(_raw_l1(payload), items,
+                                    budget=("tokens", 100000))
+        assert result.status == STATUS_OK and result.deliverable
+        t_a = result.package["threads"][0]
+        assert t_a["chronology"][0]["topic_ids"] == ["a", "b"]  # 101 в двух
+        assert t_a["chronology"][1]["topic_ids"] == ["a"]       # 102 в одной
+        # fragments между темами НЕ дедупицируются (локальность темы, D10).
+        assert {f["message_id"] for f in
+                result.package["threads"][1]["fragments"]} == {101}
 
     def test_unassigned_conflict_invalid(self):
         items = _items([(101, 100, "а")])
@@ -401,6 +412,31 @@ class TestFragments:
         thread = result.package["threads"][0]
         assert {f["message_id"] for f in thread["fragments"]} == {101}
         assert [c["message_id"] for c in thread["chronology"]] == [101, 102]
+
+    def test_fragments_v2_carry_author_and_reply(self):
+        """§12/контракт (h): фрагменты v2 = {message_id, author_id,
+        display_name, timestamp, reply_to_id, text}; техническая metadata
+        (chat_id/message_type/DB id) НЕ тащится."""
+        items = [
+            {"message_id": 101, "chat_id": -100, "timestamp": 100,
+             "author_id": 7, "display_name": "Вася", "text": "привет",
+             "reply_to_id": None, "message_type": "text"},
+            {"message_id": 102, "chat_id": -100, "timestamp": 110,
+             "author_id": 8, "display_name": "Петя", "text": "реплику",
+             "reply_to_id": 101, "message_type": "text"},
+        ]
+        payload = _payload([_thread("тема", (101, 102))])
+        result = build_fact_package(_raw_l1(payload), items,
+                                    budget=("tokens", 100000))
+        frags = result.package["threads"][0]["fragments"]
+        assert frags == [
+            {"message_id": 101, "author_id": 7, "display_name": "Вася",
+             "timestamp": 100, "reply_to_id": None, "text": "привет"},
+            {"message_id": 102, "author_id": 8, "display_name": "Петя",
+             "timestamp": 110, "reply_to_id": 101, "text": "реплику"},
+        ]
+        for f in frags:
+            assert "chat_id" not in f and "message_type" not in f
 
     def test_does_not_duplicate_raw_log(self):
         rows = [(i, 100 + i, f"текст-{i}") for i in range(101, 107)]
@@ -510,30 +546,42 @@ class TestBudget:
         assert "run_id=r2" in caplog.text
 
     def test_resolver_hot_first(self):
-        hot = {"limits.summary_max_context_tokens": 4242}
+        # ASAP-2 §11/D7: пакет читает ТОЛЬКО hybrid-ключи; legacy-ключи не
+        # перетекают; формула Q5 — safe_budget − L2 system − L2 reserve.
+        from services.summary_hybrid_budget import hybrid_input_budget
+        from services.summary_prompts import SUMMARY_L2_WRITER_SYSTEM_PROMPT
+        hot = {"limits.summary_hybrid_context_tokens": 40000,
+               "limits.summary_max_context_tokens": 100}
         kind, limit = resolve_fact_package_budget(
             hot_get=lambda key, default=None: hot.get(key, default))
-        assert (kind, limit) == ("tokens", 4242)
+        expected = hybrid_input_budget(
+            "tokens", 40000, system_text=SUMMARY_L2_WRITER_SYSTEM_PROMPT,
+            output_reserve=6000)
+        assert (kind, limit) == ("tokens", expected)
+        assert limit > 100                            # legacy-100 не победил
 
     def test_resolver_chars_fallback(self, monkeypatch):
-        monkeypatch.setenv("SUMMARY_MAX_CONTEXT_CHARS", "7000")
-        hot = {"limits.summary_max_context_tokens": None,
-               "limits.summary_max_context_chars": 7000}
+        monkeypatch.setenv("SUMMARY_HYBRID_CONTEXT_CHARS", "70000")
+        hot = {"limits.summary_hybrid_context_tokens": None,
+               "limits.summary_hybrid_context_chars": 70000}
         kind, limit = resolve_fact_package_budget(
             hot_get=lambda key, default=None: hot.get(key, default))
-        assert (kind, limit) == ("chars", 7000)
+        assert kind == "chars" and limit <= 70000 and limit > 0
 
     def test_resolver_default_tokens(self):
         kind, limit = resolve_fact_package_budget(
             hot_get=lambda key, default=None: default)
-        assert kind == "tokens" and limit == 30000
+        assert kind == "tokens"
+        # Дефолт 30000 → safe_budget(~1.15) − L2 system − reserve: меньше окна.
+        assert 1 < limit < 30000
 
     def test_resolver_unlimited_sentinel(self):
-        hot = {"limits.summary_max_context_tokens": -1}
+        hot = {"limits.summary_hybrid_context_tokens": -1}
         kind, limit = resolve_fact_package_budget(
             hot_get=lambda key, default=None: hot.get(key, default))
         assert kind == "tokens"
-        assert limit == Settings.CHAT_CONTEXT_UNLIMITED_CEILING_TOKENS
+        assert limit < Settings.CHAT_CONTEXT_UNLIMITED_CEILING_TOKENS
+        assert limit > 10000                          # потолок − маржа − вывод
 
 
 # ── SC-02/SC-10: 0 LLM, каталог без изменений, живой путь ─────────────────
@@ -555,12 +603,12 @@ class TestLivePathInvariants:
         assert "summary_fact_package" not in xml
 
     def test_catalog_zero_delta(self):
-        assert len(pc.REGISTRY) == 473
+        assert len(pc.REGISTRY) == 489
         assert len({f.name for f in dataclasses.fields(Settings)}) == 430
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 448
-        assert len(pc.GROUPS) == 102
-        assert len(pc._TAB_BY_GROUP) == 100
+                    if s.category is not None]) == 464
+        assert len(pc.GROUPS) == 107
+        assert len(pc._TAB_BY_GROUP) == 105
         assert len(pc.TAB_RULES) == 21
 
     def test_no_new_env_key(self):
@@ -569,7 +617,7 @@ class TestLivePathInvariants:
             f.name for f in dataclasses.fields(Settings)}
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.32"
+        assert APP_VERSION == "2.58.33"
 
     @pytest.mark.asyncio
     async def test_two_calls_stage1_stage2(self):

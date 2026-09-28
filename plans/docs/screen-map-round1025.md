@@ -1,7 +1,7 @@
 # F8 — Карта экранов `screen-map-round1025.md` (ADR-1025-21 D3)
 
 > Сгенерировано `tools/gen_param_registry_round1025.py` (read-only). Провенанс — `param-registry-round1025.meta.md`.
-> Инвариант «ни один параметр не остался без нового места»: `set(param_key) ⊇ REGISTRY(473)`, «без места» = 0. Неизвестные ключи (нет в каталоге) → секция `registry-only` реестра.
+> Инвариант «ни один параметр не остался без нового места»: `set(param_key) ⊇ REGISTRY(489)`, «без места» = 0. Неизвестные ключи (нет в каталоге) → секция `registry-only` реестра.
 > `ui_visibility ∈ {visible,hidden,api-only}`; **api-only ≠ сохранено** (REQ-F8-08). Секреты без открытого значения (R17).
 
 | old_screen | param_key | new_screen | read_api | write_api | ui_visibility | secret | hidden | status |
@@ -85,6 +85,10 @@
 | Саммаризация | flags.summary_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Саммаризация | flags.summary_filter_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Саммаризация | flags.summary_filter_reply_context_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Саммаризация | flags.summary_hybrid_l1_repair_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Саммаризация | flags.summary_hybrid_l1_retry_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Саммаризация | flags.summary_hybrid_l2_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Саммаризация | flags.summary_legacy_fallback_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Саммаризация | flags.summary_streaming_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Диагностика | flags.throttle_persistent_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Прямые ответы | flags.typing_indicator_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
@@ -108,6 +112,8 @@
 | LLM Провайдеры | keys.llm_fallback_api_key | ИИ | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
 | LLM Провайдеры | keys.media_share_secret | ИИ | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
 | LLM Провайдеры | keys.openrouter_api_key | ИИ | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
+| Саммаризация | keys.summary_l1_api_key | Модули | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | new |
+| Саммаризация | keys.summary_l2_api_key | Модули | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | new |
 | LLM Провайдеры | keys.tavily_api_key | ИИ | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
 | Выжимка видео | keys.youtube_cookies_file | Модули | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
 | Выжимка видео | keys.youtube_transcript_proxy_password | Модули | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
@@ -278,6 +284,12 @@
 | Саммаризация | limits.summary_filter_min_burst_density | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Саммаризация | limits.summary_filter_min_weight | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Саммаризация | limits.summary_filter_min_words_for_bonus | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Саммаризация | limits.summary_hybrid_context_chars | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Саммаризация | limits.summary_hybrid_context_tokens | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Саммаризация | limits.summary_hybrid_max_chars | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Саммаризация | limits.summary_hybrid_response_mode | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Саммаризация | limits.summary_hybrid_target_chars | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Саммаризация | limits.summary_hybrid_target_paragraphs | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Саммаризация | limits.summary_max_context_chars | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Саммаризация | limits.summary_max_context_tokens | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Саммаризация | limits.summary_max_message_chars | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
@@ -401,6 +413,10 @@
 | LLM Провайдеры | models.openrouter_timeout | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
 | LLM Провайдеры | models.openrouter_transcribe_display_name | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
 | LLM Провайдеры | models.openrouter_transcribe_model | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
+| Саммаризация | models.summary_l1_base_url | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
+| Саммаризация | models.summary_l1_model_name | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
+| Саммаризация | models.summary_l2_base_url | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
+| Саммаризация | models.summary_l2_model_name | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
 | LLM Провайдеры | models.token_safety_multiplier | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
 | LLM Провайдеры | models.tokenizer_encoding | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
 | LLM Провайдеры | models.video_fallback_model | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
@@ -482,4 +498,4 @@
 
 ## registry-only (неизвестные каталогу параметры)
 
-Нет: множество `internal_key` каталога == множество `REGISTRY` == 473; все ключи получили новое место. Расхождений нет.
+Нет: множество `internal_key` каталога == множество `REGISTRY` == 489; все ключи получили новое место. Расхождений нет.

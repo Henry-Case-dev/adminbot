@@ -1,24 +1,38 @@
-"""S3 round1026 (ADR-1026-5 D5/D2) — контракт L1 «Кластеризатор» (§94–§95).
+"""S3 round1026 (ADR-1026-5 D5/D2) + ASAP-2 round1027 (ADR-1027-10 D1).
+Контракт L1 «Кластеризатор» — semantic graph §95-v2 (many-to-many).
 
 **Чистый** модуль (0 LLM-вызовов, без БД/сети/системных часов): единый
-источник строгой JSON-схемы §95 для парсера, валидатора, канонизатора и
+источник строгой JSON-схемы §95-v2 для парсера, валидатора, канонизатора и
 тестов; fail-closed-результат ``L1Result`` с кодом причины.
 
-Контракт (спека §5.1/§5.2/§5.3, D2/D5):
-  * ``{schema_version:1, threads:[{thread_id, topic, message_ids[],
+Контракт (spec mca-asap2-summary-pipeline, контракт (a); §4/§5 владельца):
+  * ``{schema_version:2, threads:[{thread_id, topic, message_ids[],
     facts:[{text, evidence_message_ids[]}]}], unassigned_message_ids[]}`` +
-    опциональные служебные ``response_mode``/``cover_prompt`` того же JSON;
+    служебные ``response_mode``/``cover_prompt`` того же JSON;
+  * **many-to-many:** один message_id МОЖЕТ встречаться в нескольких тредах
+    (пересечения ``message_ids`` — НЕ ошибка; partition-инвариант
+    ``message_in_multiple_threads`` УДАЛЁН §4:2097–2102); дубли внутри треда
+    детерминированно дедуплицируются;
+  * ``unassigned_message_ids`` — ОБЯЗАТЕЛЕН (список, может быть пустым);
+    конфликт «id в треде и в unassigned» больше не fatal — его разрешает
+    детерминированный repair (``summary_l1_repair``, membership побеждает);
+    аналогично ``evidence_not_in_thread`` и ``unassigned_conflict`` мигрировали
+    из валидатора в repair (контракт (b));
+  * **валидатор проверяет ИСЧЕРПЫВАЮЩИЙ список** (контракт (a) п.1–7):
+    структура/типы/field-sets; ``schema_version == 2``; каждый id существует
+    в IdSpace (defense-in-depth — после repair недостижимо); thread_id/topic/
+    fact текстовые лимиты; ≥1 evidence у факта (post-repair); жёсткие лимиты
+    ≤100/≤30/≤1000 (fail-closed, НЕ retryable); детерминированная
+    канонизация. НЕ являются ошибками: 0..N тем у реплики, overlapping
+    chronology, непокрытые сообщения (§5:2145–2148);
+  * ``response_mode`` L1 больше НЕ управляет длиной статьи (только
+    observability/обложка) — длина из конфига Hybrid (контракт (f));
   * **лишние поля → invalid** (top-level ровно 5 ключей, thread — 4, fact — 2);
   * лимиты: тредов ≤100, фактов/тред ≤30, всего фактов ≤1000, ``topic`` ≤200
     без ``\\n``, ``fact.text`` ≤500 без ``\\n\\n``, без системных тегов (R17)
     и markdown-заголовков; превышение → ``invalid`` (без тихого усечения);
   * **пространства ID явные:** вход/выход L1 — **TG** ``message_id`` (§92);
-    ``Fragment.message_ids`` (DB ``id``) сюда НЕ попадают — конвертация через
-    таблицу соответствия строк окна выполняется упаковщиком §93
-    (``summary_l1_clusterizer``), и её провал → ``id_space_mismatch``;
-  * ``evidence_message_ids`` ⊆ ``message_ids`` своего треда; один id ровно в
-    одном треде; ``unassigned ∩ threads = ∅``; пропущенные моделью payload-id
-    детерминированно добавляются в ``unassigned`` (``auto_unassigned_count``);
+    DB ``id`` конвертирует упаковщик §93 (провал → ``id_space_mismatch``);
   * детерминизм: дедуп + ASC ``(timestamp, message_id)``, перенумерация
     ``thread_001…``, дедуп фактов по нормализованному тексту с объединением
     evidence; повторный прогон на том же входе — байт-идентичен.
@@ -38,9 +52,12 @@ from services.system2_handoff import (
 
 logger = logging.getLogger(__name__)
 
-# ── Схема §95 (единый источник для парсера/валидатора/тестов) ──────────────
+# ── Схема §95-v2 (единый источник для парсера/валидатора/тестов) ───────────
+# ASAP-2 (контракт (a)): v2 = threads с relaxed membership (many-to-many);
+# парсер/IdSpace/канонизатор форму входа-выхода НЕ меняют — меняется только
+# строгость partition-правил (они мигрируют в `summary_l1_repair`).
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 MAX_THREADS = 100
 MAX_FACTS_PER_THREAD = 30
 MAX_FACTS_TOTAL = 1000
@@ -71,6 +88,11 @@ STATUS_ERROR = "error"
 USABLE_STATUSES: frozenset[str] = frozenset({STATUS_OK, STATUS_TRUNCATED})
 
 # Коды причин (R17-safe: только коды, без контента модели).
+# ASAP-2 (контракт (a)/(b)): коды `evidence_not_in_thread` и
+# `unassigned_conflict` больше НЕ выдаются валидатором — их разрешает
+# детерминированный repair (`summary_l1_repair`; константы оставлены как
+# defense-in-depth коды FactPackage); `message_in_multiple_threads` УДАЛЁН
+# полностью (v2: пересечение тредов — норма, §4:2097–2102).
 REASON_OK = "ok"
 REASON_EMPTY_RESPONSE = "empty_response"
 REASON_INVALID_JSON = "invalid_json"
@@ -82,8 +104,10 @@ REASON_INVALID_TOPIC = "invalid_topic"
 REASON_INVALID_FACT = "invalid_fact"
 REASON_UNKNOWN_MESSAGE_ID = "unknown_message_id"
 REASON_EVIDENCE_NOT_IN_THREAD = "evidence_not_in_thread"
-REASON_MESSAGE_IN_MULTIPLE_THREADS = "message_in_multiple_threads"
 REASON_UNASSIGNED_CONFLICT = "unassigned_conflict"
+# ASAP-2 (контракт (b)/Q3): L1 «практически полностью бесполезен» даже ПОСЛЕ
+# детерминированного ремонта — retryable-класс (correction retry → LEVEL-2).
+REASON_L1_USELESS_AFTER_REPAIR = "l1_useless_after_repair"
 REASON_TOO_MANY_THREADS = "too_many_threads"
 REASON_TOO_MANY_FACTS = "too_many_facts"
 REASON_TOO_MANY_FACTS_TOTAL = "too_many_facts_total"
@@ -334,7 +358,8 @@ def _validate(data, id_space: IdSpace, base: dict) -> L1Result:
     response_mode, cover_prompt = service_fields(data)
     base = dict(base, response_mode=response_mode, cover_prompt=cover_prompt)
 
-    # 2. schema_version: строго int == 1 (bool — не int).
+    # 2. schema_version: строго int == SCHEMA_VERSION (ASAP-2 v2: ровно 2;
+    #    bool — не int; `bad_schema_version` — retryable-класс).
     if not isinstance(data.get("schema_version"), int) \
             or isinstance(data.get("schema_version"), bool) \
             or data.get("schema_version") != SCHEMA_VERSION:
@@ -348,8 +373,11 @@ def _validate(data, id_space: IdSpace, base: dict) -> L1Result:
         return invalid_result(REASON_TOO_MANY_THREADS, **base)
 
     # 3. Треды/факты: структура, типы, лимиты, существование id.
+    #    ASAP-2 v2: один id может встречаться в нескольких тредах
+    #    (many-to-many, §4:2097–2102) — partition-проверка УДАЛЕНА;
+    #    `seen_ids` остаётся как множество упомянутых id (для п.5/п.7).
     canonical_threads: list[dict] = []
-    seen_ids: dict[int, int] = {}       # tg id → индекс треда
+    seen_ids: set[int] = set()        # все упомянутые в тредах TG id
     total_facts = 0
     for thread in threads:
         if not isinstance(thread, dict):
@@ -374,14 +402,7 @@ def _validate(data, id_space: IdSpace, base: dict) -> L1Result:
                 return invalid_result(REASON_UNKNOWN_MESSAGE_ID, **base)
             if value not in message_ids:
                 message_ids.append(value)
-        # Один id — ровно в одном треде (дубли внутри треда детерминированно
-        # дедуплицируются, между тредами — fail-closed).
-        thread_index = len(canonical_threads)
-        for mid in message_ids:
-            if mid in seen_ids:
-                return invalid_result(
-                    REASON_MESSAGE_IN_MULTIPLE_THREADS, **base)
-            seen_ids[mid] = thread_index
+        seen_ids.update(message_ids)
         facts_raw = thread.get("facts")
         if not isinstance(facts_raw, list):
             return invalid_result(REASON_BAD_TYPE, **base)
@@ -404,11 +425,18 @@ def _validate(data, id_space: IdSpace, base: dict) -> L1Result:
                 value = _as_int(eid)
                 if value is None:
                     return invalid_result(REASON_BAD_TYPE, **base)
-                if value not in message_ids:
-                    return invalid_result(
-                        REASON_EVIDENCE_NOT_IN_THREAD, **base)
+                # v2: evidence ⊆ message_ids СВОЕГО треда больше не fatal —
+                # это расширяет membership детерминированный repair
+                # (контракт (b) шаг 2). Валидатор (после repair) требует
+                # только существования id в payload (defense-in-depth).
+                if not id_space.contains(value):
+                    return invalid_result(REASON_UNKNOWN_MESSAGE_ID, **base)
                 if value not in evidence:
                     evidence.append(value)
+            # П.5 контракта (a): fact имеет ≥1 evidence (после repair —
+            # штатно; без repair пустой evidence → invalid как раньше класс).
+            if not evidence:
+                return invalid_result(REASON_INVALID_FACT, **base)
             facts.append({"text": text, "evidence_message_ids": evidence,
                           "_key": _fact_key(text)})
         total_facts += len(facts)
@@ -417,7 +445,11 @@ def _validate(data, id_space: IdSpace, base: dict) -> L1Result:
     if total_facts > MAX_FACTS_TOTAL:
         return invalid_result(REASON_TOO_MANY_FACTS_TOTAL, **base)
 
-    # 4. unassigned: существование id + отсутствие конфликта с тредами.
+    # 4. unassigned: существование id (обязательное поле — список, может
+    #    быть пустым). ASAP-2: конфликт «id и в треде, и в unassigned» больше
+    #    НЕ fatal — его детерминированно разрешает repair (membership
+    #    побеждает, контракт (b) шаг 5); валидатор без repair просто
+    #    оставляет оба упоминания.
     unassigned_ids: list[int] = []
     for mid in unassigned:
         value = _as_int(mid)
@@ -425,8 +457,6 @@ def _validate(data, id_space: IdSpace, base: dict) -> L1Result:
             return invalid_result(REASON_BAD_TYPE, **base)
         if not id_space.contains(value):
             return invalid_result(REASON_UNKNOWN_MESSAGE_ID, **base)
-        if value in seen_ids:
-            return invalid_result(REASON_UNASSIGNED_CONFLICT, **base)
         if value not in unassigned_ids:
             unassigned_ids.append(value)
 

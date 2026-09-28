@@ -31,7 +31,7 @@ USER_NO_ROLE = 999999999
 CHAT_ID = -1001234567890
 
 L1_JSON = json.dumps({
-    "schema_version": 1,
+    "schema_version": 2,        # ASAP-2 §95-v2 (L1 dry-run happy path)
     "threads": [
         {"thread_id": "t1", "topic": "Тема", "message_ids": [101],
          "facts": [{"text": "Важный факт", "evidence_message_ids": [101]}]},

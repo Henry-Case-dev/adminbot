@@ -1,12 +1,12 @@
 # F8 — `param-registry-round1025` — провенанс `.meta.md`
 
-- **APP_VERSION:** `2.58.32`
-- **HEAD (short):** `e8646af`
+- **APP_VERSION:** `2.58.33`
+- **HEAD (short):** `e882d58`
 - **Источник:** `services/param_catalog.py` (REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES) + `inventory.tsv` (10.14) для дельты.
-- **Счётчики каталога:** REGISTRY **473** / GROUPS **102** / `_TAB_BY_GROUP` **100** / TAB_RULES **21**.
-- **Реестр:** 473 строк == REGISTRY.
+- **Счётчики каталога:** REGISTRY **489** / GROUPS **107** / `_TAB_BY_GROUP` **105** / TAB_RULES **21**.
+- **Реестр:** 489 строк == REGISTRY.
 - **inventory.tsv (10.14):** 411 baseline-ключей.
-- **Дельта 411 → 473 = 62** новых ключей (`status=new`).
+- **Дельта 411 → 489 = 78** новых ключей (`status=new`).
 - **Команда генерации:** `python tools/gen_param_registry_round1025.py`
 - **Проверка (маркер):** `python tools/gen_param_registry_round1025.py --check`
 
@@ -22,7 +22,7 @@
 - `-` = поле неприменимо/отсутствует (документированное отсутствие).
 - `ui_visibility=api-only` — ключ существует (env/каталог), но UI-места нет → **не** считается сохранённым в UI.
 
-## Дельта 411 → 473 = 62 (ключи, отсутствовавшие в inventory.tsv)
+## Дельта 411 → 489 = 78 (ключи, отсутствовавшие в inventory.tsv)
 
 - `api_token`
 - `betterstack_host`
@@ -41,8 +41,14 @@
 - `flags.lore_compiler_enabled`
 - `flags.summary_filter_enabled`
 - `flags.summary_filter_reply_context_enabled`
+- `flags.summary_hybrid_l1_repair_enabled`
+- `flags.summary_hybrid_l1_retry_enabled`
+- `flags.summary_hybrid_l2_enabled`
+- `flags.summary_legacy_fallback_enabled`
 - `info_text_file`
 - `keys.image_api_key`
+- `keys.summary_l1_api_key`
+- `keys.summary_l2_api_key`
 - `limits.anticliche_max_patterns`
 - `limits.chat_timezone`
 - `limits.factcheck_context_after`
@@ -55,6 +61,12 @@
 - `limits.summary_filter_min_burst_density`
 - `limits.summary_filter_min_weight`
 - `limits.summary_filter_min_words_for_bonus`
+- `limits.summary_hybrid_context_chars`
+- `limits.summary_hybrid_context_tokens`
+- `limits.summary_hybrid_max_chars`
+- `limits.summary_hybrid_response_mode`
+- `limits.summary_hybrid_target_chars`
+- `limits.summary_hybrid_target_paragraphs`
 - `local_bot_api_url`
 - `log_ring_max_entries`
 - `logtail_source_token`
@@ -62,6 +74,10 @@
 - `models.image_base_url`
 - `models.image_get_mode`
 - `models.image_model`
+- `models.summary_l1_base_url`
+- `models.summary_l1_model_name`
+- `models.summary_l2_base_url`
+- `models.summary_l2_model_name`
 - `postgres_db`
 - `postgres_dsn`
 - `postgres_password`

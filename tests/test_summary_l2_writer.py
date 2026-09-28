@@ -57,8 +57,10 @@ def _package(*, status="ok", threads=None, service=None) -> dict:
             "name": "Погода и планы",
             "description": "Обсуждали дождь и поездку.",
             "chronology": [
-                {"message_id": 101, "timestamp": 1000},
-                {"message_id": 102, "timestamp": 1001},
+                {"message_id": 101, "timestamp": 1000,
+                 "topic_ids": ["thread_001"]},
+                {"message_id": 102, "timestamp": 1001,
+                 "topic_ids": ["thread_001"]},
             ],
             "facts": [
                 {"text": "На улице шёл сильный дождь",
@@ -68,14 +70,16 @@ def _package(*, status="ok", threads=None, service=None) -> dict:
             ],
             "evidence_ids": [101, 102],
             "fragments": [
-                {"message_id": 101, "timestamp": 1000,
+                {"message_id": 101, "author_id": 7001, "display_name": "Вася",
+                 "timestamp": 1000, "reply_to_id": None,
                  "text": "На улице шёл сильный дождь"},
-                {"message_id": 102, "timestamp": 1001,
+                {"message_id": 102, "author_id": 7002, "display_name": "Петя",
+                 "timestamp": 1001, "reply_to_id": 101,
                  "text": "Поездку решили перенести"},
             ],
         }]
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "status": status,
         "threads": threads,
         "unassigned_message_ids": [103],
@@ -240,22 +244,43 @@ class TestQuotes:
 
 class TestBuildInput:
     def test_service_and_budget_excluded(self):
-        content = build_l2_input(_package(), detail="serious")
+        content = build_l2_input(_package(), length={
+            "response_mode": "serious", "target_chars": 6500,
+            "target_paragraphs": 8})
         assert "service" not in content
         assert "rain" not in content          # cover_prompt не утёк
         assert "budget" not in content
         assert "unassigned_message_ids" not in content
 
     def test_content_included(self):
-        content = build_l2_input(_package(), detail="deep_research")
+        content = build_l2_input(_package(), length={
+            "response_mode": "deep_research", "target_chars": 11000,
+            "target_paragraphs": 14})
         assert "Погода и планы" in content
         assert "На улице шёл сильный дождь" in content
-        assert '"detail":"deep_research"' in content
+        # ASAP-2 §12 (контракт h): автор/reply-контекст в фрагментах
+        assert '"display_name":"Вася"' in content
+        assert '"reply_to_id":101' in content
+        assert '"topic_ids":["thread_001"]' in content
+        # length-блок — детерминированный append (не JSON-поле)
+        assert "ЗАДАНИЕ ПО ДЛИНЕ И ДЕТАЛИЗАЦИИ" in content
+        assert "response_mode=deep_research" in content
+        assert "11000" in content
 
     def test_deterministic(self):
-        a = build_l2_input(_package(), detail="serious")
-        b = build_l2_input(_package(), detail="serious")
+        a = build_l2_input(_package(), length={
+            "response_mode": "serious", "target_chars": 6500,
+            "target_paragraphs": 8})
+        b = build_l2_input(_package(), length={
+            "response_mode": "serious", "target_chars": 6500,
+            "target_paragraphs": 8})
         assert a == b
+
+    def test_no_length_block_without_length(self):
+        # max_chars в промпт НЕ передаётся (post-hoc guard, spec Q4/(f)).
+        content = build_l2_input(_package())
+        assert "ЗАДАНИЕ ПО ДЛИНЕ" not in content
+        assert "max_chars" not in content
 
 
 # ── SC-09: fail-closed §106 ────────────────────────────────────────────────
@@ -291,40 +316,33 @@ class TestRunL2:
         assert result.document is None
         assert llm.calls == 1
 
-    async def test_too_many_paragraphs(self):
-        # ASAP hotfix round1027: дефолт (SUMMARY_L2_TRIM_ENABLED ON) — детер-
-        # минированная обрезка до капа вместо отбраковки всей статьи.
+    async def test_full_article_not_trimmed_by_soft_targets(self):
+        # ASAP-2 §16/§1/§10 (вместо trim-тестов 2.58.32): 5 абзацев при
+        # маленьком target — статья публикабельна ПОЛНАЯ; мягкие цели
+        # (target_chars/target_paragraphs) валидатор не сравнивает (§3:2071),
+        # обрезки/отбраковки нет. `limits.max_summary_parts` не читается.
         paragraphs = [{"text": f"Абзац {i}.", "emphasis": None}
                       for i in range(5)]
         llm = ScriptedLLM(json.dumps(_doc(paragraphs=paragraphs),
                                      ensure_ascii=False))
-        result = await run_l2(llm, _package(), slot=_SlotStub(),
-                              max_paragraphs=3)
+        result = await run_l2(llm, _package(), slot=_SlotStub())
         assert result.status == STATUS_OK
         assert result.usable
-        assert len(result.document["paragraphs"]) == 3
+        assert len(result.document["paragraphs"]) == 5
         assert result.document["paragraphs"] == [
-            {"text": f"Абзац {i}.", "emphasis": None} for i in range(3)]
-        assert result.metrics.get("trimmed_for_publication") is True
-        assert result.metrics.get("paragraphs_before") == 5
-        assert result.metrics.get("paragraphs_dropped_count") == 2
+            {"text": f"Абзац {i}.", "emphasis": None} for i in range(5)]
 
-    async def test_too_many_paragraphs_trim_off_fail_closed(self):
-        # Kill-switch OFF → точный прежний fail-closed-путь S5 (§106).
+    async def test_hard_cap_498_scenario(self):
+        # §99 технический hard-лимит 498 блоков остаётся fail-closed
+        # (too_many_paragraphs) — замена trim ON/OFF-сценариев (контракт (e)).
         paragraphs = [{"text": f"Абзац {i}.", "emphasis": None}
-                      for i in range(5)]
+                      for i in range(MAX_PARAGRAPHS_HARD + 1)]
         llm = ScriptedLLM(json.dumps(_doc(paragraphs=paragraphs),
                                      ensure_ascii=False))
-        monkeypatch = pytest.MonkeyPatch()
-        monkeypatch.setattr(Settings, "SUMMARY_L2_TRIM_ENABLED", False)
-        try:
-            result = await run_l2(llm, _package(), slot=_SlotStub(),
-                                  max_paragraphs=3)
-        finally:
-            monkeypatch.undo()
+        result = await run_l2(llm, _package(), slot=_SlotStub())
         assert result.status == STATUS_INVALID
-        assert result.document is None
         assert result.invalid_reason == REASON_TOO_MANY_PARAGRAPHS
+        assert result.document is None
 
     async def test_no_legacy_fallback_on_llm_error(self):
         class BoomLLM:
@@ -381,9 +399,34 @@ class TestSlot:
 
 class TestCanon:
     def test_prev_is_base(self):
+        # ASAP-2 (контракт l): стек слепков R1026 → R1027 → текущий канон.
+        from services.summary_prompts import PREV_SUMMARY_L2_WRITER_R1027
         assert PREV_SUMMARY_L2_WRITER_R1026 != SUMMARY_L2_WRITER_SYSTEM_PROMPT
-        assert SUMMARY_L2_WRITER_SYSTEM_PROMPT == (
+        assert PREV_SUMMARY_L2_WRITER_R1027 == (
             PREV_SUMMARY_L2_WRITER_R1026 + "\n\n" + TARGET_INSTRUCTION_BLOCK)
+        assert SUMMARY_L2_WRITER_SYSTEM_PROMPT != PREV_SUMMARY_L2_WRITER_R1027
+        assert SUMMARY_L2_WRITER_SYSTEM_PROMPT.endswith(
+            "\n\n" + TARGET_INSTRUCTION_BLOCK)
+
+    def test_canon_v2_length_dedup_authors(self):
+        """Т-3942: канон R1027 = правила §97/§98 (сохранены) + ДЛИНА/
+        ДЕДУПЛИКАЦИЯ + авторский контекст пакета v2; ЧИСЕЛ в каноне нет —
+        они в детерминированном length-блоке user-контента."""
+        canon = SUMMARY_L2_WRITER_SYSTEM_PROMPT
+        assert "ДЛИНА И ДЕДУПЛИКАЦИЯ" in canon
+        assert "мягкий ориентир, а не жёсткий лимит" in canon
+        assert "не обрывай статью посередине" in canon
+        assert "расскажи его ОДИН раз" in canon
+        assert "дедупликация семантическая" in canon
+        assert "АВТОРЫ И ОТВЕТЫ В ПАКЕТЕ" in canon
+        assert "reply_to_id" in canon
+        assert "не приписывай реплики другим" in canon
+        # §97/§98 базы сохранены:
+        assert "Не выдумывай цитаты" in canon
+        assert "приоритет — точность" in canon
+        # Числа целей длины — НЕ в каноне (иначе hot-правка канона ломала бы
+        # подстановку; см. length-блок build_l2_input):
+        assert "6500" not in canon and "target_chars" not in canon
 
     def test_separate_from_l1_and_narrator(self):
         from services.summary_prompts import (
@@ -419,20 +462,25 @@ class TestCanon:
             "services.summary_prompts.SUMMARY_L2_WRITER_SYSTEM_PROMPT"
 
     def test_migration_and_rollback(self):
+        from services.summary_prompts import PREV_SUMMARY_L2_WRITER_R1027
         assert (PREV_SUMMARY_L2_WRITER_R1026,
                 SUMMARY_L2_WRITER_SYSTEM_PROMPT) in \
             pm.PROMPT_MIGRATIONS[PROMPT_PG_KEY]
+        # ASAP-2: ступень R1026→R1027 (прежний полный канон — на новый).
+        assert (PREV_SUMMARY_L2_WRITER_R1027,
+                SUMMARY_L2_WRITER_SYSTEM_PROMPT) in \
+            pm.PROMPT_MIGRATIONS[PROMPT_PG_KEY]
         assert pm.ROLLBACK_MIGRATIONS[PROMPT_PG_KEY] == (
-            SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1026)
+            SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1027)
 
     def test_catalog_delta_sanctioned(self):
-        assert len(pc.REGISTRY) == 473
+        assert len(pc.REGISTRY) == 489
         assert len({f.name for f in dataclasses.fields(settings.__class__)}) \
             == 430
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 448
-        assert len(pc.GROUPS) == 102
-        assert len(pc._TAB_BY_GROUP) == 100
+                    if s.category is not None]) == 464
+        assert len(pc.GROUPS) == 107
+        assert len(pc._TAB_BY_GROUP) == 105
         assert len(pc.TAB_RULES) == 21
 
 

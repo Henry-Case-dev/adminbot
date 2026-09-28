@@ -174,17 +174,21 @@ class TestOnPath:
         gen._deliver_l2_plain.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_l1_not_usable_skips_l2(self, monkeypatch, caplog):
+    async def test_l1_not_usable_level2_fallback_package(self, monkeypatch,
+                                                         caplog):
+        """ASAP-2 §8 (T-3952): L1 unusable → НЕ L2_SKIPPED-терминал:
+        deterministic fallback-пакет LEVEL-2 → L2 вызывается в любом случае."""
         from services.summary_l1_contract import invalid_result
 
         async def fake_run_l1(**kwargs):
             return invalid_result("invalid_json")
 
-        gen, llm = _generator([])
+        gen, llm = _generator(["нет articles"])        # L2 тоже невалиден
         gen.memory.compress_and_purge = AsyncMock()
         gen.memory.get_window_messages = AsyncMock(return_value=[
             {"id": 1, "tg_message_id": 101, "timestamp": 1, "text": "x"}])
         gen._deliver_l2_plain = AsyncMock()
+        gen._run_legacy_pipeline = AsyncMock(return_value=False)
         monkeypatch.setattr(
             "services.summary_l1_clusterizer.run_l1", fake_run_l1)
 
@@ -192,8 +196,10 @@ class TestOnPath:
             await gen._run_hybrid_l2(
                 -100, [{"id": 1, "tg_message_id": 101, "timestamp": 1,
                         "text": "x"}], None, "run-y")
-        assert llm.generate.await_count == 0     # L2 не вызывается
-        assert "L2_SKIPPED" in caplog.text
+        assert llm.generate.await_count == 1     # L2 на fallback-пакете (1 вызов)
+        assert "L2_SKIPPED" not in caplog.text   # прежний терминал-лог снят
+        assert "L1_FALLBACK_PACKAGE" in caplog.text
+        assert "LEGACY_FALLBACK" in caplog.text  # L2 не дал статью → LEVEL-3
         gen._deliver_l2_plain.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -235,6 +241,9 @@ class TestOnPath:
             {"id": 1, "tg_message_id": 101, "timestamp": 1, "text": "x"}])
         gen._deliver_l2_plain = AsyncMock()
         gen._deliver_l2_rich = AsyncMock()
+        # ASAP-2: L2 LLMError → LEVEL-3 Legacy (мок: не опубликовал) — чтобы
+        # не гонять реальный legacy-контур в юните изоляции L2.
+        gen._run_legacy_pipeline = AsyncMock(return_value=False)
         monkeypatch.setattr(
             "services.summary_l1_clusterizer.run_l1", fake_run_l1)
         monkeypatch.setattr(
@@ -248,8 +257,10 @@ class TestOnPath:
         await gen._run_hybrid_l2(
             -100, [{"id": 1, "tg_message_id": 101, "timestamp": 1,
                     "text": "x"}], None, "run-z")
-        # Ровно 1 вызов (L2), публикации нет, 3-го вызова/legacy нет.
+        # ASAP-2: ровно 1 вызов L2 (retry нет) + LEVEL-3 Legacy вызывается
+        # (мок вернул «не опубликовано»), гибрид-доставка не тронута.
         assert llm.generate.await_count == 1
+        gen._run_legacy_pipeline.assert_awaited_once()
         gen._deliver_l2_plain.assert_not_awaited()
         gen._deliver_l2_rich.assert_not_awaited()
 

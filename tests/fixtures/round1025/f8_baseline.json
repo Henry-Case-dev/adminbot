@@ -8,11 +8,11 @@
     "plans/reports/round1025_f8_config_diff.md"
   ],
   "counts": {
-    "GROUPS": 102,
-    "REGISTRY": 473,
-    "TAB_BY_GROUP": 100,
+    "REGISTRY": 489,
+    "GROUPS": 107,
+    "TAB_BY_GROUP": 105,
     "TAB_RULES": 21,
-    "delta": 62,
+    "delta": 78,
     "inventory": 411
   },
   "round": "1025-f8",
@@ -54,7 +54,7 @@
     "config_snapshot_diff"
   ],
   "sha256": {
-    "services/param_catalog.py": "0b13a2b0dbeead80b7db8ab9db27a5a6b6402694de01366f45607175e65e7d54",
+    "services/param_catalog.py": "5d633e444a4771616140002167a373215d2e381d768ab86e8c3e5d70868dec22",
     "services/pg_db.py": "b507037425a31796d601394fbb7ff9524d4e740649f90b513370c95b8caef72b",
     "web/api/routes.py": "33fb6b1c817d0ebb533dc9943de53f00321421aa4753826ab08394cedd64d098"
   },

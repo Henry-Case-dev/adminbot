@@ -124,8 +124,10 @@ function mkCoverageCtx(m) {
       ['overview', 'settings', 'synthesizer', 'verbalizer', 'models',
        'limits', 'testing'], 'a: карта вкладок Фактчека (§4.2)');
     assert.deepStrictEqual(moduleById('mod_summary').tabs,
-      ['overview', 'settings', 'prep', 'clusterizer', 'writer', 'models',
-       'limits', 'testing'], 'a: карта вкладок Саммари (§85)');
+      ['overview', 'settings', 'prep', 'clusterizer', 'writer',
+       // ASAP-2 round1027 (§13/ADR-1027-10 D11): секции Hybrid/Legacy.
+       'hybrid', 'legacy', 'models', 'limits', 'testing'],
+      'a: карта вкладок Саммари (§85 + ASAP-2)');
   }
 
   // ── (b) Динамический резолвер + RBAC/kill-switch ─────────────────────

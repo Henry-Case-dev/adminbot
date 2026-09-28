@@ -68,6 +68,8 @@ from services.summary_run_log import (
     CODE_TEXT_FALLBACK_FAILED,
     STATUS_DEGRADED,
     STATUS_EMPTY,
+    STATUS_FAILED,
+    STATUS_OK,
     RunContext,
     attempts_of,
     finish_run,
@@ -98,6 +100,8 @@ from services.image_generation import (
     reason_class,
 )
 from services.smartmodule_concurrency import get_smartmodule_concurrency_pool
+# ASAP-2 §11 (контракт (g)): единая точка Hybrid-бюджета для режима фильтра.
+from services.summary_hybrid_budget import resolve_hybrid_context_budget
 from services.summary_xml import escape_xml_text
 from services.thread_chain import collect_thread_chain
 from services.telegram_send import (
@@ -136,6 +140,35 @@ _SUMMARY_CONTEXT_TOKEN_DEFAULT = 30000
 # уходит за окно / сквозь бот-ответ). Число обходов ограничено (cap по числу
 # добавлений), чтобы прогон не деградировал на «звонких» чатах.
 RESTORE_CHAIN_CALLS_MAX = 50
+
+
+# ── ASAP-2 §1/D5 (контракт (d)): send-time кап Legacy-доставки ─────────────
+# `limits.max_summary_parts` — ЕДИНСТВЕННАЯ семантика: максимальное число
+# Telegram sendMessage-частей, на которые можно разбить ДЛИННЫЙ legacy-
+# саммари (prompt-бюджет parts×4000−200 + кап числа чанков). Hybrid-контур
+# кап не получает (`max_chunks=None` — §105 plain-доставка полного текста);
+# rich-путь капом НЕ ограничен (sendRichMessage ≠ sendMessage). Избыток НЕ
+# теряется молча: WARN `LEGACY_CHUNKS_CAPPED` (R17-safe числа).
+
+def resolve_legacy_max_parts() -> int:
+    """Резолв parts (hot `limits.max_summary_parts` → env): ≥1."""
+    try:
+        value = int(hot.get("limits.max_summary_parts",
+                            settings.MAX_SUMMARY_PARTS))
+    except (TypeError, ValueError):
+        value = int(getattr(settings, "MAX_SUMMARY_PARTS", 1) or 1)
+    return max(1, value)
+
+
+def _cap_legacy_chunks(chunks, max_chunks, *, run_id=None, chat_id=None):
+    """Первые ``max_chunks`` чанков legacy-plain; при обрезке — WARN."""
+    if max_chunks is None or len(chunks) <= max_chunks:
+        return chunks
+    logger.warning(
+        "LEGACY_CHUNKS_CAPPED | run_id=%s | chat_id=%s | chunks_total=%d | "
+        "chunks_sent=%d", run_id or "none", chat_id, len(chunks),
+        max_chunks)
+    return chunks[:max(0, int(max_chunks))]
 
 
 def _chain_tg_id(item_id) -> int | None:
@@ -449,7 +482,8 @@ class SummaryGenerator:
                     hot.get("flags.summary_filter_enabled",
                             settings.SUMMARY_FILTER_ENABLED))):
                 xml_rows = await self._apply_filter(
-                    chat_id, rows, correlation_id, trigger_message_id)
+                    chat_id, rows, correlation_id, trigger_message_id,
+                    hybrid=hybrid)
                 # S7 (ADR-1026-9 D2): §109-поля SUMMARY_COMPLETE — только из
                 # метрик ЭТОГО прогона (run_id), без устаревшего слота fail-open.
                 metrics = getattr(self, "_filter_metrics", None) or {}
@@ -477,145 +511,17 @@ class SummaryGenerator:
                         self.memory.memorize_facts(
                             chat_id, _build_batch_text(rows, skip_empty=True),
                             "chat_history"),
-                        "summary")
+                         "summary")
                 await self._run_hybrid_l2(
-                    chat_id, xml_rows, focus, correlation_id, ctx=ctx)
+                    chat_id, xml_rows, focus, correlation_id, ctx=ctx,
+                    source_rows=rows, trigger_message_id=trigger_message_id)
                 return
-            xml_context = self.xml.build(xml_rows, self.aliases, trigger_message_id)
-            keywords = self._extract_keywords(rows)
-            l2_rows = await self.memory.search_long_term(
-                chat_id, keywords, await _chat_limit(
-                    chat_id, "limits.summary_rag_l2_limit",
-                    hot.get("limits.summary_rag_l2_limit",
-                            settings.SUMMARY_RAG_L2_LIMIT))
-            )
-            l2_quotes = [
-                self._format_l2_quote(row)
-                for row in l2_rows
-                if row["text"]
-            ]
-            l3_facts = await self.memory.vector_search(
-                chat_id, " ".join(keywords), hot.get("limits.summary_rag_l3_limit", settings.SUMMARY_RAG_L3_LIMIT)
-            )
-            try:
-                graph_facts = await self.memory.get_graph_facts(chat_id, rows, keywords)
-            except Exception:
-                logger.warning(
-                    "summary: graph facts lookup failed — summary without graph section | chat_id=%s",
-                    chat_id, exc_info=True,
-                )
-                graph_facts = []
-            if hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
-                fire_and_forget(
-                    self.memory.memorize_facts(
-                        chat_id, _build_batch_text(rows, skip_empty=True), "chat_history"),
-                    "summary")
-            # 10.20 (БЛОК 2.6, ADR-1020-2): ASC-хронология перед рендером.
-            rag_context = await self.memory.get_rag_context(
-                chat_id, " ".join(keywords), sort_by_timestamp=True)
-            user_content = self._compose_user_content(
-                xml_context, l2_quotes, l3_facts, graph_facts, rag_context=rag_context
-            )
-            # Epic 65: фокус «/summary про X» — блок в НАЧАЛО user_content
-            # (SIGIR'26: важное — к краям промпта). System-канон R11 НЕ тронут.
-            user_content = _apply_focus(user_content, focus)
-            # Epic 60 (64.7, T-468): потолок-проверка user_content перед
-            # generate — токены (SUMMARY_MAX_CONTEXT_TOKENS, срез С КОНЦА;
-            # chars — fallback). Таймер 6ч/крон НЕ меняются.
-            kind, limit = resolve_chat_limit(
-                await _chat_limit(chat_id, "limits.summary_max_context_tokens",
-                    hot.get("limits.summary_max_context_tokens",
-                            settings.SUMMARY_MAX_CONTEXT_TOKENS)),
-                _SUMMARY_CONTEXT_TOKEN_DEFAULT,
-                "SUMMARY_MAX_CONTEXT_CHARS",
-                await _chat_limit(chat_id, "limits.summary_max_context_chars",
-                    hot.get("limits.summary_max_context_chars",
-                            settings.SUMMARY_MAX_CONTEXT_CHARS)),
-                "SUMMARY_MAX_CONTEXT",
-            )
-            if kind == "tokens":
-                budget = safe_budget(limit)
-                if count_tokens(user_content) > budget:
-                    logger.warning(
-                        "summary: user content truncated | tokens=%d -> %d",
-                        count_tokens(user_content), budget)
-                    user_content = truncate_to_tokens(user_content, budget)
-            elif len(user_content) > limit:
-                logger.warning(
-                    "summary: user content truncated | chars=%d", len(user_content))
-                user_content = user_content[-limit:]
-            max_symbols = hot.get("limits.max_summary_parts",
-                                  settings.MAX_SUMMARY_PARTS) * 4000 - 200
-            # NOTE: {username} must stay literal in the prompt (R11), so we
-            # substitute only {max_symbols} via replace, not str.format.
-            # T-619: промпт саммари — горячая точка (фолбек код-канона).
-            summary_prompt = hot.get("prompts.summary_system_prompt", SYSTEM_PROMPT)
-            system = summary_prompt.replace("{max_symbols}", str(max_symbols))
-            payload = [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user_content},
-            ]
-            # Раунд 10.22 (F4, ADR-1022-4): System 2 — Редактор (Markdown-выжимка)
-            # → Рассказчик (plain R11). Невалидный digest/провал → одиночный путь.
-            draft: SummaryDraft | None = None
-            if getattr(settings, "SYSTEM2_SUMMARY_ENABLED", True):
-                draft = await self._generate_two_call(
-                    user_content, max_symbols, chat_id, correlation_id)
-                if draft is not None:
-                    raw = draft.text
-                else:
-                    logger.info(
-                        "summary system2: fallback на одиночный путь 10.21 | "
-                        "chat_id=%s", chat_id)
-                    raw = await self._llm_generate(
-                        payload, chat_id, correlation_id=correlation_id,
-                        step="single")
-            else:
-                raw = await self._llm_generate(
-                    payload, chat_id, correlation_id=correlation_id,
-                    step="single")
-            if raw is None:
-                # §106/D5: LLM не дал ответа → публикации нет.
-                ctx.status = STATUS_DEGRADED
-                ctx.code = CODE_SUMMARY_GENERATION_FAILED
-                return
-            raw = cleanup_llm_text(raw)                   # Epic 28 (R28-3)
-            raw = _strip_safe_html(raw)                   # review iter1 (H2)
-            if not raw.strip():
-                # Epic 60 (65.1): после cleanup пусто → молчание (без реакции:
-                # message_id в manual-ветку не передаётся — 65.1).
-                logger.warning(
-                    "summary: empty answer after cleanup — silence | chat_id=%s",
-                    chat_id)
-                ctx.status = STATUS_EMPTY
-                # §106/D5: пустой текст после cleanup — класс генерации.
-                ctx.code = CODE_SUMMARY_GENERATION_FAILED
-                return
-            text = self._ensure_shiz_postfix(raw, rows)
-            cover_prompt = self._resolve_cover_prompt(
-                draft, text, chat_id)
-            # S6 (ADR-1026-11 D2): заголовок digest Stage-1 → настоящий H1 в
-            # rich-пути / жирный заголовок в plain; нет draft → fallback §5.3
-            # в детерминированном адаптере (0 LLM).
-            title = draft.title if draft is not None else ""
-            # AMEND ADR-1026-7 D5 / ADR-1026-9 D7 (effective S6): «OFF
-            # байт-в-байт» сужается до слоя генерации (промпты/2 вызова/XML/
-            # память/RAG/обложка); формат доставки OFF намеренно меняется по
-            # §100–§105 (§101/§102 rich, §105 plain).
-            # F6 (ADR-1023-6 §3.4): Article-ветка — только если флаг ON,
-            # обложка возможна и aiogram поддерживает media. Иначе — plain
-            # (S6: §105-формат: `<b>title</b>` + абзацы).
-            if (cover_prompt
-                    and getattr(settings, "SUMMARY_COVER_ARTICLE_ENABLED", True)
-                    and _rich_media_supported()):
-                await self._deliver_rich(
-                    chat_id, text, cover_prompt,
-                    correlation_id=correlation_id, ctx=ctx, title=title)
-            else:
-                ctx.cover_status = "unavailable"
-                await self._deliver_plain(
-                    chat_id, text, title=title,
-                    correlation_id=correlation_id, ctx=ctx)
+            # ── ASAP-2 (контракт (i)/T-3950): тело OFF-ветки извлечено в
+            # общий `_run_legacy_pipeline` (тот же метод для OFF-режима и
+            # LEVEL-3 emergency fallback). OFF-поведение байт-в-байт. ────────
+            await self._run_legacy_pipeline(
+                chat_id, rows, xml_rows, focus, trigger_message_id,
+                correlation_id, ctx)
         except LLMError as exc:
             ctx.fail_from_exc(stage="run", exc=exc,
                               code=CODE_SUMMARY_GENERATION_FAILED)
@@ -668,29 +574,220 @@ class SummaryGenerator:
         except Exception:  # pragma: no cover - защитная ветка
             return False
 
+    async def _legacy_fallback_enabled(self, chat_id: int) -> bool:
+        """ASAP-2 гейт LEVEL-3 (контракт (i)/Q6): hot
+        ``flags.summary_legacy_fallback_enabled`` → env ClassVar. OFF —
+        осознанный аварийный режим: hybrid-провал терминален."""
+        try:
+            return bool(await _chat_limit(
+                chat_id, "flags.summary_legacy_fallback_enabled",
+                hot.get("flags.summary_legacy_fallback_enabled",
+                        getattr(settings, "SUMMARY_LEGACY_FALLBACK_ENABLED",
+                                True))))
+        except Exception:  # pragma: no cover - защитная ветка
+            return True
+
+    async def _run_legacy_pipeline(self, chat_id: int, rows: list,
+                                   xml_rows: list, focus: str | None,
+                                   trigger_message_id: int | None,
+                                   correlation_id: str, ctx=None, *,
+                                   max_parts: int | None = None,
+                                   skip_memorize: bool = False) -> bool:
+        """ASAP-2 (контракт (i)/T-3950): ПОЛНЫЙ Legacy-пайплайн — общий метод
+        OFF-режима (kill-switch Hybrid) и LEVEL-3 emergency fallback.
+
+        Тело байт-в-байт прежней OFF-ветки ``_run`` (XML+RAG+graph-подмешивание
+        → System2 two-call/single по ``SYSTEM2_SUMMARY_ENABLED`` → cover →
+        rich/plain-доставка; plain-чанки ≤ ``limits.max_summary_parts`` —
+        send-кап контракта (d)). LEVEL-3 вызывает с уже готовыми ``rows``/
+        ``xml_rows`` (окно НЕ перечитывается, фильтр НЕ перезапускается) и
+        ``skip_memorize=True`` (fire-and-forget memorize уже сделан в
+        hybrid-ветке ``_run`` — дубля памяти нет).
+
+        ``max_parts=None`` → резолв hot→env (OFF-путь как раньше).
+        Возвращает ``True``, если что-то опубликовано (для guard'а LEVEL-3);
+        коды/UX/ctx — прежняя семантика §106. DoD-10: Legacy остаётся рабочим.
+        """
+        if max_parts is None:
+            max_parts = int(hot.get("limits.max_summary_parts",
+                                    settings.MAX_SUMMARY_PARTS))
+        xml_context = self.xml.build(xml_rows, self.aliases, trigger_message_id)
+        keywords = self._extract_keywords(rows)
+        l2_rows = await self.memory.search_long_term(
+            chat_id, keywords, await _chat_limit(
+                chat_id, "limits.summary_rag_l2_limit",
+                hot.get("limits.summary_rag_l2_limit",
+                        settings.SUMMARY_RAG_L2_LIMIT))
+        )
+        l2_quotes = [
+            self._format_l2_quote(row)
+            for row in l2_rows
+            if row["text"]
+        ]
+        l3_facts = await self.memory.vector_search(
+            chat_id, " ".join(keywords), hot.get("limits.summary_rag_l3_limit", settings.SUMMARY_RAG_L3_LIMIT)
+        )
+        try:
+            graph_facts = await self.memory.get_graph_facts(chat_id, rows, keywords)
+        except Exception:
+            logger.warning(
+                "summary: graph facts lookup failed — summary without graph section | chat_id=%s",
+                chat_id, exc_info=True,
+            )
+            graph_facts = []
+        if (not skip_memorize
+                and hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED)):
+            fire_and_forget(
+                self.memory.memorize_facts(
+                    chat_id, _build_batch_text(rows, skip_empty=True), "chat_history"),
+                "summary")
+        # 10.20 (БЛОК 2.6, ADR-1020-2): ASC-хронология перед рендером.
+        rag_context = await self.memory.get_rag_context(
+            chat_id, " ".join(keywords), sort_by_timestamp=True)
+        user_content = self._compose_user_content(
+            xml_context, l2_quotes, l3_facts, graph_facts, rag_context=rag_context
+        )
+        # Epic 65: фокус «/summary про X» — блок в НАЧАЛО user_content
+        # (SIGIR'26: важное — к краям промпта). System-канон R11 НЕ тронут.
+        user_content = _apply_focus(user_content, focus)
+        # Epic 60 (64.7, T-468): потолок-проверка user_content перед
+        # generate — токены (SUMMARY_MAX_CONTEXT_TOKENS, срез С КОНЦА;
+        # chars — fallback). Таймер 6ч/крон НЕ меняются.
+        # ASAP-2 §11/D7: Legacy-контур читает ТОЛЬКО limits.summary_max_context_*.
+        kind, limit = resolve_chat_limit(
+            await _chat_limit(chat_id, "limits.summary_max_context_tokens",
+                hot.get("limits.summary_max_context_tokens",
+                        settings.SUMMARY_MAX_CONTEXT_TOKENS)),
+            _SUMMARY_CONTEXT_TOKEN_DEFAULT,
+            "SUMMARY_MAX_CONTEXT_CHARS",
+            await _chat_limit(chat_id, "limits.summary_max_context_chars",
+                hot.get("limits.summary_max_context_chars",
+                        settings.SUMMARY_MAX_CONTEXT_CHARS)),
+            "SUMMARY_MAX_CONTEXT",
+        )
+        if kind == "tokens":
+            budget = safe_budget(limit)
+            if count_tokens(user_content) > budget:
+                logger.warning(
+                    "summary: user content truncated | tokens=%d -> %d",
+                    count_tokens(user_content), budget)
+                user_content = truncate_to_tokens(user_content, budget)
+        elif len(user_content) > limit:
+            logger.warning(
+                "summary: user content truncated | chars=%d", len(user_content))
+            user_content = user_content[-limit:]
+        # ASAP-2 §1 (контракт (d)): prompt-бюджет legacy = parts×4000−200
+        # (parts — hot `limits.max_summary_parts` → env; назад совместимо).
+        max_symbols = max_parts * 4000 - 200
+        # NOTE: {username} must stay literal in the prompt (R11), so we
+        # substitute only {max_symbols} via replace, not str.format.
+        # T-619: промпт саммари — горячая точка (фолбек код-канона).
+        summary_prompt = hot.get("prompts.summary_system_prompt", SYSTEM_PROMPT)
+        system = summary_prompt.replace("{max_symbols}", str(max_symbols))
+        payload = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user_content},
+        ]
+        # Раунд 10.22 (F4, ADR-1022-4): System 2 — Редактор (Markdown-выжимка)
+        # → Рассказчик (plain R11). Невалидный digest/провал → одиночный путь.
+        draft: SummaryDraft | None = None
+        if getattr(settings, "SYSTEM2_SUMMARY_ENABLED", True):
+            draft = await self._generate_two_call(
+                user_content, max_symbols, chat_id, correlation_id)
+            if draft is not None:
+                raw = draft.text
+            else:
+                logger.info(
+                    "summary system2: fallback на одиночный путь 10.21 | "
+                    "chat_id=%s", chat_id)
+                raw = await self._llm_generate(
+                    payload, chat_id, correlation_id=correlation_id,
+                    step="single")
+        else:
+            raw = await self._llm_generate(
+                payload, chat_id, correlation_id=correlation_id,
+                step="single")
+        if raw is None:
+            # §106/D5: LLM не дал ответа → публикации нет.
+            if ctx is not None:
+                ctx.status = STATUS_DEGRADED
+                ctx.code = CODE_SUMMARY_GENERATION_FAILED
+            return False
+        raw = cleanup_llm_text(raw)                   # Epic 28 (R28-3)
+        raw = _strip_safe_html(raw)                   # review iter1 (H2)
+        if not raw.strip():
+            # Epic 60 (65.1): после cleanup пусто → молчание (без реакции:
+            # message_id в manual-ветку не передаётся — 65.1).
+            logger.warning(
+                "summary: empty answer after cleanup — silence | chat_id=%s",
+                chat_id)
+            if ctx is not None:
+                ctx.status = STATUS_EMPTY
+                # §106/D5: пустой текст после cleanup — класс генерации.
+                ctx.code = CODE_SUMMARY_GENERATION_FAILED
+            return False
+        text = self._ensure_shiz_postfix(raw, rows)
+        cover_prompt = self._resolve_cover_prompt(
+            draft, text, chat_id)
+        # S6 (ADR-1026-11 D2): заголовок digest Stage-1 → настоящий H1 в
+        # rich-пути / жирный заголовок в plain; нет draft → fallback §5.3
+        # в детерминированном адаптере (0 LLM).
+        title = draft.title if draft is not None else ""
+        # AMEND ADR-1026-7 D5 / ADR-1026-9 D7 (effective S6): «OFF
+        # байт-в-байт» сужается до слоя генерации (промпты/2 вызова/XML/
+        # память/RAG/обложка); формат доставки OFF намеренно меняется по
+        # §100–§105 (§101/§102 rich, §105 plain).
+        # F6 (ADR-1023-6 §3.4): Article-ветка — только если флаг ON,
+        # обложка возможна и aiogram поддерживает media. Иначе — plain
+        # (S6: §105-формат: `<b>title</b>` + абзацы).
+        if (cover_prompt
+                and getattr(settings, "SUMMARY_COVER_ARTICLE_ENABLED", True)
+                and _rich_media_supported()):
+            return await self._deliver_rich(
+                chat_id, text, cover_prompt,
+                correlation_id=correlation_id, ctx=ctx, title=title)
+        if ctx is not None:
+            ctx.cover_status = "unavailable"
+        return await self._deliver_plain(
+            chat_id, text, title=title,
+            correlation_id=correlation_id, ctx=ctx)
+
     async def _run_hybrid_l2(self, chat_id: int, rows: list,
                              focus: str | None,
-                             correlation_id: str, ctx=None) -> None:
-        """S5 (ADR-1026-7 D5/D6): ON-ветка L1 → пакет → L2 → форматтер.
+                             correlation_id: str, ctx=None, *,
+                             source_rows: list | None = None,
+                             trigger_message_id: int | None = None) -> None:
+        """S5 + ASAP-2 (ADR-1027-10 D3/D4/D8, контракты (i)): ON-ветка —
+        двухконтурная fail-soft цепочка.
 
-        Вызывается из ``_run`` **после S1/S2** и получает уже
-        отфильтрованный/восстановленный ``rows`` (§80 «фильтр → восстановление →
-        L1»); ``focus`` учтён как в legacy-пути (focus-блок в L1),
-        ``trigger_message_id`` — через S1-фильтр выше. Ровно **2** физических
-        LLM-вызова (L1+L2); fail-closed §106: не usable/deliverable вход → L2
-        не вызывается; L2-провал → без legacy-фолбэка, публикации нет; текст
-        готов, обложки нет → публикуется текст (§105). С S10 (ADR-1026-12 D2)
-        это **основной** путь (``SUMMARY_HYBRID_L2_ENABLED`` default ON, без
-        ручной активации); в S5 проверялся на моках.
+        ``rows`` — отфильтрованный/восстановленный вход (§80; для LEVEL-2
+        fallback-пакета и Legacy-пересборки окна НЕ перечитывается);
+        ``source_rows`` — исходные строки окна (для LEVEL-3: у legacy-ветки те
+        же ``rows`` для RAG/graph, что у OFF).
 
-        S7 (ADR-1026-9 D1/D2): ``ctx`` (необязательный) заполняется для
-        ``SUMMARY_COMPLETE``/``SUMMARY_FAILED``; lifecycle эмитит ``_run`` —
-        второй пары ``SUMMARY_*`` здесь НЕТ (дубля нет). Прямой вызов без
-        ``ctx`` (тесты S5) поведения не меняет.
+        LEVEL-1: run_l1 (repair + correction retry внутри).
+        LEVEL-2: L1 непригоден (ЛЮБАЯ причина: invalid после retry, error/
+        timeout, useless, too_many_*, empty) или FactPackage не deliverable при
+        usable L1 (defense) → deterministic ``build_fallback_package`` → **L2
+        вызывается в любом случае** (§8:2260); обложка деградированного пути —
+        детерминированная ``_derive_fallback_cover_prompt`` (DoD-14).
+        LEVEL-3: L2 unusable (обычный И fallback-пакет; L2-retry НЕ вводится),
+        plain-доставка hybrid-текста провалилась, непредвиденное исключение при
+        неопубликованном → полный ``_run_legacy_pipeline`` (гейт
+        ``flags.summary_legacy_fallback_enabled``). Guard двойной публикации:
+        входим ТОЛЬКО если ничего не отправлено (``published``).
+        Worst case ≤5 генераций: 1 L1 + ≤1 correction (внутри run_l1) + ≤1 L2
+        + ≤2 Legacy (ADR-1027-10 D3; AMEND ADR-1026-7 D5 отменён владельцем).
+        Промежуточные коды НЕ порождают UX-сообщений, пока цепочка работает
+        (§106/AMEND ADR-1026-11 D5); ``SUMMARY_GENERATION_FAILED`` — только
+        когда и Legacy провалился (матрица строка 11).
         """
         # Ленивые импорты: OFF-путь не тянет модули L2 (байт-в-байт).
         from services.summary_context_restore import build_l1_payload
-        from services.summary_fact_package import build_fact_package
+        from services.summary_fact_package import (
+            build_fact_package,
+            build_fallback_package,
+        )
         from services.summary_l1_clusterizer import run_l1
         from services.summary_l2_writer import run_l2
         # S7: R17-safe модель/провайдер для SUMMARY_FAILED (host, без ключа).
@@ -698,77 +795,194 @@ class SummaryGenerator:
             ctx.model = str(getattr(self.llm, "_chat_model", "") or "") or None
             ctx.provider = provider_host(
                 str(getattr(self.llm, "_base_url", "") or "")) or None
+        published = False
+        calls_so_far = 0          # гибрид-вызовы LLM до точки отказа (R17)
+        fallback_used = False
+
+        async def _legacy_fallback(reason: str) -> bool:
+            """LEVEL-3 (контракт (i), матрица строки 3–6/9–10): полный Legacy-
+            пайплайн на уже готовых строках; guard — только если ничего не
+            отправлено; гейт ``flags.summary_legacy_fallback_enabled``."""
+            nonlocal calls_so_far
+            if published:
+                return False                      # guard двойной публикации
+            if not await self._legacy_fallback_enabled(chat_id):
+                logger.warning(
+                    "LEGACY_FALLBACK | run_id=%s | chat_id=%s | reason=%s | "
+                    "calls_so_far=%d — ВЫКЛЮЧЕН (flags.summary_legacy_fallback_"
+                    "enabled=false): прогон терминален",
+                    correlation_id or "none", chat_id, reason, calls_so_far)
+                return False
+            logger.warning(
+                "LEGACY_FALLBACK | run_id=%s | chat_id=%s | reason=%s | "
+                "calls_so_far=%d", correlation_id or "none", chat_id,
+                reason, calls_so_far)
+            try:
+                delivered = await self._run_legacy_pipeline(
+                    chat_id, source_rows if source_rows is not None else rows,
+                    rows, focus, trigger_message_id, correlation_id, ctx,
+                    skip_memorize=True)
+            except LLMError as exc:
+                logger.warning("summary legacy fallback: LLM failed | "
+                               "chat_id=%s | error=%s", chat_id, exc)
+                delivered = False
+                if ctx is not None:
+                    ctx.fail_from_exc(stage="legacy", exc=exc,
+                                      code=CODE_SUMMARY_GENERATION_FAILED)
+            except Exception as exc:  # noqa: BLE001 - best-effort own try
+                logger.exception("summary legacy fallback failed | chat_id=%s",
+                                 chat_id)
+                delivered = False
+                if ctx is not None:
+                    ctx.fail_from_exc(stage="legacy", exc=exc,
+                                      code=CODE_SUMMARY_GENERATION_FAILED)
+            if delivered:
+                # §18: SUMMARY_COMPLETE fallback=legacy — только при реальной
+                # legacy-доставке (не при неудачной попытке).
+                if ctx is not None:
+                    ctx.fallback = "legacy"
+                    # Промежуточные коды цепочки (degraded L2/exception на
+                    # неопубликованном) НЕ терминальны, если Legacy довёл до
+                    # публикации (матрица строки 3–10 vs 11): снимаем
+                    # промежуточный статус/поверхность ошибки.
+                    if ctx.status in (STATUS_DEGRADED, STATUS_FAILED):
+                        ctx.status = STATUS_OK
+                    ctx.code = None
+                    ctx.stage = None
+                    ctx.reason = None
+                    ctx.error_type = None
+                    ctx.http_status = None
+                return True
+            if ctx is not None:
+                # Матрица строка 11: Legacy тоже провалился — единственный
+                # терминальный SUMMARY_GENERATION_FAILED этой ветки.
+                ctx.status = STATUS_DEGRADED
+                ctx.stage = "legacy"
+                ctx.code = CODE_SUMMARY_GENERATION_FAILED
+            return False
+
         stage = "l1"
         try:
             l1_result = await run_l1(
                 llm=self.llm, rows=rows, chat_id=chat_id,
                 correlation_id=correlation_id,
                 focus_block=_apply_focus("", focus))
+            calls_so_far += 1
             if ctx is not None:
                 ctx.threads = getattr(l1_result, "threads_count", None)
-            # §106: не usable L1 → L2 не вызывается, публикации нет.
-            if not l1_result.usable:
-                logger.warning(
-                    "L2_SKIPPED | run_id=%s | chat_id=%s | reason=l1_not_usable",
-                    correlation_id, chat_id)
-                if ctx is not None:
-                    ctx.status = STATUS_DEGRADED
-                    ctx.stage = "l1"
-                    ctx.reason = getattr(l1_result, "invalid_reason", None) \
-                        or getattr(l1_result, "status", None)
-                    ctx.code = CODE_SUMMARY_GENERATION_FAILED
-                return
-            stage = "package"
             payload_items = build_l1_payload(rows, chat_id)
-            package_result = build_fact_package(
-                l1_result, payload_items, correlation_id=correlation_id)
-            if not package_result.deliverable:
-                logger.warning(
-                    "L2_SKIPPED | run_id=%s | chat_id=%s | reason=package_%s",
-                    correlation_id, chat_id, package_result.reason or "empty")
-                if ctx is not None:
-                    ctx.status = STATUS_DEGRADED
-                    ctx.stage = "package"
-                    ctx.reason = package_result.reason or "not_deliverable"
-                    ctx.code = CODE_SUMMARY_GENERATION_FAILED
-                return
+            # §18/контракт (k): L2_SKIPPED l1_not_usable больше НЕ терминален
+            # («не публикуем» снят) — переход в LEVEL-2 (L1_FALLBACK_PACKAGE).
+            if not l1_result.usable:
+                stage = "package"
+                package_result = build_fallback_package(
+                    payload_items, correlation_id=correlation_id,
+                    chat_id=chat_id,
+                    reason=str(getattr(l1_result, "invalid_reason", None)
+                               or getattr(l1_result, "status", None)
+                               or "l1_unusable"))
+                fallback_used = True
+                if package_result is None:
+                    # Пустой payload (0 сообщений после фильтра) — НЕ failure:
+                    # существующая empty-семантика (матрица строка 2).
+                    if ctx is not None:
+                        ctx.status = STATUS_EMPTY
+                        ctx.stage = "package"
+                        ctx.reason = "l1_empty_payload"
+                    return
+            else:
+                stage = "package"
+                package_result = build_fact_package(
+                    l1_result, payload_items, correlation_id=correlation_id)
+                if not package_result.deliverable:
+                    # Матрица строка 5 (defensive, не ожидается после (h)):
+                    # пересборка fallback-пакетом → L2 всё равно вызывается.
+                    package_result = build_fallback_package(
+                        payload_items, correlation_id=correlation_id,
+                        chat_id=chat_id, reason="package_unusable")
+                    fallback_used = True
+                    if package_result is None:
+                        if ctx is not None:
+                            ctx.status = STATUS_EMPTY
+                            ctx.stage = "package"
+                            ctx.reason = "payload_empty"
+                        return
             stage = "l2"
             service = (package_result.package or {}).get("service") or {}
             l2_result = await run_l2(
                 self.llm, package_result.package, service=service,
                 correlation_id=correlation_id, chat_id=chat_id)
+            calls_so_far += 1
             if not l2_result.usable:
-                # §106: L2-провал → без legacy-фолбэка (3-й вызов запрещён).
+                # Матрица строка 6: L2 unusable (обычный И fallback-пакет) →
+                # LEVEL-3 Legacy; L2 correction retry НЕ вводится (Q2/ADR D3).
                 logger.warning(
-                    "L2_ERROR | run_id=%s | chat_id=%s | reason=%s — не публикуем",
+                    "L2_ERROR | run_id=%s | chat_id=%s | reason=%s — LEVEL-3 "
+                    "legacy fallback",
                     correlation_id, chat_id, l2_result.invalid_reason or "error")
                 if ctx is not None:
-                    ctx.status = STATUS_DEGRADED
                     ctx.stage = "l2"
                     ctx.reason = l2_result.invalid_reason or "error"
-                    ctx.code = CODE_SUMMARY_GENERATION_FAILED
+                if await _legacy_fallback("l2_unusable"):
+                    published = True
+                else:
+                    if ctx is not None:
+                        ctx.status = STATUS_DEGRADED
+                        ctx.code = CODE_SUMMARY_GENERATION_FAILED
                 return
             stage = "deliver"
             document = l2_result.document
             if ctx is not None:
                 ctx.paragraphs = len((document or {}).get("paragraphs") or [])
             cover_prompt = normalize_cover_prompt(service.get("cover_prompt"))
+            if (fallback_used and not cover_prompt
+                    and getattr(settings, "SUMMARY_COVER_FALLBACK_ENABLED", True)
+                    and getattr(settings, "SUMMARY_COVER_ARTICLE_ENABLED", True)
+                    and _rich_media_supported()):
+                # DoD-14 на деградированном пути: обложка LEVEL-2 —
+                # детерминированная из заголовка/первой фразы документа
+                # (`_derive_fallback_cover_prompt`, 0 LLM).
+                first_para = ""
+                paras = (document or {}).get("paragraphs") or []
+                if paras and isinstance(paras[0], dict):
+                    first_para = str(paras[0].get("text") or "")
+                cover_prompt = self._derive_fallback_cover_prompt(
+                    (str((document or {}).get("title") or "")
+                     + ". " + first_para).strip())
             if (cover_prompt
                     and getattr(settings, "SUMMARY_COVER_ARTICLE_ENABLED", True)
                     and _rich_media_supported()):
-                await self._deliver_l2_rich(
+                # Матрица строки 7/8: cover/rich-отказ → plain полного текста
+                # (внутри _publish_rich_document) — НЕ Legacy.
+                published = await self._deliver_l2_rich(
                     chat_id, document, cover_prompt, correlation_id, ctx=ctx)
             else:
                 if ctx is not None:
                     ctx.cover_status = "unavailable"
-                await self._deliver_l2_plain(
+                published = await self._deliver_l2_plain(
                     chat_id, document, correlation_id, ctx=ctx)
+            if not published:
+                # Матрица строка 9: plain-доставка hybrid-текста fail (HTML и
+                # text-даунгрейд) → LEVEL-3 Legacy (§9:2289–2291).
+                if ctx is not None:
+                    ctx.stage = "publish"
+                if await _legacy_fallback("delivery_failed"):
+                    published = True
+                elif ctx is not None and ctx.status != STATUS_FAILED:
+                    ctx.status = STATUS_DEGRADED
+                    ctx.code = CODE_SUMMARY_GENERATION_FAILED
         except LLMError as exc:
+            # Матрица строка 10: непредвиденный LLMError на стадии, которая
+            # его не гасит (доставка/обложка) → LEVEL-3 best-effort, если
+            # ничего не опубликовано.
             if ctx is not None:
                 ctx.fail_from_exc(stage=stage, exc=exc,
                                   code=_generation_code(stage))
             logger.warning("summary: LLM failed | chat_id=%s | error=%s",
                            chat_id, exc)
+            if not published and await _legacy_fallback(
+                    "hybrid_exception:LLMError"):
+                return
             await self._send_ux(chat_id, _UX_LLM_FAILED)
         except _SQLITE_ERRORS:
             if ctx is not None:
@@ -781,6 +995,9 @@ class SummaryGenerator:
                 ctx.fail_from_exc(stage=stage, exc=exc,
                                   code=_generation_code(stage))
             logger.exception("summary: unexpected failure | chat_id=%s", chat_id)
+            if not published and await _legacy_fallback(
+                    "hybrid_exception:" + type(exc).__name__):
+                return
             await self._send_ux(chat_id, _UX_GENERIC_FAILED)
 
     async def build_test_rows(self, chat_id: int, *, since_ts: int,
@@ -818,8 +1035,13 @@ class SummaryGenerator:
             # `_apply_filter` его не перезаписывает, поэтому иначе в отчёт
             # тест-прогона могли попасть устаревшие метрики прошлого прогона.
             self._filter_metrics.pop(chat_id, None)
+            # ASAP-2 T-3941(б): dry-run контур (S9/§113) идёт гибрид-путём по
+            # определению («ON per-run», ADR-1026-8) — режим передаётся ЯВНО:
+            # глобальный flags.summary_hybrid_l2_enabled тест-контуром НЕ
+            # читается (инвариант S9 сохранён), бюджет S1/S2 — hybrid-ключи.
             filtered = list(await self._apply_filter(
-                chat_id, source, correlation_id, trigger_message_id) or [])
+                chat_id, source, correlation_id, trigger_message_id,
+                hybrid=True) or [])
             filter_metrics = dict(self._filter_metrics.get(chat_id) or {})
         source_ids = {id(row) for row in source}
         filtered_ids = {id(row) for row in filtered}
@@ -840,27 +1062,38 @@ class SummaryGenerator:
 
     async def _deliver_l2_plain(self, chat_id: int, document: dict,
                                 correlation_id: str | None = None,
-                                ctx=None) -> None:
+                                ctx=None) -> bool:
         """S6 (ADR-1026-11 D1/D2): обёртка ON-plain — единое ядро §105.
 
         Имя сохранено (совместимость); доставка/события — в
         :meth:`_publish_plain_document` (тот же канал для OFF и ON).
+        ASAP-2 §1: hybrid-plain — БЕЗ send-капа (``max_chunks=None`` —
+        полный текст чанками §105); возвращает published.
         """
-        await self._publish_plain_document(
+        return await self._publish_plain_document(
             chat_id, document, correlation_id=correlation_id, ctx=ctx,
             reason="plain")
 
     async def _publish_plain_document(self, chat_id: int, document,
                                       *, correlation_id: str | None = None,
-                                      ctx=None, reason: str = "plain") -> None:
+                                      ctx=None, reason: str = "plain",
+                                      max_chunks: int | None = None) -> bool:
         """§105/S6: единое ядро plain-доставки (OFF+ON) + ``PUBLISH_TEXT_*``.
 
         HTML-чанки по границам абзацев (``chunk_plain_blocks`` ≤4096);
         ``message_id`` первого чанка — в ``PUBLISH_TEXT_COMPLETE`` (§109/SC-20).
         При отказе HTML — финальный даунгрейд ``format_plain_text`` +
         ``chunk_plain_text`` (без разметки, по абзацам, без молчаливой
-        обрезки). Финальный провал текста → ``TEXT_FALLBACK_FAILED`` и прогон
-        ``SUMMARY_FAILED`` (§106/D5). События — best-effort, R17-safe.
+        обрезки). Финальный провал текста → ``TEXT_FALLBACK_FAILED`` (§106/D5;
+        с ASAP-2 §9 за ним — НЕ терминаль: вызывающий hybrid-контур уходит в
+        LEVEL-3 Legacy; решение остаётся вызывающему).
+        ``max_chunks`` (ASAP-2 контракт (d)): legacy-вызывающий передаёт резолв
+        ``limits.max_summary_parts`` — отправляется не более N sendMessage-
+        частей (избыток — WARN ``LEGACY_CHUNKS_CAPPED``, не молча);
+        hybrid-вызывающий — ``None`` (полный текст чанками).
+        Возвращает ``True``, если хотя бы одна часть успешно отправлена
+        (published-гейд LEVEL-3), иначе ``False``. События — best-effort,
+        R17-safe.
         """
         from services.summary_article_formatter import (
             chunk_plain_blocks,
@@ -878,7 +1111,9 @@ class SummaryGenerator:
         publish_started = log_publish_text_start(
             run_id=correlation_id, chat_id=chat_id, reason=reason)
         try:
-            chunks = chunk_plain_blocks(document, limit=4096)
+            chunks = _cap_legacy_chunks(
+                chunk_plain_blocks(document, limit=4096), max_chunks,
+                run_id=correlation_id, chat_id=chat_id)
             message_id = None
             for index, chunk in enumerate(chunks):
                 message = await self._send_text_with_retry(
@@ -906,6 +1141,7 @@ class SummaryGenerator:
                 ctx.publish_message_id = (
                     message_id if isinstance(message_id, int) else None)
                 ctx.publish_duration_ms = _elapsed_since(publish_started)
+            return True
         except Exception as exc:
             # §105: HTML-отправка недоступна/упала → финальный даунгрейд в
             # низкоуровневый текст (без разметки); текст не теряется.
@@ -919,7 +1155,9 @@ class SummaryGenerator:
             plain = format_plain_text(document)
             try:
                 message_id = None
-                chunks = chunk_plain_text(plain, limit=4096)
+                chunks = _cap_legacy_chunks(
+                    chunk_plain_text(plain, limit=4096), max_chunks,
+                    run_id=correlation_id, chat_id=chat_id)
                 for index, chunk in enumerate(chunks):
                     message = await self._send_text_with_retry(chat_id, chunk)
                     if index == 0:
@@ -938,8 +1176,11 @@ class SummaryGenerator:
                     ctx.publish_message_id = (
                         message_id if isinstance(message_id, int) else None)
                     ctx.publish_duration_ms = _elapsed_since(publish_started)
+                return True
             except Exception as exc2:
-                # §106/D5: финальная текстовая доставка упала → прогон failed.
+                # §106/D5: финальная текстовая доставка упала. OFF-контур —
+                # прогон failed; hybrid-контур (ASAP-2 §9) — не терминаль:
+                # published=False → вызывающий решает про LEVEL-3 Legacy.
                 log_publish_text_error(
                     run_id=correlation_id, chat_id=chat_id,
                     error_type=type(exc2).__name__,
@@ -955,25 +1196,28 @@ class SummaryGenerator:
                     ctx.fail(stage="publish", reason=type(exc2).__name__,
                              error_type=type(exc2).__name__,
                              code=CODE_TEXT_FALLBACK_FAILED)
+                return False
 
     async def _deliver_l2_rich(self, chat_id: int, document: dict,
                                cover_prompt: str,
                                correlation_id: str,
-                               ctx=None) -> None:
+                               ctx=None) -> bool:
         """S6 (ADR-1026-11 D1/D2): обёртка ON-rich — единое ядро §101/§102.
 
         Имя сохранено (совместимость); обложка → ``<h1>`` → абзацы и события
         ``COVER_*``/``FORMAT_*``/``PUBLISH_RICH_*`` — в
-        :meth:`_publish_rich_document`.
+        :meth:`_publish_rich_document`. ASAP-2: возвращает published
+        (rich-путь Hybrid send-капом НЕ ограничен).
         """
-        await self._publish_rich_document(
+        return await self._publish_rich_document(
             chat_id, document, cover_prompt,
             correlation_id=correlation_id, ctx=ctx)
 
     async def _publish_rich_document(self, chat_id: int, document: dict,
                                      cover_prompt: str, *,
                                      correlation_id: str | None = None,
-                                     ctx=None) -> None:
+                                     ctx=None,
+                                     max_chunks: int | None = None) -> bool:
         """§101/§102/S6: единое ядро rich-доставки (OFF+ON).
 
         Порядок: ``<img src="tg://photo?id=…">`` → **настоящий** ``<h1>`` →
@@ -1029,7 +1273,7 @@ class SummaryGenerator:
                 fallback_done = True
                 return await self._plain_fallback(
                     chat_id, document, correlation_id=correlation_id, ctx=ctx,
-                    reason="cover_error")
+                    reason="cover_error", max_chunks=max_chunks)
             if not tmp_path:
                 # §106: текст готов, обложки нет → публикуем текст (§105).
                 provider = provider_label()
@@ -1049,7 +1293,7 @@ class SummaryGenerator:
                 fallback_done = True
                 return await self._plain_fallback(
                     chat_id, document, correlation_id=correlation_id, ctx=ctx,
-                    reason="cover_unavailable")
+                    reason="cover_unavailable", max_chunks=max_chunks)
             log_cover_complete(
                 run_id=correlation_id, chat_id=chat_id, status="ok",
                 started=cover_started)
@@ -1079,7 +1323,8 @@ class SummaryGenerator:
                     fallback_done = True
                     return await self._plain_fallback(
                         chat_id, document, correlation_id=correlation_id,
-                        ctx=ctx, reason="rich_overflow")
+                        ctx=ctx, reason="rich_overflow",
+                        max_chunks=max_chunks)
                 publish_started = log_publish_rich_start(
                     run_id=correlation_id, chat_id=chat_id)
                 message = await self._send_rich_with_retry(
@@ -1102,7 +1347,7 @@ class SummaryGenerator:
                 fallback_done = True
                 return await self._plain_fallback(
                     chat_id, document, correlation_id=correlation_id, ctx=ctx,
-                    reason="rich_error")
+                    reason="rich_error", max_chunks=max_chunks)
             message_id = getattr(message, "message_id", None)
             log_format_complete(
                 run_id=correlation_id, chat_id=chat_id, channel="rich",
@@ -1123,6 +1368,7 @@ class SummaryGenerator:
                     message_id if isinstance(message_id, int) else None)
                 ctx.publish_duration_ms = _elapsed_since(publish_started)
             logger.info("summary cover: article sent | chat_id=%s", chat_id)
+            return True
         except Exception as exc:
             # Защитная ветка (сбой prep до/вне send-блока): тихий plain-фолбэк.
             if ctx is not None:
@@ -1134,7 +1380,8 @@ class SummaryGenerator:
                 fallback_done = True
                 return await self._plain_fallback(
                     chat_id, document, correlation_id=correlation_id, ctx=ctx,
-                    reason="rich_error")
+                    reason="rich_error", max_chunks=max_chunks)
+            return False
         finally:
             if tmp_path:
                 try:
@@ -1144,9 +1391,15 @@ class SummaryGenerator:
 
     async def _apply_filter(self, chat_id: int, rows: list,
                             correlation_id: str | None,
-                            trigger_message_id: int | None) -> list:
+                            trigger_message_id: int | None,
+                            hybrid: bool | None = None) -> list:
         """S1 (ADR-1026-1 D4/D6) + S2 (ADR-1026-4 D1/D6): префильтр входа L1 и
         детерминированное восстановление контекста.
+
+        ``hybrid`` (ASAP-2 T-3941(б)): режим, уже резолвнутый `_run`
+        (`hybrid=True/False`); ``None`` → собственный резолв (test-контур
+        ``build_test_rows`` — dry-run идёт hybrid-путём, но budget-ключи
+        резолвятся по факту режима). Бюджет S1/S2 — по режиму (§11).
 
         Возвращает строки для XML-истории: ``RestoreResult.kept`` при ON
         (S1 ``kept`` ∪ добавленные) либо ``FilterResult.kept`` при OFF /
@@ -1186,16 +1439,32 @@ class SummaryGenerator:
             # §93 (`0`/`None` → дефолт, `-1` → потолок «безлимита»), как в
             # resolve_chat_limit/_run; иначе нарезка/бюджет вырождаются при
             # per-chat override.
-            token_limit = resolve_context_tokens(
-                await _chat_limit(
-                    chat_id, "limits.summary_max_context_tokens",
-                    hot.get("limits.summary_max_context_tokens",
-                            settings.SUMMARY_MAX_CONTEXT_TOKENS)),
-                _SUMMARY_CONTEXT_TOKEN_DEFAULT)
-            char_limit = await _chat_limit(
-                chat_id, "limits.summary_max_context_chars",
-                hot.get("limits.summary_max_context_chars",
-                        settings.SUMMARY_MAX_CONTEXT_CHARS))
+            # ASAP-2 §11/контракт (g)/T-3941(б): бюджет фильтрации/восстановления
+            # резолвится ПО РЕЖИМУ: hybrid → `limits.summary_hybrid_context_*`
+            # (единая точка resolve_hybrid_context_budget), OFF → старые
+            # `limits.summary_max_context_*`. Режим известен до фильтра:
+            # `_run` резолвит `hybrid` раньше `_apply_filter` и передаёт его;
+            # per-chat-слой гибрид-ключа — hot-first ниже.
+            if hybrid is None:
+                hybrid = await self._hybrid_l2_enabled(chat_id)
+            if hybrid:
+                h_kind, h_limit = resolve_hybrid_context_budget()
+                token_limit = (resolve_context_tokens(
+                    h_limit, _SUMMARY_CONTEXT_TOKEN_DEFAULT)
+                    if h_kind == "tokens" else None)
+                char_limit = (h_limit if h_kind == "chars" else int(
+                    getattr(settings, "SUMMARY_HYBRID_CONTEXT_CHARS", 120000)))
+            else:
+                token_limit = resolve_context_tokens(
+                    await _chat_limit(
+                        chat_id, "limits.summary_max_context_tokens",
+                        hot.get("limits.summary_max_context_tokens",
+                                settings.SUMMARY_MAX_CONTEXT_TOKENS)),
+                    _SUMMARY_CONTEXT_TOKEN_DEFAULT)
+                char_limit = await _chat_limit(
+                    chat_id, "limits.summary_max_context_chars",
+                    hot.get("limits.summary_max_context_chars",
+                            settings.SUMMARY_MAX_CONTEXT_CHARS))
             logger.info(
                 "summary filter: event=FILTER_START | run_id=%s chat_id=%s "
                 "source_count=%d", correlation_id, chat_id, len(rows))
@@ -1219,13 +1488,38 @@ class SummaryGenerator:
                     xml_rows, effective, restore_metrics = await self._restore(
                         chat_id, rows, result, correlation_id, token_limit,
                         char_limit)
+                # ASAP-2 §18 (контракт (k)): messages_before/after +
+                # serialized_chars/tokens по РЕАЛЬНОЙ serialized §92-оценке
+                # (Q5/T-3941(а): json.dumps элемента, не только text).
+                try:
+                    from services.summary_context_restore import (
+                        build_l1_payload as _b92,
+                    )
+                    from services.summary_l1_clusterizer import (
+                        _serialized_len as _ser92,
+                    )
+                    _ser_items = _b92(list(xml_rows or []), chat_id)
+                    _ser_kind = "tokens" if token_limit is not None else "chars"
+                    _ser_total = sum(_ser92(it, _ser_kind)
+                                     for it in _ser_items)
+                    if _ser_kind == "tokens":
+                        ser_tokens, ser_chars = _ser_total, 0
+                    else:
+                        ser_tokens = sum(_ser92(it, "tokens")
+                                         for it in _ser_items)
+                        ser_chars = _ser_total
+                except Exception:  # pragma: no cover - телеметрия best-effort
+                    ser_tokens = ser_chars = -1
                 logger.info(
                     "summary filter: event=FILTER_COMPLETE | run_id=%s chat_id=%s "
                     "source_count=%d saved_count=%d restored_count=%d "
-                    "drop_percent=%.1f status=%s duration_ms=%.1f",
+                    "drop_percent=%.1f status=%s duration_ms=%.1f "
+                    "messages_before=%d messages_after=%d "
+                    "serialized_chars=%d serialized_tokens=%d",
                     correlation_id, chat_id, result.source_count,
                     result.saved_count, effective.restored_count,
-                    result.drop_percent, result.status, result.duration_ms)
+                    result.drop_percent, result.status, result.duration_ms,
+                    len(rows), len(xml_rows or []), ser_chars, ser_tokens)
                 if result.status == "empty_fallback":
                     logger.warning(
                         "summary filter: event=FILTER_EMPTY_FALLBACK | "
@@ -1747,26 +2041,30 @@ class SummaryGenerator:
     async def _deliver_plain(self, chat_id: int, text: str, *,
                              title: str = "",
                              correlation_id: str | None = None,
-                             ctx=None) -> None:
+                             ctx=None) -> bool:
         """§105/S6: plain-доставка OFF — единое ядро (не-streaming).
 
         Стриминг (``SUMMARY_STREAMING_ENABLED``) — существующий механизм без
         изменений (§5.4, ортогонален §105); иначе — детерминированный адаптер
         ``document_from_plain_text`` (0 LLM) → ``_publish_plain_document``
         (``<b>title</b>`` + абзацы, ``parse_mode="HTML"``, чанки по абзацам).
+        ASAP-2 контракт (d): OFF/legacy-вызывающий передаёт send-кап
+        ``limits.max_summary_parts`` (hot → env); возвращает published.
         """
+        max_chunks = resolve_legacy_max_parts()
         if hot.get("flags.summary_streaming_enabled",
                    settings.SUMMARY_STREAMING_ENABLED):
-            await self._send_streaming(chat_id, text)   # Epic 60 (65.6, T-474)
-            return
+            await self._send_streaming(chat_id, text, max_chunks=max_chunks,
+                                       run_id=correlation_id)
+            return True   # Epic 60 (65.6, T-474)
         from services.summary_article_formatter import (
             document_from_plain_text,
         )
         source = downgrade_rich_to_plain(text) if looks_rich(text) else text
         document = document_from_plain_text(source, title=title)
-        await self._publish_plain_document(
+        return await self._publish_plain_document(
             chat_id, document, correlation_id=correlation_id, ctx=ctx,
-            reason="plain")
+            reason="plain", max_chunks=max_chunks)
 
     async def _resolve_cover_style_text(self, chat_id: int) -> str:
         """T-2509 (hotfix4): авторский «Стиль обложки» — scope-корректно.
@@ -1794,7 +2092,7 @@ class SummaryGenerator:
     async def _deliver_rich(self, chat_id: int, text: str,
                             cover_prompt: str,
                             correlation_id: str | None = None,
-                            ctx=None, *, title: str = "") -> None:
+                            ctx=None, *, title: str = "") -> bool:
         """F6/S6 (ADR-1023-6 §3.4, ADR-1026-11 D2): OFF rich-доставка.
 
         Текст OFF конвертируется детерминированным адаптером
@@ -1803,16 +2101,19 @@ class SummaryGenerator:
         ``<p>``). Тихий фолбэк для пользователя сохраняется: любая ошибка
         генерации/отправки → plain-путь; в лог — WARNING с классом причины и
         провайдером (R17-safe), без дампа промпта. §104 (модель/провайдер/
-        ключ/промпт/порядок) не меняется.
+        ключ/промпт/порядок) не меняется. ASAP-2 контракт (d): сам rich-путь
+        капом НЕ ограничен (sendRichMessage ≠ sendMessage); plain-даунгрейд
+        этого legacy-контура получает кап ``limits.max_summary_parts``.
         """
         from services.summary_article_formatter import (
             document_from_plain_text,
         )
         source = downgrade_rich_to_plain(text) if looks_rich(text) else text
         document = document_from_plain_text(source, title=title)
-        await self._publish_rich_document(
+        return await self._publish_rich_document(
             chat_id, document, cover_prompt,
-            correlation_id=correlation_id, ctx=ctx)
+            correlation_id=correlation_id, ctx=ctx,
+            max_chunks=resolve_legacy_max_parts())
 
     async def _send_text_with_retry(self, chat_id: int, text: str, **kwargs):
         """§105/D5: одна попытка отправки текста + РОВНО 1 retry на
@@ -1851,14 +2152,17 @@ class SummaryGenerator:
 
     async def _plain_fallback(self, chat_id: int, document, *,
                               correlation_id: str | None = None,
-                              ctx=None, reason: str = "rich_error") -> None:
+                              ctx=None, reason: str = "rich_error",
+                              max_chunks: int | None = None) -> bool:
         """Даунгрейд rich → plain (Сценарий Б) и §105-доставка (единое ядро).
 
         Review iter1 (Medium-2): решение о даунгрейде — по ФАКТИЧЕСКОМУ
         содержимому (``looks_rich``), а не по ``response_mode``: rich-разметка
         могла появиться и в ``serious``/``casual`` (нарушение R11 моделью), и
         тогда она обязана быть снята на plain-канале. Принимает §99-документ
-        (ON/новый OFF-путь) либо legacy-текст (совместимость)."""
+        (ON/новый OFF-путь) либо legacy-текст (совместимость).
+        ``max_chunks`` — ASAP-2 контракт (d): legacy-вызывающий передаёт резолв
+        parts, hybrid-вызывающий — None (полный текст)."""
         if isinstance(document, dict):
             doc = document
         else:
@@ -1868,11 +2172,13 @@ class SummaryGenerator:
                 document_from_plain_text,
             )
             doc = document_from_plain_text(str(source or ""))
-        await self._publish_plain_document(
+        return await self._publish_plain_document(
             chat_id, doc, correlation_id=correlation_id, ctx=ctx,
-            reason=reason)
+            reason=reason, max_chunks=max_chunks)
 
-    async def _send_streaming(self, chat_id: int, text: str) -> None:
+    async def _send_streaming(self, chat_id: int, text: str, *,
+                              max_chunks: int | None = None,
+                              run_id: str | None = None) -> None:
         """Epic 60 (65.6, T-474): стриминг ТОЛЬКО саммари — placeholder «…» →
         инкрементальные edit_text с накоплением. Темп: приват 1.0с / группа
         3.0с (get_chat; не узнали тип — консервативный групповой).
@@ -1880,7 +2186,11 @@ class SummaryGenerator:
         повтор, затем drop чанка (финальный edit гарантирует полноту);
         «message is too long» → break в финал/остаток; прочая ошибка edit →
         деградация в _send_chunked. Остаток >4096 — НОВЫМИ сообщениями без
-        дублей (сумма без потерь)."""
+        дублей (сумма без потерь).
+        ``max_chunks`` (ASAP-2 контракт (d)) — Legacy-кап sendMessage-частей:
+        placeholder считается первой частью, остаток ограничивается
+        ``max_chunks − 1`` новыми сообщениями (WARN ``LEGACY_CHUNKS_CAPPED``
+        при срезе, без молчаливой потери)."""
         interval = hot.get("limits.summary_stream_edit_interval_group", settings.SUMMARY_STREAM_EDIT_INTERVAL_GROUP)
         try:
             chat = await self.bot.get_chat(chat_id)
@@ -1923,7 +2233,8 @@ class SummaryGenerator:
                     logger.warning(
                         "summary: streaming edit failed — degrade | chat_id=%s",
                         chat_id)
-                    return await self._send_chunked(chat_id, text)
+                    return await self._send_chunked(
+                        chat_id, text, max_chunks=max_chunks, run_id=run_id)
             await asyncio.sleep(interval)
         try:                                # финальный edit — полнота (без «…»)
             if acc[:4096] != last_text.rstrip("…"):
@@ -1932,11 +2243,22 @@ class SummaryGenerator:
             logger.warning("summary: streaming final edit failed | chat_id=%s",
                            chat_id)
         if len(text) > 4096:                # остаток — НОВЫМИ сообщениями (без дублей)
-            await self._send_chunked(chat_id, text[4096:])
+            await self._send_chunked(
+                chat_id, text[4096:],
+                # placeholder-сообщение = первая sendMessage-часть legacy-капа.
+                max_chunks=(None if max_chunks is None
+                            else max(0, int(max_chunks) - 1)),
+                run_id=run_id)
         logger.info("summary: streaming done | chat_id=%s", chat_id)
 
-    async def _send_chunked(self, chat_id: int, text: str) -> None:
-        chunks = self._chunk_by_whitespace(text, 4096)
+    async def _send_chunked(self, chat_id: int, text: str, *,
+                            max_chunks: int | None = None,
+                            run_id: str | None = None) -> None:
+        # ASAP-2 контракт (d): legacy plain-доставка отправляет ≤ parts чанков
+        # (избыток — WARN LEGACY_CHUNKS_CAPPED, не молча); hybrid — None.
+        chunks = _cap_legacy_chunks(
+            self._chunk_by_whitespace(text, 4096), max_chunks,
+            run_id=run_id, chat_id=chat_id)
         if not chunks:
             logger.warning("summary: empty final text | chat_id=%s", chat_id)
             return

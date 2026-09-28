@@ -273,7 +273,16 @@ class TestGroups8424:
         # Раунд 10.4 (B-1): flags.chat_context_budgets_enabled — рендер-группа
         # limits_chat_budgets (блок «Прямой чат: бюджеты токенов»; категория
         # и per_chat-семантика ключа НЕ меняются) — единственное исключение.
-        NON_PREFIXED = {"flags.chat_context_budgets_enabled": "limits_chat_budgets"}
+        # ASAP-2 round1027 (§13/контракт (j), ADR-1027-10 D11): ключи
+        # keys.summary_l1_api_key / keys.summary_l2_api_key рендерятся в
+        # СЕКЦИИ Hybrid группой models_summary_hybrid (модель+ключ одного
+        # слота — одна карточка «Model/Provider»); категория keys и секция
+        # HYBRID не меняются — санкционированное исключение префикса.
+        NON_PREFIXED = {
+            "flags.chat_context_budgets_enabled": "limits_chat_budgets",
+            "keys.summary_l1_api_key": "models_summary_hybrid",
+            "keys.summary_l2_api_key": "models_summary_hybrid",
+        }
         for s in REGISTRY.values():
             if s.category is not None:
                 assert s.group in ids, f"нет группы {s.group} для {s.pg_key}"
@@ -312,7 +321,11 @@ class TestGroups8424:
         # бюджетов, вкладка mod_budgets) → GROUPS 98.
         # 10.26 (A5/ADR-1026-17 D9): +1 — limits_images (секция «Лимиты»,
         # вкладка mod_images) → GROUPS 101.
-        assert len(GROUPS) == 102
+        # ASAP-2 round1027 (ADR-1027-10 D11): +5 — flags_summary_hybrid,
+        # models_summary_hybrid, limits_summary_hybrid, flags_summary_legacy,
+        # limits_summary_legacy (секции Hybrid/Legacy в mod_summary, §13)
+        # → GROUPS 107.
+        assert len(GROUPS) == 107
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -396,10 +409,13 @@ class TestGroups8424:
         # 10.26 (S5/ADR-1026-7 D3): prompts +1 (Писатель L2).
         # 10.26 (A5/ADR-1026-17 D9): limits +1 (IMAGE_DAILY_LIMIT,
         # группа limits_images, вкладка mod_images) → limits 199.
-        # content без изменений (phantom content.dynamic_cliche_list удалён —
-        # F4 хранит клише в PG-таблице, ключ был бы «мёртвой ручкой»).
-        assert counts == {"prompts": 23, "models": 56, "keys": 20,
-                          "limits": 199, "flags": 72, "reactions": 39,
+        # ASAP-2 round1027 (mca-asap2-summary-pipeline, §13/§14, ADR-1027-10
+        # D11): Δ каталога +16/+5 групп — models +4 (слоты L1/L2 base_url/
+        # model_name), keys +2 (ключи L1/L2, secret), limits +6 (hybrid
+        # context ×2 + длина ×4), flags +4 (hybrid enabled/repair/retry +
+        # legacy fallback) → models 60 / keys 22 / limits 205 / flags 76.
+        assert counts == {"prompts": 23, "models": 60, "keys": 22,
+                          "limits": 205, "flags": 76, "reactions": 39,
                           "content": 5, "memory": 34}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

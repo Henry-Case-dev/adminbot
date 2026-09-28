@@ -71,7 +71,9 @@ from services.summary_prompts import (
     PREV_SUMMARY_EDITOR_R1023_F6,
     PREV_SUMMARY_EDITOR_R1025_HOTFIX4,
     PREV_SUMMARY_L1_CLUSTERIZER_R1026,
+    PREV_SUMMARY_L1_CLUSTERIZER_R1027,
     PREV_SUMMARY_L2_WRITER_R1026,
+    PREV_SUMMARY_L2_WRITER_R1027,
     PREV_SUMMARY_SYSTEM_PROMPT,
     SUMMARY_EDITOR_SYSTEM_PROMPT,
     SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT,
@@ -161,15 +163,23 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # Ступень — правило маркировки целевого сообщения (TARGET_INSTRUCTION_BLOCK);
     # идемпотентна: до сида — skip (сид ConfigCache поставит канон), текущий
     # канон → no-op, кастом юзера не перезаписывается.
+    # 10.27 (ASAP-2, ADR-1027-10 D1/kонтракт (l)): ступень R1026→R1027
+    # (many-to-many §95-v2, §7 «извлечение смысла»): оба прежних канона
+    # (база S3 без блока и канон S3+блок) ведут на новый канон R1027.
     "prompts.summary_l1_clusterizer_system_prompt": [
-        (PREV_SUMMARY_L1_CLUSTERIZER_R1026, SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT)],
+        (PREV_SUMMARY_L1_CLUSTERIZER_R1026, SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT),
+        (PREV_SUMMARY_L1_CLUSTERIZER_R1027, SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT)],
     # 10.26 (S5, ADR-1026-7 D4; ADR-1013-3): новый PG-ключ L2-Писателя
     # (`prompts.summary_l2_writer_system_prompt`; слепок PREV — база канона S5
     # без правила маркировки целевого сообщения). Ступень идемпотентна: до сида
     # — skip (сид ConfigCache поставит канон), текущий канон → no-op, кастом юзера
     # не перезаписывается.
+    # 10.27 (ASAP-2, контракт (l)/T-3942): ступень R1026→R1027 (блок ДЛИНА/
+    # ДЕДУПЛИКАЦИЯ + авторы/ответы пакета v2; числа — в length-блоке user-
+    # контента, НЕ в каноне).
     "prompts.summary_l2_writer_system_prompt": [
-        (PREV_SUMMARY_L2_WRITER_R1026, SUMMARY_L2_WRITER_SYSTEM_PROMPT)],
+        (PREV_SUMMARY_L2_WRITER_R1026, SUMMARY_L2_WRITER_SYSTEM_PROMPT),
+        (PREV_SUMMARY_L2_WRITER_R1027, SUMMARY_L2_WRITER_SYSTEM_PROMPT)],
 }
 # prompts.extract_system_prompt НЕ входит (EXTRACT_PROMPT не трогаем)
 
@@ -214,14 +224,18 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # 10.26 (S3, ADR-1026-5 D4): откат снимает ключ L1 на слепок базы канона S3
     # (без правила маркировки целевого сообщения). L1 не врезан в живой путь,
     # поэтому откат значения поведения не меняет; ключ в PG не удаляется.
+    # 10.27 (ASAP-2): откат ступени R1027 ведёт на НЕПОСРЕДСТВЕННО прежний
+    # канон PREV_*_R1027 (полный канон R1026 с блоком маркировки) — снимается
+    # только шаг many-to-many/смысла, стек ступеней сохраняется (ADR-1013-3).
     "prompts.summary_l1_clusterizer_system_prompt":
-        (SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT, PREV_SUMMARY_L1_CLUSTERIZER_R1026),
+        (SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT, PREV_SUMMARY_L1_CLUSTERIZER_R1027),
     # 10.26 (S5, ADR-1026-7 D4): откат снимает ключ L2 на слепок базы канона S5
     # (без правила маркировки целевого сообщения). L2 врезан за kill-switch
     # (default OFF), поэтому откат значения поведения не меняет; ключ в PG не
     # удаляется.
+    # 10.27 (ASAP-2): откат ступени R1027 — на канон R1026 (PREV_*_R1027).
     "prompts.summary_l2_writer_system_prompt":
-        (SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1026),
+        (SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1027),
 }
 
 
