@@ -2,7 +2,7 @@
 
 The model occasionally breaks SYSTEM_PROMPT rule 3: long dashes and «ёлочки»
 slip into the answer. This module normalizes the raw generate() output BEFORE
-_ensure_shiz_postfix. Adding a rule = adding one (old, new) pair to REPLACEMENTS.
+postprocessing. Adding a rule = adding one (old, new) pair to REPLACEMENTS.
 """
 
 from services.reply_postprocess import strip_reasoning_tags
