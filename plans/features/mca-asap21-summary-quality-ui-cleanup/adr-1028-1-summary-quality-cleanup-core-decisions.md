@@ -1,6 +1,7 @@
 # ADR-1028-1 — Quality cleanup: удаление S1/S2, §99 v1.1 (emphasis_spans/finale), deterministic Rich cut, typography normalizer
 
-- **Статус:** Accepted (Step 2 @Architect, 28.09.2026)
+- **Статус:** Accepted (Step 2 @Architect, 28.09.2026; прод-валидация reconcile @Architect, 29.09.2026: деплой 2.58.34 VERIFIED — прод HEAD `8a0fa6c`, feat `219a55c`; live acceptance §43 подтверждена владельцем → gate §46 DONE)
+- **История статуса:** Proposed → Accepted (Step 2, 28.09.2026 — именно эта редакция прошла ревью и деплой, sha256 `0F7CE3DE…164E458`) → подтверждён reconcile (29.09.2026; решения D1–D6 не менялись — прод-факты: prefilter-удаление в live, deterministic cut `rich_cut=1`, `emphasis_spans=33` на live-публикации, finale опционален `finale_present=0`, PL §44 desktop/mobile PASS)
 - **Фича:** `mca-asap21-summary-quality-ui-cleanup` (эпик memory-context-autonomy, ASAP-трек)
 - **Тип:** backend-архитектура + форматный контракт + presentation-layer frontend
 - **Baseline:** прод 2.58.33 (`config/settings.py:2184`); каталог F8: 489/107/105/21

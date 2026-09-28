@@ -2,7 +2,7 @@
 
 - **Feature-ID:** `mca-asap21-summary-quality-ui-cleanup` (T-3994…T-3997, §42 ТЗ владельца)
 - **Дата деплоя:** 2026-09-28, окно 15:27–17:20 UTC (локально Владивосток 03:27–05:20, +12)
-- **Статус: BLOCKED** — единственный незакрытый компонент §46 gate: **§43 LIVE SUMMARY / content-ревью текста статьи** (структурная часть §43 VERIFIED на live-публикации; см. §6.3 — точная причина и пути закрытия). Остальные компоненты — VERIFIED: PROD DEPLOY ✓, DESKTOP PL ✓, MOBILE PL ✓, POST-DEPLOY LOGS ✓. Деплой задеплоен и здоров; фича остаётся ACTIVE до закрытия §43.
+- **Статус: ✅ DONE (gate §46 закрыт, reconcile @Architect 29.09.2026)** — изначально BLOCKED по единственному компоненту **§43 LIVE SUMMARY / content-ревью текста статьи** (структурная часть §43 была VERIFIED на live-публикации; см. §6.3 — точная причина); владелец подтвердил live acceptance §43 визуальной проверкой статьи `message_id=1117427` (путь 1 §9) — фиксация в §12. Остальные компоненты — VERIFIED: PROD DEPLOY ✓, DESKTOP PL ✓, MOBILE PL ✓, POST-DEPLOY LOGS ✓.
 - **Разрешение:** @Reviewer `Approved` (review.md round1028, 0 блокеров, binding `9ABE432F…`) + санкция владельца §42 («DevOps обязан задеплоить», общий саннкцион инкрементальных деплоев в current_task.md).
 
 ## 1. Связка с ревью (binding) и preflight
@@ -124,4 +124,10 @@
 
 - **Deployed:** prod HEAD `8f9e366` (feat `219a55c`), APP_VERSION **2.58.34**, MainPID 1926730 (с 16:04 UTC), health 200.
 - **Чужие файлы MCA-волны не закоммичены** (§2); волна продолжает жить незакоммиченной.
-- Компоненты §46 gate: REVIEWER APPROVED ✓ · PROD DEPLOY ✓ · **LIVE SUMMARY — частично: структура ✓ / контент ⏳ → BLOCKED (§6.3/§9)** · DESKTOP PL ✓ · MOBILE PL ✓ · POST-DEPLOY LOGS ✓.
+- Компоненты §46 gate: REVIEWER APPROVED ✓ · PROD DEPLOY ✓ · **LIVE SUMMARY ✓ (структура ✓ по событиям §6.1–6.2 / контент — подтверждение владельца, §12)** · DESKTOP PL ✓ · MOBILE PL ✓ · POST-DEPLOY LOGS ✓ → **gate §46 закрыт: фича DONE (§12)**.
+
+## 12. Закрытие §43 (reconcile @Architect, 29.09.2026)
+
+- Владелец визуально подтвердил содержание live-статьи `message_id=1117427` (PERMsoc) — **путь 1 из §9**: реальные имена / не обрывок / грамматика / двачерский голос / отсутствие `**` в напечатанном тексте / cut раскрывается в клиенте. Компонент `§43 content-verification` **закрыт**; документированный путь закрытия исполнен.
+- **Итог gate §46:** REVIEWER APPROVED ✓ · PROD DEPLOY ✓ · LIVE SUMMARY ✓ · DESKTOP PL ✓ · MOBILE PL ✓ · POST-DEPLOY LOGS ✓ → **фича DONE**; фича-папка готова к архивации @PM (T-3998) с фиксацией настоящего дополнения.
+- Запись выполнена в рамках reconcile @Architect (только docs; код/тесты/прод не менялись; секреты не цитировались — R17). Первоначальный статус BLOCKED (§43) и полный деплой-нарратив §1–§11 сохранены как история.
