@@ -34,7 +34,7 @@
 > **correction retry ПОСЛЕ deterministic repair**; many-to-many членство больше
 > НЕ error (§5, `current_task.md:2128`) и unknown id чинится локально (§6,
 > `current_task.md:2157`). Partial не удаляется — он **перерабатывается** в новой
-> фиче: `plans/features/mca-asap2-summary-pipeline/tasks.md` → **T-3947**
+> фиче: `plans/archive/mca-asap2-summary-pipeline-round1027/tasks.md` → **T-3947**
 > (+ контракты T-3944/T-3945, тесты T-3947/T-3958). История и текст задач ниже
 > сохранены как есть; диагноз в `evidence.md` §8–§14 остаётся валидным.
 
