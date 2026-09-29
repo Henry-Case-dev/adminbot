@@ -1,0 +1,241 @@
+- generic [ref=f4e3]:
+  - banner [ref=f4e4]:
+    - generic [ref=f4e5]: Статус
+    - button "⛶" [ref=f4e7] [cursor=pointer]
+    - generic [ref=f4e8]:
+      - button "Выбор контекста" [ref=f4e87] [cursor=pointer]:
+        - generic [ref=f4e88]: Л
+        - generic [ref=f4e89]: Личные сообщения
+        - generic [ref=f4e90]: ЛС
+        - generic [aria-hidden] [ref=f4e91]: ▾
+      - group [ref=f4e92]:
+        - generic "ID" [ref=f4e93] [cursor=pointer]
+      - generic [ref=f4e9]:
+        - generic [ref=f4e10]: Reviewer
+        - generic [ref=f4e11]: user
+  - main [ref=f4e12]:
+    - group "Сводка логов" [ref=f4e13]:
+      - 'button "Ошибки: 0 Предупреждения: 0 ↓ к логам" [ref=f4e94] [cursor=pointer]':
+        - generic [ref=f4e15]: "Ошибки: 0"
+        - generic [ref=f4e16]: "Предупреждения: 0"
+        - text: ↓ к логам
+    - generic [ref=f4e17]:
+      - generic [ref=f4e18]:
+        - generic [ref=f4e19]:
+          - generic [aria-hidden] [ref=f4e20]: 
+          - generic [ref=f4e21]: Бот
+          - generic [ref=f4e95]: starting
+        - generic [ref=f4e96]: "Последняя активность: —"
+      - generic [ref=f4e24]:
+        - generic [ref=f4e25]:
+          - generic [ref=f4e26]:
+            - generic [ref=f4e27]:
+              - generic [aria-hidden] [ref=f4e28]: 
+              - text: Сердцебиение
+            - generic [ref=f4e29]: критично
+            - generic [ref=f4e30]: бот не работает
+          - 'img "Сердцебиение сервера: критично — бот не работает" [ref=f4e99] [cursor=pointer]'
+        - generic [ref=f4e33]:
+          - generic [ref=f4e34]:
+            - generic [aria-hidden] [ref=f4e35]: 
+            - text: Бот
+          - generic [ref=f4e100]:
+            - generic [ref=f4e101]: "Аптайм: 6м 3с"
+            - generic [ref=f4e102]:
+              - text: "Состояние:"
+              - generic [ref=f4e103]: starting
+            - generic [ref=f4e104]: "Ошибок с момента старта: 0"
+        - generic [ref=f4e37]:
+          - generic [ref=f4e38]:
+            - generic [aria-hidden] [ref=f4e39]: 
+            - text: Сервер
+          - generic [ref=f4e105]: Метрики относятся ко всему серверу, а не к выбранному чату.
+          - generic [ref=f4e106]:
+            - generic [ref=f4e108]:
+              - generic [ref=f4e109]: CPU
+              - generic [ref=f4e110]: 8.1%
+            - generic [ref=f4e114]:
+              - generic [ref=f4e115]: RAM
+              - generic [ref=f4e116]: 23.2 ГБ / 31.4 ГБ (74%)
+            - generic [ref=f4e120]:
+              - generic [ref=f4e121]: Диск
+              - generic [ref=f4e122]: 911.6 ГБ / 952.8 ГБ (95.7%)
+            - generic [ref=f4e125]: "Аптайм: 6м 3с"
+            - generic [ref=f4e126]: "Load: 0.04 / 0.01 / 0.01"
+            - generic [ref=f4e127]: PID 38372 · RSS 314.2 МБ · потоков 20
+      - generic [ref=f4e41]:
+        - generic [ref=f4e42]:
+          - generic [ref=f4e43]:
+            - generic [aria-hidden] [ref=f4e44]: 
+            - text: Доступность ключей
+          - button "⟳" [ref=f4e45] [cursor=pointer]
+        - generic [ref=f4e128]:
+          - generic [ref=f4e129]:
+            - generic [ref=f4e130]: Основные функции ИИ
+            - generic [ref=f4e131]:
+              - generic [ref=f4e132]:
+                - generic [ref=f4e133]: Основная модель
+                - generic [ref=f4e134]: apinet.cloud · deepseek-v4-flash
+              - generic [ref=f4e135]: configured
+              - generic [ref=f4e137]: —
+              - generic [ref=f4e138]:
+                - generic [ref=f4e139]: Ошибка
+                - text: HTTP 403
+            - generic [ref=f4e140]:
+              - generic [ref=f4e141]:
+                - generic [ref=f4e142]: Фолбэк-модель
+                - generic [ref=f4e143]: api.deepseek.com · deepseek-v4-flash
+              - generic [ref=f4e144]: configured
+              - generic [ref=f4e146]: —
+              - generic [ref=f4e147]:
+                - generic [ref=f4e148]: Ошибка
+                - text: HTTP 401
+          - generic [ref=f4e149]:
+            - generic [ref=f4e150]: Транскрибация
+            - generic [ref=f4e151]:
+              - generic [ref=f4e152]:
+                - generic [ref=f4e153]: Транскрибация
+                - generic [ref=f4e154]: api.groq.com · whisper-large-v3
+              - generic [ref=f4e155]: configured
+              - generic [ref=f4e157]: —
+              - generic [ref=f4e158]:
+                - generic [ref=f4e159]: OK
+                - text: HTTP 200
+            - generic [ref=f4e160]:
+              - generic [ref=f4e161]:
+                - generic [ref=f4e162]: Транскрибация (резерв)
+                - generic [ref=f4e163]: openrouter.ai · openrouter/free
+              - generic [ref=f4e164]: configured
+              - generic [ref=f4e166]: —
+              - generic [ref=f4e167]:
+                - generic [ref=f4e168]: OK
+                - text: HTTP 200
+          - generic [ref=f4e169]:
+            - generic [ref=f4e170]: Саммаризация видео
+            - generic [ref=f4e171]:
+              - generic [ref=f4e172]:
+                - generic [ref=f4e173]: Саммаризация видео
+                - generic [ref=f4e174]: openrouter.ai · nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
+              - generic [ref=f4e175]: configured
+              - generic [ref=f4e177]: —
+              - generic [ref=f4e178]:
+                - generic [ref=f4e179]: OK
+                - text: HTTP 200
+          - generic [ref=f4e180]:
+            - generic [ref=f4e181]: Эмбеддинги
+            - generic [ref=f4e182]:
+              - generic [ref=f4e183]:
+                - generic [ref=f4e184]: Основная модель памяти
+                - generic [ref=f4e185]: apinet.cloud · gemini-embedding-001
+              - generic [ref=f4e186]: configured
+              - generic [ref=f4e188]: —
+              - generic [ref=f4e189]:
+                - generic [ref=f4e190]: OK
+                - text: HTTP 200
+            - generic [ref=f4e191]:
+              - generic [ref=f4e192]:
+                - generic [ref=f4e193]: Запасная модель памяти
+                - generic [ref=f4e194]: generativelanguage.googleapis.com · gemini-embedding-001
+              - generic [ref=f4e195]: configured
+              - generic [ref=f4e197]: —
+              - generic [ref=f4e198]:
+                - generic [ref=f4e199]: OK
+                - text: HTTP 200
+      - generic [ref=f4e47]:
+        - generic [ref=f4e48]:
+          - generic [ref=f4e49]:
+            - generic [aria-hidden] [ref=f4e50]: 
+            - text: История доступности ключей
+          - button "⟳ Обновить" [ref=f4e51] [cursor=pointer]
+        - table [ref=f4e200]:
+          - rowgroup [ref=f4e201]:
+            - row [ref=f4e202]:
+              - columnheader "Модуль" [ref=f4e203]
+              - columnheader "Модель" [ref=f4e204]
+              - columnheader "Код" [ref=f4e205]
+              - columnheader "Статус" [ref=f4e206]
+          - rowgroup [ref=f4e207]:
+            - row [ref=f4e208]:
+              - cell "Запасная модель памяти" [ref=f4e209]
+              - cell "gemini-embedding-001" [ref=f4e210]
+              - cell "200" [ref=f4e211]
+              - cell [ref=f4e212]
+            - row [ref=f4e214]:
+              - cell "Основная модель памяти" [ref=f4e215]
+              - cell "gemini-embedding-001" [ref=f4e216]
+              - cell "200" [ref=f4e217]
+              - cell [ref=f4e218]
+            - row [ref=f4e220]:
+              - cell "Фолбэк" [ref=f4e221]
+              - cell "deepseek-v4-flash" [ref=f4e222]
+              - cell "401" [ref=f4e223]
+              - cell [ref=f4e224]
+            - row [ref=f4e226]:
+              - cell "Прямые ответы" [ref=f4e227]
+              - cell "deepseek-v4-flash" [ref=f4e228]
+              - cell "403" [ref=f4e229]
+              - cell [ref=f4e230]
+            - row [ref=f4e232]:
+              - cell "Распознавание речи" [ref=f4e233]
+              - cell "whisper-large-v3" [ref=f4e234]
+              - cell "200" [ref=f4e235]
+              - cell [ref=f4e236]
+            - row [ref=f4e238]:
+              - cell "Распознавание речи (резерв)" [ref=f4e239]
+              - cell "openrouter/free" [ref=f4e240]
+              - cell "200" [ref=f4e241]
+              - cell [ref=f4e242]
+            - row [ref=f4e244]:
+              - cell "Саммаризация видео" [ref=f4e245]
+              - cell "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free" [ref=f4e246]
+              - cell "200" [ref=f4e247]
+              - cell [ref=f4e248]
+      - generic [ref=f4e53]:
+        - generic [ref=f4e54]:
+          - generic [ref=f4e55]:
+            - generic [aria-hidden] [ref=f4e56]: 
+            - text: Логи
+          - combobox "Уровень логов" [ref=f4e57]:
+            - option "ERROR+WARNING" [selected]
+            - option "ERROR"
+            - option "WARNING"
+            - option "INFO"
+            - option "DEBUG"
+            - option "CRITICAL"
+            - option "ALL"
+          - button "Саммари" [ref=f4e58] [cursor=pointer]
+          - button "Обновить" [ref=f4e59] [cursor=pointer]
+          - generic [ref=f4e60]: показано 0 из 0
+          - button "Копировать всё" [ref=f4e61] [cursor=pointer]
+        - generic [ref=f4e62]:
+          - generic [ref=f4e63]: ERROR 0
+          - generic [ref=f4e64]: WARN 0
+        - generic [ref=f4e65]:
+          - textbox "Фильтр trace_id" [ref=f4e66]:
+            - /placeholder: trace_id / run_id
+          - textbox "Фильтр chat_id" [ref=f4e67]:
+            - /placeholder: chat_id
+          - textbox "Фильтр component" [ref=f4e68]:
+            - /placeholder: component
+          - textbox "Фильтр reason_code" [ref=f4e69]:
+            - /placeholder: reason_code
+          - button "Связанные события" [ref=f4e70] [cursor=pointer]
+        - generic [ref=f4e71]: Логов нет.
+  - navigation "Нижняя навигация" [ref=f4e73]:
+    - button "Статус" [ref=f4e74] [cursor=pointer]:
+      - generic [aria-hidden] [ref=f4e75]: 
+    - button "Справка" [ref=f4e77] [cursor=pointer]:
+      - generic [aria-hidden] [ref=f4e78]: 
+    - button "ИИ" [ref=f4e253] [cursor=pointer]:
+      - generic [aria-hidden] [ref=f4e254]: 
+    - button "Ещё" [ref=f4e256] [cursor=pointer]:
+      - generic [aria-hidden] [ref=f4e257]: 
+  - menu [aria-hidden] [ref=f4e80]:
+    - menuitem [ref=f4e259] [cursor=pointer]:
+      - generic [aria-hidden] [ref=f4e260]: 
+      - generic [ref=f4e261]: Память
+    - generic [ref=f4e82]:
+      - generic [ref=f4e83]: R
+      - generic [ref=f4e84]:
+        - generic [ref=f4e85]: Reviewer
+        - text: user
