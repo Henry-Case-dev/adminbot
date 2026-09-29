@@ -48,6 +48,9 @@ logger = logging.getLogger(__name__)
 
 IMMUTABLE_PATTERNS = ("imported_history_*.jsonl",)
 DB_BACKUP_PATTERNS = ("local_database_*.db", "memory_rebuild_*.db")
+# L-MCA14-1: pre-migration копии (`pre_migration_*.db`) ротируются ОТДЕЛЬНО
+# (ровно 1), чтобы не смешиваться с daily-бэкапами и не копиться по апгрейду.
+MIGRATION_BACKUP_PATTERNS = ("pre_migration_*.db",)
 FACTS_PATTERNS = ("facts_*.txt",)
 
 # Жёсткий deny-list по имени: любые архивы/дампы истории сообщений.
@@ -287,6 +290,31 @@ def prune_db_backups(directory, *, keep: int = 1) -> list[str]:
                         old.name)
         except OSError:
             logger.warning("[disk_retention] db backup unlink failed | "
+                           "name=%s", old.name)
+    return removed
+
+
+def prune_migration_backups(directory, *, keep: int = 1) -> list[str]:
+    """L-MCA14-1: держать `keep` новейших `pre_migration_*.db`.
+
+    Отдельная ротация (не `prune_db_backups`): иначе вызов при миграции
+    сносил бы daily-бэкапы (`local_database_*`/`memory_rebuild_*`), а сами
+    pre-migration копии накапливались бы по одному на каждый апгрейд."""
+    if not _retention_enabled():
+        return []
+    base = Path(directory)
+    if not base.is_dir():
+        return []
+    keep = max(1, int(keep or 1))
+    removed: list[str] = []
+    for old in _newest_last(_collect(base, MIGRATION_BACKUP_PATTERNS))[:-keep]:
+        try:
+            old.unlink()
+            removed.append(str(old))
+            logger.info("[disk_retention] migration backup rotated out | "
+                        "name=%s", old.name)
+        except OSError:
+            logger.warning("[disk_retention] migration backup unlink failed | "
                            "name=%s", old.name)
     return removed
 

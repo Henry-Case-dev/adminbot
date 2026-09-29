@@ -35,13 +35,18 @@ chat_lifecycle_router = Router(name="chat_lifecycle")
 
 _store = None          # ChatLoreStore (DI из bot.py)
 _bot_id = None         # bot.id (DI из bot.py; None → сравнение отключено)
+_db = None             # SQLite DatabaseService (DI из bot.py; MCA-03 D6)
 
 
-def setup_chat_lifecycle(store, bot_id: int | None = None):
-    """Called from bot.py to inject dependencies (прецедент setup_presence)."""
-    global _store, _bot_id
+def setup_chat_lifecycle(store, bot_id: int | None = None, db=None):
+    """Called from bot.py to inject dependencies (прецедент setup_presence).
+
+    `db` (SQLite) — аддитивно для MCA-03 (регистрация `chat_id_migrations` при
+    подтверждённом `migrate_to_chat_id`); без него handler работает как прежде."""
+    global _store, _bot_id, _db
     _store = store
     _bot_id = bot_id
+    _db = db
 
 
 def _is_bot_user(user) -> bool:
@@ -159,6 +164,20 @@ async def on_chat_migrated(message: types.Message):
         "[chat_lifecycle] chat migrated | old=%s | new=%s",
         old_chat_id, new_chat_id)
     try:
+        # MCA-03 (D6/REQ-MCA03-06): явный mapping chat_id по подтверждённым
+        # метаданным Telegram (`migrate_to_chat_id` сервисного сообщения).
+        # Отдельно от PG chat_links (SQLite canonical identity для MCA-03).
+        if _db is not None:
+            try:
+                from services import message_identity as _mi
+                await _mi.register_chat_id_migration(
+                    _db, old_chat_id=old_chat_id, new_chat_id=new_chat_id,
+                    evidence="telegram:migrate_to_chat_id")
+            except Exception:
+                logger.warning(
+                    "[chat_lifecycle] chat_id_migration record failed — "
+                    "fail-open | old=%s new=%s", old_chat_id, new_chat_id,
+                    exc_info=True)
         if _store is None:
             return UNHANDLED
         await _store.add_link(old_chat_id, new_chat_id)

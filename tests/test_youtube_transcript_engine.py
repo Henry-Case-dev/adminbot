@@ -598,8 +598,11 @@ class TestYtdlpPrimary:
         assert _CapturingApi.last_proxy_config is not None
 
     @pytest.mark.asyncio
-    async def test_empty_settings_no_ytdlp_proxy_keys(self, tmp_path):
-        """#8: пустые настройки → opts БЕЗ proxy/cookiefile."""
+    async def test_empty_settings_no_ytdlp_proxy_keys(self, tmp_path, monkeypatch):
+        """#8 (MCA-02 OFF — паритет baseline): пустые настройки → opts БЕЗ
+        proxy/cookiefile (egress-guard отключён рубильником)."""
+        from services import mca_gates
+        monkeypatch.setattr(mca_gates, "egress_guard_enabled", lambda: False)
         filepath = _json3_file(
             tmp_path,
             [{"tStartMs": 1000, "dDurationMs": 1000, "segs": [{"utf8": "текст"}]}],
@@ -614,7 +617,10 @@ class TestYtdlpPrimary:
 
     @pytest.mark.asyncio
     async def test_empty_settings_no_transcript_api_kwargs(self, monkeypatch):
-        """#8 (D319): пустые настройки → YouTubeTranscriptApi БЕЗ proxy_config."""
+        """#8 (D319, MCA-02 OFF): пустые настройки → YouTubeTranscriptApi БЕЗ
+        proxy_config (паритет baseline)."""
+        from services import mca_gates
+        monkeypatch.setattr(mca_gates, "egress_guard_enabled", lambda: False)
         _FakeYDL.extract_error = RuntimeError("boom")
 
         class _Api(_CapturingApi):
@@ -791,10 +797,15 @@ class TestProxyUrlWithCredentials:
         assert (parts.username, parts.password) == ("Ab_12-Cd", "Zx_-90")
 
     def test_empty_proxy_no_ytdlp_proxy_key(self, monkeypatch):
+        """MCA-02 OFF — без egress-обвязки; паритет baseline."""
+        from services import mca_gates
+        monkeypatch.setattr(mca_gates, "egress_guard_enabled", lambda: False)
         _mock_settings(monkeypatch, proxy="")
         assert "proxy" not in YouTubeTranscriptEngine()._ytdlp_opts()
 
     def test_empty_proxy_no_transcript_api_proxies(self, monkeypatch):
+        from services import mca_gates
+        monkeypatch.setattr(mca_gates, "egress_guard_enabled", lambda: False)
         _mock_settings(monkeypatch, proxy="")
         assert YouTubeTranscriptEngine()._transcript_proxy_config() is None
 

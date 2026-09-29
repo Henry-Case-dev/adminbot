@@ -97,9 +97,19 @@ class ChatConcurrencyPool:
         async with self._guard:
             n = self._current_n()
             slot = self._slots.get(chat_id)
-            if slot is None or slot.n != n:
+            if slot is None:
                 slot = _Slot(asyncio.Semaphore(n), n)
                 self._slots[chat_id] = slot
+            elif slot.n != n:
+                # MCA-01 §5.2 (T-3739): смена concurrency применяется ТОЛЬКО
+                # после безопасного drain — когда на старом семафоре нет
+                # держателей (sem._value == slot.n) и нет ожидающих
+                # (pending == 0). Иначе параллельно жили бы старый и новый
+                # семафоры сверх разрешённой ёмкости. Пока drain не достигнут —
+                # работаем на старом N (пере-проверка на следующем обращении).
+                if slot.pending == 0 and slot.sem._value == slot.n:
+                    slot = _Slot(asyncio.Semaphore(n), n)
+                    self._slots[chat_id] = slot
             slot.pending += 1
             if len(self._slots) > self._max_entries:
                 self._evict(keep_chat_id=chat_id)
@@ -126,25 +136,39 @@ class ChatConcurrencyPool:
     async def try_acquire(self, chat_id: int,
                           timeout: float | None = None) -> _Permit | None:
         """Слот чата в течение timeout секунд (None = ждать без таймаута).
-        Успех → _Permit (release в finally вызывающего); таймаут → None."""
+        Успех → _Permit (release в finally вызывающего); таймаут → None.
+
+        MCA-01 §5.2 (T-3738): `pending` снимается в `finally` на ВСЕХ путях —
+        успех, таймаут и `CancelledError` (отмена ожидания слотом). Раньше
+        снятие было только в `except TimeoutError` → при отмене счётчик
+        `pending` утекал и слот навсегда выпадал из ленивой чистки."""
         slot = await self._get_slot(chat_id)
+        acquired = False
         try:
             if timeout is not None:
                 async with asyncio.timeout(timeout):
                     await slot.sem.acquire()
             else:
                 await slot.sem.acquire()
+            acquired = True
         except (asyncio.TimeoutError, TimeoutError):
-            self._drop_pending(slot)
             return None
-        self._drop_pending(slot)
+        finally:
+            self._drop_pending(slot)
+        if not acquired:
+            return None
         return _Permit(slot.sem)
 
     async def acquire(self, chat_id: int) -> _Permit:
-        """Ждать слот чата без таймаута (прежняя семантика async with lock)."""
+        """Ждать слот чата без таймаута (прежняя семантика async with lock).
+
+        MCA-01 §5.2 (T-3738): `pending` снимается в `finally` — включая отмену
+        ожидания (`CancelledError`), когда permit не выдан."""
         slot = await self._get_slot(chat_id)
-        await slot.sem.acquire()
-        self._drop_pending(slot)
+        try:
+            await slot.sem.acquire()
+        finally:
+            self._drop_pending(slot)
         return _Permit(slot.sem)
 
     # ── Интроспекция для тестов/диагностики ──

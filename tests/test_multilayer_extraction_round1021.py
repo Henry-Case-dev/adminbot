@@ -276,19 +276,29 @@ class TestMultilayerPipeline:
         assert llm.worker_roles == ["background", "background"]
         memes = await _memes(db)
         assert [m["fact"] for m in memes] == ["повелитель грибов"]
-        # person_fact и копипаста/шутка/чужое имя в досье НЕ пишутся
+        # MCA-04a FIX п.3 (A86): валидированный person_fact сохраняется как
+        # ЛИЧНЫЙ факт (`unconfirmed` + provenance: subject/attribution/канал),
+        # а не как мем/портрет; до `confirmed` не повышается.
         cursor = await db.db.execute(
-            "SELECT COUNT(*) AS c FROM graph_facts WHERE chat_id = ? "
-            "AND fact LIKE '%Питере%'", (CHAT_ID,))
-        assert (await cursor.fetchone())["c"] == 0
+            "SELECT status, attribution_method, provenance_channel FROM "
+            "graph_facts WHERE chat_id = ? AND fact LIKE '%Питере%'", (CHAT_ID,))
+        pf = await cursor.fetchall()
+        assert len(pf) == 1
+        assert pf[0]["status"] == "unconfirmed"
+        assert pf[0]["attribution_method"] == "third_party"
+        assert pf[0]["provenance_channel"] == "dossier_layer_a"
 
     @pytest.mark.asyncio
     async def test_layer_b_sees_only_filtered_input(self, db, monkeypatch):
         _flag(monkeypatch, multilayer=True)
         llm = FakeLLM(sequence=[_LAYER_A_OK, _LAYER_B_OK])
         worker = _worker(db, llm)
+        # MCA-04a FIX п.5/D-MCA04A-1: окно из 2 строк, чтобы row-bound
+        # `evidence [1,2]` кандидата был валиден (границы = строки окна).
         await worker._classify_dossier_safe(
-            CHAT_ID, ["[ts] Никита: я из Питера"], _rows("Никита", "Вася"))
+            CHAT_ID, ["[ts] Никита: я из Питера",
+                      "[ts] Никита: работаю в IT"],
+            _rows("Никита", "Вася"))
         layer_b_prompt = llm.calls[1][1]["content"]
         assert "Никита: живёт в Питере" in layer_b_prompt
         assert "повелитель грибов" in layer_b_prompt
@@ -644,7 +654,7 @@ class TestPortraitPersistence:
         after = await _schema_objects(db)
         assert before == after
         cursor = await db.db.execute("PRAGMA user_version")
-        assert int((await cursor.fetchone())[0]) == 12
+        assert int((await cursor.fetchone())[0]) == 19
 
     @pytest.mark.asyncio
     async def test_manual_override_priority_in_payload(self, db):

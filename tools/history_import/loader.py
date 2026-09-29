@@ -21,6 +21,7 @@ Dry-run (`dry_run=True`) — только парсинг + статы (B5-ауд
 (unit='msgs'); оценка total по прочитанным байтам — ETA на больших файлах.
 """
 import dataclasses
+import hashlib
 import logging
 import os
 import time
@@ -30,19 +31,64 @@ import aiosqlite
 from tools.history_import import checkpoints
 from tools.history_import.parser import (
     BadTimestampError,
+    detect_export_id,
     normalize_message,
     parse_items,
 )
+from services import mca_gates
+from services.message_identity import message_content_hash
 
 logger = logging.getLogger(__name__)
 
 _BUSY_TIMEOUT_MS = 5000
+# Legacy-namespace существующих (backfill v16) импортных строк: сохраняем для
+# совместимости; НОВЫЕ импорты получают per-dataset namespace (см. ниже).
+_LEGACY_IMPORT_NAMESPACE = "legacy_import_v1"
+
+
+def _dataset_namespace(path: str) -> str:
+    """Per-import namespace (ADR-1027-4 D2, B-MCA03-1).
+
+    Экспортные record-id (``messages.item.id``) стабильны внутри чата, но
+    пересекаются между разными экспортами. Общий литерал ``legacy_import_v1`` +
+    ``UNIQUE (namespace, local_record_id)`` терял бы вхождения второго экспорта.
+    Namespace выводится из идентичности партии: ``id`` шапки экспорта +
+    отпечаток файла (abspath+size) — стабилен для повторного импорта того же
+    файла и различает даже экспорты с одинаковой шапкой."""
+    try:
+        export_id = detect_export_id(path)
+    except Exception:
+        export_id = None
+    try:
+        size = os.path.getsize(path)
+    except OSError:
+        size = 0
+    digest = hashlib.sha256(
+        f"{os.path.abspath(path)}|{size}".encode("utf-8")).hexdigest()[:16]
+    tag = str(export_id) if export_id is not None else "na"
+    return f"import:{tag}:{digest}"
 
 _INSERT_SQL = (
     "INSERT OR IGNORE INTO smart_messages "
     "(user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
     "is_forward, forward_source, tg_message_id, import_key) "
     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)"
+)
+# MCA-03 (ADR-1027-4 D2/D3): импорт с namespace/source record, датой события
+# и reply_to_kind='export'; `timestamp` сохранён как есть (дата события).
+_INSERT_SQL_IDENTITY = (
+    "INSERT OR IGNORE INTO smart_messages "
+    "(user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
+    "is_forward, forward_source, tg_message_id, import_key, caption, sent_at, "
+    "ingested_at, sent_at_source, source_kind, namespace, source_record_id, "
+    "content_hash, reply_to_kind, message_state, current_revision) "
+    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
+    "'active', 1)"
+)
+_SOURCE_RECORD_SQL = (
+    "INSERT OR IGNORE INTO message_source_records "
+    "(message_id, namespace, local_record_id, tg_message_id, chat_id, "
+    "source_kind, observed_at) VALUES (?, ?, ?, NULL, ?, 'import', ?)"
 )
 _FTS_INSERT_SQL = "INSERT INTO smart_messages_fts(rowid, text) VALUES (?, ?)"
 
@@ -105,17 +151,46 @@ async def _flush_batch(conn, fr: FileResult, buffer: list[dict],
                        path: str, est_total: int | None,
                        chat_id: int) -> None:
     """Батч в одной транзакции: INSERT smart_messages (+FTS при rowcount==1)
-    + чекпоинт + commit (spec §3.3). F7: чекпоинт ключуется (path, chat_id)."""
+    + чекпоинт + commit (spec §3.3). F7: чекпоинт ключуется (path, chat_id).
+
+    MCA-03 (ADR-1027-4 D2/D3): при `MCA_MESSAGE_IDENTITY_ENABLED` (default ON)
+    пишутся namespace (из `msg["namespace"]`)/source record/дата события/
+    reply_to_kind; OFF — точный legacy-INSERT (паритет baseline)."""
+    identity_on = mca_gates.message_identity_enabled()
+    now = int(time.time())
     for msg in buffer:
-        row = (msg["user_id"], msg["chat_id"], msg["text"], msg["reply_to_id"],
-               msg["timestamp"], msg["media_type"], msg["author_name"],
-               msg["is_forward"], msg["forward_source"], msg["import_key"])
-        cursor = await conn.execute(_INSERT_SQL, row)
+        if identity_on:
+            namespace = msg.get("namespace") or _LEGACY_IMPORT_NAMESPACE
+            content_hash = msg.get("content_hash")
+            if content_hash is None and (msg["text"] or msg.get("caption")):
+                content_hash = message_content_hash(msg["text"],
+                                                    msg.get("caption"))
+            row = (msg["user_id"], msg["chat_id"], msg["text"],
+                   msg["reply_to_id"], msg["timestamp"], msg["media_type"],
+                   msg["author_name"], msg["is_forward"],
+                   msg["forward_source"], msg["import_key"],
+                   msg.get("caption"), msg.get("sent_at"), now,
+                   msg.get("sent_at_source"), msg.get("source_kind") or "import",
+                   namespace, msg.get("source_record_id"), content_hash,
+                   msg.get("reply_to_kind"))
+            cursor = await conn.execute(_INSERT_SQL_IDENTITY, row)
+        else:
+            row = (msg["user_id"], msg["chat_id"], msg["text"],
+                   msg["reply_to_id"], msg["timestamp"], msg["media_type"],
+                   msg["author_name"], msg["is_forward"],
+                   msg["forward_source"], msg["import_key"])
+            cursor = await conn.execute(_INSERT_SQL, row)
         if cursor.rowcount == 1:
             fr.inserted += 1
             if msg["text"]:
                 await conn.execute(_FTS_INSERT_SQL, (cursor.lastrowid,
                                                      msg["text"]))
+            if identity_on and msg.get("source_record_id"):
+                ns = msg.get("namespace") or _LEGACY_IMPORT_NAMESPACE
+                await conn.execute(
+                    _SOURCE_RECORD_SQL,
+                    (cursor.lastrowid, ns, msg["source_record_id"],
+                     chat_id, now))
         else:
             fr.duplicates += 1
     await checkpoints.mark(conn, path, chat_id, fr.read, est_total or fr.read,
@@ -126,16 +201,22 @@ async def _flush_batch(conn, fr: FileResult, buffer: list[dict],
 
 async def load_file(conn, path: str, target_chat: int, *,
                     batch_size: int = 500, dry_run: bool = False,
-                    progress=None) -> FileResult:
-    """Один файл: потоковый разбор + батч-запись (+FTS) + чекпоинт.
+                    progress=None,
+                    namespace: str | None = None) -> FileResult:
+    """Один файл: потоковый разбор + батч-запись (+FTS) + чекпойнт.
 
     conn — соединение aiosqlite; при dry_run conn может быть None (чистая
     статистика без записи). Структурная ошибка файла (битый JSON/обрыв) →
-    стоп файла с ошибкой и сохранённым чекпоинтом (повторный `--resume`
-    безопасен — INSERT OR IGNORE; spec §3.3/edge 4)."""
+    стоп файла с ошибкой и сохранённым чекпойнтом (повторный `--resume`
+    безопасен — INSERT OR IGNORE; spec §3.3/edge 4).
+
+    `namespace=None` → per-dataset namespace файла (`_dataset_namespace`);
+    явный namespace используется всеми записями файла (override)."""
     fr = FileResult(path=path)
     started = time.monotonic()
     file_size = os.path.getsize(path)
+    if namespace is None:
+        namespace = _dataset_namespace(path)
     reader = _CountingReader(path)
     buffer: list[dict] = []
     est_total: int | None = None
@@ -174,6 +255,7 @@ async def load_file(conn, path: str, target_chat: int, *,
             if msg["text"]:
                 fr.with_text += 1
             msg["chat_id"] = target_chat
+            msg["namespace"] = namespace
             buffer.append(msg)
             if progress is not None:
                 progress.update(1)
@@ -230,11 +312,16 @@ async def import_history_fts(db_path: str, files: list[str],
                              batch_size: int = 500, reset: bool = False,
                              dry_run: bool = False,
                              no_vacuum: bool = False,
-                             progress=None) -> dict:
+                             progress=None,
+                             namespace: str | None = None) -> dict:
     """FTS-этап по файлам в ПЕРЕДАННОМ порядке (порядок = приоритет дедупа:
     «свежий первым» задаёт вызывающий — CLI). Идемпотентен (INSERT OR IGNORE
-    по import_key); --reset — чистый старт (сброс чекпоинтов). Возвращает
-    словарь-отчёт (files, inserted, duplicates, …, vacuumed)."""
+    по import_key); --reset — чистый старт (сброс чекпойнтов). Возвращает
+    словарь-отчёт (files, inserted, duplicates, …, vacuumed).
+
+    `namespace=None` (default) → у КАЖДОГО файла свой per-dataset namespace
+    (B-MCA03-1: пересечение record-id между экспортами не теряет provenance);
+    явный `namespace` — единый override для всех файлов."""
     started = time.monotonic()
     results: list[FileResult] = []
     conn = None
@@ -253,7 +340,7 @@ async def import_history_fts(db_path: str, files: list[str],
         for path in files:
             fr = await load_file(conn, path, target_chat,
                                  batch_size=batch_size, dry_run=dry_run,
-                                 progress=progress)
+                                 progress=progress, namespace=namespace)
             results.append(fr)
     finally:
         if conn is not None:

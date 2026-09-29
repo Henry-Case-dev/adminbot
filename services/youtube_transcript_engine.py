@@ -27,6 +27,7 @@ import tempfile
 from typing import Awaitable, Callable
 
 from config.settings import build_ytdlp_base_opts, settings
+from services import safe_fetch
 
 try:
     from youtube_transcript_api import YouTubeTranscriptApi
@@ -107,6 +108,13 @@ class YouTubeTranscriptEngine:
         on_retry(attempt, _MAX_CASCADE_RETRIES) → sleep(backoff) → повтор;
         максимум _MAX_CASCADE_RETRIES ретраев. Перманентный фейл ОБОИХ →
         немедленный raise (0 ретраев). on_retry=None — ретраи без уведомлений."""
+        # MCA-02 (ADR-1027-5 D4): поднять loopback egress-guard (медиа-подпроцесс
+        # и transcript-api ходят через него; OFF → legacy).
+        try:
+            await safe_fetch.ensure_egress_guard()
+        except Exception:      # fail-open: guard не должен рвать транскрипцию
+            logger.warning("[youtube engine] egress guard unavailable",
+                           exc_info=True)
         ytdlp_exc: BaseException | None = None
         api_exc: BaseException | None = None
         for attempt in range(1, _MAX_CASCADE_RETRIES + 2):        # 1..5
@@ -248,6 +256,9 @@ class YouTubeTranscriptEngine:
         youtube_ea = dict(base_ea.get("youtube") or {})
         youtube_ea["player_client"] = ["web"]
         opts["extractor_args"] = {"youtube": youtube_ea}
+        # MCA-02 (ADR-1027-5 D4): маршрутизировать yt-dlp через loopback
+        # egress-guard (destination-политика на каждый CONNECT/redirect).
+        safe_fetch.apply_egress_to_ytdlp_opts(opts)
         return opts
 
     def _extract_ytdlp_segments(self, info: dict, video_id: str) -> list[dict]:
@@ -405,6 +416,14 @@ class YouTubeTranscriptEngine:
                     "| exc=%s", _sanitize_log(str(exc))[:200])
                 return None
 
+        # MCA-02 (ADR-1027-5 D4): без отдельного resident-proxy маршрутизируем
+        # transcript-api через loopback egress-guard (destination-политика).
+        guard = safe_fetch.egress_proxy_url()
+        if guard and GenericProxyConfig is not None:
+            try:
+                return GenericProxyConfig(http_url=guard, https_url=guard)
+            except Exception:      # pragma: no cover - защитная ветка
+                return None
         return None  # без прокси
 
     def _fetch_segments(self, video_id: str) -> list[dict]:

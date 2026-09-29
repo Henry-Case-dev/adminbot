@@ -2843,11 +2843,34 @@ class TestHandleDedup:
     throttle/CB/замка и ПЕРЕД сборкой контекста; повтор → сохранённый ответ
     без LLM (или молчание, если в прошлый раз ответа не было)."""
 
+    @pytest.fixture(autouse=True)
+    def _legacy_dedup_policy(self, monkeypatch):
+        """MCA-07 (T-3851): этот класс проверяет ПРЕЖНИЙ text-replay
+        (baseline-паритет) — форсируем гейт ответного кеша OFF. ON-политика
+        проверяется отдельным тестом ниже (`..._on_no_text_replay`)."""
+        monkeypatch.setattr(
+            "services.mca_gates.context_answer_cache_enabled", lambda: False)
+
     @pytest_asyncio.fixture
     async def cache(self, tmp_path):
         c = SmartCache(str(tmp_path / "dedup.db"))
         yield c
         await c.close()                     # L4: не оставлять aiosqlite-хвост
+
+    @pytest.mark.asyncio
+    async def test_context_policy_on_disables_text_replay(self, fake_time, cache,
+                                                          monkeypatch):
+        """MCA-07 (T-3851, SC-15): ON → прежний text-replay по одному
+        нормализованному query/chat/user ОТКЛЮЧЁН (повтор вызывает LLM снова;
+        update-дедуп — отдельный механизм идентичности)."""
+        monkeypatch.setattr(
+            "services.mca_gates.context_answer_cache_enabled", lambda: True)
+        llm = FakeLLM()
+        service = _make_service(llm=llm, cache=cache)
+        bot = _bot()
+        await service.handle(bot, _message(text="почему?", message_id=1), _user())
+        await service.handle(bot, _message(text="почему?", message_id=2), _user())
+        assert llm.call_count == 2                 # текстового реплея нет
 
     @pytest.mark.asyncio
     async def test_first_occurrence_answers_then_repeat_replays(self, fake_time, cache):

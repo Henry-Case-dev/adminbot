@@ -67,7 +67,7 @@ class TestMigrationV10:
             "AND name='idx_edges_fact_id'")).fetchone())
         assert idx is not None
         assert (await (await db.db.execute(
-            "PRAGMA user_version")).fetchone())[0] == 12
+            "PRAGMA user_version")).fetchone())[0] == 19
 
     @pytest.mark.asyncio
     async def test_legacy_edges_are_migrated_preserving_rows(self, tmp_path):
@@ -106,41 +106,59 @@ class TestMigrationV10:
                 "SELECT fact_id FROM edges WHERE relation_type='rel'")).fetchone()
             assert row is not None and row["fact_id"] is None
             assert (await (await d.db.execute(
-                "PRAGMA user_version")).fetchone())[0] == 12
+                "PRAGMA user_version")).fetchone())[0] == 19
             # idempotent re-init — no-op (guard по table_info)
             await d.close()
             await d.initialize()
             assert (await (await d.db.execute(
                 "SELECT COUNT(*) AS c FROM edges")).fetchone())["c"] == 1
             assert (await (await d.db.execute(
-                "PRAGMA user_version")).fetchone())[0] == 12
+                "PRAGMA user_version")).fetchone())[0] == 19
         finally:
             await d.close()
 
     @pytest.mark.asyncio
     async def test_fts_survives_migration(self, tmp_path):
-        """FTS-хит по id факта валиден после v10 (graph_facts не трогается)."""
+        """FTS-слой по id должен выжить после v10 (graph_facts не пересоздаётся).
+
+        MCA-14 (v13 runner): раннер применяет только шаги `version > current`,
+        поэтому фикстура обязана быть валидной legacy v9-БД (полная база), а
+        не частичной (`edges`-only). Строим её из базовой схемы и фиксируем
+        `user_version = 9`."""
         path = tmp_path / "fts.db"
         conn = sqlite3.connect(str(path))
+        from services.database import DatabaseService
+        conn.executescript(DatabaseService._SCHEMA_SQL)
         conn.executescript(
-            "CREATE TABLE edges (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "CREATE TABLE IF NOT EXISTS nodes (id INTEGER PRIMARY KEY, "
+            "chat_id INTEGER NOT NULL, name TEXT NOT NULL, entity_type TEXT, "
+            "created_at INTEGER NOT NULL DEFAULT 0);"
+            "CREATE TABLE IF NOT EXISTS edges (id INTEGER PRIMARY KEY AUTOINCREMENT, "
             "chat_id INTEGER NOT NULL, source_id INTEGER NOT NULL, "
             "target_id INTEGER NOT NULL, relation_type TEXT NOT NULL, "
             "weight INTEGER NOT NULL DEFAULT 1, "
             "last_updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, "
             "origin TEXT NOT NULL DEFAULT 'chat_history', expires_at INTEGER, "
             "UNIQUE(source_id, target_id, relation_type));"
+            "ALTER TABLE graph_facts ADD COLUMN status TEXT NOT NULL DEFAULT 'confirmed';"
+            "ALTER TABLE graph_facts ADD COLUMN weight REAL NOT NULL DEFAULT 0.5;"
+            "ALTER TABLE graph_facts ADD COLUMN importance REAL NOT NULL DEFAULT 0.0;"
+            "ALTER TABLE graph_facts ADD COLUMN kind TEXT NOT NULL DEFAULT 'fact';"
+            "ALTER TABLE graph_facts ADD COLUMN message_timestamp INTEGER;"
+            "ALTER TABLE graph_facts ADD COLUMN supersedes INTEGER;"
+            "ALTER TABLE graph_facts ADD COLUMN source_ids TEXT;"
+            "ALTER TABLE graph_facts ADD COLUMN belief_meta TEXT;"
+            "ALTER TABLE graph_facts ADD COLUMN last_confirmed_at INTEGER;"
             "PRAGMA user_version = 9;")
         conn.commit()
         conn.close()
-        from services.database import DatabaseService
         d = DatabaseService(str(path))
         await d.initialize()
         try:
-            fid = await d.insert_graph_fact(1, "уникальный факт про бобра",
+            fid = await d.insert_graph_fact(1, "уникальное слово для теста",
                                             "chat_history", None, importance=6)
             found = await d.search_graph_facts_fts(
-                1, '"бобра"*', 5, int(time.time()) + 10)
+                1, '"теста"*', 5, int(time.time()) + 10)
             assert any(r["id"] == fid for r in found)
         finally:
             await d.close()

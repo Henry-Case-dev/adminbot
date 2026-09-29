@@ -156,7 +156,10 @@ from services.summary_memory import (
 from services.summary_xml import escape_xml_text
 from services.target_marking import is_target_row
 from services.token_counter import (
+    append_protected_spans,
     count_tokens,
+    estimation_method,
+    has_protected_spans,
     resolve_chat_limit,
     resolve_context_tokens,
     safe_budget,
@@ -221,6 +224,30 @@ _LORE_HTML_MAX_SINGLE_CHARS = 4096
 # (фикс-кап 300 симв. ДО инжекта), в общем порядке урезания участвует
 # ПОСЛЕДНИМ (после map), при давлении режется целиком.
 _NOSTALGIA_BUDGET_RATIO = 0.02
+# MCA-07 (T-3849, D7): резерв токенов под protected-span-хвост при обрезке
+# (отрицание/ID/дата переносятся, а не теряются).
+_PROTECTED_SPAN_RESERVE_BUDGET = 48
+
+# MCA-07 (T-3851): одноразовый маркер эмиссии `answer_cache_disabled` (не
+# спамим событием на каждое сообщение; R17-safe — только код).
+_answer_cache_disabled_emitted = False
+
+
+def _answer_cache_disabled_notified() -> bool:
+    """True, если событие `answer_cache_disabled` уже эмитировано в процессе."""
+    global _answer_cache_disabled_emitted
+    if _answer_cache_disabled_emitted:
+        return True
+    _answer_cache_disabled_emitted = True
+    return False
+
+
+def _legacy_text_replay_enabled() -> bool:
+    """MCA-07 (T-3851): прежний text-replay активен только при гейте OFF.
+
+    ON (default) → MCA-07 context-keyed политика (legacy-кеш query/chat/user
+    для контекстных ответов отключён); OFF → прежний ответный кеш (baseline)."""
+    return not mca_gates.context_answer_cache_enabled()
 
 # ── F5 (cognition-dashboard-round1013, spec §3.6/F5-Q4): in-memory
 #    accounting последнего собранного контекста + времени инжекта лора.
@@ -305,6 +332,28 @@ _SANDWICH_REMINDER = (
 _PEER_PREFIX_RE = re.compile(
     r"^(?:(?:бот(?:ина|яра|ик)?|@[\w_]+)[,:]?\s+)+", re.IGNORECASE)
 
+# MCA-07 (T-3852, ADR-1027-7 D5/D6): EvidenceBundle в живом пути. Из user-
+# блоков извлекаются только ССЫЛКИ-идентификаторы канонического рендера
+# (`tg:/msg:/fact:`) и ограничения (текущий вопрос) — не сырьё (R17).
+_REF_ID_RE = re.compile(r"(?:tg|msg|fact):\d+")
+_BUNDLE_BLOCK_MAX_REFS = 20
+
+
+def _block_with_tag(blocks, tag: str) -> str:
+    """Первый user-блок, содержащий ``<tag`` (fail-open → "").
+
+    Принимает как список строк (реальный путь), так и пары (kind, text)."""
+    needle = f"<{tag}"
+    for block in blocks or []:
+        if isinstance(block, (tuple, list)) and block:
+            text = str(block[-1])
+        else:
+            text = str(block)
+        if needle in text:
+            return text
+    return ""
+
+
 # ── ASAP-3 (ADR-1028-2 D4/D5): tg-id хелперы episode/middle-контура ─────────
 
 def _tg_id_of_row(row) -> int | None:
@@ -328,6 +377,61 @@ def _tg_id_of_ref(ref: str) -> int | None:
         except ValueError:
             return None
     return None
+
+
+def _inner_tag_text(block: str, tag: str) -> str:
+    """Внутренний текст ``<tag>…</tag>`` (без тега); нет → ""."""
+    match = re.search(rf"<{tag}\b[^>]*>(.*?)</{tag}>",
+                      str(block or ""), re.DOTALL)
+    return match.group(1).strip() if match else ""
+
+
+def _block_lines(block: str) -> list[str]:
+    """Непустые строки блока (bounded — обрезаются вызывающим)."""
+    return [line.strip() for line in str(block or "").splitlines()
+            if line.strip()]
+
+
+def _map_names(block: str) -> list[str]:
+    """Имена из ``<UserResolutionMap>`` (строки ``«имя - uid»`` → имя)."""
+    names: list[str] = []
+    for line in _block_lines(_inner_tag_text(block, "UserResolutionMap")):
+        name = line.split(" - ", 1)[0].strip()
+        if name:
+            names.append(name)
+    return names
+
+
+def _bundle_scoped_slice(bundle) -> str:
+    """Компактный scoped-срез bundle для System2 после tool loop (D6/SC-09).
+
+    Адресат/автор/ветка/ограничения/`context_version` — R17-safe (имена, ID-
+    ссылки, версия). Пусто при ``bundle is None`` или gate OFF (паритет)."""
+    if bundle is None or not mca_gates.evidence_bundle_enabled():
+        return ""
+    parts: list[str] = []
+    if getattr(bundle, "addressee", None):
+        parts.append(f"Адресат: {bundle.addressee}")
+    if getattr(bundle, "author", None):
+        parts.append(f"Автор: {bundle.author}")
+    branch = tuple(getattr(bundle, "branch", ()) or ())
+    if branch:
+        parts.append("Ветка: " + ", ".join(branch[:_BUNDLE_BLOCK_MAX_REFS]))
+    constraints = tuple(getattr(bundle, "constraints", ()) or ())
+    if constraints:
+        parts.append("Ограничения: " + "; ".join(constraints))
+    context_version = getattr(bundle, "context_version", None)
+    if not parts and not context_version:
+        return ""
+    header = "КОНТЕКСТ ДИАЛОГА (не терять):"
+    text = header + (("\n" + "\n".join(parts)) if parts else "")
+    # R17: свободный текст маскируется; context_version — детерминированный
+    # хэш-версия (не секрет), добавляется ПОСЛЕ маскирования.
+    text = redact_secrets(text)
+    if context_version:
+        text += f"\ncontext_version: {context_version}"
+    return text
+
 
 def _format_generated_portrait_block(generated) -> str:
     """F1 (spec §3.2.1): аддитивные блоки карточки `/persona` из
@@ -1434,7 +1538,17 @@ class DirectChatService:
             # payload — сохранённый ответ → повторная отправка; "" — прошлый
             # раз без ответа → молчание; None (первый раз/TTL истёк) — обычный
             # поток. Внутри try/finally: ранний return обязан отпустить замок.
-            if self._cache is not None and hot.get(
+            # MCA-07 (T-3851, ADR-1027-7 D9): при `MCA_CONTEXT_ANSWER_CACHE_
+            # ENABLED` ON прежний text-replay по одному нормализованному
+            # query/chat/user для контекстных ответов ОТКЛЮЧЁН (дедуп одного
+            # Telegram update по (chat_id, tg_message_id) — отдельный механизм
+            # идентичности mca-03, сохраняется). OFF → прежний ответный кеш.
+            answer_cache_policy_on = mca_gates.context_answer_cache_enabled()
+            if answer_cache_policy_on and not _answer_cache_disabled_notified():
+                # L-MCA07-4: отдельная стадия `answer_cache` (не `summary`).
+                _mca_rc.emit_stage_event("answer_cache", "skipped",
+                                         reason_code="answer_cache_disabled")
+            if self._cache is not None and _legacy_text_replay_enabled() and hot.get(
                     "flags.chat_dedup_enabled", settings.CHAT_DEDUP_ENABLED) \
                     and query:
                 dedup_key = hashlib.md5(
@@ -1458,9 +1572,12 @@ class DirectChatService:
                         logger.info("[direct] dedup silence | chat=%s user=%s",
                                     chat_id, target_name)
                     return
+            # MCA-07 (T-3852): исключённые бюджетом блоки → EvidenceBundle.
+            _excluded_blocks: list = []
             user_blocks = await self._build_user_content(
                 chat_id, message, target_name,
-                target_user_id=(user_id or None))
+                target_user_id=(user_id or None),
+                out_excluded=_excluded_blocks)
             # Раунд 9 (T-821/C2(6), фикс-раунд major-1, spec §3.2.3): пре-гейт
             # маркеров ностальгии — принудительный dig ДО генерации, результат
             # в <dig_result> ПЕРЕД <Target_User> (флаг off/нет маркера/нет
@@ -1639,6 +1756,14 @@ class DirectChatService:
                 if _reply_bot and not _force_required:
                     _composer.record_direct_metric(
                         "direct_autonomous_reply_total")
+            # MCA-07 (T-3852, ADR-1027-7 D5/D6/SC-09/SC-10): ЕДИНЫЙ
+            # EvidenceBundle собирается один раз ПОСЛЕ решения (решение
+            # вкладывается в `chosen_intent`) и проходит decision → tools →
+            # synthesis(System2) → формулировку. Ссылается на канонические
+            # ID-ссылки, архив не дублируется; gate OFF → None (паритет).
+            evidence_bundle = await self._build_evidence_bundle(
+                chat_id, message, query, target_name, user_id, user_blocks,
+                excluded=_excluded_blocks, chosen_intent=pre_action)
             # T-619: системный промпт — горячая точка (фолбек код-канона).
             # Раунд 10 (F-7 §4.5): per-chat override (chat_params → глобал →
             # канон) — «Использовать мой» локального админа работает ТОЛЬКО
@@ -1724,6 +1849,9 @@ class DirectChatService:
                                    # даже если модель его вызовет.
                                    image_request_handled=
                                    image_pre_gate_fired)
+            # MCA-07 (T-3852): тот же единственный bundle доступен инструментам
+            # (REUSE: контракт, не второй сборщик; R17 — ссылки/refs).
+            tool_ctx.evidence_bundle = evidence_bundle
             try:
                 async with typing_active(bot, chat_id):
                     if self.tool_router is not None:
@@ -1805,7 +1933,8 @@ class DirectChatService:
                          or coordinator.action == ACTION_TOOL)):
                 synthesized = await self._synthesize_direct_answer(
                     chat_id, query, raw, temperature,
-                    correlation_id=correlation_id)
+                    correlation_id=correlation_id,
+                    bundle=evidence_bundle)
                 if synthesized:
                     # F3 (ADR-1023-3): режим несёт и стиль, и канал доставки.
                     raw, response_mode = synthesized
@@ -1840,6 +1969,13 @@ class DirectChatService:
                 deep_research=(response_mode == "deep_research"))
             if sent_id is not None:
                 answer_text = answer
+                # MCA-07 (T-3852, D11): `context_version`/число исключений —
+                # в наблюдаемость (R17: только версия/числа, без сырья).
+                if evidence_bundle is not None:
+                    _mca_rc.emit_stage_event(
+                        "bundle", "success", chat_id=chat_id,
+                        config_version=evidence_bundle.context_version,
+                        entity_ids=[evidence_bundle.context_version])
                 # D3/T-800: parent = сообщение, на которое бот ответил
                 await self.remember_bot_reply(
                     chat_id, sent_id, answer,
@@ -1852,7 +1988,8 @@ class DirectChatService:
                     self._memorize_direct_reply(
                         chat_id, query, answer, target_name,
                         tg_message_id=getattr(message, "message_id", None),
-                        forward_from=_forward_source_of(message)),
+                        forward_from=_forward_source_of(message),
+                        asker_user_id=(user_id or None)),
                     "direct")
             logger.info("[direct] reply sent | chat=%s user=%s", chat_id, target_name)
             # Epic 53 (62.3.3): успех (в т.ч. фоллбэка) → полный сброс CB.
@@ -1895,7 +2032,8 @@ class DirectChatService:
 
     async def _synthesize_direct_answer(self, chat_id: int, query: str,
                                         raw, temperature,
-                                        correlation_id: str | None = None
+                                        correlation_id: str | None = None,
+                                        bundle=None
                                         ) -> tuple[str, str] | None:
         """Синтезатор тулов → Вербализатор. ``None`` → финал tool-loop.
 
@@ -1907,6 +2045,12 @@ class DirectChatService:
         режим нужен вызывающему, чтобы выбрать канал доставки (deep_research →
         safe-HTML «Летописца»). Роутера третьим вызовом нет: режим едет в
         том же JSON Stage-1.
+
+        MCA-07 (T-3852, ADR-1027-7 D6/SC-09): при переданном `bundle` Stage-1
+        получает scoped-срез ЕДИНОГО EvidenceBundle (адресат/ветка/ограничения/
+        `context_version`) — System2 после tool loop НЕ теряет контекст и НЕ
+        получает только вопрос+tool output. `bundle=None`/gate OFF → прежний
+        Stage-1 (байт-в-байт, паритет).
         """
         try:
             tool_context = redact_secrets(
@@ -1920,6 +2064,10 @@ class DirectChatService:
                 f"ИНСТРУМЕНТЫ (сводка):\n{trace_summary}\n\n"
                 f"ВЫВОДЫ ИНСТРУМЕНТОВ:\n{tool_context}"
             )
+            # MCA-07 D6: scoped-срез bundle не теряется после tool loop.
+            bundle_slice = _bundle_scoped_slice(bundle)
+            if bundle_slice:
+                synth_user = f"{bundle_slice}\n\n{synth_user}"
             synth_messages = [
                 {"role": "system", "content": resolve_prompt(
                     "prompts.direct_chat_synthesizer_system_prompt",
@@ -2038,9 +2186,74 @@ class DirectChatService:
                            settings.SUMMARY_TIMEZONE)
         return format_chat_time(tz_name=tz, fallback_tz=fallback)
 
+    async def _estimate_external_payload_tokens(
+            self, chat_id: int, budget_tokens) -> tuple[int, int, str | None]:
+        """MCA-07 B-MCA07-2 (REQ-MCA07-06/SC-12/A24): консервативная оценка
+        НЕ-user части полного payload для живого бюджета.
+
+        Считает: system/developer-промпт + personality-блок + tools schemas
+        (JSON) — как `external_tokens`; output reserve = доля
+        `CHAT_BUDGET_RESERVE_RATIO` бюджета. Возвращает `(external, reserve,
+        method)`; любая ошибка → `(0, 0, None)` (fail-open → точный legacy-
+        путь бюджета, паритет). Частичный сбой источника не обнуляет остальные.
+        """
+        external = 0
+        try:
+            from services.chat_params import get_chat_param as _cpg
+            try:
+                system_prompt = await _cpg(
+                    chat_id, "prompts.direct_chat_system_prompt",
+                    hot.get("prompts.direct_chat_system_prompt",
+                            CHAT_SYSTEM_PROMPT))
+                external += count_tokens(system_prompt)
+            except Exception:
+                logger.debug("[mca07] payload est: system prompt failed",
+                             exc_info=True)
+            try:
+                persona_enabled = await _cpg(
+                    chat_id, "flags.persona_enabled",
+                    hot.get("flags.persona_enabled", settings.PERSONA_ENABLED))
+                if persona_enabled:
+                    persona = await bot_persona.resolve_bot_persona(chat_id)
+                    traits = await bot_persona.get_traits(
+                        int(getattr(settings, "PERSONA_TRAITS_MAX", 50) or 50))
+                    persona_block = bot_persona.build_persona_prompt_block(
+                        persona, [t.get("text") for t in traits], enabled=True)
+                    if persona_block:
+                        external += count_tokens(persona_block)
+            except Exception:
+                logger.debug("[mca07] payload est: persona failed",
+                             exc_info=True)
+            try:
+                lore_enabled = await _cpg(
+                    chat_id, "flags.lore_compiler_enabled",
+                    hot.get("flags.lore_compiler_enabled",
+                            settings.LORE_COMPILER_ENABLED))
+                from services import image_generation as _img
+                image_enabled = await _img.resolve_module_enabled(chat_id)
+                tools = active_tools(bool(lore_enabled), bool(image_enabled))
+                external += count_tokens(json.dumps(tools, ensure_ascii=False))
+            except Exception:
+                logger.debug("[mca07] payload est: tools schemas failed",
+                             exc_info=True)
+            ratio = hot.get("limits.chat_budget_reserve_ratio",
+                            settings.CHAT_BUDGET_RESERVE_RATIO)
+            try:
+                reserve = max(0, int(int(budget_tokens) * float(ratio)))
+            except (TypeError, ValueError):
+                reserve = 0
+            if external <= 0 and reserve <= 0:
+                return 0, 0, None
+            return external, reserve, estimation_method()
+        except Exception:
+            logger.warning("[mca07] external payload estimate failed — legacy",
+                           exc_info=True)
+            return 0, 0, None
+
     async def _build_user_content(self, chat_id: int, message,
                                   target_name: str,
-                                  target_user_id: int | None = None) -> list[str]:
+                                  target_user_id: int | None = None,
+                                  out_excluded: list | None = None) -> list[str]:
         """Порядок сборки user-контента (Раунд 8, B2/T-791, spec §3.B2) —
         «важное к концу» (FR-22/п.24): map → branch → rag → global → thread →
         target → relations → protected → lore → mood → current → anchors →
@@ -2175,7 +2388,7 @@ class DirectChatService:
                 global_parts=global_parts, target_name=target_name,
                 target_user_id=target_user_id,
                 trigger_message_id=trigger_message_id,
-                out_excluded=None)  # excluded-проводка MCA-07 — вне ASAP-3-релиза
+                out_excluded=out_excluded)
         # Раунд 10.4 (B-2): гейт бюджетов — per-chat резолв (override →
         # hot.get → default; без override — байт-в-байт старое поведение).
         from services.chat_params import get_chat_param as _budget_gate
@@ -2205,8 +2418,19 @@ class DirectChatService:
                         if kind in _uncuttable_kinds)
         await self._check_context_config_invariant(chat_id, budget_tokens,
                                                    fixed_est)
-        return self._apply_context_budget(blocks, budgets_enabled,
-                                          budget_tokens)
+        # MCA-07 B-MCA07-2 (SC-12/A24): полный payload в живом call-site.
+        external_tokens, reserve_tokens, method = 0, 0, None
+        if budgets_enabled and mca_gates.adaptive_context_budget_enabled():
+            external_tokens, reserve_tokens, method = \
+                await self._estimate_external_payload_tokens(chat_id,
+                                                             budget_tokens)
+        return self._apply_context_budget(
+            blocks, budgets_enabled, budget_tokens,
+            external_tokens=(external_tokens or None),
+            reserve_tokens=reserve_tokens,
+            estimation_method=method,
+            out_excluded=out_excluded)
+
     # ── ASAP-3 (round 1028, ADR-1028-2 D3–D7): Direct Context Composer ────
 
     async def _build_global_context_parts(
@@ -2532,7 +2756,8 @@ class DirectChatService:
                 "| chat=%s", chat_id, exc_info=True)
             legacy_blocks = [(kind, text) for kind, text in candidates if text]
             return self._apply_context_budget(
-                legacy_blocks, budgets_enabled, raw_budget)
+                legacy_blocks, budgets_enabled, raw_budget,
+                out_excluded=out_excluded)
 
         # ── H1/D5 (rework round 1): дедуп middle против ФАКТИЧЕСКИ вошедшего
         # tail (после аллокации) — tail-кандидаты шире floor'а, и при слабом
@@ -2740,6 +2965,84 @@ class DirectChatService:
         except Exception:
             return None
 
+    async def _build_evidence_bundle(self, chat_id: int, message, query: str,
+                                     target_name: str, user_id,
+                                     user_blocks: list, *,
+                                     excluded: list | None = None,
+                                     chosen_intent: str | None = None):
+        """MCA-07 (T-3852, ADR-1027-7 D5/D6): собрать ЕДИНЫЙ in-memory
+        `EvidenceBundle` из уже построенных user-блоков (без нового I/O и без
+        второго контракта). Ссылается на канонические ID-ссылки (`tg:/msg:/
+        fact:`), не копирует архив. Gate OFF → ``None`` (точный legacy-путь).
+        Fail-open: ошибка сборки → ``None`` (контекст не рвётся)."""
+        if not mca_gates.evidence_bundle_enabled():
+            return None
+        try:
+            trigger_id = getattr(message, "message_id", None)
+            current_ref = (f"tg:{trigger_id}" if trigger_id is not None
+                           else None)
+            # Ветка reply-графа и evidence-ссылки — из канонического рендера.
+            branch_block = (
+                _block_with_tag(user_blocks, "Conversation_Branch")
+                + "\n"
+                + _block_with_tag(user_blocks, "Conversation_Thread"))
+            branch = tuple(dict.fromkeys(
+                _REF_ID_RE.findall(branch_block)))[:_BUNDLE_BLOCK_MAX_REFS]
+            rag_block = _block_with_tag(user_blocks, "RAG_Memory")
+            evidence_refs = tuple(dict.fromkeys(
+                _REF_ID_RE.findall(rag_block)))[:_BUNDLE_BLOCK_MAX_REFS]
+            current_q = _inner_tag_text(
+                _block_with_tag(user_blocks, "Current_Question"),
+                "Current_Question")
+            constraints = (current_q,) if current_q else ()
+            evidence = []
+            if current_ref:
+                evidence.append(_mca_rc.EvidenceItem(
+                    source_ref_id=None, entity_type="message",
+                    entity_id=current_ref, label="current"))
+            for ref in evidence_refs:
+                entity_type = ("graph_fact" if ref.startswith("fact:")
+                               else "message")
+                evidence.append(_mca_rc.EvidenceItem(
+                    source_ref_id=None, entity_type=entity_type,
+                    entity_id=ref))
+            excluded_items = tuple(
+                _mca_rc.ExcludedItem(
+                    ref=str(item.get("kind") or ""), position=idx,
+                    reason_code=str(item.get("reason_code") or ""),
+                    estimated_tokens=int(item.get("estimated_tokens") or 0))
+                for idx, item in enumerate(excluded or []))
+            # M-MCA07-2: доступные поля §11.2 из уже построенных блоков.
+            mentioned = tuple(dict.fromkeys(
+                _map_names(_block_with_tag(user_blocks, "UserResolutionMap")))
+            )[:_BUNDLE_BLOCK_MAX_REFS]
+            relations = tuple(dict.fromkeys(
+                _block_lines(_block_with_tag(user_blocks, "user_relations")))
+            )[:_BUNDLE_BLOCK_MAX_REFS]
+            recent_actions = (chosen_intent,) if chosen_intent else ()
+            # M-MCA07-1: context_version — над current-revision + веткой +
+            # evidence + summary_revision (derived из running summary).
+            summary_revision = await self._summary_revision(chat_id)
+            selected_refs = ([(current_ref, current_ref)] if current_ref else [])
+            selected_refs += [(ref, None) for ref in (*branch, *evidence_refs)]
+            context_version = _mca_rc.compute_context_version(
+                current_revision=current_ref,
+                selected_refs=selected_refs,
+                summary_revision=summary_revision,
+                policy_version=_mca_rc.RETRIEVAL_POLICY_VERSION)
+            return _mca_rc.EvidenceBundle(
+                trigger=current_ref, current_message_ref=current_ref,
+                current_revision=current_ref,
+                addressee=target_name or None, author=target_name or None,
+                mentioned=mentioned, branch=branch, local_context=(),
+                evidence=tuple(evidence), constraints=constraints,
+                relations=relations, chosen_intent=chosen_intent,
+                recent_actions=recent_actions, context_version=context_version,
+                excluded=excluded_items)
+        except Exception:
+            logger.warning("[mca07] evidence bundle build failed — None",
+                           exc_info=True)
+            return None
 
     async def _check_context_config_invariant(self, chat_id: int,
                                               budget_tokens,
@@ -3029,7 +3332,8 @@ class DirectChatService:
     async def _memorize_direct_reply(self, chat_id: int, query: str,
                                      answer: str, asker_canon: str, *,
                                      tg_message_id: int | None = None,
-                                     forward_from: str = "") -> None:
+                                     forward_from: str = "",
+                                     asker_user_id: int | None = None) -> None:
         """C6: memorize_facts (target_user = канон автора запроса — «кто
         спрашивал», как и было) + пост-фаза: subject/object фактов,
         совпадающие с участниками карты чата, НЕ остаются на спрашивающем —
@@ -3093,12 +3397,133 @@ class DirectChatService:
                 tg_message_id=tg_message_id, forward_from=forward_from)
         if before_id is None:
             return
+        # MCA-04a FIX п.1 (spec §4.6, A85/A86): при включённой субъект-
+        # атрибуции эвристика `_reassign_fact_owners` заменяется валидируемой
+        # атрибуцией (subject_ref + attribution_method + assertion_kind); OFF —
+        # точный legacy-путь (паритет baseline).
+        try:
+            from services import provenance as _prov
+            _attribution_on = _prov.attribution_enabled()
+        except Exception:
+            _attribution_on = False
+        if _attribution_on:
+            try:
+                await self._apply_fact_attribution(
+                    chat_id, asker_canon, before_id,
+                    tg_message_id=tg_message_id,
+                    asker_user_id=asker_user_id)
+            except Exception:
+                logger.warning(
+                    "direct: fact attribution failed — facts stay on asker "
+                    "| chat=%s user=%s", chat_id, asker_canon, exc_info=True)
+            return
         try:
             await self._reassign_fact_owners(chat_id, asker_canon, before_id)
         except Exception:
             logger.warning(
                 "direct: fact owner reassign failed — facts stay on asker "
                 "| chat=%s user=%s", chat_id, asker_canon, exc_info=True)
+
+    async def _apply_fact_attribution(self, chat_id: int, asker_canon: str,
+                                      min_id: int, *,
+                                      tg_message_id: int | None = None,
+                                      asker_user_id: int | None = None
+                                      ) -> None:
+        """MCA-04a FIX п.1 (spec §4.6): валидируемая субъект-атрибуция фактов
+        direct-reply. Заменяет эвристику `_fact_owner_canon`:
+
+        * subject == asker → `self_report`, target_user остаётся asker;
+        * subject — другой участник карты → `third_party`, target_user=subject;
+        * subject не участник (общие знания/новости/этимология) →
+          `world_knowledge`, target_user=NULL (не личный факт спрашивающего);
+        * subject — бот → `bot_self_reply` (отдельно от фактов о людях).
+
+        Для личных (self_report/third_party) пишется `subject_ref_id`
+        (устойчивый ID) и SourceRef-связь. Fail-open на каждый факт."""
+        from services import provenance
+        participants = await self._active_participants(chat_id)
+        canons = {self.aliases.canon_name(name) for _, name
+                  in self._participant_roster([], participants)[0]}
+        canons = {c for c in canons if c}
+        canons.add(asker_canon)
+        try:
+            cursor = await self.db.db.execute(
+                "SELECT id, fact, tg_message_id, origin FROM "
+                "graph_facts WHERE chat_id = ? AND id > ? AND "
+                "origin = 'bot_direct_reply' ORDER BY id ASC",
+                (chat_id, int(min_id)))
+            rows = await cursor.fetchall()
+        except Exception:
+            logger.warning("direct: attribution read failed | chat=%s",
+                           chat_id, exc_info=True)
+            return
+        # B-MCA04A-1: для self-report субъект = говорящий по устойчивому
+        # `user_id` (из апдейта), а не поиск по имени — одноимённые не сливаются.
+        # При отсутствии user_id — fail-open резолв по канон-имени.
+        if asker_user_id:
+            speaker_ref = provenance.user_source_ref(
+                chat_id, int(asker_user_id))
+        else:
+            speaker_ref = await provenance.resolve_subject_ref(
+                self.db, chat_id, asker_canon, canon=self.aliases.canon_name)
+        speaker_uid = (int(speaker_ref.entity_id)
+                       if speaker_ref.resolution == "resolved" else None)
+        for row in rows:
+            fid = int(row["id"])
+            subject = provenance.guess_subject(
+                row["fact"], canons, self.aliases.canon_name)
+            if subject is None:
+                method = "world_knowledge"
+                kind = "world_knowledge"
+            else:
+                method = provenance.classify_attribution_method(
+                    origin=row["origin"], subject=subject, speaker=asker_canon,
+                    canon=self.aliases.canon_name, participants=canons)
+                kind = provenance.classify_assertion_kind(
+                    subject, row["fact"], canon=self.aliases.canon_name,
+                    participants=canons)
+            subject_ref_id = None
+            new_target = None
+            if method in ("self_report", "third_party") \
+                    and kind != "world_knowledge":
+                if method == "self_report" \
+                        and speaker_ref.resolution == "resolved":
+                    # Self-report: субъект — это говорящий (устойчивый ID),
+                    # без поиска по имени (одноимённые не сливаются).
+                    ref = speaker_ref
+                else:
+                    ref = await provenance.resolve_subject_ref(
+                        self.db, chat_id, subject,
+                        canon=self.aliases.canon_name)
+                subject_ref_id = await provenance.resolve_source_ref(
+                    self.db, ref)
+                new_target = subject
+            try:
+                async def _body(conn, _id=fid, _t=new_target,
+                                _sref=subject_ref_id, _m=method, _k=kind,
+                                _sp=speaker_uid):
+                    await conn.execute(
+                        "UPDATE graph_facts SET target_user = ?, "
+                        "subject_ref_id = ?, attribution_method = ?, "
+                        "assertion_kind = ?, speaker_author_id = ?, "
+                        "provenance_channel = COALESCE(provenance_channel, "
+                        "'live') WHERE id = ?",
+                        (_t, _sref, _m, _k, _sp, _id))
+                await self.db.write_transaction(
+                    _body, op_name="direct_fact_attribution")
+                await provenance.record_fact_provenance(
+                    self.db, fact_id=fid, chat_id=chat_id,
+                    origin=row["origin"], target_user=new_target,
+                    subject=subject, assertion_kind=kind,
+                    attribution_method=method, speaker_author_id=speaker_uid,
+                    provenance_channel="live",
+                    tg_message_id=(row["tg_message_id"]
+                                   if row["tg_message_id"] is not None
+                                   else tg_message_id))
+            except Exception:
+                logger.warning(
+                    "direct: fact attribution UPDATE failed — fact stays | "
+                    "fact_id=%s", fid, exc_info=True)
 
     async def _reassign_fact_owners(self, chat_id: int, asker_canon: str,
                                     min_id: int) -> None:
@@ -3131,10 +3556,16 @@ class DirectChatService:
             if owner is None or owner.casefold() == asker_canon.casefold():
                 continue
             try:
-                await self.db.db.execute(
-                    "UPDATE graph_facts SET target_user = ? WHERE id = ?",
-                    (owner, row["id"]))
-                await self.db.db.commit()
+                # MCA-01 §5.1 (T-3736): запись в общую connection идёт через
+                # согласованный single-writer-механизм (write_transaction),
+                # а не прямым `execute + commit`.
+                async def _body(conn, _id=row["id"], _owner=owner):
+                    await conn.execute(
+                        "UPDATE graph_facts SET target_user = ? WHERE id = ?",
+                        (_owner, _id))
+                    return True
+                await self.db.write_transaction(
+                    _body, op_name="direct_fact_owner_reassign")
             except Exception:
                 logger.warning(
                     "direct: fact owner UPDATE failed — fact stays | fact_id=%s",
@@ -3173,7 +3604,13 @@ class DirectChatService:
     # ── Epic 60 Фаза D (66.12, T-490): бюджеты контекста ─────────
 
     def _apply_context_budget(self, blocks: list[tuple[str, str]],
-                              enabled=None, budget_tokens=None) -> list[str]:
+                              enabled=None, budget_tokens=None, *,
+                              external_tokens: int | None = None,
+                              reserve_tokens: int = 0,
+                              estimation_method: str | None = None,
+                              excluded_categories: list | None = None,
+                              out_excluded: list | None = None
+                              ) -> list[str]:
         """Доли CHAT_CONTEXT_BUDGET_TOKENS (Раунд 8, B2/D2/T-791/T-799,
         spec §3.B2): map/rag/global/thread/anchors + новая доля branch (0.03)
         — от effective_budget = max(1, budget − fixed_tokens), где fixed =
@@ -3188,7 +3625,16 @@ class DirectChatService:
         (E1/T-826: участвует последним — маленький фикс-кап до инжекта).
         Выключено → ровно старые потолки секций (64.7).
         Раунд 10.4 (B-2): enabled=None → hot.get (старое поведение, тесты);
-        caller передаёт per-chat резолв из get_chat_param (async-точка)."""
+        caller передаёт per-chat резолв из get_chat_param (async-точка).
+
+        MCA-07 (T-3849, ADR-1027-7 D7): при `MCA_ADAPTIVE_CONTEXT_BUDGET_
+        ENABLED` ON и переданном `external_tokens` учитывается ПОЛНЫЙ payload
+        (system/developer/personality + tools schemas + tool results + overhead
+        = `external_tokens`; output reserve = `reserve_tokens`): бюджет под
+        user-блоки = cap − external − reserve; pre-flight фиксирует заведомое
+        переполнение обязательной части (`context_overflow`/`budget_exceeded`);
+        логируются размер/резерв/исключённые категории/метод. OFF или
+        `external_tokens=None` → прежняя числовая база (паритет baseline)."""
         # T-619: бюджеты — горячие точки (фолбек settings)
         # F4 (10.19, ADR-1019-4 D3): sentinel общего бюджета. `-1` = безлимит →
         # агрегатное усечение НЕ применяется (per-block потолки уже отработали в
@@ -3218,11 +3664,32 @@ class DirectChatService:
             record_context_usage(
                 sum(count_tokens(text) for _, text in blocks), budget, False)
             return [text for _, text in blocks]
+        # MCA-07 D7: полный учёт payload (только при явно переданном
+        # `external_tokens` — иначе прежняя числовая база, паритет).
+        adaptive = mca_gates.adaptive_context_budget_enabled()
+        budget_cap = budget
+        external = max(0, int(external_tokens or 0))
+        reserve = max(0, int(reserve_tokens or 0))
+        count_external = external_tokens is not None
+        if adaptive and count_external:
+            budget = max(1, budget_cap - external - reserve)
         uncuttable = ("target", "relations", "protected", "lore", "current",
                       "sandwich")
         fixed_tokens = sum(count_tokens(text) for kind, text in blocks
                            if kind in uncuttable)
         effective = max(1, budget - fixed_tokens)
+        if adaptive and count_external and \
+                (fixed_tokens + external + reserve) > budget_cap:
+            # Pre-flight: обязательная часть (fixed + external + reserve) уже
+            # не влезает — заведомо переполненный запрос (сигнал на
+            # дополнительный retrieval/суммирование/уточнение).
+            _mca_rc.emit_stage_event(
+                "budget", "failed", reason_code="context_overflow",
+                level="WARN", input_tokens=fixed_tokens + external + reserve)
+            logger.warning(
+                "direct: context overflow (mandatory) | fixed=%d external=%d "
+                "reserve=%d cap=%d — нужен доп. retrieval/суммирование/"
+                "уточнение", fixed_tokens, external, reserve, budget_cap)
 
         def share(key: str, default_ratio: float) -> int:
             return max(1, int(effective * hot.get(key, default_ratio)))
@@ -3321,12 +3788,70 @@ class DirectChatService:
                     progress = True
                 if not progress:
                     break
+        # MCA-07 B-MCA07-2 (pre-flight degradation): обязательная часть
+        # (fixed + external + reserve) не влезает даже после урезания — не
+        # отправляем заведомо переполненный user-контекст: полностью сбрасываем
+        # остаточные cuttable-блоки (сигнал `context_overflow` — выше).
+        if adaptive and count_external and \
+                (fixed_tokens + external + reserve) > budget_cap:
+            for kind, _text in blocks:
+                if kind not in uncuttable and texts.get(kind):
+                    texts[kind] = ""
+                    did_truncate = True
+            total = sum(count_tokens(text) for text in texts.values())
         # F5/§3.6: телеметрия последнего контекста для дашборда (оценка).
         record_context_usage(total, budget, did_truncate)
+        # MCA-07 D7/SC-12/SC-13: логировать фактический размер/резерв/
+        # исключённые категории/метод/причину (R17-safe: только числа/коды).
+        if adaptive and count_external:
+            total_payload = total + external + reserve
+            excluded = [str(c)[:40] for c in (excluded_categories or [])][:20]
+            logger.info(
+                "direct: full payload | total=%d (user=%d external=%d "
+                "reserve=%d) | cap=%d | fixed=%d | method=%s | excluded=%s | "
+                "truncated=%s", total_payload, total, external, reserve,
+                budget_cap, fixed_tokens, estimation_method or "tiktoken",
+                ",".join(excluded) or "-", did_truncate)
+            _mca_rc.emit_stage_event(
+                "budget", "success" if total_payload <= budget_cap else "failed",
+                reason_code=(None if total_payload <= budget_cap
+                             else "budget_exceeded"),
+                input_tokens=total_payload, output_tokens=reserve,
+                config_version=estimation_method)
+        # MCA-07 (T-3852): блоки, целиком вытесненные бюджетом, попадают в
+        # `excluded[]` EvidenceBundle с причиной (R17-safe: kind/числа).
+        if out_excluded is not None and enabled:
+            for kind, text in blocks:
+                if not texts.get(kind):
+                    try:
+                        est = count_tokens(text)
+                    except Exception:      # pragma: no cover - защитная ветка
+                        est = 0
+                    out_excluded.append(
+                        {"kind": kind, "reason_code": "budget_exceeded",
+                         "estimated_tokens": est})
         return [texts[kind] for kind, _ in blocks if texts[kind]]
 
     def _truncate_block(self, block: str, limit_tokens: int,
                         kind: str = "") -> str:
+        """66.12 + MCA-07 (T-3849, D7): обрезка блока по токенам с сохранением
+        ОТКРЫВАЮЩЕГО/закрывающего тегов.
+
+        ON `MCA_ADAPTIVE_CONTEXT_BUDGET_ENABLED` и наличии protected spans
+        (отрицание/ID/дата), которые иначе были бы отрезаны, — резервируем
+        бюджет и переносим их в защищённый хвост (смысл не меняется). OFF или
+        отсутствие spans — байт-в-байт прежнее поведение (`_truncate_block_raw`)."""
+        if (mca_gates.adaptive_context_budget_enabled() and limit_tokens > 0
+                and isinstance(block, str) and has_protected_spans(block)
+                and count_tokens(block) > limit_tokens):
+            reserve = _PROTECTED_SPAN_RESERVE_BUDGET
+            base = self._truncate_block_raw(
+                block, max(1, limit_tokens - reserve), kind)
+            return append_protected_spans(base, block, limit_tokens)
+        return self._truncate_block_raw(block, limit_tokens, kind)
+
+    def _truncate_block_raw(self, block: str, limit_tokens: int,
+                            kind: str = "") -> str:
         """66.12: обрезка блока по токенам с сохранением ОТКРЫВАЮЩЕГО и
         закрывающего тегов. Раунд 8 (D2/T-799): для kind='global' — keep-head
         (тело режется С НАЧАЛА — конспект-голова держится, verbatim-хвост

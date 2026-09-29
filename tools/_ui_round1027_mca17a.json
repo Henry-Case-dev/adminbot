@@ -1,0 +1,32 @@
+{
+ "meta": {
+  "port": 8798,
+  "url": "http://127.0.0.1:8798/web/index.html"
+ },
+ "sc13": {
+  "block_present": true,
+  "text": "Наблюдаемость (mca)\ndegraded: неизвестно\nинциденты: 3 (2 не подтв.)\nошибок: 1 · gaps: 2 · spool: 0\nнет данных: cache, runtime, provenance"
+ },
+ "sc14": {
+  "filters_present": true,
+  "related_present": true,
+  "text": "Связанные события: 2\nERRORLLM_CALLllmfailedrun_ab\nINFOPIPELINE_STARTqueuedqueuedrun_ab"
+ },
+ "failures": [],
+ "sc16": {
+  "changes_calls": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5
+  ]
+ },
+ "sc13b": {
+  "block_present": true,
+  "text": "Наблюдаемость (mca)\ndegraded: неизвестно\nинциденты: 3 (2 не подтв.)\nошибок: неизвестно · gaps: неизвестно · spool: неизвестно\nнет данных: —",
+  "badge_classes": "badge badge-muted badge badge-warn"
+ },
+ "baseline_console_errors": 2
+}

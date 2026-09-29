@@ -73,6 +73,11 @@ class ChatLoreCache:
         self._inflight: dict[int, asyncio.Future] = {}
         self._lock = asyncio.Lock()   # мутации dict'ов (asyncio-защита)
         self._last_warn_mono = 0.0
+        # MCA-01 §5.2 (T-3743/D8): монотонная generation per-chat. Запись в
+        # кэш применяется только если generation не менялась с момента старта
+        # загрузки; `invalidate` инкрементирует её → «устаревшая» загрузка
+        # (завершившаяся ПОСЛЕ инвалидации) НЕ возвращает старое значение.
+        self._generation: dict[int, int] = {}
 
     @property
     def store(self):
@@ -103,14 +108,13 @@ class ChatLoreCache:
                 owner = True
             else:
                 owner = False
+            gen_at_start = self._generation.get(chat_id, 0)
         if not owner:
-            # коалесинг: тот же chat_id уже грузится — ждём владельца
-            try:
-                return await asyncio.shield(inflight)
-            finally:
-                async with self._lock:
-                    if self._inflight.get(chat_id) is inflight:
-                        self._inflight.pop(chat_id, None)
+            # коалесинг: тот же chat_id уже грузится — ждём владельца.
+            # MCA-01 §5.2 (T-3743): ожидающий НЕ снимает чужой inflight —
+            # `finally` только ждёт завершения (снятие/резолв — дело
+            # владельца), иначе коалесинг рвётся и запускается второй SELECT.
+            return await asyncio.shield(inflight)
         profile = None
         try:
             profile = await self._store.get_profile(chat_id)
@@ -125,11 +129,16 @@ class ChatLoreCache:
             async with self._lock:
                 if self._inflight.get(chat_id) is inflight:
                     self._inflight.pop(chat_id, None)
+                stale = self._generation.get(chat_id, 0) != gen_at_start
             if not inflight.done():
-                inflight.set_result(profile)
+                inflight.set_result(None if stale else profile)
         if profile is None:
             return None
         async with self._lock:
+            # D8/T-3743: не воскрешаем устаревшее значение, если за время
+            # загрузки прошла invalidation (generation изменилась).
+            if self._generation.get(chat_id, 0) != gen_at_start:
+                return profile
             self._entries[chat_id] = _Entry(profile, time.monotonic())
         return profile
 
@@ -145,16 +154,26 @@ class ChatLoreCache:
     # ── инвалидация ────────────────────────────────────────────────────────
 
     async def invalidate(self, chat_id: int) -> None:
-        """Удалить ключ кэша (NOTIFY `lore_updated` из B3 / служебно)."""
+        """Удалить ключ кэша (NOTIFY `lore_updated` из B3 / служебно).
+
+        MCA-01 §5.2 (T-3743/D8): инкрементирует generation chat_id — уже
+        начатая (но не завершённая) загрузка не запишет устаревшее значение."""
         async with self._lock:
             self._entries.pop(chat_id, None)
             self._inflight.pop(chat_id, None)
+            self._generation[chat_id] = self._generation.get(chat_id, 0) + 1
 
     async def invalidate_all(self) -> None:
         """Полная очистка (reload/служебные нужды; опционально, §3.4)."""
         async with self._lock:
+            for cid in set(self._entries) | set(self._generation):
+                self._generation[cid] = self._generation.get(cid, 0) + 1
             self._entries.clear()
             self._inflight.clear()
+
+    def generation(self, chat_id: int) -> int:
+        """Текущая generation chat_id (диагностика/тесты)."""
+        return self._generation.get(chat_id, 0)
 
     def size(self) -> int:
         """Число закэшированных профилей (диагностика/тесты)."""

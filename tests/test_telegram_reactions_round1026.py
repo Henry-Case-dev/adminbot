@@ -511,7 +511,7 @@ class TestBoundaries:
 
     def test_canon_twelve_and_version(self):
         assert len(TOOL_CALLING_TOOLS) == 12
-        assert APP_VERSION == "2.58.35"
+        assert APP_VERSION == "2.58.36"
 
     def test_kill_switch_env_only_not_catalog(self):
         assert "REACTION_MECHANICS_ENABLED" not in pc.REGISTRY

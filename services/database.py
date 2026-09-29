@@ -1,14 +1,25 @@
 import asyncio
+import contextlib
+import dataclasses
 import datetime
+import functools
+import hashlib
 import json
 import logging
 import re
 import time
+from typing import Awaitable, Callable
+
 import aiosqlite
 from pathlib import Path
 
 from config.settings import settings
 from services import hot_config as hot
+from services.mca_gates import (
+    schema_migrations_enabled as _schema_migrations_enabled,
+    summary_singleflight_enabled as _summary_singleflight_enabled,
+    tx_ownership_enabled as _tx_ownership_enabled,
+)
 from services.graph_stoplist import (
     METAFACT_PENALTY_IMPORTANCE,
     is_center_stopword,
@@ -58,6 +69,9 @@ _LOCK_BACKOFF = 0.1              # зеркало services/memory_rebuild.py:72
 # In-process счётчик исчерпаний (Δ DDL = 0: метрика = лог + счётчик; сброс
 # процесса = сброс счётчика — событие остаётся в логе).
 _lock_exhausted_total = 0
+# MCA-13 §17.4: in-process счётчик выполненных retry на `locked` (метрика
+# витрины `lock retries`); Δ DDL = 0, сброс процесса = сброс счётчика.
+_lock_retry_total = 0
 
 
 def database_lock_exhausted_total() -> int:
@@ -66,6 +80,13 @@ def database_lock_exhausted_total() -> int:
     Δ DDL = 0 (PG-таблиц/миграций нет). Сброс процесса = сброс счётчика;
     само событие остаётся в логе (`event=database_lock_exhausted`)."""
     return _lock_exhausted_total
+
+
+def database_lock_retry_total() -> int:
+    """MCA-13 §17.4: число выполненных retry на `database is locked`.
+
+    Δ DDL = 0 (in-process счётчик); сброс процесса = сброс счётчика."""
+    return _lock_retry_total
 
 
 def _lock_resilience_enabled() -> bool:
@@ -111,6 +132,459 @@ _SCHEMA_VERSION_GRAPH_FACTS_V12 = 12  # Раунд 10.20 (БЛОК 7.3b, ADR-102
                                 # DEFAULT '' (provenance: ID-политика `tg:` и
                                 # сегмент «Переслано:»). PG — no-op (таблицы
                                 # graph_facts в PG нет). Это ТЕКУЩАЯ цель.
+
+# ── Раунд 10.27 (MCA Wave 0, `mca-14-schema-additive`, ADR-1027-1 D1/D8) ────
+# v13 — книга реестра применённых миграций (`schema_migrations`). Δ DDL
+# волны 0: v13 (mca-14) → v14 (mca-01, `task_jobs`) → v15 (mca-13,
+# `mca_events`). Индексов у книги нет: `version INTEGER PRIMARY KEY` —
+# rowid-алиас, отдельной индексной записи не требует (D5: индексы только
+# по реальным запросам/EXPLAIN). Аддитивность: только `CREATE TABLE IF NOT
+# EXISTS`; старые таблицы/ID не трогаются (D3).
+_SCHEMA_VERSION_SCHEMA_MIGRATIONS = 13
+_SCHEMA_MIGRATIONS_DDL = (
+    "CREATE TABLE IF NOT EXISTS schema_migrations ("
+    "version INTEGER PRIMARY KEY, "
+    "name TEXT NOT NULL, "
+    "applied_at INTEGER NOT NULL, "
+    "checksum TEXT NOT NULL)"
+)
+
+# ── Раунд 10.27 (MCA Wave 0, `mca-01-tx-task-supervisor`, ADR-1027-3 D5/D10) ──
+# v14 — durable-очередь фоновых задач `task_jobs` (рамка §1.1.1). Каждая
+# будущая DDL-фича добавляет СВОЮ строку реестра; эта — `mca-01`. Старые
+# таблицы/ID не трогаются (аддитивно). PG — no-op.
+_SCHEMA_VERSION_TASK_JOBS = 14
+_TASK_JOBS_DDL = (
+    "CREATE TABLE IF NOT EXISTS task_jobs ("
+    "job_id TEXT PRIMARY KEY, "
+    "owner TEXT NOT NULL, "
+    "kind TEXT NOT NULL, "
+    "coalesce_key TEXT, "
+    "payload TEXT, "
+    "status TEXT NOT NULL, "
+    "reason_code TEXT, "
+    "result_ref TEXT, "
+    "error_code TEXT, "
+    "attempt INTEGER NOT NULL DEFAULT 0, "
+    "max_attempts INTEGER NOT NULL DEFAULT 1, "
+    "deadline_at INTEGER, "
+    "heartbeat_at INTEGER, "
+    "generation INTEGER NOT NULL DEFAULT 0, "
+    "fencing_token INTEGER NOT NULL DEFAULT 0, "
+    "created_at INTEGER NOT NULL, "
+    "updated_at INTEGER NOT NULL, "
+    "finished_at INTEGER)"
+)
+# Индексы v14 — по реальным запросам планировщика (T-3740):
+#   * выборка очереди по статусу в порядке создания (recover/next);
+#   * singleflight по активным `coalesce_key` (unique partial).
+_TASK_JOBS_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_task_jobs_status_created "
+    "ON task_jobs (status, created_at)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_task_jobs_coalesce_active "
+    "ON task_jobs (coalesce_key) WHERE coalesce_key IS NOT NULL "
+    "AND status IN ('queued', 'running')",
+)
+
+# ── Раунд 10.27 (MCA Wave 0, `mca-13-event-contract`, ADR-1027-2 D4/D11) ─────
+# v15 — durable-стор терминальных событий `mca_events` + агрегаты (рамка
+# §1.1.2). Единственный store телеметрии; `mca-17a` читает ЕГО, второй не
+# создаётся. Старые таблицы/ID не трогаются. PG — no-op.
+_SCHEMA_VERSION_MCA_EVENTS = 15
+_MCA_EVENTS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_events ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "ts INTEGER NOT NULL, "
+    "level TEXT NOT NULL, "
+    "event_name TEXT NOT NULL, "
+    "outcome TEXT NOT NULL, "
+    "trace_id TEXT, "
+    "operation_id TEXT, "
+    "parent_operation_id TEXT, "
+    "chat_id INTEGER, "
+    "component TEXT, "
+    "stage TEXT, "
+    "reason_code TEXT, "
+    "duration_ms INTEGER, "
+    "attempt INTEGER, "
+    "config_version TEXT, "
+    "model TEXT, "
+    "provider TEXT, "
+    "entity_ids TEXT, "
+    "usage_json TEXT, "
+    "error_json TEXT, "
+    "source_ref_json TEXT)"
+)
+_MCA_EVENT_AGGREGATES_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_event_aggregates ("
+    "fingerprint TEXT PRIMARY KEY, "
+    "count INTEGER NOT NULL DEFAULT 0, "
+    "first_ts INTEGER NOT NULL, "
+    "last_ts INTEGER NOT NULL, "
+    "first_trace_id TEXT, "
+    "first_error_json TEXT)"
+)
+# Индексы v15 — по реальным фильтрам §17.4 (trace/chat+component/reason/ts).
+_MCA_EVENTS_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_events_ts ON mca_events (ts)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_events_trace ON mca_events (trace_id)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_events_chat_component "
+    "ON mca_events (chat_id, component)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_events_reason "
+    "ON mca_events (reason_code)",
+)
+
+# ── Раунд 10.27 (MCA Wave 1, `mca-03-message-identity`, ADR-1027-4 D3/D7/D11) ─
+# v16 — логическая идентичность `(chat_id, tg_message_id)`, время события,
+# роли, версии и mapping `chat_id`. Всё АДДИТИВНО (ALTER ADD COLUMN + CREATE
+# TABLE/INDEX IF NOT EXISTS); старые `id`/`timestamp`/FTS не переименовываются
+# и не удаляются (mca-14 D3). Новые nullable-колонки = честный unknown.
+_SCHEMA_VERSION_MESSAGE_IDENTITY = 16
+# 18 nullable-колонок `smart_messages` (порядок = порядок DDL spec §5).
+_MESSAGE_IDENTITY_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("sent_at", "INTEGER"),
+    ("ingested_at", "INTEGER"),
+    ("edited_at", "INTEGER"),
+    ("sent_at_source", "TEXT"),
+    ("source_kind", "TEXT"),
+    ("namespace", "TEXT"),
+    ("source_record_id", "TEXT"),
+    ("caption", "TEXT"),
+    ("content_hash", "TEXT"),
+    ("media_ref", "TEXT"),
+    ("reply_to_kind", "TEXT"),
+    ("reply_to_author_id", "INTEGER"),
+    ("quote_text", "TEXT"),
+    ("quote_author_id", "INTEGER"),
+    ("forward_author_id", "INTEGER"),
+    ("message_state", "TEXT"),
+    ("state_evidence", "TEXT"),
+    ("current_revision", "INTEGER"),
+)
+# Вхождения сообщений (namespace + stable local record id, НЕ Telegram ID).
+_MESSAGE_SOURCE_RECORDS_DDL = (
+    "CREATE TABLE IF NOT EXISTS message_source_records ("
+    "source_record_id INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "message_id INTEGER NOT NULL, "
+    "namespace TEXT NOT NULL, "
+    "local_record_id TEXT, "
+    "tg_message_id INTEGER, "
+    "chat_id INTEGER NOT NULL, "
+    "source_kind TEXT NOT NULL, "
+    "observed_at INTEGER NOT NULL, "
+    "UNIQUE (namespace, local_record_id))"
+)
+# Версии сообщений (редакция/исчезновение по свидетельству).
+_MESSAGE_REVISIONS_DDL = (
+    "CREATE TABLE IF NOT EXISTS message_revisions ("
+    "revision_id INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "message_id INTEGER NOT NULL, "
+    "chat_id INTEGER NOT NULL, "
+    "tg_message_id INTEGER, "
+    "revision_no INTEGER NOT NULL, "
+    "revision_kind TEXT NOT NULL, "
+    "text TEXT, "
+    "caption TEXT, "
+    "content_hash TEXT NOT NULL, "
+    "evidence_kind TEXT, "
+    "editor_user_id INTEGER, "
+    "created_at INTEGER NOT NULL, "
+    "UNIQUE (message_id, revision_no))"
+)
+# Явный mapping исторических смен chat_id (только по подтверждённым данным).
+_CHAT_ID_MIGRATIONS_DDL = (
+    "CREATE TABLE IF NOT EXISTS chat_id_migrations ("
+    "old_chat_id INTEGER NOT NULL, "
+    "new_chat_id INTEGER NOT NULL, "
+    "evidence TEXT NOT NULL, "
+    "observed_at INTEGER NOT NULL, "
+    "PRIMARY KEY (old_chat_id, new_chat_id))"
+)
+_MESSAGE_IDENTITY_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_message_source_records_message "
+    "ON message_source_records(message_id)",
+    "CREATE INDEX IF NOT EXISTS idx_message_source_records_chat_tg "
+    "ON message_source_records(chat_id, tg_message_id)",
+    "CREATE INDEX IF NOT EXISTS idx_message_revisions_message "
+    "ON message_revisions(message_id, revision_no)",
+)
+# Индексы `smart_messages` по каноническому lookup/окну дат (EXPLAIN сверен:
+# lookup `chat_id+tg_message_id` и `chat_id+sent_at`).
+_SMART_MESSAGES_IDENTITY_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_smart_messages_chat_tg "
+    "ON smart_messages(chat_id, tg_message_id)",
+    "CREATE INDEX IF NOT EXISTS idx_smart_messages_chat_sent "
+    "ON smart_messages(chat_id, sent_at)",
+)
+# Partial UNIQUE — усиливает каноничность live-строк; создаётся ТОЛЬКО при
+# прохождении duplicate pre-check (иначе legacy-дубли сломали бы миграцию).
+_SMART_MESSAGES_LIVE_UNIQUE_DDL = (
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_smart_messages_chat_tg_live_unique "
+    "ON smart_messages(chat_id, tg_message_id) "
+    "WHERE tg_message_id IS NOT NULL AND import_key IS NULL"
+)
+# Backfill bounded/resumable: guard `sent_at_source IS NULL`, батчами.
+_MESSAGE_IDENTITY_BACKFILL_BATCH = 1000
+_LEGACY_IMPORT_NAMESPACE = "legacy_import_v1"
+
+# ── Раунд 10.27 (MCA Wave 1, `mca-04a-provenance-contract`, ADR-1027-6 D1/D10) ─
+# v17 — типизированные ссылки на источники (`mca_source_refs`), связь
+# «объект ↔ источник» (`mca_evidence_links`), статусы происхождения
+# (`mca_provenance_status`) + 6 nullable-колонок `graph_facts`. Всё АДДИТИВНО
+# (`CREATE TABLE/INDEX IF NOT EXISTS` + `ALTER ADD COLUMN` под guard); старые
+# таблицы/ID/FTS/`origin` CHECK не переименовываются и не удаляются (mca-14
+# D3). Новые nullable-колонки = честный unknown. PG — no-op (рамка §1.2.2).
+# Backfill — ТОЛЬКО прямые ссылки (без семантического поиска: иначе ложный
+# `original` — A09/D6).
+_SCHEMA_VERSION_PROVENANCE = 17
+_PROVENANCE_BACKFILL_BATCH = 500
+
+_PROVENANCE_SOURCE_REFS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_source_refs ("
+    "source_ref_id    INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "store            TEXT NOT NULL, "
+    "entity_type      TEXT NOT NULL, "
+    "entity_id        TEXT NOT NULL, "
+    "chat_id          INTEGER, "
+    "revision         TEXT, "
+    "tg_message_id    INTEGER, "
+    "dataset_id       TEXT, "
+    "source_record_id TEXT, "
+    "resolution       TEXT, "
+    "created_at       INTEGER NOT NULL)"
+)
+_PROVENANCE_SOURCE_REFS_INDEX_DDL = (
+    # Дедуп типизированного адреса в (store, entity_type) пространстве.
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_mca_source_refs_dedup "
+    "ON mca_source_refs(store, entity_type, entity_id, "
+    "COALESCE(chat_id, -1), COALESCE(revision, ''))",
+    # Резолв/листинг по чату и типу (subject-scope/диагностика).
+    "CREATE INDEX IF NOT EXISTS idx_mca_source_refs_chat_type "
+    "ON mca_source_refs(chat_id, entity_type)",
+)
+_PROVENANCE_EVIDENCE_LINKS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_evidence_links ("
+    "link_id           INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "subject_ref_id    INTEGER NOT NULL, "
+    "source_ref_id     INTEGER NOT NULL, "
+    "link_type         TEXT NOT NULL, "
+    "method            TEXT NOT NULL, "
+    "verification      TEXT NOT NULL, "
+    "independence      TEXT NOT NULL, "
+    "claim_key         TEXT, "
+    "extractor_version TEXT, "
+    "basis             TEXT, "
+    "checks_json       TEXT, "
+    "established_at    INTEGER NOT NULL, "
+    "created_at        INTEGER NOT NULL)"
+)
+_PROVENANCE_EVIDENCE_LINKS_INDEX_DDL = (
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_mca_evidence_links_dedup "
+    "ON mca_evidence_links(subject_ref_id, source_ref_id, link_type, "
+    "COALESCE(claim_key, ''))",
+    # Сбор evidence по объекту (A09/A88: «из чего получено»).
+    "CREATE INDEX IF NOT EXISTS idx_mca_evidence_links_subject "
+    "ON mca_evidence_links(subject_ref_id, link_type)",
+    # «Что выведено из источника» (обратный запрос).
+    "CREATE INDEX IF NOT EXISTS idx_mca_evidence_links_source "
+    "ON mca_evidence_links(source_ref_id)",
+)
+_PROVENANCE_STATUS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_provenance_status ("
+    "object_ref_id     INTEGER PRIMARY KEY, "
+    "origin_status     TEXT NOT NULL, "
+    "conflict_status   TEXT NOT NULL, "
+    "freshness_status  TEXT NOT NULL, "
+    "coverage_status   TEXT NOT NULL, "
+    "coverage_covered  INTEGER, "
+    "coverage_total    INTEGER, "
+    "extractor_version TEXT, "
+    "updated_at        INTEGER NOT NULL)"
+)
+# 6 nullable-колонок `graph_facts` (порядок = порядок DDL spec §5).
+_PROVENANCE_FACT_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("subject_ref_id", "INTEGER"),
+    ("attribution_method", "TEXT"),
+    ("assertion_kind", "TEXT"),
+    ("speaker_author_id", "INTEGER"),
+    ("extractor_version", "TEXT"),
+    ("provenance_channel", "TEXT"),
+)
+_PROVENANCE_FACT_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_graph_facts_subject_ref "
+    "ON graph_facts(subject_ref_id, status)",
+)
+
+# ── Раунд 10.27 (MCA Wave 1, `mca-07-retrieval-context`, ADR-1027-7 D4/D12) ──
+# v18 — durable-реестр поколений/fingerprint векторных индексов
+# (`mca_embedding_index_generations`, +3 индекса) и 5 nullable-колонок
+# `embedding_cache` (identity-аудит). Всё АДДИТИВНО (`CREATE ... IF NOT EXISTS`
+# + `ALTER ADD COLUMN` под guard); vec-таблицы (`smart_archive`/`graph_facts_vec`)
+# НЕ модифицируются (vec0 не поддерживает ALTER; их идентичность обслуживается
+# реестром поколений). Старые таблицы/ID/FTS/vec-данные не переименовываются и
+# не удаляются (mca-14 D3). Новые nullable-колонки = честный unknown; backfill
+# не требуется. PG — no-op (рамка §1.2.3). Бронь: v18 за mca-07 → mca-04b v19+.
+_SCHEMA_VERSION_EMBEDDING_IDENTITY = 18
+
+# Статусы поколения индекса (реестр identity).
+_EMBEDDING_GENERATION_STATUSES = (
+    "active", "building", "superseded", "failed")
+
+_MCA_EMBEDDING_INDEX_GENERATIONS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_embedding_index_generations ("
+    "generation_id         INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "index_name            TEXT NOT NULL, "
+    "generation            INTEGER NOT NULL, "
+    "fingerprint           TEXT NOT NULL, "
+    "provider              TEXT, "
+    "model                 TEXT, "
+    "dims                  INTEGER, "
+    "preprocessing_version TEXT, "
+    "endpoint_fingerprint  TEXT, "
+    "status                TEXT NOT NULL, "
+    "created_at            INTEGER NOT NULL, "
+    "activated_at          INTEGER, "
+    "superseded_at         INTEGER)"
+)
+_MCA_EMBEDDING_INDEX_GENERATIONS_INDEX_DDL = (
+    # Монотонность поколений per индекс (основа выбора активного).
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_mca_eig_name_gen "
+    "ON mca_embedding_index_generations(index_name, generation)",
+    # Ровно одно активное поколение на индекс (partial UNIQUE).
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_mca_eig_active "
+    "ON mca_embedding_index_generations(index_name) WHERE status = 'active'",
+    # Lookup по fingerprint (mismatch/диагностика/аудит-связь).
+    "CREATE INDEX IF NOT EXISTS idx_mca_eig_fingerprint "
+    "ON mca_embedding_index_generations(fingerprint)",
+)
+# 5 nullable identity-колонок `embedding_cache` (порядок = порядок DDL spec §5).
+_EMBEDDING_CACHE_IDENTITY_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("provider", "TEXT"),
+    ("model", "TEXT"),
+    ("preprocessing_version", "TEXT"),
+    ("endpoint_fingerprint", "TEXT"),
+    ("identity_fingerprint", "TEXT"),
+)
+
+# ── Раунд 10.27 (MCA Wave 0 — остаток, `mca-17a-observability-core`, ADR-1027-8 D2) ─
+# v19 — durable run/incident-состояние + correlation/span-колонки поверх
+# `task_jobs`/`mca_events`. Механизм `mca-14` (§93): аддитивно/идемпотентно,
+# self-guard по `sqlite_master`/`PRAGMA table_info`, `user_version` +1, повторный
+# прогон — no-op, PG — no-op. `mca_process_registry` НЕ создаётся (реестр
+# code-declared, D1). `event_id` = `mca_events.id`; `start`/`end` = `ts`;
+# `heartbeat_at`/`fencing_token`/`generation`/`attempt`/`deadline_at` в
+# `task_jobs` НЕ дублируются (v14). Бронь: v19 за `mca-17a` → `mca-04b` v20+.
+_SCHEMA_VERSION_OBSERVABILITY = 19
+
+# 5.1.1. `mca_pipeline_runs` — durable run/root-job state.
+_MCA_PIPELINE_RUNS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_pipeline_runs ("
+    "pipeline_run_id   TEXT PRIMARY KEY, "
+    "pipeline_type     TEXT NOT NULL, "
+    "pipeline_version  TEXT NOT NULL, "
+    "root_job_id       TEXT, "
+    "status            TEXT NOT NULL, "
+    "reason_code       TEXT, "
+    "started_at        INTEGER NOT NULL, "
+    "finished_at       INTEGER, "
+    "heartbeat_at      INTEGER, "
+    "progress_at       INTEGER, "
+    "deadline_at       INTEGER, "
+    "checkpoint_ref    TEXT, "
+    "config_version    TEXT, "
+    "created_at        INTEGER NOT NULL, "
+    "updated_at        INTEGER NOT NULL)"
+)
+_MCA_PIPELINE_RUNS_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_pipeline_runs_status "
+    "ON mca_pipeline_runs (status, started_at)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_pipeline_runs_type_started "
+    "ON mca_pipeline_runs (pipeline_type, started_at)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_pipeline_runs_root_job "
+    "ON mca_pipeline_runs (root_job_id)",
+)
+
+# 5.1.2. `mca_incidents` — durable инциденты (acknowledged ≠ resolved).
+_MCA_INCIDENTS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_incidents ("
+    "incident_id        TEXT PRIMARY KEY, "
+    "fingerprint        TEXT NOT NULL, "
+    "process_id         TEXT, "
+    "pipeline_type      TEXT, "
+    "stage              TEXT, "
+    "severity           TEXT NOT NULL, "
+    "title              TEXT, "
+    "first_ts           INTEGER NOT NULL, "
+    "last_ts            INTEGER NOT NULL, "
+    "repeat_count       INTEGER NOT NULL DEFAULT 1, "
+    "jobs_json          TEXT, "
+    "chats_json         TEXT, "
+    "impact             TEXT, "
+    "fallback_used      INTEGER NOT NULL DEFAULT 0, "
+    "first_trace_id     TEXT, "
+    "last_trace_id      TEXT, "
+    "acknowledged_at    INTEGER, "
+    "acknowledged_by    INTEGER, "
+    "resolved_at        INTEGER, "
+    "resolution_evidence TEXT, "
+    "created_at         INTEGER NOT NULL, "
+    "updated_at         INTEGER NOT NULL)"
+)
+_MCA_INCIDENTS_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_incidents_fingerprint "
+    "ON mca_incidents (fingerprint, last_ts)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_incidents_active "
+    "ON mca_incidents (resolved_at, last_ts)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_incidents_severity "
+    "ON mca_incidents (severity, last_ts)",
+)
+
+# 5.1.3. `task_jobs` — correlation/span/progress (8 nullable).
+_TASK_JOBS_CORRELATION_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("pipeline_run_id", "TEXT"),
+    ("span_id", "TEXT"),
+    ("parent_span_id", "TEXT"),
+    ("causation_id", "TEXT"),
+    ("attempt_id", "TEXT"),
+    ("progress_at", "INTEGER"),
+    ("next_retry_at", "INTEGER"),
+    ("checkpoint_ref", "TEXT"),
+)
+_TASK_JOBS_CORRELATION_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_task_jobs_pipeline_run "
+    "ON task_jobs (pipeline_run_id)",
+    "CREATE INDEX IF NOT EXISTS idx_task_jobs_status_heartbeat "
+    "ON task_jobs (status, heartbeat_at)",
+    "CREATE INDEX IF NOT EXISTS idx_task_jobs_status_next_retry "
+    "ON task_jobs (status, next_retry_at)",
+)
+
+# 5.1.4. `mca_events` — расширение span-контракта §27.3 (15 nullable).
+_MCA_EVENTS_SPAN_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("pipeline_run_id", "TEXT"),
+    ("pipeline_type", "TEXT"),
+    ("pipeline_version", "TEXT"),
+    ("span_id", "TEXT"),
+    ("parent_span_id", "TEXT"),
+    ("linked_span_ids", "TEXT"),
+    ("job_id", "TEXT"),
+    ("attempt_id", "TEXT"),
+    ("causation_id", "TEXT"),
+    ("event_sequence", "INTEGER"),
+    ("status", "TEXT"),
+    ("heartbeat_at", "INTEGER"),
+    ("progress_at", "INTEGER"),
+    ("deadline_at", "INTEGER"),
+    ("checkpoint_ref", "TEXT"),
+)
+_MCA_EVENTS_SPAN_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_events_pipeline_run "
+    "ON mca_events (pipeline_run_id, event_sequence)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_events_span "
+    "ON mca_events (span_id)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_events_status "
+    "ON mca_events (status)",
+)
 
 # Раунд 3 (3.6/B7, T-693): полный список origin для CHECK graph_facts — в ОДНОМ
 # месте (CREATE TABLE + пересоздание в _migrate_direct_chat_v2 + миграции v4/v5).
@@ -199,6 +673,31 @@ def parse_belief_meta(raw) -> dict:
     return loaded if isinstance(loaded, dict) else {}
 
 
+def _parse_source_ids(raw) -> list[int]:
+    """`source_ids` JSON → список целых id-источников (fail-open → []).
+
+    MCA-04a (v17 backfill, T-3821): existing `source_ids` belief/paradigm
+    типизируются в `derived_from`-SourceRef раннера; битое/не-список значение
+    честно игнорируется (не выдумываем id)."""
+    if raw is None:
+        return []
+    try:
+        data = json.loads(raw) if isinstance(raw, str) else raw
+    except (ValueError, TypeError):
+        return []
+    if not isinstance(data, list):
+        return []
+    out: list[int] = []
+    for item in data:
+        if isinstance(item, bool):
+            continue
+        if isinstance(item, int):
+            out.append(int(item))
+        elif isinstance(item, str) and item.strip().lstrip("-").isdigit():
+            out.append(int(item.strip()))
+    return out
+
+
 # ── «Летописец» (раунд 10.20, БЛОК 1, ADR-1020-4): модульные хелперы ────────
 # Токены топика для casefold-матча узлов графа и FTS.
 _LORE_TOKEN_RE = re.compile(r"[а-яёa-z0-9]+", re.IGNORECASE)
@@ -222,6 +721,54 @@ def _lore_fact_row(row: dict) -> dict:
         "status": str(row.get("status") or ""),
         "weight": float(row.get("weight") or 0.0),
     }
+
+
+@dataclasses.dataclass(frozen=True)
+class MigrationStep:
+    """Шаг реестра миграций (ADR-1027-1 D1).
+
+    `version` — целое, строго +1 между шагами; `name` — стабильный
+    человекочитаемый идентификатор (пишется в книгу); `apply` — async
+    callable(DatabaseService) -> None, идемпотентный (self-guard по
+    `sqlite_master`/`PRAGMA table_info`) и фиксирующий `PRAGMA user_version`.
+    """
+
+    version: int
+    name: str
+    apply: Callable[[object], Awaitable[None]]
+
+
+def _serialized_write(method):
+    """B-MCA01-1 (ADR-1027-3 D3): обернуть доменный write-метод
+    `DatabaseService` в single-writer lock.
+
+    Гарантирует, что прямые `self.db.execute(...)+commit()` внутри метода
+    не интерливятся с чужой открытой транзакцией (`write_transaction`):
+    метод и `write_transaction` используют один и тот же `self._lock`
+    (через `_single_writer`, reentrancy по задаче). Пакетные (многошаговые)
+    транзакции оформляются явно через `write_transaction`.
+
+    Обёртка НЕ меняет сигнатуру/возврат метода; применяется точечно к
+    write-методам (чтения не оборачиваются, чтобы не сериализовать чтения).
+    """
+    @functools.wraps(method)
+    async def _wrapped(self, *args, **kwargs):
+        async with self._single_writer():
+            return await method(self, *args, **kwargs)
+    return _wrapped
+
+
+def _require_write_owner(service, op_name: str) -> None:
+    """B-MCA01-1: `commit=False`-запись обязана идти внутри чужой транзакции.
+
+    Иначе частичный write утёк бы на общую connection без владельца (ровно
+    класс дефекта §5.1). Вызывающий обязан держать `serialized()`/
+    `write_transaction()` в ТОЙ ЖЕ задаче (reentrancy тем же owner'ом)."""
+    if service._write_owner is not asyncio.current_task():
+        raise RuntimeError(
+            f"{op_name}(commit=False) вызван вне serialized()/"
+            "write_transaction() — открытая транзакция утекла бы на общую "
+            "connection (ADR-1027-3 D3)")
 
 
 class DatabaseService:
@@ -535,6 +1082,53 @@ class DatabaseService:
         self.db_path = Path(db_path)
         self.db: aiosqlite.Connection | None = None
         self._lock = asyncio.Lock()
+        # T-3735 (ADR-1027-3 D2): True после провала rollback/восстановления —
+        # connection в неизвестном состоянии; следующий write_transaction
+        # делает явную попытку восстановления и видимую ошибку в логе.
+        self._connection_degraded = False
+        # B-MCA01-1 (ADR-1027-3 D3): задача, владеющая single-writer lock в
+        # данный момент. Нужна для reentrancy: `_serialized_write`-методы и
+        # `write_transaction`, вызванные вложенно в одной задаче, не должны
+        # повторно брать `self._lock` (дедлок).
+        self._write_owner: asyncio.Task | None = None
+
+    # ── B-MCA01-1 (ADR-1027-3 D3): единый single-writer для всех записей ────
+
+    @contextlib.asynccontextmanager
+    async def _single_writer(self):
+        """Single-writer lock с reentrancy по задаче.
+
+        Все доменные write-методы `DatabaseService` защищены этим же lock
+        (`_serialized_write`), что и `write_transaction`. Пока lock удерживает
+        задача, её вложенные записи не пере-захватывают lock (owner-проверка);
+        чужие задачи ждут освобождения. Это закрывает класс дефекта §5.1
+        (интерливинг прямых `execute+commit` с чужой открытой транзакцией).
+        """
+        if self._write_owner is asyncio.current_task():
+            yield
+            return
+        await self._lock.acquire()
+        self._write_owner = asyncio.current_task()
+        try:
+            yield
+        finally:
+            self._write_owner = None
+            self._lock.release()
+
+    def serialized(self):
+        """Публичный single-writer контекст для доменных модулей (ADR-1027-3 D3).
+
+        Внешние модули (`summary_memory`, `chat_lore`, `dossier_rebuild_jobs`,
+        `memory_rebuild`, `persistent_throttling`, maintenance), которые по
+        историческим причинам писали напрямую через `db.db.execute()+commit`,
+        оборачивают write-блок в `async with db.serialized():`. Тем самым их
+        записи сериализуются с `write_transaction` и декорированными
+        методами (`_serialized_write`) на ОДНОМ lock — интерливинг чужой
+        открытой транзакции (класс дефекта §5.1) невозможен.
+
+        Reentrancy по задаче: вложенные декорированные вызовы внутри блока
+        не пере-захватывают lock."""
+        return self._single_writer()
 
     # ── F0.5 (раунд 10.25, ADR-1025-5): bounded retry + single-writer ──────
 
@@ -562,25 +1156,55 @@ class DatabaseService:
 
     async def write_transaction(self, op, *, op_name: str = "write",
                                 chat_id=None, commit_if=None):
-        """F0.5: single-writer обёртка логической транзакции.
+        """Single-writer обёртка логической транзакции (F0.5 + MCA-01 §5.1).
 
         `op(conn)` выполняет НЕСКОЛЬКО стейтментов и НЕ коммитит сам; коммит
-        делает эта обёртка. `self._lock` держится на всё время транзакции —
-        корутины не интерливинятся между `execute` и `commit` (устраняет
+        делает эта обёртка. `self._lock` держится на **всё время** транзакции —
+        включая `COMMIT`/`ROLLBACK` и отменоустойчивую очистку (устраняет
         self-lock `database is locked`). При `locked` — bounded retry
         (`_LOCK_RETRIES`, backoff 0.1/0.2/0.4с), `rollback` перед повтором,
         повтор **всей** транзакции. Исчерпание → WARNING + счётчик + re-raise
         (fail-open остаётся за вызывающим хендлером — T-2450).
 
+        **Владение транзакцией (§5.1, ADR-1027-3 D1; `MCA_TX_OWNERSHIP_ENABLED`
+        default ON):** транзакцией владеет ТОЛЬКО задача, реально получившая
+        lock. Провал acquisition (в т.ч. отмена ожидающего) не попадает в ветку
+        rollback и не может откатить чужую/уже освобождённую транзакцию;
+        `rollback` вызывается **внутри** `async with self._lock`. Отмена
+        владельца выполняет очистку под lock (не оставляет открытую
+        транзакцию следующему писателю).
+
+        **Known-state (§5.1, ADR-1027-3 D2):** провал `COMMIT`/`ROLLBACK`
+        переводит connection в известное состояние (новый `ROLLBACK` под
+        lock) и делает ошибку видимой в логе; при неустранимости connection
+        помечается degraded, следующий вызов пробует явное восстановление
+        (`ROLLBACK`) и при провале — видимая ошибка (без тихого
+        «неизвестного» состояния).
+
         `commit_if(result)` — необязательный предикат: `False` → commit НЕ
         делается (baseline-паритет для методов, коммитящих только при
         изменениях, напр. `touch_graph_facts`). `None` → коммит всегда.
 
-        Kill-switch OFF → ровно прежнее поведение: без блокировки и повторов
-        (одна попытка, исключение наружу). НО rollback делается на ЛЮБОЕ
-        исключение (включая `BaseException`/`CancelledError`; OFF-путь тоже) —
-        частичная транзакция не должна оставаться на общем соединении и
-        подхватываться чужой операцией."""
+        `MCA_TX_OWNERSHIP_ENABLED=false` → **точный паритет baseline**
+        (7165ff7): одна попытка без сериализации/повторов, rollback вне lock,
+        отмена ожидающего откатывает общую connection (дефект §5.1 сохраняется
+        по дизайну OFF); путь `DB_LOCK_RESILIENCE_ENABLED=false` — как был."""
+        if _tx_ownership_enabled() and _lock_resilience_enabled():
+            return await self._write_transaction_owned(op, op_name,
+                                                       chat_id, commit_if)
+        return await self._write_transaction_baseline(op, op_name, commit_if,
+                                                      chat_id)
+
+    async def _write_transaction_baseline(self, op, op_name: str,
+                                          commit_if=None, chat_id=None):
+        """Паритет baseline 7165ff7 (`MCA_TX_OWNERSHIP_ENABLED=false` или
+        `DB_LOCK_RESILIENCE_ENABLED=false`).
+
+        Одна попытка; при `DB_LOCK_RESILIENCE_ENABLED=false` вообще без
+        блокировки. Rollback — на ЛЮБОЕ исключение (включая
+        `BaseException`/`CancelledError`, M-1), и, как в baseline, **вне
+        lock** — отменённый ожидающий тоже откатывает общую connection."""
+        global _lock_retry_total
         if not _lock_resilience_enabled():
             logger.debug(
                 "database: write_transaction baseline (resilience OFF) | op=%s",
@@ -598,7 +1222,7 @@ class DatabaseService:
         attempt = 0
         while True:
             try:
-                async with self._lock:
+                async with self._single_writer():
                     result = await op(self.db)
                     if commit_if is None or commit_if(result):
                         await self.db.commit()
@@ -613,18 +1237,870 @@ class DatabaseService:
                     raise
                 if attempt >= _LOCK_RETRIES:
                     self._note_lock_exhausted(op_name, attempt + 1, exc,
-                                              chat_id)
+                                              chat_id=chat_id)
                     raise
                 attempt += 1
+                _lock_retry_total += 1
                 await asyncio.sleep(_LOCK_BACKOFF * (2 ** (attempt - 1)))
 
+    async def _write_transaction_owned(self, op, op_name: str, chat_id,
+                                       commit_if=None):
+        """MCA-01 §5.1: владение транзакцией под lock + known-state.
+
+        `async with self._lock` стоит **вне** `try`: провал acquisition
+        (включая отмену ожидающего `CancelledError` на входе в `with`) не
+        попадает в ветку очистки и не трогает чужую транзакцию. Внутри lock —
+        `BEGIN` (SQLite неявный `BEGIN` от первого DML, если транзакции нет),
+        тело `op`, `COMMIT`; на исключение — очистка под тем же lock."""
+        global _lock_retry_total
+        if self.db is None:
+            raise RuntimeError(
+                "write_transaction: connection is not open (initialize() "
+                "не вызван)")
+        attempt = 0
+        last_exc: BaseException | None = None
+        while True:
+            async with self._single_writer():
+                if self._connection_degraded:
+                    # B-MCA01-4 / D2: recovery-rollback выполняется СТРОГО под
+                    # `self._lock` (иначе мог бы откатить чужую in-flight
+                    # транзакцию). Провал → видимая ошибка (не тихое
+                    # «неизвестное состояние»).
+                    self._connection_degraded = not \
+                        await self._safe_rollback_locked(
+                            op_name, "recover-degraded")
+                    if self._connection_degraded:
+                        logger.error(
+                            "database: connection unrecoverable | event="
+                            "database_connection_unrecoverable | op=%s",
+                            op_name)
+                try:
+                    result = await op(self.db)
+                    if commit_if is None or commit_if(result):
+                        await self._commit_locked(op_name)
+                    return result
+                except BaseException as exc:
+                    last_exc = exc
+                    # rollback ВНУТРИ lock — владелец очищает свою
+                    # транзакцию; чужой/уже освобождённой не касается.
+                    degraded = not await self._safe_rollback_locked(
+                        op_name, "op-error")
+                    if degraded:
+                        self._connection_degraded = True
+                        logger.error(
+                            "database: rollback failed — connection marked "
+                            "unrecoverable | event=database_connection_"
+                            "unrecoverable | op=%s", op_name, exc_info=True)
+                    if not self._is_locked(exc):
+                        raise
+                    # retry/backoff только после выхода из lock (п. §5.1:
+                    # «Retry/backoff после освобождения lock»).
+            if attempt >= _LOCK_RETRIES:
+                self._note_lock_exhausted(op_name, attempt + 1,
+                                          last_exc, chat_id)
+                raise last_exc
+            attempt += 1
+            _lock_retry_total += 1
+            await asyncio.sleep(_LOCK_BACKOFF * (2 ** (attempt - 1)))
+
+    async def _commit_locked(self, op_name: str) -> None:
+        """`COMMIT` под lock; провал → очистка rollback'ом (known-state).
+
+        Ошибка коммита не глотается: поднимается наверх, но перед этим
+        выполняется `ROLLBACK`, чтобы следующая операция не подхватила
+        частичную транзакцию (D2)."""
+        try:
+            await self.db.commit()
+        except BaseException:
+            degraded = not await self._safe_rollback_locked(
+                op_name, "commit-error")
+            if degraded:
+                self._connection_degraded = True
+                logger.error(
+                    "database: commit+rollback failed — connection marked "
+                    "unrecoverable | event=database_connection_unrecoverable | "
+                    "op=%s", op_name, exc_info=True)
+            raise
+
+    async def _safe_rollback_locked(self, op_name: str, phase: str) -> bool:
+        """Rollback в известное состояние. `False` — rollback провалился
+        (connection degraded); `True` — транзакция закрыта.
+
+        Вызывается ТОЛЬКО под `self._lock` (phase: `op-error`,
+        `commit-error`, `recover-degraded`). R17: имя op/фаза без контента."""
+        try:
+            await self.db.rollback()
+            return True
+        except BaseException:
+            logger.warning(
+                "database: rollback failed | event=database_rollback_failed | "
+                "op=%s | phase=%s", op_name, phase)
+            return False
+
     async def _best_effort_rollback(self, op_name: str = "write") -> None:
-        """F0.5: best-effort rollback; провал самого rollback — только debug."""
+        """F0.5 baseline: best-effort rollback; провал — только debug.
+
+        Сохранён для OFF-паритета (`MCA_TX_OWNERSHIP_ENABLED=false` /
+        `DB_LOCK_RESILIENCE_ENABLED=false`)."""
         try:
             await self.db.rollback()
         except Exception:
             logger.debug("database: rollback failed (best-effort) | op=%s",
                          op_name, exc_info=True)
+
+    # ── Раунд 10.27 (MCA Wave 0, `mca-14-schema-additive`, ADR-1027-1 D1) ──
+    # Реестр шагов миграций. Каждая будущая DDL-фича добавляет СВОЮ строку
+    # (не правит общую последовательность); шаги применяются по возрастанию
+    # `version`; `PRAGMA user_version` сохраняется как маркер; книга
+    # `schema_migrations` даёт аудит/дрейф-детект.
+    #
+    # Legacy-БД (v1…v12 без книги): шаги v1…v12 НЕ переисполняются — они уже
+    # зафиксированы `user_version`, а раннер применяет только `version >
+    # current`. Книга back-fill'ится одним baseline-рядом. Существующие
+    # методы `_migrate_*` переиспользуются как тела шагов (REUSE).
+
+    @staticmethod
+    def migration_steps() -> list["MigrationStep"]:
+        """Упорядоченный реестр шагов миграций (по возрастанию версии).
+
+        REUSE (ADR-1027-1 D1): существующие методы `_migrate_*` переиспользуются
+        как тела шагов без переписывания. v1…v12 — исторические ступени
+        (fresh-БД проигрывает их с нуля; legacy-БД пропускает по
+        `version > current`). v13 (`schema_migrations`) — волна 0 `mca-14`;
+        v14 (`task_jobs`, `mca-01`) и v15 (`mca_events`, `mca-13`)
+        добавляются своими фичами отдельными строками."""
+        return [
+            MigrationStep(1, "graphrag_v2",
+                          lambda svc: svc._migrate_graphrag_v2()),
+            MigrationStep(2, "direct_chat_v2",
+                          lambda svc: svc._migrate_direct_chat_v2()),
+            MigrationStep(3, "epic60_v3",
+                          lambda svc: svc._migrate_epic60_v3()),
+            MigrationStep(4, "video_origins_v4",
+                          lambda svc: svc._migrate_video_origins_v4()),
+            MigrationStep(5, "user_memory_v5",
+                          lambda svc: svc._migrate_user_memory_v5()),
+            MigrationStep(6, "chat_protected_facts_v6",
+                          lambda svc: svc._migrate_chat_protected_facts_v6()),
+            MigrationStep(7, "history_import_v7",
+                          lambda svc: svc._migrate_history_import_v7()),
+            MigrationStep(8, "agi_memory_v8",
+                          lambda svc: svc._migrate_agi_memory_v8()),
+            MigrationStep(9, "self_origin_v9",
+                          lambda svc: svc._migrate_self_origin_v9()),
+            MigrationStep(10, "edges_fact_id_v10",
+                          lambda svc: svc._migrate_edges_fact_id_v10()),
+            MigrationStep(11, "import_key_chat_scope_v11",
+                          lambda svc: svc._migrate_import_key_chat_scope_v11()),
+            MigrationStep(12, "graph_facts_metadata_v12",
+                          lambda svc: svc._migrate_graph_facts_metadata_v12()),
+            MigrationStep(_SCHEMA_VERSION_SCHEMA_MIGRATIONS,
+                          "schema_migrations_book",
+                          lambda svc: svc._migrate_schema_migrations_v13()),
+            MigrationStep(_SCHEMA_VERSION_TASK_JOBS,
+                          "task_jobs",
+                          lambda svc: svc._migrate_task_jobs_v14()),
+            MigrationStep(_SCHEMA_VERSION_MCA_EVENTS,
+                          "mca_events",
+                          lambda svc: svc._migrate_mca_events_v15()),
+            MigrationStep(_SCHEMA_VERSION_MESSAGE_IDENTITY,
+                          "message_identity",
+                          lambda svc: svc._migrate_message_identity_v16()),
+            MigrationStep(_SCHEMA_VERSION_PROVENANCE,
+                          "provenance_contract",
+                          lambda svc: svc._migrate_provenance_v17()),
+            MigrationStep(_SCHEMA_VERSION_EMBEDDING_IDENTITY,
+                          "embedding_identity",
+                          lambda svc: svc._migrate_embedding_identity_v18()),
+            MigrationStep(_SCHEMA_VERSION_OBSERVABILITY,
+                          "observability_core",
+                          lambda svc: svc._migrate_observability_v19()),
+        ]
+
+    @staticmethod
+    def _step_checksum(step: "MigrationStep") -> str:
+        """Стабильный checksum шага (аудит/дрейф-детект).
+
+        R17: хэшируется только версия/имя шага — не содержимое БД, не пути."""
+        return hashlib.sha256(
+            f"{step.version}:{step.name}".encode("utf-8")).hexdigest()
+
+    async def _run_migrations(self) -> None:
+        """Идемпотентный версионируемый runner (ADR-1027-1 D1).
+
+        `current = PRAGMA user_version`; применяются шаги со `version >
+        current` по возрастанию; книга `schema_migrations` дописывается
+        идемпотентно (`INSERT OR REPLACE`); `user_version` фиксирует сам шаг.
+
+        Legacy-БД (v1…v12 без книги): baseline-ряд `version=current, name=
+        'legacy_baseline'` → шаги v1…v12 не исполняются повторно. Повторный
+        запуск на актуальной БД — no-op (0 изменений, 0 дублей).
+        """
+        cursor = await self.db.execute("PRAGMA user_version")
+        row = await cursor.fetchone()
+        current = int(row[0]) if row is not None else 0
+        steps = sorted(self.migration_steps(), key=lambda s: s.version)
+        # MCA-14 (ADR-1027-1 D2): backup ПЕРЕД применением ЛЮБЫХ новых шагов
+        # (включая книгу v13) — `VACUUM INTO` + free-space + read-back.
+        # Провал → явный отказ применять (никакого частичного применения).
+        # Свежая БД (current == 0) не содержит данных — бэкапить нечего.
+        if current > 0 and any(s.version > current for s in steps):
+            from services.memory_backup import migration_backup
+            await migration_backup(self, target_version=current)
+        # B-MCA14-1: книга создаётся БЕЗ выставления `user_version` (иначе
+        # pre-call поднял бы маркер до 13 → на свежей БД при сбое раннего шага
+        # повторный `initialize()` пропустил бы v1…v12). Версию v13 фиксирует
+        # сам шаг v13 в общем цикле (по возрастанию, после v12).
+        await self._ensure_migration_book()
+        applied_versions: set[int] = set()
+        try:
+            cursor = await self.db.execute(
+                "SELECT version FROM schema_migrations")
+            applied_versions = {int(r[0]) for r in await cursor.fetchall()}
+        except Exception:
+            logger.warning("[database] migration book read failed", exc_info=True)
+        if current > 0 and current not in applied_versions:
+            # legacy v1…v12 без книги → один baseline-ряд (аудит/дрейф).
+            await self.db.execute(
+                "INSERT OR REPLACE INTO schema_migrations "
+                "(version, name, applied_at, checksum) VALUES (?, ?, ?, ?)",
+                (current, "legacy_baseline", int(time.time()),
+                 hashlib.sha256(b"legacy_baseline").hexdigest()))
+            await self.db.commit()
+        for step in steps:
+            if step.version <= current:
+                continue
+            # L-MCA14-3 (санкционированное исключение): runner работает на этапе
+            # `initialize()` ДО старта сервинга/конкурентных писателей, поэтому
+            # прямые `execute+commit` здесь безопасны и не интерливятся с чужой
+            # транзакцией (нет второго писателя). Доменные записи после старта
+            # идут только через single-writer (см. `_serialized_write`).
+            await step.apply(self)
+            await self.db.execute(
+                "INSERT OR REPLACE INTO schema_migrations "
+                "(version, name, applied_at, checksum) VALUES (?, ?, ?, ?)",
+                (step.version, step.name, int(time.time()),
+                 self._step_checksum(step)))
+            await self.db.commit()
+            logger.info("[database] migration v%d applied | %s",
+                        step.version, step.name)
+
+    async def _ensure_migration_book(self) -> None:
+        """B-MCA14-1: создать книгу `schema_migrations`, НЕ трогая
+        `user_version` (книга нужна раннеру для аудита/дрейф-детекта до
+        применения шагов; версия фиксируется шагом v13 в общем цикле)."""
+        cursor = await self.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            ("schema_migrations",))
+        if await cursor.fetchone() is None:
+            await self.db.execute(_SCHEMA_MIGRATIONS_DDL)
+            await self.db.commit()
+
+    async def _migrate_schema_migrations_v13(self) -> None:
+        """v13 (`mca-14-schema-additive`, ADR-1027-1 D1/D8): книга реестра.
+
+        Аддитивно (`CREATE TABLE IF NOT EXISTS`), self-guard по
+        `sqlite_master`; повторный запуск — no-op. Старые таблицы/ID НЕ
+        трогаются (D3). PG — no-op (SQLite-механизм). `user_version = 13`
+        ставится ТОЛЬКО если текущая версия меньше 13 — шаг не понижает
+        маркер уже применённых v14/v15 (монотонность)."""
+        cursor = await self.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            ("schema_migrations",))
+        if await cursor.fetchone() is None:
+            await self.db.execute(_SCHEMA_MIGRATIONS_DDL)
+            await self.db.commit()
+            logger.info("[database] migration v13: schema_migrations book")
+        cursor = await self.db.execute("PRAGMA user_version")
+        row = await cursor.fetchone()
+        current = int(row[0]) if row is not None else 0
+        if current < _SCHEMA_VERSION_SCHEMA_MIGRATIONS:
+            await self.db.execute(
+                f"PRAGMA user_version = {_SCHEMA_VERSION_SCHEMA_MIGRATIONS}")
+            await self.db.commit()
+
+    async def _migrate_task_jobs_v14(self) -> None:
+        """v14 (`mca-01-tx-task-supervisor`, ADR-1027-3 D5/D10): durable-очередь
+        фоновых задач `task_jobs` + 2 индекса (рамка §1.1.1).
+
+        Аддитивно (`CREATE TABLE IF NOT EXISTS` + `CREATE INDEX IF NOT
+        EXISTS`); self-guard по `sqlite_master`; повторный запуск — no-op.
+        Старые таблицы/ID НЕ трогаются (mca-14 D3). PG — no-op. Фиксирует
+        `PRAGMA user_version = 14` безусловно (прецедент v9…v13)."""
+        cursor = await self.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            ("task_jobs",))
+        if await cursor.fetchone() is None:
+            await self.db.execute(_TASK_JOBS_DDL)
+            await self.db.commit()
+            logger.info("[database] migration v14: task_jobs durable queue")
+        for ddl in _TASK_JOBS_INDEX_DDL:
+            await self.db.execute(ddl)
+        await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_TASK_JOBS}")
+        await self.db.commit()
+
+    async def _migrate_mca_events_v15(self) -> None:
+        """v15 (`mca-13-event-contract`, ADR-1027-2 D4/D11): durable-стор
+        терминальных событий `mca_events` + `mca_event_aggregates` + 4 индекса
+        (рамка §1.1.2). Единственный store телеметрии (второй запрещён).
+
+        Аддитивно (`CREATE TABLE IF NOT EXISTS`); self-guard по
+        `sqlite_master`; повторный запуск — no-op. Старые таблицы/ID НЕ
+        трогаются. PG — no-op. Фиксирует `PRAGMA user_version = 15`."""
+        for table, ddl in (("mca_events", _MCA_EVENTS_DDL),
+                           ("mca_event_aggregates",
+                            _MCA_EVENT_AGGREGATES_DDL)):
+            cursor = await self.db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                (table,))
+            if await cursor.fetchone() is None:
+                await self.db.execute(ddl)
+                await self.db.commit()
+                logger.info("[database] migration v15: %s", table)
+        for ddl in _MCA_EVENTS_INDEX_DDL:
+            await self.db.execute(ddl)
+        await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_MCA_EVENTS}")
+        await self.db.commit()
+
+    async def _smart_messages_columns(self) -> set:
+        """Имена колонок `smart_messages` (guard для ALTER ADD COLUMN)."""
+        cursor = await self.db.execute("PRAGMA table_info(smart_messages)")
+        return {r["name"] for r in await cursor.fetchall()}
+
+    async def count_duplicate_identity_rows(self) -> int:
+        """Число legacy live-групп с дублем `(chat_id, tg_message_id)`.
+
+        Нужен для duplicate pre-check v16 (ADR-1027-4 D7): при наличии дублей
+        partial UNIQUE НЕ создаётся (иначе миграция упала бы), эмитится WARN
+        `duplicate_identity_rows`; старые записи сохраняются. Устойчиво к
+        усечённой synthetic-legacy без `import_key` (тогда живых/импортных
+        различий нет — считаем по всем строкам с tg_message_id)."""
+        cols = await self._smart_messages_columns()
+        where = ("WHERE tg_message_id IS NOT NULL AND import_key IS NULL"
+                 if "import_key" in cols
+                 else "WHERE tg_message_id IS NOT NULL")
+        cursor = await self.db.execute(
+            "SELECT COUNT(*) AS c FROM ("
+            f"SELECT chat_id, tg_message_id FROM smart_messages {where} "
+            "GROUP BY chat_id, tg_message_id HAVING COUNT(*) > 1)")
+        row = await cursor.fetchone()
+        return int(row["c"]) if row is not None else 0
+
+    async def _migrate_message_identity_v16_backfill(self,
+                                                     has_import_key: bool) -> None:
+        """Bounded/resumable backfill (ADR-1027-4 D3/D7).
+
+        Guard `sent_at_source IS NULL` → повторный прогон no-op; обрабатывается
+        пачками. Импорт: `sent_at=timestamp` (`import_date`), namespace/record
+        id. Live-legacy: `sent_at=NULL` (`legacy_unverified`) — `timestamp`
+        НЕ переносится (это время записи, не события). Для усечённой
+        synthetic-legacy без `import_key` все строки трактуются как live."""
+        if has_import_key:
+            while True:
+                cursor = await self.db.execute(
+                    "UPDATE smart_messages SET "
+                    "source_kind='import', namespace=?, "
+                    "source_record_id='k:'||import_key, "
+                    "sent_at=timestamp, sent_at_source='import_date', "
+                    "reply_to_kind='export' "
+                    "WHERE import_key IS NOT NULL AND sent_at_source IS NULL "
+                    "AND id IN (SELECT id FROM smart_messages "
+                    "WHERE import_key IS NOT NULL AND sent_at_source IS NULL "
+                    "LIMIT ?)",
+                    (_LEGACY_IMPORT_NAMESPACE,
+                     _MESSAGE_IDENTITY_BACKFILL_BATCH))
+                await self.db.commit()
+                if cursor.rowcount <= 0:
+                    break
+        live_where = "import_key IS NULL" if has_import_key else "1 = 1"
+        while True:
+            cursor = await self.db.execute(
+                "UPDATE smart_messages SET "
+                "source_kind='live', sent_at=NULL, ingested_at=NULL, "
+                f"sent_at_source='legacy_unverified' WHERE {live_where} "
+                "AND sent_at_source IS NULL "
+                "AND id IN (SELECT id FROM smart_messages "
+                f"WHERE {live_where} AND sent_at_source IS NULL LIMIT ?)",
+                (_MESSAGE_IDENTITY_BACKFILL_BATCH,))
+            await self.db.commit()
+            if cursor.rowcount <= 0:
+                break
+
+    async def _migrate_message_identity_v16(self) -> None:
+        """v16 (`mca-03-message-identity`, ADR-1027-4 D3/D7/D11): логическая
+        идентичность `(chat_id, tg_message_id)`, поля времени/ролей, версии,
+        mapping `chat_id`.
+
+        Аддитивно (`ALTER ADD COLUMN` под guard `PRAGMA table_info` +
+        `CREATE ... IF NOT EXISTS`); self-guard; повторный прогон — no-op.
+        Старые `id`/`timestamp`/FTS сохраняются. PG — no-op. Duplicate
+        pre-check перед partial UNIQUE; backfill bounded/resumable."""
+        cols = await self._smart_messages_columns()
+        for name, decl in _MESSAGE_IDENTITY_COLUMNS:
+            if name not in cols:
+                await self.db.execute(
+                    f"ALTER TABLE smart_messages ADD COLUMN {name} {decl}")
+        await self.db.commit()
+        for table, ddl in (("message_source_records",
+                            _MESSAGE_SOURCE_RECORDS_DDL),
+                           ("message_revisions", _MESSAGE_REVISIONS_DDL),
+                           ("chat_id_migrations", _CHAT_ID_MIGRATIONS_DDL)):
+            cursor = await self.db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                (table,))
+            if await cursor.fetchone() is None:
+                await self.db.execute(ddl)
+                await self.db.commit()
+                logger.info("[database] migration v16: %s", table)
+        for ddl in (_MESSAGE_IDENTITY_INDEX_DDL
+                    + _SMART_MESSAGES_IDENTITY_INDEX_DDL):
+            await self.db.execute(ddl)
+        await self.db.commit()
+        duplicates = await self.count_duplicate_identity_rows()
+        has_import_key = "import_key" in cols
+        if duplicates:
+            # WARN через контракт MCA-13 + структурный лог; UNIQUE не создаётся.
+            from services import message_identity as _mi
+            _mi.emit_duplicate_identity_warning(duplicates)
+        if not duplicates and has_import_key:
+            await self.db.execute(_SMART_MESSAGES_LIVE_UNIQUE_DDL)
+            await self.db.commit()
+        await self._migrate_message_identity_v16_backfill(has_import_key)
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_MESSAGE_IDENTITY}")
+        await self.db.commit()
+
+    async def _graph_facts_columns(self) -> set:
+        """Имена колонок `graph_facts` (guard для ALTER ADD COLUMN v17)."""
+        cursor = await self.db.execute("PRAGMA table_info(graph_facts)")
+        return {r["name"] for r in await cursor.fetchall()}
+
+    # ── Раунд 10.27 (MCA Wave 1, `mca-04a-provenance-contract`, ADR-1027-6) ─
+    # v17-хелперы записи. Во время миграции (initialize) прямые execute+commit
+    # санкционированы (L-MCA14-3: раннер работает до старта писателей); в
+    # рантайме доменные записи идут через `write_transaction` (`provenance.py`).
+
+    async def _provenance_resolve_ref(self, *, store: str, entity_type: str,
+                                      entity_id: str, chat_id=None,
+                                      revision=None, tg_message_id=None,
+                                      dataset_id=None, source_record_id=None,
+                                      resolution=None, now: int) -> int | None:
+        """Get-or-create SourceRef с дедупом по (store,type,id,chat,revision)."""
+        await self.db.execute(
+            "INSERT OR IGNORE INTO mca_source_refs (store, entity_type, "
+            "entity_id, chat_id, revision, tg_message_id, dataset_id, "
+            "source_record_id, resolution, created_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (str(store), str(entity_type), str(entity_id), chat_id, revision,
+             tg_message_id, dataset_id, source_record_id, resolution, int(now)))
+        cursor = await self.db.execute(
+            "SELECT source_ref_id FROM mca_source_refs WHERE store = ? AND "
+            "entity_type = ? AND entity_id = ? AND COALESCE(chat_id, -1) = "
+            "COALESCE(?, -1) AND COALESCE(revision, '') = COALESCE(?, '')",
+            (str(store), str(entity_type), str(entity_id), chat_id, revision))
+        row = await cursor.fetchone()
+        return int(row["source_ref_id"]) if row is not None else None
+
+    async def _provenance_link(self, subject_ref_id: int, source_ref_id: int,
+                               link_type: str, method: str, verification: str,
+                               independence: str, now: int, *,
+                               claim_key=None, basis=None, checks_json=None,
+                               extractor_version=None) -> None:
+        """Идемпотентная EvidenceLink (дедуп по объект+источник+тип+claim)."""
+        await self.db.execute(
+            "INSERT OR IGNORE INTO mca_evidence_links (subject_ref_id, "
+            "source_ref_id, link_type, method, verification, independence, "
+            "claim_key, extractor_version, basis, checks_json, established_at, "
+            "created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (int(subject_ref_id), int(source_ref_id), str(link_type),
+             str(method), str(verification), str(independence), claim_key,
+             extractor_version, basis, checks_json, int(now), int(now)))
+
+    async def _provenance_set_status(self, object_ref_id: int,
+                                     origin_status: str, now: int) -> None:
+        """Origin/конфликт/актуальность/покрытие объекта (1:1 с SourceRef)."""
+        await self.db.execute(
+            "INSERT OR REPLACE INTO mca_provenance_status (object_ref_id, "
+            "origin_status, conflict_status, freshness_status, "
+            "coverage_status, coverage_covered, coverage_total, "
+            "extractor_version, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+            (int(object_ref_id), str(origin_status), "unknown", "unknown",
+             "unknown", None, None, None, int(now)))
+
+    async def _migrate_provenance_v17_backfill(self) -> None:
+        """Bounded/resumable backfill v17 — **только прямые ссылки** (D6/A09).
+
+        (1) объектный SourceRef + `mca_provenance_status` на каждый
+        `graph_facts` (guard — отсутствие объектного SourceRef); `origin_status`
+        = `original` **только** при сохранённом прямом источнике
+        (`tg_message_id IS NOT NULL` → message SourceRef + `derived_from` +
+        `verified`), иначе честный `unknown`. (2) существующие `source_ids`
+        belief/paradigm → `derived_from` SourceRefs (dedup идемпотентен).
+        Семантический поиск НЕ выполняется (ложный `original` запрещён)."""
+        now = int(time.time())
+        while True:
+            cursor = await self.db.execute(
+                "SELECT f.id AS id, f.chat_id AS chat_id, "
+                "f.tg_message_id AS tg_message_id FROM graph_facts f "
+                "WHERE NOT EXISTS (SELECT 1 FROM mca_source_refs r "
+                "WHERE r.store = 'sqlite' AND r.entity_type = 'graph_fact' "
+                "AND r.entity_id = CAST(f.id AS TEXT)) "
+                "ORDER BY f.id LIMIT ?", (_PROVENANCE_BACKFILL_BATCH,))
+            rows = await cursor.fetchall()
+            if not rows:
+                break
+            for row in rows:
+                fid = int(row["id"])
+                chat_id = row["chat_id"]
+                tg = row["tg_message_id"]
+                obj_ref = await self._provenance_resolve_ref(
+                    store="sqlite", entity_type="graph_fact",
+                    entity_id=str(fid), chat_id=chat_id,
+                    resolution="resolved", now=now)
+                origin_status = "unknown"
+                if tg is not None and obj_ref is not None:
+                    msg_key = await self._smart_message_entity_id(
+                        int(chat_id) if chat_id is not None else None, int(tg))
+                    src_ref = await self._provenance_resolve_ref(
+                        store="sqlite", entity_type="message",
+                        entity_id=msg_key, chat_id=chat_id,
+                        tg_message_id=int(tg), resolution="resolved", now=now)
+                    if src_ref is not None:
+                        await self._provenance_link(
+                            obj_ref, src_ref, "derived_from",
+                            "migration_backfill", "verified", "unknown", now,
+                            basis="backfill: direct tg_message_id")
+                        origin_status = "original"
+                if obj_ref is not None:
+                    await self._provenance_set_status(obj_ref, origin_status,
+                                                      now)
+            await self.db.commit()
+        # (2) source_ids (belief/paradigm) → derived_from (идемпотентный dedup).
+        # Guard: колонка `source_ids` (v8) может отсутствовать на усечённой
+        # legacy-БД — тогда прямых id-источников нет, шаг честно no-op.
+        cols = await self._graph_facts_columns()
+        if "source_ids" not in cols:
+            return
+        cursor_id = 0
+        while True:
+            cursor = await self.db.execute(
+                "SELECT id, chat_id, source_ids FROM graph_facts "
+                "WHERE source_ids IS NOT NULL AND source_ids != '' AND id > ? "
+                "ORDER BY id LIMIT ?",
+                (cursor_id, _PROVENANCE_BACKFILL_BATCH))
+            rows = await cursor.fetchall()
+            if not rows:
+                break
+            for row in rows:
+                cursor_id = int(row["id"])
+                src_ids = _parse_source_ids(row["source_ids"])
+                if not src_ids:
+                    continue
+                chat_id = row["chat_id"]
+                obj_ref = await self._provenance_resolve_ref(
+                    store="sqlite", entity_type="graph_fact",
+                    entity_id=str(cursor_id), chat_id=chat_id,
+                    resolution="resolved", now=now)
+                if obj_ref is None:
+                    continue
+                for sid in src_ids:
+                    if sid == cursor_id:
+                        continue
+                    ref = await self._provenance_resolve_ref(
+                        store="sqlite", entity_type="graph_fact",
+                        entity_id=str(sid), chat_id=chat_id,
+                        resolution="resolved", now=now)
+                    if ref is not None:
+                        await self._provenance_link(
+                            obj_ref, ref, "derived_from", "migration_backfill",
+                            "verified", "unknown", now,
+                            basis="backfill: source_ids")
+            await self.db.commit()
+
+    async def _smart_message_entity_id(self, chat_id, tg_message_id) -> str:
+        """`entity_id` message-SourceRef: канонический `smart_messages.id`
+        при наличии строки, иначе `tg:<tg_message_id>` (opaque, не смешивается
+        с внутренним ID; TG-ID остаётся отдельным полем)."""
+        if chat_id is not None and tg_message_id is not None:
+            try:
+                cursor = await self.db.execute(
+                    "SELECT id FROM smart_messages WHERE chat_id = ? AND "
+                    "tg_message_id = ? LIMIT 1", (int(chat_id),
+                                                  int(tg_message_id)))
+                row = await cursor.fetchone()
+                if row is not None:
+                    return str(int(row["id"]))
+            except Exception:
+                logger.debug("[database] smart_messages id lookup failed",
+                             exc_info=True)
+        return f"tg:{int(tg_message_id)}" if tg_message_id is not None else ""
+
+    async def _migrate_provenance_v17(self) -> None:
+        """v17 (`mca-04a-provenance-contract`, ADR-1027-6 D1/D10): SourceRef/
+        EvidenceLink/статусы происхождения + 6 nullable-колонок `graph_facts`.
+
+        Аддитивно (`CREATE TABLE/INDEX IF NOT EXISTS` + `ALTER ADD COLUMN` под
+        guard `PRAGMA table_info`); self-guard по `sqlite_master`; повторный
+        прогон — no-op. Старые таблицы/ID/FTS/`origin` CHECK НЕ трогаются.
+        Backfill — только прямые ссылки (bounded/resumable). Фиксирует
+        `PRAGMA user_version = 17`."""
+        for table, ddl in (
+                ("mca_source_refs", _PROVENANCE_SOURCE_REFS_DDL),
+                ("mca_evidence_links", _PROVENANCE_EVIDENCE_LINKS_DDL),
+                ("mca_provenance_status", _PROVENANCE_STATUS_DDL)):
+            cursor = await self.db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                (table,))
+            if await cursor.fetchone() is None:
+                await self.db.execute(ddl)
+                await self.db.commit()
+                logger.info("[database] migration v17: %s", table)
+        for ddl in (_PROVENANCE_SOURCE_REFS_INDEX_DDL
+                    + _PROVENANCE_EVIDENCE_LINKS_INDEX_DDL):
+            await self.db.execute(ddl)
+        await self.db.commit()
+        cols = await self._graph_facts_columns()
+        for name, decl in _PROVENANCE_FACT_COLUMNS:
+            if name not in cols:
+                await self.db.execute(
+                    f"ALTER TABLE graph_facts ADD COLUMN {name} {decl}")
+        await self.db.commit()
+        for ddl in _PROVENANCE_FACT_INDEX_DDL:
+            # Self-guard (spec §5): индекс `(subject_ref_id, status)` требует
+            # колонку `status` (v8). На реальной legacy-БД она есть; на
+            # синтетической/усечённой — деградируем до индекса по субъекту,
+            # чтобы аддитивный шаг не падал (старые данные не читаются иначе).
+            if "status" not in cols and "status" in ddl:
+                ddl = ("CREATE INDEX IF NOT EXISTS idx_graph_facts_subject_ref "
+                       "ON graph_facts(subject_ref_id)")
+            await self.db.execute(ddl)
+        await self.db.commit()
+        await self._migrate_provenance_v17_backfill()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_PROVENANCE}")
+        await self.db.commit()
+
+    async def _embedding_cache_columns(self) -> set:
+        """Имена колонок `embedding_cache` (guard для ALTER ADD COLUMN v18)."""
+        cursor = await self.db.execute("PRAGMA table_info(embedding_cache)")
+        return {r["name"] for r in await cursor.fetchall()}
+
+    async def _migrate_embedding_identity_v18(self) -> None:
+        """v18 (`mca-07-retrieval-context`, ADR-1027-7 D4/D12): durable-реестр
+        поколений/fingerprint векторных индексов
+        (`mca_embedding_index_generations` + 3 индекса) и 5 nullable identity-
+        колонок `embedding_cache`.
+
+        Аддитивно (`CREATE ... IF NOT EXISTS` + `ALTER ADD COLUMN` под guard
+        `PRAGMA table_info`); self-guard; повторный прогон — no-op. Vec-таблицы
+        (`smart_archive`/`graph_facts_vec`) НЕ модифицируются; старые
+        таблицы/ID/FTS/vec-данные не трогаются. `nullable` = честный unknown;
+        backfill не требуется. Фиксирует `PRAGMA user_version = 18`."""
+        cursor = await self.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            ("mca_embedding_index_generations",))
+        if await cursor.fetchone() is None:
+            await self.db.execute(_MCA_EMBEDDING_INDEX_GENERATIONS_DDL)
+            await self.db.commit()
+            logger.info("[database] migration v18: mca_embedding_index_"
+                        "generations")
+        for ddl in _MCA_EMBEDDING_INDEX_GENERATIONS_INDEX_DDL:
+            await self.db.execute(ddl)
+        await self.db.commit()
+        # `embedding_cache` создаётся в Epic 60 (v3) — на реальной БД колонки
+        # есть; guard `PRAGMA table_info` (аддитивный ALTER идемпотентен).
+        # Синтетическая/усечённая legacy-БД может не иметь таблицы вовсе —
+        # тогда шаг честно no-op (колонки появятся вместе с таблицей позже).
+        cursor = await self.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            ("embedding_cache",))
+        if await cursor.fetchone() is not None:
+            cols = await self._embedding_cache_columns()
+            for name, decl in _EMBEDDING_CACHE_IDENTITY_COLUMNS:
+                if name not in cols:
+                    await self.db.execute(
+                        f"ALTER TABLE embedding_cache ADD COLUMN {name} {decl}")
+            await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_EMBEDDING_IDENTITY}")
+        await self.db.commit()
+
+    async def _table_columns(self, table: str) -> set:
+        """Имена колонок произвольной таблицы (guard для ALTER ADD COLUMN)."""
+        cursor = await self.db.execute(f"PRAGMA table_info({table})")
+        return {r["name"] for r in await cursor.fetchall()}
+
+    async def _table_exists(self, table: str) -> bool:
+        cursor = await self.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            (table,))
+        return await cursor.fetchone() is not None
+
+    async def _migrate_observability_v19(self) -> None:
+        """v19 (`mca-17a-observability-core`, ADR-1027-8 D2): durable run/
+        incident-состояние + correlation/span-колонки.
+
+        Аддитивно (`CREATE TABLE/INDEX IF NOT EXISTS` + `ALTER ADD COLUMN` под
+        guard `PRAGMA table_info`); self-guard по `sqlite_master`; повторный
+        прогон — no-op. `mca_process_registry` НЕ создаётся (реестр
+        code-declared, D1). Старые таблицы/ID/vec-данные не трогаются.
+        Всё `nullable` = честный unknown. PG — no-op. Фиксирует
+        `PRAGMA user_version = 19`."""
+        for table, ddl in (("mca_pipeline_runs", _MCA_PIPELINE_RUNS_DDL),
+                           ("mca_incidents", _MCA_INCIDENTS_DDL)):
+            if not await self._table_exists(table):
+                await self.db.execute(ddl)
+                await self.db.commit()
+                logger.info("[database] migration v19: %s", table)
+        for ddl in (_MCA_PIPELINE_RUNS_INDEX_DDL
+                    + _MCA_INCIDENTS_INDEX_DDL):
+            await self.db.execute(ddl)
+        await self.db.commit()
+        # task_jobs (v14) — correlation/span/progress; guard каждой колонки.
+        if await self._table_exists("task_jobs"):
+            cols = await self._table_columns("task_jobs")
+            for name, decl in _TASK_JOBS_CORRELATION_COLUMNS:
+                if name not in cols:
+                    await self.db.execute(
+                        f"ALTER TABLE task_jobs ADD COLUMN {name} {decl}")
+            await self.db.commit()
+            for ddl in _TASK_JOBS_CORRELATION_INDEX_DDL:
+                await self.db.execute(ddl)
+            await self.db.commit()
+        # mca_events (v15) — расширение §27.3; guard каждой колонки.
+        if await self._table_exists("mca_events"):
+            cols = await self._table_columns("mca_events")
+            for name, decl in _MCA_EVENTS_SPAN_COLUMNS:
+                if name not in cols:
+                    await self.db.execute(
+                        f"ALTER TABLE mca_events ADD COLUMN {name} {decl}")
+            await self.db.commit()
+            for ddl in _MCA_EVENTS_SPAN_INDEX_DDL:
+                await self.db.execute(ddl)
+            await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_OBSERVABILITY}")
+        await self.db.commit()
+
+    async def get_active_embedding_generation(self, index_name: str) -> dict | None:
+        """Активное поколение индекса (реестр v18) или None.
+
+        Fail-open: любая ошибка → None (честная деградация вызывающего)."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT generation_id, index_name, generation, fingerprint, "
+                "provider, model, dims, preprocessing_version, "
+                "endpoint_fingerprint, status, created_at, activated_at, "
+                "superseded_at FROM mca_embedding_index_generations "
+                "WHERE index_name = ? AND status = 'active'", (str(index_name),))
+            row = await cursor.fetchone()
+            return dict(row) if row is not None else None
+        except Exception:
+            logger.debug("[database] active embedding generation read failed",
+                         exc_info=True)
+            return None
+
+    async def get_latest_embedding_generation(self, index_name: str) -> dict | None:
+        """Последнее (старшее `generation`) поколение индекса, любой статус.
+
+        Нужно guard'у A06: `building`/`superseded`/`failed` — тоже карантин.
+        Fail-open: ошибка → None."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT generation_id, index_name, generation, fingerprint, "
+                "provider, model, dims, preprocessing_version, "
+                "endpoint_fingerprint, status, created_at, activated_at, "
+                "superseded_at FROM mca_embedding_index_generations "
+                "WHERE index_name = ? ORDER BY generation DESC LIMIT 1",
+                (str(index_name),))
+            row = await cursor.fetchone()
+            return dict(row) if row is not None else None
+        except Exception:
+            logger.debug("[database] latest embedding generation read failed",
+                         exc_info=True)
+            return None
+
+    async def get_generation_by_fingerprint(self, index_name: str,
+                                            fingerprint: str) -> dict | None:
+        """Поколение индекса по fingerprint (использует `idx_mca_eig_fingerprint`).
+
+        Аудит/guard A06: позволяет узнать, есть ли уже поколение для данного
+        fingerprint (и каким статусом). Fail-open: ошибка → None."""
+        if not fingerprint:
+            return None
+        try:
+            cursor = await self.db.execute(
+                "SELECT generation_id, index_name, generation, fingerprint, "
+                "provider, model, dims, preprocessing_version, "
+                "endpoint_fingerprint, status, created_at, activated_at, "
+                "superseded_at FROM mca_embedding_index_generations "
+                "WHERE index_name = ? AND fingerprint = ? "
+                "ORDER BY generation DESC LIMIT 1",
+                (str(index_name), str(fingerprint)))
+            row = await cursor.fetchone()
+            return dict(row) if row is not None else None
+        except Exception:
+            logger.debug("[database] fingerprint generation read failed",
+                         exc_info=True)
+            return None
+
+    async def ensure_embedding_generation(
+            self, index_name: str, fingerprint: str, *, provider=None,
+            model=None, dims=None, preprocessing_version=None,
+            endpoint_fingerprint=None, activate: bool = True) -> dict | None:
+        """Get-or-create поколения (идемпотентно, single-writer).
+
+        MCA-07 B-MCA07-1 (A06): **никогда не затирает существующее активное
+        поколение**. Если активное поколение есть и его fingerprint отличается —
+        оно НЕ помечается `superseded` (оно описывает модель, построившую
+        текущие векторы); возвращается как есть, а несовместимость гейтится
+        вызывающим (`_index_generation_ok`).
+
+        При отсутствии активного поколения новое регистрируется со статусом
+        `active` (``activate=True``, если векторы построены текущим конфигом)
+        или `building` (``activate=False`` — карантин до перестройки `mca-04b`).
+        Повторный вызов с тем же fingerprint активного — no-op.
+        Fail-open: ошибка → None."""
+        if not fingerprint:
+            return None
+        async with self.serialized():
+            existing = await self.get_active_embedding_generation(index_name)
+            if existing is not None:
+                # Никогда не подменяем активное поколение (A06).
+                return existing
+            now = int(time.time())
+            status = "active" if activate else "building"
+            activated = now if activate else None
+            try:
+                cursor = await self.db.execute(
+                    "SELECT COALESCE(MAX(generation), 0) AS m FROM "
+                    "mca_embedding_index_generations WHERE index_name = ?",
+                    (str(index_name),))
+                row = await cursor.fetchone()
+                next_gen = int(row["m"] or 0) + 1
+                await self.db.execute(
+                    "INSERT INTO mca_embedding_index_generations "
+                    "(index_name, generation, fingerprint, provider, model, "
+                    "dims, preprocessing_version, endpoint_fingerprint, status, "
+                    "created_at, activated_at, superseded_at) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,NULL)",
+                    (str(index_name), next_gen, str(fingerprint), provider,
+                     model, dims, preprocessing_version, endpoint_fingerprint,
+                     status, now, activated))
+                await self.db.commit()
+                logger.info("[database] embedding generation registered | "
+                            "index=%s gen=%d status=%s", index_name, next_gen,
+                            status)
+            except Exception:
+                await self.db.rollback()
+                logger.warning("[database] ensure_embedding_generation failed",
+                               exc_info=True)
+                return None
+            return await self.get_active_embedding_generation(index_name)
 
     async def initialize(self) -> None:
         """Open connection, create tables, enable WAL mode."""
@@ -637,18 +2113,26 @@ class DatabaseService:
         await self.db.execute("PRAGMA synchronous=NORMAL")
         await self.db.executescript(self._SCHEMA_SQL)
         await self.db.commit()
-        await self._migrate_graphrag_v2()
-        await self._migrate_direct_chat_v2()   # Epic 50 (58.7): user_version 1→2
-        await self._migrate_epic60_v3()        # Epic 60 (63.3): user_version 2→3
-        await self._migrate_video_origins_v4() # Раунд 3 (3.6/B7): user_version 3→4
-        await self._migrate_user_memory_v5()   # Раунд 4 (T-713): user_version 4→5
-        await self._migrate_chat_protected_facts_v6()  # Раунд 5 (T-731): 5→6
-        await self._migrate_history_import_v7()  # Фаза 2 (T-758): 6→7
-        await self._migrate_agi_memory_v8()  # Раунд 9 (T-822): 7→8
-        await self._migrate_self_origin_v9()  # Раунд 10.14 (F1/T-1478): 8→9
-        await self._migrate_edges_fact_id_v10()  # Раунд 10.18 (F3/T-1773): 9→10
-        await self._migrate_import_key_chat_scope_v11()  # Раунд 10.19 (F7/T-1864): 10→11
-        await self._migrate_graph_facts_metadata_v12()  # Раунд 10.20 (G/T-1924): 11→12
+        if _schema_migrations_enabled():
+            # MCA-14 (ADR-1027-1 D1): версионируемый идемпотентный runner +
+            # backup/read-back обвязка (v13+). OFF → legacy hardcoded-путь
+            # (точный паритет baseline 7165ff7).
+            await self._run_migrations()
+        else:
+            logger.debug(
+                "database: schema migrations runner OFF (legacy path)")
+            await self._migrate_graphrag_v2()
+            await self._migrate_direct_chat_v2()
+            await self._migrate_epic60_v3()
+            await self._migrate_video_origins_v4()
+            await self._migrate_user_memory_v5()
+            await self._migrate_chat_protected_facts_v6()
+            await self._migrate_history_import_v7()
+            await self._migrate_agi_memory_v8()
+            await self._migrate_self_origin_v9()
+            await self._migrate_edges_fact_id_v10()
+            await self._migrate_import_key_chat_scope_v11()
+            await self._migrate_graph_facts_metadata_v12()
 
         # Migration: add timestamp column if missing (Dead Page V2)
         try:
@@ -1385,6 +2869,21 @@ class DatabaseService:
         """
         # (а) chat-scoped UNIQUE вместо глобального.
         await self.db.execute("DROP INDEX IF EXISTS idx_smart_messages_import_key")
+        # MCA-14 (v13 runner, REUSE): на древних/частичных фикстурах колонки
+        # `import_key` может не быть — v7 rebuild обычно её создаёт, но guard
+        # по `PRAGMA table_info` делает шаг безопасным при любом составе
+        # (idempotent self-guard, ADR-1027-1 D1). Нет колонки → нечего
+        # индексировать, шаг фиксирует только user_version.
+        cursor = await self.db.execute("PRAGMA table_info(smart_messages)")
+        _sm_cols = {row["name"] for row in await cursor.fetchall()}
+        if "import_key" not in _sm_cols:
+            logger.info(
+                "[database] migration v11: smart_messages.import_key отсутствует "
+                "— индекс/rebuild пропущены (guard)")
+            await self.db.execute(
+                f"PRAGMA user_version = {_SCHEMA_VERSION_IMPORT_KEY_CHAT_SCOPE}")
+            await self.db.commit()
+            return
         cursor = await self.db.execute(
             "SELECT name FROM sqlite_master WHERE type='index' "
             "AND name='idx_smart_messages_chat_import_key'")
@@ -1496,6 +2995,7 @@ class DatabaseService:
             await self.db.close()
     # ── Slava Presence ──────────────────────────────────
     
+    @_serialized_write
     async def set_presence(self, user_id: int, chat_id: int, present: bool) -> None:
         await self.db.execute(
             "INSERT OR REPLACE INTO user_presence (user_id, chat_id, is_present) VALUES (?, ?, ?)",
@@ -1521,22 +3021,25 @@ class DatabaseService:
     
     # ── Message Counters ────────────────────────────────
     
+    @_serialized_write
     async def increment_and_get_count(self, chat_id: int, user_id: int) -> int:
         """Atomically increment counter and return new value."""
-        async with self._lock:
-            await self.db.execute(
-                "INSERT INTO message_counters (chat_id, user_id, count) "
-                "VALUES (?, ?, 1) "
-                "ON CONFLICT(chat_id, user_id) DO UPDATE SET count = count + 1",
-                (chat_id, user_id)
-            )
-            await self.db.commit()
-            cursor = await self.db.execute(
-                "SELECT count FROM message_counters WHERE chat_id = ? AND user_id = ?",
-                (chat_id, user_id)
-            )
-            row = await cursor.fetchone()
-            return row["count"] if row else 0
+        # B-MCA01-1: single-writer уже удерживается декоратором `_serialized_write`
+        # (через `_single_writer`); повторный `async with self._lock` был бы
+        # самодедлоком (Lock нереентерабельный).
+        await self.db.execute(
+            "INSERT INTO message_counters (chat_id, user_id, count) "
+            "VALUES (?, ?, 1) "
+            "ON CONFLICT(chat_id, user_id) DO UPDATE SET count = count + 1",
+            (chat_id, user_id)
+        )
+        await self.db.commit()
+        cursor = await self.db.execute(
+            "SELECT count FROM message_counters WHERE chat_id = ? AND user_id = ?",
+            (chat_id, user_id)
+        )
+        row = await cursor.fetchone()
+        return row["count"] if row else 0
     
     async def get_count(self, chat_id: int, user_id: int) -> int:
         cursor = await self.db.execute(
@@ -1558,6 +3061,7 @@ class DatabaseService:
         row = await cursor.fetchone()
         return row is not None
 
+    @_serialized_write
     async def record_dead_page_post(self, chat_id: int, slot: str) -> None:
         """Record that a dead page post was made."""
         today = datetime.date.today().isoformat()
@@ -1584,6 +3088,7 @@ class DatabaseService:
                 return None
         return None
 
+    @_serialized_write
     async def set_alan_last_message_ts(self, chat_id: int, timestamp: float) -> None:
         """Record the timestamp of Леха's last message in a chat."""
         key = f"alan_last_msg:{chat_id}"
@@ -1606,6 +3111,7 @@ class DatabaseService:
             return int(row["value"])
         return None
 
+    @_serialized_write
     async def update_last_known_message_id(self, msg_id: int, channel_id: int = 0) -> None:
         """Update the last known message_id in the relay channel."""
         key = f"last_msg_id:{channel_id}" if channel_id else "last_known_message_id"
@@ -1635,6 +3141,7 @@ class DatabaseService:
                 return None
         return None
 
+    @_serialized_write
     async def set_dead_page_last_sent(self, chat_id: int, msg_id: int) -> None:
         """Record the primary relay-channel msg_id forwarded into this chat."""
         key = f"dead_page_last_sent:{chat_id}"
@@ -1649,6 +3156,7 @@ class DatabaseService:
     _DEAD_PAGE_REPOST_MAP_TTL_SECONDS = 86400   # 24ч
     _DEAD_PAGE_REPOST_MAP_CAP = 500             # cap-очистка
 
+    @_serialized_write
     async def record_dead_page_repost_map(
         self, chat_id: int, repost_msg_id: int, bot_msg_ids: list[int]
     ) -> None:
@@ -1698,6 +3206,7 @@ class DatabaseService:
             )
             return None
 
+    @_serialized_write
     async def delete_dead_page_repost_map(self, chat_id: int, repost_msg_id: int) -> None:
         """Снять маппинг (срабатывание ровно один раз на пару (чат, репост))."""
         await self.db.execute(
@@ -1706,6 +3215,7 @@ class DatabaseService:
         )
         await self.db.commit()
 
+    @_serialized_write
     async def try_claim_dead_page_repost_map(
         self, chat_id: int, repost_msg_id: int
     ) -> bool:
@@ -1724,6 +3234,7 @@ class DatabaseService:
 
     # ── Slavic Photo Counter (Epic 12) ──
 
+    @_serialized_write
     async def slavic_photo_count_tick(self, chat_id: int, interval: int) -> bool:
         """Increment Slava's photo counter. Returns True if photo should be sent.
 
@@ -1732,34 +3243,36 @@ class DatabaseService:
         """
         key = f"slavic_photo:{chat_id}"
         logger.debug("slavic_photo_count_tick: key=%s interval=%d", key, interval)
-        async with self._lock:
-            cursor = await self.db.execute(
-                "SELECT value FROM channel_state WHERE key = ?", (key,)
+        # B-MCA01-1: single-writer уже удерживается `@_serialized_write` —
+        # повторный `async with self._lock` здесь дал бы self-дедлок.
+        cursor = await self.db.execute(
+            "SELECT value FROM channel_state WHERE key = ?", (key,)
+        )
+        row = await cursor.fetchone()
+        current = int(row["value"]) if row else 0
+        logger.debug("slavic_photo_count_tick: current=%d", current)
+        new_count = current + 1
+        logger.debug("slavic_photo_count_tick: new_count=%d", new_count)
+        if new_count >= interval:
+            logger.debug("slavic_photo_count_tick: interval reached, resetting counter")
+            await self.db.execute(
+                "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
+                (key, "0"),
             )
-            row = await cursor.fetchone()
-            current = int(row["value"]) if row else 0
-            logger.debug("slavic_photo_count_tick: current=%d", current)
-            new_count = current + 1
-            logger.debug("slavic_photo_count_tick: new_count=%d", new_count)
-            if new_count >= interval:
-                logger.debug("slavic_photo_count_tick: interval reached, resetting counter")
-                await self.db.execute(
-                    "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
-                    (key, "0"),
-                )
-                await self.db.commit()
-                return True
-            else:
-                logger.debug("slavic_photo_count_tick: incrementing counter to %d", new_count)
-                await self.db.execute(
-                    "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
-                    (key, str(new_count)),
-                )
-                await self.db.commit()
-                return False
+            await self.db.commit()
+            return True
+        else:
+            logger.debug("slavic_photo_count_tick: incrementing counter to %d", new_count)
+            await self.db.execute(
+                "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
+                (key, str(new_count)),
+            )
+            await self.db.commit()
+            return False
 
     # ── Relay Album Map (Epic 14) ──────────────────────
 
+    @_serialized_write
     async def save_relay_album_map(self, message_id: int, media_group_id: str) -> None:
         """Save media_group_id for a relay channel message. Idempotent."""
         await self.db.execute(
@@ -1788,6 +3301,7 @@ class DatabaseService:
 
     # ── SmartModule: Summary (Epic 24) ──────────────────
 
+    @_serialized_write
     async def save_smart_message(
         self,
         user_id: int,
@@ -1831,6 +3345,7 @@ class DatabaseService:
         await self.db.commit()
         return row_id
 
+    @_serialized_write
     async def update_smart_message_text(self, chat_id: int, tg_message_id: int,
                                         text: str) -> int:
         """Epic 67 (Section 71.3, D267): инъекция транскрипта в smart_messages
@@ -1983,15 +3498,319 @@ class DatabaseService:
 
     async def get_smart_message_by_tg_id(self, chat_id: int, tg_message_id: int):
         """Epic 50 (58.7, D201): строка smart_messages по TG message_id
-        (рекурсия reply-цепочек <Conversation_Thread>); None — нет записи."""
+        (рекурсия reply-цепочек <Conversation_Thread>); None — нет записи.
+
+        MCA-03 (ADR-1027-4 D1): chat-scoped lookup — канонический ключ
+        `(chat_id, tg_message_id)`; возвращаются и поля идентичности/времени/
+        ролей/версий (v16)."""
         cursor = await self.db.execute(
             "SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
-            "is_forward, forward_source, tg_message_id "
+            "is_forward, forward_source, tg_message_id, "
+            "caption, sent_at, ingested_at, edited_at, sent_at_source, "
+            "source_kind, namespace, source_record_id, content_hash, media_ref, "
+            "reply_to_kind, reply_to_author_id, quote_text, quote_author_id, "
+            "forward_author_id, message_state, state_evidence, current_revision "
             "FROM smart_messages WHERE chat_id = ? AND tg_message_id = ?",
             (chat_id, tg_message_id),
         )
         return await cursor.fetchone()
 
+    # ── Раунд 10.27 (MCA Wave 1, `mca-03-message-identity`, ADR-1027-4) ─────
+    # Канонический get-or-create/версии/mapping. Все доменные записи — через
+    # единый write-механизм `mca-01` (`write_transaction`), не прямым commit.
+
+    async def save_smart_message_identity(self, rec: dict) -> int:
+        """Канонический write сообщения (ADR-1027-4 D1/D2/D3).
+
+        Lookup по `(chat_id, tg_message_id)` ДО вставки: живое повторное
+        наблюдение того же TG-сообщения не создаёт вторую строку; изменение
+        текста/подписи обновляет canonical source (FTS пересобирается). Новый
+        ряд получает `initial`-версию и source record. `timestamp` (legacy) не
+        переименовывается; `sent_at`/`ingested_at` пишутся отдельно."""
+        chat_id = int(rec["chat_id"])
+        tg = rec.get("tg_message_id")
+        text = rec.get("text")
+        caption = rec.get("caption")
+        content_hash = rec.get("content_hash")
+        now = int(time.time())
+
+        async def _record_occurrence(conn, message_id: int) -> None:
+            """Вхождение (namespace + local record id) для canonical source.
+
+            Вызывается и на insert, и на существующей строке (M-MCA03-4):
+            live-наблюдение импортной копии добавляет live-вхождение к тому же
+            canonical source; `INSERT OR IGNORE` (UNIQUE namespace+local) —
+            повторная запись идемпотентна."""
+            namespace = rec.get("namespace")
+            source_record_id = rec.get("source_record_id")
+            if namespace and source_record_id:
+                await conn.execute(
+                    "INSERT OR IGNORE INTO message_source_records "
+                    "(message_id, namespace, local_record_id, tg_message_id, "
+                    "chat_id, source_kind, observed_at) VALUES (?,?,?,?,?,?,?)",
+                    (message_id, namespace, source_record_id, tg, chat_id,
+                     rec.get("source_kind") or "unknown",
+                     rec.get("ingested_at", now)))
+
+        async def _body(conn):
+            existing = None
+            if tg is not None:
+                cur = await conn.execute(
+                    "SELECT id FROM smart_messages "
+                    "WHERE chat_id = ? AND tg_message_id = ?", (chat_id, tg))
+                existing = await cur.fetchone()
+            if existing is not None:
+                message_id = int(existing["id"])
+                cur = await conn.execute(
+                    "SELECT text, caption FROM smart_messages WHERE id = ?",
+                    (message_id,))
+                prev = await cur.fetchone()
+                changed = (text != prev["text"]) or (caption != prev["caption"])
+                if changed:
+                    # FTS external-content: удаление ДО UPDATE контент-таблицы
+                    # (иначе FTS5 читает уже новый текст и не снимает старые
+                    # токены).
+                    if prev["text"]:
+                        await conn.execute(
+                            "DELETE FROM smart_messages_fts WHERE rowid = ?",
+                            (message_id,))
+                    await conn.execute(
+                        "UPDATE smart_messages SET text=?, caption=?, "
+                        "content_hash=?, media_ref=COALESCE(?, media_ref), "
+                        "sent_at=COALESCE(sent_at, ?), "
+                        "ingested_at=COALESCE(ingested_at, ?), "
+                        "sent_at_source=COALESCE(sent_at_source, ?), "
+                        "source_kind=COALESCE(source_kind, ?) WHERE id=?",
+                        (text, caption, content_hash, rec.get("media_ref"),
+                         rec.get("sent_at"), rec.get("ingested_at", now),
+                         rec.get("sent_at_source"), rec.get("source_kind"),
+                         message_id))
+                    if text:
+                        await conn.execute(
+                            "INSERT INTO smart_messages_fts(rowid, text) "
+                            "VALUES (?, ?)", (message_id, text))
+                else:
+                    await conn.execute(
+                        "UPDATE smart_messages SET "
+                        "sent_at=COALESCE(sent_at, ?), "
+                        "ingested_at=COALESCE(ingested_at, ?), "
+                        "sent_at_source=COALESCE(sent_at_source, ?), "
+                        "source_kind=COALESCE(source_kind, ?) WHERE id=?",
+                        (rec.get("sent_at"), rec.get("ingested_at", now),
+                         rec.get("sent_at_source"), rec.get("source_kind"),
+                         message_id))
+                await _record_occurrence(conn, message_id)
+                return message_id
+            cur = await conn.execute(
+                "INSERT INTO smart_messages (user_id, chat_id, text, "
+                "reply_to_id, timestamp, media_type, author_name, is_forward, "
+                "forward_source, tg_message_id, caption, sent_at, ingested_at, "
+                "edited_at, sent_at_source, source_kind, namespace, "
+                "source_record_id, content_hash, media_ref, reply_to_kind, "
+                "reply_to_author_id, quote_text, quote_author_id, "
+                "forward_author_id, message_state, state_evidence, "
+                "current_revision) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,"
+                "?)",
+                (rec.get("user_id"), chat_id, text, rec.get("reply_to_id"),
+                 int(rec.get("timestamp", now)), rec.get("media_type", "text"),
+                 rec.get("author_name", ""), int(bool(rec.get("is_forward"))),
+                 rec.get("forward_source", ""), tg, caption, rec.get("sent_at"),
+                 rec.get("ingested_at", now), rec.get("edited_at"),
+                 rec.get("sent_at_source"), rec.get("source_kind"),
+                 rec.get("namespace"), rec.get("source_record_id"),
+                 content_hash, rec.get("media_ref"), rec.get("reply_to_kind"),
+                 rec.get("reply_to_author_id"), rec.get("quote_text"),
+                 rec.get("quote_author_id"), rec.get("forward_author_id"),
+                 rec.get("message_state"), rec.get("state_evidence"),
+                 rec.get("current_revision", 1)))
+            message_id = int(cur.lastrowid)
+            if text:
+                await conn.execute(
+                    "INSERT INTO smart_messages_fts(rowid, text) VALUES (?, ?)",
+                    (message_id, text))
+            revision_no = int(rec.get("current_revision", 1) or 1)
+            await conn.execute(
+                "INSERT INTO message_revisions (message_id, chat_id, "
+                "tg_message_id, revision_no, revision_kind, text, caption, "
+                "content_hash, evidence_kind, editor_user_id, created_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (message_id, chat_id, tg, revision_no, "initial", text,
+                 caption, content_hash or "", None, None, now))
+            await _record_occurrence(conn, message_id)
+            return message_id
+
+        message_id = await self.write_transaction(
+            _body, op_name="save_smart_message_identity")
+        user_id = rec.get("user_id")
+        if user_id is not None:
+            try:
+                await self.touch_user_meta(
+                    chat_id, user_id, int(rec.get("timestamp", now)))
+            except Exception:
+                logger.warning(
+                    "[database] touch_user_meta failed — fail-open | "
+                    "chat_id=%s user_id=%s", chat_id, user_id, exc_info=True)
+        return message_id
+
+    async def apply_message_revision(self, *, message_id: int, chat_id: int,
+                                     tg_message_id, revision_kind: str,
+                                     text, caption=None, content_hash=None,
+                                     edited_at=None, evidence_kind=None,
+                                     editor_user_id=None) -> int:
+        """Append версии + обновление canonical source + FTS (D5).
+
+        `current_revision` = номер новой версии (актуальна только последняя);
+        FTS пересобирается под новый текст."""
+        async def _body(conn):
+            cur = await conn.execute(
+                "SELECT COALESCE(MAX(revision_no), 0) AS m "
+                "FROM message_revisions WHERE message_id = ?", (message_id,))
+            next_no = int((await cur.fetchone())["m"]) + 1
+            cur = await conn.execute(
+                "SELECT text FROM smart_messages WHERE id = ?", (message_id,))
+            prev = await cur.fetchone()
+            old_text = prev["text"] if prev is not None else None
+            # FTS external-content: удаление ДО UPDATE контент-таблицы.
+            if old_text:
+                await conn.execute(
+                    "DELETE FROM smart_messages_fts WHERE rowid = ?",
+                    (message_id,))
+            await conn.execute(
+                "UPDATE smart_messages SET text=?, caption=?, content_hash=?, "
+                "edited_at=COALESCE(?, edited_at), current_revision=?, "
+                "message_state=COALESCE(message_state, 'active') WHERE id=?",
+                (text, caption, content_hash, edited_at, next_no, message_id))
+            if text:
+                await conn.execute(
+                    "INSERT INTO smart_messages_fts(rowid, text) VALUES (?, ?)",
+                    (message_id, text))
+            await conn.execute(
+                "INSERT INTO message_revisions (message_id, chat_id, "
+                "tg_message_id, revision_no, revision_kind, text, caption, "
+                "content_hash, evidence_kind, editor_user_id, created_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (message_id, chat_id, tg_message_id, next_no, revision_kind,
+                 text, caption, content_hash or "", evidence_kind,
+                 editor_user_id, int(time.time())))
+            return next_no
+
+        return int(await self.write_transaction(
+            _body, op_name="apply_message_revision"))
+
+    async def apply_message_state(self, *, message_id: int, state: str,
+                                  evidence: str, revision_kind=None,
+                                  chat_id=None, tg_message_id=None,
+                                  editor_user_id=None) -> int:
+        """Смена `message_state` + версия-свидетельство (D5).
+
+        Вызывается только при непустом `evidence` (проверяет контракт)."""
+        async def _body(conn):
+            cur = await conn.execute(
+                "SELECT chat_id, tg_message_id, text, caption, content_hash "
+                "FROM smart_messages WHERE id = ?", (message_id,))
+            row = await cur.fetchone()
+            if row is None:
+                return 0
+            cur = await conn.execute(
+                "SELECT COALESCE(MAX(revision_no), 0) AS m "
+                "FROM message_revisions WHERE message_id = ?", (message_id,))
+            next_no = int((await cur.fetchone())["m"]) + 1
+            await conn.execute(
+                "UPDATE smart_messages SET message_state=?, state_evidence=?, "
+                "current_revision=? WHERE id=?",
+                (state, evidence, next_no, message_id))
+            await conn.execute(
+                "INSERT INTO message_revisions (message_id, chat_id, "
+                "tg_message_id, revision_no, revision_kind, text, caption, "
+                "content_hash, evidence_kind, editor_user_id, created_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (message_id, row["chat_id"], row["tg_message_id"], next_no,
+                 revision_kind or state, row["text"], row["caption"],
+                 row["content_hash"] or "", evidence, editor_user_id,
+                 int(time.time())))
+            return next_no
+
+        return int(await self.write_transaction(
+            _body, op_name="apply_message_state"))
+
+    async def insert_message_source_record(self, *, message_id: int,
+                                           namespace: str,
+                                           local_record_id, tg_message_id,
+                                           chat_id: int, source_kind: str,
+                                           observed_at=None) -> bool:
+        """Вхождение сообщения (namespace + stable local record id) — D2.
+
+        `local_record_id`/`source_record_id` — локальные, НЕ Telegram ID;
+        UNIQUE(namespace, local_record_id) → повторный импорт идемпотентен."""
+        async def _body(conn):
+            cur = await conn.execute(
+                "INSERT OR IGNORE INTO message_source_records "
+                "(message_id, namespace, local_record_id, tg_message_id, "
+                "chat_id, source_kind, observed_at) VALUES (?,?,?,?,?,?,?)",
+                (message_id, namespace, local_record_id, tg_message_id,
+                 chat_id, source_kind,
+                 int(observed_at if observed_at is not None else time.time())))
+            return cur.rowcount
+
+        return bool(await self.write_transaction(
+            _body, op_name="insert_message_source_record"))
+
+    async def upsert_chat_id_migration(self, *, old_chat_id: int,
+                                       new_chat_id: int, evidence: str,
+                                       observed_at=None) -> bool:
+        """Явный mapping смены `chat_id` по подтверждённым метаданным (D6)."""
+        async def _body(conn):
+            await conn.execute(
+                "INSERT OR REPLACE INTO chat_id_migrations "
+                "(old_chat_id, new_chat_id, evidence, observed_at) "
+                "VALUES (?,?,?,?)",
+                (old_chat_id, new_chat_id, evidence,
+                 int(observed_at if observed_at is not None else time.time())))
+
+        await self.write_transaction(
+            _body, op_name="upsert_chat_id_migration")
+        return True
+
+    async def resolve_canonical_chat_id(self, chat_id: int, *,
+                                        max_hops: int = 10) -> int:
+        """Канонический `chat_id` по цепочке mapping (D6), с защитой от цикла."""
+        current = int(chat_id)
+        seen: set[int] = set()
+        for _ in range(max(1, int(max_hops))):
+            cursor = await self.db.execute(
+                "SELECT new_chat_id FROM chat_id_migrations "
+                "WHERE old_chat_id = ?", (current,))
+            row = await cursor.fetchone()
+            if row is None:
+                break
+            nxt = int(row["new_chat_id"])
+            if nxt == current or nxt in seen:
+                break
+            seen.add(current)
+            current = nxt
+        return current
+
+    async def get_message_source_records(self, message_id: int) -> list:
+        """Вхождения canonical source (D2) — для provenance-потребителей."""
+        cursor = await self.db.execute(
+            "SELECT source_record_id, message_id, namespace, local_record_id, "
+            "tg_message_id, chat_id, source_kind, observed_at "
+            "FROM message_source_records WHERE message_id = ? "
+            "ORDER BY source_record_id", (message_id,))
+        return await cursor.fetchall()
+
+    async def get_message_revisions(self, message_id: int) -> list:
+        """Версии сообщения по возрастанию `revision_no` (D5)."""
+        cursor = await self.db.execute(
+            "SELECT revision_id, message_id, chat_id, tg_message_id, "
+            "revision_no, revision_kind, text, caption, content_hash, "
+            "evidence_kind, editor_user_id, created_at "
+            "FROM message_revisions WHERE message_id = ? "
+            "ORDER BY revision_no", (message_id,))
+        return await cursor.fetchall()
+
+    @_serialized_write
     async def delete_smart_messages_older_than(self, chat_id: int, cutoff_ts: int) -> int:
         """Delete messages (+ FTS rows) older than cutoff. Returns count of deleted rows."""
         await self.db.execute(
@@ -2023,6 +3842,7 @@ class DatabaseService:
             f"AND id IN ({placeholders}) AND text IS NOT NULL AND text != '')",
             [int(chat_id), *ids])
 
+    @_serialized_write
     async def delete_smart_messages_by_ids(self, chat_id: int, ids: list[int]) -> int:
         """Delete specific messages (+ FTS rows) of a chat. Returns count deleted."""
         if not ids:
@@ -2036,6 +3856,7 @@ class DatabaseService:
         await self.db.commit()
         return cursor.rowcount
 
+    @_serialized_write
     async def mark_smart_messages_processed(self, chat_id: int,
                                             ids: list[int]) -> int:
         """Фаза 2 (T-756/G1, fix): маркер обработанности live-строк
@@ -2074,6 +3895,7 @@ class DatabaseService:
             (int(chat_id), int(cutoff_ts), int(after_id), max(1, int(limit))))
         return await cursor.fetchall()
 
+    @_serialized_write
     async def purge_imported_history(self, *, chat_cutoffs: dict[int, int],
                                      batch: int = 2000,
                                      dry_run: bool = False,
@@ -2195,6 +4017,7 @@ class DatabaseService:
         row = await cursor.fetchone()
         return int(row["c"]) if row else 0
 
+    @_serialized_write
     async def save_archive_fact(self, chat_id: int, fact: str, timestamp: int) -> int:
         """L3: save a compressed archive fact (+ FTS row). Returns the new fact id."""
         cursor = await self.db.execute(
@@ -2209,6 +4032,7 @@ class DatabaseService:
         await self.db.commit()
         return fact_id
 
+    @_serialized_write
     async def delete_archive_facts_older_than(self, chat_id: int, cutoff_ts: int) -> int:
         """Delete archive facts (+ FTS rows) older than cutoff. Returns count deleted."""
         await self.db.execute(
@@ -2337,6 +4161,23 @@ class DatabaseService:
                            "chat=%s", chat_id, exc_info=True)
             return None
 
+    async def list_lore_stories(self, chat_id: int, limit: int = 200) -> list:
+        """MCA-07 (T-3845): bounded-список сохранённых историй «Летописца»
+        чата (эпизоды-фасад; REUSE `lore_stories`, второй каталог запрещён).
+        Ошибка чтения → [] (деградация, не бросает)."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT id, chat_id, topic_key, topic, story, last_ts, "
+                "created_at, updated_at FROM lore_stories WHERE chat_id = ? "
+                "ORDER BY updated_at DESC LIMIT ?",
+                (int(chat_id), max(1, int(limit))))
+            return await cursor.fetchall()
+        except Exception:
+            logger.warning("[database] list_lore_stories failed — empty | "
+                           "chat=%s", chat_id, exc_info=True)
+            return []
+
+    @_serialized_write
     async def upsert_lore_story(self, chat_id: int, topic_key: str, topic: str,
                                 story: str, last_ts: int = 0) -> None:
         """Запись истории «Летописца» (T-1891): UPSERT по UNIQUE
@@ -2595,21 +4436,32 @@ class DatabaseService:
 
         Раунд 10.24 (F1, ADR-1024-6 D3): `commit=False` — запись остаётся в
         текущей транзакции вызывающего (атомарная фаза B graph-extract);
-        дефолт True сохраняет поведение всех прочих вызовов."""
-        await self.db.execute(
-            "INSERT OR IGNORE INTO nodes (chat_id, entity_name, entity_type, origin, expires_at) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (chat_id, entity_name, entity_type, origin, expires_at),
-        )
-        cursor = await self.db.execute(
-            "SELECT id FROM nodes WHERE chat_id = ? AND entity_name = ?",
-            (chat_id, entity_name),
-        )
-        row = await cursor.fetchone()
-        if commit:
-            await self.db.commit()
-        return row["id"]
+        дефолт True сохраняет поведение всех прочих вызовов.
 
+        B-MCA01-1 (D3): при `commit=True` — общий механизм
+        (`write_transaction`, single-writer + retry); при `commit=False`
+        транзакцией владеет ВЫЗЫВАЮЩИЙ (обязан держать `serialized()`/
+        `write_transaction` — иначе открытая транзакция утекла бы на общую
+        connection)."""
+        async def _body(conn):
+            await conn.execute(
+                "INSERT OR IGNORE INTO nodes (chat_id, entity_name, "
+                "entity_type, origin, expires_at) VALUES (?, ?, ?, ?, ?)",
+                (chat_id, entity_name, entity_type, origin, expires_at),
+            )
+            cursor = await conn.execute(
+                "SELECT id FROM nodes WHERE chat_id = ? AND entity_name = ?",
+                (chat_id, entity_name),
+            )
+            row = await cursor.fetchone()
+            return row["id"]
+
+        if not commit:
+            _require_write_owner(self, "upsert_node")
+            return await _body(self.db)
+        return await self.write_transaction(_body, op_name="upsert_node")
+
+    @_serialized_write
     async def upsert_edge(
         self,
         source_id: int,
@@ -2639,29 +4491,35 @@ class DatabaseService:
         транзакции — вызывающий (`_memorize_facts_inner`) коммитит пару
         `insert_graph_fact`+`upsert_edge` ОДНИМ commit и откатывает при сбое
         второго шага. Дефолт True — поведение всех прочих вызовов неизменно.
-        """
-        cursor = await self.db.execute(
-            "INSERT INTO edges (chat_id, source_id, target_id, relation_type, weight, "
-            "origin, expires_at, fact_id) "
-            "SELECT chat_id, ?, ?, ?, ?, ?, ?, ? FROM nodes WHERE id = ? "
-            "ON CONFLICT(source_id, target_id, relation_type) DO UPDATE SET "
-            "weight = MIN(weight + excluded.weight, ?), "
-            "last_updated = CURRENT_TIMESTAMP, "
-            "fact_id = COALESCE(excluded.fact_id, edges.fact_id)",
-            (source_id, target_id, relation_type, weight_increment, origin,
-             expires_at, fact_id, source_id, _EDGE_WEIGHT_CAP),
-        )
-        # S10.18-33: `INSERT … SELECT … FROM nodes WHERE id = ?` при
-        # отсутствующем узле-источнике вставляет 0 строк — факт мог остаться
-        # закоммиченным без ребра. Fail-open: WARNING (транзакцию не ломаем —
-        # вызывающий сам коммитит/откатывает пару fact+edge, B3-5).
-        if cursor.rowcount == 0:
-            logger.warning(
-                "[database] upsert_edge: source node id=%s not found — edge "
-                "NOT written (fail-open) | target_id=%s | relation=%s",
-                source_id, target_id, relation_type)
-        if commit:
-            await self.db.commit()
+
+        B-MCA01-1 (D3): при `commit=True` — `write_transaction`
+        (single-writer); при `commit=False` транзакцией владеет ВЫЗЫВАЮЩИЙ."""
+        async def _body(conn):
+            cursor = await conn.execute(
+                "INSERT INTO edges (chat_id, source_id, target_id, "
+                "relation_type, weight, origin, expires_at, fact_id) "
+                "SELECT chat_id, ?, ?, ?, ?, ?, ?, ? FROM nodes WHERE id = ? "
+                "ON CONFLICT(source_id, target_id, relation_type) DO UPDATE SET "
+                "weight = MIN(weight + excluded.weight, ?), "
+                "last_updated = CURRENT_TIMESTAMP, "
+                "fact_id = COALESCE(excluded.fact_id, edges.fact_id)",
+                (source_id, target_id, relation_type, weight_increment, origin,
+                 expires_at, fact_id, source_id, _EDGE_WEIGHT_CAP),
+            )
+            # S10.18-33: `INSERT … SELECT … FROM nodes WHERE id = ?` при
+            # отсутствующем узле-источнике вставляет 0 строк — факт мог остаться
+            # закоммиченным без ребра. Fail-open: WARNING (транзакцию не ломаем —
+            # вызывающий сам коммитит/откатывает пару fact+edge, B3-5).
+            if cursor.rowcount == 0:
+                logger.warning(
+                    "[database] upsert_edge: source node id=%s not found — edge "
+                    "NOT written (fail-open) | target_id=%s | relation=%s",
+                    source_id, target_id, relation_type)
+
+        if not commit:
+            _require_write_owner(self, "upsert_edge")
+            return await _body(self.db)
+        return await self.write_transaction(_body, op_name="upsert_edge")
 
     async def match_nodes(
         self, chat_id: int, user_names: list[str], topic_keywords: list[str]
@@ -2746,7 +4604,13 @@ class DatabaseService:
                                 object: str | None = None,
                                 commit: bool = True,
                                 tg_message_id: int | None = None,
-                                forward_from: str = "") -> int:
+                                forward_from: str = "",
+                                subject_ref_id: int | None = None,
+                                attribution_method: str | None = None,
+                                assertion_kind: str | None = None,
+                                speaker_author_id: int | None = None,
+                                extractor_version: str | None = None,
+                                provenance_channel: str | None = None) -> int:
         """Факт-строка (+FTS-индекс). Возвращает id. Epic 50 (58.8, D205):
         target_user — имя обращающегося (origin='bot_direct_reply'); created_at
         ставится автоматически (int(time.time())). Epic 60 (64.1/64.2):
@@ -2805,7 +4669,10 @@ class DatabaseService:
         _insert_args = (chat_id, fact, origin, expires_at, now, target_user,
                         status, supersedes, w, now, message_timestamp, imp, k,
                         source_ids, belief_meta, tg_message_id,
-                        str(forward_from or ""))
+                        str(forward_from or ""),
+                        subject_ref_id, attribution_method, assertion_kind,
+                        speaker_author_id, extractor_version,
+                        provenance_channel)
 
         async def _body(conn):
             cursor = await conn.execute(
@@ -2813,8 +4680,11 @@ class DatabaseService:
                 "(chat_id, fact, origin, expires_at, created_at, "
                 "target_user, status, supersedes, weight, last_confirmed_at, "
                 "message_timestamp, importance, kind, source_ids, belief_meta, "
-                "tg_message_id, forward_from) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "tg_message_id, forward_from, subject_ref_id, "
+                "attribution_method, assertion_kind, speaker_author_id, "
+                "extractor_version, provenance_channel) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
+                "?, ?, ?, ?, ?, ?)",
                 _insert_args)
             if cursor.rowcount == 0:
                 # дубль (INSERT OR IGNORE) — FTS-строку НЕ пишем (edge 5),
@@ -2848,6 +4718,7 @@ class DatabaseService:
         row = await cursor.fetchone()
         return dict(row) if row else None
 
+    @_serialized_write
     async def set_dream_state(self, chat_id: int, *, last_run_at: int,
                               last_processed_fact_id: int) -> None:
         """UPSERT watermark «сна» чата (конец успешного тик-батча, §3.4.2)."""
@@ -3031,6 +4902,7 @@ class DatabaseService:
             "SELECT fact FROM protected_facts WHERE chat_id = ?", (chat_id,))
         return [str(row["fact"] or "") for row in await cursor.fetchall()]
 
+    @_serialized_write
     async def log_dream_event(self, chat_id: int, run_at: int, *, kind: str,
                               cluster_id: int | None = None,
                               source_ids: str | None = None,
@@ -3100,6 +4972,7 @@ class DatabaseService:
             "ORDER BY created_at DESC, id DESC LIMIT ?", (chat_id, limit))
         return await cursor.fetchall()
 
+    @_serialized_write
     async def mark_belief_superseded(self, old_id: int, new_id: int) -> None:
         """Новый belief заменил старый того же чата/темы (D-6): старый
         остаётся (status не меняется — RAG ранжит), supersedes фиксирует
@@ -3182,6 +5055,7 @@ class DatabaseService:
             (int(chat_id), int(since_id), now, int(limit)))
         return [dict(r) for r in await cursor.fetchall()]
 
+    @_serialized_write
     async def set_belief_status(self, belief_id: int, status: str, *,
                                 weight: float | None = None,
                                 last_confirmed_at: int | None = None,
@@ -3390,6 +5264,7 @@ class DatabaseService:
         row = await cursor.fetchone()
         return dict(row) if row is not None else None
 
+    @_serialized_write
     async def soft_delete_belief(self, fact_id: int) -> bool:
         """Мягкое удаление belief (spec §3.4.8/D-7): status='unconfirmed',
         last_confirmed_at=NULL — belief исключается из RAG (status-фильтр
@@ -3403,6 +5278,7 @@ class DatabaseService:
         await self.db.commit()
         return bool(cursor.rowcount)
 
+    @_serialized_write
     async def protect_belief_text(self, chat_id: int, text: str) -> bool:
         """«Сделать protected» (spec §3.4.8): текст belief → protected_facts
         чата (user_name NULL — chat-level, INSERT OR IGNORE на уникальном
@@ -3435,6 +5311,7 @@ class DatabaseService:
     # ── ностальгия (Раунд 9, spec §3.5.2, T-827/E2): nostalgia_log и
     #    SQLite-хелперы условий тика/кандидатов ──────────────────────────
 
+    @_serialized_write
     async def log_nostalgia(self, chat_id: int, ts: int, *, kind: str = "golden",
                             fact_id: int | None = None,
                             status: str = "skipped",
@@ -3651,6 +5528,7 @@ class DatabaseService:
         }
         return [by_id[fid] for fid in fact_ids if fid in by_id]
 
+    @_serialized_write
     async def purge_expired_graph_facts(self, chat_id=None) -> int:
         """Опциональный purge (D175, 55.1 #5): edges истёкших узлов → edges с
         истёкшим expires_at → истёкшие nodes → истёкшие graph_facts (+FTS).
@@ -3759,6 +5637,7 @@ class DatabaseService:
         await self.write_transaction(
             _body, op_name="upsert_bot_reply", chat_id=chat_id)
 
+    @_serialized_write
     async def get_bot_reply(self, chat_id: int, tg_message_id: int,
                             now: float) -> str | None:
         """Текст ответа бота; None — нет записи. Протухший (> TTL) →
@@ -3785,6 +5664,7 @@ class DatabaseService:
     # продолжает цепочку сквозь бот-сообщения. Тот же TTL/LRU-паттерн, что
     # bot_replies (63.1): ленивый TTL на чтении, cap на записи.
 
+    @_serialized_write
     async def set_bot_reply_parent(self, chat_id: int, tg_message_id: int,
                                    parent_tg_message_id: int | None,
                                    now: float) -> None:
@@ -3814,6 +5694,7 @@ class DatabaseService:
         )
         await self.db.commit()
 
+    @_serialized_write
     async def get_bot_reply_parent(self, chat_id: int, tg_message_id: int,
                                    now: float) -> int | None:
         """Parent-сообщение бот-ответа; None — нет линка/протух. Протухший
@@ -3888,6 +5769,7 @@ class DatabaseService:
         rows = await self.get_users_meta(chat_id, [user_id])
         return rows[0] if rows else None
 
+    @_serialized_write
     async def touch_user_meta(self, chat_id: int, user_id: int, ts: int) -> None:
         """«Касание» на сообщение юзера (spec §3.1.1): новая строка с
         first_seen=ts/last_seen=ts/msg_count=1; существующая — last_seen
@@ -3905,6 +5787,7 @@ class DatabaseService:
         )
         await self.db.commit()
 
+    @_serialized_write
     async def refresh_users_meta(self, chat_id: int, user_ids=None, *,
                                  now: int | None = None) -> int:
         """Полный пересчёт карточек чата/подмножества (spec §3.1.1).
@@ -4093,6 +5976,7 @@ class DatabaseService:
         row = await cursor.fetchone()
         return row["tone_preset"] if row is not None else None
 
+    @_serialized_write
     async def set_user_tone_preset(self, chat_id: int, user_id: int,
                                    preset: str) -> None:
         """65.5/65.8: UPSERT tone_preset в user_prefs (/tone — единственная
@@ -4127,6 +6011,7 @@ class DatabaseService:
                 (chat_id, user_name))
         return [row["fact"] for row in await cursor.fetchall()]
 
+    @_serialized_write
     async def clear_direct_dialogue(self, chat_id: int, target_user: str) -> int:
         """/clear (65.5): стереть цепочки чата (bot_replies) + graph_facts с
         origin='bot_direct_reply' AND target_user=имя юзера (+FTS-строки).
@@ -4158,6 +6043,7 @@ class DatabaseService:
                 cleaned.append(f'"{word}"*')
         return " OR ".join(cleaned)
 
+    @_serialized_write
     async def forget_direct_facts(self, chat_id: int, target_user: str,
                                   phrase: str, now_ts: int) -> int:
         """/forget (65.5/65.10): FTS-поиск по bot_direct_reply-фактам юзера →
@@ -4207,6 +6093,7 @@ class DatabaseService:
             if len(w) >= 3
         ][:5]
 
+    @_serialized_write
     async def forget_memory_facts(self, chat_id: int, words: list[str],
                                   target_user: str | None = None,
                                   now_ts: int = 0) -> int:
@@ -4290,6 +6177,7 @@ class DatabaseService:
                 return row
         return None
 
+    @_serialized_write
     async def confirm_graph_fact(self, fact_id: int, now_ts: int,
                                  bonus: float) -> None:
         """64.1/64.2: noop-подтверждение — weight += bonus (cap 1.0, floor
@@ -4302,6 +6190,7 @@ class DatabaseService:
         )
         await self.db.commit()
 
+    @_serialized_write
     async def invalidate_graph_fact(self, fact_id: int, now_ts: int) -> None:
         """64.2: инвалидация (НЕ удаление) — expires_at = now; vec-строка
         удаляется (иначе KNN продолжил бы выдавать старый текст — TTL в
@@ -4318,6 +6207,7 @@ class DatabaseService:
             pass                        # vec-таблицы может не быть (FTS-режим)
         await self.db.commit()
 
+    @_serialized_write
     async def log_fact_compression(self, chat_id: int, fact_id, fact_before: str,
                                    fact_after, reason: str) -> None:
         """64.2: журнал «что во что» (supersede/сжатие/forget/conflict) —
@@ -4361,12 +6251,39 @@ class DatabaseService:
             return None
         return row
 
+    @_serialized_write
     async def upsert_running_summary(self, chat_id: int, summary: str,
                                      window_start_ts: int, window_end_ts: int,
                                      raw_count: int, created_at: float,
-                                     expires_at: float) -> None:
-        """64.6: UPSERT конспекта (chat_id — PRIMARY KEY)."""
-        await self.db.execute(
+                                     expires_at: float) -> bool:
+        """64.6: UPSERT конспекта (chat_id — PRIMARY KEY).
+
+        Раунд 10.27 (MCA-07, ADR-1027-7 D8): при `MCA_SUMMARY_SINGLEFLIGHT_
+        ENABLED` ON запись становится **high-watermark/CAS** — поздний старый
+        запрос (меньший `window_end_ts`, при равенстве — меньший `raw_count`)
+        НЕ перезаписывает более новую версию (A03). Возвращает True, если
+        строка записана, False — если CAS её отклонил. OFF → прежний слепой
+        UPSERT (паритет baseline), возвращает True."""
+        params = (chat_id, summary, window_start_ts, window_end_ts, raw_count,
+                  created_at, expires_at)
+        if not _summary_singleflight_enabled():
+            await self.db.execute(
+                "INSERT INTO chat_running_summary "
+                "(chat_id, summary, window_start_ts, window_end_ts, raw_count, "
+                "created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(chat_id) DO UPDATE SET "
+                "summary = excluded.summary, "
+                "window_start_ts = excluded.window_start_ts, "
+                "window_end_ts = excluded.window_end_ts, "
+                "raw_count = excluded.raw_count, "
+                "created_at = excluded.created_at, "
+                "expires_at = excluded.expires_at",
+                params,
+            )
+            await self.db.commit()
+            return True
+        # CAS: высокий watermark (window_end_ts, затем raw_count) побеждает.
+        cursor = await self.db.execute(
             "INSERT INTO chat_running_summary "
             "(chat_id, summary, window_start_ts, window_end_ts, raw_count, "
             "created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?) "
@@ -4376,11 +6293,18 @@ class DatabaseService:
             "window_end_ts = excluded.window_end_ts, "
             "raw_count = excluded.raw_count, "
             "created_at = excluded.created_at, "
-            "expires_at = excluded.expires_at",
-            (chat_id, summary, window_start_ts, window_end_ts, raw_count,
-             created_at, expires_at),
+            "expires_at = excluded.expires_at "
+            "WHERE excluded.window_end_ts > chat_running_summary.window_end_ts "
+            "OR (excluded.window_end_ts = chat_running_summary.window_end_ts "
+            "AND excluded.raw_count >= chat_running_summary.raw_count)",
+            params,
         )
+        written = cursor.rowcount != 0
         await self.db.commit()
+        if not written:
+            logger.info("[database] running summary CAS dropped (stale) | "
+                        "chat_id=%s | end_ts=%s", chat_id, window_end_ts)
+        return written
 
     # ── Уровни конспекта (Раунд 8, spec §3.E2, T-804) ─────────
     # chat_summary_levels: level 2 = «широкий фон» — сжатие ПРЕДЫДУЩЕГО level 1
@@ -4396,6 +6320,7 @@ class DatabaseService:
         )
         return await cursor.fetchone()
 
+    @_serialized_write
     async def upsert_summary_level(self, chat_id: int, level: int,
                                    summary: str, updated_at: float,
                                    msg_count_highwater: int) -> None:
@@ -4477,6 +6402,7 @@ class DatabaseService:
             _body, op_name="touch_graph_facts",
             commit_if=lambda touched: bool(touched))
 
+    @_serialized_write
     async def delete_graph_fact(self, fact_id: int) -> None:
         """66.4/66.11: полное удаление факта — graph_facts_fts + vec-строка
         (rowid == fact_id) + строка graph_facts."""
@@ -4577,6 +6503,7 @@ class DatabaseService:
             groups.setdefault(key, []).append(row)
         return [rows for rows in groups.values() if len(rows) >= 2]
 
+    @_serialized_write
     async def purge_unconfirmed_graph_facts(self, now_ts: int,
                                             retention_days: int) -> int:
         """66.11 (T-489): выброс unconfirmed старше retention (64.2) — по всем
@@ -4606,6 +6533,7 @@ class DatabaseService:
         await self.db.commit()
         return len(ids)
 
+    @_serialized_write
     async def trim_compression_log(self, now: float, retention_days: int) -> int:
         """66.11 (T-489): усечение graph_fact_compressions старше retention —
         лог не растёт вечно. Фаза 2 (T-756, гейт G5): memory.infinite_retention
@@ -4622,17 +6550,26 @@ class DatabaseService:
         return cursor.rowcount
 
     async def get_persona_card(self, chat_id: int, name: str, limit: int,
-                               now_ts: int) -> dict:
+                               now_ts: int, *, user_id: int | None = None
+                               ) -> dict:
         """66.9 (T-487): карточка человека БЕЗ отдельной таблицы — агрегация:
         прямые факты (target_user = имя, weight DESC) + связи графа (edges по
         user-узлу с entity_name = имя, weight DESC). Без техдеталей (id/весов
-        в ответе нет)."""
+        в ответе нет).
+
+        MCA-04a FIX п.2 (spec §4.6): при `MCA_FACT_ATTRIBUTION_ENABLED` факты
+        читаются субъект-ориентированно (`subject_ref_id` устойчивого ID);
+        legacy-строки без `subject_ref_id` — по имени (честный unknown);
+        общие знания и self-referential ответы бота исключены всегда (A85)."""
+        scope, excl, sparams = await self._person_scope_clause(
+            chat_id, name, user_id=user_id)
         cursor = await self.db.execute(
             "SELECT fact FROM graph_facts "
-            "WHERE chat_id = ? AND target_user = ? AND status = 'confirmed' "
+            f"WHERE chat_id = ? AND {scope} AND {excl} "
+            "AND status = 'confirmed' "
             "AND (expires_at IS NULL OR expires_at > ?) "
             "ORDER BY weight DESC, created_at DESC",
-            (chat_id, name, now_ts))
+            [chat_id, *sparams, now_ts])
         facts = [row["fact"] for row in await cursor.fetchall()]
         cursor = await self.db.execute(
             "SELECT e.relation_type, "
@@ -4650,28 +6587,77 @@ class DatabaseService:
         links = [dict(row) for row in await cursor.fetchall()]
         return {"facts": facts, "links": links}
 
+    async def _person_scope_clause(self, chat_id, name, *, user_id=None):
+        """Субъект-scope для чтения личных фактов (MCA-04a FIX п.2, spec §4.6).
+
+        Возврат `(scope_sql, exclude_sql, params)`. Provenance-строки — по
+        `subject_ref_id` (устойчивый ID); legacy (`subject_ref_id IS NULL`) —
+        по `target_user`-имени. Общие знания (`world_knowledge`) и ответы бота
+        (`bot_self_reply`) исключаются всегда (A85)."""
+        from services import mca_gates, provenance
+        ref_id = None
+        if mca_gates.fact_attribution_enabled():
+            if user_id is None:
+                try:
+                    ref = await provenance.resolve_subject_ref(self, chat_id,
+                                                               name)
+                    if ref.resolution == "resolved":
+                        user_id = ref.entity_id
+                except Exception:
+                    logger.debug("[database] subject resolve failed",
+                                 exc_info=True)
+            if user_id is not None:
+                try:
+                    cursor = await self.db.execute(
+                        "SELECT source_ref_id FROM mca_source_refs WHERE "
+                        "store = 'telegram' AND entity_type = 'user' AND "
+                        "entity_id = ? AND COALESCE(chat_id, -1) = "
+                        "COALESCE(?, -1) LIMIT 1", (str(user_id), chat_id))
+                    row = await cursor.fetchone()
+                    if row is not None:
+                        ref_id = int(row["source_ref_id"])
+                except Exception:
+                    logger.debug("[database] subject ref lookup failed",
+                                 exc_info=True)
+        clauses = []
+        params: list = []
+        if ref_id is not None:
+            clauses.append("subject_ref_id = ?")
+            params.append(ref_id)
+        clauses.append("(subject_ref_id IS NULL AND target_user = ?)")
+        params.append(name)
+        scope = "(" + " OR ".join(clauses) + ")"
+        exclude = ("COALESCE(attribution_method, '') != 'world_knowledge' "
+                   "AND COALESCE(assertion_kind, '') != 'world_knowledge' "
+                   "AND COALESCE(origin, '') != 'bot_self_reply'")
+        return scope, exclude, params
+
     async def get_user_context_facts(self, chat_id: int, target_user: str,
-                                     limit: int, now_ts: int) -> list:
+                                     limit: int, now_ts: int, *,
+                                     user_id: int | None = None) -> list:
         """A6/ADR-1026-18 D4 (read-only): confirmed-факты участника с
         провенанс-метаданными для envelope `get_user_context` (sources/
         confidence §3.3/D4).
 
-        Тот же скоуп, что у `get_persona_card` (target_user + status='confirmed'
-        + неистёкшие), но строки отдаются с полями `origin`/`created_at`/
-        `tg_message_id`/`weight`/`status`/`last_confirmed_at`/
-        `message_timestamp`/`kind`. Сортировка `weight DESC, created_at DESC`.
-        Только чтение; схема/DDL не меняются (SQLite v12)."""
+        MCA-04a FIX п.2 (spec §4.6): субъект-scope по `subject_ref_id` вместо
+        `target_user`-имени (устойчивый ID); legacy без `subject_ref_id` —
+        по имени; `world_knowledge`/`bot_self_reply` исключены. Сортировка
+        `weight DESC, created_at DESC`. Только чтение."""
         target = str(target_user or "").strip()
         if not target:
             return []
+        scope, exclude, sparams = await self._person_scope_clause(
+            chat_id, target, user_id=user_id)
         cursor = await self.db.execute(
             "SELECT id, fact, origin, created_at, target_user, weight, status, "
-            "last_confirmed_at, tg_message_id, message_timestamp, kind "
-            "FROM graph_facts WHERE chat_id = ? AND target_user = ? "
+            "last_confirmed_at, tg_message_id, message_timestamp, kind, "
+            "subject_ref_id, attribution_method, assertion_kind, "
+            "speaker_author_id, provenance_channel "
+            f"FROM graph_facts WHERE chat_id = ? AND {scope} AND {exclude} "
             "AND status = 'confirmed' "
             "AND (expires_at IS NULL OR expires_at > ?) "
             "ORDER BY weight DESC, created_at DESC LIMIT ?",
-            (int(chat_id), target, int(now_ts), int(limit)))
+            [int(chat_id), *sparams, int(now_ts), int(limit)])
         return [dict(row) for row in await cursor.fetchall()]
 
     async def get_persona_names(self, chat_id: int, now_ts: int) -> list:
@@ -4699,6 +6685,7 @@ class DatabaseService:
         row = await cursor.fetchone()
         return str(row["traits"]) if row and row["traits"] else ""
 
+    @_serialized_write
     async def set_dossier_override(self, chat_id: int, user_id: int,
                                    traits: str, now_ts: int) -> None:
         """Upsert ручной правки досье (id — ключ; R16)."""
@@ -4708,6 +6695,7 @@ class DatabaseService:
             (int(chat_id), int(user_id), str(traits or ""), int(now_ts)))
         await self.db.commit()
 
+    @_serialized_write
     async def delete_dossier_override(self, chat_id: int,
                                       user_id: int) -> None:
         """Сброс ручной правки досье участника (откат к авто-досье)."""
@@ -4762,6 +6750,22 @@ class DatabaseService:
             "SELECT 1 FROM graph_facts WHERE chat_id = ? AND target_user = ? "
             "AND fact = ? AND status = 'chat_meme' LIMIT 1",
             (chat_id, target_user, fact))
+        return await cursor.fetchone() is not None
+
+    async def person_fact_exists(self, chat_id: int, fact: str,
+                                 provenance_channel: str | None = None
+                                 ) -> bool:
+        """MCA-04a FIX п.3: есть ли уже такой личный факт Layer A
+        (`status='unconfirmed'`, опционально по каналу) — идемпотентность
+        повторных прогонов досье. Fail-open: ошибка → False."""
+        sql = ("SELECT 1 FROM graph_facts WHERE chat_id = ? AND fact = ? "
+               "AND status = 'unconfirmed' ")
+        params: list = [chat_id, fact]
+        if provenance_channel is not None:
+            sql += "AND provenance_channel = ? "
+            params.append(provenance_channel)
+        sql += "LIMIT 1"
+        cursor = await self.db.execute(sql, params)
         return await cursor.fetchone() is not None
 
     async def list_chat_memes(self, chat_id: int,
@@ -4840,6 +6844,7 @@ class DatabaseService:
                               or row["created_at"] or 0),
         }
 
+    @_serialized_write
     async def upsert_generated_dossier(self, chat_id: int, target_user: str,
                                        portrait: str | None, patterns=(),
                                        themes=(), now_ts: int | None = None

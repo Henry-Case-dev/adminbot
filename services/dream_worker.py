@@ -1078,6 +1078,19 @@ class DreamWorker:
             kind="belief", belief_meta=meta)
         if old_id is not None and fact_id:
             await self.db.mark_belief_superseded(old_id, fact_id)
+        if fact_id:
+            # MCA-04a (ADR-1027-6 D9, T-3823): типизировать source_ids belief
+            # в derived_from SourceRef (REUSE, не второй store). Fail-open.
+            try:
+                from services import provenance
+                await provenance.record_source_ids_provenance(
+                    self.db, fact_id=fact_id, chat_id=chat_id,
+                    source_ids=[int(r["id"]) for r in sources],
+                    provenance_channel="dream")
+            except Exception:
+                logger.warning(
+                    "[dream] belief provenance failed — fail-open | "
+                    "belief_id=%s", fact_id, exc_info=True)
         if fact_id and self.memory is not None \
                 and getattr(self.memory, "_vec_available", False):
             try:
@@ -2049,6 +2062,18 @@ class DreamWorker:
             weight=_DEEP_SLEEP_WEIGHT, importance=importance,
             source_ids=json.dumps(source_ids, ensure_ascii=False),
             kind="belief", belief_meta=meta)
+        if fact_id:
+            # MCA-04a (ADR-1027-6 D9, T-3823): типизировать source_ids
+            # парадигмы в derived_from SourceRef. Fail-open.
+            try:
+                from services import provenance
+                await provenance.record_source_ids_provenance(
+                    self.db, fact_id=fact_id, chat_id=chat_id,
+                    source_ids=source_ids, provenance_channel="dream")
+            except Exception:
+                logger.warning(
+                    "[deep_sleep] paradigm provenance failed — fail-open | "
+                    "id=%s", fact_id, exc_info=True)
         if fact_id and self.memory is not None \
                 and getattr(self.memory, "_vec_available", False):
             try:

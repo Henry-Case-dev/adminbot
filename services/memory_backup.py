@@ -181,3 +181,119 @@ class MemoryBackupService:
             prune_facts_exports(directory, keep=1)
         except Exception:
             logger.warning("memory_backup: rotation failed", exc_info=True)
+
+
+# ── Раунд 10.27 (MCA-14, ADR-1027-1 D2): backup ПЕРЕД миграцией схемы ───────
+# Перед применением нового шага схемы runner вызывает `migration_backup`:
+# `VACUUM INTO` (WAL-консистентная копия одним файлом) + проверка свободного
+# места + read-back копии (`integrity_check`/`user_version`). Провал любой
+# проверки → явная ошибка и отказ применять (никакого частичного применения).
+# R17: в логах НЕТ полного пути/имени копии — только признак успеха/ошибки.
+
+_MIGRATION_BACKUP_PREFIX = "pre_migration_"
+# Коэффициент запаса свободного места (размер БД × K ≥ требуемому).
+_FREE_SPACE_SAFETY = 2.0
+# Ротация pre-migration копий: держим ровно 1 предыдущую (как daily-бэкап).
+_MIGRATION_BACKUP_KEEP = 1
+
+
+class MigrationBackupError(RuntimeError):
+    """Провал backup/проверок перед миграцией (явный отказ применять шаг)."""
+
+
+def _free_space_check(db_path: Path, target_dir: Path, factor: float) -> None:
+    """Свободное место на целевом диске ≥ размер БД × factor.
+
+    Недостаток → `MigrationBackupError` (R17-safe: без путей)."""
+    import shutil
+    try:
+        db_size = db_path.stat().st_size if db_path.exists() else 0
+        # L-MCA14-2: учесть WAL — консистентная копия включает и его содержимое,
+        # иначе оценка свободного места занижена в WAL-тяжёлом состоянии.
+        wal = db_path.with_name(db_path.name + "-wal")
+        if wal.exists():
+            db_size += wal.stat().st_size
+    except OSError:
+        db_size = 0
+    try:
+        usage = shutil.disk_usage(str(target_dir))
+    except OSError as exc:
+        raise MigrationBackupError(
+            "backup: cannot read free space") from exc
+    needed = int(db_size * factor)
+    if usage.free < needed:
+        raise MigrationBackupError(
+            "backup: insufficient free space for migration copy")
+
+
+def _read_back(target: Path, expected_user_version: int | None) -> None:
+    """Копия читается: `PRAGMA integrity_check == ok` и совпадение версии.
+
+    Провал → `MigrationBackupError` (R17-safe: без путей)."""
+    import sqlite3
+    conn = None
+    try:
+        conn = sqlite3.connect(str(target))
+        row = conn.execute("PRAGMA integrity_check").fetchone()
+        if not row or str(row[0]).lower() != "ok":
+            raise MigrationBackupError("backup: integrity_check != ok")
+        if expected_user_version is not None:
+            ver = conn.execute("PRAGMA user_version").fetchone()
+            if ver is None or int(ver[0]) != int(expected_user_version):
+                raise MigrationBackupError(
+                    "backup: user_version mismatch in copy")
+    except sqlite3.Error as exc:
+        raise MigrationBackupError("backup: copy is not readable") from exc
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
+async def migration_backup(db, *, backup_dir: str | Path | None = None,
+                           target_version: int | None = None) -> Path | None:
+    """Backup перед миграцией (ADR-1027-1 D2). Возвращает путь копии или
+    `None`, если backup неприменим (in-memory БД).
+
+    * `:memory:`/пустой путь → `None` (бэкапить нечего; свежая БД).
+    * `VACUUM INTO` из живого соединения (WAL-консистентно).
+    * free-space check → `MigrationBackupError` при недостатке.
+    * read-back → `MigrationBackupError` при нечитаемой копии.
+    """
+    raw = str(getattr(db, "db_path", "") or "")
+    if raw in (":memory:", ""):
+        return None
+    db_path = Path(raw)
+    if not db_path.exists():
+        return None
+    directory = Path(backup_dir) if backup_dir else db_path.parent
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise MigrationBackupError("backup: cannot create target dir") from exc
+    _free_space_check(db_path, directory, _FREE_SPACE_SAFETY)
+    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    target = directory / f"{_MIGRATION_BACKUP_PREFIX}{stamp}.db"
+    if target.exists():
+        # в пределах одной секунды/прошлый заход — свой уникальный суффикс
+        import uuid as _uuid
+        target = directory / (
+            f"{_MIGRATION_BACKUP_PREFIX}{stamp}_{_uuid.uuid4().hex[:8]}.db")
+    escaped = str(target).replace("'", "''")
+    try:
+        await db.db.execute(f"VACUUM INTO '{escaped}'")
+    except Exception as exc:
+        raise MigrationBackupError("backup: VACUUM INTO failed") from exc
+    _read_back(target, target_version)
+    logger.info(
+        "memory_backup: pre-migration copy created + read-back ok | "
+        "target_version=%s", target_version)
+    try:
+        from services.disk_retention import prune_migration_backups
+        prune_migration_backups(directory, keep=_MIGRATION_BACKUP_KEEP)
+    except Exception:
+        logger.debug("memory_backup: pre-migration rotation failed",
+                     exc_info=True)
+    return target

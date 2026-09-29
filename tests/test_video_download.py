@@ -935,13 +935,27 @@ class TestProbeOpts:
     @pytest.mark.asyncio
     async def test_probe_without_settings_no_proxy_keys(
             self, tmp_path, monkeypatch):
+        """MCA-02 OFF — паритет baseline: без egress-обвязки и без proxy."""
+        from services import mca_gates
+        from tools import video_downloader as vdm
+        self._patch_ytdlp(monkeypatch)
+        monkeypatch.setattr(vdm, "build_ytdlp_base_opts", lambda: {})
+        monkeypatch.setattr(mca_gates, "egress_guard_enabled", lambda: False)
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        await dl.probe(URL)
+        assert "proxy" not in self._FakeYDL.last_opts
+        assert "cookiefile" not in self._FakeYDL.last_opts
+
+    @pytest.mark.asyncio
+    async def test_probe_egress_guard_on_adds_proxy(
+            self, tmp_path, monkeypatch):
+        """MCA-02 ON (D4): без своего proxy — loopback egress-guard."""
         from tools import video_downloader as vdm
         self._patch_ytdlp(monkeypatch)
         monkeypatch.setattr(vdm, "build_ytdlp_base_opts", lambda: {})
         dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
         await dl.probe(URL)
-        assert "proxy" not in self._FakeYDL.last_opts
-        assert "cookiefile" not in self._FakeYDL.last_opts
+        assert self._FakeYDL.last_opts["proxy"].startswith("http://127.0.0.1:")
 
     @pytest.mark.asyncio
     async def test_probe_proxy_set_logs_fact_only(

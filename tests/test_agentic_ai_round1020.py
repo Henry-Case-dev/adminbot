@@ -460,7 +460,7 @@ class TestGraphFactsV12:
         cols = {r["name"] for r in await cursor.fetchall()}
         assert {"tg_message_id", "forward_from"} <= cols
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 12
+        assert (await cursor.fetchone())[0] == 19
         # старые строки NULL-толерантны
         cursor = await d.db.execute(
             "SELECT tg_message_id, forward_from FROM graph_facts WHERE id=7")

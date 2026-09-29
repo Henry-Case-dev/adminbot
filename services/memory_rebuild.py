@@ -93,22 +93,18 @@ async def _guarded_delete(db, table: str, where_sql: str, params=(),
                           *, extra: frozenset = frozenset()) -> int:
     """Единственный путь удаления строк: guard → DELETE → commit.
 
-    F1/§2.3: при `database is locked` — до `_LOCK_RETRIES` повторов с
-    экспоненциальным бэкоффом (запись в живую БД/WAL не блокирует бота)."""
+    B-MCA01-1 (ADR-1027-3 D3): запись идёт через общий механизм
+    `Database.write_transaction` (single-writer + bounded retry на
+    `database is locked`) — сырой `db.db.execute`/`commit` устранён."""
     assert_derived_table(table, extra=extra)
-    attempt = 0
-    while True:
-        try:
-            cursor = await db.db.execute(
-                f"DELETE FROM {table} WHERE {where_sql}", tuple(params))
-            await db.db.commit()
-            return int(cursor.rowcount or 0)
-        except Exception as exc:
-            locked = "locked" in str(exc).lower()
-            if not locked or attempt >= _LOCK_RETRIES:
-                raise
-            attempt += 1
-            await asyncio.sleep(_LOCK_BACKOFF * (2 ** (attempt - 1)))
+
+    async def _body(conn):
+        cursor = await conn.execute(
+            f"DELETE FROM {table} WHERE {where_sql}", tuple(params))
+        return int(cursor.rowcount or 0)
+
+    return int(await db.write_transaction(
+        _body, op_name="guarded_delete") or 0)
 
 
 async def delete_generated_facts(db, ids, *, batch: int = _ARCHIVE_BATCH) -> int:

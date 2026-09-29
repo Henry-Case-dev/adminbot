@@ -158,11 +158,24 @@ def normalize_message(raw) -> dict | None:
     reply_to_id = int(reply_to) if isinstance(reply_to, (int, float)) \
         and not isinstance(reply_to, bool) else None
     export_id = raw.get("id")
+    # MCA-03 (ADR-1027-4 D2/D3): честная семантика времени/источника импорта.
+    # date_unixtime = дата СОБЫТИЯ (не импорта); reply_to_message_id —
+    # экспортный id (может быть отрицательным) → reply_to_kind='export'.
+    # source_record_id — стабильный локальный id записи внутри namespace
+    # (не Telegram ID); namespace проставляет loader.
+    caption = text if media_type != "text" else None
     return {
         "user_id": user_id,
         "text": text,
+        "caption": caption,
         "reply_to_id": reply_to_id,
         "timestamp": timestamp,
+        "sent_at": timestamp,
+        "sent_at_source": "import_date",
+        "source_kind": "import",
+        "reply_to_kind": "export" if reply_to_id is not None else None,
+        "source_record_id": (str(export_id) if export_id is not None
+                             else None),
         "media_type": media_type,
         "author_name": author_name,
         "is_forward": is_forward,

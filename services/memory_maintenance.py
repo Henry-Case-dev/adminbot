@@ -98,11 +98,17 @@ class MemoryMaintenanceService:
             logger.info("MemoryMaintenance disabled (all jobs off)")
 
     async def _tick_wal_checkpoint(self) -> None:
-        """Epic 64: PRAGMA wal_checkpoint(TRUNCATE) — сброс -wal в основной файл."""
+        """Epic 64: PRAGMA wal_checkpoint(TRUNCATE) — сброс -wal в основной файл.
+
+        B-MCA01-1 (ADR-1027-3 D3): checkpoint — операция над ОБЩИМ
+        соединением, выполняется под single-writer (`serialized()`), чтобы не
+        интерливить с чужой открытой транзакцией."""
         try:
-            cursor = await self.db.db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-            row = await cursor.fetchone()
-            await self.db.db.commit()
+            async with self.db.serialized():
+                cursor = await self.db.db.execute(
+                    "PRAGMA wal_checkpoint(TRUNCATE)")
+                row = await cursor.fetchone()
+                await self.db.db.commit()
             logger.info("WAL checkpoint done | busy=%s log_pages=%s checkpointed=%s",
                         row[0] if row else "?", row[1] if row else "?",
                         row[2] if row else "?")

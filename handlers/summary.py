@@ -14,6 +14,7 @@ safety net when the generator is not injected (B6), INFO logs for every state
 из пула вариаций _UX_ACK_VARIANTS. Epic 31 (D94): SUMMARY_ADMIN_ONLY=true →
 доступ только ADMIN_USER_ID (ALLOWED_SUMMARY_IDS игнорируется).
 """
+import datetime
 import logging
 import random
 import time
@@ -24,6 +25,7 @@ from aiogram.filters import Command
 
 from config.settings import settings
 from services import hot_config as hot
+from services import message_identity
 from services.media_group_buffer import record_media_group_message
 from services.summary_throttling import ThrottlingMiddleware
 
@@ -152,6 +154,31 @@ def _build_nickname(user) -> str | None:
     return " ".join(parts) if parts else None
 
 
+def _media_ref(message: types.Message, media_type: str) -> str | None:
+    """MCA-03 (D3): ссылка на медиа (НЕ байты) — `media_type:file_unique_id`.
+
+    Для media-сообщений берётся последний элемент списка (photo) либо сам
+    объект; при отсутствии `file_unique_id` — честный None."""
+    if media_type in ("text", "other"):
+        return None
+    obj = getattr(message, media_type, None)
+    if isinstance(obj, (list, tuple)):
+        obj = obj[-1] if obj else None
+    uid = getattr(obj, "file_unique_id", None)
+    return f"{media_type}:{uid}" if isinstance(uid, str) and uid else None
+
+
+def _sent_at_of(message: types.Message) -> int | None:
+    """Дата СОБЫТИЯ (message.date) в unix; None при отсутствии/поломке."""
+    try:
+        date = message.date
+        if isinstance(date, datetime.datetime):
+            return int(date.timestamp())
+    except (AttributeError, TypeError, OverflowError, OSError, ValueError):
+        return None
+    return None
+
+
 # ── 0a. Observer ──────────────────────────────────────────────
 
 @summary_observer_router.message()
@@ -189,18 +216,47 @@ async def summary_observer(message: types.Message):
         origin = getattr(message, "forward_origin", None)   # getattr-защита (риск 7)
         is_forward = origin is not None
         forward_source = _extract_forward_source(origin) if is_forward else None
+        # MCA-03 (ADR-1027-4 D3/D4): дата события ≠ дата записи; роли
+        # (адресат ответа/цитируемый/forward-автор) разделены. Значения —
+        # честный unknown (None), не выдуманы.
+        reply_author_id = None
+        if message.reply_to_message is not None:
+            reply_user = getattr(message.reply_to_message, "from_user", None)
+            reply_author_id = getattr(reply_user, "id", None)
+        quote_text = None
+        quote = getattr(message, "quote", None)
+        if quote is not None:
+            quote_text = getattr(quote, "text", None)
+        forward_author_id = None
+        if origin is not None:
+            fwd_user = getattr(origin, "sender_user", None)
+            forward_author_id = getattr(fwd_user, "id", None)
+        # MCA-03 (ADR-1027-4 D3): дата СОБЫТИЯ (`sent_at` = message.date) и
+        # дата ЗАПИСИ (`ingested_at` = now) считаются НЕЗАВИСИМО и не
+        # приравниваются друг к другу; legacy `timestamp` = время записи.
+        # Для «поздно доставленного» сообщения sent_at < ingested_at.
+        sent_at = _sent_at_of(message)
+        ingested_at = int(time.time())
         try:
-            await _db.save_smart_message(
+            await message_identity.save_live_message(
+                _db,
                 user_id=user.id,
                 chat_id=message.chat.id,
                 text=text,
-                reply_to_id=reply_to_id,
-                timestamp=int(time.time()),
+                caption=message.caption,
+                timestamp=ingested_at,          # legacy-колонка = время записи
+                sent_at=sent_at,                # дата события (Telegram)
+                ingested_at=ingested_at,        # независимый write-clock
                 media_type=media_type,
                 author_name=author_name,
                 is_forward=is_forward,
                 forward_source=(forward_source or "")[:_FORWARD_SOURCE_MAX_CHARS],
-                message_id=message.message_id,   # Epic 50 (58.7): TG id для reply-цепочек
+                tg_message_id=message.message_id,   # Epic 50 (58.7)
+                media_ref=_media_ref(message, media_type),
+                reply_to_id=reply_to_id,
+                reply_to_author_id=reply_author_id,
+                quote_text=quote_text,
+                forward_author_id=forward_author_id,
             )
         except Exception:
             logger.warning(
@@ -209,6 +265,35 @@ async def summary_observer(message: types.Message):
             )
     except Exception:
         logger.warning("SmartModule observer: unexpected error", exc_info=True)
+    return UNHANDLED
+
+
+@summary_observer_router.edited_message()
+async def summary_observer_edited(message: types.Message):
+    """MCA-03 (T-3788, ADR-1027-4 D5): правка сообщения человеком → новая
+    версия. Kill-switch OFF (`MCA_MESSAGE_REVISION_TRACKING_ENABLED=false`) →
+    no-op (паритет baseline: версий нет). Всегда UNHANDLED — не перехватываем
+    чужие edited-хендлеры (напр. bot_replies в direct_chat)."""
+    try:
+        if _db is None or message.from_user is None:
+            return UNHANDLED
+        if _bot_id is not None and message.from_user.id == _bot_id:
+            return UNHANDLED
+        text = message.text or message.caption
+        if text and text.lstrip().startswith("/summary"):
+            return UNHANDLED
+        edited_at = None
+        try:
+            if isinstance(message.edit_date, datetime.datetime):
+                edited_at = int(message.edit_date.timestamp())
+        except (AttributeError, OverflowError, OSError, ValueError):
+            edited_at = None
+        await message_identity.record_edit(
+            _db, chat_id=message.chat.id, tg_message_id=message.message_id,
+            text=text, caption=message.caption, edited_at=edited_at)
+    except Exception:
+        logger.warning("SmartModule observer: edited handler error",
+                       exc_info=True)
     return UNHANDLED
 
 

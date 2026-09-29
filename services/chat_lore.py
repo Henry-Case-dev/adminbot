@@ -45,20 +45,23 @@ async def ensure_chat_lore(db: DatabaseService) -> dict:
     inserted = 0
     skipped = 0
     try:
-        cursor = await db.db.execute(
-            "SELECT 1 FROM protected_facts "
-            "WHERE chat_id = ? AND user_name IS NULL AND fact = ? LIMIT 1",
-            (chat_id, text))
-        if await cursor.fetchone() is None:
-            result = await db.db.execute(
+        # B-MCA01-1 (ADR-1027-3 D3): write через общий механизм
+        # (`write_transaction`, single-writer), а не сырой execute+commit.
+        async def _pf_body(conn):
+            cursor = await conn.execute(
+                "SELECT 1 FROM protected_facts "
+                "WHERE chat_id = ? AND user_name IS NULL AND fact = ? LIMIT 1",
+                (chat_id, text))
+            if await cursor.fetchone() is not None:
+                return 0
+            result = await conn.execute(
                 "INSERT OR IGNORE INTO protected_facts "
                 "(chat_id, user_name, fact, created_at) VALUES (?, NULL, ?, ?)",
                 (chat_id, text, time.time()))
-            await db.db.commit()
-            if result.rowcount:
-                inserted += 1
-            else:
-                skipped += 1
+            return int(result.rowcount or 0)
+
+        if await db.write_transaction(_pf_body, op_name="chat_lore_protected"):
+            inserted += 1
         else:
             skipped += 1
         cursor = await db.db.execute(

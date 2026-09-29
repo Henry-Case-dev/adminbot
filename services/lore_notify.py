@@ -49,10 +49,23 @@ class LoreNotify:
 
         ВАЖНО: `init` есть только у asyncpg.create_pool — у connect такого
         параметра нет (TypeError на любой версии asyncpg), поэтому кодеки
-        применяем вручную сразу после connect, до первого запроса."""
+        применяем вручную сразу после connect, до первого запроса.
+
+        MCA-01 §5.2 (T-3743): при провале `_init_fn` соединение НЕ остаётся
+        открытым — закрываем его в `except` и пробрасываем ошибку (раньше
+        `conn` терялся и утекал: соединение висело до конца процесса)."""
         conn = await asyncpg.connect(self._dsn)
         if self._init_fn is not None:
-            await self._init_fn(conn)
+            try:
+                await self._init_fn(conn)
+            except BaseException:
+                try:
+                    await conn.close()
+                except Exception:
+                    logger.debug(
+                        "[lore_notify] close on init-failure failed",
+                        exc_info=True)
+                raise
         return conn
 
     # ── lifecycle ──────────────────────────────────────────────────────────

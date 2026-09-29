@@ -13,6 +13,8 @@ import httpx
 
 from config.settings import settings
 from services import hot_config as hot
+from services import mca_gates
+from services import safe_fetch
 
 try:
     import trafilatura
@@ -32,6 +34,13 @@ _FETCH_TIMEOUT = 10.0   # trafilatura: скачивание HTML (ТЗ)
 _API_TIMEOUT = 15.0     # Tavily / Exa (ТЗ)
 _MIN_CONTENT_CHARS = 150
 
+#: коды SafeFetcher, при которых облачные фолбеки запрещены (опасное назначение).
+_POLICY_BLOCK_CODES = frozenset({
+    "scheme_not_allowed", "credentials_in_url", "invalid_url",
+    "destination_blocked", "metadata_endpoint_blocked", "redirect_blocked",
+    "too_many_redirects",
+})
+
 
 class WebContentExtractionFailedException(Exception):
     """Все уровни каскада провалились/пусто. → пул 5.7 (WEB_ERROR_PHRASES)."""
@@ -49,6 +58,13 @@ class WebContentExtractor:
                                        tavily_api_key) or ""
         self._exa_api_key = hot.get("keys.exa_api_key", exa_api_key) or ""
         self._client: httpx.AsyncClient | None = None
+        # MCA-02 (ADR-1027-5 D1): общий SafeFetcher (единственный fetch-контур).
+        self._safe_fetcher: safe_fetch.SafeFetcher | None = None
+
+    def _get_safe_fetcher(self) -> safe_fetch.SafeFetcher:
+        if self._safe_fetcher is None:
+            self._safe_fetcher = safe_fetch.SafeFetcher()
+        return self._safe_fetcher
 
     def _get_client(self) -> httpx.AsyncClient:
         """Ленивый общий httpx-клиент (прецедент SearchAggregator._get_client)."""
@@ -60,7 +76,10 @@ class WebContentExtractor:
         """Каскад: trafilatura → tavily → exa. Успех уровня: text.strip() ДОЛЖЕН
         быть СТРОГО >150 символов (ровно 150 → фейл, ТЗ «длина >150»), затем
         text[:max_symbols] (жёсткий срез). Все уровни упали →
-        WebContentExtractionFailedException."""
+        WebContentExtractionFailedException.
+
+        MCA-02: опасное назначение (SSRF/scheme/credentials/redirect) НЕ
+        уходит в облачные фолбеки — немедленный отказ (R17: URL маскируется)."""
         levels = [
             ("trafilatura", self._extract_trafilatura, None),
             ("tavily", self._extract_tavily, self._tavily_api_key),
@@ -84,33 +103,61 @@ class WebContentExtractor:
                     name, latency_ms, len(text),
                 )
                 return self._truncate(text, max_symbols)
+            except safe_fetch.SafeFetchError as exc:
+                if exc.code in _POLICY_BLOCK_CODES:
+                    logger.warning(
+                        "[web_extractor] destination blocked — no fallback "
+                        "| code=%s | url=%s", exc.code,
+                        safe_fetch.mask_url(target_url))
+                    raise WebContentExtractionFailedException(
+                        f"destination blocked | code={exc.code}"
+                    ) from exc
+                logger.warning(
+                    "[web_extractor] level failed → fallback | provider=%s | error=%s",
+                    name, exc,
+                )
             except Exception as exc:
                 logger.warning(
                     "[web_extractor] level failed → fallback | provider=%s | error=%s",
                     name, exc,
                 )
-        logger.error("[web_extractor] all levels failed | url=%s", target_url)
+        logger.error("[web_extractor] all levels failed | url=%s",
+                     safe_fetch.mask_url(target_url))
         raise WebContentExtractionFailedException(
-            f"all extraction levels failed | url={target_url!r}"
+            f"all extraction levels failed | url={safe_fetch.mask_url(target_url)}"
         )
 
     async def _extract_trafilatura(self, target_url: str) -> str:
-        """Шаг 1 (основной): GET target_url (UA, follow_redirects=True,
-        timeout 10.0) → trafilatura.extract(...) в asyncio.to_thread
-        (прецедент youtube_transcript_engine). None/raise → фолбек."""
+        """Шаг 1 (основной): GET target_url (UA, redirects) → trafilatura.
+
+        MCA-02 (ADR-1027-5 D1/D3/D5): при `MCA_SAFE_FETCH_ENABLED` загрузка
+        идёт через общий SafeFetcher (нормализация/SSRF/redirect/peer-проверка/
+        потоковые лимиты). OFF → точный legacy-путь (паритет baseline)."""
         if trafilatura is None:  # pragma: no cover
             raise RuntimeError("trafilatura is not installed")
         client = self._get_client()
-        response = await client.get(
-            target_url,
-            headers={"User-Agent": _USER_AGENT},
-            follow_redirects=True,
-            timeout=httpx.Timeout(_FETCH_TIMEOUT),
-        )
-        response.raise_for_status()
+        if mca_gates.safe_fetch_enabled():
+            response = await self._get_safe_fetcher().fetch(
+                target_url, profile="html", client=client,
+                headers={"User-Agent": _USER_AGENT})
+            if response.status_code >= 400:
+                raise httpx.HTTPStatusError(
+                    f"safe_fetch HTTP {response.status_code}",
+                    request=httpx.Request("GET", target_url),
+                    response=httpx.Response(response.status_code))
+            html = response.text()
+        else:
+            legacy = await client.get(
+                target_url,
+                headers={"User-Agent": _USER_AGENT},
+                follow_redirects=True,
+                timeout=httpx.Timeout(_FETCH_TIMEOUT),
+            )
+            legacy.raise_for_status()
+            html = legacy.text
         text = await asyncio.to_thread(
             trafilatura.extract,
-            response.text,
+            html,
             output_format="markdown",
             include_links=False,
             include_images=False,
@@ -155,7 +202,10 @@ class WebContentExtractor:
         return str(results[0]["text"])
 
     async def close(self) -> None:
-        """Закрыть ленивый клиент (on_shutdown, прецедент Epic 33/37)."""
+        """Закрыть ленивые клиенты (on_shutdown, прецедент Epic 33/37)."""
+        if self._safe_fetcher is not None:
+            await self._safe_fetcher.aclose()
+            self._safe_fetcher = None
         if self._client is not None:
             await self._client.aclose()
             self._client = None

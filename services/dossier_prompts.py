@@ -332,7 +332,10 @@ def parse_layer_a(raw: str | None, *, canon=None) -> dict:
     return {"candidates": candidates, "discarded": discarded}
 
 
-def filter_layer_a_candidates(parsed: dict, roster, *, canon=None) -> dict:
+def filter_layer_a_candidates(parsed: dict, roster, *, canon=None,
+                              row_count: int | None = None,
+                              message_lookup=None,
+                              chat_id: int | None = None) -> dict:
     """Python-фильтр §3.3 (entity resolution ядро анти-мусора).
 
     - `person_fact` валиден ТОЛЬКО с непустым `evidence` И именем из ростера
@@ -341,9 +344,16 @@ def filter_layer_a_candidates(parsed: dict, roster, *, canon=None) -> dict:
     - `meme` без текста/таргета отбрасывается;
     - прочие kinds (quote/copypasta/other_person) отбрасываются с reason.
 
+    MCA-04a FIX п.5 (spec §4.6): `row_count`/`message_lookup` усиливают
+    валидацию — `evidence` обязан лежать в границах окна/чанка и адресовать
+    существующую строку (иначе `evidence_out_of_range` / `evidence_missing` /
+    `evidence_invalid`). Одинаковый локальный номер в разных чанках — разные
+    источники (границы задаются per-chunk). Дефолты (None) — прежнее поведение.
+
     Возврат: {"person_facts", "memes", "discarded" (из Слоя А),
     "dropped" (отсев фильтра, для логов R17: reason/kind, без текстов)}.
     """
+    from services import provenance
     roster_keys = {str(n).strip().casefold()
                    for n in (roster or []) if str(n).strip()}
     person_facts: list[dict] = []
@@ -356,6 +366,12 @@ def filter_layer_a_candidates(parsed: dict, roster, *, canon=None) -> dict:
             if not cand.get("evidence"):
                 dropped.append({"kind": kind, "target": target,
                                 "reason": "no_evidence"})
+                continue
+            ok, reason = provenance.validate_layer_a_row_bounds(
+                cand, row_count=row_count, message_lookup=message_lookup)
+            if not ok:
+                dropped.append({"kind": kind, "target": target,
+                                "reason": reason})
                 continue
             if not target or target.casefold() not in roster_keys:
                 dropped.append({"kind": kind, "target": target,

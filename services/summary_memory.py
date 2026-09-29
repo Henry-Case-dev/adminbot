@@ -42,6 +42,8 @@ import time
 
 from config.settings import settings
 from services import hot_config as hot
+from services import mca_gates
+from services import mca_retrieval_context as _mca_rc
 from services.canonical_context import (
     format_context_item,
     resolve_item_id,
@@ -291,9 +293,66 @@ _EMBED_TOUCH_SECONDS = 60.0
 _RUNNING_SUMMARY_HEAD_MAX_CHARS = 60000
 
 
-def _embed_cache_key(text: str) -> str:
-    """64.4: SHA-256(casefold + strip) — канон-ключ embedding_cache."""
-    return hashlib.sha256(str(text).casefold().strip().encode("utf-8")).hexdigest()
+# MCA-07 (T-3847, ADR-1027-7 D4): версия ПРЕДОБРАБОТКИ текста перед embed.
+# Меняется, если меняется нормализация (сейчас casefold+strip); входит в
+# identity-fingerprint (cache key = текст + provider/model/dims/preproc+endpoint).
+EMBEDDING_PREPROCESSING_VERSION = "casefold-strip-v1"
+
+
+def _endpoint_fingerprint(base_url=None) -> str:
+    """Fingerprint endpoint embeddings (D4). Пустой URL → "" (не учитывается)."""
+    url = base_url if base_url is not None else hot.get(
+        "models.embedding_base_url", getattr(settings, "EMBEDDING_BASE_URL", ""))
+    url = str(url or "").strip()
+    if not url:
+        return ""
+    return hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+
+
+def _embedding_provider(base_url=None) -> str:
+    """Provider-identity по host эмбеддинг-endpoint (для identity-хэша)."""
+    url = base_url if base_url is not None else hot.get(
+        "models.embedding_base_url", getattr(settings, "EMBEDDING_BASE_URL", ""))
+    try:
+        from urllib.parse import urlsplit
+        host = urlsplit(str(url or "")).hostname
+        return host or "openai-compatible"
+    except Exception:      # pragma: no cover - защитная ветка
+        return "openai-compatible"
+
+
+def embedding_identity_fingerprint(*, provider=None, model=None, dims=None,
+                                   preprocessing_version=None,
+                                   endpoint_fingerprint=None) -> str:
+    """identity_fingerprint = sha256(provider|model|dims|preproc|endpoint) (D4).
+
+    ``endpoint_fingerprint`` включается при непустом значении (консервативно:
+    over-invalidation безопаснее under-invalidation; один dimension НЕ
+    доказывает совместимость — A06)."""
+    prov = provider if provider is not None else _embedding_provider()
+    mod = model if model is not None else hot.get(
+        "models.embedding_model_name",
+        getattr(settings, "EMBEDDING_MODEL_NAME", ""))
+    dm = dims if dims is not None else hot.get(
+        "models.embedding_dim", getattr(settings, "EMBEDDING_DIM", 0))
+    prep = (preprocessing_version if preprocessing_version is not None
+            else EMBEDDING_PREPROCESSING_VERSION)
+    ep = (endpoint_fingerprint if endpoint_fingerprint is not None
+          else _endpoint_fingerprint())
+    material = "\x1f".join([str(prov), str(mod), str(dm), str(prep), str(ep)])
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def _embed_cache_key(text: str, *, identity_fingerprint: str | None = None) -> str:
+    """64.4 / MCA-07 D4: канон-ключ embedding_cache.
+
+    Legacy (``identity_fingerprint=None``) = SHA-256(casefold + strip) — байт-
+    в-байт прежний ключ (паритет baseline). Типизированный =
+    H(identity_fingerprint \\x00 casefold(strip(text)))."""
+    base = str(text).casefold().strip()
+    material = (str(identity_fingerprint) + "\x00" + base
+                if identity_fingerprint else base)
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
 # ── Epic 60 Фаза D (66.1/66.3/66.8, T-479/T-481/T-486) ─────────
@@ -1272,30 +1331,41 @@ class MemoryManager:
                         "SmartModule: could not parse stored dim from smart_archive DDL — "
                         "runtime guard active (no dimension self-heal)"
                     )
-            if stored_dim is not None and stored_dim != actual_dim:
-                logger.warning(
-                    "SmartModule: vec dimension mismatch (stored=%d, actual=%d) — "
-                    "dropping vec tables (facts in smart_archive_facts/graph_facts are kept)",
-                    stored_dim, actual_dim,
-                )
-                await self.db.db.execute("DROP TABLE smart_archive")
-                await self.db.db.execute("DROP TABLE IF EXISTS graph_facts_vec")
-            # Epic 60 (66.6, T-484): int8-схема — float-канон + int8-coarse.
-            # Существующая float-only таблица (Фаза B) → DROP + пересоздание;
-            # backfill — из кэша эмбеддингов (без повторных API-вызовов).
-            self._vec_int8 = bool(hot.get("flags.vec_int8_enabled", settings.VEC_INT8_ENABLED)) and \
-                await self._probe_vec_int8()
-            await self._rebuild_vec_tables_if_needed()
-            await self.db.db.execute(
-                self._vec_table_sql(actual_dim))
-            await self.db.db.execute(
-                self._graph_vec_table_sql(actual_dim))
-            await self.db.db.commit()
+            # B-MCA07-1 (A06): векторы, построенные ТЕКУЩИМ конфигом, только
+            # если таблицы свежие или будут пересозданы (dim/schema-rebuild);
+            # персистентные векторы неизвестного происхождения → карантин.
+            vec_preexisting = await self._vec_tables_preexisting()
+            async with self.db.serialized():
+                dim_mismatch = stored_dim is not None and stored_dim != actual_dim
+                if dim_mismatch:
+                    logger.warning(
+                        "SmartModule: vec dimension mismatch (stored=%d, actual=%d) — "
+                        "dropping vec tables (facts in smart_archive_facts/graph_facts are kept)",
+                        stored_dim, actual_dim,
+                    )
+                    await self.db.db.execute("DROP TABLE smart_archive")
+                    await self.db.db.execute("DROP TABLE IF EXISTS graph_facts_vec")
+                # Epic 60 (66.6, T-484): int8-схема — float-канон + int8-coarse.
+                # Существующая float-only таблица (Фаза B) → DROP + пересоздание;
+                # backfill — из кэша эмбеддингов (без повторных API-вызовов).
+                self._vec_int8 = bool(hot.get("flags.vec_int8_enabled", settings.VEC_INT8_ENABLED)) and \
+                    await self._probe_vec_int8()
+                schema_rebuilt = await self._rebuild_vec_tables_if_needed()
+                await self.db.db.execute(
+                    self._vec_table_sql(actual_dim))
+                await self.db.db.execute(
+                    self._graph_vec_table_sql(actual_dim))
+                await self.db.db.commit()
             self._vec_dim = actual_dim
             self._vec_available = True
             self._vec_off_reason = None
             logger.info("SmartModule: sqlite-vec loaded (dim=%d, int8=%s)",
                         actual_dim, self._vec_int8)
+            # Векторы построены текущим конфигом, только если таблицы свежие
+            # или пересозданы; иначе НЕ активируем поколение (карантин A06).
+            await self._register_index_generations(
+                activate=(not vec_preexisting) or dim_mismatch
+                or schema_rebuilt)   # MCA-07 D4/v18 + B-MCA07-1
             fire_and_forget(self.backfill_archive_vectors(), "backfill")
             fire_and_forget(self.backfill_graph_fact_vectors(), "backfill_graph")
             return True
@@ -1330,21 +1400,127 @@ class MemoryManager:
                 "SmartModule: vec_quantize_int8 unavailable — float-only (66.6)")
             return False
 
-    async def _rebuild_vec_tables_if_needed(self) -> None:
+    async def _rebuild_vec_tables_if_needed(self) -> bool:
         """66.6: существующая float-only vec-таблица при включённом int8 →
         DROP (ALTER у vec0 нет; shadow-таблицы RENAME не переносятся) +
-        пересоздание; данные восстанавливаются backfill'ом из кэша (64.4)."""
+        пересоздание; данные восстанавливаются backfill'ом из кэша (64.4).
+
+        Возвращает True, если хотя бы одна таблица была удалена (сигнал
+        «векторы будут перестроены текущим конфигом» для A06-регистрации)."""
         if not self._vec_int8:
-            return
-        for table in ("smart_archive", "graph_facts_vec"):
+            return False
+        dropped = False
+        async with self.db.serialized():
+            for table in ("smart_archive", "graph_facts_vec"):
+                cursor = await self.db.db.execute(
+                    "SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (table,))
+                row = await cursor.fetchone()
+                if row and row["sql"] and "embedding_i8" not in row["sql"]:
+                    logger.warning(
+                        "SmartModule: %s lacks embedding_i8 — rebuilding (66.6)", table)
+                    await self.db.db.execute(f"DROP TABLE {table}")
+                    dropped = True
+            await self.db.db.commit()
+        return dropped
+
+    async def _vec_tables_preexisting(self) -> bool:
+        """A06: существовала ли vec-таблица `smart_archive` ДО инициализации.
+
+        Нужно, чтобы отличить «свежий индекс, векторы построены текущим
+        конфигом» (можно активировать поколение) от «персистентные векторы
+        неизвестного происхождения» (карантин до `mca-04b`). Неизвестно → True
+        (консервативно)."""
+        try:
             cursor = await self.db.db.execute(
-                "SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (table,))
-            row = await cursor.fetchone()
-            if row and row["sql"] and "embedding_i8" not in row["sql"]:
-                logger.warning(
-                    "SmartModule: %s lacks embedding_i8 — rebuilding (66.6)", table)
-                await self.db.db.execute(f"DROP TABLE {table}")
-        await self.db.db.commit()
+                "SELECT name FROM sqlite_master WHERE type='table' "
+                "AND name='smart_archive'")
+            return (await cursor.fetchone()) is not None
+        except Exception:
+            return True
+
+    def _identity_fingerprint(self, *, dims=None, model=None) -> str:
+        """MCA-07 D4: текущий identity-fingerprint эмбеддингов (provider/
+        model/dims/preprocessing/endpoint). ``model``/``dims`` переопределяются
+        (напр. probe-факт. размерность)."""
+        return embedding_identity_fingerprint(
+            model=model,
+            dims=(dims if dims is not None else
+                  (self._vec_dim or hot.get("models.embedding_dim",
+                                            settings.EMBEDDING_DIM))))
+
+    async def _register_index_generations(self, *, activate: bool) -> None:
+        """MCA-07 D4/v18 + B-MCA07-1 (A06): зарегистрировать поколение
+        индексов для текущего fingerprint (REUSE `db.ensure_embedding_generation`).
+
+        **Никогда не затирает существующее активное поколение** (оно описывает
+        модель, построившую текущие векторы). ``activate=True`` — только когда
+        векторы построены/перестроены ТЕКУЩИМ конфигом (свежий индекс или
+        dimension/схема-rebuild); иначе — `building` (карантин до `mca-04b`).
+        Fail-open."""
+        if not mca_gates.retrieval_context_enabled():
+            return
+        ensure = getattr(self.db, "ensure_embedding_generation", None)
+        if ensure is None:
+            return
+        fp = self._identity_fingerprint()
+        # L-MCA07-1: lookup по fingerprint (использует idx_mca_eig_fingerprint) —
+        # не плодим дубли `building` при повторных стартах в карантине.
+        by_fp = getattr(self.db, "get_generation_by_fingerprint", None)
+        for index_name in ("smart_archive", "graph_facts_vec"):
+            try:
+                if not activate and by_fp is not None:
+                    if await by_fp(index_name, fp) is not None:
+                        continue
+                await ensure(
+                    index_name, fp,
+                    provider=_embedding_provider(),
+                    model=hot.get("models.embedding_model_name",
+                                  settings.EMBEDDING_MODEL_NAME),
+                    dims=self._vec_dim or hot.get("models.embedding_dim",
+                                                  settings.EMBEDDING_DIM),
+                    preprocessing_version=EMBEDDING_PREPROCESSING_VERSION,
+                    endpoint_fingerprint=_endpoint_fingerprint(),
+                    activate=activate)
+            except Exception:
+                logger.debug("SmartModule: ensure generation failed | index=%s",
+                             index_name, exc_info=True)
+
+    async def _index_generation_ok(self, index_name: str) -> bool:
+        """MCA-07 D4/A06: можно ли обслуживать vec-индекс.
+
+        Gate OFF → True (legacy). Нет метода/записи → True (нечего гейтить:
+        fail-open для тест-двойников/БД без реестра). Во всех прочих случаях
+        vec обслуживается ТОЛЬКО если **последнее** поколение имеет
+        `status='active'` И его fingerprint совпадает с текущим конфигом.
+        `building`/`superseded`/`failed` или mismatch → FTS-only (карантин до
+        перестройки `mca-04b`) — B-MCA07-1/A06."""
+        if not mca_gates.retrieval_context_enabled():
+            return True
+        get = getattr(self.db, "get_latest_embedding_generation", None)
+        if get is None:
+            get = getattr(self.db, "get_active_embedding_generation", None)
+        if get is None:
+            return True
+        try:
+            latest = await get(index_name)
+        except Exception:
+            return True
+        if latest is None:
+            return True
+        current = self._identity_fingerprint()
+        is_active = str(latest.get("status") or "") == "active"
+        if is_active and str(latest.get("fingerprint") or "") == current:
+            return True
+        logger.warning(
+            "SmartModule: embedding generation not serviceable | index=%s | "
+            "status=%s | gen_fp=%s new_fp=%s — FTS-only (A06)", index_name,
+            latest.get("status"),
+            str(latest.get("fingerprint"))[:12], current[:12])
+        _mca_rc.emit_stage_event(
+            "retrieval", "skipped",
+            reason_code="embedding_generation_changed",
+            model=str(latest.get("model") or "")[:120])
+        return False
 
     async def _embed(self, texts) -> list[list[float]]:
         """64.4 (T-465): embedding_cache — батч-лукап SHA-256 → miss → API →
@@ -1400,50 +1576,74 @@ class MemoryManager:
         try:
             now = time.time()
             ttl_seconds = (hot.get("limits.embed_cache_ttl_days", settings.EMBED_CACHE_TTL_DAYS) or 0) * 86400.0
-            await self.db.db.execute(
-                "DELETE FROM embedding_cache WHERE last_used_at < ?",
-                (now - ttl_seconds,),
-            )
-            keys = [_embed_cache_key(text) for text in texts]
-            unique = list(dict.fromkeys(keys))
-            placeholders = ",".join("?" for _ in unique)
-            cursor = await self.db.db.execute(
-                f"SELECT text_hash, vector, dim, last_used_at FROM embedding_cache "
-                f"WHERE text_hash IN ({placeholders})", unique,
-            )
-            rows = await cursor.fetchall()
-            expected_dim = self._vec_dim or hot.get("models.embedding_dim", settings.EMBEDDING_DIM)
-            by_hash: dict[str, list[float]] = {}
-            touch: list[str] = []
-            for row in rows:
-                if row["dim"] != expected_dim:
-                    continue                # dim-сдвиг (55.8) → miss, запишется заново
-                try:
-                    vector = _unpack_vector(row["vector"])
-                except (ValueError, TypeError):
-                    continue
-                if vector is None:
-                    continue
-                by_hash[row["text_hash"]] = vector
-                if isinstance(row["vector"], str):
-                    # Epic 64: ленивая миграция legacy JSON → float16 BLOB.
-                    try:
-                        await self.db.db.execute(
-                            "UPDATE embedding_cache SET vector = ? "
-                            "WHERE text_hash = ?",
-                            (_pack_vector(vector), row["text_hash"]),
-                        )
-                    except Exception:
-                        pass
-                if now - row["last_used_at"] > _EMBED_TOUCH_SECONDS:
-                    touch.append(row["text_hash"])
-            if touch:
-                touch_ph = ",".join("?" for _ in touch)
+            typed = mca_gates.retrieval_context_enabled()
+            identity = self._identity_fingerprint() if typed else None
+            async with self.db.serialized():
                 await self.db.db.execute(
-                    f"UPDATE embedding_cache SET last_used_at = ? "
-                    f"WHERE text_hash IN ({touch_ph})", (now, *touch),
+                    "DELETE FROM embedding_cache WHERE last_used_at < ?",
+                    (now - ttl_seconds,),
                 )
-            await self.db.db.commit()
+                # MCA-07 D4: типизированный ключ (identity) vs legacy
+                # sha256(casefold+strip). Legacy-строки не матчатся новым
+                # ключом → вытесняются TTL/LRU (не смешиваются).
+                keys = [_embed_cache_key(text, identity_fingerprint=identity)
+                        for text in texts]
+                unique = list(dict.fromkeys(keys))
+                placeholders = ",".join("?" for _ in unique)
+                if typed:
+                    cursor = await self.db.db.execute(
+                        f"SELECT text_hash, vector, dim, last_used_at, "
+                        f"identity_fingerprint FROM embedding_cache "
+                        f"WHERE text_hash IN ({placeholders})", unique,
+                    )
+                else:
+                    cursor = await self.db.db.execute(
+                        f"SELECT text_hash, vector, dim, last_used_at "
+                        f"FROM embedding_cache "
+                        f"WHERE text_hash IN ({placeholders})", unique,
+                    )
+                rows = await cursor.fetchall()
+                expected_dim = self._vec_dim or hot.get("models.embedding_dim", settings.EMBEDDING_DIM)
+                by_hash: dict[str, list[float]] = {}
+                touch: list[str] = []
+                for row in rows:
+                    if typed:
+                        # A06: совпадение `dim` НЕ доказывает совместимость —
+                        # требуется полный identity_fingerprint. `dim` остаётся
+                        # defense-in-depth (spec §5): расхождение факт. длины
+                        # вектора → miss (запишется заново).
+                        if str(row["identity_fingerprint"] or "") != identity:
+                            continue
+                        if row["dim"] != expected_dim:
+                            continue
+                    elif row["dim"] != expected_dim:
+                        continue                # dim-сдвиг (55.8) → miss, запишется заново
+                    try:
+                        vector = _unpack_vector(row["vector"])
+                    except (ValueError, TypeError):
+                        continue
+                    if vector is None:
+                        continue
+                    by_hash[row["text_hash"]] = vector
+                    if isinstance(row["vector"], str):
+                        # Epic 64: ленивая миграция legacy JSON → float16 BLOB.
+                        try:
+                            await self.db.db.execute(
+                                "UPDATE embedding_cache SET vector = ? "
+                                "WHERE text_hash = ?",
+                                (_pack_vector(vector), row["text_hash"]),
+                            )
+                        except Exception:
+                            pass
+                    if now - row["last_used_at"] > _EMBED_TOUCH_SECONDS:
+                        touch.append(row["text_hash"])
+                if touch:
+                    touch_ph = ",".join("?" for _ in touch)
+                    await self.db.db.execute(
+                        f"UPDATE embedding_cache SET last_used_at = ? "
+                        f"WHERE text_hash IN ({touch_ph})", (now, *touch),
+                    )
+                await self.db.db.commit()
             cached: dict[str, list[float]] = {}
             misses: list[str] = []
             for text, key in zip(texts, keys):
@@ -1470,6 +1670,13 @@ class MemoryManager:
             now = time.time()
             ttl_seconds = (hot.get("limits.embed_cache_ttl_days", settings.EMBED_CACHE_TTL_DAYS) or 0) * 86400.0
             max_rows = (hot.get("limits.embed_cache_max_rows", settings.EMBED_CACHE_MAX_ROWS) or 0)
+            typed = mca_gates.retrieval_context_enabled()
+            identity = self._identity_fingerprint() if typed else None
+            provider = _embedding_provider() if typed else None
+            model = (hot.get("models.embedding_model_name",
+                             settings.EMBEDDING_MODEL_NAME) if typed else None)
+            endpoint_fp = _endpoint_fingerprint() if typed else None
+            preproc = EMBEDDING_PREPROCESSING_VERSION if typed else None
 
             async def _body(conn):
                 await conn.execute(
@@ -1487,6 +1694,29 @@ class MemoryManager:
                         "ORDER BY last_used_at DESC LIMIT ?)", (keep,),
                     )
                 for text, vector in zip(texts, vectors):
+                    if typed:
+                        await conn.execute(
+                            "INSERT INTO embedding_cache "
+                            "(text_hash, text, vector, dim, created_at, "
+                            "last_used_at, provider, model, "
+                            "preprocessing_version, endpoint_fingerprint, "
+                            "identity_fingerprint) "
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                            "ON CONFLICT(text_hash) DO UPDATE SET "
+                            "text = excluded.text, vector = excluded.vector, "
+                            "dim = excluded.dim, "
+                            "last_used_at = excluded.last_used_at, "
+                            "provider = excluded.provider, "
+                            "model = excluded.model, "
+                            "preprocessing_version = excluded.preprocessing_version, "
+                            "endpoint_fingerprint = excluded.endpoint_fingerprint, "
+                            "identity_fingerprint = excluded.identity_fingerprint",
+                            (_embed_cache_key(text,
+                                              identity_fingerprint=identity),
+                             text, _pack_vector(vector), len(vector), now, now,
+                             provider, model, preproc, endpoint_fp, identity),
+                        )
+                        continue
                     await conn.execute(
                         "INSERT INTO embedding_cache "
                         "(text_hash, text, vector, dim, created_at, last_used_at) "
@@ -1508,7 +1738,7 @@ class MemoryManager:
                     "сырой путь (тестовый двойник?)")
                 try:
                     await _body(self.db.db)
-                    await self.db.db.commit()
+                    await self.db.db.commit()  # mca01-write-fallback: тестовый двойник без write_transaction
                 except Exception:
                     try:
                         await self.db.db.rollback()
@@ -1540,13 +1770,15 @@ class MemoryManager:
                 return False
             if actual_dim is None:
                 return False
+            vec_preexisting = await self._vec_tables_preexisting()
             try:
-                self._vec_int8 = bool(hot.get("flags.vec_int8_enabled", settings.VEC_INT8_ENABLED)) and \
-                    await self._probe_vec_int8()
-                await self._rebuild_vec_tables_if_needed()
-                await self.db.db.execute(self._vec_table_sql(actual_dim))
-                await self.db.db.execute(self._graph_vec_table_sql(actual_dim))
-                await self.db.db.commit()
+                async with self.db.serialized():
+                    self._vec_int8 = bool(hot.get("flags.vec_int8_enabled", settings.VEC_INT8_ENABLED)) and \
+                        await self._probe_vec_int8()
+                    schema_rebuilt = await self._rebuild_vec_tables_if_needed()
+                    await self.db.db.execute(self._vec_table_sql(actual_dim))
+                    await self.db.db.execute(self._graph_vec_table_sql(actual_dim))
+                    await self.db.db.commit()
             except Exception:
                 logger.warning("SmartModule: vec tables recreate failed", exc_info=True)
                 return False
@@ -1555,6 +1787,8 @@ class MemoryManager:
             self._vec_off_reason = None
             logger.info("SmartModule: vec reactivated after embed recovery | dim=%d",
                         actual_dim)
+            await self._register_index_generations(
+                activate=(not vec_preexisting) or schema_rebuilt)   # MCA-07 D4/v18
             fire_and_forget(self.backfill_archive_vectors(), "backfill")
             fire_and_forget(self.backfill_graph_fact_vectors(), "backfill_graph")
             return True
@@ -1580,32 +1814,33 @@ class MemoryManager:
                     logger.warning("SmartModule backfill: embed failed — deferred | processed=%d",
                                    processed)
                     break
-                for row, vector in zip(batch, vectors):
-                    # Epic 60 (64.4): existence-check ПЕРЕД INSERT — гонка с
-                    # purge/параллельной записью (кэш эмбеддингов добавляет
-                    # DB-кругляки — бэкфилл может догнать уже вставленную или
-                    # уже удалённую строку; UNIQUE/orphan-дубль недопустимы).
-                    cursor = await self.db.db.execute(
-                        "SELECT id FROM smart_archive_facts WHERE id = ? "
-                        "AND id NOT IN (SELECT fact_id FROM smart_archive)",
-                        (row["id"],))
-                    if await cursor.fetchone() is None:
-                        continue
-                    # 66.6 (T-484): int8-схема — две колонки.
-                    if self._vec_int8:
-                        await self.db.db.execute(
-                            "INSERT INTO smart_archive(rowid, fact_id, chat_id, "
-                            "embedding, embedding_i8) VALUES (?, ?, ?, ?, "
-                            "vec_quantize_int8(?, 'unit'))",
-                            (row["id"], row["id"], row["chat_id"],
-                             json.dumps(vector), json.dumps(vector)))
-                    else:
-                        await self.db.db.execute(
-                            "INSERT INTO smart_archive(rowid, fact_id, chat_id, "
-                            "embedding) VALUES (?, ?, ?, ?)",
-                            (row["id"], row["id"], row["chat_id"],
-                             json.dumps(vector)))
-                await self.db.db.commit()
+                async with self.db.serialized():
+                    for row, vector in zip(batch, vectors):
+                        # Epic 60 (64.4): existence-check ПЕРЕД INSERT — гонка с
+                        # purge/параллельной записью (кэш эмбеддингов добавляет
+                        # DB-кругляки — бэкфилл может догнать уже вставленную или
+                        # уже удалённую строку; UNIQUE/orphan-дубль недопустимы).
+                        cursor = await self.db.db.execute(
+                            "SELECT id FROM smart_archive_facts WHERE id = ? "
+                            "AND id NOT IN (SELECT fact_id FROM smart_archive)",
+                            (row["id"],))
+                        if await cursor.fetchone() is None:
+                            continue
+                        # 66.6 (T-484): int8-схема — две колонки.
+                        if self._vec_int8:
+                            await self.db.db.execute(
+                                "INSERT INTO smart_archive(rowid, fact_id, chat_id, "
+                                "embedding, embedding_i8) VALUES (?, ?, ?, ?, "
+                                "vec_quantize_int8(?, 'unit'))",
+                                (row["id"], row["id"], row["chat_id"],
+                                 json.dumps(vector), json.dumps(vector)))
+                        else:
+                            await self.db.db.execute(
+                                "INSERT INTO smart_archive(rowid, fact_id, chat_id, "
+                                "embedding) VALUES (?, ?, ?, ?)",
+                                (row["id"], row["id"], row["chat_id"],
+                                 json.dumps(vector)))
+                    await self.db.db.commit()
                 processed += len(batch)
             if processed:
                 logger.info("SmartModule backfill: re-embedded %d facts", processed)
@@ -1639,17 +1874,18 @@ class MemoryManager:
                         "SmartModule graph backfill: embed failed — deferred | "
                         "processed=%d", processed)
                     break
-                for row, vector in zip(batch, vectors):
-                    cursor = await self.db.db.execute(
-                        "SELECT id FROM graph_facts WHERE id = ? "
-                        "AND id NOT IN (SELECT fact_id FROM graph_facts_vec)",
-                        (row["id"],))
-                    if await cursor.fetchone() is None:
-                        continue
-                    await self._insert_graph_vec_row(
-                        row["id"], row["chat_id"], row["fact"], row["origin"],
-                        row["expires_at"], vector)
-                await self.db.db.commit()
+                async with self.db.serialized():
+                    for row, vector in zip(batch, vectors):
+                        cursor = await self.db.db.execute(
+                            "SELECT id FROM graph_facts WHERE id = ? "
+                            "AND id NOT IN (SELECT fact_id FROM graph_facts_vec)",
+                            (row["id"],))
+                        if await cursor.fetchone() is None:
+                            continue
+                        await self._insert_graph_vec_row(
+                            row["id"], row["chat_id"], row["fact"], row["origin"],
+                            row["expires_at"], vector)
+                    await self.db.db.commit()
                 processed += len(batch)
             if processed:
                 logger.info("SmartModule graph backfill: re-embedded %d facts",
@@ -1713,16 +1949,50 @@ class MemoryManager:
                 current = await self.db.get_running_summary(chat_id, time.time())
                 last_ts = rows[-1]["timestamp"]
                 if current is None or current["window_end_ts"] < last_ts:
-                    fire_and_forget(
-                        self._build_running_summary(chat_id, rows),
-                        "running_summary",
-                    )
+                    self._schedule_running_summary(chat_id, rows)
             except Exception:
                 logger.warning(
                     "SmartModule L1: running summary trigger check failed | chat_id=%s",
                     chat_id, exc_info=True,
                 )
         return rows
+
+    def _schedule_running_summary(self, chat_id: int, rows: list) -> None:
+        """MCA-07 (T-3850, D8): запуск сводки.
+
+        ON `MCA_SUMMARY_SINGLEFLIGHT_ENABLED` → singleflight/coalescing через
+        REUSE `TaskSupervisor` (coalesce_key per chat; одинаковую сводку на
+        каждый read не запускаем). OFF → прежний fire-and-forget (baseline)."""
+        if not mca_gates.summary_singleflight_enabled():
+            fire_and_forget(
+                self._build_running_summary(chat_id, rows), "running_summary")
+            return
+        try:
+            from services.task_supervisor import (
+                QueueFullError, get_task_supervisor,
+            )
+        except Exception:
+            fire_and_forget(
+                self._build_running_summary(chat_id, rows), "running_summary")
+            return
+        supervisor = get_task_supervisor()
+
+        async def _run():
+            try:
+                await supervisor.run(
+                    lambda: self._build_running_summary(chat_id, rows),
+                    owner="summary", kind="secondary",
+                    coalesce_key=f"running_summary:{chat_id}",
+                    emit_event=False)
+            except QueueFullError:
+                logger.info("running summary: queue full — skipped | chat=%s",
+                            chat_id)
+            except Exception:
+                logger.warning(
+                    "running summary: singleflight run failed | chat=%s",
+                    chat_id, exc_info=True)
+
+        fire_and_forget(_run(), "running_summary")
 
     async def _build_running_summary(self, chat_id: int, rows: list) -> None:
         """64.6 (T-467): head окна → COMPRESS_PROMPT (канон-сосед R11 — новый
@@ -1763,9 +2033,18 @@ class MemoryManager:
             logger.warning("running summary: empty result | chat_id=%s", chat_id)
             return
         now = time.time()
-        await self.db.upsert_running_summary(
+        # MCA-07 D8/A03: CAS — поздний старый запрос НЕ перезаписывает новую
+        # версию (written=False). OFF-гейт внутри upsert → всегда True.
+        written = await self.db.upsert_running_summary(
             chat_id, summary, rows[0]["timestamp"], rows[-1]["timestamp"],
             len(rows), now, now + (hot.get("limits.running_summary_ttl_minutes", settings.RUNNING_SUMMARY_TTL_MINUTES) or 0) * 60.0)
+        if written is False:
+            _mca_rc.emit_stage_event("summary", "skipped",
+                                     reason_code="summary_stale_dropped",
+                                     chat_id=chat_id)
+            logger.info("running summary: stale dropped (CAS) | chat_id=%s",
+                        chat_id)
+            return
         logger.info("running summary: built | chat_id=%s | chars=%d",
                     chat_id, len(summary))
         # E2/T-804: ПРЕДЫДУЩИЙ L1 (до перезаписи) — кандидат на сжатие в
@@ -1854,7 +2133,9 @@ class MemoryManager:
 
     async def vector_search(self, chat_id: int, query: str, limit: int) -> list[str]:
         await self._ensure_vec_retry()          # Epic 46 (55.8): deferred-реактивация
-        if self._vec_available:
+        # MCA-07 D4/A06: несовпадающее поколение индекса → не обслуживаем
+        # старые векторы (FTS-only до перестройки mca-04b).
+        if self._vec_available and await self._index_generation_ok("smart_archive"):
             try:
                 vectors = await self._embed([query])
                 if vectors and vectors[0]:
@@ -2190,23 +2471,25 @@ class MemoryManager:
                 # Порядок важен: upsert_edge получает id только что созданного факта.
                 # B3-5: fact+edge — ОДНА транзакция (commit=False у обоих, единый
                 # commit); при сбое второго шага откат не оставит «факт без ребра».
-                try:
-                    fact_id = await self.db.insert_graph_fact(
-                        chat_id, sentence, source_type, expiry, target_user=target_user,
-                        status=status, weight=weight,
-                        supersedes=(decision["old_id"]
-                                    if decision["action"] == "supersede" else None),
-                        subject=subject, object=obj,
-                        tg_message_id=tg_message_id,
-                        forward_from=forward_from,
-                        commit=False)
-                    await self.db.upsert_edge(
-                        sid, oid, fact["predicate"], origin=source_type,
-                        expires_at=expiry, fact_id=fact_id, commit=False)
-                    await self.db.db.commit()
-                except Exception:
-                    await self.db.db.rollback()
-                    raise
+                # B-MCA01-1 (D3): пара идёт под общим single-writer.
+                async with self.db.serialized():
+                    try:
+                        fact_id = await self.db.insert_graph_fact(
+                            chat_id, sentence, source_type, expiry, target_user=target_user,
+                            status=status, weight=weight,
+                            supersedes=(decision["old_id"]
+                                        if decision["action"] == "supersede" else None),
+                            subject=subject, object=obj,
+                            tg_message_id=tg_message_id,
+                            forward_from=forward_from,
+                            commit=False)
+                        await self.db.upsert_edge(
+                            sid, oid, fact["predicate"], origin=source_type,
+                            expires_at=expiry, fact_id=fact_id, commit=False)
+                        await self.db.db.commit()
+                    except Exception:
+                        await self.db.db.rollback()
+                        raise
                 if decision["action"] == "supersede":
                     # свежий побеждает = инвалидация (НЕ перезапись); журнал
                     # «что во что» — обратимость антиотравления (64.2)
@@ -2221,6 +2504,18 @@ class MemoryManager:
                         fact_id, chat_id, sentence, source_type, expiry,
                         vector=vector)
                 saved += 1
+                # MCA-04a (ADR-1027-6 D9, T-3823): producer — новый факт пишет
+                # типизированный SourceRef/EvidenceLink. `bot_direct_reply`
+                # обрабатывается субъект-атрибуцией FIX п.1 (не дублируем).
+                if source_type != "bot_direct_reply":
+                    try:
+                        await self._attach_fact_provenance(
+                            chat_id, fact_id, source_type, subject,
+                            target_user, tg_message_id, display_canons)
+                    except Exception:
+                        logger.warning(
+                            "graphrag provenance: attach failed — fail-open | "
+                            "fact_id=%s", fact_id, exc_info=True)
             except Exception as exc:
                 # Epic 47 (D188, 56.5): один БД-сбой не роняет батч (per-fact)
                 skipped += 1
@@ -2238,6 +2533,43 @@ class MemoryManager:
         if self.aliases is None:
             return name
         return self.aliases.canon_name(name)
+
+    async def _attach_fact_provenance(self, chat_id, fact_id, origin, subject,
+                                      target_user, tg_message_id,
+                                      display_canons) -> None:
+        """MCA-04a (ADR-1027-6 D9, T-3823): producer-хук — типизированный
+        SourceRef/EvidenceLink для нового факта. Субъект-атрибуция:
+        participant → self_report/third_party; иначе world_knowledge (общие
+        знания не становятся личным фактом). Fail-open. При provenance=OFF —
+        no-op (паритет baseline)."""
+        from services import provenance
+        if not provenance.provenance_enabled():
+            return
+        canons = {v for v in (display_canons or {}).values() if v}
+        if target_user:
+            canons.add(str(target_user))
+        speaker = target_user if target_user else None
+        method = ("self_report" if origin == "user_memory"
+                  else provenance.classify_attribution_method(
+                      origin=origin, subject=subject, speaker=speaker,
+                      canon=self._canon_fact_name, participants=canons))
+        kind = provenance.classify_assertion_kind(
+            subject, None, canon=self._canon_fact_name, participants=canons)
+        subject_ref_id = None
+        if method in ("self_report", "third_party") \
+                and kind != "world_knowledge":
+            ref = await provenance.resolve_subject_ref(
+                self.db, chat_id, subject, canon=self._canon_fact_name)
+            subject_ref_id = await provenance.resolve_source_ref(self.db, ref)
+        channel = "import" if origin == "history_import" else "live"
+        await provenance.record_fact_provenance(
+            self.db, fact_id=fact_id, chat_id=chat_id, origin=origin,
+            target_user=target_user, subject=subject, assertion_kind=kind,
+            attribution_method=method, provenance_channel=channel,
+            tg_message_id=tg_message_id)
+        if subject_ref_id is not None:
+            await provenance.update_fact_provenance_columns(
+                self.db, fact_id=fact_id, subject_ref_id=subject_ref_id)
 
     async def _participant_display_canons(self, chat_id: int) -> dict[str, str]:
         """C4/T-795 (spec §3.C4.1-2): «карта дисплеев» чата для привязки
@@ -2360,9 +2692,10 @@ class MemoryManager:
             if vector is None:
                 vectors = await self._embed([fact])          # ретраи 55.8 + кэш 64.4
                 vector = vectors[0]
-            await self._insert_graph_vec_row(fact_id, chat_id, fact, origin,
-                                             expires_at, vector)
-            await self.db.db.commit()
+            async with self.db.serialized():
+                await self._insert_graph_vec_row(fact_id, chat_id, fact, origin,
+                                                 expires_at, vector)
+                await self.db.db.commit()
         except Exception:
             logger.warning(
                 "[graphrag] embed failed — fact saved text-only | fact_id=%d",
@@ -2551,17 +2884,47 @@ class MemoryManager:
                 chat_id, exc_info=True)
             return []
 
+    async def retrieve_fact_candidates(self, chat_id, query, *,
+                                       limit=None, include_direct_reply=False,
+                                       include_self=False) -> list:
+        """MCA-07 (T-3844): кандидаты-факты со стабильным `id` и источником
+        (единый retrieval-контракт). REUSE `_search_graph_facts(with_meta=True)`
+        — второго retrieval НЕ создаётся. Возвращает список dict:
+        ``{id, item_id, origin, fact, rag_ts, target_user, tg_message_id,
+        forward_from, score}`` в порядке релевантности. Никогда не бросает:
+        выключенный RAG/ошибка → [] (WARNING)."""
+        if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
+            return []
+        try:
+            limit = (limit if limit is not None else
+                     (hot.get("limits.graph_rag_facts_limit",
+                              settings.GRAPH_RAG_FACTS_LIMIT) or 0))
+            return await self._search_graph_facts(
+                chat_id, str(query or ""), limit,
+                include_direct_reply=include_direct_reply,
+                include_self=include_self, with_meta=True)
+        except Exception:
+            logger.warning(
+                "graphrag retrieval: fact candidates failed — empty | "
+                "chat_id=%s", chat_id, exc_info=True)
+            return []
+
     async def rerank_rag_facts(self, query: str, facts: list) -> list:
         """F4/T-810 (spec §3.F4, образец search_service._rerank_results Epic 65):
         LLM-фильтр кандидатов direct-RAG после F1/F2, ПЕРЕД рендером.
         Кандидаты сериализуются нумерованным списком '1. [{label}] {date}
         {text}' (формат F3); ответ парсится regex «\\d+»; выжившие факты
-        сохраняют исходный rel-порядок, остальные отбрасываются. Fail-open:
-        LLM-ошибка/пустой/кривой ответ → исходный список (WARNING, NFR-6).
-        Вызывается ТОЛЬКО при flags.chat_rag_rerank_enabled=True (проверку
-        делает direct-путь ДО сериализации — off → 0 лишних LLM-вызовов)."""
+        сохраняют исходный rel-порядок, остальные отбрасываются.
+
+        MCA-07 (T-3846, ADR-1027-7 D3): при `MCA_TYPED_RERANKER_ENABLED` ON
+        результат типизирован — валидный пустой выбор → ПУСТО (не все
+        кандидаты); `invalid`/`timeout`/`error` → детерминированный
+        pre-rerank-bounded fallback (retrieval-порядок, top-k); порядок =
+        оценке. OFF → прежнее fail-open поведение (паритет baseline).
+        Вызывается ТОЛЬКО при flags.chat_rag_rerank_enabled=True."""
         if not facts:
             return facts
+        typed = mca_gates.typed_reranker_enabled()
         candidates = "\n".join(
             f"{i}. {_format_origin_labeled_line(item)}"
             for i, item in enumerate(facts, 1))
@@ -2574,9 +2937,15 @@ class MemoryManager:
             ])
         except Exception as exc:
             logger.warning(
-                "graphrag RAG: chat rerank failed — original facts | error=%s",
-                exc)
+                "graphrag RAG: chat rerank failed ('%s') — %s",
+                type(exc).__name__,
+                "typed bounded fallback" if typed else "original facts")
+            if typed:
+                return self._typed_rerank_fallback(
+                    facts, _mca_rc.classify_rerank_exception(exc), exc)
             return facts
+        if typed:
+            return self._typed_rerank_apply(facts, raw)
         picked = {int(n) for n in re.findall(r"\d+", str(raw or ""))
                   if 1 <= int(n) <= len(facts)}
         if not picked:
@@ -2586,6 +2955,52 @@ class MemoryManager:
         logger.info("graphrag RAG: chat rerank OK | %d -> %d facts",
                     len(facts), len(picked))
         return [item for i, item in enumerate(facts, 1) if i in picked]
+
+    def _typed_rerank_apply(self, facts: list, raw) -> list:
+        """MCA-07 (T-3846): типизированное применение ответа reranker.
+
+        ``ok`` → выбранные в порядке оценки; ``empty`` (валидный пустой) →
+        **пусто** (НЕ все кандидаты, A05); ``invalid`` → детерминированный
+        bounded pre-rerank-fallback. Событие стадии `reranker` (REUSE mca-13)."""
+        status, numbers = _mca_rc.classify_rerank_response(raw)
+        result = _mca_rc.select_by_rerank(facts, status, numbers)
+        if result.status == _mca_rc.RERANK_OK:
+            # Порядок = оценке (по selected), а не входному.
+            by_pos = {str(i + 1): item for i, item in enumerate(facts)}
+            kept = [by_pos[item.id] for item in result.selected
+                    if item.id in by_pos]
+            logger.info("graphrag RAG: chat rerank(typed) OK | %d -> %d facts",
+                        len(facts), len(kept))
+            _mca_rc.emit_stage_event("reranker", "success",
+                                     candidate_count=len(facts),
+                                     selected_count=len(kept))
+            return kept
+        if result.status == _mca_rc.RERANK_EMPTY:
+            logger.info("graphrag RAG: chat rerank(typed) valid EMPTY | %d "
+                        "facts -> 0 (не все кандидаты)", len(facts))
+            _mca_rc.emit_stage_event("reranker", "success",
+                                     reason_code="retrieval_empty",
+                                     candidate_count=len(facts))
+            return []
+        # invalid → детерминированный bounded pre-rerank-fallback.
+        return self._typed_rerank_fallback(facts, result.status, None)
+
+    def _typed_rerank_fallback(self, facts: list, status: str, exc) -> list:
+        """Детерминированный pre-rerank-порядок, ограниченный top_k (D3).
+
+        Отдельно наблюдаемое состояние (статус + `reason_code`), НЕ «все
+        кандидаты» и НЕ валидный пустой список."""
+        limit = _mca_rc.fallback_top_k(len(facts))
+        fallback = facts[:limit]
+        reason = {"timeout": "rerank_timeout", "invalid": "rerank_invalid"}.get(
+            status, "rerank_invalid")
+        logger.warning("graphrag RAG: chat rerank(typed) %s — bounded "
+                       "fallback | kept=%d/%d", status, len(fallback),
+                       len(facts))
+        _mca_rc.emit_stage_event("reranker", "failed", reason_code=reason,
+                                 candidate_count=len(facts),
+                                 selected_count=len(fallback))
+        return fallback
 
     async def fetch_golden_facts(self, chat_id: int, query: str, *,
                                  min_importance: int, min_age_days: int,
@@ -2625,7 +3040,8 @@ class MemoryManager:
 
     async def _search_graph_facts(self, chat_id, query, limit,
                                   include_direct_reply=False,
-                                  include_self=False) -> list:
+                                  include_self=False,
+                                  with_meta: bool = False) -> list:
         """[(origin, fact, rag_ts, target_user), ...]. Vec-путь: _ensure_vec_retry
         (55.8) → KNN (66.6: int8-coarse → float-реранк; 66.8: MMR); фейл
         embed/vec → FTS-фолбек. Epic 50 (58.8, D206): default — фильтр origin=
@@ -2635,14 +3051,16 @@ class MemoryManager:
         target_user — автор факта (4-й элемент). Раунд 10.14 (F1, ADR-1014-2
         D7): include_self=True (direct-путь) пропускает origin='bot_self_reply'."""
         now = int(time.time())
-        if await self._ensure_vec_retry():
+        # MCA-07 D4/A06: несовпадающее поколение → FTS-only (не смешиваем).
+        if await self._ensure_vec_retry() and \
+                await self._index_generation_ok("graph_facts_vec"):
             try:
                 vectors = await self._embed([query])
                 if vectors and vectors[0]:
                     rows = await self._knn_graph_facts(
                         chat_id, vectors[0], limit,
                         include_direct_reply=include_direct_reply,
-                        include_self=include_self)
+                        include_self=include_self, with_meta=with_meta)
                     if rows:
                         return rows
             except Exception:
@@ -2683,6 +3101,18 @@ class MemoryManager:
         # F1/T-1418: + target_user (автор факта — 4-й элемент).
         # 10.20 (T-1924): + item_id (ID-политика `tg:`/`fact:`) и forward_from —
         # 6-кортеж (R16-аддитивно; 3/4-кортежи остаются валидными).
+        # MCA-07 (T-3844): with_meta=True → + стабильный `id`/score.
+        if with_meta:
+            return [
+                {"id": int(row["id"]), "origin": row["origin"],
+                 "fact": row["fact"], "rag_ts": row["rag_ts"],
+                 "target_user": row["target_user"],
+                 "tg_message_id": row["tg_message_id"],
+                 "forward_from": row["forward_from"] or "",
+                 "item_id": resolve_item_id(
+                     tg_message_id=row["tg_message_id"], fact_id=row["id"]),
+                 "score": float(len(kept) - i)}
+                for i, row in enumerate(kept)]
         return [(row["origin"], row["fact"], row["rag_ts"], row["target_user"],
                  resolve_item_id(tg_message_id=row["tg_message_id"],
                                  fact_id=row["id"]),
@@ -2691,7 +3121,8 @@ class MemoryManager:
 
     async def _knn_graph_facts(self, chat_id, vector, limit,
                                include_direct_reply=False,
-                               include_self=False) -> list:
+                               include_self=False,
+                               with_meta: bool = False) -> list:
         """KNN-путь GraphRAG (55.6) + Epic 60:
         - 66.6 (T-484): int8-coarse (k = fetch_k×4) → реранк точной cosine по
           float-колонке → top-fetch_k; float-only — точный MATCH (как раньше);
@@ -2764,6 +3195,24 @@ class MemoryManager:
         # F1/T-1418: + target_user (автор факта — 4-кортеж).
         # 10.20 (T-1924): + item_id (ID-политика `tg:`/`fact:`) и forward_from —
         # 6-кортеж (R16-аддитивно).
+        # MCA-07 (T-3844): with_meta=True → те же поля + стабильный `id`
+        # граф-факта и score (для единого retrieval-контракта). Default —
+        # прежний 6-кортеж (обратная совместимость).
+        if with_meta:
+            return [
+                {"id": int(by_id[f]["id"]),
+                 "origin": by_id[f]["origin"],
+                 "fact": by_id[f]["fact"],
+                 "rag_ts": (by_id[f]["message_timestamp"]
+                            or by_id[f]["created_at"]),
+                 "target_user": by_id[f]["target_user"],
+                 "tg_message_id": by_id[f]["tg_message_id"],
+                 "forward_from": by_id[f]["forward_from"] or "",
+                 "item_id": resolve_item_id(
+                     tg_message_id=by_id[f]["tg_message_id"],
+                     fact_id=by_id[f]["id"]),
+                 "score": float(len(chosen) - i)}
+                for i, f in enumerate(chosen)]
         return [(by_id[f]["origin"], by_id[f]["fact"],
                  by_id[f]["message_timestamp"] or by_id[f]["created_at"],
                  by_id[f]["target_user"],
@@ -3027,14 +3476,16 @@ class MemoryManager:
             return 0
         try:
             now = int(time.time())
-            cursor = await self.db.db.execute(
-                "UPDATE graph_facts SET expires_at = "
-                "MIN(created_at + ?, ?) "
-                "WHERE origin = 'bot_direct_reply' AND expires_at IS NULL",
-                (int(ttl_days) * 86400, now))
-            rows = cursor.rowcount
+            async with self.db.serialized():
+                cursor = await self.db.db.execute(
+                    "UPDATE graph_facts SET expires_at = "
+                    "MIN(created_at + ?, ?) "
+                    "WHERE origin = 'bot_direct_reply' AND expires_at IS NULL",
+                    (int(ttl_days) * 86400, now))
+                rows = cursor.rowcount
+                if rows:
+                    await self.db.db.commit()
             if rows:
-                await self.db.db.commit()
                 logger.info("[graphrag] bot_direct_reply backfill | rows=%d",
                             rows)
             return rows
@@ -3356,43 +3807,48 @@ class MemoryManager:
         """Фаза B (ADR-1024-6 D3, extract-then-write): upsert узлов/связей.
 
         Вызывается РОВНО один раз на батч (после успешного извлечения) —
-        исключает инфляцию весов при повторном прогоне. R1024F1-06: весь
+        исключает инфляцию весов при повторном прогоне.         R1024F1-06: весь
         цикл — в ОДНОЙ транзакции (mid-write сбой → rollback, нет частичной
-        записи и повторного наращивания веса)."""
-        await self.db.db.execute("BEGIN")
-        try:
-            for triplet in triplets:
-                # Epic 60 (66.9, T-487): user-сущности — канон-имена по алиасам
-                # (карточки /persona и связи графа агрегируются по одному имени).
-                subject = _normalize_name(triplet["subject"])
-                obj = _normalize_name(triplet["object"])
-                if triplet["subject_type"] == "user":
-                    subject = self._canon_fact_name(subject)
-                if triplet["object_type"] == "user":
-                    obj = self._canon_fact_name(obj)
-                sid = await self.db.upsert_node(
-                    chat_id, subject, triplet["subject_type"], commit=False
-                )
-                oid = await self.db.upsert_node(
-                    chat_id, obj, triplet["object_type"], commit=False
-                )
-                # F3 (T-1774, ADR-1018-3 D1): cron-путь graph_facts НЕ создаёт →
-                # fact_id ребра остаётся NULL ОСОЗНАННО (без provenance); скоринг
-                # деградирует к COALESCE(importance, weight).
-                await self.db.upsert_edge(
-                    sid,
-                    oid,
-                    _normalize_name(triplet["predicate"]),
-                    weight_increment=(await _chat_limit(
-                        chat_id, "limits.graph_edge_weight_increment",
-                        hot.get("limits.graph_edge_weight_increment",
-                                settings.GRAPH_EDGE_WEIGHT_INCREMENT)) or 0),
-                    commit=False,
-                )
-            await self.db.db.commit()
-        except Exception:
-            await self.db.db.rollback()
-            raise
+        записи и повторного наращивания веса).
+
+        B-MCA01-1 (D3): вся транзакция — под общим single-writer
+        (`self.db.serialized()`), т.к. `upsert_node`/`upsert_edge(commit=False)`
+        оставляют запись в транзакции вызывающего."""
+        async with self.db.serialized():
+            await self.db.db.execute("BEGIN")
+            try:
+                for triplet in triplets:
+                    # Epic 60 (66.9, T-487): user-сущности — канон-имена по алиасам
+                    # (карточки /persona и связи графа агрегируются по одному имени).
+                    subject = _normalize_name(triplet["subject"])
+                    obj = _normalize_name(triplet["object"])
+                    if triplet["subject_type"] == "user":
+                        subject = self._canon_fact_name(subject)
+                    if triplet["object_type"] == "user":
+                        obj = self._canon_fact_name(obj)
+                    sid = await self.db.upsert_node(
+                        chat_id, subject, triplet["subject_type"], commit=False
+                    )
+                    oid = await self.db.upsert_node(
+                        chat_id, obj, triplet["object_type"], commit=False
+                    )
+                    # F3 (T-1774, ADR-1018-3 D1): cron-путь graph_facts НЕ создаёт →
+                    # fact_id ребра остаётся NULL ОСОЗНАННО (без provenance); скоринг
+                    # деградирует к COALESCE(importance, weight).
+                    await self.db.upsert_edge(
+                        sid,
+                        oid,
+                        _normalize_name(triplet["predicate"]),
+                        weight_increment=(await _chat_limit(
+                            chat_id, "limits.graph_edge_weight_increment",
+                            hot.get("limits.graph_edge_weight_increment",
+                                    settings.GRAPH_EDGE_WEIGHT_INCREMENT)) or 0),
+                        commit=False,
+                    )
+                await self.db.db.commit()
+            except Exception:
+                await self.db.db.rollback()
+                raise
         logger.info("graph: triplets=%d | chat_id=%s", len(triplets), chat_id)
         trace_step(logger, component="graph", step="write", status="ok",
                    reason="saved", chat_id=chat_id,
@@ -3536,20 +3992,21 @@ class MemoryManager:
         try:
             vectors = await self._embed([fact])          # кэш 64.4 + ретраи 55.8
             vector = vectors[0]
-            if self._vec_int8:
-                await self.db.db.execute(
-                    "INSERT INTO smart_archive(rowid, fact_id, chat_id, "
-                    "embedding, embedding_i8) VALUES (?, ?, ?, ?, "
-                    "vec_quantize_int8(?, 'unit'))",
-                    (fact_id, fact_id, chat_id, json.dumps(vector),
-                     json.dumps(vector)))
-            else:
-                await self.db.db.execute(
-                    "INSERT INTO smart_archive(rowid, fact_id, chat_id, embedding) "
-                    "VALUES (?, ?, ?, ?)",
-                    (fact_id, fact_id, chat_id, json.dumps(vector)),
-                )
-            await self.db.db.commit()
+            async with self.db.serialized():
+                if self._vec_int8:
+                    await self.db.db.execute(
+                        "INSERT INTO smart_archive(rowid, fact_id, chat_id, "
+                        "embedding, embedding_i8) VALUES (?, ?, ?, ?, "
+                        "vec_quantize_int8(?, 'unit'))",
+                        (fact_id, fact_id, chat_id, json.dumps(vector),
+                         json.dumps(vector)))
+                else:
+                    await self.db.db.execute(
+                        "INSERT INTO smart_archive(rowid, fact_id, chat_id, embedding) "
+                        "VALUES (?, ?, ?, ?)",
+                        (fact_id, fact_id, chat_id, json.dumps(vector)),
+                    )
+                await self.db.db.commit()
         except Exception as exc:
             message = str(exc).lower()
             if "dimension" in message or "mismatch" in message:
@@ -3579,12 +4036,13 @@ class MemoryManager:
             try:
                 # vec0: документированная форма удаления — rowid IN (...).
                 # rowid == fact_id по инварианту INSERT в _save_archive_embedding.
-                await self.db.db.execute(
-                    "DELETE FROM smart_archive WHERE rowid IN "
-                    "(SELECT id FROM smart_archive_facts WHERE chat_id = ? AND timestamp < ?)",
-                    (chat_id, archive_cutoff),
-                )
-                await self.db.db.commit()
+                async with self.db.serialized():
+                    await self.db.db.execute(
+                        "DELETE FROM smart_archive WHERE rowid IN "
+                        "(SELECT id FROM smart_archive_facts WHERE chat_id = ? AND timestamp < ?)",
+                        (chat_id, archive_cutoff),
+                    )
+                    await self.db.db.commit()
             except Exception:
                 logger.warning(
                     "SmartModule L3: vec purge failed | chat_id=%s", chat_id, exc_info=True

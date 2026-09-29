@@ -50,7 +50,7 @@ class TestCatalogFrozen:
         assert current == BASELINE["group_tab"]
 
     def test_counters_unchanged(self):
-        assert len(pc.REGISTRY) == BASELINE["counts"]["REGISTRY"] == 481
+        assert len(pc.REGISTRY) == BASELINE["counts"]["REGISTRY"] == 483
         assert len(pc.GROUPS) == BASELINE["counts"]["GROUPS"] == 105
         assert len(pc._TAB_BY_GROUP) == BASELINE["counts"]["_TAB_BY_GROUP"] == 103
         assert len(pc.TAB_RULES) == BASELINE["counts"]["TAB_RULES"] == 21

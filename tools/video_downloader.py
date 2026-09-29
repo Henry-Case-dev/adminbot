@@ -23,6 +23,8 @@ from typing import Callable
 
 from config.settings import (build_ytdlp_base_opts, get_ytdlp_pot_provider,
                              settings)
+from services import mca_gates
+from services import safe_fetch
 
 logger = logging.getLogger(__name__)
 
@@ -313,13 +315,48 @@ class VideoDownloader:
         """True = идёт скачивание (одновременных операций НЕ бывает)."""
         return self._lock.locked()
 
+    async def _preflight(self, url: str) -> None:
+        """MCA-02 (ADR-1027-5 D4): pre-flight контроль назначения до сети.
+
+        Пользовательский URL проходит нормализацию/SSRF-проверку до передачи
+        yt-dlp/Cobalt/стриму. OFF (`MCA_SAFE_FETCH_ENABLED`) → legacy (no-op)."""
+        if not mca_gates.safe_fetch_enabled():
+            return
+        try:
+            await safe_fetch.aguarded_target(url, trusted=False)
+        except safe_fetch.SafeFetchError as exc:
+            if exc.code == "resolve_failed":
+                # Транзиентный DNS-сбой не блокируем ложно: фактический запрос
+                # сам сообщит об ошибке (a egress-guard — сетевой контроль).
+                logger.warning("[videodl] pre-flight resolve failed | url skipped")
+                return
+            logger.warning("[videodl] destination blocked | code=%s", exc.code)
+            raise DownloadError("destination blocked",
+                                reason="destination_blocked") from exc
+
+    async def _egress_proxy(self) -> str | None:
+        """Proxy-URL loopback egress-guard (или None при OFF/недоступности)."""
+        if not mca_gates.egress_guard_enabled():
+            return None
+        try:
+            await safe_fetch.ensure_egress_guard()
+        except Exception:      # fail-open: guard не должен рвать скачивание
+            logger.warning("[videodl] egress guard unavailable",
+                           exc_info=True)
+            return None
+        return safe_fetch.egress_proxy_url()
+
     async def probe(self, url: str) -> ProbeResult:
         """Метаданные yt-dlp: title + список качеств. Вне глобального лока.
         Epic 72 (74.A/D270): прокси/cookies — единый build_ytdlp_base_opts()
         (фикс прод-бага «Sign in to confirm you're not a bot» на probe)."""
         from yt_dlp import YoutubeDL              # ленивый тяжёлый импорт (D261)
 
+        await self._preflight(url)
+        proxy = await self._egress_proxy()
         base = build_ytdlp_base_opts()
+        if proxy and not (base.get("proxy") or "").strip():
+            base = {**base, "proxy": proxy}
         if base.get("proxy"):                     # R17: только факт, НЕ значение
             logger.info("[videodl] probe | proxy=set")
 
@@ -365,6 +402,7 @@ class VideoDownloader:
             raise DownloadBusyError("another download is running")
         async with self._lock:
             self._download_dir.mkdir(parents=True, exist_ok=True)
+            await self._preflight(url)
             # Прод-хотфикс: прямые медиа-ссылки (mp4/webm/…) — стрим-даунлоад
             # (quality для direct игнорируется — нормализация НЕ нужна).
             if is_direct_media_url(url):
@@ -390,6 +428,8 @@ class VideoDownloader:
         rand = secrets.token_hex(4)
         ext = _direct_ext(url)
         self._download_dir.mkdir(parents=True, exist_ok=True)
+        await self._preflight(url)
+        proxy = await self._egress_proxy()
         out_path = self._download_dir / f"vd_{stamp}_{rand}.{ext}"
         headers = {"User-Agent": _DIRECT_UA}
         attempts = [headers] + [
@@ -399,7 +439,7 @@ class VideoDownloader:
             try:
                 async with httpx.AsyncClient(
                         timeout=httpx.Timeout(60.0, connect=15.0),
-                        follow_redirects=True) as client:
+                        follow_redirects=True, proxy=proxy) as client:
                     async with client.stream(
                             "GET", url, headers=attempt_headers) as resp:
                         if resp.status_code == 403:
@@ -559,6 +599,9 @@ class VideoDownloader:
                 youtube_ea.update(extractor_args.get("youtube") or {})
             if youtube_ea:
                 opts["extractor_args"] = {"youtube": youtube_ea}
+            # MCA-02 (ADR-1027-5 D4): yt-dlp-подпроцесс через loopback
+            # egress-guard (destination-политика на CONNECT/redirect).
+            safe_fetch.apply_egress_to_ytdlp_opts(opts)
             return opts
 
         def _run(extractor_args: dict | None, merge: bool,
@@ -759,6 +802,15 @@ class VideoDownloader:
         D281: обязателен Accept: application/json. D282: тело ответа при
         >=400 читается, error.code из JSON извлекается и логируется."""
         quality_norm = self._normalize_quality(quality)
+        # MCA-02 (ADR-1027-5 D4): пользовательский URL — pre-flight; Cobalt —
+        # доверенная локальная служба (валидируется отдельно, trusted=True).
+        await self._preflight(url)
+        if mca_gates.safe_fetch_enabled():
+            try:
+                safe_fetch.guarded_target(self._cobalt_url, trusted=True)
+            except safe_fetch.SafeFetchError as exc:
+                raise DownloadError("cobalt destination blocked",
+                                    reason="cobalt_error") from exc
         payload = {"url": url, "videoQuality": quality_norm,
                    "downloadMode": "auto"}
         try:

@@ -2464,9 +2464,12 @@ class _RerankLLM:
 
 
 class TestChatRagRerankF4:
-    """F4/T-810 (по образцу search_service._rerank_results): номера из LLM-
-    ответа оставляют соответствующие факты в ИСХОДНОМ rel-порядке; мусор/
-    пусто/LLM-ошибка → исходный список (fail-open)."""
+    """F4/T-810 + MCA-07 (T-3846, ADR-1027-7 D3): типизированный reranker.
+
+    ON `MCA_TYPED_RERANKER_ENABLED` (default): порядок = ОЦЕНКЕ; валидный
+    пустой выбор → пусто (НЕ все кандидаты, A05); мусор/ошибка → отдельный
+    статус + детерминированный bounded pre-rerank-fallback. OFF → прежнее
+    fail-open поведение (паритет baseline)."""
 
     FACTS = [("chat_history", "про дроны вчера", 100),
              ("search_fact", "про дроны в поиске", 200),
@@ -2476,11 +2479,12 @@ class TestChatRagRerankF4:
         return MemoryManager(None, llm or _RerankLLM())
 
     @pytest.mark.asyncio
-    async def test_selected_numbers_keep_original_order(self):
+    async def test_selected_numbers_follow_evaluation_order(self):
+        # typed: порядок = оценке («3, 1» → сначала 3-й, затем 1-й).
         llm = _RerankLLM(response="3, 1")
         memory = self._memory(llm)
         kept = await memory.rerank_rag_facts("дроны", list(self.FACTS))
-        assert kept == [self.FACTS[0], self.FACTS[2]]
+        assert kept == [self.FACTS[2], self.FACTS[0]]
         assert llm.calls == 1
         assert "1. [чат] [01.1970] про дроны вчера (Внимание: возможно устарело)" \
             in llm.last_user
@@ -2493,24 +2497,50 @@ class TestChatRagRerankF4:
 
     @pytest.mark.asyncio
     async def test_out_of_range_numbers_ignored(self):
+        # «2, 99, 0» → валиден только «2» → один факт (не fallback).
         llm = _RerankLLM(response="2, 99, 0")
         kept = await self._memory(llm).rerank_rag_facts("дроны", list(self.FACTS))
         assert kept == [self.FACTS[1]]
 
     @pytest.mark.asyncio
-    async def test_garbage_response_fail_open(self):
-        for response in ("", "никаких номеров", "abc", "0", "  "):
+    async def test_valid_empty_does_not_return_all_candidates(self):
+        """A05: валидный пустой выбор → ПУСТО, а не все кандидаты."""
+        for response in ("", "[]", "  "):
             llm = _RerankLLM(response=response)
             kept = await self._memory(llm).rerank_rag_facts("дроны",
                                                             list(self.FACTS))
+            assert kept == [], response
+
+    @pytest.mark.asyncio
+    async def test_invalid_bounded_fallback_not_all(self):
+        """invalid → отдельный статус + bounded pre-rerank-fallback (не пусто)."""
+        for response in ("никаких номеров", "abc", "0"):
+            llm = _RerankLLM(response=response)
+            kept = await self._memory(llm).rerank_rag_facts("дроны",
+                                                            list(self.FACTS))
+            # top_k fallback = 8 ≥ len(FACTS) → детерминированный pre-rerank.
             assert kept == list(self.FACTS), response
 
     @pytest.mark.asyncio
-    async def test_llm_error_fail_open(self):
+    async def test_llm_error_bounded_fallback(self):
         llm = _RerankLLM(error=LLMError("упало"))
         kept = await self._memory(llm).rerank_rag_facts("дроны", list(self.FACTS))
         assert kept == list(self.FACTS)
         assert llm.calls == 1
+
+    @pytest.mark.asyncio
+    async def test_typed_reranker_off_legacy_parity(self, monkeypatch):
+        """OFF `MCA_TYPED_RERANKER_ENABLED` → прежнее fail-open (паритет)."""
+        monkeypatch.setattr("services.mca_gates.typed_reranker_enabled",
+                            lambda: False)
+        llm = _RerankLLM(response="3, 1")
+        kept = await self._memory(llm).rerank_rag_facts("дроны", list(self.FACTS))
+        assert kept == [self.FACTS[0], self.FACTS[2]]      # исходный порядок
+        for response in ("", "никаких номеров", "abc", "0", "  "):
+            kept2 = await self._memory(
+                _RerankLLM(response=response)).rerank_rag_facts(
+                    "дроны", list(self.FACTS))
+            assert kept2 == list(self.FACTS), response
 
     @pytest.mark.asyncio
     async def test_empty_facts_no_llm_call(self):

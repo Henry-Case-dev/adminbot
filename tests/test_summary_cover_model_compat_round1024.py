@@ -90,6 +90,8 @@ class TestUniversalPayload:
             return FakeResponse(200, content=b"bytes")
 
         monkeypatch.setattr(ig, "_http_request", fake)
+        monkeypatch.setattr(ig, "_download_image_bytes",
+                            AsyncMock(return_value=b"bytes"))
         monkeypatch.setattr(ig, "_consume_budget", AsyncMock(return_value=True))
         _patch_cfg(monkeypatch, model=model)
         res = await ig.generate("обложка саммари", chat_id=1)
@@ -138,11 +140,13 @@ class TestResponseForms:
             return FakeResponse(200, content=b"\xff\xd8jpeg")
 
         monkeypatch.setattr(ig, "_http_request", fake)
+        monkeypatch.setattr(ig, "_download_image_bytes",
+                            AsyncMock(return_value=b"\xff\xd8jpeg"))
         monkeypatch.setattr(ig, "_consume_budget", AsyncMock(return_value=True))
         _patch_cfg(monkeypatch)
         res = await ig.generate("кот", chat_id=1)
         assert res.ok and res.content == b"\xff\xd8jpeg"
-        assert calls == ["POST", "GET"]
+        assert calls == ["POST"]
 
     @pytest.mark.asyncio
     async def test_b64_json_decoded(self, monkeypatch):

@@ -1700,11 +1700,22 @@ async def get_status_logs(
     user: Annotated[WebAppUser, Depends(get_tma_user)],
     level: str = Query(default="INFO"),
     limit: int = Query(default=200, ge=1, le=1000),
+    trace_id: str | None = Query(default=None),
+    chat_id: int | None = Query(default=None),
+    component: str | None = Query(default=None),
+    reason_code: str | None = Query(default=None),
+    pipeline_run_id: str | None = Query(default=None),
 ):
     """Логи из ring-buffer (84.11.4): публично; секреты замаскированы уже
     в буфере (84.11.1). level: DEBUG|INFO|WARNING|ERROR|CRITICAL|ALL|
     ERROR+WARNING (F6/§3.1: ERROR+WARNING = WARNING ∪ ERROR ∪ CRITICAL;
-    дефолт INFO = INFO и выше); от новых к старым."""
+    дефолт INFO = INFO и выше); от новых к старым.
+
+    Раунд 10.27 (`mca-17a`, carry-over §94.5/SC-14): аддитивные фильтры
+    `trace_id`/`chat_id`/`component`/`reason_code`/`pipeline_run_id`; при
+    наличии фильтра отдаются связанные `mca_events` (bounded `query_events`)
+    в поле `events` — переход из карточки к связанным событиям trace.
+    Новых endpoint/панелей нет (REUSE существующего log viewer)."""
     from services.log_ring import get_log_ring
     ring = get_log_ring()
     entries = ring.get_entries(level=level, limit=limit)
@@ -1712,8 +1723,52 @@ async def get_status_logs(
     # ВСЕМУ ring-буферу. Поле `count` ограничено `limit` (обратная
     # совместимость сохранена). Новых endpoint'ов/DDL/каталога нет
     # (R16-аддитивно, R17-безопасно: те же значения уровней, что и в логах).
-    return {"count": len(entries), "counts": ring.level_counts(),
-            "logs": entries}
+    result = {"count": len(entries), "counts": ring.level_counts(),
+              "logs": entries, "events": []}
+    has_filter = any(v is not None for v in (
+        trace_id, chat_id, component, reason_code, pipeline_run_id))
+    if has_filter:
+        # F11/RBAC: связанные `mca_events` по произвольному `chat_id` — только
+        # для глобального админа (chat isolation/R17; сам log viewer остаётся
+        # прежним `get_tma_user`). Не-админ получает честный пустой `events`
+        # + `events_restricted=true` (без раскрытия чужих чатов).
+        if not _is_global_admin(request, user):
+            result["events_restricted"] = True
+            return result
+        from services import mca_events as _me
+        from services import lore_runtime
+        db = lore_runtime.get_lore_db()
+        try:
+            result["events"] = await _me.query_events(
+                db, trace_id=trace_id, chat_id=chat_id, component=component,
+                reason_code=reason_code, pipeline_run_id=pipeline_run_id,
+                limit=min(int(limit), 500))
+        except Exception:
+            logger.warning("[status/logs] mca_events query failed — empty",
+                           exc_info=True)
+            result["events"] = []
+    return result
+
+
+def _is_global_admin(request: Request, user: WebAppUser) -> bool:
+    """F11: глобальный админ (wildcard/role admin/global_admin) — REUSE логики
+    `requires_global_admin`; fail-closed (ошибка → False)."""
+    try:
+        cache = get_cache(request)
+        perms = cache.get_permissions_by_telegram_id(user.id)
+        if perms is not None and getattr(perms, "wildcard", False):
+            return True
+        role = cache.get_role(user.id)
+        if role == "admin":
+            return True
+        from services.roles import role_type_of
+        roles = cache.roles()
+        role_meta = roles.get(role) if role else None
+        rt = role_type_of(role, role_meta,
+                          role_meta.get("role_type") if role_meta else None)
+        return rt == "global_admin"
+    except Exception:
+        return False
 
 
 # ── Control (84.15, T-641): POST /api/control/restart|stop|start ────────────

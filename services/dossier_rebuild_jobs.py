@@ -529,35 +529,43 @@ async def restore_user_snapshot(db, path) -> int:
     # ключи молча отбрасываются.
     cursor = await db.db.execute("PRAGMA table_info(graph_facts)")
     allowed_cols = {str(info[1]) for info in await cursor.fetchall()}
-    restored = 0
-    for row in rows:
-        if not isinstance(row, dict) or row.get("id") is None:
-            continue
-        cols = [c for c in row.keys() if c in allowed_cols]
-        if not cols:
-            continue
-        collist = ",".join(cols)
-        placeholders = ",".join("?" * len(cols))
-        values = [row[c] for c in cols]
-        await db.db.execute(
-            f"INSERT OR REPLACE INTO graph_facts ({collist}) "
-            f"VALUES ({placeholders})", values)
-        restored += 1
-    await db.db.commit()
-    for row in rows:
-        if not isinstance(row, dict) or row.get("id") is None:
-            continue
-        try:
-            await db.db.execute(
-                "DELETE FROM graph_facts_fts WHERE rowid = ?",
-                (int(row["id"]),))
-            await db.db.execute(
-                "INSERT INTO graph_facts_fts(rowid, fact) VALUES (?, ?)",
-                (int(row["id"]), str(row.get("fact") or "")))
-        except Exception:
-            logger.debug("[dossier_jobs] fts restore skipped | id=%s",
-                         row.get("id"))
-    await db.db.commit()
+
+    # B-MCA01-1 (D3): INSERT-фаза — через общий write-механизм.
+    async def _insert_body(conn):
+        n = 0
+        for row in rows:
+            if not isinstance(row, dict) or row.get("id") is None:
+                continue
+            cols = [c for c in row.keys() if c in allowed_cols]
+            if not cols:
+                continue
+            collist = ",".join(cols)
+            placeholders = ",".join("?" * len(cols))
+            await conn.execute(
+                f"INSERT OR REPLACE INTO graph_facts ({collist}) "
+                f"VALUES ({placeholders})",
+                [row[c] for c in cols])
+            n += 1
+        return n
+
+    restored = int(await db.write_transaction(
+        _insert_body, op_name="dossier_restore_facts") or 0)
+    # B-MCA01-1 (D3): FTS-фаза (best-effort) — под тем же single-writer.
+    async with db.serialized():
+        for row in rows:
+            if not isinstance(row, dict) or row.get("id") is None:
+                continue
+            try:
+                await db.db.execute(
+                    "DELETE FROM graph_facts_fts WHERE rowid = ?",
+                    (int(row["id"]),))
+                await db.db.execute(
+                    "INSERT INTO graph_facts_fts(rowid, fact) VALUES (?, ?)",
+                    (int(row["id"]), str(row.get("fact") or "")))
+            except Exception:
+                logger.debug("[dossier_jobs] fts restore skipped | id=%s",
+                             row.get("id"))
+        await db.db.commit()
     return restored
 
 

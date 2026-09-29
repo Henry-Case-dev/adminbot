@@ -1145,7 +1145,7 @@ class TestFlagsAndCanon:
         import dataclasses
         from config.settings import APP_VERSION
         from services import param_catalog as pc
-        assert APP_VERSION == "2.58.34"
+        assert APP_VERSION == "2.58.36"
         assert "IMAGE_CONTEXT_MEMORY_ENABLED" not in pc.REGISTRY
         assert "IMAGE_CONTEXT_MEMORY_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}
@@ -1153,8 +1153,8 @@ class TestFlagsAndCanon:
     def test_catalog_counts_unchanged(self):
         import dataclasses
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 481
-        assert len(dataclasses.fields(Settings)) == 422
+        assert len(pc.REGISTRY) == 483
+        assert len(dataclasses.fields(Settings)) == 423
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21

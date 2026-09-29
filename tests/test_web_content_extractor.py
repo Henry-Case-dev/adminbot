@@ -91,9 +91,10 @@ def _json_handler(payload, status=200):
 
 class TestTrafilaturaSuccess:
     @pytest.mark.asyncio
-    async def test_success_single_get_with_ua_redirects_timeout(self, monkeypatch, caplog):
-        """#1: РОВНО 1 запрос (GET target), UA Chrome/122, follow_redirects=True,
-        timeout 10.0, результат == текст; INFO level ok | provider=trafilatura."""
+    async def test_success_single_get_ua_and_safe_path(self, monkeypatch, caplog):
+        """#1 (MCA-02 ON): РОВНО 1 запрос (GET target), UA Chrome/122 через
+        SafeFetcher (`Accept-Encoding: identity`, follow_redirects=False на
+        transport), результат == текст; INFO level ok | provider=trafilatura."""
         extractor, requests, fake, get_calls = _make_extractor(
             _ok_html_handler(), monkeypatch
         )
@@ -103,13 +104,27 @@ class TestTrafilaturaSuccess:
         assert len(requests) == 1
         assert requests[0][0] == TARGET
         assert requests[0][1].headers["User-Agent"] == _USER_AGENT
+        assert requests[0][1].headers.get("Accept-Encoding") == "identity"
+        assert any("level ok" in r.message and "trafilatura" in r.message
+                   for r in caplog.records)
+        fake.extract.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_off_parity_legacy_get(self, monkeypatch):
+        """#1b (MCA-02 OFF): точный legacy-путь — follow_redirects=True,
+        timeout 10.0 (паритет baseline 7165ff7)."""
+        from services import mca_gates
+        monkeypatch.setattr(mca_gates, "safe_fetch_enabled", lambda: False)
+        extractor, requests, _, get_calls = _make_extractor(
+            _ok_html_handler(), monkeypatch
+        )
+        result = await extractor.extract(TARGET, 4000)
+        assert result == TRAF_TEXT
+        assert len(requests) == 1
         method, kwargs = get_calls[0]
         assert method == "GET"
         assert kwargs["follow_redirects"] is True
         assert kwargs["timeout"].read == 10.0
-        assert any("level ok" in r.message and "trafilatura" in r.message
-                   for r in caplog.records)
-        fake.extract.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_truncate_to_max_symbols(self, monkeypatch):

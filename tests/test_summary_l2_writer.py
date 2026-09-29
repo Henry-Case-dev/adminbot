@@ -502,11 +502,11 @@ class TestCanon:
     def test_catalog_delta_sanctioned(self):
         # ASAP-2.1 (ADR-1028-1 D1, контракт i): санкционированная
         # ОТРИЦАТЕЛЬНАЯ Δ каталога — -8/-2; env-слой Settings -8.
-        assert len(pc.REGISTRY) == 481
+        assert len(pc.REGISTRY) == 483
         assert len({f.name for f in dataclasses.fields(settings.__class__)}) \
-            == 422
+            == 423
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 456
+                    if s.category is not None]) == 458
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21

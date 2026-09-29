@@ -119,6 +119,7 @@ from services.lore_cache import ChatLoreCache
 from services.lore_notify import LoreNotify
 from services.lore_runtime import (
     get_lore_cache,
+    get_lore_db,
     get_lore_notify,
     get_lore_store,
     set_lore_components,
@@ -603,7 +604,7 @@ async def on_startup():
             set_lore_components(
                 store=lore_store, cache=get_lore_cache(),
                 notify=get_lore_notify(), worker=_lore_worker)
-            setup_chat_lifecycle(lore_store, bot_id=bot.id)
+            setup_chat_lifecycle(lore_store, bot_id=bot.id, db=db)
             logger.info("LoreWorker (раунд 7) initialized")
         except Exception:
             logger.warning(
@@ -727,6 +728,22 @@ async def on_startup():
         logger.info(
             "RelationsService + db + dream/nostalgia workers (раунд 9) "
             "initialized")
+        # ── Раунд 10.27 (mca-17a, carry-over §94.5 п.4 / §27.5): фоновый
+        # контур телеметрии (flush/prune, оба kill-switch уважаются) +
+        # watchdog takeover (старт + периодически). Fail-open.
+        try:
+            from services import mca_events as _mca_events
+            from services import mca_watchdog as _mca_watchdog
+            from services.task_supervisor import TaskJobStore as _TaskJobStore
+            _mca_job_store = _TaskJobStore(db)
+            _mca_events.start_telemetry_flusher(db)
+            _mca_watchdog.start_watchdog(db, _mca_job_store)
+            await _mca_watchdog.startup_check(db, _mca_job_store)
+            logger.info("[mca-17a] observability runtime initialized")
+        except Exception:
+            logger.warning(
+                "[mca-17a] observability runtime init failed — fail-open",
+                exc_info=True)
     except Exception:
         logger.warning(
             "[relations] runtime init failed — fail-open (SQLite-часть API "
@@ -899,41 +916,70 @@ async def on_startup():
 
 
 async def on_shutdown():
-    """Cleanup resources on bot shutdown."""
+    """Cleanup resources on bot shutdown.
+
+    MCA-01 §5.2 (T-3743): каждый closer выполняется НЕЗАВИСИМО — ошибка
+    одного не мешает закрыть остальные (раньше первое исключение рвало всю
+    цепочку и часть ресурсов оставалась незакрытой)."""
     logger.info("Bot shutting down...")
-    if _nostalgia_worker:
-        await _nostalgia_worker.stop()
-    if _anticliche_worker:
-        await _anticliche_worker.stop()
-    if _dream_worker:
-        await _dream_worker.stop()
-    if _lore_worker:
-        await _lore_worker.stop()
-    if _lore_notify:
-        await _lore_notify.stop()
+
+    async def _safe(name: str, closer) -> None:
+        if closer is None:
+            return
+        # L-MCA01-2: CancelledError — это BaseException, а не Exception; без
+        # её отдельного перехвата отмена в одном closer прервала бы цепочку и
+        # остальные ресурсы не закрылись бы. Ловим BaseException, чтобы
+        # гарантировать независимое закрытие каждого ресурса (spec §5.2).
+        try:
+            await closer()
+        except BaseException:       # noqa: BLE001 — независимость closers
+            logger.warning("[shutdown] closer failed | resource=%s", name,
+                           exc_info=True)
+
+    await _safe("nostalgia_worker",
+                _nostalgia_worker.stop if _nostalgia_worker else None)
+    await _safe("anticliche_worker",
+                _anticliche_worker.stop if _anticliche_worker else None)
+    await _safe("dream_worker",
+                _dream_worker.stop if _dream_worker else None)
+    await _safe("lore_worker",
+                _lore_worker.stop if _lore_worker else None)
+    await _safe("lore_notify",
+                _lore_notify.stop if _lore_notify else None)
     # F7/T-1764 (S10.18-7): lifecycle-остановка LISTEN-слушателя chat_params
     # (конвенция LoreNotify.stop(); отменяет фоновые invalidate-задачи).
-    if _chat_params_notify:
-        await _chat_params_notify.stop()
-    if _uptime_heartbeat:
-        await _uptime_heartbeat.shutdown()
-    if _goodmorning_scheduler:
-        await _goodmorning_scheduler.shutdown()
-    if _summary_service:
-        await _summary_service.shutdown()
-    if _memory_backup_service:
-        await _memory_backup_service.shutdown()
-    if _memory_maintenance_service:
-        await _memory_maintenance_service.shutdown()
-    if _llm_client:
-        await _llm_client.close()
-    if _search_aggregator:
-        await _search_aggregator.close()
-    if _web_extractor:
-        await _web_extractor.close()
-    if _checkup_fetcher:
-        await _checkup_fetcher.close()
-    await close_smart_cache()
+    await _safe("chat_params_notify",
+                _chat_params_notify.stop if _chat_params_notify else None)
+    await _safe("uptime_heartbeat",
+                _uptime_heartbeat.shutdown if _uptime_heartbeat else None)
+    await _safe("goodmorning_scheduler",
+                _goodmorning_scheduler.shutdown if _goodmorning_scheduler else None)
+    await _safe("summary_service",
+                _summary_service.shutdown if _summary_service else None)
+    await _safe("memory_backup_service",
+                _memory_backup_service.shutdown if _memory_backup_service else None)
+    await _safe("memory_maintenance_service",
+                _memory_maintenance_service.shutdown if _memory_maintenance_service else None)
+    # ── Раунд 10.27 (mca-17a): фоновый контур телеметрии + watchdog
+    # (финальный flush на shutdown; fail-open, каждый независимо).
+    try:
+        from services import mca_events as _mca_events
+        from services import mca_watchdog as _mca_watchdog
+        await _safe("mca_watchdog", _mca_watchdog.stop_watchdog)
+        await _safe("mca_telemetry_flusher",
+                    lambda: _mca_events.stop_telemetry_flusher(get_lore_db()))
+    except Exception:
+        logger.warning("[shutdown] mca observability stop failed",
+                       exc_info=True)
+    await _safe("llm_client",
+                _llm_client.close if _llm_client else None)
+    await _safe("search_aggregator",
+                _search_aggregator.close if _search_aggregator else None)
+    await _safe("web_extractor",
+                _web_extractor.close if _web_extractor else None)
+    await _safe("checkup_fetcher",
+                _checkup_fetcher.close if _checkup_fetcher else None)
+    await _safe("smart_cache", close_smart_cache)
 
 
 # ── Раунд 10.18 (F7 settings-worker-sync, T-1764, ADR-1018-7 D6):

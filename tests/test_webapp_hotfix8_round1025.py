@@ -175,7 +175,7 @@ class TestFlagsAcceptance:
     def test_app_version_bumped(self):
         # T-2834: HOTFIX9 bump 2.58.11 → 2.58.12 (cache-bust shell/glass/aurora).
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.32", m and m.group(1)
+        assert m and m.group(1) == "2.58.36", m and m.group(1)
 
     def test_env_only_flags_delivered(self):
         for flag in HOTFIX8_FLAGS:
@@ -191,11 +191,11 @@ class TestFlagsAcceptance:
 
     def test_catalog_invariants(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 473
-        assert len(pc.GROUPS) == 102
-        assert len(pc._TAB_BY_GROUP) == 100
+        assert len(pc.REGISTRY) == 483
+        assert len(pc.GROUPS) == 105
+        assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 430
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 423
 
     def test_matrix_five_modes_and_probes(self):
         for mode in ("desktop_normal", "desktop_fullscreen", "tablet",

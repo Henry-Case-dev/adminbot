@@ -48,6 +48,8 @@ import httpx
 from config.settings import settings
 from services import hot_config as hot
 from services import image_context_memory
+from services import mca_gates
+from services import safe_fetch
 from services.agentic_events import emit_agentic_event
 from services.external_log import log_external_api, safe_text
 
@@ -57,6 +59,17 @@ logger = logging.getLogger(__name__)
 # URL запроса. GET-режим анонимный, но даже гипотетический keyed-URL не должен
 # попадать в консоль/journald — глушим INFO httpx до WARNING.
 logging.getLogger("httpx").setLevel(logging.WARNING)
+
+# MCA-02 (ADR-1027-5 D1): общий SafeFetcher для сетевых скачиваний изображений
+# (ленивый singleton; второй fetch-контур запрещён).
+_safe_fetcher_singleton: safe_fetch.SafeFetcher | None = None
+
+
+def _safe_fetcher() -> safe_fetch.SafeFetcher:
+    global _safe_fetcher_singleton
+    if _safe_fetcher_singleton is None:
+        _safe_fetcher_singleton = safe_fetch.SafeFetcher()
+    return _safe_fetcher_singleton
 
 # Имена каталоговых ключей (pg_key).
 KEY_BASE_URL = "models.image_base_url"
@@ -822,12 +835,50 @@ async def _generate_post(base_url: str, model: str, prompt: str, key: str,
                                  retry=retry)
 
 
+async def _download_image_bytes(image_url: str, timeout: float,
+                                max_bytes: int) -> bytes:
+    """Единая точка сетевого скачивания изображения (SafeFetcher, MCA-02).
+
+    Потоковые лимиты (переданные+распакованные), SSRF/redirect-политика;
+    ошибки маппятся в ``ImageGenerationError`` (R17-safe reason)."""
+    safe_url = _provider_from_url(image_url)
+    try:
+        resp = await _safe_fetcher().fetch(
+            image_url, profile="image", max_bytes=max_bytes,
+            timeout=timeout, trusted=False)
+    except safe_fetch.SafeFetchError as exc:
+        logger.warning(
+            "[image] download failed | reason=%s | url=%s", exc.code, safe_url)
+        if exc.code in ("too_many_bytes", "decompressed_too_large"):
+            raise ImageGenerationError("too_large") from exc
+        raise ImageGenerationError("download_failed") from exc
+    if resp.status_code != 200:
+        log_external_api(
+            logger, provider=_provider_from_url(image_url), method="GET",
+            url=safe_url, status=resp.status_code,
+            reason=f"download_{_reason_from_status(resp.status_code)}",
+            body=resp.text(), level=logging.ERROR)
+        raise ImageGenerationError(
+            f"download_{_reason_from_status(resp.status_code)}")
+    content = bytes(resp.content or b"")
+    if not content:
+        raise ImageGenerationError("empty")
+    return content
+
+
 async def _download_bytes(image_url: str, timeout: float, max_bytes: int,
                           retry: bool = True) -> bytes:
-    """Скачать байты изображения (без авторизации — внешний URL)."""
+    """Скачать байты изображения (без авторизации — внешний URL).
+
+    MCA-02 (ADR-1027-5 D1/D5/D6): при `MCA_SAFE_FETCH_ENABLED` — потоковые
+    лимиты SafeFetcher (переданные+распакованные), без чтения тела целиком в
+    RAM (`len(content)` после полной загрузки недостаточен). OFF → legacy-путь
+    (`_request_with_retry`, паритет baseline)."""
     # R17: URL ресурса выдан провайдером (может содержать подписанный токен в
     # path) — в лог/ретрай уходит только host, без path/query.
     safe_url = _provider_from_url(image_url)
+    if mca_gates.safe_fetch_enabled():
+        return await _download_image_bytes(image_url, timeout, max_bytes)
     resp = await _request_with_retry("GET", image_url, timeout=timeout,
                                      log_url=safe_url,
                                      max_retries=1 if retry else 0)

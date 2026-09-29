@@ -671,8 +671,12 @@ class LoreWorker:
             # +1 фактический вызов запасного одиночного пути (10.20).
             await _budget_extra_calls(chat_id)
             return await self._classify_dossier_legacy(chat_id, window, names)
+        # MCA-04a FIX п.5 (spec §4.6, D-MCA04A-1): row-bound — локатор
+        # `evidence` обязан лежать в границах окна/чанка (номер = строка
+        # пронумерованного окна `build_layer_a_user`).
         filtered = filter_layer_a_candidates(parsed_a, names,
-                                             canon=self._canon)
+                                             canon=self._canon,
+                                             row_count=len(window))
         person_facts = filtered["person_facts"]
         memes_a = filtered["memes"]
         discarded = len(filtered["discarded"]) + len(filtered["dropped"])
@@ -681,6 +685,11 @@ class LoreWorker:
             "person_facts=%s | memes=%s | discarded=%s",
             chat_id, len(parsed_a.get("candidates") or []),
             len(person_facts), len(memes_a), discarded)
+        # MCA-04a FIX п.3 (spec §4.6, A86): валидированные person_facts
+        # сохраняются НЕЗАВИСИМО от синтеза портрета (до вызова Слоя Б) — при
+        # сбое Layer Б личный факт с subject ID + SourceRef остаётся. Пишутся
+        # `unconfirmed` (не повышаются до confirmed). Гейт — attribution.
+        await self._write_person_facts(chat_id, person_facts)
         if not person_facts and not memes_a:
             return 0
         layer_b_messages = [
@@ -899,7 +908,10 @@ class LoreWorker:
                 "[lore_worker] layer A chunk failed — skip | chat=%s",
                 chat_id)
             return [], []
-        filtered = filter_layer_a_candidates(parsed_a, names, canon=self._canon)
+        # MCA-04a FIX п.5 (spec §4.6, D-MCA04A-1): границы = строки ЭТОГО
+        # чанка (одинаковый локальный номер в разных чанках → разные источники).
+        filtered = filter_layer_a_candidates(parsed_a, names, canon=self._canon,
+                                             row_count=len(lines))
         return filtered["person_facts"], filtered["memes"]
 
     async def _write_target_memes(self, chat_id: int, items,
@@ -1018,6 +1030,67 @@ class LoreWorker:
         if written:
             logger.info(
                 "[lore_worker] dossier memes written | chat=%s | n=%s",
+                chat_id, written)
+        return written
+
+    async def _write_person_facts(self, chat_id: int, person_facts, *,
+                                  provenance_channel: str = "dossier_layer_a"
+                                  ) -> int:
+        """MCA-04a FIX п.3 (spec §4.6, A86): запись валидированных person_facts
+        Layer A как личных фактов (`subject_ref_id` + SourceRef) НЕЗАВИСИМО от
+        синтеза портрета. Статус `unconfirmed` (не повышаем до confirmed).
+        Гейт — `MCA_FACT_ATTRIBUTION_ENABLED`; fail-open на каждый факт."""
+        if not person_facts:
+            return 0
+        try:
+            from services import provenance
+        except Exception:
+            return 0
+        if not provenance.attribution_enabled():
+            return 0
+        written = 0
+        for cand in person_facts or []:
+            if not isinstance(cand, dict):
+                continue
+            target = str(cand.get("target") or "").strip()
+            text = str(cand.get("text") or "").strip()
+            if not target or not text:
+                continue
+            try:
+                if await self._db.person_fact_exists(chat_id, text,
+                                                     provenance_channel):
+                    continue
+                ref = await provenance.resolve_subject_ref(
+                    self._db, chat_id, target, canon=self._canon)
+                ref_id = await provenance.resolve_source_ref(self._db, ref)
+                kind = provenance.classify_assertion_kind(
+                    target, text, canon=self._canon, participants=[target])
+                method = "third_party"
+                fact_id = await self._db.insert_graph_fact(
+                    chat_id, text, "chat_history", None, target_user=target,
+                    status="unconfirmed", kind="fact", subject_ref_id=ref_id,
+                    attribution_method=method,
+                    assertion_kind=kind if kind in provenance.ASSERTION_KINDS
+                    else "unknown",
+                    provenance_channel=provenance_channel,
+                    extractor_version=provenance.EXTRACTOR_VERSION)
+                if fact_id:
+                    await provenance.record_fact_provenance(
+                        self._db, fact_id=fact_id, chat_id=chat_id,
+                        origin="chat_history", target_user=target,
+                        assertion_kind=kind, attribution_method=method,
+                        provenance_channel=provenance_channel,
+                        save_message_link=False)
+                    written += 1
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.warning(
+                    "[lore_worker] person_fact write failed — fail-open | "
+                    "chat=%s", chat_id, exc_info=True)
+        if written:
+            logger.info(
+                "[lore_worker] dossier person_facts written | chat=%s | n=%s",
                 chat_id, written)
         return written
 

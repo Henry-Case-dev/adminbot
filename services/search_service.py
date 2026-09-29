@@ -18,6 +18,7 @@ from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMClient
 from services.search_aggregator import SearchAggregator
 from services.search_prompts import SEARCH_SYSTEM_PROMPT
+from services import mca_retrieval_context as _mca_rc
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import MemoryManager, fire_and_forget
 from services.summary_xml import escape_xml_text
@@ -117,12 +118,21 @@ class SearchService:
             )
         except Exception as exc:
             logger.warning("smartsearch rerank failed — original results | error=%s", exc)
+            # MCA-07 (T-3846): адаптер к единому типизированному ядру —
+            # статус виден потребителю (timeout/error); текст-компрессия
+            # fail-open остаётся (это не выбор ID-кандидатов).
+            _mca_rc.emit_stage_event(
+                "reranker", "failed",
+                reason_code=_mca_rc.classify_rerank_exception(exc))
             return results
         reranked = cleanup_llm_text(reranked)
         if _rerank_usable(results, reranked):
             logger.info("smartsearch rerank OK | %d -> %d chars",
                         len(results), len(reranked))
+            _mca_rc.emit_stage_event("reranker", "success")
             return reranked
         logger.info("smartsearch rerank skipped (thin output) | %d -> %d chars",
                     len(results), len(reranked or ""))
+        _mca_rc.emit_stage_event("reranker", "skipped",
+                                 reason_code="rerank_invalid")
         return results

@@ -109,17 +109,22 @@ class TestPoolPermits:
 class TestPoolNChangeAndCleanup:
     @pytest.mark.asyncio
     async def test_n_change_replaces_slot(self, pool_n):
-        """Смена N под живьём: старый слот заменяется на sem с новым N
-        (держатели старого доживают на осиротевшем sem — безопасно)."""
+        """Смена N под живьём (MCA-01 §5.2 / T-3739): новый N применяется
+        ТОЛЬКО после безопасного drain (нет держателей и ожидающих). Пока
+        старый слот занят — работаем на прежнем N; после release слот
+        пересоздаётся с новым N (старый сем освобождён и осиротел)."""
         pool_n(1)
         pool = ChatConcurrencyPool()
         holder = await pool.acquire(CHAT_A)
         pool_n(3)
-        permits = [await pool.acquire(CHAT_A) for _ in range(3)]  # новый слот N=3
+        # Drain не достигнут (holder держит единственный слот) → N прежний.
+        assert pool.slot_n(CHAT_A) == 1
+        holder.release()
+        # Слот свободен → следующий доступ пересоздаёт его с N=3.
+        permits = [await pool.acquire(CHAT_A) for _ in range(3)]
         assert pool.slot_n(CHAT_A) == 3
         for p in permits:
             p.release()
-        holder.release()
 
     @pytest.mark.asyncio
     async def test_cleanup_when_over_capacity(self, pool_n):

@@ -2365,6 +2365,34 @@
                 </div>
                 <div v-else class="text-xs text-gray-500">Бюджет недоступен.</div>
               </div>
+              <!-- mca-17a (10.27, carry-over §94.5/SC-13): метрики §17.4 +
+                   компактный индикатор инцидентов на СУЩЕСТВУЮЩЕЙ витрине
+                   (REUSE viewer, без новых панелей/маршрутов/endpoint).
+                   Группа без продюсера — честно «неизвестно», не 0. -->
+              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2"
+                   id="mca-metrics-block" v-if="oversightData && oversightData.mca_metrics">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <div class="text-xs font-bold">Наблюдаемость (mca)</div>
+                  <!-- F3/SC-13: при недоступной телеметрии — честный
+                       unknown/muted, НЕ «зелёный» badge-ok. -->
+                  <span class="badge"
+                        :class="mcaMetricsBadge(oversightData.mca_metrics)">
+                    {{ mcaDegradedLabel(oversightData.mca_metrics) }}
+                  </span>
+                  <span class="badge"
+                        :class="incidentBadge(oversightData.mca_metrics.incidents)">
+                    инциденты: {{ mcaIncidentLabel(oversightData.mca_metrics.incidents) }}
+                  </span>
+                </div>
+                <div class="text-xs text-gray-400">
+                  ошибок: {{ mcaErrorsLabel(oversightData.mca_metrics) }}
+                  · gaps: {{ oversightData.mca_metrics.gaps_total === null || oversightData.mca_metrics.gaps_total === undefined ? 'неизвестно' : oversightData.mca_metrics.gaps_total }}
+                  · spool: {{ oversightData.mca_metrics.spooled_total === null || oversightData.mca_metrics.spooled_total === undefined ? 'неизвестно' : oversightData.mca_metrics.spooled_total }}
+                </div>
+                <div class="text-xs text-gray-500 mt-1">
+                  нет данных: {{ (oversightData.mca_metrics.unknown || []).join(', ') || '—' }}
+                </div>
+              </div>
               <!-- F3 (раунд 10.24, ADR-1024-7): «Аналитика токенов» —
                    визуальное дерево вызова (Node Flow) + «График расходов».
                    Внутри существующей вкладки «Сводка»; структура меню НЕ
@@ -4284,6 +4312,39 @@
                 <span class="badge badge-err mr-1">ERROR {{ errorLogs.length }}</span>
                 <span class="badge badge-warn">WARN {{ warnLogs.length }}</span>
               </div>
+              <!-- mca-17a (10.27, carry-over §94.5/SC-14): аддитивные фильтры
+                   связанных событий trace в СУЩЕСТВУЮЩЕМ viewer; без новых
+                   панелей/маршрутов/endpoint. Пустой результат — empty state. -->
+              <div class="flex items-center gap-2 flex-wrap mb-2" id="mca-log-filters">
+                <input class="field w-40" v-model="mcaLogFilter.trace_id"
+                       placeholder="trace_id / run_id" aria-label="Фильтр trace_id">
+                <input class="field w-28" v-model="mcaLogFilter.chat_id"
+                       placeholder="chat_id" aria-label="Фильтр chat_id">
+                <input class="field w-32" v-model="mcaLogFilter.component"
+                       placeholder="component" aria-label="Фильтр component">
+                <input class="field w-32" v-model="mcaLogFilter.reason_code"
+                       placeholder="reason_code" aria-label="Фильтр reason_code">
+                <button class="btn-ghost text-xs shrink-0"
+                        @click="loadRelatedEvents()">Связанные события</button>
+                <button class="btn-ghost text-xs shrink-0"
+                        v-if="mcaEvents.length || mcaLogFilter.trace_id || mcaLogFilter.chat_id || mcaLogFilter.component || mcaLogFilter.reason_code"
+                        @click="clearMcaLogFilter()">Сброс</button>
+              </div>
+              <div v-if="mcaEvents.length" class="mb-2" id="mca-related-events">
+                <div class="text-xs text-gray-500 mb-1">Связанные события: {{ mcaEvents.length }}</div>
+                <div class="log-code">
+                  <div v-for="(ev, i) in mcaEvents" :key="'me' + i"
+                       class="log-row border-b border-white/5 py-1 text-xs">
+                    <span class="badge" :class="levelBadge(ev.level)">{{ ev.level }}</span>
+                    <span class="text-gray-300 ml-1">{{ ev.event_name }}</span>
+                    <span class="text-gray-500 ml-1">{{ ev.stage || '' }}</span>
+                    <span class="text-gray-500 ml-1">{{ ev.status || '' }}</span>
+                    <span class="text-gray-500 ml-1">{{ ev.trace_id || ev.pipeline_run_id || '' }}</span>
+                  </div>
+                </div>
+              </div>
+              <div v-else-if="mcaLogFilter.trace_id || mcaLogFilter.pipeline_run_id"
+                   class="text-xs text-gray-500 mb-2">Связанных событий нет.</div>
               <!-- Раунд 10 (F-8 T-871), 10.8 (§3.2): блочная раскладка логов
                    (div вместо <pre><span>) — на Android WebView строка тянется
                    на ширину карточки. Toggle — Material-иконка (только при

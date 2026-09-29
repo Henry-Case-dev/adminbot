@@ -57,11 +57,11 @@ class TestCatalogParity:
         # +1 GROUPS/mapped → 459/98/418.
         # 10.26 (A7/ADR-1026-20 D6): +3 REGISTRY/Settings, +1 GROUPS
         # (flags_decision_making → mod_direct) → 473/102/430.
-        assert len(REGISTRY) == 481, len(REGISTRY)
+        assert len(REGISTRY) == 483, len(REGISTRY)
         assert len(GROUPS) == 105
         from config.settings import Settings
         import dataclasses
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 422
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 423
 
     def test_every_param_has_group_and_reachable(self):
         for spec in _catalog_specs():

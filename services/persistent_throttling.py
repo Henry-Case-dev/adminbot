@@ -75,7 +75,7 @@ async def _db_write(db, op, *, op_name: str, chat_id):
         "(тестовый двойник?) | op=%s", op_name)
     try:
         result = await op(db.db)
-        await db.db.commit()
+        await db.db.commit()  # mca01-write-fallback: db double без write_transaction
         return result
     except Exception:
         try:

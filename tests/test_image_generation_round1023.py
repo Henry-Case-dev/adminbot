@@ -318,6 +318,10 @@ class TestPostMode:
             return FakeResponse(200, content=b"\xff\xd8jpeg-bytes")
 
         monkeypatch.setattr(ig, "_http_request", fake)
+        # MCA-02: сетевой download идёт через SafeFetcher (единый контур);
+        # этот тест проверяет POST-body, поэтому download мокается.
+        monkeypatch.setattr(ig, "_download_image_bytes",
+                            AsyncMock(return_value=b"\xff\xd8jpeg-bytes"))
         _patch_budget(monkeypatch)
         res = await ig.generate("кот", chat_id=1)
         assert res.ok and res.content == b"\xff\xd8jpeg-bytes"
@@ -548,6 +552,11 @@ class TestErrors:
             return FakeResponse(200, content=b"x" * 100)
 
         monkeypatch.setattr(ig, "_http_request", fake)
+        # MCA-02: SafeFetcher блокирует превышение потокового лимита →
+        # ImageGenerationError("too_large") (без чтения тела в RAM).
+        monkeypatch.setattr(
+            ig, "_download_image_bytes",
+            AsyncMock(side_effect=ig.ImageGenerationError("too_large")))
         _patch_budget(monkeypatch)
         monkeypatch.setattr(Settings, "IMAGE_MAX_BYTES", 10)
         res = await ig.generate("кот", chat_id=1)

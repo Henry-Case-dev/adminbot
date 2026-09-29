@@ -122,7 +122,7 @@ class TestMigrationV7:
                    for r in rows)
         # PRAGMA user_version = 11 (каскад v6→v7→v8→v9→v10→v11)
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 12
+        assert (await cursor.fetchone())[0] == 19
         # индексы v7 существуют; глобальный import_key заменён на chat-scoped
         # (F7/v11, ADR-1019-6 D1b) — старого глобального UNIQUE больше нет.
         cursor = await d.db.execute(
@@ -150,7 +150,7 @@ class TestMigrationV7:
         await d.close()
         await d.initialize()                        # «рестарт» — no-op
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 12
+        assert (await cursor.fetchone())[0] == 19
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         assert (await cursor.fetchone())["c"] == 1  # строки не задвоены
         await d.close()

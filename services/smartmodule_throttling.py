@@ -23,7 +23,13 @@ def format_remaining_time(seconds: float) -> str:
 
 class CooldownTracker:
     """Dict-TTL коулдаун per (chat_id, user_id). Два НЕЗАВИСИМЫХ инстанса:
-    search и factcheck (D107). In-memory: перезапуск сбрасывает (принято)."""
+    search и factcheck (D107). In-memory: перезапуск сбрасывает (принято).
+
+    MCA-01 §5.2 (T-3744): cooldown-map имеет lazy eviction — истёкшие записи
+    вычищаются на `touch`, чтобы словарь не рос монотонно при долгой работе."""
+
+    # Потолок словаря: при превышении вычищаем истёкшие записи (lazy sweep).
+    _EVICT_THRESHOLD = 512
 
     def __init__(self, cooldown_seconds: float) -> None:
         self._cooldown = cooldown_seconds
@@ -38,5 +44,22 @@ class CooldownTracker:
         return max(0.0, self._cooldown - (time.monotonic() - last))
 
     def touch(self, chat_id: int, user_id: int) -> None:
-        """Поставить/обновить слот (вызывается при валидном триггере)."""
-        self._last[(chat_id, user_id)] = time.monotonic()
+        """Поставить/обновить слот (вызывается при валидном триггере).
+
+        T-3744: перед вставкой, если словарь превысил порог, вычищаем
+        истёкшие записи (eviction cooldown-map)."""
+        now = time.monotonic()
+        if len(self._last) >= self._EVICT_THRESHOLD:
+            self._evict_expired(now)
+        self._last[(chat_id, user_id)] = now
+
+    def _evict_expired(self, now: float) -> None:
+        """Удалить записи с истёкшим кулдауном (они уже не влияют)."""
+        expired = [k for k, ts in self._last.items()
+                   if now - ts >= self._cooldown]
+        for k in expired:
+            self._last.pop(k, None)
+
+    def size(self) -> int:
+        """Число записей (диагностика/тесты)."""
+        return len(self._last)

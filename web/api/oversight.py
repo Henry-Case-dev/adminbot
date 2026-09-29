@@ -132,16 +132,147 @@ async def _require_chat_exists(cache, chat_id: int) -> None:
         raise HTTPException(status_code=404, detail="чат не найден")
 
 
+async def _mca_metrics_block(db) -> dict:
+    """Carry-over §94.5 (SC-13): аддитивный блок метрик §17.4 + инциденты.
+
+    REUSE существующего viewer (`#/oversight`), без новых панелей/endpoint.
+    Поле без продюсера — честно unknown (`UNKNOWN ≠ 0`). Fail-open shape."""
+    from services import mca_gates
+    interval = mca_gates.incident_push_interval_seconds()
+    if db is None:
+        return {"available": False,
+                "incidents": {"available": False,
+                              "push_interval_seconds": interval}}
+    try:
+        from services import mca_events, mca_incidents, mca_trace
+        runtime = await mca_trace.collect_runtime_metrics(db)
+        metrics = await mca_events.metrics(db, runtime=runtime)
+        incidents = await mca_incidents.compact_indicator(db)
+        incidents["push_interval_seconds"] = interval
+        return {**metrics, "incidents": incidents}
+    except Exception:
+        logger.warning("[oversight] mca_metrics failed — fail-open",
+                       exc_info=True)
+        return {"available": False,
+                "incidents": {"available": False,
+                              "push_interval_seconds": interval}}
+
+
 @oversight_router.get("/summary")
 async def oversight_summary(
     request: Request,
     user: Annotated[WebAppUser, Depends(requires_global_admin())],
 ):
-    """Сводка всех чатов (F-12 §4): кэш сервера 60 с; PG down → errors."""
+    """Сводка всех чатов (F-12 §4): кэш сервера 60 с; PG down → errors.
+
+    Раунд 10.27 (`mca-17a`, carry-over §94.5): аддитивный `mca_metrics`
+    (метрики §17.4 + компактный индикатор инцидентов); SSOT — существующий
+    viewer, новых endpoint/панелей нет."""
     cache = get_cache(request)
     data = await oversight.build_summary(cache.pg)
     data["cached"] = "60s-server-cache"      # UI-mark; polling НЕ добавляем
+    data["mca_metrics"] = await _mca_metrics_block(lore_runtime.get_lore_db())
     return data
+
+
+# ── mca-17a (§4.10/§4.6, AMEND F5/ADR D16): read-only данные-API ядра ───────
+# Аддитивные read-only endpoint'ы на СУЩЕСТВУЮЩЕМ роутере `oversight`
+# (данные для витрины/mca-17c; НЕ панель/маршрут). RBAC — как `/summary`
+# (global admin). Fail-open shape-compatible; R17-safe (реестр отдаёт только
+# имена настроек, не значения). Гейты: OFF → `available=false`, без обновлений.
+
+
+def _registry_disabled() -> dict:
+    return {"available": False, "enabled": False, "count": 0,
+            "processes": [], "pipelines": [], "coverage": {}}
+
+
+def _incidents_disabled(since_ts: int = 0) -> dict:
+    return {"available": False, "enabled": False, "incidents": [],
+            "cursor": int(since_ts), "changes": [],
+            "push_interval_seconds": None,
+            "indicator": {"available": False, "active": None,
+                          "unacknowledged": None, "by_severity": {}}}
+
+
+@oversight_router.get("/processes")
+async def oversight_processes(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
+):
+    """§4.10: read-only реестр процессов (code-declared) + runtime-статус.
+
+    Гейт `MCA_PROCESS_REGISTRY_ENABLED`; RBAC global-admin; fail-open; R17-safe
+    (только `process_id`/назначение/имена настроек — без значений)."""
+    from services import mca_gates, mca_process_registry
+    if not mca_gates.process_registry_enabled():
+        return _registry_disabled()
+    try:
+        snap = await mca_process_registry.registry_snapshot(
+            lore_runtime.get_lore_db())
+        return {"available": True, **snap}
+    except Exception:
+        logger.warning("[oversight] registry_snapshot failed — fail-open",
+                       exc_info=True)
+        return _registry_disabled()
+
+
+@oversight_router.get("/incidents")
+async def oversight_incidents(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    """§4.6/§4.10: read-only активные инциденты (durable, R17-safe).
+
+    Гейт `MCA_INCIDENTS_ENABLED`; RBAC global-admin; fail-open shape."""
+    from services import mca_gates, mca_incidents
+    if not mca_gates.incidents_enabled():
+        return _incidents_disabled()
+    try:
+        items = await mca_incidents.active_incidents(
+            lore_runtime.get_lore_db(), limit=limit)
+        return {"available": True, "enabled": True, "incidents": items,
+                "push_interval_seconds":
+                    mca_gates.incident_push_interval_seconds()}
+    except Exception:
+        logger.warning("[oversight] active_incidents failed — fail-open",
+                       exc_info=True)
+        return _incidents_disabled()
+
+
+@oversight_router.get("/incidents/changes")
+async def oversight_incident_changes(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
+    since_ts: int = Query(default=0, ge=0),
+    limit: int = Query(default=200, ge=1, le=500),
+):
+    """§4.6/SC-16: инкрементальная доставка по cursor (≤10 s polling).
+
+    Гейты `MCA_INCIDENTS_ENABLED`+`MCA_INCIDENT_PUSH_ENABLED` (OFF → паритет:
+    нет обновлений). Reconnect — пропущенные по `since_ts` + сверка состояния.
+    Только миниапп; stack traces не публикуются; R17-safe."""
+    from services import mca_gates, mca_incidents
+    if not (mca_gates.incidents_enabled()
+            and mca_gates.incident_push_enabled()):
+        return _incidents_disabled(since_ts)
+    try:
+        db = lore_runtime.get_lore_db()
+        result = await mca_incidents.incident_changes(
+            db, since_ts=since_ts, limit=limit)
+        result["push_interval_seconds"] = \
+            mca_gates.incident_push_interval_seconds()
+        # Аддитивно: компактный индикатор (тот же запрос обновляет существующий
+        # блок на витрине; новой панели/запроса не требуется).
+        indicator = await mca_incidents.compact_indicator(db)
+        indicator["push_interval_seconds"] = result["push_interval_seconds"]
+        result["indicator"] = indicator
+        return result
+    except Exception:
+        logger.warning("[oversight] incident_changes failed — fail-open",
+                       exc_info=True)
+        return _incidents_disabled(since_ts)
 
 
 @oversight_router.get("/chat/{chat_id}")
