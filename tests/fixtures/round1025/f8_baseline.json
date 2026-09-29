@@ -8,11 +8,11 @@
     "plans/reports/round1025_f8_config_diff.md"
   ],
   "counts": {
-    "REGISTRY": 481,
+    "REGISTRY": 483,
     "GROUPS": 105,
     "TAB_BY_GROUP": 103,
     "TAB_RULES": 21,
-    "delta": 70,
+    "delta": 72,
     "inventory": 411
   },
   "round": "1025-f8",
@@ -29,6 +29,7 @@
     "/control/start",
     "/control/stop",
     "/debug/config",
+    "/direct/context-diagnostics",
     "/health",
     "/images/test",
     "/info",
@@ -54,7 +55,7 @@
     "config_snapshot_diff"
   ],
   "sha256": {
-    "services/param_catalog.py": "8b04fdec0c5f8f288eb983a1b5663626696972fa84f9e695b008186b5a126130",
+    "services/param_catalog.py": "63683401a042506537c6e897b9c9fb412628dbb8f41e391eb9e854ea2cfc3a86",
     "services/pg_db.py": "b507037425a31796d601394fbb7ff9524d4e740649f90b513370c95b8caef72b",
     "web/api/routes.py": "33fb6b1c817d0ebb533dc9943de53f00321421aa4753826ab08394cedd64d098"
   },

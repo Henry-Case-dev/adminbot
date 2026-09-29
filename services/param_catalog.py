@@ -369,7 +369,7 @@ GROUPS: tuple[GroupSpec, ...] = (
     GroupSpec("flags_decision_making", "flags", "Принятие решений",
               "Когда бот отвечает, ставит реакцию или молчит: незначимые "
               "обращения, реакции вместо текста, короткие ответы к своим "
-              "изображениям.", 23),
+              "изображениям, автономные ответы и Silent-подтверждение.", 23),
     # ── ASAP-2 round1027 (§13/§14, ADR-1027-10 D11): тумблеры двух контуров
     # Summary. Hybrid — основной пайплайн + Recovery (repair/retry); Legacy —
     # аварийный fallback. ЕДИНСТВЕННЫЙ ключ «Fallback to Legacy» — в секции
@@ -919,6 +919,18 @@ _SUMMARY_HYBRID_PG_ONLY: list[tuple] = [
      "журнал; статья НЕ обрезается и НЕ отбраковывается по нему."),
 ]
 
+# ── ASAP-3 (round 1028, ADR-1028-2 D10, санкция Δ каталога spec §6) ─────────
+# PG-only per-chat ключ Silent-подтверждения 🗿 (группа «Принятие решений»).
+# Env-дефолт — ClassVar `DIRECT_SILENT_ACK_ENABLED` (Δ каталога env-рубильника
+# = 0); резолв в рантайме: overrides чата → hot → env-дефолт. Settings-поле
+# не заводится (F8: Settings 422 → 423 даёт только CHAT_AUTONOMOUS_REPLY_ENABLED).
+_ASAP3_PG_ONLY: list[tuple] = [
+    ("flags.chat_silent_ack_enabled", "flags",
+     "Silent-подтверждение 🗿", "bool", False, "flags_decision_making",
+     "Если бот сознательно не отвечает на прямой ответ ему, он ставит 🗿 — "
+     "«сообщение увидел, решил не отвечать». Выключено — обычная тишина."),
+]
+
 # ── flags: рубильники модулей ───────────────────────────────────────────────
 # (field, title_ru, group, description)
 _FLAGS: list[tuple] = [
@@ -963,6 +975,13 @@ _FLAGS: list[tuple] = [
      "Реакции на короткие ответы к собственным изображениям",
      "flags_decision_making",
      "Позволяет использовать реакции или молчание вместо развёрнутого ответа."),
+    # ── ASAP-3 (round 1028, ADR-1028-2 D8/D10): «Принятие решений» +2
+    # (санкция Δ каталога спеки §6): автономные ответы на reply боту +
+    # Silent-подтверждение 🗿 (PG-only, env-дефолт DIRECT_SILENT_ACK_ENABLED).
+    ("CHAT_AUTONOMOUS_REPLY_ENABLED", "Автономные ответы на reply боту",
+     "flags_decision_making",
+     "При ответе на сообщение бота он сам решает: ответить, поставить "
+     "реакцию или промолчать. Выключено — всегда текстовый ответ."),
     ("CHAT_STYLE_ANCHORS_ENABLED", "Стилевые якоря", "flags_chat_behavior",
      "Бот запоминает фразы, сказанные вами, и повторяет их стиль. Выключено — стиль не копируется."),
     ("CHAT_MOOD_ENABLED", "Определение настроения собеседника", "flags_chat_behavior",
@@ -1958,6 +1977,11 @@ def _build_registry() -> dict[str, ParamSpec]:
     # ASAP-2 round1027: 16 PG-only записей Hybrid/Legacy Summary (см. список).
     for (pg_id, category, title, typ, secret, group, desc
          ) in _SUMMARY_HYBRID_PG_ONLY:
+        add(ParamSpec(None, None, category, title, typ, secret=secret,
+                      pg_id=pg_id, group=group, description=desc))
+    # ASAP-3 round1028: PG-only per-chat ключ silent-ack (см. список).
+    for (pg_id, category, title, typ, secret, group, desc
+         ) in _ASAP3_PG_ONLY:
         add(ParamSpec(None, None, category, title, typ, secret=secret,
                       pg_id=pg_id, group=group, description=desc))
     for row in _FLAGS:

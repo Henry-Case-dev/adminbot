@@ -58,7 +58,10 @@ class TestEventSchema:
             assert name in ae.AGENTIC_EVENT_TYPES
 
     def test_total_20_and_schema_version(self):
-        assert len(ae.AGENTIC_EVENT_TYPES) == 20
+        # ASAP-3 (ADR-1028-2 D15): аддитивно +7 DIRECT_/CONTEXT_-событий
+        # к закрытому enum A9 (20 → 27); существующие типы/схема не менялись.
+        # Rework round 1 (H2/D6): +1 CONTEXT_TAIL_FLOOR_CLAMPED (27 → 28).
+        assert len(ae.AGENTIC_EVENT_TYPES) == 28
         assert ae.SCHEMA_VERSION == "1"
 
     def test_closed_enum_unknown_event_dropped(self, caplog):

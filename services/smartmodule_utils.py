@@ -103,8 +103,20 @@ REACTION_DEFAULT = "🗿"
 REACTION_LAUGH = "😂"
 REACTION_APPROVE = "👍"
 REACTION_FIRE = "🔥"
+# ASAP-3 (ADR-1028-2 D9, §24): аддитивное расширение standard-набора A8 —
+# наборы кандидатов REACT по классу сообщения ({😂,🤣}, {👍,👌}, {👍,🔥,❤️},
+# {🤨,🤔}). Все эмодзи — стандартный Telegram reaction enum (ограничение A8
+# «боты без custom/premium/paid» сохранено). Существующие константы/порядок
+# fallback НЕ меняются (legacy-сайты байт-в-байт).
+REACTION_LAUGH_ALT = "🤣"
+REACTION_OK_HAND = "👌"
+REACTION_HEART = "❤️"
+REACTION_SKEPTIC = "🤨"
+REACTION_THINK = "🤔"
 STANDARD_REACTION_EMOJIS = frozenset(
-    {REACTION_DEFAULT, REACTION_LAUGH, REACTION_APPROVE, REACTION_FIRE})
+    {REACTION_DEFAULT, REACTION_LAUGH, REACTION_APPROVE, REACTION_FIRE,
+     REACTION_LAUGH_ALT, REACTION_OK_HAND, REACTION_HEART, REACTION_SKEPTIC,
+     REACTION_THINK})
 # Детерминированный порядок альтернатив (без случайности — REQ-A8-09).
 REACTION_FALLBACK_ORDER = (REACTION_LAUGH, REACTION_APPROVE, REACTION_FIRE,
                            REACTION_DEFAULT)

@@ -711,6 +711,32 @@ async def get_params_meta(
     return {"items": items}
 
 
+@api_router.get("/direct/context-diagnostics")
+async def direct_context_diagnostics(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    chat_id: int = Query(...),
+):
+    """ASAP-3 (round 1028, ADR-1028-2 D17, §34 ТЗ): read-only диагностика
+    последнего ON-прогона Direct Context Composer по чату.
+
+    Источник — process-local snapshot (`direct_context_composer.
+    get_diagnostics`): только числа/коды (R17: без private raw messages).
+    Существующий RBAC-слой (доступ к чату — как GET /config с X-Chat-Id).
+    Δ каталога = 0. Fail-open: прогонов не было → ``available: false``."""
+    cache: ConfigCache = get_cache(request)
+    ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
+    if not access_srv.can_access_chat(ctx, chat_id):
+        raise HTTPException(status_code=403, detail="нет доступа к чату")
+    from services import direct_context_composer as _asap3_composer
+    data = _asap3_composer.get_diagnostics(chat_id)
+    out: dict = {"chat_id": chat_id, "available": bool(data)}
+    if data:
+        out.update(data)
+    out["metrics"] = _asap3_composer.direct_metrics_snapshot()
+    return out
+
+
 @api_router.get("/config/keys/own")
 async def config_keys_own(
     request: Request,

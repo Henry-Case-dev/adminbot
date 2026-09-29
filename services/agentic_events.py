@@ -57,6 +57,22 @@ ANTI_CLICHE_SAVE_COMPLETE = "ANTI_CLICHE_SAVE_COMPLETE"
 ANTI_CLICHE_UPDATE_COMPLETE = "ANTI_CLICHE_UPDATE_COMPLETE"
 ANTI_CLICHE_UPDATE_FAILED = "ANTI_CLICHE_UPDATE_FAILED"
 
+# ── ASAP-3 (round 1028, ADR-1028-2 D15): +7 DIRECT_/CONTEXT_-событий ────────
+# Аддитивно к закрытому enum A9 (§30–§33 ТЗ): trigger/decision-наблюдаемость
+# direct-чата и context-composer телеметрия. R17-safe: только id/enum/числа —
+# raw user text/промпты/ответы LLM запрещены (проверка тестами).
+DIRECT_TRIGGER = "DIRECT_TRIGGER"
+DIRECT_SILENT_ACK = "DIRECT_SILENT_ACK"
+DIRECT_SILENT_ACK_FAILED = "DIRECT_SILENT_ACK_FAILED"
+CONTEXT_CAPACITY = "CONTEXT_CAPACITY"
+CONTEXT_SELECT = "CONTEXT_SELECT"
+CONTEXT_PRESSURE = "CONTEXT_PRESSURE"
+CONTEXT_PHYSICAL_OVERFLOW = "CONTEXT_PHYSICAL_OVERFLOW"
+# Rework round 1 (H2/D6): пол fresh tail engaged — давление срезало tail до
+# минимума CHAT_FRESH_TAIL_MIN_MESSAGES (ниже — только CONTEXT_PHYSICAL_
+# OVERFLOW). Аддитивно к enum A9 (27→28).
+CONTEXT_TAIL_FLOOR_CLAMPED = "CONTEXT_TAIL_FLOOR_CLAMPED"
+
 CORE_EVENT_TYPES = frozenset({
     DECISION_START, DECISION_COMPLETE, TOOL_PLAN_CREATED, TOOL_CALL_START,
     TOOL_CALL_COMPLETE, TOOL_CALL_FAILED, REACTION_SENT, MESSAGE_IGNORED,
@@ -69,7 +85,14 @@ ANTI_CLICHE_EVENT_TYPES = frozenset({
     ANTI_CLICHE_DEDUP_COMPLETE, ANTI_CLICHE_SAVE_COMPLETE,
     ANTI_CLICHE_UPDATE_COMPLETE, ANTI_CLICHE_UPDATE_FAILED,
 })
-AGENTIC_EVENT_TYPES = frozenset(CORE_EVENT_TYPES | ANTI_CLICHE_EVENT_TYPES)
+# ASAP-3 (D15): +7 — direct decision-matrix и context-composer события.
+DIRECT_EVENT_TYPES = frozenset({
+    DIRECT_TRIGGER, DIRECT_SILENT_ACK, DIRECT_SILENT_ACK_FAILED,
+    CONTEXT_CAPACITY, CONTEXT_SELECT, CONTEXT_PRESSURE,
+    CONTEXT_PHYSICAL_OVERFLOW, CONTEXT_TAIL_FLOOR_CLAMPED,
+})
+AGENTIC_EVENT_TYPES = frozenset(
+    CORE_EVENT_TYPES | ANTI_CLICHE_EVENT_TYPES | DIRECT_EVENT_TYPES)
 
 # ── R17-whitelist полей (D5) ────────────────────────────────────────────────
 # Общие R17-safe поля, допустимые у любого события.
@@ -91,7 +114,9 @@ _ANTI_CLICHE_EXTRA = frozenset({
 
 EVENT_FIELDS = {
     DECISION_START: frozenset(),
-    DECISION_COMPLETE: frozenset(),
+    # ASAP-3 (D15): аддитивные поля адресации/класса (контракт §31).
+    DECISION_COMPLETE: frozenset({
+        "trigger_type", "force_reply_required", "message_class"}),
     TOOL_PLAN_CREATED: frozenset(),
     TOOL_CALL_START: _TOOL_FIELDS,
     TOOL_CALL_COMPLETE: _TOOL_FIELDS,
@@ -112,6 +137,32 @@ EVENT_FIELDS = {
     ANTI_CLICHE_SAVE_COMPLETE: _ANTI_CLICHE_EXTRA,
     ANTI_CLICHE_UPDATE_COMPLETE: _ANTI_CLICHE_EXTRA,
     ANTI_CLICHE_UPDATE_FAILED: _ANTI_CLICHE_EXTRA,
+    # ── ASAP-3 (D15): whitelist новых событий (R17-safe поля) ──────────────
+    DIRECT_TRIGGER: frozenset({
+        "trigger_type", "force_reply_required", "reply_to_bot",
+        "is_private", "addressed"}),
+    DIRECT_SILENT_ACK: frozenset({
+        "reaction", "success", "target", "reason"}),
+    DIRECT_SILENT_ACK_FAILED: frozenset({
+        "error_code", "target", "reason"}),
+    CONTEXT_CAPACITY: frozenset({
+        "model", "window", "window_source", "external_tokens",
+        "output_reserve", "available_context", "budget", "policy_mode",
+        "summary_revision", "summary_watermark", "summary_lag_messages",
+        "summary_age", "estimation_method"}),
+    CONTEXT_SELECT: frozenset({
+        "recent_verbatim_messages", "recent_verbatim_tokens",
+        "reply_thread_messages", "old_episode_count", "old_episode_messages",
+        "old_episode_tokens", "middle_selected_messages",
+        "compressed_background_tokens", "rag_tokens"}),
+    CONTEXT_PRESSURE: frozenset({
+        "excluded_low_priority", "compressed_or_dropped",
+        "physical_overflow", "unsummarized_tail_messages",
+        "unsummarized_tail_tokens", "pressure"}),
+    CONTEXT_PHYSICAL_OVERFLOW: frozenset({
+        "preserved_kinds", "available", "needed"}),
+    CONTEXT_TAIL_FLOOR_CLAMPED: frozenset({
+        "final_messages", "floor_messages"}),
 }
 
 # ── валидация значений (R17: строки без пробелов = не текст) ───────────────
@@ -125,7 +176,7 @@ _NUM_FIELDS = frozenset({
 _MODEL_FIELDS = frozenset({"model"})
 # Короткие непустые строки без пробелов (эмодзи-реакция R17-safe).
 _SHORT_STR_FIELDS = frozenset({"reaction"})
-_LIST_FIELDS = frozenset({"tools", "sources", "errors"})
+_LIST_FIELDS = frozenset({"tools", "sources", "errors", "preserved_kinds"})
 
 # Строгая «идентификаторная» форма: буквы/цифры/``_``/``-``/``:``/``.`` и БЕЗ
 # пробелов → свободный пользовательский текст (досье/промпт/сообщение) не

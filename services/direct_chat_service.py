@@ -87,6 +87,9 @@ from services import chat_access
 from services import hot_config as hot
 from services import bot_persona
 from services import thread_chain
+from services import mca_gates
+from services import mca_retrieval_context as _mca_rc
+from services import command_prefix  # ASAP-3: persona-name force-детект (F6)
 from services.chat_params import (
     chat_summary_enabled,
     get_chat_param as _cp_g,  # G-3 per-chat
@@ -185,6 +188,15 @@ from services.tool_schemas import active_tools
 from services.typing_manager import typing_active
 from services.user_relations import STAGE_RU
 from services.nostalgia_prompts import format_nostalgia_hint
+# ── ASAP-3 (round 1028, ADR-1028-2): единый Direct Context Composer + ──────
+# model-aware capacity (D1–D7) и observability-хелперы (D15). Consumer-side:
+# token_counter/Summary не меняются (D11).
+from services import direct_context_composer as _composer
+from services.model_capacity import (
+    apply_budget_policy,
+    compute_available_budget,
+    resolve_effective_window,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -254,8 +266,9 @@ def record_lore_inject(ts: int | None = None) -> None:
 
 
 def get_process_accounting() -> dict:
-    """F5: снимок accounting для /api/status.context и cognition/status."""
-    return {
+    """F5: снимок accounting для /api/status.context и cognition/status.
+    ASAP-3 (D15): + `direct_metrics` — счётчики §46 (process-local)."""
+    snapshot = {
         "context_used": _PROCESS_ACCOUNTING.get("context_used"),
         "context_limit": _PROCESS_ACCOUNTING.get("context_limit"),
         "context_unlimited": bool(
@@ -264,6 +277,11 @@ def get_process_accounting() -> dict:
         "lore_last_inject_at": _PROCESS_ACCOUNTING.get("lore_last_inject_at"),
         "updated_at": _PROCESS_ACCOUNTING.get("updated_at"),
     }
+    try:
+        snapshot["direct_metrics"] = _composer.direct_metrics_snapshot()
+    except Exception:      # pragma: no cover - защитная сетка
+        snapshot["direct_metrics"] = {}
+    return snapshot
 
 
 _PERSONA_MAX_ITEMS = 10          # 66.9: карточка — до 10 фактов/связей
@@ -287,6 +305,29 @@ _SANDWICH_REMINDER = (
 _PEER_PREFIX_RE = re.compile(
     r"^(?:(?:бот(?:ина|яра|ик)?|@[\w_]+)[,:]?\s+)+", re.IGNORECASE)
 
+# ── ASAP-3 (ADR-1028-2 D4/D5): tg-id хелперы episode/middle-контура ─────────
+
+def _tg_id_of_row(row) -> int | None:
+    """tg_message_id строки smart_messages (int | None, fail-open)."""
+    try:
+        value = row_get(row, "tg_message_id")
+    except Exception:
+        value = None
+    try:
+        return int(value) if value not in (None, "", 0) else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _tg_id_of_ref(ref: str) -> int | None:
+    """tg-id из канонической ссылки ``tg:<id>`` (иначе None)."""
+    text = str(ref or "").strip()
+    if text.startswith("tg:"):
+        try:
+            return int(text[3:])
+        except ValueError:
+            return None
+    return None
 
 def _format_generated_portrait_block(generated) -> str:
     """F1 (spec §3.2.1): аддитивные блоки карточки `/persona` из
@@ -497,12 +538,16 @@ REASON_TOOL_UNAVAILABLE = "tool_unavailable"
 REASON_DISABLED = "disabled"
 REASON_DEFAULT = "default"
 REASON_ERROR = "error"
+# ASAP-3 (ADR-1028-2 D8, §19A/§21): force-keyword/имя/mention → гарантированный
+# текстовый ответ. Аддитивный 16-й код (существующие 15 не переименовываются).
+REASON_FORCE_DIRECT = "force_direct"
 REASON_CODES = frozenset({
     REASON_EXPLICIT_REQUEST, REASON_QUESTION, REASON_IMAGE_REACTION,
     REASON_LAUGHTER, REASON_EMOTION, REASON_ACKNOWLEDGEMENT,
     REASON_EMOJI_REACTION, REASON_NOT_ADDRESSED, REASON_DIALOGUE_COMPLETED,
     REASON_RECENT_REPLY, REASON_TOOL_RESULT, REASON_TOOL_UNAVAILABLE,
     REASON_DISABLED, REASON_DEFAULT, REASON_ERROR,
+    REASON_FORCE_DIRECT,
 })
 
 # A8 (round 10.26, ADR-1026-21 D1): детерминированная карта `reason_code →
@@ -567,9 +612,110 @@ _BOTWORD_RE = re.compile(r"(?i)\bбот\w*")
 _ACK_STRIP = " \t!.,…"
 
 
+# ── ASAP-3 (round 1028, ADR-1028-2 D9, §24): REACT — полноценный outcome ───
+# Детерминированные наборы кандидатов по классу сообщения (аддитивно к карте
+# A8 `_REACTION_BY_REASON`; только standard Telegram reaction enum). Выбор из
+# набора — стабильный hash по message_id (детерминизм, без LLM/рандома).
+_REACTION_SETS_BY_CLASS: dict[str, tuple[str, ...]] = {
+    MSG_LAUGHTER: (REACTION_LAUGH, "🤣"),      # laughter → 😂/🤣
+    MSG_EMOJI: (REACTION_APPROVE, "👌"),        # ack/emoji → 👍/👌
+    MSG_ACK: (REACTION_APPROVE, "👌", "❤️"),    # подтверждение/похвала
+}
+_REACTION_DOUBT_SET: tuple[str, ...] = ("🤨", "🤔")   # сомнение (context-ветки)
+
+
+def _stable_reaction_pick(candidates: tuple[str, ...],
+                          message_id) -> str:
+    """Детерминированный выбор из набора (stable hash по message_id)."""
+    if not candidates:
+        return REACTION_MOAI
+    try:
+        key = int(message_id)
+    except (TypeError, ValueError):
+        key = 0
+    return candidates[key % len(candidates)]
+
+
+def _reaction_for_class(message_class: str, message_id=None) -> str:
+    """Реакция по классу сообщения (набор кандидатов + стабильный выбор)."""
+    if not reaction_mechanics_enabled():
+        return REACTION_MOAI
+    candidates = _REACTION_SETS_BY_CLASS.get(message_class)
+    if not candidates:
+        return REACTION_MOAI
+    return _stable_reaction_pick(candidates, message_id)
+
+
+# ── ASAP-3 (ADR-1028-2 D8, §19/§20/§23): trigger-модель адресации ───────────
+TRIGGER_FORCE_KEYWORD = "force_keyword"
+TRIGGER_MENTION = "mention"
+TRIGGER_PERSONA_NAME = "persona_name"
+TRIGGER_REPLY_TO_BOT = "reply_to_bot"
+TRIGGER_FREE_WILL = "free_will"
+
+
+def silent_ack_enabled() -> bool:
+    """Kill-switch `DIRECT_SILENT_ACK_ENABLED` (env ClassVar, default ON;
+    per-call; никогда не бросает). OFF → тишина без 🗿 (паритет baseline)."""
+    try:
+        return bool(getattr(settings, "DIRECT_SILENT_ACK_ENABLED", True))
+    except Exception:      # pragma: no cover - защитная ветка
+        return True
+
+
+def autonomous_reply_enabled() -> bool:
+    """Env-дефолт `CHAT_AUTONOMOUS_REPLY_ENABLED` (Settings-поле, default ON;
+    per-chat-override — `flags.chat_autonomous_reply_enabled`)."""
+    try:
+        return bool(getattr(settings, "CHAT_AUTONOMOUS_REPLY_ENABLED", True))
+    except Exception:      # pragma: no cover - защитная ветка
+        return True
+
+
+def bot_replied_recently_window_seconds() -> int:
+    """`CHAT_BOT_REPLIED_RECENTLY_SECONDS` (env, default 600; ≥0)."""
+    try:
+        value = int(getattr(settings, "CHAT_BOT_REPLIED_RECENTLY_SECONDS",
+                            600))
+    except Exception:      # pragma: no cover - защитная ветка
+        value = 600
+    return max(0, value)
+
+
+def _resolve_direct_trigger(query: str, *, reply_to_bot: bool,
+                            bot_username: str, persona_name_check=None
+                            ) -> tuple[str, bool]:
+    """Матрица §4.1 (D8): ``(trigger_type, force_reply_required)``.
+
+    Приоритет: (1) force — botword / persona-name / mention в тексте
+    (независимо от reply) → force_reply_required=True; (2) reply_to_bot →
+    autonomous (Decision Making); (3) прочее → free_will (в handle() не
+    попадает; фон живёт своей политикой — 🗿 запрещён). R17: текст не
+    логируется, только классификация."""
+    text = str(query or "")
+    # (1a) бот-слово («бот, …»/«ботик»/…) — configured pattern-семья.
+    if _BOTWORD_RE.search(text):
+        return TRIGGER_FORCE_KEYWORD, True
+    # (1b) имя персоны («Олег, …») — F6-резолв хендлера.
+    if persona_name_check is not None and persona_name_check(text):
+        return TRIGGER_PERSONA_NAME, True
+    # (1c) упоминание: @username в тексте (entities-ветку проверил гейт).
+    if bot_username and ("@" + bot_username) in text.lower():
+        return TRIGGER_MENTION, True
+    # (2) Telegram reply на сообщение бота → автономное решение.
+    if reply_to_bot:
+        return TRIGGER_REPLY_TO_BOT, False
+    return TRIGGER_FREE_WILL, False
+
+
 @dataclass
 class DecisionContext:
-    """Контекст §47 (R17-safe признаки, без сырого текста) для Фазы P."""
+    """Контекст §47 (R17-safe признаки, без сырого текста) для Фазы P.
+
+    ASAP-3 (ADR-1028-2 D8): аддитивные поля адресации `trigger_type`
+    (force_keyword|mention|persona_name|reply_to_bot|free_will) и
+    `force_reply_required` (§20: force → ACTION_REPLY всегда; reply_to_bot →
+    Decision Making). Заполняются резолвом матрицы в handle()."""
 
     reply_to_bot: bool = False
     reply_to_is_image: bool = False
@@ -579,6 +725,8 @@ class DecisionContext:
     expects_tool_result: bool = False
     is_private: bool = False
     addressed: bool = True
+    trigger_type: str = TRIGGER_FREE_WILL
+    force_reply_required: bool = False
 
 
 @dataclass
@@ -1092,6 +1240,27 @@ class DirectChatService:
             return False          # явный ответ другому пользователю
         return True
 
+    async def _bot_replied_recently(self, chat_id: int) -> bool:
+        """ASAP-3 (ADR-1028-2 D8, §23): НЕЗАВИСИМЫЙ признак «бот недавно
+        отвечал» — окно `CHAT_BOT_REPLIED_RECENTLY_SECONDS` (env, default 600)
+        по bot_replies (`last_used_at` — время доступа, консервативная
+        аппроксимация conversational-сигнала). Больше НЕ приравнивается к
+        reply_to_bot. Влияет на автономную SILENT-ветку (reason=recent_reply),
+        не отменяет force. Fail-open → False."""
+        window_s = bot_replied_recently_window_seconds()
+        if window_s <= 0:
+            return False
+        try:
+            cursor = await self.db.db.execute(
+                "SELECT 1 FROM bot_replies WHERE chat_id = ? "
+                "AND last_used_at > ? LIMIT 1",
+                (chat_id, time.time() - window_s))
+            return await cursor.fetchone() is not None
+        except Exception:
+            logger.debug("[decision] bot_replied_recently read failed",
+                         exc_info=True)
+            return False
+
     async def _decision_context(self, chat_id: int, message,
                                 query: str) -> DecisionContext:
         """Контекст §47 из существующих источников (без нового хранилища).
@@ -1126,7 +1295,10 @@ class DirectChatService:
                 reply_to_is_image=reply_is_image,
                 reply_to_is_article=reply_is_article,
                 has_question=_decision_message_class(query) == MSG_QUESTION,
-                bot_replied_recently=reply_to_bot,
+                # ASAP-3 (фикс §23): независимый временной сигнал (окно
+                # CHAT_BOT_REPLIED_RECENTLY_SECONDS), НЕ `= reply_to_bot`.
+                bot_replied_recently=await self._bot_replied_recently(
+                    chat_id),
                 expects_tool_result=expects_tool_result,
                 is_private=is_private,
                 addressed=self._decision_addressed(
@@ -1137,6 +1309,38 @@ class DirectChatService:
             logger.warning("[decision] context error — conservative reply",
                            exc_info=True)
             return DecisionContext(addressed=True)
+
+    async def _silent_ack_enabled(self, chat_id: int) -> bool:
+        """ASAP-3 (D10): env `DIRECT_SILENT_ACK_ENABLED` AND per-chat
+        `flags.chat_silent_ack_enabled` (env-дефолт от env-флага; hot-key).
+        OFF → тишина без 🗿 (паритет baseline). Fail-open → False."""
+        if not silent_ack_enabled():
+            return False
+        try:
+            from services.chat_params import get_chat_param as _cpg
+            value = await _cpg(
+                chat_id, "flags.chat_silent_ack_enabled",
+                hot.get("flags.chat_silent_ack_enabled",
+                        silent_ack_enabled()))
+            return bool(value)
+        except Exception:
+            logger.warning("[decision] silent-ack toggle error — off",
+                           exc_info=True)
+            return False
+
+    async def _autonomous_reply_enabled(self, chat_id: int) -> bool:
+        """ASAP-3 (D10): per-chat `flags.chat_autonomous_reply_enabled`
+        (default ON). False → reply-to-bot этого чата всегда текстовый ответ
+        (decision-матрица не применяется). Fail-open → env-дефолт."""
+        try:
+            from services.chat_params import get_chat_param as _cpg
+            value = await _cpg(
+                chat_id, "flags.chat_autonomous_reply_enabled",
+                hot.get("flags.chat_autonomous_reply_enabled",
+                        autonomous_reply_enabled()))
+            return bool(value)
+        except Exception:
+            return autonomous_reply_enabled()
 
     async def _decision_toggles(self, chat_id: int) -> DecisionToggles:
         """3 тумблера §48: per-chat override→global→default (fail-open)."""
@@ -1292,28 +1496,83 @@ class DirectChatService:
             emit_agentic_event(
                 "DECISION_START", run_id=correlation_id, chat_id=chat_id,
                 message_id=_trigger_id)
+            # ── ASAP-3 (ADR-1028-2 D8, §30): trigger-резолв матрицы §4.1 ──
+            # (гейт хендлера уже состоялся); DIRECT_TRIGGER — R17-safe
+            # (trigger_type/флаги, без raw text).
+            _reply_obj = getattr(message, "reply_to_message", None)
+            _reply_bot = False
+            if _reply_obj is not None:
+                _reply_from = getattr(_reply_obj, "from_user", None)
+                _rid = (getattr(_reply_from, "id", None)
+                        if _reply_from is not None else None)
+                _reply_bot = (isinstance(_rid, int)
+                              and self.bot_id is not None
+                              and _rid == self.bot_id)
+            _trigger_type, _force_required = _resolve_direct_trigger(
+                query, reply_to_bot=_reply_bot,
+                bot_username=self.bot_username,
+                persona_name_check=command_prefix.name_mentioned)
+            _is_private = (getattr(getattr(message, "chat", None), "type",
+                                   None) == "private")
+            _composer.emit_direct_trigger(
+                chat_id=chat_id, message_id=_trigger_id,
+                trigger_type=_trigger_type,
+                force_reply_required=_force_required,
+                reply_to_bot=_reply_bot, is_private=_is_private,
+                addressed=True)
             # F-5 / §3.3 (строка 0): OFF kill-switch → политика не строится,
             # но причина решения фиксируется как `disabled` (диагностический
             # контракт). Наблюдаемый формат A1-лога сохраняется байт-в-байт.
             pre_reason = REASON_DEFAULT if decision_on else REASON_DISABLED
             pre_reaction = None
             pre_target = None
+            _dctx = None
             if decision_on:
                 _dctx = await self._decision_context(chat_id, message, query)
+                # Аддитивные поля адресации (контракт A7 — только расширение).
+                _dctx.trigger_type = _trigger_type
+                _dctx.force_reply_required = _force_required
                 _toggles = await self._decision_toggles(chat_id)
-                pre_action, pre_reason, pre_reaction, pre_target = \
-                    _decision_pre_action(
-                        message_class=_decision_message_class(query),
-                        context=_dctx, toggles=_toggles,
-                        target_message_id=getattr(message, "message_id", None),
-                        image_pre_gate_fired=image_pre_gate_fired,
-                        dig_pre_gate_fired=dig_fired)
+                if _force_required:
+                    # ── Приоритет 1 (§19A/§21, T-4019): FORCE DIRECT —
+                    # гарантированный ACTION_REPLY; шорт-каты ignore_trivial/
+                    # recent_reply/low_information НЕ применяются (гейт до
+                    # них и до LLM). Decision Maker влияет только на
+                    # стиль/длину (технические ветки ниже — единственные
+                    # исключения).
+                    pre_action = ACTION_REPLY
+                    pre_reason = REASON_FORCE_DIRECT
+                    _composer.record_direct_metric("direct_force_reply_total")
+                elif _reply_bot and not await self._autonomous_reply_enabled(
+                        chat_id):
+                    # Per-chat `flags.chat_autonomous_reply_enabled=false`:
+                    # decision-матрица не применяется → текстовый ответ.
+                    pre_action = ACTION_REPLY
+                    pre_reason = REASON_DEFAULT
+                    _composer.record_direct_metric("direct_force_reply_total")
+                else:
+                    pre_action, pre_reason, pre_reaction, pre_target = \
+                        _decision_pre_action(
+                            message_class=_decision_message_class(query),
+                            context=_dctx, toggles=_toggles,
+                            target_message_id=getattr(message, "message_id",
+                                                      None),
+                            image_pre_gate_fired=image_pre_gate_fired,
+                            dig_pre_gate_fired=dig_fired)
+                    if pre_action == ACTION_REACT:
+                        _composer.record_direct_metric(
+                            "direct_autonomous_react_total")
                 # A9 (D5/D6): DECISION_COMPLETE — уже принятое решение
-                # (A9 только наблюдает; политика A7 не дублируется).
+                # (A9 только наблюдает; политика A7 не дублируется). ASAP-3:
+                # аддитивные поля trigger_type/force_reply_required/
+                # message_class (контракт §31).
                 emit_agentic_event(
                     "DECISION_COMPLETE", run_id=correlation_id, chat_id=chat_id,
                     message_id=_trigger_id, action=pre_action,
                     reason=pre_reason,
+                    trigger_type=_trigger_type,
+                    force_reply_required=_force_required,
+                    message_class=_decision_message_class(query),
                     duration_ms=int((time.monotonic() - _p_started) * 1000))
                 if pre_action == ACTION_SILENT:
                     _log_decision_short_circuit(
@@ -1325,6 +1584,40 @@ class DirectChatService:
                         chat_id=chat_id, message_id=_trigger_id,
                         action=ACTION_SILENT, reason=pre_reason,
                         target=pre_target)
+                    # ── ASAP-3 (ADR-1028-2 D9, §25–§28, T-4023): SILENT+🗿 —
+                    # строго конъюнкция: trigger direct-autonomous
+                    # (reply_to_bot) ∧ addressed ∧ decision executed ∧ финал
+                    # SILENT + гейты (env + per-chat). Запрещён на фоне/
+                    # not_addressed/тех-ветках (те до decision не доходят).
+                    if _reply_bot and _dctx is not None and _dctx.addressed \
+                            and await self._silent_ack_enabled(chat_id):
+                        _composer.record_direct_metric(
+                            "direct_autonomous_silent_total")
+                        _ack_outcome = await react_moai(
+                            bot, chat_id, _trigger_id,
+                            reaction=REACTION_MOAI,
+                            reason_code=pre_reason)
+                        if _ack_outcome == "ok":
+                            _composer.record_direct_metric(
+                                "direct_silent_ack_success_total")
+                            _composer.emit_direct_silent_ack(
+                                chat_id=chat_id, target_message_id=_trigger_id,
+                                success=True, reason_code=pre_reason)
+                        else:
+                            # §28 fail-soft: SILENT остаётся SILENT, отказ
+                            # логируется, текст НЕ генерируется.
+                            _composer.record_direct_metric(
+                                "direct_silent_ack_failed_total")
+                            _composer.emit_direct_silent_ack_failed(
+                                chat_id=chat_id,
+                                target_message_id=_trigger_id,
+                                error_code=_ack_outcome,
+                                reason_code=pre_reason)
+                            logger.warning(
+                                "[direct] silent ack failed | chat=%s "
+                                "target=%s outcome=%s reason=%s",
+                                chat_id, _trigger_id, _ack_outcome,
+                                pre_reason)
                     return
                 if pre_action == ACTION_REACT:
                     _log_decision_short_circuit(
@@ -1342,6 +1635,10 @@ class DirectChatService:
                         outcome=_reaction_outcome, reaction=pre_reaction,
                         reason=pre_reason)
                     return
+                # Autonomous REPLY (матрица выбрала текстовый исход).
+                if _reply_bot and not _force_required:
+                    _composer.record_direct_metric(
+                        "direct_autonomous_reply_total")
             # T-619: системный промпт — горячая точка (фолбек код-канона).
             # Раунд 10 (F-7 §4.5): per-chat override (chat_params → глобал →
             # канон) — «Использовать мой» локального админа работает ТОЛЬКО
@@ -1775,27 +2072,48 @@ class DirectChatService:
         alias_map = self._alias_map_block(roster)
         if alias_map:
             blocks.append(("map", alias_map))
-        # Раунд 8 (D4/T-801): итог reply-ветки над фоном — без LLM, только
-        # для reply-триггера с цепочкой ≥ 2 ходов (полный Thread — ниже).
-        chain = await self._collect_thread_chain(chat_id, message)
+        # ASAP-3 (ADR-1028-2 D3/D7): композер — walk до CHAT_THREAD_WALK_MAX,
+        # билдеры global/thread в режиме «без self-усечения».
+        composer_mode = _composer.composer_on()
+        if composer_mode:
+            chain = await self._collect_thread_chain(
+                chat_id, message, depth=_composer.thread_walk_max())
+        else:
+            chain = await self._collect_thread_chain(chat_id, message)
         if self._is_reply_trigger(message) and len(chain) >= 2:
             branch = self._render_branch(chain, suffix_map)
             if branch:
                 blocks.append(("branch", branch))
         # F2: global считается раньше RAG (тело фона — для словарного дедупа).
-        global_ctx = await self._build_global_context(
-            chat_id, window, roster, suffix_map,
-            trigger_message_id=trigger_message_id)
+        global_parts: dict | None = None
+        if composer_mode:
+            global_parts = await self._build_global_context_parts(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id)
+            global_ctx = "\n".join(
+                global_parts["head_lines"] + global_parts["tail_lines"])
+        else:
+            global_ctx = await self._build_global_context(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id)
         # Раунд 9 (E1/T-826): второй элемент кортежа — маркер «золотых»
         # (блок kind "nostalgia" ставится ПОЗЖЕ: после relations, до mood).
         rag_block, nostalgia_hint = await self._build_rag_block(
             chat_id, message, global_ctx)
         if rag_block:
             blocks.append(("rag", rag_block))
-        if global_ctx:
+        if composer_mode:
+            # <Global_Context> materializируется композером из частей
+            # (head=P2 / middle=P3 / tail=P1) на слоте global.
+            pass
+        elif global_ctx:
             blocks.append(("global", global_ctx))
-        thread = self._render_thread(chain, suffix_map,
-                                     await self._thread_limit(chat_id))
+        if composer_mode:
+            thread = self._render_thread(chain, suffix_map, None,
+                                         trigger_message_id, truncate=False)
+        else:
+            thread = self._render_thread(chain, suffix_map,
+                                         await self._thread_limit(chat_id))
         if thread:
             blocks.append(("thread", thread))
         # Раунд 8 (C5/T-796): блок адресата — канон + uid запросившего.
@@ -1848,6 +2166,16 @@ class DirectChatService:
         # user-контента (только если контент вообще есть).
         if blocks:
             blocks.append(("sandwich", _SANDWICH_REMINDER))
+        # ── ASAP-3 (ADR-1028-2 D3): единый композер — classification P0–P3 →
+        # full payload → allocation → materialize (порядок блоков не меняется).
+        if composer_mode:
+            return await self._compose_user_content(
+                chat_id=chat_id, message=message, blocks=blocks, chain=chain,
+                window=window, roster=roster, suffix_map=suffix_map,
+                global_parts=global_parts, target_name=target_name,
+                target_user_id=target_user_id,
+                trigger_message_id=trigger_message_id,
+                out_excluded=None)  # excluded-проводка MCA-07 — вне ASAP-3-релиза
         # Раунд 10.4 (B-2): гейт бюджетов — per-chat резолв (override →
         # hot.get → default; без override — байт-в-байт старое поведение).
         from services.chat_params import get_chat_param as _budget_gate
@@ -1879,6 +2207,539 @@ class DirectChatService:
                                                    fixed_est)
         return self._apply_context_budget(blocks, budgets_enabled,
                                           budget_tokens)
+    # ── ASAP-3 (round 1028, ADR-1028-2 D3–D7): Direct Context Composer ────
+
+    async def _build_global_context_parts(
+            self, chat_id: int, window: list, roster: list | None = None,
+            suffix_map: dict[int, str] | None = None,
+            trigger_message_id=None) -> dict:
+        """ASAP-3 (D3/D5/D6): части <Global_Context> БЕЗ self-усечения
+        (композер вызывает вместо `_build_global_context`).
+
+        Зеркало legacy-билдера (3688-3754): running summary (без TTL-смерти)
+        + level-2 → head_lines (P2-фон); verbatim-сообщения после watermark →
+        tail_rows (P1, keep-end) с гарантированным полом
+        CHAT_FRESH_TAIL_MIN_MESSAGES; кандидаты middle = post-watermark до
+        пола. Без summary — последние CHAT_GLOBAL_CONTEXT_LIMIT сообщений
+        (soft target, D13) как tail. RAG-дедупу отдаётся head+tail текст."""
+        roster = roster or []
+        suffix_map = suffix_map or {}
+        tail_min = _composer.fresh_tail_min_messages()
+        parts: dict = {
+            "head_lines": [], "middle_rows": [], "tail_rows": [],
+            "tail_lines": [], "window_end_ts": None, "raw_count": 0,
+            "has_summary": False,
+        }
+        summary_text = None
+        window_end_ts = None
+        raw_count = 0
+        if await chat_summary_enabled(chat_id):
+            try:
+                row = await self.db.get_running_summary(chat_id, time.time())
+                if row is not None:
+                    summary_text = row["summary"]
+                    raw_count = int(row["raw_count"] or 0)
+                    window_end_ts = row["window_end_ts"]
+                if summary_text is not None:
+                    try:
+                        l2 = await self.db.get_summary_level(chat_id, 2)
+                        if l2 is not None and (l2["summary"] or "").strip():
+                            level2_text = str(l2["summary"]).strip()
+                            cap2 = int(await _cp_g(
+                                chat_id, "limits.chat_level2_max_chars",
+                                hot.get("limits.chat_level2_max_chars",
+                                        settings.CHAT_LEVEL2_MAX_CHARS)) or 0)
+                            if cap2 and len(level2_text) > cap2:
+                                level2_text = level2_text[-cap2:]
+                            parts["head_lines"].append(
+                                "широкий фон: " + level2_text)
+                    except Exception:
+                        logger.warning(
+                            "direct: level2 read failed — without L2 row "
+                            "| chat=%s", chat_id, exc_info=True)
+            except Exception:
+                logger.warning("direct: running summary read failed | chat=%s",
+                               chat_id, exc_info=True)
+        if summary_text is not None:
+            parts["has_summary"] = True
+            parts["window_end_ts"] = window_end_ts
+            parts["raw_count"] = raw_count
+            parts["head_lines"].append(
+                f"фон: конспект из {raw_count} сообщений, "
+                f"ниже дословно свежий хвост")
+            parts["head_lines"].append(summary_text)
+            post_rows = []
+            for row in window:
+                if int(row["timestamp"] or 0) <= window_end_ts:
+                    continue
+                if not (row["text"] or ""):
+                    continue
+                post_rows.append(row)
+            # H1/D5 (rework round 1, сплит по review B-ASAP3-1): fresh tail =
+            # ПОСЛЕДНИЕ tail_min post-watermark строк (P1, floor = весь piece —
+            # тише резать нельзя, ниже только §17); middle-кандидаты = весь
+            # НЕпокрытый хвостом диапазон → top-K ≤ CHAT_MIDDLE_MAX_MESSAGES
+            # (P3, важность-вес). Дедуп middle — только против фактически
+            # вошедшего tail (пост-аллокационная страховка).
+            parts["tail_rows"] = post_rows[-tail_min:]
+            parts["middle_rows"] = (post_rows[:-tail_min]
+                                    if len(post_rows) > tail_min else [])
+            parts["tail_lines"] = [
+                self._context_row_line(
+                    row, suffix_map, trigger_message_id=trigger_message_id)
+                for row in parts["tail_rows"]]
+        else:
+            _g_limit = int(await _cp_g(
+                chat_id, "limits.chat_global_context_limit",
+                hot.get("limits.chat_global_context_limit",
+                        settings.CHAT_GLOBAL_CONTEXT_LIMIT)) or 0)
+            recent = window[-max(1, _g_limit):]
+            tail_rows = [row for row in recent if (row["text"] or "")]
+            parts["tail_rows"] = tail_rows
+            parts["tail_lines"] = [
+                self._context_row_line(
+                    row, suffix_map, trigger_message_id=trigger_message_id)
+                for row in tail_rows]
+            if tail_rows:
+                parts["head_lines"].append(
+                    f"фон: дословно последние {len(tail_rows)} сообщений")
+        return parts
+
+    def _composer_truncate(self, piece, limit_tokens: int) -> str:
+        """Усечение piece'а существующими механиками (D3): обёрнутые блоки —
+        `_truncate_block` (теги + protected spans + importance); сырые части
+        Global — целыми строками (head — keep-head конспекта; tail/middle —
+        keep-end). Никакого `text[:N]`."""
+        if piece.kind == "global_head":
+            return "\n".join(_composer.truncate_lines_keep_start(
+                piece.text.split("\n"), limit_tokens))
+        if piece.kind in ("global_middle", "global_tail"):
+            return "\n".join(_composer.truncate_lines_keep_end(
+                piece.text.split("\n"), limit_tokens))
+        return self._truncate_block(piece.text, limit_tokens,
+                                    kind=piece.kind)
+
+    async def _build_old_episodes(
+            self, chat_id: int, query: str, tail_rows: list,
+            suffix_map: dict[int, str]) -> tuple[str, dict]:
+        """ASAP-3 (ADR-1028-2 D4, §9–§11): old verbatim episode retrieval.
+
+        Вход — хиты ЕДИНОГО retrieval-контракта mca-07 (`mode="history"`,
+        каналы exact/lexical; REUSE обязателен, второй движок запрещён).
+        Границы — детерминированная чистая функция
+        `_composer.compute_episode_span` (gap ≤ CHAT_EPISODE_GAP_SECONDS +
+        reply-graph closure + склейка + капы), 0 LLM-вызовов, идемпотентно.
+        Дедуп против fresh tail (пересечение → клип). Рендер — канонические
+        строки яруса A в `<Old_Episode>` (P0). Explainability: лог
+        hit → span → причина; счётчик direct_old_episode_retrieval_total."""
+        stats = {"count": 0, "messages": 0, "tokens": 0, "hits": 0}
+        if not mca_gates.retrieval_context_enabled():
+            return "", stats
+        text = str(query or "").strip()
+        if not text:
+            return "", stats
+        try:
+            request = _mca_rc.RetrievalRequest(
+                chat_id=chat_id, query=text, mode="history", top_k=8,
+                reply_depth=0)
+            result = await _mca_rc.retrieve(self.db, self.memory, request)
+        except Exception:
+            logger.warning("direct: episode retrieval failed — skip | chat=%s",
+                           chat_id, exc_info=True)
+            return "", stats
+        tail_tg = {_tg_id_of_row(row) for row in tail_rows}
+        tail_tg.discard(None)
+        used_tg: set[int] = set(tail_tg)
+        max_count = _composer.episode_max_count()
+        max_msgs = _composer.episode_max_messages()
+        gap_s = _composer.episode_gap_seconds()
+        episode_lines: list[str] = []
+        for cand in result.candidates:
+            if stats["count"] >= max_count:
+                break
+            if cand.entity_type != "message":
+                continue
+            hit_tg = _tg_id_of_ref(cand.id)
+            if hit_tg is None or hit_tg in used_tg:
+                continue
+            stats["hits"] += 1
+            try:
+                rows = await self.db.get_messages_around(
+                    chat_id, hit_tg, before=120, after=60)
+            except Exception:
+                logger.warning("direct: episode rows read failed | chat=%s",
+                               chat_id, exc_info=True)
+                continue
+            span = _composer.compute_episode_span(
+                rows, hit_tg, gap_seconds=gap_s, max_messages=max_msgs)
+            if span is None:
+                continue
+            start, end, reason = span
+            span_rows = [row for row in rows[start:end + 1]
+                         if (row["text"] or "")
+                         and _tg_id_of_row(row) not in used_tg]
+            if not span_rows:
+                continue
+            lines = [self._context_row_line(row, suffix_map,
+                                            trigger_message_id=None)
+                     for row in span_rows]
+            for row in span_rows:
+                tg = _tg_id_of_row(row)
+                if tg is not None:
+                    used_tg.add(tg)
+            episode_lines.extend(lines)
+            stats["count"] += 1
+            stats["messages"] += len(lines)
+            logger.info(
+                "direct: old episode | chat=%s hit=tg:%s span=%s..%s "
+                "rows=%d reason=%s", chat_id, hit_tg,
+                _tg_id_of_row(rows[start]), _tg_id_of_row(rows[end]),
+                len(lines), reason)
+        if not episode_lines:
+            return "", stats
+        stats["tokens"] = count_tokens("\n".join(episode_lines))
+        _composer.record_direct_metric("direct_old_episode_retrieval_total")
+        body = escape_xml_text("\n".join(episode_lines))
+        return f"<Old_Episode>\n{body}\n</Old_Episode>", stats
+
+    async def _compose_user_content(
+            self, *, chat_id: int, message, blocks: list, chain: list,
+            window: list, roster: list, suffix_map: dict[int, str],
+            global_parts: dict, target_name: str,
+            target_user_id: int | None, trigger_message_id,
+            out_excluded: list | None) -> list[str]:
+        """ASAP-3 (ADR-1028-2 D3): единый композер Dynamic/Unlimited.
+
+        Конвейер §6 ТЗ: candidates (существующие билдеры, global/thread без
+        self-усечения + old episodes + middle-подбор) → классификация P0–P3 →
+        фактический full payload (model_capacity D1/D2; safety-множитель РОВНО
+        один раз) → allocation (eviction P3→P2→P1, floors) → materialize
+        (порядок блоков payload НЕ меняется). Physical overflow — явная
+        деградация §3.9. Observability: CONTEXT_CAPACITY/SELECT/PRESSURE/
+        PHYSICAL_OVERFLOW + счётчики §46 + diagnostics-снапшот (miniapp §34).
+        Ошибки аллокации → fail-open: legacy `_apply_context_budget` на
+        собранных кандидатах."""
+        query = (message.text or "").strip()
+        try:
+            episode_block, episode_stats = await self._build_old_episodes(
+                chat_id, query, global_parts["tail_rows"], suffix_map)
+        except Exception:
+            logger.warning("direct: episode build failed — skip | chat=%s",
+                           chat_id, exc_info=True)
+            episode_block, episode_stats = "", {"count": 0, "messages": 0,
+                                                "tokens": 0, "hits": 0}
+
+        # ── Кандидаты → pieces (позиции = канонический порядок блоков) ──
+        # map → branch → episode → rag → global(head/middle/tail) → thread →
+        # target → relations → protected → lore → nostalgia → mood → current
+        # → anchors → sandwich (совместимость «важное к концу», D3).
+        canonical_order = _composer.CANONICAL_ORDER
+        candidates: list[tuple[str, str]] = [
+            (kind, text) for kind, text in blocks
+            if kind != "thread" and text]
+        middle_lines = self._compose_middle_lines(
+            global_parts, query, chain, roster)
+        candidates.append(("episode", episode_block))
+        candidates.extend([
+            ("global_head", "\n".join(global_parts["head_lines"])),
+            ("global_middle", "\n".join(middle_lines)),
+            ("global_tail", "\n".join(global_parts["tail_lines"])),
+        ])
+        # Thread piece c floor (минимальная гарантия глубины рендера, D7).
+        thread_text = ""
+        thread_floor = 0
+        for kind, text in blocks:
+            if kind == "thread":
+                thread_text = text
+                break
+        if thread_text:
+            try:
+                guaranteed = int(await _cp_g(
+                    chat_id, "limits.chat_thread_max_depth",
+                    hot.get("limits.chat_thread_max_depth",
+                            settings.CHAT_THREAD_MAX_DEPTH)) or 0)
+            except Exception:
+                guaranteed = int(settings.CHAT_THREAD_MAX_DEPTH or 6)
+            guaranteed = max(1, guaranteed)
+            body_lines = thread_text.split("\n")
+            keep_n = min(max(1, guaranteed), len(body_lines))
+            thread_floor = count_tokens("\n".join(body_lines[-keep_n:]))
+            candidates.append(("thread", thread_text))
+
+        # H2/D6 (rework round 1): РЕАЛЬНЫЙ wiring пола fresh verbatim tail —
+        # floor piece'а global_tail = токены последних
+        # CHAT_FRESH_TAIL_MIN_MESSAGES строк (резервируется на ВСЕХ путях
+        # давления ДО других слоёв; ниже — только путь §17 с событием).
+        tail_floor = 0
+        for kind, text in candidates:
+            if kind == "global_tail" and text:
+                tail_floor = _composer.tail_floor_tokens(
+                    text, _composer.fresh_tail_min_messages())
+                break
+
+        pieces: list[_composer.ContextPiece] = []
+        for kind, text in candidates:
+            if not text:
+                continue
+            priority = _composer.BLOCK_PRIORITY.get(kind, _composer.P2)
+            pieces.append(_composer.ContextPiece(
+                key=kind, kind=kind, text=text, priority=priority,
+                keep=_composer.PIECE_KEEP.get(kind, "span"),
+                floor_tokens=(thread_floor if kind == "thread"
+                              else (tail_floor if kind == "global_tail"
+                                    else 0)),
+                evictable=(priority != _composer.P0),
+                position=canonical_order.get(kind, 99)))
+
+        # ── Full payload (D2): окно модели + external (MCA-07 REUSE) ──
+        model_name = str(getattr(self.llm, "_chat_model", "") or "")
+        fallback_model = str(getattr(self.llm, "_fallback_model", "") or "")
+        model_window, window_source = resolve_effective_window(
+            model_name, fallback_model)
+        try:
+            external_tokens, _est_reserve, est_method = \
+                await self._estimate_external_payload_tokens(
+                    chat_id, model_window)
+        except Exception:
+            external_tokens, est_method = 0, None
+        available, output_reserve = compute_available_budget(
+            model_window, external_tokens)
+        # Policy-слой (D2): -1 → Unlimited; 0/None → Dynamic; >0 → cap.
+        from services.chat_params import get_chat_param as _budget_gate
+        from services import budget_gate as _master_gate
+        _master_on = await _master_gate.budgets_enabled(chat_id)
+        _context_on = await _budget_gate(
+            chat_id, "flags.chat_context_budgets_enabled",
+            hot.get("flags.chat_context_budgets_enabled",
+                    settings.CHAT_CONTEXT_BUDGETS_ENABLED))
+        budgets_enabled = bool(_master_on) and bool(_context_on)
+        raw_budget = await _budget_gate(
+            chat_id, "limits.chat_context_budget_tokens",
+            hot.get("limits.chat_context_budget_tokens",
+                    settings.CHAT_CONTEXT_BUDGET_TOKENS))
+        if not budgets_enabled:
+            budget, policy_mode = available, "unlimited"
+        else:
+            budget, policy_mode = apply_budget_policy(available, raw_budget)
+
+        # ── Allocation (eviction P3→P2→P1; P0 не трогается) ──
+        try:
+            allocation = _composer.allocate_budget(
+                pieces, budget, truncator=self._composer_truncate)
+        except Exception:
+            logger.warning(
+                "direct: composer allocation failed — legacy budget "
+                "| chat=%s", chat_id, exc_info=True)
+            legacy_blocks = [(kind, text) for kind, text in candidates if text]
+            return self._apply_context_budget(
+                legacy_blocks, budgets_enabled, raw_budget)
+
+        # ── H1/D5 (rework round 1): дедуп middle против ФАКТИЧЕСКИ вошедшего
+        # tail (после аллокации) — tail-кандидаты шире floor'а, и при слабом
+        # давлении часть middle-подбора уже вербатим в выжившем tail.
+        middle_piece = next((p for p in allocation.pieces
+                             if p.kind == "global_middle"), None)
+        tail_piece = next((p for p in allocation.pieces
+                           if p.kind == "global_tail"), None)
+        if middle_piece and middle_piece.text and tail_piece \
+                and tail_piece.text:
+            final_tail_tg = set(re.findall(r"tg:(\d+)", tail_piece.text))
+            kept_middle = []
+            for ln in middle_piece.text.split("\n"):
+                if not ln.strip():
+                    continue
+                m = re.search(r"tg:(\d+)", ln)
+                if m and m.group(1) in final_tail_tg:
+                    continue            # уже вербатим в выжившем tail
+                kept_middle.append(ln)
+            middle_piece.text = "\n".join(kept_middle)
+            middle_lines = kept_middle
+
+        # ── H2/D6 (rework round 1): сигнал зажатия пола fresh tail — при
+        # фактическом давлении tail стоит на минимуме
+        # CHAT_FRESH_TAIL_MIN_MESSAGES (ниже — только путь §17:
+        # CONTEXT_PHYSICAL_OVERFLOW + счётчик).
+        try:
+            pressure_engaged = bool(
+                allocation.compressed_or_dropped or allocation.excluded
+                or allocation.physical_overflow)
+            if pressure_engaged and tail_piece is not None \
+                    and tail_piece.text:
+                final_tail_lines = len(
+                    [ln for ln in tail_piece.text.split("\n")
+                     if ln.strip()])
+                _composer.emit_context_tail_floor_clamped(
+                    chat_id=chat_id,
+                    final_messages=final_tail_lines,
+                    floor_messages=_composer.fresh_tail_min_messages())
+        except Exception:
+            logger.debug("direct: tail floor clamp event failed", exc_info=True)
+
+        # ── Materialize (порядок блоков payload НЕ меняется) ──
+        final_texts: list[str] = []
+        global_body_parts: list[str] = []
+        global_slot_done = False
+
+        def _flush_global() -> None:
+            nonlocal global_slot_done
+            if global_slot_done:
+                return
+            global_slot_done = True
+            if global_body_parts:
+                body = "\n".join(global_body_parts)
+                final_texts.append(
+                    f"<Global_Context>\n{escape_xml_text(body)}\n"
+                    f"</Global_Context>")
+
+        for piece in sorted(allocation.pieces, key=lambda p: p.position):
+            if piece.kind in ("global_head", "global_middle", "global_tail"):
+                if piece.text:
+                    global_body_parts.append(piece.text)
+                continue
+            if not global_slot_done and piece.position > 6:
+                # слот global (позиции 4–6) пройден — блок на своём месте.
+                _flush_global()
+            if piece.text:
+                final_texts.append(piece.text)
+        _flush_global()
+
+        # ── Observability (§32/§33) + diagnostics (§34) ──
+        used_tokens = sum(count_tokens(t) for t in final_texts)
+        record_context_usage(used_tokens,
+                             None if policy_mode == "unlimited" else budget,
+                             bool(allocation.excluded),
+                             unlimited=(policy_mode == "unlimited"))
+        summary_lag = None
+        summary_age = None
+        if global_parts["has_summary"]:
+            summary_lag = (len(global_parts["tail_rows"])
+                           + len(global_parts["middle_rows"]))
+            if global_parts["window_end_ts"]:
+                summary_age = max(0, int(time.time()
+                                         - int(global_parts["window_end_ts"])))
+        summary_revision = await self._summary_revision(chat_id)
+        _composer.emit_context_capacity(
+            model=model_name, window=model_window, window_source=window_source,
+            external_tokens=external_tokens, output_reserve=output_reserve,
+            available_context=available, budget=budget,
+            policy_mode=policy_mode, summary_revision=summary_revision,
+            summary_watermark=global_parts["window_end_ts"],
+            summary_lag_messages=summary_lag, summary_age=summary_age,
+            estimation_method=est_method)
+        tail_tokens = count_tokens("\n".join(global_parts["tail_lines"]))
+        _composer.emit_context_select(
+            chat_id=chat_id, message_id=trigger_message_id,
+            recent_verbatim_messages=len(global_parts["tail_lines"]),
+            recent_verbatim_tokens=tail_tokens,
+            reply_thread_messages=(len(chain) if thread_text else 0),
+            old_episode_count=episode_stats["count"],
+            old_episode_messages=episode_stats["messages"],
+            old_episode_tokens=episode_stats["tokens"],
+            middle_selected_messages=len(middle_lines),
+            compressed_background_tokens=count_tokens(
+                "\n".join(global_parts["head_lines"])),
+            rag_tokens=count_tokens(next(
+                (t for k, t in candidates if k == "rag"), "")))
+        # M-ASAP3-1: pressure — и полные дропы, и полурезки (compression).
+        if allocation.excluded or allocation.compressed_or_dropped:
+            _composer.record_direct_metric("direct_context_pressure_total")
+            _composer.emit_context_pressure(
+                chat_id=chat_id,
+                excluded_low_priority=len(allocation.excluded),
+                compressed_or_dropped=allocation.compressed_or_dropped,
+                physical_overflow=allocation.physical_overflow,
+                unsummarized_tail_messages=summary_lag or 0,
+                unsummarized_tail_tokens=tail_tokens)
+        if allocation.physical_overflow:
+            _composer.record_direct_metric(
+                "direct_context_physical_overflow_total")
+            _composer.emit_context_physical_overflow(
+                chat_id=chat_id,
+                preserved_kinds=allocation.preserved_kinds,
+                available=allocation.available, needed=allocation.needed)
+            logger.warning(
+                "direct: context physical overflow | chat=%s available=%d "
+                "needed=%d preserved=%s", chat_id, allocation.available,
+                allocation.needed,
+                ",".join(allocation.preserved_kinds) or "-")
+        if out_excluded is not None:
+            for item in allocation.excluded:
+                out_excluded.append(dict(item))
+        _composer.record_diagnostics(chat_id, {
+            "model": model_name[:64], "window": int(model_window),
+            "window_source": str(window_source),
+            "external_tokens": int(external_tokens),
+            "output_reserve": int(output_reserve),
+            "available_context": int(available), "budget": int(budget),
+            "policy_mode": str(policy_mode), "payload": int(used_tokens),
+            "recent_verbatim_messages": len(global_parts["tail_lines"]),
+            "recent_verbatim_tokens": int(tail_tokens),
+            "old_episode_count": int(episode_stats["count"]),
+            "old_episode_messages": int(episode_stats["messages"]),
+            "middle_selected_messages": len(middle_lines),
+            "compressed_background_tokens": count_tokens(
+                "\n".join(global_parts["head_lines"])),
+            "excluded_low_priority": len(allocation.excluded),
+            "physical_overflow": bool(allocation.physical_overflow),
+            "updated_at": int(time.time()),
+        })
+        return final_texts
+
+    def _compose_middle_lines(self, global_parts: dict, query: str,
+                              chain: list, roster: list) -> list[str]:
+        """D5: importance-aware top-K выбор unsummarized middle (bounded
+        `CHAT_MIDDLE_MAX_MESSAGES`) из диапазона, не покрытого гарантированным
+        floor'ом хвоста (candidates уже = post_rows[:-tail_min], см. parts).
+        Хронологический ASC (детерминизм). Дедуп против ФАКТИЧЕСКИ вошедшего
+        tail выполняется после аллокации (см. _compose_user_content)."""
+        middle_rows = list(global_parts.get("middle_rows") or [])
+        if not middle_rows:
+            return []
+        top_k = _composer.middle_max_messages()
+        chain_tg: set[int] = set()
+        for item in chain or []:
+            ref = str(getattr(item, "item_id", "") or "")
+            if ref.startswith("tg:"):
+                try:
+                    chain_tg.add(int(ref[3:]))
+                except ValueError:
+                    continue
+        participants: set[int] = set()
+        for entry in roster or ():
+            try:
+                uid, _display = entry
+                if uid is not None:
+                    participants.add(int(uid))
+            except (TypeError, ValueError):
+                continue
+        selected = _composer.select_middle(
+            middle_rows, query=query, chain_tg_ids=chain_tg,
+            participant_ids=participants, top_k=top_k)
+        lines = []
+        for row in selected:
+            if not (row["text"] or ""):
+                continue
+            lines.append(self._context_row_line(row, {}, None))
+        return lines
+
+    async def _summary_revision(self, chat_id: int) -> str | None:
+        """M-MCA07-1: revision источников сводки (`window_end_ts:raw_count`).
+
+        Fail-open → None (нет БД/метода/строки/ошибка)."""
+        db = getattr(self, "db", None)
+        if db is None or not hasattr(db, "get_running_summary"):
+            return None
+        try:
+            row = await db.get_running_summary(chat_id, time.time())
+        except Exception:
+            return None
+        if row is None:
+            return None
+        try:
+            return f"{row['window_end_ts']}:{row['raw_count']}"
+        except Exception:
+            return None
+
 
     async def _check_context_config_invariant(self, chat_id: int,
                                               budget_tokens,
@@ -3117,7 +3978,8 @@ class DirectChatService:
     async def _build_global_context(self, chat_id: int, window: list,
                                     roster: list | None = None,
                                     suffix_map: dict[int, str] | None = None,
-                                    trigger_message_id=None) -> str:
+                                    trigger_message_id=None,
+                                    truncate: bool = True) -> str:
         """Последние CHAT_GLOBAL_CONTEXT_LIMIT сообщений (окно уже ASC),
         «{имя} [{uid}]: текст» (C1). Epic 60 (64.6): валидный бегущий конспект
         → конспект + дословный хвост (ts > window_end_ts). Раунд 8 (D2/Q8):
@@ -3231,7 +4093,10 @@ class DirectChatService:
         names = frozenset(str(display).casefold()
                           for _, display in roster)
         budget = safe_budget(limit) if kind == "tokens" else limit
-        if measure("\n".join(head + tail)) > budget:
+        # ASAP-3 (ADR-1028-2 D3): композер вызывает билдер с truncate=False —
+        # полный кандидат без self-усечения и без WARN `truncated`
+        # (единственная точка распределения бюджета — композер).
+        if truncate and measure("\n".join(head + tail)) > budget:
             logger.warning("direct: global context truncated | %s=%d -> %d",
                            kind, measure("\n".join(head + tail)), budget)
             tail = trim_verbatim_lines(
@@ -3286,15 +4151,22 @@ class DirectChatService:
     # ── <Conversation_Thread> / <Conversation_Branch> (Раунд 8: D3/T-800,
     #    D4/T-801 — цепочка сквозь бот-ответы, итог ветки без LLM) ──
 
-    async def _collect_thread_chain(self, chat_id: int, message) -> list:
+    async def _collect_thread_chain(self, chat_id: int, message,
+                                    depth: int | None = None) -> list:
         """Рекурсивная цепочка reply по tg_message_id (глубина
         CHAT_THREAD_MAX_DEPTH). Раунд 10.23 (F2, ADR-1023-2): реализация
         вынесена в общий ``services/thread_chain.py`` (паритет с фактчеком);
         здесь остаётся только per-chat резолв глубины и alias-резолвер имени.
-        Возвращает ``[thread_chain.ChainItem]`` от ТЕКУЩЕГО к корню."""
-        _depth = await _cp_g(chat_id, "limits.chat_thread_max_depth",
-                             hot.get("limits.chat_thread_max_depth",
-                                     settings.CHAT_THREAD_MAX_DEPTH))
+        Возвращает ``[thread_chain.ChainItem]`` от ТЕКУЩЕГО к корню.
+        ASAP-3 (ADR-1028-2 D7): композер передаёт ``depth=CHAT_THREAD_WALK_MAX``
+        (walk до корня, hard-cap 40, cycle-safe) — рендер ограничивается
+        бюджетом P1; per-chat глубина остаётся минимальной гарантией."""
+        if depth is None:
+            _depth = await _cp_g(chat_id, "limits.chat_thread_max_depth",
+                                 hot.get("limits.chat_thread_max_depth",
+                                         settings.CHAT_THREAD_MAX_DEPTH))
+        else:
+            _depth = depth
         return await thread_chain.collect_thread_chain(
             self.db, chat_id, message, int(_depth or 0),
             row_speaker=self._row_speaker,
@@ -3327,15 +4199,22 @@ class DirectChatService:
         return kind, limit
 
     def _render_thread(self, chain: list, suffix_map: dict[int, str],
-                       thread_limit=None, trigger_message_id=None) -> str:
+                       thread_limit=None, trigger_message_id=None,
+                       truncate: bool = True) -> str:
         """Рендер полной цепочки сверху-вниз (лимиты 64.7, keep-end —
         verbatim-диалог не участвует в importance-удержании E1).
-        10.23 (F1): ход-триггер получает маркер."""
+        10.23 (F1): ход-триггер получает маркер.
+        ASAP-3 (ADR-1028-2 D3/D7): композер вызывает с truncate=False —
+        полный кандидат (walk ≤ CHAT_THREAD_WALK_MAX), усечение — композером
+        (keep-end, без WARN `truncated`)."""
         if not chain:
             return ""
         lines = [self._chain_line(item, suffix_map, trigger_message_id)
                  for item in reversed(chain)]
         body = "\n".join(lines)
+        if not truncate:
+            return (f"<Conversation_Thread>\n"
+                    f"{escape_xml_text(body)}\n</Conversation_Thread>")
         if thread_limit is not None:
             kind, limit = thread_limit
         else:

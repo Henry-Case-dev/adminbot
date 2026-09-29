@@ -1,7 +1,7 @@
 # F8 — Карта экранов `screen-map-round1025.md` (ADR-1025-21 D3)
 
 > Сгенерировано `tools/gen_param_registry_round1025.py` (read-only). Провенанс — `param-registry-round1025.meta.md`.
-> Инвариант «ни один параметр не остался без нового места»: `set(param_key) ⊇ REGISTRY(481)`, «без места» = 0. Неизвестные ключи (нет в каталоге) → секция `registry-only` реестра.
+> Инвариант «ни один параметр не остался без нового места»: `set(param_key) ⊇ REGISTRY(483)`, «без места» = 0. Неизвестные ключи (нет в каталоге) → секция `registry-only` реестра.
 > `ui_visibility ∈ {visible,hidden,api-only}`; **api-only ≠ сохранено** (REQ-F8-08). Секреты без открытого значения (R17).
 
 | old_screen | param_key | new_screen | read_api | write_api | ui_visibility | secret | hidden | status |
@@ -24,6 +24,7 @@
 | Память | flags.belief_decay_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Память | flags.bot_self_awareness_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Бюджеты | flags.budgets_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Прямые ответы | flags.chat_autonomous_reply_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Прямые ответы | flags.chat_context_budgets_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Прямые ответы | flags.chat_decision_ignore_trivial_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Прямые ответы | flags.chat_decision_image_reactions_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
@@ -34,6 +35,7 @@
 | Память | flags.chat_rag_rerank_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Прямые ответы | flags.chat_running_summary_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Прямые ответы | flags.chat_silence_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
+| Прямые ответы | flags.chat_silent_ack_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Прямые ответы | flags.chat_style_anchors_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Диагностика | flags.checkup_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Диагностика | flags.checkup_memory_metrics_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
@@ -490,4 +492,4 @@
 
 ## registry-only (неизвестные каталогу параметры)
 
-Нет: множество `internal_key` каталога == множество `REGISTRY` == 481; все ключи получили новое место. Расхождений нет.
+Нет: множество `internal_key` каталога == множество `REGISTRY` == 483; все ключи получили новое место. Расхождений нет.

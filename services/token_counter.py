@@ -24,6 +24,7 @@ F4 (10.19, ADR-1019-4 D3/D4, ADR-1019-8 D2/D3): токенные контекс�
 """
 import logging
 import os
+import re
 
 from config.settings import settings
 from services import hot_config as hot
@@ -32,6 +33,70 @@ from services.budget_limits import context_state
 logger = logging.getLogger(__name__)
 
 _CHARS_PER_TOKEN = 0.3          # рус ≈ 0.3 токена/символ (o200k, T-459 тема 1)
+
+# ── MCA-07 (T-3849, ADR-1027-7 D7): protected spans ─────────────────────────
+# Отрицание / ID источника / дата НЕ режутся так, что меняется смысл: при
+# обрезке они переносятся в компактный защищённый хвост. Это аддитивная
+# надстройка над прежним триммингом (OFF-гейт → байт-в-байт прежнее поведение).
+_NEGATION_RE = re.compile(
+    r"(?i)(?<![а-яёa-z])(?:не|нет|ни|никогда|без|кроме|разве|"
+    r"вряд\s+ли)(?![а-яёa-z])")
+_ID_RE = re.compile(
+    r"(?i)(?:\bid[:\s#]*\d+|[a-zа-яё]+:\d+|\b\d{5,}\b)")
+_DATE_RE = re.compile(
+    r"\b\d{1,2}[.\-/]\d{1,2}[.\-/]\d{2,4}\b"
+    r"|\b\d{4}-\d{2}-\d{2}\b")
+_MONTHS = ("янв", "фев", "мар", "апр", "мая", "май", "июн", "июл", "авг",
+           "сен", "окт", "ноя", "дек")
+_DATE_WORD_RE = re.compile(
+    r"\b\d{1,2}\s+(?:" + "|".join(_MONTHS) + r")[а-яё]*\b", re.IGNORECASE)
+_PROTECTED_SPAN_MAX = 24        # bounded: не раздуваем хвост
+_PROTECTED_SPAN_RESERVE = 48    # токенов под защищённый хвост при обрезке
+
+
+def protected_spans(text) -> list[str]:
+    """Отрицания / ID источника / даты в тексте (dedup, bounded, порядок)."""
+    value = str(text or "")
+    if not value:
+        return []
+    found: list[str] = []
+    for pattern in (_ID_RE, _DATE_RE, _DATE_WORD_RE, _NEGATION_RE):
+        for match in pattern.findall(value):
+            span = match.strip() if isinstance(match, str) else str(match)
+            if span and span not in found:
+                found.append(span)
+                if len(found) >= _PROTECTED_SPAN_MAX:
+                    return found
+    return found
+
+
+def has_protected_spans(text) -> bool:
+    """Есть ли в тексте защищаемые спаны (без построения полного списка)."""
+    value = str(text or "")
+    if not value:
+        return False
+    return bool(_ID_RE.search(value) or _DATE_RE.search(value)
+                or _DATE_WORD_RE.search(value) or _NEGATION_RE.search(value))
+
+
+def append_protected_spans(truncated: str, original: str,
+                           max_tokens: int) -> str:
+    """Дописать в усечённый блок недостающие protected spans (если влезают).
+
+    Гарантирует, что отрицание/ID/дата из отрезанной части не теряются
+    бесследно. Не превышает ``max_tokens`` (append только при вместимости)."""
+    truncated = str(truncated or "")
+    spans = [s for s in protected_spans(original) if s not in truncated]
+    if not spans:
+        return truncated
+    result = truncated
+    for span in spans:
+        candidate = f"{result}\n⋯[важно: {span}]"
+        if count_tokens(candidate) <= int(max_tokens):
+            result = candidate
+        else:
+            break
+    return result
 
 # Имя кодировки -> tiktoken.Encoding | None (кэш; WARNING один раз на имя).
 _ENCODINGS: dict[str, object] = {}
@@ -58,6 +123,17 @@ def _get_encoding():
         )
     _ENCODINGS[name] = encoding
     return encoding
+
+
+def estimation_method() -> str:
+    """MCA-07 (T-3849/SC-12): имя метода консервативной оценки токенов.
+
+    ``tiktoken`` — реальный кодировщик; ``chars*0.3`` — фолбэк (R3). Для
+    логирования метода в живом бюджете (A24). Не бросает."""
+    try:
+        return "tiktoken" if _get_encoding() is not None else "chars*0.3"
+    except Exception:      # pragma: no cover - защитная ветка
+        return "chars*0.3"
 
 
 def count_tokens(text: str) -> int:

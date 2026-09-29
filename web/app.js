@@ -1605,6 +1605,10 @@
         budgetInfo: null,        // GET /api/workers/budget
         budgetBusy: false,
         budgetsUnlimitedBusy: false,   // F3: тумблер «Безлимит по чату»
+        // ASAP-3 (ADR-1028-2 D17, §34): диагностика последнего ON-прогона
+        // Direct Context Composer по чату (process-local, R17: числа/коды).
+        directDiagnostics: null,
+        directContextBusy: false,
         permsocBusy: false,
         // Раунд 10 (F-12 C1/C2): Oversight-дашборд (global admin)
         oversightData: null,     // GET /api/oversight/summary
@@ -4821,6 +4825,83 @@
         }
       },
 
+      // ═══ ASAP-3 (round 1028, ADR-1028-2 D12/D17, §34/§35): DIRECT CONTEXT ═══
+      // Context Mode — представление СУЩЕСТВУЮЩЕГО ключа
+      // limits.chat_context_budget_tokens (derive: −1 → Unlimited,
+      // 0/None → Dynamic, >0 → Cap display-only). Новых ключей нет (D12).
+      contextBudgetValue: function () {
+        var it = this._budgetItem('limits.chat_context_budget_tokens');
+        if (!it) return null;
+        if (it.chat_source === 'chat' && it.value !== null
+            && it.value !== undefined) return Number(it.value);
+        if (it.global_value !== null && it.global_value !== undefined) {
+          return Number(it.global_value);
+        }
+        return null;
+      },
+      contextMode: function () {
+        var v = this.contextBudgetValue();
+        if (v !== null && v < 0) return 'unlimited';
+        if (v !== null && v > 0) return 'cap';
+        return 'dynamic';                     // 0/None → дефолт (16000)
+      },
+      setContextMode: async function (mode) {
+        if (!this.isChatContext()) {
+          this.toast('Сначала выберите чат', 'warn');
+          return;
+        }
+        if (this.contextMode() === mode) return;
+        var value = (mode === 'unlimited') ? -1 : 0;
+        this.directContextBusy = true;
+        try {
+          await this.api('/api/config', {
+            method: 'POST',
+            body: JSON.stringify({
+              items: [{ key: 'limits.chat_context_budget_tokens',
+                        value: value }],
+              updated_at: this.configChatUpdatedAt,
+            }),
+          });
+          this.toast(mode === 'unlimited'
+            ? 'Unlimited: без искусственных лимитов контекста'
+            : 'Dynamic: автораспределение context window', 'ok');
+          await this._preserveScroll(this.loadConfig);
+        } catch (e) {
+          if (e.status === 409) {
+            this.toast('Конфликт версии (409) — обновите конфигурацию', 'warn');
+            this._preserveScroll(this.loadConfig);
+          } else {
+            this.toast('Ошибка: ' + e.message, 'err');
+          }
+        } finally {
+          this.directContextBusy = false;
+        }
+      },
+      // Диагностика последнего ON-прогона композера (process-local snapshot;
+      // R17: только числа/коды). Fail-open: нет данных → null («—»).
+      loadDirectDiagnostics: async function () {
+        if (!this.isChatContext()) {
+          this.directDiagnostics = null;
+          return;
+        }
+        try {
+          this.directDiagnostics = await this.api(
+            '/api/direct/context-diagnostics?chat_id='
+            + encodeURIComponent(this.activeChatId));
+        } catch (e) {
+          this.directDiagnostics = null;
+        }
+      },
+      // §35: force-keywords read-only (гарантия §21 не отключаема, D-PM-4).
+      forceKeywordsDisplay: function () {
+        var it = this.configItems.find(function (i) {
+          return i.key === 'reactions.chat_botword_pattern';
+        });
+        var pattern = it ? String(it.value || '').trim() : '';
+        if (pattern) return pattern;
+        return 'бот (дефолт) · имя персоны · @упоминание';
+      },
+
       // ═══ Раунд 10 (F-12 C1/C2): Oversight (global admin) ═══
       loadOversight: async function () {
         this.oversightBusy = true;
@@ -7892,6 +7973,8 @@
           // анти-клише (fail-open).
           this._syncPromptModeFromConfig();
           if (this.activeTab === 'prompts') this.maybeLoadCliche();
+          // ASAP-3 (D17): диагностика последнего прогона композера чата.
+          this.loadDirectDiagnostics();
         } catch (e) {
           if (!this._scopeGuard(epoch)) return;   // R2: устаревшая ошибка
           // ПРОД-ИНЦИДЕНТ (C): 401 различается — понятное сообщение вместо

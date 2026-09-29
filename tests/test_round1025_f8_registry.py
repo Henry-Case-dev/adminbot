@@ -51,8 +51,12 @@ ARTIFACTS = [ROOT / p for p in FIXTURE["artifacts"]]
 # осознанно (L-F11S-1); ни новых endpoint'ов, ни изменений схемы/каталога
 # (`test_routes_set_unchanged`/`test_param_catalog_unchanged` продолжают
 # замораживать свои срезы).
+# ASAP-3 (round 1028, ADR-1028-2 D17, санкция spec §6): эволюция —
+# аддитивный read-only `GET /api/direct/context-diagnostics` (process-local
+# snapshot, R17-числа, существующий RBAC; Δ каталога = 0). Хэш переутверждён
+# осознанно; routes-набор в fixture переиздан (+1 endpoint).
 ROUTES_SHA256_F11 = (
-    "f2ff90b650f18713bb22ae5126eeb6a607670e2ef70a47a5308976dccfabdc5d")
+    "a66db6c0db64d2207785410f65b9872f06b5cf364936e9d805a01e26cbfa140d")
 
 
 def _sha256(path: Path) -> str:
@@ -118,7 +122,15 @@ class TestFrozenInvariants:
         # ОТРИЦАТЕЛЬНАЯ Δ каталога — -8 ключей summary_filter_* и -2 группы;
         # TAB_RULES 21 in-place (счётчик не менялся). 489→481 / 107→105 /
         # 105→103; delta 78→70 (8 удалённых ключей были частью Δ round1026).
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 481
+        # ASAP-3 (round 1028, ADR-1028-2 D12, санкция spec §6): +2 ключа
+        # (flags.chat_autonomous_reply_enabled — Settings-поле CHAT_
+        # AUTONOMOUS_REPLY_ENABLED; flags.chat_silent_ack_enabled — PG-only)
+        # в существующую группу flags_decision_making → 481→483; delta
+        # 70→72. GROUPS/_TAB_BY_GROUP/TAB_RULES — in-place (105/103/21).
+        # Примечание: заявленные в spec §6 числа 482/457 арифметически
+        # несовместимы с «+2 ключа» (каждый каталог-ключ = +1 REGISTRY/
+        # +1 categorized); фактическая Δ — 483/458, Settings 423 (совпадает).
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 483
         assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 105
         assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 103
         assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 21
@@ -138,7 +150,7 @@ class TestFrozenInvariants:
         # `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.34"
+        assert APP_VERSION == "2.58.35"
 
     def test_routes_set_unchanged(self):
         import re
@@ -163,7 +175,8 @@ class TestRegistry:
     def test_rows_complete_no_empty(self):
         rows = _read_registry_rows()
         # ASAP-2.1 (ADR-1028-1 D1): санкционированная Δ −8 → 481.
-        assert len(rows) == 481
+        # ASAP-3 (ADR-1028-2 D12): санкционированная Δ +2 → 483.
+        assert len(rows) == 483
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -173,8 +186,9 @@ class TestRegistry:
         # round1026 A5 (ADR-1026-17 D9): санкционированная Δ +1 → дельта 59.
         # ASAP-2.1 (ADR-1028-1 D1): санкционированная ОТРИЦАТЕЛЬНАЯ Δ −8
         # (все 8 были частью Δ round1026 S1) → дельта 70.
+        # ASAP-3 (ADR-1028-2 D12): санкционированная Δ +2 → дельта 72.
         delta = _registry_keys() - _inventory_keys()
-        assert len(delta) == FIXTURE["counts"]["delta"] == 70
+        assert len(delta) == FIXTURE["counts"]["delta"] == 72
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -203,7 +217,8 @@ class TestRegistry:
         meta = (ROOT / "plans/docs/param-registry-round1025.meta.md").read_text(
             encoding="utf-8")
         # ASAP-2.1 (ADR-1028-1 D1): переиздание после отрицательной Δ −8.
-        assert "481" in meta and "411" in meta and "70" in meta
+        # ASAP-3 (ADR-1028-2 D12): переиздание после Δ +2 (481→483, 70→72).
+        assert "483" in meta and "411" in meta and "72" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -215,7 +230,8 @@ class TestScreenMap:
         keys = _parse_screen_keys()
         assert keys == _registry_keys()  # ⊇ и == (каталог — источник)
         # ASAP-2.1 (ADR-1028-1 D1): санкционированная Δ −8 → 481.
-        assert len(keys) == 481
+        # ASAP-3 (ADR-1028-2 D12): санкционированная Δ +2 → 483.
+        assert len(keys) == 483
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

@@ -809,7 +809,10 @@ class TestSettings:
     def test_exactly_three_params_and_one_group(self):
         group_params = [s for s in pc.REGISTRY.values()
                         if s.group == "flags_decision_making"]
-        assert len(group_params) == 3
+        # ASAP-3 (ADR-1028-2 D8/D10, санкция spec §6): группа «Принятие
+        # решений» расширяется аддитивно 3 → 5 тумблеров (автономные ответы
+        # + Silent-подтверждение 🗿); группа одна, новой группы нет.
+        assert len(group_params) == 5
         assert len([g for g in pc.GROUPS
                     if g.id == "flags_decision_making"]) == 1
 
@@ -845,11 +848,15 @@ class TestSettings:
 
 class TestReasonAndR17:
     def test_closed_vocabulary(self):
+        # ASAP-3 (ADR-1028-2 D8): аддитивный 16-й код `force_direct`
+        # (§19A/§21: force-keyword → гарантированный ACTION_REPLY).
+        # Существующие 15 кодов не переименовываются/не удаляются.
         assert {
             "explicit_request", "question", "image_reaction", "laughter",
             "emotion", "acknowledgement", "emoji_reaction", "not_addressed",
             "dialogue_completed", "recent_reply", "tool_result",
             "tool_unavailable", "disabled", "default", "error",
+            "force_direct",
         } == set(REASON_CODES)
 
     @pytest.mark.asyncio
@@ -900,16 +907,17 @@ class TestAdversarial:
 
 class TestBounds:
     def test_counts_sanctioned(self):
-        assert len(pc.REGISTRY) == 481
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 422
+        # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
+        assert len(pc.REGISTRY) == 483
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 423
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 456
+                    if s.category is not None]) == 458
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
 
     def test_version_unchanged(self):
-        assert APP_VERSION == "2.58.34"
+        assert APP_VERSION == "2.58.35"
 
     def test_canon_twelve_tools(self):
         assert len(TOOL_CALLING_TOOLS) == 12

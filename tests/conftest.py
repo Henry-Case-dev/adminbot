@@ -52,6 +52,34 @@ def _system2_flags_off_by_default(request, monkeypatch):
 
 
 
+@pytest.fixture(autouse=True)
+def _asap3_flags_off_by_default(request, monkeypatch):
+    """Изоляция ASAP-3 (round 1028, ADR-1028-2 D10): старые тесты (без
+    маркера ``asap3``) идут ровно по прежнему контекст-пути и ack-поведению
+    (kill-switch'и OFF — байт-в-байт baseline; parity-контракт спеки §3.3).
+    Тесты новой функциональности помечаются ``@pytest.mark.asap3`` и работают
+    с прод-дефолтами (ON), точечно доопределяя флаги сценарием.
+
+    Патчим ClassVar на ВСЕХ ``Settings``-классах (прецедент
+    ``_system2_flags_off_by_default``: часть тестов перезагружает settings)."""
+    if request.node.get_closest_marker("asap3") is not None:
+        return
+    from config.settings import Settings
+    import services.direct_chat_service as _dcs
+    import services.direct_context_composer as _dcomp
+    import services.model_capacity as _mcap
+    classes = {Settings, type(_dcs.settings), type(_dcomp.settings),
+               type(_mcap.settings)}
+    for _cls in classes:
+        for _name in (
+            "DIRECT_CONTEXT_COMPOSER_ENABLED",
+            "DIRECT_SILENT_ACK_ENABLED",
+        ):
+            if hasattr(_cls, _name):
+                monkeypatch.setattr(_cls, _name, False)
+
+
+
 @pytest.fixture
 def mock_bot():
     """Mock aiogram Bot instance."""

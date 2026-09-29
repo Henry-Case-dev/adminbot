@@ -1565,6 +1565,63 @@
                   <div class="text-xs text-gray-400">Следующий сброс: {{ imageResetLabel(imageUsage.shared.next_reset_at) }}</div>
                 </div>
               </div>
+              <!-- ═══ ASAP-3 (round 1028, ADR-1028-2 D17, §34/§35): DIRECT
+                   CONTEXT + DIRECT ADDRESSING — bespoke-карточки вкладки
+                   «Ответы в чате» (mod_direct), в существующей IA (без новых
+                   вкладок/групп; 3 тумблера — каталоговые, в группе
+                   «Принятие решений» ниже). Context Mode пишет СУЩЕСТВУЮЩИЙ
+                   ключ limits.chat_context_budget_tokens (D12, derive
+                   −1/0/>0). Диагностика — GET /api/direct/context-diagnostics
+                   (R17: только числа). ═══ -->
+              <template v-if="activeTab === 'mod_direct' && isChatContext()">
+                <div class="card p-4 col-span-full" data-direct-context>
+                  <div class="flex items-center gap-2 flex-wrap mb-2">
+                    <div class="text-sm font-bold">Direct Context</div>
+                    <span class="badge badge-muted">контекст прямого чата</span>
+                  </div>
+                  <div class="flex items-center gap-2 flex-wrap mb-2" role="group" aria-label="Context Mode">
+                    <button class="btn-ghost text-xs"
+                            :class="contextMode() === 'dynamic' ? 'btn-accent' : ''"
+                            :disabled="directContextBusy"
+                            data-context-mode="dynamic"
+                            @click="setContextMode('dynamic')">Dynamic</button>
+                    <button class="btn-ghost text-xs"
+                            :class="contextMode() === 'unlimited' ? 'btn-accent' : ''"
+                            :disabled="directContextBusy"
+                            data-context-mode="unlimited"
+                            @click="setContextMode('unlimited')">Unlimited</button>
+                    <span v-if="contextMode() === 'cap'"
+                          class="badge badge-info" data-context-cap>Cap: {{ contextBudgetValue() }} (вручную)</span>
+                  </div>
+                  <div class="text-xs text-gray-400 mb-1" data-context-desc-unlimited>
+                    <b>Unlimited</b> — не применять искусственные лимиты контекста.
+                    Размер ограничен только фактическим окном выбранной модели
+                    и обязательным резервом для prompt/tools/output.
+                  </div>
+                  <div class="text-xs text-gray-400 mb-3" data-context-desc-dynamic>
+                    <b>Dynamic</b> — автоматически распределять доступный
+                    context window. Свежий и релевантный контекст сохраняется,
+                    второстепенный фон сокращается первым.
+                  </div>
+                  <details class="text-xs text-gray-400" data-direct-diagnostics>
+                    <summary class="cursor-pointer select-none text-gray-500">Диагностика последнего прогона</summary>
+                    <div v-if="!directDiagnostics || !directDiagnostics.available"
+                         class="mt-2 text-gray-500">Нет данных — композер ещё не запускался для этого чата.</div>
+                    <template v-else>
+                      <div class="mt-2 grid gap-1 md:grid-cols-2" data-diagnostics-grid>
+                        <div>Model context window: <b>{{ directDiagnostics.window }}</b> ({{ directDiagnostics.window_source || '—' }})</div>
+                        <div>Available for context: <b>{{ directDiagnostics.available_context }}</b></div>
+                        <div>Current payload: <b>{{ directDiagnostics.payload }}</b></div>
+                        <div>Recent verbatim: <b>{{ directDiagnostics.recent_verbatim_messages }}</b> сообщ. / {{ directDiagnostics.recent_verbatim_tokens }} токенов</div>
+                        <div>Retrieved old episodes: <b>{{ directDiagnostics.old_episode_count }}</b> / {{ directDiagnostics.old_episode_messages }} сообщ.</div>
+                        <div>Compressed background: <b>{{ directDiagnostics.compressed_background_tokens }}</b> токенов</div>
+                        <div>Excluded low-priority: <b>{{ directDiagnostics.excluded_low_priority }}</b></div>
+                        <div>Policy mode: <b>{{ directDiagnostics.policy_mode }}</b></div>
+                      </div>
+                    </template>
+                  </details>
+                </div>
+              </template>
               <template v-for="grp in currentTabGroups" :key="grp.uid">
               <!-- Раунд 10.4 (E-3): заголовок секции витрины — перед первой
                    группой секции (sectionTitle возвращает null для остальных:
@@ -1602,6 +1659,17 @@
                 </summary>
                 <div v-else class="text-sm font-bold">{{ groupTitle(grp) }}</div>
                 <div class="text-xs text-gray-500 mb-3" :class="grp.owner ? 'mt-3' : ''">{{ groupDescription(grp) }}</div>
+                <!-- ASAP-3 (ADR-1028-2 D17/D-PM-4, §35): force-keywords —
+                     read-only display (гарантия §21 «бот, …» → текстовый ответ
+                     не отключаема; тумблер force НЕ вводится). -->
+                <div v-if="grp.id === 'flags_decision_making'"
+                     class="mb-3 text-xs text-gray-400"
+                     data-force-keywords>
+                  <b>Force response keywords:</b>
+                  <span class="font-mono">{{ forceKeywordsDisplay() }}</span>
+                  — явное обращение через force-keyword всегда требует
+                  текстового ответа.
+                </div>
                 <!-- Раунд 10 (F-11 Q3/4.2): прогрессивное раскрытие — Базовые
                      (как раньше) + <details> «Расширенные настройки» (нативные,
                      localStorage adminbot.expand:<tab>; закрыт по умолчанию).

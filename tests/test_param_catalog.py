@@ -92,7 +92,17 @@ class TestCompleteness:
         #   (limits.image_daily_limit, default 60) = 427.
         #   ANTICLICHE_FIRST_RUN_DELAY_MINUTES — ClassVar (env-only, в
         #   dataclass.fields не входит).
-        assert len(fields) == 422
+        #   + ASAP-3 (round 1028, ADR-1028-2 D8/D10, санкция spec §6): +1 —
+        #   CHAT_AUTONOMOUS_REPLY_ENABLED (flags.chat_autonomous_reply_enabled,
+        #   per-chat, default ON) = 423. Второй новый каталог-ключ
+        #   flags.chat_silent_ack_enabled — PG-only (settings_field=None);
+        #   env-рубильники DIRECT_CONTEXT_COMPOSER_ENABLED /
+        #   DIRECT_SILENT_ACK_ENABLED / CHAT_BOT_REPLIED_RECENTLY_SECONDS /
+        #   CHAT_MODEL_CONTEXT_WINDOW / CHAT_UNKNOWN_MODEL_WINDOW /
+        #   CHAT_EPISODE_* / CHAT_FRESH_TAIL_MIN_MESSAGES /
+        #   CHAT_MIDDLE_MAX_MESSAGES / CHAT_THREAD_WALK_MAX — ClassVar
+        #   (env-only, Δ каталога = 0).
+        assert len(fields) == 423
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -416,7 +426,7 @@ class TestGroups8424:
         # context ×2 + длина ×4), flags +4 (hybrid enabled/repair/retry +
         # legacy fallback) → models 60 / keys 22 / limits 205 / flags 76.
         assert counts == {"prompts": 23, "models": 60, "keys": 22,
-                          "limits": 199, "flags": 74, "reactions": 39,
+                          "limits": 199, "flags": 76, "reactions": 39,
                           "content": 5, "memory": 34}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 
