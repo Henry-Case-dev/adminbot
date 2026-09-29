@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from config.settings import settings
 import services.direct_chat_service as dcs
 from services.direct_chat_service import (
     MSG_ACK, MSG_LAUGHTER, REASON_ACKNOWLEDGEMENT, REASON_FORCE_DIRECT,
@@ -200,14 +201,19 @@ class TestAutonomous:
         assert bot.send_message.await_count >= 1
 
     @pytest.mark.asyncio
-    async def test_laughter_prefers_react(self):
+    async def test_laughter_prefers_react(self, monkeypatch):
         # reply_to_bot «ахах» → предпочтительно REACT (набор {😂,🤣}).
+        # ASAP-3.1 (ADR-1028-3 D7): детерминированный шорт-кат — путь
+        # kill-switch `DIRECT_LLM_REACTION_ENABLED=false` (OFF-паритет);
+        # ON-путь LLM-выбора покрыт test_llm_react_asap31.py.
+        monkeypatch.setattr(type(settings), "DIRECT_LLM_REACTION_ENABLED",
+                            False, raising=False)
         llm = _FakeLLM(text="не нужен текст")
         svc = _make_service(llm=llm)
         bot = _bot()
         msg = _message("ахах", message_id=1202, reply_to_bot=True)
         await svc.handle(bot, msg, msg.from_user)
-        assert not llm.calls, "REACT не должен ходить в LLM"
+        assert not llm.calls, "REACT (kill-switch OFF) не должен ходить в LLM"
         assert bot.set_message_reaction.await_count >= 1
         kwargs = bot.set_message_reaction.await_args
         emojis = [r.emoji for r in kwargs.kwargs["reaction"]]
@@ -320,8 +326,11 @@ class TestReactionFailure:
         assert bot.send_message.await_count == 0
 
     @pytest.mark.asyncio
-    async def test_react_failure_no_text(self):
+    async def test_react_failure_no_text(self, monkeypatch):
         # §28: REACT-failure не генерирует текст (механика A8, ≤2 попытки).
+        # ASAP-3.1: детерминированный путь = kill-switch OFF (паритет).
+        monkeypatch.setattr(type(settings), "DIRECT_LLM_REACTION_ENABLED",
+                            False, raising=False)
         llm = _FakeLLM(text="не должен уйти")
         svc = _make_service(llm=llm)
         bot = _bot()

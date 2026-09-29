@@ -29,23 +29,31 @@
   'use strict';
 
   /* ── D7: обязательные численные параметры (константы модуля) ─────────── */
-  var SEED = 20260923;            // фиксированный seed сцены (детерминизм)
+  /* ASAP-3.1 (T-4081, §63): фиксированный SEED = production-ИСТОРИЯ (был
+   * единственной формой навсегда). Теперь scene seed выбирается ОДИН раз на
+   * lifetime страницы (crypto RNG), ?bgseed=<uint32> — детерминированный
+   * test-оверрайд; константа сохранена как крайний fallback без crypto. */
+  var SEED = 20260923;
   var NODES_DESKTOP = 110;        // диапазон §6.1: 90–140 (цель ~110)
   var NODES_MOBILE = 55;          // диапазон §6.1: 45–75 (цель ~55)
-  var TOPO_HZ = 4;                // §6.4: топология пересчитывается ≤ 4 Гц
-  var TOPO_FADE_MS = 320;         // плавное смешивание при смене топологии
-  /* §8 «мерцание свечения» — правка владельца (v2.58.20): ровно ×2 медленнее
-   * (частота ÷2 → период ×2). Мерцание свечения = колебание ИНТЕНСИВНОСТИ/
-   * радиуса свечения: импульсы свечения узлов и ореолов (§8.3) и «дыхание»
-   * радиуса фонового излучения (§7.1). Было → стало:
-   *   pulseSp      0.05..0.15 rad/s (период ~42..126 с) → 0.025..0.075 (~84..251 с)
-   *   glow radius  0.06 rad/s      (период ~105 с)      → 0.03 rad/s      (~209 с)
-   * НЕ замедляются (не являются мерцанием свечения): движение узлов §9
-   * (sp1/sp2), цветовой morph §8.1 (morphPhase 0.06), дрейф световых центров
-   * §8.2 (0.045/0.038) — это позиция/оттенок, а не свечение. */
-  var PULSE_SPEED_MIN = 0.025;    // было 0.05 — импульсы свечения узлов (§8.3)
-  var PULSE_SPEED_MAX = 0.075;    // было 0.15 — импульсы свечения узлов (§8.3)
-  var GLOW_SHIMMER_SPEED = 0.03;  // было 0.06 — «дыхание» радиуса свечения (§7.1)
+  /* ASAP-3.1 (T-4080, §58–§59, ADR-1028-3 Q1): ПЕРВОПРИЧИНА мерцания —
+   * прежний rebuild-таймер ~250 мс + короткий fade: пересборка каждые
+   * ~250 мс сбрасывала topoFade в 0 до завершения 320-мс перехода →
+   * яркость ВСЕХ граней ритмично проваливалась 4 раза/сек. НОВАЯ
+   * policy (§59): topology стабильна; rebuild — РЕДКО (displacement
+   * threshold ИЛИ раз в десятки секунд), без гашения всей mesh — пол
+   * яркости граней 0.85 (провал ≤15%, незаметен); редкая смена — плавный
+   * crossfade TOPO_CROSSFADE_MS. Запреты §115 (частичная смена частоты
+   * без устранения fade reset; PULSE_SPEED /= 2) не применены —
+   * устранена причина. */
+  var TOPO_MIN_INTERVAL_MS = 30000;  // §59: rebuild не чаще, чем раз в ~30 с
+  var TOPO_DRIFT_THRESHOLD_PX = 26;  // §59: либо по фактическому смещению
+  var TOPO_CROSSFADE_MS = 4000;      // редкая смена — crossfade несколько сек
+  /* §8/§60: свечение «дышит» с периодом порядка минут, амплитуда мала.
+   * pulseSp/GLOW_SHIMMER_SPEED — прежние замедления (×2, 2.58.20). */
+  var PULSE_SPEED_MIN = 0.025;    // период ~84..251 с (порядок минут, §60)
+  var PULSE_SPEED_MAX = 0.075;
+  var GLOW_SHIMMER_SPEED = 0.03;  // «дыхание» радиуса свечения (~209 с)
   var AMP_MIN_PX = 4;             // §9: амплитуда движения узлов 4–18 CSS px
   var AMP_MAX_PX = 18;
   var DPR_CAP_DESKTOP = 2;
@@ -108,6 +116,9 @@
     triAlpha: null, triPass: null, triCount: 0,
     edgeA: null, edgeB: null, edgeGlow: null, edgeCount: 0,
     topologyDirty: true, lastTopoAt: -1e9, topoFade: 1, topoBlend: 0,
+    // ASAP-3.1 (T-4081): живая сцена — seed/композиция/дрейф/диагностика.
+    sceneSeed: 0, sceneScale: 1, sceneCenterX: 0.5, sceneCenterY: 0.5,
+    topologyRebuilds: 0, lastRebuildTs: 0, driftPh: 0, glowPhase: 0,
   };
 
   /* ── мелкие утилиты ───────────────────────────────────────────────────── */
@@ -227,8 +238,53 @@
   }
 
   /* ── построение сцены (C: узлы/кластеры/seed) ─────────────────────────── */
-  function buildScene() {
-    var rng = mulberry32(SEED);
+  /* ASAP-3.1 (T-4081, §63): scene seed — ОДИН раз на lifetime страницы.
+   * Приоритет: opts.seed (start({seed}) — deterministic tests) →
+   * ?bgseed=<uint32> → crypto.getRandomValues → Date.now fallback. */
+  function pickSceneSeed(opts) {
+    if (opts && typeof opts.seed === 'number' && opts.seed > 0) {
+      return opts.seed >>> 0;
+    }
+    try {
+      var q = new URLSearchParams(window.location.search).get('bgseed');
+      if (q) {
+        var parsed = parseInt(q, 10);
+        if (parsed > 0) return parsed >>> 0;
+      }
+    } catch (e0) { /* no URLSearchParams — production random ниже */ }
+    try {
+      if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+        var buf = new Uint32Array(1);
+        window.crypto.getRandomValues(buf);
+        return buf[0] >>> 0;
+      }
+    } catch (e1) { /* fallback ниже */ }
+    return (Date.now() & 0xffffffff) >>> 0;
+  }
+
+  /* §64: seed определяет высокоуровневую композицию — центр X/Y, масштаб
+   * (compact 45–65% / medium 65–90% / large 90–115%, §66), лёгкий skew
+   * через разный spread по осям, расположение кластеров. */
+  function deriveSceneComposition(rng) {
+    var categories = [
+      { scale: 0.45 + rng() * 0.20 },   // compact ~45–65%
+      { scale: 0.65 + rng() * 0.25 },   // medium ~65–90%
+      { scale: 0.90 + rng() * 0.25 },   // large ~90–115% (частично за край)
+    ];
+    var cat = categories[Math.floor(rng() * categories.length) % 3];
+    st.sceneScale = cat.scale;
+    st.sceneCenterX = 0.5 + (rng() - 0.5) * 0.30;   // левее/правее центра
+    st.sceneCenterY = 0.5 + (rng() - 0.5) * 0.30;   // выше/ниже центра
+    st.skewX = 0.85 + rng() * 0.30;                 // лёгкий aspect/skew
+    st.skewY = 0.85 + rng() * 0.30;
+    st.driftPh = rng() * TAU;
+  }
+
+  function buildScene(sceneSeed) {
+    st.sceneSeed = (typeof sceneSeed === 'number' && sceneSeed > 0)
+      ? (sceneSeed >>> 0) : st.sceneSeed;
+    var rng = mulberry32(st.sceneSeed);
+    deriveSceneComposition(rng);
     var n = isMobile() ? NODES_MOBILE : NODES_DESKTOP;
     var nodes = new Array(n);
     // Вес кластеров: плотные ядра + разреженные нити (D). Неравномерная
@@ -236,19 +292,37 @@
     var wsum = 0, i;
     var weights = [0.20, 0.10, 0.24, 0.10, 0.22, 0.14];
     for (i = 0; i < weights.length; i++) wsum += weights[i];
+    // §64: расположение/размеры кластеров — из seed (не фиксированные cx/cy).
+    var liveClusters = CLUSTERS.map(function (cl) {
+      var jitter = function (v) { return (rng() - 0.5) * 0.16; };
+      var spreadScale = 0.75 + rng() * 0.55;
+      return {
+        colors: cl.colors, light: cl.light, glow: cl.glow, ph: cl.ph,
+        cx: clamp(cl.cx + jitter(), 0.08, 0.92),
+        cy: clamp(cl.cy + jitter(), 0.08, 0.92),
+        spread: cl.spread * spreadScale,
+        skewX: 0.85 + rng() * 0.3,
+        skewY: 0.85 + rng() * 0.3,
+      };
+    });
+    st.liveClusters = liveClusters;
     for (i = 0; i < n; i++) {
       var r = rng() * wsum, ci = 0, acc = 0;
       for (var j = 0; j < weights.length; j++) {
         acc += weights[j];
         if (r <= acc) { ci = j; break; }
       }
-      var cl = CLUSTERS[ci];
+      var cl = liveClusters[ci];
       var spread = cl.spread;
       var uniform = rng() < ZONE_D_UNIFORM_SHARE;   // D: разреженные «нити»
       var gx = uniform ? (rng() * 2 - 1) : (rng() + rng() - 1);
       var gy = uniform ? (rng() * 2 - 1) : (rng() + rng() - 1);
-      var bx = clamp(cl.cx + gx * spread, 0.03, 0.97);
-      var by = clamp(cl.cy + gy * spread, 0.03, 0.97);
+      // §64: сцена относительно scene center, масштаб sceneScale — mesh
+      // может занимать половину/большую часть экрана и выходить за край.
+      var bx = clamp(st.sceneCenterX + (cl.cx - 0.5) * st.sceneScale
+                     + gx * spread * st.sceneScale * cl.skewX, -0.05, 1.05);
+      var by = clamp(st.sceneCenterY + (cl.cy - 0.5) * st.sceneScale
+                     + gy * spread * st.sceneScale * cl.skewY, -0.05, 1.05);
       var dC = Math.sqrt((bx - cl.cx) * (bx - cl.cx) +
                          (by - cl.cy) * (by - cl.cy));
       var tier = dC < spread * 0.35 ? 2 : (dC < spread * 0.75 ? 1 : 0);
@@ -341,7 +415,40 @@
     st.edgeCount = ec;
     st.lastTopoAt = nowMs();
     st.topologyDirty = false;
+    /* ASAP-3.1 (T-4080): rebuild теперь редкий — НЕ каждые 250 мс; при
+     * смене — плавный crossfade с ВЫСОКИМ полом яркости (ниже), без гашения
+     * всей mesh (§59). */
+    st.topologyRebuilds = (st.topologyRebuilds || 0) + 1;
+    st.lastRebuildTs = st.lastTopoAt;
     st.topoFade = 0;
+    // Фиксируем позиции, на которых построена текущая топология.
+    for (var fi = 0; fi < st.nodeCount; fi++) {
+      st.nodes[fi].fx = st.nodes[fi].nx;
+      st.nodes[fi].fy = st.nodes[fi].ny;
+    }
+  }
+
+  /* §59: нужен ли редкий rebuild — displacement threshold ИЛИ раз в
+   * десятки секунд (не 4 Hz!). Детерминировано по фактическим nx/ny. */
+  function topologyNeedsRebuild(tms) {
+    if (st.topologyDirty) return true;
+    if (!st.nodes) return false;
+    if (tms - st.lastTopoAt < TOPO_MIN_INTERVAL_MS) return false;
+    var nodes = st.nodeCount ? st.nodes : null;
+    if (!nodes) return false;
+    // Порог по максимальному смещению базовой позиции от той, на которой
+    // строилась последняя топология (fx/fy фиксируются при rebuild).
+    var worst = 0;
+    var mn = Math.min(st.cssW, st.cssH) || 1;
+    for (var i = 0; i < st.nodeCount; i++) {
+      var nd = nodes[i];
+      var dx = (nd.fx !== undefined ? (nd.nx - nd.fx) : 0);
+      var dy = (nd.fy !== undefined ? (nd.ny - nd.fy) : 0);
+      var px = Math.sqrt(dx * dx + dy * dy) * mn;
+      if (px > worst) worst = px;
+      if (worst > TOPO_DRIFT_THRESHOLD_PX) return true;
+    }
+    return worst > TOPO_DRIFT_THRESHOLD_PX;
   }
 
   function edgeLen(a, b, aspect) {
@@ -360,8 +467,9 @@
   /* §7.2/§6.3: близость грани к световому центру (яркость от расстояния). */
   function lightFactor(a, b, c) {
     var best = 0;
-    for (var i = 0; i < CLUSTERS.length; i++) {
-      var cl = CLUSTERS[i];
+    var clusters = st.liveClusters || CLUSTERS;
+    for (var i = 0; i < clusters.length; i++) {
+      var cl = clusters[i];
       var dx = ((a.nx + b.nx + c.nx) / 3 - cl.cx);
       var dy = ((a.ny + b.ny + c.ny) / 3 - cl.cy);
       var d = Math.sqrt(dx * dx + dy * dy);
@@ -382,17 +490,29 @@
   }
 
   /* F: движение узлов — детерминированная функция времени (4–18 px, своя
-   * фаза/скорость), плюс дрейф световых центров. */
+   * фаза/скорость), плюс дрейф световых центров.
+   * ASAP-3.1 (T-4081, §65): глобальный scene transform — медленный дрейф
+   * центра всей mesh по smooth path (периоды десятки секунд/минуты,
+   * амплитуда мала) + едва заметное «дыхание» масштаба; mesh может
+   * частично уходить за viewport и возвращаться (§65). Резких прыжков нет. */
   function computePositions(t) {
     var nodes = st.nodes, n = st.nodeCount;
     var mn = Math.min(st.cssW, st.cssH) || 1;
+    // Периоды 140/97 с, амплитуда ±4.5% — «вся mesh медленно движется».
+    var driftX = 0.045 * Math.sin(t * (TAU / 140) + st.driftPh);
+    var driftY = 0.035 * Math.cos(t * (TAU / 97) + st.driftPh * 1.7);
+    // Дыхание масштаба ±3% (период ~160 с).
+    var breathe = 1 + 0.03 * Math.sin(t * (TAU / 160) + st.driftPh * 0.5);
     for (var i = 0; i < n; i++) {
       var nd = nodes[i];
       var ampN = nd.ampPx / mn;
       var nx = nd.bx + ampN * Math.sin(t * nd.sp1 + nd.ph1);
       var ny = nd.by + ampN * Math.cos(t * nd.sp2 + nd.ph2) * 0.85;
-      nd.nx = clamp(nx, 0.02, 0.98);
-      nd.ny = clamp(ny, 0.02, 0.98);
+      // Глобальный дрейф относительно центра сцены (§65).
+      nx = st.sceneCenterX + (nx - st.sceneCenterX) * breathe + driftX;
+      ny = st.sceneCenterY + (ny - st.sceneCenterY) * breathe + driftY;
+      nd.nx = nx;   // кламп снят: mesh может частично выходить за край (§64)
+      nd.ny = ny;
       // Редкий плавный импульс на пересечениях (§8.3): не синхронный.
       nd.pulse = 0.5 + 0.5 * Math.sin(t * nd.pulseSp + nd.pulsePh);
       nd.x = nd.nx * st.cssW;
@@ -411,8 +531,9 @@
 
   function drawRadiation(t) {
     var ctx = st.ctx;
-    for (var i = 0; i < CLUSTERS.length; i++) {
-      var cl = CLUSTERS[i];
+    var clusters = st.liveClusters || CLUSTERS;
+    for (var i = 0; i < clusters.length; i++) {
+      var cl = clusters[i];
       var cx = (cl.cx + 0.035 * Math.sin(t * 0.045 + cl.ph)) * st.cssW;
       var cy = (cl.cy + 0.03 * Math.cos(t * 0.038 + cl.ph * 1.3)) * st.cssH;
       var r = (cl.glow + 0.04 * Math.sin(t * GLOW_SHIMMER_SPEED + cl.ph)) *
@@ -438,7 +559,9 @@
 
   function drawFacets(t) {
     var ctx = st.ctx;
-    var fade = 0.55 + 0.45 * st.topoFade;
+    /* ASAP-3.1 (T-4080): пол яркости 0.85 — редкий crossfade НЕ гасит всю
+     * mesh (провал ≤15%, незаметен; было 0.55+0.45*fade → провал 45%). */
+    var fade = 0.85 + 0.15 * st.topoFade;
     var i, idx, pass, ca, cb, col, ph;
     // Проход 1 — полупрозрачная заливка всех отфильтрованных граней.
     for (i = 0; i < st.triCount; i++) {
@@ -518,7 +641,7 @@
       var nd = nodes[i];
       if (nd.tier !== 2) continue;
       var col = mix(nd.colA, nd.colB, morphPhase(t, nd.colPh));
-      ctx.globalAlpha = (0.22 + 0.12 * nd.pulse) * nd.baseAlpha;
+      ctx.globalAlpha = (0.30 + 0.05 * nd.pulse) * nd.baseAlpha;
       ctx.fillStyle = radial(nd.x, nd.y, 22 + 8 * nd.pulse, col, 1);
       ctx.fillRect(nd.x - 30, nd.y - 30, 60, 60);
     }
@@ -537,7 +660,9 @@
       var nc = nodes[i];
       var c2 = mix(nc.colA, nc.colB, morphPhase(t, nc.colPh));
       if (nc.tier === 2) c2 = mix(c2, RGB[10], 0.45);
-      ctx.globalAlpha = (0.55 + 0.35 * nc.pulse) * nc.baseAlpha;
+      /* ASAP-3.1 (§60): узлы не «лампочки» — база ≥0.80, амплитуда ≤0.10
+       * (было 0.55±0.35 → относительный размах ~64%). */
+      ctx.globalAlpha = (0.85 + 0.10 * nc.pulse) * nc.baseAlpha;
       ctx.fillStyle = rgba(c2, 1);
       ctx.beginPath();
       ctx.arc(nc.x, nc.y,
@@ -587,14 +712,17 @@
       ctx.fillRect(0, 0, w, h);
 
       var tms = nowMs();
-      if (st.topologyDirty || (tms - st.lastTopoAt) >= (1000 / TOPO_HZ)) {
+      /* ASAP-3.1 (T-4080): topology НЕ пересобирается по таймеру 4 Hz —
+       * только по displacement threshold / раз в десятки секунд (§59). */
+      if (topologyNeedsRebuild(tms)) {
         rebuildTopology();
       }
       if (st.topoFade < 1) {
         st.topoFade = clamp(st.topoFade +
-          (tms - (st.topoBlend || tms)) / TOPO_FADE_MS, 0, 1);
+          (tms - (st.topoBlend || tms)) / TOPO_CROSSFADE_MS, 0, 1);
       }
       st.topoBlend = tms;
+      st.glowPhase = t;
       computePositions(t);
 
       ctx.globalCompositeOperation = 'lighter';
@@ -681,9 +809,14 @@
     st.edgeA = null; st.edgeB = null; st.edgeGlow = null; st.edgeCount = 0;
   }
 
-  function start() {
+  function start(opts) {
     if (typeof document === 'undefined' || !document.body) return;
     if (st.running) return;
+    // ASAP-3.1 (T-4081, §63): scene seed — один раз на lifetime страницы;
+    // новая полная загрузка → новая композиция; start({seed}) — тесты.
+    if (!st.sceneSeed) {
+      st.sceneSeed = pickSceneSeed(opts || null);
+    }
     var cv = ensureCanvas();
     if (!st.nodes) buildScene();
     if (!st.ctx && !initCanvas2d(cv)) { fallbackNone(); return; }
@@ -696,8 +829,8 @@
     st.paused = false;
     st.visPaused = false;
     if (st.reduced) {
-      draw(4);              // один качественный статичный кадр
-      st.running = false;   // затем без rAF
+      draw(4);              // один качественный статичный кадр (§68)
+      st.running = false;   // затем без rAF (endless rAF отсутствует)
       return;
     }
     st.startTime = nowMs();
@@ -752,6 +885,11 @@
   function mode() { return st.mode; }
 
   function getDiagnostics() {
+    /* ASAP-3.1 (T-4081, §69): +sceneSeed/sceneScale/sceneCenterX/Y/
+     * topologyRebuilds/lastTopologyRebuildAge/glowPhase — Playwright
+     * доказывает смену seed между сессиями и отсутствие rebuild 4 Hz.
+     * В обычный UI diagnostics НЕ выводятся (§69). */
+    var tms = nowMs();
     return {
       renderer: st.mode === 'canvas2d' ? 'canvas2d' : 'none',
       canvasWidth: st.canvas ? (st.canvas.width || 0) : 0,
@@ -761,9 +899,20 @@
       triangleCount: st.triCount || 0,
       frameCount: st.frameCount || 0,
       lastFrameTime: st.lastFrameTime || 0,
+      fps: (st.frameCount && st.startTime)
+        ? Math.round((st.frameCount * 1000) / Math.max(1, tms - st.startTime))
+        : 0,
       isPaused: !!st.paused,
       isReducedMotion: !!st.reduced,
       contextLost: !!st.contextLost,
+      sceneSeed: st.sceneSeed || 0,
+      sceneScale: st.sceneScale || 1,
+      sceneCenterX: st.sceneCenterX,
+      sceneCenterY: st.sceneCenterY,
+      topologyRebuilds: st.topologyRebuilds || 0,
+      lastTopologyRebuildAge: st.lastRebuildTs
+        ? Math.max(0, tms - st.lastRebuildTs) : -1,
+      glowPhase: st.glowPhase || 0,
     };
   }
 

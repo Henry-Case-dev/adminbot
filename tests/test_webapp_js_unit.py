@@ -35,6 +35,14 @@ def test_js_unit_routing_and_scope_guard():
     _run_js(os.path.join("tests", "js", "routing_test.js"))
 
 
+def test_js_unit_asap31_oversight_render():
+    """ASAP-3.1 rework (H-ASAP31-2): регрессия «пустого экрана Аналитики» —
+    шаблон oversight-ветки не вызывает computed как функции; хелперы метрик
+    (execMetricsRows/execTokenPair/…) в methods; ключевые секции на месте."""
+    _run_js(os.path.join("tests", "js", "asap31_oversight_render_test.js"),
+            ok_marker="ASAP31-OVERSIGHT-RENDER-OK")
+
+
 def test_js_unit_round1021_ui_audit():
     """F6 round 10.21 (T-1990…T-2000): регресс-зонды UI-аудита —
     glass/grid/mask/gradient/sticky + инвариант меню + регресс

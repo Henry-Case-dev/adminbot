@@ -5,7 +5,7 @@
     "source": "services/param_catalog.py"
   },
   "counts": {
-    "REGISTRY": 483,
+    "REGISTRY": 484,
     "GROUPS": 105,
     "_TAB_BY_GROUP": 103,
     "TAB_RULES": 21
@@ -295,6 +295,7 @@
     "CHAT_LOCK_WAIT_SECONDS",
     "CHAT_MAP_PARTICIPANTS_CAP",
     "CHAT_MAP_PARTICIPANTS_HOURS",
+    "CHAT_MODEL_CONTEXT_WINDOW",
     "CHAT_MOOD_ENABLED",
     "CHAT_MOOD_NEGATIVE_WORDS",
     "CHAT_MOOD_POSITIVE_WORDS",

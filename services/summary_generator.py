@@ -760,6 +760,13 @@ class SummaryGenerator:
             run_l1,
         )
         from services.summary_l2_writer import run_l2
+        # ASAP-3.1 (T-4069): L2-пакет — тот же Auto Budget Resolver
+        # (capacity слота summary.l2; OFF → прежний static hybrid-путь).
+        try:
+            from services.summary_budget_auto import resolve_l2_package_budget
+            l2_budget = await resolve_l2_package_budget()
+        except Exception:
+            l2_budget = None
         # S7: R17-safe модель/провайдер для SUMMARY_FAILED (host, без ключа).
         if ctx is not None:
             ctx.model = str(getattr(self.llm, "_chat_model", "") or "") or None
@@ -862,13 +869,18 @@ class SummaryGenerator:
             else:
                 stage = "package"
                 package_result = build_fact_package(
-                    l1_result, payload_items, correlation_id=correlation_id)
+                    l1_result, payload_items, correlation_id=correlation_id,
+                    budget=l2_budget)
                 if not package_result.deliverable:
                     # Матрица строка 5 (defensive, не ожидается после (h)):
                     # пересборка fallback-пакетом → L2 всё равно вызывается.
+                    # ASAP-3.1 (H-ASAP31-1 rework): тот же вид бюджета
+                    # (единый resolver, §131/§37) — fallback-пакет не
+                    # возвращается на статический потолок.
                     package_result = build_fallback_package(
                         payload_items, correlation_id=correlation_id,
-                        chat_id=chat_id, reason="package_unusable")
+                        chat_id=chat_id, reason="package_unusable",
+                        budget=l2_budget)
                     fallback_used = True
                     if package_result is None:
                         if ctx is not None:

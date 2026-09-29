@@ -847,27 +847,37 @@
               </div>
 
               <!-- F3 (10.19, ADR-1019-3 D1/D4, UPD3 п.2-4): «Бюджеты» —
-                   оба контура + лимит контекста; тумблер «Безлимит по чату»
-                   пишет существующие per-chat ключи = −1 (механизм F2).
-                   Доступен только в контексте чата (per-chat override). -->
+                    оба контура + лимит контекста; тумблер «Безлимит по чату»
+                    пишет существующие per-chat ключи = −1 (механизм F2).
+                    Доступен только в контексте чата (per-chat override).
+                    ASAP-3.1 (T-4061, §17): SPLIT ON — тумблер «Без суточных
+                    квот» (только 4 quota-ключа); Context Policy — отдельный
+                    Context Mode; канальные ключи — вне обоих тумблеров.
+                    SPLIT OFF — прежний объединённый toggle (байт-в-байт). -->
               <div v-if="activeTab === 'mod_budgets'" class="col-span-full card p-4">
                 <div class="flex items-center gap-2 flex-wrap mb-2">
-                  <div class="text-sm font-bold">Безлимит по этому чату</div>
+                  <div class="text-sm font-bold">{{ budgetsSplit ? 'Без суточных квот' : 'Безлимит по этому чату' }}</div>
                   <span v-if="!isChatContext()" class="badge badge-muted">выберите чат</span>
                   <span v-else class="badge" :class="budgetsUnlimitedActive() ? 'badge-ok' : 'badge-muted'">
-                    {{ budgetsUnlimitedActive() ? 'Безлимит (∞)' : 'лимиты активны' }}
+                    {{ budgetsUnlimitedActive() ? (budgetsSplit ? 'квот нет (∞)' : 'Безлимит (∞)') : 'лимиты активны' }}
                   </span>
                   <label class="relative inline-flex items-center cursor-pointer shrink-0 ml-auto">
                     <input type="checkbox" class="sr-only peer"
                            :checked="budgetsUnlimitedActive()"
                            :disabled="!isChatContext() || budgetsUnlimitedBusy"
                            @change="toggleBudgetsUnlimited($event.target.checked)"
-                           aria-label="Безлимит по этому чату">
+                           :aria-label="budgetsSplit ? 'Без суточных квот' : 'Безлимит по этому чату'">
                     <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
                     <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
                   </label>
                 </div>
-                <div class="text-xs text-gray-400">
+                <div class="text-xs text-gray-400" v-if="budgetsSplit">
+                  Включено — этот чат не упирается в суточные квоты (ключ чата и
+                  фоновые воркеры). Контекст ответов управляется отдельно —
+                  режимом «Контекст» выше (Dynamic/Unlimited); потолки каналов
+                  (глобальный контекст/тред) настраиваются в своих блоках.
+                </div>
+                <div class="text-xs text-gray-400" v-else>
                   Включено — этот чат не упирается в суточные лимиты (ключ чата,
                   фон и контекст): всем его лимитам ставится «−1 = безлимит».
                   Выключено — чат снова считается по общим значениям. Действует
@@ -881,6 +891,34 @@
                     <p><b>0, −1 и «Безлимит».</b> Для бюджетов: <b>0</b> — запрет («этому чату тратить нельзя»), <b>−1</b> — безлимит. Для хранения импорта наоборот: <b>0</b> — вечно (удалять переписку нельзя). Для контекста: <b>0</b> — «оставь как глобально», <b>−1</b> — «не резать». Глобальные потолки (100 / 500 000; фон 60 / 300 000) остаются предохранителем для всех чатов — безлимит выдаётся точечно этому чату.</p>
                   </div>
                 </details>
+                <!-- ASAP-3.1 (T-4064, §18/§19): read-only карточка
+                     «Автоматические бюджеты моделей» — только активные слоты;
+                     наследование — компактной строкой; fallback — warning. -->
+                <div v-if="budgetsAuto" class="mt-4 pt-3 border-t border-white/10">
+                  <div class="text-sm font-bold mb-2">Автоматические бюджеты моделей</div>
+                  <div v-if="!(budgetsAuto.slots || []).length" class="text-xs text-gray-500">
+                    Активных моделей не найдено.
+                  </div>
+                  <div v-for="slot in (budgetsAuto.slots || [])" :key="slot.slot"
+                       class="rounded-lg bg-white/5 px-3 py-2 mb-2">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="text-sm font-semibold">{{ slot.label }}</span>
+                      <span v-if="slot.inherited_from" class="badge badge-muted">наследует основную модель</span>
+                      <span v-if="slot.capacity && slot.capacity.fallback_used" class="badge badge-warn">Capacity: не подтверждено</span>
+                      <span v-else-if="slot.capacity" class="badge badge-muted">{{ capacitySourceRu(slot.capacity.source) }}</span>
+                    </div>
+                    <div class="text-xs text-gray-300 mt-1">
+                      {{ humanModel(slot.model) }} · окно {{ humanTokens(slot.capacity && slot.capacity.effective) }}
+                      · доступно {{ humanTokens(slot.budget && slot.budget.effective_input_budget) }}
+                      <span v-if="slot.observed && slot.observed.last != null"> · последний запрос {{ humanTokens(slot.observed.last) }} ({{ utilizationPercent(slot) }}%)</span>
+                    </div>
+                    <div v-if="slot.capacity && slot.capacity.fallback_used" class="text-xs text-amber-300 mt-1">
+                      Размер контекста модели не удалось определить автоматически — используется безопасное резервное значение.
+                      <a href="#/ai" class="underline">Подробнее в расширенных настройках</a>.
+                    </div>
+                  </div>
+                  <div class="text-xs text-gray-500">Цифры определяются автоматически — вводить ничего не нужно.</div>
+                </div>
               </div>
               <!-- A4/T-1207: LLM Провайдеры — блоки ПО МОДУЛЯМ; каждый =
                    base_url + model + api key + «Проверить» (POST /api/llm/test). -->
@@ -2100,6 +2138,21 @@
                           @click="closeModule()" aria-label="Закрыть">✕</button>
                 </header>
                 <div class="modal-body">
+                  <!-- ASAP-3.1 (T-4072, §136/§135): Саммаризация — read-only
+                       «полнота источника» (без ручного input cap на обычном
+                       экране; manual cap — только в «Расширенные системные»). -->
+                  <div v-if="activeModule.id === 'mod_summary' && budgetsAuto
+                              && budgetsAuto.summary_coverage"
+                       class="card p-4 mb-3">
+                    <div class="text-sm font-bold mb-1">Полнота источника</div>
+                    <div class="text-xs text-gray-300">
+                      {{ summaryCoverageLabel() }}
+                    </div>
+                    <div class="text-xs text-gray-400 mt-1">
+                      Режим обработки: {{ budgetsAuto.summary_coverage.l1_chunks > 1 ? 'несколько проходов' : 'один проход' }}
+                      · бюджет: {{ budgetsAuto.summary_coverage.budget_mode === 'manual_cap' ? 'ручное ограничение включено' : 'определено автоматически' }}
+                    </div>
+                  </div>
                   <div v-if="!activeModuleGroups.length" class="text-xs text-gray-500">
                     Параметры модуля ещё не загружены.
                   </div>
@@ -2324,7 +2377,64 @@
             </div>
           </template>
           <template v-else-if="activeTab === 'oversight'">
-            <!-- ═══ Сводка (F-12 C1/C2) — только global admin ═══ -->
+              <!-- ═══ Сводка (F-12 C1/C2) — только global admin ═══ -->
+              <!-- ASAP-3.1 (T-4076, §104/§88): секция «Модели и автобюджеты» —
+                   human-first карточки (формула не первая, детали — под
+                   «Подробнее»); fail-open (§73): ошибка блока — русская
+                   подпись, остальная страница живёт. -->
+              <div class="card glass-panel p-4 col-span-full" data-glass="a"
+                   v-if="uiFlag('ANALYTICS_CONTEXT_BUDGETS_ENABLED')"
+                   data-testid="autobudget-block">
+                <div class="flex items-center gap-2 flex-wrap mb-2">
+                  <div class="text-sm font-bold">Модели и автобюджеты</div>
+                  <span class="text-xs text-gray-500">что система определила автоматически · токены — технические единицы текста модели</span>
+                  <button class="btn-ghost text-sm ml-auto" :disabled="budgetsAutoBusy"
+                          @click="loadBudgetsAuto()">⟳</button>
+                </div>
+                <div v-if="budgetsAutoBusy && !budgetsAuto" class="spinner my-2"></div>
+                <div v-else-if="budgetsAutoError" class="text-xs text-amber-300">
+                  Не удалось загрузить автобюджеты — обновите блок кнопкой ⟳.
+                </div>
+                <div v-else-if="budgetsAuto && (budgetsAuto.slots || []).length"
+                     class="grid gap-2 md:grid-cols-2">
+                  <div v-for="slot in budgetsAuto.slots" :key="slot.slot"
+                       class="rounded-lg bg-white/5 px-3 py-2">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="text-sm font-semibold">{{ slot.label }}</span>
+                      <span class="badge" :class="slotStatus(slot).cls">{{ slotStatus(slot).label }}</span>
+                      <span v-if="slot.inherited_from" class="badge badge-muted">наследует основную модель</span>
+                    </div>
+                    <div class="text-xs text-gray-300 mt-1">
+                      {{ humanModel(slot.model) }} · провайдер: {{ slot.provider === 'generic' ? 'OpenAI-совместимый' : slot.provider }}
+                    </div>
+                    <div class="text-xs text-gray-300">
+                      Окно модели: {{ humanTokens(slot.capacity && slot.capacity.effective) }} —
+                      {{ capacitySourceRu(slot.capacity && slot.capacity.source) }}
+                    </div>
+                    <div class="text-xs text-gray-300">
+                      Доступно для контекста: ~{{ humanTokens(slot.budget && slot.budget.effective_input_budget) }}
+                      <span v-if="slot.observed && slot.observed.last != null"> · последний запрос {{ humanTokens(slot.observed.last) }} ({{ utilizationPercent(slot) }}%)</span>
+                      <span v-if="slot.observed && slot.observed.p95 != null"> · P95 {{ humanTokens(slot.observed.p95) }}</span>
+                    </div>
+                    <div v-if="slot.capacity && slot.capacity.fallback_used"
+                         class="text-xs text-amber-300 mt-1">
+                      Не удалось определить автоматически — используется безопасное резервное значение (16 384). Проверьте подключение модели в расширенных настройках.
+                    </div>
+                    <details class="mt-1 text-xs text-gray-500">
+                      <summary class="cursor-pointer select-none">Подробнее</summary>
+                      <div class="mt-1">Модель: <code class="text-[10px]">{{ slot.model }}</code></div>
+                      <div>Резерв ответа: {{ humanTokens(slot.budget && slot.budget.output_reserve) }} · запас точности: {{ humanTokens(slot.budget && slot.budget.safety_reserve) }}</div>
+                      <div>Охват: {{ slot.coverage_policy === 'exhaustive' ? 'все сообщения выбранного окна' : 'релевантный контекст' }}</div>
+                      <div v-if="slot.observed">Давление: {{ slot.observed.pressure_events || 0 }} · физическое переполнение: {{ slot.observed.physical_overflow_events || 0 }}</div>
+                    </details>
+                  </div>
+                </div>
+                <div v-else-if="budgetsAuto" class="text-xs text-gray-500">Активных text-моделей не найдено.</div>
+                <!-- §135/§134: «Полнота источника» Summary (человекочитаемо). -->
+                <div v-if="summaryCoverageLabel()" class="mt-2 text-xs text-gray-400">
+                  Саммари · полнота источника: {{ summaryCoverageLabel() }}
+                </div>
+              </div>
             <div class="card glass-panel p-4 col-span-full" data-glass="a">
               <div class="flex items-center gap-2 flex-wrap mb-2">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('radar') }}</span> Аналитика</div>
@@ -2597,6 +2707,26 @@
                     <span class="badge badge-info">📻 {{ nostalgiaLabel() }}</span>
                   </div>
                   <!-- Середина: бюджеты/лимиты -->
+                  <!-- ASAP-3.1 (T-4077, §28): компактные строки «Бюджеты
+                       интеллекта» из ЕДИНОГО resolver'а (Status не считает
+                       сам, §29); legacy memoryContext сохранён ниже. -->
+                  <div class="mb-2" v-if="budgetsAuto && (budgetsAuto.slots || []).length">
+                    <div class="flex justify-between text-xs text-gray-400">
+                      <span>Бюджеты интеллекта</span>
+                      <span v-if="(budgetsAuto.warnings || []).length" class="text-amber-300">⚠ есть предупреждения</span>
+                    </div>
+                    <div class="text-xs text-gray-300 mt-1 space-y-0.5">
+                      <div v-for="slot in budgetsAuto.slots" :key="'st-' + slot.slot"
+                           class="flex justify-between gap-2">
+                        <span class="truncate">{{ slot.label }}</span>
+                        <span class="shrink-0">
+                          {{ humanTokens(slot.capacity && slot.capacity.effective) }}
+                          · авто {{ humanTokens(slot.budget && slot.budget.effective_input_budget) }}<template v-if="slot.observed && slot.observed.last != null"> · last {{ humanTokens(slot.observed.last) }}</template><template v-if="slot.capacity && slot.capacity.fallback_used"> · ⚠ резерв</template>
+                        </span>
+                      </div>
+                    </div>
+                    <a href="#/oversight" class="text-xs underline text-violet-300">Полная аналитика →</a>
+                  </div>
                   <div class="mb-2">
                     <div class="flex justify-between text-xs text-gray-400">
                       <span>Бюджет контекста</span>

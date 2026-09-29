@@ -1294,47 +1294,45 @@ class TestBoundaries:
         # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): санкционированная
         # ОТРИЦАТЕЛЬНАЯ Δ каталога — -8 ключей summary_filter_*, -2 группы,
         # -8 env-констант Settings (S1-слой удалён).
-        assert len(pc.REGISTRY) == 483
+        # ASAP-3.1 (ADR-1028-3, санкция spec 10.1): +1 ключ → 484,
+        # categorized 458→459 (ключ в категории models).
+        assert len(pc.REGISTRY) == 484
         assert len({f.name for f in dataclasses.fields(Settings)}) == 423
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 458
+                    if s.category is not None]) == 459
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version(self):
-        assert APP_VERSION == "2.58.36"
+        assert APP_VERSION == "2.58.37"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         assert "v2.58.34" in readme
 
     def test_analytics_docstring_only_changed(self):
         """web/api/analytics.py: S6 меняет только docstring (код эндпоинта —
-        pass-through `build_graph`, D1/ADR-1026-11)."""
-        try:
-            old = subprocess.run(
-                ["git", "show", "pre-round1026-s6:web/api/analytics.py"],
-                cwd=str(ROOT), capture_output=True, text=True,
-                encoding="utf-8", errors="replace", timeout=30)
-        except Exception:      # pragma: no cover - git недоступен
-            pytest.skip("git недоступен — аудит пропущен")
-        if old.returncode != 0:
-            pytest.skip("базовый тег недоступен — аудит пропущен")
-
-        def _strip_docstrings(source: str) -> str:
-            tree = ast.parse(source)
-            for node in ast.walk(tree):
-                if isinstance(node, (ast.Module, ast.ClassDef,
-                                     ast.FunctionDef, ast.AsyncFunctionDef)):
-                    body = node.body
-                    if (body and isinstance(body[0], ast.Expr)
-                            and isinstance(body[0].value, ast.Constant)
-                            and isinstance(body[0].value.value, str)):
-                        node.body = body[1:] or [ast.Pass()]
-            return ast.dump(tree, annotate_fields=True)
-
+        pass-through `build_graph`, D1/ADR-1026-11).
+        ASAP-3.1 (T-4075, санкция spec раздел 8): после S6 добавлены
+        jailbreak-free аддитивные endpoints (`/analytics/prices`+`PUT`,
+        `/analytics/execution/latest`, `/analytics/context-budgets`) —
+        сравнение с тегом S6 заменено АУДИТОМ НАБОРА роутов: все новые
+        маршруты — read-only/global-admin из санкционированного списка."""
+        import re
         current = (ROOT / "web" / "api" / "analytics.py").read_text(
             encoding="utf-8")
-        assert _strip_docstrings(old.stdout) == _strip_docstrings(current)
+        routes = sorted(set(re.findall(
+            r'@analytics_router\.(?:get|post|put|delete|patch)\("([^"]+)"',
+            current)))
+        # Санкционированный набор (S6 + последующие релизы + ASAP-3.1).
+        assert routes == sorted([
+            "/analytics/usage/latest",
+            "/analytics/usage/summary",
+            "/analytics/execution/latest",
+            "/analytics/prices",
+            "/analytics/context-budgets",
+        ]), routes
+        # PUT prices — единственная запись (управление ценами, legacy).
+        assert '@analytics_router.put("/analytics/prices")' in current
 
     def test_forbidden_paths_outside_diff(self):
         # NOTE (A2, ADR-1026-15 D5): `bot.py` исключён — A2 санкционировал там

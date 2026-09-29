@@ -110,9 +110,14 @@ class TestInvariant116:
         # R16 (трактовка S8/ADR-1026-10 D3): одна аддитивная read-only
         # поверхность §111 «расширить backend adapter» — 5 маршрутов
         # (4 F7 + аддитивный GET /analytics/execution/latest).
+        # ASAP-3.1 (T-4075, санкция spec раздел 8): +read-only GET
+        # /analytics/context-budgets (global admin; kill-switch) → 6.
+        # PUT /analytics/prices — единственное исключение (legacy, цены).
         routes = re.findall(r"@analytics_router\.(get|put|post|delete)\(\"([^\"]+)\"",
                             _ANALYTICS)
-        assert len(routes) == 5, f"изменён контракт analytics API: {routes}"
+        assert len(routes) == 6, f"изменён контракт analytics API: {routes}"
+        write_routes = [r for r in routes if r[0] != "get"]
+        assert write_routes == [("put", "/analytics/prices")], write_routes
         assert "/analytics/usage/latest" in _ANALYTICS
         assert "/analytics/usage/summary" in _ANALYTICS
         assert "/analytics/execution/latest" in _ANALYTICS
@@ -155,4 +160,4 @@ class TestAnalyticsFilters:
 class TestVersionBump:
     def test_app_version(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', _SETTINGS)
-        assert m and m.group(1) == "2.58.36", m and m.group(1)
+        assert m and m.group(1) == "2.58.37", m and m.group(1)

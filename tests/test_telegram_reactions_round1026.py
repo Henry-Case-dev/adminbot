@@ -135,11 +135,14 @@ class TestReasonEmojiMap:
         # ASAP-3 (ADR-1028-2 D9, §24): аддитивное расширение standard-набора
         # наборами кандидатов REACT ({😂,🤣}, {👍,👌}, {👍,🔥,❤️}, {🤨,🤔}).
         # База A8 {🗿,😂,👍,🔥} сохранена; порядок fallback не менялся.
+        # ASAP-3.1 (ADR-1028-3 D7, spec Q11): финализация allowed set LLM
+        # REACT — +💀🤡 (целые Telegram reaction emoji) 9→11.
         assert {"🗿", "😂", "👍", "🔥"} <= STANDARD_REACTION_EMOJIS
         assert STANDARD_REACTION_EMOJIS == {
             "🗿", "😂", "👍", "🔥",
-            "🤣", "👌", "❤️", "🤨", "🤔"}
-        assert len(STANDARD_REACTION_EMOJIS) == 9
+            "🤣", "👌", "❤️", "🤨", "🤔",
+            "💀", "🤡"}
+        assert len(STANDARD_REACTION_EMOJIS) == 11
 
     @pytest.mark.parametrize("reason,expected", [
         (REASON_IMAGE_REACTION, REACTION_LAUGH),
@@ -501,17 +504,17 @@ class TestBoundaries:
 
     def test_counts_unchanged(self):
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
-        assert len(pc.REGISTRY) == 483
+        assert len(pc.REGISTRY) == 484
         assert len({f.name for f in dataclasses.fields(Settings)}) == 423
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 458
+                    if s.category is not None]) == 459
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
 
     def test_canon_twelve_and_version(self):
         assert len(TOOL_CALLING_TOOLS) == 12
-        assert APP_VERSION == "2.58.36"
+        assert APP_VERSION == "2.58.37"
 
     def test_kill_switch_env_only_not_catalog(self):
         assert "REACTION_MECHANICS_ENABLED" not in pc.REGISTRY

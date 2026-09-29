@@ -62,7 +62,8 @@ def _asap3_flags_off_by_default(request, monkeypatch):
 
     Патчим ClassVar на ВСЕХ ``Settings``-классах (прецедент
     ``_system2_flags_off_by_default``: часть тестов перезагружает settings)."""
-    if request.node.get_closest_marker("asap3") is not None:
+    if (request.node.get_closest_marker("asap3") is not None
+            or request.node.get_closest_marker("asap31") is not None):
         return
     from config.settings import Settings
     import services.direct_chat_service as _dcs
@@ -74,6 +75,41 @@ def _asap3_flags_off_by_default(request, monkeypatch):
         for _name in (
             "DIRECT_CONTEXT_COMPOSER_ENABLED",
             "DIRECT_SILENT_ACK_ENABLED",
+        ):
+            if hasattr(_cls, _name):
+                monkeypatch.setattr(_cls, _name, False)
+
+
+@pytest.fixture(autouse=True)
+def _asap31_flags_off_by_default(request, monkeypatch):
+    """Изоляция ASAP-3.1 (round 1028, ADR-1028-3): старые тесты (без маркера
+    ``asap31``) идут по прежним бюджетным путям (kill-switch'и OFF —
+    байт-в-байт baseline). Тесты новой функциональности помечаются
+    ``@pytest.mark.asap31`` и работают с прод-дефолтами (ON), точечно
+    доопределяя флаги сценарием. Прецедент — ``_asap3_flags_off_by_default``."""
+    if (request.node.get_closest_marker("asap31") is not None
+            or request.node.get_closest_marker("asap3") is not None):
+        return
+    from config.settings import Settings
+    import services.agentic_events as _ae
+    import services.auto_budget as _ab          # noqa: F401 - импорт для клавдж
+    import services.config_migrations as _cm
+    import services.direct_chat_service as _dcs
+    import services.model_capacity as _mcap
+    import services.summary_hybrid_budget as _shb
+    import services.summary_l1_clusterizer as _sl1
+    classes = {Settings, type(_dcs.settings), type(_mcap.settings),
+               type(_ae.settings), type(_ab.settings), type(_cm.settings),
+               type(_shb.settings), type(_sl1.settings)}
+    for _cls in classes:
+        for _name in (
+            "MODEL_CAPACITY_RESOLVER_ENABLED",
+            "AUTO_BUDGET_RESOLVER_ENABLED",
+            "SUMMARY_COVERAGE_CHUNKING_ENABLED",
+            "DIRECT_LLM_REACTION_ENABLED",
+            "UI_BUDGETS_SPLIT_ENABLED",
+            "ANALYTICS_CONTEXT_BUDGETS_ENABLED",
+            "CONFIG_MIGRATION_INFO_LOGGING_ENABLED",
         ):
             if hasattr(_cls, _name):
                 monkeypatch.setattr(_cls, _name, False)

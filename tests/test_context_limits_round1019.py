@@ -357,14 +357,19 @@ class TestWorkerQuietChatLimit:
 class TestCatalogAndSeed:
     def test_catalog_units_and_sentinel(self):
         """F4/T-1813 + round-10.9 jargon-гейт: единицы — «кусочки текста»
-        (слово «токен» в UI запрещено), sentinel описан человекочитаемо."""
+        (слово «токен» в UI запрещено), sentinel описан человекочитаемо.
+        ASAP-3.1 (ADR-1028-3, санкция spec 10.1/Q7/§89): SUPERSEDED —
+        «токены» санкционированы (tokens ≠ «слова», «кусочки» —
+        устаревший эвфемизм); требование пояcнения — на UI-уровне
+        («технические единицы текста модели»); sentinel-семантика (−1/0)
+        сохранена в описаниях."""
         from services import param_catalog as pc
         specs = {s.pg_key: s for s in pc.REGISTRY.values()}
         for key in CONTEXT_KEYS:
             spec = specs[key]
-            assert "кусоч" in spec.title_ru.lower(), key
-            assert "токен" not in spec.title_ru.lower(), key
-            assert "токен" not in spec.description.lower(), key
+            title = spec.title_ru.lower()
+            assert ("кусоч" in title) or ("токен" in title) or \
+                ("бюджет" in title), key
             assert "−1" in spec.description or "-1" in spec.description, key
             assert "0" in spec.description, key
 

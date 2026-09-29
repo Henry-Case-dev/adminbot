@@ -101,8 +101,12 @@ function token(name) {
   // Safe-area считается ровно один раз — на nav нет offset/padding.
   assert.ok(!/--tg-viewport-bottom-offset/.test(nav[1]),
     'A: nav не использует --tg-viewport-bottom-offset');
-  assert.ok(!/padding-bottom/.test(nav[1]),
-    'A: nav без дублирующего safe-area padding');
+  // ASAP-3.1 (T-4083, §93, ADR-1028-3 Q6): SUPERSEDED — единая модель
+  // геометрии: shell = фактически видимая высота (без guessed-offset),
+  // нижний inset применяется РОВНО ОДИН РАЗ на самой .bottom-nav
+  // (padding-bottom как flex-child) — это НЕ «дублирующий» слой.
+  assert.ok(/padding-bottom:\s*max\(/.test(nav[1]),
+    'A: nav несёт единственный нижний inset (padding-bottom max(...))');
   // Единый источник задаётся в telegram-init.js.
   assert.ok(/--app-usable-height/.test(TG) && /computeBottomOffset/.test(TG),
     'A: telegram-init задаёт --app-usable-height');
@@ -214,7 +218,7 @@ function token(name) {
     assert.ok(APP_JS.indexOf(flag) >= 0, 'D: фронт читает ' + flag);
     assert.ok(ENV.indexOf(flag) >= 0, 'D: .env.example ' + flag);
   }
-  assert.ok(/APP_VERSION = "2\.58\.36"/.test(SETTINGS), 'D: APP_VERSION 2.58.34');
+  assert.ok(/APP_VERSION = "2\.58\.37"/.test(SETTINGS), 'D: APP_VERSION 2.58.34');
   for (const m of ['desktop_normal', 'desktop_fullscreen', 'tablet',
                    'mobile_regular', 'mobile_fullscreen']) {
     assert.ok(MATRIX.indexOf(m) >= 0, 'D: режим ' + m);

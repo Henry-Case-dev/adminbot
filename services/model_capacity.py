@@ -24,10 +24,50 @@ D2 — формула (safety-множитель применяется РОВН
                        >0 → min(available, cap) (явный cap)
 
 Никогда не бросает (R3); все функции — чистые/без I/O, кроме логов.
+
+═══════════════════════════════════════════════════════════════════════════
+ASAP-3.1 (round 1028, ADR-1028-3 D1, spec раздел 3) — Model Capacity Resolver.
+Структурированный резолв по реальной тройке `provider/base_url + model`:
+
+  precedence (детерминированный, §4):
+    1. developer_override — `models.chat_context_window_override` > 0
+       (hot-first; env-слой — прежний `CHAT_MODEL_CONTEXT_WINDOW`);
+    2. runtime — metadata фактического backend (адаптеры локальных рантаймов);
+    3. provider_catalog — каталог провайдера (класс OpenRouter);
+    4. registry — verified internal registry (наследник MODEL_CONTEXT_WINDOWS);
+    5. fallback — консервативный аварийный путь (<=16384) + WARNING
+       `MODEL_CAPACITY_FALLBACK` + метрика; НИКОГДА не «нормальный путь» (§8).
+
+  `effective = min(runtime, provider/model)` (§5); локальный 16K при 128K
+  используется полностью. Кэш по ключу provider/base_url/model/override c
+  TTL (Q9): remote catalogs 24 ч (`MODEL_CAPACITY_CACHE_TTL_SECONDS`),
+  локальные runtime-адаптеры — жёсткий потолок 300 с. Инвалидация §38: ключ
+  включает model/base_url/override → их смена = новый ключ;
+  `invalidate_capacity_cache()` — config reload / explicit refresh.
+
+  Kill-switch `MODEL_CAPACITY_RESOLVER_ENABLED` (env-only, default ON):
+  OFF → функции-legacy ниже работают байт-в-байт по-прежнему (карта + env +
+  fallback 16384; прецедент DIRECT_CONTEXT_COMPOSER_ENABLED).
+
+  Adapters (Q8, только по реальным классам подключений; fail-open, никогда
+  не блокируют резолв — таймаут 2 с, ошибка = «адаптер недоступен»):
+    * OpenRouter (host openrouter.ai) — GET /api/v1/models → `context_length`;
+    * llama.cpp (локальный) — GET /props → `n_ctx`;
+    * Ollama (порт 11434) — GET /api/ps → running `context_length`;
+    * vLLM (локальный) — GET /model_info → `max_model_len` (config
+      introspection); недоступен → registry + developer override (санкция
+      spec Q8; НЕ выдумывать из имени модели).
+  Generic OpenAI-compatible (nano-gpt.com, api.deepseek.com) — adapter
+  отсутствует по определению протокола: registry → fallback; regex-угадывание
+  окна из имени запрещено (§6).
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import re
+import time
+from dataclasses import dataclass
 
 from config.settings import settings
 from services import hot_config as hot
@@ -46,6 +86,11 @@ MODEL_CONTEXT_WINDOWS: dict[str, int] = {
     "deepseek-v3": 131072,
     "deepseek-v2": 131072,
     "deepseek-coder": 131072,
+    # ASAP-3.1 (Q8.1): фактически используемые прод-модели (инцидент §74/§102:
+    # nano-gpt `deepseek/deepseek-v4.1-flash`, fallback `deepseek-flash`) —
+    # раньше не матчились и молча получали 16384.
+    "deepseek-v4": 131072,
+    "deepseek-flash": 131072,
     # OpenAI.
     "gpt-4o-mini": 128000,
     "gpt-4o": 128000,
@@ -117,17 +162,26 @@ def _unknown_window() -> int:
 
 
 def _match_model_window(model_name: str) -> int | None:
-    """Префикс-матч по карте (lower-case); longest-prefix приоритет."""
+    """Префикс-матч по карте (lower-case); longest-prefix приоритет.
+
+    ASAP-3.1: понимает формат `org/model` (OpenAI/OpenRouter-стиль,
+    напр. `deepseek/deepseek-v4.1-flash` → суффикс `deepseek-v4.1-flash`)."""
     name = str(model_name or "").strip().lower()
     if not name:
         return None
-    best_key = ""
-    best_window = None
-    for key, window in MODEL_CONTEXT_WINDOWS.items():
-        if name.startswith(key) and len(key) > len(best_key):
-            best_key = key
-            best_window = int(window)
-    return best_window
+    candidates = [name]
+    if "/" in name:
+        candidates.append(name.rsplit("/", 1)[1])
+    for probe in candidates:
+        best_key = ""
+        best_window = None
+        for key, window in MODEL_CONTEXT_WINDOWS.items():
+            if probe.startswith(key) and len(key) > len(best_key):
+                best_key = key
+                best_window = int(window)
+        if best_window is not None:
+            return best_window
+    return None
 
 
 def resolve_model_context_window(model_name: str | None) -> tuple[int, str]:
@@ -238,10 +292,440 @@ def apply_budget_policy(available: int, raw_budget,
     return min(available, value), "cap"
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# ── ASAP-3.1 (ADR-1028-3 D1): Model Capacity Resolver ──────────────────────
+
+SOURCE_DEVELOPER_OVERRIDE = "developer_override"
+SOURCE_RUNTIME = "runtime"
+SOURCE_PROVIDER_CATALOG = "provider_catalog"
+SOURCE_REGISTRY = "registry"
+SOURCE_FALLBACK = "fallback"
+
+PROVIDER_OPENROUTER = "openrouter"
+PROVIDER_OLLAMA = "ollama"
+PROVIDER_LLAMA_CPP = "llamacpp"
+PROVIDER_VLLM = "vllm"
+PROVIDER_GENERIC = "generic"
+
+# Локальные runtime-адаптеры — жёсткий TTL-потолок (Q9), независимо от env.
+LOCAL_ADAPTER_TTL_SECONDS = 300
+_ADAPTER_TIMEOUT_SECONDS = 2.0
+# Fallback-результаты кэшируются коротко (не долбить недоступный endpoint).
+_FALLBACK_TTL_SECONDS = 300
+
+_PRIVATE_V4_RE = re.compile(
+    r"^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1$|localhost)")
+
+
+def capacity_resolver_enabled() -> bool:
+    """Kill-switch `MODEL_CAPACITY_RESOLVER_ENABLED` (env-only, default ON;
+    резолв per-call; никогда не бросает). OFF → legacy-путь байт-в-байт."""
+    try:
+        return bool(getattr(settings, "MODEL_CAPACITY_RESOLVER_ENABLED", True))
+    except Exception:      # pragma: no cover - защитная ветка
+        return True
+
+
+@dataclass(frozen=True)
+class CapacityResult:
+    """Структура §3: структурированный результат резолва capacity."""
+
+    provider: str
+    model: str
+    declared_context_window: int | None
+    runtime_context_window: int | None
+    effective_context_window: int
+    max_output_tokens: int | None
+    source: str          # developer_override|runtime|provider_catalog|registry|fallback
+    confidence: str      # verified|estimated|fallback
+    resolved_at: float
+    fallback_used: bool
+
+
+# ── Метрики §50 (process-local + grep-able `direct_metric name=…`) ─────────
+_CAPACITY_METRICS: dict[str, int] = {
+    "capacity_fallback_total": 0,
+    "capacity_manual_override_total": 0,
+    "capacity_resolved_total": 0,
+}
+
+
+def capacity_metrics_snapshot() -> dict[str, int]:
+    """Снимок счётчиков §50 (process-local; R17 — только числа)."""
+    return dict(_CAPACITY_METRICS)
+
+
+def _base_url_host(base_url: str) -> str:
+    """R17-safe host из base_url (без пути/ключа/query); '' при ошибке."""
+    try:
+        from urllib.parse import urlsplit
+        parts = urlsplit(str(base_url or ""))
+        return (parts.hostname or "").lower()
+    except Exception:      # pragma: no cover - защитная ветка
+        return ""
+
+
+def _base_url_port(base_url: str) -> int | None:
+    try:
+        from urllib.parse import urlsplit
+        return urlsplit(str(base_url or "")).port
+    except Exception:      # pragma: no cover - защитная ветка
+        return None
+
+
+def detect_provider_class(base_url: str) -> str:
+    """Класс провайдера по base_url (Q8; без сети, детерминированно)."""
+    host = _base_url_host(base_url)
+    if not host:
+        return PROVIDER_GENERIC
+    if "openrouter" in host:
+        return PROVIDER_OPENROUTER
+    port = _base_url_port(base_url)
+    if port == 11434 or host == "ollama" or host.startswith("ollama."):
+        return PROVIDER_OLLAMA
+    if _PRIVATE_V4_RE.match(host) or host.endswith(".local"):
+        return PROVIDER_LLAMA_CPP      # локальный runtime (пробуем /props)
+    return PROVIDER_GENERIC
+
+
+def _developer_override_window() -> int | None:
+    """Override-слой §39: `models.chat_context_window_override` (hot-first;
+    env-слой — прежний `CHAT_MODEL_CONTEXT_WINDOW`). 0/None = Auto;
+    >0 = Developer override; `-1` НИКОГДА не capacity (только policy)."""
+    try:
+        value = hot.get("models.chat_context_window_override",
+                        getattr(settings, "CHAT_MODEL_CONTEXT_WINDOW", None))
+    except Exception:      # pragma: no cover - защитная ветка
+        value = getattr(settings, "CHAT_MODEL_CONTEXT_WINDOW", None)
+    if value is None:
+        return None
+    try:
+        window = int(value)
+    except (TypeError, ValueError):
+        return None
+    return window if window > 0 else None
+
+
+def _ttl_for(provider_class: str) -> int:
+    """Q9: remote catalogs — `MODEL_CAPACITY_CACHE_TTL_SECONDS` (default
+    86400); локальные runtime-адаптеры — потолок 300 с."""
+    try:
+        ttl = int(getattr(settings, "MODEL_CAPACITY_CACHE_TTL_SECONDS",
+                          86400))
+    except Exception:      # pragma: no cover - защитная ветка
+        ttl = 86400
+    ttl = max(1, ttl)
+    if provider_class in (PROVIDER_LLAMA_CPP, PROVIDER_OLLAMA,
+                          PROVIDER_VLLM):
+        return min(ttl, LOCAL_ADAPTER_TTL_SECONDS)
+    return ttl
+
+
+# ── Адаптеры (fail-open, таймаут 2 с, без внешней сети в тестах) ────────────
+
+async def _http_get_json(url: str, *, headers: dict | None = None):
+    """GET → JSON-словарь либо None (любая ошибка/таймаут = «недоступен»)."""
+    try:
+        import httpx
+        async with httpx.AsyncClient(
+                timeout=_ADAPTER_TIMEOUT_SECONDS, follow_redirects=True) as \
+                client:
+            response = await client.get(url, headers=headers or None)
+            if response.status_code != 200:
+                return None
+            data = response.json()
+            return data if isinstance(data, dict) else None
+    except Exception:
+        return None
+
+
+def _strip_v1(base_url: str) -> str:
+    """`http://h:port/v1` → `http://h:port` (для неперекрёстных endpoint'ов)."""
+    raw = str(base_url or "").rstrip("/")
+    return raw[:-3] if raw.endswith("/v1") else raw
+
+
+async def _adapter_openrouter(base_url: str, model: str) -> int | None:
+    """Каталог OpenRouter: `/api/v1/models` → `context_length` (по id)."""
+    data = await _http_get_json("https://openrouter.ai/api/v1/models")
+    items = data.get("data") if isinstance(data, dict) else None
+    if not isinstance(items, list):
+        return None
+    wanted = str(model or "").strip().lower()
+    if not wanted:
+        return None
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("id") or "").strip().lower() == wanted:
+            try:
+                window = int(item.get("context_length"))
+            except (TypeError, ValueError):
+                return None
+            return window if window > 0 else None
+    return None
+
+
+async def _adapter_llama_cpp(base_url: str, model: str) -> int | None:
+    """llama.cpp: `/props` → `n_ctx` (runtime, не training maximum)."""
+    root = _strip_v1(base_url)
+    data = await _http_get_json(f"{root}/props")
+    if not isinstance(data, dict):
+        return None
+    for candidate in (
+            (data.get("default_generation_settings") or {}).get("n_ctx")
+            if isinstance(data.get("default_generation_settings"), dict)
+            else None,
+            data.get("n_ctx"),
+            (data.get("model_metadata") or {}).get("llama.context_length")
+            if isinstance(data.get("model_metadata"), dict) else None,
+    ):
+        try:
+            window = int(candidate)
+        except (TypeError, ValueError):
+            continue
+        if window > 0:
+            return window
+    return None
+
+
+async def _adapter_ollama(base_url: str, model: str) -> int | None:
+    """Ollama: `/api/ps` → running model `context_length`."""
+    root = _strip_v1(base_url)
+    data = await _http_get_json(f"{root}/api/ps")
+    items = data.get("models") if isinstance(data, dict) else None
+    if not isinstance(items, list):
+        return None
+    wanted = str(model or "").strip().lower()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "").strip().lower()
+        if wanted and name and not name.startswith(wanted.split(":")[0]):
+            continue
+        try:
+            window = int(item.get("context_length"))
+        except (TypeError, ValueError):
+            continue
+        if window > 0:
+            return window
+    return None
+
+
+async def _adapter_vllm(base_url: str, model: str) -> int | None:
+    """vLLM config introspection: `/model_info` → `max_model_len`."""
+    for root in (str(base_url or "").rstrip("/"), _strip_v1(base_url)):
+        if not root:
+            continue
+        data = await _http_get_json(f"{root}/model_info")
+        if isinstance(data, dict):
+            try:
+                window = int(data.get("max_model_len"))
+            except (TypeError, ValueError):
+                continue
+            if window > 0:
+                return window
+    return None
+
+
+_LOCAL_ADAPTERS = {
+    PROVIDER_LLAMA_CPP: _adapter_llama_cpp,
+    PROVIDER_OLLAMA: _adapter_ollama,
+}
+
+
+# ── Кэш (ключ provider/base_url/model/override; TTL Q9) ────────────────────
+# Инвалидация §38: model/base_url/override входят в ключ → их смена = промах;
+# `invalidate_capacity_cache()` — config reload / explicit refresh.
+_CACHE: dict[tuple, tuple[CapacityResult, float]] = {}
+
+
+def invalidate_capacity_cache() -> int:
+    """Полная инвалидация кэша capacity (config reload / explicit refresh,
+    кнопка «Обновить» в Advanced diagnostics). Возвращает число записей."""
+    count = len(_CACHE)
+    _CACHE.clear()
+    return count
+
+
+def _cache_key(base_url: str, model: str) -> tuple:
+    provider_class = detect_provider_class(base_url)
+    return (provider_class, _base_url_host(base_url),
+            str(model or "").strip().lower(), _developer_override_window())
+
+
+def _warn_capacity_fallback(result: CapacityResult, base_url: str,
+                            reason: str) -> None:
+    """§8: fallback — аварийный путь, НЕ «нормальный»: WARNING
+    `MODEL_CAPACITY_FALLBACK` (provider, model, base_url class,
+    fallback_window, reason; R17 — без ключей/URL-пути) + счётчик."""
+    _CAPACITY_METRICS["capacity_fallback_total"] += 1
+    logger.warning(
+        "MODEL_CAPACITY_FALLBACK | provider=%s | model=%s | base_url_class=%s "
+        "| fallback_window=%d | reason=%s",
+        result.provider, result.model,
+        detect_provider_class(base_url), result.effective_context_window,
+        reason)
+
+
+async def resolve_capacity(base_url: str, model: str, *,
+                           slot: str | None = None) -> CapacityResult:
+    """Структурированный резолв §3/§4 (async: runtime-адаптеры — HTTP).
+
+    Precedence: developer_override → runtime → provider_catalog → registry →
+    fallback. `effective = min(runtime, provider/model)` (§5). Никогда не
+    бросает; fallback — только аварийно (+ WARNING + метрика), source всегда
+    виден потребителям (badge «Capacity: fallback», §8).
+    """
+    name = str(model or "").strip()
+    provider_class = detect_provider_class(base_url)
+    override = _developer_override_window()
+    key = _cache_key(base_url, name)
+    now = time.time()
+    cached = _CACHE.get(key)
+    if cached is not None:
+        result, expires_at = cached
+        if now < expires_at:
+            return result
+        _CACHE.pop(key, None)
+
+    result = await _resolve_uncached(provider_class, base_url, name,
+                                     override)
+    ttl = _FALLBACK_TTL_SECONDS if result.fallback_used else \
+        _ttl_for(provider_class)
+    _CACHE[key] = (result, now + ttl)
+    # Наблюдаемость §49: событие на актуальный (cache-miss) резолв.
+    try:
+        from services.agentic_events import MODEL_CAPACITY_RESOLVED, \
+            emit_agentic_event
+        if result.source == SOURCE_DEVELOPER_OVERRIDE:
+            _CAPACITY_METRICS["capacity_manual_override_total"] += 1
+        _CAPACITY_METRICS["capacity_resolved_total"] += 1
+        emit_agentic_event(
+            MODEL_CAPACITY_RESOLVED, slot=slot or "unknown", provider=result.provider,
+            model=name[:64] or "-", effective_window=result.effective_context_window,
+            declared_window=result.declared_context_window,
+            runtime_window=result.runtime_context_window,
+            source=result.source, fallback_used=result.fallback_used)
+    except Exception:      # fail-open: наблюдаемость не рвёт резолв
+        pass
+    return result
+
+
+async def _resolve_uncached(provider_class: str, base_url: str, name: str,
+                            override: int | None) -> CapacityResult:
+    """Одна итерация precedence (без кэша; никогда не бросает)."""
+    now = time.time()
+    if override is not None:
+        # §4.1: developer override — escape hatch, приоритет над auto-слоями.
+        return CapacityResult(
+            provider=provider_class, model=name,
+            declared_context_window=None, runtime_context_window=None,
+            effective_context_window=override, max_output_tokens=None,
+            source=SOURCE_DEVELOPER_OVERRIDE, confidence="verified",
+            resolved_at=now, fallback_used=False)
+
+    runtime_window: int | None = None
+    runtime_provider = provider_class
+    # 2) runtime metadata — локальные рантаймы (llama.cpp/Ollama по классу;
+    #    vLLM config introspection пробуется на локальных base_url).
+    if provider_class == PROVIDER_LLAMA_CPP:
+        runtime_window = await _adapter_llama_cpp(base_url, name)
+        if runtime_window is None:
+            # локальный vLLM/другой рантайм: config introspection (Q8.4).
+            runtime_window = await _adapter_vllm(base_url, name)
+            if runtime_window is not None:
+                runtime_provider = PROVIDER_VLLM
+    elif provider_class == PROVIDER_OLLAMA:
+        runtime_window = await _adapter_ollama(base_url, name)
+    elif provider_class == PROVIDER_OPENROUTER:
+        # 3) provider catalog (класс OpenRouter) — context_length каталога.
+        catalog_window = await _adapter_openrouter(base_url, name)
+        if catalog_window is not None:
+            result = CapacityResult(
+                provider=provider_class, model=name,
+                declared_context_window=catalog_window,
+                runtime_context_window=None,
+                effective_context_window=catalog_window,
+                max_output_tokens=None, source=SOURCE_PROVIDER_CATALOG,
+                confidence="verified", resolved_at=now, fallback_used=False)
+            return result
+
+    declared_window = _match_model_window(name)
+    if runtime_window is not None:
+        # §5: effective = min(known runtime limit, known provider/model limit).
+        effective = runtime_window if declared_window is None \
+            else min(runtime_window, declared_window)
+        return CapacityResult(
+            provider=runtime_provider, model=name,
+            declared_context_window=declared_window,
+            runtime_context_window=runtime_window,
+            effective_context_window=effective, max_output_tokens=None,
+            source=SOURCE_RUNTIME, confidence="verified", resolved_at=now,
+            fallback_used=False)
+    if declared_window is not None:
+        return CapacityResult(
+            provider=provider_class, model=name,
+            declared_context_window=declared_window,
+            runtime_context_window=None,
+            effective_context_window=declared_window,
+            max_output_tokens=None, source=SOURCE_REGISTRY,
+            confidence="verified", resolved_at=now, fallback_used=False)
+
+    # 5) fallback — только аварийно (§8): 16384 + WARNING + badge.
+    result = CapacityResult(
+        provider=provider_class, model=name,
+        declared_context_window=None, runtime_context_window=None,
+        effective_context_window=_unknown_window(),
+        max_output_tokens=None, source=SOURCE_FALLBACK,
+        confidence="fallback", resolved_at=now, fallback_used=True)
+    _warn_capacity_fallback(result, base_url,
+                            "unknown_model_no_adapter_data")
+    return result
+
+
+async def resolve_stage_window(base_url: str, model: str, *,
+                               slot: str | None = None
+                               ) -> tuple[int, str]:
+    """Drop-in для потребителей: ``(effective_window, source)``.
+
+    Kill-switch OFF → legacy-путь `resolve_model_context_window` байт-в-байт
+    (карта + env + fallback 16384, источник model_map/env_override/
+    unknown_fallback)."""
+    if not capacity_resolver_enabled():
+        return resolve_model_context_window(model)
+    result = await resolve_capacity(base_url, model, slot=slot)
+    return result.effective_context_window, result.source
+
+
+def fallback_window_for_model(model: str) -> tuple[int, str]:
+    """Окно fallback-модели БЕЗ сети (§14: resolve capacity fallback отдельно
+    перед recompose). Runtime-адаптеры не вызываются — registry/env/fallback;
+    для точного runtime-окна fallback'а используется `resolve_stage_window`."""
+    if not capacity_resolver_enabled():
+        return resolve_model_context_window(model)
+    override = _developer_override_window()
+    if override is not None:
+        return override, SOURCE_DEVELOPER_OVERRIDE
+    mapped = _match_model_window(str(model or ""))
+    if mapped is not None:
+        return mapped, SOURCE_REGISTRY
+    return _unknown_window(), SOURCE_FALLBACK
+
+
 __all__ = [
     "MODEL_CONTEXT_WINDOWS", "WINDOW_SOURCE_MAP", "WINDOW_SOURCE_ENV",
     "WINDOW_SOURCE_FALLBACK", "OUTPUT_RESERVE_FLOOR",
     "resolve_model_context_window", "resolve_effective_window",
     "output_reserve_tokens", "compute_available_budget",
     "apply_budget_policy",
+    # ASAP-3.1 (ADR-1028-3): structured capacity resolver.
+    "SOURCE_DEVELOPER_OVERRIDE", "SOURCE_RUNTIME", "SOURCE_PROVIDER_CATALOG",
+    "SOURCE_REGISTRY", "SOURCE_FALLBACK",
+    "PROVIDER_OPENROUTER", "PROVIDER_OLLAMA", "PROVIDER_LLAMA_CPP",
+    "PROVIDER_VLLM", "PROVIDER_GENERIC",
+    "CapacityResult", "LOCAL_ADAPTER_TTL_SECONDS",
+    "capacity_resolver_enabled", "detect_provider_class",
+    "invalidate_capacity_cache", "capacity_metrics_snapshot",
+    "resolve_capacity", "resolve_stage_window", "fallback_window_for_model",
 ]

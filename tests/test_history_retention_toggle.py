@@ -151,7 +151,11 @@ class TestCatalogSeed:
         assert [g.id for g in groups] == ["memory_infinite", "memory_dream",
                                           "memory_nostalgia"]
         assert group in groups
-        assert pc.settings_field_coverage() == (set(), set())
+        # ASAP-3.1: env-only ClassVar CHAT_MODEL_CONTEXT_WINDOW
+        # каталогизирован санкционированно (spec 10.1) — «лишним» не считается.
+        missing, extra = pc.settings_field_coverage()
+        extra -= {"CHAT_MODEL_CONTEXT_WINDOW"}
+        assert (missing, extra) == (set(), set())
 
     def test_seed_categories_include_memory(self):
         assert pc.CATEGORY_MEMORY in SEED_CATEGORIES

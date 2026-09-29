@@ -113,10 +113,16 @@ REACTION_OK_HAND = "👌"
 REACTION_HEART = "❤️"
 REACTION_SKEPTIC = "🤨"
 REACTION_THINK = "🤔"
+# ASAP-3.1 (ADR-1028-3 D7, spec Q11): финализация allowed set LLM REACT —
+# аддитивное расширение стандарта (9→11, целые Telegram reaction emoji).
+# Только исполнитель `react_moai` учитывает их в `_reaction_candidates`;
+# детерминированные наборы/порядок fallback НЕ меняются (legacy байт-в-байт).
+REACTION_SKULL = "💀"
+REACTION_CLOWN = "🤡"
 STANDARD_REACTION_EMOJIS = frozenset(
     {REACTION_DEFAULT, REACTION_LAUGH, REACTION_APPROVE, REACTION_FIRE,
      REACTION_LAUGH_ALT, REACTION_OK_HAND, REACTION_HEART, REACTION_SKEPTIC,
-     REACTION_THINK})
+     REACTION_THINK, REACTION_SKULL, REACTION_CLOWN})
 # Детерминированный порядок альтернатив (без случайности — REQ-A8-09).
 REACTION_FALLBACK_ORDER = (REACTION_LAUGH, REACTION_APPROVE, REACTION_FIRE,
                            REACTION_DEFAULT)

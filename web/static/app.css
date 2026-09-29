@@ -2253,13 +2253,19 @@
     /* Bottom-nav (<768): ≤4 пункта, тач ≥44×44.
        HOTFIX9 (ADR-1025-17 D1/D2, T-2798/T-2800): панель — ПОСЛЕДНИЙ flex-child
        колонки, НЕ отдельный fixed-слой. Нижний safe-area учтён РОВНО ОДИН РАЗ —
-       внутри `computeBottomOffset` → `--app-usable-height`; дублирующий
-       `bottom`/`padding-bottom` на панели убран. Старые fixed/bottom-offset
-       правила удалены (flex и offset одновременно не используются). */
+       теперь (ASAP-3.1, T-4083, §93) на САМОЙ панели как flex-child:
+       shell = фактически видимая высота (без guessed-offset), панель поднимает
+       labels над системной зоной собственным padding-bottom. Инварианты §94:
+       rect.top ≥ 0; rect.bottom ≤ visible bottom; icon/label видны; main
+       (flex-1) структурно не под nav. */
     .bottom-nav {
       position: relative; inset: auto;
       flex: 0 0 auto; width: 100%;
       display: flex; align-items: stretch; justify-content: space-around;
+      /* §93: safe/content inset применяется РОВНО ОДИН РАЗ — здесь. */
+      padding-bottom: max(env(safe-area-inset-bottom, 0px),
+                          var(--tg-safe-area-inset-bottom, 0px),
+                          var(--tg-content-safe-area-inset-bottom, 0px));
       /* shell-слой — графитовый (ADR-1025-17 D4), единый с sidebar/drawer;
          БЕЗ диагональной текстуры (--shell-texture удалена, UPD3 §7). */
       background-color: var(--shell-bg);
@@ -2271,6 +2277,12 @@
       -webkit-backdrop-filter: var(--shell-blur);
       backdrop-filter: var(--shell-blur);
       max-width: 100vw;
+    }
+    /* §98: sticky SaveBar/контент не прячутся под панелью — scroll-padding
+       у единственного скроллера учитывает реальную высоту панели. */
+    .app-shell.shell-mobile:not(.shell-layout-legacy) > main.scroll-area,
+    .app-shell.fullscreen-mode:not(.shell-layout-legacy) > main.scroll-area {
+      scroll-padding-bottom: calc(72px + 1rem);
     }
     /* Legacy-откат (UI_SHELL_FLEX_V3=OFF): прежнее fixed-позиционирование с
        компенсацией `--tg-viewport-bottom-offset` (panel-only safe-area). */

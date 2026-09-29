@@ -104,7 +104,12 @@ def _build_plan(settings, args) -> list[dict]:
         if excluded(spec):
             continue
         source = "env" if os.environ.get(spec.env_name) is not None else "default"
-        raw = getattr(settings, spec.settings_field)
+        # ASAP-3.1: каталог включает env-only ClassVar (напр. CHAT_MODEL_
+        # CONTEXT_WINDOW) — их нет среди dataclass-полей инстанса/фейка;
+        # отсутствие поля = «нет значения для миграции» (fail-open).
+        raw = getattr(settings, spec.settings_field, None)
+        if raw is None and not os.environ.get(spec.env_name):
+            continue
         value = coerce_catalog_value(spec, raw)
         plan.append({
             "pg_key": spec.pg_key,

@@ -231,15 +231,29 @@ const AF = global.window.__AuroraFlow;
 /* ── D. Source-инварианты (детерминизм/палитра/перф/CSP) ─────────────────── */
 {
   // Детерминизм §5.
-  assert.ok(/var SEED = 20260923/.test(POLY), 'D: фиксированный SEED');
+  // ASAP-3.1 (T-4081, §63): production seed — crypto RNG на загрузку
+  // (каждая сессия — новая композиция); SEED-константа сохранена как
+  // крайний fallback; `?bgseed`/start({seed}) — deterministic tests.
+  assert.ok(/var SEED = 20260923/.test(POLY), 'D: fallback SEED сохранён');
+  assert.ok(/getRandomValues/.test(POLY), 'D: crypto scene seed (§63)');
+  assert.ok(/bgseed/.test(POLY), 'D: test-оверрайд ?bgseed (§63)');
   assert.ok(/function mulberry32/.test(POLY), 'D: собственный ГПСЧ mulberry32');
   assert.ok(!/Math\.random\s*\(/.test(POLY), 'D: Math.random() запрещён');
-  assert.ok(POLY.indexOf('SEED') >= 0 && POLY.indexOf('mulberry32(SEED)') >= 0,
-    'D: сцена строится из SEED');
+  assert.ok(POLY.indexOf('mulberry32(st.sceneSeed)') >= 0,
+    'D: сцена строится детерминированно из sceneSeed');
   // Бюджеты узлов §6.1 + топология/амплитуда/DPR §6.4/§9/§13.
   assert.ok(/NODES_DESKTOP = 110/.test(POLY), 'D: desktop 110 (90–140)');
   assert.ok(/NODES_MOBILE = 55/.test(POLY), 'D: mobile 55 (45–75)');
-  assert.ok(/TOPO_HZ = 4/.test(POLY), 'D: топология ≤4 Гц');
+  // ASAP-3.1 (T-4080, §59): 4 Hz-rebuild УСТРАНЁН (первопричина мерцания):
+  // rebuild редкий — displacement threshold / раз в десятки секунд,
+  // crossfade 4 с, пол яркости 0.85.
+  assert.ok(!/TOPO_HZ/.test(POLY), 'D: 4 Hz-rebuild устранён (§59)');
+  assert.ok(/TOPO_MIN_INTERVAL_MS = 30000/.test(POLY),
+    'D: rebuild не чаще ~30 с');
+  assert.ok(/TOPO_DRIFT_THRESHOLD_PX/.test(POLY),
+    'D: rebuild по displacement threshold');
+  assert.ok(/0\.85 \+ 0\.15 \* st\.topoFade/.test(POLY),
+    'D: пол яркости граней 0.85 (без гашения mesh)');
   assert.ok(/AMP_MIN_PX = 4/.test(POLY) && /AMP_MAX_PX = 18/.test(POLY),
     'D: амплитуда 4–18 px');
   assert.ok(/DPR_CAP_DESKTOP = 2/.test(POLY) && /DPR_CAP_MOBILE = 1\.5/.test(POLY),
@@ -360,8 +374,22 @@ const AF = global.window.__AuroraFlow;
     'F: дрейф световых центров §8.2 (x) не тронут');
   assert.ok(/Math\.cos\(t \* 0\.038 \+ cl\.ph \* 1\.3\)/.test(POLY),
     'F: дрейф световых центров §8.2 (y) не тронут');
-  // §6.4/SC-15: топология остаётся ≤4 Гц (не часть «мерцания свечения»).
-  assert.ok(/TOPO_HZ = 4/.test(POLY), 'F: топология ≤4 Гц не изменена');
+  // §6.4/SC-15 (ИСТОРИЧ): топология ≤4 Гц.
+  // ASAP-3.1 (T-4080, §58–§59): SUPERSEDED — 4 Hz-rebuild был первопричиной
+  // мерцания; теперь редкий rebuild (displacement threshold / ≥30 с),
+  // crossfade 4 с, пол яркости 0.85; §60-амплитуды снижены (узлы
+  // не «лампочки»: база 0.85, свинг 0.10; halo 0.30+0.05).
+  assert.ok(!/TOPO_HZ/.test(POLY), 'F: 4 Hz-rebuild устранён (§59)');
+  assert.ok(/TOPO_CROSSFADE_MS = 4000/.test(POLY),
+    'F: редкая смена — плавный crossfade (§59)');
+  assert.ok(/0\.85 \+ 0\.10 \* nc\.pulse/.test(POLY),
+    'F: узлы не «лампочки» — база 0.85, свинг 0.10 (§60)');
+  assert.ok(/0\.30 \+ 0\.05 \* nd\.pulse/.test(POLY),
+    'F: halo амплитуда снижена (§60)');
+  assert.ok(/driftX|sceneCenterX/.test(POLY),
+    'F: глобальный медленный дрейф сцены (§65)');
+  assert.ok(/topologyRebuilds/.test(POLY) && /sceneSeed/.test(POLY),
+    'F: diagnostics §69 (sceneSeed/topologyRebuilds)');
 }
 
 console.log('POLYGON-LUMINESCENCE-OK');

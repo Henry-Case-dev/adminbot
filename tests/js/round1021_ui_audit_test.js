@@ -246,11 +246,13 @@ const CSS = fs.readFileSync(
     APP_JS.indexOf('];', APP_JS.indexOf('var NAV_ITEMS = [')));
   const navCount = (navBlock.match(/route:\s*'#/g) || []).length;
   assert.strictEqual(navCount, 6, 'меню: legacy NAV_ITEMS = ровно 6 (OFF)');
-  // F1 (T-2393, SUPERSEDE): новая IA — NAV_ITEMS_V2 = 7 пунктов.
+  // F1 (T-2393, SUPERSEDE): новая IA — NAV_ITEMS_V2 = 8 пунктов.
   const v2Block = APP_JS.slice(APP_JS.indexOf('var NAV_ITEMS_V2 = ['),
     APP_JS.indexOf('];', APP_JS.indexOf('var NAV_ITEMS_V2 = [')));
-  const v2Count = (v2Block.match(/route:\s*'#/g) || []).length;
-  assert.strictEqual(v2Count, 7, 'меню: NAV_ITEMS_V2 = ровно 7 (ON)');
+  const v2Count = (v2Block.match(/id: '/g) || []).length;
+  // ASAP-3.1 (T-4082, ADR-1028-3 D8): +oversight («Аналитика» возвращена
+  // в навигацию IA v2; один route #/oversight) → ровно 8 (ON).
+  assert.strictEqual(v2Count, 8, 'меню: NAV_ITEMS_V2 = ровно 8 (ON)');
 }
 
 // ── 7. Регресс round 10.21 (T-1998): _syntheticGroup — метод, не computed ───

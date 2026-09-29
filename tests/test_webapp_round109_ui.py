@@ -28,10 +28,13 @@ PROBE = (ROOT / "services" / "llm_probe.py").read_text(encoding="utf-8")
 # §4.2.2: запрещённые подстроки в title_ru/description (нижний регистр).
 # MEDIUM-3: правило применяется и к заголовкам, и к описаниям (§4.3).
 FORBIDDEN = (
-    "rag", "llm", "stt", "tts", "api", "json", "токен", "ttl", "backoff",
+    "rag", "llm", "stt", "tts", "api", "json", "ttl", "backoff",
     "jitter", "mmr", "wal", "hmac", "ssrf", "ddl", "regex", "cron",
     "semaphore", "url", "cookie", "webhook", "prompt", "embedding", "id8",
     "vector", "graphrag", "дайджест",
+    # ASAP-3.1 (ADR-1028-3, санкция spec 10.1/Q7/§89): «токены» УБРАНЫ из
+    # запрещённых — санкционированные labels используют «токены» (tokens ≠
+    # «слова») с однократным пояснением «технические единицы текста модели».
 )
 
 
@@ -222,7 +225,7 @@ class TestCatalog109:
         # +2 GROUPS, +2 mapped, +1 TAB_RULES → 437/92/90/20/407.
         # 10.23 (F5/ADR-1023-5 D5): +5/+3/+3 → 446/95/93/20/416.
         # 10.24 (F21/ADR-1024-22 D8): +1/+1/+1 → 459/98/96/20/418.
-        assert len(pc.REGISTRY) == 483
+        assert len(pc.REGISTRY) == 484
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21

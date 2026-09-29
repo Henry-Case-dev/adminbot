@@ -61,8 +61,8 @@ class TestNavigationSnapshot:
         v2 = re.findall(
             r"id:\s*'(\w+)',\s*label:\s*'[^']+',\s*route:\s*'#/",
             APP_JS[APP_JS.index("var NAV_ITEMS_V2 = ["):])
-        assert v2[:7] == ["status", "how", "modules", "ai", "memory",
-                          "access", "permsoc"]
+        assert v2[:8] == ["status", "how", "modules", "ai", "memory",
+                          "oversight", "access", "permsoc"]
         # Состав MODULES (12 модулей + «Генерация изображений») — F5 (10.24).
         mods = re.findall(r"\{ id: '(mod_[a-z_]+)',",
                           APP_JS[APP_JS.index("var MODULES = ["):])
@@ -247,7 +247,7 @@ class TestHumanReadableLabels:
         # 10.23 (F5/ADR-1023-5 D5): рост каталога — отдельная фича → 446/95.
         # 10.24 (F21/ADR-1024-22 D8): +1 REGISTRY/GROUPS (BUDGETS_ENABLED,
         # flags_module_budgets) → 459/98.
-        assert len(pc.REGISTRY) == 483
+        assert len(pc.REGISTRY) == 484
         assert len(pc.GROUPS) == 105
 
 

@@ -49,6 +49,15 @@ from services.summary_hybrid_budget import (
     hybrid_output_reserve_tokens,
     resolve_hybrid_context_budget,
 )
+# ── ASAP-3.1 (round 1028, ADR-1028-3 D3): Auto-бюджет + lossless chunking ──
+from services import auto_budget as _auto_budget
+from services import model_capacity as _model_capacity
+from services.summary_budget_auto import (
+    BUDGET_MODE_AUTO,
+    BUDGET_MODE_LEGACY_STATIC,
+    BUDGET_MODE_MANUAL_CAP,
+    resolve_l1_effective_budget,
+)
 from services.summary_l1_contract import (
     REASON_BAD_SCHEMA_VERSION,
     REASON_BAD_TYPE,
@@ -75,6 +84,7 @@ from services.summary_l1_contract import (
     error_result,
     invalid_result,
     parse_l1_response,
+    _make_result,
     validate_l1_response,
 )
 from services.summary_l1_repair import repair_l1
@@ -572,9 +582,345 @@ def resolve_l1_budget(*, hot_get=None, settings_obj=None) -> tuple[str, int]:
     ``resolve_hybrid_context_budget``). Токенный приоритет + аварийный
     chars-fallback — штатная семантика ``resolve_chat_limit``;
     per-chat-резолв — при врезке в генераторе (ctx-слой `_chat_limit`).
+
+    ASAP-3.1: live-путь run_l1 идёт через ``resolve_l1_effective_budget``
+    (Auto/manual-cap/static); функция сохранена для совместимости/тестов.
     """
     return resolve_hybrid_context_budget(hot_get=hot_get,
                                          settings_obj=settings_obj)
+
+
+# ── ASAP-3.1 (ADR-1028-3 D3, §118–§146): lossless chunking + coverage ──────
+
+def summary_coverage_chunking_enabled() -> bool:
+    """Kill-switch `SUMMARY_COVERAGE_CHUNKING_ENABLED` (env-only, default ON;
+    резолв per-call; никогда не бросает). OFF → прежний single-pass pack
+    (семантика «L1 truncated … skipped=…») байт-в-байт."""
+    try:
+        return bool(getattr(settings, "SUMMARY_COVERAGE_CHUNKING_ENABLED",
+                            True))
+    except Exception:      # pragma: no cover - защитная ветка
+        return True
+
+
+# Coverage последнего прогона (process-local, §127/§135; R17 — числа/enum).
+# НЕ вторая система usage — read-side витрина для Analytics/Summary UI (§24).
+_LAST_RUN_COVERAGE: dict | None = None
+
+
+def last_run_coverage() -> dict | None:
+    """Снапшот покрытия последнего L1-прогона (или None)."""
+    return dict(_LAST_RUN_COVERAGE) if _LAST_RUN_COVERAGE else None
+
+
+def _record_run_coverage(*, source_total: int, processed: int, chunks: int,
+                         unprocessed: int, budget_mode: str,
+                         coverage_percent: float, window_start=None,
+                         window_end=None, reason: str | None = None,
+                         duplicate_overlap: int = 0) -> None:
+    global _LAST_RUN_COVERAGE
+    try:
+        _LAST_RUN_COVERAGE = {
+            "source_window_start": window_start,
+            "source_window_end": window_end,
+            "source_messages_total": int(source_total),
+            "source_messages_processed": int(processed),
+            "source_messages_unprocessed": int(unprocessed),
+            "l1_chunks": int(chunks),
+            # §127 (M-ASAP31-1 rework): фактическое число overlap-дубликатов
+            # (сообщений, попавших в >1 chunk по reply-continuity).
+            "duplicate_overlap_messages": int(duplicate_overlap),
+            "coverage_percent": round(float(coverage_percent), 2),
+            "budget_mode": str(budget_mode),
+            "reason": reason,
+        }
+    except Exception:      # pragma: no cover - защитная ветка
+        pass
+
+
+def _emit_chunked(source_total: int, processed: int, chunks: int,
+                  coverage_percent: float) -> None:
+    try:
+        from services.agentic_events import SUMMARY_L1_CHUNKED, \
+            emit_agentic_event
+        emit_agentic_event(
+            SUMMARY_L1_CHUNKED, source_messages=int(source_total),
+            processed_messages=int(processed), chunks=int(chunks),
+            coverage=round(float(coverage_percent), 2))
+    except Exception:      # fail-open
+        pass
+
+
+def _emit_coverage_degraded(source_total: int, processed: int,
+                            unprocessed: int, chunks: int,
+                            coverage_percent: float, reason: str) -> None:
+    try:
+        from services.agentic_events import SUMMARY_COVERAGE_DEGRADED, \
+            emit_agentic_event
+        emit_agentic_event(
+            SUMMARY_COVERAGE_DEGRADED, source_messages=int(source_total),
+            processed_messages=int(processed),
+            unprocessed_messages=int(unprocessed), chunks=int(chunks),
+            coverage=round(float(coverage_percent), 2), reason=str(reason))
+    except Exception:      # fail-open
+        pass
+    logger.warning(
+        "SUMMARY_COVERAGE_DEGRADED | source_messages=%d | processed=%d | "
+        "unprocessed=%d | chunks=%d | coverage=%.2f | reason=%s",
+        source_total, processed, unprocessed, chunks, coverage_percent,
+        reason)
+
+
+def merge_l1_payloads(payloads: list[dict]) -> dict:
+    """Детерминированный merge §95-v2 payload'ов нескольких chunk-прогонов
+    (§124/§126, без дополнительного LLM-вызова):
+
+      * темы с пересечением ``message_ids`` (overlap-свидетельства) → одна
+        связная тема (union message_ids, дедуп фактов по тексту + union
+        evidence — stable-ID дедупликация §121);
+      * темы без пересечений остаются раздельными (не «склеиваем» разное);
+      * перенумерация ``thread_id``, ASC-порядок по первому сообщению;
+      * ``unassigned_message_ids`` = union − упомянутые в темах.
+
+    Никогда не бросает; пустой вход → ``{}``."""
+    threads: list[dict] = []
+    for payload in payloads or []:
+        if not isinstance(payload, dict):
+            continue
+        for thread in payload.get("threads") or []:
+            if isinstance(thread, dict) and thread.get("topic"):
+                threads.append(thread)
+    # ── Темы с пересечением ID → union (cross-chunk theme merge, §124) ──
+    merged: list[dict] = []
+    for thread in threads:
+        ids = {mid for mid in (thread.get("message_ids") or [])
+               if isinstance(mid, int)}
+        target = None
+        for candidate in merged:
+            if ids & {mid for mid in candidate["message_ids"]}:
+                target = candidate
+                break
+        if target is None:
+            merged.append({
+                "topic": str(thread.get("topic") or ""),
+                "message_ids": list(ids),
+                "facts": [dict(f) for f in (thread.get("facts") or [])],
+            })
+            continue
+        target["message_ids"] = sorted(set(target["message_ids"]) | ids)
+        existing_keys = {str(f.get("text") or "") for f in target["facts"]}
+        for fact in thread.get("facts") or []:
+            key = str(fact.get("text") or "")
+            if key in existing_keys:
+                for old in target["facts"]:
+                    if str(old.get("text") or "") == key:
+                        for eid in (fact.get("evidence_message_ids") or []):
+                            if eid not in old["evidence_message_ids"]:
+                                old["evidence_message_ids"].append(eid)
+                        break
+            else:
+                target["facts"].append(dict(fact))
+                existing_keys.add(key)
+    if not merged:
+        # Нет тем — объединяем только unassigned (все id в один payload).
+        unassigned: list[int] = []
+        for payload in payloads or []:
+            if not isinstance(payload, dict):
+                continue
+            for mid in payload.get("unassigned_message_ids") or []:
+                if isinstance(mid, int) and mid not in unassigned:
+                    unassigned.append(mid)
+        return {"schema_version": 2, "threads": [],
+                "unassigned_message_ids": sorted(unassigned)}
+    # ── Канонизация: сортировка ASC по числовому id, перенумерация ──
+    for thread in merged:
+        thread["message_ids"] = sorted(
+            thread["message_ids"],
+            key=lambda mid: (mid if isinstance(mid, int) else 0))
+        thread["facts"] = [
+            {"text": f.get("text"),
+             "evidence_message_ids": sorted(
+                 {eid for eid in (f.get("evidence_message_ids") or [])
+                  if isinstance(eid, int)})}
+            for f in thread["facts"] if f.get("text")]
+    merged.sort(key=lambda t: (t["message_ids"][0] if t["message_ids"]
+                               else 0))
+    mentioned: set[int] = set()
+    for thread in merged:
+        mentioned.update(thread["message_ids"])
+        for fact in thread["facts"]:
+            mentioned.update(fact["evidence_message_ids"])
+    unassigned: list[int] = []
+    for payload in payloads or []:
+        if not isinstance(payload, dict):
+            continue
+        for mid in payload.get("unassigned_message_ids") or []:
+            if isinstance(mid, int) and mid not in mentioned \
+                    and mid not in unassigned:
+                unassigned.append(mid)
+    threads_out = []
+    for number, thread in enumerate(merged, start=1):
+        threads_out.append({
+            "thread_id": "T%d" % number,
+            "topic": thread["topic"],
+            "message_ids": thread["message_ids"],
+            "facts": thread["facts"],
+        })
+    payload = {
+        "schema_version": 2,
+        "threads": threads_out,
+        "unassigned_message_ids": sorted(unassigned),
+    }
+    # Служебные поля (response_mode/cover_prompt) — из первого payload'а,
+    # где есть (изоляция L2-контента не меняется).
+    for key in ("response_mode", "cover_prompt"):
+        for raw in payloads or []:
+            if isinstance(raw, dict) and raw.get(key):
+                payload[key] = raw[key]
+                break
+    return payload
+
+
+async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
+                           kind: str, limit: int, system_prompt: str,
+                           llm_call, focus_block, budget_mode: str,
+                           started: float, slot) -> L1Result:
+    """Overflow-путь §120/§125: полный source set → lossless partition →
+    L1 по каждому фрагменту → детерминированный merge → L2 (вызывает
+    вызывающий контур). Каждый source ID ≥1 primary chunk (§121);
+    overlap соседних фрагментов (1 сообщение, §121/§122 reply-continuity)
+    дедуплицируется merge'ем по stable ID; oversized-одиночное сообщение →
+    свой chunk (verbatim, без text[:N]; §123 — полное сообщение не режется).
+
+    Партиционирование — по РЕАЛЬНОМУ serialized §92-размеру (тот же учёт,
+    что в pack_l1_input), поэтому каждый chunk гарантированно помещается в
+    бюджет и рекурсивный прогон НЕ эвоо-труncatится. Число LLM-вызовов
+    определяется физикой (§125), НЕ искусственным бюджетом. Любой провал
+    chunk-прогона → ``error_result`` (LEVEL-2 fallback-пакет строится
+    вызывающим контуром из ПОЛНОГО набора — §140/§141 chronology-инвариант)."""
+    source_rows = _sort_rows(list(rows or []))
+    source_total = len(source_rows)
+    # §127 (M-ASAP31-1 rework): окно прогона и overlap-дубликаты —
+    # реальные значения (не заглушки).
+    window_start = min((_row_ts(r) for r in source_rows), default=None)
+    window_end = max((_row_ts(r) for r in source_rows), default=None)
+    partitions, overlap_count = _partition_lossless(source_rows, chat_id,
+                                                    limit, kind)
+    if len(partitions) <= 1:
+        # Не должен случиться (вызов только после truncated), но fail-open
+        # к одному проходу без дробления (§125: happy path не дробится).
+        return await run_l1(llm=llm, rows=rows, chat_id=chat_id,
+                            correlation_id=correlation_id,
+                            budget=(kind, limit),
+                            system_prompt=system_prompt, llm_call=llm_call,
+                            focus_block=focus_block, _allow_chunking=False)
+    results: list[L1Result] = []
+    processed_ids: set = set()
+    for partition in partitions:
+        result = await run_l1(
+            llm=llm, rows=partition, chat_id=chat_id,
+            correlation_id=correlation_id, budget=(kind, limit),
+            system_prompt=system_prompt, llm_call=llm_call,
+            focus_block=focus_block, _allow_chunking=False)
+        results.append(result)
+        if result.usable:
+            for thread in (result.payload or {}).get("threads") or []:
+                processed_ids.update(thread.get("message_ids") or [])
+            processed_ids.update(
+                (result.payload or {}).get("unassigned_message_ids") or [])
+    usable_results = [r for r in results if r.usable]
+    chunks_total = len(partitions)
+    duration = (time.perf_counter() - started) * 1000.0
+    if not usable_results:
+        # §139: timeout ≠ drop; §140/§141: fallback — ПОЛНЫЙ source set
+        # (LEVEL-2 у вызывающего). Явный degraded, не тихий успех.
+        _record_run_coverage(
+            source_total=source_total,
+            processed=len(processed_ids),
+            chunks=chunks_total,
+            unprocessed=max(0, source_total - len(processed_ids)),
+            budget_mode=budget_mode, coverage_percent=0.0,
+            window_start=window_start, window_end=window_end,
+            reason="chunk_run_failed",
+            duplicate_overlap=overlap_count)
+        _emit_coverage_degraded(
+            source_total, len(processed_ids),
+            max(0, source_total - len(processed_ids)), chunks_total, 0.0,
+            "chunk_run_failed")
+        first = results[0] if results else None
+        reason = (first.invalid_reason if first is not None else None) \
+            or REASON_LLM_ERROR
+        return error_result(reason, duration_ms=duration)
+    merged_payload = merge_l1_payloads(
+        [r.payload for r in usable_results])
+    unassigned_count = len(
+        merged_payload.get("unassigned_message_ids") or [])
+    threads_out = merged_payload.get("threads") or []
+    facts_count = sum(len(t.get("facts") or []) for t in threads_out)
+    merged = _make_result(
+        STATUS_OK, payload=merged_payload, threads=len(threads_out),
+        facts=facts_count, auto_unassigned=unassigned_count,
+        duration_ms=duration, skipped_ids=(), skipped_tg_ids=(),
+        truncated=False, chunk_count=chunks_total)
+    coverage = 100.0 if source_total == 0 else \
+        min(100.0, 100.0 * len(processed_ids) / max(1, source_total))
+    _record_run_coverage(
+        source_total=source_total, processed=len(processed_ids),
+        chunks=chunks_total,
+        unprocessed=max(0, source_total - len(processed_ids)),
+        budget_mode=budget_mode, coverage_percent=coverage,
+        window_start=window_start, window_end=window_end,
+        reason=None if coverage >= 100.0 else "chunk_merge_partial",
+        duplicate_overlap=overlap_count)
+    # §128: успешный chunked-run = `SUMMARY_L1_CHUNKED`, НЕ «skipped».
+    _emit_chunked(source_total, len(processed_ids), chunks_total, coverage)
+    logger.info(
+        "SUMMARY_L1_CHUNKED | run_id=%s | chat_id=%s | source_messages=%d | "
+        "processed_messages=%d | chunks=%d | coverage=%.2f%% | "
+        "budget_mode=%s",
+        correlation_id or "none", chat_id, source_total,
+        len(processed_ids), chunks_total, coverage, budget_mode)
+    return merged
+
+
+def _partition_lossless(rows: list, chat_id, limit: int, kind: str
+                        ) -> tuple[list, int]:
+    """Lossless-партиция полного source set по serialized §92-размеру
+    (§120/§121). Хронологический ASC; каждое сообщение ≥1 primary chunk;
+    overlap = 1 сообщение (reply-continuity §122, дедуп на merge);
+    oversized-одиночное сообщение → свой chunk БЕЗ text[:N] (§123:
+    «нельзя просто обрезать» — verbatim целиком; физически невлезающее
+    одиночное сообщение ловится на стороне chunk-прогона как overflow).
+
+    Возвращает ``(partitions, overlap_count)`` — §127 (M-ASAP31-1 rework):
+    overlap_count = число сообщений, попавших в >1 chunk (дубликаты
+    overlap'а, дедуплицируемые merge'ем по stable ID)."""
+    partitions: list[list] = []
+    current: list = []
+    acc = 0
+    overlap_count = 0
+    for row in rows:
+        try:
+            size = _serialized_len(_payload_item(row, chat_id), kind)
+        except Exception:      # pragma: no cover - защитная ветка
+            size = limit + 1
+        if current and acc + size > limit:
+            # Закрыть партицию; overlap: последнее сообщение уходит в
+            # следующую (reply-continuity, дедуп по stable ID на merge).
+            overlap_row = current[-1]
+            partitions.append(current)
+            current = [overlap_row]
+            overlap_count += 1
+            try:
+                acc = _serialized_len(_payload_item(overlap_row, chat_id),
+                                      kind)
+            except Exception:      # pragma: no cover
+                acc = limit + 1
+        current.append(row)
+        acc += size
+    if current:
+        partitions.append(current)
+    return partitions, overlap_count
 
 
 def provider_host(base_url: str) -> str:
@@ -720,15 +1066,15 @@ def _log_error(*, correlation_id, chat_id, model, base_url, reason, error_type,
 
 async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                  budget=None, system_prompt=None, llm_call=None,
-                 focus_block=None) -> L1Result:
+                 focus_block=None, _allow_chunking: bool = True) -> L1Result:
     """Один прогон L1: §92-вход → §93-упаковка → LLM-вызов(ы) → §95-v2.
 
     ``llm`` — LLMClient (или совместимый мок); ``llm_call`` — инъекция канала
-    (S5/тесты). ``budget`` — ``(kind, limit)``; ``None`` → hybrid-ключи
-    ``limits.summary_hybrid_context_*`` через ``resolve_hybrid_context_budget``
-    (ASAP-2 §11/D7: Q5-формула safe−system−markers−reserve; legacy
-    ``limits.summary_max_context_*`` не читаются; явный budget из тестов
-    применяется как есть). ``focus_block`` — необязательный префикс
+    (S5/тесты). ``budget`` — ``(kind, limit)``; ``None`` → ASAP-3.1
+    Auto-семантика: capacity слота ``summary.l1`` через общий Auto Budget
+    Resolver (``services/summary_budget_auto``; manual cap > 0 = размер
+    ОДНОГО L1-запроса §137; kill-switch OFF → прежний static hybrid-путь
+    байт-в-байт). ``focus_block`` — необязательный префикс
     user-контента (S5/§80: focus «/summary про X» на ON-пути — как в legacy;
     ``None``/пусто → вход байт-в-байт прежний). Fail-closed: любое
     исключение/``LLMError`` → ``error``/``invalid`` с кодом причины,
@@ -743,6 +1089,15 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
     (LLMError/LLMTimeoutError) и переполнение контракта (too_many_*) не
     ретраятся; L1-провал (после repair/retry) НЕ терминален — вызывающий
     контур уходит в LEVEL-2 fallback-пакет (§8/ADR-1027-10 D3/D4).
+
+    ASAP-3.1 (ADR-1028-3 D3, §118–§146): при физическом переполнении и
+    ``SUMMARY_COVERAGE_CHUNKING_ENABLED`` (default ON) — **lossless
+    chunking** вместо eviction: полный source set нарезается на
+    хронологические фрагменты, L1 по каждому, детерминированный merge
+    (overlap дедуп по stable ID, темы через границу объединяются), coverage
+    100%. ``_allow_chunking=False`` — внутренний рекурсивный прогон одного
+    фрагмента (chunk-per-request). OFF флага → прежний single-pass pack
+    (семантика «L1 truncated … skipped=…») байт-в-байт.
     """
     started = time.perf_counter()
     slot = resolve_l1_slot()
@@ -755,31 +1110,49 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
     # из входного бюджета (маркер-оверхед учитывает сам pack_l1_input).
     system = system_prompt or resolve_prompt(
         PROMPT_PG_KEY, SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT)
+    budget_mode = "explicit" if budget else BUDGET_MODE_LEGACY_STATIC
     try:
         if budget:
             kind, limit = budget
         else:
-            kind, raw_limit = resolve_l1_budget()
-            limit = hybrid_input_budget(
-                kind, raw_limit, system_text=system,
-                output_reserve=hybrid_output_reserve_tokens(kind="l1"))
+            # ASAP-3.1 (T-4069): Auto/manual-cap/static — единая точка.
+            kind, limit, budget_mode = await resolve_l1_effective_budget(
+                system, slot)
         token_limit = limit if kind == "tokens" else None
         char_limit = limit if kind == "chars" else None
         pack = pack_l1_input(source_rows, chat_id, token_limit=token_limit,
                              char_limit=char_limit)
         chunk_count = pack.chunk_count
+        # ── ASAP-3.1 §120/§128: переполнение → lossless chunking, НЕ drop.
+        # Semantics «skipped=N из-за budget» как normal behavior не
+        # существует: место «L1 truncated input» занимает chunked-статус.
+        # OFF-паритет: legacy_static бюджет (kill-switch AUTO OFF) идёт по
+        # прежнему single-pass пути байт-в-байт.
+        if pack.truncated and _allow_chunking \
+                and summary_coverage_chunking_enabled() \
+                and budget_mode != BUDGET_MODE_LEGACY_STATIC:
+            return await _run_l1_lossless(
+                llm=llm, rows=source_rows, chat_id=chat_id,
+                correlation_id=correlation_id, kind=kind, limit=limit,
+                system_prompt=system, llm_call=llm_call,
+                focus_block=focus_block, budget_mode=budget_mode,
+                started=started, slot=slot)
         # ASAP-2.1 (T-3986, раздел 4 spec): L1_CONTEXT_PACK после pack_l1_input
         # (замещает FILTER_*; R17 — только числа/id; текстов нет).
+        # ASAP-3.1: +budget_mode (auto/manual_cap/legacy_static, §78).
         logger.info(
             "L1_CONTEXT_PACK | run_id=%s | chat_id=%s | source_messages=%d | "
             "packed_messages=%d | serialized_tokens=%d | physical_budget=%d | "
-            "overflow=%d | skipped=%d | kind=%s",
+            "overflow=%d | skipped=%d | kind=%s | budget_mode=%s",
             correlation_id or "none", chat_id, pack.source_count,
             len(pack.payload), pack.estimated_tokens, pack.limit,
-            1 if pack.truncated else 0, len(pack.skipped_ids), pack.kind)
+            1 if pack.truncated else 0, len(pack.skipped_ids), pack.kind,
+            budget_mode)
         if pack.truncated:
             # §93/§4.2: «не резать молча» — вытесненные бюджетом сообщения
             # видны WARN-логом (R17: только числа/id, без текстов).
+            # ASAP-3.1: на ON-пути chunking сюда не доходим (см. выше) —
+            # семантика «skipped» остаётся только на OFF-пути флага.
             logger.warning(
                 "L1 truncated input | run_id=%s | chat_id=%s | skipped=%d | "
                 "kept=%d | chunks=%d | limit=%d (%s)",
@@ -974,6 +1347,40 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
         logger.warning(
             "L1 invalid response | run_id=%s | chat_id=%s | reason=%s",
             correlation_id or "none", chat_id, result.invalid_reason or "-")
+
+    # ── ASAP-3.1 §127/§128: coverage каждого прогона (single-pass path;
+    # chunked-путь ведёт учёт в _run_l1_lossless) ───────────────────────────
+    try:
+        source_total = int(getattr(pack, "source_count", 0) or 0)
+        packed = len(getattr(pack, "payload", ()) or ())
+        unprocessed = len(getattr(pack, "skipped_ids", ()) or ())
+        processed = max(0, source_total - unprocessed) if source_total \
+            else packed
+        coverage = 100.0 if source_total == 0 else \
+            min(100.0, 100.0 * processed / max(1, source_total))
+        chunks_single = int(getattr(pack, "chunk_count", 0) or 0) or 1
+        # §127 (M-ASAP31-1 rework): окно прогона — реальные timestamps;
+        # overlap в single-pass отсутствует (0).
+        _run_window_start = min((_row_ts(r) for r in source_rows),
+                                default=None)
+        _run_window_end = max((_row_ts(r) for r in source_rows),
+                              default=None)
+        _record_run_coverage(
+            source_total=source_total, processed=processed,
+            chunks=chunks_single, unprocessed=unprocessed,
+            budget_mode=budget_mode, coverage_percent=coverage,
+            window_start=_run_window_start, window_end=_run_window_end,
+            reason=None if unprocessed == 0 else "budget_truncation")
+        if unprocessed > 0:
+            # §127/§128: coverage<100% — явный degraded (OFF-путь chunking).
+            _emit_coverage_degraded(
+                source_total, processed, unprocessed, chunks_single,
+                coverage, "budget_truncation")
+        # §12: observed-слот для Analytics (числа прогона, R17-safe).
+        _auto_budget.record_slot_observation(
+            "summary.l1", int(tokens_in) if tokens_in is not None else packed)
+    except Exception:      # fail-open: наблюдаемость не рвёт результат
+        pass
 
     _log_complete(correlation_id=correlation_id, chat_id=chat_id,
                   result=result, model=model, base_url=base_url,

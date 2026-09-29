@@ -229,7 +229,16 @@ def resolve_fact_package_budget(*, hot_get=None,
 
 
 def _resolve_budget(budget):
-    if isinstance(budget, (tuple, list)) and len(budget) == 2:
+    """Разрешить бюджет пакета (ASAP-3.1 H-ASAP31-1 rework).
+
+    Единая форма: ``(kind, limit)``; допускается расширенная
+    ``(kind, limit, budget_mode)`` от Auto Budget Resolver
+    (``resolve_l2_package_budget``) — доп. поля после ``limit``
+    игнорируются (НЕ молча: явный контракт, см. докстринг модуля).
+    ``int`` → tokens. Иначе — прежняя статическая точка
+    ``resolve_fact_package_budget()`` (kill-switch OFF-путь).
+    """
+    if isinstance(budget, (tuple, list)) and len(budget) >= 2:
         kind = str(budget[0] or "tokens")
         try:
             limit = int(budget[1])

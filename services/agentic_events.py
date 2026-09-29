@@ -73,6 +73,15 @@ CONTEXT_PHYSICAL_OVERFLOW = "CONTEXT_PHYSICAL_OVERFLOW"
 # OVERFLOW). Аддитивно к enum A9 (27→28).
 CONTEXT_TAIL_FLOOR_CLAMPED = "CONTEXT_TAIL_FLOOR_CLAMPED"
 
+# ── ASAP-3.1 (round 1028, ADR-1028-3, §49): +5 событий бюджетов/реакций ─────
+# Аддитивно к закрытому enum (28→33); коллизий с DIRECT_*/DECISION_*/CONTEXT_*
+# нет. R17-safe: только id/enum/числа — raw user text/промпты запрещены.
+MODEL_CAPACITY_RESOLVED = "MODEL_CAPACITY_RESOLVED"
+AUTO_CONTEXT_BUDGET = "AUTO_CONTEXT_BUDGET"
+DIRECT_REACT = "DIRECT_REACT"
+SUMMARY_L1_CHUNKED = "SUMMARY_L1_CHUNKED"
+SUMMARY_COVERAGE_DEGRADED = "SUMMARY_COVERAGE_DEGRADED"
+
 CORE_EVENT_TYPES = frozenset({
     DECISION_START, DECISION_COMPLETE, TOOL_PLAN_CREATED, TOOL_CALL_START,
     TOOL_CALL_COMPLETE, TOOL_CALL_FAILED, REACTION_SENT, MESSAGE_IGNORED,
@@ -91,8 +100,15 @@ DIRECT_EVENT_TYPES = frozenset({
     CONTEXT_CAPACITY, CONTEXT_SELECT, CONTEXT_PRESSURE,
     CONTEXT_PHYSICAL_OVERFLOW, CONTEXT_TAIL_FLOOR_CLAMPED,
 })
+# ASAP-3.1 (ADR-1028-3): +5 — model capacity / auto budget / LLM react /
+# Summary coverage события (28→33).
+BUDGET_EVENT_TYPES = frozenset({
+    MODEL_CAPACITY_RESOLVED, AUTO_CONTEXT_BUDGET, DIRECT_REACT,
+    SUMMARY_L1_CHUNKED, SUMMARY_COVERAGE_DEGRADED,
+})
 AGENTIC_EVENT_TYPES = frozenset(
-    CORE_EVENT_TYPES | ANTI_CLICHE_EVENT_TYPES | DIRECT_EVENT_TYPES)
+    CORE_EVENT_TYPES | ANTI_CLICHE_EVENT_TYPES | DIRECT_EVENT_TYPES
+    | BUDGET_EVENT_TYPES)
 
 # ── R17-whitelist полей (D5) ────────────────────────────────────────────────
 # Общие R17-safe поля, допустимые у любого события.
@@ -163,6 +179,22 @@ EVENT_FIELDS = {
         "preserved_kinds", "available", "needed"}),
     CONTEXT_TAIL_FLOOR_CLAMPED: frozenset({
         "final_messages", "floor_messages"}),
+    # ── ASAP-3.1 (ADR-1028-3 §49): whitelist новых событий (R17-safe) ──────
+    MODEL_CAPACITY_RESOLVED: frozenset({
+        "slot", "provider", "model", "effective_window", "declared_window",
+        "runtime_window", "source", "fallback_used", "reason"}),
+    AUTO_CONTEXT_BUDGET: frozenset({
+        "slot", "model", "context_window", "mandatory_tokens",
+        "output_reserve", "safety_reserve", "auto_input_budget",
+        "effective_input_budget", "manual_cap", "policy_mode", "source"}),
+    DIRECT_REACT: frozenset({
+        "reaction", "trigger_type", "source", "reason"}),
+    SUMMARY_L1_CHUNKED: frozenset({
+        "source_messages", "processed_messages", "chunks", "coverage",
+        "run_id"}),
+    SUMMARY_COVERAGE_DEGRADED: frozenset({
+        "source_messages", "processed_messages", "unprocessed_messages",
+        "chunks", "coverage", "reason", "run_id"}),
 }
 
 # ── валидация значений (R17: строки без пробелов = не текст) ───────────────
@@ -172,6 +204,12 @@ _NUM_FIELDS = frozenset({
     "out_chars", "round", "rounds", "capacity", "per_run", "initial_count",
     "final_count", "candidates", "duplicates", "saved", "raw_len",
     "applied_limit", "version", "counts", "ts",
+    # ASAP-3.1 (ADR-1028-3): числовые поля бюджетов/покрытия.
+    "effective_window", "declared_window", "runtime_window",
+    "context_window", "mandatory_tokens", "output_reserve",
+    "safety_reserve", "auto_input_budget", "effective_input_budget",
+    "manual_cap", "chunks", "coverage", "source_messages",
+    "processed_messages", "unprocessed_messages",
 })
 _MODEL_FIELDS = frozenset({"model"})
 # Короткие непустые строки без пробелов (эмодзи-реакция R17-safe).

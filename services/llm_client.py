@@ -955,7 +955,8 @@ class LLMClient:
                        chat_id: int | None = None, *,
                        module: str | None = None,
                        step: str | None = None,
-                       correlation_id: str | None = None) -> str:
+                       correlation_id: str | None = None,
+                       fallback_payload_adapter=None) -> str:
         """POST /chat/completions → choices[0].message.content.
 
         Epic 60 (65.8, T-476): temperature — опциональный kwarg; None →
@@ -972,6 +973,12 @@ class LLMClient:
 
         Эпик 04.09.2026 (3.3): контракт {model, messages[, temperature]}
         НЕ меняется — tools уходят ТОЛЬКО новым generate_chat (FR-10).
+
+        ASAP-3.1 (ADR-1028-3 §14/§42): ``fallback_payload_adapter`` —
+        необязательный callable ``(payload) -> payload``; вызывается РОВНО
+        ОДИН раз при переключении на fallback ДО отправки (recompose под
+        меньшее окно fallback-модели). None/ошибка адаптера → payload
+        байт-в-байт прежний (fail-open; паритет со всеми прежними вызовами).
         """
         # ФИКС R6: key/source — per-call локалы (нет гонки параллельных чатов).
         key, source = await self._resolve_api_key_and_source(chat_id)
@@ -993,6 +1000,16 @@ class LLMClient:
             logger.warning(
                 "LLM fallback attempt | primary_error=%s | provider=%s",
                 exc, _provider_host(self._fallback_base_url))
+            if fallback_payload_adapter is not None:
+                try:
+                    adapted = fallback_payload_adapter(payload)
+                    if isinstance(adapted, dict) and adapted.get("messages"):
+                        payload = adapted
+                        logger.info(
+                            "LLM fallback recompose | blocks_ok=1")
+                except Exception:
+                    logger.warning("LLM fallback recompose failed — "
+                                   "primary payload", exc_info=True)
             fb_response = await self._fallback_with_retries(payload)
             if fb_response is None:
                 raise exc from None

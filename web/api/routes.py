@@ -423,6 +423,14 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
             # legacy-DOM; M-F11S-1) без редеплоя. R16-аддитивно, R17-safe (bool),
             # Δ каталога = 0.
             "UI_STATUS_GRID_V2": bool(settings.UI_STATUS_GRID_V2),
+            # ASAP-3.1 (round 1028, ADR-1028-3): env-only kill-switch'и
+            # разводки бюджетов и блока «Автобюджеты» (default ON; OFF →
+            # прежняя структура байт-в-байт / блок не рендерится). R16-
+            # аддитивно, R17-safe (bool), Δ каталога = 0.
+            "UI_BUDGETS_SPLIT_ENABLED":
+                bool(settings.UI_BUDGETS_SPLIT_ENABLED),
+            "ANALYTICS_CONTEXT_BUDGETS_ENABLED":
+                bool(settings.ANALYTICS_CONTEXT_BUDGETS_ENABLED),
         },
     }
 

@@ -107,7 +107,10 @@ const G = require(path.join(ROOT, 'web', 'static', 'execution_graph.js'));
 
 // ── 3. §112/D6: реальные подписи статусов публикации ──────────────────────
 {
-  const fn = computed.execPublicationLabel;
+  // ASAP-3.1 rework (H-ASAP31-2): execPublicationLabel ПЕРЕНЕСЁН из computed
+  // в methods (шаблон вызывает его как функцию; computed-as-function давал
+  // TypeError → пустой экран «Аналитики»). Тело функции не менялось.
+  const fn = methods.execPublicationLabel;
   assert.ok(fn, 'execPublicationLabel есть');
   assert.strictEqual(fn.call({}, 'published_rich'), 'опубликовано (статья)');
   assert.strictEqual(fn.call({}, 'published_text'), 'опубликовано (текст)');

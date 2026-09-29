@@ -313,6 +313,41 @@ async def execution_latest(
     return _execution_response(rid, snapshot, rows)
 
 
+@analytics_router.get("/analytics/context-budgets")
+async def context_budgets(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
+    chat_id: int | None = Query(default=None),
+    refresh: int = Query(default=0),
+):
+    """ASAP-3.1 (ADR-1028-3, §24–§27, T-4075): автобюджеты активных слотов.
+
+    Read-side view над Model Capacity + Stage Auto Budget Resolver (§37:
+    единственный источник цифр — второй расчёт/usage store не создаётся,
+    §24/§29/§50). Shape §25: ``{generated_at, chat_id, policy_mode, slots[]:
+    {slot, label, provider, model, inherited_from, capacity{declared,
+    effective, source, fallback_used}, budget{output_reserve, safety_reserve,
+    auto_input_budget, manual_cap, effective_input_budget}, policy_mode,
+    coverage_policy, observed{last, p50, p95, max, pressure_events,
+    physical_overflow_events}}}`` + summary_coverage (§135) + warnings.
+    Optional ``?chat_id=`` — per-chat Context Policy; ``?refresh=1`` —
+    explicit refresh (инвалидация кэша capacity, §7/§38).
+    Kill-switch ``ANALYTICS_CONTEXT_BUDGETS_ENABLED`` (default ON): OFF →
+    404, остальная Аналитика не затронута (fail-open §73)."""
+    from config.settings import settings as _settings
+    if not bool(getattr(_settings, "ANALYTICS_CONTEXT_BUDGETS_ENABLED", True)):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="not_found")
+    if refresh:
+        try:
+            from services import model_capacity as _mc
+            _mc.invalidate_capacity_cache()
+        except Exception:      # pragma: no cover - fail-open
+            pass
+    from services.model_slots import collect_slots
+    return await collect_slots(chat_id=chat_id)
+
+
 @analytics_router.get("/analytics/prices")
 async def prices_list(
     request: Request,

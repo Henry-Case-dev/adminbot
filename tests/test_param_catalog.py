@@ -25,9 +25,15 @@ from services.param_catalog import (
 class TestCompleteness:
     """DoD T-636: каждый dataclass-поле Settings покрыто ровно одной записью."""
 
+    # ASAP-3.1 (ADR-1028-3, санкция spec 10.1): env-only ClassVar,
+    # каталогизированные ОСОЗНАННО (settings-поле без dataclass-поля).
+    # Coverage-аудит dataclass-полей их «лишними» не считает.
+    _CLASSVAR_CATALOGUED = frozenset({"CHAT_MODEL_CONTEXT_WINDOW"})
+
     def test_every_settings_field_covered(self):
         missing, extra = pc.settings_field_coverage()
         assert missing == set(), f"не покрыты: {sorted(missing)}"
+        extra = extra - self._CLASSVAR_CATALOGUED
         assert extra == set(), f"лишние записи: {sorted(extra)}"
 
     def test_settings_field_count(self):
@@ -98,13 +104,15 @@ class TestCompleteness:
         #   flags.chat_silent_ack_enabled — PG-only (settings_field=None);
         #   env-рубильники DIRECT_CONTEXT_COMPOSER_ENABLED /
         #   DIRECT_SILENT_ACK_ENABLED / CHAT_BOT_REPLIED_RECENTLY_SECONDS /
-        #   CHAT_MODEL_CONTEXT_WINDOW / CHAT_UNKNOWN_MODEL_WINDOW /
-        #   CHAT_EPISODE_* / CHAT_FRESH_TAIL_MIN_MESSAGES /
-        #   CHAT_MIDDLE_MAX_MESSAGES / CHAT_THREAD_WALK_MAX — ClassVar
-        #   (env-only, Δ каталога = 0).
+        #   CHAT_UNKNOWN_MODEL_WINDOW / CHAT_EPISODE_* /
+        #   CHAT_FRESH_TAIL_MIN_MESSAGES / CHAT_MIDDLE_MAX_MESSAGES /
+        #   CHAT_THREAD_WALK_MAX — ClassVar (env-only, Δ каталога = 0).
+        #   ASAP-3.1 (ADR-1028-3, санкция spec 10.1): ЧАСТНОЕ ИСКЛЮЧЕНИЕ —
+        #   CHAT_MODEL_CONTEXT_WINDOW каталогизирован (первая каталогизация
+        #   ClassVar; models.chat_context_window_override; Settings 423→424).
         assert len(fields) == 423
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
-        assert covered == fields
+        assert covered - TestCompleteness._CLASSVAR_CATALOGUED == fields
 
     def test_categories_canonical(self):
         for spec in REGISTRY.values():
@@ -425,7 +433,9 @@ class TestGroups8424:
         # model_name), keys +2 (ключи L1/L2, secret), limits +6 (hybrid
         # context ×2 + длина ×4), flags +4 (hybrid enabled/repair/retry +
         # legacy fallback) → models 60 / keys 22 / limits 205 / flags 76.
-        assert counts == {"prompts": 23, "models": 60, "keys": 22,
+        # ASAP-3.1 (ADR-1028-3, санкция spec 10.1): models +1
+        # (CHAT_MODEL_CONTEXT_WINDOW, первая каталогизация ClassVar) → 61.
+        assert counts == {"prompts": 23, "models": 61, "keys": 22,
                           "limits": 199, "flags": 76, "reactions": 39,
                           "content": 5, "memory": 34}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)

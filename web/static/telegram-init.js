@@ -76,12 +76,51 @@
       sa ? sa.bottom : 0);
     setVar('--tg-viewport-bottom-offset', offset);
     /* HOTFIX9 (ADR-1025-17 D1, T-2794/T-2796): ЕДИНЫЙ источник высоты shell.
-     * `--app-usable-height = max(0, innerHeight − offset)`; `--shell-h` в CSS —
-     * алиас. Нижний safe-area учитывается РОВНО ОДИН РАЗ (здесь), панель
-     * `.bottom-nav` в flex-колонке НЕ добавляет собственный offset. */
-    var usable = (window.innerHeight || 0) - offset;
-    if (!(usable > 0)) usable = window.innerHeight || 0;
-    setVar('--app-usable-height', Math.max(0, usable));
+     * ── ASAP-3.1 (T-4083, §92/§93, ADR-1028-3 D8/Q6): ОДНА модель геометрии ──
+     * Паттерн «innerHeight минус guessed bottom offset» УХОДИТ (он и давал
+     * clipping, переживший несколько hotfix'ов: innerHeight ≠ реально видимая
+     * область на части Telegram/WebView). Новая модель:
+     *   shell height = ФАКТИЧЕСКИ видимая высота вьюпорта
+     *     (в Telegram: viewportStableHeight в покое; при открытой клавиатуре —
+     *      viewportHeight; вне Telegram: visualViewport.height + offsetTop;
+     *      fallback innerHeight),
+     *   нижний inset применяется РОВНО ОДИН РАЗ — на самом `.bottom-nav`
+     *     (padding-bottom в CSS), main — flex-1, единственный scroll
+     *     container. Инварианты §94 (nav полностью видима, labels не
+     *     перекрыты, main не под nav) выполняются структурно. */
+    var stableH = (typeof wa.viewportStableHeight === 'number' &&
+                   wa.viewportStableHeight > 0) ? wa.viewportStableHeight : 0;
+    var curH = (typeof wa.viewportHeight === 'number' && wa.viewportHeight > 0)
+      ? wa.viewportHeight : 0;
+    var tgVisible = 0;
+    if (stableH > 0) {
+      // Клавиатура/сжатие: текущая высота заметно меньше стабильной →
+      // видимая = текущая (панель остаётся на экране над клавиатурой).
+      tgVisible = (curH > 0 && curH < stableH - 40) ? curH : stableH;
+    } else {
+      tgVisible = curH;
+    }
+    var vv = window.visualViewport;
+    var vvVisible = (vv && typeof vv.height === 'number' && vv.height > 0)
+      ? (vv.height + (typeof vv.offsetTop === 'number' ? vv.offsetTop : 0))
+      : 0;
+    var innerH = window.innerHeight || 0;
+    // Источник: Telegram (есть viewport-переменные) → вне Telegram
+    // visualViewport → innerHeight (§92).
+    var visible = (stableH > 0 || curH > 0)
+      ? (tgVisible || vvVisible || innerH)
+      : (vvVisible || innerH);
+    if (!(visible > 0)) visible = innerH;
+    setVar('--app-usable-height', Math.max(0, visible));
+    /* hotfix6-переменная сохранена ТОЛЬКО для legacy-отката
+     * (UI_SHELL_FLEX_V3=OFF: fixed-панель с компенсацией offset). Новая
+     * модель её НЕ читает (второго вычета нет, §92/§115). */
+    var offset = computeBottomOffset(
+      window.innerHeight || 0,
+      wa.viewportStableHeight,
+      csa ? csa.bottom : 0,
+      sa ? sa.bottom : 0);
+    setVar('--tg-viewport-bottom-offset', offset);
   }
   /* HOTFIX9 (T-2800/T-2808/Low): клавиатура/визуальный вьюпорт меняет видимую
    * высоту — пересчитываем `--app-usable-height`, чтобы активное поле и

@@ -357,6 +357,10 @@
   // ═══ F1 (ADR-1025-1 D1/D3): IA v2 — 7 пунктов, 3 уровня ═══
   // legacy NAV_ITEMS выше НЕ трогаем: OFF-режим (IA_V2_ENABLED=false)
   // рендерит его байт-в-байт. group: public | admin | local.
+  // ASAP-3.1 (T-4082, ADR-1028-3 D8/Q3): `oversight` возвращён в IA v2 —
+  // P0-фикс неоткрытия «Аналитики» (route/tab/template были целы, дверь
+  // потеряна: F11). Один route `#/oversight`, вторая страница НЕ создаётся;
+  // RBAC — global admin (navItems-фильтр ниже).
   var NAV_ITEMS_V2 = [
     { id: 'status', label: 'Статус', route: '#/', icon: 'monitoring',
       group: 'public' },
@@ -368,6 +372,8 @@
       group: 'admin' },
     { id: 'memory', label: 'Память', route: '#/memory', icon: 'memory',
       group: 'admin' },
+    { id: 'oversight', label: 'Аналитика', route: '#/oversight',
+      icon: 'radar', group: 'admin' },
     { id: 'access', label: 'Доступы', route: '#/access',
       icon: 'supervisor_account', group: 'admin' },
     { id: 'permsoc', label: 'PERMsoc', route: '#/permsoc',
@@ -1643,6 +1649,10 @@
         memorySubgroup: '',
         // ── Раунд 10.20 (БЛОК 3.3/T-1897): «Живая лента досье» (тикер) ──
         dossierFeed: [],         // GET /api/oversight/dossier_feed
+        // ASAP-3.1: автобюджеты (GET /api/analytics/context-budgets).
+        budgetsAuto: null,
+        budgetsAutoBusy: false,
+        budgetsAutoError: false,
         dossierFeedBusy: false,
         dossierFeedError: '',
         dossierFeedTimer: null,
@@ -1960,12 +1970,17 @@
           if (n.id === 'ai' || n.id === 'access') {
             return hubVisible(n.route, canView, hubs);
           }
+          // ASAP-3.1 (T-4082): «Аналитика» — нормальный пункт навигации;
+          // RBAC — только global admin (текущий product contract, Q3).
+          if (n.id === 'oversight') return !!self.isGlobalAdmin;
           return false;
         });
       },
       activeNav: function () {
         var r = this.route || '#/';
-        if (r === '#/' || r === '#/oversight' || r === '#/status/graph') {
+        // ASAP-3.1 (T-4082): `#/oversight` — свой пункт (не «Статус»).
+        if (r === '#/oversight') return 'oversight';
+        if (r === '#/' || r === '#/status/graph') {
           return 'status';
         }
         if (r === '#/how') return 'how';
@@ -2704,68 +2719,14 @@
       // §112 (REQ-S8-09) + S6/D6: честные строки метрик Саммари («Нет данных»
       // вместо выдуманного $0; публикация — реальный статус). Источник —
       // execGraph.metrics.
-      execMetricsRows: function () {
-        var g = this.execGraph;
-        if (!g || !g.metrics) return [];
-        var m = g.metrics;
-        var self = this;
-        function int(v) {
-          return (v === null || v === undefined) ? 'Нет данных' : String(v);
-        }
-        function pct(v) {
-          return (v === null || v === undefined)
-            ? 'Нет данных' : (Math.round(v * 10) / 10) + '%';
-        }
-        function costSlot(slot) {
-          if (!slot || slot.price_known !== true) return 'Нет данных';
-          return self.fmtCost(slot.cost_usd, true);
-        }
-        var l1 = (m.tokens || {}).l1;
-        var l2 = (m.tokens || {}).l2;
-        var totalKnown = ((m.tokens || {}).total || {}).price_known === true;
-        return [
-          { label: 'Исходные сообщения', value: int(m.source_count) },
-          { label: 'После фильтра', value: int(m.filtered_count) },
-          { label: 'Восстановленные', value: int(m.restored_count) },
-          { label: 'Процент отсева', value: pct(m.drop_percent) },
-          { label: 'Темы', value: int(m.threads_count) },
-          { label: 'Токены L1', value: self.execTokenPair(l1) },
-          { label: 'Токены L2', value: self.execTokenPair(l2) },
-          { label: 'Стоимость L1', value: costSlot(l1) },
-          { label: 'Стоимость L2', value: costSlot(l2) },
-          { label: 'Общая стоимость',
-            value: totalKnown ? self.fmtCost(m.cost ? m.cost.total : null, true)
-                             : 'Нет данных' },
-          { label: 'Время выполнения', value: self.execDuration(m.duration_ms) },
-          { label: 'Статус обложки', value: self.execCoverLabel(m.cover_status) },
-          { label: 'Статус публикации',
-            value: self.execPublicationLabel(m.publication_status) },
-        ];
-      },
-      execTokenPair: function (slot) {
-        if (!slot) return 'Нет данных';
-        return this.fmtExactTokens(slot.input_tokens) + ' / '
-             + this.fmtExactTokens(slot.output_tokens);
-      },
-      execDuration: function (ms) {
-        return (ms === null || ms === undefined)
-          ? 'Нет данных' : Math.round(ms) + ' мс';
-      },
-      execCoverLabel: function (status) {
-        if (status === 'ok') return 'готова';
-        if (status === 'unavailable') return 'недоступна';
-        if (status === 'none') return 'не генерировалась';
-        return 'Нет данных';
-      },
-      // §112/D6: реальные статусы публикации (S6); нет данных → «Нет данных».
-      execPublicationLabel: function (status) {
-        if (status === 'published_rich') return 'опубликовано (статья)';
-        if (status === 'published_text') return 'опубликовано (текст)';
-        if (status === 'failed') return 'ошибка публикации';
-        if (status === 'skipped') return 'не публиковалось';
-        return (status === null || status === undefined) ? 'Нет данных'
-                                                         : String(status);
-      },
+      // ASAP-3.1 rework (H-ASAP31-2): execMetricsRows/execTokenPair/
+      // execDuration/execCoverLabel/execPublicationLabel ПЕРЕНЕСЕНЫ в
+      // methods (см. methods.execMetricsRows). В computed они вызывались
+      // шаблоном как функции (`execMetricsRows()`) и друг через друга
+      // (`self.execTokenPair(...)`) → TypeError на рендере oversight-ветки →
+      // ПУСТОЙ ЭКРАН «Аналитики» (прод-симптом владельца 2.58.36; pre-existing
+      // баг, воспроизведён ревью). Компьютеды читаются как свойства —
+      // функциональные хелперы обязаны жить в methods.
       // РЕЖИМ 1 (§26): нормализованная трассировка последнего вызова.
       execTrace: function () {
         var EG = this.execGraphApi();
@@ -3670,6 +3631,9 @@
         });
         if (self.isGlobalAdmin) {
           self.loadOversight();     // F-12: сводка (кэш сервера 60с)
+          // ASAP-3.1: автобюджеты (Status-компакт/Аналитика/«Бюджеты»/
+          // Саммаризация — один источник, fail-open).
+          self.loadBudgetsAuto();
         }
         if (self.canViewTab('access')) {
           self.loadAdmins();
@@ -4164,13 +4128,22 @@
           this.loadStatus();
           if (this.isGlobalAdmin) {
             this.loadOversight();
+            // ASAP-3.1 (T-4077): компактный блок «Бюджеты интеллекта» —
+            // цифры из того же resolver'а (Status не считает сам, §29).
+            this.loadBudgetsAuto();
           }
+        }
+        // ASAP-3.1 (T-4064): карточка автобюджетов на странице «Бюджеты».
+        if (this.activeTab === 'mod_budgets' && this.isGlobalAdmin) {
+          this.loadBudgetsAuto();
         }
         // 10.20 (T-1897): «Живая лента досье» — при смене чата один запрос
         // (GLOBAL → все чаты; конкретный чат → только его участники).
         if (this.activeTab === 'oversight' && this.isGlobalAdmin) {
           this.stopDossierFeedPolling();
           this.startDossierFeedPolling();
+          // ASAP-3.1 (T-4076): блок «Модели и автобюджеты» в Аналитике.
+          this.loadBudgetsAuto();
         }
         if (this.accessMy && !this.accessMy.is_global_admin) {
           this.loadLocalAdmins();
@@ -4594,6 +4567,73 @@
                   || this.execFilterStage || this.execFilterStatus
                   || this.execFilterQuery);
       },
+      // ═══ ASAP-3.1 rework (H-ASAP31-2): хелперы oversight-метрик ═══
+      // Перенесены из computed в methods — шаблон вызывает их КАК ФУНКЦИИ
+      // (`execMetricsRows()`), а computed-внутри — как методы
+      // (`self.execTokenPair(...)`); в computed и то и другое давало
+      // TypeError → пустой экран «Аналитики» (см. комментарий в computed).
+      execMetricsRows: function () {
+        var g = this.execGraph;
+        if (!g || !g.metrics) return [];
+        var m = g.metrics;
+        var self = this;
+        function int(v) {
+          return (v === null || v === undefined) ? 'Нет данных' : String(v);
+        }
+        function pct(v) {
+          return (v === null || v === undefined)
+            ? 'Нет данных' : (Math.round(v * 10) / 10) + '%';
+        }
+        function costSlot(slot) {
+          if (!slot || slot.price_known !== true) return 'Нет данных';
+          return self.fmtCost(slot.cost_usd, true);
+        }
+        var l1 = (m.tokens || {}).l1;
+        var l2 = (m.tokens || {}).l2;
+        var totalKnown = ((m.tokens || {}).total || {}).price_known === true;
+        return [
+          { label: 'Исходные сообщения', value: int(m.source_count) },
+          { label: 'После фильтра', value: int(m.filtered_count) },
+          { label: 'Восстановленные', value: int(m.restored_count) },
+          { label: 'Процент отсева', value: pct(m.drop_percent) },
+          { label: 'Темы', value: int(m.threads_count) },
+          { label: 'Токены L1', value: self.execTokenPair(l1) },
+          { label: 'Токены L2', value: self.execTokenPair(l2) },
+          { label: 'Стоимость L1', value: costSlot(l1) },
+          { label: 'Стоимость L2', value: costSlot(l2) },
+          { label: 'Общая стоимость',
+            value: totalKnown ? self.fmtCost(m.cost ? m.cost.total : null, true)
+                             : 'Нет данных' },
+          { label: 'Время выполнения', value: self.execDuration(m.duration_ms) },
+          { label: 'Статус обложки', value: self.execCoverLabel(m.cover_status) },
+          { label: 'Статус публикации',
+            value: self.execPublicationLabel(m.publication_status) },
+        ];
+      },
+      execTokenPair: function (slot) {
+        if (!slot) return 'Нет данных';
+        return this.fmtExactTokens(slot.input_tokens) + ' / '
+             + this.fmtExactTokens(slot.output_tokens);
+      },
+      execDuration: function (ms) {
+        return (ms === null || ms === undefined)
+          ? 'Нет данных' : Math.round(ms) + ' мс';
+      },
+      execCoverLabel: function (status) {
+        if (status === 'ok') return 'готова';
+        if (status === 'unavailable') return 'недоступна';
+        if (status === 'none') return 'не генерировалась';
+        return 'Нет данных';
+      },
+      // §112/D6: реальные статусы публикации (S6); нет данных → «Нет данных».
+      execPublicationLabel: function (status) {
+        if (status === 'published_rich') return 'опубликовано (статья)';
+        if (status === 'published_text') return 'опубликовано (текст)';
+        if (status === 'failed') return 'ошибка публикации';
+        if (status === 'skipped') return 'не публиковалось';
+        return (status === null || status === undefined) ? 'Нет данных'
+                                                         : String(status);
+      },
       // Переключение режима §26: 'latest' (трассировка) | day|week|month.
       // Смена режима СБРАСЫВАЕТ фильтры §27 (M-F6S-1): агрегатные узлы не
       // несут model/stage/status, иначе фильтр трассировки «протёк» бы в
@@ -4748,7 +4788,16 @@
           ? 'Вечно' : (storage.label || (storage.import_retention_days + ' дней')));
       },
       // F3: ключи per-chat контуров, которые пишет тумблер безлимита.
+      // ASAP-3.1 (T-4061, §17/§46, ADR-1028-3 D6): разводка сущностей.
+      // SPLIT ON  → тумблер = «Без суточных квот»: ТОЛЬКО 4 quota-ключа;
+      //              Context Policy управляется Context Mode (1 ключ),
+      //              канальные ключи (global_context/thread) — вне обоих
+      //              тумблеров (поканальные настройки/Advanced).
+      // SPLIT OFF → прежний объединённый toggle (7 ключей) байт-в-байт.
       budgetsUnlimitedKeys: function () {
+        if (this.budgetsSplit) {
+          return this.budgetsQuotaKeys();
+        }
         return [
           'limits.chat_global_key_budget_requests',
           'limits.chat_global_key_budget_tokens',
@@ -4759,6 +4808,31 @@
           'limits.chat_context_budget_tokens',
         ];
       },
+      // §17: quota-класс (usage/суточные лимиты) — единственный класс
+      // тумблера «Без суточных квот».
+      budgetsQuotaKeys: function () {
+        return [
+          'limits.chat_global_key_budget_requests',
+          'limits.chat_global_key_budget_tokens',
+          'limits.worker_daily_llm_calls_per_chat',
+          'limits.worker_daily_llm_tokens_per_chat',
+        ];
+      },
+      // §17: канальные context-ключи — НЕ входят ни в один тумблер.
+      budgetsChannelKeys: function () {
+        return [
+          'limits.chat_global_context_max_tokens',
+          'limits.chat_thread_max_tokens',
+        ];
+      },
+      // ASAP-3.1 kill-switch разводки (env → /api/me.ui_flags).
+      budgetsSplit: function () {
+        return this.uiFlag('UI_BUDGETS_SPLIT_ENABLED');
+      },
+      // Миграция §51 — non-destructive по построению: старый объединённый
+      // тумблер писал −1 во все 7; оба новых контроля читают СУЩЕСТВУЮЩИЕ
+      // значения (context −1 → Unlimited активен; quota −1 → «Без квот»
+      // активен), effective значения не меняются, destructive reset отсутствует.
       _budgetItem: function (key) {
         return this.configItems.find(function (i) { return i.key === key; });
       },
@@ -4793,7 +4867,9 @@
                 items: items, updated_at: this.configChatUpdatedAt,
               }),
             });
-            this.toast('Включён безлимит по этому чату', 'ok');
+            this.toast(this.budgetsSplit
+              ? 'Суточные квоты отключены (контекст не затронут)'
+              : 'Включён безлимит по этому чату', 'ok');
           } else {
             // Явные дефолты: null (env не задан, напр. контекст) → 0 =
             // «не задано» (резолв уходит на эффективный дефолт).
@@ -4915,6 +4991,8 @@
           this.loadBudgetInfo();
           // F7 (раунд 10.23): аналитика токенов — Flow node + графики.
           this.loadTokenAnalytics();
+          // ASAP-3.1 (T-4076): секция «Модели и автобюджеты» — fail-open.
+          this.loadBudgetsAuto();
           // mca-17a (§4.6/SC-16): интервал refresh индикатора инцидентов (≤10с).
           var inc = this.oversightData && this.oversightData.mca_metrics
             && this.oversightData.mca_metrics.incidents;
@@ -4938,6 +5016,97 @@
         } catch (e) {
           this.personaHealth = null;
         }
+      },
+      // ═══ ASAP-3.1 (ADR-1028-3, T-4064/4075/4076/4077): автобюджеты ═══
+      // Один источник цифр — GET /api/analytics/context-budgets (backend
+      // resolver); frontend ничего не вычисляет сам (§37). Fail-open (§73):
+      // ошибка → budgetsAutoError, остальные блоки не затронуты.
+      loadBudgetsAuto: async function () {
+        if (!this.uiFlag('ANALYTICS_CONTEXT_BUDGETS_ENABLED')) return;
+        if (!this.isGlobalAdmin) return;
+        this.budgetsAutoBusy = true;
+        try {
+          this.budgetsAuto = await this.api(
+            '/api/analytics/context-budgets');
+          this.budgetsAutoError = false;
+        } catch (e) {
+          // §73: падение одного endpoint не ломает страницу — блок честно
+          // показывает русскоязычную ошибку, остальное рендерится.
+          this.budgetsAutoError = true;
+        } finally {
+          this.budgetsAutoBusy = false;
+        }
+      },
+      // §87: machine states → русский (badge источника capacity).
+      capacitySourceRu: function (source) {
+        var map = {
+          runtime: 'фактические настройки сервера',
+          provider_catalog: 'каталог провайдера',
+          registry: 'справочник моделей',
+          developer_override: 'задано разработчиком вручную',
+          fallback: 'резервное значение',
+          model_map: 'справочник моделей',
+          env_override: 'задано вручную (env)',
+          unknown_fallback: 'резервное значение',
+        };
+        return map[source] || (source || '-');
+      },
+      // §83/§89: tokens — не «слова»; человекочитаемые числа (39 тыс.).
+      humanTokens: function (value) {
+        if (value === null || value === undefined) return '—';
+        var n = Number(value) || 0;
+        if (n >= 1000000) {
+          return (Math.round(n / 10000) / 100) + ' млн';
+        }
+        if (n >= 1000) {
+          return (Math.round(n / 100) / 10) + ' тыс.';
+        }
+        return String(n);
+      },
+      // §83/§84: model id — вторичным текстом; display name — человекочитаемо.
+      humanModel: function (model) {
+        var raw = String(model || '').trim();
+        if (!raw) return '—';
+        var tail = raw.indexOf('/') >= 0 ? raw.slice(raw.indexOf('/') + 1)
+                                         : raw;
+        return tail.replace(/[-_]/g, ' ');
+      },
+      utilizationPercent: function (slot) {
+        try {
+          var budget = slot && slot.budget && slot.budget.effective_input_budget;
+          var last = slot && slot.observed && slot.observed.last;
+          if (!budget || last === null || last === undefined) return 0;
+          return Math.min(999, Math.round(100 * Number(last) / Number(budget)));
+        } catch (e) { return 0; }
+      },
+      // §27: статус слота для Analytics (OK/Высокая загрузка/Fallback/…).
+      slotStatus: function (slot) {
+        if (!slot) return { label: '-', cls: 'badge-muted' };
+        if (slot.capacity && slot.capacity.fallback_used) {
+          return { label: 'Fallback capacity', cls: 'badge-warn' };
+        }
+        if (slot.capacity && slot.capacity.source === 'developer_override') {
+          return { label: 'Manual override', cls: 'badge-muted' };
+        }
+        var obs = slot.observed || {};
+        if (obs.physical_overflow_events) {
+          return { label: 'Physical overflow', cls: 'badge-err' };
+        }
+        if (this.utilizationPercent(slot) >= 80) {
+          return { label: 'Высокая загрузка', cls: 'badge-warn' };
+        }
+        return { label: 'OK', cls: 'badge-ok' };
+      },
+      // §135: человекочитаемая «Полнота источника» Summary.
+      summaryCoverageLabel: function () {
+        var cov = this.budgetsAuto && this.budgetsAuto.summary_coverage;
+        if (!cov) return null;
+        var passes = cov.l1_chunks > 1
+          ? (cov.l1_chunks + ' прохода')
+          : '1 проход';
+        return (cov.source_messages_processed || 0) + ' из '
+          + (cov.source_messages_total || 0) + ' сообщений обработано · '
+          + passes + ' · охват ' + (cov.coverage_percent || 0) + '%';
       },
       // F7 (memory-retention-health, D-6): метрики здоровья памяти для
       // «Мониторинга Интеллекта» (просрочено/не подтверждено/сырьё/диск).

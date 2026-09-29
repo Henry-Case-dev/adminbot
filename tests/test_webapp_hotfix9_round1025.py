@@ -94,9 +94,15 @@ class TestGeometry:
         nav = re.search(r"\.bottom-nav \{([^}]*)\}", APP_CSS).group(1)
         assert "position: relative" in nav and "flex: 0 0 auto" in nav
         assert "position: fixed" not in nav
-        # safe-area ровно один раз — nav без собственного offset/padding.
+        # ASAP-3.1 (T-4083, §92/§93, ADR-1028-3 Q6): ЕДИНАЯ модель геометрии —
+        # shell = фактически видимая высота (guessed-offset-паттерн УХОДИТ),
+        # нижний inset применяется РОВНО ОДИН РАЗ на самой .bottom-nav
+        # (padding-bottom как flex-child). Прежний запрет «padding-bottom на
+        # панели» SUPERSEDED: inset на панели = единственный слой; старую
+        # переменную компенсации панель больше не читает.
         assert "--tg-viewport-bottom-offset" not in nav
-        assert "padding-bottom" not in nav
+        assert "env(safe-area-inset-bottom" in nav
+        assert "padding-bottom" in nav
 
     def test_telegram_init_sets_usable_height(self):
         assert "--app-usable-height" in TG_INIT
@@ -195,7 +201,7 @@ class TestVendoredGlassAurora:
 class TestFlagsAcceptance:
     def test_app_version_bumped(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.36", m and m.group(1)
+        assert m and m.group(1) == "2.58.37", m and m.group(1)
 
     def test_env_only_flags_delivered(self):
         for flag in HOTFIX9_FLAGS:
@@ -211,7 +217,7 @@ class TestFlagsAcceptance:
 
     def test_catalog_invariants(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 483
+        assert len(pc.REGISTRY) == 484
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21

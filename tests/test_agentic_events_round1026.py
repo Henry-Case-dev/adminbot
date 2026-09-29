@@ -61,7 +61,14 @@ class TestEventSchema:
         # ASAP-3 (ADR-1028-2 D15): аддитивно +7 DIRECT_/CONTEXT_-событий
         # к закрытому enum A9 (20 → 27); существующие типы/схема не менялись.
         # Rework round 1 (H2/D6): +1 CONTEXT_TAIL_FLOOR_CLAMPED (27 → 28).
-        assert len(ae.AGENTIC_EVENT_TYPES) == 28
+        # ASAP-3.1 (ADR-1028-3, §49/T-4085): +5 бюджетных событий
+        # (MODEL_CAPACITY_RESOLVED/AUTO_CONTEXT_BUDGET/DIRECT_REACT/
+        # SUMMARY_L1_CHUNKED/SUMMARY_COVERAGE_DEGRADED) — 28 → 33.
+        assert len(ae.AGENTIC_EVENT_TYPES) == 33
+        for name in ("MODEL_CAPACITY_RESOLVED", "AUTO_CONTEXT_BUDGET",
+                     "DIRECT_REACT", "SUMMARY_L1_CHUNKED",
+                     "SUMMARY_COVERAGE_DEGRADED"):
+            assert name in ae.AGENTIC_EVENT_TYPES
         assert ae.SCHEMA_VERSION == "1"
 
     def test_closed_enum_unknown_event_dropped(self, caplog):

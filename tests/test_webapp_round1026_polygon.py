@@ -138,16 +138,16 @@ class TestFlagsAndInvariants:
     def test_catalog_invariants(self):
         from services import param_catalog as pc
         # Базовые числа round1026: 467/426/442/100/98/21 — эпик их не меняет.
-        assert len(pc.REGISTRY) == 483
+        assert len(pc.REGISTRY) == 484
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
         assert len({f.name for f in dataclasses.fields(Settings)}) == 423
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.36", APP_VERSION
+        assert APP_VERSION == "2.58.37", APP_VERSION
         assert "v2.58.34" in README, "README не синхронизирован"
-        assert 'APP_VERSION = "2.58.36"' in SETTINGS
+        assert 'APP_VERSION = "2.58.37"' in SETTINGS
 
     def test_zero_ddl(self):
         # Δ DDL = 0: никаких новых таблиц/миграций эпиком не добавляется.
@@ -203,8 +203,19 @@ class TestGlowFlickerSlowdown:
         assert "Math.cos(t * 0.038 + cl.ph * 1.3)" in POLY
 
     def test_topology_cap_unchanged(self):
-        # §6.4/SC-15: топология пересчитывается ≤4 Гц (не «мерцание свечения»).
-        assert "TOPO_HZ = 4" in POLY
+        # §6.4/SC-15 (ИСТОРИЧ): топология пересчитывалась ≤4 Гц.
+        # ASAP-3.1 (T-4080, ADR-1028-3 Q1/§59): 4 Hz-rebuild —
+        # ПЕРВОПРИЧИНА мерцания — УСТРАНЁН: topology стабильна; редкий
+        # rebuild только по displacement threshold / раз в десятки секунд,
+        # crossfade 4 с с полом яркости 0.85 (без гашения mesh). Запреты
+        # §115 (TOPO_HZ 4→3 без устранения fade reset) не нарушены —
+        # устранена причина.
+        assert "TOPO_HZ" not in POLY
+        assert "TOPO_MIN_INTERVAL_MS = 30000" in POLY
+        assert "TOPO_DRIFT_THRESHOLD_PX" in POLY
+        assert "1000 / TOPO_HZ" not in POLY
+        # Пол яркости граней: провал ≤15% (не 45%).
+        assert "0.85 + 0.15 * st.topoFade" in POLY
 
 
 class TestJsSyntax:

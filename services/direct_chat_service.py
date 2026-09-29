@@ -200,6 +200,13 @@ from services.model_capacity import (
     compute_available_budget,
     resolve_effective_window,
 )
+# ── ASAP-3.1 (round 1028, ADR-1028-3): Model Capacity + Stage Auto Budget
+# Resolver (D1/D2/D5). Прецедент импорта-алиасом — `_composer` выше.
+from services import model_capacity as _model_capacity
+from services import auto_budget as _auto_budget
+# ADR-1028-3 D7 (§30–§33): LLM REACT — выбор emoji Stage-1 (SILENT→🗿
+# остаётся единственным hardcode).
+from services import direct_llm_react as _llm_react
 
 logger = logging.getLogger(__name__)
 
@@ -1574,10 +1581,13 @@ class DirectChatService:
                     return
             # MCA-07 (T-3852): исключённые бюджетом блоки → EvidenceBundle.
             _excluded_blocks: list = []
+            # ASAP-3.1 §14/§42: fallback recompose factory (заполняет
+            # композер, adapter вызывается LLMClient при fallback-переключении).
+            _fallback_meta: dict = {}
             user_blocks = await self._build_user_content(
                 chat_id, message, target_name,
                 target_user_id=(user_id or None),
-                out_excluded=_excluded_blocks)
+                out_excluded=_excluded_blocks, out_fallback=_fallback_meta)
             # Раунд 9 (T-821/C2(6), фикс-раунд major-1, spec §3.2.3): пре-гейт
             # маркеров ностальгии — принудительный dig ДО генерации, результат
             # в <dig_result> ПЕРЕД <Target_User> (флаг off/нет маркера/нет
@@ -1643,6 +1653,7 @@ class DirectChatService:
             pre_reason = REASON_DEFAULT if decision_on else REASON_DISABLED
             pre_reaction = None
             pre_target = None
+            react_llm_pending = False
             _dctx = None
             if decision_on:
                 _dctx = await self._decision_context(chat_id, message, query)
@@ -1737,21 +1748,28 @@ class DirectChatService:
                                 pre_reason)
                     return
                 if pre_action == ACTION_REACT:
-                    _log_decision_short_circuit(
-                        chat_id=chat_id, action=ACTION_REACT,
-                        reason_code=pre_reason, target_id=pre_target,
-                        reaction=pre_reaction)
-                    _reaction_outcome = await react_moai(
-                        bot, chat_id, pre_target,
-                        reaction=pre_reaction,
-                        reason_code=pre_reason)
-                    # A9 (D5): REACTION_SENT — после outcome A8 (7-enum).
-                    emit_agentic_event(
-                        "REACTION_SENT", run_id=correlation_id,
-                        chat_id=chat_id, message_id=pre_target,
-                        outcome=_reaction_outcome, reaction=pre_reaction,
-                        reason=pre_reason)
-                    return
+                    # ── ASAP-3.1 (ADR-1028-3 D7, §30–§31): LLM выбирает emoji
+                    # в том же Stage-1 (без второго LLM request); kill-switch
+                    # OFF (env или per-chat) → байт-в-байт прежний шорт-кат.
+                    if _llm_react.llm_reaction_enabled(
+                            bool(_toggles.reactions)):
+                        react_llm_pending = True
+                    else:
+                        _log_decision_short_circuit(
+                            chat_id=chat_id, action=ACTION_REACT,
+                            reason_code=pre_reason, target_id=pre_target,
+                            reaction=pre_reaction)
+                        _reaction_outcome = await react_moai(
+                            bot, chat_id, pre_target,
+                            reaction=pre_reaction,
+                            reason_code=pre_reason)
+                        # A9 (D5): REACTION_SENT — после outcome A8 (7-enum).
+                        emit_agentic_event(
+                            "REACTION_SENT", run_id=correlation_id,
+                            chat_id=chat_id, message_id=pre_target,
+                            outcome=_reaction_outcome, reaction=pre_reaction,
+                            reason=pre_reason)
+                        return
                 # Autonomous REPLY (матрица выбрала текстовый исход).
                 if _reply_bot and not _force_required:
                     _composer.record_direct_metric(
@@ -1788,8 +1806,9 @@ class DirectChatService:
                     persona, [t.get("text") for t in traits], enabled=True)
                 if persona_block:
                     system_prompt = system_prompt + "\n\n" + persona_block
+            time_line = await self._chat_time_line(chat_id)
             payload = build_messages(system_prompt, user_blocks,
-                                     time_line=await self._chat_time_line(chat_id))
+                                     time_line=time_line)
             # Epic 60 (65.8, T-476): temperature-пресет юзера (user_prefs)
             # или дефолт. Другие пайплайны — без temperature (65.8).
             temperature = settings.tone_temperature(
@@ -1852,6 +1871,72 @@ class DirectChatService:
             # MCA-07 (T-3852): тот же единственный bundle доступен инструментам
             # (REUSE: контракт, не второй сборщик; R17 — ссылки/refs).
             tool_ctx.evidence_bundle = evidence_bundle
+            # ── ASAP-3.1 (ADR-1028-3 D7, §30): LLM REACT — тот же Stage-1 ──
+            # Один вызов (тот же контекст, что генерировал бы ответ);
+            # instruction-block — аддитивный user-блок (прецедент
+            # <dig_result>/<image_result>); невалидно/нет → детерминированный
+            # fallback (fail-soft молча); текст НЕ отправляется.
+            if react_llm_pending:
+                try:
+                    async with typing_active(bot, chat_id):
+                        raw_react = await self.llm.generate(
+                            _llm_react.inject_react_task(payload),
+                            temperature=temperature, chat_id=chat_id,
+                            module="direct_chat", step="react",
+                            correlation_id=correlation_id)
+                    llm_reaction = _llm_react.extract_llm_reaction(raw_react)
+                    if llm_reaction is None:
+                        # Матрица — владелец action; LLM не ответила валидно →
+                        # детерминированный выбор (fail-soft, §31).
+                        reaction = pre_reaction or _reaction_for_class(
+                            _decision_message_class(query),
+                            getattr(message, "message_id", None))
+                        react_source = "deterministic"
+                    else:
+                        reaction = llm_reaction
+                        react_source = "llm_decision"
+                    _llm_react.record_react_outcome(source=react_source,
+                                                    reaction=reaction)
+                    _llm_react.emit_direct_react(
+                        chat_id=chat_id, message_id=pre_target,
+                        reaction=reaction, source=react_source,
+                        trigger_type=_trigger_type)
+                    _log_decision_short_circuit(
+                        chat_id=chat_id, action=ACTION_REACT,
+                        reason_code=pre_reason, target_id=pre_target,
+                        reaction=reaction)
+                    _reaction_outcome = await react_moai(
+                        bot, chat_id, pre_target, reaction=reaction,
+                        reason_code=pre_reason)
+                    emit_agentic_event(
+                        "REACTION_SENT", run_id=correlation_id,
+                        chat_id=chat_id, message_id=pre_target,
+                        outcome=_reaction_outcome, reaction=reaction,
+                        reason=pre_reason)
+                except LLMError as exc:
+                    # Fail-soft: LLM-выбор недоступен → детерминированная
+                    # реакция (пользователь не видит ошибки, §31).
+                    logger.warning(
+                        "[direct] llm react failed — deterministic fallback "
+                        "| chat=%s | error=%s", chat_id, exc)
+                    reaction = pre_reaction or _reaction_for_class(
+                        _decision_message_class(query),
+                        getattr(message, "message_id", None))
+                    _llm_react.record_react_outcome(source="deterministic",
+                                                    reaction=reaction)
+                    _llm_react.emit_direct_react(
+                        chat_id=chat_id, message_id=pre_target,
+                        reaction=reaction, source="deterministic",
+                        trigger_type=_trigger_type)
+                    _reaction_outcome = await react_moai(
+                        bot, chat_id, pre_target, reaction=reaction,
+                        reason_code=pre_reason)
+                    emit_agentic_event(
+                        "REACTION_SENT", run_id=correlation_id,
+                        chat_id=chat_id, message_id=pre_target,
+                        outcome=_reaction_outcome, reaction=reaction,
+                        reason=pre_reason)
+                return
             try:
                 async with typing_active(bot, chat_id):
                     if self.tool_router is not None:
@@ -1864,10 +1949,18 @@ class DirectChatService:
                             module="direct_chat",
                             correlation_id=correlation_id)
                     else:
+                        # ASAP-3.1 §14/§42: fallback recompose — при
+                        # переключении на fallback-модель payload
+                        # пересобирается под её окно (adapter может быть
+                        # None; ON/OFF-паритет сохранён).
+                        _fb_factory = _fallback_meta.get("adapter_factory")
                         raw = await self.llm.generate(
                             payload, temperature=temperature, chat_id=chat_id,
                             module="direct_chat", step="single",
-                            correlation_id=correlation_id)
+                            correlation_id=correlation_id,
+                            fallback_payload_adapter=(
+                                _fb_factory(time_line) if _fb_factory
+                                else None))
             except NoApiKeyForChat as exc:
                 # Раунд 10 (F-7 §5.2): у чата нет своего ключа, глобальный
                 # запрещён/исчерпан → sandbox-фраза content.no_key_reply
@@ -2253,7 +2346,9 @@ class DirectChatService:
     async def _build_user_content(self, chat_id: int, message,
                                   target_name: str,
                                   target_user_id: int | None = None,
-                                  out_excluded: list | None = None) -> list[str]:
+                                  out_excluded: list | None = None,
+                                  out_fallback: dict | None = None
+                                  ) -> list[str]:
         """Порядок сборки user-контента (Раунд 8, B2/T-791, spec §3.B2) —
         «важное к концу» (FR-22/п.24): map → branch → rag → global → thread →
         target → relations → protected → lore → mood → current → anchors →
@@ -2388,7 +2483,7 @@ class DirectChatService:
                 global_parts=global_parts, target_name=target_name,
                 target_user_id=target_user_id,
                 trigger_message_id=trigger_message_id,
-                out_excluded=out_excluded)
+                out_excluded=out_excluded, out_fallback=out_fallback)
         # Раунд 10.4 (B-2): гейт бюджетов — per-chat резолв (override →
         # hot.get → default; без override — байт-в-байт старое поведение).
         from services.chat_params import get_chat_param as _budget_gate
@@ -2631,7 +2726,8 @@ class DirectChatService:
             window: list, roster: list, suffix_map: dict[int, str],
             global_parts: dict, target_name: str,
             target_user_id: int | None, trigger_message_id,
-            out_excluded: list | None) -> list[str]:
+            out_excluded: list | None,
+            out_fallback: dict | None = None) -> list[str]:
         """ASAP-3 (ADR-1028-2 D3): единый композер Dynamic/Unlimited.
 
         Конвейер §6 ТЗ: candidates (существующие билдеры, global/thread без
@@ -2701,33 +2797,35 @@ class DirectChatService:
                     text, _composer.fresh_tail_min_messages())
                 break
 
-        pieces: list[_composer.ContextPiece] = []
-        for kind, text in candidates:
-            if not text:
-                continue
-            priority = _composer.BLOCK_PRIORITY.get(kind, _composer.P2)
-            pieces.append(_composer.ContextPiece(
-                key=kind, kind=kind, text=text, priority=priority,
-                keep=_composer.PIECE_KEEP.get(kind, "span"),
-                floor_tokens=(thread_floor if kind == "thread"
-                              else (tail_floor if kind == "global_tail"
-                                    else 0)),
-                evictable=(priority != _composer.P0),
-                position=canonical_order.get(kind, 99)))
-
-        # ── Full payload (D2): окно модели + external (MCA-07 REUSE) ──
+        # ── Full payload (D2 / ASAP-3.1 ADR-1028-3): окно модели + external ──
+        # ON-путь resolver'а: capacity по реальной паре (base_url + model),
+        # preemptive-min снят — fallback резолвится ОТДЕЛЬНО и при меньшем
+        # окне получает recompose (§14/§42); OFF → байт-в-байт прежний путь.
         model_name = str(getattr(self.llm, "_chat_model", "") or "")
         fallback_model = str(getattr(self.llm, "_fallback_model", "") or "")
-        model_window, window_source = resolve_effective_window(
-            model_name, fallback_model)
+        base_url = str(getattr(self.llm, "_base_url", "") or "")
+        fallback_base_url = str(getattr(self.llm, "_fallback_base_url", "")
+                                or "")
+        resolver_on = (_model_capacity.capacity_resolver_enabled()
+                       and _auto_budget.auto_budget_enabled())
+        est_method = None
+        if resolver_on:
+            try:
+                model_window, window_source = \
+                    await _model_capacity.resolve_stage_window(
+                        base_url, model_name, slot="direct.primary")
+            except Exception:
+                model_window, window_source = \
+                    resolve_effective_window(model_name, fallback_model)
+        else:
+            model_window, window_source = resolve_effective_window(
+                model_name, fallback_model)
         try:
             external_tokens, _est_reserve, est_method = \
                 await self._estimate_external_payload_tokens(
                     chat_id, model_window)
         except Exception:
             external_tokens, est_method = 0, None
-        available, output_reserve = compute_available_budget(
-            model_window, external_tokens)
         # Policy-слой (D2): -1 → Unlimited; 0/None → Dynamic; >0 → cap.
         from services.chat_params import get_chat_param as _budget_gate
         from services import budget_gate as _master_gate
@@ -2741,12 +2839,62 @@ class DirectChatService:
             chat_id, "limits.chat_context_budget_tokens",
             hot.get("limits.chat_context_budget_tokens",
                     settings.CHAT_CONTEXT_BUDGET_TOKENS))
-        if not budgets_enabled:
-            budget, policy_mode = available, "unlimited"
+        fallback_recompose_budget: int | None = None
+        if resolver_on:
+            # ADR-1028-3 §4: единый auto budget resolver (safety ×1, один
+            # расчёт; breakdown — в событии AUTO_CONTEXT_BUDGET).
+            budget_result = await _auto_budget.resolve_stage_budget(
+                "direct.primary", base_url=base_url, model=model_name,
+                mandatory_tokens=external_tokens,
+                policy_raw=(raw_budget if budgets_enabled else -1))
+            model_window = budget_result.context_window
+            window_source = budget_result.source
+            available = budget_result.auto_input_budget
+            output_reserve = budget_result.output_reserve
+            budget = budget_result.effective_input_budget
+            policy_mode = budget_result.policy_mode
+            # §14/§42: fallback-модель — своя capacity, БЕЗ preemptive-min.
+            if fallback_model:
+                fb_result = await _auto_budget.resolve_stage_budget(
+                    "direct.fallback", base_url=fallback_base_url,
+                    model=fallback_model,
+                    mandatory_tokens=external_tokens, policy_raw=-1)
+                if fb_result.effective_input_budget < budget:
+                    fallback_recompose_budget = \
+                        fb_result.effective_input_budget
+                    try:
+                        _auto_budget.record_slot_pressure(
+                            "direct.fallback", physical_overflow=False)
+                    except Exception:
+                        pass
         else:
-            budget, policy_mode = apply_budget_policy(available, raw_budget)
+            available, output_reserve = compute_available_budget(
+                model_window, external_tokens)
+            if not budgets_enabled:
+                budget, policy_mode = available, "unlimited"
+            else:
+                budget, policy_mode = apply_budget_policy(available,
+                                                          raw_budget)
 
         # ── Allocation (eviction P3→P2→P1; P0 не трогается) ──
+        def _new_pieces() -> list:
+            """Свежие pieces (allocate_budget мутирует piece.text)."""
+            fresh: list[_composer.ContextPiece] = []
+            for kind, text in candidates:
+                if not text:
+                    continue
+                priority = _composer.BLOCK_PRIORITY.get(kind, _composer.P2)
+                fresh.append(_composer.ContextPiece(
+                    key=kind, kind=kind, text=text, priority=priority,
+                    keep=_composer.PIECE_KEEP.get(kind, "span"),
+                    floor_tokens=(thread_floor if kind == "thread"
+                                  else (tail_floor if kind == "global_tail"
+                                        else 0)),
+                    evictable=(priority != _composer.P0),
+                    position=canonical_order.get(kind, 99)))
+            return fresh
+
+        pieces = _new_pieces()
         try:
             allocation = _composer.allocate_budget(
                 pieces, budget, truncator=self._composer_truncate)
@@ -2759,32 +2907,103 @@ class DirectChatService:
                 legacy_blocks, budgets_enabled, raw_budget,
                 out_excluded=out_excluded)
 
-        # ── H1/D5 (rework round 1): дедуп middle против ФАКТИЧЕСКИ вошедшего
-        # tail (после аллокации) — tail-кандидаты шире floor'а, и при слабом
-        # давлении часть middle-подбора уже вербатим в выжившем tail.
-        middle_piece = next((p for p in allocation.pieces
-                             if p.kind == "global_middle"), None)
-        tail_piece = next((p for p in allocation.pieces
+        # ── Финализация (дедуп middle↔tail + materialize) ──────────────────
+        # Факторизовано: тот же код используется fallback-recompose (§14).
+        def _finalize_allocation(final_allocation) -> tuple[list[str], list]:
+            # H1/D5: дедуп middle против ФАКТИЧЕСКИ вошедшего tail.
+            mid_piece = next((p for p in final_allocation.pieces
+                              if p.kind == "global_middle"), None)
+            tail_p = next((p for p in final_allocation.pieces
                            if p.kind == "global_tail"), None)
-        if middle_piece and middle_piece.text and tail_piece \
-                and tail_piece.text:
-            final_tail_tg = set(re.findall(r"tg:(\d+)", tail_piece.text))
-            kept_middle = []
-            for ln in middle_piece.text.split("\n"):
-                if not ln.strip():
+            kept_middle_lines: list[str] = []
+            if mid_piece is not None and mid_piece.text and tail_p is not None \
+                    and tail_p.text:
+                final_tail_tg = set(
+                    re.findall(r"tg:(\d+)", tail_p.text))
+                kept_middle_lines = []
+                for ln in mid_piece.text.split("\n"):
+                    if not ln.strip():
+                        continue
+                    m = re.search(r"tg:(\d+)", ln)
+                    if m and m.group(1) in final_tail_tg:
+                        continue        # уже вербатим в выжившем tail
+                    kept_middle_lines.append(ln)
+                mid_piece.text = "\n".join(kept_middle_lines)
+            texts: list[str] = []
+            body_parts: list[str] = []
+            slot_done = False
+
+            def _flush() -> None:
+                nonlocal slot_done
+                if slot_done:
+                    return
+                slot_done = True
+                if body_parts:
+                    body = "\n".join(body_parts)
+                    texts.append(
+                        f"<Global_Context>\n{escape_xml_text(body)}\n"
+                        f"</Global_Context>")
+
+            for piece in sorted(final_allocation.pieces,
+                                key=lambda p: p.position):
+                if piece.kind in ("global_head", "global_middle",
+                                  "global_tail"):
+                    if piece.text:
+                        body_parts.append(piece.text)
                     continue
-                m = re.search(r"tg:(\d+)", ln)
-                if m and m.group(1) in final_tail_tg:
-                    continue            # уже вербатим в выжившем tail
-                kept_middle.append(ln)
-            middle_piece.text = "\n".join(kept_middle)
-            middle_lines = kept_middle
+                if not slot_done and piece.position > 6:
+                    _flush()
+                if piece.text:
+                    texts.append(piece.text)
+            _flush()
+            return texts, kept_middle_lines
+
+        final_texts, middle_lines = _finalize_allocation(allocation)
+
+        # ── ASAP-3.1 §14/§42: fallback recompose factory ───────────────────
+        # При переключении на fallback с меньшим окном payload пересобирается
+        # под ЕГО бюджет (P0 сохраняется; pressure/overflow observable).
+        if out_fallback is not None and fallback_recompose_budget is not None:
+            def _fallback_adapter_factory(time_line: str | None):
+                def _adapt(incoming: dict):
+                    try:
+                        fb_allocation = _composer.allocate_budget(
+                            _new_pieces(), fallback_recompose_budget,
+                            truncator=self._composer_truncate)
+                        fb_texts, _ = _finalize_allocation(fb_allocation)
+                        blocks = ([time_line] if time_line else []) + fb_texts
+                        messages = incoming.get("messages") or []
+                        adapted = dict(incoming)
+                        adapted["messages"] = [
+                            {"role": "system",
+                             "content": str(messages[0].get("content", "")
+                                            if messages else "")},
+                            {"role": "user",
+                             "content": "\n\n".join(blocks)},
+                        ]
+                        logger.info(
+                            "direct: fallback recompose | chat=%s | "
+                            "budget=%d | blocks=%d", chat_id,
+                            fallback_recompose_budget, len(fb_texts))
+                        return adapted
+                    except Exception:
+                        logger.warning(
+                            "direct: fallback recompose failed — primary "
+                            "payload | chat=%s", chat_id, exc_info=True)
+                        return incoming
+                return _adapt
+            try:
+                out_fallback["adapter_factory"] = _fallback_adapter_factory
+            except Exception:
+                pass
 
         # ── H2/D6 (rework round 1): сигнал зажатия пола fresh tail — при
         # фактическом давлении tail стоит на минимуме
         # CHAT_FRESH_TAIL_MIN_MESSAGES (ниже — только путь §17:
         # CONTEXT_PHYSICAL_OVERFLOW + счётчик).
         try:
+            tail_piece = next((p for p in allocation.pieces
+                               if p.kind == "global_tail"), None)
             pressure_engaged = bool(
                 allocation.compressed_or_dropped or allocation.excluded
                 or allocation.physical_overflow)
@@ -2798,35 +3017,8 @@ class DirectChatService:
                     final_messages=final_tail_lines,
                     floor_messages=_composer.fresh_tail_min_messages())
         except Exception:
-            logger.debug("direct: tail floor clamp event failed", exc_info=True)
-
-        # ── Materialize (порядок блоков payload НЕ меняется) ──
-        final_texts: list[str] = []
-        global_body_parts: list[str] = []
-        global_slot_done = False
-
-        def _flush_global() -> None:
-            nonlocal global_slot_done
-            if global_slot_done:
-                return
-            global_slot_done = True
-            if global_body_parts:
-                body = "\n".join(global_body_parts)
-                final_texts.append(
-                    f"<Global_Context>\n{escape_xml_text(body)}\n"
-                    f"</Global_Context>")
-
-        for piece in sorted(allocation.pieces, key=lambda p: p.position):
-            if piece.kind in ("global_head", "global_middle", "global_tail"):
-                if piece.text:
-                    global_body_parts.append(piece.text)
-                continue
-            if not global_slot_done and piece.position > 6:
-                # слот global (позиции 4–6) пройден — блок на своём месте.
-                _flush_global()
-            if piece.text:
-                final_texts.append(piece.text)
-        _flush_global()
+            logger.debug("direct: tail floor clamp event failed",
+                         exc_info=True)
 
         # ── Observability (§32/§33) + diagnostics (§34) ──
         used_tokens = sum(count_tokens(t) for t in final_texts)
@@ -2834,6 +3026,18 @@ class DirectChatService:
                              None if policy_mode == "unlimited" else budget,
                              bool(allocation.excluded),
                              unlimited=(policy_mode == "unlimited"))
+        # ASAP-3.1 §50: observed-слой для Analytics автобюджетов (read-side,
+        # process-local; НЕ вторая система usage — числа существующего прогона).
+        try:
+            _auto_budget.record_slot_observation("direct.primary",
+                                                 used_tokens)
+            if allocation.excluded or allocation.compressed_or_dropped \
+                    or allocation.physical_overflow:
+                _auto_budget.record_slot_pressure(
+                    "direct.primary",
+                    physical_overflow=bool(allocation.physical_overflow))
+        except Exception:
+            pass
         summary_lag = None
         summary_age = None
         if global_parts["has_summary"]:

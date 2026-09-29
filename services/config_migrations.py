@@ -83,6 +83,26 @@ def _threshold_int(value) -> int | None:
         return None
 
 
+def _custom_preserved(domain: str, key: str) -> None:
+    """ASAP-3.1 (§79, T-4086): штатное сохранение custom-значения владельца —
+    НЕ поломка. Kill-switch `CONFIG_MIGRATION_INFO_LOGGING_ENABLED`
+    (default ON) → INFO `CONFIG_MIGRATION_CUSTOM_PRESERVED`; OFF → прежнее
+    WARNING-логирование байт-в-байт (текст сохранён для grep-паритета).
+    WARNING остаются только для failed/incompatible/corrupt/cannot-preserve."""
+    try:
+        info_mode = bool(getattr(settings,
+                                 "CONFIG_MIGRATION_INFO_LOGGING_ENABLED",
+                                 True))
+    except Exception:      # pragma: no cover - защитная ветка
+        info_mode = True
+    if info_mode:
+        logger.info("CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=%s | key=%s "
+                    "| action=preserved_owner_custom", domain, key)
+    else:
+        logger.warning("[%s] кастом владельца — НЕ трогаем | key=%s",
+                       domain, key)
+
+
 async def migrate_dream_thresholds(cache) -> dict[str, str]:
     """Идемпотентная миграция порогов Сна в PG.
 
@@ -108,8 +128,7 @@ async def migrate_dream_thresholds(cache) -> dict[str, str]:
             report[key] = "updated"
             logger.info("[threshold_migration] порог обновлён | key=%s", key)
             continue
-        logger.warning("[threshold_migration] кастом владельца — НЕ трогаем | "
-                       "key=%s", key)
+        _custom_preserved("threshold_migration", key)
     return report
 
 
@@ -139,8 +158,7 @@ async def migrate_global_budget_defaults(cache) -> dict[str, str]:
             report[key] = "updated"
             logger.info("[budget_migration] бюджет обновлён | key=%s", key)
             continue
-        logger.warning("[budget_migration] кастом владельца — НЕ трогаем | "
-                       "key=%s", key)
+        _custom_preserved("budget_migration", key)
     return report
 
 
@@ -182,8 +200,7 @@ async def migrate_deep_sleep_thresholds(cache, *,
             report[key] = "updated"
             logger.info("[deep_sleep_migration] порог обновлён | key=%s", key)
             continue
-        logger.warning("[deep_sleep_migration] кастом владельца — НЕ трогаем "
-                       "| key=%s", key)
+        _custom_preserved("deep_sleep_migration", key)
     return report
 
 
@@ -215,8 +232,7 @@ async def migrate_context_limit_defaults(cache) -> dict[str, str]:
             logger.info("[context_migration] лимит контекста обновлён | "
                         "key=%s", key)
             continue
-        logger.warning("[context_migration] кастом владельца — НЕ трогаем | "
-                       "key=%s", key)
+        _custom_preserved("context_migration", key)
     return report
 
 
@@ -267,9 +283,8 @@ async def migrate_factcheck_context_defaults(cache) -> dict[str, str]:
     before_raw = cache.get(FACTCHECK_CONTEXT_BEFORE_KEY)
     before_int = _threshold_int(before_raw)
     if before_int is not None and before_int != default_int:
-        logger.warning("[factcheck_context_migration] before уже настроен "
-                       "владельцем — НЕ трогаем | key=%s",
-                       FACTCHECK_CONTEXT_BEFORE_KEY)
+        _custom_preserved("factcheck_context_migration",
+                          FACTCHECK_CONTEXT_BEFORE_KEY)
         return report
     if before_int is not None and legacy_int == before_int:
         logger.info("[factcheck_context_migration] уже перенесён — no-op | "
@@ -317,6 +332,5 @@ async def migrate_image_provider_defaults(cache) -> dict[str, str]:
         if current == default:
             logger.info("[image_migration] уже дефолт | key=%s", key)
             continue
-        logger.warning("[image_migration] кастом владельца — НЕ трогаем | "
-                       "key=%s", key)
+        _custom_preserved("image_migration", key)
     return report
