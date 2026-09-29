@@ -1,6 +1,7 @@
 # ADR-1027-11 — `mca-wave-package-release-1027`: агрегатный release-gate пакета §93–§100 — binding-верификация вместо ре-ревью (матрица контент-пинов + правило эскалации дрейфа), стратегия смешанных хунков (whole-file / хирургический стейджинг / excluded), политика частичного применения DDL v12→v19 (СТОП+алерт, консистентная `user_version`, rollback-compat drill), drift-политика и вердикт-правило теста mca-07, отказ от PG-only сида
 
-- **Статус:** **✅ Accepted** — design-гейт релиза (T-4043, 29.09.2026). История: санкция владельца на релиз активирована 29.09.2026; статус Accepted с момента design-гейта (шаблон «Proposed до Merge» заменён явной санкцией релиза; изменение решений D1–D8 после Reviewer-approval гейта инвалидирует approval — binding stale). Ратификация решений финализируется вместе с VERIFIED (T-4048).
+- **Статус:** **✅ Accepted** — design-гейт релиза (T-4043, 29.09.2026); **прод-валидация reconcile @Architect, 29.09.2026**: деплой 2.58.36 VERIFIED — прод HEAD `c5cb5a9`, feat `6285dd7`; DDL v12→v19 (книга v13…v19, бэктил 1,98 млн ~5ч, повтор 0/0); smoke 8/8; kill-switch 26+1 live. Ратификация решений D1–D8 закрыта VERIFIED (T-4048). Раздел «Прод-валидация (reconcile 29.09.2026)» — в конце документа.
+- **История статуса:** Accepted (design, D1–D8 — именно эта редакция прошла release-gate round-2 и деплой, sha256 `7784C63D55335184650224EE0443E8DEC2ECD713BE6A251F614C8FDD89FF7F52`) → подтверждён reconcile (29.09.2026; решения D1–D8 не менялись — прод-факты: книга миграций ровно v13…v19 / 0 дублей / идемпотентный повтор 0/0; v16 identity-backfill 1,98 млн сообщений ~5ч bounded штатно; smoke 8/8; kill-switch 26 product + 1 dev-only ON, 8 exact-match mca-17a; binding на релиз-коммите == гейт round-2 байт-в-байт). Санкция владельца на релиз активирована 29.09.2026; статус Accepted с момента design-гейта (шаблон «Proposed до Merge» заменён явной санкцией релиза; изменение решений D1–D8 после Reviewer-approval гейта инвалидирует approval — binding stale).
 - **Фича:** `mca-wave-package-release-1027` (release/delivery). **Спецификация:** `plans/features/mca-wave-package-release-1027/spec.md` (нормативные детали — там; §-ссылки ниже — на неё).
 - **ТЗ-основание:** `plans/current_task.md` v1.8 §2.4/§2.6/§18/§19/§20/§22; активация владельца 29.09.2026; backlog/metrics 10.27-W0…W0-17a. R17/R18.
 - **Baseline:** HEAD == origin/master == `8bd1389`; прод-код `2deb287` (`APP_VERSION` 2.58.35); прод `user_version=12`, каталог 483/423/458/105/103/21; дерево M=106/untracked=51/staged=0.
@@ -64,3 +65,21 @@
 | D4 | (iv) drift/mca-07 | T-4042, T-4045 |
 | D5 | (v) PG-only | T-4047/T-4048 (отрицание шага) |
 | D6–D8 | формы/риск/ownership | T-4044…T-4050 |
+
+## Прод-валидация (reconcile 29.09.2026)
+
+Деплой **2.58.36 VERIFIED** (прод `/var/www/admin_bot`, HEAD `c5cb5a9`, feat `6285dd7`, health 200). Базис D1–D8 подтверждён прод-фактами (источник — deploy-doc `c5cb5a9`, `deployment.md` релизной фичи):
+
+| Решение | Прод-факт (T-4042…T-4049) |
+|---|---|
+| D1 (binding-гейт) | Binding на релиз-коммите == гейт round-2 байт-в-байт (STATUS/UNTRACKED сверены; WTH `61cd1174…` / REL `19d6eab5…` — в deployment.md); import-closure 18/18; полный прогон 9976/3 — все 3 failing поимённо из известного анкер-набора `8bd1389`; JS 50/50; F8 CHECK OK (483) |
+| D2 (композиция) | feat `6285dd7` (129 файлов) + docs `6470492` (83 файла) + deploy-doc `c5cb5a9`: (b)-файлы import-closure `2deb287` (`mca_gates`/`mca_retrieval_context`/`mca_events`/`token_counter`) в диффе отсутствуют; (c)-чужое (harness-инфра, `mca-04b`) не закоммичено — контрольная проверка @Architect по `git diff --name-only 8bd1389..c5cb5a9` (reconcile 29.09.2026), отклонений нет |
+| D3 (DDL v12→v19) | Бэкап-гейт ok (`pre_mca_v19_20260929_052904.db`, 850 МБ, read-back); книга миграций ровно v13…v19 — 8 строк, 0 дублей; v16 identity-backfill 1,98 млн сообщений ~5ч bounded штатно; идемпотентный повтор 0/0; `user_version=19`; downgrade-ограничение cold-отката зафиксировано в deployment.md (rollback soft/cold) |
+| D4 (drift/mca-07) | Релизный пин `92bfa016…` подтверждён; focused mca-07 43 passed (повтор); композиция новых дрейфов не принесла |
+| D5 (PG-only сид) | Шаг сида не проводился (Δ каталога = 0 во всех 8 фичах); системный фикс Summary-ключей ASAP-2 — backlog follow-up остаётся открытым |
+| D6/D7 (формы/R3) | Ранбуки исполнены построчно — ни одного ❌, политика СТОП не срабатывала; smoke 8/8: события 67+, identity 613/617, provenance 14805/692 записей, retrieval 2 поколения — WARNING fail-open `episode-lore`/`vector` исчезли на проде, observability 8/8, supervisor fencing live |
+| D8 (ownership) | T-4042…T-4049 исполнены по владельцам; VERIFIED 2.58.36 закрыл ратификацию R3 (триггеры понижения — @Reviewer) |
+
+Kill-switch на проде: **26 product + 1 dev-only ON**; точный состав 8 флагов mca-17a — exact-match реестру `KILL_SWITCHES` в `mca_gates.py` (пин T-4042 §4.1). R17/R18: секретов в диффе/логах/отчётах нет; `current_task.md` не менялся; бэкапы/теги целы.
+
+Настоящая правка ADR — только prod-валидационная запись, история статуса и этот раздел; решения D1–D8 не менялись; review-approval гейта (round-2) **не инвалидировано**. Карта архитектуры — `plans/ARCHITECTURE.md` §93–§100 (release-маркеры); прецедент конвенции — ADR-1028-2 (ASAP-3).
