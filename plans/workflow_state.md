@@ -2,6 +2,8 @@
 
 > Краткий оперативный чекпоинт оркестратора. Не транскрипт. Обновляется после каждого верифицированного шага.
 
+- **🆕 НОВАЯ ЗАДАЧА `memory-context-autonomy` (MCA, round 10.27) — INTAKE ЗАКРЫТ, PLANNING (rev 179, 26.09.2026).** Источник — `plans/current_task.md` v1.8 (26.09.2026, 1865 строк, sha256 `9af36041…`, git-ignored, не изменялся; содержит секреты — значения не переносить). Redacted-индекс — `plans/archive/requests/memory-context-autonomy.md`; intake-коммит **`05bc870`** (origin/master) + annotated-тег **`pre-mca-round1027`**; Step 0 @Memory ✅ (baseline HEAD `7165ff7`, `APP_VERSION` **2.58.31**, каталог **473/430/448/102/100/21**, SQLite v12, канон 12; pytest 9513/0 + JS 47/47 — прошлый verified, не новый прогон; KG-узел `memory-context-autonomy` + 6 Risk). Локальный откат plans-файлов восстановлен из HEAD (секретов в коммите нет). Состав — **MCA-01…MCA-21** (транзакции · SafeFetcher+cookies · identity/время/версии · provenance+досье · истории · сон/парадигмы · retrieval/EvidenceBundle · характер · интенты · RandomSource/ANU + 14.6–14.11 · tools/расходы · миниапп · журналирование · схема · статистика · опыт/уроки · прозрачность процессов · SelfModel · vision · temporal factcheck · гайды); приёмки **A01–A95**; §20 — единый production-релиз, всё ON (кроме игрового stub и денежных лимитов OFF). **▶️ Следующий шаг — декомпозиция @PM (код ещё не менялся).**
+
 - **✅ A1 `tool-coordinator` (Эпик 3, Wave 1) — COMPLETED + MERGED (§83) + DEPLOYED (2.58.30 VERIFIED), 24.09.2026.** Единый Reviewer gate **Approved** C0/H0 (binding `e3ea367`/`4361f011…`/`b37b9a50…`); программный слой `CoordinatorDecision` внутри Синтезатора (`direct_chat_service.py`), без 3-го LLM-вызова и без wire-`action`, reuse `tool_loop` для цепочек, изоляция Вербализатора, env-only kill-switch `DIRECT_COORDINATOR_ENABLED` (default ON); **ADR-1026-14 Accepted**; `ARCHITECTURE.md` **§83**; метрики **10.26-A1** + KG; deploy (`b32c46a`/`b1c02a3`/`7c79df3`, MainPID **652183**, health 200, `/healthz` 2.58.30, `database is locked`=0); архив `plans/archive/tool-coordinator-round1026/`. **▶️ Следующая — A2 `tool-chains`** (§15–§17). Closing-коммит A1 — @DevOps.
 - **✅ A0 `agentic-audit` (Эпик 3, Wave 0) — COMPLETED (read-only) + ARCHIVED + deploy NOT_APPLICABLE, 24.09.2026.** Единый Reviewer gate **Approved** C0/H0 (binding `e8065e9`/`805c4680…`/`1B2AE779…`); durable-артефакт **`plans/docs/agentic-audit-round1026.md`** (15/15 §12, карта инструментов 10×8/8, 34 EVIDENCE / 6 HYPOTHESIS, 38 стабильных анкоров, handoff к A1–A10; **не архивируется** — им пользуются A1–A10); **ADR-1026-13 Accepted**; запись **`ARCHITECTURE.md` §82**; метрики **10.26-A0** + KG (HY-01…HY-06 → A3/A4); архив `plans/archive/agentic-audit-round1026/`; закрыто 19 задач (T-3481…T-3499). **▶️ Следующая — A1 `tool-coordinator`** (§13–§14; вход — durable-артефакт по анкорам). Closing-коммит A0 — @DevOps.
 - **✅ ЭПИК 2 «Summary Hybrid Pipeline» — ЗАВЕРШЁН (авто-часть), 24.09.2026.** S1–S10: все COMPLETED + MERGED (§71–§81) + DEPLOYED (2.58.18 → **2.58.29**). Финал — **S10 `summary-deploy`**: активация Hybrid = code-default `SUMMARY_HYBRID_L2_ENABLED=True` (kill-switch `per-chat → hot → env/default` сохранён, ручной активации/legacy-селектора нет), §114-harness 11/11 без публикаций в основной чат, §115-процедура, §117 `results.md`; deploy/активация **VERIFIED** (`415a861`/`04f5ae1`/`7bf716e`; прод ff `cebd950..04f5ae1`, MainPID **595858**, health 200, `/healthz` **2.58.29**, effective `SUMMARY_HYBRID_L2_ENABLED=True`, `database is locked`=0); merge **§81** + **ADR-1026-12 Accepted**; метрики **10.26-S10** + агрегат Эпика 2; архив `plans/archive/summary-deploy-round1026/`. **Live-часть §115/§117** (первый рабочий запуск Саммари и публикация rich/plain) — **PENDING OWNER VERIFICATION** (ближайший платик 0/6/12/18 Asia/Yekaterinburg); **§85-UI — отдельная санкция (Δ каталога ≠ 0)**. Эпик 1 — авто ✅ ранее. **Предусловие Эпика 3 «Agentic Intelligence» (после Эпиков 1 и 2) формально достигнуто** — решение о старте за `select_next`. Closing-коммит S10 — @DevOps.
@@ -337,25 +339,25 @@
 <!-- OPENCODE_WORKFLOW_STATE_V1
 {
   "schema_version": 1,
-  "state_revision": 178,
+  "state_revision": 282,
   "task_id": "memory-context-autonomy",
-  "request_fingerprint": "sha256:9af36041520a0d6058e2a92533a5ad71bd911d152a5f269fcf13fe9c0f7b46ab",
+  "request_fingerprint": "sha256:967BEB997022A8BBF15BC2990F9EF3C6A932BBA9765A39EC53D19B48D43EB8C1",
   "task_status": "in_progress",
-  "active_feature": null,
-  "feature_status": "Step 0 @Memory выполнен (baseline HEAD 7165ff7, 2.58.31, каталог 473/430/448/102/100/21, DDL v12; конфликт-карта по 12 блокам MCA; KG-узел memory-context-autonomy + 6 Risk)",
-  "phase": "planning",
+  "active_feature": "mca-wave-package-release-1027",
+  "feature_status": "Wave-package release APPROVED for release (gate round 2): H-1 closed independently; runs 9978/1 + 38 + JS 50/50 + F8 483; binding at re-measure: WTH f103007f… / WTH_RELEASE_SCOPE 17223b4a… (service-file drift documented, T-4046 re-measures at delivery commit); Reviewed-Commit 8bd1389, Spec 9E42620D… unchanged; eratum disposition: fix 17/33 count swap + JS-50 note + L-1/L-2 in delivery docs commit. Ready delivery: T-4046 commit composition (wave files per inventory, clean-worktree verification before push, APP_VERSION 2.58.36+README, eratum docs fixes incl inventory report) → T-4047 backup VACUUM INTO + DDL v12→v19 (stop-on-failure, boot-drill facts from gate) → T-4048 deploy + post-deploy checklist (health/user_version=19/kill-switches 26+1 ON/per-feature smoke/8 toggles mca-17a) → T-4049 rollback drills documented → T-4050 archive+metrics.",
+  "phase": "delivery",
   "risk_level": "R3",
   "next_agent": "DevOps",
-  "next_action": "Закрыть хвосты round1026 и intake-артефакты MCA: коммит docs(plans), push без force, annotated-тег pre-mca-round1027; проверить отсутствие секретов",
+  "next_action": "@DevOps wave-package release delivery T-4046–T-4049: (1) re-measure WTH+release-scope at commit moment (binding f103007f…/17223b4a… will drift on service files — expected, re-pin in deployment.md); (2) feat commit per inventory (plans/reports/round1027_wave_release_inventory.md): 139 wave entries (20 untracked: 8 services+9 tests+3 harness; 31 product M surgical hunks per spec §4.2 mixed-file table; 68 test M; 7 plans; 13 docs artifacts incl. drift report + eratum fixes: mca-14=17/mca-01=33 count swap in spec §3+T-4042 §6 report, JS-50 note, L-1/L-2), EXCLUDE import-closure 4 files, escalation dispositions (never: node_modules/package.json/.playwright-mcp; hygiene commit on place: 12 screenshots + _asap3_wth.py; mca-04b folder OUT), APP_VERSION 2.58.35→2.58.36 + README; AFTER commit: clean-worktree import/pytest verification BEFORE push (ASAP-3 lesson: worktree add → imports → slice); message: feat(round1027): MCA wave §93–§100 release — schema registry, event contract, task supervisor, message identity, safe fetch, provenance, retrieval context, observability core (APP_VERSION 2.58.36). (3) docs commit: feature folder + full_audit_results + inventory report already inside feat per composition. (4) push → deploy per runbook: BEFORE restart run DDL per spec §5: backup VACUUM INTO (free-space + read-back) → migration batch v13→v19 (stop-on-failure: alert + keep consistent user_version; success = user_version 19 + ledger exactly v13…v19 + idempotent rerun 0/0) → restart admin_bot. (5) post-deploy: health 200 + APP_VERSION 2.58.36; user_version=19 on prod; schema_migrations ledger verify; kill-switch inventory 26+1 all ON resolvable (mca-17a 8 composition per T-4042); per-feature smoke criteria from each wave archive deployment criteria (14 registry/13 events/01 supervisor/03 identity/02 safe-fetch/04a provenance/07 retrieval/17a observability — compile short checklist from archives); no new error spike. (6) deployment.md in feature folder (bindings, commits, DDL facts incl. rollback limitation legacy-code-on-v19 downgrades marker, smoke tables, rollback soft/cold incl. restore-only-emergency note) + docs commit + push. Fail → BLOCKED/FAILED with exact step. Return: status, commits, deployed version, DDL facts, smoke table, deployment.md path, foreign WIP confirmation.",
   "human_gate": false,
   "blocked": false,
   "blocker_type": null,
   "auto_resume_enabled": true,
   "review": {
-    "status": "pending",
-    "reviewed_commit": null,
-    "working_tree_hash": null,
-    "spec_hash": null
+    "status": "approved",
+    "reviewed_commit": "f103007f",
+    "working_tree_hash": "f103007f",
+    "spec_hash": "9E42620D779AA8613BC5A634F1525CC4E5B997777BC06E1E0EB83E75537D0F7A"
   },
   "deployment": {
     "required": true,
@@ -368,6 +370,6 @@
     "last_resumed_at": null,
     "last_session_id": null
   },
-  "updated_at": "2026-09-25T18:56:27.118Z"
+  "updated_at": "2026-09-29T04:45:24.510Z"
 }
 OPENCODE_WORKFLOW_STATE_V1 -->

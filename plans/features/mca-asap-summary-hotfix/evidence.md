@@ -170,3 +170,127 @@ Pre-existing mca-волна (~68 файлов) НЕ тронута этим hotf
 - Дефолт капа 1 (легаси) — см. §6 п.1: при дефолте саммари будет «коротким».
   Требование владельца «не пустой чат» выполнено; качество (длина) — вопрос
   hot-ключа, рекомендация выставить 6.
+
+---
+
+# ASAP-2: L1-ретрай (пост-деплой 2.58.32)
+
+## 8. Прод-факты и диагноз
+
+- Пост-деплой 2.58.32: L2-фикс работает (too_many_paragraphs исчез), но 2
+  свежих прогона пали РАНЬШЕ — на L1:
+  - `L1_COMPLETE status=invalid | invalid_reason=invalid_json` (07:30);
+  - `L1_COMPLETE status=invalid | invalid_reason=message_in_multiple_threads`
+    (08:23);
+  - → `L2_SKIPPED | reason=l1_not_usable` → `SUMMARY_COMPLETE degraded,
+    code=SUMMARY_GENERATION_FAILED`.
+- Статистика 30 дней: 17 SUMMARY, 16 degraded, L2_COMPLETE всего 2.
+- Причина: `run_l1` — single-shot (один LLM-вызов, невалидный ответ → сразу
+  `invalid_result` без повторной попытки, `services/summary_l1_clusterizer.py`).
+  Оба прод-кода — случайный сбой модели (битый JSON; дубль id между тредами),
+  не переполнение контракта.
+
+## 9. Механика ретрая (фикс)
+
+`services/summary_l1_clusterizer.py::run_l1`:
+- тело «call → parse → validate» обёрнуто в цикл попыток: максимум 2
+  (`attempt in (1, 2)`), вторая — ТОЛЬКО если первая `STATUS_INVALID` с
+  reason в `_RETRYABLE_REASONS` (frozenset: invalid_json, bad_type,
+  unknown_field, invalid_fact, unknown_message_id,
+  message_in_multiple_threads);
+- НЕ ретраятся (точный прежний путь):
+  - `LLMError`/`LLMTimeoutError` → `error_result` (транспорт, есть свой
+    retry-канал llm_client);
+  - жёсткие лимиты `too_many_threads`/`too_many_facts`/
+    `too_many_facts_total` (переполнение контракта, ретрай = трата токенов);
+  - прочие invalid-коды (bad_schema_version, invalid_topic, invalid_thread_id,
+    evidence_not_in_thread, unassigned_conflict, internal_error,
+    id_space_mismatch, empty_response) — не в списке по ТЗ;
+- валидация обеих попыток идентична — тот же `parse_l1_response`/
+  `validate_l1_response`; ретрай НЕ ослабляет hard-контракт §95: обе
+  невалидны → прежний `invalid` с reason ВТОРОЙ попытки;
+- логи R17-safe: WARN `L1 retry | run_id | chat_id | attempt=1/2 |
+  reason=<первой попытки> — повторная попытка`; итоговый `L1_COMPLETE` —
+  прежний формат + аддитивное поле `attempts=%d` (1 — single-shot, 2 — был
+  ретрай); фактический статус = последней попытки;
+- kill-switch: env-only ClassVar `SUMMARY_L1_RETRY_ENABLED` (config/settings.py,
+  default ON; OFF → `max_attempts=1` — точный прежний single-shot байт-в-байт;
+  Δ каталога=0, тест env-only).
+
+## 10. Тесты ASAP-2
+
+Новый `tests/test_summary_asap2_l1_retry_round1027.py` (12 тестов, QueueLLM
+с очередью ответов):
+1. invalid_json → ретрай → ok/usable, calls=2, «L1 retry reason=invalid_json»,
+   `attempts=2` в L1_COMPLETE;
+2. message_in_multiple_threads → ретрай → ok (прод-код 08:23 покрыт);
+3. обе попытки невалидны → прежний invalid/invalid_json (не новый статус);
+4. reason ВТОРОЙ попытки в финальном результате (invalid_json → dup_threads);
+5. ровно один ретрай без лавины (3-й ответ не запрашивается);
+6. too_many_facts → single-shot, calls=1 (не тратим токены);
+7. kill-switch OFF + невалидный первый → ровно 1 вызов, прежний invalid
+   (второй ответ из очереди не используется);
+8. kill-switch OFF + валидный → 1 вызов, ok;
+9. LLMError → error_result без ретрая, calls=1;
+10. LLMTimeoutError → error_result без ретрая, calls=1;
+11. валидный с первой → ok, calls=1, `attempts=1`, «L1 retry» в логе нет;
+12. Δ каталога=0 (env-only ClassVar, default ON).
+
+Обновлены под новую семантику (fail-closed не ослаблен):
+- `tests/test_summary_test_run.py::test_invalid_l1_fail_closed_no_l2` —
+  обе попытки невалидны → 2×L1, L2 НЕ вызывается, not_published;
+- `tests/test_summary_deploy_round1026.py::test_scenario_07_invalid_json_l1_fail_closed`
+  (§114 harness) — 2×L1, 0 публикаций, `code=SUMMARY_GENERATION_FAILED`.
+
+Баунд-гейты (прецедент NOTE-исключений):
+- `test_tool_coordinator_round1026.py::test_forbidden_paths_out_of_diff` —
+  `summary_l1_clusterizer.py` добавлен в санкционированные summary-файлы;
+- `test_summary_deploy_round1026.py::test_forbidden_paths_unchanged` —
+  файл исключён из списка запрещённых (NOTE ASAP-2).
+
+## 11. Полные прогоны ASAP-2
+
+- Полный pytest: **9851 passed / 0 failed** (~222 s; baseline 9839 → +12).
+- JS vm-харнесс: **48/48, exit 0**.
+- `git diff --check`: CLEAN. R17-скан диффа: CLEAN.
+
+## 12. Файлы ASAP-2
+
+- `services/summary_l1_clusterizer.py` — retry-цикл, `_RETRYABLE_REASONS`,
+  `attempts` в L1_COMPLETE, docstring;
+- `config/settings.py` — ClassVar `SUMMARY_L1_RETRY_ENABLED` +
+  APP_VERSION 2.58.33;
+- `tests/test_summary_asap2_l1_retry_round1027.py` — НОВЫЙ (12 тестов);
+- `tests/test_summary_test_run.py`, `tests/test_summary_deploy_round1026.py`
+  (scenario_07 + baund-исключение), `tests/test_tool_coordinator_round1026.py`
+  (baund NOTE);
+- версия-пины 2.58.33: 23 py-файла + 4 JS-харнесса (механика 270c277);
+- `README.md`, `plans/docs/param-registry-round1025.meta.md`;
+- артефакты: tasks.md/evidence.md (эта секция).
+
+## 13. Deployment-заметки ASAP-2 для @DevOps
+
+1. Деплой штатный: `git pull --ff-only`, рестарт `admin_bot`; миграций нет
+   (Δ DDL=0), env-правок нет (флаг default ON).
+2. Верификация после деплоя: следующее саммари — в логе `L1_COMPLETE ...
+   attempts=2 | status=ok` при ретрае (или `attempts=1` если с первой);
+   ошибки `L2_SKIPPED | reason=l1_not_usable` по invalid_json/
+   message_in_multiple_threads должны практически исчезнуть. Остаточные
+   degraded возможны при LLMError (транспорт) — это прежняя семантика.
+3. Откат: env `SUMMARY_L1_RETRY_ENABLED=false` + рестарт → точный прежний
+   single-shot.
+4. Стоимость: максимум +1 LLM-вызов L1 на прогон и ТОЛЬКО при невалидном
+   ответе (прод-статистика: до 14/17 прогонов экономились бы от ретрая);
+   too_many_* не ретраятся — без затрат на заведомо невалидных ответах.
+
+## 14. Остаточные риски ASAP-2
+
+- `empty_response` (пустой ответ модели) не входит в retry-набор по ТЗ —
+  если прод покажет кластер таких сбоев, вопрос отдельным пунктом.
+- Ретрай дублирует вход (тот же messages) — при устойчивом «дурном» состоянии
+  модели (например, системно ломает формат) прогон по-прежнему fail-closed
+  после 2 попыток; это осознанный предел по ТЗ («ровно одна повторная
+  попытка»).
+- Задержка публикации растёт на длительность второй попытки только при ретрае
+  (таймауты не ретраятся → worst case ограничен обычным временем ответа).
+
