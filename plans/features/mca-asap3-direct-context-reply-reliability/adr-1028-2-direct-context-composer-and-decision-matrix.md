@@ -1,6 +1,7 @@
 # ADR-1028-2 — Direct Context Composer (model-aware budget) + Decision Addressing Matrix (ASAP-3)
 
-**Статус:** Accepted (design-фаза `mca-asap3-direct-context-reply-reliability`, раунд 1028, ASAP-трек).
+**Статус:** Accepted (design-фаза `mca-asap3-direct-context-reply-reliability`, раунд 1028, ASAP-трек; **прод-валидация reconcile @Architect, 29.09.2026**: деплой 2.58.35 VERIFIED — прод HEAD `e6af6b2`, feat `2deb287`; live acceptance §56 A–G инструментированным прод-прогоном; T-4003: 61 обрыв/7д → 0).
+**История статуса:** Accepted (design, D1–D17 — именно эта редакция прошла ревью round 2 и деплой, sha256 `77C2F12AB6AF2E231130095F1025C83A690C3D627F8E058F1FC4255993F2356D`) → подтверждён reconcile (29.09.2026; решения D1–D17 не менялись — прод-факты: force → REPLY reason=`force_direct`; SILENT+🗿 конъюнкция success=True; REACT детерминированный набор класса; `policy_mode=unlimited` без WARN 27826; old episode 39/25 строк из реальной истории PERMsoc; fresh tail 20 / middle 60; 9 счётчиков grep-able). Errata F8-счётчиков — см. раздел «Errata (reconcile)» в конце документа.
 **Scope контракта:** только consumer-side Direct Chat (§0 ТЗ). Summary-пайплайн, free-will фона, WIP-волны MCA — вне контракта.
 **Спека-компаньон:** `plans/features/mca-asap3-direct-context-reply-reliability/spec.md`.
 **Версия:** 2.58.34 → 2.58.35 (per-feature bump, D16).
@@ -81,7 +82,7 @@ Fresh tail = последние сообщения окна (включая curr
 ### D12 (PM-Q2) — Context Mode: derive, Δ=0 от ключей
 Context Mode [Dynamic]/[Unlimited] — представление существующего `limits.chat_context_budget_tokens`: `-1` → Unlimited, `0`/None → Dynamic (дефолт 16000), `>0` → Cap (display-only). Miniapp-переключатель пишет этот же ключ; backend читает его же — одна семантика (§7 ТЗ), состояние не дублируется. Инцидентный чат (все три ключа `-1`) после включения композера получает Unlimited без миграций.
 *Альтернатива:* новый per-chat ключ `flags.chat_context_mode` — отклонена: Δ каталога +1 без новой выразительности + риск расхождения «mode vs limit».
-**Санкция каталога (итог):** +1 ключ `flags.chat_autonomous_reply_enabled`, +1 ключ `flags.chat_silent_ack_enabled` (оба в существующую группу `flags_decision_making`, param_catalog.py:369); +0 групп, +0 вкладок. F8: **481/422/456/105/103/21 → 482/423/457/105/103/21**; F8 переиздаётся атомарно с коммитом (прецеденты ADR-1026-2, ASAP-2 §101, ASAP-2.1 §102); `test_param_catalog.py` (assert 422) обновляется. Δ DDL = 0.
+**Санкция каталога (итог):** +1 ключ `flags.chat_autonomous_reply_enabled`, +1 ключ `flags.chat_silent_ack_enabled` (оба в существующую группу `flags_decision_making`, param_catalog.py:369); +0 групп, +0 вкладок. F8: **481/422/456/105/103/21 → 482/423/457/105/103/21** _(errata reconcile 29.09.2026: «482/457» — typo спеки, арифметически невозможно при +2 каталог-ключах; фактические значения **483/423/458/105/103/21** — см. Errata в конце документа)_; F8 переиздаётся атомарно с коммитом (прецеденты ADR-1026-2, ASAP-2 §101, ASAP-2.1 §102); `test_param_catalog.py` (assert 422) обновляется. Δ DDL = 0.
 
 ### D13 (PM-Q3) — реестр caps: скрытые (снимаются на ON-пути) vs явные (сохраняются)
 | Место | Сегодня | Классификация | Действие при composer ON |
@@ -118,3 +119,23 @@ Per-feature bump **2.58.34 → 2.58.35** (settings.py:2172), единый рел
 
 ## Затронутые контракты
 ADR-1019-8 (SUPERSEDE на ON-пути Direct; вне Direct без изменений); ADR-1026-14/20/21 (A1/A7/A8 — аддитивные расширения, обратная совместимость сохранена); ADR-1027-7 (mca-07 — REUSE без изменений); ARCHITECTURE.md — обновление в reconcile-фазе (после Reviewer Approved + deploy + §58).
+
+## Errata (reconcile 29.09.2026) — F8-счётчики каталога
+
+В D12 (и spec §6) заявлены счётчики «481/422/456 → **482/423/457**» — **typo**: при санкционированных +2 каталог-ключах (`flags.chat_autonomous_reply_enabled`, `flags.chat_silent_ack_enabled`) арифметически невозможно получить +1 REGISTRY/+1 categorized — каждый каталог-ключ даёт +1 REGISTRY и +1 categorized (Settings dataclass +1 — только Settings-поле `CHAT_AUTONOMOUS_REPLY_ENABLED`; второй ключ PG-only). **Исправленные значения — REGISTRY 483 / Settings dataclass 423 (covered==fields: True) / categorized 458 / GROUPS 105 / _TAB_BY_GROUP 103 / TAB_RULES 21.** Подтверждено: Reviewer round 1–2 (finding M-ASAP3-2, review.md: «Исправленные значения для reconcile: 483/423/458/105/103/21»), живым импортом каталога на проде 2.58.35 (deployment.md §5.2), `tools/gen_param_registry_round1025.py --check` → CHECK OK (483), зелёными `test_param_catalog`/`test_round1025_f8_registry`. Функциональный контракт не менялся (3 тумблера §35 в существующей группе `flags_decision_making`; POST /api/config отвергает некаталожные ключи — 422 «неизвестный ключ»); F8-артефакты (TSV 483/delta 72, screen-map, meta.md, catalog_baseline/f8_baseline, ROUTES_SHA256, пин-тесты и JS-пины версий) переизданы атомарно в feat-коммите `2deb287`. Spec намеренно НЕ правится: Spec-Hash `83E7B028…` — часть reviewed-binding префлайна (deployment.md §1); настоящая errata — санкционированное Reviewer doc-исправление уровня reconcile, review не инвалидировано.
+
+## Прод-валидация (reconcile 29.09.2026)
+
+Деплой **2.58.35 VERIFIED** (прод `/var/www/admin_bot`, HEAD `e6af6b2`, feat `2deb287`, MainPID 2026443, health 200, ΔDDL=0, сид B-ASAP3-3 применён до рестарта). Live acceptance §56 A–G — инструментированный прод-прогон на реальном коде/конфиге/истории PERMsoc (замоканы только `bot.send_message`/`react_moai`/`llm.generate`; side effects в Telegram не отправлялись):
+
+| Сценарий | Прод-факт | Решение ADR подтверждено |
+|---|---|---|
+| A force | `trigger_type=force_keyword force_reply_required=True` → REPLY reason=`force_direct`, шорт-каты не достигнуты | D8 п.1 |
+| B autonomous reply | reply_to_bot ∧ вопрос → Decision Making → REPLY | D8 п.2 |
+| C REACT | «ахах» → reaction=😂 по классу, без LLM | D9 REACT |
+| D SILENT+🗿 | конъюнкция → `DIRECT_SILENT_ACK reaction=🗿 success=True` | D9 SILENT |
+| E фон | гейт хендлера не тронут; Summary-крон fail-soft без регресса | §19C/D11 |
+| F Unlimited контекст | `policy_mode=unlimited`; old episode 39/25 строк verbatim; tail 20 / middle 60; `truncated`/`27826` = 0 | D2/D3/D4/D5/D6 |
+| G observability | 9 `direct_metric` grep-able + DIRECT_*/DECISION_*/CONTEXT_* в журнале | D15 |
+
+**T-4003:** baseline `direct: global context truncated` **61/7д → 0** после деплоя; спайка ошибок нет (`database is locked`=0, NRestarts=0). Находки (не блокёры, backlog): prod-модель вне карты моделей → `unknown_fallback` 16384 (рекомендация env `CHAT_MODEL_CONTEXT_WINDOW=131072`); mca07-каналы lore/vector fail-open до релиза волны. Полные данные — `deployment.md` §4–§8; карта архитектуры — `plans/ARCHITECTURE.md` §103.
