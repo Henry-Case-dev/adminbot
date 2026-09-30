@@ -1,8 +1,8 @@
 # ADR-1028-3 — Auto Budgets: Model Capacity Resolver и единая бюджетная модель (ASAP-3.1)
 
-- **Статус:** Accepted (Architect narrow reconcile, §113)
+- **Статус:** Accepted (Architect narrow reconcile, §113) → **prod-validated 2.58.37** → **incident-fixed 2.58.38** (addendum D-доп., reconcile 30.09.2026). История статуса — раздел «Прод-валидация и инцидент-аддендум».
 - **Дата:** 2026-09-30
-- **Feature:** `mca-asap31-auto-budgets-capacity-react` (R3), release 2.58.37
+- **Feature:** `mca-asap31-auto-budgets-capacity-react` (R3), release 2.58.37; инцидент-фикс 2.58.38
 - **Связанные:** ADR-1028-2 (ASAP-3: Direct consumer-side capacity D1/D2), ADR-1027-10 (двухконтурный Summary), ADR-1019-8 (safe_budget/token_counter)
 
 ## Контекст
@@ -45,3 +45,45 @@
 ## Затронутые контракты
 
 ADR-1028-2 D1/D2 (расширяется с Direct-only на все стадии; OFF-путь сохраняет байт-в-байт старый резолв), ADR-1027-10 §11 (hybrid-ключи получают Auto-семантику; Legacy-контур не трогается), §93-примитивы `estimate_and_split` (расширяются до полного chunk-контракта, эвристик нет), agentic-events enum (аддитивно 28→33), TAB_RULES/NAV (oversight в NAV_ITEMS_V2; RBAC global-admin без изменений).
+
+---
+
+## Прод-валидация и инцидент-аддендум (D-доп.) — reconcile 30.09.2026
+
+_История решений D1–D8 сохранена выше без изменений; ниже — только статус-история и addendum, не переписывающий исходные D. Заголовок не является новым ADR: это addendum/errata к ADR-1028-3._
+
+### История статуса
+
+1. **Accepted (design)** — narrow reconcile §113 (реализация D1–D8, санкции Δ каталога/GROUPS/события).
+2. **Approved FOR RELEASE (Reviewer round 2)** — rework H-ASAP31-1/-2 + M-1; binding Reviewed-Commit `fafbad8`, WTH `1b9fd477…`.
+3. **Prod 2.58.37 выпущена (deploy VERIFIED)** — feat `1f8a0f3`, docs `df0387d`; прод-валидация Auto Budgets/Модель-Слотов/Аналитики/Summary-Chunking подтверждена.
+4. **ИНЦИДЕНТ (прод 2.58.37)** — пустая публикация крона `msg 1120810`.
+5. **Approved ready-to-redeploy (Reviewer round 3, incident-fix)** — WTH `c8982d63…` → commit-time `67846e1c…` (31-path version-metadata drift, код фикса байт-идентичен).
+6. **Prod 2.58.38 выпущена (deploy VERIFIED)** — feat `5ff1eac` (код фикса), docs `6c5f9b9`, deploy-doc `7881f93`; инцидент-класс закрыт; binding не инвалидирован (review привязан к коду, код фикса байт-идентичен ревью-манифесту).
+
+### Инцидент 2.58.37 → фикс 2.58.38 (D-доп.)
+
+**Симптом (прод, крон 19:00 UTC 29.09.2026):** окно 1089 сообщений → L1 `unknown_field` → correction retry закончился timeout обоих провайдеров → ветка «L1 непригоден» вызвала `build_fallback_package` **без `budget`** → `_enforce_budget` применил статический потолок (hot `summary_hybrid_context_tokens=30000` → ≈18661) и вытеснил ЕДИНСТВЕННУЮ тему ЦЕЛИКОМ вместе с хронологией → пакет `threads=[]` со статусом `truncated` (deliverable) прошёл delivery-гейт → L2 опубликовал мета-текст «пакет пуст» (`msg 1120810`).
+
+**Корневая причина (класс):** деградационная ветка вызывала fallback-сборку в обход резолверного бюджета (D2/D5), а `_enforce_budget` не различал «вытеснить тему» и «обрезáть её содержимое» → материально пустой пакет мог быть передан в L2 под publish-статусом.
+
+**Решение инцидента — D-доп. (три части, release 2.58.38):**
+
+- **D-доп.1 — budget passthrough на L1-unusable ветке.** Ветка «L1 непригоден» передаёт `budget=l2_budget` — тот же resolver-бюджет, что и нормальный/defensive пути (все 4 call-site Summary несут resolверный бюджет; dry-run — исключение, публикации не делает). Инвариант DoD-76/§131/§37 (все стадии из одного резолвера) восстановлен на деградационных путях.
+- **D-доп.2 — guard «последняя/единственная тема НИКОГДА не вытесняется».** Целые темы вытесняются только пока `len(threads) > 1`; содержимое последней темы режется по бюджету (сначала fragments старые→новые, затем chronology) со структурой темы; возврат `_enforce_budget` расширен 5-м элементом `skipped_chronology` (метрика `skipped_chronology_count`). При пустом по материалу fallback-пакете при непустом источнике — громкое `SUMMARY_COVERAGE_DEGRADED {reason="near_empty_package"}` + WARN `PACKAGE_NEAR_EMPTY` (fail-open телеметрия). Основной путь при пустом материале остаётся fail-closed (`STATUS_EMPTY`, не deliverable).
+- **D-доп.3 — delivery-gate: материально пустой пакет → LEVEL-3 Legacy, не L2.** Fallback-пакет, пустой по материалу (0 fragments ∧ 0 chronology) при непустом source-окне, НЕ публикуется как обычное саммари → маршрут LEVEL-3 `_legacy_fallback("empty_fallback_package")` (published-guard; при провале Legacy — `STATUS_DEGRADED`, **не** публикация мета-текста).
+
+**Инварианты D-доп. (обязательны):** два независимых слоя защиты (guard структуры + delivery-гейт), каждый покрыт мутационно-чувствительными тестами; `run_l2` принимает на вход только пакеты со статусом `ok`/`truncated`; непустое окно НИКОГДА не завершается публикацией мета-текста про пустоту; coverage-деградация всегда громкая (`SUMMARY_COVERAGE_DEGRADED`), не тихий успех.
+
+### Прод-валидация 2.58.38 (evidence)
+
+- Deploy VERIFIED: буст 2.58.37→2.58.38, прод `/healthz` 2.58.38, health 200, Δ DDL=0, сиды не требовались; инцидент-регрессия на проде **27 passed** (`test_summary_incident_empty_package_asap31.py` + `test_summary_coverage_asap31.py` + `test_l2_budget_asap31.py`).
+- Причинный реплей по прод-логам (до фикса): run `d1062dcd` 1089 → `L1_FALLBACK_PACKAGE … fragments=0 chronology=0` → `L2_START` → `PUBLISH_RICH_COMPLETE message_id=1120810`; после фикса прогон 01:00 UTC при OFF-флаге — штатный `LEGACY_FALLBACK` (публикация реального саммари `msg 1121343`), пустого мета-текста нет.
+- Флаг `SUMMARY_COVERAGE_CHUNKING_ENABLED` возвращён в дефолт кода **ON** (политика владельца «все функции включены»).
+- Evidence: `plans/features/mca-asap31-auto-budgets-capacity-react/{review.md (round 3), evidence.md, deployment.md, review-evidence-oversight-blank.png}`; ARCHITECTURE §104.
+
+### Остаточные (non-blocking, backlog)
+
+L-ASAP31-4 (dry-run без resolver-бюджета — точность preview), L-ASAP31-6 (телеметрия-косметика `coverage=0.0` near-empty), M-ASAP31-2 (tool-path Direct без fallback-пересборки), carry-over L-ASAP31-1/2/3; отдельная задача — семантика `FACT_PACKAGE_TRUNCATED` (per-topic cap vs бюджетный потолок); владельцу — пустая публикация `msg 1120810`. Зарегистрированы в `plans/backlog.md`.
+
+_Addendum внесён в reconcile 30.09.2026 (docs-only). Reviewed/deployed код фикса байт-идентичен ревью-манифесту — approval не инвалидирован._
