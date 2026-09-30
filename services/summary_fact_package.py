@@ -134,6 +134,10 @@ class FactPackageResult:
     ``package`` — канонический ``FactPackage`` v1 (при ``not_built`` — None);
     ``reason`` — R17-safe код причины; ``metrics`` — аддитивные счётчики для
     S7/S8 (без узлов ExecutionGraph); ``budget`` — итоговый бюджет-срез.
+    ``pages`` — ASAP-3.2 (D8/§39): непустой ТОЛЬКО при paged L2 (пакет после
+    редукции не влез в бюджет одного вызова) — список полных package-страниц,
+    каждая ≤ budget; ``package`` остаётся полным пакетом (структура/метрики),
+    L2 вызывается ПО СТРАНИЦАМ вызывающим контуром (без silent drop).
     """
 
     status: str
@@ -141,6 +145,7 @@ class FactPackageResult:
     reason: str | None
     metrics: dict
     budget: dict
+    pages: tuple = ()
 
     @property
     def deliverable(self) -> bool:
@@ -274,6 +279,25 @@ def _description(facts) -> tuple[str, bool]:
     return cut.rstrip(" ·"), True
 
 
+def _segment_text(text: str) -> list:
+    """Lossless-сегментация длинного текста на части ≤ ``FRAGMENT_MAX_CHARS``
+    (§42): конкатенация частей байт-равна исходному тексту (ни один символ
+    не теряется); разрез — по границе слова, когда она есть в окне."""
+    parts: list = []
+    rest = text
+    while len(rest) > FRAGMENT_MAX_CHARS:
+        cut = rest.rfind(" ", 0, FRAGMENT_MAX_CHARS + 1)
+        if cut <= 0:
+            cut = FRAGMENT_MAX_CHARS
+        else:
+            cut += 1                # пробел остаётся хвостом предыдущей части
+        parts.append(rest[:cut])
+        rest = rest[cut:]
+    if rest:
+        parts.append(rest)
+    return parts
+
+
 def _select_fragments(message_ids, evidence_ids, item_map, id_space,
                       stats) -> list:
     """§4.5 + контракт (h): evidence-first отбор фрагментов из §92.
@@ -281,6 +305,12 @@ def _select_fragments(message_ids, evidence_ids, item_map, id_space,
     Фрагмент v2 = ``{message_id, author_id, display_name, timestamp,
     reply_to_id, text}`` (text verbatim; ``reply_to_id`` — null без ответа).
     Пустой text в fragments не попадает (остаётся в хронологии).
+
+    ASAP-3.2 (§42, D9): oversized-сообщение (text > ``FRAGMENT_MAX_CHARS``)
+    больше НЕ обрезается ``text[:N]`` — lossless-сегментация: несколько
+    fragment-записей того же message_id с аддитивными полями ``part``/
+    ``part_total`` (part 1-based); author/timestamp/reply сохраняются в
+    каждой части, merge знает, что это одно исходное сообщение.
     """
     ordered: list = []
     seen: set = set()
@@ -301,18 +331,30 @@ def _select_fragments(message_ids, evidence_ids, item_map, id_space,
         text = "" if raw_text is None else str(raw_text)
         if not text:
             continue  # пустой text в fragments не попадает (остаётся в хронологии)
-        if len(text) > FRAGMENT_MAX_CHARS:
-            text = text[:FRAGMENT_MAX_CHARS]
-            stats["fragment_char_truncated_count"] += 1
         reply_to = item.get("reply_to_id")
-        fragments.append({
+        base = {
             "message_id": mid,
             "author_id": item.get("author_id"),
             "display_name": item.get("display_name"),
             "timestamp": _timestamp_of(id_space, mid),
             "reply_to_id": reply_to,
-            "text": text,
-        })
+        }
+        if len(text) <= FRAGMENT_MAX_CHARS:
+            entry = dict(base)
+            entry["text"] = text
+            fragments.append(entry)
+            continue
+        # §42: lossless-сегментация вместо молчаливой обрезки символов.
+        parts = _segment_text(text)
+        stats["fragment_segmented_count"] = \
+            stats.get("fragment_segmented_count", 0) + 1
+        total = len(parts)
+        for index, part in enumerate(parts, start=1):
+            entry = dict(base)
+            entry["text"] = part
+            entry["part"] = index
+            entry["part_total"] = total
+            fragments.append(entry)
     return fragments
 
 
@@ -408,7 +450,12 @@ def _build_thread(thread, id_space, item_map, stats, topic_map=None):
 
 
 def _apply_fragment_caps(threads) -> list:
-    """Лимиты ``MAX_FRAGMENTS_PER_THREAD`` / ``MAX_FRAGMENTS_TOTAL`` (явно)."""
+    """Лимиты ``MAX_FRAGMENTS_PER_THREAD`` / ``MAX_FRAGMENTS_TOTAL`` (явно).
+
+    ASAP-3.2 (D8): позиционные каскады — ТОЛЬКО fail-soft последней линии
+    (kill-switch ``SUMMARY_SEMANTIC_REDUCTION_ENABLED=OFF``); на нормальном
+    пути вместо выбрасывания — semantic reduction + paged L2.
+    """
     skipped: list = []
     total = 0
     for thread in threads:
@@ -422,6 +469,28 @@ def _apply_fragment_caps(threads) -> list:
             total += 1
         thread["fragments"] = kept
     return skipped
+
+
+def _emit_positional_failsoft(*, skipped_fragments: int, skipped_threads: int,
+                              skipped_chronology: int) -> None:
+    """Degraded-событие последней линии (D8/§41): позиционный каскад
+    сработал → ВИДИМОЕ событие (не тихая норма). Fail-open."""
+    try:
+        from services.agentic_events import SUMMARY_COVERAGE_DEGRADED, \
+            emit_agentic_event
+        emit_agentic_event(
+            SUMMARY_COVERAGE_DEGRADED, source_messages=0,
+            processed_messages=0,
+            unprocessed_messages=int(skipped_fragments + skipped_threads
+                                     + skipped_chronology),
+            chunks=1, coverage=0.0, reason="positional_failsoft")
+    except Exception:      # fail-open
+        pass
+    logger.warning(
+        "FACT_PACKAGE_POSITIONAL_FAILSOFT | skipped_fragments=%d | "
+        "skipped_threads=%d | skipped_chronology=%d",
+        int(skipped_fragments), int(skipped_threads),
+        int(skipped_chronology))
 
 
 def _estimate(threads, unassigned, kind) -> int:
@@ -623,6 +692,137 @@ def _fail_result(status, reason, l1_result, kind, limit, duration_ms, *,
                              metrics=metrics, budget=budget)
 
 
+# ── ASAP-3.2 (D8, §39): paged L2 — сегментация вместо silent drop ──────────
+
+def semantic_reduction_enabled() -> bool:
+    """Kill-switch линии «Summary hierarchical reduction» (§80, D8):
+    env ``SUMMARY_SEMANTIC_REDUCTION_ENABLED`` (default ON). OFF → прежний
+    позиционный каскад байт-в-байт (rollback-паритет)."""
+    try:
+        return bool(getattr(settings, "SUMMARY_SEMANTIC_REDUCTION_ENABLED",
+                            True))
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
+def _build_pages(threads, unassigned, kind, limit, service,
+                 status=STATUS_OK) -> list:
+    """Сегментация редуцированного пакета на страницы ≤ ``limit``
+    (chained/paged L2, §39/D8): НИ ОДИН уникальный элемент не выбрасывается.
+    ``unassigned`` идёт на первой странице; oversized-тема (сама больше
+    бюджета) делится по fragments — facts/evidence/chronology на первой
+    части, продолжения несут только fragments (без дублирования фактов).
+    Детерминированно; двойной прогон байт-идентичен."""
+    pages: list = []
+
+    def _make(page_threads):
+        page_unassigned = unassigned if not pages else []
+        estimated = _estimate(page_threads, page_unassigned, kind)
+        budget = {"kind": kind, "limit": limit, "estimated": estimated,
+                  "fits": bool(estimated <= limit)}
+        return _base_package(status, service, budget, page_threads,
+                             page_unassigned)
+
+    def _flush():
+        nonlocal current
+        if current:
+            pages.append(_make(current))
+            current = []
+
+    def _emit_oversized(thread):
+        """Тема сама больше бюджета: единицы контента (facts, затем
+        fragments) распределяются по страницам lossless; первая страница
+        несёт chronology/evidence/description (голова), продолжения —
+        только скелет темы + свою часть единиц (без дублирования)."""
+        skeleton = {key: value for key, value in thread.items()
+                    if key not in ("fragments", "facts")}
+        skeleton = dict(skeleton)
+        skeleton["fragments"] = []
+        skeleton["facts"] = []
+
+        def _explode_units(items, field):
+            """Единица тяжелее лимита (вне L1-контракта fact ≤500) —
+            lossless-сегментация текста (§42-прецедент), НИЧЕГО не выбрасывается."""
+            units: list = []
+            for item in items:
+                if _estimate([{field: [item]}], [], kind) <= limit:
+                    units.append(item)
+                    continue
+                text = str(item.get("text") or "")
+                if len(text) <= FRAGMENT_MAX_CHARS:
+                    units.append(item)      # нечем делить — честный fits=False
+                    continue
+                parts = _segment_text(text)
+                total = len(parts)
+                for index, part in enumerate(parts, start=1):
+                    unit = dict(item)
+                    unit["text"] = part
+                    unit["part"] = index
+                    unit["part_total"] = total
+                    units.append(unit)
+            return units
+
+        def _pack(items, field):
+            """Разложить ``items`` по страницам ≤ limit; первая пачка —
+            на полной голове, продолжения — на голом скелете. Измерение —
+            с константой unassigned (она добавляется к первой странице
+            общего пакета; консервативная гарантия fits)."""
+            packed: list = []
+            head = dict(skeleton)
+            current: list = []
+            overhead = _estimate([], unassigned, kind)
+            for item in items:
+                trial = dict(head)
+                trial[field] = current + [item]
+                if current and _estimate([trial], [], kind) + overhead > limit:
+                    packed.append((head, current))
+                    head = dict(skeleton)
+                    head["chronology"] = []
+                    head["description"] = ""
+                    head["evidence_ids"] = []
+                    current = [item]
+                else:
+                    current = current + [item]
+            if current:
+                packed.append((head, current))
+            return packed
+
+        for head, facts in _pack(
+                _explode_units(list(thread.get("facts") or []), "facts"),
+                "facts"):
+            page_thread = dict(head)
+            page_thread["facts"] = facts
+            page_thread["fragments"] = []
+            pages.append(_make([page_thread]))
+        for head, fragments in _pack(
+                _explode_units(list(thread.get("fragments") or []),
+                               "fragments"),
+                "fragments"):
+            page_thread = dict(head)
+            page_thread["facts"] = []
+            page_thread["fragments"] = fragments
+            pages.append(_make([page_thread]))
+
+    current: list = []
+    for thread in threads:
+        if not current:
+            if _estimate([thread], unassigned, kind) <= limit:
+                current = [thread]
+            else:
+                _emit_oversized(thread)
+            continue
+        if _estimate(current + [thread], unassigned, kind) <= limit:
+            current = current + [thread]
+            continue
+        _flush()
+        if _estimate([thread], unassigned, kind) <= limit:
+            current = [thread]
+        else:
+            _emit_oversized(thread)
+    _flush()
+    return pages
+
+
 def _build_from_payload(l1_result, payload, payload_items, kind, limit,
                         duration_ms):
     id_space = build_id_space(payload_items)
@@ -694,13 +894,45 @@ def _build_from_payload(l1_result, payload, payload_items, kind, limit,
     threads.sort(key=lambda t: id_space.sort_key(t["chronology"][0]["message_id"])
                  if t["chronology"] else (0, 0))
 
-    # Лимиты фрагментов (явные, «не резать молча»).
-    skipped_ids = _apply_fragment_caps(threads)
+    service = _service_section(l1_result, payload)
 
-    # Бюджет L2-входа (D2).
-    budget_skipped, skipped_threads, descriptions_cleared, skipped_chronology, \
-        _cut = _enforce_budget(threads, unassigned, kind, limit)
-    skipped_ids.extend(budget_skipped)
+    # ── ASAP-3.2 (ADR-1028-5 D8/D9, §37–§41): hierarchical semantic
+    # reduction — позиционное усечение БОЛЬШЕ НЕ норма нормального пути.
+    # Редукция схлопывает дубликаты (stable-ID merge / topic dedupe /
+    # cross-thread fragment dedupe, evidence union); если и после неё
+    # пакет не влезает в бюджет ОДНОГО L2-вызова — paged L2 (каждая
+    # страница ≤ budget, НИЧЕГО не выбрасывается). Позиционный каскад
+    # остаётся ТОЛЬКО на kill-switch OFF-пути (rollback-паритет).
+    pages: tuple = ()
+    reduction_stats_dict: dict | None = None
+    if semantic_reduction_enabled():
+        from services.summary_semantic_reduction import reduce_threads
+        threads, red_stats = reduce_threads(threads)
+        reduction_stats_dict = red_stats.as_dict()
+        # description — производное поле: пересчёт после редукции
+        # (facts объединились); дедуп/кап _description без изменений.
+        for thread in threads:
+            description, description_truncated = _description(thread["facts"])
+            thread["description"] = description
+            if description_truncated:
+                stats["description_truncated"] = True
+        estimated = _estimate(threads, unassigned, kind)
+        if limit and limit > 0 and estimated > limit:
+            pages = tuple(_build_pages(threads, unassigned, kind, limit,
+                                       service, status=STATUS_OK))
+        skipped_ids: list = []
+        skipped_threads: list = []
+        skipped_chronology: list = []
+        descriptions_cleared = 0
+    else:
+        # Лимиты фрагментов (явные, «не резать молча») — legacy/rollback.
+        skipped_ids = _apply_fragment_caps(threads)
+
+        # Бюджет L2-входа (D2).
+        budget_skipped, skipped_threads, descriptions_cleared, \
+            skipped_chronology, _cut = _enforce_budget(threads, unassigned,
+                                                       kind, limit)
+        skipped_ids.extend(budget_skipped)
 
     estimated = _estimate(threads, unassigned, kind)
     budget = {"kind": kind, "limit": limit, "estimated": estimated,
@@ -710,6 +942,12 @@ def _build_from_payload(l1_result, payload, payload_items, kind, limit,
         or str(_field(l1_result, "status", "")) == STATUS_TRUNCATED
     truncated = bool(skipped_ids or skipped_threads or skipped_chronology
                      or descriptions_cleared or input_truncated)
+    if skipped_ids or skipped_threads or skipped_chronology:
+        # D8: позиционный каскад — видимая деградация, НЕ тихая норма.
+        _emit_positional_failsoft(
+            skipped_fragments=len(skipped_ids),
+            skipped_threads=len(skipped_threads),
+            skipped_chronology=len(skipped_chronology))
 
     # EMPTY-PACKAGE GUARD (инцидент 29.09.2026): если после enforcer не
     # осталось материала (0 fragments ∧ 0 chronology) — fail-closed EMPTY
@@ -730,7 +968,6 @@ def _build_from_payload(l1_result, payload, payload_items, kind, limit,
         status = STATUS_OK
         reason = REASON_OK
 
-    service = _service_section(l1_result, payload)
     package = _base_package(status, service, budget, threads, unassigned)
     metrics = _metrics(
         status, reason, l1_status=str(_field(l1_result, "status", "") or ""),
@@ -742,8 +979,27 @@ def _build_from_payload(l1_result, payload, payload_items, kind, limit,
         fragment_char_truncated=stats["fragment_char_truncated_count"])
     metrics["skipped_ids"] = tuple(skipped_ids)
     metrics["skipped_threads"] = tuple(skipped_threads)
+    # §42: сколько oversized-сообщений сегментировано lossless (вместо
+    # прежней молчаливой обрезки символов).
+    metrics["fragment_segmented_count"] = int(
+        stats.get("fragment_segmented_count", 0))
+    if reduction_stats_dict is not None:
+        # §41 coverage metrics (D9): норма unique_dropped=0; merged — то,
+        # что редукция СЖАЛА (не потеряла); passes — число проходов.
+        metrics["semantic_unique_before"] = \
+            reduction_stats_dict["unique_before"]
+        metrics["semantic_unique_after"] = \
+            reduction_stats_dict["unique_after"]
+        metrics["semantic_merged_duplicates"] = \
+            reduction_stats_dict["merged_duplicates"]
+        metrics["semantic_unique_dropped"] = \
+            reduction_stats_dict["unique_dropped"]
+        metrics["semantic_reduction_passes"] = reduction_stats_dict["passes"]
+    if pages:
+        metrics["paged"] = True
+        metrics["pages_count"] = len(pages)
     return FactPackageResult(status=status, package=package, reason=reason,
-                             metrics=metrics, budget=budget)
+                             metrics=metrics, budget=budget, pages=pages)
 
 
 # ── Публичный интерфейс (объявлен для S5, не вызывается в живом пути) ─────
@@ -942,3 +1198,4 @@ def _log_error(*, correlation_id, reason, duration_ms):
 def serialize_package(package) -> str:
     """Канонический JSON пакета (фиксированный порядок ключей/разделители)."""
     return json.dumps(package, ensure_ascii=False, separators=(",", ":"))
+

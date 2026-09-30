@@ -26,10 +26,12 @@ import pytest
 
 from config.settings import APP_VERSION, Settings
 from services import param_catalog as pc
+from services import summary_fact_package as sfp
 from services.summary_fact_package import (
     DELIVERABLE_STATUSES,
     DESCRIPTION_MAX,
     DESCRIPTION_SEPARATOR,
+    FALLBACK_TOPIC_NAME,
     MAX_FRAGMENTS_PER_THREAD,
     REASON_BAD_INPUT,
     REASON_BUDGET_EMPTY,
@@ -618,7 +620,7 @@ class TestLivePathInvariants:
             f.name for f in dataclasses.fields(Settings)}
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.39"
+        assert APP_VERSION == "2.58.40"
 
     @pytest.mark.asyncio
     async def test_two_calls_stage1_stage2(self):
@@ -637,3 +639,53 @@ class TestLivePathInvariants:
         assert steps == ["stage1", "stage2"]
         assert "fact_package" not in str(steps)
         assert draft.text == "связный текст"
+
+
+# ── H-ASAP32-1: целостность литералов (байт-гигиена, review fix) ──────
+def _mojibake_lines(text: str) -> list:
+    """Строки, чинимые round-trip cp1251→utf-8 (сигнатура двойного
+    UTF-8-кодирования); дыра 0x98 sloppy-cp1251 учитывается как U+0098."""
+    bad = []
+    for ln in text.splitlines():
+        if not any(ord(ch) > 127 for ch in ln):
+            continue
+        try:
+            raw = b"".join(b"\x98" if ch == "\x98" else ch.encode("cp1251")
+                           for ch in ln)
+            if raw.decode("utf-8") != ln:
+                bad.append(ln)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            continue
+    return bad
+
+
+class TestSourceEncodingIntegrity:
+    """H-ASAP32-1: runtime-литералы модуля не повреждены mojibake.
+
+    НЕтавтологическая схема: ожидаемые значения — литералы здесь,
+    в тесте (не сравнение константы с самой собой), плюс байт-аудит
+    исходника модуля. До фикса детектор находил 221 повреждённую
+    строку исходника; единственный покрывающий тест сплитил description
+    по самой константе и никогда не ассертил литералы.
+    """
+
+    def test_fallback_topic_name_is_clean_cyrillic(self):
+        assert FALLBACK_TOPIC_NAME == "Общий ход обсуждения"
+        assert ord(FALLBACK_TOPIC_NAME[0]) == 0x041E  # «О», не mojibake-«Р»
+        assert all(ord(ch) < 0x0500 for ch in FALLBACK_TOPIC_NAME)
+
+    def test_description_separator_is_middle_dot(self):
+        assert DESCRIPTION_SEPARATOR == " · "
+        assert len(DESCRIPTION_SEPARATOR) == 3
+        assert ord(DESCRIPTION_SEPARATOR[1]) == 0xB7  # middle dot, не «В»
+        assert DESCRIPTION_SEPARATOR != " В· "  # повреждённый вариант
+
+    def test_module_source_has_no_mojibake(self):
+        """Байт-аудит исходника: сигнатур повреждения нет, ни одна
+        строка не чинится round-trip cp1251→utf-8."""
+        raw = Path(sfp.__file__).read_bytes()
+        text = raw.decode("utf-8")
+        assert b"\xd0\x92\xc2\xb7" not in raw  # «В·»
+        assert b"\xc3\x92" not in raw  # повторно UTF-8-кодированная «В»
+        assert b"\xef\xbf\xbd" not in raw  # U+FFFD
+        assert _mojibake_lines(text) == []
