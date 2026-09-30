@@ -220,3 +220,89 @@ Base: тот же HEAD `fafbad8`. Осмотрено точечно по дел�
 - Reviewer-инфраструктура сессии снята: оба локальных uvicorn-контура остановлены, порты 8033/8034 закрыты, временные файлы — вне репо (temp). Код не правился, коммиты не создавались; записи внесены только в review-артефакты (`review.md` round-2 секция, `full_audit_results.md` round-2 запись, манифест WTH rework2).
 
 *Reviewer-артефакты этой сессии удалены из worktree (временный контур `​.review_tmp_asap31/` снят: сервер остановлен, порт закрыт, каталог удалён).*
+
+---
+
+# ROUND 3 (incident fix re-validation) — 30.09.2026 — единый Reviewer gate
+
+- **Feature-ID:** `mca-asap31-auto-budgets-capacity-react`
+- **Risk-Level:** R3 (без изменений; фикс затрагивает live Summary-путь и его деградационные ветки)
+- **Статус: APPROVED — ready-to-redeploy** — прод-инцидент 2.58.37 (пустая публикация крона: окно 1089 → L1 unknown_field → retry timeout → ветка «L1 непригоден» → fallback package 0/0 → L2 мета-текст) закрыт тремя частями фикса; блокеров нет; 3 новых Low non-blocking + carry-over (M-ASAP31-2 + L×3).
+- **Reviewed-Commit:** `df0387dff8038a07f66bf89800add619dc061074` (HEAD; фикс — **незакоммиченный** worktree поверх прод-базиса `1f8a0f3` / APP_VERSION 2.58.37)
+- **Working-Tree-Hash:** `c8982d630fb1604ba85421288018c1b67af22f72cb35bd7383988511f6d80762`
+  - Манифест `plans/reports/asap31_wth_manifest_incident.txt` — **122 пути** (прежние 121 release-scope + новый `tests/test_summary_incident_empty_package_asap31.py`). Независимо пересчитан: sha256(рабочее содержимое) **0 расхождений по всем 122 файлам**; WTH = sha256(UTF-8 манифест, `+ "\n"`) == ожидаемому, двойной пересчёт байт-в-байт (идемпотентно).
+  - Исключения — как round 1/2: review-артефакты (`review.md`, оба манифеста), чужой WIP/env (`node_modules/`, `package*.json`, `.playwright-mcp/`, `extra_images/`, `plans/features/mca-04b-dossier-rebuild/`, `plans/metrics.md`, `plans/workflow_state.md`).
+- **Spec-Hash:** `CC419781A8553FF2C2EB9183868863168AEFF0028BA0DC0D63C41F64523D33ED` ✓ (совпал); ADR-1028-3 `26329637…DF664` ✓; tasks.md `ACFAA30A…D8C1` ✓ — spec/ADR/tasks не менялись.
+
+## R3.1 Git base и объём осмотренной дельты
+
+Base: HEAD `df0387d`. Инцидент-дельта (незакоммичена): `services/summary_generator.py` (helper-гейт + `budget=l2_budget` + LEVEL-3-ветка), `services/summary_fact_package.py` (guard `_enforce_budget` + 5-й возврат + `_emit_near_empty_package` + fail-closed `content_empty`), новый `tests/test_summary_incident_empty_package_asap31.py`, `evidence.md`. `git diff --check` — чисто (0 whitespace-ошибок). Round-1/2 вердикты по остальному ядру остаются в силе (дельта их не касается); новые модули/фронтенд не пересматривались.
+
+## R3.2 Выполненные проверки (file:line → факт → вывод)
+
+| # | Проверка | Факт (воспроизведено Reviewer'ом на worktree) | Вывод |
+|---|---|---|---|
+| 1 | L1-unusable `budget=l2_budget` | `summary_generator.py:875–881`: в `build_fallback_package(...)` ветки «L1 непригоден» передан `budget=l2_budget`; `l2_budget` безусловно определён выше (`:781–785`, defensive try/except → `None`) ДО ветвления; defensive-ветка `:902–905` и `build_fact_package` `:893–895` — тот же бюджет | ✓ часть 1 |
+| 2 | Guard «последняя тема не вытесняется» | `summary_fact_package.py:456` `_enforce_budget`: целые темы вытесняются `while … and len(threads) > 1` (`:512`); затем содержимое последней темы режется — сначала fragments (шаг 1, `:484–499`, старые первыми), затем chronology (шаг 4, `:516–533`, старые первыми; структура темы сохраняется). `source_chronology` снимается до усечения (`:475`) | ✓ часть 2 |
+| 3 | 5-й возврат `skipped_chronology` | Возврат расширен `(:541–542)`; оба внутренних вызывающих обновлены (`:701–702`, `:860–861`); внешних вызывающих нет (`_enforce_budget` — приватная; rg по репо: только эти 2 + тест); `_metrics` получает `skipped_chronology` keyword-only (`:571`, `:739`, `:874`), positional-вызовов нет; добавлена метрика `skipped_chronology_count` (`:597`) и учёт в `truncated_count` (`:591–592`) | ✓ не ломает вызывающих |
+| 4 | `_emit_near_empty_package` | `:433–453`: `SUMMARY_COVERAGE_DEGRADED reason="near_empty_package"` + WARN `PACKAGE_NEAR_EMPTY`; условие срабатывания (`:536–539`) строго «`source_chronology>0` ∧ 0 fragments ∧ 0 chronology у всех тем» (непустой вход); fail-open (телеметрия не рвёт сборку). Живая проверка эмиссии: событие реально рендерится с `coverage=0.0, unprocessed=1089, reason=near_empty_package`; поля проходят R17-whitelist (`agentic_events.py:195–197`) | ✓ часть 2-телеметрия |
+| 5 | Delivery-gate пустого пакета | `summary_generator.py:271–287` `_package_content_empty` (0 fragments ∧ 0 chronology по metrics); гейт `:913–931` — только `if fallback_used and _package_content_empty(package_result)`; `package_result is None` отсечён выше в обеих ветвях; маршрут → LEVEL-3 `_legacy_fallback("empty_fallback_package")` (published-guard `:800`); при провале Legacy → `STATUS_DEGRADED` + `CODE_SUMMARY_GENERATION_FAILED`, **не** публикация мета-текста (`:927–930`) | ✓ часть 3 |
+| 6 | Fail-closed основного пакета | `summary_fact_package.py:714–725`: `content_empty` (0 fragments ∧ 0 chronology после enforcer) → `STATUS_EMPTY` + `threads=[]` (не deliverable) → в генераторе defensive-ветка `:896–906` строит fallback → гейт `:917` | ✓ defense-in-depth |
+| 7 | 7 новых тестов | `tests/test_summary_incident_empty_package_asap31.py` — **7/7 PASSED** (инцидент-регрессия 1089; guard-unit; single-topic; gate→Legacy; статика 18661; Auto-бюджет 1089; детерминизм сериализации) | ✓ |
+| 8 | Чувствительность (temp-копия, фикс откатан) | **(A)** убрать `budget=l2_budget` из L1-unusable call-site → `2 failed` (`test_incident_1089_fallback_package_not_empty` — `assert total_fragments > 0` на статике даёт 0; `test_empty_fallback_package_goes_legacy_not_l2`); **(B)** вернуть вытеснение последней темы (`len(threads) > 1` → `threads`) → `3 failed` (guard-unit, single-topic, static-budget-1089). Оба мутационных класса падают точечно | ✓ тесты чувствительны |
+| 9 | Полный pytest | **10060 passed / 2 deselected** (якорные `test_forbidden_paths_out_of_diff`), ровно как ожидалось; расхождений с Builder'ом нет | ✓ |
+| 10 | JS + F8 | `node` по всем `tests/js/*.js` — **51/51** exit 0; `gen_param_registry_round1025.py --check` → **CHECK OK: реестр 484**, R17-чисто, TSV/map идемпотентны | ✓ |
+| 11 | Binding | WTH и Spec/ADR/tasks-хеши пересчитаны независимо (см. шапку) | ✓ |
+| 12 | R17/секреты | Дельта логирует только числа и фиксированные reason-коды (`run_id`/`chat_id`/counts); raw-текста/ключей нет | ✓ |
+
+## R3.3 ГЛАВНЫЙ ВОПРОС — закрыт ли КЛАСС?
+
+Все call-sites (`rg` по репо, `*.py` вне тестов):
+
+| Call-site | Бюджет | Публикация? |
+|---|---|---|
+| `summary_generator.py:875` L1-unusable → `build_fallback_package` | **`budget=l2_budget`** ✓ | live-путь |
+| `summary_generator.py:893` main → `build_fact_package` | **`budget=l2_budget`** ✓ | live-путь |
+| `summary_generator.py:902` defensive → `build_fallback_package` | **`budget=l2_budget`** ✓ | live-путь |
+| `summary_test_run.py:590` dry-run → `build_fact_package` | нет (static default) | **0 публикаций** (только preview) |
+
+- **Live-путь:** все три врезки получают один resolver-бюджет; `_resolve_budget` принимает `(kind, limit[, budget_mode])`.
+- **Иной путь к мета-тексту про пустоту:** `run_l2` (`summary_l2_writer.py:985–995`) вызывает LLM только на пакет со статусом `ok`/`truncated`. Пустая структура в fallback теперь **невозможна** (guard `len>1`), а пустой по материалу fallback ловится гейтом `:917`; пустой по материалу основной пакет — fail-closed `STATUS_EMPTY` (не deliverable). Ни один путь не передаёт в L2 пустой пакет под publish-статусом.
+- **Dry-run** (`summary_test_run.py`) не публикует; при `content_empty` основной пакет уходит в `STATUS_EMPTY` → `deliverable=False` → `TEST_PACKAGE_NOT_DELIVERABLE` (L2 не вызывается). Мета-текст исключён; остаётся вопрос **точности preview** (см. L-ASAP31-4), но не класса инцидента.
+- **Legacy LEVEL-3** — pre-existing recovery-путь (не строит FactPackage), published-guard и matrix row 11 соблюдены.
+
+**Вывод: КЛАСС ЗАКРЫТ.** Остаточного пути «непустое окно → публикация мета-текста про пустоту» не найдено. Два независимых слоя защиты (guard структуры + delivery-гейт), каждый покрыт мутационно-чувствительными тестами.
+
+## R3.4 Counterexamples (round 3)
+
+1. «Guard структуры достаточно, гейт избыточен» — опровергнуто мутацией **B**: при откате guard gate-тест «пустой fallback → Legacy, не L2» остаётся зелёным (гейт ловит); и наоборот, мутация **A** валит и инцидент-регрессию, и gate-тест (без бюджета пакет непустой → L2 вызван). Оба слоя несут нагрузку.
+2. «Иной call-site остаётся без бюджета» — проверены все 4; единственный без бюджета — dry-run, публикации нет, fail-closed.
+3. «5-й возврат ломает вызывающих» — внешних вызовов `_enforce_budget` нет; оба внутренних обновлены; positional-вызовов `_metrics` нет.
+4. «near_empty не эмитится / телеметрия тихо падает» — живая проверка эмиссии события + WARN; поля в R17-whitelist.
+5. «WTH неидемпотентен» — двойной пересчёт байт-в-байт, 0 расхождений по 122 файлам.
+
+## R3.5 Non-blocking debt (прозрачная регистрация)
+
+- **[L-ASAP31-4] Low (новый):** `services/summary_test_run.py:590` — dry-run-контур («Тестирование») строит `build_fact_package` **без** resolver-бюджета (static default). Публикации нет (0 публикаций по контракту S9), пустой результат fail-closed (`TEST_PACKAGE_NOT_DELIVERABLE`); риск — только точность preview на больших окнах (может показать усечение/непригодность вместо полного результата). Класс инцидента не затрагивает. Follow-up: прокинуть `budget` и в dry-run.
+- **[L-ASAP31-5] Low (новый, release-integrity):** `config/settings.py` `APP_VERSION` остался **2.58.37** (фикс без бампа). Прод уже несёт 2.58.37; повторный деплой «той же версией с другим кодом» размывает трассируемость версия↔код. Действие **DevOps/Orchestrator**: присвоить новый патч (прецедент хотфикса 2.58.31→2.58.32) либо явно санкционировать same-version hotfix-пак. На корректность фикса не влияет.
+- **[L-ASAP31-6] Low (новый, observability):** `SUMMARY_COVERAGE_DEGRADED` переиспользован с `reason="near_empty_package"`, `coverage=0.0` для события уровня пакетного бюджета (не L1-coverage). Не саммис-лидинг (reason различает), но в Analytics coverage=0% может читаться как «L1 потерял окно». Косметика телеметрии.
+- **[M-ASAP31-3] RESOLVED** (инцидент-причина: ветка L1-unusable теперь передаёт `budget=l2_budget`) — п. R3.2#1.
+- **[M-ASAP31-2] Medium (carry-over round 1/2):** tool-loop путь Direct без `fallback_payload_adapter` — follow-up, вне дельты.
+- **[L-ASAP31-1/2/3] Low ×3 (carry-over):** события на read-side `collect_slots`; `capacity.runtime`=None в shape; мониторинг p95 Dynamic=full-budget — без изменений.
+
+Проверенных блокирующих findings (Critical/High/requirement-blocking Medium) — **нет**. Запись round-3 в `plans/reports/full_audit_results.md` намеренно **не вносилась**: файл входит в WTH-манифест инцидент-фикса, и его правка инвалидировала бы binding (ожидаемый WTH `c8982d…`); регистрация findings — в этой секции. Orchestrator может перенести запись после снятия финального binding.
+
+## R3.6 Unavailable checks (честная фиксация)
+
+- Прод-реплей инцидента (реальные LLM-ответы/таймауты обоих провайдеров, прод-окно 1089) — недоступен в ревью-среде; проверена **архитектура** фикса + детерминированные регрессии, а не прод-логи. Само событие инцидента — по `evidence.md` Builder'а.
+- Живой редеплой и post-deploy smoke — вне ревью (DevOps/Orchestrator).
+
+## R3.7 Вердикт, binding и handoff
+
+**Status: APPROVED — ready-to-redeploy** (обе обязательные линзы — requirements/correctness и focused change audit — пройдены независимо; блокеров нет).
+
+- Approval привязан к: **Reviewed-Commit `df0387dff8038a07f66bf89800add619dc061074`** + **WTH `c8982d630fb1604ba85421288018c1b67af22f72cb35bd7383988511f6d80762`** (манифест `plans/reports/asap31_wth_manifest_incident.txt`, 122 пути, идемпотентен) + **Spec-Hash `CC419781…D33ED`**. Фикс в worktree **незакоммичен**; коммит с байт-идентичным содержимым принимается только после пересчёта binding; любая правка кода/релевантных untracked-файлов после снимка инвалидирует approval.
+- Handoff: @Orchestrator → фаза **delivery** (редеплой инцидент-фикса). Staging: последняя байт-точная дельта = `services/summary_generator.py`, `services/summary_fact_package.py`, новый `tests/test_summary_incident_empty_package_asap31.py` (+ `evidence.md`); остальные 118 путей манифеста — неизменённый релиз 2.58.37. **DevOps-заметка:** назначить APP_VERSION (L-ASAP31-5) до редеплоя. Follow-up backlog: L-ASAP31-4 (dry-run budget), M-ASAP31-2, L×3 carry-over.
+- Reviewer-инфраструктура: код не правился, коммиты/деплой не выполнялись; временная копия для мутационного теста (`%TEMP%\opencode\asap31_neg`) удалена. Записи внесены только в этот `review.md`.
+
+*Поправка к round 1/2: контур ревью round 3 — независимый проход на текущем worktree (мутационный сенситивити-анализ в temp-копии, не в репо).*
