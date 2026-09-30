@@ -218,7 +218,7 @@ def test_catalog_summary_filter_keys_removed():
     groups = {g.id for g in pc.GROUPS}
     assert "flags_summary_filter" not in groups
     assert "limits_summary_filter" not in groups
-    assert len(pc.REGISTRY) == 484
+    assert len(pc.REGISTRY) == 488
     assert len(pc.GROUPS) == 105
     assert len(pc._TAB_BY_GROUP) == 103
     assert len(pc.TAB_RULES) == 21

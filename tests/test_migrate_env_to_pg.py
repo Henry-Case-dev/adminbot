@@ -248,7 +248,7 @@ class TestRunDryRun:
         # + intel_history_api_key / intel_bg_api_key — раунд 10.13, F4;
         # + intel_reflection_api_key — раунд 10.14, F8;
         # + image_api_key — раунд 10.23, F5)
-        assert len(inserts1) == 20
+        assert len(inserts1) == 21
         assert all("DO NOTHING" in q[0] for q in inserts1)
 
         # повторный запуск БЕЗ --force: все 20 уже существуют → skipped
@@ -258,7 +258,7 @@ class TestRunDryRun:
                             lambda *a, **kw: _FakePg(pool=pool2))
         code2 = await _run(["--only-category", "keys"])
         assert code2 == 0
-        assert len(conn2.queries) == 20  # DO NOTHING — но без дублей
+        assert len(conn2.queries) == 21  # DO NOTHING — но без дублей
 
     @pytest.mark.asyncio
     async def test_force_uses_update_sql(self, monkeypatch):

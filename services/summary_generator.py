@@ -1240,9 +1240,17 @@ class SummaryGenerator:
         файл обложки удаляется в ``finally``.
         """
         from services.summary_article_formatter import rich_document_limits
+        from services import cover_style_jobs as _csj
         tmp_path = None
+        base_path = None
+        styled_path = None
         cover_started = None
         fallback_done = False
+        cover_outcome = _csj.RESULT_BASE
+        cover_reason = ""
+        _csj.emit_cover_event(
+            _csj.COVER_PIPELINE_START, outcome="start",
+            run_id=correlation_id, chat_id=chat_id)
         try:
             style = await self._resolve_cover_style_text(chat_id)
             image_prompt = compose_cover_image_prompt(style, cover_prompt)
@@ -1278,12 +1286,17 @@ class SummaryGenerator:
                 logger.warning(
                     "summary cover: rich fallback | chat_id=%s | error=%s",
                     chat_id, type(exc).__name__)
+                _csj.emit_cover_event(
+                    _csj.COVER_BASE_FAILED, outcome="failed",
+                    level=logging.WARNING, run_id=correlation_id,
+                    chat_id=chat_id, fallback=_csj.REASON_BASE_FAILED,
+                    reason_code=_csj.REASON_BASE_FAILED)
                 fallback_done = True
-                return await self._plain_fallback(
+                return await self._degrade_without_cover(
                     chat_id, document, correlation_id=correlation_id, ctx=ctx,
                     reason="cover_error", max_chunks=max_chunks)
             if not tmp_path:
-                # §106: текст готов, обложки нет → публикуем текст (§105).
+                # §106: текст готов, обложки нет → degraded публикация (§50/§51).
                 provider = provider_label()
                 log_cover_complete(
                     run_id=correlation_id, chat_id=chat_id,
@@ -1292,26 +1305,46 @@ class SummaryGenerator:
                 if ctx is not None:
                     ctx.cover_status = "unavailable"
                 logger.warning(
-                    "summary cover: image unavailable (%s) — plain fallback | "
+                    "summary cover: image unavailable (%s) — degraded | "
                     "reason_class=%s | provider=%s | chat_id=%s",
                     img_reason, reason_class(img_reason), provider, chat_id)
                 log_external_api(
                     logger, provider=provider, method="post", status=None,
                     reason=img_reason, level=logging.ERROR)
+                _csj.emit_cover_event(
+                    _csj.COVER_BASE_FAILED, outcome="failed",
+                    level=logging.WARNING, run_id=correlation_id,
+                    chat_id=chat_id, fallback=_csj.REASON_BASE_FAILED,
+                    reason_code=_csj.REASON_BASE_FAILED)
                 fallback_done = True
-                return await self._plain_fallback(
+                return await self._degrade_without_cover(
                     chat_id, document, correlation_id=correlation_id, ctx=ctx,
                     reason="cover_unavailable", max_chunks=max_chunks)
+            base_path = tmp_path
             log_cover_complete(
                 run_id=correlation_id, chat_id=chat_id, status="ok",
                 started=cover_started)
+            _csj.emit_cover_event(
+                _csj.COVER_BASE_SUCCEEDED, outcome="success",
+                run_id=correlation_id, chat_id=chat_id)
             if ctx is not None:
                 ctx.cover_status = "ok"
+            # EXTRA §3.2/§49: optional Style-стадия поверх готовой base cover.
+            style_meta = await self._maybe_apply_cover_style(
+                chat_id, base_path, correlation_id, cover_prompt=cover_prompt,
+                base_style=style)
+            if style_meta and style_meta.get("styled_path"):
+                styled_path = style_meta["styled_path"]
+                cover_outcome = _csj.RESULT_STYLED
+            elif style_meta and style_meta.get("reason") == _csj.REASON_STYLE_FAILED:
+                cover_outcome = _csj.RESULT_BASE
+                cover_reason = _csj.REASON_STYLE_FAILED
+            cover_for_publish = styled_path or base_path
             format_started = log_format_start(
                 run_id=correlation_id, chat_id=chat_id, channel="rich")
             publish_started = None
             try:
-                media = [build_cover_media(tmp_path)]
+                media = [build_cover_media(cover_for_publish)]
                 rich_plan = rich_document_limits(
                     document, cover_id=SUMMARY_COVER_MEDIA_ID)
                 if not rich_plan["fits"]:
@@ -1328,6 +1361,10 @@ class SummaryGenerator:
                     log_format_error(
                         run_id=correlation_id, chat_id=chat_id, channel="rich",
                         reason=rich_plan["reason"])
+                    _csj.emit_cover_event(
+                        _csj.COVER_PLAIN_FALLBACK, outcome="skipped",
+                        run_id=correlation_id, chat_id=chat_id,
+                        fallback="rich_overflow")
                     fallback_done = True
                     return await self._plain_fallback(
                         chat_id, document, correlation_id=correlation_id,
@@ -1352,6 +1389,14 @@ class SummaryGenerator:
                     ctx.publish_channel = "rich"
                     ctx.publish_status = "failed"
                     ctx.publish_duration_ms = _elapsed_since(publish_started)
+                _csj.emit_cover_event(
+                    _csj.COVER_RICH_PUBLISH_FAILED, outcome="failed",
+                    level=logging.WARNING, run_id=correlation_id,
+                    chat_id=chat_id, fallback=_csj.REASON_RICH_FAILED)
+                _csj.emit_cover_event(
+                    _csj.COVER_PLAIN_FALLBACK, outcome="skipped",
+                    run_id=correlation_id, chat_id=chat_id,
+                    fallback=_csj.REASON_RICH_FAILED)
                 fallback_done = True
                 return await self._plain_fallback(
                     chat_id, document, correlation_id=correlation_id, ctx=ctx,
@@ -1382,6 +1427,17 @@ class SummaryGenerator:
                     message_id if isinstance(message_id, int) else None)
                 ctx.publish_duration_ms = _elapsed_since(publish_started)
             logger.info("summary cover: article sent | chat_id=%s", chat_id)
+            _csj.emit_cover_event(
+                _csj.COVER_RICH_PUBLISH_SUCCEEDED, outcome="success",
+                run_id=correlation_id, chat_id=chat_id)
+            _classification = _csj.classify_cover_result(
+                published_channel="rich", cover_outcome=cover_outcome,
+                cover_reason=cover_reason)
+            _csj.emit_cover_event(
+                _csj.COVER_PIPELINE_DONE, outcome="success",
+                run_id=correlation_id, chat_id=chat_id,
+                status=_classification["cover_result"],
+                fallback=_classification.get("fallback"))
             return True
         except Exception as exc:
             # Защитная ветка (сбой prep до/вне send-блока): тихий plain-фолбэк.
@@ -1392,16 +1448,192 @@ class SummaryGenerator:
                 chat_id, type(exc).__name__)
             if not fallback_done:
                 fallback_done = True
-                return await self._plain_fallback(
+                return await self._degrade_without_cover(
                     chat_id, document, correlation_id=correlation_id, ctx=ctx,
                     reason="rich_error", max_chunks=max_chunks)
             return False
         finally:
-            if tmp_path:
-                try:
-                    os.remove(tmp_path)
-                except OSError:
-                    pass
+            for _path in (tmp_path, styled_path):
+                if _path:
+                    try:
+                        os.remove(_path)
+                    except OSError:
+                        pass
+
+    async def _maybe_apply_cover_style(self, chat_id: int, base_image_path: str,
+                                       correlation_id: str | None,
+                                       cover_prompt: str = "",
+                                       base_style: str = "") -> dict | None:
+        """EXTRA §3.2/§49: применить выбранный per-chat Style к base cover.
+
+        REUSE durable-джобы (§42/§43, DoD-25): строка `task_jobs` создаётся
+        через `begin_cover_job`, состояние (вкл. `provider_task_id`) сохраняется
+        в `task_jobs` на смене стадии, по исходу — `finish_cover_job`; рестарт
+        посреди Style-стадии возобновляется из durable-состояния без повторного
+        платного task. Возвращает meta `run_style_job` или None (`Без
+        дополнительного стиля`/kill-switch OFF/профиль не найден/стадия не
+        применима). Fail-open: исключение → None (публикуется base, §49).
+        """
+        try:
+            from services import cover_style_jobs as csj
+            if not csj.cover_styles_enabled():
+                return None
+            style_id = await csj.resolve_selected_style_id(chat_id)
+            if not style_id:
+                return None
+            profile = await csj.load_selected_profile(chat_id)
+            if not profile or not profile.get("enabled"):
+                return None
+            if not csj.uses_style_stage(profile):
+                return None
+            # §42: durable job REUSE `task_jobs` (второй очереди нет).
+            db = getattr(self.memory, "db", None)
+            job_id, state = await csj.begin_cover_job(
+                db, chat_id=chat_id, correlation_id=correlation_id,
+                style_id=profile.get("profile_id"),
+                summary_run_id=correlation_id,
+                payload={"mode": "production"})
+            meta = await csj.run_style_job(
+                chat_id=chat_id, base_image_path=base_image_path,
+                profile=profile, summary_run_id=correlation_id,
+                correlation_id=correlation_id, db=db, job_id=job_id,
+                state=state, summary_text=cover_prompt,
+                base_style_prompt=base_style)
+            try:
+                outcome = (csj.RESULT_STYLED if meta.get("styled_path")
+                           else csj.RESULT_BASE)
+                await csj.finish_cover_job(
+                    db, job_id, outcome=outcome,
+                    reason_code=(meta.get("fail_reason") or None),
+                    checkpoint=state)
+            except Exception:
+                logger.debug(
+                    "summary cover: durable job finish failed (fail-open)",
+                    exc_info=True)
+            return meta
+        except Exception:
+            logger.warning(
+                "summary cover: style stage skipped (fail-open) | chat_id=%s",
+                chat_id, exc_info=True)
+            return None
+
+    async def _degrade_without_cover(self, chat_id: int, document, *,
+                                     correlation_id: str | None = None,
+                                     ctx=None, reason: str = "cover_unavailable",
+                                     max_chunks: int | None = None) -> bool:
+        """§50/§51: базовая обложка не удалась → RichMessage **без** обложки.
+
+        Новый штатный degraded-режим существующего форматтера (§51/§81), не
+        второй пайплайн. При OFF kill-switch `COVER_STYLES_ENABLED` поведение
+        остаётся baseline-паритетом — plain (§95), не задевая §90 happy path.
+        Если Rich недоступен/упал — последний рубеж plain (§52).
+        """
+        from services import cover_style_jobs as csj
+        if (csj.cover_styles_enabled() and csj.rich_degraded_enabled()
+                and _rich_media_supported()):
+            return await self._publish_rich_without_cover(
+                chat_id, document, correlation_id=correlation_id, ctx=ctx,
+                reason=reason, max_chunks=max_chunks)
+        return await self._plain_fallback(
+            chat_id, document, correlation_id=correlation_id, ctx=ctx,
+            reason=reason, max_chunks=max_chunks)
+
+    async def _publish_rich_without_cover(self, chat_id: int, document, *,
+                                          correlation_id: str | None = None,
+                                          ctx=None,
+                                          reason: str = "cover_unavailable",
+                                          max_chunks: int | None = None) -> bool:
+        """§51: RichMessage без cover-блока (media=[]), title/body/cut сохранены.
+
+        §81: успешный degraded-Rich → Summary успешен; ошибка Rich → plain (§52).
+        """
+        from services.summary_article_formatter import rich_document_limits
+        from services import cover_style_jobs as csj
+        format_started = log_format_start(
+            run_id=correlation_id, chat_id=chat_id, channel="rich")
+        publish_started = None
+        try:
+            rich_plan = rich_document_limits(document, cover_id=None)
+            if not rich_plan["fits"]:
+                logger.warning(
+                    "summary rich(no-cover): document exceeds limits — plain "
+                    "fallback | chat_id=%s | reason=%s", chat_id,
+                    rich_plan["reason"])
+                log_format_error(
+                    run_id=correlation_id, chat_id=chat_id, channel="rich",
+                    reason=rich_plan["reason"])
+                csj.emit_cover_event(
+                    csj.COVER_PLAIN_FALLBACK, outcome="skipped",
+                    run_id=correlation_id, chat_id=chat_id,
+                    fallback="rich_overflow")
+                return await self._plain_fallback(
+                    chat_id, document, correlation_id=correlation_id, ctx=ctx,
+                    reason="rich_overflow", max_chunks=max_chunks)
+            publish_started = log_publish_rich_start(
+                run_id=correlation_id, chat_id=chat_id)
+            # media=[] — валидный «без обложки» (degraded, §51/§81).
+            message = await self._send_rich_without_cover_with_retry(
+                chat_id, rich_plan["html"])
+        except Exception as exc:
+            log_format_error(
+                run_id=correlation_id, chat_id=chat_id, channel="rich",
+                reason=type(exc).__name__, code=CODE_RICH_MESSAGE_SEND_FAILED)
+            log_publish_rich_error(
+                run_id=correlation_id, chat_id=chat_id,
+                error_type=type(exc).__name__, reason=type(exc).__name__,
+                http_status=http_status_of(exc), attempts=attempts_of(exc),
+                started=publish_started, code=CODE_RICH_MESSAGE_SEND_FAILED)
+            if ctx is not None:
+                ctx.publish_channel = "rich"
+                ctx.publish_status = "failed"
+                ctx.publish_duration_ms = _elapsed_since(publish_started)
+            csj.emit_cover_event(
+                csj.COVER_RICH_PUBLISH_FAILED, outcome="failed",
+                level=logging.WARNING, run_id=correlation_id, chat_id=chat_id,
+                fallback=csj.REASON_RICH_FAILED)
+            csj.emit_cover_event(
+                csj.COVER_PLAIN_FALLBACK, outcome="skipped",
+                run_id=correlation_id, chat_id=chat_id,
+                fallback=csj.REASON_RICH_FAILED)
+            return await self._plain_fallback(
+                chat_id, document, correlation_id=correlation_id, ctx=ctx,
+                reason="rich_error", max_chunks=max_chunks)
+        message_id = getattr(message, "message_id", None)
+        _para_count = len((document or {}).get("paragraphs") or [])
+        _cut = _para_count > 1
+        log_format_complete(
+            run_id=correlation_id, chat_id=chat_id, channel="rich",
+            paragraphs=_para_count, rich_cut=_cut,
+            visible_paragraphs=(1 if _cut else _para_count),
+            collapsed_paragraphs=(_para_count - 1 if _cut else 0),
+            started=format_started)
+        log_publish_rich_complete(
+            run_id=correlation_id, chat_id=chat_id, message_id=message_id,
+            started=publish_started)
+        if ctx is not None:
+            ctx.cover_status = "unavailable"
+            ctx.format_channel = "rich"
+            ctx.format_status = "ok"
+            ctx.format_duration_ms = _elapsed_since(format_started)
+            ctx.publish_channel = "rich"
+            ctx.publish_status = "ok"
+            ctx.publish_message_id = (
+                message_id if isinstance(message_id, int) else None)
+            ctx.publish_duration_ms = _elapsed_since(publish_started)
+        csj.emit_cover_event(
+            csj.COVER_RICH_PUBLISH_SUCCEEDED, outcome="success",
+            run_id=correlation_id, chat_id=chat_id, status="degraded")
+        classification = csj.classify_cover_result(
+            published_channel="rich", cover_outcome=csj.RESULT_NONE,
+            cover_reason=csj.REASON_BASE_FAILED)
+        csj.emit_cover_event(
+            csj.COVER_PIPELINE_DONE, outcome="success",
+            run_id=correlation_id, chat_id=chat_id,
+            status=classification["cover_result"],
+            fallback=classification.get("fallback"))
+        logger.info("summary cover: article sent without cover | chat_id=%s",
+                    chat_id)
+        return True
 
 
     async def _llm_generate(self, payload: list[dict], chat_id: int, *,
@@ -1833,6 +2065,25 @@ class SummaryGenerator:
             return await send_rich_message(
                 self.bot, chat_id, text, media=media,
                 cover_id=SUMMARY_COVER_MEDIA_ID, content_format="html")
+
+    async def _send_rich_without_cover_with_retry(self, chat_id: int, text: str):
+        """§51/§81: RichMessage БЕЗ обложки, ≤1 retry по ``RetryAfter``.
+
+        Отдельный helper (не меняет byte-parity `_send_rich_with_retry`
+        Legacy-контура): `media=[]` + `cover_id=None` → degraded-публикация.
+        """
+        try:
+            return await send_rich_message(
+                self.bot, chat_id, text, media=[],
+                cover_id=None, content_format="html")
+        except TelegramRetryAfter as exc:
+            logger.warning(
+                "summary cover: TelegramRetryAfter %.1fs — one retry (no "
+                "cover) | chat_id=%s", exc.retry_after, chat_id)
+            await asyncio.sleep(exc.retry_after)
+            return await send_rich_message(
+                self.bot, chat_id, text, media=[],
+                cover_id=None, content_format="html")
 
     async def _plain_fallback(self, chat_id: int, document, *,
                               correlation_id: str | None = None,

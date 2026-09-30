@@ -596,9 +596,9 @@ class TestFlagBoundary:
         from services import pg_db
         # NOTE (A5, ADR-1026-17 D1): +1 (image_reservation — санкция
         # Δ DDL ≠ 0, verbatim §7 ADR); 45 → 46.
-        assert len(pg_db.DDL_STATEMENTS) == 46
+        assert len(pg_db.DDL_STATEMENTS) == 51
 
     def test_delta_catalog_zero(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 484
+        assert len(pc.REGISTRY) == 488
         assert len(pc.GROUPS) == 105

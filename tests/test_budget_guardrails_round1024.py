@@ -125,7 +125,7 @@ class TestCatalogPins:
     вкладка) валит пин — это и есть защита от регресса F21."""
 
     def test_registry_counts_pinned(self):
-        assert len(pc.REGISTRY) == 484
+        assert len(pc.REGISTRY) == 488
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
@@ -413,10 +413,10 @@ class TestDeltaZeroGuard:
         from services import pg_db
         # NOTE (A5, ADR-1026-17 D1): +1 (image_reservation — санкция
         # Δ DDL ≠ 0, verbatim §7 ADR); 45 → 46.
-        assert len(pg_db.DDL_STATEMENTS) == 46
+        assert len(pg_db.DDL_STATEMENTS) == 51
 
     def test_catalog_counts_unchanged_by_guardrails(self):
         # F23 — только тесты: значения совпадают с Δ F21 (D8).
-        assert len(pc.REGISTRY) == 484
+        assert len(pc.REGISTRY) == 488
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103

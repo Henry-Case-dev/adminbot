@@ -163,7 +163,7 @@ class TestTabMappingAudit:
         # TAB_RULES 21 in-place → 481/105/103.
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(GROUPS) == 105
-        assert len(pc.REGISTRY) == 484
+        assert len(pc.REGISTRY) == 488
 
 
 class TestModuleTabs:

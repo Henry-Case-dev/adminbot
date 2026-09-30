@@ -110,7 +110,12 @@ class TestCompleteness:
         #   ASAP-3.1 (ADR-1028-3, санкция spec 10.1): ЧАСТНОЕ ИСКЛЮЧЕНИЕ —
         #   CHAT_MODEL_CONTEXT_WINDOW каталогизирован (первая каталогизация
         #   ClassVar; models.chat_context_window_override; Settings 423→424).
-        assert len(fields) == 423
+        #   EXTRA (round1028, ADR-1028-4 D3/D11, санкция spec §13): +3 non-secret
+        #   Settings-поля (IMAGE_STYLE_BASE_URL/IMAGE_STYLE_MODEL/IMAGE_STYLE_
+        #   API_KEY — секрет) → 424→426 (секрет-поле не входит в не-secret
+        #   срез `fields`; фактически +2 non-secret → 426).
+        #   COVER_STYLES_ENABLED — env-only ClassVar (Δ каталога = 0).
+        assert len(fields) == 426
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered - TestCompleteness._CLASSVAR_CATALOGUED == fields
 
@@ -230,8 +235,9 @@ class TestPromptsContentPgOnly:
         # + prompts.summary_cover_style (10.23 F6/ADR-1023-6) = 11;
         # + 10 ключей F8 (Stage-1/Stage-2 + режимы Вербализатора) = 21;
         # + prompts.summary_l1_clusterizer_system_prompt (10.26 S3) = 22;
-        # + prompts.summary_l2_writer_system_prompt (10.26 S5/ADR-1026-7 D3) = 23.
-        assert len(prompts) == 23
+        # + prompts.summary_l2_writer_system_prompt (10.26 S5/ADR-1026-7 D3) = 23;
+        # + prompts.summary_cover_style_id (EXTRA round1028, ADR-1028-4 D3) = 24.
+        assert len(prompts) == 24
         for spec in prompts:
             assert spec.settings_field is None
             assert spec.env_name is None
@@ -251,12 +257,18 @@ class TestPromptsContentPgOnly:
         assert pc.resolve_progressive_level(spec) == "advanced"
 
     def test_code_sources_resolve(self):
+        # EXTRA (ADR-1028-4 D3): prompts.summary_cover_style_id — «пусто = Без
+        # дополнительного стиля»; его канон `SUMMARY_COVER_STYLE_ID_DEFAULT = ""`
+        # пустой ОСОЗНАННО (это explicit selection, не промпт-текст).
+        _empty_ok = {"SUMMARY_COVER_STYLE_ID_DEFAULT"}
         for spec in iter_pg_only():
             if spec.code_source is None:
                 continue
             module_name, attr = spec.code_source.rsplit(".", 1)
             value = getattr(importlib.import_module(module_name), attr)
-            assert isinstance(value, str) and value
+            assert isinstance(value, str)
+            if attr not in _empty_ok:
+                assert value
 
     def test_content_key(self):
         spec = pc.get("content.info_how_it_works") or next(
@@ -435,7 +447,11 @@ class TestGroups8424:
         # legacy fallback) → models 60 / keys 22 / limits 205 / flags 76.
         # ASAP-3.1 (ADR-1028-3, санкция spec 10.1): models +1
         # (CHAT_MODEL_CONTEXT_WINDOW, первая каталогизация ClassVar) → 61.
-        assert counts == {"prompts": 23, "models": 61, "keys": 22,
+        # EXTRA (round1028, ADR-1028-4 D3/D11, санкция spec §13): prompts +1
+        # (prompts.summary_cover_style_id), models +2 (IMAGE_STYLE_BASE_URL/
+        # IMAGE_STYLE_MODEL), keys +1 (IMAGE_STYLE_API_KEY, secret)
+        # → prompts 24 / models 63 / keys 23.
+        assert counts == {"prompts": 24, "models": 63, "keys": 23,
                           "limits": 199, "flags": 76, "reactions": 39,
                           "content": 5, "memory": 34}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)

@@ -633,8 +633,11 @@ class TestBoundsA3:
         # web/api/oversight.py (аддитивный mca_metrics на существующей витрине).
         # ASAP-2.1 (round1028, T-3982): + web/static/app.css (тач-цель кнопки
         # «← К списку» ≥44px в mobile media-query; без правок токенов/палитры).
+        # NOTE (round1029, EXTRA `extra-cover-style-pipeline`, ADR-1028-4 D12):
+        # + `web/app.py` (регистрация роутера Style Registry/Editor).
         assert not any(ln.startswith("web/")
                        and not ln.startswith(("web/app.js", "web/index.html",
+                                              "web/app.py",
                                               "web/static/execution_graph.js",
                                               "web/static/app.css",
                                               "web/api/routes.py",
@@ -663,14 +666,14 @@ class TestBoundsA3:
         import dataclasses
         from services import param_catalog as pc
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.38"            # bump запрещён (D8)
+        assert APP_VERSION == "2.58.39"            # bump запрещён (D8)
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in pc.REGISTRY
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}
 
     def test_catalog_counts_unchanged(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 484
+        assert len(pc.REGISTRY) == 488
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21

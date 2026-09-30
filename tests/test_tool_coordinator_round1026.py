@@ -648,8 +648,13 @@ class TestBounds:
         # web/api/oversight.py (аддитивный mca_metrics на существующей витрине).
         # ASAP-2.1 (round1028, T-3982): + web/static/app.css (тач-цель кнопки
         # «← К списку» ≥44px; токены/палитра не менялись).
+        # NOTE (round1029, EXTRA `extra-cover-style-pipeline`, ADR-1028-4 D12):
+        # + `web/app.py` (регистрация нового роутера Style Registry/Editor —
+        # `web/api/cover_styles.py`, только глобальный админ; kill-switch
+        # `COVER_STYLES_ENABLED`). Прецедент: другие роутеры включаются там же.
         assert not any(n.startswith("web/")
                        and not n.startswith(("web/app.js", "web/index.html",
+                                             "web/app.py",
                                              "web/static/execution_graph.js",
                                              "web/static/app.css",
                                              "web/api/routes.py",
@@ -695,12 +700,12 @@ class TestBounds:
             summary_changed
 
     def test_version_and_catalog(self):
-        assert APP_VERSION == "2.58.38"
+        assert APP_VERSION == "2.58.39"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
-        assert len(pc.REGISTRY) == 484
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 423
+        assert len(pc.REGISTRY) == 488
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 426
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 459
+                    if s.category is not None]) == 463
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21

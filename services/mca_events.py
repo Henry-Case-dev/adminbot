@@ -99,6 +99,10 @@ REASON_CODES = frozenset({
     "telemetry_gap", "spool_exhausted", "incident_opened",
     "incident_acknowledged", "incident_resolved", "incident_reopened",
     "fallback_engaged", "job_not_allowed", "action_idempotent_replay",
+    # расширение EXTRA/10.28 (cover style pipeline, ADR-1028-4 D9; §96):
+    # fallback ladder + capability-gated style stage; §17.2 расширяемый.
+    "style_failed", "base_failed", "rich_failed", "edit_unsupported",
+    "cover_style_unavailable",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────

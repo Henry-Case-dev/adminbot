@@ -316,6 +316,8 @@ class TestRichDelivery:
 
     @pytest.mark.asyncio
     async def test_image_none_is_silent_plain_fallback(self, monkeypatch):
+        # EXTRA (T-4145/§95): parity-режим (degraded OFF) → silent plain.
+        monkeypatch.setattr("services.cover_style_jobs.rich_degraded_enabled", lambda: False)
         rec = _Recorder()
         _base_env(monkeypatch, rec, cover_path=None)
         gen = _make_generator(_two_call_llm())

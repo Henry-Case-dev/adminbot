@@ -80,7 +80,7 @@ class TestCatalogDelta:
     def test_counts(self):
         # F21 (10.24, ADR-1024-22 D8): +1 REGISTRY/GROUPS/mapped — теперь
         # 459/98/96; TAB_RULES 20 (новых вкладок нет).
-        assert len(pc.REGISTRY) == 484
+        assert len(pc.REGISTRY) == 488
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
@@ -108,7 +108,7 @@ class TestCatalogDelta:
                    if s.category == CATEGORY_PROMPTS]
         # 10.26 (S3/ADR-1026-5 D4): +1 — prompts.summary_l1_clusterizer_system_prompt.
         # 10.26 (S5/ADR-1026-7 D3): +1 — prompts.summary_l2_writer_system_prompt.
-        assert len(prompts) == 23
+        assert len(prompts) == 24
         for spec in prompts:
             assert spec.code_source
             assert spec.stage in (None, "synthesizer", "verbalizer", "mode")

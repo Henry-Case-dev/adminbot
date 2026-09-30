@@ -111,6 +111,9 @@ class TestSummaryRunBranchOn:
 
         assert Settings.SYSTEM2_SUMMARY_ENABLED is True   # прод-дефолт ON
         monkeypatch.setattr(Settings, "SYSTEM2_SUMMARY_ENABLED", True)
+        # EXTRA (T-4145/§95): parity-режим — degraded «Rich без обложки» OFF
+        # (фокус теста — двухвызовный branch и доставка текста).
+        monkeypatch.setattr("services.cover_style_jobs.rich_degraded_enabled", lambda: False)
 
         class TwoCallLLM:
             def __init__(self):

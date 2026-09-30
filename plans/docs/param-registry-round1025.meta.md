@@ -1,12 +1,12 @@
 # F8 — `param-registry-round1025` — провенанс `.meta.md`
 
-- **APP_VERSION:** `2.58.38`
-- **HEAD (short):** `fafbad8`
+- **APP_VERSION:** `2.58.39`
+- **HEAD (short):** `bbdee1c`
 - **Источник:** `services/param_catalog.py` (REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES) + `inventory.tsv` (10.14) для дельты.
-- **Счётчики каталога:** REGISTRY **484** / GROUPS **105** / `_TAB_BY_GROUP` **103** / TAB_RULES **21**.
-- **Реестр:** 484 строк == REGISTRY.
+- **Счётчики каталога:** REGISTRY **488** / GROUPS **105** / `_TAB_BY_GROUP` **103** / TAB_RULES **21**.
+- **Реестр:** 488 строк == REGISTRY.
 - **inventory.tsv (10.14):** 411 baseline-ключей.
-- **Дельта 411 → 484 = 73** новых ключей (`status=new`).
+- **Дельта 411 → 488 = 77** новых ключей (`status=new`).
 - **Команда генерации:** `python tools/gen_param_registry_round1025.py`
 - **Проверка (маркер):** `python tools/gen_param_registry_round1025.py --check`
 
@@ -22,7 +22,7 @@
 - `-` = поле неприменимо/отсутствует (документированное отсутствие).
 - `ui_visibility=api-only` — ключ существует (env/каталог), но UI-места нет → **не** считается сохранённым в UI.
 
-## Дельта 411 → 484 = 73 (ключи, отсутствовавшие в inventory.tsv)
+## Дельта 411 → 488 = 77 (ключи, отсутствовавшие в inventory.tsv)
 
 - `api_token`
 - `betterstack_host`
@@ -47,6 +47,7 @@
 - `flags.summary_legacy_fallback_enabled`
 - `info_text_file`
 - `keys.image_api_key`
+- `keys.image_style_api_key`
 - `keys.summary_l1_api_key`
 - `keys.summary_l2_api_key`
 - `limits.anticliche_max_patterns`
@@ -69,6 +70,8 @@
 - `models.image_base_url`
 - `models.image_get_mode`
 - `models.image_model`
+- `models.image_style_base_url`
+- `models.image_style_model`
 - `models.summary_l1_base_url`
 - `models.summary_l1_model_name`
 - `models.summary_l2_base_url`
@@ -82,6 +85,7 @@
 - `prompts.factcheck_analyst_system_prompt`
 - `prompts.factcheck_verbalizer_system_prompt`
 - `prompts.summary_cover_style`
+- `prompts.summary_cover_style_id`
 - `prompts.summary_editor_system_prompt`
 - `prompts.summary_l1_clusterizer_system_prompt`
 - `prompts.summary_l2_writer_system_prompt`

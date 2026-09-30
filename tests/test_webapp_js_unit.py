@@ -347,3 +347,13 @@ def test_js_unit_round1026_s6_publish():
     publicationStatus (нет данных → null, не 'gated'); viewer не переписан."""
     _run_js(os.path.join("tests", "js", "round1026_s6_publish_test.js"),
             ok_marker="S6-PUBLISH-OK")
+
+
+def test_js_unit_round1029_extra_cover_styles():
+    """EXTRA round1029 (extra-cover-style-pipeline, ADR-1028-4 D12; spec
+    §5/§56/§57/§75): вкладка «Стили обложки» mod_summary, структурные данные
+    coverStyles, методы редактора (CRUD/references/test-style/budget), RU-подписи
+    и capability-строки §37."""
+    _run_js(os.path.join("tests", "js",
+                         "round1029_extra_cover_styles_test.js"),
+            ok_marker="EXTRA-COVER-STYLES-UI-OK")

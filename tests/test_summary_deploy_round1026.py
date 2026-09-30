@@ -259,12 +259,16 @@ class TestSec114Scenarios:
         assert spy.plain
 
     @pytest.mark.asyncio
-    async def test_scenario_07_invalid_json_l1_fail_closed(self, spy, caplog):
+    async def test_scenario_07_invalid_json_l1_fail_closed(self, spy, caplog,
+                                                           monkeypatch):
         """(7) ASAP-2 AMEND (§8/§9, ADR-1027-10 D3/D4; T-3952): невалидный JSON
         L1 ×2 попытки (correction retry) → НЕ «L2 не вызывается»: LEVEL-2 —
         deterministic fallback-пакет → L2 вызывается в любом случае → статья
         публикуется (availability invariant). Прежний терминальный fail-closed
         скопирован ниже в scenario_07b (L2 тоже мёртв + Legacy мёртв)."""
+        # EXTRA (T-4145/§95): parity-режим — degraded «Rich без обложки» OFF
+        # (фокус теста — availability, не контур публикации).
+        monkeypatch.setattr("services.cover_style_jobs.rich_degraded_enabled", lambda: False)
         gen, llm = _make_gen(_rows(), ["это не JSON", "это не JSON",
                                        L2_JSON, L2_JSON])
         with caplog.at_level(logging.INFO):
@@ -312,9 +316,11 @@ class TestSec114Scenarios:
 
     @pytest.mark.asyncio
     async def test_scenario_09_cover_error_plain_fallback(self, spy, monkeypatch):
-        """(9) Ошибка генерации обложки → публикуется текст (plain §105)."""
+        """(9) Ошибка генерации обложки → публикуется текст (parity §95)."""
         monkeypatch.setattr(Settings, "SUMMARY_COVER_ARTICLE_ENABLED", True)
         monkeypatch.setattr(sg, "_rich_media_supported", lambda: True)
+        # EXTRA (T-4145/§95): parity-режим (degraded OFF) → plain-фолбэк.
+        monkeypatch.setattr("services.cover_style_jobs.rich_degraded_enabled", lambda: False)
         gen, llm = _make_gen(_rows(), [L1_JSON_RICH, L2_JSON])
         gen._resolve_cover_style_text = AsyncMock(return_value="style")
 
@@ -408,6 +414,8 @@ class TestActivation:
         """SC-03: явный `false` → аварийный OFF → legacy `_generate_two_call`."""
         _limits(monkeypatch, hybrid=False)
         monkeypatch.setattr(Settings, "SYSTEM2_SUMMARY_ENABLED", True)
+        # EXTRA (T-4145/§95): parity-режим (degraded OFF) → plain, фокус на kill-switch.
+        monkeypatch.setattr("services.cover_style_jobs.rich_degraded_enabled", lambda: False)
         gen, _llm = _make_gen(_rows(), [])
         legacy = AsyncMock(return_value=SummaryDraft(
             text="legacy", cover_prompt="", response_mode="serious"))
@@ -503,13 +511,13 @@ class TestBounds:
         # ASAP-3 (ADR-1028-2 D12): санкционированная Δ +2 → 483.
         # ASAP-3.1 (ADR-1028-3, санкция spec 10.1): +1 ключ
         # models.chat_context_window_override → 484 (F8 переиздан атомарно).
-        assert len(pc.REGISTRY) == 484
+        assert len(pc.REGISTRY) == 488
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.38"
+        assert APP_VERSION == "2.58.39"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         assert "v2.58.34" in readme
 

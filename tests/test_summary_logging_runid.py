@@ -679,6 +679,8 @@ class TestHybridLogging:
     @pytest.mark.asyncio
     async def test_cover_unavailable_falls_back_to_plain(self, monkeypatch,
                                                          caplog):
+        # EXTRA (T-4145/§95): parity-режим (degraded OFF) → plain-фолбэк.
+        monkeypatch.setattr("services.cover_style_jobs.rich_degraded_enabled", lambda: False)
         gen = _gen(FakeMemory(), MagicMock())
         gen._resolve_cover_style_text = AsyncMock(return_value="style")
         monkeypatch.setattr(sg, "generate_image_verbose",
@@ -696,6 +698,8 @@ class TestHybridLogging:
 
     @pytest.mark.asyncio
     async def test_cover_error_on_exception(self, monkeypatch, caplog):
+        # EXTRA (T-4145/§95): parity-режим (degraded OFF) → plain-фолбэк.
+        monkeypatch.setattr("services.cover_style_jobs.rich_degraded_enabled", lambda: False)
         gen = _gen(FakeMemory(), MagicMock())
         gen._resolve_cover_style_text = AsyncMock(return_value="style")
         monkeypatch.setattr(sg, "generate_image_verbose",
@@ -930,16 +934,16 @@ class TestInvariants:
         # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): санкционированная
         # ОТРИЦАТЕЛЬНАЯ Δ каталога — -8 ключей summary_filter_*, -2 группы,
         # -8 env-констант Settings (S1-слой удалён).
-        assert len(pc.REGISTRY) == 484
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 423
+        assert len(pc.REGISTRY) == 488
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 426
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 459
+                    if s.category is not None]) == 463
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.38"
+        assert APP_VERSION == "2.58.39"
 
     def test_publish_events_only_on_real_publication(self):
         """S6 (D6): PUBLISH_* реализованы в живом публикационном контуре; S9

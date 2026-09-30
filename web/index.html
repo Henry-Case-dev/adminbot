@@ -433,6 +433,259 @@
                 </div>
               </div>
 
+              <!-- EXTRA (extra-cover-style-pipeline, ADR-1028-4 D12; spec
+                   §5/§6/§10–§13/§56–§67/§75): Style Editor — data-driven
+                   список + редактор + референсы + Before/After + нумерация +
+                   модель обработки + budget. Все подписи — по-русски (§75). -->
+              <div v-if="workspaceModule && workspaceModule.id === 'mod_summary'
+                        && workspaceTab === 'styles'"
+                   class="col-span-full card p-4" data-cover-styles>
+                <div class="text-sm font-bold mb-1">Стили обложки</div>
+                <div class="text-xs text-gray-400 mb-3">
+                  Базовая генерация обложки работает всегда. Стиль — опциональная
+                  обработка уже готовой обложки.
+                </div>
+                <div v-if="!coverStyles.enabled" class="text-xs text-amber-300 mb-3"
+                     data-cover-styles-disabled>
+                  Обработка стилем отключена администратором. Базовая обложка и
+                  публикация работают как обычно.
+                </div>
+                <div v-if="coverStyles.error" class="text-xs text-red-400 mb-2"
+                     data-cover-styles-error>{{ coverStyles.error }}</div>
+
+                <!-- Выбор стиля для выбранного чата (per-chat, DC-5) -->
+                <div class="flex items-center gap-2 flex-wrap mb-3">
+                  <label class="text-xs text-gray-400" for="cover-style-select">
+                    Стиль для выбранного чата
+                  </label>
+                  <select id="cover-style-select" class="field max-w-xs"
+                          v-model="coverStyles.selectedStyleId"
+                          :disabled="!coverStyles.enabled" data-cover-style-select>
+                    <option value="">{{ coverStyles.noStyleLabel }}</option>
+                    <option v-for="s in coverStyles.styles" :key="'sel-' + s.profile_id"
+                            :value="s.profile_id">{{ s.name }}{{ s.is_example ? ' [Пример]' : '' }}</option>
+                  </select>
+                  <button class="btn-accent text-xs" :disabled="!coverStyles.enabled"
+                          @click="coverStyleSetSelection()">Применить к чату</button>
+                </div>
+
+                <!-- Список стилей -->
+                <div class="flex flex-col gap-1.5 mb-4" data-cover-style-list>
+                  <div class="flex items-center gap-2 flex-wrap text-xs rounded-lg border border-white/10 px-2 py-1.5">
+                    <span class="text-sm">{{ coverStyles.noStyleLabel }}</span>
+                    <span class="text-gray-500">— базовая обложка без обработки</span>
+                  </div>
+                  <div v-for="s in coverStyles.styles" :key="s.profile_id"
+                       class="flex items-center gap-2 flex-wrap text-xs rounded-lg border border-white/10 px-2 py-1.5"
+                       :data-cover-style="s.profile_id">
+                    <span class="text-sm font-semibold">{{ s.name }}</span>
+                    <span v-if="s.is_example" class="badge badge-info">Пример</span>
+                    <span v-if="!s.enabled" class="badge badge-muted">выключен</span>
+                    <span class="text-gray-500">референсов: {{ s.reference_count }}</span>
+                    <span class="flex-1"></span>
+                    <button class="btn-ghost text-xs" @click="coverStyleOpen(s)">Открыть</button>
+                    <button class="btn-ghost text-xs" @click="coverStyleDuplicate(s)">Копировать</button>
+                    <button class="btn-danger text-xs" @click="coverStyleDelete(s)">Удалить</button>
+                  </div>
+                  <button class="btn-ghost text-xs self-start" :disabled="!coverStyles.enabled"
+                          @click="coverStyleNew()" data-cover-style-new>+ Создать стиль</button>
+                </div>
+
+                <!-- Редактор стиля (§56) -->
+                <div v-if="coverStyles.current" class="flex flex-col gap-3"
+                     data-cover-style-editor>
+                  <div class="text-sm font-bold">
+                    {{ coverStyles.current._isNew ? 'Новый стиль' : coverStyles.current.name }}
+                    <span v-if="coverStyles.current.is_example" class="badge badge-info">Пример</span>
+                  </div>
+                  <div class="grid gap-3 md:grid-cols-2">
+                    <label class="flex flex-col text-xs gap-1">
+                      <span class="text-gray-400">Название</span>
+                      <input class="field" v-model="coverStyles.current.name"
+                             data-cover-style-name>
+                    </label>
+                    <div class="flex flex-col text-xs gap-1">
+                      <span class="text-gray-400">Как применяется</span>
+                      <span class="text-sm">{{ coverPipelineModeLabel(coverStyles.current.pipeline_mode) }}</span>
+                      <select class="field mt-1" v-model="coverStyles.current.pipeline_mode">
+                        <option value="generate_only">Только генерация</option>
+                        <option value="generate_then_edit">Базовая обложка → обработка стилем</option>
+                        <option value="edit_only">Только обработка (edit)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-col text-xs gap-1">
+                    <span class="text-gray-400">Инструкция стиля</span>
+                    <textarea class="field scroll-thin" rows="6"
+                              v-model="coverStyles.current.instruction"
+                              data-cover-style-instruction></textarea>
+                    <span class="text-gray-500" data-cover-style-budget>{{ coverBudgetText() }}</span>
+                  </div>
+
+                  <!-- Референсы (§11–§13) -->
+                  <div class="flex flex-col text-xs gap-2">
+                    <span class="text-gray-400">Референсы</span>
+                    <div class="flex flex-wrap gap-2" data-cover-style-refs>
+                      <div v-for="r in coverStyles.current.references" :key="r.ref_id"
+                           class="flex flex-col items-center gap-1 rounded-lg border border-white/10 p-2 w-32">
+                        <img v-if="coverStyles._assets[r.asset_id]"
+                             :src="coverStyles._assets[r.asset_id]" alt=""
+                             class="w-24 h-24 object-cover rounded-md">
+                        <span v-else class="w-24 h-24 rounded-md bg-white/5"></span>
+                        <span class="truncate w-full text-center" :title="r.description">{{ r.label || 'Референс' }}</span>
+                        <div class="flex items-center gap-1 flex-wrap justify-center">
+                          <label class="btn-ghost text-xs">
+                            Заменить
+                            <input type="file" accept="image/png,image/jpeg,image/webp"
+                                   class="sr-only"
+                                   :data-cover-replace-input="r.ref_id"
+                                   :disabled="coverStyles.uploadBusy"
+                                   @change="coverStyleReplaceReference(r, $event)">
+                          </label>
+                          <button class="btn-danger text-xs" @click="coverStyleRemoveReference(r)">Убрать</button>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <input type="text" class="field max-w-[10rem]" placeholder="Название"
+                             v-model="coverStyles.current._refLabel">
+                      <input type="text" class="field max-w-[14rem]" placeholder="Описание роли"
+                             v-model="coverStyles.current._refDescription">
+                      <label class="btn-ghost text-xs">
+                        {{ coverStyles.uploadBusy ? 'Загрузка…' : 'Добавить референс' }}
+                        <input type="file" accept="image/png,image/jpeg,image/webp"
+                               class="sr-only" data-cover-reference-input
+                               :disabled="coverStyles.uploadBusy"
+                               @change="coverStyleUploadReference($event)">
+                      </label>
+                    </div>
+                    <span class="text-gray-500">Загружайте логотип, персонажа, рамку, цвет или вёрстку — и опишите их роль.</span>
+                  </div>
+
+                  <!-- Нумерация (§25–§28/§66) -->
+                  <div class="flex flex-col text-xs gap-2">
+                    <span class="text-gray-400">Нумерация выпуска</span>
+                    <div class="flex items-center gap-3 flex-wrap">
+                      <label class="inline-flex items-center gap-2">
+                        <input type="checkbox" v-model="coverStyles.current.counter_enabled">
+                        <span>Включить нумерацию выпусков</span>
+                      </label>
+                      <label class="inline-flex items-center gap-2">
+                        <span class="text-gray-400">Следующий номер</span>
+                        <input type="number" class="field w-24" v-model="coverStyles.current.counter_value">
+                      </label>
+                      <label class="inline-flex items-center gap-2">
+                        <span class="text-gray-400">Формат</span>
+                        <input type="text" class="field w-40" v-model="coverStyles.current.counter_format">
+                      </label>
+                      <span class="text-gray-500">Предпросмотр: {{ coverStyles.current.preview_issue }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Как работает стиль (§10/§65) -->
+                  <div class="flex flex-col text-xs gap-2">
+                    <span class="text-gray-400">Как работает стиль</span>
+                    <div class="flex items-center gap-4 flex-wrap" data-cover-style-preview>
+                      <div class="flex flex-col items-center gap-1">
+                        <span class="text-gray-500">До</span>
+                        <img v-if="coverStyles._assets[coverStyles.current.preview_before_asset_id]"
+                             :src="coverStyles._assets[coverStyles.current.preview_before_asset_id]"
+                             alt="" class="w-32 h-32 object-cover rounded-md">
+                        <span v-else class="w-32 h-32 rounded-md bg-white/5"></span>
+                      </div>
+                      <span class="text-gray-500">→</span>
+                      <div class="flex flex-col items-center gap-1">
+                        <span class="text-gray-500">После</span>
+                        <img v-if="coverStyles._assets[coverStyles.current.preview_after_asset_id]"
+                             :src="coverStyles._assets[coverStyles.current.preview_after_asset_id]"
+                             alt="" class="w-32 h-32 object-cover rounded-md">
+                        <span v-else class="w-32 h-32 rounded-md bg-white/5"></span>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <label class="btn-ghost text-xs">
+                        {{ coverStyles.previewBusy ? 'Обработка…' : 'Протестировать стиль' }}
+                        <input type="file" accept="image/png,image/jpeg,image/webp"
+                               class="sr-only" data-cover-test-input
+                               :disabled="coverStyles.previewBusy"
+                               @change="coverStylePreview($event)">
+                      </label>
+                      <span class="text-gray-500">Тест запускает только обработку выбранной картинки и не тратит номер выпуска.</span>
+                    </div>
+                    <div v-if="coverStyles.current && coverStyles.current.preview_stale"
+                         class="text-amber-300 text-xs flex items-center gap-2 flex-wrap"
+                         data-cover-preview-stale>
+                      <span>Пример создан для предыдущей версии стиля.</span>
+                      <button class="btn-ghost text-xs"
+                              @click="coverStyleRefreshExample()"
+                              :disabled="coverStyles.previewBusy"
+                              data-cover-preview-update>Обновить пример</button>
+                    </div>
+                    <div v-if="coverStyles.preview" class="rounded-lg border border-white/10 p-2"
+                         data-cover-test-result>
+                      <div v-if="coverStyles.preview.applied" class="flex items-center gap-2 flex-wrap">
+                        <img v-if="coverStyles.preview.url && coverStyles._assets[coverStyles.preview.url.split('/').pop()]"
+                             :src="coverStyles._assets[coverStyles.preview.url.split('/').pop()]"
+                             alt="" class="w-24 h-24 object-cover rounded-md">
+                        <span class="text-green-400">Стиль применён</span>
+                        <span class="text-gray-500">Время обработки: {{ coverStyles.preview.duration_ms }} мс</span>
+                        <span class="text-gray-500">{{ coverStyles.preview.preview_issue }}</span>
+                      </div>
+                      <div v-else class="text-amber-300">
+                        {{ coverStyles.preview.message || 'Не удалось применить стиль.' }}
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Модель обработки (§34/§37/§38) + connection (§73) -->
+                  <div class="flex flex-col text-xs gap-2">
+                    <span class="text-gray-400">Модель обработки</span>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <select class="field max-w-xs" v-model="coverStyles.current.model_mode">
+                        <option value="default">По умолчанию (глобальная настройка)</option>
+                        <option value="custom">Другая модель</option>
+                      </select>
+                      <template v-if="coverStyles.current.model_mode === 'custom'">
+                        <input type="text" class="field max-w-xs" placeholder="Base URL"
+                               v-model="coverStyles.current.connection_id">
+                        <input type="text" class="field max-w-xs" placeholder="Модель"
+                               v-model="coverStyles.current.model_id">
+                      </template>
+                    </div>
+                    <div v-if="coverStyles.meta && coverStyles.meta.connection"
+                         class="text-gray-500" data-cover-connection>
+                      Подключение: {{ coverStyles.meta.connection.message }}
+                      <span v-if="coverStyles.meta.connection.edit_supported === false"
+                            class="text-amber-300">
+                        · модель не умеет редактировать изображения — будет опубликована базовая обложка
+                      </span>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <button class="btn-ghost text-xs" @click="openCoverConnections()"
+                              data-cover-connections-link>Настроить подключения →</button>
+                      <label class="inline-flex items-center gap-2">
+                        <input type="checkbox" v-model="coverStyles.current.enabled">
+                        <span>Стиль активен</span>
+                      </label>
+                    </div>
+                    <details class="text-xs">
+                      <summary class="cursor-pointer text-gray-500">Технические детали модели</summary>
+                      <ul class="mt-1 text-gray-400 list-disc list-inside">
+                        <li v-for="(line, i) in coverCapabilityLines()" :key="'cap-' + i">{{ line }}</li>
+                      </ul>
+                    </details>
+                  </div>
+
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <button class="btn-accent text-sm" :disabled="coverStyles.saving"
+                            @click="coverStyleSave()" data-cover-style-save>
+                      {{ coverStyles.saving ? 'Сохранение…' : 'Сохранить стиль' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <!-- S9 round1026 (ADR-1026-8 D1/D3, §113): dry-run «Тестирование»
                    пайплайна «Сводок чатов» — выбор чата и окна, «Проверить
                    пайплайн», предпросмотр артефактов + метрики §112. Публикации
@@ -1678,6 +1931,8 @@
               <component :is="grp.owner ? 'details' : 'div'"
                    v-if="activeTab !== 'prompts' && (grp.owner || basicItems(grp).length || advancedItems(grp).length)"
                    :class="grp.owner ? 'owner-block card p-4 col-span-full' : 'card p-4 col-span-full'"
+                   :data-config-group="grp.id"
+                   :id="'cfg-group-' + grp.id"
                    :open="grp.owner ? true : null">
                 <summary v-if="grp.owner"
                          class="owner-head flex items-center gap-2 cursor-pointer select-none">

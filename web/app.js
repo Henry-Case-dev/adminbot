@@ -591,7 +591,7 @@
     // сообщений») УДАЛЕНА вместе с группами префильтра — вкладка неприменима,
     // мёртвых тумблеров нет (§5:2963).
     mod_summary: ['overview', 'settings', 'clusterizer', 'writer',
-      'hybrid', 'legacy', 'models', 'limits', 'testing'],
+      'hybrid', 'legacy', 'models', 'limits', 'testing', 'styles'],
     mod_direct: ['overview', 'settings', 'synthesizer', 'verbalizer', 'models',
       'limits', 'testing'],
     mod_factcheck: ['overview', 'settings', 'synthesizer', 'verbalizer',
@@ -623,6 +623,8 @@
     clusterizer: 'Кластеризатор', writer: 'Писатель',
     // ASAP-2 §13: две секции Summary (названия — по контракту (j) D11).
     hybrid: 'HYBRID SUMMARY', legacy: 'LEGACY SUMMARY FALLBACK',
+    // EXTRA (ADR-1028-4 D12/§56): редактор обложечных стилей.
+    styles: 'Стили обложки',
   };
   // Модуль → группа промптов каталога (F5 D3/§48: один объект на два маршрута).
   var MODULE_PROMPT_GROUPS = {
@@ -1564,8 +1566,30 @@
           coverBusy: false,
           cover: null,
         },
+        // EXTRA (extra-cover-style-pipeline, ADR-1028-4 D12; spec §56/§75):
+        // редактор обложечных стилей (вкладка «Стили обложки» модуля Саммари).
+        coverStyles: {
+          loaded: false,
+          loading: false,
+          enabled: true,
+          noStyleLabel: 'Без дополнительного стиля',
+          selectedStyleId: '',
+          styles: [],
+          error: '',
+          current: null,          // редактируемый draft
+          meta: null,             // GET /{id}: capabilities/connection/budget
+          saving: false,
+          uploadBusy: false,
+          previewBusy: false,
+          preview: null,
+          _returnProfileId: '',   // §35: контекст редактора при возврате
+          _assets: {},            // asset_id → objectURL (blob-fetch)
+        },
         // A9/T-1206/10.8: «Доступы» — id открытого окна подраздела (route-driven).
         accessOpen: null,             // null | 'roles' | 'local' | 'admins'
+        // EXTRA §35: deep-link из Style Editor — целевая config-группа для
+        // фокуса/подсветки на экране подключений (`models_images`).
+        configFocusGroup: '',
         activeChatTitle: 'Весь бот',  // индикатор активного скоупа в шапке
         // T-1127/§15.1.1: явный вид скоупа + epoch — токен отбрасывания
         // устаревших in-flight ответов при смене scope (R10.4-2).
@@ -3514,6 +3538,7 @@
       // чатов» — однократный probe доступности API (идемпотентно, fail-open).
       workspaceTab: function (tab) {
         if (tab === 'testing') this.maybeLoadSummaryTest();
+        if (tab === 'styles') this.loadCoverStyles();
       },
     },
 
@@ -6721,7 +6746,416 @@
           var tb = this.workspaceTestingBlocks;
           return !!(tb && tb.length > 0);
         }
+        // EXTRA (ADR-1028-4 D12/§56): редактор стилей — статическая витрина.
+        if (tabId === 'styles') return true;
         return this._workspaceGroupsFor(m, 'settings').length > 0;
+      },
+      // ═══ EXTRA (ADR-1028-4 D12; spec §10–§13/§56–§67/§75): Style Editor ═══
+      loadCoverStyles: function () {
+        var st = this.coverStyles;
+        if (st.loading) return;
+        st.loading = true;
+        st.error = '';
+        var self = this;
+        var chatId = this.activeChatId;
+        var qs = (chatId != null)
+          ? ('?chat_id=' + encodeURIComponent(chatId)) : '';
+        this.api('/api/cover/styles' + qs, { global: true })
+          .then(function (data) {
+            st.enabled = !!(data && data.enabled);
+            st.noStyleLabel = (data && data.no_style_label)
+              || 'Без дополнительного стиля';
+            st.selectedStyleId = (data && data.selected_style_id) || '';
+            st.styles = (data && data.styles) || [];
+            st.loaded = true;
+            self.coverStylesEnsureAssets();
+            // §35: вернуть контекст открытого Style Editor после deep-link.
+            if (st._returnProfileId && !st.current) {
+              var want = st._returnProfileId;
+              st._returnProfileId = '';
+              var hit = null;
+              (st.styles || []).forEach(function (s) {
+                if (s.profile_id === want) hit = s;
+              });
+              if (hit) self.coverStyleOpen(hit);
+            }
+          })
+          .catch(function (e) {
+            st.error = (e && e.message) || 'Не удалось загрузить стили';
+          })
+          .then(function () { st.loading = false; });
+      },
+      coverStylesEnsureAssets: function () {
+        var self = this;
+        var st = this.coverStyles;
+        (st.styles || []).forEach(function (s) {
+          self.coverAssetBlob(s.preview_before_asset_id);
+          self.coverAssetBlob(s.preview_after_asset_id);
+          (s.references || []).forEach(function (r) {
+            self.coverAssetBlob(r.asset_id);
+          });
+        });
+      },
+      coverAssetBlob: async function (urlOrId) {
+        if (!urlOrId) return null;
+        var assetId = String(urlOrId).split('/').pop();
+        var st = this.coverStyles;
+        if (st._assets[assetId]) return st._assets[assetId];
+        var initData = getInitData();
+        if (!initData) return null;
+        try {
+          var resp = await fetch('/api/cover/assets/' + assetId, {
+            headers: { 'X-Telegram-Init-Data': initData },
+          });
+          if (!resp.ok) return null;
+          var blob = await resp.blob();
+          var u = URL.createObjectURL(blob);
+          st._assets[assetId] = u;
+          return u;
+        } catch (e) { return null; }
+      },
+      coverStyleOpen: function (s) {
+        var st = this.coverStyles;
+        if (!s) { st.current = null; st.meta = null; st.preview = null; return; }
+        st.current = {
+          profile_id: s.profile_id, name: s.name, origin: s.origin,
+          is_example: s.is_example, pipeline_mode: s.pipeline_mode,
+          instruction: s.instruction || '',
+          counter_enabled: !!s.counter_enabled,
+          counter_value: s.counter_value, counter_format: s.counter_format,
+          model_mode: s.model_mode || 'default',
+          connection_id: s.connection_id, model_id: s.model_id,
+          enabled: s.enabled !== false, revision: s.revision,
+          references: (s.references || []).slice(),
+          preview_before_url: s.preview_before_url,
+          preview_after_url: s.preview_after_url,
+          preview_before_asset_id: s.preview_before_asset_id,
+          preview_after_asset_id: s.preview_after_asset_id,
+          preview_revision: s.preview_revision,
+          preview_stale: !!s.preview_stale,
+          preview_issue: s.preview_issue, _isNew: false,
+        };
+        st.meta = null;
+        st.preview = null;
+        this.coverStyleLoadMeta(s.profile_id);
+      },
+      coverStyleNew: function () {
+        var st = this.coverStyles;
+        st.current = {
+          profile_id: null, name: '', origin: 'custom', is_example: false,
+          pipeline_mode: 'generate_then_edit', instruction: '',
+          counter_enabled: false, counter_value: 0,
+          counter_format: 'ВЫПУСК {counter}', model_mode: 'default',
+          connection_id: null, model_id: null, enabled: true,
+          references: [], preview_before_url: null, preview_after_url: null,
+          preview_issue: 'ВЫПУСК 00', _isNew: true,
+        };
+        st.meta = null;
+        st.preview = null;
+      },
+      coverStyleLoadMeta: function (profileId) {
+        if (!profileId) return;
+        var self = this;
+        var st = this.coverStyles;
+        this.api('/api/cover/styles/' + encodeURIComponent(profileId),
+                 { global: true })
+          .then(function (data) {
+            st.meta = {
+              capabilities: data.capabilities || null,
+              connection: data.connection || null,
+              budget: data.budget || null,
+            };
+            if (st.current && st.current.profile_id === profileId) {
+              st.current.references = (data.references || []).slice();
+              st.current.preview_issue = data.preview_issue;
+              // §10/SC-24: актуальность preview синхронизируется с сервером.
+              st.current.preview_after_asset_id = data.preview_after_asset_id;
+              st.current.preview_before_asset_id = data.preview_before_asset_id;
+              st.current.preview_revision = data.preview_revision;
+              st.current.preview_stale = !!data.preview_stale;
+            }
+            self.coverStylesEnsureAssets();
+          })
+          .catch(function () { /* fail-open: редактор работает без метаданных */ });
+      },
+      coverStyleSave: function () {
+        var st = this.coverStyles;
+        var c = st.current;
+        if (!c || st.saving) return;
+        if (!(c.name || '').trim()) { this.toast('Укажите название стиля', 'err'); return; }
+        st.saving = true;
+        var self = this;
+        var path = '/api/cover/styles' + (c.profile_id
+          ? ('?style_id=' + encodeURIComponent(c.profile_id)) : '');
+        var body = {
+          name: c.name, instruction: c.instruction,
+          pipeline_mode: c.pipeline_mode,
+          counter_enabled: !!c.counter_enabled,
+          counter_value: parseInt(c.counter_value || 0, 10) || 0,
+          counter_format: c.counter_format || 'ВЫПУСК {counter}',
+          model_mode: c.model_mode || 'default',
+          connection_id: c.connection_id || null,
+          model_id: c.model_id || null,
+          enabled: c.enabled !== false,
+        };
+        this.api(path, {
+          global: true, method: 'POST', body: JSON.stringify(body),
+        }).then(function () {
+          self.toast('Стиль сохранён');
+          self.loadCoverStyles();
+          if (c.profile_id) self.coverStyleLoadMeta(c.profile_id);
+        }).catch(function (e) {
+          self.toast((e && e.message) || 'Не удалось сохранить стиль', 'err');
+        }).then(function () { st.saving = false; });
+      },
+      coverStyleDuplicate: function (s) {
+        var self = this;
+        this.api('/api/cover/styles/' + encodeURIComponent(s.profile_id)
+                 + '/duplicate', { global: true, method: 'POST' })
+          .then(function () {
+            self.toast('Стиль скопирован');
+            self.loadCoverStyles();
+          })
+          .catch(function (e) {
+            self.toast((e && e.message) || 'Не удалось скопировать', 'err');
+          });
+      },
+      coverStyleDelete: function (s) {
+        if (!s || !s.profile_id) return;
+        var self = this;
+        this.api('/api/cover/styles/' + encodeURIComponent(s.profile_id),
+                 { global: true, method: 'DELETE' })
+          .then(function () {
+            self.toast('Стиль удалён');
+            if (self.coverStyles.current
+                && self.coverStyles.current.profile_id === s.profile_id) {
+              self.coverStyles.current = null;
+            }
+            self.loadCoverStyles();
+          })
+          .catch(function (e) {
+            self.toast((e && e.message) || 'Не удалось удалить', 'err');
+          });
+      },
+      coverStyleSetSelection: function () {
+        var st = this.coverStyles;
+        if (this.activeChatId == null) {
+          this.toast('Выберите чат, чтобы назначить стиль', 'err');
+          return;
+        }
+        var self = this;
+        this.api('/api/cover/select', {
+          global: true, method: 'POST',
+          body: JSON.stringify({
+            chat_id: this.activeChatId,
+            style_id: st.selectedStyleId || '',
+          }),
+        }).then(function () {
+          self.toast('Стиль применён к чату');
+        }).catch(function (e) {
+          self.toast((e && e.message) || 'Не удалось применить стиль', 'err');
+        });
+      },
+      // JSON-base64 загрузка (без multipart-зависимости).
+      fileToBase64: function (file) {
+        return new Promise(function (resolve, reject) {
+          var reader = new FileReader();
+          reader.onload = function () { resolve(String(reader.result || '')); };
+          reader.onerror = function () { reject(new Error('read failed')); };
+          reader.readAsDataURL(file);
+        });
+      },
+      coverStyleUploadReference: function (ev) {
+        var files = (ev && ev.target && ev.target.files) || [];
+        if (!files.length) return;
+        var st = this.coverStyles;
+        var c = st.current;
+        if (!c || !c.profile_id) {
+          this.toast('Сначала сохраните стиль', 'err');
+          return;
+        }
+        var self = this;
+        var f = files[0];
+        st.uploadBusy = true;
+        this.fileToBase64(f).then(function (b64) {
+          return self.api('/api/cover/styles/' + encodeURIComponent(c.profile_id)
+                          + '/references', {
+            global: true, method: 'POST',
+            body: JSON.stringify({
+              filename: f.name, content_base64: b64,
+              label: c._refLabel || '', description: c._refDescription || '',
+            }),
+          });
+        }).then(function () {
+          self.toast('Референс добавлен');
+          self.coverStyleLoadMeta(c.profile_id);
+          self.loadCoverStyles();
+        }).catch(function (e) {
+          self.toast((e && e.message) || 'Не удалось загрузить референс', 'err');
+        }).then(function () {
+          st.uploadBusy = false;
+          try { ev.target.value = ''; } catch (e2) {}
+        });
+      },
+      coverStyleReplaceReference: function (ref, ev) {
+        // §12: Replace — заменить картинку существующего референса.
+        var files = (ev && ev.target && ev.target.files) || [];
+        if (!files.length) return;
+        var st = this.coverStyles;
+        var c = st.current;
+        if (!c || !c.profile_id || !ref || !ref.ref_id) return;
+        var self = this;
+        var f = files[0];
+        st.uploadBusy = true;
+        this.fileToBase64(f).then(function (b64) {
+          return self.api('/api/cover/styles/'
+                          + encodeURIComponent(c.profile_id)
+                          + '/references/' + encodeURIComponent(ref.ref_id), {
+            global: true, method: 'PUT',
+            body: JSON.stringify({
+              filename: f.name, content_base64: b64,
+              label: ref.label || '', description: ref.description || '',
+            }),
+          });
+        }).then(function () {
+          self.toast('Референс заменён');
+          self.coverStyleLoadMeta(c.profile_id);
+          self.loadCoverStyles();
+        }).catch(function (e) {
+          self.toast((e && e.message) || 'Не удалось заменить референс', 'err');
+        }).then(function () {
+          st.uploadBusy = false;
+          try { ev.target.value = ''; } catch (e2) {}
+        });
+      },
+      coverStyleRemoveReference: function (ref) {
+        var st = this.coverStyles;
+        var c = st.current;
+        if (!c || !c.profile_id || !ref) return;
+        var self = this;
+        this.api('/api/cover/styles/' + encodeURIComponent(c.profile_id)
+                 + '/references/' + encodeURIComponent(ref.ref_id),
+                 { global: true, method: 'DELETE' })
+          .then(function () {
+            self.toast('Референс удалён');
+            self.coverStyleLoadMeta(c.profile_id);
+            self.loadCoverStyles();
+          })
+          .catch(function (e) {
+            self.toast((e && e.message) || 'Не удалось удалить референс', 'err');
+          });
+      },
+      coverStylePreview: function (ev) {
+        var files = (ev && ev.target && ev.target.files) || [];
+        if (!files.length) return;
+        var st = this.coverStyles;
+        var c = st.current;
+        if (!c || !c.profile_id) {
+          this.toast('Сначала сохраните стиль', 'err');
+          return;
+        }
+        var self = this;
+        var f = files[0];
+        st.previewBusy = true;
+        st.preview = null;
+        this.fileToBase64(f).then(function (b64) {
+          return self.api('/api/cover/test-style', {
+            global: true, method: 'POST',
+            body: JSON.stringify({
+              profile_id: c.profile_id, filename: f.name, content_base64: b64,
+            }),
+          });
+        }).then(function (data) {
+          st.preview = data;
+          if (data && data.url) self.coverAssetBlob(data.url);
+          if (data && data.applied && c.profile_id) {
+            // §10/SC-24: результат сохранён как preview → revision свежая.
+            self.coverStyleLoadMeta(c.profile_id);
+            self.loadCoverStyles();
+          }
+        }).catch(function (e) {
+          st.preview = { applied: false,
+                         message: (e && e.message) || 'Не удалось протестировать' };
+        }).then(function () {
+          st.previewBusy = false;
+          try { ev.target.value = ''; } catch (e2) {}
+        });
+      },
+      openCoverConnections: function () {
+        // §35: deep-link на «ИИ → Подключения» с фокусом/подсветкой группы
+        // «Обработка стилей обложки» (models_images) и сохранением контекста.
+        var st = this.coverStyles;
+        var c = st.current;
+        if (c && c.profile_id) st._returnProfileId = c.profile_id;
+        this.configFocusGroup = 'models_images';
+        try { window.location.hash = '#/ai/llm'; } catch (e) { /* no-op */ }
+        this.toast('Настройте «Обработка стилей обложки» в разделе Подключения');
+        var self = this;
+        setTimeout(function () { self._applyConfigFocus(); }, 80);
+      },
+      _applyConfigFocus: function () {
+        // §35: прокрутка + краткая подсветка целевой группы подключений.
+        var gid = this.configFocusGroup;
+        if (!gid || typeof document === 'undefined') return;
+        var el = null;
+        try {
+          el = document.querySelector('[data-config-group="' + gid + '"]');
+        } catch (e) { el = null; }
+        if (!el) return;
+        var self = this;
+        if (el.scrollIntoView) {
+          try { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+          catch (e) { try { el.scrollIntoView(); } catch (e2) {} }
+        }
+        if (el.style) el.style.outline = '2px solid #a78bfa';
+        setTimeout(function () {
+          if (el.style) el.style.outline = '';
+          self.configFocusGroup = '';
+        }, 2400);
+      },
+      coverStyleRefreshExample: function () {
+        // §10/SC-24: «Обновить пример» — повторный Test Style (сохранит preview).
+        var el = (typeof document !== 'undefined')
+          ? document.querySelector('[data-cover-test-input]') : null;
+        if (el && typeof el.click === 'function') el.click();
+      },
+      coverBudgetText: function () {
+        var st = this.coverStyles;
+        var b = st.meta && st.meta.budget;
+        if (!b || !b.known) return 'Провайдер не публикует точный лимит инструкции';
+        return 'Статическая инструкция: ' + (b.static || 0)
+          + ' · reserve: ~' + (b.reserve || 0)
+          + ' · запас для сюжета: ~' + (b.scene_allowance || 0);
+      },
+      coverCapabilityLines: function () {
+        var st = this.coverStyles;
+        var caps = st.meta && st.meta.capabilities;
+        if (!caps) return [];
+        var yn = function (v) { return v === 'yes' ? 'да' : (v === 'no' ? 'нет' : 'неизвестно'); };
+        var lines = [
+          'Редактирование готовых изображений: ' + yn(caps.image_edit),
+          'Генерация по описанию: ' + yn(caps.text_to_image),
+          'Input images: ' + (caps.max_input_images == null ? 'неизвестно' : caps.max_input_images),
+          'Доступно референсов (с учётом базовой обложки): '
+            + (caps.references_available == null ? 'неизвестно' : caps.references_available),
+        ];
+        var pl = caps.prompt_limit || {};
+        lines.push('Лимит инструкции: '
+          + (pl.value == null ? 'не публикуется' : (pl.value + ' ' + (pl.unit || '')))
+          + ' (источник: ' + (pl.source || 'unknown') + ')');
+        if (caps.supported_sizes && caps.supported_sizes.length) {
+          lines.push('Поддерживаемые размеры: ' + caps.supported_sizes.join(', '));
+        }
+        lines.push('Режим: ' + (caps.async_jobs ? 'async' : 'sync'));
+        lines.push('Источник capability: ' + (caps.source || 'unknown'));
+        return lines;
+      },
+      coverPipelineModeLabel: function (mode) {
+        return {
+          generate_only: 'Только генерация',
+          generate_then_edit: 'Базовая обложка → обработка стилем',
+          edit_only: 'Только обработка (edit)',
+        }[mode] || mode;
       },
       // §84: карточки L1/L2 прямого чата из СУЩЕСТВУЮЩИХ стадий/ключей.
       directStageCards: function () {

@@ -137,7 +137,7 @@ class TestFrozenInvariants:
         # models.chat_context_window_override (Settings-поле CHAT_MODEL_
         # CONTEXT_WINDOW; первая каталогизация ClassVar → Settings 423→424)
         # + 6 переименований labels/группы → 483→484; delta 72→73.
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 484
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 488
         assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 105
         assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 103
         assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 21
@@ -157,7 +157,7 @@ class TestFrozenInvariants:
         # `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.38"
+        assert APP_VERSION == "2.58.39"
     def test_routes_set_unchanged(self):
         import re
         txt = (ROOT / "web/api/routes.py").read_text(encoding="utf-8")
@@ -183,7 +183,7 @@ class TestRegistry:
         # ASAP-2.1 (ADR-1028-1 D1): санкционированная Δ −8 → 481.
         # ASAP-3 (ADR-1028-2 D12): санкционированная Δ +2 → 483.
         # ASAP-3.1 (ADR-1028-3): санкционированная Δ +1 → 484.
-        assert len(rows) == 484
+        assert len(rows) == 488
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -196,7 +196,7 @@ class TestRegistry:
         # ASAP-3 (ADR-1028-2 D12): санкционированная Δ +2 → дельта 72.
         # ASAP-3.1 (ADR-1028-3): санкционированная Δ +1 → дельта 73.
         delta = _registry_keys() - _inventory_keys()
-        assert len(delta) == FIXTURE["counts"]["delta"] == 73
+        assert len(delta) == FIXTURE["counts"]["delta"] == 77
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -204,7 +204,7 @@ class TestRegistry:
     def test_secret_rows_masked(self):
         rows = _read_registry_rows()
         secret_rows = [r for r in rows if r["secret"] == "true"]
-        assert len(secret_rows) == 30
+        assert len(secret_rows) == 31
         for row in secret_rows:
             assert row["current_value"] == gen.SECRET_MASK
             assert row["default_value"] == gen.SECRET_MASK
@@ -226,7 +226,7 @@ class TestRegistry:
             encoding="utf-8")
         # ASAP-2.1 (ADR-1028-1 D1): переиздание после отрицательной Δ −8.
         # ASAP-3.1 (ADR-1028-3): переиздание после Δ +1 (483→484, 72→73).
-        assert "484" in meta and "411" in meta and "73" in meta
+        assert "488" in meta and "411" in meta and "77" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -239,7 +239,7 @@ class TestScreenMap:
         assert keys == _registry_keys()  # ⊇ и == (каталог — источник)
         # ASAP-2.1 (ADR-1028-1 D1): санкционированная Δ −8 → 481.
         # ASAP-3.1 (ADR-1028-3): санкционированная Δ +1 → 484.
-        assert len(keys) == 484
+        assert len(keys) == 488
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

@@ -480,6 +480,9 @@ class TestOffDelivery:
     async def test_off_rich_fallback_to_plain_no_h1(self, monkeypatch,
                                                     caplog):
         _fixed_rid(monkeypatch)
+        # EXTRA (T-4145/§95): parity-режим — degraded «Rich без обложки» OFF,
+        # поэтому cover-failure по-прежнему уходит в plain (baseline §90/§95).
+        monkeypatch.setattr("services.cover_style_jobs.rich_degraded_enabled", lambda: False)
         gen = _gen(FakeMemory(), MagicMock())
         gen._resolve_cover_style_text = AsyncMock(return_value="style")
         monkeypatch.setattr(sg, "generate_image_verbose",
@@ -793,6 +796,8 @@ class TestFailureCodes:
     @pytest.mark.asyncio
     async def test_cover_error_code_on_exception(self, monkeypatch, caplog):
         _fixed_rid(monkeypatch)
+        # EXTRA (T-4145/§95): parity-режим (degraded OFF) → plain-фолбэк.
+        monkeypatch.setattr("services.cover_style_jobs.rich_degraded_enabled", lambda: False)
         gen = _gen(FakeMemory(), MagicMock())
         gen._resolve_cover_style_text = AsyncMock(return_value="style")
         monkeypatch.setattr(sg, "generate_image_verbose",
@@ -1296,16 +1301,16 @@ class TestBoundaries:
         # -8 env-констант Settings (S1-слой удалён).
         # ASAP-3.1 (ADR-1028-3, санкция spec 10.1): +1 ключ → 484,
         # categorized 458→459 (ключ в категории models).
-        assert len(pc.REGISTRY) == 484
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 423
+        assert len(pc.REGISTRY) == 488
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 426
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 459
+                    if s.category is not None]) == 463
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version(self):
-        assert APP_VERSION == "2.58.38"
+        assert APP_VERSION == "2.58.39"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         assert "v2.58.34" in readme
 

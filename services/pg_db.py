@@ -378,6 +378,101 @@ DDL_STATEMENTS: tuple[str, ...] = (
     CREATE INDEX IF NOT EXISTS idx_image_reservation_chat_day
         ON image_reservation (chat_id, day);
     """,
+    # ── EXTRA (extra-cover-style-pipeline, round1028, ADR-1028-4 D1/D6/D7) ──
+    # Style Registry живёт в PG (не SQLite): Δ DDL SQLite = 0 (`user_version`
+    # остаётся 19; `mca-04b` сохраняет v20). 5 таблиц + индексы, идемпотентно
+    # (`CREATE TABLE IF NOT EXISTS`), прецедент A5 `image_reservation`.
+    # R17: никаких секретов/URL промптов; Style Profile хранит `asset_id`, не
+    # blob/URL. `validation_mode` — архитектурный резерв §93.
+    """
+    CREATE TABLE IF NOT EXISTS cover_style_profiles (
+        profile_id      TEXT PRIMARY KEY,
+        name            TEXT NOT NULL,
+        origin          TEXT NOT NULL DEFAULT 'custom',
+        pipeline_mode   TEXT NOT NULL DEFAULT 'generate_then_edit',
+        instruction     TEXT NOT NULL DEFAULT '',
+        counter_enabled BOOLEAN NOT NULL DEFAULT false,
+        counter_value   BIGINT  NOT NULL DEFAULT 0,
+        counter_format  TEXT    NOT NULL DEFAULT 'ВЫПУСК {counter}',
+        model_mode      TEXT    NOT NULL DEFAULT 'default',
+        connection_id   TEXT,
+        model_id        TEXT,
+        preview_before_asset_id TEXT,
+        preview_after_asset_id  TEXT,
+        preview_revision        INTEGER,
+        revision        INTEGER NOT NULL DEFAULT 1,
+        enabled         BOOLEAN NOT NULL DEFAULT true,
+        is_deleted      BOOLEAN NOT NULL DEFAULT false,
+        validation_mode TEXT NOT NULL DEFAULT 'off',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_cover_style_profiles_active
+        ON cover_style_profiles (enabled, is_deleted);
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS cover_style_references (
+        ref_id      TEXT PRIMARY KEY,
+        profile_id  TEXT NOT NULL REFERENCES cover_style_profiles(profile_id)
+                    ON DELETE CASCADE,
+        asset_id    TEXT NOT NULL,
+        label       TEXT NOT NULL DEFAULT '',
+        description TEXT NOT NULL DEFAULT '',
+        ordering    INTEGER NOT NULL DEFAULT 0,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_cover_style_refs_profile
+        ON cover_style_references (profile_id, ordering);
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS cover_style_assets (
+        asset_id    TEXT PRIMARY KEY,
+        scope       TEXT NOT NULL DEFAULT 'global',
+        filename    TEXT NOT NULL,
+        mime        TEXT NOT NULL,
+        size_bytes  BIGINT NOT NULL,
+        sha256      TEXT NOT NULL,
+        origin      TEXT NOT NULL DEFAULT 'upload',
+        disk_path   TEXT NOT NULL,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+        deleted_at  TIMESTAMPTZ
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_cover_style_assets_sha
+        ON cover_style_assets (sha256, scope) WHERE deleted_at IS NULL;
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS cover_style_issue_assignments (
+        profile_id     TEXT NOT NULL,
+        summary_run_id TEXT NOT NULL,
+        issue_number   BIGINT NOT NULL,
+        assigned_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (profile_id, summary_run_id)
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_cover_style_issue_unique
+        ON cover_style_issue_assignments (profile_id, issue_number);
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS cover_style_provenance (
+        provenance_id     TEXT PRIMARY KEY,
+        summary_run_id    TEXT,
+        job_id            TEXT,
+        style_id          TEXT,
+        style_revision    INTEGER,
+        issue_number      BIGINT,
+        base_asset_id     TEXT,
+        final_asset_id    TEXT,
+        provider          TEXT,
+        model             TEXT,
+        connection_id     TEXT,
+        reference_asset_ids JSONB,
+        status            TEXT NOT NULL,
+        fallback_mode     TEXT,
+        mode              TEXT NOT NULL DEFAULT 'production',
+        created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_cover_style_prov_run
+        ON cover_style_provenance (summary_run_id);
+    """,
 )
 
 # ── Сиды ────────────────────────────────────────────────────────────────────

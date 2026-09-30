@@ -128,8 +128,9 @@ function mkCoverageCtx(m) {
        // ASAP-2 round1027 (§13/ADR-1027-10 D11): секции Hybrid/Legacy.
        // ASAP-2.1 (T-3973/ADR-1028-1 контракт (i)): 'prep' удалён вместе
        // с группами префильтра.
-       'hybrid', 'legacy', 'models', 'limits', 'testing'],
-      'a: карта вкладок Саммари (§85 + ASAP-2 + ASAP-2.1 без prep)');
+       // EXTRA (ADR-1028-4 D12/§56): редактор обложечных стилей.
+       'hybrid', 'legacy', 'models', 'limits', 'testing', 'styles'],
+      'a: карта вкладок Саммари (§85 + ASAP-2 + ASAP-2.1 без prep + EXTRA styles)');
   }
 
   // ── (b) Динамический резолвер + RBAC/kill-switch ─────────────────────

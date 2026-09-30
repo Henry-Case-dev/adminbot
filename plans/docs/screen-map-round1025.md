@@ -1,7 +1,7 @@
 # F8 — Карта экранов `screen-map-round1025.md` (ADR-1025-21 D3)
 
 > Сгенерировано `tools/gen_param_registry_round1025.py` (read-only). Провенанс — `param-registry-round1025.meta.md`.
-> Инвариант «ни один параметр не остался без нового места»: `set(param_key) ⊇ REGISTRY(484)`, «без места» = 0. Неизвестные ключи (нет в каталоге) → секция `registry-only` реестра.
+> Инвариант «ни один параметр не остался без нового места»: `set(param_key) ⊇ REGISTRY(488)`, «без места» = 0. Неизвестные ключи (нет в каталоге) → секция `registry-only` реестра.
 > `ui_visibility ∈ {visible,hidden,api-only}`; **api-only ≠ сохранено** (REQ-F8-08). Секреты без открытого значения (R17).
 
 | old_screen | param_key | new_screen | read_api | write_api | ui_visibility | secret | hidden | status |
@@ -105,6 +105,7 @@
 | LLM Провайдеры | keys.exa_api_key | ИИ | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
 | LLM Провайдеры | keys.groq_api_key | ИИ | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
 | LLM Провайдеры | keys.image_api_key | ИИ | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | new |
+| LLM Провайдеры | keys.image_style_api_key | ИИ | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | new |
 | LLM Провайдеры | keys.intel_bg_api_key | ИИ | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
 | LLM Провайдеры | keys.intel_history_api_key | ИИ | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
 | LLM Провайдеры | keys.intel_reflection_api_key | ИИ | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
@@ -378,6 +379,8 @@
 | LLM Провайдеры | models.image_base_url | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
 | LLM Провайдеры | models.image_get_mode | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
 | LLM Провайдеры | models.image_model | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
+| LLM Провайдеры | models.image_style_base_url | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
+| LLM Провайдеры | models.image_style_model | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
 | LLM Провайдеры | models.intel_bg_base_url | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
 | LLM Провайдеры | models.intel_bg_display_name | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
 | LLM Провайдеры | models.intel_bg_model_name | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
@@ -432,6 +435,7 @@
 | Промпты | prompts.factcheck_verbalizer_system_prompt | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Промпты | prompts.search_system_prompt | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Промпты | prompts.summary_cover_style | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Промпты | prompts.summary_cover_style_id | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Промпты | prompts.summary_editor_system_prompt | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Промпты | prompts.summary_l1_clusterizer_system_prompt | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Промпты | prompts.summary_l2_writer_system_prompt | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
@@ -493,4 +497,4 @@
 
 ## registry-only (неизвестные каталогу параметры)
 
-Нет: множество `internal_key` каталога == множество `REGISTRY` == 484; все ключи получили новое место. Расхождений нет.
+Нет: множество `internal_key` каталога == множество `REGISTRY` == 488; все ключи получили новое место. Расхождений нет.

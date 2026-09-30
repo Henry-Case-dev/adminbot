@@ -219,6 +219,10 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
     # SUMMARY_TEST_UI_ENABLED OFF → 404. Публикации/записи нет.
     from web.api.summary_test import summary_test_router
     app.include_router(summary_test_router, prefix="/api")
+    # EXTRA (extra-cover-style-pipeline, round1028, ADR-1028-4 D12): Style
+    # Registry/Editor API (только global admin; kill-switch COVER_STYLES_ENABLED).
+    from web.api.cover_styles import cover_styles_router
+    app.include_router(cover_styles_router, prefix="/api")
 
     rendered_index = _render_index()   # один раз at startup (84.21.2)
     rendered_css = _render_app_css()   # F4 10.16: подстановка ?v= в @font-face

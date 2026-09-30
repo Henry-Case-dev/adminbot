@@ -220,6 +220,11 @@ SUMMARY_EDITOR_SYSTEM_PROMPT = (
 # `code_source`); в рантайме конкатенируется с `cover_prompt` перед image-API.
 SUMMARY_COVER_STYLE_DEFAULT = "photorealistic, cinematic light"
 
+# EXTRA (extra-cover-style-pipeline, round1028, ADR-1028-4 D3; spec §4.1):
+# per-chat выбор Style Profile — пустое значение = «Без дополнительного
+# стиля» (код-канон PG-only сида `prompts.summary_cover_style_id`).
+SUMMARY_COVER_STYLE_ID_DEFAULT = ""
+
 # Слой 2 — РАССКАЗЧИК: вход ТОЛЬКО выжимка. Стиль R11 (plain-text, токсичный).
 # Раунд 10.23 (F3): к базе добавлена общая типографика; режимный блок
 # (`MODE_*_BLOCK`) и канальный форматный блок выбираются в оркестраторе.

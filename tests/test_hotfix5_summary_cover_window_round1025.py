@@ -107,6 +107,9 @@ class TestCoverRetryWindow:
         """(б) исчерпание попыток → plain + WARNING с классом причины."""
         rec = _Rec()
         _patch_rich(monkeypatch, rec)
+        # EXTRA (T-4145/§95): parity-режим — degraded «Rich без обложки» OFF,
+        # фокус теста — retry-окно и plain-фолбэк.
+        monkeypatch.setattr("services.cover_style_jobs.rich_degraded_enabled", lambda: False)
         monkeypatch.setattr(ig, "_consume_budget", AsyncMock(return_value=True))
         monkeypatch.setattr(
             Settings, "IMAGE_GENERATION_RETRY_BACKOFF_SECONDS", 0.0)
@@ -135,6 +138,8 @@ class TestCoverRetryWindow:
         """(1) детерминированный отказ (unauthorized) → ровно 1 попытка."""
         rec = _Rec()
         _patch_rich(monkeypatch, rec)
+        # EXTRA (T-4145/§95): parity-режим — degraded OFF.
+        monkeypatch.setattr("services.cover_style_jobs.rich_degraded_enabled", lambda: False)
         monkeypatch.setattr(ig, "_consume_budget", AsyncMock(return_value=True))
         monkeypatch.setattr(
             Settings, "IMAGE_GENERATION_RETRY_BACKOFF_SECONDS", 0.0)
@@ -181,6 +186,8 @@ class TestCoverRetryWindow:
         """reason=budget → сразу plain, без сетевых попыток."""
         rec = _Rec()
         _patch_rich(monkeypatch, rec)
+        # EXTRA (T-4145/§95): parity-режим — degraded OFF.
+        monkeypatch.setattr("services.cover_style_jobs.rich_degraded_enabled", lambda: False)
         monkeypatch.setattr(ig, "_consume_budget", AsyncMock(return_value=False))
         calls = {"n": 0}
 
