@@ -882,6 +882,11 @@ def test_write_points_go_through_single_writer():
     allow = {
         "database.py": 129,
         "dossier_rebuild_jobs.py": 1,   # внутри `async with db.serialized()`
+        # ASAP-3.2 (ADR-1028-5 D1/D2, T-4191): shadow-rebuild — 3 прямых
+        # commit внутри `async with memory.db.serialized()` (идемпотентный
+        # CREATE/DROP shadow vec0-таблиц + батч-вставки; активация/статусы —
+        # через `write_transaction` mca-01).
+        "graphrag_rebuild.py": 3,
         "memory_maintenance.py": 1,     # внутри `async with self.db.serialized()`
         "persistent_throttling.py": 1,  # fallback-двойник без write_transaction
         "smart_cache.py": 3,            # ОТДЕЛЬНОЕ соединение (F17), не общая

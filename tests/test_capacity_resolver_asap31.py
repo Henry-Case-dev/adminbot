@@ -41,10 +41,24 @@ def _override(monkeypatch, value):
         raising=False)
 
 
+async def _no_network(monkeypatch):
+    """ASAP-3.2: nano-gpt/deepseek классы имеют catalog-адаптер — hermetic
+    тест требует явного «endpoint недоступен» (→ registry/fallback)."""
+    async def _fail(url, *, headers=None):
+        return None
+
+    monkeypatch.setattr(mc, "_http_get_json", _fail)
+
+
 # ── §40.1: known remote model (registry) ────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_known_model_registry_source_no_fallback():
+async def test_known_model_registry_source_no_fallback(monkeypatch):
+    """Каталог недоступен → registry (честный source), fallback нет.
+
+    ASAP-3.2: nano-gpt.com — отдельный provider class (D6); live catalog
+    stub'ится сетью-вниз → registry-слой, семантика якоря §40.1 сохранена."""
+    await _no_network(monkeypatch)
     window, source = await mc.resolve_stage_window(
         "https://nano-gpt.com/v1", "deepseek-chat")
     assert window == 131072
@@ -56,8 +70,9 @@ async def test_known_model_registry_source_no_fallback():
 
 
 @pytest.mark.asyncio
-async def test_prod_model_deepseek_v4_registry():
+async def test_prod_model_deepseek_v4_registry(monkeypatch):
     """Прод-модель инцидента (§74) больше не получает молчаливый 16384."""
+    await _no_network(monkeypatch)
     window, source = await mc.resolve_stage_window(
         "https://nano-gpt.com/v1", "deepseek/deepseek-v4.1-flash")
     assert window == 131072
@@ -67,8 +82,9 @@ async def test_prod_model_deepseek_v4_registry():
 # ── §40.3: completely unknown model → fallback + warning ────────────────────
 
 @pytest.mark.asyncio
-async def test_unknown_model_fallback_warns(caplog):
+async def test_unknown_model_fallback_warns(caplog, monkeypatch):
     with caplog.at_level("WARNING", logger="services.model_capacity"):
+        await _no_network(monkeypatch)
         window, source = await mc.resolve_stage_window(
             "https://nano-gpt.com/v1", "mystery-model-asap31")
     assert window == 16384
@@ -79,8 +95,9 @@ async def test_unknown_model_fallback_warns(caplog):
 
 
 @pytest.mark.asyncio
-async def test_unknown_model_fallback_cached_short_ttl():
+async def test_unknown_model_fallback_cached_short_ttl(monkeypatch):
     """Fallback-результат кэшируется коротко — endpoint не долбится."""
+    await _no_network(monkeypatch)
     await mc.resolve_stage_window("https://nano-gpt.com/v1", "mystery-2")
     key = mc._cache_key("https://nano-gpt.com/v1", "mystery-2")
     assert key in mc._CACHE
@@ -91,6 +108,7 @@ async def test_unknown_model_fallback_cached_short_ttl():
 @pytest.mark.asyncio
 async def test_developer_override_wins(monkeypatch):
     _override(monkeypatch, 500000)
+    await _no_network(monkeypatch)
     result = await mc.resolve_capacity("https://nano-gpt.com/v1",
                                        "deepseek-chat")
     assert result.effective_context_window == 500000
@@ -117,6 +135,7 @@ async def test_override_negative_is_never_capacity(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_model_switch_invalidates_cache(monkeypatch):
+    await _no_network(monkeypatch)
     first = await mc.resolve_capacity("https://nano-gpt.com/v1",
                                       "deepseek-chat")
     assert first.source == mc.SOURCE_REGISTRY
@@ -131,7 +150,8 @@ async def test_model_switch_invalidates_cache(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_base_url_switch_invalidates_cache():
+async def test_base_url_switch_invalidates_cache(monkeypatch):
+    await _no_network(monkeypatch)
     await mc.resolve_capacity("https://nano-gpt.com/v1", "deepseek-chat")
     await mc.resolve_capacity("https://api.deepseek.com/v1", "deepseek-chat")
     assert len(mc._CACHE) == 2
@@ -297,6 +317,10 @@ def test_detect_provider_classes():
         mc.PROVIDER_OLLAMA
     assert mc.detect_provider_class("http://192.168.1.10:8080/v1") == \
         mc.PROVIDER_LLAMA_CPP
+    # ASAP-3.2 (D6/T-4202): NanoGPT и Direct DeepSeek — отдельные identity
+    # (не generic host).
     assert mc.detect_provider_class("https://nano-gpt.com/v1") == \
-        mc.PROVIDER_GENERIC
+        mc.PROVIDER_NANOGPT
+    assert mc.detect_provider_class("https://api.deepseek.com/v1") == \
+        mc.PROVIDER_DEEPSEEK
     assert mc.detect_provider_class("") == mc.PROVIDER_GENERIC

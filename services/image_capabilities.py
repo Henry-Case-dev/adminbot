@@ -264,8 +264,8 @@ def resolve_capabilities(provider: str, base_url: str, model: str, *,
     """Резолв capabilities по `provider+base_url+model` (precedence §16).
 
     `discovery`/`endpoints` — уже полученные данные провайдера (сетевой вызов
-    делает вызывающий контур, Pass 2 block F). Без них — override/TTL-кеш/
-    conservative `unknown`. `refresh=True` — форс-инвалидация (§17).
+    делает вызывающий контур). Без них — override/TTL-кеш/conservative
+    `unknown`. `refresh=True` — форс-инвалидация (§17).
     """
     provider = str(provider or "").strip()
     base_url = str(base_url or "").strip().rstrip("/")
@@ -297,5 +297,48 @@ def resolve_capabilities(provider: str, base_url: str, model: str, *,
 
     # Уровень 5: conservative unknown.
     caps = conservative_unknown()
+    _cache_put(key, caps)
+    return caps
+
+
+async def resolve_capabilities_auto(provider: str, base_url: str, model: str,
+                                    *, refresh: bool = False
+                                    ) -> ImageModelCapabilities:
+    """ASAP-3.2 (T-4196, §21/Q4): discovery вызывается АВТОМАТИЧЕСКИ.
+
+    Сетевой live-discovery (каталог NanoGPT `image-models?detailed=true` +
+    endpoints — ЕДИНСТВЕННЫЕ маршруты, подтверждённые кодом, §2.2) выполняется
+    здесь, а не только при переданном вызывающим готовом dict; TTL-кеш
+    уважается (refresh → инвалидация). Недоступен каталог → conservative
+    `unknown` (честный unknown остаётся unknown, §21). Fail-open."""
+    provider = str(provider or "").strip()
+    base_url = str(base_url or "").strip().rstrip("/")
+    model = str(model or "").strip()
+    key = _override_key(provider, base_url, model)
+    if refresh:
+        _CACHE.pop(key, None)
+    overrides = _override_map()
+    for candidate in (key, _override_key("*", base_url, model),
+                      _override_key(provider, "*", model),
+                      _override_key(provider, base_url, "*")):
+        if candidate in overrides:
+            caps = _parse_override_entry(overrides[candidate])
+            if caps is not None:
+                _cache_put(key, caps)
+                return caps
+    if not refresh:
+        cached = _cache_get(key)
+        if cached is not None:
+            return cached
+    try:
+        from services.media_execution import detect_adapter
+        adapter = detect_adapter(base_url)
+        caps = await adapter.discover_capabilities(model)
+    except Exception:
+        logger.warning("[image_caps] auto discovery failed — conservative "
+                       "unknown | model=%s", model[:60])
+        caps = None
+    if caps is None:
+        caps = conservative_unknown()
     _cache_put(key, caps)
     return caps

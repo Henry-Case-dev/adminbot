@@ -435,7 +435,7 @@
 | Промпты | prompts.factcheck_verbalizer_system_prompt | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Промпты | prompts.search_system_prompt | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Промпты | prompts.summary_cover_style | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
-| Промпты | prompts.summary_cover_style_id | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Промпты | prompts.summary_cover_style_id | ИИ | нет API (hidden) | нет API (hidden) | hidden | false | true | new |
 | Промпты | prompts.summary_editor_system_prompt | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Промпты | prompts.summary_l1_clusterizer_system_prompt | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Промпты | prompts.summary_l2_writer_system_prompt | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |

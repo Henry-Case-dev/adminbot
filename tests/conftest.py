@@ -63,7 +63,8 @@ def _asap3_flags_off_by_default(request, monkeypatch):
     Патчим ClassVar на ВСЕХ ``Settings``-классах (прецедент
     ``_system2_flags_off_by_default``: часть тестов перезагружает settings)."""
     if (request.node.get_closest_marker("asap3") is not None
-            or request.node.get_closest_marker("asap31") is not None):
+            or request.node.get_closest_marker("asap31") is not None
+            or request.node.get_closest_marker("asap32") is not None):
         return
     from config.settings import Settings
     import services.direct_chat_service as _dcs
@@ -88,7 +89,8 @@ def _asap31_flags_off_by_default(request, monkeypatch):
     ``@pytest.mark.asap31`` и работают с прод-дефолтами (ON), точечно
     доопределяя флаги сценарием. Прецедент — ``_asap3_flags_off_by_default``."""
     if (request.node.get_closest_marker("asap31") is not None
-            or request.node.get_closest_marker("asap3") is not None):
+            or request.node.get_closest_marker("asap3") is not None
+            or request.node.get_closest_marker("asap32") is not None):
         return
     from config.settings import Settings
     import services.agentic_events as _ae
@@ -110,6 +112,30 @@ def _asap31_flags_off_by_default(request, monkeypatch):
             "UI_BUDGETS_SPLIT_ENABLED",
             "ANALYTICS_CONTEXT_BUDGETS_ENABLED",
             "CONFIG_MIGRATION_INFO_LOGGING_ENABLED",
+        ):
+            if hasattr(_cls, _name):
+                monkeypatch.setattr(_cls, _name, False)
+
+
+@pytest.fixture(autouse=True)
+def _asap32_flags_off_by_default(request, monkeypatch):
+    """Изоляция ASAP-3.2 (round 1029, ADR-1028-5): старые тесты (без маркера
+    ``asap32``) идут по прежним путям (kill-switch'и новых линий OFF —
+    байт-в-байт baseline). Тесты новой функциональности помечаются
+    ``@pytest.mark.asap32`` и работают с прод-дефолтами (ON). Прецедент —
+    ``_asap31_flags_off_by_default``."""
+    if (request.node.get_closest_marker("asap32") is not None
+            or request.node.get_closest_marker("asap31") is not None
+            or request.node.get_closest_marker("asap3") is not None):
+        return
+    from config.settings import Settings
+    import services.direct_chat_service as _dcs
+    import services.summary_fact_package as _sfp
+    classes = {Settings, type(_dcs.settings), type(_sfp.settings)}
+    for _cls in classes:
+        for _name in (
+            "DIRECT_LLM_DECISION_ENABLED",
+            "SUMMARY_SEMANTIC_REDUCTION_ENABLED",
         ):
             if hasattr(_cls, _name):
                 monkeypatch.setattr(_cls, _name, False)

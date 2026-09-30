@@ -276,8 +276,14 @@ class TestGenerateTimeoutClass:
         """Review iter1 (item 1): «одна попытка ≤ окно» — реальный дедлайн
         покрывает POST+скачивание; суммарно ≤ attempts×окно + backoff.
 
-        Старо (без `wait_for`) две «зависшие» попытки шли бы ~10 c."""
+        Старо (без `wait_for`) две «зависшие» попытки шли бы ~10 c.
+        ASAP-3.2 (ADR-1028-5 D5): дедлайн-семантика `wait_for` якорится на
+        LEGACY-пути (MEDIA_EXECUTION_POLICY_ENABLED=OFF — env-окно попытки);
+        policy-путь (adaptive deadline ≥ cold default) покрыт
+        tests/test_media_execution_asap32.py."""
         monkeypatch.setattr(ig, "_consume_budget", AsyncMock(return_value=True))
+        monkeypatch.setattr(Settings, "MEDIA_EXECUTION_POLICY_ENABLED",
+                            False, raising=False)
         monkeypatch.setattr(Settings, "IMAGE_ATTEMPT_TIMEOUT_SECONDS", 0.2)
         monkeypatch.setattr(Settings, "IMAGE_GENERATION_MAX_ATTEMPTS", 2)
         monkeypatch.setattr(

@@ -139,8 +139,10 @@ class TestDdl:
         # (10.23/F4) = 16; + llm_usage_events/llm_model_prices (10.23/F7) = 18;
         # + image_reservation (10.26/A5, ADR-1026-17 D1 — санкция Δ DDL ≠ 0)
         # = 19; + 5 cover_style_* таблиц (round1028 EXTRA, ADR-1028-4 D1/D6/D7
-        # — санкция Δ PG ≠ 0, Δ SQLite = 0) = 24 × 2 запуска
-        assert len(create_tables) == 24 * 2
+        # — санкция Δ PG ≠ 0, Δ SQLite = 0) = 24;
+        # + cover_style_connections (ASAP-3.2, ADR-1028-5 D14/§104 —
+        # connection model redesign, идемпотентно) = 25 × 2 запуска
+        assert len(create_tables) == 25 * 2
 
     @pytest.mark.asyncio
     async def test_init_without_seed_settings_no_settings_insert(self, fake_pool):

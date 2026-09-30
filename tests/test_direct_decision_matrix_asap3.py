@@ -222,13 +222,15 @@ class TestAutonomous:
 
     @pytest.mark.asyncio
     async def test_ack_silent_gets_moai_ack(self):
-        # reply_to_bot «ок» → ignore_trivial → SILENT → 🗿 (§25, конъюнкция).
-        llm = _FakeLLM(text="не нужен")
+        # reply_to_bot «ок» → ignore_trivial → demoted SILENT → Decision
+        # Task → LLM SILENT → 🗿 (§25 конъюнкция; ASAP-3.2 D11: SILENT —
+        # conscious LLM-решение, один Stage-1 вызов).
+        llm = _FakeLLM(text='{"action":"SILENT","reason":"нечего сказать"}')
         svc = _make_service(llm=llm)
         bot = _bot()
         msg = _message("ок", message_id=1203, reply_to_bot=True)
         await svc.handle(bot, msg, msg.from_user)
-        assert not llm.calls
+        assert len(llm.calls) == 1
         assert bot.set_message_reaction.await_count >= 1
         kwargs = bot.set_message_reaction.await_args
         emojis = [r.emoji for r in kwargs.kwargs["reaction"]]
@@ -238,11 +240,12 @@ class TestAutonomous:
     @pytest.mark.asyncio
     async def test_silent_ack_env_off_is_silence(self, monkeypatch):
         # D10: DIRECT_SILENT_ACK_ENABLED=false → тишина без 🗿 (паритет).
+        # ASAP-3.2 D11: LLM SILENT — тишина без 🗿 и без текста.
         # Целимся в класс module-привязанного instance (reload-safe).
         monkeypatch.setattr(type(dcs.settings), "DIRECT_SILENT_ACK_ENABLED",
                             False)
         assert not silent_ack_enabled()
-        llm = _FakeLLM()
+        llm = _FakeLLM(text='{"action":"SILENT","reason":"нечего сказать"}')
         svc = _make_service(llm=llm)
         bot = _bot()
         msg = _message("ок", message_id=1204, reply_to_bot=True)
@@ -314,15 +317,16 @@ class TestReactionFailure:
     @pytest.mark.asyncio
     async def test_silent_ack_failure_stays_silent(self):
         # §28/§44: падение API реакции → SILENT остаётся SILENT, текст НЕ
-        # генерируется, отказ логируется.
-        llm = _FakeLLM()
+        # генерируется, отказ логируется. ASAP-3.2 D11: SILENT выбирает LLM
+        # (один Stage-1 вызов); fail-soft ack — без текста.
+        llm = _FakeLLM(text='{"action":"SILENT","reason":"нечего сказать"}')
         svc = _make_service(llm=llm)
         bot = _bot()
         bot.set_message_reaction = AsyncMock(
             side_effect=RuntimeError("telegram down"))
         msg = _message("ок", message_id=1401, reply_to_bot=True)
         await svc.handle(bot, msg, msg.from_user)
-        assert not llm.calls, "fail-soft: случайный текст не генерируется"
+        assert len(llm.calls) == 1, "D11: один Decision Task вызов"
         assert bot.send_message.await_count == 0
 
     @pytest.mark.asyncio
@@ -462,7 +466,8 @@ class TestDecisionObservability:
 
     @pytest.mark.asyncio
     async def test_silent_ack_events_and_counters(self):
-        llm = _FakeLLM()
+        # ASAP-3.2 D11: SILENT — conscious LLM-решение (mock SILENT JSON).
+        llm = _FakeLLM(text='{"action":"SILENT","reason":"нечего сказать"}')
         svc = _make_service(llm=llm)
         bot = _bot()
         msg = _message("ок", message_id=1602, reply_to_bot=True)
@@ -484,7 +489,8 @@ class TestDecisionObservability:
 
     @pytest.mark.asyncio
     async def test_silent_ack_failure_event(self):
-        llm = _FakeLLM()
+        # ASAP-3.2 D11: SILENT — conscious LLM-решение (mock SILENT JSON).
+        llm = _FakeLLM(text='{"action":"SILENT","reason":"нечего сказать"}')
         svc = _make_service(llm=llm)
         bot = _bot()
         bot.set_message_reaction = AsyncMock(

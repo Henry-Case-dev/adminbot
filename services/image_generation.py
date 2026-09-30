@@ -619,6 +619,21 @@ def is_transient_reason(reason: str) -> bool:
     return _http_status_of(raw) in _RETRY_HTTP_CODES
 
 
+def reason_from_exception(exc: BaseException) -> str:
+    """R17-safe класс причины из исключения (единая таблица выше).
+
+    httpx.TimeoutException → `timeout`; транспортные → `network`;
+    ImageGenerationError → её reason; прочее → `error`. Используется
+    media-адаптерами (единая семантика причин с генерацией)."""
+    if isinstance(exc, httpx.TimeoutException):
+        return "timeout"
+    if isinstance(exc, ImageGenerationError):
+        return str(getattr(exc, "reason", "error") or "error")
+    if isinstance(exc, httpx.TransportError):
+        return "network"
+    return "error"
+
+
 def provider_label() -> str:
     """R17-safe ярлык провайдера изображений (host без схемы) для логов.
 
@@ -1084,10 +1099,30 @@ async def generate(prompt: str, *, chat_id: int | None = None,
     model = _resolve_str(KEY_MODEL, settings.IMAGE_MODEL)
     get_mode = _resolve_bool(KEY_GET_MODE, settings.IMAGE_GET_MODE)
     key = _resolve_str(KEY_API_KEY, getattr(settings, "IMAGE_API_KEY", "") or "")
+    # ASAP-3.2 (T-4197, §22/§28): окно запроса — из MediaExecutionPolicy
+    # (httpx.Timeout: connect / read / total-ceil), НЕ статические 90 c.
+    # `IMAGE_REQUEST_TIMEOUT_SECONDS` остаётся legacy-путём (policy OFF /
+    # ошибка резолва) и diagnostic-окном probe.
+    policy_deadline: float | None = None
     if timeout is None:
-        timeout = float(getattr(settings, "IMAGE_REQUEST_TIMEOUT_SECONDS", 90.0))
+        timeout = None
+        policy_deadline = float(
+            getattr(settings, "IMAGE_REQUEST_TIMEOUT_SECONDS", 90.0))
+        try:
+            from services.media_execution import (httpx_timeout_for,
+                                                   media_policy_enabled)
+            if media_policy_enabled():
+                windows = httpx_timeout_for(_provider_from_url(base_url),
+                                            model, "generate")
+                if windows is not None:
+                    timeout = windows
+        except Exception:
+            timeout = None
+        if timeout is None:
+            timeout = policy_deadline
     else:
         timeout = float(timeout)
+        policy_deadline = timeout
     max_bytes = int(getattr(settings, "IMAGE_MAX_BYTES", 9 * 1024 * 1024))
     started = time.monotonic()
     try:
@@ -1104,8 +1139,8 @@ async def generate(prompt: str, *, chat_id: int | None = None,
         elapsed_ms = int((time.monotonic() - started) * 1000)
         logger.warning(
             "[image] generation timeout | mode=%s | model=%s | timeout=%.0f "
-            "| latency_ms=%d", "get" if get_mode else "post", model, timeout,
-            elapsed_ms)
+            "| latency_ms=%d", "get" if get_mode else "post", model,
+            policy_deadline or 0.0, elapsed_ms)
         log_external_api(
             logger, provider=_provider_from_url(base_url),
             method="GET" if get_mode else "POST",
@@ -1173,34 +1208,67 @@ async def generate_image_verbose(prompt: str, *, chat_id: int | None = None,
     F12/ADR-1024-4 D4: причина отказа видна вызывающему — обложка саммари
     пишет её в F2-лог вместо безликого «image unavailable». Fail-open.
 
-    Хотфикс-5 (round10.25): окно одной попытки берётся из env-only
-    ``IMAGE_ATTEMPT_TIMEOUT_SECONDS`` (default 180 c), добавлен ограниченный
-    ретрай (``IMAGE_GENERATION_MAX_ATTEMPTS``, default 2) с backoff. Ретраятся
-    ТОЛЬКО транзиентные отказы (`timeout`/`network`/`http_429/502/503/504`);
-    детерминированные (`unauthorized`/`bad_request`/`bad_json`/`too_large`/…)
-    дают ровно одну попытку. Внутренний HTTP-ретрай на период обложки отключён
-    (`retry=False`) — повторами владеет этот цикл.
+    Хотфикс-5 (round10.25): ограниченный ретрай (attempts, backoff),
+    ретраятся ТОЛЬКО транзиентные отказы; внутренний HTTP-ретрай отключён;
+    каждая попытка — реальный дедлайн; бюджет списывается ОДИН раз.
 
-    Review iter1 (item 1): каждая попытка обёрнута в РЕАЛЬНЫЙ дедлайн
-    ``asyncio.wait_for(generate(...), timeout=окно)`` — POST + скачивание
-    (GET-режим) вместе ограничены одним окном, поэтому «одна попытка ≤ окно»
-    верно, а worst-case бюджета строго ≤ ``attempts × окно + backoff``
-    (2×180 + 2 = 362 c), а не 2×(POST+download). Бюджет списывается ОДИН раз
-    на запрос. Каждая неудачная попытка — WARNING с ``attempt=N/M``/классом
-    причины/провайдером/длительностью (R17-safe, без промпта)."""
+    ASAP-3.2 (T-4197/T-4198/T-4199, ADR-1028-5 D5): окно попытки = adaptive
+    total deadline MediaExecutionPolicy (key provider+model+generate;
+    estimator ТОЛЬКО по успешным длительностям, §26); operation может жить
+    минуты → durable media job на REUSE `task_jobs` (§29; provider job id /
+    статус персистятся — рестарт возобновляет, НЕ пересоздаёт платный
+    submit §30); terminal primary failure → image fallback (§31) ЕСЛИ
+    настроен (IMAGE_FALLBACK_*), пока primary честно RUNNING — НЕ
+    переключаемся. OFF `MEDIA_EXECUTION_POLICY_ENABLED` → прежние окна
+    (rollback §80)."""
     prompt = str(prompt or "").strip()
     if not prompt:
         return None, "empty_prompt"
     if not await _consume_budget(chat_id):
         return None, "budget"
     attempts = _image_max_attempts()
-    timeout = _image_attempt_timeout()
-    backoff = _image_retry_backoff()
     provider = provider_label()
+    # T-4197: adaptive total deadline политики (или legacy 180 c, OFF).
+    model_now = ""
+    base_url_now = ""
+    try:
+        base_url_now = _resolve_str(KEY_BASE_URL, settings.IMAGE_BASE_URL)
+        model_now = _resolve_str(KEY_MODEL, settings.IMAGE_MODEL)
+    except Exception:
+        pass
+    from services.media_execution import (
+        OPERATION_GENERATE, MJ_FAILED, MJ_RUNNING, MJ_SUCCEEDED,
+        begin_media_job, bound_db, detect_adapter, finish_media_job,
+        maybe_media_fallback, media_policy_enabled, record_media_outcome,
+        resolve_windows, save_media_job)
+    adapter = detect_adapter(base_url_now)
+    if media_policy_enabled():
+        windows = resolve_windows(adapter.name, model_now,
+                                  OPERATION_GENERATE,
+                                  remote_progress=adapter.remote_progress)
+        timeout = windows.total_deadline
+    else:
+        windows = None
+        timeout = _image_attempt_timeout()
+    backoff = _image_retry_backoff()
     last_reason = "error"
+    # §29: durable media job (fail-open: db не забинжен → in-memory).
+    media_db = None
+    try:
+        media_db = bound_db()
+    except Exception:
+        media_db = None
+    job_id, mj = await begin_media_job(
+        media_db, operation=OPERATION_GENERATE, provider=adapter.name,
+        model=model_now, prompt=prompt, chat_id=chat_id,
+        correlation_id=correlation_id, deadline_s=timeout,
+        base_url=base_url_now)
     for attempt in range(1, attempts + 1):
         started = time.monotonic()
         result = None
+        mj.attempt = attempt
+        mj.mark(MJ_RUNNING, note=f"attempt_{attempt}")
+        await save_media_job(media_db, job_id, mj)
         try:
             result = await asyncio.wait_for(
                 generate(prompt, chat_id=chat_id,
@@ -1212,12 +1280,32 @@ async def generate_image_verbose(prompt: str, *, chat_id: int | None = None,
         except asyncio.TimeoutError:
             # Дедлайн ПОПЫТКИ (POST + скачивание) — транзиентный отказ.
             last_reason = "timeout"
+        duration_s = (time.monotonic() - started) if windows else None
+        if windows is not None:
+            # §26: estimator — ТОЛЬКО успешные длительности; timeout/failure
+            # — отдельные reliability signals (петлю «timeout → рост» не
+            # создаём).
+            record_media_outcome(adapter.name, model_now,
+                                 OPERATION_GENERATE,
+                                 ok=bool(result is not None and result.ok),
+                                 duration_s=duration_s if (result is not None
+                                                           and result.ok)
+                                 else None,
+                                 timeout=(last_reason == "timeout"))
         latency_ms = int((time.monotonic() - started) * 1000)
         if result is not None and result.ok and result.content:
             path = _write_temp_image(result.content)
             if path is None:
+                mj.failure_reason = "temp_write_failed"
+                await finish_media_job(media_db, job_id, mj,
+                                       outcome=MJ_FAILED)
                 return None, "temp_write_failed"
+            mj.result_asset = "tmp:" + str(path)[-40:]
+            await finish_media_job(media_db, job_id, mj,
+                                   outcome=MJ_SUCCEEDED)
             return path, "ok"
+        mj.failure_reason = last_reason
+        await save_media_job(media_db, job_id, mj)
         logger.warning(
             "[image] attempt failed | attempt=%d/%d | reason_class=%s | "
             "reason=%s | provider=%s | latency_ms=%d | chat_id=%s",
@@ -1227,6 +1315,23 @@ async def generate_image_verbose(prompt: str, *, chat_id: int | None = None,
             break                       # детерминированный отказ — не повторяем
         if attempt < attempts and backoff > 0:
             await asyncio.sleep(backoff)
+    # §30: терминальный исход durable-джобы (restart после этого НЕ возобновит
+    # и НЕ пересоздаст платный submit).
+    await finish_media_job(media_db, job_id, mj, outcome=MJ_FAILED)
+    # §31: image fallback — ТОЛЬКО после terminal primary failure.
+    try:
+        fallback = await maybe_media_fallback(
+            prompt, chat_id=chat_id, primary_reason=last_reason,
+            primary_running=False, operation=OPERATION_GENERATE,
+            correlation_id=correlation_id)
+    except Exception:
+        fallback = None
+        logger.warning("[image] fallback attempt failed — fail-open",
+                       exc_info=True)
+    if fallback is not None and fallback.ok and fallback.content:
+        path = _write_temp_image(fallback.content)
+        if path is not None:
+            return path, "ok"
     return None, last_reason
 
 

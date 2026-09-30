@@ -168,12 +168,23 @@ async def test_manual_cap_l2_budget_applied(monkeypatch):
         _payload_items([101, 102, 201, 202], "текст"),
         budget=(kind, limit, mode))
     assert result.metrics.get("limit") == limit
-    # Payload > капа → усечение ПО КАПУ (темы вытесняются, пакет остаётся
-    # deliverable — §96 fail-closed усечение допустимо при ручном потолке).
-    assert (result.metrics.get("skipped_threads")
+    # Payload > капа → кап РЕАЛЬНО ограничивает L2-вход. ASAP-3.2 (D8/§39):
+    # нормальный путь — paged L2 (каждая страница ≤ капа, ничего не
+    # выбрасывается); позиционное усечение — только rollback OFF-путь.
+    assert (result.pages
+            or result.metrics.get("skipped_threads")
             or result.metrics.get("skipped_ids")
             or result.status == "truncated"), (
         "manual cap должен реально ограничивать L2-вход")
+    if result.pages:
+        # Degenerate-лимит (резервы съели кап до ~1 токена) не достижим
+        # постранично без потери — при вменяемом лимите каждая страница ≤ капа.
+        for _page in result.pages:
+            if limit >= 512:
+                assert _page["budget"]["estimated"] <= limit, (
+                    "каждая paged-страница ≤ manual cap (размер ОДНОГО "
+                    "L2-вызова)")
+                assert _page["budget"]["fits"] is True
 
 
 # ── Fallback-пакет получает тот же бюджет ──────────────────────────────────

@@ -1007,9 +1007,23 @@ class LLMClient:
                         payload = adapted
                         logger.info(
                             "LLM fallback recompose | blocks_ok=1")
+                    else:
+                        # ADR-1028-5 D10 (усиление): адаптер вернул непригодную
+                        # форму — честная диагностика, отправка primary-payload
+                        # в меньшее окно ВИДИМА (не тихий fail-open).
+                        logger.warning(
+                            "LLM fallback recompose invalid (shape) — primary "
+                            "payload SENT AS-IS | oversized_risk=1 | "
+                            "adapted_type=%s", type(adapted).__name__)
                 except Exception:
-                    logger.warning("LLM fallback recompose failed — "
-                                   "primary payload", exc_info=True)
+                    # ADR-1028-5 D10 (усиление против ASAP-3.1 :1010–1012):
+                    # recompose failure — громкая честная диагностика
+                    # (oversized-risk), НЕ тихая отправка. Fail-open
+                    # сохранён (паритет ASAP-3.1; сервис не рвём).
+                    logger.warning(
+                        "LLM fallback recompose FAILED — primary payload "
+                        "SENT AS-IS | oversized_risk=1 | fallback_window=%s",
+                        self._fallback_model, exc_info=True)
             fb_response = await self._fallback_with_retries(payload)
             if fb_response is None:
                 raise exc from None
@@ -1153,7 +1167,8 @@ class LLMClient:
                             module: str | None = None,
                             step: str | None = None,
                             correlation_id: str | None = None,
-                            tool_name: str = "") -> "LLMChatResult":
+                            tool_name: str = "",
+                            fallback_payload_adapter=None) -> "LLMChatResult":
         """POST /chat/completions с tools/tool_choice (Эпик 04.09.2026, 3.3).
 
         Контракт {model, messages}: температура — как в generate (None →
@@ -1164,6 +1179,16 @@ class LLMClient:
         меняется (0 регрессий, FR-10/AC-2.1).
         Раунд 10 (F-7 §5.2): chat_id — BYOK-слой (см. generate). ФИКС R6:
         key/source — per-call локалы.
+
+        ASAP-3.2 (ADR-1028-5 D10, §44–§46): ``fallback_payload_adapter`` —
+        тот же контракт, что в ``generate()``: callable ``(payload) ->
+        payload``; вызывается РОВНО ОДИН раз при переключении на fallback
+        ДО отправки — recompose ПОЛНОГО logical context (messages +
+        tool schemas + tool state) под окно fallback-модели. Tool
+        schemas входят в fallback budget (§45) — recompose обязан их
+        учитывать (адаптер получает payload с ``tools``/``tool_choice``).
+        None/ошибка адаптера → payload байт-в-байт прежний (fail-open с
+        громкой oversized-risk диагностикой, паритет generate()).
         """
         key, source = await self._resolve_api_key_and_source(chat_id)
         payload = {"model": self._chat_model, "messages": messages}
@@ -1186,6 +1211,27 @@ class LLMClient:
             logger.warning(
                 "LLM fallback attempt | primary_error=%s | provider=%s",
                 exc, _provider_host(self._fallback_base_url))
+            if fallback_payload_adapter is not None:
+                try:
+                    adapted = fallback_payload_adapter(payload)
+                    if isinstance(adapted, dict) and adapted.get("messages"):
+                        payload = adapted
+                        logger.info(
+                            "LLM fallback recompose | blocks_ok=1 | "
+                            "tools=%s",
+                            "kept" if adapted.get("tools") else "none")
+                    else:
+                        # ADR-1028-5 D10 (усиление): непригодная форма
+                        # адаптера — видимая oversized-risk диагностика.
+                        logger.warning(
+                            "LLM fallback recompose invalid (shape) — "
+                            "primary payload SENT AS-IS | oversized_risk=1 "
+                            "| adapted_type=%s", type(adapted).__name__)
+                except Exception:
+                    logger.warning(
+                        "LLM fallback recompose FAILED — primary payload "
+                        "SENT AS-IS | oversized_risk=1 | tools_in_payload=%s",
+                        bool(payload.get("tools")), exc_info=True)
             fb_response = await self._fallback_with_retries(payload)
             if fb_response is None:
                 raise exc from None

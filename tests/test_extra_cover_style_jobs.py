@@ -193,12 +193,30 @@ class TestMetrics:
 
 class TestEditPolicy:
     def test_timeout_not_llm_and_clamped(self, monkeypatch):
+        # Legacy-путь (MEDIA_EXECUTION_POLICY_ENABLED=OFF): env-окно —
+        # единственная истина, клампы [30, 900] (§69; паритет EXTRA).
+        monkeypatch.setattr(Settings, "MEDIA_EXECUTION_POLICY_ENABLED",
+                            False, raising=False)
         monkeypatch.setattr(Settings, "COVER_STYLE_EDIT_TIMEOUT_SECONDS", 1)
         assert ed._timeout() == 30.0         # нижний кламп
         monkeypatch.setattr(Settings, "COVER_STYLE_EDIT_TIMEOUT_SECONDS", 9999)
         assert ed._timeout() == 900.0        # верхний кламп
         monkeypatch.setattr(Settings, "COVER_STYLE_EDIT_TIMEOUT_SECONDS", 240)
         assert ed._timeout() == 240.0        # ≠ LLM timeout 120
+
+    def test_timeout_policy_path_stage_aware(self, monkeypatch):
+        # ASAP-3.2 (ADR-1028-5 D5, T-4197): policy ON → окно из
+        # MediaExecutionPolicy (key provider+model+operation, §23);
+        # env `COVER_STYLE_EDIT_TIMEOUT_SECONDS` — migration evidence,
+        # НЕ binding (§27): policy cold default 240 в приоритете.
+        monkeypatch.setattr(Settings, "MEDIA_EXECUTION_POLICY_ENABLED",
+                            True, raising=False)
+        monkeypatch.setattr(Settings, "COVER_STYLE_EDIT_TIMEOUT_SECONDS", 1)
+        from services.media_execution import _OBS
+        _OBS.clear()
+        assert ed._timeout("edit", "https://img.example/v1", "m") == 240.0
+        assert ed._timeout("preview", "https://img.example/v1", "m") == 240.0
+        _OBS.clear()
 
     def test_attempts_and_backoff_clamped(self, monkeypatch):
         monkeypatch.setattr(Settings, "COVER_STYLE_EDIT_MAX_ATTEMPTS", 9)

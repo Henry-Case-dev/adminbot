@@ -204,8 +204,12 @@ class TestDdl:
 
     def test_idempotent_if_not_exists(self):
         block = " ".join(s for s in DDL_STATEMENTS if "cover_style" in s)
-        assert block.count("CREATE TABLE IF NOT EXISTS") == 5
+        # ASAP-3.2 (D14, §103–§105): +1 таблица cover_style_connections
+        # (Image Connection; Δ-лист: 5 → 6, идемпотентный CREATE IF NOT
+        # EXISTS; SQLite DDL = 0 не нарушен).
+        assert block.count("CREATE TABLE IF NOT EXISTS") == 6
         assert "CREATE UNIQUE INDEX IF NOT EXISTS" in block
+        assert "cover_style_connections" in block
 
     def test_sqlite_version_not_bumped(self):
         # Δ DDL SQLite = 0 — в DDL нет ALTER/PRAGMA user_version.

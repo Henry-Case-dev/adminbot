@@ -227,7 +227,8 @@ async def chat_with_tools(llm, messages: list[dict], *,
                           temperature: float | None = None,
                           chat_id: int | None = None,
                           module: str | None = None,
-                          correlation_id: str | None = None) -> "ToolLoopResult":
+                          correlation_id: str | None = None,
+                          fallback_payload_adapter=None) -> "ToolLoopResult":
     """→ ``ToolLoopResult`` (str) — финальный текст + телеметрия.
 
     При исчерпании ``TOOL_MAX_ROUNDS`` или ``LLMError`` на ``round_index > 0``
@@ -243,6 +244,12 @@ async def chat_with_tools(llm, messages: list[dict], *,
     действуют §17-лимиты (cap 6 / мягкий тайм-аут 360 c / дедуп ≤2 / платные
     4) с аддитивными причинами деградации ``chain_*`` (in-flight не
     отменяется).
+
+    ASAP-3.2 (ADR-1028-5 D10, §44): ``fallback_payload_adapter`` — тот же
+    контракт, что у ``generate()``/``generate_chat()``; прокидывается в
+    КАЖДЫЙ вызов цикла (Stage-1 и tool-раунды) и в FR-15 plain-фолбэк —
+    фоллбэк на меньшую модель НЕ получает payload, собранный под большее
+    primary-окно (tool schemas учитываются адаптером, §45).
     """
     limits_on = _chain_limits_enabled()
     payload_messages = copy.deepcopy(messages)
@@ -283,7 +290,8 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 # последующие — tool-раунды (ADR-1023-7 D4).
                 step=("stage1" if round_index == 0 else "tool"),
                 correlation_id=correlation_id,
-                tool_name=(pending_tool_name if round_index > 0 else ""))
+                tool_name=(pending_tool_name if round_index > 0 else ""),
+                fallback_payload_adapter=fallback_payload_adapter)
         except NoApiKeyForChat:
             raise
         except LLMError as exc:                 # провайдер не умеет tools
@@ -291,11 +299,14 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 logger.warning(
                     "[tools] provider rejected tools — plain answer | error=%s",
                     exc)
-                # degrade: 1 обычный вызов БЕЗ tools (FR-15, AC-2.5)
+                # degrade: 1 обычный вызов БЕЗ tools (FR-15, AC-2.5);
+                # ADR-1028-5 D10: recompose-адаптер прокидывается и сюда —
+                # plain-фолбэк тоже под бюджетом fallback-окна.
                 plain = await llm.generate(
                     messages, temperature=temperature, chat_id=chat_id,
                     module=module, step="single",
-                    correlation_id=correlation_id)
+                    correlation_id=correlation_id,
+                    fallback_payload_adapter=fallback_payload_adapter)
                 return ToolLoopResult(plain, rounds_used=1,
                                       tool_results=tool_results)
             # БЛОК 7.1: поздний раунд — не пробрасываем (не теряем ответ).

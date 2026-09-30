@@ -61,14 +61,52 @@ class EditResult:
     meta: dict = field(default_factory=dict)
 
 
-def _timeout() -> float:
-    """Окно одной попытки edit (env-only, кламп [30, 900]; §39/§69)."""
+def _timeout(operation: str = "edit", base_url: str = "", model: str = ""
+             ) -> float:
+    """Окно одной попытки edit/preview (§22/§27/§39).
+
+    ASAP-3.2 (T-4197, ADR-1028-5 D5): окно резолвится MediaExecutionPolicy
+    (key provider+model+operation; adaptive по успешным наблюдениям, §26);
+    `COVER_STYLE_EDIT_TIMEOUT_SECONDS` остаётся migration evidence —
+    legacy-путь (policy OFF / ошибка резолва) и нижняя граница cold-дефолта.
+    Кламп [30, 900] сохранён (§69)."""
+    legacy = 240.0
     try:
-        value = float(getattr(settings, "COVER_STYLE_EDIT_TIMEOUT_SECONDS",
-                              240.0))
+        legacy = float(getattr(settings, "COVER_STYLE_EDIT_TIMEOUT_SECONDS",
+                               240.0))
     except (TypeError, ValueError):
-        value = 240.0
-    return max(30.0, min(value, 900.0))
+        legacy = 240.0
+    legacy = max(30.0, min(legacy, 900.0))
+    try:
+        from services.media_execution import (OPERATION_EDIT,
+                                              OPERATION_PREVIEW,
+                                              media_policy_enabled,
+                                              record_media_outcome,
+                                              resolve_windows)
+        op = OPERATION_PREVIEW if operation == "preview" else OPERATION_EDIT
+        if media_policy_enabled():
+            provider = _provider(base_url)
+            windows = resolve_windows(provider, model, op)
+            return max(30.0, min(windows.total_deadline, 900.0))
+    except Exception:
+        pass
+    return legacy
+
+
+def record_edit_outcome(operation: str, base_url: str, model: str, *,
+                        ok: bool, duration_s: float | None = None,
+                        timeout: bool = False) -> None:
+    """§26: наблюдение исхода edit/preview → estimator политики (успешные
+    длительности; timeout/failure — отдельные reliability signals)."""
+    try:
+        from services.media_execution import (OPERATION_EDIT,
+                                              OPERATION_PREVIEW,
+                                              record_media_outcome)
+        op = OPERATION_PREVIEW if operation == "preview" else OPERATION_EDIT
+        record_media_outcome(_provider(base_url), model, op, ok=ok,
+                             duration_s=duration_s, timeout=timeout)
+    except Exception:
+        pass
 
 
 def max_attempts() -> int:
@@ -157,11 +195,14 @@ async def edit_image(prompt: str, *, base_image_path: str | None,
                      | None = None, chat_id: int | None = None,
                      correlation_id: str | None = None,
                      existing_task_id: str | None = None,
+                     operation: str = "edit",
                      transport=None, downloader=None) -> EditResult:
     """Capability-gated Style Edit (§3.2/§38/§41).
 
-    `transport`/`downloader` — инъекция для тестов (по умолчанию реальный
-    httpx). Возвращает `EditResult`; исключений не бросает.
+    `operation` — stage-aware key политики (T-4197/§23: ``edit`` ≠
+    ``preview`` — разные latency-распределения). `transport`/`downloader` —
+    инъекция для тестов (по умолчанию реальный httpx). Возвращает
+    `EditResult`; исключений не бросает.
     """
     caps = capabilities if capabilities is not None else None
     if caps is not None and caps.image_edit == cap.FALSE:
@@ -181,7 +222,7 @@ async def edit_image(prompt: str, *, base_image_path: str | None,
     if not payload["input_references"]:
         return EditResult(ok=False, reason="no_input_images", model=model,
                           provider=_provider(base_url))
-    timeout = _timeout()
+    timeout = _timeout(operation, base_url, model)
     post = transport or _post_json
     getter = downloader or _get_bytes
     provider = _provider(base_url)
@@ -218,6 +259,9 @@ async def edit_image(prompt: str, *, base_image_path: str | None,
                 except Exception:
                     content, reason = None, "error"
                 if content is not None:
+                    record_edit_outcome(operation, base_url, model, ok=True,
+                                        duration_s=time.monotonic()
+                                        - attempt_started)
                     return EditResult(
                         ok=True, content=content, reason="ok", model=model,
                         provider=provider,
@@ -244,6 +288,9 @@ async def edit_image(prompt: str, *, base_image_path: str | None,
         "reason_class=%s | reason=%s | latency_ms=%d",
         provider, model, reason_class(last_reason), last_reason,
         _ms(started))
+    record_edit_outcome(operation, base_url, model, ok=False,
+                        duration_s=time.monotonic() - started,
+                        timeout=(last_reason == "timeout"))
     return EditResult(ok=False, reason=last_reason, model=model,
                       provider=provider, latency_ms=_ms(started))
 

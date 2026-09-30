@@ -48,15 +48,26 @@ class TestSlots:
         assert csp.KEY_MODEL != csp.KEY_STYLE_MODEL
 
     def test_per_style_override(self, monkeypatch):
+        """ASAP-3.2 (§103–§105, D14): connection_id — настоящий FK к Image
+        Connection; base_url берётся из ЗАПИСИ подключения (не raw URL из
+        профиля). Без записи — честный fallback на default (custom_unresolved)."""
         patch_slot(monkeypatch, base_url="https://default/v1",
                    model="default-model")
         profile = {"model_mode": csp.MODEL_MODE_CUSTOM,
-                   "connection_id": "https://custom/v1",
+                   "connection_id": "csc_custom",
                    "model_id": "custom-model"}
-        slot = csp.resolve_style_slot(profile=profile)
+        connection = {"connection_id": "csc_custom",
+                      "base_url": "https://custom/v1", "api_key": "k"}
+        slot = csp.resolve_style_slot(profile=profile, connection=connection)
         assert slot["base_url"] == "https://custom/v1"
         assert slot["model"] == "custom-model"
-        assert slot["connection_id"] == "custom"
+        assert slot["connection_id"] == "csc_custom"
+        assert slot["custom_unresolved"] is False
+        # FK без записи → fallback default, raw URL НЕ подставляется
+        slot2 = csp.resolve_style_slot(profile=profile)
+        assert slot2["base_url"] == "https://default/v1"
+        assert slot2["connection_id"] == "default"
+        assert slot2["custom_unresolved"] is True
 
     def test_default_mode_ignores_override(self, monkeypatch):
         patch_slot(monkeypatch, base_url="https://default/v1",

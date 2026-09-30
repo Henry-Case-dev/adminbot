@@ -2099,6 +2099,19 @@ for _hidden_name in _HIDDEN_CATALOG_FIELDS:
     if _hidden_spec is not None:
         REGISTRY[_hidden_name] = dataclasses.replace(_hidden_spec, hidden=True)
 
+# ASAP-3.2 (ADR-1028-5 D14, §102/§124): `prompts.summary_cover_style_id` —
+# ID/выбор, НЕ текстовый промпт. В Prompt Library НЕ рендерится (была
+# вводящая в заблуждение карточка «Дополнительный стиль обложки» с
+# textarea). Один user-facing источник правды: `Summary → Стили обложки`
+# (per-chat выбор через POST /api/cover/select). Runtime-ключ остаётся.
+_HIDDEN_CATALOG_PG_KEYS: frozenset[str] = frozenset({
+    "prompts.summary_cover_style_id",
+})
+for _hidden_key in _HIDDEN_CATALOG_PG_KEYS:
+    _hidden_spec = REGISTRY.get(_hidden_key)
+    if _hidden_spec is not None:
+        REGISTRY[_hidden_key] = dataclasses.replace(_hidden_spec, hidden=True)
+
 # Раунд 10.4 (B-7/B-8): select-виджеты — опции/подписи (без роста записей).
 _SELECT_WIDGET_PRESETS: dict[str, dict] = {
     "CHAT_TEMPERATURE_PRESET_DEFAULT": {

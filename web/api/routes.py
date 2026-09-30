@@ -628,6 +628,15 @@ async def post_config(
     patch_overrides = {}
     for item in payload.items:
         spec = get_by_pg_key(item.key)
+        if spec is not None and spec.hidden:
+            # ASAP-3.2 (§102/§124): скрытые ключи (например
+            # `prompts.summary_cover_style_id` — выбор стиля) не вводятся
+            # руками; один user-facing источник правды — соответствующий
+            # модуль (Summary → Стили обложки / POST /api/cover/select).
+            raise HTTPException(
+                status_code=422,
+                detail=f"{item.key}: значение задаётся в соответствующем "
+                       "разделе Mini App, а не вручную")
         if spec is None or spec.category is None:
             raise HTTPException(status_code=422,
                                 detail=f"неизвестный ключ: {item.key}")
@@ -1013,6 +1022,14 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
     # ── Проход 1: валидация ВСЕГО пакета ДО любой записи ───────────────────
     for item in payload.items:
         spec = get_by_pg_key(item.key)
+        if spec is not None and spec.hidden:
+            # ASAP-3.2 (§102/§124): скрытые ключи не редактируются вручную
+            # (значение — через соответствующий модуль, напр.
+            # POST /api/cover/select для выбора стиля).
+            raise HTTPException(
+                status_code=422,
+                detail=f"{item.key}: значение задаётся в соответствующем "
+                       "разделе Mini App, а не вручную")
         if spec is None or spec.category is None:
             raise HTTPException(status_code=422,
                                 detail=f"неизвестный ключ: {item.key}")

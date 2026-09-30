@@ -2617,3 +2617,70 @@
     [data-conn-test],
     [data-conn-configure],
     [data-connection-settings] button { min-height: 44px; }
+
+
+    /* ── ASAP-3.2 (ADR-1028-5 D14, ТЗ §106–§114): Cover Styles editor —
+       dedicated full-screen surface. Кастомные классы вместо отсутствующих
+       в прекомпилированном tailwind утилит (zero-build, CSP). */
+    .cover-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 50;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+    }
+    @media (min-width: 640px) {
+      .cover-overlay { align-items: center; padding: 1.5rem 1rem; }
+    }
+    .cover-editor {
+      background: #111827;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    @media (max-width: 639.98px) {
+      .cover-editor { height: 100%; }
+    }
+    @media (min-width: 640px) {
+      .cover-editor {
+        max-width: 60rem;
+        max-height: calc(100vh - 3rem);
+        border-radius: 1rem;
+      }
+    }
+    .cover-menu {
+      position: absolute;
+      right: 0;
+      margin-top: 0.25rem;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      border-radius: 0.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: #111827;
+      padding: 0.5rem;
+      min-width: 9rem;
+    }
+    .cover-preview {
+      width: 100%;
+      max-width: 16rem;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: 0.75rem;
+    }
+    .cover-preview-empty {
+      width: 100%;
+      max-width: 16rem;
+      aspect-ratio: 1 / 1;
+      border-radius: 0.75rem;
+      background: rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(156, 163, 175, 1);
+      font-size: 0.75rem;
+    }

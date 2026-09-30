@@ -230,10 +230,11 @@ class TestLLMReact:
 
     @pytest.mark.asyncio
     async def test_invalid_reaction_falls_back_deterministically(self):
-        """Недопустимое значение/мусор → детерминированный fallback (§31)."""
+        """Недопустимое значение/мусор → детерминированный fallback (§31).
+        ASAP-3.2 D11: невалидный REACT-JSON → fallback-реакция;
+        обычный текст = сознательный REPLY (не трактуется как мусор)."""
         for raw in ('{"action":"REACT","reaction":"🫠"}',   # вне allowed set
-                    "не JSON вообще",
-                    '{"action":"REPLY","reaction":"💀"}'):  # матрица владелец
+                    '{"action":"REPLY","reaction":"💀"}'):  # REPLY без текста
             llm = _FakeLLM(raw)
             svc = _make_service(llm)
             bot = _bot()
@@ -243,6 +244,17 @@ class TestLLMReact:
             emojis = [r.emoji for r in kwargs.kwargs["reaction"]]
             assert emojis[0] in ("😂", "🤣"), \
                 "fallback — детерминированный набор laughter-класса"
+
+    @pytest.mark.asyncio
+    async def test_plain_text_answer_is_conscious_reply(self):
+        """D11 (§52): ответ обычным текстом на Decision Task = REPLY —
+        текст уходит пользователю (второго LLM-вызова нет)."""
+        llm = _FakeLLM("да ну, не смешно")
+        svc = _make_service(llm)
+        bot = _bot()
+        msg = _message("ахах", message_id=1221, reply_to_bot=True)
+        await svc.handle(bot, msg, msg.from_user)
+        assert bot.send_message.await_count >= 1
 
     @pytest.mark.asyncio
     async def test_llm_error_falls_back_soft(self):
@@ -300,15 +312,16 @@ class TestLLMReact:
 
     @pytest.mark.asyncio
     async def test_instruction_block_in_stage1(self):
-        """Allowed set передаётся Decision Maker (§31); контекст учитывается
-        (тот же payload, что генерировал бы ответ)."""
+        """Allowed set передаётся Decision Maker (§31/§51); контекст
+        учитывается (тот же payload, что генерировал бы ответ).
+        ASAP-3.2 D11: блок — `<Decision_Task>` (LLM решает действие)."""
         llm = _FakeLLM('{"action":"REACT","reaction":"🔥"}')
         svc = _make_service(llm)
         bot = _bot()
         msg = _message("ахах", message_id=1260, reply_to_bot=True)
         await svc.handle(bot, msg, msg.from_user)
         user_content = llm.calls[0][1]["content"]
-        assert "<Reaction_Task>" in user_content
+        assert "<Decision_Task>" in user_content
         for emoji in llm_react.ALLOWED_LLM_REACTIONS:
             assert emoji in user_content
 
@@ -327,19 +340,45 @@ class TestLLMReact:
 class TestSilentMoai:
     @pytest.mark.asyncio
     async def test_silent_direct_always_moai(self):
-        """SILENT direct → 🗿 даже если LLM вернула другое reaction
-        (LLM вообще не вызывается — SILENT шорт-кат раньше Stage-1)."""
-        llm = _FakeLLM('{"action":"REACT","reaction":"💀"}')
+        """ASAP-3.2 (ADR-1028-5 D11, §50/§74): LLM SILENT (direct addressed
+        autonomous) → 🗿 hardcode. Один Decision Task вызов; JSON-решение
+        SILENT не публикует текст."""
+        llm = _FakeLLM('{"action":"SILENT","reason":"нечего сказать"}')
         svc = _make_service(llm)
         bot = _bot()
-        # «ок» → ignore_trivial → SILENT → 🗿 (конъюнкция reply_to_bot).
+        # «ок» → ignore_trivial → demoted SILENT → Decision Task → LLM
+        # решает SILENT → 🗿 (конъюнкция reply_to_bot).
         msg = _message("ок", message_id=1301, reply_to_bot=True)
         await svc.handle(bot, msg, msg.from_user)
-        assert not llm.calls, "SILENT — без LLM"
+        assert len(llm.calls) == 1, "D11: решение — один Stage-1 вызов"
         kwargs = bot.set_message_reaction.await_args
         emojis = [r.emoji for r in kwargs.kwargs["reaction"]]
         assert emojis[0] == "🗿"
         assert bot.send_message.await_count == 0
+
+    @pytest.mark.asyncio
+    async def test_silent_llm_react_conscious_choice(self):
+        """D11 (§47): на «ок» LLM может сознательно выбрать REACT —
+        алгоритм не навязывает SILENT."""
+        llm = _FakeLLM('{"action":"REACT","reaction":"🤨"}')
+        svc = _make_service(llm)
+        bot = _bot()
+        msg = _message("ок", message_id=1303, reply_to_bot=True)
+        await svc.handle(bot, msg, msg.from_user)
+        kwargs = bot.set_message_reaction.await_args
+        emojis = [r.emoji for r in kwargs.kwargs["reaction"]]
+        assert emojis[0] == "🤨"
+        assert bot.send_message.await_count == 0
+
+    @pytest.mark.asyncio
+    async def test_llm_reply_text_on_ack(self):
+        """D11 (§74): mock {"action":"REPLY"}-текст → text generation."""
+        llm = _FakeLLM("ну, если коротко — всё норм")
+        svc = _make_service(llm)
+        bot = _bot()
+        msg = _message("ок", message_id=1304, reply_to_bot=True)
+        await svc.handle(bot, msg, msg.from_user)
+        assert bot.send_message.await_count >= 1
 
     @pytest.mark.asyncio
     async def test_background_silent_no_moai(self):

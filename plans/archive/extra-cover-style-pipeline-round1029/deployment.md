@@ -136,3 +136,17 @@
 
 - **DC-4:** реальный Style Edit требует edit-capable provider; **не настроен** → §38-сообщение, base публикуется корректно. **Отложено владельцу**, не блокер деплоя.
 - **D8:** стартовое значение seeded counter — **owner-input required**; действует обратимый дефолт `0`.
+
+
+## 6. Erratum (ASAP-3.2, ADR-1028-5 D14, ТЗ §123/§133 — appended 01.10.2026)
+
+EXTRA production acceptance was incomplete: live authenticated registry
+CRUD/assets were not exercised; stub-backed UI tests masked the
+PgDatabase/asyncpg.Pool integration bug (§93–§95). Владелец на проде видел
+пустой реестр («Без дополнительного стиля») при существующем seeded-профиле
+и 503 save failed на создании. Прежние формулировки «seeded style
+delivered» / «9/9 production checks» / «browser acceptance (stub)» считаются
+НЕ подтверждёнными для production. Реальная приёмка Cover Styles — только по
+маршруту владельца: authenticated Miniapp → real API → real PostgreSQL →
+real asset storage → persisted reload (§130 20-пунктный гейт, ASAP-3.2).
+История документа сохранена без правок.

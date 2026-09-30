@@ -35,6 +35,7 @@ from services import image_prompt_compiler as compiler
 from services.cover_style_edit import EditResult, edit_image
 from services.cover_style_pipeline import (
     KEY_STYLE_API_KEY,
+    MODEL_MODE_CUSTOM,
     check_edit_allowed,
     cover_styles_enabled,
     resolve_style_slot,
@@ -720,7 +721,31 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
         meta["outcome"] = RESULT_NONE
         return meta
 
-    slot = resolve_style_slot(profile=profile)
+    # ── ASAP-3.2 (§103–§105, D14): connection_id — настоящий FK; запись
+    # подключения (base_url/api_key) резолвится из реестра Connections.
+    _connection = None
+    obj0 = pg if pg is not None else _pg()
+    if profile and profile.get("model_mode") == MODEL_MODE_CUSTOM \
+            and str(profile.get("connection_id") or "").strip() \
+            and obj0 is not None:
+        try:
+            _connection = await registry.get_connection(
+                obj0, str(profile.get("connection_id")).strip())
+        except Exception:
+            _connection = None
+    slot = resolve_style_slot(profile=profile, connection=_connection)
+    # §104: пер-подключение api_key (профиль секретов не хранит);
+    # default-слот → прежний ключ `keys.image_style_api_key`.
+    def _resolve_api_key() -> str:
+        if _connection is not None:
+            return str(_connection.get("api_key") or "")
+        try:
+            from services import hot_config as hot
+            value = hot.get(KEY_STYLE_API_KEY, getattr(
+                settings, "IMAGE_STYLE_API_KEY", ""))
+        except Exception:
+            value = getattr(settings, "IMAGE_STYLE_API_KEY", "")
+        return str(value or "")
     meta["provider"] = slot.get("provider") or ""
     meta["model"] = slot.get("model") or ""
     emit_cover_event(COVER_STYLE_START, outcome="start", run_id=correlation_id,
@@ -783,7 +808,29 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
     if caller is None:
         caller = edit_image
 
+    # §23 (T-4199): stage-aware key политики — preview и edit имеют разные
+    # latency-распределения. Тестовые double `edit_call` могут не принимать
+    # kwarg `operation` → совместимость через inspect (аддитивно).
+    edit_operation = ("preview" if mode == MODE_PREVIEW else "edit")
+    try:
+        import inspect as _inspect
+        accepts_operation = "operation" in _inspect.signature(
+            caller).parameters
+    except (TypeError, ValueError):
+        accepts_operation = False
+
     def _call():
+        if accepts_operation:
+            return caller(compiled.prompt,
+                          base_image_path=base_image_path,
+                          reference_paths=ref_paths,
+                          base_url=slot.get("base_url"),
+                          model=slot.get("model"), api_key=_resolve_api_key(),
+                          capabilities=caps, chat_id=chat_id,
+                          correlation_id=correlation_id,
+                          existing_task_id=(state.provider_task_id
+                                            if state else None),
+                          operation=edit_operation)
         return caller(compiled.prompt, base_image_path=base_image_path,
                       reference_paths=ref_paths, base_url=slot.get("base_url"),
                       model=slot.get("model"), api_key=_resolve_api_key(),

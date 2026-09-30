@@ -596,7 +596,9 @@ class TestFlagBoundary:
         from services import pg_db
         # NOTE (A5, ADR-1026-17 D1): +1 (image_reservation — санкция
         # Δ DDL ≠ 0, verbatim §7 ADR); 45 → 46.
-        assert len(pg_db.DDL_STATEMENTS) == 51
+        # NOTE (ASAP-3.2, ADR-1028-5 D14/§104): +1 (cover_style_connections);
+        # 51 → 52. SQLite DDL = 0 (v19 не меняется).
+        assert len(pg_db.DDL_STATEMENTS) == 52
 
     def test_delta_catalog_zero(self):
         from services import param_catalog as pc

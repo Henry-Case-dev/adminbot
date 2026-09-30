@@ -20,9 +20,15 @@ NOW = 1_800_000_000
 
 
 @pytest.fixture(autouse=True)
-def _clean():
+def _clean(monkeypatch):
     mc.invalidate_capacity_cache()
     mc._WINDOW_CACHE.clear()
+    # ASAP-3.2 (D6/T-4202): nano-gpt.com — provider class с live-каталогом;
+    # юнит-тесты формул БЕЗ сети (якоря окон/бюджетов — по registry-слою).
+    async def _no_network(url, *, headers=None):
+        return None
+
+    monkeypatch.setattr(mc, "_http_get_json", _no_network)
     yield
     mc.invalidate_capacity_cache()
     mc._WINDOW_CACHE.clear()

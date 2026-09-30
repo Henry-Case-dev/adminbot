@@ -542,6 +542,100 @@ def preview_issue_number() -> int:
     return 0
 
 
+# ── Image Connections (§103–§105, ASAP-3.2 D14) ─────────────────────────────
+
+def _public_connection(row: dict) -> dict:
+    """R17-safe представление подключения: api_key/секреты НЕ наружу."""
+    key = str(row.get("api_key") or "")
+    masked = (key[:3] + "…" + key[-2:]) if len(key) > 6 else \
+        ("установлен" if key else "")
+    return {
+        "connection_id": row.get("connection_id"),
+        "label": row.get("label") or "",
+        "provider": row.get("provider") or "",
+        "base_url": row.get("base_url") or "",
+        "api_key_set": bool(key),
+        "api_key_masked": masked,
+    }
+
+
+async def list_connections(pg, *, include_deleted: bool = False) -> list[dict]:
+    pool = _pool_of(pg)
+    if pool is None:
+        return []
+    try:
+        async with pool.acquire() as conn:
+            sql = ("SELECT * FROM cover_style_connections "
+                   + ("" if include_deleted else "WHERE deleted_at IS NULL ")
+                   + "ORDER BY created_at ASC")
+            rows = await conn.fetch(sql)
+        return [dict(r) for r in rows]
+    except Exception:
+        logger.warning("[cover_style_registry] connections list failed",
+                       exc_info=True)
+        return []
+
+
+async def get_connection(pg, connection_id: str) -> dict | None:
+    pool = _pool_of(pg)
+    if pool is None or not connection_id:
+        return None
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT * FROM cover_style_connections WHERE connection_id = $1 "
+                "AND deleted_at IS NULL", connection_id)
+        return dict(row) if row is not None else None
+    except Exception:
+        logger.warning("[cover_style_registry] connection get failed",
+                       exc_info=True)
+        return None
+
+
+async def upsert_connection(pg, data: dict) -> bool:
+    """Создать/обновить подключение (секрет хранится в PG, НЕ в профиле)."""
+    pool = _pool_of(pg)
+    if pool is None or not isinstance(data, dict):
+        return False
+    cid = str(data.get("connection_id") or "").strip() or _new_id("csc")
+    base_url = str(data.get("base_url") or "").strip()
+    if not base_url:
+        return False
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO cover_style_connections (connection_id, label, "
+                "provider, base_url, api_key) VALUES ($1,$2,$3,$4,$5) "
+                "ON CONFLICT (connection_id) DO UPDATE SET label=$2, "
+                "provider=$3, base_url=$4, "
+                "api_key=CASE WHEN $5 <> '' THEN $5 ELSE "
+                "cover_style_connections.api_key END, updated_at=now()",
+                cid, str(data.get("label") or ""),
+                str(data.get("provider") or ""), base_url,
+                str(data.get("api_key") or ""))
+        return True
+    except Exception:
+        logger.warning("[cover_style_registry] connection upsert failed",
+                       exc_info=True)
+        return False
+
+
+async def soft_delete_connection(pg, connection_id: str) -> bool:
+    pool = _pool_of(pg)
+    if pool is None or not connection_id:
+        return False
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE cover_style_connections SET deleted_at = now() "
+                "WHERE connection_id = $1", connection_id)
+        return True
+    except Exception:
+        logger.warning("[cover_style_registry] connection delete failed",
+                       exc_info=True)
+        return False
+
+
 
 # ── provenance (§30) ────────────────────────────────────────────────────────
 
@@ -576,10 +670,15 @@ async def record_provenance(pg, data: dict) -> str | None:
 # ── seed (§59, идемпотентно) ────────────────────────────────────────────────
 
 async def seed_seeded_style(pg, *, seed_dir=None) -> dict | None:
-    """Идемпотентно засидить `Графический роман Медведь Press` (§59).
+    """Идемпотентно засидить `Графический роман Медведь Press` (§98/§99).
 
-    Повторный прогон — no-op (профиль/asset уже есть); ручной стиль НЕ
-    перезатирается. `extra_images/*` не мутируются (копирование, R18).
+    Инвариант установки (ASAP-3.2, ADR-1028-5 D14): первый install →
+    создаёт профиль/asset'ы; повторный deploy → no-op (без дубля);
+    отредактированный владельцем seeded-стиль НЕ перезатирается; удалённый
+    владельцем профиль НЕ воскрешается при рестарте (soft-deleted marker);
+    прерванный первый seed (нет asset/reference) → событие
+    ``COVER_STYLE_SEED_INCOMPLETE`` (§128, fail-open). `extra_images/*`
+    не мутируются (копирование, R18).
     Возвращает profile dict (или None, если PG недоступен/seed отсутствует).
     """
     pool = _pool_of(pg)
@@ -590,13 +689,33 @@ async def seed_seeded_style(pg, *, seed_dir=None) -> dict | None:
     existing = await get_profile(pg, SEEDED_PROFILE_ID)
     if existing is not None:
         return existing
+    # §99: удалённый владельцем профиль не воскрешаем (soft-delete marker
+    # виден только прямым запросом, get_profile фильтрует is_deleted).
+    if pool is not None:
+        try:
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT profile_id FROM cover_style_profiles "
+                    "WHERE profile_id = $1 AND is_deleted = true",
+                    SEEDED_PROFILE_ID)
+            if row is not None:
+                logger.info(
+                    "[cover_style_registry] seed skipped — owner deleted "
+                    "| profile_id=%s", SEEDED_PROFILE_ID)
+                return None
+        except Exception:
+            logger.warning(
+                "[cover_style_registry] seed deleted-check failed — "
+                "continue", exc_info=True)
 
     asset_ids: dict[str, str] = {}
+    missing_files: list = []
     for key, filename in SEED_FILES.items():
         src = base_dir / filename
         meta = import_seed_file(src, origin="seed")
         if meta is None:
             logger.warning("[cover_style_registry] seed file missing | %s", src)
+            missing_files.append(filename)
             continue
         if await upsert_asset(pg, meta):
             asset_ids[key] = meta["asset_id"]
@@ -627,4 +746,21 @@ async def seed_seeded_style(pg, *, seed_dir=None) -> dict | None:
                            "используется для нормализации бренда на обложке.",
             "ordering": 0,
         })
+    # §99/§128: прерванный seed (файлы/asset/reference не дошли) — видно.
+    incomplete = bool(missing_files) or len(asset_ids) < len(SEED_FILES) \
+        or ref_asset is None
+    if incomplete:
+        try:
+            from services.agentic_events import emit_agentic_event
+            emit_agentic_event(
+                "COVER_STYLE_SEED_INCOMPLETE", style_id=SEEDED_PROFILE_ID,
+                stage="seed", reason="assets_or_reference_missing",
+                missing_files=len(missing_files),
+                assets_ok=len(asset_ids))
+        except Exception:
+            pass
+        logger.warning(
+            "COVER_STYLE_SEED_INCOMPLETE | profile_id=%s | missing=%d | "
+            "assets=%d", SEEDED_PROFILE_ID, len(missing_files),
+            len(asset_ids))
     return await get_profile_with_refs(pg, SEEDED_PROFILE_ID)

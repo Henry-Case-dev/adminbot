@@ -607,11 +607,40 @@ async def run_summary_test(chat_id, window, *, allow_cover=False,
         return _finalize(result, rows_info=rows_info, l1_result=l1_result,
                          package_result=package_result, started=started)
 
-    # S5: L2 «Писатель» (ровно 1 LLM-вызов) — ON per-run, флаг не читается.
+    # S5: L2 «Писатель» (ровно 1 LLM-вызов; paged L2 — по странице) —
+    # ON per-run, флаг не читается.
     service = (package_result.package or {}).get("service") or {}
-    l2_result = await run_l2(
-        llm, package_result.package, service=service,
-        correlation_id=correlation_id, chat_id=int(chat_id))
+    # ASAP-3.2 (ADR-1028-5 D8, §39): paged L2 в dry-run — тот же контракт,
+    # что живой путь (0 публикаций не меняется).
+    _pages = getattr(package_result, "pages", ()) or ()
+    if _pages:
+        from services.summary_l2_writer import L2Result as _L2Result
+        _documents: list = []
+        l2_result = None
+        for _page in _pages:
+            l2_result = await run_l2(
+                llm, _page, service=service,
+                correlation_id=correlation_id, chat_id=int(chat_id))
+            if not l2_result.usable:
+                break
+            _documents.append(l2_result.document)
+        if l2_result is not None and l2_result.usable:
+            _merged: list = []
+            _title = ""
+            for _doc in _documents:
+                if not _title:
+                    _title = str((_doc or {}).get("title") or "")
+                _merged.extend((_doc or {}).get("paragraphs") or [])
+            l2_result = _L2Result(
+                status="ok", document={"schema_version": 1,
+                                       "title": _title,
+                                       "paragraphs": _merged},
+                invalid_reason=None, usage=None,
+                metrics={"pages": len(_pages)}, duration_ms=0.0)
+    else:
+        l2_result = await run_l2(
+            llm, package_result.package, service=service,
+            correlation_id=correlation_id, chat_id=int(chat_id))
     result.stages["l2"] = {
         "status": getattr(l2_result, "status", None),
         "reason": getattr(l2_result, "invalid_reason", None),

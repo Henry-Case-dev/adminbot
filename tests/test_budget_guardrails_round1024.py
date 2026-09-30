@@ -413,7 +413,10 @@ class TestDeltaZeroGuard:
         from services import pg_db
         # NOTE (A5, ADR-1026-17 D1): +1 (image_reservation — санкция
         # Δ DDL ≠ 0, verbatim §7 ADR); 45 → 46.
-        assert len(pg_db.DDL_STATEMENTS) == 51
+        # NOTE (ASAP-3.2, ADR-1028-5 D14/§104): +1 (cover_style_connections
+        # — connection model redesign; PG-DDL санкция, идемпотентно);
+        # 51 → 52. SQLite DDL = 0 (v19, v20-бронь mca-04b не тронута).
+        assert len(pg_db.DDL_STATEMENTS) == 52
 
     def test_catalog_counts_unchanged_by_guardrails(self):
         # F23 — только тесты: значения совпадают с Δ F21 (D8).

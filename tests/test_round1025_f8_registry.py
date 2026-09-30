@@ -61,8 +61,13 @@ ARTIFACTS = [ROOT / p for p in FIXTURE["artifacts"]]
 # read-only `GET /api/analytics/context-budgets` (T-4075; RBAC global admin;
 # Δ DDL = 0). Хэш переутверждён осознанно (L-F11S-1); fixture reissue
 # (483→484, delta 72→73, см. tools/_asap31_reissue_f8.py).
+# ASAP-3.2 (round 1029, ADR-1028-5 D14, ТЗ §102/§124): эволюция — гейт
+# записи hidden-ключей в ОБОИХ config-путях (`prompts.summary_cover_style_id`
+# скрыт из Prompt Library; ручная запись → 422). Хэш переутверждён
+# осознанно (L-F11S-1); Δ каталога = 0 (488/427/463/105/103/21),
+# pg_db.py — PG-DDL +1 таблица cover_style_connections (санкция D14/§104).
 ROUTES_SHA256_F11 = (
-    "36a5a0378270908c2601945ec5bb9649524ac4990dd0e8641eb19ff5c2f7719b")
+    "b83420e93eb00a9d47a0ba16c4ba59773f36d52d378885ae1959b63662bcca81")
 
 
 def _sha256(path: Path) -> str:
@@ -157,7 +162,7 @@ class TestFrozenInvariants:
         # `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.39"
+        assert APP_VERSION == "2.58.40"
     def test_routes_set_unchanged(self):
         import re
         txt = (ROOT / "web/api/routes.py").read_text(encoding="utf-8")
@@ -212,10 +217,16 @@ class TestRegistry:
     def test_hidden_key_preserved(self):
         rows = _read_registry_rows()
         hidden = [r for r in rows if r["hidden"] == "true"]
-        assert len(hidden) == 1
-        assert hidden[0]["internal_key"] == "limits.factcheck_context_messages"
+        # ASAP-3.2 (ТЗ §102/§124): +1 hidden — `prompts.summary_cover_
+        # style_id` (ID/выбор стиля, НЕ текстовый промпт; один user-facing
+        # источник правды — Summary → Стили обложки / POST /api/cover/select).
+        assert len(hidden) == 2
+        hidden_keys = {r["internal_key"] for r in hidden}
+        assert hidden_keys == {"limits.factcheck_context_messages",
+                               "prompts.summary_cover_style_id"}
         # hidden сохранён в реестре/правах, но вне UI.
-        assert hidden[0]["ui_visibility"] == "hidden"
+        for r in hidden:
+            assert r["ui_visibility"] == "hidden"
 
     def test_no_open_secrets_in_artifacts(self):
         blob = "\n".join(p.read_text(encoding="utf-8") for p in ARTIFACTS)

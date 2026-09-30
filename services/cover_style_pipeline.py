@@ -52,11 +52,18 @@ def _resolve_str(key: str, default: str = "") -> str:
     return str(value if value not in (None, "") else default)
 
 
-def resolve_style_slot(*, profile: dict | None = None) -> dict:
+def resolve_style_slot(*, profile: dict | None = None,
+                       connection: dict | None = None) -> dict:
     """Резолв connection/model для Cover Style Processing (§31–§34).
 
-    Per-style override (`model.custom`) → профиль; иначе глобальный default
-    (`models.image_style_*`). Секреты — только здесь (Connections, R17).
+    ASAP-3.2 (ADR-1028-5 D14, §103–§105): Image Connection → Style
+    Processing Slot → Style Profile. ``profile.connection_id`` — настоящий
+    FK к настроенному подключению (НЕ raw URL); запись подключения
+    (base_url/api_key) передаётся параметром ``connection`` (caller в
+    async-контексте читает её из реестра). Профиль НЕ хранит секрет;
+    Base URL принадлежит Connections. Per-style override (`model.custom`)
+    без резолвленного подключения → честный fallback на default-слот
+    (`models.image_style_*`) — сырой URL из профиля НЕ используется.
     """
     base_url = _resolve_str(KEY_STYLE_BASE_URL,
                             getattr(settings, "IMAGE_STYLE_BASE_URL", ""))
@@ -64,13 +71,22 @@ def resolve_style_slot(*, profile: dict | None = None) -> dict:
                          getattr(settings, "IMAGE_STYLE_MODEL", ""))
     connection_id = "default"
     provider = _provider_of(base_url)
+    custom_unresolved = False
     if profile and profile.get("model_mode") == MODEL_MODE_CUSTOM:
-        override_url = str(profile.get("connection_id") or "").strip()
+        override_id = str(profile.get("connection_id") or "").strip()
         override_model = str(profile.get("model_id") or "").strip()
-        if override_url:
-            base_url = override_url
-            provider = _provider_of(base_url)
-            connection_id = "custom"
+        if override_id and connection is not None:
+            conn_url = str(connection.get("base_url") or "").strip()
+            if conn_url:
+                base_url = conn_url
+                provider = _provider_of(base_url)
+                connection_id = override_id
+            else:
+                custom_unresolved = True
+        elif override_id:
+            # FK задан, запись недоступна (PG down/удалена) — fallback
+            # на default, сырой URL из профиля не подставляется.
+            custom_unresolved = True
         if override_model:
             model = override_model
     return {
@@ -78,6 +94,7 @@ def resolve_style_slot(*, profile: dict | None = None) -> dict:
         "model": model,
         "provider": provider,
         "connection_id": connection_id,
+        "custom_unresolved": custom_unresolved,
         "configured": bool(base_url and model),
     }
 
@@ -97,9 +114,10 @@ def _provider_of(base_url: str) -> str:
 def slot_capabilities(*, profile: dict | None = None,
                       discovery: dict | None = None,
                       endpoints: dict | None = None,
-                      refresh: bool = False) -> cap.ImageModelCapabilities:
+                      refresh: bool = False,
+                      connection: dict | None = None) -> cap.ImageModelCapabilities:
     """Capabilities выбранного Style-слота (resolver, §3.7/§71)."""
-    slot = resolve_style_slot(profile=profile)
+    slot = resolve_style_slot(profile=profile, connection=connection)
     return cap.resolve_capabilities(
         slot["provider"], slot["base_url"], slot["model"],
         discovery=discovery, endpoints=endpoints, refresh=refresh)
@@ -172,22 +190,31 @@ async def resolve_selected_style_id(chat_id: int) -> str:
 
 def connection_status(*, profile: dict | None = None,
                       capabilities: cap.ImageModelCapabilities | None = None,
+                      connection: dict | None = None,
                       ) -> dict:
     """Статус подключения Style-слота для UI (§73): без реальной генерации.
 
-    Возвращает `{configured, connected, api_key_set, edit_supported, message}`.
-    API key проверяется по наличию (`keys.image_style_api_key`), НЕ логируется.
+    Возвращает `{configured, connected, api_key_set, edit_supported, message,
+    connection_id, custom_unresolved}`. API key проверяется по наличию
+    (пер-подключение или `keys.image_style_api_key`), НЕ логируется и НЕ
+    возвращается (R17).
     """
-    slot = resolve_style_slot(profile=profile)
-    key_set = bool(_resolve_str(
-        KEY_STYLE_API_KEY, getattr(settings, "IMAGE_STYLE_API_KEY", "")))
+    slot = resolve_style_slot(profile=profile, connection=connection)
+    if connection is not None:
+        key_set = bool(str(connection.get("api_key") or "").strip())
+    else:
+        key_set = bool(_resolve_str(
+            KEY_STYLE_API_KEY, getattr(settings, "IMAGE_STYLE_API_KEY", "")))
     caps = capabilities or (
-        slot_capabilities(profile=profile) if slot["configured"] else None)
+        slot_capabilities(profile=profile, connection=connection)
+        if slot["configured"] else None)
     edit_supported = None
     if caps is not None:
         edit_supported = caps.edit_supported
     if not slot["configured"]:
         msg = "Адрес и модель не настроены"
+    elif slot.get("custom_unresolved"):
+        msg = "Подключение модели не найдено — используется подключение по умолчанию"
     elif not key_set:
         msg = "API ключ не настроен"
     else:
@@ -197,6 +224,8 @@ def connection_status(*, profile: dict | None = None,
         "connected": bool(slot["configured"] and key_set),
         "api_key_set": key_set,
         "edit_supported": edit_supported,
+        "connection_id": slot["connection_id"],
+        "custom_unresolved": bool(slot.get("custom_unresolved")),
         "message": msg,
     }
 

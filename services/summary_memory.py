@@ -508,14 +508,137 @@ _SELF_ECHO_INSTRUCTION = (
     "ты мог шутить, отыгрывать роль или ошибаться."
 )
 
-# Раунд 8 (F4/T-810, spec §3.F4.2): компактный утилитарный промпт LLM-реранка
-# RAG-фактов direct (по образцу search_service Epic 65) — НЕ канон, вне PG.
+# Раунд 8 (F4/T-810): промпт LLM-реранка RAG-фактов direct — НЕ канон, вне PG.
+# ASAP-3.2 (§10–§12, T-4193, ADR-1028-5 D3): typed contract — строгий JSON
+# `{"selected":[номера]}` / `{"selected":[]}`; legacy numeric-ответ принимается
+# robust-парсером (детерминированный repair: fences/короткий префикс — §11),
+# второй LLM-вызов ради formatting НЕ делается.
 _CHAT_RAG_RERANK_SYSTEM_PROMPT = (
     "Ты — фильтр фактов памяти для ответа в чате. Тебе даны запрос и "
-    "нумерованный список фактов. Верни ТОЛЬКО номера фактов, реально "
-    "релевантных запросу, через запятую. Ничего не комментируй. Если "
-    "релевантного нет — верни 0."
+    "нумерованный список фактов. Верни СТРОГО один JSON-объект и ничего "
+    "кроме него: {\"selected\":[номера]} — номера реально релевантных "
+    "запросу фактов в порядке убывания релевантности. Если релевантных "
+    "нет — верни {\"selected\":[]}. Никаких пояснений."
 )
+
+# ── ASAP-3.2 (§12, T-4193): observability reranker (process-local, R17-safe)
+_RERANK_STATS: dict[str, int] = {"ok": 0, "empty": 0, "invalid": 0,
+                                 "timeout": 0, "error": 0, "total": 0}
+_RERANK_LAST: dict[str, object] = {}
+
+
+def rerank_metrics_snapshot() -> dict[str, int]:
+    """Снимок счётчиков reranker (§12/§88; числа без контента)."""
+    return dict(_RERANK_STATS)
+
+
+def rerank_invalid_rate() -> float | None:
+    """`rerank_invalid_rate` (§12): invalid / total; None — вызовов не было.
+
+    После deploy высокий invalid rate = regression, НЕ expected normal state
+    (§61). timeout/error считаются отдельно (не смешиваются с invalid)."""
+    total = _RERANK_STATS["total"]
+    if total <= 0:
+        return None
+    return _RERANK_STATS["invalid"] / float(total)
+
+
+def _record_rerank_outcome(kind: str, **last) -> None:
+    """Инкремент счётчика исхода reranker (+ last-call детали для диагностики)."""
+    if kind in _RERANK_STATS:
+        _RERANK_STATS[kind] += 1
+    _RERANK_STATS["total"] += 1
+    _RERANK_LAST.clear()
+    _RERANK_LAST.update(last)
+
+
+_JSON_FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
+_NUM_RE = re.compile(r"\d+")
+
+
+def _ints_from_selected(items) -> list[int]:
+    out: list[int] = []
+    if not isinstance(items, (list, tuple)):
+        return out
+    for item in items:
+        try:
+            value = int(item)
+        except (TypeError, ValueError):
+            continue
+        out.append(value)
+    return out
+
+
+def _json_probes(text: str) -> list[tuple[str, str]]:
+    """Детерминированные локальные repair-пробы (§11: fences/короткий
+    префикс допустим; второй LLM-вызов НЕ делается)."""
+    probes: list[tuple[str, str]] = [("json", text)]
+    for fence in _JSON_FENCE_RE.findall(text):
+        probe = fence.strip()
+        if probe:
+            probes.append(("json_fenced", probe))
+    brace_l, brace_r = text.find("{"), text.rfind("}")
+    if 0 <= brace_l < brace_r:
+        probes.append(("json_substring", text[brace_l:brace_r + 1]))
+    bracket_l, bracket_r = text.find("["), text.rfind("]")
+    if 0 <= bracket_l < bracket_r:
+        probes.append(("json_substring", text[bracket_l:bracket_r + 1]))
+    return probes
+
+
+def parse_rerank_selected(raw) -> tuple[str, tuple[int, ...], str]:
+    """Robust-парсер ответа reranker (T-4193, §10–§12).
+
+    Возвращает ``(kind, numbers, response_mode)``:
+      * kind: ``ok`` (есть числа — range валидирует `select_by_rerank`:
+        вне диапазона → invalid → bounded fallback), ``empty`` (валидный
+        пустой: пустой/blank ответ, `{"selected":[]}`, `[]`), ``invalid``
+        (НЕпустой ответ без корректных номеров — §10);
+      * response_mode: ``json | json_fenced | json_substring | numeric |
+        prose | none`` (observability §12; raw-текст НЕ логируется).
+
+    Семантика §10/якоря F4: ``invalid`` ⇔ ответ НЕпустой и из него не
+    удалось получить корректные candidate numbers; пустой/blank — валидный
+    empty (НЕ fallback); «0» — непустой ответ с некорректным (вне диапазона)
+    номером → invalid → bounded fallback (прод-наблюдение §10).
+    Acceptance ТОЛЬКО in-range candidate IDs."""
+    text = str(raw or "").strip()
+    if not text:
+        return "empty", (), "none"
+    for mode, probe in _json_probes(text):
+        try:
+            data = json.loads(probe)
+        except Exception:
+            continue
+        if isinstance(data, dict) and "selected" in data:
+            nums = _ints_from_selected(data.get("selected"))
+            if not nums:
+                return "empty", (), mode
+            return "ok", tuple(dict.fromkeys(nums)), mode
+        if isinstance(data, list):
+            nums = _ints_from_selected(data)
+            if not nums:
+                return "empty", (), mode
+            return "ok", tuple(dict.fromkeys(nums)), mode
+    nums = list(dict.fromkeys(
+        int(t) for t in _NUM_RE.findall(text)))
+    if nums:
+        return "ok", tuple(nums), "numeric"
+    return "invalid", (), "prose"
+
+
+def _llm_identity(llm) -> tuple[str, str]:
+    """(provider, model) для observability reranker (R17-safe, defensive)."""
+    model = str(getattr(llm, "_chat_model", "") or "")[:60]
+    provider = ""
+    try:
+        from services.llm_client import _provider_host
+        provider = str(_provider_host(
+            getattr(llm, "_base_url", "") or ""))[:60]
+    except Exception:
+        provider = ""
+    return provider, model
+
 
 # ── GraphRAG (Epic 26, Section 35) ──────────────────────────────
 
@@ -1234,6 +1357,23 @@ def _unpack_vector(raw) -> list[float] | None:
     return None
 
 
+# ── ASAP-3.2 (§8/§67, T-4192): severity-коалесинг «not serviceable» ─────────
+# Состояние (не новая авария на каждый RAG-вызов): первый WARNING → далее
+# DEBUG при НЕИЗМЕННОМ (status, fp) в течение cooldown; WARNING повторно —
+# при meaningful state change или по истечении cooldown. dict по index_name
+# (2 ключа — bounded по построению).
+_GEN_LOG_STATE: dict[str, tuple[tuple[str, str], float]] = {}
+
+
+def _gen_log_cooldown() -> float:
+    try:
+        value = float(getattr(settings, "GRAPHRAG_GEN_WARN_COOLDOWN_SECONDS",
+                              300.0))
+    except (TypeError, ValueError):
+        value = 300.0
+    return max(5.0, min(value, 86400.0))
+
+
 class MemoryManager:
     """Owns L1/L2 access and the L3 archive (text + optional vec0).
 
@@ -1368,6 +1508,10 @@ class MemoryManager:
                 or schema_rebuilt)   # MCA-07 D4/v18 + B-MCA07-1
             fire_and_forget(self.backfill_archive_vectors(), "backfill")
             fire_and_forget(self.backfill_graph_fact_vectors(), "backfill_graph")
+            # ASAP-3.2 (T-4191, ADR-1028-5 D1/D2): building-поколение с
+            # текущим fingerprint → resumable shadow rebuild (background,
+            # НЕ блокирует startup; §7/§64/§85).
+            fire_and_forget(self._recover_runtime_jobs(), "runtime_recovery")
             return True
         except Exception:
             self._vec_off_reason = "extension"
@@ -1511,6 +1655,23 @@ class MemoryManager:
         is_active = str(latest.get("status") or "") == "active"
         if is_active and str(latest.get("fingerprint") or "") == current:
             return True
+        # ASAP-3.2 (§8/§67): BUILDING — ожидаемое состояние идущего rebuild,
+        # НЕ «новая авария» на каждый вызов: первый WARNING → далее DEBUG
+        # (коалесинг); повторный WARNING — при смене состояния или cooldown.
+        state = (str(latest.get("status") or ""),
+                 str(latest.get("fingerprint") or "")[:12])
+        now_mono = time.monotonic()
+        prev = _GEN_LOG_STATE.get(index_name)
+        cooldown = _gen_log_cooldown()
+        if prev is not None and prev[0] == state and \
+                (now_mono - prev[1]) < cooldown:
+            logger.debug(
+                "SmartModule: embedding generation not serviceable "
+                "(coalesced) | index=%s | status=%s | gen_fp=%s new_fp=%s "
+                "— FTS-only (A06)", index_name, latest.get("status"),
+                str(latest.get("fingerprint"))[:12], current[:12])
+            return False
+        _GEN_LOG_STATE[index_name] = (state, now_mono)
         logger.warning(
             "SmartModule: embedding generation not serviceable | index=%s | "
             "status=%s | gen_fp=%s new_fp=%s — FTS-only (A06)", index_name,
@@ -1791,6 +1952,7 @@ class MemoryManager:
                 activate=(not vec_preexisting) or schema_rebuilt)   # MCA-07 D4/v18
             fire_and_forget(self.backfill_archive_vectors(), "backfill")
             fire_and_forget(self.backfill_graph_fact_vectors(), "backfill_graph")
+            fire_and_forget(self._recover_runtime_jobs(), "runtime_recovery")
             return True
 
     async def backfill_archive_vectors(self) -> int:
@@ -1894,6 +2056,19 @@ class MemoryManager:
         except Exception:
             logger.warning("SmartModule graph backfill: failed", exc_info=True)
             return 0
+
+    async def _recover_runtime_jobs(self) -> None:
+        """ASAP-3.2 (T-4191, ADR-1028-5 D2): startup-recovery GraphRAG
+        shadow rebuild — building-поколение с текущим fingerprint →
+        resume/checkpoint (background, НЕ блокирует startup — §7/§85).
+        Durable media jobs recovery (§30) — в bot.on_startup (не зависит от
+        summary-гейта). Fail-open; вызывается ТОЛЬКО через fire_and_forget."""
+        try:
+            from services.graphrag_rebuild import maybe_schedule_rebuilds
+            await maybe_schedule_rebuilds(self)
+        except Exception:
+            logger.warning("SmartModule: graphrag rebuild schedule failed",
+                           exc_info=True)
 
     async def _insert_graph_vec_row(self, fact_id, chat_id, fact, origin,
                                     expires_at, vector) -> None:
@@ -2910,17 +3085,22 @@ class MemoryManager:
             return []
 
     async def rerank_rag_facts(self, query: str, facts: list) -> list:
-        """F4/T-810 (spec §3.F4, образец search_service._rerank_results Epic 65):
-        LLM-фильтр кандидатов direct-RAG после F1/F2, ПЕРЕД рендером.
-        Кандидаты сериализуются нумерованным списком '1. [{label}] {date}
-        {text}' (формат F3); ответ парсится regex «\\d+»; выжившие факты
-        сохраняют исходный rel-порядок, остальные отбрасываются.
+        """F4/T-810 (spec §3.F4): LLM-фильтр кандидатов direct-RAG после F1/F2,
+        ПЕРЕД рендером. Кандидаты сериализуются нумерованным списком
+        '1. [{label}] {date} {text}' (формат F3); выжившие факты сохраняют
+        исходный rel-порядок.
 
-        MCA-07 (T-3846, ADR-1027-7 D3): при `MCA_TYPED_RERANKER_ENABLED` ON
-        результат типизирован — валидный пустой выбор → ПУСТО (не все
-        кандидаты); `invalid`/`timeout`/`error` → детерминированный
-        pre-rerank-bounded fallback (retrieval-порядок, top-k); порядок =
-        оценке. OFF → прежнее fail-open поведение (паритет baseline).
+        ASAP-3.2 (T-4193, §10–§12, ADR-1028-5 D3): строгий JSON-контракт
+        `{"selected":[...]}` + robust-парсер (JSON → fences → substring →
+        legacy numeric; детерминированный локальный repair, второй
+        LLM-вызов ради formatting запрещён); acceptance ТОЛЬКО in-range
+        candidate IDs (`select_by_rerank`); валидный пустой выбор → ПУСТО;
+        `invalid`/`timeout`/`error` → детерминированный pre-rerank-bounded
+        fallback (retrieval-порядок, top-k). Observability §12:
+        candidate_count/selected_count/parser status/provider/model/
+        latency/response_format/fallback + метрика `rerank_invalid_rate`
+        (сырые приватные факты НЕ логируются — Q9). OFF typed-гейта →
+        прежнее fail-open поведение (паритет baseline).
         Вызывается ТОЛЬКО при flags.chat_rag_rerank_enabled=True."""
         if not facts:
             return facts
@@ -2928,6 +3108,7 @@ class MemoryManager:
         candidates = "\n".join(
             f"{i}. {_format_origin_labeled_line(item)}"
             for i, item in enumerate(facts, 1))
+        started = time.monotonic()
         try:
             raw = await self.llm.generate([
                 {"role": "system", "content": _CHAT_RAG_RERANK_SYSTEM_PROMPT},
@@ -2936,16 +3117,23 @@ class MemoryManager:
                     f"<candidates>\n{candidates}\n</candidates>")},
             ])
         except Exception as exc:
+            latency_ms = int((time.monotonic() - started) * 1000)
+            status = _mca_rc.classify_rerank_exception(exc)
+            provider, model = _llm_identity(self.llm)
+            _record_rerank_outcome(
+                status, status=status, provider=provider, model=model,
+                latency_ms=latency_ms, candidate_count=len(facts),
+                fallback=True)
             logger.warning(
                 "graphrag RAG: chat rerank failed ('%s') — %s",
                 type(exc).__name__,
                 "typed bounded fallback" if typed else "original facts")
             if typed:
-                return self._typed_rerank_fallback(
-                    facts, _mca_rc.classify_rerank_exception(exc), exc)
+                return self._typed_rerank_fallback(facts, status, exc)
             return facts
+        latency_ms = int((time.monotonic() - started) * 1000)
         if typed:
-            return self._typed_rerank_apply(facts, raw)
+            return self._typed_rerank_apply(facts, raw, latency_ms)
         picked = {int(n) for n in re.findall(r"\d+", str(raw or ""))
                   if 1 <= int(n) <= len(facts)}
         if not picked:
@@ -2956,36 +3144,70 @@ class MemoryManager:
                     len(facts), len(picked))
         return [item for i, item in enumerate(facts, 1) if i in picked]
 
-    def _typed_rerank_apply(self, facts: list, raw) -> list:
-        """MCA-07 (T-3846): типизированное применение ответа reranker.
+    def _typed_rerank_apply(self, facts: list, raw,
+                            latency_ms: int = 0) -> list:
+        """ASAP-3.2 (T-4193): типизированное применение ответа reranker.
 
-        ``ok`` → выбранные в порядке оценки; ``empty`` (валидный пустой) →
-        **пусто** (НЕ все кандидаты, A05); ``invalid`` → детерминированный
-        bounded pre-rerank-fallback. Событие стадии `reranker` (REUSE mca-13)."""
-        status, numbers = _mca_rc.classify_rerank_response(raw)
-        result = _mca_rc.select_by_rerank(facts, status, numbers)
+        Robust-парсер (JSON/fences/legacy numeric) → ``ok`` (in-range)/
+        ``empty`` (валидный пустой → ПУСТО, A05)/``invalid`` → bounded
+        pre-rerank-fallback. Событие стадии `reranker` (REUSE mca-13) с
+        safe-полями §12 (БЕЗ raw-текста/фактов — Q9)."""
+        provider, model = _llm_identity(self.llm)
+        kind, numbers, mode = parse_rerank_selected(raw)
+        if kind == "empty":
+            _record_rerank_outcome("empty", status="empty",
+                                   provider=provider, model=model,
+                                   latency_ms=latency_ms,
+                                   candidate_count=len(facts),
+                                   selected_count=0, response_format=mode,
+                                   fallback=False)
+            logger.info("graphrag RAG: chat rerank(typed) valid EMPTY | %d "
+                        "facts -> 0 (не все кандидаты) | mode=%s",
+                        len(facts), mode)
+            _mca_rc.emit_stage_event(
+                "reranker", "success", reason_code="retrieval_empty",
+                candidate_count=len(facts), selected_count=0,
+                model=model, provider=provider, latency_ms=latency_ms,
+                response_format=mode, fallback=False)
+            return []
+        status = _mca_rc.RERANK_OK if kind == "ok" else _mca_rc.RERANK_INVALID
+        # Номера в ответе LLM — 1-based ПОЗИЦИИ отрендеренного списка
+        # ('1. ...', формат F3), а НЕ `candidate["id"]` (у продовых фактов id
+        # — row-id graph_facts; позиционный маппинг обязателен, иначе
+        # валидный ответ терял бы все кандидаты). Range-acceptance — по
+        # позиции (1..N), что и есть «только in-range candidate IDs» §11.
+        result = _mca_rc.select_by_rerank(
+            facts, status, numbers,
+            id_of=lambda candidate, index: str(index + 1))
         if result.status == _mca_rc.RERANK_OK:
             # Порядок = оценке (по selected), а не входному.
             by_pos = {str(i + 1): item for i, item in enumerate(facts)}
             kept = [by_pos[item.id] for item in result.selected
                     if item.id in by_pos]
-            logger.info("graphrag RAG: chat rerank(typed) OK | %d -> %d facts",
-                        len(facts), len(kept))
-            _mca_rc.emit_stage_event("reranker", "success",
-                                     candidate_count=len(facts),
-                                     selected_count=len(kept))
+            _record_rerank_outcome("ok", status="ok", provider=provider,
+                                   model=model, latency_ms=latency_ms,
+                                   candidate_count=len(facts),
+                                   selected_count=len(kept),
+                                   response_format=mode, fallback=False)
+            logger.info("graphrag RAG: chat rerank(typed) OK | %d -> %d facts"
+                        " | mode=%s | latency_ms=%d", len(facts), len(kept),
+                        mode, latency_ms)
+            _mca_rc.emit_stage_event(
+                "reranker", "success", candidate_count=len(facts),
+                selected_count=len(kept), model=model, provider=provider,
+                latency_ms=latency_ms, response_format=mode, fallback=False)
             return kept
-        if result.status == _mca_rc.RERANK_EMPTY:
-            logger.info("graphrag RAG: chat rerank(typed) valid EMPTY | %d "
-                        "facts -> 0 (не все кандидаты)", len(facts))
-            _mca_rc.emit_stage_event("reranker", "success",
-                                     reason_code="retrieval_empty",
-                                     candidate_count=len(facts))
-            return []
-        # invalid → детерминированный bounded pre-rerank-fallback.
-        return self._typed_rerank_fallback(facts, result.status, None)
+        # invalid (prose / вне диапазона) → детерминированный bounded
+        # pre-rerank-fallback; сам факт invalid — наблюдаемое событие.
+        return self._typed_rerank_fallback(facts, result.status, None,
+                                           latency_ms=latency_ms,
+                                           response_format=mode,
+                                           provider=provider, model=model)
 
-    def _typed_rerank_fallback(self, facts: list, status: str, exc) -> list:
+    def _typed_rerank_fallback(self, facts: list, status: str, exc,
+                               *, latency_ms: int = 0,
+                               response_format: str = "",
+                               provider: str = "", model: str = "") -> list:
         """Детерминированный pre-rerank-порядок, ограниченный top_k (D3).
 
         Отдельно наблюдаемое состояние (статус + `reason_code`), НЕ «все
@@ -2994,12 +3216,24 @@ class MemoryManager:
         fallback = facts[:limit]
         reason = {"timeout": "rerank_timeout", "invalid": "rerank_invalid"}.get(
             status, "rerank_invalid")
+        _record_rerank_outcome(
+            "timeout" if status == "timeout" else
+            ("error" if status == "error" else "invalid"),
+            status=status, provider=provider, model=model,
+            latency_ms=latency_ms, candidate_count=len(facts),
+            selected_count=len(fallback),
+            response_format=response_format, fallback=True)
         logger.warning("graphrag RAG: chat rerank(typed) %s — bounded "
-                       "fallback | kept=%d/%d", status, len(fallback),
-                       len(facts))
+                       "fallback | kept=%d/%d | mode=%s | latency_ms=%d",
+                       status, len(fallback), len(facts), response_format,
+                       latency_ms)
         _mca_rc.emit_stage_event("reranker", "failed", reason_code=reason,
                                  candidate_count=len(facts),
-                                 selected_count=len(fallback))
+                                 selected_count=len(fallback),
+                                 latency_ms=latency_ms,
+                                 response_format=response_format,
+                                 model=model, provider=provider,
+                                 fallback=True)
         return fallback
 
     async def fetch_golden_facts(self, chat_id: int, query: str, *,

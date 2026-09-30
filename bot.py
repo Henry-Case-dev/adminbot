@@ -281,6 +281,37 @@ async def on_startup():
     await db.initialize()
     logger.info("Database initialized")
 
+    # ── ASAP-3.2 (T-4198, ADR-1028-5 D5): durable media jobs — SQLite db
+    # для `task_jobs` (REUSE v14, ΔDDL=0) + restart recovery (§30): известный
+    # provider job ID → resume polling; sync-only → честный
+    # `unknown_after_disconnect`; автоматический платный retry запрещён.
+    from services import media_execution
+    media_execution.bind_db(db)
+    try:
+        recovery = await media_execution.recover_media_jobs(db)
+        logger.info("[media] jobs recovery | %s", recovery)
+    except Exception:
+        logger.warning("[media] jobs recovery failed — fail-open",
+                       exc_info=True)
+
+    # ── ASAP-3.2 (T-4220, ADR-1028-5 D14, §98–§99): seed `Медведь Press` —
+    # инвариант установки, НЕ ручное deployment-действие: первый install →
+    # создаёт профиль/asset'ы; повторный deploy → no-op; отредактированный
+    # владельцем стиль НЕ перезатирается; удалённый владельцем НЕ
+    # воскрешается; прерванный seed → `COVER_STYLE_SEED_INCOMPLETE`.
+    # Fail-open: PG недоступен → WARNING, старт бота не роняем.
+    try:
+        _cache = hot.get_config_cache()
+        _pg = _cache.pg if _cache is not None else None
+        if _pg is not None and getattr(_pg, "pool", None) is not None:
+            from services.cover_style_registry import seed_seeded_style
+            seeded = await seed_seeded_style(_pg)
+            logger.info("[cover_styles] seed ensure | profile=%s",
+                        (seeded or {}).get("profile_id", "none"))
+    except Exception:
+        logger.warning("[cover_styles] seed ensure failed — fail-open",
+                       exc_info=True)
+
     # ── Раунд 5 (3.2.3/4.6.3, T-733): идемпотентный инжект лора чата
     # (экспорт-конференция 2661910336 → runtime chat_id -1002661910336;
     # protected_facts chat-level + graph_facts user_memory + FTS).

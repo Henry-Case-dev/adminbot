@@ -1439,6 +1439,46 @@ class DirectChatService:
                            exc_info=True)
             return False
 
+    async def _execute_silent_ack(self, bot, *, chat_id: int,
+                                  trigger_id: int | None,
+                                  reply_bot: bool, addressed: bool,
+                                  reason: str) -> None:
+        """ASAP-3.2 (ADR-1028-5 D11, §50): единый исполн conscious-SILENT.
+
+        🗿 — единственный hardcode реакции: ТОЛЬКО direct-autonomous
+        (reply_to_bot) ∧ addressed ∧ silent-ack гейты (env + per-chat);
+        фон/not_addressed → тишина без реакции. Логика идентична прежнему
+        inline-блоку (ASAP-3 D9) — метод извлечён для переиспользования
+        post-LLM SILENT-решением Decision Task. Fail-soft §28: отказ ack
+        логируется, SILENT остаётся SILENT, текст НЕ генерируется.
+        """
+        if not (reply_bot and addressed
+                and await self._silent_ack_enabled(chat_id)):
+            return
+        _composer.record_direct_metric("direct_autonomous_silent_total")
+        _ack_outcome = await react_moai(
+            bot, chat_id, trigger_id,
+            reaction=REACTION_MOAI,
+            reason_code=reason)
+        if _ack_outcome == "ok":
+            _composer.record_direct_metric(
+                "direct_silent_ack_success_total")
+            _composer.emit_direct_silent_ack(
+                chat_id=chat_id, target_message_id=trigger_id,
+                success=True, reason_code=reason)
+        else:
+            _composer.record_direct_metric(
+                "direct_silent_ack_failed_total")
+            _composer.emit_direct_silent_ack_failed(
+                chat_id=chat_id,
+                target_message_id=trigger_id,
+                error_code=_ack_outcome,
+                reason_code=reason)
+            logger.warning(
+                "[direct] silent ack failed | chat=%s "
+                "target=%s outcome=%s reason=%s",
+                chat_id, trigger_id, _ack_outcome, reason)
+
     async def _autonomous_reply_enabled(self, chat_id: int) -> bool:
         """ASAP-3 (D10): per-chat `flags.chat_autonomous_reply_enabled`
         (default ON). False → reply-to-bot этого чата всегда текстовый ответ
@@ -1654,6 +1694,12 @@ class DirectChatService:
             pre_reaction = None
             pre_target = None
             react_llm_pending = False
+            # ASAP-3.2 (ADR-1028-5 D11): REPLY/REACT/SILENT решает LLM в
+            # Stage-1 (Decision Task); прежний матричный исход — только
+            # детерминированный fallback/features. OFF (env/per-chat) →
+            # байт-в-байт прежний алгоритмический decision.
+            decision_llm_pending = False
+            _decision_allowed_actions: tuple = ("REPLY",)
             _dctx = None
             if decision_on:
                 _dctx = await self._decision_context(chat_id, message, query)
@@ -1690,6 +1736,30 @@ class DirectChatService:
                     if pre_action == ACTION_REACT:
                         _composer.record_direct_metric(
                             "direct_autonomous_react_total")
+                    # ── ASAP-3.2 (ADR-1028-5 D11, §47–§48): LLM решает
+                    # действие в Stage-1 Decision Task. Демотированная
+                    # матрица = features/детерминированный fallback.
+                    # Продуктовые правила — runtime allowed-set (§51):
+                    # REACT только при включённых реакциях, SILENT только
+                    # при ignore_trivial; реальные задачи (demoted REPLY)
+                    # не глушатся (§43) — decision task не вводится.
+                    # §50/§48: фон/not_addressed silence (не reply_bot) —
+                    # дешёвый hard gate, БЕЗ LLM («background silence →
+                    # ничего»); conscious SILENT — только direct-autonomous.
+                    if _llm_react.llm_decision_enabled(
+                            bool(_toggles.reactions)) and (
+                            pre_action == ACTION_REACT
+                            or (pre_action == ACTION_SILENT
+                                and _reply_bot)):
+                        decision_llm_pending = True
+                        _actions: list = ["REPLY"]
+                        if _toggles.reactions:
+                            _actions.append("REACT")
+                        if _toggles.ignore_trivial:
+                            _actions.append("SILENT")
+                        if pre_action not in _actions:
+                            _actions.append(pre_action)
+                        _decision_allowed_actions = tuple(_actions)
                 # A9 (D5/D6): DECISION_COMPLETE — уже принятое решение
                 # (A9 только наблюдает; политика A7 не дублируется). ASAP-3:
                 # аддитивные поля trigger_type/force_reply_required/
@@ -1702,7 +1772,7 @@ class DirectChatService:
                     force_reply_required=_force_required,
                     message_class=_decision_message_class(query),
                     duration_ms=int((time.monotonic() - _p_started) * 1000))
-                if pre_action == ACTION_SILENT:
+                if pre_action == ACTION_SILENT and not decision_llm_pending:
                     _log_decision_short_circuit(
                         chat_id=chat_id, action=ACTION_SILENT,
                         reason_code=pre_reason, target_id=pre_target)
@@ -1717,40 +1787,18 @@ class DirectChatService:
                     # (reply_to_bot) ∧ addressed ∧ decision executed ∧ финал
                     # SILENT + гейты (env + per-chat). Запрещён на фоне/
                     # not_addressed/тех-ветках (те до decision не доходят).
-                    if _reply_bot and _dctx is not None and _dctx.addressed \
-                            and await self._silent_ack_enabled(chat_id):
-                        _composer.record_direct_metric(
-                            "direct_autonomous_silent_total")
-                        _ack_outcome = await react_moai(
-                            bot, chat_id, _trigger_id,
-                            reaction=REACTION_MOAI,
-                            reason_code=pre_reason)
-                        if _ack_outcome == "ok":
-                            _composer.record_direct_metric(
-                                "direct_silent_ack_success_total")
-                            _composer.emit_direct_silent_ack(
-                                chat_id=chat_id, target_message_id=_trigger_id,
-                                success=True, reason_code=pre_reason)
-                        else:
-                            # §28 fail-soft: SILENT остаётся SILENT, отказ
-                            # логируется, текст НЕ генерируется.
-                            _composer.record_direct_metric(
-                                "direct_silent_ack_failed_total")
-                            _composer.emit_direct_silent_ack_failed(
-                                chat_id=chat_id,
-                                target_message_id=_trigger_id,
-                                error_code=_ack_outcome,
-                                reason_code=pre_reason)
-                            logger.warning(
-                                "[direct] silent ack failed | chat=%s "
-                                "target=%s outcome=%s reason=%s",
-                                chat_id, _trigger_id, _ack_outcome,
-                                pre_reason)
+                    await self._execute_silent_ack(
+                        bot, chat_id=chat_id, trigger_id=_trigger_id,
+                        reply_bot=_reply_bot,
+                        addressed=(_dctx is not None and _dctx.addressed),
+                        reason=pre_reason)
                     return
-                if pre_action == ACTION_REACT:
+                if pre_action == ACTION_REACT and not decision_llm_pending:
                     # ── ASAP-3.1 (ADR-1028-3 D7, §30–§31): LLM выбирает emoji
                     # в том же Stage-1 (без второго LLM request); kill-switch
                     # OFF (env или per-chat) → байт-в-байт прежний шорт-кат.
+                    # (При D11-ON действие решает Decision Task — блок не
+                    # выполняется, см. decision_llm_pending выше.)
                     if _llm_react.llm_reaction_enabled(
                             bool(_toggles.reactions)):
                         react_llm_pending = True
@@ -1937,9 +1985,34 @@ class DirectChatService:
                         outcome=_reaction_outcome, reaction=reaction,
                         reason=pre_reason)
                 return
+            # ── ASAP-3.2 (ADR-1028-5 D11, §47/§52): Decision Task в ТОТ ЖЕ
+            # Stage-1 (один вызов: REPLY отвечает текстом, REACT/SILENT —
+            # JSON-решением; второго LLM-call нет). Парсинг решения — ПОСЛЕ
+            # генерации (ниже, перед отправкой текста).
+            if decision_llm_pending:
+                payload = _llm_react.inject_decision_task(
+                    payload, _decision_allowed_actions,
+                    _llm_react.ALLOWED_LLM_REACTIONS)
             try:
                 async with typing_active(bot, chat_id):
                     if self.tool_router is not None:
+                        # ASAP-3.2 (ADR-1028-5 D10, §44/§45): fallback
+                        # recompose на tool-пути — tool schemas ВХОДЯТ в
+                        # бюджет fallback-окна (резерв вычитается до
+                        # recompose); payload с tools под primary-окно
+                        # больше не уходит fallback-модели молча.
+                        _fb_factory = _fallback_meta.get("adapter_factory")
+                        _fb_adapter = None
+                        if _fb_factory is not None:
+                            try:
+                                _tools_for_budget = active_tools(
+                                    bool(lore_enabled), bool(image_enabled))
+                                _tools_tokens = count_tokens(json.dumps(
+                                    _tools_for_budget, ensure_ascii=False))
+                            except Exception:
+                                _tools_tokens = 0
+                            _fb_adapter = _fb_factory(
+                                time_line, extra_reserve=_tools_tokens)
                         raw = await chat_with_tools(
                             self.llm, payload,
                             tools=active_tools(bool(lore_enabled),
@@ -1947,7 +2020,8 @@ class DirectChatService:
                             router=self.tool_router, ctx=tool_ctx,
                             temperature=temperature, chat_id=chat_id,
                             module="direct_chat",
-                            correlation_id=correlation_id)
+                            correlation_id=correlation_id,
+                            fallback_payload_adapter=_fb_adapter)
                     else:
                         # ASAP-3.1 §14/§42: fallback recompose — при
                         # переключении на fallback-модель payload
@@ -1985,6 +2059,174 @@ class DirectChatService:
                     chat_id, target_name, exc)
                 await react_moai(bot, chat_id, message.message_id)
                 return
+            # ── ASAP-3.2 (ADR-1028-5 D11, §47/§50/§51): парсинг решения
+            # Decision Task из ТОГО ЖЕ вызова. REPLY-текст идёт прежним
+            # reply-путём; REACT/SILENT — короткое замыкание до отправки
+            # текста. Невалидно → детерминированный fallback (§51);
+            # пустой/деградированный ответ — не decision.
+            if decision_llm_pending and not (
+                    isinstance(raw, ToolLoopResult) and raw.degraded):
+                _decision = _llm_react.extract_llm_decision(str(raw))
+                if _decision is not None:
+                    _llm_react.record_decision_outcome(
+                        source="llm", action=_decision["action"])
+                    if _decision["action"] == "INVALID":
+                        # §51: попытка decision JSON не распарсилась —
+                        # детерминированный fallback demoted-матрицы,
+                        # мусор текстом НЕ отправляется.
+                        logger.warning(
+                            "[direct] decision json invalid — fallback | "
+                            "chat=%s | demoted=%s", chat_id, pre_action)
+                        if pre_action == ACTION_REACT:
+                            _reaction = (pre_reaction or _reaction_for_class(
+                                _decision_message_class(query),
+                                getattr(message, "message_id", None)))
+                            _llm_react.record_react_outcome(
+                                source="deterministic", reaction=_reaction)
+                            _llm_react.emit_direct_react(
+                                chat_id=chat_id, message_id=pre_target,
+                                reaction=_reaction, source="deterministic",
+                                trigger_type=_trigger_type)
+                            _reaction_outcome = await react_moai(
+                                bot, chat_id, pre_target, reaction=_reaction,
+                                reason_code=pre_reason)
+                            emit_agentic_event(
+                                "REACTION_SENT", run_id=correlation_id,
+                                chat_id=chat_id, message_id=pre_target,
+                                outcome=_reaction_outcome,
+                                reaction=_reaction, reason=pre_reason)
+                        return
+                    _dec_act = _decision["action"]
+                    if _dec_act == "REACT":
+                        _react_valid = (
+                            "REACT" in _decision_allowed_actions
+                            and _decision.get("reaction")
+                            in _llm_react.ALLOWED_LLM_REACTIONS)
+                        if _react_valid:
+                            _reaction = _decision["reaction"]
+                            _react_source = "llm_decision"
+                            _llm_react.record_react_outcome(
+                                source=_react_source, reaction=_reaction)
+                            _llm_react.emit_direct_react(
+                                chat_id=chat_id, message_id=pre_target,
+                                reaction=_reaction, source=_react_source,
+                                trigger_type=_trigger_type)
+                            _log_decision_short_circuit(
+                                chat_id=chat_id, action=ACTION_REACT,
+                                reason_code=pre_reason,
+                                target_id=pre_target, reaction=_reaction)
+                            _reaction_outcome = await react_moai(
+                                bot, chat_id, pre_target, reaction=_reaction,
+                                reason_code=pre_reason)
+                            emit_agentic_event(
+                                "REACTION_SENT", run_id=correlation_id,
+                                chat_id=chat_id, message_id=pre_target,
+                                outcome=_reaction_outcome,
+                                reaction=_reaction, reason=pre_reason)
+                            return
+                        # §51: invalid → детерминированный safe fallback:
+                        # demoted REACT — его реакция; иначе тишина без
+                        # JSON-мусора пользователю.
+                        if pre_action == ACTION_REACT:
+                            _reaction = pre_reaction or _reaction_for_class(
+                                _decision_message_class(query),
+                                getattr(message, "message_id", None))
+                            _llm_react.record_react_outcome(
+                                source="deterministic", reaction=_reaction)
+                            _llm_react.emit_direct_react(
+                                chat_id=chat_id, message_id=pre_target,
+                                reaction=_reaction, source="deterministic",
+                                trigger_type=_trigger_type)
+                            _reaction_outcome = await react_moai(
+                                bot, chat_id, pre_target, reaction=_reaction,
+                                reason_code=pre_reason)
+                            emit_agentic_event(
+                                "REACTION_SENT", run_id=correlation_id,
+                                chat_id=chat_id, message_id=pre_target,
+                                outcome=_reaction_outcome,
+                                reaction=_reaction, reason=pre_reason)
+                            return
+                        logger.warning(
+                            "[direct] decision REACT invalid — silence | "
+                            "chat=%s", chat_id)
+                        return
+                    if _dec_act == "SILENT":
+                        if "SILENT" not in _decision_allowed_actions:
+                            # Продуктовое правило: SILENT недоступен →
+                            # детерминированный fallback прежней матрицы.
+                            if pre_action == ACTION_REACT:
+                                _reaction = pre_reaction or \
+                                    _reaction_for_class(
+                                        _decision_message_class(query),
+                                        getattr(message, "message_id", None))
+                                _llm_react.record_react_outcome(
+                                    source="deterministic",
+                                    reaction=_reaction)
+                                _llm_react.emit_direct_react(
+                                    chat_id=chat_id, message_id=pre_target,
+                                    reaction=_reaction,
+                                    source="deterministic",
+                                    trigger_type=_trigger_type)
+                                _reaction_outcome = await react_moai(
+                                    bot, chat_id, pre_target,
+                                    reaction=_reaction,
+                                    reason_code=pre_reason)
+                                emit_agentic_event(
+                                    "REACTION_SENT",
+                                    run_id=correlation_id,
+                                    chat_id=chat_id,
+                                    message_id=pre_target,
+                                    outcome=_reaction_outcome,
+                                    reaction=_reaction, reason=pre_reason)
+                                return
+                            return      # demoted SILENT/REPLY → тишина
+                        # §50: conscious LLM SILENT; 🗿 — hardcode
+                        # direct-autonomous конъюнкции, фон — тишина.
+                        _log_decision_short_circuit(
+                            chat_id=chat_id, action=ACTION_SILENT,
+                            reason_code="llm_decision", target_id=pre_target)
+                        emit_agentic_event(
+                            "MESSAGE_IGNORED", run_id=correlation_id,
+                            chat_id=chat_id, message_id=_trigger_id,
+                            action=ACTION_SILENT, reason="llm_decision",
+                            target=pre_target)
+                        await self._execute_silent_ack(
+                            bot, chat_id=chat_id,
+                            trigger_id=_trigger_id,
+                            reply_bot=_reply_bot,
+                            addressed=(_dctx is not None
+                                       and _dctx.addressed),
+                            reason=pre_reason)
+                        return
+                    # action == REPLY: JSON без текста → прежний текст не
+                    # сгенерирован; детерминированный fallback прежней
+                    # матрицы (§51), НЕ отправляем JSON-мусор пользователю.
+                    logger.warning(
+                        "[direct] decision REPLY without text — fallback | "
+                        "chat=%s | demoted=%s", chat_id, pre_action)
+                    if pre_action == ACTION_REACT:
+                        _reaction = pre_reaction or _reaction_for_class(
+                            _decision_message_class(query),
+                            getattr(message, "message_id", None))
+                        _llm_react.record_react_outcome(
+                            source="deterministic", reaction=_reaction)
+                        _llm_react.emit_direct_react(
+                            chat_id=chat_id, message_id=pre_target,
+                            reaction=_reaction, source="deterministic",
+                            trigger_type=_trigger_type)
+                        _reaction_outcome = await react_moai(
+                            bot, chat_id, pre_target, reaction=_reaction,
+                            reason_code=pre_reason)
+                        emit_agentic_event(
+                            "REACTION_SENT", run_id=correlation_id,
+                            chat_id=chat_id, message_id=pre_target,
+                            outcome=_reaction_outcome, reaction=_reaction,
+                            reason=pre_reason)
+                        return
+                    return      # SILENT/REPLY-fallback → тишина (fail-soft)
+                # Ответ НЕ decision JSON → это СОЗНАТЕЛЬНЫЙ REPLY текстом
+                # (Decision Task: «если решаешь REPLY — напиши обычный
+                # ответ»). Идёт по прежнему reply-путю ниже.
             if isinstance(raw, ToolLoopResult) and raw.degraded:
                 # БЛОК 7.1 (T-1919): деградация tool-цикла — ответ уже есть
                 # (частичный/заглушка), но фиксируем для наблюдаемости (R17).
@@ -2089,6 +2331,33 @@ class DirectChatService:
             if self._breaker is not None:
                 self._breaker.on_success()
         except LLMError as exc:
+            if decision_llm_pending:
+                # ADR-1028-5 D11 (§51 fail-soft): LLM-решение недоступно →
+                # детерминированный fallback прежней матрицы (реакция/
+                # тишина), пользователь не видит ошибки.
+                logger.warning(
+                    "[direct] llm decision failed — deterministic fallback "
+                    "| chat=%s | demoted=%s | error=%s",
+                    chat_id, pre_action, exc)
+                if pre_action == ACTION_REACT:
+                    _reaction = pre_reaction or _reaction_for_class(
+                        _decision_message_class(query),
+                        getattr(message, "message_id", None))
+                    _llm_react.record_react_outcome(source="deterministic",
+                                                    reaction=_reaction)
+                    _llm_react.emit_direct_react(
+                        chat_id=chat_id, message_id=pre_target,
+                        reaction=_reaction, source="deterministic",
+                        trigger_type=_trigger_type)
+                    _reaction_outcome = await react_moai(
+                        bot, chat_id, pre_target, reaction=_reaction,
+                        reason_code=pre_reason)
+                    emit_agentic_event(
+                        "REACTION_SENT", run_id=correlation_id,
+                        chat_id=chat_id, message_id=pre_target,
+                        outcome=_reaction_outcome, reaction=_reaction,
+                        reason=pre_reason)
+                return
             logger.warning("[direct] LLM failed | chat=%s | user=%s | error=%s",
                            chat_id, target_name, exc)
             await _reply(bot, chat_id, random.choice(CHAT_ERROR_PHRASES),
@@ -2963,12 +3232,20 @@ class DirectChatService:
         # ── ASAP-3.1 §14/§42: fallback recompose factory ───────────────────
         # При переключении на fallback с меньшим окном payload пересобирается
         # под ЕГО бюджет (P0 сохраняется; pressure/overflow observable).
+        # ASAP-3.2 (ADR-1028-5 D10, §45): ``extra_reserve`` — токены tool
+        # schemas (обязательная часть mandatory payload), вычитаются из
+        # fallback-бюджета ДО recompose — tool schemas входят в fallback
+        # budget наравне с system/persona/messages.
         if out_fallback is not None and fallback_recompose_budget is not None:
-            def _fallback_adapter_factory(time_line: str | None):
+            def _fallback_adapter_factory(time_line: str | None,
+                                          extra_reserve: int = 0):
                 def _adapt(incoming: dict):
                     try:
+                        _fb_budget = fallback_recompose_budget
+                        if extra_reserve:
+                            _fb_budget = max(1, _fb_budget - int(extra_reserve))
                         fb_allocation = _composer.allocate_budget(
-                            _new_pieces(), fallback_recompose_budget,
+                            _new_pieces(), _fb_budget,
                             truncator=self._composer_truncate)
                         fb_texts, _ = _finalize_allocation(fb_allocation)
                         blocks = ([time_line] if time_line else []) + fb_texts
@@ -2977,19 +3254,25 @@ class DirectChatService:
                         adapted["messages"] = [
                             {"role": "system",
                              "content": str(messages[0].get("content", "")
-                                            if messages else "")},
+                                             if messages else "")},
                             {"role": "user",
                              "content": "\n\n".join(blocks)},
                         ]
                         logger.info(
                             "direct: fallback recompose | chat=%s | "
-                            "budget=%d | blocks=%d", chat_id,
-                            fallback_recompose_budget, len(fb_texts))
+                            "budget=%d | tools_reserve=%d | blocks=%d",
+                            chat_id, _fb_budget, int(extra_reserve or 0),
+                            len(fb_texts))
                         return adapted
                     except Exception:
+                        # ADR-1028-5 D10 (усиление): recompose failure —
+                        # громкая oversized-risk диагностика (НЕ тихий
+                        # fail-open); payload отправляется прежний (сервис
+                        # не рвём, паритет fail-open ASAP-3.1).
                         logger.warning(
-                            "direct: fallback recompose failed — primary "
-                            "payload | chat=%s", chat_id, exc_info=True)
+                            "direct: fallback recompose FAILED — primary "
+                            "payload SENT AS-IS | oversized_risk=1 | "
+                            "chat=%s", chat_id, exc_info=True)
                         return incoming
                 return _adapt
             try:

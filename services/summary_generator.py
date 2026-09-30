@@ -931,10 +931,54 @@ class SummaryGenerator:
                 return
             stage = "l2"
             service = (package_result.package or {}).get("service") or {}
-            l2_result = await run_l2(
-                self.llm, package_result.package, service=service,
-                correlation_id=correlation_id, chat_id=chat_id)
-            calls_so_far += 1
+            # ASAP-3.2 (ADR-1028-5 D8, §39): paged L2 — если редуцированный
+            # пакет не влез в бюджет одного вызова, L2 вызывается ПО
+            # СТРАНИЦАМ (chained/paged), документы объединяются; НИ ОДИН
+            # уникальный элемент пакета не выбрасывается.
+            _pages = getattr(package_result, "pages", ()) or ()
+            if _pages:
+                from services.summary_l2_writer import L2Result as _L2Result
+                _documents: list = []
+                _page_fail = None
+                for _page in _pages:
+                    _page_result = await run_l2(
+                        self.llm, _page, service=service,
+                        correlation_id=correlation_id, chat_id=chat_id)
+                    calls_so_far += 1
+                    if not _page_result.usable:
+                        _page_fail = _page_result
+                        break
+                    _documents.append(_page_result.document)
+                if _page_fail is not None:
+                    l2_result = _page_fail
+                else:
+                    _merged_paragraphs: list = []
+                    _title = ""
+                    _finale = None
+                    for _doc in _documents:
+                        if not _title:
+                            _title = str((_doc or {}).get("title") or "")
+                        _merged_paragraphs.extend(
+                            (_doc or {}).get("paragraphs") or [])
+                        if (_doc or {}).get("finale"):
+                            _finale = (_doc or {}).get("finale")
+                    _merged_doc = {"schema_version": 1,
+                                   "title": _title,
+                                   "paragraphs": _merged_paragraphs}
+                    if _finale:
+                        _merged_doc["finale"] = _finale
+                    l2_result = _L2Result(
+                        status="ok", document=_merged_doc,
+                        invalid_reason=None, usage=None,
+                        metrics={"pages": len(_pages)}, duration_ms=0.0)
+                logger.info(
+                    "L2_PAGED | run_id=%s | chat_id=%s | pages=%d",
+                    correlation_id or "none", chat_id, len(_pages))
+            else:
+                l2_result = await run_l2(
+                    self.llm, package_result.package, service=service,
+                    correlation_id=correlation_id, chat_id=chat_id)
+                calls_so_far += 1
             if not l2_result.usable:
                 # Матрица строка 6: L2 unusable (обычный И fallback-пакет) →
                 # LEVEL-3 Legacy; L2 correction retry НЕ вводится (Q2/ADR D3).

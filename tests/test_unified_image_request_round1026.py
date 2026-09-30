@@ -569,12 +569,24 @@ class TestBoundsA3:
         # set-equal — A5 санкционированно оборачивает его жизненным циклом
         # `reserve → generate → commit/release` (§29) вокруг НЕИЗМЕННОГО
         # генератора; сам платный вызов `generate`/провайдер §104 — SAME.
+        # NOTE (ASAP-3.2, ADR-1028-5 D5, T-4197/T-4199): `generate` и
+        # `generate_image_verbose` санкционированно переведены с трёх
+        # независимых env-wall-clock окон (90/180 как «три истины») на
+        # единую MediaExecutionPolicy (adaptive deadline, §22–§28;
+        # hard ceiling — safety fuse, не первый механизм смерти). Провайдер-
+        # канон (`_generate_post`/`_generate_get`, payload `{prompt, model,
+        # n:1}`) и R17-классы причин НЕ меняются — исключаем обе функции из
+        # byte-identity по прецеденту A5; `generate_image`/`extract_prompt`/
+        # `is_image_keyword` — по-прежнему байт-в-байт.
         rel = "services/image_generation.py"
         old_src = self._baseline_file(rel)
         new_src = (self._root() / rel).read_text(encoding="utf-8")
         names = {"generate", "generate_image",
                  "generate_image_verbose", "extract_prompt",
                  "is_image_keyword"}
+        # См. NOTE выше: ASAP-3.2 санкционировал policy-перевод этих двух.
+        names.discard("generate")
+        names.discard("generate_image_verbose")
         old_fns = self._fn_dump(old_src, names)
         new_fns = self._fn_dump(new_src, names)
         assert set(old_fns) == set(new_fns), old_fns.keys()
@@ -666,7 +678,7 @@ class TestBoundsA3:
         import dataclasses
         from services import param_catalog as pc
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.39"            # bump запрещён (D8)
+        assert APP_VERSION == "2.58.40"            # bump запрещён (D8)
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in pc.REGISTRY
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}

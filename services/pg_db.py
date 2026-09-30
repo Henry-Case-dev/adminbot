@@ -473,6 +473,22 @@ DDL_STATEMENTS: tuple[str, ...] = (
     CREATE INDEX IF NOT EXISTS idx_cover_style_prov_run
         ON cover_style_provenance (summary_run_id);
     """,
+    # ── ASAP-3.2 (ADR-1028-5 D14, §103–§105): Image Connection — реальная
+    # сущность подключения (id/provider/base_url/api_key); Style Profile
+    # хранит ТОЛЬКО FK connection_id (не raw URL, не секрет). Аддитивный
+    # идемпотентный DDL (Δ-лист: +1 таблица cover_style_connections).
+    """
+    CREATE TABLE IF NOT EXISTS cover_style_connections (
+        connection_id TEXT PRIMARY KEY,
+        label         TEXT NOT NULL DEFAULT '',
+        provider      TEXT NOT NULL DEFAULT '',
+        base_url      TEXT NOT NULL,
+        api_key       TEXT NOT NULL DEFAULT '',
+        created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+        deleted_at    TIMESTAMPTZ
+    );
+    """,
 )
 
 # ── Сиды ────────────────────────────────────────────────────────────────────

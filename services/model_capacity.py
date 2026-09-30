@@ -57,9 +57,26 @@ ASAP-3.1 (round 1028, ADR-1028-3 D1, spec раздел 3) — Model Capacity Res
     * vLLM (локальный) — GET /model_info → `max_model_len` (config
       introspection); недоступен → registry + developer override (санкция
       spec Q8; НЕ выдумывать из имени модели).
-  Generic OpenAI-compatible (nano-gpt.com, api.deepseek.com) — adapter
-  отсутствует по определению протокола: registry → fallback; regex-угадывание
-  окна из имени запрещено (§6).
+
+  ASAP-3.2 (ADR-1028-5 D6/D7, T-4202/T-4203) — Text Capacity Resolver
+  расширение:
+    * NanoGPT (host nano-gpt.com) — ОТДЕЛЬНЫЙ provider adapter вместо
+      registry guess: live/public каталог `GET /api/v1/models?detailed=true`
+      (схема верифицирована по официальным docs: `context_length` /
+      `max_output_tokens` per model) → source=`provider_catalog`;
+      каталог недоступен → registry/fallback, Analytics честно показывает
+      source (§53);
+    * Direct DeepSeek (api.deepseek.com) — отдельная identity (не generic
+      host); machine-readable context catalog нет → verified official
+      registry entry, source=`verified_registry`, НЕ `provider_catalog`
+      (§54);
+    * OpenRouter adapter сохранён (§55); local runtime (llama.cpp/Ollama/
+      vLLM) сохранён (§19);
+    * Unknown provider — НЕ угадывается из URL (§56): лестница до
+      conservative fallback, source виден потребителям (§8 badge);
+    * Discovery timeout 2 с + TTL-кэш (Q9) — metadata fetch не задерживает
+      user requests; failure НЕ блокирует generation (§57); повторные
+      попытки — по TTL/инвалидации, не в hot path.
 """
 from __future__ import annotations
 
@@ -298,10 +315,13 @@ def apply_budget_policy(available: int, raw_budget,
 SOURCE_DEVELOPER_OVERRIDE = "developer_override"
 SOURCE_RUNTIME = "runtime"
 SOURCE_PROVIDER_CATALOG = "provider_catalog"
+SOURCE_VERIFIED_REGISTRY = "verified_registry"
 SOURCE_REGISTRY = "registry"
 SOURCE_FALLBACK = "fallback"
 
 PROVIDER_OPENROUTER = "openrouter"
+PROVIDER_NANOGPT = "nanogpt"
+PROVIDER_DEEPSEEK = "deepseek"
 PROVIDER_OLLAMA = "ollama"
 PROVIDER_LLAMA_CPP = "llamacpp"
 PROVIDER_VLLM = "vllm"
@@ -374,12 +394,21 @@ def _base_url_port(base_url: str) -> int | None:
 
 
 def detect_provider_class(base_url: str) -> str:
-    """Класс провайдера по base_url (Q8; без сети, детерминированно)."""
+    """Класс провайдера по base_url (Q8; без сети, детерминированно).
+
+    ASAP-3.2 (T-4202, ADR-1028-5 D6): NanoGPT и Direct DeepSeek — ОТДЕЛЬНЫЕ
+    identity (не generic host): nano-gpt.com → live catalog adapter;
+    api.deepseek.com → verified-registry identity (без machine-readable
+    catalog — источник честно `verified_registry`, НЕ `provider_catalog`)."""
     host = _base_url_host(base_url)
     if not host:
         return PROVIDER_GENERIC
     if "openrouter" in host:
         return PROVIDER_OPENROUTER
+    if "nano-gpt" in host:
+        return PROVIDER_NANOGPT
+    if host == "api.deepseek.com" or host.endswith(".deepseek.com"):
+        return PROVIDER_DEEPSEEK
     port = _base_url_port(base_url)
     if port == 11434 or host == "ollama" or host.startswith("ollama."):
         return PROVIDER_OLLAMA
@@ -463,6 +492,59 @@ async def _adapter_openrouter(base_url: str, model: str) -> int | None:
             except (TypeError, ValueError):
                 return None
             return window if window > 0 else None
+    return None
+
+
+# Схема live/public каталога NanoGPT верифицирована по официальным docs
+# (docs.nano-gpt.com/api-reference/endpoint/models, 01.10.2026):
+# `GET /api/v1/models?detailed=true` → `{data: [{id, context_length,
+# max_output_tokens, capabilities, ...}]}`; `context_length` — max input
+# tokens (null if not available). Таймаут общий 2 с (`_http_get_json`).
+def _nanogpt_catalog_urls(base_url: str) -> list[str]:
+    """Кандидаты URL каталога: `{base}/models` (base уже `/api/v1`) + при
+    отсутствии `/api` в base — канонический `{scheme}://{host}/api/v1/models`.
+    Route НЕ выдумывается дальше этих двух документированных форм."""
+    raw = str(base_url or "").rstrip("/")
+    urls = [f"{raw}/models?detailed=true"]
+    host = _base_url_host(raw)
+    if host and "/api" not in raw:
+        scheme = "https" if "://" in raw else "https"
+        urls.append(f"{scheme}://{host}/api/v1/models?detailed=true")
+    return urls
+
+
+async def _adapter_nanogpt_catalog(base_url: str, model: str
+                                   ) -> tuple[int, int | None] | None:
+    """Каталог NanoGPT (§53): `(context_length, max_output_tokens | None)`
+    по id; каталог недоступен/модели нет → None (→ registry/fallback с
+    честным source в Analytics). НЕ бросает."""
+    wanted = str(model or "").strip().lower()
+    if not wanted:
+        return None
+    for url in _nanogpt_catalog_urls(base_url):
+        data = await _http_get_json(url)
+        items = data.get("data") if isinstance(data, dict) else None
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            if str(item.get("id") or "").strip().lower() != wanted:
+                continue
+            try:
+                window = int(item.get("context_length"))
+            except (TypeError, ValueError):
+                return None          # модель есть, окна нет — честный miss
+            if window <= 0:
+                return None
+            max_output = None
+            try:
+                candidate = int(item.get("max_output_tokens"))
+                if candidate > 0:
+                    max_output = candidate
+            except (TypeError, ValueError):
+                max_output = None
+            return window, max_output
     return None
 
 
@@ -650,6 +732,25 @@ async def _resolve_uncached(provider_class: str, base_url: str, name: str,
                 max_output_tokens=None, source=SOURCE_PROVIDER_CATALOG,
                 confidence="verified", resolved_at=now, fallback_used=False)
             return result
+    elif provider_class == PROVIDER_NANOGPT:
+        # 3) provider catalog (§53, T-4202): live/public каталог NanoGPT —
+        # context window + max output; недоступен → registry/fallback с
+        # честным source (ниже). НЕ угадываем из имени (§56).
+        catalog = await _adapter_nanogpt_catalog(base_url, name)
+        if catalog is not None:
+            catalog_window, max_output = catalog
+            declared = _match_model_window(name)
+            effective = catalog_window if declared is None \
+                else min(catalog_window, declared)
+            result = CapacityResult(
+                provider=provider_class, model=name,
+                declared_context_window=declared,
+                runtime_context_window=None,
+                effective_context_window=effective,
+                max_output_tokens=max_output,
+                source=SOURCE_PROVIDER_CATALOG,
+                confidence="verified", resolved_at=now, fallback_used=False)
+            return result
 
     declared_window = _match_model_window(name)
     if runtime_window is not None:
@@ -664,6 +765,18 @@ async def _resolve_uncached(provider_class: str, base_url: str, name: str,
             source=SOURCE_RUNTIME, confidence="verified", resolved_at=now,
             fallback_used=False)
     if declared_window is not None:
+        if provider_class == PROVIDER_DEEPSEEK:
+            # §54 (T-4202): Direct DeepSeek — отдельный identity; machine-
+            # readable catalog нет → verified official registry entry,
+            # source=`verified_registry` (НЕ `provider_catalog`, НЕ «generic
+            # registry guess»).
+            return CapacityResult(
+                provider=provider_class, model=name,
+                declared_context_window=declared_window,
+                runtime_context_window=None,
+                effective_context_window=declared_window,
+                max_output_tokens=None, source=SOURCE_VERIFIED_REGISTRY,
+                confidence="verified", resolved_at=now, fallback_used=False)
         return CapacityResult(
             provider=provider_class, model=name,
             declared_context_window=declared_window,
@@ -721,8 +834,9 @@ __all__ = [
     "apply_budget_policy",
     # ASAP-3.1 (ADR-1028-3): structured capacity resolver.
     "SOURCE_DEVELOPER_OVERRIDE", "SOURCE_RUNTIME", "SOURCE_PROVIDER_CATALOG",
-    "SOURCE_REGISTRY", "SOURCE_FALLBACK",
-    "PROVIDER_OPENROUTER", "PROVIDER_OLLAMA", "PROVIDER_LLAMA_CPP",
+    "SOURCE_VERIFIED_REGISTRY", "SOURCE_REGISTRY", "SOURCE_FALLBACK",
+    "PROVIDER_OPENROUTER", "PROVIDER_NANOGPT", "PROVIDER_DEEPSEEK",
+    "PROVIDER_OLLAMA", "PROVIDER_LLAMA_CPP",
     "PROVIDER_VLLM", "PROVIDER_GENERIC",
     "CapacityResult", "LOCAL_ADAPTER_TTL_SECONDS",
     "capacity_resolver_enabled", "detect_provider_class",

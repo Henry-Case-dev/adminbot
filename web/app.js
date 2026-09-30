@@ -1568,6 +1568,9 @@
         },
         // EXTRA (extra-cover-style-pipeline, ADR-1028-4 D12; spec §56/§75):
         // редактор обложечных стилей (вкладка «Стили обложки» модуля Саммари).
+        // ASAP-3.2 (ADR-1028-5 D14, ТЗ §106–§114): management screen +
+        // dedicated full-screen editor (draftStep: 'name'|'full'), ОДИН
+        // Save, unsaved-индикатор, connections из реестра.
         coverStyles: {
           loaded: false,
           loading: false,
@@ -1582,6 +1585,12 @@
           uploadBusy: false,
           previewBusy: false,
           preview: null,
+          editorOpen: false,      // §108: dedicated editor surface
+          editorDirty: false,     // есть несохранённые изменения
+          draftStep: '',          // 'name' (§112 шаг 1) | 'full'
+          draftName: '',
+          draftInstruction: '',
+          connections: [],        // §104: настроенные Image Connections
           _returnProfileId: '',   // §35: контекст редактора при возврате
           _assets: {},            // asset_id → objectURL (blob-fetch)
         },
@@ -6816,7 +6825,8 @@
       },
       coverStyleOpen: function (s) {
         var st = this.coverStyles;
-        if (!s) { st.current = null; st.meta = null; st.preview = null; return; }
+        if (!s) { st.current = null; st.meta = null; st.preview = null;
+                  st.editorOpen = false; return; }
         st.current = {
           profile_id: s.profile_id, name: s.name, origin: s.origin,
           is_example: s.is_example, pipeline_mode: s.pipeline_mode,
@@ -6837,21 +6847,94 @@
         };
         st.meta = null;
         st.preview = null;
+        // §108: dedicated editor surface (mobile sheet / desktop panel)
+        st.editorOpen = true;
+        st.editorDirty = false;
+        st.draftStep = 'full';
+        this.coverStylesLoadConnections();
         this.coverStyleLoadMeta(s.profile_id);
       },
-      coverStyleNew: function () {
+      coverStyleEditorClose: function () {
         var st = this.coverStyles;
-        st.current = {
-          profile_id: null, name: '', origin: 'custom', is_example: false,
-          pipeline_mode: 'generate_then_edit', instruction: '',
-          counter_enabled: false, counter_value: 0,
-          counter_format: 'ВЫПУСК {counter}', model_mode: 'default',
-          connection_id: null, model_id: null, enabled: true,
-          references: [], preview_before_url: null, preview_after_url: null,
-          preview_issue: 'ВЫПУСК 00', _isNew: true,
-        };
+        st.editorOpen = false;
+        st.draftStep = '';
+        st.draftName = '';
+        st.draftInstruction = '';
+        st.editorDirty = false;
+        st.preview = null;
+        st.current = null;
+        this.loadCoverStyles();
+      },
+      coverStylesLoadConnections: function () {
+        var self = this;
+        var st = this.coverStyles;
+        if ((st.connections || []).length) return;
+        this.api('/api/cover/connections', { global: true })
+          .then(function (data) {
+            st.connections = (data && data.connections) || [];
+          })
+          .catch(function () { /* fail-open: селектор останется пустым */ });
+      },
+      coverStyleNew: function () {
+        // §112: New Style flow — шаг 1 «Название и инструкция» →
+        // «Создать и продолжить» (серверная сущность сначала, референсы
+        // сразу после создания; НЕ «Сначала сохраните стиль» пост-фактум).
+        var st = this.coverStyles;
+        st.draftStep = 'name';
+        st.editorOpen = true;
+        st.editorDirty = false;
+        st.draftName = '';
+        st.draftInstruction = '';
+        st.current = null;
         st.meta = null;
         st.preview = null;
+        this.coverStylesLoadConnections();
+      },
+      coverStyleCreateDraft: function () {
+        var self = this;
+        var st = this.coverStyles;
+        if (st.saving) return;
+        st.saving = true;
+        var body = {
+          name: (st.draftName || '').trim() || 'Без названия',
+          instruction: st.draftInstruction || '',
+          pipeline_mode: 'generate_then_edit',
+        };
+        this.api('/api/cover/styles', { method: 'POST',
+                                        body: JSON.stringify(body),
+                                        global: true })
+          .then(function (created) {
+            st.saving = false;
+            st.current = {
+              profile_id: created.profile_id,
+              name: created.name, origin: created.origin || 'custom',
+              is_example: false, pipeline_mode: created.pipeline_mode,
+              instruction: created.instruction || '',
+              counter_enabled: !!created.counter_enabled,
+              counter_value: created.counter_value || 0,
+              counter_format: created.counter_format,
+              model_mode: created.model_mode || 'default',
+              connection_id: created.connection_id,
+              model_id: created.model_id,
+              enabled: created.enabled !== false,
+              revision: created.revision,
+              references: (created.references || []).slice(),
+              preview_before_asset_id: created.preview_before_asset_id,
+              preview_after_asset_id: created.preview_after_asset_id,
+              preview_revision: created.preview_revision,
+              preview_stale: false,
+              preview_issue: created.preview_issue,
+              _isNew: false,
+            };
+            // §112: референсы доступны СРАЗУ (сущность уже на сервере).
+            st.draftStep = 'full';
+            st.editorDirty = false;
+            self.loadCoverStyles();
+          })
+          .catch(function (e) {
+            st.saving = false;
+            st.error = (e && e.message) || 'Не удалось сохранить стиль: хранилище стилей недоступно.';
+          });
       },
       coverStyleLoadMeta: function (profileId) {
         if (!profileId) return;
@@ -6902,10 +6985,14 @@
           global: true, method: 'POST', body: JSON.stringify(body),
         }).then(function () {
           self.toast('Стиль сохранён');
+          st.editorDirty = false;
           self.loadCoverStyles();
           if (c.profile_id) self.coverStyleLoadMeta(c.profile_id);
         }).catch(function (e) {
-          self.toast((e && e.message) || 'Не удалось сохранить стиль', 'err');
+          // §129: человеческое сообщение (техдетали — в логах сервера).
+          self.toast((e && e.message) ||
+                     'Не удалось сохранить стиль: хранилище стилей недоступно.',
+                     'err');
         }).then(function () { st.saving = false; });
       },
       coverStyleDuplicate: function (s) {
