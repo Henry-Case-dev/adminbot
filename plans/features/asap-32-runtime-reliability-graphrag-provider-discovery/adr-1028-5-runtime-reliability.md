@@ -2,7 +2,7 @@
 
 > **Фича:** `asap-32-runtime-reliability-graphrag-provider-discovery` (ASAP-3.2).
 > **Задача-инициатор:** T-4190 [@Architect]; потребители T-4191…T-4194, T-4216, T-4217, T-4230, T-4235.
-> **Статус:** Accepted (для зон GraphRAG + media/capacity + Summary/Direct + Decision LLM-driven + Analytics/health + EXTRA corrective; решения D1–D14, дополнения без ретроспективных правок).
+> **Статус:** Accepted (для зон GraphRAG + media/capacity + Summary/Direct + Decision LLM-driven + Analytics/health + EXTRA corrective; решения D1–D14, дополнения без ретроспективных правок). **01.10.2026 — прод-валидация 2.58.40 (partial: инцидент-фикс кодировки VERIFIED; полный деплой зоны D1–D14 — отдельным релизом) — см. «Прод-валидация и история статуса».**
 > **Контекст:** прод 2.58.39 (`c0e0362`), SQLite DDL v19 (v20-бронь `mca-04b` не занимать); источник — `plans/current_task.md` §2–§9, §61–§62, §64, §70–§71, §85, §86 (Q6–Q9, Q14), SHA-256 `E828A092…B6750A`.
 > **RCA основание:** постоянный `building → FTS-only` при `gen_fp == new_fp` — lifecycle-дефект, не mismatch модели; код 2.58.39 (`services/summary_memory.py:1334–1371, 1426–1439, 1451–1523, 1796–1895`) не содержит перехода `building → validated → active` (детально — spec.md §1).
 
@@ -192,6 +192,24 @@ all L1 outputs
 **No-false-acceptance rule (§133, окончательная):** ни один агент не рапортует `implemented/verified/production accepted` для database-backed user-facing фичи, если evidence — только mocked unit-tests/stub backend/HTML-маркеры/guest session/direct SQL; acceptance Cover Styles и всех будущих Miniapp database-backed фич — только через authenticated Miniapp → real API → real DB → real asset storage → persisted reload. **§134:** финальная строка `ASAP-3.2 production acceptance complete; current_task continuation unblocked.` — Orchestrator сразу продолжает `current_task.md` (§83–§84, §132 order of operations).
 
 **Sanctions (D14):** Δ SQLite DDL предпочтительно 0 (бронь v20 `mca-04b` не занимать; реестр — в PG); Δ PostgreSQL — по прецеденту `cover_style_*`, аддитивный идемпотентный DDL под connection-model (без секретов/full URL в таблицах, Δ-лист в отчёте); Δ каталога — только под новые default-slot ключи connection-model (если нужны), F8-нумерация от базовых 488/427/463/105/103/21, через T-4233/T-4242; kill-switches — `COVER_STYLES_ENABLED`/`COVER_RICH_DEGRADED_ENABLED` сохраняются, UI redesign новых флагов не вводит (прежний экран не rollback target).
+
+---
+
+## Прод-валидация и история статуса (reconcile @Architect, 01.10.2026)
+
+**История статуса:**
+
+1. **30.09.2026 — Accepted** (design): решения D1–D14 для зон 1–8 утверждены этим ADR; Builder-контракт T-4191…T-4233, Reviewer-гейт §87/§130/§133.
+2. **01.10.2026 — Round 2 Review: APPROVED FOR RELEASE** (H-ASAP32-1 закрыт, M-ASAP32-2 закрыт; гейт-биндинг Reviewed-Commit `1287130`, WTH `0f6e0f5f…4bfa6`).
+3. **01.10.2026 — прод 2.58.40 VERIFIED** (инцидент-фикс кодировки, точечный деплой; коммиты `5aa4626` feat + `f5054df` docs + `93fee19` deploy-doc, push `1287130..93fee19` = ровно 3 коммита, чужого WIP нет) — **Accepted + prod-validated (partial)**: на проде только инцидент-фикс-подмножество; полный деплой зоны D1–D14 (GraphRAG rebuild/Media/Capacity/Direct Decision/UI-редизайн, §107–§135) — отдельным полным деплоем после MCA-очереди/решения владельца. Данный раздел — пост-деливери дополнение reconcile; сами решения D1–D14 не менялись, approval ревью не инвалидирован (код дельты байт-идентичен ревью-манифесту, WTH-гейт `0f6e0f5f` воспроизведён байт-в-байт перед коммитом, drift — только служебный заголовок манифеста).
+
+**Прод-валидация 2.58.40 (инцидент-фикс; evidence — `deployment.md` §3–§7, review.md Round 2):**
+
+- **H-ASAP32-1 (кодировка) закрыт продой:** байт-ремонт 221 строки `services/summary_fact_package.py` (runtime-литералы `FALLBACK_TOPIC_NAME` = «Общий ход обсуждения», `DESCRIPTION_SEPARATOR` = « · », `rstrip(" ·")`); hex-скан чист (mojibake-последовательности `d0 92 c2 b7`/`c3 92`/`ef bf bd` = 0); на проде свежий импорт по кодпоинтам → **LITERALS_OK** до и после рестарта; error-spike 0 после рестарта против базлайна 18/~10 ч предыдущего процесса. 3 нетавтологических encoding-теста (`TestSourceEncodingIntegrity`) чувствительность доказана (3/3 FAIL на pre-fix копии).
+- **M-ASAP32-2 (fp-recheck) закрыт в транзакции активации:** re-check `memory._identity_fingerprint() != fp` первой операцией `_body` внутри `write_transaction` (`graphrag_rebuild.py:474–478`); behavioral-матрица 8/8 PASS (mismatch → activate=False, live остаётся на прежнем поколении, shadow не активируется). На проде контур **dormant**: `graphrag_rebuild.py` задеплоен, но не импортируется задеплоенным кодом 2.58.39 (планировщик GraphRAG стартует из незадеплоенного `bot.py`) — fp-recheck активируется будущим полным деплоем зоны D.
+- **Пустой fallback-пакет больше не публикуется — Legacy:** контракт крон-верификации (deployment.md §7): при провайдерском таймауте — `L1_FALLBACK_PACKAGE` c `fragments>0`/`chronology>0` ЛИБО `LEGACY_FALLBACK`; пустой пакет в `L2_START` и мета-текст в публикации — никогда. Класс инцидента 2.58.37 (пустая публикация `msg 1120810` / мета-текст) закрыт на уровне литералов и guard-цепочки; первый крон-прогон на 2.58.40 — 01:00 UTC 01.10.2026 под наблюдателем (`/tmp/asap32_watch.sh` → `/tmp/asap32_watch.log`).
+- **Санкционированное включение `services/summary_semantic_reduction.py` в релиз** (отклонение от буквальных «3 файлов» инцидент-задания, санкционировано review.md Round-1 §Staging.1, зафиксировано deployment.md §2 и workflow_state): +209 строк, обязательная lazy-import зависимость `summary_fact_package` L909 под default-ON `SUMMARY_SEMANTIC_REDUCTION_ENABLED` (prod kill-switch-резолв: True) — без него первый крон-саммари упал бы ImportError; D8-редукция фактически активна на проде в составе 2.58.40.
+- **Границы прод-валидации (честно):** production acceptance §76–§79 (T-4234/T-4235/T-4236 полные live-гейты D1–D14) этим деплоем НЕ выполнялась — деплой не затрагивал web/* и планировщики; полный live acceptance tracked в `plans/backlog.md` (Follow-up ASAP-3.2). Δ SQLite DDL = 0 (v19; бронь v20 `mca-04b` не занята), PG DDL = 0, seeds = 0; откат — cold revert 2.58.39 (`c0e0362`), soft — `SUMMARY_SEMANTIC_REDUCTION_ENABLED=false`.
 
 ---
 
