@@ -75,9 +75,9 @@
 6. **Владельцу — пустая публикация `msg 1120810`** (крон 19:00 UTC 29.09.2026, `PUBLISH_RICH_COMPLETE`): кандидат на удаление. **НЕ удалять без прямого указания владельца.**
 7. **watch-item — крон-прогон 07:00 UTC и далее.** При провайдерском таймауте ожидание: `L1_FALLBACK_PACKAGE` c `fragments>0`/`chronology>0` ЛИБО `LEGACY_FALLBACK`, но **НИКОГДА** пустой пакет в `L2_START` и **НИКОГДА** мета-текст в публикации; при деградации — `SUMMARY_COVERAGE_DEGRADED reason=near_empty_package` / WARN `PACKAGE_NEAR_EMPTY`. Команда/чеклист — deployment.md §6.
 
-### ⚡ Follow-up (reconcile EXTRA `extra-cover-style-pipeline`, 30.09.2026) — опциональный Cover Style post-processor (выпущено 2.58.39; docs — `plans/features/extra-cover-style-pipeline/`, `plans/ARCHITECTURE.md` §105) — хвосты (не блокёры)
+### ⚡ Follow-up (reconcile EXTRA `extra-cover-style-pipeline`, 30.09.2026) — опциональный Cover Style post-processor (выпущено 2.58.39; **архив — `plans/archive/extra-cover-style-pipeline-round1029/`**, `plans/ARCHITECTURE.md` §105) — хвосты (не блокёры)
 
-Источник: `plans/features/extra-cover-style-pipeline/{review.md (round 2), deployment.md §0.3/§0.8}`, `plans/ARCHITECTURE.md` §105, ADR-1028-4 §7.
+Источник: `plans/archive/extra-cover-style-pipeline-round1029/{review.md (round 2), deployment.md §0.3/§0.8}`, `plans/ARCHITECTURE.md` §105, ADR-1028-4 §7.
 
 1. **D8 (owner-decision): стартовое значение counter сида.** `medved_press` задеплоен с обратимым дефолтом `counter_value=0` → следующий выпуск = 1. Ожидается решение владельца о стартовом номере (`SEEDED_COUNTER_START`). Изменение — data/seed-операция, не код; блокером деплоя не было.
 2. **DC-4 (product precondition, owner): edit-capable image-провайдер в Connections.** `models.image_style_base_url`/`_model` и `keys.image_style_api_key` пусты → `connection_status.configured=False`, `edit_supported=None`; **живой style-success и visual §85/§86** (замена чужого логотипа, отсутствие дубля PERMsoc, нормализация номера) недоступны до настройки провайдера — пока база публикуется корректно (§38-сообщение). Сюда же — **живой async restart-resume polling** (store-уровень resume из `task_jobs` подтверждён; живой async-провайдер не настроен).
