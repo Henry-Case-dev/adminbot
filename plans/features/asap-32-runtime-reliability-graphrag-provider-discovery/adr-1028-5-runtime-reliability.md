@@ -1,0 +1,215 @@
+# ADR-1028-5 — Runtime Reliability: GraphRAG recovery lifecycle (shadow rebuild)
+
+> **Фича:** `asap-32-runtime-reliability-graphrag-provider-discovery` (ASAP-3.2).
+> **Задача-инициатор:** T-4190 [@Architect]; потребители T-4191…T-4194, T-4216, T-4217, T-4230, T-4235.
+> **Статус:** Accepted (для зон GraphRAG + media/capacity + Summary/Direct + Decision LLM-driven + Analytics/health + EXTRA corrective; решения D1–D14, дополнения без ретроспективных правок).
+> **Контекст:** прод 2.58.39 (`c0e0362`), SQLite DDL v19 (v20-бронь `mca-04b` не занимать); источник — `plans/current_task.md` §2–§9, §61–§62, §64, §70–§71, §85, §86 (Q6–Q9, Q14), SHA-256 `E828A092…B6750A`.
+> **RCA основание:** постоянный `building → FTS-only` при `gen_fp == new_fp` — lifecycle-дефект, не mismatch модели; код 2.58.39 (`services/summary_memory.py:1334–1371, 1426–1439, 1451–1523, 1796–1895`) не содержит перехода `building → validated → active` (детально — spec.md §1).
+
+---
+
+## D1. Решение rebuild: вариант A — shadow generation (§5)
+
+**Выбор: Вариант A.** Под текущим identity-fingerprint (provider/model/dims/preprocessing/endpoint) строится **shadow vec-хранилище**: полный re-embed всех eligible source facts (не fill-missing), затем validation и **атомарный swap/activation**; затем FTS остаётся резервом (§62).
+
+Почему не Вариант B (controlled destructive vec rebuild):
+
+1. raw `graph_facts`/`smart_archive_facts` — source of truth, их НЕ трогаем ни в A, ни в B; но B оставляет сервис без векторного пути на всё время rebuild и без rollback-копии, A — сохраняет FTS-first режим и позволяет отменить/повторить build без отказа сервиса.
+2. A даёт честную per-row provenance (векторы shadow-таблицы по построению принадлежат текущему generation), чем закрывает Q7 (real coverage становится измеримым) и условие «нет unknown-origin vectors».
+3. Деструктивный rebuild не даёт преимущества: sqlite-vec позволяет создавать дополнительную vec0 virtual table (generation-suffixed shadow) — предположение «shadow невозможен» не выполняется.
+
+**Правила (обязательные):**
+
+- existing vec-rows НЕ trusted как current vectors для generation без доказанной связи с fingerprint (§5) — при A это достигается полным re-embed в shadow; дешёвый путь — переупаковка из `embedding_cache` при неизменном identity (без повторных платных API-вызовов);
+- Вариант B остаётся документированным резервом ТОЛЬКО если shadow окажется невозможен без чрезмерной сложности (окончательное решение — за Builder с обязательным возвратом к ADR); в B обязательны: source-of-truth не удаляется, FTS доступен весь период, полная validation перед activate;
+- ЗАПРЕЩЕНО `UPDATE … SET status='active'` без проверки происхождения всех vectors (§3/§66); ЗАПРЕЩЕНО помечать `building` active «для тишины» (§66);
+- per-row provenance в RAW таблицы не добавляется — маркер принадлежности generation находится в shadow-хранилище/реестре поколений (Q14: Δ SQLite DDL = 0).
+
+## D2. Resumable rebuild lifecycle на durable task infrastructure (§7/§64)
+
+- REUSE `task_jobs` (не заводить новую durability-инфраструктуру); state machine: `queued → running → checkpoint → validated → activated | failed`; checkpoint → продолжение после restart (§70: тест restart mid-build → resume).
+- Полный rebuild, НЕ «fill missing»; батчи bounded (`_BACKFILL_BATCH`-образные), sleep/yield между батчами, rate-limit embedding-вызовов, pause/resume/cancellation, прогресс в PROGRESS-логах/health.
+- НЕ блокировать startup/polling на часы: rebuild — фоновая durable задача; при деплое допускается «deploy resumable rebuild» по §85 (vector activation = background completion, condition watch; FTS serviceable; auto-activation после completion реализована и проверена на fixture/smaller prod slice).
+- Race-защита при смене конфига mid-build: build привязан к полученному на старте CURRENT fingerprint; активируется ТОЛЬКО build, чей генерационный fingerprint == fingerprint на момент validate (§70: config changes during build → старый build НЕ активируется как current; создается новый queued build под новый fp).
+- Failure → `failed` (или `building`+reason): состояние фиксируется, FTS остаётся serviceable, повторный build — только по явному триггеру/ретраю policy, БЕЗ автоматического storm.
+
+## D3. Activation criteria + логи + failure/fallback semantics (§6/§8/§9/§62)
+
+- **Activation (все 9 критериев обязаны быть true одновременно):** fingerprint==current; dim==current; provider/model identity соответствует config; preprocessing_version соответствует; все eligible facts имеют vec-row либо явно классифицированную допустимую причину отсутствия; нет orphan vectors; count/coverage validation прошла; sample KNN smoke прошёл; transaction/swap завершён. После activation: `Векторный поиск: работает / FTS fallback: доступен`.
+- **Логи (§6):** `EMBEDDING_GENERATION_BUILD_START / PROGRESS / VALIDATED / ACTIVATED`.
+- **Severity (§8/§67):** при честном идущем rebuild — это СОСТОЯНИЕ, а не авария: первый `not serviceable` WARNING → далее rate-limit/coalesce; обычные запросы → DEBUG/INFO; повторный WARNING — только при meaningful state change или cooldown; BUILDING expected → INFO + периодический прогресс; rebuild stalled/failed → WARNING/ERROR; fingerprint mismatch → WARNING once/state change.
+- **Fail-soft не превращается в ложную уверенность:** FTS-only — явный degraded-режим, отражённый в health (§9): «Векторный индекс: перестраивается / FTS-поиск: работает / Готовность: N% / модель embeddings / generation / последняя ошибка» — без сырого `A06` для владельца (T-4216).
+- **FTS — постоянный резерв (§62):** после active — KNN failure → FTS fallback; механику не удалять. Удаление FTS-механики после activation — НЕ допускается (T-4193/T-4230).
+- **Rerank (§10–§12):** вторая дефектная линия (parser) чинится независимо от lifecycle: provider-capability aware structured contract `{"selected":[1,4,7]}` / `{"selected":[]}`; иначе strict prompt + robust legacy-numeric parser + acceptance только in-range candidate IDs + детерминированный repair (fences/префикс) локально; второй LLM-вызов ради formatting запрещён; bounded fallback — последний fail-soft, остаётся; метрика `rerank_invalid_rate` (после deploy высокий rate = regression); observability candidate_count/selected_count/parser status/provider/model/latency/response_format/fallback; приватные raw факты НЕ логировать (Q9 — synthetic reproduction).
+
+---
+
+## Consequences
+
+- Builder (T-4191/T-4192/T-4193) получает однозначный контракт: shadow-полный-rebuild → resumable на `task_jobs` → 9-критериальная активация → FTS-резерв; Reviewer-checklist (§87 строки GraphRAG, T-4194) проверяет «lifecycle имеет путь building→active; activation только после verified rebuild; FTS работает во время rebuild; rerank invalid — не expected normal state».
+- Δ SQLite DDL = 0 (shadow-таблица — идемпотентный `CREATE VIRTUAL TABLE IF NOT EXISTS`, статусы — в v18-реестре поколений с аддитивными опциональными колонками по образцу `endpoint_fingerprint`); v19 остаётся; v20-бронь `mca-04b` не занята (Q14 закрыт без миграции). Любая новая потребность DDL — через T-4242/ADR-waiver.
+- Rollback: shadow-подход делает rollback build'а безопасным — raw/старое поколение не разрушены; откат деплоя (git revert 2.58.40) возвращает честный FTS-only без потери данных.
+- Риски: R3 — длительность rebuild (~2 млн сообщений) — mitigated D2 (resumable + progress + §85 background completion); конфликт с бронью v20 — снят (DDL=0).
+
+## Compliance-карта
+
+| Секция ТЗ | Покрытие |
+|---|---|
+| §2–§3 (RCA, запреты) | D1, spec.md §1 |
+| §4 (lifecycle) | D1/D2 |
+| §5 (shadow vs destructive) | D1 |
+| §6 (activation) | D3 |
+| §7 (resumable) | D2 |
+| §8 (severity/latency лога) | D3 |
+| §9 (health) | D3 (UI — T-4216) |
+| §10–§12 (rerank) | D3 (реализация — T-4193) |
+| §61–§62 (fail-soft/FTS-резерв) | D3 |
+| §64 (resource control) | D2 |
+| §66 (запреты) | D1 |
+| §70/§71 (тесты) | T-4228/T-4230, T-4193 |
+| §84/§85 (prologue/live acceptance) | T-4235 |
+| Q6/Q7/Q8/Q9/Q14 | spec.md §6 / D1–D3 |
+| §13–§36 (media/adaptive) | D4–D7, spec.md «Зона 2» |
+| §19–§20, §53–§57 (text capacity) | D5, spec.md «Зона 3» |
+| Q1/Q4/Q5/Q14 | spec.md §2.1/§2.2/§2.6 |
+| Q2/Q3 | spec.md §2.6 (live-верификация T-4195, route names не выдумывать) |
+| §37–§40 (Summary reduction) | D8, spec.md «Зона 4.2» |
+| §41–§43 (coverage/oversized/empty-guard) | D9, spec.md «Зона 4.3» |
+| Q10/Q14 | spec.md §4.1/§4.4 / D8–D9 |
+| §44–§46 (Direct fallback recompose) | D10, spec.md «Зона 5.2» |
+| Q11 | spec.md §5.1/§5.3 / D10 |
+| §1.7/§47–§52 (LLM decision), §74/§79 | D11, spec.md «Зона 6» |
+| Q12 | spec.md §6.1/§6.3 / D11 |
+| §1.8/§58–§59 (Analytics actual snapshot) | D12, spec.md «Зона 7» |
+| Q13 | spec.md §7.1/§7.4 / D12 |
+| §9/§60–§67 (GraphRAG health/severity/config-switch) | D13 (+D1–D3), spec.md «Зона 7» |
+| §75 (browser: budgets/health читаемы) | T-4232 |
+| §92–§95 (EXTRA RCA PgDatabase/Pool) | D14, spec.md «Зона 8.1» |
+| §96–§99 (browser acceptance superseded / seed) | D14, spec.md «Зона 8.2.3/8.2.4» |
+| §100–§101 (assets/reference CRUD) | D14, spec.md «Зона 8.2.4» |
+| §102–§105 (style selection + connection model) | D14, spec.md «Зона 8.2.1» |
+| §106–§114 (UI redesign) | D14, spec.md «Зона 8.2.2» |
+| §135 (seeded style permission architecture) | D14, spec.md «Зона 8.2.3b» |
+| §115–§118 (Browser Use + Playwright E2E) | D14, spec.md «Зона 8.2.3» |
+| §120–§122 (integration tests + static guard + re-eval) | D14, spec.md «Зона 8.2.5» |
+| §123–§129 (erratum/selection/counter/Test Style/observability/UI errors) | D14, spec.md «Зона 8.2.6» |
+| §131–§132 (frontend directive / order of operations) | D14, spec.md «Зона 8» |
+| §130 (EXTRA acceptance gate 20 пунктов) | D14, spec.md «Зона 8.4» |
+| §133–§134 (no-false-acceptance / final gate) | D14, spec.md «Зона 8.4» / «Финальные секции» |
+
+---
+
+## D4. Зона 2 — Media Adapter + executor honesty (§15–§18, §20–§21)
+
+**Решение:** единый provider-agnostic `ImageProviderAdapter` contract (discover_models / discover_capabilities / submit_generation / submit_edit / supports_async_job / supports_status / supports_stream / supports_cancel / get_status / get_result / cancel) — core pipeline НЕ привязан к NanoGPT route names; env-шаблоны `COVER_STYLE_ASYNC_*` = migration evidence, НЕ целевой contract.
+
+- NanoGPT adapter: async/status использовать как PRIMARY execution mode для slow generations ТОЛЬКО после live-верификации реального endpoint'а ключом (exact catalog route, async submit shape, job/task/request ID, status route, terminal statuses, recovery после reconnect, cancel, capability fields — §16; запрещено изобретать `task_id` route по аналогии). OpenRouter — unified image API + programmatic capabilities, streaming preview/progress как liveness source где поддерживается, sync/adaptive path иначе, без hardcode counts/resolutions (§17). Прочие providers — generic interface + adapters для текущих connections + безопасный generic sync fallback (§18).
+- Shared layer: connection identity, cache/invalidation (по model/base URL/connection change), provider detection, diagnostics — общие с text-capacity framework (D5), но без одного класса-монолита (§20).
+- `image_capabilities.py` fixes (§21): discovery вызывается автоматически (не только при переданном готовом dict); NanoGPT catalog реально fetch'ится; OpenRouter `supported_parameters.input_references` и endpoint-level capabilities parse'ятся по реальной schema; async/status capability НЕ выводится из несвязанных полей; unknown остаётся честным unknown; TTL-cache инвалидируется при model/base URL/connection change.
+
+**RCA-основание (Q1/Q4):** 90/180/240 — три независимых env wall-clock timeout'а (`IMAGE_REQUEST_TIMEOUT_SECONDS` standalone + Summary Base Cover; `IMAGE_ATTEMPT_TIMEOUT_SECONDS` retry-попытка; `COVER_STYLE_EDIT_TIMEOUT_SECONDS` Style Edit), hard timeout = первый и единственный механизм «модель умерла»; async/status есть только у Cover Style через ручные env-маршруты; автоматический live discovery не гарантирован. Детально — spec.md «Зона 2.1».
+
+## D5. Зона 2 — MediaExecutionPolicy: inactivity vs total, stage-aware, durable state, recovery, fallback (§13–§14, §22–§31)
+
+**Решение:** один resolver `MediaExecutionPolicy` для ВСЕХ image ops; key `provider+model+operation` (stage-aware: generate ≠ edit); четыре различных окна: connect / read-inactivity / poll-request / **total generation deadline** (§28). При remote job/status — deadline = safety ceiling, НЕ inactivity timeout; `queued/starting/running/processing` = job жив; progress обновляет liveness; НЕ рубить живую generation по wall-clock 90 с (§24). Sync-only: adaptive deadline по успешным наблюдениям — estimator p50/p90/p95/p99/max-bounded per provider+model+operation; формула-кандидат `clamp(max(cold_default, p95×safety_factor), min_deadline, hard_safety_ceiling)` (финальные коэффициенты — Architect после анализа реальных данных, §25); estimator НЕ обучается на timeout'ах как на success (§26); cold-start defaults — developer-level, 90/180/240 = migration evidence (§27).
+
+- Honest capability `remote_progress = job_status | streaming | none`; fake ping запрещён (§14) — долгоиграющий sync-запрос без job/status не может быть проверен отдельным пингом.
+- Durable media state: standalone long-running ops → durable job на REUSE `task_jobs` (operation/provider/model/provider_job_id/status/submitted_at/last_progress_at/deadline_at/attempt/result asset/failure reason — §29); Δ SQLite DDL = 0.
+- Restart recovery: известный provider job ID → resume polling, НЕ автоматический повторный платный submit; sync-only disconnect → честно `unknown_after_disconnect`; платный retry без policy/idempotency-понимания — запрещён (§30).
+- Fallback: только после terminal primary failure; capability/deadline пересчитывается + prompt/input recompile под fallback capabilities; НЕ переключаться, пока primary честно RUNNING (§31).
+- Regressions обязательны (§32–§34): `qwen-image-3-pro >90s` успешно завершается; Base Cover happy path не ухудшать; EXTRA ladder (style optional → style failed→base cover → base failed→Rich without cover → Rich failed→sendMessage) и issue counter/style assets/provenance не ломать.
+- Observability (§35–§36): события `MEDIA_JOB_*`, safe fields (без keys/prompts/image bytes); Miniapp показывает режим выполнения/среднее/P95, без пользовательского input «90 seconds».
+
+## D6. Зона 3 — Text Capacity Resolver (§19–§20, §53–§56)
+
+**Решение:** provider-agnostic capacity adapters на shared framework (§20): **NanoGPT** — provider adapter вместо registry guess (live/public catalog schema; резолв `provider/base_url/model → context window → max output if available → capability source`; catalog недоступен → registry/fallback с честным source в Analytics, §53); **Direct DeepSeek** — отдельный adapter/identity, не generic host; отсутствие machine-readable catalog → verified official registry entry с source=`verified_registry`, НЕ `provider_catalog` (§54); **OpenRouter** — существующий adapter сохранить; проверить text capacity discovery, image capability discovery, endpoint-specific capability, cache invalidation (§55); **Unknown provider** — НЕ угадывать из URL; лестница: standard discovery endpoints (если реально отвечают) → provider plugin → verified registry → developer override → conservative fallback; UI показывает fallback status (§56); local runtime (llama.cpp/Ollama/vLLM) сохранить (§19).
+
+## D7. Зона 3 — Discovery timeout / caching (§57, Q14-грань)
+
+Metadata fetch короткий, НЕ задерживает каждый user request; cache с invalidation по connection/model change; provider discovery failure НЕ блокирует normal generation (fallback capacity + honest source); повторные попытки — async, вне hot path. Media/text discovery используют общий shared-слой (connection identity/cache/detection/diagnostics), но discovery отделён от исполнения запроса. **Δ SQLite DDL = 0:** media-поля — в существующей generic `task_jobs`; capacity source — в runtime-метаданных; любая новая потребность DDL — только через T-4242/ADR-waiver (v20-бронь `mca-04b` не занимать).
+
+## D8. Зона 4 — Summary hierarchical semantic reduction вместо destructive truncation (§37–§40, Q10)
+
+**Решение:** нормальный path Summary/FactPackage НЕ производит semantic destructive truncation после L1: L1 (exhaustive/chunk_all) отдаёт FULL source set (§37), затем при несоответствии бюджету L2 выполняется hierarchical semantic reduction pipeline:
+
+```text
+all L1 outputs
+→ stable-ID merge
+→ topic dedupe
+→ semantic subpackages
+→ intermediate reduction
+→ merge reduced subpackages
+→ final L2 package
+```
+
+Все unique topics остаются представлены. Budget L2 — размер ОДНОГО call, НЕ разрешение терять semantic content (§38): при невозможности уложиться в один L2-бюджет без потери — chained/paged L2-сегментация, НИКОГДА silent drop. Сжимать МОЖНО: повторяющиеся fragments, duplicate evidence, одну тему в нескольких chunks, verbose description, repeated chronology wording (§40); НЕЛЬЗЯ silently выбрасывать: уникальный факт / участника / событие / тему. Позиционные каскады 2.58.39 (`_apply_fragment_caps`, `_enforce_budget` — «старые первыми» по timestamp) остаются ТОЛЬКО как fail-soft последней линии, каждое срабатывание — видимое degraded-событие, НЕ норма; production-эффект `FACT_PACKAGE_TRUNCATED skipped_fragments=267/354` (§1.4) на нормальном path исчезает. **RCA-основание:** L1 честен — режет L2-пакетирование позиционно без семантической идентичности (детально — spec.md «Зона 4.1», Q10).
+
+## D9. Зона 4 — Coverage metrics + oversized segmentation + empty-guard (§41–§43)
+
+**Решение:** (1) Semantic coverage metrics обязательны: unique semantic items before / after, merged duplicates, unique dropped, reduction passes; Normal: `unique_dropped = 0` (§41); метрики — числа (R17-safe) в события/Analytics (T-4215); `unique_dropped > 0` на normal path = regression. (2) Oversized single message → lossless segmentation: одно source message больше L1 request budget режется на lossless parts с сохранением original message_id, part index, author, timestamp, reply relation, text parts; merge знает, что это одно исходное сообщение (§42). (3) Empty-summary guard ASAP-3.1 СОХРАНЯЕТСЯ — hotfix не откатывать; инвариант `source > 0 AND semantic package empty → Hybrid invalid → recovery/Legacy`; никогда не публиковать article «про пустой пакет» (§43); существующий EMPTY-PACKAGE GUARD/degraded-события не трогать. **Δ SQLite DDL = 0** (runtime-метрики, in-memory сегменты; Q14-грань — spec.md §4.4).
+
+## D10. Зона 5 — Direct tool-path fallback recompose на всех execution paths (§44–§46, Q11)
+
+**Решение:** контракт `primary payload → primary failure → resolve fallback capacity → RECOMPOSE FULL logical context under fallback budget → fallback call` обязателен на ВСЕХ Direct execution paths: plain `generate`; tool-enabled `generate_chat`; tool loop; retry path; any direct response branch (§44). Recompose при `generate_chat` учитывает ПОЛНЫЙ mandatory payload: system + persona + tool schemas + tool state + messages — НЕ только message text; tool schemas входят в fallback budget (§45); полный logical context не помещается физически → hierarchical reduction/сегментация P0-контента, НЕ тихая потеря tool schemas. Adapter-fail-open текущего `generate()` (:1010–1012) усиливается: recompose failure — лог + честная диагностика, НЕ тихая отправка oversized payload. Regression production-like (§46): primary effective 1M / fallback 32K / tool_router enabled / primary forced failure → EXPECT: fallback payload recomposed; ≤ fallback effective budget; P0 context preserved; tools preserved as needed; no provider 400/context overflow. **RCA-основание (Q11):** `fallback_payload_adapter` есть только в `generate()` (llm_client.py:953–959/:1003–1012); `generate_chat` (llm_client.py:1149–1269, fallback :1182–1194) не имеет adapter и отправляет primary-размерный payload с tools; Direct-ветка tool_router (direct_chat_service.py:1942–1950 → tool_loop.py:225/:278) recompose не передаёт, plain-ветка (:1956–1963) — передаёт. Закрывает carry-over M-ASAP31-2. **Δ SQLite DDL = 0.**
+
+## D11. Зона 6 — Decision полностью LLM-driven (§1.7, §47–§52, Q12)
+
+**Решение:** один Decision Maker structured output в Stage-1 возвращает `{"action":"REACT","reaction":"💀","reason":"..."}` / `{"action":"REPLY"}` / `{"action":"SILENT"}` — выбор REPLY/REACT/SILENT решает LLM, НЕ алгоритм (§47). Алгоритм остаётся ТОЛЬКО hard gates/cheap safety (§48): распознать force keyword, определить reply_to_bot, собрать features, enforce hard product rules; детерминированные ветки `_decision_pre_action`/coordinator демотируются из «решения» в «features» (fail-safe ошибки policy → reply сохраняется).
+
+- **Force Direct (§49):** force keyword/address → всегда REPLY; LLM не может заменить на REACT/SILENT (гейт ДО Decision Maker).
+- **SILENT (§50):** direct-autonomous + conscious LLM SILENT → 🗿 hardcode; background silence → ничего.
+- **REACT (§51):** LLM выбирает конкретную allowed Telegram reaction из runtime list; backend validates; invalid → deterministic safe fallback либо SILENT по существующей policy (прецедент A8 `react_moai`, ≤2 попытки, без рандома); НЕ навязывать `ахах → 😂` (`_REACTION_BY_REASON` — только fallback-карта).
+- **Call count (§52):** НЕ добавлять второй LLM call для emoji — Decision Maker сразу возвращает action + reaction (inject/extract `_llm_react` переиспользуется, контракт расширяется полем `action`).
+- **Kill-switch/откат (§80):** существующие тумблеры (`DIRECT_COORDINATOR_ENABLED`, decision-reactions flags, `llm_reaction_enabled`) дают OFF-паритет — прежний алгоритмический decision; rollback-линия «LLM-driven autonomous decision» независима и не разрушает сервис.
+- **Тесты (§74)/Reviewer (§87)/live (§79):** REACT mock → reaction; REPLY mock → generation; SILENT (direct addressed autonomous) → 🗿; force keyword + модель говорит SILENT → REPLY по hard gate; REACT action chosen by LLM; SILENT/force gates preserved. **RCA-основание (Q12):** action выбирает `_decision_pre_action` (`services/direct_chat_service.py:1087–1158`; REACT :1112–1149 с emoji из `_reaction_for_reason` :677–683/:750–757), LLM вызывается только внутри исполненного REACT для emoji (:1754/:1883/:1887/:1897; deterministic fallback :1925); SILENT решает алгоритм (:1131/:1145/:1152), coordinator ASAP-3.1 (:1022) — тоже. Детально — spec.md «Зона 6.1/6.3». **Δ SQLite DDL = 0.**
+
+## D12. Зона 7 — Analytics theoretical vs actual + actual request snapshot (§1.8, §58–§59, Q13)
+
+**Решение:** read-side Analytics разделяет ЧЕТЫРЕ уровня без смешивания в одном числе (§58): (1) физическое окно модели; (2) теоретический stage budget (после output/safety reserves); (3) последний effective request budget (после system/persona/tools/mandatory payload); (4) последний actual input (provider usage/estimate). Ложные read-side cards с `mandatory_tokens=0` убираются (§1.8): слот-карточка либо честно помечена «теоретическая», либо дополнена реальным mandatory.
+
+- **Actual request snapshot (§59)** после каждого важного LLM request: slot; provider/model; capacity source; physical window; mandatory tokens; available input; payload estimate; actual provider input usage (если есть; иначе estimate + флаг `estimated`); fallback/recompose маркер — БЕЗ raw content (R17).
+- Второй usage store НЕ создаётся (прецедент ADR-1028-3 §24/§50): snapshot — в существующих runtime-событиях/метриках (`MODEL_CAPACITY_RESOLVED`/`AUTO_CONTEXT_BUDGET`/`CONTEXT_PRESSURE`), read-side `/api/analytics/context-budgets` — слот-поле «last_request» из runtime-состояния resolver'а, actual input — из `llm_usage_events`/`record_slot_observation`.
+- **RCA-основание (Q13):** `collect_slots` резолвит budget с hardcoded `mandatory_tokens=0` (`services/model_slots.py:105/:122`) — theoretical; real = только observed percentiles (`auto_budget.py:258–296` из provider usage/estimate `llm_client.py:504/:812`); «последний effective request budget» (`resolve_stage_budget` с фактическим mandatory, `auto_budget.py:156–236`) и «последний actual input» не экспонируются. Детально — spec.md «Зона 7.1/7.4». **Δ SQLite DDL = 0;** kill-switch `ANALYTICS_CONTEXT_BUDGETS_ENABLED` не расширяется.
+
+## D13. Зона 7 — GraphRAG health, rerank observable, vector/FTS/config-switch, log severity (§9, §60–§67)
+
+**Решение:** (1) **§60 GraphRAG Analytics** — FTS status; vector status; embedding generation status; build progress; fingerprint short; embedding model; vector coverage (числитель по D1: `eligible facts с provenance==current / eligible`); last rerank status; rerank invalid rate — человекочитаемо в Miniapp (§9, T-4216): «Векторный индекс: перестраивается / FTS-поиск: работает / Готовность: N% / …»; владелец НЕ читает сырой «A06». (2) **§61 rerank не критический:** failure → bounded fallback, Direct не падает; НО invalid rate после deploy должен стать низким — постоянный высокий = regression, не normal state (наблюдаемость T-4193, метрика `rerank_invalid_rate`). (3) **§62 vector/FTS порядок:** FTS — постоянный резерв ПОСЛЕ active vector; KNN failure → FTS fallback; механику не удалять (согласовано D3). (4) **§63 embedding config switch:** смена model/provider/dim/preprocessing → old generation не обслуживается как current; new rebuild; FTS работает во время rebuild; после validation atomic activate; vectors разных generations не смешиваются (shadow-generation D1 + race-защита D2). (5) **§64 rebuild resource control:** bounded batches, sleep/yield, progress, rate-limit embedding-вызовов, pause/resume, cancellation, restart resume (D2 на REUSE `task_jobs`). (6) **§65 existing vectors/cache:** reuse embedding cache ТОЛЬКО при доказанном совпадении identity (provider/model/dims/preprocessing/endpoint fingerprint) — иначе re-embed. (7) **§66:** помечать `building` active «без базы» — ЗАПРЕЩЕНО (сначала rebuild/verification; согласовано D1). (8) **§67 log severity cleanup (T-4217):** ACTIVE → никаких warning; BUILDING expected → INFO + periodic progress; rebuild stalled/failed → WARNING/ERROR; fingerprint mismatch → WARNING once/state change; повторный not-serviceable — rate-limit/coalesce (D3, T-4192); no machine-language wall в normal UI (§75). **Δ SQLite DDL = 0.**
+
+## D14. Зона 8 — EXTRA corrective audit: PgDatabase-vs-asyncpg.Pool contract + UI/connection/E2E/seed/permissions (§92–§135)
+
+**RCA-основание (код подтверждён):** `web/api/cover_styles.py:42–44` (`_pool(cache)` распаковывает `cache.pg.pool` заранее) передаёт в `cover_style_registry.*` (~18 call sites: list/detail/create/update/duplicate/delete/select-validation/reference upload/replace/remove/asset usage/asset delete/asset GET/capabilities/connection status/test-style/preview save) raw `asyncpg.Pool` вместо `PgDatabase`; `_pool_of(pg)` registry (`cover_style_registry.py:95–96`, 16 вызовах) ожидает PgDatabase-объект с `.pool` → на raw Pool он находит `pool.pool = None` → fail-open молча `[]`/`False`; результат: `GET /api/cover/styles` → только `Без дополнительного стиля` при существующем seeded-профиле, POST → `503 save failed`. Fail-open (спроектированный как «PG down → base cover работает») маскирует контрактный дефект под product-состояние; тесты (`test_extra_cover_styles_api.py`, monkeypatch `services.cover_style_registry.*`) проверяли `route → mock`, а не `route → real registry → PgDatabase → real pool` (§93–§95). Дополнительный дефект модели данных: `resolve_style_slot()` (`cover_style_pipeline.py:55–82`) трактует `profile.connection_id` как raw `base_url` (ID = URL по конструкции, API key резолвится глобально из `keys.image_style_api_key`) — provider-agnostic connection architecture §104 не реализована (детально — spec.md «Зона 8.1»).
+
+**Решение (обязательные исправления):**
+
+1. **Connection model redesign (§103–§105):** `Image Connection (id/provider/base_url/api_key-secret-ref) → Style Processing Slot (default_connection_id/default_model) → Style Profile (use_default_connection | connection_id = настоящий FK к configured connection + model_id)`. Профиль НЕ хранит секрет; Base URL принадлежит Connections; пер-стиль custom provider с собственными credentials — возможен. Preference: `Registry accepts PgDatabase; API passes cache.pg` (T-4218); альтернатива «registry принимает Pool» — только при ADR + type-safe tests; все ~18 `registry.*` вызовов аудированы — «no mixed storage contract may remain».
+2. **UI redesign (§106–§114, не CSS-патч):** management screen (`Стиль этого чата` + `Мои стили` карточками + `Без дополнительного стиля` как selection state); dedicated editor surface (desktop panel/dialog, mobile full-screen route); progressive disclosure (имя/инструкция/референсы/Before→After/нумерация/Test Style/Save первичны, техника collapsed); крупный Before→After seeded (`style_example_01 → style_example_02`) при первом open; видимая reference card с thumbnail `medved_press.png`; New Style flow — server-side draft или two-step (запрещено «Сначала сохраните стиль» пост-фактум); ОДИН Save (без конкурирующего global sticky-save на editor); мобильная геометрия — измеренная (safe-area, клавиатура, bottom nav не перекрывает; без произвольного `padding-bottom`).
+3. **Browser Use + Playwright (§115–§118, §131):** обязательные реализационные инструменты GLM 5.3 Flash (loop change → real UI → interact → inspect → screenshot → fix); E2E против authenticated real backend (FastAPI+PostgreSQL+managed assets) — полный 27-шаговый сценарий §116 desktop + mobile ~360–390px (§117) + desktop ~1280/1600 (§118); network без 500/503/hidden save-failed, asset GET 200, console без uncaught exceptions; Reviewer судит актуальный экран, а не селекторы в HTML; stub-приёмка §96 аннулируется.
+4. **Seed через API+UI (§97–§101, §119, §98–§99):** seeded state инвариант (medved_press/Графический роман Медведь Press/seeded_example/generate_then_edit/counter/ВЫПУСК {counter}/enabled + 3 asset'а + reference metadata); идемпотентный lifecycle (no duplicate, no reset owner edits, interrupted seed → `COVER_STYLE_SEED_INCOMPLETE`, owner-deleted не воскрешается самопроизвольно); asset serving — authenticated 200 реальные картинки, DB-row-без-файла → clear integrity error (не «тихо нет превью»); reference CRUD E2E c persistence после reload; acceptance состава `GET /api/cover/styles` → detail → asset 200 → thumbnails, только потом «seeded style delivered».
+5. **Integration tests storage contract (§120–§122):** тесты API→registry→pool через real/fake PgDatabase БЕЗ monkeypatch registry; обязательный regression RED на pre-fix (raw Pool на месте PgDatabase); static contract guard (§121 — протоколы/naming/AST-правило/accepts-контракт, выбор Builder); re-eval 149 EXTRA-тестов — сначала определить false-positive mocks/stubs и добавить integration coverage, потом registry/API/runtime/job/durable/JS/Browser/full suite.
+6. **Supporting (§102/§124/§125/§126–§127/§128–§129/§123):** `prompts.summary_cover_style_id` НЕ textarea в Prompt Library (одна user-facing truth — селектор Summary); counter start 0 configurable без owner-гейта; Test Style без provider → `Обработка стилем пока не настроена` + `[Настроить подключение]` (CRUD не отключён); provider недоступен → честный Unavailable marker без блокировки roadmap; observability `COVER_STYLE_REGISTRY_LIST_FAILED/SAVE_FAILED/ASSET_MISSING/REFERENCE_UPLOAD_FAILED/SEED_INCOMPLETE` (safe fields: style_id/asset_id/stage/reason/HTTP-class; UI русифицирует, raw DB exceptions не показывает); human UI errors §129; deployment-док erratum append: «EXTRA production acceptance was incomplete: live authenticated registry CRUD/assets were not exercised; stub-backed UI tests masked PgDatabase/Pool integration bug» (историю не стирать).
+7. **Permission architecture (§135):** три раздельные возможности — не объединять: использовать/выбирать стиль для чата; создавать/редактировать custom styles; мутировать seeded/default `Медведь Press`. **Admin-only mutation contract:** seeded профиль (название/инструкция/references/замена-удаление `medved_press.png`/Before-After assets/нумерация/override/active/удаление) мутирует только администратор; обычный пользователь — использует и выбирает, не изменяет определение. **Backend enforcement обязателен** (не только скрытая кнопка): прямое mutation API без права → authorization error, PG/asset storage/counter/references/preview не изменяются. **Miniapp UX:** админ — полноценный редактор; без права — read-only, controls скрыты/disabled, русское объяснение «Этот системный стиль может изменять только администратор», не показывать editable fields, которые упадут на Save. **Permission taxonomy:** право явно в центральном разделе прав (например «Редактирование системных/дефолтных стилей обложки»); матрица раздельно показывает выбор/создание custom/мутацию seeded; default `Медведь Press mutation = admin only`; делегирование — если архитектура допускает, иначе системное/admin-only право без обходных механизмов. **Tests:** admin редактирует seeded; non-admin — нет через UI; non-admin не обходит прямым API; non-admin с обычным правом Cover Styles может выбрать/использовать; экран прав показывает отдельную capability; единый permission source of truth backend/frontend.
+
+**No-false-acceptance rule (§133, окончательная):** ни один агент не рапортует `implemented/verified/production accepted` для database-backed user-facing фичи, если evidence — только mocked unit-tests/stub backend/HTML-маркеры/guest session/direct SQL; acceptance Cover Styles и всех будущих Miniapp database-backed фич — только через authenticated Miniapp → real API → real DB → real asset storage → persisted reload. **§134:** финальная строка `ASAP-3.2 production acceptance complete; current_task continuation unblocked.` — Orchestrator сразу продолжает `current_task.md` (§83–§84, §132 order of operations).
+
+**Sanctions (D14):** Δ SQLite DDL предпочтительно 0 (бронь v20 `mca-04b` не занимать; реестр — в PG); Δ PostgreSQL — по прецеденту `cover_style_*`, аддитивный идемпотентный DDL под connection-model (без секретов/full URL в таблицах, Δ-лист в отчёте); Δ каталога — только под новые default-slot ключи connection-model (если нужны), F8-нумерация от базовых 488/427/463/105/103/21, через T-4233/T-4242; kill-switches — `COVER_STYLES_ENABLED`/`COVER_RICH_DEGRADED_ENABLED` сохраняются, UI redesign новых флагов не вводит (прежний экран не rollback target).
+
+---
+
+## Завершение ADR
+
+**Статус:** Accepted — D1–D14 покрывают зоны 1–8 и финальные правила §133–§134. Спецификация фиксирует data-contract для Builder (T-4191…T-4233: включительно EXTRA T-4218 storage contract / T-4222 seeded-permissions), Reviewer (§87 + §130 20-пунктный gate + no-false-acceptance §133) и DevOps (live acceptance §76–§79 + §119).
+
+**Sanctions list (сводный по всем зонам D1–D14):**
+
+| Зона | Решение | SQLite DDL | PostgreSQL | Каталог/kill-switch |
+|---|---|---|---|---|
+| 1 GraphRAG (D1–D3) | shadow generation rebuild | 0 (идемпотентный CREATE VIRTUAL TABLE + v18-реестр) | — | без изменений |
+| 2 media (D4–D5) | единый adapter+policy | 0 (REUSE `task_jobs`) | — | env timeouts → migration evidence |
+| 3 capacity (D6–D7) | provider adapters | 0 | — | honest source labels |
+| 4 Summary (D8–D9) | hierarchical semantic reduction | 0 | — | coverage-метрики |
+| 5 Direct (D10) | universal recompose | 0 | — | — |
+| 6 Decision (D11) | LLM-driven decision | 0 | — | существующие тумблеры (OFF-паритет) |
+| 7 Analytics (D12–D13) | 4-уровневый budget + health | 0 | — | `ANALYTICS_CONTEXT_BUDGETS_ENABLED` не расширяется |
+| 8 EXTRA (D14) | PgDatabase contract + UI redesign + E2E + seed/refs | **0 (предпочтительно)**; бронь v20 `mca-04b` — не занимать | аддитивный идемпотентный DDL допускается (прецедент `cover_style_*`, Δ-лист обязателен) | новые ключи — только под connection-model (T-4233/T-4242); `COVER_STYLES_ENABLED` master; UI redesign без новых флагов |
+
+Общая ledger: v19 остаётся; v20 — бронь `mca-04b`; любая новая потребность DDL — только через T-4242/ADR-waiver. База каталога F8: **488/427/463/105/103/21**. Финальный gate — §134.
