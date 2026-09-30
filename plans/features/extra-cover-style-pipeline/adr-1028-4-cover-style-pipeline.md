@@ -1,6 +1,6 @@
 # ADR-1028-4 — Modular Cover Styles / Branded Cover Pipeline (EXTRA)
 
-- **Статус:** Proposed (Accepted — по Merge @Architect в `plans/ARCHITECTURE.md`).
+- **Статус:** **Accepted — прод-валидирован 2.58.39; Merge в `plans/ARCHITECTURE.md` §105 (reconcile @Architect, 30.09.2026).** История статуса — §8.
 - **Фича:** `extra-cover-style-pipeline` (prefix `EXTRA`). **Эпик:** `memory-context-autonomy`.
 - **Дата:** Step 2 @Architect (round 10.28+). **Следующий свободный ADR после ADR-1028-3.**
 - **Связанные:** ADR-1027-9 (D13 — бронь v20), ADR-1027-1 (mca-14 registry), ADR-1027-3 (task_jobs), ADR-1027-8 (observability), ADR-1026-17 (A5 PG-DDL `image_reservation`), ADR-1024-4 (image payload/compat), ADR-1023-5 (image module), ADR-1023-6 (cover prompt), ADR-1025-7/-8 (cover fallback/hotfix4), ADR-1026-2 (F8), ADR-1026-11 (summary publish integration), ADR-1022-5 (2-call pipeline), ADR-1013-3 (prompt migrations).
@@ -158,4 +158,38 @@ Summary pipeline зрелый; генерация обложек работае�
 
 ## 6. Status
 
-**Proposed.** Accepted — при Merge @Architect в `plans/ARCHITECTURE.md` (§ следующий свободный). Reconcile — после Reviewer Approved + VERIFIED deploy.
+**Accepted** — фактом Merge @Architect в `plans/ARCHITECTURE.md` **§105** (reconcile 30.09.2026) после Reviewer `Approved for release` (round 2) и VERIFIED прод-деплоя **2.58.39**. Прод-валидация — §7; история статуса — §8.
+
+---
+
+## 7. Production validation (прод 2.58.39, 30.09.2026)
+
+**Deploy:** релиз `cc1b960` (feat) + `7d03b58` (docs) + `c0e0362` (deploy-doc); push `bbdee1c..c0e0362` без force; прод ff; `APP_VERSION` **2.58.39**; `/healthz` = `{"status":"ok","version":"2.58.39"}`, `/api/health` = 200. **Обязательные прод-проверки — 9/9 выполнены** (`deployment.md` §0.3):
+
+1. **PG-DDL применён дважды** (`PgDatabase.init(seed_settings=False)` ×2 на боевом asyncpg + `pg_tables`/`pg_indexes`) → **APPLY1_OK / APPLY2_OK**; ровно **5 таблиц + 5 индексов** (`cover_style_profiles`/`_references`/`_assets`/`_issue_assignments`/`_provenance`; partial unique `idx_cover_style_assets_sha … WHERE deleted_at IS NULL`, `idx_cover_style_issue_unique`); **0 дублей**, без ошибок → D1/D6/D7.
+2. **Real-pool CRUD-smoke** (боевой asyncpg): create/get/duplicate(`origin=custom`)/edit(revision 1→2)/delete; ref add/replace(label L1→L2)/remove; upload-дедуп по `sha256` → тот же `asset_id`, count=1; cleanup leftovers=0 → D6/D7.
+3. **Counter/concurrency:** 10 параллельных `resolve_issue_number` разных run → номера **1..10 (10 distinct, без пропусков)**; тот же `summary_run_id` → **тот же номер** (retry-reuse); `UNIQUE(profile_id, issue_number)` держит (**UniqueViolation**); Test Style (`preview_issue_number()==0`) counter **не расходует** (10→10) → D7.
+4. **`UPDATE … RETURNING` + `resolve_issue_number`** под боевым READ COMMITTED (`conn.transaction()`) → без задвоенных/пропущенных номеров (1..10), `counter_value`=10 → D7.
+5. **`update_reference` rowcount:** PUT на несуществующий `ref_id` → asyncpg `conn.execute()` вернул **строку** `"UPDATE 0"`, `getattr(...,"rowcount",1)`=1 → функция `True` → API отдаёт **200**, не 404. Валидный путь корректен; зафиксировано как non-blocking (backlog §3).
+6. **Durable restart-resume:** прод-прогон `test_extra_cover_style_jobs.py -k "DurableRestart or ProductionWiring"` → **4 passed**; resume из `task_jobs` (`provider_task_id` переиспользован, нового submit нет); статическая wiring `begin/run/finish` в `summary_generator.py` подтверждена → D8.
+7. **DC-4 / T-4173 (§85/§86 + live style-success):** `models.image_style_base_url/_model` пусты, `keys.image_style_api_key` absent, `connection_status.configured=False`, `edit_supported=None` → **edit-capable провайдера НЕТ**; живой style-success и visual §85/§86 отложены владельцу (база публикуется, runtime §78/§90 зелёные) → D4.
+8. **Ladder/parity на проде:** `tests/test_extra_cover_style_runtime.py` + jobs/pipeline → **61 passed**; 7/7 runtime-сценариев (§78 no-style, §79 style-success, §80 style-failure→base без регенерации, §81 base-failure→Rich без обложки, §81 parity plain при degraded OFF, §95 kill-switch OFF, §82 rich-failure→plain) зелёные → D9.
+9. **Операционка:** health 200, `version=2.58.39`, `database is locked` = **0**; R17-скан `COVER_*`-логов — **0 утечек**.
+
+**Seed (§59) + D8:** `seed_seeded_style(pg)` выполнен на проде — профиль **`medved_press`** (`origin=seeded_example`), `counter_enabled=True`, **`counter_value=0`** (обратимый дефолт `SEEDED_COUNTER_START`, owner-input PENDING); 1 reference «Медведь Press»; импортированы 3 ассета из `extra_images/` (`cas_<sha256[:32]>`: `medved_press.png`, `style_example_01.png`, `style_example_02.jpg`), идемпотентно (profiles 1→1, assets 3→3, refs 1→1); оригиналы `extra_images/*` **байт-в-байт не изменены** (R18) → D10.
+
+**Итог:** все решения D1–D13 подтверждены на боевой СУБД/проде в объёме, доступном без edit-capable провайдера; продуктовые хвосты **D8** и **DC-4** (включая живой async resume, L-EXTRA-7) честно задокументированы и вынесены владельцу (`deployment.md` §0.8, `plans/backlog.md`). Прод-проверки — binding-условие вердикта Reviewer, выполнены полностью.
+
+---
+
+## 8. Status history
+
+| Дата | Статус | Событие |
+|---|---|---|
+| Step 2 @Architect | **Proposed** | spec + ADR-1028-4 (D1–D13) созданы; Δ DDL SQLite=0, PG-DDL +5 таблиц (D1) |
+| 30.09.2026, round 1 @Reviewer | **Needs Fixes** | H-EXTRA-1 (durable job §42/§43 не врезан) + M-EXTRA-1/2/3 (stale-preview, CoverBrief, deep-link) + 5 Low; DC-4 Unavailable |
+| 30.09.2026, round 2 @Reviewer | **Approved for release** | H-EXTRA-1 + M-EXTRA-1/2/3 закрыты и врезаны в живой контур; Low/гигиена закрыты; остаточный PG-риск принят как задокументированное ограничение с 9 обязательными прод-проверками; DC-4/T-4173 Unavailable помечено честно |
+| 30.09.2026, @DevOps | **DEPLOYED / VERIFIED** | прод **2.58.39** (`cc1b960`/`7d03b58`/`c0e0362`); 9/9 прод-проверок; PG DDL ×2 идемпотентно; counter 1..10; seed `medved_press` counter=0 |
+| 30.09.2026, reconcile @Architect | **Accepted** | Merge `plans/ARCHITECTURE.md` §105; прод-валидация §7; follow-up в `plans/backlog.md` |
+
+> Reconcile правки (этот §7/§8) — **docs-only** и сделаны после ревью-bound манифеста: реализованный код байт-идентичен ревью-артефактам, approval не инвалидирован. Binding-reviewed кандидат остаётся WTH `d0203e00…dc9b` (`review.md`/`deployment.md` §0.1).
