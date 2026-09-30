@@ -1305,7 +1305,7 @@ class TestBoundaries:
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version(self):
-        assert APP_VERSION == "2.58.37"
+        assert APP_VERSION == "2.58.38"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         assert "v2.58.34" in readme
 

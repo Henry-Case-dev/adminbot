@@ -695,7 +695,7 @@ class TestBounds:
             summary_changed
 
     def test_version_and_catalog(self):
-        assert APP_VERSION == "2.58.37"
+        assert APP_VERSION == "2.58.38"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
         assert len(pc.REGISTRY) == 484
         assert len({f.name for f in dataclasses.fields(Settings)}) == 423

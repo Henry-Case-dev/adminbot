@@ -430,19 +430,55 @@ def _estimate(threads, unassigned, kind) -> int:
     return count_tokens(text) if kind == "tokens" else len(text)
 
 
-def _enforce_budget(threads, unassigned, kind, limit):
-    """Усечение под бюджет (D2): fragments → description → целые темы.
+def _emit_near_empty_package(*, source_total: int, kept: int) -> None:
+    """EMPTY-PACKAGE GUARD (инцидент 29.09.2026): громкое событие, когда пакет
+    остался пуст ПО МАТЕРИАЛУ (0 fragments ∧ 0 chronology) при непустом входе.
 
-    Возвращает ``(skipped_ids, skipped_threads, descriptions_cleared, cut)``.
-    Фрагменты вытесняются от старых, последние сохраняются (§93).
+    Переиспользует существующий ``SUMMARY_COVERAGE_DEGRADED`` с
+    ``reason="near_empty_package"`` (§127/§128: degraded виден, не тихий
+    успех). Fail-open: телеметрия не рвёт сборку пакета."""
+    try:
+        from services.agentic_events import SUMMARY_COVERAGE_DEGRADED, \
+            emit_agentic_event
+        emit_agentic_event(
+            SUMMARY_COVERAGE_DEGRADED, source_messages=int(source_total),
+            processed_messages=int(kept),
+            unprocessed_messages=int(max(source_total - kept, 0)),
+            chunks=1, coverage=0.0, reason="near_empty_package")
+    except Exception:      # fail-open
+        pass
+    logger.warning(
+        "PACKAGE_NEAR_EMPTY | source_messages=%d | kept=%d | "
+        "reason=near_empty_package",
+        int(source_total), int(kept))
+
+
+def _enforce_budget(threads, unassigned, kind, limit):
+    """Усечение под бюджет (D2): fragments → description → целые темы →
+    chronology последней темы.
+
+    Возвращает ``(skipped_ids, skipped_threads, descriptions_cleared,
+    skipped_chronology, cut)``. Фрагменты вытесняются от старых, последние
+    сохраняются (§93).
+
+    **EMPTY-PACKAGE GUARD** (инцидент 29.09.2026): последняя/единственная тема
+    НИКОГДА не вытесняется целиком. Если бюджет не вмещает — тема остаётся в
+    структуре, а её содержимое обрезается по бюджету: сначала ``fragments``
+    (шаг 1), затем ``chronology`` (старые сообщения первыми, шаг 4). Пустой по
+    материалу пакет при непустом входе → громкое событие (§127/§128) —
+    delivery-гейт вызывающего контура не пустит его в L2 мета-текстом.
     """
     skipped_ids: list = []
     skipped_threads: list = []
+    skipped_chronology: list = []
     descriptions_cleared = 0
+    source_chronology = sum(len(t.get("chronology") or []) for t in threads)
     if not limit or limit <= 0:
-        return skipped_ids, skipped_threads, descriptions_cleared, False
+        return (skipped_ids, skipped_threads, descriptions_cleared,
+                skipped_chronology, False)
     if _estimate(threads, unassigned, kind) <= limit:
-        return skipped_ids, skipped_threads, descriptions_cleared, False
+        return (skipped_ids, skipped_threads, descriptions_cleared,
+                skipped_chronology, False)
     cut = True
 
     # 1. Фрагменты: самый старый (по timestamp, message_id) — первым.
@@ -472,11 +508,38 @@ def _enforce_budget(threads, unassigned, kind, limit):
                 descriptions_cleared += 1
 
     # 3. Целые темы — самая старая первой (факты/evidence не режутся частично).
-    while _estimate(threads, unassigned, kind) > limit and threads:
+    #    EMPTY-PACKAGE GUARD: последняя тема НЕ вытесняется (len > 1).
+    while _estimate(threads, unassigned, kind) > limit and len(threads) > 1:
         removed = threads.pop(0)
         skipped_threads.append(removed["thread_id"])
 
-    return skipped_ids, skipped_threads, descriptions_cleared, cut
+    # 4. Последняя тема: содержимое (chronology) — по бюджету, старые первыми.
+    #    Структура темы сохраняется даже при chronology=0 (guard).
+    while _estimate(threads, unassigned, kind) > limit and threads:
+        victim_thread = None
+        victim_key = None
+        for thread in threads:
+            chronology = thread.get("chronology") or []
+            if not chronology:
+                continue
+            entry = chronology[0]
+            key = (entry.get("timestamp") or 0, entry.get("message_id"))
+            if victim_key is None or key < victim_key:
+                victim_key = key
+                victim_thread = thread
+        if victim_thread is None:
+            break
+        removed_entry = victim_thread["chronology"].pop(0)
+        skipped_chronology.append(removed_entry.get("message_id"))
+
+    # EMPTY-PACKAGE GUARD: пакет пуст по материалу при непустом входе.
+    if source_chronology and not any(
+            thread.get("fragments") or thread.get("chronology")
+            for thread in threads):
+        _emit_near_empty_package(source_total=source_chronology, kept=0)
+
+    return (skipped_ids, skipped_threads, descriptions_cleared,
+            skipped_chronology, cut)
 
 
 # ── Сборка пакета ──────────────────────────────────────────────────────────
@@ -505,8 +568,9 @@ def _base_package(status, service, budget, threads, unassigned) -> dict:
 
 def _metrics(status, reason, *, l1_status, threads=(),
              description_truncated=False, skipped_ids=(), skipped_threads=(),
-             descriptions_cleared=0, budget=None, l1_result=None,
-             duration_ms=0.0, fragment_char_truncated=0) -> dict:
+             skipped_chronology=(), descriptions_cleared=0, budget=None,
+             l1_result=None, duration_ms=0.0,
+             fragment_char_truncated=0) -> dict:
     budget = budget or {}
     messages = {entry["message_id"] for t in threads
                 for entry in t.get("chronology") or []
@@ -525,9 +589,12 @@ def _metrics(status, reason, *, l1_status, threads=(),
         "fragments_count": sum(len(t["fragments"]) for t in threads),
         "evidence_count": sum(len(t["evidence_ids"]) for t in threads),
         "truncated_count": (len(skipped_ids) + len(skipped_threads)
-                            + descriptions_cleared),
+                            + len(skipped_chronology) + descriptions_cleared),
         "skipped_fragments_count": len(skipped_ids),
         "skipped_threads_count": len(skipped_threads),
+        # EMPTY-PACKAGE GUARD (инцидент 29.09.2026): сколько chronology-записей
+        # последней темы обрезано по бюджету (пакет остаётся непустым).
+        "skipped_chronology_count": len(skipped_chronology),
         "descriptions_cleared_count": descriptions_cleared,
         "description_truncated": bool(description_truncated),
         "fragment_char_truncated_count": fragment_char_truncated,
@@ -631,8 +698,8 @@ def _build_from_payload(l1_result, payload, payload_items, kind, limit,
     skipped_ids = _apply_fragment_caps(threads)
 
     # Бюджет L2-входа (D2).
-    budget_skipped, skipped_threads, descriptions_cleared, _cut = \
-        _enforce_budget(threads, unassigned, kind, limit)
+    budget_skipped, skipped_threads, descriptions_cleared, skipped_chronology, \
+        _cut = _enforce_budget(threads, unassigned, kind, limit)
     skipped_ids.extend(budget_skipped)
 
     estimated = _estimate(threads, unassigned, kind)
@@ -641,13 +708,21 @@ def _build_from_payload(l1_result, payload, payload_items, kind, limit,
 
     input_truncated = bool(_field(l1_result, "truncated", False)) \
         or str(_field(l1_result, "status", "")) == STATUS_TRUNCATED
-    truncated = bool(skipped_ids or skipped_threads or descriptions_cleared
-                     or input_truncated)
+    truncated = bool(skipped_ids or skipped_threads or skipped_chronology
+                     or descriptions_cleared or input_truncated)
 
-    if not threads:
+    # EMPTY-PACKAGE GUARD (инцидент 29.09.2026): если после enforcer не
+    # осталось материала (0 fragments ∧ 0 chronology) — fail-closed EMPTY
+    # (НЕ deliverable; в L2 такой пакет не уходит — вызывающий контур строит
+    # fallback-пакет). Пустая структура не утекает в публикацию мета-текстом.
+    content_empty = not any(
+        t.get("fragments") or t.get("chronology") for t in threads)
+    if not threads or content_empty:
         status = STATUS_EMPTY
-        reason = REASON_BUDGET_EMPTY if (skipped_ids or skipped_threads) \
+        reason = REASON_BUDGET_EMPTY if (
+            skipped_ids or skipped_threads or skipped_chronology) \
             else REASON_EMPTY
+        threads = []
     elif truncated:
         status = STATUS_TRUNCATED
         reason = REASON_OK
@@ -661,6 +736,7 @@ def _build_from_payload(l1_result, payload, payload_items, kind, limit,
         status, reason, l1_status=str(_field(l1_result, "status", "") or ""),
         threads=threads, description_truncated=stats["description_truncated"],
         skipped_ids=skipped_ids, skipped_threads=skipped_threads,
+        skipped_chronology=skipped_chronology,
         descriptions_cleared=descriptions_cleared, budget=budget,
         l1_result=l1_result, duration_ms=duration_ms,
         fragment_char_truncated=stats["fragment_char_truncated_count"])
@@ -781,21 +857,22 @@ def build_fallback_package(payload_items, *, budget=None,
     }
     threads = [thread]
     skipped_ids = _apply_fragment_caps(threads)
-    budget_skipped, skipped_threads, _cleared, _cut = _enforce_budget(
-        threads, [], kind, limit)
+    budget_skipped, skipped_threads, _cleared, skipped_chronology, _cut = \
+        _enforce_budget(threads, [], kind, limit)
     skipped_ids.extend(budget_skipped)
     estimated = _estimate(threads, [], kind)
     budget_dict = {"kind": kind, "limit": limit, "estimated": estimated,
                    "fits": bool(not limit or limit <= 0
                                 or estimated <= limit)}
-    truncated = bool(skipped_ids or skipped_threads)
+    truncated = bool(skipped_ids or skipped_threads or skipped_chronology)
     status = STATUS_TRUNCATED if truncated else STATUS_OK
     service = {"response_mode": "", "cover_prompt": ""}
     package = _base_package(status, service, budget_dict, threads, [])
     metrics = _metrics(status, REASON_OK, l1_status="fallback",
                        threads=threads, skipped_ids=skipped_ids,
-                       skipped_threads=skipped_threads, budget=budget_dict,
-                       l1_result=None,
+                       skipped_threads=skipped_threads,
+                       skipped_chronology=skipped_chronology,
+                       budget=budget_dict, l1_result=None,
                        duration_ms=(time.perf_counter() - started) * 1000.0,
                        fragment_char_truncated=stats[
                            "fragment_char_truncated_count"])

@@ -268,6 +268,22 @@ def _rich_media_supported() -> bool:
         return False
 
 
+def _package_content_empty(package_result) -> bool:
+    """ASAP-3.1 incident fix 29.09.2026 (EMPTY-PACKAGE GUARD): пакет пуст ПО
+    МАТЕРИАЛУ — 0 fragments и 0 chronology-сообщений.
+
+    Используется как delivery-гейт: такой пакет при непустом source window
+    НЕ передаётся в L2 как обычный саммари (L2 опубликовал бы мета-текст
+    «пакет пуст») — вызывающий контур уходит в LEVEL-3 Legacy."""
+    metrics = getattr(package_result, "metrics", None) or {}
+    try:
+        fragments = int(metrics.get("fragments_count", 0) or 0)
+        chronology = int(metrics.get("messages_count", 0) or 0)
+    except (TypeError, ValueError):         # pragma: no cover - defensive
+        return False
+    return fragments == 0 and chronology == 0
+
+
 _MD_TABLE_SEP_RE = re.compile(
     r"^\s*\|?(?:\s*:?-{2,}:?\s*\|)+(?:\s*:?-{2,}:?\s*)?\|?\s*$")
 _MD_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+", re.MULTILINE)
@@ -851,12 +867,18 @@ class SummaryGenerator:
             # («не публикуем» снят) — переход в LEVEL-2 (L1_FALLBACK_PACKAGE).
             if not l1_result.usable:
                 stage = "package"
+                # ASAP-3.1 incident fix 29.09.2026 (M-ASAP31-3): тот же
+                # resolver-бюджет, что и в defensive-ветке ниже. Ранее на
+                # этой degraded-ветке действовал статический потолок, который
+                # вытеснял единственную тему ЦЕЛИКОМ (пакет «пуст» → L2
+                # публиковал мета-текст).
                 package_result = build_fallback_package(
                     payload_items, correlation_id=correlation_id,
                     chat_id=chat_id,
                     reason=str(getattr(l1_result, "invalid_reason", None)
                                or getattr(l1_result, "status", None)
-                               or "l1_unusable"))
+                               or "l1_unusable"),
+                    budget=l2_budget)
                 fallback_used = True
                 if package_result is None:
                     # Пустой payload (0 сообщений после фильтра) — НЕ failure:
@@ -888,6 +910,25 @@ class SummaryGenerator:
                             ctx.stage = "package"
                             ctx.reason = "payload_empty"
                         return
+            # ASAP-3.1 incident fix 29.09.2026 (EMPTY-PACKAGE GUARD):
+            # fallback-пакет, пустой ПО МАТЕРИАЛУ (0 fragments ∧ 0 chronology)
+            # при непустом source window, НЕ публикуем мета-текстом через L2 —
+            # LEVEL-3 Legacy (published-guard внутри `_legacy_fallback`).
+            if fallback_used and _package_content_empty(package_result):
+                logger.warning(
+                    "L1_FALLBACK_PACKAGE_EMPTY | run_id=%s | chat_id=%s — "
+                    "LEVEL-3 legacy fallback",
+                    correlation_id, chat_id)
+                if ctx is not None:
+                    ctx.stage = "package"
+                    ctx.reason = "near_empty_package"
+                if await _legacy_fallback("empty_fallback_package"):
+                    published = True
+                else:
+                    if ctx is not None:
+                        ctx.status = STATUS_DEGRADED
+                        ctx.code = CODE_SUMMARY_GENERATION_FAILED
+                return
             stage = "l2"
             service = (package_result.package or {}).get("service") or {}
             l2_result = await run_l2(
