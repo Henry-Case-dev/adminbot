@@ -1,5 +1,16 @@
 # Audit Backlog
 
+## EXTRA `extra-cover-style-pipeline` (R3, единый Reviewer gate), 30.09.2026 — **NEEDS FIXES: 1 High blocking + 3 Medium requirement-blocking + 5 Low; DC-4 unavailable**
+
+Base = HEAD `bbdee1c` + незакоммиченный EXTRA-скоуп. Binding — `plans/features/extra-cover-style-pipeline/review.md`. WTH `389993d2f5158b85584a255b00065ddd31894a8db428c129a2c548d6ad721878`; spec `CE34421C…57EF`.
+- **[H-EXTRA-1] [High, OPEN] durable cover-job §42/§43 не врезан:** `services/summary_generator.py:1482` (`run_style_job` без `db`/`job_id`/`state`); `services/cover_style_jobs.py:389/412/432` — вызываются только тестами. Fix: создать job `start_cover_job` в `_maybe_apply_cover_style`, передавать `state`, `save_cover_state`/`finish_cover_job`; integration restart-resume test.
+- **[M-EXTRA-1] [Medium, requirement-blocking, OPEN] §10/SC-24 stale-revision preview:** `web/index.html:576–620` (нет «предыдущей версии»/«Обновить пример»); `web/api/cover_styles.py:487–547` (Test Style не сохраняет preview). Fix: `preview_revision` + `preview_stale`-флаг + UI.
+- **[M-EXTRA-2] [Medium, requirement-blocking, OPEN] §19/§21 CoverBrief/dynamic brief:** `services/cover_style_jobs.py:492–515`; `CoverBrief` в runtime не используется. Fix: `budget_component=CoverBrief.render(...)`.
+- **[M-EXTRA-3] [Medium, requirement-blocking, OPEN] §35 deep-link focus/return:** `web/app.js:7027–7030` — только hash+toast. Fix: анкер группы `models_images` + восстановление контекста.
+- **Low (OPEN, bounded):** L-EXTRA-1 provenance asset-id `None` (`cover_style_jobs.py:762–763`); L-EXTRA-2 `record_cost`/`build_timeline` без прод-вызовов; L-EXTRA-3 upload size-cap; L-EXTRA-4 «Replace» референса; L-EXTRA-5 метка «Затемнение». Hygiene NB-1…NB-4 (CRLF-перекат; metric «Settings 427»; evidence counts; fake-PG tests).
+- **Проверено @Reviewer:** pytest 10201/2 (оба fail чужие), JS 52/52, F8 `--check` OK, §90-мутация, browser PASS. Отдельного Scanner-approval нет (унифицированный gate).
+- **Handoff:** @Orchestrator `review → build`.
+
 ## Эпик 3 / A3 `unified-image-request-round1026` (T-3580/T-3581, повторный единый Reviewer gate — линза 1 requirements/correctness + линза 2 focused change audit; Scanner удалён намеренно), 25.09.2026 — **APPROVED: к merge/архивации (в pending epic-release) ДА; deploy DEFERRED_TO_EPIC (EPIC_ONLY); C0/H0/блокирующих Medium 0; B-1/B-2 CLOSED (rework T-3580: spec/ADR amend + `threat-failure-analysis.md`); owner-гейт прод-проб PENDING OWNER VERIFICATION**
 
 База — HEAD `e8646af` == `origin/master` (annotated-тег `pre-round1026-a2`, tag-obj `a3ea44d` → `e8646af`); **A3-коммитов/тега нет**; рабочее дерево — pending epic-release candidate (незакоммиченный A2 + A3). Product-код **не менялся** с прошлого gate (независимо: SHA-256 сырого `git diff e8646af` без ролевых `MEMORY`/`workflow_state` = `6df003c3b3e4cb2a2d35e78314aca9ad1ed8d13b0876072dd8b8b655f51f27ef` — **идентичен** предыдущему gate). Rework T-3580 затронул **только документы**: `spec.md` (SC-A3-05/§3/§7/§10 — ветка `INCONCLUSIVE`), ADR-1026-16 (D1 AMEND/D11/D9-note), новый `threat-failure-analysis.md`. Binding — `plans/features/unified-image-request-round1026/review.md`.
