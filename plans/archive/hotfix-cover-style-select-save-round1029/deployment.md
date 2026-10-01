@@ -1,6 +1,6 @@
 # deployment.md — HOTFIX `cover-style-save-hotfix` (деплой 2.58.43, cover style select → «save failed»)
 
-> **Feature-ID:** `cover-style-save-hotfix` (dir: `plans/features/hotfix-cover-style-select-save-failed/`)
+> **Feature-ID:** `cover-style-save-hotfix` (dir, архив: `plans/archive/hotfix-cover-style-select-save-round1029/`)
 > **Risk-Level:** R1 (backend-only хотфикс одного роута + тесты; без миграций, auth-изменений, зависимостей)
 > **Deploy:** `nik@198.46.175.136:/var/www/admin_bot` (systemd `admin_bot`, uvicorn `127.0.0.1:8000`, venv `/var/www/admin_bot/venv`)
 > **Дата:** 01.10.2026 (сервер UTC 09:52–09:58; коммиты и пуш — 01.10)

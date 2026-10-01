@@ -1,6 +1,6 @@
 # Review — HOTFIX `cover-style-save-hotfix` (cover style select → «save failed»)
 
-- **Feature-ID**: cover-style-save-hotfix (dir: `plans/features/hotfix-cover-style-select-save-failed/`)
+- **Feature-ID**: cover-style-save-hotfix (dir, архив: `plans/archive/hotfix-cover-style-select-save-round1029/`)
 - **Risk-Level**: R1 (backend-only хотфикс одного роута + тесты; запись в persistent state через принятый контракт chat_params; без миграций, auth-изменений, зависимостей и публичных контрактов за пределами восстановления задуманного поведения)
 - **Status: Approved** (Approved for release, деплой 2.58.43)
 - **Reviewed-Commit**: `0dc5679a32be6237e58cd17da35a1c33f82ecf9e` (HEAD master; хотфикс — незакоммиченный worktree поверх HEAD, коммит создаётся после гейта по указанию владельца)
@@ -8,7 +8,7 @@
   - `web/api/cover_styles.py` : `8C0D60A20F683302D2AFA41A2392406FB3401D36FE5E6D00695487CF401314D9`
   - `tests/test_cover_styles_contract_asap32.py` : `7AD401557AF5BAA3082CCE4F0F4769EE3EE05EC2AE30C4506DF277C9C052799F`
   - `tests/test_extra_cover_styles_api.py` : `F94C835BBD4F0D810202A2038B3A3DC06C7A12A2E22AC736405038015EA52596`
-  - `plans/features/hotfix-cover-style-select-save-failed/evidence.md` : `FAA5B8B00CD4105E6AB4CDD4F4C652CBABA37186E8936F4856B5A230BB4615B7`
+  - `plans/archive/hotfix-cover-style-select-save-round1029/evidence.md` : `FAA5B8B00CD4105E6AB4CDD4F4C652CBABA37186E8936F4856B5A230BB4615B7`
   - Вне скоупа (чужой/служебный WIP, не входит в манифест, код не затрагивают): `plans/docs/mca-round1027-arch-frames.md`, `plans/metrics.md`, `plans/workflow_state.md` (modified, bookkeeping Orchestrator'а — в diff присутствует строка статуса хотфикса), untracked `node_modules/`, `package*.json`, `extra_images/`, `.playwright-mcp/`.
 - **Spec-Hash**: N/A — в feature-директории нет `spec.md` (хотфикс-флоу). Требованийный артефакт = `evidence.md` (хеш выше, входит в WTH-манифест). Апрув привязан к этой связке.
 
