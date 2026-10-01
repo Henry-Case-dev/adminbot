@@ -128,16 +128,17 @@ class GoodmorningRelay:
         input_file = FSInputFile(str(filepath))
 
         try:
+            sent = None
             if media_type == MEDIA_PHOTO:
-                await self._bot.send_photo(
+                sent = await self._bot.send_photo(
                     chat_id=chat_id, photo=input_file, caption=caption
                 )
             elif media_type == MEDIA_VIDEO:
-                await self._bot.send_video(
+                sent = await self._bot.send_video(
                     chat_id=chat_id, video=input_file, caption=caption
                 )
             elif media_type == MEDIA_ANIMATION:
-                await self._bot.send_animation(
+                sent = await self._bot.send_animation(
                     chat_id=chat_id, animation=input_file, caption=caption
                 )
             else:
@@ -150,6 +151,22 @@ class GoodmorningRelay:
                 media_type,
             )
             return False
+
+        # MCA-22 (C2, fix round-1 M-4): доставленная медиа-подпись —
+        # слова бота → durable ledger (`media_caption`). Fail-open.
+        try:
+            from services import bot_output_ledger as _bol
+            await _bol.record_delivered_output(
+                None, chat_id=chat_id,
+                tg_message_id=getattr(sent, "message_id", None),
+                text=None, caption=caption,
+                bot_user_id=getattr(self._bot, "id", None),
+                output_kind="media_caption",
+                source_feature="goodmorning_relay")
+        except Exception:
+            logger.warning(
+                "[mca22] goodmorning ledger record failed | chat_id=%s",
+                chat_id, exc_info=True)
 
         logger.info(
             "Goodmorning: sent | chat_id=%s | file=%s | type=%s | caption=%r",

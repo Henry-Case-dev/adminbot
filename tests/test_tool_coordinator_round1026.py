@@ -656,6 +656,10 @@ class TestBounds:
         # (AMEND: единый контракт full rebuild — прогресс от полного диапазона,
         # resume-on-paused, read-time reconstruction; admin/чат-гейтинг
         # сохранён; Δ каталога = 0).
+        # NOTE (round1027, mca-22 / ADR-1028-6): + `web/api/memory_agi.py`
+        # (расширение СУЩЕСТВУЮЩИХ Memory-виджетов эндпоинтами attribution
+        # trace/metrics §24; новый корневой dashboard запрещён и не создан;
+        # admin-only; Δ каталога = 0).
         assert not any(n.startswith("web/")
                        and not n.startswith(("web/app.js", "web/index.html",
                                              "web/app.py",
@@ -663,7 +667,8 @@ class TestBounds:
                                              "web/static/app.css",
                                              "web/api/routes.py",
                                              "web/api/oversight.py",
-                                             "web/api/chat_lore.py"))
+                                             "web/api/chat_lore.py",
+                                             "web/api/memory_agi.py"))
                        for n in names)
         # NOTE (round1027, MCA-01 / ADR-1027-3 D3): `services/summary_memory.py`
         # санкционированно переведён на единый single-writer
@@ -705,7 +710,7 @@ class TestBounds:
             summary_changed
 
     def test_version_and_catalog(self):
-        assert APP_VERSION == "2.58.43"
+        assert APP_VERSION == "2.58.44"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
         assert len(pc.REGISTRY) == 488
         assert len({f.name for f in dataclasses.fields(Settings)}) == 426

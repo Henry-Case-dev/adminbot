@@ -190,6 +190,32 @@ KILL_SWITCHES: dict[str, tuple[bool, str]] = {
         "компилятор/mca-07 episode-канал как сегодня (legacy `lore_stories` "
         "без фасада нового store)",
     ),
+    # ── mca-22 (ADR-1028-6 D10) — FINAL INTEGRATION: атрибуция/память/     ──
+    #    freshness. Ровно 4 рубильника фичи; env-only, default ON, OFF =
+    #    паритет baseline. В админ-UI не выносятся (§32).
+    "MCA_CANONICAL_ATTRIBUTION_ENABLED": (
+        True,
+        "потребители читают/пишут как сегодня (существующие SELECT/записи); "
+        "роль-колонки не используются; canonical envelope/projection, quote "
+        "resolver, claim envelope, speaker≠subject, producer-validator, "
+        "GraphRAG provenance enforcement и retrieval attribution недостижимы",
+    ),
+    "MCA_BOT_OUTPUT_LEDGER_ENABLED": (
+        True,
+        "`bot_replies` как сегодня (TTL-кеш); `mca_bot_outputs` не пишется/"
+        "не читается; quote-priority 5 недоступна (лестница → 6/7)",
+    ),
+    "MCA_CORRECTION_REVALIDATION_ENABLED": (
+        True,
+        "фразы-триггеры коррекции обрабатываются как обычный диалог; "
+        "существующие статусы не меняются",
+    ),
+    "MCA_RESPONSE_FRESHNESS_GUARD_ENABLED": (
+        True,
+        "текущее поведение: update-dedup/no-replay/duplicate guard/"
+        "freshness retry/lineage-события неактивны; legacy text-dedup живёт "
+        "под собственной политикой `MCA_CONTEXT_ANSWER_CACHE_ENABLED`",
+    ),
 }
 
 
@@ -511,6 +537,48 @@ def episodes_compiler_facade_enabled() -> bool:
     if not episodes_enabled():
         return False
     return bool(getattr(settings, "MCA_EPISODES_COMPILER_FACADE_ENABLED", True))
+
+
+# ── mca-22 (ADR-1028-6 D10): FINAL INTEGRATION — 4 рубильника фичи ─────────
+# Инертности: canonical OFF ⇒ quote/claim/attribution-ветки недостижимы;
+# ledger OFF ⇒ correction не может резолвить бот-цитаты через priority 5
+# (fallback 6/7); observability OFF ⇒ события только structural log.
+
+def canonical_attribution_enabled() -> bool:
+    """`MCA_CANONICAL_ATTRIBUTION_ENABLED` (мастер фичи, default ON).
+
+    ON → canonical envelope/read projection, quote resolver, claim envelope,
+    speaker≠subject, producer-validator, GraphRAG provenance enforcement и
+    retrieval attribution активны. OFF → точный паритет baseline (существующие
+    SELECT/записи; роль-колонки не используются)."""
+    return bool(getattr(settings, "MCA_CANONICAL_ATTRIBUTION_ENABLED", True))
+
+
+def bot_output_ledger_enabled() -> bool:
+    """`MCA_BOT_OUTPUT_LEDGER_ENABLED` (default ON; инертен при canonical OFF
+    для read-веток quote-resolver; write-ветка самостоятельна).
+
+    ON → durable ledger `mca_bot_outputs` пишется/читается. OFF → `bot_replies`
+    как сегодня; quote-priority 5 недоступна (лестница падает на 6/7)."""
+    return bool(getattr(settings, "MCA_BOT_OUTPUT_LEDGER_ENABLED", True))
+
+
+def correction_revalidation_enabled() -> bool:
+    """`MCA_CORRECTION_REVALIDATION_ENABLED` (default ON; инертен при
+    canonical OFF — correction строится над существующей provenance-схемой и
+    envelope-контрактом)."""
+    if not canonical_attribution_enabled():
+        return False
+    return bool(getattr(settings, "MCA_CORRECTION_REVALIDATION_ENABLED", True))
+
+
+def response_freshness_guard_enabled() -> bool:
+    """`MCA_RESPONSE_FRESHNESS_GUARD_ENABLED` (default ON).
+
+    ON → update-dedup/no-replay/duplicate guard/freshness retry/lineage-
+    события активны. OFF → текущее поведение (legacy text-dedup — под своей
+    политикой `MCA_CONTEXT_ANSWER_CACHE_ENABLED`)."""
+    return bool(getattr(settings, "MCA_RESPONSE_FRESHNESS_GUARD_ENABLED", True))
 
 
 def episodes_batch_max_messages() -> int:

@@ -34,6 +34,12 @@ _BUSY_TIMEOUT_MS = 5000     # зеркало services/database.py:48 (_BUSY_TIME
 _LOCK_RETRIES = 3           # зеркало services/memory_rebuild.py:71
 _LOCK_BACKOFF = 0.1         # зеркало services/memory_rebuild.py:72
 
+# MCA-22 (C7, fix round-1 M-1): TTL update-identity маркеров — зеркалит
+# `response_freshness.UPDATE_DEDUP_TTL_SECONDS` (= 24 h; drift-guard тест).
+# Нужен здесь БЕЗ импорта response_freshness: порог ленивой чистки
+# (`_sweep_ttl`) обязан учитывать 24-часовые маркеры при любых флагах.
+_UPDATE_MARKER_SWEEP_TTL = 24 * 3600
+
 # In-process счётчик исчерпаний (Δ DDL = 0: метрика = лог + счётчик; сброс
 # процесса = сброс счётчика — событие остаётся в логе).
 _lock_exhausted_total = 0
@@ -177,15 +183,19 @@ class SmartCache:
     def _sweep_ttl(self) -> int:
         """Порог ленивой чистки: максимум TTL АКТИВНЫХ фич (67.4) —
         дедуп-строки не выметаются раньше своего TTL при маленьком
-        SMART_CACHE_TTL_SECONDS. T-619: рубильники — горячие точки."""
-        ttls = []
+        SMART_CACHE_TTL_SECONDS. T-619: рубильники — горячие точки.
+        MCA-22 (fix round-1 M-1): update-identity маркеры живут 24 h —
+        порог чистки учитывает их БЕЗУСЛОВНО (иначе маленький
+        SMART_CACHE_TTL_SECONDS/выключенный legacy-дедуп выметал бы
+        24-часовые маркеры раньше их собственного TTL)."""
+        ttls = [_UPDATE_MARKER_SWEEP_TTL]
         if hot.get("flags.smart_cache_enabled", settings.SMART_CACHE_ENABLED):
             ttls.append(hot.get("limits.smart_cache_ttl_seconds",
                                 settings.SMART_CACHE_TTL_SECONDS))
         if hot.get("flags.chat_dedup_enabled", settings.CHAT_DEDUP_ENABLED):
             ttls.append(hot.get("limits.chat_dedup_ttl_seconds",
                                 settings.CHAT_DEDUP_TTL_SECONDS))
-        return max(ttls) if ttls else settings.SMART_CACHE_TTL_SECONDS
+        return max(ttls)
 
     def _active(self, dedup: bool) -> bool:
         """Какой рубильник гейтит операцию: у дедупа — СВОЙ (67.4),
@@ -328,6 +338,33 @@ class SmartCache:
         if not hot.get("flags.chat_dedup_enabled", settings.CHAT_DEDUP_ENABLED):
             return
         await self._write(key, payload, self._sweep_ttl())
+
+    # ── MCA-22 (C7, T-4307; fix round-1 M-1): update-identity маркер ────
+    # Специальное хранилище для дедупа Telegram-update'ов (identity-ключ
+    # `(chat, tg, revision, user)` из response_freshness). Политика
+    # СОЗНАТЕЛЬНО отдельна от legacy-рубильников:
+    #   * единственный гейт фичи — `MCA_RESPONSE_FRESHNESS_GUARD_ENABLED`
+    #     (проверяется вызывающим `response_freshness`);
+    #   * `CHAT_DEDUP_ENABLED` (UI-флаг legacy text-дедупа) и
+    #     `SMART_CACHE_ENABLED` маркер НЕ выключают — иначе несвязанные
+    #     флаги молча ломали бы идемпотентность update'ов (M-1);
+    #   * TTL — явный аргумент вызывающего (`UPDATE_DEDUP_TTL_SECONDS`
+    #     = 24 h), НЕ `chat_dedup_ttl_seconds` (= 300 с);
+    #   * `_sweep_ttl` учитывает 24 h безусловно (см. выше); cap
+    #     `SMART_CACHE_MAX_ROWS` — существующая политика кеша (вытеснение
+    #     старейших — приемлемый компромисс, задокументирован).
+    # Синхронизация констант с `response_freshness.UPDATE_DEDUP_TTL_
+    # SECONDS` охраняется drift-guard тестом.
+
+    async def get_update_marker(self, key: str, *,
+                                ttl_seconds: int) -> str | None:
+        """Чтение update-маркера. None — не виден/TTL истёк."""
+        return await self._read(key, ttl_seconds)
+
+    async def set_update_marker(self, key: str, payload: str, *,
+                                ttl_seconds: int) -> None:
+        """Запись update-маркера с явным TTL (24 h для MCA-22 C7)."""
+        await self._write(key, payload, ttl_seconds)
 
     async def close(self) -> None:
         if self._db is not None:

@@ -811,8 +811,175 @@ async def memory_stats(
                 "bot_self_replies": 0}
 
 
-# ── GET /api/memory/timeline (F5/T-1449, spec §3.5) ─────────────────────────
+# ── GET /api/memory/attribution/trace (MCA-22, T-4313; §24 ТЗ) ──────────────
+# Расширение СУЩЕСТВУЮЩЕГО Memory-API (MCA-17: новый корневой dashboard
+# запрещён) — раскрытие атрибуции одного сообщения: кто автор / кому ответ /
+# кого цитирует / кто автор цитаты / какие факты связаны / provenance-класс /
+# конфликты / ledger-записи бота. R17-safe: ID/числа/коды; тексты фактов —
+# только admin-only (как существующие beliefs). Fail-open → пустая структура.
 
+@memory_router.get("/memory/attribution/trace")
+async def memory_attribution_trace(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    chat_id: Annotated[int, Query()],
+    tg_message_id: Annotated[int, Query()],
+):
+    """Attribution Trace одного сообщения (MCA-22 §24; ADR-1028-6 Z8/D7)."""
+    _require_global_admin(request, user)
+    db = _db_or_503()
+    trace: dict = {"chat_id": int(chat_id),
+                   "tg_message_id": int(tg_message_id),
+                   "trigger": None, "quote": None, "facts": [],
+                   "bot_outputs": [], "ledger_available": False}
+    try:
+        row = await db.get_smart_message_by_tg_id(int(chat_id),
+                                                  int(tg_message_id))
+        if row is not None:
+            trace["trigger"] = {
+                "row_id": int(row["id"]),
+                "author_entity_id": row["user_id"],
+                "reply_to_tg_message_id": row["reply_to_id"],
+                "reply_addressee_entity_id": row["reply_to_author_id"],
+                "quote_present": bool(row["quote_text"]),
+                "quote_speaker_entity_id": row["quote_author_id"],
+                "forward_author_entity_id": row["forward_author_id"],
+                "revision": int(row["current_revision"] or 1),
+                "sent_at": row["sent_at"],
+                "edited_at": row["edited_at"],
+                "message_state": row["message_state"],
+                "source_kind": row["source_kind"],
+            }
+    except Exception:
+        logger.warning("[memory_api] attribution trigger read failed",
+                       exc_info=True)
+    try:
+        cursor = await db.db.execute(
+            "SELECT id, fact, origin, status, target_user, weight, "
+            "created_at, subject_ref_id, attribution_method, "
+            "assertion_kind, speaker_author_id "
+            "FROM graph_facts WHERE chat_id = ? AND tg_message_id = ? "
+            "ORDER BY id DESC LIMIT 20",
+            (int(chat_id), int(tg_message_id)))
+        rows = await cursor.fetchall()
+        from services.graphrag_provenance import classify_fact_provenance
+        facts: list[dict] = []
+        for r in rows:
+            d = dict(r)
+            conflict = None
+            try:
+                resolved = await db.resolve_source_ref_ids(
+                    int(chat_id), [("graph_fact", str(d["id"]))])
+                ref_id = resolved.get(("graph_fact", str(d["id"])))
+                if ref_id is not None:
+                    from services.provenance import get_provenance_status
+                    status = await get_provenance_status(db, ref_id)
+                    conflict = (status or {}).get("conflict_status")
+            except Exception:
+                conflict = None
+            d["provenance_class"] = classify_fact_provenance(d)
+            d["conflict_status"] = conflict
+            facts.append(d)
+        trace["facts"] = facts
+    except Exception:
+        logger.warning("[memory_api] attribution facts read failed",
+                       exc_info=True)
+    try:
+        from services import mca_gates as _g
+        if _g.bot_output_ledger_enabled():
+            trace["ledger_available"] = True
+            record = await db.get_bot_output_by_tg(int(chat_id),
+                                                   int(tg_message_id))
+            if record is not None:
+                trace["bot_outputs"] = [record]
+    except Exception:
+        logger.warning("[memory_api] attribution ledger read failed",
+                       exc_info=True)
+    return trace
+
+
+@memory_router.get("/memory/attribution/metrics")
+async def memory_attribution_metrics(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    chat_id: Annotated[int | None, Query()] = None,
+):
+    """Метрики качества атрибуции (MCA-22 §25, T-4314) — R17-safe, числа."""
+    _require_global_admin(request, user)
+    db = _db_or_503()
+    metrics: dict = {
+        "personal_fact_with_subject_rate": 0.0,
+        "personal_fact_with_speaker_rate": 0.0,
+        "person_graph_edge_with_provenance_rate": 0.0,
+        "quote_resolution_rate": 0.0,
+        "quote_ambiguous_rate": 0.0,
+        "correction_revalidation_rate": 0.0,
+        "final_answer_literal_replay_rate": 0.0,
+        "freshness_retry_rate": 0.0,
+    }
+    scope = ("WHERE f.chat_id = ?" if chat_id is not None else "")
+    params = ((int(chat_id),) if chat_id is not None else ())
+    try:
+        cursor = await db.db.execute(
+            f"SELECT COUNT(*) AS total, "
+            f"SUM(CASE WHEN f.subject_ref_id IS NOT NULL THEN 1 ELSE 0 END) "
+            f"AS with_subject, "
+            f"SUM(CASE WHEN f.speaker_author_id IS NOT NULL THEN 1 ELSE 0 END) "
+            f"AS with_speaker FROM graph_facts f {scope}", params)
+        row = await cursor.fetchone()
+        total = int(row["total"] or 0) if row else 0
+        if total:
+            metrics["personal_fact_with_subject_rate"] = (
+                int(row["with_subject"] or 0) / total)
+            metrics["personal_fact_with_speaker_rate"] = (
+                int(row["with_speaker"] or 0) / total)
+            metrics["person_graph_edge_with_provenance_rate"] = (
+                int(row["with_subject"] or 0) / total)
+    except Exception:
+        logger.warning("[memory_api] attribution fact metrics failed",
+                       exc_info=True)
+    try:
+        reason_counts: dict[str, int] = {}
+        scope_ev = ("WHERE chat_id = ?" if chat_id is not None else "")
+        params_ev = ((int(chat_id),) if chat_id is not None else ())
+        cursor = await db.db.execute(
+            f"SELECT reason_code, COUNT(*) AS cnt FROM mca_events "
+            f"{scope_ev} AND reason_code IN ('quote_resolved',"
+            f"'quote_ambiguous','quote_unresolved',"
+            f"'correction_revalidation_queued','direct_final_replay_blocked',"
+            f"'direct_freshness_retry') GROUP BY reason_code"
+            if chat_id is not None else
+            "SELECT reason_code, COUNT(*) AS cnt FROM mca_events "
+            "WHERE reason_code IN ('quote_resolved','quote_ambiguous',"
+            "'quote_unresolved','correction_revalidation_queued',"
+            "'direct_final_replay_blocked','direct_freshness_retry') "
+            "GROUP BY reason_code", params_ev)
+        for r in await cursor.fetchall():
+            reason_counts[str(r["reason_code"])] = int(r["cnt"] or 0)
+        resolved_n = reason_counts.get("quote_resolved", 0)
+        ambig_n = reason_counts.get("quote_ambiguous", 0)
+        unres_n = reason_counts.get("quote_unresolved", 0)
+        q_total = resolved_n + ambig_n + unres_n
+        if q_total:
+            metrics["quote_resolution_rate"] = resolved_n / q_total
+            metrics["quote_ambiguous_rate"] = ambig_n / q_total
+        corr = reason_counts.get("correction_revalidation_queued", 0)
+        if q_total + corr:
+            metrics["correction_revalidation_rate"] = corr / (q_total + corr)
+        replay_blocked = reason_counts.get(
+            "direct_final_replay_blocked", 0)
+        retries = reason_counts.get("direct_freshness_retry", 0)
+        denom = max(1, replay_blocked + retries)
+        metrics["final_answer_literal_replay_rate"] = (
+            replay_blocked / denom)
+        metrics["freshness_retry_rate"] = retries / denom
+    except Exception:
+        logger.warning("[memory_api] attribution event metrics failed",
+                       exc_info=True)
+    return metrics
+
+
+# ── GET /api/memory/timeline (F5/T-1449, spec §3.5) ─────────────────────────
 _DREAM_TIMELINE = {
     "distilled": ("🌙", "Синтезировано убеждение"),
     "resurrect": ("🌙", "Воскрешено убеждение"),

@@ -131,6 +131,15 @@ REASON_CODES = frozenset({
     "story_contradiction_found", "story_legacy_unmapped",
     "story_backfill_paused_budget", "story_source_recheck_queued",
     "story_merged", "story_split",
+    # расширение mca-22/10.27 (FINAL INTEGRATION: freshness/quote/claim/
+    # ledger/correction — ADR-1028-6 D10; §17.2 расширяемый; имена событий
+    # `DIRECT_*` — свободная ось event_name mca-13, словаря не требуют).
+    "direct_update_dedup_hit", "direct_final_replay_blocked",
+    "direct_fresh_generation", "direct_freshness_retry",
+    "direct_intermediate_cache_hit", "quote_resolved", "quote_ambiguous",
+    "quote_unresolved", "subject_unresolved_skipped",
+    "correction_revalidation_queued", "bot_output_recorded",
+    "bot_output_undelivered_skipped",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────

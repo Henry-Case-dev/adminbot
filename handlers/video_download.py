@@ -597,18 +597,22 @@ async def cb_pick_quality(callback: types.CallbackQuery, bot: Bot = None):
                                           progress_cb=reporter.on_progress)
         await reporter.finish("✅ Файл готов, отправляю…")
         file = FSInputFile(str(path.absolute()))
+        caption = (title or "")[:1024]
+        sent = None
         try:
-            await bot.send_video(
+            sent = await bot.send_video(
                 chat_id, file,
                 supports_streaming=True,
-                caption=(title or "")[:1024],
+                caption=caption,
                 reply_to_message_id=trigger_message_id,
             )
         except TelegramBadRequest:
             # таргет реплая исчез — отправляем БЕЗ reply, файл не пропадает
-            await bot.send_video(
+            sent = await bot.send_video(
                 chat_id, FSInputFile(str(path.absolute())),
-                supports_streaming=True, caption=(title or "")[:1024])
+                supports_streaming=True, caption=caption)
+        # MCA-22 (fix round-1 M-4): доставленная подпись → ledger.
+        await _record_caption_ledger(bot, chat_id, sent, caption)
         logger.info("[videodl] sent | chat=%s user=%s quality=%sp",
                     chat_id, user_id, quality)
         # 84.23.4: статус-сообщение исчезает, остаётся только медиа
@@ -743,6 +747,27 @@ async def _safe_error_reply(bot: Bot, chat_id: int, trigger_message_id: int,
             pass
 
 
+async def _record_caption_ledger(bot: Bot, chat_id: int, sent_message,
+                                 caption: str | None) -> None:
+    """MCA-22 (C2, fix round-1 M-4): доставленная медиа-подпись (title —
+    слова бота в чате) → durable ledger `media_caption`. Fail-open: gate
+    OFF/db нет → честный skip (паритет baseline)."""
+    if not caption:
+        return                      # медиа без подписи — нечего помнить
+    try:
+        from services import bot_output_ledger as _bol
+        await _bol.record_delivered_output(
+            None, chat_id=chat_id,
+            tg_message_id=getattr(sent_message, "message_id", None),
+            text=None, caption=str(caption),
+            bot_user_id=getattr(bot, "id", None),
+            output_kind="media_caption",
+            source_feature="video_download")
+    except Exception:
+        logger.warning("[mca22] videodl caption ledger failed | chat=%s",
+                       chat_id, exc_info=True)
+
+
 async def _send_file(bot: Bot, chat_id: int, path: Path,
                      trigger_message_id: int | None,
                      title: str | None) -> None:
@@ -751,24 +776,27 @@ async def _send_file(bot: Bot, chat_id: int, path: Path,
     from aiogram.types import FSInputFile
     file = FSInputFile(str(path.absolute()))
     caption = (title or "")[:1024] if title else None
+    sent = None
     try:
         if trigger_message_id:
-            await bot.send_video(
+            sent = await bot.send_video(
                 chat_id, file, supports_streaming=True, caption=caption,
                 reply_to_message_id=trigger_message_id)
         else:
-            await bot.send_video(chat_id, file, supports_streaming=True,
-                                 caption=caption)
+            sent = await bot.send_video(chat_id, file,
+                                        supports_streaming=True,
+                                        caption=caption)
     except TelegramBadRequest:
         # таргет реплая исчез / тип не видео — шлём документом
         try:
-            await bot.send_document(
+            sent = await bot.send_document(
                 chat_id, FSInputFile(str(path.absolute())),
                 reply_to_message_id=trigger_message_id,
                 caption=caption)
         except TelegramBadRequest:
-            await bot.send_document(chat_id,
-                                    FSInputFile(str(path.absolute())))
+            sent = await bot.send_document(
+                chat_id, FSInputFile(str(path.absolute())))
+    await _record_caption_ledger(bot, chat_id, sent, caption)
     logger.info("[videodl] sent | chat=%s | file=%s", chat_id, path.name)
 
 

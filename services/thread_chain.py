@@ -153,6 +153,37 @@ async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
             current_id = row["reply_to_id"]
             continue
         bot_text = await get_report(chat_id, current_id)
+        bot_sent_at = None
+        if bot_text is None:
+            # MCA-22 (C2, T-4288; ADR-1028-6 D2): bot_replies TTL/LRU протух
+            # → durable ledger `mca_bot_outputs` восстанавливает ход бота и
+            # parent-ссылку (регресс §4: «TTL-кеш протух — ledger восстановил»).
+            # Gate `MCA_BOT_OUTPUT_LEDGER_ENABLED` OFF → None (паритет:
+            # цепочка обрывается как сегодня). Fuzzy-совпадений нет — только
+            # точный `(chat_id, tg_message_id)`.
+            try:
+                from services import bot_output_ledger as _bot_ledger
+                _rec = await _bot_ledger.resolve_bot_output_by_tg(
+                    db, chat_id, current_id)
+            except Exception:
+                _rec = None
+            if _rec is not None:
+                bot_text = _rec.get("content_text")
+                bot_sent_at = _rec.get("sent_at")
+                _parent_ref = _rec.get("parent_message_ref") or ""
+                if bot_text is not None:
+                    chain.append(ChainItem(
+                        uid=None, name=bot_name, text=bot_text, is_bot=True,
+                        ts=bot_sent_at, item_id=f"tg:{current_id}",
+                        forward_source=None))
+                    if _parent_ref.startswith("tg:"):
+                        try:
+                            current_id = int(_parent_ref.split(":", 1)[1])
+                        except (TypeError, ValueError):
+                            current_id = None
+                    else:
+                        current_id = None
+                    continue
         if bot_text is not None:
             chain.append(ChainItem(
                 uid=None, name=bot_name, text=bot_text, is_bot=True,

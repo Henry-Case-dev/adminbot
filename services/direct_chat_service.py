@@ -89,6 +89,11 @@ from services import bot_persona
 from services import thread_chain
 from services import mca_gates
 from services import mca_retrieval_context as _mca_rc
+from services import response_freshness as _fresh   # MCA-22 (C7, D8)
+from services import bot_output_ledger as _ledger   # MCA-22 (C2, D2)
+from services import graphrag_provenance as _gprov  # MCA-22 (C5/C8, D6/D9)
+from services import provenance as _prov            # MCA-22 (C8: reuse 04a)
+from services import quote_resolver as _qres        # MCA-22 (C3, D3; fix M-2)
 from services import command_prefix  # ASAP-3: persona-name force-детект (F6)
 from services.chat_params import (
     chat_summary_enabled,
@@ -763,6 +768,14 @@ TRIGGER_MENTION = "mention"
 TRIGGER_PERSONA_NAME = "persona_name"
 TRIGGER_REPLY_TO_BOT = "reply_to_bot"
 TRIGGER_FREE_WILL = "free_will"
+
+
+def direct_output_kind(trigger_type: str | None) -> str:
+    """MCA-22 (C2, T-4287; fix round-1 M-4): kind durable-ledger строки
+    для direct-ответа. Автономный ответ (free_will) — СО СВОИМ kind
+    `autonomous_reply` (раньше все ветки писались `direct_reply`)."""
+    return ("autonomous_reply" if trigger_type == TRIGGER_FREE_WILL
+            else "direct_reply")
 
 
 def silent_ack_enabled() -> bool:
@@ -1576,6 +1589,48 @@ class DirectChatService:
             await _reply(bot, chat_id, random.choice(CHAT_LOCK_BUSY_PHRASES),
                          message.message_id)
             return
+        # MCA-22 (C7, T-4307; ADR-1028-6 D8): update-identity дедуп — строгий
+        # ключ `(chat_id, tg_message_id, revision)` в smart_cache (24 h),
+        # НЕ по тексту. Инвариант §16/§19: same update → idempotent
+        # (0 LLM / 0 reply / 0 memory); different update, same text →
+        # fresh processing. OFF-рубильник → паритет baseline (без маркера).
+        _trigger_tg_id = getattr(message, "message_id", None)
+        if await _fresh.check_update_seen(self._cache, chat_id,
+                                          _trigger_tg_id, revision=1,
+                                          user_id=(user_id or None)):
+            _fresh.emit_freshness_event(
+                "DIRECT_UPDATE_DEDUP_HIT", outcome="skipped",
+                reason_code="direct_update_dedup_hit",
+                chat_id=chat_id, message_id=_trigger_tg_id)
+            logger.info("[direct] update dedup hit | chat=%s user=%s",
+                        chat_id, target_name)
+            # Fix round-1 (M-1 wiring): ранний return ПОСЛЕ захвата слота
+            # пула обязан его отпустить — иначе повторная доставка того же
+            # update'а НАВСЕГДА съедала per-chat слот
+            # (limits.smartmodule_concurrency_per_chat) и чат вставал:
+            # каждое следующее сообщение ждало lock-wait и получало
+            # «занят» (дефект был замаскирован TTL 300 с старого маркера;
+            # 24-часовой маркер сделал его достижимым в тестах и проде).
+            permit.release()
+            return
+        await _fresh.mark_update_seen(self._cache, chat_id, _trigger_tg_id,
+                                      revision=1, user_id=(user_id or None))
+        # MCA-22 (C8, T-4305/T-4306; ADR-1028-6 D9): фразы-триггеры коррекции
+        # («это говорил Лёха / ты сам это написал / ты меня перепутал / это
+        # старая информация») → correction path: contradicts-evidence
+        # (tentative) + conflict_status='conflicting' + revalidation-очередь.
+        # User correction — сильный сигнал, НЕ абсолютная истина; ответ
+        # генерируется обычным путём. Gate OFF → обычный диалог (паритет).
+        # Триггер проверяется детерминированно СИНХРОННО: фоновая задача
+        # создаётся только при реальном срабатывании (обычные реплики —
+        # 0 накладных; задача вне fire_and_forget-очереди пост-фаз send —
+        # не сдвигает порядок memorize-хука).
+        if mca_gates.correction_revalidation_enabled():
+            _corr_plan = _gprov.plan_correction(message_text=query)
+            if _corr_plan.triggered:
+                asyncio.create_task(
+                    self._run_correction_path(chat_id, query,
+                                              _trigger_tg_id))
         answer_text: str | None = None
         dedup_key = None
         try:
@@ -2294,6 +2349,70 @@ class DirectChatService:
                     chat_id, target_name)
                 await react_moai(bot, chat_id, message.message_id)
                 return
+            # ── MCA-22 (C7, T-4311; ADR-1028-6 D8/§18): exact duplicate
+            # guard — bounded safety net conversational-ответов. new
+            # tg_message_id AND normalized(final) == normalized(recent
+            # bot answer) → максимум ОДНА regeneration с фиксированным
+            # коротким hint; второй совпавший ответ отправляется + metric
+            # (loop запрещён). Exemptions §18 — детерминированные тексты.
+            # Paraphrase-postprocessor НЕ создаётся (инвариант тестом).
+            _freshness_retry_used = False
+            if _fresh.freshness_guard_enabled() and self.db is not None:
+                try:
+                    _recent = await self.db.list_recent_bot_outputs(
+                        chat_id, limit=1)
+                except Exception:
+                    _recent = []
+                _recent_text = (_recent[0].get("content_text")
+                                if _recent else None)
+                _dup = _fresh.evaluate_duplicate(
+                    answer, _recent_text, new_tg_message_id=_trigger_tg_id)
+                if _dup.duplicate and not _dup.exempt and \
+                        _dup.regeneration_allowed and \
+                        not getattr(tool_ctx, "lore_compiled", False):
+                    # Первый совпавший ответ НЕ отправляется (replay-block),
+                    # затем ровно одна regeneration c hint (простой путь —
+                    # raw:str; tool-loop/структурные ответы guard'ом на
+                    # regeneration не трогаются — bounded).
+                    _fresh.emit_freshness_event(
+                        "DIRECT_FINAL_REPLAY_BLOCKED", outcome="skipped",
+                        reason_code="direct_final_replay_blocked",
+                        chat_id=chat_id, message_id=_trigger_tg_id)
+                    try:
+                        _hint_payload = list(payload) + [{
+                            "role": "user",
+                            "content": _fresh.DUPLICATE_GUARD_HINT}]
+                        raw = await self.llm.generate(
+                            _hint_payload, temperature=temperature,
+                            chat_id=chat_id, module="direct_chat",
+                            step="duplicate_guard_retry",
+                            correlation_id=correlation_id)
+                        _answer2 = strip_reasoning_tags(str(raw).strip())
+                        _dup2 = _fresh.evaluate_duplicate(
+                            _answer2, _recent_text,
+                            new_tg_message_id=_trigger_tg_id,
+                            regeneration_already_used=True)
+                        if _answer2 and not (_dup2.duplicate and
+                                             not _dup2.exempt):
+                            answer = _answer2
+                            _freshness_retry_used = True
+                            _fresh.emit_freshness_event(
+                                "DIRECT_FRESHNESS_RETRY", outcome="success",
+                                reason_code="direct_freshness_retry",
+                                chat_id=chat_id, message_id=_trigger_tg_id,
+                                attempt=2)
+                        else:
+                            # bounded: второй совпавший → отправить + metric.
+                            _fresh.emit_freshness_event(
+                                "DIRECT_FRESHNESS_RETRY",
+                                outcome="silent",
+                                reason_code="duplicate_sent_after_retry",
+                                chat_id=chat_id, message_id=_trigger_tg_id,
+                                attempt=2)
+                    except Exception:
+                        logger.warning(
+                            "[direct] duplicate guard retry failed — "
+                            "send as-is | chat=%s", chat_id, exc_info=True)
             if coordinator is not None:
                 _log_coordinator_outcome(
                     chat_id=chat_id, action=ACTION_REPLY,
@@ -2315,6 +2434,33 @@ class DirectChatService:
                 await self.remember_bot_reply(
                     chat_id, sent_id, answer,
                     parent_tg_message_id=message.message_id)
+                # MCA-22 (C2, T-4287): durable ledger — только реально
+                # доставленный output (после успешной send); append-only,
+                # правка → новая revision-строка. Gate OFF → не пишем
+                # (паритет baseline; quote-priority 5 недоступна).
+                # awaited-вставка (одна короткая транзакция) — не
+                # fire-and-forget: порядок пост-фаз после успешной send
+                # не меняется (прецедент remember_bot_reply).
+                # Fix round-1 (M-4): autonomous-ответ (free_will триггер)
+                # пишется СО СВОИМ kind `autonomous_reply` — раньше все
+                # direct-ветки писались как `direct_reply`.
+                await _ledger.record_delivered_output(
+                    self.db, chat_id=chat_id, tg_message_id=sent_id,
+                    text=answer, bot_user_id=self.bot_id,
+                    output_kind=direct_output_kind(_trigger_type),
+                    sent_at=int(time.time()),
+                    parent_message_ref=(f"tg:{message.message_id}"
+                                        if message.message_id
+                                        is not None else None),
+                    correlation_id=correlation_id,
+                    source_feature="direct_chat")
+                # MCA-22 (C7, T-4312): lineage-событие свежей генерации
+                # (safe snapshot — без raw content/CoT, R17).
+                _fresh.emit_freshness_event(
+                    "DIRECT_FRESH_GENERATION", outcome="success",
+                    reason_code="direct_fresh_generation",
+                    chat_id=chat_id, message_id=sent_id,
+                    causation_id=correlation_id)
                 # REVISE S2: memorize ТОЛЬКО ПОСЛЕ успешной отправки (58.8) —
                 # fire-and-forget внутри гейта sent_id. Раунд 8 (C6/T-797):
                 # wrapper с пост-фазой «факты про третьих лиц не приписываются
@@ -3452,8 +3598,84 @@ class DirectChatService:
         except Exception:
             return None
 
-    async def _build_evidence_bundle(self, chat_id: int, message, query: str,
-                                     target_name: str, user_id,
+    async def _run_correction_path(self, chat_id: int, query: str,
+                                   trigger_tg_id: int | None) -> None:
+        """MCA-22 (C8, T-4305/T-4306; ADR-1028-6 D9): correction/revalidation
+        над СУЩЕСТВУЮЩЕЙ provenance-схемой (второй статусный контур запрещён).
+
+        * фраза-триггер → `plan_correction` (детерминированно, без LLM);
+        * кандидаты — bounded FTS по граф-фактам чата (≤5);
+        * только provenance-backed факты (есть object SourceRef) получают
+          `contradicts`-EvidenceLink (verification='tentative') + конфликт
+          `conflicting` — disputed = проекция conflicting, новых enum нет;
+        * legacy-факты (без SourceRef) НЕ auto-bind'ятся по похожему имени
+          (§31 — прямой запрет); revalidation неприменима честно;
+        * «исправлено» НЕ пишется — есть только противоречащее утверждение;
+          пере-проверка (reconstruct_fact_provenance) решает исход.
+        Никогда не бросает (fire-and-forget путь)."""
+        if self.db is None:
+            return
+        try:
+            plan = _gprov.plan_correction(message_text=query)
+            if not plan.triggered:
+                return
+            keywords = re.findall(r"[а-яёa-z0-9]+",
+                                  str(query or "").casefold())[:6]
+            if not keywords:
+                return
+            from services.summary_memory import build_fts_query
+            match = build_fts_query(keywords)
+            if not match:
+                return
+            rows = await self.db.search_graph_facts_fts(
+                chat_id, match, limit=5, now_ts=int(time.time()))
+            if not rows:
+                return
+            fact_ids = [int(r["id"]) for r in rows]
+            resolved = await self.db.resolve_source_ref_ids(
+                chat_id, [("graph_fact", str(fid)) for fid in fact_ids])
+            # SourceRef корректирующего сообщения (создаётся по требованию —
+            # существующий get-or-create контракт mca-04a).
+            correction_ref_id = None
+            if trigger_tg_id is not None:
+                correction_ref_id = await _prov.resolve_source_ref(
+                    self.db, _prov.SourceRef(
+                        store="sqlite", entity_type="message",
+                        entity_id=f"tg:{int(trigger_tg_id)}",
+                        chat_id=int(chat_id),
+                        tg_message_id=int(trigger_tg_id),
+                        resolution="resolved"))
+            queued = 0
+            for fid in fact_ids:
+                ref_id = resolved.get(("graph_fact", str(fid)))
+                if ref_id is None:
+                    continue          # legacy — без auto-bind (§31)
+                if correction_ref_id is not None:
+                    await _prov.add_evidence_link(self.db, _prov.EvidenceLink(
+                        subject_ref_id=ref_id,
+                        source_ref_id=correction_ref_id,
+                        link_type=plan.evidence_link_type,
+                        method="direct_reference",
+                        verification=plan.verification,
+                        independence="independent",
+                        claim_key=None,
+                        basis=None,
+                        established_at=int(time.time())))
+                await _prov.set_provenance_status(
+                    self.db, ref_id, conflict_status=plan.conflict_status)
+                queued += 1
+            _fresh.emit_freshness_event(
+                "CORRECTION_REVALIDATION_QUEUED", outcome="success",
+                reason_code="correction_revalidation_queued",
+                chat_id=chat_id, message_id=trigger_tg_id,
+                attempt=queued)
+            logger.info("[mca22] correction path queued | chat=%s | facts=%d",
+                        chat_id, queued)
+        except Exception:
+            logger.warning("[mca22] correction path failed — skip | chat=%s",
+                           chat_id, exc_info=True)
+
+    async def _build_evidence_bundle(self, chat_id: int, message, query: str,                                     target_name: str, user_id,
                                      user_blocks: list, *,
                                      excluded: list | None = None,
                                      chosen_intent: str | None = None):
@@ -3532,18 +3754,166 @@ class DirectChatService:
                             trigger_id if trigger_id is not None else None))
             except Exception:
                 local_context = ()
+            # ── MCA-22 (C6, T-4299; ADR-1028-6 D7): bundle v2 — раздельные
+            # роли (author/direct_addressee/reply_addressee/quoted_speaker)
+            # и реальные SourceRef — из СТРУКТУРНЫХ данных (полный ряд
+            # MCA-03 + batched mca_source_refs), не из regex по строкам.
+            # `MCA_CANONICAL_ATTRIBUTION_ENABLED=OFF` → точный legacy-
+            # паритет (author==addressee==target_name, source_ref_id=None).
+            v2_fields: dict = {}
+            if mca_gates.canonical_attribution_enabled():
+                try:
+                    _row = (await self.db.get_smart_message_by_tg_id(
+                        chat_id, trigger_id)
+                        if (self.db is not None
+                            and trigger_id is not None) else None)
+                    _reply_author = (str(_row["reply_to_author_id"])
+                                     if _row is not None and
+                                     _row["reply_to_author_id"] is not None
+                                     else None)
+                    _quote_author = (str(_row["quote_author_id"])
+                                     if _row is not None and
+                                     _row["quote_author_id"] is not None
+                                     else None)
+                    # ── MCA-22 (C3, T-4290; fix round-1 M-2): живой вызов
+                    # Quote Resolver из прод-пути. Metadata-first (§29):
+                    # если ingestion уже знает автора цитаты
+                    # (`quote_author_id`) — лестница не нужна. Иначе
+                    # (ручные `>`-цитаты, копипаста, quote без автора)
+                    # резолвим детерминированной лестницей 1–7 и
+                    # заполняем `quoted_speaker`/evidence/ambiguities
+                    # bundle v2. Fail-open: ошибка резолва не рвёт
+                    # сборку контекста (legacy-поля).
+                    _quote_res = None
+                    _v2_ambiguities: tuple = ()
+                    if _quote_author is None:
+                        _quote_res = await self._resolve_quote_live(
+                            chat_id, _row, query, user_id)
+                        if _quote_res is not None and \
+                                _quote_res.quote_speaker_entity_id is not None:
+                            _quote_author = str(
+                                _quote_res.quote_speaker_entity_id)
+                        if _quote_res is not None and \
+                                _quote_res.status == _qres.QUOTE_AMBIGUOUS:
+                            # честная ambiguous-маркировка (не выдумываем
+                            # автора; см. C3: ≥2 совпадения → ambiguous)
+                            _v2_ambiguities = (
+                                f"quote:priority_{_quote_res.priority}",)
+                    _speaker = (str(_row["user_id"]) if _row is not None
+                                and _row["user_id"] is not None
+                                else target_name or None)
+                    # Реальные SourceRef для fact-evidence: batched lookup
+                    # (один SELECT, без N+1). message-ref'ы ветки резолвятся
+                    # по entity_id tg:<id>.
+                    _fact_pairs = [(("graph_fact"), ref.split(":", 1)[1])
+                                   for ref in evidence_refs
+                                   if ref.startswith("fact:")]
+                    _msg_pairs = [(("message"), ref.split(":", 1)[1])
+                                  for ref in (*branch, *evidence_refs)
+                                  if ref.startswith("tg:")]
+                    _resolved: dict = {}
+                    if self.db is not None and (_fact_pairs or _msg_pairs):
+                        _resolved = await self.db.resolve_source_ref_ids(
+                            chat_id, [*_fact_pairs, *_msg_pairs])
+                    def _sref(ref: str):
+                        etype = ("graph_fact" if ref.startswith("fact:")
+                                 else "message")
+                        return _resolved.get((etype, ref.split(":", 1)[1]))
+                    _evidence_v2 = []
+                    if current_ref:
+                        _evidence_v2.append(_mca_rc.EvidenceItem(
+                            source_ref_id=_sref(current_ref),
+                            entity_type="message", entity_id=current_ref,
+                            label="current"))
+                    for ref in evidence_refs:
+                        _evidence_v2.append(_mca_rc.EvidenceItem(
+                            source_ref_id=_sref(ref),
+                            entity_type=("graph_fact"
+                                         if ref.startswith("fact:")
+                                         else "message"),
+                            entity_id=ref))
+                    if _quote_res is not None and _quote_res.quote_source_ref:
+                        # цитата резолвлена к durable-источнику (ступень 5:
+                        # Own Output Ledger `bot_output:<id>`) — отдельный
+                        # evidence-item с реальным ref (не авторство, ссылка)
+                        _evidence_v2.append(_mca_rc.EvidenceItem(
+                            source_ref_id=None, entity_type="message",
+                            entity_id=_quote_res.quote_source_ref,
+                            label="quote"))
+                    v2_fields = {
+                        "author": _speaker,
+                        "addressee": "bot",
+                        "direct_addressee": "bot",
+                        "reply_addressee": _reply_author,
+                        "quoted_speaker": _quote_author,
+                        "ambiguities": _v2_ambiguities,
+                        "evidence": tuple(_evidence_v2),
+                        "structured": True,
+                    }
+                except Exception:
+                    logger.warning("[mca22] bundle v2 roles failed — legacy",
+                                   exc_info=True)
+                    v2_fields = {}
             return _mca_rc.EvidenceBundle(
                 trigger=current_ref, current_message_ref=current_ref,
                 current_revision=current_ref,
-                addressee=target_name or None, author=target_name or None,
+                addressee=v2_fields.pop("addressee", target_name or None),
+                author=v2_fields.pop("author", target_name or None),
                 mentioned=mentioned, branch=branch,
                 local_context=local_context,
-                evidence=tuple(evidence), constraints=constraints,
+                evidence=v2_fields.pop("evidence", tuple(evidence)),
+                constraints=constraints,
                 relations=relations, chosen_intent=chosen_intent,
                 recent_actions=recent_actions, context_version=context_version,
-                excluded=excluded_items)
+                excluded=excluded_items, **v2_fields)
         except Exception:
             logger.warning("[mca07] evidence bundle build failed — None",
+                           exc_info=True)
+            return None
+
+    @staticmethod
+    def _rowval(row, key: str):
+        """Безопасное чтение колонки sqlite-Row (отсутствует → None)."""
+        try:
+            if row is None or key not in row.keys():
+                return None
+            return row[key]
+        except Exception:
+            return None
+
+    async def _resolve_quote_live(self, chat_id: int, row, query: str,
+                                  sender_user_id: int | None):
+        """MCA-22 (C3, T-4290; fix round-1 M-2): живой prod-вызов Quote
+        Resolver из direct-пути (раньше модуль был test-only).
+
+        Вход — metadata текущего сообщения (ingested-ряд MCA-03: reply/
+        quote-поля) + ручные `>`-цитаты из текста. `thread_texts` не
+        передаётся (окно уже собрано композером; лестница падает на
+        ledger/FTS-ступени 5–6). Gate canonical OFF → None (паритет).
+        Никогда не бросает; None/`unresolved` — честный unknown."""
+        if not mca_gates.canonical_attribution_enabled():
+            return None
+        try:
+            manual_lines = [
+                ln.strip()[1:].strip()
+                for ln in str(query or "").splitlines()
+                if ln.strip().startswith(">") and len(ln.strip()) > 1]
+            manual_quote = "\n".join(
+                ln for ln in manual_lines if ln)[:512] or None
+            return await _qres.resolve_quote(
+                self.db, chat_id=chat_id,
+                sender_entity_id=(self._rowval(row, "user_id")
+                                  or sender_user_id),
+                quote_text=manual_quote,
+                reply_to_tg_message_id=self._rowval(row, "reply_to_id"),
+                reply_to_speaker_entity_id=self._rowval(
+                    row, "reply_to_author_id"),
+                tg_quote_text=self._rowval(row, "quote_text"),
+                bot_user_id=self.bot_id,
+                thread_texts=None,
+                exclude_tg_message_id=self._rowval(row, "tg_message_id"))
+        except Exception:
+            logger.warning("[mca22] live quote resolve failed — unknown",
                            exc_info=True)
             return None
 
@@ -4615,10 +4985,16 @@ class DirectChatService:
         else:
             target_user = None
         try:
-            return await self.memory.remember_user_fact(
+            result = await self.memory.remember_user_fact(
                 chat_id, fact_text, target_user=target_user,
                 ttl_days=hot.get("limits.memory_commands_remember_ttl_days",
                                  settings.MEMORY_COMMANDS_REMEMBER_TTL_DAYS))
+            # MCA-22 (C4, T-4292/T-4293): «skipped_gated» — write-gating
+            # producer-validator'а (negation/gated speech act); маппится в
+            # существующую ветку «denied» (фраза отказа), факт не записан.
+            if result == "skipped_gated":
+                return "denied"
+            return result
         except Exception:
             logger.warning(
                 "[user_memory] remember failed | chat=%s user=%s",

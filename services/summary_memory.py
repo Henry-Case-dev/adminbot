@@ -2896,6 +2896,37 @@ class MemoryManager:
         fact = " ".join(str(fact or "").split())
         if not fact:
             return "duplicate"                  # пусто — noop (parse уже отсеял)
+        # ── MCA-22 (C4, T-4292/T-4293; ADR-1028-6 D4/D5): producer-validator
+        # «запомни»-пути (ТОЛЬКО personal-скоуп: target_user — факт о
+        # себе/себе-атрибутированный; чат-скоуп (target_user=None, админ) —
+        # не personal fact, гейтинг не применим). Write-gating:
+        # negation/deny («я не говорил, что X») и gated speech acts
+        # (question/hypothesis/joke/command) personal fact НЕ создают
+        # (truth-set D). Self-report: subject = speaker (запрещённого
+        # fallback subject=sender здесь нет — store сам атрибутирует
+        # канон-имени автора). Gate OFF → паритет baseline.
+        try:
+            from services import claim_envelope as _ce
+            if target_user is not None:
+                outcome, reason = _ce.gate_personal_text_write(fact)
+                if outcome == _ce.OUTCOME_REJECTED:
+                    try:
+                        from services import mca_events
+                        mca_events.emit_mca_event(
+                            "personal_fact_gated", outcome="skipped",
+                            component="user_memory",
+                            reason_code=(reason or
+                                         "subject_unresolved_skipped"),
+                            chat_id=int(chat_id))
+                    except Exception:
+                        pass
+                    logger.info(
+                        "[user_memory] gated by validator | chat_id=%s | "
+                        "outcome=%s | reason=%s", chat_id, outcome, reason)
+                    return "skipped_gated"
+        except Exception:
+            logger.warning("[user_memory] validator failed — fail-open",
+                           exc_info=True)
         expiry = (None if ttl_days in (None, 0)
                   else int(time.time() + int(ttl_days) * 86400))
         now = int(time.time())

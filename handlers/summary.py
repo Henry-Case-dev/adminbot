@@ -111,12 +111,20 @@ def setup_summary(generator, db=None, aliases=None, bot_id=None) -> None:
     """Inject dependencies. Called from bot.py on_startup() (33.9) — ПОСЛЕ
     set_config_cache. Middleware /summary регистрируется ЗДЕСЬ (не на
     module-level): ThrottlingMiddleware создаётся с живым значением из кэша
-    (значение из админки), а не бейкдится при импорте (N1)."""
+    (значение из админки), а не бейдится при импорте (N1)."""
     global _generator, _db, _aliases, _bot_id
     _generator = generator
     _db = db
     _aliases = aliases
     _bot_id = bot_id
+    # MCA-22 (C2, fix round-1 M-4): default-db для ledger write-path'ов
+    # без DI (rich/plain публикация статей). fail-open: db None → скип.
+    try:
+        from services import bot_output_ledger as _bol
+        _bol.bind_default_db(db)
+    except Exception:
+        logger.warning("setup_summary: ledger default-db bind failed",
+                       exc_info=True)
     # N1: регистрация строго один раз (идемпотентный guard — повторный
     # setup_summary не дублирует middleware).
     if not getattr(summary_router.message, "_throttle_registered", False):
@@ -224,9 +232,21 @@ async def summary_observer(message: types.Message):
             reply_user = getattr(message.reply_to_message, "from_user", None)
             reply_author_id = getattr(reply_user, "id", None)
         quote_text = None
+        quote_author_id = None
         quote = getattr(message, "quote", None)
         if quote is not None:
             quote_text = getattr(quote, "text", None)
+            # MCA-22 (C1/Q3a, T-4279; ADR-1028-6 D1): автор цитаты — честное
+            # значение из Telegram metadata. `TextQuote` автора НЕ содержит:
+            # цитата — подсвеченный фрагмент сообщения-ответа, автор цитаты =
+            # автор `reply_to_message` (Telegram отдаёт его вместе с quote).
+            # Нет reply_to_message → None (честный unknown, не выдумка).
+            # Колонка существует с v16 — это заполнение данных, не schema
+            # change и не изменение identity model MCA-03 (spec §10.3).
+            if message.reply_to_message is not None:
+                quote_user = getattr(message.reply_to_message, "from_user",
+                                     None)
+                quote_author_id = getattr(quote_user, "id", None)
         forward_author_id = None
         if origin is not None:
             fwd_user = getattr(origin, "sender_user", None)
@@ -256,6 +276,7 @@ async def summary_observer(message: types.Message):
                 reply_to_id=reply_to_id,
                 reply_to_author_id=reply_author_id,
                 quote_text=quote_text,
+                quote_author_id=quote_author_id,
                 forward_author_id=forward_author_id,
             )
         except Exception:

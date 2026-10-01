@@ -190,11 +190,20 @@ class TestMigrationV21:
         versions = [s.version for s in steps]
         assert versions == sorted(versions)
         assert len(set(versions)) == len(versions)
+        # MCA-22 (ADR-1028-6 §4.1): хвост реестра теперь v22 — mca-05
+        # остаётся в реестре; mark обновлён на текущий хвост по конвенции
+        # волн (прецедент v16→v21).
         assert versions[-1] == _SCHEMA_VERSION_STORIES_MARK
-        assert versions[-1] == _SCHEMA_VERSION_EPISODES_STORIES
+        assert _SCHEMA_VERSION_EPISODES_STORIES in versions
+        assert _SCHEMA_VERSION_EPISODES_STORIES == 21
 
 
-_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_EPISODES_STORIES
+# MCA-22: mark хвоста реестра — v22 (bot_outputs_ledger); v21-таблицы
+# проверяются выше без изменений.
+from services.database import (  # noqa: E402
+    _SCHEMA_VERSION_BOT_OUTPUTS as _SCHEMA_VERSION_TAIL_V22,
+)
+_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V22
 
 
 # ═══ Kill-switch OFF-паритет (SC-20, T-4249) ═════════════════════════════════

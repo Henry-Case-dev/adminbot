@@ -696,6 +696,21 @@ class DeadPageRelay:
                 caption=caption,
             )
             logger.info(f"[dead_page] Fallback: photo sent to chat {chat_id}")
+            # MCA-22 (C2, fix round-1 M-4): доставленная подпись dead page —
+            # слова бота → durable ledger `media_caption`. Fail-open.
+            try:
+                from services import bot_output_ledger as _bol
+                await _bol.record_delivered_output(
+                    self.db, chat_id=chat_id,
+                    tg_message_id=getattr(sent_photo, "message_id", None),
+                    text=None, caption=caption,
+                    bot_user_id=getattr(self.bot, "id", None),
+                    output_kind="media_caption",
+                    source_feature="dead_page_relay")
+            except Exception:
+                logger.warning(
+                    "[mca22] dead_page caption ledger failed | chat=%s",
+                    chat_id, exc_info=True)
             dest_ids: list[int] = []
             _collect_dest_ids(sent_photo, dest_ids)
 

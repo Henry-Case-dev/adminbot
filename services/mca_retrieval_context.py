@@ -206,6 +206,15 @@ class EvidenceBundle:
     context_version: str = ""
     excluded: tuple[ExcludedItem, ...] = ()
     schema_version: str = BUNDLE_SCHEMA_VERSION
+    # ── MCA-22 (C6, §11/§28 ТЗ; ADR-1028-6 D7): bundle v2 — раздельные
+    # смысловые слоты (author и addressee НЕ схлопываются в target_name),
+    # реальный revision MCA-03 и subjects ретрив-утверждений. Заполняется
+    # только под `MCA_CANONICAL_ATTRIBUTION_ENABLED` (OFF = паритет legacy).
+    direct_addressee: str | None = None       # кому адресован ответ (bot/user)
+    reply_addressee: str | None = None        # автор сообщения-ответа
+    quoted_speaker: str | None = None         # автор цитаты (≠ author!)
+    subjects: tuple[str, ...] = ()            # subjects retrieval-кандидатов
+    structured: bool = False                  # True = собран structure-first
 
 
 def compute_context_version(*, current_revision=None, selected_refs=(),
@@ -294,12 +303,24 @@ class RetrievalRequest:
     time_to: int | None = None
     participants: tuple[int, ...] = ()
     reply_depth: int = 6
+    # ── MCA-22 (C5, §21 ТЗ): query planning — структурированные identity ──
+    # current speaker/subject candidates переносятся в identity-prior;
+    # episodes-first не нарушается (эпизоды не штрафуются prior'ом).
+    subject_entity_ids: tuple[int, ...] = ()   # subject candidates запроса
+    speaker_entity_id: int | None = None       # current speaker
+    reply_target_entity_id: int | None = None  # reply-адресат триггера
+    quote_source_ref: str | None = None        # резолвнутый источник цитаты
 
 
 @dataclasses.dataclass(frozen=True)
 class RetrievalCandidate:
     """Кандидат: ССЫЛКА на источник (SourceRef `mca-04a` + время `mca-03`),
-    НЕ копия сырья. ``preview`` — транзиентный display для reranker."""
+    НЕ копия сырья. ``preview`` — транзиентный display для reranker.
+
+    MCA-22 (ADR-1028-6 D7, §10 ТЗ): attribution-метаданные — аддитивные
+    поля с честными дефолтами (None/""), заполняются конструкторами там,
+    где источник их знает. Exact subject match сильнее vector hit про
+    другого человека (`apply_identity_prior`)."""
     id: str
     entity_type: str          # message|graph_fact|episode
     entity_id: str
@@ -311,6 +332,47 @@ class RetrievalCandidate:
     channel: str = ""
     revision: str | None = None
     preview: str = ""
+    # ── MCA-22 (C5): attribution-метаданные ────────────────────────────────
+    subject_entity_id: int | None = None   # о ком факт (target_user/subject)
+    speaker_entity_id: int | None = None   # кто сказал (speaker_author_id/user_id)
+    assertion_kind: str | None = None      # v17 graph_facts / envelope
+    attribution_method: str | None = None  # self_report|third_party|…
+    verification: str | None = None        # provenance verification/status
+    origin_type: str | None = None         # origin / provenance_channel
+    contradiction_status: str | None = None   # mca_provenance_status
+    provenance_backed: bool = False        # False = legacy/unverified (§9)
+
+
+def apply_identity_prior(candidates: list, *, subject_entity_ids: tuple = (),
+                         participant_ids: tuple = ()) -> list:
+    """Identity-aware prior поверх канальных рангов (C5, §10/§21; D7).
+
+    Детерминированный буст (не «второй движок»): exact subject match
+    сильнее приблизительного vector hit про другого человека; участники
+    текущего контекста получают мягкий буст; `provenance_backed=False`
+    (legacy/unverified) — мягкий штраф. SourceRef/reply-match про нужного
+    subject не вытесняется similarity сам по себе (truth-set K).
+    Возвращает НОВЫЙ список (sorted by скор), без мутаций входа."""
+    subjects = {int(s) for s in subject_entity_ids or () if s is not None}
+    participants = {int(p) for p in participant_ids or () if p is not None}
+    if not subjects and not participants:
+        return sorted(candidates, key=lambda c: c.score, reverse=True)
+
+    def _adjusted(cand: RetrievalCandidate) -> float:
+        score = float(cand.score)
+        if subjects and cand.subject_entity_id is not None and \
+                int(cand.subject_entity_id) in subjects:
+            score += 150.0                  # exact subject — доминирующий prior
+        elif subjects and cand.subject_entity_id is not None:
+            score -= 80.0                   # факт про другого человека — вниз
+        if participants and cand.speaker_entity_id is not None and \
+                int(cand.speaker_entity_id) in participants:
+            score += 15.0                   # source role: участник контекста
+        if not cand.provenance_backed:
+            score -= 10.0                   # legacy/unverified — weak hint (§9)
+        return score
+
+    return sorted(candidates, key=_adjusted, reverse=True)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -345,6 +407,15 @@ def _row_get(row, key, default=None):
         return row[key]
     except Exception:
         return default
+
+
+def _canonical_enabled() -> bool:
+    """`MCA_CANONICAL_ATTRIBUTION_ENABLED` (mca-22 C5; per-call, не бросает)."""
+    try:
+        from services import mca_gates as _g
+        return _g.canonical_attribution_enabled()
+    except Exception:                                     # pragma: no cover
+        return True
 
 
 def _channel_rank(channel: str, position: int) -> float:
@@ -484,6 +555,20 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                         else 0)
         return (history_bias, cand.score)
     ordered = sorted(_dedup(raw), key=_sort_key, reverse=True)
+    # MCA-22 (C5, D7): identity-prior — exact subject match про нужного
+    # человека сильнее приблизительного vector hit про другого (§10/§21).
+    # Гейт canonical OFF → prior не применяется (паритет baseline).
+    if _canonical_enabled() and (request.subject_entity_ids
+                                 or request.participants):
+        non_eps = [c for c in ordered if c.channel != "episode"]
+        eps = [c for c in ordered if c.channel == "episode"]
+        non_eps = apply_identity_prior(
+            non_eps, subject_entity_ids=request.subject_entity_ids,
+            participant_ids=request.participants)
+        ordered = (eps + non_eps) if mode == "history" else \
+            apply_identity_prior(
+                ordered, subject_entity_ids=request.subject_entity_ids,
+                participant_ids=request.participants)
     # Ограничение top_k (эпизоды-первыми не вытесняются при истории).
     if len(ordered) > max(1, request.top_k):
         if mode == "history":
@@ -530,26 +615,53 @@ def _message_candidate(row, channel: str, position: int, resolve_item_id):
         id=item_id or f"msg:{message_id}",
         entity_type="message", entity_id=str(message_id),
         chat_id=_row_get(row, "chat_id"),
-        sent_at=int(_row_get(row, "timestamp") or 0),
+        sent_at=int(_row_get(row, "timestamp")
+                    or _row_get(row, "sent_at")
+                    or _row_get(row, "rag_ts") or 0),
         author_id=_row_get(row, "user_id"),
         score=_channel_rank(channel, position), channel=channel,
-        preview=_truncate_preview(_row_get(row, "text")))
+        revision=(f"tg:{tg_id}" if tg_id is not None else None),
+        preview=_truncate_preview(_row_get(row, "text")),
+        # C5 (D7): speaker сообщения = author; subject-поле честно пусто
+        # (subject сообщения — уровень ClaimEnvelope, не re-ranking).
+        speaker_entity_id=_row_get(row, "user_id"),
+        origin_type=str(_row_get(row, "source_kind") or "") or None)
 
 
 def _fact_candidate(row, channel: str, position: int, resolve_item_id):
     fact_id = _row_get(row, "id")
     tg_id = _row_get(row, "tg_message_id")
     item_id = resolve_item_id(tg_message_id=tg_id, fact_id=fact_id)
+    subject = _row_get(row, "target_user")
+    speaker = _row_get(row, "speaker_author_id")
+    subject_ref = _row_get(row, "subject_ref_id")
+    origin = str(_row_get(row, "origin") or "")
+    try:
+        subject_id = int(subject) if subject not in (None, "") else None
+    except (TypeError, ValueError):
+        subject_id = None
     return RetrievalCandidate(
         id=item_id or f"fact:{fact_id}",
         entity_type="graph_fact", entity_id=str(fact_id),
         chat_id=_row_get(row, "chat_id"),
+        source_ref_id=(int(subject_ref)
+                       if subject_ref not in (None, "") else None),
         sent_at=int(_row_get(row, "rag_ts")
                     or _row_get(row, "message_timestamp")
                     or _row_get(row, "created_at") or 0),
-        author_id=_row_get(row, "user_id"),
+        author_id=speaker if speaker is not None else subject_id,
         score=_channel_rank(channel, position), channel=channel,
-        preview=_truncate_preview(_row_get(row, "fact")))
+        preview=_truncate_preview(_row_get(row, "fact")),
+        # C5 (D7): subject/speaker/provenance — из v17-колонок (§10):
+        # факт без subject_ref_id = legacy/unverified → weak hint.
+        subject_entity_id=subject_id,
+        speaker_entity_id=speaker,
+        assertion_kind=(str(_row_get(row, "assertion_kind") or "") or None),
+        attribution_method=(
+            str(_row_get(row, "attribution_method") or "") or None),
+        origin_type=(origin or str(_row_get(row, "provenance_channel")
+                                   or "") or None),
+        provenance_backed=(subject_ref not in (None, "")))
 
 
 def _fact_meta_candidate(row, position: int, resolve_item_id):
@@ -557,12 +669,27 @@ def _fact_meta_candidate(row, position: int, resolve_item_id):
     fact_id = row.get("id")
     item_id = row.get("item_id") or resolve_item_id(
         tg_message_id=row.get("tg_message_id"), fact_id=fact_id)
+    subject_ref = row.get("subject_ref_id")
+    try:
+        subject_id = (int(row["target_user"])
+                      if row.get("target_user") not in (None, "") else None)
+    except (TypeError, ValueError, KeyError):
+        subject_id = None
     return RetrievalCandidate(
         id=item_id or f"fact:{fact_id}",
         entity_type="graph_fact", entity_id=str(fact_id),
+        chat_id=row.get("chat_id"),
+        source_ref_id=(int(subject_ref)
+                       if subject_ref not in (None, "") else None),
         sent_at=int(row.get("rag_ts") or 0),
         score=_channel_rank("vector", position), channel="vector",
-        preview=_truncate_preview(row.get("fact")))
+        preview=_truncate_preview(row.get("fact")),
+        subject_entity_id=subject_id,
+        speaker_entity_id=row.get("speaker_author_id"),
+        assertion_kind=row.get("assertion_kind"),
+        attribution_method=row.get("attribution_method"),
+        origin_type=(str(row.get("origin") or "") or None),
+        provenance_backed=(subject_ref not in (None, "")))
 
 
 def _chain_candidate(item, position: int):

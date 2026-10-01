@@ -802,6 +802,48 @@ from services.mca_episode_prompts import (  # noqa: E402
     EPISODE_UNKNOWN_OUTCOME,
 )
 
+# ── Раунд 10.27 (MCA-22 FINAL INTEGRATION, spec §4.1 / ADR-1028-6 D2/D10) ──
+# Durable Own Output Ledger — ЕДИНСТВЕННАЯ DDL-дельта фичи: v22 `mca_bot_outputs`
+# (+3 индекса). Аддитивно/идемпотентно (self-guard `sqlite_master`), PG — no-op
+# (memory-контур SQLite-only; `pg_db.py` вне diff). §31-обоснование: reuse
+# `smart_messages` загрязнял бы human-only corpus (FTS/окно/L1/L2/persona/
+# GraphRAG), reuse `bot_replies` ломал бы контракт TTL-кеша 63.1. Append-only:
+# правка собственного сообщения → новая revision-строка (не UPDATE).
+_SCHEMA_VERSION_BOT_OUTPUTS = 22
+
+BOT_OUTPUT_KINDS = frozenset({
+    "direct_reply", "autonomous_reply", "rich_message", "media_caption",
+    "other",
+})
+BOT_OUTPUT_DELIVERY_STATUSES = frozenset({"delivered", "failed", "unknown"})
+
+_MCA_BOT_OUTPUTS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_bot_outputs ("
+    "output_id        INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "bot_user_id      INTEGER, "
+    "chat_id          INTEGER NOT NULL, "
+    "tg_message_id    INTEGER, "
+    "revision_no      INTEGER NOT NULL DEFAULT 1, "
+    "sent_at          INTEGER, "
+    "parent_message_ref TEXT, "
+    "output_kind      TEXT NOT NULL, "
+    "content_text     TEXT, "
+    "content_ref      TEXT, "
+    "content_hash     TEXT, "
+    "correlation_id   TEXT, "
+    "source_feature   TEXT, "
+    "delivery_status  TEXT NOT NULL DEFAULT 'delivered', "
+    "created_at       INTEGER NOT NULL)"
+)
+_MCA_BOT_OUTPUTS_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_bot_outputs_chat_tg "
+    "ON mca_bot_outputs (chat_id, tg_message_id)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_bot_outputs_hash "
+    "ON mca_bot_outputs (content_hash)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_bot_outputs_corr "
+    "ON mca_bot_outputs (correlation_id)",
+)
+
 # Раунд 3 (3.6/B7, T-693): полный список origin для CHECK graph_facts — в ОДНОМ
 # месте (CREATE TABLE + пересоздание в _migrate_direct_chat_v2 + миграции v4/v5).
 # Включает ВНЕШНИЕ скобки списка IN (формат вставки в «CHECK (origin IN %s)»).
@@ -1662,6 +1704,9 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_EPISODES_STORIES,
                           "episodes_stories",
                           lambda svc: svc._migrate_episodes_stories_v21()),
+            MigrationStep(_SCHEMA_VERSION_BOT_OUTPUTS,
+                          "bot_outputs_ledger",
+                          lambda svc: svc._migrate_bot_outputs_v22()),
         ]
 
     @staticmethod
@@ -2309,6 +2354,162 @@ class DatabaseService:
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_EPISODES_STORIES}")
         await self.db.commit()
+
+    async def _migrate_bot_outputs_v22(self) -> None:
+        """v22 (`mca-22-attribution-memory-coherence`, spec §4.1/ADR-1028-6
+        D2/D10): Durable Own Output Ledger — таблица `mca_bot_outputs` +
+        3 индекса.
+
+        Аддитивно (`CREATE TABLE/INDEX IF NOT EXISTS`, self-guard по
+        `sqlite_master`); повторный прогон — no-op; существующие таблицы
+        (`smart_messages`/`bot_replies`/прочие) НЕ трогаются. Append-only
+        по контракту (UPDATE не выполняется ни в одной ветке кода). PG —
+        no-op. Фиксирует `PRAGMA user_version = 22`."""
+        if not await self._table_exists("mca_bot_outputs"):
+            await self.db.execute(_MCA_BOT_OUTPUTS_DDL)
+            await self.db.commit()
+            logger.info("[database] migration v22: mca_bot_outputs")
+        for ddl in _MCA_BOT_OUTPUTS_INDEX_DDL:
+            await self.db.execute(ddl)
+        await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_BOT_OUTPUTS}")
+        await self.db.commit()
+
+    # ── mca-22 (ADR-1028-6 D2): Durable Own Output Ledger — write/read ──────
+    # Запись ТОЛЬКО реально доставленных outputs (недоставленный draft — не
+    # «слова бота»; `delivery_status='failed'` не пишется write-path'ом фичи).
+    # Правка собственного сообщения → новая revision-строка (append-only,
+    # UPDATE/DELETE не выполняются). R17: content_hash — sha256 текста.
+
+    async def record_bot_output(
+            self, *, chat_id: int, bot_user_id: int | None = None,
+            tg_message_id: int | None = None, revision_no: int = 1,
+            sent_at: int | None = None, parent_message_ref: str | None = None,
+            output_kind: str = "direct_reply", content_text: str | None = None,
+            content_ref: str | None = None, content_hash: str | None = None,
+            correlation_id: str | None = None, source_feature: str | None
+            = None, delivery_status: str = "delivered",
+            created_at: int | None = None) -> int | None:
+        """Записать доставленный output бота (append-only). Fail-open: None.
+
+        Косвенный маркер недоставленного — write-path фичи не вызывает этот
+        метод (reason_code `bot_output_undelivered_skipped`), в таблице
+        `delivery_status` остаётся контрактом схемы."""
+        if output_kind not in BOT_OUTPUT_KINDS:
+            output_kind = "other"
+        if delivery_status not in BOT_OUTPUT_DELIVERY_STATUSES:
+            delivery_status = "unknown"
+        now = int(created_at if created_at is not None else time.time())
+
+        async def _body(conn):
+            cursor = await conn.execute(
+                "INSERT INTO mca_bot_outputs (bot_user_id, chat_id, "
+                "tg_message_id, revision_no, sent_at, parent_message_ref, "
+                "output_kind, content_text, content_ref, content_hash, "
+                "correlation_id, source_feature, delivery_status, created_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (bot_user_id, int(chat_id), tg_message_id,
+                 max(1, int(revision_no or 1)), sent_at, parent_message_ref,
+                 output_kind, content_text, content_ref, content_hash,
+                 correlation_id, source_feature, delivery_status, now))
+            return int(cursor.lastrowid)
+
+        try:
+            return await self.write_transaction(
+                _body, op_name="bot_output_record")
+        except Exception:
+            logger.warning("[mca22] bot_output record failed | chat=%s",
+                           chat_id, exc_info=True)
+            return None
+
+    @staticmethod
+    def _bot_output_row_to_dict(row) -> dict | None:
+        if row is None:
+            return None
+        keys = ("output_id", "bot_user_id", "chat_id", "tg_message_id",
+                "revision_no", "sent_at", "parent_message_ref", "output_kind",
+                "content_text", "content_ref", "content_hash",
+                "correlation_id", "source_feature", "delivery_status",
+                "created_at")
+        return {k: row[k] for k in keys}
+
+    async def get_bot_output_by_tg(self, chat_id: int,
+                                   tg_message_id: int) -> dict | None:
+        """Ledger-строка по `(chat_id, tg_message_id)` — последняя revision."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT * FROM mca_bot_outputs "
+                "WHERE chat_id = ? AND tg_message_id = ? "
+                "ORDER BY revision_no DESC, output_id DESC LIMIT 1",
+                (int(chat_id), int(tg_message_id)))
+            return self._bot_output_row_to_dict(await cursor.fetchone())
+        except Exception:
+            return None
+
+    async def find_bot_outputs_by_hash(self, chat_id: int, content_hash: str,
+                                       limit: int = 5) -> list[dict]:
+        """Exact-match поиск по content_hash в чате (quote-priority 5)."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT * FROM mca_bot_outputs "
+                "WHERE chat_id = ? AND content_hash = ? AND "
+                "delivery_status = 'delivered' "
+                "ORDER BY output_id DESC LIMIT ?",
+                (int(chat_id), str(content_hash), max(1, int(limit))))
+            rows = await cursor.fetchall()
+            return [d for d in (self._bot_output_row_to_dict(r)
+                                for r in rows) if d is not None]
+        except Exception:
+            return []
+
+    async def list_recent_bot_outputs(self, chat_id: int, limit: int = 20,
+                                      kinds: tuple[str, ...] | None = None
+                                      ) -> list[dict]:
+        """Последние delivered-outputs чата (thread_chain/история обещаний).
+
+        kinds — фильтр по `output_kind` (None = все)."""
+        try:
+            if kinds:
+                marks = ",".join("?" for _ in kinds)
+                sql = (f"SELECT * FROM mca_bot_outputs WHERE chat_id = ? AND "
+                       f"delivery_status = 'delivered' AND output_kind IN "
+                       f"({marks}) ORDER BY output_id DESC LIMIT ?")
+                params = (int(chat_id), *kinds, max(1, int(limit)))
+            else:
+                sql = ("SELECT * FROM mca_bot_outputs WHERE chat_id = ? AND "
+                       "delivery_status = 'delivered' "
+                       "ORDER BY output_id DESC LIMIT ?")
+                params = (int(chat_id), max(1, int(limit)))
+            cursor = await self.db.execute(sql, params)
+            rows = await cursor.fetchall()
+            return [d for d in (self._bot_output_row_to_dict(r)
+                                for r in rows) if d is not None]
+        except Exception:
+            return []
+
+    async def resolve_source_ref_ids(self, chat_id: int,
+                                     entity_pairs: list[tuple[str, str]]
+                                     ) -> dict[tuple[str, str], int]:
+        """Batched get-or-lookup SourceRef id по (entity_type, entity_id)
+        (mca-04a; ОДИН SELECT, без N+1 — §30). Только существующие ссылки
+        попадают в результат (создание — обязанность producers, не read)."""
+        if not entity_pairs:
+            return {}
+        try:
+            marks = ",".join("(?,?)" for _ in entity_pairs)
+            sql = (f"SELECT entity_type, entity_id, source_ref_id "
+                   f"FROM mca_source_refs WHERE chat_id = ? AND "
+                   f"(entity_type, entity_id) IN ({marks})")
+            params: list = [int(chat_id)]
+            for etype, eid in entity_pairs:
+                params.extend([str(etype), str(eid)])
+            cursor = await self.db.execute(sql, tuple(params))
+            rows = await cursor.fetchall()
+            return {(r["entity_type"], r["entity_id"]):
+                    int(r["source_ref_id"]) for r in rows}
+        except Exception:
+            return {}
 
     # ── mca-04b (ADR-1027-9 D8): регистр поколений + staging + активация ────
     # Атомарная активация — одна короткая транзакция под single-writer
@@ -6305,10 +6506,17 @@ class DatabaseService:
         меняется; множитель накладывается при пересортировке в Python)."""
         statuses = ("('confirmed', 'archived_belief')" if include_archived
                     else "('confirmed')")
+        # MCA-22 (ADR-1028-6 D7/C5): SELECT АДДИТИВНО расширен provenance-
+        # колонками v17 (subject_ref_id/attribution_method/assertion_kind/
+        # speaker_author_id/provenance_channel) — retrieval переносит
+        # subject/speaker в RetrievalCandidate (§10); порядок/существующие
+        # колонки не меняются (потребители читают по имени).
         sql = (
             "SELECT f.id, f.fact, f.origin, f.created_at, f.target_user, "
             "f.weight, f.last_confirmed_at, f.message_timestamp, f.status, "
             "f.importance, f.tg_message_id, f.forward_from, "
+            "f.subject_ref_id, f.attribution_method, f.assertion_kind, "
+            "f.speaker_author_id, f.provenance_channel, "
             "COALESCE(f.message_timestamp, f.created_at) AS rag_ts "
             "FROM graph_facts_fts "
             "JOIN graph_facts f ON f.id = graph_facts_fts.rowid "

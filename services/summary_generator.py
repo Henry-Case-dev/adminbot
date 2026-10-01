@@ -1122,6 +1122,50 @@ class SummaryGenerator:
             chat_id, document, correlation_id=correlation_id, ctx=ctx,
             reason="plain")
 
+    async def _record_published_output(self, chat_id: int, message_id,
+                                       text: str | None, *,
+                                       correlation_id: str | None = None,
+                                       source_feature: str = "summary",
+                                       output_kind: str = "rich_message"
+                                       ) -> None:
+        """MCA-22 (C2, T-4287/T-4288; fix round-1 M-4): durable ledger —
+        реально ДОСТАВЛЕННАЯ статья/чанки summary (`output_kind=rich_message`).
+
+        Вызывается ТОЛЬКО после успешной send (rich/no-cover/plain-чанки);
+        недоставленный draft не записывается (§4: недоставленное ≠ слова
+        бота). db — default-binding ledger (`setup_summary`); gate OFF /
+        db нет → честный skip. Правка не применима (статьи не редактируются
+        ботом). Хеш/текст — стабильный plain-рендер документа."""
+        try:
+            from services import bot_output_ledger as _bol
+            stored = None
+            if text:
+                stored = str(text)[:20000]
+            await _bol.record_delivered_output(
+                None, chat_id=chat_id,
+                tg_message_id=(message_id
+                               if isinstance(message_id, int) else None),
+                text=stored,
+                bot_user_id=getattr(self.bot, "id", None),
+                output_kind=output_kind, sent_at=int(time.time()),
+                correlation_id=correlation_id,
+                source_feature=source_feature)
+        except Exception:
+            logger.warning(
+                "[mca22] summary ledger record failed | chat_id=%s",
+                chat_id, exc_info=True)
+
+    @staticmethod
+    def _document_plain_text(document) -> str | None:
+        """Стабильный plain-рендер документа для ledger-текста/хеша."""
+        try:
+            if not isinstance(document, dict):
+                return str(document or "") or None
+            from services.summary_article_formatter import format_plain_text
+            return format_plain_text(document) or None
+        except Exception:
+            return None
+
     async def _publish_plain_document(self, chat_id: int, document,
                                       *, correlation_id: str | None = None,
                                       ctx=None, reason: str = "plain",
@@ -1193,6 +1237,10 @@ class SummaryGenerator:
                 ctx.publish_message_id = (
                     message_id if isinstance(message_id, int) else None)
                 ctx.publish_duration_ms = _elapsed_since(publish_started)
+            # MCA-22 (fix round-1 M-4): доставленный summary → durable ledger.
+            await self._record_published_output(
+                chat_id, message_id, self._document_plain_text(document),
+                correlation_id=correlation_id)
             return True
         except Exception as exc:
             # §105: HTML-отправка недоступна/упала → финальный даунгрейд в
@@ -1228,6 +1276,11 @@ class SummaryGenerator:
                     ctx.publish_message_id = (
                         message_id if isinstance(message_id, int) else None)
                     ctx.publish_duration_ms = _elapsed_since(publish_started)
+                # MCA-22 (fix round-1 M-4): доставленный plain-fallback
+                # summary → durable ledger (тот же kind rich_message).
+                await self._record_published_output(
+                    chat_id, message_id, self._document_plain_text(document),
+                    correlation_id=correlation_id)
                 return True
             except Exception as exc2:
                 # §106/D5: финальная текстовая доставка упала. OFF-контур —
@@ -1482,6 +1535,10 @@ class SummaryGenerator:
                 run_id=correlation_id, chat_id=chat_id,
                 status=_classification["cover_result"],
                 fallback=_classification.get("fallback"))
+            # MCA-22 (fix round-1 M-4): доставленная rich-статья → ledger.
+            await self._record_published_output(
+                chat_id, message_id, self._document_plain_text(document),
+                correlation_id=correlation_id)
             return True
         except Exception as exc:
             # Защитная ветка (сбой prep до/вне send-блока): тихий plain-фолбэк.
@@ -1677,6 +1734,11 @@ class SummaryGenerator:
             fallback=classification.get("fallback"))
         logger.info("summary cover: article sent without cover | chat_id=%s",
                     chat_id)
+        # MCA-22 (fix round-1 M-4): доставленная rich-статья (no-cover)
+        # → durable ledger.
+        await self._record_published_output(
+            chat_id, message_id, self._document_plain_text(document),
+            correlation_id=correlation_id)
         return True
 
 

@@ -15,6 +15,7 @@ import pytest
 import pytest_asyncio
 
 from config.settings import settings
+from services import mca_gates
 from services.chat_prompts import CHAT_SYSTEM_PROMPT
 from services.database import DatabaseService
 from services.direct_chat_service import DirectChatService, DirectChatThrottle
@@ -1157,7 +1158,13 @@ class TestSilenceAfterCooldowns:
         await d.close()
 
     @pytest.mark.asyncio
-    async def test_success_resets_streak(self, tmp_path, fake_wall):
+    async def test_success_resets_streak(self, tmp_path, fake_wall,
+                                         monkeypatch):
+        # MCA-22 (C7): тест проверяет таргетированно silence-streak —
+        # duplicate guard выключен (детерминированный FakeLLM дал бы
+        # санкционированную §18 regeneration-попытку на повторном вопросе).
+        monkeypatch.setattr(mca_gates, "response_freshness_guard_enabled",
+                            lambda: False)
         d, service = await self._make(tmp_path / "reset.db")
         bot = _bot()
         for i in range(1, 7):
@@ -2896,7 +2903,14 @@ class TestHandleDedup:
         assert llm.call_count == 2                 # ключ включает user_id
 
     @pytest.mark.asyncio
-    async def test_different_text_not_deduped(self, fake_time, cache):
+    async def test_different_text_not_deduped(self, fake_time, cache,
+                                              monkeypatch):
+        # MCA-22 (C7): тест legacy text-дедупа — freshness guard выключен
+        # (identity update-дедуп MCA-22 по (chat, tg, rev, user) склеил бы
+        # два хенда с одним message_id — в Telegram невозможно, сценарий
+        # симуляционный).
+        monkeypatch.setattr(mca_gates, "response_freshness_guard_enabled",
+                            lambda: False)
         llm = FakeLLM()
         service = _make_service(llm=llm, cache=cache)
         bot = _bot()
@@ -2924,12 +2938,18 @@ class TestHandleDedup:
         llm = FakeLLM()
         service = _make_service(llm=llm, cache=cache)
         bot = _bot()
-        await service.handle(bot, _message(text="один и тот же"), _user())
+        # Разные tg message_id: это РАЗНЫЕ Telegram-сообщения с тем же
+        # текстом (update-identity дедуп MCA-22 C7 не должен их склеивать;
+        # класс проверяет ЛЕГАСИ text-dedup и его TTL).
+        await service.handle(bot, _message(text="один и тот же",
+                                           message_id=1101), _user())
         clock["now"] += 5
-        await service.handle(bot, _message(text="один и тот же"), _user())
+        await service.handle(bot, _message(text="один и тот же",
+                                           message_id=1102), _user())
         assert llm.call_count == 1                 # в пределах TTL — кэш
         clock["now"] += 11
-        await service.handle(bot, _message(text="один и тот же"), _user())
+        await service.handle(bot, _message(text="один и тот же",
+                                           message_id=1103), _user())
         assert llm.call_count == 2                 # TTL истёк — обычный поток
 
     @pytest.mark.asyncio
@@ -2940,9 +2960,48 @@ class TestHandleDedup:
         llm = FakeLLM()
         service = _make_service(llm=llm, cache=cache)
         bot = _bot()
-        await service.handle(bot, _message(text="задвоенный текст"), _user())
-        await service.handle(bot, _message(text="задвоенный текст"), _user())
+        await service.handle(bot, _message(text="задвоенный текст",
+                                           message_id=1201), _user())
+        await service.handle(bot, _message(text="задвоенный текст",
+                                           message_id=1202), _user())
         assert llm.call_count == 2                 # рубильник выключил слой
+
+    @pytest.mark.asyncio
+    async def test_update_dedup_hit_releases_concurrency_slot(
+            self, tmp_path, monkeypatch):
+        """Fix round-1 (M-1 wiring): ранний return на dedup-hit ОБЯЗАН
+        отпустить per-chat слот пула smartmodule_concurrency. Регресс:
+        повторная доставка того же update'а навсегда съедала слот —
+        каждое следующее сообщение чата ждало lock-wait и получало
+        «занят» (чат вставал; дефект маскировался TTL 300 с маркера)."""
+        from services.smart_cache import SmartCache
+        from services.smartmodule_concurrency import (
+            get_smartmodule_concurrency_pool,
+            reset_smartmodule_concurrency_pool,
+        )
+        monkeypatch.setattr(
+            "services.direct_chat_service.settings",
+            dataclasses.replace(settings, CHAT_LOCK_WAIT_SECONDS=2))
+        cache = SmartCache(str(tmp_path / "upd_slot.db"))
+        llm = FakeLLM()
+        service = _make_service(llm=llm, cache=cache)
+        bot = _bot()
+        chat = -987777                      # уникальный чат — не задевает соседей
+        try:
+            await service.handle(bot, _message(text="первый вопрос",
+                                               message_id=1301), _user())
+            assert llm.call_count == 1
+            # повторная доставка ТОГО ЖЕ update → dedup-hit, 0 LLM
+            await service.handle(bot, _message(text="первый вопрос",
+                                               message_id=1301), _user())
+            assert llm.call_count == 1
+            # НОВЫЙ update того же чата → обязан дойти до LLM БЕЗ lock-wait
+            await service.handle(bot, _message(text="второй вопрос",
+                                               message_id=1302), _user())
+            assert llm.call_count == 2      # слот пула был отпущен
+        finally:
+            await cache.close()
+            reset_smartmodule_concurrency_pool()
 
     @pytest.mark.asyncio
     async def test_no_cache_injected_feature_dormant(self, fake_time):
