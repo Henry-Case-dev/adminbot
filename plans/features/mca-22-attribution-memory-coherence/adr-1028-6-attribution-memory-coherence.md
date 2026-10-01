@@ -1,7 +1,7 @@
 # ADR-1028-6 — MCA-22: сквозная атрибуция, согласованная память и естественная свежесть ответов
 
 > **Фича:** `mca-22-attribution-memory-coherence` (FINAL INTEGRATION Epic, P0/P1)
-> **Статус:** Proposed — 01.10.2026 (Step 2 @Architect, T-4276) → Accepted по Merge `plans/ARCHITECTURE.md` §109+ (T-4321)
+> **Статус:** Proposed — 01.10.2026 (Step 2 @Architect, T-4276) → **Accepted** (Merge `plans/ARCHITECTURE.md` §109, T-4321) → **+ prod-validated (full): 02.10.2026 прод 2.58.44 VERIFIED (feat `9c78760`, prod-HEAD `aa9031a`, health 200) — см. «Прод-валидация и история статуса»**
 > **Спека:** `plans/features/mca-22-attribution-memory-coherence/spec.md` (RCA по зонам, Q1–Q17, контракты C1–C8, санкции §4)
 > **ТЗ:** `plans/current_task.md:15305–16480` (§0–§39), блок SHA-256 `ad389212…660c`
 > **Baseline:** прод 2.58.43 (прод-HEAD `9906c9d`), SQLite DDL v21, каталог 488/427/463/105/103/21, локальный HEAD `7a86179`
@@ -83,6 +83,22 @@
 - Стоимость: +1 regeneration в редком guard-срабатывании; deterministic-first резолвы; intermediate-кеш сохраняется.
 - Совместимость: `smart_messages`/`bot_replies`/`graph_facts`/`mca_source_refs` контракты не ломаются (только расширение SELECT и добавление записи в новую таблицу); `pg_db.py` вне diff.
 - Отказ от standalone `threat-failure-analysis.md` в пользу инлайн-таблицы spec §9 — помечено PM на T-4278 (spec §10.2).
+
+## Прод-валидация и история статуса (reconcile @Architect, 02.10.2026)
+
+**История статуса:**
+
+1. **01.10.2026 — Proposed (design):** решения D1–D10 утверждены этим ADR; спека Risk **R3** (spec шапка + §9 failure-таблица), санкции §4 (DDL v22 единственная, kill-switches ровно 4, reason_code +12, Δ каталога 0).
+2. **01.10.2026 — Round 2 Review: APPROVED FOR RELEASE** (M-1…M-4 RESOLVED 4/4, 0 blocking; binding: Reviewed-Commit `7a86179` — совпадает с prod-базой релиза, spec-hash `C4B4043E…` воспроизведён байт-в-байт, tasks-пин `E17B0D5A…` MATCH).
+3. **01.10.2026 — Merge → Accepted:** feat `9c78760` (55 файлов, +4352/−73) + docs `aa9031a`; push `7a86179..aa9031a` fast-forward; merge `plans/ARCHITECTURE.md` §109 ратифицирован reconcile 02.10.2026.
+4. **02.10.2026 — прод 2.58.44 VERIFIED** (деплой 04:08–04:35 UTC+12; deploy-doc `7e33d9f`; прод-HEAD `aa9031a`, health 200) — **Accepted + prod-validated (full)**: все контуры D1–D10 живы (детали ниже). Сами решения D1–D10 не менялись; approval ревью не инвалидирован — код `9c78760` соответствует ревью-манифесту round 2 (пер-файловые пины spec/ADR/tasks MATCH; агрегат WTH отличается ровно самореференс-оговоркой пина — `review.md` переписан после фиксации пина, остальные 32/32 файла покрыты пином: mtime-freeze 28 product/test-файлов + numstat-кромки `memory_agi.py` 168+/1− и др.; полный pytest **10520/2** = ревью-числа, оба failed — pre-existing чужие bounds-пины round1026). Правки этого reconcile — docs-only.
+
+**Прод-валидация 2.58.44 (evidence — `deployment.md` §3–§9):**
+
+- **Деплой/гейты:** прод ff `e84600e..aa9031a` (прод-код до — отревьюенный хотфикс-базис 2.58.43, 3 docs-коммита позади); рестарт #2 active 16:19:04 UTC (PID 2796224, NRestarts=0); `GET /api/health` → **200 `{"status":"ok"}`**; runtime `APP_VERSION` **2.58.44**.
+- **DDL v22 применена идемпотентно при старте 16:19:22 UTC:** авто-бэкап до DDL guard'ом mca-14 (`pre_migration_20261001_161922.db`, 1.2 GiB) → `user_version` 21→**22**, таблица **`mca_bot_outputs`** + ровно 3 индекса, **0 строк** (чистая append-only книга); данные целы (smart_messages 1 989 659, сверено с пре-миграционной копией); PG no-op. Инцидент рестарта #1 (`MigrationBackupError` — fail-closed guard свободного места mca-14, диск был 89% до деплоя) стабилизирован удалением дублирующего ручного и устаревших миграционных бэкапов **без отката кода**; дефект кода отсутствует, защита отработала как задумана (deployment.md §4; операционный долг по диску — backlog Follow-up mca-22).
+- **Гейты фичи:** kill-switches ровно 4 — все **ON** (runtime-резолв `canonical_attribution_enabled` / `bot_output_ledger_enabled` / `response_freshness_guard_enabled` / `correction_revalidation_enabled`; Δenv=0); ladder/parity **82 passed** на прод-venv (core 58 + truthset 24, вкл. OFF-паритет всех контуров и лестницу цитат); каталог F8 **488 CHECK OK, Δ=0**; новые API `/api/memory/attribution/trace` и `/api/memory/attribution/metrics` → **401** без auth (эндпоинты живы, admin-only RBAC на месте); R17-скан журнала чист; 0 посторонних ошибок (весь error-фон — известный класс GraphRAG embed-429, вне фичи).
+- **Честные границы (не acceptance):** ledger пуст до первого доставленного direct-ответа; live-смоук prod-acceptance §37 (**T-4319**) и UI-гейты **T-4317/T-4320** — за владельцем (Browser smoke 2.58.44 NOT_APPLICABLE — `web/app.js` вне диффа); edit→revision ledger-хвост T-4287 — с UI-инкрементом. Резюме — `plans/backlog.md` (Follow-up mca-22).
 
 ## Связанные документы
 
