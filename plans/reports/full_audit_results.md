@@ -6,7 +6,7 @@
 
 ---
 
-## Раунд 10.27 / `mca-05-episodes-stories` (Reviewer gate round 2: дельта-ревалидация реворка H-1/H-2; R2) — 01.10.2026 — **APPROVED FOR RELEASE (blocking 0; полный отчёт — plans/features/mca-05-episodes-stories/review.md, секция Round 2)**
+## Раунд 10.27 / `mca-05-episodes-stories` (Reviewer gate round 2: дельта-ревалидация реворка H-1/H-2; R2) — 01.10.2026 — **APPROVED FOR RELEASE (blocking 0; полный отчёт — plans/archive/mca-05-episodes-stories-round1029/review.md, секция Round 2)**
 
 - **Scope Round 2:** только дельта реворка: H-1 (`split_story`, `mca_episodes.py:971–1206` + 3 теста: 3→1+2 / no-op single / all→redirect) и H-2 (трёхсостоянийная логика `facade_rows`, `mca_retrieval_context.py:581–612` + leak-тест + адаптация фейка mca-07). Ядро round 1 не перепроверялось (одобрено). Binding: **WTH `BD1C0C4D68253F46C558B4438A4E3CC6E11CD007683528A2E90B1C0378CB55F3`** (манифест `plans/reports/mca05_wth_manifest_rework1.txt`; per-file **50/50 byte-exact** пересчитаны; состав-дельта = ровно реворк-поверхность); spec `8177CB0F:9EC0` ✅; ADR `2E7E110B:4C50` ✅; HEAD `0b1ae9c` не изменился, staged empty.
 - **Независимые прогоны @Reviewer:** полный pytest **10432 passed / 2 failed** (301s, анкер воспроизведён точно; 2 failed — те же чужие known bounds; доп. конвергенция с deselect: 10431+1deselect+2); фича **63 passed**; смежные **263 passed**; JS **36 passed**; F8 `--check` **CHECK OK 488**, Δ каталога = 0; `git diff --check` cr-at-eol exit=0; коллекция 10434 = 10432+2.
@@ -17,7 +17,7 @@
 - **Далее:** reconcile/archive → deploy `DEFERRED_TO_RELEASE` (агрегатный релиз mca-release; преддеплойные проверки review §6/R2.5; kill-switch `MCA_EPISODES_ENABLED` hot-откат). Код Reviewer'ом не правился.
 
 
-## Раунд 10.27 / `mca-05-episodes-stories` (единый Reviewer gate: независимое ревью + focused change-audit; R2) — 01.10.2026 — **NEEDS FIXES (1 High blocking + 1 Medium blocking; 2 Medium + 6 Low non-blocking; полный отчёт — plans/features/mca-05-episodes-stories/review.md)**
+## Раунд 10.27 / `mca-05-episodes-stories` (единый Reviewer gate: независимое ревью + focused change-audit; R2) — 01.10.2026 — **NEEDS FIXES (1 High blocking + 1 Medium blocking; 2 Medium + 6 Low non-blocking; полный отчёт — plans/archive/mca-05-episodes-stories-round1029/review.md)**
 
 - **Scope:** HEAD `0b1ae9c` + незакоммиченный mca-05-скоуп (10 изменённых prod-файлов, 4 новых модуля: `services/mca_episodes.py`/`mca_episode_jobs.py`/`mca_episode_prompts.py`/тест 59; 26 py + 4 JS тест-репинов; чужой WIP вне скоупа). Binding: **WTH `D98B3780CAEFD10AA7139F4F6F80083ED3C3BDC3194E77DDA08097F35773CCEA`** (манифест `plans/reports/mca05_wth_manifest_review.txt`, 59 строк: HEAD + SHA-256 `git diff HEAD` + per-file sha256 51 файла скоупа + явные исключения чужого WIP); spec `8177CB0F:9EC0` ✅ пересчитан; ADR-1027-12 `2E7E110B:4C50` ✅.
 - **Независимые прогоны @Reviewer:** полный pytest **10428 passed / 2 failed** (4:49; оба failed — чужие known bounds: `web/api/analytics.py`/`web/static/polygon-background.js`/`web/static/telegram-init.js` vs тег `pre-round1026-a1`, mca-05 в diff-vs-теге отсутствует); фича-набор **59 passed**; смежные mca-01/03/04a/04b/07/13/14/17a+database+JS **431 passed**; JS **36 passed**; F8 **29 passed**; каталог Δ=0; `git diff --check` cr-at-eol exit=0.
