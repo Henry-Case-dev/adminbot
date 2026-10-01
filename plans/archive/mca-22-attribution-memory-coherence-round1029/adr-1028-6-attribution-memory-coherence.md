@@ -2,7 +2,7 @@
 
 > **Фича:** `mca-22-attribution-memory-coherence` (FINAL INTEGRATION Epic, P0/P1)
 > **Статус:** Proposed — 01.10.2026 (Step 2 @Architect, T-4276) → **Accepted** (Merge `plans/ARCHITECTURE.md` §109, T-4321) → **+ prod-validated (full): 02.10.2026 прод 2.58.44 VERIFIED (feat `9c78760`, prod-HEAD `aa9031a`, health 200) — см. «Прод-валидация и история статуса»**
-> **Спека:** `plans/features/mca-22-attribution-memory-coherence/spec.md` (RCA по зонам, Q1–Q17, контракты C1–C8, санкции §4)
+> **Спека:** `plans/archive/mca-22-attribution-memory-coherence-round1029/spec.md` (RCA по зонам, Q1–Q17, контракты C1–C8, санкции §4)
 > **ТЗ:** `plans/current_task.md:15305–16480` (§0–§39), блок SHA-256 `ad389212…660c`
 > **Baseline:** прод 2.58.43 (прод-HEAD `9906c9d`), SQLite DDL v21, каталог 488/427/463/105/103/21, локальный HEAD `7a86179`
 > **Предыдущие ADR:** 1028-5 (asap-32) — коллизий нет; **1028-6 свободен** (проверено по `plans/archive/*/adr-*` и рамке §4)
@@ -102,4 +102,4 @@
 
 ## Связанные документы
 
-`plans/features/mca-22-attribution-memory-coherence/spec.md` · `tasks.md` (T-4273…T-4322) · рамка `plans/docs/mca-round1027-arch-frames.md` (§1 механизм DDL, §3 политика kill-switch, §4 нумерация) · ADR-1027-4/6/7/9/12 (mca-03/04a/07/04b/05 — reuse-база).
+`plans/archive/mca-22-attribution-memory-coherence-round1029/spec.md` · `tasks.md` (T-4273…T-4322) · рамка `plans/docs/mca-round1027-arch-frames.md` (§1 механизм DDL, §3 политика kill-switch, §4 нумерация) · ADR-1027-4/6/7/9/12 (mca-03/04a/07/04b/05 — reuse-база).
