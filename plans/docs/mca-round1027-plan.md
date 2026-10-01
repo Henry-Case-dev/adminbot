@@ -350,11 +350,11 @@
 - **Санкции (T-3889/T-3890):**
   - **Δ DDL = v20** (аддитивно/идемпотентно через реестр `mca-14`): `mca_dossier_generations` (+2 индекса, из них partial UNIQUE `active`) + `mca_dossier_staging_items` (+1 индекс) + nullable `graph_facts.dossier_generation_id` (+1 индекс). **v21 остаётся свободной за `mca-04b`** (не объявляется). Зафиксировано в `plans/docs/mca-round1027-arch-frames.md` **§1.2.5**.
   - **Δ DDL = 0 доп.** для batch-состояний/прогресса/покрытия (REUSE `DossierRebuildJobStore` + `task_jobs`/`mca_pipeline_runs`), активации vec-поколения (REUSE `mca_embedding_index_generations` v18 + операция `activate_embedding_generation`) и версии namespace (`import:<export_id>:<v2>` в строке отпечатка). Закрыты открытые вопросы плана §6/i–iii.
-  - **Δ каталога = 0** (env-only `ClassVar`; F8 ADR-1026-2 **NOT_APPLICABLE**; `param_catalog.py` вне diff; каталог `473/430/448/102/100/21` не изменяется).
+  - **Δ каталога = 0** (env-only `ClassVar`; F8 ADR-1026-2 **NOT_APPLICABLE**; `param_catalog.py` вне diff; каталог `473/430/448/102/100/21` не изменяется; **refresh 30.09.2026: актуальный каталог `488/427/463/105/103/21`, Δ остаётся 0**).
   - **Kill-switch (7; default ON, OFF = паритет baseline):** `MCA_DOSSIER_REBUILD_ENABLED` (master), `MCA_DOSSIER_BACKGROUND_PASS_ENABLED`, `MCA_DOSSIER_READ_RECONSTRUCTION_ENABLED`, `MCA_DOSSIER_RECLASSIFY_ENABLED`, `MCA_DOSSIER_STAGING_ACTIVATION_ENABLED`, `MCA_EMBEDDING_GENERATION_ACTIVATION_ENABLED`, `MCA_DOSSIER_NAMESPACE_FINGERPRINT_V2_ENABLED`. Env-only лимиты: `MCA_DOSSIER_BATCH_MAX_MESSAGES` (500), `MCA_DOSSIER_DIRECT_PRIORITY_ENABLED` (ON).
   - **Carry-over исполняется:** `D-MCA04A-2/-3/-7`, врезка п.5 (`local_evidence_to_source_refs` в `_extract_chunk`), `N-MCA04A-1..3`, `L-MCA03-8` (namespace v2; `legacy_import_v1` не переприсваивается), `N-MCA07-1` (REUSE v18 + операция активации).
   - **reason_code:** реестр MCA-13 расширяется (`dossier_rebuild_started`/`dossier_batch_processed`/`dossier_paused_budget`/`dossier_interrupted`/`dossier_partial_range`/`dossier_reclassified`/`dossier_staging_activated`/`dossier_generation_superseded`/`dossier_cascade_scheduled`/`dossier_identity_unresolved`).
-- **Далее:** @PM — сверка `PLANNING_CONSISTENT` (T-3891; заполнение колонок `REQ`/`SC`/`ADR` по spec §2.1) → Step 3 @Builder. Merge `mca-04b` — `plans/ARCHITECTURE.md` **§101+** (по завершению); ADR-1027-9 → Accepted по Merge. Затем `mca-17c` (витрина/действия), далее `05`/`06`/`09`/`10b`/`15`/`16`/`18`/`19`/`20`, `mca-release`.
+- **Далее:** @PM — сверка `PLANNING_CONSISTENT` (T-3891; заполнение колонок `REQ`/`SC`/`ADR` по spec §2.1) → Step 3 @Builder. Merge `mca-04b` — `plans/ARCHITECTURE.md` **§107** (confirm 01.10.2026, Step 2b-confirm @Architect: §106 занят release-marker'ом ASAP-3.2; refresh 30.09.2026: §101–§105 заняты ASAP-2/2.1/3/3.1 + EXTRA; «следующий фактически свободный» на момент merge; **факт — §107, reconcile 01.10.2026**); ADR-1027-9 — **Accepted** (merge §107 исполнен + прод-валидация 2.58.41, reconcile 01.10.2026). Затем `mca-17c` (витрина/действия), далее `05`/`06`/`09`/`10b`/`15`/`16`/`18`/`19`/`20`, `mca-release`.
 
 ---
 
@@ -426,7 +426,7 @@
   - `mca-14-schema-additive` → **T-3750–T-3762** (13);
   - `mca-13-event-contract` → **T-3763–T-3776** (14).
   - Остальные фичи получают диапазоны последовательно (начиная с **T-3777**); @PM фиксирует их при старте каждой фичи, коллизий не создавать.
-- **Связь с архитектурой:** Merge новых контрактов — `plans/ARCHITECTURE.md` начиная с **§93** (текущие §1–§92 — Epic 1–3). ADR-номер(а) — следующий свободный после ADR-1026-23.
+- **Связь с архитектурой:** Merge новых контрактов — `plans/ARCHITECTURE.md` начиная с **§93** (текущие §1–§92 — Epic 1–3). ADR-номер(а) — следующий свободный после ADR-1026-23 **(историческая формулировка; refresh 30.09.2026: фактически выпущены ADR-1027-1…-11 и ADR-1028-1…4; за `mca-04b` номер ADR-1027-9 закреплён ранее, коллизии нет; merge-цель `mca-04b` — §107+ — confirm 01.10.2026: §106 занят release-marker'ом ASAP-3.2)**.
 - **Baseline-дисциплина:** каждое `tasks.md` фиксирует фактический HEAD/`APP_VERSION`/каталог/DDL/канон на момент старта; Step 0 (@Memory) предшествует Step 1 (@PM).
 - **Замечание по `plans/MEMORY.md`:** индекс памяти — не редактируется @PM (R17/MEMORY-дисциплина); синхронизация KG/индекса — на @Memory (Шаг 10).
 
