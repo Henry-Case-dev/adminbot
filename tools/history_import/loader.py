@@ -54,7 +54,17 @@ def _dataset_namespace(path: str) -> str:
     ``UNIQUE (namespace, local_record_id)`` терял бы вхождения второго экспорта.
     Namespace выводится из идентичности партии: ``id`` шапки экспорта +
     отпечаток файла (abspath+size) — стабилен для повторного импорта того же
-    файла и различает даже экспорты с одинаковой шапкой."""
+    файла и различает даже экспорты с одинаковой шапкой.
+
+    L-MCA03-8 (mca-04b, ADR-1027-9): при включённом гейте
+    ``MCA_DOSSIER_NAMESPACE_FINGERPRINT_V2_ENABLED`` (default ON) отпечаток
+    версионируется (``import:<tag>:v2:<content-digest>``) — digest включает
+    content-fingerprint (полный стриминговый SHA-256 файла, M-MCA04B-1),
+    поэтому in-place регенерация файла с ТЕМ ЖЕ размером получает новый
+    namespace и source records НЕ пропускаются (v1-отпечаток абspath+size их
+    молча терял). Повторный импорт НЕИЗМЕНЁННОГО файла даёт тот же namespace
+    (дедуп работает). ``legacy_import_v1`` не переприсваивается; гейт OFF →
+    прежний v1-отпечаток (паритет baseline)."""
     try:
         export_id = detect_export_id(path)
     except Exception:
@@ -63,10 +73,47 @@ def _dataset_namespace(path: str) -> str:
         size = os.path.getsize(path)
     except OSError:
         size = 0
+    tag = str(export_id) if export_id is not None else "na"
+    if _namespace_fingerprint_v2_enabled():
+        content_digest = _file_content_digest(path)
+        return f"import:{tag}:v2:{content_digest}"
     digest = hashlib.sha256(
         f"{os.path.abspath(path)}|{size}".encode("utf-8")).hexdigest()[:16]
-    tag = str(export_id) if export_id is not None else "na"
     return f"import:{tag}:{digest}"
+
+
+def _namespace_fingerprint_v2_enabled() -> bool:
+    """Резолв гейта L-MCA03-8 per-call (никогда не бросает)."""
+    try:
+        from services import mca_gates
+        return mca_gates.dossier_namespace_fingerprint_v2_enabled()
+    except Exception:
+        return True
+
+
+def _file_content_digest(path: str) -> str:
+    """Content-fingerprint файла — ПОЛНЫЙ стриминговый SHA-256 (M-MCA04B-1,
+    review round 1: раньше хэшировалась только голова 256 KiB + size, поэтому
+    регенерация файла >256 KiB с идентичной головой и тем же размером
+    коллидировала и source records молча терялись). Чтение порциями —
+    память не зависит от размера файла. Детерминирован для неизменённого
+    файла; любое изменение байта меняет digest. Ошибка чтения → fallback
+    на size+abspath-дайджест (никогда не бросает)."""
+    try:
+        size = os.path.getsize(path)
+        hasher = hashlib.sha256()
+        hasher.update(f"v2full|{size}|".encode("utf-8"))
+        with open(path, "rb") as fh:
+            while True:
+                block = fh.read(1024 * 1024)
+                if not block:
+                    break
+                hasher.update(block)
+        return hasher.hexdigest()[:16]
+    except OSError:
+        return hashlib.sha256(
+            f"v2|{os.path.abspath(path)}|{size}".encode("utf-8")
+        ).hexdigest()[:16]
 
 _INSERT_SQL = (
     "INSERT OR IGNORE INTO smart_messages "

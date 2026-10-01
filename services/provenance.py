@@ -531,7 +531,7 @@ async def _message_entity_id(db, chat_id, tg_message_id) -> str:
 # ── Субъект-атрибуция (spec §4.5, FIX п.1) ──────────────────────────────────
 
 async def resolve_subject_ref(db, chat_id: int, name,
-                              *, canon=None) -> SourceRef:
+                              *, canon=None, roster=None) -> SourceRef:
     """Резолв субъекта личного факта в SourceRef устойчивого ID (spec §4.5/D7).
 
     Имя/алиас — только отображение/резолв. Собираем **все** различные
@@ -546,7 +546,13 @@ async def resolve_subject_ref(db, chat_id: int, name,
       (SC-11/A88), произвольный выбор недопустим.
 
     Для self-report вызывающий обязан передать уже известный `user_id`
-    говорящего (`user_source_ref`), а не резолвить по имени."""
+    говорящего (`user_source_ref`), а не резолвить по имени.
+
+    N-MCA04A-1 (mca-04b, ADR-1027-9): `roster` — канон-имена участников
+    ТЕКУЩЕГО scope (окно/диапазон пересборки). Если передан и имя в него не
+    входит — резолв по БД не выполняется: «старый» одноимённый участник вне
+    окна (bounded-скан ≤500 строк) больше не даёт ложный `resolved`;
+    субъект остаётся явным `unresolved` (без выдуманного ID)."""
     raw = str(name or "").strip()
     canon_name = raw
     if canon is not None and raw:
@@ -554,6 +560,13 @@ async def resolve_subject_ref(db, chat_id: int, name,
             canon_name = str(canon(raw) or "").strip() or raw
         except Exception:
             canon_name = raw
+    if roster is not None:
+        allowed = {str(n or "").strip().casefold()
+                   for n in roster if str(n or "").strip()}
+        if canon_name.casefold() not in allowed:
+            # Имя вне ростера scope → DB-скан не выполняется (N-1).
+            return user_source_ref(chat_id, canon_name or "unknown",
+                                   resolution="unresolved")
     uids = await _lookup_user_ids_by_names(db, chat_id, (raw, canon_name))
     if len(uids) == 1:
         return user_source_ref(chat_id, next(iter(uids)), resolution="resolved")

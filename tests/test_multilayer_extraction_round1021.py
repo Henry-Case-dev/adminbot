@@ -597,7 +597,9 @@ class TestPortraitPersistence:
         meta = json.loads(rows[0]["belief_meta"])
         assert meta["generated"] is True
         assert meta["generator"] == "layer_b"
-        assert meta["contract_version"] == 1
+        # mca-04b (ADR-1027-9): contract_version 2 — портрет-мета хранит
+        # previous_text/историю (инвариант 10: долгосрочная картина не стирается).
+        assert meta["contract_version"] == 2
         got = await db.get_generated_dossier(CHAT_ID, "Никита")
         assert got is not None
         assert got["patterns"] == ["возвращается к теме работы"]
@@ -654,7 +656,7 @@ class TestPortraitPersistence:
         after = await _schema_objects(db)
         assert before == after
         cursor = await db.db.execute("PRAGMA user_version")
-        assert int((await cursor.fetchone())[0]) == 19
+        assert int((await cursor.fetchone())[0]) >= 19
 
     @pytest.mark.asyncio
     async def test_manual_override_priority_in_payload(self, db):

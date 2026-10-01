@@ -652,13 +652,18 @@ class TestBounds:
         # + `web/app.py` (регистрация нового роутера Style Registry/Editor —
         # `web/api/cover_styles.py`, только глобальный админ; kill-switch
         # `COVER_STYLES_ENABLED`). Прецедент: другие роутеры включаются там же.
+        # NOTE (round1027 Wave 2, mca-04b / ADR-1027-9): + `web/api/chat_lore.py`
+        # (AMEND: единый контракт full rebuild — прогресс от полного диапазона,
+        # resume-on-paused, read-time reconstruction; admin/чат-гейтинг
+        # сохранён; Δ каталога = 0).
         assert not any(n.startswith("web/")
                        and not n.startswith(("web/app.js", "web/index.html",
                                              "web/app.py",
                                              "web/static/execution_graph.js",
                                              "web/static/app.css",
                                              "web/api/routes.py",
-                                             "web/api/oversight.py"))
+                                             "web/api/oversight.py",
+                                             "web/api/chat_lore.py"))
                        for n in names)
         # NOTE (round1027, MCA-01 / ADR-1027-3 D3): `services/summary_memory.py`
         # санкционированно переведён на единый single-writer
@@ -700,7 +705,7 @@ class TestBounds:
             summary_changed
 
     def test_version_and_catalog(self):
-        assert APP_VERSION == "2.58.40"
+        assert APP_VERSION == "2.58.41"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
         assert len(pc.REGISTRY) == 488
         assert len({f.name for f in dataclasses.fields(Settings)}) == 426

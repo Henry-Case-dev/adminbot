@@ -586,6 +586,80 @@ _MCA_EVENTS_SPAN_INDEX_DDL = (
     "ON mca_events (status)",
 )
 
+# ── Раунд 10.27 (MCA Wave 2, `mca-04b-dossier-rebuild`, ADR-1027-9 D8/D13) ──
+# v20 — staging/generation исправления досье (§8.3.4): регистр поколений +
+# staging-элементы + nullable-тег `graph_facts.dossier_generation_id`
+# (NULL = legacy/честный unknown). Механизм `mca-14` (§93): аддитивно/
+# идемпотентно, self-guard по `sqlite_master`/`PRAGMA table_info`,
+# `user_version` 19→20, повторный прогон — no-op, PG — no-op (GEN-R4).
+# Старые таблицы/ID/FTS/vec/`origin` CHECK сохранены. Бронь: v20 за
+# `mca-04b` (рамка §1.2.5); **v21 остаётся свободной** (не объявляется).
+# Точный DDL — spec §5.2 (нормативный текст, Builder — по нему).
+_SCHEMA_VERSION_DOSSIER_STAGING = 20
+
+_MCA_DOSSIER_GENERATIONS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_dossier_generations ("
+    "generation_id            TEXT PRIMARY KEY, "
+    "chat_id                  INTEGER NOT NULL, "
+    "subject_ref_id           INTEGER NOT NULL, "
+    "state                    TEXT NOT NULL, "
+    "scope_kind               TEXT, "
+    "range_from_ts            INTEGER, "
+    "range_to_ts              INTEGER, "
+    "snapshot_boundary_ts     INTEGER, "
+    "snapshot_boundary_id     INTEGER, "
+    "extractor_version        TEXT NOT NULL, "
+    "kernel_version           TEXT, "
+    "counters_json            TEXT, "
+    "staging_ref              TEXT, "
+    "supersedes_generation_id TEXT, "
+    "backup_ref               TEXT, "
+    "created_at               INTEGER NOT NULL, "
+    "activated_at             INTEGER, "
+    "finished_at              INTEGER)"
+)
+_MCA_DOSSIER_GENERATIONS_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_dossier_gen_subject "
+    "ON mca_dossier_generations (chat_id, subject_ref_id, state)",
+    # Ровно одна активная версия на (chat, subject) — partial UNIQUE.
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_mca_dossier_gen_active "
+    "ON mca_dossier_generations (chat_id, subject_ref_id) "
+    "WHERE state = 'active'",
+)
+_MCA_DOSSIER_STAGING_ITEMS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_dossier_staging_items ("
+    "staging_id         INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "generation_id      TEXT NOT NULL, "
+    "item_kind          TEXT NOT NULL, "
+    "subject_ref_id     INTEGER, "
+    "source_ref_id      INTEGER, "
+    "classification     TEXT, "
+    "payload_json       TEXT NOT NULL, "
+    "verification       TEXT NOT NULL, "
+    "extractor_version  TEXT, "
+    "created_at         INTEGER NOT NULL)"
+)
+_MCA_DOSSIER_STAGING_ITEMS_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_dossier_staging_gen "
+    "ON mca_dossier_staging_items (generation_id, item_kind)",
+)
+# Nullable-колонка `graph_facts` (ALTER под guard `PRAGMA table_info`);
+# NULL = legacy/unknown (читатели используют активное поколение).
+_GRAPH_FACTS_DOSSIER_GENERATION_COLUMN = ("dossier_generation_id", "TEXT")
+_GRAPH_FACTS_DOSSIER_GENERATION_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_graph_facts_dossier_gen "
+    "ON graph_facts (dossier_generation_id)",
+)
+# Закрытый набор состояний поколения (spec §4.4/D8).
+DOSSIER_GENERATION_STATES = frozenset(
+    {"building", "active", "superseded", "failed"})
+# Закрытый набор kind staged-элементов (spec §5.2).
+DOSSIER_STAGING_ITEM_KINDS = frozenset(
+    {"portrait", "person_fact", "meme", "tree"})
+# Закрытый набор verification staged-элементов.
+DOSSIER_STAGING_VERIFICATIONS = frozenset(
+    {"verified", "tentative", "unknown", "rejected"})
+
 # Раунд 3 (3.6/B7, T-693): полный список origin для CHECK graph_facts — в ОДНОМ
 # месте (CREATE TABLE + пересоздание в _migrate_direct_chat_v2 + миграции v4/v5).
 # Включает ВНЕШНИЕ скобки списка IN (формат вставки в «CHECK (origin IN %s)»).
@@ -721,6 +795,31 @@ def _lore_fact_row(row: dict) -> dict:
         "status": str(row.get("status") or ""),
         "weight": float(row.get("weight") or 0.0),
     }
+
+
+def _dossier_render_portrait(payload: dict) -> str:
+    """mca-04b: рендер портрета из staged-payload (REUSE правила
+    `dossier_prompts.render_generated_portrait`; fail-open → '')."""
+    try:
+        from services.dossier_prompts import render_generated_portrait
+        return str(render_generated_portrait(
+            payload.get("portrait"),
+            [str(x).strip() for x in (payload.get("patterns") or [])
+             if str(x).strip()],
+            [str(x).strip() for x in (payload.get("themes") or [])
+             if str(x).strip()],
+        ) or "")
+    except Exception:
+        return ""
+
+
+def _provenance_extractor_version() -> str:
+    """Версия экстрактора контракта §8.3.2 (REUSE `provenance`)."""
+    try:
+        from services import provenance
+        return str(provenance.EXTRACTOR_VERSION)
+    except Exception:
+        return "unknown"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -1415,6 +1514,9 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_OBSERVABILITY,
                           "observability_core",
                           lambda svc: svc._migrate_observability_v19()),
+            MigrationStep(_SCHEMA_VERSION_DOSSIER_STAGING,
+                          "dossier_staging",
+                          lambda svc: svc._migrate_dossier_staging_v20()),
         ]
 
     @staticmethod
@@ -1985,6 +2087,534 @@ class DatabaseService:
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_OBSERVABILITY}")
         await self.db.commit()
+
+    async def _migrate_dossier_staging_v20(self) -> None:
+        """v20 (`mca-04b-dossier-rebuild`, ADR-1027-9 D8/D13): регистр
+        поколений + staging досье + nullable-тег `graph_facts`.
+
+        Аддитивно (`CREATE TABLE/INDEX IF NOT EXISTS` + `ALTER ADD COLUMN`
+        под guard `PRAGMA table_info`); self-guard по `sqlite_master`;
+        повторный прогон — no-op. Старые таблицы/ID/FTS/vec/`origin` CHECK
+        не трогаются; `nullable` = честный unknown (legacy-строки без
+        поколения). PG — no-op (GEN-R4). Фиксирует
+        `PRAGMA user_version = 20`."""
+        if not await self._table_exists("mca_dossier_generations"):
+            await self.db.execute(_MCA_DOSSIER_GENERATIONS_DDL)
+            await self.db.commit()
+            logger.info("[database] migration v20: mca_dossier_generations")
+        for ddl in _MCA_DOSSIER_GENERATIONS_INDEX_DDL:
+            await self.db.execute(ddl)
+        await self.db.commit()
+        if not await self._table_exists("mca_dossier_staging_items"):
+            await self.db.execute(_MCA_DOSSIER_STAGING_ITEMS_DDL)
+            await self.db.commit()
+            logger.info("[database] migration v20: mca_dossier_staging_items")
+        for ddl in _MCA_DOSSIER_STAGING_ITEMS_INDEX_DDL:
+            await self.db.execute(ddl)
+        await self.db.commit()
+        # graph_facts — nullable-тег поколения (guard каждой колонки).
+        if await self._table_exists("graph_facts"):
+            cols = await self._table_columns("graph_facts")
+            name, decl = _GRAPH_FACTS_DOSSIER_GENERATION_COLUMN
+            if name not in cols:
+                await self.db.execute(
+                    f"ALTER TABLE graph_facts ADD COLUMN {name} {decl}")
+                await self.db.commit()
+                logger.info("[database] migration v20: graph_facts.%s", name)
+            for ddl in _GRAPH_FACTS_DOSSIER_GENERATION_INDEX_DDL:
+                await self.db.execute(ddl)
+            await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_DOSSIER_STAGING}")
+        await self.db.commit()
+
+    # ── mca-04b (ADR-1027-9 D8): регистр поколений + staging + активация ────
+    # Атомарная активация — одна короткая транзакция под single-writer
+    # (`write_transaction`); прежняя версия (`active`) → `superseded` и
+    # остаётся в `graph_facts` (не удаляется); повтор/рестарт идемпотентны.
+    # MCA14-R3: без долгой транзакции (чтение/LLM/staging — снаружи).
+
+    async def create_dossier_generation(
+            self, chat_id: int, subject_ref_id: int, *,
+            scope_kind: str | None = None, range_from_ts: int | None = None,
+            range_to_ts: int | None = None, snapshot_boundary_ts: int | None
+            = None, snapshot_boundary_id: int | None = None,
+            extractor_version: str | None = None,
+            kernel_version: str | None = None, counters_json: str | None
+            = None, staging_ref: str | None = None,
+            supersedes_generation_id: str | None = None,
+            backup_ref: str | None = None,
+            now: int | None = None) -> str | None:
+        """Зарегистрировать поколение досье со статусом `building`.
+
+        Возвращает `generation_id` (UUID4 hex) или None (fail-open: ошибка/
+        provenance-реестр недоступен). Одна `active` на (chat, subject)
+        гарантируется partial UNIQUE при активации."""
+        import uuid
+        generation_id = uuid.uuid4().hex
+        ts = int(now if now is not None else time.time())
+
+        async def _body(_conn):
+            await self.db.execute(
+                "INSERT INTO mca_dossier_generations (generation_id, chat_id, "
+                "subject_ref_id, state, scope_kind, range_from_ts, "
+                "range_to_ts, snapshot_boundary_ts, snapshot_boundary_id, "
+                "extractor_version, kernel_version, counters_json, "
+                "staging_ref, supersedes_generation_id, backup_ref, "
+                "created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (generation_id, int(chat_id), int(subject_ref_id), "building",
+                 scope_kind, range_from_ts, range_to_ts, snapshot_boundary_ts,
+                 snapshot_boundary_id,
+                 str(extractor_version or "unknown"), kernel_version,
+                 counters_json, staging_ref, supersedes_generation_id,
+                 backup_ref, ts))
+            return generation_id
+
+        try:
+            return await self.write_transaction(
+                _body, op_name="dossier_generation_create")
+        except Exception:
+            logger.warning("[database] dossier generation create failed",
+                           exc_info=True)
+            return None
+
+    async def get_dossier_generation(self, generation_id: str) -> dict | None:
+        """Поколение по id или None (fail-open)."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT * FROM mca_dossier_generations WHERE generation_id = ?",
+                (str(generation_id),))
+            row = await cursor.fetchone()
+            return dict(row) if row is not None else None
+        except Exception:
+            logger.debug("[database] dossier generation read failed",
+                         exc_info=True)
+            return None
+
+    async def get_active_dossier_generation(
+            self, chat_id: int, subject_ref_id: int) -> dict | None:
+        """Активное поколение (chat, subject) или None (fail-open)."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT * FROM mca_dossier_generations WHERE chat_id = ? AND "
+                "subject_ref_id = ? AND state = 'active'",
+                (int(chat_id), int(subject_ref_id)))
+            row = await cursor.fetchone()
+            return dict(row) if row is not None else None
+        except Exception:
+            logger.debug("[database] active dossier generation read failed",
+                         exc_info=True)
+            return None
+
+    async def set_dossier_generation_state(
+            self, generation_id: str, state: str, *,
+            counters_json: str | None = None, staging_ref: str | None = None,
+            backup_ref: str | None = None, finished: bool = False,
+            now: int | None = None) -> bool:
+        """Обновить состояние поколения (building→failed/active и т. п.).
+
+        Активацию выполняет `activate_dossier_generation` (атомарно) — здесь
+        только служебные переходы (failed/superseded вручную не ставятся).
+        False — поколение не найдено/ошибка."""
+        if state not in (DOSSIER_GENERATION_STATES - {"active", "superseded"}):
+            logger.warning(
+                "[database] set_dossier_generation_state: state=%s не "
+                "допустим через этот путь (активация — атомарная)", state)
+            return False
+        ts = int(now if now is not None else time.time())
+        sets = ["state = ?"]
+        params: list = [state]
+        if counters_json is not None:
+            sets.append("counters_json = ?")
+            params.append(counters_json)
+        if staging_ref is not None:
+            sets.append("staging_ref = ?")
+            params.append(staging_ref)
+        if backup_ref is not None:
+            sets.append("backup_ref = ?")
+            params.append(backup_ref)
+        if finished:
+            sets.append("finished_at = ?")
+            params.append(ts)
+
+        async def _body(_conn):
+            await self.db.execute(
+                f"UPDATE mca_dossier_generations SET {', '.join(sets)} "
+                "WHERE generation_id = ?", [*params, str(generation_id)])
+            return True
+
+        try:
+            return bool(await self.write_transaction(
+                _body, op_name="dossier_generation_state"))
+        except Exception:
+            logger.warning("[database] dossier generation state update failed",
+                           exc_info=True)
+            return False
+
+    async def insert_dossier_staging_item(
+            self, generation_id: str, item_kind: str, *,
+            subject_ref_id: int | None = None, source_ref_id: int | None
+            = None, classification: str | None = None, payload: dict | None
+            = None, verification: str = "tentative",
+            extractor_version: str | None = None,
+            now: int | None = None) -> int | None:
+        """Добавить staged-элемент (до активации читателям не виден).
+
+        Возвращает `staging_id` или None (fail-open). `payload` — R17-safe
+        структура (без сырого контекста)."""
+        if item_kind not in DOSSIER_STAGING_ITEM_KINDS:
+            logger.warning("[database] staging item kind=%s недопустим",
+                           item_kind)
+            return None
+        if verification not in DOSSIER_STAGING_VERIFICATIONS:
+            verification = "tentative"
+        ts = int(now if now is not None else time.time())
+
+        async def _body(_conn):
+            cursor = await self.db.execute(
+                "INSERT INTO mca_dossier_staging_items (generation_id, "
+                "item_kind, subject_ref_id, source_ref_id, classification, "
+                "payload_json, verification, extractor_version, created_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (str(generation_id), item_kind, subject_ref_id, source_ref_id,
+                 classification,
+                 json.dumps(payload or {}, ensure_ascii=False), verification,
+                 extractor_version, ts))
+            return int(cursor.lastrowid or 0)
+
+        try:
+            return await self.write_transaction(
+                _body, op_name="dossier_staging_insert")
+        except Exception:
+            logger.warning("[database] staging item insert failed",
+                           exc_info=True)
+            return None
+
+    async def list_dossier_staging_items(
+            self, generation_id: str) -> list[dict]:
+        """Staged-элементы поколения (по `staging_id` ASC)."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT staging_id, generation_id, item_kind, subject_ref_id, "
+                "source_ref_id, classification, payload_json, verification, "
+                "extractor_version, created_at FROM mca_dossier_staging_items "
+                "WHERE generation_id = ? ORDER BY staging_id ASC",
+                (str(generation_id),))
+            return [dict(r) for r in await cursor.fetchall()]
+        except Exception:
+            logger.debug("[database] staging items read failed",
+                         exc_info=True)
+            return []
+
+    async def activate_dossier_generation(
+            self, generation_id: str, *, now: int | None = None) -> dict:
+        """Атомарная активация поколения досье (ADR-1027-9 D8, SC-12).
+
+        Одна короткая транзакция под single-writer:
+          1. применить staged-элементы к `graph_facts`
+             (с `dossier_generation_id` = поколение; идемпотентно — дедуп
+             портрет/личный факт/мем);
+          2. прежнее `active` (chat, subject) → `superseded` (+superseded_at);
+          3. поколение `building` → `active` (+activated_at).
+
+        Идемпотентно: повтор на `active`-поколении — no-op (ничего не
+        удваивается). Строки `superseded`-поколения НЕ удаляются (прежняя
+        версия доступна до замены/для rollback). Ручные правки
+        (`persona_dossier_overrides`) и исходные сообщения не затрагиваются.
+        Возврат: `{"applied", "superseded_generation_id", "state"}`.
+        Бросает `ValueError` при недопустимом переходе (failed/unknown)."""
+        ts = int(now if now is not None else time.time())
+        result = {"applied": 0, "superseded_generation_id": None,
+                  "state": "unknown"}
+
+        async def _body(_conn):
+            cursor = await self.db.execute(
+                "SELECT generation_id, chat_id, subject_ref_id, state, "
+                "supersedes_generation_id FROM mca_dossier_generations "
+                "WHERE generation_id = ?", (str(generation_id),))
+            gen = await cursor.fetchone()
+            if gen is None:
+                raise ValueError("generation_not_found")
+            if gen["state"] == "active":
+                # Идемпотентный повтор — ничего не применяем повторно.
+                result["state"] = "active"
+                return result
+            if gen["state"] != "building":
+                raise ValueError(f"generation_state_invalid:{gen['state']}")
+            chat_id = int(gen["chat_id"])
+            subject_ref_id = int(gen["subject_ref_id"])
+            # 1. Применить staged-элементы (идемпотентно).
+            cursor = await self.db.execute(
+                "SELECT staging_id, item_kind, subject_ref_id, source_ref_id, "
+                "classification, payload_json, verification, "
+                "extractor_version FROM mca_dossier_staging_items "
+                "WHERE generation_id = ? ORDER BY staging_id ASC",
+                (str(generation_id),))
+            items = await cursor.fetchall()
+            applied = 0
+            for item in items:
+                try:
+                    payload = json.loads(item["payload_json"] or "{}")
+                except (TypeError, ValueError):
+                    payload = {}
+                kind = str(item["item_kind"] or "")
+                target = str(payload.get("target_user") or "").strip()
+                if kind == "portrait":
+                    text = _dossier_render_portrait(payload)
+                    if not text or not target:
+                        continue
+                    cursor = await self.db.execute(
+                        "SELECT id FROM graph_facts WHERE chat_id = ? AND "
+                        "target_user = ? AND status = 'dossier_portrait' "
+                        "ORDER BY id DESC LIMIT 1", (chat_id, target))
+                    row = await cursor.fetchone()
+                    meta_json = json.dumps({
+                        "generated": True, "generator": "layer_b",
+                        "contract_version": 2,
+                        "generation_id": str(generation_id),
+                        "patterns": [str(x) for x in
+                                     (payload.get("patterns") or [])],
+                        "themes": [str(x) for x in
+                                   (payload.get("themes") or [])],
+                        "updated_at": ts,
+                    }, ensure_ascii=False)
+                    if row is None:
+                        cursor = await self.db.execute(
+                            "INSERT INTO graph_facts (chat_id, fact, origin, "
+                            "expires_at, created_at, target_user, status, "
+                            "weight, last_confirmed_at, importance, kind, "
+                            "belief_meta, dossier_generation_id) "
+                            "VALUES (?,?,'chat_history',NULL,?,?,"
+                            "'dossier_portrait',0.3,?,"
+                            "5,'fact',?,?)",
+                            (chat_id, text, ts, target, ts, meta_json,
+                             str(generation_id)))
+                        fid = cursor.lastrowid
+                    else:
+                        fid = int(row["id"])
+                        # FIX (инвариант 10): прежний портрет — в историю
+                        # meta (не стирается), строка обновляется на месте.
+                        cursor = await self.db.execute(
+                            "SELECT belief_meta FROM graph_facts WHERE "
+                            "id = ?", (fid,))
+                        old = await cursor.fetchone()
+                        prev_meta: dict = {}
+                        try:
+                            parsed = json.loads(
+                                (old["belief_meta"] if old else "") or "{}")
+                            if isinstance(parsed, dict):
+                                prev_meta = parsed
+                        except (TypeError, ValueError):
+                            prev_meta = {}
+                        history = list(prev_meta.get("portrait_history") or [])
+                        prev_text = prev_meta.get("previous_text")
+                        if prev_text:
+                            history.append({
+                                "text": str(prev_text)[:400],
+                                "updated_at": int(
+                                    prev_meta.get("updated_at") or 0)})
+                        history = history[-4:]
+                        prev_meta.update({
+                            "previous_text": text,
+                            "portrait_history": history,
+                            "updated_at": ts,
+                            "generation_id": str(generation_id),
+                        })
+                        await self.db.execute(
+                            "DELETE FROM graph_facts_fts WHERE rowid = ?",
+                            (fid,))
+                        await self.db.execute(
+                            "UPDATE graph_facts SET fact = ?, belief_meta = ?,"
+                            " created_at = ?, dossier_generation_id = ? "
+                            "WHERE id = ?",
+                            (text, json.dumps(prev_meta, ensure_ascii=False),
+                             ts, str(generation_id), fid))
+                        await self.db.execute(
+                            "INSERT INTO graph_facts_fts(rowid, fact) "
+                            "VALUES (?, ?)", (fid, text))
+                    applied += 1
+                elif kind == "person_fact":
+                    text = str(payload.get("text") or "").strip()
+                    if not text:
+                        continue
+                    cursor = await self.db.execute(
+                        "SELECT 1 FROM graph_facts WHERE chat_id = ? AND "
+                        "fact = ? AND status = 'unconfirmed' LIMIT 1",
+                        (chat_id, text))
+                    if await cursor.fetchone() is not None:
+                        continue                     # дедуп (идемпотентность)
+                    method = payload.get("attribution_method") or "third_party"
+                    akind = payload.get("assertion_kind") or "unknown"
+                    cursor = await self.db.execute(
+                        "INSERT INTO graph_facts (chat_id, fact, origin, "
+                        "expires_at, created_at, target_user, status, weight,"
+                        " last_confirmed_at, importance, kind, "
+                        "subject_ref_id, attribution_method, assertion_kind,"
+                        " extractor_version, provenance_channel, "
+                        "dossier_generation_id) "
+                        "VALUES (?,?,'chat_history',NULL,?,?,'unconfirmed',"
+                        "0.5,?,5,'fact',"
+                        "?,?,?,?,'dossier_layer_b',?)",
+                        (chat_id, text, ts, target, ts,
+                         item["subject_ref_id"], method, akind,
+                         item["extractor_version"]
+                         or _provenance_extractor_version(),
+                         str(generation_id)))
+                    fid = cursor.lastrowid
+                    await self.db.execute(
+                        "INSERT INTO graph_facts_fts(rowid, fact) VALUES "
+                        "(?, ?)", (fid, text))
+                    applied += 1
+                elif kind == "meme":
+                    text = str(payload.get("text") or "").strip()
+                    if not text or not target:
+                        continue
+                    cursor = await self.db.execute(
+                        "SELECT 1 FROM graph_facts WHERE chat_id = ? AND "
+                        "target_user = ? AND fact = ? AND status = "
+                        "'chat_meme' LIMIT 1", (chat_id, target, text))
+                    if await cursor.fetchone() is not None:
+                        continue
+                    cursor = await self.db.execute(
+                        "INSERT INTO graph_facts (chat_id, fact, origin, "
+                        "expires_at, created_at, target_user, status, weight,"
+                        " last_confirmed_at, importance, kind, belief_meta, "
+                        "dossier_generation_id) "
+                        "VALUES (?,?,'chat_history',NULL,?,?,'chat_meme',0.4,"
+                        "?,5,'fact',"
+                        "?,?)",
+                        (chat_id, text, ts, target, ts,
+                         json.dumps({"meme": True, "source": "dossier",
+                                     "classified_by": "llm",
+                                     "confidence": 0.8, "created_at": ts},
+                                    ensure_ascii=False),
+                         str(generation_id)))
+                    fid = cursor.lastrowid
+                    await self.db.execute(
+                        "INSERT INTO graph_facts_fts(rowid, fact) VALUES "
+                        "(?, ?)", (fid, text))
+                    applied += 1
+            result["applied"] = applied
+            # 2. Прежнее active → superseded.
+            cursor = await self.db.execute(
+                "SELECT generation_id FROM mca_dossier_generations WHERE "
+                "chat_id = ? AND subject_ref_id = ? AND state = 'active'",
+                (chat_id, subject_ref_id))
+            prev = await cursor.fetchone()
+            if prev is not None:
+                await self.db.execute(
+                    "UPDATE mca_dossier_generations SET state = 'superseded',"
+                    " finished_at = ? WHERE generation_id = ?",
+                    (ts, prev["generation_id"]))
+                result["superseded_generation_id"] = prev["generation_id"]
+            # 3. building → active.
+            await self.db.execute(
+                "UPDATE mca_dossier_generations SET state = 'active', "
+                "activated_at = ?, finished_at = ? WHERE generation_id = ?",
+                (ts, ts, str(generation_id)))
+            result["state"] = "active"
+            return result
+
+        return await self.write_transaction(
+            _body, op_name="dossier_generation_activate")
+
+    async def activate_embedding_generation(
+            self, index_name: str, generation_id: str) -> dict | None:
+        """N-MCA07-1 (ADR-1027-9 D12/spec §4.8): single-writer операция
+        активации vec-поколения (REUSE v18 — без новой таблицы).
+
+        Текущее `active` → `superseded` (+superseded_at); целевое
+        (`building`/`failed`) → `active` (+activated_at). Повтор на уже
+        активном — no-op. `ensure_embedding_generation` при существующем
+        active остаётся no-op (A06 не нарушается). Гейт —
+        `MCA_EMBEDDING_GENERATION_ACTIVATION_ENABLED` (проверяет вызывающий).
+        Возврат — dict операции или None (не найдено/ошибка)."""
+        now = int(time.time())
+        result: dict | None = None
+
+        async def _body(_conn):
+            cursor = await self.db.execute(
+                "SELECT generation_id, index_name, status FROM "
+                "mca_embedding_index_generations WHERE generation_id = ?",
+                (str(generation_id),))
+            target = await cursor.fetchone()
+            if target is None:
+                return None
+            if str(target["index_name"]) != str(index_name):
+                return None
+            if target["status"] == "active":
+                return {"generation_id": str(generation_id),
+                        "status": "active", "superseded_generation_id": None}
+            if target["status"] not in ("building", "failed"):
+                return None
+            cursor = await self.db.execute(
+                "SELECT generation_id FROM mca_embedding_index_generations "
+                "WHERE index_name = ? AND status = 'active'",
+                (str(index_name),))
+            prev = await cursor.fetchone()
+            if prev is not None:
+                await self.db.execute(
+                    "UPDATE mca_embedding_index_generations SET status = "
+                    "'superseded', superseded_at = ? WHERE generation_id = ?",
+                    (now, prev["generation_id"]))
+            await self.db.execute(
+                "UPDATE mca_embedding_index_generations SET status = "
+                "'active', activated_at = ?, superseded_at = NULL WHERE "
+                "generation_id = ?", (now, str(generation_id)))
+            return {"generation_id": str(generation_id), "status": "active",
+                    "superseded_generation_id": (
+                        prev["generation_id"] if prev is not None else None)}
+
+        try:
+            async with self.serialized():
+                result = await _body(self.db)
+                await self.db.commit()
+            return result
+        except Exception:
+            logger.warning("[database] activate_embedding_generation failed",
+                           exc_info=True)
+            return None
+
+    async def facts_without_evidence_links(
+            self, chat_id: int, *, target_user: str | None = None,
+            limit: int = 5) -> list[dict]:
+        """Confirmed-факты чата/(участника) без прямой EvidenceLink
+        (read-time reconstruction — mca-04b T-3896/T-3903, bounded).
+
+        Кандидаты — свежие первыми (SQL LIMIT = bounded-скан); фильтр «нет
+        derived_from/supports» — в Python через `get_evidence_links`
+        (идемпотентно: у факта с уже записанной связкой
+        `reconstruct_fact_provenance` сам no-op). Fail-open → []."""
+        sql = ("SELECT id, fact, chat_id, target_user FROM graph_facts "
+               "WHERE chat_id = ? AND status = 'confirmed' AND kind = 'fact' ")
+        params: list = [int(chat_id)]
+        if target_user:
+            sql += "AND target_user = ? "
+            params.append(str(target_user))
+        sql += "ORDER BY created_at DESC, id DESC LIMIT ?"
+        params.append(max(1, int(limit)) * 4)
+        try:
+            cursor = await self.db.execute(sql, params)
+            rows = [dict(r) for r in await cursor.fetchall()]
+        except Exception:
+            return []
+        out: list[dict] = []
+        for row in rows:
+            try:
+                from services import provenance as _prov
+                ref = await _prov.resolve_source_ref(
+                    self, _prov.graph_fact_source_ref(chat_id, row["id"]))
+                if ref is None:
+                    continue
+                links = await _prov.get_evidence_links(self, ref)
+                if not any(str(l.get("link_type")) in
+                           ("derived_from", "supports") for l in links):
+                    out.append(row)
+            except Exception:
+                continue
+            if len(out) >= max(1, int(limit)):
+                break
+        return out
 
     async def get_active_embedding_generation(self, index_name: str) -> dict | None:
         """Активное поколение индекса (реестр v18) или None.
@@ -4610,7 +5240,9 @@ class DatabaseService:
                                 assertion_kind: str | None = None,
                                 speaker_author_id: int | None = None,
                                 extractor_version: str | None = None,
-                                provenance_channel: str | None = None) -> int:
+                                provenance_channel: str | None = None,
+                                dossier_generation_id: str | None = None
+                                ) -> int:
         """Факт-строка (+FTS-индекс). Возвращает id. Epic 50 (58.8, D205):
         target_user — имя обращающегося (origin='bot_direct_reply'); created_at
         ставится автоматически (int(time.time())). Epic 60 (64.1/64.2):
@@ -4644,7 +5276,10 @@ class DatabaseService:
         Раунд 10.20 (БЛОК 7.3b, ADR-1020-1 ред. 3, T-1924): аддитивные
         `tg_message_id`/`forward_from` — provenance факта (ID-политика `tg:`
         и сегмент «Переслано:» в канонической строке). None/'' → прежнее
-        поведение (R16: не выдумываем). Существующие вызовы НЕ меняются."""
+        поведение (R16: не выдумываем). Существующие вызовы НЕ меняются.
+        mca-04b (ADR-1027-9 D8): аддитивный `dossier_generation_id` — тег
+        поколения при активации staging (NULL = legacy/честный unknown);
+        существующие вызовы НЕ меняются."""
         w = 0.5 if weight is None else float(weight)
         if not 0.0 <= w <= 1.0:
             logger.warning("graph fact weight %s outside [0,1] — clamped (66.1)", w)
@@ -4672,7 +5307,7 @@ class DatabaseService:
                         str(forward_from or ""),
                         subject_ref_id, attribution_method, assertion_kind,
                         speaker_author_id, extractor_version,
-                        provenance_channel)
+                        provenance_channel, dossier_generation_id)
 
         async def _body(conn):
             cursor = await conn.execute(
@@ -4682,9 +5317,10 @@ class DatabaseService:
                 "message_timestamp, importance, kind, source_ids, belief_meta, "
                 "tg_message_id, forward_from, subject_ref_id, "
                 "attribution_method, assertion_kind, speaker_author_id, "
-                "extractor_version, provenance_channel) "
+                "extractor_version, provenance_channel, "
+                "dossier_generation_id) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
-                "?, ?, ?, ?, ?, ?)",
+                "?, ?, ?, ?, ?, ?, ?)",
                 _insert_args)
             if cursor.rowcount == 0:
                 # дубль (INSERT OR IGNORE) — FTS-строку НЕ пишем (edge 5),
@@ -6855,7 +7491,14 @@ class DatabaseService:
         (chat, target): SELECT → FTS-safe UPDATE либо insert_graph_fact.
         `fact`=непустой портрет, иначе детерминированный рендер
         patterns/themes; если всё пусто — строка НЕ создаётся (0). Схема/DDL
-        не меняются (v12). Возвращает id строки (0 — нечего писать)."""
+        не меняются (v12). Возвращает id строки (0 — нечего писать).
+
+        FIX mca-04b (инвариант 10, §8.3.3/§8.3.4): обновление НЕ стирает
+        долгосрочную картину — прежний текст портрета сохраняется в
+        `belief_meta.previous_text` + bounded-истории `portrait_history`
+        (версионирование изменений во времени; старое место работы не
+        удаляется только потому, что появилось новое). Накопленные личные
+        факты (`unconfirmed` person_facts) этой функцией не трогаются."""
         from services.dossier_prompts import render_generated_portrait
 
         target = str(target_user or "").strip()
@@ -6867,25 +7510,51 @@ class DatabaseService:
         if not text:
             return 0
         now = int(now_ts if now_ts is not None else time.time())
-        meta_json = json.dumps({
-            "generated": True,
-            "generator": "layer_b",
-            "contract_version": 1,
-            "patterns": pat,
-            "themes": th,
-            "updated_at": now,
-        }, ensure_ascii=False)
         cursor = await self.db.execute(
-            "SELECT id FROM graph_facts WHERE chat_id = ? "
+            "SELECT id, belief_meta FROM graph_facts WHERE chat_id = ? "
             "AND target_user = ? AND status = 'dossier_portrait' "
             "ORDER BY id DESC LIMIT 1", (int(chat_id), target))
         row = await cursor.fetchone()
         if row is None:
+            meta_json = json.dumps({
+                "generated": True,
+                "generator": "layer_b",
+                "contract_version": 2,
+                "patterns": pat,
+                "themes": th,
+                "previous_text": text,
+                "updated_at": now,
+            }, ensure_ascii=False)
             return await self.insert_graph_fact(
                 chat_id, text, "chat_history", None, target_user=target,
                 status="dossier_portrait", kind="fact", weight=0.3,
                 belief_meta=meta_json)
         fact_id = int(row["id"])
+        prev_meta: dict = {}
+        try:
+            parsed = json.loads(row["belief_meta"] or "{}")
+            if isinstance(parsed, dict):
+                prev_meta = parsed
+        except (TypeError, ValueError):
+            prev_meta = {}
+        history = list(prev_meta.get("portrait_history") or [])
+        prev_text = prev_meta.get("previous_text")
+        if prev_text:
+            history.append({"text": str(prev_text)[:400],
+                            "updated_at": int(prev_meta.get("updated_at")
+                                              or 0)})
+        history = history[-4:]
+        prev_meta.update({
+            "generated": True,
+            "generator": "layer_b",
+            "contract_version": 2,
+            "patterns": pat,
+            "themes": th,
+            "previous_text": text,
+            "portrait_history": history,
+            "updated_at": now,
+        })
+        meta_json = json.dumps(prev_meta, ensure_ascii=False)
         await self.db.execute(
             "DELETE FROM graph_facts_fts WHERE rowid = ?", (fact_id,))
         await self.db.execute(

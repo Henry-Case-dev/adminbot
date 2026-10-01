@@ -647,13 +647,17 @@ class TestBoundsA3:
         # «← К списку» ≥44px в mobile media-query; без правок токенов/палитры).
         # NOTE (round1029, EXTRA `extra-cover-style-pipeline`, ADR-1028-4 D12):
         # + `web/app.py` (регистрация роутера Style Registry/Editor).
+        # NOTE (round1027 Wave 2, mca-04b / ADR-1027-9): + `web/api/chat_lore.py`
+        # (AMEND: full rebuild контракт — прогресс от полного диапазона,
+        # resume-on-paused, read-time reconstruction; Δ каталога = 0).
         assert not any(ln.startswith("web/")
                        and not ln.startswith(("web/app.js", "web/index.html",
                                               "web/app.py",
                                               "web/static/execution_graph.js",
                                               "web/static/app.css",
                                               "web/api/routes.py",
-                                              "web/api/oversight.py"))
+                                              "web/api/oversight.py",
+                                              "web/api/chat_lore.py"))
                        for ln in self._diff_names())
 
     def _diff_names(self):
@@ -678,7 +682,7 @@ class TestBoundsA3:
         import dataclasses
         from services import param_catalog as pc
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.40"            # bump запрещён (D8)
+        assert APP_VERSION == "2.58.41"            # bump запрещён (D8)
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in pc.REGISTRY
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}

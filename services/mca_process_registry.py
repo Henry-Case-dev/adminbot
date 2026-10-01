@@ -289,18 +289,35 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         note="инструментирование mca_events не подключено",
     ),
     ProcessDefinition(
-        process_id="dossier.rebuild", version="1",
-        purpose="Пересборка досье по периодам (файловый job-store)",
-        inputs=("graph_facts",), outputs=("generated_dossier",),
-        stages=("snapshot", "clean", "rebuild", "finalize"),
-        trigger_kind="manual", schedule="по кнопке",
-        settings_ref=("DOSSIER_REBUILD_UI_ENABLED",),
-        state_source=("DossierRebuildJobStore", "task_jobs"),
-        recovery_ops=("resume_job", "rollback_snapshot"),
+        process_id="dossier.rebuild", version="2",
+        purpose="Полная пересборка/исправление досье: full rebuild (keyset), "
+                "backfill архива, реклассификация, staging-активация, каскад",
+        inputs=("smart_messages", "graph_facts",),
+        outputs=("graph_facts", "mca_dossier_generations",
+                 "mca_dossier_staging_items",),
+        stages=("snapshot", "extract", "synthesize", "activate", "cascade",
+                "finalize"),
+        trigger_kind="manual", schedule="по кнопке + фоновый backfill",
+        settings_ref=("DOSSIER_REBUILD_UI_ENABLED",
+                      "MCA_DOSSIER_REBUILD_ENABLED",
+                      "MCA_DOSSIER_STAGING_ACTIVATION_ENABLED",
+                      "MCA_DOSSIER_BACKGROUND_PASS_ENABLED",
+                      "MCA_DOSSIER_RECLASSIFY_ENABLED"),
+        state_source=("DossierRebuildJobStore", "task_jobs",
+                      "mca_dossier_generations"),
+        recovery_ops=("resume_checkpoint", "rollback_snapshot",
+                      "reactivate_generation"),
         widget_id="Досье/архив",
         owner_feature="dossier",
-        note="инструментирование mca_events не подключено (прогресс — через "
-             "progress_cb, не mca_events)",
+        stages_to_events={"extract": "dossier_rebuild",
+                          "cascade": "dossier_cascade"},
+        instrumentation=("extract", "cascade"),
+        event_names=("dossier_rebuild", "dossier_cascade"),
+        enabled_gate="MCA_DOSSIER_REBUILD_ENABLED",
+        note="mca-04b (ADR-1027-9): инструментирование dossier_rebuild/"
+             "dossier_cascade (start+терминальный outcome, reason_code); "
+             "прогресс — progress_cb + job-store (batch-состояния "
+             "queued/running/paused/interrupted/failed/completed)",
     ),
     # ── mca-04a: provenance (реальное событие memory_provenance) ─────────────
     ProcessDefinition(

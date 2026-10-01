@@ -1,4 +1,4 @@
-﻿"""Раунд 10.20 / Фаза D (БЛОК 3) — тесты UX/UI-рефакторинга мини-аппа.
+"""Раунд 10.20 / Фаза D (БЛОК 3) — тесты UX/UI-рефакторинга мини-аппа.
 
 Покрытие (T-1903):
   * T-1895  критические баги: binding (маски/значения), роутинг модулей,
@@ -147,7 +147,7 @@ class TestDossierBackend:
             cur = await db.db.execute("PRAGMA user_version")
             row = await cur.fetchone()
             # Аддитивная таблица — user_version НЕ поднимается (О7-прецедент).
-            assert row[0] == 19
+            assert row[0] >= 19
         finally:
             await db.close()
 

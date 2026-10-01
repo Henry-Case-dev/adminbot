@@ -895,7 +895,7 @@ async def _dossier_payload(db, chat_id: int, user_id: int,
     else:
         portrait_source = "none"
         effective_portrait = ""
-    return {
+    payload = {
         "chat_id": chat_id,
         "user_id": user_id,
         "name": name,
@@ -911,6 +911,37 @@ async def _dossier_payload(db, chat_id: int, user_id: int,
         "generated_updated_at": (generated or {}).get("updated_at"),
         "portrait_source": portrait_source,
     }
+    # mca-04b (режим 2, T-3896/T-3903, D-MCA04A-2): чтение старой записи —
+    # read-time восстановление происхождения через контракт §98
+    # (`reconstruct_fact_provenance`; вектор — кандидат, не доказательство;
+    # `original` не присваивается). Bounded (≤5 фактов), fail-open, гейт —
+    # `MCA_DOSSIER_READ_RECONSTRUCTION_ENABLED` (инертен при OFF нижележащего
+    # `MCA_EVIDENCE_RECONSTRUCTION_ENABLED`).
+    await _reconstruct_missing_provenance(db, chat_id, name)
+    return payload
+
+
+async def _reconstruct_missing_provenance(db, chat_id: int,
+                                           name: str | None) -> None:
+    """Bounded read-time reconstruction (режим 2 §8.3). Никогда не бросает."""
+    try:
+        from services import mca_gates, provenance
+    except Exception:
+        return
+    if not mca_gates.dossier_read_reconstruction_enabled():
+        return
+    try:
+        rows = await db.facts_without_evidence_links(
+            chat_id, target_user=(name or None), limit=5)
+    except Exception:
+        return
+    for row in rows[:5]:
+        try:
+            await provenance.reconstruct_fact_provenance(
+                db, fact_id=int(row["id"]), chat_id=int(chat_id),
+                fact_text=str(row["fact"] or ""))
+        except Exception:
+            continue
 
 
 
@@ -1008,6 +1039,17 @@ class DossierRebuildBody(BaseModel):
 
 def _rebuild_enabled() -> bool:
     return bool(getattr(settings, "DOSSIER_REBUILD_UI_ENABLED", True))
+
+
+def _dossier_full_enabled() -> bool:
+    """mca-04b (ADR-1027-9 D13): мастер-гейт единого контракта full rebuild
+    (`MCA_DOSSIER_REBUILD_ENABLED`, default ON). OFF → точный legacy-путь
+    (bounded-window прогресс/подсчёт, паритет baseline)."""
+    try:
+        from services import mca_gates
+        return mca_gates.dossier_rebuild_enabled()
+    except Exception:
+        return False
 
 
 def _rebuild_disabled() -> HTTPException:
@@ -1116,6 +1158,14 @@ async def start_dossier_rebuild(
     except Exception:
         active = None
     if active is not None:
+        # mca-04b (ADR-1027-9 D3/A89): `paused` (budget exhaustion/модель) —
+        # НЕ терминал: повторный старт ВОЗОБНОВЛЯЕТ тот же job с checkpoint
+        # (cursor), attempt+1; неполный диапазон остаётся в очереди.
+        if (str(active.get("status") or "") == "paused"
+                and str(active.get("mode") or "") == "full"):
+            return await _resume_paused_rebuild(
+                jobs, db, worker, active, chat_id=chat_id, user_id=user_id,
+                lock=lock, jobs_dir=jobs.dir_path)
         raise HTTPException(status_code=409, detail={
             "code": "already_running",
             "job_id": str(active.get("job_id") or ""),
@@ -1137,15 +1187,28 @@ async def start_dossier_rebuild(
     window_hours = int(_PERIOD_WINDOW.get(period, 4320))
     chunk = max(1, int(getattr(
         settings, "DOSSIER_REBUILD_CHUNK_SIZE", 40) or 40))
-    max_msgs = max(1, int(getattr(
-        settings, "LORE_WINDOW_MAX_MESSAGES", 300) or 300))
+    # mca-04b (ADR-1027-9 D1/REQ-MCA04B-10): при master-гейте ON — единый
+    # контракт full rebuild: прогресс/total считаются от ПОЛНОГО диапазона
+    # (не от bounded window; live-window limit ≠ предел пересборки).
+    # OFF → точный legacy-подсчёт (bounded window, паритет baseline).
+    full_mode = _dossier_full_enabled() and hasattr(
+        worker, "rebuild_dossier_full")
     count = 0
     try:
-        count = int(await worker.count_window_messages(
-            chat_id, window_hours=window_hours) or 0)
+        if full_mode:
+            count = int(await worker.count_range_messages(
+                chat_id, window_hours=window_hours) or 0)
+        else:
+            count = int(await worker.count_window_messages(
+                chat_id, window_hours=window_hours) or 0)
     except Exception:
         count = 0
-    bounded = min(count, max_msgs) if count > 0 else 0
+    if full_mode:
+        bounded = max(0, count)
+    else:
+        max_msgs = max(1, int(getattr(
+            settings, "LORE_WINDOW_MAX_MESSAGES", 300) or 300))
+        bounded = min(count, max_msgs) if count > 0 else 0
     total = int(math.ceil(bounded / chunk)) if bounded > 0 else 0
     job_id = secrets.token_hex(16)
     try:
@@ -1153,6 +1216,11 @@ async def start_dossier_rebuild(
             job_id, chat_id=chat_id, user_id=user_id, target_name=canon,
             actor_id=user.id, period=period, window_hours=window_hours,
             chunk_size=chunk, total=total)
+        if full_mode:
+            # Контракт full rebuild: поля job'а аддитивно (R17-safe).
+            await jobs.update(job_id, mode="full",
+                              scope_kind=("full" if window_hours <= 0
+                                          else "range"))
         task = _schedule_rebuild(drj.run_dossier_rebuild(
             store=jobs, db=db, worker=worker, job_id=job_id, chat_id=chat_id,
             user_id=user_id, target_name=canon, window_hours=window_hours,
@@ -1174,9 +1242,49 @@ async def start_dossier_rebuild(
                             detail="не удалось запустить пересборку") from exc
     logger.info("[dossier] rebuild started | chat=%s uid=%s period=%s "
                 "total=%s by=%s", chat_id, user_id, period, total, user.id)
-    return JSONResponse(status_code=202, content={
+    body = {
         "job_id": job_id, "status": "queued", "period": period,
         "window_hours": window_hours, "total": total, "processed": 0,
+    }
+    if full_mode:
+        body["mode"] = "full"
+        body["scope_kind"] = "full" if window_hours <= 0 else "range"
+    return JSONResponse(status_code=202, content=body)
+
+
+async def _resume_paused_rebuild(jobs, db, worker, active: dict, *,
+                                 chat_id: int, user_id: int, lock, jobs_dir):
+    """mca-04b (A89): resume `paused` full-rebuild job'а с checkpoint
+    (cursor) — тот же job_id, attempt+1; дублей нет (дедуп записей + keyset
+    от курсора). Fail-closed: ошибка планирования → 503 (статус остаётся
+    paused — неполный диапазон в очереди)."""
+    job_id = str(active.get("job_id") or "")
+    window_hours = int(active.get("window_hours") or 0)
+    chunk = max(1, int(active.get("chunk_size") or 40))
+    target_name = str(active.get("target_name") or "")
+    try:
+        task = _schedule_rebuild(drj.run_dossier_rebuild(
+            store=jobs, db=db, worker=worker, job_id=job_id, chat_id=chat_id,
+            user_id=user_id, target_name=target_name,
+            window_hours=window_hours, chunk_size=chunk, jobs_dir=jobs_dir,
+            archive_dir=getattr(settings, "MEMORY_BACKUP_DIR", "backups"),
+            lock=lock))
+        jobs.register_task(job_id, task)
+    except Exception as exc:
+        lock.release()
+        logger.warning("[dossier] rebuild resume failed | chat=%s uid=%s",
+                       chat_id, user_id, exc_info=True)
+        raise HTTPException(status_code=503,
+                            detail="не удалось возобновить пересборку") from exc
+    logger.info("[dossier] rebuild resumed | chat=%s uid=%s job=%s",
+                chat_id, user_id, job_id)
+    return JSONResponse(status_code=202, content={
+        "job_id": job_id, "status": "queued", "resumed": True,
+        "mode": "full",
+        "cursor_ts": active.get("cursor_ts"),
+        "cursor_id": active.get("cursor_id"),
+        "processed": int(active.get("processed") or 0),
+        "total": int(active.get("total") or 0),
     })
 
 
@@ -1207,6 +1315,15 @@ async def cancel_dossier_rebuild(
     retryable = _rebuild_rollback_retryable(job)
     if status in _TERMINAL_REBUILD_STATUSES and not retryable:
         return {"status": status, "rollback": view["rollback"]}
+    if status == "paused" and str(job.get("mode") or "") == "full":
+        # mca-04b (SC-12): full-контракт не удалял производные (staging/
+        # аддитивная запись) — отмена паузы = терминальный `cancelled` БЕЗ
+        # деструктивного rollback (старые факты и так целы).
+        await jobs.update(job_id, status="cancelled", stage="finalize",
+                          reason_code="cancelled",
+                          finished_at=int(time.time()))
+        return {"status": "cancelled",
+                "rollback": view["rollback"]}
     if status == "cancelling" and job.get("cancel_requested"):
         raise HTTPException(status_code=409, detail={"code": "cancelling"})
     try:

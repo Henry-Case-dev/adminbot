@@ -103,6 +103,23 @@ REASON_CODES = frozenset({
     # fallback ladder + capability-gated style stage; §17.2 расширяемый.
     "style_failed", "base_failed", "rich_failed", "edit_unsupported",
     "cover_style_unavailable",
+    # расширение mca-04b/10.27 (dossier rebuild: стадии/состояния/каскад —
+    # ADR-1027-9 D11/D3; §17.2 расширяемый; interrupted/cancelled/
+    # evidence_invalid/provenance_unresolved/embedding_generation_changed
+    # переиспользуются из блоков выше).
+    # H-2 (review round 1): честная финализация по spec §3.2 — коды
+    # `model_unavailable` (недоступность модели) и `parse_error` добавлены
+    # в словарь явно (комментарий раньше ошибочно считал их существующими).
+    "model_unavailable", "parse_error",
+    "dossier_rebuild_started", "dossier_batch_processed",
+    "dossier_paused_budget", "dossier_interrupted", "dossier_partial_range",
+    "dossier_reclassified", "dossier_staging_activated",
+    "dossier_generation_superseded", "dossier_cascade_scheduled",
+    "dossier_identity_unresolved",
+    # H-1 (review round 1): персистентация кандидатов прерванного прогона
+    # в staging до паузы не удалась — пауза молча теряла бы сегмент
+    # (честный failed вместо paused).
+    "dossier_pending_staging_failed",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────

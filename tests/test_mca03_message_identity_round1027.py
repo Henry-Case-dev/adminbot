@@ -72,11 +72,11 @@ async def test_v16_registered_fresh_target(tmp_path):
     try:
         assert _SCHEMA_VERSION_MESSAGE_IDENTITY == 16
         # MCA-17a (v19) — текущий head; v16-объекты сохранены.
-        assert _target_version() == 19
+        assert _target_version() >= 19  # реестр продолжает v20 (mca-04b)
         assert any(s.version == 16 and s.name == "message_identity"
                    for s in DatabaseService.migration_steps())
         cur = await d.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 19
+        assert (await cur.fetchone())[0] >= 19
         cur = await d.db.execute(
             "SELECT name FROM schema_migrations WHERE version = 16")
         assert (await cur.fetchone())["name"] == "message_identity"
@@ -121,7 +121,7 @@ async def test_v16_idempotent_reinitialize(tmp_path):
             "SELECT COUNT(*) AS c FROM schema_migrations WHERE version = 16")
         assert (await cur.fetchone())["c"] == 1
         cur = await d2.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 19   # MCA-17a v19 — head
+        assert (await cur.fetchone())[0] >= 19   # реестр >= v19 (v20 — mca-04b)
     finally:
         await d2.close()
 

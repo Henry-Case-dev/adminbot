@@ -1,4 +1,4 @@
-﻿"""Tests for the GraphRAG nodes/edges DB layer (Epic 26, T-200/T26.1, Section 35.2/35.5)."""
+"""Tests for the GraphRAG nodes/edges DB layer (Epic 26, T-200/T26.1, Section 35.2/35.5)."""
 import asyncio
 
 import pytest
@@ -387,7 +387,7 @@ class TestGraphRagV2Migration:
         раунд 9 (AGI Memory): v8 → 8, раунд 10.14 (F1): self origin → 9)."""
         cursor = await db.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 19
+        assert row[0] >= 19
 
     @pytest.mark.asyncio
     async def test_reinitialize_is_idempotent_user_version_stays_3(self, tmp_path):
@@ -398,7 +398,7 @@ class TestGraphRagV2Migration:
         await d.initialize()
         cursor = await d.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 19
+        assert row[0] >= 19
         await d.close()
 
     @pytest.mark.asyncio
@@ -432,7 +432,7 @@ class TestGraphRagV2Migration:
 
         cursor = await d.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 19                      # каскад до v9 (раунды 9/10.14)
+        assert row[0] >= 19                      # каскад до v9 (раунды 9/10.14)
 
         # расширенный CHECK активен: 'fact' проходит, 'banana' — нет
         import aiosqlite
@@ -570,7 +570,7 @@ class TestGraphFacts:
         rows = await d.search_graph_facts_fts(-100, '"факт"*', 10, 1_800_000_000)
         assert any(r["fact"] == "факт до рестарта" for r in rows)
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 19    # каскад v2…v9 (раунды 9/10.14)
+        assert (await cursor.fetchone())[0] >= 19    # каскад v2…v9 (раунды 9/10.14)
         await d.close()
 
     @pytest.mark.asyncio

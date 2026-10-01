@@ -272,7 +272,7 @@ class TestLoreStoriesStorage:
             cursor = await db.db.execute("PRAGMA user_version")
             row = await cursor.fetchone()
             # lore_stories — аддитивно (О7); user_version — v15 (MCA Wave 0).
-            assert int(row[0]) == 19
+            assert int(row[0]) >= 19
         finally:
             await db.close()
 

@@ -172,7 +172,8 @@ async def test_rebuild_validated_atomic_activate(vec_db, monkeypatch):
     # Shadow удалён (swap завершился), user_version НЕ менялся (ΔDDL=0).
     assert f"graph_facts_vec_g{generation}" not in await _table_names(vec_db)
     cur = await vec_db.db.execute("PRAGMA user_version")
-    assert (await cur.fetchone())[0] == 19
+    # Shadow-rebuild — ΔDDL=0; реестр может идти дальше v19 (v20 — mca-04b).
+    assert (await cur.fetchone())[0] >= 19
     # Vector path открыт.
     assert await mm._index_generation_ok("graph_facts_vec")
     # D2 state machine достигла терминального состояния.

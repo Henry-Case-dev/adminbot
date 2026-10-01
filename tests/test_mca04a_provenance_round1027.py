@@ -82,10 +82,11 @@ async def _status_for_fact(d, chat_id, fact_id):
 async def test_v17_registered_fresh_target(tmp_path):
     d = await _fresh(tmp_path)
     try:
-        # MCA-07 (v18, ADR-1027-7 D12) поднял head до 18; v17-объекты сохранены.
-        assert _target_version() == 19
+        # MCA-07 (v18) → mca-17a (v19) → mca-04b (v20, ADR-1027-9) — head
+        # продолжает реестр; v17-объекты сохранены при любом хвосте.
+        assert _target_version() >= 19
         cur = await d.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 19
+        assert (await cur.fetchone())[0] >= 19
         cur = await d.db.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name IN "
             "('mca_source_refs','mca_evidence_links','mca_provenance_status')")
@@ -113,7 +114,7 @@ async def test_v17_idempotent_noop(tmp_path):
     await d2.initialize()
     try:
         cur = await d2.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 19   # MCA-07 v18 — head
+        assert (await cur.fetchone())[0] >= 19   # реестр ≥ v19 (v20 — mca-04b)
         cur = await d2.db.execute("SELECT COUNT(*) FROM schema_migrations")
         first = (await cur.fetchone())[0]
         await d2.close()

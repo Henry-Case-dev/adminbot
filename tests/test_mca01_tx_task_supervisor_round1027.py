@@ -879,8 +879,13 @@ def test_write_points_go_through_single_writer():
     # +7 — санкционированные commit шага v19 `mca-17a` (observability_core:
     # run/incident-таблицы + их индексы + 2×ALTER-колонки `task_jobs`/
     # `mca_events` + PRAGMA, L-MCA14-3; раннер до старта писателей).
+    # +8 — санкционированные commit шага v20 `mca-04b` (dossier_staging:
+    # 2 таблицы + их индексы + ALTER `graph_facts.dossier_generation_id` +
+    # индекс + PRAGMA — все в `_migrate_dossier_staging_v20`, L-MCA14-3;
+    # раннер до старта писателей) + 1 в `activate_embedding_generation`
+    # (N-MCA07-1) под `async with self.serialized()` (single-writer).
     allow = {
-        "database.py": 129,
+        "database.py": 137,
         "dossier_rebuild_jobs.py": 1,   # внутри `async with db.serialized()`
         # ASAP-3.2 (ADR-1028-5 D1/D2, T-4191): shadow-rebuild — 3 прямых
         # commit внутри `async with memory.db.serialized()` (идемпотентный

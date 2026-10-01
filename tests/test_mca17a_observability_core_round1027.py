@@ -52,7 +52,9 @@ async def test_v19_tables_and_user_version(tmp_path):
     d = await _db(tmp_path)
     try:
         cur = await d.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == _target_version() == \
+        # mca-04b (v20, ADR-1027-9) продолжает реестр после v19 — хвост
+        # реестра >= 19; v19-объекты обязательны при любом хвосте.
+        assert (await cur.fetchone())[0] == _target_version() >= \
             _SCHEMA_VERSION_OBSERVABILITY
         cur = await d.db.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = {r["name"] for r in await cur.fetchall()}
@@ -131,7 +133,8 @@ async def test_v19_legacy_graceful(tmp_path):
     await d2.initialize()
     try:
         cur = await d2.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 19
+        # mca-04b (v20) продолжает реестр — legacy v18 доводится до хвоста.
+        assert (await cur.fetchone())[0] >= 19
         cur = await d2.db.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = {r["name"] for r in await cur.fetchall()}
         assert {"mca_pipeline_runs", "mca_incidents"} <= tables

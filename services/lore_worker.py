@@ -49,6 +49,7 @@ import os
 import random
 import time
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from apscheduler.schedulers import SchedulerNotRunningError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -56,6 +57,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from config.settings import settings
 from services import hot_config as hot
+from services import mca_gates
 from services.chat_lore import CHAT_LORE_2661910336
 from services.dossier_prompts import (
     DOSSIER_SYSTEM_PROMPT,
@@ -147,6 +149,15 @@ _MEANINGFUL_FILTER = (
     "AND substr(trim(text), 1, 1) <> '/' "
     "AND (user_id IS NULL OR user_id <> ?)"
 )
+# mca-04b: фильтр области full rebuild — БЕЗ min_chars (§8.3.3: «короткие
+# ответы не отбрасывать механически по длине»: «да» подтверждает факт из
+# вопроса). Команды/пустые/бот — по-прежнему не история. Плейсхолдер: 1 —
+# bot_id-исключение.
+_REBUILD_FILTER = (
+    "text IS NOT NULL AND length(trim(text)) > 0 "
+    "AND substr(trim(text), 1, 1) <> '/' "
+    "AND (user_id IS NULL OR user_id <> ?)"
+)
 _COUNT_WINDOW_SQL = (
     "SELECT COUNT(*) FROM smart_messages "
     "WHERE chat_id = ? AND timestamp >= ? AND " + _MEANINGFUL_FILTER
@@ -155,6 +166,45 @@ _WINDOW_SQL = (
     "SELECT user_id, author_name, text, timestamp FROM smart_messages "
     "WHERE chat_id = ? AND timestamp >= ? AND " + _MEANINGFUL_FILTER + " "
     "ORDER BY timestamp DESC, id DESC LIMIT ?"
+)
+# ── mca-04b (ADR-1027-9 D1/D4): keyset-проход full rebuild ──────────────────
+# Стабильный порядок (timestamp, id) ASC, БЕЗ OFFSET (§8.3: «не OFFSET по
+# изменяющимся миллионам строк»). Курсор (last_ts, last_id); граница снимка
+# (boundary) — максимум (timestamp, id) области на старте. Плейсхолдеры:
+# 1 chat_id, 2 bot_exclude, 3/4 last_ts, 5 last_id,
+# 6/7 boundary_ts, 8 boundary_id, 9 batch_limit.
+_KEYSET_PAGE_SQL = (
+    "SELECT id, user_id, author_name, text, timestamp, tg_message_id, "
+    "reply_to_id, chat_id FROM smart_messages "
+    "WHERE chat_id = ? AND " + _REBUILD_FILTER + " "
+    "AND ((timestamp > ?) OR (timestamp = ? AND id > ?)) "
+    "AND ((timestamp < ?) OR (timestamp = ? AND id <= ?)) "
+    "ORDER BY timestamp ASC, id ASC LIMIT ?"
+)
+# COUNT «доступно в диапазоне» (та же область, что и keyset): 1 chat_id,
+# 2 bot, 3/4 from_ts, 5/6 boundary_ts, 7 boundary_id.
+_RANGE_COUNT_SQL = (
+    "SELECT COUNT(*) FROM smart_messages "
+    "WHERE chat_id = ? AND " + _REBUILD_FILTER + " "
+    "AND ((timestamp > ?) OR (timestamp = ? AND id > 0)) "
+    "AND ((timestamp < ?) OR (timestamp = ? AND id <= ?))"
+)
+# Граница снимка: максимум (timestamp, id) области (те же фильтры).
+_RANGE_BOUNDARY_SQL = (
+    "SELECT timestamp, id FROM smart_messages "
+    "WHERE chat_id = ? AND " + _REBUILD_FILTER + " "
+    "AND ((timestamp > ?) OR (timestamp = ? AND id > 0)) "
+    "AND ((timestamp < ?) OR (timestamp = ? AND id <= ?)) "
+    "ORDER BY timestamp DESC, id DESC LIMIT 1"
+)
+# Ростер участников области (bounded 500 — те же границы, что name-резолв):
+# идентичности всего нужного scope, не только текущего окна (§8.3.3/D6).
+_RANGE_ROSTER_SQL = (
+    "SELECT user_id, author_name FROM smart_messages "
+    "WHERE chat_id = ? AND " + _REBUILD_FILTER + " "
+    "AND ((timestamp > ?) OR (timestamp = ? AND id > 0)) "
+    "AND ((timestamp < ?) OR (timestamp = ? AND id <= ?)) "
+    "ORDER BY id DESC LIMIT 500"
 )
 # Чат-уровневые protected-факты (user_name IS NULL) БЕЗ legacy-константы:
 # текст константы продублирован в manual PG-профиля (сид) — в контекст
@@ -167,6 +217,10 @@ _FACTS_SQL = (
 
 _JOB_ID = "lore_worker_tick"
 _NEVER_USER_ID = -1  # bot_id=None → фильтр «не бот» не накладывается
+# mca-04b: сентинеллы верхней границы области для COUNT/BOUNDARY-запросов
+# (timestamp ~1.7e9 / id AUTOINCREMENT; 2**62 заведомо больше любых строк).
+_BOUNDARY_MAX_TS = 2 ** 62
+_BOUNDARY_MAX_ID = 2 ** 62
 
 
 def _due_at(iso: str | None, period_hours: int, now_utc: datetime) -> bool:
@@ -189,6 +243,65 @@ def _line_ts(ts) -> str:
             _WINDOW_TS_FORMAT)
     except (TypeError, ValueError, OSError):
         return "?"
+
+
+# ── mca-04b (D11): счётчики/покрытие full rebuild ───────────────────────────
+# Разные единицы: available (в диапазоне) / viewed (прочитано строки) /
+# sent_to_llm (передано модели строк) / selected (отобрано для субъекта) /
+# candidates (извлечено кандидатов Layer A) / accepted (принято личных
+# фактов) / rejected_by_reason / unresolved / portraits/memes updated /
+# errors / skipped + покрытие по годам/месяцам (прочитанные строки).
+_FULL_COUNTER_FIELDS = (
+    "available", "viewed", "sent_to_llm", "selected", "candidates",
+    "accepted", "unresolved", "portraits_updated", "memes_updated",
+    "errors", "skipped",
+    # mca-04b H-2 (review round 1): различимые единицы отказов —
+    # недоступность модели ≠ parse error (честная финализация, инвариант 2).
+    "model_errors", "parse_errors",
+)
+
+
+def _new_rebuild_counters() -> dict:
+    counters = {field: 0 for field in _FULL_COUNTER_FIELDS}
+    counters["rejected_by_reason"] = {}
+    counters["coverage"] = {}
+    return counters
+
+
+def _coverage_bucket(ts) -> str | None:
+    """Unix-ts → ключ покрытия 'YYYY-MM' (None — битая метка)."""
+    try:
+        return datetime.fromtimestamp(
+            int(ts), tz=timezone.utc).strftime("%Y-%m")
+    except (TypeError, ValueError, OSError):
+        return None
+
+
+def _coverage_add(coverage: dict, ts) -> None:
+    bucket = _coverage_bucket(ts)
+    if not bucket:
+        return
+    year, month = bucket.split("-", 1)
+    year_row = coverage.setdefault(year, {"total": 0, "months": {}})
+    year_row["total"] = int(year_row.get("total") or 0) + 1
+    months = year_row.setdefault("months", {})
+    months[month] = int(months.get(month) or 0) + 1
+
+
+def _write_batch_artifact(backlog_dir, batch_no: int, payload: dict) -> str:
+    """mca-04b (D4): результат извлечения batch — на диск (backlog, fsync,
+    tmp→replace; REUSE `_flush_fsync_and_dir`). R17: только счётчики/курсор.
+    Возврат — имя файла."""
+    from services.memory_maintenance import _flush_fsync_and_dir
+    directory = Path(backlog_dir)
+    directory.mkdir(parents=True, exist_ok=True)
+    target = directory / f"batch_{int(batch_no):06d}.json"
+    tmp = target.with_name(target.name + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, ensure_ascii=False)
+        _flush_fsync_and_dir(fh, directory)
+    os.replace(tmp, target)
+    return target.name
 
 
 def _row_get(row, name: str, index: int):
@@ -772,6 +885,442 @@ class LoreWorker:
         row = await cursor.fetchone()
         return int(row[0]) if row is not None else 0
 
+    # ── mca-04b (ADR-1027-9 D1): полный диапазон full rebuild ────────────────
+
+    async def count_range_messages(self, chat_id: int, *,
+                                   window_hours: int = 0) -> int:
+        """«Доступно в диапазоне» — COUNT сообщений ПОЛНОГО диапазона
+        (не bounded window; прогресс full rebuild считается от полного
+        диапазона, A87/REQ-MCA04B-10). Фильтр области — без min_chars
+        (короткие ответы не отбрасываются по длине, §8.3.3)."""
+        db = self._db
+        bot_exclude = int(self.bot_id) if self.bot_id else _NEVER_USER_ID
+        hours = int(window_hours or 0)
+        from_ts = 0 if hours <= 0 else int(time.time()) - hours * 3600
+        cursor = await db.db.execute(
+            _RANGE_COUNT_SQL,
+            (chat_id, bot_exclude, from_ts, from_ts,
+             _BOUNDARY_MAX_TS, _BOUNDARY_MAX_TS, _BOUNDARY_MAX_ID))
+        row = await cursor.fetchone()
+        return int(row[0]) if row is not None else 0
+
+    async def range_boundary(self, chat_id: int, *,
+                             window_hours: int = 0) -> tuple[int, int]:
+        """Граница снимка: максимум `(timestamp, id)` осмысленной области.
+        Возврат `(ts, id)`; `(0, 0)` — область пуста."""
+        db = self._db
+        bot_exclude = int(self.bot_id) if self.bot_id else _NEVER_USER_ID
+        hours = int(window_hours or 0)
+        from_ts = 0 if hours <= 0 else int(time.time()) - hours * 3600
+        cursor = await db.db.execute(
+            _RANGE_BOUNDARY_SQL,
+            (chat_id, bot_exclude, from_ts, from_ts,
+             _BOUNDARY_MAX_TS, _BOUNDARY_MAX_TS, _BOUNDARY_MAX_ID))
+        row = await cursor.fetchone()
+        if row is None:
+            return 0, 0
+        return int(row[0] or 0), int(row[1] or 0)
+
+    async def rebuild_dossier_full(
+            self, chat_id: int, *, target_user: str, window_hours: int = 0,
+            chunk_size: int | None = None, batch_max: int | None = None,
+            progress_cb=None, cancel_cb=None, checkpoint_cb=None,
+            backlog_dir=None, write_mode: str = "direct",
+            resume_cursor: tuple | None = None,
+            resume_candidates: list | None = None) -> dict:
+        """Единый контракт full rebuild (ADR-1027-9 D1/D4, SC-01/03/05/06).
+
+        Поточный keyset-проход по ПОЛНОМУ диапазону (стабильный порядок
+        `(timestamp, id)` ASC, БЕЗ OFFSET; порции ≤ `batch_max` (500) с
+        делением на чанки Layer A); результаты извлечения — на диск по
+        batch (`backlog_dir`); иерархический синтез Layer B ОДИН раз по
+        завершении прохода; новый live-batch обновляет накопленную картину.
+
+        * `checkpoint_cb(cursor_ts, cursor_id, counters, coverage)` —
+          продвижение checkpoint ПОСЛЕ фиксации результата batch (дисковый
+          артефакт fsync + person_facts записаны); вызывается fail-open;
+        * бюджет исчерпан на batch → возврат
+          `{"status": "budget_exhausted", "cursor": (ts, id), ...}` —
+          **частичный синтез НЕ выполняется** (A89: budget ≠ «всё
+          обработано»); неполный диапазон остаётся в очереди у runner'а;
+        * `resume_cursor` — продолжение с checkpoint (без дублей: дедуп
+          записей + keyset от курсора);
+        * `resume_candidates` (H-1, review round 1) — кандидаты прерванного
+          прогона, восстановленные runner'ом из staging поколений; сеются в
+          накопление ДО прохода, поэтому Layer B синтез при resume видит
+          ОБА сегмента (до и после курсора) — портрет полного диапазона;
+        * `write_mode`: "direct" — существующие writer'ы сразу (паритет
+          baseline-записи, staging OFF); "collect" — кандидаты накапливаются
+          и возвращаются (`candidates`) для staging/активации runner'ом;
+        * `cancel_cb()` — кооперативная отмена между batch/чанками
+          (`asyncio.CancelledError`); старые факты не трогаются.
+
+        Честная финализация (H-2, review round 1; инвариант 2 — «budget/
+        модель/ошибка никогда не дают completed»):
+        * извлечений 0 ∧ ошибки модели > 0 → `model_unavailable`;
+        * извлечений 0 ∧ (только parse errors) → `failed`
+          (`reason_code=parse_error`);
+        * Layer B: бюджет/исключение → НЕ `completed`
+          (`budget_exhausted`/`model_unavailable`/`failed` c
+          `failed_stage="synthesize"`); в collect-режиме кандидаты
+          возвращаются в отчёте — runner персистит их до паузы;
+          нулевой результат при ПОЛНОМ корректном проходе (0 ошибок)
+          остаётся валидным `completed` (инвариант 14).
+
+        Возврат: `{"status": "completed"|"budget_exhausted"|
+        "model_unavailable"|"failed", "reason_code", "failed_stage",
+        "written", "total", "processed", "cursor", "boundary", "counters",
+        "coverage", "candidates"}`."""
+        db = self._db
+        bot_exclude = int(self.bot_id) if self.bot_id else _NEVER_USER_ID
+        hours = int(window_hours or 0)
+        from_ts = 0 if hours <= 0 else int(time.time()) - hours * 3600
+        batch_limit = int(batch_max) if batch_max else \
+            mca_gates.dossier_batch_max_messages()
+        chunk = max(1, int(chunk_size) if chunk_size else int(
+            getattr(settings, "DOSSIER_REBUILD_CHUNK_SIZE", 40) or 40))
+        counters = _new_rebuild_counters()
+        coverage: dict = {}
+        target = self._canon(target_user) or str(target_user or "").strip()
+
+        # Граница снимка (максимум (ts,id) области) + «доступно в диапазоне».
+        boundary_ts, boundary_id = await self.range_boundary(
+            chat_id, window_hours=hours)
+        counters["available"] = await self.count_range_messages(
+            chat_id, window_hours=hours)
+        total = counters["available"]
+        # Ростер всего нужного scope (не только ростер говорящих окна; D6),
+        # bounded 500.
+        roster = await self._range_roster(chat_id, from_ts=from_ts,
+                                          boundary=(boundary_ts, boundary_id),
+                                          bot_exclude=bot_exclude)
+        names = sorted(roster) if roster else []
+        # Курсор: старт от from_ts (все строки ts >= from_ts включаются),
+        # либо от checkpoint при resume.
+        if resume_cursor:
+            last_ts, last_id = int(resume_cursor[0]), int(resume_cursor[1])
+        else:
+            last_ts, last_id = from_ts, 0
+        batch_no = 0
+        written = 0
+        # H-1: кандидаты прерванного прогона (staging) — в накоплении
+        # ДО прохода; Layer B при resume синтезирует по обоим сегментам.
+        collected: list = [c for c in (resume_candidates or [])
+                           if isinstance(c, dict)]
+
+        def _cursor_tuple(ts: int, row_id: int) -> tuple:
+            return (int(ts), int(row_id))
+
+        while True:
+            if _cancel_requested(cancel_cb):
+                raise asyncio.CancelledError()
+            cursor = await db.db.execute(
+                _KEYSET_PAGE_SQL,
+                (chat_id, bot_exclude, last_ts, last_ts,
+                 last_id, boundary_ts, boundary_ts, boundary_id, batch_limit))
+            rows = await cursor.fetchall()
+            if not rows:
+                break
+            batch_no += 1
+            counters["viewed"] += len(rows)
+            for r in rows:
+                _coverage_add(coverage, _row_get(r, "timestamp", 3))
+            # Порция ≤ batch_max → чанки Layer A (деление по чанкам/эпизодам;
+            # архив не грузится в RAM одним списком и не отправляется одним
+            # промптом).
+            batch_facts: list = []
+            batch_memes: list = []
+            for start in range(0, len(rows), chunk):
+                chunk_rows = rows[start:start + chunk]
+                lines = self._format_window(chunk_rows, desc_input=False)
+                counters["sent_to_llm"] += len(chunk_rows)
+                extracted = await self._extract_chunk(
+                    chat_id, lines, names, window_rows=chunk_rows,
+                    roster=roster, stats=counters)
+                if extracted is None:
+                    # Бюджет исчерпан: НЕ синтезируем частичный результат —
+                    # возвращаемся с курсором НА НАЧАЛО этого batch (он будет
+                    # пере-обработан после resume; person_facts уже
+                    # зафиксированных чанков не дублируются — дедуп).
+                    report = self._full_report(
+                        "budget_exhausted", written, total, counters,
+                        coverage, _cursor_tuple(last_ts, last_id),
+                        (boundary_ts, boundary_id), collected,
+                        failed_stage="extract")
+                    return report
+                facts, memes = extracted
+                batch_facts.extend(facts)
+                batch_memes.extend(memes)
+                counters["candidates"] += len(facts) + len(memes)
+                if _cancel_requested(cancel_cb):
+                    raise asyncio.CancelledError()
+            # Независимая фиксация личных фактов batch (не ждём синтез;
+            # дедуп исключает удвоение при resume — A89). Collect-режим
+            # (staging) — факты НЕ пишутся напрямую: уйдут в staging
+            # и применятся атомарной активацией.
+            if write_mode == "direct":
+                written += await self._write_person_facts(chat_id,
+                                                          batch_facts)
+            collected.extend(batch_facts)
+            collected.extend(batch_memes)
+            target_selected = sum(
+                1 for c in batch_facts if isinstance(c, dict)
+                and str(c.get("target") or "").strip().casefold()
+                == target.casefold())
+            counters["selected"] += target_selected
+            counters["accepted"] += target_selected
+            # Фиксация результата batch на диск (backlog, fsync) — ДО
+            # продвижения checkpoint (checkpoint после фиксации, SC-05).
+            if backlog_dir is not None:
+                try:
+                    await asyncio.to_thread(
+                        _write_batch_artifact, Path(backlog_dir), batch_no,
+                        {"chat_id": chat_id, "batch_no": batch_no,
+                         "cursor": _cursor_tuple(_row_get(rows[-1],
+                                                          "timestamp", 3),
+                                                 _row_get(rows[-1], "id", 0)),
+                         "person_facts": len(batch_facts),
+                         "memes": len(batch_memes),
+                         "counters": {k: v for k, v in counters.items()
+                                      if isinstance(v, int)}})
+                except Exception:
+                    logger.debug(
+                        "[lore_worker] batch artifact write failed "
+                        "(fail-open) | chat=%s", chat_id)
+            # Курсор — последняя строка batch; checkpoint продвигает runner
+            # после фиксации (fail-open callback).
+            last_ts = int(_row_get(rows[-1], "timestamp", 3) or 0)
+            last_id = int(_row_get(rows[-1], "id", 0) or 0)
+            if checkpoint_cb is not None:
+                try:
+                    result = checkpoint_cb(last_ts, last_id, counters,
+                                           coverage)
+                    if inspect.isawaitable(result):
+                        await result
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    logger.debug(
+                        "[lore_worker] checkpoint callback failed "
+                        "(fail-open)")
+            if progress_cb is not None:
+                await _emit_progress(progress_cb, counters["viewed"], total,
+                                     "extract")
+            if len(rows) < batch_limit:
+                break
+        if _cancel_requested(cancel_cb):
+            raise asyncio.CancelledError()
+        # ── H-2 (review round 1): честная финализация extraction-стадии ────
+        # Инвариант 2: недоступность модели/parse error никогда не дают
+        # `completed`. Нулевой результат при ПОЛНОМ корректном проходе
+        # (0 ошибок) остаётся валидным (инвариант 14).
+        extracted_total = int(counters.get("candidates") or 0)
+        model_errs = int(counters.get("model_errors") or 0)
+        parse_errs = int(counters.get("parse_errors") or 0)
+        cursor_now = _cursor_tuple(last_ts, last_id)
+        boundary_pair = (boundary_ts, boundary_id)
+        collect_candidates = collected if write_mode == "collect" else []
+        if extracted_total == 0 and model_errs > 0:
+            report = self._full_report(
+                "model_unavailable", written, total, counters, coverage,
+                cursor_now, boundary_pair, collect_candidates,
+                reason_code="model_unavailable", failed_stage="extract")
+            return report
+        if extracted_total == 0 and parse_errs > 0:
+            report = self._full_report(
+                "failed", written, total, counters, coverage,
+                cursor_now, boundary_pair, collect_candidates,
+                reason_code="parse_error", failed_stage="extract")
+            return report
+        # Проход завершён: ОДИН иерархический синтез Layer B по субъекту
+        # (кандидаты — отфильтрованное подмножество, а не весь архив;
+        # «архив одним промптом» запрещён и не выполняется).
+        await _emit_progress(progress_cb, counters["viewed"], total,
+                             "synthesize")
+        synth_written, portraits, memes_b_final, synth_failure = \
+            await self._synthesize_full_candidates(
+                chat_id, collected, target, names, counters,
+                write_direct=(write_mode == "direct"))
+        written += synth_written
+        if synth_failure:
+            # H-2: бюджет/сбой на Layer B — НЕ completed (инвариант 2).
+            # collect-режим: кандидаты в отчёте → runner персистит их в
+            # staging ДО паузы (H-1) → resume с `resume_candidates`
+            # повторяет синтез по полному набору. direct-режим (паритет
+            # baseline, staging OFF): resume не может восстановить набор
+            # накопления → честный терминальный `failed` (спека §3.2:
+            # сбой Layer B → job не completed).
+            if synth_failure == "budget":
+                if write_mode == "collect":
+                    # pause → resume восстановит набор из staging (H-1)
+                    status, reason = ("budget_exhausted",
+                                      "dossier_paused_budget")
+                else:
+                    # direct: resume не восстановит набор накопления —
+                    # paused дал бы silent partial (пустой синтез →
+                    # completed без портрета). Честный терминальный failed.
+                    status, reason = "failed", "dossier_paused_budget"
+            elif synth_failure == "model":
+                status = "model_unavailable" if write_mode == "collect" \
+                    else "failed"
+                reason = "model_unavailable"
+            else:                       # parse (невалидный JSON Layer B)
+                status, reason = "failed", "parse_error"
+            report = self._full_report(
+                status, written, total, counters, coverage, cursor_now,
+                boundary_pair, collect_candidates, reason_code=reason,
+                failed_stage="synthesize")
+            return report
+        report = self._full_report(
+            "completed", written, total, counters, coverage,
+            cursor_now, boundary_pair,
+            collected if write_mode == "collect" else [])
+        report["synthesized"] = {"portraits": portraits, "memes":
+                                 memes_b_final}
+        return report
+
+    async def _range_roster(self, chat_id: int, *, from_ts: int,
+                            boundary: tuple, bot_exclude: int) -> set[str]:
+        """Канон-имена участников области (bounded 500; D6 — идентичности
+        всего scope, включая «бесшумных» в диапазоне)."""
+        try:
+            cursor = await self._db.db.execute(
+                _RANGE_ROSTER_SQL,
+                (chat_id, bot_exclude, from_ts, from_ts,
+                 boundary[0], boundary[0], boundary[1]))
+            rows = await cursor.fetchall()
+        except Exception:
+            logger.warning("[lore_worker] range roster read failed — "
+                           "fallback на имена окна | chat=%s", chat_id,
+                           exc_info=True)
+            return set()
+        roster: set[str] = set()
+        for r in rows:
+            author = str(_row_get(r, "author_name", 1) or "").strip()
+            if not author:
+                continue
+            roster.add(self._canon(author))
+        roster.discard("")
+        return roster
+
+    def _full_report(self, status: str, written: int, total: int,
+                     counters: dict, coverage: dict, cursor: tuple,
+                     boundary: tuple, candidates: list, *,
+                     reason_code: str | None = None,
+                     failed_stage: str | None = None) -> dict:
+        """Итоговый отчёт движка (H-2: честные статус/reason_code/
+        failed_stage для любых не-completed исходов)."""
+        if reason_code is None:
+            reason_code = ("dossier_paused_budget"
+                           if status == "budget_exhausted" else None)
+        return {
+            "status": status,
+            "reason_code": reason_code,
+            "failed_stage": failed_stage,
+            "written": int(written),
+            "total": int(total),
+            "processed": int(counters.get("viewed") or 0),
+            "cursor": cursor,
+            "boundary": boundary,
+            "counters": counters,
+            "coverage": coverage,
+            "candidates": candidates,
+        }
+
+    async def _synthesize_full_candidates(self, chat_id: int,
+                                          candidates: list, target: str,
+                                          names: list[str], counters: dict,
+                                          *, write_direct: bool = True
+                                          ) -> tuple:
+        """Иерархический синтез Layer B над накопленными кандидатами:
+        портрет/мемы — только для `target`. `write_direct=True` (паритет
+        baseline-записи, staging OFF) — портрет/мемы пишутся существующими
+        writer'ами; `False` (staging) — синтез возвращается runner'у
+        (`(0, portraits, memes, None)`), запись — атомарной активацией.
+        Возврат `(written, portraits, memes, failure)`; `failure` —
+        H-2 (review round 1): `None` | `"budget"` | `"model"` | `"parse"`.
+        Любой failure ≠ completed у вызывающего (инвариант 2)."""
+        facts = [c for c in candidates if isinstance(c, dict)
+                 and c.get("text") and not c.get("meme")]
+        memes = [c for c in candidates if isinstance(c, dict)
+                 and c.get("text") and c.get("meme")]
+        if not facts and not memes:
+            return 0, [], [], None
+        layer_b_messages = [
+            {"role": "system", "content": LAYER_B_SYSTEM_PROMPT},
+            {"role": "user",
+             "content": build_layer_b_user(facts, memes, names)},
+        ]
+        from services import worker_budget
+        try:
+            if not await _budget_ok(
+                    chat_id,
+                    worker_budget.estimate_tokens(
+                        layer_b_messages[1]["content"]),
+                    calls=1):
+                logger.warning(
+                    "[lore_worker] WARNING skip: budget dossier (layer B "
+                    "full rebuild) | chat=%s", chat_id)
+                # H-2: бюджет на Layer B — различимый failure (НЕ тихий
+                # partial); мемы A target-scoped сохраняются как раньше.
+                written = await self._write_target_memes(
+                    chat_id, memes, target) if write_direct else 0
+                counters["memes_updated"] = int(
+                    counters.get("memes_updated") or 0) + written
+                return written, [], [], "budget"
+            parsed_b = await self._layer_b_call(chat_id, layer_b_messages)
+        except asyncio.CancelledError:
+            raise
+        except ValueError:
+            # H-2: невалидный JSON Layer B после retry — parse_error
+            # (раньше был неотличим от сбоя модели).
+            counters["errors"] = int(counters.get("errors") or 0) + 1
+            counters["parse_errors"] = int(counters.get("parse_errors")
+                                           or 0) + 1
+            logger.warning(
+                "[lore_worker] full rebuild layer B invalid answer "
+                "(parse_error) — мемы A target-scoped | chat=%s", chat_id)
+            written = await self._write_target_memes(
+                chat_id, memes, target) if write_direct else 0
+            counters["memes_updated"] = int(
+                counters.get("memes_updated") or 0) + written
+            return written, [], [], "parse"
+        except Exception:
+            # H-2: сбой модели/транспорта на Layer B — model_unavailable
+            # (НЕ неотличимый тихий пропуск синтеза).
+            counters["errors"] = int(counters.get("errors") or 0) + 1
+            counters["model_errors"] = int(counters.get("model_errors")
+                                           or 0) + 1
+            logger.warning(
+                "[lore_worker] full rebuild layer B failed "
+                "(model_unavailable) — мемы A target-scoped | chat=%s",
+                chat_id)
+            written = await self._write_target_memes(
+                chat_id, memes, target) if write_direct else 0
+            counters["memes_updated"] = int(
+                counters.get("memes_updated") or 0) + written
+            return written, [], [], "model"
+        window_lines: list[str] = []
+        validated = validate_layer_b(parsed_b, window_lines)
+        target_key = target.casefold()
+        portraits = [
+            item for item in (validated.get("portraits") or [])
+            if isinstance(item, dict)
+            and str(item.get("target") or "").strip().casefold() == target_key]
+        memes_b = validated.get("memes") if "memes" in validated else None
+        final_memes = memes if memes_b is None else memes_b
+        if not write_direct:
+            return 0, portraits, final_memes, None
+        written = await self._write_generated_portraits(
+            chat_id, portraits, names)
+        counters["portraits_updated"] = int(
+            counters.get("portraits_updated") or 0) + written
+        meme_written = await self._write_target_memes(
+            chat_id, final_memes, target)
+        counters["memes_updated"] = int(
+            counters.get("memes_updated") or 0) + meme_written
+        return written + meme_written, portraits, final_memes, None
+
     async def rebuild_dossier_for_user(
             self, chat_id: int, *, target_user: str,
             window_hours: int = 4320, limit: int | None = None,
@@ -820,7 +1369,11 @@ class LoreWorker:
             cancel_cb=None) -> int:
         """F8: Layer A по чанкам → накопление кандидатов → один Layer B.
 
-        Пишет `dossier_portrait`/`chat_meme` ТОЛЬКО для `target`."""
+        Пишет `dossier_portrait`/`chat_meme` ТОЛЬКО для `target`.
+        N-MCA04A-2 (mca-04b/A86): валидированные person_facts сохраняются
+        СРАЗУ после чанка (независимо от успеха Слоя Б) — тот же контракт,
+        что в оконном multilayer-пути mca-04a; повторная обработка не
+        создаёт дублей (`person_fact_exists`)."""
         chunks = [window[i:i + chunk_size]
                   for i in range(0, len(window), chunk_size)]
         total = max(1, len(chunks))
@@ -837,6 +1390,16 @@ class LoreWorker:
             facts, memes = extracted
             person_facts.extend(facts)
             memes_a.extend(memes)
+            # N-2: личные факты чанка фиксируются сразу (не только портрет/
+            # мемы); сбой Слоя Б их не теряет.
+            try:
+                await self._write_person_facts(chat_id, facts)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.warning(
+                    "[lore_worker] chunk person_facts write failed — "
+                    "fail-open | chat=%s", chat_id, exc_info=True)
             processed += 1
             await _emit_progress(progress_cb, processed, total, "extract")
         if _cancel_requested(cancel_cb):
@@ -884,9 +1447,21 @@ class LoreWorker:
         return written
 
     async def _extract_chunk(self, chat_id: int, lines: list[str],
-                             names: list[str]) -> tuple | None:
+                             names: list[str], *,
+                             window_rows=None,
+                             roster=None,
+                             stats: dict | None = None) -> tuple | None:
         """Layer A одного чанка. None — бюджет исчерпан (стоп извлечения);
-        ошибка разбора → пустой результат (fail-open, чанк пропущен)."""
+        ошибка разбора → пустой результат (fail-open, чанк пропущен).
+
+        mca-04b врезка п.5 (spec §4.7, T-3904): после row-bound фильтра
+        локальные номера evidence переводятся в постоянные SourceRef
+        (`provenance.local_evidence_to_source_refs`) СРАЗУ ПОСЛЕ чанка —
+        одинаковый номер в разных чанках ≠ один источник (каждый чанк —
+        свой `window_rows`). Невалидный кандидат (нет ни одного валидного
+        локального номера) → отброшен с `reason_code=evidence_invalid`.
+        `roster` — ростер scope для N-1 (name-резолв вне окна не даёт
+        ложного resolved). `stats` — счётчики rejected_by_reason (опц.)."""
         layer_a_user = build_layer_a_user(lines, names)
         messages = [
             {"role": "system", "content": LAYER_A_SYSTEM_PROMPT},
@@ -903,16 +1478,87 @@ class LoreWorker:
             parsed_a = await self._layer_a_call(chat_id, messages)
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except ValueError:
+            # H-2 (review round 1): невалидный JSON после retry — parse error
+            # (fail-open: чанк пропущен; различимо от недоступности модели).
+            if stats is not None:
+                stats["rejected_by_reason"]["parse_error"] = (
+                    stats["rejected_by_reason"].get("parse_error") or 0) + 1
+                stats["errors"] = int(stats.get("errors") or 0) + 1
+                stats["parse_errors"] = int(stats.get("parse_errors")
+                                            or 0) + 1
             logger.warning(
-                "[lore_worker] layer A chunk failed — skip | chat=%s",
-                chat_id)
+                "[lore_worker] layer A chunk invalid answer — skip "
+                "(parse_error) | chat=%s", chat_id)
+            return [], []
+        except Exception:
+            # H-2 (review round 1): сетевые/5xx/timeout LLM-клиента —
+            # `model_unavailable` (не неотличимый parse error). Fail-open по
+            # извлечению; итоговая честность прохода — на движке
+            # (`rebuild_dossier_full`: errors>0 ∧ extracted==0 ≠ completed).
+            if stats is not None:
+                stats["rejected_by_reason"]["model_unavailable"] = (
+                    stats["rejected_by_reason"].get("model_unavailable")
+                    or 0) + 1
+                stats["errors"] = int(stats.get("errors") or 0) + 1
+                stats["model_errors"] = int(stats.get("model_errors")
+                                            or 0) + 1
+            logger.warning(
+                "[lore_worker] layer A chunk failed — skip "
+                "(model_unavailable) | chat=%s", chat_id)
             return [], []
         # MCA-04a FIX п.5 (spec §4.6, D-MCA04A-1): границы = строки ЭТОГО
         # чанка (одинаковый локальный номер в разных чанках → разные источники).
         filtered = filter_layer_a_candidates(parsed_a, names, canon=self._canon,
                                              row_count=len(lines))
-        return filtered["person_facts"], filtered["memes"]
+        if stats is not None:
+            for reason in filtered.get("dropped") or []:
+                key = str(reason if isinstance(reason, str)
+                          else (reason or {}).get("reason") or "invalid")
+                stats["rejected_by_reason"][key] = (
+                    stats["rejected_by_reason"].get(key) or 0) + 1
+        person_facts = filtered["person_facts"]
+        memes = filtered["memes"]
+        # mca-04b (T-3904): локальные номера → постоянные SourceRef.
+        rows = list(window_rows if window_rows is not None else [])
+        if rows:
+            for cand in person_facts:
+                if not isinstance(cand, dict):
+                    continue
+                evidence = [n for n in (cand.get("evidence") or [])
+                            if isinstance(n, (int, str))]
+                if not evidence:
+                    cand["_evidence_valid"] = False
+                    if stats is not None:
+                        stats["rejected_by_reason"]["evidence_invalid"] = (
+                            stats["rejected_by_reason"].get(
+                                "evidence_invalid") or 0) + 1
+                    continue
+                try:
+                    from services import provenance
+                    mapped = await provenance.local_evidence_to_source_refs(
+                        self._db, chat_id=chat_id, window_rows=rows,
+                        local_numbers=evidence)
+                except Exception:
+                    mapped = []
+                valid = [m for m in mapped if m.get("valid")]
+                ref_ids = [int(m["source_ref_id"]) for m in valid
+                           if m.get("source_ref_id")]
+                cand["_source_ref_ids"] = ref_ids
+                cand["_evidence_valid"] = bool(ref_ids)
+                cand["_roster"] = roster
+                if ref_ids:
+                    # Автор первой валидной строки evidence — для атрибуции
+                    # (self_report vs third_party; §8.3.2).
+                    first = rows[int(valid[0]["local"]) - 1]
+                    author = str(_row_get(first, "author_name", 1) or
+                                 "").strip()
+                    cand["_author_name"] = author
+                elif stats is not None:
+                    stats["rejected_by_reason"]["evidence_invalid"] = (
+                        stats["rejected_by_reason"].get(
+                            "evidence_invalid") or 0) + 1
+        return person_facts, memes
 
     async def _write_target_memes(self, chat_id: int, items,
                                   target: str) -> int:
@@ -1039,7 +1685,15 @@ class LoreWorker:
         """MCA-04a FIX п.3 (spec §4.6, A86): запись валидированных person_facts
         Layer A как личных фактов (`subject_ref_id` + SourceRef) НЕЗАВИСИМО от
         синтеза портрета. Статус `unconfirmed` (не повышаем до confirmed).
-        Гейт — `MCA_FACT_ATTRIBUTION_ENABLED`; fail-open на каждый факт."""
+        Гейт — `MCA_FACT_ATTRIBUTION_ENABLED`; fail-open на каждый факт.
+
+        mca-04b (§8.3.2/A85): атрибуция по автору строки evidence —
+        subject == автор → `self_report` («по собственным словам»), иначе
+        `third_party` (атрибутированное утверждение). Кандидаты с
+        постоянными SourceRef чанка (`_source_ref_ids`, врезка п.5/T-3904)
+        получают EvidenceLink `derived_from` per источник (одинаковый
+        локальный номер в разных чанках ≠ один источник). Кандидат без
+        единого валидного источника не пишется (нет выдуманных ссылок)."""
         if not person_facts:
             return 0
         try:
@@ -1056,16 +1710,27 @@ class LoreWorker:
             text = str(cand.get("text") or "").strip()
             if not target or not text:
                 continue
+            if cand.get("_evidence_valid") is False:
+                # Врезка п.5 (T-3904): ни одного валидного постоянного
+                # источника → кандидат не подтверждается (без выдуманных
+                # ссылок); повторный прогресс может пере-извлечь.
+                continue
+            ref_ids = [int(r) for r in (cand.get("_source_ref_ids") or [])
+                       if r]
             try:
                 if await self._db.person_fact_exists(chat_id, text,
                                                      provenance_channel):
                     continue
                 ref = await provenance.resolve_subject_ref(
-                    self._db, chat_id, target, canon=self._canon)
+                    self._db, chat_id, target, canon=self._canon,
+                    roster=cand.get("_roster"))
                 ref_id = await provenance.resolve_source_ref(self._db, ref)
                 kind = provenance.classify_assertion_kind(
                     target, text, canon=self._canon, participants=[target])
-                method = "third_party"
+                author = str(cand.get("_author_name") or "").strip()
+                method = ("self_report"
+                          if author and self._eq_canon(author, target)
+                          else "third_party")
                 fact_id = await self._db.insert_graph_fact(
                     chat_id, text, "chat_history", None, target_user=target,
                     status="unconfirmed", kind="fact", subject_ref_id=ref_id,
@@ -1081,6 +1746,21 @@ class LoreWorker:
                         assertion_kind=kind, attribution_method=method,
                         provenance_channel=provenance_channel,
                         save_message_link=False)
+                    # Постоянные источники чанка → EvidenceLink (§8.3.2).
+                    obj_ref = await provenance.resolve_source_ref(
+                        self._db, provenance.graph_fact_source_ref(
+                            chat_id, fact_id))
+                    for source_ref_id in ref_ids:
+                        await provenance.add_evidence_link(
+                            self._db, provenance.EvidenceLink(
+                                subject_ref_id=obj_ref,
+                                source_ref_id=int(source_ref_id),
+                                link_type="derived_from",
+                                method="direct_reference",
+                                verification="verified",
+                                independence="independent",
+                                extractor_version=provenance.EXTRACTOR_VERSION,
+                                basis="dossier chunk evidence"))
                     written += 1
             except asyncio.CancelledError:
                 raise
@@ -1093,6 +1773,12 @@ class LoreWorker:
                 "[lore_worker] dossier person_facts written | chat=%s | n=%s",
                 chat_id, written)
         return written
+
+    def _eq_canon(self, a: str, b: str) -> bool:
+        """canon-равенство имён (без исключений)."""
+        ca = self._canon(a).casefold()
+        cb = self._canon(b).casefold()
+        return bool(ca) and ca == cb
 
     async def _worker_llm(self, role: str, messages: list[dict],
                           temperature: float | None = None) -> str:
@@ -1108,14 +1794,18 @@ class LoreWorker:
         """Вызов LLM воркера досье: роль background (F8/F3-T-1439)."""
         return await self._worker_llm("background", messages, temperature=0.2)
 
-    def _format_window(self, rows) -> list[str]:
+    def _format_window(self, rows, *, desc_input: bool = True) -> list[str]:
         """Строки `[%Y-%m-%d %H:%M] автор: текст` в хронологическом порядке;
         бюджет limits.lore_window_max_chars — свежий конец сохраняется
-        (spec §3.5/Q4: сборка от свежих к старым, пока суммарно ≤ лимита)."""
+        (spec §3.5/Q4: сборка от свежих к старым, пока суммарно ≤ лимита).
+
+        mca-04b: `desc_input=False` — строки УЖЕ в хронологическом (ASC)
+        порядке (keyset-проход full rebuild); разворот не выполняется.
+        Дефолт True — байт-паритет legacy-вызовов (_WINDOW_SQL DESC)."""
         max_chars = int(hot.get("limits.lore_window_max_chars",
                                 settings.LORE_WINDOW_MAX_CHARS) or 0)
         formatted = []
-        for r in reversed(rows):                       # DESC-выборка → ASC
+        for r in (reversed(rows) if desc_input else rows):
             try:
                 author = str(_row_get(r, "author_name", 1) or "").strip()
                 user_id = _row_get(r, "user_id", 0)

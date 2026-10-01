@@ -140,6 +140,37 @@ KILL_SWITCHES: dict[str, tuple[bool, str]] = {
         True,
         "OFF → нет дискового spool/degraded-счётчика (structural fallback)",
     ),
+    # ── mca-04b (ADR-1027-9 D13) — dossier rebuild ──────────────────────────
+    "MCA_DOSSIER_REBUILD_ENABLED": (
+        True,
+        "legacy `run_dossier_rebuild` как сейчас (без нового контракта/"
+        "состояний; паритет baseline)",
+    ),
+    "MCA_DOSSIER_BACKGROUND_PASS_ENABLED": (
+        True,
+        "фоновый проход по архиву не запускается",
+    ),
+    "MCA_DOSSIER_READ_RECONSTRUCTION_ENABLED": (
+        True,
+        "read-time восстановление не запускается (инертен при "
+        "MCA_EVIDENCE_RECONSTRUCTION_ENABLED=OFF)",
+    ),
+    "MCA_DOSSIER_RECLASSIFY_ENABLED": (
+        True,
+        "безопасная реклассификация накопленных данных не выполняется",
+    ),
+    "MCA_DOSSIER_STAGING_ACTIVATION_ENABLED": (
+        True,
+        "прямая запись как сейчас (без staging/generation)",
+    ),
+    "MCA_EMBEDDING_GENERATION_ACTIVATION_ENABLED": (
+        True,
+        "gate mca-07 FTS-only как сейчас (активация поколения не выполняется)",
+    ),
+    "MCA_DOSSIER_NAMESPACE_FINGERPRINT_V2_ENABLED": (
+        True,
+        "прежний namespace-отпечаток импорта (legacy_import_v1/v1-digest)",
+    ),
 }
 
 
@@ -361,6 +392,91 @@ def telemetry_spool_enabled() -> bool:
     if not observability_enabled():
         return False
     return bool(getattr(settings, "MCA_TELEMETRY_SPOOL_ENABLED", True))
+
+
+# ── mca-04b (ADR-1027-9 D13): dossier rebuild ───────────────────────────────
+# Мастер + под-гейты; `MCA_DOSSIER_*` инертны при OFF нижележащих.
+
+def dossier_rebuild_enabled() -> bool:
+    """`MCA_DOSSIER_REBUILD_ENABLED` (мастер, default ON).
+
+    ON → единый контракт full rebuild (keyset/staging/честная финализация);
+    OFF → legacy `run_dossier_rebuild` как сейчас (паритет baseline)."""
+    return bool(getattr(settings, "MCA_DOSSIER_REBUILD_ENABLED", True))
+
+
+def dossier_background_pass_enabled() -> bool:
+    """`MCA_DOSSIER_BACKGROUND_PASS_ENABLED` (default ON; инертен при master)."""
+    if not dossier_rebuild_enabled():
+        return False
+    return bool(getattr(settings, "MCA_DOSSIER_BACKGROUND_PASS_ENABLED", True))
+
+
+def dossier_read_reconstruction_enabled() -> bool:
+    """`MCA_DOSSIER_READ_RECONSTRUCTION_ENABLED` (default ON).
+
+    Инертен при `MCA_EVIDENCE_RECONSTRUCTION_ENABLED=OFF` (§98 — не
+    дублируется): без нижележащего гейта восстановление невозможно."""
+    if not evidence_reconstruction_enabled():
+        return False
+    return bool(getattr(settings, "MCA_DOSSIER_READ_RECONSTRUCTION_ENABLED",
+                        True))
+
+
+def dossier_reclassify_enabled() -> bool:
+    """`MCA_DOSSIER_RECLASSIFY_ENABLED` (default ON; инертен при master)."""
+    if not dossier_rebuild_enabled():
+        return False
+    return bool(getattr(settings, "MCA_DOSSIER_RECLASSIFY_ENABLED", True))
+
+
+def dossier_staging_activation_enabled() -> bool:
+    """`MCA_DOSSIER_STAGING_ACTIVATION_ENABLED` (default ON; инертен при master).
+
+    ON → staging/generation + атомарная активация; OFF → прямая запись
+    существующими writer'ами (паритет baseline-записи)."""
+    if not dossier_rebuild_enabled():
+        return False
+    return bool(getattr(settings, "MCA_DOSSIER_STAGING_ACTIVATION_ENABLED",
+                        True))
+
+
+def embedding_generation_activation_enabled() -> bool:
+    """`MCA_EMBEDDING_GENERATION_ACTIVATION_ENABLED` (default ON).
+
+    ON → операция активации vec-поколения (N-MCA07-1, REUSE v18);
+    OFF → gate mca-07 FTS-only как сейчас."""
+    return bool(getattr(settings, "MCA_EMBEDDING_GENERATION_ACTIVATION_ENABLED",
+                        True))
+
+
+def dossier_namespace_fingerprint_v2_enabled() -> bool:
+    """`MCA_DOSSIER_NAMESPACE_FINGERPRINT_V2_ENABLED` (default ON, L-MCA03-8).
+
+    ON → namespace-отпечаток импорта версионируется (`v2` в отпечатке,
+    content-fingerprint); OFF → прежний `import:<tag>:<digest>`."""
+    return bool(getattr(
+        settings, "MCA_DOSSIER_NAMESPACE_FINGERPRINT_V2_ENABLED", True))
+
+
+def dossier_direct_priority_enabled() -> bool:
+    """`MCA_DOSSIER_DIRECT_PRIORITY_ENABLED` (env-only, default ON).
+
+    ON → фоновая пересборка не блокирует direct-flow (приоритет прямых
+    ответов)."""
+    return bool(getattr(settings, "MCA_DOSSIER_DIRECT_PRIORITY_ENABLED", True))
+
+
+def dossier_batch_max_messages() -> int:
+    """`MCA_DOSSIER_BATCH_MAX_MESSAGES` (env-only, default 500).
+
+    Размер ПОРЦИИ обработки в сообщениях (не токен-бюджет, ADR D14);
+    значение <1 → 500."""
+    try:
+        return max(1, int(getattr(settings, "MCA_DOSSIER_BATCH_MAX_MESSAGES",
+                                  500)))
+    except Exception:      # pragma: no cover - защитная ветка
+        return 500
 
 
 def fault_injection_enabled() -> bool:

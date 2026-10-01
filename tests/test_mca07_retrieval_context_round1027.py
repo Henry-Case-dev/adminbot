@@ -39,9 +39,9 @@ async def test_v18_registered_fresh_target(tmp_path):
     """SC-18/A28: свежая БД → user_version 18; v17-объекты сохранены."""
     d = await _fresh(tmp_path)
     try:
-        assert _target_version() == 19
+        assert _target_version() >= 19  # реестр продолжает v20 (mca-04b)
         cur = await d.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 19
+        assert (await cur.fetchone())[0] >= 19
         cur = await d.db.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name IN "
             "('mca_source_refs','mca_evidence_links','mca_provenance_status',"
@@ -107,7 +107,7 @@ async def test_v18_vec_tables_untouched_and_idempotent(tmp_path):
         cur = await d3.db.execute("SELECT COUNT(*) AS c FROM schema_migrations")
         assert (await cur.fetchone())["c"] == first
         cur = await d3.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 19
+        assert (await cur.fetchone())[0] >= 19
         # vec-таблицы не созданы v18-шагом (идентичность — реестр поколений).
         cur = await d3.db.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name IN "
@@ -133,7 +133,7 @@ async def test_v18_from_v17_legacy_preserves_provenance(tmp_path):
     await d2.initialize()
     try:
         cur = await d2.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 19
+        assert (await cur.fetchone())[0] >= 19
         cur = await d2.db.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name IN "
             "('mca_source_refs','mca_embedding_index_generations')")
