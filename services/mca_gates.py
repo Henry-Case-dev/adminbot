@@ -171,6 +171,25 @@ KILL_SWITCHES: dict[str, tuple[bool, str]] = {
         True,
         "прежний namespace-отпечаток импорта (legacy_import_v1/v1-digest)",
     ),
+    # ── mca-05 (ADR-1027-12 D13) — episodes/stories ─────────────────────────
+    "MCA_EPISODES_ENABLED": (
+        True,
+        "legacy-путь целиком: `lore_stories`/компилятор/mca-07 канал работают "
+        "как сегодня (пайплайн/backfill/фасад неактивны; паритет baseline)",
+    ),
+    "MCA_EPISODES_BACKFILL_ENABLED": (
+        True,
+        "фоновый backfill по архиву не запускается (инертен при master OFF)",
+    ),
+    "MCA_EPISODES_CONTINUATION_ENABLED": (
+        True,
+        "кандидаты/подтверждения продолжений не строятся (без новых склеек)",
+    ),
+    "MCA_EPISODES_COMPILER_FACADE_ENABLED": (
+        True,
+        "компилятор/mca-07 episode-канал как сегодня (legacy `lore_stories` "
+        "без фасада нового store)",
+    ),
 }
 
 
@@ -457,6 +476,61 @@ def dossier_namespace_fingerprint_v2_enabled() -> bool:
     content-fingerprint); OFF → прежний `import:<tag>:<digest>`."""
     return bool(getattr(
         settings, "MCA_DOSSIER_NAMESPACE_FINGERPRINT_V2_ENABLED", True))
+
+
+# ── mca-05 (ADR-1027-12 D13): episodes/stories ──────────────────────────────
+# Мастер + под-гейты; под-гейты инертны при master OFF.
+
+def episodes_enabled() -> bool:
+    """`MCA_EPISODES_ENABLED` (мастер, default ON, ADR-1027-12 D13).
+
+    ON → модель/пайплайн эпизодов/историй активны; OFF → точный паритет
+    baseline (`lore_stories`/компилятор/mca-07 канал работают как сегодня)."""
+    return bool(getattr(settings, "MCA_EPISODES_ENABLED", True))
+
+
+def episodes_backfill_enabled() -> bool:
+    """`MCA_EPISODES_BACKFILL_ENABLED` (default ON; инертен при master OFF)."""
+    if not episodes_enabled():
+        return False
+    return bool(getattr(settings, "MCA_EPISODES_BACKFILL_ENABLED", True))
+
+
+def episodes_continuation_enabled() -> bool:
+    """`MCA_EPISODES_CONTINUATION_ENABLED` (default ON; инертен при master)."""
+    if not episodes_enabled():
+        return False
+    return bool(getattr(settings, "MCA_EPISODES_CONTINUATION_ENABLED", True))
+
+
+def episodes_compiler_facade_enabled() -> bool:
+    """`MCA_EPISODES_COMPILER_FACADE_ENABLED` (default ON; инертен при master).
+
+    ON → компилятор и mca-07 episode-канал читают новый store через фасад
+    (legacy `lore_stories` сохраняются); OFF → как сегодня (legacy-путь)."""
+    if not episodes_enabled():
+        return False
+    return bool(getattr(settings, "MCA_EPISODES_COMPILER_FACADE_ENABLED", True))
+
+
+def episodes_batch_max_messages() -> int:
+    """`MCA_EPISODES_BATCH_MAX_MESSAGES` (env-only, default 500).
+
+    Размер ПОРЦИИ обработки в сообщениях (не токен-бюджет, ADR-1027-12 D6
+    по прецеденту ADR-1027-9 D14); значение <1 → 500."""
+    try:
+        return max(1, int(getattr(settings, "MCA_EPISODES_BATCH_MAX_MESSAGES",
+                                  500)))
+    except Exception:      # pragma: no cover - защитная ветка
+        return 500
+
+
+def episodes_direct_priority_enabled() -> bool:
+    """`MCA_EPISODES_DIRECT_PRIORITY_ENABLED` (env-only, default ON).
+
+    ON → фоновая сборка эпизодов не блокирует direct-flow (приоритет прямых
+    ответов)."""
+    return bool(getattr(settings, "MCA_EPISODES_DIRECT_PRIORITY_ENABLED", True))
 
 
 def dossier_direct_priority_enabled() -> bool:

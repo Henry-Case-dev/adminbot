@@ -120,6 +120,17 @@ REASON_CODES = frozenset({
     # в staging до паузы не удалась — пауза молча теряла бы сегмент
     # (честный failed вместо paused).
     "dossier_pending_staging_failed",
+    # расширение mca-05/10.27 (episodes/stories: стадии пайплайна/склейки/
+    # legacy-маппинг/backfill/перепроверка — ADR-1027-12, санкции §Санкции;
+    # §17.2 расширяемый; parse_error/model_unavailable/evidence_invalid/
+    # provenance_unresolved/source_revision_changed/cancelled/
+    # insufficient_evidence/contradictory_evidence переиспользуются из
+    # блоков выше). Финальный набор +10.
+    "episode_extracted", "story_segment_empty",
+    "story_continuation_confirmed", "story_continuation_rejected",
+    "story_contradiction_found", "story_legacy_unmapped",
+    "story_backfill_paused_budget", "story_source_recheck_queued",
+    "story_merged", "story_split",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────

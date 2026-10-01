@@ -885,7 +885,7 @@ def test_write_points_go_through_single_writer():
     # раннер до старта писателей) + 1 в `activate_embedding_generation`
     # (N-MCA07-1) под `async with self.serialized()` (single-writer).
     allow = {
-        "database.py": 137,
+        "database.py": 141,   # +4 v21 mca-05 (episodes_stories: 7 таблиц/индексы/ALTER/PRAGMA)
         "dossier_rebuild_jobs.py": 1,   # внутри `async with db.serialized()`
         # ASAP-3.2 (ADR-1028-5 D1/D2, T-4191): shadow-rebuild — 3 прямых
         # commit внутри `async with memory.db.serialized()` (идемпотентный

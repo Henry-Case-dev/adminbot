@@ -97,7 +97,8 @@ class TestMigrationV20:
         db = await _db(tmp_path)
         try:
             cursor = await db.db.execute("PRAGMA user_version")
-            assert (await cursor.fetchone())[0] == \
+            # v21 (mca-05) идёт ПОСЛЕ v20 — маркер хвоста реестра, >= 20.
+            assert (await cursor.fetchone())[0] >= \
                 _SCHEMA_VERSION_DOSSIER_STAGING
             cursor = await db.db.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name "

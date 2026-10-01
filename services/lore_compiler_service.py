@@ -156,6 +156,20 @@ class LoreCompilerService:
         last_ts = max(since, included_last_ts)
         await self.db.upsert_lore_story(chat_id, topic_key, clean, story,
                                         last_ts)
+        # mca-05 фасад (ADR-1027-12 D8): ленивый legacy-маппинг при
+        # касании — БЕЗ автоматической ложной склейки (связь только по
+        # подтверждённой event-связи; unmapped виден с честным unknown).
+        # Fail-open: ошибка фасада не рвёт инструмент компилятора.
+        try:
+            from services import mca_gates as _gates
+            if _gates.episodes_compiler_facade_enabled():
+                from services.mca_episodes import note_compiler_touch
+                saved = await self.db.get_lore_story(chat_id, topic_key)
+                if saved:
+                    await note_compiler_touch(chat_id, dict(saved),
+                                              llm=self.llm)
+        except Exception:
+            logger.warning("[lore] legacy facade touch failed", exc_info=True)
         logger.info(
             "[lore] story ok | chat=%s | is_update=%s | graph=%d | dialogs=%d "
             "| out_chars=%d | latency_ms=%.0f", chat_id, bool(previous),

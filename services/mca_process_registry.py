@@ -674,6 +674,64 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         enabled_gate="MCA_INCIDENTS_ENABLED",
         event_names=("INCIDENT",),
     ),
+    # ── mca-05: episodes/stories (ADR-1027-12 D12; стадии пайплайна) ─────────
+    ProcessDefinition(
+        process_id="episodes.build", version="1",
+        purpose="Сборка эпизодов/историй: сегментация → извлечение → "
+                "подтверждение продолжений → assemble → provenance/индекс",
+        inputs=("smart_messages",), outputs=("mca_episodes", "mca_stories",),
+        stages=("segment", "extract", "confirm", "assemble", "link",
+                "index"),
+        trigger_kind="background", schedule="batch/backfill",
+        settings_ref=("MCA_EPISODES_ENABLED",
+                      "MCA_EPISODES_CONTINUATION_ENABLED"),
+        state_source=("mca_episodes", "mca_stories", "task_jobs"),
+        recovery_ops=("resume_checkpoint",),
+        widget_id="Эпизоды/lore",
+        stages_to_events={"segment": "episodes_build",
+                          "extract": "episodes_build",
+                          "confirm": "episodes_build",
+                          "assemble": "episodes_build",
+                          "link": "episodes_build",
+                          "index": "episodes_build"},
+        instrumentation=("segment", "extract", "confirm", "assemble",
+                         "link", "index"),
+        owner_feature="mca-05",
+        enabled_gate="MCA_EPISODES_ENABLED",
+        event_names=("episodes_build", "story_discovered", "story_extended",
+                     "source_linked", "contradiction_found", "story_rebuilt"),
+        note="mca-05 (ADR-1027-12): стадии/события start+terminal outcome, "
+             "reason_code; single-writer mca-01, короткие транзакции",
+    ),
+    ProcessDefinition(
+        process_id="episodes.backfill", version="1",
+        purpose="Resumable backfill эпизодов/историй по архиву чата "
+                "(durable task_jobs, checkpoint, честная финализация)",
+        inputs=("smart_messages (archive)",),
+        outputs=("mca_episodes", "mca_stories",),
+        stages=("segment", "extract", "confirm", "assemble", "link",
+                "index"),
+        trigger_kind="manual", schedule="по задаче (coalesce per-chat)",
+        settings_ref=("MCA_EPISODES_ENABLED",
+                      "MCA_EPISODES_BACKFILL_ENABLED",
+                      "MCA_EPISODES_BATCH_MAX_MESSAGES"),
+        state_source=("task_jobs", "mca_episodes"),
+        recovery_ops=("resume_checkpoint",),
+        widget_id="Эпизоды/lore",
+        stages_to_events={"segment": "episodes_build",
+                          "extract": "episodes_build",
+                          "confirm": "episodes_build",
+                          "assemble": "episodes_build",
+                          "index": "episodes_build"},
+        instrumentation=("segment", "extract", "confirm", "assemble",
+                         "index"),
+        owner_feature="mca-05",
+        enabled_gate="MCA_EPISODES_BACKFILL_ENABLED",
+        event_names=("episodes_build", "story_discovered", "story_extended",
+                     "story_rebuilt"),
+        note="unique key episodes.backfill:<chat_id>; paused при "
+             "budget/LLM-ошибке — никогда ложный completed; send-path нет",
+    ),
     # ── будущие фичи: not_run/not_instrumented до реализации (§1.2/§4.1) ────
     ProcessDefinition(
         process_id="context.compress", version="0",
@@ -761,6 +819,11 @@ _GATE_RESOLVERS = {
     "MCA_INCIDENTS_ENABLED": "incidents_enabled",
     "MCA_INCIDENT_PUSH_ENABLED": "incident_push_enabled",
     "MCA_TELEMETRY_SPOOL_ENABLED": "telemetry_spool_enabled",
+    # mca-05 (ADR-1027-12 D13): episodes/stories.
+    "MCA_EPISODES_ENABLED": "episodes_enabled",
+    "MCA_EPISODES_BACKFILL_ENABLED": "episodes_backfill_enabled",
+    "MCA_EPISODES_CONTINUATION_ENABLED": "episodes_continuation_enabled",
+    "MCA_EPISODES_COMPILER_FACADE_ENABLED": "episodes_compiler_facade_enabled",
     # product-гейты из `config.settings` (не mca_gates) — резолв через settings.
 }
 

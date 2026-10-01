@@ -299,12 +299,35 @@ async def test_search_service_rerank_adapter_unchanged_text(monkeypatch):
 
 # ═══ D1/D2: единый retrieval-контракт ═══════════════════════════════════════
 
+class _FakeCursor:
+    def __init__(self, rows):
+        self._rows = list(rows)
+
+    async def fetchall(self):
+        return list(self._rows)
+
+
+class _FakeFacadeShell:
+    """Минимальный `db.db` для фасада mca-05 (AMEND канала): новый store
+    пуст, legacy `lore_stories` читаются (unmapped видимы через фасад —
+    SC-13). Фолбэк на `list_lore_stories` при успехе фасада запрещён
+    (SC-14, фикс M-MCA05-1), поэтому legacy-эпизоды приходят через фасад."""
+
+    def __init__(self, legacy_rows):
+        self._legacy = list(legacy_rows)
+
+    async def execute(self, sql, params=()):
+        rows = self._legacy if "FROM lore_stories" in str(sql) else []
+        return _FakeCursor(rows)
+
+
 class _FakeDB:
     def __init__(self, messages=(), facts=(), episodes=(), generation=None):
         self._messages = list(messages)
         self._facts = list(facts)
         self._episodes = list(episodes)
         self._generation = generation
+        self.db = _FakeFacadeShell(self._episodes)
 
     async def search_messages_fts(self, chat_id, match, limit):
         return self._messages

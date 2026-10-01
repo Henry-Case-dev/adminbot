@@ -212,6 +212,11 @@ def _scan_real_event_names() -> set:
         for m in re.finditer(
                 r'emit_stage_event\(\s*["\']([a-z_]+)["\']', text):
             real.add("mca07_" + m.group(1))
+        # mca-05 (ADR-1027-12 D12): обёртка витринных событий story_* —
+        # имена литеральные на call-site (emit_story_event → emit_mca_event).
+        for m in re.finditer(
+                r'emit_story_event\(\s*["\']([A-Za-z0-9_]+)["\']', text):
+            real.add(m.group(1))
         for m in re.finditer(
                 r'(?:emit_stage|_emit)\(\s*["\']([A-Za-z0-9_]+)["\']', text):
             real.add(m.group(1))

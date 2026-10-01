@@ -660,6 +660,148 @@ DOSSIER_STAGING_ITEM_KINDS = frozenset(
 DOSSIER_STAGING_VERIFICATIONS = frozenset(
     {"verified", "tentative", "unknown", "rejected"})
 
+# ── Раунд 10.27 (MCA Wave 2, `mca-05-episodes-stories`, ADR-1027-12 D2) ─────
+# v21 — Episode/Story-модель (§9.1/§9.2): 7 таблиц + индексы «по реальным
+# запросам» (ADR-1027-12 §5). Механизм `mca-14` (§93): аддитивно/
+# идемпотентно, self-guard по `sqlite_master`/`PRAGMA table_info`,
+# `user_version` 20→21, повторный прогон — no-op, PG — no-op (GEN-R4).
+# Старые `lore_stories`/ID/потребители НЕ трогаются. Nullable = честный
+# unknown. Override-колонки `mca_stories` — nullable ALTER под guard
+# (ручные правки переживают пересборку — A13). `state` истории
+# (`open/closed/uncertain`) ≠ статус job (`task_status_ref`) — разные поля.
+_SCHEMA_VERSION_EPISODES_STORIES = 21
+
+_MCA_EPISODES_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_episodes ("
+    "episode_id          TEXT PRIMARY KEY, "
+    "chat_id             INTEGER NOT NULL, "
+    "title               TEXT NOT NULL DEFAULT '', "
+    "summary             TEXT NOT NULL DEFAULT '', "
+    "participants_json   TEXT NOT NULL DEFAULT '[]', "
+    "event_start_ts      INTEGER, "
+    "event_end_ts        INTEGER, "
+    "discovered_at       INTEGER NOT NULL, "
+    "updated_at          INTEGER NOT NULL, "
+    "claims_json         TEXT NOT NULL DEFAULT '[]', "
+    "outcome             TEXT NOT NULL DEFAULT '', "
+    "open_questions      TEXT NOT NULL DEFAULT '', "
+    "message_keys_json   TEXT NOT NULL DEFAULT '[]', "
+    "segment_key         TEXT NOT NULL DEFAULT '', "
+    "extraction_version  TEXT NOT NULL DEFAULT '', "
+    "mapping_status      TEXT NOT NULL DEFAULT 'unmapped', "
+    "recheck_pending     INTEGER NOT NULL DEFAULT 0, "
+    "UNIQUE (chat_id, segment_key))"
+)
+_MCA_STORIES_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_stories ("
+    "story_id             TEXT PRIMARY KEY, "
+    "chat_id              INTEGER NOT NULL, "
+    "title                TEXT NOT NULL DEFAULT '', "
+    "summary              TEXT NOT NULL DEFAULT '', "
+    "participants_json    TEXT NOT NULL DEFAULT '[]', "
+    "event_start_ts       INTEGER, "
+    "event_end_ts         INTEGER, "
+    "discovered_at        INTEGER NOT NULL, "
+    "updated_at           INTEGER NOT NULL, "
+    "claims_json          TEXT NOT NULL DEFAULT '[]', "
+    "outcome              TEXT NOT NULL DEFAULT '', "
+    "open_questions       TEXT NOT NULL DEFAULT '', "
+    "state                TEXT NOT NULL DEFAULT 'open', "
+    "verification         TEXT NOT NULL DEFAULT 'unknown', "
+    "excluded_from_retrieval INTEGER NOT NULL DEFAULT 0, "
+    "active_version_id    TEXT, "
+    "expected_version     INTEGER NOT NULL DEFAULT 1, "
+    "extractor_version    TEXT NOT NULL DEFAULT '', "
+    "task_status_ref      TEXT, "
+    "override_title       TEXT, "
+    "override_summary     TEXT, "
+    "override_outcome     TEXT, "
+    "override_state       TEXT, "
+    "override_open_questions TEXT)"
+)
+_MCA_STORY_VERSIONS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_story_versions ("
+    "version_id          TEXT PRIMARY KEY, "
+    "story_id            TEXT NOT NULL, "
+    "version_no          INTEGER NOT NULL, "
+    "payload_json        TEXT NOT NULL, "
+    "created_at          INTEGER NOT NULL, "
+    "created_by          TEXT NOT NULL DEFAULT 'pipeline', "
+    "extractor_version   TEXT, "
+    "UNIQUE (story_id, version_no))"
+)
+_MCA_STORY_EPISODE_LINKS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_story_episode_links ("
+    "story_id            TEXT NOT NULL, "
+    "episode_id          TEXT NOT NULL, "
+    "order_no            INTEGER NOT NULL DEFAULT 0, "
+    "PRIMARY KEY (story_id, episode_id))"
+)
+_MCA_STORY_CONTINUATIONS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_story_continuations ("
+    "continuation_id     INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "from_episode_id     TEXT NOT NULL, "
+    "to_episode_id       TEXT NOT NULL, "
+    "confirmation_json   TEXT, "
+    "status              TEXT NOT NULL DEFAULT 'candidate', "
+    "created_at          INTEGER NOT NULL, "
+    "UNIQUE (from_episode_id, to_episode_id))"
+)
+_MCA_STORY_REDIRECTS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_story_redirects ("
+    "old_kind            TEXT NOT NULL, "
+    "old_id              TEXT NOT NULL, "
+    "new_kind            TEXT NOT NULL, "
+    "new_id              TEXT NOT NULL, "
+    "created_at          INTEGER NOT NULL, "
+    "PRIMARY KEY (old_kind, old_id))"
+)
+_MCA_STORY_LEGACY_LINKS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_story_legacy_links ("
+    "lore_story_id       INTEGER PRIMARY KEY, "
+    "story_id            TEXT, "
+    "mapping_status      TEXT NOT NULL DEFAULT 'unmapped', "
+    "updated_at          INTEGER NOT NULL DEFAULT 0)"
+)
+# Индексы v21 — по фактическим запросам репозитория (ADR-1027-12 §5):
+#   * chat-scope списки эпизодов/историй (фасад/канал mca-07, витрина mca-12);
+#   * state-фильтр историй;
+#   * реверс-lookup «эпизод → история» и «история → legacy-запись»;
+#   * redirect — PK (old_kind, old_id) покрывает резолв.
+_MCA_EPISODES_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_episodes_chat_updated "
+    "ON mca_episodes (chat_id, updated_at)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_stories_chat_updated "
+    "ON mca_stories (chat_id, updated_at)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_stories_chat_state "
+    "ON mca_stories (chat_id, state)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_story_episode_links_episode "
+    "ON mca_story_episode_links (episode_id)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_story_continuations_to "
+    "ON mca_story_continuations (to_episode_id)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_story_legacy_links_story "
+    "ON mca_story_legacy_links (story_id)",
+)
+# Override-колонки `mca_stories` — nullable ALTER под guard (A13: ручные
+# правки переживают пересборку; NULL = override нет, автоматика не трогает).
+_MCA_STORIES_OVERRIDE_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("override_title", "TEXT"),
+    ("override_summary", "TEXT"),
+    ("override_outcome", "TEXT"),
+    ("override_state", "TEXT"),
+    ("override_open_questions", "TEXT"),
+)
+# Закрытые наборы mca-05 (ADR-1027-12 D3/D8).
+EPISODE_STORY_STATES = frozenset({"open", "closed", "uncertain"})
+EPISODE_MAPPING_STATUSES = frozenset({"mapped", "legacy", "unmapped"})
+EPISODE_CONTINUATION_STATUSES = frozenset(
+    {"candidate", "confirmed", "rejected"})
+# «Исход неизвестен» — честный маркер (§9.1; финал не выдумывается).
+# Значение — единый источник из канона промптов (re-export).
+from services.mca_episode_prompts import (  # noqa: E402
+    EPISODE_UNKNOWN_OUTCOME,
+)
+
 # Раунд 3 (3.6/B7, T-693): полный список origin для CHECK graph_facts — в ОДНОМ
 # месте (CREATE TABLE + пересоздание в _migrate_direct_chat_v2 + миграции v4/v5).
 # Включает ВНЕШНИЕ скобки списка IN (формат вставки в «CHECK (origin IN %s)»).
@@ -1517,6 +1659,9 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_DOSSIER_STAGING,
                           "dossier_staging",
                           lambda svc: svc._migrate_dossier_staging_v20()),
+            MigrationStep(_SCHEMA_VERSION_EPISODES_STORIES,
+                          "episodes_stories",
+                          lambda svc: svc._migrate_episodes_stories_v21()),
         ]
 
     @staticmethod
@@ -2126,6 +2271,43 @@ class DatabaseService:
             await self.db.commit()
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_DOSSIER_STAGING}")
+        await self.db.commit()
+
+    async def _migrate_episodes_stories_v21(self) -> None:
+        """v21 (`mca-05-episodes-stories`, ADR-1027-12 D2/§5): Episode/Story-
+        модель — 7 таблиц + индексы + nullable override-колонки `mca_stories`.
+
+        Аддитивно (`CREATE TABLE/INDEX IF NOT EXISTS` + `ALTER ADD COLUMN`
+        под guard `PRAGMA table_info`); self-guard по `sqlite_master`;
+        повторный прогон — no-op. Старые `lore_stories`/ID/потребители НЕ
+        трогаются (паритет legacy); `nullable` = честный unknown. PG —
+        no-op (GEN-R4). Фиксирует `PRAGMA user_version = 21`."""
+        for table, ddl in (
+                ("mca_episodes", _MCA_EPISODES_DDL),
+                ("mca_stories", _MCA_STORIES_DDL),
+                ("mca_story_versions", _MCA_STORY_VERSIONS_DDL),
+                ("mca_story_episode_links", _MCA_STORY_EPISODE_LINKS_DDL),
+                ("mca_story_continuations", _MCA_STORY_CONTINUATIONS_DDL),
+                ("mca_story_redirects", _MCA_STORY_REDIRECTS_DDL),
+                ("mca_story_legacy_links", _MCA_STORY_LEGACY_LINKS_DDL)):
+            if not await self._table_exists(table):
+                await self.db.execute(ddl)
+                await self.db.commit()
+                logger.info("[database] migration v21: %s", table)
+        for ddl in _MCA_EPISODES_INDEX_DDL:
+            await self.db.execute(ddl)
+        await self.db.commit()
+        # Override-колонки (guard каждой — свежесозданная таблица уже имеет
+        # их из DDL; legacy-созданная без них достраивается ALTER'ом).
+        if await self._table_exists("mca_stories"):
+            cols = await self._table_columns("mca_stories")
+            for name, decl in _MCA_STORIES_OVERRIDE_COLUMNS:
+                if name not in cols:
+                    await self.db.execute(
+                        f"ALTER TABLE mca_stories ADD COLUMN {name} {decl}")
+            await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_EPISODES_STORIES}")
         await self.db.commit()
 
     # ── mca-04b (ADR-1027-9 D8): регистр поколений + staging + активация ────

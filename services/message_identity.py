@@ -246,6 +246,22 @@ async def record_edit(db, *, chat_id: int, tg_message_id, text=None,
     emit_mca_event("message_revision", outcome="success", stage="edit",
                    reason_code="source_revision_changed",
                    chat_id=int(chat_id), message_id=message_id)
+    # mca-05 (ADR-1027-12 D10): изменение источника ставит зависимые
+    # эпизоды/истории на перепроверку (очередь, без рекурсивного каскада).
+    # Аддитивно, fail-open, за мастер-гейтом mca-05; OFF mca-03 → недостижимо.
+    try:
+        from services import mca_gates as _gates
+        if _gates.episodes_enabled():
+            from services.mca_episodes import (
+                message_key as _ep_key, queue_source_recheck,
+            )
+            row = {"chat_id": int(chat_id), "tg_message_id": int(tg_message_id),
+                   "id": message_id}
+            await queue_source_recheck(db, int(chat_id),
+                                       [_ep_key(row)])
+    except Exception:
+        logger.warning("[identity] episodes recheck queue failed",
+                       exc_info=True)
     return message_id
 
 

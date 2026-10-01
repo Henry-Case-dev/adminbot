@@ -1699,6 +1699,35 @@ class Settings:
     MCA_DOSSIER_DIRECT_PRIORITY_ENABLED: ClassVar[bool] = _env_bool(
         "MCA_DOSSIER_DIRECT_PRIORITY_ENABLED", True)
 
+    # ── Раунд 10.27 (MCA Wave 2, `mca-05-episodes-stories`, ADR-1027-12 D13) ──
+    # Kill-switch эпизодов/историй: env-only ClassVar, default ON, резолв
+    # per-call (services/mca_gates.py), никогда не бросает; OFF = точный
+    # паритет baseline (`lore_stories`/компилятор/mca-07 канал работают как
+    # сегодня). В `param_catalog` НЕ добавляются (Δ каталога = 0; F8
+    # NOT_APPLICABLE). `MCA_EPISODES_*` инертны при OFF мастер-гейта.
+    # Мастер: OFF → новые пути неактивны целиком (пайплайн/backfill/
+    # фасад/канал — legacy-поведение).
+    MCA_EPISODES_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_EPISODES_ENABLED", True)
+    # OFF → фоновый backfill по архиву не запускается.
+    MCA_EPISODES_BACKFILL_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_EPISODES_BACKFILL_ENABLED", True)
+    # OFF → кандидаты/подтверждения продолжений не строятся (склейка
+    # историй — только вручную подтверждённые связи; OFF = без новых склеек).
+    MCA_EPISODES_CONTINUATION_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_EPISODES_CONTINUATION_ENABLED", True)
+    # OFF → компилятор/mca-07 episode-канал работают как сегодня (legacy
+    # `lore_stories` без фасада нового store).
+    MCA_EPISODES_COMPILER_FACADE_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_EPISODES_COMPILER_FACADE_ENABLED", True)
+    # Env-only лимиты (не каталог; прецедент ADR-1027-9 D14 — standalone,
+    # без Model Capacity Resolver): размер ПОРЦИИ обработки в сообщениях
+    # (не токен-бюджет); приоритет прямых ответов (direct-flow не блокируется).
+    MCA_EPISODES_BATCH_MAX_MESSAGES: ClassVar[int] = _env_int_min(
+        "MCA_EPISODES_BATCH_MAX_MESSAGES", 500, 1)
+    MCA_EPISODES_DIRECT_PRIORITY_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_EPISODES_DIRECT_PRIORITY_ENABLED", True)
+
     # F0.3 (раунд 10.25, ADR-1025-3): размер ПАРТИИ паттернов анти-клише за
     # один LLM-вызов (в пределах выходного лимита модели) — отдельно от
     # ВМЕСТИМОСТИ `limits.anticliche_max_patterns` (200). env-only ClassVar →
@@ -2416,7 +2445,7 @@ settings = Settings()
 # S4 (10.26, ADR-1026-6 D1–D6): bump 2.58.22 → 2.58.23 — новый рантайм-модуль
 # `services/summary_fact_package.py` (детерминированный «пакет фактов §96»,
 # 0 LLM-вызовов; Δ каталога=0, Δ DDL=0; в живой путь НЕ врезан — GATED S5/S6).
-APP_VERSION = "2.58.41"   # mca-04b-dossier-rebuild round1027 (memory-context-autonomy Wave 2, spec 18DF2178 + ADR-1027-9 D1-D13, Risk R3; review round 2 Approved): единый контракт полной пересборки досье (chat/subject, range + snapshot boundary, durable курсор, live-window не предел); 3 режима пополнения памяти; durable batch-состояния queued/running/paused/interrupted/failed/completed с честной финализацией (budget_exhausted/model_unavailable/parse_error никогда не completed); дисковый потоковый проход с иерархическим синтезом Layer A/B вместо «архива в RAM одним промптом» (порции до 500, 1 LLM batch/чат, приоритет direct); subject-of-fact semantics + person-facts persistence (врезка mca-04a local->SourceRef в chunk-пайплайн, roster-scope резолв); безопасное исправление накопленных досье: staging/generation + атомарная активация (SQLite v20 через реестр mca-14: mca_dossier_generations + mca_dossier_staging_items + nullable graph_facts.dossier_generation_id; PG no-op); resume без потери кандидатов (persist-before-pause, seeding resume_candidates, дедуп); cancel/restart идемпотентны, backup до активации (memory_backup -> backup_ref); каскадный пересчёт производных (портреты -> vec-check -> DreamWorker); read-time reconstruction provenance (mca-04a); history_import namespace v2 + полный стриминговый SHA-256 дайджест (1 MiB); mca-17a корреляция dossier.rebuild (root-run/span/attempt/checkpoint); 7 kill-switch MCA_DOSSIER_* env-only default ON + 2 env-лимита, Δ каталога = 0 (F8 NOT_APPLICABLE). Откат: soft MCA_DOSSIER_REBUILD_ENABLED=false (legacy-паритет), cold git revert. bump 2.58.40->2.58.41.
+APP_VERSION = "2.58.42"   # mca-05-episodes-stories round1027 (memory-context-autonomy Wave 2, spec 8177CB0F + ADR-1027-12 D1-D13, Risk R2; deploy DEFERRED_TO_RELEASE): Episode/Story-модель (mca_episodes/mca_stories/mca_story_versions/mca_story_episode_links/mca_story_continuations/mca_story_redirects/mca_story_legacy_links, SQLite v21 через реестр mca-14 — аддитивно/идемпотентно, PG no-op; lore_stories не тронуты); EpisodeService — единственный владелец пайплайна и записи (single-writer mca-01, короткие транзакции, чтение/LLM/запись разделены); детерминированная сегментация (время/reply-граф/участники, overlap без дублей по стабильному message-ключу mca-03) + LLM-суждения (canon episodes_extract/continuation_confirm, unknown не превращается в факт, участники по устойчивым ID); продолжения по событию с подтверждением до склейки (тема — кандидат, не доказательство); сборка без потери различий (повтор ≠ независимое событие, противоречие фиксируется — не разрешается молча); две даты (event_start/end ≠ discovered_at — A11), неизвестный исход = uncertain («исход неизвестен», финал не выдумывается); версии/merge/split/redirect + ручные overrides, переживающие пересборку, CAS expected_version (A13); resumable backfill job episodes.backfill:<chat_id> на durable task_jobs (checkpoint после фиксации, честная финализация — budget→paused story_backfill_paused_budget, никогда ложный completed; revision источника → story_source_recheck_queued); фасад lore_compiler_service (topic_key ≠ идентичность события, ленивый legacy-маппинг без автосклейки, mapping_status mapped/legacy/unmapped) + AMEND mca-07 episode-канала на новый store (excluded_from_retrieval уважается, fail-open сохранён) + carry-over M-MCA07-2 (наполнение local_context EvidenceBundle, пусто = not_available); provenance SourceRef/EvidenceLink (REUSE mca-04a, ≥1 валидная ссылка или явный unknown); события витрины story_discovered/story_extended/source_linked/contradiction_found/story_rebuilt post-commit через mca_events (mca-13); reason_code +10; процессы episodes.build/episodes.backfill в mca_process_registry; UI — вне фичи (mca-12 Wave 5), публикация в Telegram из пайплайна отсутствует (grep-гейт). 4 kill-switch MCA_EPISODES_* env-only default ON + 2 env-лимита, Δ каталога = 0 (F8 NOT_APPLICABLE). Откат: soft MCA_EPISODES_ENABLED=false (legacy-паритет), cold git revert (v21 аддитивна — старый код её не читает). bump 2.58.41->2.58.42. Ранее mca-04b-dossier-rebuild round1027 (memory-context-autonomy Wave 2, spec 18DF2178 + ADR-1027-9 D1-D13, Risk R3; review round 2 Approved): единый контракт полной пересборки досье (chat/subject, range + snapshot boundary, durable курсор, live-window не предел); 3 режима пополнения памяти; durable batch-состояния queued/running/paused/interrupted/failed/completed с честной финализацией (budget_exhausted/model_unavailable/parse_error никогда не completed); дисковый потоковый проход с иерархическим синтезом Layer A/B вместо «архива в RAM одним промптом» (порции до 500, 1 LLM batch/чат, приоритет direct); subject-of-fact semantics + person-facts persistence (врезка mca-04a local->SourceRef в chunk-пайплайн, roster-scope резолв); безопасное исправление накопленных досье: staging/generation + атомарная активация (SQLite v20 через реестр mca-14: mca_dossier_generations + mca_dossier_staging_items + nullable graph_facts.dossier_generation_id; PG no-op); resume без потери кандидатов (persist-before-pause, seeding resume_candidates, дедуп); cancel/restart идемпотентны, backup до активации (memory_backup -> backup_ref); каскадный пересчёт производных (портреты -> vec-check -> DreamWorker); read-time reconstruction provenance (mca-04a); history_import namespace v2 + полный стриминговый SHA-256 дайджест (1 MiB); mca-17a корреляция dossier.rebuild (root-run/span/attempt/checkpoint); 7 kill-switch MCA_DOSSIER_* env-only default ON + 2 env-лимита, Δ каталога = 0 (F8 NOT_APPLICABLE). Откат: soft MCA_DOSSIER_REBUILD_ENABLED=false (legacy-паритет), cold git revert. bump 2.58.40->2.58.41.
 
 
 def get_ytdlp_pot_provider() -> str:

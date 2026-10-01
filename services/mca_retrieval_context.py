@@ -580,14 +580,39 @@ def _chain_candidate(item, position: int):
 
 async def _episode_candidates(db, request: RetrievalRequest,
                               keywords: list[str]) -> list:
-    """Эпизоды-фасад (`lore_stories`; второй каталог запрещён) — REUSE."""
+    """Эпизоды-фасад (mca-05 AMEND, ADR-1027-12 D11): при включённом
+    `MCA_EPISODES_COMPILER_FACADE_ENABLED` читает новый store через фасад
+    (REUSE list-контракт, второй каталог запрещён — L-MCA07-5); legacy
+    `lore_stories` без mapped-связи остаются видимы; `excluded_from_retrieval`
+    и `verification='rejected'` не попадают (уважает статусы). Три
+    состояния (SC-14, фикс M-MCA05-1): (a) гейт OFF или (b) ошибка
+    фасада → санкционированный legacy-путь `list_lore_stories`
+    (паритет baseline / fail-open mca-07); (c) фасад ответил (в т.ч.
+    честно ПУСТО) → ответ и есть результат: пусто при успехе означает
+    намеренное исключение (excluded/rejected/redirect), legacy-фолбэк
+    здесь запрещён — иначе excluded-контент утекал бы через mapped-
+    двойника в `lore_stories`."""
     from services.lore_compiler_service import topic_tokens
-    stories = await db.list_lore_stories(request.chat_id, limit=200)
-    if not stories:
+    facade_rows: list | None = None
+    try:
+        from services import mca_gates as _gates
+        if _gates.episodes_compiler_facade_enabled():
+            from services.mca_episodes import list_stories_for_retrieval
+            facade_rows = await list_stories_for_retrieval(
+                db, request.chat_id, limit=200)
+    except Exception:
+        logger.warning("[mca07] episode facade read failed", exc_info=True)
+        facade_rows = None
+    if facade_rows is not None:
+        rows = facade_rows
+    else:
+        stories = await db.list_lore_stories(request.chat_id, limit=200)
+        rows = [dict(r) for r in (stories or [])]
+    if not rows:
         return []
     tokens = set(topic_tokens(request.query)) or set(keywords)
     scored: list[tuple[float, object]] = []
-    for row in stories:
+    for row in rows:
         topic = str(_row_get(row, "topic") or "").casefold()
         story = str(_row_get(row, "story") or "").casefold()
         overlap = 0

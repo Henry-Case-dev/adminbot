@@ -3517,11 +3517,27 @@ class DirectChatService:
                 selected_refs=selected_refs,
                 summary_revision=summary_revision,
                 policy_version=_mca_rc.RETRIEVAL_POLICY_VERSION)
+            # M-MCA07-2 (mca-05, ADR-1027-12 D11): владелец наполнения
+            # `local_context` — EpisodeService (истории, содержащие текущее
+            # сообщение). Пусто → инвариант «not_available» (tuple());
+            # fail-open: ошибка не рвёт сборку контекста.
+            local_context: tuple[str, ...] = ()
+            try:
+                from services import mca_gates as _mca_gates
+                if _mca_gates.episodes_enabled():
+                    from services.mca_episodes import build_local_context
+                    local_context = await build_local_context(
+                        self.db, chat_id,
+                        trigger_tg_message_id=(
+                            trigger_id if trigger_id is not None else None))
+            except Exception:
+                local_context = ()
             return _mca_rc.EvidenceBundle(
                 trigger=current_ref, current_message_ref=current_ref,
                 current_revision=current_ref,
                 addressee=target_name or None, author=target_name or None,
-                mentioned=mentioned, branch=branch, local_context=(),
+                mentioned=mentioned, branch=branch,
+                local_context=local_context,
                 evidence=tuple(evidence), constraints=constraints,
                 relations=relations, chosen_intent=chosen_intent,
                 recent_actions=recent_actions, context_version=context_version,
