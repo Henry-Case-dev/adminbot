@@ -1,0 +1,26 @@
+# WTH at-commit — mca-04b-dossier-rebuild (DevOps, 01.10.2026)
+# HEAD(feat): 8281434 feat(round1027): mca-04b dossier-rebuild ... (APP_VERSION 2.58.41)
+# Алгоритм: evidence.md mca-04b §8.6 (path<TAB>kind<TAB>sha256-upper; DIR|FOREIGN c "-"; sort по path; LF-join без хвостового \n)
+# Гейт review round 2: B790BE30846034D87AF20646C17F4166ED4902CA224CE019352E292B7C7A6B9F (48 записей: 36 M + 7 A + 3 DIR + 2 FOREIGN, дерево ДО round-2-секции review.md)
+# Pre-commit (перед FEAT-коммитом, 48 записей, структура байт-точно 36/7/3/2): 09D10533B2ACAE189838BD4DDF922D23513BE54E8B6BD59B709420AB66AAD5D4
+#   Дрейф гейта -> pre-commit: только review.md (round-2 секция добавлена ПОСЛЕ расчёта гейта — self-declared в Binding round 2);
+#   код-файлы не менялись: полный pytest воспроизведён 10369 passed / 2 failed (те же 2 чужих bounds) на pre-commit дереве.
+# At-commit (этот манифест, 15 записей: 5 M + 5 A + 3 DIR + 2 FOREIGN; сам манифест исключён — самореференс):
+#   закоммиченная часть гейт-манифеста (36 M + 7 A) = содержимое FEAT-коммита 8281434 (байт-идентично pre-commit-замеру);
+#   остаток — 4 чужих tracked-docs + full_audit_results.md (M; уходит в docs-коммит) + 5 docs фичи (A; docs-коммит) + служебные untracked (DIR/FOREIGN).
+#
+.playwright-mcp	DIR	-
+extra_images	DIR	-
+node_modules	DIR	-
+package-lock.json	FOREIGN	-
+package.json	FOREIGN	-
+plans/docs/mca-round1027-arch-frames.md	M	083C6F55111D505E8221DDA473AB9C4BF7DD2392499C7B621CC9D43988F31439
+plans/docs/mca-round1027-plan.md	M	A283FC0287F8D4AD0DD265DAEB342BADC7C093134D581825E7AE337C442978CF
+plans/features/mca-04b-dossier-rebuild/adr-1027-9-dossier-rebuild.md	A	0492EC240BABAF343E765B9525E3303E01654915FD473C4160E75A531E4CEB24
+plans/features/mca-04b-dossier-rebuild/evidence.md	A	D9A409645C21B77BCF05A391C833FB8DF83258379D5D483D3616AEB422A9480C
+plans/features/mca-04b-dossier-rebuild/review.md	A	2B3B40467B0524B216961872FF3285A409A0985F8DCEC9758E2771059606F3AB
+plans/features/mca-04b-dossier-rebuild/spec.md	A	18DF21787EEF3462F79E9301A109F6D004E68F65730110EAE6F755CC28C5A3D2
+plans/features/mca-04b-dossier-rebuild/tasks.md	A	1AAEFB8C6DF97B3B902178BC260A7328C9863E165C718522B0C55864884664DF
+plans/metrics.md	M	65F4D93354A0E47220C7E4B5970C88712068C27A67DEA189E7E0690CE7AD5B28
+plans/reports/full_audit_results.md	M	05ED951F20C2BCE04340B4A938DE5F410DBDA07A86E982058B6294FB0156C49E
+plans/workflow_state.md	M	A5DCE80994F551D40BE5EC0696BA664492F11D60170857F1D7D24667D220E16A
