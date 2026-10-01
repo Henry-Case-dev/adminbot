@@ -203,18 +203,63 @@ def test_select_per_chat(monkeypatch):
     monkeypatch.setattr(
         "services.cover_style_registry.get_profile",
         AsyncMock(return_value=_profile()))
+    get_calls = {}
     set_calls = {}
+
+    async def _get_all(chat_id, pg=None):
+        get_calls["chat_id"] = chat_id
+        get_calls["pg"] = pg
+        return {"v": 1, "overrides": {"flags.summary_enabled": True},
+                "gates": {}, "keys": {}, "perm_overrides": {}, "meta": {}}
 
     async def _set(chat_id, patch, **kw):
         set_calls["chat_id"] = chat_id
         set_calls["patch"] = patch
+        set_calls["pg"] = kw.get("pg")
         return {}
 
+    monkeypatch.setattr("services.chat_params.get_all_chat_params", _get_all)
     monkeypatch.setattr("services.chat_params.set_chat_params", _set)
     resp = _client().post("/api/cover/select", headers=_hdr(),
                           json={"chat_id": -100, "style_id": "csp_x"})
     assert resp.status_code == 200
-    assert set_calls["patch"] == {"prompts.summary_cover_style_id": "csp_x"}
+    # HOTFIX 2.58.43: pg= обязателен (без него ChatLorePgUnavailable → 503),
+    # патч — namespace overrides (плоский ключ set_chat_params выбрасывает),
+    # read-modify-write — чужие overrides чата сохраняются.
+    assert set_calls["patch"] == {"overrides": {
+        "flags.summary_enabled": True,
+        "prompts.summary_cover_style_id": "csp_x"}}
+    assert set_calls["pg"] is not None
+    assert set_calls["pg"] is get_calls["pg"]
+    assert get_calls["chat_id"] == -100
+
+
+def test_select_clear_removes_override(monkeypatch):
+    """Снятие выбора (пустой style_id) удаляет override, а не хард-пинит
+    пустоту: работает resolve-чейн override → hot.get → дефолт (DC-5)."""
+    monkeypatch.setattr("services.cover_style_pipeline.cover_styles_enabled",
+                        lambda: True)
+    set_calls = {}
+
+    async def _get_all(chat_id, pg=None):
+        return {"v": 1,
+                "overrides": {"prompts.summary_cover_style_id": "csp_x",
+                              "flags.summary_enabled": True},
+                "gates": {}, "keys": {}, "perm_overrides": {}, "meta": {}}
+
+    async def _set(chat_id, patch, **kw):
+        set_calls["patch"] = patch
+        return {}
+
+    monkeypatch.setattr("services.chat_params.get_all_chat_params", _get_all)
+    monkeypatch.setattr("services.chat_params.set_chat_params", _set)
+    resp = _client().post("/api/cover/select", headers=_hdr(),
+                          json={"chat_id": -100, "style_id": ""})
+    assert resp.status_code == 200
+    assert "prompts.summary_cover_style_id" \
+        not in set_calls["patch"]["overrides"]
+    # чужой override не затёрт
+    assert set_calls["patch"]["overrides"] == {"flags.summary_enabled": True}
 
 
 def test_upload_reference_base64(monkeypatch):

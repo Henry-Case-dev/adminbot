@@ -48,6 +48,8 @@ class FakeDB:
         self.refs = {}              # pid -> {rid: dict}
         self.assets = {}            # aid -> dict
         self.connections = {}       # cid -> dict
+        self.chat_profiles = {}     # chat_id -> dict (chat_params-хранилище)
+        self.chat_history = []      # INSERT INTO chat_lore_history args
 
 
 class FakeConn:
@@ -109,6 +111,29 @@ class FakeConn:
                 return None
             p["counter_value"] = int(p.get("counter_value") or 0) + 1
             return {"counter_value": p["counter_value"]}
+        # ── chat_params (SELECT_PROFILE_SQL / UPDATE_PARAMS_SQL) ────────────
+        if s.startswith("SELECT chat_id, updated_at, chat_params"):
+            row = self.db.chat_profiles.get(args[0])
+            if row is None:
+                return None
+            return {"chat_id": row["chat_id"],
+                    "updated_at": row["updated_at"],
+                    "chat_params": row["chat_params"],
+                    "gates_opt_in": row.get("gates_opt_in", False)}
+        if s.startswith("UPDATE chat_profiles SET chat_params"):
+            if "AND updated_at" in s:
+                chat_id, new_json, expected = args
+                row = self.db.chat_profiles.get(chat_id)
+                if row is None or row["updated_at"] != expected:
+                    return None
+            else:
+                chat_id, new_json = args
+                row = self.db.chat_profiles.get(chat_id)
+                if row is None:
+                    return None
+            row["chat_params"] = new_json
+            row["updated_at"] = "%s+" % row["updated_at"]
+            return dict(row)
         return None
 
     async def fetch(self, sql, *args):
@@ -266,6 +291,14 @@ class FakeConn:
                 self.db.issue = {}
             self.db.issue.setdefault((pid, run_id), issue)
             return _Cursor(1)
+        # ── chat_params (history / notify / advisory) ───────────────────────
+        if s.startswith("INSERT INTO chat_lore_history"):
+            self.db.chat_history.append(args)
+            return _Cursor(1)
+        if s.startswith("SELECT pg_advisory_xact_lock"):
+            return _Cursor(1)
+        if s.startswith("SELECT pg_notify"):
+            return _Cursor(1)
         return _Cursor(0)
 
 
@@ -371,6 +404,14 @@ def _run(coro):
 
 def _seed(pg):
     return _run(registry.seed_seeded_style(pg, seed_dir=SEED_DIR))
+
+
+def _put_chat_profile(pg, chat_id: int, overrides: dict | None = None) -> None:
+    """Предзаполненный chat_profiles-ряд (v-1-лейаут chat_params)."""
+    root = {"v": 1, "overrides": dict(overrides or {})}
+    pg.pool._db.chat_profiles[chat_id] = {
+        "chat_id": chat_id, "chat_params": json.dumps(root),
+        "updated_at": "2026-10-01T00:00:00+00:00", "gates_opt_in": False}
 
 
 class TestPgDatabaseContract:
@@ -514,6 +555,80 @@ class TestPgDatabaseContract:
         assert pg.pool._db.profiles["medved_press"]["is_deleted"] is True
 
 
+# ── HOTFIX 2.58.43: /cover/select → real chat_params → chat_profiles ────────
+
+class TestSelectPersistsViaChatParams:
+    """Prod-инцидент 2.58.42: выбор стиля в мини-аппе → 503 «save failed».
+
+    §93-класс дефекта (не тот объект/уровень на call-site), но в соседней
+    границе: роут звал ``chat_params.set_chat_params`` БЕЗ ``pg=`` →
+    ``ChatLorePgUnavailable`` → 503 на КАЖДЫЙ выбор; при этом патч был
+    плоским ключом (set_chat_params мержит только namespaces — значение
+    выбросилось бы молча, 200-false-success). Здесь — сквозной тест
+    route → real chat_params → fake chat_profiles БЕЗ monkeypatch
+    chat_params (§120-урок). НА PRE-FIX эти тесты падали."""
+
+    KEY = "prompts.summary_cover_style_id"
+
+    def test_regression_select_persists_via_chat_params(self):
+        pg = FakePgDatabase()
+        _seed(pg)
+        _put_chat_profile(pg, -100)
+        client = _client(pg)
+        resp = client.post("/api/cover/select", json={
+            "chat_id": -100, "style_id": "medved_press"}, headers=_hdr())
+        assert resp.status_code == 200, resp.text
+        from services import chat_params as cp
+        root = _run(cp.get_all_chat_params(-100, pg=pg))
+        # значение в хранилище в правильной форме (overrides-namespace)
+        assert root["overrides"].get(self.KEY) == "medved_press"
+        # читающий путь (каст по каталогу) резолвит выбор
+        resolved = cp._resolve_from_root(root, self.KEY, None)
+        assert resolved == "medved_press"
+        # история записи ведётся (chat_lore_history)
+        assert pg.pool._db.chat_history, "write отражён в history"
+
+    def test_select_preserves_other_chat_overrides(self):
+        """Namespace в set_chat_params заменяется ЦЕЛИКОМ: read-modify-write
+        обязателен, иначе выбор стиля затирает прочие overrides чата."""
+        pg = FakePgDatabase()
+        _seed(pg)
+        _put_chat_profile(pg, -200,
+                          overrides={"flags.summary_enabled": True})
+        client = _client(pg)
+        resp = client.post("/api/cover/select", json={
+            "chat_id": -200, "style_id": "medved_press"}, headers=_hdr())
+        assert resp.status_code == 200, resp.text
+        from services import chat_params as cp
+        root = _run(cp.get_all_chat_params(-200, pg=pg))
+        assert root["overrides"].get("flags.summary_enabled") is True, \
+            "чужой per-chat override не затёрт"
+        assert root["overrides"].get(self.KEY) == "medved_press"
+
+    def test_select_clear_removes_override(self):
+        """Пустой style_id удаляет override (resolve-чейн override → hot →
+        дефолт, DC-5), а не хард-пинит пустоту поверх глобального hot."""
+        pg = FakePgDatabase()
+        _seed(pg)
+        _put_chat_profile(pg, -300, overrides={self.KEY: "medved_press"})
+        client = _client(pg)
+        resp = client.post("/api/cover/select", json={
+            "chat_id": -300, "style_id": ""}, headers=_hdr())
+        assert resp.status_code == 200, resp.text
+        from services import chat_params as cp
+        root = _run(cp.get_all_chat_params(-300, pg=pg))
+        assert self.KEY not in root["overrides"]
+
+    def test_select_unknown_style_is_404(self):
+        pg = FakePgDatabase()
+        _seed(pg)
+        _put_chat_profile(pg, -400)
+        client = _client(pg)
+        resp = client.post("/api/cover/select", json={
+            "chat_id": -400, "style_id": "no_such_style"}, headers=_hdr())
+        assert resp.status_code == 404
+
+
 # ── §104: connection model (FK, не raw URL; секреты в Connections) ──────────
 
 class TestConnectionModel:
@@ -562,9 +677,11 @@ class TestPermissionsSeeded:
     def test_non_admin_can_list_and_select(self, monkeypatch):
         pg = FakePgDatabase()
         _seed(pg)
-        # chat_params — НЕ registry-граница (§120); стабим запись выбора.
+        # chat_params — НЕ registry-граница (§120); стабим запись выбора
+        # (pg=/read-modify-write контракт покрыт TestSelectPersistsViaChatParams
+        # на реальном chat_params).
 
-        async def _fake_set(chat_id, params, changed_by=None):
+        async def _fake_set(chat_id, params, changed_by=None, **kw):
             return True
 
         monkeypatch.setattr("services.chat_params.set_chat_params",

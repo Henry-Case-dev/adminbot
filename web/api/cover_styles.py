@@ -357,9 +357,34 @@ async def cover_style_select(
             raise HTTPException(status_code=404, detail="style not found")
     try:
         from services import chat_params
+        pg = _pg(cache)
+        # HOTFIX 2.58.43 (prod «save failed» при выборе стиля):
+        # 1) set_chat_params требует PgDatabase (pg=); без него
+        #    ChatLorePgUnavailable → 503 на КАЖДЫЙ выбор (прецедент
+        #    §93: не тот уровень хранилища на call-site).
+        # 2) Патч — namespace `overrides`: плоский ключ set_chat_params
+        #    молча выбрасывает (мержатся только namespaces §4.3), а читающий
+        #    путь резолвит root["overrides"][key] (_resolve_from_root).
+        # 3) Read-modify-write: namespace в set_chat_params ЗАМЕНЯЕТСЯ
+        #    целиком — нельзя затереть прочие per-chat overrides чата
+        #    (прецедент routes.py config-save).
+        root = await chat_params.get_all_chat_params(int(body.chat_id),
+                                                     pg=pg)
+        if not root:
+            # fail-open {} = PG-чтение не удалось — честный отказ, НЕ запись
+            # пустого overrides поверх чужих данных.
+            raise RuntimeError("chat profile read failed")
+        overrides = dict(root.get("overrides") or {})
+        if style_id:
+            overrides["prompts.summary_cover_style_id"] = style_id
+        else:
+            # Снятие выбора → удаляем override: работает документированный
+            # resolve-чейн (override чата → hot.get → дефолт, DC-5); хард-пин
+            # «нет стиля» поверх глобального hot не создаём.
+            overrides.pop("prompts.summary_cover_style_id", None)
         await chat_params.set_chat_params(
-            int(body.chat_id), {"prompts.summary_cover_style_id": style_id},
-            changed_by=user.id)
+            int(body.chat_id), {"overrides": overrides},
+            changed_by=user.id, pg=pg)
     except Exception:
         raise HTTPException(status_code=503, detail="save failed")
     return {"chat_id": body.chat_id, "style_id": style_id}
