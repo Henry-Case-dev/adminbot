@@ -6,7 +6,7 @@
 
 ---
 
-## Фича `post-asap4-corrective-pass` (Corrective gate T-4504: трек 1 GraphRAG механизм-фикс D1–D6 + трек 2 retention tool; R3) — 03.10.2026 — **APPROVED (release-blocking 0; 1 M non-blocking debt / 4 L; полный отчёт — plans/features/post-asap4-corrective-pass/review.md)**
+## Фича `post-asap4-corrective-pass` (Corrective gate T-4504: трек 1 GraphRAG механизм-фикс D1–D6 + трек 2 retention tool; R3) — 03.10.2026 — **APPROVED (release-blocking 0; 1 M non-blocking debt / 4 L; полный отчёт — plans/archive/post-asap4-corrective-pass-round1030/review.md)**
 > **Round 2 re-gate (03.10, corrective micro-fix M-4504-1 + L-4504-3/L-4504-5): APPROVED for delivery подтверждён** — дельта ровно 4 файла (+ самореферентный evidence.md), остальные 10 файлов манифеста байт-в-байт; retention **46 passed / 0 skipped**, контроль-плейн + graphrag-соседи **267 passed**; новый WTH `4ccd48bf163e54512cca72a817b2cd62b66c7298e38ef6ef5be01c1331ed2195` (HEAD `34ba7d8` не сместился; детали — review.md, секция «Round 2»). Остаточный debt: L-4504-2, L-4504-4.
 
 - **Binding:** Reviewed-Commit `34ba7d8` (HEAD; коммитов нет — оба трека в worktree по постановке); **WTH `4d2c7b04cbef6e77082f69dbd2d7e18aee51a42d3eb16c6ce6b24c41231d6484`** (SHA-256 пер-файлового манифеста 15 файлов review-скоупа: 4 код-файла + tools + 2 теста + deploy-doc + ADR-AMEND + verbatim-источник + 6 плановых; чужой WIP plans/* и untracked node_modules/.playwright-mcp/extra_images в биндинг не входит); Spec-Hash — spec.md отсутствует намеренно (corrective pass), контракт `design-fix.md` `7e53d804…`; staged пусто.
