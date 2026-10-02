@@ -140,7 +140,7 @@
 
 ### ⚡ Follow-up (reconcile ASAP-4, 02.10.2026) — эпик выпущен 2.58.45 VERIFIED — хвосты (не блокёры)
 
-Источник: `plans/features/asap-4-embedding-graphrag-cover-runtime/deployment.md` (VERIFIED) + ADR-1028-7 («Прод-валидация и история»).
+Источник: `plans/archive/asap-4-embedding-graphrag-cover-runtime-round1030/deployment.md` (VERIFIED) + ADR-1028-7 («Прод-валидация и история»).
 
 1. **Owner live-приёмка (PENDING OWNER, no-false-acceptance):** **T-4447** live embeddings (платные вызовы; оба индекса `graph_facts_vec`/`smart_archive` → ACTIVE + live KNN; сейчас оба `building` с checkpoint), **T-4448** live Medved Press — precondition **DC-4** (edit connection/model не задан — владелец-гейт), **T-4449** live full window (окно 600–700+, coverage 100% на проде). После реальных прогонов: §50.62/§50.64 live-метрики Hybrid Writer и оживление SUMMARY_*/COVER_* эмиссии на прод-данных (Inspector честно покажет; транспорт и read-path доказаны browser-сьютом §61.16).
 2. **Async batch enablement:** `EMBED_ASYNC_BATCH_ENABLED` остаётся **OFF** (default); включение — только после live-верификации контракта Batch API на проде (gated-опция ADR-1028-7 D1.6).

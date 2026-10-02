@@ -18,7 +18,7 @@ Feature: `asap-4-embedding-graphrag-cover-runtime`. Нумерация: **T-4400
 
 ## Волна 0
 
-- [x] **T-4400 [@PM]** — Планирование эпика. **Критерий:** в `plans/features/asap-4-embedding-graphrag-cover-runtime/` созданы `requirements-map.md` (R4-xxx ↔ якоря ↔ критерии), `reuse-inventory.md` (существование файлов проверено), `conflict-audit.md` (§82 сверка завершена), `tasks.md` (этот файл); `current_task.md` не изменён. Якорь: `current_task.md:20593`. Далее — @Architect Step 2.
+- [x] **T-4400 [@PM]** — Планирование эпика. **Критерий:** в `plans/archive/asap-4-embedding-graphrag-cover-runtime-round1030/` созданы `requirements-map.md` (R4-xxx ↔ якоря ↔ критерии), `reuse-inventory.md` (существование файлов проверено), `conflict-audit.md` (§82 сверка завершена), `tasks.md` (этот файл); `current_task.md` не изменён. Якорь: `current_task.md:20593`. Далее — @Architect Step 2.
 
 ## Волна A — Embedding Control Plane (P0: production в 429/building → FTS-only)
 
