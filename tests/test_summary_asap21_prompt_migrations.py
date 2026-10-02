@@ -50,8 +50,10 @@ _CANON_CASES = [
 ]
 
 _ROLLBACK_CASES = [
+    # ASAP-4 волна D (ADR-1028-7 D4): откат prose-first → непосредственный
+    # прежний прод-канон PREV_*_R1028_ASAP4 (с запретом цитат).
     (_L2, "l2", lambda: sp.SUMMARY_L2_WRITER_SYSTEM_PROMPT,
-     lambda: sp.PREV_SUMMARY_L2_WRITER_R1028),
+     lambda: sp.PREV_SUMMARY_L2_WRITER_R1028_ASAP4),
     (_NARR, "narr", lambda: sp.SUMMARY_NARRATOR_SYSTEM_PROMPT,
      lambda: sp.PREV_SUMMARY_NARRATOR_R1028),
     (_SYS, "sys", lambda: sp.SYSTEM_PROMPT,
@@ -165,8 +167,10 @@ def test_new_l2_canon_has_required_instructions():
     # §21–24 finale — выбор модели, опционально.
     assert '"finale"' in canon
     assert "твоё творческое решение" in canon
-    # §97 жёсткие правила сохранены.
-    assert "Не выдумывай цитаты" in canon
+    # §97 (ASAP-4 волна D, ADR-1028-7 D4 SUPERSEDE): запрет цитат снят;
+    # разрешение с доказанным source+speaker действует; абзац ≤900.
+    assert "Не выдумывай цитаты" not in canon
+    assert "Прямые цитаты НЕ запрещены" in canon
     assert "900 символов" in canon
 
 

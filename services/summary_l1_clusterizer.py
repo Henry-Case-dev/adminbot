@@ -87,6 +87,18 @@ from services.summary_l1_contract import (
     _make_result,
     validate_l1_response,
 )
+# ── ASAP-4 волна C (T-4422, spec §3 C.1): capacity guard — planning
+# estimate (§52) + deterministic repair переполнения (§51).
+from services.summary_l1_capacity import (
+    CAPACITY_REASONS,
+    capacity_guard_enabled,
+    estimate_expected_facts,
+    log_capacity_plan,
+    log_capacity_repair,
+    plan_required_chunks,
+    repair_capacity_overflow,
+    repartition_by_count,
+)
 from services.summary_l1_repair import repair_l1
 from services.summary_prompts import SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT
 # S7 (ADR-1026-9 D6/SC-07): §109-детали ошибки — http_status/attempts.
@@ -400,6 +412,15 @@ def build_l1_payload(rows, chat_id) -> list:
         mentions = _row_get(row, "mentions")
         if mentions is not None:
             item["mentions"] = mentions
+        # ASAP-4 волна D (T-4429, §50.9/Q35): forward-метаданные больше не
+        # теряются до L2 — в §92-элемент попадают ТОЛЬКО при наличии в строке
+        # окна (синтетические/старые rows без полей → элемент байт-в-бит
+        # прежний; relation kind выводит упаковщик пакета).
+        if _row_get(row, "is_forward"):
+            item["is_forward"] = True
+            source = _row_get(row, "forward_source")
+            if source:
+                item["forward_source"] = str(source)
         payload.append(item)
     return payload
 
@@ -784,7 +805,9 @@ def merge_l1_payloads(payloads: list[dict]) -> dict:
 async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
                            kind: str, limit: int, system_prompt: str,
                            llm_call, focus_block, budget_mode: str,
-                           started: float, slot) -> L1Result:
+                           started: float, slot,
+                           partitions: list | None = None,
+                           overlap_count: int = 0) -> L1Result:
     """Overflow-путь §120/§125: полный source set → lossless partition →
     L1 по каждому фрагменту → детерминированный merge → L2 (вызывает
     вызывающий контур). Каждый source ID ≥1 primary chunk (§121);
@@ -795,17 +818,22 @@ async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
     Партиционирование — по РЕАЛЬНОМУ serialized §92-размеру (тот же учёт,
     что в pack_l1_input), поэтому каждый chunk гарантированно помещается в
     бюджет и рекурсивный прогон НЕ эвоо-труncatится. Число LLM-вызовов
-    определяется физикой (§125), НЕ искусственным бюджетом. Любой провал
-    chunk-прогона → ``error_result`` (LEVEL-2 fallback-пакет строится
-    вызывающим контуром из ПОЛНОГО набора — §140/§141 chronology-инвариант)."""
+    определяется физикой (§125) и планировщиком кардинальности волны C
+    (§52 — ``partitions`` могут быть нарезаны заранее плотнее физических),
+    НЕ искусственным бюджетом. После merge — deterministic capacity repair
+    (§51: дедуп фактов/подсмыслы), т.к. merge-union может поднять тред выше
+    структурного капа. Любой провал chunk-прогона → ``error_result``
+    (LEVEL-2 fallback-пакет строится вызывающим контуром из ПОЛНОГО набора
+    — §140/§141 chronology-инвариант)."""
     source_rows = _sort_rows(list(rows or []))
     source_total = len(source_rows)
     # §127 (M-ASAP31-1 rework): окно прогона и overlap-дубликаты —
     # реальные значения (не заглушки).
     window_start = min((_row_ts(r) for r in source_rows), default=None)
     window_end = max((_row_ts(r) for r in source_rows), default=None)
-    partitions, overlap_count = _partition_lossless(source_rows, chat_id,
-                                                    limit, kind)
+    if partitions is None:
+        partitions, overlap_count = _partition_lossless(source_rows, chat_id,
+                                                        limit, kind)
     if len(partitions) <= 1:
         # Не должен случиться (вызов только после truncated), но fail-open
         # к одному проходу без дробления (§125: happy path не дробится).
@@ -853,6 +881,19 @@ async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
         return error_result(reason, duration_ms=duration)
     merged_payload = merge_l1_payloads(
         [r.payload for r in usable_results])
+    # ── Волна C (T-4422, §51): merge-union может поднять тред выше
+    # структурного капа (две половины широкой темы объединились) —
+    # deterministic capacity repair (дедуп фактов/подсмыслы/бюджет) БЕЗ
+    # invalid. OFF-паритет: guard OFF → merge-результат прежний.
+    if capacity_guard_enabled():
+        repaired_payload, cap_stats = repair_capacity_overflow(merged_payload)
+        if repaired_payload is not None:
+            merged_payload = repaired_payload
+        if any((cap_stats.get(k) or 0) for k in
+               ("duplicates_merged", "topics_deduped", "threads_split",
+                "facts_dropped_budget")):
+            log_capacity_repair(run_id=correlation_id, chat_id=chat_id,
+                                stage="merge", stats=cap_stats)
     unassigned_count = len(
         merged_payload.get("unassigned_message_ids") or [])
     threads_out = merged_payload.get("threads") or []
@@ -1123,6 +1164,46 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
         pack = pack_l1_input(source_rows, chat_id, token_limit=token_limit,
                              char_limit=char_limit)
         chunk_count = pack.chunk_count
+        # ── Волна C (T-4422, §52): planning estimate ДО model call —
+        # expected topics/facts от source size + reply density → при высокой
+        # плотности ЗАРАНЕЕ больше L1-чанков (semantic sharding). Прод-кейс
+        # Q17: chunks=1 на 688 сообщений обязан был стать >1. Физические
+        # партиции (по input-бюджету) — минимум; планировщик может добавить.
+        # Конверт ASAP-3.1 сохранён (spec §0.2 — OFF-паритет чужих флагов):
+        # planning действует только там, где разрешён lossless chunking
+        # (auto/manual_cap; legacy_static и SUMMARY_COVERAGE_CHUNKING_
+        # ENABLED=false — бит-в-бит прежний single-pass).
+        if (_allow_chunking and capacity_guard_enabled()
+                and summary_coverage_chunking_enabled()
+                and budget_mode != BUDGET_MODE_LEGACY_STATIC
+                and pack.payload):
+            expected_facts = estimate_expected_facts(source_rows)
+            required = plan_required_chunks(expected_facts)
+            physical, physical_overlap = _partition_lossless(
+                source_rows, chat_id, limit, kind)
+            if required > len(physical):
+                partitions = repartition_by_count(
+                    source_rows, required,
+                    size_fn=lambda row: _serialized_len(
+                        _payload_item(row, chat_id), kind),
+                    limit=limit)
+                overlap = max(0, len(partitions) - 1)
+            else:
+                partitions, overlap = physical, physical_overlap
+            if len(partitions) > 1:
+                log_capacity_plan(
+                    run_id=correlation_id, chat_id=chat_id,
+                    source_messages=len(source_rows),
+                    expected_facts=expected_facts,
+                    physical_chunks=len(physical),
+                    planned_chunks=len(partitions))
+                return await _run_l1_lossless(
+                    llm=llm, rows=source_rows, chat_id=chat_id,
+                    correlation_id=correlation_id, kind=kind, limit=limit,
+                    system_prompt=system, llm_call=llm_call,
+                    focus_block=focus_block, budget_mode=budget_mode,
+                    started=started, slot=slot, partitions=partitions,
+                    overlap_count=overlap)
         # ── ASAP-3.1 §120/§128: переполнение → lossless chunking, НЕ drop.
         # Semantics «skipped=N из-за budget» как normal behavior не
         # существует: место «L1 truncated input» занимает chunked-статус.
@@ -1326,6 +1407,30 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                 if result.status == STATUS_OK and pack.truncated:
                     result = dataclasses.replace(
                         result, status=STATUS_TRUNCATED, truncated=True)
+
+        # ── Волна C (T-4422, §51): переполнение контракта (too_many_*) при
+        # ON-guard — deterministic repair БЕЗ нового LLM-вызова (reduce
+        # duplicates → split subthread → allocate budget), потом revalidate.
+        # Потолки 30/1000 остаются структурными, но нормальный плотный чат
+        # больше НЕ invalid (§50.36). OFF → прежний invalid → fallback.
+        if (result.status == STATUS_INVALID
+                and result.invalid_reason in CAPACITY_REASONS
+                and data is not None and capacity_guard_enabled()):
+            repaired_data, cap_stats = repair_capacity_overflow(data)
+            if repaired_data is not None:
+                log_capacity_repair(run_id=correlation_id, chat_id=chat_id,
+                                    stage="pre_validate", stats=cap_stats)
+                fixed = validate_l1_response(
+                    repaired_data, space, duration_ms=duration,
+                    skipped_ids=pack.skipped_ids,
+                    skipped_tg_ids=pack.skipped_tg_ids,
+                    truncated=pack.truncated,
+                    chunk_count=pack.chunk_count)
+                if fixed.usable:
+                    if fixed.status == STATUS_OK and pack.truncated:
+                        fixed = dataclasses.replace(
+                            fixed, status=STATUS_TRUNCATED, truncated=True)
+                    result = fixed
 
         # Ровно одна исправляющая повторная попытка:retryable-причина ПОСЛЕ
         # repair+validate; вторая попытка = system + исходный user +

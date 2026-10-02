@@ -587,8 +587,17 @@ async def run_summary_test(chat_id, window, *, allow_cover=False,
     # S4: пакет фактов §96 (0 LLM).
     payload_items = build_l1_payload(rows_info.get("filtered") or [],
                                      int(chat_id))
+    # ASAP-4 (T-4417, хвост L-ASAP31-4): dry-run строит пакет с тем же
+    # resolver-бюджетом, что и живой путь (иначе preview на больших окнах
+    # показывает усечение/непригодность вместо полного результата).
+    try:
+        from services.summary_budget_auto import resolve_l2_package_budget
+        l2_budget = await resolve_l2_package_budget()
+    except Exception:
+        l2_budget = None
     package_result = build_fact_package(
-        l1_result, payload_items, correlation_id=correlation_id)
+        l1_result, payload_items, correlation_id=correlation_id,
+        budget=l2_budget)
     pm = getattr(package_result, "metrics", {}) or {}
     result.stages["package"] = {
         "status": getattr(package_result, "status", None),

@@ -30,6 +30,7 @@ import uuid
 from dataclasses import dataclass, field
 
 from config.settings import settings
+from services import cover_style_assets as assets
 from services import cover_style_registry as registry
 from services import image_prompt_compiler as compiler
 from services.cover_style_edit import EditResult, edit_image
@@ -38,6 +39,7 @@ from services.cover_style_pipeline import (
     MODEL_MODE_CUSTOM,
     check_edit_allowed,
     cover_styles_enabled,
+    pipeline_mode,
     resolve_style_slot,
     slot_capabilities,
     uses_style_stage,
@@ -51,11 +53,18 @@ COVER_BASE_SUBMITTED = "COVER_BASE_SUBMITTED"
 COVER_BASE_RUNNING = "COVER_BASE_RUNNING"
 COVER_BASE_SUCCEEDED = "COVER_BASE_SUCCEEDED"
 COVER_BASE_FAILED = "COVER_BASE_FAILED"
+# ASAP-4 волна B (spec §2 B.1, T-4415): selection snapshot на старте cover
+# publication — до base generation и style edit (для medved_press видно до
+# image API). R17-safe: только id/числа/enum.
+COVER_STYLE_SELECTION = "COVER_STYLE_SELECTION"
 COVER_STYLE_START = "COVER_STYLE_START"
 COVER_STYLE_SUBMITTED = "COVER_STYLE_SUBMITTED"
 COVER_STYLE_RUNNING = "COVER_STYLE_RUNNING"
 COVER_STYLE_SUCCEEDED = "COVER_STYLE_SUCCEEDED"
 COVER_STYLE_FAILED = "COVER_STYLE_FAILED"
+# ASAP-4 волна B (spec §2 B.4, T-4419): видимый fail-open — ранний выход
+# Style stage с отдельной причиной (ничего не молчит).
+COVER_STYLE_SKIPPED = "COVER_STYLE_SKIPPED"
 COVER_RICH_PUBLISH_START = "COVER_RICH_PUBLISH_START"
 COVER_RICH_PUBLISH_SUCCEEDED = "COVER_RICH_PUBLISH_SUCCEEDED"
 COVER_RICH_PUBLISH_FAILED = "COVER_RICH_PUBLISH_FAILED"
@@ -70,6 +79,70 @@ RESULT_PLAIN = "plain_send_message"
 REASON_STYLE_FAILED = "style_failed"
 REASON_BASE_FAILED = "base_failed"
 REASON_RICH_FAILED = "rich_failed"
+# ── ASAP-4 волна B (spec §2 B.4, T-4419): distinct reason codes ранних
+# выходов. Каждый — отдельный reason/event; `style_failed` остаётся
+# umbrella'ом для provider-фейлов уже после реальной submission.
+REASON_NO_STYLE = "no_style"
+REASON_PROFILE_MISSING = "profile_missing"
+REASON_DISABLED = "disabled"
+REASON_CONNECTION_MISSING = "connection_missing"
+REASON_REFERENCE_MISSING = "reference_missing"
+REASON_CAPABILITY_UNKNOWN = "capability_unknown"
+REASON_NOT_CONFIGURED = "not_configured"
+REASON_NO_STYLE_STAGE = "style_stage_not_applicable"
+
+# Конфигурационные/ранние причины — проходят в mca_events reason_code как
+# есть (прод-факт Q14: `not_configured` больше не схлопывается в generic).
+STYLE_REASON_CODES = frozenset({
+    REASON_STYLE_FAILED, "edit_unsupported", REASON_NO_STYLE,
+    REASON_PROFILE_MISSING, REASON_DISABLED, REASON_CONNECTION_MISSING,
+    REASON_REFERENCE_MISSING, REASON_CAPABILITY_UNKNOWN,
+    REASON_NOT_CONFIGURED, REASON_NO_STYLE_STAGE,
+})
+
+
+def style_reason_code(reason: str) -> str:
+    """mca_events `reason_code` без generic-схлопывания (§2 B.4).
+
+    Конфигурационные/ранние причины — как есть; provider-фейлы после
+    реальной submission (timeout/network/http_*) — umbrella `style_failed`
+    (точная причина видна в `reason=` лога и meta.fail_reason).
+    """
+    reason = str(reason or "")
+    return reason if reason in STYLE_REASON_CODES else REASON_STYLE_FAILED
+
+
+# §43: человекочитаемые причины (run detail/Analytics; Wave E подключит UI).
+REASON_DETAILS_RU = {
+    REASON_NO_STYLE: "стиль не выбран («Без дополнительного стиля»)",
+    REASON_PROFILE_MISSING: "профиль стиля не найден",
+    REASON_DISABLED: "профиль стиля отключён",
+    "edit_unsupported": ("модель не умеет редактировать готовые изображения"),
+    REASON_CONNECTION_MISSING: ("подключение модели не найдено "
+                                "(удалено или недоступно)"),
+    REASON_REFERENCE_MISSING: ("референсы стиля недоступны "
+                               "(нет в реестре/файл отсутствует/повреждён)"),
+    REASON_CAPABILITY_UNKNOWN: ("возможности модели не определены "
+                                "(capability source неизвестен)"),
+    REASON_NOT_CONFIGURED: ("не настроены адрес/модель обработки "
+                            "(Connections layer)"),
+    REASON_NO_STYLE_STAGE: ("режим профиля без Style-стадии"),
+    REASON_STYLE_FAILED: ("обработка стилем не завершилась "
+                          "(ошибка провайдера)"),
+}
+
+
+def reason_detail_ru(reason: str) -> str:
+    """Человекочитаемая причина по reason-коду (§43; R17-safe — только коды)."""
+    return REASON_DETAILS_RU.get(str(reason or ""), "")
+
+
+def style_skip_status(reason: str) -> str:
+    """§43: формулировка run detail «Обработка стилем — не выполнена…»."""
+    detail = reason_detail_ru(reason)
+    if not detail:
+        return ""
+    return "Обработка стилем — не выполнена. Причина: %s." % detail
 
 # ── §48/§75: человекочитаемые RU-статусы ────────────────────────────────────
 RU_STYLE_FAILED = ("Обработка стилем не завершилась вовремя. "
@@ -121,6 +194,11 @@ SAFE_LOG_FIELDS = frozenset({
     "reference_count", "duration_ms", "latency_ms", "provider_task_id",
     "status", "fallback", "fallback_mode", "outcome", "reason", "attempt",
     "async_used", "reference_paths", "mode",
+    # ASAP-4 волна B (spec §2 B.1/B.4/B.5, T-4415/T-4418/T-4419): snapshot,
+    # integrity-метрики и prompt diagnostics — только id/числа/enum (R17).
+    "selection_source", "enabled", "pipeline_mode", "capability_state",
+    "reference_bytes_total", "instruction_chars", "brief_chars",
+    "compiled_chars", "limit_unit", "issue_present",
 })
 
 
@@ -145,6 +223,21 @@ def rich_degraded_enabled() -> bool:
     """§50/§51: разрешён degraded-режим «Rich без обложки» (env-only, default ON)."""
     try:
         return bool(getattr(settings, "COVER_RICH_DEGRADED_ENABLED", True))
+    except Exception:
+        return True
+
+
+def snapshot_enabled() -> bool:
+    """ASAP-4 волна B (spec §2/§8.2, ADR-1028-7 D6): kill-switch
+    `COVER_STYLE_SNAPSHOT_ENABLED` (env-only, default ON).
+
+    ON — selection snapshot + SELECTION event + видимый fail-open (distinct
+    reason codes, SKIPPED events, provenance при всех исходах, issue counter
+    только на реальные submissions). OFF — бит-в-бит прежний контур волны
+    EXTRA/ASAP-3.2: без snapshot/SELECTION, тихие ранние выходы, прежний
+    порядок вызовов (parity-тест)."""
+    try:
+        return bool(getattr(settings, "COVER_STYLE_SNAPSHOT_ENABLED", True))
     except Exception:
         return True
 
@@ -539,6 +632,190 @@ async def load_selected_profile(chat_id: int, pg=None) -> dict | None:
     return await registry.get_profile_with_refs(obj, style_id)
 
 
+# ── ASAP-4 волна B: selection snapshot (spec §2 B.1, T-4415, ADR-1028-7 D6) ──
+
+KEY_SELECTED_STYLE_PARAM = "prompts.summary_cover_style_id"
+
+
+async def _selection_source(chat_id: int) -> str:
+    """Источник выбора (§36): `chat` (per-chat override) | `global` | `none`.
+
+    Зеркалит резолв `resolve_selected_style_id` (override чата → global),
+    не вычисляя значение вторично из другого источника.
+    """
+    try:
+        from services import chat_params as cp
+        cache = cp.get_chat_params_cache()
+        root = await cache.get_chat_params(chat_id) if cache else {}
+        override = str((root.get("overrides") or {}).get(
+            KEY_SELECTED_STYLE_PARAM) or "").strip()
+        if override:
+            return "chat"
+        from services import hot_config as hot
+        if str(hot.get(KEY_SELECTED_STYLE_PARAM, "") or "").strip():
+            return "global"
+    except Exception:
+        return "none"
+    return "none"
+
+
+async def resolve_selection(chat_id: int, pg=None) -> dict:
+    """ЕДИНАЯ точка резолва стиля на run (§36, R4-B-001).
+
+    В начале cover publication фиксируется snapshot:
+    `chat_id / selected_style_id / style_revision / selection_source
+    (chat|global|none) / enabled / pipeline_mode` + профиль (internal carry,
+    в событие не попадает). Повторная резолюция style ID в конце run
+    запрещена — Style stage работает по этому снимку.
+    """
+    style_id = await resolve_selected_style_id(chat_id)
+    source = "none"
+    profile = None
+    if style_id:
+        source = await _selection_source(chat_id)
+        obj = pg if pg is not None else _pg()
+        if _pool(obj) is not None:
+            try:
+                profile = await registry.get_profile_with_refs(obj, style_id)
+            except Exception:
+                profile = None
+    return {
+        "chat_id": chat_id,
+        "selected_style_id": style_id or None,
+        "style_revision": (profile or {}).get("revision"),
+        "selection_source": source,
+        "enabled": bool((profile or {}).get("enabled")),
+        "pipeline_mode": pipeline_mode(profile),
+        "_profile": profile,
+    }
+
+
+def emit_style_selection(snapshot: dict, *, run_id: str | None = None) -> None:
+    """`COVER_STYLE_SELECTION` (§37, R4-B-002): до base generation/style edit.
+
+    R17-safe: только chat_id/id/revision/enum/bool. Для выбранного
+    `medved_press` выбор виден до первого image API-вызова.
+    """
+    emit_cover_event(
+        COVER_STYLE_SELECTION, outcome="start", run_id=run_id,
+        chat_id=(snapshot or {}).get("chat_id"),
+        style_id=(snapshot or {}).get("selected_style_id"),
+        style_revision=(snapshot or {}).get("style_revision"),
+        selection_source=(snapshot or {}).get("selection_source"),
+        enabled=(snapshot or {}).get("enabled"),
+        pipeline_mode=(snapshot or {}).get("pipeline_mode"))
+
+
+async def selection_stage(chat_id: int, *, run_id: str | None = None,
+                          pg=None) -> dict | None:
+    """Snapshot + SELECTION event на старте cover publication (fail-open).
+
+    Kill-switch OFF (или резолв недоступен) → None — вызывающий идёт по
+    прежнему тихому контуру (бит-в-бит).
+    """
+    if not snapshot_enabled():
+        return None
+    try:
+        snapshot = await resolve_selection(chat_id, pg=pg)
+    except Exception:
+        return None
+    try:
+        emit_style_selection(snapshot, run_id=run_id)
+    except Exception:
+        pass
+    return snapshot
+
+
+async def profile_for_snapshot(snapshot: dict,
+                               pg=None) -> tuple[dict | None, str]:
+    """Профиль из snapshot'а + причина раннего выхода ("" — причины нет).
+
+    Раздельные причины (§2 B.4): `no_style` (ничего не выбран) /
+    `profile_missing` (выбранный профиль удалён/PG недоступен) /
+    `disabled` (профиль выключен). Режим без Style-стадии — НЕ fail: виден
+    в SELECTION event (`pipeline_mode`).
+    """
+    snapshot = snapshot or {}
+    style_id = str(snapshot.get("selected_style_id") or "").strip()
+    if not style_id:
+        return None, REASON_NO_STYLE
+    profile = snapshot.get("_profile")
+    if profile is None:
+        obj = pg if pg is not None else _pg()
+        if _pool(obj) is not None:
+            try:
+                profile = await registry.get_profile_with_refs(obj, style_id)
+            except Exception:
+                profile = None
+    if profile is None:
+        return None, REASON_PROFILE_MISSING
+    if not profile.get("enabled"):
+        return None, REASON_DISABLED
+    return profile, ""
+
+
+async def report_style_skip(snapshot: dict, *, summary_run_id: str | None,
+                            reason: str,
+                            base_asset_id: str | None = None) -> None:
+    """Видимый fail-open (§42–§44, T-4419): SKIPPED event + provenance.
+
+    Публикация не ломается (base уходит как есть), но причина видна:
+    отдельный `COVER_STYLE_SKIPPED` с reason + human-перевод в логе.
+    Потеря ВЫБРАННОГО стиля (profile_missing/disabled) — WARNING;
+    `no_style` (ничего не выбрано — штатная конфигурация, источник виден в
+    COVER_STYLE_SELECTION `selection_source=none`) — INFO без спама.
+    Provenance base_fallback — только при выбранном стиле; issue counter
+    НЕ расходуется (submission не было)."""
+    snapshot = snapshot or {}
+    detail = reason_detail_ru(reason)
+    level = logging.INFO if reason == REASON_NO_STYLE else logging.WARNING
+    emit_cover_event(
+        COVER_STYLE_SKIPPED, outcome="skipped", level=level,
+        run_id=summary_run_id, chat_id=snapshot.get("chat_id"),
+        style_id=snapshot.get("selected_style_id"),
+        style_revision=snapshot.get("style_revision"),
+        reason=reason, reason_code=style_reason_code(reason),
+        fallback=(REASON_STYLE_FAILED
+                  if snapshot.get("selected_style_id") else None))
+    if detail:
+        (logger.warning if level >= logging.WARNING else logger.info)(
+            "summary cover: style not applied | chat_id=%s | reason=%s | "
+            "detail=%s", snapshot.get("chat_id"), reason, detail)
+    if not snapshot.get("selected_style_id"):
+        return
+    await _record_provenance(
+        _pg(), {
+            "style_id": snapshot.get("selected_style_id"),
+            "style_revision": snapshot.get("style_revision"),
+            "issue_number": None,
+            "base_asset_id": base_asset_id, "final_asset_id": None,
+            "provider": "", "model": "",
+        }, summary_run_id=summary_run_id, job_id=None, snapshot=None,
+        status=registry.PROVENANCE_BASE, fallback_mode=reason,
+        mode=MODE_PRODUCTION)
+
+
+async def record_no_cover_provenance(snapshot: dict, *,
+                                     summary_run_id: str | None) -> None:
+    """§44: provenance `no_cover` — base generation не удалась (видимый исход).
+
+    Только при выбранном стиле (есть что записать); fail-open.
+    """
+    snapshot = snapshot or {}
+    if not snapshot.get("selected_style_id"):
+        return
+    await _record_provenance(
+        _pg(), {
+            "style_id": snapshot.get("selected_style_id"),
+            "style_revision": snapshot.get("style_revision"),
+            "issue_number": None,
+            "base_asset_id": None, "final_asset_id": None,
+            "provider": "", "model": "",
+        }, summary_run_id=summary_run_id, job_id=None, snapshot=None,
+        status=registry.PROVENANCE_NONE, fallback_mode=REASON_BASE_FAILED,
+        mode=MODE_PRODUCTION)
+
+
 async def _resolve_reference_paths(pg, profile: dict) -> list[str]:
     paths: list[str] = []
     obj = pg if pg is not None else _pg()
@@ -556,6 +833,102 @@ async def _resolve_reference_paths(pg, profile: dict) -> list[str]:
         if disk_path and os.path.exists(str(disk_path)):
             paths.append(str(disk_path))
     return paths
+
+
+# ── ASAP-4 волна B: reference integrity (spec §2 B.4 §45, T-4418, R4-B-010) ──
+
+_IMAGE_SIGNATURES = (
+    (b"\x89PNG\r\n\x1a\n", {"image/png"}),
+    (b"\xff\xd8", {"image/jpeg"}),
+    (b"RIFF", {"image/webp"}),      # + "WEBP" по offset 8
+)
+
+
+def _image_signature_ok(head: bytes, mime: str) -> bool:
+    """Магические байты соответствуют заявленному MIME (§45 «изображение
+    читаемо»; R17-safe — проверяются байты, контент не логируется)."""
+    if mime == "image/webp":
+        return head[:4] == b"RIFF" and head[8:12] == b"WEBP"
+    for signature, mimes in _IMAGE_SIGNATURES:
+        if head.startswith(signature) and mime in mimes:
+            return True
+    return False
+
+
+async def _resolve_reference_details(pg, profile: dict) -> list[dict]:
+    """Целостность референсов (§45): DB-row / файл / MIME / читаемость / байты.
+
+    Возвращает по записи на каждый референс профиля (R17-safe: asset_id +
+    булевы + размер, без контента). `path` — только у готовых к отправке.
+    """
+    obj = pg if pg is not None else _pg()
+    details: list[dict] = []
+    for ref in (profile.get("references") or []):
+        entry = {"asset_id": ref.get("asset_id"), "db_row": False,
+                 "file": False, "mime_ok": False, "readable": False,
+                 "bytes": 0, "path": None}
+        asset_id = ref.get("asset_id")
+        if asset_id and obj is not None:
+            try:
+                asset = await registry.get_asset(obj, asset_id)
+            except Exception:
+                asset = None
+            if asset:
+                entry["db_row"] = True
+                entry["mime_ok"] = str(asset.get("mime") or "") \
+                    in assets.ALLOWED_MIME
+                disk_path = asset.get("disk_path")
+                if disk_path and os.path.exists(str(disk_path)):
+                    entry["file"] = True
+                    try:
+                        with open(disk_path, "rb") as handle:
+                            head = handle.read(16)
+                        entry["bytes"] = os.path.getsize(disk_path)
+                        entry["readable"] = _image_signature_ok(
+                            head, str(asset.get("mime") or ""))
+                        if entry["readable"]:
+                            entry["path"] = str(disk_path)
+                    except OSError:
+                        entry["readable"] = False
+        details.append(entry)
+    return details
+
+
+async def profile_diagnostics(pg, profile: dict, *,
+                              connection: dict | None = None) -> dict:
+    """Чек-лист полей профиля §41 (T-4418, R4-B-006) — R17-safe.
+
+    profile_id/revision/enabled/pipeline_mode/connection/provider/model/
+    capability image_edit/reference count/file readable/instruction/counter.
+    Секретов нет (api_key не читается вовсе — только наличие записи
+    подключения резолвится выше по `connection_status`).
+    """
+    profile = profile or {}
+    slot = resolve_style_slot(profile=profile, connection=connection)
+    caps = slot_capabilities(profile=profile, connection=connection)
+    refs = await _resolve_reference_details(pg, profile)
+    return {
+        "profile_id": profile.get("profile_id"),
+        "revision": profile.get("revision"),
+        "enabled": bool(profile.get("enabled")),
+        "pipeline_mode": pipeline_mode(profile),
+        "connection_id": slot.get("connection_id"),
+        "connection_configured": bool(slot.get("configured")),
+        "custom_unresolved": bool(slot.get("custom_unresolved")),
+        "provider": slot.get("provider") or "",
+        "model": slot.get("model") or "",
+        "capability_image_edit": caps.image_edit,
+        "capability_source": caps.source,
+        "references": {
+            "configured": len(profile.get("references") or []),
+            "ready": sum(1 for d in refs if d.get("readable")),
+            "bytes_total": sum(d.get("bytes") or 0 for d in refs),
+            "details": refs,
+        },
+        "instruction_chars": len(str(profile.get("instruction") or "")),
+        "counter_enabled": bool(profile.get("counter_enabled")),
+        "counter_value": profile.get("counter_value"),
+    }
 
 
 # ── prompt compilation (§19–§21) ────────────────────────────────────────────
@@ -689,8 +1062,17 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
     §19/§21: prompt собирается из base style prompt + dynamic cover brief
     (компактный сюжет из Summary-prose `summary_text`), инструкции профиля,
     runtime-номера выпуска и описаний референсов — `compile_style_prompt`.
+
+    ASAP-4 волна B (spec §2 B.4/B.5, T-4418/T-4419; `snapshot_enabled()`):
+    ON — pre-execution конфигурационные фейлы (`connection_missing`/
+    `edit_unsupported`/`not_configured`/`reference_missing`) выходят РАНЬШЕ
+    assignment'а номера выпуска (counter не расходуется на не-submission),
+    reference integrity §45 + метрики, prompt diagnostics §46; mca_events
+    `reason_code` не схлопывается в generic `style_failed`. OFF — прежний
+    порядок и прежние события бит-в-бит (parity-тест).
     """
     started = time.monotonic()
+    _wb = snapshot_enabled()
     # §43 restart-resume: восстановить state из durable `task_jobs`, если он не
     # передан вызывающим (process-local состояние сброшено рестартом).
     if state is None and db is not None and job_id:
@@ -707,6 +1089,9 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
         "duration_ms": 0, "cost_usd": None, "provider_task_id": None,
         "async_used": False, "mode": mode,
         "base_asset_id": None, "final_asset_id": None,
+        # Wave B (аддитивные диагностические ключи; None/OFF — не заполнено).
+        "capability_state": None, "reference_bytes_total": 0,
+        "reference_details": None, "prompt_diagnostics": None,
     }
     if not cover_styles_enabled():
         meta["reason"] = "cover_styles_disabled"
@@ -734,6 +1119,16 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
         except Exception:
             _connection = None
     slot = resolve_style_slot(profile=profile, connection=_connection)
+    if _wb and slot.get("custom_unresolved"):
+        # §40/B.4: профиль указывает на подключение, записи которого нет
+        # (удалено/PG недоступен) — ранний выход с честной причиной;
+        # default-слот молча не подставляется (edit уходит не на ту точку).
+        return await _style_failed(
+            meta, state, reason=REASON_CONNECTION_MISSING,
+            message=("Подключение модели не найдено. Проверьте «Настроить "
+                     "подключения →» в профиле стиля."),
+            run_id=correlation_id, job_id=job_id, chat_id=chat_id,
+            started=started, db=db)
     # §104: пер-подключение api_key (профиль секретов не хранит);
     # default-слот → прежний ключ `keys.image_style_api_key`.
     def _resolve_api_key() -> str:
@@ -760,6 +1155,7 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
     if caps is None:
         caps = slot_capabilities(profile=profile, discovery=discovery,
                                  endpoints=endpoints)
+    meta["capability_state"] = getattr(caps, "image_edit", None)
     allowed, message = check_edit_allowed(profile=profile, capabilities=caps)
     if not allowed:
         # §38: модель без image_edit — API не вызывается, base публикуется.
@@ -768,9 +1164,43 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
             run_id=correlation_id, job_id=job_id, chat_id=chat_id,
             started=started, db=db)
 
+    obj = pg if pg is not None else _pg()
+    ref_details = None
+    reference_bytes_total = 0
+    if _wb:
+        # §B.5 (T-4419): pre-execution конфигурационные проверки — ДО
+        # assignment'а выпуска (counter расходуется только на submission).
+        if not slot.get("configured"):
+            # Прод-факт Q14: `not_configured` за 72 мс — без edit API;
+            # честный reason без расхода нумерации (§45 owner'а).
+            return await _style_failed(
+                meta, state, reason=REASON_NOT_CONFIGURED,
+                message=("Модель обработки не настроена. Откройте «Настроить "
+                         "подключения →» и выберите модель с поддержкой "
+                         "edit."),
+                run_id=correlation_id, job_id=job_id, chat_id=chat_id,
+                started=started, db=db)
+        if reference_paths is None:
+            # §45 (T-4418): DB-row/file/MIME/readable до edit; метрики
+            # `reference_count`/`reference_bytes_total` — без контента.
+            ref_details = await _resolve_reference_details(obj, profile)
+            reference_paths = [d["path"] for d in ref_details
+                               if d.get("path") and d.get("readable")]
+            reference_bytes_total = sum(d.get("bytes") or 0
+                                        for d in ref_details)
+            if (profile.get("references") or []) and not reference_paths:
+                return await _style_failed(
+                    meta, state, reason=REASON_REFERENCE_MISSING,
+                    message=("Референсы стиля недоступны. Загрузите референс "
+                             "заново."),
+                    run_id=correlation_id, job_id=job_id, chat_id=chat_id,
+                    started=started, db=db)
+    meta["reference_bytes_total"] = reference_bytes_total
+    meta["reference_details"] = ref_details
+    ref_paths = reference_paths
+
     # §27/§28: pin номера выпуска к Summary run (production).
     issue_no = None
-    obj = pg if pg is not None else _pg()
     if mode == MODE_PRODUCTION and profile.get("counter_enabled") \
             and summary_run_id and obj is not None:
         try:
@@ -783,10 +1213,11 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
     issue_display = (registry.format_issue(counter_format, issue_no)
                      if issue_no is not None
                      else registry.preview_issue_display(counter_format))
-
-    ref_paths = reference_paths
-    if ref_paths is None:
-        ref_paths = await _resolve_reference_paths(obj, profile)
+    if not _wb:
+        # OFF (legacy): прежний порядок — refs резолвятся после issue.
+        ref_paths = reference_paths
+        if ref_paths is None:
+            ref_paths = await _resolve_reference_paths(obj, profile)
     snapshot = registry.build_revision_snapshot(
         profile, issue_number=issue_no, capabilities=caps.as_dict(),
         slot=slot)
@@ -796,13 +1227,46 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
     compiled = compile_style_prompt(
         profile, issue_display=issue_display, capabilities=caps,
         base_style_prompt=base_style_prompt or "", brief=brief)
-    emit_cover_event(
-        COVER_STYLE_SUBMITTED, outcome="start", run_id=correlation_id,
-        job_id=job_id, chat_id=chat_id, model=meta["model"],
-        provider=meta["provider"], prompt_len=len(compiled.prompt),
-        prompt_hash=prompt_hash(compiled.prompt),
-        reference_count=len(ref_paths), issue_number=issue_no,
-        fallback=(",".join(compiled.dropped) if compiled.dropped else None))
+    if _wb:
+        # §46 (T-4418): prompt compilation diagnostics (safe-числа/флаги).
+        brief_text = brief.render() if brief is not None else ""
+        meta["prompt_diagnostics"] = {
+            "instruction_chars": len(str(profile.get("instruction") or "")),
+            "brief_chars": len(brief_text),
+            "issue_present": bool(issue_display in compiled.prompt),
+            "references_count": len(ref_paths),
+            "compiled_chars": len(compiled.prompt),
+            "limit_unit": (str(compiled.limit) if compiled.limit is not None
+                           else "unknown") + ":" + str(compiled.unit),
+            "dropped_sections": list(compiled.dropped),
+        }
+    if _wb:
+        # §46: безопасные diagnostics в событии (числа/флаги, R17-safe).
+        diag = meta.get("prompt_diagnostics") or {}
+        emit_cover_event(
+            COVER_STYLE_SUBMITTED, outcome="start", run_id=correlation_id,
+            job_id=job_id, chat_id=chat_id, model=meta["model"],
+            provider=meta["provider"], prompt_len=len(compiled.prompt),
+            prompt_hash=prompt_hash(compiled.prompt),
+            reference_count=len(ref_paths), issue_number=issue_no,
+            reference_bytes_total=reference_bytes_total,
+            capability_state=meta.get("capability_state"),
+            instruction_chars=diag.get("instruction_chars"),
+            brief_chars=diag.get("brief_chars"),
+            compiled_chars=diag.get("compiled_chars"),
+            limit_unit=diag.get("limit_unit"),
+            issue_present=diag.get("issue_present"),
+            fallback=(",".join(compiled.dropped)
+                      if compiled.dropped else None))
+    else:
+        emit_cover_event(
+            COVER_STYLE_SUBMITTED, outcome="start", run_id=correlation_id,
+            job_id=job_id, chat_id=chat_id, model=meta["model"],
+            provider=meta["provider"], prompt_len=len(compiled.prompt),
+            prompt_hash=prompt_hash(compiled.prompt),
+            reference_count=len(ref_paths), issue_number=issue_no,
+            fallback=(",".join(compiled.dropped)
+                      if compiled.dropped else None))
 
     caller = edit_call
     if caller is None:
@@ -910,13 +1374,20 @@ async def _style_failed(meta: dict, state, *, reason: str, message: str,
     if state is not None:
         state.mark(STATE_STYLE_FAILED, note=reason)
         await _persist_state(db, job_id, state)
+    if snapshot_enabled():
+        # ASAP-4 волна B (§2 B.4): mca_events reason_code перестаёт
+        # схлопывать конкретную причину в generic `style_failed`
+        # (прод-факт Q14: `not_configured` был невидим в Analytics).
+        code = style_reason_code(reason)
+    else:
+        code = (reason if reason in ("style_failed", "edit_unsupported")
+                else REASON_STYLE_FAILED)
     emit_cover_event(
         COVER_STYLE_FAILED, outcome="failed", level=logging.WARNING,
         run_id=run_id, job_id=job_id, chat_id=chat_id, model=meta["model"],
         provider=meta["provider"], duration_ms=meta["duration_ms"],
         reason=reason, fallback=REASON_STYLE_FAILED,
-        reason_code=(reason if reason in ("style_failed", "edit_unsupported")
-                     else REASON_STYLE_FAILED),
+        reason_code=code,
         style_id=meta["style_id"], issue_number=meta.get("issue_number"))
     return meta
 
@@ -970,17 +1441,25 @@ def _elapsed(started: float) -> int:
 
 __all__ = [
     "COVER_PIPELINE_START", "COVER_BASE_SUBMITTED", "COVER_BASE_RUNNING",
-    "COVER_BASE_SUCCEEDED", "COVER_BASE_FAILED", "COVER_STYLE_START",
+    "COVER_BASE_SUCCEEDED", "COVER_BASE_FAILED", "COVER_STYLE_SELECTION",
+    "COVER_STYLE_SKIPPED", "COVER_STYLE_START",
     "COVER_STYLE_SUBMITTED", "COVER_STYLE_RUNNING", "COVER_STYLE_SUCCEEDED",
     "COVER_STYLE_FAILED", "COVER_RICH_PUBLISH_START",
     "COVER_RICH_PUBLISH_SUCCEEDED", "COVER_RICH_PUBLISH_FAILED",
     "COVER_PLAIN_FALLBACK", "COVER_PIPELINE_DONE", "RESULT_STYLED",
     "RESULT_BASE", "RESULT_NONE", "RESULT_PLAIN", "REASON_STYLE_FAILED",
-    "REASON_BASE_FAILED", "REASON_RICH_FAILED", "RU_STYLE_FAILED",
+    "REASON_BASE_FAILED", "REASON_RICH_FAILED", "REASON_NO_STYLE",
+    "REASON_PROFILE_MISSING", "REASON_DISABLED", "REASON_CONNECTION_MISSING",
+    "REASON_REFERENCE_MISSING", "REASON_CAPABILITY_UNKNOWN",
+    "REASON_NOT_CONFIGURED", "REASON_NO_STYLE_STAGE", "RU_STYLE_FAILED",
     "RU_BASE_FAILED", "RU_RICH_FAILED", "CoverJobState", "start_cover_job",
     "finish_cover_job", "save_cover_state", "load_cover_state",
     "begin_cover_job", "cover_job_key", "run_style_job",
     "run_style_preview", "classify_cover_result", "build_timeline",
     "record_latency", "latency_stats", "record_cost", "cost_summary",
     "reset_metrics", "emit_cover_event", "prompt_hash", "compile_style_prompt",
+    "snapshot_enabled", "resolve_selection", "emit_style_selection",
+    "selection_stage", "profile_for_snapshot", "report_style_skip",
+    "record_no_cover_provenance", "style_reason_code", "reason_detail_ru",
+    "style_skip_status", "profile_diagnostics", "resolve_selected_style_id",
 ]

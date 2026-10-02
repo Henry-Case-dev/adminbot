@@ -141,6 +141,68 @@ def _asap32_flags_off_by_default(request, monkeypatch):
                 monkeypatch.setattr(_cls, _name, False)
 
 
+@pytest.fixture(autouse=True)
+def _asap4_flags_off_by_default(request, monkeypatch):
+    """Изоляция ASAP-4 (round 1029, ADR-1028-7): старые тесты (без маркера
+    ``asap4``) идут по прежним embed-путям — Embedding Control Plane OFF
+    (бит-в-бит legacy: 21-аттемпный каскад llm_client+summary_memory,
+    honest-terminal rebuild, статические batch/sleep). Тесты новой
+    функциональности помечаются ``@pytest.mark.asap4`` и работают с
+    прод-дефолтами (ON), точечно доопределяя флаги сценарием. Прецедент —
+    ``_asap32_flags_off_by_default``.
+
+    Волна D (T-4431/T-4432): review-флаги OFF для ВСЕХ не-asap4 тестов,
+    ВКЛЮЧАЯ asap3/asap31/asap32 (их каркас мокает ``run_l2``/LLM-канал —
+    bounded review loop с мок-каналом давал бы ложные review_degraded
+    пути; прод-дефолт остаётся ON)."""
+    asap4 = request.node.get_closest_marker("asap4") is not None
+    legacy_asap = (request.node.get_closest_marker("asap32") is not None
+                   or request.node.get_closest_marker("asap31") is not None
+                   or request.node.get_closest_marker("asap3") is not None)
+    if asap4:
+        return
+    import config.settings as _cs
+    from config.settings import Settings
+    import services.direct_chat_service as _dcs
+    # ВАЖНО (asap-4): test_settings_worker_sync (S10.18-10) после reload
+    # восстанавливает `config.settings.settings = orig` — исходный инстанс
+    # ПЕРВОНАЧАЛЬНОГО класса, тогда как модульный атрибут `Settings`
+    # указывает на пересозданный reload'ом класс. Патчим ОБА класса (плюс
+    # класс direct_chat_service), иначе `_flag()` читает непатченный C1.
+    classes = {Settings, type(_cs.settings), type(_dcs.settings)}
+    for _cls in classes:
+        if not legacy_asap:
+            for _name in (
+                "EMBED_CONTROL_PLANE_ENABLED",
+                "EMBED_QUOTA_GROUP_COOLDOWN_ENABLED",
+                "EMBED_PRIORITY_SCHEDULER_ENABLED",
+                "EMBED_ADAPTIVE_CONCURRENCY_ENABLED",
+                # asap-4 волна B (COVER Style production path): старые тесты —
+                # бит-в-бит прежний контур (без snapshot/SELECTION/видимых
+                # fail-open выходов); ON — только asap4-маркированные тесты.
+                "COVER_STYLE_SNAPSHOT_ENABLED",
+                # asap-4 волна C (Summary full-window, spec §3/§8.2): старые
+                # тесты — бит-в-бит прежние контуры (too_many_facts → invalid;
+                # §50.20-матрица quote-валидатора; тихий XML hard stop); ON —
+                # только asap4-маркированные тесты.
+                "SUMMARY_L1_CAPACITY_GUARD_ENABLED",
+                "SUMMARY_QUOTE_REPAIR_ENABLED",
+                "SUMMARY_LEGACY_FULL_WINDOW_ENABLED",
+                # asap-4 волна E (Pipeline Analytics, spec §5/§8.2): старые
+                # тесты — без стадийных событий SUMMARY_* (бит-в-бит прежний
+                # контур; ON — только asap4-маркированные тесты).
+                "SUMMARY_PIPELINE_EVENTS_ENABLED",
+            ):
+                if hasattr(_cls, _name):
+                    monkeypatch.setattr(_cls, _name, False)
+        # asap-4 волна D (Hybrid L2 Writer/Reviewer, spec §4/§8.2): OFF для
+        # всех не-asap4 тестов (single-call L2, бит-в-бит).
+        for _name in ("SUMMARY_L2_REVIEW_ENABLED",
+                      "SUMMARY_REVISION_PATCH_ENABLED"):
+            if hasattr(_cls, _name):
+                monkeypatch.setattr(_cls, _name, False)
+
+
 
 @pytest.fixture
 def mock_bot():

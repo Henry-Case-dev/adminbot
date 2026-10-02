@@ -786,6 +786,104 @@ class Settings:
     # состоянии (первое появление/смена состояния — WARNING всегда).
     GRAPHRAG_GEN_WARN_COOLDOWN_SECONDS: ClassVar[float] = _env_float(
         "GRAPHRAG_GEN_WARN_COOLDOWN_SECONDS", 300.0)
+    # ── ASAP-4 волна A (ADR-1028-7 D1/AM-1, spec §1/§8.2) — Embedding
+    # Control Plane. Все ключи env-only; default ON, OFF = бит-в-бит прежний
+    # контур (21-аттемпный каскад llm_client+summary_memory, honest-terminal
+    # rebuild). Единственный default-OFF — EMBED_ASYNC_BATCH_ENABLED.
+    EMBED_CONTROL_PLANE_ENABLED: ClassVar[bool] = _env_bool(
+        "EMBED_CONTROL_PLANE_ENABLED", True)
+    EMBED_QUOTA_GROUP_COOLDOWN_ENABLED: ClassVar[bool] = _env_bool(
+        "EMBED_QUOTA_GROUP_COOLDOWN_ENABLED", True)
+    EMBED_PRIORITY_SCHEDULER_ENABLED: ClassVar[bool] = _env_bool(
+        "EMBED_PRIORITY_SCHEDULER_ENABLED", True)
+    EMBED_ADAPTIVE_CONCURRENCY_ENABLED: ClassVar[bool] = _env_bool(
+        "EMBED_ADAPTIVE_CONCURRENCY_ENABLED", True)
+    EMBED_ASYNC_BATCH_ENABLED: ClassVar[bool] = _env_bool(
+        "EMBED_ASYNC_BATCH_ENABLED", False)   # gated; live-верификация ДО включения (§16)
+    # Developer bounds (§19/§20/§33 — advanced-настройки, обычному админу
+    # менять не нужно; AIMD живёт внутри них):
+    EMBED_CONCURRENCY_MIN: ClassVar[int] = _env_int_min(
+        "EMBED_CONCURRENCY_MIN", 1, 1)
+    EMBED_CONCURRENCY_MAX: ClassVar[int] = _env_int_min(
+        "EMBED_CONCURRENCY_MAX", 4, 1)
+    EMBED_BATCH_MIN: ClassVar[int] = _env_int_min("EMBED_BATCH_MIN", 8, 1)
+    EMBED_BATCH_MAX: ClassVar[int] = _env_int_min("EMBED_BATCH_MAX", 50, 1)
+    # ADR-1028-7 AM-1: bounded retry horizon (wall-clock pause-циклов) —
+    # исчерпание → terminal failed (критерий §25).
+    EMBED_RETRY_HORIZON_HOURS: ClassVar[float] = _env_float_min(
+        "EMBED_RETRY_HORIZON_HOURS", 24.0, 0.1)
+    # Spec A.2: честный Retry-After — hard safety ceiling (НЕ min(30, 8)).
+    EMBED_RETRY_AFTER_CEILING_SECONDS: ClassVar[float] = _env_float_min(
+        "EMBED_RETRY_AFTER_CEILING_SECONDS", 300.0, 1.0)
+    # Провайдер часто не отдаёт Retry-After (прод-факт Q4) — дефолт-кулдаун
+    # для RPM/unknown-класса; developer bound, не магический процент.
+    EMBED_RATE_LIMIT_DEFAULT_COOLDOWN_SECONDS: ClassVar[float] = _env_float_min(
+        "EMBED_RATE_LIMIT_DEFAULT_COOLDOWN_SECONDS", 20.0, 1.0)
+    # §21: граница burst-pressure vs quota-unavailable (429 + RA > порога
+    # или daily/spend-класс → group exhausted, не лечится concurrency).
+    EMBED_BURST_PRESSURE_MAX_RA_SECONDS: ClassVar[float] = _env_float_min(
+        "EMBED_BURST_PRESSURE_MAX_RA_SECONDS", 60.0, 1.0)
+    # §12: произвольный пул credentials БЕЗ новых env-переменных на ключ —
+    # добавочные ключи списком (запятая/точка-с-запятой; R17: значения не
+    # логируются). Три нынешних ключа остаются entries (primary + fallback1/2).
+    EMBEDDING_EXTRA_API_KEYS: ClassVar[str] = _env_str(
+        "EMBEDDING_EXTRA_API_KEYS", "")
+    # §5 лестница, шаг 3: явный developer-label квота-групп по алиасам
+    # («primary:g1,fallback_1:g1,fallback_2:g2»). Без labels все ключи
+    # остаются `unknown` = ОДНА общая группа (safe default, прод-факт Q1).
+    EMBEDDING_QUOTA_GROUP_LABELS: ClassVar[str] = _env_str(
+        "EMBEDDING_QUOTA_GROUP_LABELS", "")
+    # Gemini-факт (§14): input ≤ 2048 token/item — lossless сегментация до
+    # embed (silent truncation запрещён). Значение — capability адаптера,
+    # здесь только дефолт для OpenAI-compatible без метаданных.
+    EMBED_DEFAULT_TOKEN_LIMIT_PER_ITEM: ClassVar[int] = _env_int_min(
+        "EMBED_DEFAULT_TOKEN_LIMIT_PER_ITEM", 2048, 128)
+    # ── ASAP-4 волна B (ADR-1028-7 D6, spec §2/§8.2) — Cover Style
+    # production path. env-only, default ON; OFF = бит-в-бит прежний контур:
+    # без selection snapshot/COVER_STYLE_SELECTION и без видимых fail-open
+    # выходов (SKIPPED/distinct reason codes/provenance-on-skip) — события
+    # COVER_* и порядок вызовов ровно как до волны B (parity-тест).
+    COVER_STYLE_SNAPSHOT_ENABLED: ClassVar[bool] = _env_bool(
+        "COVER_STYLE_SNAPSHOT_ENABLED", True)
+    # ── ASAP-4 волна C (ADR-1028-7 D7, spec §3/§8.2) — Summary full-window.
+    # env-only, default ON; OFF = бит-в-бит прежний контур:
+    #   * SUMMARY_L1_CAPACITY_GUARD_ENABLED — OFF: too_many_facts → invalid →
+    #     fallback package (прод-кейс Q17: 31+ фактов гильотинили весь L1);
+    #   * SUMMARY_QUOTE_REPAIR_ENABLED — OFF: прежняя validator-матрица
+    #     (§50.20: именная цитата reject даже при найденном тексте);
+    #   * SUMMARY_LEGACY_FULL_WINDOW_ENABLED — OFF: тихий XML 50k hard stop
+    #     (прод: 307/688 сообщений молча).
+    SUMMARY_L1_CAPACITY_GUARD_ENABLED: ClassVar[bool] = _env_bool(
+        "SUMMARY_L1_CAPACITY_GUARD_ENABLED", True)
+    SUMMARY_QUOTE_REPAIR_ENABLED: ClassVar[bool] = _env_bool(
+        "SUMMARY_QUOTE_REPAIR_ENABLED", True)
+    SUMMARY_LEGACY_FULL_WINDOW_ENABLED: ClassVar[bool] = _env_bool(
+        "SUMMARY_LEGACY_FULL_WINDOW_ENABLED", True)
+    # ── ASAP-4 волна D (ADR-1028-7 D3/D5, spec §4/§8.2) — Hybrid L2
+    # Writer/Reviewer bounded revision (SUPERSEDE «L2 correction retry НЕ
+    # вводится»). env-only, default ON; OFF = бит-в-бит прежний контур:
+    #   * SUMMARY_L2_REVIEW_ENABLED — master: OFF → L2 без Reviewer/Revision
+    #     (invalid → Legacy немедленно, single-call; old prompt живёт как
+    #     legacy-вариант миграции PREV_*_R1028_ASAP4);
+    #   * SUMMARY_REVISION_PATCH_ENABLED — OFF → revision полным документом
+    #     (если master ON; деградация НЕ до Legacy, обе ветки bounded).
+    SUMMARY_L2_REVIEW_ENABLED: ClassVar[bool] = _env_bool(
+        "SUMMARY_L2_REVIEW_ENABLED", True)
+    SUMMARY_REVISION_PATCH_ENABLED: ClassVar[bool] = _env_bool(
+        "SUMMARY_REVISION_PATCH_ENABLED", True)
+    # ── ASAP-4 волна E (ADR-1028-7 D8, spec §5 E.1/§8.2) — Pipeline
+    # Analytics. env-only, default ON; OFF → стадийные события пайплайна
+    # Саммари не эмитятся в mca_events, Run Inspector строит вид из
+    # state-проекций (in-memory снапшоты прогона + события COVER_* волны B).
+    # Δ каталога = 0 (env-only ClassVar, как соседние флаги волн).
+    SUMMARY_PIPELINE_EVENTS_ENABLED: ClassVar[bool] = _env_bool(
+        "SUMMARY_PIPELINE_EVENTS_ENABLED", True)
+    # Developer bounds планировщика L1 (§52: source size/messages/reply
+    # density/expected facts/output reserve). Δ каталога = 0 (env-only).
+    SUMMARY_L1_TARGET_FACTS_PER_CHUNK: ClassVar[int] = _env_int_min(
+        "SUMMARY_L1_TARGET_FACTS_PER_CHUNK", 24, 4)
+    SUMMARY_L1_FACT_DENSITY_MESSAGES_PER_FACT: ClassVar[int] = _env_int_min(
+        "SUMMARY_L1_FACT_DENSITY_MESSAGES_PER_FACT", 12, 1)
     # ── Раунд 10.24 (F12, ADR-1024-4 D1/D2): env-only ClassVar-рубильники
     # универсального payload изображений и капа промпта обложки. Δ каталога = 0.
     #   * IMAGE_MODEL_COMPAT_ENABLED — ON: POST-тело строго
@@ -2472,7 +2570,7 @@ settings = Settings()
 # S4 (10.26, ADR-1026-6 D1–D6): bump 2.58.22 → 2.58.23 — новый рантайм-модуль
 # `services/summary_fact_package.py` (детерминированный «пакет фактов §96»,
 # 0 LLM-вызовов; Δ каталога=0, Δ DDL=0; в живой путь НЕ врезан — GATED S5/S6).
-APP_VERSION = "2.58.44"   # mca-22-attribution-memory-coherence round1029 (memory-context-autonomy, spec C4B4043E + ADR-1028-6 D1-D10, Risk R3): атрибуция/когерентность памяти — canonical envelope (CanonicalMessage DTO + batch-projection, рендер reply/quote/forward), bot output ledger mca_bot_outputs (SQLite v22, аддитивно/идемпотентно, append-only, только доставленное: direct_reply/autonomous_reply/rich_message/media_caption), quote resolver (лестница 1-7 в прод-пути, metadata-first, ambiguous — автор не выдумывается), claim envelope (speaker≠subject, negation-guard, без fallback subject=sender), correction revalidation (contradicts-EvidenceLink по provenance-фактам), freshness guard (update-dedup TTL 24h развязан с legacy-флагами, duplicate guard bounded-1, permit-leak закрыт), 2 admin API /memory/attribution/trace|metrics, reason_code +12, 4 kill-switch MCA_CANONICAL_ATTRIBUTION_ENABLED/MCA_BOT_OUTPUT_LEDGER_ENABLED/MCA_RESPONSE_FRESHNESS_GUARD_ENABLED/MCA_CORRECTION_REVALIDATION_ENABLED env-only default ON, каталог 488 (Δ=0), PG no-op. Откат: soft 4 env-рубильника (legacy-паритет), cold git revert (v22 аддитивна — старый код её не читает). | Предыдущая: HOTFIX cover-style-save-hotfix round1029 (cover style select → «save failed», Risk R1, backend-only): реставрация задуманного контракта записи per-chat выбора стиля — (1) pg=_pg(cache) в set_chat_params (без него ChatLorePgUnavailable → 503 «save failed» на КАЖДЫЙ выбор); (2) namespace-форма {"overrides": …} + read-modify-write (плоский ключ set_chat_params выбрасывал молча → ложный 200 без записи; namespace заменяется целиком — RMW защищает прочие per-chat overrides); (3) снятие выбора = pop override → работает resolve-чейн override → hot → default (DC-5), без хард-пина «нет стиля»; (4) guard fail-open чтения ({} при PG-сбое) → честный 503, деструктивная запись поверх чужих данных исключена. UI (web/app.js) не менялся; 6 regression-тестов с RED-on-pre-fix; Δ каталога = 0, Δ DDL = 0, PG no-op; bump 2.58.42->2.58.43. | Ранее mca-05-episodes-stories round1027 (memory-context-autonomy Wave 2, spec 8177CB0F + ADR-1027-12 D1-D13, Risk R2; deploy DEFERRED_TO_RELEASE): Episode/Story-модель (mca_episodes/mca_stories/mca_story_versions/mca_story_episode_links/mca_story_continuations/mca_story_redirects/mca_story_legacy_links, SQLite v21 через реестр mca-14 — аддитивно/идемпотентно, PG no-op; lore_stories не тронуты); EpisodeService — единственный владелец пайплайна и записи (single-writer mca-01, короткие транзакции, чтение/LLM/запись разделены); детерминированная сегментация (время/reply-граф/участники, overlap без дублей по стабильному message-ключу mca-03) + LLM-суждения (canon episodes_extract/continuation_confirm, unknown не превращается в факт, участники по устойчивым ID); продолжения по событию с подтверждением до склейки (тема — кандидат, не доказательство); сборка без потери различий (повтор ≠ независимое событие, противоречие фиксируется — не разрешается молча); две даты (event_start/end ≠ discovered_at — A11), неизвестный исход = uncertain («исход неизвестен», финал не выдумывается); версии/merge/split/redirect + ручные overrides, переживающие пересборку, CAS expected_version (A13); resumable backfill job episodes.backfill:<chat_id> на durable task_jobs (checkpoint после фиксации, честная финализация — budget→paused story_backfill_paused_budget, никогда ложный completed; revision источника → story_source_recheck_queued); фасад lore_compiler_service (topic_key ≠ идентичность события, ленивый legacy-маппинг без автосклейки, mapping_status mapped/legacy/unmapped) + AMEND mca-07 episode-канала на новый store (excluded_from_retrieval уважается, fail-open сохранён) + carry-over M-MCA07-2 (наполнение local_context EvidenceBundle, пусто = not_available); provenance SourceRef/EvidenceLink (REUSE mca-04a, ≥1 валидная ссылка или явный unknown); события витрины story_discovered/story_extended/source_linked/contradiction_found/story_rebuilt post-commit через mca_events (mca-13); reason_code +10; процессы episodes.build/episodes.backfill в mca_process_registry; UI — вне фичи (mca-12 Wave 5), публикация в Telegram из пайплайна отсутствует (grep-гейт). 4 kill-switch MCA_EPISODES_* env-only default ON + 2 env-лимита, Δ каталога = 0 (F8 NOT_APPLICABLE). Откат: soft MCA_EPISODES_ENABLED=false (legacy-паритет), cold git revert (v21 аддитивна — старый код её не читает). bump 2.58.41->2.58.42. Ранее mca-04b-dossier-rebuild round1027 (memory-context-autonomy Wave 2, spec 18DF2178 + ADR-1027-9 D1-D13, Risk R3; review round 2 Approved): единый контракт полной пересборки досье (chat/subject, range + snapshot boundary, durable курсор, live-window не предел); 3 режима пополнения памяти; durable batch-состояния queued/running/paused/interrupted/failed/completed с честной финализацией (budget_exhausted/model_unavailable/parse_error никогда не completed); дисковый потоковый проход с иерархическим синтезом Layer A/B вместо «архива в RAM одним промптом» (порции до 500, 1 LLM batch/чат, приоритет direct); subject-of-fact semantics + person-facts persistence (врезка mca-04a local->SourceRef в chunk-пайплайн, roster-scope резолв); безопасное исправление накопленных досье: staging/generation + атомарная активация (SQLite v20 через реестр mca-14: mca_dossier_generations + mca_dossier_staging_items + nullable graph_facts.dossier_generation_id; PG no-op); resume без потери кандидатов (persist-before-pause, seeding resume_candidates, дедуп); cancel/restart идемпотентны, backup до активации (memory_backup -> backup_ref); каскадный пересчёт производных (портреты -> vec-check -> DreamWorker); read-time reconstruction provenance (mca-04a); history_import namespace v2 + полный стриминговый SHA-256 дайджест (1 MiB); mca-17a корреляция dossier.rebuild (root-run/span/attempt/checkpoint); 7 kill-switch MCA_DOSSIER_* env-only default ON + 2 env-лимита, Δ каталога = 0 (F8 NOT_APPLICABLE). Откат: soft MCA_DOSSIER_REBUILD_ENABLED=false (legacy-паритет), cold git revert. bump 2.58.40->2.58.41.
+APP_VERSION = "2.58.45"   # asap-4-embedding-graphrag-cover-runtime round1030 (memory-context-autonomy, spec AB9DEC94 + ADR-1028-7 D1-D8, Risk R3): embedding control plane (quota groups + executor<=4 + paused/resume + failover независимых групп; SQLite v23 — embedding_quota_state + 3 nullable колонки реестра поколений, additive/идемпотентно при старте, PG no-op), cover style production path (snapshot-resolve, reason codes, provenance при всех исходах, L-EXTRA-6/7), summary full-window (L1 capacity guard + deterministic quote repair + legacy full-window), Hybrid L2 writer/reviewer bounded revision (patch-primary, bounded loop), pipeline analytics (mca_events transport mca-17a, Run Inspector, health = publication × coverage, RBAC admin), 12 kill-switch (11 env-only default ON + EMBED_ASYNC_BATCH_ENABLED default OFF; OFF = бит-в-бит legacy), каталог 488 (Δ=0). Откат: soft env-рубильника по доменам (EMBED_*/SUMMARY_*/COVER_STYLE_SNAPSHOT/SUMMARY_PIPELINE_EVENTS=false), cold git revert (v23 аддитивна — старый код её не читает). | Предыдущая: mca-22-attribution-memory-coherence round1029 (memory-context-autonomy, spec C4B4043E + ADR-1028-6 D1-D10, Risk R3): атрибуция/когерентность памяти — canonical envelope (CanonicalMessage DTO + batch-projection, рендер reply/quote/forward), bot output ledger mca_bot_outputs (SQLite v22, аддитивно/идемпотентно, append-only, только доставленное: direct_reply/autonomous_reply/rich_message/media_caption), quote resolver (лестница 1-7 в прод-пути, metadata-first, ambiguous — автор не выдумывается), claim envelope (speaker≠subject, negation-guard, без fallback subject=sender), correction revalidation (contradicts-EvidenceLink по provenance-фактам), freshness guard (update-dedup TTL 24h развязан с legacy-флагами, duplicate guard bounded-1, permit-leak закрыт), 2 admin API /memory/attribution/trace|metrics, reason_code +12, 4 kill-switch MCA_CANONICAL_ATTRIBUTION_ENABLED/MCA_BOT_OUTPUT_LEDGER_ENABLED/MCA_RESPONSE_FRESHNESS_GUARD_ENABLED/MCA_CORRECTION_REVALIDATION_ENABLED env-only default ON, каталог 488 (Δ=0), PG no-op. Откат: soft 4 env-рубильника (legacy-паритет), cold git revert (v22 аддитивна — старый код её не читает). | Предыдущая: HOTFIX cover-style-save-hotfix round1029 (cover style select → «save failed», Risk R1, backend-only): реставрация задуманного контракта записи per-chat выбора стиля — (1) pg=_pg(cache) в set_chat_params (без него ChatLorePgUnavailable → 503 «save failed» на КАЖДЫЙ выбор); (2) namespace-форма {"overrides": …} + read-modify-write (плоский ключ set_chat_params выбрасывал молча → ложный 200 без записи; namespace заменяется целиком — RMW защищает прочие per-chat overrides); (3) снятие выбора = pop override → работает resolve-чейн override → hot → default (DC-5), без хард-пина «нет стиля»; (4) guard fail-open чтения ({} при PG-сбое) → честный 503, деструктивная запись поверх чужих данных исключена. UI (web/app.js) не менялся; 6 regression-тестов с RED-on-pre-fix; Δ каталога = 0, Δ DDL = 0, PG no-op; bump 2.58.42->2.58.43. | Ранее mca-05-episodes-stories round1027 (memory-context-autonomy Wave 2, spec 8177CB0F + ADR-1027-12 D1-D13, Risk R2; deploy DEFERRED_TO_RELEASE): Episode/Story-модель (mca_episodes/mca_stories/mca_story_versions/mca_story_episode_links/mca_story_continuations/mca_story_redirects/mca_story_legacy_links, SQLite v21 через реестр mca-14 — аддитивно/идемпотентно, PG no-op; lore_stories не тронуты); EpisodeService — единственный владелец пайплайна и записи (single-writer mca-01, короткие транзакции, чтение/LLM/запись разделены); детерминированная сегментация (время/reply-граф/участники, overlap без дублей по стабильному message-ключу mca-03) + LLM-суждения (canon episodes_extract/continuation_confirm, unknown не превращается в факт, участники по устойчивым ID); продолжения по событию с подтверждением до склейки (тема — кандидат, не доказательство); сборка без потери различий (повтор ≠ независимое событие, противоречие фиксируется — не разрешается молча); две даты (event_start/end ≠ discovered_at — A11), неизвестный исход = uncertain («исход неизвестен», финал не выдумывается); версии/merge/split/redirect + ручные overrides, переживающие пересборку, CAS expected_version (A13); resumable backfill job episodes.backfill:<chat_id> на durable task_jobs (checkpoint после фиксации, честная финализация — budget→paused story_backfill_paused_budget, никогда ложный completed; revision источника → story_source_recheck_queued); фасад lore_compiler_service (topic_key ≠ идентичность события, ленивый legacy-маппинг без автосклейки, mapping_status mapped/legacy/unmapped) + AMEND mca-07 episode-канала на новый store (excluded_from_retrieval уважается, fail-open сохранён) + carry-over M-MCA07-2 (наполнение local_context EvidenceBundle, пусто = not_available); provenance SourceRef/EvidenceLink (REUSE mca-04a, ≥1 валидная ссылка или явный unknown); события витрины story_discovered/story_extended/source_linked/contradiction_found/story_rebuilt post-commit через mca_events (mca-13); reason_code +10; процессы episodes.build/episodes.backfill в mca_process_registry; UI — вне фичи (mca-12 Wave 5), публикация в Telegram из пайплайна отсутствует (grep-гейт). 4 kill-switch MCA_EPISODES_* env-only default ON + 2 env-лимита, Δ каталога = 0 (F8 NOT_APPLICABLE). Откат: soft MCA_EPISODES_ENABLED=false (legacy-паритет), cold git revert (v21 аддитивна — старый код её не читает). bump 2.58.41->2.58.42. Ранее mca-04b-dossier-rebuild round1027 (memory-context-autonomy Wave 2, spec 18DF2178 + ADR-1027-9 D1-D13, Risk R3; review round 2 Approved): единый контракт полной пересборки досье (chat/subject, range + snapshot boundary, durable курсор, live-window не предел); 3 режима пополнения памяти; durable batch-состояния queued/running/paused/interrupted/failed/completed с честной финализацией (budget_exhausted/model_unavailable/parse_error никогда не completed); дисковый потоковый проход с иерархическим синтезом Layer A/B вместо «архива в RAM одним промптом» (порции до 500, 1 LLM batch/чат, приоритет direct); subject-of-fact semantics + person-facts persistence (врезка mca-04a local->SourceRef в chunk-пайплайн, roster-scope резолв); безопасное исправление накопленных досье: staging/generation + атомарная активация (SQLite v20 через реестр mca-14: mca_dossier_generations + mca_dossier_staging_items + nullable graph_facts.dossier_generation_id; PG no-op); resume без потери кандидатов (persist-before-pause, seeding resume_candidates, дедуп); cancel/restart идемпотентны, backup до активации (memory_backup -> backup_ref); каскадный пересчёт производных (портреты -> vec-check -> DreamWorker); read-time reconstruction provenance (mca-04a); history_import namespace v2 + полный стриминговый SHA-256 дайджест (1 MiB); mca-17a корреляция dossier.rebuild (root-run/span/attempt/checkpoint); 7 kill-switch MCA_DOSSIER_* env-only default ON + 2 env-лимита, Δ каталога = 0 (F8 NOT_APPLICABLE). Откат: soft MCA_DOSSIER_REBUILD_ENABLED=false (legacy-паритет), cold git revert. bump 2.58.40->2.58.41.
 
 
 def get_ytdlp_pot_provider() -> str:

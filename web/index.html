@@ -3054,6 +3054,246 @@
                   </div>
                 </template>
               </div>
+              <!-- ═══ ASAP-4 волна E (T-4441–T-4444, §61.1–§61.15):
+                   «Пайплайн саммари» — Run Inspector. Один виджет/одни
+                   данные (§61.4): Последний запуск / 24 часа / 7 дней.
+                   Вертикальный timeline (§61.14, mobile-first), ветка
+                   ОБЛОЖКИ отдельна от текстовой (§61.8), статусы
+                   ✓/⚠/✕/○/… с текстовым label (цвет не единственный
+                   носитель, §61.2), причины — человеческим русским
+                   (§61.3), coverage — first-class (§61.6), health —
+                   текстовый бейдж без opaque score (§61.13), live
+                   polling 15с в режиме «Последний запуск» (§61.15),
+                   developer details collapsible (§76). Источник —
+                   /api/analytics/pipeline/* (structured state, §61.12:
+                   human-логи НЕ читаются). -->
+              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2"
+                   id="pipeline-inspector-block" v-if="isGlobalAdmin">
+                <div class="flex items-center gap-2 flex-wrap mb-2">
+                  <div class="text-xs font-bold">Пайплайн саммари</div>
+                  <span class="text-xs text-gray-500">Run Inspector</span>
+                  <div class="ml-auto flex items-center gap-1">
+                    <button class="btn-ghost text-xs"
+                            :class="{ 'font-bold': pipelineMode === 'latest' }"
+                            @click="setPipelineMode('latest')">Последний запуск</button>
+                    <button class="btn-ghost text-xs"
+                            :class="{ 'font-bold': pipelineMode === '24h' }"
+                            @click="setPipelineMode('24h')">За 24 часа</button>
+                    <button class="btn-ghost text-xs"
+                            :class="{ 'font-bold': pipelineMode === '7d' }"
+                            @click="setPipelineMode('7d')">7 дней</button>
+                    <button class="btn-ghost text-xs" :disabled="pipelineBusy"
+                            @click="loadPipelineInspector()">⟳</button>
+                  </div>
+                </div>
+                <div v-if="pipelineBusy && !pipelineData" class="spinner my-2"></div>
+                <template v-else>
+                  <!-- ── РЕЖИМ: карта запуска (latest / drill-down) ── -->
+                  <template v-if="pipelineRunView">
+                    <div class="flex items-center gap-2 flex-wrap mb-2">
+                      <span class="badge"
+                            :class="pipelineHealthBadge(pipelineRunView.health).cls">
+                        {{ pipelineRunView.health_label
+                           || pipelineHealthBadge(pipelineRunView.health).text }}
+                      </span>
+                      <span class="text-xs text-gray-500"
+                            v-if="pipelineRunView.run_id">run {{ pipelineRunShortId }}</span>
+                      <span class="text-xs text-gray-500"
+                            v-if="pipelineRunDuration">{{ pipelineRunDuration }}</span>
+                      <span class="badge badge-muted"
+                            v-if="pipelineRunView.running">… выполняется</span>
+                      <button class="btn-ghost text-xs"
+                              v-if="pipelineSelectedRunId"
+                              @click="clearPipelineRunSelection()">← к последнему</button>
+                    </div>
+                    <!-- Coverage — first-class (§61.6) -->
+                    <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 text-xs"
+                         v-if="pipelineRunView.coverage">
+                      <div class="font-bold mb-0.5">Источник</div>
+                      <div>{{ pipelineCoverageLine }}</div>
+                      <div v-if="!pipelineRunView.coverage.full"
+                           class="text-red-300">✕ Неполное саммари — coverage ниже 100%</div>
+                    </div>
+                    <!-- Текстовая ветка: вертикальный timeline -->
+                    <div class="pipe-timeline" v-if="pipelineNodesText.length">
+                      <template v-for="node in pipelineNodesText" :key="node.key">
+                        <div class="pipe-node" role="button" tabindex="0"
+                             @click="togglePipelineNode(node.key)"
+                             @keydown.enter="togglePipelineNode(node.key)"
+                             @keydown.space.prevent="togglePipelineNode(node.key)">
+                          <div class="pipe-node__row">
+                            <span class="pipe-node__icon"
+                                  :class="'pipe-node__icon--' + node.state"
+                                  aria-hidden="true">{{ node.icon }}</span>
+                            <span class="pipe-node__label">{{ node.label }}</span>
+                            <span class="pipe-node__status">{{ node.status_label }}</span>
+                            <span class="pipe-node__reason"
+                                  v-if="node.reason_ru">— {{ node.reason_ru }}</span>
+                            <span class="pipe-node__latency text-gray-500"
+                                  v-if="node.latency_ms">· {{ fmtSec(node.latency_ms) }}</span>
+                          </div>
+                          <div class="pipe-node__explain"
+                               v-if="pipelineOpenNode === node.key">
+                            <div>{{ node.explain }}</div>
+                            <div v-for="d in node.detail" :key="node.key + d.k">{{ d.k }}: {{ d.v }}</div>
+                            <div class="text-gray-500" v-if="node.reason_code">код: {{ node.reason_code }}</div>
+                          </div>
+                        </div>
+                        <div class="pipe-edge" aria-hidden="true">↓</div>
+                      </template>
+                    </div>
+                    <!-- ВЕТКА ОБЛОЖКИ — независимо от текстовой (§61.8) -->
+                    <div class="mt-2 mb-1 text-xs font-bold text-gray-300"
+                         v-if="pipelineNodesCover.length">Обложка — отдельная ветка</div>
+                    <div class="pipe-timeline" v-if="pipelineNodesCover.length">
+                      <template v-for="node in pipelineNodesCover" :key="node.key">
+                        <div class="pipe-node" role="button" tabindex="0"
+                             @click="togglePipelineNode(node.key)"
+                             @keydown.enter="togglePipelineNode(node.key)"
+                             @keydown.space.prevent="togglePipelineNode(node.key)">
+                          <div class="pipe-node__row">
+                            <span class="pipe-node__icon"
+                                  :class="'pipe-node__icon--' + node.state"
+                                  aria-hidden="true">{{ node.icon }}</span>
+                            <span class="pipe-node__label">{{ node.label }}</span>
+                            <span class="pipe-node__status">{{ node.status_label }}</span>
+                            <span class="pipe-node__reason"
+                                  v-if="node.reason_ru">— {{ node.reason_ru }}</span>
+                            <span class="pipe-node__latency text-gray-500"
+                                  v-if="node.latency_ms">· {{ fmtSec(node.latency_ms) }}</span>
+                          </div>
+                          <div class="pipe-node__explain"
+                               v-if="pipelineOpenNode === node.key">
+                            <div>{{ node.explain }}</div>
+                            <div v-for="d in node.detail" :key="node.key + d.k">{{ d.k }}: {{ d.v }}</div>
+                            <div class="text-gray-500" v-if="node.reason_code">код: {{ node.reason_code }}</div>
+                          </div>
+                        </div>
+                        <div class="pipe-edge" aria-hidden="true">↓</div>
+                      </template>
+                    </div>
+                    <!-- Публикация (§61.1) -->
+                    <div class="mt-2 text-xs text-gray-300"
+                         v-if="pipelinePublicationLine">{{ pipelinePublicationLine }}</div>
+                    <!-- Developer details (§76, collapsible) -->
+                    <details class="mt-2 text-xs" v-if="pipelineRunView.developer">
+                      <summary class="cursor-pointer text-gray-400">Developer details</summary>
+                      <div class="mt-1 text-gray-400">
+                        <div v-if="pipelineRunView.developer.model">модель: {{ pipelineRunView.developer.model }} · {{ pipelineRunView.developer.provider || '—' }}</div>
+                        <div v-if="pipelineRunView.developer.reason">причина: {{ pipelineRunView.developer.reason }}</div>
+                        <div v-for="(ev, i) in pipelineRunView.developer.stage_events || []"
+                             :key="'se' + i" class="text-gray-500">
+                          {{ ev.stage }} · {{ ev.status }}<template v-if="ev.attempt"> · попытка {{ ev.attempt }}</template><template v-if="ev.reason_code"> · {{ ev.reason_code }}</template>
+                        </div>
+                        <div class="text-gray-500">событий в run: {{ pipelineRunView.developer.events_total }}</div>
+                      </div>
+                    </details>
+                  </template>
+                  <div v-else-if="pipelineMode === 'latest'"
+                       class="text-xs text-gray-500">Саммари ещё не запускалось.</div>
+                  <!-- ── РЕЖИМ: агрегаты периода (§61.4/§61.5) ── -->
+                  <template v-if="pipelineAggregate">
+                    <div class="flex flex-wrap gap-2 mb-2 text-xs">
+                      <span class="badge badge-muted">Summary runs: {{ pipelineAggregate.totals.total }}</span>
+                      <span class="badge badge-ok"
+                            v-if="pipelineAggregate.totals.healthy">Здоровых: {{ pipelineAggregate.totals.healthy }}</span>
+                      <span class="badge badge-warn"
+                            v-if="pipelineAggregate.totals.degraded">С деградацией: {{ pipelineAggregate.totals.degraded }}</span>
+                      <span class="badge badge-err"
+                            v-if="pipelineAggregate.totals.failed">Не издано: {{ pipelineAggregate.totals.failed }}</span>
+                      <span class="badge badge-warn"
+                            v-if="pipelineAggregate.totals.incomplete">Не завершено: {{ pipelineAggregate.totals.incomplete }}</span>
+                    </div>
+                    <div v-if="!pipelineAggregate.available"
+                         class="text-xs text-gray-500 mb-2">Данных за период нет.</div>
+                    <div class="pipe-grid" v-if="Object.keys(pipelineAggregate.stages || {}).length">
+                      <div class="rounded-lg border border-white/10 px-3 py-2 text-xs"
+                           v-for="(st, key) in pipelineAggregate.stages" :key="'ag' + key">
+                        <div class="font-bold mb-1">{{ st.label }}</div>
+                        <div class="pipe-node__row"><span class="pipe-node__icon pipe-node__icon--success" aria-hidden="true">✓</span> {{ pctLabel(st.success_pct) }}</div>
+                        <div class="pipe-node__row" v-if="st.repaired_pct != null"><span class="pipe-node__icon pipe-node__icon--repaired" aria-hidden="true">⚠</span> исправлено: {{ pctLabel(st.repaired_pct) }}</div>
+                        <div class="pipe-node__row" v-if="st.fallback_pct != null"><span class="pipe-node__icon pipe-node__icon--fallback" aria-hidden="true">⚠</span> резерв: {{ pctLabel(st.fallback_pct) }}</div>
+                        <div class="pipe-node__row" v-if="st.failed_pct != null"><span class="pipe-node__icon pipe-node__icon--failed" aria-hidden="true">✕</span> {{ pctLabel(st.failed_pct) }}</div>
+                        <div class="text-gray-400 mt-1" v-if="st.median_ms != null">Медиана: {{ fmtSec(st.median_ms) }}<template v-if="st.p95_ms != null"> · P95: {{ fmtSec(st.p95_ms) }}</template></div>
+                        <div class="text-gray-400 mt-1" v-if="(st.top_reasons || []).length">
+                          <div class="font-bold text-gray-300">Частые проблемы:</div>
+                          <div v-for="(r, i) in st.top_reasons" :key="'tr' + i">{{ i + 1 }}. {{ r.ru || r.code }} — {{ r.count }}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                  <!-- ── Список последних запусков (§61.10) ── -->
+                  <div class="mt-2">
+                    <div class="text-xs font-bold mb-1 text-gray-300">Последние запуски</div>
+                    <div v-if="pipelineRuns.length" class="pipe-runs">
+                      <div v-for="r in pipelineRuns" :key="r.run_id"
+                           class="pipe-run-row" role="button" tabindex="0"
+                           @click="openPipelineRun(r.run_id)"
+                           @keydown.enter="openPipelineRun(r.run_id)"
+                           @keydown.space.prevent="openPipelineRun(r.run_id)">
+                        <span class="text-gray-400">{{ fmtTs(r.ts) }}</span>
+                        <span class="badge"
+                              :class="pipelineHealthBadge(r.health).cls">{{ r.health_label }}</span>
+                        <span class="text-gray-400"
+                              v-if="r.source_count != null">{{ r.source_count }} сообщ.</span>
+                        <span class="text-gray-500">{{ r.path }}</span>
+                      </div>
+                    </div>
+                    <div v-else class="text-xs text-gray-500">Запусков ещё не было.</div>
+                  </div>
+                </template>
+              </div>
+              <!-- ═══ ASAP-4 волна E (§62/§63/§76): Embedding Run Inspector —
+                   карточка rebuild job + панели Wave A (GET
+                   /api/memory/embeddings): provider/группы/состояние,
+                   Векторная память per-index (статус по-русски, пауза/
+                   кулдаун/прогресс). Только алиасы — БЕЗ ключей (§63). -->
+              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2"
+                   id="embeddings-inspector-block" v-if="isGlobalAdmin">
+                <div class="flex items-center gap-2 flex-wrap mb-2">
+                  <div class="text-xs font-bold">Embeddings и векторная память</div>
+                  <span class="text-xs text-gray-500">только алиасы, без ключей</span>
+                  <button class="btn-ghost text-xs ml-auto" :disabled="embeddingsBusy"
+                          @click="loadEmbeddingsPanel()">⟳</button>
+                </div>
+                <div v-if="embeddingsBusy && !embeddingsPanel" class="spinner my-2"></div>
+                <template v-else-if="embeddingsPanel">
+                  <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 text-xs"
+                       v-if="embeddingsPanel.provider && embeddingsPanel.provider.provider">
+                    <div class="flex flex-wrap gap-x-4 gap-y-1">
+                      <span>Провайдер: {{ embeddingsPanel.provider.provider }}<template v-if="embeddingsPanel.provider.model"> / {{ embeddingsPanel.provider.model }}</template></span>
+                      <span>Ключи: {{ embeddingsPanel.provider.credentials }} · алиасы: {{ embeddingsAliases }}</span>
+                      <span>Квота-группы: {{ embeddingsPanel.provider.quota_group_display || '—' }}</span>
+                      <span>Concurrency: {{ embeddingsPanel.provider.concurrency }} · Batch: {{ embeddingsPanel.provider.batch_size }}</span>
+                      <span>429 за 10 мин: {{ embeddingsPanel.provider.rate_limits_10m }}</span>
+                    </div>
+                    <div v-if="(embeddingsPanel.provider.groups || []).length"
+                         class="mt-1 text-gray-400">
+                      <div v-for="(g, i) in embeddingsPanel.provider.groups"
+                           :key="'eg' + i">{{ g }}</div>
+                    </div>
+                  </div>
+                  <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 text-xs"
+                       v-for="ix in embeddingsPanel.vector_memory.indexes || []"
+                       :key="ix.index">
+                    <div class="font-bold">{{ ix.index }} — {{ ix.status_ru }}</div>
+                    <div class="text-gray-400">
+                      Поколение: {{ ix.generation != null ? ix.generation : '—' }}
+                      · Попыток: {{ ix.attempts_total != null ? ix.attempts_total : 0 }}
+                      · Прогресс: {{ ix.processed != null ? ix.processed : '—' }}
+                      <template v-if="ix.next_attempt_at"> · Кулдаун до {{ fmtTs(ix.next_attempt_at) }}</template>
+                      <template v-if="ix.reason_code"> · код: {{ ix.reason_code }}</template>
+                    </div>
+                  </div>
+                  <div v-if="!(embeddingsPanel.vector_memory.indexes || []).length"
+                       class="text-xs text-gray-500">Индексы ещё не строились.</div>
+                  <div class="text-xs text-gray-400"
+                       v-if="embeddingsPanel.vector_memory.lease">
+                    Rebuild активен: {{ embeddingsPanel.vector_memory.lease.holder_index || embeddingsPanel.vector_memory.lease.job_id }}
+                  </div>
+                </template>
+                <div v-else class="text-xs text-gray-500">Панель недоступна.</div>
+              </div>
               <!-- F5 (T-1454..T-1456, ТЗ §7): «Интеллект и Память» — пульс
                    процессов, прогресс-бары бюджета/лимитов, метрики БД и
                    компактный Timeline. Источник — cognition/status, stats,

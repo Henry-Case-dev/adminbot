@@ -1669,6 +1669,19 @@
         execMode: 'latest',
         execSelected: null,             // выбранный узел (side-panel/bottom-sheet)
         execDetailOpen: false,
+        // ── ASAP-4 волна E (T-4441–T-4444, §61): Run Inspector
+        // «Пайплайн саммари» — один виджет/одни данные (§61.4). Источник —
+        // /api/analytics/pipeline/inspector (structured state, §61.12).
+        pipelineMode: 'latest',         // latest | 24h | 7d
+        pipelineData: null,
+        pipelineBusy: false,
+        pipelineTimer: null,            // live polling 15с (§61.15, latest)
+        pipelineOpenNode: '',           // раскрытый узел timeline (§61.3)
+        pipelineSelectedRunId: '',      // drill-down по run_id (§61.9)
+        // §62/§63: Embedding Run Inspector — панели Wave A
+        // (GET /api/memory/embeddings); только алиасы, без ключей (R17).
+        embeddingsPanel: null,
+        embeddingsBusy: false,
         // Фильтры §27 — только на «Аналитике» (превью Статуса их не получает).
         execFilterModule: '',
         execFilterModel: '',
@@ -2873,6 +2886,67 @@
             height: max > 0 ? Math.max(2, Math.round(cost / max * 100)) : 0,
           };
         });
+      },
+      // ═══ ASAP-4 волна E (§61): Run Inspector — computed читаются шаблоном
+      // как СВОЙСТВА (без скобок); функциональные хелперы (badge/fmt) —
+      // в methods (урок H-ASAP31-2: TypeError → пустой экран «Аналитики»).
+      pipelineRunView: function () {
+        var d = this.pipelineData;
+        if (this.pipelineSelectedRunId) {
+          return (d && d.selected_run) || null;
+        }
+        return (d && d.run) || null;
+      },
+      pipelineAggregate: function () {
+        return (this.pipelineData && this.pipelineData.aggregate) || null;
+      },
+      pipelineRuns: function () {
+        return (this.pipelineData && this.pipelineData.runs) || [];
+      },
+      // Текстовая ветка timeline (§61.8: обложка отдельно).
+      pipelineNodesText: function () {
+        var view = this.pipelineRunView;
+        return ((view && view.nodes) || []).filter(function (n) {
+          return n.branch !== 'cover';
+        });
+      },
+      pipelineNodesCover: function () {
+        var view = this.pipelineRunView;
+        return ((view && view.nodes) || []).filter(function (n) {
+          return n.branch === 'cover';
+        });
+      },
+      pipelineCoverageLine: function () {
+        var view = this.pipelineRunView;
+        var c = view && view.coverage;
+        if (!c) return '';
+        return 'Сообщений: ' + (c.considered != null ? c.considered : '—')
+          + ' / ' + (c.total != null ? c.total : '—')
+          + ' · Coverage: ' + (c.percent != null ? c.percent : '—') + '%';
+      },
+      pipelinePublicationLine: function () {
+        var view = this.pipelineRunView;
+        var p = view && view.publication;
+        if (!p || !p.status) return '';
+        if (p.status === 'failed') return 'Итог: публикация не удалась.';
+        var channel = p.channel === 'text' ? 'обычное сообщение (plain)'
+          : 'RichMessage';
+        return 'Итог: опубликовано — ' + channel
+          + (p.message_id ? ' · message id ' + p.message_id : '');
+      },
+      pipelineRunShortId: function () {
+        var id = this.pipelineRunView && this.pipelineRunView.run_id;
+        return id ? String(id).slice(0, 8) : '';
+      },
+      pipelineRunDuration: function () {
+        var ms = this.pipelineRunView && this.pipelineRunView.duration_ms;
+        return (ms != null) ? this.fmtSec(ms) : '';
+      },
+      // §63: только алиасы — ключи не приходят и не рендерятся (R17).
+      embeddingsAliases: function () {
+        var p = this.embeddingsPanel && this.embeddingsPanel.provider;
+        var list = (p && p.credential_aliases) || [];
+        return list.length ? list.join(', ') : '—';
       },
       // 3.10: любая операция лора в процессе — блокировка кнопок-мутаций
       chatLoreBusy: function () {
@@ -4504,6 +4578,107 @@
         this.tokenAnalyticsPeriod = period;
         this.loadTokenAnalytics();
       },
+      // ═══ ASAP-4 волна E (T-4441–T-4444, §61.4–§61.15): Run Inspector ═══
+      // Один виджет/одни данные: mode=latest → карта запуска + список;
+      // 24h/7d → агрегаты + список (§61.4). Fail-open как loadTokenAnalytics.
+      loadPipelineInspector: async function () {
+        this.pipelineBusy = true;
+        try {
+          var mode = this.pipelineMode || 'latest';
+          var url = '/api/analytics/pipeline/inspector?mode=' + mode;
+          var data = await this.api(url);
+          this.pipelineData = data || {};
+          if (this.pipelineSelectedRunId) {
+            // Drill-down: карта выбранного run (§61.9) поверх режима.
+            var detail = await this.api(
+              '/api/analytics/pipeline/runs/'
+              + encodeURIComponent(this.pipelineSelectedRunId))
+              .catch(function () { return null; });
+            this.pipelineData.selected_run = detail && detail.run;
+          }
+        } catch (e) {
+          this.pipelineData = null;
+        } finally {
+          this.pipelineBusy = false;
+        }
+      },
+      setPipelineMode: function (mode) {
+        this.pipelineMode = (mode === '24h' || mode === '7d') ? mode
+          : 'latest';
+        this.pipelineSelectedRunId = '';
+        this.loadPipelineInspector();
+      },
+      // Drill-down по run_id (§61.9): клик по строке списка → карта run.
+      openPipelineRun: async function (runId) {
+        if (!runId) return;
+        this.pipelineSelectedRunId = String(runId);
+        await this.loadPipelineInspector();
+      },
+      clearPipelineRunSelection: function () {
+        this.pipelineSelectedRunId = '';
+        this.pipelineOpenNode = '';
+        this.loadPipelineInspector();
+      },
+      // Поянения по tap (§61.3): 1–3 строки + human-перевод причины.
+      togglePipelineNode: function (key) {
+        this.pipelineOpenNode = (this.pipelineOpenNode === key) ? '' : key;
+      },
+      // §61.2: цвет НЕ единственный носитель — badge всегда с текстом.
+      pipelineHealthBadge: function (health) {
+        if (health === 'healthy') {
+          return { cls: 'badge-ok', text: 'Здоров' };
+        }
+        if (health === 'degraded') {
+          return { cls: 'badge-warn', text: 'С деградацией' };
+        }
+        if (health === 'failed') {
+          return { cls: 'badge-err', text: 'Не издано' };
+        }
+        if (health === 'running') {
+          return { cls: 'badge-info', text: 'Выполняется' };
+        }
+        return { cls: 'badge-muted', text: 'Не завершён' };
+      },
+      fmtSec: function (ms) {
+        if (ms === null || ms === undefined || ms === '') return '—';
+        var v = Number(ms);
+        if (isNaN(v)) return '—';
+        if (v >= 1000) return (v / 1000).toFixed(1) + 'с';
+        return Math.round(v) + ' мс';
+      },
+      pctLabel: function (v) {
+        return (v === null || v === undefined) ? '—' : v + '%';
+      },
+      // §61.15: live updating — polling 15с только в режиме «Последний
+      // запуск» и только пока открыта «Аналитика» (прецедент statusTimer).
+      startPipelinePolling: function () {
+        var self = this;
+        if (this.pipelineTimer) return;
+        this.pipelineTimer = setInterval(function () {
+          if (self.pipelineMode === 'latest' && !self.pipelineBusy
+              && !self.pipelineSelectedRunId) {
+            self.loadPipelineInspector();
+          }
+        }, 15000);
+      },
+      stopPipelinePolling: function () {
+        if (this.pipelineTimer) {
+          clearInterval(this.pipelineTimer);
+          this.pipelineTimer = null;
+        }
+      },
+      // §62/§63: Embedding Run Inspector — панели Wave A одним GET
+      // (provider + vector memory); только алиасы (R17).
+      loadEmbeddingsPanel: async function () {
+        this.embeddingsBusy = true;
+        try {
+          this.embeddingsPanel = await this.api('/api/memory/embeddings');
+        } catch (e) {
+          this.embeddingsPanel = null;
+        } finally {
+          this.embeddingsBusy = false;
+        }
+      },
       // F3 (10.24, ADR-1024-13): UI-флаг из `GET /api/me.ui_flags`.
       // До загрузки /api/me — безопасный дефолт ON (новое поведение =
       // штатный дефолт). CSP-safe: значения приходят в JSON, без inline-script.
@@ -5025,6 +5200,10 @@
           this.loadBudgetInfo();
           // F7 (раунд 10.23): аналитика токенов — Flow node + графики.
           this.loadTokenAnalytics();
+          // ASAP-4 волна E: Run Inspector «Пайплайн саммари» + Embedding
+          // Inspector (§61/§62) — fail-open, тот же источник-виджет.
+          this.loadPipelineInspector();
+          this.loadEmbeddingsPanel();
           // ASAP-3.1 (T-4076): секция «Модели и автобюджеты» — fail-open.
           this.loadBudgetsAuto();
           // mca-17a (§4.6/SC-16): интервал refresh индикатора инцидентов (≤10с).
@@ -7843,6 +8022,16 @@
         if (id === 'oversight') {
           this.loadMemoryWidget();       // F5/§7: виджет «Сводка»
           this.loadPersonaHealth();      // F4/UPD п.4: метрики Личности
+          // ASAP-4 волна E: live updating Run Inspector (§61.15) + панели.
+          if (typeof this.startPipelinePolling === 'function') {
+            this.startPipelinePolling();
+          }
+          if (typeof this.loadPipelineInspector === 'function') {
+            this.loadPipelineInspector();
+          }
+          if (typeof this.loadEmbeddingsPanel === 'function') {
+            this.loadEmbeddingsPanel();
+          }
           // 10.20 (T-1897): «Живая лента досье» (guard — unit-стабы setTab).
           if (typeof this.startDossierFeedPolling === 'function') {
             this.startDossierFeedPolling();
@@ -7852,6 +8041,9 @@
             this.startIncidentPolling();
           }
         } else {
+          if (typeof this.stopPipelinePolling === 'function') {
+            this.stopPipelinePolling();   // вне «Аналитики» — без polling
+          }
           if (typeof this.stopDossierFeedPolling === 'function') {
             this.stopDossierFeedPolling();    // вне «Сводки» — без polling
           }

@@ -147,6 +147,29 @@ def resolve_legacy_max_parts() -> int:
     return max(1, value)
 
 
+# ── ASAP-4 волна D (T-4431/T-4432, ADR-1028-7 D3/D5) ───────────────────────
+
+def _l2_review_enabled_safe() -> bool:
+    """Kill-switch ``SUMMARY_L2_REVIEW_ENABLED`` (spec §8.2): OFF → прежний
+    single-call L2 (бит-в-бит, модуль review не импортируется). Никогда не
+    бросает (fail → OFF = legacy)."""
+    try:
+        return bool(getattr(settings, "SUMMARY_L2_REVIEW_ENABLED", True))
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
+def _l2_review_extra_calls(l2_result) -> int:
+    """Число логических review/revision-вызовов L2-стадии (R17-счётчик
+    ``calls_so_far``; бюджет ≤6 закреплён в review-модуле)."""
+    try:
+        metrics = getattr(l2_result, "metrics", None) or {}
+        return (int(metrics.get("l2_review_calls", 0) or 0)
+                + int(metrics.get("l2_revision_calls", 0) or 0))
+    except Exception:      # pragma: no cover - защитная ветка
+        return 0
+
+
 def _cap_legacy_chunks(chunks, max_chunks, *, run_id=None, chat_id=None):
     """Первые ``max_chunks`` чанков legacy-plain; при обрезке — WARN."""
     if max_chunks is None or len(chunks) <= max_chunks:
@@ -461,6 +484,15 @@ class SummaryGenerator:
             log_summary_start(ctx)
         except Exception:  # pragma: no cover - лог best-effort, пайплайн не рвём
             pass
+        # ASAP-4 волна E (T-4440, spec §5 E.1): SUMMARY_RUN_START в mca_events
+        # (единый transport mca-17a; fail-open; kill-switch
+        # SUMMARY_PIPELINE_EVENTS_ENABLED — OFF → no-op, бит-в-бит).
+        try:
+            from services import pipeline_events
+            pipeline_events.summary_start(
+                correlation_id, chat_id=chat_id, mode=ctx.mode, manual=manual)
+        except Exception:  # pragma: no cover - эмиссия не рвёт пайплайн
+            pass
         try:
             await self.memory.compress_and_purge(chat_id)
             rows = await self.memory.get_window_messages(chat_id)
@@ -470,6 +502,14 @@ class SummaryGenerator:
             logger.info(
                 "SOURCE_WINDOW | run_id=%s | chat_id=%s | messages=%d",
                 correlation_id, chat_id, len(rows))
+            # Волна E: structured SOURCE_WINDOW (те же данные, что в логе —
+            # §61.12: один structured source, без парсинга human-логов).
+            try:
+                from services import pipeline_events
+                pipeline_events.source_window(
+                    correlation_id, chat_id=chat_id, messages=len(rows))
+            except Exception:  # pragma: no cover
+                pass
             if not rows:
                 if manual:
                     await self._send_ux(chat_id, _UX_EMPTY)     # B4
@@ -538,6 +578,13 @@ class SummaryGenerator:
                 _exec_graph.record_run_from_context(ctx, None)
             except Exception:  # pragma: no cover - снапшот не должен ронять прогон
                 pass
+            # Волна E (T-4440): SUMMARY_RUN_DONE — терминальное стадийное
+            # событие (§61.11-срез coverage/publication/health; R17-safe).
+            try:
+                from services import pipeline_events
+                pipeline_events.summary_done_from_ctx(ctx)
+            except Exception:  # pragma: no cover - эмиссия не рвёт пайплайн
+                pass
 
     async def _hybrid_l2_enabled(self, chat_id: int) -> bool:
         """S5 (ADR-1026-7 D3/D5), AMEND S10 (ADR-1026-12 D2): режим генерации.
@@ -571,12 +618,111 @@ class SummaryGenerator:
         except Exception:  # pragma: no cover - защитная ветка
             return True
 
+    async def _build_legacy_full_window_context(
+            self, chat_id: int, rows: list, correlation_id: str, ctx=None, *,
+            semantic_package: dict | None = None
+            ) -> tuple[str | None, dict | None]:
+        """Волна C (T-4424, spec §3 C.3, ADR-1028-7 D7.3): контент истории
+        для БОЛЬШОГО окна — иерархически свёрнутый full-window пакет вместо
+        молчаливо обрезанного плоского XML (§55/§56), + честный coverage
+        (§57; <100% — видимый degraded, никогда не тихий).
+
+        Приоритет: готовый semantic package от Hybrid (тот же, что получил
+        L2 — reuse, без второй редукции); при его отсутствии —
+        детерминированная редукция окна (``build_fallback_package``:
+        chronology = ВСЕ сообщения, fragments с авторским контекстом,
+        budget = Legacy static resolve ``summary_max_context_*``).
+        Возвращает ``(user_context | None, coverage | None)``; ``None`` —
+        пакет не построился (пустое окно), вызывающий остаётся на плоском
+        пути. R17: в логах только числа/коды. MAX_SUMMARY_PARTS не читается
+        (§58: это cap выходных частей, не input coverage)."""
+        from services import summary_legacy_fullwindow as _lfw
+        source_total = len(rows or [])
+        package: dict | None = None
+        mode = "semantic_package"
+        if isinstance(semantic_package, dict) \
+                and isinstance(semantic_package.get("threads"), list) \
+                and semantic_package.get("threads"):
+            package = semantic_package
+        else:
+            mode = "hierarchical_reduction"
+            try:
+                from services.summary_fact_package import (
+                    build_fallback_package,
+                )
+                from services.summary_l1_clusterizer import build_l1_payload
+                kind, limit = resolve_chat_limit(
+                    await _chat_limit(
+                        chat_id, "limits.summary_max_context_tokens",
+                        hot.get("limits.summary_max_context_tokens",
+                                settings.SUMMARY_MAX_CONTEXT_TOKENS)),
+                    _SUMMARY_CONTEXT_TOKEN_DEFAULT,
+                    "SUMMARY_MAX_CONTEXT_CHARS",
+                    await _chat_limit(
+                        chat_id, "limits.summary_max_context_chars",
+                        hot.get("limits.summary_max_context_chars",
+                                settings.SUMMARY_MAX_CONTEXT_CHARS)),
+                    "SUMMARY_MAX_CONTEXT",
+                )
+                budget_limit = safe_budget(limit) if kind == "tokens" \
+                    else limit
+                result = build_fallback_package(
+                    build_l1_payload(rows, chat_id), budget=(kind,
+                                                             budget_limit),
+                    correlation_id=correlation_id, chat_id=chat_id,
+                    reason="legacy_full_window")
+                package = result.package if result is not None else None
+            except Exception:      # pragma: no cover - защитная ветка
+                logger.exception(
+                    "legacy full window: package build failed | chat_id=%s",
+                    chat_id)
+                package = None
+        if package is None:
+            return None, None
+        coverage = _lfw.compute_package_coverage(package, source_total)
+        _lfw.log_full_window(
+            run_id=correlation_id, chat_id=chat_id, mode=mode,
+            source_total=coverage["source_messages_total"],
+            considered=coverage["source_messages_considered"],
+            coverage_percent=coverage["coverage_percent"])
+        if ctx is not None:
+            ctx.source_total = coverage["source_messages_total"]
+            ctx.source_considered = coverage["source_messages_considered"]
+            ctx.source_coverage = coverage["coverage_percent"]
+        if coverage["coverage_percent"] < 100.0:
+            # §57: fallback реально не покрыл весь source — degraded виден
+            # (WARN + событие), НЕ молча.
+            _lfw.log_coverage_degraded(
+                run_id=correlation_id, chat_id=chat_id,
+                source_total=coverage["source_messages_total"],
+                considered=coverage["source_messages_considered"],
+                coverage_percent=coverage["coverage_percent"],
+                reason="legacy_coverage_partial")
+            try:
+                from services.agentic_events import (
+                    SUMMARY_COVERAGE_DEGRADED,
+                    emit_agentic_event,
+                )
+                emit_agentic_event(
+                    SUMMARY_COVERAGE_DEGRADED,
+                    source_messages=coverage["source_messages_total"],
+                    processed_messages=coverage[
+                        "source_messages_considered"],
+                    unprocessed_messages=coverage["dropped"],
+                    chunks=1,
+                    coverage=coverage["coverage_percent"],
+                    reason="legacy_coverage_partial")
+            except Exception:      # fail-open
+                pass
+        return _lfw.build_legacy_package_content(package), coverage
+
     async def _run_legacy_pipeline(self, chat_id: int, rows: list,
                                    focus: str | None,
                                    trigger_message_id: int | None,
                                    correlation_id: str, ctx=None, *,
                                    max_parts: int | None = None,
-                                   skip_memorize: bool = False) -> bool:
+                                   skip_memorize: bool = False,
+                                   semantic_package: dict | None = None) -> bool:
         """ASAP-2 (контракт (i)/T-3950): ПОЛНЫЙ Legacy-пайплайн — общий метод
         OFF-режима (kill-switch Hybrid) и LEVEL-3 emergency fallback.
 
@@ -591,18 +737,38 @@ class SummaryGenerator:
         ``max_parts=None`` → резолв hot→env (OFF-путь как раньше).
         Возвращает ``True``, если что-то опубликовано (для guard'а LEVEL-3);
         коды/UX/ctx — прежняя семантика §106. DoD-10: Legacy остаётся рабочим.
+
+        Волна C (T-4424, spec §3 C.3, ADR-1028-7 D7.3): при
+        ``SUMMARY_LEGACY_FULL_WINDOW_ENABLED`` (default ON) и большом окне —
+        тихий XML hard stop удалён: Legacy получает иерархически свёрнутый
+        full-window пакет (``semantic_package`` от Hybrid либо
+        детерминированная редукция окна) + честный coverage (§57; <100% —
+        видимый degraded). Малые окна и OFF — плоский ``<chat_history>``
+        бит-в-бит. ``MAX_SUMMARY_PARTS`` не трогается (§58).
         """
         if max_parts is None:
             max_parts = int(hot.get("limits.max_summary_parts",
                                     settings.MAX_SUMMARY_PARTS))
         xml_context = self.xml.build(rows, self.aliases, trigger_message_id)
+        # ── Волна C (T-4424): full-window режим определяется ПОСЛЕ сборки
+        # плоского XML — «влез ли он целиком» знает только билдер. OFF или
+        # малое окно → xml_context как раньше (бит-в-бит); большое окно при
+        # ON → контент пакета заменяет только секцию истории чата.
+        full_window_context: str | None = None
+        full_window_coverage: dict | None = None
+        if getattr(settings, "SUMMARY_LEGACY_FULL_WINDOW_ENABLED", True):
+            from services import summary_legacy_fullwindow as _lfw
+            if not _lfw.flat_fits(xml_context, len(rows)):
+                (full_window_context, full_window_coverage) = (
+                    await self._build_legacy_full_window_context(
+                        chat_id, rows, correlation_id, ctx,
+                        semantic_package=semantic_package))
         keywords = self._extract_keywords(rows)
         l2_rows = await self.memory.search_long_term(
             chat_id, keywords, await _chat_limit(
                 chat_id, "limits.summary_rag_l2_limit",
                 hot.get("limits.summary_rag_l2_limit",
-                        settings.SUMMARY_RAG_L2_LIMIT))
-        )
+                        settings.SUMMARY_RAG_L2_LIMIT)))
         l2_quotes = [
             self._format_l2_quote(row)
             for row in l2_rows
@@ -629,7 +795,8 @@ class SummaryGenerator:
         rag_context = await self.memory.get_rag_context(
             chat_id, " ".join(keywords), sort_by_timestamp=True)
         user_content = self._compose_user_content(
-            xml_context, l2_quotes, l3_facts, graph_facts, rag_context=rag_context
+            full_window_context or xml_context, l2_quotes, l3_facts,
+            graph_facts, rag_context=rag_context
         )
         # Epic 65: фокус «/summary про X» — блок в НАЧАЛО user_content
         # (SIGIR'26: важное — к краям промпта). System-канон R11 НЕ тронут.
@@ -649,6 +816,7 @@ class SummaryGenerator:
                         settings.SUMMARY_MAX_CONTEXT_CHARS)),
             "SUMMARY_MAX_CONTEXT",
         )
+        full_window_truncated = False
         if kind == "tokens":
             budget = safe_budget(limit)
             if count_tokens(user_content) > budget:
@@ -656,10 +824,26 @@ class SummaryGenerator:
                     "summary: user content truncated | tokens=%d -> %d",
                     count_tokens(user_content), budget)
                 user_content = truncate_to_tokens(user_content, budget)
+                full_window_truncated = full_window_context is not None
         elif len(user_content) > limit:
             logger.warning(
                 "summary: user content truncated | chars=%d", len(user_content))
             user_content = user_content[-limit:]
+            full_window_truncated = full_window_context is not None
+        if full_window_truncated and full_window_coverage is not None:
+            # §57: даже safety-срез поверх пакета — видимая деградация
+            # coverage, никогда не молча.
+            from services import summary_legacy_fullwindow as _lfw
+            _lfw.log_coverage_degraded(
+                run_id=correlation_id, chat_id=chat_id,
+                source_total=full_window_coverage["source_messages_total"],
+                considered=full_window_coverage["source_messages_considered"],
+                coverage_percent=full_window_coverage["coverage_percent"],
+                reason="legacy_budget_reduction")
+            if ctx is not None:
+                ctx.source_coverage = min(
+                    ctx.source_coverage or 100.0,
+                    full_window_coverage["coverage_percent"])
         # ASAP-2 §1 (контракт (d)): prompt-бюджет legacy = parts×4000−200
         # (parts — hot `limits.max_summary_parts` → env; назад совместимо).
         max_symbols = max_parts * 4000 - 200
@@ -791,6 +975,7 @@ class SummaryGenerator:
         published = False
         calls_so_far = 0          # гибрид-вызовы LLM до точки отказа (R17)
         fallback_used = False
+        package_result = None     # до первого присваивания в try (closure)
 
         async def _legacy_fallback(reason: str) -> bool:
             """LEVEL-3 (контракт (i), матрица строки 3–6/9–10): полный Legacy-
@@ -811,9 +996,17 @@ class SummaryGenerator:
                 "calls_so_far=%d", correlation_id or "none", chat_id,
                 reason, calls_so_far)
             try:
+                # Волна C (T-4424, ADR D7.3): Legacy получает тот же
+                # hierarchical-reduced пакет, что и L2 (reuse full-window
+                # semantic package) — большой window не теряется молча.
                 delivered = await self._run_legacy_pipeline(
                     chat_id, rows, focus, trigger_message_id, correlation_id,
-                    ctx, skip_memorize=True)
+                    ctx, skip_memorize=True,
+                    semantic_package=(package_result.package
+                                      if package_result is not None
+                                      and getattr(package_result,
+                                                  "deliverable", False)
+                                      else None))
             except LLMError as exc:
                 logger.warning("summary legacy fallback: LLM failed | "
                                "chat_id=%s | error=%s", chat_id, exc)
@@ -833,12 +1026,28 @@ class SummaryGenerator:
                 # legacy-доставке (не при неудачной попытке).
                 if ctx is not None:
                     ctx.fallback = "legacy"
+                    # Волна E (T-4440): SUMMARY_LEGACY_FALLBACK — fallback
+                    # виден отдельно от failure (§61.7).
+                    try:
+                        from services import pipeline_events
+                        pipeline_events.legacy_fallback(
+                            correlation_id, chat_id=chat_id, trigger=reason,
+                            from_stage=str(ctx.stage or "l2"))
+                    except Exception:  # pragma: no cover
+                        pass
                     # Промежуточные коды цепочки (degraded L2/exception на
                     # неопубликованном) НЕ терминальны, если Legacy довёл до
                     # публикации (матрица строки 3–10 vs 11): снимаем
                     # промежуточный статус/поверхность ошибки.
                     if ctx.status in (STATUS_DEGRADED, STATUS_FAILED):
                         ctx.status = STATUS_OK
+                    # Волна D (T-4436, §50.53, прод-факт Q36): publication
+                    # (status=OK) и health — РАЗДЕЛЬНЫЕ оси. «L2 rejected →
+                    # Legacy used» больше не стирается успешной публикацией:
+                    # health остаётся degraded (stage_events append-only).
+                    if ctx.status == STATUS_OK and not getattr(
+                            ctx, "pipeline_health", None):
+                        ctx.pipeline_health = "degraded"
                     ctx.code = None
                     ctx.stage = None
                     ctx.reason = None
@@ -862,6 +1071,17 @@ class SummaryGenerator:
             calls_so_far += 1
             if ctx is not None:
                 ctx.threads = getattr(l1_result, "threads_count", None)
+            # Волна E (T-4440): SUMMARY_L1_STAGE (ok / invalid+reason).
+            try:
+                from services import pipeline_events
+                pipeline_events.l1_stage(
+                    correlation_id, chat_id=chat_id,
+                    usable=bool(l1_result.usable),
+                    invalid_reason=getattr(l1_result, "invalid_reason", None),
+                    duration_ms=getattr(l1_result, "duration_ms", None),
+                    threads=getattr(l1_result, "threads_count", None))
+            except Exception:  # pragma: no cover
+                pass
             payload_items = build_l1_payload(rows, chat_id)
             # §18/контракт (k): L2_SKIPPED l1_not_usable больше НЕ терминален
             # («не публикуем» снят) — переход в LEVEL-2 (L1_FALLBACK_PACKAGE).
@@ -929,6 +1149,35 @@ class SummaryGenerator:
                         ctx.status = STATUS_DEGRADED
                         ctx.code = CODE_SUMMARY_GENERATION_FAILED
                 return
+            # Волна C (T-4425, §50.37/§61.6-каркас): source coverage —
+            # first-class поля run state (единый расчёт с Legacy-путём;
+            # числа, R17). Потери окна видны в SUMMARY_COMPLETE (coverage=).
+            if ctx is not None and package_result is not None \
+                    and getattr(package_result, "package", None):
+                try:
+                    from services.summary_legacy_fullwindow import (
+                        compute_package_coverage,
+                    )
+                    cov = compute_package_coverage(
+                        package_result.package, len(rows))
+                    ctx.source_total = cov["source_messages_total"]
+                    ctx.source_considered = cov["source_messages_considered"]
+                    ctx.source_coverage = cov["coverage_percent"]
+                except Exception:      # fail-open
+                    pass
+                # Волна D (T-4433, §50.30): grade пакета — degraded_package
+                # (L1_FALLBACK_PACKAGE) виден в run state/логе честно.
+                try:
+                    ctx.package_grade = str(
+                        (package_result.package.get("service") or {}).get(
+                            "package_grade") or "") or None
+                    if ctx.package_grade == "degraded":
+                        logger.info(
+                            "L2_PACKAGE_DEGRADED | run_id=%s | chat_id=%s — "
+                            "fallback package (не полноценный semantic)",
+                            correlation_id or "none", chat_id)
+                except Exception:      # fail-open
+                    pass
             stage = "l2"
             service = (package_result.package or {}).get("service") or {}
             # ASAP-3.2 (ADR-1028-5 D8, §39): paged L2 — если редуцированный
@@ -974,14 +1223,62 @@ class SummaryGenerator:
                 logger.info(
                     "L2_PAGED | run_id=%s | chat_id=%s | pages=%d",
                     correlation_id or "none", chat_id, len(_pages))
+                # Волна D (ADR D3.3): call budget ≤6 фиксирован для writer=1;
+                # paged L2 (k страниц, ASAP-3.2) в бюджет ADR не входит —
+                # semantic review на paged-пути НЕ применяется. Bypass не
+                # тихий: маркирован в run state (health) и логе.
+                if _l2_review_enabled_safe() and ctx is not None:
+                    ctx.pipeline_health = "degraded"
+                    logger.info(
+                        "L2_REVIEW_SKIPPED | run_id=%s | chat_id=%s | "
+                        "reason=paged_l2 | pages=%d",
+                        correlation_id or "none", chat_id, len(_pages))
             else:
-                l2_result = await run_l2(
-                    self.llm, package_result.package, service=service,
-                    correlation_id=correlation_id, chat_id=chat_id)
-                calls_so_far += 1
+                # ASAP-4 волна D (T-4431/T-4432, ADR D3/D5): master-флаг
+                # SUMMARY_L2_REVIEW_ENABLED — ON → bounded review loop
+                # (Draft→Validate→Review→≤2 Revision; budget ≤6); OFF →
+                # прежний single-call run_l2 БЕТ-В-БИТ (модуль review не
+                # импортируется).
+                review_on = _l2_review_enabled_safe()
+                if review_on:
+                    from services.summary_l2_review import run_l2_with_review
+                    l2_result = await run_l2_with_review(
+                        self.llm, package_result.package, service=service,
+                        correlation_id=correlation_id, chat_id=chat_id,
+                        ctx=ctx)
+                else:
+                    l2_result = await run_l2(
+                        self.llm, package_result.package, service=service,
+                        correlation_id=correlation_id, chat_id=chat_id)
+                calls_so_far += 1 + _l2_review_extra_calls(l2_result)
+                # Волна E (T-4440): SUMMARY_L2_REVIEW — исход bounded review
+                # loop (только при реально запущенном review, calls>0).
+                try:
+                    from services import pipeline_events
+                    pipeline_events.l2_review(
+                        correlation_id, chat_id=chat_id,
+                        metrics=dict(getattr(l2_result, "metrics", None)
+                                     or {}))
+                except Exception:  # pragma: no cover
+                    pass
+            # Волна E (T-4440): SUMMARY_L2_STAGE (ok / unusable+reason).
+            try:
+                from services import pipeline_events
+                _doc_paras = len(((getattr(l2_result, "document", None)
+                                   or {}).get("paragraphs")) or [])
+                pipeline_events.l2_stage(
+                    correlation_id, chat_id=chat_id,
+                    usable=bool(getattr(l2_result, "usable", False)),
+                    invalid_reason=getattr(l2_result, "invalid_reason", None),
+                    duration_ms=getattr(l2_result, "duration_ms", None),
+                    paragraphs=_doc_paras)
+            except Exception:  # pragma: no cover
+                pass
             if not l2_result.usable:
                 # Матрица строка 6: L2 unusable (обычный И fallback-пакет) →
-                # LEVEL-3 Legacy; L2 correction retry НЕ вводится (Q2/ADR D3).
+                # LEVEL-3 Legacy. Волна D (ADR-1028-7 D3 SUPERSEDE): после
+                # bounded review (≤2 revision) — тот же безопасный исход
+                # (l2_review_rejected/l2_review_unusable; §50.2 перечень).
                 logger.warning(
                     "L2_ERROR | run_id=%s | chat_id=%s | reason=%s — LEVEL-3 "
                     "legacy fallback",
@@ -989,6 +1286,9 @@ class SummaryGenerator:
                 if ctx is not None:
                     ctx.stage = "l2"
                     ctx.reason = l2_result.invalid_reason or "error"
+                    # §50.53: health фиксирует деградацию ДО Legacy —
+                    # успешная Legacy-публикация её не сотрёт.
+                    ctx.pipeline_health = "degraded"
                 if await _legacy_fallback("l2_unusable"):
                     published = True
                 else:
@@ -996,6 +1296,14 @@ class SummaryGenerator:
                         ctx.status = STATUS_DEGRADED
                         ctx.code = CODE_SUMMARY_GENERATION_FAILED
                 return
+            # Волна D: review_degraded (§50.29/ADR D3.5) — документ
+            # опубликован, но run честно помечен деградацией (не success).
+            if ctx is not None:
+                if int((l2_result.metrics or {}).get(
+                        "l2_review_degraded", 0) or 0):
+                    ctx.pipeline_health = "degraded"
+                if not getattr(ctx, "pipeline_health", None):
+                    ctx.pipeline_health = "ok"
             stage = "deliver"
             document = l2_result.document
             if ctx is not None:
@@ -1348,6 +1656,10 @@ class SummaryGenerator:
         _csj.emit_cover_event(
             _csj.COVER_PIPELINE_START, outcome="start",
             run_id=correlation_id, chat_id=chat_id)
+        # ASAP-4 волна B (spec §2 B.1, T-4415; ADR-1028-7 D6): selection
+        # snapshot — ЕДИНАЯ точка резолва стиля на run, до base generation
+        # и style edit. Kill-switch OFF → None (бит-в-бит прежний контур).
+        snapshot = await _csj.selection_stage(chat_id, run_id=correlation_id)
         try:
             style = await self._resolve_cover_style_text(chat_id)
             image_prompt = compose_cover_image_prompt(style, cover_prompt)
@@ -1388,6 +1700,9 @@ class SummaryGenerator:
                     level=logging.WARNING, run_id=correlation_id,
                     chat_id=chat_id, fallback=_csj.REASON_BASE_FAILED,
                     reason_code=_csj.REASON_BASE_FAILED)
+                # §44 (T-4419): provenance `no_cover` при выбранном стиле.
+                await _csj.record_no_cover_provenance(
+                    snapshot, summary_run_id=correlation_id)
                 fallback_done = True
                 return await self._degrade_without_cover(
                     chat_id, document, correlation_id=correlation_id, ctx=ctx,
@@ -1413,6 +1728,9 @@ class SummaryGenerator:
                     level=logging.WARNING, run_id=correlation_id,
                     chat_id=chat_id, fallback=_csj.REASON_BASE_FAILED,
                     reason_code=_csj.REASON_BASE_FAILED)
+                # §44 (T-4419): provenance `no_cover` при выбранном стиле.
+                await _csj.record_no_cover_provenance(
+                    snapshot, summary_run_id=correlation_id)
                 fallback_done = True
                 return await self._degrade_without_cover(
                     chat_id, document, correlation_id=correlation_id, ctx=ctx,
@@ -1429,7 +1747,7 @@ class SummaryGenerator:
             # EXTRA §3.2/§49: optional Style-стадия поверх готовой base cover.
             style_meta = await self._maybe_apply_cover_style(
                 chat_id, base_path, correlation_id, cover_prompt=cover_prompt,
-                base_style=style)
+                base_style=style, snapshot=snapshot)
             if style_meta and style_meta.get("styled_path"):
                 styled_path = style_meta["styled_path"]
                 cover_outcome = _csj.RESULT_STYLED
@@ -1564,7 +1882,8 @@ class SummaryGenerator:
     async def _maybe_apply_cover_style(self, chat_id: int, base_image_path: str,
                                        correlation_id: str | None,
                                        cover_prompt: str = "",
-                                       base_style: str = "") -> dict | None:
+                                       base_style: str = "",
+                                       snapshot: dict | None = None) -> dict | None:
         """EXTRA §3.2/§49: применить выбранный per-chat Style к base cover.
 
         REUSE durable-джобы (§42/§43, DoD-25): строка `task_jobs` создаётся
@@ -1574,19 +1893,46 @@ class SummaryGenerator:
         платного task. Возвращает meta `run_style_job` или None (`Без
         дополнительного стиля`/kill-switch OFF/профиль не найден/стадия не
         применима). Fail-open: исключение → None (публикуется base, §49).
+
+        ASAP-4 волна B (spec §2 B.1/B.4, T-4415/T-4419): при ON
+        `COVER_STYLE_SNAPSHOT_ENABLED` профиль берётся из run-snapshot'а
+        (повторный резолв style ID запрещён); каждый ранний выход — отдельный
+        видимый reason (`COVER_STYLE_SKIPPED` + human-причина + provenance
+        base_fallback), ничего не молчит. OFF — прежняя тихая цепочка
+        бит-в-бит.
         """
         try:
             from services import cover_style_jobs as csj
             if not csj.cover_styles_enabled():
                 return None
-            style_id = await csj.resolve_selected_style_id(chat_id)
-            if not style_id:
-                return None
-            profile = await csj.load_selected_profile(chat_id)
-            if not profile or not profile.get("enabled"):
-                return None
-            if not csj.uses_style_stage(profile):
-                return None
+            if snapshot is None and csj.snapshot_enabled():
+                # Страховка для вызовов мимо `_publish_rich_document`:
+                # snapshot строится здесь (fail-open, event в комплекте).
+                snapshot = await csj.selection_stage(
+                    chat_id, run_id=correlation_id)
+            if snapshot is not None:
+                profile, skip_reason = await csj.profile_for_snapshot(snapshot)
+                if skip_reason:
+                    # §42–§44: ранний выход виден (event + provenance base),
+                    # публикация не ломается; issue counter не расходуется.
+                    await csj.report_style_skip(
+                        snapshot, summary_run_id=correlation_id,
+                        reason=skip_reason)
+                    return None
+                if not csj.uses_style_stage(profile):
+                    # Режим профиля без Style-стадии — не fail: pipeline_mode
+                    # виден в COVER_STYLE_SELECTION.
+                    return None
+            else:
+                # COVER_STYLE_SNAPSHOT_ENABLED=OFF — прежний контур (бит-в-бит):
+                style_id = await csj.resolve_selected_style_id(chat_id)
+                if not style_id:
+                    return None
+                profile = await csj.load_selected_profile(chat_id)
+                if not profile or not profile.get("enabled"):
+                    return None
+                if not csj.uses_style_stage(profile):
+                    return None
             # §42: durable job REUSE `task_jobs` (второй очереди нет).
             db = getattr(self.memory, "db", None)
             job_id, state = await csj.begin_cover_job(

@@ -1310,7 +1310,7 @@ class TestBoundaries:
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version(self):
-        assert APP_VERSION == "2.58.44"
+        assert APP_VERSION == "2.58.45"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         assert "v2.58.34" in readme
 
@@ -1328,13 +1328,17 @@ class TestBoundaries:
         routes = sorted(set(re.findall(
             r'@analytics_router\.(?:get|post|put|delete|patch)\("([^"]+)"',
             current)))
-        # Санкционированный набор (S6 + последующие релизы + ASAP-3.1).
+        # Санкционированный набор (S6 + последующие релизы + ASAP-3.1
+        # + ASAP-4 волна E: Run Inspector — read-only, global-admin,
+        # spec §5 E.2, ADR-1028-7 D8).
         assert routes == sorted([
             "/analytics/usage/latest",
             "/analytics/usage/summary",
             "/analytics/execution/latest",
             "/analytics/prices",
             "/analytics/context-budgets",
+            "/analytics/pipeline/inspector",
+            "/analytics/pipeline/runs/{run_id}",
         ]), routes
         # PUT prices — единственная запись (управление ценами, legacy).
         assert '@analytics_router.put("/analytics/prices")' in current

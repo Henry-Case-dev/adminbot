@@ -46,6 +46,9 @@ from services.llm_client import LLMBadResponseError, LLMError
 from services.prompt_style_blocks import resolve_prompt, resolve_prompt_with_source
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_prompts import SUMMARY_L2_WRITER_SYSTEM_PROMPT
+# Волна C (T-4423): quote pipeline импортируется ЛЕНИВО в _validate
+# (summary_quote_repair импортирует из этого модуля чистые утилиты цитат —
+# верхнеуровневый импорт дал бы цикл).
 # S7 (ADR-1026-9 D6/SC-07): §109-детали ошибки — http_status/attempts.
 from services.summary_run_log import attempts_of, http_status_of
 from services.system2_handoff import parse_json_object
@@ -86,8 +89,12 @@ HYBRID_MAX_CHARS_DEFAULT = 24000
 
 TOP_LEVEL_FIELDS: frozenset[str] = frozenset(
     {"schema_version", "title", "paragraphs", "finale"})
+# ASAP-4 волна D (T-4429, §50.7): paragraphs получают аддитивное internal-
+# поле evidence_message_ids (ID только из пакета; invented → validation
+# error; shared evidence разрешён). schema_version остаётся 1 — документы
+# без новых полей валидны (прецедент ASAP-2.1 emphasis_spans).
 PARAGRAPH_FIELDS: frozenset[str] = frozenset(
-    {"text", "emphasis", "emphasis_spans"})
+    {"text", "emphasis", "emphasis_spans", "evidence_message_ids"})
 
 # ── ASAP-2.1 (§99 v1.1, ADR-1028-1 D3): акценты/финал ──────────────────────
 # emphasis_spans — массив {text, kind}; kind ∈ {"person","event"} (прочие
@@ -119,6 +126,9 @@ REASON_INVALID_EMPHASIS = "invalid_emphasis"
 REASON_TOO_MANY_PARAGRAPHS = "too_many_paragraphs"
 REASON_TOO_LONG = "too_long"
 REASON_QUOTE_ATTRIBUTION = "quote_attribution"
+# ASAP-4 волна D (T-4429, §50.7): evidence-ссылки абзаца — invented/битый тип
+# → validation error (fail-closed, детерминированный слой до Reviewer).
+REASON_INVALID_EVIDENCE = "invalid_evidence"
 REASON_NO_PACKAGE = "no_package"
 REASON_PACKAGE_NOT_DELIVERABLE = "package_not_deliverable"
 REASON_NOT_BUILT = "not_built"
@@ -360,6 +370,87 @@ def _package_text_pool(package) -> list[str]:
     return pool
 
 
+# ── ASAP-4 волна D (T-4429, §50.7–§50.9): evidence id-space + roster ───────
+
+def _as_plain_int(value) -> int | None:
+    """Строгий int без bool-ловушки (``True`` — не message_id)."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value
+
+
+def package_message_id_space(package) -> set[int]:
+    """Все известные пакету message_id (§50.7 «Writer ссылается только на ID
+    из переданного пакета»): хронология ∪ фрагменты ∪ evidence фактов ∪
+    unassigned. ``service``/``budget`` — служебные секции, ID оттуда не
+    берутся. Не бросает."""
+    ids: set[int] = set()
+    for thread in _package_threads(package):
+        if not isinstance(thread, dict):
+            continue
+        for entry in thread.get("chronology") or []:
+            if isinstance(entry, dict):
+                value = _as_plain_int(entry.get("message_id"))
+                if value is not None:
+                    ids.add(value)
+        for fact in thread.get("facts") or []:
+            if not isinstance(fact, dict):
+                continue
+            for ref in fact.get("evidence_message_ids") or []:
+                value = _as_plain_int(ref)
+                if value is not None:
+                    ids.add(value)
+        for fragment in thread.get("fragments") or []:
+            if isinstance(fragment, dict):
+                value = _as_plain_int(fragment.get("message_id"))
+                if value is not None:
+                    ids.add(value)
+    unassigned = (package.get("unassigned_message_ids")
+                  if isinstance(package, dict) else None)
+    for ref in unassigned or []:
+        value = _as_plain_int(ref)
+        if value is not None:
+            ids.add(value)
+    return ids
+
+
+def build_participant_roster(package) -> list[dict]:
+    """Participant roster §50.8 (0 LLM, детерминированно из фрагментов пакета).
+
+    ``[{author_id, display_name, aliases}]``: каноническое display_name —
+    первое по порядку в пакете; aliases — остальные display_name того же
+    author_id (смена имени в окне ≠ два человека, §50.43). Одинаковые имена
+    у разных author_id НЕ склеиваются (§50.44). Без author_id фрагмент
+    roster не пополняет (не выдумываем идентичность). Не бросает.
+    """
+    order: list = []
+    by_author: dict = {}
+    for thread in _package_threads(package):
+        if not isinstance(thread, dict):
+            continue
+        for fragment in thread.get("fragments") or []:
+            if not isinstance(fragment, dict):
+                continue
+            author = fragment.get("author_id")
+            if isinstance(author, bool) or not isinstance(author, int):
+                continue
+            name = str(fragment.get("display_name") or "").strip()
+            if not name:
+                continue
+            entry = by_author.get(author)
+            if entry is None:
+                entry = {"author_id": author, "display_name": name,
+                         "aliases": []}
+                by_author[author] = entry
+                order.append(entry)
+                continue
+            if name == entry["display_name"]:
+                continue
+            if name not in entry["aliases"]:
+                entry["aliases"].append(name)
+    return order
+
+
 # ── Вход L2 (§96/§12, компактность) ────────────────────────────────────────
 
 def build_l2_input(package: dict, *, length: dict | None = None) -> str:
@@ -368,10 +459,15 @@ def build_l2_input(package: dict, *, length: dict | None = None) -> str:
     На тему: ``name``/``description``/``chronology`` (message_id/timestamp/
     ``topic_ids`` — many-to-many карта §12)/``facts[].text`` +
     ``evidence_message_ids``/отобранные ``fragments`` (v2: author_id,
-    display_name, timestamp, reply_to_id, text — рассказчик понимает «кто что
-    сказал / кто кому отвечал», §12). ``service``/``budget``/
-    ``unassigned_message_ids`` в контент НЕ идут; сырой лог повторно не
-    передаётся. Формат — компактные JSON-строки, детерминированный порядок.
+    display_name, timestamp, reply_to_id, text, kind — рассказчик понимает
+    «кто что сказал / кто кому отвечал / что переслано», §12/§50.9).
+    ``service``/``budget``/``unassigned_message_ids`` в контент НЕ идут;
+    сырой лог повторно не передаётся. Формат — компактные JSON-строки,
+    детерминированный порядок.
+
+    ASAP-4 волна D (§50.8, T-4429): секция ``participants`` — roster
+    (author_id/display_name/aliases), детерминированно из фрагментов пакета;
+    Writer не выдумывает имена (см. канон).
 
     ``length`` (контракт (l)/T-3942) — детерминированный length-блок ПОСЛЕ
     JSON пакета (response_mode/target_chars/target_paragraphs): числа НЕ в
@@ -380,6 +476,7 @@ def build_l2_input(package: dict, *, length: dict | None = None) -> str:
     """
     content = {
         "schema_version": SCHEMA_VERSION,
+        "participants": build_participant_roster(package),
         "threads": [],
     }
     for thread in _package_threads(package):
@@ -404,14 +501,22 @@ def build_l2_input(package: dict, *, length: dict | None = None) -> str:
         fragments = []
         for fragment in thread.get("fragments") or []:
             if isinstance(fragment, dict):
-                fragments.append({
+                item = {
                     "message_id": fragment.get("message_id"),
                     "author_id": fragment.get("author_id"),
                     "display_name": fragment.get("display_name"),
                     "timestamp": fragment.get("timestamp"),
                     "reply_to_id": fragment.get("reply_to_id"),
                     "text": fragment.get("text"),
-                })
+                }
+                # ASAP-4 волна D (§50.9): раздельные отношения; kind
+                # msg|reply|forward|quote из метаданных пакета.
+                kind = fragment.get("kind")
+                if isinstance(kind, str) and kind:
+                    item["kind"] = kind
+                if fragment.get("forward_source"):
+                    item["forward_source"] = fragment.get("forward_source")
+                fragments.append(item)
         content["threads"].append({
             "thread_id": thread.get("thread_id"),
             "name": thread.get("name"),
@@ -537,10 +642,20 @@ def validate_l2_document(document: dict,
         "paragraphs_count": 0,
         "quote_unverified_count": 0,
         "quote_attribution_count": 0,
+        # Волна C (T-4423, §53.2): quotes_total/verified/repaired/removed —
+        # safe-метрики repair-пайплайна (ON-путь; тексты цитат не логируются).
+        "quotes_total": 0,
+        "quotes_verified": 0,
+        "quotes_repaired": 0,
+        "quotes_removed": 0,
         "emphasis_dropped_count": 0,
         "emphasis_spans_count": 0,
         "finale_present": 0,
         "ids_stripped_count": 0,
+        # ASAP-4 волна D (T-4429, §50.7): evidence-трассировка абзацев.
+        "evidence_refs_total": 0,
+        "evidence_paragraphs": 0,
+        "paragraphs_without_evidence": 0,
     }
     try:
         return _validate(document, package, metrics)
@@ -698,6 +813,11 @@ def _validate(document, package, metrics):
     pool_normalized = [_normalize_quote(text) for text in pool]
     pool_normalized = [value for value in pool_normalized if value]
 
+    # ASAP-4 волна D (T-4429, §50.7): id-space пакета — invented evidence
+    # refs ловит детерминированный слой ДО Semantic Reviewer (§50.18).
+    id_space = package_message_id_space(package) \
+        if isinstance(package, dict) else set()
+
     canonical: list[dict] = []
     total_chars = len(title)
     for raw_paragraph in paragraphs_raw:
@@ -718,17 +838,70 @@ def _validate(document, package, metrics):
         if not text:
             return _reject(metrics, REASON_INVALID_PARAGRAPH)
 
+        # ASAP-4 волна D (T-4429/§50.18): evidence_message_ids — строгий
+        # детерминированный чек: только int-ID из id-space пакета; invented
+        # → validation error (fail-closed). Поле аддитивно: абзацы без
+        # evidence валидны (совместимость §99 v1.1), отсутствие — мягкий
+        # сигнал для Reviewer (unsupported_claim по месту), не reject.
+        evidence_ids: list[int] = []
+        raw_evidence = raw_paragraph.get("evidence_message_ids")
+        if raw_evidence is not None:
+            if not isinstance(raw_evidence, list):
+                return _reject(metrics, REASON_INVALID_EVIDENCE)
+            for ref in raw_evidence:
+                value = _as_plain_int(ref)
+                if value is None or value not in id_space:
+                    return _reject(metrics, REASON_INVALID_EVIDENCE)
+                if value not in evidence_ids:      # дедуп refs абзаца
+                    evidence_ids.append(value)
+            if evidence_ids:
+                metrics["evidence_paragraphs"] += 1
+                metrics["evidence_refs_total"] += len(evidence_ids)
+            else:
+                metrics["paragraphs_without_evidence"] += 1
+        else:
+            metrics["paragraphs_without_evidence"] += 1
+
         # Пост-валидация кавычковых вставок (§4.4).
-        for quote in _QUOTE_RE.findall(text):
-            if not _quote_matches_pool(quote, pool_normalized):
-                metrics["quote_unverified_count"] += 1
-                if _has_named_attribution(quote, text):
+        from services.summary_quote_repair import (  # лениво: цикл импорта
+            process_paragraph_quotes,
+            quote_repair_enabled,
+        )
+        if quote_repair_enabled():
+            # Волна C (T-4423, §53.2): extract → resolve против FactPackage →
+            # validate speaker → deterministic safe repair → revalidate.
+            # Fail-closed — только когда safe repair невозможен (§54:
+            # неподтверждённая прямая речь не публикуется никогда); одна
+            # repairable цитата больше НЕ уносит статью в Legacy (§53).
+            text, qstats = process_paragraph_quotes(text, package)
+            metrics["quotes_total"] += qstats.quotes_total
+            metrics["quotes_verified"] += qstats.verified
+            metrics["quotes_repaired"] += qstats.repaired
+            metrics["quotes_removed"] += qstats.removed
+            metrics["quote_unverified_count"] += (
+                qstats.quotes_total - qstats.verified)
+            if qstats.reason_codes:
+                codes = metrics.setdefault("quote_reason_codes", [])
+                for code in qstats.reason_codes:
+                    if code not in codes:
+                        codes.append(code)
+            if qstats.failure_reason:
+                # Umbrella-совместимость: отказ repairable-цепочки виден и
+                # под прежним классом, и точной подпричиной.
+                metrics["quote_attribution_count"] += 1
+                return _reject(metrics, qstats.failure_reason)
+        else:
+            # Kill-switch OFF → прежняя validator-матрица §50.20 бит-в-бит.
+            for quote in _QUOTE_RE.findall(text):
+                if not _quote_matches_pool(quote, pool_normalized):
+                    metrics["quote_unverified_count"] += 1
+                    if _has_named_attribution(quote, text):
+                        metrics["quote_attribution_count"] += 1
+                        return _reject(metrics, REASON_QUOTE_ATTRIBUTION)
+                    text = text.replace(quote, _strip_quotes(quote))
+                elif _has_named_attribution(quote, text):
                     metrics["quote_attribution_count"] += 1
                     return _reject(metrics, REASON_QUOTE_ATTRIBUTION)
-                text = text.replace(quote, _strip_quotes(quote))
-            elif _has_named_attribution(quote, text):
-                metrics["quote_attribution_count"] += 1
-                return _reject(metrics, REASON_QUOTE_ATTRIBUTION)
 
         # §99 v1.1 (Q3): секвенциальная канонизация emphasis_spans;
         # derived-`emphasis` = первый принятый span (совместимость читателей).
@@ -746,6 +919,9 @@ def _validate(document, package, metrics):
             "text": text,
             "emphasis": first,
             "emphasis_spans": accepted,
+            # §50.7: internal metadata — форматтер/публикация поле игнорируют
+            # (не публикуется); Reviewer использует для evidence-проверок.
+            "evidence_message_ids": evidence_ids,
         })
         total_chars += len(text) + (len(first) if first else 0)
 
@@ -892,6 +1068,8 @@ def _log_complete(*, correlation_id, chat_id, result: L2Result, model,
         "L2_COMPLETE | run_id=%s | chat_id=%s | provider=%s | model=%s | "
         "tokens_in=%s | tokens_out=%s | chars=%s | paragraphs=%d | "
         "title_len=%d | quote_unverified=%d | ids_stripped=%d | "
+        "quotes_total=%d | quotes_verified=%d | quotes_repaired=%d | "
+        "quotes_removed=%d | "
         "emphasis_spans=%d | emphasis_dropped=%d | finale_present=%d | "
         "status=%s | invalid_reason=%s | duration_ms=%.0f",
         correlation_id or "none", chat_id, provider_host(base_url) or "-",
@@ -901,6 +1079,10 @@ def _log_complete(*, correlation_id, chat_id, result: L2Result, model,
         metrics.get("paragraphs_count", 0), metrics.get("title_len", 0),
         metrics.get("quote_unverified_count", 0),
         metrics.get("ids_stripped_count", 0),
+        metrics.get("quotes_total", 0),
+        metrics.get("quotes_verified", 0),
+        metrics.get("quotes_repaired", 0),
+        metrics.get("quotes_removed", 0),
         metrics.get("emphasis_spans_count", 0),
         metrics.get("emphasis_dropped_count", 0),
         metrics.get("finale_present", 0),

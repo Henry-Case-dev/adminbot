@@ -667,7 +667,8 @@ class LLMClient:
                     base_url: str | None = None,
                     channel: str = "chat",
                     budget: float | None = None,
-                    max_retries: int | None = None) -> httpx.Response:
+                    max_retries: int | None = None,
+                    retry_statuses: tuple[int, ...] | None = None) -> httpx.Response:
         """POST with retry on all transient errors; auth errors raised immediately.
 
         Единственный владелец LLM-ретраев (56.4, D187). Жёсткий дедлайн всей
@@ -680,6 +681,18 @@ class LLMClient:
         per-call override для фонового канала. ``None`` → ровно прежнее
         поведение (self._budget/self._max_retries), не смещая других
         потребителей (байт-в-байт).
+        ASAP-4 (spec §1 A.2, ADR-1028-7 D1.2): ``retry_statuses`` — allowlist
+        нижнеуровневых статус-ретраев. ``None`` (default) → бит-в-бит прежнее
+        поведение (ретраятся 408/425/429/5xx); кортеж → ретраится ТОЛЬКО
+        явно перечисленное, остальное уходит наверх немедленно (``()`` → ни
+        одного статус-ретрая: 429/5xx отдаются наверх сразу — quota-retry
+        исключительно EmbeddingExecutor, нижнему слою остаётся только
+        transport retry, который от параметра не зависит).
+        Fix H-ASAP4-1 (review round 1): прежняя blocklist-семантика
+        (``status in retry_statuses`` = «не ретраить») при ``()`` была
+        всегда-ложной → 429 уходил в legacy-ветку и ретраился (2 HTTP-вызова
+        на вызов адаптера, первый ретрай спал min(Retry-After, cap) —
+        анти-паттерн §9/Q4).
         """
         client = (self._get_embed_client(api_key) if channel == "embed"
                   else self._get_client(api_key))
@@ -690,6 +703,19 @@ class LLMClient:
         call_budget = self._budget if budget is None else budget
         call_retries = self._max_retries if max_retries is None else max_retries
         total_attempts = call_retries + 1
+        # ASAP-4 / H-ASAP4-1: allowlist статус-ретраев (см. docstring).
+        if retry_statuses is None:
+
+            def _retryable(status: int) -> bool:
+                # Бит-в-бит прежний сет нижнеуровневых ретраев.
+                return status in (408, 425, 429) or 500 <= status < 600
+        else:
+            _allowed = frozenset(retry_statuses)
+
+            def _retryable(status: int) -> bool:
+                # Ретраится ТОЛЬКО явно перечисленное; остальные статусы —
+                # наверх немедленно (() → ни одного статус-ретрая).
+                return status in _allowed
         started_total = time.monotonic()
         budget_exceeded = False
         _LLM_STATS["requests"] += 1
@@ -738,35 +764,51 @@ class LLMClient:
                     status_service.record_llm(
                         "deepseek", latency_ms,
                         None if status < 500 else f"status={status}")
-                    if status in (408, 425, 429) or 500 <= status < 600:
-                        if attempt < call_retries:
-                            sleep = self._sleep_seconds(attempt, status, response.headers)
-                            logger.warning(
-                                "LLM request retry | url=%s | attempt=%d/%d | sleep=%.1fs | reason=%s",
-                                url, attempt + 1, total_attempts, sleep, f"status={status}",
-                            )
-                            await asyncio.sleep(sleep)
-                            continue
-                        if status == 429:
-                            raise LLMRateLimitError(
-                                f"LLM rate limited (429) after {total_attempts} attempts: {url}"
-                            )
-                        if status in (408, 425):
-                            raise LLMError(f"LLM HTTP {status}: {url}")
-                        # Epic 53 (62.5): диаг-лог финального 5xx ДО raise
-                        # LLMServerError — инцидентный сигнал Betterstack. R17:
-                        # url без query/секретов, заголовки не логируются,
-                        # тело ≤ _BODY_MAX_CHARS. На ретраях тело НЕ логируем.
-                        logger.error(
-                            "LLM HTTP %d | url=%s | request_len=%d | content_chars=%d | num_messages=%d | body_5xx=%r",
-                            status, url, request_len,
-                            sum(len(str(m.get("content", ""))) for m in payload.get("messages", [])),
-                            len(payload.get("messages", [])),
-                            response.text[:_BODY_MAX_CHARS],
+                    if _retryable(status) and attempt < call_retries:
+                        # Статус разрешён allowlist'ом (или legacy-сетом при
+                        # None) и бюджет ретраев не исчерпан → нижнеуровневый
+                        # ретрай (Retry-After приоритетнее backoff — 56.3).
+                        sleep = self._sleep_seconds(attempt, status, response.headers)
+                        logger.warning(
+                            "LLM request retry | url=%s | attempt=%d/%d | sleep=%.1fs | reason=%s",
+                            url, attempt + 1, total_attempts, sleep, f"status={status}",
                         )
+                        await asyncio.sleep(sleep)
+                        continue
+                    # Terminal-классификация статуса: ретраи исчерпаны ЛИБО
+                    # статус не входит в allowlist → наверх немедленно
+                    # (H-ASAP4-1: retry_statuses=() → 429/5xx без ретрая и
+                    # без сна нижним слоем).
+                    _attempts_suffix = (f" after {total_attempts} attempts"
+                                        if _retryable(status) else "")
+                    if status == 429:
+                        # R17: тело/заголовки прикладываются к исключению
+                        # in-memory для классификации EmbeddingExecutor
+                        # (Retry-After/kind) — НИЧЕГО из них не логируется.
+                        exc_429 = LLMRateLimitError(
+                            f"LLM rate limited (429){_attempts_suffix}: {url}")
+                        exc_429.headers = response.headers
+                        exc_429.body = response.text[:2000]
+                        raise exc_429
+                    if status in (408, 425):
+                        raise LLMError(f"LLM HTTP {status}: {url}")
+                    if 500 <= status < 600:
+                        if retry_statuses is None:
+                            # Epic 53 (62.5): диаг-лог финального 5xx ДО raise
+                            # LLMServerError — инцидентный сигнал Betterstack.
+                            # R17: url без query/секретов, заголовки не
+                            # логируются, тело ≤ _BODY_MAX_CHARS. (Allowlist-
+                            # путь исключения не логирует — классификация/
+                            # ретрай решаются наверху контрол-плейном.)
+                            logger.error(
+                                "LLM HTTP %d | url=%s | request_len=%d | content_chars=%d | num_messages=%d | body_5xx=%r",
+                                status, url, request_len,
+                                sum(len(str(m.get("content", ""))) for m in payload.get("messages", [])),
+                                len(payload.get("messages", [])),
+                                response.text[:_BODY_MAX_CHARS],
+                            )
                         raise LLMServerError(
-                            f"LLM server error {status} after "
-                            f"{total_attempts} attempts: {url}"
+                            f"LLM server error {status}{_attempts_suffix}: {url}"
                         )
                     if status in (401, 403):
                         # Задача 2 (01.09.2026): диаг-лог + тело в исключении
@@ -1370,5 +1412,62 @@ class LLMClient:
             raise LLMBadResponseError("embeddings: no data[].embedding in response") from exc
         logger.info(
             "LLM embed OK | model=%s | texts=%d", self._embed_model, len(vectors)
+        )
+        return vectors
+
+    async def embed_once(
+        self,
+        texts: list[str],
+        *,
+        api_key: str,
+        base_url: str | None = None,
+        model: str | None = None,
+        max_retries: int = 0,
+        retry_statuses: tuple[int, ...] | None = (),
+    ) -> list[list[float]]:
+        """ASAP-4 (spec §1 A.2/A.3, ADR-1028-7 D1.2): embed ОДНИМ credential
+        БЕЗ key-каскада и без нижнеуровневых quota-ретраев — точка
+        переиспользования сети/клиентов `LLMClient` адаптером
+        `EmbeddingProviderAdapter` (EmbeddingExecutor — единственный владелец
+        retry-policy).
+
+        * api_key обязателен (контрол-плейн сам выбирает credential);
+        * base_url/model — override (None → embed-дефолты клиента);
+        * max_retries — transport retry нижнего слоя (0–1 по контракту A.2);
+        * retry_statuses=() (default) → 429/5xx отдаются наверх немедленно
+          как исключения (Executor классифицирует); None → нижний слой
+          ретраит 429/5xx как раньше (не используется контрол-плейном).
+        R17: ключ не логируется; тело ответа не логируется на 429.
+
+        НЕ трогает каскад `embed()` (62.4) — тот остаётся legacy-контуром
+        `EMBED_CONTROL_PLANE_ENABLED=false` (бит-в-бит)."""
+        if not texts:
+            return []
+        used_model = model or self._embed_model
+        response = await self._post(
+            "/embeddings",
+            {"model": used_model, "input": texts},
+            api_key=api_key,
+            base_url=(base_url or self._embed_base_url),
+            channel="embed",
+            max_retries=max_retries,
+            retry_statuses=retry_statuses,
+        )
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise LLMBadResponseError("embeddings: invalid JSON response") from exc
+        try:
+            vectors = [item["embedding"] for item in data["data"]]
+        except (KeyError, TypeError) as exc:
+            raise LLMBadResponseError("embeddings: no data[].embedding in response") from exc
+        if len(vectors) != len(texts):
+            raise LLMBadResponseError(
+                f"embeddings: vectors={len(vectors)} != inputs={len(texts)}")
+        # R17: сам ключ не логируется НИКОГДА — алиас credential'а пишет
+        # контрол-плейн на своём уровне (spec §0.3/§63).
+        logger.info(
+            "LLM embed_once OK | model=%s | texts=%d",
+            used_model, len(vectors),
         )
         return vectors

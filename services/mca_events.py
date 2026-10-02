@@ -140,6 +140,45 @@ REASON_CODES = frozenset({
     "quote_unresolved", "subject_unresolved_skipped",
     "correction_revalidation_queued", "bot_output_recorded",
     "bot_output_undelivered_skipped",
+    # расширение asap-4/волна A (Embedding Control Plane, spec §1 A.2/A.5/A.6,
+    # ADR-1028-7 D1/AM-1/D2; §17.2 расширяемый). 429-policy: пауза/resume
+    # вместо honest-terminal; quota-группы; KNN-диагностика §28 (distinct
+    # reason codes вместо generic `knn_smoke_failed`).
+    "paused_rate_limit", "paused_provider", "quota_group_cooling_down",
+    "quota_group_exhausted", "quota_group_recovered", "embed_deferred",
+    "auth_failed", "validation_failed", "rebuild_lease_waiting",
+    "rebuild_quota_conversion", "knn_source_empty", "knn_dim_mismatch",
+    "knn_vec_extension_missing", "knn_zero_results", "knn_row_corrupt",
+    "knn_query_vector_failed", "knn_index_schema_mismatch", "knn_smoke_ok",
+    # расширение asap-4/волна B (Cover Style production path, spec §2 B.1/B.4,
+    # ADR-1028-7 D6; §17.2 расширяемый). Видимый fail-open: каждый ранний
+    # выход Style stage — отдельный reason code вместо generic-схлопывания
+    # в `style_failed` (прод-факт Q14/Q15: `not_configured` тонул в generic).
+    # `style_failed`/`edit_unsupported` остаются (совместимость/umbrella).
+    "no_style", "profile_missing", "disabled", "connection_missing",
+    "reference_missing", "capability_unknown", "not_configured",
+    # расширение asap-4/волна C (Summary full-window, spec §3 C.1–C.4,
+    # ADR-1028-7 D7; §17.2 расширяемый). Quote-контур §53.1: distinct reason
+    # codes вместо generic-схлопывания в `quote_attribution` (umbrella
+    # остаётся для совместимости логов; Analytics видит подпричину);
+    # capacity guard §51 (deterministic repair вместо whole-run invalid);
+    # Legacy full-window §56/§57 (видимый coverage вместо тихого XML-cap).
+    "quote_text_not_found", "quote_speaker_unresolved",
+    "quote_speaker_mismatch", "quote_source_ambiguous",
+    "quote_attribution_repaired",
+    "l1_capacity_sharded", "l1_capacity_repaired",
+    "legacy_full_window", "legacy_coverage_degraded",
+    # расширение asap-4/волна D (Hybrid L2 Writer/Reviewer bounded revision,
+    # spec §4 D.4/D.5, ADR-1028-7 D3/D5; §17.2 расширяемый). Review/revision
+    # исходы вместо generic-схлопывания: bounded revision исчерпан (≤2) —
+    # Legacy; reviewer outage — publish degraded (ADR D3.5, не success).
+    "l2_review_rejected", "l2_review_unusable", "review_degraded",
+    # расширение asap-4/волна E (Pipeline Analytics, spec §5 E.1, ADR-1028-7
+    # D8; §17.2 расширяемый). Коды стадий текстовой ветки Саммари: контракты
+    # L1 (summary_l1_contract) и mapped-классы LLM-ошибок для стадийных
+    # событий SUMMARY_* (§61.3: человеческие переводы по коду).
+    "too_many_facts", "too_many_threads", "too_many_facts_total",
+    "rate_limit", "timeout",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────
@@ -151,12 +190,16 @@ _ID_FIELDS = frozenset({
     # v19 (`mca-17a`): span-контракт §27.3 — идентификаторы/link-safe строки.
     "pipeline_run_id", "span_id", "parent_span_id", "job_id", "attempt_id",
     "causation_id", "checkpoint_ref",
+    # asap-4 волна E (spec §61.9: drill-down «selected style»; R17-safe id).
+    "style_id",
 })
 _NUMERIC_FIELDS = frozenset({
     "duration_ms", "attempt", "cost_usd", "input_tokens", "output_tokens",
     "queue_depth", "queue_age_ms",
     # v19 (`mca-17a`): sequence/heartbeat/progress/deadline (unix/счётчик).
     "event_sequence", "heartbeat_at", "progress_at", "deadline_at",
+    # asap-4 волна E (spec §61.9: «style revision» в drill-down; число).
+    "style_revision",
 })
 _CODE_FIELDS = frozenset({
     "level", "outcome", "component", "stage", "reason_code", "config_version",

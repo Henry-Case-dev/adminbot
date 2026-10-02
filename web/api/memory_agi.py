@@ -452,6 +452,39 @@ async def memory_health_summary(
     }
 
 
+# ── GET /api/memory/embeddings (ASAP-4 T-4411, spec §1 A.7 + §32/§63) ───────
+
+@memory_router.get("/memory/embeddings")
+async def memory_embeddings_panel(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Панели «Векторная память» и «Embedding provider» (spec §32): статус
+    индексов по-русски, готовность, next attempt, источник поиска; provider/
+    model, credentials=N (только алиасы), квота-группы, concurrency/batch,
+    429 за 10 минут. Значения — из structured state (task_jobs + реестр
+    поколений + embedding_quota_state v23), НЕ из логов (§61.12-инвариант).
+    R17: ключей нет — только алиасы/алиас-группы. Fail-open: ошибка БД →
+    shape-совместимый пустой ответ."""
+    _require_global_admin(request, user)
+    db = _db_or_503()
+    empty = {"indexes": [], "lease": None}
+    try:
+        from services import embedding_control_plane as ecp
+        vector_panel = await ecp.vector_memory_panel(db)
+    except Exception:
+        logger.warning("[memory_api] vector memory panel failed",
+                       exc_info=True)
+        vector_panel = empty
+    try:
+        from services import embedding_control_plane as ecp
+        provider = ecp.provider_panel()
+    except Exception:
+        logger.warning("[memory_api] provider panel failed", exc_info=True)
+        provider = {}
+    return {"vector_memory": vector_panel, "provider": provider}
+
+
 # ── GET /api/memory/deep-sleep (F3/T-1442, spec §6/§8) ──────────────────────
 
 # F8/ADR-1024-5 D3: единые R17-safe коды причин пустоты (spec §5.1).

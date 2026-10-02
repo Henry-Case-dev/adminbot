@@ -58,6 +58,8 @@ from services.summary_prompts import (
     COMPRESS_PROMPT,
     PREV_COMPRESS_PROMPT,
     PREV_R1021_SUMMARY_SYSTEM_PROMPT,
+    PREV_R1022_SUMMARY_SYSTEM_PROMPT,
+    PREV_R2020_SUMMARY_SYSTEM_PROMPT,
     PREV_SUMMARY_EDITOR_R1023,
     PREV_SUMMARY_EDITOR_R1023_F3,
     PREV_SUMMARY_EDITOR_R1023_F6,
@@ -67,6 +69,7 @@ from services.summary_prompts import (
     PREV_SUMMARY_L2_WRITER_R1026,
     PREV_SUMMARY_L2_WRITER_R1027,
     PREV_SUMMARY_L2_WRITER_R1028,
+    PREV_SUMMARY_L2_WRITER_R1028_ASAP4,
     PREV_SUMMARY_NARRATOR_R1023,
     PREV_SUMMARY_NARRATOR_R1028,
     PREV_SUMMARY_SYSTEM_R1028,
@@ -208,7 +211,10 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # ASAP-2: откат ступени R1027 (ДЛИНА/ДЕДУП/авторы) → канон R1026.
     # ASAP-2.1 (round1028): откат ступени R1028 → НЕПОСРЕДСТВЕННО прежний
     # канон PREV_*_R1028 (контракт (g)).
-    "prompts.summary_l2_writer_system_prompt": PREV_SUMMARY_L2_WRITER_R1028,
+    # ASAP-4 (волна D, ADR-1028-7 D4): откат ступени R1029 prose-first →
+    # непосредственный прежний прод-канон PREV_*_R1028_ASAP4 (запрет цитат).
+    "prompts.summary_l2_writer_system_prompt":
+        PREV_SUMMARY_L2_WRITER_R1028_ASAP4,
     # ASAP-2.1 (round1028): откат Рассказчика → прежний канон R1028.
     "prompts.summary_narrator_system_prompt": PREV_SUMMARY_NARRATOR_R1028,
 }

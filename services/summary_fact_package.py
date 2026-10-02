@@ -298,6 +298,21 @@ def _segment_text(text: str) -> list:
     return parts
 
 
+def _relation_kind(item) -> str:
+    """Relation kind фрагмента (ASAP-4 волна D, T-4429; §50.9, прод-факт Q35:
+    forward-метаданные раньше терялись до L2). Приоритет: forward > quote >
+    reply > msg. Правила потребителя (канон L2/Reviewer): forward content ≠
+    слова переславшего; reply ≠ согласие/авторство; quoted ≠ слова
+    цитирующего."""
+    if item.get("is_forward"):
+        return "forward"
+    if item.get("quote_text"):
+        return "quote"
+    if item.get("reply_to_id") is not None:
+        return "reply"
+    return "msg"
+
+
 def _select_fragments(message_ids, evidence_ids, item_map, id_space,
                       stats) -> list:
     """§4.5 + контракт (h): evidence-first отбор фрагментов из §92.
@@ -311,6 +326,10 @@ def _select_fragments(message_ids, evidence_ids, item_map, id_space,
     fragment-записей того же message_id с аддитивными полями ``part``/
     ``part_total`` (part 1-based); author/timestamp/reply сохраняются в
     каждой части, merge знает, что это одно исходное сообщение.
+
+    ASAP-4 волна D (T-4429, §50.9): фрагмент получает ``kind``
+    (``msg|reply|forward|quote``) и ``forward_source`` для пересылок —
+    раздельные отношения доходят до Writer/Reviewer.
     """
     ordered: list = []
     seen: set = set()
@@ -338,7 +357,11 @@ def _select_fragments(message_ids, evidence_ids, item_map, id_space,
             "display_name": item.get("display_name"),
             "timestamp": _timestamp_of(id_space, mid),
             "reply_to_id": reply_to,
+            "kind": _relation_kind(item),
         }
+        forward_source = item.get("forward_source")
+        if forward_source:
+            base["forward_source"] = str(forward_source)
         if len(text) <= FRAGMENT_MAX_CHARS:
             entry = dict(base)
             entry["text"] = text
@@ -895,6 +918,10 @@ def _build_from_payload(l1_result, payload, payload_items, kind, limit,
                  if t["chronology"] else (0, 0))
 
     service = _service_section(l1_result, payload)
+    # ASAP-4 волна D (T-4433, §50.30/§50.32): grade пакета + слитые редукцией
+    # темы/факты — internal metadata для coverage map (Analytics); в L2-контент
+    # service-секция не передаётся.
+    service["package_grade"] = "semantic"
 
     # ── ASAP-3.2 (ADR-1028-5 D8/D9, §37–§41): hierarchical semantic
     # reduction — позиционное усечение БОЛЬШЕ НЕ норма нормального пути.
@@ -909,6 +936,10 @@ def _build_from_payload(l1_result, payload, payload_items, kind, limit,
         from services.summary_semantic_reduction import reduce_threads
         threads, red_stats = reduce_threads(threads)
         reduction_stats_dict = red_stats.as_dict()
+        # Волна D (T-4433, §50.32): слитые редукцией темы/факты — в service-
+        # секцию пакета (coverage map: total = represented + merged).
+        service["reduction_topics_merged"] = int(red_stats.topics_merged)
+        service["reduction_facts_merged"] = int(red_stats.facts_merged)
         # description — производное поле: пересчёт после редукции
         # (facts объединились); дедуп/кап _description без изменений.
         for thread in threads:
@@ -1122,7 +1153,12 @@ def build_fallback_package(payload_items, *, budget=None,
                                 or estimated <= limit)}
     truncated = bool(skipped_ids or skipped_threads or skipped_chronology)
     status = STATUS_TRUNCATED if truncated else STATUS_OK
-    service = {"response_mode": "", "cover_prompt": ""}
+    # ASAP-4 волна D (T-4433, §50.30): L1_FALLBACK_PACKAGE (fragments=30
+    # chronology=688) ≠ полноценный semantic package — degraded grade
+    # внутренне видим (WARN L1_FALLBACK_PACKAGE уже есть; grade читают
+    # coverage/run state).
+    service = {"response_mode": "", "cover_prompt": "",
+               "package_grade": "degraded"}
     package = _base_package(status, service, budget_dict, threads, [])
     metrics = _metrics(status, REASON_OK, l1_status="fallback",
                        threads=threads, skipped_ids=skipped_ids,

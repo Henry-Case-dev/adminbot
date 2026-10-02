@@ -887,7 +887,10 @@ def test_write_points_go_through_single_writer():
     allow = {
         # +3 v22 mca-22 (ADR-1028-6, bot_outputs_ledger: таблица/индексы/
         # PRAGMA в `_migrate_bot_outputs_v22`, L-MCA14-3)
-        "database.py": 144,
+        # +3 v23 asap-4 (ADR-1028-7 D1, embedding control plane:
+        # embedding_quota_state + ALTER реестра + PRAGMA в
+        # `_migrate_embedding_control_plane_v23`, L-MCA14-3)
+        "database.py": 147,
         "dossier_rebuild_jobs.py": 1,   # внутри `async with db.serialized()`
         # ASAP-3.2 (ADR-1028-5 D1/D2, T-4191): shadow-rebuild — 3 прямых
         # commit внутри `async with memory.db.serialized()` (идемпотентный

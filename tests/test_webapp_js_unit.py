@@ -357,3 +357,17 @@ def test_js_unit_round1029_extra_cover_styles():
     _run_js(os.path.join("tests", "js",
                          "round1029_extra_cover_styles_test.js"),
             ok_marker="EXTRA-COVER-STYLES-UI-OK")
+
+
+def test_js_unit_round1030_pipeline_inspector():
+    """ASAP-4 волна E (T-4441–T-4446, spec §5 E.2/E.3, §61/§62/§76): Run
+    Inspector «Пайплайн саммари» + Embedding Inspector — режимы одного
+    виджета (§61.4), health-бейдж текстом без score (§61.13), раздельные
+    ветки ТЕКСТ/ОБЛОЖКА (§61.8), tap-поянения, live polling 15с latest-only
+    (§61.15), fail-open, coverage-строка (§61.6), endpoint'ы
+    /api/analytics/pipeline/inspector + /api/memory/embeddings, разметка
+    (значки ✓/⚠/✕/○ с текстом, developer collapsible, список runs) и
+    R17 (алиасы, без ключей в разметке)."""
+    _run_js(os.path.join("tests", "js",
+                         "round1030_pipeline_inspector_test.js"),
+            ok_marker="PIPELINE-INSPECTOR-OK")

@@ -753,16 +753,18 @@ async def recover_media_jobs(db) -> dict:
     for row in rows:
         raw = row.get("payload")
         state = MediaJobState.from_json(raw)
-        if state is None or (not state.provider and not state.model):
-            # payload может быть checkpoint-обёрткой {"cursor": state-json}
-            # (после save_media_job) — раскрываем (прецедент cover_style).
-            try:
-                data = json.loads(raw) if isinstance(raw, str) else raw
-                cursor = (data or {}).get("cursor") \
-                    if isinstance(data, dict) else None
-                state = MediaJobState.from_json(cursor) or state
-            except (ValueError, TypeError):
-                pass
+        # Checkpoint-cursor — самый СВЕЖий снимок состояния (его пишет
+        # `save_media_job`); приоритетен над identity-полями payload'а.
+        # Прецедент cover_style; после L-EXTRA-6 (merge вместо overwrite,
+        # asap-4 волна B) payload содержит И identity-поля, И cursor —
+        # раньше здесь полагались на то, что checkpoint затирает payload.
+        try:
+            data = json.loads(raw) if isinstance(raw, str) else raw
+            cursor = (data or {}).get("cursor") \
+                if isinstance(data, dict) else None
+            state = MediaJobState.from_json(cursor) or state
+        except (ValueError, TypeError):
+            pass
         if state is None or (not state.provider and not state.model):
             continue
         summary["active"] += 1

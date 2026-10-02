@@ -108,9 +108,12 @@ async def test_incident_369_big_window_single_pass(monkeypatch):
     result = await sl1.run_l1(rows=rows, chat_id=CHAT_ID,
                               llm_call=llm_call)
     assert result.usable
-    # НЕТ искусственного 21001-cap: auto-бюджет от окна 131072.
-    assert llm_call.calls["count"] == 1
-    assert result.chunk_count == 1
+    # НЕТ искусственного 21001-cap: auto-бюджет от окна 131072; coverage
+    # 100%. Волна C (spec C.1, T-4422): число чанков определяется и
+    # планировщиком кардинальности (§52) — пин «ровно 1» снят, шардирование
+    # плотного окна — целевое поведение (369 сообщений ≈ 31 expected facts).
+    assert llm_call.calls["count"] >= 1
+    assert result.chunk_count == llm_call.calls["count"]
     assert result.skipped_ids == ()
     assert result.truncated is False
     coverage = sl1.last_run_coverage()
@@ -119,7 +122,7 @@ async def test_incident_369_big_window_single_pass(monkeypatch):
     assert coverage["source_messages_unprocessed"] == 0
     assert coverage["coverage_percent"] == 100.0
     assert coverage["budget_mode"] == BUDGET_MODE_AUTO
-    assert coverage["l1_chunks"] == 1
+    assert coverage["l1_chunks"] == llm_call.calls["count"]
     # §127 (M-ASAP31-1 rework): окно прогона — реальные timestamps,
     # НЕ заглушки.
     assert coverage["source_window_start"] == 1_700_000_000
@@ -138,7 +141,9 @@ async def test_payload_over_21k_not_truncated(monkeypatch):
     assert result.usable
     assert result.truncated is False
     assert result.skipped_ids == ()
-    assert llm_call.calls["count"] == 1
+    # Волна C (spec C.1): planning может шардировать по кардинальности —
+    # пин «ровно 1 вызов» снят (см. test_incident_369_big_window_single_pass).
+    assert llm_call.calls["count"] >= 1
 
 
 # ── §143: маленькая локальная модель 16K → chunks>1, coverage 100% ─────────
@@ -211,7 +216,9 @@ async def test_model_switch_recalculates(monkeypatch):
     rows = _rows(369)
     llm_call = _mock_llm_call()
     big = await sl1.run_l1(rows=rows, chat_id=CHAT_ID, llm_call=llm_call)
-    assert big.usable and llm_call.calls["count"] == 1
+    # Волна C (spec C.1): planning может дать >1 чанк на плотном окне —
+    # суть теста в пересчёте ПОСЛЕ смены модели (§144).
+    assert big.usable and llm_call.calls["count"] >= 1
     # Смена модели (новый слот → новый ключ кэша → пересчёт, §38).
     _slot(monkeypatch, "http://127.0.0.1:8080/v1", "tiny-local-model")
     small = await sl1.run_l1(rows=rows, chat_id=CHAT_ID, llm_call=llm_call)

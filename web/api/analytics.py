@@ -21,6 +21,7 @@ S8-эндпоинт аддитивен и read-only (R16: одна минима�
 `None`).
 """
 import logging
+import time
 from typing import Annotated
 
 from aiogram.utils.web_app import WebAppUser
@@ -403,3 +404,88 @@ async def prices_upsert(
     llm_pricing.invalidate(model)
     logger.info("[analytics] price upsert | model=%s by=%s", model, user.id)
     return {"ok": True, "model": model}
+
+
+# ── ASAP-4 волна E (T-4441/T-4444, spec §5 E.2, §61.4–§61.10) — Run
+# Inspector: один виджет/одни данные (§61.4), режимы latest|24h|7d. Источник
+# — structured state (mca_events + in-memory снапшоты), НЕ human-логи
+# (§61.12). Kill-switch `SUMMARY_PIPELINE_EVENTS_ENABLED` (spec §8.2): OFF →
+# вид из state-проекций (durable-события не читаются, агрегаты честно
+# «нет данных»). R17: только числа/коды/id; без ключей/промптов/сырого чата.
+
+def _pipeline_db(request: Request):
+    """SQLite DatabaseService (fail-open → None — не 503: виджет деградирует
+    в «Нет данных», а не ошибкой)."""
+    try:
+        from services import lore_runtime
+        return lore_runtime.get_lore_db()
+    except Exception:
+        return None
+
+
+_EMPTY_TOTALS = {"total": 0, "healthy": 0, "degraded": 0, "failed": 0,
+                 "incomplete": 0}
+
+
+@analytics_router.get("/analytics/pipeline/inspector")
+async def pipeline_inspector(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
+    mode: str = Query(default="latest"),
+    run_id: str = Query(default=""),
+):
+    """Run Inspector (§61.4): один виджет — три режима одних данных.
+
+    ``mode=latest`` — карта последнего запуска + список runs; ``24h``/
+    ``7d`` — агрегаты per-stage (§61.5) + итоги runs + список. Drill-down
+    по произвольному run_id — ``?run_id=`` (карта конкретного прогона).
+    Fail-open: любые ошибки → shape-совместимый пустой ответ."""
+    from services import pipeline_analytics as pa
+    mode = str(mode or "latest").strip().lower()
+    days = {"24h": 1, "7d": 7}.get(mode)
+    db = _pipeline_db(request)
+    try:
+        if run_id:
+            run = await pa.collect_run(db, str(run_id))
+            runs = await pa.collect_runs_list(db, limit=12)
+            return {"mode": mode or "latest", "run": run, "runs": runs,
+                    "generated_at": int(time.time())}
+        if days is not None:
+            aggregate = await pa.collect_aggregate(db, days)
+            runs = await pa.collect_runs_list(db, limit=12)
+            return {"mode": mode, "window": aggregate.get("window"),
+                    "aggregate": aggregate, "runs": runs,
+                    "generated_at": int(time.time())}
+        run = await pa.collect_latest(db)
+        runs = await pa.collect_runs_list(db, limit=12)
+        return {"mode": "latest", "run": run, "runs": runs,
+                "generated_at": int(time.time())}
+    except Exception:
+        logger.warning("[analytics] pipeline inspector failed — fail-open",
+                       exc_info=True)
+        return {"mode": mode or "latest", "run": None, "runs": [],
+                "aggregate": {"stages": {}, "totals": dict(_EMPTY_TOTALS)},
+                "generated_at": int(time.time())}
+
+
+@analytics_router.get("/analytics/pipeline/runs/{run_id}")
+async def pipeline_run_detail(
+    request: Request,
+    run_id: str,
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
+):
+    """Drill-down по run_id (§61.9): timestamps стадий, provider/model,
+    attempts, counts, coverage, стиль, публикация, message id, safe reason —
+    БЕЗ ключей/полных промптов/reasoning/сырого чата (R17/§61.9)."""
+    from services import pipeline_analytics as pa
+    rid = str(run_id or "").strip()
+    db = _pipeline_db(request)
+    if not rid:
+        return {"run": None, "generated_at": int(time.time())}
+    try:
+        run = await pa.collect_run(db, rid)
+        return {"run": run, "generated_at": int(time.time())}
+    except Exception:
+        logger.warning("[analytics] pipeline run detail failed — fail-open",
+                       exc_info=True)
+        return {"run": None, "generated_at": int(time.time())}

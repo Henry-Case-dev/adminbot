@@ -335,9 +335,12 @@ class TestRunL2:
         assert result.usable
         assert len(result.document["paragraphs"]) == 5
         # ASAP-2.1: канонический абзац несёт emphasis_spans (пустой список —
-        # валидное отсутствие акцентов).
+        # валидное отсутствие акцентов). ASAP-4 волна D: + internal
+        # evidence_message_ids (§50.7; пусто — абзацы без refs валидны,
+        # поле аддитивно).
         assert result.document["paragraphs"] == [
-            {"text": f"Абзац {i}.", "emphasis": None, "emphasis_spans": []}
+            {"text": f"Абзац {i}.", "emphasis": None, "emphasis_spans": [],
+             "evidence_message_ids": []}
             for i in range(5)]
 
     async def test_hard_cap_498_scenario(self):
@@ -417,11 +420,12 @@ class TestCanon:
             "\n\n" + TARGET_INSTRUCTION_BLOCK)
 
     def test_canon_v2_length_dedup_authors(self):
-        """T-3942 + ASAP-2.1 (контракт g): канон R1028 = правила §97/§98
-        (сохранены) + ДЛИНА/ДЕДУПЛИКАЦИЯ + авторский контекст пакета v2 +
+        """T-3942 + ASAP-2.1 (контракт g) + ASAP-4 волна D (ADR-1028-7 D4,
+        T-4428): канон R1029 = блоки R1028 (ДЛИНА/ДЕДУПЛИКАЦИЯ/АВТОРЫ,
         грамматика §15 / двачерский голос §16 / typography §17 /
-        emphasis_spans §18–19 / finale §21–24; ЧИСЕЛ целей в каноне нет —
-        они в детерминированном length-блоке user-контента."""
+        emphasis_spans §18–19 / finale §21–24) + prose-first §50.3–§50.6
+        (запрет цитат SUPERSEDED) + ЭВИДЕНЦИЯ §50.7; ЧИСЕЛ целей в каноне
+        нет — они в детерминированном length-блоке user-контента."""
         canon = SUMMARY_L2_WRITER_SYSTEM_PROMPT
         assert "ДЛИНА И ДЕДУПЛИКАЦИЯ" in canon
         assert "мягкий ориентир, а не жёсткий лимит" in canon
@@ -431,18 +435,38 @@ class TestCanon:
         assert "АВТОРЫ И ОТВЕТЫ В ПАКЕТЕ" in canon
         assert "reply_to_id" in canon
         assert "не приписывай реплики другим" in canon
-        # §97/§98 базы сохранены:
-        assert "Не выдумывай цитаты" in canon
-        # ASAP-2.1 §16: запрет сленга снят владельцем.
-        assert "никакого сленга" not in canon
-        # §15 грамматика:
+        # §50.3/ADR-1028-7 D4 (SUPERSEDE): запрета цитат больше НЕТ;
+        # разрешение с доказанным source+speaker — ЕСТЬ.
+        assert "Не выдумывай цитаты" not in canon
+        assert "Прямые цитаты не приводи" not in canon
+        assert "Прямые цитаты НЕ запрещены" in canon
+        assert "автор реплики доказан" in canon
+        # §50.4 prose-first: рассказ, не transcript; narrative continuity.
+        assert "связный прозаический рассказ" in canon
+        assert "список реплик" in canon
+        assert "событие → реакция участников → развитие" in canon
+        # §50.5: голос бота сохранён, грамматика нормальная.
         assert "заглавной буквы" in canon
+        assert "Сарказм, интернет-сленг, двачерские обороты и мат" in canon
         # §17 typography:
         assert "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНЫ длинные тире" in canon
-        # §18–19 акценты:
+        # §50.6/§50.41/§50.42: модальность не инвертируется в факты.
+        assert "ФАКТЫ И МОДАЛЬНОСТЬ" in canon
+        assert "НЕ факты" in canon
+        # §50.7: evidence-трассировка абзацев.
+        assert "evidence_message_ids" in canon
+        assert "выдуманный ID - ошибка валидации" in canon
+        # §50.8/§50.43/§50.44: имена только из пакета.
+        assert "Имена участников бери ТОЛЬКО из пакета" in canon
+        # §50.9/§50.40: forward/reply/quote — раздельные отношения.
+        assert "содержание принадлежит источнику пересылки" in canon
+        # §50.14: числа high-risk.
+        assert "Конкретное число" in canon
+        # §18–19 акценты + §21–24 finale:
         assert "emphasis_spans" in canon
-        # §21–24 finale:
         assert '"finale"' in canon
+        # §50.47: кандидат финала — участник пакета.
+        assert "Кандидат обязан быть участником пакета" in canon
         # Числа целей длины — НЕ в каноне (иначе hot-правка канона ломала бы
         # подстановку; см. length-блок build_l2_input):
         assert "6500" not in canon and "target_chars" not in canon
@@ -484,6 +508,7 @@ class TestCanon:
         from services.summary_prompts import (
             PREV_SUMMARY_L2_WRITER_R1027,
             PREV_SUMMARY_L2_WRITER_R1028,
+            PREV_SUMMARY_L2_WRITER_R1028_ASAP4,
         )
         assert (PREV_SUMMARY_L2_WRITER_R1026,
                 SUMMARY_L2_WRITER_SYSTEM_PROMPT) in \
@@ -496,12 +521,27 @@ class TestCanon:
         assert (PREV_SUMMARY_L2_WRITER_R1028,
                 SUMMARY_L2_WRITER_SYSTEM_PROMPT) in \
             pm.PROMPT_MIGRATIONS[PROMPT_PG_KEY]
+        # ASAP-4 волна D (ADR-1028-7 D4): ступень R1028→R1029 prose-first —
+        # слепок прод-канона с запретом цитат ведёт на новый канон.
+        assert PREV_SUMMARY_L2_WRITER_R1028_ASAP4 != \
+            SUMMARY_L2_WRITER_SYSTEM_PROMPT
+        assert "Прямые цитаты не приводи" in PREV_SUMMARY_L2_WRITER_R1028_ASAP4
+        assert (PREV_SUMMARY_L2_WRITER_R1028_ASAP4,
+                SUMMARY_L2_WRITER_SYSTEM_PROMPT) in \
+            pm.PROMPT_MIGRATIONS[PROMPT_PG_KEY]
+        # Откат prose-first — на непосредственный прежний прод-канон
+        # (rollback-паритет с SUMMARY_L2_REVIEW_ENABLED=false).
         assert pm.ROLLBACK_MIGRATIONS[PROMPT_PG_KEY] == (
-            SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1028)
+            SUMMARY_L2_WRITER_SYSTEM_PROMPT,
+            PREV_SUMMARY_L2_WRITER_R1028_ASAP4)
 
     def test_catalog_delta_sanctioned(self):
         # ASAP-2.1 (ADR-1028-1 D1, контракт i): санкционированная
         # ОТРИЦАТЕЛЬНАЯ Δ каталога — -8/-2; env-слой Settings -8.
+        # ASAP-4 волна D: kill-switches зоны D (SUMMARY_L2_REVIEW_ENABLED/
+        # SUMMARY_REVISION_PATCH_ENABLED, spec §8.2) — ClassVar (как все
+        # env-рубильники ASAP-4) → dataclass-fields не растут (426);
+        # Δ каталога = 0 (env-only, F8).
         assert len(pc.REGISTRY) == 488
         assert len({f.name for f in dataclasses.fields(settings.__class__)}) \
             == 426

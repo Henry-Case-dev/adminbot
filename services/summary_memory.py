@@ -285,6 +285,18 @@ _VEC_REACTIVATE_INTERVAL = 600.0     # re-probe не чаще раза в 10 м�
 _BACKFILL_BATCH = 50                 # батч backfill
 _BACKFILL_MAX_FACTS = 500            # потолок фактов за один вызов backfill
 
+# ── ASAP-4 (T-4406, spec §1 A.4): классы трафика для EmbeddingExecutor ──────
+# P0 online query / P1 live write (дефолт контекста) / P2 repair+backfill /
+# P3 full rebuild (ставится graphrag_rebuild на цикл батчей). Импорт
+# ленивый/защитный: enum недоступен → None (контрол-плейн возьмёт дефолт).
+try:
+    from services.embedding_control_plane import Priority as _ECPriority
+    _PRIO_QUERY = _ECPriority.P0_QUERY
+    _PRIO_REPAIR = _ECPriority.P2_REPAIR
+except Exception:      # pragma: no cover — модуль всегда в комплекте
+    _PRIO_QUERY = None
+    _PRIO_REPAIR = None
+
 # Epic 60 (64.4, T-465): кэш эмбеддингов — ленивый last_used_at только если
 # старше 60с (без write-per-read); LRU-cap и TTL — см. EMBED_CACHE_*.
 _EMBED_TOUCH_SECONDS = 60.0
@@ -1399,6 +1411,14 @@ class MemoryManager:
         # батч чата B). При достижении порога батч явно отбрасывается
         # (mark + dropped_metric); успех/пустой результат сбрасывает счётчик.
         self._graph_batch_failures: dict[int, int] = {}
+        # ASAP-4 (T-4402): registry quota-групп контрол-плейна получает БД
+        # (embedding_quota_state v23) — restart during pause восстанавливает
+        # cooling/exhausted из structured state, не из логов.
+        try:
+            from services import embedding_control_plane as _ecp
+            _ecp.REGISTRY.bind_db(db)
+        except Exception:      # контракт не рвёт инициализацию
+            pass
 
     # ── Initialization (R3: graceful sqlite-vec load + self-heal) ──────────
 
@@ -1410,6 +1430,13 @@ class MemoryManager:
         self._vec_available = False
         self._vec_dim = None
         self._vec_off_reason = None
+        # ASAP-4 (T-4402): восстановление quota-групп из embedding_quota_state
+        # (v23) — cooldown переживает рестарт (structured state, не логи).
+        try:
+            from services import embedding_control_plane as _ecp
+            await _ecp.REGISTRY.load_group_states()
+        except Exception:      # fail-open: рестарт не зависит от quota-state
+            pass
         try:
             import sqlite_vec
         except Exception:
@@ -1437,7 +1464,7 @@ class MemoryManager:
         try:
             actual_dim = None
             try:
-                vectors = await self._embed(["probe"])
+                vectors = await self._embed(["probe"], priority=_PRIO_REPAIR)
                 if vectors and vectors[0]:
                     actual_dim = len(vectors[0])
             except Exception as exc:
@@ -1683,33 +1710,48 @@ class MemoryManager:
             model=str(latest.get("model") or "")[:120])
         return False
 
-    async def _embed(self, texts) -> list[list[float]]:
+    async def _embed(self, texts, *, priority=None) -> list[list[float]]:
         """64.4 (T-465): embedding_cache — батч-лукап SHA-256 → miss → API →
         write-back. Кэш покрывает ВСЕ вызовы _embed (probe/vector_search/
         memorize/backfill) — одна точка. Ошибки кэша НЕ блокируют (WARNING →
         обычный вызов API, 64.4). Ретраи 55.8 — внутри _embed_api.
-        EMBED_CACHE_ENABLED=false → ровно старое поведение."""
+        EMBED_CACHE_ENABLED=false → ровно старое поведение.
+        ASAP-4: `priority` — класс трафика для контрол-плейна (P0 query /
+        P1 write / P2 repair / P3 rebuild, spec §1 A.4); None → контекст/дефолт
+        (P1)."""
         if not texts:
             return []
         if not hot.get("flags.embed_cache_enabled", settings.EMBED_CACHE_ENABLED):
-            return await self._embed_api(texts)
+            return await self._embed_api(texts, priority=priority)
         cached, misses = await self._embed_cache_lookup(texts)
         # Epic 64: hit-rate диагностика — данные для решения «нужен ли кэш».
         logger.info("embed cache | hits=%d misses=%d", len(cached), len(misses))
         results: dict[str, list[float]] = dict(cached)
         if misses:
-            fetched = await self._embed_api(misses)
+            fetched = await self._embed_api(misses, priority=priority)
             await self._embed_cache_store(misses, fetched)
             results.update(zip(misses, fetched))
         return [results[text] for text in texts]
 
-    async def _embed_api(self, texts) -> list[list[float]]:
+    async def _embed_api(self, texts, *, priority=None) -> list[list[float]]:
         """R46-8 (55.8): ретраи 3× с backoff 1.0*2**n на любых ошибках embed
         (в т.ч. эпизодических 403) — поверх LLMClient-ретраев 429/5xx.
         Задача 3 (01.09.2026): диаг-логи попыток — тип/код ошибки (у
         LLMAuthError теперь есть обрезанное тело провайдера) + провайдер;
         финальный фейл логируется ERROR и пробрасывается (KNN→FTS-каскад
-        решает деградацию ниже по стеку)."""
+        решает деградацию ниже по стеку).
+
+        ASAP-4 (T-4403, spec §1 A.2; ADR-1028-7 D1.2): при
+        `EMBED_CONTROL_PLANE_ENABLED=ON` собственный 3-аттемпный цикл —
+        ДЕМОНТИРОВАН как самостоятельная retry-policy: один logical request
+        = одна orchestration policy (EmbeddingExecutor, attempt budget ≤4,
+        quota-group cooldown, priorities P0–P3).         OFF → прежний цикл
+        бит-в-бит (cascade llm_client 3×(3+2+2))."""
+        from services.embedding_control_plane import control_plane_enabled
+        if control_plane_enabled():
+            from services import embedding_control_plane as ecp
+            return await ecp.execute_embed(self.llm, list(texts),
+                                           priority=priority)
         last_exc = None
         for attempt in range(_EMBED_RETRY_ATTEMPTS):
             try:
@@ -1923,7 +1965,7 @@ class MemoryManager:
             if self._vec_available:
                 return True
             try:
-                vectors = await self._embed(["probe"])
+                vectors = await self._embed(["probe"], priority=_PRIO_REPAIR)
                 actual_dim = len(vectors[0]) if vectors and vectors[0] else None
             except Exception as exc:
                 self._embed_degraded_at = time.monotonic()
@@ -1971,7 +2013,8 @@ class MemoryManager:
             for start in range(0, len(rows), _BACKFILL_BATCH):
                 batch = rows[start:start + _BACKFILL_BATCH]
                 try:
-                    vectors = await self._embed([row["fact"] for row in batch])
+                    vectors = await self._embed(
+                        [row["fact"] for row in batch], priority=_PRIO_REPAIR)
                 except Exception:
                     logger.warning("SmartModule backfill: embed failed — deferred | processed=%d",
                                    processed)
@@ -2030,7 +2073,8 @@ class MemoryManager:
             for start in range(0, len(rows), _BACKFILL_BATCH):
                 batch = rows[start:start + _BACKFILL_BATCH]
                 try:
-                    vectors = await self._embed([row["fact"] for row in batch])
+                    vectors = await self._embed(
+                        [row["fact"] for row in batch], priority=_PRIO_REPAIR)
                 except Exception:
                     logger.warning(
                         "SmartModule graph backfill: embed failed — deferred | "
@@ -2312,7 +2356,8 @@ class MemoryManager:
         # старые векторы (FTS-only до перестройки mca-04b).
         if self._vec_available and await self._index_generation_ok("smart_archive"):
             try:
-                vectors = await self._embed([query])
+                # ASAP-4 (T-4406): query-embed = P0 (online retrieval).
+                vectors = await self._embed([query], priority=_PRIO_QUERY)
                 if vectors and vectors[0]:
                     facts = await self._search_archive_knn(chat_id, vectors[0], limit)
                     if facts:
@@ -2323,12 +2368,24 @@ class MemoryManager:
                     logger.info(
                         "SmartModule L3: KNN empty — FTS5 fallback | chat_id=%s", chat_id
                     )
-            except Exception:
+            except Exception as exc:
                 self._embed_degraded_at = time.monotonic()   # vec жив, embed деградировал (55.8)
-                logger.warning(
-                    "SmartModule L3: vector search failed — FTS5 fallback | chat_id=%s",
-                    chat_id, exc_info=True,
-                )
+                # ASAP-4 §31: paused_rate_limit не спамит WARNING на каждый
+                # query — state-transition + coalesced periodic status;
+                # FTS-fallback запросы = INFO. Остальные классы — как раньше.
+                from services.embedding_control_plane import (
+                    EmbeddingGroupCoolingDown, coalesced_state_log)
+                if isinstance(exc, EmbeddingGroupCoolingDown):
+                    coalesced_state_log(
+                        f"l3_fts_fallback:{chat_id}",
+                        "SmartModule L3: embed quota cooling — FTS5 fallback",
+                        level=logging.INFO, chat_id=chat_id,
+                        next_allowed_at=exc.next_allowed_at)
+                else:
+                    logger.warning(
+                        "SmartModule L3: vector search failed — FTS5 fallback | chat_id=%s",
+                        chat_id, exc_info=True,
+                    )
         facts = await self._fts_search_archive(chat_id, query, limit)
         logger.info(
             "SmartModule L3: fts_hits=%d | chat_id=%s (fallback=%s)",
@@ -3320,7 +3377,8 @@ class MemoryManager:
         if await self._ensure_vec_retry() and \
                 await self._index_generation_ok("graph_facts_vec"):
             try:
-                vectors = await self._embed([query])
+                # ASAP-4 (T-4406): query-embed = P0 (online retrieval).
+                vectors = await self._embed([query], priority=_PRIO_QUERY)
                 if vectors and vectors[0]:
                     rows = await self._knn_graph_facts(
                         chat_id, vectors[0], limit,
@@ -3328,10 +3386,21 @@ class MemoryManager:
                         include_self=include_self, with_meta=with_meta)
                     if rows:
                         return rows
-            except Exception:
+            except Exception as exc:
                 self._embed_degraded_at = time.monotonic()
-                logger.warning("graphrag RAG: KNN failed — FTS fallback | chat_id=%s",
-                               chat_id, exc_info=True)
+                # ASAP-4 §31: quota-cooling → coalesced INFO (без WARNING-
+                # спама на каждый query); остальные классы — как раньше.
+                from services.embedding_control_plane import (
+                    EmbeddingGroupCoolingDown, coalesced_state_log)
+                if isinstance(exc, EmbeddingGroupCoolingDown):
+                    coalesced_state_log(
+                        f"rag_fts_fallback:{chat_id}",
+                        "graphrag RAG: embed quota cooling — FTS fallback",
+                        level=logging.INFO, chat_id=chat_id,
+                        next_allowed_at=exc.next_allowed_at)
+                else:
+                    logger.warning("graphrag RAG: KNN failed — FTS fallback | chat_id=%s",
+                                   chat_id, exc_info=True)
         keywords = _TOKEN_RE.findall(str(query).lower())
         match_query = build_fts_query(keywords)
         if not match_query:

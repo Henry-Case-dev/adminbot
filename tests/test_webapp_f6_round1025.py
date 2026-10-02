@@ -113,9 +113,13 @@ class TestInvariant116:
         # ASAP-3.1 (T-4075, санкция spec раздел 8): +read-only GET
         # /analytics/context-budgets (global admin; kill-switch) → 6.
         # PUT /analytics/prices — единственное исключение (legacy, цены).
+        # ASAP-4 волна E (T-4441/T-4444, spec §5 E.2, ADR-1028-7 D8):
+        # +read-only GET /analytics/pipeline/inspector и
+        # /analytics/pipeline/runs/{run_id} (Run Inspector, global admin,
+        # kill-switch SUMMARY_PIPELINE_EVENTS_ENABLED) → 8.
         routes = re.findall(r"@analytics_router\.(get|put|post|delete)\(\"([^\"]+)\"",
                             _ANALYTICS)
-        assert len(routes) == 6, f"изменён контракт analytics API: {routes}"
+        assert len(routes) == 8, f"изменён контракт analytics API: {routes}"
         write_routes = [r for r in routes if r[0] != "get"]
         assert write_routes == [("put", "/analytics/prices")], write_routes
         assert "/analytics/usage/latest" in _ANALYTICS
@@ -160,4 +164,4 @@ class TestAnalyticsFilters:
 class TestVersionBump:
     def test_app_version(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', _SETTINGS)
-        assert m and m.group(1) == "2.58.44", m and m.group(1)
+        assert m and m.group(1) == "2.58.45", m and m.group(1)

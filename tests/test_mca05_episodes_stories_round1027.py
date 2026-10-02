@@ -1,4 +1,4 @@
-﻿"""mca-05-episodes-stories (round 10.27, ADR-1027-12) — Builder-покрытие.
+"""mca-05-episodes-stories (round 10.27, ADR-1027-12) — Builder-покрытие.
 
 Приёмки/сценарии (spec §4 SC-01…SC-20, §19 A11/A12/A13):
   * v21 (SC-20/A28): аддитивная идемпотентная миграция — 7 таблиц +
@@ -199,11 +199,13 @@ class TestMigrationV21:
 
 
 # MCA-22: mark хвоста реестра — v22 (bot_outputs_ledger); v21-таблицы
-# проверяются выше без изменений.
+# проверяются выше без изменений. ASAP-4 (ADR-1028-7): хвост реестра — v23
+# (embedding_control_plane) — mark обновлён на актуальный конец реестра.
 from services.database import (  # noqa: E402
     _SCHEMA_VERSION_BOT_OUTPUTS as _SCHEMA_VERSION_TAIL_V22,
+    _SCHEMA_VERSION_EMBEDDING_CONTROL_PLANE as _SCHEMA_VERSION_TAIL_V23,
 )
-_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V22
+_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V23
 
 
 # ═══ Kill-switch OFF-паритет (SC-20, T-4249) ═════════════════════════════════

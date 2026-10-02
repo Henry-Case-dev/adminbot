@@ -138,6 +138,12 @@ class RunContext:
     threads: int | None = None
     paragraphs: int | None = None
     cover_status: str | None = None   # ok | unavailable | none
+    # Волна C (T-4425/T-4424, §50.37/§57/§61.6-каркас): source coverage —
+    # first-class поля run state (числа, R17). Заполняются этапами
+    # (legacy full-window / гибрид); в SUMMARY_COMPLETE — аддитивно `coverage=`.
+    source_total: int | None = None
+    source_considered: int | None = None
+    source_coverage: float | None = None
     # S8 (ADR-1026-10 D2): аддитивные поля снапшота прогона для карты вызовов
     # (§112/§111) — состояние серверного форматирования. Заполняются этапами;
     # в лог §108 НЕ выводятся (R17-поверхность не растёт). ASAP-2.1 (D1):
@@ -156,6 +162,20 @@ class RunContext:
     # завершения прогона — "none" (hybrid довёл сам) | "legacy" (LEVEL-3).
     # R17-safe код, без деталей текстов.
     fallback: str = "none"
+    # ASAP-4 волна D (T-4436, §50.53): publication_status (publish_status)
+    # и pipeline_health — РАЗДЕЛЬНЫЕ оси. Успешная публикация Legacy после
+    # L2-failure = publication ok + health degraded; история «L2 rejected →
+    # Legacy used» больше не стирается сбросом status/reason.
+    pipeline_health: str | None = None   # ok | degraded | failed
+    # ASAP-4 волна D (T-4436, §50.54): append-only stage events (§50.54-
+    # схема: stage/attempt/status/reason_code/started_at/finished_at/
+    # input/output/provider/fallback_target/repair_target). Заполняют этапы
+    # (review loop и генератор); финальный run record агрегирует, историю
+    # не переписывает.
+    stage_events: list = field(default_factory=list)
+    # ASAP-4 волна D (T-4433, §50.30): grade пакета — semantic | degraded
+    # (L1_FALLBACK_PACKAGE ≠ полноценный semantic package; виден в логе).
+    package_grade: str | None = None
     code: str | None = None
     status: str = STATUS_OK
     stage: str | None = None
@@ -178,6 +198,10 @@ class RunContext:
              code=None) -> None:
         """Пометить прогон как провалившийся (§109-поля, R17-safe)."""
         self.status = STATUS_FAILED
+        # §50.53: health — отдельная ось; fail не сбрасывает ранний degraded
+        # (L2→Legacy→publish-fail остаётся degraded-историей).
+        if self.pipeline_health is None:
+            self.pipeline_health = STATUS_FAILED
         self.stage = stage or self.stage
         if reason is not None:
             self.reason = _safe_reason(reason)
@@ -232,12 +256,17 @@ def log_summary_complete(ctx: RunContext) -> None:
             "SUMMARY_COMPLETE | run_id=%s | chat_id=%s | mode=%s | status=%s | "
             "duration_ms=%.0f | source_count=%s | threads=%s | "
             "paragraphs=%s | cover_status=%s | code=%s | fallback=%s | "
-            "publication_status=%s",
+            "coverage=%s | publication_status=%s | health=%s | "
+            "package_grade=%s",
             ctx.run_id or "none", ctx.chat_id, ctx.mode, ctx.status,
             ctx.duration_ms(), _num(ctx.source_count), _num(ctx.threads),
             _num(ctx.paragraphs), ctx.cover_status or "-", ctx.code or "-",
             str(getattr(ctx, "fallback", "none") or "none"),
-            ctx.publish_status or "-")
+            ("%.1f" % ctx.source_coverage)
+            if ctx.source_coverage is not None else "-",
+            ctx.publish_status or "-",
+            getattr(ctx, "pipeline_health", None) or "-",
+            getattr(ctx, "package_grade", None) or "-")
     except Exception:  # pragma: no cover - лог не должен ронять прогон
         pass
 

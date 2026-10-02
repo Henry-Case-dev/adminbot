@@ -277,7 +277,36 @@ _SNAPSHOT_FIELDS = (
     # S6 (D6): публикационный срез (только id/коды/числа — R17-safe).
     "publish_channel", "publish_status", "publish_duration_ms",
     "publish_message_id",
+    # ASAP-4 волна E (T-4440/T-4441, spec §5 E.1, §61.6): coverage —
+    # first-class поля run state + разделённые оси publication/health
+    # (§50.53) + grade/fallback. Только числа/коды/enum (R17).
+    "source_total", "source_considered", "source_coverage",
+    "pipeline_health", "package_grade", "fallback", "model", "provider",
+    "reason",
+    # Волна E: bounded-проекция stage events (§50.54; список dict'ов,
+    # уже спроецированный на R17-safe ключи в record_run_from_context).
+    "stage_events",
 )
+
+# Волна E: bounded-проекция append-only stage events (§50.54) в снапшот —
+# R17-safe ключи (числа/коды/id), последние 24 события (лимит реестра).
+_STAGE_EVENT_KEYS = frozenset({
+    "stage", "attempt", "status", "reason_code", "started_at", "finished_at",
+    "input_count", "output_count", "provider", "model", "fallback_target",
+    "repair_target",
+})
+_STAGE_EVENTS_MAX = 24
+
+
+def _project_stage_events(events) -> list:
+    """Последние ≤24 stage events, только R17-safe ключи (fail-open)."""
+    try:
+        rows = [dict(e) for e in (events or []) if isinstance(e, dict)]
+        projected = [{k: row.get(k) for k in _STAGE_EVENT_KEYS
+                      if row.get(k) is not None} for row in rows]
+        return projected[-_STAGE_EVENTS_MAX:]
+    except Exception:      # pragma: no cover - best-effort
+        return []
 
 
 def record_run(*, run_id, **fields) -> None:
@@ -336,6 +365,18 @@ def record_run_from_context(ctx, filter_metrics=None) -> None:
             "publish_status": getattr(ctx, "publish_status", None),
             "publish_duration_ms": getattr(ctx, "publish_duration_ms", None),
             "publish_message_id": getattr(ctx, "publish_message_id", None),
+            # Волна E (§61.6/§50.53): coverage/health — first-class run state.
+            "source_total": getattr(ctx, "source_total", None),
+            "source_considered": getattr(ctx, "source_considered", None),
+            "source_coverage": getattr(ctx, "source_coverage", None),
+            "pipeline_health": getattr(ctx, "pipeline_health", None),
+            "package_grade": getattr(ctx, "package_grade", None),
+            "fallback": getattr(ctx, "fallback", None),
+            "model": getattr(ctx, "model", None),
+            "provider": getattr(ctx, "provider", None),
+            "reason": getattr(ctx, "reason", None),
+            "stage_events": _project_stage_events(
+                getattr(ctx, "stage_events", None)),
         }
         record_run(run_id=run_id, **fields)
     except Exception:      # pragma: no cover - best-effort

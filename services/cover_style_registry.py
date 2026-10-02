@@ -409,23 +409,45 @@ async def update_reference(pg, profile_id: str, ref_id: str, *,
                            asset_id: str | None = None,
                            label: str | None = None,
                            description: str | None = None) -> bool:
-    """Replace reference (§12): заменить asset/label/description без удаления."""
+    """Replace reference (§12): заменить asset/label/description без удаления.
+
+    ASAP-4 волна B (хвост B.5, T-4416): asyncpg `execute` возвращает статус
+    вида ``UPDATE N`` — парсим N честно; `UPDATE 0` (ref не найден) → False
+    → API отдаёт 404, а не ложный 200 (прежде `getattr(cursor, "rowcount", 1)`
+    у строки-статуса всегда давал 1)."""
     pool = _pool_of(pg)
     if pool is None or not profile_id or not ref_id:
         return False
     try:
         async with pool.acquire() as conn:
-            cursor = await conn.execute(
+            status = await conn.execute(
                 "UPDATE cover_style_references SET "
                 "asset_id = COALESCE($3, asset_id), "
                 "label = COALESCE($4, label), "
                 "description = COALESCE($5, description) "
                 "WHERE profile_id = $1 AND ref_id = $2",
                 profile_id, ref_id, asset_id, label, description)
-            return bool(getattr(cursor, "rowcount", 1))
+            return _update_status_count(status) > 0
     except Exception:
         logger.warning("[cover_style_registry] ref update failed", exc_info=True)
         return False
+
+
+def _update_status_count(status) -> int:
+    """Число затронутых строк из asyncpg-статуса (`UPDATE 3` → 3).
+
+    Compatibility: настоящий asyncpg возвращает строку-статус; тестовые
+    double могут вернуть объект с `.rowcount` или int."""
+    if isinstance(status, int):
+        return status
+    rowcount = getattr(status, "rowcount", None)
+    if isinstance(rowcount, int):
+        return rowcount
+    text = str(status or "").strip()
+    try:
+        return int(text.rsplit(" ", 1)[-1])
+    except (ValueError, IndexError):
+        return 0
 
 
 async def references_using_asset(pg, asset_id: str) -> list[dict]:

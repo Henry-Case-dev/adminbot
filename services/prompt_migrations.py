@@ -75,6 +75,7 @@ from services.summary_prompts import (
     PREV_SUMMARY_L2_WRITER_R1026,
     PREV_SUMMARY_L2_WRITER_R1027,
     PREV_SUMMARY_L2_WRITER_R1028,
+    PREV_SUMMARY_L2_WRITER_R1028_ASAP4,
     PREV_SUMMARY_NARRATOR_R1023,
     PREV_SUMMARY_NARRATOR_R1028,
     PREV_SUMMARY_SYSTEM_PROMPT,
@@ -186,10 +187,14 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # контента, НЕ в каноне).
     # 10.28 (ASAP-2.1, контракт (g)): ступень R1027→R1028 (грамматика §15 +
     # двачерский голос §16 + typography §17 + emphasis_spans/finale §18–§19).
+    # ASAP-4 волна D (ADR-1028-7 D4, T-4428): ступень R1028→R1029
+    # prose-first — SUPERSEDE запрета прямых цитат (§50.3): старый прод-канон
+    # (слепок PREV_*_R1028_ASAP4) ведёт на новый канон с evidence-ссылками.
     "prompts.summary_l2_writer_system_prompt": [
         (PREV_SUMMARY_L2_WRITER_R1026, SUMMARY_L2_WRITER_SYSTEM_PROMPT),
         (PREV_SUMMARY_L2_WRITER_R1027, SUMMARY_L2_WRITER_SYSTEM_PROMPT),
-        (PREV_SUMMARY_L2_WRITER_R1028, SUMMARY_L2_WRITER_SYSTEM_PROMPT)],
+        (PREV_SUMMARY_L2_WRITER_R1028, SUMMARY_L2_WRITER_SYSTEM_PROMPT),
+        (PREV_SUMMARY_L2_WRITER_R1028_ASAP4, SUMMARY_L2_WRITER_SYSTEM_PROMPT)],
     # 10.28 (ASAP-2.1, контракт (g)/§25): ступени Рассказчика — шиза выбирает
     # модель (строка опциональна); прежние каноны R1023/R1028 ведут на новый.
     "prompts.summary_narrator_system_prompt": [
@@ -251,8 +256,11 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # 10.27 (ASAP-2): откат ступени R1027 — на канон R1026 (PREV_*_R1027).
     # 10.28 (ASAP-2.1): откат ступени R1028 — на НЕПОСРЕДСТВЕННО прежний
     # канон PREV_*_R1028 (полный канон ASAP-2 R1027).
+    # ASAP-4 (волна D, ADR-1028-7 D4): откат ступени R1029 prose-first — на
+    # НЕПОСРЕДСТВЕННО прежний прод-канон PREV_*_R1028_ASAP4 (с запретом
+    # цитат; rollback-паритет с kill-switch SUMMARY_L2_REVIEW_ENABLED=false).
     "prompts.summary_l2_writer_system_prompt":
-        (SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1028),
+        (SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1028_ASAP4),
     # 10.28 (ASAP-2.1): откат Рассказчика — на прежний канон R1028 (до правки
     # §25); ключ в PG не удаляется.
     "prompts.summary_narrator_system_prompt":

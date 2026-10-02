@@ -844,6 +844,37 @@ _MCA_BOT_OUTPUTS_INDEX_DDL = (
     "ON mca_bot_outputs (correlation_id)",
 )
 
+# ── ASAP-4 волна A (spec §1/§7, ADR-1028-7 D1; 02.10.2026) ──────────────────
+# v23 — Embedding Control Plane: runtime-состояние quota-групп (`embedding_
+# quota_state`) + 3 аддитивные nullable-колонки реестра поколений v18
+# (pause_reason / next_allowed_at / attempts_total — AM-1: 429 → paused_
+# rate_limit, НЕ terminal failed; checkpoint/progress/attempt history).
+# Аддитивно: CREATE TABLE IF NOT EXISTS + ALTER ADD COLUMN под guard
+# `PRAGMA table_info`; НИ ОДНОГО UPDATE существующих строк; повторный
+# прогон — no-op; PG — no-op (спека §7: credential-метаданные — конфиг).
+# Обратимость: DROP embedding_quota_state безопасен; новые колонки
+# NULL/default — старый код совместим.
+_SCHEMA_VERSION_EMBEDDING_CONTROL_PLANE = 23
+
+EMBEDDING_QUOTA_GROUP_STATES = frozenset(
+    {"healthy", "cooling_down", "exhausted", "unknown"})
+
+_EMBEDDING_QUOTA_STATE_DDL = (
+    "CREATE TABLE IF NOT EXISTS embedding_quota_state ("
+    "quota_group_id  TEXT PRIMARY KEY, "
+    "state           TEXT NOT NULL DEFAULT 'healthy', "
+    "next_allowed_at INTEGER, "
+    "note            TEXT, "
+    "updated_at      INTEGER NOT NULL DEFAULT 0)"
+)
+
+# Аддитивные колонки реестра поколений (v18) — порядок (имя, SQL-декларация).
+_EMBEDDING_GENERATIONS_V23_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("pause_reason", "TEXT"),
+    ("next_allowed_at", "INTEGER"),
+    ("attempts_total", "INTEGER NOT NULL DEFAULT 0"),
+)
+
 # Раунд 3 (3.6/B7, T-693): полный список origin для CHECK graph_facts — в ОДНОМ
 # месте (CREATE TABLE + пересоздание в _migrate_direct_chat_v2 + миграции v4/v5).
 # Включает ВНЕШНИЕ скобки списка IN (формат вставки в «CHECK (origin IN %s)»).
@@ -1707,6 +1738,9 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_BOT_OUTPUTS,
                           "bot_outputs_ledger",
                           lambda svc: svc._migrate_bot_outputs_v22()),
+            MigrationStep(_SCHEMA_VERSION_EMBEDDING_CONTROL_PLANE,
+                          "embedding_control_plane",
+                          lambda svc: svc._migrate_embedding_control_plane_v23()),
         ]
 
     @staticmethod
@@ -2376,6 +2410,38 @@ class DatabaseService:
             f"PRAGMA user_version = {_SCHEMA_VERSION_BOT_OUTPUTS}")
         await self.db.commit()
 
+    async def _migrate_embedding_control_plane_v23(self) -> None:
+        """v23 (`asap-4-embedding-graphrag-cover-runtime`, spec §1 A.1/§7 +
+        ADR-1028-7 D1/AM-1): Embedding Control Plane — таблица
+        `embedding_quota_state` (runtime-состояние quota-групп) + 3
+        аддитивные nullable-колонки реестра поколений v18 (`pause_reason`,
+        `next_allowed_at`, `attempts_total`).
+
+        Аддитивно: `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE ADD COLUMN`
+        под guard `PRAGMA table_info`; НИ ОДНОГО UPDATE существующих строк;
+        повторный прогон — no-op (self-guard); PG — no-op (спека §7).
+        Обратимость: DROP новой таблицы безопасен; колонки NULL/default
+        совместимы со старым кодом. Фиксирует `PRAGMA user_version = 23`."""
+        if not await self._table_exists("embedding_quota_state"):
+            await self.db.execute(_EMBEDDING_QUOTA_STATE_DDL)
+            await self.db.commit()
+            logger.info("[database] migration v23: embedding_quota_state")
+        if await self._table_exists("mca_embedding_index_generations"):
+            cols = await self._table_columns("mca_embedding_index_generations")
+            for name, decl in _EMBEDDING_GENERATIONS_V23_COLUMNS:
+                if name not in cols:
+                    await self.db.execute(
+                        f"ALTER TABLE mca_embedding_index_generations "
+                        f"ADD COLUMN {name} {decl}")
+                    logger.info(
+                        "[database] migration v23: generations.%s added",
+                        name)
+            await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = "
+            f"{_SCHEMA_VERSION_EMBEDDING_CONTROL_PLANE}")
+        await self.db.commit()
+
     # ── mca-22 (ADR-1028-6 D2): Durable Own Output Ledger — write/read ──────
     # Запись ТОЛЬКО реально доставленных outputs (недоставленный draft — не
     # «слова бота»; `delivery_status='failed'` не пишется write-path'ом фичи).
@@ -3008,7 +3074,7 @@ class DatabaseService:
                 "SELECT generation_id, index_name, generation, fingerprint, "
                 "provider, model, dims, preprocessing_version, "
                 "endpoint_fingerprint, status, created_at, activated_at, "
-                "superseded_at FROM mca_embedding_index_generations "
+                "superseded_at, pause_reason, next_allowed_at, attempts_total FROM mca_embedding_index_generations "
                 "WHERE index_name = ? AND status = 'active'", (str(index_name),))
             row = await cursor.fetchone()
             return dict(row) if row is not None else None
@@ -3027,7 +3093,7 @@ class DatabaseService:
                 "SELECT generation_id, index_name, generation, fingerprint, "
                 "provider, model, dims, preprocessing_version, "
                 "endpoint_fingerprint, status, created_at, activated_at, "
-                "superseded_at FROM mca_embedding_index_generations "
+                "superseded_at, pause_reason, next_allowed_at, attempts_total FROM mca_embedding_index_generations "
                 "WHERE index_name = ? ORDER BY generation DESC LIMIT 1",
                 (str(index_name),))
             row = await cursor.fetchone()
@@ -3050,7 +3116,7 @@ class DatabaseService:
                 "SELECT generation_id, index_name, generation, fingerprint, "
                 "provider, model, dims, preprocessing_version, "
                 "endpoint_fingerprint, status, created_at, activated_at, "
-                "superseded_at FROM mca_embedding_index_generations "
+                "superseded_at, pause_reason, next_allowed_at, attempts_total FROM mca_embedding_index_generations "
                 "WHERE index_name = ? AND fingerprint = ? "
                 "ORDER BY generation DESC LIMIT 1",
                 (str(index_name), str(fingerprint)))

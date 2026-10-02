@@ -175,8 +175,11 @@ class TestSchema:
     def test_service_section_transit_and_isolation(self):
         l1, items = _simple()
         result = build_fact_package(l1, items, budget=("tokens", 100000))
+        # ASAP-4 волна D (T-4433, §50.30): + package_grade="semantic"
+        # (internal metadata; в L2-контент service не передаётся).
         assert result.package["service"] == {"response_mode": "serious",
-                                             "cover_prompt": "кот"}
+                                             "cover_prompt": "кот",
+                                             "package_grade": "semantic"}
         # service — вне L2-контента: в темах служебных полей нет.
         for thread in result.package["threads"]:
             assert "response_mode" not in thread and "cover_prompt" not in thread
@@ -418,7 +421,8 @@ class TestFragments:
     def test_fragments_v2_carry_author_and_reply(self):
         """§12/контракт (h): фрагменты v2 = {message_id, author_id,
         display_name, timestamp, reply_to_id, text}; техническая metadata
-        (chat_id/message_type/DB id) НЕ тащится."""
+        (chat_id/message_type/DB id) НЕ тащится. ASAP-4 волна D (T-4429,
+        §50.9): + relation kind (msg|reply|forward|quote)."""
         items = [
             {"message_id": 101, "chat_id": -100, "timestamp": 100,
              "author_id": 7, "display_name": "Вася", "text": "привет",
@@ -433,12 +437,34 @@ class TestFragments:
         frags = result.package["threads"][0]["fragments"]
         assert frags == [
             {"message_id": 101, "author_id": 7, "display_name": "Вася",
-             "timestamp": 100, "reply_to_id": None, "text": "привет"},
+             "timestamp": 100, "reply_to_id": None, "kind": "msg",
+             "text": "привет"},
             {"message_id": 102, "author_id": 8, "display_name": "Петя",
-             "timestamp": 110, "reply_to_id": 101, "text": "реплику"},
+             "timestamp": 110, "reply_to_id": 101, "kind": "reply",
+             "text": "реплику"},
         ]
         for f in frags:
             assert "chat_id" not in f and "message_type" not in f
+
+    def test_fragments_relation_kind_forward(self):
+        """ASAP-4 волна D (T-4429, §50.9/Q35): forward-метаданные больше не
+        теряются — kind="forward" + forward_source в фрагменте (контент
+        forward ≠ слова переславшего)."""
+        items = [
+            {"message_id": 101, "chat_id": -100, "timestamp": 100,
+             "author_id": 7, "display_name": "Славик", "text": "новость",
+             "reply_to_id": None, "message_type": "text",
+             "is_forward": True, "forward_source": "РБК"},
+        ]
+        payload = _payload([_thread("тема", (101,))])
+        result = build_fact_package(_raw_l1(payload), items,
+                                    budget=("tokens", 100000))
+        frags = result.package["threads"][0]["fragments"]
+        assert len(frags) == 1
+        assert frags[0]["kind"] == "forward"
+        assert frags[0]["forward_source"] == "РБК"
+        assert frags[0]["author_id"] == 7 and frags[0]["display_name"] == \
+            "Славик"
 
     def test_does_not_duplicate_raw_log(self):
         rows = [(i, 100 + i, f"текст-{i}") for i in range(101, 107)]
@@ -620,7 +646,7 @@ class TestLivePathInvariants:
             f.name for f in dataclasses.fields(Settings)}
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.44"
+        assert APP_VERSION == "2.58.45"
 
     @pytest.mark.asyncio
     async def test_two_calls_stage1_stage2(self):

@@ -182,6 +182,13 @@ async def cover_style_detail(
     if connection is not None:
         payload["connection_label"] = connection.get("label") or ""
     payload["budget"] = _budget(profile)
+    # ASAP-4 волна B (§41, T-4418): полный чек-лист полей профиля
+    # (R17-safe: id/числа/булевы, без секретов — api_key не читается).
+    try:
+        payload["diagnostics"] = await jobs.profile_diagnostics(
+            pg, profile, connection=connection)
+    except Exception:
+        payload["diagnostics"] = {}
     return payload
 
 
@@ -744,6 +751,14 @@ async def cover_test_style(
         message = meta.get("message") or ""
         if fail == "edit_unsupported":
             message = pipeline.NO_EDIT_MESSAGE
+        elif fail == "connection_missing":
+            # ASAP-4 волна B (§2 B.4): профиль указывает на подключение,
+            # записи которого нет — честная причина, не «просто не вышло».
+            message = ("Подключение модели не найдено. Откройте «Настроить "
+                       "подключения →» и выберите подключение заново.")
+        elif fail == "reference_missing":
+            message = ("Референсы стиля недоступны (файл отсутствует или "
+                       "повреждён). Загрузите референс заново.")
         elif fail in ("not_configured", "no_input_images"):
             message = ("Модель обработки не настроена. Откройте «Настроить "
                        "подключения →» и выберите модель с поддержкой edit.")

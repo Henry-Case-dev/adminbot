@@ -622,23 +622,40 @@ class TaskJobStore:
         держим её на весь диапазон). B-MCA01-3: при заданном `fencing_token`
         запись устаревшего владельца отклоняется (no-op, `False`).
         v19 (`mca-17a`): обновляются `checkpoint_ref`/`progress_at`
-        (фактический progress marker, §27.5)."""
-        payload = json.dumps({"cursor": str(cursor_token),
-                              "processed": int(processed)},
-                             ensure_ascii=False)
+        (фактический progress marker, §27.5).
+        ASAP-4 волна B (L-EXTRA-6, spec §2 B.5, T-4416): payload — MERGE, не
+        overwrite: `cursor`/`processed` вливаются в существующий payload
+        (cover-джобы хранят там chat_id/correlation_id/style_id — рестарт
+        восстанавливает identity джобы; graphrag-resume workaround остаётся
+        валидным — он срабатывает только при отсутствующих полях)."""
         now = int(time.time())
         token = fencing_token
         cref = checkpoint_ref or f"cp:{int(processed)}"
 
         async def _body(conn):
-            base = ("UPDATE task_jobs SET payload = ?, result_ref = ?, "
-                    "checkpoint_ref = ?, progress_at = ?, updated_at = ? "
-                    "WHERE job_id = ?")
+            cursor = await conn.execute(
+                "SELECT payload FROM task_jobs WHERE job_id = ?", (job_id,))
+            row = await cursor.fetchone()
+            base: dict = {}
+            if row is not None and row["payload"]:
+                try:
+                    parsed = json.loads(row["payload"])
+                    if isinstance(parsed, dict):
+                        base = parsed
+                except ValueError:
+                    base = {}
+            merged = dict(base)
+            merged["cursor"] = str(cursor_token)
+            merged["processed"] = int(processed)
+            payload = json.dumps(merged, ensure_ascii=False)
+            update = ("UPDATE task_jobs SET payload = ?, result_ref = ?, "
+                      "checkpoint_ref = ?, progress_at = ?, updated_at = ? "
+                      "WHERE job_id = ?")
             params = [payload, str(processed), cref, now, now, job_id]
             if token is not None:
-                base += " AND fencing_token = ?"
+                update += " AND fencing_token = ?"
                 params.append(int(token))
-            cursor = await conn.execute(base, tuple(params))
+            cursor = await conn.execute(update, tuple(params))
             return cursor.rowcount
 
         return bool(await self._db.write_transaction(
