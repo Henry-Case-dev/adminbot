@@ -2,7 +2,7 @@
 
 > **Фича:** `asap-4-embedding-graphrag-cover-runtime` (ASAP-4).
 > **Задача-инициатор:** T-4401/T-4414/T-4421/T-4427/T-4439 [@Architect]; потребители — Builder/Reviewer/DevOps волн A–F (tasks.md, T-4402…T-4452).
-> **Статус:** Accepted (02.10.2026).
+> **Статус:** Accepted (02.10.2026); прод 2.58.45 VERIFIED — Accepted + prod-validated (ядро; owner live-приёмка T-4447–T-4449 PENDING — см. «Прод-валидация и история»).
 > **Контекст:** прод 2.58.44 (`racknerd-f4e3456`, SQLite `user_version=22`, PG cover_style_* 6 таблиц); источник — `plans/current_task.md:16484–20843` (§0–§87, Q1–Q37), PM-пакет эпика, прод-факты `prod-facts.md` (journalctl/DB-выдержки 29.09–02.10.2026).
 > **Связь:** AMEND → ADR-1028-5 (D2/D3-политика 429); SUPERSEDE → ASAP-2 ADR-решение «L2 correction retry НЕ вводится» + L2-промпт-запрет цитат; REUSE/EXTENSION → ADR-1028-6 D3 (Quote Resolver ladder); не трогает → ADR-1028-1…-4, -6 (остальные решения).
 
@@ -119,3 +119,22 @@
 | ASAP-2 prompt: запрет прямых цитат | **SUPERSEDED** owner'ом (§50.3) | D4 этого ADR |
 | ADR-1028-6 D3 Quote Resolver ladder | **REUSED/EXTENDED** (не superseded) | D7.2 |
 | MAX_SUMMARY_PARTS, FTS fail-soft, ASAP-2.1 prefilter-удаление, fail-soft L1 IDs, gemini-embedding-001 | **ДЕЙСТВУЮТ без изменений** | spec §0.4 |
+
+---
+
+## Прод-валидация и история (reconcile @Architect, 02.10.2026)
+
+**История статуса:**
+
+1. **02.10.2026 — Proposed (design):** AM-1 + D1–D8 утверждены в ADR; консистент-гейт с PM — решения включены в критерии `tasks.md`; Risk **R3** (прод-инциденты Q1–Q18 как RCA-основание, DDL v23, 12 kill-switches, новые публичные эндпоинты).
+2. **02.10.2026 — Wave gates:** Wave A (Control Plane) round 1 NEEDS FIXES (2H/2M blocking) → round 2 **APPROVED (WAVE A)**; Wave D (Writer/Reviewer bounded revision) round 1 NEEDS FIXES (1M blocking) → round 2 **APPROVED (WAVE D)**.
+3. **02.10.2026 — Final gate round 2 (T-4450, волны B/C/E + cross-wave + чек-лист владельца §83): `Approved for release`** (round 1 — NEEDS FIXES 1M/3L; round 2 — 0 blocking, **M-ASAP4-E1 RESOLVED** кодом: durable-канальные статусы rich/text + рестарт-паритет `review_degraded`; binding: HEAD `f04564b` + WTH `f62243b7…` + spec `ab9dec94…`; полный pytest detached **10773/2**, оба failed — pre-existing bounds round1026).
+4. **02.10.2026 — Deploy — VERIFIED (2.58.45):** feat `9930fc6` (78 файлов, +14456/−348: 52 файла скоупа ревью + 26 релизного свипа версий) + docs `b5eaecd` + deploy-doc `c669c9d`; свип 2.58.44→2.58.45 санкционирован заданием (дрейф WTH ровно 3 манифест-файла — только version-pin ханки; 49/52 файлов скоупа байт-идентичны ревью-состоянию; пер-файловые пины round-2 дельты MATCH) — **Accepted + prod-validated (ядро)**; все решения AM-1/D1–D8 в силе, approval не инвалидирован; правки reconcile — docs-only.
+
+**Прод-валидация 2.58.45 (evidence — `deployment.md` §5–§9):**
+
+- **DDL v23 применена идемпотентно 10:18:26 UTC** с fail-closed guard'ом mca-14: авто-бэкап ДО DDL `pre_migration_20261002_101544.db` (read-back ok; старый pre_v22 ротирован disk_retention), `user_version=23`, `embedding_quota_state` + 3 nullable-колонки реестра (`pause_reason`/`next_allowed_at`/`attempts_total`); данные целы (smart_messages 1 990 358); PG no-op; рестарт один (10:14:16 UTC), health 200 / runtime 2.58.45.
+- **AM-1 + D1 доказаны live:** `graphrag_rebuild` resume с checkpoint `cp:graph_facts_vec:1` (5500/frontier 6712) → при 429 **`paused_rate_limit`** + «checkpoint preserved» (cooldown ~19s) → **авто-resume** (`cooldown_expired`) — **НЕ failed**: ровно новая политика вместо терминального честного failed; v23-колонки пишутся (pause_reason=`rate_limit:quota_group`, attempts_total=14); lease-санити — дублей активных джоб нет, `embedding_rebuild_lease` без зависших.
+- **Гейты прод:** kill-switches **11 ON + `EMBED_ASYNC_BATCH_ENABLED` OFF** (ровно дефолт, **Δenv=0**); ladder/parity **309 passed / 0 failed на прод-venv** (5 asap4 волновых файлов + `test_mca22_core_round1027`); каталог F8 488 CHECK OK Δ=0; новые эндпоинты `/api/analytics/pipeline/inspector`, `/api/analytics/pipeline/runs/{id}`, `/api/memory/embeddings` — **401 unauth** (admin-only RBAC жив); R17-скан чист; 0 посторонних ошибок пост-рестарт (фон 14×429 обработан control plane без traceback'ов).
+- **Browser §61.16 A–D (T-4446, desktop 1280×800 + mobile 390×844, Playwright; API-фикстуры через реальный mca-17a-транспорт на temp-SQLite v23; прод-БД не загрязнялась): failures: 0** — A healthy / B L2→Legacy degraded с человечьей причиной / C style fail-open (base + причина, публикация ок) / D coverage 44.6% → не-healthy (coverage first-class); Run Inspector рендерится на обоих вьюпортах, mobile — без горизонтального скролла; 2 консоль-ошибки вне скоупа эпика (favicon 404, usage/summary 500 урезанного fake-PG стенда) — сценарии не затрагивают.
+- **Границы приёмки (PENDING OWNER, no-false-acceptance):** live-приёмка **T-4447** (live embeddings: оба индекса → ACTIVE, live KNN; платные вызовы), **T-4448** (live Medved Press; precondition **DC-4** — edit connection/model за владельцем), **T-4449** (live full window 600–700+, coverage 100% на проде); SUMMARY_*/COVER_* эмиссия на прод-данных оживёт с первым реальным Summary-прогоном владельца; `EMBED_ASYNC_BATCH_ENABLED` остаётся OFF до live-верификации контракта Batch API. Детали хвостов — backlog Follow-up ASAP-4.
