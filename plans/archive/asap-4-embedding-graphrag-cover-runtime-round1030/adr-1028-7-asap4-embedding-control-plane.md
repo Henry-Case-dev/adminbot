@@ -101,6 +101,7 @@
 | D3/D4/D7 (Summary) | 0 | 0 | `SUMMARY_L2_REVIEW_ENABLED`, `SUMMARY_REVISION_PATCH_ENABLED`, `SUMMARY_QUOTE_REPAIR_ENABLED`, `SUMMARY_L1_CAPACITY_GUARD_ENABLED`, `SUMMARY_LEGACY_FULL_WINDOW_ENABLED` |
 | D6 (Cover) | 0 | 0 | `COVER_STYLE_SNAPSHOT_ENABLED` |
 | D8 (Analytics) | 0 | 0 | `SUMMARY_PIPELINE_EVENTS_ENABLED` |
+| AMEND T-4502 (kind-parking + backoff) | 0 | 0 | `EMBED_QUOTA_KIND_PARKING_ENABLED`, `EMBED_RESUME_BACKOFF_ENABLED` |
 
 Все default-ON (кроме `EMBED_ASYNC_BATCH_ENABLED`); OFF = bit-identical legacy (parity-тест каждой зоны). Rollback: soft (флаг+рестарт) или cold revert; additive DDL совместима со старым кодом (NULL/default, неиспользуемая таблица). Secrets: нигде (логи/events/UI/доки) нет значений ключей — только алиасы; R17-скан обязателен перед релизом.
 
@@ -138,3 +139,17 @@
 - **Гейты прод:** kill-switches **11 ON + `EMBED_ASYNC_BATCH_ENABLED` OFF** (ровно дефолт, **Δenv=0**); ladder/parity **309 passed / 0 failed на прод-venv** (5 asap4 волновых файлов + `test_mca22_core_round1027`); каталог F8 488 CHECK OK Δ=0; новые эндпоинты `/api/analytics/pipeline/inspector`, `/api/analytics/pipeline/runs/{id}`, `/api/memory/embeddings` — **401 unauth** (admin-only RBAC жив); R17-скан чист; 0 посторонних ошибок пост-рестарт (фон 14×429 обработан control plane без traceback'ов).
 - **Browser §61.16 A–D (T-4446, desktop 1280×800 + mobile 390×844, Playwright; API-фикстуры через реальный mca-17a-транспорт на temp-SQLite v23; прод-БД не загрязнялась): failures: 0** — A healthy / B L2→Legacy degraded с человечьей причиной / C style fail-open (base + причина, публикация ок) / D coverage 44.6% → не-healthy (coverage first-class); Run Inspector рендерится на обоих вьюпортах, mobile — без горизонтального скролла; 2 консоль-ошибки вне скоупа эпика (favicon 404, usage/summary 500 урезанного fake-PG стенда) — сценарии не затрагивают.
 - **Границы приёмки (PENDING OWNER, no-false-acceptance):** live-приёмка **T-4447** (live embeddings: оба индекса → ACTIVE, live KNN; платные вызовы), **T-4448** (live Medved Press; precondition **DC-4** — edit connection/model за владельцем), **T-4449** (live full window 600–700+, coverage 100% на проде); SUMMARY_*/COVER_* эмиссия на прод-данных оживёт с первым реальным Summary-прогоном владельца; `EMBED_ASYNC_BATCH_ENABLED` остаётся OFF до live-верификации контракта Batch API. Детали хвостов — backlog Follow-up ASAP-4.
+
+---
+
+## AMEND 02.10.2026 (corrective pass T-4502): kind-aware quota parking + resume backoff
+
+**Основание (прод-инцидент 2.58.45, RCA):** `plans/features/post-asap4-corrective-pass/rca-graphrag.md` — пул из 3 ключей резолвится в одну группу `unknown` (labels не заданы, safe default D1); провайдер отдаёт 429 класса **spend** (дневной бюджет) без Retry-After; kind не влиял на длительность cooldown → `next_allowed_at = now+20s` при суточном бюджете → вечный цикл «auto-resume → 1 реальный 429 → pause 20с» ≈3 попытки/мин, `attempts_total` 14→157/ч без прогресса checkpoint; публичный 429-счётчик задвоен повторным `record_rate_limit` в pause-конверсии.
+
+**Решение (внутри D1/AM-1, полный контракт — `plans/features/post-asap4-corrective-pass/design-fix.md`):**
+1. **Kind-aware parking**: spend/daily-exhausted без RA → `next_allowed_at` = конец суток UTC + margin (оценка reset, честно помечена `est=utc_day_end`, без фальшивой точности; RA при наличии уважается с ceiling 300s как в AM-1); rpm/tpm/rate — как сейчас. Существующие гейты §68 (`_ensure_job`, `_resume_later`) удерживают джобу в `paused_rate_limit` с checkpoint до `next_allowed_at`, рестарты включительно — 0 запросов в охлаждённую группу до срока.
+2. **Нелинейный resume-backoff** (×2, cap 3600s, jitter ≤25%) с рестарт-персистентным счётчиком в `task_jobs.result_ref` (REUSE `_pause_bookkeeping`, ΔDDL=0); отмена при первом успешном батче; горизонт 24h (`EMBED_RETRY_HORIZON_HOURS`) без изменений — парковка расходует его, исчерпание → честный terminal `retry_horizon_exhausted`.
+3. **Честная диагностика вырожденного пула**: панель/лог прямо репортят `rotation: none | group=unknown | keys=N` + hint на `EMBEDDING_QUOTA_GROUP_LABELS` / hot `keys.embedding_quota_group_labels` (подхват живьём); фейковая ротация не вводится, `_pick_credential` не меняется.
+4. **Дедуп счётчика 429**: точка истины — `_on_error` (embedding_control_plane.py:1157); повторный `record_rate_limit` в graphrag_rebuild.py (pause-конверсия CoolingDown) удаляется.
+
+**Границы:** ΔDDL 0 (task_jobs.result_ref + существующие v23-структуры); PG no-op; kill-switches env-only default-ON, OFF = бит-в-бит 2.58.45; R17. Альтернатива «просто поднять 20s→24h константой» отклонена: не различает kind, ломает honest RA для burst-классов. Ownership: T-4503 [@Builder] юнит-механика, T-4509 [@DevOps] прод-evidence (критерии — design-fix.md «Acceptance»).
