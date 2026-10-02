@@ -55,6 +55,7 @@ def fresh_ecp(monkeypatch):
     ecp.SCHEDULER = PriorityScheduler()
     ecp.EXECUTOR = None
     ecp._last_state_log.clear()
+    ecp._last_rotation_warn = 0.0     # D3: WARN-cooldown ротации (изоляция)
     monkeypatch.setattr(ecp, "_TRANSPORT_BACKOFF_BASE", 0.0)
     yield ecp
 
@@ -1431,3 +1432,568 @@ async def test_knn_query_vector_failed_distinct_reason(vec_db, monkeypatch):
     diag = report["knn_diagnostics"]
     assert diag["stage"] == "query_vector_build"
     assert diag["query_vector_ok"] is False
+
+
+# ═══ Corrective pass T-4503 (design-fix D1–D6): kind-aware parking, ═════════
+# ═══ resume-backoff, честная диагностика пула, дедуп 429, OFF-паритет. ══════
+
+
+import logging as _logging
+
+from services import embedding_control_plane as ecp
+
+
+def _mk_rate_limit(body: str, retry_after: float | None):
+    """429-поведение для FakeLLM.script: тело с kind-маркером + опц. RA."""
+    async def _raise(self, texts):
+        exc = LLMRateLimitError("LLM rate limited (429)")
+        if retry_after is not None:
+            exc.headers = {"Retry-After": str(retry_after)}
+        exc.body = body
+        raise exc
+    return _raise
+
+
+_SPEND_NO_RA = _mk_rate_limit(
+    "billing status: resource has been exhausted (spend budget)", None)
+_SPEND_RA_120 = _mk_rate_limit(
+    "billing status: resource has been exhausted (spend budget)", 120.0)
+
+
+# ── D1: kind-aware parking ──────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_parking_spend_until_utc_day_end(fresh_ecp, monkeypatch):
+    """D1/acceptance п.1: spend-429 БЕЗ Retry-After → парковка группы до
+    конца текущих суток UTC + margin; state=exhausted; честная note
+    `parked ... est=utc_day_end` (не фальшивая посекундная точность)."""
+    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3")
+    llm = FakeLLM()
+    llm.script = [_SPEND_NO_RA]
+    ex = EmbeddingExecutor(llm)
+    with pytest.raises(EmbeddingGroupCoolingDown):
+        await ex.embed(["x"], priority=Priority.P3_REBUILD)
+    # РОВНО ОДИН HTTP-вызов: после парковки повторов в группу нет.
+    assert len(llm.calls) == 1
+    group = fresh_ecp.REGISTRY.group_state(UNKNOWN_GROUP_ID)
+    assert group.state == "exhausted"
+    margin = float(ecp._settings_value("EMBED_QUOTA_RESET_MARGIN_SECONDS",
+                                       300.0))
+    expected = ecp._utc_day_end() + margin
+    assert abs(group.next_allowed_at - expected) <= 5
+    assert group.note == "parked kind=spend est=utc_day_end"
+    # Парковка длиннее дефолта: минимум margin (даже у самой границы суток).
+    assert group.next_allowed_at >= int(time.time()) + 290
+
+
+@pytest.mark.asyncio
+async def test_parking_respects_provider_ra(fresh_ecp, monkeypatch):
+    """D1/failure-semantics 2: RA у spend/daily (нетипично) — уважается RA с
+    ceiling 300s, парковка-оценка НЕ применяется (провайдер точнее)."""
+    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3")
+    llm = FakeLLM()
+    llm.script = [_SPEND_RA_120]
+    ex = EmbeddingExecutor(llm)
+    with pytest.raises(EmbeddingGroupCoolingDown):
+        await ex.embed(["x"], priority=Priority.P3_REBUILD)
+    group = fresh_ecp.REGISTRY.group_state(UNKNOWN_GROUP_ID)
+    assert group.state == "exhausted"
+    now = int(time.time())
+    assert now + 115 <= group.next_allowed_at <= now + 125   # RA=120, не cap
+    assert group.note == "429 kind=spend ra=120.0"           # точный формат
+    # RA выше ceiling → capped 300s (AM-1).
+    fresh_ecp.REGISTRY.reset_runtime()
+    llm2 = FakeLLM()
+    llm2.script = [_mk_rate_limit("spend budget exhausted", 9999.0)]
+    with pytest.raises(EmbeddingGroupCoolingDown):
+        await EmbeddingExecutor(llm2).embed(["x"], priority=Priority.P3_REBUILD)
+    group2 = fresh_ecp.REGISTRY.group_state(UNKNOWN_GROUP_ID)
+    assert group2.next_allowed_at <= int(time.time()) + 301
+
+
+@pytest.mark.asyncio
+async def test_rpm_tpm_unchanged(fresh_ecp, monkeypatch):
+    """D1/acceptance п.4: rpm/tpm/rate — бит-в-бит прежняя семантика
+    (RA-capped 300s / default 20s; burst ≠ quota-unavailable)."""
+    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3")
+    cases = [
+        # (body, retry_after, expected_state, delay_bounds)
+        ("Requests per minute quota exceeded", None,
+         "cooling_down", (18, 22)),          # rpm без RA → default 20s
+        ("tokens per minute (TPM) limit", None,
+         "cooling_down", (18, 22)),          # tpm без RA → burst 20s
+        ("tokens per minute (TPM) limit", 400.0,
+         "exhausted", (295, 305)),           # RA > ceiling → capped 300s
+    ]
+    for body, ra, exp_state, (lo, hi) in cases:
+        fresh_ecp.REGISTRY.reset_runtime()
+        llm = FakeLLM()
+        llm.script = [_mk_rate_limit(body, ra)]
+        with pytest.raises(EmbeddingGroupCoolingDown):
+            await EmbeddingExecutor(llm).embed(["x"],
+                                               priority=Priority.P3_REBUILD)
+        group = fresh_ecp.REGISTRY.group_state(UNKNOWN_GROUP_ID)
+        now = int(time.time())
+        assert group.state == exp_state, body
+        assert now + lo <= group.next_allowed_at <= now + hi, body
+        assert group.note.startswith("429 kind="), body
+        assert "parked" not in group.note, body
+
+
+@pytest.mark.asyncio
+async def test_parking_off_bit_identical(fresh_ecp, monkeypatch):
+    """D5/acceptance п.7: EMBED_QUOTA_KIND_PARKING_ENABLED=OFF → бит-в-бит
+    2.58.45: kind не влияет на длительность (default 20s), note прежнего
+    формата, state как сейчас."""
+    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3")
+    _patch_setting(monkeypatch, "EMBED_QUOTA_KIND_PARKING_ENABLED", False)
+    llm = FakeLLM()
+    llm.script = [_SPEND_NO_RA]
+    with pytest.raises(EmbeddingGroupCoolingDown):
+        await EmbeddingExecutor(llm).embed(["x"], priority=Priority.P3_REBUILD)
+    group = fresh_ecp.REGISTRY.group_state(UNKNOWN_GROUP_ID)
+    now = int(time.time())
+    assert group.state == "exhausted"        # is_quota_unavailable не менялся
+    assert now + 18 <= group.next_allowed_at <= now + 22     # default 20s
+    assert group.note == "429 kind=spend ra=None"            # прежний формат
+    # RA-путь при OFF — прежний ceiling (300s).
+    fresh_ecp.REGISTRY.reset_runtime()
+    llm2 = FakeLLM()
+    llm2.script = [_mk_rate_limit("spend budget exhausted", 9999.0)]
+    with pytest.raises(EmbeddingGroupCoolingDown):
+        await EmbeddingExecutor(llm2).embed(["x"], priority=Priority.P3_REBUILD)
+    group2 = fresh_ecp.REGISTRY.group_state(UNKNOWN_GROUP_ID)
+    assert group2.next_allowed_at <= int(time.time()) + 301
+    assert group2.note == "429 kind=spend ra=9999.0"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("parking_on,backoff_on", [
+    (True, True), (True, False), (False, True), (False, False),
+], ids=["both_on", "parking_on_backoff_off", "parking_off_backoff_on",
+        "both_off"])
+async def test_flag_matrix_parking_backoff(fresh_ecp, monkeypatch,
+                                           parking_on, backoff_on):
+    """D5-матрица сочетаний обоих флагов (design-fix §Матрица):
+    parking управляет длительностью quota-паузы, backoff — нелинейностью
+    default-cooldown ветки; OFF-комбинации — прежние значения."""
+    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3")
+    _patch_setting(monkeypatch, "EMBED_QUOTA_KIND_PARKING_ENABLED", parking_on)
+    _patch_setting(monkeypatch, "EMBED_RESUME_BACKOFF_ENABLED", backoff_on)
+    # Фаза 1 (executor): spend без RA.
+    llm = FakeLLM()
+    llm.script = [_SPEND_NO_RA]
+    with pytest.raises(EmbeddingGroupCoolingDown):
+        await EmbeddingExecutor(llm).embed(["x"], priority=Priority.P3_REBUILD)
+    group = fresh_ecp.REGISTRY.group_state(UNKNOWN_GROUP_ID)
+    now = int(time.time())
+    if parking_on:
+        assert group.next_allowed_at >= now + 290          # парковка (≥ margin)
+        assert group.note.startswith("parked kind=spend est=")
+    else:
+        assert now + 18 <= group.next_allowed_at <= now + 22  # default 20s
+        assert group.note == "429 kind=spend ra=None"
+    # Фаза 2 (backoff-математика, default-cooldown ветка, streak=0).
+    delay = gr._resume_backoff_delay(0)
+    if backoff_on:
+        assert 20.0 <= delay <= 25.0        # 20 × jitter(1.00–1.25)
+    else:
+        assert delay == 20.0                # без нелинейности и джиттера
+
+
+# ── D2: backoff + персистентность ───────────────────────────────────────────
+
+
+def test_backoff_doubles_with_cap_and_jitter(fresh_ecp, monkeypatch):
+    """D2/acceptance п.3: прогрессия ×2 с потолком 3600s, jitter в границах
+    ≤25%; OFF → ровно дефолт без нелинейности."""
+    assert 20.0 <= gr._resume_backoff_delay(0) <= 25.0
+    assert 40.0 <= gr._resume_backoff_delay(1) <= 50.0
+    assert 80.0 <= gr._resume_backoff_delay(2) <= 100.0
+    # Потолок: 20×2^30 ≫ 3600 → capped, jitter ≤25% поверх капа.
+    assert 3600.0 <= gr._resume_backoff_delay(30) <= 4500.0
+    assert 3600.0 <= gr._resume_backoff_delay(1000) <= 4500.0
+    _patch_setting(monkeypatch, "EMBED_RESUME_BACKOFF_ENABLED", False)
+    assert gr._resume_backoff_delay(0) == 20.0
+    assert gr._resume_backoff_delay(50) == 20.0
+
+
+@pytest.mark.asyncio
+async def test_backoff_streak_survives_reload(vec_db, monkeypatch):
+    """D2/acceptance п.3: стрик живёт в result_ref (ΔDDL=0) — переживает
+    «перезагрузку» (повторное чтение из БД); битый/чужой JSON → стрик 0
+    (безопасная деградация, failure-semantics 3)."""
+    mm = _memory(vec_db)
+    await _seed_facts(vec_db, "graph_facts_vec", 2)
+    fp = mm._identity_fingerprint()
+    generation = await _register_building(vec_db, "graph_facts_vec", fp)
+    jid = await gr._ensure_job(vec_db, "graph_facts_vec", fp, generation)
+    # Две подряд exhausted-паузы (инкремент как в _handle_build_failure).
+    await gr._pause_bookkeeping(vec_db, jid, "rate_limit:quota_group",
+                                int(time.time()) + 7200,
+                                quota_streak=0 + 1, quota_kind="spend")
+    assert await gr._quota_streak(vec_db, jid) == 1
+    await gr._pause_bookkeeping(vec_db, jid, "rate_limit:quota_group",
+                                int(time.time()) + 7200,
+                                quota_streak=1 + 1, quota_kind="spend")
+    # «Перезагрузка»: стрик читается из БД заново (не из памяти).
+    assert await gr._quota_streak(vec_db, jid) == 2
+    row = await gr._get_job(vec_db, jid)
+    book = json.loads(row["result_ref"])
+    assert book["quota_kind_last"] == "spend"
+    assert book["pause_count"] == 2
+    # kind последней quota-паузы берётся из registry-ноты группы (честно).
+    ecp.REGISTRY._set_group_local(
+        UNKNOWN_GROUP_ID, "exhausted", int(time.time()) + 7200,
+        "parked kind=spend est=utc_day_end")
+    assert gr._quota_kind_of_pause("rate_limit:quota_group",
+                                   EmbeddingGroupCoolingDown(
+                                       group_id=UNKNOWN_GROUP_ID,
+                                       next_allowed_at=1)) == "spend"
+    # Битый JSON → толерантный парсер → стрик 0.
+    await vec_db.db.execute("UPDATE task_jobs SET result_ref = 'not-json' "
+                            "WHERE job_id = ?", (jid,))
+    await vec_db.db.commit()
+    assert await gr._quota_streak(vec_db, jid) == 0
+
+
+@pytest.mark.asyncio
+async def test_success_resets_streak(vec_db, monkeypatch):
+    """D2/acceptance п.3: успешный батч после resume обнуляет стрик."""
+    _patch_setting(monkeypatch, "GRAPHRAG_REBUILD_BATCH", 2)
+    _patch_setting(monkeypatch, "GRAPHRAG_REBUILD_SLEEP_SECONDS", 0.0)
+    mm = _memory(vec_db)
+    await _seed_facts(vec_db, "graph_facts_vec", 4)
+    fp = mm._identity_fingerprint()
+    generation = await _register_building(vec_db, "graph_facts_vec", fp)
+    jid = await gr._ensure_job(vec_db, "graph_facts_vec", fp, generation)
+    monkeypatch.setattr(gr, "_schedule_auto_resume", lambda *a, **kw: None)
+    state = {"calls": 0}
+
+    async def cooling_then_ok(texts):
+        state["calls"] += 1
+        if state["calls"] == 1:
+            raise EmbeddingGroupCoolingDown(
+                group_id=UNKNOWN_GROUP_ID, next_allowed_at=int(time.time()) - 5)
+        return await CountingEmbed()(texts)
+
+    monkeypatch.setattr(mm, "_embed", cooling_then_ok)
+    await gr.run_job(mm, "graph_facts_vec", jid)
+    job = await gr._get_job(vec_db, jid)
+    assert job["status"] == gr.ST_PAUSED_RATE_LIMIT
+    assert await gr._quota_streak(vec_db, jid) == 1     # exhausted-пауза учтена
+    # Cooldown истёк → resume, все батчи успешны → стрик обнулён.
+    await vec_db.db.execute(
+        "UPDATE mca_embedding_index_generations SET next_allowed_at = ? "
+        "WHERE index_name = 'graph_facts_vec' AND fingerprint = ?",
+        (int(time.time()) - 1, fp))
+    await vec_db.db.commit()
+    monkeypatch.setattr(mm, "_embed", CountingEmbed())
+    await gr.run_job(mm, "graph_facts_vec", jid)
+    job = await gr._get_job(vec_db, jid)
+    assert job["status"] == gr.ST_ACTIVATED
+    assert await gr._quota_streak(vec_db, jid) == 0
+
+
+@pytest.mark.asyncio
+async def test_backoff_off_bit_identical(vec_db, monkeypatch):
+    """D5/acceptance п.7: EMBED_RESUME_BACKOFF_ENABLED=OFF → пауза без
+    нелинейности/джиттера — ровно дефолт-кулдаун (бит-в-бит 2.58.45)."""
+    _patch_setting(monkeypatch, "GRAPHRAG_REBUILD_SLEEP_SECONDS", 0.0)
+    _patch_setting(monkeypatch, "EMBED_RESUME_BACKOFF_ENABLED", False)
+    mm = _memory(vec_db)
+    await _seed_facts(vec_db, "graph_facts_vec", 2)
+    fp = mm._identity_fingerprint()
+    generation = await _register_building(vec_db, "graph_facts_vec", fp)
+    jid = await gr._ensure_job(vec_db, "graph_facts_vec", fp, generation)
+    monkeypatch.setattr(gr, "_schedule_auto_resume", lambda *a, **kw: None)
+
+    async def expired_cooling(texts):
+        raise EmbeddingGroupCoolingDown(
+            group_id=UNKNOWN_GROUP_ID, next_allowed_at=int(time.time()) - 10)
+
+    monkeypatch.setattr(mm, "_embed", expired_cooling)
+    await gr.run_job(mm, "graph_facts_vec", jid)
+    job = await gr._get_job(vec_db, jid)
+    assert job["status"] == gr.ST_PAUSED_RATE_LIMIT
+    gen = await vec_db.get_generation_by_fingerprint("graph_facts_vec", fp)
+    now = int(time.time())
+    # Ровно default 20s (без jitter-разброса [20, 25]).
+    assert now + 18 <= int(gen["next_allowed_at"]) <= now + 21
+
+
+@pytest.mark.asyncio
+async def test_parking_consumes_horizon(vec_db, monkeypatch):
+    """D2: горизонт 24h без изменений — pause_started_at ставится ОДИН раз
+    и не сбрасывается между паузами; многочасовая парковка расходует общий
+    wall-clock-горизонт; терминал по исчерпании — существующий путь."""
+    mm = _memory(vec_db)
+    await _seed_facts(vec_db, "graph_facts_vec", 2)
+    fp = mm._identity_fingerprint()
+    generation = await _register_building(vec_db, "graph_facts_vec", fp)
+    jid = await gr._ensure_job(vec_db, "graph_facts_vec", fp, generation)
+    # Пауза-парковка (многочасовой next_allowed_at).
+    await gr._pause_bookkeeping(vec_db, jid, "rate_limit:quota_group",
+                                int(time.time()) + 7200,
+                                quota_streak=1, quota_kind="spend")
+    started1 = await gr._pause_started_at(vec_db, jid)
+    assert started1 > 0
+    assert not await gr._horizon_exhausted(vec_db, jid)
+    # Повторная пауза (parking-оценка промахнулась, цикл честно повторился):
+    # pause_started_at НЕ сбрасывается → парковка расходует horizon.
+    await gr._pause_bookkeeping(vec_db, jid, "rate_limit:quota_group",
+                                int(time.time()) + 86400,
+                                quota_streak=2, quota_kind="spend")
+    assert await gr._pause_started_at(vec_db, jid) == started1
+    row = await gr._get_job(vec_db, jid)
+    book = json.loads(row["result_ref"])
+    assert book["pause_count"] == 2
+    assert book["quota_exhaust_streak"] == 2
+    # Горизонт исчерпан → терминал (существующий критерий §25).
+    await vec_db.db.execute(
+        "UPDATE task_jobs SET result_ref = ? WHERE job_id = ?",
+        (json.dumps({"pause_started_at": int(time.time())
+                     - int(gr._retry_horizon_seconds()) - 10,
+                     "pause_count": 9}), jid))
+    await vec_db.db.commit()
+    assert await gr._horizon_exhausted(vec_db, jid)
+
+
+# ── D1: resume-гейты §68 («не будить до срока») ─────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_resume_waits_until_next_allowed(vec_db, monkeypatch):
+    """D1-инвариант: парковка → планировщик НЕ шлёт запросов в группу до
+    next_allowed_at (0 HTTP от фейк-транспорта); после наступления срока —
+    resume продолжается с checkpoint (last_id не сбрасывается)."""
+    _patch_setting(monkeypatch, "GRAPHRAG_REBUILD_BATCH", 2)
+    _patch_setting(monkeypatch, "GRAPHRAG_REBUILD_SLEEP_SECONDS", 0.0)
+    mm = _memory(vec_db)
+    await _seed_facts(vec_db, "graph_facts_vec", 6)
+    fp = mm._identity_fingerprint()
+    generation = await _register_building(vec_db, "graph_facts_vec", fp)
+    jid = await gr._ensure_job(vec_db, "graph_facts_vec", fp, generation)
+    monkeypatch.setattr(gr, "_schedule_auto_resume", lambda *a, **kw: None)
+    embed = CountingEmbed()
+    state = {"calls": 0}
+
+    async def parked_first_batch_then_cooling(texts):
+        state["calls"] += 1
+        if state["calls"] == 1:
+            return await embed(texts)
+        # Как executor после spend-парковки: CoolingDown с многочасовым
+        # next_allowed_at (без нового HTTP).
+        raise EmbeddingGroupCoolingDown(
+            group_id=UNKNOWN_GROUP_ID,
+            next_allowed_at=int(time.time()) + 7200)
+
+    monkeypatch.setattr(mm, "_embed", parked_first_batch_then_cooling)
+    await gr.run_job(mm, "graph_facts_vec", jid)
+    job = await gr._get_job(vec_db, jid)
+    assert job["status"] == gr.ST_PAUSED_RATE_LIMIT
+    gen = await vec_db.get_generation_by_fingerprint("graph_facts_vec", fp)
+    assert int(gen["next_allowed_at"]) >= int(time.time()) + 7000
+    assert gen["pause_reason"] == "rate_limit:quota_group"
+    assert gen["status"] == "building"                  # generation НЕ сброшен
+    from services.task_supervisor import TaskJobStore
+    checkpoint = await TaskJobStore(vec_db).get_checkpoint(jid)
+    cursor = json.loads(checkpoint["cursor"])
+    assert cursor["processed"] == 2 and cursor["last_id"] > 0
+    calls_at_park = state["calls"]
+
+    # Планировщик при живой парковке: 0 запусков, 0 новых HTTP-вызовов.
+    assert await gr.maybe_schedule_rebuilds(mm) == []
+    assert state["calls"] == calls_at_park
+    # Рестарт-гейт §68: _ensure_job не будит, джоба остаётся в паузе.
+    assert await gr._ensure_job(vec_db, "graph_facts_vec", fp,
+                                generation) is None
+    assert state["calls"] == calls_at_park
+    job = await gr._get_job(vec_db, jid)
+    assert job["status"] == gr.ST_PAUSED_RATE_LIMIT
+
+    # Срок наступил → resume ТОЙ ЖЕ generation с checkpoint.
+    await vec_db.db.execute(
+        "UPDATE mca_embedding_index_generations SET next_allowed_at = ? "
+        "WHERE index_name = 'graph_facts_vec' AND fingerprint = ?",
+        (int(time.time()) - 1, fp))
+    await vec_db.db.commit()
+    assert await gr._ensure_job(vec_db, "graph_facts_vec", fp,
+                                generation) == jid
+    job = await gr._get_job(vec_db, jid)
+    assert job["status"] == gr.ST_QUEUED
+    await gr._registry_resume(vec_db, "graph_facts_vec", fp)
+    monkeypatch.setattr(mm, "_embed", embed)
+    await gr.run_job(mm, "graph_facts_vec", jid)
+    job = await gr._get_job(vec_db, jid)
+    assert job["status"] == gr.ST_ACTIVATED
+    gen = await vec_db.get_generation_by_fingerprint("graph_facts_vec", fp)
+    assert int(gen["generation"]) == generation          # не gen 2,3…
+    # 6 фактов всего (2 до парковки + 4 после), работа НЕ дублируется.
+    assert len(embed.texts) == 6
+    checkpoint = await TaskJobStore(vec_db).get_checkpoint(jid)
+    assert json.loads(checkpoint["cursor"])["processed"] == 6
+
+
+@pytest.mark.asyncio
+async def test_restart_parked_not_woken(vec_db, monkeypatch):
+    """D1/acceptance п.2: рестарт не будит — _ensure_job при живом
+    next_allowed_at → None, generation не сброшен, attempts не растут."""
+    _patch_setting(monkeypatch, "GRAPHRAG_REBUILD_SLEEP_SECONDS", 0.0)
+    mm = _memory(vec_db)
+    await _seed_facts(vec_db, "graph_facts_vec", 2)
+    fp = mm._identity_fingerprint()
+    generation = await _register_building(vec_db, "graph_facts_vec", fp)
+    jid = await gr._ensure_job(vec_db, "graph_facts_vec", fp, generation)
+    monkeypatch.setattr(gr, "_schedule_auto_resume", lambda *a, **kw: None)
+
+    async def parked(texts):
+        raise EmbeddingGroupCoolingDown(
+            group_id=UNKNOWN_GROUP_ID,
+            next_allowed_at=int(time.time()) + 86400)
+
+    monkeypatch.setattr(mm, "_embed", parked)
+    await gr.run_job(mm, "graph_facts_vec", jid)
+    gen_before = await vec_db.get_generation_by_fingerprint(
+        "graph_facts_vec", fp)
+    attempts_before = int(gen_before["attempts_total"] or 0)
+    assert str(gen_before["status"]) == "building"
+    # «Рестарт»: планировщик на старте при живой парковке.
+    assert await gr._ensure_job(vec_db, "graph_facts_vec", fp,
+                                generation) is None
+    gen_after = await vec_db.get_generation_by_fingerprint(
+        "graph_facts_vec", fp)
+    assert int(gen_after["generation"]) == generation    # НЕ сброшен
+    assert int(gen_after["attempts_total"] or 0) == attempts_before
+    assert gen_after["pause_reason"] == "rate_limit:quota_group"
+    job = await gr._get_job(vec_db, jid)
+    assert job["status"] == gr.ST_PAUSED_RATE_LIMIT
+
+
+# ── D4: дедуп 429-счётчика ──────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_429_counted_once_per_real_hit(vec_db, monkeypatch):
+    """D4/acceptance п.6: ровно 1 инкремент на реальный 429. (а) Реальный 429
+    через executor → счётчик 1; (б) pause-конверсия CoolingDown без нового
+    429 → счётчик НЕ растёт (до фикса был второй инкремент — ×2)."""
+    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3")
+    llm = FakeLLM()
+    llm.script = [_SPEND_RA_120]
+    with pytest.raises(EmbeddingGroupCoolingDown):
+        await EmbeddingExecutor(llm).embed(["x"], priority=Priority.P3_REBUILD)
+    assert ecp.REGISTRY.rate_limits_last_10m() == 1      # реальный 429
+    # (б) rebuild-пауза от CoolingDown (группа уже cooling, HTTP не было).
+    _patch_setting(monkeypatch, "GRAPHRAG_REBUILD_SLEEP_SECONDS", 0.0)
+    mm = _memory(vec_db)
+    await _seed_facts(vec_db, "graph_facts_vec", 2)
+    fp = mm._identity_fingerprint()
+    generation = await _register_building(vec_db, "graph_facts_vec", fp)
+    jid = await gr._ensure_job(vec_db, "graph_facts_vec", fp, generation)
+    monkeypatch.setattr(gr, "_schedule_auto_resume", lambda *a, **kw: None)
+    counter_before = ecp.REGISTRY.rate_limits_last_10m()
+
+    async def cooling(texts):
+        raise EmbeddingGroupCoolingDown(
+            group_id=UNKNOWN_GROUP_ID,
+            next_allowed_at=int(time.time()) + 120)
+
+    monkeypatch.setattr(mm, "_embed", cooling)
+    await gr.run_job(mm, "graph_facts_vec", jid)
+    job = await gr._get_job(vec_db, jid)
+    assert job["status"] == gr.ST_PAUSED_RATE_LIMIT
+    # Дубль устранён: пауза без свежего 429 не инкрементирует.
+    assert ecp.REGISTRY.rate_limits_last_10m() == counter_before
+
+
+# ── D3: честная диагностика пула ────────────────────────────────────────────
+
+
+def test_degenerate_pool_hint(monkeypatch):
+    """D3/acceptance п.5: вырожденный пул (3 ключа → одна unknown-группа) →
+    degenerate=True; labels разделяют группы → degenerate=False; одна
+    известная группа — всё ещё degenerate (|groups|==1)."""
+    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3")
+    diag = ecp.pool_rotation_diagnosis(build_credential_pool())
+    assert diag == {"keys": 3, "groups": [UNKNOWN_GROUP_ID],
+                    "known": False, "degenerate": True}
+    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3",
+                labels="primary:gA, fallback_1:gA, fallback_2:gB")
+    diag = ecp.pool_rotation_diagnosis(build_credential_pool())
+    assert diag["degenerate"] is False
+    assert diag["groups"] == ["gA", "gB"] and diag["known"] is True
+    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3",
+                labels="primary:gA, fallback_1:gA, fallback_2:gA")
+    diag = ecp.pool_rotation_diagnosis(build_credential_pool())
+    assert diag["degenerate"] is True           # одна группа даже known
+    # Панель: rotation-блок по контракту.
+    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3")
+    panel = provider_panel()
+    rot = panel["rotation"]
+    assert rot["status"] == "none" and rot["degenerate"] is True
+    assert rot["groups"] == [UNKNOWN_GROUP_ID] and rot["keys"] == 3
+    assert "EMBEDDING_QUOTA_GROUP_LABELS" in rot["hint"]
+    # Пул «ожил» (labels заданы) → grouped, hint пуст.
+    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3",
+                labels="primary:gA, fallback_1:gB, fallback_2:gB")
+    rot = provider_panel()["rotation"]
+    assert rot["status"] == "grouped" and rot["degenerate"] is False
+    assert rot["hint"] == ""
+
+
+def test_diag_log_rate_limited(caplog, fresh_ecp):
+    """D3: WARN rotation=none — не чаще 1 раза / 10 мин (in-memory
+    rate-limit); healthy-пул не логирует; R17 — без значений ключей."""
+    fresh_ecp._last_rotation_warn = 0.0
+    diag = {"keys": 3, "groups": [UNKNOWN_GROUP_ID], "known": False,
+            "degenerate": True}
+    with caplog.at_level(_logging.WARNING,
+                         logger="services.embedding_control_plane"):
+        assert ecp._maybe_warn_degenerate_rotation(diag) is True
+        assert ecp._maybe_warn_degenerate_rotation(diag) is False  # ≤1/10мин
+        healthy = {"keys": 3, "groups": ["gA", "gB"], "known": True,
+                   "degenerate": False}
+        assert ecp._maybe_warn_degenerate_rotation(healthy) is False
+        assert ecp._maybe_warn_degenerate_rotation(
+            {"keys": 0, "groups": [], "known": False,
+             "degenerate": True}) is False        # пустой пул — не про ротацию
+    records = [r for r in caplog.records
+               if "rotation=none" in r.getMessage()]
+    assert len(records) == 1
+    message = records[0].getMessage()
+    assert "EMBEDDING_QUOTA_GROUP_LABELS" in message
+    assert "keys=3" in message and "group=unknown" in message
+
+
+@pytest.mark.asyncio
+async def test_parked_note_and_panel_honest(fresh_ecp, monkeypatch):
+    """D1+D3/acceptance п.5/п.8: панель различает парковку-оценку и точный
+    RA (`parked ... est=`), показывает rotation: none + hint; R17 — без
+    значений ключей."""
+    _patch_keys(monkeypatch, primary="secret-key-material", fb1="k2",
+                fb2="k3")
+    llm = FakeLLM()
+    llm.script = [_SPEND_NO_RA]
+    with pytest.raises(EmbeddingGroupCoolingDown):
+        await EmbeddingExecutor(llm).embed(["x"], priority=Priority.P3_REBUILD)
+    panel = provider_panel()
+    rot = panel["rotation"]
+    assert rot["status"] == "none" and rot["degenerate"] is True
+    lines = {g["quota_group"]: g for g in panel["groups"]}
+    parked_line = lines.get("не определены")
+    assert parked_line is not None
+    assert parked_line["note"] == "parked kind=spend est=utc_day_end"
+    assert parked_line["state"] == "exhausted"
+    assert parked_line["next_allowed_at"] >= int(time.time()) + 290
+    # RA-формат остаётся различимым (не оценка).
+    ecp.REGISTRY._set_group_local(
+        "gX", "cooling_down", int(time.time()) + 120,
+        "429 kind=tpm ra=120.0")
+    panel2 = provider_panel()
+    notes = {g["note"] for g in panel2["groups"]}
+    assert "429 kind=tpm ra=120.0" in notes
+    assert "parked kind=spend est=utc_day_end" in notes
+    # R17: значение ключа не утекает в панель.
+    assert "secret-key-material" not in json.dumps(panel, ensure_ascii=False)

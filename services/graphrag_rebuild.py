@@ -228,6 +228,115 @@ def _default_cooldown_s() -> float:
         return 20.0
 
 
+def _resume_backoff_enabled() -> bool:
+    """D2 (T-4503): kill-switch `EMBED_RESUME_BACKOFF_ENABLED` (env-only,
+    default ON). OFF → задержки resume без нелинейности (бит-в-бит 2.58.45)."""
+    try:
+        from services.embedding_control_plane import resume_backoff_enabled
+        return resume_backoff_enabled()
+    except Exception:      # pragma: no cover — fail-open ON (как `_flag`)
+        return True
+
+
+def _resume_backoff_max_s() -> float:
+    """D2: потолок нелинейного backoff (`EMBED_RESUME_BACKOFF_MAX_SECONDS`,
+    default 3600)."""
+    try:
+        from config.settings import settings
+        return max(1.0, float(getattr(
+            settings, "EMBED_RESUME_BACKOFF_MAX_SECONDS", 3600.0)))
+    except Exception:      # pragma: no cover
+        return 3600.0
+
+
+def _resume_backoff_delay(streak: int) -> float:
+    """D2 (T-4503): нелинейный backoff auto-resume —
+    `min(default × 2^streak, MAX=3600) × jitter(1.00–1.25)`.
+
+    Применяется ТОЛЬКО к паузам без provider-горизонта (kind unknown/tpm без
+    RA / default-cooldown ветка CoolingDown); поверх parking-горизонта backoff
+    не наслаивается (resume строго на next_allowed_at). Флаг OFF →
+    дефолт-кулдаун без нелинейности и без джиттера (бит-в-бит)."""
+    if not _resume_backoff_enabled():
+        return _default_cooldown_s()
+    base = _default_cooldown_s() * (2 ** max(0, int(streak)))
+    delay = min(base, _resume_backoff_max_s())
+    return delay * (1.0 + random.random() * 0.25)
+
+
+async def _quota_streak(db, job_id: str) -> int:
+    """D2: `quota_exhaust_streak` из `result_ref` (толерантный парсер:
+    битый/чужой JSON или нет ключа → 0; старые строки совместимы)."""
+    try:
+        cursor = await db.db.execute(
+            "SELECT result_ref FROM task_jobs WHERE job_id = ?", (job_id,))
+        row = await cursor.fetchone()
+        raw = str(row["result_ref"]) if row is not None else ""
+        data = json.loads(raw or "{}")
+        if isinstance(data, dict):
+            return max(0, int(data.get("quota_exhaust_streak") or 0))
+    except (ValueError, TypeError, KeyError):
+        pass
+    except Exception:
+        logger.warning("graphrag rebuild: quota streak read failed",
+                       exc_info=True)
+    return 0
+
+
+async def _clear_quota_streak(db, job_id: str) -> None:
+    """D2: первый успешный батч после resume обнуляет
+    `quota_exhaust_streak` (fail-open; пишется только если стрик был > 0 —
+    без лишних записей на каждый батч)."""
+    try:
+        cursor = await db.db.execute(
+            "SELECT result_ref FROM task_jobs WHERE job_id = ?", (job_id,))
+        row = await cursor.fetchone()
+        raw = str(row["result_ref"]) if row is not None else ""
+        try:
+            data = json.loads(raw or "{}")
+        except ValueError:
+            return
+        if not isinstance(data, dict):
+            return
+        if not int(data.get("quota_exhaust_streak") or 0):
+            return
+        data["quota_exhaust_streak"] = 0
+        now = int(time.time())
+
+        async def _body(conn):
+            await conn.execute(
+                "UPDATE task_jobs SET result_ref = ?, updated_at = ? "
+                "WHERE job_id = ?",
+                (json.dumps(data, ensure_ascii=False), now, job_id))
+
+        await db.write_transaction(_body, op_name="graphrag_quota_streak_reset")
+    except Exception:
+        logger.warning("graphrag rebuild: quota streak reset failed",
+                       exc_info=True)
+
+
+def _quota_kind_of_pause(reason: str, exc: Exception | None = None) -> str:
+    """D2-диагностика: kind последней quota-паузы для
+    `result_ref.quota_kind_last` (честно: из registry-ноты группы или
+    reason-суффикса; без фальшивой точности)."""
+    if reason == "rate_limit:quota_group":
+        gid = str(getattr(exc, "group_id", "") or "")
+        if gid:
+            try:
+                from services.embedding_control_plane import (
+                    REGISTRY as ECP_REGISTRY)
+                note = ECP_REGISTRY.group_state(gid).note
+            except Exception:      # pragma: no cover — fail-open
+                note = ""
+            match = re.search(r"kind=([a-z_]+)", note or "")
+            if match:
+                return match.group(1)[:24]
+        return "quota_group"
+    if reason.startswith("rate_limit:"):
+        return (reason.split(":", 1)[1] or "unknown")[:24]
+    return ""
+
+
 async def _registry_pause(db, index_name: str, fp: str, reason: str,
                           next_allowed_at: int) -> None:
     """AM-1: pause-колонки реестра поколений (v23 additive:
@@ -267,9 +376,15 @@ async def _registry_resume(db, index_name: str, fp: str) -> None:
 
 
 async def _pause_bookkeeping(db, job_id: str, reason: str,
-                             next_allowed_at: int) -> None:
+                             next_allowed_at: int, *,
+                             quota_streak: int | None = None,
+                             quota_kind: str | None = None) -> None:
     """Пауза-метаданные в `result_ref` (REUSE, ΔDDL=0): pause_started_at для
-    horizon §25 + счётчик пауз. Существующие строки НЕ мигрируются."""
+    horizon §25 + счётчик пауз. Существующие строки НЕ мигрируются.
+    D2 (T-4503): + `quota_exhaust_streak` (подряд exhausted-пауз без
+    успешного батча; инкремент считает CALLER и только для exhausted-класса)
+    + `quota_kind_last` (диагностика). Толерантный парсер — старые строки
+    совместимы, отсутствие ключей = стрик 0."""
     try:
         cursor = await db.db.execute(
             "SELECT result_ref FROM task_jobs WHERE job_id = ?", (job_id,))
@@ -287,6 +402,10 @@ async def _pause_bookkeeping(db, job_id: str, reason: str,
         bookkeeping["pause_count"] = int(bookkeeping.get("pause_count") or 0) + 1
         bookkeeping["last_pause_reason"] = reason[:64]
         bookkeeping["next_allowed_at"] = int(next_allowed_at)
+        if quota_streak is not None:
+            bookkeeping["quota_exhaust_streak"] = max(0, int(quota_streak))
+        if quota_kind:
+            bookkeeping["quota_kind_last"] = str(quota_kind)[:24]
         now = int(time.time())
 
         async def _body(conn):
@@ -996,6 +1115,9 @@ async def run_job(memory, index_name: str, job_id: str) -> None:
                 return
         batch_no = 0
         last_progress_emit = 0.0
+        # D2 (T-4503): первый успешный батч после resume обнуляет
+        # quota_exhaust_streak (одна точка; пишется только если стрик был).
+        streak_cleared = False
         # ASAP-4 (T-4406): приоритет P3 на весь цикл батчей — через контекст
         # контрол-плейна (НЕ kwarg `_embed`: контракт memory._embed не
         # расширяется для моков/потребителей).
@@ -1053,6 +1175,9 @@ async def run_job(memory, index_name: str, job_id: str) -> None:
                     processed=processed,
                     checkpoint_ref=f"cp:{index_name}:{generation}")
                 await store.heartbeat(job_id)
+            if not streak_cleared:
+                streak_cleared = True
+                await _clear_quota_streak(db, job_id)
             if lease is not None:
                 try:
                     await lease.heartbeat()
@@ -1207,13 +1332,17 @@ async def run_job(memory, index_name: str, job_id: str) -> None:
 async def _apply_pause(memory, db, index_name: str, job_id: str, fp: str,
                        generation: int, *, expect: str, new_status: str,
                        reason_code: str, next_allowed: int, delay: float,
-                       exc_name: str | None = None) -> None:
+                       exc_name: str | None = None,
+                       quota_streak: int | None = None,
+                       quota_kind: str | None = None) -> None:
     """Общая «пауза» AM-1: CAS (от фактического статуса) + pause-метаданные
     в result_ref + pause-колонки реестра (v23) + событие + авто-resume.
     Checkpoint НЕ трогается (resume продолжит с него)."""
     await _job_cas(db, job_id, expect=expect, set_status=new_status,
                    reason_code=reason_code)
-    await _pause_bookkeeping(db, job_id, reason_code, next_allowed)
+    await _pause_bookkeeping(db, job_id, reason_code, next_allowed,
+                             quota_streak=quota_streak,
+                             quota_kind=quota_kind)
     await _registry_pause(db, index_name, fp, reason_code, next_allowed)
     reason_ui = ("paused_rate_limit"
                  if new_status == ST_PAUSED_RATE_LIMIT else "paused_provider")
@@ -1286,24 +1415,32 @@ async def _handle_build_failure(memory, db, index_name: str, job_id: str,
     if is_cooling:
         # Группа уже в cooldown (executor считал next_allowed_at) — повторная
         # классификация тела не нужна: честный Retry-After из исключения.
-        try:
-            from services.embedding_control_plane import (
-                REGISTRY as ECP_REGISTRY)
-            ECP_REGISTRY.record_rate_limit()
-        except Exception:      # pragma: no cover
-            pass
+        # D4 (T-4503): record_rate_limit здесь НЕ дублируется — реальный 429
+        # уже посчитан в `_on_error` контрол-плейна (точка истины); двойной
+        # инкремент завышал `429_last_10m` ×2 (RCA §3).
         exc_next = int(getattr(exc, "next_allowed_at", 0) or 0)
         now = int(time.time())
+        # D2: стрик подряд exhausted-пауз (result_ref, рестарт-персистентный).
+        streak = await _quota_streak(db, job_id)
         if exc_next > now:
+            # Parking/RA-горизонт: resume строго на next_allowed_at — backoff
+            # поверх честного reset не наслаивается (D2).
             delay = float(exc_next - now)
             next_allowed = exc_next
         else:
-            delay = _default_cooldown_s()
+            # Пауза БЕЗ parking-горизонта → нелинейный backoff (D2).
+            if _resume_backoff_enabled():
+                delay = _resume_backoff_delay(streak)
+            else:
+                delay = _default_cooldown_s()
             next_allowed = int(now + delay)
         await _apply_pause(memory, db, index_name, job_id, fp, generation,
                            expect=expect, new_status=ST_PAUSED_RATE_LIMIT,
                            reason_code="rate_limit:quota_group",
-                           next_allowed=next_allowed, delay=delay)
+                           next_allowed=next_allowed, delay=delay,
+                           quota_streak=streak + 1,
+                           quota_kind=_quota_kind_of_pause(
+                               "rate_limit:quota_group", exc))
         return
     try:
         from services.embedding_control_plane import (
@@ -1331,23 +1468,39 @@ async def _handle_build_failure(memory, db, index_name: str, job_id: str,
                            exc_name=type(exc).__name__)
         return
     if _is_rate_limit_exception(exc):
+        # Легаси/обходной путь (исключение НЕ через executor — _on_error не
+        # выполнялся): инкремент 429 здесь единственный (D4-дедуп касается
+        # только CoolingDown-конверсии).
+        has_provider_ra = False
+        rate_kind = "unknown"
+        spend_kinds = ("spend", "daily_project")
         try:
             from services.embedding_control_plane import (
                 REGISTRY as ECP_REGISTRY, classify_rate_limit,
-                retry_after_seconds, RateLimitInfo)
+                retry_after_seconds, RateLimitInfo, RATE_SPEND, RATE_DAILY)
+            spend_kinds = (RATE_SPEND, RATE_DAILY)
             headers = getattr(exc, "headers", None)
             body = getattr(exc, "body", None)
             info = classify_rate_limit(
                 429, headers, body if isinstance(body, str) else None)
             delay = retry_after_seconds(info)
+            rate_kind = str(info.kind)
+            has_provider_ra = info.retry_after_s is not None
             ECP_REGISTRY.record_rate_limit()
         except Exception:
             info = RateLimitInfo(kind="unknown", retry_after_s=None)
             delay = _default_cooldown_s()
+        # D2: нелинейный backoff — только для пауз БЕЗ provider-горизонта
+        # (kind unknown/tpm без RA); RA/parking-горизонт не умножается.
+        if (_resume_backoff_enabled() and not has_provider_ra
+                and rate_kind not in spend_kinds):
+            delay = _resume_backoff_delay(await _quota_streak(db, job_id))
         await _apply_pause(memory, db, index_name, job_id, fp, generation,
                            expect=expect, new_status=ST_PAUSED_RATE_LIMIT,
                            reason_code=f"rate_limit:{info.kind}",
-                           next_allowed=int(time.time() + delay), delay=delay)
+                           next_allowed=int(time.time() + delay), delay=delay,
+                           quota_kind=_quota_kind_of_pause(
+                               f"rate_limit:{info.kind}"))
         return
     if _is_provider_unavailable(exc):
         # paused_provider: экспоненциальный (×2 от дефолта) кулдаун в

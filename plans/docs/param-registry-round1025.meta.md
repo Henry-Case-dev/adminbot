@@ -1,7 +1,7 @@
 # F8 — `param-registry-round1025` — провенанс `.meta.md`
 
-- **APP_VERSION:** `2.58.45`
-- **HEAD (short):** `1287130`
+- **APP_VERSION:** `2.58.46`
+- **HEAD (short):** `34ba7d8`
 - **Источник:** `services/param_catalog.py` (REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES) + `inventory.tsv` (10.14) для дельты.
 - **Счётчики каталога:** REGISTRY **488** / GROUPS **105** / `_TAB_BY_GROUP` **103** / TAB_RULES **21**.
 - **Реестр:** 488 строк == REGISTRY.

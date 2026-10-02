@@ -94,6 +94,19 @@ def quota_group_cooldown_enabled() -> bool:
     return _flag("EMBED_QUOTA_GROUP_COOLDOWN_ENABLED", True)
 
 
+def quota_kind_parking_enabled() -> bool:
+    """D1 (T-4503): OFF → kind не влияет на длительность паузы
+    (`retry_after_seconds()` как в 2.58.45 — дефолт 20s для spend/daily без
+    Retry-After, note/log прежнего формата)."""
+    return _flag("EMBED_QUOTA_KIND_PARKING_ENABLED", True)
+
+
+def resume_backoff_enabled() -> bool:
+    """D2 (T-4503): OFF → задержки resume без нелинейности (дефолт-кулдаун
+    как сейчас). Читается graphrag_rebuild'ом."""
+    return _flag("EMBED_RESUME_BACKOFF_ENABLED", True)
+
+
 def priority_scheduler_enabled() -> bool:
     """OFF → rebuild без приоритетов/reserve (как сейчас)."""
     return _flag("EMBED_PRIORITY_SCHEDULER_ENABLED", True)
@@ -289,6 +302,63 @@ def build_credential_pool() -> list[EmbeddingCredential]:
     return pool
 
 
+# ── D3 (T-4503): честная диагностика «распределять некуда» ──────────────────
+
+_ROTATION_HINT_RU = ("Задайте EMBEDDING_QUOTA_GROUP_LABELS или hot-ключ "
+                     "keys.embedding_quota_group_labels (формат alias:group,...); "
+                     "подхватывается без рестарта")
+_ROTATION_WARN_COOLDOWN_S = 600.0
+_last_rotation_warn = 0.0        # monotonic; in-memory rate-limit WARN
+
+
+def pool_rotation_diagnosis(pool: list[EmbeddingCredential]) -> dict:
+    """D3: чистый диагноз распределения пула (R17-safe: только счётчики/
+    group-id). `degenerate` = группы не известны ИЛИ |groups| == 1 →
+    распределять некуда (safe default «все ключи = одна группа» не выдаётся
+    за ротацию)."""
+    groups = sorted({c.quota_group_id for c in pool})
+    known = any(c.quota_group_known for c in pool)
+    degenerate = (not known) or len(groups) <= 1
+    return {"keys": len(pool), "groups": groups, "known": known,
+            "degenerate": degenerate}
+
+
+def _maybe_warn_degenerate_rotation(diagnosis: dict) -> bool:
+    """D3: WARN `embedding pool rotation=none | ...` — не чаще 1 раза /
+    10 мин (in-memory rate-limit; под мастер-флагом зоны, D5). True —
+    залогировано. Возврат значения — для тестов."""
+    global _last_rotation_warn
+    if not diagnosis or not diagnosis.get("degenerate"):
+        return False
+    if not int(diagnosis.get("keys") or 0):
+        return False                      # пустой пул — не про ротацию
+    if not control_plane_enabled():
+        return False
+    now = time.monotonic()
+    if now - _last_rotation_warn < _ROTATION_WARN_COOLDOWN_S:
+        return False
+    _last_rotation_warn = now
+    groups = ",".join(str(g) for g in diagnosis.get("groups") or []) or "unknown"
+    logger.warning(
+        "embedding pool rotation=none | group=%s | keys=%d | "
+        "hint=EMBEDDING_QUOTA_GROUP_LABELS",
+        groups, int(diagnosis["keys"]))
+    return True
+
+
+def _rotation_panel_block(diagnosis: dict) -> dict:
+    """D3-контракт панели: `rotation: none | grouped` + hint. R17-safe
+    (alias/счётчики; group-id — не секрет)."""
+    degenerate = bool(diagnosis.get("degenerate"))
+    return {
+        "status": "none" if degenerate else "grouped",
+        "keys": int(diagnosis.get("keys") or 0),
+        "groups": [str(g) for g in (diagnosis.get("groups") or [])],
+        "degenerate": degenerate,
+        "hint": _ROTATION_HINT_RU if degenerate else "",
+    }
+
+
 # ── 429 classification (T-4404, §8/§9) ──────────────────────────────────────
 
 RATE_RPM = "rpm"
@@ -368,6 +438,54 @@ def retry_after_seconds(info: RateLimitInfo) -> float:
         return max(0.0, min(float(info.retry_after_s), ceiling))
     return float(_settings_value(
         "EMBED_RATE_LIMIT_DEFAULT_COOLDOWN_SECONDS", 20.0))
+
+
+def _utc_day_end(now: float | None = None) -> int:
+    """Конец текущих суток UTC (следующий UTC-midnight, epoch-секунды)."""
+    ts = int(now if now is not None else time.time())
+    return ((ts // 86400) + 1) * 86400
+
+
+def _quota_parking_seconds(info: RateLimitInfo) -> tuple[float, bool, str]:
+    """D1 (T-4503, design-fix): kind-aware длительность quota-паузы.
+
+    Возвращает `(delay_s, parked, est)`:
+    * kind spend/daily + есть Retry-After → `retry_after_seconds()` (RA с
+      ceiling 300s, AM-1-политика уважения провайдера сохранена) — `parked=0`;
+    * kind spend/daily + RA нет (прод-кейс Gemini) → парковка до ОЦЕНКИ
+      reset: конец текущих суток UTC + `EMBED_QUOTA_RESET_MARGIN_SECONDS`
+      (default 300s), `est='utc_day_end'`. Env-оверрайд
+      `EMBED_QUOTA_RESET_HORIZON_SECONDS` > 0 → фиксированный горизонт
+      (`est='horizon'`, если владельцу эмпирически известен реальный reset —
+      у Gemini он не UTC-midnight, честно это не asserting). Верхний cap
+      `EMBED_QUOTA_PARK_MAX_SECONDS` (default 86400);
+    * rpm/tpm/rate/unknown — прежняя семантика `retry_after_seconds()`
+      (RA-capped 300s / default 20s), `parked=0`.
+
+    Kill-switch `EMBED_QUOTA_KIND_PARKING_ENABLED=OFF` → kind не влияет на
+    длительность: `retry_after_seconds()` для всех kinds (бит-в-бит 2.58.45).
+    """
+    if not quota_kind_parking_enabled():
+        return retry_after_seconds(info), False, ""
+    if info.kind in (RATE_SPEND, RATE_DAILY):
+        if info.retry_after_s is not None:
+            # RA присутствует у spend/daily (нетипично): провайдер точнее
+            # нашей эвристики — уважается RA, парковка НЕ применяется.
+            return retry_after_seconds(info), False, ""
+        now = time.time()
+        cap = max(1.0, float(_settings_value(
+            "EMBED_QUOTA_PARK_MAX_SECONDS", 86400.0)))
+        horizon = float(_settings_value(
+            "EMBED_QUOTA_RESET_HORIZON_SECONDS", 0.0) or 0.0)
+        if horizon > 0:
+            delay, est = horizon, "horizon"
+        else:
+            margin = max(0.0, float(_settings_value(
+                "EMBED_QUOTA_RESET_MARGIN_SECONDS", 300.0)))
+            delay = (_utc_day_end(now) + margin) - now
+            est = "utc_day_end"
+        return max(0.0, min(delay, cap)), True, est
+    return retry_after_seconds(info), False, ""
 
 
 def is_quota_unavailable(info: RateLimitInfo, concurrency: int) -> bool:
@@ -1001,6 +1119,9 @@ class EmbeddingExecutor:
             # путь; 21-каскад невозможен без fallback-ключей). Контракт
             # «единственный retry-owner» применяется к пулу credential'ов.
             return await self._llm.embed(list(texts))
+        # D3 (T-4503): вырожденный пул (одна unknown-группа) репортится
+        # честно — WARN ≤1/10 мин, без фейковой ротации.
+        _maybe_warn_degenerate_rotation(pool_rotation_diagnosis(pool))
 
         budget_left = _ATTEMPT_BUDGET
         defers = 0
@@ -1150,7 +1271,10 @@ class EmbeddingExecutor:
             body = getattr(exc, "body", None)
             info = classify_rate_limit(
                 429, headers, body if isinstance(body, str) else None)
-            delay = retry_after_seconds(info)
+            # D1 (T-4503): kind-aware длительность — spend/daily без RA
+            # паркуется до оценки reset (конец суток UTC+margin), RA
+            # уважается (ceiling 300s), rpm/tpm/burst — прежняя семантика.
+            delay, parked, park_est = _quota_parking_seconds(info)
             quota_unavailable = is_quota_unavailable(info, 1)
             state = GROUP_EXHAUSTED if quota_unavailable else GROUP_COOLING
             next_allowed = int(time.time() + delay)
@@ -1164,9 +1288,15 @@ class EmbeddingExecutor:
                 self._registry.mark_credential(current, HEALTH_COOLDOWN,
                                                cooldown_s=delay)
             if quota_group_cooldown_enabled():
+                # D1-честность: парковка-оценка отличима от точного RA
+                # (`parked ... est=...` vs `429 ... ra=...`) — панель/логи не
+                # выдают оценку за точный срок.
+                if parked:
+                    note = f"parked kind={info.kind} est={park_est}"
+                else:
+                    note = f"429 kind={info.kind} ra={info.retry_after_s}"
                 await self._registry.set_group_state(
-                    group_id, state, next_allowed,
-                    f"429 kind={info.kind} ra={info.retry_after_s}")
+                    group_id, state, next_allowed, note)
             else:
                 # Cooldown OFF → перебор ключей как сейчас (без group-паузы).
                 self._registry._set_group_local(group_id, GROUP_HEALTHY, 0,
@@ -1175,12 +1305,24 @@ class EmbeddingExecutor:
             # cooldown (та же группа) — preemption по next_allowed_at (§18).
             CONTROLLER.on_rate_limit()
             CONTROLLER.on_batch_rate_limit()
-            logger.warning(
-                "embed rate limit | group=%s | state=%s | kind=%s | "
-                "retry_after=%s | cooldown_s=%.1f | 429_last_10m=%d",
-                group_id, state, info.kind,
-                info.retry_after_s, delay,
-                self._registry.rate_limits_last_10m())
+            if quota_kind_parking_enabled():
+                logger.warning(
+                    "embed rate limit | group=%s | state=%s | kind=%s | "
+                    "retry_after=%s | cooldown_s=%.1f | parked=%d | "
+                    "429_last_10m=%d",
+                    group_id, state, info.kind,
+                    info.retry_after_s, delay, 1 if parked else 0,
+                    self._registry.rate_limits_last_10m())
+            else:
+                # L-4504-3: parking OFF → байт-формат лога 2.58.45
+                # (постоянное `parked=0` из лога убрано).
+                logger.warning(
+                    "embed rate limit | group=%s | state=%s | kind=%s | "
+                    "retry_after=%s | cooldown_s=%.1f | "
+                    "429_last_10m=%d",
+                    group_id, state, info.kind,
+                    info.retry_after_s, delay,
+                    self._registry.rate_limits_last_10m())
             return "defer"
         # Transport 5xx/timeout → счётная retry-попытка. Per-key health НЕ
         # трогаем: транспортный сбой — сторона провайдера/сети, а не ключа;
@@ -1447,6 +1589,10 @@ def provider_panel() -> dict:
     adapter = (EXECUTOR.adapter_for(pool[0].base_url)
                if EXECUTOR is not None and pool
                else None)
+    # D3 (T-4503): честный диагноз распределения — «rotation: none» + hint
+    # при вырожденном пуле; подхват labels живьём (пул строится на вызов).
+    rotation = _rotation_panel_block(pool_rotation_diagnosis(pool))
+    _maybe_warn_degenerate_rotation(pool_rotation_diagnosis(pool))
     return {
         "provider": pool[0].provider if pool else "не настроен",
         "model": pool[0].model if pool else "",
@@ -1464,6 +1610,7 @@ def provider_panel() -> dict:
         "rate_limits_10m": REGISTRY.rate_limits_last_10m(),
         "async_batch_enabled": async_batch_enabled(),
         "adapter": adapter.name if adapter else None,
+        "rotation": rotation,
         "groups": group_state_lines(),
     }
 
@@ -1558,10 +1705,12 @@ __all__ = [
     "RebuildLease", "RateLimitInfo",
     "UNKNOWN_GROUP_ID", "GROUP_UNKNOWN",
     "control_plane_enabled", "quota_group_cooldown_enabled",
+    "quota_kind_parking_enabled", "resume_backoff_enabled",
     "priority_scheduler_enabled", "adaptive_concurrency_enabled",
     "async_batch_enabled", "build_credential_pool",
     "parse_quota_group_labels", "resolve_quota_group",
-    "classify_rate_limit", "retry_after_seconds", "is_quota_unavailable",
+    "pool_rotation_diagnosis", "classify_rate_limit",
+    "retry_after_seconds", "is_quota_unavailable",
     "segment_text_lossless", "estimate_tokens", "execute_embed",
     "get_executor", "set_priority", "reset_priority", "current_priority",
     "REGISTRY", "CONTROLLER", "SCHEDULER", "coalesced_state_log",
