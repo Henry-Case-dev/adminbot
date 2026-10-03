@@ -668,7 +668,9 @@ class LLMClient:
                     channel: str = "chat",
                     budget: float | None = None,
                     max_retries: int | None = None,
-                    retry_statuses: tuple[int, ...] | None = None) -> httpx.Response:
+                    retry_statuses: tuple[int, ...] | None = None,
+                    timeout: float | None = None,
+                    budget_reason_label: str | None = None) -> httpx.Response:
         """POST with retry on all transient errors; auth errors raised immediately.
 
         Единственный владелец LLM-ретраев (56.4, D187). Жёсткий дедлайн всей
@@ -693,12 +695,26 @@ class LLMClient:
         всегда-ложной → 429 уходил в legacy-ветку и ретраился (2 HTTP-вызова
         на вызов адаптера, первый ретрай спал min(Retry-After, cap) —
         анти-паттерн §9/Q4).
+
+        ASAP 4.1 волна 4 (spec §4 D.1/D.5, ADR-1028-8 D5; scope = Summary
+        только): ``timeout`` — per-request transport-окно (None → прежний
+        клиентский timeout, байт-в-бит); ``budget_reason_label`` — метка
+        supervised-канала: при ``"summary_supervised"`` две time-budget
+        точки эмиссии ниже переименованы (§30 ТЗ: ``total_budget_exceeded``
+        → ``execution_deadline_exceeded`` (fuse-ветка) / ``budget_exhausted``
+        → ``retry_time_budget_exhausted`` (исчерпание попыток по времени)).
+        Для всех остальных потребителей (None) — прежние строки байт-в-бит.
         """
         client = (self._get_embed_client(api_key) if channel == "embed"
                   else self._get_client(api_key))
         base = (base_url or self._base_url).rstrip("/")
         url = f"{base}{path}"
         request_len = len(str(payload))
+        post_kwargs: dict = {}
+        if timeout is not None:
+            # Per-request transport-окно (watchdog Summary-канала): не
+            # пересоздаёт кешированный клиент, не трогает других потребителей.
+            post_kwargs["timeout"] = httpx.Timeout(timeout, connect=10.0)
         # F1: per-call override (None = прежний self-дефолт).
         call_budget = self._budget if budget is None else budget
         call_retries = self._max_retries if max_retries is None else max_retries
@@ -727,7 +743,8 @@ class LLMClient:
                         break                   # попытка не стартует (56.4)
                     started = time.monotonic()
                     try:
-                        response = await client.post(url, json=payload)
+                        response = await client.post(url, json=payload,
+                                                     **post_kwargs)
                     except httpx.TransportError as exc:
                         # Транзиентное (timeout/connect/read/.../protocol) → ретрай
                         if attempt < call_retries:
@@ -857,17 +874,29 @@ class LLMClient:
                     return response
         except asyncio.TimeoutError:
             _LLM_STATS["timeouts"] += 1
+            # ASAP 4.1 волна 4 (T-4615, §30 ТЗ): для supervised Summary-канала
+            # fuse-ветка = execution_deadline_exceeded; не-Summary потребители —
+            # прежняя строка total_budget_exceeded (байт-в-бит).
+            budget_reason = ("execution_deadline_exceeded"
+                             if budget_reason_label == "summary_supervised"
+                             else "total_budget_exceeded")
             logger.error(
-                "LLM timeout | url=%s | reason=total_budget_exceeded | "
-                "provider=%s", url, _provider_host(base))
+                "LLM timeout | url=%s | reason=%s | "
+                "provider=%s", url, budget_reason, _provider_host(base))
             raise LLMTimeoutError(
                 f"LLM request timed out after {total_attempts} attempts: {url}"
             ) from None
         if budget_exceeded:
             _LLM_STATS["timeouts"] += 1
+            # T-4615: попытка не стартовала — время call_budget исчерпано →
+            # supervised Summary-канал: retry_time_budget_exhausted;
+            # не-Summary: прежний budget_exhausted.
+            budget_reason = ("retry_time_budget_exhausted"
+                             if budget_reason_label == "summary_supervised"
+                             else "budget_exhausted")
             logger.error(
-                "LLM timeout | url=%s | reason=budget_exhausted | provider=%s",
-                url, _provider_host(base))
+                "LLM timeout | url=%s | reason=%s | provider=%s",
+                url, budget_reason, _provider_host(base))
             raise LLMTimeoutError(
                 f"LLM request timed out after {total_attempts} attempts: {url}"
             )
@@ -884,19 +913,28 @@ class LLMClient:
         return await self._post(path, payload, api_key=key)
 
     async def _post_fallback(self, payload: dict, path: str = "/chat/completions",
-                             model: str | None = None) -> httpx.Response:
+                             model: str | None = None,
+                             timeout: float | None = None) -> httpx.Response:
         """Epic 53 (62.4): РОВНО одна попытка на фоллбэке, БЕЗ ретраев.
 
         Тот же payload, model заменён на LLM_FALLBACK_MODEL (или переданную —
         для /embeddings используется primary embed-модель на фоллбэк-базе).
         Ошибки (транспорт/не-2xx) разбирает вызывающий — проброс исходного
         исключения primary.
+        ASAP 4.1 волна 4 (spec §4 D.1/D.2, ADR-1028-8 D5): ``timeout`` —
+        per-request transport-окно supervised-попытки (None → прежний
+        клиентский таймаут, байт-в-бит; ретрай fallback-ноги решает
+        Supervisor — один транспорт-ретрай = ≤1 fallback-transport-retry
+        из attempt-потолка ≤4 HTTP).
         """
         client = self._get_fallback_client()
         url = f"{self._fallback_base_url.rstrip('/')}{path}"
         fallback_payload = dict(payload)
         fallback_payload["model"] = model or self._fallback_model
-        return await client.post(url, json=fallback_payload)
+        post_kwargs: dict = {}
+        if timeout is not None:
+            post_kwargs["timeout"] = httpx.Timeout(timeout, connect=10.0)
+        return await client.post(url, json=fallback_payload, **post_kwargs)
 
     async def _fallback_with_retries(self, payload: dict) -> httpx.Response | None:
         """Epic 64: фоллбэк с ретраями транзиентных отказов (429/5xx/транспорт).
@@ -998,7 +1036,8 @@ class LLMClient:
                        module: str | None = None,
                        step: str | None = None,
                        correlation_id: str | None = None,
-                       fallback_payload_adapter=None) -> str:
+                       fallback_payload_adapter=None,
+                       supervised_transport: dict | None = None) -> str:
         """POST /chat/completions → choices[0].message.content.
 
         Epic 60 (65.8, T-476): temperature — опциональный kwarg; None →
@@ -1021,6 +1060,16 @@ class LLMClient:
         ОДИН раз при переключении на fallback ДО отправки (recompose под
         меньшее окно fallback-модели). None/ошибка адаптера → payload
         байт-в-байт прежний (fail-open; паритет со всеми прежними вызовами).
+
+        ASAP 4.1 волна 4 (spec §4 D.1, ADR-1028-8 D5; scope = Summary
+        только): ``supervised_transport`` — transport-контракт, который
+        передаёт LLMExecutionSupervisor (ЕДИНСТВЕННЫЙ источник; прочие
+        потребители не передают → байт-в-бит). При переданном контракте:
+        per-call ``budget``/``max_retries=1``/``retry_statuses=()``/per-
+        request ``timeout`` идут в ``_post``, а ВНУТРЕННИЙ fallback-каскад
+        ``_fallback_with_retries`` ВЫКЛЮЧЕН — provider-fallback решает
+        Supervisor (no retry multiplication: 1 primary + ≤1 primary
+        transport retry + ≤1 fallback + ≤1 fallback transport retry).
         """
         # ФИКС R6: key/source — per-call локалы (нет гонки параллельных чатов).
         key, source = await self._resolve_api_key_and_source(chat_id)
@@ -1031,11 +1080,31 @@ class LLMClient:
         # фоллбэка цена/токены атрибутируются правильной модели.
         used_model = self._chat_model
         try:
-            response = await self._post_with_key(
-                "/chat/completions", payload, chat_id=chat_id, key=key)
+            if supervised_transport is not None:
+                # ASAP 4.1 волна 4: supervised Summary-канал — per-call
+                # transport-контракт Supervisor'а (ADR-1028-8 D5.2); ключ
+                # уже резолвнут выше (тот же BYOK-слой).
+                response = await self._post(
+                    "/chat/completions", payload, api_key=key,
+                    budget=supervised_transport.get("budget"),
+                    max_retries=int(supervised_transport.get("max_retries", 1)),
+                    retry_statuses=tuple(
+                        supervised_transport.get("retry_statuses", ()) or ()),
+                    timeout=supervised_transport.get("timeout"),
+                    budget_reason_label=str(
+                        supervised_transport.get("budget_reason_label") or ""),
+                )
+            else:
+                response = await self._post_with_key(
+                    "/chat/completions", payload, chat_id=chat_id, key=key)
         except NoApiKeyForChat:
             raise
         except LLMError as exc:
+            if supervised_transport is not None:
+                # Supervisor — единственный владелец fallback-решения
+                # (ADR-1028-8 D5.3: no retry multiplication) — внутренний
+                # каскад для supervised-канала не запускается.
+                raise
             if not self._fallback_active or isinstance(exc, LLMBadResponseError):
                 raise
             _LLM_STATS["fallbacks"] += 1

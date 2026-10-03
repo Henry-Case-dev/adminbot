@@ -72,10 +72,12 @@ from services.summary_prompts import (
     PREV_SUMMARY_EDITOR_R1025_HOTFIX4,
     PREV_SUMMARY_L1_CLUSTERIZER_R1026,
     PREV_SUMMARY_L1_CLUSTERIZER_R1027,
+    PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41,
     PREV_SUMMARY_L2_WRITER_R1026,
     PREV_SUMMARY_L2_WRITER_R1027,
     PREV_SUMMARY_L2_WRITER_R1028,
     PREV_SUMMARY_L2_WRITER_R1028_ASAP4,
+    PREV_SUMMARY_L2_WRITER_R1029_ASAP41,
     PREV_SUMMARY_NARRATOR_R1023,
     PREV_SUMMARY_NARRATOR_R1028,
     PREV_SUMMARY_SYSTEM_PROMPT,
@@ -174,9 +176,15 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # 10.27 (ASAP-2, ADR-1027-10 D1/kонтракт (l)): ступень R1026→R1027
     # (many-to-many §95-v2, §7 «извлечение смысла»): оба прежних канона
     # (база S3 без блока и канон S3+блок) ведут на новый канон R1027.
+    # ASAP 4.1 волна 3 (T-4607, ADR-1028-8 D3 SUPERSEDE): ступень
+    # R1027→R1030 semantic map v1 — прод-канон 2.58.46 (слепок
+    # PREV_*_R1027_ASAP41) ведёт на map-канон (один коммит код+эталон+тесты,
+    # прецедент R4-D-003). Prompt-миграция явная (spec §2 B.1).
     "prompts.summary_l1_clusterizer_system_prompt": [
         (PREV_SUMMARY_L1_CLUSTERIZER_R1026, SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT),
-        (PREV_SUMMARY_L1_CLUSTERIZER_R1027, SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT)],
+        (PREV_SUMMARY_L1_CLUSTERIZER_R1027, SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT),
+        (PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41,
+         SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT)],
     # 10.26 (S5, ADR-1026-7 D4; ADR-1013-3): новый PG-ключ L2-Писателя
     # (`prompts.summary_l2_writer_system_prompt`; слепок PREV — база канона S5
     # без правила маркировки целевого сообщения). Ступень идемпотентна: до сида
@@ -194,7 +202,11 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         (PREV_SUMMARY_L2_WRITER_R1026, SUMMARY_L2_WRITER_SYSTEM_PROMPT),
         (PREV_SUMMARY_L2_WRITER_R1027, SUMMARY_L2_WRITER_SYSTEM_PROMPT),
         (PREV_SUMMARY_L2_WRITER_R1028, SUMMARY_L2_WRITER_SYSTEM_PROMPT),
-        (PREV_SUMMARY_L2_WRITER_R1028_ASAP4, SUMMARY_L2_WRITER_SYSTEM_PROMPT)],
+        (PREV_SUMMARY_L2_WRITER_R1028_ASAP4, SUMMARY_L2_WRITER_SYSTEM_PROMPT),
+        # ASAP 4.1 волна 3 (T-4609, ADR-1028-8 D4/AM-4): ступень
+        # R1029→R1030 — блок источника (Full SourceWindow первоклассно,
+        # FactPackage = derived view).
+        (PREV_SUMMARY_L2_WRITER_R1029_ASAP41, SUMMARY_L2_WRITER_SYSTEM_PROMPT)],
     # 10.28 (ASAP-2.1, контракт (g)/§25): ступени Рассказчика — шиза выбирает
     # модель (строка опциональна); прежние каноны R1023/R1028 ведут на новый.
     "prompts.summary_narrator_system_prompt": [
@@ -241,14 +253,16 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
         (SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1025_HOTFIX4),
     "prompts.factcheck_analyst_system_prompt":
         (FACTCHECK_ANALYST_SYSTEM_PROMPT, PREV_FACTCHECK_ANALYST_R1023_F3),
-    # 10.26 (S3, ADR-1026-5 D4): откат снимает ключ L1 на слепок базы канона S3
-    # (без правила маркировки целевого сообщения). L1 не врезан в живой путь,
-    # поэтому откат значения поведения не меняет; ключ в PG не удаляется.
     # 10.27 (ASAP-2): откат ступени R1027 ведёт на НЕПОСРЕДСТВЕННО прежний
     # канон PREV_*_R1027 (полный канон R1026 с блоком маркировки) — снимается
     # только шаг many-to-many/смысла, стек ступеней сохраняется (ADR-1013-3).
+    # ASAP 4.1 волна 3 (T-4607/T-4609): откат map-канона/блока источника —
+    # на НЕПОСРЕДСТВЕННО прежний прод-канон 2.58.46 (rollback-паритет с
+    # kill-switch SUMMARY_L1_SEMANTIC_MAP_ENABLED/SUMMARY_WRITER_SOURCE_
+    # INPUT_ENABLED=false; read-side смещение через существующую лестницу).
     "prompts.summary_l1_clusterizer_system_prompt":
-        (SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT, PREV_SUMMARY_L1_CLUSTERIZER_R1027),
+        (SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT,
+         PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41),
     # 10.26 (S5, ADR-1026-7 D4): откат снимает ключ L2 на слепок базы канона S5
     # (без правила маркировки целевого сообщения). L2 врезан за kill-switch
     # (default OFF), поэтому откат значения поведения не меняет; ключ в PG не
@@ -259,8 +273,10 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # ASAP-4 (волна D, ADR-1028-7 D4): откат ступени R1029 prose-first — на
     # НЕПОСРЕДСТВЕННО прежний прод-канон PREV_*_R1028_ASAP4 (с запретом
     # цитат; rollback-паритет с kill-switch SUMMARY_L2_REVIEW_ENABLED=false).
+    # ASAP 4.1 волна 3 (T-4609): откат блока источника — на канон R1029
+    # (прод 2.58.46; parity с SUMMARY_WRITER_SOURCE_INPUT_ENABLED=false).
     "prompts.summary_l2_writer_system_prompt":
-        (SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1028_ASAP4),
+        (SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1029_ASAP41),
     # 10.28 (ASAP-2.1): откат Рассказчика — на прежний канон R1028 (до правки
     # §25); ключ в PG не удаляется.
     "prompts.summary_narrator_system_prompt":

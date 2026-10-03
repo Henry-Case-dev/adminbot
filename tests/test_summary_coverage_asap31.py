@@ -317,7 +317,13 @@ async def test_chunked_event_emitted(monkeypatch, caplog):
 @pytest.mark.asyncio
 async def test_off_chunking_keeps_legacy_truncation(monkeypatch):
     """Kill-switch `SUMMARY_COVERAGE_CHUNKING_ENABLED=false` → байт-в-байт
-    прежний single-pass (truncated + skipped_ids + WARN)."""
+    прежний single-pass (truncated + skipped_ids + WARN).
+
+    ASAP 4.1 (AMEND, ADR-1028-8 D2): семантика этого kill-switch относится
+    к прежнему контуру 2.58.46 — тест закрепляет её при master
+    SUMMARY_WHOLE_WINDOW_FIRST_ENABLED=false (OFF-паритет, spec §11.1)."""
+    monkeypatch.setattr(type(sl1.settings), "SUMMARY_WHOLE_WINDOW_FIRST_ENABLED",
+                        False, raising=False)
     monkeypatch.setattr(type(sl1.settings),
                         "SUMMARY_COVERAGE_CHUNKING_ENABLED", False,
                         raising=False)
@@ -334,7 +340,12 @@ async def test_off_chunking_keeps_legacy_truncation(monkeypatch):
 @pytest.mark.asyncio
 async def test_off_auto_budget_keeps_legacy_static(monkeypatch):
     """AUTO_BUDGET_RESOLVER_ENABLED=false → static 30000-путь (байт-в-байт),
-    369 сообщений → truncated-семантика прежнего инцидента (паритет)."""
+    369 сообщений → truncated-семантика прежнего инцидента (паритет).
+
+    ASAP 4.1 (AMEND, ADR-1028-8 D2): прежний static-контур закреплён при
+    master SUMMARY_WHOLE_WINDOW_FIRST_ENABLED=false (OFF-паритет)."""
+    monkeypatch.setattr(type(sl1.settings), "SUMMARY_WHOLE_WINDOW_FIRST_ENABLED",
+                        False, raising=False)
     monkeypatch.setattr(type(sl1.settings), "AUTO_BUDGET_RESOLVER_ENABLED",
                         False, raising=False)
     _slot(monkeypatch, "https://nano-gpt.com/v1", "deepseek-chat")

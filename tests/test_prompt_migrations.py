@@ -66,10 +66,12 @@ from services.summary_prompts import (
     PREV_SUMMARY_EDITOR_R1025_HOTFIX4,
     PREV_SUMMARY_L1_CLUSTERIZER_R1026,
     PREV_SUMMARY_L1_CLUSTERIZER_R1027,
+    PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41,
     PREV_SUMMARY_L2_WRITER_R1026,
     PREV_SUMMARY_L2_WRITER_R1027,
     PREV_SUMMARY_L2_WRITER_R1028,
     PREV_SUMMARY_L2_WRITER_R1028_ASAP4,
+    PREV_SUMMARY_L2_WRITER_R1029_ASAP41,
     PREV_SUMMARY_NARRATOR_R1023,
     PREV_SUMMARY_NARRATOR_R1028,
     PREV_SUMMARY_SYSTEM_R1028,
@@ -205,16 +207,20 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # S3 (10.26): откат L1 снимает ступень маркировки → слепок базы канона S3.
     # ASAP-2 (round1027, контракт l): откат снимает ступень R1027 →
     # непосредственный прежний канон R1026 (PREV_*_R1027 = база+блок).
+    # ASAP 4.1 волна 3 (T-4607, ADR-1028-8 D3): откат map-канона →
+    # непосредственный прежний прод-канон 2.58.46 (PREV_*_R1027_ASAP41).
     "prompts.summary_l1_clusterizer_system_prompt":
-        PREV_SUMMARY_L1_CLUSTERIZER_R1027,
+        PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41,
     # S5 (10.26): откат L2 снимает ступень маркировки → слепок базы канона S5.
     # ASAP-2: откат ступени R1027 (ДЛИНА/ДЕДУП/авторы) → канон R1026.
     # ASAP-2.1 (round1028): откат ступени R1028 → НЕПОСРЕДСТВЕННО прежний
     # канон PREV_*_R1028 (контракт (g)).
     # ASAP-4 (волна D, ADR-1028-7 D4): откат ступени R1029 prose-first →
     # непосредственный прежний прод-канон PREV_*_R1028_ASAP4 (запрет цитат).
+    # ASAP 4.1 волна 3 (T-4609, ADR-1028-8 D4/AM-4): откат блока источника →
+    # канон R1029 (прод 2.58.46).
     "prompts.summary_l2_writer_system_prompt":
-        PREV_SUMMARY_L2_WRITER_R1028_ASAP4,
+        PREV_SUMMARY_L2_WRITER_R1029_ASAP41,
     # ASAP-2.1 (round1028): откат Рассказчика → прежний канон R1028.
     "prompts.summary_narrator_system_prompt": PREV_SUMMARY_NARRATOR_R1028,
 }

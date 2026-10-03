@@ -31,6 +31,29 @@ EV_L2_STAGE = "SUMMARY_L2_STAGE"
 EV_L2_REVIEW = "SUMMARY_L2_REVIEW"
 EV_LEGACY_FALLBACK = "SUMMARY_LEGACY_FALLBACK"
 EV_SUMMARY_DONE = "SUMMARY_RUN_DONE"
+# ── ASAP 4.1 волна 2 (spec §7.3, ADR-1028-8 D8): аддитивные имена зоны A.
+# Существующие имена НЕ переименовываются (совместимость mca_events/Analytics).
+EV_SOURCE_WINDOW_READY = "SUMMARY_SOURCE_WINDOW_READY"
+EV_CAPACITY_RESOLVED = "SUMMARY_CAPACITY_RESOLVED"
+EV_EXECUTION_MODE_SELECTED = "SUMMARY_EXECUTION_MODE_SELECTED"
+EV_SEGMENT_PLAN = "SUMMARY_SEGMENT_PLAN"
+EV_SEGMENT_RESULT = "SUMMARY_SEGMENT_RESULT"
+EV_SEGMENT_LEDGER = "SUMMARY_SEGMENT_LEDGER"
+
+# ── ASAP 4.1 волна 4 (spec §4 D/§7.3; ADR-1028-8 D5): liveness события
+# Supervisor'а. SUMMARY_L1_ACTIVITY / SUMMARY_WRITER_ACTIVITY — срезы
+# активности LLM-стадий (execution mode / attempt / ttfa / watchdog);
+# SUMMARY_LLM_SUPERVISOR — общий журнал решений (fallback/fuse/other ops).
+EV_L1_ACTIVITY = "SUMMARY_L1_ACTIVITY"
+EV_WRITER_ACTIVITY = "SUMMARY_WRITER_ACTIVITY"
+EV_LLM_SUPERVISOR = "SUMMARY_LLM_SUPERVISOR"
+
+# ── ASAP 4.1 волна 7 (зона G, T-4624; spec §7.3): оставшиеся имена перечня
+# §42 ТЗ. Существующие имена НЕ переименовываются (совместимость
+# mca_events/Analytics); append-only; fail-open эмиссия; R17 — только
+# числа/коды/id (§43 ТЗ, 23507–23528).
+EV_TEXT_READY = "SUMMARY_TEXT_READY"
+EV_REVISION_RESULT = "SUMMARY_REVISION_RESULT"
 
 # R17-safe коды причин (mca_events.REASON_CODES) — маппинг сырых причин.
 _REASON_MAP = {
@@ -43,8 +66,14 @@ _REASON_MAP = {
     "LLMTimeoutError": "timeout",
     "LLMServerError": "provider_unavailable",
     "LLMError": "provider_unavailable",
+    # ── ASAP 4.1 волна 4 (T-4615, spec D.5): READ-SIDE alias только —
+    # совместимость СТАРЫХ логов/событий (2.58.46): old llm_client
+    # time-budget строки читаются под новыми кодами. Новые эмиссии старого
+    # кода для Summary-канала запрещены (rename под Supervisor'ом);
+    # не-Summary потребители llm_client логируют как раньше.
+    "total_budget_exceeded": "execution_deadline_exceeded",
+    "budget_exhausted": "retry_time_budget_exhausted",
 }
-
 
 def events_enabled() -> bool:
     """Kill-switch волны E (spec §8.2): default ON; OFF → событий нет."""
@@ -119,9 +148,137 @@ def source_window(run_id, *, chat_id, messages: int) -> None:
           counts={"input_count": int(messages or 0)})
 
 
+# ── ASAP 4.1 волна 2 (T-4603/T-4604/T-4606; spec §7.3): новые события зоны A.
+# Аддитивные; существующие события не изменяются. R17: только counts/числа/
+# enum/коды (без текстов сообщений/промптов/ключей). Fail-open как везде.
+
+def source_window_ready(run_id, *, chat_id, counts: dict,
+                        window_from=None, window_to=None) -> None:
+    """`SUMMARY_SOURCE_WINDOW_READY` — SourceWindow создан (T-4603).
+
+    counts: messages / durable (bool) — snapshot записан (kill-switch ON) /
+    нет; window_from/to — UTC-мет границ окна (числа, R17)."""
+    payload = dict(counts or {})
+    payload.setdefault("messages", 0)
+    if window_from is not None:
+        payload["window_from"] = int(window_from)
+    if window_to is not None:
+        payload["window_to"] = int(window_to)
+    _emit(EV_SOURCE_WINDOW_READY, outcome="success", level="INFO",
+          run_id=run_id, chat_id=chat_id, stage="source", counts=payload)
+
+
+def capacity_resolved(run_id, *, chat_id, provider=None, model=None,
+                      counts: dict | None = None) -> None:
+    """`SUMMARY_CAPACITY_RESOLVED` — effective capacity резолвится
+    capacity engine'ом (T-4604/T-4605; причина в counts.reason, R17-код)."""
+    _emit(EV_CAPACITY_RESOLVED, outcome="success", level="INFO",
+          run_id=run_id, chat_id=chat_id, stage="capacity",
+          provider=provider, model=model, counts=counts or {})
+
+
+def execution_mode_selected(run_id, *, chat_id, mode: str, reason: str,
+                            counts: dict | None = None) -> None:
+    """`SUMMARY_EXECUTION_MODE_SELECTED` — решение WHOLE_WINDOW /
+    CAPACITY_OVERFLOW (+человеческая причина для Inspector-карточки)."""
+    _emit(EV_EXECUTION_MODE_SELECTED, outcome="success", level="INFO",
+          run_id=run_id, chat_id=chat_id, stage="capacity",
+          status=str(mode or ""),
+          counts={"reason": str(reason or ""), **(counts or {})})
+
+
+def segment_plan(run_id, *, chat_id, segments: int,
+                 counts: dict | None = None) -> None:
+    """`SUMMARY_SEGMENT_PLAN` — план overflow-шардинга (число сегментов =
+    ожидаемые L1-запросы; A.3: L1-запросов = число сегментов)."""
+    _emit(EV_SEGMENT_PLAN, outcome="start", level="INFO", run_id=run_id,
+          chat_id=chat_id, stage="l1_overflow",
+          counts={"segments": int(segments or 0), **(counts or {})})
+
+
+def segment_result(run_id, *, chat_id, segment: int, usable: bool,
+                   reason_code=None, counts: dict | None = None) -> None:
+    """`SUMMARY_SEGMENT_RESULT` — исход одного сегмента (restore виден)."""
+    _emit(EV_SEGMENT_RESULT,
+          outcome="success" if usable else "failed",
+          level="INFO" if usable else "WARN",
+          run_id=run_id, chat_id=chat_id, stage="l1_overflow",
+          attempt=int(segment), reason_code=reason_code,
+          status="ok" if usable else "failed",
+          counts=counts or {})
+
+
+def segment_ledger(run_id, *, chat_id, status: dict) -> None:
+    """`SUMMARY_SEGMENT_LEDGER` — снапшот CoverageLedger (counts/percent;
+    missing>0 ИЛИ fallback>0 (сегмент не восстановился) → честный degraded,
+    уровень WARN, не masked-success; T-4606/spec §1 A.3)."""
+    missing = int((status or {}).get("missing") or 0)
+    fallback = int((status or {}).get("fallback") or 0)
+    complete = bool((status or {}).get("assignment_lossless")) \
+        and missing == 0 and fallback == 0
+    _emit(EV_SEGMENT_LEDGER,
+          outcome="success" if complete else "failed",
+          level="INFO" if complete else "WARN",
+          run_id=run_id, chat_id=chat_id, stage="l1_overflow",
+          reason_code=None if complete else "coverage_ledger_missing",
+          status="ok" if complete else "degraded",
+          counts=status or {})
+
+
+# ── ASAP 4.1 волна 4 (T-4612–T-4615, spec §4 D): события LLMExecutionSupervisor.
+# R17: только числа/коды/enum/provider host (без текстов/промптов/ключей).
+# Fail-open как везде.
+
+_ACT_STAGE = {
+    "l1": "l1",
+    "writer": "l2",
+    "reviewer": "l2_review",
+    "revision": "l2_review",
+    "legacy": "legacy",
+}
+
+
+def llm_activity(run_id, *, chat_id, operation: str, outcome: str,
+                 level: str, counts: dict | None = None, attempt=None,
+                 provider=None, model=None, status: str | None = None,
+                 reason_code=None, duration_ms=None) -> None:
+    """Активность supervised LLM-вызова (T-4613/T-4614).
+
+    operation l1 → `SUMMARY_L1_ACTIVITY`; writer/reviewer/revision →
+    `SUMMARY_WRITER_ACTIVITY`; прочие (legacy) → общий
+    `SUMMARY_LLM_SUPERVISOR`. counts — R17-safe (mode/op/bucket/ttfa/
+    http_attempts/deadline_source)."""
+    op = str(operation or "").strip().lower()
+    event = EV_L1_ACTIVITY if op == "l1" else (
+        EV_WRITER_ACTIVITY if op in ("writer", "reviewer", "revision")
+        else EV_LLM_SUPERVISOR)
+    _emit(event, outcome=outcome, level=level, run_id=run_id,
+          chat_id=chat_id, stage=_ACT_STAGE.get(op, op or "llm"),
+          attempt=attempt, provider=provider, model=model, status=status,
+          reason_code=reason_code, duration_ms=duration_ms,
+          counts={"op": op, **(counts or {})})
+
+
+def llm_supervisor(run_id, *, chat_id, operation: str, outcome: str,
+                   level: str, counts: dict | None = None, attempt=None,
+                   provider=None, model=None, status: str | None = None,
+                   reason_code=None) -> None:
+    """`SUMMARY_LLM_SUPERVISOR` — общий журнал решений Supervisor'а
+    (fallback-решения, watchdog/fuse, прочие операции)."""
+    _emit(EV_LLM_SUPERVISOR, outcome=outcome, level=level, run_id=run_id,
+          chat_id=chat_id, stage=_ACT_STAGE.get(str(operation or ""),
+                                                "llm"),
+          attempt=attempt, provider=provider, model=model, status=status,
+          reason_code=reason_code, counts=counts or {})
+
+
 def l1_stage(run_id, *, chat_id, usable: bool, invalid_reason=None,
-             duration_ms=None, threads=None) -> None:
-    """`SUMMARY_L1_STAGE` — исход кластеризатора (ok/invalid)."""
+             duration_ms=None, threads=None, counts: dict | None = None) -> None:
+    """`SUMMARY_L1_STAGE` — исход кластеризатора (ok/invalid).
+
+    Волна 3 (T-4607/T-4608, R6-G-001): `counts` — честный срез semantic map
+    (map_degraded/minimal-map) рядом с результатом; `None` — прежний срез
+    (бит-в-бит)."""
     status = "ok" if usable else "failed"
     _emit(EV_L1_STAGE,
           outcome="success" if usable else "failed",
@@ -130,7 +287,8 @@ def l1_stage(run_id, *, chat_id, usable: bool, invalid_reason=None,
           duration_ms=duration_ms, reason_code=None if usable
           else str(invalid_reason or "invalid"),
           status=status,
-          counts={"threads": int(threads) if threads is not None else None})
+          counts={"threads": int(threads) if threads is not None else None,
+                  **(counts or {})})
 
 
 def l2_stage(run_id, *, chat_id, usable: bool, invalid_reason=None,
@@ -255,10 +413,46 @@ def summary_done_from_ctx(ctx) -> None:
         return
 
 
+# ── ASAP 4.1 волна 7 (зона G, T-4624; spec §7.3) — оставшиеся события
+# перечня §42 ТЗ. Аддитивно; существующие имена не трогаются. R17:
+# числа/коды/safe id (§43 ТЗ); fail-open как везде.
+
+def text_ready(run_id, *, chat_id, counts: dict | None = None,
+               stage: str = "l2") -> None:
+    """`SUMMARY_TEXT_READY` — approved text snapshot зафиксирован
+    (checkpoint TEXT_READY §20; snapshot-источник cover-ветки T-4618)."""
+    _emit(EV_TEXT_READY, outcome="success", level="INFO", run_id=run_id,
+          chat_id=chat_id, stage=stage, counts={"text_ready": 1,
+                                                **(counts or {})})
+
+
+def revision_result(run_id, *, chat_id, attempt: int, usable: bool,
+                    repair_target: str | None = None,
+                    reason_code=None, counts: dict | None = None) -> None:
+    """`SUMMARY_REVISION_RESULT` — исход одной revision-попытки bounded
+    review loop (≤2; patch/full-doc виден). §42 ТЗ REVISION_START/RESULT."""
+    _emit(EV_REVISION_RESULT,
+          outcome="success" if usable else "failed",
+          level="INFO" if usable else "WARN",
+          run_id=run_id, chat_id=chat_id, stage="l2_review",
+          attempt=max(0, int(attempt or 0)),
+          reason_code=reason_code,
+          status="ok" if usable else "failed",
+          counts={"repair_target": str(repair_target or ""),
+                  **(counts or {})})
+
+
 __all__ = [
     "EV_SUMMARY_START", "EV_SOURCE_WINDOW", "EV_L1_STAGE", "EV_L2_STAGE",
     "EV_L2_REVIEW", "EV_LEGACY_FALLBACK", "EV_SUMMARY_DONE",
+    "EV_SOURCE_WINDOW_READY", "EV_CAPACITY_RESOLVED",
+    "EV_EXECUTION_MODE_SELECTED", "EV_SEGMENT_PLAN", "EV_SEGMENT_RESULT",
+    "EV_SEGMENT_LEDGER", "EV_L1_ACTIVITY", "EV_WRITER_ACTIVITY",
+    "EV_LLM_SUPERVISOR", "EV_TEXT_READY", "EV_REVISION_RESULT",
     "events_enabled", "map_reason", "summary_start", "source_window",
+    "source_window_ready", "capacity_resolved", "execution_mode_selected",
+    "segment_plan", "segment_result", "segment_ledger",
+    "llm_activity", "llm_supervisor",
     "l1_stage", "l2_stage", "l2_review", "legacy_fallback", "summary_done",
-    "summary_done_from_ctx",
+    "summary_done_from_ctx", "text_ready", "revision_result",
 ]

@@ -52,8 +52,11 @@ _CANON_CASES = [
 _ROLLBACK_CASES = [
     # ASAP-4 волна D (ADR-1028-7 D4): откат prose-first → непосредственный
     # прежний прод-канон PREV_*_R1028_ASAP4 (с запретом цитат).
+    # ASAP 4.1 волна 3 (T-4609, ADR-1028-8 D4/AM-4): откат блока источника →
+    # канон R1029 (прод 2.58.46; parity с SUMMARY_WRITER_SOURCE_INPUT_
+    # ENABLED=false).
     (_L2, "l2", lambda: sp.SUMMARY_L2_WRITER_SYSTEM_PROMPT,
-     lambda: sp.PREV_SUMMARY_L2_WRITER_R1028_ASAP4),
+     lambda: sp.PREV_SUMMARY_L2_WRITER_R1029_ASAP41),
     (_NARR, "narr", lambda: sp.SUMMARY_NARRATOR_SYSTEM_PROMPT,
      lambda: sp.PREV_SUMMARY_NARRATOR_R1028),
     (_SYS, "sys", lambda: sp.SYSTEM_PROMPT,
@@ -189,12 +192,19 @@ def test_new_single_canon_model_choice_optional():
     assert canon.count("{max_symbols}") == 1
 
 
-# ── L1-канон НЕ меняется (§7:3062–3066) ───────────────────────────────────
+# ── L1-канон мигрирован на semantic map v1 (ASAP 4.1 волна 3, T-4607,
+# ADR-1028-8 D3 SUPERSEDE) — прежний прод-канон 2.58.46 закреплён в PREV. ───
 
 def test_l1_canon_untouched():
-    assert sp.SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT == (
+    # T-4607: канон = map v1; PREV-слепок = байт-в-байт прод 2.58.46.
+    assert sp.PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41 == (
         sp._SUMMARY_L1_CLUSTERIZER_R1027_BASE
         + "\n\n" + sp.TARGET_INSTRUCTION_BLOCK)
+    canon = sp.SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT
+    assert '"schema_version": 1' in canon
+    assert "semantic map" in canon.lower() or "СЕМАНТИЧЕСКУЮ КАРТУ" in canon
+    # Суперседа-слепок ≠ новый канон (двух активных канонов нет).
+    assert canon != sp.PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41
 
 
 # ── cover style — без миграций (§26:3495) ─────────────────────────────────

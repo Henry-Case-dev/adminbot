@@ -35,6 +35,25 @@ MODEL_MODE_CUSTOM = "custom"
 NO_EDIT_MESSAGE = ("Эта модель не умеет редактировать готовые изображения "
                    "и не подходит для Cover Style Processing.")
 
+# ── ASAP 4.1 волна 6 (T-4619, spec §6 F.2; ADR-1028-8 D7.2): источники
+# резолва Style-слота (лестница наследования §35; событие
+# COVER_STYLE_RESOLVE несёт это значение — точная причина видима).
+SLOT_SOURCE_GLOBAL_STYLE = "global_style_slot"      # models.image_style_* (2.58.46)
+SLOT_SOURCE_PROFILE_CONNECTION = "profile_connection"  # model_mode=custom
+SLOT_SOURCE_CONNECTIONS_DEFAULT = "connections_default"  # Connections layer
+SLOT_SOURCE_GLOBAL_IMAGE = "global_image_slot"      # models.image_* (глобальный
+# image provider+model — «global/default image-edit provider + model» §35)
+
+
+def style_global_default_enabled() -> bool:
+    """Kill-switch `SUMMARY_STYLE_GLOBAL_DEFAULT_ENABLED` (env-only
+    ClassVar, default ON; OFF → текущий resolver байт-в-бит 2.58.46)."""
+    try:
+        return bool(getattr(settings, "SUMMARY_STYLE_GLOBAL_DEFAULT_ENABLED",
+                            True))
+    except Exception:      # pragma: no cover - defensive
+        return True
+
 
 def cover_styles_enabled() -> bool:
     """Kill-switch `COVER_STYLES_ENABLED` (env-only ClassVar, default ON)."""
@@ -96,6 +115,11 @@ def resolve_style_slot(*, profile: dict | None = None,
         "connection_id": connection_id,
         "custom_unresolved": custom_unresolved,
         "configured": bool(base_url and model),
+        # T-4619 (аддитивно): источник резолва (лестница §35; виден в
+        # COVER_STYLE_RESOLVE/Inspector §41).
+        "resolve_source": (SLOT_SOURCE_PROFILE_CONNECTION
+                           if connection_id != "default"
+                           else SLOT_SOURCE_GLOBAL_STYLE),
     }
 
 
@@ -109,6 +133,137 @@ def _provider_of(base_url: str) -> str:
     except Exception:
         host = raw
     return host
+
+
+# ── T-4619 (spec §6 F.2; ADR-1028-8 D7.2): лестница наследования ────────────
+# Прод-инцидент §35: профиль «Модель обработки: По умолчанию (глобальная
+# настройка)» + пустой глобальный слот → configured=False → «Адрес и модель
+# не настроены» → style edit NOT EXECUTED → published base cover. Отдельная
+# style connection НЕ обязательна: runtime обязан реально разрешить
+# global/default image-edit provider + model, если модель поддерживает
+# image edit.
+#
+# Лестница (spec §6 F.2 дословно):
+#   1. per-chat override (`prompts.summary_cover_style_id`-слой) — как есть
+#      (резолв профиля выше по контуру);
+#   2. profile connection override (model_mode=custom, connection_id) —
+#      как есть (`resolve_style_slot`);
+#   3. global default image-edit slot (этот метод, только при пустом
+#      глобальном слоте):
+#      3a. Connections layer default-подключение, поддерживающее image_edit;
+#      3b. иначе models.image_style_* (existing глобальный слот — уже
+#          проверен выше; сюда попадаем при его пустоте);
+#      3c. global default image provider+model (`models.image_*` — тот же
+#          глобальный image-слот, что сгенерировал base cover; «Base cover:
+#          success» доказывает его настроенность в прод-инциденте) —
+#          capability image_edit через существующий registry (§36).
+#   4. ничего не разрешилось → configured=False → честный reason
+#      (`not_configured`), не «успех без стиля».
+
+# Ключи глобального image-слота (models.image_*; image_generation.py:75-78 —
+# реиспользование, второй источник не создаётся).
+KEY_IMAGE_BASE_URL = "models.image_base_url"
+KEY_IMAGE_MODEL = "models.image_model"
+KEY_IMAGE_API_KEY = "keys.image_api_key"
+
+
+async def default_edit_connection(pg) -> dict | None:
+    """Connections layer default-подключение (§35 leg 3a; детерминированно).
+
+    `cover_style_connections` не хранит model/флаг default (PG DDL —
+    no-op по спеке §0.1): default = единственная не-удалённая запись;
+    если несколько — самая ранняя (created_at, connection_id —
+    стабильный порядок). Нет записей/PG недоступен → None."""
+    try:
+        from services import cover_style_registry as registry
+        rows = await registry.list_connections(pg)
+    except Exception:
+        return None
+    rows = [r for r in (rows or []) if str(r.get("base_url") or "").strip()]
+    if not rows:
+        return None
+    rows.sort(key=lambda r: (str(r.get("created_at") or ""),
+                             str(r.get("connection_id") or "")))
+    return rows[0]
+
+
+def _capability_supports_edit(caps) -> bool:
+    """Gate §36/§58: capability image_edit — FALSE блокирует наследование;
+    UNKNOWN НЕ блокирует (сохранение профиля разрешено, честная попытка
+    edit'а провалится fail-soft — ladder §37 не уничтожает текст)."""
+    if caps is None:
+        return True              # нет данных capability — не блокируем
+    return getattr(caps, "image_edit", cap.UNKNOWN) != cap.FALSE
+
+
+async def _edit_capabilities_for(slot: dict):
+    """Capabilities наследуемого слота через capability registry (§36;
+    live-discovery авто + TTL-кеш, fail-open → conservative unknown)."""
+    try:
+        return await cap.resolve_capabilities_auto(
+            slot.get("provider") or "", slot.get("base_url") or "",
+            slot.get("model") or "")
+    except Exception:
+        return cap.conservative_unknown()
+
+
+async def resolve_style_slot_inherited(*, profile: dict | None = None,
+                                       connection: dict | None = None,
+                                       pg=None) -> dict:
+    """Резолв Style-слота по лестнице наследования §35 (T-4619).
+
+    Обёртка над `resolve_style_slot` (шаги 1–2 — как есть) + шаги 3a/3c
+    наследования при пустом глобальном слоте и профиле в режиме «По
+    умолчанию (глобальная настройка)» (`model_mode != custom`). Явно
+    настроенный слот/подключение ведут себя байт-в-бит (регресс).
+    Kill-switch OFF → ровно `resolve_style_slot` (байт-в-бит)."""
+    slot = resolve_style_slot(profile=profile, connection=connection)
+    if slot.get("configured") or not style_global_default_enabled():
+        return slot
+    profile = profile or {}
+    if profile.get("model_mode") == MODEL_MODE_CUSTOM:
+        return slot              # custom-режим: честный custom_unresolved выше
+    # ── 3a: Connections layer default-подключение ───────────────────────
+    conn = await default_edit_connection(pg)
+    if conn is not None:
+        model = str(profile.get("model_id") or "").strip() or \
+            _resolve_str(KEY_STYLE_MODEL, getattr(settings,
+                                                  "IMAGE_STYLE_MODEL", ""))
+        candidate = {
+            "base_url": str(conn.get("base_url") or "").strip(),
+            "model": model,
+            "provider": _provider_of(str(conn.get("base_url") or "")),
+            "connection_id": str(conn.get("connection_id") or "") or "default",
+            "custom_unresolved": False,
+        }
+        candidate["configured"] = bool(candidate["base_url"] and model)
+        if candidate["configured"]:
+            caps = await _edit_capabilities_for(candidate)
+            if _capability_supports_edit(caps):
+                candidate["resolve_source"] = SLOT_SOURCE_CONNECTIONS_DEFAULT
+                candidate["_connection"] = conn      # internal carry (не событие)
+                return candidate
+    # ── 3c: global default image provider+model (models.image_*) ────────
+    image_base = _resolve_str(KEY_IMAGE_BASE_URL,
+                              getattr(settings, "IMAGE_BASE_URL", ""))
+    image_model = _resolve_str(KEY_IMAGE_MODEL,
+                               getattr(settings, "IMAGE_MODEL", ""))
+    if image_base and image_model:
+        candidate = {
+            "base_url": image_base,
+            "model": image_model,
+            "provider": _provider_of(image_base),
+            "connection_id": "default",
+            "custom_unresolved": False,
+            "configured": True,
+        }
+        caps = await _edit_capabilities_for(candidate)
+        if _capability_supports_edit(caps):
+            candidate["resolve_source"] = SLOT_SOURCE_GLOBAL_IMAGE
+            candidate["_connection"] = None
+            return candidate
+    # ── 4: честный not_configured (базовый слот как был) ────────────────
+    return slot
 
 
 def slot_capabilities(*, profile: dict | None = None,

@@ -83,10 +83,10 @@ class TestSanctions:
         assert await db._table_exists("mca_bot_outputs")
         cursor = await db.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        # v22 применён (шаг реестра); хвост реестра — v23 (asap-4,
-        # ADR-1028-7) — фронтир user_version >= 22.
+        # v22 применён (шаг реестра); хвост реестра — v24 (asap-4.1,
+        # ADR-1028-8 D1: summary_source_windows) — фронтир user_version >= 22.
         assert int(row[0]) >= _SCHEMA_VERSION_BOT_OUTPUTS == 22
-        assert int(row[0]) == _SCHEMA_VERSION_EMBEDDING_CONTROL_PLANE
+        assert int(row[0]) >= _SCHEMA_VERSION_EMBEDDING_CONTROL_PLANE == 23
         # 3 индекса
         cursor = await db.db.execute(
             "SELECT name FROM sqlite_master WHERE type='index' AND "
@@ -102,9 +102,9 @@ class TestSanctions:
         assert await db._table_exists("mca_bot_outputs")
         cursor = await db.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        # v22 применён идемпотентно; хвост реестра — v23 (asap-4).
+        # v22 применён идемпотентно; хвост реестра — v24 (asap-4.1).
         assert int(row[0]) >= 22
-        assert int(row[0]) == _SCHEMA_VERSION_EMBEDDING_CONTROL_PLANE
+        assert int(row[0]) >= _SCHEMA_VERSION_EMBEDDING_CONTROL_PLANE == 23
         assert await _count(db, "SELECT COUNT(*) FROM mca_bot_outputs") == 0
 
     @pytest.mark.asyncio

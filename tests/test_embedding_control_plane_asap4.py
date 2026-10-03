@@ -223,7 +223,9 @@ async def _register_building(db, index: str, fp: str) -> int:
 @pytest.mark.asyncio
 async def test_v23_migration_additive_idempotent(vec_db):
     cur = await vec_db.db.execute("PRAGMA user_version")
-    assert (await cur.fetchone())[0] == 23
+    # ASAP 4.1 (T-4603): v24+ — аддитивные шаги поверх v23; сам v23-шаг
+    # (embedding_quota_state) остаётся в книге миграций и no-op повторяется.
+    assert (await cur.fetchone())[0] >= 23
     cur = await vec_db.db.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND "
         "name='embedding_quota_state'")

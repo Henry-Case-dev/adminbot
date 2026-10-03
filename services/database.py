@@ -856,6 +856,92 @@ _MCA_BOT_OUTPUTS_INDEX_DDL = (
 # NULL/default — старый код совместим.
 _SCHEMA_VERSION_EMBEDDING_CONTROL_PLANE = 23
 
+# ── ASAP 4.1 волна 2 (эпик asap-4-1-durable-whole-window-summary, spec
+# §10.1 + ADR-1028-8 D1): durable per-run snapshot полного окна Саммари.
+# Аддитивно (CREATE TABLE IF NOT EXISTS); НИ ОДНОГО UPDATE/DELETE
+# существующих строк при миграции; повторный прогон — no-op; PG — no-op
+# (Summary живёт в SQLite; cover_style_* PG-таблицы не трогаются).
+# Обратимость: DROP summary_source_windows безопасен (таблица не читается
+# старым кодом). `user_version 23→24`.
+_SCHEMA_VERSION_SUMMARY_SOURCE_WINDOW = 24
+
+_SUMMARY_SOURCE_WINDOWS_DDL = (
+    "CREATE TABLE IF NOT EXISTS summary_source_windows ("
+    "run_id                TEXT PRIMARY KEY, "
+    "chat_id               INTEGER NOT NULL, "
+    "window_from           INTEGER, "
+    "window_to             INTEGER, "
+    "source_message_count  INTEGER NOT NULL, "
+    "messages_json         TEXT NOT NULL, "
+    "created_at            INTEGER NOT NULL)"
+)
+
+# ── ASAP 4.1 волна 5 (эпик asap-4-1-durable-whole-window-summary, spec
+# §5 E.1/§10.2–§10.3 + ADR-1028-8 D6): durable SummaryRun — dedicated
+# additive SQLite-таблицы `summary_runs` (стабильный run_id PK; state
+# machine §20; publication_status/result_ref; pipeline_health) +
+# `summary_run_stages` (append-only §50.54). Носитель — НЕ task_jobs
+# payload (L-EXTRA-6 не наследуется) и НЕ перегрузка mca_pipeline_runs
+# (тот остаётся root-lifecycle/heartbeat mca-17a). Аддитивно
+# (CREATE TABLE IF NOT EXISTS); НИ ОДНОГО UPDATE/DELETE существующих
+# строк ПРИ МИГРАЦИИ (checkpoint-UPDATE самих run-строк — runtime
+# семантика store'а, не миграции); повторный прогон — no-op; PG — no-op.
+# Обратимость: DROP обеих таблиц безопасен (не читаются старым кодом).
+# `user_version` остаётся 24 (spec §10: v24 = 3 таблицы всего).
+
+_SUMMARY_RUNS_DDL = (
+    "CREATE TABLE IF NOT EXISTS summary_runs ("
+    "run_id                    TEXT PRIMARY KEY, "
+    "chat_id                   INTEGER NOT NULL, "
+    "state                     TEXT NOT NULL DEFAULT 'CREATED', "
+    "manual                    INTEGER NOT NULL DEFAULT 0, "
+    "window_from               INTEGER, "
+    "window_to                 INTEGER, "
+    "source_ref                TEXT, "
+    "publication_status        TEXT, "
+    "publication_result_ref    TEXT, "
+    "pipeline_health           TEXT, "
+    "created_at                INTEGER NOT NULL, "
+    "updated_at                INTEGER NOT NULL)"
+)
+
+_SUMMARY_RUNS_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_summary_runs_state "
+    "ON summary_runs (state)",
+    "CREATE INDEX IF NOT EXISTS idx_summary_runs_chat "
+    "ON summary_runs (chat_id, created_at)",
+)
+
+_SUMMARY_RUN_STAGES_DDL = (
+    "CREATE TABLE IF NOT EXISTS summary_run_stages ("
+    "id                 INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "run_id             TEXT NOT NULL, "
+    "stage              TEXT NOT NULL, "
+    "status             TEXT NOT NULL, "
+    "started_at         INTEGER NOT NULL, "
+    "last_activity_at   INTEGER, "
+    "finished_at        INTEGER, "
+    "attempt            INTEGER NOT NULL DEFAULT 0, "
+    "provider           TEXT, "
+    "model              TEXT, "
+    "result_ref         TEXT, "
+    "reason_code        TEXT)"
+)
+
+_SUMMARY_RUN_STAGES_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_summary_run_stages_run "
+    "ON summary_run_stages (run_id, id)",
+)
+
+
+def _summary_window_unique_violation(exc: BaseException) -> bool:
+    """IntegrityError «UNIQUE constraint» → write-once guard snapshot'а."""
+    try:
+        return type(exc).__name__ == "IntegrityError" \
+            and "UNIQUE" in str(getattr(exc, "args", ())).upper()
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
 EMBEDDING_QUOTA_GROUP_STATES = frozenset(
     {"healthy", "cooling_down", "exhausted", "unknown"})
 
@@ -1741,6 +1827,17 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_EMBEDDING_CONTROL_PLANE,
                           "embedding_control_plane",
                           lambda svc: svc._migrate_embedding_control_plane_v23()),
+            MigrationStep(_SCHEMA_VERSION_SUMMARY_SOURCE_WINDOW,
+                          "summary_source_windows",
+                          lambda svc: svc._migrate_summary_source_window_v24()),
+            # ASAP 4.1 волна 5 (T-4616, spec §10.2–§10.3): v24 = 3 таблицы
+            # (summary_source_windows + summary_runs + summary_run_stages).
+            # Один MigrationStep на версию — книга `schema_migrations` имеет
+            # PK=version (одна строка на версию; три шага затирали бы друг
+            # друга INSERT OR REPLACE). Полный DDL-набор v24 применяется
+            # внутри `_migrate_summary_source_window_v24` (шаги 2/3 —
+            # self-guarded хелперы того же шага); шаги аддитивные,
+            # повтор — no-op.
         ]
 
     @staticmethod
@@ -2442,6 +2539,75 @@ class DatabaseService:
             f"{_SCHEMA_VERSION_EMBEDDING_CONTROL_PLANE}")
         await self.db.commit()
 
+    async def _migrate_summary_source_window_v24(self) -> None:
+        """v24 (`asap-4-1-durable-whole-window-summary`, spec §10.1 + §1 A.1
+        + ADR-1028-8 D1): immutable per-run snapshot окна Саммари — таблица
+        `summary_source_windows` (run_id PK, messages_json write-once).
+
+        Аддитивно (`CREATE TABLE IF NOT EXISTS`); НИ ОДНОГО UPDATE/DELETE
+        существующих строк; повторный прогон — no-op (self-guard по
+        `sqlite_master`); PG — no-op (спека §0.1). Обратимость: DROP
+        таблицы безопасен (не читается старым кодом). Фиксирует
+        `PRAGMA user_version = 24`.
+
+        Один шаг на версию v24: тут же применяются DDL таблиц 2/3
+        (`summary_runs`/`summary_run_stages` — T-4616, self-guarded
+        хелперы); покрывает и частично-мигрированные v24-БД (барьер
+        `version > current` пропустил бы отдельные шаги при
+        user_version=24 без таблиц)."""
+        if not await self._table_exists("summary_source_windows"):
+            await self.db.execute(_SUMMARY_SOURCE_WINDOWS_DDL)
+            await self.db.commit()
+            logger.info("[database] migration v24: summary_source_windows")
+        await self._migrate_summary_runs_v24()
+        await self._migrate_summary_run_stages_v24()
+        await self.db.execute(
+            f"PRAGMA user_version = "
+            f"{_SCHEMA_VERSION_SUMMARY_SOURCE_WINDOW}")
+        await self.db.commit()
+
+    async def _migrate_summary_runs_v24(self) -> None:
+        """v24, таблица 2 (T-4616, spec §10.2 + §5 E.1; ADR-1028-8 D6):
+        durable SummaryRun — `summary_runs` (стабильный run_id PK, state
+        machine §20, publication_status/result_ref, pipeline_health).
+
+        Аддитивно (`CREATE TABLE IF NOT EXISTS` + индексы); НИ ОДНОГО
+        UPDATE/DELETE существующих строк при миграции; повторный прогон —
+        no-op (self-guard); PG — no-op (спека §0.1). Обратимость: DROP
+        таблицы безопасен (не читается старым кодом). Фиксирует
+        `PRAGMA user_version = 24` (спека §10: v24 = 3 таблицы)."""
+        if not await self._table_exists("summary_runs"):
+            await self.db.execute(_SUMMARY_RUNS_DDL)
+            await self.db.commit()
+            logger.info("[database] migration v24: summary_runs")
+        for ddl in _SUMMARY_RUNS_INDEX_DDL:
+            await self.db.execute(ddl)
+        await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = "
+            f"{_SCHEMA_VERSION_SUMMARY_SOURCE_WINDOW}")
+        await self.db.commit()
+
+    async def _migrate_summary_run_stages_v24(self) -> None:
+        """v24, таблица 3 (T-4616, spec §10.3 + §5 E.1; ADR-1028-8 D6):
+        append-only stage events `summary_run_stages` (§50.54-схема).
+
+        Аддитивно (`CREATE TABLE IF NOT EXISTS` + индекс); НИ ОДНОГО
+        UPDATE/DELETE существующих строк при миграции; повторный прогон —
+        no-op (self-guard); PG — no-op. Обратимость: DROP таблицы безопасен.
+        Фиксирует `PRAGMA user_version = 24`."""
+        if not await self._table_exists("summary_run_stages"):
+            await self.db.execute(_SUMMARY_RUN_STAGES_DDL)
+            await self.db.commit()
+            logger.info("[database] migration v24: summary_run_stages")
+        for ddl in _SUMMARY_RUN_STAGES_INDEX_DDL:
+            await self.db.execute(ddl)
+        await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = "
+            f"{_SCHEMA_VERSION_SUMMARY_SOURCE_WINDOW}")
+        await self.db.commit()
+
     # ── mca-22 (ADR-1028-6 D2): Durable Own Output Ledger — write/read ──────
     # Запись ТОЛЬКО реально доставленных outputs (недоставленный draft — не
     # «слова бота»; `delivery_status='failed'` не пишется write-path'ом фичи).
@@ -2553,6 +2719,387 @@ class DatabaseService:
                                 for r in rows) if d is not None]
         except Exception:
             return []
+
+    # ── ASAP 4.1 волна 2 (ADR-1028-8 D1, spec §1 A.1): durable per-run
+    # snapshot окна Саммари (`summary_source_windows`, v24). Write-once:
+    # INSERT без overwrite; повторный INSERT → IntegrityError → False
+    # (guard-инвариант: UPDATE messages_json после создания = дефект —
+    # UPDATE строки не существует ни в одной ветке кода, закреплён тестом).
+    # R17: messages_json живёт только в БД, наружу не логируется.
+
+    async def save_summary_source_window(
+            self, *, run_id: str, chat_id: int, window_from: int | None,
+            window_to: int | None, source_message_count: int,
+            messages_json: str, created_at: int) -> bool:
+        """Write-once запись snapshot'а окна (single write в SOURCE_READY).
+
+        ``True`` — записан; ``False`` — run_id уже существует (в т.ч. незави-
+        симый совпадающий run) — fail-open, без overwrite. Никогда не бросает."""
+        async def _body(conn):
+            cursor = await conn.execute(
+                "INSERT INTO summary_source_windows (run_id, chat_id, "
+                "window_from, window_to, source_message_count, "
+                "messages_json, created_at) VALUES (?,?,?,?,?,?,?)",
+                (str(run_id), int(chat_id), window_from, window_to,
+                 int(source_message_count), str(messages_json),
+                 int(created_at)))
+            return True
+
+        try:
+            return await self.write_transaction(
+                _body, op_name="summary_source_window_save")
+        except Exception as exc:
+            # Write-once guard: повторный INSERT того же run_id — честный
+            # сигнал «snapshot уже создан» (без overwrite/UPDATE).
+            if _summary_window_unique_violation(exc):
+                logger.info(
+                    "[summary41] source window already exists (write-once) | "
+                    "run_id=%s", str(run_id)[:64])
+                return False
+            logger.warning(
+                "[summary41] source window save failed | run_id=%s",
+                str(run_id)[:64], exc_info=True)
+            return False
+
+    async def get_summary_source_window(self, run_id: str) -> dict | None:
+        """Прочитать snapshot row по run_id (restart-safe; fail-open → None)."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT * FROM summary_source_windows WHERE run_id = ?",
+                (str(run_id),))
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+            return {
+                "run_id": row["run_id"],
+                "chat_id": row["chat_id"],
+                "window_from": row["window_from"],
+                "window_to": row["window_to"],
+                "source_message_count": row["source_message_count"],
+                "messages_json": row["messages_json"],
+                "created_at": row["created_at"],
+            }
+        except Exception:
+            logger.warning("[summary41] source window read failed "
+                           "| run_id=%s", str(run_id)[:64], exc_info=True)
+            return None
+
+    async def purge_summary_source_windows(self, *, before_ts: int) -> int:
+        """TTL-очистка snapshot'ов (единственный удалитель окон; только эта
+        таблица, НИ ОДНОЙ существующей SQL). Fail-open → 0."""
+        async def _body(conn):
+            cursor = await conn.execute(
+                "DELETE FROM summary_source_windows WHERE created_at < ?",
+                (int(before_ts),))
+            return int(cursor.rowcount or 0)
+
+        try:
+            return await self.write_transaction(
+                _body, op_name="summary_source_window_purge")
+        except Exception:
+            logger.warning("[summary41] source window purge failed",
+                           exc_info=True)
+            return 0
+
+    async def purge_summary_source_windows_gated(
+            self, *, before_ts: int, terminal_states: tuple[str, ...]) -> int:
+        """TTL-очистка окон с гейтом незавершённых run'ов (T-4616, spec §5
+        E.1: purge только после DONE/FAILED).
+
+        Удаляет окна старше горизонта, чей run терминален ИЛИ отсутствует
+        в `summary_runs` (window-only контур волны 2 — совместимо: окна без
+        run-row очищаются как раньше). Fail-open → 0."""
+        states = tuple(str(s) for s in (terminal_states or ()))
+        if not states:
+            return await self.purge_summary_source_windows(before_ts=before_ts)
+
+        async def _body(conn):
+            marks = ",".join("?" for _ in states)
+            cursor = await conn.execute(
+                "DELETE FROM summary_source_windows WHERE created_at < ? AND "
+                "run_id NOT IN (SELECT run_id FROM summary_runs WHERE "
+                f"state NOT IN ({marks}))",
+                (int(before_ts), *states))
+            return int(cursor.rowcount or 0)
+
+        try:
+            return await self.write_transaction(
+                _body, op_name="summary_source_window_purge_gated")
+        except Exception:
+            # fail-open: гейт не должен блокировать очистку — обычный путь.
+            return await self.purge_summary_source_windows(before_ts=before_ts)
+
+    # ── ASAP 4.1 волна 5 (T-4616/T-4617, spec §5 E.1/E.2; ADR-1028-8 D6):
+    # durable SummaryRun (`summary_runs`) + append-only stage events
+    # (`summary_run_stages`). Checkpoint run-state — ЗДЕСЬ, не в task_jobs
+    # payload (L-EXTRA-6 не наследуется); mca_pipeline_runs не перегружается.
+    # R17: в строках только state-машина/числа/safe refs (никаких текстов).
+
+    _SUMMARY_RUN_COLS = ("run_id", "chat_id", "state", "manual",
+                         "window_from", "window_to", "source_ref",
+                         "publication_status", "publication_result_ref",
+                         "pipeline_health", "created_at", "updated_at")
+
+    async def create_summary_run(
+            self, *, run_id: str, chat_id: int, state: str = "CREATED",
+            manual: bool = False, created_at: int | None = None) -> bool:
+        """Создать run-row (стабильный run_id, один раз; INSERT OR IGNORE
+        — повторный вызов того же run_id идемпотентен). Fail-open → False."""
+        now = int(created_at if created_at is not None else time.time())
+
+        async def _body(conn):
+            cursor = await conn.execute(
+                "INSERT OR IGNORE INTO summary_runs (run_id, chat_id, state, "
+                "manual, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+                (str(run_id), int(chat_id), str(state or "CREATED"),
+                 1 if manual else 0, now, now))
+            return int(cursor.rowcount or 0)
+
+        try:
+            return bool(await self.write_transaction(
+                _body, op_name="summary_run_create"))
+        except Exception:
+            logger.warning("[summary41] run create failed | run_id=%s",
+                           str(run_id)[:64], exc_info=True)
+            return False
+
+    async def update_summary_run_state(
+            self, run_id: str, state: str, *, window_from: int | None = None,
+            window_to: int | None = None, source_ref: str | None = None,
+            pipeline_health: str | None = None) -> bool:
+        """Checkpoint run-state (§20 state machine; не immutable — это
+        checkpoint, в отличие от write-once snapshot'а окна). Adдитивные
+        поля пишутся только при переданных not-None значениях."""
+        sets = ["state = ?", "updated_at = ?"]
+        params: list = [str(state), int(time.time())]
+        if window_from is not None:
+            sets.append("window_from = ?")
+            params.append(int(window_from))
+        if window_to is not None:
+            sets.append("window_to = ?")
+            params.append(int(window_to))
+        if source_ref is not None:
+            sets.append("source_ref = ?")
+            params.append(str(source_ref))
+        if pipeline_health is not None:
+            sets.append("pipeline_health = ?")
+            params.append(str(pipeline_health))
+        params.append(str(run_id))
+
+        async def _body(conn):
+            cursor = await conn.execute(
+                f"UPDATE summary_runs SET {', '.join(sets)} "
+                "WHERE run_id = ?", tuple(params))
+            return cursor.rowcount
+
+        try:
+            return bool(await self.write_transaction(
+                _body, op_name="summary_run_state"))
+        except Exception:
+            logger.warning("[summary41] run state update failed | run_id=%s",
+                           str(run_id)[:64], exc_info=True)
+            return False
+
+    async def set_summary_run_publication(
+            self, run_id: str, publication_status: str, *,
+            result_ref: str | None = None) -> bool:
+        """publication_status (T-4617: PUBLISHING фиксируется ДО отправки;
+        published/failed — по исходу). Существующий published никогда не
+        перезаписывается (идемпотентность — двойной финал невозможен)."""
+        async def _body(conn):
+            cursor = await conn.execute(
+                "SELECT publication_status FROM summary_runs WHERE "
+                "run_id = ?", (str(run_id),))
+            row = await cursor.fetchone()
+            if row is None:
+                return 0
+            if str(row["publication_status"] or "") == "published":
+                return 0        # уже опубликован — no-op (идемпотентность)
+            if result_ref is not None:
+                cursor = await conn.execute(
+                    "UPDATE summary_runs SET publication_status = ?, "
+                    "publication_result_ref = ?, updated_at = ? "
+                    "WHERE run_id = ?",
+                    (str(publication_status),
+                     str(result_ref), int(time.time()), str(run_id)))
+            else:
+                cursor = await conn.execute(
+                    "UPDATE summary_runs SET publication_status = ?, "
+                    "updated_at = ? WHERE run_id = ?",
+                    (str(publication_status), int(time.time()), str(run_id)))
+            return cursor.rowcount
+
+        try:
+            return bool(await self.write_transaction(
+                _body, op_name="summary_run_publication"))
+        except Exception:
+            logger.warning("[summary41] run publication update failed "
+                           "| run_id=%s", str(run_id)[:64], exc_info=True)
+            return False
+
+    async def get_summary_run(self, run_id: str) -> dict | None:
+        """Прочитать run-row (restart-safe resume; fail-open → None)."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT * FROM summary_runs WHERE run_id = ?", (str(run_id),))
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+            return {k: row[k] for k in self._SUMMARY_RUN_COLS}
+        except Exception:
+            logger.warning("[summary41] run read failed | run_id=%s",
+                           str(run_id)[:64], exc_info=True)
+            return None
+
+    async def get_active_summary_run_for_chat(self, chat_id: int) -> dict | None:
+        """Незавершённый run чата (T-4617 resume §21: рестарт не начинает
+        Summary заново — докатывается ЭТОТ run). Терминальные состояния
+        исключены; самый свежий по created_at."""
+        marks = ",".join("?" for _ in ("DONE", "DEGRADED", "FAILED"))
+        try:
+            cursor = await self.db.execute(
+                "SELECT * FROM summary_runs WHERE chat_id = ? AND "
+                f"state NOT IN ({marks}) ORDER BY created_at DESC LIMIT 1",
+                (int(chat_id), "DONE", "DEGRADED", "FAILED"))
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+            return {k: row[k] for k in self._SUMMARY_RUN_COLS}
+        except Exception:
+            logger.warning("[summary41] active run read failed | chat=%s",
+                           chat_id, exc_info=True)
+            return None
+
+    async def get_bot_output_by_correlation(
+            self, chat_id: int, correlation_id: str) -> dict | None:
+        """Последний доставленный output run'а по correlation_id
+        (T-4617 reconcile kill-in-PUBLISHING: sent unknown → ledger-факт).
+        Индекс `idx_mca_bot_outputs_corr`; fail-open → None."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT * FROM mca_bot_outputs WHERE chat_id = ? AND "
+                "correlation_id = ? AND delivery_status = 'delivered' "
+                "ORDER BY output_id DESC LIMIT 1",
+                (int(chat_id), str(correlation_id)))
+            row = await cursor.fetchone()
+            return self._bot_output_row_to_dict(row) if row is not None \
+                else None
+        except Exception:
+            return None
+
+    async def record_summary_run_stage(
+            self, run_id: str, stage: str, *, status: str = "ok",
+            started_at: int | None = None, attempt: int = 0,
+            provider: str | None = None, model: str | None = None,
+            result_ref: str | None = None,
+            reason_code: str | None = None) -> int | None:
+        """Append-only stage event (§50.54, T-4616): одна строка на
+        завершённую стадию/попытку (retry = НОВАЯ строка; история не
+        переиспользуется и не удаляется — единственный UPDATE surface у
+        таблицы отсутствует вовсе). Возвращает stage_id (fail-open → None)."""
+        now = int(time.time())
+        start = int(started_at) if started_at is not None else now
+
+        async def _body(conn):
+            cursor = await conn.execute(
+                "INSERT INTO summary_run_stages (run_id, stage, status, "
+                "started_at, last_activity_at, finished_at, attempt, "
+                "provider, model, result_ref, reason_code) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (str(run_id), str(stage), str(status), start, now, now,
+                 max(0, int(attempt or 0)),
+                 str(provider) if provider else None,
+                 str(model) if model else None,
+                 str(result_ref) if result_ref else None,
+                 str(reason_code) if reason_code else None))
+            return int(cursor.lastrowid)
+
+        try:
+            return await self.write_transaction(
+                _body, op_name="summary_run_stage_record")
+        except Exception:
+            logger.warning("[summary41] stage record failed | run_id=%s "
+                           "| stage=%s", str(run_id)[:64], str(stage),
+                           exc_info=True)
+            return None
+
+    async def list_summary_run_stages(self, run_id: str) -> list[dict]:
+        """Stage-история run'а (append-only порядок; источник Inspector'а
+        зоны G — structured state, не парсинг логов)."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT * FROM summary_run_stages WHERE run_id = ? "
+                "ORDER BY id ASC", (str(run_id),))
+            rows = await cursor.fetchall()
+            out = []
+            for row in rows:
+                out.append({
+                    "id": row["id"], "run_id": row["run_id"],
+                    "stage": row["stage"], "status": row["status"],
+                    "started_at": row["started_at"],
+                    "last_activity_at": row["last_activity_at"],
+                    "finished_at": row["finished_at"],
+                    "attempt": row["attempt"], "provider": row["provider"],
+                    "model": row["model"], "result_ref": row["result_ref"],
+                    "reason_code": row["reason_code"]})
+            return out
+        except Exception:
+            logger.warning("[summary41] stage list failed | run_id=%s",
+                           str(run_id)[:64], exc_info=True)
+            return []
+
+    async def last_completed_summary_run_stage(self, run_id: str
+                                               ) -> dict | None:
+        """Последняя успешно завершённая стадия (resume после рестарта,
+        §21: продолжение с неё)."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT * FROM summary_run_stages WHERE run_id = ? AND "
+                "status IN ('ok', 'degraded') ORDER BY id DESC LIMIT 1",
+                (str(run_id),))
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+            return {"stage": row["stage"], "status": row["status"],
+                    "finished_at": row["finished_at"],
+                    "attempt": row["attempt"],
+                    "result_ref": row["result_ref"]}
+        except Exception:
+            logger.warning("[summary41] stage read failed | run_id=%s",
+                           str(run_id)[:64], exc_info=True)
+            return None
+
+    async def purge_expired_summary_runs(
+            self, *, before_ts: int, terminal_states: tuple[str, ...]) -> int:
+        """TTL-очистка run'ов + стадий (T-4616: гейт ТОЛЬКО после
+        DONE/FAILED/DEGRADED — незавершённые/активные run'ы не задеваются;
+        их окна защищены тем же гейтом). Возвращает число удалённых run'ов."""
+        states = tuple(str(s) for s in (terminal_states or ()))
+        if not states:
+            return 0
+
+        async def _body(conn):
+            marks = ",".join("?" for _ in states)
+            cursor = await conn.execute(
+                "SELECT run_id FROM summary_runs WHERE updated_at < ? AND "
+                f"state IN ({marks})", (int(before_ts), *states))
+            ids = [r["run_id"] for r in await cursor.fetchall()]
+            for rid in ids:
+                await conn.execute(
+                    "DELETE FROM summary_run_stages WHERE run_id = ?", (rid,))
+                await conn.execute(
+                    "DELETE FROM summary_source_windows WHERE run_id = ?",
+                    (rid,))
+                await conn.execute(
+                    "DELETE FROM summary_runs WHERE run_id = ?", (rid,))
+            return len(ids)
+
+        try:
+            return int(await self.write_transaction(
+                _body, op_name="summary_run_purge") or 0)
+        except Exception:
+            logger.warning("[summary41] run purge failed", exc_info=True)
+            return 0
 
     async def resolve_source_ref_ids(self, chat_id: int,
                                      entity_pairs: list[tuple[str, str]]

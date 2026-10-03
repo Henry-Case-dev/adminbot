@@ -2924,6 +2924,145 @@
           + ' / ' + (c.total != null ? c.total : '—')
           + ' · Coverage: ' + (c.percent != null ? c.percent : '—') + '%';
       },
+      // ═══ ASAP 4.1 волна 7 (зона G, §38–§41; T-4621/4622/4623): честная
+      // coverage semantics — раздельные строки, карточки capacity/liveness/
+      // cover style. Computed — только проекция structured state (§61.12).
+      pipelineCoverageRows: function () {
+        var view = this.pipelineRunView;
+        var br = view && view.coverage_breakdown;
+        if (!br) return [];
+        var self = this;
+        var rows = [];
+        var pct = function (v) { return (v == null) ? '—'
+          : self.pctLabel(v); };
+        if (br.source) {
+          rows.push({
+            key: 'source', label: 'Источник',
+            value: (br.source.considered != null ? br.source.considered : '—')
+              + ' / ' + (br.source.total != null ? br.source.total : '—')
+              + ' · ' + pct(br.source.percent),
+            state: 'ok' });
+        }
+        if (br.l1) {
+          rows.push({
+            key: 'l1',
+            label: 'L1 · Структурирование',
+            // §38: input whole-window + result — ОСи раздельные.
+            value: (br.l1.input_total != null ? br.l1.input_total : '—')
+              + (br.l1.input_mode === 'WHOLE_WINDOW'
+                ? ' whole-window · 1 запрос'
+                : (br.l1.input_requests != null
+                  ? ' · ' + br.l1.input_requests + ' сегментов'
+                  : ''))
+              + ' · результат: '
+              + (br.l1.result === 'failed' ? 'не выполнено' : 'ok')
+              + (br.l1.map_degraded ? ' · карта деградирована' : ''),
+            state: br.l1.result === 'failed' ? 'failed' : 'ok' });
+        }
+        if (br.writer) {
+          rows.push({
+            key: 'writer', label: 'Вход писателя',
+            value: (br.writer.total != null ? br.writer.total : '—')
+              + ' · ' + pct(br.writer.percent),
+            state: br.writer.result === 'failed' ? 'failed' : 'ok' });
+        }
+        if (br.final) {
+          rows.push({
+            key: 'final', label: 'Финальный текст (источник)',
+            value: (br.final.considered != null ? br.final.considered : '—')
+              + ' / ' + (br.final.total != null ? br.final.total : '—')
+              + ' · ' + pct(br.final.percent),
+            state: br.final.percent != null
+              && br.final.percent < 99.95 ? 'warn' : 'ok' });
+        }
+        if (br.overflow) {
+          rows.push({
+            key: 'overflow', label: 'Overflow (сегменты)',
+            value: (br.overflow.segments != null
+              ? br.overflow.segments : '—') + ' сегментов'
+              + (br.overflow.segments_failed
+                ? ' · упало: ' + br.overflow.segments_failed : '')
+              + ' · покрыто сообщений: '
+              + (br.overflow.messages_covered != null
+                ? br.overflow.messages_covered : '—')
+              + ' / ' + (br.overflow.messages_total != null
+                ? br.overflow.messages_total : '—'),
+            state: br.overflow.segments_failed ? 'warn' : 'ok' });
+        }
+        return rows;
+      },
+      // §39 ТЗ (T-4622): «КОНТЕКСТ МОДЕЛИ» — capacity и режим входа.
+      pipelineCapacityCard: function () {
+        var view = this.pipelineRunView;
+        var c = view && view.capacity;
+        if (!c) return null;
+        var num = function (v) {
+          if (v == null) return '—';
+          return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        };
+        return {
+          provider: c.provider || '—',
+          model: c.model || '—',
+          effective_window: c.effective_window != null
+            ? num(c.effective_window) : '—',
+          required_input_tokens: c.required_input_tokens != null
+            ? num(c.required_input_tokens) : '—',
+          reserved_output_tokens: c.reserved_output_tokens != null
+            ? num(c.reserved_output_tokens) : '—',
+          mode: c.mode || '—',
+          mode_ru: c.mode_ru || c.mode || '—',
+          reason_ru: c.reason_ru || c.reason || '—',
+          window_source_ru: c.window_source_ru || c.window_source || '—',
+          replans: c.replans || 0,
+          segments: c.segments != null ? c.segments : null,
+        };
+      },
+      // §40 ТЗ (T-4622/T-4624): liveness per LLM stage — execution mode,
+      // последняя активность, провайдер-фоллбек, «жива/ждёт».
+      pipelineLivenessRows: function () {
+        var view = this.pipelineRunView;
+        return ((view && view.liveness) || []).map(function (l) {
+          var act = l.last_activity_ts;
+          var when = act ? String(act).slice(0, 10) : null;
+          return {
+            stage: l.stage, label: l.label || l.stage,
+            mode: l.mode_ru || l.mode || 'sync',
+            last: when, live: !!l.live, status_ru: l.status_ru || '',
+            provider: l.provider || '—', model: l.model || '—',
+            reason_ru: l.reason_ru || '',
+            fallback: !!l.provider_fallback,
+          };
+        });
+      },
+      // §41 ТЗ (T-4623): cover style карточка.
+      pipelineCoverStyleCard: function () {
+        var view = this.pipelineRunView;
+        var c = view && view.cover_style;
+        if (!c) return null;
+        var pct = c.base_cover_ok;
+        return {
+          base_cover: pct ? '✓' : '✕',
+          selected_style: c.selected_style || '—',
+          style_provider: c.style_provider || '—',
+          style_model: c.style_model || '—',
+          capability_edit: c.capability_edit == null
+            ? null : (c.capability_edit ? '✓' : '✕'),
+          reference_assets: c.reference_assets != null
+            ? c.reference_assets : null,
+          style_edit: c.style_edit_ok == null
+            ? null : (c.style_edit_ok ? '✓' : '✕'),
+          result: c.result || null,
+          result_ru: c.result === 'styled'
+            ? 'сложён по стилю (styled)'
+            : (c.result === 'base_fallback'
+              ? 'базовая обложка (style не удался)'
+              : (c.result === 'no_cover' ? 'публикация без обложки'
+                : (c.result || '—'))),
+          fallback_reason: c.fallback_reason || null,
+          fallback_reason_ru: c.fallback_reason_ru || null,
+          resolve_source_ru: c.resolve_source_ru || null,
+        };
+      },
       pipelinePublicationLine: function () {
         var view = this.pipelineRunView;
         var p = view && view.publication;

@@ -699,18 +699,44 @@ class TestBounds:
                                    "services/summary_fact_package.py",
                                    "services/summary_article_formatter.py",
                                    "services/summary_generator.py",
-                                   "services/summary_prompts.py",
-                                   "services/summary_run_log.py",
-                                   "services/summary_test_run.py",
-                                   # ASAP-2.1: модули S1/S2 удалены целиком
-                                   # (D-статус в diff против baseline —
-                                   # санкция ADR-1028-1 D1/D2, контракт (i)).
-                                   "services/summary_filter.py",
-                                   "services/summary_context_restore.py"}, \
+                                    "services/summary_prompts.py",
+                                    "services/summary_run_log.py",
+                                    "services/summary_test_run.py",
+                                    # ASAP-2.1: модули S1/S2 удалены целиком
+                                    # (D-статус в diff против baseline —
+                                    # санкция ADR-1028-1 D1/D2, контракт (i)).
+                                    "services/summary_filter.py",
+                                    "services/summary_context_restore.py",
+                                    # ASAP 4.1 (round 1030, эпик asap-4-1-
+                                    # durable-whole-window-summary, ADR-1028-8
+                                    # D1/D2): новые модули зоны A (T-4603/
+                                    # T-4606) — immutable SourceWindow- snapshot
+                                    # + CoverageLedger; чистые модули, Δ DDL =
+                                    # summary_source_windows (v24) только.
+                                    "services/summary_source_window.py",
+                                    "services/summary_coverage_ledger.py",
+                                    # ASAP 4.1 волна 3 (round 1030, зоны
+                                    # B/C, ADR-1028-8 D3/D4): L1 semantic
+                                    # map v1 + Writer/Reviewer Full
+                                    # SourceWindow + derived FactPackage
+                                    # view (T-4607–T-4611; env-only
+                                    # kill-switches; Δ каталога = 0,
+                                    # Δ DDL = 0).
+                                    "services/summary_l1_semantic_map.py",
+                                    "services/summary_fact_view.py",
+                                    "services/summary_l2_review.py",
+                                    "services/summary_legacy_fullwindow.py",
+                                    "services/summary_xml.py",
+                                    # ASAP 4.1 волна 5 (round 1030, зона
+                                    # E, ADR-1028-8 D6): durable SummaryRun
+                                    # (summary_runs + summary_run_stages,
+                                    # append-only §50.54; Δ DDL = +2
+                                    # таблицы v24; Δ каталога = 0).
+                                    "services/summary_run_store.py"}, \
             summary_changed
 
     def test_version_and_catalog(self):
-        assert APP_VERSION == "2.58.46"
+        assert APP_VERSION == "2.58.47"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
         assert len(pc.REGISTRY) == 488
         assert len({f.name for f in dataclasses.fields(Settings)}) == 426

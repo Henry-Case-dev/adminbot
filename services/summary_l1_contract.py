@@ -210,6 +210,13 @@ class L1Result:
     duration_ms: float
     truncated: bool = False
     chunk_count: int = 0
+    # ── ASAP 4.1 волна 3 (T-4607, spec §2 B.1; ADR-1028-8 D3) — semantic map
+    # v1: аддитивные поля (OFF-путь байт-в-бит: defaults сохраняют контракт).
+    # ``map_degraded`` — честный флаг compaction/minimal-map (никогда не
+    # маскируется ok: Inspector видит деградацию рядом с результатом).
+    map_degraded: bool = False
+    map_reason: str | None = None
+    map_stats: dict | None = None
 
     @property
     def usable(self) -> bool:
@@ -229,13 +236,16 @@ class L1Result:
             "chunk_count": self.chunk_count,
             "response_mode": self.response_mode,
             "duration_ms": self.duration_ms,
+            "map_degraded": self.map_degraded,
+            "map_reason": self.map_reason,
         }
 
 
 def _make_result(status: str, *, payload=None, reason=None, threads=0, facts=0,
                  auto_unassigned=0, skipped_ids=(), skipped_tg_ids=(),
                  response_mode="", cover_prompt="", duration_ms=0.0,
-                 truncated=False, chunk_count=0) -> L1Result:
+                 truncated=False, chunk_count=0, map_degraded=False,
+                 map_reason=None, map_stats=None) -> L1Result:
     return L1Result(
         status=status, payload=payload, invalid_reason=reason,
         threads_count=threads, facts_count=facts,
@@ -243,7 +253,9 @@ def _make_result(status: str, *, payload=None, reason=None, threads=0, facts=0,
         skipped_ids=tuple(skipped_ids or ()),
         skipped_tg_ids=tuple(skipped_tg_ids or ()),
         response_mode=response_mode, cover_prompt=cover_prompt,
-        duration_ms=duration_ms, truncated=truncated, chunk_count=chunk_count)
+        duration_ms=duration_ms, truncated=truncated, chunk_count=chunk_count,
+        map_degraded=bool(map_degraded), map_reason=map_reason,
+        map_stats=map_stats)
 
 
 def invalid_result(reason: str, **kwargs) -> L1Result:

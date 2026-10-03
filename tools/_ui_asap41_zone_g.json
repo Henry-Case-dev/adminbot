@@ -1,0 +1,48 @@
+{
+ "payload_sanity": {
+  "has_coverage_breakdown": true,
+  "has_capacity": true,
+  "has_cover_style": true,
+  "mode": "WHOLE_WINDOW",
+  "l1_result": "failed",
+  "styled": "styled"
+ },
+ "failures": [],
+ "console_errors": [],
+ "desktop": {
+  "inspector_block": true,
+  "coverage_card": true,
+  "source_ok": true,
+  "l1_failed_visible": true,
+  "capacity_card": true,
+  "capacity_mode": true,
+  "capacity_reason": true,
+  "liveness_card": true,
+  "liveness_alive": true,
+  "cover_style_card": true,
+  "cover_styled": true,
+  "reference_assets": false,
+  "based_cover_ok": true,
+  "run_id_line": true
+ },
+ "mobile": {
+  "inspector_block": true,
+  "coverage_card": true,
+  "source_ok": true,
+  "l1_failed_visible": true,
+  "capacity_card": true,
+  "capacity_mode": true,
+  "capacity_reason": true,
+  "liveness_card": true,
+  "liveness_alive": true,
+  "cover_style_card": true,
+  "cover_styled": true,
+  "reference_assets": false,
+  "based_cover_ok": true,
+  "run_id_line": true
+ },
+ "shots": [
+  "C:\\Code\\Python\\adminbot\\plans\\features\\asap-4-1-durable-whole-window-summary\\evidence\\asap41_zone_g_desktop.png",
+  "C:\\Code\\Python\\adminbot\\plans\\features\\asap-4-1-durable-whole-window-summary\\evidence\\asap41_zone_g_mobile.png"
+ ]
+}

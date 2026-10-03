@@ -32,15 +32,22 @@ from dataclasses import dataclass, field
 from config.settings import settings
 from services import cover_style_assets as assets
 from services import cover_style_registry as registry
+from services import image_capabilities as cap
 from services import image_prompt_compiler as compiler
 from services.cover_style_edit import EditResult, edit_image
 from services.cover_style_pipeline import (
     KEY_STYLE_API_KEY,
+    KEY_IMAGE_API_KEY,
     MODEL_MODE_CUSTOM,
+    SLOT_SOURCE_CONNECTIONS_DEFAULT,
+    SLOT_SOURCE_GLOBAL_IMAGE,
+    SLOT_SOURCE_GLOBAL_STYLE,
+    SLOT_SOURCE_PROFILE_CONNECTION,
     check_edit_allowed,
     cover_styles_enabled,
     pipeline_mode,
     resolve_style_slot,
+    resolve_style_slot_inherited,
     slot_capabilities,
     uses_style_stage,
 )
@@ -90,6 +97,11 @@ REASON_REFERENCE_MISSING = "reference_missing"
 REASON_CAPABILITY_UNKNOWN = "capability_unknown"
 REASON_NOT_CONFIGURED = "not_configured"
 REASON_NO_STYLE_STAGE = "style_stage_not_applicable"
+
+# ── T-4619/T-4620 (spec §6 F.2/F.3; ADR-1028-8 D7.2): событие резолва
+# Style-слота с ИСТОЧНИКОМ наследования (лестница §35 — точная причина
+# видима, не generic `style_failed`).
+COVER_STYLE_RESOLVE = "COVER_STYLE_RESOLVE"
 
 # Конфигурационные/ранние причины — проходят в mca_events reason_code как
 # есть (прод-факт Q14: `not_configured` больше не схлопывается в generic).
@@ -193,7 +205,7 @@ SAFE_LOG_FIELDS = frozenset({
     "connection_id", "provider", "model", "prompt_len", "prompt_hash",
     "reference_count", "duration_ms", "latency_ms", "provider_task_id",
     "status", "fallback", "fallback_mode", "outcome", "reason", "attempt",
-    "async_used", "reference_paths", "mode",
+    "async_used", "reference_paths", "mode", "resolve_source",
     # ASAP-4 волна B (spec §2 B.1/B.4/B.5, T-4415/T-4418/T-4419): snapshot,
     # integrity-метрики и prompt diagnostics — только id/числа/enum (R17).
     "selection_source", "enabled", "pipeline_mode", "capability_state",
@@ -1118,7 +1130,19 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                 obj0, str(profile.get("connection_id")).strip())
         except Exception:
             _connection = None
-    slot = resolve_style_slot(profile=profile, connection=_connection)
+    # T-4619 (spec §6 F.2; ADR-1028-8 D7.2): лестница наследования §35.
+    # Явно настроенный слот/подключение — байт-в-бит (регресс); пустой
+    # глобальный слот при «По умолчанию (глобальная настройка)» →
+    # Connections default → global default image provider+model.
+    # Kill-switch OFF → resolve_style_slot (байт-в-бит 2.58.46).
+    slot = await resolve_style_slot_inherited(
+        profile=profile, connection=_connection, pg=obj0)
+    _inherit_conn = slot.pop("_connection", None)
+    if _inherit_conn is not None:
+        _connection = _inherit_conn
+    _resolve_source = str(slot.get("resolve_source")
+                          or SLOT_SOURCE_GLOBAL_STYLE)
+    slot.pop("resolve_source", None)
     if _wb and slot.get("custom_unresolved"):
         # §40/B.4: профиль указывает на подключение, записи которого нет
         # (удалено/PG недоступен) — ранний выход с честной причиной;
@@ -1130,10 +1154,20 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
             run_id=correlation_id, job_id=job_id, chat_id=chat_id,
             started=started, db=db)
     # §104: пер-подключение api_key (профиль секретов не хранит);
-    # default-слот → прежний ключ `keys.image_style_api_key`.
+    # default-слот → прежний ключ `keys.image_style_api_key`; наследованный
+    # global-image слот (T-4619 leg 3c) → ключ глобального image-провайдера
+    # `keys.image_api_key` (тот же провайдер, что сгенерировал base cover).
     def _resolve_api_key() -> str:
         if _connection is not None:
             return str(_connection.get("api_key") or "")
+        if _resolve_source == SLOT_SOURCE_GLOBAL_IMAGE:
+            try:
+                from services import hot_config as hot
+                value = hot.get(KEY_IMAGE_API_KEY, getattr(
+                    settings, "IMAGE_API_KEY", ""))
+            except Exception:
+                value = getattr(settings, "IMAGE_API_KEY", "")
+            return str(value or "")
         try:
             from services import hot_config as hot
             value = hot.get(KEY_STYLE_API_KEY, getattr(
@@ -1143,6 +1177,17 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
         return str(value or "")
     meta["provider"] = slot.get("provider") or ""
     meta["model"] = slot.get("model") or ""
+    meta["resolve_source"] = _resolve_source
+    # T-4619/T-4620: `COVER_STYLE_RESOLVE` — источник резолва слота
+    # (лестница §35: profile_connection/connections_default/global_image/
+    # global_style_slot); R17-safe (id/enum/bool).
+    emit_cover_event(
+        COVER_STYLE_RESOLVE, outcome="start", run_id=correlation_id,
+        job_id=job_id, chat_id=chat_id, model=meta["model"],
+        provider=meta["provider"], style_id=meta["style_id"],
+        connection_id=slot.get("connection_id"),
+        resolve_source=_resolve_source,
+        configured=bool(slot.get("configured")))
     emit_cover_event(COVER_STYLE_START, outcome="start", run_id=correlation_id,
                      job_id=job_id, chat_id=chat_id, model=meta["model"],
                      provider=meta["provider"], style_id=meta["style_id"],
@@ -1153,8 +1198,12 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
 
     caps = capabilities
     if caps is None:
-        caps = slot_capabilities(profile=profile, discovery=discovery,
-                                 endpoints=endpoints)
+        # T-4619: capabilities резолвятся по ФИНАЛЬНОМУ (унаследованному)
+        # слоту, а не по базовому глобальному (registry §36 — единый
+        # резолвер; для базового слота результат идентичен прежнему).
+        caps = cap.resolve_capabilities(
+            slot.get("provider") or "", slot.get("base_url") or "",
+            slot.get("model") or "", discovery=discovery, endpoints=endpoints)
     meta["capability_state"] = getattr(caps, "image_edit", None)
     allowed, message = check_edit_allowed(profile=profile, capabilities=caps)
     if not allowed:
@@ -1442,7 +1491,7 @@ def _elapsed(started: float) -> int:
 __all__ = [
     "COVER_PIPELINE_START", "COVER_BASE_SUBMITTED", "COVER_BASE_RUNNING",
     "COVER_BASE_SUCCEEDED", "COVER_BASE_FAILED", "COVER_STYLE_SELECTION",
-    "COVER_STYLE_SKIPPED", "COVER_STYLE_START",
+    "COVER_STYLE_SKIPPED", "COVER_STYLE_START", "COVER_STYLE_RESOLVE",
     "COVER_STYLE_SUBMITTED", "COVER_STYLE_RUNNING", "COVER_STYLE_SUCCEEDED",
     "COVER_STYLE_FAILED", "COVER_RICH_PUBLISH_START",
     "COVER_RICH_PUBLISH_SUCCEEDED", "COVER_RICH_PUBLISH_FAILED",

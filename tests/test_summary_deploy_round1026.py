@@ -517,7 +517,7 @@ class TestBounds:
         assert len(pc.TAB_RULES) == 21
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.46"
+        assert APP_VERSION == "2.58.47"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         assert "v2.58.34" in readme
 
@@ -618,8 +618,15 @@ class TestBounds:
         # guard published, общий `_run_legacy_pipeline`), поэтому из AST-пина
         # исключены; пинуются функции, которые ASAP-2 НЕ трогал (генерация/
         # промпты/чанкинг Legacy-слоя — byte-parity DoD-10).
-        for name in ("_hybrid_l2_enabled", "_llm_generate",
-                     "_generate_two_call", "_compose_user_content",
+        # NOTE (round1030, ASAP 4.1 волна 4, ADR-1028-8 D5 — санкция
+        # LLMExecutionSupervisor): `_llm_generate`/`_generate_two_call`
+        # намеренно ИЗМЕНЕНЫ — LLM-точки Summary-пути идут через
+        # `_supervised_generate` (attempt-потолок ≤4 HTTP; kill-switch
+        # SUMMARY_LLM_SUPERVISOR_ENABLED OFF = прежний канал байт-в-бит).
+        # Транспортная семантика пина продолжает проверяться супервизором
+        # (tests/test_summary_supervisor_asap41.py); из AST-пина исключены
+        # по прецеденту исключения `_run`/`_run_hybrid_l2`.
+        for name in ("_hybrid_l2_enabled", "_compose_user_content",
                      "_extract_keywords", "_format_l2_quote",
                      "_resolve_cover_prompt", "_derive_fallback_cover_prompt",
                      "_chunk_by_whitespace", "_send_text_with_retry",

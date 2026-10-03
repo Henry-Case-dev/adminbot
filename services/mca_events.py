@@ -179,6 +179,28 @@ REASON_CODES = frozenset({
     # событий SUMMARY_* (§61.3: человеческие переводы по коду).
     "too_many_facts", "too_many_threads", "too_many_facts_total",
     "rate_limit", "timeout",
+    # расширение asap-4.1/волна 2 (зона A: SourceWindow + capacity engine,
+    # ADR-1028-8 D1/D2; §17.2 расширяемый). Source window / capacity /
+    # coverage ledger: distinct reason codes вместо generic-схлопывания
+    # (правило честных кодов ADR-1028-7 D6.3 сохраняется).
+    "fits_effective_context",
+    "serialized_payload_exceeds_effective_context",
+    "capacity_cache_invalidated", "capacity_overflow",
+    "fits_after_fallback", "segment_artifacts_exist",
+    "segment_restored", "segment_failed_after_restore",
+    "coverage_ledger_missing",
+    # расширение asap-4.1/волна 3 (зона B: L1 semantic map v1, ADR-1028-8
+    # D3; §17.2 расширяемый). Компактность карты: compaction/minimal-map —
+    # честный degraded рядом с результатом (никогда не ok-маска).
+    "map_compacted", "map_degraded", "semantic_map_unavailable",
+    "minimal_map_synthesized",
+    # расширение asap-4.1/волна 4 (зона D: LLMExecutionSupervisor,
+    # ADR-1028-8 D5; §17.2 расширяемый). Честные time/retry-причины вместо
+    # misleading `total_budget_exceeded` (§30 ТЗ: «budget» не должен
+    # выглядеть как денежный balance): fuse / исчерпание попыток / stall /
+    # отказ слать oversized payload в меньший fallback.
+    "execution_deadline_exceeded", "retry_time_budget_exhausted",
+    "provider_stalled", "fallback_capacity_smaller",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────

@@ -103,22 +103,39 @@ async def test_unknown_model_fallback_cached_short_ttl(monkeypatch):
     assert key in mc._CACHE
 
 
-# ── §40.4: developer override побеждает ─────────────────────────────────────
+# ── §40.4: developer override — уровень 4 (AMEND AM-2, ADR-1028-8 D2) ───────
 
 @pytest.mark.asyncio
-async def test_developer_override_wins(monkeypatch):
+async def test_developer_override_below_registry(monkeypatch):
+    """AMEND ADR-1028-3 (директива владельца §5/spec A.2): override НЕ бьёт
+    runtime/каталог/реестр — реестр выигрывает у живой модели; lower-capacity
+    сценарии форсируются конфиг-фикстурой, не override'ом."""
     _override(monkeypatch, 500000)
     await _no_network(monkeypatch)
     result = await mc.resolve_capacity("https://nano-gpt.com/v1",
                                        "deepseek-chat")
+    assert result.effective_context_window == 131072
+    assert result.source == mc.SOURCE_REGISTRY
+    assert result.fallback_used is False
+
+
+@pytest.mark.asyncio
+async def test_developer_override_applies_above_fallback(monkeypatch):
+    """Override применяется ТОЛЬКО когда runtime/каталог/реестр не дали
+    значения (уровень 4 перед консервативным fallback, уровень 5)."""
+    _override(monkeypatch, 500000)
+    await _no_network(monkeypatch)
+    result = await mc.resolve_capacity("https://nano-gpt.com/v1",
+                                       "mystery-override-model")
     assert result.effective_context_window == 500000
     assert result.source == mc.SOURCE_DEVELOPER_OVERRIDE
     assert result.fallback_used is False
-    # Override входит в ключ кэша: смена = новый ключ (§38).
+    # Override входит в ключ кеша: смена = новый ключ (§38).
     _override(monkeypatch, None)
     result2 = await mc.resolve_capacity("https://nano-gpt.com/v1",
-                                        "deepseek-chat")
-    assert result2.source == mc.SOURCE_REGISTRY
+                                        "mystery-override-model")
+    assert result2.source == mc.SOURCE_FALLBACK
+    assert result2.effective_context_window == 16384
 
 
 @pytest.mark.asyncio

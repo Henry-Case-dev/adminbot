@@ -51,6 +51,68 @@ def legacy_full_window_enabled() -> bool:
         return True
 
 
+# ── ASAP 4.1 волна 3 (T-4611, spec §3; ADR-1028-8 D7 EXTEND) ───────────────
+
+def legacy_source_window_enabled() -> bool:
+    """Kill-switch ``SUMMARY_LEGACY_SOURCE_WINDOW_ENABLED`` (env-only,
+    default ON; резолв per-call, никогда не бросает). OFF → контур Legacy
+    full-window 2.58.46 (включая действующие капы окна) байт-в-бит."""
+    try:
+        return bool(getattr(settings, "SUMMARY_LEGACY_SOURCE_WINDOW_ENABLED",
+                            True))
+    except Exception:      # pragma: no cover - защитная ветка
+        return True
+
+
+def snapshot_rows(window) -> list | None:
+    """Durable SummarySourceWindow → строки окна, совместимые с
+    потребителями Legacy (XmlGroundingBuilder/LLM-контент): поля
+    id/tg_message_id/timestamp/user_id/author_name/text/reply_to_id/
+    media_type/is_forward/forward_source. Материал — ТОТ ЖЕ snapshot run'а
+    (единый источник с Hybrid, source_ref); fail-open к переданным rows —
+    вызывающий контур. Никогда не бросает."""
+    if window is None:
+        return None
+    try:
+        rows: list = []
+        for message in window.messages_as_view():
+            if not isinstance(message, dict):
+                continue
+            row = {
+                "id": message.get("db_id"),
+                "tg_message_id": message.get("message_id"),
+                "timestamp": message.get("timestamp"),
+                "user_id": message.get("author_id"),
+                "author_name": message.get("display_name"),
+                "text": message.get("text"),
+                "reply_to_id": message.get("reply_to_message_id"),
+                "media_type": message.get("media_type"),
+                "is_forward": 1 if message.get("is_forward") else 0,
+                "forward_source": message.get("forward_source"),
+            }
+            if row["id"] is None and row["tg_message_id"] is None:
+                continue
+            rows.append(row)
+        return rows or None
+    except Exception:      # pragma: no cover - защитная ветка
+        logger.warning("legacy source window: snapshot_rows failed",
+                       exc_info=True)
+        return None
+
+
+async def load_legacy_rows(db, run_id) -> list | None:
+    """Строки окна run'а из durable SourceWindow (source_ref; T-4611).
+    ``None`` — snapshot недоступен (fail-open к переданным rows)."""
+    try:
+        from services import summary_source_window as ssw
+        window = await ssw.load_source_window(db, run_id)
+        return snapshot_rows(window)
+    except Exception:      # pragma: no cover - защитная ветка
+        logger.warning("legacy source window: load failed | run_id=%s",
+                       run_id, exc_info=True)
+        return None
+
+
 # ── Капы окна (те же ключи, что читает XmlGroundingBuilder.build) ──────────
 
 def resolve_window_caps(hot_get=None) -> tuple[int, int]:

@@ -436,7 +436,12 @@ class TestBoundaries:
     """T-3427/T-3425: публикация/§110-viewer/S9/routes.py/param_catalog/db — вне diff."""
 
     _FORBIDDEN = [
-        "services/telegram_send.py", "services/summary_xml.py",
+        "services/telegram_send.py",
+        # NOTE (round1030, ASAP 4.1 волна 3, T-4611, spec §3, ADR-1028-8
+        # D7 EXTEND): `services/summary_xml.py` исключён из запрета — зона C
+        # санкционирует аддитивный параметр `window_caps` (kill-switch
+        # SUMMARY_LEGACY_SOURCE_WINDOW_ENABLED: ON → капы окна больше НЕ
+        # триггер «стоп», dead-path check; OFF → байт-в-байт 2.58.46).
         # NOTE (A3, ADR-1026-16 D2/D6): `services/image_generation.py`
         # исключён из запрета — A3 санкционирует аддитивный ImageRequest-
         # контракт/раннер; §104-гейт генератора ведёт линза A3

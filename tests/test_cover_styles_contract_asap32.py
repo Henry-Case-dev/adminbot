@@ -750,6 +750,8 @@ class TestStaticContractGuard:
     def test_jobs_and_pipeline_use_pgdatabase_level(self):
         jobs_src = Path("services/cover_style_jobs.py").read_text(
             encoding="utf-8")
-        # jobs резолвит slot через pg (PgDatabase), не через raw pool
-        assert "resolve_style_slot(profile=profile, connection=_connection)" \
-            in jobs_src
+        # jobs резолвит slot через pg (PgDatabase), не через raw pool;
+        # T-4619 (волна 6): резолв — по лестнице наследования §35
+        # (resolve_style_slot_inherited; pg передаётся для leg 3a).
+        assert "resolve_style_slot_inherited(" in jobs_src \
+            and "connection=_connection, pg=obj0)" in jobs_src

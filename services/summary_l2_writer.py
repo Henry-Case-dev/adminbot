@@ -45,7 +45,10 @@ from config.settings import settings
 from services.llm_client import LLMBadResponseError, LLMError
 from services.prompt_style_blocks import resolve_prompt, resolve_prompt_with_source
 from services.summary_cleanup import cleanup_llm_text
-from services.summary_prompts import SUMMARY_L2_WRITER_SYSTEM_PROMPT
+from services.summary_prompts import (
+    PREV_SUMMARY_L2_WRITER_R1029_ASAP41,
+    SUMMARY_L2_WRITER_SYSTEM_PROMPT,
+)
 # Волна C (T-4423): quote pipeline импортируется ЛЕНИВО в _validate
 # (summary_quote_repair импортирует из этого модуля чистые утилиты цитат —
 # верхнеуровневый импорт дал бы цикл).
@@ -529,15 +532,100 @@ def build_l2_input(package: dict, *, length: dict | None = None) -> str:
     out = ("ПАКЕТ ФАКТОВ (компактный JSON; пиши статью по нему; "
            "служебные поля не передаются):\n" + body)
     if isinstance(length, dict):
-        out += (
-            "\n\nЗАДАНИЕ ПО ДЛИНЕ И ДЕТАЛИЗАЦИИ: response_mode="
-            + str(length.get("response_mode") or HYBRID_MODE_DEFAULT)
-            + "; цель ≈ " + str(int(length.get("target_chars") or 0))
-            + " символов (мягкий ориентир); абзацев ≈ "
-            + str(int(length.get("target_paragraphs") or 0))
-            + " (рекомендация). Это ориентиры, а не лимиты: не обрывай события"
-              " и не выбрасывай важные темы ради точного числа.")
+        out += _length_block(length)
     return out
+
+
+def _length_block(length: dict) -> str:
+    """Детерминированный length-блок (контракт (l)/T-3942) — единый текст
+    для пакета и source-входа (байт-в-байт прежняя формулировка)."""
+    return (
+        "\n\nЗАДАНИЕ ПО ДЛИНЕ И ДЕТАЛИЗАЦИИ: response_mode="
+        + str(length.get("response_mode") or HYBRID_MODE_DEFAULT)
+        + "; цель ≈ " + str(int(length.get("target_chars") or 0))
+        + " символов (мягкий ориентир); абзацев ≈ "
+        + str(int(length.get("target_paragraphs") or 0))
+        + " (рекомендация). Это ориентиры, а не лимиты: не обрывай события"
+          " и не выбрасывай важные темы ради точного числа.")
+
+
+# ── ASAP 4.1 волна 3 (T-4609, spec §2 B.3; ADR-1028-8 D4/AM-4) ─────────────
+
+def writer_source_input_enabled() -> bool:
+    """Kill-switch ``SUMMARY_WRITER_SOURCE_INPUT_ENABLED`` (env-only,
+    default ON). OFF → Writer получает FactPackage-центричный вход как
+    сегодня (бит-в-бит 2.58.46). Никогда не бросает."""
+    try:
+        return bool(getattr(settings, "SUMMARY_WRITER_SOURCE_INPUT_ENABLED",
+                            True))
+    except Exception:      # pragma: no cover - защитная ветка
+        return True
+
+
+_SOURCE_HEADER = (
+    "ИСТОЧНИК — ПОЛНОЕ ОКНО ЧАТА (оригинал — истина; §92-сообщения, "
+    "хронология ASC; без срезов):")
+_MAP_HEADER = (
+    "SEMANTIC MAP (структурная подсказка от кластеризатора; оригинал — "
+    "истина):")
+_MAP_UNAVAILABLE_NOTE = (
+    "SEMANTIC MAP ОТСУТСТВУЕТ — структурируй источник сам (semantic map "
+    "unavailable — structure source yourself).")
+_FACT_VIEW_HEADER = (
+    "ПАКЕТ ФАКТОВ (вспомогательный индекс; мог быть урезан по бюджету; "
+    "оригинал — истина):")
+
+
+def build_l2_source_input(payload_items, semantic_map=None, *, package=None,
+                          length=None, map_unavailable: bool = False) -> str:
+    """WriterInput (T-4609): Full SourceWindow первоклассно + semantic map?
+    + fact_view? + length-блок.
+
+    Секции (детерминированный порядок, компактный JSON):
+      1. source_window — ВСЕ §92-элементы окна (никаких messages[:N]/эвикций);
+      2. semantic_map (если есть) — map v1 по message_id;
+      3. инструкция «структурируй источник сам» (map отсутствует — L1 fail);
+      4. fact_view (если передан) — вспомогательный индекс;
+      5. length-блок (мягкий ориентир; тот же текст, что build_l2_input).
+    Не бросает."""
+    items = [item for item in (payload_items or []) if isinstance(item, dict)]
+    parts: list[str] = [
+        _SOURCE_HEADER,
+        "Всего сообщений: %d." % len(items),
+    ]
+    for item in items:
+        parts.append(json.dumps(item, ensure_ascii=False,
+                                separators=(",", ":")))
+    if isinstance(semantic_map, dict) and semantic_map:
+        parts.append(_MAP_HEADER)
+        parts.append(json.dumps(semantic_map, ensure_ascii=False,
+                                separators=(",", ":")))
+    elif map_unavailable:
+        parts.append(_MAP_UNAVAILABLE_NOTE)
+    if isinstance(package, dict) and package:
+        parts.append(_FACT_VIEW_HEADER)
+        parts.append(build_l2_input(package, length=None)
+                     .split("\n", 1)[-1])
+    if isinstance(length, dict):
+        parts.append(_length_block(length).lstrip("\n"))
+    return "\n".join(parts)
+
+
+def build_writer_merge_input(documents, *, length=None) -> str:
+    """Merge-pass иерархического Writer (T-4609 CAPACITY_OVERFLOW): сегментные
+    документы §99 → одна статья. Бюджет мягкий; НИЧЕГО не выбрасывается
+    (fallback — детерминированная склейка вызывающего контура)."""
+    docs = [dict(d) for d in (documents or []) if isinstance(d, dict)]
+    parts = [
+        "МЕРДЖ СЕГМЕНТНЫХ ЧЕРНОВИКОВ (собери ИТОГОВУЮ статью из документов "
+        "сегментов; сохрани все события и evidence_message_ids; дубликат "
+        "одного события — расскажи ОДИН раз):",
+        json.dumps({"schema_version": SCHEMA_VERSION, "segment_documents":
+                    docs}, ensure_ascii=False, separators=(",", ":")),
+    ]
+    if isinstance(length, dict):
+        parts.append(_length_block(length).lstrip("\n"))
+    return "\n".join(parts)
 
 
 # ── Парсер (переиспользует политику system2_handoff) ───────────────────────
@@ -1002,8 +1090,18 @@ async def _dedicated_generate(llm, messages, slot: L2Slot) -> tuple[str, dict]:
     return content, (data.get("usage") if isinstance(data, dict) else None)
 
 
-def _make_llm_call(llm, slot: L2Slot, correlation_id):
-    """Собрать async-callable L2 (ровно один вызов на запуск)."""
+def _make_llm_call(llm, slot: L2Slot, correlation_id, *, operation: str = "writer"):
+    """Собрать async-callable L2 (ровно один вызов на запуск).
+
+    ASAP 4.1 волна 4 (T-4612, spec §4 D.1/D.2, ADR-1028-8 D5): при
+    Supervisor ON — единый orchestration-owner (attempt-потолок ≤4 HTTP,
+    нижний слой только transport, provider-fallback с capacity re-plan
+    решает Supervisor); kill-switch OFF → прежний канал байт-в-бит.
+    ``operation`` — честная метка телеметрии (writer/reviewer/revision)."""
+    wrapped = _supervise_call(llm, slot, correlation_id, operation=operation,
+                              module=MODULE, step=STEP)
+    if wrapped is not None:
+        return wrapped
     if not slot.dedicated:
         async def _call(messages):
             return await llm.generate(messages, module=MODULE, step=STEP,
@@ -1019,6 +1117,22 @@ def _effective_model(llm, slot: L2Slot) -> str:
     if slot.dedicated:
         return slot.model
     return str(getattr(llm, "_chat_model", "") or slot.model)
+
+
+def _supervise_call(llm, slot, correlation_id, *, operation: str,
+                    module: str | None = None, step: str | None = None):
+    """Точка врезки LLMExecutionSupervisor (ADR-1028-8 D5; kill-switch
+    OFF → None = прежний канал байт-в-бит)."""
+    try:
+        from services import summary_llm_supervisor as _sup
+        return _sup.make_wrapped(llm, slot, correlation_id,
+                                 operation=operation, module=module,
+                                 step=step)
+    except Exception:      # pragma: no cover - врезка не рвёт канал
+        logger.warning(
+            "summary supervisor: wrap failed — legacy channel (байт-в-бит)",
+            exc_info=True)
+        return None
 
 
 def _effective_base_url(llm, slot: L2Slot) -> str:
@@ -1145,7 +1259,8 @@ async def _hybrid_length_for_chat(chat_id) -> dict:
 
 async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
                  slot=None, chat_id=None,
-                 system_prompt=None, llm_call=None) -> L2Result:
+                 system_prompt=None, llm_call=None, source_input=None,
+                 length=None) -> L2Result:
     """Один прогон L2: контент пакета §96 → **1 LLM-вызов** → §99-документ.
 
     ``llm`` — LLMClient (или совместимый мок); ``llm_call`` — инъекция канала
@@ -1158,6 +1273,16 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
     Legacy) решает вызывающий ``summary_generator`` (AMEND ADR-1026-7 D5,
     ADR-1027-10 D3): здесь — только ``document=None``.
     Ровно один физический вызов на запуск (L2 correction retry не вводится).
+
+    ASAP 4.1 волна 3 (T-4609, spec §2 B.3; ADR-1028-8 D4/AM-4) — аддитивно:
+      * ``source_input`` — готовый WriterInput от Full SourceWindow
+        (``build_l2_source_input``); передан → контент = source_input, пакет
+        используется только для валидации id-space/эвиденции (Writer НЕ
+        зависит от урезания пакета);
+      * ``length`` — предр resolved length-блок вызывающим (иначе — прежний
+        внутренний резолв, байт-в-байт);
+      * system-канон: ON writer-source → канон R1030 (блок источника);
+        OFF → прежний прод-канон R1029 (байт-в-бит; PG-override сохранён).
     """
     started = time.perf_counter()
 
@@ -1178,7 +1303,10 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
 
     # 2. Цели длины Hybrid (per-chat → hot → env → пресет): config-режим
     # пользователя побеждает L1-`response_mode` (контракт (f)).
-    length = await _hybrid_length_for_chat(chat_id)
+    if length is not None:
+        length = dict(length)
+    else:
+        length = await _hybrid_length_for_chat(chat_id)
     try:
         resolved_slot = slot or resolve_l2_slot_safe()
     except L2SlotError as exc:
@@ -1196,15 +1324,26 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
     base_url = _effective_base_url(llm, resolved_slot) if llm is not None \
         else resolved_slot.base_url
 
-    content = build_l2_input(package, length=length)
+    if isinstance(source_input, str) and source_input.strip():
+        # T-4609: WriterInput от Full SourceWindow (пакет — только для
+        # валидации; контент = source-секции).
+        content = source_input
+    else:
+        content = build_l2_input(package, length=length)
     # ASAP-2.1 (Q10/T-3965): эффективный prompt + честный источник для
     # observability. Резолв до _log_start (ключ/источник известны к событию).
     if system_prompt:
         system = system_prompt
         prompt_source = "param"
     else:
+        # Волна 3 (T-4609): fallback-канон зависит от kill-switch'а входа
+        # (ON → R1030 с блоком источника; OFF → прод-канон R1029 байт-в-байт;
+        # PG-override — общий ключ prompts.summary_l2_writer_system_prompt).
+        default_prompt = (SUMMARY_L2_WRITER_SYSTEM_PROMPT
+                          if writer_source_input_enabled()
+                          else PREV_SUMMARY_L2_WRITER_R1029_ASAP41)
         system, prompt_source = resolve_prompt_with_source(
-            PROMPT_PG_KEY, SUMMARY_L2_WRITER_SYSTEM_PROMPT)
+            PROMPT_PG_KEY, default_prompt)
     _log_start(correlation_id=correlation_id, chat_id=chat_id,
                paragraphs_hint=int(length["target_paragraphs"]),
                model=model, base_url=base_url,

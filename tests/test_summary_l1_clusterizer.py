@@ -74,6 +74,7 @@ from services.summary_l1_contract import (
 )
 from services.summary_prompts import (
     PREV_SUMMARY_L1_CLUSTERIZER_R1026,
+    PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41,
     PREV_SUMMARY_NARRATOR_R1023,
     SUMMARY_EDITOR_SYSTEM_PROMPT,
     SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT,
@@ -534,23 +535,37 @@ class TestL1DoesNotWriteSummary:
         ).invalid_reason == REASON_INVALID_FACT
 
     def test_canon_forbids_writing_summary(self):
+        # ASAP 4.1 волна 3 (T-4607, ADR-1028-8 D3): канон мигрирован на
+        # semantic map v1 (никаких facts/текстов; §95-v2 канон — superseded
+        # PREV-слепок, pin остаётся на нём).
         assert "НЕ ПИШЕШЬ САММАРИ" in SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT
         assert TARGET_MARKER_CORE in SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT
-        for token in ('"schema_version": 2', "evidence_message_ids",
+        for token in ('"schema_version": 1', "topics", "events",
                       "unassigned_message_ids", "response_mode",
-                      "cover_prompt", "threads"):
+                      "cover_prompt", "message_ids"):
             assert token in SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT, token
+        # SUPERSEDE (ADR-1028-8 D3): в map-каноне НЕТ фактов с текстами;
+        # прежний §95-v2 канон — в PREV-слепке (бит-в-байт 2.58.46).
+        for legacy_token in ('"schema_version": 2', "evidence_message_ids",
+                             "threads"):
+            assert legacy_token in PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41, \
+                legacy_token
+        assert "facts" not in SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT
 
     def test_canon_v2_allows_many_to_many(self):
-        """ASAP-2 §7/контракт (l): канон ЯВНО разрешает несколько тем и
-        неполное покрытие; прежнее правило «ровно в одной теме» заменено."""
+        """ASAP 4.1 волна 3 (T-4607, ADR-1028-8 D3): канон semantic map v1 —
+        many-to-many сохранён; прежние §95-v2 формулировки — в PREV-слепке."""
         canon = SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT
-        assert "может встречаться в нескольких темах — это нормально" in canon
-        assert "Не заставляй себя выбирать одну-единственную тему" in canon
+        assert "может входить в несколько тем" in canon
         assert "unassigned_message_ids" in canon
         assert "что происходило в этом чате" in canon
         assert "Один message_id — ровно в одной теме" not in canon
         assert "ТОЛЬКО message_id из входных данных" in canon
+        # Никаких текстов сообщений в выходе (R6-B-002 — по построению).
+        assert "НИКАКИХ текстов сообщений" in canon
+        prev = PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41
+        assert "может встречаться в нескольких темах — это нормально" in prev
+        assert "Не заставляй себя выбирать одну-единственную тему" in prev
 
 
 # ── SC-08: §93-упаковка, чанки, бюджет, усечение ───────────────────────────
@@ -971,14 +986,13 @@ class TestCanon:
                 SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT) in steps
 
     def test_rollback_documented(self):
-        # ASAP-2: откат ступени R1027 ведёт на непосредственный прежний канон
-        # PREV_SUMMARY_L1_CLUSTERIZER_R1027 (= база S3 + блок маркировки).
-        from services.summary_prompts import (
-            PREV_SUMMARY_L1_CLUSTERIZER_R1027,
-        )
+        # ASAP 4.1 волна 3 (T-4607, ADR-1028-8 D3): откат map-канона ведёт на
+        # непосредственный прежний прод-канон 2.58.46
+        # (PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41; rollback-паритет
+        # kill-switch SUMMARY_L1_SEMANTIC_MAP_ENABLED=false).
         assert pm.ROLLBACK_MIGRATIONS[PROMPT_PG_KEY] == (
             SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT,
-            PREV_SUMMARY_L1_CLUSTERIZER_R1027)
+            PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41)
 
 
 class _FakeCache:
@@ -1037,20 +1051,16 @@ class TestCanonMigrations:
 
     @pytest.mark.asyncio
     async def test_rollback_returns_prev(self):
-        from services.summary_prompts import (
-            PREV_SUMMARY_L1_CLUSTERIZER_R1027,
-        )
         cache = _FakeCache({PROMPT_PG_KEY: SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT})
         report = await pm.rollback_prompt_canons(cache)
         assert report == {PROMPT_PG_KEY: "rolled_back"}
-        assert cache.values[PROMPT_PG_KEY] == PREV_SUMMARY_L1_CLUSTERIZER_R1027
+        assert cache.values[PROMPT_PG_KEY] == \
+            PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41
 
     @pytest.mark.asyncio
     async def test_rollback_idempotent(self):
-        from services.summary_prompts import (
-            PREV_SUMMARY_L1_CLUSTERIZER_R1027,
-        )
-        cache = _FakeCache({PROMPT_PG_KEY: PREV_SUMMARY_L1_CLUSTERIZER_R1027})
+        cache = _FakeCache(
+            {PROMPT_PG_KEY: PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41})
         report = await pm.rollback_prompt_canons(cache)
         assert PROMPT_PG_KEY not in report and cache.sets == []
 

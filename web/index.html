@@ -3114,6 +3114,52 @@
                       <div v-if="!pipelineRunView.coverage.full"
                            class="text-red-300">✕ Неполное саммари — coverage ниже 100%</div>
                     </div>
+                    <!-- ═══ ASAP 4.1 волна 7 (зона G, §38 T-4621): честная
+                         coverage semantics — РАЗДЕЛЬНЫЕ оси (source/L1/
+                         writer/final/overflow). «839/839 100%» рядом с
+                         failed L1 не показывается единым успехом. -->
+                    <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 text-xs"
+                         v-if="pipelineCoverageRows.length">
+                      <div class="font-bold mb-0.5">Покрытие источника — по стадиям</div>
+                      <div v-for="row in pipelineCoverageRows"
+                           :key="'cov' + row.key"
+                           class="pipe-node__row">
+                        <span class="pipe-node__icon"
+                              :class="'pipe-node__icon--' + row.state"
+                              aria-hidden="true">{{ row.state === 'failed' ? '✕' : row.state === 'warn' ? '⚠' : '✓' }}</span>
+                        <span class="text-gray-300">{{ row.label }}</span>
+                        <span class="text-gray-400 ml-auto text-right">{{ row.value }}</span>
+                      </div>
+                    </div>
+                    <!-- ═══ §39 ТЗ (T-4622): карточка «КОНТЕКСТ МОДЕЛИ». -->
+                    <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 text-xs"
+                         v-if="pipelineCapacityCard"
+                         id="pipeline-capacity-card">
+                      <div class="font-bold mb-0.5">Контекст модели</div>
+                      <div class="pipe-node__row"><span class="text-gray-300">Provider</span><span class="text-gray-400 ml-auto">{{ pipelineCapacityCard.provider }}</span></div>
+                      <div class="pipe-node__row"><span class="text-gray-300">Model</span><span class="text-gray-400 ml-auto">{{ pipelineCapacityCard.model }}</span></div>
+                      <div class="pipe-node__row"><span class="text-gray-300">Effective window</span><span class="text-gray-400 ml-auto">{{ pipelineCapacityCard.effective_window }}</span></div>
+                      <div class="pipe-node__row"><span class="text-gray-300">Serialized input</span><span class="text-gray-400 ml-auto">{{ pipelineCapacityCard.required_input_tokens }}</span></div>
+                      <div class="pipe-node__row"><span class="text-gray-300">Output reserve</span><span class="text-gray-400 ml-auto">{{ pipelineCapacityCard.reserved_output_tokens }}</span></div>
+                      <div class="pipe-node__row"><span class="text-gray-300">Режим входа</span><span class="text-gray-400 ml-auto">{{ pipelineCapacityCard.mode }}<template v-if="pipelineCapacityCard.segments != null"> · {{ pipelineCapacityCard.segments }} сегм.</template></span></div>
+                      <div class="text-gray-400">{{ pipelineCapacityCard.reason_ru }}<template v-if="pipelineCapacityCard.window_source_ru"> · окно: {{ pipelineCapacityCard.window_source_ru }}</template></div>
+                      <div class="text-gray-500" v-if="pipelineCapacityCard.replans">Re-plan в ходе run: {{ pipelineCapacityCard.replans }}</div>
+                    </div>
+                    <!-- ═══ §40 ТЗ (T-4622/4624): liveness LLM-стадий —
+                         «жива/ждёт», execution mode (честный), фоллбек. -->
+                    <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 text-xs"
+                         v-if="pipelineLivenessRows.length"
+                         id="pipeline-liveness-card">
+                      <div class="font-bold mb-0.5">Активность стадий</div>
+                      <div v-for="l in pipelineLivenessRows"
+                           :key="'lv' + l.stage" class="pipe-node__row">
+                        <span class="pipe-node__icon"
+                              :class="l.live ? 'pipe-node__icon--running' : 'pipe-node__icon--success'"
+                              aria-hidden="true">{{ l.live ? '•' : '✓' }}</span>
+                        <span class="text-gray-300">{{ l.label }}</span>
+                        <span class="text-gray-400 ml-auto">{{ l.status_ru || l.mode }}</span>
+                      </div>
+                    </div>
                     <!-- Текстовая ветка: вертикальный timeline -->
                     <div class="pipe-timeline" v-if="pipelineNodesText.length">
                       <template v-for="node in pipelineNodesText" :key="node.key">
@@ -3171,6 +3217,28 @@
                         </div>
                         <div class="pipe-edge" aria-hidden="true">↓</div>
                       </template>
+                    </div>
+                    <!-- ═══ §41 ТЗ (T-4623): cover style карточка — base ✓,
+                         стиль, provider/model, capability, референсы,
+                         Style edit ✓-✕, Published + точная причина. -->
+                    <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 text-xs"
+                         v-if="pipelineCoverStyleCard"
+                         id="pipeline-cover-style-card">
+                      <div class="font-bold mb-0.5">Обложка и стиль</div>
+                      <div class="pipe-node__row"><span class="text-gray-300">Базовая обложка</span><span class="text-gray-400 ml-auto">{{ pipelineCoverStyleCard.base_cover }}</span></div>
+                      <div class="pipe-node__row"><span class="text-gray-300">Выбранный стиль</span><span class="text-gray-400 ml-auto">{{ pipelineCoverStyleCard.selected_style }}</span></div>
+                      <div class="pipe-node__row"><span class="text-gray-300">Style provider</span><span class="text-gray-400 ml-auto">{{ pipelineCoverStyleCard.style_provider }}</span></div>
+                      <div class="pipe-node__row"><span class="text-gray-300">Style model</span><span class="text-gray-400 ml-auto">{{ pipelineCoverStyleCard.style_model }}</span></div>
+                      <div class="pipe-node__row" v-if="pipelineCoverStyleCard.capability_edit"><span class="text-gray-300">Capability image-edit</span><span class="text-gray-400 ml-auto">{{ pipelineCoverStyleCard.capability_edit }}</span></div>
+                      <div class="pipe-node__row" v-if="pipelineCoverStyleCard.reference_assets != null"><span class="text-gray-300">Reference assets</span><span class="text-gray-400 ml-auto">{{ pipelineCoverStyleCard.reference_assets }}</span></div>
+                      <div class="pipe-node__row" v-if="pipelineCoverStyleCard.style_edit"><span class="text-gray-300">Style edit</span><span class="text-gray-400 ml-auto">{{ pipelineCoverStyleCard.style_edit }}</span></div>
+                      <div class="pipe-node__row" v-if="pipelineCoverStyleCard.result"><span class="text-gray-300">Published cover</span><span class="text-gray-400 ml-auto">{{ pipelineCoverStyleCard.result }}</span></div>
+                      <div class="text-gray-400" v-if="pipelineCoverStyleCard.fallback_reason_ru">
+                        ✕ {{ pipelineCoverStyleCard.fallback_reason_ru }}
+                      </div>
+                      <div class="text-gray-500" v-if="pipelineCoverStyleCard.resolve_source_ru">
+                        Источник слота: {{ pipelineCoverStyleCard.resolve_source_ru }}
+                      </div>
                     </div>
                     <!-- Публикация (§61.1) -->
                     <div class="mt-2 text-xs text-gray-300"

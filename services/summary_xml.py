@@ -55,26 +55,43 @@ class XmlGroundingBuilder:
     """Builds the XML chat history block for the LLM prompt."""
 
     def build(self, messages: list, aliases: AliasResolver | None = None,
-              trigger_message_id=None) -> str:
+              trigger_message_id=None, *, window_caps=None) -> str:
         """messages: rows with id/timestamp/author_name/text/reply_to_id/media_type.
 
         Раунд 10.23 (F1, ADR-1023-1): сообщение с ``tg_message_id ==
         trigger_message_id`` получает маркер ``<<< [ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА]``
         (в XML — ``&lt;&lt;&lt;…``). ``trigger_message_id=None`` или нет
         совпадения → вывод байт-в-байт прежний (legacy). При дубле
-        ``tg_message_id`` маркируется только первое совпадение."""
+        ``tg_message_id`` маркируется только первое совпадение.
+
+        ASAP 4.1 волна 3 (T-4611, spec §3): ``window_caps`` — явное переопределение
+        капов окна вызывающим контуром. ``None`` → прежнее поведение (hot/env
+        капы, бит-в-байт 2.58.46 — включая hard-stop ветку ниже); ``(None,
+        None)`` → капы ОТПУЩЕНЫ (ветка capacity-aware Legacy: фиксированные
+        капы больше НЕ триггер «стоп», spec §31; dead-path проверка
+        «XML context: hard cap … reached» обязана быть недостижима в ON-ветке).
+        """
         if not messages:
             return "<chat_history/>"
 
+        if window_caps is not None:
+            max_messages, max_chars = window_caps
+        else:
+            max_messages = hot.get("limits.summary_max_window_messages",
+                                   settings.SUMMARY_MAX_WINDOW_MESSAGES)
+            max_chars = hot.get("limits.summary_max_context_chars",
+                                settings.SUMMARY_MAX_CONTEXT_CHARS)
         parts = ["<chat_history>"]
         total_chars = 0
         remaining_trigger = trigger_message_id
-        for row in messages[: hot.get("limits.summary_max_window_messages", settings.SUMMARY_MAX_WINDOW_MESSAGES)]:
+        for row in (messages[:max_messages]
+                    if max_messages is not None else messages):
             element = self._build_element(row, aliases, remaining_trigger)
-            if total_chars + len(element) > hot.get("limits.summary_max_context_chars", settings.SUMMARY_MAX_CONTEXT_CHARS):
+            if max_chars is not None \
+                    and total_chars + len(element) > max_chars:
                 logger.warning(
                     "XML context: hard cap %d chars reached, stopping at %d messages",
-                    hot.get("limits.summary_max_context_chars", settings.SUMMARY_MAX_CONTEXT_CHARS), len(parts) - 1,
+                    max_chars, len(parts) - 1,
                 )
                 break
             parts.append(element)

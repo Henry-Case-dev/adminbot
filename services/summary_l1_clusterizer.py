@@ -74,6 +74,8 @@ from services.summary_l1_contract import (
     REASON_OK,
     REASON_UNKNOWN_FIELD,
     REASON_UNKNOWN_MESSAGE_ID,
+    STATUS_EMPTY,
+    STATUS_ERROR,
     STATUS_INVALID,
     STATUS_OK,
     STATUS_TRUNCATED,
@@ -104,6 +106,29 @@ from services.summary_prompts import SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT
 # S7 (ADR-1026-9 D6/SC-07): §109-детали ошибки — http_status/attempts.
 from services.summary_run_log import attempts_of, http_status_of
 from services.token_counter import count_tokens, resolve_chat_limit
+# ── ASAP 4.1 волна 2 (эпик asap-4-1-durable-whole-window-summary, T-4604–
+# T-4606; spec §1 A.2/A.3; ADR-1028-8 D2): capacity engine + CoverageLedger.
+from services.summary_coverage_ledger import (
+    CoverageLedger,
+    stable_message_id,
+)
+# ── ASAP 4.1 волна 3 (T-4607/T-4608, spec §2 B.1/B.2; ADR-1028-8 D3):
+# semantic map v1 — выходной контракт L1 без source payload.
+from services.summary_l1_semantic_map import (
+    REASON_MAP_DEGRADED,
+    REASON_MAP_OK,
+    REASON_SEMANTIC_MAP_UNAVAILABLE,
+    RETRYABLE_MAP_REASONS,
+    compact_semantic_map,
+    collect_unknown_map_ids as _collect_map_unknown_ids,
+    map_correction_block,
+    map_result_invalid,
+    merge_map_payloads,
+    minimal_map_for_rows,
+    parse_map_response,
+    semantic_map_enabled,
+    validate_semantic_map,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -807,7 +832,11 @@ async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
                            llm_call, focus_block, budget_mode: str,
                            started: float, slot,
                            partitions: list | None = None,
-                           overlap_count: int = 0) -> L1Result:
+                           overlap_count: int = 0,
+                           ledger: CoverageLedger | None = None,
+                           segment_restore: bool = False,
+                           _budget_label: str | None = None,
+                           _map_mode: bool = False) -> L1Result:
     """Overflow-путь §120/§125: полный source set → lossless partition →
     L1 по каждому фрагменту → детерминированный merge → L2 (вызывает
     вызывающий контур). Каждый source ID ≥1 primary chunk (§121);
@@ -824,7 +853,15 @@ async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
     (§51: дедуп фактов/подсмыслы), т.к. merge-union может поднять тред выше
     структурного капа. Любой провал chunk-прогона → ``error_result``
     (LEVEL-2 fallback-пакет строится вызывающим контуром из ПОЛНОГО набора
-    — §140/§141 chronology-инвариант)."""
+    — §140/§141 chronology-инвариант).
+
+    ASAP 4.1 волна 2 (T-4606; spec §1 A.3; ADR-1028-8 D2.4) — аддитивно,
+    только при ``ledger is not None``: CoverageLedger (register_segment /
+    mark_processed / mark_fallback), restore-попытка каждого провалившегося
+    сегмента (ровно одна, до Writer), события SUMMARY_SEGMENT_RESULT /
+    SUMMARY_SEGMENT_LEDGER (честный degraded: missing>0 → уровень WARN,
+    ``status=degraded``) и опциональный ``_budget_label`` для
+    coverage-снапшота (сохранение контракта ``last_run_coverage``)."""
     source_rows = _sort_rows(list(rows or []))
     source_total = len(source_rows)
     # §127 (M-ASAP31-1 rework): окно прогона и overlap-дубликаты —
@@ -841,21 +878,89 @@ async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
                             correlation_id=correlation_id,
                             budget=(kind, limit),
                             system_prompt=system_prompt, llm_call=llm_call,
-                            focus_block=focus_block, _allow_chunking=False)
-    results: list[L1Result] = []
+                            focus_block=focus_block, _allow_chunking=False,
+                            _map_mode=_map_mode)
+    results: list = []
     processed_ids: set = set()
-    for partition in partitions:
+    minimal_maps_used = 0
+    for seg_index, partition in enumerate(partitions, start=1):
+        if ledger is not None:
+            ledger.register_segment(
+                f"segment_{seg_index}",
+                [stable_message_id(row) for row in partition])
         result = await run_l1(
             llm=llm, rows=partition, chat_id=chat_id,
             correlation_id=correlation_id, budget=(kind, limit),
             system_prompt=system_prompt, llm_call=llm_call,
-            focus_block=focus_block, _allow_chunking=False)
+            focus_block=focus_block, _allow_chunking=False,
+            _map_mode=_map_mode)
+        if segment_restore and not result.usable:
+            # A.3: восстановление сегмента — re-run ТОЛЬКО проблемного,
+            # ровно одна restore-попытка (последовательный сегментный
+            # контур чей; параллельного рестарта всего run'а нет).
+            logger.warning(
+                "SUMMARY_SEGMENT_RESTORE | run_id=%s | chat_id=%s | "
+                "segment=%d/%d | failed_reason=%s",
+                correlation_id or "none", chat_id, seg_index,
+                len(partitions), result.invalid_reason or "-")
+            retried = await run_l1(
+                llm=llm, rows=partition, chat_id=chat_id,
+                correlation_id=correlation_id, budget=(kind, limit),
+                system_prompt=system_prompt, llm_call=llm_call,
+                focus_block=focus_block, _allow_chunking=False,
+                _map_mode=_map_mode)
+            if retried.usable:
+                result = retried
+        seg_failed = not result.usable
+        if seg_failed:
+            try:
+                from services import pipeline_events
+                pipeline_events.segment_result(
+                    correlation_id, chat_id=chat_id, segment=seg_index,
+                    usable=False,
+                    reason_code=str(result.invalid_reason
+                                    or REASON_LLM_ERROR)
+                    if result.invalid_reason else "segment_failed_after_restore",
+                    counts={"segments": len(partitions)})
+            except Exception:      # pragma: no cover - эмиссия не рвёт
+                pass
+        if seg_failed and _map_mode and ledger is not None:
+            # T-4608 (spec §2 B.2; ADR-1028-8 D3.4): partial success —
+            # успешные maps сохраняются, проблемный сегмент получает
+            # deterministic minimal map (структурная заготовка из ledger:
+            # хронология/участники БЕЗ LLM; полный набор message_ids
+            # сохраняется — никогда не превращать 3/4 success в 0/839).
+            # Честный failed-событие сегмента выше НЕ маскируется ok.
+            minimal = minimal_map_for_rows(
+                [_payload_item(row, chat_id) for row in partition],
+                seg_index=seg_index)
+            if minimal is not None:
+                minimal_maps_used += 1
+                result = _make_result(
+                    STATUS_OK, payload=minimal, threads=1, facts=0,
+                    auto_unassigned=0, map_degraded=True,
+                    map_reason=REASON_MAP_DEGRADED,
+                    duration_ms=(time.perf_counter() - started) * 1000.0)
+                logger.warning(
+                    "SUMMARY_SEGMENT_MINIMAL_MAP | run_id=%s | chat_id=%s | "
+                    "segment=%d/%d | messages=%d — deterministic minimal "
+                    "map (не 0/%d)",
+                    correlation_id or "none", chat_id, seg_index,
+                    len(partitions), len(partition), len(partition))
+        if not result.usable and ledger is not None:
+            # Честная фиксация падения сегмента (фрагмент остался
+            # непокрытым после restore — осознанный degraded, не «success»).
+            ledger.mark_fallback(
+                [stable_message_id(row) for row in partition])
         results.append(result)
         if result.usable:
-            for thread in (result.payload or {}).get("threads") or []:
+            payload = result.payload or {}
+            # map v1: темы лежат в "topics"; §95-v2 — в "threads".
+            for thread in (payload.get("topics")
+                           or payload.get("threads")) or []:
                 processed_ids.update(thread.get("message_ids") or [])
             processed_ids.update(
-                (result.payload or {}).get("unassigned_message_ids") or [])
+                payload.get("unassigned_message_ids") or [])
     usable_results = [r for r in results if r.usable]
     chunks_total = len(partitions)
     duration = (time.perf_counter() - started) * 1000.0
@@ -867,7 +972,7 @@ async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
             processed=len(processed_ids),
             chunks=chunks_total,
             unprocessed=max(0, source_total - len(processed_ids)),
-            budget_mode=budget_mode, coverage_percent=0.0,
+            budget_mode=_budget_label or budget_mode, coverage_percent=0.0,
             window_start=window_start, window_end=window_end,
             reason="chunk_run_failed",
             duplicate_overlap=overlap_count)
@@ -875,46 +980,120 @@ async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
             source_total, len(processed_ids),
             max(0, source_total - len(processed_ids)), chunks_total, 0.0,
             "chunk_run_failed")
+        if ledger is not None:
+            # T-4606: честный degraded-инвентарь Ledger (missing>0).
+            status = ledger.verify()
+            try:
+                from services import pipeline_events
+                pipeline_events.segment_ledger(
+                    correlation_id, chat_id=chat_id, status=status)
+            except Exception:      # pragma: no cover
+                pass
+            logger.warning(
+                "SUMMARY_SEGMENT_LEDGER | run_id=%s | chat_id=%s | "
+                "processed=%d | fallback=%d | missing=%d | lossless=%s — "
+                "честный degraded (не success)",
+                correlation_id or "none", chat_id, status["processed"],
+                status["fallback"], status["missing"],
+                status["assignment_lossless"])
         first = results[0] if results else None
         reason = (first.invalid_reason if first is not None else None) \
             or REASON_LLM_ERROR
         return error_result(reason, duration_ms=duration)
-    merged_payload = merge_l1_payloads(
-        [r.payload for r in usable_results])
-    # ── Волна C (T-4422, §51): merge-union может поднять тред выше
-    # структурного капа (две половины широкой темы объединились) —
-    # deterministic capacity repair (дедуп фактов/подсмыслы/бюджет) БЕЗ
-    # invalid. OFF-паритет: guard OFF → merge-результат прежний.
-    if capacity_guard_enabled():
-        repaired_payload, cap_stats = repair_capacity_overflow(merged_payload)
-        if repaired_payload is not None:
-            merged_payload = repaired_payload
-        if any((cap_stats.get(k) or 0) for k in
-               ("duplicates_merged", "topics_deduped", "threads_split",
-                "facts_dropped_budget")):
-            log_capacity_repair(run_id=correlation_id, chat_id=chat_id,
-                                stage="merge", stats=cap_stats)
-    unassigned_count = len(
-        merged_payload.get("unassigned_message_ids") or [])
-    threads_out = merged_payload.get("threads") or []
-    facts_count = sum(len(t.get("facts") or []) for t in threads_out)
-    merged = _make_result(
-        STATUS_OK, payload=merged_payload, threads=len(threads_out),
-        facts=facts_count, auto_unassigned=unassigned_count,
-        duration_ms=duration, skipped_ids=(), skipped_tg_ids=(),
-        truncated=False, chunk_count=chunks_total)
+    map_degraded_any = any(bool(getattr(r, "map_degraded", False))
+                           for r in usable_results)
+    if _map_mode:
+        # T-4607/T-4608: map-режим — merge semantic maps (детерминированно;
+        # compaction бюджетов, честный map_degraded; никогда не invalid).
+        merged_payload = merge_map_payloads(
+            [r.payload for r in usable_results])
+        if merged_payload is None:
+            return error_result(REASON_LLM_ERROR, duration_ms=duration)
+        stats: dict = {}
+        map_degraded = map_degraded_any
+        compacted, compact_stats, compact_degraded = compact_semantic_map(
+            merged_payload, id_space=build_id_space(
+                build_l1_payload(source_rows, chat_id)),
+            budgets=None)
+        if compacted is not None and (compact_degraded or compact_stats):
+            merged_payload = compacted
+            stats = compact_stats
+            map_degraded = map_degraded or compact_degraded
+        unassigned_count = len(
+            merged_payload.get("unassigned_message_ids") or [])
+        topics_out = merged_payload.get("topics") or []
+        merged = _make_result(
+            STATUS_OK, payload=merged_payload, threads=len(topics_out),
+            facts=0, auto_unassigned=unassigned_count,
+            duration_ms=duration, skipped_ids=(), skipped_tg_ids=(),
+            truncated=False, chunk_count=chunks_total,
+            map_degraded=map_degraded,
+            map_reason=REASON_MAP_DEGRADED if map_degraded else REASON_MAP_OK,
+            map_stats=dict(stats) if stats else None)
+    else:
+        merged_payload = merge_l1_payloads(
+            [r.payload for r in usable_results])
+        # ── Волна C (T-4422, §51): merge-union может поднять тред выше
+        # структурного капа (две половины широкой темы объединились) —
+        # deterministic capacity repair (дедуп фактов/подсмыслы/бюджет) БЕЗ
+        # invalid. OFF-паритет: guard OFF → merge-результат прежний.
+        if capacity_guard_enabled():
+            repaired_payload, cap_stats = repair_capacity_overflow(
+                merged_payload)
+            if repaired_payload is not None:
+                merged_payload = repaired_payload
+            if any((cap_stats.get(k) or 0) for k in
+                   ("duplicates_merged", "topics_deduped", "threads_split",
+                    "facts_dropped_budget")):
+                log_capacity_repair(run_id=correlation_id, chat_id=chat_id,
+                                    stage="merge", stats=cap_stats)
+        unassigned_count = len(
+            merged_payload.get("unassigned_message_ids") or [])
+        threads_out = merged_payload.get("threads") or []
+        facts_count = sum(len(t.get("facts") or []) for t in threads_out)
+        merged = _make_result(
+            STATUS_OK, payload=merged_payload, threads=len(threads_out),
+            facts=facts_count, auto_unassigned=unassigned_count,
+            duration_ms=duration, skipped_ids=(), skipped_tg_ids=(),
+            truncated=False, chunk_count=chunks_total)
     coverage = 100.0 if source_total == 0 else \
         min(100.0, 100.0 * len(processed_ids) / max(1, source_total))
     _record_run_coverage(
         source_total=source_total, processed=len(processed_ids),
         chunks=chunks_total,
         unprocessed=max(0, source_total - len(processed_ids)),
-        budget_mode=budget_mode, coverage_percent=coverage,
+        budget_mode=_budget_label or budget_mode, coverage_percent=coverage,
         window_start=window_start, window_end=window_end,
         reason=None if coverage >= 100.0 else "chunk_merge_partial",
         duplicate_overlap=overlap_count)
     # §128: успешный chunked-run = `SUMMARY_L1_CHUNKED`, НЕ «skipped».
     _emit_chunked(source_total, len(processed_ids), chunks_total, coverage)
+    if ledger is not None:
+        # T-4606 (spec §1 A.3; ADR-1028-8 D2.4): Ledger-снапшот ПЕРЕД Writer.
+        # coverage == 100 % обязателен; иначе — честный degraded (НЕ
+        # «success»): missing>0 (unaccounted) ИЛИ fallback>0 (сегмент остался
+        # непокрытым после restore) → error_result (existing LEVEL-2 ladder
+        # достраивает честный fallback из ПОЛНОГО набора — §140/§141;
+        # partial-success minimal maps — зона B/T-4608, wave 2 не
+        # переопределяет).
+        ledger.mark_processed(processed_ids)
+        status = ledger.verify()
+        try:
+            from services import pipeline_events
+            pipeline_events.segment_ledger(
+                correlation_id, chat_id=chat_id, status=status)
+        except Exception:      # pragma: no cover - эмиссия не рвёт
+            pass
+        if status["missing"] > 0 or status["fallback"] > 0 \
+                or not status["assignment_lossless"]:
+            logger.warning(
+                "SUMMARY_SEGMENT_LEDGER | run_id=%s | chat_id=%s | "
+                "processed=%d | fallback=%d | missing=%d | lossless=%s — "
+                "честный degraded (не success)",
+                correlation_id or "none", chat_id, status["processed"],
+                status["fallback"], status["missing"],
+                status["assignment_lossless"])
+            return error_result("chunk_run_failed", duration_ms=duration)
     logger.info(
         "SUMMARY_L1_CHUNKED | run_id=%s | chat_id=%s | source_messages=%d | "
         "processed_messages=%d | chunks=%d | coverage=%.2f%% | "
@@ -1036,7 +1215,20 @@ async def _dedicated_generate(llm, messages, slot: L1Slot) -> tuple[str, dict]:
 
 
 def _make_llm_call(llm, slot: L1Slot, correlation_id):
-    """Собрать async-callable L1 (ровно один вызов на запуск)."""
+    """Собрать async-callable L1 (ровно один вызов на запуск).
+
+    ASAP 4.1 волна 4 (T-4612, spec §4 D.1/D.2, ADR-1028-8 D5): при
+    Supervisor ON — РОВНО один orchestration-owner: attempt-потолок ≤4
+    HTTP на логический вызов (1 primary + ≤1 primary transport retry +
+    ≤1 fallback-provider + ≤1 fallback transport-retry), нижний слой —
+    только transport (max_retries=1, retry_statuses=()), внутренний
+    fallback-каскад llm_client для Summary-канала выключен, provider-
+    fallback с capacity re-plan решает Supervisor. Kill-switch OFF →
+    прежний канал байт-в-бит 2.58.46."""
+    wrapped = _supervise_call(llm, slot, correlation_id, operation="l1",
+                              module=MODULE, step=STEP)
+    if wrapped is not None:
+        return wrapped
     if not slot.dedicated:
         async def _call(messages):
             return await llm.generate(messages, module=MODULE, step=STEP,
@@ -1052,6 +1244,22 @@ def _effective_model(llm, slot: L1Slot) -> str:
     if slot.dedicated:
         return slot.model
     return str(getattr(llm, "_chat_model", "") or slot.model)
+
+
+def _supervise_call(llm, slot, correlation_id, *, operation: str,
+                    module: str | None = None, step: str | None = None):
+    """Точка врезки LLMExecutionSupervisor (ADR-1028-8 D5; kill-switch
+    OFF → None = прежний канал байт-в-бит)."""
+    try:
+        from services import summary_llm_supervisor as _sup
+        return _sup.make_wrapped(llm, slot, correlation_id,
+                                 operation=operation, module=module,
+                                 step=step)
+    except Exception:      # pragma: no cover - врезка не рвёт канал
+        logger.warning(
+            "summary supervisor: wrap failed — legacy channel (байт-в-бит)",
+            exc_info=True)
+        return None
 
 
 def _effective_base_url(llm, slot: L1Slot) -> str:
@@ -1076,20 +1284,22 @@ def _log_complete(*, correlation_id, chat_id, result: L1Result, model,
                   base_url, tokens_in, tokens_out, tokens_estimated,
                   chunk_count, attempts: int = 1) -> None:
     # ASAP-2 hotfix round1027: аддитивное поле attempts (1 — single-shot,
-    # 2 — была повторная попытка; R17-safe число).
+    # 2 — была повторная попытка; R17-safe число). Волна 3 (T-4607):
+    # map_degraded — честный флаг compaction/minimal-map (аддитивно).
     logger.info(
         "L1_COMPLETE | run_id=%s | chat_id=%s | provider=%s | model=%s | "
         "tokens_in=%s | tokens_out=%s | tokens_estimated=%s | threads=%d | "
         "facts=%d | chunks=%d | auto_unassigned=%d | skipped=%d | "
         "truncated=%s | attempts=%d | status=%s | invalid_reason=%s | "
-        "duration_ms=%.0f",
+        "duration_ms=%.0f | map_degraded=%s",
         correlation_id or "none", chat_id, provider_host(base_url) or "-",
         model or "-", tokens_in if tokens_in is not None else "-",
         tokens_out if tokens_out is not None else "-", bool(tokens_estimated),
         result.threads_count, result.facts_count, chunk_count,
         result.auto_unassigned_count, len(result.skipped_ids),
         bool(result.truncated), max(int(attempts), 1), result.status,
-        result.invalid_reason or "-", result.duration_ms)
+        result.invalid_reason or "-", result.duration_ms,
+        bool(getattr(result, "map_degraded", False)))
 
 
 def _log_error(*, correlation_id, chat_id, model, base_url, reason, error_type,
@@ -1103,11 +1313,301 @@ def _log_error(*, correlation_id, chat_id, model, base_url, reason, error_type,
         attempts if attempts is not None else "-", duration_ms)
 
 
+# ── ASAP 4.1 волна 2 (spec §1 A.2/A.3, §11.1; ADR-1028-8 D2) — kill-switches
+# зоны A (env-only, default ON; резолв per-call; никогда не бросают). ────────
+
+def whole_window_first_enabled() -> bool:
+    """Kill-switch ``SUMMARY_WHOLE_WINDOW_FIRST_ENABLED`` (master зоны A).
+    OFF → текущий контур 2.58.46 (planning-estimate sharding волны C +
+    статические бюджеты) байт-в-бит."""
+    try:
+        return bool(getattr(settings, "SUMMARY_WHOLE_WINDOW_FIRST_ENABLED",
+                            True))
+    except Exception:      # pragma: no cover - защитная ветка
+        return True
+
+
+def capacity_overflow_ledger_enabled() -> bool:
+    """Kill-switch ``SUMMARY_CAPACITY_OVERFLOW_LEDGER_ENABLED`` (A.3).
+    OFF → прежний lossless-chunking БЕЗ ledger-семантики (байт-в-бит)."""
+    try:
+        return bool(getattr(settings,
+                            "SUMMARY_CAPACITY_OVERFLOW_LEDGER_ENABLED", True))
+    except Exception:      # pragma: no cover - защитная ветка
+        return True
+
+
+# Снапшот capacity-плана последнего прогона (Inspector-поля R6-G-002; T-4622
+# позже читает structured state; process-local, R17 — только числа/enum).
+_LAST_CAPACITY_PLAN: dict | None = None
+
+
+def _capacity_plan_snapshot() -> dict | None:
+    return dict(_LAST_CAPACITY_PLAN) if _LAST_CAPACITY_PLAN else None
+
+
+def _store_capacity_snapshot(*, mode: str, reason: str, window_source: str,
+                             provider: str, model: str,
+                             effective_window: int, required_tokens: int,
+                             reserve_tokens: int, margin: int,
+                             budget_mode: str, segments: int | None) -> None:
+    global _LAST_CAPACITY_PLAN
+    try:
+        _LAST_CAPACITY_PLAN = {
+            "mode": str(mode or ""),
+            "reason": str(reason or ""),
+            "window_source": str(window_source or ""),
+            "provider": str(provider or ""),
+            "model": str(model or ""),
+            "effective_context_window": int(effective_window or 0),
+            "required_input_tokens": int(required_tokens or 0),
+            "reserved_output_tokens": int(reserve_tokens or 0),
+            "safety_margin_tokens": int(margin or 0),
+            "budget_mode": str(budget_mode or ""),
+            "segments": int(segments) if segments is not None else None,
+        }
+    except Exception:      # pragma: no cover - защитная ветка
+        pass
+
+
+def _emit_capacity_events(*, correlation_id, chat_id, provider, model, plan,
+                          margin: int, budget_mode: str,
+                          segments: int | None) -> None:
+    """SUMMARY_CAPACITY_RESOLVED + SUMMARY_EXECUTION_MODE_SELECTED (T-4604/
+    T-4605; spec §7.3). Fail-open; R17 — provider host/model/числа/enum."""
+    try:
+        from services import pipeline_events
+        pipeline_events.capacity_resolved(
+            correlation_id, chat_id=chat_id, provider=provider_host(provider)
+            or provider_host(getattr(plan, "provider", "")) or None,
+            model=model or None,
+            counts={
+                "effective_context_window": int(
+                    getattr(plan, "effective_context_window", 0) or 0),
+                "required_input_tokens": int(
+                    getattr(plan, "required_input_tokens", 0) or 0),
+                "reserved_output_tokens": int(
+                    getattr(plan, "reserved_output_tokens", 0) or 0),
+                "safety_margin_tokens": int(margin or 0),
+                "window_source": str(getattr(plan, "window_source", "") or ""),
+                "confidence": str(getattr(plan, "confidence", "") or ""),
+                "fallback_used": bool(getattr(plan, "fallback_used", False)),
+                "mode": str(getattr(plan, "mode", "") or ""),
+                "reason": str(getattr(plan, "reason", "") or ""),
+                "budget_mode": str(budget_mode or ""),
+                "segments": int(segments) if segments is not None else None,
+            })
+        pipeline_events.execution_mode_selected(
+            correlation_id, chat_id=chat_id,
+            mode=str(getattr(plan, "mode", "") or ""),
+            reason=str(getattr(plan, "reason", "") or ""),
+            counts={"budget_mode": str(budget_mode or "")})
+    except Exception:      # pragma: no cover - эмиссия не рвёт пайплайн
+        pass
+
+
+# ── ASAP 4.1 волна 3 (T-4607, spec §2 B.1): MapResult → L1Result ──────────
+
+def _map_result_to_l1(map_res, base_kwargs: dict) -> L1Result:
+    """Канонизированная semantic map → fail-closed ``L1Result`` (единый
+    контракт нижестоящих стадий). ``map_degraded``/``map_reason``/``map_stats`` —
+    аддитивно (compaction/minimal-map честно, не ok-маска)."""
+    kwargs = dict(base_kwargs)
+    kwargs.pop("duration_ms", None)
+    duration = float(map_res.duration_ms or 0.0)
+    if map_res.status == STATUS_INVALID:
+        return invalid_result(map_res.reason or REASON_INTERNAL_ERROR,
+                              duration_ms=duration, **kwargs)
+    if map_res.status == STATUS_EMPTY:
+        return empty_result(duration_ms=duration, **kwargs)
+    if map_res.status == STATUS_ERROR:
+        return error_result(map_res.reason or REASON_INTERNAL_ERROR,
+                            duration_ms=duration, **kwargs)
+    payload = map_res.payload or {}
+    return _make_result(
+        map_res.status, payload=payload, threads=map_res.topics_count,
+        facts=0, auto_unassigned=map_res.unassigned_count,
+        duration_ms=duration,
+        map_degraded=bool(map_res.degraded),
+        map_reason=REASON_MAP_DEGRADED if map_res.degraded
+        else (map_res.reason or REASON_MAP_OK),
+        map_stats=dict(map_res.stats or {}),
+        **kwargs)
+
+
+# ── Whole-window-first: capacity-first ядро (T-4604/T-4605/T-4606) ─────────
+
+async def run_l1_capacity_first(*, llm, rows: list, chat_id,
+                                correlation_id, system_prompt=None,
+                                llm_call=None, focus_block=None) -> L1Result:
+    """Whole-window-first ветка spec §1 A.2/A.3 (kill-switch master ON).
+
+    Решение режима входа — по ФАКТИЧЕСКОМУ serialized prompt всего окна:
+      * allowance ресолвится существующей единой точкой
+        ``resolve_l1_effective_budget`` (Auto/manual-cap/static семантика
+        §78 сохранены: manual cap = размер ОДНОГО L1-запроса §137; static —
+        аварийный путь тоже партиционируется);
+      * окно меряется serialized §92-элементами (тот же учёт, что
+        ``pack_l1_input``/``_serialized_len`` — имена полей/типы учтены,
+        оценка «только message.text» запрещена, fixture-контрпример --
+        покрыт тестом);
+      * fits → **WHOLE_WINDOW**: РОВНО один L1-запрос со всем serialized
+        окном, никакой pack-эвикции/нарезки (никаких messages[:N]);
+      * не fits → **CAPACITY_OVERFLOW**: иерархический lossless (§A.3) —
+        full SourceWindow → ``_partition_lossless`` → L1 на каждый
+        сегмент → merge → CoverageLedger (XOR-покрытие, restore
+        сегмента, честный degraded).
+
+    Никогда не бросает (fail-open к прежнему контуру 2.58.46 при сбое
+    резолва). События SUMMARY_CAPACITY_RESOLVED /
+    SUMMARY_EXECUTION_MODE_SELECTED — Inspector-поля сразу (R6-G-002)."""
+    started = time.perf_counter()
+    if llm_call is None and llm is None:
+        return error_result(REASON_INTERNAL_ERROR, duration_ms=0.0)
+    slot = resolve_l1_slot()
+    model = _effective_model(llm, slot) if llm is not None else slot.model
+    base_url = _effective_base_url(llm, slot) if llm is not None \
+        else slot.base_url
+    system = system_prompt or resolve_prompt(
+        PROMPT_PG_KEY, SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT)
+    source_rows = _sort_rows(list(rows or []))
+    try:
+        kind, limit, budget_mode = await resolve_l1_effective_budget(
+            system, slot)
+        cap = await _model_capacity.resolve_capacity(
+            base_url, model, slot="summary.l1")
+    except Exception:      # fail-open: резолв не рвёт прогон
+        logger.warning(
+            "summary capacity-first: resolve failed — legacy path "
+            "(байт-в-бит)", exc_info=True)
+        return await run_l1(
+            llm=llm, rows=source_rows, chat_id=chat_id,
+            correlation_id=correlation_id, budget=None,
+            system_prompt=system_prompt, llm_call=llm_call,
+            focus_block=focus_block, _allow_chunking=True,
+            _legacy_fallback=True)
+    if kind != "tokens":
+        # chars-аварийный путь (§77) — прежняя однопроходная семантика
+        # (разделение Hybrid/Legacy не переопределяется волной 2);
+        # бюджет перересолвится исходным контуром идентично.
+        return await run_l1(
+            llm=llm, rows=source_rows, chat_id=chat_id,
+            correlation_id=correlation_id, budget=None,
+            system_prompt=system_prompt, llm_call=llm_call,
+            focus_block=focus_block, _allow_chunking=True,
+            _legacy_fallback=True)
+    # ── Фактический serialized payload ПОЛНОГО окна (§6 ТЗ) ────────────────
+    items = build_l1_payload(source_rows, chat_id)
+    window_tokens = sum(_serialized_len(item, "tokens") for item in items)
+    system_tokens = count_tokens(system or "")
+    reserve = hybrid_output_reserve_tokens(kind="l1", settings_obj=settings)
+    allowance = max(1, int(limit or 0))
+    margin = allowance - window_tokens
+    fit = margin >= 0
+    if cap is not None:
+        plan = _model_capacity.decide_summary_mode(
+            provider=cap.provider, model=model,
+            effective_context_window=cap.effective_context_window,
+            required_input_tokens=system_tokens + window_tokens,
+            reserved_output_tokens=reserve, window_source=cap.source,
+            confidence=cap.confidence, fallback_used=cap.fallback_used)
+    else:
+        plan = _model_capacity.decide_summary_mode(
+            provider=_model_capacity.detect_provider_class(base_url),
+            model=model, effective_context_window=0,
+            required_input_tokens=system_tokens + window_tokens,
+            reserved_output_tokens=reserve,
+            window_source=_model_capacity.SOURCE_FALLBACK,
+            confidence="fallback", fallback_used=True)
+    if fit != (plan.mode == _model_capacity.MODE_WHOLE_WINDOW):
+        # Allowance (budget-семантика §78) суверенен: margin определяет
+        # решение; reason плана адаптируется честно (Inspector-карта).
+        plan = _model_capacity.SummaryCapacityPlan(
+            mode=_model_capacity.MODE_WHOLE_WINDOW if fit
+            else _model_capacity.MODE_CAPACITY_OVERFLOW,
+            reason="fits_effective_context" if fit
+            else "serialized_payload_exceeds_effective_context",
+            provider=plan.provider, model=plan.model,
+            effective_context_window=plan.effective_context_window,
+            required_input_tokens=plan.required_input_tokens,
+            reserved_output_tokens=plan.reserved_output_tokens,
+            safety_margin_tokens=plan.safety_margin_tokens,
+            window_source=plan.window_source, confidence=plan.confidence,
+            fallback_used=plan.fallback_used)
+    if fit:
+        segments = None
+    else:
+        _partitions_preview, _overlap = _partition_lossless(
+            source_rows, chat_id, allowance, "tokens")
+        segments = len(_partitions_preview)
+    _store_capacity_snapshot(
+        mode=plan.mode, reason=plan.reason,
+        window_source=plan.window_source, provider=plan.provider,
+        model=plan.model, effective_window=plan.effective_context_window,
+        required_tokens=plan.required_input_tokens,
+        reserve_tokens=plan.reserved_output_tokens,
+        margin=margin, budget_mode=budget_mode, segments=segments)
+    _emit_capacity_events(
+        correlation_id=correlation_id, chat_id=chat_id, provider=base_url,
+        model=model, plan=plan, margin=margin, budget_mode=budget_mode,
+        segments=segments)
+    logger.info(
+        "SUMMARY_CAPACITY_MODE | run_id=%s | chat_id=%s | mode=%s | "
+        "source_messages=%d | required_input=%d | allowance=%d | margin=%d | "
+        "budget_mode=%s | window_source=%s | segments=%s",
+        correlation_id or "none", chat_id, plan.mode, len(source_rows),
+        system_tokens + window_tokens, allowance, margin, budget_mode,
+        plan.window_source, segments)
+    if fit:
+        # WHOLE_WINDOW: ровно один запрос со всем serialized окном
+        # (никаких messages[:N]/эвикций — spec §1/§3: 22463–22478).
+        return await run_l1(
+            llm=llm, rows=source_rows, chat_id=chat_id,
+            correlation_id=correlation_id, budget=("tokens", allowance),
+            system_prompt=system_prompt, llm_call=llm_call,
+            focus_block=focus_block, _allow_chunking=False,
+            _budget_label=budget_mode, _map_mode=semantic_map_enabled())
+    # CAPACITY_OVERFLOW (§A.3): единственный легитимный chunking-режим.
+    _map_mode = semantic_map_enabled()
+    if not capacity_overflow_ledger_enabled():
+        # OFF → прежний lossless-chunking контур (байт-в-бит).
+        return await _run_l1_lossless(
+            llm=llm, rows=source_rows, chat_id=chat_id,
+            correlation_id=correlation_id, kind="tokens", limit=allowance,
+            system_prompt=system, llm_call=llm_call, focus_block=focus_block,
+            budget_mode=budget_mode, started=started, slot=slot,
+            partitions=_partitions_preview, overlap_count=_overlap,
+            _budget_label=budget_mode, _map_mode=_map_mode)
+    ledger = CoverageLedger(source_message_ids=tuple(
+        stable_id for stable_id in
+        (stable_message_id(row) for row in source_rows)
+        if stable_id is not None))
+    try:
+        from services import pipeline_events
+        pipeline_events.segment_plan(
+            correlation_id, chat_id=chat_id, segments=segments,
+            counts={"source_messages": len(source_rows),
+                    "budget_mode": str(budget_mode or "")})
+    except Exception:      # pragma: no cover - эмиссия не рвёт пайплайн
+        pass
+    return await _run_l1_lossless(
+        llm=llm, rows=source_rows, chat_id=chat_id,
+        correlation_id=correlation_id, kind="tokens", limit=allowance,
+        system_prompt=system, llm_call=llm_call, focus_block=focus_block,
+        budget_mode=budget_mode, started=started, slot=slot,
+        partitions=_partitions_preview, overlap_count=_overlap,
+        ledger=ledger, segment_restore=True, _budget_label=budget_mode,
+        _map_mode=_map_mode)
+
+
 # ── Ядро запуска L1 (без врезки в живой путь) ──────────────────────────────
 
 async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                  budget=None, system_prompt=None, llm_call=None,
-                 focus_block=None, _allow_chunking: bool = True) -> L1Result:
+                 focus_block=None, _allow_chunking: bool = True,
+                 _budget_label: str | None = None,
+                 _legacy_fallback: bool = False,
+                 _map_mode: bool = False) -> L1Result:
     """Один прогон L1: §92-вход → §93-упаковка → LLM-вызов(ы) → §95-v2.
 
     ``llm`` — LLMClient (или совместимый мок); ``llm_call`` — инъекция канала
@@ -1139,8 +1639,25 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
     100%. ``_allow_chunking=False`` — внутренний рекурсивный прогон одного
     фрагмента (chunk-per-request). OFF флага → прежний single-pass pack
     (семантика «L1 truncated … skipped=…») байт-в-байт.
+
+    ASAP 4.1 волна 2 (T-4604; spec §1 A.2, ADR-1028-8 D2): при master
+    ``SUMMARY_WHOLE_WINDOW_FIRST_ENABLED`` (default ON) и неявном ``budget``
+    решение режима входа принимает capacity-first ветка
+    (:func:`run_l1_capacity_first`) — WHOLE_WINDOW | CAPACITY_OVERFLOW по
+    фактическому serialized окну. ``_budget_label`` — аддитивная метка
+    budget-семантики для coverage-снапшота (auto/manual_cap/legacy_static,
+    сохранение контракта ``last_run_coverage.budget_mode``);
+    ``_legacy_fallback=True`` — аварийный проход строго по прежнему контуру
+    (fail-open to legacy strategy). OFF master → всё ниже байт-в-байт
+    2.58.46.
     """
     started = time.perf_counter()
+    if (budget is None and _allow_chunking and not _legacy_fallback
+            and whole_window_first_enabled()):
+        return await run_l1_capacity_first(
+            llm=llm, rows=rows, chat_id=chat_id,
+            correlation_id=correlation_id, system_prompt=system_prompt,
+            llm_call=llm_call, focus_block=focus_block)
     slot = resolve_l1_slot()
     source_rows = list(rows or [])
     chunk_count = 0
@@ -1152,6 +1669,12 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
     system = system_prompt or resolve_prompt(
         PROMPT_PG_KEY, SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT)
     budget_mode = "explicit" if budget else BUDGET_MODE_LEGACY_STATIC
+    if _budget_label:
+        # ASAP 4.1: метка бюджет-семантики capacity-first ветки — аддитивно:
+        # coverage-контракт ``last_run_coverage.budget_mode`` остаётся
+        # auto/manual_cap/legacy_static; блок planning ниже судит по той же
+        # семантике (не «explicit»).
+        budget_mode = _budget_label
     try:
         if budget:
             kind, limit = budget
@@ -1340,80 +1863,124 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                                 **base_kwargs)
 
         space: IdSpace = build_id_space(pack.payload)
-        data, parse_reason = parse_l1_response(raw)
-        duration = (time.perf_counter() - started) * 1000.0
-        # §18 (контракт (k)): L1_PARSE — attempt/parse_status/raw_chars
-        # (только числа/коды, R17).
-        logger.info(
-            "L1_PARSE | run_id=%s | chat_id=%s | attempt=%d | parse_status=%s"
-            " | raw_chars=%d",
-            correlation_id or "none", chat_id, attempt,
-            (parse_reason if data is None else "ok"), len(raw or ""))
-        useless_reason = ""
-        # Unknown-id список собирается ВСЕГДА (в т.ч. repair OFF): он нужен
-        # correction-блоку; в ЛОГИ не уходит никогда (R17 — только счётчики).
-        unknown_ids = (_collect_unknown_ids(data, space)
-                       if data is not None else [])
-        if data is None:
-            if parse_reason == REASON_OK:  # pragma: no cover - защитная ветка
-                parse_reason = REASON_INTERNAL_ERROR
-            result = invalid_result(parse_reason, duration_ms=duration,
-                                    **base_kwargs)
+        if _map_mode:
+            # ── T-4607 (spec §2 B.1; ADR-1028-8 D3): semantic map v1 —
+            # парсер/валидатор карты (строгие структура/id-space, БЕЗ
+            # too_many_facts — измерение снято); переполнение бюджетов →
+            # deterministic compaction + map_degraded (никогда не invalid).
+            data, parse_reason = parse_map_response(raw)
+            duration = (time.perf_counter() - started) * 1000.0
+            logger.info(
+                "L1_PARSE | run_id=%s | chat_id=%s | attempt=%d | "
+                "parse_status=%s | raw_chars=%d",
+                correlation_id or "none", chat_id, attempt,
+                (parse_reason if data is None else "ok"), len(raw or ""))
+            unknown_ids = (_collect_map_unknown_ids(data, space)
+                           if data is not None else [])
+            if data is None:
+                if parse_reason == REASON_OK:  # pragma: no cover - defensive
+                    parse_reason = REASON_INTERNAL_ERROR
+                result = invalid_result(parse_reason, duration_ms=duration,
+                                        **base_kwargs)
+            else:
+                map_res = validate_semantic_map(data, space,
+                                                duration_ms=duration)
+                if map_res.usable:
+                    compacted, compact_stats, compact_degraded = \
+                        compact_semantic_map(map_res.payload, id_space=space)
+                    if compacted is not None and (compact_degraded
+                                                  or compact_stats):
+                        map_res = dataclasses.replace(
+                            map_res, payload=compacted,
+                            degraded=compact_degraded or map_res.degraded,
+                            stats=compact_stats)
+                if map_res.usable and pack.truncated:
+                    map_res = dataclasses.replace(map_res,
+                                                  status=STATUS_TRUNCATED)
+                result = _map_result_to_l1(map_res, base_kwargs)
         else:
-            # repair МЕЖДУ parse и validate (kill-switch OFF → пропускается:
-            # прежняя строгость валидатора v2 минус partition-правила).
-            if repair_on:
-                data, report = repair_l1(data, space)
-                logger.info(
-                    "L1_REPAIR | run_id=%s | chat_id=%s | attempt=%d | "
-                    "overlapping_topic_memberships=%d | unknown_ids_removed=%d"
-                    " | facts_removed=%d | topics_removed=%d | "
-                    "evidence_membership_added=%d | "
-                    "unassigned_conflicts_resolved=%d | topics_before=%d | "
-                    "topics_after=%d | facts_before=%d | facts_after=%d | "
-                    "useless=%d | useless_reason=%s",
-                    correlation_id or "none", chat_id, attempt,
-                    report.overlapping_topic_memberships,
-                    report.unknown_ids_removed, report.facts_removed,
-                    report.topics_removed, report.evidence_membership_added,
-                    report.unassigned_conflicts_resolved,
-                    report.topics_before, report.topics_after,
-                    report.facts_before, report.facts_after,
-                    1 if report.useless else 0,
-                    report.useless_reason or "-")
-                if report.useless:
-                    useless_reason = report.useless_reason
-                    result = invalid_result(REASON_L1_USELESS_AFTER_REPAIR,
-                                            duration_ms=duration,
-                                            **base_kwargs)
+            data, parse_reason = parse_l1_response(raw)
+            duration = (time.perf_counter() - started) * 1000.0
+            # §18 (контракт (k)): L1_PARSE — attempt/parse_status/raw_chars
+            # (только числа/коды, R17).
+            logger.info(
+                "L1_PARSE | run_id=%s | chat_id=%s | attempt=%d | "
+                "parse_status=%s"
+                " | raw_chars=%d",
+                correlation_id or "none", chat_id, attempt,
+                (parse_reason if data is None else "ok"), len(raw or ""))
+        useless_reason = ""
+        if _map_mode:
+            # Unknown-id список карты собран выше (correction-блок; в ЛОГИ
+            # не уходит — R17).
+            pass
+        else:
+            # Unknown-id список собирается ВСЕГДА (в т.ч. repair OFF): он нужен
+            # correction-блоку; в ЛОГИ не уходит никогда (R17 — только счётчики).
+            unknown_ids = (_collect_unknown_ids(data, space)
+                           if data is not None else [])
+            if data is None:
+                if parse_reason == REASON_OK:  # pragma: no cover - защитная ветка
+                    parse_reason = REASON_INTERNAL_ERROR
+                result = invalid_result(parse_reason, duration_ms=duration,
+                                        **base_kwargs)
+            else:
+                # repair МЕЖДУ parse и validate (kill-switch OFF → пропускается:
+                # прежняя строгость валидатора v2 минус partition-правила).
+                if repair_on:
+                    data, report = repair_l1(data, space)
+                    logger.info(
+                        "L1_REPAIR | run_id=%s | chat_id=%s | attempt=%d | "
+                        "overlapping_topic_memberships=%d | unknown_ids_removed=%d"
+                        " | facts_removed=%d | topics_removed=%d | "
+                        "evidence_membership_added=%d | "
+                        "unassigned_conflicts_resolved=%d | topics_before=%d | "
+                        "topics_after=%d | facts_before=%d | facts_after=%d | "
+                        "useless=%d | useless_reason=%s",
+                        correlation_id or "none", chat_id, attempt,
+                        report.overlapping_topic_memberships,
+                        report.unknown_ids_removed, report.facts_removed,
+                        report.topics_removed, report.evidence_membership_added,
+                        report.unassigned_conflicts_resolved,
+                        report.topics_before, report.topics_after,
+                        report.facts_before, report.facts_after,
+                        1 if report.useless else 0,
+                        report.useless_reason or "-")
+                    if report.useless:
+                        useless_reason = report.useless_reason
+                        result = invalid_result(REASON_L1_USELESS_AFTER_REPAIR,
+                                                duration_ms=duration,
+                                                **base_kwargs)
+                    else:
+                        result = validate_l1_response(
+                            data, space, duration_ms=duration,
+                            skipped_ids=pack.skipped_ids,
+                            skipped_tg_ids=pack.skipped_tg_ids,
+                            truncated=pack.truncated,
+                            chunk_count=pack.chunk_count)
+                        if result.status == STATUS_OK and pack.truncated:
+                            result = dataclasses.replace(
+                                result, status=STATUS_TRUNCATED, truncated=True)
                 else:
+                    # Kill-switch repair OFF → валидатор v2 без ремонта (прежняя
+                    # строгость минус partition-правила).
                     result = validate_l1_response(
                         data, space, duration_ms=duration,
                         skipped_ids=pack.skipped_ids,
                         skipped_tg_ids=pack.skipped_tg_ids,
-                        truncated=pack.truncated,
-                        chunk_count=pack.chunk_count)
+                        truncated=pack.truncated, chunk_count=pack.chunk_count)
                     if result.status == STATUS_OK and pack.truncated:
                         result = dataclasses.replace(
                             result, status=STATUS_TRUNCATED, truncated=True)
-            else:
-                # Kill-switch repair OFF → валидатор v2 без ремонта (прежняя
-                # строгость минус partition-правила).
-                result = validate_l1_response(
-                    data, space, duration_ms=duration,
-                    skipped_ids=pack.skipped_ids,
-                    skipped_tg_ids=pack.skipped_tg_ids,
-                    truncated=pack.truncated, chunk_count=pack.chunk_count)
-                if result.status == STATUS_OK and pack.truncated:
-                    result = dataclasses.replace(
-                        result, status=STATUS_TRUNCATED, truncated=True)
 
         # ── Волна C (T-4422, §51): переполнение контракта (too_many_*) при
         # ON-guard — deterministic repair БЕЗ нового LLM-вызова (reduce
         # duplicates → split subthread → allocate budget), потом revalidate.
         # Потолки 30/1000 остаются структурными, но нормальный плотный чат
         # больше НЕ invalid (§50.36). OFF → прежний invalid → fallback.
-        if (result.status == STATUS_INVALID
+        # T-4607: map-режим пропускает §95-кап-ремонт (too_many_facts-
+        # класс невозможен по построению; бюджет снимает compaction).
+        if (not _map_mode and result.status == STATUS_INVALID
                 and result.invalid_reason in CAPACITY_REASONS
                 and data is not None and capacity_guard_enabled()):
             repaired_data, cap_stats = repair_capacity_overflow(data)
@@ -1435,16 +2002,31 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
         # Ровно одна исправляющая повторная попытка:retryable-причина ПОСЛЕ
         # repair+validate; вторая попытка = system + исходный user +
         # correction-блок (id-списки — только в промпт, в лог — код/числа).
+        # T-4607: map-режим — свои retryable-причины и map-коррекция.
+        _retryable = RETRYABLE_MAP_REASONS if _map_mode else _RETRYABLE_REASONS
         if (attempt < max_attempts and result.status == STATUS_INVALID
-                and result.invalid_reason in _RETRYABLE_REASONS):
+                and result.invalid_reason in _retryable):
             logger.warning(
                 "L1_CORRECTION_RETRY | run_id=%s | chat_id=%s | "
                 "attempt=%d/%d | reason=%s",
                 correlation_id or "none", chat_id, attempt, max_attempts,
                 result.invalid_reason or "-")
-            messages = _build_correction_messages(
-                messages, result.invalid_reason or REASON_INVALID_JSON,
-                unknown_ids=unknown_ids, useless_reason=useless_reason)
+            if _map_mode:
+                block = map_correction_block(
+                    result.invalid_reason or REASON_INVALID_JSON,
+                    unknown_ids=unknown_ids,
+                    useless_reason=useless_reason)
+            else:
+                block = _correction_block(
+                    result.invalid_reason or REASON_INVALID_JSON,
+                    unknown_ids=unknown_ids,
+                    useless_reason=useless_reason)
+            corrected = [dict(messages[0])]
+            user = dict(messages[1])
+            user["content"] = (str(user.get("content") or "") + "\n\n"
+                               + block)
+            corrected.append(user)
+            messages = corrected
             continue
         break
 

@@ -175,15 +175,17 @@ def _wb_env(monkeypatch):
     """Волна B по умолчанию ON (прод-дефолт); слот — сконфигурированный
     (тесты pre-execution фейлов переопределяют точечно)."""
     _flag(monkeypatch, True)
-    monkeypatch.setattr(j, "resolve_style_slot", lambda *, profile,
-                        connection: {
-                            "base_url": "https://edit.example/v1",
-                            "model": "qwen-image-edit",
-                            "provider": "edit.example",
-                            "connection_id": "default",
-                            "custom_unresolved": False,
-                            "configured": True,
-                        })
+    # T-4619 (AMEND, волна 6): врезка — resolve_style_slot_inherited
+    # (лестница §35); тест патчит её — слот сконфигурированный (async —
+    # run_style_job ожидает резолв).
+    async def _slot(*, profile, connection, pg=None):
+        return {"base_url": "https://edit.example/v1",
+                "model": "qwen-image-edit",
+                "provider": "edit.example",
+                "connection_id": "default",
+                "custom_unresolved": False,
+                "configured": True}
+    monkeypatch.setattr(j, "resolve_style_slot_inherited", _slot)
     yield
 
 
@@ -564,11 +566,11 @@ class TestVisibleFailOpen:
             self, monkeypatch, tmp_path, caplog):
         """§B.5 (прод-факт Q15): pre-execution `not_configured` — counter
         НЕ расходуется, SUBMITTED (real submission) не эмитится."""
-        monkeypatch.setattr(
-            j, "resolve_style_slot", lambda *, profile, connection: {
-                "base_url": "", "model": "", "provider": "",
-                "connection_id": "default", "custom_unresolved": False,
-                "configured": False})
+        async def _slot(*, profile, connection, pg=None):
+            return {"base_url": "", "model": "", "provider": "",
+                    "connection_id": "default", "custom_unresolved": False,
+                    "configured": False}
+        monkeypatch.setattr(j, "resolve_style_slot_inherited", _slot)
         base = _png(tmp_path / "b.png")
         counter = _patch_issue_counter(monkeypatch)
         with caplog.at_level(logging.INFO):
@@ -595,13 +597,13 @@ class TestVisibleFailOpen:
             return None
 
         monkeypatch.setattr(registry, "get_connection", _no_connection)
-        monkeypatch.setattr(j, "resolve_style_slot", lambda *, profile,
-                            connection: {
-                                "base_url": "https://d.example/v1",
-                                "model": "m", "provider": "d.example",
-                                "connection_id": "default",
-                                "custom_unresolved": True,
-                                "configured": True})
+        async def _slot(*, profile, connection, pg=None):
+            return {"base_url": "https://d.example/v1",
+                    "model": "m", "provider": "d.example",
+                    "connection_id": "default",
+                    "custom_unresolved": True,
+                    "configured": True}
+        monkeypatch.setattr(j, "resolve_style_slot_inherited", _slot)
         base = _png(tmp_path / "b.png")
         counter = _patch_issue_counter(monkeypatch)
         edit = AsyncMock()
@@ -818,14 +820,14 @@ class TestReferenceIntegrityAndDiagnostics:
         _patch_pg(monkeypatch)
         slots = []
 
-        def _slot(*, profile, connection):
+        async def _slot(*, profile, connection, pg=None):
             slots.append((profile.get("profile_id"),))
             return {"base_url": "https://edit.example/v1",
                     "model": "qwen-image-edit", "provider": "edit.example",
                     "connection_id": "default", "custom_unresolved": False,
                     "configured": True}
 
-        monkeypatch.setattr(j, "resolve_style_slot", _slot)
+        monkeypatch.setattr(j, "resolve_style_slot_inherited", _slot)
         counter = _patch_issue_counter(monkeypatch)
         preview = await j.run_style_preview(
             profile=_profile(), base_image_path=base,

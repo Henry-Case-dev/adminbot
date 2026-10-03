@@ -890,7 +890,14 @@ def test_write_points_go_through_single_writer():
         # +3 v23 asap-4 (ADR-1028-7 D1, embedding control plane:
         # embedding_quota_state + ALTER реестра + PRAGMA в
         # `_migrate_embedding_control_plane_v23`, L-MCA14-3)
-        "database.py": 147,
+        # +2 v24 asap-4.1 (T-4603, summary_source_windows: CREATE TABLE +
+        # PRAGMA в `_migrate_summary_source_window_v24`, L-MCA14-3;
+        # runtime-save/purge идут через `write_transaction`, без прямых)
+        # +6 v24 asap-4.1 (T-4616, волна 5: summary_runs + summary_run_stages
+        # — CREATE TABLE/индексы/PRAGMA в `_migrate_summary_runs_v24`/
+        # `_migrate_summary_run_stages_v24`, L-MCA14-3; runtime run/stage/
+        # publication-записи идут через `write_transaction`, без прямых)
+        "database.py": 155,
         "dossier_rebuild_jobs.py": 1,   # внутри `async with db.serialized()`
         # ASAP-3.2 (ADR-1028-5 D1/D2, T-4191): shadow-rebuild — 3 прямых
         # commit внутри `async with memory.db.serialized()` (идемпотентный

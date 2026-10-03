@@ -132,6 +132,59 @@ REASONS_RU = {
     "budget_exceeded": "Превышен бюджет вызовов/токенов.",
     "delivery_unknown": "Доставка не подтверждена.",
     "empty": "Пустой результат этапа.",
+    # Волна 4 — Supervisor (T-4615, §30 ТЗ: честные причины вместо
+    # misleading `total_budget_exceeded`; «budget» ≠ денежный balance).
+    "execution_deadline_exceeded": ("Вызов прерван предохранительным "
+                                    "дедлайном (защита от зависания)."),
+    "retry_time_budget_exhausted": ("Ответ не получен: все повторные "
+                                    "попытки исчерпаны."),
+    "provider_stalled": ("Провайдер перестал подавать признаки активности — "
+                         "запрос прерван."),
+    "fallback_capacity_smaller": ("Резервная модель не вмещает исходное "
+                                  "окно — oversized-отправка отменена."),
+    # Волна 7 (зона G, T-4621/4622/4623) — человеческие формулировки для
+    # coverage-breakdown / capacity-карточки / cover-style карточки.
+    # Capability-источники резолва слота §5 (AR-1028-3 цепочка):
+    "runtime": "Обнаружено у работающего провайдера.",
+    "provider_catalog": "Из каталога провайдера.",
+    "registry": "Из реестра проверенных моделей.",
+    "verified_registry": "Из реестра проверенных моделей.",
+    "developer_override": "Задано вручную разработчиком (в обход каталога).",
+    "unknown_fallback": "Окно модели не подтверждено — взят консервативный "
+                        "минимум.",
+    "fallback": "Окно модели не подтверждено — взят консервативный минимум.",
+    "unknown": "Источник данных не определён.",
+    # Решение режима входа (execution mode):
+    "fits_effective_context": ("Полное окно вмещается в контекст модели — "
+                               "отправлено одним запросом."),
+    "serialized_payload_exceeds_effective_context": ("Полное окно не "
+                               "вмещается — разговор разбит на сегменты."),
+    "capacity_overflow": ("Полное окно не вмещается — разговор разбит на "
+                          "сегменты."),
+    "capacity_cache_invalidated": ("Данные о возможностях провайдера "
+                                   "обновлены — окно пересчитано."),
+    "fits_after_fallback": ("Резервная модель вмещает полное окно."),
+    "segment_artifacts_exist": ("Разговор уже разбит на сегменты — план "
+                                "не меняется посреди прогона."),
+    # L1 semantic map (зона B, honest degraded):
+    "map_compacted": "Карта тем сжата по бюджету компактности.",
+    "map_degraded": "Карта тем неполноценна (сжатие/заготовка) — честно "
+                    "помечена.",
+    "semantic_map_unavailable": "Карта тем недоступна — писатель читал "
+                                "оригинал напрямую.",
+    "minimal_map_synthesized": ("Для непокрытого сегмента собрана "
+                                "структурная заготовка карты."),
+    "segment_restored": "Упавший сегмент перепроверен повторным запросом.",
+    "segment_failed_after_restore": ("Сегмент не удалось восстановить — "
+                                     "фрагмент остался непокрытым."),
+    "coverage_ledger_missing": "Часть источника не вошла ни в один сегмент.",
+    # Источник резолва Style-слота (лестница наследования §35):
+    "global_style_slot": "Глобальный слот «Обработка стиля».",
+    "profile_connection": "Подключение профиля стиля.",
+    "connections_default": "Наследовано от глобального image-провайдера "
+                           "(Connections default).",
+    "global_image": "Наследовано от глобального image-провайдера.",
+    "no_style": "Стиль не выбран («Без дополнительного стиля»).",
 }
 
 # ── пояснения стадий (§61.3: 1–3 короткие строки) ───────────────────────────
@@ -209,6 +262,15 @@ def reason_ru(code) -> str:
     return REASONS_RU.get(code, "")
 
 
+def _safe_reason_code(raw):
+    """Сырая причина → код через единый map_reason (fail-open, как reason_ru)."""
+    try:
+        from services.pipeline_events import map_reason
+        return map_reason(raw)
+    except Exception:      # pragma: no cover - fail-open
+        return None
+
+
 def _node(key, label, branch, state, *, reason_code=None, latency_ms=None,
           attempts=None, provider=None, model=None, counts=None,
           detail=None) -> dict:
@@ -247,6 +309,465 @@ def _state_label(state: str) -> str:
 
 def _cover_label(style_id) -> str:
     return "Стиль: %s" % style_id if style_id else "Стиль"
+
+
+# ── ASAP 4.1 волна 7 (зона G, T-4621): честная coverage semantics (§38) ─────
+# Раздельные метрики карточки: Источник / Structurer-L1 (whole-window input
+# + result) / Writer input coverage / Final text coverage (+ overflow: 
+# segments/messages covered). Данные — ТОЛЬКО structured state (usage_json
+# событийных строк `mca_events` + in-memory снапшот; §61.12 не расширяется —
+# никакого парсинга логов). «839/839 Coverage 100%» рядом с failed L1 не
+# показывается единым успехом: L1 result — отдельная ось (R6-G-001).
+
+# События зоны G (все — сущ. транспорт mca-17a; имена не переименованы):
+_EV_SOURCE_READY = "SUMMARY_SOURCE_WINDOW_READY"
+_EV_CAPACITY = "SUMMARY_CAPACITY_RESOLVED"
+_EV_MODE = "SUMMARY_EXECUTION_MODE_SELECTED"
+_EV_L1_ACT = "SUMMARY_L1_ACTIVITY"
+_EV_WRITER_ACT = "SUMMARY_WRITER_ACTIVITY"
+_EV_SUPERVISOR = "SUMMARY_LLM_SUPERVISOR"
+_EV_STYLE_RESOLVE = "COVER_STYLE_RESOLVE"
+_EV_STYLE_OK = "COVER_STYLE_SUCCEEDED"
+
+_CAP_KEYS = (
+    "provider", "model", "effective_context_window",
+    "required_input_tokens", "reserved_output_tokens",
+    "safety_margin_tokens", "window_source", "confidence", "fallback_used",
+    "mode", "reason", "budget_mode", "segments",
+)
+
+
+def _events_named(events, *names) -> list:
+    return [e for e in (events or [])
+            if isinstance(e, dict) and e.get("event_name") in names]
+
+
+def _capacity_card(events) -> dict | None:
+    """Карточка «КОНТЕКСТ МОДЕЛИ» (§39 ТЗ) из structured capacity-событий
+    (SUMMARY_CAPACITY_RESOLVED / SUMMARY_EXECUTION_MODE_SELECTED; T-4622).
+
+    Поля: Provider/Model/Effective window/Serialized input/Output reserve/
+    Mode (WHOLE_WINDOW | CAPACITY_OVERFLOW) + человеческая причина +
+    источник окна по цепочке §5 (runtime/catalog/registry/override/
+    fallback) + re-plan события в рамках run (T-4605). Значения —
+    structured state (usage_json), не догадки. R17: числа/enum/коды.
+    """
+    caps = _events_named(events, _EV_CAPACITY)
+    mode_ev = _events_named(events, _EV_MODE)
+    if not caps and not mode_ev:
+        return None
+    plan: dict = {}
+    if caps:
+        last_usage = _parse_usage(caps[-1].get("usage_json"))
+        plan = {k: last_usage.get(k) for k in _CAP_KEYS
+                if k in last_usage}
+    last_cap = caps[-1] if caps else {}
+    # Provider/model в реальном событии — колонки mca_events
+    # (pipeline_events.capacity_resolved), fallback — top-level строки.
+    out: dict = {"provider": plan.get("provider")
+                 or last_cap.get("provider"),
+                 "model": plan.get("model") or last_cap.get("model")}
+    if caps:
+        ew = _int(plan.get("effective_context_window"))
+        if ew is not None:
+            out["effective_window"] = ew
+        req = _int(plan.get("required_input_tokens"))
+        if req is not None:
+            out["required_input_tokens"] = req
+        res = _int(plan.get("reserved_output_tokens"))
+        if res is not None:
+            out["reserved_output_tokens"] = res
+        margin = _int(plan.get("safety_margin_tokens"))
+        if margin is not None:
+            out["safety_margin_tokens"] = margin
+        src = str(plan.get("window_source") or "") or None
+        out["window_source"] = src
+        out["window_source_ru"] = REASONS_RU.get(src, "") or None
+        out["confidence"] = str(plan.get("confidence") or "") or None
+        out["fallback_used"] = bool(plan.get("fallback_used"))
+        segments = _int(plan.get("segments"))
+        if segments is not None:
+            out["segments"] = segments
+        out["budget_mode"] = str(plan.get("budget_mode") or "") or None
+        # Re-plan: каждый следующий SUMMARY_CAPACITY_RESOLVED после
+        # первого = переоценка в рамках run (fallback/инвалидация).
+        out["replans"] = max(0, len(caps) - 1)
+    last_mode = str(
+        (caps[-1].get("usage_json") and _parse_usage(
+            caps[-1].get("usage_json")).get("mode")) or "") \
+        or (str((mode_ev[-1] if mode_ev else {}).get("status") or "")
+            or None)
+    out["mode"] = last_mode or None
+    out["mode_ru"] = MODE_HUMAN.get(str(last_mode or ""),
+                                    str(last_mode or "")) or None
+    reason = str(plan.get("reason") or "")
+    if not reason and mode_ev:
+        reason = str(_parse_usage(mode_ev[-1].get("usage_json"))
+                     .get("reason") or "")
+    out["reason"] = reason or None
+    out["reason_ru"] = REASONS_RU.get(reason, "") or None
+    return out
+
+
+MODE_HUMAN = {
+    "WHOLE_WINDOW": "один запрос на всё окно",
+    "CAPACITY_OVERFLOW": "сегменты (полное окно не вмещается)",
+    "sync": "синхронный вызов (живой запрос)",
+    "stream": "стрим (живой конвейер)",
+    "async_job": "фоновая задача (polling)",
+    "opaque_sync": "синхронный вызов (живой запрос)",
+}
+
+STAGE_HUMAN = {
+    "l1": "L1 · Структурирование",
+    "l2": "Writer · Писатель",
+    "l2_review": "Reviewer · Проверка",
+    "l1_overflow": "L1 · Сегмент (overflow)",
+    "legacy": "Legacy · Резервный контур",
+}
+
+_RESULT_HUMAN = {
+    "styled": "стиль применён",
+    "base_fallback": "базовая обложка (обработка стилем не удалась)",
+    "no_cover": "публикация без обложки",
+}
+
+_RESOLVE_SOURCE_RU = {
+    "global_style": "глобальный слот «Обработка стиля»",
+    "profile_connection": "подключение профиля стиля",
+    "connections_default": "наследование от image-провайдера "
+                           "(Connections default)",
+    "global_image": "наследование от глобального image-провайдера",
+}
+
+# Действительная лестница §35 — идентификаторы SLOT_SOURCE_* из
+# cover_style_pipeline.py (spec F.2): enum значения, не выдумка.
+RESOLVE_SOURCE_RU = _RESOLVE_SOURCE_RU
+
+
+def _liveness_cards(events, *, stage_rows=None, running: bool = False,
+                    now=None) -> list:
+    """Liveness на каждой LLM stage (§40 ТЗ; T-4622) из structured state:
+    SUMMARY_L1_ACTIVITY / SUMMARY_WRITER_ACTIVITY (execution mode,
+    провайдер-фоллбек, reason) + durable ``summary_run_stages``
+    (per-attempt last_activity тикер T-4624: «жива/завершена/ждёт»).
+
+    Человекочитаемый default-вид (03434 ТЗ — без машинной каши);
+    декларации отражают фактическое состояние (не «stream ✓» при
+    sync-транспорте — mode приходит из честной Supervisor-декларации).
+    """
+    rows: dict[str, dict] = {}
+
+    def _row(stage_key: str) -> dict:
+        out = rows.get(stage_key)
+        if out is None:
+            out = {"stage": stage_key,
+                   "label": STAGE_HUMAN.get(stage_key, stage_key),
+                   "mode": None, "provider": None, "model": None}
+            rows[stage_key] = out
+        return out
+
+    for ev in _events_named(events, _EV_L1_ACT, _EV_WRITER_ACT,
+                            _EV_SUPERVISOR):
+        usage = _parse_usage(ev.get("usage_json"))
+        # Стадия: event.stage (l1/l2/l2_review/legacy из _ACT_STAGE),
+        # fallback — op из usage ('l1'/'writer'/'reviewer'/'revision').
+        op = str(usage.get("op") or "")
+        op_stage = {"writer": "l2", "reviewer": "l2_review",
+                    "revision": "l2_review"}.get(op, op or None)
+        stage_key = str(ev.get("stage") or "") or op_stage or "llm"
+        row = _row(stage_key)
+        mode = str(ev.get("status") or op or "sync")
+        # Честная декларация: sync-транспорт Supervisor'а не показывается
+        # как stream/async (T-4613). Supervisor-журнал — sync.
+        mode = str(mode or "sync")
+        if mode not in ("sync", "stream", "async_job", "opaque_sync"):
+            mode = "sync"
+        if row["mode"] is None or mode in ("stream", "async_job"):
+            row["mode"] = mode
+        act = _int(ev.get("ts"))
+        if act is not None:
+            prev = _int(row["last_activity_ts"]) \
+                if row.get("last_activity_ts") is not None else None
+            row["last_activity_ts"] = act if prev is None else max(prev, act)
+        if ev.get("reason_code"):
+            code = _safe_reason_code(ev.get("reason_code"))
+            if code:
+                row["last_reason_code"] = code
+        if ev.get("provider"):
+            row["provider"] = str(ev.get("provider"))
+        if ev.get("model"):
+            row["model"] = str(ev.get("model"))
+        if str(ev.get("outcome") or "") in ("fallback", "degraded") \
+                or usage.get("fallback_target"):
+            row["provider_fallback"] = True
+    if stage_rows:
+        for row in stage_rows:
+            if not isinstance(row, dict):
+                continue
+            stage_key = str(row.get("stage") or "llm")
+            if not stage_key.startswith(("l1", "l2", "review", "writer",
+                                         "legacy", "run")):
+                continue
+            view = _row(stage_key)
+            act = _int(row.get("last_activity_at"))
+            fin = _int(row.get("finished_at"))
+            if act is not None:
+                prev = _int(view["last_activity_ts"]) \
+                    if view.get("last_activity_ts") is not None else None
+                view["last_activity_ts"] = act if prev is None \
+                    else max(prev, act)
+            if fin is not None:
+                prev_fin = _int(view["finished_ts"]) \
+                    if view.get("finished_ts") is not None else None
+                view["finished_ts"] = fin if prev_fin is None \
+                    else max(prev_fin, fin)
+            if view.get("attempt") is None and row.get("attempt") is not None:
+                view["attempt"] = _int(row.get("attempt"))
+            view["stage_status"] = str(row.get("status") or "")
+            if row.get("provider"):
+                view["provider"] = str(row.get("provider"))
+            if row.get("model"):
+                view["model"] = str(row.get("model"))
+    out = []
+    for key in sorted(rows):
+        row = rows[key]
+        finished = row.get("finished_ts")
+        if row.get("stage_status") == "failed":
+            row["live"] = False
+            row["status_ru"] = "стадия упала"
+        elif not running or finished:
+            row["live"] = False
+            row["status_ru"] = "завершена"
+        elif row.get("last_activity_ts"):
+            row["live"] = True
+            row["status_ru"] = "жива (активность подтверждена)"
+        else:
+            row["live"] = False
+            row["status_ru"] = "ждёт"
+        row["mode_ru"] = MODE_HUMAN.get(str(row.get("mode") or ""),
+                                        "синхронный вызов (живой запрос)")
+        row["reason_ru"] = REASONS_RU.get(
+            str(row.get("last_reason_code") or ""), "") or None
+        out.append(row)
+    return out
+
+
+def _cover_style_card(events) -> dict | None:
+    """Карточка cover style (§41 ТЗ; T-4623): Base cover ✓/✕, Selected
+    style, Style provider/model, Style capability image-edit (registry),
+    Reference assets (counts), Style edit ✓-✕, Published cover =
+    ``styled | base_fallback | no_cover`` + ТОЧНАЯ причина fallback
+    (connection_missing / not_configured / edit_unsupported — не generic
+    style_failed, правило ADR-1028-7 D6.3).
+
+    Данные — только события COVER_* этого run'а (единый run_id §42 ТЗ,
+    emit_cover_event mca-17a). Честное отсутствие данных остаётся
+    отсутствующим (None ≠ выдумка); reference assets показывается только
+    когда реально прошёл подсчёт (usage.reference_count).
+    """
+    style_ok_rows = _events_named(events, _EV_STYLE_OK)
+    style_fail_rows = _events_named(events, _STYLE_FAIL)
+    base_ok_rows = _events_named(events, _COVER_BASE_OK)
+    base_fail_rows = _events_named(events, _COVER_BASE_FAIL)
+    resolve_rows = _events_named(events, _EV_STYLE_RESOLVE)
+    if not (style_ok_rows or style_fail_rows or base_ok_rows
+            or base_fail_rows or resolve_rows):
+        return None
+    card = {
+        "base_cover_ok": bool(base_ok_rows),
+        "selected_style": None,
+        "style_provider": None,
+        "style_model": None,
+        "style_edit_ok": None,
+        "capability_edit": None,
+        "reference_assets": None,
+        "result": None,
+        "fallback_reason": None,
+        "fallback_reason_ru": None,
+        "resolve_source": None,
+        "resolve_source_ru": None,
+    }
+    style_ev = (style_fail_rows or style_ok_rows or [None])[-1]
+    if style_ev is not None:
+        card["selected_style"] = str(style_ev.get("style_id") or "") or None
+        card["style_provider"] = str(style_ev.get("provider") or "") or None
+        card["style_model"] = str(style_ev.get("model") or "") or None
+    elif base_ok_rows:
+        base_ev = base_ok_rows[-1]
+        card["base_cover_provider"] = str(base_ev.get("provider")
+                                          or "") or None
+        card["base_cover_model"] = str(base_ev.get("model") or "") or None
+    if resolve_rows:
+        res_ev = resolve_rows[-1]
+        src = str(res_ev.get("resolve_source") or "") or None
+        if not src:
+            src = str(_parse_usage(res_ev.get("usage_json"))
+                      .get("resolve_source") or "") or None
+        card["resolve_source"] = src
+        card["resolve_source_ru"] = _RESOLVE_SOURCE_RU.get(src, "") or None
+        if card["selected_style"] is None:
+            card["selected_style"] = str(res_ev.get("style_id")
+                                         or "") or None
+        if card["style_provider"] is None:
+            card["style_provider"] = str(res_ev.get("provider")
+                                         or "") or None
+        if card["style_model"] is None:
+            card["style_model"] = str(res_ev.get("model") or "") or None
+    # Style edit: успех = COVER_STYLE_SUCCEEDED; провал — точный reason
+    # (T-4620/§36: не generic style_failed).
+    if style_ok_rows:
+        card["style_edit_ok"] = True
+        card["capability_edit"] = True
+        ref_ok = _int(_parse_usage(style_ok_rows[-1].get("usage_json"))
+                      .get("reference_count"))
+        if ref_ok is not None:
+            card["reference_assets"] = ref_ok
+    elif style_fail_rows:
+        fail_ev = style_fail_rows[-1]
+        card["style_edit_ok"] = False
+        code = _safe_reason_code(fail_ev.get("reason_code")) \
+            or str(fail_ev.get("reason_code") or "")
+        card["fallback_reason"] = code or None
+        if card["fallback_reason"]:
+            card["fallback_reason_ru"] = REASONS_RU.get(
+                card["fallback_reason"], "") or None
+        if code == "edit_unsupported":
+            card["capability_edit"] = False
+        ref_count = _int(_parse_usage(fail_ev.get("usage_json"))
+                         .get("reference_count"))
+        if ref_count is not None:
+            card["reference_assets"] = ref_count
+    # Published cover (fail-soft лестница §37).
+    if style_ok_rows:
+        card["result"] = "styled"
+    elif style_fail_rows and base_ok_rows:
+        card["result"] = "base_fallback"
+    elif base_fail_rows and not base_ok_rows:
+        card["result"] = "no_cover"
+    elif style_fail_rows:               # failed style, base_ok нет
+        card["result"] = "no_cover"
+    out = {k: v for k, v in card.items() if v is not None}
+    return out or None
+
+
+def _coverage_breakdown(snapshot, usage, events) -> dict | None:
+    """Раздельная coverage-витрина (§38 ТЗ; T-4621) — honest semantics.
+
+        Источник:              839/839 · 100%
+        Structurer/L1:         839/839 whole-window input; result: failed
+        Writer input coverage: 839/839 · 100%
+        Final text coverage:   839/839 · 100%
+        Overflow:              segments 4/4; messages covered 839/839
+
+    «839/839 Coverage 100%» рядом с L1 failure НЕ показывается единым
+    успехом: каждая ось — отдельная строка (R6-G-001); существующая
+    first-class coverage-карточка (R4-E) не редактируется. Данные —
+    structured state (usage_json событий + in-memory снапшот; НЕ
+    парсинг логов §38 ТЗ: 23384).
+    """
+    src_total = _int(snapshot.get("source_total")) \
+        or _int(usage.get("source_total"))
+    src_considered = _int(snapshot.get("source_considered")) \
+        or _int(usage.get("source_considered"))
+    src_ready = _events_named(events, _EV_SOURCE_READY)
+    if src_ready:
+        messages = _int(_parse_usage(src_ready[-1].get("usage_json"))
+                        .get("messages"))
+        if src_total is None and messages is not None:
+            src_total = messages
+    percent = _float(snapshot.get("source_coverage"))
+    if percent is None:
+        percent = _float(usage.get("coverage"))
+    l1_rows = _events_named(events, "SUMMARY_L1_STAGE")
+    src_rows = _events_named(events, "SUMMARY_SOURCE_WINDOW")
+    writer_rows = _events_named(events, "SUMMARY_L2_STAGE")
+    seg_plan_rows = _events_named(events, "SUMMARY_SEGMENT_PLAN")
+    seg_ledger_rows = _events_named(events, "SUMMARY_SEGMENT_LEDGER")
+    seg_result_rows = _events_named(events, "SUMMARY_SEGMENT_RESULT")
+    out: dict = {}
+    # ── Источник ────────────────────────────────────────────────────────
+    if src_rows or src_total is not None:
+        input_count = _int(_parse_usage(
+            (src_rows[-1] if src_rows else {}).get("usage_json"))
+            .get("input_count"))
+        out["source"] = {
+            "total": src_total,
+            "considered": src_considered if src_considered is not None
+            else input_count,
+            "percent": percent,
+        }
+    # ── Structurer/L1: whole-window input + result — РАЗДЕЛЬНЫЕ оси ─────
+    if l1_rows or seg_plan_rows:
+        l1_ev = l1_rows[-1] if l1_rows else None
+        l1_usage = _parse_usage((l1_ev or {}).get("usage_json"))
+        failed = bool(l1_ev) and str(l1_ev.get("outcome") or "") == "failed"
+        l1_view = {
+            "input_total": src_total,
+            "input_mode": None,
+            "result": "failed" if failed else "ok",
+            "map_degraded": bool(l1_usage.get("map_degraded")),
+        }
+        reason_map = str(l1_usage.get("map_reason") or "") or None
+        if reason_map:
+            l1_view["map_reason"] = reason_map
+            l1_view["map_reason_ru"] = REASONS_RU.get(reason_map, "") or None
+        # Вход L1 (mode/число запросов) — из capacity-событий того же run.
+        cap_rows = _events_named(events, _EV_CAPACITY, _EV_MODE)
+        if cap_rows:
+            cap_usage = _parse_usage(cap_rows[-1].get("usage_json"))
+            l1_view["input_mode"] = str(cap_usage.get("mode")
+                                        or cap_rows[-1].get("status")
+                                        or "") or None
+            if l1_view["input_mode"] == "WHOLE_WINDOW":
+                l1_view["input_requests"] = 1
+        if seg_plan_rows:
+            seg_n = _int(_parse_usage(
+                seg_plan_rows[-1].get("usage_json")).get("segments"))
+            l1_view["input_requests"] = seg_n or len(seg_plan_rows)
+        out["l1"] = l1_view
+    # ── Overflow: segments + messages covered (Ledger counts) ───────────
+    if seg_plan_rows or seg_ledger_rows or seg_result_rows:
+        seg_usage = _parse_usage((seg_ledger_rows[-1] if seg_ledger_rows
+                                  else {}).get("usage_json"))
+        segments = _int(seg_usage.get("segments"))
+        if segments is None and seg_plan_rows:
+            segments = _int(_parse_usage(
+                seg_plan_rows[-1].get("usage_json")).get("segments"))
+        if segments is None and seg_result_rows:
+            attempts = [_int(r.get("attempt")) for r in seg_result_rows]
+            segments = max((a for a in attempts if a is not None),
+                           default=None)
+        fallback = _int(seg_usage.get("fallback")) or 0
+        missing = _int(seg_usage.get("missing")) or 0
+        processed = _int(seg_usage.get("processed"))
+        covered = processed
+        if covered is None and src_total is not None:
+            covered = max(0, src_total - missing)
+        out["overflow"] = {
+            "segments": segments,
+            "segments_failed": fallback,
+            "messages_covered": covered,
+            "messages_total": src_total,
+            "lossless": bool(seg_usage.get("assignment_lossless"))
+            or None,
+        }
+    # ── Writer input coverage + Final text coverage (отдельные оси) ─────
+    if writer_rows:
+        w_failed = str(writer_rows[-1].get("outcome") or "") == "failed"
+        out["writer"] = {
+            "total": src_total,
+            "percent": 100.0 if src_total is not None
+            and src_total == src_considered else None,
+            "result": "failed" if w_failed else "ok",
+        }
+    if usage.get("coverage") is not None or usage.get("source_total"):
+        out["final"] = {
+            "total": _int(usage.get("source_total")),
+            "considered": _int(usage.get("source_considered")),
+            "percent": _float(usage.get("coverage")),
+        }
+    return out or None
 
 
 def build_run_view(run_id, snapshot, events, *, running: bool = False) -> dict:
@@ -466,12 +987,20 @@ def build_run_view(run_id, snapshot, events, *, running: bool = False) -> dict:
         "fallback": snapshot.get("fallback"),
         "pipeline_health": snapshot.get("pipeline_health"),
         "coverage": coverage,
+        # ASAP 4.1 волна 7 (зона G): честная coverage semantics (§38) +
+        # карточки capacity/liveness/cover style (§39–§41; T-4621/22/23).
+        "coverage_breakdown": _coverage_breakdown(snapshot, usage, events),
+        "capacity": _capacity_card(events),
+        "cover_style": _cover_style_card(events),
         "publication": publication,
         "health": health_code,
         "health_label": health_ru,
         "nodes": nodes,
         "running": bool(running),
         "developer": _developer_block(snapshot, events),
+        # §40 ТЗ (T-4622/4624): liveness или из этапных Supervised-событий,
+        # или (drill-down) из durable stage-строк поверх (collect_run).
+        "liveness": _liveness_cards(events, running=running),
     }
 
 
@@ -781,6 +1310,14 @@ _INSPECTOR_EVENTS = (
     "SUMMARY_RUN_DONE",
     _SELECTION, _COVER_BASE_OK, _COVER_BASE_FAIL, _STYLE_START, _STYLE_OK,
     _STYLE_FAIL, _STYLE_SKIP, _RICH_OK, _RICH_FAIL, _PLAIN_FALLBACK,
+    # ASAP 4.1 волна 7 (зона G, T-4624): аддитивные имена предыдущих волн
+    # 4.1 + новые текст/revision события — существующие имена не тронуты.
+    "SUMMARY_SOURCE_WINDOW_READY", "SUMMARY_CAPACITY_RESOLVED",
+    "SUMMARY_EXECUTION_MODE_SELECTED", "SUMMARY_L1_ACTIVITY",
+    "SUMMARY_WRITER_ACTIVITY", "SUMMARY_LLM_SUPERVISOR",
+    "SUMMARY_SEGMENT_PLAN", "SUMMARY_SEGMENT_RESULT",
+    "SUMMARY_SEGMENT_LEDGER", "SUMMARY_TEXT_READY",
+    "SUMMARY_REVISION_RESULT", "COVER_STYLE_RESOLVE",
 )
 
 
@@ -836,7 +1373,23 @@ async def collect_run(db, run_id: str) -> dict:
         names = {str(e.get("event_name") or "") for e in events}
         running = ("SUMMARY_RUN_START" in names
                    and "SUMMARY_RUN_DONE" not in names)
-    return build_run_view(run_id, snapshot, events, running=running)
+    view = build_run_view(run_id, snapshot, events, running=running)
+    # T-4624 (зона G): per-attempt last_activity тикер из durable
+    # ``summary_run_stages`` (structured state, §50.54; НЕ парсинг логов).
+    # Bounded fail-open: ошибка чтения stage-истории не ломает карту.
+    rows = []
+    if db is not None:
+        try:
+            rows = await db.list_summary_run_stages(str(run_id))
+        except Exception:      # pragma: no cover - fail-open
+            rows = []
+    if rows:
+        view["liveness"] = _liveness_cards(events, stage_rows=rows,
+                                           running=running)
+    else:
+        # Без durable stage-истории liveness строится из событий честно.
+        view["liveness"] = _liveness_cards(events, running=running)
+    return view
 
 
 async def collect_latest(db) -> dict | None:

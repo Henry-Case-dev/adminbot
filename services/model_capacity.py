@@ -81,6 +81,7 @@ ASAP-3.1 (round 1028, ADR-1028-3 D1, spec раздел 3) — Model Capacity Res
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import re
 import time
@@ -318,6 +319,13 @@ SOURCE_PROVIDER_CATALOG = "provider_catalog"
 SOURCE_VERIFIED_REGISTRY = "verified_registry"
 SOURCE_REGISTRY = "registry"
 SOURCE_FALLBACK = "fallback"
+
+# ── ASAP 4.1 (эпик asap-4-1-durable-whole-window-summary, T-4604/T-4605;
+# spec §1 A.2 + ADR-1028-8 D2/AM-2 AMEND ADR-1028-3): решения режима входа
+# Summary L1 по capacity. Два взаимоисключающих режима — единственное
+# легитимное chunking-решение (`run_l1_capacity_first`).
+MODE_WHOLE_WINDOW = "WHOLE_WINDOW"
+MODE_CAPACITY_OVERFLOW = "CAPACITY_OVERFLOW"
 
 PROVIDER_OPENROUTER = "openrouter"
 PROVIDER_NANOGPT = "nanogpt"
@@ -630,10 +638,52 @@ def invalidate_capacity_cache() -> int:
     return count
 
 
+def _capability_fingerprint(base_url: str) -> str:
+    """Capability fingerprint ключа кеша (AMEND ADR-1028-3, spec A.2:
+    «ключ = provider + base_url + model + capability fingerprint»).
+
+    Fingerprint — стабильный дескриптор capability-зонда: provider class +
+    endpoint (без scheme/query; R17 — не логируется). Смена endpoint'а
+    каталога/base_url → промах кеша = честная переоценка (не устаревшее
+    значение чужого endpoint'а)."""
+    endpoint = str(base_url or "").strip()
+    provider_class = detect_provider_class(endpoint)
+    raw = f"{provider_class}|{endpoint}"
+    try:
+        return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
+    except Exception:      # pragma: no cover - hashlib не падает на str
+        return provider_class[:12] or "generic"
+
+
 def _cache_key(base_url: str, model: str) -> tuple:
     provider_class = detect_provider_class(base_url)
     return (provider_class, _base_url_host(base_url),
-            str(model or "").strip().lower(), _developer_override_window())
+            str(model or "").strip().lower(), _developer_override_window(),
+            _capability_fingerprint(base_url))
+
+
+def invalidate_runtime_capacity(base_url: str, model: str,
+                                *, reason: str = "runtime_context_error"
+                                ) -> int:
+    """Точечная инвалидация кеша по тройке provider/host/model
+    (runtime 400/context-length error → переоценка в рамках run;
+    spec §7/T-4605; fingerprint/override игнорируются — тройка суверенна).
+
+    R17: provider host/model/reason — без ключей/URL-пути."""
+    provider_class = detect_provider_class(base_url)
+    host = _base_url_host(base_url)
+    name = str(model or "").strip().lower()
+    victim_keys = [key for key in _CACHE
+                   if key[0] == provider_class and key[1] == host
+                   and key[2] == name]
+    for key in victim_keys:
+        _CACHE.pop(key, None)
+    if victim_keys:
+        logger.warning(
+            "MODEL_CAPACITY_CACHE_INVALIDATED | provider=%s | model=%s | "
+            "entries=%d | reason=%s", provider_class, name,
+            len(victim_keys), reason)
+    return len(victim_keys)
 
 
 def _warn_capacity_fallback(result: CapacityResult, base_url: str,
@@ -696,17 +746,16 @@ async def resolve_capacity(base_url: str, model: str, *,
 
 async def _resolve_uncached(provider_class: str, base_url: str, name: str,
                             override: int | None) -> CapacityResult:
-    """Одна итерация precedence (без кэша; никогда не бросает)."""
-    now = time.time()
-    if override is not None:
-        # §4.1: developer override — escape hatch, приоритет над auto-слоями.
-        return CapacityResult(
-            provider=provider_class, model=name,
-            declared_context_window=None, runtime_context_window=None,
-            effective_context_window=override, max_output_tokens=None,
-            source=SOURCE_DEVELOPER_OVERRIDE, confidence="verified",
-            resolved_at=now, fallback_used=False)
+    """Одна итерация precedence (без кэша; никогда не бросает).
 
+    ASAP 4.1 (AMEND ADR-1028-3; директива владельца §5/spec A.2): цепочка
+    поведена ДОСЛОВНО — runtime discovery → provider catalog → registry →
+    developer override → conservative fallback. Override перенесён с
+    уровня 1 на уровень 4: применяется ТОЛЬКО когда runtime/каталог/
+    реестр не дали значения. «Controlled lower-capacity» сценарии (§48
+    Run 2, §44-B/C) форсируются конфиг-фикстурой модели/каталога, а не
+    override'ом поверх живого каталога."""
+    now = time.time()
     runtime_window: int | None = None
     runtime_provider = provider_class
     # 2) runtime metadata — локальные рантаймы (llama.cpp/Ollama по классу;
@@ -785,6 +834,17 @@ async def _resolve_uncached(provider_class: str, base_url: str, name: str,
             max_output_tokens=None, source=SOURCE_REGISTRY,
             confidence="verified", resolved_at=now, fallback_used=False)
 
+    # ── 4) developer override (уровень 4; AMEND ADR-1028-3): escape hatch
+    # применяется ТОЛЬКО когда runtime/каталог/реестр не дали значения —
+    # защищает цепочку перед консервативным fallback (уровень 5).
+    if override is not None:
+        return CapacityResult(
+            provider=provider_class, model=name,
+            declared_context_window=None, runtime_context_window=None,
+            effective_context_window=override, max_output_tokens=None,
+            source=SOURCE_DEVELOPER_OVERRIDE, confidence="verified",
+            resolved_at=now, fallback_used=False)
+
     # 5) fallback — только аварийно (§8): 16384 + WARNING + badge.
     result = CapacityResult(
         provider=provider_class, model=name,
@@ -826,6 +886,154 @@ def fallback_window_for_model(model: str) -> tuple[int, str]:
     return _unknown_window(), SOURCE_FALLBACK
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# ── ASAP 4.1 (эпик asap-4-1-durable-whole-window-summary) — capacity engine
+# Summary: решение WHOLE_WINDOW | CAPACITY_OVERFLOW по ФАКТИЧЕСКОМУ
+# serialized payload (T-4604, spec §1 A.2; ADR-1028-8 D2.2/D2.4) + re-plan
+# при смене провайдера/окна (T-4605, §7/§27–§28; ADR-1028-8 D2.4).
+#
+# Правило структуры §6 ТЗ: учёт по реальному payload — system prompt +
+# source JSON + semantic instructions + response schema + metadata +
+# output reserve + provider framing overhead. Calling side (run_l1_
+# capacity_first) считает serialized окно; здесь только решение:
+# Никогда не бросает; Inspector-поля (R6-G-002) — прямо в результате:
+# provider/model/effective window/serialized input/output reserve/mode/причина.
+
+_REPLAN_SLOT = "summary.fallback_replan"
+
+
+@dataclass(frozen=True)
+class SummaryCapacityPlan:
+    """Решение режима входа + Inspector-поля (R6-G-002; spec A.2)."""
+
+    mode: str                       # WHOLE_WINDOW | CAPACITY_OVERFLOW
+    reason: str                     # R17-safe причина (человеческая карта в Inspector)
+    provider: str
+    model: str
+    effective_context_window: int
+    required_input_tokens: int
+    reserved_output_tokens: int
+    safety_margin_tokens: int       # effective − required − reserve (только знак важен)
+    window_source: str
+    confidence: str = "estimated"
+    fallback_used: bool = False
+
+    def as_event_counts(self) -> dict:
+        """R17-safe counts для SUMMARY_CAPACITY_RESOLVED / MODE_SELECTED."""
+        return {
+            "mode": self.mode,
+            "reason": self.reason,
+            "effective_window": self.effective_context_window,
+            "required_input_tokens": self.required_input_tokens,
+            "reserved_output_tokens": self.reserved_output_tokens,
+            "safety_margin_tokens": self.safety_margin_tokens,
+            "window_source": self.window_source,
+            "fallback_used": bool(self.fallback_used),
+        }
+
+
+def decide_summary_mode(*, provider: str, model: str,
+                        effective_context_window: int,
+                        required_input_tokens: int,
+                        reserved_output_tokens: int,
+                        window_source: str,
+                        confidence: str = "estimated",
+                        fallback_used: bool = False
+                        ) -> SummaryCapacityPlan:
+    """Чистое решение §6 ТЗ: `required + reserve ≤ effective → WHOLE_WINDOW`,
+    иначе `CAPACITY_OVERFLOW` (единственный легитимный chunking-режим).
+    Оценка вводится вызывающим контуром по ПОЛНОМУ serialized payload
+    (не «только message.text» — fixture-контрпример запрещает)."""
+    try:
+        effective = max(0, int(effective_context_window or 0))
+    except (TypeError, ValueError):
+        effective = 0
+    try:
+        required = max(0, int(required_input_tokens or 0))
+    except (TypeError, ValueError):
+        required = 0
+    try:
+        reserved = max(0, int(reserved_output_tokens or 0))
+    except (TypeError, ValueError):
+        reserved = 0
+    margin = effective - required - reserved
+    if margin >= 0:
+        mode, reason = MODE_WHOLE_WINDOW, "fits_effective_context"
+    else:
+        mode, reason = MODE_CAPACITY_OVERFLOW, \
+            "serialized_payload_exceeds_effective_context"
+    return SummaryCapacityPlan(
+        mode=mode, reason=reason, provider=str(provider or ""),
+        model=str(model or ""), effective_context_window=effective,
+        required_input_tokens=required,
+        reserved_output_tokens=reserved, safety_margin_tokens=int(margin),
+        window_source=str(window_source or ""), confidence=confidence,
+        fallback_used=bool(fallback_used))
+
+
+async def replan_summary_capacity(*, base_url: str, model: str,
+                                  required_input_tokens: int,
+                                  reserved_output_tokens: int,
+                                  current_mode: str,
+                                  segment_artifacts_created: bool = False,
+                                  ) -> SummaryCapacityPlan:
+    """Re-plan при provider/model fallback (T-4605; spec §7/§27–§28).
+
+    Resolve fallback capacity → compare required input (§44-C/D/E):
+      * вмещает → тот же whole-window task (mode=WHOLE_WINDOW);
+      * меньше → switch to CAPACITY_OVERFLOW (lossless, без потери
+        coverage);
+      * больше → допустим переход на whole-window, ЕСЛИ run ещё не создал
+        сегментные артефакты (иначе — не ломаем созданный run, §44-E:
+        reason=`segment_artifacts_exist`).
+    Семантика задачи инвариантна — меняются только mode/strategy.
+    Никогда не бросает (fail-open к conservative fallback)."""
+    try:
+        result = await resolve_capacity(base_url, model, slot=_REPLAN_SLOT)
+        window_source = result.source
+        effective = result.effective_context_window
+        confidence = result.confidence
+        fallback_used = result.fallback_used
+    except Exception:      # pragma: no cover - защитная ветка
+        window_source = SOURCE_FALLBACK
+        effective = _unknown_window()
+        confidence = "fallback"
+        fallback_used = True
+    plan = decide_summary_mode(
+        provider=detect_provider_class(base_url), model=model,
+        effective_context_window=effective,
+        required_input_tokens=required_input_tokens,
+        reserved_output_tokens=reserved_output_tokens,
+        window_source=window_source, confidence=confidence,
+        fallback_used=fallback_used)
+    # Целевой апгрейд (§28: меньше → overflow; больше → whole-window допустим
+    # ТОЛЬКО до создания сегментных артефактов).
+    if plan.mode == MODE_WHOLE_WINDOW and current_mode \
+            == MODE_CAPACITY_OVERFLOW and segment_artifacts_created:
+        return SummaryCapacityPlan(
+            mode=MODE_CAPACITY_OVERFLOW,
+            reason="segment_artifacts_exist",
+            provider=plan.provider, model=plan.model,
+            effective_context_window=plan.effective_context_window,
+            required_input_tokens=plan.required_input_tokens,
+            reserved_output_tokens=plan.reserved_output_tokens,
+            safety_margin_tokens=plan.safety_margin_tokens,
+            window_source=plan.window_source, confidence=plan.confidence,
+            fallback_used=plan.fallback_used)
+    if plan.mode == MODE_WHOLE_WINDOW and current_mode \
+            == MODE_CAPACITY_OVERFLOW and not segment_artifacts_created:
+        return SummaryCapacityPlan(
+            mode=MODE_WHOLE_WINDOW, reason="fits_after_fallback",
+            provider=plan.provider, model=plan.model,
+            effective_context_window=plan.effective_context_window,
+            required_input_tokens=plan.required_input_tokens,
+            reserved_output_tokens=plan.reserved_output_tokens,
+            safety_margin_tokens=plan.safety_margin_tokens,
+            window_source=plan.window_source, confidence=plan.confidence,
+            fallback_used=plan.fallback_used)
+    return plan
+
+
 __all__ = [
     "MODEL_CONTEXT_WINDOWS", "WINDOW_SOURCE_MAP", "WINDOW_SOURCE_ENV",
     "WINDOW_SOURCE_FALLBACK", "OUTPUT_RESERVE_FLOOR",
@@ -842,4 +1050,9 @@ __all__ = [
     "capacity_resolver_enabled", "detect_provider_class",
     "invalidate_capacity_cache", "capacity_metrics_snapshot",
     "resolve_capacity", "resolve_stage_window", "fallback_window_for_model",
+    # ASAP 4.1 (эпик asap-4-1-durable-whole-window-summary): capacity engine
+    # Summary (T-4604/T-4605).
+    "MODE_WHOLE_WINDOW", "MODE_CAPACITY_OVERFLOW",
+    "SummaryCapacityPlan", "decide_summary_mode", "replan_summary_capacity",
+    "invalidate_runtime_capacity",
 ]

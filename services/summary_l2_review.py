@@ -81,6 +81,7 @@ from services.summary_l2_writer import (
     validate_l2_document,
 )
 from services.summary_prompts import (
+    SUMMARY_L2_REVIEWER_SOURCE_BLOCK,
     SUMMARY_L2_REVIEWER_SYSTEM_PROMPT,
     SUMMARY_L2_REVISER_SYSTEM_PROMPT,
 )
@@ -332,16 +333,34 @@ def _review_verdict_error(reason: str) -> ReviewVerdict:
 
 
 def build_review_content(package, document, roster, deterministic_findings,
-                         *, emphasize=None) -> str:
+                         *, emphasize=None, source_window_content=None,
+                         semantic_map=None, evidence_slices=None) -> str:
     """User-контент Reviewer: пакет (тот же компактный формат, что Writer),
     roster, draft, deterministic findings. ``emphasize`` — подмножество
-    индексов абзацев для повторного ревизии (дифф-контекст, ADR D5 п.2)."""
+    индексов абзацев для повторного ревизии (дифф-контекст, ADR D5 п.2).
+
+    ASAP 4.1 волна 3 (T-4610, spec §2 B.4; ADR-1028-8 D4/AM-4) — аддитивно:
+      * ``source_window_content`` — Full SourceWindow (serialized; Reviewer
+        сверяет attribution/quotes/числа/reply/major topics против РЕАЛЬНОГО
+        source, R6-B-007);
+      * ``evidence_slices`` — CAPACITY_OVERFLOW: evidence-slices абзацев
+        (paragraph ``evidence_message_ids[]`` + reply-контекст,
+        разворачиваемые детерминированно из SourceWindow) + segment maps
+        для completeness — никогда только FactPackage;
+      * ``semantic_map`` — карта структурных подсказок (Draft + Full
+        SourceWindow + SemanticMap)."""
     content = {
         "package_json": build_l2_input(package),
         "participants": roster,
         "draft": document,
         "deterministic_findings": list(deterministic_findings or []),
     }
+    if source_window_content:
+        content["source_window"] = str(source_window_content)
+    if semantic_map:
+        content["semantic_map"] = semantic_map
+    if evidence_slices:
+        content["evidence_slices"] = list(evidence_slices)
     if emphasize is not None:
         content["review_focus_paragraphs"] = sorted(emphasize)
     body = json.dumps(content, ensure_ascii=False, separators=(",", ":"))
@@ -350,14 +369,17 @@ def build_review_content(package, document, roster, deterministic_findings,
 
 
 def build_revision_content(package, document, findings, *, full_doc: bool,
-                           deterministic_note: str | None = None) -> str:
+                           deterministic_note: str | None = None,
+                           source_window_content=None,
+                           semantic_map=None) -> str:
     """User-контент Revision (§50.22): original draft + FactPackage +
     конкретные findings + разрешённый evidence set + preserve-инструкция.
 
     ``full_doc=False`` — patch-контракт ADR D5: ``{"replace_paragraphs":
     [{index, text, evidence_message_ids}]}``; ``full_doc=True`` — полный
     документ §99 (escape-hatch: findings > 50% абзацев / патч дважды
-    невалиден / kill-switch OFF).
+    невалиден / kill-switch OFF). Волна 3 (T-4610): source window/map —
+    аддитивные секции (исправление сверяется с оригиналом).
     """
     compact_findings = [
         {"code": f.code, "severity": f.severity,
@@ -377,6 +399,10 @@ def build_revision_content(package, document, findings, *, full_doc: bool,
     }
     if deterministic_note:
         content["deterministic_note"] = deterministic_note
+    if source_window_content:
+        content["source_window"] = str(source_window_content)
+    if semantic_map:
+        content["semantic_map"] = semantic_map
     if full_doc:
         content["output_format"] = (
             'Верни СТРОГО JSON-документ статьи целиком: {"schema_version": 1,'
@@ -395,6 +421,46 @@ def build_revision_content(package, document, findings, *, full_doc: bool,
 
 
 # ── Применение ревизии (patch ADR D5 / full-doc) ───────────────────────────
+
+def build_review_evidence_slices(document, payload_items) -> list:
+    """CAPACITY_OVERFLOW Reviewer (T-4610, spec §2 B.4): evidence-slices
+    абзацев против оригинала — paragraph ``evidence_message_ids[]`` +
+    reply-контекст (родители ответов, один уровень), разворачиваемые
+    детерминированно из SourceWindow. Никогда только FactPackage.
+
+    Абзацы без evidence не получают slice (их поверхность — пакет). Не
+    бросает."""
+    item_map: dict = {}
+    for item in payload_items or []:
+        if not isinstance(item, dict):
+            continue
+        mid = item.get("message_id")
+        if isinstance(mid, int) and not isinstance(mid, bool) \
+                and mid not in item_map:
+            item_map[mid] = item
+    slices: list = []
+    paragraphs = (document or {}).get("paragraphs") or []
+    for index, paragraph in enumerate(paragraphs):
+        if not isinstance(paragraph, dict):
+            continue
+        ids: list = []
+        for ref in paragraph.get("evidence_message_ids") or []:
+            if isinstance(ref, int) and not isinstance(ref, bool) \
+                    and ref in item_map and ref not in ids:
+                ids.append(ref)
+        if not ids:
+            continue
+        for mid in list(ids):
+            parent = (item_map.get(mid) or {}).get("reply_to_id")
+            if isinstance(parent, int) and not isinstance(parent, bool) \
+                    and parent in item_map and parent not in ids:
+                ids.append(parent)
+        slices.append({
+            "paragraph_index": index,
+            "message_ids": ids,
+            "items": [item_map[mid] for mid in ids],
+        })
+    return slices
 
 
 def apply_revision_patch(document, payload, *, package) -> tuple[dict | None,
@@ -547,15 +613,18 @@ def _extract_usage(value):
 
 
 async def _call_llm(llm, slot: L2Slot, messages, *, correlation_id,
-                    llm_call=None) -> tuple[str, dict]:
+                    llm_call=None, operation: str = "reviewer") -> tuple[str, dict]:
     """Один логический вызов через существующий канал Writer (dedicated
     slot/глобальная модель). Возвращает ``(raw, usage)``; сетевые ошибки —
-    наверх (LLMError/Exception)."""
+    наверх (LLMError/Exception).
+
+    ASAP 4.1 волна 4 (T-4612): ``operation`` — честная метка supervised
+    вызова (reviewer/revision) для LLMExecutionSupervisor (ADR-1028-8 D5)."""
     if llm_call is not None:
         raw_value = await llm_call(messages)
         raw, usage = _normalise_call_result(raw_value)
         return raw, (usage if isinstance(usage, dict) else {})
-    call = _make_llm_call(llm, slot, correlation_id)
+    call = _make_llm_call(llm, slot, correlation_id, operation=operation)
     raw_value = await call(messages)
     raw, usage = _normalise_call_result(raw_value)
     return raw, (usage if isinstance(usage, dict) else {})
@@ -567,7 +636,12 @@ async def run_l2_with_review(llm, package, *, service=None,
                              correlation_id=None, chat_id=None,
                              slot=None, reviewer_slot=None,
                              llm_call=None, reviewer_call=None,
-                             revision_call=None, ctx=None) -> L2Result:
+                             revision_call=None, ctx=None,
+                             writer_source_input=None, writer_length=None,
+                             semantic_map=None, source_window_content=None,
+                             evidence_slices=None, review_full_window=True,
+                             review_payload_items=None,
+                             source_message_ids=None) -> L2Result:
     """L2-стадия с bounded review: Draft → Validate → Review → (×2 Revision)
     → APPROVED | Legacy | review_degraded.
 
@@ -576,6 +650,22 @@ async def run_l2_with_review(llm, package, *, service=None,
     логических вызовов ``CALL_BUDGET_L2_STAGE=6`` закреплён проверкой перед
     каждым вызовом. Kill-switch ``SUMMARY_L2_REVIEW_ENABLED=OFF``: вызывающий
     (генератор) не заходит сюда — бит-в-бит прежний single-call путь.
+
+    ASAP 4.1 волна 3 (T-4610, spec §2 B.4; ADR-1028-8 D4/AM-4) — аддитивно:
+      * ``writer_source_input``/``writer_length`` — WriterInput от Full
+        SourceWindow (T-4609);
+      * ``source_window_content`` — Full SourceWindow в контексте Reviewer
+        (system-канон + блок источника);
+      * ``evidence_slices`` — overflow-поверхность (slices против оригинала);
+      * ``semantic_map`` — структурные подсказки (ReviewResult = Draft +
+        Full SourceWindow + SemanticMap).
+    Bounded revision ×2 / patch-контракт / progress criterion — БЕЗ изменений.
+
+      * ``review_full_window``/``review_payload_items`` — overflow-режим
+        Reviewer: slices строятся от evidence черновика детерминированно из
+        SourceWindow (никогда только FactPackage);
+      * ``source_message_ids`` — id-space РЕАЛЬНОГО окна: находки/revision
+        могут доказываться refs из окна (id-window ⊇ пакета; R6-B-007).
 
     Возвраты:
       * ``ok`` + документ — approved (first-pass или после ревизии);
@@ -596,7 +686,9 @@ async def run_l2_with_review(llm, package, *, service=None,
     # 1. Writer (вызов #1) — прежний контракт без изменений.
     draft = await _writer_call(llm, package, service=service,
                                correlation_id=correlation_id, chat_id=chat_id,
-                               slot=slot, llm_call=llm_call)
+                               slot=slot, llm_call=llm_call,
+                               source_input=writer_source_input,
+                               length=writer_length)
     if not draft.usable:
         return draft
     if not l2_review_enabled():
@@ -604,6 +696,15 @@ async def run_l2_with_review(llm, package, *, service=None,
         return draft
 
     document = draft.document
+    # T-4610 (R6-B-007): при переданных id окна ReviewResult сверяется
+    # против пакета ∪ РЕАЛЬНОГО окна (refs из source валидны).
+    run_package = package
+    if source_message_ids:
+        try:
+            from services.summary_fact_view import ensure_full_id_space
+            run_package = ensure_full_id_space(package, source_message_ids)
+        except Exception:      # fail-open (augment не блокирует review)
+            run_package = package
     roster = build_participant_roster(package)
     metrics = _review_metrics()
     # Duck-typing: тестовые/альтернативные writer-результаты могут не нести
@@ -617,6 +718,28 @@ async def run_l2_with_review(llm, package, *, service=None,
                                    reason="reviewer_slot_failed",
                                    correlation_id=correlation_id,
                                    chat_id=chat_id, exc=exc)
+
+    source_review_system = SUMMARY_L2_REVIEWER_SYSTEM_PROMPT
+    if source_window_content or evidence_slices:
+        source_review_system = (
+            SUMMARY_L2_REVIEWER_SYSTEM_PROMPT
+            + SUMMARY_L2_REVIEWER_SOURCE_BLOCK)
+    if evidence_slices is None and not review_full_window \
+            and review_payload_items:
+        # T-4610 (spec §2 B.4, CAPACITY_OVERFLOW Reviewer): полный window не
+        # влезает → evidence-slices абзацев (evidence_message_ids +
+        # reply-контекст) разворачиваются детерминированно из SourceWindow;
+        # никогда только FactPackage.
+        evidence_slices = build_review_evidence_slices(
+            document, review_payload_items)
+        if evidence_slices:
+            source_review_system = (
+                SUMMARY_L2_REVIEWER_SYSTEM_PROMPT
+                + SUMMARY_L2_REVIEWER_SOURCE_BLOCK)
+            logger.info(
+                "L2_REVIEW_EVIDENCE_SLICES | run_id=%s | chat_id=%s | "
+                "slices=%d", correlation_id or "none", chat_id,
+                len(evidence_slices))
 
     deterministic_findings = _deterministic_findings(draft)
     calls = 1                     # writer
@@ -641,11 +764,15 @@ async def run_l2_with_review(llm, package, *, service=None,
             raw, _usage = await _call_llm(
                 llm, reviewer,
                 [{"role": "system",
-                  "content": SUMMARY_L2_REVIEWER_SYSTEM_PROMPT},
+                  "content": source_review_system},
                  {"role": "user",
                   "content": build_review_content(
-                      package, current_doc, roster, deterministic_findings)}],
-                correlation_id=correlation_id, llm_call=reviewer_call)
+                      package, current_doc, roster, deterministic_findings,
+                      source_window_content=source_window_content,
+                      semantic_map=semantic_map,
+                      evidence_slices=evidence_slices)}],
+                 correlation_id=correlation_id, llm_call=reviewer_call,
+                 operation="reviewer")
         except Exception as exc:  # noqa: BLE001 - outage-путь §50.29
             _record(ctx, _stage_event(
                 "l2_reviewer", attempt=metrics["l2_review_calls"] + 1,
@@ -658,7 +785,7 @@ async def run_l2_with_review(llm, package, *, service=None,
                 correlation_id=correlation_id, chat_id=chat_id, exc=exc)
         calls += 1
         metrics["l2_review_calls"] += 1
-        verdict = parse_review_verdict(raw, package=package,
+        verdict = parse_review_verdict(raw, package=run_package,
                                        document=current_doc)
         dropped_total += verdict.dropped_findings
         if verdict.outage:
@@ -740,8 +867,11 @@ async def run_l2_with_review(llm, package, *, service=None,
                  {"role": "user",
                   "content": build_revision_content(
                       package, current_doc, verdict.findings,
-                      full_doc=use_full_doc)}],
-                correlation_id=correlation_id, llm_call=revision_call)
+                      full_doc=use_full_doc,
+                      source_window_content=source_window_content,
+                      semantic_map=semantic_map)}],
+                 correlation_id=correlation_id, llm_call=revision_call,
+                 operation="revision")
         except Exception as exc:  # noqa: BLE001 - revision outage
             _record(ctx, _stage_event(
                 "revision", attempt=revisions_done + 1, status="error",
@@ -756,11 +886,12 @@ async def run_l2_with_review(llm, package, *, service=None,
         revisions_done += 1
         metrics["l2_revision_count"] = revisions_done
         if use_full_doc:
-            revised, reason = apply_full_revision(raw_rev, package=package)
+            revised, reason = apply_full_revision(raw_rev,
+                                                  package=run_package)
             repair_target = "full_doc"
         else:
             revised, reason = apply_revision_patch(current_doc, raw_rev,
-                                                   package=package)
+                                                   package=run_package)
             repair_target = "patch"
         _record(ctx, _stage_event(
             "revision", attempt=revisions_done,
@@ -769,6 +900,18 @@ async def run_l2_with_review(llm, package, *, service=None,
             input_count=len(paragraphs_now),
             output_count=len((revised or {}).get("paragraphs") or []),
             repair_target=repair_target))
+        # T-4624 (spec §7.3; §42 ТЗ): SUMMARY_REVISION_RESULT — каждый
+        # шаг bounded revision виден в mca_events (attempt/patch-target,
+        # R17-числа). Fail-open; gated реальным transport'ом.
+        try:
+            from services import pipeline_events as _pe
+            _pe.revision_result(
+                correlation_id, chat_id=chat_id, attempt=revisions_done,
+                usable=revised is not None, repair_target=repair_target,
+                reason_code=None if revised is not None
+                else str(reason or "revision_invalid"))
+        except Exception:      # pragma: no cover - эмиссия не рвёт
+            pass
         if revised is None:
             # Невалидная ревизия активирует full-doc escape-hatch (ADR D5);
             # сам документ не меняется, прогресс-критерий на сгоревшую
@@ -805,11 +948,12 @@ async def run_l2_with_review(llm, package, *, service=None,
 
 
 async def _writer_call(llm, package, *, service, correlation_id, chat_id,
-                       slot, llm_call) -> L2Result:
+                       slot, llm_call, source_input=None, length=None) -> L2Result:
     from services.summary_l2_writer import run_l2
     return await run_l2(llm, package, service=service,
                         correlation_id=correlation_id, chat_id=chat_id,
-                        slot=slot, llm_call=llm_call)
+                        slot=slot, llm_call=llm_call,
+                        source_input=source_input, length=length)
 
 
 def _deterministic_findings(draft: L2Result) -> list[dict]:
@@ -878,6 +1022,7 @@ __all__ = [
     "apply_revision_patch",
     "build_participant_roster",
     "build_review_content",
+    "build_review_evidence_slices",
     "build_revision_content",
     "l2_review_enabled",
     "parse_review_verdict",

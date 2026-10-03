@@ -531,9 +531,18 @@ class TestCanon:
             pm.PROMPT_MIGRATIONS[PROMPT_PG_KEY]
         # Откат prose-first — на непосредственный прежний прод-канон
         # (rollback-паритет с SUMMARY_L2_REVIEW_ENABLED=false).
+        # ASAP 4.1 волна 3 (T-4609, ADR-1028-8 D4/AM-4): ступень
+        # R1029→R1030 — блок источника (Full SourceWindow первоклассно);
+        # откат — на канон R1029 (прод 2.58.46, parity с
+        # SUMMARY_WRITER_SOURCE_INPUT_ENABLED=false).
+        from services.summary_prompts import PREV_SUMMARY_L2_WRITER_R1029_ASAP41
+        assert PREV_SUMMARY_L2_WRITER_R1029_ASAP41 != \
+            SUMMARY_L2_WRITER_SYSTEM_PROMPT
+        assert "ИСТОЧНИК (оригинал — истина)" in SUMMARY_L2_WRITER_SYSTEM_PROMPT
+        assert "ИСТОЧНИК" not in PREV_SUMMARY_L2_WRITER_R1029_ASAP41
         assert pm.ROLLBACK_MIGRATIONS[PROMPT_PG_KEY] == (
             SUMMARY_L2_WRITER_SYSTEM_PROMPT,
-            PREV_SUMMARY_L2_WRITER_R1028_ASAP4)
+            PREV_SUMMARY_L2_WRITER_R1029_ASAP41)
 
     def test_catalog_delta_sanctioned(self):
         # ASAP-2.1 (ADR-1028-1 D1, контракт i): санкционированная

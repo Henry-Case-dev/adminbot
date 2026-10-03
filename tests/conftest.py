@@ -204,6 +204,68 @@ def _asap4_flags_off_by_default(request, monkeypatch):
 
 
 
+@pytest.fixture(autouse=True)
+def _asap41_flags_off_by_default(request, monkeypatch):
+    """Изоляция ASAP 4.1 (round 1030, эпик asap-4-1-durable-whole-window-
+    summary, ADR-1028-8): старые тесты (без маркера ``asap41``) идут по
+    прежнему контуру 2.58.46 (kill-switch'es зоны A OFF — байт-в-байт
+    baseline; parity-контракт spec §11.1). Тесты новой функциональности
+    помечаются ``@pytest.mark.asap41`` и работают с прод-дефолтами (ON):
+    для них зона A включена, а смежные бюджет/резолвер/
+    pipeline-events флаги возвращаются в прод-дефолты (fixture-порядок —
+    этот блок выполняется после asap3*/asap4-изолирующих). Прецедент —
+    ``_asap4_flags_off_by_default``."""
+    import config.settings as _cs
+    from config.settings import Settings
+    import services.summary_l1_clusterizer as _sl1
+    import services.summary_generator as _sg
+    classes = {Settings, type(_cs.settings), type(_sl1.settings),
+               type(_sg.settings)}
+    if request.node.get_closest_marker("asap41") is not None:
+        # Прод-дефолты ON для зоны A/B/C/D + смежные бюджет/событие флаги
+        # (fixture-соседи выше держали их OFF для немаркированных тестов).
+        for _cls in ({Settings, type(_cs.settings),
+                      type(_sl1.settings), type(_sg.settings)}):
+            for _name in (
+                "SUMMARY_SOURCE_WINDOW_DURABLE_ENABLED",
+                "SUMMARY_WHOLE_WINDOW_FIRST_ENABLED",
+                "SUMMARY_CAPACITY_OVERFLOW_LEDGER_ENABLED",
+                "SUMMARY_L1_SEMANTIC_MAP_ENABLED",
+                "SUMMARY_WRITER_SOURCE_INPUT_ENABLED",
+                "SUMMARY_LEGACY_SOURCE_WINDOW_ENABLED",
+                "SUMMARY_LLM_SUPERVISOR_ENABLED",
+                # asap 4.1 волна 5/6 (durable run + style inheritance):
+                # старые тесты — бит-в-бит прежний контур.
+                "SUMMARY_RUN_DURABLE_ENABLED",
+                "SUMMARY_STYLE_GLOBAL_DEFAULT_ENABLED",
+                "MODEL_CAPACITY_RESOLVER_ENABLED",
+                "AUTO_BUDGET_RESOLVER_ENABLED",
+                "SUMMARY_COVERAGE_CHUNKING_ENABLED",
+                "SUMMARY_L1_CAPACITY_GUARD_ENABLED",
+                "SUMMARY_PIPELINE_EVENTS_ENABLED",
+                # волна 5/6: durable run + style inheritance — прод-дефолты.
+                "SUMMARY_RUN_DURABLE_ENABLED",
+                "SUMMARY_STYLE_GLOBAL_DEFAULT_ENABLED",
+            ):
+                if hasattr(_cls, _name):
+                    monkeypatch.setattr(_cls, _name, True)
+        return
+    for _cls in classes:
+        for _name in (
+            "SUMMARY_SOURCE_WINDOW_DURABLE_ENABLED",
+            "SUMMARY_WHOLE_WINDOW_FIRST_ENABLED",
+            "SUMMARY_CAPACITY_OVERFLOW_LEDGER_ENABLED",
+            "SUMMARY_L1_SEMANTIC_MAP_ENABLED",
+            "SUMMARY_WRITER_SOURCE_INPUT_ENABLED",
+            "SUMMARY_LEGACY_SOURCE_WINDOW_ENABLED",
+            "SUMMARY_LLM_SUPERVISOR_ENABLED",
+            "SUMMARY_RUN_DURABLE_ENABLED",
+            "SUMMARY_STYLE_GLOBAL_DEFAULT_ENABLED",
+        ):
+            if hasattr(_cls, _name):
+                monkeypatch.setattr(_cls, _name, False)
+
+
 @pytest.fixture
 def mock_bot():
     """Mock aiogram Bot instance."""
