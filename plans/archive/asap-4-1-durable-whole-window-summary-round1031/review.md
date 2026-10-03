@@ -419,7 +419,7 @@ round-1 по ядру эпика в силе и не изменился. Binding
   Binding: HEAD 60f1c7c, WTH 452AB73F…, Spec-Hash E6A6E5EC….
   0 Critical/High; 6 Low non-blocking (в т.ч. 2 pre-existing web/-bounds
   и флап betterstack-теста вне эпика). PO-1…PO-5 — PENDING OWNER.
-  Отчёт: plans/features/asap-4-1-durable-whole-window-summary/review.md;
+  Отчёт: plans/archive/asap-4-1-durable-whole-window-summary-round1031/review.md;
   focused-audit запись: plans/reports/full_audit_results.md; WTH-манифест:
   plans/reports/asap41_wth_manifest_review.txt.
 - **Round 2 (дельта-ревью фикса [M-ASAP41-1]): Status

@@ -155,7 +155,7 @@
 
 ### ⚡ Follow-up (reconcile ASAP 4.1, 03.10.2026) — выпущено 2.58.47 VERIFIED — хвосты (не блокёры)
 
-Источник: `plans/features/asap-4-1-durable-whole-window-summary/deployment.md` (VERIFIED) + ADR-1028-8 («Прод-валидация и история»).
+Источник: `plans/archive/asap-4-1-durable-whole-window-summary-round1031/deployment.md` (VERIFIED) + ADR-1028-8 («Прод-валидация и история»).
 
 1. **PENDING OWNER — PO-1…PO-5 (no-false-acceptance, платные/owner-ресурсы):**
    - **PO-1** реальные 839-сообщения прогоны саммари — полный durable-контур на живом распределении; мониторинг первых реальных run'ов в `summary_runs`.

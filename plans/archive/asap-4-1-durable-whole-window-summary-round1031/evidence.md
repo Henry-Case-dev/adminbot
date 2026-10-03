@@ -798,7 +798,7 @@ SUMMARY_STYLE_GLOBAL_DEFAULT_ENABLED); MCA-01 allowlist database.py 149→155
   обложка), run_id сквозной виден. 0 новых console/pageerror (один
   известный baseline-дефект чужой фичи `execMetricsRows` отфильтрован,
   документирован в round1030 evidence).
-  Скриншоты: plans/features/asap-4-1-durable-whole-window-summary/
+  Скриншоты: plans/archive/asap-4-1-durable-whole-window-summary-round1031/
   evidence/asap41_zone_g_desktop.png (578 KB) /
   asap41_zone_g_mobile.png (130 KB); артефакт проверки —
   tools/_ui_asap41_zone_g.json (payload_sanity: coverage_breakdown/
