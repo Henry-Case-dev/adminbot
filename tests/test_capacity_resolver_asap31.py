@@ -107,16 +107,26 @@ async def test_unknown_model_fallback_cached_short_ttl(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_developer_override_below_registry(monkeypatch):
-    """AMEND ADR-1028-3 (директива владельца §5/spec A.2): override НЕ бьёт
-    runtime/каталог/реестр — реестр выигрывает у живой модели; lower-capacity
-    сценарии форсируются конфиг-фикстурой, не override'ом."""
+    """ASAP 4.2 Step 2c-1 (AMEND ADR-1028-8 D2): override переезжает на
+    УРОВЕНЬ 1 — при `SUMMARY_CAPACITY_LIVE_PRECEDENCE_ENABLED=ON` (default)
+    explicit developer override сильнее registry. OFF → прежний уровень 4
+    (registry выигрывает) байт-в-байт 2.58.47."""
     _override(monkeypatch, 500000)
     await _no_network(monkeypatch)
     result = await mc.resolve_capacity("https://nano-gpt.com/v1",
                                        "deepseek-chat")
-    assert result.effective_context_window == 131072
-    assert result.source == mc.SOURCE_REGISTRY
+    assert result.effective_context_window == 500000
+    assert result.source == mc.SOURCE_DEVELOPER_OVERRIDE
     assert result.fallback_used is False
+    # OFF-kill-switch → legacy-контур: registry выше override.
+    monkeypatch.setattr(
+        type(mc.settings), "SUMMARY_CAPACITY_LIVE_PRECEDENCE_ENABLED", False,
+        raising=False)
+    mc.invalidate_capacity_cache()
+    legacy = await mc.resolve_capacity("https://nano-gpt.com/v1",
+                                       "deepseek-chat")
+    assert legacy.source == mc.SOURCE_REGISTRY
+    assert legacy.effective_context_window == 131072
 
 
 @pytest.mark.asyncio

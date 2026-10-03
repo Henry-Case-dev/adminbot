@@ -451,12 +451,16 @@ class TestSeed:
         assert asyncio.run(csr.seed_seeded_style(None)) is None
 
     def test_seed_instruction_semantics(self):
-        # §24: normalize/ensure/replace, recurring identity.
+        # §24 + ASAP 4.2 (T-4817): normalize/ensure/replace, recurring identity
+        # + compact-ядро (graphic novel, callouts, русский текст).
         text = csr.SEEDED_INSTRUCTION.lower()
         assert "permsoc" in text
         assert "медведь press" in text
         assert "номер" in text
         assert "не добавляй второй" in text or "не создавай" in text
+        assert "комикс" in text or "graphic" in text
+        assert "callout" in text or "плаш" in text
+        assert "русск" in text
 
 
 # ── revision snapshot / test-no-counter (§29/§66, T-4129/T-4130) ────────────

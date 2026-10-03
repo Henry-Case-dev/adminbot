@@ -472,22 +472,34 @@
     </div>
   </div>
 
-  <!-- §107: «Мои стили» — карточки (preview + имя + статус + Открыть/⋯) -->
+  <!-- §107: «Мои стили» — карточки (compact before→after + имя + статус) -->
   <div class="text-xs text-gray-400 mb-2">Мои стили</div>
   <div class="flex flex-col gap-2 mb-3" data-cover-style-list>
     <div v-for="s in coverStyles.styles" :key="s.profile_id"
          class="flex items-center gap-3 rounded-xl border border-white/10 p-2.5"
          :data-cover-style="s.profile_id">
-      <img v-if="coverStyles._assets[s.preview_after_asset_id]"
-           :src="coverStyles._assets[s.preview_after_asset_id]" alt=""
-           class="w-14 h-14 rounded-lg object-cover flex-none"
+      <!-- ASAP 4.2 (D5.4, T-4826): компактные before/after mini (не giant
+           image wall); стрелка — Material Symbol, не текстовый «→». -->
+      <div class="cover-card-previews flex items-center gap-1 flex-none"
            data-cover-style-thumb>
-      <span v-else
-            class="w-14 h-14 rounded-lg bg-white/5 flex-none flex items-center justify-center text-gray-500 text-lg">🎨</span>
+        <img v-if="coverStyles._assets[s.preview_before_asset_id]"
+             :src="coverStyles._assets[s.preview_before_asset_id]" alt=""
+             class="cover-mini" data-cover-mini-before>
+        <span v-else class="cover-mini cover-mini--empty"
+              aria-hidden="true">🎨</span>
+        <span class="msr cover-mini-arrow" aria-hidden="true"
+              data-cover-mini-arrow>{{ iconGlyph('chevron_right') }}</span>
+        <img v-if="coverStyles._assets[s.preview_after_asset_id]"
+             :src="coverStyles._assets[s.preview_after_asset_id]" alt=""
+             class="cover-mini" data-cover-mini-after>
+        <span v-else class="cover-mini cover-mini--empty"
+              aria-hidden="true">🎨</span>
+      </div>
       <div class="flex flex-col min-w-0 flex-1">
         <span class="text-sm font-semibold truncate">{{ s.name }}</span>
         <span class="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
           <span v-if="s.is_example" class="badge badge-info">Пример</span>
+          <span class="badge badge-muted" data-cover-preview-source>{{ s.preview_source_label }}</span>
           <span v-if="!s.enabled" class="badge badge-muted">выключен</span>
           <span>референсов: {{ s.reference_count }}</span>
         </span>
@@ -499,8 +511,10 @@
         <div class="cover-menu">
           <button class="btn-ghost text-xs text-left"
                   @click="coverStyleDuplicate(s)">Копировать</button>
-          <button class="btn-danger text-xs text-left"
-                  @click="coverStyleDelete(s)">Удалить</button>
+          <button v-if="s.can_edit" class="btn-danger text-xs text-left"
+                  @click="coverStyleDelete(s)" data-cover-style-delete>Удалить</button>
+          <span v-else class="text-xs text-gray-500 px-1 py-1"
+                data-cover-style-locked>Только просмотр</span>
         </div>
       </details>
     </div>
@@ -568,6 +582,9 @@
           {{ coverStyles.current.name || 'Стиль' }}</span>
         <span v-if="coverStyles.current.is_example"
               class="badge badge-info flex-none">Пример</span>
+        <span v-if="!coverStyles.current.can_edit"
+              class="badge badge-muted flex-none"
+              data-cover-readonly>Только просмотр</span>
         <span v-if="coverStyles.editorDirty"
               class="text-xs text-amber-300 flex-none"
               data-cover-unsaved-dot>● несохранено</span>
@@ -617,20 +634,21 @@
                     :title="r.description">{{ r.label || 'Референс' }}</span>
               <span class="text-gray-500 text-[0.65rem] text-center w-full truncate">{{ r.description }}</span>
               <div class="flex items-center gap-1 flex-wrap justify-center">
-                <label class="btn-ghost text-xs">
+                <label v-if="coverStyles.current.can_edit" class="btn-ghost text-xs">
                   Заменить
                   <input type="file" accept="image/png,image/jpeg,image/webp"
                          class="sr-only"
                          :data-cover-replace-input="r.ref_id"
-                         :disabled="coverStyles.uploadBusy"
+                         :disabled="coverStyles.uploadBusy || !coverStyles.current.can_edit"
                          @change="coverStyleReplaceReference(r, $event)">
                 </label>
-                <button class="btn-danger text-xs"
+                <button v-if="coverStyles.current.can_edit" class="btn-danger text-xs"
                         @click="coverStyleRemoveReference(r)">Убрать</button>
               </div>
             </div>
           </div>
-          <div class="flex items-center gap-2 flex-wrap">
+          <div v-if="coverStyles.current.can_edit"
+               class="flex items-center gap-2 flex-wrap">
             <input type="text" class="field max-w-[10rem]" placeholder="Название"
                    v-model="coverStyles.current._refLabel">
             <input type="text" class="field max-w-[14rem]" placeholder="Описание роли"
@@ -639,26 +657,34 @@
               {{ coverStyles.uploadBusy ? 'Загрузка…' : 'Добавить референс' }}
               <input type="file" accept="image/png,image/jpeg,image/webp"
                      class="sr-only" data-cover-reference-input
-                     :disabled="coverStyles.uploadBusy"
+                     :disabled="coverStyles.uploadBusy || !coverStyles.current.can_edit"
                      @change="coverStyleUploadReference($event)">
             </label>
           </div>
+          <span v-if="!coverStyles.current.can_edit"
+                class="text-gray-500"
+                data-cover-refs-locked>Встроенный стиль редактирует только администратор. Можно скопировать стиль в свой.</span>
           <span class="text-gray-500">Загружайте логотип, персонажа, рамку, цвет или вёрстку — и опишите их роль.</span>
         </div>
 
-        <!-- §110: Before → After — КРУПНО, сразу видно -->
+        <!-- §110 + ASAP 4.2 (D5.4/D5.5): before→after — вторичный, компактный
+             preview (max-width/height в CSS); стрелка — Material Symbol. -->
         <div class="flex flex-col text-xs gap-2">
-          <span class="text-gray-400">Как работает стиль</span>
+          <span class="text-gray-400">Как работает стиль
+            <span class="badge badge-muted ml-1" data-cover-editor-preview-source>{{ coverStyles.current.preview_source_label || 'Пример' }}</span>
+            <span class="sr-only" data-cover-preview-source-labels>Пример / Результат теста</span>
+          </span>
           <div class="flex items-center gap-3 flex-wrap" data-cover-style-preview>
-            <div class="flex flex-col items-center gap-1 flex-1">
+            <div class="flex flex-col items-center gap-1">
               <span class="text-gray-500">Базовая обложка</span>
               <img v-if="coverStyles._assets[coverStyles.current.preview_before_asset_id]"
                    :src="coverStyles._assets[coverStyles.current.preview_before_asset_id]"
                    alt="" class="cover-preview" data-cover-before-img>
               <span v-else class="cover-preview-empty">нет примера</span>
             </div>
-            <span class="text-gray-400 text-xl flex-none">→</span>
-            <div class="flex flex-col items-center gap-1 flex-1">
+            <span class="msr cover-preview-arrow" aria-hidden="true"
+                  data-cover-preview-arrow>{{ iconGlyph('chevron_right') }}</span>
+            <div class="flex flex-col items-center gap-1">
               <span class="text-gray-500">После стиля</span>
               <img v-if="coverStyles._assets[coverStyles.current.preview_after_asset_id]"
                    :src="coverStyles._assets[coverStyles.current.preview_after_asset_id]"
@@ -667,14 +693,15 @@
             </div>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
-            <label class="btn-ghost text-xs">
-              {{ coverStyles.previewBusy ? 'Обработка…' : 'Протестировать стиль' }}
-              <input type="file" accept="image/png,image/jpeg,image/webp"
-                     class="sr-only" data-cover-test-input
-                     :disabled="coverStyles.previewBusy"
-                     @change="coverStylePreview($event)">
-            </label>
-            <span class="text-gray-500">Тест не тратит номер выпуска.</span>
+            <!-- ASAP 4.2 (D5.5): НЕ file picker — реальный тестовый pipeline
+                 (base cover → style edit), upload остаётся отдельным действием. -->
+            <button type="button" class="btn-ghost text-xs"
+                    :disabled="coverStyles.previewBusy || !coverStyles.current.can_edit"
+                    @click="coverStylePreview()"
+                    data-cover-test-button>
+              {{ coverStyles.previewBusy ? 'Обработка…' : 'Проверить стиль' }}
+            </button>
+            <span class="text-gray-500">Тест не тратит номер выпуска и не публикует пост.</span>
           </div>
           <div v-if="coverStyles.current.preview_stale"
                class="text-amber-300 text-xs flex items-center gap-2 flex-wrap"
@@ -691,12 +718,22 @@
               <img v-if="coverStyles.preview.url && coverStyles._assets[coverStyles.preview.url.split('/').pop()]"
                    :src="coverStyles._assets[coverStyles.preview.url.split('/').pop()]"
                    alt="" class="w-24 h-24 object-cover rounded-lg">
-              <span class="text-green-400">Стиль применён</span>
-              <span class="text-gray-500">Время обработки: {{ coverStyles.preview.duration_ms }} мс</span>
+              <span class="text-green-400" data-cover-test-human>{{ coverStyles.preview.message || 'Стиль применён' }}</span>
+              <span v-if="coverStyles.preview.duration_ms" class="text-gray-500">Время обработки: {{ coverStyles.preview.duration_ms }} мс</span>
               <span class="text-gray-500">{{ coverStyles.preview.preview_issue }}</span>
             </div>
-            <div v-else class="text-amber-300">
-              {{ coverStyles.preview.message || 'Не удалось применить стиль.' }}
+            <div v-else>
+              <!-- D5.8: основной вид — человеческая фраза; machine reason
+                   доступен только в Developer details. -->
+              <div class="text-amber-300" data-cover-test-human>
+                {{ coverStyles.preview.message || 'Стиль не применён: провайдер отклонил запрос.' }}
+              </div>
+              <details v-if="coverStyles.preview.developer_reason"
+                       class="mt-1 text-gray-500">
+                <summary class="cursor-pointer" data-cover-developer-toggle>
+                  Детали для разработчика</summary>
+                <span data-cover-developer-reason>{{ coverStyles.preview.developer_reason }}</span>
+              </details>
             </div>
           </div>
         </div>
@@ -789,7 +826,8 @@
            data-cover-editor-footer>
         <button class="btn-ghost text-xs" @click="coverStyleEditorClose()"
                 data-cover-editor-close>Закрыть</button>
-        <button class="btn-accent text-sm" :disabled="coverStyles.saving"
+        <button class="btn-accent text-sm"
+                :disabled="coverStyles.saving || !coverStyles.current.can_edit"
                 @click="coverStyleSave()" data-cover-style-save>
           {{ coverStyles.saving ? 'Сохранение…' : 'Сохранить стиль' }}
         </button>
@@ -2367,42 +2405,10 @@
               </div>
             </div>
 
-            <!-- F4 §34–§35: компактная панель избранных модулей -->
-            <section v-if="quickpickModules.length"
-                     class="module-quick-wrap col-span-full"
-                     aria-label="Быстрое управление модулями">
-              <div class="module-quick-head">
-                <span class="text-xs font-semibold">Быстрое управление</span>
-                <button v-if="quickpickHiddenCount || moduleQuickpicksOpen"
-                        type="button" class="btn-ghost text-xs ml-auto shrink-0"
-                        @click="moduleQuickpicksOpen = !moduleQuickpicksOpen">
-                  {{ moduleQuickpicksOpen ? 'Свернуть' : ('Все избранные (+' + quickpickHiddenCount + ')') }}
-                </button>
-              </div>
-              <div class="module-quick" role="list">
-                <div class="module-quick-item card" role="listitem"
-                     v-for="m in quickpickVisible" :key="'q-' + m.id" :data-mod="m.id">
-                  <span class="msr module-icon" aria-hidden="true">{{ iconGlyph(m.icon) }}</span>
-                  <div class="module-quick-meta min-w-0">
-                    <div class="module-title text-sm font-semibold">{{ m.title }}</div>
-                    <div class="module-sub text-xs text-gray-500">{{ moduleStateText(m) }}</div>
-                  </div>
-                  <label class="module-toggle relative inline-flex items-center cursor-pointer shrink-0"
-                         :class="{ 'is-saving': modulePendingFor(m) }">
-                    <input type="checkbox" class="sr-only peer" :checked="moduleEnabled(m)"
-                           :disabled="!canEditModule(m) || modulePendingFor(m)"
-                           @change="toggleModule(m, $event.target.checked)"
-                           :aria-label="'Включить модуль ' + m.title">
-                    <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                    <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
-                  </label>
-                  <button type="button" class="module-pin-btn btn-ghost text-xs shrink-0"
-                          :aria-label="'Убрать из быстрого управления: ' + m.title"
-                          title="Убрать из быстрого управления"
-                          @click.stop="toggleQuickpick(m)">★</button>
-                </div>
-              </div>
-            </section>
+            <!-- ASAP 4.2 (D5.3, T-4825): панель избранного (quick access)
+                 удалена полностью. Единственный список модулей — каталог ниже
+                 (название/человеческое описание/status/toggle/избранное/
+                 Настроить); дубля панели нет. -->
 
             <!-- F4 §32/§44: поиск по названию/описанию/тех.имени/синонимам -->
             <div class="module-toolbar col-span-full">
@@ -5471,12 +5477,15 @@
         </button>
       </nav>
       <!-- Шторка «Ещё» (T-2520): скрытые разделы (Память/Доступы/PERMsoc +
-           вытесненный ИИ) / Профиль. «Справка» здесь НЕ дублируется. -->
+           вытесненный ИИ) / Профиль. ASAP 4.2 (D5.1, T-4823): closed-state
+           контракт — при `moreOpen=false` шторка ОТСУТСТВУЕТ в DOM
+           (`v-if`+transition, как backdrop) → visible intersection = 0px,
+           не перехватывает pointer/touch, не создаёт stacking overlay над
+           SaveBar/bottom-nav. НЕ косметический `translateY` без unmount. -->
       <div v-if="iaV2 && isMobileShell && moreOpen"
            class="more-backdrop" @click="closeMore()"></div>
-      <div v-if="iaV2 && isMobileShell" class="more-sheet" data-glass="shell"
-           :class="{ open: moreOpen }" :aria-hidden="moreOpen ? 'false' : 'true'"
-           :inert="moreOpen ? null : ''"
+      <transition name="more-sheet">
+      <div v-if="iaV2 && isMobileShell && moreOpen" class="more-sheet" data-glass="shell"
            role="menu" aria-label="Ещё">
         <div class="more-sheet-handle" aria-hidden="true"></div>
         <button v-for="n in mobileMoreItems" :key="'mm-' + n.id"
@@ -5499,6 +5508,7 @@
           </span>
         </div>
       </div>
+      </transition>
     </div>
 
     <!-- Модалка подтверждения control -->

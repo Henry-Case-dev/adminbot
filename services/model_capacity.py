@@ -310,6 +310,70 @@ def apply_budget_policy(available: int, raw_budget,
     return min(available, value), "cap"
 
 
+# ── ASAP 4.2 Step 2c-1 (T-4809, spec §4/R8-F-004): capability-aware reserve ──
+
+RESERVE_SAFETY_MARGIN_FLOOR = 256
+
+
+def capability_aware_output_reserve(*, effective_context: int,
+                                    max_output_tokens: int | None = None,
+                                    target_output: int = 4000,
+                                    safety_margin_ratio: float | None = None,
+                                    reserve_ratio: float | None = None) -> int:
+    """Capability-aware output reserve (spec §4/R8-F-004).
+
+    Учитывает `effective_context`, `max_output` (live metadata), `target_output`
+    (ожидаемый размер ответа stage'а) и `safety_margin`:
+      * известен `max_output` → `min(max_output, max(1024, target + margin))`;
+      * `max_output` неизвестен → существующий `output_reserve_tokens`
+        (ratio floor 1024) — «>=4000» не вечный механизм.
+    Kill-switch OFF → строго `output_reserve_tokens` (байт-в-байт)."""
+    if not capability_reserve_enabled():
+        return output_reserve_tokens(effective_context, reserve_ratio)
+    try:
+        target = max(0, int(target_output or 0))
+    except (TypeError, ValueError):
+        target = 0
+    try:
+        cap_out = int(max_output_tokens) if max_output_tokens is not None \
+            else None
+    except (TypeError, ValueError):
+        cap_out = None
+    if not cap_out or cap_out <= 0:
+        return output_reserve_tokens(effective_context, reserve_ratio)
+    if safety_margin_ratio is None:
+        try:
+            safety_margin_ratio = float(getattr(
+                settings, "SUMMARY_OUTPUT_RESERVE_SAFETY_RATIO", 0.02))
+        except (TypeError, ValueError):
+            safety_margin_ratio = 0.02
+    try:
+        ratio = max(0.0, float(safety_margin_ratio))
+    except (TypeError, ValueError):
+        ratio = 0.02
+    try:
+        window = max(0, int(effective_context or 0))
+    except (TypeError, ValueError):
+        window = 0
+    margin = max(RESERVE_SAFETY_MARGIN_FLOOR, int(window * ratio))
+    return max(OUTPUT_RESERVE_FLOOR, min(cap_out, target + margin))
+
+
+def reserve_for_capacity(result, *,
+                         target_output: int = 4000,
+                         safety_margin_ratio: float | None = None,
+                         reserve_ratio: float | None = None) -> int:
+    """Reserve по `CapacityResult` (live `max_output_tokens` если есть).
+
+    Устойчив к тест-дублям без `max_output_tokens` (getattr → None)."""
+    return capability_aware_output_reserve(
+        effective_context=getattr(result, "effective_context_window", 0),
+        max_output_tokens=getattr(result, "max_output_tokens", None),
+        target_output=target_output,
+        safety_margin_ratio=safety_margin_ratio,
+        reserve_ratio=reserve_ratio)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # ── ASAP-3.1 (ADR-1028-3 D1): Model Capacity Resolver ──────────────────────
 
@@ -350,6 +414,30 @@ def capacity_resolver_enabled() -> bool:
     резолв per-call; никогда не бросает). OFF → legacy-путь байт-в-байт."""
     try:
         return bool(getattr(settings, "MODEL_CAPACITY_RESOLVER_ENABLED", True))
+    except Exception:      # pragma: no cover - защитная ветка
+        return True
+
+
+def live_precedence_enabled() -> bool:
+    """Kill-switch `SUMMARY_CAPACITY_LIVE_PRECEDENCE_ENABLED` (ASAP 4.2
+    Step 2c-1, spec §4/AMEND ADR-1028-8 D2; env-only, default ON).
+
+    ON  → override на УРОВНЕ 1; live metadata сильнее fresh cache/registry;
+    OFF → прежний контур 2.58.47 (override на уровне 4) байт-в-байт."""
+    try:
+        return bool(getattr(
+            settings, "SUMMARY_CAPACITY_LIVE_PRECEDENCE_ENABLED", True))
+    except Exception:      # pragma: no cover - защитная ветка
+        return True
+
+
+def capability_reserve_enabled() -> bool:
+    """Kill-switch `SUMMARY_OUTPUT_RESERVE_CAPABILITY_ENABLED` (ASAP 4.2
+    Step 2c-1, spec §4/R8-F-004; env-only, default ON). OFF → прежний
+    `output_reserve_tokens` (ratio floor 1024) байт-в-байт."""
+    try:
+        return bool(getattr(
+            settings, "SUMMARY_OUTPUT_RESERVE_CAPABILITY_ENABLED", True))
     except Exception:      # pragma: no cover - защитная ветка
         return True
 
@@ -655,11 +743,12 @@ def _capability_fingerprint(base_url: str) -> str:
         return provider_class[:12] or "generic"
 
 
-def _cache_key(base_url: str, model: str) -> tuple:
+def _cache_key(base_url: str, model: str, route: str | None = None) -> tuple:
     provider_class = detect_provider_class(base_url)
     return (provider_class, _base_url_host(base_url),
             str(model or "").strip().lower(), _developer_override_window(),
-            _capability_fingerprint(base_url))
+            _capability_fingerprint(base_url),
+            str(route or "").strip().lower())
 
 
 def invalidate_runtime_capacity(base_url: str, model: str,
@@ -701,28 +790,43 @@ def _warn_capacity_fallback(result: CapacityResult, base_url: str,
 
 
 async def resolve_capacity(base_url: str, model: str, *,
-                           slot: str | None = None) -> CapacityResult:
+                           slot: str | None = None,
+                           route: str | None = None) -> CapacityResult:
     """Структурированный резолв §3/§4 (async: runtime-адаптеры — HTTP).
 
-    Precedence: developer_override → runtime → provider_catalog → registry →
-    fallback. `effective = min(runtime, provider/model)` (§5). Никогда не
-    бросает; fallback — только аварийно (+ WARNING + метрика), source всегда
-    виден потребителям (badge «Capacity: fallback», §8).
-    """
+    Precedence (ASAP 4.2 Step 2c-1, spec §4/AMEND ADR-1028-8 D2, при
+    `SUMMARY_CAPACITY_LIVE_PRECEDENCE_ENABLED=ON`): developer_override →
+    verified live provider/model metadata → verified route metadata →
+    fresh provider cache → internal registry → conservative unknown.
+    OFF → прежний контур 2.58.47 (runtime → catalog → registry → override →
+    fallback) байт-в-байт. `effective = min(runtime, provider/model)` (§5).
+    Никогда не бросает; `route` входит в cache key (`route/capability
+    fingerprint`): смена route инвалидирует."""
     name = str(model or "").strip()
     provider_class = detect_provider_class(base_url)
     override = _developer_override_window()
-    key = _cache_key(base_url, name)
+    key = _cache_key(base_url, name, route)
     now = time.time()
     cached = _CACHE.get(key)
     if cached is not None:
         result, expires_at = cached
         if now < expires_at:
-            return result
-        _CACHE.pop(key, None)
+            # ON: stale family-registry cache не должен занижать live
+            # capability → пере-резолв; fallback кэшируется коротко (300 с)
+            # и остаётся authoritative (не долбить недоступный endpoint).
+            skip_stale_registry = (
+                live_precedence_enabled()
+                and result.source == SOURCE_REGISTRY
+                and provider_class in (PROVIDER_NANOGPT, PROVIDER_OPENROUTER,
+                                       PROVIDER_LLAMA_CPP, PROVIDER_OLLAMA))
+            if not skip_stale_registry:
+                return result
+            _CACHE.pop(key, None)      # stale registry — re-resolve live
+        else:
+            _CACHE.pop(key, None)
 
     result = await _resolve_uncached(provider_class, base_url, name,
-                                     override)
+                                     override, route=route)
     ttl = _FALLBACK_TTL_SECONDS if result.fallback_used else \
         _ttl_for(provider_class)
     _CACHE[key] = (result, now + ttl)
@@ -745,17 +849,27 @@ async def resolve_capacity(base_url: str, model: str, *,
 
 
 async def _resolve_uncached(provider_class: str, base_url: str, name: str,
-                            override: int | None) -> CapacityResult:
+                            override: int | None,
+                            route: str | None = None) -> CapacityResult:
     """Одна итерация precedence (без кэша; никогда не бросает).
 
-    ASAP 4.1 (AMEND ADR-1028-3; директива владельца §5/spec A.2): цепочка
-    поведена ДОСЛОВНО — runtime discovery → provider catalog → registry →
-    developer override → conservative fallback. Override перенесён с
-    уровня 1 на уровень 4: применяется ТОЛЬКО когда runtime/каталог/
-    реестр не дали значения. «Controlled lower-capacity» сценарии (§48
-    Run 2, §44-B/C) форсируются конфиг-фикстурой модели/каталога, а не
-    override'ом поверх живого каталога."""
+    ASAP 4.2 Step 2c-1 (spec §4/AMEND ADR-1028-8 D2): при
+    `SUMMARY_CAPACITY_LIVE_PRECEDENCE_ENABLED=ON` цепочка — override
+    (уровень 1) → live provider/model metadata → live route metadata →
+    fresh provider cache (обрабатывается `resolve_capacity`) → internal
+    registry → conservative unknown. OFF → прежний контур 2.58.47
+    (runtime → catalog → registry → override → fallback) байт-в-байт."""
     now = time.time()
+    live = live_precedence_enabled()
+    # ── 1) developer override — уровень 1 (live precedence ON) ─────────────
+    if live and override is not None:
+        _CAPACITY_METRICS["capacity_manual_override_total"] += 1
+        return CapacityResult(
+            provider=provider_class, model=name,
+            declared_context_window=None, runtime_context_window=None,
+            effective_context_window=override, max_output_tokens=None,
+            source=SOURCE_DEVELOPER_OVERRIDE, confidence="verified",
+            resolved_at=now, fallback_used=False)
     runtime_window: int | None = None
     runtime_provider = provider_class
     # 2) runtime metadata — локальные рантаймы (llama.cpp/Ollama по классу;
@@ -789,7 +903,10 @@ async def _resolve_uncached(provider_class: str, base_url: str, name: str,
         if catalog is not None:
             catalog_window, max_output = catalog
             declared = _match_model_window(name)
-            effective = catalog_window if declared is None \
+            # T-4808: live precedence ON → live catalog суверенен, stale
+            # registry НЕ занижает live capability (declared остаётся для
+            # прозрачности); OFF → прежний min(live, registry).
+            effective = catalog_window if (live or declared is None) \
                 else min(catalog_window, declared)
             result = CapacityResult(
                 provider=provider_class, model=name,
@@ -800,11 +917,21 @@ async def _resolve_uncached(provider_class: str, base_url: str, name: str,
                 source=SOURCE_PROVIDER_CATALOG,
                 confidence="verified", resolved_at=now, fallback_used=False)
             return result
+    # ── 3b) verified route metadata (live precedence ON) ───────────────────
+    # Маршрут-специфичная metadata (например, endpoint-лимиты) — только из
+    # верифицированного адаптера; без подтверждения слой честно пропускается.
+    if live:
+        route_result = await _resolve_route_metadata(
+            provider_class, base_url, name, route)
+        if route_result is not None:
+            return route_result
 
     declared_window = _match_model_window(name)
     if runtime_window is not None:
-        # §5: effective = min(known runtime limit, known provider/model limit).
-        effective = runtime_window if declared_window is None \
+        # §5: effective = min(runtime, known provider/model limit) — OFF.
+        # T-4808: live precedence ON → runtime (live) суверенен, stale
+        # registry не занижает.
+        effective = runtime_window if (live or declared_window is None) \
             else min(runtime_window, declared_window)
         return CapacityResult(
             provider=runtime_provider, model=name,
@@ -834,9 +961,9 @@ async def _resolve_uncached(provider_class: str, base_url: str, name: str,
             max_output_tokens=None, source=SOURCE_REGISTRY,
             confidence="verified", resolved_at=now, fallback_used=False)
 
-    # ── 4) developer override (уровень 4; AMEND ADR-1028-3): escape hatch
-    # применяется ТОЛЬКО когда runtime/каталог/реестр не дали значения —
-    # защищает цепочку перед консервативным fallback (уровень 5).
+    # ── 4) developer override (уровень 4; legacy OFF-контур 2.58.47) ───────
+    # применяется ТОЛЬКО когда live precedence OFF (AMEND ADR-1028-8 D2),
+    # защищая цепочку перед консервативным fallback (уровень 5).
     if override is not None:
         return CapacityResult(
             provider=provider_class, model=name,
@@ -855,6 +982,19 @@ async def _resolve_uncached(provider_class: str, base_url: str, name: str,
     _warn_capacity_fallback(result, base_url,
                             "unknown_model_no_adapter_data")
     return result
+
+
+async def _resolve_route_metadata(provider_class: str, base_url: str,
+                                  model: str, route: str | None
+                                  ) -> CapacityResult | None:
+    """Верифицированный route-metadata слой (spec §4, уровень 3).
+
+    Пока ни один верифицированный адаптер не экспонирует route-специфичное
+    окно отдельно от model-каталога → честно None (слой присутствует в
+    цепочке, но НЕ выдумывает значение). Расширяется при появлении
+    подтверждённого endpoint-metadata без hardcode."""
+    _ = provider_class, base_url, model, route
+    return None
 
 
 async def resolve_stage_window(base_url: str, model: str, *,
@@ -1040,6 +1180,8 @@ __all__ = [
     "resolve_model_context_window", "resolve_effective_window",
     "output_reserve_tokens", "compute_available_budget",
     "apply_budget_policy",
+    "capability_aware_output_reserve", "reserve_for_capacity",
+    "live_precedence_enabled", "capability_reserve_enabled",
     # ASAP-3.1 (ADR-1028-3): structured capacity resolver.
     "SOURCE_DEVELOPER_OVERRIDE", "SOURCE_RUNTIME", "SOURCE_PROVIDER_CATALOG",
     "SOURCE_VERIFIED_REGISTRY", "SOURCE_REGISTRY", "SOURCE_FALLBACK",

@@ -105,8 +105,9 @@ def _mock_llm_call():
 
 @pytest.mark.asyncio
 async def test_chain_runtime_beats_override(monkeypatch):
-    """Уровень 1: runtime discovery → источник runtime; override (уровень 4)
-    НЕ применяется, когда runtime дал значение."""
+    """ASAP 4.2 Step 2c-1 (AMEND ADR-1028-8 D2): override — уровень 1 при
+    live-precedence ON (default) → сильнее live runtime. OFF → прежний
+    уровень 4 (runtime даёт значение, override не применяется)."""
 
     async def _props(url, *, headers=None):
         if url.endswith("/props"):
@@ -117,14 +118,22 @@ async def test_chain_runtime_beats_override(monkeypatch):
     type(mc.settings).CHAT_MODEL_CONTEXT_WINDOW = 500000
     result = await mc.resolve_capacity("http://127.0.0.1:8080/v1",
                                        "llama-3.1-8b")
-    assert result.source == mc.SOURCE_RUNTIME
-    assert result.effective_context_window == 32768
+    assert result.source == mc.SOURCE_DEVELOPER_OVERRIDE
+    assert result.effective_context_window == 500000
+    monkeypatch.setattr(
+        type(mc.settings), "SUMMARY_CAPACITY_LIVE_PRECEDENCE_ENABLED", False,
+        raising=False)
+    mc.invalidate_capacity_cache()
+    legacy = await mc.resolve_capacity("http://127.0.0.1:8080/v1",
+                                       "llama-3.1-8b")
+    assert legacy.source == mc.SOURCE_RUNTIME
+    assert legacy.effective_context_window == 32768
 
 
 @pytest.mark.asyncio
 async def test_chain_catalog_beats_override(monkeypatch):
-    """Уровень 2: provider catalog → гарантирует §44-D
-    (lower-capacity конфиг-фикстурой каталога, не override поверх)."""
+    """ASAP 4.2 Step 2c-1: override уровень 1 сильнее provider catalog при
+    live-precedence ON; OFF → catalog гарантирует §44-D."""
 
     async def _catalog(url, *, headers=None):
         if "openrouter.ai/api/v1/models" in url:
@@ -135,8 +144,16 @@ async def test_chain_catalog_beats_override(monkeypatch):
     type(mc.settings).CHAT_MODEL_CONTEXT_WINDOW = 1000000
     result = await mc.resolve_capacity("https://openrouter.ai/api/v1",
                                        "tiny/tiny-32k")
-    assert result.source == mc.SOURCE_PROVIDER_CATALOG
-    assert result.effective_context_window == 32768
+    assert result.source == mc.SOURCE_DEVELOPER_OVERRIDE
+    assert result.effective_context_window == 1000000
+    monkeypatch.setattr(
+        type(mc.settings), "SUMMARY_CAPACITY_LIVE_PRECEDENCE_ENABLED", False,
+        raising=False)
+    mc.invalidate_capacity_cache()
+    legacy = await mc.resolve_capacity("https://openrouter.ai/api/v1",
+                                       "tiny/tiny-32k")
+    assert legacy.source == mc.SOURCE_PROVIDER_CATALOG
+    assert legacy.effective_context_window == 32768
 
 
 @pytest.mark.asyncio
@@ -149,8 +166,16 @@ async def test_chain_registry_beats_override(monkeypatch):
     type(mc.settings).CHAT_MODEL_CONTEXT_WINDOW = 500000
     result = await mc.resolve_capacity("https://nano-gpt.com/v1",
                                        "deepseek-chat")
-    assert result.source == mc.SOURCE_REGISTRY
-    assert result.effective_context_window == 131072
+    assert result.source == mc.SOURCE_DEVELOPER_OVERRIDE
+    assert result.effective_context_window == 500000
+    monkeypatch.setattr(
+        type(mc.settings), "SUMMARY_CAPACITY_LIVE_PRECEDENCE_ENABLED", False,
+        raising=False)
+    mc.invalidate_capacity_cache()
+    legacy = await mc.resolve_capacity("https://nano-gpt.com/v1",
+                                       "deepseek-chat")
+    assert legacy.source == mc.SOURCE_REGISTRY
+    assert legacy.effective_context_window == 131072
 
 
 @pytest.mark.asyncio

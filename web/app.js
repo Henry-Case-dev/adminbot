@@ -1591,6 +1591,7 @@
           draftName: '',
           draftInstruction: '',
           connections: [],        // §104: настроенные Image Connections
+          isAdmin: false,         // ASAP 4.2 D5.7: глобальный админ смотрит API
           _returnProfileId: '',   // §35: контекст редактора при возврате
           _assets: {},            // asset_id → objectURL (blob-fetch)
         },
@@ -7090,6 +7091,7 @@
         this.api('/api/cover/styles' + qs, { global: true })
           .then(function (data) {
             st.enabled = !!(data && data.enabled);
+            st.isAdmin = !!(data && data.is_admin);
             st.noStyleLabel = (data && data.no_style_label)
               || 'Без дополнительного стиля';
             st.selectedStyleId = (data && data.selected_style_id) || '';
@@ -7161,6 +7163,9 @@
           preview_after_asset_id: s.preview_after_asset_id,
           preview_revision: s.preview_revision,
           preview_stale: !!s.preview_stale,
+          preview_source: s.preview_source || 'example',
+          preview_source_label: s.preview_source_label || 'Пример',
+          can_edit: s.can_edit !== false,
           preview_issue: s.preview_issue, _isNew: false,
         };
         st.meta = null;
@@ -7241,6 +7246,9 @@
               preview_after_asset_id: created.preview_after_asset_id,
               preview_revision: created.preview_revision,
               preview_stale: false,
+              preview_source: 'example',
+              preview_source_label: 'Пример',
+              can_edit: true,
               preview_issue: created.preview_issue,
               _isNew: false,
             };
@@ -7274,6 +7282,10 @@
               st.current.preview_before_asset_id = data.preview_before_asset_id;
               st.current.preview_revision = data.preview_revision;
               st.current.preview_stale = !!data.preview_stale;
+              st.current.preview_source = data.preview_source || 'example';
+              st.current.preview_source_label =
+                data.preview_source_label || 'Пример';
+              st.current.can_edit = data.can_edit !== false;
             }
             self.coverStylesEnsureAssets();
           })
@@ -7450,40 +7462,49 @@
             self.toast((e && e.message) || 'Не удалось удалить референс', 'err');
           });
       },
-      coverStylePreview: function (ev) {
-        var files = (ev && ev.target && ev.target.files) || [];
-        if (!files.length) return;
+      coverStylePreview: function () {
+        // ASAP 4.2 (D5.5, T-4819): «Проверить стиль» — реальный тестовый
+        // pipeline (base cover → style edit). НЕ открывает File Explorer:
+        // никакого `input[type=file]` и никакого base64 upload. Issue counter
+        // не тратится (сервер: mode=preview); RichMessage не публикуется.
         var st = this.coverStyles;
         var c = st.current;
         if (!c || !c.profile_id) {
           this.toast('Сначала сохраните стиль', 'err');
           return;
         }
+        if (c.can_edit === false) return;
+        if (st.previewBusy) return;
         var self = this;
-        var f = files[0];
         st.previewBusy = true;
         st.preview = null;
-        this.fileToBase64(f).then(function (b64) {
-          return self.api('/api/cover/test-style', {
-            global: true, method: 'POST',
-            body: JSON.stringify({
-              profile_id: c.profile_id, filename: f.name, content_base64: b64,
-            }),
-          });
+        this.api('/api/cover/test-style', {
+          global: true, method: 'POST',
+          body: JSON.stringify({ profile_id: c.profile_id }),
         }).then(function (data) {
           st.preview = data;
-          if (data && data.url) self.coverAssetBlob(data.url);
+          if (data && data.applied && data.preview_after_url) {
+            self.coverAssetBlob(data.preview_after_url);
+          }
+          if (data && data.applied && data.preview_before_url) {
+            self.coverAssetBlob(data.preview_before_url);
+          }
           if (data && data.applied && c.profile_id) {
             // §10/SC-24: результат сохранён как preview → revision свежая.
             self.coverStyleLoadMeta(c.profile_id);
             self.loadCoverStyles();
           }
         }).catch(function (e) {
-          st.preview = { applied: false,
-                         message: (e && e.message) || 'Не удалось протестировать' };
+          // D5.5: провал НЕ убивает прошлый preview (он уже отрисован);
+          // явная ошибка; machine reason — в Developer details.
+          st.preview = {
+            applied: false,
+            message: (e && e.message) ||
+              'Стиль не применён: провайдер отклонил запрос.',
+            developer_reason: (e && e.reason) || (e && e.code) || '',
+          };
         }).then(function () {
           st.previewBusy = false;
-          try { ev.target.value = ''; } catch (e2) {}
         });
       },
       openCoverConnections: function () {
@@ -7519,10 +7540,9 @@
         }, 2400);
       },
       coverStyleRefreshExample: function () {
-        // §10/SC-24: «Обновить пример» — повторный Test Style (сохранит preview).
-        var el = (typeof document !== 'undefined')
-          ? document.querySelector('[data-cover-test-input]') : null;
-        if (el && typeof el.click === 'function') el.click();
+        // §10/SC-24 + ASAP 4.2: «Обновить пример» — повторный Test Style
+        // (реальный pipeline; сохранит preview). Файловый picker не открываем.
+        this.coverStylePreview();
       },
       coverBudgetText: function () {
         var st = this.coverStyles;

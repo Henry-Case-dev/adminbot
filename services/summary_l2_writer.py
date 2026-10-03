@@ -47,7 +47,15 @@ from services.prompt_style_blocks import resolve_prompt, resolve_prompt_with_sou
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_prompts import (
     PREV_SUMMARY_L2_WRITER_R1029_ASAP41,
+    SUMMARY_L2_WRITER_ANCHORS_BLOCK,
     SUMMARY_L2_WRITER_SYSTEM_PROMPT,
+)
+# ── ASAP 4.2 D1 (AM-1; spec §1; ADR-1028-10): anchor-space L2 evidence.
+from services.summary_source_anchors import (
+    SourceAnchorMap,
+    anchor_space_item,
+    anchors_enabled as _anchors_enabled,
+    l2_evidence_repair_enabled as _l2_evidence_repair_enabled,
 )
 # Волна C (T-4423): quote pipeline импортируется ЛЕНИВО в _validate
 # (summary_quote_repair импортирует из этого модуля чистые утилиты цитат —
@@ -577,7 +585,8 @@ _FACT_VIEW_HEADER = (
 
 
 def build_l2_source_input(payload_items, semantic_map=None, *, package=None,
-                          length=None, map_unavailable: bool = False) -> str:
+                          length=None, map_unavailable: bool = False,
+                          anchor_map=None) -> str:
     """WriterInput (T-4609): Full SourceWindow первоклассно + semantic map?
     + fact_view? + length-блок.
 
@@ -587,8 +596,11 @@ def build_l2_source_input(payload_items, semantic_map=None, *, package=None,
       3. инструкция «структурируй источник сам» (map отсутствует — L1 fail);
       4. fact_view (если передан) — вспомогательный индекс;
       5. length-блок (мягкий ориентир; тот же текст, что build_l2_input).
-    Не бросает."""
+    ASAP 4.2 D1 (AM-1): ``anchor_map`` → source_window в AnchorSpace
+    (``source_anchor`` вместо raw ``message_id``; R17). Не бросает."""
     items = [item for item in (payload_items or []) if isinstance(item, dict)]
+    if anchor_map is not None:
+        items = [anchor_space_item(item, anchor_map) for item in items]
     parts: list[str] = [
         _SOURCE_HEADER,
         "Всего сообщений: %d." % len(items),
@@ -1031,6 +1043,125 @@ def _validate(document, package, metrics):
     return document_out, metrics
 
 
+# ── ASAP 4.2 D1 (AM-1; spec §1; ADR-1028-10) — AnchorSpace evidence ─────────
+
+def anchor_evidence_enabled(anchor_map) -> bool:
+    """Anchor-space evidence активен: карта есть + kill-switches ON."""
+    return (anchor_map is not None and _anchors_enabled()
+            and _l2_evidence_repair_enabled())
+
+
+def _augment_package_ids(package, ids) -> dict:
+    """Копия пакета с расширенным id-space (resolved anchor→real ids), чтобы
+    строгий evidence-чек принимал их (источник — immutable окно, не вымысел)."""
+    if not ids or not isinstance(package, dict):
+        return package
+    pkg = dict(package)
+    existing = [value for value in (pkg.get("unassigned_message_ids")
+                                    or ())]
+    merged = list(existing)
+    for value in ids:
+        if value not in merged:
+            merged.append(value)
+    pkg["unassigned_message_ids"] = merged
+    return pkg
+
+
+def validate_l2_document_anchors(document: dict, package: dict,
+                                 anchor_map: SourceAnchorMap
+                                 ) -> tuple[dict | None, dict]:
+    """Валидация/канонизация §99-документа в AnchorSpace (R8-C-001).
+
+    Абзац несёт ``source_anchors[]``; invalid/unknown anchor удаляется
+    ЛОКАЛЬНО (``invalid_refs_repaired``), абзац ОСТАЁТСЯ; абзац без evidence
+    после repair — reviewer-signal (``paragraphs_without_evidence``), НЕ
+    ``document=None``. ``document=None`` только при неремонтируемой структуре
+    или при отказе остальной §99-валидации (заголовок/цитаты/типы/длина —
+    fail-closed без изменений). Не бросает."""
+    from services.summary_l2_anchor_repair import repair_l2_evidence
+    metrics: dict = {
+        "status": STATUS_INVALID,
+        "reason": REASON_INTERNAL_ERROR,
+        "paragraphs_count": 0,
+        "invalid_refs_repaired": 0,
+        "paragraphs_without_evidence": 0,
+    }
+    try:
+        if not isinstance(document, dict):
+            metrics["reason"] = REASON_BAD_TYPE
+            return None, metrics
+        paragraphs = document.get("paragraphs")
+        if not isinstance(paragraphs, list):
+            metrics["reason"] = REASON_BAD_TYPE
+            return None, metrics
+        # Локальный repair evidence (абзац сохраняется при битом ref).
+        # Совместимость: если модель всё же вернула legacy
+        # evidence_message_ids — маппим известные real ids в anchors.
+        pre_paragraphs: list = []
+        for para in paragraphs:
+            if (isinstance(para, dict)
+                    and "source_anchors" not in para
+                    and para.get("evidence_message_ids")):
+                clone = dict(para)
+                mapped = []
+                for ref in para.get("evidence_message_ids") or []:
+                    anchor = anchor_map.anchor_for(ref)
+                    if anchor is not None and anchor not in mapped:
+                        mapped.append(anchor)
+                clone["source_anchors"] = mapped
+                pre_paragraphs.append(clone)
+            else:
+                pre_paragraphs.append(para)
+        repaired, report = repair_l2_evidence(
+            {"paragraphs": pre_paragraphs}, anchor_map)
+        if repaired is None:
+            metrics["reason"] = REASON_BAD_TYPE
+            return None, metrics
+        repaired_paras = repaired["paragraphs"]
+        # Документ-мост для строгой §99-валидации: source_anchors → real ids.
+        resolved_ids: list = []
+        bridge_paras: list = []
+        for para in repaired_paras:
+            clone = dict(para)
+            anchors = list(clone.pop("source_anchors", []) or [])
+            real_ids = anchor_map.to_real_ids(anchors)
+            for value in real_ids:
+                if value not in resolved_ids:
+                    resolved_ids.append(value)
+            clone["evidence_message_ids"] = real_ids
+            bridge_paras.append(clone)
+        bridge = dict(document)
+        bridge["paragraphs"] = bridge_paras
+        canonical, base_metrics = validate_l2_document(
+            bridge, _augment_package_ids(package, resolved_ids))
+        if canonical is None:
+            merged = dict(base_metrics)
+            merged["invalid_refs_repaired"] = report.invalid_refs_repaired
+            merged["paragraphs_without_evidence"] = \
+                report.paragraphs_without_evidence
+            return None, merged
+        # Возврат к AnchorSpace: source_anchors вместо raw ids.
+        canon_paras: list = []
+        for cpara, anchors in zip(canonical["paragraphs"], repaired_paras):
+            item = dict(cpara)
+            item.pop("evidence_message_ids", None)
+            item["source_anchors"] = list(anchors.get("source_anchors") or [])
+            canon_paras.append(item)
+        canonical = dict(canonical)
+        canonical["paragraphs"] = canon_paras
+        merged = dict(base_metrics)
+        merged["invalid_refs_repaired"] = report.invalid_refs_repaired
+        merged["paragraphs_without_evidence"] = \
+            report.paragraphs_without_evidence
+        merged["evidence_anchor_space"] = 1
+        return canonical, merged
+    except Exception:      # pragma: no cover - защитная ветка
+        logger.warning("L2 anchors: validation internal error — fail-closed",
+                       exc_info=True)
+        metrics["reason"] = REASON_INTERNAL_ERROR
+        return None, metrics
+
+
 # ── Вызов LLM: ровно один, через слот или глобальную модель ────────────────
 
 def _extract_usage(value):
@@ -1260,7 +1391,7 @@ async def _hybrid_length_for_chat(chat_id) -> dict:
 async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
                  slot=None, chat_id=None,
                  system_prompt=None, llm_call=None, source_input=None,
-                 length=None) -> L2Result:
+                 length=None, anchor_map=None) -> L2Result:
     """Один прогон L2: контент пакета §96 → **1 LLM-вызов** → §99-документ.
 
     ``llm`` — LLMClient (или совместимый мок); ``llm_call`` — инъекция канала
@@ -1337,13 +1468,18 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
         prompt_source = "param"
     else:
         # Волна 3 (T-4609): fallback-канон зависит от kill-switch'а входа
-        # (ON → R1030 с блоком источника; OFF → прод-канон R1029 байт-в-байт;
+        # (ON → R1030 с блоком источника; OFF → прод-канон R1029 байт-в-бит;
         # PG-override — общий ключ prompts.summary_l2_writer_system_prompt).
         default_prompt = (SUMMARY_L2_WRITER_SYSTEM_PROMPT
                           if writer_source_input_enabled()
                           else PREV_SUMMARY_L2_WRITER_R1029_ASAP41)
         system, prompt_source = resolve_prompt_with_source(
             PROMPT_PG_KEY, default_prompt)
+    # ASAP 4.2 D1 (AM-1): anchor-space блок поверх канона (raw message_id →
+    # source_anchors); OFF-контур блок не добавляет (байт-в-бит).
+    anchor_mode = anchor_evidence_enabled(anchor_map)
+    if anchor_mode:
+        system = system + "\n\n" + SUMMARY_L2_WRITER_ANCHORS_BLOCK
     _log_start(correlation_id=correlation_id, chat_id=chat_id,
                paragraphs_hint=int(length["target_paragraphs"]),
                model=model, base_url=base_url,
@@ -1388,7 +1524,11 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
         reason = parse_reason if parse_reason != REASON_OK else REASON_INTERNAL_ERROR
         result = invalid_result(reason, duration_ms=_elapsed(), usage=usage)
     else:
-        document, metrics = validate_l2_document(data, package)
+        if anchor_mode:
+            document, metrics = validate_l2_document_anchors(
+                data, package, anchor_map)
+        else:
+            document, metrics = validate_l2_document(data, package)
         if document is None:
             result = invalid_result(
                 metrics.get("reason", REASON_INVALID_PARAGRAPH),

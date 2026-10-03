@@ -708,7 +708,9 @@ class TestPermissionsSeeded:
                 "name": "hack", "instruction": "",
                 "pipeline_mode": "generate_then_edit"}),
             ("delete", "/api/cover/styles/medved_press", None),
-            ("post", "/api/cover/styles/medved_press/duplicate", None),
+            ("post", "/api/cover/styles/medved_press/references", {
+                "filename": "x.png",
+                "content_base64": base64.b64encode(b"PNG").decode()}),
         ):
             fn = getattr(client, method)
             if payload is None:
@@ -718,6 +720,25 @@ class TestPermissionsSeeded:
             assert resp.status_code == 403, (method, url, resp.status_code)
         after = json.dumps(pg.pool._db.profiles, sort_keys=True)
         assert before == after, "seeded не изменён без права"
+
+    def test_non_admin_can_clone_seeded_to_custom(self):
+        """ASAP 4.2 (D5.7): non-admin клонирует seeded в свой custom —
+        canonical definition при этом НЕ меняется (создаётся origin=custom)."""
+        pg = FakePgDatabase()
+        _seed(pg)
+        before = json.dumps(pg.pool._db.profiles["medved_press"],
+                            sort_keys=True)
+        client = _client(pg, user_role="user")
+        resp = client.post("/api/cover/styles/medved_press/duplicate",
+                           headers=_hdr(USER_ID))
+        assert resp.status_code == 200, resp.text
+        cloned = resp.json()
+        assert cloned["profile_id"] != "medved_press"
+        assert cloned["origin"] == "custom"
+        assert cloned["is_example"] is False
+        # canonical seeded не изменён
+        assert json.dumps(pg.pool._db.profiles["medved_press"],
+                          sort_keys=True) == before
 
 
 # ── §121: static contract guard ─────────────────────────────────────────────

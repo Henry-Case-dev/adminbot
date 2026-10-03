@@ -64,10 +64,17 @@ from services.summary_l1_contract import (
 )
 from services.system2_handoff import parse_json_object
 from services.token_counter import count_tokens
+from services.summary_source_anchors import (
+    SourceAnchorMap,
+    normalize_anchor,
+)
+from services.summary_l1_repair import repair_l1_anchors
 
 logger = logging.getLogger(__name__)
 
 MAP_SCHEMA_VERSION = 1
+# ASAP 4.2 D1 (AM-1; spec §1): L1 map v2 — anchors вместо raw message_id.
+MAP_SCHEMA_VERSION_V2 = 2
 EVENT_KIND_MAX = 32
 RELATION_TYPE_MAX = 32
 TOPIC_ID_MAX = 64
@@ -87,6 +94,28 @@ RELATION_FIELDS: frozenset[str] = frozenset(
     {"type", "message_ids", "topic_ids"})
 
 TOPIC_ID_TEMPLATE = "topic_%03d"
+
+# ASAP 4.2 D1 (AM-1; spec §1) — v2 field-sets (AnchorSpace). «legacy-поля»
+# (``unassigned_message_ids``) допустимы на top-level и игнорируются; в
+# topics/events/relationships — строго ``source_anchors`` (raw ``message_ids``
+# для v2 → unknown_field).
+TOP_LEVEL_FIELDS_V2: frozenset[str] = frozenset({
+    "schema_version", "topics", "events", "relationships",
+    "unassigned_anchors", "unassigned_message_ids",
+    "response_mode", "cover_prompt",
+})
+TOPIC_FIELDS_V2: frozenset[str] = frozenset({
+    "topic_id", "title", "source_anchors", "participants", "short_hint",
+})
+EVENT_FIELDS_V2: frozenset[str] = frozenset({"kind", "source_anchors"})
+RELATION_FIELDS_V2: frozenset[str] = frozenset(
+    {"type", "source_anchors", "topic_ids"})
+
+# R17-safe reason-коды v2.
+REASON_MAP_V2_OK = "ok"
+REASON_MAP_V2_UNKNOWN_ANCHOR = "unknown_anchor"
+REASON_MAP_V2_BAD_ANCHOR = "bad_anchor"
+REASON_MAP_V2_NO_STRUCTURE = "no_structure"
 
 # Reason-коды карты (R17-safe; регистрируются в mca_events.REASON_CODES).
 REASON_MAP_OK = REASON_OK
@@ -158,6 +187,11 @@ class MapResult:
     duration_ms: float = 0.0
     degraded: bool = False
     stats: dict = dataclasses.field(default_factory=dict)
+    # ASAP 4.2 D1 (AM-1) — addитивные Inspector-поля anchor-space (AM-5).
+    anchors_generated: int = 0
+    anchors_repaired: int = 0
+    anchors_dropped: int = 0
+    anchor_map_unavailable: bool = False
 
     @property
     def usable(self) -> bool:
@@ -485,8 +519,276 @@ def _validate_map(data, id_space: IdSpace, duration_ms: float) -> MapResult:
                      duration_ms=duration_ms)
 
 
-# ── Бюджет карты + deterministic compaction (D3) ───────────────────────────
+# ── ASAP 4.2 D1 (AM-1; spec §1): L1 map v2 (AnchorSpace) ───────────────────
 
+def _anchor_ordinal(anchor_map: SourceAnchorMap, anchor: str) -> int:
+    entry = anchor_map.entry(anchor)
+    return entry.ordinal if entry is not None else 0
+
+
+def _anchor_sort_key(anchor_map: SourceAnchorMap, anchor: str):
+    return (_anchor_ordinal(anchor_map, anchor), str(anchor))
+
+
+def _canonical_anchor_list(raw, anchor_map: SourceAnchorMap, *, repair: bool):
+    """Проверить/канонизировать ``source_anchors`` (dedup + порядок ordinal).
+
+    Возвращает ``(anchors, unknown_count, bad_count)``; ``unknown_count`` —
+    валидный формат, но anchor отсутствует/битый checksum; ``bad_count`` —
+    неверный формат. При ``repair=True`` невалидные уже удалены
+    ``repair_l1_anchors``; сюда они не доходят."""
+    if not isinstance(raw, list):
+        return None, 0, 0
+    anchors: list = []
+    unknown = 0
+    bad = 0
+    for token in raw:
+        normalized = normalize_anchor(token)
+        check = anchor_map.validate(token)
+        if not check.ok:
+            if normalized is None:
+                bad += 1
+            else:
+                unknown += 1
+            continue
+        if check.anchor not in anchors:
+            anchors.append(check.anchor)
+    anchors.sort(key=lambda a: _anchor_sort_key(anchor_map, a))
+    return anchors, unknown, bad
+
+
+def compute_unassigned_anchors(payload, anchor_map: SourceAnchorMap) -> list:
+    """``unassigned = source_anchors − union(valid anchors)`` — считает код
+    (§3 R8-A-003), значение LLM игнорируется."""
+    mentioned: set = set()
+    for key in ("topics", "events", "relationships"):
+        for item in (payload or {}).get(key) or []:
+            if not isinstance(item, dict):
+                continue
+            for token in item.get("source_anchors") or []:
+                normalized = normalize_anchor(token)
+                if normalized is not None \
+                        and anchor_map.entry(normalized) is not None:
+                    mentioned.add(normalized)
+    return [anchor for anchor in anchor_map.source_anchors
+            if anchor not in mentioned]
+
+
+def validate_semantic_map_v2(data, anchor_map: SourceAnchorMap, *,
+                             repair: bool = True,
+                             duration_ms: float = 0.0) -> MapResult:
+    """Проверить и канонизировать L1 map **v2** (AnchorSpace; spec §1).
+
+    ``repair=True`` → local anchor repair (``repair_l1_anchors``) до
+    валидации: unknown/bad anchors удаляются, пустые dependent topic/event/
+    relationship дропаются, ``unassigned_anchors`` пересчитывается кодом.
+    Fatal только структурная невалидность (не-dict/не-list/schema/field-set).
+    Не бросает; внутренняя ошибка → invalid ``internal_error``."""
+    try:
+        return _validate_map_v2(data, anchor_map, repair, duration_ms)
+    except Exception:      # pragma: no cover - защитная ветка
+        logger.warning("L1 map v2: internal error — fail-closed", exc_info=True)
+        return map_result_invalid(REASON_INTERNAL_ERROR, duration_ms=duration_ms)
+
+
+def _validate_map_v2(data, anchor_map, repair: bool, duration_ms: float
+                     ) -> MapResult:
+    if anchor_map is None:
+        return MapResult(
+            status=STATUS_INVALID, payload=None,
+            reason=REASON_ANCHOR_MAP_UNAVAILABLE,
+            topics_count=0, events_count=0, unassigned_count=0,
+            duration_ms=duration_ms, anchor_map_unavailable=True)
+    if not isinstance(data, dict):
+        return map_result_invalid(REASON_BAD_TYPE, duration_ms=duration_ms)
+    if set(data) - TOP_LEVEL_FIELDS_V2:
+        return map_result_invalid(REASON_UNKNOWN_FIELD, duration_ms=duration_ms)
+    if not isinstance(data.get("schema_version"), int) \
+            or isinstance(data.get("schema_version"), bool) \
+            or data.get("schema_version") != MAP_SCHEMA_VERSION_V2:
+        return map_result_invalid(REASON_BAD_SCHEMA_VERSION,
+                                  duration_ms=duration_ms)
+
+    report = None
+    if repair:
+        data, report = repair_l1_anchors(data, anchor_map)
+
+    topics = data.get("topics")
+    events = data.get("events")
+    relationships = data.get("relationships")
+    if not isinstance(topics, list) or not isinstance(events, list):
+        return map_result_invalid(REASON_BAD_TYPE, duration_ms=duration_ms)
+    if relationships is not None and not isinstance(relationships, list):
+        return map_result_invalid(REASON_BAD_TYPE, duration_ms=duration_ms)
+
+    response_mode, cover_prompt = service_fields(data)
+
+    canonical_topics: list = []
+    unknown_total = 0
+    bad_total = 0
+    for topic in topics:
+        if not isinstance(topic, dict):
+            return map_result_invalid(REASON_BAD_TYPE, duration_ms=duration_ms)
+        if set(topic) - TOPIC_FIELDS_V2:
+            return map_result_invalid(REASON_UNKNOWN_FIELD,
+                                      duration_ms=duration_ms)
+        topic_id = topic.get("topic_id")
+        if not isinstance(topic_id, str) or not topic_id.strip() \
+                or len(topic_id) > TOPIC_ID_MAX:
+            return map_result_invalid("invalid_topic_id",
+                                      duration_ms=duration_ms)
+        title = _valid_title(topic.get("title"), TOPIC_MAX)
+        if title is None:
+            return map_result_invalid("invalid_title", duration_ms=duration_ms)
+        anchors, unknown, bad = _canonical_anchor_list(
+            topic.get("source_anchors"), anchor_map, repair=repair)
+        if anchors is None:
+            return map_result_invalid(REASON_BAD_TYPE, duration_ms=duration_ms)
+        unknown_total += unknown
+        bad_total += bad
+        if not anchors:
+            continue            # dependent topic без anchors → drop
+        raw_participants = topic.get("participants")
+        if raw_participants is None:
+            raw_participants = []
+        if not isinstance(raw_participants, list):
+            return map_result_invalid(REASON_BAD_TYPE, duration_ms=duration_ms)
+        participants: list = []
+        for name in raw_participants:
+            text = _valid_short_text(name, PARTICIPANT_MAX)
+            if text is None:
+                return map_result_invalid("invalid_participant",
+                                          duration_ms=duration_ms)
+            if text not in participants:
+                participants.append(text)
+        hint_raw = topic.get("short_hint")
+        if hint_raw is None or hint_raw == "":
+            hint = ""
+        else:
+            hint = _valid_short_text(hint_raw, 10**6)
+            if hint is None:
+                return map_result_invalid("invalid_short_hint",
+                                          duration_ms=duration_ms)
+        canonical_topics.append({
+            "topic_id": topic_id, "title": title,
+            "source_anchors": anchors, "participants": participants,
+            "short_hint": hint,
+        })
+
+    canonical_events: list = []
+    for event in events:
+        if not isinstance(event, dict):
+            return map_result_invalid(REASON_BAD_TYPE, duration_ms=duration_ms)
+        if set(event) - EVENT_FIELDS_V2:
+            return map_result_invalid(REASON_UNKNOWN_FIELD,
+                                      duration_ms=duration_ms)
+        kind = event.get("kind")
+        if not isinstance(kind, str) or not kind.strip() \
+                or len(kind) > EVENT_KIND_MAX:
+            return map_result_invalid("invalid_event_kind",
+                                      duration_ms=duration_ms)
+        anchors, unknown, bad = _canonical_anchor_list(
+            event.get("source_anchors"), anchor_map, repair=repair)
+        if anchors is None:
+            return map_result_invalid(REASON_BAD_TYPE, duration_ms=duration_ms)
+        unknown_total += unknown
+        bad_total += bad
+        if not anchors:
+            continue
+        canonical_events.append({"kind": kind.strip(),
+                                 "source_anchors": anchors})
+
+    canonical_rels: list = []
+    for rel in relationships or []:
+        if not isinstance(rel, dict):
+            return map_result_invalid(REASON_BAD_TYPE, duration_ms=duration_ms)
+        if set(rel) - RELATION_FIELDS_V2:
+            return map_result_invalid(REASON_UNKNOWN_FIELD,
+                                      duration_ms=duration_ms)
+        rel_type = rel.get("type")
+        if not isinstance(rel_type, str) or not rel_type.strip() \
+                or len(rel_type) > RELATION_TYPE_MAX:
+            return map_result_invalid("invalid_relationship_type",
+                                      duration_ms=duration_ms)
+        anchors, unknown, bad = _canonical_anchor_list(
+            rel.get("source_anchors"), anchor_map, repair=repair)
+        if anchors is None:
+            return map_result_invalid(REASON_BAD_TYPE, duration_ms=duration_ms)
+        unknown_total += unknown
+        bad_total += bad
+        if not anchors:
+            continue
+        raw_topic_ids = rel.get("topic_ids")
+        if raw_topic_ids is None:
+            raw_topic_ids = []
+        if not isinstance(raw_topic_ids, list):
+            return map_result_invalid(REASON_BAD_TYPE, duration_ms=duration_ms)
+        topic_ids: list = []
+        for tid in raw_topic_ids:
+            text = _valid_short_text(tid, TOPIC_ID_MAX)
+            if text is None:
+                return map_result_invalid("invalid_topic_id",
+                                          duration_ms=duration_ms)
+            if text not in topic_ids:
+                topic_ids.append(text)
+        canonical_rels.append({"type": rel_type.strip(),
+                               "source_anchors": anchors,
+                               "topic_ids": topic_ids})
+
+    # FAIL-CLOSED только при неремонтируемой структуре: repair=False и есть
+    # unknown/bad anchors → invalid (OFF-путь остаётся строгим).
+    if not repair and (unknown_total or bad_total):
+        reason = (REASON_MAP_V2_BAD_ANCHOR if bad_total
+                  else REASON_MAP_V2_UNKNOWN_ANCHOR)
+        return map_result_invalid(reason, duration_ms=duration_ms)
+
+    canonical_topics.sort(
+        key=lambda t: _anchor_sort_key(anchor_map, t["source_anchors"][0])
+        if t["source_anchors"] else (0, ""))
+    topics_out = []
+    for number, topic in enumerate(canonical_topics, start=1):
+        topics_out.append({
+            "topic_id": TOPIC_ID_TEMPLATE % number,
+            "title": topic["title"],
+            "source_anchors": topic["source_anchors"],
+            "participants": topic["participants"],
+            "short_hint": topic["short_hint"],
+        })
+
+    payload = {
+        "schema_version": MAP_SCHEMA_VERSION_V2,
+        "topics": topics_out,
+        "events": canonical_events,
+        "unassigned_anchors": compute_unassigned_anchors(
+            {"topics": topics_out, "events": canonical_events,
+             "relationships": canonical_rels}, anchor_map),
+    }
+    if canonical_rels:
+        payload["relationships"] = canonical_rels
+    if response_mode:
+        payload["response_mode"] = response_mode
+    if cover_prompt:
+        payload["cover_prompt"] = cover_prompt
+
+    generated = int(getattr(anchor_map, "source_count", 0))
+    repaired = int(report.anchors_repaired) if report is not None else 0
+    dropped = int(report.anchors_dropped) if report is not None else 0
+    if not topics_out and not canonical_events:
+        return MapResult(
+            status=STATUS_EMPTY, payload=None, reason=None,
+            topics_count=0, events_count=0,
+            unassigned_count=len(payload["unassigned_anchors"]),
+            duration_ms=duration_ms, anchors_generated=generated,
+            anchors_repaired=repaired, anchors_dropped=dropped)
+    return MapResult(
+        status=STATUS_OK, payload=payload, reason=REASON_MAP_V2_OK,
+        topics_count=len(topics_out), events_count=len(canonical_events),
+        unassigned_count=len(payload["unassigned_anchors"]),
+        duration_ms=duration_ms, anchors_generated=generated,
+        anchors_repaired=repaired, anchors_dropped=dropped)
+
+
+# ── Бюджет карты + deterministic compaction (D3) ───────────────────────────
 def map_payload_tokens(payload) -> int:
     """Токены канонизированной карты (тот же счётчик, что L1/L2 вход)."""
     import json
@@ -680,6 +982,29 @@ def map_correction_block(reason: str, *, unknown_ids: list,
     return "\n".join(lines)
 
 
+def anchor_map_correction_block(reason: str) -> str:
+    """Correction-блок map-режима v2 (AnchorSpace; ASAP 4.2 D1/AM-1).
+
+    Повторная попытка только для real invalid JSON/структурной неполноты
+    (broken-anchor-only сюда НЕ доходит — его чинит ``repair_l1_anchors``
+    локально, без retry). Reason валидатора передаётся модели дословно
+    (R17: код/схема, без контента)."""
+    return "\n".join([
+        f"ПРЕДЫДУЩИЙ ОТВЕТ ОТКЛОНЁН: {reason}.",
+        "Reference-контракт: LLM оперирует ТОЛЬКО короткими source_anchors "
+        "вида m00BD-K7 из входных данных. Не перепечатывай реальные "
+        "Telegram message_id и не выдумывай anchors.",
+        "верни СТРОГО валидный JSON-объект semantic map v2 "
+        "(schema_version: 2): topics[] ({topic_id, title ≤200, "
+        "source_anchors[], participants[], short_hint ≤160}), events[] "
+        "({kind ≤32, source_anchors[]}), relationships[] (optional; "
+        "{type, source_anchors[], topic_ids[]}). unassigned считать не нужно "
+        "(поле optional — сервер вычислит сам). Никаких текстов сообщений и "
+        "фактов в выходе.",
+        "Верни исправленный JSON.",
+    ])
+
+
 # ── Merge map-payload'ов + minimal map (T-4608, spec §2 B.2) ───────────────
 
 def merge_map_payloads(payloads: list) -> dict | None:
@@ -860,13 +1185,20 @@ def minimal_map_for_rows(payload_items, *, seg_index: int = 1,
 
 
 __all__ = [
-    "MAP_SCHEMA_VERSION", "MapResult", "EVENT_KIND_MAX",
+    "MAP_SCHEMA_VERSION", "MAP_SCHEMA_VERSION_V2", "MapResult", "EVENT_KIND_MAX",
+    "TOP_LEVEL_FIELDS_V2", "TOPIC_FIELDS_V2", "EVENT_FIELDS_V2",
+    "RELATION_FIELDS_V2",
+    "REASON_MAP_V2_OK", "REASON_MAP_V2_UNKNOWN_ANCHOR",
+    "REASON_MAP_V2_BAD_ANCHOR", "REASON_MAP_V2_NO_STRUCTURE",
     "REASON_MAP_OK", "REASON_MAP_COMPACTION_APPLIED", "REASON_MAP_DEGRADED",
     "REASON_MAP_SHARDED", "REASON_SEMANTIC_MAP_UNAVAILABLE",
     "RETRYABLE_MAP_REASONS", "TOPIC_ID_TEMPLATE",
     "semantic_map_enabled", "resolve_map_budgets", "parse_map_response",
-    "validate_semantic_map", "compact_semantic_map", "map_payload_tokens",
+    "validate_semantic_map", "validate_semantic_map_v2",
+    "compute_unassigned_anchors",
+    "compact_semantic_map", "map_payload_tokens",
     "collect_unknown_map_ids", "map_correction_block",
+    "anchor_map_correction_block",
     "map_result_invalid", "map_result_empty", "map_result_error",
     "merge_map_payloads", "minimal_map_for_rows",
 ]

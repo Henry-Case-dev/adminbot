@@ -36,6 +36,29 @@ logger = logging.getLogger(__name__)
 # Нормализованный edit-маршрут (spec §2.3). `/images/edits` (multipart) —
 # альтернатива провайдера; используем JSON-маршрут с `input_references`.
 EDIT_ROUTE = "/images"
+# ASAP 4.2 Step 2c-1 (T-4812): provider-specific route names (NanoGPT).
+IMAGE_API_ROUTE = "/images"
+IMAGE_EDITS_ROUTE = "/images/edit"
+IMAGE_EDITS_ROUTE_ALIAS = "/images/edits"
+
+# Значения resolved route.
+ROUTE_IMAGE_API = "image_api"
+ROUTE_IMAGE_EDITS = "image_edits"
+ROUTE_UNVERIFIED = "unverified"
+ROUTE_LEGACY = "legacy_images"
+
+_ROUTE_CACHE: dict = {}
+_ROUTE_TTL_SECONDS = 900.0
+
+
+def provider_routes_enabled() -> bool:
+    """Kill-switch `COVER_STYLE_PROVIDER_ROUTES_ENABLED` (T-4812; env-only,
+    default ON). OFF → прежний `{base_url}/images` + `input_references`."""
+    try:
+        return bool(getattr(settings, "COVER_STYLE_PROVIDER_ROUTES_ENABLED",
+                            True))
+    except Exception:      # pragma: no cover - защитная ветка
+        return True
 
 _MIME_BY_SUFFIX = {
     ".png": "image/png",
@@ -143,17 +166,160 @@ def _data_url(path: str | Path) -> str | None:
 
 def build_edit_payload(prompt: str, *, model: str, image_paths: list,
                        max_input_images: int | None = None) -> dict:
-    """Собрать тело нормализованного edit-запроса (data URL references)."""
-    refs = [_data_url(p) for p in image_paths]
-    refs = [r for r in refs if r]
-    if max_input_images is not None and max_input_images > 0:
-        refs = refs[:int(max_input_images)]
+    """Собрать тело нормализованного edit-запроса (data URL references).
+
+    Image API ветка (T-4812): `input_references` — массив строк data-URL; НЕ
+    смешивается с legacy-алиасами (`imageDataUrl(s)`)."""
+    refs = _data_urls(image_paths, max_input_images)
     return {
         "prompt": str(prompt or ""),
         "model": str(model or ""),
         "n": 1,
         "input_references": refs,
     }
+
+
+def _data_urls(image_paths: list, max_input_images: int | None = None) -> list:
+    refs = [_data_url(p) for p in image_paths]
+    refs = [r for r in refs if r]
+    if max_input_images is not None and max_input_images > 0:
+        refs = refs[:int(max_input_images)]
+    return refs
+
+
+def build_image_edits_payload(prompt: str, *, model: str, image_paths: list,
+                              max_input_images: int | None = None) -> dict:
+    """Image Edits (T-4812): OpenAI-совместимый JSON-контракт
+    `imageDataUrl` (single) / `imageDataUrls` (array). НЕ смешивается с
+    `input_references`."""
+    refs = _data_urls(image_paths, max_input_images)
+    payload = {"prompt": str(prompt or ""), "model": str(model or ""), "n": 1}
+    if len(refs) == 1:
+        payload["imageDataUrl"] = refs[0]
+    else:
+        payload["imageDataUrls"] = refs
+    return payload
+
+
+def build_image_edits_multipart(prompt: str, *, model: str, image_paths: list,
+                               max_input_images: int | None = None
+                               ) -> tuple[dict, list]:
+    """Image Edits multipart (T-4812): `(data, files)` для httpx
+    (`image` или `image[]`). Возвращает (fields, files-список
+    `[(field, (name, bytes, mime))]`) — байты не логируются."""
+    data = {"prompt": str(prompt or ""), "model": str(model or ""), "n": "1"}
+    paths = list(image_paths)
+    if max_input_images is not None and max_input_images > 0:
+        paths = paths[:int(max_input_images)]
+    files = []
+    for idx, path in enumerate(paths):
+        try:
+            raw = Path(path).read_bytes()
+        except OSError:
+            continue
+        field = "image" if len(paths) == 1 else "image[]"
+        files.append((field, (f"image{idx}", raw, _mime_for(path))))
+    return data, files
+
+
+def _route_cache_key(base_url: str, model: str) -> tuple:
+    return (str(base_url or "").rstrip("/").lower(),
+            str(model or "").strip().lower())
+
+
+async def _discover_endpoints_for_route(base_url: str, model: str) -> dict | None:
+    """Endpoint metadata модели через provider-адаптер (единственный
+    подтверждённый route-discovery; НЕ выдумываем)."""
+    try:
+        from services.media_execution import detect_adapter
+        adapter = detect_adapter(base_url)
+        discover = getattr(adapter, "_discover_endpoints", None)
+        if discover is None:
+            return None
+        return await discover(model)
+    except Exception:
+        return None
+
+
+def _classify_route_from_endpoints(endpoints: dict | None) -> str:
+    """Маршрут по discovered endpoint-metadata (tolerant, без выдумывания).
+
+    Признаки: явный path `/images/edit(s)` → Image Edits; наличие
+    `input_reference_constraints`/`input_references` → Image API; иначе
+    `unverified` (fail-soft Base Cover)."""
+    if not isinstance(endpoints, dict) or not endpoints:
+        return ROUTE_UNVERIFIED
+    try:
+        blob = json_dumps_safe(endpoints).lower()
+    except Exception:
+        blob = str(endpoints).lower()
+    if "/images/edit" in blob or "imagedataurl" in blob or "multipart" in blob:
+        return ROUTE_IMAGE_EDITS
+    if "input_reference" in blob:
+        return ROUTE_IMAGE_API
+    # Явные route/endpoint-поля.
+    for key in ("route", "endpoint", "path", "url", "method"):
+        value = str(endpoints.get(key) or "").lower()
+        if "images/edit" in value:
+            return ROUTE_IMAGE_EDITS
+        if "images" in value and "edit" not in value:
+            return ROUTE_IMAGE_API
+    return ROUTE_UNVERIFIED
+
+
+def json_dumps_safe(value) -> str:
+    import json as _json
+    try:
+        return _json.dumps(value, ensure_ascii=False, default=str)
+    except Exception:
+        return str(value)
+
+
+async def resolve_edit_route(base_url: str, model: str, *,
+                             endpoints: dict | None = None) -> str:
+    """T-4812: resolved route по discovered endpoint-metadata.
+
+    Только NanoGPT (верифицированный контракт обеих веток); иные провайдеры →
+    legacy `{base_url}/images`. Нет подтверждения → `unverified` (fail-soft
+    Base Cover). TTL-кеш по base_url+model."""
+    if not provider_routes_enabled():
+        return ROUTE_LEGACY
+    from services.model_capacity import detect_provider_class
+    provider_class = detect_provider_class(base_url)
+    if provider_class != "nanogpt":
+        return ROUTE_LEGACY
+    key = _route_cache_key(base_url, model)
+    now = time.monotonic()
+    cached = _ROUTE_CACHE.get(key)
+    if cached is not None and (now - cached[0]) <= _ROUTE_TTL_SECONDS:
+        return cached[1]
+    if endpoints is None:
+        endpoints = await _discover_endpoints_for_route(base_url, model)
+    route = _classify_route_from_endpoints(endpoints)
+    _ROUTE_CACHE[key] = (now, route)
+    return route
+
+
+def extract_edit_error(resp, *, route: str, model: str) -> dict:
+    """T-4813: R17-safe 400-diagnostics (status/reason_code/sanitized
+    message/request_id/route/model; БЕЗ keys/prompts/bytes)."""
+    try:
+        status = int(getattr(resp, "status_code", 0) or 0)
+    except (TypeError, ValueError):
+        status = 0
+    body = None
+    try:
+        body = resp.json()
+    except Exception:
+        try:
+            body = resp.text
+        except Exception:
+            body = None
+    from services.image_capabilities import extract_provider_error
+    diag = extract_provider_error(body) if isinstance(body, dict) else {}
+    diag.update({"status": status, "route": str(route or ""),
+                 "model": str(model or "")[:80]})
+    return diag
 
 
 async def _post_json(url: str, payload: dict, headers: dict,
@@ -195,14 +361,16 @@ async def edit_image(prompt: str, *, base_image_path: str | None,
                      | None = None, chat_id: int | None = None,
                      correlation_id: str | None = None,
                      existing_task_id: str | None = None,
-                     operation: str = "edit",
+                     operation: str = "edit", endpoints: dict | None = None,
+                     route: str | None = None,
                      transport=None, downloader=None) -> EditResult:
     """Capability-gated Style Edit (§3.2/§38/§41).
 
     `operation` — stage-aware key политики (T-4197/§23: ``edit`` ≠
-    ``preview`` — разные latency-распределения). `transport`/`downloader` —
-    инъекция для тестов (по умолчанию реальный httpx). Возвращает
-    `EditResult`; исключений не бросает.
+    ``preview`` — разные latency-распределения). `route`/`endpoints` —
+    provider-specific маршрут (T-4812; discovered endpoint-metadata).
+    `transport`/`downloader` — инъекция для тестов (по умолчанию реальный
+    httpx). Возвращает `EditResult`; исключений не бросает.
     """
     caps = capabilities if capabilities is not None else None
     if caps is not None and caps.image_edit == cap.FALSE:
@@ -217,11 +385,32 @@ async def edit_image(prompt: str, *, base_image_path: str | None,
     images.extend(reference_paths or [])
     max_inputs = caps.max_input_images if (caps and caps.max_input_images) \
         else None
-    payload = build_edit_payload(prompt, model=model, image_paths=images,
-                                 max_input_images=max_inputs)
-    if not payload["input_references"]:
+    # ── T-4812: provider-specific route по discovered endpoint-metadata ─────
+    resolved_route = route
+    if resolved_route is None:
+        resolved_route = await resolve_edit_route(base_url, model,
+                                                  endpoints=endpoints)
+    edit_meta: dict = {"route": resolved_route}
+    if resolved_route == ROUTE_UNVERIFIED:
+        # Честный fail-soft: Base Cover публикуется, API не вызывается вслепую.
+        return EditResult(ok=False, reason="route_unverified", model=model,
+                          provider=_provider(base_url), meta=edit_meta)
+    if resolved_route == ROUTE_IMAGE_EDITS:
+        payload = build_image_edits_payload(prompt, model=model,
+                                            image_paths=images,
+                                            max_input_images=max_inputs)
+        request_endpoint = (str(base_url or "").rstrip("/")
+                            + IMAGE_EDITS_ROUTE)
+        has_inputs = bool(payload.get("imageDataUrl")
+                          or payload.get("imageDataUrls"))
+    else:
+        payload = build_edit_payload(prompt, model=model, image_paths=images,
+                                     max_input_images=max_inputs)
+        request_endpoint = _endpoint(base_url)
+        has_inputs = bool(payload.get("input_references"))
+    if not has_inputs:
         return EditResult(ok=False, reason="no_input_images", model=model,
-                          provider=_provider(base_url))
+                          provider=_provider(base_url), meta=edit_meta)
     timeout = _timeout(operation, base_url, model)
     post = transport or _post_json
     getter = downloader or _get_bytes
@@ -241,7 +430,7 @@ async def edit_image(prompt: str, *, base_image_path: str | None,
     for attempt in range(1, attempts + 1):
         attempt_started = time.monotonic()
         try:
-            resp = await post(_endpoint(base_url), payload,
+            resp = await post(request_endpoint, payload,
                               _headers(api_key), timeout)
         except httpx.TimeoutException:
             last_reason = "timeout"
@@ -264,7 +453,7 @@ async def edit_image(prompt: str, *, base_image_path: str | None,
                                         - attempt_started)
                     return EditResult(
                         ok=True, content=content, reason="ok", model=model,
-                        provider=provider,
+                        provider=provider, meta=edit_meta,
                         latency_ms=_ms(attempt_started))
                 last_reason = reason or "error"
             elif status in (429, 502, 503, 504):
@@ -272,8 +461,32 @@ async def edit_image(prompt: str, *, base_image_path: str | None,
             elif status == 401:
                 last_reason = "unauthorized"
             elif status == 400:
-                # §58: API validation error → capability mismatch (в логах).
-                last_reason = "bad_request"
+                # T-4813: безопасные diagnostics (status/reason_code/
+                # sanitized message/request_id/route/model; без keys/prompt/
+                # bytes). T-4814: machine-readable prompt-limit → N.
+                diag = extract_edit_error(resp, route=resolved_route,
+                                          model=model)
+                edit_meta["provider_error"] = diag
+                limit = None
+                try:
+                    from services.image_capabilities import (
+                        extract_prompt_limit,
+                    )
+                    limit = extract_prompt_limit(_safe_resp_text(resp))
+                except Exception:
+                    limit = None
+                if limit is not None and limit[0] > 0:
+                    edit_meta["prompt_limit"] = {"value": int(limit[0]),
+                                                 "unit": limit[1]}
+                    last_reason = "prompt_limit"
+                else:
+                    last_reason = "bad_request"
+                logger.warning(
+                    "[cover_style_edit] provider 400 | status=%s | route=%s | "
+                    "model=%s | reason_code=%s | request_id=%s",
+                    diag.get("status"), diag.get("route"), diag.get("model"),
+                    (diag.get("reason_code") or "-")[:60],
+                    (diag.get("request_id") or "-")[:40])
             elif status is not None:
                 last_reason = f"http_{status}"
             else:
@@ -292,7 +505,21 @@ async def edit_image(prompt: str, *, base_image_path: str | None,
                         duration_s=time.monotonic() - started,
                         timeout=(last_reason == "timeout"))
     return EditResult(ok=False, reason=last_reason, model=model,
-                      provider=provider, latency_ms=_ms(started))
+                      provider=provider, meta=edit_meta, latency_ms=_ms(started))
+
+
+def _safe_resp_text(resp) -> str:
+    """R17-safe текст ответа для серверного парсинга лимита (не логируется)."""
+    try:
+        text = getattr(resp, "text", "")
+        if text:
+            return str(text)
+    except Exception:
+        pass
+    try:
+        return json_dumps_safe(resp.json())
+    except Exception:
+        return ""
 
 
 def _extract(resp) -> tuple[bytes | None, str]:

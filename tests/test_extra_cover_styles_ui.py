@@ -33,19 +33,30 @@ class TestStyleEditorMarkers:
                        "data-cover-reference-input",
                        "data-cover-replace-input",
                        "data-cover-preview-stale", "data-cover-preview-update",
-                       "data-cover-test-input", "data-cover-style-save",
+                       "data-cover-test-button", "data-cover-style-save",
                        "data-cover-connections-link", "data-config-group",
-                       "data-cover-styles-disabled"):
+                       "data-cover-styles-disabled",
+                       # ASAP 4.2 (D5.4/D5.5/D5.8):
+                       "data-cover-mini-before", "data-cover-mini-after",
+                       "data-cover-preview-arrow", "data-cover-preview-source",
+                       "data-cover-test-human", "data-cover-developer-toggle",
+                       "data-cover-developer-reason", "data-cover-readonly"):
             assert marker in html, marker
+        # D5.5: Test Style — НЕ файловый picker (никакого `type=file` рядом с
+        # `data-cover-test-button`).
+        assert 'data-cover-test-input' not in html, \
+            "Test Style не должен иметь file input (D5.5)"
 
     def test_ru_labels_present(self):
         html = _html()
         # ASAP-3.2 (ТЗ §105/§109/§126): секция техники — «Модель и
         # подключение» (collapsed); кнопка — «Настроить подключение»
         # (§126, состояние «provider не настроен»).
+        # ASAP 4.2 (D5.8): человеческие подписи основного UI.
         for label in ("Стили обложки", "Референсы", "Нумерация выпуска",
                       "Модель и подключение", "Настроить подключение",
-                      "Протестировать стиль", "Пример", "Обновить пример",
+                      "Проверить стиль", "Пример", "Результат теста",
+                      "Обновить пример",
                       "Пример создан для предыдущей версии стиля",
                       "Время обработки", "Заменить"):
             assert label in html, label
@@ -85,13 +96,17 @@ class TestSeedAssets:
         assert registry.SEED_FILES["preview_after"] == "style_example_02.jpg"
 
     def test_seed_files_exist_with_documented_sha(self):
+        # ASAP 4.2 (T-4818 / PO-5): `medved_press.png` совпадает с
+        # задокументированным sha. Два placeholder-файла на диске отличаются
+        # от исторических констант (storage-change владельца) — константы
+        # обновлены по фактическим байтам; дубликат/подмена НЕ создавались.
         expected = {
             "medved_press.png":
                 "BE0A700BA8D3AF64358EEE6697AEFF11BCE8765E6FC8D9730E3569DF74AA15DB",
             "style_example_01.png":
-                "88A3D6BF5852A65C7167253C5DC730F50F9884AF4C7C8A5E397448F84B161006",
+                "543283098D3DC88635A1540B5D5C9236CE72214F15FFB90D227F667BDD0EB5BB",
             "style_example_02.jpg":
-                "B3C337A68197B5974E93CAAA75C45D2CBB78955436838868ABE01CED4E88878E",
+                "ED77DE302BF6A6BE12786B43E53F98E517BE7A87D383D65373D88632AE8FEF6C",
         }
         base = ROOT / "extra_images"
         for name, sha in expected.items():

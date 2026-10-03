@@ -41,6 +41,10 @@ import copy
 import dataclasses
 
 from services.summary_l1_contract import IdSpace
+from services.summary_source_anchors import (
+    SourceAnchorMap,
+    normalize_anchor,
+)
 
 
 def _as_int(value):
@@ -270,4 +274,119 @@ def repair_l1(data: dict, id_space: IdSpace) -> tuple[dict, RepairReport]:
         facts_after=facts_after,
         useless=useless,
         useless_reason=useless_reason)
+    return repaired, report
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ASAP 4.2 D1 (AM-1; spec §1) — anchor-space L1 repair (R8-B)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@dataclasses.dataclass(frozen=True)
+class AnchorRepairReport:
+    """R17-safe счётчики anchor-space ремонта (int/bool; AM-5 §D6)."""
+
+    anchors_generated: int = 0
+    anchors_repaired: int = 0
+    anchors_dropped: int = 0
+    topics_removed: int = 0
+    events_removed: int = 0
+    relationships_removed: int = 0
+    unassigned_count: int = 0
+    useful: bool = True
+
+    def as_log_fields(self) -> dict:
+        return dataclasses.asdict(self)
+
+
+def _repair_anchor_list(raw, anchor_map: SourceAnchorMap):
+    """Отфильтровать anchor-список: невалидные/unknown удалить локально.
+
+    Возвращает ``(valid_anchors, removed_count)``; НЕ-dict/не-list вход не
+    трогает (структурные вопросы — за строгим v2-валидатором)."""
+    valid: list = []
+    removed = 0
+    for token in raw:
+        check = anchor_map.validate(token)
+        if not check.ok:
+            removed += 1
+            continue
+        if check.anchor not in valid:
+            valid.append(check.anchor)
+    return valid, removed
+
+
+def repair_l1_anchors(data, anchor_map: SourceAnchorMap) -> tuple[dict,
+                                                                 AnchorRepairReport]:
+    """Deterministic anchor-space repair L1 map v2 (R8-B-001/002/003).
+
+    Flow (§1): ``parse → normalize → validate syntax/checksum → remove invalid
+    locally → recompute unassigned (код) → drop only empty dependent
+    topic/event/relationship``. Fatal остаётся только при структурной
+    невалидности — её ловит ``validate_semantic_map_v2`` (repair типы не
+    решает). Вход НЕ мутируется; повторный прогон байт-идентичен.
+
+    ``anchors_dropped`` = число source-anchor'ов, не упомянутых ни одной
+    выжившей структурой (ушли в ``unassigned_anchors``, посчитанные кодом).
+    """
+    repaired = copy.deepcopy(data) if isinstance(data, dict) else {}
+    anchors_generated = len(anchor_map) if anchor_map else 0
+
+    anchors_repaired = 0
+    dropped_containers = {"topics": 0, "events": 0, "relationships": 0}
+
+    def _clean_containers(key: str, label: str) -> None:
+        nonlocal anchors_repaired
+        raw_items = repaired.get(key)
+        if not isinstance(raw_items, list):
+            return
+        survivors: list = []
+        for item in raw_items:
+            if not isinstance(item, dict):
+                survivors.append(item)      # отбракует v2-валидатор
+                continue
+            raw_anchors = item.get("source_anchors")
+            if not isinstance(raw_anchors, list):
+                survivors.append(item)      # структурная невалидность
+                continue
+            valid, removed = _repair_anchor_list(raw_anchors, anchor_map)
+            anchors_repaired += removed
+            item["source_anchors"] = valid
+            if not valid:
+                dropped_containers[label] += 1
+                continue
+            survivors.append(item)
+        repaired[key] = survivors
+
+    _clean_containers("topics", "topics")
+    _clean_containers("events", "events")
+    _clean_containers("relationships", "relationships")
+
+    # recompute unassigned КОДОМ (LLM-значение игнорируется) — §3 R8-A-003.
+    mentioned: set = set()
+    for key in ("topics", "events", "relationships"):
+        for item in repaired.get(key) or []:
+            if isinstance(item, dict) and isinstance(
+                    item.get("source_anchors"), list):
+                for token in item["source_anchors"]:
+                    normalized = normalize_anchor(token)
+                    if normalized is not None:
+                        mentioned.add(normalized)
+    source = list(anchor_map.source_anchors) if anchor_map else []
+    unassigned = [anchor for anchor in source if anchor not in mentioned]
+    repaired["unassigned_anchors"] = unassigned
+    # legacy-поле не source-of-truth — снимаем, чтобы не путать потребителей.
+    repaired.pop("unassigned_message_ids", None)
+
+    report = AnchorRepairReport(
+        anchors_generated=anchors_generated,
+        anchors_repaired=anchors_repaired,
+        anchors_dropped=len(unassigned),
+        topics_removed=dropped_containers["topics"],
+        events_removed=dropped_containers["events"],
+        relationships_removed=dropped_containers["relationships"],
+        unassigned_count=len(unassigned),
+        useful=bool((repaired.get("topics") or [])
+                    or (repaired.get("events") or [])),
+    )
     return repaired, report

@@ -109,26 +109,24 @@ def declare_execution_capabilities(provider: str = "", model: str = ""
                                    ) -> ProviderCapabilities:
     """Capability discovery из реальных данных (не декларативно).
 
-    Реестр верифицированных адаптеров пуст: синхронно-опаковый транспорт —
-    единственный наблюдаемый факт → Mode C. Включение Mode A/B-флагов без
-    верифицированного адаптера НЕ меняет режим (честные декларации)."""
-    _ = provider, model       # пока декларация транспорт-уровня
-    streaming = False
+    ASAP 4.2 Step 2c-1 (T-4810/AM-2): реальный маршрут ``llm_client`` —
+    OpenAI-совместимый `POST /chat/completions`, который теперь умеет
+    `stream=true` (SSE, `last_activity_at`). Это ВЕРИФИЦИРОВАННЫЙ route →
+    при включённом `SUMMARY_LLM_STREAMING_MODE_ENABLED` честно декларируем
+    streaming-liveness (Mode B). Async job/status API по-прежнему не
+    подтверждён → Mode A остаётся слотом. «Пинговать генерацию» выдуманным
+    endpoint запрещено (23093–23108)."""
+    _ = provider, model
+    streaming = bool(getattr(settings, "SUMMARY_LLM_STREAMING_MODE_ENABLED",
+                             False))
     async_status = False
-    try:
-        # Слоты Mode A/B активируются ТОЛЬКО вместе с верифицированным
-        # адаптером; реестр адаптеров пока пуст → флаги не дают режима
-        # (честное отражение фактического состояния транспорта).
-        streaming = False
-        async_status = False
-    except Exception:      # pragma: no cover - защитная ветка
-        pass
     return ProviderCapabilities(
         supports_streaming_liveness=streaming,
         supports_async_status=async_status,
         supports_cancel=False,
         opaque_sync_only=not (streaming or async_status),
-        source="sync_transport_observed")
+        source=("openai_chat_stream_route" if streaming
+                else "sync_transport_observed"))
 
 
 def select_execution_mode(caps: ProviderCapabilities) -> str:
@@ -355,6 +353,7 @@ class SupervisedCallState:
             "attempt": self.attempt,
             "fallback": self.fallback,
             "http_attempts": self.http_attempts,
+            "network_attempts": self.http_attempts,
             "provider": self.provider,
             "model": self.model,
             "token_bucket": self.token_bucket,
@@ -492,6 +491,29 @@ async def _primary_attempt(llm, state: SupervisedCallState, *, messages,
     state.attempt_started_at = state.last_activity_at
     if state.queue_ms is None:
         state.queue_ms = (state.last_activity_at - state.started_at) * 1000.0
+    # ── Mode B (T-4810/AM-2): real SSE streaming liveness ──────────────────
+    # Верифицированный OpenAI-compatible chat-route: submit `stream=true` →
+    # чанки обновляют `last_activity_at` → assemble финального контента.
+    # Wall-clock — только внешний fuse, НЕ health-метрика.
+    if state.mode == MODE_STREAM:
+        dedicated = slot is not None and bool(getattr(slot, "dedicated", False))
+        stream_key = (str(getattr(slot, "api_key", "") or "") if dedicated
+                      else None)
+        stream_base = (str(getattr(slot, "base_url", "") or "") if dedicated
+                       else str(getattr(llm, "_base_url", "") or ""))
+        stream_model = (str(getattr(slot, "model", "") or "") if dedicated
+                        else str(getattr(llm, "_chat_model", "") or ""))
+
+        def _touch() -> None:
+            state.last_activity_at = time.monotonic()
+
+        content, usage = await llm.stream_chat_completion(
+            payload.get("messages") or messages, model=stream_model,
+            api_key=stream_key, base_url=stream_base, timeout=deadline,
+            on_activity=_touch)
+        state.http_attempts += 1
+        state.last_activity_at = time.monotonic()
+        return content, usage, stream_model
     contract = transport_contract(deadline)
     if slot is not None and bool(getattr(slot, "dedicated", False)):
         response = await llm._post(  # noqa: SLF001 - документированный мост S3

@@ -22,10 +22,22 @@ from services.image_capabilities import (
 
 logger = logging.getLogger(__name__)
 
-# Приоритеты компонент (§20).
-P0 = 0   # обязательные runtime invariants (не обрезать!)
-P1 = 1   # композиция/callouts/сюжет
-P2 = 2   # стилистические подсказки (режутся первыми)
+# Приоритеты компонент (spec §3/D3 P0–P3).
+P0 = 0   # обязательная механика edit — НИКОГДА не режется
+P1 = 1   # сущность стиля/бренд — НИКОГДА не режется строковыми ножницами
+P2 = 2   # ключевые детали Summary (сжимаются в semantic brief)
+P3 = 3   # декоративные hints (режутся первыми)
+
+
+def semantic_compression_enabled() -> bool:
+    """Kill-switch `IMAGE_PROMPT_SEMANTIC_COMPRESSION_ENABLED` (T-4815; env-only,
+    default ON). OFF → прежний 3-уровневый алгоритм байт-в-байт."""
+    try:
+        from config.settings import settings
+        return bool(getattr(settings, "IMAGE_PROMPT_SEMANTIC_COMPRESSION_ENABLED",
+                            True))
+    except Exception:      # pragma: no cover - защитная ветка
+        return True
 
 
 @dataclass
@@ -77,7 +89,11 @@ class CoverBrief:
 
 @dataclass
 class CompiledPrompt:
-    """Результат компиляции: prompt + метрики для budget indicator (§57)."""
+    """Результат компиляции: prompt + метрики для budget indicator (§57).
+
+    ASAP 4.2 Step 2c-1 (T-4816): `original_len`/`resolved_limit` — Inspector
+    `Original N / Resolved limit M / Compiled K`; `exceeded`/`reason` —
+    first-class `prompt_limit_exceeded` (P0+P1 не влезли → Base Cover)."""
 
     prompt: str
     static_len: int = 0
@@ -86,6 +102,10 @@ class CompiledPrompt:
     limit: int | None = None
     unit: str = "unknown"
     dropped: list[str] = field(default_factory=list)
+    original_len: int = 0
+    resolved_limit: int | None = None
+    exceeded: bool = False
+    reason: str = ""
 
     def as_dict(self) -> dict:
         return {
@@ -96,6 +116,10 @@ class CompiledPrompt:
             "limit": self.limit,
             "unit": self.unit,
             "dropped": list(self.dropped),
+            "original_len": self.original_len,
+            "resolved_limit": self.resolved_limit,
+            "exceeded": self.exceeded,
+            "reason": self.reason,
         }
 
 
@@ -135,16 +159,102 @@ def _join(components: list[PromptComponent]) -> str:
     return " ".join(c.text for c in components if c.text)
 
 
+def _compact_semantic_brief(text: str) -> str:
+    """P2 → compact semantic brief: только первое смысловое предложение
+    (семантическое сжатие, НЕ `[:N]`). Пусто → пусто (P2 опускается)."""
+    raw = re.sub(r"\s+", " ", str(text or "")).strip()
+    if not raw:
+        return ""
+    match = re.search(r"^(.+?[.!?])(\s|$)", raw)
+    return (match.group(1) if match else raw).strip()
+
+
 def compile_prompt(components: list[PromptComponent], *,
                    capabilities: ImageModelCapabilities,
                    budget_component: str = "") -> CompiledPrompt:
-    """Собрать prompt под capability модели (§19/§20).
+    """Собрать prompt под capability модели (spec §3/D3 P0–P3).
 
-    P0 и issue number сохраняются ВСЕГДА; при давлении сначала режется P2,
-    затем — сокращается P1 (сюжетная часть), P0 не режется случайным
-    `text[:N]`. `budget_component` — опциональная сюжетная часть, которая
-    масштабируется последней.
-    """
+    ON `IMAGE_PROMPT_SEMANTIC_COMPRESSION_ENABLED`: P0 (механика edit) и P1
+    (стиль/бренд) — абсолютный приоритет, НИКОГДА не режутся строковыми
+    ножницами; давление снимается сначала с P3, затем P2 → compact semantic
+    brief; если P0+P1 не помещаются → `exceeded=True`,
+    `reason="prompt_limit_exceeded"` (caller публикует Base Cover).
+    OFF → прежний 3-уровневый алгоритм байт-в-байт."""
+    if not semantic_compression_enabled():
+        return _compile_prompt_legacy(
+            components, capabilities=capabilities,
+            budget_component=budget_component)
+    limit = capabilities.prompt_limit.value
+    unit = capabilities.prompt_limit.unit
+    known = capabilities.prompt_limit.known and limit is not None
+    p0 = [c for c in components if c.priority <= P0 and c.text]
+    p1 = [c for c in components if c.priority == P1 and c.text]
+    p2 = [c for c in components if c.priority == P2 and c.text]
+    p3 = [c for c in components if c.priority == P3 and c.text]
+    brief = str(budget_component or "").strip()
+    full_parts = (list(p0) + list(p1) + list(p2)
+                  + ([PromptComponent(brief, P2, "cover_brief")] if brief
+                     else []) + list(p3))
+    original_len = _units_of(_join(full_parts), unit)
+    dropped: list[str] = []
+    if not known:
+        prompt = _join(full_parts)
+        return CompiledPrompt(
+            prompt=prompt, static_len=_units_of(_join(p0 + p1), unit),
+            reserve_len=0, scene_allowance=0, limit=None,
+            unit=unit or "unknown", dropped=[], original_len=original_len,
+            resolved_limit=None, exceeded=False, reason="")
+    limit = int(limit)
+    required = _join(p0 + p1)
+    required_len = _units_of(required, unit)
+    static_len = required_len
+    if required_len > limit:
+        # P0+P1 не влезают — строковые ножницы запрещены; честный overflow.
+        return CompiledPrompt(
+            prompt=required, static_len=static_len, reserve_len=0,
+            scene_allowance=0, limit=limit, unit=unit,
+            dropped=[c.label or c.text[:24] for c in (p2 + p3)],
+            original_len=original_len, resolved_limit=limit, exceeded=True,
+            reason="prompt_limit_exceeded")
+    working = required
+    # P2 (explicit) — добавляем по возможности целиком; иначе semantic brief.
+    for comp in p2:
+        trial = (working + " " + comp.text).strip()
+        if _units_of(trial, unit) <= limit:
+            working = trial
+        else:
+            dropped.append(comp.label or comp.text[:24])
+    if brief:
+        trial = (working + " " + brief).strip()
+        if _units_of(trial, unit) <= limit:
+            working = trial
+        else:
+            compact = _compact_semantic_brief(brief)
+            trial2 = (working + " " + compact).strip() if compact else working
+            if compact and _units_of(trial2, unit) <= limit:
+                working = trial2
+            else:
+                dropped.append("cover_brief")
+    # P3 — декоративные, при давлении первыми.
+    for comp in p3:
+        trial = (working + " " + comp.text).strip()
+        if _units_of(trial, unit) <= limit:
+            working = trial
+        else:
+            dropped.append(comp.label or comp.text[:24])
+    scene_allowance = max(0, limit - _units_of(working, unit))
+    return CompiledPrompt(
+        prompt=working, static_len=static_len, reserve_len=0,
+        scene_allowance=scene_allowance, limit=limit, unit=unit,
+        dropped=dropped, original_len=original_len, resolved_limit=limit,
+        exceeded=False, reason="")
+
+
+def _compile_prompt_legacy(components: list[PromptComponent], *,
+                           capabilities: ImageModelCapabilities,
+                           budget_component: str = "") -> CompiledPrompt:
+    """OFF-контур `IMAGE_PROMPT_SEMANTIC_COMPRESSION_ENABLED=false`
+    (байт-в-байт 2.58.47): P0+P1 static, P2 режется первым."""
     limit = capabilities.prompt_limit.value
     unit = capabilities.prompt_limit.unit
     static = [c for c in components if c.priority <= P1 and c.text]
@@ -155,8 +265,6 @@ def compile_prompt(components: list[PromptComponent], *,
     dropped: list[str] = []
 
     if limit is None or not capabilities.prompt_limit.known:
-        # Лимит unknown (§58): безопасная policy — включаем всё, профиль
-        # сохраняем, ложных чисел не показываем.
         compiled = _join(static + p2)
         if budget_component:
             compiled = (compiled + " " + budget_component).strip()
@@ -165,7 +273,6 @@ def compile_prompt(components: list[PromptComponent], *,
             scene_allowance=0, limit=None, unit="unknown", dropped=[])
 
     limit = int(limit)
-    # Давление: сначала выкидываем P2 целиком (по одной, с конца).
     working = list(static)
     for comp in reversed(p2):
         trial = working + p2
@@ -179,10 +286,8 @@ def compile_prompt(components: list[PromptComponent], *,
     scene_allowance = max(0, limit - used)
 
     if budget_component:
-        # Сюжетная часть (CoverBrief) — P1: масштабируем под остаток.
         scene = budget_component
         if _units_of(scene, unit) > scene_allowance:
-            # chars/bytes: режем по границе слова; tokens: консервативно.
             if unit == "tokens":
                 approx = scene_allowance * 4
                 scene = scene[:max(0, approx)].rsplit(" ", 1)[0].strip()
@@ -190,8 +295,6 @@ def compile_prompt(components: list[PromptComponent], *,
                 scene = scene[:scene_allowance].rsplit(" ", 1)[0].strip()
         base_text = (base_text + " " + scene).strip() if scene else base_text
     elif scene_allowance == 0 and _units_of(base_text, unit) > limit:
-        # Нет сюжетной части, но всё равно перебор — сокращаем P1-сюжетные
-        # компоненты (НЕ P0) с конца.
         working2 = [c for c in working if c.priority == P0]
         p1 = [c for c in working if c.priority == P1] + p2
         while p1 and _units_of(_join(working2 + p1), unit) > limit:
@@ -202,7 +305,8 @@ def compile_prompt(components: list[PromptComponent], *,
     return CompiledPrompt(
         prompt=base_text, static_len=static_len, reserve_len=reserve_len,
         scene_allowance=scene_allowance, limit=limit, unit=unit,
-        dropped=dropped)
+        dropped=dropped, original_len=static_len + reserve_len,
+        resolved_limit=limit, exceeded=False, reason="")
 
 
 def estimate_budget(components: list[PromptComponent], *,

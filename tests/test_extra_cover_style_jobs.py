@@ -460,6 +460,31 @@ class TestRunStyleJob:
         assert calls["n"] == 1                 # base НЕ перегенерируется (§49)
 
     @pytest.mark.asyncio
+    async def test_prompt_limit_400_one_retry(self, tmp_path):
+        """T-4814: machine-readable 400 prompt-limit → cache → recompile →
+        РОВНО один retry (второй вызова нет)."""
+        base = _png(tmp_path / "base.png")
+        cap.reset_cache()
+        prompts = []
+
+        async def edit_call(prompt, **kw):
+            prompts.append(prompt)
+            if len(prompts) == 1:
+                return EditResult(
+                    ok=False, reason="prompt_limit",
+                    meta={"prompt_limit": {"value": 40, "unit": "chars"},
+                          "route": "image_api"})
+            return EditResult(ok=True, content=b"STYLED2", reason="ok")
+
+        meta = await j.run_style_job(
+            chat_id=-100, base_image_path=base, profile=_profile(),
+            summary_run_id="run1", capabilities=self._caps(),
+            edit_call=edit_call, reference_paths=[])
+        assert len(prompts) == 2
+        assert meta["applied"] is True
+        assert meta.get("prompt_limit_retry", {}).get("resolved_limit") == 40
+
+    @pytest.mark.asyncio
     async def test_edit_unsupported(self, tmp_path):
         base = _png(tmp_path / "base.png")
         meta = await j.run_style_job(

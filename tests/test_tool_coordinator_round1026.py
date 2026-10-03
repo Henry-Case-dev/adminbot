@@ -660,6 +660,26 @@ class TestBounds:
         # (расширение СУЩЕСТВУЮЩИХ Memory-виджетов эндпоинтами attribution
         # trace/metrics §24; новый корневой dashboard запрещён и не создан;
         # admin-only; Δ каталога = 0).
+        # NOTE (ASAP 4.2 `asap-4-2-summary-surgical-reliability`, ADR-1028-10
+        # D1/D5.5/D5.7; санкция Reviewer, NOTE-модель ADR-1026-17 D9 /
+        # ADR-1026-22 D10 / ADR-1027-8 D13 / ADR-1027-9 / ADR-1028-6):
+        # + `web/api/cover_styles.py` (round1029 EXTRA ADR-1028-4 D12 создал
+        # роутер — файл не был добавлен в allowlist; ASAP 4.2 — Test Style
+        # no-picker/real base, RBAC seeded backend, `_public_profile.can_edit`,
+        # backend-guard `cover_test_style` M-ASAP42-1) и + `web/api/deps.py`
+        # (round1030 asap-4 control plane; ASAP 4.2 — `user_is_global_admin`,
+        # `_assert_can_edit_seeded`). Test-only allowlist-дельта, не ослабляет
+        # §104/запреты; несанкционированные web/ пути по-прежнему вне diff.
+        # NOTE (дополнение Builder, тот же NOTE-санкционный прецедент —
+        # ревью-перечень был неполон: `_diff_names` берёт diff от старого
+        # baseline `pre-round1026-a1` и видит ЗАКОММИЧЕННЫЙ дрейф прошлых
+        # санкционированных волн, не только рабочую дельту ASAP 4.2):
+        # + `web/api/analytics.py` (round1028 ASAP-3.1 autobudgets + round1030
+        # pipeline analytics; расширение существующего Analytics-дашборда),
+        # + `web/static/polygon-background.js` (round1026/1028 визуальный
+        # эпик, UI_POLYGON_BG_ENABLED), + `web/static/telegram-init.js`
+        # (round1028 TMA-init). Все три — уже выпущенные/санкционированные
+        # волны; иных несанкционированных web/-путей нет.
         assert not any(n.startswith("web/")
                        and not n.startswith(("web/app.js", "web/index.html",
                                              "web/app.py",
@@ -668,7 +688,12 @@ class TestBounds:
                                              "web/api/routes.py",
                                              "web/api/oversight.py",
                                              "web/api/chat_lore.py",
-                                             "web/api/memory_agi.py"))
+                                             "web/api/memory_agi.py",
+                                             "web/api/cover_styles.py",
+                                             "web/api/deps.py",
+                                             "web/api/analytics.py",
+                                             "web/static/polygon-background.js",
+                                             "web/static/telegram-init.js"))
                        for n in names)
         # NOTE (round1027, MCA-01 / ADR-1027-3 D3): `services/summary_memory.py`
         # санкционированно переведён на единый single-writer
@@ -732,11 +757,43 @@ class TestBounds:
                                     # (summary_runs + summary_run_stages,
                                     # append-only §50.54; Δ DDL = +2
                                     # таблицы v24; Δ каталога = 0).
-                                    "services/summary_run_store.py"}, \
+                                    "services/summary_run_store.py",
+                                    # ASAP 4.2 `asap-4-2-summary-surgical-
+                                    # reliability` (ADR-1028-10 D1/AM-1;
+                                    # санкция Reviewer, NOTE-модель):
+                                    # новые чистые детерминированные
+                                    # anchor-space модули (SourceAnchorMap +
+                                    # L2 evidence repair / targeted
+                                    # revision); Δ DDL = 0, Δ каталога = 0.
+                                    # Внесены заранее — после фича-коммита
+                                    # untracked-файлы попадут в diff vs
+                                    # baseline и валили бы summary_changed.
+                                    "services/summary_source_anchors.py",
+                                    "services/summary_l2_anchor_repair.py",
+                                    # NOTE (дополнение Builder, тот же
+                                    # NOTE-санкционный прецедент): перечень
+                                    # ревью был неполон — `_diff_names` (diff
+                                    # от `pre-round1026-a1`) видит
+                                    # ЗАКОММИЧЕННЫЙ дрейф прошлых выпущенных
+                                    # волн: summary_budget_auto (round1028
+                                    # ASAP-3.1 autobudgets), summary_cleanup
+                                    # (round1028 hygiene), summary_l1_capacity
+                                    # (round1030 ASAP-4), summary_llm_supervisor
+                                    # (round1030/1031 ASAP-4/4.1 + ASAP 4.2),
+                                    # summary_quote_repair (round1030 ASAP-4),
+                                    # summary_semantic_reduction (round1029
+                                    # ASAP-3.2). Все санкционированы ранее;
+                                    # новых несанкционированных summary_ нет.
+                                    "services/summary_budget_auto.py",
+                                    "services/summary_cleanup.py",
+                                    "services/summary_l1_capacity.py",
+                                    "services/summary_llm_supervisor.py",
+                                    "services/summary_quote_repair.py",
+                                    "services/summary_semantic_reduction.py"}, \
             summary_changed
 
     def test_version_and_catalog(self):
-        assert APP_VERSION == "2.58.47"
+        assert APP_VERSION == "2.58.48"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
         assert len(pc.REGISTRY) == 488
         assert len({f.name for f in dataclasses.fields(Settings)}) == 426

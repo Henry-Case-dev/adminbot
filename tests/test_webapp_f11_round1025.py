@@ -217,7 +217,7 @@ class TestD5FactsBudgetsCounters:
 
 class TestD6Invariants:
     def test_version_bump(self):
-        assert 'APP_VERSION = "2.58.47"' in SETTINGS
+        assert 'APP_VERSION = "2.58.48"' in SETTINGS
         assert "v2.58.34" in README
 
     def test_catalog_delta_zero(self):

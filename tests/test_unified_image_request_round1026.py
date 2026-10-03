@@ -650,6 +650,19 @@ class TestBoundsA3:
         # NOTE (round1027 Wave 2, mca-04b / ADR-1027-9): + `web/api/chat_lore.py`
         # (AMEND: full rebuild контракт — прогресс от полного диапазона,
         # resume-on-paused, read-time reconstruction; Δ каталога = 0).
+        # NOTE (ASAP 4.2 `asap-4-2-summary-surgical-reliability`,
+        # ADR-1028-10 D1/D5.5/D5.7; санкция Reviewer, NOTE-модель):
+        # + `web/api/cover_styles.py` (Test Style no-picker/real base, RBAC
+        # seeded backend, `_public_profile.can_edit`, backend-guard
+        # `cover_test_style` M-ASAP42-1) и + `web/api/deps.py`
+        # (`user_is_global_admin`, `_assert_can_edit_seeded`). Test-only
+        # allowlist-дельта; §104/A3-контракт не затронут (AST-гейт выше).
+        # NOTE (дополнение Builder, тот же NOTE-санкционный прецедент —
+        # ревью-перечень был неполон: `_diff_names` (diff от `e8646af`) видит
+        # закоммиченный дрейф прошлых волн): + `web/api/analytics.py`
+        # (round1028 ASAP-3.1 + round1030 ASAP-4), +
+        # `web/static/polygon-background.js` (round1026/1028 визуальный эпик),
+        # + `web/static/telegram-init.js` (round1028 TMA-init). Уже выпущены.
         assert not any(ln.startswith("web/")
                        and not ln.startswith(("web/app.js", "web/index.html",
                                               "web/app.py",
@@ -662,7 +675,12 @@ class TestBoundsA3:
                                               # расширение существующих
                                               # Memory-виджетов (trace/
                                               # metrics), не новый dashboard.
-                                              "web/api/memory_agi.py"))
+                                              "web/api/memory_agi.py",
+                                              "web/api/cover_styles.py",
+                                              "web/api/deps.py",
+                                              "web/api/analytics.py",
+                                              "web/static/polygon-background.js",
+                                              "web/static/telegram-init.js"))
                        for ln in self._diff_names())
 
     def _diff_names(self):
@@ -687,7 +705,7 @@ class TestBoundsA3:
         import dataclasses
         from services import param_catalog as pc
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.47"            # bump запрещён (D8)
+        assert APP_VERSION == "2.58.48"            # bump запрещён (D8)
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in pc.REGISTRY
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}

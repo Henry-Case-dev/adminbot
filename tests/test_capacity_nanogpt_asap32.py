@@ -226,16 +226,24 @@ async def test_provider_switch_no_code_change(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_developer_override_applies_below_registry(monkeypatch):
-    """AMEND ADR-1028-3 (ADR-1028-8 D2/AM-2): реестр/каталог выше override —
-    живая модель на 131072 не сужается override'ом; lower-capacity сценарии
-    (§48 Run 2) — через конфиг-фикстуру модели, не override."""
+    """ASAP 4.2 Step 2c-1 (AMEND ADR-1028-8 D2): override — уровень 1 при
+    live-precedence ON (default) → сильнее live catalog/registry. OFF →
+    прежний контур (registry выше) байт-в-байт."""
     monkeypatch.setattr(type(mc.settings), "CHAT_MODEL_CONTEXT_WINDOW",
                         777777, raising=False)
     await _no_network(monkeypatch)
     result = await mc.resolve_capacity("https://nano-gpt.com/api/v1",
                                        "deepseek-chat")
-    assert result.source == mc.SOURCE_REGISTRY
-    assert result.effective_context_window == 131072
+    assert result.source == mc.SOURCE_DEVELOPER_OVERRIDE
+    assert result.effective_context_window == 777777
+    monkeypatch.setattr(
+        type(mc.settings), "SUMMARY_CAPACITY_LIVE_PRECEDENCE_ENABLED", False,
+        raising=False)
+    mc.invalidate_capacity_cache()
+    legacy = await mc.resolve_capacity("https://nano-gpt.com/api/v1",
+                                       "deepseek-chat")
+    assert legacy.source == mc.SOURCE_REGISTRY
+    assert legacy.effective_context_window == 131072
 
 
 # ── таймаут discovery (§57): adapter timeout ≤ 2 с ──────────────────────────

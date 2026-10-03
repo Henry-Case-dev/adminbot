@@ -17,6 +17,7 @@ LLM_FALLBACK_* (62.4, пустые env = ровно старое поведен�
 direct_chat_service (llm_client о нём НЕ знает — контракт 62.3).
 """
 import asyncio
+import json
 import logging
 import random
 import re
@@ -901,6 +902,95 @@ class LLMClient:
                 f"LLM request timed out after {total_attempts} attempts: {url}"
             )
         raise LLMError(f"LLM request failed after retries: {url}")
+
+    async def stream_chat_completion(
+            self, messages: list[dict[str, str]], *,
+            model: str | None = None,
+            api_key: str | None = None,
+            base_url: str | None = None,
+            timeout: float | None = None,
+            on_activity=None,
+            extra_payload: dict | None = None) -> tuple[str, dict | None]:
+        """ASAP 4.2 Step 2c-1 (T-4810/AM-2): реальный SSE-стрим
+        OpenAI-совместимого `POST /chat/completions` (`stream=true`).
+
+        Для верифицированного chat-route: submit stream → приём SSE-чанков →
+        `on_activity()` на каждый чанк (обновляет `last_activity_at`
+        watchdog'а) → assemble финального контента из `delta.content`.
+        Wall-clock НЕ является health-метрикой здесь — только внешний fuse.
+        Транспортная ошибка/не-2xx классифицируются в те же LLM*-исключения,
+        что и `_post` (fail-soft контур стадий не смещается). Никогда не
+        логирует prompt/ключи/тело чанков (R17)."""
+        key = api_key if api_key is not None else self._current_api_key()
+        base = (base_url or self._base_url).rstrip("/")
+        url = f"{base}/chat/completions"
+        payload: dict = {
+            "model": model or self._chat_model,
+            "messages": messages,
+            "stream": True,
+        }
+        if extra_payload:
+            payload.update(extra_payload)
+        headers = {"Authorization": f"Bearer {key}"} if key else {}
+        to = (httpx.Timeout(timeout, connect=10.0) if timeout is not None
+              else httpx.Timeout(self._timeout, connect=10.0))
+        parts: list[str] = []
+        usage: dict | None = None
+        try:
+            async with httpx.AsyncClient(timeout=to) as client:
+                async with client.stream("POST", url, json=payload,
+                                         headers=headers) as resp:
+                    status = resp.status_code
+                    if status is not None and int(status) >= 400:
+                        await resp.aread()
+                        if int(status) == 429:
+                            raise LLMRateLimitError(
+                                f"LLM stream rate limited (429): {url}")
+                        if 500 <= int(status) < 600:
+                            raise LLMServerError(
+                                f"LLM stream server error {status}: {url}")
+                        if int(status) in (401, 403):
+                            raise LLMAuthError(
+                                f"LLM stream auth failed ({status}): {url}")
+                        raise LLMError(f"LLM stream HTTP {status}: {url}")
+                    async for line in resp.aiter_lines():
+                        if on_activity is not None:
+                            try:
+                                on_activity()
+                            except Exception:      # наблюдаемость не рвёт стрим
+                                pass
+                        line = (line or "").strip()
+                        if not line or not line.startswith("data:"):
+                            continue
+                        data = line[5:].strip()
+                        if data == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(data)
+                        except ValueError:
+                            continue
+                        if not isinstance(chunk, dict):
+                            continue
+                        chunk_usage = chunk.get("usage")
+                        if isinstance(chunk_usage, dict):
+                            usage = chunk_usage
+                        for choice in chunk.get("choices") or []:
+                            if not isinstance(choice, dict):
+                                continue
+                            delta = choice.get("delta") or {}
+                            piece = delta.get("content")
+                            if isinstance(piece, str) and piece:
+                                parts.append(piece)
+        except httpx.TransportError as exc:
+            if isinstance(exc, httpx.TimeoutException):
+                raise LLMTimeoutError(
+                    f"LLM stream timed out: {url}") from exc
+            raise LLMTransportError(
+                f"LLM stream transport error: {exc}: {url}") from exc
+        content = "".join(parts)
+        if not content.strip():
+            raise LLMBadResponseError("LLM stream: empty content")
+        return content, usage
 
     async def _post_with_key(self, path: str, payload: dict,
                              chat_id: int | None = None,

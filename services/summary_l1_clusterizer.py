@@ -102,7 +102,18 @@ from services.summary_l1_capacity import (
     repartition_by_count,
 )
 from services.summary_l1_repair import repair_l1
-from services.summary_prompts import SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT
+from services.summary_prompts import (
+    SUMMARY_L1_ANCHORS_SYSTEM_PROMPT,
+    SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT,
+)
+# ── ASAP 4.2 D1 (AM-1; spec §1; ADR-1028-10): self-validating source anchors.
+from services.summary_source_anchors import (
+    SourceAnchorMap,
+    anchor_space_item,
+    anchors_enabled as _anchors_enabled,
+    build_anchor_map,
+    l1_anchor_repair_enabled as _l1_anchor_repair_enabled,
+)
 # S7 (ADR-1026-9 D6/SC-07): §109-детали ошибки — http_status/attempts.
 from services.summary_run_log import attempts_of, http_status_of
 from services.token_counter import count_tokens, resolve_chat_limit
@@ -119,6 +130,7 @@ from services.summary_l1_semantic_map import (
     REASON_MAP_OK,
     REASON_SEMANTIC_MAP_UNAVAILABLE,
     RETRYABLE_MAP_REASONS,
+    anchor_map_correction_block,
     compact_semantic_map,
     collect_unknown_map_ids as _collect_map_unknown_ids,
     map_correction_block,
@@ -128,6 +140,7 @@ from services.summary_l1_semantic_map import (
     parse_map_response,
     semantic_map_enabled,
     validate_semantic_map,
+    validate_semantic_map_v2,
 )
 
 logger = logging.getLogger(__name__)
@@ -564,17 +577,45 @@ def pack_l1_input(rows, chat_id, *, token_limit=None, char_limit=None,
         source_count=len(rows_sorted))
 
 
+def _anchor_space_item(item, anchor_map: SourceAnchorMap) -> dict:
+    """Совместимость-обёртка: делегирует в ``anchor_space_item``."""
+    return anchor_space_item(item, anchor_map)
+
+
+def resolve_anchor_map(source_window, *, run_id=None, chat_id=None):
+    """Построить ``SourceAnchorMap`` из immutable ``SummarySourceWindow``.
+
+    ASAP 4.2 D1 (AM-1): mapping строит только код поверх write-once окна;
+    fingerprint берётся из идентичности САМОГО окна (run_id/chat_id окна),
+    иначе anchors, сгенерированные кодом, не сойдутся с checksum. ``None`` —
+    anchors недоступны (fail-open к v1). Никогда не бросает."""
+    if source_window is None:
+        return None
+    try:
+        return build_anchor_map(source_window)
+    except Exception:      # pragma: no cover - защитная ветка
+        logger.warning("L1 anchors: build_anchor_map failed", exc_info=True)
+        return None
+
+
 def build_l1_user_content(payload_items, chunk_count=1,
-                          chunk_starts: tuple = ()) -> str:
+                          chunk_starts: tuple = (), *,
+                          anchor_map: SourceAnchorMap | None = None) -> str:
     """Детерминированный user-контент L1: ASC-строки §92 + маркеры границ.
 
     Каждое сообщение — компактный JSON-объект (поля §92, порядок фиксирован
     ``build_l1_payload``); маркеры ``=== ЧАСТЬ k/N ===`` — только границы
     исходных §93-фрагментов (не темы, не отдельные вызовы).
-    """
+
+    ASAP 4.2 D1 (AM-1): ``anchor_map`` → сообщения подаются в anchor-space
+    (``source_anchor`` вместо raw ``message_id``; spec §1 инвариант 7)."""
     items = list(payload_items or [])
-    lines = [f"СООБЩЕНИЯ ЧАТА (хронология ASC; message_id — Telegram id), "
-             f"всего {len(items)}:"]
+    if anchor_map is not None:
+        lines = [f"СООБЩЕНИЯ ЧАТА (хронология ASC; source_anchor — короткий "
+                 f"якорь сообщения), всего {len(items)}:"]
+    else:
+        lines = [f"СООБЩЕНИЯ ЧАТА (хронология ASC; message_id — Telegram id), "
+                 f"всего {len(items)}:"]
     total = max(1, int(chunk_count or 1))
     pending_starts = [mid for mid in (chunk_starts or ())]
     part = 1
@@ -584,7 +625,9 @@ def build_l1_user_content(payload_items, chunk_count=1,
             pending_starts.pop(0)
             part += 1
             lines.append(CHUNK_MARKER_TEMPLATE.format(index=part, total=total))
-        lines.append(json.dumps(item, ensure_ascii=False,
+        out_item = _anchor_space_item(item, anchor_map) \
+            if anchor_map is not None and isinstance(item, dict) else item
+        lines.append(json.dumps(out_item, ensure_ascii=False,
                                 separators=(",", ":")))
     return "\n".join(lines)
 
@@ -1424,6 +1467,16 @@ def _map_result_to_l1(map_res, base_kwargs: dict) -> L1Result:
         return error_result(map_res.reason or REASON_INTERNAL_ERROR,
                             duration_ms=duration, **kwargs)
     payload = map_res.payload or {}
+    stats = dict(map_res.stats or {})
+    # ASAP 4.2 D1 (AM-5/D6): anchor-space Inspector-счётчики аддитивно.
+    _anchors_generated = int(getattr(map_res, "anchors_generated", 0) or 0)
+    _anchors_repaired = int(getattr(map_res, "anchors_repaired", 0) or 0)
+    _anchors_dropped = int(getattr(map_res, "anchors_dropped", 0) or 0)
+    if _anchors_generated or _anchors_repaired or _anchors_dropped \
+            or getattr(map_res, "anchor_map_unavailable", False):
+        stats["anchors_generated"] = _anchors_generated
+        stats["anchors_repaired"] = _anchors_repaired
+        stats["anchors_dropped"] = _anchors_dropped
     return _make_result(
         map_res.status, payload=payload, threads=map_res.topics_count,
         facts=0, auto_unassigned=map_res.unassigned_count,
@@ -1431,7 +1484,7 @@ def _map_result_to_l1(map_res, base_kwargs: dict) -> L1Result:
         map_degraded=bool(map_res.degraded),
         map_reason=REASON_MAP_DEGRADED if map_res.degraded
         else (map_res.reason or REASON_MAP_OK),
-        map_stats=dict(map_res.stats or {}),
+        map_stats=stats or None,
         **kwargs)
 
 
@@ -1439,7 +1492,8 @@ def _map_result_to_l1(map_res, base_kwargs: dict) -> L1Result:
 
 async def run_l1_capacity_first(*, llm, rows: list, chat_id,
                                 correlation_id, system_prompt=None,
-                                llm_call=None, focus_block=None) -> L1Result:
+                                llm_call=None, focus_block=None,
+                                source_window=None) -> L1Result:
     """Whole-window-first ветка spec §1 A.2/A.3 (kill-switch master ON).
 
     Решение режима входа — по ФАКТИЧЕСКОМУ serialized prompt всего окна:
@@ -1500,7 +1554,15 @@ async def run_l1_capacity_first(*, llm, rows: list, chat_id,
     items = build_l1_payload(source_rows, chat_id)
     window_tokens = sum(_serialized_len(item, "tokens") for item in items)
     system_tokens = count_tokens(system or "")
-    reserve = hybrid_output_reserve_tokens(kind="l1", settings_obj=settings)
+    target_reserve = hybrid_output_reserve_tokens(kind="l1",
+                                                  settings_obj=settings)
+    if _model_capacity.capability_reserve_enabled() and cap is not None:
+        # T-4809: capability-aware reserve (live `max_output`), fallback на
+        # ratio-floor при unknown max_output.
+        reserve = _model_capacity.reserve_for_capacity(
+            cap, target_output=target_reserve)
+    else:
+        reserve = target_reserve
     allowance = max(1, int(limit or 0))
     margin = allowance - window_tokens
     fit = margin >= 0
@@ -1566,7 +1628,8 @@ async def run_l1_capacity_first(*, llm, rows: list, chat_id,
             correlation_id=correlation_id, budget=("tokens", allowance),
             system_prompt=system_prompt, llm_call=llm_call,
             focus_block=focus_block, _allow_chunking=False,
-            _budget_label=budget_mode, _map_mode=semantic_map_enabled())
+            _budget_label=budget_mode, _map_mode=semantic_map_enabled(),
+            source_window=source_window)
     # CAPACITY_OVERFLOW (§A.3): единственный легитимный chunking-режим.
     _map_mode = semantic_map_enabled()
     if not capacity_overflow_ledger_enabled():
@@ -1607,7 +1670,8 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                  focus_block=None, _allow_chunking: bool = True,
                  _budget_label: str | None = None,
                  _legacy_fallback: bool = False,
-                 _map_mode: bool = False) -> L1Result:
+                 _map_mode: bool = False,
+                 source_window=None) -> L1Result:
     """Один прогон L1: §92-вход → §93-упаковка → LLM-вызов(ы) → §95-v2.
 
     ``llm`` — LLMClient (или совместимый мок); ``llm_call`` — инъекция канала
@@ -1657,17 +1721,32 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
         return await run_l1_capacity_first(
             llm=llm, rows=rows, chat_id=chat_id,
             correlation_id=correlation_id, system_prompt=system_prompt,
-            llm_call=llm_call, focus_block=focus_block)
+            llm_call=llm_call, focus_block=focus_block,
+            source_window=source_window)
     slot = resolve_l1_slot()
     source_rows = list(rows or [])
     chunk_count = 0
     if llm_call is None and llm is None:
         return error_result(REASON_INTERNAL_ERROR, duration_ms=0.0)
 
+    # ── ASAP 4.2 D1 (AM-1; spec §1; ADR-1028-10): anchor-space L1.
+    # Anchor-режим активируется ТОЛЬКО при переданном immutable
+    # SummarySourceWindow (mapping строит код поверх write-once окна).
+    # OFF `SUMMARY_SOURCE_ANCHORS_ENABLED` ИЛИ отсутствие окна → прежний
+    # v1/message_ids контур байт-в-бит 2.58.47.
+    anchor_map = None
+    if _map_mode and _anchors_enabled():
+        anchor_map = resolve_anchor_map(source_window,
+                                        run_id=correlation_id,
+                                        chat_id=chat_id)
+    anchor_mode = anchor_map is not None
+
     # System-канон резолвится ДО упаковки: по формуле Q5 его токены вычитаются
     # из входного бюджета (маркер-оверхед учитывает сам pack_l1_input).
     system = system_prompt or resolve_prompt(
-        PROMPT_PG_KEY, SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT)
+        PROMPT_PG_KEY,
+        SUMMARY_L1_ANCHORS_SYSTEM_PROMPT if anchor_mode
+        else SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT)
     budget_mode = "explicit" if budget else BUDGET_MODE_LEGACY_STATIC
     if _budget_label:
         # ASAP 4.1: метка бюджет-семантики capacity-first ветки — аддитивно:
@@ -1803,7 +1882,7 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
     call = llm_call or _make_llm_call(llm, slot, correlation_id)
     user_content = build_l1_user_content(
         pack.payload, chunk_count=pack.chunk_count,
-        chunk_starts=pack.chunk_starts)
+        chunk_starts=pack.chunk_starts, anchor_map=anchor_map)
     if focus_block:
         # S5/§80: focus «/summary про X» — как в legacy-пути (`_apply_focus`),
         # блок в НАЧАЛО user-контента; system-канон не тронут.
@@ -1868,6 +1947,9 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
             # парсер/валидатор карты (строгие структура/id-space, БЕЗ
             # too_many_facts — измерение снято); переполнение бюджетов →
             # deterministic compaction + map_degraded (никогда не invalid).
+            # ASAP 4.2 D1 (AM-1): anchor_mode → v2 (AnchorSpace), local
+            # anchor repair, unassigned считает код; v1-компакция не
+            # применяется (v2-валидатор канонизирует сортировкой).
             data, parse_reason = parse_map_response(raw)
             duration = (time.perf_counter() - started) * 1000.0
             logger.info(
@@ -1875,29 +1957,46 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                 "parse_status=%s | raw_chars=%d",
                 correlation_id or "none", chat_id, attempt,
                 (parse_reason if data is None else "ok"), len(raw or ""))
-            unknown_ids = (_collect_map_unknown_ids(data, space)
-                           if data is not None else [])
-            if data is None:
-                if parse_reason == REASON_OK:  # pragma: no cover - defensive
-                    parse_reason = REASON_INTERNAL_ERROR
-                result = invalid_result(parse_reason, duration_ms=duration,
-                                        **base_kwargs)
+            if anchor_mode:
+                unknown_ids = []
+                if data is None:
+                    if parse_reason == REASON_OK:  # pragma: no cover
+                        parse_reason = REASON_INTERNAL_ERROR
+                    result = invalid_result(parse_reason, duration_ms=duration,
+                                            **base_kwargs)
+                else:
+                    map_res = validate_semantic_map_v2(
+                        data, anchor_map,
+                        repair=_l1_anchor_repair_enabled(),
+                        duration_ms=duration)
+                    if map_res.usable and pack.truncated:
+                        map_res = dataclasses.replace(map_res,
+                                                      status=STATUS_TRUNCATED)
+                    result = _map_result_to_l1(map_res, base_kwargs)
             else:
-                map_res = validate_semantic_map(data, space,
-                                                duration_ms=duration)
-                if map_res.usable:
-                    compacted, compact_stats, compact_degraded = \
-                        compact_semantic_map(map_res.payload, id_space=space)
-                    if compacted is not None and (compact_degraded
-                                                  or compact_stats):
-                        map_res = dataclasses.replace(
-                            map_res, payload=compacted,
-                            degraded=compact_degraded or map_res.degraded,
-                            stats=compact_stats)
-                if map_res.usable and pack.truncated:
-                    map_res = dataclasses.replace(map_res,
-                                                  status=STATUS_TRUNCATED)
-                result = _map_result_to_l1(map_res, base_kwargs)
+                unknown_ids = (_collect_map_unknown_ids(data, space)
+                               if data is not None else [])
+                if data is None:
+                    if parse_reason == REASON_OK:  # pragma: no cover - defensive
+                        parse_reason = REASON_INTERNAL_ERROR
+                    result = invalid_result(parse_reason, duration_ms=duration,
+                                            **base_kwargs)
+                else:
+                    map_res = validate_semantic_map(data, space,
+                                                    duration_ms=duration)
+                    if map_res.usable:
+                        compacted, compact_stats, compact_degraded = \
+                            compact_semantic_map(map_res.payload, id_space=space)
+                        if compacted is not None and (compact_degraded
+                                                      or compact_stats):
+                            map_res = dataclasses.replace(
+                                map_res, payload=compacted,
+                                degraded=compact_degraded or map_res.degraded,
+                                stats=compact_stats)
+                    if map_res.usable and pack.truncated:
+                        map_res = dataclasses.replace(map_res,
+                                                      status=STATUS_TRUNCATED)
+                    result = _map_result_to_l1(map_res, base_kwargs)
         else:
             data, parse_reason = parse_l1_response(raw)
             duration = (time.perf_counter() - started) * 1000.0
@@ -2012,10 +2111,16 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                 correlation_id or "none", chat_id, attempt, max_attempts,
                 result.invalid_reason or "-")
             if _map_mode:
-                block = map_correction_block(
-                    result.invalid_reason or REASON_INVALID_JSON,
-                    unknown_ids=unknown_ids,
-                    useless_reason=useless_reason)
+                if anchor_mode:
+                    # v2 (AnchorSpace): reason валидатора — в модель;
+                    # broken-anchor-only сюда не доходит (локальный repair).
+                    block = anchor_map_correction_block(
+                        result.invalid_reason or REASON_INVALID_JSON)
+                else:
+                    block = map_correction_block(
+                        result.invalid_reason or REASON_INVALID_JSON,
+                        unknown_ids=unknown_ids,
+                        useless_reason=useless_reason)
             else:
                 block = _correction_block(
                     result.invalid_reason or REASON_INVALID_JSON,

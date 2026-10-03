@@ -30,16 +30,21 @@ const MOD = INDEX.slice(branchStart, branchEnd);
 {
   const posHead = MOD.indexOf('hub-title">Модули');
   const posCounters = MOD.indexOf('module-counters');
-  const posQuick = MOD.indexOf('module-quick-wrap');
   const posToolbar = MOD.indexOf('module-toolbar');
   const posCatalog = MOD.indexOf('module-catalog');
+  // ASAP 4.2 (D5.3): панель «Быстрое управление» удалена полностью —
+  // единственный список модулей — каталог.
   for (const [name, pos] of [['заголовок', posHead], ['счётчики', posCounters],
-    ['панель', posQuick], ['поиск/фильтры', posToolbar], ['каталог', posCatalog]]) {
+    ['поиск/фильтры', posToolbar], ['каталог', posCatalog]]) {
     assert.ok(pos >= 0, 'a: нет блока «' + name + '»');
   }
-  assert.ok(posHead < posCounters && posCounters < posQuick
-    && posQuick < posToolbar && posToolbar < posCatalog,
+  assert.ok(posHead < posCounters && posCounters < posToolbar
+    && posToolbar < posCatalog,
     'a: порядок блоков §32 нарушен');
+  assert.strictEqual(MOD.indexOf('module-quick-wrap'), -1,
+    'a: Quick Access панель должна быть удалена');
+  assert.strictEqual(MOD.indexOf('Быстрое управление'), -1,
+    'a: «Быстрое управление» отсутствует');
   for (const m of ['moduleCounters.total', 'moduleCounters.on',
     'moduleCounters.off', 'moduleCounters.issues']) {
     assert.ok(MOD.indexOf(m) >= 0, 'a: нет индикатора ' + m);
@@ -75,15 +80,17 @@ const MOD = INDEX.slice(branchStart, branchEnd);
     'c: сломан общий triple-rule (F1/F2 маркер)');
 }
 
-// ── (d) Панель ≤4/2/2–1 + «Все избранные» ───────────────────────────────
+// ── (d) Быстрое управление удалено (ASAP 4.2 D5.3) ──────────────────────
 {
-  assert.ok(/\.module-quick\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/.test(CSS),
-    'd: панель не 4 колонки (base)');
-  assert.ok(/@container\s*\(max-width:\s*1023px\)\s*\{[^}]*\.module-quick\s*\{[^}]*repeat\(2,\s*minmax\(0,\s*1fr\)\)/.test(CSS),
-    'd: панель tablet не 2 колонки');
-  assert.ok(MOD.indexOf('Все избранные') >= 0, 'd: нет «Все избранные»');
-  assert.ok(MOD.indexOf('v-for="m in quickpickVisible"') >= 0, 'd: нет элементов панели');
-  assert.ok(MOD.indexOf('module-quick-item') >= 0, 'd: нет карточки панели');
+  // DOM-панели нет; карусели тоже нет (инвариант сохранён).
+  assert.strictEqual(MOD.indexOf('module-quick-wrap'), -1,
+    'd: панель быстрого управления не должна присутствовать');
+  assert.strictEqual(MOD.indexOf('quickpickVisible'), -1,
+    'd: элементы панели не должны присутствовать');
+  assert.strictEqual(MOD.indexOf('module-quick-item'), -1,
+    'd: карточка панели не должна присутствовать');
+  assert.ok(MOD.indexOf('filteredModules') >= 0,
+    'd: модули по-прежнему рендерятся каталогом');
   // карусели нет
   assert.ok(CSS.indexOf('module-carousel') < 0, 'd: карусель запрещена');
   assert.ok(MOD.indexOf('module-carousel') < 0, 'd: карусель запрещена (html)');
@@ -131,8 +138,8 @@ const MOD = INDEX.slice(branchStart, branchEnd);
   // панель/карточка/модалка используют одни moduleEnabled/toggleModule
   const en = (MOD.match(/moduleEnabled\(/g) || []).length;
   const tg = (MOD.match(/toggleModule\(/g) || []).length;
-  assert.ok(en >= 3, 'g: тумблеры не через единый store (' + en + ')');
-  assert.ok(tg >= 3, 'g: переключение не через единый store (' + tg + ')');
+  assert.ok(en >= 2, 'g: тумблеры не через единый store (' + en + ')');
+  assert.ok(tg >= 2, 'g: переключение не через единый store (' + tg + ')');
 }
 
 console.log('MODULE-CATALOG-OK');

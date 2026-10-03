@@ -195,6 +195,24 @@ def requires_permission(required: str):
     return dependency
 
 
+def user_is_global_admin(cache: ConfigCache, telegram_id: int) -> bool:
+    """Раунд 10 (F-12 §4, Q3) + ASAP 4.2 (D5.7): единая проверка «глобальный
+    админ» — role_type `global_admin`, legacy-роль `admin` или wildcard.
+    Используется и как FastAPI-dependency, и для точечных проверок внутри
+    маршрутов (seeded-стиль мутирует только админ)."""
+    perms = _user_permissions(cache, telegram_id)
+    role = cache.get_role(telegram_id)
+    from services.roles import role_type_of
+    try:
+        role_data = cache.roles().get(role) if role else None
+    except Exception:
+        role_data = None
+    role_type = role_type_of(
+        role, role_data,
+        (role_data or {}).get("role_type") if role_data else None)
+    return bool(perms.wildcard or role_type == "global_admin" or role == "admin")
+
+
 def requires_global_admin():
     """Раунд 10 (F-12 §4, Q3): глобальный админ — role_type global_admin
     или wildcard (добавка-гейт; существующие сигнатуры не меняются)."""
@@ -203,15 +221,7 @@ def requires_global_admin():
         request: Request,
         user: Annotated[WebAppUser, Depends(get_tma_user)],
     ) -> WebAppUser:
-        cache: ConfigCache = get_cache(request)
-        perms = _user_permissions(cache, user.id)
-        role = cache.get_role(user.id)
-        from services.roles import role_type_of
-        role_type = role_type_of(role, cache.roles().get(role),
-                                 cache.roles().get(role or "").get("role_type")
-                                 if (role and cache.roles().get(role)) else None)
-        if not (perms.wildcard or role_type == "global_admin"
-                or role == "admin"):
+        if not user_is_global_admin(get_cache(request), user.id):
             raise HTTPException(status_code=403,
                                 detail="только для глобального админа")
         return user

@@ -58,17 +58,21 @@ SEEDED_COUNTER_START = 0
 # graphic-novel характер.
 SEEDED_INSTRUCTION = (
     "Приведи уже существующую обложку к правилам серии «Медведь Press», "
-    "редактируя её, а не рисуя заново, и не создавай дубликатов.\n"
+    "редактируя её (edit), а не рисуя заново, и не создавай дубликатов.\n"
+    "Характер серии: современный русский графический роман / комикс, "
+    "печатная комикс-композиция с чистым контуром и естественным русским "
+    "текстом.\n"
     "Обязательно:\n"
-    "• если на обложке уже есть PERMsoc — сохрани его и не добавляй второй; "
-    "если нет — добавь один аккуратный PERMsoc;\n"
+    "• если на обложке уже есть PERMsoc — сохрани его как главный title и не "
+    "добавляй второй; если нет — добавь один аккуратный PERMsoc;\n"
     "• если уже есть номер выпуска (badge) — замени/исправь его на "
     "назначенный номер выпуска; не добавляй второй badge;\n"
     "• приведи издательский знак/логотип к reference «Медведь Press» "
     "(замени чужой логотип, не дублируй уже правильный);\n"
     "• используй приложенные references согласно их описанию;\n"
-    "• сохрани удачные contextual callouts, композицию и сцену насколько "
-    "возможно; общий характер — graphic-novel / comic cover.\n"
+    "• сохрани удачные сцену, персонажей, контекстные callouts и композицию "
+    "насколько возможно; добавь 2–3 комикс-плашки/callouts, если их нет;\n"
+    "• весь добавляемый текст — на русском.\n"
     "Композиция и контекстные плашки остаются творческими и зависят от "
     "исходной обложки и Summary."
 )
@@ -304,11 +308,14 @@ async def set_preview(pg, profile_id: str, *, after_asset_id: str | None,
     try:
         async with pool.acquire() as conn:
             if before_asset_id:
+                # ASAP 4.2 (D5.5/D5.6): реальный Test Style заменяет ОБА
+                # preview (seeded placeholders → реальные base/styled).
+                # COALESCE оставлял seeded `preview_before` навсегда.
                 await conn.execute(
                     "UPDATE cover_style_profiles SET "
                     "preview_after_asset_id = $2, "
-                    "preview_before_asset_id = COALESCE(preview_before_asset_id, "
-                    "$3), preview_revision = $4, updated_at = now() "
+                    "preview_before_asset_id = $3, "
+                    "preview_revision = $4, updated_at = now() "
                     "WHERE profile_id = $1",
                     profile_id, after_asset_id, before_asset_id, revision)
             else:

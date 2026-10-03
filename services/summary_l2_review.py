@@ -79,11 +79,24 @@ from services.summary_l2_writer import (
     package_message_id_space,
     resolve_l2_slot_safe,
     validate_l2_document,
+    validate_l2_document_anchors,
+)
+# ── ASAP 4.2 D1 (AM-1; spec §1) — AnchorSpace review + targeted revision.
+from services.summary_l2_anchor_repair import (
+    build_targeted_revision_content,
+    validate_review_result as validate_anchor_review_result,
+)
+from services.summary_source_anchors import (
+    SourceAnchorMap,
+    anchors_enabled as _anchors_enabled,
+    l2_targeted_revision_enabled as _l2_targeted_revision_enabled,
 )
 from services.summary_prompts import (
+    SUMMARY_L2_REVIEWER_ANCHORS_BLOCK,
     SUMMARY_L2_REVIEWER_SOURCE_BLOCK,
     SUMMARY_L2_REVIEWER_SYSTEM_PROMPT,
     SUMMARY_L2_REVISER_SYSTEM_PROMPT,
+    SUMMARY_L2_TARGETED_REVISION_ANCHORS_BLOCK,
 )
 from services.system2_handoff import parse_json_object
 
@@ -327,6 +340,110 @@ def parse_review_verdict(raw, *, package, document=None) -> ReviewVerdict:
 def _review_verdict_error(reason: str) -> ReviewVerdict:
     return ReviewVerdict(status=VERDICT_UNUSABLE, findings=(),
                          raw_status="error", reason=reason)
+
+
+# ── ASAP 4.2 D1 (AM-1; spec §1; ADR-1028-10) — AnchorSpace review ───────────
+
+def anchor_review_enabled(anchor_map) -> bool:
+    """Anchor-space review активен: карта + kill-switch'и ON."""
+    return bool(anchor_map is not None and _anchors_enabled()
+                and _l2_targeted_revision_enabled())
+
+
+def _verdict_from_anchor_result(result, anchor_map: SourceAnchorMap
+                                ) -> ReviewVerdict:
+    """``ReviewResult`` (AnchorSpace) → существующий ``ReviewVerdict`` контур.
+
+    reason → finding_code; source_anchors → real ids (progress-criterion);
+    valid findings только с anchors из окна (unknown > hallucinated)."""
+    findings: list[ReviewFinding] = []
+    for issue in result.issues:
+        real = tuple(anchor_map.to_real_ids(issue.source_anchors))
+        findings.append(ReviewFinding(
+            code=issue.finding_code, severity=SEVERITY_BLOCKING,
+            paragraph_index=issue.paragraph_id, evidence_refs=real,
+            instruction=issue.repair_instruction))
+    return ReviewVerdict(status=result.status, findings=tuple(findings),
+                         raw_status="ok", dropped_findings=result.dropped_invalid)
+
+
+def apply_targeted_revision(document, payload, *, anchor_map: SourceAnchorMap,
+                            package, paragraph_id: int
+                            ) -> tuple[dict | None, str | None]:
+    """Применить targeted-ревизию одного абзаца (AnchorSpace, R8-D-002).
+
+    Принимает ``{"text", "source_anchors"}`` (как требует
+    ``build_targeted_revision_content``) либо ``{"replace_paragraphs":[...]}``.
+    Другие абзацы сохраняются; результат проходит anchor-валидацию
+    (invalid ref удаляется локально, абзац живёт). Не бросает."""
+    data = parse_json_object(str(payload or ""))
+    if not isinstance(data, dict):
+        return None, "revision_invalid_json"
+    if not isinstance(paragraph_id, int) or isinstance(paragraph_id, bool):
+        return None, "revision_invalid_patch"
+    paragraphs = [dict(p) for p in (document or {}).get("paragraphs") or []]
+    replacements = data.get("replace_paragraphs")
+    if isinstance(replacements, list) and replacements:
+        item = replacements[0]
+        if not isinstance(item, dict):
+            return None, "revision_invalid_patch"
+        text = item.get("text")
+        anchors = item.get("source_anchors")
+    else:
+        text = data.get("text")
+        anchors = data.get("source_anchors")
+    if not isinstance(text, str) or not text.strip():
+        return None, "revision_invalid_patch"
+    if anchors is None:
+        anchors = []
+    if not isinstance(anchors, list):
+        return None, "revision_invalid_patch"
+    entry = {"text": text, "source_anchors": anchors,
+             "emphasis_spans": [], "emphasis": None}
+    if 0 <= paragraph_id < len(paragraphs):
+        paragraphs[paragraph_id] = entry
+    elif paragraph_id == len(paragraphs):
+        paragraphs.append(entry)              # append (omitted topic)
+    else:
+        return None, "revision_invalid_patch"
+    revised = {"schema_version": 1,
+               "title": str((document or {}).get("title") or ""),
+               "paragraphs": paragraphs}
+    if (document or {}).get("finale"):
+        revised["finale"] = document["finale"]
+    canonical, _metrics = validate_l2_document_anchors(
+        revised, package, anchor_map)
+    if canonical is None:
+        return None, "revision_invalid_patch"
+    return canonical, None
+
+
+def _anchor_source_excerpts(issue, anchor_map: SourceAnchorMap,
+                            payload_items) -> list:
+    """Source excerpts (реальные сообщения) для targeted revision.
+
+    Разворачиваются детерминированно из окна по anchors проблемы; без
+    ``payload_items`` — только anchor-дескрипторы (никогда raw id/вымысел)."""
+    descriptors = [{"source_anchor": anchor} for anchor in issue.source_anchors]
+    if not payload_items:
+        return descriptors
+    by_id: dict = {}
+    for item in payload_items or []:
+        if isinstance(item, dict) and item.get("message_id") is not None:
+            by_id.setdefault(item.get("message_id"), item)
+    out: list = []
+    for anchor in issue.source_anchors:
+        real = anchor_map.real_id(anchor)
+        item = by_id.get(real)
+        if item is None:
+            out.append({"source_anchor": anchor})
+            continue
+        clone = dict(item)
+        clone["source_anchor"] = anchor
+        clone.pop("message_id", None)
+        clone.pop("reply_to_id", None)
+        out.append(clone)
+    return out
 
 
 # ── Входы Reviewer/Revision (компактный JSON, детерминированный порядок) ───
@@ -641,7 +758,8 @@ async def run_l2_with_review(llm, package, *, service=None,
                              semantic_map=None, source_window_content=None,
                              evidence_slices=None, review_full_window=True,
                              review_payload_items=None,
-                             source_message_ids=None) -> L2Result:
+                             source_message_ids=None,
+                             anchor_map=None) -> L2Result:
     """L2-стадия с bounded review: Draft → Validate → Review → (×2 Revision)
     → APPROVED | Legacy | review_degraded.
 
@@ -688,7 +806,8 @@ async def run_l2_with_review(llm, package, *, service=None,
                                correlation_id=correlation_id, chat_id=chat_id,
                                slot=slot, llm_call=llm_call,
                                source_input=writer_source_input,
-                               length=writer_length)
+                               length=writer_length,
+                               anchor_map=anchor_map)
     if not draft.usable:
         return draft
     if not l2_review_enabled():
@@ -696,6 +815,7 @@ async def run_l2_with_review(llm, package, *, service=None,
         return draft
 
     document = draft.document
+    anchor_mode = anchor_review_enabled(anchor_map)
     # T-4610 (R6-B-007): при переданных id окна ReviewResult сверяется
     # против пакета ∪ РЕАЛЬНОГО окна (refs из source валидны).
     run_package = package
@@ -741,6 +861,12 @@ async def run_l2_with_review(llm, package, *, service=None,
                 "slices=%d", correlation_id or "none", chat_id,
                 len(evidence_slices))
 
+    if anchor_mode:
+        # ASAP 4.2 D1 (AM-1): Reviewer в AnchorSpace — вердикт с reason-кодами
+        # и source_anchors (R8-D-001); raw message_id не контракт.
+        source_review_system = (source_review_system + "\n\n"
+                                + SUMMARY_L2_REVIEWER_ANCHORS_BLOCK)
+
     deterministic_findings = _deterministic_findings(draft)
     calls = 1                     # writer
     revisions_done = 0
@@ -785,8 +911,29 @@ async def run_l2_with_review(llm, package, *, service=None,
                 correlation_id=correlation_id, chat_id=chat_id, exc=exc)
         calls += 1
         metrics["l2_review_calls"] += 1
-        verdict = parse_review_verdict(raw, package=run_package,
-                                       document=current_doc)
+        anchor_issues: list = []
+        if anchor_mode:
+            anchor_data = parse_json_object(str(raw or ""))
+            raw_status = str((anchor_data or {}).get("status")
+                             or "").strip().lower() \
+                if isinstance(anchor_data, dict) else ""
+            if not isinstance(anchor_data, dict):
+                verdict = ReviewVerdict(status=VERDICT_UNUSABLE, findings=(),
+                                        raw_status="invalid",
+                                        reason="review_invalid_json")
+            elif raw_status not in VERDICT_STATUSES:
+                verdict = ReviewVerdict(status=VERDICT_UNUSABLE, findings=(),
+                                        raw_status="invalid",
+                                        reason="review_invalid_status")
+            else:
+                anchor_res = validate_anchor_review_result(
+                    anchor_data, anchor_map,
+                    paragraph_count=len(current_doc.get("paragraphs") or []))
+                anchor_issues = list(anchor_res.issues)
+                verdict = _verdict_from_anchor_result(anchor_res, anchor_map)
+        else:
+            verdict = parse_review_verdict(raw, package=run_package,
+                                           document=current_doc)
         dropped_total += verdict.dropped_findings
         if verdict.outage:
             _record(ctx, _stage_event(
@@ -859,40 +1006,82 @@ async def run_l2_with_review(llm, package, *, service=None,
             or patch_failures >= 1
             or findings_majority)
         revision_started = time.time()
-        try:
-            raw_rev, _usage = await _call_llm(
-                llm, reviewer,
-                [{"role": "system",
-                  "content": SUMMARY_L2_REVISER_SYSTEM_PROMPT},
-                 {"role": "user",
-                  "content": build_revision_content(
-                      package, current_doc, verdict.findings,
-                      full_doc=use_full_doc,
-                      source_window_content=source_window_content,
-                      semantic_map=semantic_map)}],
-                 correlation_id=correlation_id, llm_call=revision_call,
-                 operation="revision")
-        except Exception as exc:  # noqa: BLE001 - revision outage
-            _record(ctx, _stage_event(
-                "revision", attempt=revisions_done + 1, status="error",
-                reason_code=type(exc).__name__, started=revision_started,
-                repair_target="patch" if not use_full_doc else "full_doc"))
-            return _degraded_or_legacy(
-                draft, current_doc, metrics,
-                reason=f"revision_{type(exc).__name__}",
-                correlation_id=correlation_id, chat_id=chat_id, exc=exc)
-        calls += 1
-        metrics["l2_revision_calls"] += 1
-        revisions_done += 1
-        metrics["l2_revision_count"] = revisions_done
-        if use_full_doc:
-            revised, reason = apply_full_revision(raw_rev,
-                                                  package=run_package)
-            repair_target = "full_doc"
+        targeted_issue = anchor_issues[0] if (anchor_mode and anchor_issues) \
+            else None
+        if targeted_issue is not None:
+            # ASAP 4.2 D1 (AM-1; R8-D-002): targeted revision — ТОЛЬКО
+            # проблемный абзац + source excerpts (bounded; whole-article
+            # regen не вызывается).
+            para_id = int(targeted_issue.paragraph_id)
+            para = paragraphs_now[para_id] \
+                if 0 <= para_id < len(paragraphs_now) else {}
+            excerpts = _anchor_source_excerpts(
+                targeted_issue, anchor_map, review_payload_items)
+            try:
+                raw_rev, _usage = await _call_llm(
+                    llm, reviewer,
+                    [{"role": "system",
+                      "content": SUMMARY_L2_REVISER_SYSTEM_PROMPT + "\n\n"
+                      + SUMMARY_L2_TARGETED_REVISION_ANCHORS_BLOCK},
+                     {"role": "user",
+                      "content": build_targeted_revision_content(
+                          paragraph=para, paragraph_id=para_id,
+                          issue=targeted_issue, source_excerpts=excerpts,
+                          title=str(current_doc.get("title") or ""))}],
+                    correlation_id=correlation_id, llm_call=revision_call,
+                    operation="revision")
+            except Exception as exc:  # noqa: BLE001 - revision outage
+                _record(ctx, _stage_event(
+                    "revision", attempt=revisions_done + 1, status="error",
+                    reason_code=type(exc).__name__, started=revision_started,
+                    repair_target="targeted"))
+                return _degraded_or_legacy(
+                    draft, current_doc, metrics,
+                    reason=f"revision_{type(exc).__name__}",
+                    correlation_id=correlation_id, chat_id=chat_id, exc=exc)
+            calls += 1
+            metrics["l2_revision_calls"] += 1
+            revisions_done += 1
+            metrics["l2_revision_count"] = revisions_done
+            revised, reason = apply_targeted_revision(
+                current_doc, raw_rev, anchor_map=anchor_map,
+                package=run_package, paragraph_id=para_id)
+            repair_target = "targeted"
         else:
-            revised, reason = apply_revision_patch(current_doc, raw_rev,
-                                                   package=run_package)
-            repair_target = "patch"
+            try:
+                raw_rev, _usage = await _call_llm(
+                    llm, reviewer,
+                    [{"role": "system",
+                      "content": SUMMARY_L2_REVISER_SYSTEM_PROMPT},
+                     {"role": "user",
+                      "content": build_revision_content(
+                          package, current_doc, verdict.findings,
+                          full_doc=use_full_doc,
+                          source_window_content=source_window_content,
+                          semantic_map=semantic_map)}],
+                    correlation_id=correlation_id, llm_call=revision_call,
+                    operation="revision")
+            except Exception as exc:  # noqa: BLE001 - revision outage
+                _record(ctx, _stage_event(
+                    "revision", attempt=revisions_done + 1, status="error",
+                    reason_code=type(exc).__name__, started=revision_started,
+                    repair_target="patch" if not use_full_doc else "full_doc"))
+                return _degraded_or_legacy(
+                    draft, current_doc, metrics,
+                    reason=f"revision_{type(exc).__name__}",
+                    correlation_id=correlation_id, chat_id=chat_id, exc=exc)
+            calls += 1
+            metrics["l2_revision_calls"] += 1
+            revisions_done += 1
+            metrics["l2_revision_count"] = revisions_done
+            if use_full_doc:
+                revised, reason = apply_full_revision(raw_rev,
+                                                      package=run_package)
+                repair_target = "full_doc"
+            else:
+                revised, reason = apply_revision_patch(current_doc, raw_rev,
+                                                       package=run_package)
+                repair_target = "patch"
         _record(ctx, _stage_event(
             "revision", attempt=revisions_done,
             status="ok" if revised is not None else "invalid",
@@ -948,12 +1137,14 @@ async def run_l2_with_review(llm, package, *, service=None,
 
 
 async def _writer_call(llm, package, *, service, correlation_id, chat_id,
-                       slot, llm_call, source_input=None, length=None) -> L2Result:
+                       slot, llm_call, source_input=None, length=None,
+                       anchor_map=None) -> L2Result:
     from services.summary_l2_writer import run_l2
     return await run_l2(llm, package, service=service,
                         correlation_id=correlation_id, chat_id=chat_id,
                         slot=slot, llm_call=llm_call,
-                        source_input=source_input, length=length)
+                        source_input=source_input, length=length,
+                        anchor_map=anchor_map)
 
 
 def _deterministic_findings(draft: L2Result) -> list[dict]:
@@ -1018,8 +1209,10 @@ __all__ = [
     "REASON_L2_REVIEW_UNUSABLE",
     "ReviewFinding",
     "ReviewVerdict",
+    "anchor_review_enabled",
     "apply_full_revision",
     "apply_revision_patch",
+    "apply_targeted_revision",
     "build_participant_roster",
     "build_review_content",
     "build_review_evidence_slices",

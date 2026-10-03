@@ -207,6 +207,24 @@ def _source_window_ids(payload_items) -> set:
     return ids
 
 
+def _map_is_anchor_space(semantic_map) -> bool:
+    """ASAP 4.2 D1 (AM-1): semantic map в AnchorSpace?
+
+    ``None``/пусто → True (anchors L2 допустимы от самого окна); v1-карта
+    (message_ids) → False (L2 обязан остаться v1, иначе рассинхрон)."""
+    if not isinstance(semantic_map, dict) or not semantic_map:
+        return True
+    if semantic_map.get("schema_version") == 2:
+        return True
+    if "unassigned_anchors" in semantic_map:
+        return True
+    topics = semantic_map.get("topics") or []
+    if topics and isinstance(topics[0], dict) \
+            and "source_anchors" in topics[0]:
+        return True
+    return False
+
+
 def _legacy_source_window_enabled() -> bool:
     """Kill-switch ``SUMMARY_LEGACY_SOURCE_WINDOW_ENABLED`` (spec §3).
     OFF → контур Legacy full-window 2.58.46 (включая действующие капы
@@ -621,8 +639,9 @@ class SummaryGenerator:
             # Окно = ВСЕ сообщения rows (никаких messages[:N]/last N — §1 ТЗ).
             # OFF-kill-switch → snapshot не пишется, контур байт-в-бит
             # 2.58.46. Fail-open: ошибка snapshot'а пайплайн не рвёт.
+            source_window = None
             try:
-                await self._establish_source_window(
+                source_window = await self._establish_source_window(
                     correlation_id, chat_id, rows, resumed=resumed)
             except Exception:  # pragma: no cover - fail-open
                 logger.warning(
@@ -647,7 +666,8 @@ class SummaryGenerator:
                          "summary")
                 await self._run_hybrid_l2(
                     chat_id, rows, focus, correlation_id, ctx=ctx,
-                    trigger_message_id=trigger_message_id)
+                    trigger_message_id=trigger_message_id,
+                    source_window=source_window)
                 return
             # ── ASAP-2 (контракт (i)/T-3950): тело OFF-ветки извлечено в
             # общий `_run_legacy_pipeline` (тот же метод для OFF-режима и
@@ -703,7 +723,7 @@ class SummaryGenerator:
 
     async def _establish_source_window(self, correlation_id: str, chat_id: int,
                                        rows: list, *, resumed: bool = False
-                                       ) -> None:
+                                       ):
         """Т-4603 (spec §1 A.1, ADR-1028-8 D1): единственная точка создания
         SummarySourceWindow run'а + fail-open выслеж retention TTL.
 
@@ -751,6 +771,9 @@ class SummaryGenerator:
                     source_ref=window_obj.source_ref)
         except Exception:      # pragma: no cover - fail-open
             pass
+        # ASAP 4.2 D1 (AM-1): immutable window объект возвращается вызывающему
+        # для anchor-space L1/L2 (None → прежний v1-контур байт-в-бит).
+        return window_obj
 
     # ── ASAP 4.1 волна 5 (T-4616/T-4617; spec §5 E.1/E.2; ADR-1028-8 D6) —
     # durable SummaryRun + идемпотентность публикации. Fail-open: любая
@@ -944,6 +967,9 @@ class SummaryGenerator:
                                                    settings_obj=settings)
             cap = await mc.resolve_capacity(base_url, model,
                                             slot="summary.l2")
+            if mc.capability_reserve_enabled():
+                reserve = mc.reserve_for_capacity(cap,
+                                                  target_output=reserve)
             plan = mc.decide_summary_mode(
                 provider=cap.provider, model=model,
                 effective_context_window=cap.effective_context_window,
@@ -978,6 +1004,9 @@ class SummaryGenerator:
                                             slot="summary.l2_reviewer")
             reserve = hybrid_output_reserve_tokens(kind="l2",
                                                    settings_obj=settings)
+            if mc.capability_reserve_enabled():
+                reserve = mc.reserve_for_capacity(cap,
+                                                  target_output=reserve)
             plan = mc.decide_summary_mode(
                 provider=cap.provider, model=model,
                 effective_context_window=cap.effective_context_window,
@@ -1033,7 +1062,8 @@ class SummaryGenerator:
                                        package_result, service: dict,
                                        correlation_id: str, ctx=None, *,
                                        map_unavailable: bool = False,
-                                       review_skipped_reason=None):
+                                       review_skipped_reason=None,
+                                       source_window=None):
         """T-4609/T-4610 (spec §2 B.3/B.4; ADR-1028-8 D4/AM-4): Writer от
         Full SourceWindow; FactPackage = derived view (только валидация/
         roster); WHOLE_WINDOW — один вызов; CAPACITY_OVERFLOW — иерархический
@@ -1064,9 +1094,26 @@ class SummaryGenerator:
         review_on = _l2_review_enabled_safe()
         package = package_result.package if package_result is not None \
             else None
+        # ASAP 4.2 D1 (AM-1): anchor-space L2 (evidence refs = source_anchors)
+        # при immutable окне и включённом kill-switch; иначе — v1-контур.
+        anchor_map = None
+        try:
+            from services.summary_l1_clusterizer import resolve_anchor_map
+            if source_window is not None:
+                anchor_map = resolve_anchor_map(
+                    source_window, run_id=correlation_id, chat_id=chat_id)
+            from services.summary_source_anchors import anchors_enabled
+            if anchor_map is not None and not anchors_enabled():
+                anchor_map = None
+            # Рассинхрон недопустим: v1-map + anchors-L2 → остаёмся v1.
+            if anchor_map is not None and not _map_is_anchor_space(map_payload):
+                anchor_map = None
+        except Exception:      # pragma: no cover - fail-open к v1
+            anchor_map = None
         source_content = build_l2_source_input(
             payload_items, semantic_map=map_payload, package=None,
-            length=None, map_unavailable=map_unavailable)
+            length=None, map_unavailable=map_unavailable,
+            anchor_map=anchor_map)
         fits, effective = await self._writer_capacity_fits(
             chat_id, count_tokens(source_content))
         if fits:
@@ -1074,7 +1121,8 @@ class SummaryGenerator:
             # messages[:N]).
             source_input = build_l2_source_input(
                 payload_items, semantic_map=map_payload, package=None,
-                length=length, map_unavailable=map_unavailable)
+                length=length, map_unavailable=map_unavailable,
+                anchor_map=anchor_map)
             if review_on:
                 # Reviewer: полный window если влезает; иначе evidence-slices
                 # (T-4610, spec §2 B.4) — slices строятся от evidence
@@ -1091,6 +1139,8 @@ class SummaryGenerator:
                         ctx=ctx, writer_source_input=source_input,
                         writer_length=length, semantic_map=map_payload,
                         source_window_content=source_content,
+                        review_payload_items=payload_items,
+                        anchor_map=anchor_map,
                         source_message_ids=_source_window_ids(payload_items))
                 return await run_l2_with_review(
                     self.llm, package, service=service,
@@ -1099,12 +1149,17 @@ class SummaryGenerator:
                     writer_length=length, semantic_map=map_payload,
                     review_full_window=False,
                     review_payload_items=payload_items,
+                    anchor_map=anchor_map,
                     source_message_ids=_source_window_ids(payload_items))
             return await run_l2(
                 self.llm, package, service=service,
                 correlation_id=correlation_id, chat_id=chat_id,
-                source_input=source_input, length=length)
+                source_input=source_input, length=length,
+                anchor_map=anchor_map)
         # ── CAPACITY_OVERFLOW: иерархический Writer (по ledger-сегментам). ──
+        # Anchor-L2 — WHOLE_WINDOW-контур; overflow остаётся v1 (anchors не
+        # протекают в v1 merge; рассинхрон map/evidence исключён).
+        overflow_map = map_payload if anchor_map is None else None
         from services.summary_l2_writer import validate_l2_document
         reserve = hybrid_output_reserve_tokens(kind="l2", settings_obj=settings)
         allowance = max(1, int(effective or 0) - reserve) \
@@ -1115,7 +1170,7 @@ class SummaryGenerator:
             # Fit-решение сказало «не влезает», физика — один сегмент:
             # oversized → честный writer-фейл на полном входе (не рвём окно).
             source_input = build_l2_source_input(
-                payload_items, semantic_map=map_payload, package=None,
+                payload_items, semantic_map=overflow_map, package=None,
                 length=length, map_unavailable=map_unavailable)
             return await run_l2(self.llm, package, service=service,
                                 correlation_id=correlation_id,
@@ -1130,8 +1185,8 @@ class SummaryGenerator:
             seg_items = build_l1_payload(segment, chat_id)
             seg_ids = {item.get("message_id") for item in seg_items
                        if isinstance(item.get("message_id"), int)}
-            seg_map = slice_map_for_ids(map_payload, seg_ids) \
-                if map_payload else None
+            seg_map = slice_map_for_ids(overflow_map, seg_ids) \
+                if overflow_map else None
             seg_package = slice_package_threads(package, seg_ids) \
                 if package else None
             if not (seg_package or {}).get("threads") and \
@@ -1732,7 +1787,8 @@ class SummaryGenerator:
     async def _run_hybrid_l2(self, chat_id: int, rows: list,
                              focus: str | None,
                              correlation_id: str, ctx=None, *,
-                             trigger_message_id: int | None = None) -> None:
+                             trigger_message_id: int | None = None,
+                             source_window=None) -> None:
         """S5 + ASAP-2 (ADR-1027-10 D3/D4/D8, контракты (i)): ON-ветка —
         двухконтурная fail-soft цепочка.
 
@@ -1882,7 +1938,8 @@ class SummaryGenerator:
             l1_result = await run_l1(
                 llm=self.llm, rows=rows, chat_id=chat_id,
                 correlation_id=correlation_id,
-                focus_block=_apply_focus("", focus))
+                focus_block=_apply_focus("", focus),
+                source_window=source_window)
             calls_so_far += 1
             if ctx is not None:
                 ctx.threads = getattr(l1_result, "threads_count", None)
@@ -2104,7 +2161,8 @@ class SummaryGenerator:
                 l2_result = await self._run_writer_source_stage(
                     chat_id, rows, payload_items, map_payload,
                     package_result, service, correlation_id, ctx=ctx,
-                    map_unavailable=not getattr(l1_result, "usable", True))
+                    map_unavailable=not getattr(l1_result, "usable", True),
+                    source_window=source_window)
                 calls_so_far += 1 + _l2_review_extra_calls(l2_result)
             elif _pages:
                 from services.summary_l2_writer import L2Result as _L2Result

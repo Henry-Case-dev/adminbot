@@ -110,6 +110,7 @@ STYLE_REASON_CODES = frozenset({
     REASON_PROFILE_MISSING, REASON_DISABLED, REASON_CONNECTION_MISSING,
     REASON_REFERENCE_MISSING, REASON_CAPABILITY_UNKNOWN,
     REASON_NOT_CONFIGURED, REASON_NO_STYLE_STAGE,
+    "prompt_limit_exceeded", "route_unverified",
 })
 
 
@@ -139,6 +140,10 @@ REASON_DETAILS_RU = {
     REASON_NOT_CONFIGURED: ("не настроены адрес/модель обработки "
                             "(Connections layer)"),
     REASON_NO_STYLE_STAGE: ("режим профиля без Style-стадии"),
+    "prompt_limit_exceeded": ("инструкция стиля превышает лимит модели — "
+                              "применена базовая обложка"),
+    "route_unverified": ("маршрут редактирования модели не подтверждён — "
+                         "применена базовая обложка"),
     REASON_STYLE_FAILED: ("обработка стилем не завершилась "
                           "(ошибка провайдера)"),
 }
@@ -1285,6 +1290,13 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
             "issue_present": bool(issue_display in compiled.prompt),
             "references_count": len(ref_paths),
             "compiled_chars": len(compiled.prompt),
+            # T-4816: Inspector `Original N / Resolved limit M / Compiled K`.
+            "original_chars": int(compiled.original_len or 0),
+            "resolved_limit": compiled.resolved_limit,
+            "original_style_prompt_chars": len(str(
+                base_style_prompt or "")),
+            "exceeded": bool(compiled.exceeded),
+            "overflow_reason": compiled.reason or "",
             "limit_unit": (str(compiled.limit) if compiled.limit is not None
                            else "unknown") + ":" + str(compiled.unit),
             "dropped_sections": list(compiled.dropped),
@@ -1317,10 +1329,28 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
             fallback=(",".join(compiled.dropped)
                       if compiled.dropped else None))
 
+    # ── T-4815: P0+P1 не помещаются в resolved limit → НЕ режем строковыми
+    # ножницами; Base Cover публикуется с понятной причиной (§3). ────────────
+    if getattr(compiled, "exceeded", False):
+        meta["prompt_diagnostics"] = {
+            **(meta.get("prompt_diagnostics") or {}),
+            "overflow_reason": "prompt_limit_exceeded",
+        }
+        emit_cover_event(
+            COVER_STYLE_FAILED, outcome="failed", level=logging.WARNING,
+            run_id=correlation_id, job_id=job_id, chat_id=chat_id,
+            model=meta["model"], provider=meta["provider"],
+            reason="prompt_limit_exceeded", reason_code="prompt_limit_exceeded",
+            style_id=meta["style_id"], issue_number=issue_no)
+        return await _style_failed(
+            meta, state, reason="prompt_limit_exceeded",
+            message="Стиль не применён: инструкция превышает лимит модели.",
+            run_id=correlation_id, job_id=job_id, chat_id=chat_id,
+            started=started, db=db)
+
     caller = edit_call
     if caller is None:
         caller = edit_image
-
     # §23 (T-4199): stage-aware key политики — preview и edit имеют разные
     # latency-распределения. Тестовые double `edit_call` могут не принимать
     # kwarg `operation` → совместимость через inspect (аддитивно).
@@ -1332,9 +1362,10 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
     except (TypeError, ValueError):
         accepts_operation = False
 
-    def _call():
+    def _call(prompt_text=None):
+        use_prompt = compiled.prompt if prompt_text is None else prompt_text
         if accepts_operation:
-            return caller(compiled.prompt,
+            return caller(use_prompt,
                           base_image_path=base_image_path,
                           reference_paths=ref_paths,
                           base_url=slot.get("base_url"),
@@ -1344,7 +1375,7 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                           existing_task_id=(state.provider_task_id
                                             if state else None),
                           operation=edit_operation)
-        return caller(compiled.prompt, base_image_path=base_image_path,
+        return caller(use_prompt, base_image_path=base_image_path,
                       reference_paths=ref_paths, base_url=slot.get("base_url"),
                       model=slot.get("model"), api_key=_resolve_api_key(),
                       capabilities=caps, chat_id=chat_id,
@@ -1365,7 +1396,57 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                             reason=str(getattr(result, "reason", "error")),
                             task_id=getattr(result, "task_id", None),
                             async_used=bool(getattr(result, "async_used", False)),
-                            latency_ms=int(getattr(result, "latency_ms", 0)))
+                            latency_ms=int(getattr(result, "latency_ms", 0)),
+                            meta=dict(getattr(result, "meta", {}) or {}))
+    # ── T-4814: machine-readable 400 prompt-limit → cache → recompile → ONE
+    # retry (ровно один; иначе fail-soft Base Cover). ──────────────────────
+    if (not result.ok and result.reason == "prompt_limit"
+            and isinstance(getattr(result, "meta", None), dict)
+            and result.meta.get("prompt_limit")):
+        try:
+            from services import image_capabilities as _cap
+            if _cap.dynamic_prompt_limit_enabled():
+                pl = result.meta["prompt_limit"]
+                _cap.record_runtime_limit(
+                    meta.get("provider") or "", slot.get("base_url") or "",
+                    meta.get("model") or "",
+                    result.meta.get("route"), int(pl.get("value") or 0),
+                    str(pl.get("unit") or "chars"))
+                caps_retry = _cap.resolve_capabilities(
+                    meta.get("provider") or "", slot.get("base_url") or "",
+                    meta.get("model") or "",
+                    route=result.meta.get("route"))
+                recompiled = compile_style_prompt(
+                    profile, issue_display=issue_display,
+                    capabilities=caps_retry,
+                    base_style_prompt=base_style_prompt or "",
+                    brief=brief)
+                meta["prompt_limit_retry"] = {
+                    "resolved_limit": pl.get("value"),
+                    "unit": pl.get("unit"),
+                    "recompiled_chars": len(recompiled.prompt),
+                }
+                emit_cover_event(
+                    COVER_STYLE_SUBMITTED, outcome="retry", run_id=correlation_id,
+                    job_id=job_id, chat_id=chat_id, model=meta["model"],
+                    provider=meta["provider"],
+                    prompt_len=len(recompiled.prompt),
+                    prompt_hash=prompt_hash(recompiled.prompt),
+                    resolved_limit=pl.get("value"),
+                    retry_reason="prompt_limit")
+                try:
+                    result = await _run_with_heartbeat(
+                        lambda: _call(recompiled.prompt),
+                        interval=heartbeat_interval(), event=COVER_STYLE_RUNNING,
+                        run_id=correlation_id, job_id=job_id,
+                        model=meta["model"], provider=meta["provider"])
+                except Exception as exc:
+                    result = EditResult(ok=False, reason=type(exc).__name__,
+                                        model=meta["model"],
+                                        provider=meta["provider"])
+        except Exception:
+            logger.debug("[cover_style_jobs] prompt-limit retry failed",
+                         exc_info=True)
     meta["provider_task_id"] = result.task_id
     meta["async_used"] = bool(result.async_used)
     record_latency(meta["model"], "style_edit", result.latency_ms,

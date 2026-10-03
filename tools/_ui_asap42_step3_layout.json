@@ -1,0 +1,137 @@
+{
+ "failures": [],
+ "console_errors": [],
+ "probes": {
+  "mobile_closed": {
+   "innerWidth": 390,
+   "innerHeight": 844,
+   "shell": "mobile",
+   "moreSheet": null,
+   "moreBackdrop": null,
+   "morePresent": false,
+   "moreBackdropPresent": false,
+   "bottomNav": {
+    "x": 0,
+    "y": 798,
+    "w": 390,
+    "h": 46,
+    "bottom": 844,
+    "position": "relative",
+    "zIndex": "auto",
+    "intersection": 17940,
+    "inViewport": true
+   },
+   "bottomNavCount": 4,
+   "moreButton": true,
+   "overlayHits": 0,
+   "overlayHitSample": [],
+   "quickAccessPresent": false
+  },
+  "mobile_closed_ready": "mobile",
+  "mobile_open": {
+   "innerWidth": 390,
+   "innerHeight": 844,
+   "shell": "mobile",
+   "moreSheet": {
+    "x": 0,
+    "y": 466,
+    "w": 390,
+    "h": 326,
+    "bottom": 792,
+    "position": "fixed",
+    "zIndex": "50",
+    "intersection": 127183,
+    "inViewport": true
+   },
+   "moreBackdrop": {
+    "x": 0,
+    "y": 0,
+    "w": 390,
+    "h": 844,
+    "bottom": 844,
+    "position": "fixed",
+    "zIndex": "44",
+    "intersection": 329160,
+    "inViewport": true
+   },
+   "morePresent": true,
+   "moreBackdropPresent": true,
+   "bottomNav": {
+    "x": 0,
+    "y": 798,
+    "w": 390,
+    "h": 46,
+    "bottom": 844,
+    "position": "relative",
+    "zIndex": "auto",
+    "intersection": 17940,
+    "inViewport": true
+   },
+   "bottomNavCount": 4,
+   "moreButton": true,
+   "overlayHits": 12,
+   "overlayHitSample": [
+    {
+     "x": 24,
+     "y": 836,
+     "overlay": true,
+     "tag": "DIV.more-backdrop"
+    },
+    {
+     "x": 195,
+     "y": 836,
+     "overlay": true,
+     "tag": "DIV.more-backdrop"
+    },
+    {
+     "x": 366,
+     "y": 836,
+     "overlay": true,
+     "tag": "DIV.more-backdrop"
+    }
+   ],
+   "quickAccessPresent": false
+  },
+  "mobile_reclosed": {
+   "innerWidth": 390,
+   "innerHeight": 844,
+   "shell": "mobile",
+   "moreSheet": null,
+   "moreBackdrop": null,
+   "morePresent": false,
+   "moreBackdropPresent": false,
+   "bottomNav": {
+    "x": 0,
+    "y": 798,
+    "w": 390,
+    "h": 46,
+    "bottom": 844,
+    "position": "relative",
+    "zIndex": "auto",
+    "intersection": 17940,
+    "inViewport": true
+   },
+   "bottomNavCount": 4,
+   "moreButton": true,
+   "overlayHits": 0,
+   "overlayHitSample": [],
+   "quickAccessPresent": false
+  },
+  "desktop_closed": {
+   "innerWidth": 1280,
+   "innerHeight": 800,
+   "shell": "wide",
+   "moreSheet": null,
+   "moreBackdrop": null,
+   "morePresent": false,
+   "moreBackdropPresent": false,
+   "bottomNav": null,
+   "bottomNavCount": 0,
+   "moreButton": false,
+   "overlayHits": 0,
+   "overlayHitSample": [],
+   "quickAccessPresent": false
+  },
+  "desktop_closed_ready": "wide"
+ }
+}

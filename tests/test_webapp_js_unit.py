@@ -371,3 +371,11 @@ def test_js_unit_round1030_pipeline_inspector():
     _run_js(os.path.join("tests", "js",
                          "round1030_pipeline_inspector_test.js"),
             ok_marker="PIPELINE-INSPECTOR-OK")
+
+
+def test_js_unit_asap42_step2c2_layout():
+    """ASAP 4.2 Step 2c-2 (T-4819/T-4823/T-4825/T-4826): Test Style без file
+    picker, `.more-sheet` closed=unmount, Quick Access absent, compact
+    before/after + Material arrow, editor preview ограничен."""
+    _run_js(os.path.join("tests", "js", "asap42_step2c2_layout_test.js"),
+            ok_marker="ASAP42-STEP2C2-LAYOUT-OK")

@@ -424,14 +424,23 @@ class TestModes:
         assert sup.select_execution_mode(caps) == sup.MODE_SYNC
 
     def test_mode_flags_without_verified_adapter_still_sync(self, monkeypatch):
-        """Слоты A/B без верифицированного адаптера → Mode C (честная
-        база; прецедент EMBED_ASYNC_BATCH_ENABLED default OFF)."""
+        """ASAP 4.2 Step 2c-1 (AM-2): verified OpenAI-compatible chat-route →
+        при `SUMMARY_LLM_STREAMING_MODE_ENABLED=ON` Mode B активируется;
+        Mode A (async job/status) остаётся неподтверждённым слотом."""
         monkeypatch.setattr(type(sup.settings),
                             "SUMMARY_LLM_ASYNC_MODE_ENABLED", True)
         monkeypatch.setattr(type(sup.settings),
                             "SUMMARY_LLM_STREAMING_MODE_ENABLED", True)
         caps = sup.declare_execution_capabilities()
-        assert sup.select_execution_mode(caps) == sup.MODE_SYNC
+        assert caps.supports_streaming_liveness is True
+        assert caps.supports_async_status is False
+        assert sup.select_execution_mode(caps) == sup.MODE_STREAM
+        # async-флаг без verified job/status adapter режима не даёт
+        monkeypatch.setattr(type(sup.settings),
+                            "SUMMARY_LLM_STREAMING_MODE_ENABLED", False)
+        caps_async_only = sup.declare_execution_capabilities()
+        assert caps_async_only.supports_async_status is False
+        assert sup.select_execution_mode(caps_async_only) == sup.MODE_SYNC
 
     def test_mode_follows_declaration_slot(self, monkeypatch):
         """Режим Supervisor'а следует декларации адаптера (контрактный
