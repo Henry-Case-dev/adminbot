@@ -2,7 +2,7 @@
 
 > **Фича:** `asap-4-1-durable-whole-window-summary` (ASAP 4.1, corrective architecture pass).
 > **Задача-инициатор:** T-4601 [@Architect]; потребители — Builder/Reviewer/DevOps волн 2–9 (tasks.md T-4603…T-4636).
-> **Статус:** Accepted (03.10.2026, design; прод-валидация — после delivery, см. «История статуса»).
+> **Статус:** Accepted (03.10.2026, design; ратифицирован merge + прод-валидацией VERIFIED 2.58.47 — см. «Прод-валидация и история» ниже).
 > **Контекст:** прод 2.58.46 (SQLite `user_version=23`); источник — `plans/current_task.md:22345–23844` (§0–§52, DoD 35), прод-инцидент §0 (L1 FAILED 622s → L2 FAILED → Legacy fallback «SUCCESS» при урезанном материале); PM-пакет фичи (requirements-map/conflict-audit AM-1…AM-6/reuse-inventory/tasks).
 > **Связь:** AMEND/SUPERSEDE → ADR-1028-7 D7.1 (AM-1), ADR-1028-3 (AM-2), ADR-1024-6 (AM-3, Summary-scope); EXTENSION → ADR-1028-7 D7.3 (Legacy), D6 (cover style), D3/D5 (bounded revision — сохраняется); не трогает → ADR-1028-1…-6 (кроме перечисленного), MCA-22 D3 (Quote Resolver — extension), ADR-1028-5 D4–D7 (media — паттерн-донор, контур не дублируется).
 
@@ -116,3 +116,16 @@ OFF = бит-в-бит 2.58.46 (parity-тест каждой зоны). Rollback
 ## История статуса
 
 1. **03.10.2026 — Accepted (design):** D1–D9 утверждены; консистент-гейт с PM — решения отражены в spec §1–§13 и критериях T-4603+; Risk **R3**; прод-валидация pending (delivery → deploy → §48/§49/§50 acceptance).
+
+## Прод-валидация и история
+
+2. **Round-2 review gate:** финальный gate round 2 — **Approved for release** (дельта-гейт фикса [M-ASAP41-1], doc-only; release-blocking: 0; binding Spec-Hash `E6A6E5EC…`, WTH round-2 пин `BA44A8CD…` — воспроизведён байт-в-байт до release-prep).
+3. **Deploy — VERIFIED 2.58.47 (03.10.2026):** прод ff `60f1c7c..05a210c` (feat `f22023e` + docs `05a210c`; prod-HEAD/deploy-doc `b313a97`); рестарт 10:27:54 UTC (PID 3294197, NRestarts=0), health 200 `2.58.47`. Факты — `deployment.md` (VERIFIED):
+   - **DDL v23→v24 применена идемпотентно** при старте; 3 новые таблицы на месте (`summary_source_windows`/`summary_runs`/`summary_run_stages`; PG no-op — Summary-контур вся SQLite); **fail-closed backup guard сработал**: бэкап `pre_migration_20261003_102818.db` 1.31 GB создан ДО DDL с read-back ok (старый `pre_migration_20261002_101544.db` удалён ротацией keep-1).
+   - **Kill-switches — дефолт-паспорт:** в проде 0 env-оверарайдов всех 29 `SUMMARY_*_ENABLED` имён (zones A–G ON, Mode A/B / async batch — OFF контрактные слоты).
+   - **Ladder/parity на прод-venv: 87 passed** (wave8 off-паритет + ladder-матрица + cover style + SourceWindow/run-store; prod-файлы, прод-venv).
+   - **Inspector RBAC:** `/api/analytics/pipeline/inspector` + `/api/memory/embeddings`/`attribution/metrics` → **401 unauth**.
+   - **Browser smoke на проде:** desktop 1280×800 + mobile 390×844 — **0 JS-ошибок** (честная заглушка вне Telegram; аутентифицированный Run Inspector — за владельцем, PO-5).
+   - **Посторонние ошибки:** 2 хита в окне деплоя — известный asap-4 GraphRAG embed-cooldown контур (вне скоупа эпика, NATURAL RESUME ~10:45 UTC); **новых ошибок от кода эпика 0**; R17-скан 0 хитов.
+   - **WTH:** round-2 пин `BA44A8CD…` воспроизведён байт-в-байт; post-prep WTH `02b2c667…` (76 файлов) — пер-файловая сверка 73/76 + 1 endings-hунок задокументирован (release-prep: `config/settings.py` APP_VERSION-пин, `workflow_state.md`, `test_tool_coordinator_round1026.py` CRLF — семантика 0, pytest 11080 passed / 2 pre-existing failed round1026).
+4. **PO-1…PO-5 — PENDING OWNER** (no-false-acceptance): реальные 839-прогоны (PO-1), живой Medved Press DC-4 (PO-2), Mode A/B live (PO-3), прод-замеры supervised-контура (PO-4), аутентифицированный Inspector-обзор (PO-5). Полный pytest после prep-свипа **11080 passed / 2 failed** (оба — известные pre-existing bounds round1026).
