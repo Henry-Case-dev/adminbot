@@ -80,3 +80,47 @@ Feature: `asap-4-4-final-live-closure` · Risk R3 · **Статус: VERIFIED**
 2. «next = 11» достижим новым UI-контрактом (единый контракт UI/API/DB).
 3. PG-DDL новых нет; SQLite Δ=0; health/version/commit — §3/§4; R17-мониторинг §6 #9; Inspector/логи — только id/коды, без текстов/секретов.
 4. График §9 (T-4887 → T-4888 → T-4889) — как в §9; финальное закрытие 4.4 только после их успеха (DoD §10 owner spec).
+
+## 11. Дельта-деплой F-N2 (skip-ahead issue allocation) — prod 2.58.53 — VERIFIED
+
+Feature: дельта к 4.4 по аддендуму `review.md` §9 «F-N2 закрыт (recheck skip-ahead)», 05.10.2026; вердикт остаётся **Approved**. Биндинг: WTH `plans/reports/asap44_wth_manifest_review.txt` — HEAD `329e6de`, files=6, sha256(манифеста) `EB02F3E9E9492B869270D0D64045F5463E4466629F5840275F3405B7CB24B897`. Дата: 05.10.2026 (лок. дата владельца; прод-UTC события — 04.10.2026), исполнитель @DevOps.
+
+### Preflight
+- Per-file sha256: **6/6 строк манифеста (evidence, requirements-map, tasks, `cover_style_registry.py`, 2 теста) — size+sha256 совпали, drift=0** (пересчитано до коммитов и повторно после коммитов). sha256(манифест-файла) == `EB02F3E9…` ✓. HEAD локальный == биндингу `329e6de` ✓. Аддендум F-N2 в review.md присутствует ✓.
+
+### Коммиты
+- **feat `92de1e3`** — 27 файлов (+150/−32): `services/cover_style_registry.py` (F-N2: bounded skip-loop `_MAX_ISSUE_SKIP_STEPS=1000` после atomic `counter+1 RETURNING`, `counter_value=N′` той же транзакцией, same-run retry идемпотентен до инкремента, занятые не переиспользуются, cap → откат increment + WARN + None), `tests/test_asap42_step3_style_integration.py` (+2: shim зеркалит продовский UNIQUE-index), `tests/test_asap44_cover_final_closure.py` (+79: 2 регресс-теста на коллизию/первый-свободный-gap) + **version bump 2.58.52→2.58.53**: `config/settings.py` APP_VERSION **2.58.53** + 23 release-пина тестов ровно по конвенции `1c47b5e`/`acbbe1f`.
+- **docs `2f4c216`** — 3 файла (+203/−97): `evidence.md` (§2a F-N2 FIXED: pre-fix RED `UNIQUE … issue_number`, контракт фикса, counts 21/74/26/27; §11 live-отчёты Canary A/B/GraphRAG), `review.md` (аддендум), WTH-манифест (rebind 329e6de files=6).
+- **deploy-doc** — этот файл, docs-only коммит-пуш после факта (runtime не зависит, второй рестарт не требуется).
+- `git add` только явными путями; НЕ вошли `plans/metrics.md`, `plans/workflow_state.md`, `plans/docs/mca-round1027-arch-frames.md`, untracked-мусор (`node_modules/`, `.playwright-mcp/`, `package*.json`, `plans/verification_cache.json`, `tools/_ui_asap43_*`) ✓.
+
+### Фокусные проверки (локальный venv; полный suite НЕ запускался — policy как в 2.58.52 §6, дельта не трогает shared-runtime)
+- Батч процедуры → **105 passed/0 failed**: asap44-closure 21 (19 + 2 F-N2), step3 10, jobs+registry 74 — ровно канонические post-fix counts (evidence §2a). Расхождение с ожиданием оркестратора «≥127» — арифметика: оркестратор включал shim-consumers (26) и step2c2 (17), которые в его каноне просчитаны отдельными батчами.
+- Свёрка этих двух батчей → asap43-surgical+contract 26; step2c2 17 (**43 passed/0 failed**). **Итого фокусно 148 passed/0 failed.**
+
+### Деплой-факты
+- Прод до: HEAD `1a6b5ba` (2.58.52 runtime-байты `09fd5a8`), MainPID 3651908, NRestarts=0, active с 04.10 15:45:33 UTC, /healthz 200 @2.58.52.
+- Push origin/master `329e6de..2f4c216` ✓ (2 новых коммита; 329e6de — deploy-doc 2.58.52, уже тоже поедет ff).
+- `git pull --ff-only origin master` → **1a6b5ba → 2f4c216, fast-forward** ✓ (31 файл = 3 коммита 329e6de/92de1e3/2f4c216).
+- sha256 на проде `services/cover_style_registry.py` = **`9D953DDBD2249B59B37055E1129DFEC3C6F40FB5F225907BA41070E4A75D6640`** == WTH-манифесту ✓ (фикс на проде).
+- Рестарт `sudo -n /usr/bin/systemctl restart admin_bot` rc=0 (17:04:13 UTC SIGTERM) → **active Sun 2026-10-04 17:05:14 UTC, MainPID=3671509, NRestarts=0, ExecMainStatus=0** ✓.
+
+### Health / RBAC / логи
+- `/healthz` → **200** `{"status":"ok","version":"2.58.53"}` (первый 200 на 17:05:39 UTC, ~25 с подъём); `/api/health` → **200** ✓.
+- `/web/` отдаёт `?v=2.58.53` ✓.
+- Unauth-батарея (6 рутов cover): POST `/api/cover/test-style`, GET `/api/cover/test-style/{id}`, `/api/cover/prompt-limit`, `/api/cover/styles`, `/api/cover/capabilities`, `/api/cover/connections` → **все 401** ✓.
+- Логи (окно с 17:03:00 UTC, 170 строк): **ERROR|CRITICAL|Traceback = 0**; R17-скан (`sk-|Bearer|xox|AKIA|-----BEGIN|api_key=`) = **0** ✓; WARNING = 3 — известные: SIGTERM шатдауна старого PID, `embedding pool rotation=none` ([I-1]), SmartModule backfill deferred ([I-1]). Новых warning-контуров нет.
+
+### Миграции / данные
+- **ΔDDL = 0**: SQLite `user_version` 25 → 25 (после рестарта, read-only); PG-DDL-операций деплой не выполнял (рантайм-код этой дельты DDL не содержит; `preview_job_id` присутствовал и остался).
+- Данные целы, PG-снапшот до/после рестарта идентичен: assets 13, connections 0, issue_assignments **13 → 13 (новых строк нет)**, profiles 1, provenance 20, references 1; `MAX(counter_value)` = **10 → next = 14** (нумерация Human Gate 14/14/15 не изменена).
+- Прод-venv смок критического пути: `pytest tests/test_asap44_cover_final_closure.py -q -k issue_allocation` → **2 passed** (22 с) — skip-ahead работает в прод-окружении.
+
+### Rollback
+- Soft: `COVER_STYLES_ENABLED=false` (+ рестарт) — как в §8 (не занят этой дельтой).
+- Cold: revert прод-дерева на **`329e6de` (2.58.52)** + рестарт; runtime-байты эквивалентны состоянию 2.58.52 (`329e6de` — docs поверх `1a6b5ba`). ΔDDL=0, схема совместима, restore БД не нужен; counter/assignments остаются целы.
+
+### Границы
+- Paid canaries НЕ запускались; counter/override-состояние прод-БД НЕ трогали (фикс меняет поведение только при следующем allocation).
+- F-N2 deploy-скоп чист: деплой-собственности правок не потребовалось; продукт-поведение — reviewed Approved.
+- **Next:** re-run Canary B (next=14 → retry 14 → next=15) + GraphRAG-фаза подтверждения — @Orchestrator/@Canary; счётчик не нормализуем.
