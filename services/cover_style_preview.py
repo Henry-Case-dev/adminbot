@@ -361,7 +361,7 @@ async def run_preview_job(db, job_id: str, *, profile: dict, pg,
             if not base_path:
                 return await _fail_job(
                     db, job_id, state, reason="base_generation_failed")
-            base_meta = await _store_base(base_path)
+            base_meta = await _store_base(pg, base_path)
         if base_meta is None:
             return await _fail_job(
                 db, job_id, state, reason="base_generation_failed")
@@ -379,7 +379,7 @@ async def run_preview_job(db, job_id: str, *, profile: dict, pg,
             if not base_path:
                 return await _fail_job(
                     db, job_id, state, reason="base_generation_failed")
-            base_meta = await _store_base(base_path)
+            base_meta = await _store_base(pg, base_path)
             if base_meta is None:
                 return await _fail_job(
                     db, job_id, state, reason="base_generation_failed")
@@ -471,13 +471,23 @@ async def _generate_base(*, brief: str, correlation_id: str | None
         return None, "base_generation_exception"
 
 
-async def _store_base(path: str) -> dict | None:
+async def _store_base(pg, path: str) -> dict | None:
+    """Сохранить base-байты в CAS + зарегистрировать asset в PG (§4).
+
+    Canary A fix (prod 2.58.50): без `upsert_asset` base-файл лежал на диске
+    без строки `cover_style_assets`, и UI не мог получить «До»-картинку
+    (`GET /cover/assets/{id}` → 404) при формально записанной паре. Пара
+    валидна только если оба ассета отдаются; ошибка регистрации = failure
+    job'а до записи пары (атомарный контракт §4).
+    """
     data = _read_bytes(path)
     if not data:
         return None
     meta = assets.store_file_bytes(
         data, filename="test_base.png", origin="generated_preview")
     if meta is None:
+        return None
+    if not await registry.upsert_asset(pg, meta):
         return None
     return meta
 

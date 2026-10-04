@@ -217,6 +217,63 @@ def test_status_stages_progress_through_durable_job(
     assert snap["preview_before_url"] and snap["preview_after_url"]
 
 
+# ── Canary A fix: base-ассет preview обязан отдаваться UI (PG-регистрация) ──
+
+def test_preview_base_asset_registered_and_fetchable(
+        pg, tmp_path, monkeypatch, job_db):
+    """Prod canary A 04.10.2026 (2.58.50): base сохранялся в CAS без строки
+    `cover_style_assets` → `GET /cover/assets/{before_id}` = 404 → UI терял
+    «До». Здесь реальный registry (без моков `upsert_asset`/`set_preview`)."""
+    base = tmp_path / "b.png"
+    base.write_bytes(PNG_BYTES)
+    styled = tmp_path / "s.jpg"
+    styled.write_bytes(b"STYLED")
+
+    async def _base(*a, **kw):
+        return (str(base), "ok")
+
+    async def _edit(**kw):
+        return {"applied": True, "reason": "", "styled_path": str(styled),
+                "model": "m1", "provider": "p1"}
+
+    monkeypatch.setattr(
+        "services.image_generation.generate_image_verbose", _base)
+    monkeypatch.setattr("services.cover_style_jobs.run_style_job", _edit)
+    assert _run(registry.upsert_profile(pg, _profile()))
+
+    with _client(pg) as client:
+        r = client.post("/api/cover/test-style", headers=_hdr(),
+                        json={"profile_id": "csp_x"})
+        assert r.status_code == 200
+        jid = r.json()["job_id"]
+        deadline = time.time() + 10
+        snap = None
+        while time.time() < deadline:
+            snap = client.get("/api/cover/test-style/" + jid,
+                              headers=_hdr()).json()
+            if snap["status"] in ("completed", "failed"):
+                break
+            time.sleep(0.03)
+        assert snap["status"] == "completed", snap
+        before_id = snap["preview_before_url"].rsplit("/", 1)[-1]
+        after_id = snap["preview_after_url"].rsplit("/", 1)[-1]
+
+        stored = _run(registry.get_profile_with_refs(pg, "csp_x"))
+        assert stored["preview_before_asset_id"] == before_id
+        assert stored["preview_after_asset_id"] == after_id
+        assert stored["preview_revision"] == stored["revision"]
+        assert registry.preview_pair_current(stored) is True
+
+        # before-ассет зарегистрирован в PG и реально отдаётся API/UI.
+        base_row = _run(registry.get_asset(pg, before_id))
+        assert base_row is not None, "base asset не зарегистрирован в PG"
+        assert Path(base_row["disk_path"]).exists()
+        assert client.get("/api/cover/assets/" + before_id,
+                          headers=_hdr()).status_code == 200
+        assert client.get("/api/cover/assets/" + after_id,
+                          headers=_hdr()).status_code == 200
+
+
 # ── §6/T-4846: Medved reference реально resolved и уходит в edit request ────
 
 def test_medved_reference_chain_into_edit_request(pg, monkeypatch, tmp_path):

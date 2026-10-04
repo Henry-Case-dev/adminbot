@@ -164,4 +164,4 @@ class TestAnalyticsFilters:
 class TestVersionBump:
     def test_app_version(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', _SETTINGS)
-        assert m and m.group(1) == "2.58.50", m and m.group(1)
+        assert m and m.group(1) == "2.58.51", m and m.group(1)
