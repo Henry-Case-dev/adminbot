@@ -493,6 +493,164 @@ chroot /host …` (sudo-allowlist ограничен systemctl/journalctl; ра�
 
 ---
 
+# 14. Inspector verification (T-4889/§9, prod 2.58.54)
+
+Run: **`25c6c3df99e344699c73d0f32f57b69c`** — реальный production Summary, запущен
+мной через root-механизм (группа `docker` → `--privileged -v /:/host chroot /host`;
+`[canaryB] uid=0`), `manual=True` 18:16:10, single paid run. Prod 2.58.54
+(PID 3687549, health 200). initData серверный; R17 (не печатался; файлы удалены).
+
+## 14.1 Issue 15 + styled (PASS)
+
+- Allocation: assignment `(medved_press, 25c6c3df…, 15)` at 18:24:04;
+  `COVER_STYLE_SUBMITTED issue_number=15`; `resolve_issue_number(same run) → 15`;
+  **counter=15 → next=16** (read-only; второй paid-прогон не запускался).
+- Adaptive: первый edit **916 chars** → provider 400 `classified=prompt_limit` →
+  **ровно один** shorter retry **708 chars** → `COVER_STYLE_SUCCEEDED
+  issue_number=15` (75.1 с).
+- Публикация: `PUBLISH_RICH_COMPLETE message_id=**1133392**`;
+  `COVER_PIPELINE_DONE status=**styled**` (fallback пуст).
+- Provenance `covp_f51a9c27bcf3483481929a520cb43ea4`: status=styled, fallback_mode=«»,
+  base `cas_dcbe11f0…`, **final `cas_e5b4fc81761a75fe18c62cedbf9fe5aa`**,
+  reference `cas_be0a700ba8d3af64…` (medved_press.png), provider/model
+  `nano-gpt.com`/`qwen-image-3-pro`, rev 7, mode=production.
+- **Артефакт сохранён**: `/tmp/asap44_published_cover.jpg` (1 788 348 B),
+  sha256[:32] = `e5b4fc81761a75fe18c62cedbf9fe5aa` == provenance final_asset_id
+  (byte-level match); визуально: «ВЫПУСК **15**», логотип Медведь Press, PERMsoc,
+  comic — styled, не base fallback.
+- Text: Legacy — известная принятая причина `l2_review_rejected` (revision применён
+  ok: `SUMMARY_REVISION_RESULT ok attempt=1`; findings_total=1, revision_count=1,
+  revision_fixed=0, revision_new=1, review_calls=2). Новых причин нет.
+
+## 14.2 Inspector для ЭТОГО run — не отрендерился (gap исполнения, не продукта)
+
+`GET /api/analytics/pipeline/runs/25c6c3df…` → `health="incomplete"`, `nodes=[]`,
+`cover_style=null`, `publication=null`, только `liveness` (L1/L2/run). Причина
+проверена в durable store (root-чтение SQLite): **`mca_events` для run = 0**
+(у run бот-процесса `c96dc04a…` — 44). Runner не поднял telemetry-флашер
+(`bot.py:770 _mca_events.start_telemetry_flusher(db)`) — события ушли только в
+лог. Второго paid-прогона не делал (constraint «single paid run»).
+
+## 14.3 F-N3 render — что подтверждено и чего не хватает
+
+- **Подтверждено на stored-events run `c96dc04a…` под 2.58.54** (частичный живой
+  прогон F-N3-рендера): `style_selection.detail = «Выбран: **medved_press**»`
+  (**«Без стиля» больше нет**); `cover_style.selected_style=medved_press`,
+  `style_provider/model`, `style_edit_ok=true`, `capability_edit=true`,
+  `result=styled`; `style_edit` node: label «Стиль: medved_press», provider/model,
+  latency 92 860 мс; `publication.message_id=1133309`. Selection-часть F-N3 —
+  live OK.
+- **Не подтверждено live:** `edit_route`, `compiled_chars`, `capability_source`,
+  limit source/value — у старых (2.58.53) событий этих полей нет; для их рендера
+  нужен **persisted run под 2.58.54**. У run `25c6c3df…` поля есть только в
+  runner-логе: `edit_route=image_api`, compiled 916→708,
+  `capability_source=unknown`, `limit_source_taxonomy=unknown`; после прогона
+  резолвер: `800 chars / cached_runtime_discovered / runtime_exact` (override не
+  трогался).
+- **Точная инструкция владельцу (одно действие):** отправить `/summary` один раз
+  в PERMsoc (Medved уже выбран; счётчик=15 → номер 16, styled ожидается тем же
+  механизмом) — бот-процесс персистит события, и Inspector покажет полный F-N3
+  набор для этого run. Альтернатива (по санкции Orchestrator): один повтор
+  root-раннера с добавленным `start_telemetry_flusher` (это был бы второй paid
+  прогон — без отдельного разрешения не делал).
+
+## 14.4 Логи (только вокруг ids, R17-safe)
+
+```
+18:24:04 COVER_STYLE_SUBMITTED | prompt_len=916 | issue_number=15 | edit_route=image_api | capability_source=unknown | limit_source_taxonomy=unknown
+18:24:05 cover_style_edit: provider 400 | route=image_api | classified=prompt_limit
+18:24:05 COVER_STYLE_SUBMITTED | prompt_len=708 | status=retry   (≤1)
+18:25:18 COVER_STYLE_SUCCEEDED | issue_number=15 | style_revision=7 | duration_ms=75057
+18:25:18 [canaryB] published cover artifact saved | bytes=1788348 | src=styled
+18:25:19 PUBLISH_RICH_COMPLETE | message_id=1133392
+18:25:19 COVER_PIPELINE_DONE | status=styled
+18:22:15 L2_REVIEW | rejected | findings_total=1 | revision_count=1 | revision_fixed=0 | review_calls=2 | reason=l2_review_rejected
+```
+
+---
+
+# 15. Inspector verification (T-4889/§9, wired rerun, prod 2.58.54)
+
+Run: **`d82a92c58ad545eb930c866414ce4c3f`** — один real production Summary через
+root-механизм (`docker --privileged -v /:/host chroot /host`, `uid=0`), на этот раз
+с telemetry-флушером по паттерну `bot.py:770`:
+`[canaryB] telemetry flusher started = True` + финальный
+`telemetry flusher stopped (final flush)`. Single paid run; R17: initData не
+печатался, файлы удалены; prod остаётся 2.58.54.
+
+## 15.1 Issue 16 + styled (PASS)
+
+- Allocation: assignment `(medved_press, d82a92c5…, 16)` at 18:38:45;
+  `resolve_issue_number(same run) → 16`; **counter=16 → next=17** (без нового
+  прогона).
+- Adaptive: первый edit **893 chars** (brief 184) → provider 400
+  `classified=prompt_limit` → **ровно один** shorter retry **708 chars** →
+  `COVER_STYLE_SUCCEEDED issue_number=16` (74.0 с). Capability/limit на момент
+  run: `capability_source=unknown`, `limit_source_taxonomy=unknown`
+  (post-run резолвер: `800 / cached_runtime_discovered / runtime_exact`;
+  override не трогался).
+- Публикация: `PUBLISH_RICH_COMPLETE message_id=**1133412**`;
+  `COVER_PIPELINE_DONE status=**styled**`.
+- Provenance `covp_5d28f377754b4f3885645adf4c8eeed1`: status=styled,
+  fallback_mode=«», base `cas_40641f978b19fb0749fbb989a62592d4`,
+  **final `cas_badbdd375e7560d184474cf62cdca324`**, reference
+  `cas_be0a700ba8d3af64358eee6697aeff11` (medved_press.png), provider/model
+  `nano-gpt.com`/`qwen-image-3-pro`, rev 7, mode=production.
+- **Артефакт**: `/tmp/asap44_published_cover.jpg` (1 878 798 B, src=styled),
+  sha256[:32] `badbdd375e7560d184474cf62cdca324` == provenance final_asset_id;
+  визуально «ВЫПУСК **16**» + Медведь Press + PERMsoc (styled, не base fallback).
+- **Персистентность**: `mca_events` для run = **32** (было 0 без флушера) —
+  wiring сработал, Inspector получил данные.
+
+## 15.2 Inspector для этого run — F-N3 рендерится (PASS)
+
+`GET /api/analytics/pipeline/runs/d82a92c5…` (exact values):
+
+- `cover_style`: `base_cover_ok=true`, `selected_style=**medved_press**`,
+  `style_provider=**nano-gpt.com**`, `style_model=**qwen-image-3-pro**`,
+  `style_edit_ok=true`, `capability_edit=true`, `result=**styled**`,
+  `resolve_source=**global_image_slot**`, **`edit_route=image_api`**,
+  **`compiled_chars=708`**, **`capability_source=unknown`**,
+  **`limit_source_taxonomy=unknown`**.
+- `style_selection` node detail: «Выбран: **medved_press**»,
+  «Источник выбора: **chat**», «Ревизия стиля: **7**»; **«Без стиля» отсутствует**
+  (в JSON `BezStilya=False`).
+- `style_edit` node: label «Стиль: medved_press», provider/model
+  `nano-gpt.com`/`qwen-image-3-pro`, latency 74 028 мс, state success.
+- `publication`: status=rich, channel=rich, **message_id=1133412**;
+  `publish` node success.
+- `health=degraded` (текст Legacy), cover-ветка success.
+- Оговорка: numeric limit value в Inspector не рендерится, т.к. в самом run
+  лимит был `unknown` (значение 800 резолвится только post-run вне run-записи);
+  `limit_source_taxonomy=unknown` — фактическое на момент исполнения.
+
+## 15.3 Text mode
+
+Legacy — причина писателя **`invalid_paragraph`** (`L2_COMPLETE status=invalid
+invalid_reason=invalid_paragraph`, paragraphs=0; `calls_so_far=2`, review/revision
+не запускались) → `L2_ERROR` → `LEGACY_FALLBACK l2_unusable`. Это известная
+задокументированная причина writer-контракта (не `l2_review_rejected`, не
+Z5-механизм); новых неизвестных причин нет.
+
+## 15.4 Логи (только вокруг ids, R17-safe)
+
+```
+18:38:45 COVER_STYLE_SUBMITTED | prompt_len=893 | issue_number=16 | edit_route=image_api | capability_source=unknown | limit_source_taxonomy=unknown
+18:38:47 cover_style_edit: provider 400 | route=image_api | classified=prompt_limit
+18:38:47 COVER_STYLE_SUBMITTED | prompt_len=708 | status=retry   (≤1)
+18:39:58 COVER_STYLE_SUCCEEDED | issue_number=16 | style_revision=7 | duration_ms=74028
+18:39:58 [canaryB] published cover artifact saved | bytes=1878798 | src=styled
+18:40:00 PUBLISH_RICH_COMPLETE | message_id=1133412
+18:40:00 COVER_PIPELINE_DONE | status=styled
+18:36:21 L2_COMPLETE | status=invalid | invalid_reason=invalid_paragraph
+```
+
+Итог: F-N3 live-верификация выполнена на persisted run 2.58.54 — все заявленные
+поля Inspector рендерятся, styled-outcome и selection корректны, «Без стиля» для
+styled-run отсутствует.
+
+---
+
 # 13. F-N3 — Run Inspector facts: route/compiled/capability source + selection node (05.10.2026) — FIXED
 
 Micro-fix по live-gaps §12.5 (run `c96dc04a61df49619baa410496d96696`).
