@@ -180,7 +180,7 @@
 
 ### ⚡ Follow-up (reconcile mca-06, 04.10.2026) — выпущено 2.58.49 VERIFIED — хвосты (не блокёры)
 
-Источник: `plans/features/mca-06-sleep-paradigms/{deployment.md (VERIFIED), review.md}` + ADR-1028-9 («Прод-валидация и история»).
+Источник: `plans/archive/mca-06-sleep-paradigms-round1034/{deployment.md (VERIFIED), review.md}` + ADR-1028-9 («Прод-валидация и история»).
 
 1. **PENDING OWNER — no-false-acceptance (THR-15, платные/окно):** **live deep sleep прогон** — живой `sleep.deep`-run (run-row + `report_json` §7.2 + 8 групп) требует платных LLM-вызовов; на проде `pipeline_type counts = []` (NOT_VERIFIED-with-причиной). **Окно `DEEP_SLEEP_TRIGGER=after_sleep`** (~02:30 UTC) требует **owner-сверки** окна/бюджета перед ручным запуском. **Episodes pool = 0** — `mca-05` live-извлечение эпизодов не запускалось (owner-scope). **mca-17c** — браузерный рендер chain-UI (карточка delta) — зона следующей фичи (doc-only для mca-06).
 2. **Low долги (non-blocking, review.md):** **L-1** — dedicated OFF-тест `MCA_DREAM_HISTORICAL_PROFILE_ENABLED` (`test_profile_off_uses_legacy_rag_channel`) — **закрыт** round-2; **L-2** — bump-нотация spec/ADR 2.58.48→2.58.49 — **закрыта** в release-коммите; **L-3** — UI-метка `unchanged` (`_DEEP_REASON_MAP` + `app.js`) — UI-часть перенесена в mca-17c (raw-статусы остаются различимыми), dedicated OFF-паритет покрыт round-2.

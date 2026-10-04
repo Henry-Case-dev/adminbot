@@ -4,7 +4,7 @@
 - **Дата:** 03.10.2026
 - **Фича:** `mca-06-sleep-paradigms` (Wave 2, эпик `memory-context-autonomy`; after mca-04a/mca-17a/mca-05/mca-22/ASAP-4.1)
 - **Источник:** `plans/current_task.md:336–382` (§10 + §10.1 п.1–8); приёмки A14, A91–A94
-- **Spec:** `plans/features/mca-06-sleep-paradigms/spec.md`; **Угрозы:** `threat-failure-analysis.md` (R3); **Задачи:** `tasks.md` (T-4700…T-4734)
+- **Spec:** `plans/archive/mca-06-sleep-paradigms-round1034/spec.md`; **Угрозы:** `threat-failure-analysis.md` (R3); **Задачи:** `tasks.md` (T-4700…T-4734)
 - **Связи:** REUSE → ADR-1027-6 (provenance v17), ADR-1027-8 (observability v19), ADR-1027-12 (episodes v21), ADR-1028-6 (supersedes/contradicts, bot ledger), ADR-1028-8 (паттерн durable runs; Supervisor-scope AM-3 — не расширяется), ADR-1021-4 (пороги round1021 — не пересматриваются); AMEND → настоящего реестра AM-1…AM-6.
 
 ---
