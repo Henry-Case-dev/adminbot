@@ -80,6 +80,14 @@ class FakeConn:
             if a is not None and not a.get("deleted_at"):
                 return dict(a)
             return None
+        if s.startswith("SELECT instruction, pipeline_mode"):
+            p = self.db.profiles.get(args[0])
+            if p is None:
+                return None
+            return {k: p.get(k) for k in (
+                "instruction", "pipeline_mode", "counter_enabled",
+                "counter_value", "counter_format", "model_mode",
+                "connection_id", "model_id")}
         if s.startswith("SELECT revision FROM cover_style_profiles"):
             p = self.db.profiles.get(args[0])
             if p is not None and not p.get("is_deleted"):
@@ -204,26 +212,41 @@ class FakeConn:
                 "is_deleted": False}
             return _Cursor(1)
         if s.startswith("UPDATE cover_style_profiles SET name="):
+            promote = bool(args[15]) if len(args) > 15 else False
             (pid, name, pipeline_mode, instruction, counter_enabled,
              counter_value, counter_format, model_mode, connection_id,
              model_id, preview_before, preview_after, preview_rev,
-             enabled, validation_mode) = args
+             enabled, validation_mode) = args[:15]
             p = self.db.profiles.get(pid)
             if p is None:
                 return _Cursor(0)
-            p.update({"name": name, "pipeline_mode": pipeline_mode,
-                      "instruction": instruction,
-                      "counter_enabled": counter_enabled,
-                      "counter_value": counter_value,
-                      "counter_format": counter_format,
-                      "model_mode": model_mode,
-                      "connection_id": connection_id, "model_id": model_id,
-                      "preview_before_asset_id": preview_before,
-                      "preview_after_asset_id": preview_after,
-                      "preview_revision": preview_rev,
-                      "enabled": enabled,
-                      "validation_mode": validation_mode})
-            p["revision"] = int(p.get("revision") or 1) + 1
+            style_keys = ("instruction", "pipeline_mode", "counter_enabled",
+                          "counter_value", "counter_format", "model_mode",
+                          "connection_id", "model_id")
+            old_style = {k: p.get(k) for k in style_keys}
+            new_values = {"name": name, "pipeline_mode": pipeline_mode,
+                          "instruction": instruction,
+                          "counter_enabled": counter_enabled,
+                          "counter_value": counter_value,
+                          "counter_format": counter_format,
+                          "model_mode": model_mode,
+                          "connection_id": connection_id,
+                          "model_id": model_id, "enabled": enabled,
+                          "validation_mode": validation_mode}
+            new_style = {k: new_values[k] for k in style_keys}
+            p.update(new_values)
+            if old_style != new_style:
+                p["revision"] = int(p.get("revision") or 1) + 1
+                if promote:
+                    p["preview_revision"] = p["revision"]
+                else:
+                    p.update({"preview_before_asset_id": preview_before,
+                              "preview_after_asset_id": preview_after,
+                              "preview_revision": preview_rev})
+            else:
+                p.update({"preview_before_asset_id": preview_before,
+                          "preview_after_asset_id": preview_after,
+                          "preview_revision": preview_rev})
             return _Cursor(1)
         if s.startswith("UPDATE cover_style_profiles SET is_deleted"):
             p = self.db.profiles.get(args[0])
@@ -759,7 +782,8 @@ class TestStaticContractGuard:
             "registry.* получает PgDatabase, а не raw pool"
         skip_prefixes = ("ORIGIN_", "MODE_", "SEEDED", "PIPELINE", "preview_",
                          "format_issue", "build_revision_snapshot",
-                         "_public_connection")
+                         "_public_connection", "next_issue_number",
+                         "style_fingerprint", "merge_draft_snapshot")
         for m in re.finditer(r"registry\.(\w+)\(", source):
             name = m.group(1)
             if any(name.startswith(p) or name == p.rstrip("_")

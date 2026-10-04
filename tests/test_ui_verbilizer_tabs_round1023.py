@@ -1,4 +1,4 @@
-﻿"""F8 (раунд 10.23, ADR-1023-8) — UI Синтезатор/Вербализатор + режимы + клише.
+"""F8 (раунд 10.23, ADR-1023-8) — UI Синтезатор/Вербализатор + режимы + клише.
 
 Покрытие:
   * Δ каталога: +10 prompts-ключей (Stage-1/2 + режимы) и +1 группа
@@ -80,7 +80,7 @@ class TestCatalogDelta:
     def test_counts(self):
         # F21 (10.24, ADR-1024-22 D8): +1 REGISTRY/GROUPS/mapped — теперь
         # 459/98/96; TAB_RULES 20 (новых вкладок нет).
-        assert len(pc.REGISTRY) == 488
+        assert len(pc.REGISTRY) == 489
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21

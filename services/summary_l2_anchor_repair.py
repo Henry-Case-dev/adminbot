@@ -273,6 +273,14 @@ def build_targeted_revision_content(*, paragraph, paragraph_id: int,
         "preserve": ("Исправь ТОЛЬКО этот абзац. Сохрани остальные абзацы "
                      "неизменно. Не добавляй новых фактов, имён, чисел или "
                      "цитат; опирайся на source_excerpts."),
+        # T-4877: output schema пиннится явно (иначе любая другая форма
+        # ответа сгорает как revision_invalid_patch и обе revision → Legacy).
+        "output_format": (
+            'Верни СТРОГО JSON одного объекта: {"text": "полный '
+            'исправленный текст абзаца", "source_anchors": ["m0000-A1"]}. '
+            "source_anchors — массив anchors ТОЛЬКО из source_excerpts/"
+            "problem (без реальных message_id). Не оборачивай в "
+            "paragraph/replace_paragraphs, не возвращай другие абзацы."),
     }
     if title:
         payload["article_title"] = str(title)

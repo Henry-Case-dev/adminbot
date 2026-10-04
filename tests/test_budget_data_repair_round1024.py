@@ -1,4 +1,4 @@
-﻿"""F22 (раунд 10.24, `budget-data-repair-round1024`, ADR-1024-23) — ремонт
+"""F22 (раунд 10.24, `budget-data-repair-round1024`, ADR-1024-23) — ремонт
 потерянных per-chat seed-overrides + read-only аудит + fail-loud CLI PG.
 
 Покрытие (spec §6.1, review iter1):
@@ -598,9 +598,11 @@ class TestFlagBoundary:
         # Δ DDL ≠ 0, verbatim §7 ADR); 45 → 46.
         # NOTE (ASAP-3.2, ADR-1028-5 D14/§104): +1 (cover_style_connections);
         # 51 → 52. SQLite DDL = 0 (v19 не меняется).
-        assert len(pg_db.DDL_STATEMENTS) == 52
+        # NOTE (ASAP 4.3, 2.58.51 `1c47b5e`/`acbbe1f`): PG additive nullable
+        # `preview_job_id` (durable preview jobs) — 52 → 53; SQLite DDL = 0.
+        assert len(pg_db.DDL_STATEMENTS) == 53
 
     def test_delta_catalog_zero(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 488
+        assert len(pc.REGISTRY) == 489
         assert len(pc.GROUPS) == 105

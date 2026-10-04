@@ -118,8 +118,12 @@ def preview_human_message(reason: str) -> str:
     """Человеческая фраза по machine reason (§3/§11) — UI переводит сам при
     необходимости, сервер отдаёт безопасный текст."""
     reason = str(reason or "")
-    if reason in ("prompt_limit", "prompt_limit_exceeded"):
+    if reason in ("prompt_limit", "prompt_limit_exceeded",
+                  "prompt_limit_unknown"):
         return "Стиль не применён: инструкция превышает лимит модели."
+    if reason == "prompt_limit_unknown_after_retry":
+        return ("Стиль не применён: промпт превышает лимит модели даже "
+                "после сокращения.")
     if reason == "connection_missing":
         return ("Подключение модели не найдено. Откройте «Настроить "
                 "подключения →» и выберите подключение заново.")
@@ -210,14 +214,23 @@ async def job_status(db, job_id: str) -> dict | None:
 
 async def start_preview_job(db, *, profile: dict, pg, correlation_id: str,
                             brief: str,
-                            base_upload_meta: dict | None = None) -> dict:
+                            base_upload_meta: dict | None = None,
+                            draft_snapshot: dict | None = None) -> dict:
     """Короткий start (§2.2): {job_id, status:"queued"} без ожидания.
 
     Двойной тап: активный job стиля → тот же `job_id` (без второго paid
     запроса). Завершённый job переиспользуется (requeue) — одна строка
     `task_jobs` на стиль, без дублей/второй очереди.
+
+    ASAP 4.4 (T-4870): `draft_snapshot` — нормализованные style-affecting
+    поля текущего редактора (не сохраняются как профиль); job генерирует
+    ровно их и хранит snapshot+fingerprint в durable state (resume тоже).
     """
     style_id = str((profile or {}).get("profile_id") or "")
+    merged = (registry.merge_draft_snapshot(profile, draft_snapshot)
+              if isinstance(draft_snapshot, dict) else profile)
+    fingerprint = (registry.style_fingerprint(merged)
+                   if isinstance(draft_snapshot, dict) else None)
     async with _lock():
         jid = preview_job_key(style_id)
         row = await jobs.get_cover_job(db, jid)
@@ -247,17 +260,23 @@ async def start_preview_job(db, *, profile: dict, pg, correlation_id: str,
                 await jobs.save_cover_state(db, started, state)
         if not started:
             return {}
-        _spawn(db, started, profile=profile, pg=pg,
+        _spawn(db, started, profile=merged, pg=pg,
                correlation_id=correlation_id, brief=brief,
-               base_upload_meta=base_upload_meta)
+               base_upload_meta=base_upload_meta,
+               draft_snapshot=draft_snapshot,
+               draft_fingerprint=fingerprint)
         return {"job_id": started, "status": "queued", "stage": STAGE_QUEUED,
                 "reused": False}
 
 
 def _spawn(db, job_id: str, *, profile: dict, pg, correlation_id: str,
-           brief: str, base_upload_meta: dict | None) -> None:
+           brief: str, base_upload_meta: dict | None,
+           draft_snapshot: dict | None = None,
+           draft_fingerprint: str | None = None) -> None:
     args = {"profile": profile, "pg": pg, "correlation_id": correlation_id,
-            "brief": brief, "base_upload_meta": base_upload_meta}
+            "brief": brief, "base_upload_meta": base_upload_meta,
+            "draft_snapshot": draft_snapshot,
+            "draft_fingerprint": draft_fingerprint}
     if is_runner_active(job_id):
         # Предыдущий runner завершает терминальную запись; новый цикл
         # стартует сразу после его выхода (не теряем spawn).
@@ -320,13 +339,21 @@ async def resume_preview_job(db, job_id: str, *, pg=None) -> bool:
         await jobs.finish_cover_job(db, job_id, outcome=jobs.STATE_FAILED,
                                     reason_code="profile_missing")
         return False
+    # T-4870: resume генерирует ровно тот draft, что был у editor (snapshot
+    # из durable state), а не текущую DB-версию.
+    snapshot = (state.draft_snapshot
+                if isinstance(state.draft_snapshot, dict) else None)
+    if snapshot is not None:
+        profile = registry.merge_draft_snapshot(profile, snapshot)
     try:
         payload = json.loads(row.get("payload") or "{}")
     except (ValueError, TypeError):
         payload = {}
     _spawn(db, job_id, profile=profile, pg=pg,
            correlation_id=payload.get("correlation_id"),
-           brief=_BRIEF_DEFAULT, base_upload_meta=None)
+           brief=_BRIEF_DEFAULT, base_upload_meta=None,
+           draft_snapshot=snapshot,
+           draft_fingerprint=state.draft_fingerprint)
     return True
 
 
@@ -341,7 +368,9 @@ _BRIEF_DEFAULT = (
 
 async def run_preview_job(db, job_id: str, *, profile: dict, pg,
                           correlation_id: str | None, brief: str,
-                          base_upload_meta: dict | None = None) -> dict:
+                          base_upload_meta: dict | None = None,
+                          draft_snapshot: dict | None = None,
+                          draft_fingerprint: str | None = None) -> dict:
     """Выполнить durable preview job: base → style edit → atomic pair → finish."""
     style_id = str((profile or {}).get("profile_id") or "")
     state = await jobs.load_cover_state(db, job_id)
@@ -349,6 +378,11 @@ async def run_preview_job(db, job_id: str, *, profile: dict, pg,
         state = jobs.CoverJobState(style_id=style_id, mode=MODE_PREVIEW)
         state.mark(jobs.STATE_CREATED)
     state.mode = MODE_PREVIEW
+    # T-4870: snapshot текущего draft редактора — durable provenance job'а
+    # (resume переиспользует его; в profile не сохраняется).
+    if isinstance(draft_snapshot, dict):
+        state.draft_snapshot = dict(draft_snapshot)
+        state.draft_fingerprint = draft_fingerprint
 
     base_meta = base_upload_meta
     base_path: str | None = None

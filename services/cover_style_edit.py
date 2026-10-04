@@ -464,29 +464,33 @@ async def edit_image(prompt: str, *, base_image_path: str | None,
                 # T-4813: безопасные diagnostics (status/reason_code/
                 # sanitized message/request_id/route/model; без keys/prompt/
                 # bytes). T-4814: machine-readable prompt-limit → N.
+                # T-4875: «too long» БЕЗ числа → semantic
+                # `prompt_limit_unknown` (не generic `bad_request`).
                 diag = extract_edit_error(resp, route=resolved_route,
                                           model=model)
                 edit_meta["provider_error"] = diag
+                safe_text = _safe_resp_text(resp)
                 limit = None
                 try:
-                    from services.image_capabilities import (
-                        extract_prompt_limit,
-                    )
-                    limit = extract_prompt_limit(_safe_resp_text(resp))
+                    limit = cap.extract_prompt_limit(safe_text)
                 except Exception:
                     limit = None
                 if limit is not None and limit[0] > 0:
                     edit_meta["prompt_limit"] = {"value": int(limit[0]),
                                                  "unit": limit[1]}
                     last_reason = "prompt_limit"
+                elif cap.looks_like_prompt_too_long(
+                        safe_text, diag.get("reason_code") or ""):
+                    edit_meta["prompt_limit_unknown"] = True
+                    last_reason = "prompt_limit_unknown"
                 else:
                     last_reason = "bad_request"
                 logger.warning(
                     "[cover_style_edit] provider 400 | status=%s | route=%s | "
-                    "model=%s | reason_code=%s | request_id=%s",
+                    "model=%s | reason_code=%s | request_id=%s | classified=%s",
                     diag.get("status"), diag.get("route"), diag.get("model"),
                     (diag.get("reason_code") or "-")[:60],
-                    (diag.get("request_id") or "-")[:40])
+                    (diag.get("request_id") or "-")[:40], last_reason)
             elif status is not None:
                 last_reason = f"http_{status}"
             else:
@@ -649,6 +653,12 @@ def _status_reason(resp) -> str:
     if status == 401:
         return "unauthorized"
     if status == 400:
+        # T-4875: та же семантика, что в sync-пути (без числа → unknown).
+        try:
+            if cap.looks_like_prompt_too_long(_safe_resp_text(resp)):
+                return "prompt_limit_unknown"
+        except Exception:
+            pass
         return "bad_request"
     return f"http_{status}" if status is not None else "error"
 

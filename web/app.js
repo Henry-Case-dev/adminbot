@@ -798,6 +798,10 @@
             { key: 'models.embedding_base_url', label: 'Адрес сервера', role: 'base_url' },
             { key: 'models.embedding_model_name', label: 'Модель', role: 'model' },
             { key: 'keys.embedding_api_key', label: 'Ключ', role: 'api_key', secret: true },
+            // ASAP 4.4 (T-4880): quota-группы ключей (не секрет). Формат
+            // «primary:group,fallback_1:group,…»; один billing-проект —
+            // одна группа, независимость — только из label, не из ключа.
+            { key: 'keys.embedding_quota_group_labels', label: 'Группы квот (alias:group,…)', role: '' },
           ] },
         { id: 'embeddings_fallback1', title: 'Фоллбэк 1',
           modules: 'Поиск по памяти (фолбэк 1)',
@@ -7209,6 +7213,7 @@
           is_example: s.is_example, pipeline_mode: s.pipeline_mode,
           instruction: s.instruction || '',
           counter_enabled: !!s.counter_enabled,
+          next_issue_number: s.next_issue_number,
           counter_value: s.counter_value, counter_format: s.counter_format,
           model_mode: s.model_mode || 'default',
           connection_id: s.connection_id, model_id: s.model_id,
@@ -7296,6 +7301,7 @@
               is_example: false, pipeline_mode: created.pipeline_mode,
               instruction: created.instruction || '',
               counter_enabled: !!created.counter_enabled,
+              next_issue_number: created.next_issue_number,
               counter_value: created.counter_value || 0,
               counter_format: created.counter_format,
               model_mode: created.model_mode || 'default',
@@ -7335,9 +7341,11 @@
               capabilities: data.capabilities || null,
               connection: data.connection || null,
               budget: data.budget || null,
+              effective: data.effective || null,
             };
             if (st.current && st.current.profile_id === profileId) {
               st.current.references = (data.references || []).slice();
+              st.current.next_issue_number = data.next_issue_number;
               st.current.preview_issue = data.preview_issue;
               // §10/SC-24: актуальность preview синхронизируется с сервером.
               st.current.preview_after_asset_id = data.preview_after_asset_id;
@@ -7373,7 +7381,7 @@
           name: c.name, instruction: c.instruction,
           pipeline_mode: c.pipeline_mode,
           counter_enabled: !!c.counter_enabled,
-          counter_value: parseInt(c.counter_value || 0, 10) || 0,
+          next_issue_number: self.coverStyleNextNumber(c),
           counter_format: c.counter_format || 'ВЫПУСК {counter}',
           model_mode: c.model_mode || 'default',
           connection_id: c.connection_id || null,
@@ -7551,6 +7559,30 @@
         var j = this.coverStyles.previewJob;
         return !!(j && j.job_id && !j.finished);
       },
+      // ASAP 4.4 (§RC-B/§RC-D): публичный контракт «Следующий номер» —
+      // next_issue_number (server = counter_value+1); raw counter_value
+      // (внутренний last_assigned) как «следующий» не используется.
+      coverStyleNextNumber: function (c) {
+        var n = parseInt(c && c.next_issue_number, 10);
+        if (isFinite(n) && n > 0) return n;
+        return (parseInt((c && c.counter_value) || 0, 10) || 0) + 1;
+      },
+      // Draft snapshot style-affecting полей текущего редактора (Test Style
+      // тестирует ровно то, что видно; в DB профиль не сохраняется).
+      coverStyleDraftSnapshot: function () {
+        var c = this.coverStyles.current;
+        if (!c) return null;
+        return {
+          instruction: c.instruction || '',
+          pipeline_mode: c.pipeline_mode,
+          counter_enabled: !!c.counter_enabled,
+          next_issue_number: this.coverStyleNextNumber(c),
+          counter_format: c.counter_format || 'ВЫПУСК {counter}',
+          model_mode: c.model_mode || 'default',
+          connection_id: c.connection_id || null,
+          model_id: c.model_id || null,
+        };
+      },
       coverStylePreview: function () {
         var st = this.coverStyles;
         var c = st.current;
@@ -7574,7 +7606,8 @@
         };
         this.api('/api/cover/test-style', {
           global: true, method: 'POST',
-          body: JSON.stringify({ profile_id: c.profile_id }),
+          body: JSON.stringify({ profile_id: c.profile_id,
+                                 draft: self.coverStyleDraftSnapshot() }),
         }).then(function (data) {
           var j = self.coverStyles.previewJob;
           if (!j) return;
@@ -7615,7 +7648,8 @@
           }
           self.api('/api/cover/test-style', {
             global: true, method: 'POST',
-            body: JSON.stringify({ profile_id: j.profile_id }),
+            body: JSON.stringify({ profile_id: j.profile_id,
+                                   draft: self.coverStyleDraftSnapshot() }),
           }).then(function (data) {
             var jj = self.coverStyles.previewJob;
             if (!jj) return;
@@ -7755,17 +7789,35 @@
         return 'Инструкция: ' + String(c.instruction || '').length
           + ' символов · Лимит текущей модели: ' + this.coverLimitText();
       },
-      // §9: «Лимит текущей модели: M / неизвестно» — без ложного 800.
+      // §9 + §2/T-4874: «Лимит текущей модели» — число/taxonomy источника из
+      // server state; learned safe ceiling НЕ выдаётся за exact max.
+      coverLimitUnitLabel: function (u) {
+        return u === 'tokens' ? 'токенов' : 'символов';
+      },
+      coverLimitSourceLabel: function (pl) {
+        var taxonomy = pl && pl.source_taxonomy;
+        if (taxonomy === 'published_exact') return 'лимит провайдера';
+        if (taxonomy === 'runtime_exact') return 'подтверждён провайдером';
+        if (taxonomy === 'learned_safe_ceiling') {
+          return 'безопасный потолок (не максимум)';
+        }
+        if (taxonomy === 'manual') return 'задано вручную';
+        return '';
+      },
       coverLimitText: function () {
         var st = this.coverStyles;
         var pl = st.meta && st.meta.prompt_limit;
-        if (st.limitMode === 'manual' && st.limitValue) {
-          return st.limitValue + ' ' + (st.limitUnit === 'tokens'
-            ? 'токенов' : 'символов') + ' (задано вручную)';
+        if (!pl) return 'неизвестно';
+        // manual показывается ТОЛЬКО из server state (после успешного
+        // сохранения); локальный draft-выбор до сохранения ничего не рисует.
+        if (pl.mode === 'manual' && pl.value != null) {
+          return pl.value + ' ' + this.coverLimitUnitLabel(pl.unit)
+            + ' (задано вручную)';
         }
-        if (pl && pl.limit_known && pl.value != null) {
-          return pl.value + ' ' + (pl.unit === 'tokens' ? 'токенов'
-            : 'символов');
+        if (pl.limit_known && pl.value != null) {
+          var label = this.coverLimitSourceLabel(pl);
+          return pl.value + ' ' + this.coverLimitUnitLabel(pl.unit)
+            + (label ? ' (' + label + ')' : '');
         }
         return 'неизвестно';
       },
@@ -7787,9 +7839,13 @@
         var st = this.coverStyles;
         var b = st.meta && st.meta.budget;
         if (!b || !b.components) return '';
-        var itogo = (b.limit_known && b.limit != null)
-          ? (b.components.total + ' / ' + b.limit)
-          : (b.components.total + ' / неизвестно');
+        var limitText = 'неизвестно';
+        if (b.limit_known && b.limit != null) {
+          // learned safe ceiling — не exact provider max: показываем «≤».
+          limitText = (b.limit_source_taxonomy === 'learned_safe_ceiling'
+            ? '≤ ' : '') + b.limit;
+        }
+        var itogo = b.components.total + ' / ' + limitText;
         return 'Последняя сборка: Style ' + b.components.style
           + ' · Context ' + b.components.context
           + ' · Refs/meta ' + b.components.refs
@@ -7799,8 +7855,8 @@
       coverBudgetUnknownText: function () {
         var st = this.coverStyles;
         var pl = st.meta && st.meta.prompt_limit;
-        if (st.limitMode === 'manual' && st.limitValue) return '';
-        if (pl && pl.limit_known) return '';
+        // Подсказка только по server state (manual сохранён или лимит known).
+        if (pl && (pl.mode === 'manual' || pl.limit_known)) return '';
         return 'Провайдер не сообщил точный лимит. Запрос будет отправлен '
           + 'без искусственного ограничения.';
       },
@@ -7831,6 +7887,9 @@
         }).catch(function (e) {
           self.toast((e && e.message) ||
             'Не удалось сохранить ограничение промпта', 'err');
+          // §2/T-4874: экран не противоречит серверу — при ошибке
+          // восстанавливаем server state (manual не «прилипает» локально).
+          self.coverStyleLoadMeta(c.profile_id);
         }).then(function () { st.limitSaving = false; });
       },
       coverCapabilityLines: function () {
@@ -7845,10 +7904,25 @@
           'Доступно референсов (с учётом базовой обложки): '
             + (caps.references_available == null ? 'неизвестно' : caps.references_available),
         ];
+        // §2/T-4873: editor показывает EFFECTIVE provider/model/route —
+        // тот же контур, что исполняет production style stage.
+        var eff = st.meta && st.meta.effective;
+        if (eff && (eff.provider || eff.model)) {
+          lines.unshift('Модель обработки: '
+            + (eff.provider || '—') + ' / ' + (eff.model || '—')
+            + (eff.route ? ' · маршрут: ' + eff.route : ''));
+        }
         var pl = caps.prompt_limit || {};
+        var taxonomy = pl.source_taxonomy || '';
+        var taxonomyLabel = taxonomy === 'published_exact' ? 'лимит провайдера'
+          : (taxonomy === 'runtime_exact' ? 'подтверждён провайдером'
+            : (taxonomy === 'learned_safe_ceiling'
+              ? 'безопасный потолок (не максимум)'
+              : (taxonomy === 'manual' ? 'задано вручную' : '')));
         lines.push('Лимит инструкции: '
           + (pl.value == null ? 'не публикуется' : (pl.value + ' ' + (pl.unit || '')))
-          + ' (источник: ' + (pl.source || 'unknown') + ')');
+          + ' (источник: ' + (pl.source || 'unknown')
+          + (taxonomyLabel ? ' · ' + taxonomyLabel : '') + ')');
         if (caps.supported_sizes && caps.supported_sizes.length) {
           lines.push('Поддерживаемые размеры: ' + caps.supported_sizes.join(', '));
         }

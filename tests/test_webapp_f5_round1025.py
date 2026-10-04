@@ -1,4 +1,4 @@
-﻿"""F5 round 10.25 — рабочее пространство модуля (ADR-1025-15).
+"""F5 round 10.25 — рабочее пространство модуля (ADR-1025-15).
 
 Проверяет:
   * D1/D6: витринные метаданные workspace (`routeSlug`, `tabs`) в JS `MODULES`;
@@ -315,7 +315,7 @@ def test_ai_hub_five_pages_order():
 def test_catalog_delta_zero():
     import services.param_catalog as pc
     from config.settings import Settings
-    assert len(pc.REGISTRY) == 488
+    assert len(pc.REGISTRY) == 489
     assert len(pc.GROUPS) == 105
     assert len(pc._TAB_BY_GROUP) == 103
     assert len(pc.TAB_RULES) == 21

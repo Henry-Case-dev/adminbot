@@ -1,4 +1,4 @@
-﻿"""S5 round1026 (ADR-1026-7 D1/D4/D6) — тесты L2 «Писатель» (§96–§99).
+"""S5 round1026 (ADR-1026-7 D1/D4/D6) — тесты L2 «Писатель» (§96–§99).
 
 Покрытие: SC-01 (контракт §99), SC-06/SC-07 (§97-запреты/цитаты), SC-08
 (изоляция входа), SC-09 (§106 fail-closed), SC-10 (слот §82), SC-11 (канон),
@@ -551,11 +551,11 @@ class TestCanon:
         # SUMMARY_REVISION_PATCH_ENABLED, spec §8.2) — ClassVar (как все
         # env-рубильники ASAP-4) → dataclass-fields не растут (426);
         # Δ каталога = 0 (env-only, F8).
-        assert len(pc.REGISTRY) == 488
+        assert len(pc.REGISTRY) == 489
         assert len({f.name for f in dataclasses.fields(settings.__class__)}) \
             == 426
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 463
+                    if s.category is not None]) == 464
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21

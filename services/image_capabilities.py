@@ -48,6 +48,45 @@ SOURCE_RUNTIME_DISCOVERED = "cached_runtime_discovered"
 # ASAP 4.3 (§7.1, T-4847): ручной override из MiniApp — высший приоритет
 # (per provider+base_url+model+operation; хранится в bot_settings).
 SOURCE_MANUAL = "manual_override"
+# ASAP 4.4 (§2, T-4875): успешный bounded adaptive retry без известного N —
+# «безопасный потолок» (successful compiled length), НЕ exact provider max.
+SOURCE_RUNTIME_SAFE = "runtime_safe"
+
+# ASAP 4.4 (§2, T-4874): публичная таксономия источника prompt-лимита.
+# UI/API обязаны показывать taxonomy источника и число, когда оно доказано
+# (никакого «неизвестно» при наличии проверенной информации). Learned
+# ceiling НЕ выдаётся за exact provider maximum.
+TAXONOMY_PUBLISHED_EXACT = "published_exact"
+TAXONOMY_RUNTIME_EXACT = "runtime_exact"
+TAXONOMY_MANUAL = "manual"
+TAXONOMY_LEARNED_SAFE_CEILING = "learned_safe_ceiling"
+TAXONOMY_UNKNOWN = "unknown"
+
+_SOURCE_TAXONOMY = {
+    SOURCE_OVERRIDE: TAXONOMY_MANUAL,        # env escape hatch — явное число
+    SOURCE_DISCOVERY: TAXONOMY_PUBLISHED_EXACT,
+    SOURCE_INTERNAL: TAXONOMY_PUBLISHED_EXACT,
+    SOURCE_LIVE_MODEL: TAXONOMY_PUBLISHED_EXACT,
+    SOURCE_LIVE_ROUTE: TAXONOMY_PUBLISHED_EXACT,
+    SOURCE_VERIFIED_REGISTRY: TAXONOMY_PUBLISHED_EXACT,
+    SOURCE_RUNTIME_DISCOVERED: TAXONOMY_RUNTIME_EXACT,
+    SOURCE_RUNTIME_SAFE: TAXONOMY_LEARNED_SAFE_CEILING,
+    SOURCE_MANUAL: TAXONOMY_MANUAL,
+    SOURCE_UNKNOWN: TAXONOMY_UNKNOWN,
+}
+_EXACT_TAXONOMIES = (TAXONOMY_PUBLISHED_EXACT, TAXONOMY_RUNTIME_EXACT)
+
+
+def prompt_limit_source_taxonomy(source) -> str:
+    """§2/T-4874: публичная taxonomy источника лимита (5 значений)."""
+    return _SOURCE_TAXONOMY.get(str(source or ""), TAXONOMY_UNKNOWN)
+
+
+def prompt_limit_is_exact(taxonomy) -> bool:
+    """Exact provider max — только published/runtime exact; learned
+    ceiling/manual/unknown НЕ выдаются за точный максимум провайдера."""
+    return str(taxonomy or "") in _EXACT_TAXONOMIES
+
 
 # Ключ `bot_settings` для ручных лимитов MiniApp:
 # {"provider|base_url|model|operation": {"value": N, "unit": "chars"}}.
@@ -130,7 +169,7 @@ def _apply_manual(caps: ImageModelCapabilities, provider: str,
     if manual is not None:
         caps.prompt_limit = manual
         if caps.source in (SOURCE_UNKNOWN, SOURCE_DISCOVERY,
-                           SOURCE_RUNTIME_DISCOVERED):
+                           SOURCE_RUNTIME_DISCOVERED, SOURCE_RUNTIME_SAFE):
             caps.source = SOURCE_MANUAL
     return caps
 
@@ -243,6 +282,10 @@ _PROMPT_LIMIT_PATTERNS = (
                re.IGNORECASE),
     re.compile(r"max_prompt_length[\"'\s:=]+(\d+)", re.IGNORECASE),
     re.compile(r"prompt_limit[\"'\s:=]+(\d+)", re.IGNORECASE),
+    # ASAP 4.4 (§2/T-4875): provider сам называет число в «please shorten…
+    # to N characters» — это machine-readable runtime_exact, не hardcode.
+    re.compile(r"(?:shorten|shorter|reduce)[^.\n]{0,120}?(\d+)\s*"
+               r"(characters?|chars|tokens?|bytes?)", re.IGNORECASE),
 )
 
 
@@ -273,6 +316,25 @@ def extract_prompt_limit(text) -> tuple[int, str] | None:
         unit = _UNIT_WORDS.get(word, UNIT_CHARS)
         return value, unit
     return None
+
+
+def looks_like_prompt_too_long(text, reason_code: str = "") -> bool:
+    """ASAP 4.4 (§2/T-4875): семантическая классификация «prompt too long».
+
+    Провайдер отклонил промпт как слишком длинный, но ЧИСЛА не сообщил
+    (например «Your prompt is too long ... Please shorten»). Не заменяет
+    machine-readable extraction: вызывается только когда N не извлечён.
+    Консервативно: generic 400 без prompt-семантики остаётся `bad_request`."""
+    code = str(reason_code or "").strip().lower()
+    if code and "prompt" in code and any(
+            token in code for token in ("long", "length", "exceed")):
+        return True
+    raw = re.sub(r"\s+", " ", str(text or "")).lower()
+    if "prompt" not in raw:
+        return False
+    return any(hint in raw for hint in (
+        "too long", "shorten", "too many characters", "exceeds",
+        "maximum length", "character limit"))
 
 
 def extract_provider_error(body) -> dict:
@@ -551,6 +613,41 @@ def record_runtime_limit(provider: str, base_url: str, model: str,
     caps.source = SOURCE_RUNTIME_DISCOVERED
     caps.prompt_limit = PromptLimit(value=int(value), unit=unit,
                                     source=SOURCE_RUNTIME_DISCOVERED)
+    _cache_put(key, caps)
+
+
+def record_runtime_safe_ceiling(provider: str, base_url: str, model: str,
+                                route: str | None, value: int,
+                                unit: str = UNIT_CHARS) -> None:
+    """T-4875: успешный bounded adaptive retry без известного N → route-specific
+    `learned_safe_ceiling` (successful compiled length) с source
+    `runtime_safe`, НЕ exact provider max.
+
+    Не понижает более сильный источник: если в кэше уже known-лимит
+    (published/runtime exact), запись не перезаписывается; обновляется только
+    unknown/предыдущий learned ceiling."""
+    provider = str(provider or "").strip()
+    base_url = str(base_url or "").strip().rstrip("/")
+    model = str(model or "").strip()
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        return
+    if value <= 0:
+        return
+    key = _cache_key(provider, base_url, model, route)
+    existing = _cache_get(key)
+    caps = existing if existing is not None else conservative_unknown()
+    current = caps.prompt_limit
+    if current.known and current.source not in (SOURCE_UNKNOWN,
+                                                SOURCE_RUNTIME_SAFE):
+        return
+    if caps.source in (SOURCE_UNKNOWN, SOURCE_DISCOVERY,
+                       SOURCE_RUNTIME_DISCOVERED, SOURCE_RUNTIME_SAFE):
+        caps.source = SOURCE_RUNTIME_SAFE
+    unit = unit if unit in PROMPT_UNITS else UNIT_CHARS
+    caps.prompt_limit = PromptLimit(value=value, unit=unit,
+                                    source=SOURCE_RUNTIME_SAFE)
     _cache_put(key, caps)
 
 

@@ -63,18 +63,31 @@ class _FakeConn:
                 "enabled": args[14], "is_deleted": False,
                 "validation_mode": args[15]}
         elif "UPDATE cover_style_profiles SET name=" in norm:
+            promote = bool(args[15]) if len(args) > 15 else False
+            style_keys = ("instruction", "pipeline_mode", "counter_enabled",
+                          "counter_value", "counter_format", "model_mode",
+                          "connection_id", "model_id")
             p = self.state["profiles"].get(args[0])
             if p is not None:
+                old_style = {k: p.get(k) for k in style_keys}
                 p.update({"name": args[1], "pipeline_mode": args[2],
                           "instruction": args[3], "counter_enabled": args[4],
                           "counter_value": args[5], "counter_format": args[6],
                           "model_mode": args[7], "connection_id": args[8],
                           "model_id": args[9],
-                          "preview_before_asset_id": args[10],
-                          "preview_after_asset_id": args[11],
-                          "preview_revision": args[12],
                           "enabled": args[13], "validation_mode": args[14]})
-                p["revision"] = p.get("revision", 1) + 1
+                if old_style != {k: p.get(k) for k in style_keys}:
+                    p["revision"] = p.get("revision", 1) + 1
+                    if promote:
+                        p["preview_revision"] = p["revision"]
+                    else:
+                        p.update({"preview_before_asset_id": args[10],
+                                  "preview_after_asset_id": args[11],
+                                  "preview_revision": args[12]})
+                else:
+                    p.update({"preview_before_asset_id": args[10],
+                              "preview_after_asset_id": args[11],
+                              "preview_revision": args[12]})
         elif "UPDATE cover_style_profiles SET counter_value" in norm:
             p = self.state["profiles"].get(args[0])
             if p is not None:
@@ -109,6 +122,14 @@ class _FakeConn:
                         and a.get("deleted_at") is None:
                     return a
             return None
+        if "SELECT instruction, pipeline_mode, counter_enabled" in norm:
+            p = self.state["profiles"].get(args[0])
+            if p is None:
+                return None
+            return {k: p.get(k) for k in (
+                "instruction", "pipeline_mode", "counter_enabled",
+                "counter_value", "counter_format", "model_mode",
+                "connection_id", "model_id")}
         if "SELECT revision FROM cover_style_profiles" in norm:
             p = self.state["profiles"].get(args[0])
             return {"revision": p["revision"]} if p else None
@@ -291,11 +312,15 @@ class TestProfiles:
             p = await csr.get_profile(pg, "c1")
             assert p["name"] == "Мой стиль"
             assert p["origin"] == "custom"
-            # update → revision++
+            # ASAP 4.4 (§RC-E): имя — UI-only, revision/pair не трогает.
             await csr.upsert_profile(pg, dict(p, name="Мой стиль 2"))
             p2 = await csr.get_profile(pg, "c1")
             assert p2["name"] == "Мой стиль 2"
-            assert p2["revision"] == p["revision"] + 1
+            assert p2["revision"] == p["revision"]
+            # реальное style-affecting изменение → revision++
+            await csr.upsert_profile(pg, dict(p2, instruction="new"))
+            p3 = await csr.get_profile(pg, "c1")
+            assert p3["revision"] == p2["revision"] + 1
             assert await csr.soft_delete_profile(pg, "c1")
             assert await csr.get_profile(pg, "c1") is None
         asyncio.run(_run())
@@ -509,9 +534,11 @@ class TestRevisionSnapshot:
 
 class TestTestStyleNoCounter:
     def test_preview_does_not_consume_counter(self):
-        # §66: preview использует `ВЫПУСК 00`, counter не меняется.
-        assert csr.preview_issue_number() == 0
-        assert csr.preview_issue_display("ВЫПУСК {counter}") == "ВЫПУСК 00"
+        # ASAP 4.4 (§RC-C): preview показывает текущий next_issue_number,
+        # counter не меняется.
+        assert csr.next_issue_number({"counter_value": 10}) == 11
+        assert csr.preview_issue_display("ВЫПУСК {counter}", 11) == "ВЫПУСК 11"
+        assert csr.preview_issue_display("ВЫПУСК {counter}", 9) == "ВЫПУСК 09"
 
     def test_preview_does_not_touch_db(self, pg):
         import asyncio
@@ -520,8 +547,9 @@ class TestTestStyleNoCounter:
             await csr.upsert_profile(pg, {
                 "profile_id": "p", "name": "P", "counter_value": 5})
             before = pg.pool.state["profiles"]["p"]["counter_value"]
-            # preview не вызывает resolve_issue_number
-            _ = csr.preview_issue_number()
+            # preview — только форматирование, resolve_issue_number не зовётся
+            _ = csr.preview_issue_display(
+                "ВЫПУСК {counter}", csr.next_issue_number({"counter_value": 5}))
             after = pg.pool.state["profiles"]["p"]["counter_value"]
             assert before == after == 5
         asyncio.run(_run())

@@ -15,6 +15,7 @@ R17: в таблицах нет секретов/полных URL; API key — �
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import uuid
@@ -252,8 +253,84 @@ async def get_profile_with_refs(pg, profile_id: str) -> dict | None:
     return profile
 
 
-async def upsert_profile(pg, profile: dict) -> bool:
-    """Создать/обновить профиль. Инкремент `revision` при обновлении."""
+# ── counter contract / revision fingerprint (ASAP 4.4 §RC-B…§RC-E) ──────────
+
+# Поля, изменение которых реально влияет на отрисовку обложки (§RC-E).
+# `name`/`enabled`/`validation_mode` — UI-only/поведенческие: pair не трогают.
+STYLE_AFFECTING_FIELDS = (
+    "instruction", "pipeline_mode", "counter_enabled", "counter_value",
+    "counter_format", "model_mode", "connection_id", "model_id",
+)
+
+
+def canonical_style_fields(profile: dict | None) -> dict:
+    """Канонические style-affecting поля (типы DB/SQLite нормализуются)."""
+    profile = profile or {}
+
+    def _text(value) -> str:
+        return str(value if value is not None else "").strip()
+
+    try:
+        counter_value = int(profile.get("counter_value") or 0)
+    except (TypeError, ValueError):
+        counter_value = 0
+    return {
+        "instruction": str(profile.get("instruction") or ""),
+        "pipeline_mode": _text(profile.get("pipeline_mode"))
+        or MODE_GENERATE_THEN_EDIT,
+        "counter_enabled": bool(profile.get("counter_enabled")),
+        "counter_value": counter_value,
+        "counter_format": _text(profile.get("counter_format"))
+        or SEEDED_COUNTER_FORMAT,
+        "model_mode": _text(profile.get("model_mode")) or MODEL_MODE_DEFAULT,
+        "connection_id": _text(profile.get("connection_id")) or None,
+        "model_id": _text(profile.get("model_id")) or None,
+    }
+
+
+def style_fingerprint(profile: dict | None) -> str:
+    """Отпечаток style-affecting полей (durable preview provenance)."""
+    raw = json.dumps(canonical_style_fields(profile), sort_keys=True,
+                     ensure_ascii=False)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def merge_draft_snapshot(profile: dict | None,
+                         snapshot: dict | None) -> dict:
+    """DB-профиль + нормализованный draft snapshot (не сохраняется в DB).
+
+    Snapshot принимается только по style-affecting ключам; `counter_value` —
+    внутренняя форма (`next_issue_number - 1`, конвертация на API-слое),
+    owner/origin/RBAC/references/job-state остаются от DB-строки.
+    """
+    merged = dict(profile or {})
+    if not isinstance(snapshot, dict):
+        return merged
+    for key in STYLE_AFFECTING_FIELDS:
+        if key in snapshot:
+            merged[key] = snapshot[key]
+    return merged
+
+
+def next_issue_number(profile: dict | None) -> int:
+    """Публичный контракт (§RC-B): next = `counter_value` (last_assigned) + 1."""
+    try:
+        return int((profile or {}).get("counter_value") or 0) + 1
+    except (TypeError, ValueError):
+        return 1
+
+
+async def upsert_profile(pg, profile: dict, *,
+                         promote_preview: bool = False) -> bool:
+    """Создать/обновить профиль.
+
+    RC-E/T-4871 (ASAP 4.4): `revision` растёт **только** при изменении
+    style-affecting полей (canonical compare); no-op Save и UI-only правки
+    (имя, enabled) pair не инвалидируют. T-4872: `promote_preview` —
+    сохранён РОВНО протестированный draft: `preview_revision` атомарно
+    поднимается к новой revision в той же UPDATE; preview-указатели не
+    перезаписываются (их пишет только `set_preview`).
+    """
     pool = _pool_of(pg)
     if pool is None:
         return False
@@ -288,29 +365,70 @@ async def upsert_profile(pg, profile: dict) -> bool:
                     bool(profile.get("enabled", True)),
                     profile.get("validation_mode", "off"))
             else:
-                await conn.execute(
-                    "UPDATE cover_style_profiles SET name=$2, pipeline_mode=$3, "
-                    "instruction=$4, counter_enabled=$5, counter_value=$6, "
-                    "counter_format=$7, model_mode=$8, connection_id=$9, "
-                    "model_id=$10, preview_before_asset_id=$11, "
-                    "preview_after_asset_id=$12, preview_revision=$13, "
-                    "enabled=$14, validation_mode=$15, "
-                    "revision = revision + 1, updated_at = now() "
-                    "WHERE profile_id=$1",
-                    pid, profile["name"],
-                    profile.get("pipeline_mode", MODE_GENERATE_THEN_EDIT),
-                    profile.get("instruction", ""),
-                    bool(profile.get("counter_enabled", False)),
-                    int(profile.get("counter_value", 0)),
-                    profile.get("counter_format", SEEDED_COUNTER_FORMAT),
-                    profile.get("model_mode", MODEL_MODE_DEFAULT),
-                    profile.get("connection_id"),
-                    profile.get("model_id"),
-                    profile.get("preview_before_asset_id"),
-                    profile.get("preview_after_asset_id"),
-                    profile.get("preview_revision"),
-                    bool(profile.get("enabled", True)),
-                    profile.get("validation_mode", "off"))
+                existing_style = await conn.fetchrow(
+                    "SELECT instruction, pipeline_mode, counter_enabled, "
+                    "counter_value, counter_format, model_mode, connection_id, "
+                    "model_id FROM cover_style_profiles "
+                    "WHERE profile_id = $1", pid)
+                changed = True
+                if existing_style is not None:
+                    changed = canonical_style_fields(dict(existing_style)) \
+                        != canonical_style_fields(profile)
+                if changed:
+                    await conn.execute(
+                        "UPDATE cover_style_profiles SET name=$2, "
+                        "pipeline_mode=$3, instruction=$4, counter_enabled=$5, "
+                        "counter_value=$6, counter_format=$7, model_mode=$8, "
+                        "connection_id=$9, model_id=$10, "
+                        "preview_before_asset_id = CASE WHEN $16 THEN "
+                        "preview_before_asset_id ELSE $11 END, "
+                        "preview_after_asset_id = CASE WHEN $16 THEN "
+                        "preview_after_asset_id ELSE $12 END, "
+                        "preview_revision = CASE WHEN $16 THEN revision + 1 "
+                        "ELSE $13 END, "
+                        "enabled=$14, validation_mode=$15, "
+                        "revision = revision + 1, updated_at = now() "
+                        "WHERE profile_id=$1",
+                        pid, profile["name"],
+                        profile.get("pipeline_mode", MODE_GENERATE_THEN_EDIT),
+                        profile.get("instruction", ""),
+                        bool(profile.get("counter_enabled", False)),
+                        int(profile.get("counter_value", 0)),
+                        profile.get("counter_format", SEEDED_COUNTER_FORMAT),
+                        profile.get("model_mode", MODEL_MODE_DEFAULT),
+                        profile.get("connection_id"),
+                        profile.get("model_id"),
+                        profile.get("preview_before_asset_id"),
+                        profile.get("preview_after_asset_id"),
+                        profile.get("preview_revision"),
+                        bool(profile.get("enabled", True)),
+                        profile.get("validation_mode", "off"),
+                        bool(promote_preview))
+                else:
+                    # No-op Save: revision/preview pair не трогаем.
+                    await conn.execute(
+                        "UPDATE cover_style_profiles SET name=$2, "
+                        "pipeline_mode=$3, instruction=$4, counter_enabled=$5, "
+                        "counter_value=$6, counter_format=$7, model_mode=$8, "
+                        "connection_id=$9, model_id=$10, "
+                        "preview_before_asset_id=$11, "
+                        "preview_after_asset_id=$12, preview_revision=$13, "
+                        "enabled=$14, validation_mode=$15, updated_at = now() "
+                        "WHERE profile_id=$1",
+                        pid, profile["name"],
+                        profile.get("pipeline_mode", MODE_GENERATE_THEN_EDIT),
+                        profile.get("instruction", ""),
+                        bool(profile.get("counter_enabled", False)),
+                        int(profile.get("counter_value", 0)),
+                        profile.get("counter_format", SEEDED_COUNTER_FORMAT),
+                        profile.get("model_mode", MODEL_MODE_DEFAULT),
+                        profile.get("connection_id"),
+                        profile.get("model_id"),
+                        profile.get("preview_before_asset_id"),
+                        profile.get("preview_after_asset_id"),
+                        profile.get("preview_revision"),
+                        bool(profile.get("enabled", True)),
+                        profile.get("validation_mode", "off"))
         profile["profile_id"] = pid
         return True
     except Exception:
@@ -584,7 +702,7 @@ def format_issue(counter_format: str, issue_number: int, *,
     """Форматировать номер по шаблону профиля (`ВЫПУСК {counter}`, §26).
 
     Слово `ВЫПУСК` не захардкожено — берётся из поля профиля. `zero_pad` —
-    минимальная ширина (для preview `ВЫПУСК 00`, §66)."""
+    минимальная ширина (editor/Test Style показывают `ВЫПУСК 11`)."""
     fmt = str(counter_format or "").strip() or SEEDED_COUNTER_FORMAT
     try:
         num = f"{int(issue_number):0{max(0, int(zero_pad))}d}"
@@ -593,9 +711,10 @@ def format_issue(counter_format: str, issue_number: int, *,
         return f"{fmt} {issue_number}".strip()
 
 
-def preview_issue_display(counter_format: str) -> str:
-    """Preview-подпись (§66): `ВЫПУСК 00` — не расходует production counter."""
-    return format_issue(counter_format, 0, zero_pad=2)
+def preview_issue_display(counter_format: str, next_number: int) -> str:
+    """Preview-подпись (§RC-C/T-4869): текущий `next_issue_number`,
+    zero-pad 2. Counter НЕ расходуется — только отображение."""
+    return format_issue(counter_format, next_number, zero_pad=2)
 
 
 # ── revision snapshot (§29) ─────────────────────────────────────────────────
@@ -622,11 +741,6 @@ def build_revision_snapshot(profile: dict, *, issue_number: int | None = None,
         "capabilities": capabilities or {},
         "pipeline_mode": profile.get("pipeline_mode"),
     }
-
-
-def preview_issue_number() -> int:
-    """Test Style (§66): НЕ расходует production counter — preview `ВЫПУСК 00`."""
-    return 0
 
 
 # ── Image Connections (§103–§105, ASAP-3.2 D14) ─────────────────────────────

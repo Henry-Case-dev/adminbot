@@ -287,7 +287,10 @@ class TestEditImage:
         base = _png(tmp_path / "b.png")
 
         async def transport(url, body, headers, timeout):
-            return _Resp(400, {"detail": "prompt too long"})
+            # Generic 400 без prompt-limit семантики → bad_request
+            # (ASAP 4.4/T-4875: «too long/shorten» — уже отдельный
+            # prompt_limit_unknown; см. test_asap44 #12d).
+            return _Resp(400, {"detail": "invalid image format"})
 
         res = await ed.edit_image("p", base_image_path=base, reference_paths=[],
                                   base_url="https://api.x/v1", model="m",
@@ -571,7 +574,9 @@ class TestRunStyleJob:
         assert meta["applied"] is True
         assert meta["mode"] == j.MODE_PREVIEW
         assert meta["issue_number"] is None
-        assert meta["preview_issue"] == "ВЫПУСК 00"
+        # ASAP 4.4 (§RC-C): preview показывает текущий next_issue_number
+        # (counter_value=0 → next=1), counter не расходуется.
+        assert meta["preview_issue"] == "ВЫПУСК 01"
         import os
         os.remove(meta["styled_path"])
 

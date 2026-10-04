@@ -266,6 +266,62 @@ async def resolve_style_slot_inherited(*, profile: dict | None = None,
     return slot
 
 
+async def resolve_effective_edit_capability(*, profile: dict | None = None,
+                                            connection: dict | None = None,
+                                            pg=None, refresh: bool = False,
+                                            operation: str | None = None
+                                            ) -> dict:
+    """ASAP 4.4 (§2, T-4873): ЕДИНЫЙ async resolver effective style-edit
+    capability.
+
+    Используется UI meta, prompt budget, Test Style, production и
+    diagnostics/Inspector: все пути получают один и тот же
+    `provider + normalized base_url + model + resolved route + operation`
+    (лестница §35 `resolve_style_slot_inherited` + resolver route/capabilities).
+
+    Возвращает `{slot, connection, provider, base_url, model, connection_id,
+    configured, custom_unresolved, resolve_source, route, operation,
+    capabilities}`. `route` резолвится тем же кодом, что применяет runtime
+    edit (`cover_style_edit.resolve_edit_route`, fail-open → "").
+    """
+    slot = await resolve_style_slot_inherited(
+        profile=profile, connection=connection, pg=pg)
+    inherit_conn = slot.pop("_connection", None)
+    if inherit_conn is not None:
+        connection = inherit_conn
+    op = operation or cap.OPERATION_EDIT
+    route = ""
+    if slot.get("configured"):
+        try:
+            from services import cover_style_edit as edit_mod
+            route = str(await edit_mod.resolve_edit_route(
+                slot.get("base_url") or "", slot.get("model") or "") or "")
+        except Exception:
+            route = ""
+    try:
+        caps = cap.resolve_capabilities(
+            slot.get("provider") or "", slot.get("base_url") or "",
+            slot.get("model") or "", refresh=refresh,
+            route=route or None, operation=op)
+    except Exception:
+        caps = cap.conservative_unknown()
+    return {
+        "slot": slot,
+        "connection": connection,
+        "provider": slot.get("provider") or "",
+        "base_url": slot.get("base_url") or "",
+        "model": slot.get("model") or "",
+        "connection_id": slot.get("connection_id"),
+        "configured": bool(slot.get("configured")),
+        "custom_unresolved": bool(slot.get("custom_unresolved")),
+        "resolve_source": (slot.get("resolve_source")
+                           or SLOT_SOURCE_GLOBAL_STYLE),
+        "route": route,
+        "operation": op,
+        "capabilities": caps,
+    }
+
+
 def slot_capabilities(*, profile: dict | None = None,
                       discovery: dict | None = None,
                       endpoints: dict | None = None,
@@ -353,41 +409,50 @@ async def resolve_selected_style_id(chat_id: int) -> str:
 def connection_status(*, profile: dict | None = None,
                       capabilities: cap.ImageModelCapabilities | None = None,
                       connection: dict | None = None,
+                      slot: dict | None = None,
                       ) -> dict:
     """Статус подключения Style-слота для UI (§73): без реальной генерации.
 
+    `slot` — уже резолвленный effective-слот (§2/T-4873: единый resolver);
+    None → legacy sync `resolve_style_slot` (внутренние вызовы/совместимость).
     Возвращает `{configured, connected, api_key_set, edit_supported, message,
     connection_id, custom_unresolved}`. API key проверяется по наличию
-    (пер-подключение или `keys.image_style_api_key`), НЕ логируется и НЕ
-    возвращается (R17).
+    (пер-подключение, inherited global image slot → `keys.image_api_key`,
+    иначе `keys.image_style_api_key`), НЕ логируется и НЕ возвращается (R17).
     """
-    slot = resolve_style_slot(profile=profile, connection=connection)
+    resolved = slot if slot is not None \
+        else resolve_style_slot(profile=profile, connection=connection)
     if connection is not None:
         key_set = bool(str(connection.get("api_key") or "").strip())
+    elif resolved.get("resolve_source") == SLOT_SOURCE_GLOBAL_IMAGE:
+        # §35 leg 3c: edit идёт ключом глобального image-провайдера
+        # (`keys.image_api_key`), не style-ключом.
+        key_set = bool(_resolve_str(
+            KEY_IMAGE_API_KEY, getattr(settings, "IMAGE_API_KEY", "")))
     else:
         key_set = bool(_resolve_str(
             KEY_STYLE_API_KEY, getattr(settings, "IMAGE_STYLE_API_KEY", "")))
     caps = capabilities or (
         slot_capabilities(profile=profile, connection=connection)
-        if slot["configured"] else None)
+        if resolved.get("configured") else None)
     edit_supported = None
     if caps is not None:
         edit_supported = caps.edit_supported
-    if not slot["configured"]:
+    if not resolved.get("configured"):
         msg = "Адрес и модель не настроены"
-    elif slot.get("custom_unresolved"):
+    elif resolved.get("custom_unresolved"):
         msg = "Подключение модели не найдено — используется подключение по умолчанию"
     elif not key_set:
         msg = "API ключ не настроен"
     else:
         msg = "Подключено"
     return {
-        "configured": slot["configured"],
-        "connected": bool(slot["configured"] and key_set),
+        "configured": resolved.get("configured", False),
+        "connected": bool(resolved.get("configured") and key_set),
         "api_key_set": key_set,
         "edit_supported": edit_supported,
-        "connection_id": slot["connection_id"],
-        "custom_unresolved": bool(slot.get("custom_unresolved")),
+        "connection_id": resolved.get("connection_id"),
+        "custom_unresolved": bool(resolved.get("custom_unresolved")),
         "message": msg,
     }
 

@@ -46,6 +46,7 @@ from services.cover_style_pipeline import (
     check_edit_allowed,
     cover_styles_enabled,
     pipeline_mode,
+    resolve_effective_edit_capability,
     resolve_style_slot,
     resolve_style_slot_inherited,
     slot_capabilities,
@@ -111,6 +112,8 @@ STYLE_REASON_CODES = frozenset({
     REASON_REFERENCE_MISSING, REASON_CAPABILITY_UNKNOWN,
     REASON_NOT_CONFIGURED, REASON_NO_STYLE_STAGE,
     "prompt_limit_exceeded", "route_unverified",
+    # ASAP 4.4 (§2, T-4875): 400-too-long без числа и его bounded retry.
+    "prompt_limit_unknown", "prompt_limit_unknown_after_retry",
 })
 
 
@@ -142,6 +145,12 @@ REASON_DETAILS_RU = {
     REASON_NO_STYLE_STAGE: ("режим профиля без Style-стадии"),
     "prompt_limit_exceeded": ("инструкция стиля превышает лимит модели — "
                               "применена базовая обложка"),
+    "prompt_limit_unknown": ("провайдер отклонил промпт как слишком длинный, "
+                             "точный лимит не сообщён — применена базовая "
+                             "обложка"),
+    "prompt_limit_unknown_after_retry": ("промпт отклонён как слишком "
+                                         "длинный даже после сокращения — "
+                                         "применена базовая обложка"),
     "route_unverified": ("маршрут редактирования модели не подтверждён — "
                          "применена базовая обложка"),
     REASON_STYLE_FAILED: ("обработка стилем не завершилась "
@@ -220,6 +229,10 @@ SAFE_LOG_FIELDS = frozenset({
     "selection_source", "enabled", "pipeline_mode", "capability_state",
     "reference_bytes_total", "instruction_chars", "brief_chars",
     "compiled_chars", "limit_unit", "issue_present",
+    # ASAP 4.4 (§2, T-4873/T-4874): effective route/источник capability —
+    # enum/числа (R17-safe).
+    "edit_route", "limit_source", "limit_source_taxonomy", "capability_source",
+    "limit_value",
 })
 
 
@@ -472,6 +485,11 @@ class CoverJobState:
     machine_reason: str | None = None
     human_message: str | None = None
     prompt_diagnostics: dict | None = None
+    # ASAP 4.4 (§RC-D/T-4870): draft snapshot Test Style (style-affecting поля,
+    # которые видел editor) + его fingerprint для promote (§RC-E/T-4872).
+    # Snapshot — не профиль: в DB не сохраняется, живёт в durable job state.
+    draft_snapshot: dict | None = None
+    draft_fingerprint: str | None = None
 
     def mark(self, state: str, *, provider_task_id: str | None = None,
              note: str | None = None) -> None:
@@ -501,6 +519,8 @@ class CoverJobState:
             "machine_reason": self.machine_reason,
             "human_message": self.human_message,
             "prompt_diagnostics": self.prompt_diagnostics,
+            "draft_snapshot": self.draft_snapshot,
+            "draft_fingerprint": self.draft_fingerprint,
             "stages": self.stages[-32:]}, ensure_ascii=False)
 
     @classmethod
@@ -530,6 +550,10 @@ class CoverJobState:
             prompt_diagnostics=(data.get("prompt_diagnostics")
                                 if isinstance(data.get("prompt_diagnostics"),
                                               dict) else None),
+            draft_snapshot=(data.get("draft_snapshot")
+                            if isinstance(data.get("draft_snapshot"),
+                                          dict) else None),
+            draft_fingerprint=data.get("draft_fingerprint"),
             stages=list(data.get("stages") or []))
 
 
@@ -989,8 +1013,13 @@ async def profile_diagnostics(pg, profile: dict, *,
     подключения резолвится выше по `connection_status`).
     """
     profile = profile or {}
-    slot = resolve_style_slot(profile=profile, connection=connection)
-    caps = slot_capabilities(profile=profile, connection=connection)
+    # ASAP 4.4 (§2/T-4873): diagnostics/Inspector — тот же effective resolver,
+    # что UI meta/production (лестница §35), а не отдельный sync-контур.
+    resolved = await resolve_effective_edit_capability(
+        profile=profile, connection=connection, pg=pg,
+        operation=cap.OPERATION_EDIT)
+    slot = resolved["slot"]
+    caps = resolved["capabilities"]
     refs = await _resolve_reference_details(pg, profile)
     return {
         "profile_id": profile.get("profile_id"),
@@ -1002,8 +1031,15 @@ async def profile_diagnostics(pg, profile: dict, *,
         "custom_unresolved": bool(slot.get("custom_unresolved")),
         "provider": slot.get("provider") or "",
         "model": slot.get("model") or "",
+        "resolve_source": resolved.get("resolve_source") or "",
+        "edit_route": resolved.get("route") or "",
         "capability_image_edit": caps.image_edit,
         "capability_source": caps.source,
+        "limit_source": caps.prompt_limit.source,
+        "limit_source_taxonomy": cap.prompt_limit_source_taxonomy(
+            caps.prompt_limit.source),
+        "limit_value": caps.prompt_limit.value if caps.prompt_limit.known
+        else None,
         "references": {
             "configured": len(profile.get("references") or []),
             "ready": sum(1 for d in refs if d.get("readable")),
@@ -1020,7 +1056,8 @@ async def profile_diagnostics(pg, profile: dict, *,
 
 def compile_style_prompt(profile: dict, *, issue_display: str,
                          capabilities, base_style_prompt: str = "",
-                         brief=None) -> compiler.CompiledPrompt:
+                         brief=None, minimal: bool = False
+                         ) -> compiler.CompiledPrompt:
     """Собрать priority-aware prompt Style Edit (§19–§21).
 
     P0 — runtime-инварианты (номер выпуска, запрет дубликатов) — не режется;
@@ -1028,6 +1065,10 @@ def compile_style_prompt(profile: dict, *, issue_display: str,
     prompt»); P2 — описания референсов (режется первым). Динамический
     `CoverBrief` (§21) передаётся как сюжетная часть и масштабируется под
     остаток capability.
+
+    `minimal=True` (ASAP 4.4/T-4875, adaptive retry без известного лимита):
+    только P0+P1 инварианты — P2 (refs/brief) и P3 НЕ добавляются, чтобы
+    retry был реально короче и не терял обязательную механику.
     """
     components = [
         compiler.PromptComponent(
@@ -1041,6 +1082,8 @@ def compile_style_prompt(profile: dict, *, issue_display: str,
     if base_style:
         components.append(compiler.PromptComponent(
             base_style, priority=compiler.P1, label="base_style_prompt"))
+    if minimal:
+        return compiler.compile_prompt(components, capabilities=capabilities)
     refs = profile.get("references") or []
     if refs:
         ref_text = "; ".join(
@@ -1264,6 +1307,17 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
     meta["provider"] = slot.get("provider") or ""
     meta["model"] = slot.get("model") or ""
     meta["resolve_source"] = _resolve_source
+    # ASAP 4.4 (§2/T-4873): route — тем же резолвером, что UI meta/budget
+    # (единый provider+base_url+model+route+operation); fail-open → "".
+    edit_route = ""
+    if slot.get("configured"):
+        try:
+            from services import cover_style_edit as _edit_mod
+            edit_route = str(await _edit_mod.resolve_edit_route(
+                slot.get("base_url") or "", slot.get("model") or "") or "")
+        except Exception:
+            edit_route = ""
+    meta["edit_route"] = edit_route
     # T-4619/T-4620: `COVER_STYLE_RESOLVE` — источник резолва слота
     # (лестница §35: profile_connection/connections_default/global_image/
     # global_style_slot); R17-safe (id/enum/bool).
@@ -1292,9 +1346,12 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
         # T-4619: capabilities резолвятся по ФИНАЛЬНОМУ (унаследованному)
         # слоту, а не по базовому глобальному (registry §36 — единый
         # резолвер; для базового слота результат идентичен прежнему).
+        # ASAP 4.4 (§2/T-4873): route входит в capability key — тот же, что
+        # в UI (один источник истины).
         caps = cap.resolve_capabilities(
             slot.get("provider") or "", slot.get("base_url") or "",
             slot.get("model") or "", discovery=discovery, endpoints=endpoints,
+            route=edit_route or None,
             # ASAP 4.3 (§7, T-4847): capability per operation (style stage —
             # image_edit), manual override — высший приоритет.
             operation=cap.OPERATION_EDIT)
@@ -1353,9 +1410,12 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
             issue_no = None
     meta["issue_number"] = issue_no
     counter_format = profile.get("counter_format") or registry.SEEDED_COUNTER_FORMAT
+    # §RC-C/T-4869: preview (и production без назначенного номера) показывают
+    # текущий next_issue_number; counter при этом не расходуется.
     issue_display = (registry.format_issue(counter_format, issue_no)
                      if issue_no is not None
-                     else registry.preview_issue_display(counter_format))
+                     else registry.preview_issue_display(
+                         counter_format, registry.next_issue_number(profile)))
     if not _wb:
         # OFF (legacy): прежний порядок — refs резолвятся после issue.
         ref_paths = reference_paths
@@ -1392,6 +1452,15 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
             # ASAP 4.3 (§9, T-4849): breakdown Style/Context/Refs/System из
             # фактически собранных компонент (units compiled prompt).
             **_prompt_breakdown(compiled),
+            # ASAP 4.4 (§2, T-4873/T-4874): effective route + источник
+            # capability/лимита для Inspector (R17-safe: enum/число).
+            "edit_route": edit_route,
+            "capability_source": caps.source,
+            "limit_source": caps.prompt_limit.source,
+            "limit_source_taxonomy": cap.prompt_limit_source_taxonomy(
+                caps.prompt_limit.source),
+            "limit_value": (caps.prompt_limit.value
+                            if caps.prompt_limit.known else None),
         }
     if _wb:
         # §46: безопасные diagnostics в событии (числа/флаги, R17-safe).
@@ -1409,6 +1478,10 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
             compiled_chars=diag.get("compiled_chars"),
             limit_unit=diag.get("limit_unit"),
             issue_present=diag.get("issue_present"),
+            edit_route=diag.get("edit_route"),
+            limit_source=diag.get("limit_source"),
+            limit_source_taxonomy=diag.get("limit_source_taxonomy"),
+            capability_source=diag.get("capability_source"),
             fallback=(",".join(compiled.dropped)
                       if compiled.dropped else None))
     else:
@@ -1445,34 +1518,35 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
         caller = edit_image
     # §23 (T-4199): stage-aware key политики — preview и edit имеют разные
     # latency-распределения. Тестовые double `edit_call` могут не принимать
-    # kwarg `operation` → совместимость через inspect (аддитивно).
+    # kwargs `operation`/`route` → совместимость через inspect (аддитивно).
     edit_operation = ("preview" if mode == MODE_PREVIEW else "edit")
     try:
         import inspect as _inspect
-        accepts_operation = "operation" in _inspect.signature(
-            caller).parameters
+        _params = _inspect.signature(caller).parameters
+        accepts_operation = "operation" in _params
+        accepts_route = "route" in _params
     except (TypeError, ValueError):
         accepts_operation = False
+        accepts_route = False
 
     def _call(prompt_text=None):
         use_prompt = compiled.prompt if prompt_text is None else prompt_text
+        extra: dict = {}
         if accepts_operation:
-            return caller(use_prompt,
-                          base_image_path=base_image_path,
-                          reference_paths=ref_paths,
-                          base_url=slot.get("base_url"),
-                          model=slot.get("model"), api_key=_resolve_api_key(),
-                          capabilities=caps, chat_id=chat_id,
-                          correlation_id=correlation_id,
-                          existing_task_id=(state.provider_task_id
-                                            if state else None),
-                          operation=edit_operation)
-        return caller(use_prompt, base_image_path=base_image_path,
-                      reference_paths=ref_paths, base_url=slot.get("base_url"),
+            extra["operation"] = edit_operation
+        if accepts_route:
+            # ASAP 4.4 (§2/T-4873): тот же resolved route, что показывает UI.
+            extra["route"] = edit_route or None
+        return caller(use_prompt,
+                      base_image_path=base_image_path,
+                      reference_paths=ref_paths,
+                      base_url=slot.get("base_url"),
                       model=slot.get("model"), api_key=_resolve_api_key(),
                       capabilities=caps, chat_id=chat_id,
                       correlation_id=correlation_id,
-                      existing_task_id=(state.provider_task_id if state else None))
+                      existing_task_id=(state.provider_task_id
+                                        if state else None),
+                      **extra)
 
     try:
         result = await _run_with_heartbeat(
@@ -1490,55 +1564,95 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                             async_used=bool(getattr(result, "async_used", False)),
                             latency_ms=int(getattr(result, "latency_ms", 0)),
                             meta=dict(getattr(result, "meta", {}) or {}))
-    # ── T-4814: machine-readable 400 prompt-limit → cache → recompile → ONE
-    # retry (ровно один; иначе fail-soft Base Cover). ASAP 4.3 (§7.1/§8,
-    # T-4848): второй paid call НЕ отправляется, если recompiled prompt всё
-    # ещё превышает limit или не стал короче — иначе деньги заведомо впустую.
-    if (not result.ok and result.reason == "prompt_limit"
-            and isinstance(getattr(result, "meta", None), dict)
-            and result.meta.get("prompt_limit")):
+    # ── T-4814/T-4875: provider limit → cache/recompile → РОВНО ОДИН bounded
+    # retry на весь style stage. Известный N (`prompt_limit`): recompile под
+    # лимит; unknown (`prompt_limit_unknown`, 400-too-long без числа):
+    # semantic compiler сбрасывает P2/P3, сохраняя P0/P1 инварианты. Второй
+    # paid call уходит ТОЛЬКО если prompt реально стал короче (ASAP 4.3
+    # §7.1/§8 T-4848); скрытого multi-paid loop нет.
+    result_meta = dict(getattr(result, "meta", {}) or {})
+    if not result.ok and result.reason in ("prompt_limit",
+                                           "prompt_limit_unknown"):
         try:
-            from services import image_capabilities as _cap
-            if _cap.dynamic_prompt_limit_enabled():
-                pl = result.meta["prompt_limit"]
-                _cap.record_runtime_limit(
-                    meta.get("provider") or "", slot.get("base_url") or "",
-                    meta.get("model") or "",
-                    result.meta.get("route"), int(pl.get("value") or 0),
-                    str(pl.get("unit") or "chars"))
-                caps_retry = _cap.resolve_capabilities(
-                    meta.get("provider") or "", slot.get("base_url") or "",
-                    meta.get("model") or "",
-                    route=result.meta.get("route"),
-                    operation=edit_operation)
+            if result.reason == "prompt_limit" and result_meta.get(
+                    "prompt_limit"):
+                if cap.dynamic_prompt_limit_enabled():
+                    pl = result_meta["prompt_limit"]
+                    cap.record_runtime_limit(
+                        meta.get("provider") or "", slot.get("base_url") or "",
+                        meta.get("model") or "",
+                        result_meta.get("route"), int(pl.get("value") or 0),
+                        str(pl.get("unit") or "chars"))
+                    caps_retry = cap.resolve_capabilities(
+                        meta.get("provider") or "", slot.get("base_url") or "",
+                        meta.get("model") or "",
+                        route=result_meta.get("route"),
+                        operation=edit_operation)
+                    recompiled = compile_style_prompt(
+                        profile, issue_display=issue_display,
+                        capabilities=caps_retry,
+                        base_style_prompt=base_style_prompt or "",
+                        brief=brief)
+                    shorter = len(recompiled.prompt) < len(compiled.prompt)
+                    retry_ok = (not getattr(recompiled, "exceeded", False)
+                                and shorter)
+                    meta["prompt_limit_retry"] = {
+                        "resolved_limit": pl.get("value"),
+                        "unit": pl.get("unit"),
+                        "recompiled_chars": len(recompiled.prompt),
+                        "retry_sent": bool(retry_ok),
+                    }
+                    if not retry_ok:
+                        # Bounded retry: exceeded/не короче → второй paid call не
+                        # отправляется; честная причина в diagnostics.
+                        meta["prompt_limit_retry"]["skipped"] = (
+                            "exceeded" if getattr(recompiled, "exceeded", False)
+                            else "not_shorter")
+                        meta["prompt_diagnostics"] = {
+                            **(meta.get("prompt_diagnostics") or {}),
+                            "overflow_reason": "prompt_limit_exceeded",
+                        }
+                        result = EditResult(ok=False, reason="prompt_limit",
+                                            model=meta["model"],
+                                            provider=meta["provider"],
+                                            meta=result.meta)
+                    else:
+                        emit_cover_event(
+                            COVER_STYLE_SUBMITTED, outcome="retry",
+                            run_id=correlation_id, job_id=job_id,
+                            chat_id=chat_id, model=meta["model"],
+                            provider=meta["provider"],
+                            prompt_len=len(recompiled.prompt),
+                            prompt_hash=prompt_hash(recompiled.prompt),
+                            resolved_limit=pl.get("value"),
+                            retry_reason="prompt_limit")
+                        try:
+                            result = await _run_with_heartbeat(
+                                lambda: _call(recompiled.prompt),
+                                interval=heartbeat_interval(),
+                                event=COVER_STYLE_RUNNING,
+                                run_id=correlation_id, job_id=job_id,
+                                model=meta["model"], provider=meta["provider"])
+                        except Exception as exc:
+                            result = EditResult(
+                                ok=False, reason=type(exc).__name__,
+                                model=meta["model"], provider=meta["provider"])
+            elif result.reason == "prompt_limit_unknown":
+                # T-4875: без числа — P2/P3 сбрасываются, P0/P1 (номер
+                # выпуска, запрет дублей, стиль/роли) сохраняются.
                 recompiled = compile_style_prompt(
                     profile, issue_display=issue_display,
-                    capabilities=caps_retry,
-                    base_style_prompt=base_style_prompt or "",
-                    brief=brief)
+                    capabilities=caps, base_style_prompt=base_style_prompt
+                    or "", brief=None, minimal=True)
                 shorter = len(recompiled.prompt) < len(compiled.prompt)
-                retry_ok = (not getattr(recompiled, "exceeded", False)
-                            and shorter)
-                meta["prompt_limit_retry"] = {
-                    "resolved_limit": pl.get("value"),
-                    "unit": pl.get("unit"),
+                retry_info = {
+                    "original_chars": len(compiled.prompt),
                     "recompiled_chars": len(recompiled.prompt),
-                    "retry_sent": bool(retry_ok),
+                    "retry_sent": bool(shorter),
                 }
-                if not retry_ok:
-                    # Bounded retry: exceeded/не короче → второй paid call не
-                    # отправляется; честная причина в diagnostics.
-                    meta["prompt_limit_retry"]["skipped"] = (
-                        "exceeded" if getattr(recompiled, "exceeded", False)
-                        else "not_shorter")
-                    meta["prompt_diagnostics"] = {
-                        **(meta.get("prompt_diagnostics") or {}),
-                        "overflow_reason": "prompt_limit_exceeded",
-                    }
-                    result = EditResult(ok=False, reason="prompt_limit",
-                                        model=meta["model"],
-                                        provider=meta["provider"],
-                                        meta=result.meta)
+                if not shorter:
+                    # Идентичный/не короче — resend запрещён (деньги впустую).
+                    retry_info["skipped"] = "not_shorter"
                 else:
                     emit_cover_event(
                         COVER_STYLE_SUBMITTED, outcome="retry",
@@ -1546,8 +1660,7 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                         model=meta["model"], provider=meta["provider"],
                         prompt_len=len(recompiled.prompt),
                         prompt_hash=prompt_hash(recompiled.prompt),
-                        resolved_limit=pl.get("value"),
-                        retry_reason="prompt_limit")
+                        retry_reason="prompt_limit_unknown")
                     try:
                         result = await _run_with_heartbeat(
                             lambda: _call(recompiled.prompt),
@@ -1559,6 +1672,30 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                         result = EditResult(
                             ok=False, reason=type(exc).__name__,
                             model=meta["model"], provider=meta["provider"])
+                    if result.ok:
+                        # Успешный adaptive retry → route-specific
+                        # learned_safe_ceiling (source runtime_safe; НЕ
+                        # выдаётся за exact provider max).
+                        ceiling = len(recompiled.prompt)
+                        retry_info["learned_safe_ceiling"] = ceiling
+                        retry_info["ceiling_source"] = "runtime_safe"
+                        if cap.dynamic_prompt_limit_enabled():
+                            cap.record_runtime_safe_ceiling(
+                                meta.get("provider") or "",
+                                slot.get("base_url") or "",
+                                meta.get("model") or "",
+                                result_meta.get("route") or edit_route or None,
+                                ceiling, cap.UNIT_CHARS)
+                    elif result.reason in ("prompt_limit_unknown",
+                                           "prompt_limit"):
+                        # Повторный too-long после сокращения — честная
+                        # причина, без generic bad_request и без второго retry.
+                        result = EditResult(
+                            ok=False,
+                            reason="prompt_limit_unknown_after_retry",
+                            model=meta["model"], provider=meta["provider"],
+                            meta=dict(getattr(result, "meta", {}) or {}))
+                meta["prompt_limit_unknown_retry"] = retry_info
         except Exception:
             logger.debug("[cover_style_jobs] prompt-limit retry failed",
                          exc_info=True)
@@ -1683,7 +1820,8 @@ async def run_style_preview(*, profile: dict, base_image_path: str,
         reference_paths=reference_paths, edit_call=edit_call, mode=MODE_PREVIEW)
     meta["preview_issue"] = registry.preview_issue_display(
         (profile or {}).get("counter_format")
-        or registry.SEEDED_COUNTER_FORMAT)
+        or registry.SEEDED_COUNTER_FORMAT,
+        registry.next_issue_number(profile))
     return meta
 
 

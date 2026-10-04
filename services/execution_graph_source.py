@@ -294,6 +294,11 @@ _STAGE_EVENT_KEYS = frozenset({
     "stage", "attempt", "status", "reason_code", "started_at", "finished_at",
     "input_count", "output_count", "provider", "model", "fallback_target",
     "repair_target",
+    # ASAP 4.4 Z5 (T-4877): diagnostics L2 Reviewer/Revision — коды/числа/id
+    # (без raw text/prompt/секретов).
+    "review_attempt", "verdict", "finding_codes", "blocking_count",
+    "paragraph_ids", "revision_target", "revision_result",
+    "revision_failure_reason", "deterministic_validation_codes",
 })
 _STAGE_EVENTS_MAX = 24
 

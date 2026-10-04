@@ -162,7 +162,7 @@ def test_upsert_create_ok(monkeypatch):
     monkeypatch.setattr("services.cover_style_pipeline.cover_styles_enabled",
                         lambda: True)
 
-    async def _upsert(pg, profile):
+    async def _upsert(pg, profile, **_kw):
         profile["profile_id"] = profile.get("profile_id") or "csp_new"
         return True
 
@@ -346,9 +346,11 @@ def test_capabilities_and_no_secret(monkeypatch):
     monkeypatch.setattr(
         "services.cover_style_registry.get_profile_with_refs",
         AsyncMock(return_value=_profile()))
+    # ASAP 4.4 (§2/T-4873): endpoint использует единый effective-resolver;
+    # capability-слой стыкуется на уровне image_capabilities.resolve_capabilities.
     monkeypatch.setattr(
-        "services.cover_style_pipeline.slot_capabilities",
-        lambda **kw: cap.ImageModelCapabilities(
+        "services.image_capabilities.resolve_capabilities",
+        lambda *a, **kw: cap.ImageModelCapabilities(
             image_edit=cap.TRUE, text_to_image=cap.TRUE, max_input_images=3,
             prompt_limit=cap.PromptLimit(value=1000, unit="chars",
                                          source="internal_config"),
@@ -532,7 +534,7 @@ class TestPromptLimitOverride:
         client = self._client_with_hot()
         mp = pytest.MonkeyPatch()
 
-        async def _upsert(pg, profile):
+        async def _upsert(pg, profile, **_kw):
             profile["profile_id"] = profile.get("profile_id") or "csp_new"
             return True
 

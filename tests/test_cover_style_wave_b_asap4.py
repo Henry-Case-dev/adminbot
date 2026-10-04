@@ -797,6 +797,24 @@ class TestReferenceIntegrityAndDiagnostics:
                             lambda *, profile, discovery=None,
                             endpoints=None, refresh=False,
                             connection=None: _caps())
+
+        async def _resolved(*, profile, connection=None, pg=None,
+                            refresh=False, operation=None):
+            slot = {"profile_id": profile.get("profile_id"),
+                    "provider": "p", "base_url": "https://x/v1",
+                    "model": "m", "connection_id": None,
+                    "custom_unresolved": False, "configured": True,
+                    "resolve_source": "global_style_slot"}
+            return {"slot": slot, "connection": connection,
+                    "provider": "p", "base_url": "https://x/v1", "model": "m",
+                    "connection_id": None, "configured": True,
+                    "custom_unresolved": False,
+                    "resolve_source": "global_style_slot",
+                    "route": "legacy_images", "operation": "image_edit",
+                    "capabilities": _caps()}
+
+        monkeypatch.setattr(j, "resolve_effective_edit_capability",
+                            _resolved)
         diag = await j.profile_diagnostics(_FakePg(), _profile())
         for key in ("profile_id", "revision", "enabled", "pipeline_mode",
                     "connection_id", "connection_configured", "provider",

@@ -203,6 +203,9 @@ class _SqliteConn:
         def _do(conn):
             stmt, bound = _bind(sql, args)
             row = conn.execute(stmt, bound).fetchone()
+            # asyncpg вне explicit transaction автокоммитит statement —
+            # без commit `UPDATE ... RETURNING` терял бы эффект.
+            conn.commit()
             return dict(row) if row is not None else None
         return await asyncio.to_thread(self._sync, _do)
 

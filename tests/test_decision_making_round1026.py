@@ -908,16 +908,16 @@ class TestAdversarial:
 class TestBounds:
     def test_counts_sanctioned(self):
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
-        assert len(pc.REGISTRY) == 488
+        assert len(pc.REGISTRY) == 489
         assert len({f.name for f in dataclasses.fields(Settings)}) == 426
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 463
+                    if s.category is not None]) == 464
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
 
     def test_version_unchanged(self):
-        assert APP_VERSION == "2.58.51"
+        assert APP_VERSION == "2.58.52"
 
     def test_canon_twelve_tools(self):
         assert len(TOOL_CALLING_TOOLS) == 12

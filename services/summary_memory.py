@@ -285,6 +285,39 @@ _VEC_REACTIVATE_INTERVAL = 600.0     # re-probe не чаще раза в 10 м�
 _BACKFILL_BATCH = 50                 # батч backfill
 _BACKFILL_MAX_FACTS = 500            # потолок фактов за один вызов backfill
 
+
+class _EmbedBatchState:
+    """T-4878 (ASAP 4.4): состояние serviceability ОДНОГО logical fact batch.
+
+    Первое доказанное control-plane state (`is_serviceability_error`) →
+    `unavailable=True`: оставшиеся факты batch сохраняются text-only, без
+    повторных network-попыток (≤1 embed-попытка на batch). Следующий
+    logical batch создаёт новое состояние — serviceability recheck."""
+
+    def __init__(self) -> None:
+        self.unavailable = False
+        self.state = ""
+        self.quota_group = ""
+        self.next_allowed_at = None
+        self.text_only = 0
+        self.dedup_skipped = 0
+
+    def mark(self, exc: BaseException) -> None:
+        self.unavailable = True
+        self.state = type(exc).__name__
+        self.quota_group = str(getattr(exc, "group_id", "") or "")
+        self.next_allowed_at = getattr(exc, "next_allowed_at", None)
+
+
+def _is_serviceability_error(exc: BaseException) -> bool:
+    """Ленивый мост к control-plane предикату (импорт без циклов)."""
+    try:
+        from services.embedding_control_plane import is_serviceability_error
+        return is_serviceability_error(exc)
+    except Exception:      # pragma: no cover — защитная ветка
+        return False
+
+
 # ── ASAP-4 (T-4406, spec §1 A.4): классы трафика для EmbeddingExecutor ──────
 # P0 online query / P1 live write (дефолт контекста) / P2 repair+backfill /
 # P3 full rebuild (ставится graphrag_rebuild на цикл батчей). Импорт
@@ -2370,17 +2403,21 @@ class MemoryManager:
                     )
             except Exception as exc:
                 self._embed_degraded_at = time.monotonic()   # vec жив, embed деградировал (55.8)
-                # ASAP-4 §31: paused_rate_limit не спамит WARNING на каждый
-                # query — state-transition + coalesced periodic status;
-                # FTS-fallback запросы = INFO. Остальные классы — как раньше.
+                # ASAP-4 §31 + T-4879: известные control-plane состояния
+                # (cooling/exhausted/no-credential) — state-transition +
+                # coalesced status, БЕЗ WARNING-спама на каждый query;
+                # FTS-fallback запросы = INFO. Остальные классы — как раньше
+                # (со stacktrace).
                 from services.embedding_control_plane import (
-                    EmbeddingGroupCoolingDown, coalesced_state_log)
-                if isinstance(exc, EmbeddingGroupCoolingDown):
+                    coalesced_state_log)
+                if _is_serviceability_error(exc):
                     coalesced_state_log(
                         f"l3_fts_fallback:{chat_id}",
-                        "SmartModule L3: embed quota cooling — FTS5 fallback",
+                        "SmartModule L3: embedding unavailable — FTS5 fallback",
                         level=logging.INFO, chat_id=chat_id,
-                        next_allowed_at=exc.next_allowed_at)
+                        state=type(exc).__name__,
+                        next_allowed_at=getattr(exc, "next_allowed_at", None)
+                        or "-")
                 else:
                     logger.warning(
                         "SmartModule L3: vector search failed — FTS5 fallback | chat_id=%s",
@@ -2644,6 +2681,9 @@ class MemoryManager:
         skipped = 0
         deduped = 0
         superseded = 0
+        # T-4878: batch circuit breaker — одно доказанное control-plane state
+        # на logical batch; дальше факты идут text-only без embed-попыток.
+        batch = _EmbedBatchState()
         for i, fact in enumerate(facts, 1):
             try:
                 # Epic 60 (66.9, T-487): привязка к людям по алиасам —
@@ -2664,13 +2704,24 @@ class MemoryManager:
                 # факт пишется как раньше (64.1.5).
                 vector = None
                 if hot.get("flags.graph_dedup_enabled", settings.GRAPH_DEDUP_ENABLED) and self._vec_available:
-                    try:
-                        vectors = await self._embed([sentence])
-                        if vectors and vectors[0]:
-                            vector = vectors[0]
-                    except Exception:
-                        logger.warning(
-                            "graphrag dedup: embed failed — check skipped | fact #%d", i)
+                    if batch.unavailable:
+                        batch.dedup_skipped += 1
+                    else:
+                        try:
+                            vectors = await self._embed([sentence])
+                            if vectors and vectors[0]:
+                                vector = vectors[0]
+                        except Exception as exc:
+                            # T-4878: control-plane serviceability state —
+                            # известен и не изменится внутри batch; per-fact
+                            # WARNING не спамим (единый batch-event ниже),
+                            # неожиданные ошибки видимы как раньше.
+                            if _is_serviceability_error(exc):
+                                batch.mark(exc)
+                            else:
+                                logger.warning(
+                                    "graphrag dedup: embed failed — check "
+                                    "skipped | fact #%d", i)
                 dedup_fact = {"subject": subject, "predicate": fact["predicate"],
                               "object": obj}
                 decision = await self._dedup_decide(chat_id, dedup_fact, sentence, vector)
@@ -2734,7 +2785,7 @@ class MemoryManager:
                 if self._vec_available:
                     await self._save_graph_fact_embedding(
                         fact_id, chat_id, sentence, source_type, expiry,
-                        vector=vector)
+                        vector=vector, batch=batch)
                 saved += 1
                 # MCA-04a (ADR-1027-6 D9, T-3823): producer — новый факт пишет
                 # типизированный SourceRef/EvidenceLink. `bot_direct_reply`
@@ -2754,6 +2805,17 @@ class MemoryManager:
                 logger.warning("graphrag memorize: fact #%d save skipped | error=%s",
                                i, exc)
                 continue
+        if batch.unavailable:
+            # T-4879: ОДИН concise WARN на logical batch (без stacktrace) —
+            # N фактов не превращаются в N warnings.
+            logger.warning(
+                "graphrag memorize: embedding unavailable for batch — facts "
+                "saved text-only | chat_id=%s | source=%s | quota_group=%s | "
+                "state=%s | next_allowed_at=%s | facts_text_only=%d | "
+                "dedup_vector_skipped=%d",
+                chat_id, source_type, batch.quota_group or "unknown",
+                batch.state or "-", batch.next_allowed_at or "-",
+                batch.text_only, batch.dedup_skipped)
         logger.info(
             "graphrag memorize: saved=%d skipped=%d deduped=%d superseded=%d "
             "| chat_id=%s | source=%s",
@@ -2919,8 +2981,21 @@ class MemoryManager:
         ]
 
     async def _save_graph_fact_embedding(self, fact_id, chat_id, fact, origin,
-                                         expires_at, vector=None) -> None:
+                                         expires_at, vector=None,
+                                         batch: _EmbedBatchState | None = None
+                                         ) -> bool:
+        """vec-строка факта (float-канон + int8 при ON). Fail-soft: факт уже
+        сохранён text-only, ошибка наружу не уходит.
+
+        T-4878: ``batch`` — состояние logical batch. Если в batch уже доказано
+        serviceability state — network-попытки НЕТ (≤1 на batch). Первое
+        control-plane state помечает batch БЕЗ stacktrace (единый batch-WARN в
+        `_memorize_facts_inner`); unexpected exception по-прежнему со
+        stacktrace. Возвращает True, если vec-строка записана."""
         try:
+            if batch is not None and batch.unavailable:
+                batch.text_only += 1
+                return False
             if vector is None:
                 vectors = await self._embed([fact])          # ретраи 55.8 + кэш 64.4
                 vector = vectors[0]
@@ -2928,10 +3003,17 @@ class MemoryManager:
                 await self._insert_graph_vec_row(fact_id, chat_id, fact, origin,
                                                  expires_at, vector)
                 await self.db.db.commit()
-        except Exception:
+            return True
+        except Exception as exc:
+            if batch is not None:
+                batch.text_only += 1
+                if _is_serviceability_error(exc):
+                    batch.mark(exc)
+                    return False
             logger.warning(
                 "[graphrag] embed failed — fact saved text-only | fact_id=%d",
                 fact_id, exc_info=True)
+            return False
 
     # ── Раунд 4 (T-713, FR-D2, spec 3.4.3): «запомни» — user_memory ──
 
@@ -3388,16 +3470,19 @@ class MemoryManager:
                         return rows
             except Exception as exc:
                 self._embed_degraded_at = time.monotonic()
-                # ASAP-4 §31: quota-cooling → coalesced INFO (без WARNING-
-                # спама на каждый query); остальные классы — как раньше.
+                # ASAP-4 §31 + T-4879: известные control-plane состояния →
+                # coalesced INFO (без WARNING-спама на каждый query);
+                # остальные классы — как раньше (со stacktrace).
                 from services.embedding_control_plane import (
-                    EmbeddingGroupCoolingDown, coalesced_state_log)
-                if isinstance(exc, EmbeddingGroupCoolingDown):
+                    coalesced_state_log)
+                if _is_serviceability_error(exc):
                     coalesced_state_log(
                         f"rag_fts_fallback:{chat_id}",
-                        "graphrag RAG: embed quota cooling — FTS fallback",
+                        "graphrag RAG: embedding unavailable — FTS fallback",
                         level=logging.INFO, chat_id=chat_id,
-                        next_allowed_at=exc.next_allowed_at)
+                        state=type(exc).__name__,
+                        next_allowed_at=getattr(exc, "next_allowed_at", None)
+                        or "-")
                 else:
                     logger.warning("graphrag RAG: KNN failed — FTS fallback | chat_id=%s",
                                    chat_id, exc_info=True)

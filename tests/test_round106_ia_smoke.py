@@ -1,4 +1,4 @@
-﻿"""Раунд 10.6 (T-1211) — smoke/маркеры новой IA TMA (A1–A9).
+"""Раунд 10.6 (T-1211) — smoke/маркеры новой IA TMA (A1–A9).
 
 Покрытие: каталог-инвариант 392/91/364/mapped 89; 5 master-флагов default ON;
 реальные гейты; 11 модулей/7 AI; нет sidebar; scroll-модель; emoji→icon;
@@ -41,7 +41,7 @@ class TestCatalogInvariant106:
         # 459/98/96/20/418; TAB_RULES 20 — новых вкладок нет.
         # 10.24 (F5/ADR-1024-9 D3): Δ REGISTRY/GROUPS/_TAB_BY_GROUP = 0
         # (group переносит вкладку) → 459/98/96; TAB_RULES 20→21 (+mod_images).
-        assert len(pc.REGISTRY) == 488
+        assert len(pc.REGISTRY) == 489
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
@@ -540,8 +540,10 @@ class TestScannerR106Fixes:
         # 10.13 (F4, ADR-1013-1 §2.3): +8 полей (2 блока × 4) → 50/43.
         # 10.14 (F8, UPD п.3): +4 поля (intel_reflection × 4) → 54/47.
         # 10.23 (F5/ADR-1023-5 D5): +4 поля (image_generation) → 58/51.
-        assert len(keys) == 58          # полей в блоках + subBlocks
-        assert len(set(keys)) == 51     # уникальных ключей
+        # ASAP 4.4 (T-4880): +1 поле (keys.embedding_quota_group_labels
+        # в embeddings_main) → 59/52.
+        assert len(keys) == 59          # полей в блоках + subBlocks
+        assert len(set(keys)) == 52     # уникальных ключей
         # generic-фильтр только для llm_providers
         assert "(tab.id === 'llm_providers')" in JS
         # 10.11: subBlocks эмбеддингов покрыты рекурсивным обходом.

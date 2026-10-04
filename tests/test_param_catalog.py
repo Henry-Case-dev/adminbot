@@ -28,7 +28,10 @@ class TestCompleteness:
     # ASAP-3.1 (ADR-1028-3, санкция spec 10.1): env-only ClassVar,
     # каталогизированные ОСОЗНАННО (settings-поле без dataclass-поля).
     # Coverage-аудит dataclass-полей их «лишними» не считает.
-    _CLASSVAR_CATALOGUED = frozenset({"CHAT_MODEL_CONTEXT_WINDOW"})
+    # ASAP 4.4 (T-4880): + EMBEDDING_QUOTA_GROUP_LABELS (hot
+    # keys.embedding_quota_group_labels — owner-настройка quota-групп).
+    _CLASSVAR_CATALOGUED = frozenset({"CHAT_MODEL_CONTEXT_WINDOW",
+                                      "EMBEDDING_QUOTA_GROUP_LABELS"})
 
     def test_every_settings_field_covered(self):
         missing, extra = pc.settings_field_coverage()
@@ -451,7 +454,9 @@ class TestGroups8424:
         # (prompts.summary_cover_style_id), models +2 (IMAGE_STYLE_BASE_URL/
         # IMAGE_STYLE_MODEL), keys +1 (IMAGE_STYLE_API_KEY, secret)
         # → prompts 24 / models 63 / keys 23.
-        assert counts == {"prompts": 24, "models": 63, "keys": 23,
+        # ASAP 4.4 (T-4880): keys +1 (EMBEDDING_QUOTA_GROUP_LABELS, non-secret
+        # ClassVar hot keys.embedding_quota_group_labels) → keys 24.
+        assert counts == {"prompts": 24, "models": 63, "keys": 24,
                           "limits": 199, "flags": 76, "reactions": 39,
                           "content": 5, "memory": 34}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)

@@ -134,6 +134,9 @@ def _public_profile(profile: dict, refs: list | None = None, *,
         or registry.MODE_GENERATE_THEN_EDIT,
         "instruction": profile.get("instruction") or "",
         "counter_enabled": bool(profile.get("counter_enabled")),
+        # §RC-B/T-4868: публичный контракт — next = last_assigned + 1;
+        # `counter_value` остаётся legacy/compat (внутренний last_assigned).
+        "next_issue_number": registry.next_issue_number(profile),
         "counter_value": profile.get("counter_value"),
         "counter_format": profile.get("counter_format")
         or registry.SEEDED_COUNTER_FORMAT,
@@ -159,8 +162,10 @@ def _public_profile(profile: dict, refs: list | None = None, *,
                                  else "Пример"),
         "reference_count": len(refs),
         "references": [_public_reference(r) for r in refs],
+        # §RC-C/T-4869: подпись = текущий next_issue_number (не hardcoded 00).
         "preview_issue": registry.preview_issue_display(
-            profile.get("counter_format") or registry.SEEDED_COUNTER_FORMAT),
+            profile.get("counter_format") or registry.SEEDED_COUNTER_FORMAT,
+            registry.next_issue_number(profile)),
     }
 
 
@@ -263,16 +268,26 @@ async def cover_style_detail(
     connection = await _connection_for(pg, profile)
     payload = _public_profile(
         profile, viewer_is_admin=_viewer_is_admin(request, user))
-    payload["capabilities"] = jobs_public_capabilities(
-        profile, connection=connection)
+    # ASAP 4.4 (§2, T-4873): один effective resolver для UI meta/budget/
+    # prompt-limit/editor — тот же provider+base_url+model+route+operation,
+    # что исполняет production style stage (лестница §35).
+    resolved = await _effective_capability(pg, profile, connection)
+    payload["capabilities"] = _capabilities_public(resolved["capabilities"])
     payload["connection"] = pipeline.connection_status(
-        profile=profile, connection=connection)
-    if connection is not None:
-        payload["connection_label"] = connection.get("label") or ""
-    payload["budget"] = _budget(profile, connection=connection)
-    # ASAP 4.3 (§7.2/§9): manual prompt-limit для UI редактора.
-    payload["prompt_limit"] = _prompt_limit_state(profile,
-                                                  connection=connection)
+        profile=profile, capabilities=resolved["capabilities"],
+        connection=resolved.get("connection"), slot=resolved.get("slot"))
+    if resolved.get("connection") is not None:
+        payload["connection_label"] = (resolved["connection"].get("label")
+                                       or "")
+    payload["effective"] = {
+        "provider": resolved["provider"], "base_url": resolved["base_url"],
+        "model": resolved["model"], "route": resolved["route"],
+        "operation": resolved["operation"],
+        "resolve_source": resolved["resolve_source"],
+    }
+    payload["budget"] = _budget(profile, resolved=resolved)
+    # ASAP 4.3 (§7.2/§9) + 4.4 (§2): manual prompt-limit для UI редактора.
+    payload["prompt_limit"] = _prompt_limit_state(profile, resolved=resolved)
     # ASAP-4 волна B (§41, T-4418): полный чек-лист полей профиля
     # (R17-safe: id/числа/булевы, без секретов — api_key не читается).
     try:
@@ -283,38 +298,59 @@ async def cover_style_detail(
     return payload
 
 
-def jobs_public_capabilities(profile: dict, *,
-                             connection: dict | None = None,
-                             operation: str | None = None) -> dict:
+async def _effective_capability(pg, profile, connection, *, refresh: bool = False,
+                                operation: str | None = None) -> dict:
+    """ASAP 4.4 (§2/T-4873): единственный effective-резолвер для UI/API.
+
+    Fail-open: ошибка резолва не ломает detail-ответ (conservative unknown).
+    """
     try:
-        caps = pipeline.slot_capabilities(profile=profile,
-                                          connection=connection,
-                                          operation=operation)
+        return await pipeline.resolve_effective_edit_capability(
+            profile=profile, pg=pg, connection=connection, refresh=refresh,
+            operation=operation or image_caps.OPERATION_EDIT)
+    except Exception:
+        logger.debug("[cover_styles] effective capability resolve failed",
+                     exc_info=True)
+        return {
+            "slot": {}, "connection": connection, "provider": "",
+            "base_url": "", "model": "", "connection_id": None,
+            "configured": False, "custom_unresolved": False,
+            "resolve_source": "", "route": "",
+            "operation": operation or image_caps.OPERATION_EDIT,
+            "capabilities": image_caps.conservative_unknown(),
+        }
+
+
+def _capabilities_public(caps) -> dict:
+    """R17-safe capability-представление + taxonomy источника лимита."""
+    try:
         data = caps.as_dict()
         data["references_available"] = caps.references_available
         data["edit_supported"] = caps.edit_supported
+        data["prompt_limit"]["source_taxonomy"] = (
+            image_caps.prompt_limit_source_taxonomy(caps.prompt_limit.source))
         return data
     except Exception:
         return {}
 
 
-def _budget(profile: dict, *, connection: dict | None = None) -> dict:
+def _budget(profile: dict, *, resolved: dict) -> dict:
     """Prompt budget (§9/§57): лимит + breakdown Style/Context/Refs/System.
 
     Источник — инструкция профиля и та же runtime-механика, что в
     `compile_style_prompt` (без выдуманных чисел; unknown остаётся unknown).
+    Капабилити/route — из единого effective-resolver (§2/T-4873).
     """
     try:
         from services.image_prompt_compiler import (
             PromptComponent, P0, P1, P2, estimate_budget,
         )
-        caps = pipeline.slot_capabilities(profile=profile,
-                                          connection=connection,
-                                          operation=image_caps.OPERATION_EDIT)
+        caps = resolved["capabilities"]
         instruction = str(profile.get("instruction") or "")
         counter_format = (profile.get("counter_format")
                           or registry.SEEDED_COUNTER_FORMAT)
-        issue_display = registry.preview_issue_display(counter_format)
+        issue_display = registry.preview_issue_display(
+            counter_format, registry.next_issue_number(profile))
         system_text = ("Сохрани номер выпуска «%s». Не добавляй дубликатов уже "
                        "присутствующих на обложке элементов." % issue_display)
         refs_text = "; ".join(
@@ -336,43 +372,52 @@ def _budget(profile: dict, *, connection: dict | None = None) -> dict:
         data["limit"] = (caps.prompt_limit.value
                          if caps.prompt_limit.known else None)
         data["limit_source"] = caps.prompt_limit.source
+        data["limit_source_taxonomy"] = image_caps.prompt_limit_source_taxonomy(
+            caps.prompt_limit.source)
+        data["limit_is_exact"] = image_caps.prompt_limit_is_exact(
+            data["limit_source_taxonomy"])
         data["limit_known"] = caps.prompt_limit.known
+        data["route"] = resolved.get("route") or ""
         return data
     except Exception:
         return {"known": False}
 
 
-def _prompt_limit_state(profile: dict, *,
-                        connection: dict | None = None) -> dict:
-    """§7.2/§9: состояние manual-override для UI («Ограничение промпта»).
+def _prompt_limit_state(profile: dict, *, resolved: dict) -> dict:
+    """§7.2/§9 + §2/T-4874: состояние manual-override и taxonomy лимита.
 
     mode=manual — ручной override имеет высший приоритет; mode=auto —
-    машинный resolver. Секретов нет (число/единица/источник).
+    машинный resolver. Секретов нет (число/единица/источник/route).
     """
     try:
-        slot = pipeline.resolve_style_slot(profile=profile,
-                                           connection=connection)
+        slot = resolved.get("slot") or {}
+        caps = resolved["capabilities"]
         override = image_caps.manual_limit_entry(
-            slot.get("provider") or "", slot.get("base_url") or "",
-            slot.get("model") or "", image_caps.OPERATION_EDIT)
-        caps = pipeline.slot_capabilities(
-            profile=profile, connection=connection,
-            operation=image_caps.OPERATION_EDIT)
+            slot.get("provider") or resolved.get("provider") or "",
+            slot.get("base_url") or resolved.get("base_url") or "",
+            slot.get("model") or resolved.get("model") or "",
+            image_caps.OPERATION_EDIT)
+        taxonomy = image_caps.prompt_limit_source_taxonomy(
+            caps.prompt_limit.source)
         return {
             "operation": image_caps.OPERATION_EDIT,
             "mode": "manual" if override else "auto",
-            "value": (override or {}).get("value",
-                                          caps.prompt_limit.value),
-            "unit": (override or {}).get("unit", caps.prompt_limit.unit),
+            "value": caps.prompt_limit.value,
+            "unit": caps.prompt_limit.unit,
             "limit_known": caps.prompt_limit.known,
             "source": caps.prompt_limit.source,
-            "provider": slot.get("provider") or "",
-            "base_url": slot.get("base_url") or "",
-            "model": slot.get("model") or "",
+            "source_taxonomy": taxonomy,
+            "limit_is_exact": image_caps.prompt_limit_is_exact(taxonomy),
+            "route": resolved.get("route") or "",
+            "resolve_source": resolved.get("resolve_source") or "",
+            "provider": slot.get("provider") or resolved.get("provider") or "",
+            "base_url": slot.get("base_url") or resolved.get("base_url") or "",
+            "model": slot.get("model") or resolved.get("model") or "",
         }
     except Exception:
         return {"operation": image_caps.OPERATION_EDIT, "mode": "auto",
-                "limit_known": False, "source": image_caps.SOURCE_UNKNOWN}
+                "limit_known": False, "source": image_caps.SOURCE_UNKNOWN,
+                "source_taxonomy": image_caps.TAXONOMY_UNKNOWN}
 
 
 # ── CRUD ────────────────────────────────────────────────────────────────────
@@ -382,6 +427,9 @@ class ProfileBody(BaseModel):
     instruction: str = ""
     pipeline_mode: str = registry.MODE_GENERATE_THEN_EDIT
     counter_enabled: bool = False
+    # ASAP 4.4 (§RC-B/T-4868): новый UI работает с next_issue_number;
+    # `counter_value` — legacy/compat (внутренний last_assigned, как в DB).
+    next_issue_number: int | None = None
     counter_value: int = 0
     counter_format: str = registry.SEEDED_COUNTER_FORMAT
     model_mode: str = registry.MODEL_MODE_DEFAULT
@@ -390,11 +438,66 @@ class ProfileBody(BaseModel):
     enabled: bool = True
 
 
+def _counter_value_from_body(body: "ProfileBody") -> int:
+    """`next_issue_number` (N) → внутренний `counter_value = N - 1`.
+
+    Legacy-клиент без `next_issue_number` шлёт `counter_value` — трактуется
+    как внутренний last_assigned (1:1 к DB), без дрейфа при round-trip.
+    """
+    if body.next_issue_number is not None:
+        if int(body.next_issue_number) < 1:
+            raise HTTPException(
+                status_code=422,
+                detail="«Следующий номер» должен быть не меньше 1.")
+        return int(body.next_issue_number) - 1
+    return int(body.counter_value)
+
+
 def _guard_mutable(cache):
     if not _enabled():
         raise HTTPException(status_code=404, detail="cover styles disabled")
     if _pg(cache) is None:
         raise HTTPException(status_code=503, detail="registry unavailable")
+
+
+async def _promote_preview_requested(*, db, existing: dict,
+                                     incoming: dict) -> bool:
+    """T-4872: сохранён РОВНО протестированный draft → promote без генерации.
+
+    Provenance не доверяет клиенту: durable preview job стиля должен быть
+    completed, его snapshot fingerprint — совпадать с сохраняемыми
+    style-affecting полями, а asset-id'ы — с текущей парой профиля.
+    """
+    if db is None or not existing:
+        return False
+    if not registry.preview_pair_current(existing):
+        return False
+    try:
+        if registry.style_fingerprint(existing) == \
+                registry.style_fingerprint(incoming):
+            return False          # style не менялся — pair и так current
+        jid = preview_jobs.preview_job_key(
+            str(existing.get("profile_id") or ""))
+        row = await jobs.get_cover_job(db, jid)
+        if row is None or str(row.get("status") or "") != "completed":
+            return False
+        state = await jobs.load_cover_state(db, jid)
+        if state is None or state.mode != preview_jobs.MODE_PREVIEW:
+            return False
+        fingerprint = state.draft_fingerprint
+        if not fingerprint or fingerprint != registry.style_fingerprint(
+                incoming):
+            return False
+        if str(state.preview_before_asset_id or "") != str(
+                existing.get("preview_before_asset_id") or ""):
+            return False
+        if str(state.preview_after_asset_id or "") != str(
+                existing.get("preview_after_asset_id") or ""):
+            return False
+        return True
+    except Exception:
+        logger.debug("[cover_styles] promote check failed", exc_info=True)
+        return False
 
 
 @cover_styles_router.post("/cover/styles")
@@ -434,7 +537,7 @@ async def cover_style_upsert(
         "instruction": body.instruction,
         "pipeline_mode": body.pipeline_mode,
         "counter_enabled": body.counter_enabled,
-        "counter_value": body.counter_value,
+        "counter_value": _counter_value_from_body(body),
         "counter_format": body.counter_format
         or registry.SEEDED_COUNTER_FORMAT,
         "model_mode": body.model_mode,
@@ -442,6 +545,7 @@ async def cover_style_upsert(
         "model_id": body.model_id,
         "enabled": body.enabled,
     }
+    promote = False
     if style_id and existing is not None:
         # Seeded происхождение сохраняем (редактируемость не меняется, §6).
         profile["origin"] = existing.get("origin") or registry.ORIGIN_CUSTOM
@@ -451,9 +555,13 @@ async def cover_style_upsert(
         profile["preview_after_asset_id"] = existing.get(
             "preview_after_asset_id")
         profile["preview_revision"] = existing.get("preview_revision")
+        # T-4872: exact tested draft → rebinding provenance к новой revision.
+        promote = await _promote_preview_requested(
+            db=_job_db(), existing=existing, incoming=profile)
     else:
         profile["origin"] = registry.ORIGIN_CUSTOM
-    if not await registry.upsert_profile(_pg(cache), profile):
+    if not await registry.upsert_profile(_pg(cache), profile,
+                                         promote_preview=promote):
         # §128/§129: management-failure событие; UI показывает человеческое
         # сообщение вместо голого «save failed».
         _emit_cover_event("COVER_STYLE_SAVE_FAILED", stage="upsert",
@@ -796,7 +904,11 @@ async def cover_capabilities(
     profile_id: Annotated[str | None, Query()] = None,
     refresh: Annotated[bool, Query()] = False,
 ):
-    """Capability UI (§37/§38/§71): edit/limits/sizes/sync/source + references."""
+    """Capability UI (§37/§38/§71): edit/limits/sizes/sync/source + references.
+
+    ASAP 4.4 (§2/T-4873): единый async effective-resolver (лестница §35),
+    не отдельный sync-контур.
+    """
     cache = get_cache(request)
     pg = _pg(cache)
     profile = None
@@ -805,13 +917,15 @@ async def cover_capabilities(
         profile = await registry.get_profile_with_refs(pg, profile_id)
         connection = await _connection_for(pg, profile)
     try:
-        caps = pipeline.slot_capabilities(profile=profile, refresh=refresh,
-                                          connection=connection)
-        data = caps.as_dict()
-        data["references_available"] = caps.references_available
-        data["edit_supported"] = caps.edit_supported
+        resolved = await _effective_capability(pg, profile, connection,
+                                               refresh=refresh)
+        caps = resolved["capabilities"]
+        data = _capabilities_public(caps)
         data["connection"] = pipeline.connection_status(
-            profile=profile, capabilities=caps, connection=connection)
+            profile=profile, capabilities=caps,
+            connection=resolved.get("connection"), slot=resolved.get("slot"))
+        data["route"] = resolved["route"]
+        data["resolve_source"] = resolved["resolve_source"]
         data["no_edit_message"] = pipeline.NO_EDIT_MESSAGE
         return data
     except Exception:
@@ -832,23 +946,51 @@ class PromptLimitBody(BaseModel):
 
 
 async def _resolve_limit_slot(cache, body: PromptLimitBody) -> dict:
-    """Резолв provider/base_url/model для override (профиль → слот)."""
+    """Резолв provider/base_url/model для override (профиль → слот).
+
+    ASAP 4.4 (§2/T-4873): profile-only запросы резолвятся тем же §35
+    inherited-контуром, что production/UI (live-фикс §7.2: seeded-профиль в
+    режиме «По умолчанию» при пустом style-слоте адресует реальный edit-route
+    `nano-gpt.com/qwen-image-3-pro`). Явно переданные provider/base_url/model
+    (developer/tool путь) по-прежнему перекрывают слот.
+    """
     pg = _pg(cache)
     profile = None
     connection = None
     if body.profile_id and pg is not None:
         profile = await registry.get_profile_with_refs(pg, body.profile_id)
         connection = await _connection_for(pg, profile)
-    slot = pipeline.resolve_style_slot(profile=profile, connection=connection)
-    provider = (body.provider or slot.get("provider") or "").strip()
-    base_url = (body.base_url or slot.get("base_url") or "").strip()
-    model = (body.model or slot.get("model") or "").strip()
+    explicit = bool((body.provider or "").strip()
+                    and (body.base_url or "").strip()
+                    and (body.model or "").strip())
+    route = ""
+    if explicit:
+        base_slot = pipeline.resolve_style_slot(profile=profile,
+                                                connection=connection)
+    else:
+        resolved = await pipeline.resolve_effective_edit_capability(
+            profile=profile, pg=pg, connection=connection,
+            operation=body.operation if body.operation in (
+                image_caps.OPERATION_GENERATE,
+                image_caps.OPERATION_EDIT) else image_caps.OPERATION_EDIT)
+        base_slot = resolved["slot"]
+        route = resolved["route"]
+    provider = (body.provider or base_slot.get("provider") or "").strip()
+    base_url = (body.base_url or base_slot.get("base_url") or "").strip()
+    model = (body.model or base_slot.get("model") or "").strip()
     if body.connection_id and pg is not None:
         conn = await registry.get_connection(pg, body.connection_id)
         if conn is not None:
             provider = str(conn.get("provider") or provider).strip()
             base_url = str(conn.get("base_url") or base_url).strip()
-    return {"provider": provider, "base_url": base_url, "model": model}
+    return {"provider": provider, "base_url": base_url, "model": model,
+            "route": route}
+
+
+def _limit_taxonomy_fields(caps) -> dict:
+    taxonomy = image_caps.prompt_limit_source_taxonomy(caps.prompt_limit.source)
+    return {"source_taxonomy": taxonomy,
+            "limit_is_exact": image_caps.prompt_limit_is_exact(taxonomy)}
 
 
 @cover_styles_router.get("/cover/prompt-limit")
@@ -859,25 +1001,25 @@ async def cover_prompt_limit_get(
 ):
     """§7.2/§9: текущее состояние лимита (auto/manual) для профиля/слота."""
     cache = get_cache(request)
-    pg = _pg(cache)
     body = PromptLimitBody(profile_id=profile_id)
+    operation = body.operation if body.operation in (
+        image_caps.OPERATION_GENERATE, image_caps.OPERATION_EDIT) \
+        else image_caps.OPERATION_EDIT
     slot = await _resolve_limit_slot(cache, body)
     entry = image_caps.manual_limit_entry(
-        slot["provider"], slot["base_url"], slot["model"],
-        body.operation if body.operation in (image_caps.OPERATION_GENERATE,
-                                             image_caps.OPERATION_EDIT)
-        else image_caps.OPERATION_EDIT)
+        slot["provider"], slot["base_url"], slot["model"], operation)
     caps = image_caps.resolve_capabilities(
         slot["provider"], slot["base_url"], slot["model"],
-        operation=body.operation)
+        operation=operation, route=slot.get("route") or None)
     return {
-        "operation": body.operation,
+        **slot,
+        "operation": operation,
         "mode": "manual" if entry else "auto",
         "value": (entry or {}).get("value", caps.prompt_limit.value),
         "unit": (entry or {}).get("unit", caps.prompt_limit.unit),
         "limit_known": caps.prompt_limit.known,
         "source": caps.prompt_limit.source,
-        **slot,
+        **_limit_taxonomy_fields(caps),
     }
 
 
@@ -925,15 +1067,16 @@ async def cover_prompt_limit_set(
             detail="Не удалось сохранить ограничение промпта.")
     caps = image_caps.resolve_capabilities(
         slot["provider"], slot["base_url"], slot["model"], refresh=True,
-        operation=operation)
+        operation=operation, route=slot.get("route") or None)
     return {
+        **slot,
         "mode": "manual" if body.mode == "manual" else "auto",
         "value": table.get(key, {}).get("value", caps.prompt_limit.value),
         "unit": table.get(key, {}).get("unit", caps.prompt_limit.unit),
         "limit_known": caps.prompt_limit.known,
         "source": caps.prompt_limit.source,
         "operation": operation,
-        **slot,
+        **_limit_taxonomy_fields(caps),
     }
 
 
@@ -955,7 +1098,12 @@ async def cover_connection_status(
     user: Annotated[WebAppUser, Depends(requires_permission('access'))],
     profile_id: Annotated[str | None, Query()] = None,
 ):
-    """Connection status (§73/§105): без реальной генерации; секретов нет."""
+    """Connection status (§73/§105): без реальной генерации; секретов нет.
+
+    ASAP 4.4 (§2/T-4873): статус строится по тому же effective-слоту, что
+    UI meta и production (иначе seeded-профиль показывает «не настроено»
+    при работающем наследовании §35).
+    """
     cache = get_cache(request)
     pg = _pg(cache)
     profile = None
@@ -963,9 +1111,13 @@ async def cover_connection_status(
     if profile_id and pg is not None:
         profile = await registry.get_profile_with_refs(pg, profile_id)
         connection = await _connection_for(pg, profile)
-    status = pipeline.connection_status(profile=profile, connection=connection)
-    if connection is not None:
-        status["connection_label"] = connection.get("label") or ""
+    resolved = await _effective_capability(pg, profile, connection)
+    status = pipeline.connection_status(
+        profile=profile, capabilities=resolved["capabilities"],
+        connection=resolved.get("connection"), slot=resolved.get("slot"))
+    if resolved.get("connection") is not None:
+        status["connection_label"] = (resolved["connection"].get("label")
+                                      or "")
     status["edit_message"] = pipeline.NO_EDIT_MESSAGE
     return status
 
@@ -1035,12 +1187,86 @@ async def cover_connection_delete(
 
 # ── Test Style (§65–§67) ────────────────────────────────────────────────────
 
+class StyleDraftBody(BaseModel):
+    """ASAP 4.4 (T-4870, preferred-контракт): snapshot style-affecting полей
+    текущего редактора. НЕ сохраняется как профиль; owner/origin/RBAC/
+    references берутся из durable registry. `extra="forbid"` — клиент не
+    может протащить произвольные поля."""
+    model_config = {"extra": "forbid"}
+
+    instruction: str | None = None
+    pipeline_mode: str | None = None
+    counter_enabled: bool | None = None
+    next_issue_number: int | None = None
+    counter_format: str | None = None
+    model_mode: str | None = None
+    connection_id: str | None = None
+    model_id: str | None = None
+
+
 class TestStyleBody(BaseModel):
     profile_id: str
+    # ASAP 4.4 (§RC-D): draft snapshot текущего редактора (см. StyleDraftBody).
+    draft: StyleDraftBody | None = None
     # ASAP 4.2: upload — ТОЛЬКО явное действие. Основной путь «Проверить стиль»
     # НЕ требует файла (base cover генерируется configured provider/model).
     filename: str = ""
     content_base64: str = ""
+
+
+_MAX_DRAFT_INSTRUCTION = 20000
+_MAX_DRAFT_COUNTER_FORMAT = 200
+
+
+async def _validated_draft_snapshot(pg, draft: "StyleDraftBody | None"
+                                    ) -> dict | None:
+    """Нормализовать draft snapshot (T-4870) или 422.
+
+    Возвращает внутреннюю форму style-affecting полей (counter_value =
+    next_issue_number - 1); RBAC/owner/references сюда не попадают.
+    """
+    if draft is None:
+        return None
+    overrides = draft.model_dump(exclude_none=True)
+    if not overrides:
+        return {}
+    if "pipeline_mode" in overrides \
+            and overrides["pipeline_mode"] not in registry.PIPELINE_MODES:
+        raise HTTPException(status_code=422, detail="invalid pipeline_mode")
+    if "model_mode" in overrides \
+            and overrides["model_mode"] not in (registry.MODEL_MODE_DEFAULT,
+                                                registry.MODEL_MODE_CUSTOM):
+        raise HTTPException(status_code=422, detail="invalid model_mode")
+    if "next_issue_number" in overrides:
+        if int(overrides["next_issue_number"]) < 1:
+            raise HTTPException(
+                status_code=422,
+                detail="«Следующий номер» должен быть не меньше 1.")
+        overrides["counter_value"] = int(overrides.pop("next_issue_number")) - 1
+    if "instruction" in overrides \
+            and len(str(overrides["instruction"])) > _MAX_DRAFT_INSTRUCTION:
+        raise HTTPException(status_code=422,
+                            detail="Инструкция слишком длинная.")
+    if "counter_format" in overrides:
+        if len(str(overrides["counter_format"])) > _MAX_DRAFT_COUNTER_FORMAT:
+            raise HTTPException(status_code=422,
+                                detail="Формат номера слишком длинный.")
+        overrides["counter_format"] = str(overrides["counter_format"]) \
+            or registry.SEEDED_COUNTER_FORMAT
+    if "connection_id" in overrides:
+        cid = str(overrides["connection_id"] or "").strip() or None
+        if cid and cid.startswith(("http://", "https://")):
+            raise HTTPException(
+                status_code=422,
+                detail="Base URL принадлежит «Настроить подключения →»; "
+                       "в стиле выберите подключение из списка.")
+        if cid and await registry.get_connection(pg, cid) is None:
+            raise HTTPException(status_code=422,
+                                detail="Подключение не найдено.")
+        overrides["connection_id"] = cid
+    if "model_id" in overrides:
+        overrides["model_id"] = str(overrides["model_id"] or "").strip() or None
+    return overrides
 
 
 def _human_style_fail_message(meta: dict) -> str:
@@ -1079,6 +1305,11 @@ async def cover_test_style(
     # ASAP 4.2 (M-ASAP42-1, D5.7): seeded canonical Test Style — только
     # глобальный админ (backend enforcement, не только disabled-button).
     _assert_can_edit_seeded(request, user, profile)
+    # T-4870: snapshot текущего редактора (style-affecting); DB-профиль не
+    # перезаписывается, references/owner/RBAC — из durable registry.
+    draft_snapshot = await _validated_draft_snapshot(pg, body.draft)
+    effective = (registry.merge_draft_snapshot(profile, draft_snapshot)
+                 if draft_snapshot is not None else profile)
     db = _job_db()
     if db is None:
         raise HTTPException(
@@ -1102,8 +1333,9 @@ async def cover_test_style(
     correlation_id = "cover_test_" + uuid.uuid4().hex[:12]
     try:
         started = await preview_jobs.start_preview_job(
-            db, profile=profile, pg=pg, correlation_id=correlation_id,
-            brief=TEST_STYLE_BRIEF, base_upload_meta=base_upload_meta)
+            db, profile=effective, pg=pg, correlation_id=correlation_id,
+            brief=TEST_STYLE_BRIEF, base_upload_meta=base_upload_meta,
+            draft_snapshot=draft_snapshot)
     except Exception:
         logger.warning("[cover_styles] preview job start failed",
                        exc_info=True)
@@ -1122,7 +1354,8 @@ async def cover_test_style(
         "message": ("Проверка уже выполняется." if started.get("reused")
                     else "Проверка запущена."),
         "preview_issue": registry.preview_issue_display(
-            profile.get("counter_format") or registry.SEEDED_COUNTER_FORMAT),
+            effective.get("counter_format") or registry.SEEDED_COUNTER_FORMAT,
+            registry.next_issue_number(effective)),
     }
 
 

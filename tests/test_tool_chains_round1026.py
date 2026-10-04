@@ -1,4 +1,4 @@
-﻿"""A2 `tool-chains-round1026` (Эпик 3, Wave 2, ADR-1026-15; risk R3).
+"""A2 `tool-chains-round1026` (Эпик 3, Wave 2, ADR-1026-15; risk R3).
 
 Покрытие §15/§16/§17:
 * §16 (T-3528/T-3529/T-3530): out-of-band envelope на каждый вызов,
@@ -655,7 +655,7 @@ class TestR17AndBoundaries:
 
     def test_catalog_counts_unchanged(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 488
+        assert len(pc.REGISTRY) == 489
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21

@@ -904,6 +904,22 @@ class EmbeddingBudgetExhausted(EmbeddingControlPlaneError):
     """Исчерпан attempt budget (≤4) — наверх (FTS-fallback / pause)."""
 
 
+# ── T-4878 (ASAP 4.4): terminal serviceability states для batch-policy ─────
+# `EmbeddingGroupCoolingDown` (группа cooling/parked) и `EmbeddingBudgetExhausted`
+# (бюджет исчерпан / нет usable credential) — состояние известно и не
+# изменится внутри того же logical batch: повторный embed бессмысленен.
+
+_SERVICEABILITY_ERRORS = (EmbeddingGroupCoolingDown,
+                          EmbeddingBudgetExhausted)
+
+
+def is_serviceability_error(exc: BaseException) -> bool:
+    """True — known control-plane serviceability state (retry в том же batch
+    не имеет смысла). False — transient/неизвестная ошибка: её по-прежнему
+    видно со stacktrace (не маскируем)."""
+    return isinstance(exc, _SERVICEABILITY_ERRORS)
+
+
 # ── Provider-agnostic adapter (T-4405, §13–§16) ─────────────────────────────
 
 
@@ -1717,4 +1733,5 @@ __all__ = [
     "provider_panel", "vector_memory_panel",
     "EmbeddingGroupCoolingDown", "EmbeddingConcurrencyBusy",
     "EmbeddingBudgetExhausted", "EmbeddingControlPlaneError",
+    "is_serviceability_error",
 ]

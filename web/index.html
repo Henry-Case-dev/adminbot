@@ -809,7 +809,7 @@
             <label class="inline-flex items-center gap-2">
               <span class="text-gray-400">Следующий номер</span>
               <input type="number" class="field w-24"
-                     v-model="coverStyles.current.counter_value"
+                     v-model="coverStyles.current.next_issue_number"
                      @input="coverStyles.editorDirty = true">
             </label>
             <label class="inline-flex items-center gap-2">
@@ -3396,13 +3396,20 @@
                       <span>Провайдер: {{ embeddingsPanel.provider.provider }}<template v-if="embeddingsPanel.provider.model"> / {{ embeddingsPanel.provider.model }}</template></span>
                       <span>Ключи: {{ embeddingsPanel.provider.credentials }} · алиасы: {{ embeddingsAliases }}</span>
                       <span>Квота-группы: {{ embeddingsPanel.provider.quota_group_display || '—' }}</span>
+                      <!-- ASAP 4.4 (T-4880): topology без секретов —
+                           keys/groups/rotation/blocked/next_allowed_at. -->
+                      <span v-if="embeddingsPanel.provider.rotation">keys: {{ embeddingsPanel.provider.rotation.keys }} · groups: {{ (embeddingsPanel.provider.rotation.groups || []).join('/') || '—' }} · rotation: {{ embeddingsPanel.provider.rotation.status }}</span>
                       <span>Concurrency: {{ embeddingsPanel.provider.concurrency }} · Batch: {{ embeddingsPanel.provider.batch_size }}</span>
                       <span>429 за 10 мин: {{ embeddingsPanel.provider.rate_limits_10m }}</span>
                     </div>
                     <div v-if="(embeddingsPanel.provider.groups || []).length"
                          class="mt-1 text-gray-400">
                       <div v-for="(g, i) in embeddingsPanel.provider.groups"
-                           :key="'eg' + i">{{ g }}</div>
+                           :key="'eg' + i">
+                        группа {{ g.quota_group }} — {{ g.state }}
+                        <template v-if="g.next_allowed_at"> · next_allowed_at {{ fmtTs(g.next_allowed_at) }}</template>
+                        <template v-if="g.state && g.state !== 'healthy'"> · ⛔ blocked</template>
+                      </div>
                     </div>
                   </div>
                   <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 text-xs"

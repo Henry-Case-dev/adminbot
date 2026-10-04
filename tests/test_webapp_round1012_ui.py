@@ -1,4 +1,4 @@
-﻿"""Раунд 10.12 (`providers-kostik-round1012`) — UI/каталог/read-path маркеры.
+"""Раунд 10.12 (`providers-kostik-round1012`) — UI/каталог/read-path маркеры.
 
 Покрывается (spec §1.7/§2.6/§3.8):
   * item 1 — развязка embed base_url/ключа (OD-1), фикс 422 (global-save);
@@ -190,14 +190,14 @@ class TestCatalogDelta1012:
         # 10.19 (F3/ADR-1019-3 D3, UPD3 п.5): → 437/92/90/20/407, categorized 412.
         # 10.23 (F5/ADR-1023-5 D5): +5/+3/+3 → 446/95/93/20/416, categorized 421.
         # 10.24 (F21/ADR-1024-22 D8): +1/+1/+1 → 459/98/96/20/418, categorized 434.
-        assert len(pc.REGISTRY) == 488
+        assert len(pc.REGISTRY) == 489
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
         assert len({f.name for f in dataclasses.fields(Settings)}) == 426
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 463
+        assert len(categorized) == 464
 
     def test_new_param_specs(self):
         from services import param_catalog as pc

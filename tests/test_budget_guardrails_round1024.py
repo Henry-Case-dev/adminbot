@@ -1,4 +1,4 @@
-﻿"""F23 (раунд 10.24, `budget-guardrails-round1024`) — защитные пин-инварианты
+"""F23 (раунд 10.24, `budget-guardrails-round1024`) — защитные пин-инварианты
 бюджетного контура после F20/F21/F22.
 
 Задача F23 — не дать бюджетному регрессу вернуться (R2/F21, R3/F22 и сквозные
@@ -125,7 +125,7 @@ class TestCatalogPins:
     вкладка) валит пин — это и есть защита от регресса F21."""
 
     def test_registry_counts_pinned(self):
-        assert len(pc.REGISTRY) == 488
+        assert len(pc.REGISTRY) == 489
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(pc.TAB_RULES) == 21
@@ -416,10 +416,13 @@ class TestDeltaZeroGuard:
         # NOTE (ASAP-3.2, ADR-1028-5 D14/§104): +1 (cover_style_connections
         # — connection model redesign; PG-DDL санкция, идемпотентно);
         # 51 → 52. SQLite DDL = 0 (v19, v20-бронь mca-04b не тронута).
-        assert len(pg_db.DDL_STATEMENTS) == 52
+        # NOTE (ASAP 4.3, 2.58.51 `1c47b5e`/`acbbe1f`): PG additive nullable
+        # `preview_job_id` для cover_style_connections — durable preview
+        # jobs; 52 → 53. SQLite DDL = 0.
+        assert len(pg_db.DDL_STATEMENTS) == 53
 
     def test_catalog_counts_unchanged_by_guardrails(self):
         # F23 — только тесты: значения совпадают с Δ F21 (D8).
-        assert len(pc.REGISTRY) == 488
+        assert len(pc.REGISTRY) == 489
         assert len(pc.GROUPS) == 105
         assert len(pc._TAB_BY_GROUP) == 103

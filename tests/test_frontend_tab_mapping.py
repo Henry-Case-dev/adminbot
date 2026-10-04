@@ -161,9 +161,11 @@ class TestTabMappingAudit:
         # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): санкционированная
         # ОТРИЦАТЕЛЬНАЯ Δ — -8 ключей summary_filter_*, -2 группы;
         # TAB_RULES 21 in-place → 481/105/103.
+        # ASAP 4.4 (T-4880): +1 REGISTRY (keys.embedding_quota_group_labels,
+        # группа keys_llm уже приписана вкладке llm_providers) → 489.
         assert len(pc._TAB_BY_GROUP) == 103
         assert len(GROUPS) == 105
-        assert len(pc.REGISTRY) == 488
+        assert len(pc.REGISTRY) == 489
 
 
 class TestModuleTabs:

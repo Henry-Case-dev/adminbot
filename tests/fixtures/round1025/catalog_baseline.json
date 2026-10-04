@@ -5,7 +5,7 @@
     "source": "services/param_catalog.py"
   },
   "counts": {
-    "REGISTRY": 488,
+    "REGISTRY": 489,
     "GROUPS": 105,
     "_TAB_BY_GROUP": 103,
     "TAB_RULES": 21
@@ -390,6 +390,7 @@
     "EMBEDDING_FALLBACK_MODEL",
     "EMBEDDING_FALLBACK_TIMEOUT_SECONDS",
     "EMBEDDING_MODEL_NAME",
+    "EMBEDDING_QUOTA_GROUP_LABELS",
     "EMBED_CACHE_ENABLED",
     "EMBED_CACHE_MAX_ROWS",
     "EMBED_CACHE_TTL_DAYS",

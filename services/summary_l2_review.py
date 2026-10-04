@@ -367,37 +367,73 @@ def _verdict_from_anchor_result(result, anchor_map: SourceAnchorMap
                          raw_status="ok", dropped_findings=result.dropped_invalid)
 
 
+def _normalized_target_anchors(raw, anchor_map: SourceAnchorMap) -> list:
+    """T-4877: нормализовать evidence ревизии в anchor-space, не теряя и не
+    ослабляя доказательства: строковый anchor, список anchors, либо real
+    message_id (`evidence_message_ids`) → anchor. Неизвестное молча
+    отбрасывается (дальше — штатная §99-валидация документа)."""
+    if raw is None:
+        return []
+    values = raw if isinstance(raw, list) else [raw]
+    anchors: list = []
+    for token in values:
+        if isinstance(token, bool):
+            continue
+        if isinstance(token, int):
+            anchor = anchor_map.anchor_for(token) if anchor_map else None
+            if anchor is not None and anchor not in anchors:
+                anchors.append(anchor)
+            continue
+        check = anchor_map.validate(token) if anchor_map is not None \
+            and isinstance(token, str) else None
+        if check is not None and check.ok and check.anchor not in anchors:
+            anchors.append(check.anchor)
+    return anchors
+
+
 def apply_targeted_revision(document, payload, *, anchor_map: SourceAnchorMap,
                             package, paragraph_id: int
                             ) -> tuple[dict | None, str | None]:
     """Применить targeted-ревизию одного абзаца (AnchorSpace, R8-D-002).
 
-    Принимает ``{"text", "source_anchors"}`` (как требует
-    ``build_targeted_revision_content``) либо ``{"replace_paragraphs":[...]}``.
-    Другие абзацы сохраняются; результат проходит anchor-валидацию
-    (invalid ref удаляется локально, абзац живёт). Не бросает."""
+    Принимает абзац как top-level ``{"text", "source_anchors"}``, в
+    ``replace_paragraphs[0]`` либо во вложенном контейнере-эхе запроса
+    (``paragraph``/``revised_paragraph``/``fixed_paragraph``) — T-4877:
+    не-pinned output schema reviser'а не должна сжигать обе revision.
+    evidence нормализуется в anchor-space (`source_anchors`/`evidence_refs`/
+    real `evidence_message_ids`). Другие абзацы сохраняются; результат
+    проходит anchor-валидацию (invalid ref удаляется локально, абзац живёт).
+    Не бросает."""
     data = parse_json_object(str(payload or ""))
     if not isinstance(data, dict):
         return None, "revision_invalid_json"
     if not isinstance(paragraph_id, int) or isinstance(paragraph_id, bool):
         return None, "revision_invalid_patch"
     paragraphs = [dict(p) for p in (document or {}).get("paragraphs") or []]
+    item = None
     replacements = data.get("replace_paragraphs")
     if isinstance(replacements, list) and replacements:
         item = replacements[0]
         if not isinstance(item, dict):
             return None, "revision_invalid_patch"
-        text = item.get("text")
-        anchors = item.get("source_anchors")
     else:
-        text = data.get("text")
-        anchors = data.get("source_anchors")
+        for key in ("paragraph", "revised_paragraph", "fixed_paragraph"):
+            candidate = data.get(key)
+            if isinstance(candidate, dict):
+                item = candidate
+                break
+            if isinstance(candidate, str) and candidate.strip():
+                item = {"text": candidate}
+                break
+        if item is None:
+            item = data
+    text = item.get("text")
     if not isinstance(text, str) or not text.strip():
         return None, "revision_invalid_patch"
-    if anchors is None:
-        anchors = []
-    if not isinstance(anchors, list):
-        return None, "revision_invalid_patch"
+    anchors = _normalized_target_anchors(
+        item.get("source_anchors", item.get("evidence_refs",
+                                            item.get("evidence_message_ids"))),
+        anchor_map)
     entry = {"text": text, "source_anchors": anchors,
              "emphasis_spans": [], "emphasis": None}
     if 0 <= paragraph_id < len(paragraphs):
@@ -691,7 +727,11 @@ def _log_review(*, run_id, chat_id, metrics, status, reason=None) -> None:
 def _stage_event(stage, *, attempt, status, reason_code=None,
                  started=None, input_count=None, output_count=None,
                  provider=None, model=None, fallback_target=None,
-                 repair_target=None) -> dict:
+                 repair_target=None, review_attempt=None, verdict=None,
+                 finding_codes=None, blocking_count=None, paragraph_ids=None,
+                 revision_target=None, revision_result=None,
+                 revision_failure_reason=None,
+                 deterministic_validation_codes=None) -> dict:
     """Append-only stage event (§50.54; R17-safe: числа/коды/id)."""
     return {
         "stage": stage,
@@ -706,6 +746,18 @@ def _stage_event(stage, *, attempt, status, reason_code=None,
         "model": model,
         "fallback_target": fallback_target,
         "repair_target": repair_target,
+        # T-4877: диагноза rejection без raw text/prompt (коды/id/числа).
+        "review_attempt": review_attempt,
+        "verdict": verdict,
+        "finding_codes": list(finding_codes) if finding_codes else None,
+        "blocking_count": blocking_count,
+        "paragraph_ids": list(paragraph_ids) if paragraph_ids else None,
+        "revision_target": revision_target,
+        "revision_result": revision_result,
+        "revision_failure_reason": revision_failure_reason,
+        "deterministic_validation_codes": (
+            list(deterministic_validation_codes)
+            if deterministic_validation_codes else None),
     }
 
 
@@ -867,7 +919,7 @@ async def run_l2_with_review(llm, package, *, service=None,
         source_review_system = (source_review_system + "\n\n"
                                 + SUMMARY_L2_REVIEWER_ANCHORS_BLOCK)
 
-    deterministic_findings = _deterministic_findings(draft)
+    deterministic_findings: list[dict] = []
     calls = 1                     # writer
     revisions_done = 0
     patch_failures = 0
@@ -877,6 +929,9 @@ async def run_l2_with_review(llm, package, *, service=None,
     seen_codes: set[str] = set()
     first_findings_total = 0
     current_doc = document
+    # T-4876: findings/validator context — всегда от ТЕКУЩЕГО validated_doc
+    # (после успешной revision пересчитываются от current_doc/current metrics).
+    current_doc_metrics: dict = dict(draft_metrics)
     last_verdict: ReviewVerdict | None = None
     dropped_total = 0
 
@@ -885,6 +940,9 @@ async def run_l2_with_review(llm, package, *, service=None,
         if metrics["l2_review_calls"] >= MAX_REVIEWS \
                 or calls >= CALL_BUDGET_L2_STAGE:
             break
+        deterministic_findings = _deterministic_findings_from_metrics(
+            current_doc_metrics)
+        deterministic_codes = [f["code"] for f in deterministic_findings]
         review_started = time.time()
         try:
             raw, _usage = await _call_llm(
@@ -949,7 +1007,15 @@ async def run_l2_with_review(llm, package, *, service=None,
             status=verdict.status,
             reason_code=f"findings={len(verdict.findings)}",
             started=review_started,
-            input_count=len(current_doc.get("paragraphs") or [])))
+            input_count=len(current_doc.get("paragraphs") or []),
+            review_attempt=metrics["l2_review_calls"],
+            verdict=verdict.status,
+            finding_codes=[f.code for f in verdict.findings],
+            blocking_count=verdict.blocking_count,
+            paragraph_ids=sorted({
+                f.paragraph_index for f in verdict.findings
+                if f.paragraph_index is not None}),
+            deterministic_validation_codes=deterministic_codes))
         last_verdict = verdict
         if verdict.status == VERDICT_APPROVED:
             break
@@ -1034,7 +1100,9 @@ async def run_l2_with_review(llm, package, *, service=None,
                 _record(ctx, _stage_event(
                     "revision", attempt=revisions_done + 1, status="error",
                     reason_code=type(exc).__name__, started=revision_started,
-                    repair_target="targeted"))
+                    repair_target="targeted", revision_target="targeted",
+                    revision_result="error",
+                    revision_failure_reason=f"revision_{type(exc).__name__}"))
                 return _degraded_or_legacy(
                     draft, current_doc, metrics,
                     reason=f"revision_{type(exc).__name__}",
@@ -1065,7 +1133,10 @@ async def run_l2_with_review(llm, package, *, service=None,
                 _record(ctx, _stage_event(
                     "revision", attempt=revisions_done + 1, status="error",
                     reason_code=type(exc).__name__, started=revision_started,
-                    repair_target="patch" if not use_full_doc else "full_doc"))
+                    repair_target="patch" if not use_full_doc else "full_doc",
+                    revision_target="patch" if not use_full_doc else "full_doc",
+                    revision_result="error",
+                    revision_failure_reason=f"revision_{type(exc).__name__}"))
                 return _degraded_or_legacy(
                     draft, current_doc, metrics,
                     reason=f"revision_{type(exc).__name__}",
@@ -1088,7 +1159,10 @@ async def run_l2_with_review(llm, package, *, service=None,
             reason_code=reason, started=revision_started,
             input_count=len(paragraphs_now),
             output_count=len((revised or {}).get("paragraphs") or []),
-            repair_target=repair_target))
+            repair_target=repair_target, revision_target=repair_target,
+            revision_result="ok" if revised is not None else "invalid",
+            revision_failure_reason=(None if revised is not None
+                                     else str(reason or "revision_invalid"))))
         # T-4624 (spec §7.3; §42 ТЗ): SUMMARY_REVISION_RESULT — каждый
         # шаг bounded revision виден в mca_events (attempt/patch-target,
         # R17-числа). Fail-open; gated реальным transport'ом.
@@ -1113,6 +1187,11 @@ async def run_l2_with_review(llm, package, *, service=None,
         if repair_target == "patch":
             patch_failures = 0
         current_doc = revised
+        # T-4876: metrics/findings следующей review-итерации — от ТЕКУЩЕГО
+        # validated-документа (единый §99-валидатор, без сети).
+        current_doc_metrics = _revalidate_metrics(
+            current_doc, run_package, anchor_mode=anchor_mode,
+            anchor_map=anchor_map)
 
     # ── Итог цикла ──────────────────────────────────────────────────────
     if last_verdict is not None and last_verdict.status == VERDICT_APPROVED:
@@ -1147,11 +1226,12 @@ async def _writer_call(llm, package, *, service, correlation_id, chat_id,
                         anchor_map=anchor_map)
 
 
-def _deterministic_findings(draft: L2Result) -> list[dict]:
-    """Детерминированные находки для контекста Reviewer (§50.10; из метрик
-    deterministic-валидатора draft — codes/числа, без текстов)."""
+def _deterministic_findings_from_metrics(metrics: dict | None) -> list[dict]:
+    """Детерминированные находки по АКТУАЛЬНЫМ metrics валидатора (§50.10;
+    codes/числа, без текстов). T-4876: после каждой успешной revision findings
+    пересчитываются от current_doc/current metrics, а не от исходного draft."""
     findings: list[dict] = []
-    metrics = getattr(draft, "metrics", None) or {}
+    metrics = metrics or {}
     for code in metrics.get("quote_reason_codes") or []:
         findings.append({"source": "deterministic", "code": code})
     for key in ("quote_unverified_count", "ids_stripped_count",
@@ -1161,6 +1241,29 @@ def _deterministic_findings(draft: L2Result) -> list[dict]:
             findings.append({"source": "deterministic", "code": key,
                              "count": value})
     return findings
+
+
+def _deterministic_findings(draft: L2Result) -> list[dict]:
+    """Детерминированные находки для контекста Reviewer (§50.10; из метрик
+    deterministic-валидатора draft — codes/числа, без текстов)."""
+    return _deterministic_findings_from_metrics(
+        getattr(draft, "metrics", None) or {})
+
+
+def _revalidate_metrics(document, package, *, anchor_mode: bool,
+                        anchor_map) -> dict:
+    """T-4876: metrics валидатора для ТЕКУЩЕГО validated-документа (та же
+    единственная §99-валидация, без сети). Ошибка/None → {} (консервативно:
+    findings просто исчезают, strictness не ослабляется)."""
+    try:
+        if anchor_mode:
+            _canonical, metrics = validate_l2_document_anchors(
+                document, package, anchor_map)
+        else:
+            _canonical, metrics = validate_l2_document(document, package)
+        return dict(metrics or {})
+    except Exception:      # pragma: no cover - защитная ветка
+        return {}
 
 
 def _ok_result(document, metrics: dict, draft: L2Result,

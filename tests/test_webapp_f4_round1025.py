@@ -1,4 +1,4 @@
-﻿"""F4 round 10.25 — структурные/маркерные инварианты (ADR-1025-14).
+"""F4 round 10.25 — структурные/маркерные инварианты (ADR-1025-14).
 
 Покрытие:
   * контракт §37–§39: `ModuleConfigurationStore` (get/set/refresh/subscribe),
@@ -169,7 +169,7 @@ def test_search_haystack_fields():
 def test_catalog_delta_zero():
     import services.param_catalog as pc
     from config.settings import Settings
-    assert len(pc.REGISTRY) == 488
+    assert len(pc.REGISTRY) == 489
     assert len(pc.GROUPS) == 105
     assert len(pc._TAB_BY_GROUP) == 103
     assert len(pc.TAB_RULES) == 21
