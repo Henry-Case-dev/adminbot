@@ -57,3 +57,56 @@
 ## Вывод
 
 Один verdict: **Approved**. C0/H0 blocking-дефектов нет; two Low non-blocking; следующий шаг Orchestrator — deploy (T-4862) с последующими Canary A/B и live acceptance POST-DEPLOY.
+
+## Focused delta review — Canary A fix (05.10.2026)
+
+**Reviewer:** independent focused-delta pass, HEAD '2329a9d' + uncommitted fix. Verified independently.
+
+### Verdict
+
+**Approved.**
+
+### Diff scope check
+
+'git diff HEAD --stat': only the two declared code files change in code: services/cover_style_preview.py (+13/-3) and tests/test_asap43_cover_style_surgical.py (+57/-0). Three additional tracked docs files are modified (plans/metrics.md, plans/workflow_state.md, plans/docs/mca-round1027-arch-frames.md) — Orchestrator workflow/bookkeeping and historical MCA-05 arch-frame rows, no product code; doc-only drift outside the declared delta, non-blocking, commit with the fix's docs commit. Untracked extras match the allowed list (canary-evidence.md, tools/_ui_asap43_* ×7). Pre-existing untracked junk (node_modules/, package.json, package-lock.json, .playwright-mcp/, plans/verification_cache.json) unchanged and must stay out of commits.
+
+**Fix logic (services/cover_style_preview.py):**
+
+- L364 and L382: both call sites (fresh STATE_CREATED + resume-regenerate) pass pg to _store_base; no third call site (base_upload_meta producers pass None everywhere, L329/L252).
+- L487-489: _store_base awaits registry.upsert_asset(pg, meta) after CAS write; None on registration failure -> _fail_job('base_generation_failed') BEFORE the styled run and BEFORE the preview pair write (L411) — atomic pair contract preserved by construction.
+- Resume branch failure ordering unchanged; no secrets/log regressions; docstring states the canary root cause accurately.
+
+### Negative control (reproduced independently)
+
+Temp 'git worktree add' at HEAD 2329a9d, copied the NEW test file in, ran with repo venv:
+
+- Pre-fix: test_preview_base_asset_registered_and_fetchable -> 1 FAILED — assert base_row is not None ('base asset зарегистрирован в PG' failed; registry.get_asset -> None). Exactly the production 404 mechanism.
+- Temp worktree removed; real tree unharmed.
+- Real tree: same test -> 1 passed.
+
+### Focused reruns (real tree, no full suite)
+
+- tests/test_asap43_cover_style_surgical.py::test_preview_base_asset_registered_and_fetchable -q -> 1 passed
+- tests/test_asap43_cover_style_surgical.py -q -> 10 passed
+- tests/test_asap42_step3_style_integration.py -q -> 10 passed
+- tests/test_extra_cover_style_jobs.py -q -> 42 passed
+- all three files together -> 62 passed
+
+### Findings
+
+- 0 Critical / 0 High / 0 Medium in scope.
+- Low, related-nonblocking: 3 docs files modified beyond declared two-file code delta (doc-only bookkeeping, verified no code).
+- Uncertain/residual: no long-run regression check of resume-with-registered-base over a full suite (delta policy: not run), existing resume tests all green.
+
+### Binding
+
+- HEAD: 2329a9dae1b11f65c7a436efc5e52aef7e7dd43c
+- services/cover_style_preview.py sha256: 271DE93BC27584F7234A419A2327268BB733580ECF6A9675807A3368E0B06530
+- tests/test_asap43_cover_style_surgical.py sha256: 31632A31EF85372C0147594A5CED6922C10F09A1CAA354117A3CC2CC65413D2E
+
+Approval bound to these hashes + HEAD. Later edits invalidate only affected evidence.
+
+### Next for Orchestrator
+
+Commit the fix (two code files + docs bookkeeping), redeploy, repeat Canary A once.
+
