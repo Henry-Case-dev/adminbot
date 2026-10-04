@@ -399,6 +399,17 @@ async def get_evidence_links(db, subject_ref_id: int) -> list[dict]:
     return [dict(r) for r in await cursor.fetchall()]
 
 
+async def get_source_ref(db, source_ref_id: int) -> dict | None:
+    """SourceRef по id (read-only; REUSE v17-таблицы). None → honest unknown."""
+    cursor = await db.db.execute(
+        "SELECT source_ref_id, store, entity_type, entity_id, chat_id, "
+        "revision, tg_message_id, dataset_id, source_record_id, resolution, "
+        "created_at FROM mca_source_refs WHERE source_ref_id = ?",
+        (int(source_ref_id),))
+    row = await cursor.fetchone()
+    return dict(row) if row is not None else None
+
+
 async def links_derived_from_source(db, source_ref_id: int) -> list[dict]:
     cursor = await db.db.execute(
         "SELECT link_id, subject_ref_id, source_ref_id, link_type "

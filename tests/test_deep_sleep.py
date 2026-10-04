@@ -23,6 +23,7 @@ import pytest
 import services.llm_client as llm_client
 from config.settings import Settings
 from services import hot_config as hot
+from services import mca_gates
 from services import param_catalog as pc
 from services.database import DatabaseService
 from services.dream_prompts import (
@@ -101,6 +102,12 @@ def _old_anchor(fact, *, days=200, author=None):
 
 def _worker(db, memory, llm, *, values, monkeypatch):
     _hot_cache(monkeypatch, values)
+    # Baseline round 10.13 (слой до mca-06 D): evidence-typing — отдельный
+    # kill-switch (ADR-1028-9 D7/D8). OFF здесь проверяет паритет прежнего
+    # порядка; ON-контракты (independence/мост/10-статусов) — в
+    # tests/test_mca06_sleep_de_round1034.py.
+    monkeypatch.setattr(mca_gates, "dream_evidence_typing_enabled",
+                        lambda: False)
     return DreamWorker(db, memory=memory, llm=llm)
 
 

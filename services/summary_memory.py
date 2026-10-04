@@ -3440,6 +3440,11 @@ class MemoryManager:
             return [
                 {"id": int(row["id"]), "origin": row["origin"],
                  "fact": row["fact"], "rag_ts": row["rag_ts"],
+                 # mca-06 T-4711: сырое проверяемое время сообщения отдельно
+                 # от `rag_ts` (COALESCE) — возраст исторического порога
+                 # считается ТОЛЬКО по `message_timestamp` (§4.3, D4).
+                 "message_timestamp": row["message_timestamp"],
+                 "created_at": row["created_at"],
                  "target_user": row["target_user"],
                  "tg_message_id": row["tg_message_id"],
                  "forward_from": row["forward_from"] or "",
@@ -3539,6 +3544,11 @@ class MemoryManager:
                  "fact": by_id[f]["fact"],
                  "rag_ts": (by_id[f]["message_timestamp"]
                             or by_id[f]["created_at"]),
+                 # mca-06 T-4711: сырое проверяемое время сообщения (не
+                 # COALESCE-`rag_ts`) — основание возраста исторического
+                 # профиля (§4.3, D4).
+                 "message_timestamp": by_id[f]["message_timestamp"],
+                 "created_at": by_id[f]["created_at"],
                  "target_user": by_id[f]["target_user"],
                  "tg_message_id": by_id[f]["tg_message_id"],
                  "forward_from": by_id[f]["forward_from"] or "",

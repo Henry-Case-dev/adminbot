@@ -933,6 +933,25 @@ _SUMMARY_RUN_STAGES_INDEX_DDL = (
     "ON summary_run_stages (run_id, id)",
 )
 
+# ── mca-06 T-4727 (spec §7.2/§11.2, ADR-1028-9 D5): durable отчёт прогона
+# сна. Δ DDL = v25 — ровно 2 nullable-колонки `mca_pipeline_runs`
+# (`chat_id` — пер-чат прогоны сна, NULL = глобальный; `report_json` —
+# bounded R17-safe отчёт §7.2) + 1 индекс под реальные запросы витрины.
+# Аддитивно/идемпотентно через реестр `mca-14` (guard `PRAGMA table_info`),
+# повторный прогон — no-op, PG — no-op (GEN-R4). Обратимость: колонки
+# nullable, старый код их не читает; индекс DROP безопасен. НЕ
+# `task_jobs.payload` (урок L-EXTRA-6); второй run-store не создаётся.
+_SCHEMA_VERSION_DREAM_RUNS = 25
+
+_MCA_PIPELINE_RUNS_DREAM_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("chat_id", "INTEGER"),
+    ("report_json", "TEXT"),
+)
+_MCA_PIPELINE_RUNS_CHAT_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_pipeline_runs_chat "
+    "ON mca_pipeline_runs (pipeline_type, chat_id, started_at)",
+)
+
 
 def _summary_window_unique_violation(exc: BaseException) -> bool:
     """IntegrityError «UNIQUE constraint» → write-once guard snapshot'а."""
@@ -1830,6 +1849,12 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_SUMMARY_SOURCE_WINDOW,
                           "summary_source_windows",
                           lambda svc: svc._migrate_summary_source_window_v24()),
+            # mca-06 (ADR-1028-9 D5): v25 — 2 nullable-колонки
+            # `mca_pipeline_runs` (chat_id/report_json) + индекс; аддитивно,
+            # повтор — no-op, PG — no-op.
+            MigrationStep(_SCHEMA_VERSION_DREAM_RUNS,
+                          "dream_run_reports",
+                          lambda svc: svc._migrate_dream_runs_v25()),
             # ASAP 4.1 волна 5 (T-4616, spec §10.2–§10.3): v24 = 3 таблицы
             # (summary_source_windows + summary_runs + summary_run_stages).
             # Один MigrationStep на версию — книга `schema_migrations` имеет
@@ -2606,6 +2631,38 @@ class DatabaseService:
         await self.db.execute(
             f"PRAGMA user_version = "
             f"{_SCHEMA_VERSION_SUMMARY_SOURCE_WINDOW}")
+        await self.db.commit()
+
+    async def _migrate_dream_runs_v25(self) -> None:
+        """v25 (`mca-06-sleep-paradigms`, spec §7.2/§11.2, ADR-1028-9 D5):
+        durable отчёт прогона сна — 2 nullable-колонки `mca_pipeline_runs`
+        (`chat_id`, `report_json`) + индекс `idx_mca_pipeline_runs_chat`.
+
+        Аддитивно (`ALTER TABLE ADD COLUMN` под guard `PRAGMA table_info` +
+        `CREATE INDEX IF NOT EXISTS`); НИ ОДНОГО UPDATE/DELETE существующих
+        строк; повторный прогон — no-op (self-guard по `sqlite_master`); PG —
+        no-op (GEN-R4). Обратимость: nullable-колонки старым кодом не
+        читаются. Фиксирует `PRAGMA user_version = 25`."""
+        if not await self._table_exists("mca_pipeline_runs"):
+            # v19 создаёт таблицу раньше; на частично-мигрированной БД без неё
+            # шаг честно no-op (колонки появятся вместе с таблицей).
+            await self.db.execute(
+                f"PRAGMA user_version = {_SCHEMA_VERSION_DREAM_RUNS}")
+            await self.db.commit()
+            return
+        cols = await self._table_columns("mca_pipeline_runs")
+        for name, decl in _MCA_PIPELINE_RUNS_DREAM_COLUMNS:
+            if name not in cols:
+                await self.db.execute(
+                    f"ALTER TABLE mca_pipeline_runs ADD COLUMN {name} {decl}")
+                logger.info("[database] migration v25: pipeline_runs.%s added",
+                            name)
+        await self.db.commit()
+        for ddl in _MCA_PIPELINE_RUNS_CHAT_INDEX_DDL:
+            await self.db.execute(ddl)
+        await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_DREAM_RUNS}")
         await self.db.commit()
 
     # ── mca-22 (ADR-1028-6 D2): Durable Own Output Ledger — write/read ──────
@@ -6808,18 +6865,83 @@ class DatabaseService:
     # Скип-статусы глубокого сна, потратившие LLM-токены (стоимостной учёт).
     _DEEP_SKIP_COST_STATUSES = ("error", "unchanged", "duplicate")
 
-    async def count_deep_attempts(self, since_ts: int) -> int:
+    async def count_deep_attempts(self, since_ts: int, *,
+                                  chat_id: int | None = None) -> int:
         """Число стоимостных прогонов глубокого сна за local-сутки (S10.13-2):
         успешные (`deep_run`) + скипы, потратившие токены (`deep_skip` со
         status error/unchanged/duplicate). Пре-LLM скипы no_anchors/budget_skip
-        НЕ считаются — они не мешают обходу остальных чатов."""
+        НЕ считаются — они не мешают обходу остальных чатов.
+
+        mca-06 T-4723 (spec §6.1, D9/О3): `chat_id` — per-chat доступность
+        (тот же kind/status-набор + `AND chat_id = ?`); None — глобальная
+        защита ресурсов (прежнее поведение, паритет 2.58.48 бит-в-бит)."""
         sql = ("SELECT COUNT(*) AS c FROM memory_dream_log "
                "WHERE run_at >= ? AND (kind = 'deep_run' OR "
                "(kind = 'deep_skip' AND status IN (?, ?, ?)))")
-        cursor = await self.db.execute(
-            sql, (int(since_ts),) + self._DEEP_SKIP_COST_STATUSES)
+        params: list = [int(since_ts)] + list(self._DEEP_SKIP_COST_STATUSES)
+        if chat_id is not None:
+            sql += " AND chat_id = ?"
+            params.append(int(chat_id))
+        cursor = await self.db.execute(sql, params)
         row = await cursor.fetchone()
         return int(row["c"]) if row else 0
+
+    async def deep_error_state(self, chat_id: int) -> tuple[int | None, int]:
+        """Состояние ошибок глубокого сна чата для ограниченного backoff
+        (mca-06 T-4724, spec §6.2).
+
+        Возвращает `(last_error_ts, streak)`: `streak` — число подряд идущих
+        (свежих вниз) `deep_skip`/status='error' строк до первой не-error
+        попытки; `last_error_ts` — время самой свежей ошибки. Нет ошибок/
+        ошибка перекрыта успешной попыткой → `(None, 0)`. Bounded LIMIT 50."""
+        cursor = await self.db.execute(
+            "SELECT run_at, status FROM memory_dream_log "
+            "WHERE chat_id = ? AND kind IN ('deep_run', 'deep_skip') "
+            "ORDER BY run_at DESC, id DESC LIMIT 50", (int(chat_id),))
+        last_error: int | None = None
+        streak = 0
+        for row in await cursor.fetchall():
+            if str(row["status"] or "") == "error":
+                if last_error is None:
+                    last_error = int(row["run_at"])
+                streak += 1
+            else:
+                break
+        return last_error, streak
+
+    async def latest_dream_data_ts(self, chat_id: int) -> int | None:
+        """Время самых свежих dream-кандидатов/эпизодов чата (mca-06 T-4724).
+
+        Сигнал «появились новые данные после последней ошибки» → backoff
+        сбрасывается (ограниченный ретрай). Источники — graph_facts источников
+        `_DREAM_SOURCE_ORIGINS` и `mca_episodes` (если таблица есть). Fail-open
+        → None (нет данных/ошибка)."""
+        best: int | None = None
+        origins = ("chat_history", "history_import", "bot_direct_reply",
+                   "user_memory")
+        try:
+            placeholders = ",".join("?" for _ in origins)
+            cursor = await self.db.execute(
+                f"SELECT MAX(created_at) AS m FROM graph_facts "
+                f"WHERE chat_id = ? AND origin IN ({placeholders})",
+                (int(chat_id), *origins))
+            row = await cursor.fetchone()
+            if row is not None and row["m"] is not None:
+                best = int(row["m"])
+        except Exception:
+            pass
+        try:
+            cursor = await self.db.execute(
+                "SELECT MAX(discovered_at) AS m FROM mca_episodes "
+                "WHERE chat_id = ?", (int(chat_id),))
+            row = await cursor.fetchone()
+            if row is not None and row["m"] is not None:
+                best = max(best, int(row["m"])) if best is not None \
+                    else int(row["m"])
+        except Exception:
+            pass
+        return best
+
 
     async def count_paradigms(self, chat_id: int | None = None) -> int:
         """Число парадигм глубокого сна (kind='belief' + маркер

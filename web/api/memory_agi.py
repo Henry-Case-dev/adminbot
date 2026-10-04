@@ -45,6 +45,7 @@ from pydantic import BaseModel, Field
 from config.settings import settings
 from services import hot_config as hot
 from services import lore_runtime
+from services import mca_gates
 from services.worker_settings import (
     resolve_setting_cached,
     resolve_setting_with_source,
@@ -399,7 +400,32 @@ async def dream_beliefs(
     return [_belief_out(r) for r in rows]
 
 
-# ── GET /api/memory/health (F2/T-1430, spec §3): телеметрия убеждений ───────
+# ── GET /api/memory/dream/chain (mca-06 T-4718, spec §8.2, A14) ─────────────
+
+@memory_router.get("/memory/dream/chain")
+async def dream_chain(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    fact_id: Annotated[int, Query(ge=1)],
+    chat_id: Annotated[int | None, Query()] = None,
+):
+    """Read-only раскрытие цепочки парадигмы (A14, spec §8.2): парадигма →
+    основания/якоря → факты/эпизоды → сообщения `(chat_id, tg_message_id)`
+    mca-03 + delta «старый → новый вывод».
+
+    Extension существующего `/api/memory/dream*` (второй API не создаётся).
+    REUSE provenance v17. Fail-open: ошибка чтения → пустая цепочка, не 500."""
+    _require_global_admin(request, user)
+    db = _db_or_503()
+    from services import mca_dream_evidence as _evidence
+    try:
+        return await _evidence.expand_chain(
+            db, chat_id=chat_id, fact_id=int(fact_id))
+    except Exception:
+        logger.warning("[memory_api] dream chain failed — fail-open",
+                       exc_info=True)
+        return {"chat_id": chat_id, "fact_id": int(fact_id), "anchors": [],
+                "messages": [], "delta": None, "truncated": False}
 
 @memory_router.get("/memory/health")
 async def memory_health_summary(
@@ -506,6 +532,8 @@ _DEEP_REASON_MAP = {
     "duplicate": "duplicate",
     "error": "error",
     "ok": "ok",
+    "written": "ok",
+    "insufficient_evidence": "insufficient_evidence",
     "disabled": "master_off",
 }
 
@@ -540,6 +568,7 @@ async def deep_sleep_status(
     Fail-open: ошибка БД → пустой ответ (не 500)."""
     _require_global_admin(request, user)
     db = _db_or_503()
+    counters_error = False
     try:
         paradigms = [dict(r) for r in await db.list_recent_beliefs(
             chat_id=chat_id, limit=50, belief_type="paradigm")]
@@ -547,6 +576,7 @@ async def deep_sleep_status(
         logger.warning("[memory_api] deep-sleep paradigms failed — пусто",
                        exc_info=True)
         paradigms = []
+        counters_error = True
     # F8/review F2+F3 (R16): ВСЕ поля ответа скоупятся по `chat_id` (None →
     # глобально), как и список `paradigms[]`. Иначе причина последнего прогона
     # и счётчики брались бы у чужого чата, а `paradigms_total` расходился с
@@ -562,6 +592,7 @@ async def deep_sleep_status(
         logger.warning("[memory_api] deep-sleep counters failed — нули",
                        exc_info=True)
         total, last_run, runs_total, log = 0, None, 0, []
+        counters_error = True
     deep_log = [r for r in log
                 if str(r.get("kind") or "") in ("deep_run", "deep_skip")]
     deep_enabled, deep_source = await resolve_setting_with_source(
@@ -574,16 +605,44 @@ async def deep_sleep_status(
             default=settings.DREAM_ENABLED))
     except Exception:
         master_enabled = bool(settings.DREAM_ENABLED)
+    # ── mca-06 T-4705 (ADR-1028-9 D2, spec §3.4, О2): master/deep причины
+    # разъединены; ошибка чтения счётчиков → `counters_error` (не нули, не
+    # `disabled`); причина — код resolver'а. Kill-switch OFF → точный прежний
+    # код 2.58.48 (`master_off`-обобщённость, нули-при-ошибке).
+    # Регресс round1024: при отсутствии/недоступности memory service
+    # (`worker is None` или `worker.memory is None` — ср. bot.py:669) resolver'ский
+    # `memory_service_missing` НЕ подменяет статус-эндпоинт: отдаём прежнюю
+    # (2.58.48) причину по master/deep-флагам и логу. §3.4-семантика (точный
+    # код resolver'а) действует, когда memory service реально доступен.
+    resolver_on = mca_gates.dream_gate_resolver_enabled()
+    worker = lore_runtime.get_dream_worker()
+    service_available = (worker is not None
+                         and getattr(worker, "memory", None) is not None)
+    gate_state = None
+    if resolver_on and service_available:
+        try:
+            gate_state = await mca_gates.resolve_dream_gate(
+                db, chat_id, worker=worker, include_master=True)
+        except Exception:
+            logger.warning("[memory_api] dream gate resolver failed",
+                           exc_info=True)
+            gate_state = None
     if paradigms:
         paradigms_status, paradigms_reason = "ok", "ok"
-    elif not master_enabled or not bool(deep_enabled):
-        # Мастер-гейты OFF (DREAM_ENABLED/DEEP_SLEEP_ENABLED) — данных нет до
-        # включения владельцем (ADR-1024-5 Context п.3).
+    elif counters_error and resolver_on and service_available:
+        # A91/THR-12: сбой чтения ≠ пустой пул; не маскируем нулями.
+        paradigms_status, paradigms_reason = "empty", "counters_error"
+    elif gate_state is not None and gate_state.blocked:
+        paradigms_status, paradigms_reason = "empty", str(gate_state.reason)
+    elif (not resolver_on or not service_available) and (
+            not master_enabled or not bool(deep_enabled)):
+        # OFF-паритет 2.58.48 (+ отсутствие memory service): мастер-гейты OFF
+        # (DREAM_ENABLED/DEEP_SLEEP_ENABLED) — данных нет до включения.
         paradigms_status, paradigms_reason = "empty", "master_off"
     else:
         paradigms_status = "empty"
         paradigms_reason = _last_deep_reason(deep_log) or "empty"
-    return {
+    response = {
         "enabled": bool(deep_enabled),
         "source": deep_source,
         "paradigms_total": int(total),
@@ -596,6 +655,20 @@ async def deep_sleep_status(
         "master_enabled": master_enabled,
         "log": [_dream_log_out(r) for r in deep_log],
     }
+    if resolver_on and service_available:
+        # T-4705/T-4706: counters_error + карточка состояния сна
+        # (global/override/effective/source + конкретный detail) — аддитивно.
+        # Только при доступном memory service (иначе OFF-паритет round1024).
+        response["counters_error"] = bool(counters_error)
+        if gate_state is not None:
+            response["gate"] = gate_state.gate
+            response["gate_blocked"] = bool(gate_state.blocked)
+            response["global_value"] = bool(gate_state.global_value)
+            response["chat_override"] = gate_state.chat_override
+            response["effective"] = bool(gate_state.effective)
+            response["gate_source"] = gate_state.source
+            response["detail"] = gate_state.detail
+    return response
 
 
 # ── GET /api/memory/cognition/status (F5/T-1449, spec §3.2) ─────────────────

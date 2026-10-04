@@ -160,6 +160,21 @@ _register_pipeline(PipelineVersion(
     ),
 ))
 
+# `sleep.deep` — ночной глубокий сон (mca-06, ADR-1028-9 D11): стадии
+# «собрать пакет → якоря/мост → LLM → запись парадигм». LLM-стадия допускает
+# законную длительность (progress-stall по типу, §8.5).
+_register_pipeline(PipelineVersion(
+    pipeline_type="sleep.deep",
+    version="1",
+    stages=(
+        PipelineStageSpec("queued", required=True),
+        PipelineStageSpec("collect", required=True),
+        PipelineStageSpec("anchors", required=True),
+        PipelineStageSpec("bridge", required=True, stage_type="llm"),
+        PipelineStageSpec("write", required=True),
+    ),
+))
+
 
 def get_pipeline(pipeline_type: str, version: str | None = None
                  ) -> PipelineVersion | None:
@@ -418,14 +433,22 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         process_id="sleep.deep", version="1",
         purpose="Глубокий сон: парадигмы/самоосмысление",
         inputs=("graph_facts",), outputs=("paradigms",),
-        stages=("collect", "deep", "persist"),
+        stages=("collect", "anchors", "bridge", "write"),
         trigger_kind="schedule",
-        settings_ref=("DEEP_SLEEP_ENABLED",),
-        state_source=("task_jobs",),
+        settings_ref=("DEEP_SLEEP_ENABLED", "MCA_DREAM_RUN_REPORTS_ENABLED"),
+        state_source=("mca_pipeline_runs", "memory_dream_log"),
         recovery_ops=("resume_job",),
         widget_id="Глубокий сон/парадигмы",
+        stages_to_events={"collect": "DREAM_DEEP_RUN",
+                          "anchors": "DREAM_DEEP_RUN",
+                          "bridge": "DREAM_DEEP_RUN",
+                          "write": "DREAM_DEEP_RUN"},
+        instrumentation=("collect", "anchors", "bridge", "write"),
         owner_feature="dream", enabled_gate="DEEP_SLEEP_ENABLED",
-        note="инструментирование mca_events не подключено",
+        event_names=("DREAM_DEEP_RUN",),
+        note="mca-06 (ADR-1028-9 D11): run-строка на каждый запуск + "
+             "span-события стадий (v19/v25); OFF `MCA_DREAM_RUN_REPORTS_ENABLED` "
+             "→ только `_trace_deep`/лог, реестр честный `not_run`",
     ),
     ProcessDefinition(
         process_id="persona.traits", version="1",

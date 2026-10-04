@@ -16,7 +16,13 @@
 """
 from __future__ import annotations
 
+import dataclasses
+import time
+
 from config.settings import settings
+
+# Sentinel: `memory` не передан → вывести из `worker.memory` (или None).
+_UNSET = object()
 
 # Реестр kill-switch'ей волны 0 (mca-14 / mca-01). Используется тестами
 # политики (T-3759/T-3747) и release-manifest'ом: имя → (default, OFF-паритет).
@@ -215,6 +221,37 @@ KILL_SWITCHES: dict[str, tuple[bool, str]] = {
         "текущее поведение: update-dedup/no-replay/duplicate guard/"
         "freshness retry/lineage-события неактивны; legacy text-dedup живёт "
         "под собственной политикой `MCA_CONTEXT_ANSWER_CACHE_ENABLED`",
+    ),
+    # ── mca-06 (ADR-1028-9 D1–D12) — sleep paradigms: 7 env-only рубильников ──
+    # Послойный OFF = бит-в-бит 2.58.48 (soft-откат). Блоки B–H.
+    "MCA_DREAM_GATE_RESOLVER_ENABLED": (
+        True,
+        "прежние ветки disabled/`master_off`-обобщённость, нули-при-ошибке "
+        "счётчиков (точный код 2.58.48; §3)",
+    ),
+    "MCA_DREAM_HISTORICAL_PROFILE_ENABLED": (
+        True,
+        "прежний порядок `get_rag_facts` → top_k → возраст (`:1577–1590`; §4)",
+    ),
+    "MCA_DREAM_EVIDENCE_TYPING_ENABLED": (
+        True,
+        "прежние `source_ids`-only + `min_anchors=2` по числу якорей (§5, §8.1)",
+    ),
+    "MCA_DREAM_QUOTAS_SPLIT_ENABLED": (
+        True,
+        "прежний глобальный `count_deep_attempts` + общий cooldown (§6)",
+    ),
+    "MCA_DREAM_RUN_REPORTS_ENABLED": (
+        True,
+        "только прежний `_trace_deep`/лог; реестр — честный `not_run` (§7.2)",
+    ),
+    "MCA_DREAM_REVISION_QUEUE_ENABLED": (
+        True,
+        "пересмотр зависимых выводов не запускается (§8.4)",
+    ),
+    "MCA_DREAM_RANDOM_EXPLORE_ENABLED": (
+        True,
+        "исследование случайных периодов не выполняется (§8.7)",
     ),
 }
 
@@ -697,3 +734,384 @@ def terminal_event_retention_days() -> int:
                                   90)))
     except Exception:      # pragma: no cover - защитная ветка
         return 90
+
+
+# ── mca-06 (ADR-1028-9): kill-switch'и + единый gate-resolver сна ──────────
+# Один resolver на 4 потребителя (scheduler / ручной запуск / worker / UI);
+# 8 различимых причин; фиксированный порядок §3.2; resolver информационный —
+# нового human gate не создаёт. Второй резолвер запрещён.
+
+def dream_gate_resolver_enabled() -> bool:
+    """`MCA_DREAM_GATE_RESOLVER_ENABLED` (env-only, default ON; §3)."""
+    return bool(getattr(settings, "MCA_DREAM_GATE_RESOLVER_ENABLED", True))
+
+
+def dream_historical_profile_enabled() -> bool:
+    """`MCA_DREAM_HISTORICAL_PROFILE_ENABLED` (env-only, default ON; §4)."""
+    return bool(getattr(settings, "MCA_DREAM_HISTORICAL_PROFILE_ENABLED", True))
+
+
+def dream_evidence_typing_enabled() -> bool:
+    """`MCA_DREAM_EVIDENCE_TYPING_ENABLED` (env-only, default ON; §5/§8.1)."""
+    return bool(getattr(settings, "MCA_DREAM_EVIDENCE_TYPING_ENABLED", True))
+
+
+def dream_quotas_split_enabled() -> bool:
+    """`MCA_DREAM_QUOTAS_SPLIT_ENABLED` (env-only, default ON; §6)."""
+    return bool(getattr(settings, "MCA_DREAM_QUOTAS_SPLIT_ENABLED", True))
+
+
+def dream_run_reports_enabled() -> bool:
+    """`MCA_DREAM_RUN_REPORTS_ENABLED` (env-only, default ON; §7.2)."""
+    return bool(getattr(settings, "MCA_DREAM_RUN_REPORTS_ENABLED", True))
+
+
+def dream_revision_queue_enabled() -> bool:
+    """`MCA_DREAM_REVISION_QUEUE_ENABLED` (env-only, default ON; §8.4)."""
+    return bool(getattr(settings, "MCA_DREAM_REVISION_QUEUE_ENABLED", True))
+
+
+def dream_revision_queue_cap() -> int:
+    """Cap очереди пересмотра за цикл (env-only, default 20; §8.4)."""
+    return _int_setting_min("MCA_DREAM_REVISION_QUEUE_CAP", 20, 1)
+
+
+def dream_random_explore_enabled() -> bool:
+    """`MCA_DREAM_RANDOM_EXPLORE_ENABLED` (env-only, default ON; §8.7)."""
+    return bool(getattr(settings, "MCA_DREAM_RANDOM_EXPLORE_ENABLED", True))
+
+
+def _int_setting_min(name: str, default: int, minimum: int = 1) -> int:
+    """env-only int с нижней границей (никогда не бросает)."""
+    try:
+        return max(minimum, int(getattr(settings, name, default)))
+    except Exception:      # pragma: no cover - защитная ветка
+        return default
+
+
+def dream_historical_prelimit_factor() -> int:
+    """Pre-limit профиля = factor × top_k (≥4 по spec §4.2; env-only)."""
+    return _int_setting_min("MCA_DREAM_HISTORICAL_PRELIMIT_FACTOR", 4, 4)
+
+
+def dream_max_topic_packets() -> int:
+    """Bound числа тематических пакетов за прогон (env-only, default 3)."""
+    return _int_setting_min("MCA_DREAM_MAX_TOPIC_PACKETS", 3, 1)
+
+
+def dream_enrich_max_rounds() -> int:
+    """Bound раундов resumable enrichment (env-only, default 2)."""
+    return _int_setting_min("MCA_DREAM_ENRICH_MAX_ROUNDS", 2, 1)
+
+
+def dream_enrich_batch_messages() -> int:
+    """Размер порции enrichment в сообщениях (env-only, default 50)."""
+    return _int_setting_min("MCA_DREAM_ENRICH_BATCH_MESSAGES", 50, 1)
+
+
+def dream_backoff_seconds(streak: int) -> int:
+    """Ограниченный экспоненциальный backoff ошибок (§6.2/§4.4).
+
+    base × 2^(streak-1), cap; streak<1 → base. Никогда не бросает."""
+    base = _int_setting_min("MCA_DREAM_BACKOFF_BASE_SECONDS", 3600, 1)
+    cap = _int_setting_min("MCA_DREAM_BACKOFF_CAP_SECONDS", 86400, 1)
+    try:
+        n = max(0, int(streak) - 1)
+        return int(min(cap, base * (2 ** min(n, 20))))
+    except Exception:      # pragma: no cover - защитная ветка
+        return base
+
+
+def dream_per_chat_attempts_limit() -> int:
+    """Суточный per-chat лимит стоимостных попыток (env-only, default 1)."""
+    return _int_setting_min("MCA_DREAM_PER_CHAT_ATTEMPTS_LIMIT", 1, 1)
+
+
+def dream_global_attempts_limit() -> int:
+    """Глобальный суточный лимит попыток — защита ресурсов (default 30)."""
+    return _int_setting_min("MCA_DREAM_GLOBAL_ATTEMPTS_LIMIT", 30, 1)
+
+
+# Восемь различимых причин gate'а (spec §3.3).
+DREAM_GATE_REASONS = (
+    "master_sleep_off", "deep_sleep_off", "rag_off",
+    "memory_service_missing", "schedule_outside_window",
+    "queue_busy", "cooldown", "resource_limit",
+)
+
+
+@dataclasses.dataclass(frozen=True)
+class DreamGateState:
+    """Единый ответ resolver'а сна (spec §3.1, D6).
+
+    `blocked=False` → `gate='none'`, `reason=None`, `effective=True`."""
+    gate: str
+    blocked: bool
+    reason: str | None
+    global_value: bool
+    chat_override: bool | None
+    effective: bool
+    source: str
+    detail: str | None
+
+    def as_dict(self) -> dict:
+        return {
+            "gate": self.gate,
+            "blocked": bool(self.blocked),
+            "reason": self.reason,
+            "global_value": bool(self.global_value),
+            "chat_override": self.chat_override,
+            "effective": bool(self.effective),
+            "source": self.source,
+            "detail": self.detail,
+        }
+
+
+async def _dream_setting_layer(key: str, chat_id: int | None, default):
+    """(effective, global, chat_override, source, read_error) для одного ключа.
+
+    `chat_override` = bool(value) если source=='chat', иначе None. Читает через
+    `resolve_setting_with_source` (никогда не бросает — fail-open 'error')."""
+    from services.worker_settings import resolve_setting_with_source
+    try:
+        eff, src = await resolve_setting_with_source(
+            key, chat_id=chat_id, default=default)
+    except Exception:      # pragma: no cover - защитная ветка
+        return bool(default), bool(default), None, "error", True
+    err = str(src) == "error"
+    override = None
+    gv = eff
+    if str(src) == "chat":
+        override = bool(eff)
+        try:
+            gv, _ = await resolve_setting_with_source(
+                key, chat_id=None, default=default)
+        except Exception:      # pragma: no cover - защитная ветка
+            gv = eff
+    return bool(eff), bool(gv), override, str(src), err
+
+
+def _blocked(gate: str, reason: str, *, global_value: bool = False,
+             chat_override: bool | None = None, effective: bool = False,
+             source: str = "default", detail: str | None = None
+             ) -> DreamGateState:
+    return DreamGateState(gate=gate, blocked=True, reason=reason,
+                          global_value=bool(global_value),
+                          chat_override=chat_override,
+                          effective=bool(effective), source=source,
+                          detail=detail)
+
+
+def _unblocked() -> DreamGateState:
+    return DreamGateState(gate="none", blocked=False, reason=None,
+                          global_value=True, chat_override=None,
+                          effective=True, source="default", detail=None)
+
+
+async def _schedule_gate(chat_id: int | None, now: int,
+                         worker=None) -> DreamGateState | None:
+    """Gate 5: вне расписания/окна сна. `after_sleep` всегда открыт (запуск
+    по завершении обычного сна); `fixed` — только в свой local-час."""
+    from services.worker_settings import resolve_setting_cached
+    try:
+        trigger = str(await resolve_setting_cached(
+            "memory.deep_sleep_trigger", chat_id=chat_id,
+            default=settings.DEEP_SLEEP_TRIGGER) or "after_sleep")
+    except Exception:      # pragma: no cover - fail-open
+        return None
+    if trigger != "fixed":
+        return None
+    try:
+        target = int(await resolve_setting_cached(
+            "memory.deep_sleep_hour", chat_id=chat_id,
+            default=settings.DEEP_SLEEP_HOUR) or 7)
+    except Exception:      # pragma: no cover - fail-open
+        return None
+    tz = None
+    if worker is not None:
+        tz = getattr(worker, "_deep_tz_name", None)
+    tz = tz or getattr(settings, "WORKER_BUDGET_TZ", "UTC")
+    try:
+        from services.dream_worker import _local_hour
+        hour = int(_local_hour(now, tz))
+    except Exception:      # pragma: no cover - защитная ветка
+        return None
+    if hour != target:
+        return _blocked(
+            "schedule", "schedule_outside_window", global_value=True,
+            effective=False, source="default",
+            detail=(f"memory.deep_sleep_trigger=fixed, "
+                    f"memory.deep_sleep_hour={target}, now_hour={hour}"))
+    return None
+
+
+async def _cooldown_gate(db, chat_id: int | None, now: int) -> DreamGateState | None:
+    """Gate 7: cooldown завершённого прогона/попытки (per-chat).
+
+    Ошибка чтения НЕ глотается — вызывающий (worker) уходит в legacy-ветку
+    fail-safe `cooldown_read` (паритет безопасности 2.58.48)."""
+    if db is None or chat_id is None:
+        return None
+    # Gate 7a: ограниченный экспоненциальный backoff ошибок (T-4724, §6.2).
+    # Причина та же (`cooldown`), но `detail` различим (`backoff`), не
+    # склеивается с обычным cooldown. Сброс — новые dream-данные после
+    # последней ошибки; окно пересчитывается из текущих env-настроек.
+    if dream_quotas_split_enabled():
+        last_err = None
+        streak = 0
+        try:
+            last_err, streak = await db.deep_error_state(chat_id)
+        except Exception:      # pragma: no cover - защитная ветка
+            last_err = None
+        if last_err is not None:
+            window = dream_backoff_seconds(streak or 1)
+            if (int(now) - int(last_err)) < int(window):
+                new_data = None
+                try:
+                    new_data = await db.latest_dream_data_ts(chat_id)
+                except Exception:      # pragma: no cover - защитная ветка
+                    new_data = None
+                if new_data is None or int(new_data) <= int(last_err):
+                    return _blocked(
+                        "cooldown", "cooldown", global_value=True,
+                        effective=False, source="runtime",
+                        detail=(f"backoff: streak={streak}, "
+                                f"last_error={int(last_err)}, "
+                                f"window={int(window)}s"))
+    last = await db.last_deep_attempt(chat_id)
+    if last is None:
+        return None
+    from services import dream_worker as _dw
+    cooldown_h = _dw._hot_number(
+        "memory.deep_sleep_min_interval_hours",
+        _dw._DEEP_SLEEP_MIN_INTERVAL_HOURS, int)
+    if (int(now) - int(last)) < int(cooldown_h) * 3600:
+        return _blocked(
+            "cooldown", "cooldown", global_value=True, effective=False,
+            source="runtime",
+            detail=(f"memory.deep_sleep_min_interval_hours={cooldown_h}, "
+                    f"last_attempt={int(last)}"))
+    return None
+
+
+async def _resource_gate(db, chat_id: int | None, now: int) -> DreamGateState | None:
+    """Gate 8: суточный лимит стоимостных попыток (T-4723, §6.1, D9/О3).
+
+    Двухуровнево при `MCA_DREAM_QUOTAS_SPLIT_ENABLED` ON:
+      * per-chat доступность — `count_deep_attempts(chat_id=…)` ×
+        `MCA_DREAM_PER_CHAT_ATTEMPTS_LIMIT`;
+      * глобальная защита — глобальный `count_deep_attempts` ×
+        `MCA_DREAM_GLOBAL_ATTEMPTS_LIMIT` (сохраняется, не снимается).
+    Обе причины `resource_limit`, `detail` различает per-chat/глобальный.
+    OFF → прежний глобальный путь (`MCA_DREAM_DAILY_ATTEMPTS_LIMIT`, default 1,
+    паритет 2.58.48). Ошибка чтения НЕ глотается — вызывающий уходит в legacy
+    fail-safe."""
+    if db is None:
+        return None
+    from services.dream_worker import _day_start_ts
+    tz = getattr(settings, "WORKER_BUDGET_TZ", "UTC")
+    day_start = _day_start_ts(now, tz)
+    if dream_quotas_split_enabled() and chat_id is not None:
+        used_chat = await db.count_deep_attempts(day_start, chat_id=chat_id)
+        limit_chat = dream_per_chat_attempts_limit()
+        if int(used_chat) >= int(limit_chat):
+            return _blocked(
+                "resource", "resource_limit", global_value=True,
+                effective=False, source="runtime",
+                detail=(f"per-chat daily deep attempts: used={used_chat}, "
+                        f"limit={limit_chat}, chat_id={int(chat_id)}"))
+        limit_global = dream_global_attempts_limit()
+    else:
+        limit_global = _int_setting_min("MCA_DREAM_DAILY_ATTEMPTS_LIMIT", 1, 1)
+    used = await db.count_deep_attempts(day_start)
+    if int(used) >= int(limit_global):
+        return _blocked(
+            "resource", "resource_limit", global_value=True,
+            effective=False, source="runtime",
+            detail=f"global daily deep attempts: used={used}, limit={limit_global}")
+    return None
+
+
+async def resolve_dream_gate(db, chat_id: int | None, *, memory=_UNSET,
+                             worker=None, now: int | None = None,
+                             manual: bool = False, inside_run: bool = False,
+                             include_master: bool = True,
+                             include_deep: bool = True,
+                             queue_busy: bool | None = None) -> DreamGateState:
+    """Единый effective-config/gate ответ для сна (spec §3.1–3.3, D1).
+
+    Порядок фиксирован (§3.2): memory_service_missing → master_sleep_off →
+    deep_sleep_off → rag_off → schedule_outside_window → queue_busy →
+    cooldown → resource_limit. Первый сработавший gate — возвращаемая причина.
+
+    `include_master=False` — deep-контур (у глубокого сна собственный гейт
+    `flags.deep_sleep_enabled`; ordinary-sleep master не блокирует deep).
+    `manual=True` — ручной диагностический запуск: schedule/queue/cooldown/
+    resource не блокируют (паритет прежнего `if not manual`).
+    `inside_run=True` — вызов из уже удерживаемого прогона (queue-гейт не
+    проверяется — иначе self-deadlock)."""
+    if now is None:
+        now = int(time.time())
+    if memory is _UNSET:
+        memory = getattr(worker, "memory", None)
+    # 1. memory_service_missing
+    if memory is None:
+        return _blocked(
+            "memory_service", "memory_service_missing", source="runtime",
+            detail="DreamWorker.memory is None (сервис памяти не подключён)")
+    # 2. master_sleep_off
+    if include_master:
+        eff, gv, ov, src, err = await _dream_setting_layer(
+            "memory.dream_enabled", chat_id, settings.DREAM_ENABLED)
+        if not eff:
+            return _blocked(
+                "master_sleep", "master_sleep_off", global_value=gv,
+                chat_override=ov, effective=eff, source=src,
+                detail=(f"memory.dream_enabled={eff} (source={src}"
+                        + ("; config read failed" if err else "") + ")"))
+    # 3. deep_sleep_off
+    if include_deep:
+        eff, gv, ov, src, err = await _dream_setting_layer(
+            "flags.deep_sleep_enabled", chat_id, settings.DEEP_SLEEP_ENABLED)
+        if not eff:
+            return _blocked(
+                "deep_sleep", "deep_sleep_off", global_value=gv,
+                chat_override=ov, effective=eff, source=src,
+                detail=(f"flags.deep_sleep_enabled={eff} (source={src}"
+                        + ("; config read failed" if err else "") + ")"))
+    # 4. rag_off
+    eff, gv, ov, src, err = await _dream_setting_layer(
+        "flags.graph_rag_enabled", chat_id, settings.GRAPH_RAG_ENABLED)
+    if not eff:
+        return _blocked(
+            "rag", "rag_off", global_value=gv, chat_override=ov,
+            effective=eff, source=src,
+            detail=(f"flags.graph_rag_enabled={eff} (source={src}"
+                    + ("; config read failed" if err else "") + ")"))
+    # 5. schedule_outside_window
+    if not manual:
+        sched = await _schedule_gate(chat_id, now, worker)
+        if sched is not None:
+            return sched
+    # 6. queue_busy
+    if not manual and not inside_run:
+        busy = queue_busy
+        if busy is None and worker is not None:
+            lock = getattr(worker, "_deep_lock", None)
+            busy = bool(getattr(worker, "deep_running", False)
+                        or (lock is not None and lock.locked()))
+        if busy:
+            return _blocked(
+                "queue", "queue_busy", source="runtime",
+                detail="конкурирующий глубокий прогон уже выполняется")
+    # 7. cooldown
+    if not manual:
+        cd = await _cooldown_gate(db, chat_id, now)
+        if cd is not None:
+            return cd
+    # 8. resource_limit
+    if not manual:
+        res = await _resource_gate(db, chat_id, now)
+        if res is not None:
+            return res
+    return _unblocked()

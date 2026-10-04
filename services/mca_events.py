@@ -201,6 +201,18 @@ REASON_CODES = frozenset({
     # отказ слать oversized payload в меньший fallback.
     "execution_deadline_exceeded", "retry_time_budget_exhausted",
     "provider_stalled", "fallback_capacity_smaller",
+    # расширение mca-06/10.33 (sleep paradigms: единый gate-resolver, 8 причин
+    # §3.3 + counters_error §3.4 + исторический профиль/возраст/enrichment §4;
+    # ADR-1028-9 D1/D2/D3; §17.2 расширяемый). Словарь один — второй не
+    # создаётся; `_DEEP_REASON_MAP` не дублируется.
+    "master_sleep_off", "deep_sleep_off", "rag_off",
+    "memory_service_missing", "schedule_outside_window", "queue_busy",
+    "cooldown", "resource_limit", "counters_error",
+    "missing_timestamp", "enrichment_paused", "enrichment_completed",
+    "history_fts_fallback", "history_profile_empty",
+    # расширение mca-06/блоки F+G (T-4724/T-4725): backoff ошибок ≠ cooldown
+    # (различимая причина в detail/отчёте) и anti-race manual-прогона.
+    "backoff", "manual_recheck",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────

@@ -204,12 +204,16 @@ class TestMigrationV21:
 # ASAP 4.1 (T-4603, ADR-1028-8 D1): хвост реестра — v24
 # (summary_source_windows) — mark обновлён по конвенции волн (прецедент
 # v22→v23).
+# mca-06 (ADR-1028-9 D5): хвост реестра — v25 (mca_pipeline_runs:
+# chat_id/report_json + индекс) — mark обновлён по конвенции волн
+# (прецедент v24→v25).
 from services.database import (  # noqa: E402
     _SCHEMA_VERSION_BOT_OUTPUTS as _SCHEMA_VERSION_TAIL_V22,
     _SCHEMA_VERSION_EMBEDDING_CONTROL_PLANE as _SCHEMA_VERSION_TAIL_V23,
     _SCHEMA_VERSION_SUMMARY_SOURCE_WINDOW as _SCHEMA_VERSION_TAIL_V24,
+    _SCHEMA_VERSION_DREAM_RUNS as _SCHEMA_VERSION_TAIL_V25,
 )
-_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V24
+_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V25
 
 
 # ═══ Kill-switch OFF-паритет (SC-20, T-4249) ═════════════════════════════════

@@ -21,7 +21,7 @@ import time
 import pytest
 
 from config.settings import Settings
-from services.database import DatabaseService
+from services.database import DatabaseService, _SCHEMA_VERSION_DREAM_RUNS
 from services import summary_run_store as srs
 
 pytestmark = pytest.mark.asap41
@@ -48,7 +48,10 @@ async def _fresh(tmp_path, name="runs.db") -> DatabaseService:
 async def test_v24_migration_fresh_db_three_tables(tmp_path):
     d = await _fresh(tmp_path, "fresh.db")
     cursor = await d.db.execute("PRAGMA user_version")
-    assert int((await cursor.fetchone())[0]) == 24
+    # mca-06 (ADR-1028-9 D5): хвост реестра — v25 (mca_pipeline_runs:
+    # chat_id/report_json + индекс); fresh init доводит user_version до
+    # актуального конца реестра (v24-таблицы созданы ранее в цепочке).
+    assert int((await cursor.fetchone())[0]) == _SCHEMA_VERSION_DREAM_RUNS
     names = set()
     cursor = await d.db.execute(
         "SELECT name FROM sqlite_master WHERE type='table'")

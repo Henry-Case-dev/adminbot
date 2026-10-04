@@ -23,7 +23,7 @@ import time
 import pytest
 
 from config.settings import Settings
-from services.database import DatabaseService
+from services.database import DatabaseService, _SCHEMA_VERSION_DREAM_RUNS
 from services import summary_source_window as ssw
 
 pytestmark = pytest.mark.asap41
@@ -133,7 +133,9 @@ async def test_v24_migration_fresh_db(tmp_path):
     d = await _fresh(tmp_path)
     try:
         cur = await d.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 24
+        # mca-06 (ADR-1028-9 D5): хвост реестра — v25; fresh init доводит до
+        # актуального конца реестра (v24-таблица создана ранее в цепочке).
+        assert (await cur.fetchone())[0] == _SCHEMA_VERSION_DREAM_RUNS
         cur = await d.db.execute(
             "SELECT name FROM sqlite_master WHERE type='table' "
             "AND name='summary_source_windows'")

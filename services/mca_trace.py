@@ -283,11 +283,13 @@ async def start_run(db, *, pipeline_type: str, version: str = "1",
                     span_id: str | None = None,
                     causation_id: str | None = None,
                     job_id: str | None = None,
-                    attempt_id: str | None = None) -> str | None:
+                    attempt_id: str | None = None,
+                    chat_id: int | None = None) -> str | None:
     """Открыть durable run (`running`), вернуть `pipeline_run_id`.
 
-    Fail-open: ошибка БД не рвёт поток (возвращает `run_id` для логов, но записи
-    может не быть)."""
+    `chat_id` (mca-06 T-4726/T-4727, v25-колонка) — пер-чат прогоны сна
+    (NULL = глобальный run). Fail-open: ошибка БД не рвёт поток (возвращает
+    `run_id` для логов, но записи может не быть)."""
     if not mca_gates.job_lifecycle_enabled():
         return None
     rid = run_id or new_run_id()
@@ -298,7 +300,7 @@ async def start_run(db, *, pipeline_type: str, version: str = "1",
             await db.write_transaction(
                 lambda conn: _insert_run(conn, rid, pipeline_type, version,
                                          root_job_id, deadline_at,
-                                         config_version, now),
+                                         config_version, now, chat_id),
                 op_name="mca_pipeline_run_start")
         except Exception:
             logger.warning("[mca_trace] run start persist failed | run=%s",
@@ -314,15 +316,38 @@ async def start_run(db, *, pipeline_type: str, version: str = "1",
 
 
 async def _insert_run(conn, rid, pipeline_type, version, root_job_id,
-                      deadline_at, config_version, now):
+                      deadline_at, config_version, now, chat_id=None):
     await conn.execute(
         "INSERT OR REPLACE INTO mca_pipeline_runs (pipeline_run_id, "
         "pipeline_type, pipeline_version, root_job_id, status, reason_code, "
         "started_at, finished_at, heartbeat_at, progress_at, deadline_at, "
-        "checkpoint_ref, config_version, created_at, updated_at) VALUES "
-        "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "checkpoint_ref, config_version, created_at, updated_at, chat_id) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (rid, pipeline_type, version, root_job_id, RUN_RUNNING, None, now,
-         None, now, now, deadline_at, None, config_version, now, now))
+         None, now, now, deadline_at, None, config_version, now, now, chat_id))
+
+
+async def set_run_report(db, run_id: str, report_json: str | None) -> bool:
+    """Записать bounded R17-safe отчёт прогона в run-строку (v25); fail-open.
+
+    НЕ дублирует span-события (`mca_events`) — только агрегаты §7.2."""
+    if db is None or not run_id or not mca_gates.job_lifecycle_enabled():
+        return False
+    now = utc_now()
+
+    async def _body(conn):
+        cursor = await conn.execute(
+            "UPDATE mca_pipeline_runs SET report_json = ?, updated_at = ? "
+            "WHERE pipeline_run_id = ?", (report_json, now, run_id))
+        return cursor.rowcount
+
+    try:
+        return bool(await db.write_transaction(
+            _body, op_name="mca_pipeline_run_report"))
+    except Exception:
+        logger.debug("[mca_trace] run report write failed", exc_info=True)
+        return False
+
 
 
 async def touch_run(db, run_id: str, *, progress: bool = False,

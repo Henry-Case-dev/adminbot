@@ -1830,6 +1830,12 @@
         // статусы/причины пустоты лент для пояснительного Empty State.
         cognitionParadigmsStatus: null,   // ok|empty (deep-sleep)
         cognitionParadigmsReason: null,   // код причины (R17-safe)
+        // mca-06 T-4706: карточка состояния сна — конкретный диагноз resolver'а
+        // (имя ключа/лимита; R17-safe) + effective/source.
+        cognitionParadigmsDetail: null,
+        cognitionGate: null,
+        cognitionGateSource: null,
+        cognitionGateEffective: null,
         cognitionTraitsStatus: null,      // ok|empty|skip|error|never
         cognitionTraitsReason: null,      // код причины (R17-safe)
         cognitionSelfFactsCount: null,    // self-факты за окно (chat-scope)
@@ -3561,8 +3567,15 @@
       // F8 (dead-extractor-paradigms-round1024, ADR-1024-5 D3/UPD3 №4):
       // пояснительный Empty State — понятная причина пустоты ленты.
       cognitionParadigmsEmptyReason: function () {
-        return this.emptyReasonLabel(
+        var base = this.emptyReasonLabel(
           this.cognitionParadigmsReason, this.cognitionParadigmsStatus);
+        // mca-06 T-4706: конкретный диагноз resolver'а (имя ключа/лимита),
+        // а не безликое «проверьте настройки». R17-safe (без сырого текста).
+        var det = this.cognitionParadigmsDetail;
+        if (det && String(det).trim() !== '') {
+          return base + ' [' + String(det) + ']';
+        }
+        return base;
       },
       cognitionTraitsEmptyReason: function () {
         return this.emptyReasonLabel(
@@ -12286,6 +12299,19 @@
           empty: 'источников пока недостаточно',
           error: 'ошибка пайплайна (причина видна в логах)',
           never: 'прогон ещё не выполнялся',
+          // mca-06 T-4705/T-4706: точные коды resolver'а (не «master_off»).
+          memory_service_missing: 'сервис памяти не подключён к воркеру сна',
+          master_sleep_off: 'мастер-рубильник памяти выключен — ' +
+            'нужно решение владельца (memory.dream_enabled)',
+          deep_sleep_off: 'глубокий сон выключен (flags.deep_sleep_enabled)',
+          rag_off: 'GraphRAG выключен — исторический поиск ' +
+            'неосуществим (flags.graph_rag_enabled)',
+          schedule_outside_window: 'вне окна расписания глубокого сна ' +
+            '(memory.deep_sleep_trigger/hour)',
+          queue_busy: 'конкурирующий прогон уже выполняется',
+          resource_limit: 'суточный лимит попыток/токенов исчерпан',
+          counters_error: 'ошибка чтения счётчиков — данные недостоверны ' +
+            '(не пустой результат)',
         };
         return map[code] || 'данных пока нет — они появятся по мере накопления';
       },
@@ -12349,9 +12375,19 @@
               (deep && deep.paradigms_status) || null;
             this.cognitionParadigmsReason =
               (deep && deep.paradigms_reason) || null;
+            // mca-06 T-4706: карточка состояния сна — диагноз + источник.
+            this.cognitionParadigmsDetail = (deep && deep.detail) || null;
+            this.cognitionGate = (deep && deep.gate) || null;
+            this.cognitionGateSource = (deep && deep.gate_source) || null;
+            this.cognitionGateEffective =
+              (deep && deep.effective != null) ? deep.effective : null;
           } catch (de) {
             this.cognitionParadigmsStatus = null;
             this.cognitionParadigmsReason = null;
+            this.cognitionParadigmsDetail = null;
+            this.cognitionGate = null;
+            this.cognitionGateSource = null;
+            this.cognitionGateEffective = null;
           }
           // F4 (persona-traits-ribbon-round1014): третья лента — «Эволюция
           // характера» из global `dynamic_traits` (GET /api/persona).

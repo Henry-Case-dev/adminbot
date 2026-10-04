@@ -63,6 +63,9 @@ from zoneinfo import ZoneInfo
 
 from config.settings import settings
 from services import hot_config as hot
+from services import mca_gates
+from services import mca_dream_evidence as mca_evidence
+from services import mca_dream_random
 from services.external_log import trace_step
 from services.worker_settings import resolve_setting_cached
 from services.database import parse_belief_meta, row_get
@@ -217,6 +220,83 @@ def _deep_result(status: str, *, paradigms: int = 0, tokens: int = 0,
             "tokens": int(tokens), "traits": int(traits)}
 
 
+def _canon_status(status: str) -> str:
+    """mca-06 T-4715: канонический 10-статусный код при evidence-typing ON.
+
+    OFF (или сбой импорта) → прежний код бит-в-бит (паритет 2.58.48)."""
+    try:
+        if mca_gates.dream_evidence_typing_enabled():
+            return mca_evidence.map_status(status)
+    except Exception:      # pragma: no cover - защитная ветка
+        pass
+    return status
+
+
+def _deep_run_outcome(status: str) -> str:
+    """Канонический статус парадигм → честный итог durable run (§27.4).
+
+    Сбой записи/RAG/LLM (`error`) → `failed`; остальные терминальные исходы
+    (включая честные скипы) → `succeeded`. `stalled` — диагностика на чтении."""
+    from services import mca_trace as _mt
+    if str(status or "") == "error":
+        return _mt.RUN_FAILED
+    return _mt.RUN_SUCCEEDED
+
+
+def _deep_report_json(report: dict, out: dict) -> str:
+    """Собрать bounded R17-safe отчёт прогона §7.2 (8 групп полей).
+
+    Только ID/счётчики/причины/диапазоны — без сырого текста сообщений;
+    списки ограничены (cap); НЕ дублирует span-события `mca_events`."""
+    report = report or {}
+    ts = [int(t) for t in (report.get("anchor_ts") or []) if t]
+    found = int(report.get("anchors_found") or 0)
+    missing = int(report.get("missing_timestamp") or 0)
+    anchors_payload = {
+        "found": found,
+        "filtered": int(report.get("anchors_filtered") or 0),
+        "independent": int(report.get("independent_events") or 0),
+        "bot_self_excluded": int(report.get("bot_self_excluded") or 0),
+        "reject_reasons": dict(list(
+            (report.get("reject_reasons") or {}).items())[:10]),
+    }
+    # T-4730 (spec §8.7): выбор материала (seed/пул/индексы) — R17-safe,
+    # только при активном исследовании; без сырого текста оснований.
+    sel_meta = report.get("selection_meta")
+    if sel_meta:
+        anchors_payload["selection"] = {
+            "source": str(sel_meta.get("source") or "")[:32],
+            "purpose": str(sel_meta.get("purpose") or "")[:64],
+            "seed": [int(x) for x in (sel_meta.get("seed") or [])][:4],
+            "k": int(sel_meta.get("k") or 0),
+            "pool": int(sel_meta.get("pool") or 0),
+            "picked": [int(x) for x in (sel_meta.get("picked") or [])][:50],
+        }
+    payload = {
+        "stages": list(report.get("stages") or [])[:20],
+        "anchors": anchors_payload,
+        "date_ranges": {"min": min(ts) if ts else None,
+                        "max": max(ts) if ts else None},
+        "llm": {"calls": int(report.get("llm_calls") or 0),
+                "tokens": int(report.get("tokens") or 0)},
+        "validation": report.get("validation") or {"bridge_ok": None},
+        "written": int(out.get("paradigms") or 0),
+        "missing_timestamp": {
+            "count": missing,
+            "share": round(missing / found, 6) if found else None,
+        },
+        "run": {
+            "pipeline_run_id": report.get("pipeline_run_id"),
+            "chat_id": int(report.get("chat_id") or 0),
+            "manual": bool(report.get("manual")),
+        },
+    }
+    try:
+        return json.dumps(payload, ensure_ascii=False)[:8000]
+    except Exception:      # pragma: no cover - защитная ветка
+        return "{}"
+
+
 def _extract_fix_enabled() -> bool:
     """F8/ADR-1024-5 D1: kill-switch декаплинга traits от paradigms.
 
@@ -315,6 +395,11 @@ class DreamWorker:
         # `_MANUAL_RUN_MARKER_SECONDS` (15 мин) не теряет `manual` до своего
         # конца: `manual_deep_active` = флаг ИЛИ TTL-маркер.
         self._manual_deep_run: bool = False
+        # mca-06 T-4725 (spec §6.3): per-chat singleflight (не дублировать
+        # один и тот же чат) + время старта ручного запроса для повторной
+        # проверки `last_deep_attempt` перед стартом.
+        self._deep_chat_inflight: set[int] = set()
+        self._manual_request_ts: int = 0
         tz = hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE)
         self._tz_name = str(tz or "UTC")
         # S10.13-8 (spec F3 §3): сутки/час глубокого сна считаются в
@@ -496,6 +581,10 @@ class DreamWorker:
             if self._deep_lock.locked():
                 return {"status": "already_running"}
             self._manual_deep_until = _now_ts() + _MANUAL_RUN_MARKER_SECONDS
+            # mca-06 T-4725: время старта ручного запроса — повторная проверка
+            # `last_deep_attempt` в `_run_deep_once` ловит гонку «scheduled
+            # завершился между запросом и стартом» (без дублей).
+            self._manual_request_ts = _now_ts()
             try:
                 stats = await self._run_deep_all(
                     [chat_id] if chat_id is not None else None, manual=True)
@@ -1498,7 +1587,7 @@ class DreamWorker:
                     stats["chats"] += 1
                     stats["paradigms"] += int(out.get("paradigms") or 0)
                     stats["traits"] += int(out.get("traits") or 0)
-                    if out.get("status") == "ok":
+                    if out.get("status") in ("ok", "written"):
                         stats["ran"] += 1
                         if not manual:
                             break      # авто: 1 успешный прогон за раз
@@ -1513,17 +1602,154 @@ class DreamWorker:
 
     async def _run_deep_once(self, chat_id: int, *, since_ts: int | None = None,
                              manual: bool = False) -> dict:
+        """Обёртка прогона (mca-06 T-4725/T-4726/T-4727).
+
+        * per-chat singleflight (T-4725): повторный запуск того же чата, пока
+          он «в полёте», коалесцируется (без дублей);
+        * anti-race manual: повторная проверка `last_deep_attempt` перед
+          стартом (T-4725) — гонка с только что завершившимся scheduled;
+        * durable run-строка + bounded отчёт §7.2 (T-4726/T-4727) при
+          `MCA_DREAM_RUN_REPORTS_ENABLED`; OFF → точный прежний прогон.
+        Никогда не бросает (fail-open)."""
+        q_split = mca_gates.dream_quotas_split_enabled()
+        if q_split and int(chat_id) in self._deep_chat_inflight:
+            _trace_deep(chat_id, "deep", "skip", reason="queue_busy")
+            return _deep_result(_canon_status("duplicate"))
+        self._deep_chat_inflight.add(int(chat_id))
+        try:
+            if manual and q_split:
+                request_ts = int(getattr(self, "_manual_request_ts", 0) or 0)
+                if request_ts > 0:
+                    try:
+                        last = await self.db.last_deep_attempt(chat_id)
+                    except Exception:
+                        last = None
+                    if last is not None and int(last) >= request_ts:
+                        _trace_deep(chat_id, "deep", "skip",
+                                    reason="manual_recheck")
+                        return _deep_result(_canon_status("duplicate"))
+            if not mca_gates.dream_run_reports_enabled():
+                return await self._run_deep_once_core(
+                    chat_id, since_ts=since_ts, manual=manual)
+            return await self._run_deep_reported(
+                chat_id, since_ts=since_ts, manual=manual)
+        finally:
+            self._deep_chat_inflight.discard(int(chat_id))
+
+    async def _run_deep_reported(self, chat_id: int, *,
+                                 since_ts: int | None = None,
+                                 manual: bool = False) -> dict:
+        """T-4726/T-4727: run-строка на КАЖДЫЙ запуск (включая скипы с
+        причиной) + bounded R17-safe отчёт §7.2 в `report_json` (v25)."""
+        from services import mca_trace
+        report: dict = {"chat_id": int(chat_id), "manual": bool(manual),
+                        "stages": [], "llm_calls": 0, "tokens": 0}
+        run_id = None
+        try:
+            run_id = await mca_trace.start_run(
+                self.db, pipeline_type="sleep.deep", version="1",
+                chat_id=int(chat_id))
+        except Exception:
+            run_id = None
+        report["pipeline_run_id"] = run_id
+        try:
+            if run_id:
+                await mca_trace.touch_run(self.db, run_id, progress=True)
+            await mca_trace.emit_stage(
+                "DREAM_DEEP_RUN", outcome="start", component="sleep.deep",
+                stage="queued",
+                **mca_trace.span_fields(
+                    run_id=run_id, pipeline_type="sleep.deep",
+                    pipeline_version="1", status="running"))
+        except Exception:
+            pass
+        try:
+            out = await self._run_deep_once_core(
+                chat_id, since_ts=since_ts, manual=manual, report=report)
+        except Exception:
+            logger.warning("[deep_sleep] reported run failed — fail-open | "
+                           "chat_id=%s", chat_id, exc_info=True)
+            out = _deep_result(_canon_status("error"))
+        try:
+            if run_id:
+                status = str(out.get("status") or "")
+                await mca_trace.finish_run(
+                    self.db, run_id, outcome=_deep_run_outcome(status),
+                    reason_code=status or None)
+                await mca_trace.set_run_report(
+                    self.db, run_id, _deep_report_json(report, out))
+                await mca_trace.emit_stage(
+                    "DREAM_DEEP_RUN",
+                    outcome=("failed" if status == "error" else "success"),
+                    component="sleep.deep", stage="persist",
+                    reason_code=status or None,
+                    **mca_trace.span_fields(
+                        run_id=run_id, pipeline_type="sleep.deep",
+                        pipeline_version="1", status="succeeded"))
+        except Exception:
+            pass
+        return out
+
+    async def _run_deep_once_core(self, chat_id: int, *,
+                                  since_ts: int | None = None,
+                                  manual: bool = False,
+                                  report: dict | None = None) -> dict:
         """Один прогон «Поиска по якорям» + «Моста времени» для чата (spec
         §4). Никогда не бросает (fail-open): ошибка RAG/LLM/записи → skip."""
         now = _now_ts()
-        if not manual:
+
+        def _rep(**kw) -> None:
+            if report is not None:
+                report.update(kw)
+                if "stage" in kw:
+                    report.setdefault("stages", []).append(
+                        {"name": str(kw["stage"]),
+                         "status": str(kw.get("stage_status") or "running")})
+
+        _rep(stage="collect", stage_status="running")
+        # ── mca-06 T-4704: единый gate-resolver (ADR-1028-9 D1). Решение
+        # «пропустить/запустить» — по DreamGateState; `inside_run=True` —
+        # queue-гейт не проверяется (лок уже удержан `_run_deep_all`).
+        # `include_master=False` — deep-контур гейтится собственным
+        # `flags.deep_sleep_enabled`, ordinary-sleep master его не блокирует.
+        # Регресс-паритет T-4705: resolver применяется только при доступном
+        # memory service; при `self.memory is None` — прежние legacy-ветки
+        # (`disabled`/`no_memory`), как в API-карточке.
+        resolver_on = (mca_gates.dream_gate_resolver_enabled()
+                       and self.memory is not None)
+        gate = None
+        if resolver_on:
+            try:
+                gate = await mca_gates.resolve_dream_gate(
+                    self.db, chat_id, memory=self.memory, worker=self, now=now,
+                    manual=manual, inside_run=True, include_master=False,
+                    include_deep=not manual)
+            except Exception:
+                logger.warning("[deep_sleep] gate resolver failed — legacy "
+                               "fallback | chat_id=%s", chat_id,
+                               exc_info=True)
+                gate = None
+        pre_blocked = (resolver_on and gate is not None and gate.blocked
+                       and gate.reason in ("deep_sleep_off", "cooldown",
+                                           "resource_limit",
+                                           "schedule_outside_window"))
+        if pre_blocked:
+            reason = str(gate.reason)
+            status = {"cooldown": "cooldown",
+                      "resource_limit": "daily_limit"}.get(reason, "disabled")
+            _trace_deep(chat_id, "deep", "skip", reason=reason,
+                        extra={"detail": gate.detail})
+            return _deep_result(_canon_status(status))
+        if not manual and (not resolver_on or gate is None):
+            # OFF-паритет 2.58.48 (или fail-safe при сбое resolver'а): прежние
+            # ветки disabled/daily_limit/cooldown (бит-в-бит).
             deep_on = bool(await resolve_setting_cached(
                 "flags.deep_sleep_enabled", chat_id=chat_id,
                 default=settings.DEEP_SLEEP_ENABLED))
             if not deep_on:
                 _trace_deep(chat_id, "deep", "skip", reason="disabled")
-                return _deep_result("disabled")
-        if not manual:
+                return _deep_result(_canon_status("disabled"))
+        if not manual and (not resolver_on or gate is None):
             try:
                 # S10.13-2: суточный лимит и cooldown учитывают и неуспешные
                 # попытки (deep_skip), иначе no_anchors/unchanged/duplicate/
@@ -1531,19 +1757,19 @@ class DreamWorker:
                 if await self.db.count_deep_attempts(
                         _day_start_ts(now, self._deep_tz_name)) >= 1:
                     _trace_deep(chat_id, "deep", "skip", reason="daily_limit")
-                    return _deep_result("daily_limit")
+                    return _deep_result(_canon_status("daily_limit"))
                 last = await self.db.last_deep_attempt(chat_id)
             except Exception:
                 logger.warning("[deep_sleep] cooldown read failed — skip | "
                                "chat_id=%s", chat_id, exc_info=True)
                 _trace_deep(chat_id, "deep", "error", reason="cooldown_read")
-                return _deep_result("error")
+                return _deep_result(_canon_status("error"))
             cooldown = _hot_number(
                 "memory.deep_sleep_min_interval_hours",
                 _DEEP_SLEEP_MIN_INTERVAL_HOURS, int)
             if last is not None and (now - int(last)) < cooldown * 3600:
                 _trace_deep(chat_id, "deep", "skip", reason="cooldown")
-                return _deep_result("cooldown")
+                return _deep_result(_canon_status("cooldown"))
         # ── F8/ADR-1024-5 D1 (round 10.24): развязка traits от paradigms.
         # Прогон допустим (прошли disabled/daily_limit/cooldown) → эволюция
         # характера запускается ДО ранних return'ов ветки парадигм
@@ -1559,11 +1785,20 @@ class DreamWorker:
         def _done(status: str, **extra) -> dict:
             """Единый результат ветки: несёт traits, посчитанные выше."""
             extra.setdefault("traits", traits_written)
-            return _deep_result(status, **extra)
+            return _deep_result(_canon_status(status), **extra)
 
         if self.memory is None:
             _trace_deep(chat_id, "deep", "skip", reason="no_memory")
             return _done("no_memory")
+        # ── mca-06 T-4704/T-4708: RAG выключен → исторический поиск
+        # неосуществим; точная причина `rag_off` (не склейка с gate-off и не
+        # пустой пул). Проверяется ПОСЛЕ traits (T-4707: traits не должны
+        # теряться из-за paradigm-блокера).
+        if resolver_on and gate is not None and gate.blocked \
+                and gate.reason == "rag_off":
+            _trace_deep(chat_id, "deep", "skip", reason="rag_off",
+                        extra={"detail": gate.detail})
+            return _done("disabled")
         try:
             packet = await self._build_deep_packet(chat_id, now, since_ts)
         except Exception:
@@ -1577,22 +1812,123 @@ class DreamWorker:
         query = " ".join(
             [str(b.get("fact") or "") for b in packet["beliefs"][:20]]
             + [str(r.get("fact") or "") for r in packet["recent"]])
-        try:
-            anchors = await self.memory.get_rag_facts(chat_id, query)
-        except Exception:
-            logger.warning("[deep_sleep] RAG failed — skip | chat_id=%s",
-                           chat_id, exc_info=True)
-            _trace_deep(chat_id, "deep", "error", reason="rag_failed")
-            return _done("error")
         top_k = _hot_number("limits.deep_sleep_top_k",
                             settings.DEEP_SLEEP_TOP_K, int)
-        anchors = list(anchors or [])[: max(1, top_k)]
-        historical = [a for a in anchors if _anchor_is_old(a, now)]
-        if len(historical) < _DEEP_SLEEP_MIN_HISTORICAL:
-            await self._log_deep_skip(chat_id, now, "no_anchors", 0)
-            _trace_deep(chat_id, "deep", "empty", reason="no_anchors",
-                        extra={"anchors": len(historical)})
-            return _done("no_anchors")
+        missing_timestamp_count = 0
+        # mca-06 [M-1] (spec §7.2 п.2): «причины отсева» якорей → durable
+        # отчёт. Заполняется writers'ами ниже: профильные исключения
+        # (`excluded_young`/`duplicates`) и отказы мост-валидатора (`bv.reason`).
+        reject_reasons: dict = {}
+        # ── mca-06 T-4708..T-4712: исторический профиль (ADR-1028-9 D3/D4).
+        # FTS-фолбэк без vec-предусловия; возраст ОТ `message_timestamp` ДО
+        # финального top_k; тематические пакеты; direct-RAG не меняется.
+        if mca_gates.dream_historical_profile_enabled() and callable(
+                getattr(self.memory, "retrieve_fact_candidates", None)):
+            from services import mca_dream_history as _hist
+            episodes_repo = None
+            try:
+                from services.mca_episodes import EpisodeRepository
+                episodes_repo = EpisodeRepository(self.db)
+            except Exception:
+                episodes_repo = None
+            try:
+                # T-4730 (AM-2, spec §8.7): при активном исследовании менее
+                # изученных периодов материал выбирает ТОЛЬКО
+                # `DreamRandomSource.pick` (seed=(pipeline_run_id, chat_id));
+                # OFF → прежний ранжированный топ-k (бит-в-бит 2.58.48).
+                explore_on = mca_gates.dream_random_explore_enabled()
+                pipeline_run_id = (report or {}).get("pipeline_run_id")
+                random_source = (
+                    mca_dream_random.default_source(pipeline_run_id)
+                    if explore_on else None)
+                sel = await _hist.select_historical_candidates(
+                    self.memory, episodes_repo, chat_id, query,
+                    top_k=top_k, now=now,
+                    min_age_days=_DEEP_SLEEP_MIN_ANCHOR_AGE_DAYS,
+                    participants=_packet_participants(packet),
+                    random_source=random_source)
+            except Exception:
+                logger.warning("[deep_sleep] historical profile failed — "
+                               "rag_failed | chat_id=%s", chat_id,
+                               exc_info=True)
+                _trace_deep(chat_id, "deep", "error", reason="rag_failed")
+                return _done("error")
+            historical = list(sel.candidates or [])
+            missing_timestamp_count = int(sel.missing_timestamp)
+            # mca-06 [M-1]: причины отсева профиля → durable отчёт §7.2 п.2
+            # (найдено/отсеяно/независимые + причины). `missing_timestamp` —
+            # отдельная 7-я группа отчёта, здесь не дублируется.
+            excl_young = int(getattr(sel, "excluded_young", 0) or 0)
+            dups = int(getattr(sel, "duplicates", 0) or 0)
+            if excl_young:
+                reject_reasons["excluded_young"] = excl_young
+            if dups:
+                reject_reasons["duplicates"] = dups
+            if reject_reasons:
+                _rep(reject_reasons=dict(reject_reasons))
+            sel_meta = getattr(sel, "selection_meta", None)
+            if sel_meta:
+                # Выбор материала (seed/пул/индексы) → отчёт §7.2 + трасса
+                # (R17-safe: без сырого текста). Вердикт — по доказательствам.
+                _rep(selection_meta=sel_meta)
+                _trace_deep(
+                    chat_id, "explore", "ok", reason="random_explore",
+                    extra={"selection": {
+                        "seed": sel_meta.get("seed"),
+                        "pool": sel_meta.get("pool"),
+                        "k": sel_meta.get("k")}})
+            if len(historical) < _DEEP_SLEEP_MIN_HISTORICAL:
+                await self._log_deep_skip(chat_id, now, "no_anchors", 0)
+                _trace_deep(chat_id, "deep", "empty", reason="no_anchors",
+                            extra={"anchors": len(historical),
+                                   "missing_timestamp": sel.missing_timestamp,
+                                   "fts_fallback": sel.fts_fallback})
+                return _done("no_anchors")
+        else:
+            # OFF-паритет 2.58.48: get_rag_facts → top_k → возраст.
+            try:
+                anchors = await self.memory.get_rag_facts(chat_id, query)
+            except Exception:
+                logger.warning("[deep_sleep] RAG failed — skip | chat_id=%s",
+                               chat_id, exc_info=True)
+                _trace_deep(chat_id, "deep", "error", reason="rag_failed")
+                return _done("error")
+            anchors = list(anchors or [])[: max(1, top_k)]
+            historical = [a for a in anchors if _anchor_is_old(a, now)]
+            if len(historical) < _DEEP_SLEEP_MIN_HISTORICAL:
+                await self._log_deep_skip(chat_id, now, "no_anchors", 0)
+                _trace_deep(chat_id, "deep", "empty", reason="no_anchors",
+                            extra={"anchors": len(historical)})
+                return _done("no_anchors")
+        # mca-06 T-4727: агрегаты якорей/диапазонов — в отчёт §7.2.
+        _rep(stage="anchors", stage_status="succeeded",
+             anchors_found=len(historical),
+             anchor_ts=[int(_anchor_ts(a)) for a in historical
+                        if _anchor_ts(a)],
+             missing_timestamp=int(missing_timestamp_count))
+        # ── mca-06 T-4713/T-4721 (ADR-1028-9 D7, spec §5.1–5.2): порог
+        # `min_anchors=2` — на НЕЗАВИСИМЫХ первичных событиях (`(chat_id,
+        # tg_message_id)` mca-03 / SourceRef), НЕ на числе пересказов.
+        # bot_self_reply исключается из independence-подсчёта. ON → недостаток
+        # независимых якорей даёт честный `insufficient_evidence` (не «unchanged»
+        # и не запись ради счётчика); OFF → прежнее поведение (якоря по числу).
+        evidence_on = mca_gates.dream_evidence_typing_enabled()
+        independent_keys: list = []
+        bot_self_excluded = 0
+        if evidence_on:
+            independent_keys = mca_evidence.independent_events(historical)
+            bot_self_excluded = mca_evidence.excluded_bot_self(historical)
+            _rep(independent_events=len(independent_keys),
+                 bot_self_excluded=int(bot_self_excluded))
+            if len(independent_keys) < _DEEP_SLEEP_MIN_HISTORICAL:
+                await self._log_deep_skip(chat_id, now,
+                                          "insufficient_evidence", 0)
+                _trace_deep(
+                    chat_id, "deep", "skip", reason="insufficient_evidence",
+                    extra={"anchors": len(historical),
+                           "independent_events": len(independent_keys),
+                           "bot_self_excluded": bot_self_excluded})
+                return _done("insufficient_evidence")
         user_text = build_bridge_user(packet, historical)
         messages = [
             {"role": "system", "content": DEEP_SLEEP_BRIDGE_SYSTEM_PROMPT},
@@ -1605,6 +1941,10 @@ class DreamWorker:
             _trace_deep(chat_id, "deep", "skip", reason="budget_skip")
             return _done("budget")
         raw, tokens = await self._deep_llm_once(messages, user_text)
+        _rep(stage="bridge", stage_status="succeeded")
+        if report is not None:
+            report["llm_calls"] = int(report.get("llm_calls") or 0) + 1
+            report["tokens"] = int(tokens or 0)
         if raw is None:
             await self._log_deep_skip(chat_id, now, "error", tokens)
             _trace_deep(chat_id, "deep", "error", reason="llm_error",
@@ -1625,6 +1965,9 @@ class DreamWorker:
                 return _done("budget")
             raw2, tokens2 = await self._deep_llm_once(messages, user_text)
             tokens += tokens2
+            if report is not None:
+                report["llm_calls"] = int(report.get("llm_calls") or 0) + 1
+                report["tokens"] = int(tokens or 0)
             if raw2 is None:
                 await self._log_deep_skip(chat_id, now, "error", tokens)
                 _trace_deep(chat_id, "deep", "error", reason="llm_error",
@@ -1643,33 +1986,103 @@ class DreamWorker:
             _trace_deep(chat_id, "deep", "empty", reason="unchanged",
                         extra={"tokens": tokens})
             return _done("unchanged")
+        # ── mca-06 T-4714/T-4716 (ADR-1028-9 D8, spec §5.3): мост-валидатор
+        # «раньше → сейчас» ДО записи. ON → каждый кандидат проходит 5 проверок
+        # (субъект/последовательность/смысловой мост/противоречия/источник);
+        # все отвергнуты → честный `insufficient_evidence`.
+        if evidence_on:
+            validated = []
+            for item in paradigms:
+                anchor_items = [historical[i - 1] for i in item["anchors"]
+                                if 1 <= i <= len(historical)]
+                bv = mca_evidence.validate_bridge(
+                    item["text"], packet, anchor_items, now=now,
+                    independent_count=len(independent_keys))
+                if not bv.ok:
+                    rr = str(bv.reason or "insufficient_evidence")
+                    reject_reasons[rr] = reject_reasons.get(rr, 0) + 1
+                    _trace_deep(chat_id, "bridge", "skip",
+                                reason=bv.reason or "insufficient_evidence",
+                                extra={"checks": bv.checks})
+                    continue
+                item["_bridge"] = bv
+                item["_anchor_items"] = anchor_items
+                validated.append(item)
+            _rep(anchors_filtered=max(0, len(paradigms) - len(validated)),
+                 reject_reasons=dict(reject_reasons),
+                 validation={"bridge_ok": len(validated),
+                             "bridge_reject": len(paradigms) - len(validated)})
+            if not validated:
+                await self._log_deep_skip(chat_id, now,
+                                          "insufficient_evidence", tokens)
+                _trace_deep(chat_id, "deep", "skip",
+                            reason="insufficient_evidence",
+                            extra={"anchors": len(historical),
+                                   "independent_events": len(independent_keys),
+                                   "tokens": tokens})
+                return _done("insufficient_evidence")
+            paradigms = validated
         try:
-            existing = await self._paradigm_dedup_keys(chat_id)
+            existing_rows = await self._paradigm_rows(chat_id)
         except Exception:
-            existing = set()
+            existing_rows = []
+        existing = set()
+        for row in existing_rows:
+            k = self._belief_meta(row).get("dedup_key")
+            if k:
+                existing.add(str(k))
         max_paradigms = _hot_number(
             "limits.deep_sleep_max_paradigms_per_run",
             settings.DEEP_SLEEP_MAX_PARADIGMS, int)
         written = 0
+        write_attempts = 0
+        write_errors = 0
         for item in paradigms[: max(1, max_paradigms)]:
-            anchor_items = [historical[i - 1] for i in item["anchors"]
-                            if 1 <= i <= len(historical)]
+            anchor_items = item.get("_anchor_items")
+            if anchor_items is None:
+                anchor_items = [historical[i - 1] for i in item["anchors"]
+                                if 1 <= i <= len(historical)]
             key = _deep_dedup_key(item["text"], anchor_items)
             if key in existing:
                 continue
+            bv = item.get("_bridge") if evidence_on else None
+            supersedes_id = None
+            if evidence_on:
+                supersedes_id = mca_evidence.find_supersede_candidate(
+                    existing_rows, item["text"])
+            write_attempts += 1
             try:
                 fact_id = await self._write_paradigm(
                     chat_id, item["text"], packet, anchor_items,
-                    packet["source_ids"], key, now)
+                    packet["source_ids"], key, now, bridge=bv,
+                    independent_events=len(independent_keys),
+                    bot_self_excluded=bot_self_excluded,
+                    missing_timestamp_count=missing_timestamp_count,
+                    supersedes_fact_id=supersedes_id)
             except Exception:
                 logger.warning("[deep_sleep] paradigm write failed | "
                                "chat_id=%s", chat_id, exc_info=True)
                 _trace_deep(chat_id, "write", "error",
                             reason="paradigm_write")
                 fact_id = None
+                write_errors += 1
             if fact_id:
                 written += 1
                 existing.add(key)
+                # T-4716: опровергающее/дрейфовое основание → EvidenceLink
+                # `contradicts` (вывод уже сужен applicability при валидации).
+                if evidence_on and bv is not None and bv.contradictions:
+                    for anchor in anchor_items:
+                        await mca_evidence.link_contradicts(
+                            self.db, chat_id=chat_id, fact_id=fact_id,
+                            anchor_item=anchor)
+        _rep(write_attempts=write_attempts, write_errors=write_errors,
+             written=written, stage="write", stage_status="succeeded")
+        # ── mca-06 T-4728 (spec §8.5 конец, THR-12): согласованность
+        # запись/счётчик/статус. `written` инкрементируется ТОЛЬКО при
+        # подтверждённом `fact_id`. Все попытки записи упали (после счёта) →
+        # честный `error`, НЕ `duplicate`/«успешная пустота»; нет попыток
+        # (все — дубли) → `duplicate`.
         if written:
             try:
                 await self.db.log_dream_event(chat_id, now, kind="deep_run",
@@ -1684,10 +2097,18 @@ class DreamWorker:
             _trace_deep(chat_id, "deep", "ok", reason="written",
                         extra={"paradigms": written,
                                "anchors": len(historical), "tokens": tokens})
+            result_status = "ok"
+        elif write_attempts and write_errors >= write_attempts:
+            await self._log_deep_skip(chat_id, now, "error", tokens)
+            _trace_deep(chat_id, "deep", "error", reason="paradigm_write",
+                        extra={"tokens": tokens,
+                               "write_errors": write_errors})
+            result_status = "error"
         else:
             await self._log_deep_skip(chat_id, now, "duplicate", tokens)
             _trace_deep(chat_id, "deep", "duplicate", reason="all_duplicates",
                         extra={"tokens": tokens})
+            result_status = "duplicate"
         # ── F2 persona-storage-core (spec §3.4): эволюция характера.
         # При `DEEP_SLEEP_EXTRACT_FIX_ENABLED` ON traits уже посчитаны выше
         # (`_run_persona_traits_step`, до ветки парадигм) — повтор не нужен.
@@ -1696,8 +2117,7 @@ class DreamWorker:
         if not fix_enabled:
             traits_written = await self._run_persona_traits_step(
                 chat_id, now, manual=manual)
-        return _done("ok" if written else "duplicate",
-                     paradigms=written, tokens=tokens)
+        return _done(result_status, paradigms=written, tokens=tokens)
 
     async def _build_deep_packet(self, chat_id: int, now: int,
                                  since_ts: int | None) -> dict:
@@ -2018,10 +2438,14 @@ class DreamWorker:
                         extra={"candidates": len(traits)})
         return {"status": status, "traits": written}
 
+    async def _paradigm_rows(self, chat_id: int) -> list:
+        """Строки существующих парадигм чата (анти-дубли + поиск supersede)."""
+        return await self.db.list_recent_beliefs(
+            chat_id=chat_id, limit=200, belief_type="paradigm")
+
     async def _paradigm_dedup_keys(self, chat_id: int) -> set[str]:
         """dedup_key существующих парадигм чата (анти-дубли, spec §4)."""
-        rows = await self.db.list_recent_beliefs(
-            chat_id=chat_id, limit=200, belief_type="paradigm")
+        rows = await self._paradigm_rows(chat_id)
         keys: set[str] = set()
         for row in rows:
             key = self._belief_meta(row).get("dedup_key")
@@ -2031,7 +2455,11 @@ class DreamWorker:
 
     async def _write_paradigm(self, chat_id: int, text: str, packet: dict,
                               anchor_items: list, source_ids: list,
-                              dedup_key: str, now: int) -> int | None:
+                              dedup_key: str, now: int, *, bridge=None,
+                              independent_events: int = 0,
+                              bot_self_excluded: int = 0,
+                              missing_timestamp_count: int = 0,
+                              supersedes_fact_id: int | None = None) -> int | None:
         """Запись парадигмы без DDL (spec §2): origin='derived_belief',
         kind='belief', weight=0.55, belief_meta.type='paradigm',
         source_ids — id опор, target_user — ключевая персона якорей."""
@@ -2046,7 +2474,7 @@ class DreamWorker:
         importance = min(10, max(1, len(source_ids) or len(anchor_items)))
         target_user = next(
             (_anchor_target(a) for a in anchor_items if _anchor_target(a)), None)
-        meta = json.dumps({
+        meta_dict = {
             "type": "paradigm",
             "anchors": [(_anchor_text(a) or "")[:200]
                         for a in anchor_items][:20],
@@ -2056,12 +2484,24 @@ class DreamWorker:
             "sources_count": len(source_ids),
             "dedup_key": dedup_key,
             "base_weight": _DEEP_SLEEP_WEIGHT,
-        }, ensure_ascii=False)
+        }
+        # ── mca-06 T-4713/T-4722 (spec §8.1/§8.6, AM-5): счётчик независимых
+        # первичных событий + область/время применимости — аддитивно в JSON
+        # belief_meta (без DDL). OFF → прежняя meta бит-в-бит.
+        evidence_on = mca_gates.dream_evidence_typing_enabled()
+        if evidence_on:
+            meta_dict["independent_events"] = int(independent_events)
+            meta_dict["bot_self_excluded"] = int(bot_self_excluded)
+            meta_dict["missing_timestamp_count"] = int(missing_timestamp_count)
+            if bridge is not None and getattr(bridge, "applicability", None):
+                meta_dict = mca_evidence.merge_applicability(
+                    meta_dict, applicability=bridge.applicability)
+        meta = json.dumps(meta_dict, ensure_ascii=False)
         fact_id = await self.db.insert_graph_fact(
             chat_id, clean, "derived_belief", None, target_user=target_user,
             weight=_DEEP_SLEEP_WEIGHT, importance=importance,
             source_ids=json.dumps(source_ids, ensure_ascii=False),
-            kind="belief", belief_meta=meta)
+            kind="belief", belief_meta=meta, supersedes=supersedes_fact_id)
         if fact_id:
             # MCA-04a (ADR-1027-6 D9, T-3823): типизировать source_ids
             # парадигмы в derived_from SourceRef. Fail-open.
@@ -2074,6 +2514,23 @@ class DreamWorker:
                 logger.warning(
                     "[deep_sleep] paradigm provenance failed — fail-open | "
                     "id=%s", fact_id, exc_info=True)
+            # ── mca-06 T-4717/T-4719 (spec §8.1/§8.3): исторические
+            # anchor_items — тем же контрактом; новая версия линкуется
+            # `supersedes` к предыдущей (старая читаема). Fail-open.
+            if evidence_on:
+                try:
+                    await mca_evidence.record_anchor_items_provenance(
+                        self.db, fact_id=fact_id, chat_id=chat_id,
+                        anchor_items=anchor_items)
+                except Exception:
+                    logger.warning(
+                        "[deep_sleep] anchor provenance failed — fail-open | "
+                        "id=%s", fact_id, exc_info=True)
+                if supersedes_fact_id:
+                    await mca_evidence.link_supersedes(
+                        self.db, chat_id=chat_id, new_fact_id=fact_id,
+                        old_fact_id=int(supersedes_fact_id),
+                        claim_key=dedup_key)
         if fact_id and self.memory is not None \
                 and getattr(self.memory, "_vec_available", False):
             try:
@@ -2118,6 +2575,16 @@ def _anchor_target(item):
     if isinstance(item, (tuple, list)) and len(item) > 3:
         return item[3]
     return None
+
+
+def _packet_participants(packet: dict) -> tuple:
+    """Участники пакета глубокого сна (target_user свежих убеждений/выжимки)
+    — материал семантического ранжирования исторического профиля (§4.4)."""
+    out: list[str] = []
+    for row in (packet.get("beliefs") or []) + (packet.get("recent") or []):
+        if isinstance(row, dict) and row.get("target_user"):
+            out.append(str(row.get("target_user")))
+    return tuple(dict.fromkeys(out))
 
 
 def _anchor_is_old(item, now: int) -> bool:

@@ -22,6 +22,7 @@ import pytest
 
 from config.settings import settings
 from services import hot_config as hot
+from services import mca_gates
 from services.database import DatabaseService
 from services.dream_worker import DreamWorker
 from services.config_migrations import (
@@ -441,6 +442,10 @@ class TestPersonaDiagnostics:
         """persona OFF: запись traits не обходим, но шаг ЛИЧНОСТИ не глушим
         молча — WARNING reason=persona_disabled (T-1770)."""
         caplog.set_level(logging.WARNING)
+        # Изоляция слоя D+E: этот round1018-тест проверяет traits-диагностику,
+        # а не мост-валидатор — evidence typing OFF (паритет legacy min_anchors).
+        monkeypatch.setattr(mca_gates, "dream_evidence_typing_enabled",
+                            lambda: False)
         await _add_fact(db, "толян снова заказал литрбол", importance=6)
         memory = _FakeMemory([
             ("chat_history", "толян пил каждую пятницу",
@@ -597,6 +602,10 @@ class TestManualBudgetVerdictIgnored:
         """Исчерпан `limits.deep_sleep_tokens_per_day` + `consume → False`:
         manual-каскад всё равно доходит до Личности (D1)."""
         from services import worker_budget, bot_persona
+        # Изоляция слоя D+E: проверяется manual-каскад Личности, а не
+        # мост-валидатор — evidence typing OFF (паритет legacy min_anchors).
+        monkeypatch.setattr(mca_gates, "dream_evidence_typing_enabled",
+                            lambda: False)
         _hot_cache(monkeypatch, {
             "flags.deep_sleep_enabled": True,
             "flags.persona_enabled": True,
