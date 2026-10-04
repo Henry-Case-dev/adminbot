@@ -356,7 +356,13 @@ class TestCountMentions:
         await _save(db, -100, "ни слова про бензин не скажу", 2000)
         memory = MemoryManager(db, FakeLLM())
         stats = await memory.count_mentions(-100, ["бензин"])
-        assert stats == {"count": 3, "first_seen": 1000, "last_seen": 3000}
+        # MCA-15 (T-4925, D2): аддитивно watermark `max_id` и `unknown_count`
+        # (число и примеры из одной версии; строки без user_id не сливаются).
+        assert stats["count"] == 3
+        assert stats["first_seen"] == 1000
+        assert stats["last_seen"] == 3000
+        assert stats["max_id"] == 3
+        assert stats["unknown_count"] == 0
 
     @pytest.mark.asyncio
     async def test_count_respects_since_window(self, db):

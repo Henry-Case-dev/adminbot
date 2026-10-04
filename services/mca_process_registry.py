@@ -509,28 +509,33 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         purpose="Прямой ответ: решение → tool chain → память → ответ",
         inputs=("user message",), outputs=("telegram reply",),
         stages=("queued", "decision", "character", "speech", "llm", "form_guard",
-                "write", "deliver", "answer_cache"),
+                "claim_check", "write", "deliver", "answer_cache"),
         branches=("retrieval", "tools"),
         trigger_kind="per_message",
         settings_ref=("DIRECT_DECISION_MAKING_ENABLED",
                       "MCA_CHARACTER_LAYERS_ENABLED",
                       "MCA_CHARACTER_SPEECH_ENABLED",
-                      "MCA_POSTPROCESS_FORM_GUARD_ENABLED"),
+                      "MCA_POSTPROCESS_FORM_GUARD_ENABLED",
+                      "MCA_NUMERIC_CLAIM_GUARD_ENABLED"),
         state_source=("task_jobs", "mca_events"),
         recovery_ops=("resume_job", "delivery_reconcile"),
         widget_id="Ответы (decision/System2)",
         stages_to_events={"answer_cache": "mca07_answer_cache",
                           "speech": "speech_understanding",
-                          "form_guard": "postprocess_form"},
-        instrumentation=("answer_cache", "speech", "form_guard"),
+                          "form_guard": "postprocess_form",
+                          "claim_check": "numeric_claim_guard"},
+        instrumentation=("answer_cache", "speech", "form_guard",
+                         "claim_check"),
         owner_feature="direct_chat",
         enabled_gate="DIRECT_DECISION_MAKING_ENABLED",
         event_names=("mca07_answer_cache", "speech_understanding",
-                     "postprocess_form"),
+                     "postprocess_form", "numeric_claim_guard"),
         note="mca-08 (ADR-1028-11 D9): стадии character/speech/form_guard; "
              "notable-only — read-side `character` без per-reply success-"
              "события (урок M-ASAP31-2), события speech/form_guard — на "
-             "clarify/form-reject",
+             "clarify/form-reject. mca-15 (ADR-1028-12 D7): AMEND stage "
+             "`claim_check` (numeric_claim_guard — notable-only, только при "
+             "нарушении)",
     ),
     # ── mca-08: scoped-просьбы по стилю/темам (CRUD notable-only) ───────────
     ProcessDefinition(
@@ -818,12 +823,30 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         owner_feature="mca-11", widget_id=WIDGET_NONE,
         note="не реализовано (mca-11)",
     ),
+    # ── mca-15: достоверные измерения чата + numeric-гард (ADR-1028-12 D7) ──
     ProcessDefinition(
-        process_id="episodes.timeline", version="0",
-        purpose="Хронология эпизодов (mca-15)",
-        inputs=(), outputs=(), stages=(), trigger_kind="background",
-        owner_feature="mca-15", widget_id=WIDGET_NONE,
-        note="не реализовано (mca-15)",
+        process_id="chat.statistics", version="1",
+        purpose="Достоверные измерения чата: intent → measurement → "
+                "claim check → delivery (MetricResult/NumericClaim)",
+        inputs=("user message", "smart_messages"),
+        outputs=("MetricResult", "verified phrase", "telegram reply"),
+        stages=("intent", "measurement", "claim_check", "delivery"),
+        trigger_kind="per_message",
+        settings_ref=("MCA_CHAT_STATISTICS_ENABLED",
+                      "MCA_NUMERIC_CLAIM_GUARD_ENABLED",
+                      "MCA_STATS_INTENT_ENABLED"),
+        state_source=("mca_events",),
+        widget_id="Измерения, проверки и отказы",
+        stages_to_events={"intent": "stats_intent",
+                          "measurement": "chat_statistics",
+                          "claim_check": "numeric_claim_guard"},
+        instrumentation=("intent", "measurement", "claim_check"),
+        owner_feature="mca-15",
+        enabled_gate="MCA_CHAT_STATISTICS_ENABLED",
+        event_names=("stats_intent", "chat_statistics", "numeric_claim_guard"),
+        note="mca-15 (ADR-1028-12 D7): widget ID — контракт для mca-17c "
+             "(рендер не здесь); notable-only (per-reply success-событий "
+             "нет); K1 OFF → disabled/not_run; SQL/сырой текст не журналятся",
     ),
     ProcessDefinition(
         process_id="self_learning.run", version="0",
@@ -887,6 +910,10 @@ _GATE_RESOLVERS = {
     # mca-08 блоки C+D: K3/K4.
     "MCA_STYLE_SCOPE_ENABLED": "style_scope_enabled",
     "MCA_POSTPROCESS_FORM_GUARD_ENABLED": "postprocess_form_guard_enabled",
+    # mca-15 (ADR-1028-12 D8): K1/K2/K3.
+    "MCA_CHAT_STATISTICS_ENABLED": "chat_statistics_enabled",
+    "MCA_NUMERIC_CLAIM_GUARD_ENABLED": "numeric_claim_guard_enabled",
+    "MCA_STATS_INTENT_ENABLED": "stats_intent_enabled",
     # product-гейты из `config.settings` (не mca_gates) — резолв через settings.
 }
 

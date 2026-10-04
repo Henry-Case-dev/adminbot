@@ -184,16 +184,22 @@ def test_registry_closed_features_registered_without_reinvention():
 
 
 def test_registry_future_features_not_run():
-    """F4/spec §4.1: mca-09/10a/10b/11/15/16/18/19/20 — version '0' → not_run."""
+    """F4/spec §4.1: mca-09/10a/10b/11/16/18/19/20 — version '0' → not_run.
+
+    mca-15 (ADR-1028-12 D7/AM-6): placeholder `episodes.timeline` заменён
+    реальным процессом `chat.statistics` v1 — в «будущих» его больше нет."""
     for pid in ("context.compress", "context.selective", "memory.lifecycle",
-                "relations.semantic", "episodes.timeline", "self_learning.run",
+                "relations.semantic", "self_learning.run",
                 "self_model.update", "vision.analyze", "temporal.factcheck"):
         p = reg.get_process(pid)
         assert p is not None and p.version == "0", pid
         assert reg.runtime_status(p) == reg.STATUS_NOT_RUN, pid
     owners = {p.owner_feature for p in reg.PROCESS_REGISTRY if p.version == "0"}
-    assert {"mca-09", "mca-10a", "mca-10b", "mca-11", "mca-15", "mca-16",
+    assert {"mca-09", "mca-10a", "mca-10b", "mca-11", "mca-16",
             "mca-18", "mca-19", "mca-20"} <= owners
+    assert "episodes.timeline" not in {p.process_id
+                                       for p in reg.PROCESS_REGISTRY}
+    assert reg.get_process("chat.statistics").version == "1"
 
 
 def _scan_real_event_names() -> set:

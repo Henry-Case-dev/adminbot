@@ -1086,6 +1086,53 @@ def row_get(row, key, default=None):
         return default
 
 
+# ── MCA-15 (T-4923/T-4926, ADR-1028-12 D1/D3): единые фильтры измерения ─────
+# Один источник SQL-фрагментов для count и examples: фильтры действуют в SQL
+# ДО LIMIT (автор/окно/quote-forward/source-kind/watermark), display name —
+# подпись, ключ — канонический user_id. Дефолты («any»/«include», нули/None)
+# не добавляют ни одного условия → байт-паритет прежних вызовов.
+def _message_measure_filters(*, since_ts: int = 0, until_ts: int = 0,
+                             author_ids=None, source_kind: str = "any",
+                             quote_forward: str = "include",
+                             max_id=None, after_id=None) -> tuple[str, list]:
+    sql = ""
+    params: list = []
+    if since_ts:
+        sql += " AND m.timestamp >= ?"
+        params.append(int(since_ts))
+    if until_ts:
+        sql += " AND m.timestamp <= ?"
+        params.append(int(until_ts))
+    if max_id is not None:
+        sql += " AND m.id <= ?"
+        params.append(int(max_id))
+    if after_id is not None:
+        sql += " AND m.id > ?"
+        params.append(int(after_id))
+    ids = []
+    for value in author_ids or ():
+        try:
+            ids.append(int(value))
+        except (TypeError, ValueError):
+            continue
+    if ids:
+        sql += " AND m.user_id IN (" + ",".join("?" * len(ids)) + ")"
+        params.extend(ids)
+    if source_kind == "live":
+        sql += " AND m.import_key IS NULL"
+    elif source_kind == "import":
+        sql += " AND m.import_key IS NOT NULL"
+    if quote_forward == "exclude":
+        sql += (" AND COALESCE(m.is_forward, 0) = 0 "
+                "AND COALESCE(m.forward_source, '') = '' "
+                "AND COALESCE(m.quote_text, '') = ''")
+    elif quote_forward == "only":
+        sql += (" AND (COALESCE(m.is_forward, 0) = 1 "
+                "OR COALESCE(m.forward_source, '') <> '' "
+                "OR COALESCE(m.quote_text, '') <> '')")
+    return sql, params
+
+
 def parse_belief_meta(raw) -> dict:
     """Единый парсер `belief_meta` (S10.13-13).
 
@@ -2063,22 +2110,30 @@ class DatabaseService:
         cursor = await self.db.execute("PRAGMA table_info(smart_messages)")
         return {r["name"] for r in await cursor.fetchall()}
 
-    async def count_duplicate_identity_rows(self) -> int:
+    async def count_duplicate_identity_rows(self, chat_id: int | None = None) -> int:
         """Число legacy live-групп с дублем `(chat_id, tg_message_id)`.
 
         Нужен для duplicate pre-check v16 (ADR-1027-4 D7): при наличии дублей
         partial UNIQUE НЕ создаётся (иначе миграция упала бы), эмитится WARN
         `duplicate_identity_rows`; старые записи сохраняются. Устойчиво к
         усечённой synthetic-legacy без `import_key` (тогда живых/импортных
-        различий нет — считаем по всем строкам с tg_message_id)."""
+        различий нет — считаем по всем строкам с tg_message_id).
+
+        MCA-15 (T-4925, ADR-1028-12 D2): аддитивный `chat_id` — dedup-проверка
+        области измерения; None → глобальная проверка (прежнее поведение)."""
         cols = await self._smart_messages_columns()
         where = ("WHERE tg_message_id IS NOT NULL AND import_key IS NULL"
                  if "import_key" in cols
                  else "WHERE tg_message_id IS NOT NULL")
+        params: list = []
+        if chat_id is not None:
+            where += " AND chat_id = ?"
+            params.append(int(chat_id))
         cursor = await self.db.execute(
             "SELECT COUNT(*) AS c FROM ("
             f"SELECT chat_id, tg_message_id FROM smart_messages {where} "
-            "GROUP BY chat_id, tg_message_id HAVING COUNT(*) > 1)")
+            "GROUP BY chat_id, tg_message_id HAVING COUNT(*) > 1)",
+            tuple(params))
         row = await cursor.fetchone()
         return int(row["c"]) if row is not None else 0
 
@@ -5794,97 +5849,143 @@ class DatabaseService:
         await self.db.commit()
         return cursor.rowcount
 
-    async def search_messages_fts(self, chat_id: int, match_query: str, limit: int) -> list:
+    async def search_messages_fts(self, chat_id: int, match_query: str, limit: int,
+                                  *, since_ts: int = 0, until_ts: int = 0,
+                                  author_ids=None, source_kind: str = "any",
+                                  quote_forward: str = "include",
+                                  max_id=None, after_id=None) -> list:
         """L2-RAG / фоллбек: FTS5 search over raw messages, ordered by rank.
 
         10.20 (БЛОК 2.8, ADR-1020-2): аддитивно отдаём `tg_message_id` —
-        для ID-политики канонического рендера (`tg:` приоритетнее `msg:`)."""
+        для ID-политики канонического рендера (`tg:` приоритетнее `msg:`).
+
+        MCA-15 (T-4924, ADR-1028-12 D1): аддитивные keyword-only фильтры
+        измерения (`since/until/author_ids/source_kind/quote_forward/max_id`)
+        — в SQL ДО LIMIT; `after_id` включает bounded keyset-скан
+        (ORDER BY m.id) для occurrences. Дефолты → прежнее поведение
+        байт-в-байт."""
+        where, params = _message_measure_filters(
+            since_ts=since_ts, until_ts=until_ts, author_ids=author_ids,
+            source_kind=source_kind, quote_forward=quote_forward,
+            max_id=max_id, after_id=after_id)
+        order = "m.id" if after_id is not None else "smart_messages_fts.rank"
         cursor = await self.db.execute(
             "SELECT m.id, m.user_id, m.chat_id, m.text, m.reply_to_id, m.timestamp, "
             "m.media_type, m.author_name, m.is_forward, m.forward_source, "
             "m.tg_message_id "
             "FROM smart_messages_fts JOIN smart_messages m ON m.id = smart_messages_fts.rowid "
-            "WHERE smart_messages_fts MATCH ? AND m.chat_id = ? "
-            "ORDER BY smart_messages_fts.rank LIMIT ?",
-            (match_query, chat_id, limit),
+            "WHERE smart_messages_fts MATCH ? AND m.chat_id = ?"
+            + where +
+            f" ORDER BY {order} LIMIT ?",
+            tuple([match_query, chat_id] + params + [limit]),
         )
         return await cursor.fetchall()
 
     async def search_messages_fts_count(self, chat_id: int, match_query: str,
-                                        since_ts: int = 0) -> dict:
+                                        since_ts: int = 0, *,
+                                        until_ts: int = 0, author_ids=None,
+                                        source_kind: str = "any",
+                                        quote_forward: str = "include",
+                                        max_id=None) -> dict:
         """(count, first_seen, last_seen) по FTS-совпадениям smart_messages.
         since_ts>0 — окно по timestamp (в SQL, не пост-фильтр top-N).
         Bugfix-раунд 04.09.2026 (Часть 2, FR-19): точный счётчик для
         query_chat_memory (строки режутся top-40 по rank ДО фильтра окна —
-        точное «N раз в окне» из выборки не извлекается)."""
+        точное «N раз в окне» из выборки не извлекается).
+
+        MCA-15 (T-4925, ADR-1028-12 D2): аддитивно `max_id` (watermark
+        `{max_id,max_timestamp}` — число и примеры из одной версии) и
+        `unknown_count` (совпавшие строки без канонического user_id);
+        фильтры измерения — те же, что у examples (один источник)."""
+        where, params = _message_measure_filters(
+            since_ts=since_ts, until_ts=until_ts, author_ids=author_ids,
+            source_kind=source_kind, quote_forward=quote_forward, max_id=max_id)
         sql = ("SELECT COUNT(*) AS cnt, MIN(m.timestamp) AS first_ts, "
-               "MAX(m.timestamp) AS last_ts FROM smart_messages m "
+               "MAX(m.timestamp) AS last_ts, MAX(m.id) AS max_id, "
+               "SUM(CASE WHEN m.user_id IS NULL THEN 1 ELSE 0 END) AS unknown_cnt "
+               "FROM smart_messages m "
                "WHERE m.chat_id = ? AND m.id IN "
-               "(SELECT rowid FROM smart_messages_fts WHERE smart_messages_fts MATCH ?)")
-        params: list = [chat_id, match_query]
-        if since_ts:
-            sql += " AND m.timestamp >= ?"
-            params.append(since_ts)
-        cursor = await self.db.execute(sql, tuple(params))
+               "(SELECT rowid FROM smart_messages_fts WHERE smart_messages_fts MATCH ?)"
+               + where)
+        cursor = await self.db.execute(sql, tuple([chat_id, match_query] + params))
         row = await cursor.fetchone()
-        return {"count": int(row["cnt"] or 0) if row else 0,
-                "first_seen": row["first_ts"] if row else None,
-                "last_seen": row["last_ts"] if row else None}
+        return {"count": int(row_get(row, "cnt", 0) or 0) if row else 0,
+                "first_seen": row_get(row, "first_ts") if row else None,
+                "last_seen": row_get(row, "last_ts") if row else None,
+                "max_id": row_get(row, "max_id") if row else None,
+                "unknown_count": (int(row_get(row, "unknown_cnt", 0) or 0)
+                                  if row else 0)}
 
     async def search_messages_fts_count_by_author(self, chat_id: int,
                                                   match_query: str,
                                                   since_ts: int = 0,
-                                                  until_ts: int = 0) -> dict:
+                                                  until_ts: int = 0, *,
+                                                  author_ids=None,
+                                                  source_kind: str = "any",
+                                                  quote_forward: str = "include",
+                                                  max_id=None) -> dict:
         """10.20 (БЛОК 2.8, ADR-1020-2 п.2, R16): счётчик упоминаний
         FTS-совпадений smart_messages с РАЗБИВКОЙ ПО АВТОРАМ.
 
-        Возвращает ``{"count", "first_seen", "last_seen", "by_author":
-        [{"author_name", "user_id", "count"}, ...]}`` — ``by_author`` отсортирован
-        по убыванию count (имя резолвит вызывающий тем же R16-каскадом
-        `tool_router._resolve_name`: здесь отдаём сырые author_name+user_id,
-        чтобы каскад алиасов/ников работал — имя НЕ выдумываем).
+        Возвращает ``{"count", "first_seen", "last_seen", "max_id",
+        "unknown_count", "by_author": [{"author_name", "user_id", "count"},
+        ...]}`` — ``by_author`` отсортирован по убыванию count (имя резолвит
+        вызывающий тем же R16-каскадом `tool_router._resolve_name`: здесь
+        отдаём сырые author_name+user_id, чтобы каскад алиасов/ников работал —
+        имя НЕ выдумываем).
 
         ``since_ts``/``until_ts`` (>0) — окно по timestamp В SQL (не
-        пост-фильтр top-N, прецедент `search_messages_fts_count`)."""
+        пост-фильтр top-N, прецедент `search_messages_fts_count`).
+
+        MCA-15 (T-4924/T-4925, ADR-1028-12 D1/D2): аддитивные фильтры
+        измерения (author_ids/source_kind/quote_forward/max_id) — в SQL до
+        LIMIT; канонический ключ — user_id, ``author_name`` — подпись.
+        `unknown_count` — совпавшие строки без user_id (не сливаются).
+        Дефолты → прежнее поведение байт-в-байт."""
+        where, params = _message_measure_filters(
+            since_ts=since_ts, until_ts=until_ts, author_ids=author_ids,
+            source_kind=source_kind, quote_forward=quote_forward, max_id=max_id)
         sql = ("SELECT COUNT(*) AS cnt, MIN(m.timestamp) AS first_ts, "
-               "MAX(m.timestamp) AS last_ts, "
+               "MAX(m.timestamp) AS last_ts, MAX(m.id) AS max_id, "
+               "SUM(CASE WHEN m.user_id IS NULL THEN 1 ELSE 0 END) AS unknown_cnt, "
                "COALESCE(m.author_name, '') AS author_name, "
                "m.user_id AS user_id "
                "FROM smart_messages m "
                "WHERE m.chat_id = ? AND m.id IN "
                "(SELECT rowid FROM smart_messages_fts "
-               "WHERE smart_messages_fts MATCH ?)")
-        params: list = [chat_id, match_query]
-        if since_ts:
-            sql += " AND m.timestamp >= ?"
-            params.append(since_ts)
-        if until_ts:
-            sql += " AND m.timestamp <= ?"
-            params.append(until_ts)
-        sql += " GROUP BY COALESCE(m.author_name, ''), m.user_id"
-        cursor = await self.db.execute(sql, tuple(params))
+               "WHERE smart_messages_fts MATCH ?)"
+               + where +
+               " GROUP BY COALESCE(m.author_name, ''), m.user_id")
+        cursor = await self.db.execute(sql, tuple([chat_id, match_query] + params))
         rows = await cursor.fetchall()
         total = 0
         first_ts = None
         last_ts = None
+        max_id = None
+        unknown_count = 0
         by_author: list[dict] = []
         for row in rows:
-            chunk = int(row["cnt"] or 0)
+            chunk = int(row_get(row, "cnt", 0) or 0)
             total += chunk
-            first = row["first_ts"]
-            last = row["last_ts"]
+            first = row_get(row, "first_ts")
+            last = row_get(row, "last_ts")
+            row_max = row_get(row, "max_id")
             if first is not None and (first_ts is None or first < first_ts):
                 first_ts = first
             if last is not None and (last_ts is None or last > last_ts):
                 last_ts = last
+            if row_max is not None and (max_id is None or row_max > max_id):
+                max_id = row_max
+            unknown_count += int(row_get(row, "unknown_cnt", 0) or 0)
             by_author.append({
-                "author_name": row["author_name"] or "",
-                "user_id": row["user_id"],
+                "author_name": row_get(row, "author_name", "") or "",
+                "user_id": row_get(row, "user_id"),
                 "count": chunk,
             })
         by_author.sort(key=lambda item: (-item["count"],
                                          str(item["author_name"])))
         return {"count": total, "first_seen": first_ts, "last_seen": last_ts,
+                "max_id": max_id, "unknown_count": unknown_count,
                 "by_author": by_author}
 
     # ── «Летописец» (раунд 10.20, БЛОК 1, ADR-1020-4, T-1888/T-1889/T-1891) ──

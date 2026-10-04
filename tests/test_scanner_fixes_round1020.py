@@ -68,6 +68,10 @@ class TestDigJsonContract:
 
     def test_payload_valid_when_capped(self):
         result = {
+            "status": "ok",
+            "stats": {"status": "ok", "value": 3, "unit": "messages",
+                      "method": "fts_prefix_or_messages_v1",
+                      "scope": {"chat_id": -100}},
             "total_mentions": 3,
             "mentions_by_authors": {"Толян": 2, "Ваня": 1},
             "first_seen": "2024-05-01", "last_seen": "2024-06-01",
@@ -78,6 +82,8 @@ class TestDigJsonContract:
         assert len(out) <= 700
         payload = json.loads(out)                 # не бросает — JSON валиден
         assert payload["truncated"] is True
+        assert payload["status"] == "ok"
+        assert payload["stats"]["value"] == 3
         assert isinstance(payload["snippets"], list)
         assert isinstance(payload["facts"], list)
 
@@ -86,7 +92,9 @@ class TestDigJsonContract:
                   "mentions_by_authors": {("имя" * 200): 1},
                   "snippets": [], "facts": []}
         out = _dig_json_payload(result, 50)
-        assert json.loads(out)["truncated"] is True
+        # MCA-15 (K1 ON): context-free `{truncated}`/голое число не отдаются —
+        # structured honest status (бюджет мал, форма минимальная).
+        assert json.loads(out)["status"] == "insufficient_output_budget"
         assert len(out) <= 50
 
     @pytest.mark.asyncio

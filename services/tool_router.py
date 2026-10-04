@@ -62,6 +62,8 @@ from config.settings import settings
 from services import hot_config as hot
 from services import image_context_memory
 from services import image_generation
+from services import mca_gates
+from services import mca_events as _mca_events
 from services import media_share
 from services import native_media
 from services.canonical_context import format_context_item, resolve_item_id
@@ -339,11 +341,56 @@ def _dig_json_payload(result: dict, limit: int) -> str:
     ``_truncate(json.dumps(...))`` рвал JSON (невалидные скобки). Здесь
     сначала выкидываются хвостовые элементы ``snippets``/``facts``, затем
     укорачиваются самые длинные строки — итог ВСЕГДА валидный JSON. При
-    усечении добавляется ``"truncated": true`` (честный сигнал модели)."""
+    усечении добавляется ``"truncated": true`` (честный сигнал модели).
+
+    MCA-15 (T-4926, §24.1 п.8; K1 ON): голое число без метода не остаётся.
+    После секций уходят необязательные поля; schema/status/unit/method/scope
+    сохраняются; если обязательное не помещается — structured
+    ``{"status": "insufficient_output_budget", "value": null}`` вместо
+    ``{truncated, total_mentions}``. K1 OFF → прежний контракт байт-в-байт.
+    """
     budget = max(1, int(limit or 0))
     payload = json.dumps(result, ensure_ascii=False)
     if len(payload) <= budget:
         return payload
+    if not mca_gates.chat_statistics_enabled():
+        out = dict(result)
+        out["snippets"] = list(result.get("snippets") or [])
+        out["facts"] = list(result.get("facts") or [])
+        out["truncated"] = True
+
+        def _size() -> int:
+            return len(json.dumps(out, ensure_ascii=False))
+
+        # 1) выкидываем хвостовые элементы секций (сначала facts — они дешевле).
+        while _size() > budget and (out["snippets"] or out["facts"]):
+            if out["facts"]:
+                out["facts"].pop()
+            else:
+                out["snippets"].pop()
+        # 2) усекаем самые длинные строки (валидность JSON сохраняется).
+        for _ in range(100):
+            if _size() <= budget:
+                break
+            target = out["snippets"] if out["snippets"] else out["facts"]
+            if not target:
+                break
+            idx = max(range(len(target)), key=lambda k: len(str(target[k])))
+            text = str(target[idx])
+            if len(text) <= 1:
+                break
+            overshoot = _size() - budget
+            target[idx] = text[:max(1, len(text) - overshoot - 8)]
+        serialized = json.dumps(out, ensure_ascii=False)
+        if len(serialized) > budget:
+            # Даже метаданные не влезли — честный минимум (JSON валиден).
+            serialized = json.dumps(
+                {"truncated": True,
+                 "total_mentions": int(result.get("total_mentions") or 0)},
+                ensure_ascii=False)
+        return serialized
+
+    # ── K1 ON: сохраняем обязательное (status/stats), жертвуем остальным ──
     out = dict(result)
     out["snippets"] = list(result.get("snippets") or [])
     out["facts"] = list(result.get("facts") or [])
@@ -352,13 +399,13 @@ def _dig_json_payload(result: dict, limit: int) -> str:
     def _size() -> int:
         return len(json.dumps(out, ensure_ascii=False))
 
-    # 1) выкидываем хвостовые элементы секций (сначала facts — они дешевле).
+    # 1) секции — первыми (сначала facts).
     while _size() > budget and (out["snippets"] or out["facts"]):
         if out["facts"]:
             out["facts"].pop()
         else:
             out["snippets"].pop()
-    # 2) усекаем самые длинные строки (валидность JSON сохраняется).
+    # 2) длинные строки секций.
     for _ in range(100):
         if _size() <= budget:
             break
@@ -371,14 +418,77 @@ def _dig_json_payload(result: dict, limit: int) -> str:
             break
         overshoot = _size() - budget
         target[idx] = text[:max(1, len(text) - overshoot - 8)]
+    # 3) необязательные поля (status/stats неприкосновенны).
+    for key in ("authors", "mentions_by_authors", "first_seen", "last_seen",
+                "data_as_of", "time_bounds", "message", "total_mentions",
+                "facts", "snippets"):
+        if _size() <= budget:
+            break
+        if key in out and key not in ("status", "stats", "truncated"):
+            out.pop(key, None)
+    has_content = bool(out.get("snippets") or out.get("facts")
+                       or out.get("status") or out.get("stats"))
     serialized = json.dumps(out, ensure_ascii=False)
-    if len(serialized) > budget:
-        # Даже метаданные не влезли — честный минимум (JSON валиден).
-        serialized = json.dumps(
-            {"truncated": True,
-             "total_mentions": int(result.get("total_mentions") or 0)},
-            ensure_ascii=False)
-    return serialized
+    if len(serialized) <= budget and has_content:
+        return serialized
+    # 4) обязательное не помещается (или не осталось содержательного) —
+    #    structured honest error (не голое число и не context-free `{truncated}`).
+    compact = {"status": "insufficient_output_budget", "value": None,
+               "reason": "insufficient_output_budget"}
+    serialized = json.dumps(compact, ensure_ascii=False)
+    if len(serialized) <= budget:
+        return serialized
+    return json.dumps({"status": "insufficient_output_budget"},
+                      ensure_ascii=False)
+
+
+# Обязательные ключи stats-контракта (T-4932): schema/status/unit/scope/method
+# сохраняются при любом урезании; голое число не остаётся никогда.
+_STATS_MANDATORY_KEYS = ("metric_id", "status", "value", "unit", "method",
+                         "method_label", "scope", "coverage")
+
+
+def _stats_json_payload(result: dict, limit: int) -> str:
+    """Сериализовать stats-контракт с честным урезанием (T-4932, §4.3).
+
+    Порядок: сначала уходят ``examples``, затем необязательные поля
+    (authors/time_bounds/watermark/...); обязательные schema/status/unit/
+    scope/method остаются. Если обязательное не помещается —
+    ``{"status":"insufficient_output_budget","value":null}`` (не голое
+    число и не частичный JSON)."""
+    budget = max(1, int(limit or 0))
+    out = dict(result or {})
+    payload = json.dumps(out, ensure_ascii=False)
+    if len(payload) <= budget:
+        return payload
+
+    def _size() -> int:
+        return len(json.dumps(out, ensure_ascii=False))
+
+    # 1) examples — первыми (сначала убираются примеры, T-4932).
+    examples = list(out.get("examples") or [])
+    while _size() > budget and examples:
+        examples.pop()
+    out["examples"] = examples
+    # 2) необязательные поля.
+    for key in ("examples", "authors", "human_label", "verified_phrase",
+                "time_bounds", "watermark", "data_as_of", "duration_ms",
+                "excluded_count", "unknown_count", "reason"):
+        if _size() <= budget:
+            break
+        if key in out and key not in _STATS_MANDATORY_KEYS:
+            out.pop(key, None)
+    serialized = json.dumps(out, ensure_ascii=False)
+    if len(serialized) <= budget and all(k in out
+                                         for k in _STATS_MANDATORY_KEYS):
+        return serialized
+    compact = {"status": "insufficient_output_budget", "value": None,
+               "reason": "insufficient_output_budget"}
+    serialized = json.dumps(compact, ensure_ascii=False)
+    if len(serialized) <= budget:
+        return serialized
+    return json.dumps({"status": "insufficient_output_budget"},
+                      ensure_ascii=False)
 
 
 async def resolve_lore_compiler_flag(chat_id: int | None) -> bool:
@@ -514,6 +624,18 @@ class ToolContext:
         # DirectChat (там сигнал доставки уже есть, это мягкая страховка).
         # В фактчеке она провоцировала вердикт-историю → caller ставит False.
         self.lore_verbatim_instruction = bool(lore_verbatim_instruction)
+        # MCA-15 (T-4920, ADR-1028-12 D6): детерминированный intent текущего
+        # хода (`chat_statistics`/`historical_evidence`/`social_banter`/
+        # `mixed`; "" — классификатор не работал). Аддитивное поле; инструменты
+        # читают его только как сигнал (глобальной блокировки инструментов нет).
+        self.stats_intent = ""
+        # MCA-15 (T-4929/T-4931, ADR-1028-12 D4/D5): per-turn реестр
+        # MetricResult (in-memory, один ход) — источник NumericClaim для
+        # numeric-гарда; durable-хранения чисел нет (пересчёт).
+        self.metric_results: list = []
+        # MCA-15 (T-4932, §7.3): доставлена lore-история UPD-ветки `unchanged`
+        # со старыми агрегатами → пометка на перепроверку (lore не удаляется).
+        self.lore_stats_recheck = False
 
     def result_for(self, tool_name: str) -> dict | None:
         """A2 (ADR-1026-15 D1/D6): последний envelope-результат инструмента.
@@ -605,6 +727,14 @@ class ToolRouter:
 
     async def _query_chat_memory(self, arguments: dict, ctx: ToolContext) -> str:
         query = self._require_query(arguments, ctx)
+        stats_arg = arguments.get("stats")
+        if (mca_gates.chat_statistics_enabled()
+                and isinstance(stats_arg, dict) and stats_arg):
+            # MCA-15 (T-4929, ADR-1028-12 D3): структурированный stats-режим
+            # существующего инструмента (canon 12 не меняется). K1 OFF →
+            # прежний путь байт-в-байт.
+            return await self._query_chat_memory_stats(arguments, stats_arg,
+                                                       ctx)
         time_range = str(arguments.get("time_range") or "all")
         if time_range not in _TIME_RANGE_SECONDS:
             time_range = "all"
@@ -664,9 +794,124 @@ class ToolRouter:
                 last = _format_timestamp(stats.get("last_seen"))
                 if first and last and first != last:
                     stamp = f" (с {first} по {last})"
-            parts.append(f"Найдено {stats['count']} упоминаний «{query}» {period}{stamp}")
+            if mca_gates.chat_statistics_enabled():
+                # MCA-15 (T-4926, §24.1 п.6): широкий prefix-OR-счёт больше
+                # не выдаётся за точное число «упоминаний»: единица (сообщения)
+                # и метод (префиксы, не морфология) названы явно.
+                parts.append(
+                    f"Широкий поиск (префиксы, не морфология): "
+                    f"{stats['count']} сообщений «{query}» {period}{stamp}")
+            else:
+                parts.append(
+                    f"Найдено {stats['count']} упоминаний «{query}» "
+                    f"{period}{stamp}")
         parts.extend(lines)
         return _truncate("\n".join(parts), _MEMORY_MAX_SYMBOLS)
+
+    # ── query_chat_memory stats-режим (MCA-15 T-4929, ADR-1028-12 D3/D4) ──
+
+    def _resolve_author_id(self, name: str) -> tuple[int | None, str]:
+        """Имя/алиас → канонический user_id (mca-03-контур, без второго
+        identity). Неоднозначность/ненайденность → (None, detail) —
+        `ambiguous_identity`, без угадывания и без слияния по имени."""
+        mapping = getattr(self.deps.aliases, "_aliases", None)
+        low = str(name or "").strip().casefold()
+        matches: set[int] = set()
+        if isinstance(mapping, dict) and low:
+            for key, value in mapping.items():
+                if str(value).casefold() != low:
+                    continue
+                try:
+                    matches.add(int(key))
+                except (TypeError, ValueError):
+                    continue
+        if len(matches) == 1:
+            return matches.pop(), ""
+        return None, ("author_ambiguous" if len(matches) > 1
+                      else "author_unresolved")
+
+    @staticmethod
+    def _stats_unsupported_payload(metric: str, reason: str,
+                                   detail: str = "") -> str:
+        """Честный structured-отказ stats-режима (не число и не ноль)."""
+        payload = {
+            "status": "unsupported",
+            "value": None,
+            "unit": {"messages": "messages", "occurrences": "occurrences",
+                     "distinct_authors": "authors"}.get(metric, metric),
+            "reason": reason,
+        }
+        if detail:
+            payload["scope"] = {"detail": detail}
+        return json.dumps(payload, ensure_ascii=False)
+
+    async def _query_chat_memory_stats(self, arguments: dict,
+                                       stats_arg: dict,
+                                       ctx: ToolContext) -> str:
+        """Stats-режим (T-4929/D3): одна нормализованная спека → `measure()`
+        → типизированный JSON + `MetricResult` в `ctx.metric_results`
+        (источник NumericClaim хода). Никогда не бросает."""
+        from services import chat_statistics as _cs
+        db = self.deps.db if self.deps.db is not None \
+            else getattr(self.deps.memory, "db", None)
+        time_range = str(arguments.get("time_range") or "all")
+        if time_range not in _TIME_RANGE_SECONDS:
+            time_range = "all"
+        since = _time_range_since(time_range)
+        metric = str(stats_arg.get("metric") or _cs.METRIC_MESSAGES).strip()
+        match_mode = str(stats_arg.get("match_mode")
+                         or _cs.MATCH_TOKEN).strip()
+        phrase = str(stats_arg.get("phrase")
+                     or arguments.get("query") or "").strip()
+        raw_terms = stats_arg.get("terms")
+        terms: tuple[str, ...] = ()
+        if isinstance(raw_terms, (list, tuple)):
+            terms = tuple(str(t).strip() for t in raw_terms
+                          if str(t or "").strip())
+        if match_mode == _cs.MATCH_EXACT_PHRASE:
+            text, query_terms = phrase, ()
+        else:
+            text = ""
+            query_terms = ((phrase,) if phrase else ()) + terms
+        quote_forward = str(stats_arg.get("quote_forward")
+                            or _cs.QUOTE_INCLUDE).strip()
+        sender = str(stats_arg.get("sender") or _cs.SENDER_ANY).strip()
+        author_ids: tuple[int, ...] = ()
+        author_name = str(stats_arg.get("author") or "").strip()
+        if author_name:
+            resolved, detail = self._resolve_author_id(author_name)
+            if resolved is None:
+                # R16/mca-03: имя — подпись, не ключ; не угадываем и не
+                # сливаем двух людей. Reason — существующий `ambiguous_identity`.
+                _mca_events.emit_mca_event(
+                    "chat_statistics", outcome="skipped",
+                    component="tool_router", stage="measurement",
+                    reason_code="ambiguous_identity", chat_id=ctx.chat_id)
+                return self._stats_unsupported_payload(
+                    metric, "ambiguous_identity", detail)
+            author_ids = (resolved,)
+        if db is None:
+            return self._stats_unsupported_payload(
+                metric, _cs.REASON_STATS_UNSUPPORTED, "db_unavailable")
+        query = _cs.StatsQuery(
+            chat_id=ctx.chat_id, metric=metric, match_mode=match_mode,
+            text=text, terms=query_terms, author_ids=author_ids,
+            interval_from=(since or None), quote_forward=quote_forward,
+            sender_kinds=sender)
+        try:
+            result = await _cs.measure(db, query)
+        except Exception as exc:      # measure не бросает, но не доверяем
+            logger.warning("[tools] stats measure failed | error=%s",
+                           type(exc).__name__)
+            return self._stats_unsupported_payload(
+                metric, _cs.REASON_STATS_COUNT_ERROR, "measure_failed")
+        metric_result = _cs.build_metric_result(result, query)
+        ctx.metric_results.append(metric_result)
+        _cs.emit_measurement_event(metric_result, chat_id=ctx.chat_id,
+                                   intent=ctx.stats_intent)
+        payload = _cs.metric_result_payload(result, query,
+                                            metric_result=metric_result)
+        return _stats_json_payload(payload, _MEMORY_MAX_SYMBOLS)
 
     # ── dig_into_lore (раунд 9, AGI Memory T-820, spec §3.2.1/Q6) ────────
 
@@ -698,18 +943,26 @@ class ToolRouter:
         tokens = keywords(query)
         # Имена-формы (person) расширяют запрос OR-токенами (spec п.2).
         merged = list(dict.fromkeys(tokens + person_terms))
+        # MCA-15 (T-4926/T-4927, ADR-1028-12 D1/D3): K1 ON — измерение
+        # строится ТОЛЬКО по явным токенам запроса и person-формам;
+        # graph-expansion — кандидаты для примеров (через `retrieve()`), НЕ
+        # условие измерения. K1 OFF — прежний merged (байт-паритет).
+        k1_stats = mca_gates.chat_statistics_enabled()
         # major-2(б): имена из граф-обхода (BFS по nodes/edges глубиной
         # limits.dig_graph_hop_depth; фолбэк target_user) — источник ИМЁН
         # для FTS (spec п.4; best-effort, пусто при любой ошибке).
         graph_names = await self._dig_graph_names(
             ctx, person_terms if person is not None else tokens)
-        if graph_names:
+        if graph_names and not k1_stats:
             for name in graph_names:
                 for word in keywords(name):
                     if len(word) >= 3 and word not in merged:
                         merged.append(word)
                 if len(merged) >= 40:
                     break
+        # Условие измерения: K1 ON — без graph-expansion; K1 OFF — как было.
+        measurement_tokens = (list(dict.fromkeys(tokens + person_terms))
+                              if k1_stats else list(merged))
 
         dig_max_symbols = int(hot.get("limits.dig_max_symbols",
                                       settings.DIG_MAX_SYMBOLS)
@@ -723,12 +976,22 @@ class ToolRouter:
 
         msg_lines: list[str] = []
         fact_lines: list[str] = []
+        seen_texts: set[str] = set()
         stage_error = None
+        count_status = "ok"
         total_mentions = 0
         mentions_by_authors: dict[str, int] = {}
+        authors_list: list[dict] = []
         first_seen = None
         last_seen = None
         if not merged:
+            if k1_stats:
+                return self._dig_not_found(query, stats_block={
+                    "status": "unsupported", "value": None,
+                    "unit": "messages", "method": "", "method_label": "",
+                    "scope": {"chat_id": ctx.chat_id,
+                              "corpus": "smart_messages"},
+                    "coverage": "unknown", "reason": "stats_unsupported"})
             return self._dig_not_found(query)
         # (в) mode messages/both: FTS5 по smart_messages (search_long_term) +
         #     пост-фильтр периода/user_id; рендер «[Имя YYYY-MM-DD]: текст».
@@ -737,7 +1000,6 @@ class ToolRouter:
                 rows = await self.deps.memory.search_long_term(
                     ctx.chat_id, merged, limit=_MEMORY_FTS_LIMIT)
                 rows = [dict(row) for row in rows]     # T-678: aiosqlite.Row
-                seen: set[str] = set()
                 for row in rows:
                     ts = int(row.get("timestamp") or 0)
                     if bounds and not (bounds[0] <= ts <= bounds[1]):
@@ -746,9 +1008,9 @@ class ToolRouter:
                             int(row.get("user_id") or 0) != person_uid:
                         continue
                     text = str(row.get("text") or "").strip()
-                    if not text or text in seen:
+                    if not text or text in seen_texts:
                         continue
-                    seen.add(text)
+                    seen_texts.add(text)
                     name = self._resolve_name(row)
                     # 10.20 (БЛОК 2.8, ADR-1020-2 п.2): канонический рендер
                     # строки контекста (§2.2, kind="msg") — дата ВРЕМЯ | автор
@@ -769,6 +1031,42 @@ class ToolRouter:
                 stage_error = f"{type(exc).__name__}"
                 logger.warning("[tools] dig messages failed | query=%r | "
                                "error=%s", query, stage_error, exc_info=True)
+        # MCA-15 (T-4927, L-MCA07-5): graph-expansion — кандидаты ТОЛЬКО
+        # через единую точку mca-07 `retrieve()`; второй комбинированный
+        # retrieval не создаётся, условие измерения НЕ меняется.
+        if k1_stats and graph_names and mode in ("messages", "both"):
+            try:
+                from services import chat_statistics as _cs
+                expansion = await _cs.collect_candidates(
+                    getattr(self.deps.memory, "db", None), self.deps.memory,
+                    chat_id=ctx.chat_id, query=query,
+                    top_k=max(1, max_snippets), mode="history",
+                    time_from=bounds[0] if bounds else None,
+                    time_to=bounds[1] if bounds else None,
+                    participants=((person_uid,) if person_uid is not None
+                                  else ()))
+                for cand in expansion.candidates or ():
+                    if len(msg_lines) >= max_snippets:
+                        break
+                    if cand.entity_type != "message" or not cand.preview:
+                        continue
+                    if person_uid is not None and cand.author_id is not None \
+                            and int(cand.author_id) != person_uid:
+                        continue
+                    text = str(cand.preview).strip()
+                    if not text or text in seen_texts:
+                        continue
+                    seen_texts.add(text)
+                    msg_lines.append(format_context_item(
+                        ts=cand.sent_at,
+                        author=self._resolve_name(
+                            {"user_id": cand.author_id, "author_name": ""}),
+                        item_id=cand.id, text=text, kind="msg"))
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.warning("[tools] dig expansion candidates failed | "
+                               "error=%s", type(exc).__name__)
         # (г) mode facts/both: FTS по graph_facts (v7-совместимо: колонки v8
         #     не используются); пост-фильтр периода и target_user (person).
         if mode in ("facts", "both"):
@@ -826,33 +1124,126 @@ class ToolRouter:
                                "error=%s", query, stage_error, exc_info=True)
         # (д) 10.20 (БЛОК 2.8, ADR-1020-2 п.2): агрегация упоминаний по
         # авторам — GROUP BY в SQL, имя резолвится тем же R16-каскадом
-        # (_resolve_name). Считается по окну year (since/until). Ошибка
-        # счётчика не роняет выдачу: total_mentions честно молчит (R16).
+        # (_resolve_name). Считается по окну year (since/until).
+        # MCA-15 (T-4926): K1 ON — счётчик применяет ТЕ ЖЕ фильтры, что
+        # сниппеты (person_uid, окно года); graph-expansion в измерение НЕ
+        # входит; ошибка счётчика — отдельный статус `stats_count_error`,
+        # НЕ ноль (A40); ключ автора — канонический user_id, имя — подпись.
         if mode in ("messages", "both") and merged:
             try:
                 db = getattr(self.deps.memory, "db", None)
                 counter = getattr(
                     db, "search_messages_fts_count_by_author", None)
                 from services.summary_memory import build_fts_query
-                match = build_fts_query(merged)
+                match = build_fts_query(measurement_tokens)
                 if callable(counter) and match:
+                    counter_kwargs = {}
+                    if k1_stats and person_uid is not None:
+                        counter_kwargs["author_ids"] = (person_uid,)
                     stats = await counter(
                         ctx.chat_id, match,
                         since_ts=bounds[0] if bounds else 0,
-                        until_ts=bounds[1] if bounds else 0)
+                        until_ts=bounds[1] if bounds else 0,
+                        **counter_kwargs)
                     total_mentions = int(stats.get("count") or 0)
-                    for entry in stats.get("by_author") or []:
-                        name = self._resolve_name(entry)
-                        mentions_by_authors[name] = (
-                            mentions_by_authors.get(name, 0)
-                            + int(entry.get("count") or 0))
+                    if k1_stats:
+                        by_id: dict = {}
+                        for entry in stats.get("by_author") or []:
+                            uid = entry.get("user_id")
+                            label = self._resolve_name(entry)
+                            key = (int(uid) if uid is not None
+                                   else ("unknown", label))
+                            item = by_id.get(key)
+                            if item is None:
+                                by_id[key] = {
+                                    "user_id": uid, "label": label,
+                                    "count": int(entry.get("count") or 0)}
+                            else:
+                                item["count"] += int(
+                                    entry.get("count") or 0)
+                        authors_list = sorted(
+                            by_id.values(),
+                            key=lambda a: (-a["count"], str(a["label"])))
+                    else:
+                        for entry in stats.get("by_author") or []:
+                            name = self._resolve_name(entry)
+                            mentions_by_authors[name] = (
+                                mentions_by_authors.get(name, 0)
+                                + int(entry.get("count") or 0))
                     first_seen = _format_timestamp(stats.get("first_seen"))
                     last_seen = _format_timestamp(stats.get("last_seen"))
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                count_status = "error"
                 logger.warning("[tools] dig count failed | query=%r | "
                                "error=%s", query, type(exc).__name__)
+        if k1_stats:
+            from services import chat_statistics as _cs
+            if mode == "facts":
+                # Режим facts не измеряет сообщения: честный unsupported,
+                # а не ложный ноль.
+                stats_block = {
+                    "status": "unsupported", "value": None,
+                    "unit": "messages", "method": "", "method_label": "",
+                    "scope": {"chat_id": ctx.chat_id,
+                              "corpus": "smart_messages"},
+                    "coverage": "unknown", "reason": "stats_unsupported",
+                }
+            else:
+                stats_block = {
+                    "status": ("error" if count_status == "error" else "ok"),
+                    "value": (None if count_status == "error"
+                              else int(total_mentions)),
+                    "unit": "messages",
+                    "method": _cs.FTS_PREFIX_OR_METHOD,
+                    "method_label": _cs.method_label(_cs.MATCH_PREFIX),
+                    "scope": {"chat_id": ctx.chat_id,
+                              "corpus": "smart_messages",
+                              "since_ts": bounds[0] if bounds else None,
+                              "until_ts": bounds[1] if bounds else None,
+                              "person_user_id": person_uid},
+                    "coverage": "known_complete",
+                    "reason": ("stats_count_error"
+                               if count_status == "error" else None),
+                }
+            # T-4929/T-4934 (D4/D7): измерение dig регистрируется как
+            # MetricResult (источник NumericClaim хода) и видно в
+            # диагностике; ошибка счётчика — value=None (без claim), ноль —
+            # только после успешного расчёта области.
+            self._register_dig_measurement(
+                ctx, stats_block, measurement_tokens, person_uid, bounds)
+            has_material = bool(msg_lines or fact_lines)
+            if not has_material and count_status == "error":
+                if stage_error:
+                    return (f"ОШИБКА dig_into_lore: этап поиска не выполнен "
+                            f"({stage_error})")
+                result = {
+                    "status": "error",
+                    "stats": stats_block,
+                    "authors": authors_list,
+                    "first_seen": first_seen or None,
+                    "last_seen": last_seen or None,
+                    "snippets": msg_lines,
+                    "facts": fact_lines,
+                    "message": "счётчик недоступен — число не публикуется",
+                }
+                return _dig_json_payload(result, dig_max_symbols)
+            if not has_material and not total_mentions:
+                if stage_error:
+                    return (f"ОШИБКА dig_into_lore: этап поиска не выполнен "
+                            f"({stage_error})")
+                return self._dig_not_found(query, stats_block=stats_block)
+            result = {
+                "status": ("partial" if count_status == "error" else "ok"),
+                "stats": stats_block,
+                "authors": authors_list,
+                "first_seen": first_seen or None,
+                "last_seen": last_seen or None,
+                "snippets": msg_lines,
+                "facts": fact_lines,
+            }
+            return _dig_json_payload(result, dig_max_symbols)
         if not msg_lines and not fact_lines and not total_mentions:
             if stage_error:
                 return (f"ОШИБКА dig_into_lore: этап поиска не выполнен "
@@ -2285,11 +2676,30 @@ class ToolRouter:
             return "ОШИБКА compile_lore_story: пустая история"
         ctx.lore_compiled = True
         ctx.lore_story = story
+        # MCA-15 (T-4930/T-4932, §7.3): свежая компиляция — её измерение
+        # становится NumericClaim хода (числа истории проверяемы); UPD-ветка
+        # `unchanged` отдаёт СТАРЫЕ агрегаты — помечаем на перепроверку
+        # (`lore_stats_recheck_flagged`), lore не удаляется; непроверенные
+        # числа снимет финальный numeric-гард direct.
+        metric_result = result.get("metric_result")
+        if metric_result is not None:
+            ctx.metric_results.append(metric_result)
+        stats_recheck = bool(result.get("stats_recheck"))
+        if stats_recheck:
+            ctx.lore_stats_recheck = True
+            _mca_events.emit_mca_event(
+                "chat_statistics", outcome="skipped",
+                component="tool_router", stage="claim_check",
+                reason_code="lore_stats_recheck_flagged",
+                chat_id=ctx.chat_id)
+            logger.info("[tools] lore stats recheck flagged | chat=%s",
+                        ctx.chat_id)
         payload = json.dumps({
             "status": "ok",
             "is_update": bool(result.get("is_update")),
             "previous_story_at": result.get("previous_story_at"),
             "story": story,
+            "stats_recheck": stats_recheck,
         }, ensure_ascii=False)
         if getattr(ctx, "lore_verbatim_instruction", True):
             return f"{payload}\n\n{_LORE_RETURN_INSTRUCTION}"
@@ -2473,13 +2883,16 @@ class ToolRouter:
             return ""
 
     @staticmethod
-    def _dig_not_found(query: str) -> str:
+    def _dig_not_found(query: str, stats_block: dict | None = None) -> str:
         """Честный JSON-контракт при отсутствии попаданий (БЛОК 2.8/R16):
         нули + текст «ничего не нашёл» — БЕЗ выдуманных цифр.
 
         Сохраняет обратную совместимость по подстроке «ничего не нашёл по
-        запросу» (снапшот-тесты: plain→JSON обновлены осознанно)."""
-        return json.dumps({
+        запросу» (снапшот-тесты: plain→JSON обновлены осознанно).
+        MCA-15 (K1 ON): вместо голого `total_mentions` — типизированный
+        `stats`-блок (status/value/unit/method/scope) с value=0 после
+        успешного расчёта области."""
+        payload = {
             "total_mentions": 0,
             "mentions_by_authors": {},
             "first_seen": None,
@@ -2488,7 +2901,38 @@ class ToolRouter:
             "facts": [],
             "status": "not_found",
             "message": f"ничего не нашёл по запросу «{query}»",
-        }, ensure_ascii=False)
+        }
+        if stats_block is not None:
+            payload.pop("total_mentions", None)
+            payload["stats"] = stats_block
+        return json.dumps(payload, ensure_ascii=False)
+
+    @staticmethod
+    def _register_dig_measurement(ctx: ToolContext, stats_block: dict,
+                                  measurement_tokens: list,
+                                  person_uid: int | None,
+                                  bounds) -> None:
+        """MetricResult для dig-измерения (T-4929/D4; без второго измерения).
+
+        Спека строится по тем же токенам/окну/person, что применялись к
+        счётчику; ошибка/unsupported → value=None (claim не создаётся)."""
+        try:
+            from services import chat_statistics as _cs
+            query = _cs.StatsQuery(
+                chat_id=ctx.chat_id, metric=_cs.METRIC_MESSAGES,
+                match_mode=_cs.MATCH_PREFIX,
+                terms=tuple(measurement_tokens),
+                author_ids=((person_uid,) if person_uid is not None else ()),
+                interval_from=(bounds[0] if bounds else None),
+                interval_to=(bounds[1] if bounds else None))
+            metric_result = _cs.build_metric_result(stats_block, query)
+            ctx.metric_results.append(metric_result)
+            _cs.emit_measurement_event(
+                metric_result, chat_id=ctx.chat_id,
+                intent=ctx.stats_intent)
+        except Exception:
+            logger.warning("[tools] dig measurement register failed",
+                           exc_info=True)
 
     @staticmethod
     def _dig_person_text(raw) -> str | None:

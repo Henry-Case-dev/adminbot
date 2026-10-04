@@ -101,6 +101,64 @@ TOOL_QUERY_CHAT_MEMORY = {
                     "description": "Time window: last_day/last_week/last_month/all.",
                     "default": "all",
                 },
+                # MCA-15 (T-4929, ADR-1028-12 D3): структурированный режим
+                # измерения — аддитивный объект (canon 12 не меняется). Без
+                # `stats` — прежнее поведение.
+                "stats": {
+                    "type": "object",
+                    "description": (
+                        "Structured measurement mode for exact counts: "
+                        "phrase/token/prefix/AND/OR, unit and filters. Use "
+                        "when the user asks for an exact number ('how many "
+                        "times/messages'). Without it the tool returns a "
+                        "broad search result."),
+                    "properties": {
+                        "metric": {
+                            "type": "string",
+                            "enum": ["messages", "occurrences",
+                                     "distinct_authors"],
+                            "description": "Unit: messages (matching "
+                                           "messages), occurrences (word/"
+                                           "phrase hits inside them), "
+                                           "distinct_authors.",
+                            "default": "messages",
+                        },
+                        "match_mode": {
+                            "type": "string",
+                            "enum": ["exact_phrase", "token", "prefix",
+                                     "all_terms", "any_terms"],
+                            "description": "exact_phrase requires phrase; "
+                                           "token = one token; prefix = "
+                                           "explicit prefix match (not "
+                                           "morphology); all_terms = AND; "
+                                           "any_terms = OR.",
+                            "default": "token",
+                        },
+                        "phrase": {"type": "string",
+                                   "description": "Phrase or single token."},
+                        "terms": {"type": "array",
+                                  "items": {"type": "string"},
+                                  "description": "Terms for AND/OR modes."},
+                        "author": {"type": "string",
+                                   "description": "Author name/alias; the "
+                                                  "server resolves it to a "
+                                                  "canonical user id."},
+                        "quote_forward": {
+                            "type": "string",
+                            "enum": ["include", "exclude", "only"],
+                            "default": "include",
+                            "description": "Quotes/forwards policy.",
+                        },
+                        "sender": {
+                            "type": "string",
+                            "enum": ["any", "unknown"],
+                            "default": "any",
+                            "description": "Sender kind; human/bot are "
+                                           "unavailable in this corpus.",
+                        },
+                    },
+                    "additionalProperties": False,
+                },
             },
             "required": ["query"],
             "additionalProperties": False,

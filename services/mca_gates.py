@@ -276,6 +276,23 @@ KILL_SWITCHES: dict[str, tuple[bool, str]] = {
         "`verbalize_validated` как 2.58.54 (клише-loop+scrubber без "
         "form-гардов/fallback; новые параметры игнорируются)",
     ),
+    # ── mca-15 (ADR-1028-12 D8): K1/K2/K3 ──────────────────────────────────
+    "MCA_CHAT_STATISTICS_ENABLED": (
+        True,
+        "нет stats-режима/measurement/MetricResult; `query_chat_memory`/"
+        "`_dig_into_lore`/`_dig_json_payload`/lore-агрегаты как 2.58.55 "
+        "(включая «Найдено N упоминаний» и голый `total_mentions`)",
+    ),
+    "MCA_NUMERIC_CLAIM_GUARD_ENABLED": (
+        True,
+        "`verbalize_validated` без numeric-контракта; финальная сборка "
+        "direct без гарда; новые параметры игнорируются (паритет 2.58.55)",
+    ),
+    "MCA_STATS_INTENT_ENABLED": (
+        True,
+        "классификатор/хинт/reason-коды интента не работают; intent-"
+        "поведение как 2.58.55",
+    ),
 }
 
 
@@ -838,6 +855,44 @@ def postprocess_form_guard_enabled() -> bool:
     (только при переданном `form_contract`). OFF → как 2.58.54: новые
     параметры игнорируются, stats без новых ключей."""
     return bool(getattr(settings, "MCA_POSTPROCESS_FORM_GUARD_ENABLED", True))
+
+
+# ── mca-15 (ADR-1028-12 D8): K1/K2/K3 + env-only лимиты ─────────────────────
+def chat_statistics_enabled() -> bool:
+    """`MCA_CHAT_STATISTICS_ENABLED` (env-only, default ON; D8/K1).
+
+    ON → stats-режим/measurement + FIX измерительных путей. OFF → точный
+    паритет 2.58.55 (ярлык «Найдено N упоминаний», голый `total_mentions`,
+    старый truncation-контракт)."""
+    return bool(getattr(settings, "MCA_CHAT_STATISTICS_ENABLED", True))
+
+
+def numeric_claim_guard_enabled() -> bool:
+    """`MCA_NUMERIC_CLAIM_GUARD_ENABLED` (env-only, default ON; D8/K2).
+
+    ON → numeric-контракт `verbalize_validated` + финальная сборка direct
+    (блоки C/D). OFF → точный паритет 2.58.55 (новые параметры
+    игнорируются)."""
+    return bool(getattr(settings, "MCA_NUMERIC_CLAIM_GUARD_ENABLED", True))
+
+
+def stats_intent_enabled() -> bool:
+    """`MCA_STATS_INTENT_ENABLED` (env-only, default ON; D8/K3).
+
+    ON → классификатор `social_banter`/`historical_evidence`/
+    `chat_statistics`/`mixed` + stats-хинт + reason-коды цели. OFF →
+    intent-поведение как 2.58.55 (классификатор не вызывается)."""
+    return bool(getattr(settings, "MCA_STATS_INTENT_ENABLED", True))
+
+
+def chat_stats_occurrence_max_rows() -> int:
+    """Кап bounded-скана occurrences (env-only, default 20000; ≥1)."""
+    return _int_setting_min("MCA_CHAT_STATS_OCCURRENCE_MAX_ROWS", 20000, 1)
+
+
+def chat_stats_examples_max() -> int:
+    """Кап примеров в измерении (env-only, default 20; ≥1)."""
+    return _int_setting_min("MCA_CHAT_STATS_EXAMPLES_MAX", 20, 1)
 
 
 def style_scope_chat_ttl_days() -> int:

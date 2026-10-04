@@ -29,6 +29,7 @@ from services.canonical_context import (
     resolve_timezone,
     split_context_header,
 )
+from services import mca_gates
 from services.lore_prompts import (
     LORE_STORY_SYSTEM_PROMPT,
     build_lore_story_user,
@@ -101,12 +102,36 @@ class LoreCompilerService:
 
         dense = _empty_dense()
         stats: dict = {}
+        measure_result: dict | None = None
+        measure_query = None
+        k1_stats = mca_gates.chat_statistics_enabled()
         if match:
             dense = await self.db.lore_dense_dialogs(
                 chat_id, match, max_dialogs=_LORE_DIALOGS_MAX,
                 window_minutes=_LORE_DIALOG_WINDOW_MINUTES, since_ts=since)
-            stats = await self.db.search_messages_fts_count_by_author(
-                chat_id, match, since_ts=(since + 1 if since else 0))
+            if k1_stats:
+                # MCA-15 (T-4926, §24.1 п.9): агрегаты «Летописца» — через
+                # `chat_statistics` (тот же измерительный контур); «упоминаний:
+                # N» не выдаётся за точное число фразы без метода/единицы.
+                from services import chat_statistics as _cs
+                measure_query = _cs.StatsQuery(
+                    chat_id=chat_id, metric=_cs.METRIC_MESSAGES,
+                    match_mode=_cs.MATCH_PREFIX, terms=tuple(tokens),
+                    interval_from=(since + 1 if since else None),
+                    timezone=self.tz_name)
+                measure_result = await _cs.measure(self.db, measure_query)
+                bounds = measure_result.get("time_bounds") or {}
+                stats = {"count": measure_result.get("value"),
+                         "first_seen": bounds.get("first_seen"),
+                         "last_seen": bounds.get("last_seen")}
+            else:
+                stats = await self.db.search_messages_fts_count_by_author(
+                    chat_id, match, since_ts=(since + 1 if since else 0))
+        metric_result = None
+        if k1_stats and measure_result is not None:
+            from services import chat_statistics as _cs2
+            metric_result = _cs2.build_metric_result(measure_result,
+                                                     measure_query)
 
         # S10.20-5: last_ts — по ФАКТИЧЕСКИ включённому в промпт материалу
         # (макс. ts усечённых dialog-строк), а не по глобальным агрегатам
@@ -127,16 +152,30 @@ class LoreCompilerService:
         if previous and not dialog_lines and not total_new:
             # UPD-путь без нового материала: отдаём сохранённую базу без
             # повторного (дорогого) LLM-вызова — честное «ничего не изменилось».
+            # MCA-15 (T-4932, §7.3): старые агрегаты истории не проверены этим
+            # ходом → stats_recheck=True (перепроверка — повторной компиляцией;
+            # lore не удаляется), numeric-гард direct снимет непроверенные числа.
             logger.info("[lore] update no-new-data | chat=%s", chat_id)
             return {"status": "ok", "is_update": True, "unchanged": True,
                     "story": str(previous.get("story") or ""),
-                    "previous_story_at": previous.get("updated_at")}
+                    "previous_story_at": previous.get("updated_at"),
+                    "stats_recheck": bool(metric_result is not None
+                                          or k1_stats),
+                    "metric_result": None}
 
         authors = self._mentions_by_authors(stats)
+        if k1_stats:
+            total_mentions, authors_list, stats_label, stats_method = (
+                self._measure_stats_for_prompt(measure_result))
+        else:
+            total_mentions = int(stats.get("count") or total_new)
+            authors_list, stats_label, stats_method = None, "", ""
         user = build_lore_story_user(
             topic=clean, graph_facts=graph_lines, dialogs=dialog_lines,
-            total_mentions=int(stats.get("count") or total_new),
-            mentions_by_authors=authors,
+            total_mentions=total_mentions,
+            mentions_by_authors=(authors if not k1_stats else None),
+            authors=authors_list,
+            stats_label=stats_label, stats_method=stats_method,
             first_seen=self._date(stats.get("first_seen") or dense.get("earliest"),
                                   self.tz_name),
             last_seen=self._date(stats.get("last_seen") or dense.get("latest"),
@@ -177,7 +216,9 @@ class LoreCompilerService:
             (time.monotonic() - started) * 1000.0)
         return {"status": "ok", "is_update": bool(previous), "story": story,
                 "previous_story_at": (previous.get("updated_at")
-                                      if previous else None)}
+                                      if previous else None),
+                "stats_recheck": False,
+                "metric_result": metric_result}
 
     # ── рендер Шага А/Шага Б ──────────────────────────────────────────────
 
@@ -252,12 +293,36 @@ class LoreCompilerService:
 
     def _mentions_by_authors(self, stats: dict) -> dict:
         """``by_author`` FTS-счётчика → {имя: count} тем же R16-каскадом, что
-        `tool_router._resolve_name` (алиас → имя → user_id)."""
+        `tool_router._resolve_name` (алиас → имя → user_id).
+
+        Только K1 OFF (паритет 2.58.55): K1 ON использует типизированные
+        ``authors`` измерения (ключ — канонический user_id, имя — подпись)."""
         out: dict = {}
         for entry in (stats or {}).get("by_author") or []:
             name = self._resolve_name(entry)
             out[name] = out.get(name, 0) + int(entry.get("count") or 0)
         return out
+
+    @staticmethod
+    def _measure_stats_for_prompt(
+            result: dict | None) -> tuple[int, list | None, str, str]:
+        """measure-результат `chat_statistics` → (число, авторы, ярлык, метод).
+
+        Ошибка/unsupported/частичное-без-числа → 0/None/"" — непроверенный
+        агрегат в промпт не попадает. ``partial`` с числом — число + пометка
+        «(частично)» (число не выдаётся за полное)."""
+        if not isinstance(result, dict):
+            return 0, None, "", ""
+        status = str(result.get("status") or "")
+        value = result.get("value")
+        if status not in ("ok", "partial") or value is None:
+            return 0, None, "", ""
+        label = "сообщений с совпадением"
+        if status == "partial":
+            label += " (частично)"
+        method = str(result.get("method_label")
+                     or result.get("method") or "")
+        return (int(value), list(result.get("authors") or []), label, method)
 
     def _resolve_name(self, row: dict) -> str:
         """Имя автора: алиас → author_name → user_id (R7-каскад, R16)."""

@@ -26,6 +26,7 @@ from services.outgoing_guard import sanitize_outgoing
 from services.prompt_style_blocks import (
     CLICHE_RETRY_SYSTEM_PROMPT,
     FORM_GUARD_RETRY_SYSTEM_PROMPT,
+    NUMERIC_CLAIM_RETRY_SYSTEM_PROMPT,
 )
 
 logger = logging.getLogger(__name__)
@@ -119,6 +120,221 @@ def check_form_contract(candidate: str, contract: FormContract, *,
     except Exception:      # fail-open: гард не рвёт поток
         logger.warning("[validator] form guard error — text treated as clean")
         return None
+
+
+# ── MCA-15 (D5, T-4930/T-4931): numeric-гард в существующем контуре ─────────
+# Один детерминированный гард (не второй LLM-судья и не paraphrase-модуль):
+# числа в статистическом контексте обязаны соответствовать NumericClaim ЭТОГО
+# хода; число из tool output/другого запроса — не подтверждение (A41).
+# Числа вне стат-контекста (даты, возраст, цитаты, обычная речь) свободны.
+
+NUMERIC_CLAIM_MISMATCH = "numeric_claim_mismatch"
+NUMERIC_CLAIM_CORRECTED = "numeric_claim_corrected"
+NUMERIC_CLAIM_FALLBACK = "numeric_claim_fallback"
+
+# Закрытый список маркеров единиц статистического контекста (§7.1).
+_STAT_UNIT_MARKERS: tuple[tuple[re.Pattern[str], frozenset[str]], ...] = (
+    (re.compile(r"сообщени"), frozenset({"messages"})),
+    (re.compile(r"упомина"), frozenset({"messages", "occurrences"})),
+    (re.compile(r"вхожден"), frozenset({"occurrences"})),
+    (re.compile(r"автор"), frozenset({"authors", "messages"})),
+    (re.compile(r"участник"), frozenset({"authors", "messages"})),
+    (re.compile(r"(?<![0-9a-zа-яё_])раз(?:а|ы|ов)?(?![0-9a-zа-яё_])"),
+     frozenset({"messages", "occurrences"})),
+)
+_STAT_CONTEXT_WINDOW = 20
+# Даты/возраст: 4-значный год и «N лет/год(а)/месяцев/...» не блокируются.
+_YEAR_MIN = 1900
+_YEAR_MAX = 2100
+_DATE_UNIT_RE = re.compile(
+    r"\s*(?:год|года|году|годов|лет|месяц|месяца|месяцев|"
+    r"дн(?:я|ей|ём)|недел(?:я|и|ь)|час(?:а|ов)?)"
+    r"(?![0-9a-zа-яё_])")
+_DATE_NUM_RE = re.compile(
+    r"\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{4}[./-]\d{1,2}[./-]\d{1,2}")
+_QUOTE_PAIRS = (("«", "»"), ("“", "”"), ("„", "“"), ('"', '"'))
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?…])\s+|\n+")
+# Детерминированная оговорка, когда статистику запрашивали, но проверить
+# нечего (без выдуманного числа). R17-safe: без текста запроса.
+NUMERIC_CLAIM_CAVEAT = (
+    "Число не проверено по доступной истории — называть его не буду.")
+
+
+@dataclass(frozen=True)
+class NumericContract:
+    """Контракт numeric-гарда одного хода (D5/§7.1).
+
+    ``claims`` — проверенные NumericClaim ЭТОГО хода (per-turn; числа прошлых
+    ходов/другого запроса не подтверждение); ``verified_phrase`` — готовая
+    детерминированная формулировка измерения (слот финального сборщика);
+    ``stats_expected`` — запрашивали ли статистику (для честной оговорки).
+    """
+    claims: tuple = ()
+    verified_phrase: str = ""
+    stats_expected: bool = False
+
+
+def _quote_spans(text: str) -> list[tuple[int, int]]:
+    """Диапазоны цитат (числа внутри кавычек не блокируются)."""
+    spans: list[tuple[int, int]] = []
+    for opener, closer in _QUOTE_PAIRS:
+        start = 0
+        while True:
+            left = text.find(opener, start)
+            if left < 0:
+                break
+            right = text.find(closer, left + 1)
+            if right < 0:
+                break
+            spans.append((left, right + 1))
+            start = right + 1
+    return spans
+
+
+def _stat_context_numbers(text: str) -> list[tuple[str, int, frozenset]]:
+    """Числа в статистическом контексте: (канон, позиция, единицы-маркеры).
+
+    Вне стат-контекста (нет маркера единицы в окне), внутри цитат, даты,
+    годы и возраст/длительность — не возвращаются (свободны)."""
+    source = str(text or "")
+    if not source:
+        return []
+    spans = _quote_spans(source)
+    found: list[tuple[str, int, frozenset]] = []
+    for match in _NUMBER_TOKEN_RE.finditer(source):
+        if any(start <= match.start() < end for start, end in spans):
+            continue
+        if _DATE_NUM_RE.match(source, match.start()):
+            continue
+        if match.start() > 0 and source[match.start() - 1] in "./-":
+            continue
+        if match.end() < len(source) and source[match.end()] in "./-":
+            continue
+        window = source[max(0, match.start() - _STAT_CONTEXT_WINDOW):
+                        match.end() + _STAT_CONTEXT_WINDOW].casefold()
+        units: frozenset = frozenset()
+        for pattern, marker_units in _STAT_UNIT_MARKERS:
+            if pattern.search(window):
+                units = units | marker_units
+        if not units:
+            continue
+        canon = _canon_number(match.group())
+        try:
+            integer = int(canon)
+        except ValueError:
+            integer = None
+        if integer is not None and len(canon) == 4 \
+                and _YEAR_MIN <= integer <= _YEAR_MAX:
+            continue                                    # год — дата
+        if _DATE_UNIT_RE.match(source, match.end()):
+            continue                                    # «30 лет», «3 дня»
+        found.append((canon, match.start(), units))
+    return found
+
+
+def check_numeric_claims(candidate: str, contract: NumericContract | None, *,
+                         source_text: str | None = None) -> str | None:
+    """Детерминированная проверка чисел в стат-контексте (D5).
+
+    → ``numeric_claim_mismatch`` либо None. Число в стат-контексте обязано
+    совпасть по значению и совместимой единице с claim ЭТОГО хода;
+    ``source_text`` (черновик/tool output) намеренно НЕ является
+    подтверждением — иначе число другого запроса проходило бы (A41).
+    Fail-open: ошибка гарда → текст считается чистым."""
+    try:
+        if contract is None:
+            return None
+        numbers = _stat_context_numbers(str(candidate or ""))
+        if not numbers:
+            return None
+        claims = tuple(contract.claims or ())
+        for canon, _pos, units in numbers:
+            matched = False
+            for claim in claims:
+                try:
+                    claim_value = int(claim.value)
+                except (AttributeError, TypeError, ValueError):
+                    continue
+                if _canon_number(str(claim_value)) != canon:
+                    continue
+                claim_unit = str(getattr(claim, "unit", "") or "")
+                if claim_unit and units and claim_unit not in units:
+                    continue
+                matched = True
+                break
+            if not matched:
+                return NUMERIC_CLAIM_MISMATCH
+        return None
+    except Exception:      # fail-open: гард не рвёт поток
+        logger.warning("[validator] numeric guard error — text treated as clean")
+        return None
+
+
+def _correct_numeric_claims(candidate: str,
+                            contract: NumericContract | None) -> str:
+    """Детерминированная ≤1 коррекция: нарушающая фраза заменяется
+    ``verified_phrase`` (если есть) либо снимается; последующие нарушения —
+    снимаются. Без второго LLM-вызова."""
+    text = str(candidate or "")
+    if contract is None or check_numeric_claims(text, contract) is None:
+        return text
+    phrase = str(getattr(contract, "verified_phrase", "") or "").strip()
+    segments = _SENTENCE_SPLIT_RE.split(text)
+    out: list[str] = []
+    replaced = False
+    for segment in segments:
+        if check_numeric_claims(segment, contract) is not None:
+            if phrase and not replaced:
+                out.append(phrase)
+                replaced = True
+            continue
+        out.append(segment)
+    corrected = " ".join(seg for seg in out if seg).strip()
+    if not corrected and phrase:
+        return phrase
+    return corrected
+
+
+def apply_numeric_guard(candidate: str,
+                        contract: NumericContract | None, *,
+                        fallback_text: str | None = None
+                        ) -> tuple[str, dict]:
+    """Финальный numeric-гард (T-4931/D5; K2): → (текст, stats).
+
+    ``contract is None``/K2 OFF → байт-паритет (текст как есть, stats пуст).
+    Нарушение → одна детерминированная коррекция; не удалось → проверенный
+    черновик/``verified_phrase``/снятие неподтверждённой части. Событий не
+    эмитит (решает вызывающий; notable-only)."""
+    text = str(candidate or "")
+    if contract is None or not mca_gates.numeric_claim_guard_enabled():
+        return text, {}
+    reason = check_numeric_claims(text, contract)
+    if reason is None:
+        return text, {}
+    stats: dict = {"mismatch": True, "reason": NUMERIC_CLAIM_MISMATCH,
+                   "corrected": False, "fallback": False}
+    corrected = _correct_numeric_claims(text, contract)
+    if corrected.strip() and check_numeric_claims(corrected, contract) is None:
+        stats["corrected"] = True
+        stats["reason"] = NUMERIC_CLAIM_CORRECTED
+        return corrected, stats
+    candidates: list[str] = []
+    if fallback_text is not None and str(fallback_text).strip():
+        candidates.append(str(fallback_text))
+    phrase = str(getattr(contract, "verified_phrase", "") or "").strip()
+    if phrase:
+        candidates.append(phrase)
+    if getattr(contract, "stats_expected", False):
+        candidates.append(NUMERIC_CLAIM_CAVEAT)
+    for candidate_text in candidates:
+        fixed = _correct_numeric_claims(candidate_text, contract)
+        if fixed.strip() and check_numeric_claims(fixed, contract) is None:
+            stats["fallback"] = True
+            stats["reason"] = NUMERIC_CLAIM_FALLBACK
+            return fixed, stats
+    stats["fallback"] = True
+    stats["reason"] = NUMERIC_CLAIM_FALLBACK
+    return corrected, stats
 
 
 @dataclass(frozen=True)
@@ -441,6 +657,7 @@ async def verbalize_validated(
     dynamic_rules: Iterable[DynamicClicheRule] | None = None,
     form_contract: FormContract | None = None,
     fallback_text: str | None = None,
+    numeric_contract: NumericContract | None = None,
 ) -> tuple[str, dict]:
     """Вызвать Вербализатор с браковкой ответа по запрещённым клише.
 
@@ -460,6 +677,16 @@ async def verbalize_validated(
     деградация честно помечается ``form_fallback=True``). Значения по
     умолчанию (``None``) и K4 OFF → байт-паритет 2.58.54, stats без новых
     ключей.
+
+    MCA-15 (D5, T-4930/T-4931): при переданном ``numeric_contract`` и K2 ON
+    (``MCA_NUMERIC_CLAIM_GUARD_ENABLED``) кандидат проходит numeric-гард
+    (`check_numeric_claims`): число в стат-контексте обязано соответствовать
+    NumericClaim этого хода. Нарушение → **≤1** повтор с
+    ``NUMERIC_CLAIM_RETRY_SYSTEM_PROMPT`` (verified_phrase) в том же
+    bounded-бюджете; не исправлено → детерминированная коррекция
+    (`verified_phrase`/снятие части, ``numeric_claim_fallback``). Второго
+    LLM-судьи/paraphrase-модуля нет. ``None``/K2 OFF → байт-паритет, stats
+    без новых ключей.
 
     Ретраи строго bounded (≤2 → ≤3 вызова Stage-2). Ошибка generate на
     ретрае → вернуть последний успешный текст (``retry_error=True``).
@@ -484,19 +711,52 @@ async def verbalize_validated(
             "form_retry": False,
             "form_fallback": False,
         })
+    numeric_active = bool(numeric_contract is not None
+                          and mca_gates.numeric_claim_guard_enabled())
+    if numeric_active:
+        stats.update({
+            "numeric_claim_mismatch": 0,
+            "numeric_claim_retry": False,
+            "numeric_claim_fallback": False,
+            "numeric_claim_reason": None,
+        })
 
     def _form_reason(candidate: str) -> str | None:
         if not form_active:
             return None
         return check_form_contract(candidate, form_contract, scrubber=scrubber)
 
+    def _numeric_reason(candidate: str) -> str | None:
+        if not numeric_active:
+            return None
+        return check_numeric_claims(candidate, numeric_contract)
+
+    def _numeric_fallback(text_value: str) -> str:
+        """Детерминированная замена/снятие нарушающей части (без LLM)."""
+        corrected = _correct_numeric_claims(text_value, numeric_contract)
+        if corrected.strip() and check_numeric_claims(corrected,
+                                                      numeric_contract) is None:
+            return corrected
+        phrase = str(getattr(numeric_contract, "verified_phrase", "")
+                     or "").strip()
+        if phrase:
+            return phrase
+        if getattr(numeric_contract, "stats_expected", False):
+            return NUMERIC_CLAIM_CAVEAT
+        return corrected
+
     def _fallback_result(text_value: str):
         """Финальный возврат при исчерпании: проверенный черновик, иначе best."""
+        chosen = text_value
         if form_active and int(stats.get("form_guard_rejects") or 0) > 0:
             stats["form_fallback"] = True
             if fallback_text is not None and str(fallback_text).strip():
-                return scrubber(str(fallback_text)), stats
-        return scrubber(text_value), stats
+                chosen = str(fallback_text)
+        if numeric_active and int(stats.get("numeric_claim_mismatch") or 0) > 0:
+            stats["numeric_claim_fallback"] = True
+            stats["numeric_claim_reason"] = NUMERIC_CLAIM_FALLBACK
+            chosen = _numeric_fallback(chosen)
+        return scrubber(chosen), stats
 
     if not getattr(settings, "SYSTEM2_VALIDATOR_LOOP_ENABLED", True):
         stats["enabled"] = False
@@ -514,13 +774,19 @@ async def verbalize_validated(
     if form_reason is not None:
         stats["form_guard_rejects"] += 1
         stats["form_guard_reason"] = form_reason
-    if not codes and form_reason is None:
+    numeric_reason = _numeric_reason(text)
+    if numeric_reason is not None:
+        stats["numeric_claim_mismatch"] += 1
+        stats["numeric_claim_reason"] = numeric_reason
+    if not codes and form_reason is None and numeric_reason is None:
         stats["attempts"] = attempts
         return scrubber(text), stats
 
     best_text, best_codes = text, codes
     best_form_ok = form_reason is None
+    best_numeric_ok = numeric_reason is None
     form_retry_used = False
+    numeric_retry_used = False
     cap = max(0, min(int(max_retries), _MAX_RETRIES_HARD_CAP))
     for index in range(1, cap + 1):
         if form_reason is not None:
@@ -531,6 +797,16 @@ async def verbalize_validated(
             form_retry_used = True
             stats["form_retry"] = True
             retry_system = FORM_GUARD_RETRY_SYSTEM_PROMPT
+        elif numeric_reason is not None:
+            # MCA-15: ровно ≤1 numeric-повтор в том же бюджете (D5).
+            if numeric_retry_used:
+                break
+            numeric_retry_used = True
+            stats["numeric_claim_retry"] = True
+            retry_system = NUMERIC_CLAIM_RETRY_SYSTEM_PROMPT.replace(
+                "{verified_phrase}",
+                str(getattr(numeric_contract, "verified_phrase", "")
+                    or "—"))
         else:
             retry_system = CLICHE_RETRY_SYSTEM_PROMPT
         retry_messages = list(base_messages) + [
@@ -555,16 +831,22 @@ async def verbalize_validated(
         if form_reason is not None:
             stats["form_guard_rejects"] += 1
             stats["form_guard_reason"] = form_reason
-        if not codes and form_reason is None:
+        numeric_reason = _numeric_reason(text)
+        if numeric_reason is not None:
+            stats["numeric_claim_mismatch"] += 1
+            stats["numeric_claim_reason"] = numeric_reason
+        if not codes and form_reason is None and numeric_reason is None:
             stats.update({"attempts": attempts, "retries": retries})
+            if int(stats.get("numeric_claim_mismatch") or 0) > 0:
+                stats["numeric_claim_reason"] = NUMERIC_CLAIM_CORRECTED
             return scrubber(text), stats
         form_ok = form_reason is None
-        if form_active:
-            better = (form_ok, -len(codes)) > (best_form_ok, -len(best_codes))
-        else:
-            better = len(codes) < len(best_codes)
+        numeric_ok = numeric_reason is None
+        better = (form_ok, numeric_ok, -len(codes)) > (
+            best_form_ok, best_numeric_ok, -len(best_codes))
         if better:
-            best_text, best_codes, best_form_ok = text, codes, form_ok
+            best_text, best_codes = text, codes
+            best_form_ok, best_numeric_ok = form_ok, numeric_ok
 
     stats.update({
         "attempts": attempts,
@@ -574,6 +856,7 @@ async def verbalize_validated(
     })
     logger.info(
         "[validator] cliche loop exhausted | attempts=%d | retries=%d | "
-        "codes=%d | form_rejects=%d", attempts, retries, len(best_codes),
-        int(stats.get("form_guard_rejects") or 0))
+        "codes=%d | form_rejects=%d | numeric_rejects=%d", attempts, retries,
+        len(best_codes), int(stats.get("form_guard_rejects") or 0),
+        int(stats.get("numeric_claim_mismatch") or 0))
     return _fallback_result(best_text)

@@ -874,19 +874,40 @@ def _build_batch_text(batch: list, skip_empty: bool = False) -> str:
     return "\n".join(lines)
 
 
-def build_fts_query(keywords: list[str]) -> str:
-    """Sanitize keywords and build an FTS5 prefix query: "kw1"* OR "kw2"* …
+def build_fts_query(keywords: list[str], mode: str = "prefix_or") -> str:
+    """Sanitize keywords and build an FTS5 match expression.
+
+    ``mode="prefix_or"`` (default) — историческая формула
+    ``"kw1"* OR "kw2"* …`` (все существующие вызовы — байт-паритет).
+    MCA-15 (T-4926, ADR-1028-12 D1) добавляет аддитивные режимы измерения:
+    ``exact_phrase`` (quoted-фраза), ``token`` (точный токен), ``prefix``
+    (явный префикс ``"term"*``), ``all_terms`` (AND), ``any_terms`` (OR).
+    Один сборщик — второго FTS-механизма нет. ``prefix`` — совпадение по
+    префиксу, НЕ морфологический анализ (unicode61 без стемминга).
 
     User-provided `"` and `*` are stripped (RESEARCH §f — они ломают парсер),
-    the trailing `*` we add ourselves enables Russian prefix matching
-    (unicode61 has no stemming).
+    the trailing `*` enables Russian prefix matching (unicode61 has no
+    stemming). Неизвестный режим → прежняя prefix-OR-формула + WARNING.
     """
     cleaned = []
     for keyword in keywords:
         kw = str(keyword).replace('"', "").replace("*", "").strip()
         if kw:
-            cleaned.append(f'"{kw}"*')
-    return " OR ".join(cleaned)
+            cleaned.append(kw)
+    if not cleaned:
+        return ""
+    if mode == "exact_phrase":
+        return '"' + " ".join(cleaned) + '"'
+    if mode in ("token", "any_terms"):
+        return " OR ".join(f'"{kw}"' for kw in cleaned)
+    if mode == "all_terms":
+        return " AND ".join(f'"{kw}"' for kw in cleaned)
+    if mode == "prefix":
+        return " OR ".join(f'"{kw}"*' for kw in cleaned)
+    if mode != "prefix_or":
+        logger.warning("build_fts_query: unknown mode — prefix_or | mode=%r",
+                       mode)
+    return " OR ".join(f'"{kw}"*' for kw in cleaned)
 
 
 # F8 (ADR-1019-7 D1): явный статус разбора ответа LLM.

@@ -35,8 +35,10 @@ from services.grounding_validator import (
 )
 from services.llm_client import LLMBadResponseError, LLMClient
 from services import anticliche_cache
+from services import mca_gates
 from services import usage_events
 from services.negative_constraints import (
+    NumericContract,
     channel_enabled_rules,
     verbalize_validated,
 )
@@ -192,10 +194,25 @@ class FactCheckService:
         # буллиты в фактческе жанром не запрещены).
         enabled_rules = (channel_enabled_rules("plain", response_mode)
                          if modes_on else None)
+        # MCA-15 (T-4931, D5; K2): числа в стат-контексте — только из
+        # измерений ЭТОГО хода (per-turn реестр). Нет измерений → пустой
+        # контракт: незаземлённое число не публикуется (оговорка/снятие).
+        numeric_contract = None
+        if mca_gates.numeric_claim_guard_enabled():
+            try:
+                from services import chat_statistics as _cs
+                claims: list = []
+                for result in (getattr(raw_analyst, "metric_results", None)
+                               or []):
+                    claims.extend(_cs.claims_for_result(result))
+                numeric_contract = NumericContract(claims=tuple(claims))
+            except Exception:
+                numeric_contract = None
         text, stats = await verbalize_validated(
             _generate, base_messages, max_retries=2,
             enabled_rules=enabled_rules,
-            dynamic_rules=anticliche_cache.get_rules() or None)
+            dynamic_rules=anticliche_cache.get_rules() or None,
+            numeric_contract=numeric_contract)
         logger.info(
             "factcheck system2 verbalizer | chat=%s | mode=%s | attempts=%d "
             "| retries=%d | hits=%d | fallback=%s", chat_id, response_mode,
@@ -225,6 +242,13 @@ class FactCheckService:
                 router=self.tool_router, ctx=ctx, chat_id=chat_id,
                 module="factcheck", correlation_id=correlation_id)
             used_tools = True
+            # MCA-15 (T-4931, D5): per-turn MetricResult-реестр хода —
+            # numeric-гард фактчек-ответа (без второго измерения/судьи).
+            try:
+                raw.metric_results = list(
+                    getattr(ctx, "metric_results", []) or [])
+            except Exception:      # str-результат без атрибутов — не гард
+                pass
             logger.info(
                 "factcheck tool-loop OK | chat=%s | tools=%d | out_chars=%d "
                 "| latency_ms=%.0f", chat_id, len(tools), len(raw),

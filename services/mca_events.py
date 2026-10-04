@@ -225,6 +225,18 @@ REASON_CODES = frozenset({
     "style_request_denied", "style_request_superseded",
     "style_request_expired",
     "form_guard_rejected", "form_guard_leak_blocked",
+    # расширение mca-15/блоки A+B (ADR-1028-12 D9; санкции §9.4 — до +11
+    # на фичу, единый словарь; блоки C+D добирают numeric_claim_*):
+    # intent-цель (три кода), статусы измерения (ошибка ≠ 0, частичный
+    # корпус ≠ точный счёт, unsupported ≠ «ничего не найдено») и truncation.
+    "chat_stats_intent", "historical_evidence_intent", "social_banter_intent",
+    "stats_count_error", "stats_partial_corpus", "stats_unsupported",
+    "insufficient_output_budget",
+    # mca-15/блоки C+D (ADR-1028-12 D9; те же +11 — добирают ровно 4):
+    # numeric-гард на всех путях отправки (нарушение/коррекция/fallback) и
+    # перепроверка старых lore-агрегатов (lore не удаляется).
+    "numeric_claim_mismatch", "numeric_claim_corrected",
+    "numeric_claim_fallback", "lore_stats_recheck_flagged",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────

@@ -292,24 +292,45 @@ def build_lore_story_user(
     first_seen: str = "",
     last_seen: str = "",
     previous_story: str | None = None,
+    authors: list | None = None,
+    stats_label: str = "",
+    stats_method: str = "",
 ) -> str:
     """User-контент синтеза истории (T-1890): тема + статистика + факты графа
     + хронология (строго ASC — порядок задаёт вызывающий). При повторном
     запросе (previous_story) добавляются блоки «Известная база» и «Свежак»
     (в `dialogs` — ТОЛЬКО новые сообщения, `ts > last_ts`), что активирует
-    UPD-ветку канона. R16: пустые секции — честное «(нет)», без выдумок."""
+    UPD-ветку канона. R16: пустые секции — честное «(нет)», без выдумок.
+
+    MCA-15 (T-4926, §24.1 п.9; K1 ON): ``authors`` — список
+    ``{user_id,label,count}`` (ключ — канонический ID, имя — подпись;
+    два одинаковых имени не сливаются); ``stats_label``/``stats_method`` —
+    ярлык/метод измерения, чтобы «упоминаний: N» не выдавалось за точное
+    число фразы. Пустые новые параметры → прежний текст байт-в-байт."""
     facts = [str(f).strip() for f in (graph_facts or []) if str(f).strip()]
     dialog_lines = [str(d).strip() for d in (dialogs or []) if str(d).strip()]
     parts = [f"Тема: {str(topic or '').strip()}"]
 
     stats: list[str] = []
     if int(total_mentions or 0) > 0:
-        stats.append(f"упоминаний: {int(total_mentions)}")
+        if stats_label:
+            line = f"{stats_label}: {int(total_mentions)}"
+            if stats_method:
+                line += f" (метод: {stats_method})"
+            stats.append(line)
+        else:
+            stats.append(f"упоминаний: {int(total_mentions)}")
     if first_seen:
         stats.append(f"первое упоминание: {first_seen}")
     if last_seen:
         stats.append(f"последнее упоминание: {last_seen}")
-    if mentions_by_authors:
+    if authors:
+        top = sorted(authors, key=lambda a: (-int(a.get("count") or 0),
+                                             str(a.get("label") or "")))[:5]
+        stats.append("по авторам: " + ", ".join(
+            f"{a.get('label') or a.get('user_id')} - "
+            f"{int(a.get('count') or 0)}" for a in top))
+    elif mentions_by_authors:
         top = sorted(mentions_by_authors.items(),
                      key=lambda kv: (-int(kv[1] or 0), str(kv[0])))[:5]
         stats.append("по авторам: " + ", ".join(

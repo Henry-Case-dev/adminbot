@@ -1718,6 +1718,34 @@ class DirectChatService:
                 target_user_id=(user_id or None),
                 out_excluded=_excluded_blocks, out_fallback=_fallback_meta,
                 style_directives=style_directives)
+            # MCA-15 (T-4920, ADR-1028-12 D6; K3): intent-различение
+            # `social_banter`/`historical_evidence`/`chat_statistics`/`mixed`
+            # по контексту и reply (не только по словам «никогда»/«бот»).
+            # Хинт добавляется ДО payload; ctx.stats_intent — после создания
+            # ToolContext. K3 OFF → ("", None) — паритет 2.58.55.
+            _stats_block, _stats_intent = "", None
+            if mca_gates.stats_intent_enabled():
+                _stats_reply = getattr(message, "reply_to_message", None)
+                _stats_reply_text = ""
+                if _stats_reply is not None:
+                    _stats_reply_text = (
+                        getattr(_stats_reply, "text", None)
+                        or getattr(_stats_reply, "caption", None) or "")
+                _stats_reply_from = (getattr(_stats_reply, "from_user", None)
+                                     if _stats_reply is not None else None)
+                _stats_reply_bot = bool(
+                    isinstance(getattr(_stats_reply_from, "id", None), int)
+                    and self.bot_id is not None
+                    and int(_stats_reply_from.id) == int(self.bot_id))
+                _stats_addressed = self._decision_addressed(
+                    message, query, _stats_reply, _stats_reply_bot,
+                    getattr(getattr(message, "chat", None), "type", None)
+                    == "private")
+                _stats_block, _stats_intent = self._stats_intent_block(
+                    chat_id, query, _stats_reply_text, _stats_addressed)
+                if _stats_block:
+                    user_blocks = self._insert_dig_result(
+                        user_blocks, _stats_block)
             # Раунд 9 (T-821/C2(6), фикс-раунд major-1, spec §3.2.3): пре-гейт
             # маркеров ностальгии — принудительный dig ДО генерации, результат
             # в <dig_result> ПЕРЕД <Target_User> (флаг off/нет маркера/нет
@@ -2058,6 +2086,10 @@ class DirectChatService:
             # MCA-07 (T-3852): тот же единственный bundle доступен инструментам
             # (REUSE: контракт, не второй сборщик; R17 — ссылки/refs).
             tool_ctx.evidence_bundle = evidence_bundle
+            # MCA-15 (T-4920, D6): intent хода доступен инструментам как
+            # сигнал (глобальной блокировки инструментов НЕТ).
+            tool_ctx.stats_intent = str(
+                getattr(_stats_intent, "intent", "") or "")
             # ── ASAP-3.1 (ADR-1028-3 D7, §30): LLM REACT — тот же Stage-1 ──
             # Один вызов (тот же контекст, что генерировал бы ответ);
             # instruction-block — аддитивный user-блок (прецедент
@@ -2398,6 +2430,10 @@ class DirectChatService:
             # (`action == tool` ⇔ те же условия) — Вербализатор не запускается
             # при не-текстовом решении (молчание/реакция не генерируют текст).
             response_mode = "serious"      # F3: fail-safe до Stage-2
+            # MCA-15 (D5, T-4931; K2): контракт проверки чисел ЭТОГО хода из
+            # per-turn `ctx.metric_results` (+intent). K2 OFF/ошибка → None
+            # (байт-паритет). Один контракт на System2 и финальную сборку.
+            numeric_contract = self._numeric_contract_from_ctx(tool_ctx)
             if (getattr(settings, "SYSTEM2_DIRECT_ENABLED", True)
                     and isinstance(raw, ToolLoopResult)
                     and not raw.degraded
@@ -2410,7 +2446,8 @@ class DirectChatService:
                     correlation_id=correlation_id,
                     bundle=evidence_bundle,
                     character_block=character_block,
-                    style_directives=style_directives)
+                    style_directives=style_directives,
+                    numeric_contract=numeric_contract)
                 if synthesized:
                     # F3 (ADR-1023-3): режим несёт и стиль, и канал доставки.
                     raw, response_mode = synthesized
@@ -2425,6 +2462,26 @@ class DirectChatService:
             lore_story = str(getattr(tool_ctx, "lore_story", "") or "").strip()
             if getattr(tool_ctx, "lore_compiled", False) and lore_story:
                 answer = strip_reasoning_tags(lore_story)
+            # MCA-15 (D5, T-4931; K2): финальный numeric-гард — покрывает
+            # lore-story в обход verbalizer, fallback и прямые тексты. Одна
+            # детерминированная коррекция (verified_phrase/снятие), без
+            # второго LLM-вызова; событие — notable-only.
+            answer, _numeric_stats = _nc.apply_numeric_guard(
+                answer, numeric_contract)
+            if _numeric_stats.get("mismatch"):
+                _mca_events.emit_mca_event(
+                    "numeric_claim_guard",
+                    outcome=("skipped" if _numeric_stats.get("fallback")
+                             else "success"),
+                    component="direct_chat", stage="claim_check",
+                    reason_code=_numeric_stats.get("reason"),
+                    chat_id=chat_id,
+                    usage_json={"answer_chars": len(answer)})
+                logger.info(
+                    "[direct] final numeric guard | chat=%s | corrected=%s | "
+                    "fallback=%s", chat_id,
+                    bool(_numeric_stats.get("corrected")),
+                    bool(_numeric_stats.get("fallback")))
             if not answer:
                 if coordinator is not None:
                     _log_coordinator_outcome(
@@ -2499,6 +2556,32 @@ class DirectChatService:
                         logger.warning(
                             "[direct] duplicate guard retry failed — "
                             "send as-is | chat=%s", chat_id, exc_info=True)
+            # MCA-15 (D5, T-4931; K2): regeneration после duplicate-guard
+            # могла вернуть незаземлённое число — повторяем ТОТ ЖЕ
+            # детерминированный гард (без нового LLM-вызова).
+            if _freshness_retry_used:
+                answer, _numeric_stats2 = _nc.apply_numeric_guard(
+                    answer, numeric_contract)
+                if _numeric_stats2.get("mismatch"):
+                    _mca_events.emit_mca_event(
+                        "numeric_claim_guard",
+                        outcome=("skipped" if _numeric_stats2.get("fallback")
+                                 else "success"),
+                        component="direct_chat", stage="claim_check",
+                        reason_code=_numeric_stats2.get("reason"),
+                        chat_id=chat_id,
+                        usage_json={"answer_chars": len(answer)})
+                if not answer.strip():
+                    # Гард снял единственную неподтверждённую фразу.
+                    if coordinator is not None:
+                        _log_coordinator_outcome(
+                            chat_id=chat_id, action=ACTION_REACT,
+                            style=response_mode, chars=0)
+                    logger.warning(
+                        "[direct] numeric guard emptied regenerated answer — "
+                        "silence | chat=%s user=%s", chat_id, target_name)
+                    await react_moai(bot, chat_id, message.message_id)
+                    return
             if coordinator is not None:
                 _log_coordinator_outcome(
                     chat_id=chat_id, action=ACTION_REPLY,
@@ -2629,7 +2712,8 @@ class DirectChatService:
                                         correlation_id: str | None = None,
                                         bundle=None,
                                         character_block: str = "",
-                                        style_directives: str = ""
+                                        style_directives: str = "",
+                                        numeric_contract=None
                                         ) -> tuple[str, str] | None:
         """Синтезатор тулов → Вербализатор. ``None`` → финал tool-loop.
 
@@ -2657,6 +2741,11 @@ class DirectChatService:
         `<Style_Requests>`-блок (K3; default "" → паритет). `form_contract`
         строится из проверенного черновика (финал tool-loop) для form-гардов
         постпроцессора (K4; без контракта — байт-паритет 2.58.54).
+
+        MCA-15 (D5, T-4931): `numeric_contract` — опциональный контракт
+        проверки чисел ЭТОГО хода (default None → паритет); нарушение →
+        ≤1 numeric-повтор тем же Вербализатором, затем детерминированная
+        замена/снятие (второго LLM-судьи нет).
         """
         draft_text = strip_reasoning_tags(str(raw).strip())
         form_contract = (_nc.FormContract(source_text=draft_text)
@@ -2730,7 +2819,8 @@ class DirectChatService:
                 enabled_rules=enabled_rules,
                 dynamic_rules=anticliche_cache.get_rules() or None,
                 form_contract=form_contract,
-                fallback_text=(draft_text or None))
+                fallback_text=(draft_text or None),
+                numeric_contract=numeric_contract)
             logger.info(
                 "[direct] system2 | chat=%s | mode=%s | attempts=%d | retries=%d | "
                 "hits=%d | fallback=%s", chat_id, response_mode,
@@ -2752,6 +2842,22 @@ class DirectChatService:
                     "retry=%s | form_fallback=%s", chat_id, _form_rejects,
                     bool(stats.get("form_retry")),
                     bool(stats.get("form_fallback")))
+            # MCA-15 (D5, T-4931): notable-событие numeric-гарда — только при
+            # нарушении (per-reply «успехов» нет); R17-safe (код, без текста).
+            _num_mismatch = int(stats.get("numeric_claim_mismatch") or 0)
+            if _num_mismatch:
+                _num_fallback = bool(stats.get("numeric_claim_fallback"))
+                _mca_events.emit_mca_event(
+                    "numeric_claim_guard",
+                    outcome=("skipped" if _num_fallback else "success"),
+                    component="direct_chat", stage="claim_check",
+                    reason_code=("numeric_claim_fallback" if _num_fallback
+                                 else "numeric_claim_corrected"),
+                    chat_id=chat_id, attempt=_num_mismatch)
+                logger.info(
+                    "[direct] system2 numeric guard | chat=%s | mismatch=%d "
+                    "| retry=%s | fallback=%s", chat_id, _num_mismatch,
+                    bool(stats.get("numeric_claim_retry")), _num_fallback)
             if not text.strip():
                 return None
             return text, response_mode
@@ -4273,6 +4379,66 @@ class DirectChatService:
         blocks = list(user_blocks)
         blocks.insert(target_idx, dig_block)
         return blocks
+
+    def _stats_intent_block(self, chat_id: int, query: str, reply_text: str,
+                            addressed: bool):
+        """MCA-15 (T-4920/T-4921, ADR-1028-12 D6; K3): детерминированный
+        intent хода + короткий stats-хинт.
+
+        Возвращает ``(block, StatsIntent | None)``. Хинт — только для
+        `chat_statistics`/`mixed` и адресованных сообщений; для
+        `social_banter` хинта нет (подкол не получает обязательный отчёт),
+        инструменты при этом НЕ блокируются. Событие `stats_intent` —
+        notable-only (per-reply «успехов» нет), R17-safe (код цели, без
+        текста). K3 OFF/ошибка → ("", None) — паритет 2.58.55."""
+        if not mca_gates.stats_intent_enabled():
+            return "", None
+        try:
+            from services import chat_statistics as _cs
+            intent = _cs.classify_stats_intent(
+                query, reply_parent=reply_text, addressed=addressed)
+            if intent.notable:
+                _mca_events.emit_mca_event(
+                    "stats_intent", outcome="success",
+                    component="direct_chat",
+                    reason_code=intent.reason_code, chat_id=chat_id)
+            block = _cs.stats_hint_block() if intent.stats_hint else ""
+            return block, intent
+        except Exception:
+            logger.warning("[mca15] stats intent classify failed — skip",
+                           exc_info=True)
+            return "", None
+
+    def _numeric_contract_from_ctx(self, tool_ctx):
+        """MCA-15 (T-4931, D5; K2): NumericContract хода из per-turn
+        `ctx.metric_results` + intent.
+
+        ``None`` → гард не активен (K2 OFF/ошибка/нет контекста — паритет).
+        Claims — только ok/partial с числом (ошибка/unsupported → нет claim,
+        число не подтверждено); `stats_expected` — запрашивали ли статистику
+        (для честной оговорки вместо выдуманного числа)."""
+        if tool_ctx is None or not mca_gates.numeric_claim_guard_enabled():
+            return None
+        try:
+            from services import chat_statistics as _cs
+            results = list(getattr(tool_ctx, "metric_results", None) or [])
+            claims: list = []
+            verified_phrase = ""
+            for result in results:
+                claims.extend(_cs.claims_for_result(result))
+                if not verified_phrase:
+                    verified_phrase = str(
+                        getattr(result, "verified_phrase", "") or "")
+            stats_expected = str(
+                getattr(tool_ctx, "stats_intent", "") or "") in (
+                _cs.INTENT_CHAT_STATISTICS, _cs.INTENT_MIXED)
+            return _nc.NumericContract(
+                claims=tuple(claims), verified_phrase=verified_phrase,
+                stats_expected=stats_expected)
+        except Exception:
+            logger.warning("[mca15] numeric contract build failed — skip",
+                           exc_info=True)
+            return None
 
     async def _image_pre_gate_block(self, chat_id: int, query: str, bot,
                                     message, user_id,

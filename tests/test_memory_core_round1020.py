@@ -436,8 +436,11 @@ class TestCountByAuthor:
         db = Database.__new__(Database)
         db.db = _FakeConn([])
         out = await db.search_messages_fts_count_by_author(-100, "x")
-        assert out == {"count": 0, "first_seen": None, "last_seen": None,
-                       "by_author": []}
+        assert out["count"] == 0
+        assert out["first_seen"] is None and out["last_seen"] is None
+        assert out["by_author"] == []
+        # MCA-15 (D2): аддитивные watermark/unknown-поля.
+        assert out["max_id"] is None and out["unknown_count"] == 0
 
 
 class TestDigJsonContract:
@@ -466,8 +469,17 @@ class TestDigJsonContract:
         router = ToolRouter(_deps(memory=memory, aliases=aliases))
         out = await router.dispatch("dig_into_lore", {"query": "машина"}, _ctx())
         payload = json.loads(out)
-        assert payload["total_mentions"] == 42
-        assert payload["mentions_by_authors"] == {"Ваня": 40, "Толян": 2}
+        # MCA-15 (T-4926; K1 ON): типизированный stats-блок вместо голого
+        # total_mentions; авторы — канонический user_id + подпись-имя.
+        assert payload["stats"]["status"] == "ok"
+        assert payload["stats"]["value"] == 42
+        assert payload["stats"]["unit"] == "messages"
+        assert payload["stats"]["method"] == "fts_prefix_or_messages_v1"
+        assert "total_mentions" not in payload
+        assert payload["authors"] == [
+            {"user_id": 2, "label": "Ваня", "count": 40},
+            {"user_id": 1, "label": "Толян", "count": 2},
+        ]
         assert payload["first_seen"]
         assert payload["last_seen"]
         assert payload["snippets"] == [] and payload["facts"] == []
@@ -484,8 +496,12 @@ class TestDigJsonContract:
         router = ToolRouter(_deps(memory=memory))
         out = await router.dispatch("dig_into_lore", {"query": "нет"}, _ctx())
         payload = json.loads(out)
-        assert payload["total_mentions"] == 0
+        # MCA-15 (K1 ON): ноль — только с описанием (unit/method/scope);
+        # голого total_mentions нет.
         assert payload["status"] == "not_found"
+        assert payload["stats"]["value"] == 0
+        assert payload["stats"]["unit"] == "messages"
+        assert "total_mentions" not in payload
         assert "ничего не нашёл" in payload["message"]
 
 

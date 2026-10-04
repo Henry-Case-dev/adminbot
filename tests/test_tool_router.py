@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from services import mca_gates
 from services.search_aggregator import AllSearchEnginesFailedException
 from services.summary_aliases import AliasResolver
 from services.tool_router import (
@@ -234,9 +235,15 @@ class TestQueryChatMemory:
 
 class TestQueryChatMemoryCount:
     """Bugfix 04.09.2026 (Часть 2, FR-19/AC-3.5): в выводе query_chat_memory
-    — счётчик совпадений и диапазон дат (заголовок «Найдено N упоминаний»);
-    count=0 → честная фраза; сбой count → fail-open (сниппеты без заголовка);
-    last_day-лейбл; sqlite3.Row-строки нормализуются (T-678 прод-баг)."""
+    — счётчик совпадений и диапазон дат; count=0 → честная фраза; сбой count
+    → fail-open (сниппеты без заголовка); last_day-лейбл; sqlite3.Row-строки
+    нормализуются (T-678 прод-баг).
+
+    MCA-15 (T-4926, §24.1 п.6; K1 ON): заголовок больше не приписывает
+    точный смысл широкому prefix-OR-счёту — единица (сообщения) и метод
+    (префиксы, не морфология) названы явно. K1 OFF — прежняя строка
+    «Найдено N упоминаний» (OFF-паритет проверяется в
+    tests/test_mca15_chat_statistics_round1028.py)."""
 
     @pytest.mark.asyncio
     async def test_header_with_count_and_period(self):
@@ -251,7 +258,8 @@ class TestQueryChatMemoryCount:
         out = await router.dispatch(
             "query_chat_memory",
             {"query": "бензин", "time_range": "last_week"}, _ctx())
-        assert "Найдено 5 упоминаний «бензин» за неделю" in out
+        assert ("Широкий поиск (префиксы, не морфология): 5 сообщений "
+                "«бензин» за неделю") in out
         assert "бензин вчера" in out
         memory.count_mentions.assert_awaited_once()
         args, kwargs = memory.count_mentions.await_args
@@ -271,7 +279,8 @@ class TestQueryChatMemoryCount:
         router = ToolRouter(_deps(memory=memory))
         out = await router.dispatch(
             "query_chat_memory", {"query": "раз", "time_range": "all"}, _ctx())
-        assert "Найдено 2 упоминаний «раз» за всё время" in out
+        assert ("Широкий поиск (префиксы, не морфология): 2 сообщений "
+                "«раз» за всё время") in out
         assert "(с " in out and " по " in out
 
     @pytest.mark.asyncio
@@ -318,7 +327,8 @@ class TestQueryChatMemoryCount:
         out = await router.dispatch(
             "query_chat_memory",
             {"query": "бензин", "time_range": "last_day"}, _ctx())
-        assert "Найдено 1 упоминаний «бензин» за сутки" in out
+        assert ("Широкий поиск (префиксы, не морфология): 1 сообщений "
+                "«бензин» за сутки") in out
         memory.vector_search.assert_not_called()
 
     @pytest.mark.asyncio
@@ -344,8 +354,9 @@ class TestQueryChatMemoryCount:
         out = await router.dispatch(
             "query_chat_memory", {"query": "бензин", "time_range": "all"},
             _ctx())
+        assert ("Широкий поиск (префиксы, не морфология): 1 сообщений "
+                "«бензин»") in out
         assert "про бензин" in out
-        assert "Найдено 1 упоминаний" in out
 
 # ── Раунд 9 (AGI Memory, T-820, spec §3.2.1): dig_into_lore ────────────────
 
@@ -685,9 +696,13 @@ class TestDigFixRound:
             assert "мимо" not in out, phrase
 
     @pytest.mark.asyncio
-    async def test_graph_names_bfs_expands_query_tokens(self):
-        """BFS по графу (nodes/edges) даёт имена — они уходят OR-токенами в
-        FTS (search_long_term получает расширенный merged)."""
+    async def test_graph_names_bfs_expands_query_tokens(self, monkeypatch):
+        """K1 OFF (паритет 2.58.55): BFS по графу (nodes/edges) даёт имена —
+        они уходят OR-токенами в FTS (search_long_term получает расширенный
+        merged). K1 ON (по умолчанию) — expansion только кандидаты через
+        retrieve(), измерение не меняется (см. mca-15 focused)."""
+        monkeypatch.setattr(mca_gates, "chat_statistics_enabled",
+                            lambda: False)
         memory = MagicMock()
         memory.search_long_term = AsyncMock(return_value=[
             {"user_id": 7, "author_name": "антон", "text": "антон был на море",
@@ -708,11 +723,12 @@ class TestDigFixRound:
         assert "антон был на море" in out
 
     @pytest.mark.asyncio
-    async def test_person_expands_related_names_via_graph(self):
-        """person задан (алиаса нет — без user_id-фильтра): seeds = формы
-        имени person; связанные имена из графа расширяют FTS-запрос
-        (сообщение от другого участника про связанного человека — в
-        выдаче: OR-токен связанного имени)."""
+    async def test_person_expands_related_names_via_graph(self, monkeypatch):
+        """K1 OFF (паритет 2.58.55): person задан (алиаса нет — без
+        user_id-фильтра): seeds = формы имени person; связанные имена из
+        графа расширяют FTS-запрос."""
+        monkeypatch.setattr(mca_gates, "chat_statistics_enabled",
+                            lambda: False)
         memory = MagicMock()
         memory.search_long_term = AsyncMock(return_value=[
             {"user_id": 8, "author_name": "петя",
@@ -731,9 +747,11 @@ class TestDigFixRound:
         assert "петя ездил с василием на рыбалку" in out
 
     @pytest.mark.asyncio
-    async def test_graph_empty_falls_back_to_target_user(self):
-        """BFS пуст (узлы/рёбра не нашли) → фолбэк target_user: имена из
-        фактов чата, содержащие токен person."""
+    async def test_graph_empty_falls_back_to_target_user(self, monkeypatch):
+        """K1 OFF (паритет 2.58.55): BFS пуст (узлы/рёбра не нашли) →
+        фолбэк target_user: имена из фактов чата, содержащие токен person."""
+        monkeypatch.setattr(mca_gates, "chat_statistics_enabled",
+                            lambda: False)
         memory = MagicMock()
         memory.search_long_term = AsyncMock(return_value=[
             {"user_id": 8, "author_name": "петя",
