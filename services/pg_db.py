@@ -400,6 +400,9 @@ DDL_STATEMENTS: tuple[str, ...] = (
         preview_before_asset_id TEXT,
         preview_after_asset_id  TEXT,
         preview_revision        INTEGER,
+        -- ASAP 4.3 (§4, T-4844): provenance preview-pair — job_id успешного
+        -- Test Style (аддитивная nullable-колонка, без новой таблицы).
+        preview_job_id          TEXT,
         revision        INTEGER NOT NULL DEFAULT 1,
         enabled         BOOLEAN NOT NULL DEFAULT true,
         is_deleted      BOOLEAN NOT NULL DEFAULT false,
@@ -488,6 +491,13 @@ DDL_STATEMENTS: tuple[str, ...] = (
         updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
         deleted_at    TIMESTAMPTZ
     );
+    """,
+    # ── ASAP 4.3 (§4, T-4844): аддитивная nullable-колонка provenance
+    # preview-pair для УЖЕ существующих prod-таблиц (идемпотентно,
+    # прецедент `ADD COLUMN IF NOT EXISTS`). Новой таблицы нет.
+    """
+    ALTER TABLE cover_style_profiles
+        ADD COLUMN IF NOT EXISTS preview_job_id TEXT;
     """,
 )
 

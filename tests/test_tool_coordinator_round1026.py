@@ -1,4 +1,4 @@
-﻿"""A1 `tool-coordinator-round1026` (Эпик 3 Wave 1, §13/§14, ADR-1026-14 D1–D10).
+"""A1 `tool-coordinator-round1026` (Эпик 3 Wave 1, §13/§14, ADR-1026-14 D1–D10).
 
 Покрытие:
   * Координатор (программный слой в существующем Синтезаторе): намерение /
@@ -793,7 +793,7 @@ class TestBounds:
             summary_changed
 
     def test_version_and_catalog(self):
-        assert APP_VERSION == "2.58.49"
+        assert APP_VERSION == "2.58.50"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
         assert len(pc.REGISTRY) == 488
         assert len({f.name for f in dataclasses.fields(Settings)}) == 426

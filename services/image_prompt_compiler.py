@@ -106,6 +106,9 @@ class CompiledPrompt:
     resolved_limit: int | None = None
     exceeded: bool = False
     reason: str = ""
+    # ASAP 4.3 (§9, T-4849): безопасный breakdown компонент для UI
+    # (`label → units`) — Style/Context/Refs/System без полного prompt.
+    components: dict = field(default_factory=dict)
 
     def as_dict(self) -> dict:
         return {
@@ -120,7 +123,21 @@ class CompiledPrompt:
             "resolved_limit": self.resolved_limit,
             "exceeded": self.exceeded,
             "reason": self.reason,
+            "components": dict(self.components),
         }
+
+
+def _component_lens(components: list[PromptComponent], unit: str, *,
+                    brief: str = "") -> dict:
+    """Длины компонент по label (для budget breakdown §9)."""
+    out: dict = {}
+    for comp in components:
+        if comp.text:
+            out[comp.label or ("p%d" % comp.priority)] = \
+                _units_of(comp.text, unit)
+    if brief:
+        out["cover_brief"] = _units_of(brief, unit)
+    return out
 
 
 def brief_from_text(text: str | None, *, max_chars: int = 400) -> CoverBrief:
@@ -203,7 +220,8 @@ def compile_prompt(components: list[PromptComponent], *,
             prompt=prompt, static_len=_units_of(_join(p0 + p1), unit),
             reserve_len=0, scene_allowance=0, limit=None,
             unit=unit or "unknown", dropped=[], original_len=original_len,
-            resolved_limit=None, exceeded=False, reason="")
+            resolved_limit=None, exceeded=False, reason="",
+            components=_component_lens(full_parts, unit))
     limit = int(limit)
     required = _join(p0 + p1)
     required_len = _units_of(required, unit)
@@ -215,7 +233,8 @@ def compile_prompt(components: list[PromptComponent], *,
             scene_allowance=0, limit=limit, unit=unit,
             dropped=[c.label or c.text[:24] for c in (p2 + p3)],
             original_len=original_len, resolved_limit=limit, exceeded=True,
-            reason="prompt_limit_exceeded")
+            reason="prompt_limit_exceeded",
+            components=_component_lens(full_parts, unit))
     working = required
     # P2 (explicit) — добавляем по возможности целиком; иначе semantic brief.
     for comp in p2:
@@ -247,7 +266,8 @@ def compile_prompt(components: list[PromptComponent], *,
         prompt=working, static_len=static_len, reserve_len=0,
         scene_allowance=scene_allowance, limit=limit, unit=unit,
         dropped=dropped, original_len=original_len, resolved_limit=limit,
-        exceeded=False, reason="")
+        exceeded=False, reason="",
+        components=_component_lens(full_parts, unit))
 
 
 def _compile_prompt_legacy(components: list[PromptComponent], *,
@@ -306,7 +326,8 @@ def _compile_prompt_legacy(components: list[PromptComponent], *,
         prompt=base_text, static_len=static_len, reserve_len=reserve_len,
         scene_allowance=scene_allowance, limit=limit, unit=unit,
         dropped=dropped, original_len=static_len + reserve_len,
-        resolved_limit=limit, exceeded=False, reason="")
+        resolved_limit=limit, exceeded=False, reason="",
+        components=_component_lens(components, unit, brief=budget_component))
 
 
 def estimate_budget(components: list[PromptComponent], *,

@@ -1658,6 +1658,12 @@
       display: flex;
       align-items: center;
       gap: .5rem;
+      /* ASAP 4.3 (§10.1/§10.2, T-4850): структурный wrap вместо обрезания
+         Save справа; кнопки не сжимаются ниже content, панель переносит их. */
+      flex-wrap: wrap;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
       padding: .6rem .75rem;
       padding-bottom: calc(.6rem + env(safe-area-inset-bottom, 0px));
       margin: 0;
@@ -1667,6 +1673,12 @@
       background-color: var(--glass-bg-strong);
       -webkit-backdrop-filter: var(--glass-blur);
       backdrop-filter: var(--glass-blur);
+    }
+    .sticky-save .btn-accent,
+    .sticky-save .btn-ghost {
+      flex: 0 0 auto;
+      max-width: 100%;
+      white-space: normal;
     }
     /* G5.1: панель лежит ВНУТРИ скроллера — это и есть sticky-носитель.
        HOTFIX9 D3 (T-2806): переиспользуемый `<sticky-save>` перенесён в
@@ -2313,10 +2325,14 @@
       padding-bottom: 1rem;
     }
     /* §70: на узких mobile — одна колонка без min-width-треков (иначе
-       inline `minmax(320px,1fr)` даёт горизонтальный скролл на 320 px). */
+       inline `minmax(320px,1fr)` даёт горизонтальный скролл на 320 px).
+       ASAP 4.3 (§10.2, T-4850): `1fr` = `minmax(auto,1fr)` с min-content
+       полом — широкий контент (Save area) выталкивал трек за вьюпорт и
+       `Сохранить изменения` обрезался справа. Структурно: `minmax(0,1fr)`
+       (как tailwind `grid-cols-*`), контент обёртывается, а не режется. */
     @media (max-width: 767px) {
       .app-shell.ia-v2 main.scroll-area {
-        grid-template-columns: 1fr !important;
+        grid-template-columns: minmax(0, 1fr) !important;
         width: 100%; max-width: 100%;
         padding-left: .5rem; padding-right: .5rem;
       }
@@ -2645,9 +2661,31 @@
     .cover-editor {
       background: #111827;
       width: 100%;
+      max-width: 100%;
+      min-width: 0;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+    }
+    /* ASAP 4.3 (§10.3, T-4851): header/footer — несжимаемые части layout;
+       body — ЕДИНСТВЕННЫЙ скроллер (`min-height:0` иначе flex-item не
+       скроллится и весь редактор уезжает). */
+    .cover-editor-head { flex: 0 0 auto; max-width: 100%; min-width: 0; }
+    .cover-editor-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      overscroll-behavior: contain;
+    }
+    .cover-editor-foot {
+      flex: 0 0 auto;
+      max-width: 100%;
+      /* safe-area ровно один раз (та же формула, что у shell/nav). */
+      padding-bottom: calc(0.75rem + max(
+        env(safe-area-inset-bottom, 0px),
+        var(--tg-safe-area-inset-bottom, 0px),
+        var(--tg-content-safe-area-inset-bottom, 0px)));
     }
     @media (max-width: 639.98px) {
       .cover-editor { height: 100%; }
@@ -2680,6 +2718,7 @@
       aspect-ratio: 1 / 1;
       object-fit: cover;
       border-radius: 0.75rem;
+      min-width: 0;
     }
     .cover-preview-empty {
       width: 100%;
@@ -2693,6 +2732,23 @@
       justify-content: center;
       color: rgba(156, 163, 175, 1);
       font-size: 0.75rem;
+    }
+    /* ASAP 4.3 (§10.4, T-4852): `До → После` — одна горизонтальная группа,
+       картинки масштабируются от доступной ширины (не vertical wall). */
+    .cover-preview-group {
+      display: flex;
+      align-items: flex-end;
+      gap: 0.5rem;
+      flex-wrap: nowrap;
+      max-width: 100%;
+      min-width: 0;
+    }
+    .cover-preview-group > div { min-width: 0; }
+    @media (max-width: 639.98px) {
+      .cover-preview, .cover-preview-empty {
+        max-width: 6.5rem;
+        max-height: 8.5rem;
+      }
     }
     .cover-preview-arrow { color: rgba(156, 163, 175, 1); font-size: 1.4rem; }
     /* ASAP 4.2 (D5.4, T-4826): компактные before/after mini в списке стилей

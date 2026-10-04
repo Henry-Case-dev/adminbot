@@ -1585,6 +1585,15 @@
           uploadBusy: false,
           previewBusy: false,
           preview: null,
+          // ASAP 4.3 (§2.2/§11, T-4842/T-4853): durable Test Style job —
+          // UI опрашивает status-endpoint, не держит долгий fetch.
+          previewJob: null,       // {job_id, profile_id, stage, started_at, ...}
+          placeholders: { before_url: null, after_url: null },  // §5 fallback
+          // §7.2: «Ограничение промпта» (auto/manual, символы/токены).
+          limitMode: 'auto',
+          limitUnit: 'chars',
+          limitValue: null,
+          limitSaving: false,
           editorOpen: false,      // §108: dedicated editor surface
           editorDirty: false,     // есть несохранённые изменения
           draftStep: '',          // 'name' (§112 шаг 1) | 'full'
@@ -4030,7 +4039,14 @@
         if (initData) {
           init.headers['X-Telegram-Init-Data'] = initData;
         }
-        var resp = await fetch(path, init);
+        // ASAP 4.3 (§3, T-4854): сетевой обрыв — типизированный network-статус
+        // (0), а не сырой TypeError «Failed to fetch» как финал.
+        var resp;
+        try {
+          resp = await fetch(path, init);
+        } catch (e) {
+          throw new ApiError(0, 'network');
+        }
         if (resp.status === 401) {
           this.authError = 'Не удалось авторизоваться (initData). Откройте админку заново из Telegram.';
           throw new ApiError(401, 'unauthorized');
@@ -7109,6 +7125,10 @@
               || 'Без дополнительного стиля';
             st.selectedStyleId = (data && data.selected_style_id) || '';
             st.styles = (data && data.styles) || [];
+            // ASAP 4.3 (§5): Ч/Б fallback placeholders — только UI; файл/URL
+            // приходят с сервера (фактический listing extra_images).
+            st.placeholders = (data && data.placeholders) ||
+              { before_url: null, after_url: null };
             st.loaded = true;
             self.coverStylesEnsureAssets();
             // §35: вернуть контекст открытого Style Editor после deep-link.
@@ -7131,22 +7151,46 @@
         var self = this;
         var st = this.coverStyles;
         (st.styles || []).forEach(function (s) {
-          self.coverAssetBlob(s.preview_before_asset_id);
-          self.coverAssetBlob(s.preview_after_asset_id);
+          // §4/§5: только valid-пара текущей revision; иначе placeholder
+          // (загружается отдельным циклом ниже — не запрашиваем asset по
+          // фиктивному ключу 'placeholder_*' как по id).
+          if (s.preview_before_asset_id) {
+            self.coverAssetBlob(s.preview_before_asset_id);
+          }
+          if (s.preview_after_asset_id) {
+            self.coverAssetBlob(s.preview_after_asset_id);
+          }
           (s.references || []).forEach(function (r) {
             self.coverAssetBlob(r.asset_id);
           });
         });
+        (st.placeholders ? [['placeholder_before', st.placeholders.before_url],
+                            ['placeholder_after', st.placeholders.after_url]] : [])
+          .forEach(function (pair) {
+            if (pair[1]) self.coverAssetBlob(pair[1], pair[0]);
+          });
       },
-      coverAssetBlob: async function (urlOrId) {
+      // §5: asset для before/after карточки/редактора; нет valid-пары —
+      // Ч/Б placeholder (никогда не «ваза»).
+      coverPairAsset: function (s, side) {
+        if (!s) return null;
+        var id = (side === 'before')
+          ? s.preview_before_asset_id : s.preview_after_asset_id;
+        return this.coverStyles._assets[id || ('placeholder_' + side)] || null;
+      },
+      coverAssetBlob: async function (urlOrId, key) {
         if (!urlOrId) return null;
-        var assetId = String(urlOrId).split('/').pop();
+        var raw = String(urlOrId);
         var st = this.coverStyles;
+        var isPlaceholder = raw.indexOf('/api/cover/placeholders/') >= 0;
+        var assetId = key || raw.split('/').pop();
         if (st._assets[assetId]) return st._assets[assetId];
         var initData = getInitData();
         if (!initData) return null;
+        // Placeholder — read-only URL из extra_images; обычный asset — по id.
+        var fetchUrl = isPlaceholder ? raw : ('/api/cover/assets/' + assetId);
         try {
-          var resp = await fetch('/api/cover/assets/' + assetId, {
+          var resp = await fetch(fetchUrl, {
             headers: { 'X-Telegram-Init-Data': initData },
           });
           if (!resp.ok) return null;
@@ -7182,13 +7226,17 @@
           preview_issue: s.preview_issue, _isNew: false,
         };
         st.meta = null;
-        st.preview = null;
-        // §108: dedicated editor surface (mobile sheet / desktop panel)
+        // ASAP 4.3 (§11): job state НЕ сбрасывается закрытием/сменой
+        // редактора — при возврате состояние восстанавливается.
         st.editorOpen = true;
         st.editorDirty = false;
         st.draftStep = 'full';
         this.coverStylesLoadConnections();
         this.coverStyleLoadMeta(s.profile_id);
+        if (st.previewJob && st.previewJob.profile_id === s.profile_id
+            && this.coverStyleJobActive()) {
+          this.coverStylePollJob();
+        }
       },
       coverStyleEditorClose: function () {
         var st = this.coverStyles;
@@ -7197,8 +7245,9 @@
         st.draftName = '';
         st.draftInstruction = '';
         st.editorDirty = false;
-        st.preview = null;
         st.current = null;
+        // §11: закрытие редактора НЕ отменяет job и НЕ теряет его состояние;
+        // polling продолжается фоново (job durable на сервере).
         this.loadCoverStyles();
       },
       coverStylesLoadConnections: function () {
@@ -7299,6 +7348,13 @@
               st.current.preview_source_label =
                 data.preview_source_label || 'Пример';
               st.current.can_edit = data.can_edit !== false;
+            }
+            // §7.2: «Ограничение промпта» из серверного состояния.
+            var pl = data.prompt_limit || null;
+            if (pl) {
+              st.limitMode = pl.mode === 'manual' ? 'manual' : 'auto';
+              st.limitUnit = pl.unit || 'chars';
+              st.limitValue = pl.value != null ? pl.value : null;
             }
             self.coverStylesEnsureAssets();
           })
@@ -7475,11 +7531,27 @@
             self.toast((e && e.message) || 'Не удалось удалить референс', 'err');
           });
       },
+      // ASAP 4.3 (§2/§11, T-4853): Test Style — durable job + polling.
+      // НЕ держит долгий fetch; НЕ открывает file picker; не публикует;
+      // не тратит issue number. Двойной тап не создаёт повторный job.
+      coverPreviewStageText: function (stage) {
+        return {
+          queued: 'Генерируем базовую обложку…',
+          base_generating: 'Генерируем базовую обложку…',
+          base_ready: 'Генерируем базовую обложку…',
+          style_editing: 'Применяем стиль…',
+          saving_preview: 'Сохраняем результат…',
+        }[stage] || '';
+      },
+      coverPreviewConnectionLost: function () {
+        return 'Потеряно соединение с сервером. ' +
+          'Генерация могла продолжиться; пробуем восстановить состояние.';
+      },
+      coverStyleJobActive: function () {
+        var j = this.coverStyles.previewJob;
+        return !!(j && j.job_id && !j.finished);
+      },
       coverStylePreview: function () {
-        // ASAP 4.2 (D5.5, T-4819): «Проверить стиль» — реальный тестовый
-        // pipeline (base cover → style edit). НЕ открывает File Explorer:
-        // никакого `input[type=file]` и никакого base64 upload. Issue counter
-        // не тратится (сервер: mode=preview); RichMessage не публикуется.
         var st = this.coverStyles;
         var c = st.current;
         if (!c || !c.profile_id) {
@@ -7487,38 +7559,158 @@
           return;
         }
         if (c.can_edit === false) return;
-        if (st.previewBusy) return;
+        // §11: двойной тап — никакого второго paid job.
+        if (st.previewBusy || (this.coverStyleJobActive()
+            && st.previewJob.profile_id === c.profile_id)) {
+          return;
+        }
         var self = this;
         st.previewBusy = true;
         st.preview = null;
+        st.previewJob = {
+          job_id: null, profile_id: c.profile_id, stage: 'queued',
+          started_at: Math.floor(Date.now() / 1000), elapsed: 0,
+          failures: 0, finished: false, timer: null, result: null,
+        };
         this.api('/api/cover/test-style', {
           global: true, method: 'POST',
           body: JSON.stringify({ profile_id: c.profile_id }),
         }).then(function (data) {
-          st.preview = data;
-          if (data && data.applied && data.preview_after_url) {
-            self.coverAssetBlob(data.preview_after_url);
-          }
-          if (data && data.applied && data.preview_before_url) {
-            self.coverAssetBlob(data.preview_before_url);
-          }
-          if (data && data.applied && c.profile_id) {
-            // §10/SC-24: результат сохранён как preview → revision свежая.
-            self.coverStyleLoadMeta(c.profile_id);
-            self.loadCoverStyles();
-          }
+          var j = self.coverStyles.previewJob;
+          if (!j) return;
+          j.job_id = (data && data.job_id) || j.job_id;
+          j.reused = !!(data && data.reused);
+          j.stage = (data && data.stage) || 'queued';
+          self.coverStylePollJob();
         }).catch(function (e) {
-          // D5.5: провал НЕ убивает прошлый preview (он уже отрисован);
-          // явная ошибка; machine reason — в Developer details.
-          st.preview = {
+          // §3: сырой Failed to fetch никогда не финал; серверный dedup
+          // (active job стиля) делает повторный POST безопасным.
+          var j = self.coverStyles.previewJob;
+          if (j) {
+            j.failures = (j.failures || 0) + 1;
+            if (!j.job_id && j.failures <= 4) {
+              j.stage = 'queued';
+              self.coverStyleRetryStart();
+              return;
+            }
+          }
+          self.coverStyles.previewBusy = false;
+          self.coverStyles.preview = {
             applied: false,
-            message: (e && e.message) ||
-              'Стиль не применён: провайдер отклонил запрос.',
-            developer_reason: (e && e.reason) || (e && e.code) || '',
+            message: (e && e.status && e.message) ? e.message
+              : self.coverPreviewConnectionLost(),
+            developer_reason: (e && e.message) || 'network',
           };
-        }).then(function () {
-          st.previewBusy = false;
         });
+      },
+      coverStyleRetryStart: function () {
+        var self = this;
+        var st = this.coverStyles;
+        var j = st.previewJob;
+        if (!j || j.finished) return;
+        var delay = Math.min(5000, 800 * (j.failures || 1));
+        setTimeout(function () {
+          if (!self.coverStyles.previewJob || self.coverStyles.previewJob.finished) {
+            return;
+          }
+          self.api('/api/cover/test-style', {
+            global: true, method: 'POST',
+            body: JSON.stringify({ profile_id: j.profile_id }),
+          }).then(function (data) {
+            var jj = self.coverStyles.previewJob;
+            if (!jj) return;
+            jj.job_id = (data && data.job_id) || jj.job_id;
+            jj.stage = (data && data.stage) || 'queued';
+            self.coverStylePollJob();
+          }).catch(function () {
+            var jj = self.coverStyles.previewJob;
+            if (!jj) return;
+            jj.failures = (jj.failures || 0) + 1;
+            if (jj.failures <= 8) { self.coverStyleRetryStart(); return; }
+            self.coverStyles.previewBusy = false;
+            self.coverStyles.preview = {
+              applied: false, message: self.coverPreviewConnectionLost(),
+              developer_reason: 'network',
+            };
+          });
+        }, delay);
+      },
+      coverStylePollJob: function () {
+        var self = this;
+        var st = this.coverStyles;
+        var j = st.previewJob;
+        if (!j || !j.job_id || j.finished) return;
+        if (j.timer) { clearTimeout(j.timer); j.timer = null; }
+        st.previewBusy = true;
+        this.api('/api/cover/test-style/' + encodeURIComponent(j.job_id),
+                 { global: true })
+          .then(function (snap) {
+            var jj = self.coverStyles.previewJob;
+            if (!jj || jj.job_id !== j.job_id) return;
+            jj.failures = 0;
+            jj.stage = (snap && snap.stage) || jj.stage;
+            jj.status = (snap && snap.status) || jj.status;
+            if (snap && snap.started_at) jj.started_at = snap.started_at;
+            if (snap && snap.prompt) jj.prompt = snap.prompt;
+            // §11: elapsed — только информационный, не решает про ошибку.
+            jj.elapsed = Math.max(0, Math.floor(Date.now() / 1000)
+              - (jj.started_at || 0));
+            if (snap && snap.status === 'completed') {
+              jj.finished = true;
+              st.previewBusy = false;
+              st.preview = {
+                applied: true, message: 'Стиль применён',
+                provider: snap.provider, model: snap.model,
+                preview_issue: c_issue(self),
+                preview_before_url: snap.preview_before_url,
+                preview_after_url: snap.preview_after_url,
+                prompt: snap.prompt || null,
+                duration_ms: null,
+              };
+              var c = st.current;
+              if (c && c.profile_id === jj.profile_id) {
+                self.coverStyleLoadMeta(jj.profile_id);
+              }
+              self.loadCoverStyles();
+              return;
+            }
+            if (snap && snap.status === 'failed') {
+              jj.finished = true;
+              st.previewBusy = false;
+              st.preview = {
+                applied: false,
+                message: (snap && snap.human_message) ||
+                  'Стиль не применён: провайдер отклонил запрос.',
+                developer_reason: (snap && snap.machine_reason) || '',
+                prompt: snap.prompt || null,
+              };
+              return;
+            }
+            // queued/running — продолжаем наблюдение.
+            jj.timer = setTimeout(function () {
+              self.coverStylePollJob();
+            }, 1500);
+          })
+          .catch(function (e) {
+            var jj = self.coverStyles.previewJob;
+            if (!jj || jj.job_id !== j.job_id) return;
+            jj.failures = (jj.failures || 0) + 1;
+            // §3 (п.4/5): временная недоступность/обрыв — человеческая фраза,
+            // НЕ финал; reconnect и дочитывание job.
+            st.preview = {
+              applied: false, message: self.coverPreviewConnectionLost(),
+              developer_reason: (e && e.message) || 'network',
+              transient: true,
+            };
+            var delay = Math.min(5000, 1000 * Math.min(jj.failures, 5));
+            jj.timer = setTimeout(function () {
+              self.coverStylePollJob();
+            }, delay);
+          });
+        function c_issue(self2) {
+          var c = self2.coverStyles.current;
+          return (c && c.preview_issue) || '';
+        }
       },
       openCoverConnections: function () {
         // §35: deep-link на «ИИ → Подключения» с фокусом/подсветкой группы
@@ -7559,11 +7751,87 @@
       },
       coverBudgetText: function () {
         var st = this.coverStyles;
+        var c = st.current || {};
+        return 'Инструкция: ' + String(c.instruction || '').length
+          + ' символов · Лимит текущей модели: ' + this.coverLimitText();
+      },
+      // §9: «Лимит текущей модели: M / неизвестно» — без ложного 800.
+      coverLimitText: function () {
+        var st = this.coverStyles;
+        var pl = st.meta && st.meta.prompt_limit;
+        if (st.limitMode === 'manual' && st.limitValue) {
+          return st.limitValue + ' ' + (st.limitUnit === 'tokens'
+            ? 'токенов' : 'символов') + ' (задано вручную)';
+        }
+        if (pl && pl.limit_known && pl.value != null) {
+          return pl.value + ' ' + (pl.unit === 'tokens' ? 'токенов'
+            : 'символов');
+        }
+        return 'неизвестно';
+      },
+      // §9: breakdown последней сборки Style/Context/Refs/System/Итого.
+      coverPromptBreakdownText: function (p) {
+        if (!p) return '';
+        var parts = [];
+        if (p.style_chars != null) parts.push('Style ' + p.style_chars);
+        if (p.context_chars != null) parts.push('Context ' + p.context_chars);
+        if (p.refs_chars != null) parts.push('Refs/meta ' + p.refs_chars);
+        if (p.system_chars != null) parts.push('System ' + p.system_chars);
+        if (p.total_chars != null) {
+          parts.push('Итого ' + p.total_chars + ' / '
+            + (p.limit != null ? p.limit : 'неизвестно'));
+        }
+        return parts.join(' · ');
+      },
+      coverBudgetBreakdown: function () {
+        var st = this.coverStyles;
         var b = st.meta && st.meta.budget;
-        if (!b || !b.known) return 'Провайдер не публикует точный лимит инструкции';
-        return 'Статическая инструкция: ' + (b.static || 0)
-          + ' · reserve: ~' + (b.reserve || 0)
-          + ' · запас для сюжета: ~' + (b.scene_allowance || 0);
+        if (!b || !b.components) return '';
+        var itogo = (b.limit_known && b.limit != null)
+          ? (b.components.total + ' / ' + b.limit)
+          : (b.components.total + ' / неизвестно');
+        return 'Последняя сборка: Style ' + b.components.style
+          + ' · Context ' + b.components.context
+          + ' · Refs/meta ' + b.components.refs
+          + ' · System ' + b.components.system
+          + ' · Итого ' + itogo;
+      },
+      coverBudgetUnknownText: function () {
+        var st = this.coverStyles;
+        var pl = st.meta && st.meta.prompt_limit;
+        if (st.limitMode === 'manual' && st.limitValue) return '';
+        if (pl && pl.limit_known) return '';
+        return 'Провайдер не сообщил точный лимит. Запрос будет отправлен '
+          + 'без искусственного ограничения.';
+      },
+      // §7.2: сохранить manual override; не блокирует сохранение стиля.
+      coverStyleSavePromptLimit: function () {
+        var st = this.coverStyles;
+        var c = st.current;
+        if (!c || !c.profile_id || st.limitSaving) return;
+        var self = this;
+        st.limitSaving = true;
+        var body = {
+          profile_id: c.profile_id,
+          operation: 'image_edit',
+          mode: st.limitMode === 'manual' ? 'manual' : 'auto',
+          unit: st.limitUnit || 'chars',
+          value: parseInt(st.limitValue || 0, 10) || 0,
+        };
+        this.api('/api/cover/prompt-limit', {
+          global: true, method: 'POST', body: JSON.stringify(body),
+        }).then(function (data) {
+          self.toast('Ограничение промпта сохранено');
+          if (data) {
+            st.limitMode = data.mode === 'manual' ? 'manual' : 'auto';
+            st.limitUnit = data.unit || 'chars';
+            st.limitValue = data.value != null ? data.value : null;
+          }
+          self.coverStyleLoadMeta(c.profile_id);
+        }).catch(function (e) {
+          self.toast((e && e.message) ||
+            'Не удалось сохранить ограничение промпта', 'err');
+        }).then(function () { st.limitSaving = false; });
       },
       coverCapabilityLines: function () {
         var st = this.coverStyles;

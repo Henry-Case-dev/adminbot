@@ -460,19 +460,53 @@ class TestRunStyleJob:
         assert calls["n"] == 1                 # base НЕ перегенерируется (§49)
 
     @pytest.mark.asyncio
-    async def test_prompt_limit_400_one_retry(self, tmp_path):
-        """T-4814: machine-readable 400 prompt-limit → cache → recompile →
-        РОВНО один retry (второй вызова нет)."""
+    async def test_prompt_limit_400_no_second_call_when_exceeded(self, tmp_path):
+        """ASAP 4.3 (§7.1/§8, T-4848): 400 с N=40 — recompiled prompt всё ещё
+        превышает limit → второй paid call НЕ отправляется."""
         base = _png(tmp_path / "base.png")
         cap.reset_cache()
         prompts = []
 
         async def edit_call(prompt, **kw):
             prompts.append(prompt)
+            return EditResult(
+                ok=False, reason="prompt_limit",
+                meta={"prompt_limit": {"value": 40, "unit": "chars"},
+                      "route": "image_api"})
+
+        meta = await j.run_style_job(
+            chat_id=-100, base_image_path=base, profile=_profile(),
+            summary_run_id="run1", capabilities=self._caps(),
+            edit_call=edit_call, reference_paths=[])
+        assert len(prompts) == 1, "exceeded → второй paid call не уходит"
+        assert meta["applied"] is False
+        retry = meta.get("prompt_limit_retry") or {}
+        assert retry.get("retry_sent") is False
+        assert retry.get("skipped") == "exceeded"
+
+    @pytest.mark.asyncio
+    async def test_prompt_limit_400_one_retry_when_shorter(self, tmp_path):
+        """T-4814 + T-4848: machine-readable 400 prompt-limit → cache →
+        recompile; retry РОВНО один и только если prompt стал короче."""
+        base = _png(tmp_path / "base.png")
+        cap.reset_cache()
+        prompts = []
+        # required (P0+P1) без refs — подгоняем limit так, чтобы P2/refs
+        # отбросились, а P0+P1 влезли.
+        caps_unknown = cap.ImageModelCapabilities(
+            image_edit=cap.TRUE, max_input_images=3,
+            prompt_limit=cap.PromptLimit())
+        probe = j.compile_style_prompt(
+            _profile(), issue_display="ВЫПУСК 00",
+            capabilities=caps_unknown)
+        limit = int(probe.static_len) + 5
+
+        async def edit_call(prompt, **kw):
+            prompts.append(prompt)
             if len(prompts) == 1:
                 return EditResult(
                     ok=False, reason="prompt_limit",
-                    meta={"prompt_limit": {"value": 40, "unit": "chars"},
+                    meta={"prompt_limit": {"value": limit, "unit": "chars"},
                           "route": "image_api"})
             return EditResult(ok=True, content=b"STYLED2", reason="ok")
 
@@ -480,9 +514,12 @@ class TestRunStyleJob:
             chat_id=-100, base_image_path=base, profile=_profile(),
             summary_run_id="run1", capabilities=self._caps(),
             edit_call=edit_call, reference_paths=[])
-        assert len(prompts) == 2
+        assert len(prompts) == 2, "короче → ровно один retry"
         assert meta["applied"] is True
-        assert meta.get("prompt_limit_retry", {}).get("resolved_limit") == 40
+        retry = meta.get("prompt_limit_retry") or {}
+        assert retry.get("resolved_limit") == limit
+        assert retry.get("retry_sent") is True
+        assert len(prompts[1]) < len(prompts[0])
 
     @pytest.mark.asyncio
     async def test_edit_unsupported(self, tmp_path):

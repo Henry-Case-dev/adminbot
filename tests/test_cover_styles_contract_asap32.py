@@ -416,9 +416,9 @@ def _put_chat_profile(pg, chat_id: int, overrides: dict | None = None) -> None:
 
 class TestPgDatabaseContract:
     def test_seed_and_list_via_public_api(self):
-        """§119/§98: seed через реестр → GET /api/cover/styles содержит
-        `medved_press` c 1 reference и before/after asset id. НА PRE-FIX
-        (raw Pool на месте PgDatabase) этот тест падал: list → []."""
+        """§119/§98 + ASAP 4.3 (§5): seed через реестр → GET /api/cover/styles
+        содержит `medved_press` c 1 reference; placeholder-файлы НЕ являются
+        preview-assets профиля (UI fallback приходит отдельным payload)."""
         pg = FakePgDatabase()
         seeded = _seed(pg)
         assert seeded is not None, "seed создан"
@@ -432,8 +432,12 @@ class TestPgDatabaseContract:
                      if s["profile_id"] == "medved_press")
         assert style["is_example"] is True
         assert style["reference_count"] == 1
-        assert style["preview_before_asset_id"]
-        assert style["preview_after_asset_id"]
+        # §5: placeholders — только UI fallback, не DB preview профиля.
+        assert style["preview_before_asset_id"] is None
+        assert style["preview_after_asset_id"] is None
+        assert style["preview_pair_valid"] is False
+        assert body["placeholders"]["before_url"]
+        assert body["placeholders"]["after_url"]
 
     def test_create_update_delete_roundtrip_real_registry(self):
         """§94: POST → 200 (не 503 «save failed»), reload сохраняет."""

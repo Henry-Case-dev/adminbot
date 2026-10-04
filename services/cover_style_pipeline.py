@@ -270,12 +270,19 @@ def slot_capabilities(*, profile: dict | None = None,
                       discovery: dict | None = None,
                       endpoints: dict | None = None,
                       refresh: bool = False,
-                      connection: dict | None = None) -> cap.ImageModelCapabilities:
-    """Capabilities выбранного Style-слота (resolver, §3.7/§71)."""
+                      connection: dict | None = None,
+                      operation: str | None = None
+                      ) -> cap.ImageModelCapabilities:
+    """Capabilities выбранного Style-слота (resolver, §3.7/§71).
+
+    `operation` (image_generate/image_edit) — per-operation manual override
+    (§7, T-4847).
+    """
     slot = resolve_style_slot(profile=profile, connection=connection)
     return cap.resolve_capabilities(
         slot["provider"], slot["base_url"], slot["model"],
-        discovery=discovery, endpoints=endpoints, refresh=refresh)
+        discovery=discovery, endpoints=endpoints, refresh=refresh,
+        operation=operation)
 
 
 def check_edit_allowed(*, profile: dict | None = None,

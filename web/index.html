@@ -478,22 +478,23 @@
     <div v-for="s in coverStyles.styles" :key="s.profile_id"
          class="flex items-center gap-3 rounded-xl border border-white/10 p-2.5"
          :data-cover-style="s.profile_id">
-      <!-- ASAP 4.2 (D5.4, T-4826): компактные before/after mini (не giant
-           image wall); стрелка — Material Symbol, не текстовый «→». -->
+      <!-- ASAP 4.2 (D5.4, T-4826) + ASAP 4.3 (§5/§10.4): компактные
+           before/after mini (не giant image wall); без valid-пары —
+           Ч/Б placeholder из extra_images; стрелка — Material Symbol. -->
       <div class="cover-card-previews flex items-center gap-1 flex-none"
            data-cover-style-thumb>
-        <img v-if="coverStyles._assets[s.preview_before_asset_id]"
-             :src="coverStyles._assets[s.preview_before_asset_id]" alt=""
+        <img v-if="coverPairAsset(s, 'before')"
+             :src="coverPairAsset(s, 'before')" alt=""
              class="cover-mini" data-cover-mini-before>
         <span v-else class="cover-mini cover-mini--empty"
-              aria-hidden="true">🎨</span>
+              aria-hidden="true">—</span>
         <span class="msr cover-mini-arrow" aria-hidden="true"
               data-cover-mini-arrow>{{ iconGlyph('chevron_right') }}</span>
-        <img v-if="coverStyles._assets[s.preview_after_asset_id]"
-             :src="coverStyles._assets[s.preview_after_asset_id]" alt=""
+        <img v-if="coverPairAsset(s, 'after')"
+             :src="coverPairAsset(s, 'after')" alt=""
              class="cover-mini" data-cover-mini-after>
         <span v-else class="cover-mini cover-mini--empty"
-              aria-hidden="true">🎨</span>
+              aria-hidden="true">—</span>
       </div>
       <div class="flex flex-col min-w-0 flex-1">
         <span class="text-sm font-semibold truncate">{{ s.name }}</span>
@@ -504,19 +505,21 @@
           <span>референсов: {{ s.reference_count }}</span>
         </span>
       </div>
-      <button class="btn-accent text-xs flex-none"
-              @click="coverStyleOpen(s)" data-cover-style-open>Открыть</button>
-      <details class="relative flex-none" data-cover-style-menu>
-        <summary class="btn-ghost text-xs cursor-pointer list-none px-2">⋯</summary>
-        <div class="cover-menu">
-          <button class="btn-ghost text-xs text-left"
-                  @click="coverStyleDuplicate(s)">Копировать</button>
-          <button v-if="s.can_edit" class="btn-danger text-xs text-left"
-                  @click="coverStyleDelete(s)" data-cover-style-delete>Удалить</button>
-          <span v-else class="text-xs text-gray-500 px-1 py-1"
-                data-cover-style-locked>Только просмотр</span>
-        </div>
-      </details>
+      <div class="flex items-center gap-2 flex-none">
+        <button class="btn-accent text-xs flex-none"
+                @click="coverStyleOpen(s)" data-cover-style-open>Открыть</button>
+        <details class="relative flex-none" data-cover-style-menu>
+          <summary class="btn-ghost text-xs cursor-pointer list-none px-2">⋯</summary>
+          <div class="cover-menu">
+            <button class="btn-ghost text-xs text-left"
+                    @click="coverStyleDuplicate(s)">Копировать</button>
+            <button v-if="s.can_edit" class="btn-danger text-xs text-left"
+                    @click="coverStyleDelete(s)" data-cover-style-delete>Удалить</button>
+            <span v-else class="text-xs text-gray-500 px-1 py-1"
+                  data-cover-style-locked>Только просмотр</span>
+          </div>
+        </details>
+      </div>
     </div>
     <button class="btn-ghost text-xs self-start" :disabled="!coverStyles.enabled"
             @click="coverStyleNew()" data-cover-style-new>+ Создать стиль</button>
@@ -575,7 +578,7 @@
        data-cover-style-overlay>
     <div class="cover-editor"
          data-cover-style-editor>
-      <div class="flex items-center gap-2 px-4 py-3 border-b border-white/10">
+      <div class="cover-editor-head flex items-center gap-2 px-4 py-3 border-b border-white/10">
         <button class="btn-ghost text-xs flex-none" @click="coverStyleEditorClose()"
                 data-cover-editor-back aria-label="Назад">← Закрыть</button>
         <span class="text-sm font-bold truncate flex-1">
@@ -590,7 +593,7 @@
               data-cover-unsaved-dot>● несохранено</span>
       </div>
 
-      <div class="flex-1 overflow-y-auto scroll-thin p-4 flex flex-col gap-4">
+      <div class="cover-editor-body flex-1 overflow-y-auto scroll-thin p-4 flex flex-col gap-4">
         <!-- §109 progressive disclosure: creative fields первичны -->
         <div class="grid gap-3 md:grid-cols-2">
           <label class="flex flex-col text-xs gap-1">
@@ -617,7 +620,50 @@
                     @input="coverStyles.editorDirty = true"
                     data-cover-style-instruction></textarea>
           <span class="text-gray-500" data-cover-style-budget>{{ coverBudgetText() }}</span>
+          <span v-if="coverBudgetBreakdown()" class="text-gray-500"
+                data-cover-budget-breakdown>{{ coverBudgetBreakdown() }}</span>
+          <span v-if="coverBudgetUnknownText()" class="text-gray-500"
+                data-cover-budget-unknown>{{ coverBudgetUnknownText() }}</span>
         </label>
+
+        <!-- ASAP 4.3 (§7.2, T-4847): «Ограничение промпта» —
+             [Автоматически]/[Задать вручную] + единица + значение.
+             Manual — высший приоритет; сохранение стиля не блокируется. -->
+        <div class="flex flex-col text-xs gap-2" data-cover-prompt-limit>
+          <span class="text-gray-400">Ограничение промпта</span>
+          <div class="flex items-center gap-2 flex-wrap">
+            <select class="field max-w-xs" v-model="coverStyles.limitMode"
+                    data-cover-limit-mode>
+              <option value="auto">Автоматически</option>
+              <option value="manual">Задать вручную</option>
+            </select>
+            <template v-if="coverStyles.limitMode === 'manual'">
+              <select class="field w-32" v-model="coverStyles.limitUnit"
+                      data-cover-limit-unit>
+                <option value="chars">символы</option>
+                <option value="tokens">токены</option>
+              </select>
+              <input type="number" min="1" class="field w-28"
+                     v-model="coverStyles.limitValue"
+                     placeholder="Значение" data-cover-limit-value>
+              <button type="button" class="btn-ghost text-xs"
+                      :disabled="coverStyles.limitSaving"
+                      @click="coverStyleSavePromptLimit()"
+                      data-cover-limit-save>
+                {{ coverStyles.limitSaving ? 'Сохранение…' : 'Сохранить лимит' }}
+              </button>
+            </template>
+            <button v-else type="button" class="btn-ghost text-xs"
+                    :disabled="coverStyles.limitSaving"
+                    @click="coverStyleSavePromptLimit()"
+                    data-cover-limit-auto>
+              Применить автоматически
+            </button>
+          </div>
+          <span class="text-gray-500" data-cover-limit-resolved>
+            Лимит текущей модели: {{ coverLimitText() }}
+          </span>
+        </div>
 
         <!-- §111: reference card с реальным thumbnail (видна сразу) -->
         <div class="flex flex-col text-xs gap-2">
@@ -674,20 +720,20 @@
             <span class="badge badge-muted ml-1" data-cover-editor-preview-source>{{ coverStyles.current.preview_source_label || 'Пример' }}</span>
             <span class="sr-only" data-cover-preview-source-labels>Пример / Результат теста</span>
           </span>
-          <div class="flex items-center gap-3 flex-wrap" data-cover-style-preview>
-            <div class="flex flex-col items-center gap-1">
-              <span class="text-gray-500">Базовая обложка</span>
-              <img v-if="coverStyles._assets[coverStyles.current.preview_before_asset_id]"
-                   :src="coverStyles._assets[coverStyles.current.preview_before_asset_id]"
+          <div class="cover-preview-group flex items-end gap-2" data-cover-style-preview>
+            <div class="flex flex-col items-center gap-1 min-w-0">
+              <span class="text-gray-500">До</span>
+              <img v-if="coverPairAsset(coverStyles.current, 'before')"
+                   :src="coverPairAsset(coverStyles.current, 'before')"
                    alt="" class="cover-preview" data-cover-before-img>
               <span v-else class="cover-preview-empty">нет примера</span>
             </div>
             <span class="msr cover-preview-arrow" aria-hidden="true"
                   data-cover-preview-arrow>{{ iconGlyph('chevron_right') }}</span>
-            <div class="flex flex-col items-center gap-1">
-              <span class="text-gray-500">После стиля</span>
-              <img v-if="coverStyles._assets[coverStyles.current.preview_after_asset_id]"
-                   :src="coverStyles._assets[coverStyles.current.preview_after_asset_id]"
+            <div class="flex flex-col items-center gap-1 min-w-0">
+              <span class="text-gray-500">После</span>
+              <img v-if="coverPairAsset(coverStyles.current, 'after')"
+                   :src="coverPairAsset(coverStyles.current, 'after')"
                    alt="" class="cover-preview" data-cover-after-img>
               <span v-else class="cover-preview-empty">нет примера</span>
             </div>
@@ -703,6 +749,15 @@
             </button>
             <span class="text-gray-500">Тест не тратит номер выпуска и не публикует пост.</span>
           </div>
+          <!-- ASAP 4.3 (§11, T-4853): stage-прогресс durable job; elapsed —
+               информация, решение об ошибке по времени НЕ принимается. -->
+          <div v-if="coverStyleJobActive()"
+               class="text-gray-300 flex items-center gap-2 flex-wrap"
+               data-cover-test-progress>
+            <span class="spinner"></span>
+            <span data-cover-test-stage>{{ coverPreviewStageText(coverStyles.previewJob.stage) }}</span>
+            <span class="text-gray-500">Прошло: {{ coverStyles.previewJob.elapsed }} с</span>
+          </div>
           <div v-if="coverStyles.current.preview_stale"
                class="text-amber-300 text-xs flex items-center gap-2 flex-wrap"
                data-cover-preview-stale>
@@ -715,16 +770,16 @@
           <div v-if="coverStyles.preview" class="rounded-lg border border-white/10 p-2"
                data-cover-test-result>
             <div v-if="coverStyles.preview.applied" class="flex items-center gap-2 flex-wrap">
-              <img v-if="coverStyles.preview.url && coverStyles._assets[coverStyles.preview.url.split('/').pop()]"
-                   :src="coverStyles._assets[coverStyles.preview.url.split('/').pop()]"
-                   alt="" class="w-24 h-24 object-cover rounded-lg">
               <span class="text-green-400" data-cover-test-human>{{ coverStyles.preview.message || 'Стиль применён' }}</span>
-              <span v-if="coverStyles.preview.duration_ms" class="text-gray-500">Время обработки: {{ coverStyles.preview.duration_ms }} мс</span>
+              <span v-if="coverStyles.preview.provider || coverStyles.preview.model"
+                    class="text-gray-500" data-cover-test-model>
+                {{ coverStyles.preview.provider || '' }}<span v-if="coverStyles.preview.provider && coverStyles.preview.model"> · </span>{{ coverStyles.preview.model || '' }}
+              </span>
               <span class="text-gray-500">{{ coverStyles.preview.preview_issue }}</span>
             </div>
             <div v-else>
-              <!-- D5.8: основной вид — человеческая фраза; machine reason
-                   доступен только в Developer details. -->
+              <!-- D5.8 + ASAP 4.3 (§3): основной вид — человеческая фраза;
+                   machine reason доступен только в Developer details. -->
               <div class="text-amber-300" data-cover-test-human>
                 {{ coverStyles.preview.message || 'Стиль не применён: провайдер отклонил запрос.' }}
               </div>
@@ -734,6 +789,10 @@
                   Детали для разработчика</summary>
                 <span data-cover-developer-reason>{{ coverStyles.preview.developer_reason }}</span>
               </details>
+            </div>
+            <div v-if="coverPromptBreakdownText(coverStyles.preview.prompt)"
+                 class="text-gray-500 mt-1" data-cover-test-breakdown>
+              Последняя сборка: {{ coverPromptBreakdownText(coverStyles.preview.prompt) }}
             </div>
           </div>
         </div>
@@ -821,8 +880,7 @@
       </div>
 
       <!-- §113: ОДИН Save (глобальный sticky-save закрыт оверлеем) -->
-      <div class="flex items-center justify-between gap-2 px-4 py-3 border-t border-white/10"
-           style="padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));"
+      <div class="cover-editor-foot flex items-center justify-between gap-2 px-4 py-3 border-t border-white/10"
            data-cover-editor-footer>
         <button class="btn-ghost text-xs" @click="coverStyleEditorClose()"
                 data-cover-editor-close>Закрыть</button>

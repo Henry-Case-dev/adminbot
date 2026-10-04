@@ -34,8 +34,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from services import cover_style_assets as assets
+from services import cover_style_preview as preview_jobs
 from services import cover_style_registry as registry
+from services import lore_runtime
 from services.config_cache import ConfigCache
+from services.database import DatabaseService
 from services.permissions import Permissions
 from web.api import deps as deps_mod
 from web.api.cover_styles import cover_styles_router
@@ -72,6 +75,7 @@ CREATE TABLE IF NOT EXISTS cover_style_profiles (
     preview_before_asset_id TEXT,
     preview_after_asset_id  TEXT,
     preview_revision        INTEGER,
+    preview_job_id          TEXT,
     revision        INTEGER NOT NULL DEFAULT 1,
     enabled         INTEGER NOT NULL DEFAULT 1,
     is_deleted      INTEGER NOT NULL DEFAULT 0,
@@ -310,10 +314,10 @@ PNG_BYTES = bytes.fromhex(
     "426082")
 
 
-# ── seed → list → preview (§50) ─────────────────────────────────────────────
+# ── seed → list → preview (§50; ASAP 4.3 §5/§8) ─────────────────────────────
 
 class TestStyleSeedListPreview:
-    def test_seed_imports_durable_reference_and_placeholders(self, pg):
+    def test_seed_imports_durable_reference_only(self, pg):
         profile = _run(registry.seed_seeded_style(pg, seed_dir=SEED_DIR))
         assert profile is not None
         assert profile["profile_id"] == "medved_press"
@@ -331,43 +335,104 @@ class TestStyleSeedListPreview:
         assert ref_asset["sha256"] == hashlib.sha256(
             ref_src.read_bytes()).hexdigest()
 
-        # placeholders seeded из реальных extra_images
-        before = _run(registry.get_asset(pg, profile["preview_before_asset_id"]))
-        after = _run(registry.get_asset(pg, profile["preview_after_asset_id"]))
-        assert before is not None and after is not None
-        assert Path(before["disk_path"]).read_bytes() == \
-            (SEED_DIR / "style_example_01.png").read_bytes()
-        assert Path(after["disk_path"]).read_bytes() == \
-            (SEED_DIR / "style_example_02.jpg").read_bytes()
+        # ASAP 4.3 (§5): placeholders — НЕ DB preview assets профиля.
+        assert profile["preview_before_asset_id"] is None
+        assert profile["preview_after_asset_id"] is None
+        assert profile["preview_revision"] is None
+        rows = _run(pg.pool.conn.fetch(
+            "SELECT filename FROM cover_style_assets"))
+        names = {r["filename"] for r in rows}
+        assert names == {"medved_press.png"}
+
+    def test_placeholder_files_discovered_from_extra_images(self):
+        files = registry.placeholder_files(SEED_DIR)
+        assert files == {"style_example_01": "style_example_01.png",
+                         "style_example_02": "style_example_02.jpg"}
+        for name in files.values():
+            assert (SEED_DIR / name).exists()
 
     def test_seed_does_not_mutate_extra_images(self, pg):
         before = {name: (SEED_DIR / name).read_bytes()
-                  for name in registry.SEED_FILES.values()}
+                  for name in list(registry.SEED_FILES.values())
+                  + list(registry.placeholder_files(SEED_DIR).values())}
         _run(registry.seed_seeded_style(pg, seed_dir=SEED_DIR))
         for name, data in before.items():
             assert (SEED_DIR / name).read_bytes() == data, name
 
-    def test_style_list_contains_seeded_with_example_preview(self, pg):
+    def test_style_list_contains_seeded_without_db_preview(self, pg):
         _run(registry.seed_seeded_style(pg, seed_dir=SEED_DIR))
         rows = _run(registry.list_profiles(pg))
         assert [r["profile_id"] for r in rows] == ["medved_press"]
         assert registry.preview_is_stale(rows[0]) is False
-        # preview_source = example (реальный тест ещё не запускался)
+        # placeholder-состояние: preview_revision None, пара не valid.
         assert rows[0]["preview_revision"] is None
+        assert registry.preview_pair_current(rows[0]) is False
 
     def test_seed_is_idempotent_no_duplicate_assets(self, pg):
         _run(registry.seed_seeded_style(pg, seed_dir=SEED_DIR))
         _run(registry.seed_seeded_style(pg, seed_dir=SEED_DIR))
         assets_rows = _run(pg.pool.conn.fetch(
             "SELECT asset_id FROM cover_style_assets"))
-        assert len(assets_rows) == len(registry.SEED_FILES)
+        assert len(assets_rows) == 1           # только reference
         profiles = _run(registry.list_profiles(pg))
         assert len(profiles) == 1
 
+    def test_seed_migrates_legacy_instruction_and_example_pointers(self, pg):
+        """§5/§8: существующая seeded-строка с legacy-инструкцией и
+        placeholder-указателями идемпотентно чинится на startup."""
+        _run(registry.upsert_profile(pg, {
+            "profile_id": "medved_press", "name": "Медведь",
+            "origin": "seeded_example",
+            "instruction": registry._LEGACY_SEEDED_INSTRUCTION,
+            "preview_before_asset_id": "cas_old_before",
+            "preview_after_asset_id": "cas_old_after",
+            "preview_revision": None,
+        }))
+        profile = _run(registry.seed_seeded_style(pg, seed_dir=SEED_DIR))
+        assert profile["instruction"] == registry.SEEDED_INSTRUCTION
+        assert profile["preview_before_asset_id"] is None
+        assert profile["preview_after_asset_id"] is None
+        assert int(profile["revision"]) >= 2   # migration bump
+        # повторный seed — без второго bump'а/повторов
+        rev = profile["revision"]
+        again = _run(registry.seed_seeded_style(pg, seed_dir=SEED_DIR))
+        assert again["revision"] == rev
+        assert again["instruction"] == registry.SEEDED_INSTRUCTION
 
-# ── test flow → preview update → persist (§50) ──────────────────────────────
 
-def _patch_provider(monkeypatch, tmp_path):
+# ── test flow → preview update → persist (§50; ASAP 4.3 durable job) ────────
+
+@pytest.fixture
+def job_db(tmp_path):
+    db = DatabaseService(str(tmp_path / "jobs.sqlite3"))
+    _run(db.initialize())
+    lore_runtime.set_lore_components(db=db)
+    preview_jobs.reset_preview_runners()
+    yield db
+    preview_jobs.reset_preview_runners()
+    lore_runtime.reset_lore_runtime()
+    try:
+        _run(db.close())
+    except Exception:
+        pass
+
+
+def _poll_job(client, job_id, timeout=10.0):
+    deadline = time.time() + timeout
+    snap = None
+    while time.time() < deadline:
+        resp = client.get("/api/cover/test-style/" + job_id,
+                          headers=_hdr())
+        assert resp.status_code == 200, (resp.status_code, resp.text)
+        snap = resp.json()
+        if snap.get("status") in ("completed", "failed"):
+            return snap
+        time.sleep(0.05)
+    return snap
+
+
+def _patch_provider(monkeypatch, tmp_path, *, applied=True,
+                    fail_reason=""):
     """Реальный registry + temp-SQLite; провайдер (base gen + style edit)
     мокается — live-контракт закрывается canary, не этим контуром."""
     base = tmp_path / "gen_base.png"
@@ -377,15 +442,16 @@ def _patch_provider(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "services.image_generation.generate_image_verbose",
         AsyncMock(return_value=(str(base), "ok")))
-    monkeypatch.setattr(
-        "services.cover_style_jobs.run_style_preview",
-        AsyncMock(return_value={"applied": True, "reason": "",
-                                "styled_path": str(styled),
-                                "preview_issue": "ВЫПУСК 00",
-                                "model": "qwen-image-3-pro",
-                                "provider": "nanogpt", "duration_ms": 42}))
+    meta = ({"applied": True, "reason": "", "styled_path": str(styled),
+             "preview_issue": "ВЫПУСК 00", "model": "qwen-image-3-pro",
+             "provider": "nanogpt", "duration_ms": 42}
+            if applied else
+            {"applied": False, "reason": "style_failed",
+             "fail_reason": fail_reason or "route_unverified",
+             "preview_issue": "ВЫПУСК 00"})
+    monkeypatch.setattr("services.cover_style_jobs.run_style_job",
+                        AsyncMock(return_value=meta))
     decode_calls = {"n": 0}
-    real_decode = None
     import web.api.cover_styles as cs
     real_decode = cs._decode_upload
 
@@ -397,76 +463,148 @@ def _patch_provider(monkeypatch, tmp_path):
     return decode_calls
 
 
-def test_test_style_updates_preview_persists_across_reload(pg, tmp_path,
-                                                           monkeypatch):
+def test_test_style_updates_preview_atomically_and_persists(
+        pg, tmp_path, monkeypatch, job_db):
     seeded = _run(registry.seed_seeded_style(pg, seed_dir=SEED_DIR))
     counter_before = seeded["counter_value"]
     decode_calls = _patch_provider(monkeypatch, tmp_path)
-    client = _client(pg)
-
-    resp = client.post("/api/cover/test-style", headers=_hdr(),
-                       json={"profile_id": "medved_press"})
-    assert resp.status_code == 200, resp.text
-    body = resp.json()
-    assert body["applied"] is True
-    assert body["base_source"] == "generated"
-    assert body["preview_source"] == "test"
-    assert body["preview_source_label"] == "Результат теста"
+    with _client(pg) as client:
+        resp = client.post("/api/cover/test-style", headers=_hdr(),
+                           json={"profile_id": "medved_press"})
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["job_id"]
+        snap = _poll_job(client, body["job_id"])
+    assert snap["status"] == "completed", snap
+    assert snap["stage"] == "completed"
+    assert snap["preview_before_url"] and snap["preview_after_url"]
+    assert snap["preview_job_id"] == body["job_id"]
+    assert snap["provider"] == "nanogpt" and snap["model"] == "qwen-image-3-pro"
     # upload не задействован (File Explorer не открыт)
     assert decode_calls["n"] == 0, "Test Style не вызывает upload"
     # counter не потрачен (mode=preview)
     reloaded = _run(registry.get_profile_with_refs(pg, "medved_press"))
     assert reloaded["counter_value"] == counter_before == 0
-    # previews обновлены реальными generated assets
-    assert reloaded["preview_before_asset_id"] == body["preview_before_url"] \
-        .rsplit("/", 1)[-1]
-    assert reloaded["preview_after_asset_id"] == body["asset_id"]
+    # §4: пара атомарна и помечена job_id успешного job
+    assert reloaded["preview_before_asset_id"] == \
+        snap["preview_before_url"].rsplit("/", 1)[-1]
+    assert reloaded["preview_after_asset_id"] == \
+        snap["preview_after_url"].rsplit("/", 1)[-1]
     assert reloaded["preview_revision"] == reloaded["revision"]
+    assert reloaded["preview_job_id"] == body["job_id"]
+    assert registry.preview_pair_current(reloaded) is True
 
     # ── reload: НОВЫЙ pool/connection на том же SQLite-файле ──
     pg2 = _SqlitePg(pg.path)
     persisted = _run(registry.get_profile_with_refs(pg2, "medved_press"))
-    assert persisted["preview_after_asset_id"] == body["asset_id"]
+    assert persisted["preview_after_asset_id"] == \
+        reloaded["preview_after_asset_id"]
     assert persisted["preview_before_asset_id"] == \
         reloaded["preview_before_asset_id"]
     assert persisted["preview_revision"] == reloaded["revision"]
     assert registry.preview_is_stale(persisted) is False
     # обновлённый preview реально читается с диска (bytes сохранены)
-    after_asset = _run(registry.get_asset(pg2, persisted["preview_after_asset_id"]))
+    after_asset = _run(registry.get_asset(
+        pg2, persisted["preview_after_asset_id"]))
     assert after_asset is not None
     assert Path(after_asset["disk_path"]).read_bytes() == b"STYLED-REAL-BYTES"
 
 
-def test_test_style_requires_no_file(pg, tmp_path, monkeypatch):
+def test_test_style_status_read_creates_no_second_paid_request(
+        pg, tmp_path, monkeypatch, job_db):
+    """§2.3/DoD-3: повторный POST во время активного job и любые status-read
+    не создают новых provider-вызовов (тот же job_id, дедуп активного job)."""
+    _run(registry.seed_seeded_style(pg, seed_dir=SEED_DIR))
+    gate = asyncio.Event()
+    gate_loop = {"loop": None}
+    base = tmp_path / "gen_base.png"
+    base.write_bytes(PNG_BYTES)
+    styled = tmp_path / "gen_styled.jpg"
+    styled.write_bytes(b"STYLED")
+
+    async def _slow_run(**kw):
+        gate_loop["loop"] = asyncio.get_running_loop()
+        await gate.wait()
+        return {"applied": True, "reason": "", "styled_path": str(styled),
+                "model": "m", "provider": "p", "duration_ms": 1}
+
+    monkeypatch.setattr(
+        "services.image_generation.generate_image_verbose",
+        AsyncMock(return_value=(str(base), "ok")))
+    monkeypatch.setattr("services.cover_style_jobs.run_style_job", _slow_run)
+    with _client(pg) as client:
+        r1 = client.post("/api/cover/test-style", headers=_hdr(),
+                         json={"profile_id": "medved_press"})
+        assert r1.status_code == 200
+        jid = r1.json()["job_id"]
+        # ждём, пока job дойдёт до style-стадии (runner жив/внутри run)
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            snap = client.get("/api/cover/test-style/" + jid,
+                              headers=_hdr()).json()
+            if snap.get("stage") in ("base_ready", "style_editing"):
+                break
+            time.sleep(0.05)
+        assert snap.get("stage") in ("base_ready", "style_editing"), snap
+        # повторный POST во время выполнения — тот же job (не второй paid)
+        r2 = client.post("/api/cover/test-style", headers=_hdr(),
+                         json={"profile_id": "medved_press"})
+        assert r2.status_code == 200
+        assert r2.json()["job_id"] == jid
+        assert r2.json()["reused"] is True
+        gate_loop["loop"].call_soon_threadsafe(gate.set)
+        final = _poll_job(client, jid)
+        assert final["status"] == "completed"
+        for _ in range(5):
+            again = client.get("/api/cover/test-style/" + jid,
+                               headers=_hdr()).json()
+            assert again["status"] == "completed"
+    # ровно один base-generation и один style-job на прогон
+    from services import image_generation as ig
+    assert ig.generate_image_verbose.await_count == 1
+    # ровно один base-generation и один style-job на прогон
+    from services import image_generation as ig
+    assert ig.generate_image_verbose.await_count == 1
+
+
+def test_test_style_requires_no_file(pg, tmp_path, monkeypatch, job_db):
     _run(registry.seed_seeded_style(pg, seed_dir=SEED_DIR))
     decode_calls = _patch_provider(monkeypatch, tmp_path)
-    resp = _client(pg).post("/api/cover/test-style", headers=_hdr(),
-                            json={"profile_id": "medved_press"})
-    assert resp.status_code == 200
+    with _client(pg) as client:
+        resp = client.post("/api/cover/test-style", headers=_hdr(),
+                           json={"profile_id": "medved_press"})
+        assert resp.status_code == 200
+        _poll_job(client, resp.json()["job_id"])
     assert decode_calls["n"] == 0
 
 
-# ── failure keeps last success (§50) ────────────────────────────────────────
+# ── failure keeps last success (§50; ASAP 4.3 §4) ───────────────────────────
 
-def test_test_style_failure_keeps_previous_preview(pg, tmp_path, monkeypatch):
+def test_test_style_failure_keeps_previous_preview(
+        pg, tmp_path, monkeypatch, job_db):
     _run(registry.seed_seeded_style(pg, seed_dir=SEED_DIR))
     _patch_provider(monkeypatch, tmp_path)
-    # первый успех → preview стал «test»
-    first = _client(pg).post("/api/cover/test-style", headers=_hdr(),
-                             json={"profile_id": "medved_press"}).json()
-    assert first["applied"] is True
-    # второй прогон — провал провайдера
-    monkeypatch.setattr(
-        "services.cover_style_jobs.run_style_preview",
-        AsyncMock(return_value={"applied": False, "reason": "style_failed",
-                                "fail_reason": "route_unverified",
-                                "preview_issue": "ВЫПУСК 00"}))
-    second = _client(pg).post("/api/cover/test-style", headers=_hdr(),
-                              json={"profile_id": "medved_press"}).json()
-    assert second["applied"] is False
-    assert second["developer_reason"] == "route_unverified"
-    assert "провайдер отклонил" in second["message"].lower()
-    # прошлый preview НЕ уничтожен
+    with _client(pg) as client:
+        # первый успех → preview стал «test»
+        first_post = client.post("/api/cover/test-style", headers=_hdr(),
+                                 json={"profile_id": "medved_press"})
+        first = _poll_job(client, first_post.json()["job_id"])
+        assert first["status"] == "completed"
+        first_pair = _run(registry.get_profile_with_refs(pg, "medved_press"))
+        first_before = first_pair["preview_before_asset_id"]
+        first_after = first_pair["preview_after_asset_id"]
+        # второй прогон — провал провайдера
+        _patch_provider(monkeypatch, tmp_path, applied=False,
+                        fail_reason="route_unverified")
+        second_post = client.post("/api/cover/test-style", headers=_hdr(),
+                                  json={"profile_id": "medved_press"})
+        second = _poll_job(client, second_post.json()["job_id"])
+    assert second["status"] == "failed"
+    assert second["machine_reason"] == "route_unverified"
+    assert "провайдер отклонил" in second["human_message"].lower()
+    assert second["preview_after_url"] is None  # failure не светит «вазу»
+    # прошлый preview НЕ уничтожен и не смешан (§4)
     persisted = _run(registry.get_profile_with_refs(pg, "medved_press"))
-    assert persisted["preview_after_asset_id"] == first["asset_id"]
-    assert second["preview_after_url"] == first["preview_after_url"]
+    assert persisted["preview_after_asset_id"] == first_after
+    assert persisted["preview_before_asset_id"] == first_before
+    assert persisted["preview_job_id"] == first["preview_job_id"]

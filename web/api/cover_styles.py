@@ -28,7 +28,9 @@ from pydantic import BaseModel
 from services import cover_style_assets as assets
 from services import cover_style_jobs as jobs
 from services import cover_style_pipeline as pipeline
+from services import cover_style_preview as preview_jobs
 from services import cover_style_registry as registry
+from services import image_capabilities as image_caps
 from web.api.deps import (get_cache, requires_global_admin,
                           requires_permission, user_is_global_admin)
 
@@ -50,6 +52,31 @@ cover_styles_router = APIRouter()
 
 def _pg(cache):
     return getattr(cache, "pg", None)
+
+
+def _job_db():
+    """SQLite DatabaseService для durable cover-jobs (общий runtime с ботом).
+
+    None — runtime не установлен (тесты/стендалон): Test Style честно
+    отказывает 503, а не изображает durable-прогресс без хранилища.
+    """
+    try:
+        from services import lore_runtime
+        return lore_runtime.get_lore_db()
+    except Exception:
+        return None
+
+
+def _placeholder_payload() -> dict:
+    """URL-ы Ч/Б fallback placeholders (§5): фактические имена из extra_images."""
+    files = registry.placeholder_files()
+    stems = list(registry.PLACEHOLDER_STEMS)
+    return {
+        "before_url": ("/api/cover/placeholders/%s" % files[stems[0]])
+        if stems[0] in files else None,
+        "after_url": ("/api/cover/placeholders/%s" % files[stems[1]])
+        if len(stems) > 1 and stems[1] in files else None,
+    }
 
 
 def _enabled() -> bool:
@@ -87,9 +114,16 @@ def _public_profile(profile: dict, refs: list | None = None, *,
     # ASAP 4.2 (D5.7): seeded canonical definition/references/issue/provider
     # редактирует только глобальный админ; не-админ видит/выбирает/клонирует.
     can_edit = (not is_seeded) or bool(viewer_is_admin)
-    # ASAP 4.2 (D5.6): различаем seeded placeholder и результат реального теста.
-    preview_source = ("test" if profile.get("preview_revision") is not None
-                      else "example")
+    # ASAP 4.3 (§4/§5): пара показывается ТОЛЬКО если это один успешный job
+    # текущей revision; seeded placeholder-указатели (preview_revision=None)
+    # наружу не отдаются как реальный пример.
+    pair_valid = registry.preview_pair_current(profile)
+    if pair_valid:
+        before_id = profile.get("preview_before_asset_id")
+        after_id = profile.get("preview_after_asset_id")
+    else:
+        before_id = after_id = None
+    preview_source = "test" if pair_valid else "example"
     return {
         "profile_id": profile.get("profile_id"),
         "name": profile.get("name"),
@@ -108,11 +142,17 @@ def _public_profile(profile: dict, refs: list | None = None, *,
         "model_id": profile.get("model_id"),
         "revision": profile.get("revision"),
         "enabled": bool(profile.get("enabled", True)),
-        "preview_before_url": _asset_url(profile.get("preview_before_asset_id")),
-        "preview_after_url": _asset_url(profile.get("preview_after_asset_id")),
-        "preview_before_asset_id": profile.get("preview_before_asset_id"),
-        "preview_after_asset_id": profile.get("preview_after_asset_id"),
+        "preview_before_url": _asset_url(before_id),
+        "preview_after_url": _asset_url(after_id),
+        "preview_before_asset_id": before_id,
+        "preview_after_asset_id": after_id,
         "preview_revision": profile.get("preview_revision"),
+        "preview_job_id": (profile.get("preview_job_id") if pair_valid
+                           else None),
+        "preview_pair_valid": pair_valid,
+        # §4 контракт дословно: status=success только у валидной пары текущей
+        # revision (иначе None — «нет успешного preview»).
+        "preview_status": ("success" if pair_valid else None),
         "preview_stale": registry.preview_is_stale(profile),
         "preview_source": preview_source,
         "preview_source_label": ("Результат теста" if preview_source == "test"
@@ -198,6 +238,9 @@ async def cover_styles_list(
         "no_style_label": NO_STYLE_LABEL,
         "selected_style_id": selected,
         "pipeline_modes": list(registry.PIPELINE_MODES),
+        # ASAP 4.3 (§5): Ч/Б fallback placeholders — только UI; имена из
+        # фактического listing `extra_images`, не DB-assets профиля.
+        "placeholders": _placeholder_payload(),
         "styles": profiles,
     }
 
@@ -226,7 +269,10 @@ async def cover_style_detail(
         profile=profile, connection=connection)
     if connection is not None:
         payload["connection_label"] = connection.get("label") or ""
-    payload["budget"] = _budget(profile)
+    payload["budget"] = _budget(profile, connection=connection)
+    # ASAP 4.3 (§7.2/§9): manual prompt-limit для UI редактора.
+    payload["prompt_limit"] = _prompt_limit_state(profile,
+                                                  connection=connection)
     # ASAP-4 волна B (§41, T-4418): полный чек-лист полей профиля
     # (R17-safe: id/числа/булевы, без секретов — api_key не читается).
     try:
@@ -238,10 +284,12 @@ async def cover_style_detail(
 
 
 def jobs_public_capabilities(profile: dict, *,
-                             connection: dict | None = None) -> dict:
+                             connection: dict | None = None,
+                             operation: str | None = None) -> dict:
     try:
         caps = pipeline.slot_capabilities(profile=profile,
-                                          connection=connection)
+                                          connection=connection,
+                                          operation=operation)
         data = caps.as_dict()
         data["references_available"] = caps.references_available
         data["edit_supported"] = caps.edit_supported
@@ -250,18 +298,81 @@ def jobs_public_capabilities(profile: dict, *,
         return {}
 
 
-def _budget(profile: dict) -> dict:
+def _budget(profile: dict, *, connection: dict | None = None) -> dict:
+    """Prompt budget (§9/§57): лимит + breakdown Style/Context/Refs/System.
+
+    Источник — инструкция профиля и та же runtime-механика, что в
+    `compile_style_prompt` (без выдуманных чисел; unknown остаётся unknown).
+    """
     try:
-        from services import image_capabilities as cap
-        caps = pipeline.slot_capabilities(profile=profile)
         from services.image_prompt_compiler import (
-            PromptComponent, P1, estimate_budget,
+            PromptComponent, P0, P1, P2, estimate_budget,
         )
-        return estimate_budget(
-            [PromptComponent(profile.get("instruction") or "", priority=P1)],
+        caps = pipeline.slot_capabilities(profile=profile,
+                                          connection=connection,
+                                          operation=image_caps.OPERATION_EDIT)
+        instruction = str(profile.get("instruction") or "")
+        counter_format = (profile.get("counter_format")
+                          or registry.SEEDED_COUNTER_FORMAT)
+        issue_display = registry.preview_issue_display(counter_format)
+        system_text = ("Сохрани номер выпуска «%s». Не добавляй дубликатов уже "
+                       "присутствующих на обложке элементов." % issue_display)
+        refs_text = "; ".join(
+            "%s: %s" % (r.get("label") or "reference",
+                        r.get("description") or "")
+            for r in (profile.get("references") or []))
+        components = {
+            "style": len(instruction),
+            "context": 0,
+            "refs": len(refs_text),
+            "system": len(system_text),
+        }
+        components["total"] = sum(components.values())
+        data = estimate_budget(
+            [PromptComponent(instruction, priority=P1)],
             capabilities=caps)
+        # §9: breakdown последней сборки — по фактическим компонентам.
+        data["components"] = components
+        data["limit"] = (caps.prompt_limit.value
+                         if caps.prompt_limit.known else None)
+        data["limit_source"] = caps.prompt_limit.source
+        data["limit_known"] = caps.prompt_limit.known
+        return data
     except Exception:
         return {"known": False}
+
+
+def _prompt_limit_state(profile: dict, *,
+                        connection: dict | None = None) -> dict:
+    """§7.2/§9: состояние manual-override для UI («Ограничение промпта»).
+
+    mode=manual — ручной override имеет высший приоритет; mode=auto —
+    машинный resolver. Секретов нет (число/единица/источник).
+    """
+    try:
+        slot = pipeline.resolve_style_slot(profile=profile,
+                                           connection=connection)
+        override = image_caps.manual_limit_entry(
+            slot.get("provider") or "", slot.get("base_url") or "",
+            slot.get("model") or "", image_caps.OPERATION_EDIT)
+        caps = pipeline.slot_capabilities(
+            profile=profile, connection=connection,
+            operation=image_caps.OPERATION_EDIT)
+        return {
+            "operation": image_caps.OPERATION_EDIT,
+            "mode": "manual" if override else "auto",
+            "value": (override or {}).get("value",
+                                          caps.prompt_limit.value),
+            "unit": (override or {}).get("unit", caps.prompt_limit.unit),
+            "limit_known": caps.prompt_limit.known,
+            "source": caps.prompt_limit.source,
+            "provider": slot.get("provider") or "",
+            "base_url": slot.get("base_url") or "",
+            "model": slot.get("model") or "",
+        }
+    except Exception:
+        return {"operation": image_caps.OPERATION_EDIT, "mode": "auto",
+                "limit_known": False, "source": image_caps.SOURCE_UNKNOWN}
 
 
 # ── CRUD ────────────────────────────────────────────────────────────────────
@@ -651,6 +762,31 @@ async def cover_asset_raw(
         headers={"Cache-Control": "private, max-age=300"})
 
 
+@cover_styles_router.get("/cover/placeholders/{name}")
+async def cover_placeholder_raw(
+    name: str,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(requires_permission('access'))],
+):
+    """ASAP 4.3 (§5): отдача Ч/Б UI-placeholder'а из `extra_images`.
+
+    Только read-only fallback: файл НЕ является DB-asset профиля; имя — из
+    фактического listing (path traversal невозможен: сверка с listing).
+    """
+    from pathlib import Path
+    files = registry.placeholder_files()
+    if name not in files.values():
+        raise HTTPException(status_code=404, detail="placeholder not found")
+    base = Path(registry._seed_dir())          # noqa: SLF001 (seed dir)
+    path = base / name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="placeholder not found")
+    mime = assets._mime_for(path) or "image/png"      # noqa: SLF001
+    return FileResponse(
+        str(path), media_type=mime,
+        headers={"Cache-Control": "private, max-age=300"})
+
+
 # ── capabilities / connections ──────────────────────────────────────────────
 
 @cover_styles_router.get("/cover/capabilities")
@@ -680,6 +816,125 @@ async def cover_capabilities(
         return data
     except Exception:
         raise HTTPException(status_code=503, detail="capability resolve failed")
+
+
+class PromptLimitBody(BaseModel):
+    """§7.2: ручное ограничение промпта (MiniApp) для connection/model/op."""
+    profile_id: str | None = None
+    connection_id: str | None = None
+    provider: str | None = None
+    base_url: str | None = None
+    model: str | None = None
+    operation: str = image_caps.OPERATION_EDIT
+    mode: str = "auto"                      # auto | manual
+    unit: str = image_caps.UNIT_CHARS
+    value: int | None = None
+
+
+async def _resolve_limit_slot(cache, body: PromptLimitBody) -> dict:
+    """Резолв provider/base_url/model для override (профиль → слот)."""
+    pg = _pg(cache)
+    profile = None
+    connection = None
+    if body.profile_id and pg is not None:
+        profile = await registry.get_profile_with_refs(pg, body.profile_id)
+        connection = await _connection_for(pg, profile)
+    slot = pipeline.resolve_style_slot(profile=profile, connection=connection)
+    provider = (body.provider or slot.get("provider") or "").strip()
+    base_url = (body.base_url or slot.get("base_url") or "").strip()
+    model = (body.model or slot.get("model") or "").strip()
+    if body.connection_id and pg is not None:
+        conn = await registry.get_connection(pg, body.connection_id)
+        if conn is not None:
+            provider = str(conn.get("provider") or provider).strip()
+            base_url = str(conn.get("base_url") or base_url).strip()
+    return {"provider": provider, "base_url": base_url, "model": model}
+
+
+@cover_styles_router.get("/cover/prompt-limit")
+async def cover_prompt_limit_get(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(requires_permission('access'))],
+    profile_id: Annotated[str | None, Query()] = None,
+):
+    """§7.2/§9: текущее состояние лимита (auto/manual) для профиля/слота."""
+    cache = get_cache(request)
+    pg = _pg(cache)
+    body = PromptLimitBody(profile_id=profile_id)
+    slot = await _resolve_limit_slot(cache, body)
+    entry = image_caps.manual_limit_entry(
+        slot["provider"], slot["base_url"], slot["model"],
+        body.operation if body.operation in (image_caps.OPERATION_GENERATE,
+                                             image_caps.OPERATION_EDIT)
+        else image_caps.OPERATION_EDIT)
+    caps = image_caps.resolve_capabilities(
+        slot["provider"], slot["base_url"], slot["model"],
+        operation=body.operation)
+    return {
+        "operation": body.operation,
+        "mode": "manual" if entry else "auto",
+        "value": (entry or {}).get("value", caps.prompt_limit.value),
+        "unit": (entry or {}).get("unit", caps.prompt_limit.unit),
+        "limit_known": caps.prompt_limit.known,
+        "source": caps.prompt_limit.source,
+        **slot,
+    }
+
+
+@cover_styles_router.post("/cover/prompt-limit")
+async def cover_prompt_limit_set(
+    body: PromptLimitBody,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
+):
+    """§7.2: сохранить/снять manual override (bot_settings, идемпотентно).
+
+    Manual — высший приоритет; «сохранить стиль с маленьким лимитом» не
+    блокируется (валидируется только собственная форма override)."""
+    cache = get_cache(request)
+    if _pg(cache) is None:
+        raise HTTPException(status_code=503, detail="registry unavailable")
+    operation = body.operation if body.operation in (
+        image_caps.OPERATION_GENERATE, image_caps.OPERATION_EDIT) \
+        else image_caps.OPERATION_EDIT
+    slot = await _resolve_limit_slot(cache, body)
+    if not slot.get("provider") and not slot.get("model"):
+        raise HTTPException(status_code=422,
+                            detail="Не удалось определить модель/подключение.")
+    key = image_caps.manual_limit_key(
+        slot["provider"], slot["base_url"], slot["model"], operation)
+    table = dict(image_caps.manual_limit_map())
+    if body.mode == "manual":
+        try:
+            value = int(body.value) if body.value is not None else 0
+        except (TypeError, ValueError):
+            value = 0
+        if value <= 0:
+            raise HTTPException(status_code=422,
+                                detail="Укажите положительное значение лимита.")
+        unit = body.unit if body.unit in image_caps.PROMPT_UNITS \
+            else image_caps.UNIT_CHARS
+        table[key] = {"value": value, "unit": unit}
+    else:
+        table.pop(key, None)
+    try:
+        await cache.set(image_caps.MANUAL_LIMIT_SETTING_KEY, table, "models")
+    except Exception:
+        raise HTTPException(
+            status_code=503,
+            detail="Не удалось сохранить ограничение промпта.")
+    caps = image_caps.resolve_capabilities(
+        slot["provider"], slot["base_url"], slot["model"], refresh=True,
+        operation=operation)
+    return {
+        "mode": "manual" if body.mode == "manual" else "auto",
+        "value": table.get(key, {}).get("value", caps.prompt_limit.value),
+        "unit": table.get(key, {}).get("unit", caps.prompt_limit.unit),
+        "limit_known": caps.prompt_limit.known,
+        "source": caps.prompt_limit.source,
+        "operation": operation,
+        **slot,
+    }
 
 
 async def _connection_for(pg, profile: dict | None) -> dict | None:
@@ -790,52 +1045,15 @@ class TestStyleBody(BaseModel):
 
 def _human_style_fail_message(meta: dict) -> str:
     """§48/§75 + D5.8: основной UI — человеческая фраза; machine reason
-    остаётся в `developer_reason` (Developer details)."""
-    fail = str(meta.get("fail_reason") or "")
-    message = meta.get("message") or ""
-    if fail == "edit_unsupported":
-        return pipeline.NO_EDIT_MESSAGE
-    if fail == "connection_missing":
-        return ("Подключение модели не найдено. Откройте «Настроить "
-                "подключения →» и выберите подключение заново.")
-    if fail == "reference_missing":
-        return ("Референсы стиля недоступны (файл отсутствует или "
-                "повреждён). Загрузите референс заново.")
-    if fail in ("not_configured", "no_input_images"):
-        return ("Модель обработки не настроена. Откройте «Настроить "
-                "подключения →» и выберите модель с поддержкой edit.")
-    if fail in ("prompt_limit", "prompt_limit_exceeded"):
-        return "Стиль не применён: инструкция превышает лимит модели."
-    if fail in ("route_unverified", "provider_error", "http_400"):
-        return "Стиль не применён: провайдер отклонил запрос."
-    if fail == "base_generation_failed":
-        return ("Не удалось сгенерировать базовую обложку. Проверьте "
-                "настройки генерации изображений и попробуйте снова.")
-    return message or ("Не удалось применить стиль. Проверьте подключение и "
-                       "модель обработки.")
+    остаётся в `developer_reason` (Developer details). ASAP 4.3: единая
+    таблица фраз — в `services.cover_style_preview`."""
+    fail = str(meta.get("fail_reason") or meta.get("reason") or "")
+    return preview_jobs.preview_human_message(fail)
 
 
 def _preview_source_label(profile: dict) -> str:
-    return ("Результат теста" if profile.get("preview_revision") is not None
-            else "Пример")
-
-
-async def _generate_test_base(*, correlation_id: str | None) -> tuple[
-        str | None, str]:
-    """Реальная Base Cover для Test Style (D5.5): configured provider/model.
-
-    Вызывает существующий Base Cover generation (НЕ меняется) с безопасным
-    тестовым брифом; возвращает `(tmp_path|None, reason)`. Fail-open.
-    """
-    try:
-        from services import image_generation
-        path, reason = await image_generation.generate_image_verbose(
-            TEST_STYLE_BRIEF, chat_id=None, correlation_id=correlation_id)
-        return path, str(reason or "")
-    except Exception:
-        logger.warning("[cover_styles] test-style base generation failed",
-                       exc_info=True)
-        return None, "base_generation_exception"
+    return ("Результат теста"
+            if registry.preview_pair_current(profile) else "Пример")
 
 
 @cover_styles_router.post("/cover/test-style")
@@ -844,10 +1062,12 @@ async def cover_test_style(
     request: Request,
     user: Annotated[WebAppUser, Depends(requires_permission('access'))],
 ):
-    """`Проверить стиль` (§65; ASAP 4.2 D5.5): реальная Base Cover → реальный
-    Style Edit. НЕ открывает File Explorer (upload — только явное действие),
-    НЕ расходует production counter (mode=preview, §66), НЕ публикует
-    RichMessage. Результат сохраняется как preview текущей revision.
+    """`Проверить стиль` (§65; ASAP 4.3 §2): КОРОТКИЙ start durable preview job.
+
+    Возвращает `{job_id, status:"queued"}` почти сразу — base generation и
+    style edit выполняются фоновым backend job (никакого долгого browser
+    fetch). RBAC: seeded canonical Test Style — только глобальный админ.
+    Issue counter не расходуется (mode=preview), публикации нет.
     """
     import uuid
     cache = get_cache(request)
@@ -858,115 +1078,80 @@ async def cover_test_style(
         raise HTTPException(status_code=404, detail="style not found")
     # ASAP 4.2 (M-ASAP42-1, D5.7): seeded canonical Test Style — только
     # глобальный админ (backend enforcement, не только disabled-button).
-    # Иначе non-admin через API мутирует preview seeded-сущности и
-    # расходует платный image-budget (UI кнопку прячет через can_edit=false).
     _assert_can_edit_seeded(request, user, profile)
-    correlation_id = "cover_test_" + uuid.uuid4().hex[:12]
-    uploaded = bool((body.content_base64 or "").strip())
-    base_meta = None
-    base_source = "generated"
-    if uploaded:
-        # Legacy/явный upload: файл выбрал сам пользователь.
+    db = _job_db()
+    if db is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Сервис фоновых задач недоступен. Попробуйте позже.")
+    base_upload_meta = None
+    if (body.content_base64 or "").strip():
+        # Legacy/явный upload: файл выбрал сам пользователь; durable job
+        # использует его как base без генерации.
         data = _decode_upload(UploadBody(
             filename=body.filename or "base.png",
             content_base64=body.content_base64))
-        base_source = "upload"
-        base_meta = assets.store_file_bytes(
+        base_upload_meta = assets.store_file_bytes(
             data, filename=body.filename or "base.png",
             origin="generated_preview")
-        if base_meta is None:
-            raise HTTPException(status_code=422, detail="Неподдерживаемый формат")
-        await registry.upsert_asset(pg, base_meta)
-    else:
-        tmp_base, base_reason = await _generate_test_base(
-            correlation_id=correlation_id)
-        if not tmp_base:
-            return {
-                "applied": False,
-                "reason": "base_generation_failed",
-                "fail_reason": "base_generation_failed",
-                "developer_reason": base_reason or "base_generation_failed",
-                "message": _human_style_fail_message(
-                    {"fail_reason": "base_generation_failed"}),
-                "preview_issue": registry.preview_issue_display(
-                    profile.get("counter_format")
-                    or registry.SEEDED_COUNTER_FORMAT),
-                "preview_source": ("test" if profile.get("preview_revision")
-                                   is not None else "example"),
-                "preview_source_label": _preview_source_label(profile),
-                "preview_before_url": _asset_url(
-                    profile.get("preview_before_asset_id")),
-                "preview_after_url": _asset_url(
-                    profile.get("preview_after_asset_id")),
-            }
-        try:
-            with open(tmp_base, "rb") as fh:
-                base_bytes = fh.read()
-        except OSError:
-            base_bytes = b""
-        base_meta = assets.store_file_bytes(
-            base_bytes, filename="test_base.png", origin="generated_preview")
-        if base_meta is not None:
-            await registry.upsert_asset(pg, base_meta)
-    if base_meta is None:
-        raise HTTPException(status_code=422, detail="Неподдерживаемый формат")
-
-    meta = await jobs.run_style_preview(
-        profile=profile, base_image_path=base_meta["disk_path"], pg=pg)
-    current_before = _asset_url(profile.get("preview_before_asset_id"))
-    current_after = _asset_url(profile.get("preview_after_asset_id"))
-    if not meta.get("applied"):
-        # D5.5: провал Test Style НЕ уничтожает прошлый успех — preview
-        # остаётся прежним; наружу — человеческая фраза + machine reason.
-        fail = str(meta.get("fail_reason") or "")
-        return {
-            "applied": False,
-            "reason": meta.get("reason"),
-            "fail_reason": fail,
-            "developer_reason": fail or str(meta.get("reason") or ""),
-            "message": _human_style_fail_message(meta),
-            "preview_issue": meta.get("preview_issue"),
-            "preview_source": ("test" if profile.get("preview_revision")
-                               is not None else "example"),
-            "preview_source_label": _preview_source_label(profile),
-            "preview_before_url": current_before,
-            "preview_after_url": current_after,
-            "base_source": base_source,
-        }
+        if base_upload_meta is None:
+            raise HTTPException(status_code=422,
+                                detail="Неподдерживаемый формат")
+        if not await registry.upsert_asset(pg, base_upload_meta):
+            raise HTTPException(status_code=503, detail="asset store failed")
+    correlation_id = "cover_test_" + uuid.uuid4().hex[:12]
     try:
-        with open(meta["styled_path"], "rb") as fh:
-            styled_bytes = fh.read()
-    except OSError:
-        styled_bytes = b""
-    stored = assets.store_file_bytes(
-        styled_bytes, filename="preview_style.jpg", origin="generated_preview")
-    asset_id = None
-    if stored is not None and await registry.upsert_asset(pg, stored):
-        asset_id = stored["asset_id"]
-    # §10/SC-24: сохранить результат Test Style как preview текущей revision.
-    preview_revision = None
-    if asset_id is not None:
-        preview_revision = profile.get("revision")
-        await registry.set_preview(
-            pg, body.profile_id, after_asset_id=asset_id,
-            revision=preview_revision,
-            before_asset_id=base_meta["asset_id"])
+        started = await preview_jobs.start_preview_job(
+            db, profile=profile, pg=pg, correlation_id=correlation_id,
+            brief=TEST_STYLE_BRIEF, base_upload_meta=base_upload_meta)
+    except Exception:
+        logger.warning("[cover_styles] preview job start failed",
+                       exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="Не удалось запустить проверку стиля. Попробуйте позже.")
+    if not started.get("job_id"):
+        raise HTTPException(
+            status_code=503,
+            detail="Не удалось запустить проверку стиля. Попробуйте позже.")
     return {
-        "applied": True,
-        "reason": "",
-        "developer_reason": "",
-        "message": "Стиль применён",
-        "preview_issue": meta.get("preview_issue"),
-        "asset_id": asset_id,
-        "url": _asset_url(asset_id),
-        "preview_before_url": _asset_url(base_meta["asset_id"]),
-        "preview_after_url": _asset_url(asset_id),
-        "preview_source": "test",
-        "preview_source_label": "Результат теста",
-        "preview_revision": preview_revision,
-        "preview_stale": False,
-        "model": meta.get("model"),
-        "provider": meta.get("provider"),
-        "duration_ms": meta.get("duration_ms"),
-        "base_source": base_source,
+        "job_id": started["job_id"],
+        "status": started.get("status") or "queued",
+        "stage": started.get("stage") or preview_jobs.STAGE_QUEUED,
+        "reused": bool(started.get("reused")),
+        "message": ("Проверка уже выполняется." if started.get("reused")
+                    else "Проверка запущена."),
+        "preview_issue": registry.preview_issue_display(
+            profile.get("counter_format") or registry.SEEDED_COUNTER_FORMAT),
     }
+
+
+@cover_styles_router.get("/cover/test-style/{job_id}")
+async def cover_test_style_status(
+    job_id: str,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(requires_permission('access'))],
+):
+    """ASAP 4.3 (§2.2): бесплатный статус durable preview job.
+
+    Только безопасные diagnostics (stage/времена/provider/model/human+machine
+    reason/URL-ы preview); API keys и полные prompt не отдаются. Повторные
+    чтения не создают provider-запросов; осиротевшая активная джоба после
+    рестарта best-effort возобновляется (§2.3).
+    """
+    cache = get_cache(request)
+    if not _enabled():
+        raise HTTPException(status_code=404, detail="cover styles disabled")
+    db = _job_db()
+    if db is None:
+        raise HTTPException(status_code=503,
+                            detail="Сервис фоновых задач недоступен.")
+    snapshot = await preview_jobs.job_status(db, job_id)
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail="job not found")
+    try:
+        await preview_jobs.maybe_resume(db, _pg(cache), snapshot)
+    except Exception:
+        logger.debug("[cover_styles] preview resume check failed",
+                     exc_info=True)
+    return snapshot

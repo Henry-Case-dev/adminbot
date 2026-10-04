@@ -92,10 +92,13 @@ assert.ok(methods.coverPipelineModeLabel('generate_then_edit').indexOf('обра
 assert.ok(methods.coverPipelineModeLabel('generate_only').length > 0,
   'd2: режим generate_only — подпись есть');
 
-// (d3) budget без метаданных — без ложных чисел (§57)
+// (d3) budget без метаданных — без ложных чисел + честный unknown (§9)
 const budgetText = methods.coverBudgetText.call(
-  { coverStyles: { meta: null } });
-assert.strictEqual(budgetText, 'Провайдер не публикует точный лимит инструкции',
+  { coverStyles: { meta: null, limitMode: 'auto', limitValue: null },
+    coverLimitText: methods.coverLimitText });
+assert.strictEqual(
+  budgetText,
+  'Инструкция: 0 символов · Лимит текущей модели: неизвестно',
   'd3: unknown-limit без ложного числа');
 
 // (e) capability-строки (§37)

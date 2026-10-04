@@ -45,6 +45,94 @@ SOURCE_LIVE_MODEL = "live_model_metadata"
 SOURCE_LIVE_ROUTE = "live_route_metadata"
 SOURCE_VERIFIED_REGISTRY = "verified_registry"
 SOURCE_RUNTIME_DISCOVERED = "cached_runtime_discovered"
+# ASAP 4.3 (§7.1, T-4847): ручной override из MiniApp — высший приоритет
+# (per provider+base_url+model+operation; хранится в bot_settings).
+SOURCE_MANUAL = "manual_override"
+
+# Ключ `bot_settings` для ручных лимитов MiniApp:
+# {"provider|base_url|model|operation": {"value": N, "unit": "chars"}}.
+MANUAL_LIMIT_SETTING_KEY = "cover_style.prompt_limit_overrides"
+
+# Операции capability (§7): generate/edit (обработка стиля — edit).
+OPERATION_GENERATE = "image_generate"
+OPERATION_EDIT = "image_edit"
+
+
+def manual_limit_key(provider: str, base_url: str, model: str,
+                     operation: str | None = None) -> str:
+    """Ключ ручного override: provider+base_url+model+operation (§7).
+
+    Без `operation` — generic-ключ слота (фолбэк для всех операций)."""
+    base = _override_key(provider, base_url, model)
+    return f"{base}|{operation}" if operation else base
+
+
+def manual_limit_map() -> dict:
+    """Ручные лимиты из `bot_settings` (MiniApp, §7.2). Fail-open → {}."""
+    try:
+        from services import hot_config as hot
+        raw = hot.get(MANUAL_LIMIT_SETTING_KEY, {})
+    except Exception:
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    return raw
+
+
+def _manual_prompt_limit(provider: str, base_url: str, model: str,
+                         operation: str | None
+                         ) -> PromptLimit | None:
+    """Ручной limit (MiniApp) для слота: operation-ключ → generic-ключ.
+
+    Возвращает `PromptLimit(source=SOURCE_MANUAL)` или None. Пустое/invalid
+    значение не применяется (manual не превращается в ложный 0)."""
+    table = manual_limit_map()
+    if not table:
+        return None
+    entry = None
+    if operation:
+        entry = table.get(manual_limit_key(provider, base_url, model,
+                                           operation))
+    if entry is None:
+        entry = table.get(manual_limit_key(provider, base_url, model))
+    if not isinstance(entry, dict):
+        return None
+    raw_value = entry.get("value")
+    if isinstance(raw_value, dict):
+        raw_value = raw_value.get("value")
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        return None
+    if value <= 0:
+        return None
+    unit = str(entry.get("unit") or UNIT_UNKNOWN)
+    return PromptLimit(value=value,
+                       unit=unit if unit in PROMPT_UNITS else UNIT_UNKNOWN,
+                       source=SOURCE_MANUAL)
+
+
+def manual_limit_entry(provider: str, base_url: str, model: str,
+                       operation: str | None = None) -> dict | None:
+    """Публичное представление ручного override для UI (§7.2/§9)."""
+    limit = _manual_prompt_limit(provider, base_url, model, operation)
+    if limit is None:
+        return None
+    return {"value": limit.value, "unit": limit.unit,
+            "source": SOURCE_MANUAL}
+
+
+def _apply_manual(caps: ImageModelCapabilities, provider: str,
+                  base_url: str, model: str,
+                  operation: str | None) -> ImageModelCapabilities:
+    """§7.1: manual override — высший приоритет; другие поля не затираются."""
+    manual = _manual_prompt_limit(provider, base_url, model, operation)
+    if manual is not None:
+        caps.prompt_limit = manual
+        if caps.source in (SOURCE_UNKNOWN, SOURCE_DISCOVERY,
+                           SOURCE_RUNTIME_DISCOVERED):
+            caps.source = SOURCE_MANUAL
+    return caps
 
 
 def dynamic_prompt_limit_enabled() -> bool:
@@ -494,10 +582,25 @@ def _lookup_verified_registry(provider: str, model: str
 def _resolve_legacy(provider: str, base_url: str, model: str, *,
                     discovery: dict | None = None,
                     endpoints: dict | None = None,
-                    refresh: bool = False, route: str | None = None
+                    refresh: bool = False, route: str | None = None,
+                    operation: str | None = None
                     ) -> ImageModelCapabilities:
     """OFF-контур `IMAGE_PROMPT_LIMIT_DYNAMIC_ENABLED=false` (байт-в-байт
-    2.58.47): override → cache → discovery → unknown."""
+    2.58.47): override → cache → discovery → unknown.
+
+    ASAP 4.3 (§7.1): ручной MiniApp-override применяется поверх результата
+    (высший приоритет), не меняя остальные поля."""
+    caps = _resolve_legacy_base(
+        provider, base_url, model, discovery=discovery, endpoints=endpoints,
+        refresh=refresh, route=route)
+    return _apply_manual(caps, provider, base_url, model, operation)
+
+
+def _resolve_legacy_base(provider: str, base_url: str, model: str, *,
+                         discovery: dict | None = None,
+                         endpoints: dict | None = None,
+                         refresh: bool = False, route: str | None = None
+                         ) -> ImageModelCapabilities:
     key = _cache_key(provider, base_url, model, route)
     if refresh:
         _CACHE.pop(key, None)
@@ -527,13 +630,16 @@ def resolve_capabilities(provider: str, base_url: str, model: str, *,
                          discovery: dict | None = None,
                          endpoints: dict | None = None,
                          refresh: bool = False,
-                         route: str | None = None
+                         route: str | None = None,
+                         operation: str | None = None
                          ) -> ImageModelCapabilities:
     """Резолв capabilities по `provider+base_url+model` (precedence §16).
 
     `discovery`/`endpoints` — уже полученные данные провайдера (сетевой вызов
     делает вызывающий контур). Без них — override/TTL-кеш/conservative
-    `unknown`. `refresh=True` — форс-инвалидация (§17).
+    `unknown`. `refresh=True` — форс-инвалидация (§17). `operation`
+    (image_generate/image_edit) — для operation-specific manual override
+    (§7/§7.1, T-4847).
 
     ASAP 4.2 Step 2c-1 (T-4814): precedence override → live model metadata →
     live route metadata → verified registry → cached runtime-discovered →
@@ -545,7 +651,18 @@ def resolve_capabilities(provider: str, base_url: str, model: str, *,
     if not dynamic_prompt_limit_enabled():
         return _resolve_legacy(provider, base_url, model,
                                discovery=discovery, endpoints=endpoints,
-                               refresh=refresh, route=route)
+                               refresh=refresh, route=route,
+                               operation=operation)
+    caps = _resolve_dynamic(provider, base_url, model, discovery=discovery,
+                            endpoints=endpoints, refresh=refresh, route=route)
+    return _apply_manual(caps, provider, base_url, model, operation)
+
+
+def _resolve_dynamic(provider: str, base_url: str, model: str, *,
+                     discovery: dict | None = None,
+                     endpoints: dict | None = None,
+                     refresh: bool = False, route: str | None = None
+                     ) -> ImageModelCapabilities:
     key = _cache_key(provider, base_url, model, route)
     override_key = _override_key(provider, base_url, model)
     if refresh:
@@ -586,7 +703,8 @@ def resolve_capabilities(provider: str, base_url: str, model: str, *,
 
 
 async def resolve_capabilities_auto(provider: str, base_url: str, model: str,
-                                    *, refresh: bool = False
+                                    *, refresh: bool = False,
+                                    operation: str | None = None
                                     ) -> ImageModelCapabilities:
     """ASAP-3.2 (T-4196, §21/Q4): discovery вызывается АВТОМАТИЧЕСКИ.
 
@@ -610,11 +728,12 @@ async def resolve_capabilities_auto(provider: str, base_url: str, model: str,
             caps = _parse_override_entry(overrides[candidate])
             if caps is not None:
                 _cache_put(key, caps)
-                return caps
+                return _apply_manual(caps, provider, base_url, model,
+                                     operation)
     if not refresh:
         cached = _cache_get(key)
         if cached is not None:
-            return cached
+            return _apply_manual(cached, provider, base_url, model, operation)
     try:
         from services.media_execution import detect_adapter
         adapter = detect_adapter(base_url)
@@ -626,4 +745,4 @@ async def resolve_capabilities_auto(provider: str, base_url: str, model: str,
     if caps is None:
         caps = conservative_unknown()
     _cache_put(key, caps)
-    return caps
+    return _apply_manual(caps, provider, base_url, model, operation)

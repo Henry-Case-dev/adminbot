@@ -212,11 +212,14 @@ class TestDdl:
         assert "cover_style_connections" in block
 
     def test_sqlite_version_not_bumped(self):
-        # Δ DDL SQLite = 0 — в DDL нет ALTER/PRAGMA user_version.
+        # Δ DDL SQLite = 0: cover-style таблицы живут в PG. ASAP 4.3 (§4)
+        # добавляет ОДИН идемпотентный PG-only ALTER (preview_job_id),
+        # user_version/PRAGMA по-прежнему не трогаются.
         for stmt in DDL_STATEMENTS:
             if "cover_style" in stmt:
-                assert "ALTER TABLE" not in stmt
                 assert "user_version" not in stmt
+                if "ALTER TABLE" in stmt:
+                    assert "ADD COLUMN IF NOT EXISTS preview_job_id" in stmt
 
     def test_validation_mode_reserved(self):
         ddl = " ".join(DDL_STATEMENTS)
@@ -422,11 +425,15 @@ class TestSeed:
             assert len(pg.pool.state["profiles"]) == 1
         asyncio.run(_run())
 
-    def test_seed_uses_actual_jpg(self):
-        # DC-1: preview-after — фактический файл `.jpg`.
-        assert csr.SEED_FILES["preview_after"] == "style_example_02.jpg"
-        assert (SEED_DIR / csr.SEED_FILES["preview_after"]).exists()
-        assert (SEED_DIR / csr.SEED_FILES["preview_before"]).exists()
+    def test_seed_uses_actual_placeholder_files(self):
+        # ASAP 4.3 (§5): placeholders — реальные файлы extra_images
+        # (расширение из listing, не хардкод), в БД не сидятся.
+        files = csr.placeholder_files(SEED_DIR)
+        assert files["style_example_01"] == "style_example_01.png"
+        assert files["style_example_02"] == "style_example_02.jpg"
+        assert (SEED_DIR / files["style_example_01"]).exists()
+        assert (SEED_DIR / files["style_example_02"]).exists()
+        assert csr.SEED_FILES == {"reference": "medved_press.png"}
         assert (SEED_DIR / csr.SEED_FILES["reference"]).exists()
 
     def test_seed_counter_start_not_invented(self):
@@ -451,16 +458,21 @@ class TestSeed:
         assert asyncio.run(csr.seed_seeded_style(None)) is None
 
     def test_seed_instruction_semantics(self):
-        # §24 + ASAP 4.2 (T-4817): normalize/ensure/replace, recurring identity
-        # + compact-ядро (graphic novel, callouts, русский текст).
+        # ASAP 4.3 (§8): компактная инструкция сохраняет ВСЕ invariants —
+        # PERMsoc ровно один, номер выпуска один/заменён, логотип по
+        # reference без дублей, references по ролям, comic/graphic-novel,
+        # русский текст; и она реально короче legacy 979 chars.
         text = csr.SEEDED_INSTRUCTION.lower()
         assert "permsoc" in text
         assert "медведь press" in text
         assert "номер" in text
-        assert "не добавляй второй" in text or "не создавай" in text
-        assert "комикс" in text or "graphic" in text
-        assert "callout" in text or "плаш" in text
+        assert "ровно" in text and "один" in text
+        assert "без дублей" in text
+        assert "ролям" in text
+        assert "comic" in text or "графическ" in text
+        assert "плаш" in text
         assert "русск" in text
+        assert len(csr.SEEDED_INSTRUCTION) < len(csr._LEGACY_SEEDED_INSTRUCTION)
 
 
 # ── revision snapshot / test-no-counter (§29/§66, T-4129/T-4130) ────────────

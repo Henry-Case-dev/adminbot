@@ -181,6 +181,9 @@ STATE_STYLE_SUCCEEDED = "STYLE_SUCCEEDED"
 STATE_STYLE_FAILED = "STYLE_FAILED"
 STATE_PUBLISH_RICH = "PUBLISH_RICH"
 STATE_PUBLISH_PLAIN = "PUBLISH_PLAIN"
+# ASAP 4.3 (§2.2, T-4842): стадия записи атомарной preview pair (между
+# успешным style edit и терминальным completed). Аддитивно к §42.
+STATE_SAVING_PREVIEW = "SAVING_PREVIEW"
 STATE_DONE = "DONE"
 STATE_FAILED = "FAILED"
 
@@ -197,6 +200,7 @@ TASK_STATUS_BY_STATE = {
     STATE_STYLE_FAILED: "running",
     STATE_PUBLISH_RICH: "running",
     STATE_PUBLISH_PLAIN: "running",
+    STATE_SAVING_PREVIEW: "running",
     STATE_DONE: "completed",
     STATE_FAILED: "failed",
 }
@@ -456,6 +460,18 @@ class CoverJobState:
     style_id: str | None = None
     issue_number: int | None = None
     stages: list = field(default_factory=list)
+    # ASAP 4.3 (§2.2, T-4842): безопасные diagnostics preview-джобы для
+    # status-endpoint (без prompt/ключей) + provenance preview pair (§4).
+    provider: str | None = None
+    model: str | None = None
+    mode: str | None = None
+    base_asset_id: str | None = None
+    preview_before_asset_id: str | None = None
+    preview_after_asset_id: str | None = None
+    preview_revision: int | None = None
+    machine_reason: str | None = None
+    human_message: str | None = None
+    prompt_diagnostics: dict | None = None
 
     def mark(self, state: str, *, provider_task_id: str | None = None,
              note: str | None = None) -> None:
@@ -477,6 +493,14 @@ class CoverJobState:
         return json.dumps({
             "state": self.state, "provider_task_id": self.provider_task_id,
             "style_id": self.style_id, "issue_number": self.issue_number,
+            "provider": self.provider, "model": self.model, "mode": self.mode,
+            "base_asset_id": self.base_asset_id,
+            "preview_before_asset_id": self.preview_before_asset_id,
+            "preview_after_asset_id": self.preview_after_asset_id,
+            "preview_revision": self.preview_revision,
+            "machine_reason": self.machine_reason,
+            "human_message": self.human_message,
+            "prompt_diagnostics": self.prompt_diagnostics,
             "stages": self.stages[-32:]}, ensure_ascii=False)
 
     @classmethod
@@ -494,13 +518,26 @@ class CoverJobState:
             provider_task_id=data.get("provider_task_id"),
             style_id=data.get("style_id"),
             issue_number=data.get("issue_number"),
+            provider=data.get("provider"),
+            model=data.get("model"),
+            mode=data.get("mode"),
+            base_asset_id=data.get("base_asset_id"),
+            preview_before_asset_id=data.get("preview_before_asset_id"),
+            preview_after_asset_id=data.get("preview_after_asset_id"),
+            preview_revision=data.get("preview_revision"),
+            machine_reason=data.get("machine_reason"),
+            human_message=data.get("human_message"),
+            prompt_diagnostics=(data.get("prompt_diagnostics")
+                                if isinstance(data.get("prompt_diagnostics"),
+                                              dict) else None),
             stages=list(data.get("stages") or []))
 
 
 async def start_cover_job(db, *, chat_id: int, correlation_id: str | None = None,
                           payload: dict | None = None,
                           job_id: str | None = None,
-                          coalesce_key: str | None = None) -> str | None:
+                          coalesce_key: str | None = None,
+                          kind: str = "cover_style") -> str | None:
     """Создать durable cover-джобу в существующей очереди (REUSE, §42).
 
     При `coalesce_key` возвращается `job_id` уже активной (queued/running)
@@ -514,7 +551,7 @@ async def start_cover_job(db, *, chat_id: int, correlation_id: str | None = None
         from services.task_supervisor import TaskJobStore
         store = TaskJobStore(db)
         return await store.enqueue(
-            owner="summary", kind="cover_style", coalesce_key=coalesce_key,
+            owner="summary", kind=kind, coalesce_key=coalesce_key,
             payload=json.dumps({"chat_id": chat_id,
                                 "correlation_id": correlation_id,
                                 **(payload or {})}, ensure_ascii=False),
@@ -580,6 +617,31 @@ async def load_cover_state(db, job_id: str | None) -> CoverJobState | None:
     return CoverJobState.from_json(raw)
 
 
+async def get_cover_job(db, job_id: str | None) -> dict | None:
+    """Строка durable cover-джобы из `task_jobs` (None — нет/PG недоступен)."""
+    if db is None or not job_id:
+        return None
+    try:
+        from services.task_supervisor import TaskJobStore
+        return await TaskJobStore(db).get(job_id)
+    except Exception:
+        return None
+
+
+async def requeue_cover_job(db, job_id: str | None, *,
+                            reason_code: str | None = None) -> bool:
+    """Вернуть терминальную cover-джобу в `queued` (новый цикл Test Style,
+    §2.3/T-4843): та же строка — без второй очереди и дублей."""
+    if db is None or not job_id:
+        return False
+    try:
+        from services.task_supervisor import TaskJobStore
+        return bool(await TaskJobStore(db).requeue(
+            job_id, reason_code=reason_code))
+    except Exception:
+        return False
+
+
 def cover_job_key(*, summary_run_id: str | None,
                   style_id: str | None) -> str:
     """Детерминированный `job_id` cover-джобы run+style (§42/§43).
@@ -596,6 +658,8 @@ async def begin_cover_job(db, *, chat_id: int,
                           style_id: str | None = None,
                           summary_run_id: str | None = None,
                           payload: dict | None = None,
+                          kind: str = "cover_style",
+                          initial_state: str = STATE_BASE_SUCCEEDED,
                           ) -> tuple[str | None, CoverJobState]:
     """Создать/переиспользовать durable cover-джобу (§42/§43).
 
@@ -603,6 +667,10 @@ async def begin_cover_job(db, *, chat_id: int,
     по детерминированному `job_id`/`coalesce_key`, а состояние (включая
     `provider_task_id`) восстанавливается из `task_jobs` — новый платный
     task **не** создаётся (§43, DoD-25).
+
+    `initial_state` (ASAP 4.3, T-4842): production-путь стартует с
+    `BASE_SUCCEEDED` (base уже готова до Style-джобы); Test Style preview —
+    с `CREATED` (base генерируется внутри джобы).
     """
     if db is None:
         return None, CoverJobState(style_id=style_id)
@@ -611,12 +679,12 @@ async def begin_cover_job(db, *, chat_id: int,
     started = await start_cover_job(
         db, chat_id=chat_id, correlation_id=correlation_id,
         payload={"style_id": style_id, **(payload or {})},
-        job_id=jid, coalesce_key=coalesce)
+        job_id=jid, coalesce_key=coalesce, kind=kind)
     state = await load_cover_state(db, started) if started else None
     if state is None:
         state = CoverJobState(style_id=style_id)
         # Base-стадия уже успешна к моменту запуска Style-джобы (§3.2/§49).
-        state.mark(STATE_BASE_SUCCEEDED)
+        state.mark(initial_state)
     return started, state
 
 
@@ -986,6 +1054,19 @@ def compile_style_prompt(profile: dict, *, issue_display: str,
                                    budget_component=brief_text)
 
 
+def _prompt_breakdown(compiled) -> dict:
+    """§9 (T-4849): Style/Context/Refs/System из component-lens компилятора."""
+    lens = dict(getattr(compiled, "components", {}) or {})
+    style = int(lens.get("style_instruction", 0)) \
+        + int(lens.get("base_style_prompt", 0))
+    return {
+        "style_chars": style,
+        "context_chars": int(lens.get("cover_brief", 0)),
+        "refs_chars": int(lens.get("references", 0)),
+        "system_chars": int(lens.get("runtime_invariants", 0)),
+    }
+
+
 # ── heartbeat (§46) ─────────────────────────────────────────────────────────
 
 def heartbeat_interval() -> float:
@@ -1198,6 +1279,11 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                      provider=meta["provider"], style_id=meta["style_id"],
                      style_revision=meta["style_revision"])
     if state is not None:
+        # ASAP 4.3 (§2.2): безопасные provider/model для status-endpoint
+        # preview-джобы (persist вместе со stage-переходом).
+        state.provider = meta["provider"] or None
+        state.model = meta["model"] or None
+        state.mode = mode
         state.mark(STATE_STYLE_SUBMITTED)
         await _persist_state(db, job_id, state)
 
@@ -1208,7 +1294,10 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
         # резолвер; для базового слота результат идентичен прежнему).
         caps = cap.resolve_capabilities(
             slot.get("provider") or "", slot.get("base_url") or "",
-            slot.get("model") or "", discovery=discovery, endpoints=endpoints)
+            slot.get("model") or "", discovery=discovery, endpoints=endpoints,
+            # ASAP 4.3 (§7, T-4847): capability per operation (style stage —
+            # image_edit), manual override — высший приоритет.
+            operation=cap.OPERATION_EDIT)
     meta["capability_state"] = getattr(caps, "image_edit", None)
     allowed, message = check_edit_allowed(profile=profile, capabilities=caps)
     if not allowed:
@@ -1300,6 +1389,9 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
             "limit_unit": (str(compiled.limit) if compiled.limit is not None
                            else "unknown") + ":" + str(compiled.unit),
             "dropped_sections": list(compiled.dropped),
+            # ASAP 4.3 (§9, T-4849): breakdown Style/Context/Refs/System из
+            # фактически собранных компонент (units compiled prompt).
+            **_prompt_breakdown(compiled),
         }
     if _wb:
         # §46: безопасные diagnostics в событии (числа/флаги, R17-safe).
@@ -1399,7 +1491,9 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                             latency_ms=int(getattr(result, "latency_ms", 0)),
                             meta=dict(getattr(result, "meta", {}) or {}))
     # ── T-4814: machine-readable 400 prompt-limit → cache → recompile → ONE
-    # retry (ровно один; иначе fail-soft Base Cover). ──────────────────────
+    # retry (ровно один; иначе fail-soft Base Cover). ASAP 4.3 (§7.1/§8,
+    # T-4848): второй paid call НЕ отправляется, если recompiled prompt всё
+    # ещё превышает limit или не стал короче — иначе деньги заведомо впустую.
     if (not result.ok and result.reason == "prompt_limit"
             and isinstance(getattr(result, "meta", None), dict)
             and result.meta.get("prompt_limit")):
@@ -1415,35 +1509,56 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                 caps_retry = _cap.resolve_capabilities(
                     meta.get("provider") or "", slot.get("base_url") or "",
                     meta.get("model") or "",
-                    route=result.meta.get("route"))
+                    route=result.meta.get("route"),
+                    operation=edit_operation)
                 recompiled = compile_style_prompt(
                     profile, issue_display=issue_display,
                     capabilities=caps_retry,
                     base_style_prompt=base_style_prompt or "",
                     brief=brief)
+                shorter = len(recompiled.prompt) < len(compiled.prompt)
+                retry_ok = (not getattr(recompiled, "exceeded", False)
+                            and shorter)
                 meta["prompt_limit_retry"] = {
                     "resolved_limit": pl.get("value"),
                     "unit": pl.get("unit"),
                     "recompiled_chars": len(recompiled.prompt),
+                    "retry_sent": bool(retry_ok),
                 }
-                emit_cover_event(
-                    COVER_STYLE_SUBMITTED, outcome="retry", run_id=correlation_id,
-                    job_id=job_id, chat_id=chat_id, model=meta["model"],
-                    provider=meta["provider"],
-                    prompt_len=len(recompiled.prompt),
-                    prompt_hash=prompt_hash(recompiled.prompt),
-                    resolved_limit=pl.get("value"),
-                    retry_reason="prompt_limit")
-                try:
-                    result = await _run_with_heartbeat(
-                        lambda: _call(recompiled.prompt),
-                        interval=heartbeat_interval(), event=COVER_STYLE_RUNNING,
-                        run_id=correlation_id, job_id=job_id,
-                        model=meta["model"], provider=meta["provider"])
-                except Exception as exc:
-                    result = EditResult(ok=False, reason=type(exc).__name__,
+                if not retry_ok:
+                    # Bounded retry: exceeded/не короче → второй paid call не
+                    # отправляется; честная причина в diagnostics.
+                    meta["prompt_limit_retry"]["skipped"] = (
+                        "exceeded" if getattr(recompiled, "exceeded", False)
+                        else "not_shorter")
+                    meta["prompt_diagnostics"] = {
+                        **(meta.get("prompt_diagnostics") or {}),
+                        "overflow_reason": "prompt_limit_exceeded",
+                    }
+                    result = EditResult(ok=False, reason="prompt_limit",
                                         model=meta["model"],
-                                        provider=meta["provider"])
+                                        provider=meta["provider"],
+                                        meta=result.meta)
+                else:
+                    emit_cover_event(
+                        COVER_STYLE_SUBMITTED, outcome="retry",
+                        run_id=correlation_id, job_id=job_id, chat_id=chat_id,
+                        model=meta["model"], provider=meta["provider"],
+                        prompt_len=len(recompiled.prompt),
+                        prompt_hash=prompt_hash(recompiled.prompt),
+                        resolved_limit=pl.get("value"),
+                        retry_reason="prompt_limit")
+                    try:
+                        result = await _run_with_heartbeat(
+                            lambda: _call(recompiled.prompt),
+                            interval=heartbeat_interval(),
+                            event=COVER_STYLE_RUNNING, run_id=correlation_id,
+                            job_id=job_id, model=meta["model"],
+                            provider=meta["provider"])
+                    except Exception as exc:
+                        result = EditResult(
+                            ok=False, reason=type(exc).__name__,
+                            model=meta["model"], provider=meta["provider"])
         except Exception:
             logger.debug("[cover_style_jobs] prompt-limit retry failed",
                          exc_info=True)
@@ -1547,16 +1662,23 @@ async def _record_provenance(pg, meta, *, summary_run_id, job_id, snapshot,
 async def run_style_preview(*, profile: dict, base_image_path: str,
                             reference_paths: list | None = None, pg=None,
                             capabilities=None, discovery: dict | None = None,
-                            endpoints: dict | None = None, edit_call=None
-                            ) -> dict:
+                            endpoints: dict | None = None, edit_call=None,
+                            db=None, job_id: str | None = None,
+                            state: CoverJobState | None = None,
+                            correlation_id: str | None = None) -> dict:
     """`Протестировать стиль` (§65/§66/§67): ТОЛЬКО Style Edit job.
 
     Не создаёт Summary, не расходует production counter (mode=preview),
     логируется с `mode=preview` (не смешивается со статистикой production).
+
+    ASAP 4.3 (T-4843): preview идёт через тот же durable-контур, что
+    production — `db`/`job_id`/`state` прокидываются в `run_style_job`
+    (прежде helpers были no-op из-за отсутствия db/job_id).
     """
     meta = await run_style_job(
         chat_id=0, base_image_path=base_image_path, profile=profile,
-        summary_run_id=None, correlation_id=None, pg=pg,
+        summary_run_id=None, correlation_id=correlation_id, pg=pg,
+        db=db, job_id=job_id, state=state,
         capabilities=capabilities, discovery=discovery, endpoints=endpoints,
         reference_paths=reference_paths, edit_call=edit_call, mode=MODE_PREVIEW)
     meta["preview_issue"] = registry.preview_issue_display(
@@ -1584,6 +1706,7 @@ __all__ = [
     "REASON_NOT_CONFIGURED", "REASON_NO_STYLE_STAGE", "RU_STYLE_FAILED",
     "RU_BASE_FAILED", "RU_RICH_FAILED", "CoverJobState", "start_cover_job",
     "finish_cover_job", "save_cover_state", "load_cover_state",
+    "get_cover_job", "requeue_cover_job",
     "begin_cover_job", "cover_job_key", "run_style_job",
     "run_style_preview", "classify_cover_result", "build_timeline",
     "record_latency", "latency_stats", "record_cost", "cost_summary",

@@ -124,7 +124,13 @@ def test_list_shape_and_no_secret_leak(monkeypatch):
     style = body["styles"][0]
     assert style["is_example"] is True
     assert style["reference_count"] == 1
-    assert style["preview_before_url"] == "/api/cover/assets/cas_before"
+    # ASAP 4.3 (§4/§5): placeholder-указатели (preview_revision=None) НЕ
+    # отдаются как реальная пара; placeholders приходят отдельно.
+    assert style["preview_before_url"] is None
+    assert style["preview_after_url"] is None
+    assert style["preview_pair_valid"] is False
+    assert body["placeholders"]["before_url"]
+    assert body["placeholders"]["after_url"]
     assert "api_key" not in json.dumps(body)
 
 
@@ -391,40 +397,164 @@ def _patch_upload_deps(monkeypatch, profile):
                         AsyncMock(return_value=True))
 
 
-def test_test_style_edit_unsupported(monkeypatch):
-    _patch_upload_deps(monkeypatch, _profile())
-    _patch_upload_deps(monkeypatch, _profile())
-    monkeypatch.setattr(
-        "services.cover_style_jobs.run_style_preview",
-        AsyncMock(return_value={"applied": False, "reason": "style_failed",
-                                "fail_reason": "edit_unsupported",
-                                "preview_issue": "ВЫПУСК 00"}))
+def test_test_style_start_contract(monkeypatch):
+    """ASAP 4.3 (§2.2): POST возвращает {job_id,status} без ожидания;
+    upload/base64 НЕ декодируется на основном пути."""
+    from services import cover_style_preview as preview_jobs
+    _patch_upload_deps(monkeypatch, _profile(profile_id="csp_x"))
+    decode_calls = {"n": 0}
+    import web.api.cover_styles as cs
+
+    def _spy(body):
+        decode_calls["n"] += 1
+        return None
+
+    monkeypatch.setattr(cs, "_decode_upload", _spy)
+    start = AsyncMock(return_value={"job_id": "cov_test1",
+                                    "status": "queued",
+                                    "stage": "queued", "reused": False})
+    monkeypatch.setattr(preview_jobs, "start_preview_job", start)
+    monkeypatch.setattr(cs, "_job_db", lambda: object())
     resp = _client().post("/api/cover/test-style", headers=_hdr(),
-                          json={"profile_id": "csp_x", "filename": "b.png",
-                                "content_base64": base64.b64encode(b"PNG").decode()})
-    assert resp.status_code == 200
+                          json={"profile_id": "csp_x"})
+    assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body["applied"] is False
-    assert "не умеет редактировать" in body["message"]
+    assert body["job_id"] == "cov_test1"
+    assert body["status"] == "queued"
+    assert decode_calls["n"] == 0, "основной путь не читает base64 upload"
 
 
-def test_test_style_applied(monkeypatch, tmp_path):
-    styled = tmp_path / "s.jpg"
-    styled.write_bytes(b"STYLED")
-    _patch_upload_deps(monkeypatch, _profile())
-    monkeypatch.setattr(
-        "services.cover_style_jobs.run_style_preview",
-        AsyncMock(return_value={"applied": True, "styled_path": str(styled),
-                                "preview_issue": "ВЫПУСК 00", "model": "m",
-                                "provider": "p", "duration_ms": 42}))
-    resp = _client().post("/api/cover/test-style", headers=_hdr(),
-                          json={"profile_id": "csp_x", "filename": "b.png",
-                                "content_base64": base64.b64encode(b"PNG").decode()})
+def test_test_style_status_contract_no_secrets(monkeypatch):
+    """ASAP 4.3 (§2.2): status-endpoint отдаёт только safe-diagnostics."""
+    from services import cover_style_preview as preview_jobs
+    import web.api.cover_styles as cs
+    snapshot = {
+        "job_id": "cov_test1", "status": "completed", "stage": "completed",
+        "started_at": 1, "last_progress_at": 2, "provider": "nanogpt",
+        "model": "qwen", "human_message": "Стиль применён",
+        "machine_reason": "", "preview_before_url": "/api/cover/assets/a",
+        "preview_after_url": "/api/cover/assets/b", "preview_revision": 7,
+        "preview_job_id": "cov_test1", "mode": "preview",
+        "prompt": {"total_chars": 42, "limit": None},
+    }
+    monkeypatch.setattr(preview_jobs, "job_status",
+                        AsyncMock(return_value=snapshot))
+    monkeypatch.setattr(preview_jobs, "maybe_resume",
+                        AsyncMock(return_value=False))
+    monkeypatch.setattr(cs, "_job_db", lambda: object())
+    resp = _client().get("/api/cover/test-style/cov_test1", headers=_hdr())
     assert resp.status_code == 200
     body = resp.json()
-    assert body["applied"] is True
-    assert body["url"] == "/api/cover/assets/cas_p"
-    assert body["duration_ms"] == 42
+    assert body["status"] == "completed"
+    assert body["preview_revision"] == 7
+    dump = json.dumps(body).lower()
+    assert "api_key" not in dump
+    # полного prompt нет — только safe-числа breakdown
+    assert set(body["prompt"]) <= {"style_chars", "context_chars", "refs_chars",
+                                   "system_chars", "total_chars", "limit",
+                                   "unit", "exceeded"}
+
+
+def test_test_style_status_unknown_job_404(monkeypatch):
+    from services import cover_style_preview as preview_jobs
+    import web.api.cover_styles as cs
+    monkeypatch.setattr(preview_jobs, "job_status",
+                        AsyncMock(return_value=None))
+    monkeypatch.setattr(cs, "_job_db", lambda: object())
+    resp = _client().get("/api/cover/test-style/nope", headers=_hdr())
+    assert resp.status_code == 404
+
+
+# ── ASAP 4.3 (§7.2, T-4847): manual prompt-limit (MiniApp) ──────────────────
+
+class TestPromptLimitOverride:
+    def _client_with_hot(self):
+        import asyncio
+        client = _client()
+        cache = client.app.state.cache
+        cache._lock = asyncio.Lock()
+        cache._settings_updated_at = {}
+        from services import hot_config
+        hot_config.set_config_cache(cache)
+        return client
+
+    def test_manual_override_precedence_and_persistence(self):
+        from services import image_capabilities as icap
+        from services import hot_config
+        client = self._client_with_hot()
+        body = {"provider": "nanogpt", "base_url": "https://x.test/v1",
+                "model": "m1", "operation": "image_edit",
+                "mode": "manual", "unit": "chars", "value": 4321}
+        try:
+            resp = client.post("/api/cover/prompt-limit", headers=_hdr(),
+                               json=body)
+            assert resp.status_code == 200, resp.text
+            out = resp.json()
+            assert out["mode"] == "manual" and out["value"] == 4321
+            assert out["source"] == icap.SOURCE_MANUAL
+            # persistence: значение видно resolver'у (bot_settings-ключ)
+            caps = icap.resolve_capabilities(
+                "nanogpt", "https://x.test/v1", "m1",
+                operation=icap.OPERATION_EDIT)
+            assert caps.prompt_limit.value == 4321
+            assert caps.prompt_limit.source == icap.SOURCE_MANUAL
+            # GET отдаёт состояние лимита
+            got = client.get("/api/cover/prompt-limit", headers=_hdr())
+            assert got.status_code == 200
+            # снятие manual → auto
+            resp2 = client.post("/api/cover/prompt-limit", headers=_hdr(),
+                                json={**body, "mode": "auto"})
+            assert resp2.status_code == 200
+            assert resp2.json()["mode"] == "auto"
+            caps2 = icap.resolve_capabilities(
+                "nanogpt", "https://x.test/v1", "m1",
+                operation=icap.OPERATION_EDIT, refresh=True)
+            assert caps2.prompt_limit.source != icap.SOURCE_MANUAL
+        finally:
+            hot_config.set_config_cache(None)
+
+    def test_manual_override_requires_admin(self):
+        from services import hot_config
+        client = self._client_with_hot()
+        try:
+            resp = client.post(
+                "/api/cover/prompt-limit", headers=_hdr(user=USER_ID),
+                json={"provider": "p", "base_url": "https://x.test",
+                      "model": "m", "mode": "manual", "unit": "chars",
+                      "value": 100})
+            assert resp.status_code == 403
+        finally:
+            hot_config.set_config_cache(None)
+
+    def test_manual_limit_does_not_block_style_save(self):
+        """§7.2: маленький manual-лимит НЕ запрещает сохранить стиль."""
+        from services import hot_config
+        client = self._client_with_hot()
+        mp = pytest.MonkeyPatch()
+
+        async def _upsert(pg, profile):
+            profile["profile_id"] = profile.get("profile_id") or "csp_new"
+            return True
+
+        mp.setattr("services.cover_style_registry.upsert_profile", _upsert)
+        mp.setattr(
+            "services.cover_style_registry.get_profile_with_refs",
+            AsyncMock(return_value=_profile(profile_id="csp_new",
+                                            origin="custom")))
+        try:
+            resp = client.post("/api/cover/prompt-limit", headers=_hdr(),
+                               json={"provider": "p",
+                                     "base_url": "https://x.test",
+                                     "model": "m", "mode": "manual",
+                                     "unit": "chars", "value": 1})
+            assert resp.status_code == 200
+            save = client.post("/api/cover/styles", headers=_hdr(),
+                               json={"name": "X", "instruction": "i",
+                                     "pipeline_mode": "generate_then_edit"})
+            assert save.status_code == 200, save.text
+        finally:
+            mp.undo()
+            hot_config.set_config_cache(None)
 
 
 # ── M-EXTRA-1 (§10/SC-24): preview stale-revision ───────────────────────────
@@ -434,42 +564,33 @@ class TestPreviewStale:
         current = _profile(preview_revision=2, revision=2,
                            preview_after_asset_id="cas_after")
         assert _public_profile(current)["preview_stale"] is False
+        assert _public_profile(current)["preview_pair_valid"] is True
         old = _profile(preview_revision=1, revision=3,
                        preview_after_asset_id="cas_after")
         assert _public_profile(old)["preview_stale"] is True
+        assert _public_profile(old)["preview_pair_valid"] is False
         none = _profile(preview_revision=None)
         assert _public_profile(none)["preview_stale"] is False
+        assert _public_profile(none)["preview_pair_valid"] is False
+        assert _public_profile(none)["preview_status"] is None
         no_asset = _profile(preview_revision=1, revision=3,
                             preview_after_asset_id=None)
         assert _public_profile(no_asset)["preview_stale"] is False
+        assert _public_profile(no_asset)["preview_pair_valid"] is False
 
-    def test_test_style_saves_preview_revision(self, monkeypatch, tmp_path):
-        styled = tmp_path / "s.jpg"
-        styled.write_bytes(b"STYLED")
-        _patch_upload_deps(monkeypatch, _profile(revision=7))
-        monkeypatch.setattr(
-            "services.cover_style_jobs.run_style_preview",
-            AsyncMock(return_value={"applied": True, "styled_path": str(styled),
-                                    "preview_issue": "ВЫПУСК 00", "model": "m",
-                                    "provider": "p", "duration_ms": 5}))
-        captured = {}
-
-        async def _set_preview(pg, profile_id, **kw):
-            captured["profile_id"] = profile_id
-            captured.update(kw)
-            return True
-
-        monkeypatch.setattr("services.cover_style_registry.set_preview",
-                            _set_preview)
-        resp = _client().post("/api/cover/test-style", headers=_hdr(),
-                              json={"profile_id": "csp_x", "filename": "b.png",
-                                    "content_base64": base64.b64encode(b"PNG").decode()})
-        assert resp.status_code == 200
-        assert captured["profile_id"] == "csp_x"
-        assert captured["after_asset_id"] == "cas_p"
-        assert captured["revision"] == 7          # preview привязан к revision
-        assert resp.json()["preview_revision"] == 7
-        assert resp.json()["preview_stale"] is False
+    def test_current_pair_requires_both_assets_and_job_provenance(self):
+        # ASAP 4.3 (§4): валидная пара текущей revision — оба ассета +
+        # revision; preview_job_id отдаётся наружу (provenance job).
+        valid = _profile(preview_revision=2, revision=2,
+                         preview_after_asset_id="cas_after",
+                         preview_before_asset_id="cas_before",
+                         preview_job_id="cov_1")
+        pub = _public_profile(valid)
+        assert pub["preview_pair_valid"] is True
+        assert pub["preview_status"] == "success"
+        assert pub["preview_before_url"] == "/api/cover/assets/cas_before"
+        assert pub["preview_after_url"] == "/api/cover/assets/cas_after"
+        assert pub["preview_job_id"] == "cov_1"
 
 
 # ── Low: §12 size-cap upload + Replace reference ────────────────────────────

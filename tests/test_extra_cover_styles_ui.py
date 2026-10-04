@@ -40,7 +40,14 @@ class TestStyleEditorMarkers:
                        "data-cover-mini-before", "data-cover-mini-after",
                        "data-cover-preview-arrow", "data-cover-preview-source",
                        "data-cover-test-human", "data-cover-developer-toggle",
-                       "data-cover-developer-reason", "data-cover-readonly"):
+                       "data-cover-developer-reason", "data-cover-readonly",
+                       # ASAP 4.3 (T-4847/T-4849/T-4853):
+                       "data-cover-prompt-limit", "data-cover-limit-mode",
+                       "data-cover-limit-unit", "data-cover-limit-value",
+                       "data-cover-limit-save", "data-cover-limit-resolved",
+                       "data-cover-style-budget", "data-cover-budget-breakdown",
+                       "data-cover-test-progress", "data-cover-test-stage",
+                       "data-cover-test-breakdown"):
             assert marker in html, marker
         # D5.5: Test Style — НЕ файловый picker (никакого `type=file` рядом с
         # `data-cover-test-button`).
@@ -58,14 +65,22 @@ class TestStyleEditorMarkers:
                       "Проверить стиль", "Пример", "Результат теста",
                       "Обновить пример",
                       "Пример создан для предыдущей версии стиля",
-                      "Время обработки", "Заменить"):
+                      "Заменить",
+                      # ASAP 4.3 (T-4847/T-4849): лимит/бюджет.
+                      "Ограничение промпта", "Автоматически",
+                      "Задать вручную", "Лимит текущей модели"):
             assert label in html, label
         # L-EXTRA-5: бессмысленная подпись «Затемнение» удалена.
         assert "Затемнение" not in html
         js = _app_js()
         # Ярлык «без стиля» и сообщение unknown-limit — из runtime-кода UI.
         assert "Без дополнительного стиля" in js
-        assert "Провайдер не публикует точный лимит" in js
+        assert "Провайдер не сообщил точный лимит" in js
+        assert "Потеряно соединение с сервером" in js
+        # §11: stage-тексты и breakdown последней сборки.
+        for stage_text in ("Генерируем базовую обложку", "Применяем стиль",
+                           "Сохраняем результат", "Последняя сборка"):
+            assert stage_text in js, stage_text
 
     def test_app_js_tab_and_label(self):
         js = _app_js()
@@ -81,7 +96,12 @@ class TestStyleEditorMarkers:
                      "coverStyleSetSelection:",
                      "openCoverConnections:", "_applyConfigFocus:",
                      "coverStyleRefreshExample:", "coverBudgetText:",
-                     "coverCapabilityLines:", "fileToBase64:"):
+                     "coverCapabilityLines:", "fileToBase64:",
+                     # ASAP 4.3: durable job polling + placeholders + лимит.
+                     "coverStylePollJob:", "coverStyleJobActive:",
+                     "coverStyleRetryStart:", "coverPairAsset:",
+                     "coverLimitText:", "coverBudgetBreakdown:",
+                     "coverStyleSavePromptLimit:"):
             assert name in js, name
         # §35: deep-link фокусирует группу «Обработка стилей обложки».
         assert "configFocusGroup" in js
@@ -89,11 +109,13 @@ class TestStyleEditorMarkers:
 
 
 class TestSeedAssets:
-    def test_actual_seed_names_jpg(self):
-        # DC-1: фактический After — `.jpg`, не `.png`.
-        assert registry.SEED_FILES["reference"] == "medved_press.png"
-        assert registry.SEED_FILES["preview_before"] == "style_example_01.png"
-        assert registry.SEED_FILES["preview_after"] == "style_example_02.jpg"
+    def test_seed_reference_and_placeholder_discovery(self):
+        # ASAP 4.3 (§5): permanent DB-asset — только reference; placeholders
+        # определяются из фактического listing (`.png` + `.jpg`), не хардкод.
+        assert registry.SEED_FILES == {"reference": "medved_press.png"}
+        files = registry.placeholder_files(ROOT / "extra_images")
+        assert files["style_example_01"].endswith(".png")
+        assert files["style_example_02"].endswith(".jpg")
 
     def test_seed_files_exist_with_documented_sha(self):
         # ASAP 4.2 (T-4818 / PO-5): `medved_press.png` совпадает с

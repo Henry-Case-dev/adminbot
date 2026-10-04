@@ -53,10 +53,24 @@ SEEDED_COUNTER_FORMAT = "ВЫПУСК {counter}"
 # обратимый configurable дефолт `0` (следующий выпуск — 1).
 SEEDED_COUNTER_START = 0
 
-# Seeded edit prompt (§24): normalize/ensure/replace — НЕ overlay, НЕ жёсткая
-# композиция; recurring identity: PERMsoc, Медведь Press, issue number,
-# graphic-novel характер.
+# Seeded edit prompt (ASAP 4.3 §8): компактная версия — ужимаем семантически,
+# не строковыми ножницами; сохраняем ВСЕ invariants: PERMsoc ровно один,
+# номер выпуска ровно один/заменён, логотип по reference без дублей,
+# references по ролям, цельная comic/graphic-novel обложка, русский текст.
 SEEDED_INSTRUCTION = (
+    "Редактируй готовую обложку как выпуск «Медведь Press», не рисуй заново. "
+    "Сохрани сцену, композицию и удачные плашки. PERMsoc должен быть ровно "
+    "один: сохрани существующий или добавь. Номер выпуска — один, замени "
+    "старый на заданный. Логотип замени на reference «Медведь Press», без "
+    "дублей. References используй по их ролям. Стиль: цельная "
+    "comic/graphic-novel обложка; детали и плашки — по исходнику и Summary. "
+    "Весь добавляемый текст — на русском."
+)
+
+# ASAP 4.3 (T-4848): прежняя 979-символьная seeded-инструкция — только для
+# идемпотентной миграции существующей prod-строки (если владелец её не
+# редактировал). После миграции константа не используется в seed.
+_LEGACY_SEEDED_INSTRUCTION = (
     "Приведи уже существующую обложку к правилам серии «Медведь Press», "
     "редактируя её (edit), а не рисуя заново, и не создавай дубликатов.\n"
     "Характер серии: современный русский графический роман / комикс, "
@@ -77,12 +91,39 @@ SEEDED_INSTRUCTION = (
     "исходной обложки и Summary."
 )
 
-# Файлы сида (фактические имена; DC-1: `style_example_02` — `.jpg`).
+# Файлы сида (ASAP 4.3 §5): permanent DB-asset профиля — ТОЛЬКО reference;
+# `style_example_01/02` — UI fallback placeholders (не сидятся в БД/preview).
 SEED_FILES = {
     "reference": "medved_press.png",
-    "preview_before": "style_example_01.png",
-    "preview_after": "style_example_02.jpg",
 }
+
+# UI fallback placeholders (§5): имена-стемы в `extra_images`; фактическое
+# расширение — из listing (не hardcode). Не DB-assets, не preview профиля.
+PLACEHOLDER_STEMS = ("style_example_01", "style_example_02")
+
+
+def placeholder_files(seed_dir=None) -> dict[str, str]:
+    """Фактические файлы-placeholder'ов из `extra_images` (stem → имя).
+
+    Расширение определяется по реальному listing (`.png`/`.jpg`/`.jpeg`/
+    `.webp`), приоритет — ALLOWED_MIME; отсутствует файл → ключа нет.
+    """
+    from services.cover_style_assets import ALLOWED_MIME
+    base = seed_dir or _seed_dir()
+    out: dict[str, str] = {}
+    for stem in PLACEHOLDER_STEMS:
+        candidates: list[str] = []
+        try:
+            for path in sorted(base.iterdir()):
+                if path.is_file() and path.stem == stem \
+                        and path.suffix.lower() in set(
+                            ALLOWED_MIME.values()) | {".jpeg"}:
+                    candidates.append(path.name)
+        except OSError:
+            continue
+        if candidates:
+            out[stem] = candidates[0]
+    return out
 
 
 # ── внутренние хелперы ──────────────────────────────────────────────────────
@@ -294,13 +335,15 @@ async def soft_delete_profile(pg, profile_id: str) -> bool:
 
 async def set_preview(pg, profile_id: str, *, after_asset_id: str | None,
                       revision: int | None,
-                      before_asset_id: str | None = None) -> bool:
+                      before_asset_id: str | None = None,
+                      job_id: str | None = None) -> bool:
     """Сохранить preview стиля БЕЗ инкремента `revision` (§10/SC-24).
 
-    Test Style обновляет `preview_after_asset_id`/`preview_revision`;
-    `preview_revision` == текущая `revision` означает актуальный пример.
-    `upsert_profile` здесь не годится — он инкрементирует revision, из-за
-    чего сохранённый preview сразу выглядел бы устаревшим.
+    ASAP 4.3 (§4): success pair пишется ОДНОЙ атомарной операцией
+    `before + after + revision + job_id` (provenance текущего успешного job);
+    failure этот метод не вызывает вовсе — прежняя пара не переписывается
+    частично. `preview_revision` == текущая `revision` означает актуальный
+    пример.
     """
     pool = _pool_of(pg)
     if pool is None or not profile_id:
@@ -308,22 +351,23 @@ async def set_preview(pg, profile_id: str, *, after_asset_id: str | None,
     try:
         async with pool.acquire() as conn:
             if before_asset_id:
-                # ASAP 4.2 (D5.5/D5.6): реальный Test Style заменяет ОБА
-                # preview (seeded placeholders → реальные base/styled).
-                # COALESCE оставлял seeded `preview_before` навсегда.
+                # §4: одна UPDATE-операция — оба ассета + revision + job_id.
                 await conn.execute(
                     "UPDATE cover_style_profiles SET "
                     "preview_after_asset_id = $2, "
                     "preview_before_asset_id = $3, "
-                    "preview_revision = $4, updated_at = now() "
+                    "preview_revision = $4, "
+                    "preview_job_id = $5, updated_at = now() "
                     "WHERE profile_id = $1",
-                    profile_id, after_asset_id, before_asset_id, revision)
+                    profile_id, after_asset_id, before_asset_id, revision,
+                    job_id)
             else:
                 await conn.execute(
                     "UPDATE cover_style_profiles SET "
                     "preview_after_asset_id = $2, preview_revision = $3, "
+                    "preview_job_id = $4, "
                     "updated_at = now() WHERE profile_id = $1",
-                    profile_id, after_asset_id, revision)
+                    profile_id, after_asset_id, revision, job_id)
         return True
     except Exception:
         logger.warning("[cover_style_registry] preview save failed",
@@ -342,6 +386,20 @@ def preview_is_stale(profile: dict) -> bool:
         return int(stored) != int(profile.get("revision") or 0)
     except (TypeError, ValueError):
         return False
+
+
+def preview_pair_current(profile: dict) -> bool:
+    """ASAP 4.3 (§4): пара действительна, только если это один успешно
+    завершённый job текущей revision: оба ассета + revision == current,
+    не stale. Placeholder-состояние (`preview_revision IS NULL`) — НЕ пара."""
+    if not profile:
+        return False
+    if profile.get("preview_revision") is None:
+        return False
+    if not (profile.get("preview_before_asset_id")
+            and profile.get("preview_after_asset_id")):
+        return False
+    return not preview_is_stale(profile)
 
 
 async def duplicate_profile(pg, profile_id: str, *,
@@ -698,6 +756,47 @@ async def record_provenance(pg, data: dict) -> str | None:
 
 # ── seed (§59, идемпотентно) ────────────────────────────────────────────────
 
+async def _repair_seeded_profile(pg, existing: dict) -> None:
+    """ASAP 4.3 (§5/§8): идемпотентные миграции существующей seeded-строки.
+
+    * legacy-инструкция (979 chars, если владелец её не редактировал) →
+      компактная §8; revision инкрементируется (preview честно stale);
+    * seeded example-placeholder preview pointers (`preview_revision IS NULL`)
+      → NULL: placeholders больше не DB preview-assets (файлы не удаляются).
+    """
+    pool = _pool_of(pg)
+    if pool is None:
+        return
+    changes: list[str] = []
+    try:
+        async with pool.acquire() as conn:
+            if str(existing.get("instruction") or "") \
+                    == _LEGACY_SEEDED_INSTRUCTION:
+                await conn.execute(
+                    "UPDATE cover_style_profiles SET instruction = $2, "
+                    "revision = revision + 1, updated_at = now() "
+                    "WHERE profile_id = $1",
+                    SEEDED_PROFILE_ID, SEEDED_INSTRUCTION)
+                changes.append("instruction")
+            if existing.get("preview_revision") is None \
+                    and (existing.get("preview_before_asset_id")
+                         or existing.get("preview_after_asset_id")):
+                await conn.execute(
+                    "UPDATE cover_style_profiles SET "
+                    "preview_before_asset_id = NULL, "
+                    "preview_after_asset_id = NULL, "
+                    "preview_job_id = NULL, updated_at = now() "
+                    "WHERE profile_id = $1", SEEDED_PROFILE_ID)
+                changes.append("example_preview_pointers")
+    except Exception:
+        logger.warning("[cover_style_registry] seeded repair failed",
+                       exc_info=True)
+        return
+    if changes:
+        logger.info("[cover_style_registry] seeded profile repaired | %s",
+                    ",".join(changes))
+
+
 async def seed_seeded_style(pg, *, seed_dir=None) -> dict | None:
     """Идемпотентно засидить `Графический роман Медведь Press` (§98/§99).
 
@@ -708,16 +807,22 @@ async def seed_seeded_style(pg, *, seed_dir=None) -> dict | None:
     прерванный первый seed (нет asset/reference) → событие
     ``COVER_STYLE_SEED_INCOMPLETE`` (§128, fail-open). `extra_images/*`
     не мутируются (копирование, R18).
+
+    ASAP 4.3 (§5): placeholder-файлы `style_example_01/02` НЕ сидятся в
+    `cover_style_assets`/preview-колонки — это UI fallback. §8: legacy
+    seeded-инструкция мигрируется на компактную (см. `_repair_seeded_profile`).
     Возвращает profile dict (или None, если PG недоступен/seed отсутствует).
     """
     pool = _pool_of(pg)
     if pool is None:
         return None
     base_dir = seed_dir or _seed_dir()
-    # Идемпотентность: seeded-профиль уже есть → не трогаем.
+    # Идемпотентность: seeded-профиль уже есть → не трогаем определение,
+    # но выполняем аддитивные миграции (§5/§8) и возвращаем refs.
     existing = await get_profile(pg, SEEDED_PROFILE_ID)
     if existing is not None:
-        return existing
+        await _repair_seeded_profile(pg, existing)
+        return await get_profile_with_refs(pg, SEEDED_PROFILE_ID)
     # §99: удалённый владельцем профиль не воскрешаем (soft-delete marker
     # виден только прямым запросом, get_profile фильтрует is_deleted).
     if pool is not None:
