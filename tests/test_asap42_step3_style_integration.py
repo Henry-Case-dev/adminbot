@@ -111,6 +111,8 @@ CREATE TABLE IF NOT EXISTS cover_style_issue_assignments (
     assigned_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (profile_id, summary_run_id)
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cover_style_issue_unique
+    ON cover_style_issue_assignments (profile_id, issue_number);
 CREATE TABLE IF NOT EXISTS cover_style_provenance (
     provenance_id     TEXT PRIMARY KEY,
     summary_run_id    TEXT,

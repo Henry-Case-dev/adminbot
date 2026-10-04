@@ -653,13 +653,23 @@ async def references_using_asset(pg, asset_id: str) -> list[dict]:
 
 # ── counter / issue assignment (§25–§28) ────────────────────────────────────
 
+# F-N2: skip-ahead ограничен явным cap'ом (без бесконечного скана).
+_MAX_ISSUE_SKIP_STEPS = 1000
+
+
 async def resolve_issue_number(pg, profile_id: str, summary_run_id: str
                                ) -> int | None:
     """Pin номера за run (§27): retry reuse (`44 → retry → 44`).
 
-    Assignment allocation — атомарно одним CTE: retry возвращает прежний номер;
-    параллельные Summary на одном профиле получают разные номера (§28,
-    UNIQUE(profile_id, issue_number) + `FOR UPDATE`-free атомарный increment).
+    Assignment allocation: retry возвращает прежний номер; параллельные
+    Summary на одном профиле получают разные номера (§28,
+    UNIQUE(profile_id, issue_number), `FOR UPDATE`-free атомарный increment).
+
+    F-N2 (live defect): исторические assignment'ы могли занять номера впереди
+    counter'а — прежний INSERT падал на UNIQUE и PG-rollback возвращал counter
+    назад, run оставался без номера. Теперь allocation SKIP-ahead: от
+    `counter+1` до первого свободного N' (bounded loop), counter персистится
+    как last_assigned = N'; занятые номера не переиспользуются.
     """
     pool = _pool_of(pg)
     if pool is None or not profile_id or not summary_run_id:
@@ -673,24 +683,51 @@ async def resolve_issue_number(pg, profile_id: str, summary_run_id: str
                     profile_id, summary_run_id)
                 if existing is not None:
                     return int(existing["issue_number"])
-                # Increment counter atomically, then try to claim.
+                # Increment counter atomically (row lock в PG сериализует
+                # параллельные allocation'ы одного профиля).
                 row = await conn.fetchrow(
                     "UPDATE cover_style_profiles SET counter_value = "
                     "counter_value + 1, updated_at = now() WHERE profile_id = $1 "
                     "RETURNING counter_value", profile_id)
                 if row is None:
                     return None
-                issue = int(row["counter_value"])
+                candidate = int(row["counter_value"])
+                chosen = candidate
+                for _ in range(_MAX_ISSUE_SKIP_STEPS):
+                    occupied = await conn.fetchrow(
+                        "SELECT issue_number FROM cover_style_issue_assignments "
+                        "WHERE profile_id = $1 AND issue_number = $2",
+                        profile_id, chosen)
+                    if occupied is None:
+                        break
+                    chosen += 1
+                else:
+                    # Cap исчерпан — номер не назначаем; counter не расходуем.
+                    await conn.execute(
+                        "UPDATE cover_style_profiles SET counter_value = $2, "
+                        "updated_at = now() WHERE profile_id = $1",
+                        profile_id, candidate - 1)
+                    logger.warning(
+                        "[cover_style_registry] issue allocation exhausted | "
+                        "profile_id=%s | candidate=%s | steps=%s",
+                        profile_id, candidate, _MAX_ISSUE_SKIP_STEPS)
+                    return None
+                if chosen != candidate:
+                    # Персистим last_assigned = выбранный (skip-ahead).
+                    await conn.execute(
+                        "UPDATE cover_style_profiles SET counter_value = $2, "
+                        "updated_at = now() WHERE profile_id = $1",
+                        profile_id, chosen)
                 await conn.execute(
                     "INSERT INTO cover_style_issue_assignments (profile_id, "
                     "summary_run_id, issue_number) VALUES ($1,$2,$3) "
                     "ON CONFLICT (profile_id, summary_run_id) DO NOTHING",
-                    profile_id, summary_run_id, issue)
+                    profile_id, summary_run_id, chosen)
                 final = await conn.fetchrow(
                     "SELECT issue_number FROM cover_style_issue_assignments "
                     "WHERE profile_id = $1 AND summary_run_id = $2",
                     profile_id, summary_run_id)
-                return int(final["issue_number"]) if final is not None else issue
+                return int(final["issue_number"]) if final is not None else chosen
     except Exception:
         logger.warning("[cover_style_registry] issue resolve failed",
                        exc_info=True)

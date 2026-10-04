@@ -705,7 +705,7 @@ class TestBoundsA3:
         import dataclasses
         from services import param_catalog as pc
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.52"            # bump запрещён (D8)
+        assert APP_VERSION == "2.58.53"            # bump запрещён (D8)
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in pc.REGISTRY
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}

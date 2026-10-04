@@ -227,6 +227,27 @@ def _draft(instruction: str, next_issue: int) -> dict:
     }
 
 
+def _assign_issue(pg, run_id: str, number: int,
+                  profile_id: str = "csp_x") -> None:
+    async def _do():
+        async with pg.pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO cover_style_issue_assignments (profile_id, "
+                "summary_run_id, issue_number) VALUES ($1,$2,$3)",
+                profile_id, run_id, number)
+    _run(_do())
+
+
+def _fetch_assigned_numbers(pg, profile_id: str = "csp_x") -> list:
+    async def _do():
+        async with pg.pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT issue_number FROM cover_style_issue_assignments "
+                "WHERE profile_id = $1", profile_id)
+        return [int(r["issue_number"]) for r in rows]
+    return _run(_do())
+
+
 # ── #1–#3: RC-A regression (base registered / fetchable / failure => no pair) ─
 
 def test_cover1_generated_base_registered_in_registry(
@@ -342,6 +363,64 @@ def test_cover5_production_ladder_11_retry_11_next_12(pg, job_db):
         assert _run(registry.resolve_issue_number(pg, "csp_x", "run_b")) == 12
         assert client.get("/api/cover/styles/csp_x",
                           headers=_hdr()).json()["next_issue_number"] == 13
+
+
+# ── F-N2 (live defect): allocation SKIP-ahead past occupied numbers ─────────
+
+def test_issue_allocation_skips_occupied_numbers(
+        pg, tmp_path, monkeypatch, job_db):
+    """Live: next=11, assignments 11–13 заняты историей → pre-fix
+    `resolve_issue_number` падал на UNIQUE(profile_id, issue_number) →
+    None (counter rollback); fix: первый свободный = 14, counter=14,
+    retry того же run = 14, следующий = 15, Test Style counter не тратит."""
+    assert _run(registry.upsert_profile(
+        pg, _profile(counter_value=10, revision=1)))
+    for run_id, number in (("old_a", 11), ("old_b", 12), ("old_c", 13)):
+        _assign_issue(pg, run_id, number)
+    with _client(pg) as client:
+        assert _run(registry.resolve_issue_number(
+            pg, "csp_x", "run_new")) == 14
+        # retry того же summary_run_id — идемпотентен, тот же номер
+        assert _run(registry.resolve_issue_number(
+            pg, "csp_x", "run_new")) == 14
+        stored = _run(registry.get_profile(pg, "csp_x"))
+        assert stored["counter_value"] == 14, \
+            "counter persisted как last_assigned (14)"
+        # следующий независимый run получает следующий свободный
+        assert _run(registry.resolve_issue_number(
+            pg, "csp_x", "run_next")) == 15
+        assert _run(registry.get_profile(
+            pg, "csp_x"))["counter_value"] == 15
+        # занятые номера не переиспользованы (UNIQUE не нарушен)
+        assert sorted(_fetch_assigned_numbers(pg)) == [11, 12, 13, 14, 15]
+        # editor: display = counter+1 (без redesign), номер не расходуется
+        detail = client.get("/api/cover/styles/csp_x", headers=_hdr()).json()
+        assert detail["next_issue_number"] == 16
+        captured = {}
+        _patch_base_and_stage(monkeypatch, tmp_path, captured)
+        r = client.post("/api/cover/test-style", headers=_hdr(),
+                        json={"profile_id": "csp_x"})
+        assert r.status_code == 200, r.text
+        snap = _poll_job(client, r.json()["job_id"])
+        assert snap["status"] == "completed", snap
+        assert _run(registry.get_profile(
+            pg, "csp_x"))["counter_value"] == 15
+
+    # точный read-back после reload (durable)
+    pg2 = _SqlitePg(pg.path)
+    assert _run(registry.get_profile(pg2, "csp_x"))["counter_value"] == 15
+    assert sorted(_fetch_assigned_numbers(pg2)) == [11, 12, 13, 14, 15]
+
+
+def test_issue_allocation_picks_first_free_gap(pg):
+    """Skip-ahead выбирает ПЕРВЫЙ свободный, а не max(occupied)+1."""
+    assert _run(registry.upsert_profile(
+        pg, _profile(counter_value=10, revision=1)))
+    for run_id, number in (("g_b", 12), ("g_c", 13)):
+        _assign_issue(pg, run_id, number)
+    assert _run(registry.resolve_issue_number(pg, "csp_x", "run_gap")) == 11
+    assert _run(registry.get_profile(pg, "csp_x"))["counter_value"] == 11
+    assert sorted(_fetch_assigned_numbers(pg)) == [11, 12, 13]
 
 
 # ── #6: RC-D Test Style uses current draft snapshot, DB not overwritten ─────
