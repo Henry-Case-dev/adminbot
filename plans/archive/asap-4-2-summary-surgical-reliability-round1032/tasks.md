@@ -1,5 +1,7 @@
 # ASAP 4.2 — tasks.md (Step 1 @PM, 04.10.2026; реконсиляция @PM, 04.10.2026)
 
+> **СТАТУС: ✅ RELEASED + VERIFIED 2.58.48 + RECONCILED + ARCHIVED (05.10.2026).** Review round-2 `Approved for deploy`; deploy VERIFIED (`b4dcb34`, health 200); REAL canary PASS (text SSE + NanoGPT edit route `image_api`). Открытые маркеры сохранены как факт: T-4807 (L-ASAP42-2), T-4822 (отдельный regression-прогон не добавлялся), T-4833 (prod-authenticated часть), T-4835–T-4839 (owner live) — хвосты PO-2…PO-5 в `plans/backlog.md` Follow-up Round 10.32. Архив — `plans/archive/asap-4-2-summary-surgical-reliability-round1032/`.
+
 Feature: `asap-4-2-summary-surgical-reliability` — хирургический corrective pass после ASAP 4.1. Один feature.
 
 **Нумерация:** **T-4800+** (T-4637+ и T-47xx заняты/зарезервированы; в `workflow_state.md` под этот feature зарезервирован T-4800). Формат: ID, роль, цель, **критерий приёмки**, якорь, зависимости, DoD. Источник: `plans/current_task.md:23847–25458` (не изменяется). Трассировка R8 → задачи: `requirements-map.md`; reuse: `reuse-inventory.md`.
@@ -14,7 +16,7 @@ Feature: `asap-4-2-summary-surgical-reliability` — хирургический 
 
 ## Step 0 — Planning & spec (без кода)
 
-- [ ] **T-4800 [@PM]** — Планирование. **Критерий:** созданы `requirements-map.md`, `tasks.md`, `reuse-inventory.md`; `current_task.md` не изменён; DoD 50/50 покрыт. **Якорь:** 23847–25458. **Dep:** —. **DoD:** —.
+- [x] **T-4800 [@PM]** — Планирование. **Критерий:** созданы `requirements-map.md`, `tasks.md`, `reuse-inventory.md`; `current_task.md` не изменён; DoD 50/50 покрыт. **Якорь:** 23847–25458. **Dep:** —. **DoD:** —.
 - [x] **T-4801 [@Architect]** `[ARCH]` — Лёгкая спека + AMEND/ADR (компактно, без redesign). Зафиксировать: (a) формат self-validating anchors и SourceAnchorMap invariants (AM-1: `source_anchors` в L1 map, bump `schema_version`); (b) контракт L1/L2 repair (что ремонтируемо, что fatal); (c) структурированный Reviewer-verdict + targeted revision; (d) ImageProviderAdapter interface + реальный NanoGPT edit contract (endpoint/schema/auth/refs/error/sync-async) — AM-3; (e) prompt-limit precedence + компилятор P0–P3 (AM-4); (f) MiniApp layout contract `.more-sheet`. **Статус:** DONE 04.10.2026 — `spec.md` (D1–D5) + `adr-1028-10` (D1–D6, AM-1…AM-5), design-freeze. **Критерий:** `spec.md` + ADR-amendment; AM-1…AM-5 разрешены явно; runtime prompt-миграции L1/Writer/Reviewer описаны. **Якорь:** 23859–24496, 24612–24736. **Dep:** T-4800. **DoD:** 1–3, 8.
 
 ---
@@ -78,7 +80,7 @@ Feature: `asap-4-2-summary-surgical-reliability` — хирургический 
 ### (13) MiniApp UX
 
 - [x] **T-4823 [@Builder]** — `.more-sheet` root cause fix (R8-M-001; DoD 33,34,48). Root cause: закрытая шторка остаётся `position:fixed`, z-index 50, лишь `transform: translateY(110%)` (`web/index.html:5477`, `web/static/app.css:2333-2356`) → часть перекрывает SaveBar. **Closed-state contract (spec §5/D5.1):** при `moreOpen=false` шторка либо отсутствует в DOM (`v-if`+transition, как backdrop `index.html:5475`), либо computed hidden/non-interactive; visible intersection с viewport = **0 px**; не перехватывает pointer/touch; не создаёт stacking overlay. **НЕ лечить** высотой `.bottom-nav`, размером кнопок, safe-area, `sticky-save bottom:+N`, padding, z-index SaveBar. **Критерий:** Playwright геометрически (getBoundingClientRect/hit-test): closed visible intersection 0; open работает; SaveBar видим/кликабелен; bottom-nav нормального размера. **Якорь:** 24612–24712. **Dep:** T-4801. **DoD:** 33,34,48.
-- [ ] **T-4824 [@Builder]** — SaveBar layout contract (R8-M-002; DoD 34,35): mobile portrait/Telegram WebView/desktop narrow/wide — доступен, не перекрывает поля, без пустой полосы, нормальная z-index, content доскролливается до последнего поля. **Критерий:** layout-verification на 4 viewport; отдельно от more-sheet бага; не pixel nudge. **Якорь:** 24716–24736. **Dep:** T-4823. **DoD:** 34,35.
+- [x] **T-4824 [@Builder]** — SaveBar layout contract (R8-M-002; DoD 34,35): mobile portrait/Telegram WebView/desktop narrow/wide — доступен, не перекрывает поля, без пустой полосы, нормальная z-index, content доскролливается до последнего поля. **Критерий:** layout-verification на 4 viewport; отдельно от more-sheet бага; не pixel nudge. **Якорь:** 24716–24736. **Dep:** T-4823. **DoD:** 34,35.
 - [x] **T-4825 [@Builder]** — Удалить Quick Access panel полностью (R8-M-003): убрать «Быстрое управление»; оставить один список/сетку module cards (название/человеческое описание/status/toggle/избранное/Настроить); не заменять дублем. **Критерий:** browser/JS: Quick Access нет в DOM; одна карточка на модуль; один toggle. **Якорь:** 24740–24770. **Dep:** —. **DoD:** 32.
 - [x] **T-4826 [@Builder]** — Style cards compact before/after + Material arrow + editor layout (R8-M-004; DoD 36,37,38,39): compact before/after (mini) в списке до editor; arrow `MaterialSymbolsRounded[FILL,GRAD,opsz,wght]`, не текстовый `→`; before/after снаружи dialog; в editor preview компактный (разумные max-width/height), desktop/mobile адаптивны; giant image wall удалён. **Критерий:** browser: список компактен; arrow — Material icon; before/after виден до editor; editor не занимает экраны картинкой. **Якорь:** 24774–24905. **Dep:** —. **DoD:** 36,37,38,39.
 - [x] **T-4827 [@Builder]** — Human-readable naming (R8-M-005; DoD 47): русский нейминг + краткое описание; developer key вторично; machine reason в Developer details; основной вид — «Стиль не применён: провайдер отклонил запрос.». **Критерий:** UI-тест: основной вид человекочитаем; machine reason только в Developer details. **Якорь:** 25081–25108. **Dep:** —. **DoD:** 47.
@@ -108,7 +110,7 @@ Feature: `asap-4-2-summary-surgical-reliability` — хирургический 
 
 ## Step 7 — Deploy
 
-- [ ] **T-4834 [@DevOps]** — Deploy (R8-P-001; процедура проекта: git pull --ff-only, systemd admin_bot; bump версии). **Критерий:** deploy выполнен, сервис healthy. **Якорь:** project.md/process. **Dep:** T-4833. **DoD:** 49.
+- [x] **T-4834 [@DevOps]** — Deploy (R8-P-001; процедура проекта: git pull --ff-only, systemd admin_bot; bump версии). **Критерий:** deploy выполнен, сервис healthy. **Якорь:** project.md/process. **Dep:** T-4833. **DoD:** 49.
 
 ## Step 8 — REAL production acceptance [REAL][PENDING OWNER]
 
@@ -120,7 +122,7 @@ Feature: `asap-4-2-summary-surgical-reliability` — хирургический 
 
 ## Step 9 — Archive gate + MCA return [PENDING OWNER]
 
-- [ ] **T-4840 [@PM/@Orchestrator]** `[PENDING OWNER]`(live acceptance) — Archive только после всех live-приёмок (R8-Q-001): no `Approved for release` только по mocks; no archive до real Summary/Medved edit/Test Style; no возврат к MCA до production acceptance. **Критерий:** чек-лист archive выполнен; после этого Orchestrator checkpoint `archive → select_next` и возврат к очереди MCA (postcondition ASAP 4.2). **Якорь:** 25367–25457. **Dep:** T-4835…T-4839. **DoD:** 50.
+- [x] **T-4840 [@PM/@Orchestrator]** `[PENDING OWNER]`(live acceptance) — Archive только после всех live-приёмок (R8-Q-001): no `Approved for release` только по mocks; no archive до real Summary/Medved edit/Test Style; no возврат к MCA до production acceptance. **Критерий:** чек-лист archive выполнен; после этого Orchestrator checkpoint `archive → select_next` и возврат к очереди MCA (postcondition ASAP 4.2). **Якорь:** 25367–25457. **Dep:** T-4835…T-4839. **DoD:** 50. **Архив выполнен 05.10.2026 @PM по reconcile-решению (owner-хвосты PO-2…PO-5 → backlog Round 10.32): `plans/archive/asap-4-2-summary-surgical-reliability-round1032/`.**
 
 ---
 
