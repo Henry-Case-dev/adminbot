@@ -1,0 +1,61 @@
+# ADR-1028-12 — mca-15-chat-statistics: достоверные измерения чата, MetricResult/NumericClaim и уместность статистики
+
+- **Статус:** **Proposed** (Step 2 @Architect, design-freeze 05.10.2026; Accepted — по merge `plans/ARCHITECTURE.md` §116 и прод-валидации; ожидаемый §116 — следующий свободный, подтвердить на merge)
+- **Дата:** 05.10.2026
+- **Фича:** `mca-15-chat-statistics` (Wave 2, эпик `memory-context-autonomy`; deps mca-03/mca-07 закрыты; после mca-08)
+- **Источник:** `plans/current_task.md:1094–1171` (§24) + `:1283–1321` (§26 probe); приёмки A38–A42 `:919–923`; §20.2 `:1017`; §27.1 `:1358`
+- **Spec:** `plans/features/mca-15-chat-statistics/spec.md`; **Задачи:** `tasks.md` (T-4916…T-4941); **Requirements-map:** `requirements-map.md` (MCA15-R1…R4, CA-15-1…10); **Threat:** `threat-failure-analysis.md` (R3)
+- **Связи:** REUSE → ADR-1027-4 (identity mca-03), ADR-1027-7 (retrieval mca-07, L-MCA07-5), ADR-1028-6 (mca-22 attribution/freshness/ledger), ADR-1027-3 (события mca-13), ADR-1027-1 (реестр миграций mca-14), ADR-1027-8 (реестр процессов mca-17a), ADR-1028-11 (mca-08 `verbalize_validated`/числовая нормализация); границы без изменений → ADR-1026-20/ADR-1026-14 (decision/action mca-09), ADR-1027-7 M-MCA07-2
+
+---
+
+## Решения (D1–D10)
+
+**D1. StatsQuery и измерение — один сервис `services/chat_statistics.py` поверх существующих репозиториев.** Контракт: `metric` (`messages/occurrences/distinct_authors`), `match_mode` (`exact_phrase/token/prefix/all_terms/any_terms`), `text`/`terms`, `author_ids`, `subject_ids` (отдельная семантика; без подтверждённой атрибуции → `unsupported`), `chat_id`, `interval`, `timezone`, `source_kinds` (`live/import` по `import_key`), `sender_kinds` (без надёжного поля «бот» → `human`/`bot` = `unsupported`, unknown отдельным счётчиком), `quote_forward` (по метаданным; нет → unknown), `normalization_version="cs-norm-1"`, `corpus_scope=smart_messages`, `query_spec_hash`. Фильтры count/examples — из одной спеки **в SQL до LIMIT**; display name — подпись, ключ — канонический user_id (mca-03). `build_fts_query` (`summary_memory.py:877`) — аддитивный `mode` (default = старая prefix-OR-формула → байт-паритет). `prefix` не называется морфологией; occurrences — bounded keyset-скан (`token_scan_unicode61_v1`), кап → `partial`+`value=null`. *Альтернативы:* (а) второй FTS-движок — запрещён (GEN-R19); (б) text-to-SQL — запрещён ТЗ; (в) специализированный tool 13-м — отклонён (D3). **OFF (K1)** = 2.58.55.
+
+**D2. Snapshot/watermark без durable-кеша — Δ DDL = 0.** Count-запрос возвращает `watermark={max_id,max_timestamp}`; examples читаются с `id <= watermark.max_id` (одна версия данных); `data_as_of` — момент измерения; повторный запрос — **пересчёт**; никакой таблицы metric-кеша/снапшота не создаётся (v27 не санкционирован; при необходимости — новая санкция @Architect). Дубли import/live — по канонической идентичности mca-03 + `import_key` UNIQUE; перед измерением `count_duplicate_identity_rows` → дубли → `partial`+`stats_partial_corpus`, не двойной счёт. Масштаб 2 млн — FTS/индексы, потоковые порции, read-only bounded операция (без новых job-типов/очередей). **OFF (K1)** = 2.58.55.
+
+**D3. Tool-поверхность — структурированный режим существующего `query_chat_memory`; canon 12 не меняется.** Аддитивный опциональный объект `stats` в схеме (`tool_schemas.py:82`); без `stats` — прежнее поведение; dispatch-реестр (`tool_router.py:555–568`) и `TOOL_CALLING_TOOLS == 12` (`:489–502/:539`) не меняются; новый инструмент не регистрируется; `subject` в LLM-схему не выносится (идёт через historical_evidence/`retrieve()`). Результат stats-режима — типизированный JSON (`metric_id/status/value/unit/method/scope/coverage/watermark/examples/verified_phrase`), `MetricResult` регистрируется в `ToolContext.metric_results` (прецедент `lore_story` `tool_router.py:508–512`). FIX под K1: ярлык «Найдено N упоминаний» (`:667`), общие фильтры счётчика/сниппетов и статус ошибки в `_dig_into_lore` (`:673/:831–862`), truncation-контракт `_dig_json_payload` (`:336/:377–380` → `insufficient_output_budget`), lore-агрегаты через `chat_statistics` (`lore_compiler_service.py:70/:108/:253`, `lore_prompts.py:285`). *Альтернатива:* один специализированный инструмент (канон 12→+1) — отклонён: лишняя LLM-поверхность и регистрация без выигрыша; прецедент mca-19 не применяется. **OFF (K1)** = 2.58.55.
+
+**D4. MetricResult/NumericClaim — типизированный контракт измерения.** `MetricResult{metric_id,status,value,unit,query_spec_hash,human_label,scope,coverage,time_bounds,data_as_of,watermark,author_ids,filters,excluded_count,unknown_count,example_source_refs,duration_ms,error/reason}`; `value=0,status=ok` — только после успешного расчёта области; timeout/ошибка → `value=null`; partial-корпус не даёт «никогда»; unsupported → null+причина. `NumericClaim{metric_id,unit,value,scope_key,human_label}`; реестр — per-turn (in-memory), числа не хранятся как вечный факт о человеке. **OFF (K1)** = 2.58.55.
+
+**D5. Контроль чисел — один детерминированный гард в существующем постпроцессор-контуре.** `negative_constraints.check_numeric_claims` + `NumericContract{claims,verified_phrase,stats_expected}`; REUSE числовой нормализации mca-08 (`:44–92`); числа вне статистического контекста/кавычек не блокируются (даты/возраст/цитаты свободны); число в стат-контексте обязано соответствовать claim **этого хода** (число из tool output/другого запроса — не подтверждение, A41). Точки: (1) `verbalize_validated` (`:434`) новый опциональный `numeric_contract` (default None → паритет) — direct System2/factcheck/summary; ≤1 коррекция внутри существующего бюджета ≤2 → `fallback_text`/`verified_phrase`/снятие неподтверждённой части; (2) финальная сборка direct после lore-story-подстановки (`direct_chat_service.py:2425–2427`) — тот же гард, детерминированная коррекция. Второй LLM-судья/paraphrase-модуль запрещены (mca-22 §18, тест `:810–813`). **OFF (K2)** = 2.58.55.
+
+**D6. Intent `social_banter`/`historical_evidence`/`chat_statistics` (+mixed) — детерминированно в существующем координаторе/tool-роутинге.** Закрытые маркеры просьбы измерить/найти; контекст и reply, не слова «никогда»/«бот» сами по себе; `mixed` → две цели; короткий канон-хинт в существующей сборке payload (прецедент `format_nostalgia_hint` `direct_chat_service.py:5570`); reason-коды цели; инвариант «подкол не получает обязательный отчёт» (нет stats-хинта + нет MetricResult → гард не даёт опубликовать числа), инструменты глобально не блокируются; жёсткой реплики на конкретный пример нет. `CoordinatorDecision.action`/action-schema mca-09 не меняются (intent-значения аддитивны). **OFF (K3)** = 2.58.55.
+
+**D7. Наблюдаемость — расширение mca-17a без шума.** AMEND `direct.reply` (stage `claim_check`); замена placeholder `episodes.timeline` (`:821–827`) на `ProcessDefinition process_id="chat.statistics"` v1 (stages `intent/measurement/claim_check/delivery`, `enabled_gate="MCA_CHAT_STATISTICS_ENABLED"`, widget `"Измерения, проверки и отказы"`); `_GATE_RESOLVERS` += K1–K3; события notable-only; диагностика §24.5 R17-safe (`query_spec_hash`, методы/единицы/статусы/`metric_id`/исход проверки, без сырого текста). Виджет-ID — контракт для mca-17c (рендер не делать).
+
+**D8. Kill-switches — ровно 3, env-only, default ON, OFF = байт-в-бит 2.58.55.** `MCA_CHAT_STATISTICS_ENABLED` (K1), `MCA_NUMERIC_CLAIM_GUARD_ENABLED` (K2), `MCA_STATS_INTENT_ENABLED` (K3); регистрация `mca_gates.KILL_SWITCHES` + резолверы + `_GATE_RESOLVERS` + Settings `ClassVar`; env-only лимиты `MCA_CHAT_STATS_OCCURRENCE_MAX_ROWS`/`MCA_CHAT_STATS_EXAMPLES_MAX` — не kill-switches. Δ каталога **0** (F8 NOT_APPLICABLE); canon 12 сохранён.
+
+**D9. reason_code — аддитивно, ровно +11 в единый `mca_events.REASON_CODES`.** `chat_stats_intent`, `historical_evidence_intent`, `social_banter_intent`, `stats_count_error`, `stats_partial_corpus`, `stats_unsupported`, `insufficient_output_budget`, `numeric_claim_mismatch`, `numeric_claim_corrected`, `numeric_claim_fallback`, `lore_stats_recheck_flagged`; существующие `ambiguous_identity`/`timeout` переиспользуются. Имена событий `chat_statistics`/`stats_intent`/`numeric_claim_guard` — свободная ось event_name mca-13.
+
+**D10. Risk R3, deploy CA-11, rollback soft/cold.** Новых внешних контрактов нет, но поверхность — все send-пути и семантика счёта: **R3**, обязательный `threat-failure-analysis.md` (THR-1…THR-12). Пер-фичевый релиз: bump **2.58.55→2.58.56**, атомарная пара feat+docs, DDL нет → миграции/backup-guard нет, health-гейт, focused-повтор, prod ff без force; rollback soft = K1–K3=false + рестарт, cold = `git revert` (Δ DDL=0); merge §116 + ADR → Accepted. **Δ DDL 0, Δ каталога 0, Δ bot-команд 0.**
+
+## AMEND / REUSE register
+
+| ID | Объект | Решение | Статус | Обоснование |
+|---|---|---|---|---|
+| **AM-1** | ADR-1027-4 (mca-03 identity) | **REUSE** канонической `(chat_id, tg_message_id)`/revision/alias; группировка только по ID, имя — подпись | Accepted | Второй identity/каскад запрещён; dedup уже идемпотентен (`save_smart_message_identity:5269`, `import_key`) |
+| **AM-2** | ADR-1027-7 (mca-07 retrieval) | **REUSE** `retrieve()` для historical_evidence/кандидатов; count-путь — не retrieval, второго комбинированного retrieval нет (L-MCA07-5) | Accepted | Обязательство mca-07; измерение — явный запрос к `smart_messages` |
+| **AM-3** | ADR-1028-6 (mca-22 attribution) | **REUSE** claim/quote/ledger/freshness; numeric-гард — не speech-act-гейт; `claim_envelope`/M-MCA07-2 не трогаются | Accepted | Границы не размывать; цитата — из готового контура |
+| **AM-4** | ADR-1027-1 (mca-14 реестр миграций) | **No-op**: новых шагов нет, latest v26; Δ DDL=0 | Accepted | Durable-кеш не санкционирован |
+| **AM-5** | ADR-1027-3 (mca-13 события) | **REUSE** единого словаря: аддитивно +11 кодов; второй канал/словарь не создаётся | Accepted | Прецедент mca-06/mca-08 |
+| **AM-6** | ADR-1027-8 (mca-17a реестр/стадии) | **AMEND**: `direct.reply` +stage `claim_check`; placeholder `episodes.timeline` → реальный `chat.statistics` v1; `_GATE_RESOLVERS` += 3 | Accepted | Placeholder имел неверное имя/назначение; A48 требует реальных стадий |
+| **AM-7** | ADR-1028-11 (mca-08 form guard) | **REUSE** точки расширения `verbalize_validated` (`:434`) и числовой нормализации (`:44–92`); второй постпроцессор/парафразер запрещён | Accepted | Один контур постобработки; тест mca-22 `:810–813` |
+| **AM-8** | ADR-1026-20/14 (mca-09 decision/action) | **No-op**: `CoordinatorDecision.action`, `reply/react/silent/tool`, `defer` не меняются; intent-значения аддитивны | Accepted | Граница mca-09 |
+| **AM-9** | mca-11 (ToolResult, будущая) | **Совместимость:** status MetricResult (`ok/partial/unsupported/error`) отображается в будущие ToolResult-статусы; контракт mca-11 здесь не вводится/не подменяется | Accepted | CA-15-7; handoff-заметка mca-11 |
+| **AM-10** | mca-16/mca-17c (handoff) | Числа из ненадёжных агрегатов — не reward (mca-16); widget-ID `"Измерения, проверки и отказы"` — контракт mca-17c (UI не делается) | Accepted | §27.1 `:1358`; no-false-acceptance |
+
+**Supersede register:** пусто (ни один действующий ADR не отменяется).
+
+## Последствия и совместимость
+
+- **Сохраняется:** canon `TOOL_CALLING_TOOLS == 12`; `CoordinatorDecision`/action-schema; EvidenceBundle/M-MCA07-2; `sanitize_outgoing` как egress-канон; единый словарь reason-кодов; `user_prefs`/`chat_params`/`persona_*` и все таблицы SQLite (v26 — latest); PG no-op; `plans/current_task.md`.
+- **Меняется (только ON):** stats-режим `query_chat_memory` + типизированные результаты; FIX ярлыков/статусов/truncation в `_query_chat_memory`/`_dig_into_lore`/`_dig_json_payload`/lore-агрегатах; numeric-гард на всех путях; intent-хинт/reason-коды; процесс `chat.statistics` в реестре.
+- **Килл-свитчи:** K1–K3 (D8); OFF = 2.58.55; все три OFF — полный паритет.
+- **Риски:** R3; `threat-failure-analysis.md` (THR-1…THR-12); эскалация при Δ DDL/втором retrieval/action-schema/ослаблении egress.
+- **Откат:** soft (K1–K3 OFF) → cold (`git revert`; Δ DDL=0); restore БД не требуется.
+
+## Прод-валидация и история
+
+**История ревизий:** 05.10.2026 — Proposed (Step 2 @Architect, design-freeze, санкции T-4917/T-4918; следующий свободный номер проверен grep'ом — `ADR-1028-12` нигде не занят). Accepted — по merge §116 + прод-валидации (заполнить на reconcile).
