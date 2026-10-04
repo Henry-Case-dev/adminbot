@@ -160,6 +160,20 @@ Runtime: `services/summary_memory.py`, `services/embedding_control_plane.py`, `s
 - Pre-fix RED (RC-C/RC-B/RC-D/RC-E) для полной цепочки: `7 failed, 5 passed` (см. §0).
 - Артефакты: temp-SQLite файл + CAS-файлы в `COVER_STYLE_ASSETS_DIR` (tmp) в рамках теста; evidence — этот файл + имена тестов.
 
+## 2a. F-N2 — skip-ahead issue allocation (live defect после live acceptance) — FIXED
+
+- **Defect (live repro)**: next=11 (counter=10), истории профиля уже заняты 11–13 → production `resolve_issue_number` инкрементил counter до 11 и падал на `UNIQUE(profile_id, issue_number)` (prod: `services/pg_db.py:454-455`); PG rollback → counter снова 10, run не получал номер (None).
+- **Pre-fix RED** (до правки): `.venv\Scripts\python.exe -m pytest tests/test_asap44_cover_final_closure.py -q -k "issue_allocation"` → `sqlite3.IntegrityError: UNIQUE constraint failed: cover_style_issue_assignments.profile_id, issue_number` + `assert None == 14` (`test_issue_allocation_skips_occupied_numbers`), `test_issue_allocation_picks_first_free_gap` green (candidate 11 свободен). Test shim теперь зеркалит prod unique-index (`tests/test_asap42_step3_style_integration.py::_SCHEMA`).
+- **Fix** (`services/cover_style_registry.py::resolve_issue_number`): после atomic `counter_value+1 RETURNING` — bounded skip-loop (`_MAX_ISSUE_SKIP_STEPS = 1000`) по занятым номерам от candidate до первого свободного; `counter_value = N'` (last_assigned) в той же транзакции; retry того же `summary_run_id` возвращает прежний N' (idempotent, проверяется до инкремента); занятые номера не переиспользуются; контракт `next_issue_number = counter_value + 1` не менялся (editor может показывать counter+1 — display не переделывался).
+- **Tests**: `test_issue_allocation_skips_occupied_numbers` (11–13 заняты → 14, counter=14, retry=14, next=15, UNIQUE не нарушен, Test Style counter не тратит, reload durable) + `test_issue_allocation_picks_first_free_gap` (12–13 заняты → 11).
+- **Counts после фикса** (worktree на базе deployed `329e6de` = prod 2.58.52; worktree-fingerprint F-N2 `32bc95bd` (git stash create); uncommitted delta — только `services/cover_style_registry.py` (F-N2) + shim/tests):
+  - `pytest tests/test_asap44_cover_final_closure.py -q` → **21 passed** (19 прежних, вкл. Z4 #11–13, + 2 F-N2).
+  - `pytest tests/test_extra_cover_style_registry.py tests/test_extra_cover_style_jobs.py -q` → **74 passed**.
+  - `pytest tests/test_asap43_cover_style_surgical.py tests/test_cover_styles_contract_asap32.py -q` → **26 passed** (shim-consumers).
+  - `pytest tests/test_asap42_step3_style_integration.py tests/test_asap42_step2c2_miniapp_seeds.py -q` → **27 passed** (shim со встроенным prod unique-index).
+  - Pre-fix RED зафиксирован до правки (см. выше); полного suite нет; paid-вызовов нет.
+- **Deploy**: фикс НЕ задеплоен (prod 2.58.52 без skip-ahead) — требуется deploy этого дельта-кандидата перед Canary B re-run (§11.2.2/§11.3).
+
 ## 3. Canary A — live Test Style (§3, T-4887) [REAL]
 
 - Job id / timings: —
@@ -215,3 +229,151 @@ Runtime: `services/summary_memory.py`, `services/embedding_control_plane.py`, `s
 ## 10. Финальный отчёт (§12, T-4890)
 
 - Ссылка/файл отчёта: —
+
+---
+
+# 11. LIVE ACCEPTANCE (T-4887–T-4889, 05.10.2026, прод 2.58.52)
+
+Среда: `https://admin-bot.duckdns.org` (198.46.175.136), APP_VERSION **2.58.52**
+(feat `09fd5a8`), PID 3651908, `/healthz` 200, NRestarts=0. Admin MiniApp —
+серверный TMA initData (admin 5885953495; R17: значение не печаталось, файлы
+удалены). Локально: Chromium+host-resolver MAP (локальный DNS-резолвер барахлил;
+TLS/SNI без изменений). Код не менялся, конфиг не менялся кроме одного UI-шага
+(ниже).
+
+## 11.0 Предусловие через РЕАЛЬНЫЙ UI (шаг 0)
+
+- До: next=14 (counter_value=13), revision=5, пара rev 5 валидна
+  (before `cas_d2ae85e7…`, after `cas_272acc62…`).
+- Действие: MiniApp → редактор Medved Press → «Следующий номер» = **11** →
+  «Сохранить стиль» → `POST /api/cover/styles?style_id=medved_press` **200**
+  (тело `next_issue_number: 11`).
+- После: **next=11, internal counter_value=10**, **revision 5→6**,
+  пара: `preview_revision=5`, before/after = **null**, `preview_stale=true`,
+  source «Пример» — rendering-affecting Save инвалидировал прежнюю пару (§6#9);
+  UI «Предпросмотр: ВЫПУСК 11».
+- Побочно: два случайных no-op Save драйвера (гонка meta-reload, тело с next=14)
+  — revision НЕ менялся, пара оставалась валидной (живое подтверждение no-op
+  invariant). Финальный Save — уже с 11 (см. выше).
+
+## 11.1 Canary A (T-4887) — **PASS**
+
+Один реальный Test Style через MiniApp (Playwright 390×844), job
+`cov_77f2347eec7d85e6b3a15f93`, correlation `cover_test_9ba4766438bc`,
+completed **16:17:23 UTC**, `style_revision=6`.
+
+| Критерий §3 | Факт |
+|---|---|
+| POST start быстрый | 200 (клиент сразу перешёл к polling; точный body/мс потерян при падении драйвера, см. примечание) |
+| durable job completed | статус completed, `preview_status=success`, `preview_revision=6` |
+| base реально сгенерирована | `[image] generated` 16:16:09, **758 209 B**, 57.6 с |
+| `preview_before_asset_id` в DB registry | строка `cas_fad658b317783096515eabab8e6f2f5d` (test_base.png, generated_preview, 758 209 B, 16:16:09) |
+| GET before = 200 + image | 200 / 758 209 B, sha256[:16] `fad658b317783096` (bytes == log) |
+| styled asset существует | `cas_14d161eab7539d93838a64794a59067e` (preview_style.jpg, 1 516 792 B, 16:17:23) |
+| GET after = 200 + image | 200 / 1 516 792 B, sha256[:16] `14d161eab7539d93` |
+| UI одновременно before+after | оба blob 1024×1024, complete; source «Результат теста» |
+| styled image содержит `ВЫПУСК 11` | артефакт `canary_a44_after.jpg` (styled) **лично осмотрен**: на обложке «ВЫПУСК 11», логотип Медведь Press (reference), PERMsoc, comic-стиль; «00» нет |
+| Test Style не меняет next | next=11 / counter=10 до и после; assignments не пополнились (последняя запись — issue 13 от 13:08) |
+| effective provider/model + capability state | «Модель обработки: nano-gpt.com / qwen-image-3-pro · маршрут: image_api»; «Лимит инструкции: не публикуется (источник: unknown)»; «Режим: sync»; manual override отсутствует (owner §2 — так и должно быть) |
+| нет `Failed to fetch` | нет; console errors 0 (follow-up-сессия) |
+| нет generic `bad_request` | нет; prompt 597 chars, edit 2xx |
+| no-op Save не уничтожает pair | POST 200 с теми же полями → revision 6 (не менялся), пара цела (те же ids, `preview_revision=6`, `preview_pair_valid=true`) |
+| закрыть/открыть editor → та же pair | next=11, те же ids, оба изображения на месте, source «Результат теста» |
+
+Reference: `reference_bytes_total=475189` (medved_press.png) в SUBMITTED-логе;
+UI reference asset GET 200.
+
+Примечание (честно): первый драйвер упал на скачивании артефактов
+(локальный DNS: `APIRequestContext` не использует host-resolver-rules Chromium)
+**уже после завершения paid job**; сырой POST/poll JSON потерян. Доказательства
+собраны durable-статусом + повторной **бесплатной** UI-сессией (просмотр пары,
+no-op Save, reopen) — второго paid-прогона не было.
+
+## 11.2 Canary B (T-4888) — **FAIL / не завершён** (2 причины + text-finding)
+
+Попытка реального production-прогона: internal runner — точное зеркало wiring
+`bot.py` (`ConfigCache` → `ChatParamsCache` → `DatabaseService` → `LLMClient` →
+`AliasResolver` → `MemoryManager` → `SummaryGenerator`,
+`generate_and_send(chat, manual=True)`), run_id
+`f3f263b1601c4f3cb285749bce8f94ba` (16:21:55→16:31:18). Публикация состоялась:
+`PUBLISH_RICH_COMPLETE message_id=1133207`, но
+`COVER_PIPELINE_DONE status=base fallback=style_failed` — **base fallback**.
+
+1. **Причина окружения запуска (не продукт)**: style-стадия
+   `COVER_STYLE_FAILED reason=reference_missing` (745 мс) — процесс запущен от
+   `nik`, а `/var/www/admin_bot/var` = `drwx------ root` (`User=root` у сервиса),
+   reference-файл не читается. В bot-процессе (root) цепочка работает: Canary A
+   в bot-процессе, прогон 13:08 (`reference_count=1, reference_bytes_total=475189`).
+   Реальный триггер — `/summary` владельца (Telegram) или раннер от root; из
+   моего доступа root-запуск невозможен (`sudo -n -l`: только
+   systemctl/journalctl admin_bot).
+2. **Live-дефект counter allocation (candidate fix, НЕ задеплоен)**: при next=11
+   (counter=10) новый production run **не может получить issue 11** — исторический
+   assignment 11 принадлежит run `d2ccb769…` (07:13), а
+   `idx_cover_style_issue_unique` UNIQUE(profile_id, issue_number) отклоняет
+   INSERT; `resolve_issue_number` глотает `UniqueViolation` и возвращает **None**
+   (репро read-only: `resolve_issue_number(medved_press, f3f263b…) -> None`;
+   `Key (profile_id, issue_number)=(medved_press, 11) already exists`; counter
+   после отката = 10). Следствие: критерии «run получает 11 / retry=11 /
+   next=12» на проде в текущем состоянии недостижимы (unit-лестница 11→11→12
+   валидна только на чистом профиле). Нужен fix/решение (skip-ahead до
+   свободного номера: 11–13 заняты → 14; либо решение об уникальности) →
+   re-review; затем Human Gate: владелец шлёт `/summary`.
+3. **Text-контур**: L2 writer `status=invalid invalid_reason=invalid_paragraph`
+   (paragraphs=0) → `L2_ERROR` → `LEGACY_FALLBACK l2_unusable` (16:28:41,
+   calls_so_far=2 — review/revision не запускались). Причина конкретная; runtime
+   `summary_l2_writer.py` этим пассом не менялся (в `09fd5a8` — только тест
+   writer'а) → это **не** механизм Z5 targeted-revision; при повторе —
+   отдельный follow-up по output-контракту writer'а.
+
+Незакрытые критерии: issue 11 и 11/11/12; styled-публикация; Inspector-факты по
+styled (provenance не создавался: `reference_missing` до edit).
+
+## 11.3 GraphRAG live repro (T-4889) — **PASS (живой breaker)**
+
+- Cooldown живой: quota group `unknown`, state `EmbeddingGroupCoolingDown`,
+  `next_allowed_at=2026-10-05 00:05 UTC` (parked kind=spend, est=utc_day_end).
+- Во время canary-B прогона batch-breaker сработал РОВНО один раз (16:25:37):
+  `embedding unavailable for batch … facts_text_only=22 | dedup_vector_skipped=21`
+  (state=`EmbeddingGroupCoolingDown`, next_allowed_at), `saved=22 skipped=0` —
+  все 22 факта text-only, 0 повторных network-embed-попыток на факт, 0 stacktrace.
+- Before→after (journal сервиса): 06:00–15:45 (до деплоя) —
+  `embed failed — fact saved text-only` = **79**, `graphrag dedup: embed failed`
+  = **77** (~156 per-fact warnings); 15:45:33→now (после деплоя) — **0 / 0**;
+  batch-WARN = 1 (см. выше). В runner-логе: 0/0 per-fact.
+- Quota topology (`GET /api/memory/embeddings`, без секретов):
+  provider `generativelanguage.googleapis.com` / `gemini-embedding-001`,
+  credentials=3 (aliases primary/fallback_1/fallback_2 — без ключей),
+  quota_groups_total=1, known=0/unknown=1, display «не определены»,
+  rotation.status=none, groups=["unknown"], degenerate=true, hint про
+  `keys.embedding_quota_group_labels`; groups[]: state=exhausted,
+  next_allowed_at (см. выше).
+- Примечание: раннер на старте выполнил идемпотентный ConfigCache init
+  (DDL `IF NOT EXISTS` + seed `ON CONFLICT DO NOTHING` — как при boot бота;
+  Δ схемы/данных нет).
+
+## 11.4 Логи (только вокруг ids, R17-safe)
+
+```
+16:16:09 image_generation: [image] generated | mode=post | model=qwen-image-3-pro | bytes=758209 | latency_ms=57645
+16:16:09 cover_style_jobs: COVER_STYLE_SUBMITTED | prompt_len=597 | reference_count=1 | reference_bytes_total=475189 | issue_present=True | edit_route=image_api | limit_source_taxonomy=unknown | capability_source=unknown
+16:17:23 cover_style_jobs: COVER_STYLE_SUCCEEDED | style_revision=6 | status=success | duration_ms=74466   (Canary A)
+16:21:55 summary_run_log: SUMMARY_START | run_id=f3f263b1601c4f3cb285749bce8f94ba | mode=hybrid_l2 | manual=True
+16:25:37 summary_memory: graphrag memorize: embedding unavailable for batch … facts_text_only=22 | dedup_vector_skipped=21
+16:28:41 summary_l2_writer: L2_COMPLETE | status=invalid | invalid_reason=invalid_paragraph
+16:28:41 summary_generator: L2_ERROR … LEVEL-3 legacy fallback → LEGACY_FALLBACK l2_unusable
+16:31:16 cover_style_jobs: COVER_STYLE_FAILED | reason=reference_missing | fallback=style_failed  (runner as nik)
+16:31:18 summary_run_log: PUBLISH_RICH_COMPLETE | message_id=1133207
+16:31:18 cover_style_jobs: COVER_PIPELINE_DONE | fallback=style_failed | status=base
+```
+
+## 11.5 Осталось / рекомендации
+
+- **Fix/decision по аллокации** (п. 11.2.2) → re-review → Canary B через
+  Human Gate (`/summary` владельца). До этого styled-публикация не проверена.
+- **Writer `invalid_paragraph`** — отдельный follow-up (не Z5; повторить при
+  следующем live-прогоне).
+- Остальное — T-4890 (отчёт владельцу, архив, MCA).
+
+R17: секреты/initData/промпты/raw text не печатались; initData-файлы удалены;
+байты изображений — только локальные артефакты + sha/len.

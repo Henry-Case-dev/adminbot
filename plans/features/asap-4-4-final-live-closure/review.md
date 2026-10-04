@@ -98,3 +98,21 @@ WTH recipe (Reviewer-generated, 1:1 конвенция 4.3): заголовок 
 Обновлённый биндинг: `plans/reports/asap44_wth_manifest_review.txt` — HEAD `04e615da9b9e03d056658ca7f02cc334089b4fec` | files=80 | generated=20261005T032942Z | sha256(manifest)=75E9AEAD96F64B9D0F8BA67DA67ECA3F64C63CE00409BECC608418F773F7C0F1. Аддендум пере-привязывает кандидата: предыдущий манифест устарел.
 
 **Вердикт не меняется: Approved.** Live-канарейки §9 остаются обязательными (T-4886…T-4889).
+
+## 9. Дополнение — F-N2 закрыт (recheck skip-ahead, 05.10.2026)
+
+Дельта на базе deployed `329e6de` (prod 2.58.52; вся 80-файловая reviewed-state 4.4 зафиксирована коммитами `09fd5a8`/`1a6b5ba` и задеплоена). Builder изменил ровно 4 файла (проверено по diff HEAD + манифест-сверке):
+1. `services/cover_style_registry.py::resolve_issue_number` — skip-ahead: atomic `counter_value+1 RETURNING` (row-lock PG сериализует параллельные allocations) → bounded loop (`_MAX_ISSUE_SKIP_STEPS=1000`) по занятым номерам до первого свободного N′ → `counter_value = N′` (last_assigned) той же транзакцией; retry того же `summary_run_id` — прежний N′ (проверка до инкремента); cap исчерпан → откат increment (counter не расходуется) + WARN, None; занятые номера (и ниже counter) не переиспользуются. Логика минимальна; контракт `next_issue_number = counter_value+1` и save-N/Test-Style-no-spend не менялись. PG-concurrency: сериализация на row-lock делает окно между чтением occupied и INSERT безопасным; revert-cap-percansummed безопасен по той же блокировке.
+2. `tests/test_asap42_step3_style_integration.py` — shim-DDL + `UNIQUE INDEX (profile_id, issue_number)` = зеркало prod (fidelity; не construction-new).
+3. `tests/test_asap44_cover_final_closure.py` — +2 теста F-N2 (helpers `_assign_issue`/`_fetch_assigned_numbers`): фикс (Test Style counter не тратит, reload durable).
+4. `plans/features/asap-4-4-final-live-closure/evidence.md` — §2a (pre-fix RED, counts) + §11 live-acceptance лог (docs-only).
+Вне дельты (пре-existing backlog churn, вне биндинга): `plans/docs/mca-round1027-arch-frames.md`, `plans/metrics.md`, `plans/workflow_state.md` (Orchestrator).
+
+Проверка Reviewer (самостоятельно):
+- asap44 cover-файл: **21 passed** (19 прежних + 2 F-N2).
+- registry+jobs: **74 passed**; 4.3 delta + contract: **26 passed**; shim-consumers (step3 + step2c2): **27 passed**; общий прогон всех 6 файлов единой командой → **127 passed** (= 74+26+27, совпадает с Builder).
+- RED spot-check: worktree на чистом `329e6de` + копия нового тест-файла → `test_issue_allocation_skips_occupied_numbers` **FAILED (:381 — allocation вернул занято-вперёд 11, механизм live-дефекта)**; `test_issue_allocation_picks_first_free_gap` passed (candidate 11 свободен; green допустимо pre-fix). RED подтверждён вне Builder-прогона. worktree удалён.
+
+Обновлённый биндинг: `plans/reports/asap44_wth_manifest_review.txt` — HEAD `329e6deae31345b6cb6f8fb5943277547e6ed0ad` | files=6 | generated=20261005T045310Z | sha256(manifest)=EB02F3E9E9492B869270D0D64045F5463E4466629F5840275F3405B7CB24B897. Формат/рецепт прежние (header + CRLF `path|size_bytes|SHA256`); файлы: registry + 2 теста + 3 пакачечных док (всегда bound); остальная reviewed-state — в коммитах/деплое `09fd5a8`/`1a6b5ba`. Аддендум пере-привязывает кандидата.
+
+Вердикт остаётся: **Approved**. ПРИМЕЧАНИЕ ДЛЯ ОРКЕСТРАТОРА/DEVOPS: фикс F-N2 НЕ задеплоен (prod 2.58.52 без skip-ahead) — deploy этой дельты перед Canary B re-run (per evidence §2a); live Canary A/B/GraphRAG отчёты §11 теперь в evidence — их полная сверка остаётся за Z10-gate.
