@@ -1,6 +1,6 @@
 # ADR-1028-9 — mca-06-sleep-paradigms: сон, глубокий сон и изменяемые убеждения
 
-- **Статус:** Accepted (docs-этап; binding на реализацию — Step 2 @Builder по spec ниже; переутверждение не требуется, пока изменения идут через правки этого ADR + spec)
+- **Статус:** Accepted (ратифицирован merge `plans/ARCHITECTURE.md` §113 + прод-валидацией 2.58.49, 04.10.2026)
 - **Дата:** 03.10.2026
 - **Фича:** `mca-06-sleep-paradigms` (Wave 2, эпик `memory-context-autonomy`; after mca-04a/mca-17a/mca-05/mca-22/ASAP-4.1)
 - **Источник:** `plans/current_task.md:336–382` (§10 + §10.1 п.1–8); приёмки A14, A91–A94
@@ -52,3 +52,18 @@
 - **Kill-switches:** 7 env-only default-ON, послойный OFF = бит-в-бит 2.58.47 (spec §11.1); Δ каталога = 0 (новые настройки env-only вне каталога — прецедент ASAP-4.1; открытый вопрос `mca-round1027-plan.md:404` закрыт положительным «0» — F8-переиздание NOT_APPLICABLE).
 - **Риски:** `threat-failure-analysis.md` THR-1…THR-15 (R3); остаточные — компенсированы отчётом прогона и bounded-очередью пересмотра.
 - **Откат:** soft (7 рубильников) → cold (`git revert`; v25 аддитивна, старый код не читает); restore БД — аварийный сценарий.
+
+## Прод-валидация и история
+
+**Релиз 2.58.49 (04.10.2026, VERIFIED):** feat `7fc2e39` (57 файлов) + docs `04b5fdd` — атомарная пара; прод `git pull --ff-only` fast-forward `b4dcb34..04b5fdd` без force; рестарт 07:24:46 UTC (Main PID 3542156, NRestarts=0); health `{"status":"ok","version":"2.58.49"}` 200 (localhost + внешний). Полная фактура — `deployment.md` (VERIFIED).
+
+- **DDL v24→v25 аддитивно через реестр mca-14:** fail-closed backup-guard `pre_migration_20261004_072506.db` (1.31 GB) + read-back ok ДО миграции; добавлены nullable `mca_pipeline_runs.chat_id`, `report_json` + `idx_mca_pipeline_runs_chat` (`CREATE INDEX IF NOT EXISTS`); `PRAGMA user_version = 25`, `schema_migrations` last = `(25, 'dream_run_reports')`; PG no-op.
+- **Effective-config (T-4733):** 7 `MCA_DREAM_*` kill-switches live = кодовые default ON; `.env` — 0 вхождений, systemd `Environment` — 0 оверрайдов. Лимиты mca-06 (prelimit=4, topic_packets=3, enrich rounds=2/batch=50, global=30, per-chat=1, backoff 3600/86400, queue cap=20) на дефолтах. Классический сон: `DREAM_ENABLED=True`, `DEEP_SLEEP_ENABLED=True`, `DEEP_SLEEP_TRIGGER=after_sleep`, `DEEP_SLEEP_HOUR=7`.
+- **Безопасность/наблюдаемость:** `/api/memory/dream/chain` unauth → 401; R17-скан журнала + логов = 0 хитов; ERROR/CRITICAL/Traceback = 0 (07:25→07:50); ConfigCache **5/5** CONFIGURED (last4).
+- **Тесты:** ladder/parity на прод-venv (mca-06 + соседи) — **351 passed / 0 failed**; F8 — **488 CHECK OK** EXIT=0; полный детач-pytest (пост-bump, вкл. fix param-registry) — **11298 passed / 0 failed**; JS 55/55.
+- **Browser smoke (Playwright, unauth-поверхность):** desktop 1280×800 + mobile 390×844 — 0 JS-ошибок; `.more-sheet`/`.module-quick-wrap` отсутствуют в DOM; `?v=2.58.49` cache-bust live.
+- **Откат:** soft — 7 `MCA_DREAM_*_ENABLED=false` + рестарт (OFF = бит-в-бит 2.58.48); cold — `git revert` до `04b5fdd`/`7fc2e39` (v25 аддитивна, старый код nullable-колонки не читает); restore-якорь — `pre_migration_20261004_072506.db` (аварийный, R18).
+
+**NOT_VERIFIED / PENDING OWNER (no-false-acceptance, THR-15):** живой `sleep.deep`-прогон на проде (run-row + `report_json` §7.2) НЕ выполнен — требует платных LLM-вызовов и окна `DEEP_SLEEP_TRIGGER=after_sleep` (~02:30 UTC); на момент проверки `pipeline_type counts = []`. **Owner-сверка окна/бюджета обязательна.** Хвосты: episodes pool = 0 (mca-05 live-извлечение не запускалось — owner-scope); браузерный рендер chain-UI (карточка delta) — зона mca-17c (doc-only для mca-06).
+
+**Ревью:** round-2 **Approved for release** (WTH-2 пин `02D5160D1783D77C…`); реализованный код `7fc2e39` соответствует ревью-манифесту; post-prep WTH `6D6DD01F…` (71 файл; self-reference doc-drift рецепта — документирован в `plans/reports/full_audit_results.md`). Правки reconcile — docs-only, вне продуктового дерева: **approval ревью не инвалидирован**.
