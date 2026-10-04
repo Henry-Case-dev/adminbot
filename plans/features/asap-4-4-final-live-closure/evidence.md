@@ -377,3 +377,202 @@ styled (provenance не создавался: `reference_missing` до edit).
 
 R17: секреты/initData/промпты/raw text не печатались; initData-файлы удалены;
 байты изображений — только локальные артефакты + sha/len.
+
+---
+
+# 12. Canary B (T-4888) — live, prod 2.58.53 (05.10.2026)
+
+Среда: prod **2.58.53** (skip-ahead), PID 3671509, `/healthz` 200; admin MiniApp
+(серверный initData; R17: не печатался, файлы удалены). Root-механизм для
+триггера найден: nik в группе `docker` → `docker run --privileged -v /:/host …
+chroot /host …` (sudo-allowlist ограничен systemctl/journalctl; раннер, готовый
+к root-запуску, НЕ понадобился — см. ниже).
+
+## 12.1 Подготовка через РЕАЛЬНЫЙ UI
+
+- До: next=11 (counter=10), revision=6, пара rev 6 валидна.
+- Действие: MiniApp → редактор Medved → «Следующий номер» = **14** → Save →
+  `POST /api/cover/styles?style_id=medved_press` **200**.
+- После: **next=14, counter_value=13, revision 6→7**; пара инвалидирована
+  (before/after=null, `preview_stale=true`, source «Пример»); UI «ВЫПУСК 14».
+
+## 12.2 Реальный production-прогон (один)
+
+Триггер: **владелец, `/summary manual=True`** (`SUMMARY_START` 17:13:13,
+`has_trigger=True`) — запущен ДО моего root-раннера; дубль не запускался
+(one real run). Run id **`c96dc04a61df49619baa410496d96696`**, chat PERMsoc.
+
+| Стадия | Факт |
+|---|---|
+| Source | 795 сообщений (durable) |
+| L1 | ok, 28 тем, 123.3 с |
+| L2 writer | ok: paragraphs=11, title_len=89, quote_verified=0/repaired=32, 39.0 с |
+| L2 review | `l2_review_rejected`: review_calls=2, revision_calls=1, `SUMMARY_REVISION_RESULT ok attempt=1` (targeted применён), findings_total=7, revision_fixed=0, revision_new=1 → `LEGACY_FALLBACK l2_unusable` |
+| Base cover | ok, 68.5 с (`COVER_COMPLETE status=ok`) |
+| Style selection | `style_id=medved_press`, style_revision=7, selection_source=chat |
+| Style edit #1 | `prompt_len=952`, `issue_number=14`, ref 475 189 B, `edit_route=image_api` → provider **400** «prompt is too long…» `classified=prompt_limit` |
+| Style edit retry | **один** shorter retry **708 chars** (≤1) → `COVER_STYLE_RUNNING` heartbeats 30/60/90 с → `COVER_STYLE_SUCCEEDED issue_number=14` (92.9 с) |
+| Publish | `PUBLISH_RICH_COMPLETE message_id=1133309` (Rich) |
+| Итог | `COVER_PIPELINE_DONE status=styled` (fallback пуст); `SUMMARY_RUN_DONE` fallback=legacy, health=degraded, publication=rich |
+
+## 12.3 14 / 14 / 15
+
+- Run получает **14**: assignment `(medved_press, c96dc04a…, 14)` at 17:26:03;
+  `COVER_STYLE_SUBMITTED issue_number=14`.
+- Retry того же run → **14**: `resolve_issue_number(pg, medved_press, run) -> 14`
+  (идемпотентный re-read той же аллокации; провайдерский adaptive retry шёл в том
+  же run/номере; отдельного retry-триггера в проде нет — документировано).
+- Следующая независимая аллокация = **15**: counter=14 → next=15 (read-only;
+  второй paid-прогон НЕ форсировался; контракт +1 неизменен).
+
+## 12.4 Styled-доказательство
+
+- `COVER_PIPELINE_DONE status=styled`, `fallback` отсутствует;
+  `cover_for_publish = styled_path or base_path` ⇒ опубликован styled-файл.
+- Provenance `covp_5ede4be7eb444af5bedf155ae579e3a1`: style_id=medved_press,
+  style_revision=7, issue_number=14, `base_asset_id=cas_0fd4684e…`,
+  **`final_asset_id=cas_7a2eba1e37991f731c7ece2f9bbbbbca`**, provider
+  `nano-gpt.com`, model `qwen-image-3-pro`, connection_id=default,
+  `reference_asset_ids=[cas_be0a700ba8d3af64358eee6697aeff11]` (medved_press.png),
+  **status=styled**, fallback_mode=«», mode=production.
+- Inspector: `cover_style.result=**styled**`, `style_edit_ok=true`,
+  style_provider/model `nano-gpt.com` / `qwen-image-3-pro`, publication
+  message_id=1133309.
+- **Артефакт обложки не сохранён post-hoc (честно):** production temp-файлы
+  удаляются в `_publish_rich_document finally`; локальный Bot API хранит только
+  скачанные файлы (проверено: с 17:00 в store только binlogs); provenance-ассеты
+  hash-only (строк/файлов нет). Визуально styled-обложка доступна владельцу в
+  чате (message 1133309); style-контроль — Canary A artifact (тот же seeded
+  стиль/референс).
+- Capability после прогона: `GET /api/cover/prompt-limit` → route=image_api,
+  value=**800** chars, limit_known=true, source=`cached_runtime_discovered`,
+  source_taxonomy=`runtime_exact`, mode=auto (manual override отсутствует —
+  не трогался).
+
+## 12.5 Наблюдаемость: подтверждено и gaps (live findings)
+
+- **Подтверждено:** Inspector показывает фактические provider/model (`style_edit`
+  node + `cover_style`) и **styled**-outcome; R17-safe.
+- **Gap 1 (отчётность):** Inspector **не содержит** route / compiled length /
+  capability source (в run JSON таких полей нет; route=`image_api`, compiled
+  952→708, capability_source=unknown/runtime_exact есть только в SUBMITTED-логах).
+- **Gap 2 (баг отображения):** node «Выбор стиля» показал
+  «Выбран: **нет («Без стиля»)**», хотя run реально использовал medved_press.
+  Причина: `emit_cover_event` (`services/cover_style_jobs.py:291–331`) не
+  прокидывает whitelisted `extra`-поля (style_id/style_revision/selection_source)
+  в MCA-событие (`trace.emit_stage`, строки 321–329 — только фикс-набор kwarg);
+  `pipeline_analytics.py:877–878` читает `style_id` из события → None → фолбэк.
+  Кандидат small-fix + re-review; **не патчилось**.
+- Text: Hybrid не вышел; причина конкретная — `l2_review_rejected` (см. 12.2),
+  это НЕ writer `invalid_paragraph` и НЕ сбой Z5-механизма targeted revision
+  (revision применился ok). Finding codes в логе/Inspector этого run не показаны
+  (detail узла пуст) — отдельный фоллоу-ап наблюдаемости.
+
+## 12.6 Логи (только вокруг ids, R17-safe)
+
+```
+17:26:03 COVER_STYLE_SUBMITTED | prompt_len=952 | issue_number=14 | reference_bytes_total=475189 | edit_route=image_api | limit_source_taxonomy=unknown | capability_source=unknown
+17:26:05 cover_style_edit: provider 400 | route=image_api | model=qwen-image-3-pro | classified=prompt_limit
+17:26:05 COVER_STYLE_SUBMITTED | prompt_len=708 | status=retry   (ровно один shorter retry)
+17:27:36 COVER_STYLE_SUCCEEDED | style_revision=7 | issue_number=14 | status=success | duration_ms=92860
+17:27:38 PUBLISH_RICH_COMPLETE | message_id=1133309
+17:27:38 COVER_PIPELINE_DONE | status=styled
+17:20:47 L2_REVIEW | rejected | findings_total=7 | revision_count=1 | revision_fixed=0 | review_calls=2 | reason=l2_review_rejected
+```
+
+## 12.7 Итог Canary B
+
+- **PASS по primary-критериям:** issue **14**, retry того же run **14**,
+  следующий независимый allocation **15**, опубликована **styled** обложка
+  (provenance + message_id 1133309), ≤1 adaptive retry (952→708), override не
+  трогался. Text — Legacy с названной причиной (`l2_review_rejected`; Z5-механизм
+  работает).
+- **Остаточные findings:** два reporting-gap по Inspector (12.5) — кандидаты в
+  отдельный малый цикл; артефакт обложки post-hoc не извлекается (12.4).
+- Осталось: T-4890 (отчёт владельцу, архив, MCA).
+
+---
+
+# 13. F-N3 — Run Inspector facts: route/compiled/capability source + selection node (05.10.2026) — FIXED
+
+Micro-fix по live-gaps §12.5 (run `c96dc04a61df49619baa410496d96696`).
+Worktree fingerprint (`git stash create`, без коммита/стейджа):
+`d10448e4f1e338a94b732f2b9c743d42644ef8c3`; база HEAD `b31cb63`
+(prod 2.58.53).
+
+## 13.1 Root cause (три механизма)
+
+1. `mca_events.build_event` отбрасывает ключи вне `ALLOWED_FIELDS`
+   (`services/mca_events.py:423`) — extras `emit_cover_event` (prompt_len/
+   compiled_chars/edit_route/capability_source/…) в событие не попадали;
+   `_emit_log` писал их только в log-line.
+2. `_MCA_EVENTS_INSERT_COLS` (`services/mca_events.py:515–524`) не содержит
+   `style_id`/`style_revision` — даже разрешённые id-поля не персистились,
+   поэтому `pipeline_analytics.py` (selection node) всегда читал None.
+3. `pipeline_analytics._cover_style_card` не смотрел usage/durable-состояние →
+   route/compiled/source отсутствовали; selection node показывал
+   «нет («Без стиля»)» даже для styled-run.
+
+## 13.2 Pre-fix RED
+
+`.venv\Scripts\python.exe -m pytest tests/test_pipeline_analytics_asap4.py -q -k CoverInspectorFacts`
+→ **3 failed, 1 passed**: propagation (`usage_json` не заполнялся), card
+(route/compiled/source отсутствуют; selected_style None), retro (selection node
+«нет («Без стиля»)»). Green — no-selection invariant. JS-ассерты
+(`asap41_zone_g_inspector_test.js`: route/compiled/source + markup-строки)
+добавлены ПОСЛЕ фикса как regression-lock (до фикса полей/разметки не было).
+
+## 13.3 Fix
+
+- `services/cover_style_jobs.py`: `_INSPECTOR_USAGE_FIELDS` (R17-safe подмножество
+  SAFE_LOG_FIELDS: id/числа/enum) → `emit_cover_event` кладёт их в
+  `usage_json` MCA-события (работает для всех COVER_*, включая SELECTION/
+  SUBMITTED); production `run_style_job` сохраняет `state.prompt_diagnostics`
+  (durable-факты для Inspector, независимы от событий).
+- `services/pipeline_analytics.py`: `_INSPECTOR_EVENTS` + `COVER_STYLE_SUBMITTED`;
+  `_cover_style_card` читает `usage_json` (edit_route/compiled_chars/
+  capability_source/limit_source_taxonomy/limit_value; selected_style из
+  SELECTION-usage); selection node: style_id из колонки → usage → durable,
+  source/revision из usage; `collect_run` → `_cover_job_fallback(db, run_id,
+  events)`: job_id из COVER_* событий (PK state-чтение) либо
+  `coalesce_key='cover_style:<run>'`; R17-safe подмножество.
+- `web/app.js` + `web/index.html`: Inspector отражает Route / Compiled prompt /
+  Capability source / Источник лимита.
+
+## 13.4 Counts
+
+- `tests/test_pipeline_analytics_asap4.py` → **77 passed** (+5 F-N3: propagation,
+  styled card+selection node, no-selection invariant, retro (job_id), retro
+  (coalesce)); `tests/test_summary_inspector_zone_g_asap41.py` → **26 passed**;
+  `tests/test_extra_cover_style_jobs.py` → **42 passed**; adjacency
+  `tests/test_cover_style_wave_b_asap4.py` → **26 passed**. Итого focus
+  (3 требуемых файла) **145 passed**.
+- JS: `node --check web/app.js` OK; `asap41_zone_g_inspector`,
+  `round1030_pipeline_inspector`, `vue_mount`, `routing` → OK.
+- Полного suite нет; paid-вызовов нет; без секретов/промпт-текста (usage —
+  id/числа/enum).
+
+## 13.5 Retroactivity для run c96dc04a… (после deploy этого фикса)
+
+- **Selection node — восстанавливается**: `style_id=medved_press` берётся из
+  durable cover-job state (task_jobs: job_id из COVER_* событий run'а либо
+  coalesce_key `cover_style:c96dc04a…`). «нет («Без стиля»)» для этого run
+  исчезнет. `selection_source`/`style_revision` для СТАРОГО run не
+  восстановимы (pre-fix не персистировались ни в события, ни в state) — строки
+  будут опущены честно; с новых прогонов показываются.
+- **route / compiled length / capability source для c96dc04a… — НЕ
+  восстановимы** (explicit): события pre-fix не несли `usage_json`,
+  `state.prompt_diagnostics` у этого run = None; значения (route=image_api,
+  compiled 952→708, capability_source=unknown) есть только в прод-логах,
+  которые Inspector не читает (§61.12). С первого production-прогона после
+  deploy эти поля появляются в run JSON (SUBMITTED usage + durable state).
+  Пересборка/бэкфилл старых событий не делались (вне scope, данных нет).
+- Проверка уже выполнена на реальном контуре: focused-тесты используют
+  РЕАЛЬНЫЙ `collect_run` + task_jobs/mca_events (SQLite), не моки.
+
+## 13.6 Остаточный риск
+
+- Retro-поиск coalesce-путём делает bounded `LIMIT 1` по `task_jobs` без
+  индекса для completed-строк (admin drill-down, редко) — на прод-объёме
+  приемлемо; основной путь (job_id из событий) — PK-чтение.
+

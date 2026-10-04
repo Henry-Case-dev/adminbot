@@ -116,3 +116,20 @@ WTH recipe (Reviewer-generated, 1:1 конвенция 4.3): заголовок 
 Обновлённый биндинг: `plans/reports/asap44_wth_manifest_review.txt` — HEAD `329e6deae31345b6cb6f8fb5943277547e6ed0ad` | files=6 | generated=20261005T045310Z | sha256(manifest)=EB02F3E9E9492B869270D0D64045F5463E4466629F5840275F3405B7CB24B897. Формат/рецепт прежние (header + CRLF `path|size_bytes|SHA256`); файлы: registry + 2 теста + 3 пакачечных док (всегда bound); остальная reviewed-state — в коммитах/деплое `09fd5a8`/`1a6b5ba`. Аддендум пере-привязывает кандидата.
 
 Вердикт остаётся: **Approved**. ПРИМЕЧАНИЕ ДЛЯ ОРКЕСТРАТОРА/DEVOPS: фикс F-N2 НЕ задеплоен (prod 2.58.52 без skip-ahead) — deploy этой дельты перед Canary B re-run (per evidence §2a); live Canary A/B/GraphRAG отчёты §11 теперь в evidence — их полная сверка остаётся за Z10-gate.
+
+## 10. Дополнение — F-N3 закрыт (recheck inspector-фактов, 05.10.2026)
+
+Дельта на базе deployed `b31cb634` (prod 2.58.53; F-N2 закоммичен `92de1e3`/`2f4c216` и деплоен, deployment VERIFIED в `b31cb634`). F-N3 дельта ровно по заявленному скоупу (diff-review + манифест-сверка): `services/cover_style_jobs.py` (extra → `usage_json` через whitelist `_INSPECTOR_USAGE_FIELDS` — подмножество SAFE_LOG_FIELDS: id/числа/enum, без промпт-текстов/секретов; + durable `state.prompt_diagnostics` числа/enum), `services/pipeline_analytics.py` (карточка route/compiled/capability-source из SUBMITTED-usage; «Выбор стиля» node — style_id из `usage_json`/retro; «нет («Без стиля»)» рисуется только при реальном отсутствии выбранного стиля — без события и без ретро-факта node отсутствует целиком; retro `_cover_job_fallback`: PK по job_id событий, иначе coalesce `cover_style:<run_id>` LIMIT 1 — bounded, fail-open None), `web/app.js`+`web/index.html` (4 строки карточки, conditional), тесты (2 py + 1 js) и `evidence.md` §13 (docs-only; рядом §11/§12 live-лог). В R17 все поля — числа/enum/`id`; никаких текстов/секретов в `usage_json`.
+
+Проверка Reviewer (самостоятельно):
+- `-k CoverInspectorFacts`: **5 passed / 72 deselected** (класс 5 тестов, вкл. 2 retro-теста PK-/coalesce-путей).
+- `test_pipeline_analytics_asap4 + test_summary_inspector_zone_g_asap41 + test_extra_cover_style_jobs`: **145 passed** (= 77 + 26 + 42 Builder).
+- JS `asap41_zone_g_inspector_test.js`: **ZONE-G-INSPECTOR-OK** (exit 0 — Route/Compiled prompt/Capability source/Источник лимита в карточке и каркасе).
+- adjacency (мой набор: execution_graph_round1026 + summary_cover_round1023 + progressive_tab_basic_coverage + coverage_ledger_asap41): **86 passed**.
+- RED независимо воспроизведён: worktree на чистом `329e6de` + копия тест-файла → класс **4 failed / 1 passed** (usage_json-dropped, selection-facts, оба retro-пути; no-selection структурно зелёный и pre-fix — корректный инвариант). Worktree удалён.
+
+Обновлённый биндинг: `plans/reports/asap44_wth_manifest_review.txt` — HEAD `b31cb6348289fd70d983b7f0be87bf50e2643f75` | files=10 | generated=20261005T055452Z | sha256(manifest)=5DC53DAE1AAEC25C54F4A4EA5A3C3CACA9EBC4F553FAFD4DAD6C2A4AE7692DF1. Рецепт прежний; скоуп-правило дополнено `services/pipeline_analytics.py` (нов в дельте F-N3). Адендум пере-привязывает кандидата.
+
+Retro-ограничение — ПРИНЯТО (как в evidence §13.5): для run `c96dc04a…` selection node восстанавливается (`style_id=medved_press` через durable cover-job); route/compiled/capability-source НЕ восстанавливаются (pre-fix события без `usage_json`, `state.prompt_diagnostics=None`) — появятся с первого post-deploy прогона. Известное Low: retro-coalesce `LIMIT 1` скан по `task_jobs` (`coalesce_key`) без индекса — редкий admin drill-down, bounded, fail-open.
+
+Вердикт остаётся: **Approved.** Деплой F-N3-дельты перед следующей live-проверкой Inspector.
