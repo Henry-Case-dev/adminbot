@@ -58,3 +58,15 @@ Feature: `asap-4-3-cover-style-surgical` · Risk R2 · **Статус: VERIFIED*
 - **Canary B (T-4860)** — production publish = именно styled cover.
 - **Live acceptance (T-4863/4864)** — реальный Telegram WebView mobile + живой Summary с Medved Press; ladder.
 - Платные провайдер-канари в этом шаге не запускались — следуют отдельно.
+
+## 10. Delta deploy — Canary A fix (05.10.2026, prod 2.58.51)
+
+- **Статус: VERIFIED** · предусловие: review.md «Focused delta review — Canary A fix (05.10.2026)» = **Approved**.
+- **Preflight:** sha256 пересчитаны — `services/cover_style_preview.py` `271DE93B…B06530`, `tests/test_asap43_cover_style_surgical.py` `31632A31…413D2E` = биндингу ✓; `git diff 2329a9d` — только 2 код/тест-файла (+ известный docs-drift, в коммиты не попал) ✓.
+- **Коммиты:** feat `acbbe1f` (2 код/тест-файла + settings.py APP_VERSION **2.58.51** + 23 тест-пина, 26 файлов), docs `1c11336` (review.md delta + canary-evidence.md). origin/master push `2329a9d..1c11336` ✓; metrics/workflow_state/round1027-frames и untracked-junk не тронуты.
+- **Деплой:** prod ff `2329a9d..1c11336` ✓ (untracked-файлы на проде не мешали); `sudo -n systemctl restart admin_bot` rc=0 → **active, MainPID=3610541, NRestarts=0, ExecMainStatus=0** (12:21:45 UTC).
+- **Health:** `/healthz` 200 `{"status":"ok","version":"2.58.51"}`; `/api/health` 200 ✓; sha256 `cover_style_preview.py` на проде = биндингу ✓. **DDL: ΔDDL = 0** — `preview_job_id` уже применён, миграций не требуется.
+- **Проверки:** фокусные 3 файла (job-venv) → **62 passed**; прод-venv те же 3 → **62 passed (25.5 с)** ✓; логи после рестарта: ERROR/CRITICAL/Traceback = **0**; R17-скан секретов = **0**; unauth `GET/POST /api/cover/test-style*` → **401** ✓. UI/js не менялись (`?v=` = APP_VERSION) — отдельный UI-smoke не требовался.
+- **Rollback:** как §8, cold revert до `2329a9d` (2.58.50); soft `COVER_STYLES_ENABLED=false`; DDL-откат не нужен (ΔDDL=0).
+- **Incidental:** новых нет; известные [I-1] rotation=none-контур и Low RBAC-note — в силе (см. §7).
+- **PENDING:** повтор **Canary A** (T-4859) → manual prompt override 800 chars (Medved route, §7.2) → **Canary B** (T-4860); live-acceptance T-4863/4864 следом. Платные канари в этом шаге не запускались.
