@@ -253,6 +253,29 @@ KILL_SWITCHES: dict[str, tuple[bool, str]] = {
         True,
         "исследование случайных периодов не выполняется (§8.7)",
     ),
+    # ── mca-08 (ADR-1028-11 D10) блоки A+B: K1/K2 ───────────────────────────
+    "MCA_CHARACTER_LAYERS_ENABLED": (
+        True,
+        "нет read-контекста слоёв/Character_Rules/character_block; ветка "
+        "persona в direct/verbalizer как 2.58.54 (паритет baseline)",
+    ),
+    "MCA_CHARACTER_SPEECH_ENABLED": (
+        True,
+        "нет SpeechUnderstanding/<Speech_Understanding>/clarify; ответный "
+        "путь как 2.58.54 (паритет baseline)",
+    ),
+    # ── mca-08 (ADR-1028-11 D10) блоки C+D: K3/K4 ──────────────────────────
+    "MCA_STYLE_SCOPE_ENABLED": (
+        True,
+        "нет ingestion/прав/резолва/<Style_Requests>; скрытая /style "
+        "неактивна; таблица mca_style_requests не читается/не пишется "
+        "(паритет baseline 2.58.54)",
+    ),
+    "MCA_POSTPROCESS_FORM_GUARD_ENABLED": (
+        True,
+        "`verbalize_validated` как 2.58.54 (клише-loop+scrubber без "
+        "form-гардов/fallback; новые параметры игнорируются)",
+    ),
 }
 
 
@@ -779,6 +802,52 @@ def dream_revision_queue_cap() -> int:
 def dream_random_explore_enabled() -> bool:
     """`MCA_DREAM_RANDOM_EXPLORE_ENABLED` (env-only, default ON; §8.7)."""
     return bool(getattr(settings, "MCA_DREAM_RANDOM_EXPLORE_ENABLED", True))
+
+
+# ── mca-08 (ADR-1028-11 D10) блоки A+B: K1/K2 ───────────────────────────────
+def character_layers_enabled() -> bool:
+    """`MCA_CHARACTER_LAYERS_ENABLED` (env-only, default ON; D1/D2).
+
+    ON → read-контекст слоёв (`resolve_character_context`) + `<Character_Rules>`
+    + `character_block` у verbalizer. OFF → точный паритет 2.58.54."""
+    return bool(getattr(settings, "MCA_CHARACTER_LAYERS_ENABLED", True))
+
+
+def character_speech_enabled() -> bool:
+    """`MCA_CHARACTER_SPEECH_ENABLED` (env-only, default ON; D6/D7).
+
+    ON → `SpeechUnderstanding`/`<Speech_Understanding>`/clarify в ответном
+    пути. OFF → точный паритет 2.58.54."""
+    return bool(getattr(settings, "MCA_CHARACTER_SPEECH_ENABLED", True))
+
+
+# ── mca-08 (ADR-1028-11 D10) блоки C+D: K3/K4 + env-only TTL ────────────────
+def style_scope_enabled() -> bool:
+    """`MCA_STYLE_SCOPE_ENABLED` (env-only, default ON; D3–D5).
+
+    ON → ingestion/права/резолв scoped-просьб + `<Style_Requests>` +
+    скрытая команда `/style`. OFF → точный паритет 2.58.54 (таблица
+    `mca_style_requests` не читается/не пишется; команда неактивна)."""
+    return bool(getattr(settings, "MCA_STYLE_SCOPE_ENABLED", True))
+
+
+def postprocess_form_guard_enabled() -> bool:
+    """`MCA_POSTPROCESS_FORM_GUARD_ENABLED` (env-only, default ON; D8).
+
+    ON → форма G1–G3 + bounded повтор + fallback у `verbalize_validated`
+    (только при переданном `form_contract`). OFF → как 2.58.54: новые
+    параметры игнорируются, stats без новых ключей."""
+    return bool(getattr(settings, "MCA_POSTPROCESS_FORM_GUARD_ENABLED", True))
+
+
+def style_scope_chat_ttl_days() -> int:
+    """TTL chat-просьб, дни (env-only `MCA_STYLE_SCOPE_CHAT_TTL_DAYS`, 7)."""
+    return _int_setting("MCA_STYLE_SCOPE_CHAT_TTL_DAYS", 7)
+
+
+def style_scope_topic_ttl_days() -> int:
+    """TTL topic-просьб, дни (env-only `MCA_STYLE_SCOPE_TOPIC_TTL_DAYS`, 30)."""
+    return _int_setting("MCA_STYLE_SCOPE_TOPIC_TTL_DAYS", 30)
 
 
 def _int_setting_min(name: str, default: int, minimum: int = 1) -> int:

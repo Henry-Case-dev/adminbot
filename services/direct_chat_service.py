@@ -94,6 +94,10 @@ from services import bot_output_ledger as _ledger   # MCA-22 (C2, D2)
 from services import graphrag_provenance as _gprov  # MCA-22 (C5/C8, D6/D9)
 from services import provenance as _prov            # MCA-22 (C8: reuse 04a)
 from services import quote_resolver as _qres        # MCA-22 (C3, D3; fix M-2)
+from services import claim_envelope as _ce          # MCA-08 (D6/D7, T-4898)
+from services import mca_events as _mca_events      # MCA-08 (notable-only)
+from services import mca_style_scope as _style_scope  # MCA-08 (D3–D5, C)
+from services import negative_constraints as _nc    # MCA-08 (D8, T-4907)
 from services import command_prefix  # ASAP-3: persona-name force-детект (F6)
 from services.chat_params import (
     chat_summary_enabled,
@@ -1679,10 +1683,41 @@ class DirectChatService:
             # ASAP-3.1 §14/§42: fallback recompose factory (заполняет
             # композер, adapter вызывается LLMClient при fallback-переключении).
             _fallback_meta: dict = {}
+            # ── MCA-08 (D3–D5, T-4903/T-4904): scoped-просьбы (K3) —
+            # ingestion ДО сборки контекста (принятая просьба применяется уже
+            # к текущему ответу); explicit-only, молчание/реакции/шутки/
+            # провокации ничего не создают и не отменяют. Резолв — только для
+            # адресата ответа (participant > topic > chat); ядро владельца
+            # выше любой просьбы. K3 OFF → "" (байт-паритет 2.58.54).
+            style_directives = ""
+            if mca_gates.style_scope_enabled():
+                try:
+                    _reply_to = getattr(message, "reply_to_message", None)
+                    _reply_from = (getattr(_reply_to, "from_user", None)
+                                   if _reply_to is not None else None)
+                    _reply_bot = bool(
+                        isinstance(getattr(_reply_from, "id", None), int)
+                        and self.bot_id is not None
+                        and int(_reply_from.id) == int(self.bot_id))
+                    _is_private = (getattr(getattr(message, "chat", None),
+                                           "type", None) == "private")
+                    if self._decision_addressed(message, query, _reply_to,
+                                                _reply_bot, _is_private):
+                        await _style_scope.ingest_message(
+                            self.db, chat_id=chat_id, sender_id=user_id,
+                            text=query, message_id=_trigger_tg_id)
+                        style_directives = await _style_scope.resolve_block(
+                            self.db, chat_id=chat_id, text=query,
+                            participant_id=(user_id or None))
+                except Exception:
+                    logger.debug("[mca08_style] ingest/resolve failed",
+                                 exc_info=True)
+                    style_directives = ""
             user_blocks = await self._build_user_content(
                 chat_id, message, target_name,
                 target_user_id=(user_id or None),
-                out_excluded=_excluded_blocks, out_fallback=_fallback_meta)
+                out_excluded=_excluded_blocks, out_fallback=_fallback_meta,
+                style_directives=style_directives)
             # Раунд 9 (T-821/C2(6), фикс-раунд major-1, spec §3.2.3): пре-гейт
             # маркеров ностальгии — принудительный dig ДО генерации, результат
             # в <dig_result> ПЕРЕД <Target_User> (флаг off/нет маркера/нет
@@ -1898,17 +1933,66 @@ class DirectChatService:
             # ХВОСТ системного промпта (system_prompt + "\n\n" + block).
             # Пусто/PG down/флаг OFF → промпт байт-в-байт прежний (F2-Q5).
             # H3-фикс: гейт резолвится per-chat (override → global → default).
+            # ── MCA-08 (D1/D2, T-4895/T-4896): ОДНА врезка слоёв характера на
+            # direct-путь (REUSE существующего хвоста/композеров; второй
+            # сборщик промпта запрещён). K1 OFF → вызов-в-вызов путь 2.58.54
+            # (байт-паритет); K1 ON → read-контекст слоёв + <Character_Rules>
+            # рендерится ТОЛЬКО вместе с непустым persona-блоком.
             persona_enabled = await _cpg(
                 chat_id, "flags.persona_enabled",
                 hot.get("flags.persona_enabled", settings.PERSONA_ENABLED))
+            character_block = ""
             if persona_enabled:
-                persona = await bot_persona.resolve_bot_persona(chat_id)
-                traits = await bot_persona.get_traits(
-                    int(getattr(settings, "PERSONA_TRAITS_MAX", 50) or 50))
+                if mca_gates.character_layers_enabled():
+                    _char_ctx = await bot_persona.resolve_character_context(
+                        chat_id)
+                    persona = _char_ctx.persona
+                    traits = [{"text": t} for t in _char_ctx.traits]
+                else:
+                    persona = await bot_persona.resolve_bot_persona(chat_id)
+                    traits = await bot_persona.get_traits(
+                        int(getattr(settings, "PERSONA_TRAITS_MAX", 50) or 50))
                 persona_block = bot_persona.build_persona_prompt_block(
                     persona, [t.get("text") for t in traits], enabled=True)
                 if persona_block:
                     system_prompt = system_prompt + "\n\n" + persona_block
+                    # Для verbalizer (System2) — та же владельческая основа
+                    # без правил формы/чужой generic-личности.
+                    character_block = persona_block
+                    if mca_gates.character_layers_enabled():
+                        rules_block = bot_persona.build_character_rules_block()
+                        if rules_block:
+                            system_prompt = (system_prompt + "\n\n"
+                                             + rules_block)
+                            character_block = (character_block + "\n\n"
+                                               + rules_block)
+            # ── MCA-08 (D5, T-4904): scoped-просьбы — хвост системного
+            # промпта ПОСЛЕ Character_Rules и ДО Speech_Understanding (порядок
+            # spec: persona → rules → Style_Requests → speech). Форма, не
+            # смысл/адресат: resolve уже отфильтровал scope/получателя; K3 OFF
+            # → пусто (байт-паритет).
+            if style_directives:
+                system_prompt = system_prompt + "\n\n" + style_directives
+            # ── MCA-08 (D6/D7, T-4898/T-4900): речевой сигнал — независимый
+            # носитель <Speech_Understanding> (K2; рендер только при активном
+            # сигнале). Автор цитаты — из УЖЕ построенного mca-22-контура
+            # (bundle.quoted_speaker; повторный resolver-вызов запрещён).
+            # Notable-события clarify (R17-safe), per-reply «успехов» нет.
+            if mca_gates.character_speech_enabled():
+                _speech_u = self._build_speech_understanding(
+                    message, query, bundle=evidence_bundle)
+                _speech_block = _ce.render_speech_block(_speech_u)
+                if _speech_block:
+                    system_prompt = system_prompt + "\n\n" + _speech_block
+                if _speech_u is not None \
+                        and _speech_u.clarify != _ce.CLARIFY_NONE:
+                    _mca_events.emit_mca_event(
+                        "speech_understanding", outcome="success",
+                        component="direct_chat",
+                        reason_code=("clarification_asked"
+                                     if _speech_u.clarify == _ce.CLARIFY_ASK
+                                     else "clarification_assumption_used"),
+                        chat_id=chat_id)
             time_line = await self._chat_time_line(chat_id)
             payload = build_messages(system_prompt, user_blocks,
                                      time_line=time_line)
@@ -2324,7 +2408,9 @@ class DirectChatService:
                 synthesized = await self._synthesize_direct_answer(
                     chat_id, query, raw, temperature,
                     correlation_id=correlation_id,
-                    bundle=evidence_bundle)
+                    bundle=evidence_bundle,
+                    character_block=character_block,
+                    style_directives=style_directives)
                 if synthesized:
                     # F3 (ADR-1023-3): режим несёт и стиль, и канал доставки.
                     raw, response_mode = synthesized
@@ -2541,7 +2627,9 @@ class DirectChatService:
     async def _synthesize_direct_answer(self, chat_id: int, query: str,
                                         raw, temperature,
                                         correlation_id: str | None = None,
-                                        bundle=None
+                                        bundle=None,
+                                        character_block: str = "",
+                                        style_directives: str = ""
                                         ) -> tuple[str, str] | None:
         """Синтезатор тулов → Вербализатор. ``None`` → финал tool-loop.
 
@@ -2559,7 +2647,20 @@ class DirectChatService:
         `context_version`) — System2 после tool loop НЕ теряет контекст и НЕ
         получает только вопрос+tool output. `bundle=None`/gate OFF → прежний
         Stage-1 (байт-в-байт, паритет).
+
+        MCA-08 (D2, AM-2): `character_block` — опциональный хвост
+        владельческой основы (persona + Character_Rules) у verbalizer-промпта
+        (default "" → байт-паритет всех текущих вызовов); второго сборщика
+        промпта нет.
+
+        MCA-08 (D5/D8, T-4904/T-4907): `style_directives` — опциональный
+        `<Style_Requests>`-блок (K3; default "" → паритет). `form_contract`
+        строится из проверенного черновика (финал tool-loop) для form-гардов
+        постпроцессора (K4; без контракта — байт-паритет 2.58.54).
         """
+        draft_text = strip_reasoning_tags(str(raw).strip())
+        form_contract = (_nc.FormContract(source_text=draft_text)
+                         if draft_text else None)
         try:
             tool_context = redact_secrets(
                 str(getattr(raw, "tool_context", "") or ""))
@@ -2604,7 +2705,9 @@ class DirectChatService:
             # Review iter1 (H2): direct deep_research доставляется safe-HTML
             # (`parse_mode="HTML"` + escape_lore_html) → HTML-capable блок.
             verbalizer_system = (compose_verbalizer_system(
-                verbalizer_template, response_mode, "plain", html_safe=True)
+                verbalizer_template, response_mode, "plain", html_safe=True,
+                character_block=character_block,
+                style_directives=style_directives)
                 if modes_on else verbalizer_template)
             base_messages = [
                 {"role": "system", "content": verbalizer_system},
@@ -2625,12 +2728,30 @@ class DirectChatService:
             text, stats = await verbalize_validated(
                 _generate, base_messages, max_retries=2,
                 enabled_rules=enabled_rules,
-                dynamic_rules=anticliche_cache.get_rules() or None)
+                dynamic_rules=anticliche_cache.get_rules() or None,
+                form_contract=form_contract,
+                fallback_text=(draft_text or None))
             logger.info(
                 "[direct] system2 | chat=%s | mode=%s | attempts=%d | retries=%d | "
                 "hits=%d | fallback=%s", chat_id, response_mode,
                 stats.get("attempts", 0), stats.get("retries", 0),
                 len(stats.get("hits") or []), bool(stats.get("fallback")))
+            # MCA-08 (D8, T-4908): notable-событие form-гарда (единственный
+            # журнал; reason_code = эквивалент meaning_changed из санкции).
+            _form_rejects = int(stats.get("form_guard_rejects") or 0)
+            if _form_rejects:
+                _mca_events.emit_mca_event(
+                    "postprocess_form", outcome="skipped",
+                    level=_mca_events.LEVEL_WARN, component="direct_chat",
+                    stage="form_guard",
+                    reason_code=(stats.get("form_guard_reason")
+                                 or "form_guard_rejected"),
+                    chat_id=chat_id, attempt=_form_rejects)
+                logger.info(
+                    "[direct] system2 form guard | chat=%s | rejects=%d | "
+                    "retry=%s | form_fallback=%s", chat_id, _form_rejects,
+                    bool(stats.get("form_retry")),
+                    bool(stats.get("form_fallback")))
             if not text.strip():
                 return None
             return text, response_mode
@@ -2694,8 +2815,53 @@ class DirectChatService:
                            settings.SUMMARY_TIMEZONE)
         return format_chat_time(tz_name=tz, fallback_tz=fallback)
 
+    def _build_speech_understanding(self, message, query: str, *, bundle=None):
+        """MCA-08 (D6/D7, T-4898/T-4900): детерминированный речевой сигнал.
+
+        REUSE mca-22 `classify_speech_act` (второй классификатор запрещён);
+        R17-safe — коды/флаги без сырого текста. Автор цитаты — только из УЖЕ
+        построенного mca-22-контура (`bundle.quoted_speaker`); повторный
+        `quote_resolver`-вызов здесь запрещён. K2 OFF → None (паритет
+        2.58.54); сама сборка ничего не эмитит (события clarify — у вызова).
+        """
+        if not mca_gates.character_speech_enabled():
+            return None
+        reply = getattr(message, "reply_to_message", None)
+        reply_bot = False
+        reply_ends_question = False
+        if reply is not None:
+            reply_from = getattr(reply, "from_user", None)
+            reply_id = (getattr(reply_from, "id", None)
+                        if reply_from is not None else None)
+            _bot_id = getattr(self, "bot_id", None)
+            reply_bot = bool(isinstance(reply_id, int)
+                             and _bot_id is not None
+                             and int(reply_id) == int(_bot_id))
+            reply_text = str(getattr(reply, "text", None)
+                             or getattr(reply, "caption", None) or "").strip()
+            reply_ends_question = reply_text.endswith("?")
+        is_private = (getattr(getattr(message, "chat", None), "type", None)
+                      == "private")
+        # Наличие цитаты — из УЖЕ построенного mca-22-контура: резолвнутый
+        # автор (`quoted_speaker`) либо честная ambiguous-маркировка
+        # (`quote:`-префикс в `ambiguities`). Новых вызовов резолвера нет.
+        _quote_known = bool(getattr(bundle, "quoted_speaker", None))
+        _quote_present = _quote_known or any(
+            str(a).startswith("quote:")
+            for a in (getattr(bundle, "ambiguities", ()) or ()))
+        return _ce.build_speech_understanding(
+            query,
+            has_reply_parent=(reply is not None),
+            is_group=not is_private,
+            reply_parent_from_bot=reply_bot,
+            reply_parent_ends_with_question=reply_ends_question,
+            quote_attribution_known=_quote_known,
+            quote_text_present=_quote_present)
+
     async def _estimate_external_payload_tokens(
-            self, chat_id: int, budget_tokens) -> tuple[int, int, str | None]:
+            self, chat_id: int, budget_tokens, *,
+            extra_prompt_blocks: tuple[str, ...] = (),
+            ) -> tuple[int, int, str | None]:
         """MCA-07 B-MCA07-2 (REQ-MCA07-06/SC-12/A24): консервативная оценка
         НЕ-user части полного payload для живого бюджета.
 
@@ -2704,6 +2870,10 @@ class DirectChatService:
         `CHAT_BUDGET_RESERVE_RATIO` бюджета. Возвращает `(external, reserve,
         method)`; любая ошибка → `(0, 0, None)` (fail-open → точный legacy-
         путь бюджета, паритет). Частичный сбой источника не обнуляет остальные.
+
+        MCA-08 (D2, T-4895): `extra_prompt_blocks` — уже построенные хвостовые
+        блоки (speech; Style добавит блок C); признак K1/K2 OFF → пустые
+        блоки/прежние числа (байт-паритет). Счёт — тем же `count_tokens`.
         """
         external = 0
         try:
@@ -2729,9 +2899,17 @@ class DirectChatService:
                         persona, [t.get("text") for t in traits], enabled=True)
                     if persona_block:
                         external += count_tokens(persona_block)
+                        if mca_gates.character_layers_enabled():
+                            rules_block = \
+                                bot_persona.build_character_rules_block()
+                            if rules_block:
+                                external += count_tokens(rules_block)
             except Exception:
                 logger.debug("[mca07] payload est: persona failed",
                              exc_info=True)
+            for _extra in (extra_prompt_blocks or ()):
+                if _extra:
+                    external += count_tokens(str(_extra))
             try:
                 lore_enabled = await _cpg(
                     chat_id, "flags.lore_compiler_enabled",
@@ -2762,7 +2940,8 @@ class DirectChatService:
                                   target_name: str,
                                   target_user_id: int | None = None,
                                   out_excluded: list | None = None,
-                                  out_fallback: dict | None = None
+                                  out_fallback: dict | None = None,
+                                  style_directives: str = ""
                                   ) -> list[str]:
         """Порядок сборки user-контента (Раунд 8, B2/T-791, spec §3.B2) —
         «важное к концу» (FR-22/п.24): map → branch → rag → global → thread →
@@ -2898,7 +3077,8 @@ class DirectChatService:
                 global_parts=global_parts, target_name=target_name,
                 target_user_id=target_user_id,
                 trigger_message_id=trigger_message_id,
-                out_excluded=out_excluded, out_fallback=out_fallback)
+                out_excluded=out_excluded, out_fallback=out_fallback,
+                style_directives=style_directives)
         # Раунд 10.4 (B-2): гейт бюджетов — per-chat резолв (override →
         # hot.get → default; без override — байт-в-байт старое поведение).
         from services.chat_params import get_chat_param as _budget_gate
@@ -2929,11 +3109,19 @@ class DirectChatService:
         await self._check_context_config_invariant(chat_id, budget_tokens,
                                                    fixed_est)
         # MCA-07 B-MCA07-2 (SC-12/A24): полный payload в живом call-site.
+        # MCA-08 (D2, T-4898): K2-блок речи учитывается тем же методом
+        # (K1-правила учитывает сам estimator; OFF → пустые, прежние числа).
         external_tokens, reserve_tokens, method = 0, 0, None
         if budgets_enabled and mca_gates.adaptive_context_budget_enabled():
+            _speech_est = _ce.render_speech_block(
+                self._build_speech_understanding(
+                    message, (message.text or "").strip()))
+            # MCA-08 (D5, T-4904): style-блок — в ту же оценку тем же методом
+            # (K3 OFF → "" и прежние числа).
+            _extras = tuple(b for b in (_speech_est, style_directives) if b)
             external_tokens, reserve_tokens, method = \
-                await self._estimate_external_payload_tokens(chat_id,
-                                                             budget_tokens)
+                await self._estimate_external_payload_tokens(
+                    chat_id, budget_tokens, extra_prompt_blocks=_extras)
         return self._apply_context_budget(
             blocks, budgets_enabled, budget_tokens,
             external_tokens=(external_tokens or None),
@@ -3142,7 +3330,8 @@ class DirectChatService:
             global_parts: dict, target_name: str,
             target_user_id: int | None, trigger_message_id,
             out_excluded: list | None,
-            out_fallback: dict | None = None) -> list[str]:
+            out_fallback: dict | None = None,
+            style_directives: str = "") -> list[str]:
         """ASAP-3 (ADR-1028-2 D3): единый композер Dynamic/Unlimited.
 
         Конвейер §6 ТЗ: candidates (существующие билдеры, global/thread без
@@ -3236,9 +3425,15 @@ class DirectChatService:
             model_window, window_source = resolve_effective_window(
                 model_name, fallback_model)
         try:
+            # MCA-08 (D2, T-4898): K2-блок речи — в ту же оценку (тем же
+            # методом); K2 OFF → "" и прежние числа. D5/T-4904: style-блок
+            # (K3) — рядом, тот же проход.
+            _speech_est = _ce.render_speech_block(
+                self._build_speech_understanding(message, query))
+            _extras = tuple(b for b in (_speech_est, style_directives) if b)
             external_tokens, _est_reserve, est_method = \
                 await self._estimate_external_payload_tokens(
-                    chat_id, model_window)
+                    chat_id, model_window, extra_prompt_blocks=_extras)
         except Exception:
             external_tokens, est_method = 0, None
         # Policy-слой (D2): -1 → Unlimited; 0/None → Dynamic; >0 → cap.

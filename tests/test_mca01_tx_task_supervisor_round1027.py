@@ -901,7 +901,11 @@ def test_write_points_go_through_single_writer():
         # `mca_pipeline_runs` + CREATE INDEX `idx_mca_pipeline_runs_chat` +
         # PRAGMA в `_migrate_dream_runs_v25`, L-MCA14-3; раннер до старта
         # писателей)
-        "database.py": 159,
+        # +3 v26 mca-08 (ADR-1028-11 D3/санкция §9.1, scoped-просьбы:
+        # CREATE TABLE `mca_style_requests` + 2×CREATE INDEX + PRAGMA в
+        # `_migrate_style_requests_v26`, L-MCA14-3; раннер до старта
+        # писателей; runtime CRUD идёт через `write_transaction`)
+        "database.py": 162,
         "dossier_rebuild_jobs.py": 1,   # внутри `async with db.serialized()`
         # ASAP-3.2 (ADR-1028-5 D1/D2, T-4191): shadow-rebuild — 3 прямых
         # commit внутри `async with memory.db.serialized()` (идемпотентный

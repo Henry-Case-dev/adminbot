@@ -213,6 +213,18 @@ REASON_CODES = frozenset({
     # расширение mca-06/блоки F+G (T-4724/T-4725): backoff ошибок ≠ cooldown
     # (различимая причина в detail/отчёте) и anti-race manual-прогона.
     "backoff", "manual_recheck",
+    # расширение mca-08/блоки A+B (ADR-1028-11 D7/D9; санкции §9.4 — ровно +9
+    # на фичу, единый словарь): notable-события политики уточнения
+    # (per-reply «успехов» read-side нет).
+    "clarification_asked", "clarification_assumption_used",
+    # mca-08/блоки C+D (ADR-1028-11 D3–D8; те же +9 — добирают оставшиеся 7):
+    # CRUD scoped-просьб (notable-only) + form-гарды постпроцессора
+    # («форма только»; reason_code form-гарда = эквивалент meaning_changed,
+    # отдельного кода сверх санкции нет).
+    "style_request_recorded", "style_request_ambiguous_skipped",
+    "style_request_denied", "style_request_superseded",
+    "style_request_expired",
+    "form_guard_rejected", "form_guard_leak_blocked",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────

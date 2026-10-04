@@ -339,3 +339,182 @@ def checks_json_for(env: ClaimEnvelope) -> str | None:
         return normalize_checks(checks_for_envelope(env))
     except Exception:                                     # pragma: no cover
         return None
+
+
+# ── MCA-08 (T-4898/T-4900; ADR-1028-11 D6/D7): речевые сигналы ответа ───────
+# Фасад над существующим `classify_speech_act` (второй классификатор
+# запрещён). R17-safe: в DTO/блок — только коды/флаги, без сырого текста.
+# Поля M-MCA07-2 (EvidenceBundle) не занимаются; CoordinatorDecision/
+# action-schema не трогаются — сигнал читается только сборкой промпта.
+
+CLARIFY_NONE = "none"
+CLARIFY_ASK = "ask"
+CLARIFY_ASSUME = "assume"
+CLARIFY_ACTIONS = frozenset({CLARIFY_NONE, CLARIFY_ASK, CLARIFY_ASSUME})
+
+QUOTE_ATTRIBUTION_KNOWN = "known"
+QUOTE_ATTRIBUTION_UNKNOWN = "unknown"
+QUOTE_ATTRIBUTIONS = frozenset({QUOTE_ATTRIBUTION_KNOWN,
+                                QUOTE_ATTRIBUTION_UNKNOWN})
+
+# Короткие зависимые реплики (§7): закрытый маркер-набор; «в любом падеже» —
+# подстрочное сравнение casefold-текста. >3 слов → не короткая реплика.
+_SHORT_DEPENDENCY_MARKERS: tuple[str, ...] = (
+    "почему", "зачем", "а как", "как так", "и что", "ну и",
+    "что?", "он?", "она?", "это?", "правда?", "серьёзно?")
+_MAX_SHORT_DEPENDENCY_WORDS = 3
+
+# Отрицание (§6): закрытый канон слов (тот же, что G2 §8) — «учти отрицание
+# буквально», без переворота «не» в утверждение.
+_NEGATION_RE = re.compile(
+    r"(?<![а-яёa-z])(?:не|ни|никогда|без|нет)(?![а-яёa-z])",
+    re.IGNORECASE)
+
+# Canon carrier cap (spec §6): ≤500 символов.
+_SPEECH_BLOCK_CAP = 500
+
+
+@dataclasses.dataclass(frozen=True)
+class SpeechUnderstanding:
+    """MCA-08 (D6): речевой сигнал ответного пути (frozen, R17-safe)."""
+
+    speech_act: str = SPEECH_ACT_ASSERT
+    quote: bool = False
+    quote_attribution: str = QUOTE_ATTRIBUTION_UNKNOWN
+    reply_parent: bool = False
+    short_dependency: bool = False
+    humor_risk: bool = False
+    negation: bool = False
+    clarify: str = CLARIFY_NONE
+    flags: tuple[str, ...] = ()
+
+    @property
+    def active(self) -> bool:
+        """Активный сигнал → блок рендерится (spec §6)."""
+        return bool(self.quote or self.humor_risk or self.negation
+                    or self.clarify != CLARIFY_NONE)
+
+
+def is_short_dependency(text: str | None) -> bool:
+    """Закрытый маркер-набор §7: короткая зависимая реплика (≤3 слов)."""
+    value = " ".join(str(text or "").split()).casefold()
+    if not value:
+        return False
+    words = re.findall(r"[а-яёa-z0-9]+", value)
+    if len(words) > _MAX_SHORT_DEPENDENCY_WORDS:
+        return False
+    return any(marker in value for marker in _SHORT_DEPENDENCY_MARKERS)
+
+
+def clarify_action(*, short_dependency: bool, has_reply_parent: bool,
+                   is_group: bool, reply_parent_from_bot: bool = False,
+                   reply_parent_ends_with_question: bool = False) -> str:
+    """D7: политика уточнения — детерминированная, ≤1 вопрос на ответ.
+
+    `ask` — материалная неоднозначность: короткая зависимая реплика ∧ нет
+    reply-родителя ∧ групповой чат. Anti-loop: родитель — вопрос бота →
+    `assume` (явное допущение, без повторного вопроса); повторных переспросов
+    нет структурно (блок строится один раз на ответ). Всё остальное — `none`.
+    """
+    if not short_dependency:
+        return CLARIFY_NONE
+    if has_reply_parent:
+        if reply_parent_from_bot and reply_parent_ends_with_question:
+            return CLARIFY_ASSUME
+        return CLARIFY_NONE
+    if not is_group:
+        return CLARIFY_NONE
+    return CLARIFY_ASK
+
+
+def build_speech_understanding(
+        text: str | None, *,
+        has_reply_parent: bool = False,
+        is_group: bool = False,
+        reply_parent_from_bot: bool = False,
+        reply_parent_ends_with_question: bool = False,
+        quote_attribution_known: bool = False,
+        quote_text_present: bool = False) -> SpeechUnderstanding:
+    """D6/D7: собрать сигнал ответа (REUSE `classify_speech_act`).
+
+    `quote_text_present` — структурный tg/quote-маркер сообщения;
+    `quote_attribution_known` — фактический автор из уже построенного
+    mca-22-контура (`bundle.quoted_speaker`); повторный вызов резолвера
+    цитат здесь запрещён — автор сюда только передаётся.
+    """
+    value = str(text or "")
+    act = classify_speech_act(value)
+    manual_quote = any(
+        ln.strip().startswith(">") and len(ln.strip()) > 1
+        for ln in value.splitlines())
+    quote = bool(act == SPEECH_ACT_QUOTE or manual_quote
+                 or quote_text_present)
+    # D7: команда — не материалная короткая реплика (уточнение не задаётся).
+    short_dep = bool(is_short_dependency(value)
+                     and act != SPEECH_ACT_COMMAND)
+    humor_risk = act == SPEECH_ACT_JOKE_CANDIDATE
+    negation = bool(act == SPEECH_ACT_DENY or _NEGATION_RE.search(value))
+    clarify = clarify_action(
+        short_dependency=short_dep, has_reply_parent=has_reply_parent,
+        is_group=is_group, reply_parent_from_bot=reply_parent_from_bot,
+        reply_parent_ends_with_question=reply_parent_ends_with_question)
+    attribution = (QUOTE_ATTRIBUTION_KNOWN if quote_attribution_known
+                   else QUOTE_ATTRIBUTION_UNKNOWN)
+    flags: list[str] = []
+    if act != SPEECH_ACT_ASSERT:
+        flags.append(f"act:{act}")
+    if manual_quote or quote_text_present:
+        flags.append("quote_marker")
+    if quote:
+        flags.append(f"quote_attribution:{attribution}")
+    if short_dep:
+        flags.append("short_dependency")
+    if has_reply_parent:
+        flags.append("reply_parent")
+    if reply_parent_from_bot:
+        flags.append("parent_bot")
+    if clarify != CLARIFY_NONE:
+        flags.append(f"clarify:{clarify}")
+    return SpeechUnderstanding(
+        speech_act=act, quote=quote, quote_attribution=attribution,
+        reply_parent=bool(has_reply_parent), short_dependency=short_dep,
+        humor_risk=humor_risk, negation=negation, clarify=clarify,
+        flags=tuple(flags))
+
+
+def render_speech_block(u: SpeechUnderstanding | None) -> str:
+    """D6: `<Speech_Understanding>` — канон-ветки, только при активном
+    сигнале; cap ≤500 символов; пусто → "" (паритет)."""
+    if u is None or not u.active:
+        return ""
+    lines: list[str] = []
+    if u.quote:
+        lines.append("Цитата принадлежит её автору: не приписывай чужие слова "
+                     "себе; если автор не установлен — не додумывай его.")
+    if u.humor_risk:
+        lines.append("Сообщение похоже на шутку/сарказм/гиперболу: не "
+                     "превращай его в биографический факт.")
+    if u.negation:
+        lines.append("Учти отрицание буквально: не переворачивай «не» в "
+                     "утверждение.")
+    if u.clarify == CLARIFY_ASK:
+        lines.append("Если без уточнения ответ может быть не о том — задай "
+                     "ровно ОДИН короткий уточняющий вопрос, не переспрашивай "
+                     "дальше.")
+    elif u.clarify == CLARIFY_ASSUME:
+        lines.append("Не переспрашивай: ответь с явным допущением, как ты "
+                     "понял реплику.")
+    if not lines:
+        return ""
+    head, tail = "<Speech_Understanding>\n", "\n</Speech_Understanding>"
+    block = head + "\n".join(lines) + tail
+    if len(block) > _SPEECH_BLOCK_CAP:      # дефенс; канон укладывается
+        keep: list[str] = []
+        used = len(head) + len(tail)
+        for line in lines:
+            if used + len(line) + 1 > _SPEECH_BLOCK_CAP:
+                break
+            keep.append(line)
+            used += len(line) + 1
+        block = head + "\n".join(keep) + tail
+    return block

@@ -3297,7 +3297,11 @@ class TestPersonaPromptIntegration:
                  "</Persona>\n"
                  + bot_persona._NO_AI_DISCLOSURE_BLOCK)
         assert llm.messages[0]["role"] == "system"
-        assert llm.messages[0]["content"] == CHAT_SYSTEM_PROMPT + "\n\n" + block
+        # MCA-08 (D2, K1 default ON): после персона-блока — канон
+        # <Character_Rules> (мнение vs факт / запрет выдуманных событий).
+        assert llm.messages[0]["content"] == (
+            CHAT_SYSTEM_PROMPT + "\n\n" + block + "\n\n"
+            + bot_persona.build_character_rules_block())
 
     @pytest.mark.asyncio
     async def test_flag_off_keeps_prompt_byte_identical(self, monkeypatch,

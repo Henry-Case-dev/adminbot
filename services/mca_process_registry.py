@@ -508,19 +508,53 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         process_id="direct.reply", version="1",
         purpose="Прямой ответ: решение → tool chain → память → ответ",
         inputs=("user message",), outputs=("telegram reply",),
-        stages=("queued", "decision", "llm", "write", "deliver",
-                "answer_cache"),
+        stages=("queued", "decision", "character", "speech", "llm", "form_guard",
+                "write", "deliver", "answer_cache"),
         branches=("retrieval", "tools"),
         trigger_kind="per_message",
-        settings_ref=("DIRECT_DECISION_MAKING_ENABLED",),
+        settings_ref=("DIRECT_DECISION_MAKING_ENABLED",
+                      "MCA_CHARACTER_LAYERS_ENABLED",
+                      "MCA_CHARACTER_SPEECH_ENABLED",
+                      "MCA_POSTPROCESS_FORM_GUARD_ENABLED"),
         state_source=("task_jobs", "mca_events"),
         recovery_ops=("resume_job", "delivery_reconcile"),
         widget_id="Ответы (decision/System2)",
-        stages_to_events={"answer_cache": "mca07_answer_cache"},
-        instrumentation=("answer_cache",),
+        stages_to_events={"answer_cache": "mca07_answer_cache",
+                          "speech": "speech_understanding",
+                          "form_guard": "postprocess_form"},
+        instrumentation=("answer_cache", "speech", "form_guard"),
         owner_feature="direct_chat",
         enabled_gate="DIRECT_DECISION_MAKING_ENABLED",
-        event_names=("mca07_answer_cache",),
+        event_names=("mca07_answer_cache", "speech_understanding",
+                     "postprocess_form"),
+        note="mca-08 (ADR-1028-11 D9): стадии character/speech/form_guard; "
+             "notable-only — read-side `character` без per-reply success-"
+             "события (урок M-ASAP31-2), события speech/form_guard — на "
+             "clarify/form-reject",
+    ),
+    # ── mca-08: scoped-просьбы по стилю/темам (CRUD notable-only) ───────────
+    ProcessDefinition(
+        process_id="style.scope", version="1",
+        purpose="Scoped-просьбы по стилю/темам (участник/чат/тема): "
+                "ingestion → resolve → apply → expire",
+        inputs=("message", "command"),
+        outputs=("mca_style_requests", "prompt block"),
+        stages=("ingest", "resolve", "apply", "expire"),
+        trigger_kind="per_message",
+        settings_ref=("MCA_STYLE_SCOPE_ENABLED",
+                      "MCA_STYLE_SCOPE_CHAT_TTL_DAYS",
+                      "MCA_STYLE_SCOPE_TOPIC_TTL_DAYS"),
+        state_source=("mca_style_requests",),
+        recovery_ops=("reset",),
+        widget_id="Личность/интересы",
+        stages_to_events={"ingest": "style_scope", "expire": "style_scope"},
+        instrumentation=("ingest", "expire"),
+        owner_feature="mca-08",
+        enabled_gate="MCA_STYLE_SCOPE_ENABLED",
+        event_names=("style_scope",),
+        note="CRUD-события notable-only (recorded/superseded/expired/"
+             "denied/ambiguous_skipped); resolve/apply — read-side без "
+             "per-reply success; виджет-ID для mca-17c (UI не делается)",
     ),
     ProcessDefinition(
         process_id="tools.chain", version="1",
@@ -847,6 +881,12 @@ _GATE_RESOLVERS = {
     "MCA_EPISODES_BACKFILL_ENABLED": "episodes_backfill_enabled",
     "MCA_EPISODES_CONTINUATION_ENABLED": "episodes_continuation_enabled",
     "MCA_EPISODES_COMPILER_FACADE_ENABLED": "episodes_compiler_facade_enabled",
+    # mca-08 (ADR-1028-11 D10) блоки A+B: K1/K2 (стадии реестра — T-4910).
+    "MCA_CHARACTER_LAYERS_ENABLED": "character_layers_enabled",
+    "MCA_CHARACTER_SPEECH_ENABLED": "character_speech_enabled",
+    # mca-08 блоки C+D: K3/K4.
+    "MCA_STYLE_SCOPE_ENABLED": "style_scope_enabled",
+    "MCA_POSTPROCESS_FORM_GUARD_ENABLED": "postprocess_form_guard_enabled",
     # product-гейты из `config.settings` (не mca_gates) — резолв через settings.
 }
 

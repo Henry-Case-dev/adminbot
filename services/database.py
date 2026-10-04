@@ -952,6 +952,44 @@ _MCA_PIPELINE_RUNS_CHAT_INDEX_DDL = (
     "ON mca_pipeline_runs (pipeline_type, chat_id, started_at)",
 )
 
+# ── mca-08 T-4903 (spec §5.1, ADR-1028-11 D3; санкция §9.1): v26 — scoped-
+# просьбы по стилю/темам (участник/чат/тема). Ровно ОДНА аддитивная таблица
+# `mca_style_requests` + 2 индекса. Хранится только канонический ключ
+# `directive` (серверный текст); свободный текст пользователя не сохраняется
+# (topic_key — нормализованная метка-условие темы). Аддитивно/идемпотентно
+# (`CREATE ... IF NOT EXISTS`), повтор — no-op, PG — no-op (GEN-R4); старый
+# код таблицу не читает (rollback-safe). Backfill не требуется.
+_SCHEMA_VERSION_STYLE_REQUESTS = 26
+
+_STYLE_REQUESTS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_style_requests ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "chat_id INTEGER NOT NULL, "
+    "scope TEXT NOT NULL CHECK (scope IN ('participant','chat','topic')), "
+    "participant_id INTEGER, "
+    "topic_key TEXT, "
+    "facet TEXT NOT NULL, "
+    "directive TEXT NOT NULL, "
+    "set_by INTEGER NOT NULL, "
+    "source TEXT NOT NULL CHECK (source IN ('command','message')), "
+    "source_message_id INTEGER, "
+    "created_at REAL NOT NULL, "
+    "expires_at REAL, "
+    "revoked_at REAL, "
+    "superseded_by INTEGER, "
+    "CHECK ((scope='participant' AND participant_id IS NOT NULL "
+    "AND topic_key IS NULL) "
+    "OR (scope='chat' AND participant_id IS NULL AND topic_key IS NULL) "
+    "OR (scope='topic' AND participant_id IS NULL AND topic_key IS NOT NULL)))"
+)
+
+_STYLE_REQUESTS_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_style_requests_active "
+    "ON mca_style_requests(chat_id, scope, revoked_at, expires_at)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_style_requests_participant "
+    "ON mca_style_requests(chat_id, participant_id, revoked_at)",
+)
+
 
 def _summary_window_unique_violation(exc: BaseException) -> bool:
     """IntegrityError «UNIQUE constraint» → write-once guard snapshot'а."""
@@ -1855,6 +1893,12 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_DREAM_RUNS,
                           "dream_run_reports",
                           lambda svc: svc._migrate_dream_runs_v25()),
+            # mca-08 (ADR-1028-11 D3, санкция §9.1): v26 — одна аддитивная
+            # таблица `mca_style_requests` + 2 индекса (без backfill,
+            # PG — no-op, старый код таблицу не читает).
+            MigrationStep(_SCHEMA_VERSION_STYLE_REQUESTS,
+                          "style_requests",
+                          lambda svc: svc._migrate_style_requests_v26()),
             # ASAP 4.1 волна 5 (T-4616, spec §10.2–§10.3): v24 = 3 таблицы
             # (summary_source_windows + summary_runs + summary_run_stages).
             # Один MigrationStep на версию — книга `schema_migrations` имеет
@@ -2663,6 +2707,26 @@ class DatabaseService:
         await self.db.commit()
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_DREAM_RUNS}")
+        await self.db.commit()
+
+    async def _migrate_style_requests_v26(self) -> None:
+        """v26 (`mca-08-character-speech` T-4903, spec §5.1, ADR-1028-11 D3):
+        scoped-просьбы по стилю/темам — таблица `mca_style_requests` +
+        `idx_mca_style_requests_active`/`idx_mca_style_requests_participant`.
+
+        Аддитивно (`CREATE TABLE/INDEX IF NOT EXISTS` под self-guard
+        `sqlite_master`); НИ ОДНОГО UPDATE/DELETE существующих строк; повтор —
+        no-op; backfill не требуется (старый код таблицу не читает); PG —
+        no-op (GEN-R4). Фиксирует `PRAGMA user_version = 26`."""
+        if not await self._table_exists("mca_style_requests"):
+            await self.db.execute(_STYLE_REQUESTS_DDL)
+            await self.db.commit()
+            logger.info("[database] migration v26: mca_style_requests")
+        for ddl in _STYLE_REQUESTS_INDEX_DDL:
+            await self.db.execute(ddl)
+        await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_STYLE_REQUESTS}")
         await self.db.commit()
 
     # ── mca-22 (ADR-1028-6 D2): Durable Own Output Ledger — write/read ──────

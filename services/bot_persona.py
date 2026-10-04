@@ -35,6 +35,26 @@ _NO_AI_DISCLOSURE_BLOCK = (
     "не подтверждай и не опровергай техническую природу."
 )
 
+# ── MCA-08 (D1, ADR-1028-11): read-side слои характера ──────────────────────
+# Доменные слои персоны (read-side; без нового хранилища): постоянное ядро
+# владельца, настроенный стиль и изменяемые производные черты. Порядок
+# разрешения конфликтов — канон §28.4 (`current_task.md:1560`), один на фичу.
+CHARACTER_LAYERS: tuple[str, ...] = ("owner_core", "owner_style",
+                                     "derived_traits")
+CHARACTER_PRECEDENCE: tuple[str, ...] = ("owner_core", "owner_style",
+                                         "scoped_request", "derived_traits",
+                                         "state")
+
+# Канон §4 (D2): мнение vs факт + запрет выдуманных событий. Рендерится
+# вызывающим ТОЛЬКО вместе с непустым persona-блоком; K1 OFF — не строится.
+_CHARACTER_RULES_BLOCK = (
+    "<Character_Rules>\n"
+    "Своё мнение — это твоя позиция: помечай его как мнение, а не как факт. "
+    "Обсуждай события, встречи и действия только по материалам диалога; "
+    "если материалов нет — честно скажи об этом и ничего не выдумывай.\n"
+    "</Character_Rules>"
+)
+
 # ── SQL ─────────────────────────────────────────────────────────────────────
 _SELECT_CHAT_SQL = (
     "SELECT name, biography, system_prompt_overrides, is_aware_ai, updated_at "
@@ -156,6 +176,20 @@ class BotPersona:
         return not (self.name or self.biography or self.overrides)
 
 
+@dataclasses.dataclass(frozen=True)
+class CharacterReadContext:
+    """MCA-08 (D1): единый read-контекст характера на ответ (§3).
+
+    `traits_scope="global"` фиксирует текущую семантику общего пула черт
+    (`get_traits` без chat_id) — шов mca-18: замена выбора/компиляции черт
+    на BehaviorFrame выполняется через этот контекст, сигнатуры не ломаются.
+    """
+
+    persona: BotPersona
+    traits: tuple[str, ...] = ()
+    traits_scope: str = "global"
+
+
 # ── Резолв scope ────────────────────────────────────────────────────────────
 
 def _clean(value) -> str:
@@ -239,6 +273,15 @@ def build_persona_prompt_block(persona: BotPersona,
     return block
 
 
+def build_character_rules_block() -> str:
+    """MCA-08 (D2): канон «мнение vs факт» / запрет выдуманных событий.
+
+    Чистый текст; решение о рендере (непустой persona-блок + K1 ON) принимает
+    вызывающий. K1 OFF (`mca_gates.character_layers_enabled()` False) →
+    блок не вызывается и в промпт не попадает (байт-паритет 2.58.54)."""
+    return _CHARACTER_RULES_BLOCK
+
+
 # ── Чтение ──────────────────────────────────────────────────────────────────
 
 def _epoch(value) -> int | None:
@@ -320,6 +363,35 @@ async def get_traits(limit: int = 50,
             "ts": _epoch(row.get("created_at")),
         })
     return out
+
+
+async def resolve_character_context(chat_id: int | None
+                                    ) -> CharacterReadContext:
+    """MCA-08 (D1): read-side слои характера на ответ (§3, §28.4).
+
+    REUSE существующих `resolve_bot_persona` + `get_traits(limit, chat_id=None)`
+    (общий пул, `traits_scope="global"`). Fail-open: PG down/ошибка → пустая
+    персона/пустые черты (WARNING без содержимого). Сигнатуры публичного API
+    сохраняются; write-путей к ядру не добавляется (граница mca-06 AM-3).
+    """
+    try:
+        persona = await resolve_bot_persona(chat_id)
+    except Exception:
+        logger.warning("[bot_persona] character resolve failed — empty | "
+                       "chat=%s", chat_id, exc_info=True)
+        persona = BotPersona.empty()
+    try:
+        limit = int(getattr(settings, "PERSONA_TRAITS_MAX", 50) or 50)
+    except (TypeError, ValueError):
+        limit = 50
+    try:
+        rows = await get_traits(limit, chat_id=None)
+    except Exception:
+        rows = []
+    traits = tuple(
+        t for t in (_clean(r.get("text")) for r in (rows or [])) if t)
+    return CharacterReadContext(persona=persona, traits=traits,
+                                traits_scope="global")
 
 
 async def get_persona_health() -> dict:

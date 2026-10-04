@@ -171,6 +171,26 @@ CHAT_FORGET_DONE_PHRASE = "забыл. если напомнишь — снов�
 CHAT_FORGET_MISS_PHRASE = "в моей памяти про это пусто, может и не было"
 CHAT_FORGET_NOARG_PHRASE = "напиши /forget и что именно забыть, а то я всё подряд сотру и стану глупым"
 
+# MCA-08 (D3–D5, T-4903): скрытая команда /style (прецедент /tone; в меню
+# bot_commands.py НЕ регистрируется). Стиль — строчные, {directive}/{label} —
+# .replace; label — нормализованная метка темы (R17: в логи не пишется).
+CHAT_STYLE_LIST_HEADER = "вот какие просьбы по стилю сейчас активны:"
+CHAT_STYLE_LIST_EMPTY_PHRASE = "просьб по стилю пока нет. скажи, например: /style отвечай короче"
+CHAT_STYLE_SET_PARTICIPANT_PHRASE = "записал, это для тебя: {directive}"
+CHAT_STYLE_SET_CHAT_PHRASE = "записал для всего чата: {directive}"
+CHAT_STYLE_SET_TOPIC_PHRASE = "записал по теме «{label}»: {directive}"
+CHAT_STYLE_OFF_DONE_PHRASE = "сбросил твои просьбы по стилю"
+CHAT_STYLE_OFF_CHAT_DONE_PHRASE = "сбросил просьбы по стилю для всего чата"
+CHAT_STYLE_OFF_TOPIC_DONE_PHRASE = "сбросил просьбы по теме «{label}»"
+CHAT_STYLE_OFF_ALL_DONE_PHRASE = "сбросил все просьбы по стилю в этом чате"
+CHAT_STYLE_ADMIN_ONLY_PHRASE = "это может менять только админ чата"
+CHAT_STYLE_INVALID_TOPIC_PHRASE = "тема — короткая метка: буквы, цифры, пробел, дефис (2–48)"
+CHAT_STYLE_UNKNOWN_PHRASE = ("не понял просьбу. варианты: отвечай короче / "
+                             "отвечай подробнее / без шуток / можно шутить / "
+                             "без смайлов / говори прямо / формулируй мягче / "
+                             "обращайся на «ты»")
+CHAT_STYLE_UNAVAILABLE_PHRASE = "не могу сейчас вести просьбы по стилю, попробуй позже"
+
 # DirectChat — /persona карточки (Epic 60, R60-28, Section 66.9). Пустая —
 # VERBATIM из 66.9 ({имя} — .replace); остальные — права/список (R17: чужая
 # карточка — только админ).

@@ -849,7 +849,9 @@ def _budget_svc(*, capture=None, real_budget=False, estimate=None):
             return []
         _Svc._apply_context_budget = _apply_context_budget
     if estimate is not None:
-        async def _est(self, chat_id, budget_tokens):
+        async def _est(self, chat_id, budget_tokens, **_kw):
+            # MCA-08 (T-4898): живой call-site аддитивно передаёт
+            # `extra_prompt_blocks` (speech) — фейк принимает kwarg.
             return estimate
         _Svc._estimate_external_payload_tokens = _est
     svc = _Svc.__new__(_Svc)

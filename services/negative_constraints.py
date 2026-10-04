@@ -21,12 +21,104 @@ from dataclasses import dataclass
 from typing import Awaitable, Callable, Iterable
 
 from config.settings import settings
+from services import mca_gates
 from services.outgoing_guard import sanitize_outgoing
-from services.prompt_style_blocks import CLICHE_RETRY_SYSTEM_PROMPT
+from services.prompt_style_blocks import (
+    CLICHE_RETRY_SYSTEM_PROMPT,
+    FORM_GUARD_RETRY_SYSTEM_PROMPT,
+)
 
 logger = logging.getLogger(__name__)
 
 _MAX_RETRIES_HARD_CAP = 2
+
+# ── MCA-08 (D8, T-4907/T-4908): контракт «только форма» + анти-утечки ───────
+# Расширение существующего контура `verbalize_validated` (отдельный
+# paraphrase-модуль запрещён; второй постпроцессор не создаётся).
+
+FORM_GUARD_REJECTED = "form_guard_rejected"
+FORM_GUARD_LEAK_BLOCKED = "form_guard_leak_blocked"
+
+# G1: техметки/JSON-маркеры/<thought>/target-маркер — через diff
+# `sanitize_outgoing` (неизменный egress-канон).
+# G2: числа (пробелы/NBSP/разделители тысяч/десятичная запятая) и отрицание
+# в окне ±40 символов (закрытый список).
+# G3: новые имена ростера (регистронезависимо, границы слов).
+_NEGATION_WINDOW = 40
+_NUMBER_TOKEN_RE = re.compile(r"\d+(?:[ \u00a0\u202f'.,]\d+)*")
+_NEGATION_RE = re.compile(
+    r"(?<![0-9a-zа-яё_])(?:не|ни|никогда|без|нет)(?![0-9a-zа-яё_])")
+_NAME_BOUNDARY_CHARS = r"0-9a-zа-яё_"
+
+
+@dataclass(frozen=True)
+class FormContract:
+    """Исходный проверенный черновик для form-гардов (D8, T-4907).
+
+    ``source_text`` — финал tool-loop (`str(raw)`) / проверенный исходник;
+    ``addressee`` — адресат (справочно, не влияет на гарды); ``roster_names`` —
+    участники, новых имён которых кандидат вводить не должен.
+    """
+
+    source_text: str
+    addressee: str | None = None
+    roster_names: tuple[str, ...] = ()
+
+
+def _canon_number(token: str) -> str:
+    """Канонизация числа: пробелы/NBSP/' — разделители тысяч, ',' → '.'."""
+    text = (token.replace(" ", "").replace("\u00a0", "")
+            .replace("\u202f", "").replace("'", ""))
+    if "," in text and "." in text:
+        text = text.replace(".", "").replace(",", ".")
+    elif "," in text:
+        text = text.replace(",", ".")
+    return text
+
+
+def _number_signature(text: str) -> tuple[dict[str, int], dict[str, int]]:
+    """(мультимножество чисел, счётчики чисел с отрицанием в окне ±40)."""
+    counts: dict[str, int] = {}
+    negated: dict[str, int] = {}
+    source = str(text or "")
+    for match in _NUMBER_TOKEN_RE.finditer(source):
+        canon = _canon_number(match.group())
+        counts[canon] = counts.get(canon, 0) + 1
+        window = source[max(0, match.start() - _NEGATION_WINDOW):
+                        match.end() + _NEGATION_WINDOW].casefold()
+        if _NEGATION_RE.search(window):
+            negated[canon] = negated.get(canon, 0) + 1
+    return counts, negated
+
+
+def check_form_contract(candidate: str, contract: FormContract, *,
+                        scrubber: Scrubber = sanitize_outgoing
+                        ) -> str | None:
+    """Прогнать form-гарды G1–G3. → код отказа либо None (форма сохранена)."""
+    try:
+        text = str(candidate or "")
+        if scrubber(text) != text:
+            return FORM_GUARD_LEAK_BLOCKED          # G1
+        counts_src, neg_src = _number_signature(contract.source_text)
+        counts_cand, neg_cand = _number_signature(text)
+        if counts_src != counts_cand or neg_src != neg_cand:
+            return FORM_GUARD_REJECTED              # G2
+        if contract.roster_names:                   # G3
+            low_src = str(contract.source_text or "").casefold()
+            low_cand = text.casefold()
+            for name in contract.roster_names:
+                norm = str(name or "").strip().casefold()
+                if len(norm) < 2:
+                    continue
+                pattern = re.compile(
+                    rf"(?<![{_NAME_BOUNDARY_CHARS}]){re.escape(norm)}"
+                    rf"(?![{_NAME_BOUNDARY_CHARS}])")
+                if pattern.search(low_cand) and not pattern.search(low_src):
+                    return FORM_GUARD_REJECTED
+        return None
+    except Exception:      # fail-open: гард не рвёт поток
+        logger.warning("[validator] form guard error — text treated as clean")
+        return None
 
 
 @dataclass(frozen=True)
@@ -347,6 +439,8 @@ async def verbalize_validated(
     scrubber: Scrubber = sanitize_outgoing,
     enabled_rules: frozenset[str] | set[str] | None = None,
     dynamic_rules: Iterable[DynamicClicheRule] | None = None,
+    form_contract: FormContract | None = None,
+    fallback_text: str | None = None,
 ) -> tuple[str, dict]:
     """Вызвать Вербализатор с браковкой ответа по запрещённым клише.
 
@@ -356,6 +450,16 @@ async def verbalize_validated(
       с ``CLICHE_RETRY_SYSTEM_PROMPT`` (полная перегенерация).
       исчерпание → лучший вариант (минимум кодов; тай-брейк — самый ранний),
       очищенный scrubber'ом; ``fallback=True``.
+
+    MCA-08 (D8, T-4907/T-4908): при переданном ``form_contract`` и K4 ON
+    (``MCA_POSTPROCESS_FORM_GUARD_ENABLED``) кандидат дополнительно проходит
+    form-гарды G1–G3; reject → **≤1** повтор с
+    ``FORM_GUARD_RETRY_SYSTEM_PROMPT`` внутри ТОГО ЖЕ bounded-бюджета (≤2
+    ретрая всего, бюджет не растёт); после reject'а в повторе (или при
+    недоступном бюджете) — возврат ``fallback_text`` (санитизированный;
+    деградация честно помечается ``form_fallback=True``). Значения по
+    умолчанию (``None``) и K4 OFF → байт-паритет 2.58.54, stats без новых
+    ключей.
 
     Ретраи строго bounded (≤2 → ≤3 вызова Stage-2). Ошибка generate на
     ретрае → вернуть последний успешный текст (``retry_error=True``).
@@ -371,27 +475,66 @@ async def verbalize_validated(
         "retry_error": False,
         "enabled": True,
     }
+    form_active = bool(form_contract is not None
+                       and mca_gates.postprocess_form_guard_enabled())
+    if form_active:
+        stats.update({
+            "form_guard_rejects": 0,
+            "form_guard_reason": None,
+            "form_retry": False,
+            "form_fallback": False,
+        })
+
+    def _form_reason(candidate: str) -> str | None:
+        if not form_active:
+            return None
+        return check_form_contract(candidate, form_contract, scrubber=scrubber)
+
+    def _fallback_result(text_value: str):
+        """Финальный возврат при исчерпании: проверенный черновик, иначе best."""
+        if form_active and int(stats.get("form_guard_rejects") or 0) > 0:
+            stats["form_fallback"] = True
+            if fallback_text is not None and str(fallback_text).strip():
+                return scrubber(str(fallback_text)), stats
+        return scrubber(text_value), stats
+
     if not getattr(settings, "SYSTEM2_VALIDATOR_LOOP_ENABLED", True):
         stats["enabled"] = False
         text = await generate_call(base_messages)
         stats["attempts"] = 1
         return scrubber(text), stats
 
-    retry_message = {"role": "system", "content": CLICHE_RETRY_SYSTEM_PROMPT}
     # Review iter1 (M2): материализуем один раз — итератор/генератор нельзя
     # прокручивать повторно на ретраях.
     dyn = tuple(dynamic_rules) if dynamic_rules else ()
     text = await generate_call(base_messages)
     attempts = 1
     codes = find_forbidden_cliches(text, enabled_rules, dyn)
-    if not codes:
+    form_reason = _form_reason(text)
+    if form_reason is not None:
+        stats["form_guard_rejects"] += 1
+        stats["form_guard_reason"] = form_reason
+    if not codes and form_reason is None:
         stats["attempts"] = attempts
         return scrubber(text), stats
 
     best_text, best_codes = text, codes
+    best_form_ok = form_reason is None
+    form_retry_used = False
     cap = max(0, min(int(max_retries), _MAX_RETRIES_HARD_CAP))
     for index in range(1, cap + 1):
-        retry_messages = list(base_messages) + [retry_message]
+        if form_reason is not None:
+            # «Только форма»: ровно ≤1 повтор с каноном формы (T-4908);
+            # повтор тратится из ТОГО ЖЕ bounded-бюджета (бюджет не растёт).
+            if form_retry_used:
+                break
+            form_retry_used = True
+            stats["form_retry"] = True
+            retry_system = FORM_GUARD_RETRY_SYSTEM_PROMPT
+        else:
+            retry_system = CLICHE_RETRY_SYSTEM_PROMPT
+        retry_messages = list(base_messages) + [
+            {"role": "system", "content": retry_system}]
         try:
             text = await generate_call(retry_messages)
         except Exception:
@@ -404,15 +547,24 @@ async def verbalize_validated(
             logger.warning(
                 "[validator] retry generate failed — best kept | attempts=%d "
                 "| codes=%d", attempts, len(best_codes))
-            return scrubber(best_text), stats
+            return _fallback_result(best_text)
         attempts += 1
         retries = index
         codes = find_forbidden_cliches(text, enabled_rules, dyn)
-        if not codes:
+        form_reason = _form_reason(text)
+        if form_reason is not None:
+            stats["form_guard_rejects"] += 1
+            stats["form_guard_reason"] = form_reason
+        if not codes and form_reason is None:
             stats.update({"attempts": attempts, "retries": retries})
             return scrubber(text), stats
-        if len(codes) < len(best_codes):
-            best_text, best_codes = text, codes
+        form_ok = form_reason is None
+        if form_active:
+            better = (form_ok, -len(codes)) > (best_form_ok, -len(best_codes))
+        else:
+            better = len(codes) < len(best_codes)
+        if better:
+            best_text, best_codes, best_form_ok = text, codes, form_ok
 
     stats.update({
         "attempts": attempts,
@@ -422,5 +574,6 @@ async def verbalize_validated(
     })
     logger.info(
         "[validator] cliche loop exhausted | attempts=%d | retries=%d | "
-        "codes=%d", attempts, retries, len(best_codes))
-    return scrubber(best_text), stats
+        "codes=%d | form_rejects=%d", attempts, retries, len(best_codes),
+        int(stats.get("form_guard_rejects") or 0))
+    return _fallback_result(best_text)

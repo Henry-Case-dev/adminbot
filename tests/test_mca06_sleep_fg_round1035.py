@@ -349,7 +349,9 @@ class TestRunReport:
     @pytest.mark.asyncio
     async def test_ddl_v25_columns_and_version(self, db):
         cur = await db.db.execute("PRAGMA user_version")
-        assert int((await cur.fetchone())[0]) == 25
+        # v25 применён (шаг реестра); хвост реестра — v26 (mca-08,
+        # ADR-1028-11 D3: mca_style_requests) — фронтир user_version >= 25.
+        assert int((await cur.fetchone())[0]) >= 25
         cols = {r["name"] for r in await (
             await db.db.execute("PRAGMA table_info(mca_pipeline_runs)")
         ).fetchall()}

@@ -64,6 +64,15 @@ CLICHE_RETRY_SYSTEM_PROMPT = (
     "Перепиши ответ полностью, сделав его естественным."
 )
 
+# MCA-08 (D8, T-4907/T-4908): канон повтора при нарушении «только форма»
+# (числа/отрицания/адресаты/смысл сохранены; измени только форму). Второго
+# постпроцессора/paraphrase-модуля нет — этот промпт использует тот же
+# Вербализатор внутри bounded-бюджета `verbalize_validated`.
+FORM_GUARD_RETRY_SYSTEM_PROMPT = (
+    "Перепиши ответ заново, сохранив все числа, отрицания, адресатов и смысл; "
+    "измени только форму. Не добавляй новых имён и данных."
+)
+
 # Новый канон R1021: польза <bot_knowledge> без «уже проверял ранее».
 BOT_KNOWLEDGE_INSTRUCTION = (
     "Если в блоке <bot_knowledge> есть информация по текущей теме, "
@@ -247,7 +256,9 @@ def format_block(channel: str | None, *, html_safe: bool = False) -> str:
 
 def compose_verbalizer_system(base_prompt: str, response_mode: str = "",
                               channel: str = _CHANNEL_PLAIN, *,
-                              html_safe: bool = False) -> str:
+                              html_safe: bool = False,
+                              character_block: str = "",
+                              style_directives: str = "") -> str:
     """Narrator-промпт по режиму и каналу.
 
     Формула (ADR-1023-3 §Decision 4/10): модульный базовый narrator
@@ -255,6 +266,15 @@ def compose_verbalizer_system(base_prompt: str, response_mode: str = "",
     ровно один ``MODE_*_BLOCK``; для ``deep_research`` добавляется ровно
     один канальный блок. Для ``deep_research`` безусловные запреты на
     буллиты снимаются (H1), чтобы требование буллитов не конфликтовало с базой.
+
+    MCA-08 (D2, ADR-1028-11 AM-2): ``character_block`` — новый
+    **опциональный** параметр (default "" → байт-паритет всех текущих
+    потребителей). Непустой блок владельца/правил добавляется последним
+    part'ом; каноны/оффсеты/режимы не меняются, второго сборщика нет.
+
+    MCA-08 (D5, T-4904): ``style_directives`` — опциональный
+    ``<Style_Requests>``-блок (default "" → байт-паритет); идёт после
+    ``character_block`` (порядок хвоста: rules → style).
 
     Fallback-контракт (F6, ADR-1024-10 D3): валидный ``response_mode`` из
     Stage-1 приоритетен — ключ ``prompts.verbilizer_default_mode`` при этом
@@ -274,4 +294,8 @@ def compose_verbalizer_system(base_prompt: str, response_mode: str = "",
     parts = [base, _resolve_mode_block(candidate)]
     if candidate == "deep_research":
         parts.append(format_block(channel, html_safe=html_safe))
+    if character_block:
+        parts.append(str(character_block))
+    if style_directives:
+        parts.append(str(style_directives))
     return "\n\n".join(part for part in parts if part)

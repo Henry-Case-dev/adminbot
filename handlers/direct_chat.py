@@ -32,6 +32,7 @@ from config.settings import settings
 from services import command_prefix
 from services import hot_config as hot
 from services import bot_persona
+from services import mca_style_scope
 from handlers.voice_transcription import is_reply_to_transcription
 from handlers.video_download import download_available
 from services.direct_chat_service import DirectChatService
@@ -306,6 +307,30 @@ async def cmd_tone(message: types.Message, bot: Bot = None,
                  message.message_id)
     logger.info("[direct] /tone | chat=%s user=%s preset=%s",
                 chat_id, user_id, preset_key)
+
+
+@direct_chat_router.message(Command("style"))
+async def cmd_style(message: types.Message, bot: Bot = None,
+                    command: CommandObject = None) -> None:
+    """MCA-08 (D3–D5, T-4903): скрытая /style — scoped-просьбы по стилю.
+
+    K3 OFF → `None` от сервиса → UNHANDLED (команда неактивна: паритет
+    2.58.54, меню bot_commands.py не меняется). R17: в лог — только
+    chat/user/флаг.
+    """
+    if _service is None or bot is None or _bot_id is None:
+        return UNHANDLED
+    if not _command_user(message):
+        return UNHANDLED
+    args = (command.args or "") if command is not None else ""
+    phrase = await mca_style_scope.handle_command(
+        getattr(_service, "db", None), chat_id=message.chat.id,
+        user_id=message.from_user.id, args=args)
+    if phrase is None:
+        return UNHANDLED                       # K3 OFF → команда неактивна
+    await _reply(bot, message.chat.id, phrase, message.message_id)
+    logger.info("[direct] /style | chat=%s user=%s",
+                message.chat.id, message.from_user.id)
 
 
 @direct_chat_router.message(Command("forget"))
