@@ -1,6 +1,6 @@
 # ADR-1028-12 — mca-15-chat-statistics: достоверные измерения чата, MetricResult/NumericClaim и уместность статистики
 
-- **Статус:** **Proposed** (Step 2 @Architect, design-freeze 05.10.2026; Accepted — по merge `plans/ARCHITECTURE.md` §116 и прод-валидации; ожидаемый §116 — следующий свободный, подтвердить на merge)
+- **Статус:** **Accepted** (merge `plans/ARCHITECTURE.md` §116, 05.10.2026; подтверждён прод-валидацией 2.58.56)
 - **Дата:** 05.10.2026
 - **Фича:** `mca-15-chat-statistics` (Wave 2, эпик `memory-context-autonomy`; deps mca-03/mca-07 закрыты; после mca-08)
 - **Источник:** `plans/current_task.md:1094–1171` (§24) + `:1283–1321` (§26 probe); приёмки A38–A42 `:919–923`; §20.2 `:1017`; §27.1 `:1358`
@@ -58,4 +58,6 @@
 
 ## Прод-валидация и история
 
-**История ревизий:** 05.10.2026 — Proposed (Step 2 @Architect, design-freeze, санкции T-4917/T-4918; следующий свободный номер проверен grep'ом — `ADR-1028-12` нигде не занят). Accepted — по merge §116 + прод-валидации (заполнить на reconcile).
+**✅ Прод-валидация 2.58.56 (VERIFIED 05.10.2026; факты — серверное UTC 04.10.2026):** прод ff `2a4730a..a80cd4b` (feat `35c1c71` 45 файлов; docs `a80cd4b` 8 файлов; deploy-doc `b9aa67b`), рестарт 23:36:27 UTC (PID 3757743, NRestarts=0), `/healthz` 200 `2.58.56` (~6.5 с; без VACUUM — миграций нет) + `/api/health` 200. **Δ DDL = 0 подтверждён на проде:** 0 строк `migration`/`backup`, SQLite `user_version` 26=26, `schema_migrations` 15=15 (v27 отсутствует), таблицы 100=100, ноль `mca_chat*`/`cs_*`; PG no-op (26 таблиц; assignments 17 / next 18 / assets 13 / provenance 24 — байт-равны pre). Данные целы (`task_jobs` 641→642 live, `summary_runs` 13, `mca_events` 10024→10027 live boot, `mca_style_requests` 0, `mca_bot_outputs` 74). Kill-switches — **0 env-оверрайдов** (K1–K3 default ON; env-лимиты 20000/20 по умолчанию). Проверки: локально 91 + 78 + 336 + 214 (**719 passed**), prod-venv **169 passed** (25.24 с; 2 pre-existing warnings), F8 `--check` OK **489** Δ=0, 0 ERROR/CRITICAL/Traceback, **R17 = 0**. Review T-4938 **Approved** (binding: HEAD `f1cacbd`; WTH-манифест после санкции @Orchestrator — 28 продуктовых файлов, агрегат `2B2EE1C9409ED0222DB1D33768613214B864B2F598B565BE0B23D1AE19C78FE1`; `plans/workflow_state.md` (процесс-журнал) удалён из манифеста как out-of-scope [I-1]). **Rollback:** soft — K1–K3 `=false` + рестарт (OFF = бит-в-бит 2.58.55; DDL=0); cold — `git revert` `35c1c71` (или checkout `2a4730a` — 2.58.55); restore БД не требуется (нет миграций/мутаций данных). **Live-приёмка T-4940 — [PENDING OWNER]** (реальный чат, no-false-acceptance) → затем T-4941 архив/передача. Полная прод-фактура — `deployment.md` (VERIFIED).
+
+**История ревизий:** 05.10.2026 — Proposed (Step 2 @Architect, design-freeze, санкции T-4917/T-4918; следующий свободный номер проверен grep'ом — `ADR-1028-12` нигде не занят); 05.10.2026 — **Accepted** (merge §116 + deploy 2.58.56 VERIFIED; T-4940 live — за владельцем).
