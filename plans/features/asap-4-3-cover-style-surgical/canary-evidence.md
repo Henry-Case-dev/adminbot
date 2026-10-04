@@ -116,3 +116,106 @@ GET 200 (1 530 449 B). Регресс от `1c47b5e`: до деплоя (03:20, 
   image_edit) через MiniApp; override виден как manual и меняется владельцем.
 - Источники: github.com/nanoodlecom/nanoodle-js/blob/main/src/prompt-caps.mjs;
   nano-gpt.com/models/image/qwen-image-3-pro; nanoaimaker.com/image/qwen-3-pro.
+
+---
+
+# Canary A repeat (05.10.2026) — PASS
+
+Прод **2.58.51** (feat `acbbe1f`), PID 3610541, NRestarts=0, health 200; локальный
+Playwright 390×844, тот же server-generated initData. Один реальный прогон:
+prod MiniApp → редактор Medved Press → один клик «Проверить стиль».
+
+| Параметр | Факт (UTC прод-хоста) |
+|---|---|
+| POST `/api/cover/test-style` | **200**, `{job_id: cov_77f2347eec7d85e6b3a15f93, status: queued, reused: false}`, 12:26:51 |
+| Correlation (лог) | `cover_test_efdc0925de59` |
+| Stage timeline | base_generating +0.7 с → base_ready +54.7 с → style_editing +56.5 с → completed +130.4 с (12:29:01); heartbeats 30/60 с |
+| Base | 887 912 B, 54.0 с (`[image] generated` 12:27:44) |
+| Style edit | `COVER_STYLE_SUCCEEDED` 12:28:59, 74.5 с |
+| Provider/model | `nano-gpt.com` / `qwen-image-3-pro` (`resolve_source=global_image_slot`) |
+| Reference | `reference_count=1`, `reference_bytes_total=475189` (medved_press.png) |
+| Pair (revision 5, atomic) | before `cas_d2ae85e74f5fa44ff9a06d79a111274b`, after `cas_272acc62b86cd9d166ff6c82ad7da1ba`; `preview_revision=5`, `preview_job_id=cov_77f2…`, `preview_status=success` |
+| **UI: before GET** | **200**, 887 912 B, sha256[:16] `d2ae85e74f5fa44f`; blob 1024×1024, complete |
+| **UI: after GET** | **200**, 1 706 155 B, sha256[:16] `272acc62b86cd9d1`; blob 1024×1024, complete |
+| Fix proof (PG) | строка `cover_style_assets` для base **есть** (created 12:27:44.767) — до фикса отсутствовала |
+| UI-тексты | «Генерируем базовую обложку…» / «Применяем стиль…», «Стиль применён»; `Failed to fetch` нет |
+| Console | 2×404 — только старые pre-fix ассеты (12:26:49, `cas_4f23007c…`) при открытии редактора; новых ошибок нет |
+| Issue counter | **не изменён**: assignments 12 (последняя — production-прогон владельца), preview-строка не создавалась |
+| Публикация | **0**: для `cover_test_efdc0925de59` только `COVER_STYLE_*` |
+
+**Вердикт: PASS** — все критерии Canary A выполнены, включая прежнюю точку
+падения (before `GET` = 200, обе картинки в UI).
+
+# Manual override 800 (§7.2) — BLOCKED, реальный UI-флоу падает на проде
+
+Шаги (реальный MiniApp, 2.58.51): редактор Medved → `[data-cover-limit-mode]` =
+«Задать вручную» → unit «символы» → значение `800` → «Сохранить лимит».
+- `POST /api/cover/prompt-limit` (12:32:58, body `{profile_id: medved_press,
+  operation: image_edit, mode: manual, unit: chars, value: 800}`) → **HTTP 422**
+  `{"detail": "Не удалось определить модель/подключение."}` — override **не
+  сохранён** (`manual_limit_map` пуст).
+- До/после (UI): «Лимит текущей модели: **неизвестно**» → после клика UI
+  **оптимистично** показывает «800 символов (задано вручную)», но breakdown
+  остался `Последняя сборка: Style 392 · Context 0 · Refs/meta 105 · System 98 ·
+  Итого 595 / неизвестно` — т.е. серверного состояния manual/800 нет, экран
+  противоречив (отдельная UX-находка).
+- `GET /api/cover/prompt-limit` / detail: `mode=auto, value=null, source=unknown`;
+  средство §7.2 на проде для этого профиля **недоступно**.
+
+## Root cause (read-only прод-проба)
+
+§7.2-пути management-plane резолвят слот **без** лестницы наследования §35:
+- `web/api/cover_styles.py:842` (`_resolve_limit_slot`), `:353`
+  (`_prompt_limit_state`), `:311` (`_budget` → `pipeline.slot_capabilities`
+  `cover_style_pipeline.py:281`) → `resolve_style_slot` (только
+  `models.image_style_*`).
+- Runtime-путь job'а: `services/cover_style_jobs.py:1224` →
+  `resolve_style_slot_inherited` (leg 3c → `models.image_*`).
+
+Прод-факт (тот же процесс/конфиг): `resolve_style_slot(medved)` →
+`provider="", model="", configured=false`; `resolve_style_slot_inherited(medved,
+pg)` → `nano-gpt.com` / `https://nano-gpt.com/api/v1` / `qwen-image-3-pro`
+(`resolve_source=global_image_slot`) — ровно маршрут, который упражняет Canary A.
+Итог: UI/API лимита не могут адресовать реальный edit-маршрут для seeded-профиля
+в режиме «По умолчанию» при пустом глобальном style-слоте → 422.
+
+Тест-щель: `tests/test_extra_cover_styles_api.py::TestPromptLimitOverride` всегда
+передаёт `provider/base_url/model` явно (стр. 485–487) и не покрывает
+profile-only резолв через наследование.
+
+## Кандидат-фикс (НЕ применён; ждёт focused re-review)
+
+- В §7.2 management-plane использовать `resolve_style_slot_inherited(profile=…,
+  pg=…)` (async) вместо `resolve_style_slot`: `_resolve_limit_slot`,
+  `_prompt_limit_state`, `_budget` (возможно `connection_status`) — чтобы лимит
+  адресовался тому же маршруту, что и runtime.
+- Регресс-тест: `POST /cover/prompt-limit` БЕЗ явных provider/model для
+  default-mode профиля с пустым style-слотом → 200, persist, `GET` → manual/800;
+  плюс UI-проверка, что «задано вручную» не показывается до серверного успеха.
+- Альтернатива (если Orchestrator/владелец санкционирует, не выполнялась): тот же
+  override через `POST /api/cover/prompt-limit` с явными
+  provider/base_url/model реального маршрута (та же §7.2-persistence), но это не
+  UI-флоу и маскирует дефект — по умолчанию не предлагается.
+
+# Canary B (T-4860, 05.10.2026) — не выполнялся
+
+- Гейт не пройден: шаг 2 (manual override через MiniApp) заблокирован 422, лимит
+  800 не персистится; без него production-style-промпт (~915 chars с брифом)
+  снова упрётся в route-cap 800 (как в прогоне владельца `64b40daa…`).
+- Второй paid production-прогон не запускался; styled-публикация не проверялась.
+- Невыполненные критерии шага: `GET /api/cover/prompt-limit` = manual/800;
+  breakdown «Итого ≤ 800, source=manual».
+
+# Логи (R17-safe, только вокруг job id)
+
+```
+12:27:44,720 image_generation: [image] generated | mode=post | model=qwen-image-3-pro | bytes=887912 | latency_ms=54020
+12:27:45,467 cover_style_jobs: COVER_STYLE_RESOLVE | style_id=medved_press | connection_id=default | resolve_source=global_image_slot | status=start | chat_id=0
+12:27:45,483 cover_style_jobs: COVER_STYLE_SUBMITTED | prompt_len=597 | reference_count=1 | reference_bytes_total=475189 | compiled_chars=597 | limit_unit=unknown:unknown | issue_present=True
+12:28:15/45 cover_style_jobs: COVER_STYLE_RUNNING | duration_ms=30000|60007
+12:28:59,296 cover_style_jobs: COVER_STYLE_SUCCEEDED | async_used=False | style_revision=5 | status=success | duration_ms=74511
+12:32:58 web/api cover_styles: POST /api/cover/prompt-limit -> 422 (slot resolved empty; см. выше)
+```
+
+Гигиена: initData-файлы (prod `/tmp`, локальный temp) удалены; секреты/промпты
+не печатались; байты изображений не сохранялись (только len+sha-префиксы).
