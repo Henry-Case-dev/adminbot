@@ -26,6 +26,7 @@ import json
 import pytest
 
 from config.settings import settings
+from services import cover_style_jobs as csj
 from services import execution_graph_source as egs
 from services import mca_events
 from services import mca_trace as trace
@@ -929,10 +930,179 @@ def client_pipeline(monkeypatch):
         yield tc
 
 
+# ── F-N3 (ASAP 4.4, owner acceptance §3/§9): Inspector facts ────────────────
+#
+# Pre-fix RED: route/compiled length/capability source не доходили до
+# mca_events (`emit_cover_event` паковал extras только в log-line, `usage_json`
+# не заполнялся), а selection node читала `style_id` из колонки, которой нет
+# в `_MCA_EVENTS_INSERT_COLS` → «нет («Без стиля»)» даже для styled-run.
+
+def _record_emit(monkeypatch):
+    seen = []
+
+    def _recorder(event_name, *, outcome, level="INFO", **fields):
+        seen.append({"event_name": event_name, "outcome": outcome,
+                     "level": level, **fields})
+        return None
+
+    monkeypatch.setattr(trace, "emit_stage", _recorder)
+    return seen
+
+
+def _cover_events_inspector_styled():
+    """Styled-run с usage фактов (как их пишет исправленный emit)."""
+    return [
+        _ev("COVER_STYLE_SELECTION", usage={
+            "style_id": "medved_press", "selection_source": "chat",
+            "style_revision": 5}),
+        _ev("COVER_STYLE_RESOLVE", outcome="start", ts=1900,
+            model="qwen-image-3-pro", provider="nano-gpt.com",
+            usage={"resolve_source": "global_image", "configured": True}),
+        _ev("COVER_BASE_SUCCEEDED", ts=1950, usage={"reference_count": 0}),
+        _ev("COVER_STYLE_SUBMITTED", outcome="start", ts=1980,
+            usage={"compiled_chars": 597, "prompt_len": 597,
+                   "edit_route": "image_api",
+                   "capability_source": "provider_or_registry",
+                   "limit_source_taxonomy": "unknown"}),
+        _ev("COVER_STYLE_SUCCEEDED", ts=2000, model="qwen-image-3-pro",
+            provider="nano-gpt.com", usage={"reference_count": 1}),
+        _ev("COVER_RICH_PUBLISH_SUCCEEDED", ts=2100),
+    ]
+
+
+class TestCoverInspectorFacts:
+    def test_emit_cover_event_carries_inspector_usage_json(self, monkeypatch):
+        seen = _record_emit(monkeypatch)
+        csj.emit_cover_event(
+            "COVER_STYLE_SUBMITTED", outcome="start", run_id="run-fn3",
+            job_id="cov_fn3", prompt_len=597, compiled_chars=597,
+            edit_route="image_api", capability_source="provider_or_registry",
+            limit_source_taxonomy="unknown", selection_source="chat",
+            style_id="medved_press", style_revision=5)
+        ev = seen[0]
+        usage = ev.get("usage_json") or {}
+        assert usage.get("compiled_chars") == 597
+        assert usage.get("edit_route") == "image_api"
+        assert usage.get("capability_source") == "provider_or_registry"
+        assert usage.get("style_id") == "medved_press"
+        assert usage.get("selection_source") == "chat"
+        # контракт mca_events принимает usage_json без потерь (roundtrip).
+        built = mca_events.build_event(
+            ev["event_name"], outcome=ev["outcome"], level=ev["level"],
+            **{k: v for k, v in ev.items()
+               if k not in ("event_name", "outcome", "level")})
+        assert built is not None
+        assert json.loads(built["usage_json"])["edit_route"] == "image_api"
+
+    def test_styled_run_shows_selection_route_length_source(self):
+        view = pa.build_run_view("run-1", _snap(),
+                                 _cover_events_inspector_styled())
+        card = view["cover_style"]
+        assert card["selected_style"] == "medved_press"
+        assert card["edit_route"] == "image_api"
+        assert card["compiled_chars"] == 597
+        assert card["capability_source"] == "provider_or_registry"
+        assert card["limit_source_taxonomy"] == "unknown"
+        by_key = {n["key"]: n for n in view["nodes"]}
+        sel = by_key[pa.NODE_STYLE_SELECTION]
+        detail = {d["k"]: d["v"] for d in sel["detail"]}
+        assert detail["Выбран"] == "medved_press"
+        assert detail["Источник выбора"] == "chat"
+        assert detail["Ревизия стиля"] == 5
+        assert "нет («Без стиля»)" not in json.dumps(sel)
+
+    def test_no_selection_still_reports_no_style(self):
+        events = [
+            _ev("COVER_STYLE_SELECTION", usage={}),
+            _ev("COVER_BASE_SUCCEEDED", ts=1950, usage={}),
+            _ev("COVER_RICH_PUBLISH_SUCCEEDED", ts=2100),
+        ]
+        view = pa.build_run_view("run-1", _snap(), events)
+        by_key = {n["key"]: n for n in view["nodes"]}
+        sel = by_key[pa.NODE_STYLE_SELECTION]
+        detail = {d["k"]: d["v"] for d in sel["detail"]}
+        assert detail["Выбран"] == "нет («Без стиля»)"
+        assert (view["cover_style"] or {}).get("selected_style") is None
+
+    def test_retro_selection_from_durable_cover_job(self, tmp_path):
+        """Старые события (без usage/style_id) + реальный durable cover job →
+        selection node берёт style_id из task_jobs (retro для c96dc04a…)."""
+
+        async def scenario():
+            d = await _inspector_db(tmp_path, name="fn3.db")
+            try:
+                mca_events.reset_pending()
+                jid, state = await csj.begin_cover_job(
+                    d, chat_id=100, style_id="medved_press",
+                    summary_run_id="run-fn3", payload={"mode": "production"})
+                state.provider = "nano-gpt.com"
+                state.model = "qwen-image-3-pro"
+                await csj.save_cover_state(d, jid, state)
+                span = trace.span_fields(run_id="run-fn3",
+                                         pipeline_type="summary", job_id=jid)
+                trace.emit_stage("COVER_STYLE_SELECTION", outcome="success",
+                                 component="cover", stage="style_selection",
+                                 **span)
+                trace.emit_stage("COVER_STYLE_SUCCEEDED", outcome="success",
+                                 component="cover", stage="style_edit",
+                                 **span)
+                await mca_events.flush_events(d)
+                egs.reset()
+                return await pa.collect_run(d, "run-fn3")
+            finally:
+                await d.close()
+
+        view = asyncio.run(scenario())
+        by_key = {n["key"]: n for n in view["nodes"]}
+        sel = by_key.get(pa.NODE_STYLE_SELECTION)
+        assert sel is not None, "selection node отсутствует (pre-fix RED)"
+        detail = {d["k"]: d["v"] for d in sel["detail"]}
+        assert detail["Выбран"] == "medved_press"
+        assert "нет («Без стиля»)" not in json.dumps(sel)
+        card = view["cover_style"]
+        assert card is not None and card["selected_style"] == "medved_press"
+        # route/compiled из старых событий не восстановимы — честное None
+        # (зафиксировано в evidence F-N3); новые прогоны несут usage_json.
+        assert card.get("edit_route") is None
+        assert card.get("compiled_chars") is None
+
+    def test_retro_selection_via_coalesce_when_event_has_no_job_id(
+            self, tmp_path):
+        """Fallback durable-поиска: события без job_id → coalesce_key
+        `cover_style:<run_id>` (страховка старых span-полей)."""
+
+        async def scenario():
+            d = await _inspector_db(tmp_path, name="fn3b.db")
+            try:
+                mca_events.reset_pending()
+                jid, state = await csj.begin_cover_job(
+                    d, chat_id=100, style_id="medved_press",
+                    summary_run_id="run-fn3b", payload={"mode": "production"})
+                await csj.save_cover_state(d, jid, state)
+                span = trace.span_fields(run_id="run-fn3b",
+                                         pipeline_type="summary")
+                trace.emit_stage("COVER_STYLE_SELECTION", outcome="success",
+                                 component="cover", stage="style_selection",
+                                 **span)
+                trace.emit_stage("COVER_STYLE_SUCCEEDED", outcome="success",
+                                 component="cover", stage="style_edit",
+                                 **span)
+                await mca_events.flush_events(d)
+                egs.reset()
+                return await pa.collect_run(d, "run-fn3b")
+            finally:
+                await d.close()
+
+        view = asyncio.run(scenario())
+        by_key = {n["key"]: n for n in view["nodes"]}
+        sel = by_key.get(pa.NODE_STYLE_SELECTION)
+        assert sel is not None
+        detail = {d["k"]: d["v"] for d in sel["detail"]}
+        assert detail["Выбран"] == "medved_press"
+
+
 class TestPipelineApiRbac:
     """401 unauth / 403 не-глобал / 200 admin (fail-open shape).
-
-    Реюз проверенного каркаса `tests/test_webapp_analytics_api.py`
     (TestClient(create_app) + fake PG для RBAC). SQLite `get_lore_db()` в
     тестовом окружении None → эндпоинты честно деградируют в пустой shape
     (не 500)."""

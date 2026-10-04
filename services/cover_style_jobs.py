@@ -235,6 +235,20 @@ SAFE_LOG_FIELDS = frozenset({
     "limit_value",
 })
 
+# F-N3 (ASAP 4.4, owner acceptance §3/§9): R17-safe extras, которые
+# `emit_cover_event` дополнительно кладёт в `usage_json` MCA-события — Run
+# Inspector читает structured-события (не human-логи §61.12). Только
+# id/числа/enum (подмножество SAFE_LOG_FIELDS); тексты/секреты не входят.
+_INSPECTOR_USAGE_FIELDS = frozenset({
+    "style_id", "style_revision", "issue_number", "selection_source",
+    "resolve_source", "prompt_len", "compiled_chars", "limit_value",
+    "limit_unit", "limit_source", "limit_source_taxonomy",
+    "capability_source", "capability_state", "instruction_chars",
+    "brief_chars", "reference_count", "reference_bytes_total",
+    "issue_present", "fallback", "mode", "pipeline_mode", "enabled",
+    "async_used", "edit_route",
+})
+
 
 def _pg():
     """PgDatabase из runtime-кэша (fail-open → None)."""
@@ -313,6 +327,11 @@ def emit_cover_event(event: str, *, outcome: str = "success",
         logger.warning(line)
     else:
         logger.info(line)
+    # F-N3: extras → `usage_json` MCA-события (structured Inspector source;
+    # `build_event` отбрасывает незаявленные ключи-колонки — без этого route/
+    # compiled/source оставались только в log-line).
+    usage = {k: v for k, v in fields.items()
+             if k in _INSPECTOR_USAGE_FIELDS and v is not None}
     try:
         from services import mca_trace as trace
         outcome_map = {"success": "success", "failed": "failed",
@@ -325,6 +344,7 @@ def emit_cover_event(event: str, *, outcome: str = "success",
             component="cover", stage=status or outcome,
             model=model, provider=provider, duration_ms=duration_ms,
             attempt=attempt, reason_code=reason_code,
+            usage_json=usage or None,
             **trace.span_fields(run_id=run_id, pipeline_type="summary.cover",
                                 job_id=job_id))
     except Exception:
@@ -1462,6 +1482,10 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
             "limit_value": (caps.prompt_limit.value
                             if caps.prompt_limit.known else None),
         }
+        if state is not None:
+            # F-N3: durable prompt-факты для Inspector (числа/enum; события
+            # могут быть прунированы) — сохраняются вместе со stage-переходом.
+            state.prompt_diagnostics = dict(meta["prompt_diagnostics"])
     if _wb:
         # §46: безопасные diagnostics в событии (числа/флаги, R17-safe).
         diag = meta.get("prompt_diagnostics") or {}

@@ -309,9 +309,8 @@ def _cover_events_styled():
             model="painter-x", provider="nano-gpt.com",
             status=None, stage="style", ts=1900,
             usage={"resolve_source": "global_image", "configured": True}),
-        # emit_cover_event сериализует extra поля строки в log-line, не JSON
-        # — resolve_source/top-level хранятся в событии колонкой reason_code
-        # пока нет; для карточки тестов всё в usage_json — читается честно.
+        # F-N3: факты route/compiled/source реально приходят usage_json'ом
+        # SUBMITTED-события (после фикса propagation); карточка читает их.
         _ev("COVER_BASE_SUCCEEDED", ts=1950, model="painter-x",
             provider="nano-gpt.com",
             usage={"reference_count": 0}),

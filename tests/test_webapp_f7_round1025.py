@@ -121,7 +121,7 @@ class TestInvariants:
 
     def test_app_version_bump(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.53", m and m.group(1)
+        assert m and m.group(1) == "2.58.54", m and m.group(1)
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         assert "v2.58.34" in readme
 

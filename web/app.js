@@ -3081,6 +3081,12 @@
           fallback_reason: c.fallback_reason || null,
           fallback_reason_ru: c.fallback_reason_ru || null,
           resolve_source_ru: c.resolve_source_ru || null,
+          // F-N3: факты effective-маршрута/сборки из structured usage_json.
+          edit_route: c.edit_route || null,
+          compiled_chars: c.compiled_chars != null ? c.compiled_chars : null,
+          capability_source: c.capability_source || null,
+          limit_source_taxonomy: c.limit_source_taxonomy || null,
+          limit_value: c.limit_value != null ? c.limit_value : null,
         };
       },
       pipelinePublicationLine: function () {

@@ -119,6 +119,10 @@ const RUN_L1_FAILED = {
     capability_edit: true, reference_assets: 2, style_edit_ok: true,
     result: 'styled', resolve_source_ru: 'наследование от глобального '
       + 'image-провайдера',
+    // F-N3: structured-факты effective-маршрута/сборки.
+    edit_route: 'image_api', compiled_chars: 597,
+    capability_source: 'provider_or_registry',
+    limit_source_taxonomy: 'unknown', limit_value: 800,
   },
   nodes: [],
 };
@@ -197,6 +201,14 @@ assert.strictEqual(cs.result, 'styled');
 assert.ok(cs.result_ru.indexOf('styled') >= 0
   || cs.result_ru.indexOf('стиль') >= 0, 'd: человеческий результат');
 assert.strictEqual(cs.selected_style, 'medved_press');
+// F-N3 (ASAP 4.4 §3/§9): route / compiled length / capability source /
+// источник лимита видны в Inspector.
+assert.strictEqual(cs.edit_route, 'image_api', 'd: route в карточке');
+assert.strictEqual(cs.compiled_chars, 597, 'd: compiled length в карточке');
+assert.strictEqual(cs.capability_source, 'provider_or_registry',
+  'd: capability source в карточке');
+assert.strictEqual(cs.limit_source_taxonomy, 'unknown',
+  'd: источник лимита в карточке');
 // base_fallback ✕ + точная причина.
 ctxG.pipelineRunView.cover_style = {
   base_cover_ok: true, selected_style: 'medved_press',
@@ -244,6 +256,10 @@ const INDEX = fs.readFileSync(
   ['Published cover', '(e) Published cover (§41)'],
   ['Capability image-edit', '(e) capability image-edit (§41)'],
   ['Обложка — отдельная ветка', '(e) ветка обложки — существующая (§61.8)'],
+  ['>Route<', '(e) Route (F-N3)'],
+  ['Compiled prompt', '(e) Compiled prompt (F-N3)'],
+  ['Capability source', '(e) Capability source (F-N3)'],
+  ['Источник лимита', '(e) Источник лимита (F-N3)'],
 ].forEach(function (pair) {
   assert.ok(INDEX.indexOf(pair[0]) >= 0, pair[1] + ' (' + pair[0] + ')');
 });

@@ -215,6 +215,8 @@ _STYLE_FAIL = "COVER_STYLE_FAILED"
 _STYLE_SKIP = "COVER_STYLE_SKIPPED"
 _STYLE_START = "COVER_STYLE_START"
 _SELECTION = "COVER_STYLE_SELECTION"
+# F-N3: SUBMITTED несёт usage_json с route/compiled/source-фактами (§2).
+_STYLE_SUBMITTED = "COVER_STYLE_SUBMITTED"
 _RICH_OK = "COVER_RICH_PUBLISH_SUCCEEDED"
 _RICH_FAIL = "COVER_RICH_PUBLISH_FAILED"
 _PLAIN_FALLBACK = "COVER_PLAIN_FALLBACK"
@@ -553,13 +555,18 @@ def _liveness_cards(events, *, stage_rows=None, running: bool = False,
     return out
 
 
-def _cover_style_card(events) -> dict | None:
+def _cover_style_card(events, *, cover_fallback=None) -> dict | None:
     """Карточка cover style (§41 ТЗ; T-4623): Base cover ✓/✕, Selected
     style, Style provider/model, Style capability image-edit (registry),
     Reference assets (counts), Style edit ✓-✕, Published cover =
     ``styled | base_fallback | no_cover`` + ТОЧНАЯ причина fallback
     (connection_missing / not_configured / edit_unsupported — не generic
     style_failed, правило ADR-1028-7 D6.3).
+
+    F-N3 (ASAP 4.4, §3/§9): route / compiled length / capability source —
+    из `usage_json` SUBMITTED-события (structured, не human-логи §61.12);
+    `cover_fallback` — durable cover-job state (task_jobs) для retro-фактов
+    (style_id, prompt diagnostics) старых прогонов без usage.
 
     Данные — только события COVER_* этого run'а (единый run_id §42 ТЗ,
     emit_cover_event mca-17a). Честное отсутствие данных остаётся
@@ -571,9 +578,13 @@ def _cover_style_card(events) -> dict | None:
     base_ok_rows = _events_named(events, _COVER_BASE_OK)
     base_fail_rows = _events_named(events, _COVER_BASE_FAIL)
     resolve_rows = _events_named(events, _EV_STYLE_RESOLVE)
+    submitted_rows = _events_named(events, _STYLE_SUBMITTED)
+    sel_rows = _events_named(events, _SELECTION)
     if not (style_ok_rows or style_fail_rows or base_ok_rows
             or base_fail_rows or resolve_rows):
         return None
+    fb = cover_fallback if isinstance(cover_fallback, dict) else {}
+    fb_prompt = fb.get("prompt") if isinstance(fb.get("prompt"), dict) else {}
     card = {
         "base_cover_ok": bool(base_ok_rows),
         "selected_style": None,
@@ -587,7 +598,43 @@ def _cover_style_card(events) -> dict | None:
         "fallback_reason_ru": None,
         "resolve_source": None,
         "resolve_source_ru": None,
+        # F-N3: факты effective-маршрута/сборки (structured usage_json).
+        "edit_route": None,
+        "compiled_chars": None,
+        "capability_source": None,
+        "limit_source_taxonomy": None,
+        "limit_value": None,
     }
+    if submitted_rows:
+        su = _parse_usage(submitted_rows[-1].get("usage_json"))
+        route = str(su.get("edit_route") or fb_prompt.get("edit_route")
+                    or "").strip()
+        card["edit_route"] = route or None
+        compiled = _int(su.get("compiled_chars"))
+        if compiled is None:
+            compiled = _int(su.get("prompt_len"))
+        if compiled is None:
+            compiled = _int(fb_prompt.get("compiled_chars"))
+        card["compiled_chars"] = compiled
+        cap_src = str(su.get("capability_source")
+                      or fb_prompt.get("capability_source") or "").strip()
+        card["capability_source"] = cap_src or None
+        tax = str(su.get("limit_source_taxonomy")
+                  or fb_prompt.get("limit_source_taxonomy") or "").strip()
+        card["limit_source_taxonomy"] = tax or None
+        limit_value = _int(su.get("limit_value"))
+        if limit_value is None:
+            limit_value = _int(fb_prompt.get("limit_value"))
+        card["limit_value"] = limit_value
+    elif fb_prompt:
+        # Событие SUBMITTED прунировано — durable state как retro-источник.
+        card["edit_route"] = str(fb_prompt.get("edit_route") or "") or None
+        card["compiled_chars"] = _int(fb_prompt.get("compiled_chars"))
+        card["capability_source"] = (str(fb_prompt.get("capability_source")
+                                         or "") or None)
+        card["limit_source_taxonomy"] = (
+            str(fb_prompt.get("limit_source_taxonomy") or "") or None)
+        card["limit_value"] = _int(fb_prompt.get("limit_value"))
     style_ev = (style_fail_rows or style_ok_rows or [None])[-1]
     if style_ev is not None:
         card["selected_style"] = str(style_ev.get("style_id") or "") or None
@@ -614,6 +661,15 @@ def _cover_style_card(events) -> dict | None:
                                          or "") or None
         if card["style_model"] is None:
             card["style_model"] = str(res_ev.get("model") or "") or None
+    if card["selected_style"] is None and sel_rows:
+        sel_usage = _parse_usage(sel_rows[-1].get("usage_json"))
+        card["selected_style"] = str(sel_usage.get("style_id") or "") or None
+    if card["selected_style"] is None:
+        # F-N3 retro: style_id из durable cover-job state (старые события
+        # теряли колонку style_id — _MCA_EVENTS_INSERT_COLS).
+        fb_style = str(fb.get("style_id") or "").strip()
+        if fb_style:
+            card["selected_style"] = fb_style
     # Style edit: успех = COVER_STYLE_SUCCEEDED; провал — точный reason
     # (T-4620/§36: не generic style_failed).
     if style_ok_rows:
@@ -770,12 +826,15 @@ def _coverage_breakdown(snapshot, usage, events) -> dict | None:
     return out or None
 
 
-def build_run_view(run_id, snapshot, events, *, running: bool = False) -> dict:
+def build_run_view(run_id, snapshot, events, *, running: bool = False,
+                   cover_fallback: dict | None = None) -> dict:
     """Модель одного run для UI (§61.1/§61.8/§61.9) из structured state.
 
     `snapshot` — in-memory снапшот прогона (или None); `events` — список
     строк `mca_events` этого run (dict). `running=True` — прогон ещё идёт:
     хвостовая топология показывается как ○ «ожидает» (§61.15).
+    `cover_fallback` (F-N3) — durable cover-job state (task_jobs) для
+    retro-фактов, если события старого формата (без usage_json).
     """
     snapshot = snapshot if isinstance(snapshot, dict) else {}
     by_name: dict = {}
@@ -875,17 +934,24 @@ def build_run_view(run_id, snapshot, events, *, running: bool = False) -> dict:
 
     # ── ВЕТКА ОБЛОЖКИ (независима от текстовой, §61.8) ─────────────────
     sel_ev = last(_SELECTION)
-    style_id = (sel_ev or {}).get("style_id")
-    if sel_ev is not None:
+    sel_usage = _parse_usage((sel_ev or {}).get("usage_json"))
+    fb = cover_fallback if isinstance(cover_fallback, dict) else {}
+    retro_style = str(fb.get("style_id") or "").strip()
+    style_id = (str((sel_ev or {}).get("style_id") or "").strip()
+                or str(sel_usage.get("style_id") or "").strip()
+                or retro_style) or None
+    if sel_ev is not None or style_id:
+        detail = [{"k": "Выбран", "v": style_id or "нет («Без стиля»)"}]
+        if style_id:
+            source = str(sel_usage.get("selection_source") or "").strip()
+            if source:
+                detail.append({"k": "Источник выбора", "v": source})
+            revision = _int(sel_usage.get("style_revision"))
+            if revision is not None:
+                detail.append({"k": "Ревизия стиля", "v": revision})
         nodes.append(_node(
             NODE_STYLE_SELECTION, "Выбор стиля", COVER_BRANCH,
-            STATE_SUCCESS, detail=[
-                {"k": "Выбран", "v": style_id or "нет («Без стиля»)"},
-                {"k": "Источник выбора",
-                 "v": str(sel_ev.get("status") or "chat")},
-            ] if style_id else [
-                {"k": "Выбран", "v": "нет («Без стиля»)"},
-            ]))
+            STATE_SUCCESS, detail=detail))
 
     base_ok = last(_COVER_BASE_OK)
     base_fail = last(_COVER_BASE_FAIL)
@@ -991,7 +1057,8 @@ def build_run_view(run_id, snapshot, events, *, running: bool = False) -> dict:
         # карточки capacity/liveness/cover style (§39–§41; T-4621/22/23).
         "coverage_breakdown": _coverage_breakdown(snapshot, usage, events),
         "capacity": _capacity_card(events),
-        "cover_style": _cover_style_card(events),
+        "cover_style": _cover_style_card(events,
+                                         cover_fallback=cover_fallback),
         "publication": publication,
         "health": health_code,
         "health_label": health_ru,
@@ -1309,7 +1376,8 @@ _INSPECTOR_EVENTS = (
     "SUMMARY_L2_STAGE", "SUMMARY_L2_REVIEW", "SUMMARY_LEGACY_FALLBACK",
     "SUMMARY_RUN_DONE",
     _SELECTION, _COVER_BASE_OK, _COVER_BASE_FAIL, _STYLE_START, _STYLE_OK,
-    _STYLE_FAIL, _STYLE_SKIP, _RICH_OK, _RICH_FAIL, _PLAIN_FALLBACK,
+    _STYLE_FAIL, _STYLE_SKIP, _STYLE_SUBMITTED, _RICH_OK, _RICH_FAIL,
+    _PLAIN_FALLBACK,
     # ASAP 4.1 волна 7 (зона G, T-4624): аддитивные имена предыдущих волн
     # 4.1 + новые текст/revision события — существующие имена не тронуты.
     "SUMMARY_SOURCE_WINDOW_READY", "SUMMARY_CAPACITY_RESOLVED",
@@ -1363,6 +1431,73 @@ def _snapshot_registry():
         return None
 
 
+async def _cover_job_fallback(db, run_id, events) -> dict | None:
+    """F-N3: durable cover-job state (task_jobs) для retro-фактов Inspector.
+
+    Два пути поиска (без полного скана в обычном случае):
+    1) `job_id` из COVER_* событий run'а → PK-чтение `load_cover_state`;
+    2) fallback: `coalesce_key='cover_style:<run_id>'` (bounded LIMIT 1) —
+       если span-поля событий старого формата не сохранили job_id.
+
+    Возвращает R17-safe подмножество: `style_id`, `provider`, `model`,
+    `issue_number` и `prompt` (числа/enum из prompt_diagnostics).
+    None — нет данных.
+    """
+    if db is None:
+        return None
+    job_id = ""
+    for ev in (events or []):
+        if not isinstance(ev, dict):
+            continue
+        if not str(ev.get("event_name") or "").startswith("COVER_"):
+            continue
+        jid = str(ev.get("job_id") or "").strip()
+        if jid:
+            job_id = jid
+    state = None
+    try:
+        from services import cover_style_jobs as csj
+        if job_id:
+            state = await csj.load_cover_state(db, job_id)
+        if state is None and run_id:
+            cursor = await db.db.execute(
+                "SELECT payload FROM task_jobs WHERE coalesce_key = ? "
+                "ORDER BY updated_at DESC LIMIT 1",
+                ("cover_style:%s" % str(run_id),))
+            row = await cursor.fetchone()
+            if row is not None:
+                payload = _parse_usage(dict(row).get("payload"))
+                if payload.get("cursor"):
+                    state = csj.CoverJobState.from_json(
+                        str(payload.get("cursor")))
+    except Exception:
+        return None
+    if state is None:
+        return None
+    out: dict = {}
+    style_id = str(state.style_id or "").strip()
+    if style_id:
+        out["style_id"] = style_id
+    if state.provider:
+        out["provider"] = str(state.provider)
+    if state.model:
+        out["model"] = str(state.model)
+    if state.issue_number is not None:
+        out["issue_number"] = state.issue_number
+    diag = state.prompt_diagnostics \
+        if isinstance(state.prompt_diagnostics, dict) else {}
+    prompt: dict = {}
+    for key in ("compiled_chars", "edit_route", "capability_source",
+                "limit_source", "limit_source_taxonomy", "limit_value",
+                "resolved_limit"):
+        value = diag.get(key)
+        if value is not None:
+            prompt[key] = value
+    if prompt:
+        out["prompt"] = prompt
+    return out or None
+
+
 async def collect_run(db, run_id: str) -> dict:
     """Полная модель run (§61.9 drill-down): события + снапшот."""
     reg = _snapshot_registry()
@@ -1373,7 +1508,12 @@ async def collect_run(db, run_id: str) -> dict:
         names = {str(e.get("event_name") or "") for e in events}
         running = ("SUMMARY_RUN_START" in names
                    and "SUMMARY_RUN_DONE" not in names)
-    view = build_run_view(run_id, snapshot, events, running=running)
+    # F-N3: retro-факты (style_id/prompt diagnostics) из durable cover job —
+    # события до фикса не несли usage_json.
+    cover_fallback = (await _cover_job_fallback(db, run_id, events)
+                      if events else None)
+    view = build_run_view(run_id, snapshot, events, running=running,
+                          cover_fallback=cover_fallback)
     # T-4624 (зона G): per-attempt last_activity тикер из durable
     # ``summary_run_stages`` (structured state, §50.54; НЕ парсинг логов).
     # Bounded fail-open: ошибка чтения stage-истории не ломает карту.
