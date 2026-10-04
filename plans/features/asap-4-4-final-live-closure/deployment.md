@@ -124,3 +124,48 @@ Feature: дельта к 4.4 по аддендуму `review.md` §9 «F-N2 за
 - Paid canaries НЕ запускались; counter/override-состояние прод-БД НЕ трогали (фикс меняет поведение только при следующем allocation).
 - F-N2 deploy-скоп чист: деплой-собственности правок не потребовалось; продукт-поведение — reviewed Approved.
 - **Next:** re-run Canary B (next=14 → retry 14 → next=15) + GraphRAG-фаза подтверждения — @Orchestrator/@Canary; счётчик не нормализуем.
+
+## 12. Дельта-деплой F-N3 (Run Inspector reporting) — prod 2.58.54 — VERIFIED
+
+Feature: дельта к 4.4 по аддендуму `review.md` §10 «F-N3 resolved — inspector recheck» (05.10.2026), вердикт остаётся **Approved**. Биндинг: WTH `plans/reports/asap44_wth_manifest_review.txt` — HEAD `b31cb634`, files=**10**, sha256(манифеста) `5DC53DAE1AAEC25C54F4A4EA5A3C3CACA9EBC4F553FAFD4DAD6C2A4AE7692DF1`. Дата: 05.10.2026 (локальная; прод-UTC события — 04.10.2026), исполнитель @DevOps.
+
+### Preflight
+- Per-file sha256: **10/10 строк манифеста (evidence, requirements-map, tasks, `cover_style_jobs.py`, `pipeline_analytics.py`, JS-тест, 2 py-теста, `web/app.js`, `web/index.html`) — size+sha256 совпали, drift=0** (пересчитано до коммитов и повторно после). sha256(манифест-файла) == `5DC53DAE…` ✓. HEAD локальный == биндингу `b31cb63` ✓. Аддендум F-N3 в review.md присутствует ✓.
+
+### Коммиты
+- **feat `615857c`** — 32 файла (+404/−45): 7 runtime/test-файлов манифеста (cover_style_jobs/pipeline_analytics/web/app.js+index.html/2 py + 1 js) + **version bump 2.58.53→2.58.54**: `config/settings.py` APP_VERSION **2.58.54** + 23 release-пина тест-файлов ровно по конвенции `1c47b5e`/`acbbe1f` + `plans/docs/param-registry-round1025.meta.md` — метапин APP_VERSION 2.58.52→2.58.54 (см. Incidental [I-3]; deployment-owned release-standard pin, вне манифеста files=10 — drift=0 не нарушен).
+- **docs `495bcf4`** — 3 файла (+226/−6): `evidence.md` (§13 F-N3 facts), `review.md` (аддендум §10), WTH-манифест (rebind `b31cb63` files=10).
+- **deploy-doc** — этот файл, docs-only коммит-пуш после факта (runtime не зависит, второй рестарт не требуется; прод-дерево остаётся на `495bcf4`).
+- `git add` только явными путями; НЕ вошли `plans/metrics.md`, `plans/workflow_state.md`, `plans/docs/mca-round1027-arch-frames.md`, untracked-мусор (`node_modules/`, `.playwright-mcp/`, `package*.json`, `plans/verification_cache.json`, `tools/_ui_asap43_*`) ✓.
+
+### Фокусные проверки (локальный venv; полный suite НЕ запускался — release policy не требует, дельта не трогает shared-runtime поверх facts §10 recheck)
+1. CoverInspectorFacts (`tests/test_pipeline_analytics_asap4.py -k CoverInspectorFacts`) → **5 passed / 72 deselected** ✓.
+2. Батч analytics+zone_g+extra_jobs (3 файла) → **145 passed / 0 failed** == канон §10 recheck ✓.
+3. `node --check web/app.js` OK; `node tests/js/asap41_zone_g_inspector_test.js` → **ZONE-G-INSPECTOR-OK**, exit 0 ✓.
+4. Бамповый пин-класс целиком (после метапин-fix): 23 пин-файла → **584 passed**; polygon+scope+fact_package+f8-registry → **130 passed** (pre-fix 129+1 failed = [I-3]); summary_deploy+decision_making+unified_image → **146 passed**; `gen_param_registry_round1025.py --check` → **CHECK OK 489** (каталог/R17 без изменений, метапин вне генерации).
+
+### Деплой-факты
+- Прод до: HEAD `2f4c216` (2.58.53; deploy-doc `b31cb63` не был пуллинут ранее — поедет этим ff), MainPID 3671509, NRestarts=0, active с 04.10 17:05:14 UTC, /healthz 200 @2.58.53. Диск 5.9G free, load ~0.1.
+- Push origin/master `b31cb63..495bcf4` ✓; `git pull --ff-only origin master` → **2f4c216..495bcf4, fast-forward** (36 файлов = b31cb63 + feat + docs) ✓.
+- Pre-restart sha256 на проде: `services/cover_style_jobs.py` `22C26A33…` и `services/pipeline_analytics.py` `8C1D5A3A…` == манифесту ✓; web/app.js `A23DF23A…`, web/index.html `21D5C953…` == манифесту ✓.
+- Рестарт `sudo -n /usr/bin/systemctl restart admin_bot` (SIGTERM 18:06:26 UTC) → **active Sun 2026-10-04 18:07:26 UTC, MainPID=3687549, NRestarts=0, ExecMainStatus=0** ✓.
+- `/healthz` → **200** `{"status":"ok","version":"2.58.54"}` (первый 200 на 18:08:18 UTC, ~52 с подъём); `/api/health` → **200** ✓; `/web/` отдаёт `?v=2.58.54` (12 вхождений) ✓.
+
+### Логи / RBAC
+- Пост-рестартное окно (155 строк журнала юнита, только PID 3687549): **ERROR|CRITICAL|Traceback = 0**; R17-скан (`sk-|Bearer|xox|AKIA|-----BEGIN|api_key=`) = **0** ✓; WARNING = **2** — оба известные [I-1] (`embedding pool rotation=none | keys=3` + `SmartModule graph backfill: deferred | processed=0` на 18:07:45). Новых warning-контуров нет.
+- Unauth-батарея (6 рутов cover): POST `/api/cover/test-style`, GET `/api/cover/test-style/{id}`, `/api/cover/prompt-limit`, `/api/cover/styles`, `/api/cover/capabilities`, `/api/cover/connections` → **все 401** ✓.
+
+### Миграции / данные
+- **ΔDDL = 0**: SQLite `user_version` 25 → 25 (read-only после рестарта); PG таблицы public 26 → 26; DDL-операций деплой НЕ выполнял (рантайм-код дельты схему не содержит) ✓.
+- Данные целы, PG-снапшот до/после рестарта идентичен: assets 13, connections 0, issue_assignments **14 → 14 (новых строк нет)**, profiles 1, provenance 21, references 1; `MAX(counter_value)` = **14 → next = 15** (live-стейт после Canary B 14/14/15, деплой НЕ тронул); task_jobs 632 → 633 (+1 `embedding_rebuild_lease: finished` — лизинг-бухгалтерия embedding-плейна при старте, вне дельты).
+- Прод-venv смоки (после рестарта): CoverInspectorFacts → **5 passed / 72 deselected** (17.1 с); батч 3 файлов → **145 passed** (22.8 с) — прод-окружение подтвержает канон §10 ✓.
+
+### Rollback
+- Soft: `COVER_STYLES_ENABLED=false` (+ рестарт) — доступен, не занят (у Inspector-фикса нет kill-switch, поведенческий контур read-only отчётности).
+- Cold: revert/reset прод-дерева на **`b31cb63` (2.58.53)** — коммит присутствует в прод-репо; runtime-байты = состояние 2.58.53 (в `b31cb63` входит feat `92de1e3`); ΔDDL=0, схема совместима, restore БД не нужен; counter/assignments целы.
+
+### Границы и incidental
+- Paid canaries НЕ запускались; counter/override-состояние прод-БД НЕ тронуты (Inspector-фаза §10 — run/job id по живым прогонам, вне деплоя).
+- **[I-3][Deployment-owned, repaired]** `tests/test_round1025_f8_registry.py::test_meta_provenance` падала на deployed baseline 2.58.53 (pre-existing, подтверждено на чистом HEAD-worktree: bump `92de1e3` не обновил метапин `plans/docs/param-registry-round1025.meta.md`). F8-каталог не затронут (`--check` OK). Исправлено в feat `615857c` (метапин → 2.58.54) — то же класс release-standard pins, что и 23 тест-пина.
+- F-N3 deploy-скоп чист: product-правок от деплоя не потребовалось.
+- **Next:** Inspector live-phase по §10 recheck (завершённость карточек на свежих run'ах, retro-fallback видимость) — @Orchestrator/@Reviewer по живым данным; второй рестарт не требуется.
