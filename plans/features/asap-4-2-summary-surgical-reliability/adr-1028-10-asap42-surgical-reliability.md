@@ -2,7 +2,7 @@
 
 > **Фича:** `asap-4-2-summary-surgical-reliability` (ASAP 4.2, corrective pass после ASAP 4.1).
 > **Задача-инициатор:** T-4801 [@Architect]; потребители — Builder/Reviewer/DevOps (tasks.md T-4802…T-4840).
-> **Статус:** Proposed (design, 04.10.2026). Ратифицируется по процедуре проекта (review + прод-валидация) — см. «История статуса».
+> **Статус:** Accepted (04.10.2026, design; ратифицирован merge + прод-валидацией VERIFIED 2.58.48 — см. «Прод-валидация и история» ниже).
 > **Контекст:** прод 2.58.47 (SQLite v24). Источник — `plans/current_task.md:23847–25458` (§0–§60, DoD 50); прод-инцидент §1 (L1/L2 FAILED → Legacy; `COVER_STYLE_FAILED HTTP 400 nano-gpt.com/qwen-image-3-pro`).
 > **PM-пакет:** requirements-map (R8-A…R8-Q, AM-1…AM-5), tasks.md (T-4800…T-4840), reuse-inventory.md.
 > **Связь:** AMEND → ADR-1028-8 (D2 capacity precedence, D3 L1 map, D5.4 streaming slots); REPLACE → ADR-1028-4 (D2 image capability precedence completion, D4 edit route, D5 compiler P0–P3); EXTENSION → ADR-1028-8 (D8 Inspector fields), ADR-1028-5 (media adapter pattern-donor, контур не дублируется); не трогает → ADR-1028-6/-7/-9, MCA features, RichMessage renderer, Base Cover generation, GraphRAG, history.
@@ -91,3 +91,19 @@
 ## История статуса
 
 1. **04.10.2026 — Proposed (design):** D1–D6 утверждены как design-точки; AMEND-register AM-1…AM-5 зафиксирован; консистент-гейт с PM пройден (spec §9–§10); Risk R3; DDL = 0. Внешне верифицирован NanoGPT edit-контракт (docs.nano-gpt.com, 04.10.2026). Прод-валидация pending (delivery → canary → deploy → prod acceptance).
+
+## Прод-валидация и история
+
+2. **Round-2 review gate:** минификс [M-ASAP42-1] (guard `_assert_can_edit_seeded` в `cover_test_style` + allowlist-композиция гейт-тестов) — **Approved for deploy** (2026-10-04; release-blocking: 0; дельта-фингерпринт кодовой дельты `67a4245a…`, Spec-Hash прежний `2300990f…`; Round-1 WTH `5658e414…`).
+3. **REAL canary (Step 4, T-4830/T-4831) — PASS 2/2** (mock не использовался; прод-сервис не тронут — только исходящие HTTP). Детали — `canary-evidence.md` (VERIFIED):
+   - **(a) TEXT:** реальный `POST …/chat/completions` `stream=true` → **HTTP 200** `text/event-stream`, 8 SSE-событий + `[DONE]`, `assembled_len>0`, `on_activity`=15 (3.1 s) — упражнена реальная реализация SSE (T-4810).
+   - **(b) NanoGPT Style Edit:** endpoint-discovery `GET …/images/models/qwen-image-3-pro/endpoints` → 200 → route **`image_api`** (`POST /api/v1/images` + `input_references`) → **HTTP 200**, **реальный image** 1 471 019 B (55.2 s, 0 ретраев) → **PO-1 (route) закрыт**; сценарий `route_unverified` не актуален.
+4. **Deploy — VERIFIED 2.58.48 (04.10.2026):** прод ff `05a210c..b4dcb34` (feat `1da44b5` 99 файлов, docs `b4dcb34`; prod-HEAD/deploy-doc `8b96319`); рестарт 02:34:38 UTC (PID 3484893, NRestarts=0), health 200 `2.58.48`. Факты — `deployment.md` (VERIFIED):
+   - **DDL=0** — `user_version` 24→24 (read-only PRAGMA до/после); anchors живут в immutable `summary_source_windows` + run-stage артефактах; PG no-op.
+   - **Kill-switches — дефолт-паспорт:** 0 env-оверарайдов / 0 systemd Environment; **4 anchor-флага ON** (`SUMMARY_SOURCE_ANCHORS_ENABLED`, `SUMMARY_L1_ANCHOR_REPAIR_ENABLED`, `SUMMARY_L2_EVIDENCE_REPAIR_ENABLED`, `SUMMARY_L2_TARGETED_REVISION_ENABLED`), **5 «42»-свитчей ON** (`SUMMARY_CAPACITY_LIVE_PRECEDENCE_ENABLED`, `SUMMARY_OUTPUT_RESERVE_CAPABILITY_ENABLED`, `COVER_STYLE_PROVIDER_ROUTES_ENABLED`, `IMAGE_PROMPT_LIMIT_DYNAMIC_ENABLED`, `IMAGE_PROMPT_SEMANTIC_COMPRESSION_ENABLED`); **Mode A/B OFF** (`SUMMARY_LLM_ASYNC_MODE_ENABLED`/`_STREAMING_MODE_ENABLED`), **async batch OFF** (`EMBED_ASYNC_BATCH_ENABLED`) — контрактные слоты.
+   - **RBAC-гейты (unauth):** `/api/analytics/pipeline/inspector` (+`?mode=structured`/`runs/abc`), `/api/memory/embeddings` → **401**; `POST /api/cover/test-style` → **401** (`missing init data`; test-style не публичный).
+   - **Ladder/parity на прод-venv: 177 passed / 0 failed** (11 файлов asap41+asap42). **F8: CHECK OK реестр 488, EXIT=0** (Δ каталога = 0). **Посторонние ошибки: 0** (`ERROR|CRITICAL|Traceback` = 0; единственный WARNING — известный asap-4 GraphRAG embed-spend-parking, вне скоупа). **R17-скан: 0 хитов**.
+   - **Ключи через ConfigCache:** живое доказательство — embedding HTTP 200 (`gemini-embedding-001`) при фиктивном env `LLM_API_KEY=401` → ключи резолвятся из каталога (ConfigCache), не из сырого env.
+   - **Browser smoke (prod, unauth):** desktop 1280×800 + mobile 390×844 — closed `.more-sheet`/`.more-backdrop` **отсутствуют в DOM** (unmount; intersection 0 px, band hit-test 0 перехватов), **Modules Quick Access отсутствует**; **0 JS-ошибок**.
+   - **Deploy-фактор:** первичный прямой SSH-22 таймаутил (транзиентный flap сетевого окна), порт восстановился спустя минуты; повторные пробы альтернативных портов закрыты; финальное соединение удачно — на результат не повлияло.
+5. **PO-2…PO-5 — PENDING OWNER** (no-false-acceptance): реальный 1480-Summary run (Hybrid выживает / Legacy NOT used), живой Medved Press styled cover, Test Style не публичный/без расхода счётчика, stale sha `style_example_01/02` + аутентифицированный обзор. Архив фичи до live-приёмок запрещён.
