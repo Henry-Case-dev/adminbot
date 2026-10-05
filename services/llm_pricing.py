@@ -13,6 +13,7 @@ DDL/сид). Здесь — только чтение с in-process TTL-кэше
 
 R17: только числа; ни ключей, ни промптов.
 """
+import hashlib
 import logging
 import time
 
@@ -97,3 +98,18 @@ def compute_cost(price: tuple[float, float] | None,
     except (TypeError, ValueError, IndexError):
         return 0.0, False
     return round(cost, 6), True
+
+
+def price_version(model: str, price) -> str:
+    """Версия тарифа для usage-детализации (MCA-11 D4; R17-safe).
+
+    ``"price:<sha1-12(model|in|out)>"`` при известной цене, иначе
+    ``"unknown"`` (неизвестное честно отделено от нуля). Мультивалютность не
+    изобретается (существующий контракт — USD)."""
+    try:
+        if not price:
+            return "unknown"
+        raw = f"{str(model or '')}|{price[0]}|{price[1]}"
+        return "price:" + hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
+    except Exception:      # pragma: no cover - защитная ветка
+        return "unknown"

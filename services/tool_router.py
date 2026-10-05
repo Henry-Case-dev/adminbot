@@ -75,6 +75,7 @@ from services.persistent_throttling import (
 )
 from services.search_aggregator import AllSearchEnginesFailedException
 from services.smartmodule_urls import extract_urls, extract_youtube_video_id
+from services import tool_result as _tool_result
 from services.tool_schemas import _memory_lookup_enabled
 from services.web_content_extractor import WebContentExtractionFailedException
 from tools.video_downloader import DownloadError, is_direct_media_url
@@ -615,6 +616,11 @@ class ToolContext:
         # A→B-handoff для инструментов и Синтезатора. В модельный ввод НЕ
         # сериализуется.
         self.tool_results: list[dict] = []
+        # MCA-11 (ADR-1028-13 D1/D3): out-of-band сигнал инструмента
+        # (SafeFetcher stage/retryable, `delivery_unknown`, usage) —
+        # одноразово читается tool_loop и очищается на входе dispatch.
+        # В модельно-видимый канал не попадает (R17-safe: коды/числа/id).
+        self.tool_result_signal: dict | None = None
         self.lore_compiled = False
         # Раунд 10.20 (БЛОК 7.2c, ADR-1020-7 §2, T-1922): готовый текст
         # истории «Летописца» (HTML). DirectChat при `lore_compiled` доставляет
@@ -674,6 +680,8 @@ class ToolRouter:
 
     async def dispatch(self, name: str, arguments: dict, ctx: ToolContext) -> str:
         """→ строка результата инструмента (в т.ч. 'ОШИБКА …') — НЕ бросает."""
+        # MCA-11 (ADR-1028-13 D1): слот сигнала — строго per-call.
+        _tool_result.clear_signal(ctx)
         registry = {
             "execute_web_search": self._execute_web_search,
             "query_chat_memory": self._query_chat_memory,
@@ -1525,6 +1533,17 @@ class ToolRouter:
         except WebContentExtractionFailedException as exc:
             logger.warning("[tools] fetch_article failed | source=%s | error=%s",
                            source, type(exc).__name__)
+            # MCA-11 (D1/T-4948, M-MCA02-3): SafeFetchError code/stage/
+            # retryable → ToolResult через out-of-band сигнал (payload
+            # модельно-видимого канала не меняется).
+            safe = getattr(exc, "safe_error", None)
+            if safe is not None:
+                _tool_result.set_signal(ctx, {
+                    "error_code": str(getattr(safe, "code", "") or ""),
+                    "stage": str(getattr(safe, "stage", "") or ""),
+                    "reason": str(getattr(safe, "reason", "") or ""),
+                    "retryable": bool(getattr(safe, "retryable", False)),
+                })
             return json.dumps({"status": "error", "error": "extract_failed",
                                "url": url, "source_id": source_id},
                               ensure_ascii=False)
@@ -2771,6 +2790,23 @@ class ToolRouter:
                 reply_to_message_id=ctx.reply_to_message_id,
                 correlation_id=getattr(ctx, "correlation_id", None),
                 source="tool")
+        # MCA-11 (ADR-1028-13 D3/D4): out-of-band сигнал медиа-пути —
+        # `delivery_unknown` при неясной Telegram-доставке (без слепого
+        # повтора, A21) и usage-детализация (цена провайдера не заявляется
+        # нулём: unknown ≠ 0). Модельно-видимый payload не меняется.
+        signal: dict = {}
+        if _tool_result.cost_accounting_enabled():
+            signal["usage"] = {
+                "input_tokens": 0, "output_tokens": 0, "cached_tokens": None,
+                "cost_usd": None, "price_known": False, "currency": "USD",
+                "price_version": "unknown", "source": "image"}
+        if (not result.ok and result.reason == "send_failed"
+                and _tool_result.delivery_guard_enabled()):
+            signal.update({"status": _tool_result.STATUS_DELIVERY_UNKNOWN,
+                           "error_code": "delivery_unknown",
+                           "retryable": False})
+        if signal:
+            _tool_result.set_signal(ctx, signal)
         if result.ok:
             payload = {"status": "success",
                        "message": "Изображение сгенерировано и отправлено в чат"}

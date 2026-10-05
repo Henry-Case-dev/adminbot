@@ -549,6 +549,39 @@ class LLMClient:
                 "[llm_client] analytics record failed — fail-open | module=%s",
                 module, exc_info=True)
 
+    async def _record_embedding_analytics(self, data, texts, *,
+                                          model: str | None = None) -> None:
+        """MCA-11 (ADR-1028-13 D4): usage-событие embeddings (fail-open).
+
+        K3 `MCA_COST_ACCOUNTING_ENABLED` гейтит только эту НОВУЮ точку записи;
+        source='embedding'. Токены — из usage ответа, иначе честная оценка
+        (`tokens_estimated=true`); цена через `llm_pricing` (нет цены →
+        `price_known=false`, unknown ≠ 0). R17: только числа/коды."""
+        try:
+            from services import usage_events
+            if not usage_events.cost_accounting_enabled():
+                return
+            usage = data.get("usage") if isinstance(data, dict) else None
+            messages = [{"content": str(t or "")} for t in (texts or [])]
+            in_tokens, _out_tokens, estimated = \
+                usage_events.resolve_token_counts(usage, messages, "")
+            await usage_events.record(
+                self._pg(),
+                module="embedding",
+                step="embed",
+                correlation_id=None,
+                source="embedding",
+                chat_id=None,
+                model=model or self._embed_model,
+                input_tokens=in_tokens,
+                output_tokens=0,
+                tokens_estimated=estimated,
+            )
+        except Exception:
+            logger.warning(
+                "[llm_client] embedding analytics record failed — fail-open",
+                exc_info=True)
+
     @staticmethod
     def _close_async(client: httpx.AsyncClient) -> None:
         """Закрытие старого клиента при смене ключа (fire-and-forget)."""
@@ -1527,6 +1560,7 @@ class LLMClient:
         деградацию)."""
         if not texts:
             return []
+        used_model = self._embed_model
         try:
             response = await self._post(
                 "/embeddings",
@@ -1559,6 +1593,7 @@ class LLMClient:
                     humanize_embed_error(exc))
                 raise exc from None
             response = fb_response
+            used_model = self._embed_fallback_model
             logger.warning("LLM embed fallback OK | model=%s | key_idx=%d",
                            self._embed_fallback_model, fb_idx)
         try:
@@ -1570,8 +1605,9 @@ class LLMClient:
         except (KeyError, TypeError) as exc:
             raise LLMBadResponseError("embeddings: no data[].embedding in response") from exc
         logger.info(
-            "LLM embed OK | model=%s | texts=%d", self._embed_model, len(vectors)
+            "LLM embed OK | model=%s | texts=%d", used_model, len(vectors)
         )
+        await self._record_embedding_analytics(data, texts, model=used_model)
         return vectors
 
     async def embed_once(

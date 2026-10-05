@@ -293,6 +293,34 @@ KILL_SWITCHES: dict[str, tuple[bool, str]] = {
         "классификатор/хинт/reason-коды интента не работают; intent-"
         "поведение как 2.58.55",
     ),
+    # ── mca-11 (ADR-1028-13 D7): K1/K2/K3 блоков A+B (K4/K5 — блоки C/D) ──
+    "MCA_TOOL_RESULT_ENABLED": (
+        True,
+        "envelope legacy 2.58.56 байт-в-байт (ok/error/skipped, прежние "
+        "ключи, без category/retryable/usage/...); модельно-видимый канал "
+        "не менялся",
+    ),
+    "MCA_TOOL_DELIVERY_GUARD_ENABLED": (
+        True,
+        "без новой деривации idempotency-key/маркировки delivery_unknown из "
+        "контура инструментов; mca-22/mca_trace-гарды как есть",
+    ),
+    "MCA_COST_ACCOUNTING_ENABLED": (
+        True,
+        "без новых точек записи расходов (embeddings) и usage_json-"
+        "детализации; существующая аналитика как есть",
+    ),
+    # ── mca-11 (ADR-1028-13 D7): K4 блоков C/D + K5 (денежные лимиты) ──────
+    "MCA_TOOL_CHAIN_STAGES_ENABLED": (
+        True,
+        "без стадийных событий `tools.chain` v2 (execute/deliver/account); "
+        "реестр честно disabled/not_run (стадии не эмитятся)",
+    ),
+    "MCA_MONEY_LIMITS_ENABLED": (
+        False,
+        "денежные лимиты отключены — поведение 2.58.56 байт-в-байт "
+        "(feature-гейт, не kill-switch: OFF по owner §20.2)",
+    ),
 }
 
 
@@ -883,6 +911,53 @@ def stats_intent_enabled() -> bool:
     `chat_statistics`/`mixed` + stats-хинт + reason-коды цели. OFF →
     intent-поведение как 2.58.55 (классификатор не вызывается)."""
     return bool(getattr(settings, "MCA_STATS_INTENT_ENABLED", True))
+
+
+# ── mca-11 (ADR-1028-13 D7): K1/K2/K3 ToolResult/доставки/учёта ─────────────
+def tool_result_enabled() -> bool:
+    """`MCA_TOOL_RESULT_ENABLED` (env-only, default ON; K1).
+
+    ON → канонический ToolResult-envelope (7 статусов + аддитивные поля).
+    OFF → legacy-путь 2.58.56 байт-в-байт (ok/error/skipped)."""
+    return bool(getattr(settings, "MCA_TOOL_RESULT_ENABLED", True))
+
+
+def tool_delivery_guard_enabled() -> bool:
+    """`MCA_TOOL_DELIVERY_GUARD_ENABLED` (env-only, default ON; K2).
+
+    ON → idempotency key side effects + маркировка `delivery_unknown` из
+    контура инструментов. OFF → без новой деривации ключа/маркировки
+    (mca-22/mca_trace-гарды не меняются)."""
+    return bool(getattr(settings, "MCA_TOOL_DELIVERY_GUARD_ENABLED", True))
+
+
+def cost_accounting_enabled() -> bool:
+    """`MCA_COST_ACCOUNTING_ENABLED` (env-only, default ON; K3).
+
+    ON → новые точки записи расходов (embeddings) + usage-детализация.
+    OFF → без новых точек записи/`usage_json`; существующая аналитика как
+    есть."""
+    return bool(getattr(settings, "MCA_COST_ACCOUNTING_ENABLED", True))
+
+
+# ── mca-11 (ADR-1028-13 D6/D7): K4 стадии tools.chain + K5 денежные лимиты ──
+def tool_chain_stages_enabled() -> bool:
+    """`MCA_TOOL_CHAIN_STAGES_ENABLED` (env-only, default ON; K4).
+
+    ON → стадийные события `tools.chain` v2 (execute/deliver/account,
+    notable-only; R17-safe). OFF → стадийных событий нет; реестр отдаёт
+    честный статус (disabled/not_run), а не implemented."""
+    return bool(getattr(settings, "MCA_TOOL_CHAIN_STAGES_ENABLED", True))
+
+
+def money_limits_enabled() -> bool:
+    """`MCA_MONEY_LIMITS_ENABLED` (env-only, default **OFF**; K5).
+
+    Feature-гейт нового механизма денежных лимитов (owner §20.2): OFF →
+    поведение 2.58.56 байт-в-байт; ON → инертная семантика активируется
+    (резерв/overshoot/reconcile; приоритет direct > autonomous >
+    maintenance)."""
+    return bool(getattr(settings, "MCA_MONEY_LIMITS_ENABLED", False))
 
 
 def chat_stats_occurrence_max_rows() -> int:

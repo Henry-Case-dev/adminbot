@@ -203,8 +203,11 @@ class TestEnvelope:
         out = await chat_with_tools(llm, MESSAGES, tools=TOOLS, router=router,
                                     ctx=ToolContext(-100, "q"))
         env = out.tool_results[0]
-        assert env["status"] == "error"
+        # MCA-11 D1: payload-таймаут — канонический `timeout` (не общий error),
+        # retryable=true для идемпотентного внешнего чтения.
+        assert env["status"] == "timeout"
         assert env["error_code"] == "timeout"
+        assert env["retryable"] is True
 
     @pytest.mark.asyncio
     async def test_tool_loop_result_reuse_additive(self):
@@ -303,8 +306,32 @@ class TestLimits:
         assert len(router.calls) == TOOL_MAX_TOTAL_CALLS == 6
         assert out.degraded is True
         assert out.reason == CHAIN_CALL_LIMIT_REASON
+        # MCA-11 D1: K1 ON — legacy `skipped` канонизирован в `denied`.
+        denied = [e for e in out.tool_results if e["status"] == "denied"]
+        assert denied and denied[-1]["error_code"] == CHAIN_CALL_LIMIT_REASON
+        assert denied[-1]["retryable"] is False
+        # D4/T-4951: единицы/область/значение/причина лимита.
+        limit = denied[-1]["data"]
+        assert limit["unit"] == "calls" and limit["scope"] == "chain"
+        assert limit["value"] == 6 and limit["reason"] == CHAIN_CALL_LIMIT_REASON
+
+    @pytest.mark.asyncio
+    async def test_total_call_cap_k1_off_legacy_skipped(self, monkeypatch):
+        """OFF-паритет K1: envelope 2.58.56 байт-в-байт (skipped/прежние ключи)."""
+        monkeypatch.setattr(type(settings), "MCA_TOOL_RESULT_ENABLED", False)
+        answers = [
+            _tc2(f"r{r}", [("query_chat_memory", {"query": f"q{r}a"}),
+                           ("query_chat_memory", {"query": f"q{r}b"})])
+            for r in range(4)]
+        out = await chat_with_tools(FakeLLM(answers), MESSAGES, tools=TOOLS,
+                                    router=FakeRouter(),
+                                    ctx=ToolContext(-100, "q"))
         skipped = [e for e in out.tool_results if e["status"] == "skipped"]
         assert skipped and skipped[-1]["error_code"] == CHAIN_CALL_LIMIT_REASON
+        legacy_keys = {"round", "tool", "args_fingerprint", "status", "data",
+                       "error_code", "error_type", "truncated", "metered",
+                       "duplicate", "attempt", "out_chars"}
+        assert all(set(e) == legacy_keys for e in out.tool_results)
 
     @pytest.mark.asyncio
     async def test_metered_call_limit_four(self):
@@ -373,7 +400,7 @@ class TestLimits:
 
     @pytest.mark.asyncio
     async def test_soft_timeout_does_not_cancel_inflight(self, monkeypatch):
-        monkeypatch.setattr("services.tool_loop.TOOL_CHAIN_TIMEOUT_SECONDS",
+        monkeypatch.setattr(type(settings), "MCA_TOOL_CHAIN_TIMEOUT_SECONDS",
                             0.05)
 
         class SlowRouter:
@@ -399,7 +426,7 @@ class TestLimits:
 
     @pytest.mark.asyncio
     async def test_timeout_skips_new_calls(self, monkeypatch):
-        monkeypatch.setattr("services.tool_loop.TOOL_CHAIN_TIMEOUT_SECONDS",
+        monkeypatch.setattr(type(settings), "MCA_TOOL_CHAIN_TIMEOUT_SECONDS",
                             -1.0)
         llm = FakeLLM([_tc("c1", "execute_web_search", {"query": "x"}),
                        _text("финал")])
@@ -408,7 +435,26 @@ class TestLimits:
                                     ctx=ToolContext(-100, "q"))
         assert router.calls == []
         assert out.reason == CHAIN_TIMEOUT_REASON
-        assert out.tool_results[0]["status"] == "skipped"
+        assert out.tool_results[0]["status"] == "denied"
+        assert out.tool_results[0]["data"]["unit"] == "seconds"
+        assert out.tool_results[0]["data"]["scope"] == "chain"
+
+    @pytest.mark.asyncio
+    async def test_timeout_k1_off_legacy_skipped(self, monkeypatch):
+        monkeypatch.setattr(type(settings), "MCA_TOOL_RESULT_ENABLED", False)
+        monkeypatch.setattr(type(settings), "MCA_TOOL_CHAIN_TIMEOUT_SECONDS",
+                            -1.0)
+        llm = FakeLLM([_tc("c1", "execute_web_search", {"query": "x"}),
+                       _text("финал")])
+        out = await chat_with_tools(llm, MESSAGES, tools=TOOLS,
+                                    router=FakeRouter(),
+                                    ctx=ToolContext(-100, "q"))
+        env = out.tool_results[0]
+        assert env["status"] == "skipped"
+        assert env["data"] is None
+        assert set(env) == {"round", "tool", "args_fingerprint", "status",
+                            "data", "error_code", "error_type", "truncated",
+                            "metered", "duplicate", "attempt", "out_chars"}
 
     @pytest.mark.asyncio
     async def test_limits_off_no_cap(self, monkeypatch):

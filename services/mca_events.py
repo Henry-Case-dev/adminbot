@@ -237,6 +237,11 @@ REASON_CODES = frozenset({
     # перепроверка старых lore-агрегатов (lore не удаляется).
     "numeric_claim_mismatch", "numeric_claim_corrected",
     "numeric_claim_fallback", "lore_stats_recheck_flagged",
+    # расширение mca-11/блоки A+B (ADR-1028-13 D8; санкции §9.4 — ровно +1
+    # на фичу, единый словарь): расход с неизвестной ценой честно отделён от
+    # нуля (unknown ≠ 0); прочие причины переиспользуются (delivery_unknown/
+    # financial_limit_reached/tool_step_limit/deadline_exceeded/...).
+    "cost_unknown",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────

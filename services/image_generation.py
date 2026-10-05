@@ -1239,8 +1239,8 @@ async def generate_image_verbose(prompt: str, *, chat_id: int | None = None,
     from services.media_execution import (
         OPERATION_GENERATE, MJ_FAILED, MJ_RUNNING, MJ_SUCCEEDED,
         begin_media_job, bound_db, detect_adapter, finish_media_job,
-        maybe_media_fallback, media_policy_enabled, record_media_outcome,
-        resolve_windows, save_media_job)
+        maybe_media_fallback, media_policy_enabled, prompt_hash,
+        record_media_outcome, resolve_windows, save_media_job)
     adapter = detect_adapter(base_url_now)
     if media_policy_enabled():
         windows = resolve_windows(adapter.name, model_now,
@@ -1258,11 +1258,22 @@ async def generate_image_verbose(prompt: str, *, chat_id: int | None = None,
         media_db = bound_db()
     except Exception:
         media_db = None
+    # MCA-11 (ADR-1028-13 D3): tool-level idempotency key durable-подачи —
+    # только при K2 ON; K2 OFF → прежняя coalesce-композиция (паритет).
+    idem_key = None
+    try:
+        from services import tool_result as _tr
+        if _tr.delivery_guard_enabled():
+            idem_key = _tr.idempotency_key(
+                chat_id, correlation_id, "generate_image",
+                prompt_hash(prompt), _tr.OP_KIND_MEDIA_SUBMIT)
+    except Exception:
+        idem_key = None
     job_id, mj = await begin_media_job(
         media_db, operation=OPERATION_GENERATE, provider=adapter.name,
         model=model_now, prompt=prompt, chat_id=chat_id,
         correlation_id=correlation_id, deadline_s=timeout,
-        base_url=base_url_now)
+        base_url=base_url_now, idempotency_key=idem_key)
     for attempt in range(1, attempts + 1):
         started = time.monotonic()
         result = None

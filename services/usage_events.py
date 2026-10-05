@@ -27,7 +27,10 @@ from services.token_counter import count_tokens
 logger = logging.getLogger(__name__)
 
 # source-домен (ADR-1023-7 D5) — только аналитика; бюджетный контур не трогаем.
-SOURCES = ("global", "chat", "byok", "worker", "image")
+# MCA-11 (ADR-1028-13 D4/AM-2, код-only): +embedding (точка записи — успешный
+# `llm_client.embed`) и +media (при записи медиа-провайдеров; image уже пишет
+# source='image' как раньше — существующие строки не переклассифицируются).
+SOURCES = ("global", "chat", "byok", "worker", "image", "embedding", "media")
 
 INSERT_SQL = (
     "INSERT INTO llm_usage_events "
@@ -48,6 +51,15 @@ _last_cleanup: float = 0.0
 def is_enabled() -> bool:
     """Мастер-рубильник телеметрии (env-only, default ON)."""
     return bool(getattr(settings, "TOKEN_ANALYTICS_ENABLED", True))
+
+
+def cost_accounting_enabled() -> bool:
+    """K3 ``MCA_COST_ACCOUNTING_ENABLED`` (env-only, default ON; MCA-11 D4).
+
+    Гейтит ТОЛЬКО новые точки записи (embeddings/медиа) и usage-детализацию;
+    существующие записи LLM/изображений не трогает (K3 OFF → паритет
+    существующей аналитики)."""
+    return bool(getattr(settings, "MCA_COST_ACCOUNTING_ENABLED", True))
 
 
 def retention_days() -> int:

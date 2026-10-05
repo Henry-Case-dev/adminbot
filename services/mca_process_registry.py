@@ -562,18 +562,29 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
              "per-reply success; виджет-ID для mca-17c (UI не делается)",
     ),
     ProcessDefinition(
-        process_id="tools.chain", version="1",
+        process_id="tools.chain", version="2",
         purpose="Tool chain: маршрутизация и исполнение инструментов",
         inputs=("tool calls",), outputs=("tool results",),
-        stages=("route", "execute", "aggregate"),
+        stages=("route", "execute", "deliver", "account"),
         trigger_kind="per_request",
-        settings_ref=("TOOL_CHAIN_LIMITS_ENABLED",),
+        settings_ref=("TOOL_CHAIN_LIMITS_ENABLED", "MCA_TOOL_RESULT_ENABLED",
+                      "MCA_COST_ACCOUNTING_ENABLED"),
         state_source=("mca_events", "task_jobs"),
         recovery_ops=("fallback_single",),
         widget_id="Tool chain",
+        stages_to_events={"execute": "tool_call",
+                          "deliver": "tool_delivery",
+                          "account": "tool_accounting"},
+        instrumentation=("execute", "deliver", "account"),
         owner_feature="tools",
-        note="инструментирование mca_events не подключено (agentic_events — "
-             "отдельный контракт ExecutionGraph)",
+        enabled_gate="MCA_TOOL_CHAIN_STAGES_ENABLED",
+        event_names=("tool_call", "tool_delivery", "tool_accounting"),
+        note="mca-11 (ADR-1028-13 D6): v2 — стадии route/execute/deliver/"
+             "account; notable-only (терминал вызова с ошибкой/отказом, "
+             "`delivery_unknown`, accounting-unknown), R17-safe (коды/числа/"
+             "`args_fingerprint`); widget-ID — контракт mca-17c (UI не "
+             "делается); K4 OFF → стадийных событий нет (честный disabled/"
+             "not_run)",
     ),
     # ── mca-02: safe_fetch (реальное событие safe_fetch) ────────────────────
     ProcessDefinition(
@@ -914,6 +925,8 @@ _GATE_RESOLVERS = {
     "MCA_CHAT_STATISTICS_ENABLED": "chat_statistics_enabled",
     "MCA_NUMERIC_CLAIM_GUARD_ENABLED": "numeric_claim_guard_enabled",
     "MCA_STATS_INTENT_ENABLED": "stats_intent_enabled",
+    # mca-11 (ADR-1028-13 D6): K4 стадий tools.chain v2.
+    "MCA_TOOL_CHAIN_STAGES_ENABLED": "tool_chain_stages_enabled",
     # product-гейты из `config.settings` (не mca_gates) — резолв через settings.
 }
 

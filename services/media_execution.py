@@ -629,6 +629,7 @@ async def begin_media_job(db, *, operation: str, provider: str, model: str,
                           deadline_s: float | None = None,
                           job_id: str | None = None,
                           base_url: str = "",
+                          idempotency_key: str | None = None,
                           ) -> tuple[str | None, MediaJobState]:
     """Создать/переиспользовать durable media-джобу (§29/§43-прецедент).
 
@@ -637,7 +638,12 @@ async def begin_media_job(db, *, operation: str, provider: str, model: str,
     продолжает её — новый платный submit не создаётся. `job_id` уникален
     на подачу (завершённые джобы не переиспользуются); после рестарта
     активная джоба находится сканом `recover_media_jobs`, а не ключом.
-    db=None / ошибка → (None, in-memory state) — fail-open."""
+    db=None / ошибка → (None, in-memory state) — fail-open.
+
+    MCA-11 (ADR-1028-13 D3): при K2 `MCA_TOOL_DELIVERY_GUARD_ENABLED` ON и
+    переданном tool-level `idempotency_key` coalesce = этот ключ (R17-safe
+    хэш; replay того же хода не создаёт второй платный submit). K2 OFF /
+    ключ не передан → прежняя композиция байт-в-байт."""
     state = MediaJobState(
         operation=operation, provider=provider, model=model,
         base_url=str(base_url or ""), status=MJ_SUBMITTED,
@@ -647,6 +653,13 @@ async def begin_media_job(db, *, operation: str, provider: str, model: str,
         chat_id=chat_id, correlation_id=correlation_id)
     coalesce = "media_job:" + media_job_key(operation, provider, model,
                                             prompt_hash(prompt))
+    if idempotency_key:
+        try:
+            from services import tool_result as _tr
+            if _tr.delivery_guard_enabled():
+                coalesce = "media_job:" + str(idempotency_key)[:64]
+        except Exception:
+            pass
     jid = job_id or ("med_" + uuid.uuid4().hex)
     if db is None:
         return None, state

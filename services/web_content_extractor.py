@@ -43,7 +43,15 @@ _POLICY_BLOCK_CODES = frozenset({
 
 
 class WebContentExtractionFailedException(Exception):
-    """Все уровни каскада провалились/пусто. → пул 5.7 (WEB_ERROR_PHRASES)."""
+    """Все уровни каскада провалились/пусто. → пул 5.7 (WEB_ERROR_PHRASES).
+
+    MCA-11 (ADR-1028-13 D1/T-4948, M-MCA02-3): аддитивный ``safe_error`` —
+    последняя ``SafeFetchError`` (code/stage/reason/retryable) для маппинга в
+    ToolResult без второго error-контракта; message не меняется."""
+
+    def __init__(self, message: str = "", *, safe_error=None) -> None:
+        super().__init__(message)
+        self.safe_error = safe_error
 
 
 class WebContentExtractor:
@@ -85,6 +93,7 @@ class WebContentExtractor:
             ("tavily", self._extract_tavily, self._tavily_api_key),
             ("exa", self._extract_exa, self._exa_api_key),
         ]
+        last_safe_error = None
         for name, fn, key in levels:
             if key is not None and not key.strip():
                 # пустой ключ — уровень отключён (D104-прецедент)
@@ -104,14 +113,15 @@ class WebContentExtractor:
                 )
                 return self._truncate(text, max_symbols)
             except safe_fetch.SafeFetchError as exc:
+                last_safe_error = exc
                 if exc.code in _POLICY_BLOCK_CODES:
                     logger.warning(
                         "[web_extractor] destination blocked — no fallback "
                         "| code=%s | url=%s", exc.code,
                         safe_fetch.mask_url(target_url))
                     raise WebContentExtractionFailedException(
-                        f"destination blocked | code={exc.code}"
-                    ) from exc
+                        f"destination blocked | code={exc.code}",
+                        safe_error=exc) from exc
                 logger.warning(
                     "[web_extractor] level failed → fallback | provider=%s | error=%s",
                     name, exc,
@@ -124,7 +134,8 @@ class WebContentExtractor:
         logger.error("[web_extractor] all levels failed | url=%s",
                      safe_fetch.mask_url(target_url))
         raise WebContentExtractionFailedException(
-            f"all extraction levels failed | url={safe_fetch.mask_url(target_url)}"
+            f"all extraction levels failed | url={safe_fetch.mask_url(target_url)}",
+            safe_error=last_safe_error
         )
 
     async def _extract_trafilatura(self, target_url: str) -> str:

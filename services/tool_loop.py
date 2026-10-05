@@ -29,6 +29,7 @@ import re
 import time
 
 from config.settings import settings
+from services import tool_result
 from services.llm_client import (
     LLMBadResponseError,
     LLMError,
@@ -89,6 +90,11 @@ class ToolLoopResult(str):
       truncated, metered, duplicate, attempt, out_chars}, …]`` — структурный
       спутник каждого вызова. НЕ сериализуется в модельный ввод; ключи
       ``tool_trace`` сохранены байт-в-байт (совместимость).
+      MCA-11 (ADR-1028-13 D1, K1 ON): статусы канонические
+      (``ok/empty/error/timeout/cancelled/denied/delivery_unknown``) +
+      аддитивные поля ``category/retryable/duration_ms/usage/
+      external_operation_id/evidence_refs/partial``; K1 OFF — прежние
+      ключи/статусы байт-в-байт (legacy ``ok/error/skipped``).
 
     Атрибуты не сериализуются и не влияют на строковое равенство.
     """
@@ -125,6 +131,67 @@ def _chain_limits_enabled() -> bool:
     цикла = baseline. Envelope остаётся out-of-band (модельно-видимый контур
     не затрагивается)."""
     return bool(getattr(settings, "TOOL_CHAIN_LIMITS_ENABLED", True))
+
+
+# ── MCA-11 (ADR-1028-13 D2): env-only числа лимитов поверх существующих cap'ов.
+# Дефолты = текущие код-константы (байт-паритет); enforcement остаётся здесь.
+def _max_total_calls() -> int:
+    return _int_setting("MCA_TOOL_MAX_TOTAL_CALLS", TOOL_MAX_TOTAL_CALLS)
+
+
+def _max_metered_calls() -> int:
+    return _int_setting("MCA_TOOL_MAX_METERED_CALLS",
+                        TOOL_CHAIN_MAX_METERED_CALLS)
+
+
+def _max_same_call() -> int:
+    return _int_setting("MCA_TOOL_MAX_SAME_CALL", _TOOL_MAX_SAME_CALL)
+
+
+def _chain_timeout_seconds() -> float:
+    try:
+        return float(getattr(settings, "MCA_TOOL_CHAIN_TIMEOUT_SECONDS",
+                             TOOL_CHAIN_TIMEOUT_SECONDS))
+    except (TypeError, ValueError):
+        return TOOL_CHAIN_TIMEOUT_SECONDS
+
+
+def _int_setting(name: str, default: int) -> int:
+    try:
+        return max(1, int(getattr(settings, name, default)))
+    except (TypeError, ValueError):
+        return default
+
+
+def _contract_on() -> bool:
+    """K1 ``MCA_TOOL_RESULT_ENABLED``: канонический envelope либо legacy."""
+    return tool_result.enabled()
+
+
+def _guard_on() -> bool:
+    """K2 ``MCA_TOOL_DELIVERY_GUARD_ENABLED`` (вместе с K1 — контракт)."""
+    return _contract_on() and tool_result.delivery_guard_enabled()
+
+
+def _classify(name: str, output, signal: dict | None = None) -> dict:
+    """Деривация ToolResult: K1 ON → каноническая; OFF → legacy байт-в-байт."""
+    if _contract_on():
+        return tool_result.classify_output(name, output, signal=signal)
+    return _classify_output(name, output)
+
+
+def _envelope(round_index: int, name: str, fingerprint: str, info: dict, *,
+              metered: bool, duplicate: bool, attempt: int, out_chars: int,
+              duration_ms: int = 0) -> dict:
+    """Envelope-запись: K1 ON → канонические ключи; OFF → legacy байт-в-байт."""
+    if _contract_on():
+        return tool_result.make_envelope(
+            round_index, name, fingerprint, info, metered=metered,
+            duplicate=duplicate, attempt=attempt, out_chars=out_chars,
+            duration_ms=duration_ms)
+    return _make_envelope(round_index, name, fingerprint, info,
+                          metered=metered, duplicate=duplicate,
+                          attempt=attempt, out_chars=out_chars)
 
 
 def _args_fingerprint(name: str, arguments) -> str:
@@ -258,12 +325,16 @@ async def chat_with_tools(llm, messages: list[dict], *,
     tool_context_parts: list[str] = []
     partial_text = ""
     # §17-состояние прогона (in-memory; OFF → не используется).
-    deadline = (time.monotonic() + TOOL_CHAIN_TIMEOUT_SECONDS
+    # MCA-11 D2: числа — env-only (дефолты = прежние код-константы).
+    deadline = (time.monotonic() + _chain_timeout_seconds()
                 if limits_on else None)
     total_calls = 0
     metered_calls = 0
     same_calls: dict[str, int] = {}
     last_by_fp: dict[str, str] = {}
+    # MCA-11 D3: последний канонический/legacy-результат по отпечатку —
+    # запрет слепого повтора side effect после успеха/delivery_unknown.
+    last_info_by_fp: dict[str, dict] = {}
     degrade_reason = ""
     # F7 (ADR-1023-7 D4): имена инструментов, исполненных ПЕРЕД текущим
     # LLM-вызовом — для телеметрии `step='tool'` (`tool_name`). На первом
@@ -376,10 +447,17 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 total_calls += 1
                 if metered:
                     metered_calls += 1
-                info = _classify_output(tc.name, output)
-                _record(ctx, tool_results, _make_envelope(
+                info = _classify(tc.name, output)
+                last_info_by_fp[fp] = info
+                _record(ctx, tool_results, _envelope(
                     round_index, tc.name, fp, info, metered=metered,
                     duplicate=False, attempt=attempt, out_chars=len(output)))
+                # D6: notable-терминал стадии execute (invalid-args → error).
+                tool_result.emit_tool_chain_events(
+                    tool=tc.name, status=str(info.get("status") or ""),
+                    chat_id=chat_id, correlation_id=correlation_id,
+                    args_fingerprint=fp, attempt=attempt,
+                    error_code=str(info.get("error_code") or ""))
                 payload_messages.append({"role": "tool",
                                          "tool_call_id": tc.id,
                                          "content": output})
@@ -391,59 +469,113 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 continue
             fp = _args_fingerprint(tc.name, arguments)
 
-            # (б) §17-дедуп одинакового вызова: сверх лимита — НЕ диспетчим,
-            # возвращаем прежний результат (идемпотентно, как требует D3).
-            if limits_on and same_calls.get(fp, 0) >= _TOOL_MAX_SAME_CALL \
-                    and fp in last_by_fp:
+            # (б) §17-дедуп одинакового вызова + MCA-11 D3-гард side effects:
+            # сверх лимита ЛИБО повтор неидемпотентной операции после
+            # успеха/`delivery_unknown` — НЕ диспетчим, возвращаем прежний
+            # результат (слепой повтор запрещён; exactly-once не обещается).
+            cached_reason = ""
+            if limits_on and fp in last_by_fp:
+                if same_calls.get(fp, 0) >= _max_same_call():
+                    cached_reason = "dedup"
+                elif (_guard_on() and not tool_result.is_idempotent(tc.name)
+                      and str((last_info_by_fp.get(fp) or {}).get("status"))
+                      in (tool_result.STATUS_OK,
+                          tool_result.STATUS_DELIVERY_UNKNOWN)):
+                    cached_reason = "side_effect"
+            if cached_reason:
                 output = last_by_fp[fp]
                 attempt = same_calls[fp] + 1
                 same_calls[fp] = attempt
-                info = _classify_output(tc.name, output)
-                _record(ctx, tool_results, _make_envelope(
+                info = dict(last_info_by_fp.get(fp)
+                            or _classify(tc.name, output))
+                _record(ctx, tool_results, _envelope(
                     round_index, tc.name, fp, info, metered=metered,
                     duplicate=True, attempt=attempt, out_chars=len(output)))
                 payload_messages.append({"role": "tool",
                                          "tool_call_id": tc.id,
                                          "content": output})
                 tool_context_parts.append(output)
+                cached_ok = (True if cached_reason == "dedup"
+                             else str(info.get("status")) == "ok")
                 tool_trace.append({"round": round_index + 1, "tool": tc.name,
-                                   "ok": True, "out_chars": len(output or "")})
+                                   "ok": cached_ok, "out_chars": len(output or "")})
                 logger.info(
                     "[tools] duplicate call skipped | tool=%s | round=%d | "
-                    "attempt=%d", tc.name, round_index + 1, attempt)
-                # A9 (D5): дедуп-скип — результат отдан из кэша (status ok).
+                    "attempt=%d | reason=%s", tc.name, round_index + 1,
+                    attempt, cached_reason)
+                # A9 (D5): результат отдан из кэша (K1 OFF — прежний status ok).
                 emit_agentic_event(
                     "TOOL_CALL_COMPLETE", run_id=correlation_id, chat_id=chat_id,
-                    tool=tc.name, round=round_index + 1, status="ok",
+                    tool=tc.name, round=round_index + 1,
+                    status=(str(info.get("status") or "ok")
+                            if _contract_on() else "ok"),
                     out_chars=len(output or ""))
                 continue
 
             # (в) §17-лимиты ПЕРЕД диспетчем (мягкие: in-flight не отменяем).
             if limits_on:
                 skip_code = ""
-                if deadline is not None and time.monotonic() > deadline:
+                limit_kind = ""
+                limit_value = None
+                now_mono = time.monotonic()
+                if deadline is not None and now_mono > deadline:
                     skip_code = CHAIN_TIMEOUT_REASON
-                elif total_calls >= TOOL_MAX_TOTAL_CALLS:
+                    limit_kind = "tool_chain_deadline"
+                    limit_value = round(max(0.0, now_mono - deadline), 1)
+                elif total_calls >= _max_total_calls():
                     skip_code = CHAIN_CALL_LIMIT_REASON
-                elif metered and metered_calls >= TOOL_CHAIN_MAX_METERED_CALLS:
+                    limit_kind = "tool_calls"
+                    limit_value = total_calls
+                elif metered and metered_calls >= _max_metered_calls():
                     skip_code = CHAIN_COST_LIMIT_REASON
+                    limit_kind = "tool_metered_calls"
+                    limit_value = metered_calls
                 if skip_code:
-                    _record(ctx, tool_results, _make_envelope(
-                        round_index, tc.name, fp,
-                        {"status": "skipped", "error_code": skip_code,
-                         "error_type": "", "data": None, "truncated": False},
-                        metered=metered, duplicate=False,
-                        attempt=same_calls.get(fp, 0), out_chars=0))
-                    logger.warning(
-                        "[tools] chain limit | reason=%s | tool=%s | round=%d "
-                        "| total_calls=%d | metered_calls=%d",
-                        skip_code, tc.name, round_index + 1, total_calls,
-                        metered_calls)
+                    # MCA-11 D1/D4: legacy `skipped` → канонический `denied`;
+                    # единицы/область/значение/причина — в data (K1 ON).
+                    limit = tool_result.limit_record(limit_kind, limit_value,
+                                                     skip_code)
+                    info = {"status": ("denied" if _contract_on()
+                                       else "skipped"),
+                            "error_code": skip_code, "error_type": "",
+                            "data": (limit if _contract_on() else None),
+                            "truncated": False, "retryable": False,
+                            "partial": False, "usage": {},
+                            "evidence_refs": [],
+                            "external_operation_id": None}
+                    _record(ctx, tool_results, _envelope(
+                        round_index, tc.name, fp, info, metered=metered,
+                        duplicate=False, attempt=same_calls.get(fp, 0),
+                        out_chars=0))
+                    # D6: notable-отказ стадии execute (chain-лимит) — код из
+                    # единого словаря (chain_* → существующий mapped-код);
+                    # событие — канонический статус `denied` независимо от K1.
+                    tool_result.emit_tool_chain_events(
+                        tool=tc.name, status="denied",
+                        chat_id=chat_id, correlation_id=correlation_id,
+                        args_fingerprint=fp,
+                        attempt=same_calls.get(fp, 0),
+                        chain_limit_code=skip_code)
+                    if _contract_on():
+                        logger.warning(
+                            "[tools] chain limit | reason=%s | unit=%s | "
+                            "scope=%s | value=%s | tool=%s | round=%d | "
+                            "total_calls=%d | metered_calls=%d",
+                            skip_code, limit["unit"], limit["scope"],
+                            limit.get("value"), tc.name, round_index + 1,
+                            total_calls, metered_calls)
+                    else:
+                        logger.warning(
+                            "[tools] chain limit | reason=%s | tool=%s | round=%d "
+                            "| total_calls=%d | metered_calls=%d",
+                            skip_code, tc.name, round_index + 1, total_calls,
+                            metered_calls)
                     # A9 (D5): chain-skip (timeout/call-limit/cost-limit).
                     emit_agentic_event(
                         "TOOL_CALL_FAILED", run_id=correlation_id,
                         chat_id=chat_id, tool=tc.name,
-                        round=round_index + 1, status="skipped",
+                        round=round_index + 1,
+                        status=("denied" if _contract_on() else "skipped"),
                         error_code=skip_code)
                     degrade_reason = skip_code
                     limit_hit = True
@@ -455,6 +587,7 @@ async def chat_with_tools(llm, messages: list[dict], *,
             emit_agentic_event(
                 "TOOL_CALL_START", run_id=correlation_id, chat_id=chat_id,
                 tool=tc.name, round=round_index + 1)
+            started = time.monotonic()
             try:
                 output = await router.dispatch(tc.name, arguments, ctx)
             except Exception as exc:              # инструмент упал — модель видит текст
@@ -462,16 +595,30 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 logger.warning("[tools] exec failed | tool=%s | error=%s",
                                tc.name, f"{type(exc).__name__}: {exc}")
                 output = f"ОШИБКА {tc.name}: {type(exc).__name__}"
+            duration_ms = int((time.monotonic() - started) * 1000)
+            # MCA-11 D1/D3: out-of-band сигнал обвязки (SafeFetcher stage/
+            # delivery_unknown) — одноразово, в модельный ввод не попадает.
+            signal = tool_result.take_signal(ctx)
             total_calls += 1
             if metered:
                 metered_calls += 1
             attempt = same_calls.get(fp, 0) + 1
             same_calls[fp] = attempt
             last_by_fp[fp] = output
-            info = _classify_output(tc.name, output)
-            _record(ctx, tool_results, _make_envelope(
+            info = _classify(tc.name, output, signal)
+            last_info_by_fp[fp] = info
+            _record(ctx, tool_results, _envelope(
                 round_index, tc.name, fp, info, metered=metered,
-                duplicate=False, attempt=attempt, out_chars=len(output)))
+                duplicate=False, attempt=attempt, out_chars=len(output),
+                duration_ms=duration_ms))
+            # D6: стадии tools.chain v2 — execute (notable-терминал),
+            # deliver (`delivery_unknown`), account (usage/unknown ≠ 0).
+            tool_result.emit_tool_chain_events(
+                tool=tc.name, status=str(info.get("status") or ""),
+                chat_id=chat_id, correlation_id=correlation_id,
+                args_fingerprint=fp, duration_ms=duration_ms,
+                attempt=attempt, usage=info.get("usage"),
+                error_code=str(info.get("error_code") or ""))
             payload_messages.append({"role": "tool", "tool_call_id": tc.id,
                                      "content": output})
             tool_context_parts.append(output)
