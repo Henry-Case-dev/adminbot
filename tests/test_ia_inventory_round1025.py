@@ -52,7 +52,7 @@ class TestCatalogFrozen:
     def test_counters_unchanged(self):
         # ASAP 4.4 (T-4880): санкционированная Δ +1 (488→489) — owner-ключ
         # keys.embedding_quota_group_labels.
-        assert len(pc.REGISTRY) == BASELINE["counts"]["REGISTRY"] == 504
+        assert len(pc.REGISTRY) == BASELINE["counts"]["REGISTRY"] == 510
         assert len(pc.GROUPS) == BASELINE["counts"]["GROUPS"] == 108
         assert len(pc._TAB_BY_GROUP) == BASELINE["counts"]["_TAB_BY_GROUP"] == 106
         assert len(pc.TAB_RULES) == BASELINE["counts"]["TAB_RULES"] == 21

@@ -341,6 +341,15 @@ KILL_SWITCHES: dict[str, tuple[bool, str]] = {
         "OFF → политика возвращает primary; probability-draw нет "
         "(причина disabled)",
     ),
+    # ── mca-10b (ADR-1028-17 D13, санкция spec §13.3): ровно один новый
+    # kill-switch фичи (72→73); per-purpose аварийное отключение — каталог
+    # `random.uses.*` (env-дубликатов нет); OFF = бит-в-бит 2.58.60.
+    "MCA_RANDOM_USES_ENABLED": (
+        True,
+        "OFF → применения случайности (10b) не выполняются: пул/choose не "
+        "строятся, фоновый hook молчит; 10a/сон/Decision как в 2.58.60 "
+        "(честный disabled/not_run)",
+    ),
     # ── mca-16 (ADR-1028-15 D11): K1–K4 банка опыта (env-only, default ON) ──
     "MCA_EXPERIENCE_LESSONS_ENABLED": (
         True,
@@ -1054,6 +1063,17 @@ def random_exploration_enabled() -> bool:
     ON → `ExplorationPolicy.choose` выполняет одну probability-проверку.
     OFF → политика возвращает primary без draw (причина `disabled`)."""
     return bool(getattr(settings, "MCA_RANDOM_EXPLORATION_ENABLED", True))
+
+
+def random_uses_enabled() -> bool:
+    """`MCA_RANDOM_USES_ENABLED` (env-only, default ON; mca-10b master).
+
+    ON → применения случайности (10b, ADR-1028-17 D13) активны — каждое
+    дополнительно гейтится каталогом `random.uses.*` (до каталога —
+    `memory.random_uses_*` через read-path с дефолтом True) и существующими
+    K1/K4 для probability-веток. OFF → вся 10b-поверхность не выполняется:
+    бит-в-бит 2.58.60, честный `disabled`/`not_run`."""
+    return bool(getattr(settings, "MCA_RANDOM_USES_ENABLED", True))
 
 
 def experience_lessons_enabled() -> bool:

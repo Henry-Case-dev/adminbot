@@ -1922,6 +1922,17 @@
         // случайности» — read-only; раскрытие последних решений КЛИЕНТСКОЕ
         // (данные уже в /api/status — новых запросов/маршрутов нет).
         randomDrawsOpen: false,
+        // Раунд 10.41 (MCA-10b, ADR-1028-17 D11/T-5060): живая лента
+        // применений — расширение ЭТОГО блока; воспроизведение записанного
+        // (кандидаты → выбор → исход). Новых QRNG/LLM-вызовов нет: данные
+        // уже в /api/status (поле random.uses); «Повторить» крутит локальную
+        // подсветку и помечается как повтор; пауза останавливает анимацию;
+        // prefers-reduced-motion уважается (подсветка без движения).
+        randomUsesOpen: false,
+        randomUsesPaused: false,
+        randomUsesReplayKey: null,
+        randomUsesReplayStep: -1,
+        randomUsesReplayed: {},
         // Раунд 10.39 (MCA-16, ADR-1028-15 D9/T-5007): «Опыт и уроки» —
         // таблица/карточка в «Памяти» + права (admin); черновик правки
         // живёт только в памяти (R17).
@@ -3481,6 +3492,58 @@
           plan: r.plan || null,
           recent: r.recent_draws || [],
           scope: r.recent_draws_scope || '',
+        };
+      },
+      // Раунд 10.41 (MCA-10b, ADR-1028-17 D11/T-5060): живая лента
+      // применений — read-only проекция random.uses. Bounded history (20)
+      // дедуплицируется по `key` (event cursor); OFF → лента скрыта,
+      // остаётся статичный блок 10a.
+      randomUsesView: function () {
+        var r = (this.statusData && this.statusData.random) || null;
+        var uses = (r && r.uses) || null;
+        if (!uses || !uses.enabled) {
+          return { ready: !!r, enabled: false, items: [], scope: '' };
+        }
+        var seen = {};
+        var items = [];
+        (uses.events || []).forEach(function (ev) {
+          if (!ev || !ev.key || seen[ev.key]) return;   // дедуп по cursor-key
+          seen[ev.key] = true;
+          var d = ev.details || {};
+          items.push({
+            key: ev.key,
+            ts: ev.ts,
+            stage: ev.stage || ev.reason_code || '—',
+            purpose: d.purpose || ev.stage || '',
+            outcome: ev.outcome || '',
+            reason: ev.reason_code || '',
+            selected: d.selected || null,
+            form: d.form || null,
+            source: d.actual_source || null,
+            candidates: Array.isArray(d.candidates) ? d.candidates : [],
+            eligible: Array.isArray(d.eligible) ? d.eligible : [],
+            excluded: Array.isArray(d.excluded) ? d.excluded : [],
+            operationId: d.operation_id || ev.operation_id || null,
+          });
+        });
+        return { ready: true, enabled: true, items: items,
+                 scope: uses.scope || '' };
+      },
+      // Подсветка этапа воспроизведения (кандидаты → выбор): только
+      // записанные данные, локальный таймер; пауза/reduced-motion — без
+      // движения (класс подсветки без анимации).
+      randomUsesHighlight: function () {
+        var self = this;
+        return function (item, candidateId) {
+          if (self.randomUsesReplayKey !== item.key) return false;
+          if (self.randomUsesPaused) return false;
+          var step = self.randomUsesReplayStep;
+          var pool = (item.candidates || []).length
+            ? item.candidates : (item.eligible || []);
+          var idx = candidateId == null ? -1
+            : pool.indexOf(candidateId);
+          if (candidateId == null) return step >= 0;
+          return step >= 0 && idx >= 0 && step >= idx;
         };
       },
       // Раунд 10.39 (MCA-16, ADR-1028-15 D9/T-5006): компактная лента
@@ -10453,6 +10516,61 @@
         return { cls: 'badge-err',
                  label: map[c.blocker] || c.blocker || 'ошибка проверки' };
       },
+      // Раунд 10.41 (MCA-10b, D11/T-5060): воспроизведение записанного
+      // события применений (A35/THR-12): НИКАКИХ новых QRNG/LLM-запросов —
+      // только локальная подсветка уже полученных данных; «Повторить»
+      // помечается как повтор; reduced-motion/пауза → подсветка без
+      // движения (итоговая позиция сразу).
+      replayRandomUses: function (item) {
+        if (this.randomUsesTimer) {
+          clearTimeout(this.randomUsesTimer);
+          this.randomUsesTimer = null;
+        }
+        this.randomUsesReplayKey = item.key;
+        var pool = (item.candidates || []).length
+          ? item.candidates : (item.eligible || []);
+        var reduced = false;
+        try {
+          reduced = window.matchMedia
+            && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        } catch (e) { reduced = false; }
+        var self = this;
+        if (reduced || this.randomUsesPaused) {
+          this.randomUsesReplayStep = pool.length + 1;
+          this.randomUsesReplayed[item.key] = true;
+          return;
+        }
+        var step = 0;
+        var tick = function () {
+          if (self.randomUsesPaused
+              || self.randomUsesReplayKey !== item.key) return;
+          self.randomUsesReplayStep = step;
+          if (step > pool.length + 1) {
+            self.randomUsesReplayed[item.key] = true;
+            return;
+          }
+          step += 1;
+          self.randomUsesTimer = setTimeout(tick, 350);
+        };
+        tick();
+      },
+      toggleRandomUsesPause: function () {
+        this.randomUsesPaused = !this.randomUsesPaused;
+        if (this.randomUsesPaused && this.randomUsesTimer) {
+          clearTimeout(this.randomUsesTimer);
+          this.randomUsesTimer = null;
+        }
+      },
+      randomUsesOutcomeRu: function (item) {
+        // Честный исход, включая отклонение проверкой (D11): событие
+        // skipped/silent — не «успех»; выбор ≠ отправленный ответ.
+        if (item.reason === 'no_eligible_alternative'
+            || item.reason === 'exploration_not_used') return 'отклонено проверкой';
+        if (item.outcome === 'success') return 'выполнено';
+        if (item.outcome === 'skipped') return 'пропущено';
+        if (item.outcome === 'failure' || item.outcome === 'failed') return 'ошибка';
+        return item.outcome || '—';
+      },
       // F9 (10.25, ADR-1025-22 D2): удаление ГЛОБАЛЬНОГО секрета — отдельное
       // подтверждаемое действие. Без НОВОГО endpoint (R16):
       //   * `isGlobalSecretKey(key) && BYOK_IMAGE_KEY_ENABLED` →
@@ -13903,6 +14021,11 @@
       if (_onVisibility) {
         document.removeEventListener('visibilitychange', _onVisibility);
         _onVisibility = null;
+      }
+      // MCA-10b (T-5060): останавливаем локальный таймер воспроизведения.
+      if (this.randomUsesTimer) {
+        clearTimeout(this.randomUsesTimer);
+        this.randomUsesTimer = null;
       }
       // F1 (§6/§7): снимаем resize-листенер shell-режима.
       if (_onResize) {

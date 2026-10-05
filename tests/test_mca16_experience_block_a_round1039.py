@@ -84,7 +84,9 @@ async def test_v28_fresh_schema_book_and_idempotent_reinit(tmp_path):
     db = await _db(tmp_path)
     try:
         cur = await db.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == _SCHEMA_VERSION_INTENTS == 29
+        # (mca-10b): frontier глобальной схемы двинулся v29→v30 — свежая БД
+        # приземляется на актуальный frontier, v28/v29-метки в книге.
+        assert (await cur.fetchone())[0] >= _SCHEMA_VERSION_INTENTS == 29
         assert _SCHEMA_VERSION_EXPERIENCE == 28
         for table in ("mca_experience_episodes", "mca_experience_feedback",
                       "mca_lessons", "mca_lesson_applications"):
@@ -128,8 +130,8 @@ async def test_v28_upgrade_from_v27_simulated(tmp_path):
     await db2.initialize()
     try:
         cur = await db2.db.execute("PRAGMA user_version")
-        # v27→v28→v29 (mca-09 v29 применён тем же прогоном).
-        assert (await cur.fetchone())[0] == _SCHEMA_VERSION_INTENTS == 29
+        # v27→v28→v29→v30 (mca-10b v30 применён тем же прогоном).
+        assert (await cur.fetchone())[0] >= _SCHEMA_VERSION_INTENTS == 29
         cur = await db2.db.execute(
             "SELECT COUNT(*) AS c FROM sqlite_master WHERE type='table' "
             "AND name='mca_lessons'")

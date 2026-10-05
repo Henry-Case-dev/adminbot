@@ -1258,6 +1258,96 @@ _INTENTS_INDEX_DDL = (
     "ON mca_intents(chat_id, kind, status)",
 )
 
+# ── mca-10b T-5051…T-5056 (ADR-1028-17 D15, санкция spec §13.1): v30 —
+# строго аддитивный набор применений случайности: ALTER `mca_episodes`
+# (+2 nullable-колонки давности + 1 индекс) + 3 доменные таблицы
+# (`mca_associations` / `mca_archive_coverage` / `mca_belief_reviews`) +
+# индексы. Аддитивно/идемпотентно (`CREATE … IF NOT EXISTS` под self-guard
+# `sqlite_master`, ALTER под guard `PRAGMA table_info`), повтор — no-op,
+# PG — no-op (GEN-R4, memory-контур SQLite-only), backfill нет (NULL = честный
+# unknown; пустые таблицы старый код не читает — cold-совместимо).
+# Контракт ExplorationRequest/Result в DDL НЕ нуждается (журнал — `mca_events`,
+# jobs — `task_jobs`, conversation-исходы — `random_metadata` v22; обоснование
+# Δ≠0 — spec §13.1: индексированные min/order-by выборки, stale-lookups,
+# durable material_refs_hash). R17: только ID/коды/enum/числа/refs.
+_SCHEMA_VERSION_RANDOM_USES = 30
+
+# (`имя`, SQL-декларация) — порядок ALTER `mca_episodes`: поиск во сне ≠
+# рассказ (`last_retrieved_at` — любой retrieval; `last_used_in_chat_at` —
+# только подтверждённая доставка в чат).
+_MCA_EPISODES_RANDOM_USES_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("last_retrieved_at", "REAL"),
+    ("last_used_in_chat_at", "REAL"),
+)
+_MCA_EPISODES_RANDOM_USES_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_episodes_last_used "
+    "ON mca_episodes(last_used_in_chat_at)",
+)
+
+_MCA_ASSOCIATIONS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_associations ("
+    "association_id     TEXT PRIMARY KEY, "
+    "chat_id            INTEGER NOT NULL, "
+    "link_type          TEXT NOT NULL CHECK (link_type IN "
+    "('analogy','motif','contrast','continuation','insufficient')), "
+    "a_event_id         TEXT NOT NULL, "
+    "a_version          INTEGER NOT NULL DEFAULT 1, "
+    "b_event_id         TEXT NOT NULL, "
+    "b_version          INTEGER NOT NULL DEFAULT 1, "
+    "status             TEXT NOT NULL DEFAULT 'candidate' CHECK (status IN "
+    "('candidate','accepted','rejected','stale')), "
+    "basis              TEXT, "
+    "job_id             TEXT, "
+    "created_at         INTEGER NOT NULL, "
+    "updated_at         INTEGER NOT NULL)"
+)
+# side-ref+версия — точечные stale-lookups при изменении любой стороны (D9).
+_MCA_ASSOCIATIONS_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_associations_chat_status "
+    "ON mca_associations(chat_id, status)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_associations_side_a "
+    "ON mca_associations(a_event_id, a_version)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_associations_side_b "
+    "ON mca_associations(b_event_id, b_version)",
+)
+
+# Карта покрытия периодов архива (`chat_id`, `period`='YYYY-MM'); PK
+# (chat_id, period) покрывает санкционированный idx (chat_id, period) —
+# дублирующий индекс не создаётся. «Нет истории» ≠ «не обработано»
+# (msgs_total>0/verified_unique=0 — честный непокрытый период).
+_MCA_ARCHIVE_COVERAGE_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_archive_coverage ("
+    "chat_id            INTEGER NOT NULL, "
+    "period             TEXT NOT NULL, "
+    "msgs_total         INTEGER NOT NULL DEFAULT 0, "
+    "verified_unique    INTEGER NOT NULL DEFAULT 0, "
+    "episodes           INTEGER NOT NULL DEFAULT 0, "
+    "last_explored_at   INTEGER, "
+    "extractor_version  TEXT NOT NULL DEFAULT '', "
+    "updated_at         INTEGER NOT NULL, "
+    "PRIMARY KEY (chat_id, period))"
+)
+
+# Книга отзывов убеждений (D8): durable `material_refs_hash` — защита от
+# колебаний (те же материалы → kept, версия не растёт).
+_MCA_BELIEF_REVIEWS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_belief_reviews ("
+    "review_id          TEXT PRIMARY KEY, "
+    "belief_id          TEXT NOT NULL, "
+    "chat_id            INTEGER, "
+    "reviewed_at        INTEGER NOT NULL, "
+    "material_refs_hash TEXT NOT NULL DEFAULT '', "
+    "outcome            TEXT NOT NULL CHECK (outcome IN "
+    "('kept','narrowed','split','disputed','replaced')), "
+    "grounds_json       TEXT, "
+    "reason_code        TEXT, "
+    "job_id             TEXT)"
+)
+_MCA_BELIEF_REVIEWS_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_belief_reviews_belief_reviewed "
+    "ON mca_belief_reviews(belief_id, reviewed_at)",
+)
+
 
 def _summary_window_unique_violation(exc: BaseException) -> bool:
     """IntegrityError «UNIQUE constraint» → write-once guard snapshot'а."""
@@ -2235,6 +2325,15 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_INTENTS,
                           "intents",
                           lambda svc: svc._migrate_intents_v29()),
+            # mca-10b (ADR-1028-17 D15, санкция spec §13.1): v30 — строго
+            # аддитивный набор применений случайности: ALTER `mca_episodes`
+            # (+2 nullable-колонки давности + 1 индекс) + 3 доменные таблицы
+            # (`mca_associations`/`mca_archive_coverage`/`mca_belief_reviews`)
+            # + индексы. Идемпотентно, повтор — no-op, PG — no-op, старый код
+            # v30 не читает (cold-совместимо; v29 мультивалидна).
+            MigrationStep(_SCHEMA_VERSION_RANDOM_USES,
+                          "random_uses",
+                          lambda svc: svc._migrate_random_uses_v30()),
             # ASAP 4.1 волна 5 (T-4616, spec §10.2–§10.3): v24 = 3 таблицы
             # (summary_source_windows + summary_runs + summary_run_stages).
             # Один MigrationStep на версию — книга `schema_migrations` имеет
@@ -3147,6 +3246,48 @@ class DatabaseService:
         await self.db.commit()
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_INTENTS}")
+        await self.db.commit()
+
+    async def _migrate_random_uses_v30(self) -> None:
+        """v30 (`mca-10b-random-applications` T-5051…T-5056, ADR-1028-17 D15,
+        санкция spec §13.1): применения случайности — ALTER `mca_episodes`
+        (+`last_retrieved_at`/`last_used_in_chat_at` + индекс давности
+        использования в чате) + `mca_associations` (D9: версии сторон/
+        candidate/accepted/rejected/stale, side-ref stale-lookups) +
+        `mca_archive_coverage` (D7: карта покрытия периодов) +
+        `mca_belief_reviews` (D8: durable `material_refs_hash`).
+
+        Аддитивно (ALTER под guard `PRAGMA table_info`; CREATE TABLE/INDEX
+        IF NOT EXISTS под self-guard `sqlite_master`); НИ ОДНОГО UPDATE/DELETE
+        существующих строк; повтор — no-op; backfill не требуется (NULL/пустая
+        таблица = честный unknown; старый код v29 не читает — cold-совместимо);
+        PG — no-op (GEN-R4). Фиксирует `PRAGMA user_version = 30`."""
+        if await self._table_exists("mca_episodes"):
+            cols = await self._table_columns("mca_episodes")
+            for name, decl in _MCA_EPISODES_RANDOM_USES_COLUMNS:
+                if name not in cols:
+                    await self.db.execute(
+                        f"ALTER TABLE mca_episodes ADD COLUMN {name} {decl}")
+                    logger.info("[database] migration v30: mca_episodes.%s "
+                                "added", name)
+            await self.db.commit()
+        for ddl in _MCA_EPISODES_RANDOM_USES_INDEX_DDL:
+            await self.db.execute(ddl)
+        await self.db.commit()
+        for table, ddl in (
+                ("mca_associations", _MCA_ASSOCIATIONS_DDL),
+                ("mca_archive_coverage", _MCA_ARCHIVE_COVERAGE_DDL),
+                ("mca_belief_reviews", _MCA_BELIEF_REVIEWS_DDL)):
+            if not await self._table_exists(table):
+                await self.db.execute(ddl)
+                await self.db.commit()
+                logger.info("[database] migration v30: %s", table)
+        for ddl in (_MCA_ASSOCIATIONS_INDEX_DDL
+                    + _MCA_BELIEF_REVIEWS_INDEX_DDL):
+            await self.db.execute(ddl)
+        await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_RANDOM_USES}")
         await self.db.commit()
 
     # ── mca-22 (ADR-1028-6 D2): Durable Own Output Ledger — write/read ──────

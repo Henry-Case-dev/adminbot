@@ -5,7 +5,7 @@
     "source": "services/param_catalog.py"
   },
   "counts": {
-    "REGISTRY": 504,
+    "REGISTRY": 510,
     "GROUPS": 108,
     "_TAB_BY_GROUP": 106,
     "TAB_RULES": 21
@@ -715,6 +715,12 @@
     "limits.summary_hybrid_response_mode",
     "limits.summary_hybrid_target_chars",
     "limits.summary_hybrid_target_paragraphs",
+    "memory.random_uses_archive_sample",
+    "memory.random_uses_association_pair",
+    "memory.random_uses_belief_review",
+    "memory.random_uses_conversation_variant",
+    "memory.random_uses_memory_recall",
+    "memory.random_uses_ui_visualization",
     "models.groq_base_url",
     "models.groq_transcribe_model",
     "models.openrouter_base_url",

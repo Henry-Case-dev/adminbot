@@ -458,10 +458,10 @@ def test_catalog_zero_delta():
     # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): санкционированная
     # ОТРИЦАТЕЛЬНАЯ Δ каталога — -8 ключей summary_filter_*, -2 группы
     # (REGISTRY 489→481, GROUPS 107→105, _TAB_BY_GROUP 105→103).
-    assert len(pc.REGISTRY) == 504
+    assert len(pc.REGISTRY) == 510
     assert len({f.name for f in dataclasses.fields(Settings)}) == 441
     assert len([s for s in pc.REGISTRY.values()
-                if s.category is not None]) == 479
+                if s.category is not None]) == 485
     assert len(pc.GROUPS) == 108
     assert len(pc._TAB_BY_GROUP) == 106
     assert len(pc.TAB_RULES) == 21
@@ -474,7 +474,7 @@ def test_no_new_env_catalog_key():
 
 
 def test_app_version_bumped():
-    assert APP_VERSION == "2.58.60"
+    assert APP_VERSION == "2.58.61"
 
 
 def test_forbidden_modules_outside_diff():

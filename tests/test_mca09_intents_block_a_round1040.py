@@ -75,7 +75,9 @@ async def test_v29_fresh_schema_book_and_idempotent_reinit(tmp_path):
     db = await _db(tmp_path)
     try:
         cur = await db.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == _SCHEMA_VERSION_INTENTS == 29
+        # (mca-10b): frontier глобальной схемы двинулся v29→v30 — свежая БД
+        # приземляется на актуальный frontier, v29-метка в книге.
+        assert (await cur.fetchone())[0] >= _SCHEMA_VERSION_INTENTS == 29
         assert await _count(
             db, "SELECT COUNT(*) AS c FROM sqlite_master WHERE type='table' "
                 "AND name='mca_intents'") == 1
@@ -122,7 +124,9 @@ async def test_v29_upgrade_from_v28_simulated(tmp_path):
     await db2.initialize()
     try:
         cur = await db2.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 29
+        # (mca-10b): после v29 применяется следующий санкционированный шаг
+        # v30 → frontier ≥ 29 (пин глобального frontier, не фичи).
+        assert (await cur.fetchone())[0] >= 29
         assert list(tmp_path.glob("pre_migration_*.db")), "backup-guard"
     finally:
         await db2.close()

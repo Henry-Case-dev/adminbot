@@ -78,6 +78,7 @@ import logging
 import random
 import re
 import time
+import uuid
 from dataclasses import dataclass
 
 from aiogram.exceptions import TelegramBadRequest
@@ -6331,8 +6332,60 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
         decision_candidates = tuple(
             c.to_decision_candidate() for c in (candidates or ())
             if hasattr(c, "to_decision_candidate"))
+        # ── mca-10b (ADR-1028-17 D3, T-5052): РОВНО ОДНА probability-
+        # проверка exploration на conversation operation над ОБЩИМ пулом
+        # целостных кандидатов (варианты из памяти + формы участия); пустой
+        # пул → primary + `no_eligible_alternative` БЕЗ draw; LLM ради
+        # альтернатив не вызывается; OFF → None, путь 2.58.60 бит-в-бит.
+        # Уместность/проверка перед отправкой остаются у потребителя ниже —
+        # политика их не подменяет и не отключает.
+        exploration_choice = None
+        exploration_result = None
+        selected_candidate_ref = None
+        if decision_candidates and db is not None:
+            try:
+                from services import mca_exploration
+                primary = max(
+                    decision_candidates,
+                    key=lambda c: int(getattr(c, "priority", 0) or 0))
+                # ── mca-10b (ADR-1028-17 D10, T-5059): формы участия —
+                # обычные DecisionCandidate-семантики в ОБЩЕМ пуле §14.5;
+                # строятся ТОЛЬКО при разрешённом exploration (OFF → пул форм
+                # не строится, путь 2.58.60 бит-в-бит). Непригодные формы —
+                # admissible=False с причиной (раскрытие решения); LLM ради
+                # набора не вызывается; форма не меняет факты/адресата.
+                pool_items = list(decision_candidates)
+                allowed, _ = await mca_exploration.exploration_allowed(
+                    db, mca_exploration.PURPOSE_CONVERSATION_VARIANT,
+                    chat_id)
+                if allowed:
+                    forms = mca_exploration.build_conversation_form_candidates(
+                        direct_request=bool(
+                            getattr(situation, "direct_pending", False)),
+                        has_story=any(
+                            mca_exploration.episode_ids_of(c)
+                            for c in decision_candidates))
+                    pool_items.extend(
+                        f.to_decision_candidate() for f in forms)
+                exploration_choice, exploration_result = \
+                    await mca_exploration.choose_conversation_alternative(
+                        db, chat_id=chat_id, operation_id=correlation_id
+                        or uuid.uuid4().hex[:16], primary=primary,
+                        pool=pool_items,
+                        requested_source="mca10b")
+                chosen = getattr(exploration_choice, "selected", None) \
+                    if exploration_choice is not None else None
+                if getattr(exploration_choice, "explored", False) and \
+                        chosen is not None:
+                    selected_candidate_ref = chosen
+            except Exception:
+                logger.warning("[mca10b] conversation exploration failed — "
+                               "primary path", exc_info=True)
         decision = _mca_intents.decide_initiative(
-            situation=situation, candidates=decision_candidates)
+            situation=situation,
+            candidates=(pool_items if exploration_choice is not None
+                        else decision_candidates),
+            random_choice=exploration_choice)
         kind = _mca_intents.initiative_delivery_kind(decision)
         if kind == _mca_intents.DELIVERY_SILENT:
             _mca_intents.note_decision(decision, chat_id=chat_id,
@@ -6399,6 +6452,17 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
             sent += 1
             if sent_id is None:
                 sent_id = getattr(message, "message_id", None)
+        # ── mca-10b (ADR-1028-17 D6, T-5055): `last_used_in_chat_at` —
+        # ТОЛЬКО после подтверждённой доставки (сон/поиск ≠ рассказ, R6d).
+        if selected_candidate_ref is not None and db is not None:
+            try:
+                from services import mca_exploration
+                await mca_exploration.mark_episodes_used_in_chat(
+                    db, mca_exploration.episode_ids_of(selected_candidate_ref),
+                    chat_id=chat_id)
+            except Exception:
+                logger.warning("[mca10b] used_in_chat stamp failed",
+                               exc_info=True)
         if decision.intent_id and db is not None:
             try:
                 await _mca_intents.get_service(db).mark_attempt(
@@ -6426,6 +6490,24 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
         return {"status": "sent", "chunks": sent, "delivery_kind": kind,
                 "decision": decision}
     except Exception:
+        # ── mca-10b (D6): `delivery_unknown` фиксируется ОТДЕЛЬНО и
+        # подавляет немедленный повторный выбор той же истории до
+        # разрешения статуса (A21-семантика); чат не блокируется.
+        if selected_candidate_ref is not None:
+            try:
+                from services import mca_exploration
+                for episode_id in mca_exploration.episode_ids_of(
+                        selected_candidate_ref):
+                    mca_exploration.note_delivery_unknown(episode_id)
+                _mca_events.emit_mca_event(
+                    "random_uses", outcome=_mca_events.OUTCOME_SKIPPED,
+                    component="random", reason_code="delivery_unknown",
+                    stage="memory_recall",
+                    entity_ids={"episode_ids": list(
+                        mca_exploration.episode_ids_of(
+                            selected_candidate_ref))[:16]})
+            except Exception:
+                pass
         logger.warning("[mca09] initiative handling failed — no send",
                        exc_info=True)
         return {"status": "error", "delivery_kind": ""}

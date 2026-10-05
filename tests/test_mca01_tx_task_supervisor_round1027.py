@@ -919,7 +919,13 @@ def test_write_points_go_through_single_writer():
         # + PRAGMA в `_migrate_intents_v29` (T-5020), L-MCA14-3; раннер до
         # старта писателей; runtime intents идут через `write_transaction` —
         # см. `services/mca_intents.py`)
-        "database.py": 171,
+        # +5 v30 mca-10b (ADR-1028-17 D15/санкция §13.1, random uses:
+        # ALTER `mca_episodes` (+2 колонки, +1 индекс) + 3×CREATE TABLE +
+        # 4×CREATE INDEX + PRAGMA в `_migrate_random_uses_v30`
+        # (T-5051…T-5056), L-MCA14-3; раннер до старта писателей; runtime
+        # применений идёт через `write_transaction` — см.
+        # `services/mca_exploration.py`)
+        "database.py": 176,
         "dossier_rebuild_jobs.py": 1,   # внутри `async with db.serialized()`
         # ASAP-3.2 (ADR-1028-5 D1/D2, T-4191): shadow-rebuild — 3 прямых
         # commit внутри `async with memory.db.serialized()` (идемпотентный

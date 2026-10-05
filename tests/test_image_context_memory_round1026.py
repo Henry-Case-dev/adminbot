@@ -1145,7 +1145,7 @@ class TestFlagsAndCanon:
         import dataclasses
         from config.settings import APP_VERSION
         from services import param_catalog as pc
-        assert APP_VERSION == "2.58.60"
+        assert APP_VERSION == "2.58.61"
         assert "IMAGE_CONTEXT_MEMORY_ENABLED" not in pc.REGISTRY
         assert "IMAGE_CONTEXT_MEMORY_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}
@@ -1154,7 +1154,7 @@ class TestFlagsAndCanon:
         import dataclasses
         from services import param_catalog as pc
         # ASAP-3.1 (ADR-1028-3, санкция spec 10.1): +1 ключ → 484.
-        assert len(pc.REGISTRY) == 504
+        assert len(pc.REGISTRY) == 510
         assert len(dataclasses.fields(Settings)) == 441
         assert len(pc.GROUPS) == 108
         assert len(pc._TAB_BY_GROUP) == 106

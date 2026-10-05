@@ -390,6 +390,93 @@ class StatusService:
     _RECENT_DRAWS_LIMIT = 8
     _RECENT_CANDIDATES_CAP = 20
 
+    # Раунд 10.41 (MCA-10b, ADR-1028-17 D11/§14.11): живая лента применений —
+    # read-only проекция событий exploration-журнала (`mca_events`, компонент
+    # `random`). Δ routes = 0 (поле `uses` СУЩЕСТВУЮЩЕГО `random`-блока).
+    # Инварианты: НИКАКИХ QRNG/LLM-вызовов; bounded history (последние 20);
+    # права/chat scope как у recent_draws; сырой контекст/ключи в журнале
+    # отсутствуют конструктивно (R17); OFF (master или
+    # `random.uses.ui_visualization`) → честный `enabled: false`.
+    _USES_EVENTS_LIMIT = 20
+    _USES_EVENT_FIELDS = ("ts", "event_name", "outcome", "level",
+                          "reason_code", "stage", "chat_id",
+                          "pipeline_run_id", "operation_id")
+
+    @classmethod
+    def _public_uses_event(cls, row: dict, seq: int) -> dict:
+        """Whitelist-проекция события применений (R17: ID/коды/числа)."""
+        out = {k: row.get(k) for k in cls._USES_EVENT_FIELDS}
+        out["key"] = f"{row.get('ts') or 0}:{seq}"
+        raw = row.get("entity_ids")
+        if raw:
+            try:
+                parsed = json.loads(raw) if isinstance(raw, str) else raw
+                if isinstance(parsed, dict):
+                    out["details"] = {
+                        str(k)[:64]: v for k, v in list(parsed.items())[:12]
+                        if isinstance(v, (str, int, float, bool))
+                    }
+            except Exception:
+                out["details"] = {}
+        return out
+
+    @classmethod
+    async def random_uses_snapshot(cls, *, chat_id: int | None = None,
+                                   is_global_admin: bool = False,
+                                   chat_scope_allowed: bool = True,
+                                   db=None) -> dict:
+        """Лента применений случайности (T-5060): только записанные события;
+        «Пока нет событий» — пустой список (без имитации); повтор/анимация
+        воспроизводят записанное (новых вызовов нет — A35/THR-12).
+        `db` — инъекция для тестов; прод: lore_runtime.get_lore_db()."""
+        try:
+            from services import mca_gates
+            master = bool(mca_gates.random_uses_enabled())
+        except Exception:
+            master = True
+        if not master:
+            return {"enabled": False, "events": [], "cursor": None,
+                    "scope": ""}
+        if db is None:
+            try:
+                from services import lore_runtime
+                db = lore_runtime.get_lore_db()
+            except Exception:
+                db = None
+        use_on = False
+        try:
+            from services import mca_exploration
+            use_on = await mca_exploration.use_enabled(
+                db, mca_exploration.USE_UI_VISUALIZATION, chat_id)
+        except Exception:
+            use_on = True      # fail-open дефолт каталога (read-path True)
+        if not use_on:
+            return {"enabled": False, "events": [], "cursor": None,
+                    "scope": ""}
+        scope = "restricted"
+        try:
+            from services import mca_events as _me
+            if chat_id is not None and chat_scope_allowed:
+                rows = await _me.query_events(
+                    db, chat_id=int(chat_id), component="random",
+                    limit=cls._USES_EVENTS_LIMIT)
+                scope = "chat"
+            elif chat_id is None and is_global_admin:
+                rows = await _me.query_events(
+                    db, component="random", limit=cls._USES_EVENTS_LIMIT)
+                scope = "global"
+            else:
+                rows = []
+        except Exception:
+            logger.warning("[status] random uses snapshot failed — fail-open",
+                           exc_info=True)
+            rows = []
+        events = [cls._public_uses_event(r, i) for i, r in enumerate(rows)
+                  if str(r.get("event_name") or "").startswith("random_uses")]
+        cursor = max((int(e.get("ts") or 0) for e in events), default=None)
+        return {"enabled": True, "events": events, "cursor": cursor,
+                "scope": scope}
+
     @classmethod
     def _public_draw(cls, row: dict) -> dict:
         """Whitelist-проекция строки журнала draw (без сырого текста)."""
@@ -426,7 +513,9 @@ class StatusService:
             enabled = True
         if not enabled:
             return {"enabled": False, "available": False,
-                    "state": "disabled", "quantum_active": False}
+                    "state": "disabled", "quantum_active": False,
+                    "uses": {"enabled": False, "events": [], "cursor": None,
+                             "scope": ""}}
         try:
             from services import mca_random_source
             service = mca_random_source.get_service()
@@ -469,12 +558,19 @@ class StatusService:
                 "policy_version": snap.get("policy_version"),
                 "recent_draws": [self._public_draw(r) for r in recent],
                 "recent_draws_scope": scope,
+                # Раунд 10.41 (MCA-10b, D11/T-5060): живая лента применений —
+                # расширение ЭТОГО блока (второго виджета/маршрута нет).
+                "uses": await self.random_uses_snapshot(
+                    chat_id=chat_id, is_global_admin=is_global_admin,
+                    chat_scope_allowed=chat_scope_allowed),
             }
         except Exception:
             logger.warning("[status] random source snapshot failed — "
                            "fail-open", exc_info=True)
             return {"enabled": True, "available": False,
-                    "state": "unavailable", "quantum_active": False}
+                    "state": "unavailable", "quantum_active": False,
+                    "uses": {"enabled": False, "events": [], "cursor": None,
+                             "scope": ""}}
 
     # ── «Опыт» (MCA-16, ADR-1028-15 D9/T-5006) ─────────────────────────────
 

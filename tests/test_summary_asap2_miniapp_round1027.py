@@ -183,4 +183,4 @@ def test_t3960_tab_rules_mod_summary_covers_new_groups():
     assert "limits_summary_filter" not in claimed
     assert len(pc._TAB_BY_GROUP) == 106
     assert len(pc.GROUPS) == 108
-    assert len(pc.REGISTRY) == 504
+    assert len(pc.REGISTRY) == 510

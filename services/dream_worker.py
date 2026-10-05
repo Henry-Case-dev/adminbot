@@ -560,6 +560,14 @@ class DreamWorker:
         except Exception:
             logger.warning("[dream] deep sleep after tick failed — fail-open",
                            exc_info=True)
+        # mca-10b (ADR-1028-17 D4, T-5053): hook ТОЛЬКО на завершении
+        # обычного пакета сна; максимум 1 доп. job; exploration-job пакетом
+        # не считается и новых лотерей не запускает (без рекурсии). Fail-open.
+        try:
+            await self._maybe_random_uses_after_sleep()
+        except Exception:
+            logger.warning("[dream] random uses after tick failed — "
+                           "fail-open", exc_info=True)
 
     async def run_once(self, chat_id: int | None = None, *,
                        deep: bool = False) -> dict:
@@ -616,6 +624,13 @@ class DreamWorker:
             "deep": deep_stats,
             "traits": {"written": int(deep_stats.get("traits") or 0)},
         }
+        # mca-10b (D4, T-5053): ручной прогон — тот же завершённый обычный
+        # пакет сна; гейты (master/uses/K1/K4) применяются как в авто-тике.
+        try:
+            await self._maybe_random_uses_after_sleep()
+        except Exception:
+            logger.warning("[dream] random uses after run_once failed — "
+                           "fail-open", exc_info=True)
         return {"status": "ok", **stats}
 
     # ── тик ───────────────────────────────────────────────────────
@@ -1483,6 +1498,61 @@ class DreamWorker:
         return await self._run_deep_all(eligible,
                                         since_ts=self._last_run_started,
                                         manual=manual)
+
+    async def _maybe_random_uses_after_sleep(self) -> dict:
+        """mca-10b (ADR-1028-17 D4, T-5053): ОДИН выбор фонового направления
+        после завершившегося ОБЫЧНОГО пакета сна → максимум 1 доп. job
+        (`exploration.<type>` в `task_jobs`, уникальный ключ с package_run_id
+        — рестарт не дублирует) + исполнение отдельным шагом. FIFO-приоритет
+        основной очереди — by construction: основной archive worker джобы
+        kind `exploration.*` не выбирает. Завершение job НЕ запускает новую
+        лотерею: hook вызывается только отсюда (recursion — запрещена,
+        THR-2). Master/per-use OFF → честный no-op (бит-в-бит 2.58.60)."""
+        from services import mca_exploration
+        run_id = f"dream:{int(_now_ts())}"
+        # Rework F-2 (reviewer): зависшие queued exploration-jobs ПРОШЛЫХ
+        # прогонов закрываются честно (exploration_deferred) ДО нового
+        # направления — иначе busy-check чата блокирован навсегда
+        # (`_uncovered_range` → None). Текущий прогон не трогается.
+        try:
+            await mca_exploration.close_stale_queued_explorations(
+                self.db, current_package_run_id=run_id)
+        except Exception:
+            logger.warning("[mca10b] stale exploration cleanup failed — "
+                           "fail-open", exc_info=True)
+        outcome = await mca_exploration.after_sleep_direction(
+            self.db, package_run_id=run_id, memory=self.memory)
+        job_id = str((outcome or {}).get("job_id") or "")
+        if not job_id:
+            return outcome or {"status": "not_run"}
+        job_type = str((outcome or {}).get("type") or "")
+        pipeline_run_id = (outcome or {}).get("pipeline_run_id")
+        if job_type == mca_exploration.PURPOSE_ARCHIVE_SAMPLE:
+            try:
+                await mca_exploration.execute_archive_sample_job(
+                    self.db, job_id, pipeline_run_id=pipeline_run_id)
+            except Exception:
+                logger.warning("[mca10b] exploration job execution failed | "
+                               "job=%s", job_id, exc_info=True)
+        elif job_type == mca_exploration.PURPOSE_BELIEF_REVIEW:
+            # T-5057 (D8): review поверх существующего контура убеждений.
+            try:
+                await mca_exploration.execute_belief_review_job(
+                    self.db, job_id, pipeline_run_id=pipeline_run_id)
+            except Exception:
+                logger.warning("[mca10b] belief_review job failed | job=%s",
+                               job_id, exc_info=True)
+        elif job_type == mca_exploration.PURPOSE_ASSOCIATION_PAIR:
+            # T-5058 (D9): классификация связи — LLM (не random); без
+            # отправки; истории не склеиваются.
+            try:
+                await mca_exploration.execute_association_pair_job(
+                    self.db, job_id, llm=self.llm,
+                    pipeline_run_id=pipeline_run_id)
+            except Exception:
+                logger.warning("[mca10b] association job failed | job=%s",
+                               job_id, exc_info=True)
+        return outcome
 
     async def _deep_tick(self) -> None:
         """Scheduler-джоб deep_sleep_tick: режим trigger='fixed' — запуск в

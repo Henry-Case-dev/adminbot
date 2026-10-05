@@ -80,7 +80,7 @@ class TestCatalogContract:
 
     def test_counts_sanctioned_delta(self):
         # Санкция §13.2: +13/+2/+2, TAB_RULES 21 in-place.
-        assert len(pc.REGISTRY) == 504
+        assert len(pc.REGISTRY) == 510
         assert len(pc.GROUPS) == 108
         assert len(pc._TAB_BY_GROUP) == 106
         assert len(pc.TAB_RULES) == 21

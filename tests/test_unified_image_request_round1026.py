@@ -705,14 +705,14 @@ class TestBoundsA3:
         import dataclasses
         from services import param_catalog as pc
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.60"            # bump запрещён (D8)
+        assert APP_VERSION == "2.58.61"            # bump запрещён (D8)
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in pc.REGISTRY
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}
 
     def test_catalog_counts_unchanged(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 504
+        assert len(pc.REGISTRY) == 510
         assert len(pc.GROUPS) == 108
         assert len(pc._TAB_BY_GROUP) == 106
         assert len(pc.TAB_RULES) == 21

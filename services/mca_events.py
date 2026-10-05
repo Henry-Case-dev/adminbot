@@ -266,6 +266,16 @@ REASON_CODES = frozenset({
     # существующие, переиспользуются; второй словарь запрещён.
     "intent_created", "intent_merged", "intent_fulfilled", "intent_abandoned",
     "intent_archived", "recheck_deferred",
+    # расширение mca-10b (ADR-1028-17 D14; санкция spec §13.4 — ровно +10 в
+    # единый словарь, 237→247): lifecycle/outcome применений случайности.
+    # Переиспользуются без добавления: `no_eligible_alternative`, `disabled`,
+    # `delivery_unknown`, `random_fallback`, `quantum_activated`/
+    # `quota_exhausted`, коды пересмотра mca-06 (`superseded` и др.).
+    # Второй словарь причин запрещён.
+    "exploration_accepted", "exploration_rejected", "exploration_deferred",
+    "exploration_failed", "exploration_used_in_reply", "exploration_stored_only",
+    "exploration_not_used", "exploration_type_unavailable", "association_stale",
+    "belief_review_unchanged",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────

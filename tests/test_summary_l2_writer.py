@@ -551,11 +551,11 @@ class TestCanon:
         # SUMMARY_REVISION_PATCH_ENABLED, spec §8.2) — ClassVar (как все
         # env-рубильники ASAP-4) → dataclass-fields не растут (426);
         # Δ каталога = 0 (env-only, F8).
-        assert len(pc.REGISTRY) == 504
+        assert len(pc.REGISTRY) == 510
         assert len({f.name for f in dataclasses.fields(settings.__class__)}) \
             == 441
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 479
+                    if s.category is not None]) == 485
         assert len(pc.GROUPS) == 108
         assert len(pc._TAB_BY_GROUP) == 106
         assert len(pc.TAB_RULES) == 21

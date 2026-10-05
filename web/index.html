@@ -5341,6 +5341,83 @@
                     </div>
                   </div>
                 </div>
+                <!-- Раунд 10.41 (MCA-10b, ADR-1028-17 D11/T-5060): живая
+                     лента применений — расширение ЭТОГО блока (второго
+                     виджета/маршрута нет; Δ routes = 0). Воспроизведение
+                     записанного (кандидаты → выбор → исход, включая
+                     отклонение проверкой); повтор помечен; НИКАКИХ новых
+                     QRNG/LLM-запросов на открытии/кадре/повторе (A35);
+                     пауза + prefers-reduced-motion → подсветка без
+                     движения; текстовый список — альтернатива анимации;
+                     chat scope/R17 (персональные детали/ключи в журнале
+                     отсутствуют конструктивно). -->
+                <div class="mt-2">
+                  <button class="btn-ghost text-xs" type="button"
+                          :aria-expanded="randomUsesOpen ? 'true' : 'false'"
+                          @click="randomUsesOpen = !randomUsesOpen">
+                    {{ randomUsesOpen ? 'Скрыть применения' : 'Применения' }}
+                  </button>
+                  <button v-if="randomUsesOpen && randomUsesView.enabled"
+                          class="btn-ghost text-xs ml-1" type="button"
+                          :aria-pressed="randomUsesPaused ? 'true' : 'false'"
+                          @click="toggleRandomUsesPause">
+                    {{ randomUsesPaused ? 'Продолжить подсветку' : 'Пауза' }}
+                  </button>
+                </div>
+                <div v-if="randomUsesOpen" class="mt-2 text-xs" data-random-uses>
+                  <div v-if="!randomUsesView.enabled" class="text-gray-500">
+                    Живая лента применений выключена — остаётся статичный блок выше.
+                  </div>
+                  <div v-else-if="!randomUsesView.items.length" class="text-gray-500">
+                    Пока нет событий.
+                  </div>
+                  <div v-else class="space-y-1">
+                    <div v-for="ev in randomUsesView.items" :key="ev.key"
+                         class="rounded-lg bg-white/5 px-2 py-1"
+                         :data-uses-event="ev.key">
+                      <span class="text-gray-500">{{ fmtTs(ev.ts) }}</span>
+                      <span class="badge badge-muted ml-1">{{ ev.purpose || ev.stage }}</span>
+                      <span v-if="ev.form" class="badge ml-1"
+                            :class="ev.form === 'silence' ? 'badge-muted' : 'badge-ok'">
+                        {{ ev.form === 'question' ? 'уточняющий вопрос'
+                           : (ev.form === 'observation' ? 'наблюдение'
+                           : (ev.form === 'joke' ? 'шутка'
+                           : (ev.form === 'recall' ? 'воспоминание'
+                           : (ev.form === 'opinion' ? 'мнение' : 'молчание')))) }}
+                      </span>
+                      <span v-if="ev.source" class="text-gray-400 ml-1">
+                        · источник: {{ ev.source === 'quantum' ? 'квантовый (ANU)' : 'псевдослучайный' }}</span>
+                      <span class="ml-1">· исход: {{ randomUsesOutcomeRu(ev) }}</span>
+                      <span v-if="ev.reason" class="text-amber-300 ml-1">
+                        · {{ ev.reason }}</span>
+                      <span v-if="randomUsesReplayed[ev.key]" class="badge badge-muted ml-1">повтор</span>
+                      <div v-if="(ev.candidates || (ev.eligible || [])).length" class="mt-1">
+                        <button class="btn-ghost text-xs" type="button"
+                                @click="replayRandomUses(ev)">Повторить</button>
+                      </div>
+                      <div v-for="c in (ev.candidates.length ? ev.candidates : ev.eligible)"
+                           :key="'c' + ev.key + ':' + c"
+                           class="text-gray-400"
+                           :class="{ 'text-green-300': randomUsesHighlight(ev, c),
+                                     'font-bold': c === ev.selected && randomUsesHighlight(ev, c) }">
+                        <span v-if="c === ev.selected">→ выбрано:</span>
+                        {{ c }}
+                      </div>
+                      <div v-if="randomUsesHighlight(ev, null) && (ev.candidates.length || (ev.eligible || []).length)"
+                           class="text-green-300 font-bold">
+                        шаг {{ Math.min(randomUsesReplayStep, (ev.candidates.length ? ev.candidates : ev.eligible).length) }}
+                      </div>
+                      <div v-if="(ev.excluded || []).length" class="text-gray-500 truncate">
+                        исключены: {{ ev.excluded.map(function (x) { return (x && x.join ? x.join(': ') : x); }).join('; ') }}
+                      </div>
+                      <div class="text-gray-600">id события: {{ ev.operationId || ev.key }}</div>
+                    </div>
+                  </div>
+                  <div class="text-gray-600 mt-1">
+                    Лента воспроизводит записанные события ({{ randomUsesView.items.length }}/20);
+                    выбор ≠ отправленный ответ; отклонённый кандидат отправленным не показывается.
+                  </div>
+                </div>
               </template>
             </div>
 

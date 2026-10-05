@@ -74,11 +74,26 @@ PROVIDER_PRNG = "python-random"
 PURPOSE_LESS_STUDIED = mca_dream_random.PURPOSE_LESS_STUDIED
 PURPOSE_ACTIVATION_SELFCHECK = "activation_selfcheck"
 PURPOSE_SLEEP_CONSOLIDATION = "sleep_after_consolidation"
+# mca-10b (ADR-1028-17 D2/AM-1, санкция spec §13): санкционированное
+# расширение закрытого набора ровно на 5 purpose. НОВЫХ probability-ключей
+# нет — карта связывает purpose с существующими двумя гейтами (разговор /
+# после сна); `ui_replay`/`ui_visualization` — НЕ purposes (read-only
+# маркер/настройка; `choose()` отвергает неизвестный purpose).
+PURPOSE_CONVERSATION_VARIANT = "conversation_variant"
+PURPOSE_MEMORY_RECALL = "memory_recall"
+PURPOSE_ARCHIVE_SAMPLE = "archive_sample"
+PURPOSE_BELIEF_REVIEW = "belief_review"
+PURPOSE_ASSOCIATION_PAIR = "association_pair"
 
 # purpose → ключ вероятности (одна карта в одном месте; D6).
 EXPLORATION_PROBABILITY_KEYS = {
     PURPOSE_LESS_STUDIED: "memory.random_exploration_probability",
     PURPOSE_SLEEP_CONSOLIDATION: "memory.random_sleep_exploration_probability",
+    PURPOSE_CONVERSATION_VARIANT: "memory.random_exploration_probability",
+    PURPOSE_MEMORY_RECALL: "memory.random_exploration_probability",
+    PURPOSE_ARCHIVE_SAMPLE: "memory.random_sleep_exploration_probability",
+    PURPOSE_BELIEF_REVIEW: "memory.random_sleep_exploration_probability",
+    PURPOSE_ASSOCIATION_PAIR: "memory.random_sleep_exploration_probability",
 }
 EXPLORATION_PURPOSES = frozenset(EXPLORATION_PROBABILITY_KEYS)
 INTERNAL_PURPOSES = frozenset({PURPOSE_ACTIVATION_SELFCHECK})

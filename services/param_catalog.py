@@ -1031,6 +1031,51 @@ _ASAP3_PG_ONLY: list[tuple] = [
      "«сообщение увидел, решил не отвечать». Выключено — обычная тишина."),
 ]
 
+# ── Раунд 10.41 (MCA-10b, ADR-1028-17 D8/D13, ТЗ §14.12/§20.2): разрешения
+# применений случайности `memory.random_uses_*` — 6 PG-only bool (прецедент
+# flags.chat_silent_ack_enabled), существующая группа memory_random, per-chat
+# (chat_params). Все включены при первом релизе; выключение одного применения
+# не ломает остальные (R5e). Kill-switch-и (MCA_RANDOM_SOURCE_ENABLED/
+# MCA_RANDOM_EXPLORATION_ENABLED/MCA_DREAM_RANDOM_EXPLORE_ENABLED/
+# MCA_RANDOM_USES_ENABLED) в каталоге НЕ дублируются (env-only, прецедент
+# mca-16). Рантайм читает эти же pg-ключи через `worker_settings`
+# (fail-open default True), Settings-полей у ключей нет.
+# (pg_id, title_ru, progressive_level, description)
+_RANDOM_USES_PG_ONLY: list[tuple] = [
+    ("memory.random_uses_conversation_variant",
+     "Случайность: смена формы реплики", "basic",
+     "Разрешает боту иногда выбирать другую допустимую форму участия "
+     "(наблюдение, вопрос, мнение, шутка, воспоминание, молчание) вместо "
+     "основного варианта. Факты и адресат не меняются. При релизе — "
+     "включено."),
+    ("memory.random_uses_memory_recall",
+     "Случайность: неожиданные воспоминания", "basic",
+     "Разрешает боту иногда рассказать уместную старую историю из памяти "
+     "(сначала релевантность, потом разнообразие; недавний повтор "
+     "исключается). При релизе — включено."),
+    ("memory.random_uses_archive_sample",
+     "Случайность: исследование архива", "advanced",
+     "Разрешает фоновое дополнительное изучение слабо покрытых периодов "
+     "архива после сна (без влияния на основной проход). При релизе — "
+     "включено."),
+    ("memory.random_uses_belief_review",
+     "Случайность: проверка убеждений", "advanced",
+     "Разрешает фоновую проверку давно не проверявшихся убеждений по "
+     "источникам (ищутся и подтверждения, и опровержения; вердикт — по "
+     "материалам, а случайность только выбирает объект). При релизе — "
+     "включено."),
+    ("memory.random_uses_association_pair",
+     "Случайность: перекличка историй", "advanced",
+     "Разрешает фоновый поиск переклички двух историй (аналогия, мотив, "
+     "контраст, продолжение). Находка — гипотеза с источниками, не факт; "
+     "сама по себе в чат не отправляется. При релизе — включено."),
+    ("memory.random_uses_ui_visualization",
+     "Случайность: живая витрина применений", "basic",
+     "Показывает в блоке «Источник случайности» живую ленту применений "
+     "(кандидаты → выбор → исход). Только чтение журнала; на решения бота "
+     "не влияет. При релизе — включено."),
+]
+
 # ── flags: рубильники модулей ───────────────────────────────────────────────
 # (field, title_ru, group, description)
 _FLAGS: list[tuple] = [
@@ -2057,6 +2102,7 @@ _MEMORY: list[tuple] = [
      "То же для фонового исследования после пакета сна/консолидации (0..1; "
      "стартово 0.05).",
      "advanced"),
+
     # ── Раунд 10.39 (MCA-16, ADR-1028-15 D8/D9, ТЗ §25.7): «Опыт и уроки» ──
     # dotted-ключи memory.experience_* (прецедент memory.random_*); per-chat
     # (chat_params, категория memory — non-secret). Kill-switches K1–K4 —
@@ -2179,6 +2225,13 @@ def _build_registry() -> dict[str, ParamSpec]:
         add(ParamSpec(None, None, CATEGORY_CONTENT, title, "str",
                       code_source=code_source, pg_id=spec_id,
                       group=group, description=desc))
+    # Раунд 10.41 (MCA-10b, ADR-1028-17 D8/D13): +6 PG-only разрешений
+    # применений случайности `memory.random_uses_*` (группа memory_random,
+    # per-chat; default ON — рантайм fail-open True, F8-переиздание D16).
+    for pg_id, title, level, desc in _RANDOM_USES_PG_ONLY:
+        add(ParamSpec(None, None, CATEGORY_MEMORY, title, "bool",
+                      secret=False, pg_id=pg_id, group="memory_random",
+                      description=desc, progressive_level=level))
     for row in _MEMORY:      # (field, title, type, group, desc[, level])
         if len(row) == 6:
             field, title, typ, group, desc, level = row

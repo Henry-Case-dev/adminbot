@@ -175,6 +175,22 @@ _register_pipeline(PipelineVersion(
     ),
 ))
 
+# `random.uses` — применения случайности (mca-10b, ADR-1028-17 D12):
+# стадии = lifecycle §14.5 (выбор ≠ вердикт; `selected` ≠ публикация).
+_register_pipeline(PipelineVersion(
+    pipeline_type="random.uses",
+    version="1",
+    stages=(
+        PipelineStageSpec("candidate", required=True),
+        PipelineStageSpec("selected", required=True),
+        PipelineStageSpec("checking", required=True),
+        PipelineStageSpec("accepted", required=False, has_fallback=True),
+        PipelineStageSpec("rejected", required=False),
+        PipelineStageSpec("deferred", required=False, has_fallback=True),
+        PipelineStageSpec("failed", required=False),
+    ),
+))
+
 
 def get_pipeline(pipeline_type: str, version: str | None = None
                  ) -> PipelineVersion | None:
@@ -980,6 +996,51 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
              "R17-safe (ID/коды/enum/числа/refs); per-intent task_jobs НЕ "
              "создаются (due-скан по durable-состоянию)",
     ),
+    # ── mca-10b: применения случайности (ADR-1028-17 D12) — стадии =
+    # lifecycle §14.5: candidate→selected→checking→accepted/rejected/
+    # deferred/failed (+ финал used_in_reply|stored_only|not_used).
+    # Второй RandomSource/координатор/контур отправки НЕ создаются:
+    # процесс — применения ЕДИНОГО источника 10a (random.source).
+    ProcessDefinition(
+        process_id="random.uses", version="1",
+        purpose="Применения случайности (mca-10b): разговор/воспоминание/"
+                "архив/убеждения/перекличка — выбор ≠ вердикт; исходы → "
+                "память/кандидаты, не Telegram",
+        inputs=("exploration request (14.5)", "sleep package completion"),
+        outputs=("mca_events", "task_jobs (exploration.*)",
+                 "mca_belief_reviews", "mca_associations",
+                 "mca_archive_coverage", "random_metadata (v22, read-only)"),
+        stages=("candidate", "selected", "checking", "accepted",
+                "rejected", "deferred", "failed"),
+        trigger_kind="background",
+        schedule="после пакета сна + этап Decision",
+        settings_ref=("MCA_RANDOM_USES_ENABLED",
+                      "MCA_RANDOM_SOURCE_ENABLED",
+                      "MCA_RANDOM_EXPLORATION_ENABLED",
+                      "MCA_DREAM_RANDOM_EXPLORE_ENABLED"),
+        state_source=("task_jobs", "mca_events", "mca_belief_reviews",
+                      "mca_associations", "mca_archive_coverage"),
+        recovery_ops=("job_coalesce",),
+        widget_id="Случайность и её применения",
+        stages_to_events={"selected": "random_uses",
+                          "checking": "random_uses_lifecycle",
+                          "accepted": "random_uses_lifecycle",
+                          "rejected": "random_uses_lifecycle",
+                          "deferred": "random_uses_lifecycle",
+                          "failed": "random_uses_lifecycle"},
+        instrumentation=("selected", "checking", "accepted", "rejected",
+                         "failed"),
+        owner_feature="mca-10b",
+        enabled_gate="MCA_RANDOM_USES_ENABLED",
+        event_names=("random_uses", "random_uses_lifecycle",
+                     "random_uses_background"),
+        note="mca-10b (ADR-1028-17 D12): notable-only; widget-ID «Случайность "
+             "и её применения» — строка §27.1, контракт mca-17c (рендер не "
+             "здесь); master OFF → disabled/not_run (честно); trace "
+             "mca_pipeline_runs — сквозной выбор→проверка→исход; R17-safe "
+             "(ID/коды/enum/числа/refs); рекурсия exploration→exploration "
+             "запрещена",
+    ),
     ProcessDefinition(
         process_id="self_model.update", version="0",
         purpose="SelfModel/TraitObservation/BehaviorRule/BehaviorFrame",
@@ -1047,6 +1108,8 @@ _GATE_RESOLVERS = {
     "MCA_EXPERIENCE_LESSONS_ENABLED": "experience_lessons_enabled",
     # mca-09 (ADR-1028-16 D9): master-гейт процесса intent.initiative v1.
     "MCA_INTENTS_ENABLED": "intents_enabled",
+    # mca-10b (ADR-1028-17 D12): master-гейт процесса random.uses v1.
+    "MCA_RANDOM_USES_ENABLED": "random_uses_enabled",
     # product-гейты из `config.settings` (не mca_gates) — резолв через settings.
 }
 

@@ -468,9 +468,13 @@ class TestGroups8424:
         # memory 38.
         # MCA-16 (ADR-1028-15 D8/D12, санкция §12.2): memory +2
         # (memory.experience_learning_enabled/review_cadence) → memory 40.
+        # MCA-10b (ADR-1028-17 D16, санкция §13.2): memory +6 PG-only
+        # (memory.random_uses_*: conversation_variant/memory_recall/
+        # archive_sample/belief_review/association_pair/ui_visualization)
+        # → memory 46.
         assert counts == {"prompts": 24, "models": 63, "keys": 33,
                           "limits": 199, "flags": 76, "reactions": 39,
-                          "content": 5, "memory": 40}
+                          "content": 5, "memory": 46}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 
 
