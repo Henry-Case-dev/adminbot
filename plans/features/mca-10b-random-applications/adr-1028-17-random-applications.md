@@ -1,6 +1,6 @@
 # ADR-1028-17 — MCA-10b `mca-10b-random-applications`: единая интеграция применений случайности
 
-**Дата:** 05.10.2026. **Статус:** Proposed → Accepted (ратификация: merge `plans/ARCHITECTURE.md` §121 + прод-валидация 2.58.61).
+**Дата:** 05.10.2026. **Статус:** **Accepted** (merge `plans/ARCHITECTURE.md` **§121**, 06.10.2026 + прод-валидация 2.58.61 VERIFIED: рестарты 13:23:08/13:31:08 UTC, `/healthz` 200 ×2, v29→v30 идемпотентно — guard fail-closed `pre_migration_20261005_132427.db` 1.319 GB read-back @v29, `(30, random_uses)` ×1, повтор no-op; PG no-op; `MCA_RANDOM_USES_ENABLED` ON 0 env-оверрайдов; R17=0; Proposed — Step 2 @Architect, design-freeze 05.10.2026, T-5048/T-5049).
 **Фича:** `mca-10b-random-applications` (Wave 3 эпика `memory-context-autonomy`, хвост; критпуть `…→10a→10b→release`). ТЗ `plans/current_task.md:602–716` §14.5–§14.11; приёмки A18 `:899`, A29–A35 `:910–916`, A37 `:918`; §20.2 `:1019`; §27.1 `:1355`.
 **Артефакты:** `plans/features/mca-10b-random-applications/` (spec.md, threat-failure-analysis.md, tasks.md, requirements-map.md).
 **База:** прод 2.58.60; HEAD `897ce4f`; SQLite v29 (свободна v30); каталог 504/108/106/21; `REASON_CODES` 237; `KILL_SWITCHES` 72; последний ADR-1028-16 (merge §120 mca-09).
@@ -66,3 +66,9 @@ CA-11 per-feature bump **2.58.60→2.58.61**; миграция идемпоте�
 
 ## Риски и верификация
 Risk **R3** (подтверждён): общий контракт на 5 потребителей + фоновые jobs на большом архиве + DDL/F8 + поведенческая заметность. Обязателен `threat-failure-analysis.md` (THR-1…THR-14). Верификация — spec §14: focused-фикстуры A18/A29–A35/A37, гейт-матрица OFF-паритета, миграция ×2, F8 `--check`, R17-скан, focused-регресс смежных контуров. Полная формулировка санкций — spec §13.
+
+## ✅ Прод-валидация 2.58.61 (VERIFIED 05.10.2026; факты — серверное UTC)
+Прод ff `5fe2d31..e26dcf9` (feat `780f77c` 83 файла + docs `bcb1a32` 8 + deploy-doc `e26dcf9`); рестарт #1 13:23:08 UTC (PID 3925252) + идемпотентный #2 13:31:08 UTC (PID 3927271), NRestarts=0, `/healthz` 200 `2.58.61` ×2 + `/api/health` 200. **DDL v29→v30 применена ровно один раз** (13:26:59 UTC): backup-guard fail-closed `pre_migration_20261005_132427.db` 1.319 GB read-back ok @v29 (ручной DevOps-бэкап 1.387 GB read-back @v29 ротирован retention'ом — ожидаемо, прецедент mca-09; якорь — guard-копия); `user_version` 30, `schema_migrations` `(29, intents)` + `(30, random_uses)` ×1, таблицы 109→112, `idx_mca_episodes_last_used` на месте, integrity ok, новые таблицы 0 строк; рестарт #2 — no-op; PG no-op. Данные целы (`task_jobs` 655→656, `mca_events` 11055→11061, `mca_bot_outputs` 88=88, `mca_random_draws` 0=0, `summary_runs` 15=15). Kill-switch — 0 env-оверрайдов (default ON). Проверки: 10b A–D 59 + репро F-1/F-2 4 (оба venv), смежные 134+134, js-unit 38, F8 `--check` OK **510** ×2, 0 ERROR/CRITICAL/Traceback, R17=0. Review T-5063 **Approved финал** (Needs Fixes → rework F-1/F-2 ровно 4 файла → addendum; binding ITER2 82 файла `48e0c979…bb4d385`). Rollback: soft `MCA_RANDOM_USES_ENABLED=false` / cold revert `780f77c` (v30 аддитивна). Live T-5065 — PENDING OWNER. Полная фактура — `deployment.md` (VERIFIED).
+
+## История ревизий
+05.10.2026 — Proposed (Step 2 @Architect, design-freeze, T-5048/T-5049; merge-цель §121 подтверждена — §120 занята mca-09, номер свободен проверен grep'ом); 05.10.2026 — review T-5063 Needs Fixes → bounded rework F-1/F-2 (honest outcomes + `close_stale_queued_explorations`) → **Approved (финал)**; 06.10.2026 — **Accepted** (merge §121 + deploy 2.58.61 VERIFIED; live T-5065 — за владельцем).
