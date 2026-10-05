@@ -321,6 +321,26 @@ KILL_SWITCHES: dict[str, tuple[bool, str]] = {
         "денежные лимиты отключены — поведение 2.58.56 байт-в-байт "
         "(feature-гейт, не kill-switch: OFF по owner §20.2)",
     ),
+    # ── mca-10a (ADR-1028-14 D11): K1–K4 RandomSource (env-only, default ON) ─
+    "MCA_RANDOM_SOURCE_ENABLED": (
+        True,
+        "OFF → бит-в-бит 2.58.57: dream = default_source, ANU/refill/"
+        "journal/витрина не активны (таблицы v27 инертны)",
+    ),
+    "MCA_RANDOM_QUANTUM_ENABLED": (
+        True,
+        "OFF → ANU-запросов/активации нет; при K1 ON effective=pseudorandom "
+        "с причиной disabled; квота не расходуется",
+    ),
+    "MCA_RANDOM_REFILL_ENABLED": (
+        True,
+        "OFF → фоновый refill не запускается (запас только расходуется)",
+    ),
+    "MCA_RANDOM_EXPLORATION_ENABLED": (
+        True,
+        "OFF → политика возвращает primary; probability-draw нет "
+        "(причина disabled)",
+    ),
 }
 
 
@@ -960,6 +980,87 @@ def money_limits_enabled() -> bool:
     return bool(getattr(settings, "MCA_MONEY_LIMITS_ENABLED", False))
 
 
+# ── mca-10a (ADR-1028-14 D11): K1–K4 RandomSource + env-only лимиты ────────
+def random_source_enabled() -> bool:
+    """`MCA_RANDOM_SOURCE_ENABLED` (master, env-only, default ON; K1).
+
+    ON → RandomSource-контур активен (ANU/запас/журнал/политика).
+    OFF → бит-в-бит 2.58.57: dream = `default_source`, сеть/записи v27/
+    события/витрина не активны."""
+    return bool(getattr(settings, "MCA_RANDOM_SOURCE_ENABLED", True))
+
+
+def random_quantum_enabled() -> bool:
+    """`MCA_RANDOM_QUANTUM_ENABLED` (env-only, default ON; K2).
+
+    ON → ANU-клиент/активация разрешены. OFF → ANU-запросов нет; при K1 ON
+    effective=pseudorandom с причиной `disabled` (квота не расходуется)."""
+    return bool(getattr(settings, "MCA_RANDOM_QUANTUM_ENABLED", True))
+
+
+def random_refill_enabled() -> bool:
+    """`MCA_RANDOM_REFILL_ENABLED` (env-only, default ON; K3).
+
+    ON → фоновый singleflight-refill по low watermark. OFF → refill не
+    запускается (запас только расходуется)."""
+    return bool(getattr(settings, "MCA_RANDOM_REFILL_ENABLED", True))
+
+
+def random_exploration_enabled() -> bool:
+    """`MCA_RANDOM_EXPLORATION_ENABLED` (env-only, default ON; K4).
+
+    ON → `ExplorationPolicy.choose` выполняет одну probability-проверку.
+    OFF → политика возвращает primary без draw (причина `disabled`)."""
+    return bool(getattr(settings, "MCA_RANDOM_EXPLORATION_ENABLED", True))
+
+
+def random_circuit_fails() -> int:
+    """`MCA_RANDOM_CIRCUIT_FAILS` (env-only, default 3; ≥1)."""
+    return _int_setting_min("MCA_RANDOM_CIRCUIT_FAILS", 3, 1)
+
+
+def random_circuit_cooldown_seconds() -> int:
+    """`MCA_RANDOM_CIRCUIT_COOLDOWN_SECONDS` (env-only, default 60; ≥1)."""
+    return _int_setting_min("MCA_RANDOM_CIRCUIT_COOLDOWN_SECONDS", 60, 1)
+
+
+def random_min_request_interval_seconds() -> float:
+    """`MCA_RANDOM_MIN_REQUEST_INTERVAL_SECONDS` (env-only, default 1.0).
+
+    Минимальный интервал между ANU-запросами (Trial 1 req/s): защита «429
+    без запроса на каждое сообщение». Никогда не бросает."""
+    return _float_setting_min("MCA_RANDOM_MIN_REQUEST_INTERVAL_SECONDS",
+                              1.0, 0.0)
+
+
+def random_draw_retention_days() -> int:
+    """`MCA_RANDOM_DRAW_RETENTION_DAYS` (env-only, default 90; ≥1)."""
+    return _int_setting_min("MCA_RANDOM_DRAW_RETENTION_DAYS", 90, 1)
+
+
+def random_draw_max_rows() -> int:
+    """`MCA_RANDOM_DRAW_MAX_ROWS` (env-only, default 10000; ≥1)."""
+    return _int_setting_min("MCA_RANDOM_DRAW_MAX_ROWS", 10000, 1)
+
+
+def random_anu_trial_monthly_limit() -> int:
+    """`MCA_RANDOM_ANU_TRIAL_MONTHLY_LIMIT` (env-only, default 100; ≥1).
+
+    Условие Trial перепроверяется при подключении (T-4986); значение —
+    только для честной «оценки» остатка, не искусственный лимит бота."""
+    return _int_setting_min("MCA_RANDOM_ANU_TRIAL_MONTHLY_LIMIT", 100, 1)
+
+
+def random_anu_trial_rps() -> int:
+    """`MCA_RANDOM_ANU_TRIAL_RPS` (env-only, default 1; ≥1)."""
+    return _int_setting_min("MCA_RANDOM_ANU_TRIAL_RPS", 1, 1)
+
+
+def random_quantum_hex_block_size() -> int:
+    """`MCA_RANDOM_QUANTUM_HEX_BLOCK_SIZE` (env-only, default 4; 1..10)."""
+    return min(10, _int_setting_min("MCA_RANDOM_QUANTUM_HEX_BLOCK_SIZE", 4, 1))
+
+
 def chat_stats_occurrence_max_rows() -> int:
     """Кап bounded-скана occurrences (env-only, default 20000; ≥1)."""
     return _int_setting_min("MCA_CHAT_STATS_OCCURRENCE_MAX_ROWS", 20000, 1)
@@ -978,6 +1079,15 @@ def style_scope_chat_ttl_days() -> int:
 def style_scope_topic_ttl_days() -> int:
     """TTL topic-просьб, дни (env-only `MCA_STYLE_SCOPE_TOPIC_TTL_DAYS`, 30)."""
     return _int_setting("MCA_STYLE_SCOPE_TOPIC_TTL_DAYS", 30)
+
+
+def _float_setting_min(name: str, default: float,
+                       minimum: float = 0.0) -> float:
+    """env-only float с нижней границей (никогда не бросает)."""
+    try:
+        return max(minimum, float(getattr(settings, name, default)))
+    except Exception:      # pragma: no cover - защитная ветка
+        return default
 
 
 def _int_setting_min(name: str, default: int, minimum: int = 1) -> int:

@@ -38,18 +38,20 @@ class TestCatalogInvariant:
         (ADR-1018-1 D3) → 436/406/411/90/88/19; 10.19 F3 (UPD3 п.5) →
         437/407/412/92/90/20; 10.23 F5 (ADR-1023-5 D5) →
         446/416/421/95/93/20; 10.24 F21 (ADR-1024-22 D8) →
-        459/418/434/98/96/20."""
+        459/418/434/98/96/20. MCA-10a (ADR-1028-14 D8/D12, санкция §13.2):
+        +13 REGISTRY / +2 GROUPS / +2 tab-маппинга / +13 Settings →
+        502/107/105/439; categorized 464→477."""
         import dataclasses
 
         from config.settings import Settings
-        assert len(pc.REGISTRY) == 489
-        assert len(pc.GROUPS) == 105
-        assert len(pc._TAB_BY_GROUP) == 103
+        assert len(pc.REGISTRY) == 502
+        assert len(pc.GROUPS) == 107
+        assert len(pc._TAB_BY_GROUP) == 105
         assert len(pc.TAB_RULES) == 21
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 426
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 439
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 464
+        assert len(categorized) == 477
 
     def test_per_chat_classification(self):
         """Маршрутизация scope: models.*/keys.* — строго глобальные (per_chat

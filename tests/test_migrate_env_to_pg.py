@@ -248,17 +248,20 @@ class TestRunDryRun:
         # + intel_history_api_key / intel_bg_api_key — раунд 10.13, F4;
         # + intel_reflection_api_key — раунд 10.14, F8;
         # + image_api_key — раунд 10.23, F5)
-        assert len(inserts1) == 21
+        # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): +9 keys.random_
+        # quantum_* → 31 (обновлено вместе с санкционированной Δ каталога;
+        # прежние 21 были историческими — см. evidence MCA-10a).
+        assert len(inserts1) == 31
         assert all("DO NOTHING" in q[0] for q in inserts1)
 
-        # повторный запуск БЕЗ --force: все 20 уже существуют → skipped
+        # повторный запуск БЕЗ --force: все 31 уже существуют → skipped
         conn2 = _FakeConn(results=["INSERT 0 0"])
         pool2 = _FakePool(conn2)
         monkeypatch.setattr("services.pg_db.PgDatabase",
                             lambda *a, **kw: _FakePg(pool=pool2))
         code2 = await _run(["--only-category", "keys"])
         assert code2 == 0
-        assert len(conn2.queries) == 21  # DO NOTHING — но без дублей
+        assert len(conn2.queries) == 31  # DO NOTHING — но без дублей
 
     @pytest.mark.asyncio
     async def test_force_uses_update_sql(self, monkeypatch):

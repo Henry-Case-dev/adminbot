@@ -294,6 +294,19 @@ async def on_startup():
         logger.warning("[media] jobs recovery failed — fail-open",
                        exc_info=True)
 
+    # ── mca-10a (ADR-1028-14 D1/D2/D4, T-4968): RandomSource — bind db +
+    # один refill/активация при старте (K1–K3 ON, key_present, запас <
+    # watermark; singleflight через task_jobs). Fail-open: ошибка не роняет
+    # старт; K1 OFF → no-op (паритет 2.58.57, таблицы v27 инертны).
+    try:
+        from services import mca_random_source
+        mca_random_source.bind_db(db)
+        _random_state = await mca_random_source.startup()
+        logger.info("[random_source] startup | %s", _random_state)
+    except Exception:
+        logger.warning("[random_source] startup failed — fail-open",
+                       exc_info=True)
+
     # ── ASAP-3.2 (T-4220, ADR-1028-5 D14, §98–§99): seed `Медведь Press` —
     # инвариант установки, НЕ ручное deployment-действие: первый install →
     # создаёт профиль/asset'ы; повторный deploy → no-op; отредактированный

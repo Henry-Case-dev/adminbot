@@ -21,6 +21,7 @@ status_service НЕ импортирует llm_client — циклических
 """
 import asyncio
 import datetime
+import json
 import logging
 import os
 import time
@@ -377,6 +378,104 @@ class StatusService:
             "checked_at": checked_at,
         }
 
+    # ── «Источник случайности» (MCA-10a, ADR-1028-14 D9/T-4979) ────────────
+
+    # Поля журнала draw, безопасные для витрины (R17: ID/числа/коды; сырой
+    # текст/ключи не существуют в журнале конструктивно).
+    _DRAW_PUBLIC_FIELDS = (
+        "draw_id", "created_at", "chat_id", "purpose", "source", "provider",
+        "batch_id", "value", "pool_size", "probability", "policy_version",
+        "selected_id", "fallback_reason", "config_version",
+    )
+    _RECENT_DRAWS_LIMIT = 8
+    _RECENT_CANDIDATES_CAP = 20
+
+    @classmethod
+    def _public_draw(cls, row: dict) -> dict:
+        """Whitelist-проекция строки журнала draw (без сырого текста)."""
+        out = {k: row.get(k) for k in cls._DRAW_PUBLIC_FIELDS}
+        raw = row.get("candidates_json")
+        candidates = []
+        if raw:
+            try:
+                parsed = json.loads(raw) if isinstance(raw, str) else raw
+                if isinstance(parsed, list):
+                    candidates = [str(c)[:120]
+                                  for c in parsed[:cls._RECENT_CANDIDATES_CAP]]
+            except Exception:
+                candidates = []
+        out["candidates"] = candidates
+        return out
+
+    async def random_source_snapshot(self, *, chat_id: int | None = None,
+                                     is_global_admin: bool = False,
+                                     chat_scope_allowed: bool = True) -> dict:
+        """Read-only снимок источника случайности для «Статуса» (D9).
+
+        Инварианты: НИКАКИХ QRNG/LLM-вызовов и изменений поведения (A35) —
+        только чтение v27-таблиц; K1 OFF → honest `disabled` без данных;
+        при фактическом PRNG quantum-статус не выдаётся (`quantum_active`
+        false + точный `blocker`); `key_fingerprint` наружу НЕ отдаётся;
+        журнал draw — в рамках прав (chat scope: `chat_scope_allowed` от
+        RBAC-проверки роута; без чата — только global admin). Ошибка чтения
+        не роняет сводку (fail-open)."""
+        try:
+            from services import mca_gates
+            enabled = bool(mca_gates.random_source_enabled())
+        except Exception:
+            enabled = True
+        if not enabled:
+            return {"enabled": False, "available": False,
+                    "state": "disabled", "quantum_active": False}
+        try:
+            from services import mca_random_source
+            service = mca_random_source.get_service()
+            snap = await service.status_snapshot(chat_id)
+            recent: list = []
+            scope = "restricted"
+            try:
+                if chat_id is not None and chat_scope_allowed:
+                    recent = await service.recent_draws(
+                        limit=self._RECENT_DRAWS_LIMIT, chat_id=chat_id)
+                    scope = "chat"
+                elif chat_id is None and is_global_admin:
+                    recent = await service.recent_draws(
+                        limit=self._RECENT_DRAWS_LIMIT)
+                    scope = "global"
+            except Exception:
+                recent = []
+            effective = snap.get("effective_source")
+            return {
+                "enabled": True,
+                "available": True,
+                "selected_source": snap.get("selected_source"),
+                "effective_source": effective,
+                # «Не показывать quantum-статус при фактическом PRNG»: явный
+                # флаг для UI + точный блокер рядом.
+                "quantum_active": effective == "quantum",
+                "anu_state": snap.get("anu_state"),
+                "blocker": snap.get("fallback_reason"),
+                "key_present": bool(snap.get("key_present")),
+                "reserve_remaining": snap.get("reserve_remaining"),
+                "buffer_max": snap.get("buffer_max"),
+                "low_watermark": snap.get("low_watermark"),
+                "last_batch": snap.get("last_batch"),
+                "draws": snap.get("draws") or {"quantum": 0,
+                                               "pseudorandom": 0},
+                "last_fallback_reason": snap.get("last_fallback_reason"),
+                "last_fallback_at": snap.get("last_fallback_at"),
+                "activated_at": snap.get("activated_at"),
+                "plan": snap.get("plan"),
+                "policy_version": snap.get("policy_version"),
+                "recent_draws": [self._public_draw(r) for r in recent],
+                "recent_draws_scope": scope,
+            }
+        except Exception:
+            logger.warning("[status] random source snapshot failed — "
+                           "fail-open", exc_info=True)
+            return {"enabled": True, "available": False,
+                    "state": "unavailable", "quantum_active": False}
+
     # ── psutil-метрики сервера ─────────────────────────────────────────────
 
     @staticmethod
@@ -475,12 +574,15 @@ class StatusService:
     # ── полная сводка для /api/status ──────────────────────────────────────
 
     async def build_snapshot(self, cache=None, *, ctx=None,
-                             chat_id: int | None = None) -> dict:
+                             chat_id: int | None = None,
+                             chat_scope_allowed: bool = True) -> dict:
         """{bot, server, llm, uptime, permsoc} по 84.11.4 + F-9 §6.
 
         ФИКС S2 (F-7 §1.2-2): маска ключей зависит от роли — `ctx`
         (AccessCtx): is_global_admin видит {configured,last4}, остальные —
-        только {configured}. ctx=None (fail-open) → НЕ отдаём last4."""
+        только {configured}. ctx=None (fail-open) → НЕ отдаём last4.
+        `chat_scope_allowed` (MCA-10a D9): RBAC-проверка доступа к `chat_id`
+        для журнала draw (роут передаёт результат `can_access_chat`)."""
         is_global_admin = bool(ctx is not None and ctx.is_global_admin)
         uptime_rows: list = []
         if cache is not None and hasattr(cache, "pg"):
@@ -595,6 +697,12 @@ class StatusService:
             "llm_stats": llm_stats_field,
             "permsoc": permsoc,
             "context": context_field,
+            # Раунд 10.37 (MCA-10a, ADR-1028-14 D9/T-4979): читающий блок
+            # «Источник случайности» — только данные журнала/состояния, БЕЗ
+            # внешних вызовов (A35). K1 OFF → honest disabled без данных.
+            "random": await self.random_source_snapshot(
+                chat_id=chat_id, is_global_admin=is_global_admin,
+                chat_scope_allowed=chat_scope_allowed),
             "uptime": {
                 "buckets": buckets,
                 # 10.7 (2b): ts последнего 'up'-бакета, иначе None (не

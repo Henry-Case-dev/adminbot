@@ -118,7 +118,9 @@ class TestCompleteness:
         #   API_KEY — секрет) → 424→426 (секрет-поле не входит в не-secret
         #   срез `fields`; фактически +2 non-secret → 426).
         #   COVER_STYLES_ENABLED — env-only ClassVar (Δ каталога = 0).
-        assert len(fields) == 426
+        #   MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): +13 instance-полей
+        #   (memory.random_* ×4 + keys.random_quantum_* ×9) → 426→439.
+        assert len(fields) == 439
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered - TestCompleteness._CLASSVAR_CATALOGUED == fields
 
@@ -359,7 +361,10 @@ class TestGroups8424:
         # limits_summary_legacy (секции Hybrid/Legacy в mod_summary, §13)
         # → GROUPS 107. ASAP-2.1 (ADR-1028-1 D1, контракт i): -2 группы
         # префильтра (flags/limits_summary_filter) → GROUPS 105.
-        assert len(GROUPS) == 105
+        # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): +2 группы
+        # (memory_random на mod_sleep, keys_random на llm_providers)
+        # → GROUPS 107.
+        assert len(GROUPS) == 107
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -456,9 +461,14 @@ class TestGroups8424:
         # → prompts 24 / models 63 / keys 23.
         # ASAP 4.4 (T-4880): keys +1 (EMBEDDING_QUOTA_GROUP_LABELS, non-secret
         # ClassVar hot keys.embedding_quota_group_labels) → keys 24.
-        assert counts == {"prompts": 24, "models": 63, "keys": 24,
+        # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): keys +9
+        # (keys.random_quantum_*: provider/endpoint/api_key(secret)/plan/
+        # batch_length/data_type/timeout/watermark/buffer) → keys 33;
+        # memory +4 (memory.random_*: source/fallback/probabilities) →
+        # memory 38.
+        assert counts == {"prompts": 24, "models": 63, "keys": 33,
                           "limits": 199, "flags": 76, "reactions": 39,
-                          "content": 5, "memory": 34}
+                          "content": 5, "memory": 38}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 
 

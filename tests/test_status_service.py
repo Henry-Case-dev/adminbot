@@ -166,8 +166,10 @@ class TestSnapshot:
         svc.set_polling_state("polling")
         cache = _FakeCache(pg=_FakePg())
         snapshot = await self._build(svc, cache, monkeypatch)
+        # MCA-10a (ADR-1028-14 D9): аддитивное поле `random` (читающий блок
+        # «Источник случайности») — существующие секции не меняются.
         assert set(snapshot) == {"bot", "server", "llm", "uptime", "permsoc",
-                                 "context", "llm_stats"}
+                                 "context", "llm_stats", "random"}
         bot = snapshot["bot"]
         assert bot["state"] == "polling"
         assert bot["mode"] == "polling"

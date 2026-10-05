@@ -586,6 +586,42 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
              "делается); K4 OFF → стадийных событий нет (честный disabled/"
              "not_run)",
     ),
+    # ── mca-10a: источник поведенческой случайности (ADR-1028-14 D10) ──────
+    # Стадии по санкции: activate → receive → buffer → draw → select →
+    # fallback → result. События — только notable (единый `emit_mca_event`,
+    # компонент `random`): random_activation (activate), random_batch
+    # (receive), random_fallback (fallback). draw/select/result — durable-
+    # журнал `mca_random_draws` (per-draw событий НЕТ: без нового шума).
+    ProcessDefinition(
+        process_id="random.source", version="1",
+        purpose="Источник поведенческой случайности (quantum ANU | "
+                "pseudorandom): партия → durable-запас → draw → выбор → "
+                "честный fallback",
+        inputs=("refill job", "draw request"),
+        outputs=("mca_random_draws", "mca_random_batches"),
+        stages=("activate", "receive", "buffer", "draw", "select",
+                "fallback", "result"),
+        trigger_kind="background",
+        settings_ref=("MCA_RANDOM_SOURCE_ENABLED", "MCA_RANDOM_QUANTUM_ENABLED",
+                      "MCA_RANDOM_REFILL_ENABLED",
+                      "MCA_RANDOM_EXPLORATION_ENABLED",
+                      "MCA_DREAM_RANDOM_EXPLORE_ENABLED"),
+        state_source=("mca_random_batches", "mca_random_draws",
+                      "mca_random_quota_state", "task_jobs"),
+        recovery_ops=("refill_resume", "draw_reconcile"),
+        widget_id="Источник случайности",
+        stages_to_events={"activate": "random_activation",
+                          "receive": "random_batch",
+                          "fallback": "random_fallback"},
+        instrumentation=("activate", "receive", "fallback"),
+        owner_feature="mca-10a",
+        enabled_gate="MCA_RANDOM_SOURCE_ENABLED",
+        event_names=("random_activation", "random_batch", "random_fallback"),
+        note="draw/select/result — durable-журнал (не событийный поток; "
+             "per-draw событий нет); widget-ID — контракт mca-17c (UI не "
+             "делается); K1 OFF → событий/стадий нет (честный disabled/"
+             "not_run); ключ ANU в события/стадии не попадает (R17)",
+    ),
     # ── mca-02: safe_fetch (реальное событие safe_fetch) ────────────────────
     ProcessDefinition(
         process_id="web.fetch", version="1",
@@ -927,6 +963,8 @@ _GATE_RESOLVERS = {
     "MCA_STATS_INTENT_ENABLED": "stats_intent_enabled",
     # mca-11 (ADR-1028-13 D6): K4 стадий tools.chain v2.
     "MCA_TOOL_CHAIN_STAGES_ENABLED": "tool_chain_stages_enabled",
+    # mca-10a (ADR-1028-14 D10): master-гейт процесса random.source v1.
+    "MCA_RANDOM_SOURCE_ENABLED": "random_source_enabled",
     # product-гейты из `config.settings` (не mca_gates) — резолв через settings.
 }
 

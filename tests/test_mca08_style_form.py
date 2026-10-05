@@ -84,6 +84,12 @@ async def _db(tmp_path, name="style.db") -> DatabaseService:
     return db
 
 
+def _tail_version() -> int:
+    """Текущий хвост реестра миграций (mca-10a: v27 — random_source;
+    прецедент конвенции волн v25→v26→v27)."""
+    return max(s.version for s in DatabaseService.migration_steps())
+
+
 async def _active(db, chat_id=-100, now=1e12):
     return await ss._fetch_active(db, chat_id, now)
 
@@ -98,7 +104,7 @@ class TestStyleRequestsDdl:
         await db.initialize()
         try:
             cur = await db.db.execute("PRAGMA user_version")
-            assert (await cur.fetchone())[0] == 26
+            assert (await cur.fetchone())[0] == _tail_version()
             cur = await db.db.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
                 ("mca_style_requests",))
@@ -118,7 +124,7 @@ class TestStyleRequestsDdl:
         await db2.initialize()
         try:
             cur = await db2.db.execute("PRAGMA user_version")
-            assert (await cur.fetchone())[0] == 26
+            assert (await cur.fetchone())[0] == _tail_version()
             cur = await db2.db.execute(
                 "SELECT COUNT(*) AS c FROM schema_migrations WHERE version=26")
             assert (await cur.fetchone())["c"] == 1
@@ -173,7 +179,7 @@ class TestStyleRequestsDdl:
         await db2.initialize()          # сработает fail-closed backup-guard
         try:
             cur = await db2.db.execute("PRAGMA user_version")
-            assert (await cur.fetchone())[0] == 26
+            assert (await cur.fetchone())[0] == _tail_version()
             backups = list(tmp_path.glob("pre_migration_*.db"))
             assert backups, "pre-migration backup не создан"
             conn = sqlite3.connect(str(backups[-1]))

@@ -163,9 +163,9 @@ class TestTabMappingAudit:
         # TAB_RULES 21 in-place → 481/105/103.
         # ASAP 4.4 (T-4880): +1 REGISTRY (keys.embedding_quota_group_labels,
         # группа keys_llm уже приписана вкладке llm_providers) → 489.
-        assert len(pc._TAB_BY_GROUP) == 103
-        assert len(GROUPS) == 105
-        assert len(pc.REGISTRY) == 489
+        assert len(pc._TAB_BY_GROUP) == 105
+        assert len(GROUPS) == 107
+        assert len(pc.REGISTRY) == 502
 
 
 class TestModuleTabs:
@@ -250,7 +250,9 @@ class TestModuleTabs:
             "limits_chat_key", "limits_chat_context", "limits_worker"}
 
     def test_mod_sleep_and_nostalgia(self):
-        assert tab_group_ids(TAB_MOD_SLEEP) == {"memory_dream"}
+        # MCA-10a (ADR-1028-14 D8, ТЗ §14.4): на «Сне» — memory_dream +
+        # memory_random («Случайность»; TAB_RULES in-place).
+        assert tab_group_ids(TAB_MOD_SLEEP) == {"memory_dream", "memory_random"}
         assert tab_group_ids(TAB_MOD_NOSTALGIA) == {"memory_nostalgia"}
 
 
@@ -406,6 +408,11 @@ def test_widget_keyvalue_on_summary_aliases():
         # ASAP-2 round1027 (§13/контракт (j)): режим Hybrid-статьи — select
         # (ровно 3 пресета casual/serious/deep_research).
         "limits.summary_hybrid_response_mode",
+        # MCA-10a (ADR-1028-14 D8, санкция §13.2): +3 select —
+        # источник случайности, тариф ANU (описание) и тип квантовых чисел.
+        "memory.random_source",
+        "keys.random_quantum_plan",
+        "keys.random_quantum_data_type",
     }
     for spec in sel:
         assert spec.select_options and spec.select_labels

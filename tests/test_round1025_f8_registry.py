@@ -66,8 +66,13 @@ ARTIFACTS = [ROOT / p for p in FIXTURE["artifacts"]]
 # скрыт из Prompt Library; ручная запись → 422). Хэш переутверждён
 # осознанно (L-F11S-1); Δ каталога = 0 (488/427/463/105/103/21),
 # pg_db.py — PG-DDL +1 таблица cover_style_connections (санкция D14/§104).
+# MCA-10a (round 10.37, ADR-1028-14 D8/D12, санкция §13.2): эволюция —
+# аддитивный `POST /api/random/test` («Проверить подключение» ANU,
+# backend-only, draft-ключ в body) + `random`-поле существующего
+# `GET /api/status` (витринный блок D9). Δ каталога ≠ 0: +13/+2 (502/107/105),
+# delta 78→91. Хэш переутверждён осознанно (L-F11S-1).
 ROUTES_SHA256_F11 = (
-    "b83420e93eb00a9d47a0ba16c4ba59773f36d52d378885ae1959b63662bcca81")
+    "efcbc457dae345d03bf304fdc86c8f5074937185ff1bc3b7cd635b568dea90f2")
 
 
 def _sha256(path: Path) -> str:
@@ -145,9 +150,12 @@ class TestFrozenInvariants:
         # ASAP 4.4 (T-4880, §5.3): +1 non-secret ключ
         # keys.embedding_quota_group_labels (hot; ClassVar
         # EMBEDDING_QUOTA_GROUP_LABELS) → 488→489; delta 77→78.
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 489
-        assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 105
-        assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 103
+        # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): +13 ключей / +2 группы
+        # (memory_random/keys_random) / +2 tab-маппинга; TAB_RULES 21 in-place;
+        # delta 78→91 → 502/107/105/21.
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 502
+        assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 107
+        assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 105
         assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 21
 
     def test_registry_keys_match_catalog_baseline(self):
@@ -165,7 +173,7 @@ class TestFrozenInvariants:
         # `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.57"
+        assert APP_VERSION == "2.58.58"
     def test_routes_set_unchanged(self):
         import re
         txt = (ROOT / "web/api/routes.py").read_text(encoding="utf-8")
@@ -192,7 +200,9 @@ class TestRegistry:
         # ASAP-3 (ADR-1028-2 D12): санкционированная Δ +2 → 483.
         # ASAP-3.1 (ADR-1028-3): санкционированная Δ +1 → 484.
         # ASAP 4.4 (T-4880): санкционированная Δ +1 → 489.
-        assert len(rows) == 489
+        # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): санкционированная
+        # Δ +13 (memory.random_* ×4 + keys.random_quantum_* ×9) → 502.
+        assert len(rows) == 502
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -205,8 +215,9 @@ class TestRegistry:
         # ASAP-3 (ADR-1028-2 D12): санкционированная Δ +2 → дельта 72.
         # ASAP-3.1 (ADR-1028-3): санкционированная Δ +1 → дельта 73.
         # ASAP 4.4 (T-4880): санкционированная Δ +1 → дельта 78.
+        # MCA-10a (ADR-1028-14 D8/D12): санкционированная Δ +13 → дельта 91.
         delta = _registry_keys() - _inventory_keys()
-        assert len(delta) == FIXTURE["counts"]["delta"] == 78
+        assert len(delta) == FIXTURE["counts"]["delta"] == 91
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -217,7 +228,12 @@ class TestRegistry:
         # +1 (ASAP 4.4 T-4880): keys.embedding_quota_group_labels — F8
         # belt-and-suspenders `category == keys → secret` (ParamSpec.secret
         # остаётся false: label — не секрет; маска в артефактах консервативна).
-        assert len(secret_rows) == 32
+        # MCA-10a (ADR-1028-14 D8): +9 keys.random_quantum_* (все — category
+        # keys → консервативная маска; истинный `secret=True` только у
+        # api_key). Санкционная формулировка «secret 32→33» считала только
+        # истинный секрет; семантика артефакта (`secret or category==keys`)
+        # даёт 32→41 — см. evidence MCA-10a (блок C, F8-дельта).
+        assert len(secret_rows) == 41
         for row in secret_rows:
             assert row["current_value"] == gen.SECRET_MASK
             assert row["default_value"] == gen.SECRET_MASK
@@ -246,7 +262,8 @@ class TestRegistry:
         # ASAP-2.1 (ADR-1028-1 D1): переиздание после отрицательной Δ −8.
         # ASAP-3.1 (ADR-1028-3): переиздание после Δ +1 (483→484, 72→73).
         # ASAP 4.4 (T-4880): переиздание после Δ +1 (488→489, 77→78).
-        assert "489" in meta and "411" in meta and "78" in meta
+        # MCA-10a (ADR-1028-14 D8/D12): переиздание после Δ +13 (502, 91).
+        assert "502" in meta and "411" in meta and "91" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -260,7 +277,8 @@ class TestScreenMap:
         # ASAP-2.1 (ADR-1028-1 D1): санкционированная Δ −8 → 481.
         # ASAP-3.1 (ADR-1028-3): санкционированная Δ +1 → 484.
         # ASAP 4.4 (T-4880): санкционированная Δ +1 → 489.
-        assert len(keys) == 489
+        # MCA-10a (ADR-1028-14 D8/D12): санкционированная Δ +13 → 502.
+        assert len(keys) == 502
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

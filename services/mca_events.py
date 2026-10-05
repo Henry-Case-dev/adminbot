@@ -242,6 +242,13 @@ REASON_CODES = frozenset({
     # нуля (unknown ≠ 0); прочие причины переиспользуются (delivery_unknown/
     # financial_limit_reached/tool_step_limit/deadline_exceeded/...).
     "cost_unknown",
+    # расширение mca-10a (ADR-1028-14 D10; санкция §13.4 — ровно +2 в единый
+    # словарь): активация подтверждена реальной валидной партией (не HTTP 200/
+    # mock/fallback) и квота провайдера исчерпана/429. Прочие причины
+    # (provider_*/auth_failed/validation_failed/timeout/rate_limit/
+    # delivery_unknown/random_fallback/disabled/no_eligible_alternative/
+    # invalid_url/scheme_not_allowed/redirect_blocked) переиспользуются.
+    "quantum_activated", "quota_exhausted",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────

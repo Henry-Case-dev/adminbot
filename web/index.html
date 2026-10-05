@@ -2269,8 +2269,47 @@
                         :draft="keyDrafts[item.key] || ''"
                         :disabled="!canEditConfig(item.key)"
                         placeholder="Новый ключ (заменить)…"
-                        @update:draft="keyDrafts[item.key] = $event"
+                        @update:draft="onKeyDraft(item, $event)"
                         @delete="deleteKeyItem(item)"></secret-field>
+                      <!-- Раунд 10.37 (MCA-10a, T-4977): «Проверить
+                           подключение» — только для ключа ANU; backend-only
+                           POST /api/random/test (черновой ключ из поля, пусто
+                           → сохранённый). Ответ: статус/задержка/дата/размер
+                           партии/очищенная ошибка; ключ не эхо-ится. -->
+                      <div v-if="item.key === 'keys.random_quantum_api_key'"
+                           class="random-check mt-2" data-random-check>
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <button type="button" class="btn-ghost text-xs shrink-0"
+                                  :disabled="randomCheckBusy || !canEditConfig(item.key)"
+                                  @click="checkRandomConnection(item)">
+                            {{ randomCheckBusy ? 'Проверка…' : 'Проверить подключение' }}
+                          </button>
+                          <span v-if="randomCheckStatus()" class="badge"
+                                :class="randomCheckStatus().cls">
+                            {{ randomCheckStatus().label }}
+                          </span>
+                        </div>
+                        <div v-if="randomCheck" class="text-xs text-gray-400 mt-1">
+                          <template v-if="randomCheck.healthy">
+                            <div>
+                              Получена партия: {{ randomCheck.length }} чисел
+                              <span v-if="randomCheck.latency_ms != null"> · {{ randomCheck.latency_ms }} мс</span>
+                              <span v-if="randomCheck.checked_at"> · {{ fmtTs(randomCheck.checked_at) }}</span>
+                            </div>
+                            <div v-if="!randomCheck.persisted" class="text-amber-300">
+                              Черновой ключ не сохранён — нажмите «Сохранить», чтобы применить.
+                            </div>
+                          </template>
+                          <div v-else>
+                            <span v-if="randomCheck.reason">{{ randomCheck.reason }}</span>
+                            <span v-else>Подключение не подтверждено — проверьте ключ.</span>
+                          </div>
+                        </div>
+                        <div v-else class="text-[10px] text-gray-500 mt-1">
+                          Проверка использует ключ из поля (или сохранённый, если
+                          поле пусто) и зачисляет полученную партию в запас.
+                        </div>
+                      </div>
                     </template>
                     <template v-else-if="item.widget === 'select'">
                       <div class="text-sm font-semibold">{{ item.title }}</div>
@@ -5125,6 +5164,89 @@
                   </div>
                 </div>
               </div>
+            </div>
+
+            <!-- Раунд 10.37 (MCA-10a, ADR-1028-14 D9/T-4979): читающий блок
+                 «Источник случайности» — врезка в существующий «Статус»
+                 (нового виджета/маршрута нет). Данные — аддитивное поле
+                 `random` из GET /api/status; открытие/повтор НЕ делают
+                 QRNG/LLM-вызовов (A35). При фактическом PRNG quantum-статус
+                 НЕ показывается — честная подпись + точный блокер. -->
+            <div class="card p-4 sg-12" data-random-source>
+              <div class="flex items-center gap-2 mb-2 flex-wrap">
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('bolt') }}</span> Источник случайности</div>
+                <span v-if="randomSource.ready && randomSource.enabled" class="badge"
+                      :class="randomSource.quantum ? 'badge-ok' : 'badge-muted'">
+                  {{ randomSource.quantum ? 'квантовый' : 'псевдослучайный' }}
+                </span>
+                <span v-if="randomSource.ready && randomSource.enabled"
+                      class="text-xs text-gray-500">
+                  выбран: {{ randomSource.selected || '—' }} · фактически: {{ randomSource.effective || '—' }}
+                </span>
+              </div>
+              <div v-if="!randomSource.ready" class="spinner my-2"></div>
+              <div v-else-if="!randomSource.enabled" class="text-xs text-gray-500">
+                Источник случайности выключен — новых записей, запросов и событий нет.
+              </div>
+              <template v-else>
+                <div class="text-sm space-y-1">
+                  <div>
+                    Состояние: <b>{{ randomSource.stateLabel }}</b>
+                    <span v-if="randomSource.blockerLabel" class="text-amber-300">
+                      · причина: {{ randomSource.blockerLabel }}</span>
+                  </div>
+                  <div>
+                    Ключ ANU: <b>{{ randomSource.keyPresent ? 'настроен' : 'не настроен' }}</b>
+                    <span v-if="randomSource.plan"> · тариф: {{ randomSource.plan }}</span>
+                  </div>
+                  <div>
+                    Запас: <b>{{ randomSource.reserve == null ? '—' : randomSource.reserve }}</b>
+                    из {{ randomSource.bufferMax || '—' }}
+                    <span class="text-gray-500">(порог пополнения {{ randomSource.watermark || '—' }})</span>
+                  </div>
+                  <div v-if="randomSource.lastBatch">
+                    Последняя партия: {{ randomSource.lastBatch.length }} чисел ·
+                    {{ fmtTs(randomSource.lastBatch.created_at) }}
+                  </div>
+                  <div>
+                    Решений на случайности: квантовых
+                    {{ randomSource.draws ? randomSource.draws.quantum : 0 }} ·
+                    псевдослучайных
+                    {{ randomSource.draws ? randomSource.draws.pseudorandom : 0 }}
+                  </div>
+                  <div v-if="randomSource.lastFallbackAt">
+                    Последний откат: {{ randomSource.lastFallback || '—' }} ·
+                    {{ fmtTs(randomSource.lastFallbackAt) }}
+                  </div>
+                </div>
+                <div class="mt-2">
+                  <button class="btn-ghost text-xs" type="button"
+                          :aria-expanded="randomDrawsOpen ? 'true' : 'false'"
+                          @click="randomDrawsOpen = !randomDrawsOpen">
+                    {{ randomDrawsOpen ? 'Скрыть последние решения' : 'Последние решения' }}
+                  </button>
+                </div>
+                <div v-if="randomDrawsOpen" class="mt-2 text-xs" data-random-draws>
+                  <div v-if="!randomSource.recent.length" class="text-gray-500">
+                    Решений, зависящих от случайности, пока нет.
+                  </div>
+                  <div v-else class="space-y-1">
+                    <div v-for="d in randomSource.recent" :key="d.draw_id"
+                         class="rounded-lg bg-white/5 px-2 py-1">
+                      <span class="text-gray-500">{{ fmtTs(d.created_at) }}</span>
+                      <span class="badge badge-muted ml-1">{{ d.source }}</span>
+                      <span class="ml-1">{{ d.purpose || '—' }}</span>
+                      <span class="text-gray-400 ml-1">
+                        выбор: {{ d.selected_id == null ? '—' : d.selected_id }}</span>
+                      <span v-if="d.fallback_reason" class="text-amber-300 ml-1">
+                        · {{ d.fallback_reason }}</span>
+                      <div v-if="(d.candidates || []).length" class="text-gray-500 truncate">
+                        кандидаты: {{ (d.candidates || []).join(', ') }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </template>
             </div>
 
             <!-- Доступность ключей API (B1/OD8, T-1128/T-1129): плотный

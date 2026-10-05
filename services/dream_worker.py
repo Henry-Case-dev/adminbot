@@ -65,7 +65,6 @@ from config.settings import settings
 from services import hot_config as hot
 from services import mca_gates
 from services import mca_dream_evidence as mca_evidence
-from services import mca_dream_random
 from services.external_log import trace_step
 from services.worker_settings import resolve_setting_cached
 from services.database import parse_belief_meta, row_get
@@ -1836,11 +1835,18 @@ class DreamWorker:
                 # изученных периодов материал выбирает ТОЛЬКО
                 # `DreamRandomSource.pick` (seed=(pipeline_run_id, chat_id));
                 # OFF → прежний ранжированный топ-k (бит-в-бит 2.58.48).
+                # mca-10a (ADR-1028-14 D7, T-4966): core-источник реализует
+                # тот же протокол без fork пайплайна. K1 OFF → ровно
+                # `default_source` (бит-в-бит 2.58.57); K1 ON → quantum-адаптер
+                # с durably зарезервированным chunk (fallback OFF + пусто →
+                # None — mca-06-семантика ранжированного primary-пути).
                 explore_on = mca_gates.dream_random_explore_enabled()
                 pipeline_run_id = (report or {}).get("pipeline_run_id")
-                random_source = (
-                    mca_dream_random.default_source(pipeline_run_id)
-                    if explore_on else None)
+                random_source = None
+                if explore_on:
+                    from services import mca_random_source as _mca_random
+                    random_source = await _mca_random.for_dream(
+                        pipeline_run_id, k_hint=top_k, chat_id=chat_id)
                 sel = await _hist.select_historical_candidates(
                     self.memory, episodes_repo, chat_id, query,
                     top_k=top_k, now=now,

@@ -72,7 +72,10 @@
             'models_extra_providers', 'models_video_summary'] },
         { category: 'keys', groups: [
             'keys_llm', 'keys_groq', 'keys_openrouter', 'keys_search',
-            'keys_media'] },
+            'keys_media',
+            // Раунд 10.37 (MCA-10a, ADR-1028-14 D8): зеркало TAB_RULES —
+            // «Случайность: подключение ANU» на вкладке LLM Провайдеры.
+            'keys_random'] },
       ] },
     { id: 'prompts', icon: 'description', label: 'Промпты', type: 'config', menu: 'ai',
       sources: [
@@ -158,6 +161,9 @@
       type: 'config', menu: 'modules',
       sources: [
         { category: 'memory', groups: ['memory_dream'] },
+        // Раунд 10.37 (MCA-10a, ADR-1028-14 D8, ТЗ §14.4): группа
+        // «Случайность» — на ТОЙ ЖЕ вкладке «Сон» (зеркало TAB_RULES).
+        { category: 'memory', groups: ['memory_random'] },
       ] },
     { id: 'mod_nostalgia', icon: 'history', label: 'Ностальгия',
       type: 'config', menu: 'modules',
@@ -1909,6 +1915,15 @@
         keyHistory: null,
         keyHistoryChart: null,
         keyHistoryChartHeight: 120,   // 10.10 (п.2): реактивная высота
+        // Раунд 10.37 (MCA-10a, ADR-1028-14 D9/T-4979): блок «Источник
+        // случайности» — read-only; раскрытие последних решений КЛИЕНТСКОЕ
+        // (данные уже в /api/status — новых запросов/маршрутов нет).
+        randomDrawsOpen: false,
+        // T-4977: «Проверить подключение» ANU — черновой ключ уходит только
+        // в POST-body (не URL/не лог); результат — status/latency/дата/
+        // размер/очищенная ошибка/key_present.
+        randomCheck: null,
+        randomCheckBusy: false,
         logs: [],
         logsCount: 0,
         logsLoading: false,
@@ -3389,6 +3404,74 @@
       // — НЕ byte-identical legacy-DOM (осознанное решение, M-F11S-1).
       statusGridV2: function () {
         return this.uiFlag('UI_STATUS_GRID_V2');
+      },
+      // Раунд 10.37 (MCA-10a, ADR-1028-14 D9/T-4979): «Источник случайности» —
+      // read-only проекция аддитивного /api/status.random. Инвариант:
+      // quantum-статус показывается ТОЛЬКО при фактическом quantum
+      // (`quantum_active`); при PRNG — честная подпись + точный блокер.
+      randomSource: function () {
+        var r = (this.statusData && this.statusData.random) || null;
+        if (!r) return { ready: false, enabled: false, quantum: false };
+        if (!r.enabled) {
+          return { ready: true, enabled: false, available: false,
+                   quantum: false, keyPresent: false, effective: null,
+                   selected: null,
+                   stateLabel: 'выключено', blockerLabel: null,
+                   reserve: null, bufferMax: null, watermark: null,
+                   lastBatch: null, draws: null, lastFallback: null,
+                   lastFallbackAt: null, plan: null, recent: [], scope: '' };
+        }
+        var stateRu = {
+          active: 'ANU активен (квантовые числа)',
+          unverified: 'ключ не проверен',
+          provider_unconfigured: 'ключ не настроен',
+          disabled: 'провайдер выключен',
+          degraded: 'провайдер недоступен',
+          quota_exhausted: 'квота исчерпана',
+        };
+        var blockerRu = {
+          provider_unavailable: 'провайдер недоступен',
+          provider_unconfigured: 'ключ не настроен',
+          auth_failed: 'ключ отклонён (401/403)',
+          quota_exhausted: 'квота исчерпана (429)',
+          validation_failed: 'ответ провайдера не прошёл проверку',
+          timeout: 'таймаут запроса',
+          rate_limit: 'слишком частые запросы',
+          delivery_unknown: 'доставка неизвестна',
+          disabled: 'квантовый режим выключен',
+          redirect_blocked: 'перенаправление заблокировано',
+          invalid_url: 'адрес не разрешён',
+          scheme_not_allowed: 'схема адреса не разрешена',
+          random_fallback: 'переход на локальный источник',
+          no_eligible_alternative: 'нет допустимой альтернативы',
+        };
+        var quantum = !!r.quantum_active;
+        var blocker = r.blocker || null;
+        return {
+          ready: true,
+          enabled: true,
+          available: !!r.available,
+          quantum: quantum,
+          keyPresent: !!r.key_present,
+          effective: r.effective_source || null,
+          selected: r.selected_source || null,
+          // При фактическом PRNG подпись — честная («псевдослучайный»),
+          // quantum-состояние НЕ показывается.
+          stateLabel: quantum
+            ? (stateRu[r.anu_state] || r.anu_state || '—')
+            : 'псевдослучайный (локальный)',
+          blockerLabel: blocker ? (blockerRu[blocker] || blocker) : null,
+          reserve: (r.reserve_remaining == null) ? null : r.reserve_remaining,
+          bufferMax: r.buffer_max || null,
+          watermark: r.low_watermark || null,
+          lastBatch: r.last_batch || null,
+          draws: r.draws || null,
+          lastFallback: r.last_fallback_reason || null,
+          lastFallbackAt: r.last_fallback_at || null,
+          plan: r.plan || null,
+          recent: r.recent_draws || [],
+          scope: r.recent_draws_scope || '',
+        };
       },
       // F11 (§14/D2): честные системные метрики — `null` (нет данных) ≠ 0.
       // `ready` — пришла ли секция `server`; поля нормализованы в number|null.
@@ -10184,6 +10267,67 @@
         } finally {
           this.saving.delete(item.key);
         }
+      },
+      // Раунд 10.37 (MCA-10a, T-4977): «Проверить подключение» ANU.
+      // Backend-only POST /api/random/test; черновой ключ из поля (пусто →
+      // сохранённый) уходит ТОЛЬКО в POST-body (не URL/не лог); ответ не
+      // эхо-ит ключ. Повторные клики coalesce на сервере (singleflight) +
+      // min interval провайдера. Неизвестный ключ не показывается healthy
+      // до успешной проверки (сервер решает по реальной партии).
+      checkRandomConnection: async function (item) {
+        if (this.randomCheckBusy) return null;
+        this.randomCheckBusy = true;
+        this.randomCheck = null;
+        try {
+          var draft = (this.keyDrafts[item.key] || '').trim();
+          if (hasSecretMask(draft)) draft = '';
+          var res = await this.api('/api/random/test', {
+            method: 'POST',
+            body: JSON.stringify({ key: draft }),
+            global: true,
+          });
+          this.randomCheck = res || {};
+          return res;
+        } catch (e) {
+          this.randomCheck = { healthy: false, blocker: 'client_error',
+                               reason: (e && e.message) || String(e) };
+          return null;
+        } finally {
+          this.randomCheckBusy = false;
+        }
+      },
+      // Черновик ключа изменился → прошлый результат проверки ANU не
+      // выдаётся за новый ключ (единая точка для generic secret-field).
+      onKeyDraft: function (item, value) {
+        this.keyDrafts[item.key] = value;
+        if (item && item.key === 'keys.random_quantum_api_key') {
+          this.randomCheck = null;
+        }
+      },
+      // Подпись результата проверки (очищенная причина, без ключа).
+      randomCheckStatus: function () {
+        var c = this.randomCheck;
+        if (!c) return null;
+        if (c.healthy) {
+          return { cls: 'badge-ok', label: 'подключение работает' };
+        }
+        var map = {
+          provider_unconfigured: 'ключ не настроен',
+          auth_failed: 'ключ отклонён (401/403)',
+          quota_exhausted: 'квота исчерпана (429)',
+          provider_unavailable: 'провайдер недоступен',
+          validation_failed: 'ответ не прошёл проверку',
+          timeout: 'таймаут запроса',
+          rate_limit: 'слишком частые запросы',
+          delivery_unknown: 'доставка неизвестна',
+          disabled: 'квантовый режим выключен',
+          redirect_blocked: 'перенаправление заблокировано',
+          invalid_url: 'адрес не разрешён',
+          scheme_not_allowed: 'схема адреса не разрешена',
+          client_error: 'ошибка запроса',
+        };
+        return { cls: 'badge-err',
+                 label: map[c.blocker] || c.blocker || 'ошибка проверки' };
       },
       // F9 (10.25, ADR-1025-22 D2): удаление ГЛОБАЛЬНОГО секрета — отдельное
       // подтверждаемое действие. Без НОВОГО endpoint (R16):

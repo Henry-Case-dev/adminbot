@@ -208,6 +208,13 @@ GROUPS: tuple[GroupSpec, ...] = (
     # keys (8; раунд 10.23, F5/ADR-1023-5 §D5): ключ генерации изображений.
     GroupSpec("keys_images", "keys", "Генерация изображений: ключ",
               "Ключ провайдера генерации картинок (GET-режим работает без ключа).", 8),
+    # keys (9; раунд 10.37, MCA-10a/ADR-1028-14 D8, ТЗ §14.4): подключение
+    # квантового источника случайности (ANU Quantum Numbers) — endpoint/
+    # ключ/партия/тип/таймаут/watermark/buffer; ключ — секрет (маска).
+    GroupSpec("keys_random", "keys", "Случайность: подключение ANU",
+              "Подключение квантового источника чисел ANU: адрес, ключ, "
+              "размер и тип партии, таймаут и границы запаса. Ключ хранится "
+              "маской; подписка не оформляется автоматически.", 9),
     # ── limits (28; раунд 10.6 T-1180/T-1208) ──────────────────────────────
     # Расщепления: limits_media→4, limits_persons→2, limits_youtube_web→2,
     # limits_cooldowns→растворена, limits_chat_budgets→+limits_rag.
@@ -435,6 +442,12 @@ GROUPS: tuple[GroupSpec, ...] = (
     GroupSpec("memory_nostalgia", "memory", "Ностальгия",
               "NostalgiaWorker (слой B) и маркер «золотых» при ответе "
               "(слой A): рубильники, условия тика, анти-спам, пороги.", 3),
+    # memory (4; раунд 10.37, MCA-10a/ADR-1028-14 D8, ТЗ §14.4): «Случайность» —
+    # выбранный источник, честный fallback и вероятности исследования.
+    GroupSpec("memory_random", "memory", "Случайность",
+              "Источник случайности (квантовый или локальный), честный "
+              "откат при недоступности провайдера и вероятность "
+              "исследования. Настройки можно менять по каждому чату.", 4),
 )
 
 
@@ -707,6 +720,38 @@ _KEYS: list[tuple] = [
     ("IMAGE_STYLE_API_KEY", "Ключ обработки стилей обложки", "str", True,
      "keys_images",
      "Ключ провайдера, который редактирует обложку под стиль. Хранится только в настройках, в интерфейсе показывается маской."),
+    # ── Раунд 10.37 (MCA-10a, ADR-1028-14 D8, ТЗ §14.4): подключение ANU ──
+    # Квантовый источник случайности (группа keys_random, вкладка LLM
+    # Провайдеры). Ключ — существующий секретный контур (маска, не отдаётся);
+    # endpoint предзаполнен (owner-only, runtime origin-guard — только ANU);
+    # `plan` — только описание подписки, покупка НЕ оформляется.
+    ("RANDOM_QUANTUM_PROVIDER", "Источник случайности: провайдер", "str",
+     False, "keys_random",
+     "Информационное имя провайдера (ANU Quantum Numbers). Runtime принимает только ANU — чужой адрес отклоняется."),
+    ("RANDOM_QUANTUM_ENDPOINT", "Источник случайности: адрес ANU", "str",
+     False, "keys_random",
+     "Адрес сервиса квантовых чисел ANU (предзаполнен). Изменяется только владельцем; запросы уходят лишь на разрешённый адрес ANU."),
+    ("RANDOM_QUANTUM_API_KEY", "Источник случайности: ключ ANU", "str",
+     True, "keys_random",
+     "Ключ доступа к квантовым числам ANU. Хранится только в защищённом хранилище, в интерфейсе показывается маской; наружу не отдаётся."),
+    ("RANDOM_QUANTUM_PLAN", "Источник случайности: тариф", "str", False,
+     "keys_random",
+     "Описание тарифа ANU (Trial/Paid/Custom). Только справка: автоматическая покупка или продление не выполняются."),
+    ("RANDOM_QUANTUM_BATCH_LENGTH", "Источник случайности: размер партии",
+     "int", False, "keys_random",
+     "Сколько квантовых чисел запрашивать одной партией (1–1024). Партия копится в запасе и расходуется по мере решений."),
+    ("RANDOM_QUANTUM_DATA_TYPE", "Источник случайности: тип чисел", "str",
+     False, "keys_random",
+     "Формат квантовых чисел ANU: uint8/uint16/hex8/hex16. По умолчанию uint16."),
+    ("RANDOM_QUANTUM_REQUEST_TIMEOUT_SECONDS",
+     "Источник случайности: таймаут, секунд", "int", False, "keys_random",
+     "Сколько секунд ждать ответ ANU в фоновых запросах и проверке подключения (1–30). Ответы чату не задерживаются."),
+    ("RANDOM_QUANTUM_REFILL_LOW_WATERMARK",
+     "Источник случайности: порог пополнения", "int", False, "keys_random",
+     "Когда остаток запаса опускается ниже этого порога, бот фоново запрашивает новую партию."),
+    ("RANDOM_QUANTUM_BUFFER_MAX_VALUES",
+     "Источник случайности: максимум запаса", "int", False, "keys_random",
+     "Верхняя граница запаса квантовых чисел (256–8192): при заполнении новые партии не запрашиваются."),
 ]
 
 # ── models: провайдеры/модели/таймауты/ретраи (не секреты) ──────────────────
@@ -1979,6 +2024,34 @@ _MEMORY: list[tuple] = [
       "int", "memory_nostalgia",
       "Макс. длина текста проактивного сообщения перед отправкой (400).",
      "advanced"),
+    # ── Раунд 10.37 (MCA-10a, ADR-1028-14 D8, ТЗ §14.4): «Случайность» ──────
+    # dotted-ключи memory.random_* (прецедент memory.dream_*); per-chat
+    # (chat_params, категория memory — non-secret). Выбранный источник ≠
+    # фактический: фактический виден на «Статусе» честно (fallback).
+    ("RANDOM_SOURCE", "Случайность: источник", "str", "memory_random",
+     "Откуда бот берёт случайные числа: «квантовый» (ANU) или "
+     "«псевдослучайный» (локальный). Выбор сохраняется и применяется сразу.",
+     "basic"),
+
+    ("RANDOM_FALLBACK_TO_PSEUDORANDOM", "Случайность: честный откат",
+     "bool", "memory_random",
+     "Если квантовый провайдер недоступен, разрешено временно использовать "
+     "локальный источник (это видно в статусе). Выключено — случайные "
+     "инициативы просто откладываются, обычные ответы не затрагиваются.",
+     "basic"),
+
+    ("RANDOM_EXPLORATION_PROBABILITY", "Случайность: вероятность исследования",
+     "float", "memory_random",
+     "Как часто (0..1) бот пробует допустимую альтернативу вместо "
+     "основного варианта. 0.05 — стартовая настройка, не «оптимум».",
+     "basic"),
+
+    ("RANDOM_SLEEP_EXPLORATION_PROBABILITY",
+     "Случайность: вероятность исследования после сна", "float",
+     "memory_random",
+     "То же для фонового исследования после пакета сна/консолидации (0..1; "
+     "стартово 0.05).",
+     "advanced"),
 ]
 
 
@@ -2164,6 +2237,26 @@ _SELECT_WIDGET_PRESETS: dict[str, dict] = {
         "widget": "select",
         "select_options": ("casual", "serious", "deep_research"),
         "select_labels": ("Casual", "Serious", "Deep research"),
+    },
+    # Раунд 10.37 (MCA-10a, ADR-1028-14 D8, ТЗ §14.4): select-поля группы
+    # «Случайность» — источник (quantum/pseudorandom), тариф (описание) и
+    # тип квантовых чисел ANU.
+    "RANDOM_SOURCE": {
+        "widget": "select",
+        "select_options": ("quantum", "pseudorandom"),
+        "select_labels": ("Квантовый (ANU)", "Псевдослучайный (локальный)"),
+    },
+    "RANDOM_QUANTUM_PLAN": {
+        "widget": "select",
+        "select_options": ("Trial", "Paid", "Custom"),
+        "select_labels": ("Trial (описание)", "Paid (описание)",
+                          "Custom (описание)"),
+    },
+    "RANDOM_QUANTUM_DATA_TYPE": {
+        "widget": "select",
+        "select_options": ("uint8", "uint16", "hex8", "hex16"),
+        "select_labels": ("uint8 (0–255)", "uint16 (0–65535)",
+                          "hex8 (блоки 1–10)", "hex16 (блоки 1–10)"),
     },
 }
 for _name, _opts in _SELECT_WIDGET_PRESETS.items():
@@ -2412,6 +2505,10 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
     )),
     (TAB_MOD_SLEEP, (
         (CATEGORY_MEMORY, frozenset({"memory_dream"})),
+        # Раунд 10.37 (MCA-10a, ADR-1028-14 D8, ТЗ §14.4): группа
+        # «Случайность» (memory_random) — на ТОЙ ЖЕ вкладке «Сон»
+        # (правило in-place, TAB_RULES 21 без роста).
+        (CATEGORY_MEMORY, frozenset({"memory_random"})),
     )),
     (TAB_MOD_NOSTALGIA, (
         (CATEGORY_MEMORY, frozenset({"memory_nostalgia"})),
@@ -2443,7 +2540,10 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
             "models_images"})),
         (CATEGORY_KEYS, frozenset({
             "keys_llm", "keys_groq", "keys_openrouter", "keys_search",
-            "keys_media", "keys_images"})),
+            "keys_media", "keys_images",
+            # Раунд 10.37 (MCA-10a, ADR-1028-14 D8): «Случайность:
+            # подключение ANU» — keys-секция вкладки LLM Провайдеры.
+            "keys_random"})),
     )),
     (TAB_PROMPTS, (
         (CATEGORY_PROMPTS, None),

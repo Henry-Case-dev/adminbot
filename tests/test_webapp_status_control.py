@@ -127,8 +127,9 @@ class TestStatusEndpoint:
             body = resp.json()
             # ФИКС S2/F-9 §6: + permsoc-телеметрия (N из M) в сводке.
             # F5 (cognition-dashboard, spec §3.6): + аддитивное context.
+            # MCA-10a (ADR-1028-14 D9): + аддитивное random (читающий блок).
             assert set(body) == {"bot", "server", "llm", "uptime", "permsoc",
-                                 "context", "llm_stats"}
+                                 "context", "llm_stats", "random"}
             # Хотфикс-3 (T-2501): аддитивная наблюдаемость LLM-таймаутов.
             assert set(body["llm_stats"]) >= {"requests", "timeouts",
                                               "fallbacks", "timeout_share"}

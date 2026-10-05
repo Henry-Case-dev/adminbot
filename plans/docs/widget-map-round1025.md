@@ -31,6 +31,7 @@
 | Логи | `GET /api/status/logs` | Статус → логи | уровни ERROR+WARN/ERROR/WARN/INFO, раскрытие, копирование строки | visible |
 | Быстрый переход «Ошибки/Предупреждения» | `GET /api/status/logs` | Статус → счётчики сверху | прокрутка к логам по нажатию | visible |
 | История ключей (key-history) | `GET /api/status/key-history` | Статус → график | leak-safe временной график доступности | visible |
+| Источник случайности (врезка в карточку) | `GET /api/status` (`random`) | Статус → «Источник случайности» (нового виджета/маршрута НЕТ; MCA-10a) | выбранный/фактический источник, состояние ANU + блокер, запас, счётчики draws, последний fallback; клик — последние решения (клиентское раскрытие) | visible |
 | Media-health | `GET /api/status/media-health` | Статус → индикатор медиа | статус доступности медиа | visible |
 | Токен-метрики NodeFlow | `GET /api/analytics/usage/latest` | Статус → превью | подсветка этапов последнего вызова | visible (env-гейт `TOKEN_FLOW_NODEFLOW_ENABLED`) |
 

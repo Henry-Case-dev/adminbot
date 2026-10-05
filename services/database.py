@@ -990,6 +990,78 @@ _STYLE_REQUESTS_INDEX_DDL = (
     "ON mca_style_requests(chat_id, participant_id, revoked_at)",
 )
 
+# ── mca-10a T-4968 (ADR-1028-14 D2, санкция §13.1): v27 — durable-запас
+# RandomSource: 4 аддитивные таблицы + 3 индекса (точные имена/колонки —
+# spec §3). Аддитивно/идемпотентно (`CREATE ... IF NOT EXISTS` под
+# self-guard `sqlite_master`), повтор — no-op, PG — no-op (GEN-R4); старый
+# код таблицы не читает (rollback-safe), backfill не требуется. Файловый
+# store отклонён (второй write-механизм) — запись только через mca-01.
+_SCHEMA_VERSION_RANDOM_SOURCE = 27
+
+_RANDOM_BATCHES_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_random_batches ("
+    "batch_id TEXT PRIMARY KEY, "
+    "provider TEXT NOT NULL, "
+    "data_type TEXT NOT NULL, "
+    "length INTEGER NOT NULL, "
+    "values_json TEXT NOT NULL, "
+    "reserved_upto INTEGER NOT NULL DEFAULT 0, "
+    "consumed_upto INTEGER NOT NULL DEFAULT 0, "
+    "source TEXT NOT NULL DEFAULT 'quantum', "
+    "created_at INTEGER NOT NULL)"
+)
+_RANDOM_BATCHES_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_random_batches_created "
+    "ON mca_random_batches(created_at)",
+)
+_RANDOM_DRAWS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_random_draws ("
+    "draw_id TEXT PRIMARY KEY, "
+    "created_at INTEGER NOT NULL, "
+    "chat_id INTEGER, "
+    "purpose TEXT, "
+    "source TEXT, "
+    "provider TEXT, "
+    "batch_id TEXT, "
+    "value REAL, "
+    "candidates_json TEXT, "
+    "pool_size INTEGER, "
+    "probability REAL, "
+    "policy_version TEXT, "
+    "selected_id TEXT, "
+    "fallback_reason TEXT, "
+    "config_version TEXT)"
+)
+_RANDOM_DRAWS_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_random_draws_created "
+    "ON mca_random_draws(created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_random_draws_chat "
+    "ON mca_random_draws(chat_id, created_at)",
+)
+_RANDOM_QUOTA_STATE_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_random_quota_state ("
+    "account_key TEXT PRIMARY KEY, "
+    "period TEXT NOT NULL, "
+    "success INTEGER NOT NULL DEFAULT 0, "
+    "failed INTEGER NOT NULL DEFAULT 0, "
+    "unknown INTEGER NOT NULL DEFAULT 0, "
+    "manual_checks INTEGER NOT NULL DEFAULT 0, "
+    "last_success_at INTEGER, "
+    "last_failure_at INTEGER, "
+    "last_reason TEXT, "
+    "updated_at INTEGER)"
+)
+_RANDOM_STATE_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_random_state ("
+    "scope TEXT PRIMARY KEY, "
+    "key_fingerprint TEXT, "
+    "activation_batch_id TEXT, "
+    "activated_at INTEGER, "
+    "last_fallback_reason TEXT, "
+    "last_fallback_at INTEGER, "
+    "updated_at INTEGER NOT NULL)"
+)
+
 
 def _summary_window_unique_violation(exc: BaseException) -> bool:
     """IntegrityError «UNIQUE constraint» → write-once guard snapshot'а."""
@@ -1946,6 +2018,13 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_STYLE_REQUESTS,
                           "style_requests",
                           lambda svc: svc._migrate_style_requests_v26()),
+            # mca-10a (ADR-1028-14 D2, санкция §13.1): v27 — 4 аддитивные
+            # таблицы RandomSource (batches/draws/quota_state/state) + 3
+            # индекса; durable-запас/watermark/журнал draw/квота/активация.
+            # Повтор — no-op, PG — no-op, старый код таблицы не читает.
+            MigrationStep(_SCHEMA_VERSION_RANDOM_SOURCE,
+                          "random_source",
+                          lambda svc: svc._migrate_random_source_v27()),
             # ASAP 4.1 волна 5 (T-4616, spec §10.2–§10.3): v24 = 3 таблицы
             # (summary_source_windows + summary_runs + summary_run_stages).
             # Один MigrationStep на версию — книга `schema_migrations` имеет
@@ -2782,6 +2861,32 @@ class DatabaseService:
         await self.db.commit()
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_STYLE_REQUESTS}")
+        await self.db.commit()
+
+    async def _migrate_random_source_v27(self) -> None:
+        """v27 (`mca-10a-random-source-anu` T-4968, ADR-1028-14 D2,
+        санкция §13.1): durable-запас/журнал/квота/активация RandomSource —
+        `mca_random_batches` + `mca_random_draws` + `mca_random_quota_state`
+        + `mca_random_state` + 3 индекса.
+
+        Аддитивно (`CREATE TABLE/INDEX IF NOT EXISTS` под self-guard
+        `sqlite_master`); НИ ОДНОГО UPDATE/DELETE существующих строк; повтор —
+        no-op; backfill не требуется (старый код таблицы не читает); PG —
+        no-op (GEN-R4). Фиксирует `PRAGMA user_version = 27`."""
+        for table, ddl in (
+                ("mca_random_batches", _RANDOM_BATCHES_DDL),
+                ("mca_random_draws", _RANDOM_DRAWS_DDL),
+                ("mca_random_quota_state", _RANDOM_QUOTA_STATE_DDL),
+                ("mca_random_state", _RANDOM_STATE_DDL)):
+            if not await self._table_exists(table):
+                await self.db.execute(ddl)
+                await self.db.commit()
+                logger.info("[database] migration v27: %s", table)
+        for ddl in (_RANDOM_BATCHES_INDEX_DDL + _RANDOM_DRAWS_INDEX_DDL):
+            await self.db.execute(ddl)
+        await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_RANDOM_SOURCE}")
         await self.db.commit()
 
     # ── mca-22 (ADR-1028-6 D2): Durable Own Output Ledger — write/read ──────

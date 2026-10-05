@@ -418,12 +418,19 @@ def _dotenv_values() -> dict[str, str]:
 
 
 def collect_secret_values() -> list[tuple[str, str]]:
-    """(имя-поля/env, значение) для секретных параметров — ТОЛЬКО в памяти."""
+    """(имя-поля/env, значение) для секретных параметров — ТОЛЬКО в памяти.
+
+    R17-скан ищет в артефактах значения ИСТИННЫХ секретов (`ParamSpec.
+    secret=True`). Belt-and-suspenders-маска артефакта шире (`category==keys`
+    тоже маскируется), но значения не-секретных keys-полей (например,
+    `RANDOM_QUANTUM_PROVIDER`/`DATA_TYPE`) секретами не являются и в
+    R17-скан не входят — иначе легитимные тексты («ANU Quantum Numbers»,
+    «uint16») давали бы ложный leak (MCA-10a, блок C)."""
     out: list[tuple[str, str]] = []
     seen: set[str] = set()
     dotenv = _dotenv_values()
     for spec in pc.REGISTRY.values():
-        if not _is_secret(spec):
+        if not spec.secret:
             continue
         candidates = []
         if spec.settings_field and hasattr(settings_obj, spec.settings_field):

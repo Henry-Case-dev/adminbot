@@ -171,6 +171,14 @@ class ImageTestRequest(BaseModel):
     prompt: str = ""
 
 
+class RandomTestRequest(BaseModel):
+    """Раунд 10.37 (MCA-10a, ADR-1028-14 D8/T-4977): проверка подключения ANU.
+
+    ``key`` — черновой ключ из поля формы (только POST-body, не URL; пусто →
+    проверяется сохранённый). Ключ не эхо-ится и не логируется (R17)."""
+    key: str = Field(default="", max_length=512)
+
+
 class PersonaUpdate(BaseModel):
     """Раунд 10.14 (F2 persona-storage-core, spec §5): partial-правка персоны.
 
@@ -1653,7 +1661,14 @@ async def get_status(
         ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
     except Exception:
         ctx = None
-    return await status.build_snapshot(cache, ctx=ctx, chat_id=chat_id)
+    # MCA-10a (ADR-1028-14 D9): журнал draw блока «Источник случайности» —
+    # в рамках прав на чат (RBAC-проверка существующим `can_access_chat`;
+    # без доступа/контекста журнал не отдаётся, состояние источника — да).
+    chat_scope_allowed = bool(
+        chat_id is None or (ctx is not None
+                            and access_srv.can_access_chat(ctx, chat_id)))
+    return await status.build_snapshot(
+        cache, ctx=ctx, chat_id=chat_id, chat_scope_allowed=chat_scope_allowed)
 
 
 @api_router.get("/status/key-history")
@@ -1967,6 +1982,32 @@ async def post_images_test(
     from services.image_generation import probe
     result = await probe(prompt=payload.prompt)
     return result.as_dict()
+
+
+# ── Раунд 10.37 (MCA-10a, ADR-1028-14 D8/T-4977): POST /api/random/test ─────
+# «Проверить подключение» ANU: backend-only, draft-ключ в POST-body (не URL,
+# не эхо), RBAC существующих секретных прав (global admin ИЛИ право на
+# `key.keys.random_quantum_api_key`). Singleflight/rate-limit — в сервисе
+# (`RandomSourceService.test_connection`: общий результат на повторные клики +
+# min interval провайдера). Ответ: status/latency/дата/размер партии/
+# очищенная ошибка/key_present; проверочные числа зачисляются в запас.
+@api_router.post("/random/test")
+async def post_random_test(
+    request: Request,
+    payload: RandomTestRequest,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Проверка подключения квантового источника (ANU) по ключу из body."""
+    cache: ConfigCache = get_cache(request)
+    ctx = await _ctx_global_admin(cache, user)
+    if not (ctx.is_global_admin or can_view_key_value(
+            cache, user.id, "keys.random_quantum_api_key")):
+        raise HTTPException(status_code=403,
+                            detail="нет прав на управление ключом ANU")
+    from services import lore_runtime, mca_random_source
+    service = mca_random_source.get_service(lore_runtime.get_lore_db())
+    result = await service.test_connection(draft_key=payload.key or None)
+    return result
 
 
 # ── Раунд 10.14 (F2 persona-storage-core, spec §5): /api/persona ────────────

@@ -1,12 +1,12 @@
 # F8 — `param-registry-round1025` — провенанс `.meta.md`
 
-- **APP_VERSION:** `2.58.57`
-- **HEAD (short):** `04e615d`
+- **APP_VERSION:** `2.58.58`
+- **HEAD (short):** `c49ee02`
 - **Источник:** `services/param_catalog.py` (REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES) + `inventory.tsv` (10.14) для дельты.
-- **Счётчики каталога:** REGISTRY **489** / GROUPS **105** / `_TAB_BY_GROUP` **103** / TAB_RULES **21**.
-- **Реестр:** 489 строк == REGISTRY.
+- **Счётчики каталога:** REGISTRY **502** / GROUPS **107** / `_TAB_BY_GROUP` **105** / TAB_RULES **21**.
+- **Реестр:** 502 строк == REGISTRY.
 - **inventory.tsv (10.14):** 411 baseline-ключей.
-- **Дельта 411 → 489 = 78** новых ключей (`status=new`).
+- **Дельта 411 → 502 = 91** новых ключей (`status=new`).
 - **Команда генерации:** `python tools/gen_param_registry_round1025.py`
 - **Проверка (маркер):** `python tools/gen_param_registry_round1025.py --check`
 
@@ -22,7 +22,7 @@
 - `-` = поле неприменимо/отсутствует (документированное отсутствие).
 - `ui_visibility=api-only` — ключ существует (env/каталог), но UI-места нет → **не** считается сохранённым в UI.
 
-## Дельта 411 → 489 = 78 (ключи, отсутствовавшие в inventory.tsv)
+## Дельта 411 → 502 = 91 (ключи, отсутствовавшие в inventory.tsv)
 
 - `api_token`
 - `betterstack_host`
@@ -49,6 +49,15 @@
 - `keys.embedding_quota_group_labels`
 - `keys.image_api_key`
 - `keys.image_style_api_key`
+- `keys.random_quantum_api_key`
+- `keys.random_quantum_batch_length`
+- `keys.random_quantum_buffer_max_values`
+- `keys.random_quantum_data_type`
+- `keys.random_quantum_endpoint`
+- `keys.random_quantum_plan`
+- `keys.random_quantum_provider`
+- `keys.random_quantum_refill_low_watermark`
+- `keys.random_quantum_request_timeout_seconds`
 - `keys.summary_l1_api_key`
 - `keys.summary_l2_api_key`
 - `limits.anticliche_max_patterns`
@@ -67,6 +76,10 @@
 - `log_ring_max_entries`
 - `logtail_source_token`
 - `media_base`
+- `memory.random_exploration_probability`
+- `memory.random_fallback_to_pseudorandom`
+- `memory.random_sleep_exploration_probability`
+- `memory.random_source`
 - `models.chat_model_context_window`
 - `models.image_base_url`
 - `models.image_get_mode`
