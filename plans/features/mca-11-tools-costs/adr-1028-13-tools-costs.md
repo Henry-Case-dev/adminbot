@@ -1,6 +1,6 @@
 # ADR-1028-13 — mca-11-tools-costs: ToolResult, учёт расходов и денежные лимиты OFF
 
-**Статус:** Proposed (Step 2 @Architect, design-freeze, 05.10.2026; санкции T-4943/T-4944) → **Accepted по merge** (`plans/ARCHITECTURE.md` §117).
+**Статус:** **Accepted** (05.10.2026; merge `plans/ARCHITECTURE.md` §117 + прод-валидация 2.58.57 VERIFIED; ранее — Proposed, Step 2 @Architect, design-freeze, санкции T-4943/T-4944).
 **Фича:** `mca-11-tools-costs` (эпик `memory-context-autonomy`, Wave 2 — последний хвост; после неё Wave 3).
 **Номер проверен:** `ADR-1028-13` нигде не занят (grep по `plans/**`); последний фактический — ADR-1028-12 (mca-15, Accepted 05.10.2026).
 **Источник:** `plans/current_task.md:730–761` §15; приёмки A20/A21 `:901–902`, A28 `:909`; §20.2 `:1026`; план `mca-round1027-plan.md:119–121, :203 (R2), :235, :415 (Q14)`.
@@ -50,4 +50,5 @@ Supersede: нет (ни один ADR не отменяется).
 ## Прод-валидация и история статуса
 
 - 05.10.2026 — Proposed (Step 2 @Architect; design-freeze, санкции T-4943/T-4944; номер свободен).
-- (Ожидается) merge §117 + deploy 2.58.57 VERIFIED → **Accepted**; live-часть T-4961 — `PENDING OWNER` (no-false-acceptance).
+- 05.10.2026 — **Accepted**: merge §117 (reconcile @Architect) + deploy **2.58.57 VERIFIED** (feat `b88bfb1` / prod-HEAD `9f4989c` / deploy-doc `8ea8c1f`; рестарт 01:00:04 UTC PID 3774675, NRestarts=0, health 200; Δ DDL=0 — SQLite v26=26, v27 отсутствует, PG no-op; Δ каталога=0 — F8 `--check` OK 489; K1–K4 ON + K5 OFF, 0 env-оверрайдов; preflight 24/24 drift=0, тело WTH sha256 `4d3fe091…030407`).
+- Live-часть **T-4961** — `PENDING OWNER` (no-false-acceptance: реальный чат/платные вызовы); findings F-1…F-6 — non-blocking (review.md).

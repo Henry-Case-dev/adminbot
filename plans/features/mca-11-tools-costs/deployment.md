@@ -1,6 +1,6 @@
 # deployment.md — mca-11-tools-costs (prod 2.58.57)
 
-**Пакет:** `mca-11-tools-costs` (T-4960) — Risk R3 — **Статус: VERIFIED**
+**Пакет:** `mca-11-tools-costs` (T-4960) — Risk R2 — **Статус: VERIFIED**
 **Выполнен:** 05.10.2026 (UTC 01:00:04) — деплой @DevOps T-4960 (Reviewer `Approved` T-4959; санкция F-2: CA-11 bump DEFERRED_TO_RELEASE, исполнен в релизе). Не-блокирующие findings F-1…F-6 (review.md) — вне релиза.
 
 ## 1. Binding и preflight
