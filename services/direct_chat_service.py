@@ -99,6 +99,8 @@ from services import mca_events as _mca_events      # MCA-08 (notable-only)
 from services import mca_style_scope as _style_scope  # MCA-08 (D3–D5, C)
 from services import negative_constraints as _nc    # MCA-08 (D8, T-4907)
 from services import command_prefix  # ASAP-3: persona-name force-детект (F6)
+from services import mca_intents as _mca_intents  # MCA-09 (D3, T-5029)
+from services import telegram_send as _tg_send     # MCA-09 (T-5038: транспорт)
 from services.chat_params import (
     chat_summary_enabled,
     get_chat_param as _cp_g,  # G-3 per-chat
@@ -785,14 +787,20 @@ TRIGGER_MENTION = "mention"
 TRIGGER_PERSONA_NAME = "persona_name"
 TRIGGER_REPLY_TO_BOT = "reply_to_bot"
 TRIGGER_FREE_WILL = "free_will"
+# MCA-09 (T-5038): инициативный ответ (без входящего сообщения) — свой kind
+# mca-22 ledger `initiative_reply` (аддитивно; существующий механизм).
+TRIGGER_INITIATIVE = "initiative"
 
 
 def direct_output_kind(trigger_type: str | None) -> str:
     """MCA-22 (C2, T-4287; fix round-1 M-4): kind durable-ledger строки
     для direct-ответа. Автономный ответ (free_will) — СО СВОИМ kind
-    `autonomous_reply` (раньше все ветки писались `direct_reply`)."""
-    return ("autonomous_reply" if trigger_type == TRIGGER_FREE_WILL
-            else "direct_reply")
+    `autonomous_reply`; инициативный (MCA-09, T-5038) — `initiative_reply`."""
+    if trigger_type == TRIGGER_FREE_WILL:
+        return "autonomous_reply"
+    if trigger_type == TRIGGER_INITIATIVE:
+        return "initiative_reply"
+    return "direct_reply"
 
 
 def silent_ack_enabled() -> bool:
@@ -903,6 +911,125 @@ _MEMORY_TOOLS = frozenset(
     {"query_chat_memory", "dig_into_lore", "get_recent_history"})
 
 
+# ── MCA-09 (ADR-1028-16 D3, T-5029): аддитивный контракт Decision ──────────
+# Enum `action` НЕ расширяется ({reply,react,silent,tool}); `defer` — не
+# значение enum: отложенное = silent + серверное планирование
+# (`next_check_at`/статус намерения deferred). Wire-`action` не вводится.
+# R17: только ID/коды/enum/числа/refs — без сырого текста/секретов/CoT.
+
+#: закрытые ключи read-only метаданных mca-10a (второй draw не делается).
+_RANDOM_METADATA_KEYS = frozenset({
+    "policy_version", "requested_source", "actual_source", "draw_ids",
+    "probability", "fallback_reason", "deferred",
+})
+_RANDOM_METADATA_TEXT_KEYS = ("policy_version", "requested_source",
+                              "actual_source", "fallback_reason")
+_SAFE_REF_RE = re.compile(r"^[A-Za-z0-9_.:@\-]{1,64}$")
+
+# Закрытые наборы Decision-контракта — ЕДИНЫЙ источник истины в доме
+# Intent-контура (`services/mca_intents.py`, spec D1); здесь — алиасы дома
+# контракта (второго словаря нет; mca_intents не импортирует этот модуль
+# на верхнем уровне — цикла нет).
+CANDIDATE_SOURCES = _mca_intents.CANDIDATE_SOURCES
+COMMUNICATIVE_INTENTS = _mca_intents.COMMUNICATIVE_INTENTS
+RECHECK_CONDITIONS = _mca_intents.RECHECK_CONDITIONS
+
+
+def _safe_ref(value) -> str | None:
+    """R17-safe ref (ID/код): небезопасное → None."""
+    text = str(value or "").strip()
+    return text if text and _SAFE_REF_RE.match(text) else None
+
+
+def _sanitize_random_metadata(value) -> dict | None:
+    """Read-only копия метаданных mca-10a: незнакомые ключи отбрасываются.
+
+    Второй draw/второй процент здесь не выполняются — только нормализация."""
+    if not isinstance(value, dict) or not value:
+        return None
+    out: dict = {}
+    for key in _RANDOM_METADATA_TEXT_KEYS:
+        item = value.get(key)
+        if item is not None and str(item).strip():
+            out[key] = str(item)[:120]
+    draw_ids = value.get("draw_ids")
+    if isinstance(draw_ids, (list, tuple)):
+        clean = [str(d)[:64] for d in list(draw_ids)[:8] if str(d or "").strip()]
+        if clean:
+            out["draw_ids"] = clean
+    probability = value.get("probability")
+    if isinstance(probability, (int, float)) and not isinstance(probability,
+                                                               bool):
+        out["probability"] = min(1.0, max(0.0, float(probability)))
+    if "deferred" in value:
+        out["deferred"] = bool(value.get("deferred"))
+    return out or None
+
+
+@dataclass(frozen=True)
+class DecisionCandidate:
+    """Кандидат действия для единого Decision (ADR-1028-16 D3).
+
+    Структура семантики кандидата §14.10 принадлежит mca-09 (применения
+    14.6–14.11 — mca-10b); второй action-schema не вводится. R17-safe:
+    `prepared_text_ref` — ref, не текст; сырой текст не логируется.
+    Отклонённые кандидаты сохраняются с `admissible=False` (why-why-not)."""
+
+    candidate_id: str
+    action: str
+    reason_code: str
+    source: str
+    communicative_intent: str | None = None
+    source_refs: tuple[str, ...] = ()
+    prepared_text_ref: str | None = None
+    random_meta: dict | None = None
+    admissible: bool = True
+    # MCA-09: связь с намерением и порядок выбора (не wire-контракт).
+    intent_id: str | None = None
+    priority: int = 0
+    reason_codes: tuple[str, ...] = ()
+
+    @property
+    def id(self) -> str:
+        """Duck-typing mca-10a `_candidate_id` для журнала draw (R17-safe)."""
+        return self.candidate_id
+
+    def __post_init__(self) -> None:
+        # Fail-safe нормализация: незнакомое отбрасывается, не бросает.
+        if not str(self.candidate_id or "").strip():
+            object.__setattr__(
+                self, "candidate_id",
+                "candidate:" + hashlib.sha1(
+                    f"{self.action}:{self.source}".encode("utf-8")
+                ).hexdigest()[:16])
+        if self.action not in COORDINATOR_ACTIONS:
+            object.__setattr__(self, "action", ACTION_REPLY)
+        if self.reason_code not in REASON_CODES:
+            object.__setattr__(self, "reason_code", REASON_DEFAULT)
+        if self.source not in CANDIDATE_SOURCES:
+            object.__setattr__(self, "source", "intent")
+        if self.communicative_intent not in COMMUNICATIVE_INTENTS:
+            object.__setattr__(self, "communicative_intent", None)
+        # refs — только строки-токены (mca-04a-стиль); не-строки/мусор → долой.
+        object.__setattr__(self, "source_refs", tuple(
+            r for r in (_safe_ref(v) for v in (self.source_refs or ())
+                        if isinstance(v, str)) if r)[:16])
+        object.__setattr__(self, "prepared_text_ref",
+                           _safe_ref(self.prepared_text_ref))
+        object.__setattr__(self, "intent_id", _safe_ref(self.intent_id))
+        object.__setattr__(self, "random_meta",
+                           _sanitize_random_metadata(self.random_meta))
+        object.__setattr__(self, "reason_codes", tuple(
+            dict.fromkeys(c for c in (str(x) for x in
+                                      (self.reason_codes or ()))
+                          if c in _mca_events.REASON_CODES))[:16])
+        object.__setattr__(self, "admissible", bool(self.admissible))
+        try:
+            object.__setattr__(self, "priority", int(self.priority or 0))
+        except (TypeError, ValueError):
+            object.__setattr__(self, "priority", 0)
+
+
 @dataclass
 class CoordinatorDecision:
     """Внутренний объект решения Координатора (ADR-1026-14 D2).
@@ -926,6 +1053,19 @@ class CoordinatorDecision:
     reaction: str | None = None
     reason_code: str = REASON_DEFAULT
     needs_tools: bool = False
+    # MCA-09 (ADR-1028-16 D3, AM-1; все с default — A7-инварианты сохранены):
+    trigger_kind: str = ""
+    intent_id: str | None = None
+    reply_target: str | None = None
+    candidate_actions: tuple = ()
+    selected_candidate: str | None = None
+    reason_codes: tuple[str, ...] = ()
+    source_refs: tuple[str, ...] = ()
+    context_version: str | None = None
+    recheck_conditions: tuple[str, ...] = ()
+    next_check_at: int | None = None
+    random_metadata: dict | None = None
+    tool_outcome: str | None = None
 
     def __post_init__(self) -> None:
         # Инварианты 1/2 (ADR D1/§39): action ∈ {reply,react,silent,tool};
@@ -938,6 +1078,46 @@ class CoordinatorDecision:
             self.reaction = None
         if self.reason_code not in REASON_CODES:
             self.reason_code = REASON_DEFAULT
+        # MCA-09: нормализации аддитивных полей (незнакомое отбрасывается).
+        if self.trigger_kind not in _mca_intents.TRIGGER_KINDS:
+            self.trigger_kind = ""
+        candidates = tuple(c for c in (self.candidate_actions or ())
+                           if isinstance(c, DecisionCandidate))
+        try:
+            cap = max(1, int(mca_gates.intent_candidates_max()))
+        except Exception:      # pragma: no cover - защитная ветка
+            cap = 8
+        self.candidate_actions = candidates[:cap]
+        ids = {c.candidate_id for c in self.candidate_actions}
+        if self.selected_candidate not in ids:
+            self.selected_candidate = None
+        self.reason_codes = tuple(dict.fromkeys(
+            c for c in (str(x) for x in (self.reason_codes or ()))
+            if c in _mca_events.REASON_CODES))[:16]
+        self.recheck_conditions = tuple(dict.fromkeys(
+            c for c in (str(x) for x in (self.recheck_conditions or ()))
+            if c in RECHECK_CONDITIONS))
+        self.source_refs = tuple(
+            r for r in (_safe_ref(v) for v in (self.source_refs or ())
+                        if isinstance(v, str)) if r)[:16]
+        self.intent_id = _safe_ref(self.intent_id)
+        self.reply_target = _safe_ref(self.reply_target)
+        self.context_version = (str(self.context_version)[:120]
+                                if self.context_version else None)
+        if self.next_check_at is not None:
+            try:
+                self.next_check_at = max(0, int(self.next_check_at))
+            except (TypeError, ValueError):
+                self.next_check_at = None
+        self.random_metadata = _sanitize_random_metadata(self.random_metadata)
+        if self.tool_outcome not in _mca_tool_result_statuses():
+            self.tool_outcome = None
+
+
+def _mca_tool_result_statuses() -> frozenset:
+    """7 статусов ToolResult (mca-11) — reuse, второго словаря нет."""
+    from services.tool_result import STATUSES
+    return STATUSES
 
 
 def coordinator_enabled() -> bool:
@@ -6125,3 +6305,127 @@ class DirectChatService:
             if isinstance(value, str) and value.strip():
                 parts.append(value.strip())
         return " ".join(parts) if parts else None
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# MCA-09 (ADR-1028-16 D1/D6; T-5038): единый вход инициативы (без входящего
+# сообщения). Тот же CoordinatorDecision, тот же слой A7 (silent-семантика),
+# ЕДИНСТВЕННЫЙ транспорт services/telegram_send.py; второго send-path нет.
+# ═════════════════════════════════════════════════════════════════════════════
+
+async def handle_initiative(*, bot, chat_id: int, situation, candidates,
+                            prepared_text: str | None = None, db=None,
+                            correlation_id: str | None = None) -> dict:
+    """Аддитивный координатор-вход для решений БЕЗ входящего сообщения
+    (heartbeat / nostalgia / significant event / search completion).
+
+    Возвращает R17-safe статус (без сырого текста):
+      disabled / silent / candidate_ready / cancelled / sent / error.
+    Silent НИКОГДА не проходит Вербализатор и ничего не отправляет; отправка —
+    только через `telegram_send.send_text`; chunks — одна логическая отправка
+    (проверка перед отправкой один раз, T-5036)."""
+    try:
+        if not (mca_gates.intents_enabled()
+                and mca_gates.intent_decision_enabled()):
+            return {"status": "disabled", "delivery_kind": ""}
+        decision_candidates = tuple(
+            c.to_decision_candidate() for c in (candidates or ())
+            if hasattr(c, "to_decision_candidate"))
+        decision = _mca_intents.decide_initiative(
+            situation=situation, candidates=decision_candidates)
+        kind = _mca_intents.initiative_delivery_kind(decision)
+        if kind == _mca_intents.DELIVERY_SILENT:
+            _mca_intents.note_decision(decision, chat_id=chat_id,
+                                       outcome="silent")
+            return {"status": "silent", "delivery_kind": kind,
+                    "decision": decision}
+        if kind != _mca_intents.DELIVERY_TEXT or not prepared_text:
+            # Кандидат отдан координатору; генерации текста в этом срезе нет —
+            # честный статус, отправки НЕ происходит (не выдаём за отправку).
+            # Reviewer F-2: серверное планирование обязательно — иначе intent
+            # с прошедшим next_check_at переизбирается каждые 300 с вечно.
+            # Bounded defer с backoff (spec D2/D3/D10); фактических попыток
+            # нет (attempts НЕ растут — это не отправка), MAX_ATTEMPTS и
+            # гигиена (expire/archive) уважаются жизненным циклом.
+            if decision.intent_id and db is not None:
+                try:
+                    service = _mca_intents.get_service(db)
+                    row = await service.store.get_intent(decision.intent_id)
+                    if row is not None and str(row.get("status") or "") in (
+                            "pending", "deferred"):
+                        now_ts = _mca_intents._now()
+                        backoff = max(60, int(
+                            mca_gates.intent_defer_backoff_seconds()))
+                        deferred = await service.defer(
+                            decision.intent_id,
+                            next_check_at=now_ts + backoff,
+                            activation_condition=row.get(
+                                "activation_condition"),
+                            now=now_ts)
+                        if deferred is not None:
+                            decision.next_check_at = now_ts + backoff
+                except Exception:
+                    logger.warning("[mca09] candidate planning failed",
+                                   exc_info=True)
+            _mca_intents.note_decision(decision, chat_id=chat_id,
+                                       outcome="candidate_ready")
+            return {"status": "candidate_ready", "delivery_kind": kind,
+                    "next_check_at": decision.next_check_at,
+                    "decision": decision}
+        # Проверка перед отправкой (D4/T-5035) + chunks одной отправки.
+        intent_row = None
+        if decision.intent_id and db is not None:
+            try:
+                intent_row = await _mca_intents.get_service(
+                    db).store.get_intent(decision.intent_id)
+            except Exception:
+                intent_row = None
+        plan = _mca_intents.plan_logical_send(
+            decision, recheck=_mca_intents.SendRecheck(),
+            context=_mca_intents.RecheckContext(intent_row=intent_row),
+            text=prepared_text)
+        if not plan.outcome.proceed:
+            _mca_intents.note_decision(decision, chat_id=chat_id,
+                                       outcome="cancelled")
+            logger.info("[mca09] initiative cancelled | chat=%s | reason=%s",
+                        chat_id, plan.outcome.reason_code or "-")
+            return {"status": "cancelled",
+                    "reason_code": plan.outcome.reason_code,
+                    "delivery_kind": kind, "decision": decision}
+        sent_id = None
+        sent = 0
+        for chunk in plan.chunks:
+            message = await _tg_send.send_text(bot, chat_id, chunk)
+            sent += 1
+            if sent_id is None:
+                sent_id = getattr(message, "message_id", None)
+        if decision.intent_id and db is not None:
+            try:
+                await _mca_intents.get_service(db).mark_attempt(
+                    decision.intent_id)
+            except Exception:
+                logger.warning("[mca09] initiative attempt mark failed",
+                               exc_info=True)
+        if db is not None and sent_id is not None:
+            try:
+                await _ledger.record_delivered_output(
+                    db, chat_id=chat_id, tg_message_id=sent_id,
+                    text=str(prepared_text),
+                    bot_user_id=getattr(bot, "id", None),
+                    output_kind=direct_output_kind(TRIGGER_INITIATIVE),
+                    sent_at=int(time.time()), correlation_id=correlation_id,
+                    source_feature="mca09_intents")
+            except Exception:
+                logger.warning("[mca09] initiative ledger failed",
+                               exc_info=True)
+        _mca_intents.note_decision(decision, chat_id=chat_id, outcome="ok")
+        logger.info(
+            "[mca09] initiative sent | chat=%s | kind=%s | chunks=%d | "
+            "trigger=%s", chat_id, kind, sent,
+            getattr(decision, "trigger_kind", "") or "-")
+        return {"status": "sent", "chunks": sent, "delivery_kind": kind,
+                "decision": decision}
+    except Exception:
+        logger.warning("[mca09] initiative handling failed — no send",
+                       exc_info=True)
+        return {"status": "error", "delivery_kind": ""}

@@ -939,6 +939,47 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
              "mca-17c (UI не здесь); K1 OFF → событий/стадий нет (честный "
              "disabled/not_run); R17-safe (ID/коды/числа)",
     ),
+    # ── mca-09: намерения и инициатива (ADR-1028-16 D9) ─────────────────────
+    # Плейсхолдер `context.compress` v0 (owner mca-09) — НЕ этот процесс и не
+    # амendится (устаревшая метка; инцидентал-наблюдение для reconcile).
+    ProcessDefinition(
+        process_id="intent.initiative", version="1",
+        purpose="Намерения и инициатива: триггер → кандидат → решение → "
+                "проверка → доставка/отсрочка/закрытие",
+        inputs=("new message/direct address", "significant event",
+                "intent condition (heartbeat 300s)", "search completion",
+                "nostalgia candidate"),
+        outputs=("mca_intents", "initiative decision (CoordinatorDecision)",
+                 "telegram send (single transport)"),
+        stages=("trigger", "candidate", "decide", "recheck", "deliver",
+                "close"),
+        trigger_kind="event",
+        schedule="heartbeat 300s + события",
+        settings_ref=("MCA_INTENTS_ENABLED", "MCA_INTENT_HEARTBEAT_ENABLED",
+                      "MCA_INTENT_DECISION_ENABLED", "MCA_SEND_RECHECK_ENABLED",
+                      "MCA_INTENT_HEARTBEAT_BATCH_MAX",
+                      "MCA_INTENT_MAX_ATTEMPTS", "MCA_INTENT_CANDIDATES_MAX",
+                      "MCA_INTENT_RETENTION_DAYS",
+                      "MCA_INTENT_DEFER_BACKOFF_SECONDS"),
+        state_source=("mca_intents", "mca_events", "task_jobs"),
+        recovery_ops=("intent_rescan", "deferred_resume"),
+        widget_id="Намерения и инициатива",
+        stages_to_events={"trigger": "intent_created",
+                          "decide": "initiative_decided",
+                          "recheck": "recheck_deferred",
+                          "close": "intent_fulfilled"},
+        instrumentation=("trigger", "decide", "recheck", "close"),
+        owner_feature="mca-09",
+        enabled_gate="MCA_INTENTS_ENABLED",
+        event_names=("intent_created", "intent_merged", "intent_fulfilled",
+                     "intent_abandoned", "intent_archived",
+                     "initiative_decided", "recheck_deferred"),
+        note="mca-09 (ADR-1028-16 D9): notable-only через единый "
+             "emit_mca_event; widget-ID «Намерения и инициатива» — контракт "
+             "mca-12/mca-17c (рендер не здесь); K1 OFF → disabled/not_run; "
+             "R17-safe (ID/коды/enum/числа/refs); per-intent task_jobs НЕ "
+             "создаются (due-скан по durable-состоянию)",
+    ),
     ProcessDefinition(
         process_id="self_model.update", version="0",
         purpose="SelfModel/TraitObservation/BehaviorRule/BehaviorFrame",
@@ -1004,6 +1045,8 @@ _GATE_RESOLVERS = {
     "MCA_RANDOM_SOURCE_ENABLED": "random_source_enabled",
     # mca-16 (ADR-1028-15 D10): master-гейт процесса self_learning.run v1.
     "MCA_EXPERIENCE_LESSONS_ENABLED": "experience_lessons_enabled",
+    # mca-09 (ADR-1028-16 D9): master-гейт процесса intent.initiative v1.
+    "MCA_INTENTS_ENABLED": "intents_enabled",
     # product-гейты из `config.settings` (не mca_gates) — резолв через settings.
 }
 

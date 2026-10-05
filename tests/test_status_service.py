@@ -169,9 +169,10 @@ class TestSnapshot:
         # MCA-10a (ADR-1028-14 D9): аддитивное поле `random` (читающий блок
         # «Источник случайности») — существующие секции не меняются.
         # MCA-16 (ADR-1028-15 D9): аддитивное поле `experience` (лента «Опыт»).
+        # MCA-09 (ADR-1028-16 D9/T-5040): аддитивное поле `intents` (§16.3).
         assert set(snapshot) == {"bot", "server", "llm", "uptime", "permsoc",
                                  "context", "llm_stats", "random",
-                                 "experience"}
+                                 "experience", "intents"}
         bot = snapshot["bot"]
         assert bot["state"] == "polling"
         assert bot["mode"] == "polling"

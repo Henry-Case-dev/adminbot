@@ -612,7 +612,8 @@ async def on_startup():
         # ── Memory maintenance (Epic 60, Section 66.2/66.11, T-480/T-489) ──
         # Слияние эпизодов + периодический пересмотр фактов (MemoryJobStore).
         global _memory_maintenance_service
-        _memory_maintenance_service = MemoryMaintenanceService(db, memory, _llm_client)
+        _memory_maintenance_service = MemoryMaintenanceService(
+            db, memory, _llm_client, bot=bot)
         _memory_maintenance_service.start()
         logger.info("MemoryMaintenance (Epic 60, Фаза D) initialized")
     else:

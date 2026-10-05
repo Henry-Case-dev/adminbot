@@ -45,12 +45,28 @@ _REVIEW_GLUE_SIM = 0.95        # 66.11: vec-кластеры ≥0.95 → скл�
 # MCA-16 (T-5003): тик review опыта (сек); код-константа (Δ каталога = 0).
 _EXPERIENCE_REVIEW_TICK_SECONDS = 900
 
+# MCA-09 (T-5026, ADR-1028-16 D5/D10): лёгкий heartbeat due-намерений (сек);
+# код-константа (Δ каталога = 0). Тик только ищет due-намерения и порождает
+# кандидатов — БЕЗ LLM и без чтения большого окна сообщений.
+_INTENT_HEARTBEAT_TICK_SECONDS = 300
+
 
 def _experience_review_tick_enabled() -> bool:
     """K1+K3+UI-настройка review опыта (fail-closed, никогда не бросает)."""
     try:
         from services import mca_experience_jobs as jobs
         return bool(jobs.review_enabled())
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
+def _intent_heartbeat_tick_enabled() -> bool:
+    """K1+K2 Intent-heartbeat (fail-closed, никогда не бросает).
+
+    OFF (K1/K2) → джоб не регистрируется: бит-в-бит 2.58.59."""
+    try:
+        from services import mca_gates
+        return bool(mca_gates.intent_heartbeat_enabled())
     except Exception:      # pragma: no cover - защитная ветка
         return False
 
@@ -64,11 +80,19 @@ class MemoryMaintenanceService:
     # MCA-16 (T-5003/D7): тик пакетного review опыта — отдельный тип job в
     # СУЩЕСТВУЮЩЕЙ очереди; тик лишь проверяет каденцию (hot, без рестарта).
     JOB_EXPERIENCE_REVIEW_ID = "experience_review_tick"
+    # MCA-09 (T-5026/D1): лёгкий heartbeat due-намерений — тот же существующий
+    # планировщик (второй очереди/планировщика нет; per-intent task_jobs не
+    # создаются — durable-состояние в `mca_intents`, догон следующим сканом).
+    JOB_INTENT_HEARTBEAT_ID = "intent_heartbeat_tick"
 
-    def __init__(self, db, memory, llm) -> None:
+    def __init__(self, db, memory, llm, bot=None) -> None:
         self.db = db
         self.memory = memory
         self.llm = llm
+        # MCA-09 (T-5026/T-5038): bot — только для передачи due-кандидатов в
+        # единый вход инициативы (тот же транспорт); None → кандидаты честно
+        # логируются без отправки.
+        self.bot = bot
         self._scheduler = AsyncIOScheduler(timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE))
 
     def start(self) -> None:
@@ -111,9 +135,22 @@ class MemoryMaintenanceService:
                                      settings.SUMMARY_TIMEZONE)),
                 id=self.JOB_EXPERIENCE_REVIEW_ID, replace_existing=True,
                 max_instances=1, coalesce=True)
+        # MCA-09 (T-5026, ADR-1028-16 D5): лёгкий heartbeat due-намерений —
+        # тот же планировщик; OFF (K1/K2) → джоб не регистрируется
+        # (бит-в-бит 2.58.59).
+        if _intent_heartbeat_tick_enabled():
+            self._scheduler.add_job(
+                self._tick_intent_heartbeat,
+                IntervalTrigger(
+                    seconds=_INTENT_HEARTBEAT_TICK_SECONDS,
+                    timezone=hot.get("limits.summary_timezone",
+                                     settings.SUMMARY_TIMEZONE)),
+                id=self.JOB_INTENT_HEARTBEAT_ID, replace_existing=True,
+                max_instances=1, coalesce=True)
         if (hot.get("flags.graph_episode_merge_enabled", settings.GRAPH_EPISODE_MERGE_ENABLED) or hot.get("flags.graph_review_enabled", settings.GRAPH_REVIEW_ENABLED)
                 or hot.get("flags.db_wal_checkpoint_enabled", settings.DB_WAL_CHECKPOINT_ENABLED)
-                or _experience_review_tick_enabled()):
+                or _experience_review_tick_enabled()
+                or _intent_heartbeat_tick_enabled()):
             self._scheduler.start()
             logger.info(
                 "MemoryMaintenance started (merge=%s/%dd, review=%s/%dd, wal=%s/%dh)",
@@ -172,6 +209,47 @@ class MemoryMaintenanceService:
                             status)
         except Exception:
             logger.warning("[mca16] experience review tick failed",
+                           exc_info=True)
+
+    async def _tick_intent_heartbeat(self) -> None:
+        """MCA-09 (T-5026): лёгкий heartbeat due-намерений.
+
+        Без LLM и без чтения окна сообщений: due-скан SQL по `mca_intents`
+        (bounded; `mca_intents.heartbeat_tick`). Кандидаты передаются
+        потребителю (единый координатор — блок отправки); при отсутствии
+        потребителя тик честно логирует число due-кандидатов (не отправляет
+        сам). Гигиена (expire/archive/prune) — отдельные методы сервиса; их
+        вызов из тика — открытый вопрос блока B/E (finding F-4 evidence.md).
+        Ошибка не рвёт планировщик; OFF → `disabled`."""
+        try:
+            from services import mca_gates
+            from services import mca_intents
+            stats = await mca_intents.get_service(self.db).heartbeat_tick()
+            due = list(stats.get("due") or [])
+            if stats.get("enabled") and (due or stats.get("expired")
+                                         or stats.get("archived")):
+                logger.info(
+                    "[mca09] intent heartbeat | due=%d expired=%d "
+                    "archived=%d", len(due), stats.get("expired", 0),
+                    stats.get("archived", 0))
+            # Кандидаты — в ЕДИНЫЙ вход инициативы (тот же Decision/транспорт);
+            # без bot кандидаты не отправляются (честный лог, не выдаём за sent).
+            if due and self.bot is not None and \
+                    mca_gates.intent_decision_enabled():
+                from services.direct_chat_service import handle_initiative
+                for candidate in due:
+                    situation = mca_intents.InitiativeSituation(
+                        trigger_kind=candidate.trigger_kind,
+                        chat_id=candidate.chat_id)
+                    result = await handle_initiative(
+                        bot=self.bot, chat_id=candidate.chat_id,
+                        situation=situation, candidates=[candidate],
+                        db=self.db)
+                    logger.info(
+                        "[mca09] initiative candidate | chat=%s | status=%s",
+                        candidate.chat_id, result.get("status"))
+        except Exception:
+            logger.warning("[mca09] intent heartbeat tick failed",
                            exc_info=True)
 
     # ── 66.2 (T-480): слияние повторяющихся эпизодов ──────────────

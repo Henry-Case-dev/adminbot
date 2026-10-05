@@ -18,6 +18,7 @@ import pytest
 from services import mca_events, mca_gates
 from services import mca_experience as me
 from services.database import (DatabaseService, _SCHEMA_VERSION_EXPERIENCE,
+                               _SCHEMA_VERSION_INTENTS,
                                _SCHEMA_VERSION_RANDOM_SOURCE)
 from services.mca_retrieval_context import (BUNDLE_SCHEMA_VERSION,
                                             EvidenceBundle, LessonRef)
@@ -78,10 +79,13 @@ async def _set_counters(db, lesson_id, version, *, success=0, failure=0,
 
 @pytest.mark.asyncio
 async def test_v28_fresh_schema_book_and_idempotent_reinit(tmp_path):
+    # Хвост реестра подвинут mca-09 (v29, ADR-1028-16 D8): свежая БД идёт до
+    # последнего шага (прецедент v27→v28 — конвенция волн).
     db = await _db(tmp_path)
     try:
         cur = await db.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == _SCHEMA_VERSION_EXPERIENCE == 28
+        assert (await cur.fetchone())[0] == _SCHEMA_VERSION_INTENTS == 29
+        assert _SCHEMA_VERSION_EXPERIENCE == 28
         for table in ("mca_experience_episodes", "mca_experience_feedback",
                       "mca_lessons", "mca_lesson_applications"):
             cur = await db.db.execute(
@@ -124,7 +128,8 @@ async def test_v28_upgrade_from_v27_simulated(tmp_path):
     await db2.initialize()
     try:
         cur = await db2.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 28
+        # v27→v28→v29 (mca-09 v29 применён тем же прогоном).
+        assert (await cur.fetchone())[0] == _SCHEMA_VERSION_INTENTS == 29
         cur = await db2.db.execute(
             "SELECT COUNT(*) AS c FROM sqlite_master WHERE type='table' "
             "AND name='mca_lessons'")

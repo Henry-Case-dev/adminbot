@@ -609,6 +609,78 @@ class StatusService:
                     "counters": empty["counters"],
                     "improvement": empty["improvement"]}
 
+    # ── «Намерения и инициатива» (MCA-09, ADR-1028-16 D9/T-5040) ───────────
+
+    #: Витрина: top активных намерений (компактно; полное раскрытие — журнал).
+    _INTENT_TOP_LIMIT = 5
+
+    async def intent_snapshot(self, *, chat_id: int | None = None,
+                              chat_scope_allowed: bool = True) -> dict:
+        """Read-only снимок §16.3 для «Статуса» (контракт mca-12; рендер не
+        здесь): активные намерения (число + top: kind/goal/status/
+        next_check_at/priority), последнее инициативное действие/пропуск +
+        краткая причина. НИКАКИХ LLM/внешних вызовов; данные — из
+        `mca_intents` + `mca_events`; K1 OFF → honest `disabled/not_run`;
+        RBAC/чат-скоуп: без разрешённого чата данные не раскрываются."""
+        empty = {"enabled": True, "state": "not_run", "active": 0, "top": [],
+                 "last_action": None}
+        try:
+            from services import mca_gates
+            enabled = bool(mca_gates.intents_enabled())
+        except Exception:
+            enabled = True
+        if not enabled:
+            return {"enabled": False, "state": "disabled", "active": 0,
+                    "top": [], "last_action": None}
+        if chat_id is None or not chat_scope_allowed:
+            return dict(empty, state="restricted")
+        try:
+            from services import lore_runtime
+            from services import mca_intents as mi
+            db = lore_runtime.get_lore_db()
+            if db is None:
+                return empty
+            svc = mi.get_service(db)
+            rows = await svc.store.list_active(int(chat_id),
+                                               limit=self._INTENT_TOP_LIMIT)
+            count = await svc.store.count_active(int(chat_id))
+            top = [{
+                "intent_id": str(r.get("intent_id") or ""),
+                "kind": str(r.get("kind") or ""),
+                "goal": str(r.get("goal") or ""),
+                "status": str(r.get("status") or ""),
+                "next_check_at": r.get("next_check_at"),
+                "priority": int(r.get("priority") or 0),
+            } for r in rows]
+            last = None
+            try:
+                cursor = await db.db.execute(
+                    "SELECT ts, event_name, outcome, reason_code, stage, "
+                    "status FROM mca_events WHERE chat_id = ? AND event_name "
+                    "IN ('initiative_decided','intent_created','intent_merged',"
+                    "'intent_fulfilled','intent_abandoned','intent_archived',"
+                    "'recheck_deferred') ORDER BY ts DESC LIMIT 1",
+                    (int(chat_id),))
+                row = await cursor.fetchone()
+                if row is not None:
+                    last = {
+                        "ts": row["ts"], "event": row["event_name"],
+                        "outcome": row["outcome"],
+                        "reason_code": row["reason_code"],
+                        "trigger_kind": row["stage"],
+                        "action": row["status"],
+                    }
+            except Exception:
+                last = None
+            state = "ok" if (count or last) else "not_run"
+            return {"enabled": True, "state": state, "active": count,
+                    "top": top, "last_action": last}
+        except Exception:
+            logger.warning("[status] intent snapshot failed — fail-open",
+                           exc_info=True)
+            return {"enabled": True, "state": "unavailable", "active": 0,
+                    "top": [], "last_action": None}
+
     # ── psutil-метрики сервера ─────────────────────────────────────────────
     @staticmethod
     def _server_metrics() -> dict:
@@ -839,6 +911,12 @@ class StatusService:
             # «Опыт» — реальные уроки/применения, БЕЗ внешних вызовов;
             # unknown-исходы не выдаются за улучшение (A57). K1 OFF → disabled.
             "experience": await self.experience_snapshot(
+                chat_id=chat_id, chat_scope_allowed=chat_scope_allowed),
+            # Раунд 10.40 (MCA-09, ADR-1028-16 D9/T-5040): читающий блок
+            # «Намерения и инициатива» §16.3 (контракт mca-12; рендер не
+            # здесь): активные намерения + последнее действие/пропуск.
+            # K1 OFF → disabled/not_run; RBAC/чат-скоуп уважается.
+            "intents": await self.intent_snapshot(
                 chat_id=chat_id, chat_scope_allowed=chat_scope_allowed),
             "uptime": {
                 "buckets": buckets,

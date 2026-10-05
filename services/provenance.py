@@ -41,7 +41,7 @@ EXTRACTOR_VERSION = "mca-04a/v1"
 STORES = frozenset({"sqlite", "postgres", "telegram", "external", "legacy"})
 ENTITY_TYPES = frozenset({
     "message", "graph_fact", "belief", "paradigm", "episode", "story",
-    "dossier", "user", "media_asset", "lesson", "unknown",
+    "dossier", "user", "media_asset", "lesson", "intent", "unknown",
 })
 LINK_TYPES = frozenset({
     "derived_from", "supports", "contradicts", "mentions", "supersedes",

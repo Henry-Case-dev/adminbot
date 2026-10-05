@@ -258,6 +258,14 @@ REASON_CODES = frozenset({
     "experience_recorded", "lesson_proposed", "validation_passed",
     "activated", "retrieved", "applied", "feedback_linked",
     "utility_updated", "suspended", "superseded",
+    # расширение mca-09 (ADR-1028-16 D9; санкция §11.4 — ровно +6 в единый
+    # словарь): notable-события Intent/инициативы. `stale_context`/
+    # `already_answered`/`intent_closed`/`intent_not_due`/`intent_expired`/
+    # `wrong_moment`/`no_new_contribution`/`insufficient_evidence`/
+    # `random_fallback`/`delivery_unknown`/`direct_update_dedup_hit` —
+    # существующие, переиспользуются; второй словарь запрещён.
+    "intent_created", "intent_merged", "intent_fulfilled", "intent_abandoned",
+    "intent_archived", "recheck_deferred",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────

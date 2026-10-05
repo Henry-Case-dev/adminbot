@@ -86,6 +86,18 @@ def _now_ts() -> int:
     return int(time.time())
 
 
+def _intent_delegation_enabled() -> bool:
+    """MCA-09 (T-5038): K1+K3 ON → кандидат делегируется единому Decision/
+    транспорту; OFF → legacy direct-send бит-в-бит 2.58.59 (никогда не
+    бросает)."""
+    try:
+        from services import mca_gates
+        return bool(mca_gates.intents_enabled()
+                    and mca_gates.intent_decision_enabled())
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
 def _day_start_ts(now_ts: int, tz_name: str | None = None) -> int:
     """Начало local-суток (полночь в timezone ностальгии) — дневной лимит
     §3.5.3 п.5 (edge 20: окна/сутки — local summary_timezone)."""
@@ -461,6 +473,41 @@ class NostalgiaWorker:
             return
         meta = {"reason": "sent", "candidate": candidate["kind"],
                 "candidate_text": candidate["text"]}
+        # MCA-09 (T-5038, ADR-1028-16 D6): K1+K3 ON → готовый кандидат
+        # делегируется в ЕДИНЫЙ Decision/транспорт (source=nostalgia,
+        # trigger_kind=nostalgia_due, prepared_text_ref); решение может
+        # завершиться silent — честный статус в nostalgia_log (без ложного
+        # sent). K1/K3 OFF → legacy direct-send бит-в-бит 2.58.59.
+        if _intent_delegation_enabled():
+            delegated = await self._delegate_initiative(chat_id, text,
+                                                        candidate)
+            status = str(delegated.get("status") or "error")
+            if status == "sent":
+                await self._log(chat_id, now, candidate["kind"],
+                                candidate.get("fact_id"), _STATUS_SENT,
+                                {**meta, "path": "initiative"})
+                out["sent"] += 1
+            elif status == "error":
+                # сбой единственного транспорта — честный error (не skip)
+                await self._log(
+                    chat_id, now, candidate["kind"],
+                    candidate.get("fact_id"), _STATUS_ERROR,
+                    {"reason": "bot_api", "path": "initiative",
+                     "candidate": candidate["kind"],
+                     "candidate_text": candidate["text"]})
+                out["errors"] += 1
+            else:
+                await self._log(
+                    chat_id, now, candidate["kind"],
+                    candidate.get("fact_id"), _STATUS_SKIPPED,
+                    {"reason": f"initiative_{status}",
+                     "candidate": candidate["kind"],
+                     "candidate_text": candidate["text"]})
+                out["skipped"] += 1
+                logger.info(
+                    "[nostalgia] initiative path | chat=%s | status=%s",
+                    chat_id, status)
+            return
         try:
             if self.bot is None:
                 raise RuntimeError("nostalgia: bot instance missing (Q13)")
@@ -482,6 +529,35 @@ class NostalgiaWorker:
         logger.info(
             "[nostalgia] sent | chat=%s | kind=%s | chars=%d",
             chat_id, candidate["kind"], len(text))
+
+    async def _delegate_initiative(self, chat_id: int, text: str,
+                                   candidate: dict) -> dict:
+        """T-5038: кандидат nostalgia → единый вход инициативы (тот же
+        Decision/транспорт; второго контура/пути отправки нет).
+
+        Ошибка делегирования → честный `error` (без legacy-фолбэка, чтобы не
+        создать второй send-path и не задвоить отправку)."""
+        try:
+            from services import mca_intents as _mi
+            from services.direct_chat_service import handle_initiative
+            ref = "nostalgia:%s" % (candidate.get("fact_id")
+                                    or candidate.get("kind") or "none")
+            cand = _mi.candidate_from_trigger(
+                trigger_kind="nostalgia_due", chat_id=chat_id,
+                source="nostalgia", prepared_text_ref=ref,
+                reason_code="default")
+            if cand is None:
+                return {"status": "disabled"}
+            situation = _mi.InitiativeSituation(
+                trigger_kind="nostalgia_due", chat_id=chat_id)
+            return await handle_initiative(
+                bot=self.bot, chat_id=chat_id, situation=situation,
+                candidates=[cand], prepared_text=text, db=self.db)
+        except Exception:
+            logger.warning("[nostalgia] initiative delegation failed",
+                           exc_info=True)
+            return {"status": "error"}
+
 
     @staticmethod
     async def _nostalgia_budget_ok(chat_id: int, text: str) -> bool:

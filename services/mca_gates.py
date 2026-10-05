@@ -362,6 +362,27 @@ KILL_SWITCHES: dict[str, tuple[bool, str]] = {
         "OFF → уроки не отбираются/не включаются/не применяются "
         "(bundle/context_version = 2.58.58); сбор опыта может продолжаться",
     ),
+    # ── mca-09 (ADR-1028-16 D10): K1–K4 Intent/инициативы (env-only, ON) ────
+    "MCA_INTENTS_ENABLED": (
+        True,
+        "OFF → бит-в-бит 2.58.59: v29 не читается/не пишется, heartbeat-джоб "
+        "не регистрируется, кандидатов/событий нет, nostalgia legacy",
+    ),
+    "MCA_INTENT_HEARTBEAT_ENABLED": (
+        True,
+        "OFF → due-тик не работает; создание/закрытие намерений возможно, "
+        "due-кандидатов нет",
+    ),
+    "MCA_INTENT_DECISION_ENABLED": (
+        True,
+        "OFF → инициативные решения/делегирование nostalgia не выполняются "
+        "(nostalgia legacy); recheck-путь инертен",
+    ),
+    "MCA_SEND_RECHECK_ENABLED": (
+        True,
+        "OFF → новый recheck-слой не выполняется (документированное "
+        "подмножество: существующие гейты остаются)",
+    ),
 }
 
 
@@ -1121,6 +1142,75 @@ def experience_bootstrap_enabled() -> bool:
     ON → bounded bootstrap-часть review-job создаёт только candidate
     historical/unverified (без mass-backfill успеха)."""
     return bool(getattr(settings, "MCA_EXPERIENCE_BOOTSTRAP_ENABLED", True))
+
+
+# ── mca-09 (ADR-1028-16 D10): K1–K4 Intent/инициативы + env-only лимиты ────
+def intents_enabled() -> bool:
+    """`MCA_INTENTS_ENABLED` (master, env-only, default ON; K1).
+
+    ON → Intent-контур активен (v29, heartbeat, кандидаты, события).
+    OFF → бит-в-бит 2.58.59: ни записей, ни чтений v29, ни heartbeat-джоба,
+    ни кандидатов/событий; nostalgia — legacy direct-send."""
+    return bool(getattr(settings, "MCA_INTENTS_ENABLED", True))
+
+
+def intent_heartbeat_enabled() -> bool:
+    """`MCA_INTENT_HEARTBEAT_ENABLED` (env-only, default ON; K2).
+
+    Инертен при K1 OFF. ON → due-скан/тик работает. OFF → тик не работает
+    (создание/закрытие намерений возможно, due-кандидатов нет)."""
+    if not intents_enabled():
+        return False
+    return bool(getattr(settings, "MCA_INTENT_HEARTBEAT_ENABLED", True))
+
+
+def intent_decision_enabled() -> bool:
+    """`MCA_INTENT_DECISION_ENABLED` (env-only, default ON; K3).
+
+    Инертен при K1 OFF. ON → инициативные решения/делегирование nostalgia
+    выполняются. OFF → инициативные решения не выполняются (nostalgia
+    legacy), recheck-путь инертен."""
+    if not intents_enabled():
+        return False
+    return bool(getattr(settings, "MCA_INTENT_DECISION_ENABLED", True))
+
+
+def send_recheck_enabled() -> bool:
+    """`MCA_SEND_RECHECK_ENABLED` (env-only, default ON; K4).
+
+    Инертен при K1 OFF. ON → единый `SendRecheck` выполняется на границе
+    отправки инициативных/отложенных решений. OFF → новый recheck-слой не
+    выполняется (документированное подмножество: существующие гейты)."""
+    if not intents_enabled():
+        return False
+    return bool(getattr(settings, "MCA_SEND_RECHECK_ENABLED", True))
+
+
+def intent_heartbeat_batch_max() -> int:
+    """`MCA_INTENT_HEARTBEAT_BATCH_MAX` (env-only, default 20; ≥1)."""
+    return _int_setting_min("MCA_INTENT_HEARTBEAT_BATCH_MAX", 20, 1)
+
+
+def intent_max_attempts() -> int:
+    """`MCA_INTENT_MAX_ATTEMPTS` (env-only, default 3; ≥1)."""
+    return _int_setting_min("MCA_INTENT_MAX_ATTEMPTS", 3, 1)
+
+
+def intent_candidates_max() -> int:
+    """`MCA_INTENT_CANDIDATES_MAX` (env-only, default 8; ≥1)."""
+    return _int_setting_min("MCA_INTENT_CANDIDATES_MAX", 8, 1)
+
+
+def intent_retention_days() -> int:
+    """`MCA_INTENT_RETENTION_DAYS` (env-only, default 180; ≥1)."""
+    return _int_setting_min("MCA_INTENT_RETENTION_DAYS", 180, 1)
+
+
+def intent_defer_backoff_seconds() -> int:
+    """`MCA_INTENT_DEFER_BACKOFF_SECONDS` (env-only, default 1800; ≥60).
+
+    Bounded backoff «не тот момент» — не nag-таймер обязательной речи."""
+    return _int_setting_min("MCA_INTENT_DEFER_BACKOFF_SECONDS", 1800, 60)
 
 
 def random_circuit_fails() -> int:

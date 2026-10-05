@@ -914,7 +914,12 @@ def test_write_points_go_through_single_writer():
         # `_migrate_experience_v28`, L-MCA14-3; раннер до старта писателей;
         # runtime episodes/feedback/lessons/applications идут через
         # `write_transaction` — см. `services/mca_experience.py`)
-        "database.py": 168,
+        # +3 v29 mca-09 (ADR-1028-16 D8/санкция §11.1, intents-инициатива:
+        # CREATE TABLE `mca_intents` + 4×CREATE INDEX (UNIQUE `dedup_key`)
+        # + PRAGMA в `_migrate_intents_v29` (T-5020), L-MCA14-3; раннер до
+        # старта писателей; runtime intents идут через `write_transaction` —
+        # см. `services/mca_intents.py`)
+        "database.py": 171,
         "dossier_rebuild_jobs.py": 1,   # внутри `async with db.serialized()`
         # ASAP-3.2 (ADR-1028-5 D1/D2, T-4191): shadow-rebuild — 3 прямых
         # commit внутри `async with memory.db.serialized()` (идемпотентный

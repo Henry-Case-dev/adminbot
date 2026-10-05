@@ -216,6 +216,8 @@ class TestMigrationV21:
 # mca-16 (ADR-1028-15 D8, санкция §12.1): хвост реестра — v28
 # (mca_experience_episodes/feedback/lessons/applications + 9 индексов) —
 # mark обновлён по той же конвенции (прецедент v27→v28).
+# mca-09 (ADR-1028-16 D8, санкция §11.1): хвост реестра — v29
+# (mca_intents + 4 индекса) — mark обновлён по той же конвенции.
 from services.database import (  # noqa: E402
     _SCHEMA_VERSION_BOT_OUTPUTS as _SCHEMA_VERSION_TAIL_V22,
     _SCHEMA_VERSION_EMBEDDING_CONTROL_PLANE as _SCHEMA_VERSION_TAIL_V23,
@@ -224,8 +226,9 @@ from services.database import (  # noqa: E402
     _SCHEMA_VERSION_STYLE_REQUESTS as _SCHEMA_VERSION_TAIL_V26,
     _SCHEMA_VERSION_RANDOM_SOURCE as _SCHEMA_VERSION_TAIL_V27,
     _SCHEMA_VERSION_EXPERIENCE as _SCHEMA_VERSION_TAIL_V28,
+    _SCHEMA_VERSION_INTENTS as _SCHEMA_VERSION_TAIL_V29,
 )
-_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V28
+_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V29
 
 
 # ═══ Kill-switch OFF-паритет (SC-20, T-4249) ═════════════════════════════════

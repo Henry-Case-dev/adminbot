@@ -1205,6 +1205,59 @@ _LESSON_APPLICATIONS_INDEX_DDL = (
     "ON mca_lesson_applications(lesson_id, lesson_version, applied_at)",
 )
 
+# ── mca-09 T-5020 (ADR-1028-16 D8, санкция §11.1): v29 — Intent:
+# 1 аддитивная таблица `mca_intents` (поля spec §2/D2) + 4 индекса
+# (UNIQUE `dedup_key`; `(chat_id,status,next_check_at)`;
+# `(status,next_check_at)`; `(chat_id,kind,status)`). Аддитивно/идемпотентно
+# (`CREATE ... IF NOT EXISTS` под self-guard `sqlite_master`), повтор — no-op,
+# PG — no-op (memory-контур SQLite-only), backfill нет (пустая таблица —
+# честный unknown), старый код v29 не читает (cold-совместимо). R17: только
+# ID/коды/enum/числа/refs — сырой текст/секреты/CoT не хранятся.
+_SCHEMA_VERSION_INTENTS = 29
+
+_INTENTS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_intents ("
+    "intent_id TEXT PRIMARY KEY, "
+    "chat_id INTEGER NOT NULL, "
+    "kind TEXT NOT NULL CHECK (kind IN "
+    "('follow_up','answer_extension','topic_interest','open_dispute')), "
+    "subject_ids_json TEXT, "
+    "topic_refs_json TEXT, "
+    "goal TEXT, "
+    "reason TEXT, "
+    "origin TEXT NOT NULL CHECK (origin IN "
+    "('unanswered_question','explicit_request','unfinished_topic',"
+    "'search_result')), "
+    "source_refs_json TEXT, "
+    "created_at INTEGER NOT NULL, "
+    "updated_at INTEGER NOT NULL, "
+    "not_before INTEGER, "
+    "expires_at INTEGER, "
+    "activation_condition TEXT CHECK (activation_condition IS NULL OR "
+    "activation_condition IN "
+    "('time_due','new_reply','topic_resume','event_change','search_completed')), "
+    "status TEXT NOT NULL CHECK (status IN "
+    "('pending','deferred','fulfilled','abandoned','expired')), "
+    "attempts INTEGER NOT NULL DEFAULT 0, "
+    "last_evaluated_context_version TEXT, "
+    "priority INTEGER NOT NULL DEFAULT 0, "
+    "linked_action_id TEXT, "
+    "dedup_key TEXT NOT NULL, "
+    "merged_into_id TEXT, "
+    "archived_at INTEGER, "
+    "next_check_at INTEGER)"
+)
+_INTENTS_INDEX_DDL = (
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_mca_intents_dedup "
+    "ON mca_intents(dedup_key)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_intents_chat_status_due "
+    "ON mca_intents(chat_id, status, next_check_at)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_intents_status_due "
+    "ON mca_intents(status, next_check_at)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_intents_chat_kind_status "
+    "ON mca_intents(chat_id, kind, status)",
+)
+
 
 def _summary_window_unique_violation(exc: BaseException) -> bool:
     """IntegrityError «UNIQUE constraint» → write-once guard snapshot'а."""
@@ -2175,6 +2228,13 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_EXPERIENCE,
                           "experience_bank",
                           lambda svc: svc._migrate_experience_v28()),
+            # mca-09 (ADR-1028-16 D8, санкция §11.1): v29 — 1 аддитивная
+            # таблица `mca_intents` + 4 индекса (UNIQUE dedup_key; chat/status/
+            # due; status/due; chat/kind/status). Идемпотентно, повтор — no-op,
+            # PG — no-op, старый код v29 не читает (cold-совместимо).
+            MigrationStep(_SCHEMA_VERSION_INTENTS,
+                          "intents",
+                          lambda svc: svc._migrate_intents_v29()),
             # ASAP 4.1 волна 5 (T-4616, spec §10.2–§10.3): v24 = 3 таблицы
             # (summary_source_windows + summary_runs + summary_run_stages).
             # Один MigrationStep на версию — книга `schema_migrations` имеет
@@ -3067,6 +3127,26 @@ class DatabaseService:
         await self.db.commit()
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_EXPERIENCE}")
+        await self.db.commit()
+
+    async def _migrate_intents_v29(self) -> None:
+        """v29 (`mca-09-intents-initiative` T-5020, ADR-1028-16 D8,
+        санкция §11.1): Intent — `mca_intents` + 4 индекса.
+
+        Аддитивно (`CREATE TABLE/INDEX IF NOT EXISTS` под self-guard
+        `sqlite_master`); НИ ОДНОГО UPDATE/DELETE существующих строк; повтор —
+        no-op; backfill не требуется (пустая таблица = честный unknown; старый
+        код таблицу не читает); PG — no-op (GEN-R4). Фиксирует
+        `PRAGMA user_version = 29`."""
+        if not await self._table_exists("mca_intents"):
+            await self.db.execute(_INTENTS_DDL)
+            await self.db.commit()
+            logger.info("[database] migration v29: mca_intents")
+        for ddl in _INTENTS_INDEX_DDL:
+            await self.db.execute(ddl)
+        await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_INTENTS}")
         await self.db.commit()
 
     # ── mca-22 (ADR-1028-6 D2): Durable Own Output Ledger — write/read ──────
