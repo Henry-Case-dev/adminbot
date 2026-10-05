@@ -1,0 +1,41 @@
+MCA-09 review working-tree manifest (T-5043, Reviewer)
+HEAD: 28a05e29b0bf55ff6b710e915dd3f1c8fb534e2a (branch: master)
+Generated (UTC): 2026-10-05T07:53:09Z
+Refresh v2 after F-2 micro-fix (supersedes snapshot 862f2bb5...).
+Delta vs reviewed snapshot: services/direct_chat_service.py (candidate_ready bounded defer per Reviewer F-2), tests/test_mca09_intents_block_e_round1040.py (+1 regression test, pre-fix RED), evidence.md (F-2 note); review.md addendum created post-snapshot (process artifact).
+Self-file excluded from recipe (plans/reports/mca09_wth_manifest_review.txt) ? stable, non-self-referential digest.
+Excluded from recipe (process journal / foreign WIP / untracked debris):
+  plans/workflow_state.md; plans/docs/mca-round1027-arch-frames.md; node_modules/; .playwright-mcp/;
+  package.json; package-lock.json; tools/_ui_asap43_*; plans/verification_cache.json
+
+1582c85e01617a53ef66609b54c5ce4ce73c2613f71bde87c49c4b11b2cdf0df  plans/features/mca-09-intents-initiative/adr-1028-16-intents-initiative.md
+23095079613bf8e108bcb8efc0398e2c8ca17cc79ec0df79c720e8916cd8c35e  tests/test_mca09_intents_block_c_round1040.py
+3060baad6083b077fa74b2331e3183823ac20c01a0585a041b42c576e60c2012  services/database.py
+375e8500798eb148fdfbed4c241955f8ee5a6e54c912db9aecb21d278e6719a1  services/mca_events.py
+3b4ad38a733da6796ac7532ed08e92125f2ac4da06a31e0ab5ee160e7469b1e0  services/mca_process_registry.py
+42bc32a9219461eea216e9e8f78e5fd25b339a923628c59fb6077c9cd18de77c  config/settings.py
+4a00660925089d0551cab8c4c3a638d70d1117f8a41fb825235c7274e5a226e4  tests/test_mca09_intents_off_parity_round1040.py
+592bc8a887e742db13174e5818244495d88a76ca7b41d3c1c26fadcc58bd2060  services/status_service.py
+5d51f9ff0c3eb1441905869cb436bf2421294b8acc87f715257ec961c3ad986c  services/direct_chat_service.py
+623ac278ce0d243f3ecce4025060fa8e149b689a3ede89cefd4da85ea66e1787  tests/test_mca16_experience_block_a_round1039.py
+6b56ece2ee59d18dfd3694a2c35ae5077707f1c2a6574ba45a500d70e33da483  plans/features/mca-09-intents-initiative/tasks.md
+753d5ea6a3173056c68a5732c0d32a6cd553c55487b47fc6081ca733718d3faf  services/mca_intents.py
+777ca764e9e317e75ed0494def4baed8dd239671501157e6cdb2b584df325ca8  services/provenance.py
+830232dbc18ed51452ba36c031da54073d4d6e77cc54a58cf81aa8db33477f3d  plans/features/mca-09-intents-initiative/evidence.md
+9115fc31ab826bc448b7e7d05c278b8ac9992be5c56556c416b6fb81688ca734  tests/test_mca09_intents_block_e_round1040.py
+947636d8113fb0c6ab3ba3d6152e669c2e5cdac0044e7753a7b959c053c22599  tests/test_mca05_episodes_stories_round1027.py
+9bd8c8fbb51ae9222d780b74fd6cb56d12e67ce2544291603470b38e936321b6  plans/features/mca-09-intents-initiative/spec.md
+9dbd1352eaffd780a09602b295c23bc22ed430d429dda92a44dc64160822f060  plans/features/mca-09-intents-initiative/requirements-map.md
+a01aadd04880782b991287ce6763c7ce98d00ae3e59ea19b25885f30fe641e1f  tests/test_mca09_intents_block_d_round1040.py
+ca159589f75c757f45a04703dc776d3b5a93b955cab3e6f7dc87778f2e326c33  plans/features/mca-09-intents-initiative/threat-failure-analysis.md
+ce16ec7ba32c3abb473e07dfb25433fb6a029112a7b007b935fa1697a508caa4  plans/features/mca-09-intents-initiative/review.md
+d75e446d9322b5e2f24422e2129f8bf396261e99dbdbbfad3d71b561667ec328  services/memory_maintenance.py
+def9025a795e2b6190a7dad3faf69943472f1352bc20b8a79423f4dbe0419ab4  bot.py
+e0666b520a08af9b5c8b886e09668a8b8786f0cd0301fa6e8024b97c7ca21385  tests/test_mca09_intents_block_a_round1040.py
+ea8468b092646a5b3a311d03bf8b8e9276acd6429bbe17b2defa5071eff00de9  tests/test_status_service.py
+ead4c39e34a4d47d16171676373da6146180de41f06ee9353aeca142e78eb2ec  services/mca_gates.py
+ef45eb74cb746da7eaed7617cce4782a067aab2456d9d6187a36edcce1cf413c  services/nostalgia_worker.py
+f2644f353b7c984e4b497adcfbcdb8de40d026e9d93eac63d7edc8aea0ac7cc1  tests/test_mca09_intents_block_b_round1040.py
+
+MANIFEST_SHA256: 6d6b6d7410129892fb2898d30bd91f3c83c0bd80811e4a3d030514b758c9e63a
+FILE_COUNT: 28
