@@ -50,12 +50,27 @@ _EXPERIENCE_REVIEW_TICK_SECONDS = 900
 # кандидатов — БЕЗ LLM и без чтения большого окна сообщений.
 _INTENT_HEARTBEAT_TICK_SECONDS = 300
 
+# mca-18 (T-5084, ADR-1028-18 D8): тик фонового идемпотентного разбора
+# `persona_traits` (сек; код-константа, Δ каталога = 0). Повтор = no-op по
+# `legacy_ref`; bounded batch; «весь архив до включения перерабатывать не
+# требуется».
+_LEGACY_TRAITS_PARSE_TICK_SECONDS = 3600
+
 
 def _experience_review_tick_enabled() -> bool:
     """K1+K3+UI-настройка review опыта (fail-closed, никогда не бросает)."""
     try:
         from services import mca_experience_jobs as jobs
         return bool(jobs.review_enabled())
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
+def _legacy_traits_parse_tick_enabled() -> bool:
+    """mca-18 K3: фоновый разбор `persona_traits` (fail-closed)."""
+    try:
+        from services import mca_gates
+        return bool(mca_gates.legacy_traits_migration_enabled())
     except Exception:      # pragma: no cover - защитная ветка
         return False
 
@@ -84,6 +99,9 @@ class MemoryMaintenanceService:
     # планировщик (второй очереди/планировщика нет; per-intent task_jobs не
     # создаются — durable-состояние в `mca_intents`, догон следующим сканом).
     JOB_INTENT_HEARTBEAT_ID = "intent_heartbeat_tick"
+    # mca-18 (T-5084/D8): тик legacy-разбора persona_traits — та же очередь;
+    # идемпотентность по `legacy_ref`, K3 OFF → джоб не регистрируется.
+    JOB_LEGACY_TRAITS_PARSE_ID = "legacy_traits_parse_tick"
 
     def __init__(self, db, memory, llm, bot=None) -> None:
         self.db = db
@@ -147,10 +165,22 @@ class MemoryMaintenanceService:
                                      settings.SUMMARY_TIMEZONE)),
                 id=self.JOB_INTENT_HEARTBEAT_ID, replace_existing=True,
                 max_instances=1, coalesce=True)
+        # mca-18 (T-5084, ADR-1028-18 D8): тик идемпотентного разбора
+        # persona_traits (K3 OFF → джоб не регистрируется — бит-в-бит).
+        if _legacy_traits_parse_tick_enabled():
+            self._scheduler.add_job(
+                self._tick_legacy_traits_parse,
+                IntervalTrigger(
+                    seconds=_LEGACY_TRAITS_PARSE_TICK_SECONDS,
+                    timezone=hot.get("limits.summary_timezone",
+                                     settings.SUMMARY_TIMEZONE)),
+                id=self.JOB_LEGACY_TRAITS_PARSE_ID, replace_existing=True,
+                max_instances=1, coalesce=True)
         if (hot.get("flags.graph_episode_merge_enabled", settings.GRAPH_EPISODE_MERGE_ENABLED) or hot.get("flags.graph_review_enabled", settings.GRAPH_REVIEW_ENABLED)
                 or hot.get("flags.db_wal_checkpoint_enabled", settings.DB_WAL_CHECKPOINT_ENABLED)
                 or _experience_review_tick_enabled()
-                or _intent_heartbeat_tick_enabled()):
+                or _intent_heartbeat_tick_enabled()
+                or _legacy_traits_parse_tick_enabled()):
             self._scheduler.start()
             logger.info(
                 "MemoryMaintenance started (merge=%s/%dd, review=%s/%dd, wal=%s/%dh)",
@@ -250,6 +280,22 @@ class MemoryMaintenanceService:
                         candidate.chat_id, result.get("status"))
         except Exception:
             logger.warning("[mca09] intent heartbeat tick failed",
+                           exc_info=True)
+
+    async def _tick_legacy_traits_parse(self) -> None:
+        """mca-18 (T-5084, ADR-1028-18 D8): идемпотентный разбор
+        `persona_traits` → TraitObservation/BehaviorRule. Повтор = no-op по
+        `legacy_ref`; bounded batch; ошибки не рвут планировщик. K3 OFF →
+        `disabled` (джоб вообще не регистрируется)."""
+        try:
+            from services import mca_self_model as msm
+            stats = await msm.run_legacy_traits_parse(self.db)
+            if stats.get("parsed"):
+                logger.info("[mca18] legacy traits parse | parsed=%s "
+                            "skipped=%s unverified=%s", stats.get("parsed"),
+                            stats.get("skipped"), stats.get("unverified"))
+        except Exception:
+            logger.warning("[mca18] legacy traits parse tick failed",
                            exc_info=True)
 
     # ── 66.2 (T-480): слияние повторяющихся эпизодов ──────────────

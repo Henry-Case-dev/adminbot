@@ -392,6 +392,28 @@ KILL_SWITCHES: dict[str, tuple[bool, str]] = {
         "OFF → новый recheck-слой не выполняется (документированное "
         "подмножество: существующие гейты остаются)",
     ),
+    # ── mca-18 (ADR-1028-18 §8.3, санкция T-5074): ровно 3 kill-switch фичи
+    # (73→76); env-only, default ON, OFF = бит-в-бит 2.58.61. K1 — мастер
+    # (snapshot/resolve/frame/сборка; legacy-путь `build_persona_prompt_block`
+    # сохраняется); K2/K3 — собственные оси (lifecycle черт / legacy-разбор),
+    # v31-объекты инертны по своей оси.
+    "MCA_SELF_MODEL_ENABLED": (
+        True,
+        "OFF → бит-в-бит 2.58.61: snapshot/resolve/frame/сборка не "
+        "выполняются, промпт собирает legacy `build_persona_prompt_block`; "
+        "v31 не читается/не пишется SelfModel-контуром",
+    ),
+    "MCA_TRAIT_RULES_ENABLED": (
+        True,
+        "OFF → lifecycle TraitObservation/BehaviorRule + анти-самоусиление + "
+        "гарды не выполняются; v31-таблицы черт инертны (SelfModel-статусы "
+        "честные disabled/not_run)",
+    ),
+    "MCA_LEGACY_TRAITS_MIGRATION_ENABLED": (
+        True,
+        "OFF → фоновый идемпотентный разбор `persona_traits` не запускается "
+        "(лента/persona_traits не меняются)",
+    ),
 }
 
 
@@ -1231,6 +1253,67 @@ def intent_defer_backoff_seconds() -> int:
 
     Bounded backoff «не тот момент» — не nag-таймер обязательной речи."""
     return _int_setting_min("MCA_INTENT_DEFER_BACKOFF_SECONDS", 1800, 60)
+
+
+# ── mca-18 (ADR-1028-18 §8.3): K1–K3 SelfModel + env-only пороги ────────────
+def self_model_enabled() -> bool:
+    """`MCA_SELF_MODEL_ENABLED` (master K1, env-only, default ON).
+
+    ON → SelfModelSnapshot/resolve/frame/сборка характера активны (блоки A–F).
+    OFF → бит-в-бит 2.58.61: промпт собирает legacy
+    `build_persona_prompt_block`; v31 SelfModel-контуром не читается/не
+    пишется; статусы честные `disabled`."""
+    return bool(getattr(settings, "MCA_SELF_MODEL_ENABLED", True))
+
+
+def trait_rules_enabled() -> bool:
+    """`MCA_TRAIT_RULES_ENABLED` (env-only, default ON; K2).
+
+    ON → lifecycle TraitObservation/BehaviorRule + анти-самоусиление + гарды.
+    OFF → v31-таблицы черт инертны (ни записей, ни чтений черт; snapshot
+    отдаёт пустые traits/state с честным `disabled`)."""
+    return bool(getattr(settings, "MCA_TRAIT_RULES_ENABLED", True))
+
+
+def legacy_traits_migration_enabled() -> bool:
+    """`MCA_LEGACY_TRAITS_MIGRATION_ENABLED` (env-only, default ON; K3).
+
+    ON → фоновый идемпотентный разбор `persona_traits` (job mca-01) работает.
+    OFF → разбор не запускается (лента/`persona_traits` не меняются)."""
+    return bool(getattr(settings, "MCA_LEGACY_TRAITS_MIGRATION_ENABLED", True))
+
+
+def mood_ttl_seconds() -> int:
+    """`MCA_MOOD_TTL_HOURS` (env-only, default 6 ч; ≥1 ч; spec §8.5).
+
+    TTL настроения: обратимая поправка с временем окончания, не
+    необратимое изменение личности. Инженерный дефолт (GEN-R27)."""
+    return _int_setting_min("MCA_MOOD_TTL_HOURS", 6, 1) * 3600
+
+
+def trait_max_step_per_cycle() -> float:
+    """`MCA_TRAIT_MAX_STEP_PER_CYCLE` (env-only, default 0.1; ≥0).
+
+    Анти-самоусиление (§28.4 `:1562`): максимальный шаг dimension за цикл
+    (шкала 0–1). Инженерный дефолт устойчивости (GEN-R27)."""
+    return _float_setting_min("MCA_TRAIT_MAX_STEP_PER_CYCLE", 0.1, 0.0)
+
+
+def trait_max_step_24h() -> float:
+    """`MCA_TRAIT_MAX_STEP_24H` (env-only, default 0.2; ≥0).
+
+    Суточный кап шага dimension (0–1); ослабление (delta<0) капом не
+    ограничено."""
+    return _float_setting_min("MCA_TRAIT_MAX_STEP_24H", 0.2, 0.0)
+
+
+def self_model_fallback_ttl_seconds() -> int:
+    """`MCA_SELF_MODEL_FALLBACK_TTL_SECONDS` (env-only, default 600; ≥0).
+
+    Ограниченный TTL last-known-good snapshot при недоступности PG
+    (fallback stale-маркер, §28.5 `:1576`). 0 → LKG не используется
+    (TTL обязан быть ограниченным; честный minimal-fallback)."""
+    return _int_setting_min("MCA_SELF_MODEL_FALLBACK_TTL_SECONDS", 600, 0)
 
 
 def random_circuit_fails() -> int:

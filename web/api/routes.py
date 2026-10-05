@@ -2183,6 +2183,247 @@ async def get_persona(
     return out
 
 
+# ── mca-18 (T-5085/T-5086, ADR-1028-18 D8/D10): SelfModel в существующем
+# редакторе личности — effective/наследование/пояснения трёх переключателей,
+# правила (правка/пауза/источники), компакт «Что сейчас формирует характер».
+# БЕЗ нового раздела/маршрута (CA-18-8); fail-open; R17 (коды/числа/refs).
+
+_SELF_MODEL_SWITCH_EXPLANATIONS = {
+    "persona_enabled":
+        "Использование характера и образа в речи. OFF — без характера, "
+        "но авторство, тех-ограничения и разделение участников "
+        "сохраняются (не отмена авторства).",
+    "is_aware_ai":
+        "Самопредставление персонажа: True — знает техническую природу и "
+        "может назвать её уместно; False — держится образа, без "
+        "тех-самоописания без повода. Режим роли, не онтология.",
+    "bot_self_awareness_enabled":
+        "Рефлексия собственных ответов: извлечение сути своих реплик в "
+        "память. OFF останавливает производные наблюдения, не склеивая "
+        "слова пользователя и бота.",
+}
+
+
+async def _self_model_payload(chat_id: int | None) -> dict:
+    """Компакт SelfModel для UI (fail-open; R17: ID/коды/числа/refs)."""
+    out: dict = {"enabled": False, "stages": (), "widget_id": None,
+                 "explanations": _SELF_MODEL_SWITCH_EXPLANATIONS}
+    try:
+        from services import lore_runtime, mca_gates, mca_self_model as msm
+        from services import mca_process_registry as registry
+        out["enabled"] = bool(mca_gates.self_model_enabled())
+        out["trait_rules_enabled"] = bool(mca_gates.trait_rules_enabled())
+        out["legacy_parse_enabled"] = bool(
+            mca_gates.legacy_traits_migration_enabled())
+        proc = registry.get_process("self.model")
+        if proc is not None:
+            out["stages"] = tuple(proc.stages)
+            out["widget_id"] = proc.widget_id
+        if not out["enabled"]:
+            return out
+        db = lore_runtime.get_lore_db()
+        if db is None:
+            out["status"] = "no_db"
+            return out
+        snap = await msm.resolve_self_model(db, chat_id)
+        frame = msm.select_behavior(snap)
+        out["version"] = snap.version
+        out["frame_version"] = frame.version
+        out["stale"] = snap.stale
+        out["fallback"] = snap.fallback
+        out["rules_status"] = snap.rules_status
+        out["self_presentation_mode"] = snap.self_presentation_mode
+        out["identity"] = {
+            "agent_id": snap.agent_id,
+            "bot_user_id": snap.bot_user_id,
+            "binding": snap.identity_binding,
+        }
+        out["switches"] = {
+            "persona_enabled": {
+                "value": snap.persona_enabled.value,
+                "source": snap.persona_enabled.source,
+                "error": snap.persona_enabled.error},
+            "is_aware_ai": {
+                "value": snap.is_aware_ai.value,
+                "source": snap.is_aware_ai.source,
+                "error": snap.is_aware_ai.error},
+            "bot_self_awareness_enabled": {
+                "value": snap.bot_self_awareness.value,
+                "source": snap.bot_self_awareness.source,
+                "error": snap.bot_self_awareness.error},
+        }
+        out["active_rules"] = [
+            {"id": t.rule_id, "dimension": t.dimension,
+             "version": t.version, "target_value": t.target_value,
+             "scope": t.scope, "included": t.included,
+             "excluded_reason": t.excluded_reason}
+            for t in snap.traits]
+        out["applied_now"] = [
+            {"id": r.rule_id, "dimension": r.dimension,
+             "version": r.version, "instruction": r.instruction}
+            for r in frame.applied_rules]
+        out["rejected_now"] = [
+            {"id": r.rule_id, "dimension": r.dimension, "reason": r.reason}
+            for r in frame.rejected_rules]
+        out["state"] = ({"text": snap.state.text,
+                         "valid_to": snap.state.valid_to}
+                        if snap.state is not None else None)
+        out["positions_count"] = len(snap.positions)
+        out["composition"] = {
+            "base": bool(snap.name or snap.biography or snap.traits),
+            "dynamics": len(snap.traits),
+            "mood": snap.state is not None,
+            "versions": {"snapshot": snap.version,
+                         "persona": snap.persona_version},
+        }
+    except Exception:
+        logger.warning("[mca18] self-model payload failed", exc_info=True)
+        out["status"] = "error"
+    return out
+
+
+@api_router.get("/persona/self-model")
+async def get_persona_self_model(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """GET /api/persona/self-model: компакт «Что сейчас формирует характер»
+    + effective/наследование трёх переключателей + правила. Fail-open 200."""
+    cache, chat_id, ctx = await _persona_access(request, user, x_chat_id)
+    is_global = chat_id is None
+    if not _persona_can_view(ctx, is_global=is_global, chat_id=chat_id):
+        raise HTTPException(status_code=403,
+                            detail="нет доступа к персоне")
+    return await _self_model_payload(chat_id)
+
+
+async def _self_model_db():
+    from services import lore_runtime
+    return lore_runtime.get_lore_db()
+
+
+@api_router.post("/persona/rules/{rule_id}/pause")
+async def post_persona_rule_pause(
+    rule_id: int,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """POST pause: правка владельца = основание (приостановка правила;
+    не удаление истории). K1 OFF → 409 (честный disabled)."""
+    cache, chat_id, ctx = await _persona_access(request, user, x_chat_id)
+    if not _persona_can_edit(ctx, is_global=chat_id is None):
+        raise HTTPException(status_code=403, detail="нет права edit_persona")
+    from services import mca_gates, mca_self_model as msm
+    if not mca_gates.self_model_enabled():
+        raise HTTPException(status_code=409, detail="self_model disabled")
+    db = await _self_model_db()
+    if db is None:
+        raise HTTPException(status_code=503, detail="локальная БД недоступна")
+    ok = await msm.suspend_rule(db, rule_id, reason="owner_paused",
+                                scope_chat_id=chat_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="правило не найдено")
+    return {"ok": True, "id": int(rule_id), "status": "suspended"}
+
+
+@api_router.post("/persona/rules/{rule_id}/resume")
+async def post_persona_rule_resume(
+    rule_id: int,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """POST resume: возобновление приостановленного правила владельцем."""
+    cache, chat_id, ctx = await _persona_access(request, user, x_chat_id)
+    if not _persona_can_edit(ctx, is_global=chat_id is None):
+        raise HTTPException(status_code=403, detail="нет права edit_persona")
+    from services import mca_gates, mca_self_model as msm
+    if not mca_gates.self_model_enabled():
+        raise HTTPException(status_code=409, detail="self_model disabled")
+    db = await _self_model_db()
+    if db is None:
+        raise HTTPException(status_code=503, detail="локальная БД недоступна")
+    ok = await msm.reactivate_rule(db, rule_id, reason="owner_resumed",
+                                   scope_chat_id=chat_id)
+    if not ok:
+        raise HTTPException(status_code=404,
+                            detail="правило не найдено/терминально")
+    return {"ok": True, "id": int(rule_id), "status": "active"}
+
+
+@api_router.get("/persona/rules/{rule_id}/sources")
+async def get_persona_rule_sources(
+    rule_id: int,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """GET sources: основания правила → наблюдения (клик-цепочка
+    «черта → основания → примеры → результат»; R17 — refs/числа)."""
+    cache, chat_id, ctx = await _persona_access(request, user, x_chat_id)
+    if not _persona_can_view(ctx, is_global=chat_id is None,
+                             chat_id=chat_id):
+        raise HTTPException(status_code=403, detail="нет доступа к персоне")
+    from services import mca_gates, mca_self_model as msm
+    if not mca_gates.self_model_enabled():
+        raise HTTPException(status_code=409, detail="self_model disabled")
+    db = await _self_model_db()
+    if db is None:
+        raise HTTPException(status_code=503, detail="локальная БД недоступна")
+    out = {"rule_id": int(rule_id), "observations": []}
+    rule = None
+    try:
+        cursor = await db.db.execute(
+            "SELECT dimension, status, version, source_observation_ids "
+            "FROM mca_behavior_rules WHERE id = ?", (int(rule_id),))
+        rule = await cursor.fetchone()
+    except Exception:
+        logger.warning("[mca18] rule sources lookup failed — fail-open",
+                       exc_info=True)
+        return out
+    if rule is None:
+        raise HTTPException(status_code=404, detail="правило не найдено")
+    # M-1 (rework): основания — ТОЛЬКО наблюдения ЭТОГО правила
+    # (`source_observation_ids`), а не последние 200 наблюдений всем.
+    try:
+        obs_ids = [int(x) for x in json.loads(
+            rule["source_observation_ids"] or "[]")]
+    except (TypeError, ValueError):
+        obs_ids = []
+    obs_ids = obs_ids[:200]
+    out["dimension"] = rule["dimension"]
+    out["status"] = rule["status"]
+    out["version"] = rule["version"]
+    out["source_observation_ids"] = obs_ids
+    if not obs_ids:
+        return out
+    marks = ",".join("?" for _ in obs_ids)
+    try:
+        cursor = await db.db.execute(
+            "SELECT id, dimension, subject_status, observed_at, chat_id, "
+            "legacy_ref, source_refs, normalized FROM mca_trait_observations "
+            f"WHERE id IN ({marks}) ORDER BY id DESC LIMIT 200",
+            tuple(obs_ids))
+        rows = await cursor.fetchall()
+    except Exception:
+        rows = []
+    for row in (rows or []):
+        try:
+            refs = tuple(json.loads(row["source_refs"] or "[]"))
+        except (TypeError, ValueError):
+            refs = ()
+        out["observations"].append({
+            "id": row["id"], "dimension": row["dimension"],
+            "subject_status": row["subject_status"],
+            "observed_at": row["observed_at"], "chat_id": row["chat_id"],
+            "legacy_ref": row["legacy_ref"], "source_refs": refs,
+            "preview_len": len(str(row["normalized"] or "")),
+        })
+    return out
+
+
 @api_router.put("/persona")
 async def put_persona(
     request: Request,

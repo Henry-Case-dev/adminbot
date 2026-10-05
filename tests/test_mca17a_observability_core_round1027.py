@@ -189,19 +189,29 @@ def test_registry_future_features_not_run():
     mca-15 (ADR-1028-12 D7/AM-6): placeholder `episodes.timeline` заменён
     реальным процессом `chat.statistics` v1 — в «будущих» его больше нет.
     mca-16 (ADR-1028-15 D10): placeholder `self_learning.run` амендирован до
-    v1 (capture/review/.../suspend) — в «будущих» его больше нет."""
+    v1 (capture/review/.../suspend) — в «будущих» его больше нет.
+    mca-18 (ADR-1028-18 D10): placeholder `self_model.update` амендирован до
+    реального `self.model` v1 (8 стадий §28.6) — в «будущих» его больше нет."""
     for pid in ("context.compress", "context.selective", "memory.lifecycle",
                 "relations.semantic",
-                "self_model.update", "vision.analyze", "temporal.factcheck"):
+                "vision.analyze", "temporal.factcheck"):
         p = reg.get_process(pid)
         assert p is not None and p.version == "0", pid
         assert reg.runtime_status(p) == reg.STATUS_NOT_RUN, pid
     owners = {p.owner_feature for p in reg.PROCESS_REGISTRY if p.version == "0"}
     assert {"mca-09", "mca-10a", "mca-10b", "mca-11",
-            "mca-18", "mca-19", "mca-20"} <= owners
+            "mca-19", "mca-20"} <= owners
     assert "episodes.timeline" not in {p.process_id
                                        for p in reg.PROCESS_REGISTRY}
     assert reg.get_process("chat.statistics").version == "1"
+    # mca-18: реализованный процесс self.model v1 (стадии §28.6, D10).
+    self_model = reg.get_process("self.model")
+    assert self_model is not None and self_model.version == "1"
+    assert self_model.owner_feature == "mca-18"
+    assert self_model.stages == ("observation_read", "attribution",
+                                 "candidate_compile", "validation",
+                                 "activation", "selection", "prompt_render",
+                                 "final_check")
     assert reg.get_process("self_learning.run").version == "1"
 
 

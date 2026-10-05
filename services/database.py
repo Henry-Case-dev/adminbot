@@ -8,6 +8,7 @@ import json
 import logging
 import re
 import time
+import uuid
 from typing import Awaitable, Callable
 
 import aiosqlite
@@ -1348,6 +1349,135 @@ _MCA_BELIEF_REVIEWS_INDEX_DDL = (
     "ON mca_belief_reviews(belief_id, reviewed_at)",
 )
 
+# ── mca-18 T-5075…T-5078 (ADR-1028-18 D1/D4/D5, санкция spec §8.1): v31 —
+# строго аддитивный набор SelfModel: 4 доменные таблицы (`mca_self_identity`
+# singleton-агент; `mca_trait_observations`; `mca_behavior_rules`;
+# `mca_adoption_links`) + 9 nullable-колонок `graph_facts` (контракт
+# mca-03/04a РАСШИРЯЕТСЯ, второго контракта памяти нет) + индексы.
+# Аддитивно/идемпотентно (`CREATE … IF NOT EXISTS` под self-guard
+# `sqlite_master`, ALTER под guard `PRAGMA table_info`), повтор — no-op,
+# PG — no-op (GEN-R4; `pg_db.py`: personas/persona_traits/persona_state не
+# изменяются), backfill нет (NULL = честный unknown; NULL memory_kind =
+# legacy world_fact), старый код v30 не читает (cold-совместимо).
+# REUSE: `graph_facts.weight/status/last_confirmed_at/supersedes` (Epic 60),
+# provenance v17 (`mca_source_refs`/`mca_evidence_links`/
+# `mca_provenance_status` + subject_ref_id/attribution_method/...).
+# R17: только ID/коды/enum/числа/refs-JSON; raw_text — дословный артефакт
+# наблюдения черты (контракт D5, R17-маскирование на выдаче — sanitize).
+_SCHEMA_VERSION_SELF_MODEL = 31
+
+# Субъект self — singleton: стабильный `agent_id` (UUID), переживает смену
+# токена/модели; смена Telegram-аккаунта — ЯВНЫЙ rebind (bot_user_id),
+# не по похожему имени (§28.2 `:1517`). Сид-строка — в самой миграции
+# (ON CONFLICT DO NOTHING → идемпотентно).
+_SELF_IDENTITY_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_self_identity ("
+    "id          BOOLEAN PRIMARY KEY CHECK (id), "
+    "agent_id    TEXT NOT NULL, "
+    "bot_user_id INTEGER, "
+    "bound_at    INTEGER, "
+    "note        TEXT, "
+    "updated_at  INTEGER NOT NULL)"
+)
+
+# Наблюдение черты (D5): дословный raw_text + нормализат + источники
+# (mca-04a SourceRef-id) + статус субъекта (self доказан / ambiguous / other).
+_TRAIT_OBSERVATIONS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_trait_observations ("
+    "id              INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "agent_id        TEXT NOT NULL, "
+    "chat_id         INTEGER, "
+    "dimension       TEXT, "
+    "raw_text        TEXT NOT NULL, "
+    "normalized      TEXT, "
+    "source_refs     TEXT, "
+    "subject_status  TEXT NOT NULL DEFAULT 'ambiguous' CHECK (subject_status IN "
+    "('self','ambiguous','other')), "
+    "observed_at     INTEGER NOT NULL, "
+    "source_chat_id  INTEGER, "
+    "legacy_ref      INTEGER, "
+    "created_at      INTEGER NOT NULL)"
+)
+_TRAIT_OBSERVATIONS_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_trait_obs_agent_observed "
+    "ON mca_trait_observations(agent_id, observed_at DESC)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_trait_obs_chat_observed "
+    "ON mca_trait_observations(chat_id, observed_at DESC)",
+)
+
+# Применяемое правило (D5): стадии observed→candidate→active/rejected/
+# suspended/superseded; version/event_dedup_hash — анти-самоусиление (A61).
+_BEHAVIOR_RULES_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_behavior_rules ("
+    "id                       INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "agent_id                 TEXT NOT NULL, "
+    "dimension                TEXT NOT NULL, "
+    "target_value             REAL, "
+    "strength                 REAL, "
+    "confidence_basis         TEXT, "
+    "scope                    TEXT CHECK (scope IS NULL OR scope IN "
+    "('global','chat')), "
+    "applicability            TEXT, "
+    "exclusions               TEXT, "
+    "expiry_at                INTEGER, "
+    "review_at                INTEGER, "
+    "examples                 TEXT, "
+    "counterexamples          TEXT, "
+    "status                   TEXT NOT NULL DEFAULT 'observed' CHECK (status IN "
+    "('observed','candidate','active','rejected','suspended','superseded')), "
+    "status_reason            TEXT, "
+    "source_observation_ids   TEXT, "
+    "version                  INTEGER NOT NULL DEFAULT 1, "
+    "event_dedup_hash         TEXT, "
+    "updated_at               INTEGER NOT NULL)"
+)
+_BEHAVIOR_RULES_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_behavior_rules_agent_status_dim "
+    "ON mca_behavior_rules(agent_id, status, dimension)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_behavior_rules_scope_status "
+    "ON mca_behavior_rules(scope, status)",
+)
+
+# Принятие собственного мнения (D4): «я предпочитаю X» ОБЯЗАТЕЛЬНО с
+# основаниями (basis_refs — mca_source_refs-id) и временем; повтор фразы
+# группой сам по себе мнение не создаёт (§28.3 `:1546`).
+_MCA_ADOPTION_LINKS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_adoption_links ("
+    "id                INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "subject_entity_id TEXT NOT NULL DEFAULT 'self', "
+    "opinion_ref       TEXT NOT NULL, "
+    "basis_refs        TEXT NOT NULL, "
+    "adopted_at        INTEGER NOT NULL, "
+    "direction         TEXT NOT NULL DEFAULT 'adopted' CHECK (direction IN "
+    "('adopted','rejected','reverted')), "
+    "UNIQUE (subject_entity_id, opinion_ref))"
+)
+
+# (`имя`, SQL-декларация) — порядок ALTER `graph_facts` (спецификация §8.1,
+# точный набор): субъект/говорящий (стабильные ID mca-03), перспектива,
+# вид памяти (NULL = legacy world_fact), область действия, период действия,
+# база уверенности (JSON), ревизия. `status`/`supersedes`/`weight` — REUSE.
+_SELF_MODEL_FACT_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("subject_entity_id", "TEXT"),
+    ("speaker_entity_id", "TEXT"),
+    ("perspective", "TEXT CHECK (perspective IS NULL OR perspective IN "
+     "('self','other','quoted','third_party','ambiguous'))"),
+    ("memory_kind", "TEXT CHECK (memory_kind IS NULL OR memory_kind IN "
+     "('world_fact','self_event','self_trait','opinion','belief',"
+     "'paradigm','mood','lesson'))"),
+    ("scope", "TEXT CHECK (scope IS NULL OR scope IN ('global','chat'))"),
+    ("valid_from", "INTEGER"),
+    ("valid_to", "INTEGER"),
+    ("confidence_basis", "TEXT"),
+    ("revision", "INTEGER NOT NULL DEFAULT 1"),
+)
+_SELF_MODEL_FACT_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_graph_facts_kind_status "
+    "ON graph_facts(chat_id, memory_kind, status)",
+    "CREATE INDEX IF NOT EXISTS idx_graph_facts_subject_entity "
+    "ON graph_facts(subject_entity_id)",
+)
+
 
 def _summary_window_unique_violation(exc: BaseException) -> bool:
     """IntegrityError «UNIQUE constraint» → write-once guard snapshot'а."""
@@ -2334,6 +2464,17 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_RANDOM_USES,
                           "random_uses",
                           lambda svc: svc._migrate_random_uses_v30()),
+            # mca-18 (ADR-1028-18 D1/D4/D5, санкция spec §8.1): v31 — строго
+            # аддитивный набор SelfModel: 4 доменные таблицы
+            # (`mca_self_identity` + сид-строка ON CONFLICT DO NOTHING /
+            # `mca_trait_observations` / `mca_behavior_rules` /
+            # `mca_adoption_links`) + 9 nullable-колонок `graph_facts`
+            # (расширение единого контракта mca-03/04a) + индексы.
+            # Идемпотентно, повтор — no-op, PG — no-op, старый код v30
+            # не читает (cold-совместимо).
+            MigrationStep(_SCHEMA_VERSION_SELF_MODEL,
+                          "self_model",
+                          lambda svc: svc._migrate_self_model_v31()),
             # ASAP 4.1 волна 5 (T-4616, spec §10.2–§10.3): v24 = 3 таблицы
             # (summary_source_windows + summary_runs + summary_run_stages).
             # Один MigrationStep на версию — книга `schema_migrations` имеет
@@ -3289,6 +3430,313 @@ class DatabaseService:
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_RANDOM_USES}")
         await self.db.commit()
+
+    async def _migrate_self_model_v31(self) -> None:
+        """v31 (`mca-18-self-model` T-5075…T-5078, ADR-1028-18 D1/D4/D5,
+        санкция spec §8.1): SelfModel — `mca_self_identity` (+ сид-строка
+        стабильного agent_id) + `mca_trait_observations` +
+        `mca_behavior_rules` + `mca_adoption_links` + 9 nullable-колонок
+        `graph_facts` (расширение контракта mca-03/04a; REUSE status/
+        supersedes/weight/provenance v17) + индексы.
+
+        Аддитивно (ALTER под guard `PRAGMA table_info`; CREATE TABLE/INDEX
+        IF NOT EXISTS под self-guard `sqlite_master`); НИ ОДНОГО UPDATE/DELETE
+        существующих строк; повтор — no-op; backfill не требуется (NULL =
+        честный unknown; NULL memory_kind = legacy world_fact; старый код
+        v30 не читает — cold-совместимо); PG — no-op (GEN-R4). Сид agent_id
+        — uuid4 при первом применении (ON CONFLICT DO NOTHING). Фиксирует
+        `PRAGMA user_version = 31`."""
+        for table, ddl in (
+                ("mca_self_identity", _SELF_IDENTITY_DDL),
+                ("mca_trait_observations", _TRAIT_OBSERVATIONS_DDL),
+                ("mca_behavior_rules", _BEHAVIOR_RULES_DDL),
+                ("mca_adoption_links", _MCA_ADOPTION_LINKS_DDL)):
+            if not await self._table_exists(table):
+                await self.db.execute(ddl)
+                await self.db.commit()
+                logger.info("[database] migration v31: %s", table)
+        for ddl in (_TRAIT_OBSERVATIONS_INDEX_DDL
+                    + _BEHAVIOR_RULES_INDEX_DDL):
+            await self.db.execute(ddl)
+        await self.db.commit()
+        # graph_facts: 9 nullable-колонок контракта mca-03/04a — каждая под
+        # guard `PRAGMA table_info` (v17-колонки/старые БД не трогаются).
+        if await self._table_exists("graph_facts"):
+            cols = await self._table_columns("graph_facts")
+            for name, decl in _SELF_MODEL_FACT_COLUMNS:
+                if name not in cols:
+                    await self.db.execute(
+                        f"ALTER TABLE graph_facts ADD COLUMN {name} {decl}")
+                    logger.info("[database] migration v31: graph_facts.%s "
+                                "added", name)
+            await self.db.commit()
+        for ddl in _SELF_MODEL_FACT_INDEX_DDL:
+            # Self-guard (прецедент v17 spec §5): индекс
+            # `(chat_id, memory_kind, status)` требует колонку `status`
+            # (REUSE Epic 60). На реальной legacy-БД она есть; на
+            # синтетической/усечённой — деградация до индекса по
+            # (chat_id, memory_kind), чтобы аддитивный шаг не падал.
+            if "status" not in cols and "status" in ddl:
+                ddl = ("CREATE INDEX IF NOT EXISTS "
+                       "idx_graph_facts_kind_status "
+                       "ON graph_facts(chat_id, memory_kind)")
+            await self.db.execute(ddl)
+        await self.db.commit()
+        # Сид субъекта self: ровно одна строка (id CHECK(true)); повтор и
+        # конкурентные воркеры — no-op. agent_id — стабильный UUID.
+        if await self._table_exists("mca_self_identity"):
+            await self.db.execute(
+                "INSERT INTO mca_self_identity (id, agent_id, bound_at, "
+                "updated_at) VALUES (true, ?, ?, ?) "
+                "ON CONFLICT(id) DO NOTHING",
+                (str(uuid.uuid4()), int(time.time()), int(time.time())))
+            await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_SELF_MODEL}")
+        await self.db.commit()
+
+    # ── mca-18 (ADR-1028-18 D1/D4): SelfModel — идентичность/типированная
+    # память. Тонкие методы ЕДИНОГО контракта (graph_facts + v31); валидность
+    # домена (запреты §28.3) enforced вызывающим (`services/mca_self_model.py`)
+    # до записи; схема — последний рубеж (CHECK). Записи — только через
+    # `write_transaction` (mca-01).
+
+    async def get_self_identity(self) -> dict | None:
+        """Субъект self (singleton `mca_self_identity`, v31). Fail-open:
+        None = честный unknown (ошибка чтения НЕ сворачивается в пустоту —
+        разрыв §28.1 `:1509`; различение ошибок — T-5087)."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT agent_id, bot_user_id, bound_at, note, updated_at "
+                "FROM mca_self_identity WHERE id = true LIMIT 1")
+            row = await cursor.fetchone()
+        except Exception:
+            logger.warning("[mca18] self identity read failed",
+                           exc_info=True)
+            return None
+        if row is None:
+            return None
+        return {
+            "agent_id": row["agent_id"],
+            "bot_user_id": row["bot_user_id"],
+            "bound_at": row["bound_at"],
+            "note": row["note"],
+            "updated_at": row["updated_at"],
+        }
+
+    async def rebind_self_identity(self, *, bot_user_id: int | None,
+                                   note: str | None = None) -> dict | None:
+        """ЯВНЫЙ rebind Telegram-аккаунта (admin-действие, §28.2 `:1517`):
+        обновляет только `bot_user_id`/`bound_at`/`note`; `agent_id` НЕ
+        меняется (стабильная идентичность переживает смену токена/модели/
+        аккаунта-привязки). Через `write_transaction` (mca-01)."""
+        now = int(time.time())
+
+        async def _body(conn):
+            await conn.execute(
+                "UPDATE mca_self_identity SET bot_user_id = ?, bound_at = ?, "
+                "note = ?, updated_at = ? WHERE id = true",
+                (int(bot_user_id) if bot_user_id is not None else None,
+                 now, (note or "").strip()[:200] or None, now))
+            cursor = await conn.execute(
+                "SELECT agent_id, bot_user_id, bound_at, note, updated_at "
+                "FROM mca_self_identity WHERE id = true LIMIT 1")
+            row = await cursor.fetchone()
+            return dict(row) if row is not None else None
+
+        return await self.write_transaction(_body, op_name="self_rebind")
+
+    async def save_typed_fact(
+            self, *, chat_id: int, fact: str, origin: str = "chat_history",
+            expires_at: int | None = None, created_at: int | None = None,
+            target_user: str | None = None, subject_entity_id: str | None
+            = None, speaker_entity_id: str | None = None,
+            perspective: str | None = None, memory_kind: str | None = None,
+            scope: str | None = None, valid_from: int | None = None,
+            valid_to: int | None = None, confidence_basis: str | None = None,
+            weight: float = 0.5) -> int | None:
+        """Типированная запись в СУЩЕСТВУЮЩУЮ `graph_facts` (расширение
+        контракта mca-03/04a, НЕ копия графа): v31-колонки
+        subject/speaker/perspective/memory_kind/scope/validity/confidence;
+        `status`/`supersedes`/`weight`/provenance v17 — REUSE. CHECK схемы —
+        последний рубеж (валидность enum); доменные запреты §28.3 enforced
+        вызывающим до записи. FTS поддерживается. Через `write_transaction`
+        (mca-01). Fail-open: None (пишущий путь фичи честно различает)."""
+        text = str(fact or "").strip()
+        if not text:
+            return None
+        ts = int(created_at if created_at is not None else time.time())
+
+        async def _body(conn):
+            cursor = await conn.execute(
+                "INSERT INTO graph_facts (chat_id, fact, origin, expires_at, "
+                "created_at, target_user, status, weight, last_confirmed_at, "
+                "subject_entity_id, speaker_entity_id, perspective, "
+                "memory_kind, scope, valid_from, valid_to, confidence_basis, "
+                "revision) VALUES (?,?,?,?,?,?, 'confirmed', ?, ?, "
+                "?,?,?,?,?,?,?,?,1)",
+                (int(chat_id), text, origin, expires_at, ts, target_user,
+                 float(weight), ts, subject_entity_id, speaker_entity_id,
+                 perspective, memory_kind, scope, valid_from, valid_to,
+                 confidence_basis))
+            fid = int(cursor.lastrowid)
+            await conn.execute(
+                "INSERT INTO graph_facts_fts(rowid, fact) VALUES (?, ?)",
+                (fid, text))
+            return fid
+
+        try:
+            return await self.write_transaction(_body,
+                                                op_name="typed_fact_save")
+        except Exception:
+            logger.warning("[mca18] typed fact save failed | chat=%s "
+                           "| kind=%s", chat_id, memory_kind, exc_info=True)
+            return None
+
+    _TYPED_FACT_KEYS = ("id", "chat_id", "fact", "origin", "status", "weight",
+                        "subject_entity_id", "speaker_entity_id",
+                        "perspective", "memory_kind", "scope", "valid_from",
+                        "valid_to", "confidence_basis", "revision",
+                        "created_at")
+
+    async def get_typed_fact(self, fact_id: int) -> dict | None:
+        """Чтение типированного факта (roundtrip компилятора/тестов)."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT id, chat_id, fact, origin, status, weight, "
+                "subject_entity_id, speaker_entity_id, perspective, "
+                "memory_kind, scope, valid_from, valid_to, "
+                "confidence_basis, revision, created_at FROM graph_facts "
+                "WHERE id = ?", (int(fact_id),))
+            row = await cursor.fetchone()
+        except Exception:
+            logger.warning("[mca18] typed fact read failed", exc_info=True)
+            return None
+        if row is None:
+            return None
+        return {k: row[k] for k in self._TYPED_FACT_KEYS}
+
+    async def record_adoption_link(
+            self, *, opinion_ref: str, basis_refs, adopted_at: int | None
+            = None, subject_entity_id: str = "self",
+            direction: str = "adopted") -> int | None:
+        """Связь принятия мнения (v31 `mca_adoption_links`, D4): «я
+        предпочитаю X» существует ТОЛЬКО с непустыми основаниями
+        (`basis_refs` — mca_source_refs-id) и временем. Пустые основания →
+        ValueError (повтор фразы группой сам по себе мнение не создаёт,
+        §28.3 `:1546`). UNIQUE (subject, opinion_ref) — повторная запись
+        того же мнения не дублируется (возвращает существующий id)."""
+        bases = tuple(str(b) for b in (basis_refs or ()) if str(b).strip())
+        if not bases or not str(opinion_ref or "").strip():
+            raise ValueError(
+                "adoption_link requires basis_refs and opinion_ref")
+        ts = int(adopted_at if adopted_at is not None else time.time())
+
+        async def _body(conn):
+            cursor = await conn.execute(
+                "INSERT INTO mca_adoption_links (subject_entity_id, "
+                "opinion_ref, basis_refs, adopted_at, direction) "
+                "VALUES (?,?,?,?,?) ON CONFLICT(subject_entity_id, "
+                "opinion_ref) DO NOTHING",
+                (subject_entity_id, str(opinion_ref).strip(),
+                 json.dumps(bases, ensure_ascii=False), ts, direction))
+            if cursor.lastrowid:
+                return int(cursor.lastrowid)
+            cursor = await conn.execute(
+                "SELECT id FROM mca_adoption_links WHERE subject_entity_id "
+                "= ? AND opinion_ref = ?",
+                (subject_entity_id, str(opinion_ref).strip()))
+            row = await cursor.fetchone()
+            return int(row["id"]) if row is not None else None
+
+        return await self.write_transaction(_body, op_name="adoption_link")
+
+    async def list_adoption_links(self, subject_entity_id: str = "self"
+                                  ) -> list[dict]:
+        """Активные adoption-связи субъекта (позиции snapshot'а)."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT id, subject_entity_id, opinion_ref, basis_refs, "
+                "adopted_at, direction FROM mca_adoption_links "
+                "WHERE subject_entity_id = ? AND direction = 'adopted' "
+                "ORDER BY adopted_at DESC, id DESC",
+                (subject_entity_id,))
+            rows = await cursor.fetchall()
+        except Exception:
+            logger.warning("[mca18] adoption links read failed",
+                           exc_info=True)
+            return []
+        out: list[dict] = []
+        for row in rows:
+            try:
+                bases = tuple(json.loads(row["basis_refs"] or "[]"))
+            except (TypeError, ValueError):
+                bases = ()
+            out.append({
+                "id": row["id"],
+                "subject_entity_id": row["subject_entity_id"],
+                "opinion_ref": row["opinion_ref"],
+                "basis_refs": tuple(str(b) for b in bases),
+                "adopted_at": row["adopted_at"],
+                "direction": row["direction"],
+            })
+        return out
+
+    async def observation_exists_by_legacy_ref(self, legacy_ref: int
+                                               ) -> bool:
+        """Идемпотентность legacy-разбора: observation с этим `legacy_ref`
+        уже существует (повтор = no-op, D8)."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT 1 FROM mca_trait_observations WHERE legacy_ref = ? "
+                "LIMIT 1", (int(legacy_ref),))
+            return await cursor.fetchone() is not None
+        except Exception:
+            logger.warning("[mca18] legacy ref lookup failed",
+                           exc_info=True)
+            return True      # fail-closed: не порождаем дубли
+
+    async def list_behavior_rules(self, agent_id: str,
+                                  status: str = "active") -> list[dict]:
+        """Правила черт субъекта по статусу (компилированное view черт
+        snapshot'а; DDL v31 готов, lifecycle-запись — блок C)."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT id, agent_id, dimension, target_value, strength, "
+                "confidence_basis, scope, applicability, exclusions, "
+                "expiry_at, review_at, status, status_reason, "
+                "source_observation_ids, version, "
+                "event_dedup_hash, updated_at FROM mca_behavior_rules "
+                "WHERE agent_id = ? AND status = ? "
+                "ORDER BY updated_at DESC, id DESC",
+                (agent_id, status))
+            rows = await cursor.fetchall()
+        except Exception:
+            logger.warning("[mca18] behavior rules read failed",
+                           exc_info=True)
+            return []
+        out: list[dict] = []
+        for row in rows:
+            out.append({
+                "id": row["id"],
+                "agent_id": row["agent_id"],
+                "dimension": row["dimension"],
+                "target_value": row["target_value"],
+                "strength": row["strength"],
+                "confidence_basis": row["confidence_basis"],
+                "scope": row["scope"],
+                "applicability": row["applicability"],
+                "exclusions": row["exclusions"],
+                "expiry_at": row["expiry_at"],
+                "review_at": row["review_at"],
+                "status": row["status"],
+                "status_reason": row["status_reason"],
+                "source_observation_ids": row["source_observation_ids"],
+                "version": row["version"],
+                "event_dedup_hash": row["event_dedup_hash"],
+                "updated_at": row["updated_at"],
+            })
+        return out
 
     # ── mca-22 (ADR-1028-6 D2): Durable Own Output Ledger — write/read ──────
     # Запись ТОЛЬКО реально доставленных outputs (недоставленный draft — не

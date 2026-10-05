@@ -804,6 +804,22 @@ def direct_output_kind(trigger_type: str | None) -> str:
     return "direct_reply"
 
 
+def _mca18_ledger_source(base: str) -> str:
+    """mca-18 (T-5082/A61): маркировка ledger-строки применёнными правилами
+    черт (`source_feature="direct_chat|trait:12:v3;..."`) — повторное
+    извлечение из такого ответа НЕ считается независимым подкреплением
+    (`mca_self_model.reinforce_rule`). R17-safe: только ID/версии. Fail-open
+    (holder пуст/ошибка → base как в 2.58.61)."""
+    try:
+        from services import mca_self_model as _msm
+        tag = _msm.current_run_frame_tag()
+        if tag:
+            return f"{base}|{tag}"
+    except Exception:
+        pass
+    return base
+
+
 def silent_ack_enabled() -> bool:
     """Kill-switch `DIRECT_SILENT_ACK_ENABLED` (env ClassVar, default ON;
     per-call; никогда не бросает). OFF → тишина без 🗿 (паритет baseline)."""
@@ -1067,6 +1083,10 @@ class CoordinatorDecision:
     next_check_at: int | None = None
     random_metadata: dict | None = None
     tool_outcome: str | None = None
+    # mca-18 (ADR-1028-18 D6/CA-18-7, T-5081): аддитивное поле кадра
+    # поведения (enum/action-schema mca-09 не меняются; None = кадр не
+    # активен — K1 OFF/ошибка). Черта не создаёт намерений.
+    frame_version: str | None = None
 
     def __post_init__(self) -> None:
         # Инварианты 1/2 (ADR D1/§39): action ∈ {reply,react,silent,tool};
@@ -2640,6 +2660,15 @@ class DirectChatService:
                         getattr(tool_ctx, "lore_compiled", False)),
                     pre_reason=pre_reason, pre_reaction=pre_reaction,
                     target_message_id=getattr(message, "message_id", None))
+                # mca-18 (T-5081/CA-18-7): версия кадра запуска — аддитивно
+                # в решение (in-flight версия в trace, `:1574`); None = кадр
+                # не активен. Ошибка чтения holder'а → None (fail-open).
+                try:
+                    from services import mca_self_model as _msm
+                    coordinator.frame_version = \
+                        _msm.current_run_frame_version()
+                except Exception:
+                    coordinator.frame_version = None
                 _log_coordinator_decision(
                     coordinator, chat_id=chat_id,
                     with_decision_fields=decision_on)
@@ -2843,7 +2872,7 @@ class DirectChatService:
                                         if message.message_id
                                         is not None else None),
                     correlation_id=correlation_id,
-                    source_feature="direct_chat")
+                    source_feature=(_mca18_ledger_source("direct_chat")))
                 # MCA-22 (C7, T-4312): lineage-событие свежей генерации
                 # (safe snapshot — без raw content/CoT, R17).
                 _fresh.emit_freshness_event(

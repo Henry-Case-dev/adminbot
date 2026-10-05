@@ -228,10 +228,13 @@ from services.database import (  # noqa: E402
     _SCHEMA_VERSION_EXPERIENCE as _SCHEMA_VERSION_TAIL_V28,
     _SCHEMA_VERSION_INTENTS as _SCHEMA_VERSION_TAIL_V29,
     _SCHEMA_VERSION_RANDOM_USES as _SCHEMA_VERSION_TAIL_V30,
+    _SCHEMA_VERSION_SELF_MODEL as _SCHEMA_VERSION_TAIL_V31,
 )
 # mca-10b (ADR-1028-17 D15, санкция §13.1): хвост реестра — v30
 # (random_uses) — mark обновлён по той же конвенции (прецедент v27→v28→v29).
-_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V30
+# mca-18 (ADR-1028-18 §8.1, санкция T-5074): хвост реестра — v31
+# (self_model) — mark обновлён по конвенции волн (прецедент v29→v30).
+_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V31
 
 
 # ═══ Kill-switch OFF-паритет (SC-20, T-4249) ═════════════════════════════════

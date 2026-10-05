@@ -24,6 +24,7 @@ import logging
 
 from config.settings import settings
 from services import hot_config as hot
+from services import mca_gates
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +189,9 @@ class CharacterReadContext:
     persona: BotPersona
     traits: tuple[str, ...] = ()
     traits_scope: str = "global"
+    # mca-18 (T-5081): версия BehaviorFrame запуска (None = frame-путь
+    # не активен — K1 OFF/ошибка; честный skip, промпт legacy).
+    frame_version: str | None = None
 
 
 # ── Резолв scope ────────────────────────────────────────────────────────────
@@ -236,20 +240,57 @@ async def resolve_bot_persona(chat_id: int | None) -> BotPersona:
 
 def build_persona_prompt_block(persona: BotPersona,
                                traits: "list[str] | tuple[str, ...]" = (),
-                               *, enabled: bool | None = None) -> str:
+                               *, enabled: bool | None = None,
+                               frame=None) -> str:
     """Блок <Persona> для хвоста системного промпта (spec §3.2).
 
     Пусто/флаг OFF → '' (промпт байт-в-байт прежний). Пустые секции не
     рендерятся. `is_aware_ai=false` → после `</Persona>` запрет признавать ИИ.
 
     `enabled` (H3-фикс): резолвнутый per-chat гейт `flags.persona_enabled`.
-    None → глобальный hot.get (sync-совместимость и старые тесты)."""
+    None → глобальный hot.get (sync-совместимость и старые тесты).
+
+    mca-18 (D3/T-5080/T-5081): мастер-гейт ON + кадр запуска (holder из
+    `resolve_character_context` или явный `frame=`) → рендер ИЗ BehaviorFrame:
+    правила во 2-м лице (≠ цитат), A58-минимум при пустой персоне,
+    формулировка False ЗАМЕНЯЕТ `_NO_AI_DISCLOSURE_BLOCK`. Без кадра →
+    legacy-ветка байт-в-байт (K1 OFF/прямые вызовы тестов)."""
     if enabled is None:
         enabled = hot.get("flags.persona_enabled", settings.PERSONA_ENABLED)
     if not enabled:
         return ""
     if persona is None:
         return ""
+    # ── mca-18: кадр запуска → рендер из BehaviorFrame (одна точка сборки).
+    if frame is None and mca_gates.self_model_enabled():
+        try:
+            from services import mca_self_model as msm
+            frame = msm.current_run_frame()
+        except Exception:
+            frame = None
+    if frame is not None:
+        from services import mca_events
+        try:
+            from services import mca_self_model as msm
+            block = msm.render_frame_block(
+                frame, name=_clean(persona.name),
+                biography=_clean(persona.biography),
+                overrides=_clean(persona.overrides))
+            mca_events.emit_mca_event(
+                "self_model", outcome="success", component="self_model",
+                stage="prompt_render", status=frame.version[:64])
+            return block
+        except Exception:
+            logger.warning("[bot_persona] frame render failed — legacy",
+                           exc_info=True)
+            try:
+                mca_events.emit_mca_event(
+                    "self_model", outcome="failed", level="WARN",
+                    component="self_model", stage="prompt_render",
+                    reason_code="self_model_snapshot_error",
+                    status="render_failed_legacy")
+            except Exception:
+                pass
     lines: list[str] = []
     name = _clean(persona.name)
     biography = _clean(persona.biography)
@@ -350,8 +391,20 @@ async def get_traits(limit: int = 50,
         async with pool.acquire() as conn:
             rows = await conn.fetch(sql, *params)
     except Exception:
+        # F-3 (backlog.md:216, закрытие mca-18 T-5087): fail-open ПОЛУЧАЕТ
+        # видимое предупреждение + событие (ошибка чтения ≠ «нет материала»,
+        # §28.1 `:1509`); R17 — только код/числа.
         logger.warning("[bot_persona] traits read failed — fail-open | "
                        "chat=%s", chat_id, exc_info=True)
+        try:
+            from services import mca_events
+            mca_events.emit_mca_event(
+                "self_model", outcome="failed", level="WARN",
+                component="self_model", stage="observation_read",
+                reason_code="self_model_unavailable",
+                chat_id=chat_id, status="traits_read_failed")
+        except Exception:
+            pass
         return []
     out: list[dict] = []
     for row in rows:
@@ -373,7 +426,12 @@ async def resolve_character_context(chat_id: int | None
     (общий пул, `traits_scope="global"`). Fail-open: PG down/ошибка → пустая
     персона/пустые черты (WARNING без содержимого). Сигнатуры публичного API
     сохраняются; write-путей к ядру не добавляется (граница mca-06 AM-3).
-    """
+
+    mca-18 (D3/T-5081, шов `:368`): при мастер-гейте ON резолвится ОДИН
+    SelfModelSnapshot на запуск (I-1) → BehaviorFrame → holder кадра
+    (`mca_self_model.set_run_frame`) — точка сборки рендерит из кадра;
+    `CharacterReadContext.traits` получает компилированные инструкции вместо
+    сырых строк. Ошибки — событие + legacy-путь (не маскирование)."""
     try:
         persona = await resolve_bot_persona(chat_id)
     except Exception:
@@ -384,14 +442,52 @@ async def resolve_character_context(chat_id: int | None
         limit = int(getattr(settings, "PERSONA_TRAITS_MAX", 50) or 50)
     except (TypeError, ValueError):
         limit = 50
-    try:
-        rows = await get_traits(limit, chat_id=None)
-    except Exception:
-        rows = []
-    traits = tuple(
-        t for t in (_clean(r.get("text")) for r in (rows or [])) if t)
+    traits: tuple[str, ...] = ()
+    frame_version: str | None = None
+    if mca_gates.self_model_enabled():
+        # mca-18: snapshot+frame на запуск; ошибки → честное событие,
+        # legacy-рендер (промпт не рушится).
+        try:
+            from services import mca_self_model as msm
+            from services import lore_runtime
+            db = lore_runtime.get_lore_db()
+            if db is not None:
+                snapshot = await msm.resolve_self_model(db, chat_id)
+                if snapshot.persona_enabled.effective(True):
+                    frame = msm.select_behavior(snapshot)
+                    msm.set_run_frame(frame, chat_id)
+                    frame_version = frame.version
+                    traits = tuple(rule.instruction
+                                   for rule in frame.applied_rules)
+                else:
+                    # OFF persona — авторство/тех-идентичность живы (D2),
+                    # кадр не рендерится (характера в речи нет).
+                    frame = msm.select_behavior(snapshot)
+                    msm.set_run_frame(frame, chat_id)
+                    frame_version = frame.version
+        except Exception:
+            frame_version = None
+            logger.warning("[bot_persona] self-model frame failed — "
+                           "legacy | chat=%s", chat_id, exc_info=True)
+            try:
+                from services import mca_events
+                mca_events.emit_mca_event(
+                    "self_model", outcome="failed", level="WARN",
+                    component="self_model", stage="prompt_render",
+                    reason_code="self_model_snapshot_error",
+                    chat_id=chat_id, status="frame_failed_legacy")
+            except Exception:
+                pass
+    if not traits:
+        try:
+            rows = await get_traits(limit, chat_id=None)
+        except Exception:
+            rows = []
+        traits = tuple(
+            t for t in (_clean(r.get("text")) for r in (rows or [])) if t)
     return CharacterReadContext(persona=persona, traits=traits,
-                                traits_scope="global")
+                                traits_scope="global",
+                                frame_version=frame_version)
 
 
 async def get_persona_health() -> dict:

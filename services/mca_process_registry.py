@@ -1042,11 +1042,48 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
              "запрещена",
     ),
     ProcessDefinition(
-        process_id="self_model.update", version="0",
-        purpose="SelfModel/TraitObservation/BehaviorRule/BehaviorFrame",
-        inputs=(), outputs=(), stages=(), trigger_kind="background",
-        owner_feature="mca-18", widget_id=WIDGET_NONE,
-        note="не реализовано (mca-18)",
+        process_id="self.model", version="1",
+        purpose="SelfModel: наблюдение черты → атрибуция → кандидат → "
+                "валидация → активация → отбор → рендер кадра → финальная "
+                "проверка (mca-18, ADR-1028-18 D5/D6/D10)",
+        inputs=("self-факты сна (bot_self_reply)", "persona_traits (legacy)",
+                "владелец (manual)"),
+        outputs=("mca_trait_observations", "mca_behavior_rules",
+                 "BehaviorFrame/версия кадра"),
+        stages=("observation_read", "attribution", "candidate_compile",
+                "validation", "activation", "selection", "prompt_render",
+                "final_check"),
+        trigger_kind="background",
+        schedule="шаг сна (traits) + тик legacy-разбора 3600с + per-reply",
+        settings_ref=("MCA_SELF_MODEL_ENABLED", "MCA_TRAIT_RULES_ENABLED",
+                      "MCA_LEGACY_TRAITS_MIGRATION_ENABLED"),
+        state_source=("mca_trait_observations", "mca_behavior_rules",
+                      "mca_self_identity"),
+        recovery_ops=("legacy_parse_resume",),
+        widget_id="Что сейчас формирует характер",
+        stages_to_events={"observation_read": "self_model",
+                          "attribution": "self_model",
+                          "candidate_compile": "self_model",
+                          "validation": "self_model",
+                          "activation": "self_model",
+                          "selection": "self_model",
+                          "prompt_render": "self_model"},
+        instrumentation=("observation_read", "attribution", "candidate_compile",
+                         "validation", "activation", "selection",
+                         "prompt_render"),
+        owner_feature="mca-18",
+        enabled_gate="MCA_SELF_MODEL_ENABLED",
+        event_names=("self_model",),
+        note="mca-18 (ADR-1028-18 D10; amended placeholder self_model.update "
+             "v0 — реализовано): per-rule included/excluded/conflict/stale + "
+             "причина + frame version в событии `self_model` (stage=...); "
+             "final_check в stages_to_events НЕ входит — постпроцессор "
+             "form-guard mca-08 K4 не трогается (CA-18: не второй редактор); "
+             "применение кадра фиксируется prompt_render + ledger-маркировкой "
+             "(rule_tag); widget-ID — контракт mca-17c; три статуса различимы: "
+             "«передано модели» (prompt_render) ≠ «проявилось» (оценка) ≠ "
+             "«доказан эффект» (replay, вне процесса); K1 OFF → честный "
+             "disabled/not_run; R17-safe (ID/коды/числа/refs)",
     ),
     ProcessDefinition(
         process_id="vision.analyze", version="0",
@@ -1110,6 +1147,10 @@ _GATE_RESOLVERS = {
     "MCA_INTENTS_ENABLED": "intents_enabled",
     # mca-10b (ADR-1028-17 D12): master-гейт процесса random.uses v1.
     "MCA_RANDOM_USES_ENABLED": "random_uses_enabled",
+    # mca-18 (ADR-1028-18 D10): гейты процесса self.model v1.
+    "MCA_SELF_MODEL_ENABLED": "self_model_enabled",
+    "MCA_TRAIT_RULES_ENABLED": "trait_rules_enabled",
+    "MCA_LEGACY_TRAITS_MIGRATION_ENABLED": "legacy_traits_migration_enabled",
     # product-гейты из `config.settings` (не mca_gates) — резолв через settings.
 }
 

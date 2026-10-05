@@ -71,8 +71,15 @@ ARTIFACTS = [ROOT / p for p in FIXTURE["artifacts"]]
 # backend-only, draft-ключ в body) + `random`-поле существующего
 # `GET /api/status` (витринный блок D9). Δ каталога ≠ 0: +13/+2 (502/107/105),
 # delta 78→91. Хэш переутверждён осознанно (L-F11S-1).
+# mca-18 (round 10.42, ADR-1028-18 D8/D10, CA-18-8): эволюция — routes +4 в
+# СУЩЕСТВУЮЩЕМ экране «Личность» (без нового раздела/маршрута UI):
+# GET /api/persona/self-model, POST /api/persona/rules/{rule_id}/pause,
+# POST .../resume, GET .../sources (компакт «Что сейчас формирует характер»
+# + правка владельца/пауза/источники, T-5085/T-5086; rework M-1: sources
+# фильтруются по source_observation_ids правила). Каталог Δ=0
+# (ре-санкция errata). Хэш переутверждён осознанно (L-F11S-1).
 ROUTES_SHA256_F11 = (
-    "efcbc457dae345d03bf304fdc86c8f5074937185ff1bc3b7cd635b568dea90f2")
+    "72c22193406e6c4e201c1b75ca992808adcd728cd6dd00216499742ef6c4c461")
 
 
 def _sha256(path: Path) -> str:
@@ -173,7 +180,7 @@ class TestFrozenInvariants:
         # `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.61"
+        assert APP_VERSION == "2.58.62"
     def test_routes_set_unchanged(self):
         import re
         txt = (ROOT / "web/api/routes.py").read_text(encoding="utf-8")

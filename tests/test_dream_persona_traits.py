@@ -79,6 +79,36 @@ class TestParsePersonaTraits:
         with pytest.raises(ValueError):
             parse_persona_traits("не JSON совсем")
 
+    def test_measurements_pairs_and_legacy_tolerance(self):
+        """MCA-18 (H-2): пары «text, dimension»; legacy-строка → dimension
+        None (кандидат без правила); неизвестное имя проходит как есть
+        (валидация на записи lifecycle)."""
+        from services.dream_prompts import parse_persona_measurements
+        raw = ('[{"text": "отвечает кратко, только суть", '
+               '"dimension": "краткость"}, "стал циничнее", '
+               '{"text": "неклассифицируемое", "dimension": null}, '
+               '{"text": "чужое имя", "dimension": "неизвестное"}]')
+        out = parse_persona_measurements(raw)
+        assert out == [
+            {"text": "отвечает кратко, только суть", "dimension": "краткость"},
+            {"text": "стал циничнее", "dimension": None},
+            {"text": "неклассифицируемое", "dimension": None},
+            {"text": "чужое имя", "dimension": "неизвестное"},
+        ]
+        assert [m["text"] for m in out] == parse_persona_traits(raw)
+        with pytest.raises(ValueError):
+            parse_persona_measurements("не JSON совсем")
+
+    def test_prompt_dimensions_match_lifecycle_closed_set(self):
+        """Промпт строится из закрытого набора 8 dimensions — дрейф имён с
+        `mca_self_model.INITIAL_DIMENSIONS` исключён (H-2)."""
+        from services.dream_prompts import PERSONA_TRAIT_DIMENSIONS
+        from services.mca_self_model import INITIAL_DIMENSIONS
+        assert PERSONA_TRAIT_DIMENSIONS == INITIAL_DIMENSIONS
+        for dim in INITIAL_DIMENSIONS:
+            assert dim in PERSONA_EVOLUTION_PROMPT
+        assert '"dimension"' in PERSONA_EVOLUTION_PROMPT
+
     def test_build_user_includes_sources(self):
         text = build_persona_user(
             [{"fact": "[Бот] решил: шутить"}], [{"fact": "любит грибы"}])

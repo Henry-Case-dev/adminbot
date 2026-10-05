@@ -287,18 +287,35 @@ def parse_bridge_answer(raw: str | None, anchor_count: int = 0,
 # ── F2 (persona-storage-core-round1014, spec §3.4): эволюция характера ──────
 # Модульный канон (ADR-1013-3 §2.3): не PG-сид, PREV не нужен — канона до F2
 # не существовало; PROMPT_MIGRATIONS не трогаем. Контракт ответа: СТРОГО
-# JSON-массив коротких строк-наблюдений.
-PERSONA_EVOLUTION_PROMPT = """\
-Ты - наблюдатель за характером бота. Тебе дают свежие наблюдения о поведении
-бота и ключевые убеждения чата. Определи, как изменился ХАРАКТЕР бота за
-период: привычки, тон, склонности и повторяющиеся реакции.
+# JSON-массив объектов «наблюдение → dimension» (MCA-18 D5/R4; dimension
+# валидируется на записи lifecycle — здесь только текст промпта).
+#
+# MCA-18 (rework H-2): закрытый набор dimensions — ЗЕРКАЛО
+# `mca_self_model.INITIAL_DIMENSIONS` (синхронизация проверяется тестом;
+# промпт строится ИЗ этого кортежа — дрейф имён исключён конструктивно).
+PERSONA_TRAIT_DIMENSIONS: tuple[str, ...] = (
+    "прямота", "резкость", "сарказм", "краткость", "инициативность",
+    "любопытство", "склонность спорить", "теплота",
+)
 
-ПРАВИЛА:
-1. Отвечай СТРОГО одним JSON-массивом коротких наблюдений: ["...", "..."].
-2. Каждое наблюдение до 200 символов, без кавычек-ёлочек и длинных тире.
-3. Пиши динамику характера, а не пересказ отдельных фактов.
-4. Если наблюдений мало или изменений нет - верни [].
-"""
+PERSONA_EVOLUTION_PROMPT = (
+    "Ты - наблюдатель за характером бота. Тебе дают свежие наблюдения о "
+    "поведении\nбота и ключевые убеждения чата. Определи, как изменился "
+    "ХАРАКТЕР бота за\nпериод: привычки, тон, склонности и повторяющиеся "
+    "реакции.\n"
+    "\n"
+    "ПРАВИЛА:\n"
+    "1. Отвечай СТРОГО одним JSON-массивом объектов: "
+    '[{"text": "...", "dimension": "..."}].\n'
+    "2. Каждое наблюдение до 200 символов, без кавычек-ёлочек и длинных "
+    "тире.\n"
+    "3. Пиши динамику характера, а не пересказ отдельных фактов.\n"
+    '4. "dimension" - ровно одно имя из закрытого набора: '
+    + ", ".join(PERSONA_TRAIT_DIMENSIONS)
+    + '. Если наблюдение не относится ни к одному - "dimension": null '
+    "(останется кандидатом на проверку, правило не создаётся).\n"
+    "5. Если наблюдений мало или изменений нет - верни [].\n"
+)
 
 
 def build_persona_user(self_facts, beliefs) -> str:
@@ -325,10 +342,16 @@ def build_persona_user(self_facts, beliefs) -> str:
     return "\n".join(lines)
 
 
-def parse_persona_traits(raw: str | None) -> list[str]:
-    """Парсинг ответа «эволюции характера»: JSON-массив строк либо
-    `{"traits": [...]}` (терпимость), с фенсами/пояснениями вокруг.
-    Пусто/`[]` → []; кривой JSON → ValueError (воркер ставит status='error')."""
+def parse_persona_measurements(raw: str | None) -> list[dict]:
+    """MCA-18 (H-2): парсинг ответа «эволюции характера» → пары
+    `{"text", "dimension"}`.
+
+    Терпимость: JSON-массив объектов `{"text","dimension"}` (канон MCA-18),
+    JSON-массив строк (legacy-формат → dimension=None) или
+    `{"traits": [...]}`. `dimension` может быть null/отсутствовать —
+    неприведённое наблюдение остаётся кандидатом (имена валидирует
+    lifecycle на записи, не парсер). Пусто/`[]` → []; кривой JSON →
+    ValueError (воркер ставит status='error')."""
     text = str(raw or "").strip()
     if not text:
         return []
@@ -339,13 +362,28 @@ def parse_persona_traits(raw: str | None) -> list[str]:
             data = obj["traits"]
     if data is None:
         raise ValueError("persona traits answer is not a JSON array")
-    out: list[str] = []
+    out: list[dict] = []
     for item in data:
-        value = item.get("text") if isinstance(item, dict) else item
+        if isinstance(item, dict):
+            value = item.get("text")
+            dimension = item.get("dimension")
+        else:
+            value, dimension = item, None
         cleaned = " ".join(str(value or "").split())
-        if cleaned:
-            out.append(cleaned)
+        if not cleaned:
+            continue
+        dim = (str(dimension).strip()
+               if isinstance(dimension, str) and str(dimension).strip()
+               else None)
+        out.append({"text": cleaned, "dimension": dim})
     return out
+
+
+def parse_persona_traits(raw: str | None) -> list[str]:
+    """Парсинг ответа «эволюции характера»: тексты наблюдений (legacy-совместимо;
+    dimension отбрасывается — путь lifecycle использует
+    `parse_persona_measurements`). Пусто/`[]` → []; кривой JSON → ValueError."""
+    return [m["text"] for m in parse_persona_measurements(raw)]
 
 
 def _load_json_array(text: str) -> list | None:

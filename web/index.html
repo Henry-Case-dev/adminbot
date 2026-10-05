@@ -5727,6 +5727,111 @@
                 </div>
               </template>
             </div>
+            <!-- ═══ mca-18 (T-5085/T-5086): компакт «Что сейчас формирует
+                 характер» — effective/наследование трёх переключателей,
+                 правила (пауза/возобновление/источники), версии. Три статуса
+                 различимы: «передано модели» (applied_now) ≠ «проявилось» ≠
+                 «доказан эффект» (полная матрица — mca-17c). Fail-open. ═══ -->
+            <div v-if="selfModel" class="card p-5 col-span-full"
+                 style="max-width: 760px;">
+              <div class="flex items-center gap-2 flex-wrap mb-3">
+                <div class="text-sm font-bold">
+                  <span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span>
+                  Что сейчас формирует характер
+                </div>
+                <span v-if="selfModel.version"
+                      class="badge badge-muted">кадр v{{ selfModel.frame_version || selfModel.version }}</span>
+                <span v-if="selfModel.stale" class="badge badge-warn"
+                      title="last-known-good: PG недоступен">fallback: {{
+                  selfModel.fallback === 'lkg' ? 'устаревший снимок' :
+                  'минимальная тех-идентичность' }}</span>
+                <span v-if="selfModel.rules_status && selfModel.rules_status !== 'on'"
+                      class="badge badge-muted">правила черт: {{ selfModel.rules_status }}</span>
+                <span class="badge badge-muted"
+                      title="widget-ID — контракт mca-17c">{{ selfModel.widget_id }}</span>
+              </div>
+              <template v-if="selfModel.enabled">
+                <div class="grid gap-2 mb-3">
+                  <div v-for="(exp, key) in selfModel.explanations" :key="key"
+                       class="text-xs p-2 rounded"
+                       style="background: rgba(148,163,184,.08);">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="font-semibold">{{ key === 'persona_enabled' ? 'Личность в речи'
+                        : key === 'is_aware_ai' ? 'Осознаёт себя ИИ'
+                        : 'Рефлексия собственных ответов' }}</span>
+                      <span class="badge" :class="switchBadgeText(selfModel.switches && selfModel.switches[key]) === 'ошибка загрузки' ? 'badge-err' : (switchBadgeText(selfModel.switches && selfModel.switches[key]) === 'выкл' ? 'badge-warn' : 'badge-info')">
+                        {{ switchBadgeText(selfModel.switches && selfModel.switches[key]) }}
+                      </span>
+                      <span class="text-gray-500">{{ switchSourceText(selfModel.switches && selfModel.switches[key]) }}</span>
+                    </div>
+                    <div class="text-gray-500 mt-1">{{ exp }}</div>
+                  </div>
+                </div>
+                <div class="text-xs text-gray-500 mb-1">
+                  База: {{ selfModel.composition && selfModel.composition.base ? 'задана' : 'пусто' }} ·
+                  Динамика: {{ selfModel.composition ? selfModel.composition.dynamics : '—' }} прав. ·
+                  Настроение: {{ selfModel.composition && selfModel.composition.mood ? 'активно (обратимо)' : 'нет' }} ·
+                  Позиции: {{ selfModel.positions_count }}
+                </div>
+                <div v-if="selfModel.applied_now && selfModel.applied_now.length"
+                     class="text-xs mb-2">
+                  <div class="text-gray-400 mb-1">Передано модели в этом кадре:</div>
+                  <div v-for="r in selfModel.applied_now" :key="'a' + r.id"
+                       class="p-2 rounded mb-1"
+                       style="background: rgba(59,130,246,.10);">
+                    #{{ r.id }} {{ r.dimension }} (v{{ r.version }}) — {{
+                    r.instruction }}
+                  </div>
+                </div>
+                <div v-if="selfModel.rejected_now && selfModel.rejected_now.length"
+                     class="text-xs mb-2">
+                  <div class="text-gray-400 mb-1">Подавлено (с причиной):</div>
+                  <div v-for="r in selfModel.rejected_now" :key="'r' + r.id"
+                       class="p-2 rounded mb-1"
+                       style="background: rgba(148,163,184,.10);">
+                    #{{ r.id || '—' }} {{ r.dimension || '—' }} — {{ r.reason }}
+                  </div>
+                </div>
+                <div v-if="selfModel.active_rules && selfModel.active_rules.length">
+                  <div class="text-gray-400 text-xs mb-1">Правила характера:</div>
+                  <div v-for="r in selfModel.active_rules" :key="r.id"
+                       class="text-xs p-2 rounded mb-1 flex items-center gap-2 flex-wrap"
+                       style="background: rgba(148,163,184,.08);">
+                    <span class="font-semibold">#{{ r.id }} {{ r.dimension }}</span>
+                    <span class="badge badge-muted">v{{ r.version }}</span>
+                    <span v-if="r.scope" class="badge badge-muted">{{ r.scope }}</span>
+                    <span v-if="!r.included" class="badge badge-warn">{{
+                      r.excluded_reason }}</span>
+                    <span class="ml-auto flex gap-1">
+                      <button v-if="r.included" class="btn-ghost text-xs"
+                              :disabled="selfModelLoading"
+                              @click="pauseRule(r.id)">Пауза</button>
+                      <button v-else class="btn-ghost text-xs"
+                              :disabled="selfModelLoading"
+                              @click="resumeRule(r.id)">Возобновить</button>
+                      <button class="btn-ghost text-xs"
+                              @click="loadRuleSources(r.id)">Источники</button>
+                    </span>
+                    <div v-if="selfModelSources[r.id]"
+                         class="w-full text-gray-500">
+                      <div v-for="o in selfModelSources[r.id]" :key="o.id">
+                        набл. #{{ o.id }} · {{ o.subject_status }} · refs: {{
+                        (o.source_refs || []).join(', ') || '—' }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="text-xs text-gray-500">
+                  Активных правил черт пока нет.
+                </div>
+              </template>
+              <template v-else>
+                <div class="text-xs text-gray-500">
+                  Модуль SelfModel выключен (честный disabled) — характер
+                  собирается legacy-путём.
+                </div>
+              </template>
+            </div>
           </template>
           <template v-else-if="activeTab === 'info'">
             <!-- ═══ "Справка" (T-2400): desktop — оглавление + контент;

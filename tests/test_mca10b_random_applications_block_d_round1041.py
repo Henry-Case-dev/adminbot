@@ -305,9 +305,14 @@ def test_blockE_f8_check_green_and_baselines():
     for key in ("memory.random_uses_belief_review",
                 "memory.random_uses_ui_visualization"):
         assert key in cb["registry_keys"]
-    # Δ routes = 0: hash web/api/routes.py не переутверждается
+    # routes: mca-18 (ADR-1028-18 D8/D10, CA-18-8, round 10.42) — routes +4
+    # в существующем экране «Личность» (self-model compact + rules
+    # pause/resume/sources); rework M-1: GET .../sources фильтрует по
+    # source_observation_ids правила (review M-1); хэш переутверждён
+    # осознанно (L-F11S-1; прецедент mca-10a POST /api/random/test).
+    # Каталог Δ=0 (errata).
     import hashlib
     routes_sha = hashlib.sha256(
         (ROOT / "web/api/routes.py").read_bytes()).hexdigest()
-    assert routes_sha == ("efcbc457dae345d03bf304fdc86c8f5074937185ff1bc3b7"
-                          "cd635b568dea90f2")
+    assert routes_sha == ("72c22193406e6c4e201c1b75ca992808adcd728cd6dd0021"
+                          "6499742ef6c4c461")

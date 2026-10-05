@@ -925,7 +925,12 @@ def test_write_points_go_through_single_writer():
         # (T-5051…T-5056), L-MCA14-3; раннер до старта писателей; runtime
         # применений идёт через `write_transaction` — см.
         # `services/mca_exploration.py`)
-        "database.py": 176,
+        # +6 v31 mca-18 (ADR-1028-18 D1/D4/D5, санкция spec §8.1): SelfModel
+        # runtime-записи через `write_transaction` (mca-01): self_rebind,
+        # typed_fact_save, adoption_link, trait_observation, rule_upsert,
+        # rule_transition, rule_reinforce (миграция v31 — L-MCA14-3, раннер
+        # до старта писателей; T-5075…T-5078/5079…5082).
+        "database.py": 182,
         "dossier_rebuild_jobs.py": 1,   # внутри `async with db.serialized()`
         # ASAP-3.2 (ADR-1028-5 D1/D2, T-4191): shadow-rebuild — 3 прямых
         # commit внутри `async with memory.db.serialized()` (идемпотентный

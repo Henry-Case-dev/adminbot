@@ -2019,6 +2019,12 @@
         personaMeta: null,      // {scope, chat_id, is_global, persona_enabled, …}
         personaLoading: false,
         personaBusy: false,
+        // ── mca-18 (T-5085/T-5086): компакт SelfModel «Что сейчас формирует
+        // характер» + правила (пауза/возобновление/источники). Источник —
+        // GET /api/persona/self-model; fail-open (null = недоступно).
+        selfModel: null,
+        selfModelLoading: false,
+        selfModelSources: {},   // rule_id → observations[]
         // toasts
         toasts: [],
       };
@@ -12227,6 +12233,95 @@
         } finally {
           if (this._scopeGuard(epoch)) this.personaLoading = false;   // R3
         }
+        // mca-18 (T-5085): компакт SelfModel — рядом с редактором, fail-open.
+        // typeof-гвард: чужие вызовы с custom-this (JS-unit harness) без
+        // метода не падают; во Vue-инстансе метод есть всегда.
+        if (typeof this.loadSelfModel === 'function') {
+          await this.loadSelfModel();
+        }
+      },
+
+      // ═══ mca-18 (T-5085/T-5086): SelfModel-компакт в редакторе личности ═══
+      loadSelfModel: async function () {
+        var epoch = this.scopeEpoch;
+        this.selfModelLoading = true;
+        try {
+          var data = await this.api('/api/persona/self-model');
+          if (!this._scopeGuard(epoch)) return;
+          this.selfModel = data || null;
+          this.selfModelSources = {};
+        } catch (e) {
+          if (!this._scopeGuard(epoch)) return;
+          this.selfModel = null;      // fail-open: карточка просто скрыта
+        } finally {
+          if (this._scopeGuard(epoch)) this.selfModelLoading = false;
+        }
+      },
+      pauseRule: async function (id) {
+        if (this.selfModelLoading) return;
+        this.selfModelLoading = true;
+        try {
+          await this.api('/api/persona/rules/' + id + '/pause',
+                         { method: 'POST' });
+          this.toast('Правило приостановлено (история сохранена)', 'ok');
+          await this.loadSelfModel();
+        } catch (e) {
+          if (e.status !== 401) {
+            this.toast('Не удалось приостановить: ' + this.loreErrText(e),
+                       'err');
+          }
+        } finally {
+          this.selfModelLoading = false;
+        }
+      },
+      resumeRule: async function (id) {
+        if (this.selfModelLoading) return;
+        this.selfModelLoading = true;
+        try {
+          await this.api('/api/persona/rules/' + id + '/resume',
+                         { method: 'POST' });
+          this.toast('Правило возобновлено', 'ok');
+          await this.loadSelfModel();
+        } catch (e) {
+          if (e.status !== 401) {
+            this.toast('Не удалось возобновить: ' + this.loreErrText(e),
+                       'err');
+          }
+        } finally {
+          this.selfModelLoading = false;
+        }
+      },
+      loadRuleSources: async function (id) {
+        if (this.selfModelSources[id]) {
+          // повторный клик — свернуть
+          var copy = Object.assign({}, this.selfModelSources);
+          delete copy[id];
+          this.selfModelSources = copy;
+          return;
+        }
+        try {
+          var data = await this.api('/api/persona/rules/' + id + '/sources');
+          var obs = ((data && data.observations) || []).slice(0, 10);
+          this.selfModelSources[id] = obs;   // Vue 3 proxy — реактивно
+        } catch (e) {
+          if (e.status !== 401) {
+            this.toast('Источники недоступны: ' + this.loreErrText(e), 'err');
+          }
+        }
+      },
+      switchBadgeText: function (sw) {
+        if (!sw) return '—';
+        if (sw.source === 'error') return 'ошибка загрузки';
+        if (sw.value === true) return 'вкл';
+        if (sw.value === false) return 'выкл';
+        return 'наследовать';
+      },
+      switchSourceText: function (sw) {
+        if (!sw) return '';
+        if (sw.source === 'chat') return 'переопределено для чата';
+        if (sw.source === 'global') return 'глобально';
+        if (sw.source === 'error') return String(sw.error || 'error');
+        return 'по умолчанию';
       },
       savePersona: async function () {
         if (!this.personaDraft || this.personaBusy || this.personaDisabled) return;

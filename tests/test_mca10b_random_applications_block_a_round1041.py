@@ -243,12 +243,16 @@ async def test_randomness_does_not_substitute_retrieval_addressee(monkeypatch):
 
 def test_kill_switch_registry_73_and_defaults():
     """`MCA_RANDOM_USES_ENABLED` — ровно один новый kill-switch (72→73),
-    default ON; reason-словарь 237→247 (санкция §13.4)."""
-    assert len(mca_gates.KILL_SWITCHES) == 73
+    default ON; reason-словарь 237→247 (санкция §13.4).
+    (mca-18, ADR-1028-18 §8.3/§8.4): волна эволюционировала — kill-switches
+    73→76 (+3 SelfModel), reason 247→257 (+10 санкции целиком: +3 блока A/B,
+    +7 блоков C–F); guard фиксирует актуальный frontier волны, вклад
+    mca-18 — в его собственных тестах."""
+    assert len(mca_gates.KILL_SWITCHES) == 76
     assert "MCA_RANDOM_USES_ENABLED" in mca_gates.KILL_SWITCHES
     assert mca_gates.KILL_SWITCHES["MCA_RANDOM_USES_ENABLED"][0] is True
     assert mca_gates.random_uses_enabled() is True
-    assert len(mca_events.REASON_CODES) == 247
+    assert len(mca_events.REASON_CODES) == 257
     for code in ("exploration_accepted", "exploration_rejected",
                  "exploration_deferred", "exploration_failed",
                  "exploration_used_in_reply", "exploration_stored_only",
@@ -369,12 +373,14 @@ async def _v30_artifacts(db) -> dict:
 @pytest.mark.asyncio
 async def test_ddl_v30_fresh_and_idempotent(tmp_path):
     """Fresh: v30 применён ровно один раз (2 колонки + индекс + 3 таблицы +
-    книга); повторный initialize — no-op (0 дублей)."""
+    книга); повторный initialize — no-op (0 дублей).
+    (mca-18): frontier глобальной схемы двинулся 30→31 — свежая БД
+    приземляется на актуальный frontier (≥30); v30-метка — в книге."""
     path = str(tmp_path / "mca10b_v30.db")
     db = DatabaseService(path)
     await db.initialize()
     first = await _v30_artifacts(db)
-    assert first["version"] == 30
+    assert first["version"] >= 30
     assert first["tables"] == {"mca_associations", "mca_archive_coverage",
                                "mca_belief_reviews"}
     assert first["episode_index"] and first["has_last_retrieved"] \
@@ -449,7 +455,9 @@ async def test_ddl_v30_simulation_from_v29_with_backup(tmp_path):
     finally:
         conn.close()
     upgraded = await _v30_artifacts(db2)
-    assert upgraded["version"] == 30
+    # (mca-18): после v30 применяется следующий санкционированный шаг v31 →
+    # frontier ≥ 30 (пин глобального frontier, не фичи).
+    assert upgraded["version"] >= 30
     assert upgraded["tables"] == {"mca_associations", "mca_archive_coverage",
                                   "mca_belief_reviews"}
     assert upgraded["has_last_retrieved"] and upgraded["has_last_used"]

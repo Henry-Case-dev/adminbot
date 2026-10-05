@@ -2396,15 +2396,17 @@ class DreamWorker:
         """F2 persona-storage-core (spec §3.4): «Как изменился характер бота?».
 
         Источники: свежие self-факты (origin='bot_self_reply') + убеждения
-        чата. LLM-роль background → JSON-массив наблюдений → дедуп/cap/FIFO
-        (bot_persona.append_traits) → persona_state.last_trait_*. Fail-open:
-        любая ошибка → status='error'/'empty', прогон глубокого сна не рушится.
+        чата. LLM-роль background → JSON-массив пар «text, dimension» (H-2;
+        dimension — из закрытого набора 8, null → кандидат без правила) →
+        дедуп/cap/FIFO (bot_persona.append_traits) → persona_state.
+        last_trait_*. Fail-open: любая ошибка → status='error'/'empty',
+        прогон глубокого сна не рушится.
         """
         from services import bot_persona
         from services.dream_prompts import (
             PERSONA_EVOLUTION_PROMPT,
             build_persona_user,
-            parse_persona_traits,
+            parse_persona_measurements,
         )
         now = _now_ts() if now is None else int(now)
         try:
@@ -2469,7 +2471,7 @@ class DreamWorker:
             chat_id, now, _estimate_tokens(prompt_text, str(raw or "")),
             "done")
         try:
-            traits = parse_persona_traits(raw)
+            measurements = parse_persona_measurements(raw)
         except ValueError:
             # F2 (spec §4.4): ошибка JSON промпта — R17-safe (только длина
             # ответа, без текста/промпта).
@@ -2480,12 +2482,63 @@ class DreamWorker:
                         extra={"raw_len": len(str(raw or ""))})
             await bot_persona.record_trait_status("error")
             return {"status": "error", "traits": 0}
+        # legacy-контракт append_traits — тексты наблюдений (dimension идёт в
+        # lifecycle mca-18 отдельно, H-2).
+        traits = [m["text"] for m in measurements]
         if not traits:
             logger.info("[persona_traits] empty answer | "
                         "reason=empty_response | chat_id=%s", chat_id)
             _trace_deep(chat_id, "traits", "empty", reason="empty_response")
             await bot_persona.record_trait_status("empty")
             return {"status": "empty", "traits": 0}
+        # ── mca-18 (T-5079/D5; rework H-2): наблюдения черт с provenance
+        # исходных self-фактов и dimension из закрытого набора (K2 ON;
+        # аддитивно — legacy append_traits не меняется). Дедуп/валидация —
+        # в lifecycle (`mca_self_model`); повторное независимое наблюдение
+        # существующего active-правила → bounded `reinforce_rule`
+        # (анти-самоусиление A61: свои ответы под чертой не подтверждают);
+        # fail-open: прогон сна не рушится.
+        try:
+            from services import mca_gates as _gates
+            if _gates.trait_rules_enabled():
+                from services import mca_self_model as _msm
+                from services import lore_runtime as _lore
+                _db = _lore.get_lore_db()
+                if _db is not None:
+                    identity = await _db.get_self_identity()
+                    if identity and identity.get("agent_id"):
+                        _agent = str(identity["agent_id"])
+                        fact_refs = tuple(
+                            f"fact:{r['id']}" for r in (self_facts or [])
+                            if r.get("id") is not None)
+                        for _m in measurements[:20]:
+                            _text = str(_m.get("text") or "")
+                            _dim = _m.get("dimension")
+                            if not _text:
+                                continue
+                            _existing = await _msm.find_rule_id(
+                                _db, agent_id=_agent, dimension=_dim)
+                            _oid = await _msm.record_trait_observation(
+                                _db, agent_id=_agent,
+                                text=_text, source_refs=fact_refs,
+                                subject_status="self", chat_id=chat_id,
+                                dimension=_dim)
+                            if _oid is None:
+                                continue
+                            _rid, _verdict = await _msm.promote_observation(
+                                _db, _oid, scope_chat_id=chat_id)
+                            if _existing is not None and _rid is not None:
+                                # Подкрепление только повторного наблюдения;
+                                # гарды шага/дедупа/независимости — в
+                                # `reinforce_rule`.
+                                await _msm.reinforce_rule(
+                                    _db, _rid,
+                                    delta=_gates.trait_max_step_per_cycle(),
+                                    refs=fact_refs, scope_chat_id=chat_id)
+        except Exception:
+            logger.warning("[persona_traits] mca18 observation hook "
+                           "failed — fail-open | chat_id=%s", chat_id,
+                           exc_info=True)
         try:
             written = await bot_persona.append_traits(
                 traits, chat_id=chat_id, source="deep_sleep")

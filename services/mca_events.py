@@ -276,6 +276,25 @@ REASON_CODES = frozenset({
     "exploration_failed", "exploration_used_in_reply", "exploration_stored_only",
     "exploration_not_used", "exploration_type_unavailable", "association_stale",
     "belief_review_unchanged",
+    # расширение mca-18/блоки A+B (ADR-1028-18 §8.4; санкция T-5074 — ровно
+    # +10 в единый словарь, 247→257; блоки A+B добавляют подмножество 3,
+    # испускаемое их путями: disabled-статус мастера, ошибка сборки snapshot
+    # (никогда не маскируется в пустоту — D2), неоднозначная атрибуция
+    # («бот» без референта → ambiguous, D4). Блоки C–F добирают оставшиеся 7
+    # (self_model_unavailable/self_model_stale/trait_conflict_core/
+    # trait_step_limit/trait_reinforcement_dedup/legacy_trait_unverified/
+    # trait_rule_rejected). Переиспользуется `disabled`. Второй словарь
+    # причин запрещён.
+    "self_model_disabled", "self_model_snapshot_error",
+    "trait_attribution_ambiguous",
+    # расширение mca-18/блоки C–F (ADR-1028-18 §8.4; те же +10 — добирают
+    # оставшиеся 7 до санкционного frontier 247→257): недоступность/устарение
+    # fallback'а (§28.5 `:1576`, честный НЕ-тихий-ON), конфликт правила с
+    # ядром владельца, кап шага черты, дедуп повторного подкрепления,
+    # legacy-запись без доказанного субъекта (candidate), отклонённое правило.
+    "self_model_unavailable", "self_model_stale", "trait_conflict_core",
+    "trait_step_limit", "trait_reinforcement_dedup",
+    "legacy_trait_unverified", "trait_rule_rejected",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────
