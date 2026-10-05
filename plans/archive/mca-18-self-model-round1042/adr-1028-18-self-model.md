@@ -1,6 +1,6 @@
 # ADR-1028-18 — SelfModel: действующая личность, модель себя и применение памяти к поведению (`mca-18-self-model`)
 
-- **Статус:** Proposed (→ Accepted по merge `plans/ARCHITECTURE.md` §122+ и прод-валидации, прецедент волновых ADR)
+- **Статус: Accepted** (merge `plans/ARCHITECTURE.md` **§122**, 06.10.2026 + прод-валидация 2.58.62 VERIFIED: `/healthz` 200 @2.58.62 ×2, v30→v31 идемпотентно — guard fail-closed `pre_migration_20261005_211627.db` 1.319 GB read-back @v30, `book (31, self_model)` ×1, повтор no-op; PG no-op; kill-switches 3 default ON / 0 env-оверрайдов; R17=0; Proposed — Step 2 @Architect, design-freeze 06.10.2026, T-5073)
 - **Дата:** 06.10.2026 · **Автор:** @Architect (Step 2, T-5073) · **Фича:** `mca-18-self-model` (эпик `memory-context-autonomy`, Wave 4, Risk **R3**)
 - **Требования:** §28 `plans/current_task.md:1486–1606`; приёмки A58–A63 `:939–944`; GEN-R17 `:1364`, GEN-R18 `:43`
 - **Baseline:** HEAD `23cb2a1`, прод 2.58.61, SQLite v30, ADR-1028-17 (последний занят — grep 06.10.2026)
@@ -62,3 +62,11 @@
 ## 6. Верификация (пропорциональна R3)
 
 Контрактные тесты §28.7 (100%, блокер) → paired replay 30×≥3 (направленный эффект, рубрика до прогона, слепой оценщик, без рабочего чата) → широкая регрессия только в Block H с OFF-паритетом. Автоматическая оценка — вспомогательная; «передано» ≠ «проявилось» ≠ «доказан эффект».
+
+## ✅ Прод-валидация 2.58.62 (VERIFIED 06.10.2026)
+
+Прод push ff без force (feat `4c70477` 69 файлов, вкл. arch-frames §1.2.7 + prod-HEAD `2d4e3ad` deploy-doc); `/healthz` 200 @2.58.62 ×2 + `/api/health` 200. **DDL v30→v31 применена ровно один раз:** backup-guard fail-closed `pre_migration_20261005_211627.db` 1.319 GB read-back ok @v30; после — `user_version` 31, книга `(31, self_model)` ×1, таблицы 112→116, backfill `revision=1` 16225 строк `graph_facts`, seed `mca_self_identity` 1; повтор no-op; PG no-op; данные целы. Kill-switches 3 default ON / 0 env-оверрайдов; 0 ERROR/CRITICAL; полный suite 12088 passed / 4 failed (все 4 pre-existing — backlog §121); js 4/4; R17=0. Review T-5092 **Approved (итер.2)** — итер.1 Needs Fixes H-1/H-2/H-3 → bounded rework → независимо перепроверены; scanner T-5093: итер.1 «к деплою НЕТ» (S-1 High) → S-1-rework (read-side scope-матч `out_of_scope_chat`, RED→GREEN, focused 96) → recheck **«к деплою ДА»** (C0/H0; binding `mca_self_model.py` `106a8f69…f1ddf2`; аудит `plans/reports/mca18_scanner_audit.md`). Rollback: soft — `MCA_SELF_MODEL_ENABLED=false` (бит-в-бит 2.58.61); cold — revert `4c70477` (v31 аддитивна). Live-приёмка T-5095 — PENDING OWNER (сценарий — `plans/backlog.md` Round 10.42 п.1). Полная фактура — `deployment.md` (VERIFIED). Архив — `plans/archive/mca-18-self-model-round1042/` (round 10.42).
+
+## История ревизий
+
+06.10.2026 — Proposed (Step 2 @Architect, design-freeze, T-5073; merge-цель §122 подтверждена — §121 занята mca-10b, номер свободен проверен grep'ом); 06.10.2026 — errata санкций (T-5074: Δ каталога +1 → **0**, `flags.persona_enabled` уже существует как pg_key `PERSONA_ENABLED`, F8 не переиздаётся); 06.10.2026 — review T-5092 Needs Fixes (H-1/H-2/H-3) → bounded rework → **Approved (итер.2)**; 06.10.2026 — scanner T-5093 итер.1 «к деплою НЕТ» (S-1 High) → S-1-rework → recheck **«к деплою ДА»** (C0/H0); 06.10.2026 — **Accepted** (merge §122 + deploy 2.58.62 VERIFIED; live T-5095 — за владельцем). AMEND-статусы §3 подтверждены: ADR-1028-11/1027-4/1027-6/1028-15 — amended; ADR-1026-20/1028-16/1028-17 — не затронуты; SUPERSEDE — ничего.
