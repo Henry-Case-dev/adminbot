@@ -315,11 +315,11 @@ def test_ai_hub_five_pages_order():
 def test_catalog_delta_zero():
     import services.param_catalog as pc
     from config.settings import Settings
-    assert len(pc.REGISTRY) == 502
-    assert len(pc.GROUPS) == 107
-    assert len(pc._TAB_BY_GROUP) == 105
+    assert len(pc.REGISTRY) == 504
+    assert len(pc.GROUPS) == 108
+    assert len(pc._TAB_BY_GROUP) == 106
     assert len(pc.TAB_RULES) == 21
-    assert len({f.name for f in dataclasses.fields(Settings)}) == 439
+    assert len({f.name for f in dataclasses.fields(Settings)}) == 441
 
 
 def test_no_webgl_and_no_new_libraries():

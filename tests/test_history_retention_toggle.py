@@ -146,15 +146,23 @@ class TestCatalogSeed:
         assert pc.CATEGORY_MEMORY in pc.CATEGORIES
         # раунд 9 (T-824/T-825, T-826/T-827): в категории memory группы
         # memory_dream («сон») и memory_nostalgia («ностальгия») — порядок
-        # 1, 2, 3
+        # 1, 2, 3.
+        # MCA-10a (ADR-1028-14 D8, санкция §13.2): + memory_random («Случайность»)
+        # — stale-guard обновлён при mca-16 (round 10.39).
+        # MCA-16 (ADR-1028-15 D8/D12, санкция §12.2): + memory_experience
+        # («Опыт и уроки»).
         groups = pc.groups_by_category("memory")
         assert [g.id for g in groups] == ["memory_infinite", "memory_dream",
-                                          "memory_nostalgia"]
+                                          "memory_nostalgia", "memory_random",
+                                          "memory_experience"]
         assert group in groups
         # ASAP-3.1: env-only ClassVar CHAT_MODEL_CONTEXT_WINDOW
         # каталогизирован санкционированно (spec 10.1) — «лишним» не считается.
+        # ASAP 4.4 (T-4880): keys.embedding_quota_group_labels — ClassVar hot-ключ
+        # (санкционированная каталогизация) — «лишним» не считается
+        # (stale-guard обновлён при mca-16; pre-existing с round 10.28).
         missing, extra = pc.settings_field_coverage()
-        extra -= {"CHAT_MODEL_CONTEXT_WINDOW"}
+        extra -= {"CHAT_MODEL_CONTEXT_WINDOW", "EMBEDDING_QUOTA_GROUP_LABELS"}
         assert (missing, extra) == (set(), set())
 
     def test_seed_categories_include_memory(self):

@@ -200,6 +200,9 @@
             'limits_rag'] },
         { category: 'flags', groups: ['flags_memory'] },
         { category: 'memory', groups: ['memory_infinite'] },
+        // Раунд 10.39 (MCA-16, ADR-1028-15 D8/D9): зеркало TAB_RULES —
+        // «Опыт и уроки» на вкладке «Память» (in-place, без новых вкладок).
+        { category: 'memory', groups: ['memory_experience'] },
         { category: 'reactions', groups: ['reactions_memory'] },
       ] },
     // A3/T-1174: «Умный кэш» — отдельный подраздел AI.
@@ -1919,6 +1922,13 @@
         // случайности» — read-only; раскрытие последних решений КЛИЕНТСКОЕ
         // (данные уже в /api/status — новых запросов/маршрутов нет).
         randomDrawsOpen: false,
+        // Раунд 10.39 (MCA-16, ADR-1028-15 D9/T-5007): «Опыт и уроки» —
+        // таблица/карточка в «Памяти» + права (admin); черновик правки
+        // живёт только в памяти (R17).
+        lessonsData: null,
+        lessonsBusy: false,
+        lessonCard: null,
+        lessonDraft: { applicability: '', exceptions: '' },
         // T-4977: «Проверить подключение» ANU — черновой ключ уходит только
         // в POST-body (не URL/не лог); результат — status/latency/дата/
         // размер/очищенная ошибка/key_present.
@@ -3473,6 +3483,28 @@
           scope: r.recent_draws_scope || '',
         };
       },
+      // Раунд 10.39 (MCA-16, ADR-1028-15 D9/T-5006): компактная лента
+      // «Опыт» — read-only проекция аддитивного /api/status.experience.
+      // A57: unknown-исходы видны честно, улучшение не выдумывается
+      // (`improvement.measured` = false); число уроков не заменяет эффект.
+      experienceFeed: function () {
+        var e = (this.statusData && this.statusData.experience) || null;
+        if (!e) {
+          return { ready: false, enabled: false, items: [], counters: {},
+                   improvement: null, stateLabel: '—' };
+        }
+        var stateRu = { implemented: 'работает', not_run: 'пока пусто',
+                        unavailable: 'недоступно', disabled: 'выключено' };
+        return {
+          ready: true,
+          enabled: !!e.enabled,
+          state: e.state || null,
+          stateLabel: stateRu[e.state] || e.state || '—',
+          items: e.items || [],
+          counters: e.counters || {},
+          improvement: e.improvement || null,
+        };
+      },
       // F11 (§14/D2): честные системные метрики — `null` (нет данных) ≠ 0.
       // `ready` — пришла ли секция `server`; поля нормализованы в number|null.
       statusSys: function () {
@@ -3855,6 +3887,11 @@
         if (id === 'prompts') {
           this._syncPromptModeFromConfig();
           this.maybeLoadCliche();
+        }
+        // MCA-16 (ADR-1028-15 D9/T-5007): вход в «Память» — подтянуть уроки
+        // опыта (идемпотентно, fail-open; admin-only данные).
+        if (id === 'memory_rag') {
+          this.loadLessons();
         }
         // F2 (T-2540): после смены вкладки контент v-if достраивается позже —
         // пересчитываем уровень стекла после рендера (в дополнение к observer).
@@ -5601,6 +5638,93 @@
         var s = this.memoryHealth && this.memoryHealth.storage;
         if (!s || !s.disk_free_bytes) return false;
         return s.disk_free_bytes < 2147483648;
+      },
+      // ── MCA-16 (ADR-1028-15 D9/T-5007): «Опыт и уроки» в «Памяти» ──────
+      // Таблица/карточка lessons + права (suspend/activate/correct). Данные —
+      // GET /api/memory/lessons (существующий memory-API, admin); trace —
+      // только разрешённого чата (сервер не отдаёт чужой trace). R17-safe.
+      loadLessons: async function () {
+        this.lessonsBusy = true;
+        try {
+          var q = this._cidQuery ? this._cidQuery() : '';
+          this.lessonsData = await this.api('/api/memory/lessons' + q);
+        } catch (e) {
+          this.lessonsData = null;
+        } finally {
+          this.lessonsBusy = false;
+        }
+      },
+      lessonTypeLabel: function (type) {
+        var ru = { tool_usage: 'способ действия', retrieval: 'поиск',
+                   context: 'контекст', social_preference: 'предпочтение',
+                   failure_pattern: 'ошибка/способ' };
+        return ru[type] || type || '—';
+      },
+      lessonStatusLabel: function (status) {
+        var ru = { candidate: 'кандидат', validated: 'проверен',
+                   active: 'активен', suspended: 'приостановлен',
+                   superseded: 'заменён' };
+        return ru[status] || status || '—';
+      },
+      lessonStatusClass: function (status) {
+        if (status === 'active') return 'badge-ok';
+        if (status === 'suspended') return 'badge-warn';
+        return 'badge-muted';
+      },
+      lessonAction: async function (lesson, action, payload) {
+        if (!lesson || !lesson.lesson_id) return null;
+        if (this.lessonsBusy) return null;
+        this.lessonsBusy = true;
+        try {
+          var body = Object.assign({ lesson_id: lesson.lesson_id,
+                                     version: lesson.version,
+                                     action: action },
+                                   payload || {});
+          var res = await this.api('/api/memory/lessons/action',
+                                   { method: 'POST', body: JSON.stringify(body) });
+          await this.loadLessons();
+          return res;
+        } catch (e) {
+          return null;
+        } finally {
+          this.lessonsBusy = false;
+        }
+      },
+      // «Исправить» = новая версия (кандидат); пустая форма → no-op.
+      openLessonCard: function (lesson) {
+        if (this.lessonCard && lesson
+            && this.lessonCard.lesson_id === lesson.lesson_id) {
+          this.lessonCard = null;
+          return;
+        }
+        this.lessonCard = lesson;
+        this.lessonDraft = {
+          applicability: (lesson && lesson.applicability) || '',
+          exceptions: (lesson && lesson.exceptions) || '',
+        };
+      },
+      saveLessonCorrection: async function () {
+        var lesson = this.lessonCard;
+        if (!lesson) return null;
+        var draft = this.lessonDraft || {};
+        var app = String(draft.applicability || '').trim();
+        var exc = String(draft.exceptions || '').trim();
+        if (app === (lesson.applicability || '')
+            && exc === (lesson.exceptions || '')) return null;
+        var res = await this.lessonAction(lesson, 'correct',
+                                          { applicability: app || null,
+                                            exceptions: exc || null });
+        if (res && res.ok) this.lessonCard = null;
+        return res;
+      },
+      // Открыть разрешённый trace в СУЩЕСТВУЮЩЕМ viewer логов (mca-17a):
+      // фильтр по trace_id + переход на «Статус»; новых маршрутов нет.
+      openLessonTrace: function (lesson) {
+        if (!lesson || !lesson.trace_available
+            || !(lesson.trace_ids || []).length) return;
+        this.mcaLogFilter.trace_id = lesson.trace_ids[0];
+        this.loadRelatedEvents();
+        if (typeof this.navigateTo === 'function') this.navigateTo('#/');
       },
       // Hotfix-R10 («Модули» без выбранного чата): Opt-In-сводка из
       // Oversight-данных удалена в 10.9 (карточка дублирующих гейтов убрана).

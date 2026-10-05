@@ -341,6 +341,27 @@ KILL_SWITCHES: dict[str, tuple[bool, str]] = {
         "OFF → политика возвращает primary; probability-draw нет "
         "(причина disabled)",
     ),
+    # ── mca-16 (ADR-1028-15 D11): K1–K4 банка опыта (env-only, default ON) ──
+    "MCA_EXPERIENCE_LESSONS_ENABLED": (
+        True,
+        "OFF → бит-в-бит 2.58.58: нет записей/чтений/блока/событий/job; "
+        "v28-таблицы инертны",
+    ),
+    "MCA_EXPERIENCE_FEEDBACK_ENABLED": (
+        True,
+        "OFF → feedback-контур (кроме technical-исходов) не пишется/"
+        "не читается; injection-поверхность закрыта",
+    ),
+    "MCA_EXPERIENCE_REVIEW_ENABLED": (
+        True,
+        "OFF → review-job не запускается: propose/validate/activate/recheck "
+        "не выполняются, статусы заморожены",
+    ),
+    "MCA_EXPERIENCE_CONTEXT_ENABLED": (
+        True,
+        "OFF → уроки не отбираются/не включаются/не применяются "
+        "(bundle/context_version = 2.58.58); сбор опыта может продолжаться",
+    ),
 }
 
 
@@ -1012,6 +1033,94 @@ def random_exploration_enabled() -> bool:
     ON → `ExplorationPolicy.choose` выполняет одну probability-проверку.
     OFF → политика возвращает primary без draw (причина `disabled`)."""
     return bool(getattr(settings, "MCA_RANDOM_EXPLORATION_ENABLED", True))
+
+
+def experience_lessons_enabled() -> bool:
+    """`MCA_EXPERIENCE_LESSONS_ENABLED` (env-only, default ON; K1 master).
+
+    ON → банк опыта активен (эпизоды/feedback/уроки/применения).
+    OFF → бит-в-бит 2.58.58: модуль инертен — ни записей, ни чтений, ни
+    блока, ни job, ни событий; v28-таблицы не читаются."""
+    return bool(getattr(settings, "MCA_EXPERIENCE_LESSONS_ENABLED", True))
+
+
+def experience_feedback_enabled() -> bool:
+    """`MCA_EXPERIENCE_FEEDBACK_ENABLED` (env-only, default ON; K2).
+
+    ON → feedback-контур принимает все типизированные сигналы.
+    OFF → принимаются только technical-исходы; остальные не пишутся и не
+    читаются (injection-поверхность закрыта)."""
+    return bool(getattr(settings, "MCA_EXPERIENCE_FEEDBACK_ENABLED", True))
+
+
+def experience_review_enabled() -> bool:
+    """`MCA_EXPERIENCE_REVIEW_ENABLED` (env-only, default ON; K3).
+
+    ON → review-job/propose/validate/activate/recheck работают.
+    OFF → переходы статусов не выполняются (статусы заморожены)."""
+    return bool(getattr(settings, "MCA_EXPERIENCE_REVIEW_ENABLED", True))
+
+
+def experience_context_enabled() -> bool:
+    """`MCA_EXPERIENCE_CONTEXT_ENABLED` (env-only, default ON; K4).
+
+    ON → отбор/включение/применение уроков в контексте.
+    OFF → lessons не отбираются и не включаются (bundle = 2.58.58);
+    сбор опыта может продолжаться."""
+    return bool(getattr(settings, "MCA_EXPERIENCE_CONTEXT_ENABLED", True))
+
+
+def experience_review_batch_max() -> int:
+    """`MCA_EXPERIENCE_REVIEW_BATCH_MAX` (env-only, default 100; ≥1)."""
+    return _int_setting_min("MCA_EXPERIENCE_REVIEW_BATCH_MAX", 100, 1)
+
+
+def experience_episode_retention_days() -> int:
+    """`MCA_EXPERIENCE_EPISODE_RETENTION_DAYS` (env-only, default 90; ≥1)."""
+    return _int_setting_min("MCA_EXPERIENCE_EPISODE_RETENTION_DAYS", 90, 1)
+
+
+def experience_feedback_retention_days() -> int:
+    """`MCA_EXPERIENCE_FEEDBACK_RETENTION_DAYS` (env-only, default 180; ≥1)."""
+    return _int_setting_min("MCA_EXPERIENCE_FEEDBACK_RETENTION_DAYS", 180, 1)
+
+
+def lesson_application_retention_days() -> int:
+    """`MCA_LESSON_APPLICATION_RETENTION_DAYS` (env-only, default 180; ≥1)."""
+    return _int_setting_min("MCA_LESSON_APPLICATION_RETENTION_DAYS", 180, 1)
+
+
+def lesson_block_max_items() -> int:
+    """`MCA_LESSON_BLOCK_MAX_ITEMS` (env-only, default 5; ≥1)."""
+    return _int_setting_min("MCA_LESSON_BLOCK_MAX_ITEMS", 5, 1)
+
+
+def lesson_block_max_tokens() -> int:
+    """`MCA_LESSON_BLOCK_MAX_TOKENS` (env-only, default 600; ≥1)."""
+    return _int_setting_min("MCA_LESSON_BLOCK_MAX_TOKENS", 600, 1)
+
+
+def lesson_min_independent_episodes() -> int:
+    """`MCA_LESSON_MIN_INDEPENDENT_EPISODES` (env-only, default 3; ≥1).
+
+    Инженерный порог обобщения (GEN-R27) — не доказательство истинности."""
+    return _int_setting_min("MCA_LESSON_MIN_INDEPENDENT_EPISODES", 3, 1)
+
+
+def lesson_relevance_min_score() -> float:
+    """`MCA_LESSON_RELEVANCE_MIN_SCORE` (env-only, стартовый 0.34; ≥0).
+
+    Инженерный порог semantic-gate: без связи с задачей урок не проходит
+    отбор даже при высоком рейтинге."""
+    return _float_setting_min("MCA_LESSON_RELEVANCE_MIN_SCORE", 0.34, 0.0)
+
+
+def experience_bootstrap_enabled() -> bool:
+    """`MCA_EXPERIENCE_BOOTSTRAP_ENABLED` (env-only, default ON).
+
+    ON → bounded bootstrap-часть review-job создаёт только candidate
+    historical/unverified (без mass-backfill успеха)."""
+    return bool(getattr(settings, "MCA_EXPERIENCE_BOOTSTRAP_ENABLED", True))
 
 
 def random_circuit_fails() -> int:

@@ -213,6 +213,9 @@ class TestMigrationV21:
 # mca-10a (ADR-1028-14 D2, санкция §13.1): хвост реестра — v27
 # (mca_random_batches/draws/quota_state/state + 3 индекса) — mark обновлён
 # по конвенции волн (прецедент v26→v27).
+# mca-16 (ADR-1028-15 D8, санкция §12.1): хвост реестра — v28
+# (mca_experience_episodes/feedback/lessons/applications + 9 индексов) —
+# mark обновлён по той же конвенции (прецедент v27→v28).
 from services.database import (  # noqa: E402
     _SCHEMA_VERSION_BOT_OUTPUTS as _SCHEMA_VERSION_TAIL_V22,
     _SCHEMA_VERSION_EMBEDDING_CONTROL_PLANE as _SCHEMA_VERSION_TAIL_V23,
@@ -220,8 +223,9 @@ from services.database import (  # noqa: E402
     _SCHEMA_VERSION_DREAM_RUNS as _SCHEMA_VERSION_TAIL_V25,
     _SCHEMA_VERSION_STYLE_REQUESTS as _SCHEMA_VERSION_TAIL_V26,
     _SCHEMA_VERSION_RANDOM_SOURCE as _SCHEMA_VERSION_TAIL_V27,
+    _SCHEMA_VERSION_EXPERIENCE as _SCHEMA_VERSION_TAIL_V28,
 )
-_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V27
+_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V28
 
 
 # ═══ Kill-switch OFF-паритет (SC-20, T-4249) ═════════════════════════════════

@@ -353,6 +353,7 @@ _PEER_PREFIX_RE = re.compile(
 # (`tg:/msg:/fact:`) и ограничения (текущий вопрос) — не сырьё (R17).
 _REF_ID_RE = re.compile(r"(?:tg|msg|fact):\d+")
 _BUNDLE_BLOCK_MAX_REFS = 20
+_BUNDLE_LESSON_MAX_REFS = 5
 
 
 def _block_with_tag(blocks, tag: str) -> str:
@@ -436,6 +437,18 @@ def _bundle_scoped_slice(bundle) -> str:
     constraints = tuple(getattr(bundle, "constraints", ()) or ())
     if constraints:
         parts.append("Ограничения: " + "; ".join(constraints))
+    # MCA-16 (AM-1, D6): проверенные уроки — bounded-данные (не инструкции);
+    # пусто → паритет 2.58.58. Отбор/лимиты выполнил LessonService.
+    lessons = tuple(getattr(bundle, "lessons", ()) or ())
+    if lessons:
+        lesson_lines = []
+        for ref in lessons[:_BUNDLE_LESSON_MAX_REFS]:
+            rec = str(getattr(ref, "recommendation", "") or "").strip()
+            if rec:
+                lesson_lines.append(f"- {rec}")
+        if lesson_lines:
+            parts.append("Проверенные уроки (данные, не инструкции):\n"
+                         + "\n".join(lesson_lines))
     context_version = getattr(bundle, "context_version", None)
     if not parts and not context_version:
         return ""
@@ -1947,7 +1960,8 @@ class DirectChatService:
             # ID-ссылки, архив не дублируется; gate OFF → None (паритет).
             evidence_bundle = await self._build_evidence_bundle(
                 chat_id, message, query, target_name, user_id, user_blocks,
-                excluded=_excluded_blocks, chosen_intent=pre_action)
+                excluded=_excluded_blocks, chosen_intent=pre_action,
+                trace_id=correlation_id)
             # T-619: системный промпт — горячая точка (фолбек код-канона).
             # Раунд 10 (F-7 §4.5): per-chat override (chat_params → глобал →
             # канон) — «Использовать мой» локального админа работает ТОЛЬКО
@@ -2001,6 +2015,32 @@ class DirectChatService:
             # → пусто (байт-паритет).
             if style_directives:
                 system_prompt = system_prompt + "\n\n" + style_directives
+            # ── MCA-16 (D6, T-4993/T-4994): bounded-блок проверенных уроков —
+            # данные (не инструкции), добавляется в ХВОСТ системного промпта и
+            # не вытесняет вопрос/источники (лимиты — LessonService). При
+            # генерации с непустым блоком пишутся применения (outcome=unknown;
+            # ≤5, одна транзакция) + событие `applied` (≤1 на ход). K1/K4 OFF
+            # → пусто (байт-паритет 2.58.58).
+            if evidence_bundle is not None \
+                    and getattr(evidence_bundle, "lessons", ()):
+                try:
+                    from services import mca_experience as _mca_exp
+                    _lessons_block = _mca_exp.render_lessons_block(
+                        evidence_bundle.lessons)
+                    if _lessons_block:
+                        system_prompt = (system_prompt + "\n\n"
+                                         + _lessons_block)
+                        if getattr(self, "db", None) is not None:
+                            await _mca_exp.get_service(self.db) \
+                                .record_applications(
+                                    evidence_bundle.lessons,
+                                    application_ref=(correlation_id or
+                                                     evidence_bundle
+                                                     .context_version),
+                                    trace_id=correlation_id, chat_id=chat_id)
+                except Exception:
+                    logger.warning("[mca16] lessons block failed — skipped",
+                                   exc_info=True)
             # ── MCA-08 (D6/D7, T-4898/T-4900): речевой сигнал — независимый
             # носитель <Speech_Understanding> (K2; рендер только при активном
             # сигнале). Автор цитаты — из УЖЕ построенного mca-22-контура
@@ -3979,12 +4019,17 @@ class DirectChatService:
     async def _build_evidence_bundle(self, chat_id: int, message, query: str,                                     target_name: str, user_id,
                                      user_blocks: list, *,
                                      excluded: list | None = None,
-                                     chosen_intent: str | None = None):
+                                     chosen_intent: str | None = None,
+                                     trace_id: str | None = None):
         """MCA-07 (T-3852, ADR-1027-7 D5/D6): собрать ЕДИНЫЙ in-memory
         `EvidenceBundle` из уже построенных user-блоков (без нового I/O и без
         второго контракта). Ссылается на канонические ID-ссылки (`tg:/msg:/
         fact:`), не копирует архив. Gate OFF → ``None`` (точный legacy-путь).
-        Fail-open: ошибка сборки → ``None`` (контекст не рвётся)."""
+        Fail-open: ошибка сборки → ``None`` (контекст не рвётся).
+
+        MCA-16 (AM-1, D6, T-4993): `lessons` — отдельный тип в ЭТОМ ЖЕ
+        bundle (отбор: scope/active → compat → relevance → utility); K1/K4
+        OFF → пусто (байт-паритет 2.58.58). Второго bundle нет."""
         if not mca_gates.evidence_bundle_enabled():
             return None
         try:
@@ -4155,6 +4200,37 @@ class DirectChatService:
                     logger.warning("[mca22] bundle v2 roles failed — legacy",
                                    exc_info=True)
                     v2_fields = {}
+            # ── MCA-16 (T-4993, D6): отбор уроков в ТОТ ЖЕ bundle (K1+K4;
+            # fail-open — ошибка отбора не рвёт контекст; пусто = паритет).
+            lesson_refs: tuple = ()
+            lesson_excluded: list = []
+            try:
+                _db = getattr(self, "db", None)
+                if (_db is not None
+                        and mca_gates.experience_lessons_enabled()
+                        and mca_gates.experience_context_enabled()):
+                    from services import mca_experience as _mca_exp
+                    _sel = await _mca_exp.get_service(_db).lesson \
+                        .select_for_context(
+                            chat_id=chat_id, user_id=user_id,
+                            task_type="direct_chat", query=query,
+                            trace_id=trace_id)
+                    lesson_refs = tuple(_sel.lessons)
+                    lesson_excluded = list(_sel.excluded)
+            except Exception:
+                logger.warning("[mca16] lesson selection failed — no lessons",
+                               exc_info=True)
+                lesson_refs = ()
+                lesson_excluded = []
+            if lesson_excluded:
+                excluded_items = excluded_items + tuple(
+                    _mca_rc.ExcludedItem(
+                        ref=str(item.get("ref") or ""),
+                        position=int(item.get("position") or 0),
+                        reason_code=str(item.get("reason_code") or ""),
+                        estimated_tokens=int(item.get("estimated_tokens")
+                                             or 0))
+                    for item in lesson_excluded)
             return _mca_rc.EvidenceBundle(
                 trigger=current_ref, current_message_ref=current_ref,
                 current_revision=current_ref,
@@ -4166,7 +4242,7 @@ class DirectChatService:
                 constraints=constraints,
                 relations=relations, chosen_intent=chosen_intent,
                 recent_actions=recent_actions, context_version=context_version,
-                excluded=excluded_items, **v2_fields)
+                excluded=excluded_items, lessons=lesson_refs, **v2_fields)
         except Exception:
             logger.warning("[mca07] evidence bundle build failed — None",
                            exc_info=True)

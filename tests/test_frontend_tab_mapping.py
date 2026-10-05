@@ -163,9 +163,9 @@ class TestTabMappingAudit:
         # TAB_RULES 21 in-place → 481/105/103.
         # ASAP 4.4 (T-4880): +1 REGISTRY (keys.embedding_quota_group_labels,
         # группа keys_llm уже приписана вкладке llm_providers) → 489.
-        assert len(pc._TAB_BY_GROUP) == 105
-        assert len(GROUPS) == 107
-        assert len(pc.REGISTRY) == 502
+        assert len(pc._TAB_BY_GROUP) == 106
+        assert len(GROUPS) == 108
+        assert len(pc.REGISTRY) == 504
 
 
 class TestModuleTabs:
@@ -413,6 +413,9 @@ def test_widget_keyvalue_on_summary_aliases():
         "memory.random_source",
         "keys.random_quantum_plan",
         "keys.random_quantum_data_type",
+        # MCA-16 (ADR-1028-15 D8/D12, санкция §12.2): +1 select —
+        # каденция пакетного review опыта (hourly/daily/weekly).
+        "memory.experience_review_cadence",
     }
     for spec in sel:
         assert spec.select_options and spec.select_labels

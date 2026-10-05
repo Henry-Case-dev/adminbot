@@ -1970,6 +1970,101 @@
                         :class="{ 'font-bold': memorySubgroup === s.id }"
                         @click="setMemorySubgroup(s.id)">{{ s.title }}</button>
               </div>
+              <!-- Раунд 10.39 (MCA-16, ADR-1028-15 D9/T-5007): «Опыт и уроки» —
+                   таблица lessons + карточка + права (отключить/исправить,
+                   разрешённый trace) в СУЩЕСТВУЮЩЕЙ «Памяти»; suspended виден
+                   и НЕ применяется; trace чужого чата сервер не отдаёт. -->
+              <div v-if="currentTab && currentTab.id === 'memory_rag' && isGlobalAdmin"
+                   class="col-span-full card p-4" data-lessons>
+                <div class="flex items-center gap-2 mb-2 flex-wrap">
+                  <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('history') }}</span> Опыт и уроки</div>
+                  <span v-if="lessonsData" class="text-xs text-gray-500">
+                    {{ lessonsData.state === 'disabled' ? 'выключено'
+                       : ('уроков: ' + (lessonsData.count || 0)) }}
+                  </span>
+                  <button class="btn-ghost text-xs ml-auto" :disabled="lessonsBusy"
+                          @click="loadLessons()">⟳</button>
+                </div>
+                <div v-if="lessonsBusy && !lessonsData" class="spinner my-2"></div>
+                <div v-else-if="!lessonsData" class="text-xs text-gray-500">Данные недоступны.</div>
+                <div v-else-if="!lessonsData.enabled" class="text-xs text-gray-500">
+                  Опыт и уроки выключены — записей нет.
+                </div>
+                <div v-else-if="!lessonsData.lessons.length" class="text-xs text-gray-500">
+                  Уроков пока нет — появятся после проверенного опыта.
+                </div>
+                <template v-else>
+                  <div class="overflow-x-auto">
+                    <table class="avail-list" data-lessons-table>
+                      <thead><tr>
+                        <th>Область</th><th>Тип</th><th>Статус</th>
+                        <th>Условия</th><th>Основания</th><th>Версии</th>
+                        <th>Применений</th><th>Исходы (у/п/?)</th><th></th>
+                      </tr></thead>
+                      <tbody>
+                        <tr v-for="l in lessonsData.lessons"
+                            :key="l.lesson_id + ':' + l.version"
+                            :class="{ 'opacity-60': !l.applied }"
+                            @click="openLessonCard(l)">
+                          <td>{{ l.scope }}<template v-if="l.scope_chat_id"> #{{ l.scope_chat_id }}</template></td>
+                          <td>{{ lessonTypeLabel(l.type) }}</td>
+                          <td><span class="badge" :class="lessonStatusClass(l.status)">{{ lessonStatusLabel(l.status) }}</span></td>
+                          <td>{{ l.applicability || '—' }}</td>
+                          <td>{{ l.grounds_count }}</td>
+                          <td class="mono">v{{ l.version }} · {{ (l.versions && l.versions.policy) || '—' }}</td>
+                          <td>{{ l.applications_count }}</td>
+                          <td>{{ l.counters.success }}/{{ l.counters.failure }}/{{ l.counters.unknown }}</td>
+                          <td>
+                            <button v-if="l.status === 'active'" class="btn-ghost text-xs"
+                                    :disabled="lessonsBusy"
+                                    @click.stop="lessonAction(l, 'suspend')">Отключить</button>
+                            <button v-else-if="l.status === 'validated'" class="btn-ghost text-xs"
+                                    :disabled="lessonsBusy"
+                                    @click.stop="lessonAction(l, 'activate')">Включить</button>
+                            <button v-if="l.trace_available && (l.trace_ids || []).length"
+                                    class="btn-ghost text-xs" data-lesson-trace
+                                    @click.stop="openLessonTrace(l)">След</button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div v-if="lessonCard" class="mt-3 rounded-lg border border-white/10 p-3 text-xs"
+                       data-lesson-card>
+                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                      <span class="badge" :class="lessonStatusClass(lessonCard.status)">{{ lessonStatusLabel(lessonCard.status) }}</span>
+                      <b>{{ lessonTypeLabel(lessonCard.type) }}</b>
+                      <span class="text-gray-500">· {{ lessonCard.scope }}<template v-if="lessonCard.scope_chat_id"> #{{ lessonCard.scope_chat_id }}</template></span>
+                      <button class="btn-ghost text-[10px] ml-auto" @click="lessonCard = null">скрыть</button>
+                    </div>
+                    <div class="text-gray-300"><b>Чему научились:</b> {{ lessonCard.recommendation }}</div>
+                    <div class="text-gray-400 mt-1"><b>Где применяется:</b> {{ lessonCard.applicability || 'по релевантности задачи' }}</div>
+                    <div class="text-gray-400 mt-1"><b>Ограничения:</b> {{ lessonCard.exceptions || 'нет' }}<template v-if="lessonCard.unverified || lessonCard.historical"> · исторический, не проверен на новых контекстах</template></div>
+                    <div class="text-gray-400 mt-1">
+                      <b>Исходы:</b> успех {{ lessonCard.counters.success }} / провал {{ lessonCard.counters.failure }} / неизвестно {{ lessonCard.counters.unknown }}
+                      · применений {{ lessonCard.applications_count }} · оснований {{ lessonCard.grounds_count }}
+                    </div>
+                    <div v-if="lessonCard.status === 'suspended'" class="text-amber-300 mt-1">
+                      Урок приостановлен и не применяется; память чата не очищается.
+                    </div>
+                    <div v-if="lessonCard.recheck_required" class="text-amber-300 mt-1">
+                      Нужна повторная проверка после смены модели/инструментов — урок не применяется.
+                    </div>
+                    <div class="mt-2 flex flex-wrap items-end gap-2">
+                      <label class="text-gray-500">Условия:
+                        <input class="field w-40" v-model="lessonDraft.applicability"
+                               maxlength="120" aria-label="Условия применимости">
+                      </label>
+                      <label class="text-gray-500">Исключения:
+                        <input class="field w-40" v-model="lessonDraft.exceptions"
+                               maxlength="120" aria-label="Исключения урока">
+                      </label>
+                      <button class="btn-ghost text-xs" :disabled="lessonsBusy"
+                              @click="saveLessonCorrection()">Исправить (новая версия)</button>
+                    </div>
+                  </div>
+                </template>
+              </div>
               <!-- F7 (10.25, ADR-1025-20 D1/D2): PERMsoc — локальное
                    пространство ВЫБРАННОГО чата (§60). Без чата редактируемых
                    блоков нет (banner): PERMsoc не правит глобальные значения.
@@ -5245,6 +5340,54 @@
                       </div>
                     </div>
                   </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- Раунд 10.39 (MCA-16, ADR-1028-15 D9/T-5006): компактная лента
+                 «Опыт» — врезка в существующий «Статус» (не отдельный раздел,
+                 не декоративная шкала IQ). Данные — аддитивное поле
+                 `experience` из GET /api/status; при неизвестных исходах
+                 улучшение НЕ выдумывается (A57); число уроков не заменяет
+                 эффект. Только чтение, без внешних вызовов. -->
+            <div class="card p-4 sg-12" data-experience>
+              <div class="flex items-center gap-2 mb-2 flex-wrap">
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('history') }}</span> Опыт</div>
+                <span v-if="experienceFeed.ready && experienceFeed.enabled"
+                      class="badge badge-muted">{{ experienceFeed.stateLabel }}</span>
+              </div>
+              <div v-if="!experienceFeed.ready" class="spinner my-2"></div>
+              <div v-else-if="!experienceFeed.enabled" class="text-xs text-gray-500">
+                Опыт и уроки выключены — записей, разбора и применения нет.
+              </div>
+              <template v-else>
+                <div v-if="!experienceFeed.items.length" class="text-xs text-gray-500">
+                  Записей опыта пока нет — уроки появятся после проверенного опыта.
+                </div>
+                <div v-else class="space-y-1 text-xs" data-experience-feed>
+                  <div v-for="it in experienceFeed.items"
+                       :key="'ex' + it.lesson_id + ':' + it.ts"
+                       class="rounded-lg bg-white/5 px-2 py-1">
+                    <span class="badge badge-muted">{{ it.label }}</span>
+                    <span class="ml-1">{{ it.summary }}</span>
+                    <span class="text-gray-500 ml-1">· {{ it.scope }} · {{ fmtTs(it.ts) }}</span>
+                    <span v-if="it.outcome" class="ml-1"
+                          :class="it.outcome === 'success' ? 'text-green-400' : (it.outcome === 'failure' ? 'text-red-300' : 'text-gray-500')">
+                      · исход: {{ it.outcome }}</span>
+                  </div>
+                </div>
+                <div class="text-xs text-gray-500 mt-2">
+                  Уроков: {{ experienceFeed.counters.lessons || 0 }}
+                  · активных {{ experienceFeed.counters.active || 0 }}
+                  · приостановлено {{ experienceFeed.counters.suspended || 0 }}
+                  · применений {{ experienceFeed.counters.applications || 0 }}
+                  · исходы: успех {{ experienceFeed.counters.success || 0 }} /
+                  провал {{ experienceFeed.counters.failure || 0 }} /
+                  неизвестно {{ experienceFeed.counters.unknown || 0 }}
+                </div>
+                <div class="text-[10px] text-gray-500 mt-1">
+                  Измеренного улучшения нет — нужен реальный исход применения;
+                  число уроков не заменяет эффект.
                 </div>
               </template>
             </div>

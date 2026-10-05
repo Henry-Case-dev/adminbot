@@ -120,7 +120,7 @@ class TestCompleteness:
         #   COVER_STYLES_ENABLED — env-only ClassVar (Δ каталога = 0).
         #   MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): +13 instance-полей
         #   (memory.random_* ×4 + keys.random_quantum_* ×9) → 426→439.
-        assert len(fields) == 439
+        assert len(fields) == 441
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered - TestCompleteness._CLASSVAR_CATALOGUED == fields
 
@@ -364,7 +364,7 @@ class TestGroups8424:
         # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): +2 группы
         # (memory_random на mod_sleep, keys_random на llm_providers)
         # → GROUPS 107.
-        assert len(GROUPS) == 107
+        assert len(GROUPS) == 108
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -466,9 +466,11 @@ class TestGroups8424:
         # batch_length/data_type/timeout/watermark/buffer) → keys 33;
         # memory +4 (memory.random_*: source/fallback/probabilities) →
         # memory 38.
+        # MCA-16 (ADR-1028-15 D8/D12, санкция §12.2): memory +2
+        # (memory.experience_learning_enabled/review_cadence) → memory 40.
         assert counts == {"prompts": 24, "models": 63, "keys": 33,
                           "limits": 199, "flags": 76, "reactions": 39,
-                          "content": 5, "memory": 38}
+                          "content": 5, "memory": 40}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 
 

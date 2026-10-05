@@ -448,6 +448,11 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Источник случайности (квантовый или локальный), честный "
               "откат при недоступности провайдера и вероятность "
               "исследования. Настройки можно менять по каждому чату.", 4),
+    # memory (5; раунд 10.39, MCA-16/ADR-1028-15 D8/D9, ТЗ §25.7):
+    # «Опыт и уроки» — обучение на проверенном опыте и частота разбора.
+    GroupSpec("memory_experience", "memory", "Опыт и уроки",
+              "Банк проверенного опыта: эпизоды, уроки и пакетный разбор. "
+              "Уроки не меняют правила бота — это процедурные рекомендации.", 5),
 )
 
 
@@ -2052,6 +2057,23 @@ _MEMORY: list[tuple] = [
      "То же для фонового исследования после пакета сна/консолидации (0..1; "
      "стартово 0.05).",
      "advanced"),
+    # ── Раунд 10.39 (MCA-16, ADR-1028-15 D8/D9, ТЗ §25.7): «Опыт и уроки» ──
+    # dotted-ключи memory.experience_* (прецедент memory.random_*); per-chat
+    # (chat_params, категория memory — non-secret). Kill-switches K1–K4 —
+    # env-only (в каталоге НЕ дублируются).
+    ("EXPERIENCE_LEARNING_ENABLED", "Опыт и уроки: обучение", "bool",
+     "memory_experience",
+     "Обучение на проверенном опыте: запись эпизодов, уроки и пакетный "
+     "разбор. Ранее выученные уроки продолжают действовать и после "
+     "отключения обучения. При релизе — активно.",
+     "basic"),
+
+    ("EXPERIENCE_REVIEW_CADENCE", "Опыт и уроки: частота разбора", "str",
+     "memory_experience",
+     "Как часто бот пакетно разбирает опыт и обновляет уроки: раз в час, "
+     "раз в сутки или раз в неделю. Изменения применяются сразу, без "
+     "перезапуска.",
+     "basic"),
 ]
 
 
@@ -2257,6 +2279,12 @@ _SELECT_WIDGET_PRESETS: dict[str, dict] = {
         "select_options": ("uint8", "uint16", "hex8", "hex16"),
         "select_labels": ("uint8 (0–255)", "uint16 (0–65535)",
                           "hex8 (блоки 1–10)", "hex16 (блоки 1–10)"),
+    },
+    # MCA-16 (ADR-1028-15 D9, ТЗ §25.7): каденция пакетного review опыта.
+    "EXPERIENCE_REVIEW_CADENCE": {
+        "widget": "select",
+        "select_options": ("hourly", "daily", "weekly"),
+        "select_labels": ("Раз в час", "Раз в сутки", "Раз в неделю"),
     },
 }
 for _name, _opts in _SELECT_WIDGET_PRESETS.items():
@@ -2557,6 +2585,10 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
             "limits_memory", "limits_graph", "limits_rag"})),
         (CATEGORY_FLAGS, frozenset({"flags_memory"})),
         (CATEGORY_MEMORY, frozenset({"memory_infinite"})),
+        # Раунд 10.39 (MCA-16, ADR-1028-15 D8/D9, ТЗ §25.7): «Опыт и уроки»
+        # (memory_experience) — на ТОЙ ЖЕ вкладке «Память» (правило in-place,
+        # TAB_RULES 21 без роста).
+        (CATEGORY_MEMORY, frozenset({"memory_experience"})),
         (CATEGORY_REACTIONS, frozenset({"reactions_memory"})),
     )),
     (TAB_SMART_CACHE, (

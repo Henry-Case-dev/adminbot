@@ -249,6 +249,15 @@ REASON_CODES = frozenset({
     # delivery_unknown/random_fallback/disabled/no_eligible_alternative/
     # invalid_url/scheme_not_allowed/redirect_blocked) переиспользуются.
     "quantum_activated", "quota_exhausted",
+    # расширение mca-16 (ADR-1028-15 D10; санкция §12.4 — ровно +10 в единый
+    # словарь): notable-события банка опыта. `validation_failed` переиспользуется
+    # из словаря выше; `source_revision_changed`/`insufficient_evidence`/
+    # `contradictory_evidence`/`stale_context`/`no_relevant_memory`/
+    # `budget_exceeded`/`retrieval_empty` — существующие. Второй словарь
+    # запрещён; per-turn `retrieved`/`applied` — ≤1 на ход (не per-item).
+    "experience_recorded", "lesson_proposed", "validation_passed",
+    "activated", "retrieved", "applied", "feedback_linked",
+    "utility_updated", "suspended", "superseded",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────

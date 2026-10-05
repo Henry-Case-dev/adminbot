@@ -1062,6 +1062,149 @@ _RANDOM_STATE_DDL = (
     "updated_at INTEGER NOT NULL)"
 )
 
+# ── mca-16 T-4991 (ADR-1028-15 D2/D8, санкция §12.1): v28 — банк опыта:
+# 4 аддитивные таблицы (эпизоды/feedback/уроки/применения) + 9 индексов
+# (точные колонки — spec §2/§3/§6). Аддитивно/идемпотентно
+# (`CREATE ... IF NOT EXISTS` под self-guard `sqlite_master`), повтор — no-op,
+# PG — no-op (GEN-R4); старый код таблицы не читает (rollback-safe), backfill
+# не требуется (пустые таблицы = честный unknown). R17: только ID/коды/числа/
+# enum/ссылки — сырой текст/секреты/CoT не хранятся.
+_SCHEMA_VERSION_EXPERIENCE = 28
+
+_EXPERIENCE_EPISODES_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_experience_episodes ("
+    "episode_id TEXT PRIMARY KEY, "
+    "idempotency_key TEXT NOT NULL, "
+    "created_at INTEGER NOT NULL, "
+    "updated_at INTEGER NOT NULL, "
+    "scope TEXT NOT NULL CHECK (scope IN "
+    "('global','chat','user_in_chat','task')), "
+    "chat_id INTEGER, "
+    "user_id INTEGER, "
+    "task_type TEXT, "
+    "operation_id TEXT, "
+    "trace_id TEXT, "
+    "source_ref_json TEXT, "
+    "decision_json TEXT, "
+    "tool_ids_json TEXT, "
+    "metric_ids_json TEXT, "
+    "lesson_ids_json TEXT, "
+    "output_ref TEXT, "
+    "outcome_kind TEXT NOT NULL CHECK (outcome_kind IN "
+    "('success','failure','unknown')), "
+    "outcome_source TEXT NOT NULL CHECK (outcome_source IN "
+    "('technical','explicit','social','llm_hypothesis')), "
+    "outcome_reliability TEXT NOT NULL CHECK (outcome_reliability IN "
+    "('verified','weak','hypothesis')), "
+    "feedback_ids_json TEXT, "
+    "model_version TEXT, "
+    "tool_schema_hash TEXT, "
+    "config_version TEXT)"
+)
+_EXPERIENCE_EPISODES_INDEX_DDL = (
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_mca_experience_episodes_idem "
+    "ON mca_experience_episodes(idempotency_key)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_experience_episodes_chat_created "
+    "ON mca_experience_episodes(chat_id, created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_experience_episodes_scope_task "
+    "ON mca_experience_episodes(scope, task_type)",
+)
+_EXPERIENCE_FEEDBACK_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_experience_feedback ("
+    "feedback_id TEXT PRIMARY KEY, "
+    "dedup_key TEXT NOT NULL, "
+    "source_kind TEXT NOT NULL CHECK (source_kind IN "
+    "('owner_correction','participant_correction','social_reaction',"
+    "'llm_hypothesis','technical')), "
+    "reliability TEXT NOT NULL CHECK (reliability IN "
+    "('verified','weak','hypothesis')), "
+    "authority TEXT NOT NULL CHECK (authority IN "
+    "('owner','participant','system')), "
+    "status TEXT NOT NULL CHECK (status IN "
+    "('active','cancelled','corrected')), "
+    "supersedes_id TEXT, "
+    "chat_id INTEGER, "
+    "trace_id TEXT, "
+    "operation_id TEXT, "
+    "episode_id TEXT, "
+    "signal_json TEXT, "
+    "ts INTEGER NOT NULL)"
+)
+_EXPERIENCE_FEEDBACK_INDEX_DDL = (
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_mca_experience_feedback_dedup "
+    "ON mca_experience_feedback(dedup_key)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_experience_feedback_chat_created "
+    "ON mca_experience_feedback(chat_id, ts)",
+)
+_LESSONS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_lessons ("
+    "lesson_id TEXT NOT NULL, "
+    "version INTEGER NOT NULL, "
+    "type TEXT NOT NULL CHECK (type IN "
+    "('tool_usage','retrieval','context','social_preference',"
+    "'failure_pattern')), "
+    "scope TEXT NOT NULL CHECK (scope IN "
+    "('global','chat','user_in_chat','task')), "
+    "scope_chat_id INTEGER, "
+    "scope_user_id INTEGER, "
+    "applicability TEXT, "
+    "recommendation TEXT NOT NULL, "
+    "exceptions TEXT, "
+    "status TEXT NOT NULL CHECK (status IN "
+    "('candidate','validated','active','suspended','superseded')), "
+    "source_ref_id INTEGER, "
+    "supersedes_lesson_id TEXT, "
+    "supersedes_version INTEGER, "
+    "merged_from_json TEXT, "
+    "compat_tool_schema_hash TEXT, "
+    "compat_model_fingerprint TEXT, "
+    "compat_config_version TEXT, "
+    "recheck_required INTEGER NOT NULL DEFAULT 0, "
+    "historical INTEGER NOT NULL DEFAULT 0, "
+    "unverified INTEGER NOT NULL DEFAULT 0, "
+    "last_validated_at INTEGER, "
+    "counters_success INTEGER NOT NULL DEFAULT 0, "
+    "counters_failure INTEGER NOT NULL DEFAULT 0, "
+    "counters_unknown INTEGER NOT NULL DEFAULT 0, "
+    "applications_count INTEGER NOT NULL DEFAULT 0, "
+    "policy_version TEXT, "
+    "proposal_version TEXT, "
+    "validator_version TEXT, "
+    "created_at INTEGER NOT NULL, "
+    "updated_at INTEGER NOT NULL, "
+    "PRIMARY KEY (lesson_id, version))"
+)
+_LESSONS_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_lessons_status_scope "
+    "ON mca_lessons(status, scope, scope_chat_id)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_lessons_type_status "
+    "ON mca_lessons(type, status)",
+)
+_LESSON_APPLICATIONS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_lesson_applications ("
+    "application_id INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "dedup_key TEXT NOT NULL, "
+    "lesson_id TEXT NOT NULL, "
+    "lesson_version INTEGER NOT NULL, "
+    "application_ref TEXT, "
+    "trace_id TEXT, "
+    "chat_id INTEGER, "
+    "applied_at INTEGER NOT NULL, "
+    "measurement TEXT, "
+    "outcome TEXT NOT NULL DEFAULT 'unknown' CHECK (outcome IN "
+    "('success','failure','unknown')), "
+    "outcome_source TEXT, "
+    "reliability TEXT, "
+    "outcome_ref TEXT, "
+    "linked_at INTEGER)"
+)
+_LESSON_APPLICATIONS_INDEX_DDL = (
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_mca_lesson_applications_dedup "
+    "ON mca_lesson_applications(dedup_key)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_lesson_applications_lesson "
+    "ON mca_lesson_applications(lesson_id, lesson_version, applied_at)",
+)
+
 
 def _summary_window_unique_violation(exc: BaseException) -> bool:
     """IntegrityError «UNIQUE constraint» → write-once guard snapshot'а."""
@@ -2025,6 +2168,13 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_RANDOM_SOURCE,
                           "random_source",
                           lambda svc: svc._migrate_random_source_v27()),
+            # mca-16 (ADR-1028-15 D8, санкция §12.1): v28 — 4 аддитивные
+            # таблицы банка опыта (episodes/feedback/lessons/applications)
+            # + 9 индексов; идемпотентно, повтор — no-op, PG — no-op,
+            # старый код таблицы не читает (cold-совместимо).
+            MigrationStep(_SCHEMA_VERSION_EXPERIENCE,
+                          "experience_bank",
+                          lambda svc: svc._migrate_experience_v28()),
             # ASAP 4.1 волна 5 (T-4616, spec §10.2–§10.3): v24 = 3 таблицы
             # (summary_source_windows + summary_runs + summary_run_stages).
             # Один MigrationStep на версию — книга `schema_migrations` имеет
@@ -2887,6 +3037,36 @@ class DatabaseService:
         await self.db.commit()
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_RANDOM_SOURCE}")
+        await self.db.commit()
+
+    async def _migrate_experience_v28(self) -> None:
+        """v28 (`mca-16-experience-lessons` T-4991, ADR-1028-15 D8,
+        санкция §12.1): банк опыта — `mca_experience_episodes` +
+        `mca_experience_feedback` + `mca_lessons` +
+        `mca_lesson_applications` + 9 индексов.
+
+        Аддитивно (`CREATE TABLE/INDEX IF NOT EXISTS` под self-guard
+        `sqlite_master`); НИ ОДНОГО UPDATE/DELETE существующих строк; повтор —
+        no-op; backfill не требуется (пустые таблицы = честный unknown; старый
+        код таблицы не читает); PG — no-op (GEN-R4). Фиксирует
+        `PRAGMA user_version = 28`."""
+        for table, ddl in (
+                ("mca_experience_episodes", _EXPERIENCE_EPISODES_DDL),
+                ("mca_experience_feedback", _EXPERIENCE_FEEDBACK_DDL),
+                ("mca_lessons", _LESSONS_DDL),
+                ("mca_lesson_applications", _LESSON_APPLICATIONS_DDL)):
+            if not await self._table_exists(table):
+                await self.db.execute(ddl)
+                await self.db.commit()
+                logger.info("[database] migration v28: %s", table)
+        for ddl in (_EXPERIENCE_EPISODES_INDEX_DDL
+                    + _EXPERIENCE_FEEDBACK_INDEX_DDL
+                    + _LESSONS_INDEX_DDL
+                    + _LESSON_APPLICATIONS_INDEX_DDL):
+            await self.db.execute(ddl)
+        await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_EXPERIENCE}")
         await self.db.commit()
 
     # ── mca-22 (ADR-1028-6 D2): Durable Own Output Ledger — write/read ──────

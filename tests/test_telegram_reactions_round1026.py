@@ -500,21 +500,24 @@ class TestBoundaries:
         src = (ROOT / "services" / "direct_chat_service.py").read_text(
             encoding="utf-8")
         # safety-net: message.message_id без kwargs (вне direct-решения).
-        assert src.count("await react_moai(bot, chat_id, message.message_id)") == 2
+        # mca-15 (2.58.56, numeric guard): +1 silent-path вызов
+        # (пустой ответ после повторного numeric-гарда) → 3;
+        # stale-guard обновлён при mca-16 (round 10.39, pre-existing).
+        assert src.count("await react_moai(bot, chat_id, message.message_id)") == 3
 
     def test_counts_unchanged(self):
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
-        assert len(pc.REGISTRY) == 502
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 439
+        assert len(pc.REGISTRY) == 504
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 441
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 477
-        assert len(pc.GROUPS) == 107
-        assert len(pc._TAB_BY_GROUP) == 105
+                    if s.category is not None]) == 479
+        assert len(pc.GROUPS) == 108
+        assert len(pc._TAB_BY_GROUP) == 106
         assert len(pc.TAB_RULES) == 21
 
     def test_canon_twelve_and_version(self):
         assert len(TOOL_CALLING_TOOLS) == 12
-        assert APP_VERSION == "2.58.58"
+        assert APP_VERSION == "2.58.59"
 
     def test_kill_switch_env_only_not_catalog(self):
         assert "REACTION_MECHANICS_ENABLED" not in pc.REGISTRY

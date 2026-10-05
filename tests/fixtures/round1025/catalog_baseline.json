@@ -5,9 +5,9 @@
     "source": "services/param_catalog.py"
   },
   "counts": {
-    "REGISTRY": 502,
-    "GROUPS": 107,
-    "_TAB_BY_GROUP": 105,
+    "REGISTRY": 504,
+    "GROUPS": 108,
+    "_TAB_BY_GROUP": 106,
     "TAB_RULES": 21
   },
   "group_ids": [
@@ -81,6 +81,7 @@
     "limits_youtube",
     "limits_youtube_proxy",
     "memory_dream",
+    "memory_experience",
     "memory_infinite",
     "memory_nostalgia",
     "memory_random",
@@ -190,6 +191,7 @@
     "limits_youtube": "mod_video_summary",
     "limits_youtube_proxy": "mod_video_summary",
     "memory_dream": "mod_sleep",
+    "memory_experience": "memory_rag",
     "memory_infinite": "memory_rag",
     "memory_nostalgia": "mod_nostalgia",
     "memory_random": "mod_sleep",
@@ -400,6 +402,8 @@
     "EMBED_CACHE_TTL_DAYS",
     "ENABLE_VOICE_TRANSCRIPTION",
     "EXA_API_KEY",
+    "EXPERIENCE_LEARNING_ENABLED",
+    "EXPERIENCE_REVIEW_CADENCE",
     "FACTCHECK_CONTEXT_AFTER",
     "FACTCHECK_CONTEXT_BEFORE",
     "FACTCHECK_CONTEXT_MESSAGES",

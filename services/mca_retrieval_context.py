@@ -178,6 +178,23 @@ class ExcludedItem:
     estimated_tokens: int = 0
 
 
+# ── MCA-16 (AM-1; ADR-1028-15 D6, T-4993): lessons — отдельный тип в
+# ЕДИНСТВЕННОМ EvidenceBundle (аддитивно; пустое поле = байт-паритет
+# 2.58.58; `BUNDLE_SCHEMA_VERSION` не меняется). Знания о людях ≠
+# процедурные рекомендации: LessonRef — ссылка + серверно-канонический
+# текст, не копия реплик (R17).
+@dataclasses.dataclass(frozen=True)
+class LessonRef:
+    """Ссылка на проверенный урок (mca-16) для bounded-блока контекста."""
+    lesson_id: str
+    version: int
+    type: str
+    scope: str
+    applicability: str = ""
+    recommendation: str = ""
+    exceptions: str = ""
+
+
 @dataclasses.dataclass(frozen=True)
 class EvidenceBundle:
     """Логический контракт §11.2 (frozen, in-memory).
@@ -215,6 +232,11 @@ class EvidenceBundle:
     quoted_speaker: str | None = None         # автор цитаты (≠ author!)
     subjects: tuple[str, ...] = ()            # subjects retrieval-кандидатов
     structured: bool = False                  # True = собран structure-first
+    # ── MCA-16 (AM-1; ADR-1028-15 D6): проверенные уроки — ОТДЕЛЬНЫЙ тип в
+    # единственном bundle (аддитивно; пустое поле = байт-паритет 2.58.58).
+    # Наполняет LessonService (scope/active → compat → relevance → utility);
+    # suspended/disabled/stale не включаются. Поля M-MCA07-2 не трогаются.
+    lessons: tuple[LessonRef, ...] = ()
 
 
 def compute_context_version(*, current_revision=None, selected_refs=(),
@@ -393,6 +415,12 @@ def is_history_query(query: str) -> bool:
 
 def _tokenize(query: str) -> list[str]:
     return re.findall(r"[а-яёa-z0-9]+", str(query or "").casefold())
+
+
+def tokenize_query(query: str) -> list[str]:
+    """Публичный token-примитив mca-07 (REUSE для semantic-gate mca-16:
+    второй retrieval-движок/индекс не создаётся)."""
+    return _tokenize(query)
 
 
 def _truncate_preview(text, limit: int = _PREVIEW_MAX_CHARS) -> str:
@@ -787,10 +815,12 @@ __all__ = [
     "RERANK_OK", "RERANK_EMPTY", "RERANK_INVALID", "RERANK_TIMEOUT",
     "RERANK_ERROR", "RERANK_STATUSES", "RerankItem", "RerankResult",
     "classify_rerank_response", "classify_rerank_exception", "select_by_rerank",
-    "fallback_top_k", "EvidenceItem", "ExcludedItem", "EvidenceBundle",
+    "fallback_top_k", "EvidenceItem", "ExcludedItem", "LessonRef",
+    "EvidenceBundle",
     "compute_context_version", "emit_stage_event",
     "RETRIEVAL_OK", "RETRIEVAL_EMPTY", "RETRIEVAL_ERROR",
     "RetrievalRequest", "RetrievalCandidate", "RetrievalResult",
     "is_history_query", "retrieve", "apply_retrieval_rerank",
+    "tokenize_query",
 ]
 

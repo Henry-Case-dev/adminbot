@@ -168,8 +168,10 @@ class TestSnapshot:
         snapshot = await self._build(svc, cache, monkeypatch)
         # MCA-10a (ADR-1028-14 D9): аддитивное поле `random` (читающий блок
         # «Источник случайности») — существующие секции не меняются.
+        # MCA-16 (ADR-1028-15 D9): аддитивное поле `experience` (лента «Опыт»).
         assert set(snapshot) == {"bot", "server", "llm", "uptime", "permsoc",
-                                 "context", "llm_stats", "random"}
+                                 "context", "llm_stats", "random",
+                                 "experience"}
         bot = snapshot["bot"]
         assert bot["state"] == "polling"
         assert bot["mode"] == "polling"

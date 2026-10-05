@@ -1253,3 +1253,203 @@ async def nostalgia_log(
                        exc_info=True)
         rows = []
     return [_nostalgia_log_out(r) for r in rows]
+
+
+# ═══ MCA-16 (ADR-1028-15 D9/T-5007): «Опыт и уроки» в СУЩЕСТВУЮЩЕЙ
+# «Памяти» — таблица/карточка lessons + права (suspend/activate/correct).
+# Расширение существующего memory-API (второго API нет); `web/api/routes.py`
+# не меняется → ROUTES_SHA256_F11 без изменений. R17-safe: канонические
+# рекомендации/ID/коды/числа; trace — только разрешённого чата. ═══════════════
+
+_LESSON_LIMIT_MAX = 500
+_LESSON_TRACE_MAX = 3
+_LESSON_ACTIONS = frozenset({"suspend", "activate", "correct"})
+
+
+class LessonActionRequest(BaseModel):
+    """POST /api/memory/lessons/action: idempotentное действие над уроком."""
+    lesson_id: str = Field(min_length=1, max_length=64)
+    version: int | None = Field(default=None, ge=1)
+    action: str = Field(min_length=1, max_length=16)
+    rule_key: str | None = Field(default=None, max_length=64)
+    applicability: str | None = Field(default=None, max_length=120)
+    exceptions: str | None = Field(default=None, max_length=120)
+
+
+async def _lesson_grounds(db, lesson: dict) -> int:
+    """Число оснований урока (mca-04a evidence links; read-only)."""
+    ref_id = lesson.get("source_ref_id")
+    if ref_id is None:
+        return 0
+    try:
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM mca_evidence_links WHERE "
+            "subject_ref_id = ?", (int(ref_id),))
+        row = await cursor.fetchone()
+        return int(row["c"]) if row is not None else 0
+    except Exception:
+        return 0
+
+
+async def _lesson_trace_ids(db, lesson: dict) -> list[str]:
+    """Bounded trace-ссылки оснований урока (mca-04a → episode trace)."""
+    ref_id = lesson.get("source_ref_id")
+    if ref_id is None:
+        return []
+    try:
+        cursor = await db.db.execute(
+            "SELECT DISTINCT e.trace_id FROM mca_evidence_links l "
+            "JOIN mca_source_refs r ON r.source_ref_id = l.source_ref_id "
+            "JOIN mca_experience_episodes e ON e.episode_id = r.entity_id "
+            "WHERE l.subject_ref_id = ? AND r.entity_type = 'episode' "
+            "AND e.trace_id IS NOT NULL LIMIT ?",
+            (int(ref_id), _LESSON_TRACE_MAX))
+        return [str(r["trace_id"]) for r in await cursor.fetchall()]
+    except Exception:
+        return []
+
+
+def _lesson_out(lesson: dict, *, grounds: int, trace_ids: list[str],
+                trace_available: bool) -> dict:
+    """R17-safe проекция урока для «Памяти» (таблица/карточка)."""
+    return {
+        "lesson_id": lesson.get("lesson_id"),
+        "version": lesson.get("version"),
+        "type": lesson.get("type"),
+        "scope": lesson.get("scope"),
+        "scope_chat_id": lesson.get("scope_chat_id"),
+        "applicability": lesson.get("applicability"),
+        "recommendation": lesson.get("recommendation"),
+        "exceptions": lesson.get("exceptions"),
+        "status": lesson.get("status"),
+        "historical": bool(lesson.get("historical")),
+        "unverified": bool(lesson.get("unverified")),
+        "recheck_required": bool(lesson.get("recheck_required")),
+        "counters": {
+            "success": int(lesson.get("counters_success") or 0),
+            "failure": int(lesson.get("counters_failure") or 0),
+            "unknown": int(lesson.get("counters_unknown") or 0),
+        },
+        "applications_count": int(lesson.get("applications_count") or 0),
+        "grounds_count": int(grounds),
+        "versions": {
+            "policy": lesson.get("policy_version"),
+            "proposal": lesson.get("proposal_version"),
+            "validator": lesson.get("validator_version"),
+        },
+        "last_validated_at": lesson.get("last_validated_at"),
+        "created_at": lesson.get("created_at"),
+        "updated_at": lesson.get("updated_at"),
+        # Применяется только active (suspended/candidate виден, но не в деле).
+        "applied": str(lesson.get("status")) == "active"
+        and not bool(lesson.get("recheck_required")),
+        "trace_available": bool(trace_available),
+        "trace_ids": list(trace_ids) if trace_available else [],
+    }
+
+
+@memory_router.get("/memory/lessons")
+async def memory_lessons(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    chat_id: Annotated[int | None, Query()] = None,
+    status: Annotated[str | None, Query(max_length=32)] = None,
+    limit: Annotated[int, Query(ge=1, le=_LESSON_LIMIT_MAX)] = 100,
+):
+    """Таблица/карточка уроков опыта (scope/тип/статус/условия/основания/
+    версии/применения/проверенные исходы). RBAC — как «Память» (admin).
+    K1 OFF → honest `disabled`; пусто → `not_run`. Trace — только
+    разрешённого чата (чужой чат не раскрывается)."""
+    _require_global_admin(request, user)
+    db = _db_or_503()
+    try:
+        enabled = bool(mca_gates.experience_lessons_enabled())
+    except Exception:
+        enabled = True
+    if not enabled:
+        return {"enabled": False, "state": "disabled", "count": 0,
+                "lessons": []}
+    from services import mca_experience as me
+    statuses = [status] if status else None
+    try:
+        rows = await me.get_service(db).list_lessons(
+            chat_id=chat_id, statuses=statuses, limit=limit)
+    except Exception:
+        logger.warning("[memory_api] lessons read failed — fail-open",
+                       exc_info=True)
+        rows = []
+    if chat_id is None:
+        # Без разрешённого чата видны только global-уроки: правила/условия
+        # чужого чата не раскрываются (scope-изоляция §25.2).
+        rows = [r for r in rows if str(r.get("scope")) == "global"][:limit]
+    out: list[dict] = []
+    for lesson in rows:
+        grounds = await _lesson_grounds(db, lesson)
+        scope = str(lesson.get("scope") or "")
+        scope_chat = lesson.get("scope_chat_id")
+        trace_available = (
+            scope == "global"
+            or (chat_id is not None and scope_chat is not None
+                and int(scope_chat) == int(chat_id)))
+        trace_ids = (await _lesson_trace_ids(db, lesson)
+                     if trace_available else [])
+        out.append(_lesson_out(lesson, grounds=grounds, trace_ids=trace_ids,
+                               trace_available=trace_available))
+    state = "implemented" if out else "not_run"
+    return {"enabled": True, "state": state, "count": len(out),
+            "lessons": out}
+
+
+@memory_router.post("/memory/lessons/action")
+async def memory_lesson_action(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    body: LessonActionRequest,
+):
+    """Действие над уроком: suspend/activate/correct (admin; идемпотентно;
+    аудит — событиями mca-16). correct = новая версия (candidate)."""
+    _require_global_admin(request, user)
+    db = _db_or_503()
+    action = str(body.action or "").strip().lower()
+    if action not in _LESSON_ACTIONS:
+        raise HTTPException(status_code=422, detail="unknown action")
+    try:
+        enabled = bool(mca_gates.experience_lessons_enabled())
+    except Exception:
+        enabled = True
+    if not enabled:
+        return {"ok": False, "reason": "disabled"}
+    from services import mca_experience as me
+    svc = me.get_service(db)
+    lesson = await svc.get_lesson(str(body.lesson_id), body.version)
+    if lesson is None:
+        raise HTTPException(status_code=404, detail="lesson not found")
+    if action == "suspend":
+        ok = await svc.lesson.suspend(
+            str(body.lesson_id), version=int(lesson["version"]),
+            reason_code="owner_disabled")
+        return {"ok": bool(ok),
+                "reason": None if ok else "not_active_or_validated",
+                "lesson_id": body.lesson_id, "status": "suspended" if ok
+                else lesson.get("status")}
+    if action == "activate":
+        ok = await svc.lesson.activate(
+            str(body.lesson_id), version=int(lesson["version"]))
+        return {"ok": bool(ok),
+                "reason": None if ok else "not_validated_or_incompatible",
+                "lesson_id": body.lesson_id, "status": "active" if ok
+                else lesson.get("status")}
+    # correct: содержательное изменение → НОВАЯ версия (candidate).
+    # Пустая форма (нет ни одного поля) — no-op, версия не плодится.
+    if body.rule_key is None and body.applicability is None \
+            and body.exceptions is None:
+        return {"ok": False, "reason": "no_changes",
+                "lesson_id": body.lesson_id}
+    created = await svc.lesson.revise(
+        str(body.lesson_id), rule_key=body.rule_key,
+        applicability=body.applicability, exceptions=body.exceptions)
+    if created is None:
+        return {"ok": False, "reason": "not_revisable",
+                "lesson_id": body.lesson_id}
+    return {"ok": True, "lesson_id": created[0], "version": created[1],
+            "status": "candidate"}

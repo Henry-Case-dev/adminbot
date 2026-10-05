@@ -896,11 +896,48 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
              "нет); K1 OFF → disabled/not_run; SQL/сырой текст не журналятся",
     ),
     ProcessDefinition(
-        process_id="self_learning.run", version="0",
-        purpose="Самообучение/опыт (lessons)",
-        inputs=(), outputs=(), stages=(), trigger_kind="background",
-        owner_feature="mca-16", widget_id=WIDGET_NONE,
-        note="не реализовано (mca-16)",
+        process_id="self_learning.run", version="1",
+        purpose="Опыт и уроки: эпизод → review → кандидат → проверка → "
+                "активация → применение → исход → полезность",
+        inputs=("trace/feedback", "tool_call notable-терминалы", "review job"),
+        outputs=("mca_experience_episodes", "mca_lessons",
+                 "mca_lesson_applications"),
+        stages=("capture", "review", "propose", "validate", "activate",
+                "select", "apply", "outcome", "utility", "suspend"),
+        trigger_kind="background",
+        settings_ref=("MCA_EXPERIENCE_LESSONS_ENABLED",
+                      "MCA_EXPERIENCE_FEEDBACK_ENABLED",
+                      "MCA_EXPERIENCE_REVIEW_ENABLED",
+                      "MCA_EXPERIENCE_CONTEXT_ENABLED",
+                      "memory.experience_learning_enabled",
+                      "memory.experience_review_cadence"),
+        state_source=("mca_experience_episodes", "mca_lessons",
+                      "mca_lesson_applications", "task_jobs"),
+        recovery_ops=("review_resume", "outcome_reconcile"),
+        widget_id="Опыт и уроки",
+        stages_to_events={"capture": "experience_recorded",
+                          "propose": "lesson_proposed",
+                          "validate": "validation_passed",
+                          "activate": "activated",
+                          "select": "retrieved",
+                          "apply": "applied",
+                          "outcome": "feedback_linked",
+                          "utility": "utility_updated",
+                          "suspend": "suspended"},
+        instrumentation=("review", "propose", "validate", "activate",
+                         "suspend"),
+        owner_feature="mca-16",
+        enabled_gate="MCA_EXPERIENCE_LESSONS_ENABLED",
+        event_names=("experience_recorded", "lesson_proposed",
+                     "validation_passed", "validation_failed", "activated",
+                     "retrieved", "applied", "feedback_linked",
+                     "utility_updated", "suspended", "superseded"),
+        note="mca-16 (ADR-1028-15 D10): notable-only (per-turn retrieved/"
+             "applied — ≤1 на ход; применения — durable-журнал "
+             "mca_lesson_applications); review — kind experience.review в "
+             "существующей очереди (не сон/парадигмы); widget-ID — контракт "
+             "mca-17c (UI не здесь); K1 OFF → событий/стадий нет (честный "
+             "disabled/not_run); R17-safe (ID/коды/числа)",
     ),
     ProcessDefinition(
         process_id="self_model.update", version="0",
@@ -965,6 +1002,8 @@ _GATE_RESOLVERS = {
     "MCA_TOOL_CHAIN_STAGES_ENABLED": "tool_chain_stages_enabled",
     # mca-10a (ADR-1028-14 D10): master-гейт процесса random.source v1.
     "MCA_RANDOM_SOURCE_ENABLED": "random_source_enabled",
+    # mca-16 (ADR-1028-15 D10): master-гейт процесса self_learning.run v1.
+    "MCA_EXPERIENCE_LESSONS_ENABLED": "experience_lessons_enabled",
     # product-гейты из `config.settings` (не mca_gates) — резолв через settings.
 }
 

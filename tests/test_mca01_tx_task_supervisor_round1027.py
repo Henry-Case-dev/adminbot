@@ -909,7 +909,12 @@ def test_write_points_go_through_single_writer():
         # 4×CREATE TABLE + 3×CREATE INDEX + PRAGMA в
         # `_migrate_random_source_v27`, L-MCA14-3; раннер до старта писателей;
         # runtime batches/draws/quota/state идут через `write_transaction`)
-        "database.py": 165,
+        # +3 v28 mca-16 (ADR-1028-15 D8/санкция §12.1, банк опыта:
+        # 4×CREATE TABLE + 9×CREATE INDEX + PRAGMA в
+        # `_migrate_experience_v28`, L-MCA14-3; раннер до старта писателей;
+        # runtime episodes/feedback/lessons/applications идут через
+        # `write_transaction` — см. `services/mca_experience.py`)
+        "database.py": 168,
         "dossier_rebuild_jobs.py": 1,   # внутри `async with db.serialized()`
         # ASAP-3.2 (ADR-1028-5 D1/D2, T-4191): shadow-rebuild — 3 прямых
         # commit внутри `async with memory.db.serialized()` (идемпотентный

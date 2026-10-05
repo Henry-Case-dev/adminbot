@@ -476,8 +476,140 @@ class StatusService:
             return {"enabled": True, "available": False,
                     "state": "unavailable", "quantum_active": False}
 
-    # ── psutil-метрики сервера ─────────────────────────────────────────────
+    # ── «Опыт» (MCA-16, ADR-1028-15 D9/T-5006) ─────────────────────────────
 
+    #: Вид записи ленты → русская подпись (канон §25.7; без выдуманного
+    #: улучшения — только реальные статусы/исходы).
+    _EXPERIENCE_FEED_LIMIT = 5
+
+    @staticmethod
+    def _experience_feed_label(kind: str, lesson_type: str) -> str:
+        if kind == "applied":
+            return "урок применён"
+        if kind == "suspended":
+            return "урок приостановлен"
+        if kind == "activated" and lesson_type == "social_preference":
+            return "учтено предпочтение"
+        if kind == "activated":
+            return "исправлен способ действия"
+        return "опыт"
+
+    async def experience_snapshot(self, *, chat_id: int | None = None,
+                                  chat_scope_allowed: bool = True) -> dict:
+        """Read-only компактная лента «Опыт» для «Статуса» (D9/T-5006).
+
+        Только реальные записи уроков/применений; НИКАКИХ LLM/внешних
+        вызовов и изменений поведения. K1 OFF → честный `disabled`; записей
+        нет → `not_run`; при неизвестных исходах — без выдуманного улучшения
+        (A57: видны основания и недостаток измерений; число уроков не
+        подменяет эффект). Права: без разрешённого чата видны только
+        `global`-уроки (чужие чаты не раскрываются)."""
+        empty = {"enabled": True, "state": "not_run", "items": [],
+                 "counters": {"lessons": 0, "active": 0, "suspended": 0,
+                              "applications": 0, "success": 0, "failure": 0,
+                              "unknown": 0},
+                 "improvement": {"measured": False,
+                                 "note": "измеренного улучшения нет — "
+                                         "нужен реальный исход применения"}}
+        try:
+            from services import mca_gates
+            enabled = bool(mca_gates.experience_lessons_enabled())
+        except Exception:
+            enabled = True
+        if not enabled:
+            return {"enabled": False, "state": "disabled", "items": [],
+                    "counters": empty["counters"],
+                    "improvement": empty["improvement"]}
+        try:
+            from services import lore_runtime
+            from services import mca_experience as me
+            db = lore_runtime.get_lore_db()
+            if db is None:
+                return empty
+            svc = me.get_service(db)
+            allowed_chat = chat_id if (chat_id is not None
+                                       and chat_scope_allowed) else None
+            lessons = await svc.list_lessons(limit=200)
+            counters = {"lessons": len(lessons), "active": 0, "suspended": 0,
+                        "applications": 0, "success": 0, "failure": 0,
+                        "unknown": 0}
+            visible: list[dict] = []
+            for lesson in lessons:
+                scope = str(lesson.get("scope") or "")
+                scope_chat = lesson.get("scope_chat_id")
+                if scope == "global":
+                    pass
+                elif allowed_chat is not None and scope_chat is not None \
+                        and int(scope_chat) == int(allowed_chat):
+                    pass
+                else:
+                    continue                      # чужой чат не раскрывается
+                status = str(lesson.get("status") or "")
+                if status == "active":
+                    counters["active"] += 1
+                if status == "suspended":
+                    counters["suspended"] += 1
+                counters["success"] += int(lesson.get("counters_success") or 0)
+                counters["failure"] += int(lesson.get("counters_failure") or 0)
+                counters["unknown"] += int(lesson.get("counters_unknown") or 0)
+                counters["applications"] += int(
+                    lesson.get("applications_count") or 0)
+                if status == "suspended":
+                    visible.append({
+                        "kind": "suspended", "ts": lesson.get("updated_at"),
+                        "lesson_id": lesson.get("lesson_id"),
+                        "type": lesson.get("type"), "scope": scope,
+                        "summary": lesson.get("recommendation"),
+                        "status": status})
+                elif status == "active":
+                    visible.append({
+                        "kind": "activated", "ts": lesson.get("updated_at"),
+                        "lesson_id": lesson.get("lesson_id"),
+                        "type": lesson.get("type"), "scope": scope,
+                        "summary": lesson.get("recommendation"),
+                        "status": status})
+            if allowed_chat is not None:
+                cursor = await db.db.execute(
+                    "SELECT a.applied_at, a.lesson_id, a.lesson_version, "
+                    "a.measurement, a.outcome, l.type, l.scope, "
+                    "l.recommendation FROM mca_lesson_applications a "
+                    "LEFT JOIN mca_lessons l ON l.lesson_id = a.lesson_id "
+                    "AND l.version = a.lesson_version "
+                    "WHERE a.chat_id = ? ORDER BY a.applied_at DESC LIMIT ?",
+                    (int(allowed_chat), self._EXPERIENCE_FEED_LIMIT))
+                for row in await cursor.fetchall():
+                    row = dict(row)
+                    visible.append({
+                        "kind": "applied", "ts": row.get("applied_at"),
+                        "lesson_id": row.get("lesson_id"),
+                        "type": row.get("type"), "scope": row.get("scope"),
+                        "summary": row.get("recommendation"),
+                        "status": "applied",
+                        "outcome": row.get("outcome") or "unknown",
+                        "measurement": row.get("measurement")})
+            visible.sort(key=lambda item: int(item.get("ts") or 0),
+                         reverse=True)
+            items = []
+            for item in visible[:self._EXPERIENCE_FEED_LIMIT]:
+                item = dict(item)
+                item["label"] = self._experience_feed_label(
+                    str(item.get("kind") or ""), str(item.get("type") or ""))
+                items.append(item)
+            if not lessons:
+                return {"enabled": True, "state": "not_run", "items": [],
+                        "counters": counters,
+                        "improvement": empty["improvement"]}
+            return {"enabled": True, "state": "implemented", "items": items,
+                    "counters": counters,
+                    "improvement": empty["improvement"]}
+        except Exception:
+            logger.warning("[status] experience snapshot failed — fail-open",
+                           exc_info=True)
+            return {"enabled": True, "state": "unavailable", "items": [],
+                    "counters": empty["counters"],
+                    "improvement": empty["improvement"]}
+
+    # ── psutil-метрики сервера ─────────────────────────────────────────────
     @staticmethod
     def _server_metrics() -> dict:
         try:
@@ -703,6 +835,11 @@ class StatusService:
             "random": await self.random_source_snapshot(
                 chat_id=chat_id, is_global_admin=is_global_admin,
                 chat_scope_allowed=chat_scope_allowed),
+            # Раунд 10.39 (MCA-16, ADR-1028-15 D9/T-5006): читающий блок
+            # «Опыт» — реальные уроки/применения, БЕЗ внешних вызовов;
+            # unknown-исходы не выдаются за улучшение (A57). K1 OFF → disabled.
+            "experience": await self.experience_snapshot(
+                chat_id=chat_id, chat_scope_allowed=chat_scope_allowed),
             "uptime": {
                 "buckets": buckets,
                 # 10.7 (2b): ts последнего 'up'-бакета, иначе None (не

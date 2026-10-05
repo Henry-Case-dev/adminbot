@@ -42,6 +42,18 @@ _MERGE_KNN_K = 5               # соседей на кластеризацию
 _REVIEW_VEC_BATCH = 100        # потолок фактов чата на vec-склейку (66.11)
 _REVIEW_GLUE_SIM = 0.95        # 66.11: vec-кластеры ≥0.95 → склейка
 
+# MCA-16 (T-5003): тик review опыта (сек); код-константа (Δ каталога = 0).
+_EXPERIENCE_REVIEW_TICK_SECONDS = 900
+
+
+def _experience_review_tick_enabled() -> bool:
+    """K1+K3+UI-настройка review опыта (fail-closed, никогда не бросает)."""
+    try:
+        from services import mca_experience_jobs as jobs
+        return bool(jobs.review_enabled())
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
 
 class MemoryMaintenanceService:
     """Фоновое обслуживание памяти: слияние эпизодов (66.2) + пересмотр (66.11)."""
@@ -49,6 +61,9 @@ class MemoryMaintenanceService:
     JOB_MERGE_ID = "graph_episode_merge"
     JOB_REVIEW_ID = "graph_review"
     JOB_WAL_ID = "db_wal_checkpoint"   # Epic 64: удержание -wal от разрастания
+    # MCA-16 (T-5003/D7): тик пакетного review опыта — отдельный тип job в
+    # СУЩЕСТВУЮЩЕЙ очереди; тик лишь проверяет каденцию (hot, без рестарта).
+    JOB_EXPERIENCE_REVIEW_ID = "experience_review_tick"
 
     def __init__(self, db, memory, llm) -> None:
         self.db = db
@@ -83,8 +98,22 @@ class MemoryMaintenanceService:
                     timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE)),
                 id=self.JOB_WAL_ID, replace_existing=True,
                 max_instances=1, coalesce=True)
+        # MCA-16 (T-5003, ADR-1028-15 D7): тик review опыта — тот же
+        # планировщик обслуживания (второй очереди/планировщика нет). Тик
+        # каждые 15 минут: каденция (hourly/daily/weekly) и UI-настройка
+        # learning читаются hot при каждом тике → применяются без рестарта.
+        if _experience_review_tick_enabled():
+            self._scheduler.add_job(
+                self._tick_experience_review,
+                IntervalTrigger(
+                    seconds=_EXPERIENCE_REVIEW_TICK_SECONDS,
+                    timezone=hot.get("limits.summary_timezone",
+                                     settings.SUMMARY_TIMEZONE)),
+                id=self.JOB_EXPERIENCE_REVIEW_ID, replace_existing=True,
+                max_instances=1, coalesce=True)
         if (hot.get("flags.graph_episode_merge_enabled", settings.GRAPH_EPISODE_MERGE_ENABLED) or hot.get("flags.graph_review_enabled", settings.GRAPH_REVIEW_ENABLED)
-                or hot.get("flags.db_wal_checkpoint_enabled", settings.DB_WAL_CHECKPOINT_ENABLED)):
+                or hot.get("flags.db_wal_checkpoint_enabled", settings.DB_WAL_CHECKPOINT_ENABLED)
+                or _experience_review_tick_enabled()):
             self._scheduler.start()
             logger.info(
                 "MemoryMaintenance started (merge=%s/%dd, review=%s/%dd, wal=%s/%dh)",
@@ -129,6 +158,21 @@ class MemoryMaintenanceService:
             await self.review()
         except Exception:
             logger.warning("graph review: failed", exc_info=True)
+
+    async def _tick_experience_review(self) -> None:
+        """MCA-16 (T-5003): тик пакетного review опыта (durable job).
+
+        Каденция/настройка читаются hot на каждом тике — применение без
+        рестарта. Ошибка не рвёт планировщик; OFF → честный `disabled`."""
+        try:
+            from services import mca_experience_jobs as jobs
+            status = await jobs.tick_experience_review(self.db)
+            if status not in ("not_due", "disabled", "running"):
+                logger.info("[mca16] experience review tick | status=%s",
+                            status)
+        except Exception:
+            logger.warning("[mca16] experience review tick failed",
+                           exc_info=True)
 
     # ── 66.2 (T-480): слияние повторяющихся эпизодов ──────────────
 
