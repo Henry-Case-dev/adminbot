@@ -1,6 +1,6 @@
 # ADR-1028-23 - `mca-17c-analytics-matrix`: финальная витрина наблюдаемости — read-side матрица поверх реестра mca-17a, узкий санкционированный write-API действий, Δ DDL/каталог/KS = 0
 
-**Статус:** Proposed (→ Accepted по прод-валидации T-5199/T-5200; преемник ADR-1027-8 `mca-17a` — ядро наблюдаемости).
+**Статус:** **Accepted** (merge `plans/ARCHITECTURE.md` **§124**, 07.10.2026 @PM T-5200 + прод-валидация 2.58.66 VERIFIED: деплой **БЕЗ миграций** — Δ DDL=0, v33/tables=120 до=после обоих рестартов; identity 9/9 байт-в-байт, routes.py пин `8153b8bd…` цел; healthz 200 @2.58.66, oversight-смоуки unauth 401 ×3 ×2 рестарта — RBAC жив; KS 85 / 0 env-оверрайдов; ERR/CRIT=0, R17=0; история ревизий: Proposed — Step 2 @Architect 07.10.2026 (design-freeze, T-5177/T-5178) → rework review T-5196 (B-1/B-2 закрыты, итер.2 Approved) → **Accepted** 07.10.2026 (прод 2.58.66 + §124; scanner T-5197 «к деплою ДА»); преемник ADR-1027-8 `mca-17a` — ядро наблюдаемости).
 
 **Дата:** 07.10.2026. **Автор:** @Architect (Step 2, T-5177/T-5178). **Wave 5** (`mca-round1027-plan.md:247`: `mca-12 → mca-17c → mca-21-guides → mca-release`), строка фичи `:213`, Risk **R2 confirmed** (D14).
 
