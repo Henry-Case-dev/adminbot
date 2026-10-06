@@ -37,22 +37,24 @@ class TestDefaultInfoText:
         )
 
     def test_rich_structure_complete(self):
-        """F9 10.23 (ADR-1023-9): rich-канон v5 — только h1/h2 для
+        """mca-21 (round 10.48): rich-канон v6 — только h1/h2 для
         заголовков (никаких h3/h4/h5), команды — в blockquote.
-        h1=1, h2=11 (v4 + «11. Генерация изображений»), blockquote=24, p=44."""
+        h1=1, h2=12 (v5 + «12. Распознавание изображений»), blockquote=27,
+        p=53."""
         assert DEFAULT_INFO_TEXT.count("<h1>") == DEFAULT_INFO_TEXT.count("</h1>") == 1
-        assert DEFAULT_INFO_TEXT.count("<h2>") == DEFAULT_INFO_TEXT.count("</h2>") == 11
+        assert DEFAULT_INFO_TEXT.count("<h2>") == DEFAULT_INFO_TEXT.count("</h2>") == 12
         assert DEFAULT_INFO_TEXT.count("<h3>") == 0
         assert DEFAULT_INFO_TEXT.count("<h4>") == 0
         assert DEFAULT_INFO_TEXT.count("<h5>") == 0
         assert DEFAULT_INFO_TEXT.count("<blockquote>") == \
-            DEFAULT_INFO_TEXT.count("</blockquote>") == 24
-        assert DEFAULT_INFO_TEXT.count("<p>") == DEFAULT_INFO_TEXT.count("</p>") == 44
+            DEFAULT_INFO_TEXT.count("</blockquote>") == 27
+        assert DEFAULT_INFO_TEXT.count("<p>") == DEFAULT_INFO_TEXT.count("</p>") == 53
 
     def test_html_tags_balanced(self):
-        """F9 10.23: инлайн-акценты — b=39, i=39, u=0, a=2 (ссылки-примеры)."""
-        assert DEFAULT_INFO_TEXT.count("<b>") == DEFAULT_INFO_TEXT.count("</b>") == 39
-        assert DEFAULT_INFO_TEXT.count("<i>") == DEFAULT_INFO_TEXT.count("</i>") == 39
+        """mca-21 (round 10.48): инлайн-акценты — b=44, i=44, u=0, a=2
+        (ссылки-примеры)."""
+        assert DEFAULT_INFO_TEXT.count("<b>") == DEFAULT_INFO_TEXT.count("</b>") == 44
+        assert DEFAULT_INFO_TEXT.count("<i>") == DEFAULT_INFO_TEXT.count("</i>") == 44
         assert DEFAULT_INFO_TEXT.count("<u>") == 0
         assert DEFAULT_INFO_TEXT.count("</u>") == 0
         assert DEFAULT_INFO_TEXT.count("<a ") == DEFAULT_INFO_TEXT.count("</a>") == 2
@@ -80,9 +82,9 @@ class TestDefaultInfoText:
             assert marker in DEFAULT_INFO_TEXT
 
     def test_canon_matches_backlog_r44_1_essence(self):
-        """F9 10.23: снятие всех тегов сохраняет структуру секций 1..11
-        (v5 = v4 + «11. Генерация изображений»)."""
-        for i in range(1, 12):
+        """mca-21 (round 10.48): снятие всех тегов сохраняет структуру
+        секций 1..12 (v6 = v5 + «12. Распознавание изображений»)."""
+        for i in range(1, 13):
             assert f"<h2>{i}." in DEFAULT_INFO_TEXT
 
 

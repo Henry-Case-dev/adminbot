@@ -690,6 +690,14 @@ class TestBoundsA3:
                                               "web/static/telegram-init.js",
                                               # mca-12 (ADR-1028-21 §7.5/D2)
                                               "web/api/stories.py",
+                                              # mca-17c (round 10.47,
+                                              # ADR-1028-23 D11/§1.2.12): NEW
+                                              # `web/api/oversight_router.py`
+                                              # (ровно 3 маршрута; прод-
+                                              # верифицирован 2.58.66;
+                                              # routes.py byte-freeze —
+                                              # пин 8153b8bd… цел).
+                                              "web/api/oversight_router.py",
                                               "web/api/__init__.py"))
                        for ln in self._diff_names())
 
@@ -715,7 +723,7 @@ class TestBoundsA3:
         import dataclasses
         from services import param_catalog as pc
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.66"            # bump запрещён (D8)
+        assert APP_VERSION == "2.58.67"            # bump запрещён (D8)
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in pc.REGISTRY
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}

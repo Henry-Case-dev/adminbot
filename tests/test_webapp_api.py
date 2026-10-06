@@ -944,6 +944,26 @@ class TestInfo:
                            headers=_hdr(ADMIN_ID))
         assert resp.status_code == 503
 
+    def test_post_info_malicious_input_th1(self, client):
+        """TH-1 (mca-21): злой ввод ручной правки не роняет API и не
+        исполняется сервером: сервер — сторедж (санитизация — DOMPurify на
+        фронте, v-html только через sanitized*), правка честно помечается
+        canon_drift=True, reset-canon возвращает канон."""
+        payload = ("<h1>ok</h1><script>alert(1)</script>"
+                   '<img src=x onerror="alert(2)">'
+                   '<a href="javascript:alert(3)">x</a>')
+        resp = client.post("/api/info", json={"html": payload},
+                           headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        value = client.cache.get("content.info_how_it_works")
+        assert value["html"] == payload            # сторедж без сюрпризов
+        after = client.get("/api/info", headers=_hdr(USER_ID)).json()
+        assert after["canon_drift"] is True        # ручная правка ≠ канон
+        reset = client.post("/api/info/reset-canon", headers=_hdr(ADMIN_ID))
+        assert reset.status_code == 200
+        assert client.cache.get(
+            "content.info_how_it_works")["html"] == DEFAULT_INFO_TEXT
+
     # ── F2 10.16 (guide-delivery-round1016, ADR-1016-3) ────────────────────
 
     def test_get_info_additive_canon_fields(self, client):

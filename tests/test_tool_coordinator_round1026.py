@@ -702,6 +702,14 @@ class TestBounds:
                                              # (регистрация — web/app.py;
                                              # routes.py НЕ менялся).
                                              "web/api/stories.py",
+                                             # mca-17c (round 10.47,
+                                             # ADR-1028-23 D11/§1.2.12): NEW
+                                             # `web/api/oversight_router.py`
+                                             # (ровно 3 маршрута; прод-
+                                             # верифицирован 2.58.66;
+                                             # routes.py byte-freeze —
+                                             # пин 8153b8bd… цел).
+                                             "web/api/oversight_router.py",
                                              "web/api/__init__.py"))
                        for n in names)
         # NOTE (round1027, MCA-01 / ADR-1027-3 D3): `services/summary_memory.py`
@@ -802,7 +810,7 @@ class TestBounds:
             summary_changed
 
     def test_version_and_catalog(self):
-        assert APP_VERSION == "2.58.66"
+        assert APP_VERSION == "2.58.67"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
         assert len(pc.REGISTRY) == 523
         assert len({f.name for f in dataclasses.fields(Settings)}) == 454

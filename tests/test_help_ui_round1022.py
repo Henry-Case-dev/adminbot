@@ -14,6 +14,7 @@
   * рендер: DOMPurify default пропускает blockquote/h1/h2, CSS оформляет
     цитаты, санитайз не обойдён (v-html только через sanitized*).
 """
+import re
 import types
 from pathlib import Path
 
@@ -28,6 +29,7 @@ from services.info_service import (
     PREV_DEFAULT_INFO_TEXT,
     PREV_R1022_DEFAULT_INFO_TEXT,
     PREV_R1023_DEFAULT_INFO_TEXT,
+    PREV_R1048_DEFAULT_INFO_TEXT,
     PREV_R2020_DEFAULT_INFO_TEXT,
     canon_drift,
     normalize_canon,
@@ -55,16 +57,17 @@ def _between_adjacent_blockquotes(text: str) -> list[str]:
 
 class TestCanonV4:
     def test_version_bumped(self):
-        # F9 10.23 (ADR-1023-9): канон бампнут 4 → 5. v4-текст заморожен как
-        # PREV_R1023_DEFAULT_INFO_TEXT (слепок миграции).
-        assert INFO_CANON_VERSION == 5
+        # mca-21 (round 10.48): канон бампнут 5 → 6. v5-текст заморожен как
+        # PREV_R1048_DEFAULT_INFO_TEXT (слепок миграции).
+        assert INFO_CANON_VERSION == 6
 
     def test_v3_snapshot_registered(self):
         assert PREV_R1022_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
         assert PREV_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
         assert PREV_R2020_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
         assert PREV_R1023_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
-        assert len(KNOWN_INFO_SNAPSHOTS) == 4
+        assert PREV_R1048_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
+        assert len(KNOWN_INFO_SNAPSHOTS) == 5
 
     def test_v3_snapshot_is_previous_canon_not_current(self):
         # v3-слепок — прошлый текст (h4/h5 + безлимиты), а не текущий канон.
@@ -86,16 +89,18 @@ class TestLayoutRules:
     def test_only_h1_h2_headings(self):
         text = DEFAULT_INFO_TEXT
         assert text.count("<h1>") == text.count("</h1>") == 1
-        # F9 10.23 добавил секцию «11. Генерация изображений» → h2 == 11.
-        assert text.count("<h2>") == text.count("</h2>") == 11
+        # F9 10.23 добавил секцию «11. Генерация изображений» → h2 == 11;
+        # mca-21 (round 10.48) добавил «12. Распознавание изображений» → 12.
+        assert text.count("<h2>") == text.count("</h2>") == 12
         for tag in ("h3", "h4", "h5", "h6"):
             assert text.count(f"<{tag}>") == 0, tag
             assert text.count(f"</{tag}>") == 0, tag
 
     def test_every_command_group_in_blockquote(self):
         text = DEFAULT_INFO_TEXT
-        # F9 10.23 добавил 3 команды изображений → blockquote == 24.
-        assert text.count("<blockquote>") == text.count("</blockquote>") == 24
+        # F9 10.23 добавил 3 команды изображений → blockquote == 24;
+        # mca-21 добавил 3 команды распознавания → 27.
+        assert text.count("<blockquote>") == text.count("</blockquote>") == 27
         # ключевые команды — в цитате (выделенная цитата/код в UI).
         for cmd in ("Бот, транскрипт", "Бот, поясни за видос", "Бот, о чем видео",
                     "Бот, загугли", "Бот, скачай", "фактчек"):
@@ -133,7 +138,7 @@ class TestContent:
         assert "Модули → Бюджеты" not in text
         # F9 10.23: п.11 теперь «Генерация изображений» (а не «Безлимиты»).
         assert "<h2>11. Безлимиты" not in text
-        assert text.count("<h2>") == 11
+        assert text.count("<h2>") == 12
 
     def test_tone_of_voice_preserved(self):
         text = DEFAULT_INFO_TEXT
@@ -154,17 +159,19 @@ class TestGuideSystem2:
         assert "## 11. Как бот думает (System 2)" in text
         assert "Сначала - подумать" in text
         assert "Потом - сказать" in text
-        # словарик сдвинут на 12 (нумерация без дыр).
-        assert "## 12. Словарик" in text
+        # mca-21 (round 10.48): словарик сдвинут на 19 (нумерация без дыр).
+        assert "## 19. Словарик" in text
 
     def test_guide_avoids_impl_details(self):
         # F9 10.23: запрет на внутренний жаргон сохранён и ужесточён
         # (validator-loop/scrubber/regex/имена слоёв). Человеческие описания
         # новых возможностей (манеры ответа, анти-штампы) при этом допустимы.
+        # mca-21: «Аналитика» — имя экрана миниаппа, а не внутренняя роль.
         text = GUIDE_MD.read_text(encoding="utf-8").lower()
         for leak in ("validator", "scrubber", "regex", "вербализатор",
-                     "аналитик", "синтезатор", "loop", "промпт", "llm"):
+                     "синтезатор", "loop", "промпт", "llm"):
             assert leak not in text, leak
+        assert re.search(r"аналитик(?![а-яё])", text) is None
 
 
 # ── идемпотентная PG-миграция v3 → v4 ──────────────────────────────────────
@@ -254,7 +261,7 @@ class TestMigrationV3ToV4:
         await cache.init()
         value = cache.get(INFO_KEY)
         assert value["html"] == DEFAULT_INFO_TEXT
-        assert value["canon_version"] == INFO_CANON_VERSION == 5
+        assert value["canon_version"] == INFO_CANON_VERSION == 6
         assert value["canon_delivered_version"] == INFO_CANON_VERSION
         assert len(_info_inserts(conn)) == 1
 

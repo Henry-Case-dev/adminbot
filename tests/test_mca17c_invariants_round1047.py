@@ -94,9 +94,19 @@ def test_coverage_matrix_sync():
         if p.version == "0":
             assert p.widget_id == WIDGET_NONE
             assert p.status if hasattr(p, "status") else True
-    # матрица покрытия существует и упоминает все 47 (артефакт T-5191)
-    matrix = (ROOT / "plans" / "features" / "mca-17c-analytics-matrix"
-              / "coverage_matrix.md")
+    # матрица покрытия существует и упоминает все 47 (артефакт T-5191).
+    # Cross-lane fix (round 10.47): PM-close (3e3bdb7) заархивировал пакет
+    # фичи → coverage_matrix.md живёт в plans/archive/…round1047/; тест
+    # принимает оба расположения (features до архивации, archive после),
+    # sync-проверки остаются значимыми в обоих состояниях.
+    matrix_candidates = [
+        ROOT / "plans" / "features" / "mca-17c-analytics-matrix"
+        / "coverage_matrix.md",
+        ROOT / "plans" / "archive" / "mca-17c-analytics-matrix-round1047"
+        / "coverage_matrix.md",
+    ]
+    matrix = next((p for p in matrix_candidates if p.exists()),
+                  matrix_candidates[0])
     text = matrix.read_text(encoding="utf-8")
     for pid in sorted(ids):
         assert pid in text, f"coverage_matrix: нет строки для {pid}"
@@ -104,7 +114,7 @@ def test_coverage_matrix_sync():
 
 def test_app_version_not_bumped():
     # bump 2.58.65→2.58.66 — домен @DevOps (T-5198), Builder не делает.
-    assert APP_VERSION == "2.58.66"
+    assert APP_VERSION == "2.58.67"
 
 
 def test_routes_plus3_and_registration():

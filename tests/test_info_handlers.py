@@ -89,16 +89,17 @@ class TestRichToLegacyHtml:
         result = info_mod._rich_to_legacy_html(DEFAULT_INFO_TEXT)
         assert "<h1>" not in result and "</h1>" not in result
         assert "<h2>" not in result and "</h2>" not in result
-        # F9 10.23 (ADR-1023-9): rich-канон v5 (+ «11. Генерация изображений») —
-        # b=51, b+i+u=39, u=40, i=39; команды — в <blockquote> (24).
-        assert result.count("<b>") == 51
-        assert result.count("</b>") == 51
-        assert result.count("<b><i><u>") == 39
-        assert result.count("<u>") == 40
-        assert result.count("</u>") == 40
-        assert result.count("<i>") == 39
-        assert result.count("</i>") == 39
-        assert result.count("<blockquote>") == 24
+        # mca-21 (round 10.48): rich-канон v6 (+ «12. Распознавание
+        # изображений») — b=57 (44 inline + 12 h2 + h1), <b><i><u>=44,
+        # u=45, i=44; команды — в <blockquote> (27).
+        assert result.count("<b>") == 57
+        assert result.count("</b>") == 57
+        assert result.count("<b><i><u>") == 44
+        assert result.count("<u>") == 45
+        assert result.count("</u>") == 45
+        assert result.count("<i>") == 44
+        assert result.count("</i>") == 44
+        assert result.count("<blockquote>") == 27
 
     def test_intro_h1_emulation_and_links_kept(self):
         result = info_mod._rich_to_legacy_html(DEFAULT_INFO_TEXT)
