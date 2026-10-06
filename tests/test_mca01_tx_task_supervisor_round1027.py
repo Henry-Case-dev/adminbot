@@ -935,8 +935,15 @@ def test_write_points_go_through_single_writer():
         # mca_media_assets/mca_media_analyses + индексы + PRAGMA user_version
         # в `_migrate_media_vision_v32` (L-MCA14-3; раннер до старта
         # писателей; runtime asset/analysis-записи — через `write_transaction`
+        # (прецедент L-MCA14-3; раннер до старта
+        # писателей; runtime asset/analysis-записи — через `write_transaction`
         # в services/mca_vision.py).
-        "database.py": 186,
+        # +3 v33 mca-20 (ADR-1028-20 D3/D13/D16, санкция spec §7.1): Temporal
+        # Factcheck — миграция `_migrate_factcheck_temporal_v33` (CREATE ×2 +
+        # PRAGMA user_version; раннер) + runtime run/evidence-записи через
+        # `write_transaction` (`record_factcheck_run`/`record_factcheck_
+        # evidence`); чтение виджета — read-only.
+        "database.py": 189,
         "dossier_rebuild_jobs.py": 1,   # внутри `async with db.serialized()`
         # ASAP-3.2 (ADR-1028-5 D1/D2, T-4191): shadow-rebuild — 3 прямых
         # commit внутри `async with memory.db.serialized()` (идемпотентный

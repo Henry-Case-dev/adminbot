@@ -443,6 +443,29 @@ KILL_SWITCHES: dict[str, tuple[bool, str]] = {
         "для устаревших вызовов остаётся (defence in depth; инертен при "
         "мастере OFF)",
     ),
+    # ── mca-20 (ADR-1028-20 §8.3/D13, санкция T-5131): ровно 3 kill-switch
+    # фичи (80→83); env-only, default ON, OFF = бит-в-бит d298f1f/2.58.63.
+    # K1 — master (ON-путь envelope-пайплайна; OFF → легаси-путь хендлера,
+    # включая легаси-кеш-слаг `factcheck`); K2 — tool `fact_check`; K3 — кеш
+    # готовых вердиктов (кеш поиска/загрузок не трогается).
+    "MCA_TEMPORAL_FACTCHECK_ENABLED": (
+        True,
+        "OFF → бит-в-бит d298f1f/2.58.63: ON-путь envelope-пайплайна не "
+        "выполняется (легаси-путь хендлера, включая легаси-кеш-слаг "
+        "`factcheck`; v33 не читается/не пишется temporal-контуром)",
+    ),
+    "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED": (
+        True,
+        "OFF → tool fact_check скрыт из набора; серверная проверка OFF для "
+        "устаревших вызовов остаётся (defence in depth; инертен при мастере "
+        "OFF)",
+    ),
+    "MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED": (
+        True,
+        "OFF → готовые вердикты всегда вычисляются без кеширования (reason "
+        "temporal_cache_disabled); кеш поиска/загрузок (slug "
+        "search/web/youtube) не затрагивается; инертен при мастере OFF",
+    ),
 }
 
 
@@ -1836,3 +1859,53 @@ def vision_reocr_budget() -> int:
     """`MCA_VISION_REOCR_BUDGET` (env-only, default 2): бюджет повторных
     чтений сомнительного фрагмента (без бесконечной самопроверки)."""
     return _int_setting_min("MCA_VISION_REOCR_BUDGET", 2, 0)
+
+
+# ── mca-20 (ADR-1028-20 §8.3/D13): kill-switch'и Temporal Factcheck + ──────
+# env-only лимиты. Ровно 3 рубильника фичи (80→83); резолв per-call, никогда
+# не бросают. Инертности: master OFF ⇒ tool/кеш вердиктов недостижимы
+# (легаси-путь хендлера живёт без envelope-контура).
+
+def temporal_factcheck_enabled() -> bool:
+    """`MCA_TEMPORAL_FACTCHECK_ENABLED` (мастер, env-only, default ON; K1).
+
+    ON → envelope-пайплайн временного фактчека существует (TemporalClaim
+    Envelope/cascade/кеш `factcheck_temporal`/run v33). OFF → бит-в-бит
+    d298f1f/2.58.63 (легаси-путь хендлера)."""
+    return bool(getattr(settings, "MCA_TEMPORAL_FACTCHECK_ENABLED", True))
+
+
+def temporal_factcheck_tool_enabled() -> bool:
+    """`MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED` (env-only, default ON; K2;
+    инертен при K1).
+
+    ON → tool `fact_check` доступен в общем пуле tool calling. OFF →
+    инструмент скрыт из набора; сервер всё равно проверяет OFF для
+    устаревших вызовов (defence in depth)."""
+    if not temporal_factcheck_enabled():
+        return False
+    return bool(getattr(settings, "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED", True))
+
+
+def temporal_factcheck_cache_enabled() -> bool:
+    """`MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED` (env-only, default ON; K3;
+    инертен при K1).
+
+    ON → готовые вердикты кешируются под slug `factcheck_temporal` (при
+    построимом ключе). OFF → всегда вычислять без кеширования вердиктов;
+    кеш поиска/загрузок не затрагивается."""
+    if not temporal_factcheck_enabled():
+        return False
+    return bool(getattr(settings, "MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED", True))
+
+
+def temporal_max_runs_list() -> int:
+    """`MCA_TEMPORAL_MAX_RUNS_LIST` (env-only, default 50): потолок выборки
+    runs для виджета «Аналитики» (защита выборки v33)."""
+    return _int_setting_min("MCA_TEMPORAL_MAX_RUNS_LIST", 50, 1)
+
+
+def temporal_max_evidence_per_run() -> int:
+    """`MCA_TEMPORAL_MAX_EVIDENCE_PER_RUN` (env-only, default 20): потолок
+    evidence-строк на прогон (защита от раздувания v33)."""
+    return _int_setting_min("MCA_TEMPORAL_MAX_EVIDENCE_PER_RUN", 20, 1)

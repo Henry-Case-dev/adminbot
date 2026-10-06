@@ -1132,11 +1132,47 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
              "честный disabled/not_run",
     ),
     ProcessDefinition(
-        process_id="temporal.factcheck", version="0",
-        purpose="ClaimEnvelope/TemporalVerdict",
-        inputs=(), outputs=(), stages=(), trigger_kind="background",
-        owner_feature="mca-20", widget_id=WIDGET_NONE,
-        note="не реализовано (mca-20)",
+        process_id="temporal.factcheck", version="1",
+        purpose="ClaimEnvelope/TemporalVerdict: временной фактчек — "
+                "проверка утверждения в его временном контексте",
+        inputs=("trigger/target message (chat)", "free text (tool)"),
+        outputs=("verdict reply (chat)", "mca_factcheck_runs/evidence (v33)"),
+        stages=("target_resolve", "origin_date_resolve", "claim_decompose",
+                "temporal_search", "evidence_validate", "verdict",
+                "verbalize", "deliver"),
+        branches=("analyst", "single_fallback", "cache_hit", "bypass"),
+        trigger_kind="on_demand",
+        settings_ref=("MCA_TEMPORAL_FACTCHECK_ENABLED",
+                      "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED",
+                      "MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED",
+                      "TEMPORAL_DEFAULT_MODE",
+                      "TEMPORAL_FRESHNESS_CURRENT_TTL_HOURS",
+                      "TEMPORAL_FRESHNESS_HISTORICAL_TTL_HOURS",
+                      "TEMPORAL_TOOL_ENABLED"),
+        state_source=("mca_factcheck_runs", "mca_factcheck_evidence"),
+        recovery_ops=("cache_bypass", "single_fallback"),
+        widget_id="Временной фактчек",
+        stages_to_events={s: "factcheck_temporal" for s in (
+            "target_resolve", "origin_date_resolve", "claim_decompose",
+            "temporal_search", "evidence_validate", "verdict", "verbalize",
+            "deliver")},
+        instrumentation=("target_resolve", "origin_date_resolve",
+                         "claim_decompose", "temporal_search",
+                         "evidence_validate", "verdict", "verbalize",
+                         "deliver"),
+        owner_feature="mca-20",
+        enabled_gate="MCA_TEMPORAL_FACTCHECK_ENABLED",
+        event_names=("factcheck_temporal",),
+        note="mca-20 (ADR-1028-20 D11/D13; AMEND плейсхолдера v0, прецедент "
+             "vision.analyze→vision.media): стадии `:1805` ровно 8; события — "
+             "только id/коды/стадии/refs (R17: без claim-текста/evidence-"
+             "цитат); датa-ошибка извлечения ≠ дата-отсутствие "
+             "(temporal_date_extract_failed ≠ temporal_date_unknown); "
+             "fallback не меняет historical↔current молча "
+             "(temporal_fallback_mode + assessment_mode); кеш готовых "
+             "вердиктов — slug factcheck_temporal/tzr1, unknown origin → "
+             "авто-bypass (temporal_cache_disabled); K1 OFF → честный "
+             "disabled/not_run",
     ),
 )
 _PROCESS_BY_ID = {p.process_id: p for p in PROCESS_REGISTRY}
@@ -1190,6 +1226,8 @@ _GATE_RESOLVERS = {
     "MCA_SELF_MODEL_ENABLED": "self_model_enabled",
     "MCA_TRAIT_RULES_ENABLED": "trait_rules_enabled",
     "MCA_LEGACY_TRAITS_MIGRATION_ENABLED": "legacy_traits_migration_enabled",
+    # mca-20 (ADR-1028-20 D11/D13): master-гейт процесса temporal.factcheck v1.
+    "MCA_TEMPORAL_FACTCHECK_ENABLED": "temporal_factcheck_enabled",
     # product-гейты из `config.settings` (не mca_gates) — резолв через settings.
 }
 

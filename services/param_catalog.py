@@ -36,6 +36,9 @@ CATEGORY_REACTIONS = "reactions"
 CATEGORY_CONTENT = "content"
 # Фаза 2 (T-755): бессрочное хранение памяти (memory.infinite_retention).
 CATEGORY_MEMORY = "memory"
+# Раунд 10.44 (MCA-20, ADR-1028-20 D13/§7.2): временной фактчек
+# (temporal.default_mode / freshness TTL ×2 / tool_enabled).
+CATEGORY_TEMPORAL = "temporal"
 
 CATEGORIES: tuple[str, ...] = (
     CATEGORY_PROMPTS,
@@ -46,6 +49,7 @@ CATEGORIES: tuple[str, ...] = (
     CATEGORY_REACTIONS,
     CATEGORY_CONTENT,
     CATEGORY_MEMORY,
+    CATEGORY_TEMPORAL,
 )
 
 # Раунд 10 (F-7 §4.4, Q5): категории, допустимые для per-chat-слоя.
@@ -477,6 +481,12 @@ GROUPS: tuple[GroupSpec, ...] = (
     GroupSpec("memory_experience", "memory", "Опыт и уроки",
               "Банк проверенного опыта: эпизоды, уроки и пакетный разбор. "
               "Уроки не меняют правила бота — это процедурные рекомендации.", 5),
+    # temporal (1; раунд 10.44, MCA-20/ADR-1028-20 D13/§7.2): группа
+    # «Временной фактчек» на существующей вкладке mod_factcheck.
+    GroupSpec("temporal_factcheck", "temporal", "Временной фактчек",
+              "Режим проверки по умолчанию, сроки свежести вердиктов "
+              "(свежие и исторические) и доступность инструмента fact_check.",
+              1),
 )
 
 
@@ -2195,6 +2205,54 @@ _MEMORY: list[tuple] = [
 ]
 
 
+# ── Раунд 10.44 (MCA-20, ADR-1028-20 D13/§7.2): категория temporal —
+# ровно 4 ParamSpec группы temporal_factcheck (вкладка mod_factcheck).
+# select-опции режима — канон enum D7; knowable_at_time доступен в списке,
+# но никогда не выбирается автоматически (resolver mca-20).
+_TEMPORAL: list[ParamSpec] = [
+    ParamSpec("TEMPORAL_DEFAULT_MODE", "TEMPORAL_DEFAULT_MODE",
+              CATEGORY_TEMPORAL, "Режим проверки по умолчанию", "str",
+              pg_id="temporal.default_mode",
+              group="temporal_factcheck",
+              description="Как проверять утверждения во времени, если "
+                          "пользователь не попросил конкретный режим: "
+                          "«контекстный» — в исходный период с пометкой об "
+                          "актуальности, «сейчас» — только текущая правда, "
+                          "«тогда» — как было в тот период, «знание на "
+                          "момент» — только то, что было известно автору.",
+              widget="select",
+              select_options=("contextual", "current", "historical_truth",
+                              "knowable_at_time"),
+              select_labels=("Контекстный (по умолчанию)",
+                             "Актуальность сейчас", "Как было тогда",
+                             "Знание на момент")),
+    ParamSpec("TEMPORAL_FRESHNESS_CURRENT_TTL_HOURS",
+              "TEMPORAL_FRESHNESS_CURRENT_TTL_HOURS", CATEGORY_TEMPORAL,
+              "Срок свежих вердиктов, часов", "int",
+              pg_id="temporal.freshness_current_ttl_hours",
+              group="temporal_factcheck",
+              description="Сколько часов кешируется проверка «меняющихся» "
+                          "утверждений (курсы, должности, события «сейчас»). "
+                          "Меньше — чаще перепроверка."),
+    ParamSpec("TEMPORAL_FRESHNESS_HISTORICAL_TTL_HOURS",
+              "TEMPORAL_FRESHNESS_HISTORICAL_TTL_HOURS", CATEGORY_TEMPORAL,
+              "Срок исторических вердиктов, часов", "int",
+              pg_id="temporal.freshness_historical_ttl_hours",
+              group="temporal_factcheck",
+              description="Сколько часов кешируется проверка «исторических» "
+                          "выводов (то, что было верно тогда). Правка "
+                          "исходного сообщения инвалидирует кеш сама."),
+    ParamSpec("TEMPORAL_TOOL_ENABLED", "TEMPORAL_TOOL_ENABLED",
+              CATEGORY_TEMPORAL, "Инструмент fact_check включён", "bool",
+              pg_id="temporal.tool_enabled",
+              group="temporal_factcheck",
+              description="Нейросеть может сама запускать проверку фактов "
+                          "инструментом fact_check в диалоге. Аварийный "
+                          "env-рубильник MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED "
+                          "действует независимо."),
+]
+
+
 def resolve_progressive_level(spec: ParamSpec) -> str:
     """Правило по умолчанию (F-11 §4.1): advanced для групп памяти/RAG и
     ключей с техническими маркерами; явная разметка — приоритет."""
@@ -2314,6 +2372,11 @@ def _build_registry() -> dict[str, ParamSpec]:
                       group=group, description=desc,
                       pg_id=f"{CATEGORY_MEMORY}.{field.lower()}",
                       progressive_level=level))
+    # Раунд 10.44 (MCA-20, ADR-1028-20 D13/§7.2): +4 ключа категории
+    # temporal (группа temporal_factcheck, вкладка mod_factcheck; per-chat
+    # НЕ разрешён — глобальные настройки владельца).
+    for spec in _TEMPORAL:
+        add(spec)
     return registry
 
 
@@ -2632,6 +2695,9 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
     (TAB_MOD_FACTCHECK, (
         (CATEGORY_FLAGS, frozenset({"flags_module_factcheck"})),
         (CATEGORY_LIMITS, frozenset({"limits_factcheck"})),
+        # Раунд 10.44 (MCA-20, ADR-1028-20 D13/§7.2): группа «Временной
+        # фактчек» — IN-PLACE (TAB_RULES 22 без роста; прецедент mod_sleep).
+        (CATEGORY_TEMPORAL, frozenset({"temporal_factcheck"})),
     )),
     (TAB_MOD_SEARCH, (
         (CATEGORY_FLAGS, frozenset({"flags_module_search"})),

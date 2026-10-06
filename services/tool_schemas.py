@@ -610,8 +610,72 @@ TOOL_RECOGNIZE_IMAGE = {
     },
 }
 
+# MCA-20 (ADR-1028-20 D4/§7.5, round 10.44): канон 13→14 — `fact_check`
+# (один адаптер к общему сервису фактчека; без второго пайплайна, план `:211`).
+# Аргументы: только claim/target/mode/period-hint — chat_id/URL/даты от LLM
+# НЕ принимаются (scope из доверенного runtime, CA-20-7/12).
+TOOL_FACT_CHECK = {
+    "type": "function",
+    "function": {
+        "name": "fact_check",
+        "description": (
+            "Fact-check a claim, including its TIME context: an old repost "
+            "is checked against its ORIGINAL period, and freshness "
+            "(current/outdated/old_but_valid/misleading_reuse/unknown) is "
+            "reported separately from truth. Use when the user asks to "
+            "verify a claim in the replied/reposted message (fact-check "
+            "requests like 'is this true?', 'was it true back then?') or "
+            "hands you a checkable factual claim. Pass claim as the exact "
+            "statement; optionally target (chat_id + message_id of THIS "
+            "chat, reply target preferred) and mode: current = 'is it true "
+            "now?', historical_truth = 'was it true back then?'. Do NOT "
+            "pass URLs, dates or chat ids of other chats - they are "
+            "ignored. Missing evidence returns insufficient_evidence, "
+            "never refuted."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "claim": {
+                    "type": "string",
+                    "description": "The exact claim text to verify."},
+                "target": {
+                    "type": "object",
+                    "description": ("Optional MessageRef of the message "
+                                    "holding the claim (THIS chat only; "
+                                    "reply target preferred). Omit for a "
+                                    "free-text claim."),
+                    "properties": {
+                        "chat_id": {"type": "integer",
+                                    "description": "Telegram chat id."},
+                        "message_id": {"type": "integer",
+                                       "description": "Telegram message id."},
+                    },
+                    "required": ["chat_id", "message_id"],
+                    "additionalProperties": False,
+                },
+                "mode": {
+                    "type": "string",
+                    "description": ("Optional assessment mode from the "
+                                    "user's explicit request."),
+                    "enum": ["contextual", "current", "historical_truth",
+                             "knowable_at_time"],
+                },
+                "claim_period_hint": {
+                    "type": "string",
+                    "description": ("Optional free-text period hint quoted "
+                                    "from the claim (for example 'in 2019'). "
+                                    "Treated as an UNTRUSTED extracted "
+                                    "claim - never as authority.")},
+            },
+            "required": ["claim"],
+            "additionalProperties": False,
+        },
+    },
+}
+
 # Канон R9 = **13** (MCA-19, ADR-1028-19 §8.6): первые 12 — байт-в-байт,
-# recognize_image — в конец.
+# recognize_image — в конец. MCA-20 (round 10.44, D4): канон 13→14 —
+# fact_check (один адаптер к общему сервису фактчека) в конец.
 TOOL_CALLING_TOOLS: list[dict] = [
     TOOL_QUERY_CHAT_MEMORY,
     TOOL_DIG_INTO_LORE,
@@ -626,6 +690,7 @@ TOOL_CALLING_TOOLS: list[dict] = [
     TOOL_FETCH_ARTICLE,
     TOOL_GET_USER_CONTEXT,
     TOOL_RECOGNIZE_IMAGE,
+    TOOL_FACT_CHECK,
 ]
 
 # Имя флагового инструмента (гейт flags.lore_compiler_enabled, О3).
@@ -640,6 +705,10 @@ ARTICLE_TOOL_NAME = "fetch_article"
 MEMORY_LOOKUP_TOOL_NAME = "get_user_context"
 # MCA-19 (ADR-1028-19 D22): имя vision-инструмента (env-only гейт K4).
 VISION_TOOL_NAME = "recognize_image"
+# MCA-20 (ADR-1028-20 D4): имя инструмента временного фактчека (env-only
+# гейт K2 MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED; каталог-тумблер владельца —
+# отдельно, temporal.tool_enabled).
+FACT_CHECK_TOOL_NAME = "fact_check"
 
 
 def _transcribe_tool_enabled() -> bool:
@@ -683,6 +752,25 @@ def _vision_tool_enabled() -> bool:
         return bool(getattr(settings, "MCA_VISION_TOOL_ENABLED", True))
 
 
+def _fact_check_tool_enabled() -> bool:
+    """env-only kill-switch ``MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED`` (MCA-20,
+    ADR-1028-20 §8.3 K2; ON) + каталог-тумблер владельца
+    ``temporal.tool_enabled``. Гейтит ТОЛЬКО LLM-доступность
+    ``fact_check``: OFF → инструмент скрыт из набора (устаревшие вызовы
+    получают честный disabled-ToolResult — серверная проверка в диспетчере,
+    defence in depth). Наличие схемы ``TOOL_FACT_CHECK`` и канон 14 —
+    безусловны. Инертен при мастере OFF (K1)."""
+    try:
+        from services import mca_gates
+        if not mca_gates.temporal_factcheck_tool_enabled():
+            return False
+    except Exception:      # pragma: no cover - гейт не бросает
+        if not bool(getattr(settings, "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED",
+                            True)):
+            return False
+    return bool(getattr(settings, "TEMPORAL_TOOL_ENABLED", True))
+
+
 def active_tools(lore_compiler_enabled: bool = True,
                  image_generation_enabled: bool = False) -> list[dict]:
     """Tool-сет для LLM с учётом флагов «Летописец» (О3, T-1887),
@@ -700,6 +788,9 @@ def active_tools(lore_compiler_enabled: bool = True,
     ``MCA_VISION_TOOL_ENABLED`` OFF (env) → recognize_image исключён
     (первые 12 имён — байт-в-байт; MCA-19 D22, server-side проверка OFF
     остаётся в диспетчере).
+    ``MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED``/``TEMPORAL_TOOL_ENABLED`` OFF →
+    fact_check исключён (первые 13 имён — байт-в-байт; MCA-20 D4, server-side
+    проверка OFF остаётся в диспетчере).
     Возвращается новый список — TOOL_CALLING_TOOLS (снапшот) не мутируется.
     """
     disabled: set[str] = set()
@@ -715,6 +806,8 @@ def active_tools(lore_compiler_enabled: bool = True,
         disabled.add(MEMORY_LOOKUP_TOOL_NAME)
     if not _vision_tool_enabled():
         disabled.add(VISION_TOOL_NAME)
+    if not _fact_check_tool_enabled():
+        disabled.add(FACT_CHECK_TOOL_NAME)
     if not disabled:
         return list(TOOL_CALLING_TOOLS)
     return [tool for tool in TOOL_CALLING_TOOLS

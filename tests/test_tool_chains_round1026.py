@@ -545,8 +545,8 @@ def _article_router(extractor):
 class TestFetchArticle:
     def test_atomic_registration_canon_twelve(self):
         # A6 (ADR-1026-18 D1): канон 11 → 12 (get_user_context в хвост).
-        assert len(TOOL_CALLING_TOOLS) == 13
-        assert TOOL_CALLING_TOOLS[-2] is TOOL_GET_USER_CONTEXT
+        assert len(TOOL_CALLING_TOOLS) == 14
+        assert TOOL_CALLING_TOOLS[-3] is TOOL_GET_USER_CONTEXT
         assert TOOL_CALLING_TOOLS[10] is TOOL_FETCH_ARTICLE
         assert TOOL_FETCH_ARTICLE["function"]["name"] == ARTICLE_TOOL_NAME
         params = TOOL_FETCH_ARTICLE["function"]["parameters"]
@@ -562,7 +562,7 @@ class TestFetchArticle:
         monkeypatch.setattr(type(settings), "ARTICLE_TOOL_ENABLED", False)
         names = [t["function"]["name"] for t in active_tools()]
         assert ARTICLE_TOOL_NAME not in names
-        assert len(TOOL_CALLING_TOOLS) == 13    # схема/канон безусловны (A6)
+        assert len(TOOL_CALLING_TOOLS) == 14    # схема/канон безусловны (A6)
 
     def test_factcheck_tools_unchanged(self):
         names = [t["function"]["name"] for t in factcheck_tools()]
@@ -701,9 +701,9 @@ class TestR17AndBoundaries:
 
     def test_catalog_counts_unchanged(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 519
-        assert len(pc.GROUPS) == 112
-        assert len(pc._TAB_BY_GROUP) == 110
+        assert len(pc.REGISTRY) == 523
+        assert len(pc.GROUPS) == 113
+        assert len(pc._TAB_BY_GROUP) == 111
         assert len(pc.TAB_RULES) == 22
 
     def test_no_ddl_in_a2_sources(self):
@@ -732,7 +732,7 @@ class TestR17AndBoundaries:
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "generate_image",
-            "transcribe_video", "get_user_context", "recognize_image"]
+            "transcribe_video", "get_user_context", "recognize_image", "fact_check"]
         assert [t["function"]["name"]
                 for t in active_tools(True, image_generation_enabled=True)] == \
             legacy

@@ -27,13 +27,15 @@ class TestToolSchemas:
         # первые 9 байт-в-байт); 10.26 (A2/ADR-1026-15 D5): +fetch_article → 11
         # (в конец, первые 10 байт-в-байт); 10.26 (A6/ADR-1026-18 D1):
         # +get_user_context → 12 (в конец, первые 11 байт-в-байт).
-        # Существующие имена/схемы не меняются.
+        # MCA-19 (10.43): +recognize_image → 13. MCA-20 (10.44,
+        # ADR-1028-20 §7.5): +fact_check → 14 (в конец, первые 13
+        # байт-в-байт). Существующие имена/схемы не меняются.
         assert [t["function"]["name"] for t in TOOL_CALLING_TOOLS] == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "generate_image",
             "transcribe_video", "fetch_article", "get_user_context",
-            "recognize_image"]
+            "recognize_image", "fact_check"]
 
     def _assert_function_schema(self, tool, name, required):
         assert tool["type"] == "function"
@@ -116,18 +118,19 @@ class TestToolSchemas:
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "transcribe_video", "fetch_article",
-            "get_user_context", "recognize_image"]
+            "get_user_context", "recognize_image", "fact_check"]
         assert LORE_COMPILER_TOOL_NAME not in disabled
 
     def test_active_tools_image_flag_gate(self):
         """F5 (ADR-1023-5 D2): image OFF (дефолт) → без generate_image;
-        image ON → полный канон 11 (F19/A2 — в хвосте)."""
+        image ON → полный канон (F19/A2/MCA-20 — в хвосте)."""
         names_off = [t["function"]["name"] for t in active_tools()]
         assert names_off == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "transcribe_video",
-            "fetch_article", "get_user_context", "recognize_image"]
+            "fetch_article", "get_user_context", "recognize_image",
+            "fact_check"]
         names_on = [t["function"]["name"]
                     for t in active_tools(image_generation_enabled=True)]
         assert names_on == [
@@ -135,19 +138,19 @@ class TestToolSchemas:
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "generate_image",
             "transcribe_video", "fetch_article", "get_user_context",
-            "recognize_image"]
+            "recognize_image", "fact_check"]
 
     def test_active_tools_default_on(self):
         """О3: код-дефолт «Летописца» — ON; F19 transcribe_video, A2
-        fetch_article и A6 get_user_context — ON по умолчанию (image OFF →
-        11 имён)."""
-        assert len(active_tools()) == 12
+        fetch_article, A6 get_user_context и MCA-20 fact_check — ON по
+        умолчанию (image OFF → 13 имён)."""
+        assert len(active_tools()) == 13
 
     def test_active_tools_does_not_mutate_snapshot(self):
         """active_tools возвращает новый список — снапшот не мутируется."""
         off = active_tools(False)
-        assert len(off) == 11
-        assert len(TOOL_CALLING_TOOLS) == 13
+        assert len(off) == 12
+        assert len(TOOL_CALLING_TOOLS) == 14
 
     # Bugfix 04.09.2026 (Часть 2, AC-3.4): расширенные description'ы.
     # 10.20 (БЛОК 7.4, T-1925): все description — EN (ревизия канона 3.3).
@@ -167,4 +170,4 @@ class TestToolSchemas:
 
     def test_all_tools_list_is_mutable_snapshot(self):
         # A6 (ADR-1026-18 D1): канон R9 = 12; MCA-19 (ADR-1028-19 §8.6) = 13.
-        assert len(TOOL_CALLING_TOOLS) == 13
+        assert len(TOOL_CALLING_TOOLS) == 14

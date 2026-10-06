@@ -696,6 +696,7 @@ class ToolRouter:
             "fetch_article": self._fetch_article,
             "get_user_context": self._get_user_context,
             "recognize_image": self._recognize_image,
+            "fact_check": self._fact_check,
         }
         method = registry.get(name)
         if method is None:
@@ -2324,6 +2325,115 @@ class ToolRouter:
                                 "reason": "vision_failed"},
                                ensure_ascii=False)
         return _json.dumps(result, ensure_ascii=False)
+
+    # ── fact_check (MCA-20, ADR-1028-20 D4/§7.5, round 10.44) ─────────────
+
+    async def _fact_check(self, arguments: dict, ctx: ToolContext) -> str:
+        """Tool временного фактчека (канон 14): ОДИН адаптер к общему
+        сервису (FactCheckService.check_claim_envelope) — не второй
+        пайплайн (CA-20-1). ACL (D2/D4): scope — из доверенного рантайма
+        (ctx.chat_id); target чужого чата отклоняется; chat_id/URL/даты
+        от LLM НЕ принимаются (additionalProperties: false + игнор).
+        claim_period_hint — НЕавторитетная extracted-подсказка (D5).
+        Серверная проверка OFF — defence in depth (K2/каталог-тумблер).
+        Свободный текст без цели → explicit unknown origin без выдуманных
+        message/date (D3). Рекурсия невозможна: стадии — data-only
+        (service.tool_router в адаптере не передаётся), belt-and-suspenders
+        depth-guard в tool loop (CA-20-12). ToolResult-контракт D4:
+        status ∈ {ready, disabled, unavailable, insufficient_evidence,
+        failed} + payload."""
+        import json as _json
+        from services import mca_gates, temporal_factcheck as tf
+        if not (mca_gates.temporal_factcheck_enabled()
+                and mca_gates.temporal_factcheck_tool_enabled()
+                and bool(getattr(settings, "TEMPORAL_TOOL_ENABLED", True))):
+            return _json.dumps({"status": "disabled",
+                                "reason": "fact_check_disabled"},
+                               ensure_ascii=False)
+        args = arguments if isinstance(arguments, dict) else {}
+        claim = str(args.get("claim") or "").strip()
+        if not claim:
+            return _json.dumps(
+                {"status": "failed", "reason": "temporal_envelope_rejected",
+                 "note": "claim required"},
+                ensure_ascii=False)
+        mode = str(args.get("mode") or "").strip() or None
+        if mode is not None and mode not in tf.ASSESSMENT_MODES:
+            # D7/F-1: невалидный mode от LLM — честный отказ, не молча
+            # (существующий reason-код, без молчаливой подмены дефолтом).
+            return _json.dumps({"status": "failed",
+                                "reason": "temporal_envelope_rejected",
+                                "note": "invalid mode"},
+                               ensure_ascii=False)
+        target = args.get("target") if isinstance(args.get("target"),
+                                                  dict) else {}
+        try:
+            target_chat = int(target.get("chat_id"))
+            target_msg = int(target.get("message_id"))
+        except (TypeError, ValueError, AttributeError):
+            target_chat, target_msg = None, None
+        if target_chat is not None and target_chat != int(ctx.chat_id):
+            # CA-20-7/12: другой чат — вне ACL доверенного рантайма.
+            return _json.dumps(
+                {"status": "unavailable",
+                 "reason": "temporal_envelope_rejected",
+                 "out_of_scope": True},
+                ensure_ascii=False)
+        db = self.deps.db
+        ref = tf.InputRef(
+            kind="tool", chat_id=int(ctx.chat_id) if ctx.chat_id else None,
+            target_tg_message_id=target_msg,
+            trigger_tg_message_id=ctx.reply_to_message_id,
+            claim_text=claim,
+            # F-1/§30.2 `:1783`: явный mode tool-вызова — структурное поле,
+            # идёт в envelope МИМО фразового resolver'а (hint — не для enum).
+            explicit_mode=mode,
+            source_type="text")
+        envelope, reject_reason = await tf.build_envelope(db, ref)
+        if envelope is None:
+            tf.stage_event("target_resolve", "failed",
+                           reason_code=reject_reason, chat_id=ctx.chat_id)
+            return _json.dumps(
+                {"status": "unavailable", "reason": reject_reason},
+                ensure_ascii=False)
+        try:
+            from services.factcheck_service import FactCheckService
+            service = FactCheckService(self.deps.search, self.deps.llm)
+        except Exception:
+            return _json.dumps({"status": "failed",
+                                "reason": "provider_unavailable"},
+                               ensure_ascii=False)
+        try:
+            run = await service.check_claim_envelope(envelope)
+        except Exception as exc:
+            logger.warning("[tools] fact_check failed | error=%s",
+                           type(exc).__name__)
+            return _json.dumps({"status": "failed",
+                                "reason": "temporal_insufficient_evidence"},
+                               ensure_ascii=False)
+        scope = f"chat:{int(ctx.chat_id)}" if ctx.chat_id else "global"
+        run_id = await tf.record_temporal_run(db, run, scope=scope)
+        verdict = run.verdict
+        payload = {
+            "status": "ready",
+            "reason": verdict.reason,
+            "claim": envelope.claim_text[:400],
+            "factual_verdict": verdict.factual_verdict,
+            "temporal_status": verdict.temporal_status,
+            "evaluated_period": verdict.evaluated_period,
+            "assessment_mode": verdict.assessment_mode,
+            "as_of": verdict.as_of,
+            "date_source": envelope.date_source,
+            "original_published_at": envelope.original_published_at,
+            "repost_received_at": envelope.repost_received_at,
+            "uncertainty": verdict.uncertainty,
+            "run_id": run_id,
+            "cache_hit": False,
+            "verdict": run.verdict_text[:2000],
+        }
+        tf.stage_event("deliver", "success", chat_id=ctx.chat_id,
+                       pipeline_run_id=run_id)
+        return _json.dumps(payload, ensure_ascii=False)
 
     def _resolve_tool_source(self, arguments: dict, ctx: ToolContext,
                              kinds: tuple[str, ...] | None = None):

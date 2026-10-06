@@ -47,7 +47,8 @@ from services.prompt_style_blocks import (
     resolve_prompt,
 )
 from services.reply_postprocess import strip_reasoning_tags
-from services.search_aggregator import SearchAggregator
+from services.search_aggregator import SearchAggregator, AllSearchEnginesFailedException
+from services import temporal_factcheck as tf
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import MemoryManager, fire_and_forget
 from services.summary_xml import escape_xml_text
@@ -62,6 +63,15 @@ from services.tool_router import ToolContext, resolve_lore_compiler_flag
 from services.tool_schemas import factcheck_tools
 
 logger = logging.getLogger(__name__)
+
+
+def _temporal_max_evidence() -> int:
+    """mca-20: потолок evidence-строк прогона (env-лимит gates, D16)."""
+    try:
+        from services import mca_gates
+        return mca_gates.temporal_max_evidence_per_run()
+    except Exception:      # pragma: no cover
+        return 20
 
 
 class FactCheckService:
@@ -339,3 +349,345 @@ class FactCheckService:
             parts.append(f"<user_hint>{escape_xml_text(user_hint)}</user_hint>")
         parts.append(f"<search_results>{escape_xml_text(search_results)}</search_results>")
         return "\n\n".join(parts)
+
+    # ── MCA-20 (ADR-1028-20 D1/D11, round 10.44): envelope-пайплайн ────────
+    # ЕДИНЫЙ сервис фактчека (не второй пайплайн, CA-20-1): аналитик →
+    # validator/verbalizer и ВСЕ fallback-пути читают один
+    # TemporalClaimEnvelope; стадии — data-only БЕЗ инструментов
+    # (рекурсивный fact_check невозможен по построению — CA-20-12);
+    # BehaviorFrame/стилизация применяются только после TemporalVerdict
+    # (CA-20-13). OFF-путь `check_claim` не тронут (бит-в-бит d298f1f).
+
+    async def check_claim_envelope(
+        self,
+        envelope: tf.TemporalClaimEnvelope,
+        *,
+        chat_context: str | None = None,
+        stage_trace: tf.StageTrace | None = None,
+    ) -> tf.TemporalRunResult:
+        """Сквозной пайплайн `temporal.factcheck` v1 (8 стадий, D15).
+
+        Raises: LLMBadResponseError (пустой ответ вербализатора на всех
+        ветках) — вызывающий решает показ ошибки; поиск НИКОГДА не даёт
+        refuted (F-1/TH-5: недоступность → honest insufficient_evidence)."""
+        trace = stage_trace or tf.StageTrace()
+        env = envelope
+        trace.add("target_resolve", "success"
+                  if env.target_tg_message_id is not None else "skipped")
+        # origin/date_resolve: даты уже в envelope (каскад D5); unknown —
+        # честный исход, не ошибка.
+        trace.add("origin_date_resolve", "success",
+                  reason=None if env.date_source != "unknown"
+                  else "temporal_date_unknown")
+        tf.stage_event("origin_date_resolve", "success", chat_id=env.chat_id,
+                       reason_code=env.date_source == "unknown"
+                       and "temporal_date_unknown" or None)
+
+        # claim_decompose (D8): части с собственными периодами; числа —
+        # REUSE mca-15 (NumericClaim-совместимые словари).
+        parts = tf.decompose_claim(env)
+        trace.add("claim_decompose", "success")
+        tf.stage_event("claim_decompose", "success", chat_id=env.chat_id)
+
+        # temporal_search (D8): существующий агрегатор (REUSE), запросы с
+        # временными ограничениями; отказ движков → honest verdict, не
+        # исключение до пользователя (F-1).
+        queries = tf.search_queries_for(parts, env)
+        results_parts: list[str] = []
+        search_reason = None
+        for q in queries:
+            try:
+                chunk = await self.aggregator.search(q, 2500)
+            except AllSearchEnginesFailedException:
+                search_reason = "temporal_insufficient_evidence"
+                continue
+            except Exception:
+                search_reason = "temporal_insufficient_evidence"
+                continue
+            if chunk and str(chunk).strip():
+                results_parts.append(str(chunk))
+        results = "\n\n".join(results_parts)
+        trace.add("temporal_search", "success" if results else "skipped",
+                  reason=search_reason)
+        tf.stage_event("temporal_search",
+                       "success" if results else "skipped",
+                       reason_code=search_reason, chat_id=env.chat_id)
+
+        # evidence_validate (D9): evidence-контракт из выдачи; пусто →
+        # insufficient_evidence (no-false-acceptance).
+        evidence = tf.evidence_rows_from_results(
+            results, max_rows=_temporal_max_evidence())
+        trace.add("evidence_validate", "success" if evidence else "skipped",
+                  reason=None if evidence else "temporal_insufficient_evidence")
+        tf.stage_event("evidence_validate",
+                       "success" if evidence else "skipped",
+                       reason_code=None if evidence
+                       else "temporal_insufficient_evidence",
+                       chat_id=env.chat_id)
+
+        correlation_id = usage_events.new_correlation_id()
+        fallback_used = False
+        verdict_reason = search_reason
+
+        # verdict (D10/D11): data-only JSON-стадия; невалидный JSON →
+        # fallback-попытка; обе мимо → честный degraded-вердикт с датами.
+        user_payload = self._temporal_user_payload(env, parts, evidence,
+                                                   chat_context)
+        # TH-5/CA-20-10 (no-false-acceptance): движки недоступны/пусто →
+        # insufficient_evidence СЕРВЕРНО, verdict модели не проходит.
+        if not evidence:
+            raw_payload = {"factual_verdict": "insufficient_evidence",
+                           "temporal_status": "unknown",
+                           "reason": search_reason
+                           or "temporal_insufficient_evidence"}
+        else:
+            raw_payload = await self._temporal_verdict_json(
+                tf.TEMPORAL_ANALYST_SYSTEM, user_payload, env,
+                correlation_id, step="temporal_verdict")
+            if raw_payload is None:
+                fallback_used = True
+                verdict_reason = "temporal_fallback_mode"
+                raw_payload = await self._temporal_verdict_json(
+                    tf._TEMPORAL_FALLBACK_SYSTEM, user_payload, env,
+                    correlation_id, step="temporal_fallback")
+            if raw_payload is None:
+                fallback_used = True
+                raw_payload = {}
+        verdict = tf.verdict_from_payload(raw_payload, env,
+                                          fallback_reason=verdict_reason)
+
+        # validator (spec D11/TH-2, CoVe REUSE): bounded data-only
+        # перепроверка evidence↔claim — ровно ОДИН вызов, только при
+        # аналитик-вердикте ({} после обеих мимо-попыток валидировать
+        # нечего). Согласие/мусор → вердикт стоит; disagree проходит
+        # ТОЛЬКО через серверный guard (tf.apply_validator). Отказ/невалидный
+        # JSON → СУЩЕСТВУЮЩИЙ fallback-путь с существующим reason-кодом
+        # (честная деградация, не тихая). Стадия реестра не меняется:
+        # исход фиксируется дополнительной записью "verdict" в трассе.
+        validator_outcome = None
+        if evidence and raw_payload:
+            v_payload = await self._temporal_verdict_json(
+                tf.TEMPORAL_VALIDATOR_SYSTEM,
+                self._temporal_validator_payload(env, verdict, evidence),
+                env, correlation_id, step="temporal_validator")
+            if v_payload is not None:
+                verdict, corrected = tf.apply_validator(verdict, v_payload,
+                                                        env)
+                validator_outcome = "corrected" if corrected else "validated"
+            else:
+                validator_outcome = "failed"
+                if not fallback_used:
+                    # Существующий fallback-путь (общий слот ≤1 попытки):
+                    # валидация не удалась → строгий повтор аналитика;
+                    # обе мимо → честный degraded-вердикт.
+                    fallback_used = True
+                    verdict_reason = "temporal_fallback_mode"
+                    retry = await self._temporal_verdict_json(
+                        tf._TEMPORAL_FALLBACK_SYSTEM, user_payload, env,
+                        correlation_id, step="temporal_fallback")
+                    verdict = tf.verdict_from_payload(
+                        retry or {}, env, fallback_reason=verdict_reason)
+
+        trace.add("verdict", "success",
+                  reason=verdict.reason or verdict_reason)
+        if validator_outcome:
+            trace.add("verdict", validator_outcome,
+                      reason="temporal_fallback_mode"
+                      if validator_outcome == "failed" else None)
+        tf.stage_event("verdict", "success", reason_code=verdict.reason,
+                       chat_id=env.chat_id)
+
+        # verbalize (D11/CA-20-13): стилизация ПОСЛЕ вердикта; даты/
+        # оговорки — обязательная часть payload каждой стадии; все ветки
+        # (включая fallback) получают один envelope.
+        verdict_text = await self._temporal_verbalize(env, verdict, fallback_used,
+                                                      correlation_id)
+        trace.add("verbalize", "success" if verdict_text else "skipped",
+                  reason=None if verdict_text else "temporal_fallback_mode")
+
+        if not verdict_text:
+            verdict_text = self._temporal_fallback_text(env, verdict)
+
+        return tf.TemporalRunResult(
+            envelope=env, verdict=verdict, verdict_text=verdict_text,
+            evidence_rows=evidence, stage_trace=trace.as_list(),
+            fallback_used=fallback_used, cache_hit=False)
+
+    def _temporal_user_payload(
+        self, env: tf.TemporalClaimEnvelope, parts, evidence,
+        chat_context: str | None,
+    ) -> str:
+        """User-content вердиктной стадии: <claim> + <temporal_context>
+        (даты/периоды/режим — серверные метаданные, D2) + <evidence> +
+        <chat_context> (НЕ доказательства — подпись как в legacy)."""
+        sections = [
+            "<claim>" + escape_xml_text(env.claim_text) + "</claim>",
+            "<temporal_context>" + escape_xml_text(json.dumps({
+                "date_source": env.date_source,
+                "original_published_at": env.original_published_at,
+                "repost_received_at": env.repost_received_at,
+                "claim_period": [env.claim_period_from,
+                                 env.claim_period_to,
+                                 env.claim_period_precision],
+                "date_uncertainty": env.date_uncertainty,
+                "assessment_mode": env.requested_mode,
+                "analysis_as_of": env.analysis_as_of,
+            }, ensure_ascii=False)) + "</temporal_context>",
+        ]
+        if parts:
+            sections.append("<claim_parts>" + escape_xml_text(json.dumps(
+                [{"part_id": p.part_id, "text": p.text,
+                  "period": [p.period_from, p.period_to]}
+                 for p in parts], ensure_ascii=False)) + "</claim_parts>")
+        if evidence:
+            sections.append("<search_results>" + escape_xml_text(
+                "\n\n".join(r["support"] for r in evidence))
+                + "</search_results>")
+        if chat_context:
+            sections.append(chat_context)
+        return "\n\n".join(sections)
+
+    def _temporal_validator_payload(
+        self, env: tf.TemporalClaimEnvelope, verdict: tf.TemporalVerdict,
+        evidence,
+    ) -> str:
+        """User-content validator-стадии (D11/TH-2, data-only): утверждение +
+        серверный контекст + черновой вердикт + выдержки. Untrusted-evidence
+        остаётся ДАННЫМИ: экранирование то же, что у аналитика, контейнер
+        <search_results> не разрывается содержимым сниппетов."""
+        sections = [
+            "<claim>" + escape_xml_text(env.claim_text) + "</claim>",
+            "<temporal_context>" + escape_xml_text(json.dumps({
+                "date_source": env.date_source,
+                "original_published_at": env.original_published_at,
+                "claim_period": [env.claim_period_from,
+                                 env.claim_period_to,
+                                 env.claim_period_precision],
+                "assessment_mode": env.requested_mode,
+            }, ensure_ascii=False)) + "</temporal_context>",
+            "<verdict_draft>" + escape_xml_text(json.dumps({
+                "factual_verdict": verdict.factual_verdict,
+                "temporal_status": verdict.temporal_status,
+                "evaluated_period": verdict.evaluated_period,
+                "assessment_mode": verdict.assessment_mode,
+            }, ensure_ascii=False)) + "</verdict_draft>",
+            "<search_results>" + escape_xml_text(
+                "\n\n".join(r["support"] for r in evidence))
+                + "</search_results>",
+        ]
+        return "\n\n".join(sections)
+
+    async def _temporal_verdict_json(
+        self, system: str, user_payload: str, env,
+        correlation_id: str | None, *, step: str,
+    ) -> dict | None:
+        """Один data-only LLM-вызов вердиктной стадии → dict|None."""
+        from services.system2_handoff import parse_json_object
+        try:
+            raw = await self.llm.generate(
+                [{"role": "system", "content": system},
+                 {"role": "user", "content": user_payload}],
+                module="factcheck", step=step,
+                correlation_id=correlation_id)
+        except Exception:
+            return None
+        payload = parse_json_object(str(raw))
+        return payload if isinstance(payload, dict) else None
+
+    async def _temporal_verbalize(
+        self, env: tf.TemporalClaimEnvelope, verdict: tf.TemporalVerdict,
+        fallback_used: bool, correlation_id: str | None,
+    ) -> str:
+        """Вербализатор (REUSE существующего контракта фактчека): verdict →
+        текст с СОХРАНЕНИЕМ существенных дат/оговорок (SC-R3c). Любой сбой
+        → '' (вызывающий берёт детерминированный fallback-текст)."""
+        max_symbols = hot.get("limits.factcheck_max_symbols",
+                              settings.FACTCHECK_MAX_SYMBOLS)
+        try:
+            from services.factcheck_prompts import (
+                FACTCHECK_VERBALIZER_SYSTEM_PROMPT,
+            )
+            base = resolve_prompt(
+                "prompts.factcheck_verbalizer_system_prompt",
+                FACTCHECK_VERBALIZER_SYSTEM_PROMPT).replace(
+                "{max_symbols}", str(max_symbols))
+        except Exception:
+            base = ("Перескажи проверку фактов кратко и по-человечески. "
+                    "СОХРАНИ существенные даты и оговорки; не выдумывай "
+                    "дат и фактов; недостаток данных честно называй.")
+        temporal_note = (
+            "Обязательно сохрани в ответе: период проверки "
+            f"({verdict.evaluated_period.get('precision') or 'unknown'}), "
+            "статус актуальности отдельно от фактической оценки, и "
+            "существенную дату (дату оригинала), если она важна. "
+            "Никаких технических схем и reason-кодов в тексте.")
+        payload = {
+            "verdict": verdict.factual_verdict,
+            "temporal_status": verdict.temporal_status,
+            "evaluated_period": verdict.evaluated_period,
+            "assessment_mode": verdict.assessment_mode,
+            "as_of": verdict.as_of,
+            "uncertainty": verdict.uncertainty,
+            "parts": list(verdict.parts),
+            "claim": env.claim_text,
+            "style_note": temporal_note,
+        }
+        if fallback_used:
+            payload["fallback_note"] = (
+                "структурированный анализ не удался — не утверждай больше, "
+                "чем следует из данных")
+        messages = [
+            {"role": "system", "content": base},
+            {"role": "user", "content": "ВЕРДИКТ (JSON):\n" + json.dumps(
+                payload, ensure_ascii=False)},
+        ]
+
+        async def _generate(msgs):
+            return await self.llm.generate(
+                msgs, module="factcheck", step="temporal_verbalize",
+                correlation_id=correlation_id)
+
+        try:
+            text, _stats = await verbalize_validated(
+                _generate, messages, max_retries=1,
+                dynamic_rules=anticliche_cache.get_rules() or None)
+        except Exception:
+            return ""
+        try:
+            out = cleanup_llm_text(strip_reasoning_tags(str(text)))
+        except Exception:
+            return ""
+        return out.strip()
+
+    @staticmethod
+    def _temporal_fallback_text(env: tf.TemporalClaimEnvelope,
+                                verdict: tf.TemporalVerdict) -> str:
+        """Детерминированный честный текст (все ветки получают даты, D11):
+        краткая дата/неопределённость без технической схемы (D15)."""
+        import datetime as _dt
+
+        def _fmt(ts):
+            if not ts:
+                return None
+            try:
+                return _dt.datetime.fromtimestamp(
+                    int(ts), _dt.timezone.utc).strftime("%d.%m.%Y")
+            except (ValueError, OverflowError, OSError):
+                return None
+
+        pieces = ["Недостаточно данных для полной проверки утверждения."]
+        orig = _fmt(env.original_published_at)
+        if env.date_source in ("telegram_origin", "telegram_message") and orig:
+            kind = "оригинала" if env.date_source == "telegram_origin" \
+                else "сообщения"
+            pieces.append(f"Дата {kind}: {orig}.")
+        period = verdict.evaluated_period or {}
+        p_from, p_to = _fmt(period.get("from")), _fmt(period.get("to"))
+        if p_from and p_to and p_from != p_to:
+            pieces.append(f"Проверялось на период {p_from}—{p_to}.")
+        elif p_from:
+            pieces.append(f"Проверялось на период {p_from}.")
+        if verdict.temporal_status == "old_but_valid":
+            pieces.append("Возраст публикации сам по себе не делает "
+                          "утверждение ложным.")
+        return " ".join(pieces)

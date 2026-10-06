@@ -86,8 +86,12 @@ ARTIFACTS = [ROOT / p for p in FIXTURE["artifacts"]]
 # без сетевых вызовов). Каталог Δ=0 (Wave 1 уже переиздал F8 → 519).
 # Хэш переутверждён осознанно (L-F11S-1); routes-набор f8_baseline
 # переиздан (tools/_mca19_wave2_bump_pins.py).
+# MCA-20 (round 10.44, ADR-1028-20 D11/D13): routes +2 в СУЩЕСТВУЮЩЕМ экране «Аналитика»:
+# GET /api/factcheck/temporal/runs и GET .../runs/{run_id} (виджет «Временной фактчек»,
+# RBAC global admin — прецедент /api/random/test). Хэш переутверждён осознанно (L-F11S-1);
+# routes-набор f8_baseline переиздан (tools/_mca20_reissue_f8.py).
 ROUTES_SHA256_F11 = (
-    "eb0611aedb94b48457444b93aaec07d346940d7dd137b537bb82527d96559a5e")
+    "8153b8bd389711e9cb7a61352e58f6f8217c0a236575f75489ca617c0d0c7b45")
 
 
 def _sha256(path: Path) -> str:
@@ -168,9 +172,9 @@ class TestFrozenInvariants:
         # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): +13 ключей / +2 группы
         # (memory_random/keys_random) / +2 tab-маппинга; TAB_RULES 21 in-place;
         # delta 78→91 → 502/107/105/21.
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 519
-        assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 112
-        assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 110
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 523
+        assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 113
+        assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 111
         assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 22
 
     def test_registry_keys_match_catalog_baseline(self):
@@ -188,7 +192,7 @@ class TestFrozenInvariants:
         # `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.63"
+        assert APP_VERSION == "2.58.64"
     def test_routes_set_unchanged(self):
         import re
         txt = (ROOT / "web/api/routes.py").read_text(encoding="utf-8")
@@ -217,7 +221,7 @@ class TestRegistry:
         # ASAP 4.4 (T-4880): санкционированная Δ +1 → 489.
         # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): санкционированная
         # Δ +13 (memory.random_* ×4 + keys.random_quantum_* ×9) → 502.
-        assert len(rows) == 519
+        assert len(rows) == 523
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -232,7 +236,7 @@ class TestRegistry:
         # ASAP 4.4 (T-4880): санкционированная Δ +1 → дельта 78.
         # MCA-10a (ADR-1028-14 D8/D12): санкционированная Δ +13 → дельта 91.
         delta = _registry_keys() - _inventory_keys()
-        assert len(delta) == FIXTURE["counts"]["delta"] == 108
+        assert len(delta) == FIXTURE["counts"]["delta"] == 112
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -278,7 +282,7 @@ class TestRegistry:
         # ASAP-3.1 (ADR-1028-3): переиздание после Δ +1 (483→484, 72→73).
         # ASAP 4.4 (T-4880): переиздание после Δ +1 (488→489, 77→78).
         # MCA-10a (ADR-1028-14 D8/D12): переиздание после Δ +13 (502, 91).
-        assert "519" in meta and "411" in meta and "108" in meta
+        assert "523" in meta and "411" in meta and "112" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -294,7 +298,7 @@ class TestScreenMap:
         # ASAP 4.4 (T-4880): санкционированная Δ +1 → 489.
         # MCA-10a (ADR-1028-14 D8/D12): санкционированная Δ +13 → 502.
         # MCA-10b (ADR-1028-17 D16): санкционированная Δ +6 → 510.
-        assert len(keys) == 519
+        assert len(keys) == 523
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

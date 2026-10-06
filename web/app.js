@@ -1783,6 +1783,13 @@
         budgetsAuto: null,
         budgetsAutoBusy: false,
         budgetsAutoError: false,
+        // MCA-20 (round 10.44, D14): «Временной фактчек» — список runs +
+        // детали (GET /api/factcheck/temporal/runs[/{id}]; «Аналитика»).
+        temporalRuns: null,
+        temporalRunsBusy: false,
+        temporalRunsAt: 0,
+        temporalDetail: null,
+        temporalDetailBusy: false,
         dossierFeedBusy: false,
         dossierFeedError: '',
         dossierFeedTimer: null,
@@ -4684,6 +4691,8 @@
           this.startDossierFeedPolling();
           // ASAP-3.1 (T-4076): блок «Модели и автобюджеты» в Аналитике.
           this.loadBudgetsAuto();
+          // MCA-20 (T-5143): виджет «Временной фактчек» — лениво, ~30с кэш.
+          this.loadTemporalRuns();
         }
         if (this.accessMy && !this.accessMy.is_global_admin) {
           this.loadLocalAdmins();
@@ -7283,6 +7292,95 @@
                   + ((s.queue.running || 0) + (s.queue.queued || 0));
         }
         return head;
+      },
+      // ── MCA-20 (T-5143, ADR-1028-20 D14): «Временной фактчек» в
+      // «Аналитике». Fail-open: 403/ошибка → temporalRuns=null (блок
+      // честно «прогонов пока нет» при null — без выдуманных нулей).
+      // Список — компакт без claim-текста (R17); полный контент только в
+      // деталях по клику. Кэш ~30с, кнопка ⟳ — force.
+      loadTemporalRuns: function (force) {
+        if (!this.isGlobalAdmin) return;
+        var self = this;
+        if (!force && this.temporalRuns && this.temporalRunsAt
+            && (Date.now() - this.temporalRunsAt) < 30000) {
+          return;
+        }
+        this.temporalRunsBusy = true;
+        this.api('/api/factcheck/temporal/runs?limit=20')
+          .then(function (s) {
+            self.temporalRuns = (s && s.runs) || [];
+            self.temporalRunsAt = Date.now();
+          })
+          .catch(function () {
+            self.temporalRuns = null;
+            self.temporalRunsAt = Date.now();
+          })
+          .finally(function () { self.temporalRunsBusy = false; });
+      },
+      openTemporalDetail: function (runId) {
+        if (!runId || this.temporalDetailBusy) return;
+        var self = this;
+        this.temporalDetailBusy = true;
+        this.temporalDetail = { run_id: runId };
+        this.api('/api/factcheck/temporal/runs/' + encodeURIComponent(runId))
+          .then(function (s) {
+            self.temporalDetail = s || { run_id: runId };
+          })
+          .catch(function () {
+            self.temporalDetail = { run_id: runId };
+          })
+          .finally(function () { self.temporalDetailBusy = false; });
+      },
+      closeTemporalDetail: function () {
+        this.temporalDetail = null;
+      },
+      temporalFactualLabel: function (v) {
+        var map = {
+          supported: 'подтверждено', refuted: 'опровергнуто',
+          mixed: 'частично', insufficient_evidence: 'недостаточно данных'
+        };
+        return map[v] || 'неизвестно';
+      },
+      temporalStatusLabel: function (v) {
+        var map = {
+          current: 'актуально', outdated: 'устарело',
+          old_but_valid: 'было верно', misleading_reuse: 'подают как новое',
+          unknown: 'неизвестно'
+        };
+        return map[v] || 'неизвестно';
+      },
+      temporalDateSourceLabel: function (v) {
+        var map = {
+          telegram_origin: 'дата оригинала (Telegram)',
+          telegram_message: 'дата сообщения (Telegram)',
+          publication_metadata: 'метаданные публикации',
+          extracted_claimed: 'дата из текста (заявленная)',
+          unknown: 'неизвестно'
+        };
+        return map[v] || 'неизвестно';
+      },
+      temporalModeLabel: function (v) {
+        var map = {
+          contextual: 'контекстный', current: 'сейчас',
+          historical_truth: 'тогда', knowable_at_time: 'знание на момент'
+        };
+        return map[v] || 'контекстный';
+      },
+      temporalRelationLabel: function (v) {
+        var map = { supports: 'подтверждает', refutes: 'опровергает',
+                    context: 'контекст' };
+        return map[v] || 'контекст';
+      },
+      temporalPeriodLabel: function (run) {
+        if (!run) return '—';
+        var from = run.claim_period_from, to = run.claim_period_to;
+        if ((from === null || from === undefined)
+            && (to === null || to === undefined)) return 'неизвестно';
+        return (this.fmtTs(from) || '—') + ' — ' + (this.fmtTs(to) || '—');
+      },
+      temporalDateConflict: function (run) {
+        var u = run && run.date_uncertainty;
+        return !!(u && u.conflicts && u.conflicts.length);
       },
       // ── S9 round1026 (ADR-1026-8 D1/D3/D4, §113): dry-run «Тестирование» ──
       // Probe доступности: env-флаг OFF → API 404 → секция скрыта (D8).

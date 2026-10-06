@@ -46,6 +46,11 @@ _lock_exhausted_total = 0
 
 _NORMALIZERS = {
     "factcheck": "text",
+    # MCA-20 (ADR-1028-20 D9/D12, round 10.44): составной ключ временного
+    # фактчека (scope+claim+target revision+origin fingerprint+режим+период+
+    # tzr1+related+pipeline). Legacy slug `factcheck` остаётся для
+    # OFF-пути (бит-в-бит d298f1f) — namespace сменился без удаления.
+    "factcheck_temporal": "text",
     "search": "text",
     "youtube": "url",
     "web": "url",

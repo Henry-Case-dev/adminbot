@@ -329,7 +329,7 @@ class TestToolSetIntegration:
         # 10.26 (A6/ADR-1026-18 D1): +get_user_context → 12;
         # get_recent_history сохранён по имени.
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
-        assert len(TOOL_CALLING_TOOLS) == 13
+        assert len(TOOL_CALLING_TOOLS) == 14
         assert "get_recent_history" in names
         assert TOOL_GET_RECENT_HISTORY in TOOL_CALLING_TOOLS
 

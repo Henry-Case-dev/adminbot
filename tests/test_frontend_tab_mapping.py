@@ -167,9 +167,9 @@ class TestTabMappingAudit:
         # TAB_RULES 21 in-place → 481/105/103.
         # ASAP 4.4 (T-4880): +1 REGISTRY (keys.embedding_quota_group_labels,
         # группа keys_llm уже приписана вкладке llm_providers) → 489.
-        assert len(pc._TAB_BY_GROUP) == 110
-        assert len(GROUPS) == 112
-        assert len(pc.REGISTRY) == 519
+        assert len(pc._TAB_BY_GROUP) == 111
+        assert len(GROUPS) == 113
+        assert len(pc.REGISTRY) == 523
 
 
 class TestModuleTabs:
@@ -225,8 +225,10 @@ class TestModuleTabs:
         assert "flags_module_vision" not in tab_group_ids(TAB_LLM_PROVIDERS)
 
     def test_mod_factcheck_and_search(self):
+        # MCA-20 (round 10.44): +temporal_factcheck (in-place, TAB_RULES 22).
         assert tab_group_ids(TAB_MOD_FACTCHECK) == {
-            "flags_module_factcheck", "limits_factcheck"}
+            "flags_module_factcheck", "limits_factcheck",
+            "temporal_factcheck"}
         assert tab_group_ids(TAB_MOD_SEARCH) == {
             "flags_module_search", "limits_search"}
 
@@ -435,6 +437,9 @@ def test_widget_keyvalue_on_summary_aliases():
         # MCA-16 (ADR-1028-15 D8/D12, санкция §12.2): +1 select —
         # каденция пакетного review опыта (hourly/daily/weekly).
         "memory.experience_review_cadence",
+        # MCA-20 (ADR-1028-20 D13, round 10.44): +1 select — режим проверки
+        # по умолчанию (contextual/current/historical_truth/knowable_at_time).
+        "temporal.default_mode",
     }
     for spec in sel:
         assert spec.select_options and spec.select_labels

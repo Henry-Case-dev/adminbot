@@ -56,6 +56,158 @@ logger = logging.getLogger(__name__)
 factcheck_router = Router(name="factcheck")
 
 
+def _temporal_on() -> bool:
+    """MCA-20 K1 (мастер-рубильник envelope-пайплайна, default ON)."""
+    try:
+        from services import mca_gates
+        return bool(mca_gates.temporal_factcheck_enabled())
+    except Exception:      # pragma: no cover - гейт не бросает
+        return False
+
+
+async def _factcheck_temporal(message: types.Message, bot: Bot,
+                              target: types.Message, target_text: str,
+                              user_hint: str | None,
+                              forward_source: str | None) -> None:
+    """MCA-20 ON-путь (D3/D9/D12): один resolver → TemporalClaimEnvelope →
+    составной кеш-ключ `factcheck_temporal` (авто-bypass при unknown origin)
+    → envelope-пайплайн единого сервиса. Ответ — reply на ЦЕЛЕВОЕ (5.3/5.4b/
+    5.5-контракт legacy сохранён)."""
+    from services import mca_gates, temporal_factcheck as tf
+
+    chat_id = message.chat.id
+    kind = "reply" if target is not message else "command"
+    ref = tf.InputRef(
+        kind=kind, chat_id=chat_id,
+        target_tg_message_id=target.message_id,
+        trigger_tg_message_id=message.message_id,
+        hint=user_hint)
+    try:
+        default_mode = await _cp_g(
+            chat_id, "temporal.default_mode",
+            getattr(settings, "TEMPORAL_DEFAULT_MODE", "contextual"))
+    except Exception:
+        default_mode = getattr(settings, "TEMPORAL_DEFAULT_MODE", "contextual")
+
+    envelope, reject_reason = await tf.build_envelope(
+        _db, ref, default_mode=str(default_mode or "contextual"))
+    cache = get_smart_cache()
+    scope = f"chat:{chat_id}"
+    cache_key = None
+    cached = None
+    if envelope is not None:
+        # D12: ключ построим? unknown origin → None = авто-bypass (вычислять
+        # без кеширования готовых вердиктов, reason temporal_cache_disabled).
+        cache_key = tf.build_temporal_cache_key(envelope, scope=scope)
+        if cache_key is None:
+            tf.stage_event("target_resolve", "skipped",
+                           reason_code="temporal_cache_disabled",
+                           chat_id=chat_id)
+        elif mca_gates.temporal_factcheck_cache_enabled():
+            _key, _bucket, cached = await tf.read_temporal_cache(
+                cache, envelope, scope=scope)
+        if cached is not None:
+            # CA-20-9: hit хранит СВОЙ as_of — сегодняшнюю дату не подставляем.
+            await _reply(bot, chat_id, str(cached.get("text") or ""),
+                         target.message_id)
+            logger.info("[factcheck] temporal cache hit | chat=%s | as_of=%s",
+                        chat_id, cached.get("as_of"))
+            try:
+                cached_verdict = tf.verdict_from_payload({
+                    "factual_verdict": cached.get("factual_verdict"),
+                    "temporal_status": cached.get("temporal_status"),
+                }, envelope)
+                await tf.record_temporal_run(
+                    _db, tf.TemporalRunResult(
+                        envelope=envelope, verdict=cached_verdict,
+                        verdict_text=str(cached.get("text") or "")),
+                    scope=scope, cache_hit=True)
+            except Exception:
+                logger.debug("[factcheck] cache-hit run record failed",
+                             exc_info=True)
+            return
+    else:
+        # D2: невалидный target → отказ временного контура БЕЗ выдуманных
+        # подстановок; пользователь получает ответ через легаси-вычисление,
+        # но результат НЕ кешируется (нет корректного контекста — TH-4).
+        logger.info("[factcheck] temporal envelope rejected | chat=%s | "
+                    "reason=%s", chat_id, reject_reason)
+        tf.stage_event("target_resolve", "failed", reason_code=reject_reason,
+                       chat_id=chat_id)
+        cache_key = None
+
+    # Раунд N (T-841): слот пула per-chat перед LLM (паритет legacy-пути).
+    pool = get_smartmodule_concurrency_pool()
+    permit = await pool.try_acquire(chat_id,
+                                    timeout=smartmodule_wait_seconds())
+    if permit is None:
+        logger.warning("[factcheck] concurrency slot timeout | chat=%s",
+                       chat_id)
+        await _reply(bot, chat_id, random.choice(SMARTMODULE_BUSY_PHRASES),
+                     message.message_id)
+        return
+    try:
+        async with typing_active(bot, chat_id):
+            chat_context = await _fetch_chat_context(
+                chat_id,
+                hot.get("limits.factcheck_context_before",
+                        settings.FACTCHECK_CONTEXT_BEFORE),
+                hot.get("limits.factcheck_context_after",
+                        settings.FACTCHECK_CONTEXT_AFTER),
+                target_tg_message_id=target.message_id,
+                trigger_message_id=message.message_id)
+            if envelope is not None:
+                run = await _service.check_claim_envelope(
+                    envelope, chat_context=chat_context or None)
+                verdict_text = run.verdict_text
+                # D12: запись вердикт-кеша — только при построимом ключе и
+                # K3 ON; unknown origin → авто-bypass (без кеширования).
+                if cache_key is not None \
+                        and mca_gates.temporal_factcheck_cache_enabled():
+                    await tf.write_temporal_cache(
+                        cache, envelope, scope=scope, text=verdict_text,
+                        verdict=run.verdict)
+                run_id = await tf.record_temporal_run(
+                    _db, run, scope=scope, cache_hit=False)
+                tf.stage_event("deliver", "success", chat_id=chat_id,
+                               pipeline_run_id=run_id)
+                if run.fallback_used:
+                    tf.stage_event("verdict", "skipped",
+                                   reason_code="temporal_fallback_mode",
+                                   chat_id=chat_id, pipeline_run_id=run_id)
+            else:
+                # envelope_rejected: честное вычисление без кеша (легаси
+                # сервис, временные метаданные не подставляются).
+                verdict = await _service.check_claim(
+                    target_text, user_hint, forward_source, chat_id=chat_id,
+                    chat_context=chat_context or None)
+                verdict_text = verdict
+            await send_chunked_reply(bot, chat_id, verdict_text,
+                                     target.message_id)
+        logger.info("[factcheck] temporal verdict sent | chat=%s", chat_id)
+    except LLMBadResponseError as exc:
+        logger.warning("[factcheck] temporal empty answer — silence | "
+                       "chat=%s | error=%s", chat_id, exc)
+        await react_moai(bot, chat_id, target.message_id)
+    except AllSearchEnginesFailedException:
+        logger.exception("[factcheck] temporal search failed | chat=%s",
+                         chat_id)
+        await _reply(bot, chat_id, random.choice(FACTCHECK_ERROR_PHRASES),
+                     target.message_id)
+    except LLMError as exc:
+        logger.warning("[factcheck] temporal LLM failed | chat=%s | error=%s",
+                       chat_id, exc)
+        await _reply(bot, chat_id, random.choice(LLM_ERROR_PHRASES),
+                     target.message_id)
+    except Exception:
+        logger.exception("[factcheck] temporal unexpected error | chat=%s",
+                         chat_id)
+        await _reply(bot, chat_id, random.choice(LLM_ERROR_PHRASES),
+                     target.message_id)
+    finally:
+        permit.release()
+
+
 async def _fetch_chat_context(chat_id: int, before: int, after: int,
                               target_tg_message_id=None,
                               trigger_message_id=None) -> str:
@@ -264,6 +416,13 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
             forward_source = author
     # Epic 51 (59.2, D210): Exact Match Cache — ДО ресурсоёмких ступеней
     # (поиск/LLM). Хит → reply на ТЕКУЩЕЕ сообщение, БЕЗ вызовов.
+    # MCA-20 (ADR-1028-20 D3/D9, round 10.44): K1 ON → единый resolver + один
+    # envelope-пайплайн + кеш slug `factcheck_temporal` (составной ключ);
+    # OFF → легаси-путь ниже БИТ-В-БИТ (легаси slug `factcheck`, d298f1f).
+    if _temporal_on():
+        await _factcheck_temporal(message, bot, target, target_text,
+                                  user_hint, forward_source)
+        return
     cache = get_smart_cache()
     cache_key = cache.build_key("factcheck", target_text)
     cached = await cache.get(cache_key)

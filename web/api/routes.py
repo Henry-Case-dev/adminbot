@@ -1644,6 +1644,7 @@ def _category_title(category: str) -> str:
         "reactions": "Реакции и персоны",
         "content": "Контент",
         "memory": "Память",
+        "temporal": "Временной фактчек",
     }.get(category, category)
 
 
@@ -2100,6 +2101,151 @@ async def get_vision_state(
                             detail="нет прав на управление ключом vision")
     from services import lore_runtime, mca_vision
     return await mca_vision.runtime_snapshot(lore_runtime.get_lore_db())
+
+
+# ── MCA-20 (ADR-1028-20 D11/D13/T-5116-прецедент): Temporal Factcheck —
+# routes +2 в СУЩЕСТВУЮЩЕМ экране «Аналитика» (без нового раздела/маршрута
+# UI). RBAC — прецедент /api/random/test (global admin; runs — аналитика
+# кросс-чат). R17: список БЕЗ claim/verdict-текста (компакт), полный
+# контент — только в деталях под global admin; JSON-колонки отдаются
+# готовыми объектами.
+def _factcheck_run_json(raw: dict, *, compact: bool) -> dict:
+    """Строка v33 → API-объект; JSON-колонки парсятся на сервере."""
+    import json as _json
+
+    def _j(name):
+        val = raw.get(name)
+        if val is None:
+            return None
+        if isinstance(val, (dict, list)):
+            return val
+        try:
+            return _json.loads(val)
+        except (TypeError, ValueError):
+            return None
+
+    payload = {
+        "run_id": raw.get("run_id"),
+        "created_at": raw.get("created_at"),
+        "chat_id": raw.get("chat_id"),
+        "trigger_tg_message_id": raw.get("trigger_tg_message_id"),
+        "target_tg_message_id": raw.get("target_tg_message_id"),
+        "target_revision": raw.get("target_revision"),
+        "source_type": raw.get("source_type"),
+        "origin_type": raw.get("origin_type"),
+        "repost_received_at": raw.get("repost_received_at"),
+        "original_published_at": raw.get("original_published_at"),
+        "original_published_precision": raw.get(
+            "original_published_precision"),
+        "claim_period_from": raw.get("claim_period_from"),
+        "claim_period_to": raw.get("claim_period_to"),
+        "date_source": raw.get("date_source"),
+        "requested_mode": raw.get("requested_mode"),
+        "assessment_mode": raw.get("assessment_mode"),
+        "analysis_as_of": raw.get("analysis_as_of"),
+        "factual_verdict": raw.get("factual_verdict"),
+        "temporal_status": raw.get("temporal_status"),
+        "fallback_used": bool(raw.get("fallback_used")),
+        "cache_hit": bool(raw.get("cache_hit")),
+        "pipeline_version": raw.get("pipeline_version"),
+        "tz_resolution_version": raw.get("tz_resolution_version"),
+        "reason": raw.get("reason"),
+    }
+    if compact:
+        return payload
+    payload.update({
+        "claim_text": raw.get("claim_text"),
+        "claim_span": _j("claim_span"),
+        "attribution": _j("attribution"),
+        "date_timezone": raw.get("date_timezone"),
+        "date_uncertainty": _j("date_uncertainty"),
+        "related_asset_id": raw.get("related_asset_id"),
+        "related_analysis_revision": raw.get("related_analysis_revision"),
+        "evaluated_period": _j("evaluated_period"),
+        "verdict_text": raw.get("verdict_text"),
+        "verdict_uncertainty": _j("verdict_uncertainty"),
+        "stage_trace": _j("stage_trace") or [],
+        "revision": raw.get("revision"),
+    })
+    return payload
+
+
+def _factcheck_evidence_json(rows: list[dict]) -> list[dict]:
+    import json as _json
+
+    def _j(val):
+        if val is None:
+            return None
+        if isinstance(val, (dict, list)):
+            return val
+        try:
+            return _json.loads(val)
+        except (TypeError, ValueError):
+            return None
+
+    return [{
+        "claim_part": r.get("claim_part"),
+        "url": r.get("url"),
+        "support": r.get("support"),
+        "source_ref": _j(r.get("source_ref")),
+        "published_at": r.get("published_at"),
+        "published_at_source": r.get("published_at_source"),
+        "retrieved_at": r.get("retrieved_at"),
+        "temporal_relevance": r.get("temporal_relevance"),
+        "relation": r.get("relation"),
+        "source_kind": r.get("source_kind"),
+    } for r in rows]
+
+
+@api_router.get("/factcheck/temporal/runs")
+async def get_factcheck_temporal_runs(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    limit: int = Query(default=20, ge=1, le=100),
+    chat_id: int | None = Query(default=None),
+):
+    """Последние runs временного фактчека (D14/T-5143): компактный список
+    (без claim/verdict-текста — R17), фильтр по чату опционален. RBAC —
+    global admin (прецедент /api/random/test)."""
+    from services import mca_gates, lore_runtime
+    cache: ConfigCache = get_cache(request)
+    ctx = await _ctx_global_admin(cache, user)
+    if not ctx.is_global_admin:
+        raise HTTPException(status_code=403,
+                            detail="нет прав на аналитику фактчека")
+    db = lore_runtime.get_lore_db()
+    if db is None:
+        return {"runs": []}
+    rows = await db.list_factcheck_runs(
+        chat_id=chat_id,
+        limit=min(int(limit), mca_gates.temporal_max_runs_list()))
+    return {"runs": [_factcheck_run_json(r, compact=True) for r in rows]}
+
+
+@api_router.get("/factcheck/temporal/runs/{run_id}")
+async def get_factcheck_temporal_run(
+    request: Request,
+    run_id: str,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Детали run (D14/T-5143): timeline (original/repost/claim/as_of),
+    «почему выбрана эта дата» (date_source+uncertainty+каскад), evidence-
+    карточки, trace стадий, версии. RBAC — global admin."""
+    from services import lore_runtime
+    cache: ConfigCache = get_cache(request)
+    ctx = await _ctx_global_admin(cache, user)
+    if not ctx.is_global_admin:
+        raise HTTPException(status_code=403,
+                            detail="нет прав на аналитику фактчека")
+    db = lore_runtime.get_lore_db()
+    if db is None:
+        raise HTTPException(status_code=404, detail="run не найден")
+    raw = await db.get_factcheck_run(run_id)
+    if raw is None:
+        raise HTTPException(status_code=404, detail="run не найден")
+    evidence = await db.get_factcheck_evidence(run_id)
+    return {"run": _factcheck_run_json(raw, compact=False),
+            "evidence": _factcheck_evidence_json(evidence)}
 
 
 # ── Раунд 10.14 (F2 persona-storage-core, spec §5): /api/persona ────────────

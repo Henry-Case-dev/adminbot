@@ -263,9 +263,9 @@ def test_blockE_catalog_random_uses_keys():
     memory_random: per-chat, не-секреты, все default ON (read-path
     fail-open True); GROUPS/_TAB_BY_GROUP/TAB_RULES без роста."""
     from services import param_catalog as pc
-    assert len(pc.REGISTRY) == 519
-    assert len(pc.GROUPS) == 112
-    assert len(pc._TAB_BY_GROUP) == 110
+    assert len(pc.REGISTRY) == 523
+    assert len(pc.GROUPS) == 113
+    assert len(pc._TAB_BY_GROUP) == 111
     assert len(pc.TAB_RULES) == 22
     uses = [f"memory.random_uses_{u}" for u in sorted(mx.USES)]
     assert len(uses) == 6
@@ -291,17 +291,17 @@ def test_blockE_f8_check_green_and_baselines():
         [sys.executable, str(ROOT / "tools/gen_param_registry_round1025.py"),
          "--check"], capture_output=True, text=True, timeout=120)
     assert res.returncode == 0, res.stdout + res.stderr
-    assert "519" in res.stdout
+    assert "523" in res.stdout   # mca-20 round 10.44: 519 → 523
     fx = json.loads((ROOT / "tests/fixtures/round1025/f8_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert fx["counts"]["REGISTRY"] == 519
-    assert fx["counts"]["GROUPS"] == 112
-    assert fx["counts"]["TAB_BY_GROUP"] == 110
+    assert fx["counts"]["REGISTRY"] == 523
+    assert fx["counts"]["GROUPS"] == 113
+    assert fx["counts"]["TAB_BY_GROUP"] == 111
     assert fx["counts"]["TAB_RULES"] == 22
-    assert fx["counts"]["delta"] == 108
+    assert fx["counts"]["delta"] == 112
     cb = json.loads((ROOT / "tests/fixtures/round1025/catalog_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert len(cb["registry_keys"]) == 519
+    assert len(cb["registry_keys"]) == 523
     for key in ("memory.random_uses_belief_review",
                 "memory.random_uses_ui_visualization"):
         assert key in cb["registry_keys"]
@@ -315,8 +315,11 @@ def test_blockE_f8_check_green_and_baselines():
     # (POST /api/vision/test + GET /api/vision/state) — хэш переутверждён
     # осознанно (L-F11S-1; синхронно с ROUTES_SHA256_F11 в
     # test_round1025_f8_registry).
+    # MCA-20 (round 10.44, ADR-1028-20 D11/D13): routes +2 в «Аналитике»
+    # (GET /api/factcheck/temporal/runs[/{run_id}]) — хэш переутверждён
+    # осознанно (L-F11S-1; tools/_mca20_reissue_f8.py).
     import hashlib
     routes_sha = hashlib.sha256(
         (ROOT / "web/api/routes.py").read_bytes()).hexdigest()
-    assert routes_sha == ("eb0611aedb94b48457444b93aaec07d346940d7dd137b"
-                          "537bb82527d96559a5e")
+    assert routes_sha == ("8153b8bd389711e9cb7a61352e58f6f8217c0a23657"
+                          "5f75489ca617c0d0c7b45")

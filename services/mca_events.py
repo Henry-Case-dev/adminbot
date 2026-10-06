@@ -306,6 +306,17 @@ REASON_CODES = frozenset({
     "vision_unsupported", "vision_unreadable", "vision_unavailable",
     "vision_failed", "vision_deferred", "vision_skipped_expired",
     "vision_rate_limited", "vision_stale_discarded", "vision_missing_source",
+    # расширение mca-20 (ADR-1028-20 §8.5/D13; санкция T-5131 — ровно +10
+    # в единый словарь, 269→279): честные исходы временного фактчека.
+    # Дата-ОШИБКА извлечения ≠ дата-ОТСУТСТВИЕ (`temporal_date_extract_
+    # failed` ≠ `temporal_date_unknown`, `:1805`); extracted-конфликт не
+    # разрешается молча; no-false-acceptance: отказ поиска/исчезнувший
+    # первоисточник ≠ refuted. Второй словарь причин запрещён.
+    "temporal_envelope_rejected", "temporal_date_unknown",
+    "temporal_date_extract_failed", "temporal_date_conflict",
+    "temporal_insufficient_evidence", "temporal_source_unavailable",
+    "temporal_media_pending", "temporal_fallback_mode",
+    "temporal_cache_disabled", "fact_check_disabled",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────

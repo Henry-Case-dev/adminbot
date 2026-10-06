@@ -106,7 +106,7 @@ class TestToolSet:
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "generate_image",
             "transcribe_video", "fetch_article", "get_user_context",
-            "recognize_image"]
+            "recognize_image", "fact_check"]
 
     def test_existing_schemas_unchanged(self):
         """Существующие 3 схемы — те же объекты и та же форма (не менялись)."""
@@ -652,4 +652,4 @@ class TestDirectChatContext:
         # default ON; 10.26 (A2): fetch_article default ON; 10.26 (A6):
         # get_user_context default ON; MCA-19 (ADR-1028-19 §8.6):
         # recognize_image default ON → 13 инструментов.
-        assert len(captured["tools"]) == 13
+        assert len(captured["tools"]) == 14

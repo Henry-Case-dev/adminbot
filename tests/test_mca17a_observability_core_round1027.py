@@ -184,23 +184,28 @@ def test_registry_closed_features_registered_without_reinvention():
 
 
 def test_registry_future_features_not_run():
-    """F4/spec §4.1: mca-09/10a/10b/11/18/19/20 — version '0' → not_run.
+    """F4/spec §4.1: mca-09/10a/10b/11 — version '0' → not_run.
 
     mca-15 (ADR-1028-12 D7/AM-6): placeholder `episodes.timeline` заменён
     реальным процессом `chat.statistics` v1 — в «будущих» его больше нет.
     mca-16 (ADR-1028-15 D10): placeholder `self_learning.run` амендирован до
     v1 (capture/review/.../suspend) — в «будущих» его больше нет.
     mca-18 (ADR-1028-18 D10): placeholder `self_model.update` амендирован до
-    реального `self.model` v1 (8 стадий §28.6) — в «будущих» его больше нет."""
+    реального `self.model` v1 (8 стадий §28.6) — в «будущих» его больше нет.
+    mca-20 (round 10.44, ADR-1028-20 D11/D13): placeholder
+    `temporal.factcheck` амендирован до v1 (8 стадий `:1805`) — в
+    «будущих» его больше нет (прецедент vision.analyze→vision.media)."""
     for pid in ("context.compress", "context.selective", "memory.lifecycle",
-                "relations.semantic", "temporal.factcheck"):
+                "relations.semantic"):
         p = reg.get_process(pid)
         assert p is not None and p.version == "0", pid
         assert reg.runtime_status(p) == reg.STATUS_NOT_RUN, pid
     owners = {p.owner_feature for p in reg.PROCESS_REGISTRY if p.version == "0"}
     # MCA-19 (round 10.43): vision.media v1 реализован — в «будущих» его нет.
-    assert {"mca-09", "mca-10a", "mca-10b", "mca-11",
-            "mca-20"} <= owners
+    # MCA-20 (round 10.44): temporal.factcheck v1 реализован — в «будущих»
+    # его нет (mca-20 остаётся во владельцах v31/v33-эры через v1-процесс).
+    assert {"mca-09", "mca-10a", "mca-10b", "mca-11"} <= owners
+    assert reg.get_process("temporal.factcheck").version == "1"
     assert "episodes.timeline" not in {p.process_id
                                        for p in reg.PROCESS_REGISTRY}
     assert reg.get_process("chat.statistics").version == "1"

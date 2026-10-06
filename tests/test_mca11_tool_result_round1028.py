@@ -98,15 +98,21 @@ class TestContract:
         # категория `vision.media` в llm_usage_events + METERED_TOOLS
         # (tool_loop.py). В mca-11 recognize_image — неизвестный тул →
         # консервативный external_read (никогда admin, D1).
+        # MCA-20 (ADR-1028-20 §7.5, round 10.44): канон 13→14
+        # (+fact_check). Карту НЕ расширяем — тот же прецедент:
+        # fact_check — неизвестный тул → консервативный external_read;
+        # расход — METERED_TOOLS + существующие категории llm_usage_events.
         names = {t["function"]["name"] for t in TOOL_CALLING_TOOLS}
-        assert len(names) == 13
-        assert set(tool_result.TOOL_CATEGORIES) == names - {"recognize_image"}
+        assert len(names) == 14
+        assert set(tool_result.TOOL_CATEGORIES) == names - {
+            "recognize_image", "fact_check"}
         assert tool_result.category_for("recognize_image") == "external_read"
+        assert tool_result.category_for("fact_check") == "external_read"
         counts = {}
         for name in names:
             counts[tool_result.category_for(name)] = \
                 counts.get(tool_result.category_for(name), 0) + 1
-        assert counts == {"memory_read": 4, "external_read": 6,
+        assert counts == {"memory_read": 4, "external_read": 7,
                           "paid_media": 2, "admin": 1}
 
     def test_unknown_tool_conservative_never_admin(self):

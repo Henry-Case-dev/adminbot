@@ -5,9 +5,9 @@
     "source": "services/param_catalog.py"
   },
   "counts": {
-    "REGISTRY": 519,
-    "GROUPS": 112,
-    "_TAB_BY_GROUP": 110,
+    "REGISTRY": 523,
+    "GROUPS": 113,
+    "_TAB_BY_GROUP": 111,
     "TAB_RULES": 22
   },
   "group_ids": [
@@ -122,7 +122,8 @@
     "reactions_slavik",
     "reactions_summary",
     "reactions_war",
-    "reactions_word_reactions"
+    "reactions_word_reactions",
+    "temporal_factcheck"
   ],
   "group_tab": {
     "content_info": null,
@@ -236,7 +237,8 @@
     "reactions_slavik": "permsoc",
     "reactions_summary": "mod_summary",
     "reactions_war": "permsoc",
-    "reactions_word_reactions": "permsoc"
+    "reactions_word_reactions": "permsoc",
+    "temporal_factcheck": "mod_factcheck"
   },
   "nav_order": [
     "modules",
@@ -663,6 +665,10 @@
     "TELEGRAM_API_FILES_DIR",
     "TELEGRAM_API_HASH",
     "TELEGRAM_API_ID",
+    "TEMPORAL_DEFAULT_MODE",
+    "TEMPORAL_FRESHNESS_CURRENT_TTL_HOURS",
+    "TEMPORAL_FRESHNESS_HISTORICAL_TTL_HOURS",
+    "TEMPORAL_TOOL_ENABLED",
     "THROTTLE_PERSISTENT_ENABLED",
     "TOKENIZER_ENCODING",
     "TOKEN_SAFETY_MULTIPLIER",

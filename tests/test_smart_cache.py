@@ -159,6 +159,12 @@ class TestCacheHitInHandlers:
             "services.smart_cache.settings",
             replace(settings, SMART_CACHE_ENABLED=True),
         )
+        # MCA-20: тест охраняет ЛЕГАСИ exact-match контракт (slug
+        # `factcheck`) — OFF-путь K1 (бит-в-бит d298f1f). ON-путь
+        # (`factcheck_temporal`, составной ключ) покрывают тесты mca-20.
+        monkeypatch.setattr(
+            "services.mca_gates.temporal_factcheck_enabled",
+            lambda: False)
         real_cache = SmartCache(str(tmp_path / "fc.db"))
         monkeypatch.setattr(fc_mod, "get_smart_cache", lambda: real_cache)
         try:

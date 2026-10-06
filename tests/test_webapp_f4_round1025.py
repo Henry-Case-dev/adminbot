@@ -169,11 +169,11 @@ def test_search_haystack_fields():
 def test_catalog_delta_zero():
     import services.param_catalog as pc
     from config.settings import Settings
-    assert len(pc.REGISTRY) == 519
-    assert len(pc.GROUPS) == 112
-    assert len(pc._TAB_BY_GROUP) == 110
+    assert len(pc.REGISTRY) == 523
+    assert len(pc.GROUPS) == 113
+    assert len(pc._TAB_BY_GROUP) == 111
     assert len(pc.TAB_RULES) == 22
-    assert len({f.name for f in dataclasses.fields(Settings)}) == 450
+    assert len({f.name for f in dataclasses.fields(Settings)}) == 454
 
 
 def test_no_new_state_libraries():

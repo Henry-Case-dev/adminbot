@@ -400,7 +400,7 @@ class TestToolDescriptionU21:
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
         assert names == _FIRST_EIGHT + ["generate_image", "transcribe_video",
                                         "fetch_article", "get_user_context",
-                                        "recognize_image"]
+                                        "recognize_image", "fact_check"]
         assert names[8] == "generate_image"
 
     def test_schema_structure_identical_in_variants(self):
@@ -707,16 +707,16 @@ class TestBoundsA3:
         import dataclasses
         from services import param_catalog as pc
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.63"            # bump запрещён (D8)
+        assert APP_VERSION == "2.58.64"            # bump запрещён (D8)
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in pc.REGISTRY
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}
 
     def test_catalog_counts_unchanged(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 519
-        assert len(pc.GROUPS) == 112
-        assert len(pc._TAB_BY_GROUP) == 110
+        assert len(pc.REGISTRY) == 523
+        assert len(pc.GROUPS) == 113
+        assert len(pc._TAB_BY_GROUP) == 111
         assert len(pc.TAB_RULES) == 22
 
     def test_two_llm_calls_intact(self):

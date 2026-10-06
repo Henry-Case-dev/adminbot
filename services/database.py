@@ -1586,6 +1586,111 @@ _MCA_MEDIA_ANALYSES_INDEX_DDL = (
     "ON mca_media_analyses(access_scope, status)",
 )
 
+# ── mca-20 T-5132+ (ADR-1028-20 D3/D13, санкция spec §7.1): v33 — строго
+# аддитивный набор Temporal Factcheck: `mca_factcheck_runs` (durable
+# run-запись: envelope-метаданные + TemporalVerdict + stage_trace; CHECK-enum
+# на factual_verdict/temporal_status/source_type = честные статусы, TH-11) +
+# `mca_factcheck_evidence` (evidence-контракт D9: URL/support/published_at +
+# происхождение/retrieved_at/отношение к части) + 3 индекса (scope- и
+# chat-выборки для виджета «Аналитики», D14). Аддитивно/идемпотентно
+# (`CREATE … IF NOT EXISTS` под self-guard `sqlite_master`), повтор — no-op,
+# backfill нет (таблицы новые, legacy-строк нет), старый код v32 не читает
+# (cold-совместимо), PG — no-op (GEN-R4; pg_db.py вне diff).
+# Обоснование Δ DDL ≠ 0 — ADR D3: виджет/trace обязаны работать на реальных
+# запусках (A73) — durable run+evidence с периодами, честным provenance и
+# scope-выборкой; события mca-13 не годятся (payload-раздувание + R17-риск +
+# нет выборки по scope), JSON-блоб лишил бы детали прав и выборку.
+# R17: claim-текст/evidence-support — durable-записи под access_scope (своё
+# назначение — аналитика под действующими правами); в СОБЫТИЯ контент не
+# попадает (только id/коды/стадии/числа).
+_SCHEMA_VERSION_FACTCHECK_TEMPORAL = 33
+
+_MCA_FACTCHECK_RUNS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_factcheck_runs ("
+    "run_id              TEXT PRIMARY KEY, "
+    "access_scope        TEXT NOT NULL, "
+    "chat_id             INTEGER, "
+    "trigger_tg_message_id INTEGER, "
+    "target_tg_message_id INTEGER, "
+    "target_revision     INTEGER, "
+    "target_content_hash TEXT, "
+    "claim_text          TEXT, "
+    "claim_span          TEXT, "
+    "source_type         TEXT CHECK (source_type IS NULL OR source_type IN "
+    "('text','caption','ocr','transcript','url','free_text')), "
+    "attribution         TEXT, "
+    "origin_type         TEXT, "
+    "repost_received_at  INTEGER, "
+    "original_published_at INTEGER, "
+    "original_published_precision TEXT, "
+    "claim_period_from   INTEGER, "
+    "claim_period_to     INTEGER, "
+    "date_source         TEXT, "
+    "date_timezone       TEXT, "
+    "date_uncertainty    TEXT, "
+    "requested_mode      TEXT, "
+    "assessment_mode     TEXT, "
+    "analysis_as_of      INTEGER, "
+    "related_asset_id    TEXT, "
+    "related_analysis_revision INTEGER, "
+    "factual_verdict     TEXT CHECK (factual_verdict IS NULL OR "
+    "factual_verdict IN ('supported','refuted','mixed',"
+    "'insufficient_evidence')), "
+    "temporal_status     TEXT CHECK (temporal_status IS NULL OR "
+    "temporal_status IN ('current','outdated','old_but_valid',"
+    "'misleading_reuse','unknown')), "
+    "evaluated_period    TEXT, "
+    "verdict_text        TEXT, "
+    "verdict_uncertainty TEXT, "
+    "stage_trace         TEXT, "
+    "fallback_used       INTEGER NOT NULL DEFAULT 0, "
+    "cache_hit           INTEGER NOT NULL DEFAULT 0, "
+    "pipeline_version    TEXT, "
+    "tz_resolution_version TEXT, "
+    "reason              TEXT, "
+    "revision            INTEGER NOT NULL DEFAULT 1, "
+    "created_at          INTEGER, "
+    "updated_at          INTEGER)"
+)
+_MCA_FACTCHECK_RUNS_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_factcheck_runs_chat_time "
+    "ON mca_factcheck_runs(chat_id, created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_factcheck_runs_scope_time "
+    "ON mca_factcheck_runs(access_scope, created_at)",
+)
+_MCA_FACTCHECK_EVIDENCE_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_factcheck_evidence ("
+    "id                  INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "run_id              TEXT, "
+    "claim_part          TEXT, "
+    "url                 TEXT, "
+    "support             TEXT, "
+    "source_ref          TEXT, "
+    "published_at        INTEGER, "
+    "published_at_source TEXT, "
+    "retrieved_at        INTEGER, "
+    "temporal_relevance  TEXT, "
+    "relation            TEXT, "
+    "source_kind         TEXT, "
+    "created_at          INTEGER)"
+)
+_MCA_FACTCHECK_EVIDENCE_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_factcheck_evidence_run "
+    "ON mca_factcheck_evidence(run_id)",
+)
+
+
+def _json_dumps_or_none(value) -> str | None:
+    """mca-20: JSON-объект → строка; None/пусто → NULL (v33-колонки)."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value or None
+    try:
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    except (TypeError, ValueError):
+        return None
+
 
 def _summary_window_unique_violation(exc: BaseException) -> bool:
     """IntegrityError «UNIQUE constraint» → write-once guard snapshot'а."""
@@ -2592,6 +2697,15 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_MEDIA_VISION,
                           "media_vision",
                           lambda svc: svc._migrate_media_vision_v32()),
+            # mca-20 (ADR-1028-20 D3/D13, санкция spec §7.1): v33 — строго
+            # аддитивный набор Temporal Factcheck: 2 доменные таблицы
+            # (`mca_factcheck_runs` CHECK-enum вердиктов/источника +
+            # `mca_factcheck_evidence` evidence-контракт) + 3 индекса.
+            # Идемпотентно, повтор — no-op, PG — no-op, старый код v32 не
+            # читает (cold-совместимо).
+            MigrationStep(_SCHEMA_VERSION_FACTCHECK_TEMPORAL,
+                          "factcheck_temporal",
+                          lambda svc: svc._migrate_factcheck_temporal_v33()),
             # ASAP 4.1 волна 5 (T-4616, spec §10.2–§10.3): v24 = 3 таблицы
             # (summary_source_windows + summary_runs + summary_run_stages).
             # Один MigrationStep на версию — книга `schema_migrations` имеет
@@ -3649,6 +3763,176 @@ class DatabaseService:
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_MEDIA_VISION}")
         await self.db.commit()
+
+    async def _migrate_factcheck_temporal_v33(self) -> None:
+        """v33 (`mca-20-temporal-factcheck` T-5132+, ADR-1028-20 D3/D13,
+        санкция spec §7.1): Temporal Factcheck — `mca_factcheck_runs`
+        (durable run: envelope-метаданные + TemporalVerdict + stage_trace;
+        CHECK-enum честных статусов, TH-11) + `mca_factcheck_evidence`
+        (evidence-контракт D9) + 3 индекса (scope/chat-выборки виджета,
+        D14).
+
+        Аддитивно (`CREATE TABLE/INDEX IF NOT EXISTS` под self-guard
+        `sqlite_master`); НИ ОДНОГО UPDATE/DELETE существующих строк;
+        повтор — no-op; backfill не требуется (таблицы новые); старый код
+        v32 не читает — cold-совместимо; PG — no-op (GEN-R4). Фиксирует
+        `PRAGMA user_version = 33`."""
+        for table, ddl in (
+                ("mca_factcheck_runs", _MCA_FACTCHECK_RUNS_DDL),
+                ("mca_factcheck_evidence", _MCA_FACTCHECK_EVIDENCE_DDL)):
+            if not await self._table_exists(table):
+                await self.db.execute(ddl)
+                await self.db.commit()
+                logger.info("[database] migration v33: %s", table)
+        for ddl in (_MCA_FACTCHECK_RUNS_INDEX_DDL
+                    + _MCA_FACTCHECK_EVIDENCE_INDEX_DDL):
+            await self.db.execute(ddl)
+        await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_FACTCHECK_TEMPORAL}")
+        await self.db.commit()
+
+    # ── mca-20 (ADR-1028-20 D1/D3/D9): Temporal Factcheck — тонкие методы
+    # ЕДИНОГО контракта v33. Валидность домена enforced вызывающим
+    # (`services/temporal_factcheck.py`); схема — последний рубеж (CHECK).
+    # Записи — только через `write_transaction` (mca-01, D16); чтение
+    # виджета — под access_scope/chat-фильтром вызывающего (R17/TH-8).
+
+    async def get_smart_message_origin_block(self, chat_id: int,
+                                             tg_message_id: int):
+        """Origin-блок v32 для сборки TemporalClaimEnvelope (D2): тип
+        MessageOrigin + дата оригинала + идентичность/версия цели. None —
+        нет записи (envelope собирается с explicit unknown origin, D3)."""
+        cursor = await self.db.execute(
+            "SELECT chat_id, tg_message_id, text, caption, sent_at, "
+            "content_hash, current_revision, origin_type, origin_sent_at, "
+            "origin_sender_user_id, origin_chat_id, origin_display_name, "
+            "author_name, forward_source "
+            "FROM smart_messages WHERE chat_id = ? AND tg_message_id = ?",
+            (chat_id, tg_message_id))
+        return await cursor.fetchone()
+
+    async def record_factcheck_run(self, rec: dict) -> bool:
+        """Write-once INSERT run-записи (v33). run_id PK; повторный run_id →
+        False (no-op, без перезаписи — честный аудит прогонов)."""
+        run_id = str(rec["run_id"])
+        now = int(time.time())
+
+        async def _body(conn):
+            cur = await conn.execute(
+                "INSERT INTO mca_factcheck_runs (run_id, access_scope, "
+                "chat_id, trigger_tg_message_id, target_tg_message_id, "
+                "target_revision, target_content_hash, claim_text, "
+                "claim_span, source_type, attribution, origin_type, "
+                "repost_received_at, original_published_at, "
+                "original_published_precision, claim_period_from, "
+                "claim_period_to, date_source, date_timezone, "
+                "date_uncertainty, requested_mode, assessment_mode, "
+                "analysis_as_of, related_asset_id, related_analysis_revision, "
+                "factual_verdict, temporal_status, evaluated_period, "
+                "verdict_text, verdict_uncertainty, stage_trace, "
+                "fallback_used, cache_hit, pipeline_version, "
+                "tz_resolution_version, reason, revision, created_at, "
+                "updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?"
+                ",?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(run_id) DO NOTHING",
+                (run_id, str(rec.get("access_scope") or "global"),
+                 rec.get("chat_id"), rec.get("trigger_tg_message_id"),
+                 rec.get("target_tg_message_id"), rec.get("target_revision"),
+                 rec.get("target_content_hash"), rec.get("claim_text"),
+                 _json_dumps_or_none(rec.get("claim_span")),
+                 rec.get("source_type"),
+                 _json_dumps_or_none(rec.get("attribution")),
+                 rec.get("origin_type"), rec.get("repost_received_at"),
+                 rec.get("original_published_at"),
+                 rec.get("original_published_precision"),
+                 rec.get("claim_period_from"), rec.get("claim_period_to"),
+                 rec.get("date_source"), rec.get("date_timezone"),
+                 _json_dumps_or_none(rec.get("date_uncertainty")),
+                 rec.get("requested_mode"), rec.get("assessment_mode"),
+                 rec.get("analysis_as_of"), rec.get("related_asset_id"),
+                 rec.get("related_analysis_revision"),
+                 rec.get("factual_verdict"), rec.get("temporal_status"),
+                 _json_dumps_or_none(rec.get("evaluated_period")),
+                 rec.get("verdict_text"),
+                 _json_dumps_or_none(rec.get("verdict_uncertainty")),
+                 _json_dumps_or_none(rec.get("stage_trace")),
+                 1 if rec.get("fallback_used") else 0,
+                 1 if rec.get("cache_hit") else 0,
+                 rec.get("pipeline_version"),
+                 rec.get("tz_resolution_version"), rec.get("reason"),
+                 int(rec.get("revision", 1)), now, now))
+            return cur.rowcount > 0
+
+        return bool(await self.write_transaction(
+            _body, op_name="record_factcheck_run"))
+
+    async def record_factcheck_evidence(self, run_id: str,
+                                        rows: list[dict], *,
+                                        max_rows: int = 20) -> int:
+        """Пакетная запись evidence-строк прогона (v33, D9). Потолок
+        `max_rows` (env `MCA_TEMPORAL_MAX_EVIDENCE_PER_RUN` клампит
+        вызывающий) — защита от раздувания. Возвращает число вставленных."""
+
+        async def _body(conn):
+            inserted = 0
+            now = int(time.time())
+            for row in rows[:max(0, int(max_rows))]:
+                await conn.execute(
+                    "INSERT INTO mca_factcheck_evidence (run_id, claim_part, "
+                    "url, support, source_ref, published_at, "
+                    "published_at_source, retrieved_at, temporal_relevance, "
+                    "relation, source_kind, created_at) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (run_id, row.get("claim_part"), row.get("url"),
+                     row.get("support"),
+                     _json_dumps_or_none(row.get("source_ref")),
+                     row.get("published_at"), row.get("published_at_source"),
+                     row.get("retrieved_at"), row.get("temporal_relevance"),
+                     row.get("relation"), row.get("source_kind"), now))
+                inserted += 1
+            return inserted
+
+        return int(await self.write_transaction(
+            _body, op_name="record_factcheck_evidence"))
+
+    async def list_factcheck_runs(self, *, chat_id: int | None = None,
+                                  access_scope: str | None = None,
+                                  limit: int = 50) -> list:
+        """Последние runs для виджета «Аналитики» (D14). chat_id/access_scope
+        заданы → фильтр (scope-выборка, TH-8); оба None → вся система
+        (вызывающий обязан проверить global-admin)."""
+        limit = max(1, min(int(limit or 50), 200))
+        where, params = [], []
+        if chat_id is not None:
+            where.append("chat_id = ?")
+            params.append(int(chat_id))
+        if access_scope:
+            where.append("access_scope = ?")
+            params.append(str(access_scope))
+        sql = ("SELECT * FROM mca_factcheck_runs "
+               + (f"WHERE {' AND '.join(where)} " if where else "")
+               + "ORDER BY created_at DESC, run_id DESC LIMIT ?")
+        params.append(limit)
+        cursor = await self.db.execute(sql, tuple(params))
+        rows = await cursor.fetchall()
+        return [dict(r) for r in rows]
+
+    async def get_factcheck_run(self, run_id: str):
+        """Детали run по id (D14: timeline/каскад дат/trace). None — нет."""
+        cursor = await self.db.execute(
+            "SELECT * FROM mca_factcheck_runs WHERE run_id = ?",
+            (str(run_id),))
+        row = await cursor.fetchone()
+        return dict(row) if row is not None else None
+
+    async def get_factcheck_evidence(self, run_id: str) -> list:
+        """Evidence-карточки прогона (D14)."""
+        cursor = await self.db.execute(
+            "SELECT * FROM mca_factcheck_evidence WHERE run_id = ? "
+            "ORDER BY id ASC", (str(run_id),))
+        rows = await cursor.fetchall()
+        return [dict(r) for r in rows]
 
     # ── mca-19 (ADR-1028-19 D2/D19): MediaAsset/MediaAnalysis — тонкие
     # методы ЕДИНОГО контракта v32. Валидность домена enforced вызывающим

@@ -42,9 +42,9 @@ VISION_KILL_SWITCHES = {"MCA_VISION_ENABLED", "MCA_VISION_AUTO_ENABLED",
 # ── Δ каталога +9 (F8-переиздание) ──────────────────────────────────────────
 
 def test_catalog_counts_sanctioned():
-    assert len(pc.REGISTRY) == 519          # 510 → 519 (+9)
-    assert len(pc.GROUPS) == 112            # 108 → 112 (+4 группы)
-    assert len(pc._TAB_BY_GROUP) == 110     # 106 → 110
+    assert len(pc.REGISTRY) == 523          # 510 → 519 (+9)
+    assert len(pc.GROUPS) == 113            # 108 → 112 (+4 группы)
+    assert len(pc._TAB_BY_GROUP) == 111     # 106 → 110
     assert len(pc.TAB_RULES) == 22          # 21 → 22 (mod_vision)
     assert len(pc.TAB_NAV) == 22
     assert len(pc.CONFIG_TAB_TITLES) == 22
@@ -106,17 +106,18 @@ def test_new_groups_on_tabs():
 def test_screen_map_and_registry_artifacts_regenerated():
     tsv = (ROOT / "plans/docs/param-registry-round1025.tsv").read_text(
         encoding="utf-8").splitlines()
-    assert len(tsv) == 520            # header + 519
+    assert len(tsv) == 524            # header + 523 (mca-20 round 10.44: 519→523)
     assert "flags.vision_enabled" in "\t".join(tsv)
     meta = (ROOT / "plans/docs/param-registry-round1025.meta.md").read_text(
         encoding="utf-8")
-    assert "519" in meta and "411" in meta and "108" in meta
+    assert "523" in meta and "411" in meta and "112" in meta
 
 
 # ── Kill-switches +4 (76→80; env-only default ON; OFF-инертности) ───────────
 
 def test_kill_switches_registry_80():
-    assert len(mca_gates.KILL_SWITCHES) == 80      # 76 → 80
+    # MCA-20 (round 10.44): 80 → 83 (+3 temporal factcheck).
+    assert len(mca_gates.KILL_SWITCHES) == 83      # 80 → 83
     assert VISION_KILL_SWITCHES <= set(mca_gates.KILL_SWITCHES)
     for name in VISION_KILL_SWITCHES:
         default, off_parity = mca_gates.KILL_SWITCHES[name]
@@ -143,7 +144,8 @@ def test_kill_switch_inertness():
 # ── reason_code +12 (257→269) ───────────────────────────────────────────────
 
 def test_reason_codes_269():
-    assert len(mca_events.REASON_CODES) == 269       # 257 → 269
+    # MCA-20 (round 10.44): 269 → 279 (+10 temporal factcheck).
+    assert len(mca_events.REASON_CODES) == 279       # 269 → 279
     assert VISION_REASON_CODES <= mca_events.REASON_CODES
     # `no_text`/`pending`/`ready` — статусы MediaAnalysis, НЕ reason-коды
     # (spec §8.5).

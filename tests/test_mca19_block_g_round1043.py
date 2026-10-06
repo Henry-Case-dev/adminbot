@@ -178,11 +178,15 @@ def _ctx(chat_id=CHAT_A) -> ToolContext:
                        reply_to_message_id=None, user_id=42)
 
 
-# ── Канон тулов 13 + METERED (D22/§8.6) ─────────────────────────────────────
+# ── Канон тулов (D22/§8.6; MCA-20 10.44: 13 → 14, +fact_check в хвост) ──────
 
 def test_tool_canon_13_recognize_image_tail():
-    assert len(tool_schemas.TOOL_CALLING_TOOLS) == 13
+    # MCA-20 (10.44, ADR-1028-20 §7.5): канон 13 → 14; recognize_image
+    # больше не хвост — fact_check после него (первые 13 байт-в-байт).
+    assert len(tool_schemas.TOOL_CALLING_TOOLS) == 14
     assert tool_schemas.TOOL_CALLING_TOOLS[-1] is \
+        tool_schemas.TOOL_FACT_CHECK
+    assert tool_schemas.TOOL_CALLING_TOOLS[-2] is \
         tool_schemas.TOOL_RECOGNIZE_IMAGE
     names = [t["function"]["name"] for t in tool_schemas.TOOL_CALLING_TOOLS]
     # Первые 12 — прежний порядок байт-в-байт.
@@ -211,7 +215,7 @@ def test_active_tools_hide_when_k4_off(monkeypatch):
     names = [t["function"]["name"] for t in tool_schemas.active_tools()]
     assert "recognize_image" not in names
     # Канон (схема/снапшот) безусловен.
-    assert len(tool_schemas.TOOL_CALLING_TOOLS) == 13
+    assert len(tool_schemas.TOOL_CALLING_TOOLS) == 14
 
 
 # ── Диспетчер: server-side OFF, ACL, ready/pending/ambiguous (A82) ──────────

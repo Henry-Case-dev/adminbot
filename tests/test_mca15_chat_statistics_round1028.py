@@ -297,7 +297,8 @@ class TestStatsIntent:
 
     def test_canon_twelve_unchanged(self):
         from services.tool_schemas import TOOL_CALLING_TOOLS
-        assert len(TOOL_CALLING_TOOLS) == 13
+        # MCA-20 (10.44, ADR-1028-20 §7.5): канон 13 → 14 (+fact_check).
+        assert len(TOOL_CALLING_TOOLS) == 14
         names = {t["function"]["name"] for t in TOOL_CALLING_TOOLS}
         assert "query_chat_memory" in names
         assert "stats" not in names
@@ -1398,7 +1399,7 @@ class TestStatsToolMode:
         assert "stats" in props
         assert props["stats"]["properties"]["metric"]["enum"] == [
             "messages", "occurrences", "distinct_authors"]
-        assert len(TOOL_CALLING_TOOLS) == 13
+        assert len(TOOL_CALLING_TOOLS) == 14
 
     @pytest.mark.asyncio
     async def test_dig_measurement_registers_claim(self):

@@ -154,16 +154,18 @@ class TestContract:
         assert not any("\u0400" <= ch <= "\u04FF" for ch in desc)
 
     def test_canon_twelve_tail_only(self):
-        assert len(TOOL_CALLING_TOOLS) == 13
-        assert TOOL_CALLING_TOOLS[-2] is TOOL_GET_USER_CONTEXT
-        assert TOOL_CALLING_TOOLS[-1]["function"]["name"] == (
+        assert len(TOOL_CALLING_TOOLS) == 14
+        assert TOOL_CALLING_TOOLS[-3] is TOOL_GET_USER_CONTEXT
+        assert TOOL_CALLING_TOOLS[-2]["function"]["name"] == (
             "recognize_image")   # MCA-19 (ADR-1028-19 §8.6)
+        assert TOOL_CALLING_TOOLS[-1]["function"]["name"] == (
+            "fact_check")        # MCA-20 (ADR-1028-20 §7.5)
         assert [t["function"]["name"] for t in TOOL_CALLING_TOOLS] == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "generate_image",
             "transcribe_video", "fetch_article", "get_user_context",
-            "recognize_image"]
+            "recognize_image", "fact_check"]
 
     def test_first_eleven_byte_identical(self):
         from services.tool_schemas import (
@@ -190,7 +192,7 @@ class TestContract:
 
     def test_active_tools_default_eleven(self):
         names = [t["function"]["name"] for t in active_tools()]
-        assert len(names) == 12
+        assert len(names) == 13   # +fact_check (mca-20, image OFF)
         assert MEMORY_LOOKUP_TOOL_NAME in names
         assert "generate_image" not in names          # image OFF (дефолт)
 
@@ -198,13 +200,13 @@ class TestContract:
         monkeypatch.setattr(type(settings), "MEMORY_LOOKUP_ENABLED", False)
         names = [t["function"]["name"] for t in active_tools()]
         assert MEMORY_LOOKUP_TOOL_NAME not in names
-        # Baseline-активный набор (10 имён, image OFF) — байт-в-байт.
+        # Baseline-активный набор (image OFF) — байт-в-байт + fact_check.
         assert names == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "transcribe_video",
-            "fetch_article", "recognize_image"]
-        assert len(TOOL_CALLING_TOOLS) == 13          # схема/канон безусловны
+            "fetch_article", "recognize_image", "fact_check"]
+        assert len(TOOL_CALLING_TOOLS) == 14          # схема/канон безусловны
 
     def test_factcheck_tools_unchanged_three(self):
         names = [t["function"]["name"] for t in factcheck_tools()]
@@ -219,9 +221,9 @@ class TestContract:
         assert "MEMORY_LOOKUP_ENABLED" not in pc.REGISTRY
         assert "MEMORY_LOOKUP_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}
-        assert len(pc.REGISTRY) == 519
-        assert len(pc.GROUPS) == 112
-        assert len(pc._TAB_BY_GROUP) == 110
+        assert len(pc.REGISTRY) == 523
+        assert len(pc.GROUPS) == 113
+        assert len(pc._TAB_BY_GROUP) == 111
         assert len(pc.TAB_RULES) == 22
 
 

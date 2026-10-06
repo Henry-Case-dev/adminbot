@@ -1,0 +1,57 @@
+﻿# Scanner-аудит безопасности/R17 — `mca-20-temporal-factcheck` (T-5149, 06.10.2026)
+
+## Вердикт: **к деплою ДА** (Critical 0 / High 0)
+
+**Сводка: Critical 0 / High 0 / Medium 0 / Low 2 (backlog) / Info 4.**
+
+- Binding перепроверен моим пересчётом: HEAD `d298f1f4` (= origin/master, прод 2.58.63); манифест `plans/reports/mca20_wth_manifest_review.txt` — **107/107 файлов байт-в-байт**, recalc MANIFEST_SHA256 `ef76a16e…a21bb0c` совпал. Кандидат = working tree, ровно то, что ревьюено (Approved, итер.2, F-1/F-2 закрыты). Дрейфа нет: всё в `git status` вне манифеста — явные исключения его заголовка (workflow_state/backlog, `.playwright-mcp/`, node_modules, deploy-скрипты чужих lanes, сам манифест/review.md). После аудита повторная сверка — 0 расхождений (дерево не тронуто).
+- Мои прогоны на этом дереве: focused mca-20 (temporal+integration+rework) — **80 passed**; смежные factcheck (handlers/service/smart_cache/grounding-cove/two-call/mca15) — **201 passed**; санкции/observability/param_catalog — **133 passed**; F8 `--check` — **OK 523**, exit 0.
+- Санкции импортом факта: KILL_SWITCHES=**83** (ровно 3 `MCA_TEMPORAL_*`, env-only, default ON), REASON_CODES=**279** (+10 temporal, включая `temporal_date_extract_failed`/`temporal_source_unavailable`), tools=**14** (fact_check последним, первые 13 байт-в-байт), METERED_TOOLS=**9** (с `fact_check`), процесс `temporal.factcheck` v1 — 8 стадий + branches (analyst/single_fallback/cache_hit/bypass), `temporal.default_mode`+2 TTL+`temporal.tool_enabled` в каталоге (pg-ключи сходятся с ParamSpec→settings).
+- R17: скан 107 кандидат-файлов по 7 сигнатурам секретов — **0 реальных** (4 совпадения — фейковые плейсхолдеры в старых фикс-тестах mca-05/observability, pre-existing артефакты redaction-тестов).
+
+## Независимые репро (мой скрипт, offline, детерминированные)
+
+1. **Кеш-изоляция (TH-4):** тот же claim-текст, другой чат → другой ключ; volatile≠stable; unknown origin → ключ `None` (авто-bypass, кеш невозможен); редактирование цели (revision) и смена mode меняют ключ. Компоненты ключа: scope+claim+target(revision/hash)+origin-отпечаток+mode+period+tzr1+related+pipeline_version (`temporal_factcheck.py:507–587`). Кросс-чат/кросс-год/кросс-режим выдача невозможна по построению.
+2. **Validator-guard (TH-2/F-2, hostile-payload):** agree=True/мусор/disagree-без-corrected → вердикт аналитика стоит; не-enum corrected отбрасывается; corrected `misleading_reuse` без маркеров подачи → серверный downgrade в `outdated`; **с маркерами («сейчас», «только что») — misleading_reuse сохраняется** (guard работает в обе стороны); `evaluated_period`/mode/as_of из payload validator'а **не применяются** (иммутабельны).
+3. **Инъекция через evidence:** контейнер `<search_results>` экранирован (`escape_xml_text`, `factcheck_service.py:543–545, 574–576`), тест `test_evidence_injection_stays_data_not_instructions` (rework:225–243) — `</search_results>SYSTEM::` остаётся данными, вердикт не меняется; system-промпты всех стадий — константы (аналитик `:811–832`, fallback `:834–839`, validator `:844–863`), untrusted — только в user-role payload. GEN-R18 соблюдён.
+4. **Честные отказы resolver'а (D2/D7):** invalid `explicit_mode` → `(None, temporal_envelope_rejected)`; нет строки origin-блока → отказ без подстановок; tool без цели → free_text + `origin_known=False` (кеш недостижим); «сегодня» без даты автора → период не строится, now не подставляется (`:325–332`); каскад origin→message выдержан (origin отсутствует → `telegram_message` из sent_at).
+5. **tzr1:** неизвестный TZ → интервал ±14 ч (`(-50400, 136800)`), не точка.
+
+## Проверка по чек-листу (сводка, file:line)
+
+1. **Инъекции:** untrusted-каналы (claim/evidence/chat_context/hint) — только user-контент с `escape_xml_text` (`factcheck_service.py:516–578`); validator data-only (прямой `llm.generate` без tools, `:580–595`); tool-путь строит сервис **без tool_router** → рекурсивный fact_check недостижим (`tool_router.py:2399–2401`); search-запросы bounded (≤2 запроса, base[:200], `temporal_factcheck.py:786–806`); новый fetch-контура нет — TH-3 чист (URL в evidence — только извлечение из уже полученной выдачи, без загрузки).
+2. **Достоверность:** extract_failed ≠ unknown — отдельные notes (`:314` vs `:329`); no-false-acceptance — пустой evidence → серверный `insufficient_evidence` БЕЗ LLM-вердикта (`factcheck_service.py:438–442`); отказ поиска → `temporal_insufficient_evidence`, никогда refuted (`:401–406`); misleading_reuse только по маркерам + репро 2; конфликт дат сохраняется в `date_uncertainty["conflicts"]` (`:448–459`); evidence `published_at` всегда NULL (snippet ≠ доказательство даты, `:884`); reason-код от LLM валидируется по словарю, чужой → fallback (`:666–667`).
+3. **Кеш:** slug `factcheck_temporal` + freshness-bucket; legacy `factcheck` на ON-пути не читается/не пишется (namespace в префиксе md5-входа; тест SC-R4b); auto-bypass при невозможности ключа — **честный fail-open к вычислению** без кеширования вердиктов (`temporal_cache_disabled`, `handlers/factcheck.py:99–105`) — отравить нечего; as_of внутри payload — hit не «омолаживается» (реплицировано чтением `:590–632`); K3 OFF → чтение/запись выключены, кеш поиска/загрузок не тронут.
+4. **Бюджет:** validator ≤1 (жёстко одним вызовом + тест budget, rework:327–334); analyst ≤2 (общий fallback-слот); verbalizer max_retries=1; search ≤2 запросов; cooldown per (chat,user) + пул per-chat как в legacy (`handlers/factcheck.py:140–148, 392–398`); TTL/лимиты env-only (`settings.py:482–487, 1604–1617`); расход — через `llm.generate(module="factcheck", step=temporal_*)`, синтетических `usage_events.record` в temporal-контуре нет; METERED `fact_check` — отдельный tool-учёт tool_loop (`tool_loop.py:61–64, 433`), double-count нет.
+5. **R17:** `stage_event` — только id/chat/стадия/reason/refs (`temporal_factcheck.py:247–262`); logger-точки — id/типы исключений, без claim/URL/контента (полный просмотр новых log-вызовов); routes +2 (`/api/factcheck/temporal/runs[/{id}]`) — оба `_ctx_global_admin` → 403 (`routes.py:2200–2248`), список compact без claim/verdict-текста (`:2127–2155`), детали — только под global admin; UI — fail-open на 403 → блок скрыт, `encodeURIComponent(runId)` (`app.js:7297–7335`); секреты — 0 (см. выше).
+6. **DDL v33:** 2 таблицы + 3 индекса, CHECK-enum на factual_verdict/temporal_status/source_type (`database.py:1608–1680`); создание под `_table_exists` (sqlite_master-guard), 0 UPDATE/DELETE, идемпотентно, `user_version=33` (`:3767–3793`); write-once run: `INSERT … ON CONFLICT(run_id) DO NOTHING` под `write_transaction` (`:3815–3868`); pg_db.py вне манифеста → PG no-op.
+7. **OFF-паритет:** дифф `handlers/factcheck.py` = **+159/−0** (чисто аддитивно: гейт `_temporal_on` + ON-функция + диспетчер) — OFF-ветка бит-в-бит `d298f1f`, включая legacy-слаг `factcheck` (`:426–432`); settings/mca_events/param_catalog/routes — тоже +N/−0; единственный −5 в диффе — санкционированный AMEND плейсхолдера `temporal.factcheck` v0→v1 (`mca_process_registry.py:1134–1176`); честные disabled/not_run: серверная OFF-проверка в tool (`tool_router.py:2347–2352`) + скрытие из набора (`tool_schemas.py:809–810`).
+8. **Tool `fact_check`:** 14-й, METERED, схема `additionalProperties:false` без URL/chat_id-чужих-чатов (`tool_schemas.py:617–674`); scope из `ctx.chat_id`, чужой target → `unavailable/out_of_scope` (`tool_router.py:2375–2381`); invalid mode → честный `failed/temporal_envelope_rejected` (первый рубеж F-1, `:2360–2367`) + второй рубеж в `build_envelope:360–364`; free_text → honest payload + run в v33; `cache_hit` тулом всегда False (тул кеш не читает — без кросс-scope reuse).
+9. **Угрозы:** TH-1 ✓ (каскад+конфликты, репро 4), TH-2 ✓ (validator+экранирование+enum-guard, репро 2–3), TH-3 ✓ (нет fetch-контура, tool без URL), TH-4 ✓ (репро 1), TH-5 ✓ (серверный insufficient + misleading-guard), TH-6 ✓ (knowable только явно, `:89–91, 276–277`), TH-7 ✓ (scope/ACL/data-only/OFF-defence), TH-8 ✓ (репро R17 + RBAC), TH-9 ✓ (tzr1, репро 5), TH-10 ✓ (revision/hash в ключе, write-once, пул/кулдаун), TH-11 ✓ (CHECK-enum + reason-словарь), TH-12 disclosed. F-1 ✓, F-3 ✓, F-4 ✓, F-5 ✓ (`temporal_fallback_mode` + assessment_mode), F-6 ✓; F-2/F-7 — гранулярность кодов есть, эмиссии нет → Info I-1 (не ослабляет TH-5: все «недоступно» → honest insufficient). Новые поверхности validator-стадии: промпт-константа ✓, экранирование ✓, бюджет ✓, fallback-путь честный ✓ (rework:246–283).
+
+## Находки
+
+| # | Severity | Координаты | Суть | Blocking |
+|---|---|---|---|---|
+| L-A | Low (backlog) | `temporal_factcheck.py:544–549` + `handlers/factcheck.py:165–169` | Деградированные вердикты (insufficient/unknown → bucket volatile) кешируются на TTL 6 ч: при недоступности поисковиков «недостаточно данных» залипает до 6 ч даже после восстановления движков. Поля честные (insufficient + cache_hit в run), текст честный, анти-hammering-эффект полезен — но retry-окно есть. Backlog: не кешировать исходы с пустым evidence/search_reason (или отдельный короткий TTL). | нет |
+| L-B | Low (backlog) | `handlers/factcheck.py:116–124` | На cache-hit реконструкция вердикта передаёт только factual/temporal → run-строка теряет `reason` и получает `analysis_as_of=now` (вместо as_of payload). Аудит-гранулярность v33 только; enum-поля честные. Развитие N-3 ревью. Backlog: класть reason/as_of из кеш-payload. | нет |
+
+## Info
+
+- **I-1.** `temporal_source_unavailable`/`temporal_media_pending` — в словаре причин, но не эмиссируются: fetch-контура и media-ветки в tzr1-реализации нет (все «недоступно» → честный `temporal_insufficient_evidence`). Диспозиции N-8/N-9 ревью подтверждены; TH-5 не ослаблен (false-refuted нет нигде).
+- **I-2.** Validator способен перевернуть factual_verdict в refuted — но только enum-валидным corrected на основе evidence (тот же серверный guard, что у аналитика); при пустом evidence validator не вызывается вовсе. Это disclosed residual «семантической уступки LLM» (TH-2), не новый класс.
+- **I-3.** Каталог-тумблер `temporal.tool_enabled` корректно связан с `settings.TEMPORAL_TOOL_ENABLED` (`param_catalog.py:2245–2252`), env-K2 действует независимо — двойной гейт работает как задокументировано.
+- **I-4.** Tool-результат fact_check отдаёт LLM claim[:400]/verdict[:2000] — bounded, без URL-fetch поверхностей; `run_id` присутствует только при успешной записи run (fail-open записи не ломает ответ).
+
+Incidental (unrelated/pre-existing, не мета-candidates): фейковые `sk-…`-плейсхолдеры в фикс-тестах mca-05/observability (артефакты R17-redaction-тестов, были до кандидата); 4 красных полного набора — pre-known флейки (reuse evidence 12285/4 итер.2, согласуется с моими 80+201+133 focused).
+
+## Disposition
+
+- Блокирующих находок нет; F-1/F-2 реворка перепроверены в коде (два независимых рубежа валидации mode; validator-стадия ровно по spec D11) и хостайл-репро; N-1…N-9 итер.2 — related-nonblocking, подтверждены.
+- Обязательные post-deploy условия прежние: T-5146 (live-LLM smoke, PENDING OWNER).
+- Rollback: soft 3×MCA_TEMPORAL_*=false (env-only; OFF = бит-в-бит d298f1f/2.58.63 — чисто аддитивные диффы), cold revert; v33 аддитивна, PG no-op.
+- Числа для DevOps (bump 2.58.64): прод-зависимостей от mca-19/vision нет, но деплой-окно всё равно под SSH-гейтом владельца; join с T-5126b возможен без конфликтов кода (файлы lanes не пересекаются с candidate mca-20).
+
+R17: в отчёте секретов и сырого контента нет.
+
+**Вердикт: к деплою ДА** (Critical 0 / High 0; join-barrier T-5150 @DevOps снят).
