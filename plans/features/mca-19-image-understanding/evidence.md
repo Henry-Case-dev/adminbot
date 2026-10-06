@@ -503,3 +503,52 @@ factcheck `a0d983eba5123ed6`, rework-тест `7cf3f9bf50a1aa74`. Git-индек
   потребителей.
 
 R17: секретов в дельте нет (скан key/token/password/Bearer по 6 файлам — 0).
+
+---
+
+## T-5126b fix — прод-блокер деплоя: `VisionMediaWorker.start()` → NameError: _aps
+
+**Механика:** импорт APScheduler был function-local в `__init__`
+(`import apscheduler.schedulers.asyncio as _aps`, было `mca_vision.py:1672`) —
+имя `_aps` жило только в локальном скоупе `__init__` и там же умирало; `start()`
+ссылался на `_aps.AsyncIOScheduler(...)` (было `:1692`) → `NameError: _aps` на
+каждом старте бота (вызов `bot.py:807`). Класс бага тестами не ловился:
+существующие worker-тесты дёргали `_tick_body()` в обход `start()`.
+
+**Фикс (минимальный, стиль репо — module-level импорт как в dream_worker/
+lore_worker/nostalgia_worker/summary_scheduler):**
+`from apscheduler.schedulers.asyncio import AsyncIOScheduler` в модульную
+third-party секцию (`mca_vision.py:45`); мёртвый function-local импорт из
+`__init__` удалён; `start()` использует `AsyncIOScheduler(...)` (`:1691`).
+K1-гейт в `start()` не тронут: OFF → ранний return до создания планировщика
+(поведение прежнее).
+
+**RED→GREEN (новый smoke реального прод-пути `start()`, по стилю
+`test_summary_scheduler.py` — настоящий AsyncIOScheduler + shutdown в finally):**
+
+- RED (до фикса): `test_worker_start_runs_scheduler_t5126b` →
+  `services\mca_vision.py:1692: NameError: name '_aps' is not defined` —
+  байт-в-байт прод-симптом T-5126.
+- GREEN: планировщик создаётся и running, тик-джоба `vision_media_tick`
+  зарегистрирована с interval == VISION_TICK_SECONDS (5с), worker в `_RUNTIME`;
+  shutdown гасит scheduler и runtime-ссылку.
+- Гейт-тест `test_worker_start_gate_k1_off_no_tick_t5126b` (K1=OFF через
+  `patched_settings(MCA_VISION_ENABLED=False)`, прецедент KS-патча block_c:226):
+  `start()` не создаёт scheduler/store, worker не регистрируется — зелёный и до,
+  и после фикса (фикс гейт не менял).
+
+**Прогоны (это дерево):** focused mca-19 (блоки A–G + rework_r1 + 2 новых) —
+**116 passed** (9.17 c; было 114 + 2); import-smoke
+`python -c "import services.mca_vision"` — OK. Полный suite не гонялся
+(деплой-гейт пройден, дерево стабильно — по брифу не обязателен).
+
+**Дельта:** `services/mca_vision.py` (3 строки: импорт `:45`, −function-local
+`__init__`, `AsyncIOScheduler` в `start()` `:1691`), `tests/
+test_mca19_block_c_round1043.py` (+40, 2 теста `:491–527`), этот
+evidence-append. SHA256[:16]: mca_vision `d6032dc0f18516f3`, block_c-тест
+`776e4f833d7e754d`. Git-индекс не тронут (0 staged); bot.py, миграции/каталог/
+KS/reason (финал), review/манифест/deployment/spec/ADR/tasks/current_task/
+workflow_state — не тронуты. R17: секретов в дельте нет.
+
+**⚠ Прод-статус:** прод K1=false (env-оверрайд) ДО T-5126b; после деплоя фикса
+DevOps снимает оверрайд (worker при K1 ON тикает — доказано smoke-тестом).

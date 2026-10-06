@@ -121,3 +121,10 @@ Incidental: два изменённых реворком теста `tests/test_
 **Join-barrier:** T-5125 (Scanner) — разблокирован этим Approved.
 
 R17: секретов/сырого контекста в отчёте нет.
+---
+
+## Дельта T-5126b (прод-фикс `NameError: _aps`, 06.10.2026)
+
+**Вердикт: к T-5126b ДА.** Дифф ровно заявленный (`mca_vision.py`: module-level `AsyncIOScheduler` :45 по прецеденту dream_worker:60/lore_worker:55, мёртвый function-local импорт удалён, `start():1692` — новое имя; K1-гейт не тронут) + `test_mca19_block_c` (+2 теста `:490–527`: реальный прод-путь `start()` с настоящим AsyncIOScheduler — running/тик 5с/runtime-регистрация/shutdown, и K1 OFF → без scheduler/store). Мои прогоны: 2/2 + focused A–G+rework **116 passed**; module-import чист; хеши `d6032dc0…`/`776e4f83…` подтверждены, дрейфа против манифеста итер.2 нет (database/chat_context/routes/factcheck/search — байт-в-байт). Биндинг T-5126b: HEAD `ff956691`, дельта-манифест MANIFEST_SHA256 `8a95bb46058f8cc60cd7e2207c6398279d4c7cbebfdd45efba3e6bc9fb261bf9`, FILE_COUNT 5 (база — коммит `35f0dbc`, связан манифестом итер.2 `da861426…`). Напоминание деплой-шагу: снять prod-оверрайд `MCA_VISION_ENABLED=false` (стабилизация T-5126) после старта версии с фиксом; миграцию v32 не повторять.
+
+R17: секретов нет.

@@ -487,6 +487,46 @@ async def test_worker_tick_processes_and_prioritizes_manual(tmp_path,
                 if j.get("kind") == mca_vision.VISION_JOB_KIND]
 
 
+# ── T-5126b: реальный `start()` (вызов bot.py:807) и гейт K1 OFF ────────────
+
+@pytest.mark.asyncio
+async def test_worker_start_runs_scheduler_t5126b(tmp_path, _enabled):
+    """Прод-путь `start()` целиком: планировщик создаётся, тик-джоба
+    зарегистрирована (тик ≤ VISION_TICK_SECONDS), worker в runtime.
+    До фикса T-5126b падал: NameError: _aps (импорт был function-local
+    в __init__, а start() ссылался на чужое имя)."""
+    db = await _fresh(tmp_path)
+    worker = mca_vision.VisionMediaWorker(db, None)
+    worker.start()
+    try:
+        sched = worker._scheduler
+        assert sched is not None and sched.running
+        job = sched.get_job("vision_media_tick")
+        assert job is not None
+        assert (job.trigger.interval
+                == datetime.timedelta(
+                    seconds=mca_vision.VISION_TICK_SECONDS))
+        assert mca_vision._RUNTIME.get("worker") is worker
+    finally:
+        await worker.shutdown()
+    assert worker._scheduler is None
+    assert mca_vision._RUNTIME.get("worker") is not worker
+
+
+@pytest.mark.asyncio
+async def test_worker_start_gate_k1_off_no_tick_t5126b(tmp_path):
+    """Гейт: K1 OFF → start() не создаёт планировщик/сторе и не тикает
+    (поведение при выключенном мастере фиксом не менялось)."""
+    from tests.test_mca19_block_b_round1043 import patched_settings
+    db = await _fresh(tmp_path)
+    worker = mca_vision.VisionMediaWorker(db, None)
+    with patched_settings(MCA_VISION_ENABLED=False):
+        worker.start()
+    assert worker._scheduler is None
+    assert worker._store is None
+    assert mca_vision._RUNTIME.get("worker") is not worker
+
+
 # ── Backfill (D14/T-5115): bounded, идемпотентный, missing_source ───────────
 
 @pytest.mark.asyncio

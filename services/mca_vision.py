@@ -42,6 +42,7 @@ import struct
 import time
 
 import httpx
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from config.settings import settings
 from services import hot_config as hot
@@ -1669,7 +1670,6 @@ class VisionMediaWorker:
 
     def __init__(self, db, bot, *, max_per_tick: int = 6,
                  transport=None) -> None:
-        import apscheduler.schedulers.asyncio as _aps
         self._db = db
         self._bot = bot
         self._transport = transport     # None → прод-транспорт (tests: мок)
@@ -1689,7 +1689,7 @@ class VisionMediaWorker:
         from services.task_supervisor import TaskJobStore
         self._store = TaskJobStore(self._db)
         self._sem = asyncio.Semaphore(ANALYSIS_CONCURRENCY)
-        self._scheduler = _aps.AsyncIOScheduler(timezone=self._tz_name)
+        self._scheduler = AsyncIOScheduler(timezone=self._tz_name)
         self._scheduler.add_job(self._tick, "interval",
                                 seconds=VISION_TICK_SECONDS,
                                 id="vision_media_tick",
