@@ -466,6 +466,26 @@ KILL_SWITCHES: dict[str, tuple[bool, str]] = {
         "temporal_cache_disabled); кеш поиска/загрузок (slug "
         "search/web/youtube) не затрагивается; инертен при мастере OFF",
     ),
+    # ── mca-12 (ADR-1028-21 §8.3/D13, санкция T-5154): ровно 2 kill-switch
+    # фичи (83→85); env-only, default ON, OFF = паритет по своей оси.
+    # K1 — мастер витринного контура (блок «Истории чата» на «Статусе» +
+    # read-API `/api/stories/summary|/feed|/api/stories|/api/stories/{id}` +
+    # витрины T-5169); K2 — мутационный контур (POST /api/stories/{id}/action).
+    # Гейты НЕЗАВИСИМЫ по осям (прецедент mca-07); `MCA_EPISODES_ENABLED` /
+    # `MCA_EVENT_CONTRACT_ENABLED` / `MCA_PROVENANCE_ENABLED` уважаются,
+    # не дублируются.
+    "MCA_STORIES_VITRINA_ENABLED": (
+        True,
+        "OFF → блок «Истории чата» скрыт, read-API отвечает честным "
+        "disabled-состоянием (не 404-заглушка); существующие виджеты не "
+        "затронуты (паритет по своей оси)",
+    ),
+    "MCA_STORIES_MANAGE_ENABLED": (
+        True,
+        "OFF → только просмотр; POST action отклоняется честным disabled "
+        "(409); сам фасад mca-05 не выключается (его жизненный цикл — "
+        "MCA_EPISODES_ENABLED)",
+    ),
 }
 
 
@@ -1909,3 +1929,29 @@ def temporal_max_evidence_per_run() -> int:
     """`MCA_TEMPORAL_MAX_EVIDENCE_PER_RUN` (env-only, default 20): потолок
     evidence-строк на прогон (защита от раздувания v33)."""
     return _int_setting_min("MCA_TEMPORAL_MAX_EVIDENCE_PER_RUN", 20, 1)
+
+
+# ── mca-12 (ADR-1028-21 §8.3/D13): kill-switch'и витрины «Истории чата» ─────
+# Ровно 2 рубильника фичи (83→85); резолв per-call, никогда не бросают.
+# Гейты независимы по осям: K1 — read-контур (витрина+read-API+витрины
+# T-5169), K2 — мутационный контур. `MCA_EPISODES_ENABLED` (жизненный цикл
+# фасада mca-05) уважается, не дублируется.
+
+def stories_vitrina_enabled() -> bool:
+    """`MCA_STORIES_VITRINA_ENABLED` (мастер read-контура, env-only,
+    default ON; K1).
+
+    ON → блок «Истории чата» + read-API `/api/stories*` + витрины смежных
+    T-5169 существуют. OFF → блок скрыт, read-API — честный disabled
+    (не 404-заглушка)."""
+    return bool(getattr(settings, "MCA_STORIES_VITRINA_ENABLED", True))
+
+
+def stories_manage_enabled() -> bool:
+    """`MCA_STORIES_MANAGE_ENABLED` (мутационный контур, env-only,
+    default ON; K2; независим от K1).
+
+    ON → POST `/api/stories/{id}/action` доступен (под RBAC/CAS). OFF →
+    только просмотр; действие отклоняется честным disabled (409). Фасад
+    mca-05 не выключается этим рубильником."""
+    return bool(getattr(settings, "MCA_STORIES_MANAGE_ENABLED", True))

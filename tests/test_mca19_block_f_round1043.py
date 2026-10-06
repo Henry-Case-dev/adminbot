@@ -117,7 +117,9 @@ def test_screen_map_and_registry_artifacts_regenerated():
 
 def test_kill_switches_registry_80():
     # MCA-20 (round 10.44): 80 → 83 (+3 temporal factcheck).
-    assert len(mca_gates.KILL_SWITCHES) == 83      # 80 → 83
+    # MCA-12 (round 10.46, ADR-1028-21 §8.3): 83 → 85 (+2 MCA_STORIES_*) —
+    # санкционированный bump по конвенции.
+    assert len(mca_gates.KILL_SWITCHES) == 85      # 80 → 83 → 85
     assert VISION_KILL_SWITCHES <= set(mca_gates.KILL_SWITCHES)
     for name in VISION_KILL_SWITCHES:
         default, off_parity = mca_gates.KILL_SWITCHES[name]

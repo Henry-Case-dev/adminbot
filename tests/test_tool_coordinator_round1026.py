@@ -693,7 +693,16 @@ class TestBounds:
                                              "web/api/deps.py",
                                              "web/api/analytics.py",
                                              "web/static/polygon-background.js",
-                                             "web/static/telegram-init.js"))
+                                             "web/static/telegram-init.js",
+                                             # mca-12 (round 10.46,
+                                             # ADR-1028-21 §7.5/D2): NEW
+                                             # `web/api/stories.py` (роутер
+                                             # «Истории чата», 5 маршрутов) +
+                                             # re-export в `web/api/__init__.py`
+                                             # (регистрация — web/app.py;
+                                             # routes.py НЕ менялся).
+                                             "web/api/stories.py",
+                                             "web/api/__init__.py"))
                        for n in names)
         # NOTE (round1027, MCA-01 / ADR-1027-3 D3): `services/summary_memory.py`
         # санкционированно переведён на единый single-writer
@@ -793,7 +802,7 @@ class TestBounds:
             summary_changed
 
     def test_version_and_catalog(self):
-        assert APP_VERSION == "2.58.64"
+        assert APP_VERSION == "2.58.65"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
         assert len(pc.REGISTRY) == 523
         assert len({f.name for f in dataclasses.fields(Settings)}) == 454

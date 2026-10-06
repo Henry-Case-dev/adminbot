@@ -665,6 +665,11 @@ class TestBoundsA3:
         # (round1028 ASAP-3.1 + round1030 ASAP-4), +
         # `web/static/polygon-background.js` (round1026/1028 визуальный эпик),
         # + `web/static/telegram-init.js` (round1028 TMA-init). Уже выпущены.
+        # NOTE (mca-12, round 10.46, ADR-1028-21 §7.5/D2, санкция T-5154):
+        # + `web/api/stories.py` (NEW роутер «Истории чата», 5 маршрутов) и +
+        # `web/api/__init__.py` (re-export роутера; регистрация — web/app.py,
+        # прецедент зон). `web/api/routes.py` НЕ менялся (byte-freeze
+        # ROUTES_SHA256_F11 держится).
         assert not any(ln.startswith("web/")
                        and not ln.startswith(("web/app.js", "web/index.html",
                                               "web/app.py",
@@ -682,7 +687,10 @@ class TestBoundsA3:
                                               "web/api/deps.py",
                                               "web/api/analytics.py",
                                               "web/static/polygon-background.js",
-                                              "web/static/telegram-init.js"))
+                                              "web/static/telegram-init.js",
+                                              # mca-12 (ADR-1028-21 §7.5/D2)
+                                              "web/api/stories.py",
+                                              "web/api/__init__.py"))
                        for ln in self._diff_names())
 
     def _diff_names(self):
@@ -707,7 +715,7 @@ class TestBoundsA3:
         import dataclasses
         from services import param_catalog as pc
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.64"            # bump запрещён (D8)
+        assert APP_VERSION == "2.58.65"            # bump запрещён (D8)
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in pc.REGISTRY
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}

@@ -378,6 +378,20 @@ def effective_story(row: dict) -> dict:
     return story
 
 
+def claims_identity(claims) -> list:
+    """Каноническая форма утверждений для сравнения unchanged-детектора
+    (M-MCA05-2): отсортированные пары (текст, refs) — порядок не шумит."""
+    return sorted(
+        (str(c.get("text") or ""),
+         tuple(sorted(str(r) for r in (c.get("refs") or ()))))
+        for c in (claims or ()) if isinstance(c, dict))
+
+
+def participants_identity(participants) -> list:
+    """Каноническая форма участников (multiset): порядок не шумит."""
+    return sorted(str(p) for p in (participants or ()))
+
+
 def _field(row, key, default=None):
     try:
         if isinstance(row, dict):
@@ -539,6 +553,142 @@ class EpisodeRepository:
             "SELECT * FROM mca_episodes WHERE chat_id = ? AND "
             "recheck_pending = 1 ORDER BY updated_at ASC, episode_id LIMIT ?",
             (int(chat_id), max(1, int(limit))))
+
+    # ── чтения mca-12 (ADR-1028-21 D6): read-side поверх v21 — read-only
+    # query-методы (пагинация/фильтры), Δ DDL = 0, модель не меняется ────────
+
+    @staticmethod
+    def like_pattern(value) -> str:
+        """Escaped LIKE-паттерн (TH-7: параметризованный запрос, метасимволы
+        пользовательского ввода экранируются, ESCAPE '\\')."""
+        escaped = (str(value or "")
+                   .replace("\\", "\\\\").replace("%", r"\%")
+                   .replace("_", r"\_"))
+        return f"%{escaped}%"
+
+    async def stories_page(
+            self, chat_id: int, *, limit: int = 20,
+            before_updated_at: int | None = None,
+            before_story_id: str | None = None,
+            title: str | None = None, q: str | None = None,
+            participant: str | None = None,
+            event_from: int | None = None, event_to: int | None = None,
+            discovered_from: int | None = None,
+            discovered_to: int | None = None,
+            updated_from: int | None = None, updated_to: int | None = None,
+            min_episodes: int | None = None, max_episodes: int | None = None,
+            state: str | None = None, verification: str | None = None,
+    ) -> tuple[list[dict], bool]:
+        """Keyset-страница историй чата (D6): сортировка
+        `(updated_at DESC, story_id DESC)` — индекс
+        `idx_mca_stories_chat_updated`; курсор
+        `(before_updated_at, before_story_id)`; фильтры — маппинг на
+        существующие колонки v21 (участники — LIKE-bounded JSON-scan в
+        пределах чата; число эпизодов — подзапрос links). Возврат
+        `(строки [+num_episodes], has_more)`. Fail-open — пустая страница."""
+        where = ["s.chat_id = ?"]
+        params: list = [int(chat_id)]
+        if title:
+            where.append("s.title LIKE ? ESCAPE '\\'")
+            params.append(self.like_pattern(title))
+        if q:
+            pattern = self.like_pattern(q)
+            where.append("(s.title LIKE ? ESCAPE '\\' OR s.summary "
+                         "LIKE ? ESCAPE '\\' OR s.claims_json "
+                         "LIKE ? ESCAPE '\\')")
+            params.extend([pattern, pattern, pattern])
+        if participant:
+            where.append("s.participants_json LIKE ? ESCAPE '\\'")
+            params.append(self.like_pattern(f'"{participant}"'))
+        if event_from is not None:
+            where.append("COALESCE(s.event_end_ts, s.event_start_ts) >= ?")
+            params.append(int(event_from))
+        if event_to is not None:
+            where.append("COALESCE(s.event_start_ts, s.event_end_ts) <= ?")
+            params.append(int(event_to))
+        if discovered_from is not None:
+            where.append("s.discovered_at >= ?")
+            params.append(int(discovered_from))
+        if discovered_to is not None:
+            where.append("s.discovered_at <= ?")
+            params.append(int(discovered_to))
+        if updated_from is not None:
+            where.append("s.updated_at >= ?")
+            params.append(int(updated_from))
+        if updated_to is not None:
+            where.append("s.updated_at <= ?")
+            params.append(int(updated_to))
+        if min_episodes is not None:
+            where.append("(SELECT COUNT(*) FROM mca_story_episode_links l "
+                         "WHERE l.story_id = s.story_id) >= ?")
+            params.append(int(min_episodes))
+        if max_episodes is not None:
+            where.append("(SELECT COUNT(*) FROM mca_story_episode_links l "
+                         "WHERE l.story_id = s.story_id) <= ?")
+            params.append(int(max_episodes))
+        if state:
+            where.append("s.state = ?")
+            params.append(str(state))
+        if verification:
+            where.append("s.verification = ?")
+            params.append(str(verification))
+        if before_updated_at is not None:
+            where.append("(s.updated_at < ? OR (s.updated_at = ? "
+                         "AND s.story_id < ?))")
+            params.extend([int(before_updated_at), int(before_updated_at),
+                           str(before_story_id or "")])
+        sql = (
+            "SELECT s.*, (SELECT COUNT(*) FROM mca_story_episode_links l "
+            "WHERE l.story_id = s.story_id) AS num_episodes "
+            f"FROM mca_stories s WHERE {' AND '.join(where)} "
+            "ORDER BY s.updated_at DESC, s.story_id DESC LIMIT ?")
+        rows = await self._fetch_all(sql, tuple(params) + (max(1, int(limit)) + 1,))
+        has_more = len(rows) > int(limit)
+        return rows[:max(1, int(limit))], has_more
+
+    async def stories_counters(self, chat_id: int) -> dict:
+        """SQL-агрегаты счётчиков витрины (D5): всего (без redirect-источников
+        — они скрыты фасадом), ожидающие проверки (противоречия:
+        verification='tentative'), исключённые из retrieval. Fail-open — нули
+        интерпретирует вызывающий (честные пустые состояния, не нули)."""
+        row = await self._fetch_one(
+            "SELECT COUNT(*) AS total, SUM(CASE WHEN state = 'open' AND "
+            "verification = 'tentative' THEN 1 ELSE 0 END) AS pending, "
+            "SUM(CASE WHEN excluded_from_retrieval = 1 THEN 1 ELSE 0 END) "
+            "AS excluded FROM mca_stories WHERE chat_id = ? AND story_id "
+            "NOT IN (SELECT old_id FROM mca_story_redirects "
+            "WHERE old_kind = 'story')", (int(chat_id),))
+        return {
+            "total": int((row or {}).get("total") or 0),
+            "pending_verification": int((row or {}).get("pending") or 0),
+            "excluded_from_retrieval": int((row or {}).get("excluded") or 0),
+        }
+
+    async def episode_messages_by_ids(self, episode_ids: list[str],
+                                      ) -> list[dict]:
+        """Эпизоды по ID (карточка, D7): хронология + исходные ключи
+        сообщений. Fail-open — пустой список."""
+        if not episode_ids:
+            return []
+        bounded = [str(e) for e in dict.fromkeys(episode_ids)][:400]
+        placeholders = ",".join("?" * len(bounded))
+        return await self._fetch_all(
+            f"SELECT * FROM mca_episodes WHERE episode_id IN ({placeholders}) "
+            "ORDER BY COALESCE(event_start_ts, discovered_at), episode_id",
+            tuple(bounded))
+
+    async def stories_titles(self, story_ids: list[str]) -> dict[str, str]:
+        """Текущие названия историй (обогащение ленты, TH-4: наружу только
+        названия/статусы). Fail-open — без названий."""
+        if not story_ids:
+            return {}
+        bounded = [str(s) for s in dict.fromkeys(story_ids)][:100]
+        placeholders = ",".join("?" * len(bounded))
+        rows = await self._fetch_all(
+            f"SELECT story_id, title FROM mca_stories "
+            f"WHERE story_id IN ({placeholders})", tuple(bounded))
+        return {str(r["story_id"]): str(r.get("title") or "")
+                for r in rows}
 
     # ── записи (write_transaction, короткие) ──────────────────────────────
 
@@ -2155,6 +2305,34 @@ class EpisodeService:
                         if str(card.get(field) or "") != str(desired or ""):
                             unchanged = False
                             break
+                if unchanged:
+                    # M-MCA05-2 (ADR-1028-21 D16/T-5161): содержательное
+                    # ядро — claims/участники/даты событий. Без сравнения
+                    # recheck-ревизия утверждений не создавала версию и
+                    # карточка оставалась устаревшей (backlog «закрыть до
+                    # mca-12»). Override-колонок у этих полей нет —
+                    # сравниваются напрямую с сохранённой строкой.
+                    if participants_identity(_json_loads(
+                            existing_story.get("participants_json"), [])) \
+                            != participants_identity(participants):
+                        unchanged = False
+                    if claims_identity(_json_loads(
+                            existing_story.get("claims_json"), [])) \
+                            != claims_identity(claims):
+                        unchanged = False
+                    desired_start = (min(events_start) if events_start
+                                     else None)
+                    desired_end = (max(events_end) if events_end else None)
+                    for ts_field, desired_ts in (
+                            ("event_start_ts", desired_start),
+                            ("event_end_ts", desired_end)):
+                        current_ts = existing_story.get(ts_field)
+                        current_ts = (int(current_ts)
+                                      if current_ts is not None else None)
+                        if current_ts != (int(desired_ts)
+                                          if desired_ts is not None
+                                          else None):
+                            unchanged = False
                 if unchanged:
                     continue
             try:

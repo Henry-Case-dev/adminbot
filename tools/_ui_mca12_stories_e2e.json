@@ -1,0 +1,48 @@
+{
+ "probes": {
+  "desktop_1280x800": {
+   "innerWidth": 1280,
+   "docOverflow": false,
+   "vitrina": true,
+   "feedItems": 8,
+   "feedDistinct": 8,
+   "bothDates": true,
+   "anchorTop": 2402,
+   "countersText": " Истории чата всего: 2 новые/дополненные (24ч): 1/1ожидают проверки: 1данные от 07.10.2026, 03:16:16Пауза⟳Открыть таблицу в «Памяти» Обработка (episodes.build): success · 22.09.2026, 02:03:20 Архивный backfill: pausedпротиворечий за окно: 1дополненаПоход на Эльбрус события: 15.04.2022 — 15.04.2022 · обнаружена: 22.09.2026 · участники: 7, 12 · 22.09, 00:41ПодробнеепересобранаПоход на Эльбрус событ",
+   "progressText": " Обработка (episodes.build): success · 22.09.2026, 02:03:20 Архивный backfill: pausedпротиворечий за окно: 1",
+   "position": true
+  },
+  "desktop_1280x800_after_prepend": {
+   "innerWidth": 1280,
+   "docOverflow": false,
+   "vitrina": true,
+   "feedItems": 10,
+   "feedDistinct": 10,
+   "bothDates": true,
+   "anchorTop": 2341,
+   "countersText": " Истории чата всего: 2 новые/дополненные (24ч): 1/1ожидают проверки: 1данные от 07.10.2026, 03:16:18Пауза⟳Открыть таблицу в «Памяти» Обработка (episodes.build): success · 22.09.2026, 02:03:20 Архивный backfill: pausedпротиворечий за окно: 1дополненаПоход на Эльбрус события: 15.04.2022 — 15.04.2022 · обнаружена: 22.09.2026 · участники: 7, 12 · 22.09, 00:43ПодробнеедополненаПоход на Эльбрус события",
+   "progressText": " Обработка (episodes.build): success · 22.09.2026, 02:03:20 Архивный backfill: pausedпротиворечий за окно: 1",
+   "position": true
+  },
+  "mobile_390x844": {
+   "innerWidth": 390,
+   "docOverflow": false,
+   "vitrina": true,
+   "feedItems": 8,
+   "feedDistinct": 8,
+   "bothDates": true,
+   "anchorTop": 4102,
+   "countersText": " Истории чата всего: 2 новые/дополненные (24ч): 1/1ожидают проверки: 1данные от 07.10.2026, 03:16:29Пауза⟳Открыть таблицу в «Памяти» Обработка (episodes.build): success · 22.09.2026, 02:03:20 Архивный backfill: pausedпротиворечий за окно: 1дополненаПоход на Эльбрус события: 15.04.2022 — 15.04.2022 · обнаружена: 22.09.2026 · участники: 7, 12 · 22.09, 00:41ПодробнеепересобранаПоход на Эльбрус событ",
+   "progressText": " Обработка (episodes.build): success · 22.09.2026, 02:03:20 Архивный backfill: pausedпротиворечий за окно: 1",
+   "position": true
+  },
+  "k1_off": "hidden (честный disabled API)"
+ },
+ "screenshots": [
+  "C:\\Code\\Python\\adminbot\\tools\\_ui_mca12_status_desktop.png",
+  "C:\\Code\\Python\\adminbot\\tools\\_ui_mca12_memory_desktop.png",
+  "C:\\Code\\Python\\adminbot\\tools\\_ui_mca12_status_mobile.png"
+ ],
+ "console_errors": [],
+ "failures": []
+}

@@ -2881,3 +2881,28 @@
     .pipe-run-row:focus-visible {
       outline: 2px solid rgba(110, 168, 254, .7);
     }
+
+/* ══ Раунд 10.46 (MCA-12, ADR-1028-21 D3/D4): блок «Истории чата» ═════════
+   Аддитивные стили витрины (Liquid Glass: карточка, не админ-таблица;
+   палитра/радиусы — существующие токены). Лента — вертикальный
+   пользовательский скролл с bounded-высотой (прецедент facts-list);
+   reduced-motion — без анимаций (prepend мгновенный). */
+.stories-feed {
+  max-height: 22rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: .375rem;
+  overscroll-behavior: contain;
+}
+.stories-item {
+  border: 1px solid rgba(255, 255, 255, .06);
+}
+.stories-item--stale {
+  opacity: .75;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stories-feed {
+    scroll-behavior: auto;
+  }
+}

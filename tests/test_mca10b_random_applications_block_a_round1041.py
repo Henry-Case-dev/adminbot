@@ -252,7 +252,9 @@ def test_kill_switch_registry_73_and_defaults():
     # реестра 76→80 (+4 MCA_VISION_*) — счётчик обновлён по конвенции.
     # mca-20 (round 10.44, ADR-1028-20 §8.3): санкционированный bump
     # реестра 80→83 (+3 MCA_TEMPORAL_FACTCHECK_*) — та же конвенция.
-    assert len(mca_gates.KILL_SWITCHES) == 83
+    # mca-12 (round 10.46, ADR-1028-21 §8.3): санкционированный bump
+    # реестра 83→85 (+2 MCA_STORIES_*) — та же конвенция.
+    assert len(mca_gates.KILL_SWITCHES) == 85
     assert "MCA_RANDOM_USES_ENABLED" in mca_gates.KILL_SWITCHES
     assert mca_gates.KILL_SWITCHES["MCA_RANDOM_USES_ENABLED"][0] is True
     assert mca_gates.random_uses_enabled() is True

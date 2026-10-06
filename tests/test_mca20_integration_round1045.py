@@ -278,7 +278,9 @@ class TestObservabilityContract:
                  "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED",
                  "MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED"}
         assert names <= set(mca_gates.KILL_SWITCHES)
-        assert len(mca_gates.KILL_SWITCHES) == 83
+        # MCA-12 (round 10.46, ADR-1028-21 §8.3): санкционированный bump
+        # реестра 83 → 85 (+2 MCA_STORIES_*) — счётчик обновлён по конвенции.
+        assert len(mca_gates.KILL_SWITCHES) == 85
 
     def test_gate_inertness(self):
         with pytest.MonkeyPatch.context() as mp:

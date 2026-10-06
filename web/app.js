@@ -2013,6 +2013,50 @@
         // размер/очищенная ошибка/key_present.
         randomCheck: null,
         randomCheckBusy: false,
+        // ── Раунд 10.46 (MCA-12, ADR-1028-21 D3/D4): блок «Истории чата» ──
+        // Витрина на «Статусе» + таблица/карточка в «Памяти» (read поверх
+        // /api/stories/*). enabled/manage_enabled учатся с сервера (K1/K2 —
+        // честный disabled, не догадка UI). Лента: prepend без сброса
+        // scroll (A26), курсор + дедуп (A54), пауза, обе даты (A11).
+        storiesSummary: null,
+        storiesSummaryBusy: false,
+        storiesSummaryError: '',
+        storiesFeed: [],            // новые сверху (newest-first)
+        storiesFeedCursor: 0,
+        storiesFeedBusy: false,
+        storiesFeedError: '',
+        storiesFeedHasMore: false,
+        storiesFeedPaused: false,   // локальная пауза опроса (честная пометка)
+        storiesFeedAt: 0,           // ts последнего успешного опроса (stale ≠ healthy)
+        storiesFeedTimer: null,
+        storiesFeedSeq: 0,          // guard устаревших ответов при смене чата
+        storiesEnabled: true,       // K1 (learned: enabled:false у API → скрыть)
+        storiesManageEnabled: true, // K2 (learned с сервера)
+        storiesCard: null,          // подробная карточка НА МЕСТЕ (без навигации)
+        storiesCardBusy: false,
+        // Таблица/карточка в «Памяти» (серверная пагинация + фильтры).
+        storiesTable: null,
+        storiesTableBusy: false,
+        storiesTableError: '',
+        storiesFilters: {
+          q: '', participant: '', state: '', verification: '',
+          event_from: '', event_to: '', discovered_from: '',
+          discovered_to: '', min_episodes: '', max_episodes: '',
+        },
+        storiesDraft: null,         // черновик правки карточки (CAS expected_version)
+        storiesManageCard: null,    // полная карточка в «Памяти»
+        storiesMergeTarget: '',     // id цели merge (ввод в карточке)
+        storiesSplitSelection: {},  // выбранные эпизоды split
+        storiesActionBusy: false,
+        storiesActionError: '',
+        storiesRebuildBusy: false,
+        // T-5169: витрины смежных фич (существующие API, fail-open).
+        adjacentVision: null,
+        adjacentFactcheck: null,
+        adjacentSelfModel: null,
+        // §16.3: настройки блока инициативы — рендер существующих ParamSpec
+        // (default/effective/источник/hot-restart); Δ каталога = 0.
+        storiesSettingsOpen: false,
         logs: [],
         logsCount: 0,
         logsLoading: false,
@@ -4029,6 +4073,10 @@
         // опыта (идемпотентно, fail-open; admin-only данные).
         if (id === 'memory_rag') {
           this.loadLessons();
+          // MCA-12: таблица управления историями — лениво при входе.
+          if (typeof this.loadStoriesTable === 'function') {
+            this.loadStoriesTable(true);
+          }
         }
         // F2 (T-2540): после смены вкладки контент v-if достраивается позже —
         // пересчитываем уровень стекла после рендера (в дополнение к observer).
@@ -4678,6 +4726,16 @@
             // ASAP-3.1 (T-4077): компактный блок «Бюджеты интеллекта» —
             // цифры из того же resolver'а (Status не считает сам, §29).
             this.loadBudgetsAuto();
+          }
+          // MCA-12: смена чата → лента/счётчики перечитываются; курсор и
+          // открытая карточка сбрасываются (другой чат — другие данные).
+          if (typeof this.resetStoriesFeed === 'function') {
+            this.resetStoriesFeed();
+            this.storiesCard = null;
+            this.storiesSummary = null;
+            if (typeof this.startStoriesPolling === 'function') {
+              this.startStoriesPolling();
+            }
           }
         }
         // ASAP-3.1 (T-4064): карточка автобюджетов на странице «Бюджеты».
@@ -5868,6 +5926,519 @@
         this.loadRelatedEvents();
         if (typeof this.navigateTo === 'function') this.navigateTo('#/');
       },
+
+      // ═══ MCA-12 (round 10.46, ADR-1028-21): «Истории чата» ═══════════════
+      // Витрина «Статус» (D3–D5) + таблица/карточка «Памяти» (D6–D8). Read —
+      // /api/stories/*; мутации — только существующие операции фасада mca-05
+      // (CAS expected_version; 409 stale — показать актуальную версию, чужие
+      // правки не затирать, A13). Пауза/дедуп/курсор — A54; prepend без
+      // сброса scroll — A26; обе даты — A11; честные пустые состояния — D5.
+
+      // Чистый merge страниц ленты: дедуп по event id, новые сверху.
+      storiesMergeEvents: function (existing, incoming) {
+        var seen = {};
+        (existing || []).forEach(function (e) { seen[e.id] = true; });
+        var add = (incoming || []).filter(function (e) { return !seen[e.id]; });
+        return add.concat(existing || []);
+      },
+      // Монотонный курсор ленты = max event id.
+      storiesFeedCursorFrom: function (events) {
+        var cur = 0;
+        (events || []).forEach(function (e) {
+          if (e && e.id > cur) cur = e.id;
+        });
+        return cur;
+      },
+      // Прокрутка не сбрасывается (A26): контент добавлен сверху → сдвигаем
+      // scrollTop на добавленную высоту (пользователь остаётся на своей позиции).
+      storiesScrollPreserve: function (el, prevHeight, prevTop) {
+        if (!el) return;
+        var added = el.scrollHeight - prevHeight;
+        if (added > 0 && prevTop > 0) el.scrollTop = prevTop + added;
+      },
+      storiesEventLabel: function (name) {
+        var map = {
+          story_discovered: 'новая история',
+          story_extended: 'дополнена',
+          source_linked: 'связан источник',
+          contradiction_found: 'противоречие',
+          story_rebuilt: 'пересобрана',
+        };
+        return map[name] || name || 'событие';
+      },
+      storiesEventClass: function (name) {
+        if (name === 'story_discovered') return 'badge-ok';
+        if (name === 'contradiction_found') return 'badge-warn';
+        return 'badge-muted';
+      },
+      // A11: событие старой истории с новой датой обнаружения — обе даты.
+      storiesHasBothDates: function (ev) {
+        if (!ev) return false;
+        var disc = ev.discovered_at, start = ev.event_start || ev.event_end;
+        if (!disc || !start) return false;
+        return Math.abs(disc - start) > 36 * 3600;
+      },
+      fmtStoryDate: function (ts) {
+        if (ts == null) return '—';
+        var d = new Date(Number(ts) * 1000);
+        if (isNaN(d.getTime())) return '—';
+        return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      },
+      fmtStoryDateTime: function (ts) {
+        if (ts == null) return '—';
+        var d = new Date(Number(ts) * 1000);
+        if (isNaN(d.getTime())) return '—';
+        return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      },
+      storiesStateRu: function (s) {
+        return { open: 'открыта', closed: 'завершена', uncertain: 'исход неизвестен' }[s] || (s || '—');
+      },
+      storiesVerificationRu: function (v) {
+        return { unknown: 'не проверена', tentative: 'ожидает проверки',
+                 rejected: 'отклонена', confirmed: 'подтверждена' }[v] || (v || '—');
+      },
+      storiesOutcomeRu: function (o) {
+        if (!o) return '—';
+        return o === 'исход неизвестен' ? o : o;
+      },
+      loadStoriesSummary: async function () {
+        if (this.storiesSummaryBusy) return;
+        this.storiesSummaryBusy = true;
+        try {
+          var s = await this.api('/api/stories/summary');
+          this.storiesSummary = s || null;
+          this.storiesEnabled = !(s && s.enabled === false);
+          if (s && typeof s.manage_enabled === 'boolean') {
+            this.storiesManageEnabled = s.manage_enabled;
+          }
+          this.storiesSummaryError = '';
+        } catch (e) {
+          if (e && e.status === 403) {
+            this.storiesSummary = { enabled: true, state: 'restricted',
+                                    chat_id: null, counters: null };
+          } else {
+            this.storiesSummaryError = (e && e.status) ? ('HTTP ' + e.status) : 'ошибка сети';
+          }
+        } finally {
+          this.storiesSummaryBusy = false;
+        }
+      },
+      // Инкрементальный polling ленты (прецедент mca-17a §27.6): курсор +
+      // дедуп; reconnect — догрузка gap'а по курсору без дублей; stale ≠
+      // healthy (storiesFeedAt — «данные от…»).
+      loadStoriesFeed: async function () {
+        if (this.storiesFeedBusy) return;
+        var seq = ++this.storiesFeedSeq;
+        this.storiesFeedBusy = true;
+        try {
+          var data = await this.api('/api/stories/feed?cursor='
+                                    + (this.storiesFeedCursor || 0)
+                                    + '&limit=50');
+          if (seq !== this.storiesFeedSeq) return;   // чат сменился — ответ старый
+          if (data && data.enabled === false) {
+            this.storiesEnabled = false;
+            this.stopStoriesPolling();
+            return;
+          }
+          var incoming = (data && data.events) || [];
+          if (incoming.length) {
+            var el = this.$refs && this.$refs.storiesFeed;
+            var prevH = el ? el.scrollHeight : 0;
+            var prevT = el ? el.scrollTop : 0;
+            // новые сверху; существующие события не трогаем (открытая
+            // карточка не перерисовывается — A26).
+            this.storiesFeed = this.storiesMergeEvents(this.storiesFeed, incoming);
+            this.storiesFeedCursor = this.storiesFeedCursorFrom(this.storiesFeed);
+            if (el) {
+              var self = this;
+              this.$nextTick(function () {
+                self.storiesScrollPreserve(el, prevH, prevT);
+              });
+            }
+          }
+          this.storiesFeedHasMore = !!(data && data.has_more);
+          this.storiesFeedError = '';
+          this.storiesFeedAt = Date.now();
+        } catch (e) {
+          if (seq !== this.storiesFeedSeq) return;
+          // fail-open: лента не подменяется нулями — честный stale.
+          this.storiesFeedError = 'stale';
+        } finally {
+          this.storiesFeedBusy = false;
+        }
+      },
+      resetStoriesFeed: function () {
+        this.storiesFeed = [];
+        this.storiesFeedCursor = 0;
+        this.storiesFeedHasMore = false;
+        this.storiesFeedAt = 0;
+        this.storiesFeedError = '';
+      },
+      toggleStoriesFeedPause: function () {
+        this.storiesFeedPaused = !this.storiesFeedPaused;
+      },
+      startStoriesPolling: function () {
+        var self = this;
+        this.stopStoriesPolling();
+        this.loadStoriesSummary();
+        this.loadStoriesFeed();
+        this.storiesFeedTimer = setInterval(function () {
+          if (self.storiesFeedPaused) return;   // пауза — локальная остановка опроса
+          self.loadStoriesFeed();
+          // счётчики — реже ленты (тот же таймер, каждый 3-й тик).
+          self._storiesSummaryTick = (self._storiesSummaryTick || 0) + 1;
+          if (self._storiesSummaryTick % 3 === 0) self.loadStoriesSummary();
+        }, 12000);
+      },
+      stopStoriesPolling: function () {
+        if (this.storiesFeedTimer) {
+          clearInterval(this.storiesFeedTimer);
+          this.storiesFeedTimer = null;
+        }
+      },
+      // Подробная карточка НА МЕСТЕ (без навигации, :784).
+      openStoriesCard: async function (storyId) {
+        if (!storyId) return;
+        if (this.storiesCard && this.storiesCard.story
+            && this.storiesCard.story.story_id === storyId) {
+          this.storiesCard = null;
+          return;
+        }
+        this.storiesCardBusy = true;
+        try {
+          var card = await this.api('/api/stories/'
+                                    + encodeURIComponent(storyId));
+          if (card && typeof card.manage_enabled === 'boolean') {
+            this.storiesManageEnabled = card.manage_enabled;
+          }
+          this.storiesCard = card || null;
+        } catch (e) {
+          this.storiesCard = null;
+          this.toast('Карточка недоступна: ' + (e && e.detail ? e.detail : 'ошибка'), 'err');
+        } finally {
+          this.storiesCardBusy = false;
+        }
+      },
+      closeStoriesCard: function () {
+        this.storiesCard = null;
+      },
+      // «Открыть таблицу» → вкладка историй существующей «Памяти»
+      // (канонический маршрут вкладки #/memory/rag; нового маршрута нет;
+      // данные подтянет watch activeTab — loadStoriesTable).
+      openStoriesTable: function () {
+        if (typeof this.navigateTo === 'function') {
+          this.navigateTo('#/memory/rag');
+        } else {
+          this.setTab('memory_rag');
+        }
+      },
+      // Таблица «Памяти»: серверная keyset-пагинация + фильтры (D6).
+      storiesFilterQuery: function (overrides) {
+        var f = Object.assign({}, this.storiesFilters || {}, overrides || {});
+        var parts = [];
+        var add = function (k, v) {
+          if (v === '' || v == null) return;
+          parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(v));
+        };
+        add('q', f.q); add('participant', f.participant);
+        add('state', f.state); add('verification', f.verification);
+        add('event_from', f.event_from); add('event_to', f.event_to);
+        add('discovered_from', f.discovered_from);
+        add('discovered_to', f.discovered_to);
+        add('min_episodes', f.min_episodes);
+        add('max_episodes', f.max_episodes);
+        return parts.length ? ('&' + parts.join('&')) : '';
+      },
+      loadStoriesTable: async function (reset) {
+        if (this.storiesTableBusy) return;
+        this.storiesTableBusy = true;
+        try {
+          if (reset) this.storiesTable = null;
+          var cur = (!reset && this.storiesTable && this.storiesTable.next_cursor)
+            ? this.storiesTable.next_cursor : null;
+          var url = '/api/stories?limit=20';
+          if (cur) {
+            url += '&before_updated_at=' + encodeURIComponent(cur.updated_at)
+                 + '&before_story_id=' + encodeURIComponent(cur.story_id);
+          }
+          url += this.storiesFilterQuery();
+          var data = await this.api(url);
+          if (data && typeof data.manage_enabled === 'boolean') {
+            this.storiesManageEnabled = data.manage_enabled;
+          }
+          if (data && data.enabled === false) {
+            this.storiesEnabled = false;
+            this.storiesTable = data;
+            return;
+          }
+          if (cur && this.storiesTable && this.storiesTable.items) {
+            data.items = this.storiesTable.items.concat(data.items || []);
+          }
+          this.storiesTable = data || null;
+          this.storiesTableError = '';
+        } catch (e) {
+          this.storiesTableError = (e && e.detail) ? String(e.detail) : 'ошибка загрузки';
+        } finally {
+          this.storiesTableBusy = false;
+        }
+      },
+      storiesTableMore: function () {
+        return this.loadStoriesTable(false);
+      },
+      applyStoriesFilters: function () {
+        return this.loadStoriesTable(true);
+      },
+      resetStoriesFilters: function () {
+        this.storiesFilters = {
+          q: '', participant: '', state: '', verification: '',
+          event_from: '', event_to: '', discovered_from: '',
+          discovered_to: '', min_episodes: '', max_episodes: '',
+        };
+        return this.loadStoriesTable(true);
+      },
+      // Карточка в «Памяти» + черновик правки (CAS).
+      openStoriesManageCard: async function (storyId) {
+        this.storiesActionError = '';
+        this.storiesCardBusy = true;
+        try {
+          var card = await this.api('/api/stories/'
+                                    + encodeURIComponent(storyId));
+          this.storiesManageCard = card || null;
+          if (card && card.story) {
+            this.storiesDraft = {
+              title: card.story.title || '',
+              summary: card.story.summary || '',
+              state: card.story.state || 'open',
+              outcome: card.story.outcome || '',
+              expected_version: card.story.expected_version || 1,
+            };
+            this.storiesMergeTarget = '';
+            this.storiesSplitSelection = {};
+          }
+        } catch (e) {
+          this.storiesManageCard = null;
+          this.storiesDraft = null;
+          this.toast('Карточка недоступна', 'err');
+        } finally {
+          this.storiesCardBusy = false;
+        }
+      },
+      closeStoriesManageCard: function () {
+        this.storiesManageCard = null;
+        this.storiesDraft = null;
+        this.storiesActionError = '';
+      },
+      storiesOriginalHref: function (card) {
+        var links = (card && card.original && card.original.links) || [];
+        return links.length ? links[0].url : null;
+      },
+      storiesOriginalLabel: function (card) {
+        var o = (card && card.original) || {};
+        if (o.state === 'available') return 'Открыть оригинал';
+        if (o.state === 'archive_only') return 'Только архивный просмотр';
+        return 'Оригинал недоступен';
+      },
+      storiesAction: async function (storyId, action, payload) {
+        if (!storyId || !action) return null;
+        if (this.storiesActionBusy) return null;
+        this.storiesActionBusy = true;
+        this.storiesActionError = '';
+        try {
+          var body = Object.assign({ action: action }, payload || {});
+          var res = await this.api('/api/stories/'
+                                   + encodeURIComponent(storyId)
+                                   + '/action',
+                                   { method: 'POST',
+                                     body: JSON.stringify(body) });
+          // после действия — перечитать карточку/таблицу с первой страницы
+          // (версии изменились; keyset-курсор страницы сбрасывается честно)
+          if (this.storiesManageCard
+              && this.storiesManageCard.story
+              && this.storiesManageCard.story.story_id === storyId) {
+            await this.openStoriesManageCard(storyId);
+          }
+          await this.loadStoriesTable(true);
+          return res;
+        } catch (e) {
+          var code = (e && e.detail && e.detail.code) || '';
+          if (code === 'stale') {
+            // A13/TH-6: stale update — честный 409; актуальную версию
+            // показываем, слепую отправку не повторяем.
+            this.storiesActionError = 'Изменение отклонено: историю уже '
+              + 'изменили (актуальная версия v'
+              + ((e.detail && e.detail.current_version) || '?')
+              + '). Обновите карточку и повторите при необходимости.';
+            if (this.storiesManageCard && this.storiesManageCard.story) {
+              await this.openStoriesManageCard(storyId);
+            }
+          } else if (code === 'disabled') {
+            this.storiesActionError = 'Мутации отключены (только просмотр).';
+          } else if (e && e.status === 403) {
+            this.storiesActionError = 'Недостаточно прав для этого действия.';
+          } else if (e && e.status === 404) {
+            this.storiesActionError = 'История не найдена (возможно, объединена).';
+          } else if (code === 'conflict') {
+            this.storiesActionError = 'Действие неприменимо: '
+              + ((e.detail && e.detail.reason) || 'конфликт состояния') + '.';
+          } else {
+            this.storiesActionError = (e && e.detail) ? String(e.detail) : 'ошибка сети';
+          }
+          return null;
+        } finally {
+          this.storiesActionBusy = false;
+        }
+      },
+      saveStoriesEdit: async function () {
+        var card = this.storiesManageCard;
+        if (!card || !card.story || !this.storiesDraft) return null;
+        var d = this.storiesDraft;
+        var changed = {};
+        if ((d.title || '') !== (card.story.title || '')) changed.title = d.title;
+        if ((d.summary || '') !== (card.story.summary || '')) changed.summary = d.summary;
+        if ((d.state || '') !== (card.story.state || '')) changed.state = d.state;
+        if ((d.outcome || '') !== (card.story.outcome || '')) changed.outcome = d.outcome;
+        if (!Object.keys(changed).length) {
+          this.storiesActionError = 'Нет изменений (пустая правка — no-op).';
+          return null;
+        }
+        changed.expected_version = card.story.expected_version;
+        var res = await this.storiesAction(card.story.story_id, 'update', changed);
+        if (res && res.ok) this.toast('Правка сохранена (v' + res.expected_version + ')', 'ok');
+        return res;
+      },
+      storiesSplitIds: function (card) {
+        var sel = this.storiesSplitSelection || {};
+        return ((card && card.episodes) || [])
+          .filter(function (e) { return sel[e.episode_id]; })
+          .map(function (e) { return e.episode_id; });
+      },
+      rebuildStories: async function (storyId) {
+        if (this.storiesRebuildBusy) return null;
+        this.storiesRebuildBusy = true;
+        try {
+          var res = await this.storiesAction(storyId, 'rebuild', {});
+          if (res && res.ok) {
+            this.toast('Пересборка выполнена (противоречий: '
+                       + (res.contradictions || 0) + ')', 'ok');
+          }
+          return res;
+        } finally {
+          this.storiesRebuildBusy = false;
+        }
+      },
+      storiesStatusAll: function () {
+        var s = this.storiesSummary;
+        if (!s) return null;
+        return s;
+      },
+      // ── §16.3 (T-5167/T-5168): рендер intent_snapshot() + настройки ──────
+      intentsStateLabel: function (state) {
+        return { ok: 'данные', not_run: 'не запускалось', disabled: 'выключено',
+                 restricted: 'нет разрешённого чата',
+                 unavailable: 'недоступно' }[state] || (state || '—');
+      },
+      // Настройки §16.3 — СУЩЕСТВУЮЩИЕ ключи каталога (Δ каталога = 0):
+      // default — канон Settings (сверяется pytest-тестом); effective —
+      // загруженные configItems (если вкладка настроек открыта), иначе «—»;
+      // hot/restart — семантика существующего применения (chat_params/hot).
+      storiesSettingsMeta: function () {
+        var self = this;
+        var find = function (key) {
+          return (self.configItems || []).find(function (i) {
+            return i && i.key === key;
+          }) || null;
+        };
+        var val = function (key) {
+          var it = find(key);
+          if (!it || it.value == null) return '—';
+          return String(it.value);
+        };
+        var src = function (key) {
+          var it = find(key);
+          if (!it) return 'не загружено';
+          if (it.chat_source === 'chat') return 'чат (override)';
+          return 'глобальный слой';
+        };
+        var meta = [
+          { key: 'memory.random_exploration_probability',
+            title: 'Спонтанность: вероятность исследования',
+            def: '0.05', hot: 'hot (chat_params)' },
+          { key: 'memory.random_sleep_exploration_probability',
+            title: 'Спонтанность сна: вероятность исследования',
+            def: '0.05', hot: 'hot (chat_params)' },
+          { key: 'memory.random_source',
+            title: 'Источник случайности',
+            def: 'quantum', hot: 'hot (chat_params)' },
+          { key: 'memory.random_fallback_to_pseudorandom',
+            title: 'Fallback на псевдослучайность',
+            def: 'True', hot: 'hot (chat_params)' },
+          { key: 'limits.worker_daily_llm_calls_per_chat',
+            title: 'Фон: вызовов LLM в сутки на чат',
+            def: '60', hot: 'hot (bot_settings)' },
+          { key: 'limits.worker_daily_llm_calls_global',
+            title: 'Фон: вызовов LLM в сутки глобально',
+            def: '200', hot: 'hot (bot_settings)' },
+          { key: 'flags.budgets_enabled',
+            title: 'Бюджеты включены',
+            def: 'True', hot: 'hot (bot_settings)' },
+          { key: 'limits.chat_context_budget_tokens',
+            title: 'Бюджет контекста, токенов',
+            def: '16000', hot: 'hot (bot_settings)' },
+        ];
+        return meta.map(function (m) {
+          return Object.assign({}, m, {
+            effective: val(m.key), source: src(m.key),
+          });
+        });
+      },
+      // ── T-5169: витрины смежных фич (компакт, существующие API) ─────────
+      loadAdjacentVitrines: function () {
+        var self = this;
+        var now = Date.now();
+        if (this._adjacentAt && (now - this._adjacentAt) < 30000) return;
+        this._adjacentAt = now;
+        // mca-19: vision — существующий GET /api/vision/state.
+        this.api('/api/vision/state')
+          .then(function (s) { self.adjacentVision = s || null; })
+          .catch(function () { self.adjacentVision = null; });
+        // mca-20: временой фактчек — последнее событие (limit=1, компакт).
+        this.api('/api/factcheck/temporal/runs?limit=1')
+          .then(function (s) {
+            var runs = (s && s.runs) || [];
+            self.adjacentFactcheck = runs.length ? runs[0] : null;
+          })
+          .catch(function () { self.adjacentFactcheck = null; });
+        // mca-18: SelfModel — существующий GET /api/persona/self-model.
+        this.api('/api/persona/self-model')
+          .then(function (s) { self.adjacentSelfModel = s || null; })
+          .catch(function () { self.adjacentSelfModel = null; });
+      },
+      adjacentVisionLine: function () {
+        var s = this.adjacentVision;
+        if (!s) return null;
+        var head = s.effective_enabled ? 'Работает' : 'Не активно';
+        if (s.visible_reason) head += ': ' + s.visible_reason;
+        return head;
+      },
+      adjacentFactcheckLine: function () {
+        var r = this.adjacentFactcheck;
+        if (!r) return null;
+        return (this.temporalStatusLabel(r.temporal_status)) + ' · '
+          + (this.temporalFactualLabel(r.factual_verdict)) + ' · '
+          + (r.created_at ? this.fmtStoryDateTime(r.created_at) : '—');
+      },
+      adjacentSelfModelLine: function () {
+        var s = this.adjacentSelfModel;
+        if (!s) return null;
+        if (s.enabled === false) return 'выключено';
+        var parts = [];
+        if (s.state && s.state.text) parts.push(String(s.state.text));
+        if (s.composition) {
+          parts.push('активных правил: ' + (s.composition.dynamics || 0));
+        }
+        return parts.join(' · ') || 'данных нет';
+      },
+
       // Hotfix-R10 («Модули» без выбранного чата): Opt-In-сводка из
       // Oversight-данных удалена в 10.9 (карточка дублирующих гейтов убрана).
       oversightRows: function () {
@@ -9032,6 +9603,18 @@
           this.stopStatusPolling();
           this.stopCognitionPolling();   // F5-Q3: вне «Статуса» — стоп
           this.destroyCognitionGraph();  // R10.11-5: нет stale-инстанса
+        }
+        // MCA-12: лента «Истории чата» живёт ТОЛЬКО на «Статусе» (12с);
+        // витрины смежных T-5169 — лениво, ~30с кэш (fail-open).
+        if (typeof this.startStoriesPolling === 'function') {
+          if (id === 'status') {
+            this.startStoriesPolling();
+            if (typeof this.loadAdjacentVitrines === 'function') {
+              this.loadAdjacentVitrines();
+            }
+          } else {
+            this.stopStoriesPolling();
+          }
         }
         if (id === 'oversight') {
           this.loadMemoryWidget();       // F5/§7: виджет «Сводка»

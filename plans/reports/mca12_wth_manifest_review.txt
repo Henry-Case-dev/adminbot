@@ -1,0 +1,37 @@
+MCA-12 review working-tree manifest (T-5172, Reviewer; candidate = working tree over HEAD e12a94d)
+HEAD: e12a94d1dcaa5201b878058ebfe613f42195e2bb (prod-line 0db30a2+e12a94d = origin/master; prod 2.58.64/v33/vision ON)
+Generated (UTC): 2026-10-06T16:42:59Z
+Verdict: see review.md (Approved - binding: MANIFEST_SHA256 below).
+Scope: ONLY mca-12 candidate files (evidence.md "Дельта" + feature package). Working tree also holds uncommitted non-mca-12 WIP (plans/workflow_state.md, plans/backlog.md, plans/MEMORY.md, plans/docs/mca-round1027-arch-frames.md, plans/reports/mca20_wth_manifest_review.txt) and parallel packages (mca-17c, mca-21) - NOT part of this candidate, NOT bound here (brief: только кандидат-файлы mca-12).
+Excluded (debris/service, прецедент mca-20): .playwright-mcp/; node_modules/; package.json; package-lock.json; plans/verification_cache.json; deploy_commands.txt (absent); tools/_ui_asap43_*; tools/_mca18_*; tools/_mca19_wave2_*; tools/_t5126_*; tools/_t5126b_*; tools/_d2_*.
+Excluded (screenshots = E2E test artifacts, regenerable via tools/ui_mca12_stories_e2e.py; решение по прецеденту asap43): tools/_ui_mca12_status_desktop.png; tools/_ui_mca12_status_mobile.png; tools/_ui_mca12_memory_desktop.png. Machine-readable probe record tools/_ui_mca12_stories_e2e.json + runner INCLUDED.
+Excluded (reviewer output): this manifest; plans/features/mca-12-miniapp-stories/review.md.
+Recipe: sha256 over UTF-8 bytes of the sorted "hash  path" lines below plus trailing LF.
+
+d71441a987d54e167bd782c8a57026ee852857cafcc62122dcaf596c1590a313  config/settings.py
+e14449362a8ce471298c39107d082cb358871239da7ad0b7b01484c29ded26fa  plans/features/mca-12-miniapp-stories/adr-1028-21-miniapp-stories.md
+04bcc3491e0c60caadfbc4ab2eb0672e2b2db63bbc942b6c8500f500c2f171c6  plans/features/mca-12-miniapp-stories/evidence.md
+112d7c5787639123455dbbdea647faa44c279f390c8bb008995b638730de4dd1  plans/features/mca-12-miniapp-stories/requirements-map.md
+04cb5b987bf6a6bc9951b585aad64b06e5ab9e85de6f78fc08c6e9d07d9534fb  plans/features/mca-12-miniapp-stories/spec.md
+b7658da83a8716df0729186f2c8a6b5ee16e0dd92bb499fe711aa40c27a50112  plans/features/mca-12-miniapp-stories/tasks.md
+19e9a557e9eb21d7bc5ddd2a200955e1fa9875bc8408a4c78160f3eb63ae9800  plans/features/mca-12-miniapp-stories/threat-failure-analysis.md
+76d25cde577f9d8cbfba952d8a572bfc24b2f84a3233a611d7ec9ba84d85f867  services/mca_episodes.py
+d866eafa15c6ee643b5add27827f2b81091aed1accaa9c7b5409f9b66d60a9b9  services/mca_gates.py
+b1f326b3f3a0d23e4499c063824c794f75f53a8642c0c58ce6788287a5a2efb7  services/web_stories.py
+91e4b36993bc416033e4b0df8a82acf38ee4a8b7be3478a08926bbd2aa9fc6f4  tests/js/round1046_mca12_stories_ui_test.js
+a9f5fa983f8b273a60b50643bf2bef9ad00c6abc47feee5cf078dcefa34b1d57  tests/test_mca10b_random_applications_block_a_round1041.py
+a354bc7b0798b0239bd2d68ca32126cffa56bc0eca8234efd9f1da3f03dad6a6  tests/test_mca12_stories_round1046.py
+ff0d9a4b6963f0a96ce72078bf3943e365ed24c7f6c4458f87b958b797016da1  tests/test_mca19_block_f_round1043.py
+19e584ed3fc330dd03557575b8a481dd6ba2b9e1403aad4257f5d82e3c786700  tests/test_mca20_integration_round1045.py
+26f6458aae08fccb4b0064b1576dec7f80893344006d343d44fa1ba040af0426  tests/test_tool_coordinator_round1026.py
+0908941cce761cae693a50331173a4eb00fed2319c5f41b4acda85ddf4bf6b71  tests/test_unified_image_request_round1026.py
+bb6ef1f1dbd5407c239d3de95452b67c087d11f3dfceb01cc92cfa95916e623e  tools/_ui_mca12_stories_e2e.json
+d664372956b6544d57dc61a3b3cf02836430aebe019574f2bf22f2d604cb3e3c  tools/ui_mca12_stories_e2e.py
+0226c2dea006682b376418acf07c398e9ddadcfd21e41a60bba3bc009a5d7348  web/api/__init__.py
+c81ea9c6ed1b620961bd3d67b87ff8f7da0186907059a375f5a31772e32f0e00  web/api/stories.py
+6b3890e2decbf199bc3d5e73efbd4d2923bf48d0f6b46344aec7214d098ae346  web/app.js
+2102b6db59f609965ce16a7e122af68a7d910afac6b05edd5f065e238aaa5bbd  web/app.py
+edfca8f3444add55ee3d67e7b18b4b55537447b126af57417dfa6c0db1b24331  web/index.html
+5a2b1f495b12c6b57f288a601699b545c34825036d2058bb25f9bfe0f740f976  web/static/app.css
+MANIFEST_SHA256: a0bdb9cfc425fb8eb17348d550278a9c4cccea78285122ece2455a1387350952
+FILE_COUNT: 25

@@ -2071,6 +2071,279 @@
                   </div>
                 </template>
               </div>
+              <!-- Раунд 10.46 (MCA-12, ADR-1028-21 D6–D8, §16.2): таблица
+                   управления историями в СУЩЕСТВУЮЩЕЙ «Памяти» (не новый
+                   маршрут; прецедент lessons-таблицы выше). Серверная keyset-
+                   пагинация + фильтры + поиск (валидация на сервере, TH-7);
+                   действия — существующие операции фасада mca-05 с CAS
+                   (stale → 409, чужие правки не затираются, A13); Telegram-
+                   ссылка только из валидированных числовых метаданных, иначе
+                   честный архивный просмотр (T-5165). K2 OFF → только просмотр. -->
+              <div v-if="currentTab && currentTab.id === 'memory_rag' && storiesEnabled"
+                   class="col-span-full card p-4" data-stories-manage>
+                <div class="flex items-center gap-2 mb-2 flex-wrap">
+                  <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('auto_stories') }}</span> Истории (эпизоды)</div>
+                  <span v-if="storiesTable && storiesTable.items" class="text-xs text-gray-500">
+                    показано: {{ storiesTable.items.length }}<template v-if="storiesTable.has_more"> · есть ещё</template>
+                  </span>
+                  <span v-if="!storiesManageEnabled" class="badge badge-warn">только просмотр (мутации отключены)</span>
+                  <button class="btn-ghost text-xs ml-auto" :disabled="storiesTableBusy"
+                          @click="loadStoriesTable(true)">⟳</button>
+                </div>
+                <!-- Фильтры (серверные; период/обнаружение — unix ts; подсказка
+                     формата честная). -->
+                <div class="flex flex-wrap items-end gap-2 mb-2 text-xs" data-stories-filters>
+                  <label>Поиск (название/содержание):
+                    <input class="field w-44" v-model="storiesFilters.q"
+                           maxlength="200" placeholder="подстрока"
+                           @keyup.enter="applyStoriesFilters()">
+                  </label>
+                  <label>Участник (ID):
+                    <input class="field w-24" v-model="storiesFilters.participant"
+                           maxlength="64" @keyup.enter="applyStoriesFilters()">
+                  </label>
+                  <label>Состояние:
+                    <select class="field w-28" v-model="storiesFilters.state">
+                      <option value="">любое</option>
+                      <option value="open">открыта</option>
+                      <option value="closed">завершена</option>
+                      <option value="uncertain">исход неизвестен</option>
+                    </select>
+                  </label>
+                  <label>Проверка:
+                    <select class="field w-36" v-model="storiesFilters.verification">
+                      <option value="">любая</option>
+                      <option value="unknown">не проверена</option>
+                      <option value="tentative">ожидает проверки</option>
+                      <option value="rejected">отклонена</option>
+                    </select>
+                  </label>
+                  <label>События от (unix):
+                    <input class="field w-28" v-model="storiesFilters.event_from"
+                           maxlength="12" @keyup.enter="applyStoriesFilters()">
+                  </label>
+                  <label>до (unix):
+                    <input class="field w-28" v-model="storiesFilters.event_to"
+                           maxlength="12" @keyup.enter="applyStoriesFilters()">
+                  </label>
+                  <label>Обнаружена от (unix):
+                    <input class="field w-28" v-model="storiesFilters.discovered_from"
+                           maxlength="12" @keyup.enter="applyStoriesFilters()">
+                  </label>
+                  <label>Мин. эпизодов:
+                    <input class="field w-16" v-model="storiesFilters.min_episodes"
+                           maxlength="4" @keyup.enter="applyStoriesFilters()">
+                  </label>
+                  <label>Макс. эпизодов:
+                    <input class="field w-16" v-model="storiesFilters.max_episodes"
+                           maxlength="4" @keyup.enter="applyStoriesFilters()">
+                  </label>
+                  <button class="btn-ghost text-xs" :disabled="storiesTableBusy"
+                          @click="applyStoriesFilters()">Применить</button>
+                  <button class="btn-ghost text-xs" :disabled="storiesTableBusy"
+                          @click="resetStoriesFilters()">Сброс</button>
+                </div>
+                <div v-if="storiesTableBusy && !storiesTable" class="spinner my-2"></div>
+                <div v-else-if="storiesTableError" class="text-xs text-red-300">{{ storiesTableError }}</div>
+                <div v-else-if="!storiesTable" class="text-xs text-gray-500">Данные недоступны.</div>
+                <div v-else-if="storiesTable.enabled === false" class="text-xs text-gray-500">
+                  Витрина историй выключена (MCA_STORIES_VITRINA_ENABLED=OFF).
+                </div>
+                <div v-else-if="storiesTable.state === 'no_chat'" class="text-xs text-gray-500">
+                  Выберите чат — таблица показывает истории выбранного чата (server-side пагинация).
+                </div>
+                <div v-else-if="!storiesTable.items || !storiesTable.items.length" class="text-xs text-gray-500">
+                  Историй по текущим фильтрам не найдено.
+                </div>
+                <template v-else>
+                  <div class="overflow-x-auto">
+                    <table class="avail-list" data-stories-table>
+                      <thead><tr>
+                        <th>Название</th><th>Состояние</th><th>Проверка</th>
+                        <th>События</th><th>Обнаружена</th><th>Обработка</th>
+                        <th>Эпизодов</th><th>Версия</th><th></th>
+                      </tr></thead>
+                      <tbody>
+                        <tr v-for="s in storiesTable.items" :key="s.story_id"
+                            :class="{ 'opacity-60': s.excluded_from_retrieval }"
+                            @click="openStoriesManageCard(s.story_id)">
+                          <td>
+                            {{ s.title || 'Без названия' }}
+                            <span v-if="s.has_overrides" class="badge badge-muted ml-1">ручная правка</span>
+                            <span v-if="s.excluded_from_retrieval" class="badge badge-warn ml-1">исключена из поиска</span>
+                          </td>
+                          <td>{{ storiesStateRu(s.state) }}</td>
+                          <td>{{ storiesVerificationRu(s.verification) }}</td>
+                          <td>{{ fmtStoryDate(s.event_start_ts || s.event_end_ts) }}<template v-if="s.event_start_ts && s.event_end_ts && s.event_end_ts !== s.event_start_ts"> — {{ fmtStoryDate(s.event_end_ts) }}</template></td>
+                          <td>{{ fmtStoryDate(s.discovered_at) }}</td>
+                          <td>{{ fmtStoryDateTime(s.updated_at) }}</td>
+                          <td>{{ s.num_episodes }}</td>
+                          <td class="mono">v{{ s.expected_version }}</td>
+                          <td>
+                            <button v-if="!s.excluded_from_retrieval && storiesManageEnabled"
+                                    class="btn-ghost text-xs" :disabled="storiesActionBusy"
+                                    @click.stop="storiesAction(s.story_id, 'exclude', {})">Исключить из поиска</button>
+                            <button v-else-if="storiesManageEnabled"
+                                    class="btn-ghost text-xs" :disabled="storiesActionBusy"
+                                    @click.stop="storiesAction(s.story_id, 'restore', {})">Вернуть в поиск</button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="mt-2 flex items-center gap-2">
+                    <button v-if="storiesTable.has_more" class="btn-ghost text-xs"
+                            :disabled="storiesTableBusy"
+                            @click="storiesTableMore()">Показать ещё (серверная страница)</button>
+                    <span v-else class="text-[10px] text-gray-500">Страница последняя (keyset по updated_at).</span>
+                  </div>
+                  <!-- Полная карточка истории (D7) + действия (D8). -->
+                  <div v-if="storiesManageCard && storiesManageCard.story"
+                       class="mt-3 rounded-lg border border-white/10 p-3 text-xs" data-story-card>
+                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                      <b>{{ storiesManageCard.story.title || 'Без названия' }}</b>
+                      <span class="badge badge-muted">v{{ storiesManageCard.story.expected_version }}</span>
+                      <span class="badge badge-muted">{{ storiesStateRu(storiesManageCard.story.state) }}</span>
+                      <span class="badge badge-muted">{{ storiesVerificationRu(storiesManageCard.story.verification) }}</span>
+                      <span v-if="storiesManageCard.redirected" class="badge badge-warn">
+                        объединена: редирект на {{ storiesManageCard.redirect_target }}</span>
+                      <button class="btn-ghost text-[10px] ml-auto" @click="closeStoriesManageCard()">скрыть</button>
+                    </div>
+                    <div class="text-gray-300"><b>Краткое содержание:</b> {{ storiesManageCard.story.summary || 'неизвестно' }}</div>
+                    <div class="text-gray-400 mt-1">
+                      <b>Результат:</b> {{ storiesOutcomeRu(storiesManageCard.story.outcome) }} ·
+                      <b>события:</b> {{ fmtStoryDate(storiesManageCard.story.event_start_ts || storiesManageCard.story.event_end_ts) }}<template v-if="storiesManageCard.story.event_start_ts && storiesManageCard.story.event_end_ts && storiesManageCard.story.event_end_ts !== storiesManageCard.story.event_start_ts"> — {{ fmtStoryDate(storiesManageCard.story.event_end_ts) }}</template>
+                      · <b>обнаружена:</b> {{ fmtStoryDate(storiesManageCard.story.discovered_at) }}
+                    </div>
+                    <div class="text-gray-400 mt-1">
+                      <b>Участники (ID):</b> {{ (storiesManageCard.story.participants || []).join(', ') || 'неизвестно' }}
+                    </div>
+                    <!-- Утверждения и источники (SourceRef-formа mca-04a: refs =
+                         ключи сообщений); исходный контекст — ключи эпизодов. -->
+                    <div v-if="(storiesManageCard.story.claims || []).length" class="mt-1">
+                      <b>Утверждения:</b>
+                      <div v-for="(c, ci) in storiesManageCard.story.claims" :key="'cl' + ci"
+                           class="text-gray-300 ml-2">• {{ c.text }}
+                        <span v-if="(c.refs || []).length" class="text-gray-500">(источники: {{ c.refs.join(', ') }})</span>
+                      </div>
+                    </div>
+                    <div v-else class="text-gray-500 mt-1">Утверждений не извлечено (честно: данных нет).</div>
+                    <!-- Хронология эпизодов. -->
+                    <div v-if="(storiesManageCard.episodes || []).length" class="mt-1">
+                      <b>Хронология эпизодов:</b>
+                      <div v-for="ep in storiesManageCard.episodes" :key="ep.episode_id"
+                           class="text-gray-300 ml-2">
+                        • {{ fmtStoryDate(ep.event_start_ts || ep.discovered_at) }} — {{ ep.title || 'без названия' }}
+                        <span class="text-gray-500">· {{ ep.summary || 'без описания' }}</span>
+                        <span v-if="ep.recheck_pending" class="text-amber-300"> · нужна повторная проверка</span>
+                      </div>
+                    </div>
+                    <!-- Противоречия и неизвестное (честно). -->
+                    <div v-if="(storiesManageCard.contradictions || []).length" class="text-amber-300 mt-1">
+                      <b>Противоречия ({{ storiesManageCard.contradictions.length }}):</b>
+                      <div v-for="(c, ci) in storiesManageCard.contradictions" :key="'ct' + ci" class="ml-2">
+                        • {{ fmtStoryDateTime(c.ts) }} <template v-if="c.text">— {{ c.text }}</template>
+                      </div>
+                    </div>
+                    <div v-if="storiesManageCard.related_beliefs && !storiesManageCard.related_beliefs.available"
+                         class="text-gray-500 mt-1">
+                      Связанные убеждения/парадигмы: прямых связей в модели не зафиксировано (честно).
+                    </div>
+                    <!-- Оригинал: ссылка только из валидированных метаданных. -->
+                    <div class="mt-1">
+                      <a v-if="storiesOriginalHref(storiesManageCard)"
+                         class="underline text-violet-300" target="_blank" rel="noopener"
+                         :href="storiesOriginalHref(storiesManageCard)">{{ storiesOriginalLabel(storiesManageCard) }}</a>
+                      <span v-else class="text-gray-500">{{ storiesOriginalLabel(storiesManageCard) }} (метаданных сообщения нет или чат без web-ссылок)</span>
+                    </div>
+                    <!-- Версии и ручные изменения. -->
+                    <details class="mt-1">
+                      <summary class="cursor-pointer text-gray-400">Версии ({{ (storiesManageCard.versions || []).length }})</summary>
+                      <div v-for="v in storiesManageCard.versions" :key="v.version_id"
+                           class="text-gray-400 ml-2">
+                        v{{ v.version_no }} · {{ fmtStoryDateTime(v.created_at) }} · {{ v.created_by }}
+                        <template v-if="v.manual"> · ручная</template>
+                        <template v-if="(v.overrides || []).length"> · override: {{ v.overrides.join(', ') }}</template>
+                        <div class="text-gray-500 ml-2">{{ v.title || '' }}<template v-if="v.summary"> — {{ v.summary }}</template></div>
+                      </div>
+                    </details>
+                    <!-- Действия с текущими правами (K2; CAS). -->
+                    <template v-if="storiesManageEnabled">
+                      <div class="mt-2 pt-2 border-t border-white/10">
+                        <b>Исправить (CAS v{{ storiesDraft ? storiesDraft.expected_version : '—' }}):</b>
+                        <div class="flex flex-wrap items-end gap-2 mt-1">
+                          <label>Название:
+                            <input class="field w-44" v-model="storiesDraft.title" maxlength="300">
+                          </label>
+                          <label>Состояние:
+                            <select class="field w-36" v-model="storiesDraft.state">
+                              <option value="open">открыта</option>
+                              <option value="closed">завершена</option>
+                              <option value="uncertain">исход неизвестен</option>
+                            </select>
+                          </label>
+                          <label>Результат:
+                            <input class="field w-40" v-model="storiesDraft.outcome" maxlength="120"
+                                   placeholder="пусто = неизвестно">
+                          </label>
+                        </div>
+                        <label class="block mt-1">Краткое содержание:
+                          <textarea class="field w-full" rows="2" v-model="storiesDraft.summary" maxlength="2000"></textarea>
+                        </label>
+                        <button class="btn-ghost text-xs mt-1" :disabled="storiesActionBusy"
+                                @click="saveStoriesEdit()">Сохранить правку</button>
+                      </div>
+                      <div class="mt-2 flex flex-wrap gap-2">
+                        <label class="text-gray-400">Merge в историю (ID цели):
+                          <input class="field w-64 mono" v-model="storiesMergeTarget" maxlength="64"
+                                 placeholder="story_id цели">
+                        </label>
+                        <button class="btn-ghost text-xs" :disabled="storiesActionBusy || !storiesMergeTarget"
+                                @click="storiesAction(storiesManageCard.story.story_id, 'merge', { target_id: storiesMergeTarget })">
+                          Объединить (redirect)
+                        </button>
+                      </div>
+                      <div class="mt-2">
+                        <b>Split:</b> отметьте отделяемые эпизоды
+                        <div v-for="ep in storiesManageCard.episodes" :key="'sp' + ep.episode_id"
+                             class="ml-2 text-gray-300">
+                          <label>
+                            <input type="checkbox" :value="ep.episode_id"
+                                   v-model="storiesSplitSelection[ep.episode_id]">
+                            {{ ep.episode_id.slice(0, 8) }}… · {{ ep.title || 'без названия' }}
+                          </label>
+                        </div>
+                        <button class="btn-ghost text-xs mt-1"
+                                :disabled="storiesActionBusy || !storiesSplitIds(storiesManageCard).length"
+                                @click="storiesAction(storiesManageCard.story.story_id, 'split', { episode_ids: storiesSplitIds(storiesManageCard) })">
+                          Разделить
+                        </button>
+                      </div>
+                      <div class="mt-2 flex flex-wrap gap-2">
+                        <button class="btn-ghost text-xs" :disabled="storiesRebuildBusy"
+                                @click="rebuildStories(storiesManageCard.story.story_id)">
+                          Пересобрать (без изменений — новая версия не создаётся)
+                        </button>
+                        <button v-if="!storiesManageCard.story.excluded_from_retrieval"
+                                class="btn-ghost text-xs" :disabled="storiesActionBusy"
+                                @click="storiesAction(storiesManageCard.story.story_id, 'exclude', {})">Исключить из retrieval</button>
+                        <button v-else class="btn-ghost text-xs" :disabled="storiesActionBusy"
+                                @click="storiesAction(storiesManageCard.story.story_id, 'restore', {})">Вернуть в retrieval</button>
+                      </div>
+                    </template>
+                    <div v-else class="text-xs text-amber-300 mt-2">
+                      Мутации отключены (MCA_STORIES_MANAGE_ENABLED=OFF) — доступен только просмотр.
+                    </div>
+                    <div v-if="storiesActionError" class="text-xs text-amber-300 mt-1" data-stories-action-error>
+                      {{ storiesActionError }}
+                    </div>
+                    <div class="text-[10px] text-gray-600 mt-1">
+                      Ручные правки (override) пайплайн не затирает: переживают пересборку и сон (A13);
+                      каждое действие — новая версия в истории карточки.
+                    </div>
+                  </div>
+                </template>
+              </div>
               <!-- F7 (10.25, ADR-1025-20 D1/D2): PERMsoc — локальное
                    пространство ВЫБРАННОГО чата (§60). Без чата редактируемых
                    блоков нет (banner): PERMsoc не правит глобальные значения.
@@ -5187,6 +5460,101 @@
                   Метрики недоступны (не глобальный админ или БД недоступна).
                 </div>
               </div>
+              <!-- Раунд 10.46 (MCA-12, ADR-1028-21 D10, §16.3): компактное
+                   фактическое состояние инициативы — рендер замороженного
+                   контракта `intent_snapshot()` mca-09 (поле `intents` уже в
+                   /api/status — новых запросов/маршрутов нет). Честные
+                   состояния disabled/not_run/restricted не маскируются
+                   нулями; декоративных «мыслей» и псевдоизмерений нет (:804).
+                   Подробный журнал — раскрытием и в существующей «Аналитике». -->
+              <div class="mt-3 pt-2 border-t border-white/10" data-intents>
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                  <div class="text-xs font-bold">Инициатива</div>
+                  <span class="text-xs text-gray-500">активные намерения · последнее действие/пропуск</span>
+                  <span v-if="statusData && statusData.intents"
+                        class="badge"
+                        :class="statusData.intents.state === 'ok' ? 'badge-ok'
+                                  : (statusData.intents.state === 'disabled' ? 'badge-muted' : 'badge-warn')">
+                    {{ intentsStateLabel(statusData.intents.state) }}
+                  </span>
+                </div>
+                <div v-if="!statusData || !statusData.intents" class="text-xs text-gray-500">
+                  Снимок инициативы недоступен (данные появятся с /api/status).
+                </div>
+                <div v-else-if="statusData.intents.state === 'disabled'" class="text-xs text-gray-500">
+                  Инициатива выключена (kill-switch mca-09) — намерения не создаются и не исполняются.
+                </div>
+                <div v-else-if="statusData.intents.state === 'restricted'" class="text-xs text-gray-500">
+                  Нет разрешённого чата — данные инициативы не раскрываются (chat scope).
+                </div>
+                <div v-else-if="statusData.intents.state === 'not_run'" class="text-xs text-gray-500">
+                  Намерений пока нет — инициатива ещё не запускалась в этом чате.
+                </div>
+                <template v-else>
+                  <div class="flex flex-wrap gap-2 text-xs">
+                    <span class="badge badge-muted">Активных намерений: {{ statusData.intents.active }}</span>
+                    <span class="badge badge-muted"
+                          v-if="statusData.intents.last_action && statusData.intents.last_action.event">
+                      Последнее: {{ statusData.intents.last_action.event }}
+                      <template v-if="statusData.intents.last_action.reason_code">
+                        · причина: {{ statusData.intents.last_action.reason_code }}</template>
+                      <template v-if="statusData.intents.last_action.ts">
+                        · {{ fmtTs(statusData.intents.last_action.ts) }}</template>
+                    </span>
+                    <span v-else class="badge badge-muted">Действий/пропусков пока не было</span>
+                  </div>
+                  <div v-if="(statusData.intents.top || []).length" class="mt-1 space-y-1 text-xs">
+                    <div v-for="it in statusData.intents.top" :key="'int' + it.intent_id"
+                         class="rounded-lg bg-white/5 px-2 py-1">
+                      <span class="badge badge-muted">{{ it.kind || '—' }}</span>
+                      <span class="ml-1">{{ it.goal || '—' }}</span>
+                      <span class="text-gray-500 ml-1">· статус: {{ it.status || '—' }}
+                        · приоритет: {{ it.priority }}
+                        <template v-if="it.next_check_at"> · следующая проверка: {{ fmtTs(it.next_check_at) }}</template></span>
+                    </div>
+                  </div>
+                  <!-- §16.3: настройки спонтанности/источника случайности/
+                       фоновых workers/бюджетов — рендер СУЩЕСТВУЮЩИХ ParamSpec
+                       (default/effective/источник/hot-restart); Δ каталога = 0.
+                       Правка — в существующих настройках («Память»/лимиты). -->
+                  <div class="mt-2">
+                    <button class="btn-ghost text-xs" type="button"
+                            :aria-expanded="storiesSettingsOpen ? 'true' : 'false'"
+                            @click="storiesSettingsOpen = !storiesSettingsOpen">
+                      {{ storiesSettingsOpen ? 'Скрыть настройки блока' : 'Настройки блока (default/effective/источник)' }}
+                    </button>
+                  </div>
+                  <div v-if="storiesSettingsOpen" class="mt-1 text-xs" data-stories-settings>
+                    <div v-for="m in storiesSettingsMeta()" :key="m.key"
+                         class="rounded-lg bg-white/5 px-2 py-1">
+                      <span class="text-gray-300">{{ m.title }}</span>
+                      <span class="text-gray-500"> · default: {{ m.def }}
+                        · effective: {{ m.effective }}
+                        · источник: {{ m.source }}
+                        · {{ m.hot }}</span>
+                    </div>
+                    <div class="text-gray-600 mt-1">
+                      Правка значений — в существующих настройках (Память → Случайность, Лимиты/бюджеты); новых дублей настроек нет.
+                    </div>
+                  </div>
+                  <!-- T-5169: витрины смежных фич — компактные рендеры
+                       СУЩЕСТВУЮЩИХ контрактов (mca-19 vision / mca-20 фактчек
+                       «последнее событие» / mca-18 SelfModel); mca-10b —
+                       лента применений уже в блоке «Источник случайности»
+                       выше (связь, не дубль); mca-16 «Опыт» — блок ниже
+                       сохранён. Новых widget-ID/разделов нет (Q6). -->
+                  <div class="mt-2 pt-2 border-t border-white/10 text-xs" data-adjacent>
+                    <div class="font-bold mb-1">Смежные контуры</div>
+                    <div class="flex flex-wrap gap-1">
+                      <span class="badge badge-muted">Распознавание изображений: {{ adjacentVisionLine() || 'нет данных' }}</span>
+                      <span class="badge badge-muted">Временной фактчек: {{ adjacentFactcheckLine() || 'прогонов пока нет' }}</span>
+                      <span class="badge badge-muted">Характер (SelfModel): {{ adjacentSelfModelLine() || 'нет данных' }}</span>
+                      <span class="badge badge-muted">Случайность: лента применений — в блоке «Источник случайности» выше</span>
+                      <span class="badge badge-muted">Опыт: лента — блоком ниже на этой странице</span>
+                    </div>
+                  </div>
+                </template>
+              </div>
             </div>
 
             <!-- F6 (ADR-1025-19 D5/§21): компактное превью последнего вызова.
@@ -5284,6 +5652,142 @@
               <div class="text-xs text-gray-500" v-if="!budgetInfo && !(cognition && cognition.dream && cognition.dream.budget) && memoryContext.used == null">
                 Нет данных о бюджетах.
               </div>
+            </div>
+
+            <!-- ═══ Раунд 10.46 (MCA-12, ADR-1028-21 D3, §16.1): «Истории чата» —
+                 ЕДИНСТВЕННАЯ структурная вставка в F11-композицию (после зоны
+                 мониторинга интеллекта, до нижних логов; новый верхнеуровневый
+                 маршрут не создаётся — GEN-R12). Liquid Glass сохранён
+                 (карточка витрины, не админ-таблица). Данные — /api/stories/*
+                 под TMA-auth + chat scope; K1 OFF → блок скрыт (честный
+                 disabled API). Счётчики/лента (cursor/dedup, prepend без
+                 сброса scroll — A26), краткая карточка НА МЕСТЕ + переход в
+                 «Память», прогресс обработки, обе даты (A11), реальные данные
+                 (D5) и честные пустые состояния. -->
+            <div v-if="storiesEnabled" class="card p-4 sg-12" data-stories>
+              <div class="flex items-center gap-2 mb-2 flex-wrap">
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('auto_stories') }}</span> Истории чата</div>
+                <span v-if="storiesSummary && storiesSummary.state === 'ok'" class="badge badge-muted">
+                  всего: {{ storiesSummary.counters.total }}
+                </span>
+                <span v-if="storiesSummary && storiesSummary.state === 'ok'" class="badge badge-muted">
+                  новые/дополненные ({{ storiesSummary.window_hours }}ч): {{ storiesSummary.counters.new_window }}/{{ storiesSummary.counters.extended_window }}
+                </span>
+                <span v-if="storiesSummary && storiesSummary.counters.pending_verification"
+                      class="badge badge-warn">ожидают проверки: {{ storiesSummary.counters.pending_verification }}</span>
+                <span class="text-[10px] text-gray-500" :title="storiesFeedError ? 'данные устарели — лента недоступна' : ''">
+                  <template v-if="storiesFeedPaused">пауза</template>
+                  <template v-else-if="storiesFeedError">данные от {{ storiesFeedAt ? fmtTs(Math.floor(storiesFeedAt / 1000)) : '—' }} · устарели</template>
+                  <template v-else-if="storiesFeedAt">данные от {{ fmtTs(Math.floor(storiesFeedAt / 1000)) }}</template>
+                  <template v-else>лента не загружена</template>
+                </span>
+                <button class="btn-ghost text-xs ml-auto" :disabled="storiesFeedBusy"
+                        :aria-pressed="storiesFeedPaused ? 'true' : 'false'"
+                        @click="toggleStoriesFeedPause()">{{ storiesFeedPaused ? 'Продолжить' : 'Пауза' }}</button>
+                <button class="btn-ghost text-xs" :disabled="storiesFeedBusy"
+                        @click="loadStoriesSummary(); loadStoriesFeed()">⟳</button>
+                <button class="btn-ghost text-xs" @click="openStoriesTable()">Открыть таблицу в «Памяти»</button>
+              </div>
+              <!-- Честные состояния витрины (D5/TH-8): нет чата / нет историй /
+                   нет событий / недоступно — различимы, нулей без расчёта нет. -->
+              <div v-if="!storiesSummary" class="spinner my-2"></div>
+              <div v-else-if="storiesSummary.state === 'no_chat'" class="text-xs text-gray-500">
+                Выберите чат (сверху) — истории показываются только разрешённого чата.
+              </div>
+              <div v-else-if="storiesSummary.state === 'restricted'" class="text-xs text-gray-500">
+                Нет доступа к историям этого чата (chat scope).
+              </div>
+              <div v-else-if="storiesSummary.state === 'unavailable'" class="text-xs text-gray-500">
+                Данные недоступны — база памяти не инициализирована. Повторите позже.
+              </div>
+              <div v-else-if="storiesSummary.state === 'disabled'" class="text-xs text-gray-500">
+                Витрина историй выключена (MCA_STORIES_VITRINA_ENABLED=OFF).
+              </div>
+              <template v-else>
+                <!-- Прогресс архивной обработки и последнее состояние (D5):
+                     read-рендер существующих процессов episodes.build/backfill. -->
+                <div class="flex flex-wrap gap-2 text-xs mb-2" data-stories-progress>
+                  <span class="badge badge-muted">
+                    Обработка (episodes.build):
+                    {{ storiesSummary.progress.episodes_build.state === 'not_run'
+                       ? 'не запускалась'
+                       : (storiesSummary.progress.episodes_build.last_outcome || '—')
+                         + (storiesSummary.progress.episodes_build.last_ts
+                            ? ' · ' + fmtTs(storiesSummary.progress.episodes_build.last_ts) : '') }}
+                  </span>
+                  <span class="badge badge-muted">
+                    Архивный backfill:
+                    {{ storiesSummary.progress.episodes_backfill.state === 'not_run'
+                       ? 'не запускался'
+                       : storiesSummary.progress.episodes_backfill.state
+                         + (storiesSummary.progress.episodes_backfill.active ? ' · выполняется' : '') }}
+                  </span>
+                  <span v-if="storiesSummary.counters.contradictions_window"
+                        class="badge badge-warn">противоречий за окно: {{ storiesSummary.counters.contradictions_window }}</span>
+                </div>
+                <!-- Живая вертикальная лента (A26: prepend без сброса scroll;
+                     стабильный :key — открытая карточка не дёргается). -->
+                <div ref="storiesFeed" class="stories-feed scroll-thin" data-stories-feed>
+                  <div v-if="!storiesFeed.length" class="text-xs text-gray-500 py-3">
+                    <template v-if="storiesSummary.state === 'empty'">Историй пока нет — появятся после обработки переписки.</template>
+                    <template v-else>Событий историй пока не было.</template>
+                  </div>
+                  <div v-for="ev in storiesFeed" :key="ev.id"
+                       class="stories-item rounded-lg bg-white/5 px-2 py-1"
+                       :class="{ 'stories-item--stale': ev.outcome !== 'success' }">
+                    <div class="flex items-center gap-2 flex-wrap text-xs">
+                      <span class="badge" :class="storiesEventClass(ev.event)">{{ storiesEventLabel(ev.event) }}</span>
+                      <b v-if="ev.title" class="truncate">{{ ev.title }}</b>
+                      <span v-if="ev.text && ev.text !== ev.title" class="text-gray-400 truncate">{{ ev.text }}</span>
+                    </div>
+                    <div class="text-[10px] text-gray-500">
+                      <template v-if="ev.event_start || ev.event_end">
+                        события: {{ fmtStoryDate(ev.event_start || ev.event_end) }}<template v-if="ev.event_start && ev.event_end && ev.event_end !== ev.event_start"> — {{ fmtStoryDate(ev.event_end) }}</template>
+                      </template>
+                      <template v-if="storiesHasBothDates(ev)">
+                        · обнаружена: {{ fmtStoryDate(ev.discovered_at) }}</template>
+                      <template v-if="(ev.participants || []).length">
+                        · участники: {{ ev.participants.join(', ') }}</template>
+                      · {{ fmtStoryDateTime(ev.ts) }}
+                    </div>
+                    <div v-if="ev.story_id" class="mt-1">
+                      <button class="btn-ghost text-[10px]" @click="openStoriesCard(ev.story_id)">
+                        {{ storiesCard && storiesCard.story && storiesCard.story.story_id === ev.story_id ? 'Скрыть карточку' : 'Подробнее' }}
+                      </button>
+                    </div>
+                    <!-- Подробная карточка НА МЕСТЕ (без навигации, :784).
+                         Текст — только интерполяциями (без html-вставок,
+                         TH-3). -->
+                    <div v-if="storiesCard && storiesCard.story && storiesCard.story.story_id === ev.story_id"
+                         class="mt-1 rounded border border-white/10 p-2 text-xs" data-stories-card>
+                      <div class="flex items-center gap-2 flex-wrap mb-1">
+                        <b>{{ storiesCard.story.title || 'Без названия' }}</b>
+                        <span class="badge badge-muted">v{{ storiesCard.story.expected_version }}</span>
+                        <span class="badge badge-muted">{{ storiesStateRu(storiesCard.story.state) }}</span>
+                        <button class="btn-ghost text-[10px] ml-auto" @click="closeStoriesCard()">скрыть</button>
+                      </div>
+                      <div class="text-gray-300">{{ storiesCard.story.summary || 'Краткое содержание: неизвестно.' }}</div>
+                      <div class="text-gray-500 mt-1">
+                        Результат: {{ storiesOutcomeRu(storiesCard.story.outcome) }} ·
+                        проверка: {{ storiesVerificationRu(storiesCard.story.verification) }} ·
+                        участников: {{ (storiesCard.story.participants || []).length }} ·
+                        эпизодов: {{ (storiesCard.episodes || []).length }}
+                      </div>
+                      <div v-if="storiesCard.contradictions && storiesCard.contradictions.length"
+                           class="text-amber-300 mt-1">Противоречия: {{ storiesCard.contradictions.length }} (см. карточку в «Памяти»)</div>
+                      <div class="mt-1">
+                        <button class="btn-ghost text-[10px]" @click="openStoriesTable()">Открыть в «Памяти»</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="storiesFeedHasMore" class="text-[10px] text-gray-500 mt-1">
+                  История ограничена окном/ретенцией — ранние события в ленте не показаны (это не «ноль событий»).
+                </div>
+                <div v-if="storiesFeedError" class="text-xs text-amber-300 mt-1">
+                  Лента недоступна ({{ storiesFeedError }}) — показаны последние загруженные данные.
+                </div>
+              </template>
             </div>
 
             <!-- LLM: ОДИН блок «Доступность ключей», 4 группы функций

@@ -223,6 +223,12 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
     # Registry/Editor API (только global admin; kill-switch COVER_STYLES_ENABLED).
     from web.api.cover_styles import cover_styles_router
     app.include_router(cover_styles_router, prefix="/api")
+    # Раунд 10.46 (MCA-12, ADR-1028-21 D2/§7.5): «Истории чата» — 5 маршрутов
+    # (read: summary/feed/таблица/карточка; мутации: action CAS). Роутер —
+    # отдельный файл зон (прецедент memory_agi/oversight); routes.py не
+    # меняется. K1/K2 гейты — честный disabled, RBAC/chat-scope на каждом.
+    from web.api.stories import stories_router
+    app.include_router(stories_router, prefix="/api")
 
     rendered_index = _render_index()   # один раз at startup (84.21.2)
     rendered_css = _render_app_css()   # F4 10.16: подстановка ?v= в @font-face
