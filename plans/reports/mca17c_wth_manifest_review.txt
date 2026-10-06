@@ -1,0 +1,37 @@
+MCA-17c review working-tree manifest (T-5196, Reviewer; ITERATION 2 after rework B-1/B-2; candidate = working tree over b25558e, docs-HEAD 844ad15)
+HEAD: 844ad159a32c45921a30a4246c6f0bbbfa09e15a (docs-only over b25558e = origin/master; prod 2.58.65/v33, mca-12 VERIFIED; кандидат-код идентичен для обеих баз - b25558e..844ad15 трогает только plans/docs)
+Generated (UTC): 2026-10-06T20:02:09Z
+Verdict: see review.md Итерация 2 (Approved - binding: MANIFEST_SHA256 below).
+Rework delta vs iteration-1 manifest (69a333cdf7b3df0ce69d6f01acf7173557fbfcd6c89d972cfe232664ed5395eb): NEW plans/features/mca-17c-analytics-matrix/coverage_matrix.md (B-2); updated web/api/oversight_router.py (B-1, outcome success), tests/test_mca17c_oversight_api_round1047.py (persistence-тест), tests/test_mca17c_invariants_round1047.py (matrix-sync тест). Остальные 19 файлов байт-в-байт (services/mca_events.py НЕ тронут).
+Scope: ONLY mca-17c candidate files (evidence.md 'Файлы кандидата' + пакет фичи вкл. coverage_matrix + санкционная запись arch-frames 1.2.12 + репродукторы замера T-5194). В дереве есть uncommitted WIP не-mca-17c и мусор - в кандидат НЕ входят и здесь НЕ биндятся (бриф: только кандидат-файлы mca-17c).
+Excluded (чужие WIP параллельных сессий, прецедент mca-12): plans/MEMORY.md; plans/backlog.md; plans/workflow_state.md; plans/reports/mca20_wth_manifest_review.txt; plans/features/mca-21-guides/.
+Excluded (debris/service, прецедент mca-20): .playwright-mcp/; node_modules/; package.json; package-lock.json; plans/verification_cache.json; AGENTS.md; tools/_d2_*; tools/_mca18_*; tools/_mca19_*; tools/_t5126*; tools/_ui_asap43_*; tools/_ui_mca12_*.png (скриншоты = регенерируемые артефакты E2E).
+Excluded (reviewer output): this manifest; plans/features/mca-17c-analytics-matrix/review.md.
+Notes: plans/docs/mca-round1027-arch-frames.md включён ТОЛЬКО как санкционная запись mca-17c (единственная вставка - раздел 1.2.12, docs-only; общий файл - дрейф от параллельных раундов инвалидирует только этот биндинг). tools/_mca17c_runs_bench.py + tools/_mca17c_telemetry_load.py включены как репродукторы замера T-5194 (evidence.md помечает их 'не в пакете' - биндятся для воспроизводимости; решение о deploy-наборе - за DevOps по evidence). web/static/app.css вне диффа (0 изменений) - не включён.
+Recipe: sha256 over UTF-8 bytes of the sorted 'hash  path' lines below plus trailing LF.
+
+75952a5f1256cf22058d6897ceaea06e3a140d54e60f30738d42e99147c57148  plans/docs/mca-round1027-arch-frames.md
+e30bf5f65509fe32d88e27021483d3a1e86e2010e598af128320c7f6dc6a4823  plans/features/mca-17c-analytics-matrix/adr-1028-23-analytics-matrix.md
+6085b262c5398836b95f8659bd655087c6cb85fb518efbb5a2a8b60d866f7baa  plans/features/mca-17c-analytics-matrix/coverage_matrix.md
+6ffeea894faef32a46e7a21aa190dfed49a13756af33237c02702eb95b2b72eb  plans/features/mca-17c-analytics-matrix/evidence.md
+551e622d1c108fd22680fb9a2e8031da96545bc6ead95478334c9f6b1596fca7  plans/features/mca-17c-analytics-matrix/requirements-map.md
+6df65f8921db679f962a3df8258e9986b0152d5f83cbf72e7495c0db49a0af10  plans/features/mca-17c-analytics-matrix/spec.md
+40a24b8263cadbe57da8970fe19ff90114ec3e6f35c6cd54c1d0e657c16cb793  plans/features/mca-17c-analytics-matrix/tasks.md
+b8f04f20780c8069374cbe9d1e020a8304513955f91eb21f58680ac3ac9cc444  services/mca_events.py
+2354bd42bbc743ede04bad9bf0b57c58577e847aa04848b2e71cce9d84baac86  services/task_supervisor.py
+728b1c2e7fb0b84f28c488b07553af575a3a61e02a8185b5fb0ab0bcdb69b2f6  tests/js/round1047_mca17c_ui_test.js
+6bc9275f0b62044ba8c844adeab9dbe9713ccc80cfe4bccdae6a6a380f88337c  tests/test_mca10b_random_applications_block_a_round1041.py
+f695d81cb498a43095b5b88c892313a86e78ffedfe9371b83f3473b5cfaa184c  tests/test_mca17c_invariants_round1047.py
+3c952423195c2dd4ef3e09bef6dd84466c9a5012f495c7c5b2a7eba60f5c37ac  tests/test_mca17c_oversight_api_round1047.py
+816d3b4cfa7d370cbcc9982948c48a77789575d1a4dd9a5c9cb36b6190d5714c  tests/test_mca19_block_f_round1043.py
+d0b65c5a8b2e1e6279a54cb05b14fd8368709cac5d1cd20d874ee9199bb371ce  tests/test_mca20_integration_round1045.py
+492de033f4987d615d8cc9eebb255e983ca8c0a511f6959881a4d026bbb7ae15  tests/test_mca20_rework1_f1_f2.py
+b9bf5c808bfaca3aba5cc9159d506cdcd9ebfafa86993463776d1fff6e02a11a  tools/_mca17c_runs_bench.py
+894d339bd74efabcc981e059077f3993a1aff17876537749d97e4ff67347b42d  tools/_mca17c_telemetry_load.py
+ed338e366156e3d079830f8e71d59f877fae977af88df4c69c34301420c2d3da  web/api/__init__.py
+b0d8046bd7df50dd6bf1c350c32e9bc76070a75618f2dffd689137de01cca867  web/api/oversight_router.py
+280486ba2d7ea768f41eb65dade67f13f2ed64a4784ad565a2ac4c94a89ff45d  web/app.js
+f7de56b7e6a0b96fea3b69ad3b2e57bea28b34c36d9231e6bcac8490167bcb4a  web/app.py
+69ed14da4b9df5fd6da7f4cc0f139273151221ee555840e454999caec0e7347e  web/index.html
+MANIFEST_SHA256: 5e35f97f9ae88d8d58502378ad7705f4ed7a3cac86979fe5c8785b19622fb7bb
+FILE_COUNT: 23

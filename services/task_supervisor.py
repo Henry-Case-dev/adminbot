@@ -682,6 +682,33 @@ class TaskJobStore:
         return bool(await self._db.write_transaction(
             _body, op_name="task_jobs_progress"))
 
+    async def cancel(self, job_id: str, *,
+                     reason_code: str | None = None) -> bool:
+        """mca-17c (round 10.47, ADR-1028-23 D10): отменить АКТИВНУЮ задачу
+        (queued/running → cancelled) — санкционированный expose для
+        `POST /api/oversight/jobs/{job_id}/action`.
+
+        Тот же терминальный исход, что internal-cancel supervisor'а
+        (`finish`/JOB_CANCELLED), + bump `fencing_token` (механизм
+        `recover_stale`, A51/B-MCA01-3): устаревший владелец после отмены
+        не перезапишет терминальный статус — его `finish` станет no-op.
+        Терминальные строки не трогаются (no-op, `False`) —
+        идемпотентность state-машины; повторный cancel — no-op."""
+        now = int(time.time())
+
+        async def _body(conn):
+            cursor = await conn.execute(
+                "UPDATE task_jobs SET status = ?, "
+                "reason_code = COALESCE(?, reason_code), "
+                "fencing_token = fencing_token + 1, updated_at = ?, "
+                "finished_at = ? WHERE job_id = ? AND status IN (?, ?)",
+                (JOB_CANCELLED, reason_code, now, now, job_id,
+                 JOB_QUEUED, JOB_RUNNING))
+            return cursor.rowcount
+
+        return bool(await self._db.write_transaction(
+            _body, op_name="task_jobs_cancel"))
+
     async def requeue(self, job_id: str, *,
                       reason_code: str | None = None,
                       fencing_token: int | None = None) -> bool:

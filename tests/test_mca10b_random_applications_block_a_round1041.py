@@ -259,9 +259,10 @@ def test_kill_switch_registry_73_and_defaults():
     assert mca_gates.KILL_SWITCHES["MCA_RANDOM_USES_ENABLED"][0] is True
     assert mca_gates.random_uses_enabled() is True
     # mca-19 (round 10.43, ADR-1028-19 §8.3): bump словаря причин 257→269
-    # (+12 vision-кодов); mca-20 (round 10.44): 269→279 (+10 temporal) —
-    # счётчик обновлён по той же конвенции.
-    assert len(mca_events.REASON_CODES) == 279
+    # (+12 vision-кодов); mca-20 (round 10.44): 269→279 (+10 temporal);
+    # mca-17c (round 10.47): 279→280 (+1 oversight_job_action) — счётчик
+    # обновлён по той же конвенции.
+    assert len(mca_events.REASON_CODES) == 280
     for code in ("exploration_accepted", "exploration_rejected",
                  "exploration_deferred", "exploration_failed",
                  "exploration_used_in_reply", "exploration_stored_only",

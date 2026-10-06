@@ -146,8 +146,9 @@ def test_kill_switch_inertness():
 # ── reason_code +12 (257→269) ───────────────────────────────────────────────
 
 def test_reason_codes_269():
-    # MCA-20 (round 10.44): 269 → 279 (+10 temporal factcheck).
-    assert len(mca_events.REASON_CODES) == 279       # 269 → 279
+    # MCA-20 (round 10.44): 269 → 279 (+10 temporal factcheck);
+    # mca-17c (round 10.47): 279 → 280 (+1 oversight_job_action).
+    assert len(mca_events.REASON_CODES) == 280       # 279 → 280
     assert VISION_REASON_CODES <= mca_events.REASON_CODES
     # `no_text`/`pending`/`ready` — статусы MediaAnalysis, НЕ reason-коды
     # (spec §8.5).

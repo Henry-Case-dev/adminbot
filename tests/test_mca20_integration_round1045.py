@@ -299,7 +299,8 @@ class TestObservabilityContract:
             "temporal_media_pending", "temporal_fallback_mode",
             "temporal_cache_disabled", "fact_check_disabled"}
         assert temporal <= mca_events.REASON_CODES
-        assert len(mca_events.REASON_CODES) == 279
+        # mca-17c (round 10.47): 279 → 280 (+1 oversight_job_action).
+        assert len(mca_events.REASON_CODES) == 280
         # дата-ошибка ≠ дата-отсутствие (D15, `:1805`)
         assert {"temporal_date_extract_failed", "temporal_date_unknown"} \
             <= mca_events.REASON_CODES

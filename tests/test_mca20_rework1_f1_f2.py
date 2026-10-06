@@ -346,8 +346,10 @@ class TestValidatorStage:
         assert "<verdict_draft>" in user and "<claim>" in user
 
     def test_validator_reason_codes_not_extended(self):
-        """Reason-словарь не расширен (финал 279): validator-стадия
-        переиспользует существующие коды."""
+        """Reason-словарь не расширен ВАЛИДАТОРОМ (mca-20-финал 279;
+        mca-17c round 10.47: санкционированное +1 oversight_job_action
+        → 280 — вне validator-стадии): validator-стадия переиспользует
+        существующие коды."""
         from services import mca_events
-        assert len(mca_events.REASON_CODES) == 279
+        assert len(mca_events.REASON_CODES) == 280
         assert tf.TEMPORAL_VALIDATOR_SYSTEM

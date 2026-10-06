@@ -3338,6 +3338,9 @@
                         :class="incidentBadge(oversightData.mca_metrics.incidents)">
                     инциденты: {{ mcaIncidentLabel(oversightData.mca_metrics.incidents) }}
                   </span>
+                  <!-- mca-17c: прямой переход к полному списку (без дубля панели) -->
+                  <button class="btn-ghost text-xs"
+                          @click="oversightSetView('incidents')">Инциденты →</button>
                 </div>
                 <div class="text-xs text-gray-400">
                   ошибок: {{ mcaErrorsLabel(oversightData.mca_metrics) }}
@@ -3398,6 +3401,453 @@
                       </tr>
                     </tbody>
                   </table>
+                </div>
+              </div>
+              <!-- mca-17c (round 10.47, ADR-1028-23): представления «Обзор
+                   процессов»/«Запуски»/«Инциденты»/«Самообучение» ВНУТРИ
+                   существующего #/oversight (новых маршрутов/страниц нет;
+                   REUSE read-API mca-17a/13/16/18/19/20; честные состояния
+                   §27.3/4/5/7; deep links переживают F5 — A54). -->
+              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2"
+                   data-mca17c="root">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <div class="text-xs font-bold">Наблюдаемость процессов</div>
+                  <div class="ml-auto flex gap-1 flex-wrap" role="tablist">
+                    <button class="btn-ghost text-xs" data-mca17c="tab-processes"
+                            :class="oversightView === 'processes' ? 'font-bold underline' : ''"
+                            @click="oversightSetView('processes')">Процессы</button>
+                    <button class="btn-ghost text-xs" data-mca17c="tab-runs"
+                            :class="oversightView === 'runs' ? 'font-bold underline' : ''"
+                            @click="oversightSetView('runs')">Запуски</button>
+                    <button class="btn-ghost text-xs" data-mca17c="tab-incidents"
+                            :class="oversightView === 'incidents' ? 'font-bold underline' : ''"
+                            @click="oversightSetView('incidents')">Инциденты</button>
+                    <button class="btn-ghost text-xs" data-mca17c="tab-learning"
+                            :class="oversightView === 'learning' ? 'font-bold underline' : ''"
+                            @click="oversightSetView('learning')">Самообучение</button>
+                    <button class="btn-ghost text-xs" title="Перечитать (только чтение)"
+                            @click="oversightRefreshView()">⟳</button>
+                  </div>
+                </div>
+                <div class="text-xs text-gray-500 mb-2">
+                  общесерверный обзор — состояние процессов бота, не выбранного
+                  чата; права: глобальный админ; данные — read-only поверх
+                  существующих витрин
+                </div>
+
+                <!-- ═══ «Обзор процессов»: реестр-карточки (D1/D2; A48) ═══ -->
+                <div v-if="oversightView === 'processes'" data-mca17c="processes">
+                  <div class="flex items-center gap-2 flex-wrap mb-2">
+                    <input class="field w-48 text-xs" placeholder="Поиск: процесс/назначение"
+                           v-model="mca17cProcessQuery">
+                    <select class="field w-40 text-xs" v-model="mca17cProcessStatus">
+                      <option value="">статус: все</option>
+                      <option value="implemented">активен</option>
+                      <option value="disabled">выключен</option>
+                      <option value="not_run">не запускался</option>
+                      <option value="not_implemented">заготовка</option>
+                      <option value="not_instrumented">не инструментирован</option>
+                    </select>
+                    <span v-if="mca17cProcesses && mca17cProcesses.coverage"
+                          class="text-xs text-gray-400">
+                      покрытие: активных {{ mca17cProcesses.coverage.active }} ·
+                      реализовано {{ mca17cProcesses.coverage.implemented }} ·
+                      выключено {{ mca17cProcesses.coverage.disabled }} ·
+                      не запускалось {{ mca17cProcesses.coverage.not_run }} ·
+                      не инструментировано {{ mca17cProcesses.coverage.not_instrumented }}
+                    </span>
+                  </div>
+                  <div v-if="mca17cProcessesBusy" class="spinner my-2"></div>
+                  <div v-else-if="mca17cProcesses && mca17cProcesses.error"
+                       class="text-xs text-red-300">
+                    данные недоступны: {{ mca17cProcesses.error }}
+                  </div>
+                  <div v-else-if="!mca17cProcessGroups().length"
+                       class="text-xs text-gray-500">
+                    процессов не найдено (реестр пуст или фильтр строгий)
+                  </div>
+                  <div v-else class="space-y-2">
+                    <div v-for="g in mca17cProcessGroups()" :key="'pg' + g.widget_id"
+                         class="rounded border border-white/10 px-2 py-1">
+                      <div class="text-xs font-bold mb-1">{{ g.widget_id }}
+                        <span class="text-gray-500 font-normal">· {{ g.items.length }}</span>
+                      </div>
+                      <div v-for="p in g.items" :key="'pr' + p.process_id"
+                           class="border-t border-white/5 py-1">
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <span class="text-xs font-mono">{{ p.process_id }}</span>
+                          <span class="badge" :class="oversightProcessBadge(p.status).cls">
+                            {{ oversightProcessBadge(p.status).label }}
+                          </span>
+                          <span v-if="p.owner_feature" class="badge badge-muted">{{ p.owner_feature }}</span>
+                          <span v-if="p.status === 'disabled' && mca17cProcessGate(p)"
+                                class="text-xs text-gray-500">гейт {{ mca17cProcessGate(p) }}</span>
+                          <span v-if="p.version" class="text-xs text-gray-500">v{{ p.version }}</span>
+                          <button class="btn-ghost text-xs ml-auto"
+                                  @click="oversightDrillProcess(p)">Запуски →</button>
+                        </div>
+                        <div class="text-xs text-gray-400">{{ p.purpose }}</div>
+                        <div v-if="p.stages && p.stages.length" class="text-xs text-gray-500 mt-0.5">
+                          стадии:
+                          <span v-for="s in p.stages" :key="'st' + p.process_id + s"
+                                class="mr-1 font-mono">{{ s }}</span>
+                          <span v-if="p.stages_to_events">
+                            · события:
+                            <span v-for="(ev, stKey) in p.stages_to_events"
+                                  :key="'se' + p.process_id + stKey"
+                                  class="mr-1">{{ stKey }}→{{ ev }}</span>
+                          </span>
+                        </div>
+                        <div v-if="p.note" class="text-xs text-gray-600 mt-0.5">{{ p.note }}</div>
+                        <div v-if="p.status === 'implemented' && p.status !== 'disabled'"
+                             class="text-xs text-gray-600">
+                          реестр: implemented · фактическое состояние — по статусу выше
+                          (расхождение показывается, не скрывается)
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ═══ «Запуски»: уровни 3–5 (T-5183/T-5184; A54/A56) ═══ -->
+                <div v-else-if="oversightView === 'runs'" data-mca17c="runs">
+                  <div class="flex items-center gap-1 flex-wrap mb-2">
+                    <button v-for="(n, sKey) in mca17cRunCounts" :key="'rc' + sKey"
+                            class="btn-ghost text-xs"
+                            :class="mca17cRunF.status === sKey ? 'font-bold underline' : ''"
+                            @click="oversightSetRunStatus(sKey)">
+                      {{ oversightRunStatusLabel(sKey) }}: {{ n }}
+                    </button>
+                    <span v-if="!Object.keys(mca17cRunCounts).length"
+                          class="text-xs text-gray-500">счётчиков нет (фильтры пусты или данных нет)</span>
+                  </div>
+                  <div class="flex items-center gap-2 flex-wrap mb-2">
+                    <input class="field w-36 text-xs" placeholder="component (напр. summary)"
+                           v-model="mca17cRunF.component" @change="oversightApplyRunFilters()">
+                    <input class="field w-36 text-xs" placeholder="pipeline_type"
+                           v-model="mca17cRunF.pipeline_type" @change="oversightApplyRunFilters()">
+                    <input class="field w-28 text-xs" placeholder="chat_id"
+                           v-model="mca17cRunF.chat_id" @change="oversightApplyRunFilters()">
+                    <select class="field w-24 text-xs" v-model="mca17cRunF.days"
+                            @change="oversightApplyRunFilters()">
+                      <option value="1">24 часа</option>
+                      <option value="7">7 дней</option>
+                      <option value="30">30 дней</option>
+                      <option value="90">90 дней</option>
+                    </select>
+                    <span class="text-xs text-gray-500">фильтры применяются на сервере</span>
+                  </div>
+                  <div v-if="mca17cRunsError" class="text-xs text-red-300 mb-1">
+                    данные недоступны: {{ mca17cRunsError }}
+                  </div>
+                  <!-- деталь run (уровень 3): timeline стадий -->
+                  <div v-if="mca17cRunDetail" class="rounded border border-white/10 px-2 py-2 mb-2">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="text-xs font-mono font-bold">{{ mca17cRunDetail.pipeline_run_id }}</span>
+                      <span class="badge" :class="oversightRunBadge(mca17cRunDetail)">
+                        {{ oversightRunStatusLabel(mca17cRunDetail) }}
+                      </span>
+                      <span v-if="mca17cRunDetail.stalled" class="badge badge-warn">
+                        stalled (диагностика — не заменяет итог)
+                      </span>
+                      <span class="text-xs text-gray-500">
+                        {{ mca17cRunDetail.pipeline_type }} v{{ mca17cRunDetail.pipeline_version }}
+                        · {{ oversightFreshnessLabel(mca17cRunDetail.updated_ts) }}
+                      </span>
+                      <span v-if="oversightRunIsStale(mca17cRunDetail)" class="badge badge-warn">
+                        нет обновлений &gt;5 мин — не выглядит живым
+                      </span>
+                      <button class="btn-ghost text-xs ml-auto" @click="oversightCloseRun()">Свернуть</button>
+                    </div>
+                    <div class="text-xs text-gray-400 mb-1">
+                      стадий ok/fail: {{ mca17cRunDetail.stages_ok }}/{{ mca17cRunDetail.stages_failed }}
+                      · событий: {{ mca17cRunDetail.events_total }}
+                      <span v-if="mca17cRunDetail.model">· модель {{ mca17cRunDetail.model }}</span>
+                      <span v-if="mca17cRunDetail.chat_id">· чат {{ mca17cRunDetail.chat_id }}</span>
+                      <span v-if="mca17cRunDetail.error_last">
+                        · последняя ошибка: {{ mca17cRunDetail.error_last.type }}
+                        <span v-if="mca17cRunDetail.error_last.cause">({{ mca17cRunDetail.error_last.cause }})</span>
+                      </span>
+                    </div>
+                    <div v-if="mca17cRunDetail.required_stages" class="text-xs text-gray-500 mb-1">
+                      обязательные стадии: {{ mca17cRunDetail.required_stages.join(', ') }}
+                      <span v-if="mca17cRunDetail.optional_stages">
+                        · опциональные: {{ mca17cRunDetail.optional_stages.join(', ') }}
+                      </span>
+                    </div>
+                    <div data-mca17c="run-timeline" class="space-y-1">
+                      <div v-for="ev in mca17cRunDetail.events" :key="'ev' + ev.event_sequence + ev.event_name"
+                           class="border-l-2 pl-2 py-0.5"
+                           :class="ev.outcome === 'failed' ? 'border-red-400' : (ev.outcome === 'success' ? 'border-green-400' : 'border-gray-500')">
+                        <div class="flex items-center gap-2 flex-wrap cursor-pointer"
+                             @click="oversightToggleRunNode(ev.event_sequence + ':' + ev.event_name)">
+                          <span class="text-xs">{{ ev.outcome === 'failed' ? '✕' : (ev.outcome === 'success' ? '✓' : '○') }}</span>
+                          <span class="text-xs font-mono">{{ ev.stage || ev.event_name }}</span>
+                          <span class="text-xs text-gray-400">{{ ev.outcome }}</span>
+                          <span v-if="ev.duration_ms != null" class="text-xs text-gray-500">{{ ev.duration_ms }} мс</span>
+                          <span v-if="ev.reason_code" class="text-xs text-gray-500">причина: {{ ev.reason_code }}</span>
+                          <span v-if="ev.error_type" class="text-xs text-red-300">{{ ev.error_type }}</span>
+                          <span class="text-xs text-gray-600 ml-auto">{{ fmtTs(ev.ts) }}</span>
+                        </div>
+                        <div v-if="mca17cRunOpen[ev.event_sequence + ':' + ev.event_name]" class="text-xs text-gray-400 pl-5">
+                          event: {{ ev.event_name }}
+                          <span v-if="ev.component"> · component {{ ev.component }}</span>
+                          <span v-if="ev.span_id"> · span {{ ev.span_id }}</span>
+                          <span v-if="ev.parent_span_id"> · родитель {{ ev.parent_span_id }}</span>
+                          <span v-if="ev.job_id"> · job {{ ev.job_id }}</span>
+                          <span v-if="ev.attempt != null"> · попытка {{ ev.attempt }}</span>
+                          <span v-if="ev.error_cause"> · причина ошибки: {{ ev.error_cause }}</span>
+                          <div v-if="ev.job_id" class="mt-1 flex gap-1 flex-wrap items-center">
+                            <span class="text-gray-500">действия (глобальный админ, идемпотентны):</span>
+                            <button class="btn-ghost text-xs" :disabled="!!mca17cJobBusy"
+                                    @click="oversightJobAction(ev.job_id, 'cancel')">cancel</button>
+                            <button class="btn-ghost text-xs" :disabled="!!mca17cJobBusy"
+                                    @click="oversightJobAction(ev.job_id, 'resume')">resume</button>
+                            <button class="btn-ghost text-xs" :disabled="!!mca17cJobBusy"
+                                    @click="oversightJobAction(ev.job_id, 'retry')">retry</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div v-if="mca17cJobNote" class="text-xs text-gray-400 mt-1">{{ mca17cJobNote }}</div>
+                    <div class="flex gap-1 mt-2 flex-wrap">
+                      <button class="btn-ghost text-xs" :disabled="mca17cRunDetailBusy"
+                              @click="oversightOpenRun(mca17cRunDetail.pipeline_run_id)">
+                        Повторить отображение
+                      </button>
+                      <button class="btn-ghost text-xs" @click="oversightDownloadRunTrace()">
+                        Экспорт очищенного trace
+                      </button>
+                      <span class="text-xs text-gray-600">экспорт — из уже очищенных сервером данных (R17)</span>
+                    </div>
+                  </div>
+                  <!-- список runs -->
+                  <div v-if="mca17cRunsBusy && !mca17cRuns" class="spinner my-2"></div>
+                  <div v-else-if="!mca17cRuns || !mca17cRuns.length"
+                       class="text-xs text-gray-500">
+                    запусков нет (период/фильтры пустые — это честный пустой результат)
+                  </div>
+                  <div v-else data-mca17c="runs-list" class="space-y-1 max-h-96 overflow-y-auto">
+                    <div v-for="r in mca17cRuns" :key="'run' + r.pipeline_run_id"
+                         class="flex items-center gap-2 flex-wrap rounded px-1 py-0.5 cursor-pointer hover:bg-white/5"
+                         @click="oversightOpenRun(r.pipeline_run_id)">
+                      <span class="badge" :class="oversightRunBadge(r)">
+                        {{ oversightRunStatusLabel(r) }}
+                      </span>
+                      <span v-if="r.stalled" class="badge badge-warn">stalled</span>
+                      <span class="text-xs font-mono">{{ r.pipeline_run_id }}</span>
+                      <span class="text-xs text-gray-500">{{ r.pipeline_type }}<span v-if="r.component"> · {{ r.component }}</span></span>
+                      <span class="text-xs text-gray-500">
+                        стадии {{ r.stages_ok }}✓/{{ r.stages_failed }}✕
+                      </span>
+                      <span class="text-xs text-gray-600 ml-auto">
+                        {{ oversightFreshnessLabel(r.updated_ts) }}
+                      </span>
+                    </div>
+                    <div v-if="mca17cRunsNext" class="text-xs text-gray-500 pt-1">
+                      показаны первые {{ mca17cRuns.length }} — следующие по keyset-курсору
+                      {{ mca17cRunsNext }} (подгрузка при перечитке фильтров)
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ═══ «Инциденты» (§27.6; A55-UI; F14) ═══ -->
+                <div v-else-if="oversightView === 'incidents'" data-mca17c="incidents">
+                  <div class="flex items-center gap-2 flex-wrap mb-2">
+                    <span class="text-xs text-gray-500">
+                      acknowledged ≠ resolved (два независимых статуса);
+                      подтверждение — серверный контракт mca-17a, здесь read-only
+                    </span>
+                    <span v-if="mca17cIncidentsStale" class="badge badge-warn">
+                      телеметрия: stale/unknown — не свежие данные
+                    </span>
+                  </div>
+                  <div v-if="mca17cIncidentsBusy && !mca17cIncidents" class="spinner my-2"></div>
+                  <div v-else-if="mca17cIncidentsError" class="text-xs text-red-300">
+                    данные недоступны: {{ mca17cIncidentsError }}
+                  </div>
+                  <div v-else-if="!mca17cIncidents || !mca17cIncidents.length"
+                       class="text-xs text-gray-500">активных инцидентов нет</div>
+                  <div v-else class="space-y-1">
+                    <div v-for="inc in mca17cIncidents" :key="'inc' + inc.incident_id"
+                         class="rounded border border-white/10 px-2 py-1">
+                      <div class="flex items-center gap-2 flex-wrap cursor-pointer"
+                           @click="oversightToggleIncident(inc.incident_id)">
+                        <span class="badge" :class="Number(inc.severity) >= 3 ? 'badge-err' : (Number(inc.severity) >= 2 ? 'badge-warn' : 'badge-muted')">
+                          {{ oversightSeverityLabel(inc.severity) }}
+                        </span>
+                        <span class="text-xs font-bold">{{ inc.title || inc.fingerprint }}</span>
+                        <span v-for="b in oversightIncidentBadges(inc)" :key="'ib' + b.label"
+                              class="badge" :class="b.cls">{{ b.label }}</span>
+                        <span class="text-xs text-gray-500">повторы: {{ inc.count || 1 }}</span>
+                        <span class="text-xs text-gray-600 ml-auto">{{ fmtTs(inc.last_ts) }}</span>
+                      </div>
+                      <div v-if="mca17cIncOpen[inc.incident_id]" class="text-xs text-gray-400 pl-2 pt-1">
+                        <div>fingerprint: <span class="font-mono">{{ inc.fingerprint }}</span></div>
+                        <div v-if="inc.process_id">процесс: {{ inc.process_id }}
+                          <span v-if="inc.stage"> · стадия {{ inc.stage }}</span>
+                          <span v-if="inc.pipeline_type"> · pipeline {{ inc.pipeline_type }}</span></div>
+                        <div>первый раз: {{ fmtTs(inc.first_ts) }} · последний: {{ fmtTs(inc.last_ts) }}</div>
+                        <div v-if="inc.affected_jobs && inc.affected_jobs.length">
+                          затронуты jobs: {{ inc.affected_jobs.join(', ') }}</div>
+                        <div v-if="inc.affected_chats && inc.affected_chats.length">
+                          затронуты чаты: {{ inc.affected_chats.join(', ') }}</div>
+                        <div v-if="inc.description || inc.impact">
+                          влияние: {{ inc.impact || inc.description }}</div>
+                        <div class="mt-1">
+                          <button class="btn-ghost text-xs"
+                                  @click="oversightSetView('runs'); oversightApplyRunFilters()">
+                            Перейти к запускам →
+                          </button>
+                          <span class="text-xs text-gray-600 ml-1">
+                            trace откроется в «Запусках» (существующие права)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ═══ «Самообучение» (§27.8, A57) + фуннель личности (§28, D12) ═══ -->
+                <div v-else data-mca17c="learning">
+                  <div class="flex items-center gap-2 flex-wrap mb-2">
+                    <div class="text-xs font-bold">Воронка самообучения</div>
+                    <select class="field w-24 text-xs ml-auto" :value="mca17cFunnelDays"
+                            @change="oversightSetFunnelDays($event.target.value)">
+                      <option value="7">7 дней</option>
+                      <option value="30">30 дней</option>
+                      <option value="90">90 дней</option>
+                    </select>
+                  </div>
+                  <div v-if="mca17cFunnelBusy" class="spinner my-2"></div>
+                  <div v-else-if="!mca17cFunnel" class="text-xs text-gray-500">
+                    данные недоступны (ошибка или выключено)
+                  </div>
+                  <div v-else-if="mca17cFunnel.enabled === false"
+                       class="text-xs text-gray-500">выключено (гейт банка опыта) — честный disabled</div>
+                  <div v-else data-mca17c="funnel">
+                    <div class="space-y-1 mb-2">
+                      <div class="text-xs">
+                        <span class="badge badge-info">эпизоды</span>
+                        {{ mca17cFunnel.episodes.total }} за период
+                        (успех {{ mca17cFunnel.episodes.success }} · провал
+                        {{ mca17cFunnel.episodes.failure }} ·
+                        <span class="text-gray-400">unknown {{ mca17cFunnel.episodes.unknown }} — ≠ провал/успех</span>)
+                      </div>
+                      <div class="text-xs">
+                        <span class="badge badge-muted">уроки (текущее состояние реестра)</span>
+                        кандидаты {{ mca17cFunnel.lessons.candidate }} · проверены
+                        {{ mca17cFunnel.lessons.validated }} · активны
+                        {{ mca17cFunnel.lessons.active }} · приостановлены
+                        {{ mca17cFunnel.lessons.suspended }} · замещены
+                        {{ mca17cFunnel.lessons.superseded }}
+                        <span class="text-gray-500">· новых за период {{ mca17cFunnel.lessons.new_in_period }}</span>
+                      </div>
+                      <div class="text-xs">
+                        <span class="badge badge-info">применения</span>
+                        {{ mca17cFunnel.applications.total }} (по
+                        {{ mca17cFunnel.applications.unique_lessons }} уникальным урокам)
+                        · успех {{ mca17cFunnel.applications.success }} · провал
+                        {{ mca17cFunnel.applications.failure }} ·
+                        <span class="text-gray-400">unknown {{ mca17cFunnel.applications.unknown }}</span>
+                      </div>
+                      <div class="text-xs text-gray-400">
+                        feedback: {{ mca17cFunnel.feedback.total }} (≠ уникальные уроки;
+                        эпизодов с feedback: {{ mca17cFunnel.feedback.unique_episodes }})
+                      </div>
+                      <div class="text-xs text-gray-500">{{ mca17cFunnel.notes.join(' · ') }}</div>
+                    </div>
+                    <div data-mca17c="effect" class="rounded border border-white/10 px-2 py-1 mb-3">
+                      <div class="text-xs font-bold mb-0.5">Эффект</div>
+                      <div class="text-xs" :class="mca17cEffectState().measured ? 'text-gray-300' : 'text-gray-500'">
+                        {{ mca17cEffectState().note }}
+                      </div>
+                      <div class="text-xs text-gray-600">шкал качества/«IQ» нет — только измеряемые величины</div>
+                    </div>
+                  </div>
+
+                  <!-- Граф урока (D11): карточки уроков из СУЩЕСТВУЮЩЕГО API;
+                       правка/отключение — в существующей «Памяти» -->
+                  <div class="text-xs font-bold mb-1">Уроки (граф оснований)</div>
+                  <div v-if="mca17cLessonsBusy" class="spinner my-2"></div>
+                  <div v-else-if="!mca17cLessons" class="text-xs text-gray-500">
+                    данные недоступны
+                  </div>
+                  <div v-else-if="mca17cLessons.enabled === false"
+                       class="text-xs text-gray-500">выключено — честный disabled</div>
+                  <div v-else-if="!mca17cLessons.count"
+                       class="text-xs text-gray-500">записей нет (not_run)</div>
+                  <div v-else class="space-y-1 mb-3">
+                    <div class="text-xs text-gray-600">
+                      показан глобальный срез; чат-уроки — в «Памяти» выбранного чата
+                    </div>
+                    <div v-for="ls in mca17cLessons.lessons" :key="'ls' + ls.lesson_id + ls.version"
+                         class="rounded border border-white/10 px-2 py-1">
+                      <div class="flex items-center gap-2 flex-wrap cursor-pointer"
+                           @click="oversightToggleLesson(ls.lesson_id)">
+                        <span class="badge badge-muted">{{ ls.status }}</span>
+                        <span class="text-xs font-mono">{{ ls.lesson_id }}</span>
+                        <span class="text-xs text-gray-500">v{{ ls.version }}
+                          <span v-if="ls.scope"> · {{ ls.scope }}</span>
+                          <span v-if="ls.type"> · {{ ls.type }}</span></span>
+                        <span class="ml-auto"></span>
+                      </div>
+                      <div v-if="mca17cLessonOpen[ls.lesson_id]" class="text-xs text-gray-400 pl-2 pt-1">
+                        <div v-if="ls.recommendation">{{ ls.recommendation }}</div>
+                        <div>
+                          применения: {{ ls.applications_count || 0 }} ·
+                          успех {{ ls.counters_success || 0 }} · провал
+                          {{ ls.counters_failure || 0 }} ·
+                          <span class="text-gray-500">unknown {{ ls.counters_unknown || 0 }}</span>
+                        </div>
+                        <div v-if="ls.grounds && ls.grounds.length">
+                          основания (эпизоды): {{ ls.grounds.length }}
+                          <span v-for="(g, gi) in ls.grounds.slice(0, 5)" :key="'g' + gi"
+                                class="text-gray-500"> · {{ g.episode_id || g }}</span>
+                        </div>
+                        <div v-if="ls.trace_ids && ls.trace_ids.length">
+                          trace: <span class="font-mono">{{ ls.trace_ids.join(', ') }}</span></div>
+                        <div v-if="ls.supersedes_lesson_id">
+                          замещает: <span class="font-mono">{{ ls.supersedes_lesson_id }}</span></div>
+                        <div class="mt-1">
+                          <button class="btn-ghost text-xs" @click="navTo('#/memory')">
+                            Правка/отключение — в «Памяти» →
+                          </button>
+                          <span class="text-xs text-gray-600">представления одних записей, без своего состояния</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Фуннель личности (D12; handoff mca-18): три различных
+                       статуса; существующий компакт на «Статусе» не дублируется -->
+                  <div class="text-xs font-bold mb-1">Что сейчас формирует характер — фуннель</div>
+                  <div v-if="mca17cSelfBusy" class="spinner my-2"></div>
+                  <div v-else-if="!mca17cSelfModel" class="text-xs text-gray-500">
+                    данные недоступны
+                  </div>
+                  <div v-else-if="mca17cSelfModel.enabled === false"
+                       class="text-xs text-gray-500">self_model выключен — честный disabled</div>
+                  <div v-else data-mca17c="persona-funnel">
+                    <div class="space-y-1 mb-1">
+                      <div v-for="(st, si) in mca17cPersonaFunnel().stages" :key="'ps' + si"
+                           class="text-xs">
+                        <span class="badge" :class="st.cls">{{ st.label }}</span>
+                        {{ st.value }}
+                      </div>
+                    </div>
+                    <div class="text-xs text-gray-500">
+                      frame v{{ mca17cPersonaFunnel().frameVersion }} · snapshot v{{ mca17cPersonaFunnel().snapshotVersion }}
+                      <span v-if="mca17cPersonaFunnel().stale" class="badge badge-warn ml-1">stale</span>
+                      · включение в промпт ≠ доказанный эффект (причинность не приписывается)
+                    </div>
+                    <div v-if="mca17cPersonaFunnel().rejected && mca17cPersonaFunnel().rejected.length"
+                         class="text-xs text-gray-400 mt-1">
+                      исключены/конфликт:
+                      <span v-for="rj in mca17cPersonaFunnel().rejected" :key="'rj' + rj.id"
+                            class="mr-1">{{ rj.dimension || rj.id }} — {{ rj.reason || 'причина не указана' }};</span>
+                    </div>
+                  </div>
                 </div>
               </div>
               <!-- F3 (раунд 10.24, ADR-1024-7): «Аналитика токенов» —

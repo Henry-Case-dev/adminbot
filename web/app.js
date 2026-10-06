@@ -1792,6 +1792,42 @@
         temporalDetailBusy: false,
         dossierFeedBusy: false,
         dossierFeedError: '',
+        // ── mca-17c (round 10.47, ADR-1028-23): витрина наблюдаемости ──
+        oversightView: 'processes',   // processes|runs|incidents|learning
+        mca17cProcesses: null,        // GET /api/oversight/processes (кэш)
+        mca17cProcessesBusy: false,
+        mca17cProcessQuery: '',
+        mca17cProcessStatus: '',
+        mca17cRuns: null,             // GET /api/oversight/runs (серверные фильтры)
+        mca17cRunsBusy: false,
+        mca17cRunsError: '',
+        mca17cRunCounts: {},
+        mca17cRunsNext: null,         // keyset-курсор
+        mca17cRunF: { status: '', pipeline_type: '', component: '',
+          chat_id: '', days: '7' },
+        mca17cRunDetail: null,        // detail по run_id (deep link)
+        mca17cRunDetailBusy: false,
+        mca17cRunOpen: {},            // A54: раскрытые узлы переживают refresh
+        mca17cRunsScroll: 0,
+        mca17cRunsTimer: null,        // поллинг 12с (только активная view)
+        mca17cJobBusy: '',            // защита дубль-клика действий (A56)
+        mca17cJobNote: '',
+        mca17cIncidents: null,        // GET /api/oversight/incidents + changes
+        mca17cIncidentsBusy: false,
+        mca17cIncidentsError: '',
+        mca17cIncidentsStale: false,  // потеря backend — честный stale
+        mca17cIncOpen: {},
+        mca17cIncCursor: null,        // reconnect-курсор (A54)
+        mca17cIncTimer: null,
+        mca17cFunnel: null,           // GET /api/oversight/experience/funnel
+        mca17cFunnelBusy: false,
+        mca17cFunnelDays: '30',
+        mca17cLessons: null,          // СУЩЕСТВУЮЩИЙ GET /api/memory/lessons
+        mca17cLessonsBusy: false,
+        mca17cLessonOpen: {},
+        mca17cSelfModel: null,        // СУЩЕСТВУЮЩИЙ GET /api/persona/self-model
+        mca17cSelfBusy: false,
+        mca17cDeepLinkDone: false,
         dossierFeedTimer: null,
         // ── Раунд 10.20 (БЛОК 3.2/T-1896): Досье участника (модалка) ──
         dossierOpen: false,
@@ -7379,6 +7415,778 @@
         }
       },
 
+      // ═══ mca-17c (round 10.47, ADR-1028-23): витрина наблюдаемости ═══
+      // Read-side поверх замороженных контрактов mca-17a/13/16/18/19/20
+      // (§100.4 CA-17C-1: без вторых store/витрин/каналов). Честные
+      // состояния §27.3/4/5/7 — отражение контракта, не переопределение:
+      // unknown ≠ провал/успех, disabled с причиной, без выдуманных %,
+      // без «здоровья по локальному таймеру». Фильтры — СЕРВЕРНЫЕ
+      // (client-side trust запрещён, TH-2); deep links переживают F5 (A54).
+      // Реестр component-значений — фактические emit-значения сервисов
+      // (grep HEAD 07.10.2026; полная сверка стадий — артефакт T-5191).
+      mca17cComponentMap: {
+        'self.model': 'self_model',
+        'vision.media': 'vision.media',
+        'temporal.factcheck': 'factcheck.temporal',
+        'self_learning.run': 'experience',
+        'intent.initiative': 'intents',
+        'summary.window': 'summary',
+        'sleep.deep': 'dream',
+      },
+
+      // Чистый парсер deep link `#/oversight?view=runs&run_id=X&...`
+      // (normalizeRoute отбрасывает query — T-1099, поэтому парсим сами).
+      oversightParseDeepLink: function (hash) {
+        var out = { view: null, params: {} };
+        if (typeof hash !== 'string') return out;
+        var qIndex = hash.indexOf('?');
+        if (qIndex < 0 || hash.indexOf('#/oversight') !== 0) return out;
+        var parts = hash.slice(qIndex + 1).split('&');
+        for (var i = 0; i < parts.length; i++) {
+          var kv = parts[i].split('=');
+          if (!kv[0]) continue;
+          var val = kv.length > 1 ? decodeURIComponent(kv[1]) : '';
+          if (kv[0] === 'view' && val) out.view = val;
+          else out.params[kv[0]] = val;
+        }
+        return out;
+      },
+
+      // Применить deep link (setTab('oversight') и hashchange): переживает F5.
+      oversightApplyDeepLink: function () {
+        var link = this.oversightParseDeepLink(
+          typeof window !== 'undefined' ? window.location.hash : '');
+        var views = ['processes', 'runs', 'incidents', 'learning'];
+        if (link.view && views.indexOf(link.view) >= 0) {
+          this.oversightView = link.view;
+        }
+        var p = link.params;
+        if (p.status && ['succeeded', 'partial', 'degraded', 'failed',
+          'interrupted', 'cancelled', 'running', 'stalled']
+          .indexOf(p.status) >= 0) this.mca17cRunF.status = p.status;
+        if (p.component) this.mca17cRunF.component = String(p.component)
+          .slice(0, 64);
+        if (p.pipeline_type) this.mca17cRunF.pipeline_type =
+          String(p.pipeline_type).slice(0, 64);
+        if (p.chat_id && /^-?\d+$/.test(p.chat_id)) {
+          this.mca17cRunF.chat_id = p.chat_id;
+        }
+        if (p.days && ['1', '7', '30', '90'].indexOf(p.days) >= 0) {
+          this.mca17cRunF.days = p.days;
+          this.mca17cFunnelDays = p.days;
+        }
+        if (p.run_id) this.oversightOpenRun(String(p.run_id).slice(0, 120));
+        if (link.view || p.run_id) {
+          this.mca17cDeepLinkDone = true;
+          this.oversightViewEnter();
+        }
+        return this.mca17cDeepLinkDone;
+      },
+
+      // Вход во view: ленивые загрузки + поллинг (прецедент statusTimer:
+      // живёт ТОЛЬКО пока открыта «Аналитика»).
+      oversightViewEnter: function () {
+        var v = this.oversightView;
+        if (v === 'processes' && !this.mca17cProcesses
+            && !this.mca17cProcessesBusy) this.oversightLoadProcesses();
+        if (v === 'runs') {
+          if (!this.mca17cRuns && !this.mca17cRunsBusy) {
+            this.oversightLoadRuns(true);
+          }
+          this.oversightStartRunsPolling();
+        }
+        if (v === 'incidents') {
+          if (!this.mca17cIncidents && !this.mca17cIncidentsBusy) {
+            this.oversightLoadIncidents();
+          }
+          this.oversightStartIncidentsPolling();
+        }
+        if (v === 'learning') {
+          if (!this.mca17cFunnel && !this.mca17cFunnelBusy) {
+            this.oversightLoadFunnel();
+          }
+          if (!this.mca17cLessons && !this.mca17cLessonsBusy) {
+            this.oversightLoadLessons();
+          }
+          if (!this.mca17cSelfModel && !this.mca17cSelfBusy) {
+            this.oversightLoadSelfModel();
+          }
+        }
+      },
+
+      oversightLeave: function () {
+        this.oversightStopRunsPolling();
+        this.oversightStopIncidentsPolling();
+      },
+
+      // Смена суб-представления (без перезагрузки чужих блоков oversight).
+      oversightSetView: function (v) {
+        if (this.oversightView === v) return;
+        this.oversightView = v;
+        this.oversightLeave();
+        this.oversightSyncHash();
+        this.oversightViewEnter();
+      },
+
+      // ⟳ — перечитать активное представление (только чтение; A56).
+      oversightRefreshView: function () {
+        var v = this.oversightView;
+        if (v === 'processes') this.oversightLoadProcesses();
+        else if (v === 'runs') {
+          if (this.mca17cRunDetail) this.oversightOpenRun(
+            this.mca17cRunDetail.pipeline_run_id, true);
+          else this.oversightLoadRuns(true);
+        } else if (v === 'incidents') this.oversightLoadIncidents();
+        else if (v === 'learning') {
+          this.oversightLoadFunnel();
+          this.oversightLoadLessons();
+          this.oversightLoadSelfModel();
+        }
+      },
+
+      // Hash-синхронизация без спама history (replaceState, без hashchange).
+      oversightSyncHash: function () {
+        try {
+          if (typeof window === 'undefined' || !window.history) return;
+          var base = '#/oversight?view=' + this.oversightView;
+          var f = this.mca17cRunF;
+          if (this.oversightView === 'runs') {
+            if (f.status) base += '&status=' + encodeURIComponent(f.status);
+            if (f.component) {
+              base += '&component=' + encodeURIComponent(f.component);
+            }
+            if (f.pipeline_type) {
+              base += '&pipeline_type=' + encodeURIComponent(f.pipeline_type);
+            }
+            if (f.chat_id) base += '&chat_id=' + encodeURIComponent(f.chat_id);
+          }
+          if (this.mca17cRunDetail) {
+            base += '&run_id=' +
+              encodeURIComponent(this.mca17cRunDetail.pipeline_run_id);
+          }
+          window.history.replaceState(null, '', base);
+        } catch (e) { /* file:// / стаб — no-op */ }
+      },
+
+      // ── «Процессы»: реестр 47 карточек (D1/D2, честные состояния) ──
+      oversightLoadProcesses: async function () {
+        if (this.mca17cProcessesBusy) return;
+        this.mca17cProcessesBusy = true;
+        try {
+          var data = await this.api('/api/oversight/processes',
+            { global: true });
+          this.mca17cProcesses = data || { processes: [], coverage: {} };
+        } catch (e) {
+          this.mca17cProcesses = { processes: [], coverage: {},
+            error: this.loreErrText ? this.loreErrText(e) : 'ошибка' };
+        } finally {
+          this.mca17cProcessesBusy = false;
+        }
+      },
+
+      // Группировка карточек по widget_id (D2: одна карточка — вкладки
+      // подфункций; у каждой свой статус/стадии). Клиентский фильтр —
+      // по УЖЕ загруженному полному снапшоту (trust не переносится).
+      mca17cProcessGroups: function () {
+        var snap = this.mca17cProcesses;
+        var list = (snap && snap.processes) || [];
+        var q = (this.mca17cProcessQuery || '').trim().toLowerCase();
+        var st = this.mca17cProcessStatus || '';
+        var groups = {};
+        var order = [];
+        for (var i = 0; i < list.length; i++) {
+          var p = list[i];
+          if (q && String(p.process_id + ' ' + (p.purpose || '') + ' ' +
+            (p.owner_feature || '')).toLowerCase().indexOf(q) < 0) continue;
+          if (st && p.status !== st) continue;
+          var key = p.widget_id || '—';
+          if (!groups[key]) { groups[key] = []; order.push(key); }
+          groups[key].push(p);
+        }
+        order.sort(function (a, b) { return a < b ? -1 : (a > b ? 1 : 0); });
+        return order.map(function (k) {
+          return { widget_id: k, items: groups[k] };
+        });
+      },
+
+      // Честный бейдж статуса (цвет ВСЕГДА с текстом; K-OFF — disabled
+      // с причиной, не нули; игровая заготовка — not_implemented).
+      oversightProcessBadge: function (status) {
+        var map = {
+          implemented: { cls: 'badge-ok', label: 'активен' },
+          disabled: { cls: 'badge-muted', label: 'выключен' },
+          not_run: { cls: 'badge-warn', label: 'не запускался' },
+          not_implemented: { cls: 'badge-muted', label: 'заготовка (запусков нет)' },
+          not_instrumented: { cls: 'badge-muted', label: 'не инструментирован' },
+          unavailable: { cls: 'badge-warn', label: 'недоступен' },
+        };
+        return map[status] || { cls: 'badge-muted', label: String(status || '—') };
+      },
+
+      // Имя гейта из settings_ref (для честной причины выключения).
+      mca17cProcessGate: function (p) {
+        var refs = (p && p.settings_ref) || [];
+        for (var i = 0; i < refs.length; i++) {
+          if (String(refs[i]).indexOf('ENABLED') >= 0) return String(refs[i]);
+        }
+        return '';
+      },
+
+      // Drill-down карточки → «Запуски» (серверный фильтр по фактическому
+      // component/pipeline_type; пустой результат — честный, не выдумка).
+      oversightDrillProcess: function (p) {
+        var comp = this.mca17cComponentMap[p.process_id] || '';
+        this.mca17cRunF.component = comp;
+        this.mca17cRunF.pipeline_type = '';
+        this.mca17cRunF.status = '';
+        this.oversightSetView('runs');
+        this.oversightLoadRuns(true);
+      },
+
+      // ── «Запуски»: серверные фильтры + keyset + A54 ──
+      oversightLoadRuns: async function (reset) {
+        if (this.mca17cRunsBusy) return;
+        // A54: сохраняем прокрутку списка — обновление её не сбрасывает.
+        var listEl = (typeof document !== 'undefined')
+          ? document.querySelector('[data-mca17c="runs-list"]') : null;
+        var savedScroll = listEl ? listEl.scrollTop : this.mca17cRunsScroll;
+        this.mca17cRunsBusy = true;
+        try {
+          var f = this.mca17cRunF;
+          var q = '?limit=50';
+          if (f.status) q += '&status=' + encodeURIComponent(f.status);
+          if (f.pipeline_type) {
+            q += '&pipeline_type=' + encodeURIComponent(f.pipeline_type);
+          }
+          if (f.component) {
+            q += '&component=' + encodeURIComponent(f.component);
+          }
+          if (f.chat_id && /^-?\d+$/.test(String(f.chat_id))) {
+            q += '&chat_id=' + encodeURIComponent(String(f.chat_id));
+          }
+          var days = parseInt(f.days, 10);
+          if (days > 0) {
+            q += '&since_ts=' + (Math.floor(Date.now() / 1000)
+              - days * 86400);
+          }
+          if (!reset && this.mca17cRunsNext) {
+            q += '&cursor=' + encodeURIComponent(this.mca17cRunsNext);
+          }
+          var data = await this.api('/api/oversight/runs' + q,
+            { global: true });
+          this.mca17cRunsError = '';
+          if (data && data.enabled === false) {
+            this.mca17cRuns = [];
+            this.mca17cRunCounts = {};
+            this.mca17cRunsNext = null;
+          } else {
+            var prev = (!reset && this.mca17cRuns) || [];
+            var fresh = (data && data.runs) || [];
+            // дедуп по pipeline_run_id (A54: догрузка без дублей)
+            var seen = {};
+            var merged = [];
+            for (var i = 0; i < prev.length; i++) {
+              seen[prev[i].pipeline_run_id] = true;
+              merged.push(prev[i]);
+            }
+            for (var j = 0; j < fresh.length; j++) {
+              if (!seen[fresh[j].pipeline_run_id]) merged.push(fresh[j]);
+            }
+            this.mca17cRuns = merged;
+            this.mca17cRunCounts = (data && data.counts) || {};
+            this.mca17cRunsNext =
+              (data && data.next_cursor) || null;
+          }
+        } catch (e) {
+          // честный fail: не держим старую «зелень» без пометки
+          this.mca17cRunsError = this.loreErrText
+            ? this.loreErrText(e) : 'ошибка загрузки';
+        } finally {
+          this.mca17cRunsBusy = false;
+          if (listEl && savedScroll) {
+            var self = this;
+            this.$nextTick(function () {
+              var el = document.querySelector('[data-mca17c="runs-list"]');
+              if (el) el.scrollTop = savedScroll;
+              self.mca17cRunsScroll = savedScroll;
+            });
+          }
+        }
+      },
+
+      oversightApplyRunFilters: function () {
+        this.mca17cRunsNext = null;
+        this.oversightSyncHash();
+        this.oversightLoadRuns(true);
+      },
+
+      oversightSetRunStatus: function (s) {
+        this.mca17cRunF.status = (this.mca17cRunF.status === s) ? '' : s;
+        this.oversightApplyRunFilters();
+      },
+
+      // Поллинг «Запусков» (12с): A54 — обновление сохраняет деталь,
+      // раскрытые узлы (mca17cRunOpen не трогается) и прокрутку.
+      oversightStartRunsPolling: function () {
+        var self = this;
+        this.oversightStopRunsPolling();
+        this.mca17cRunsTimer = setInterval(function () {
+          if (self.activeTab !== 'oversight'
+            || self.oversightView !== 'runs') return;
+          self.oversightLoadRuns(false);
+          if (self.mca17cRunDetail) {
+            self.oversightOpenRun(self.mca17cRunDetail.pipeline_run_id, true);
+          }
+        }, 12000);
+      },
+
+      oversightStopRunsPolling: function () {
+        if (this.mca17cRunsTimer) {
+          clearInterval(this.mca17cRunsTimer);
+          this.mca17cRunsTimer = null;
+        }
+      },
+
+      // Честная RU-подпись статуса run (read-render контракта mca-17a):
+      // «зелёный» = завершение необходимых этапов; silent = валидное
+      // молчание (≠ падение); stalled — отдельный диагностический флаг.
+      oversightRunStatusLabel: function (runOrStatus) {
+        var s = (typeof runOrStatus === 'object' && runOrStatus !== null)
+          ? runOrStatus.status : runOrStatus;
+        var map = {
+          succeeded: 'успешно',
+          partial: 'частично (есть ошибки ветвей)',
+          degraded: 'с деградацией',
+          failed: 'неуспешно',
+          interrupted: 'прервано',
+          cancelled: 'отменено',
+          running: 'выполняется',
+          stalled: 'stalled (без прогресса)',
+        };
+        return map[s] || String(s || '—');
+      },
+
+      oversightRunBadge: function (runOrStatus) {
+        var s = (typeof runOrStatus === 'object' && runOrStatus !== null)
+          ? runOrStatus.status : runOrStatus;
+        var map = {
+          succeeded: 'badge-ok', partial: 'badge-warn',
+          degraded: 'badge-warn', failed: 'badge-err',
+          interrupted: 'badge-muted', cancelled: 'badge-muted',
+          running: 'badge-info', stalled: 'badge-warn',
+        };
+        return map[s] || 'badge-muted';
+      },
+
+      // F16-наследие: «пусто ≠ устарело» + анимация гаснет при stale
+      // (никакого здоровья по локальному таймеру — только updated_ts).
+      oversightFreshnessLabel: function (updatedTs) {
+        if (updatedTs === null || updatedTs === undefined) return 'нет данных';
+        var age = Math.floor(Date.now() / 1000) - Number(updatedTs);
+        if (!isFinite(age)) return 'нет данных';
+        if (age < 0) return 'только что';
+        if (age < 120) return 'обновлено ' + age + ' с назад';
+        if (age < 3600) {
+          return 'обновлено ' + Math.floor(age / 60) + ' мин назад';
+        }
+        if (age < 86400) {
+          return 'обновлено ' + Math.floor(age / 3600) + ' ч назад';
+        }
+        return 'обновлено ' + Math.floor(age / 86400) + ' дн назад';
+      },
+
+      oversightRunIsStale: function (run) {
+        if (!run || run.status !== 'running') return false;
+        var updated = Number(run.updated_ts || 0);
+        return (Math.floor(Date.now() / 1000) - updated) > 300;
+      },
+
+      // A54: раскрытие шагов timeline переживает обновление данных.
+      oversightToggleRunNode: function (key) {
+        var open = Object.assign({}, this.mca17cRunOpen);
+        open[key] = !open[key];
+        this.mca17cRunOpen = open;
+      },
+
+      // Деталь run (уровень 3): события run + контракт стадий.
+      oversightOpenRun: async function (runId, silent) {
+        if (!runId) return;
+        if (!silent) this.mca17cRunDetailBusy = true;
+        try {
+          var data = await this.api('/api/oversight/runs?run_id=' +
+            encodeURIComponent(runId), { global: true });
+          this.mca17cRunDetail = (data && data.run) || null;
+          if (silent && this.mca17cRunDetail) {
+            // перечитано «Повторить отображение»/поллингом — только чтение
+          }
+        } catch (e) {
+          if (!silent) {
+            this.mca17cRunDetail = null;
+            this.toast('Run недоступен: ' +
+              (this.loreErrText ? this.loreErrText(e) : 'ошибка'), 'err');
+          }
+        } finally {
+          this.mca17cRunDetailBusy = false;
+          this.oversightSyncHash();
+        }
+      },
+
+      oversightCloseRun: function () {
+        this.mca17cRunDetail = null;
+        this.oversightSyncHash();
+      },
+
+      // Экспорт ОЧИЩЕННОГО trace (D14/R17): клиентский download тех же
+      // данных, что отдал сервер (sanitize до записи делает mca-17a).
+      // Чистая сборка JSON — без повторных запросов и новых маршрутов.
+      oversightExportRunTrace: function (run) {
+        var r = run || this.mca17cRunDetail;
+        if (!r) return null;
+        var payload = {
+          exported_at: Math.floor(Date.now() / 1000),
+          note: 'очищенный trace (mca-17a sanitize до записи; без секретов)',
+          run: {
+            pipeline_run_id: r.pipeline_run_id,
+            pipeline_type: r.pipeline_type,
+            pipeline_version: r.pipeline_version,
+            status: r.status,
+            stalled: r.stalled,
+            started_ts: r.started_ts,
+            updated_ts: r.updated_ts,
+            chat_id: r.chat_id,
+            component: r.component,
+            model: r.model,
+            provider: r.provider,
+          },
+          events: (r.events || []).map(function (ev) { return ev; }),
+        };
+        return payload;
+      },
+
+      oversightDownloadRunTrace: function () {
+        var payload = this.oversightExportRunTrace(this.mca17cRunDetail);
+        if (!payload) return;
+        try {
+          var blob = new Blob([JSON.stringify(payload, null, 2)],
+            { type: 'application/json' });
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'oversight-run-' +
+            (payload.run.pipeline_run_id || 'unknown') + '.json';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(function () { URL.revokeObjectURL(a.href); }, 500);
+        } catch (e) {
+          this.toast('Экспорт недоступен в этом окружении', 'err');
+        }
+      },
+
+      // Диагностическое действие (A56): ЕДИНСТВЕННЫЙ санкционированный
+      // write — POST /api/oversight/jobs/{id}/action через TaskSupervisor.
+      // Права — серверные (global-admin); идемпотентность — state-машина.
+      oversightJobAction: async function (jobId, action) {
+        if (!jobId || !action || this.mca17cJobBusy) return;
+        this.mca17cJobBusy = jobId + ':' + action;
+        this.mca17cJobNote = '';
+        try {
+          var data = await this.api(
+            '/api/oversight/jobs/' + encodeURIComponent(jobId) + '/action',
+            { method: 'POST', global: true,
+              body: JSON.stringify({ action: action }) });
+          if (data && data.idempotent) {
+            this.mca17cJobNote = 'действие уже применено (идемпотентный ' +
+              'повтор — без изменений)';
+          } else {
+            this.mca17cJobNote = 'выполнено: ' + action + ' → ' +
+              (data && data.status ? data.status : 'ок');
+          }
+          this.toast(this.mca17cJobNote, 'ok');
+          if (this.mca17cRunDetail) {
+            this.oversightOpenRun(this.mca17cRunDetail.pipeline_run_id, true);
+          }
+          this.oversightLoadRuns(false);
+        } catch (e) {
+          var detail = (e && e.detail) ? e.detail : 'ошибка';
+          this.mca17cJobNote = 'не выполнено: ' + detail;
+          this.toast('Действие отклонено: ' + detail, 'err');
+        } finally {
+          this.mca17cJobBusy = '';
+        }
+      },
+
+      // job_id последнего события с job (действия — только для него).
+      mca17cRunJobId: function () {
+        var r = this.mca17cRunDetail;
+        if (!r || !r.events) return '';
+        for (var i = r.events.length - 1; i >= 0; i--) {
+          if (r.events[i].job_id) return String(r.events[i].job_id);
+        }
+        return '';
+      },
+
+      // ── «Инциденты» (§27.6; A55-UI): F14 числовая сортировка ──
+      oversightSeveritySort: function (list) {
+        return (list || []).slice().sort(function (a, b) {
+          var sa = Number(a && a.severity);
+          var sb = Number(b && b.severity);
+          if (!isFinite(sa)) sa = -1;
+          if (!isFinite(sb)) sb = -1;
+          if (sa !== sb) return sb - sa;      // числовой ключ, не строка
+          var la = Number(a && a.last_ts) || 0;
+          var lb = Number(b && b.last_ts) || 0;
+          return lb - la;
+        });
+      },
+
+      oversightSeverityLabel: function (sev) {
+        var n = Number(sev);
+        var map = { 0: 'инфо', 1: 'низкая', 2: 'средняя', 3: 'высокая',
+          4: 'критичная' };
+        return isFinite(n) ? (map[n] || ('уровень ' + n)) : 'неизвестно';
+      },
+
+      // Merge по incident_id (A54: reconnect — догрузка без дублей).
+      oversightMergeIncidents: function (current, incoming) {
+        var seen = {};
+        var merged = [];
+        var i;
+        for (i = 0; i < (current || []).length; i++) {
+          seen[current[i].incident_id] = true;
+          merged.push(current[i]);
+        }
+        for (i = 0; i < (incoming || []).length; i++) {
+          if (!seen[incoming[i].incident_id]) {
+            merged.push(incoming[i]);
+          } else {
+            for (var j = 0; j < merged.length; j++) {
+              if (merged[j].incident_id === incoming[i].incident_id) {
+                merged[j] = incoming[i];      // свежая версия строки
+              }
+            }
+          }
+        }
+        return this.oversightSeveritySort(merged);
+      },
+
+      oversightLoadIncidents: async function () {
+        if (this.mca17cIncidentsBusy) return;
+        this.mca17cIncidentsBusy = true;
+        try {
+          var data = await this.api('/api/oversight/incidents?limit=200',
+            { global: true });
+          this.mca17cIncidents = this.oversightSeveritySort(
+            (data && data.incidents) || []);
+          this.mca17cIncidentsError = '';
+          this.mca17cIncidentsStale = false;
+        } catch (e) {
+          this.mca17cIncidentsError = this.loreErrText
+            ? this.loreErrText(e) : 'ошибка загрузки';
+          // UI при потере backend — честный stale, не старый зелёный
+          this.mca17cIncidentsStale = true;
+        } finally {
+          this.mca17cIncidentsBusy = false;
+        }
+      },
+
+      // Reconnect по cursor со сверкой (доставка ≤10s — существующий
+      // polling-транспорт mca-17a; нового канала нет).
+      oversightPollIncidents: async function () {
+        try {
+          var data = await this.api('/api/oversight/incidents/changes?since_ts='
+            + (this.mca17cIncCursor || 0)
+            + '&limit=200', { global: true });
+          if (data && data.enabled === false) {
+            this.mca17cIncidentsStale = false;
+            return;
+          }
+          if (data && typeof data.cursor === 'number') {
+            this.mca17cIncCursor = data.cursor;
+          }
+          var rows = (data && (data.changes || data.incidents)) || [];
+          if (rows.length) {
+            this.mca17cIncidents = this.oversightMergeIncidents(
+              this.mca17cIncidents, rows);
+          }
+          this.mca17cIncidentsStale = false;
+          this.mca17cIncidentsError = '';
+        } catch (e) {
+          this.mca17cIncidentsStale = true;   // stale ≠ healthy
+        }
+      },
+
+      oversightStartIncidentsPolling: function () {
+        var self = this;
+        this.oversightStopIncidentsPolling();
+        this.mca17cIncTimer = setInterval(function () {
+          if (self.activeTab !== 'oversight'
+            || self.oversightView !== 'incidents') return;
+          self.oversightPollIncidents();
+        }, 8000);   // ≤10s — контракт доставки mca-17a
+      },
+
+      oversightStopIncidentsPolling: function () {
+        if (this.mca17cIncTimer) {
+          clearInterval(this.mca17cIncTimer);
+          this.mca17cIncTimer = null;
+        }
+      },
+
+      oversightToggleIncident: function (id) {
+        var open = Object.assign({}, this.mca17cIncOpen);
+        open[id] = !open[id];
+        this.mca17cIncOpen = open;
+      },
+
+      // acknowledged ≠ resolved: два независимых бейджа (UI не «дорешивает»).
+      oversightIncidentBadges: function (inc) {
+        var badges = [];
+        if (inc.resolved) badges.push({ cls: 'badge-ok', label: 'решён' });
+        else if (inc.status === 'recovered') {
+          badges.push({ cls: 'badge-ok', label: 'восстановлен' });
+        } else badges.push({ cls: 'badge-err', label: 'активен' });
+        if (inc.acknowledged) {
+          badges.push({ cls: 'badge-muted', label: 'подтверждён' });
+        }
+        return badges;
+      },
+
+      // ── «Самообучение» (§27.8; A57) + фуннель личности (§28, D12) ──
+      oversightLoadFunnel: async function () {
+        if (this.mca17cFunnelBusy) return;
+        this.mca17cFunnelBusy = true;
+        try {
+          var data = await this.api('/api/oversight/experience/funnel?days='
+            + encodeURIComponent(this.mca17cFunnelDays), { global: true });
+          this.mca17cFunnel = data || null;
+        } catch (e) {
+          this.mca17cFunnel = null;
+        } finally {
+          this.mca17cFunnelBusy = false;
+        }
+      },
+
+      oversightSetFunnelDays: function (d) {
+        this.mca17cFunnelDays = String(d);
+        this.oversightLoadFunnel();
+      },
+
+      // «Эффект» (D11): доступные сравнения + объём наблюдений; нет данных —
+      // «эффект ещё не измерен»; unknown ≠ провал/успех (A57).
+      mca17cEffectState: function () {
+        var f = this.mca17cFunnel;
+        if (!f || f.enabled === false) {
+          return { measured: false, note: 'нет данных (выключено или пусто)' };
+        }
+        var app = f.applications || {};
+        if (!app.total) {
+          return { measured: false,
+            note: 'эффект ещё не измерен — применений за период нет' };
+        }
+        var known = (app.success || 0) + (app.failure || 0);
+        if (!known) {
+          return { measured: false,
+            note: 'эффект ещё не измерен — исходы применений unknown '
+              + '(' + app.unknown + ' из ' + app.total + ')' };
+        }
+        return { measured: true,
+          note: 'наблюдений: ' + app.total
+            + ' · с известным исходом: ' + known
+            + ' · успехов: ' + (app.success || 0)
+            + ' · провалов: ' + (app.failure || 0)
+            + ' · unknown: ' + (app.unknown || 0) + ' (≠ провал/успех)' };
+      },
+
+      oversightLoadLessons: async function () {
+        if (this.mca17cLessonsBusy) return;
+        this.mca17cLessonsBusy = true;
+        try {
+          // СУЩЕСТВУЮЩИЙ API mca-16 (права/скоуп — на сервере; из
+          // «Аналитики» — глобальный срез; правка — в «Памяти», D11).
+          var data = await this.api('/api/memory/lessons?limit=50',
+            { global: true });
+          this.mca17cLessons = data || null;
+        } catch (e) {
+          this.mca17cLessons = null;
+        } finally {
+          this.mca17cLessonsBusy = false;
+        }
+      },
+
+      oversightToggleLesson: function (id) {
+        var open = Object.assign({}, this.mca17cLessonOpen);
+        open[id] = !open[id];
+        this.mca17cLessonOpen = open;
+      },
+
+      oversightLoadSelfModel: async function () {
+        if (this.mca17cSelfBusy) return;
+        this.mca17cSelfBusy = true;
+        try {
+          // СУЩЕСТВУЮЩИЙ компакт mca-18 (новых витрин нет — D12):
+          // applied_now/rejected_now/frame_version — рендер здесь.
+          var data = await this.api('/api/persona/self-model');
+          this.mca17cSelfModel = data || null;
+        } catch (e) {
+          this.mca17cSelfModel = null;
+        } finally {
+          this.mca17cSelfBusy = false;
+        }
+      },
+
+      // Три статуса фуннеля личности (D12/§28 `:1588`): «передано модели»
+      // ≠ «проявилось по оценке» ≠ «доказан сравнительный эффект».
+      // Честно: проявление/эффект считаем ТОЛЬКО из имеющихся полей
+      // (applied_now/rejected_now); отсутствующее — «нет данных»,
+      // причинность включению в промпт не приписывается.
+      mca17cPersonaFunnel: function () {
+        var s = this.mca17cSelfModel;
+        if (!s || s.enabled === false) {
+          return { enabled: false,
+            stages: [{ label: 'передано модели', value: 'нет данных',
+              cls: 'badge-muted' }] };
+        }
+        var applied = (s.applied_now || []).length;
+        var rejected = (s.rejected_now || []).length;
+        return {
+          enabled: true,
+          frameVersion: s.frame_version,
+          snapshotVersion: s.version,
+          stale: !!s.stale,
+          applied: s.applied_now || [],
+          rejected: s.rejected_now || [],
+          stages: [
+            { label: 'передано модели (prompt_render)',
+              value: String(applied) + ' правил(а)',
+              cls: applied ? 'badge-info' : 'badge-muted' },
+            { label: 'проявилось по оценке',
+              value: rejected
+                ? ('исключено/конфликт: ' + rejected + ' — причины видны')
+                : 'нет данных об оценке проявления',
+              cls: rejected ? 'badge-warn' : 'badge-muted' },
+            { label: 'доказан сравнительный эффект (replay)',
+              value: 'эффект ещё не измерен (вне процесса)',
+              cls: 'badge-muted' },
+          ],
+        };
+      },
+
+      // L-3 carry-over: человекочитаемая метка unchanged/raw-статусов
+      // (mapping — из существующего _DEEP_REASON_MAP backend-контракта).
+      oversightDeepReasonLabel: function (raw) {
+        var map = {
+          no_anchors: 'нет якорей', no_context: 'нет контекста',
+          cooldown: 'кулдаун', daily_limit: 'дневной лимит',
+          budget: 'пропущено по бюджету', budget_skip: 'пропущено по бюджету',
+          unchanged: 'без изменений', empty: 'без изменений',
+          duplicate: 'дубликат', error: 'ошибка', ok: 'ок',
+          written: 'записано', ok2: 'ок',
+          insufficient_evidence: 'недостаточно оснований',
+          master_off: 'выключено (мастер-гейт)',
+        };
+        return map[raw] || String(raw || '—');
+      },
+
       canEditModule: function (m) {
         return !!m && this.canEditConfig(m.toggleKey);
       },
@@ -9637,6 +10445,14 @@
           if (typeof this.startIncidentPolling === 'function') {
             this.startIncidentPolling();
           }
+          // mca-17c (round 10.47): deep link `#/oversight?view=...&run_id=...`
+          // + ленивые загрузки/поллинг активного суб-представления (A54).
+          if (typeof this.oversightApplyDeepLink === 'function') {
+            this.oversightApplyDeepLink();
+          }
+          if (typeof this.oversightViewEnter === 'function') {
+            this.oversightViewEnter();
+          }
         } else {
           if (typeof this.stopPipelinePolling === 'function') {
             this.stopPipelinePolling();   // вне «Аналитики» — без polling
@@ -9646,6 +10462,10 @@
           }
           if (typeof this.stopIncidentPolling === 'function') {
             this.stopIncidentPolling();       // вне «Сводки» — без polling
+          }
+          // mca-17c: суб-поллинги наблюдаемости — только внутри «Аналитики».
+          if (typeof this.oversightLeave === 'function') {
+            this.oversightLeave();
           }
         }
         if (id === 'info') {

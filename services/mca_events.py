@@ -99,6 +99,11 @@ REASON_CODES = frozenset({
     "telemetry_gap", "spool_exhausted", "incident_opened",
     "incident_acknowledged", "incident_resolved", "incident_reopened",
     "fallback_engaged", "job_not_allowed", "action_idempotent_replay",
+    # расширение mca-17c/10.28 (ADR-1028-23 D10/D13; санкция spec §7 — ровно
+    # +1, 279→280): actor/audit диагностического действия владельца над job
+    # (POST /api/oversight/jobs/{id}/action — cancel/resume/retry через
+    # существующий TaskSupervisor; свой контрольный контур запрещён).
+    "oversight_job_action",
     # расширение EXTRA/10.28 (cover style pipeline, ADR-1028-4 D9; §96):
     # fallback ladder + capability-gated style stage; §17.2 расширяемый.
     "style_failed", "base_failed", "rich_failed", "edit_unsupported",

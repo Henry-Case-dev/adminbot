@@ -229,6 +229,12 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
     # меняется. K1/K2 гейты — честный disabled, RBAC/chat-scope на каждом.
     from web.api.stories import stories_router
     app.include_router(stories_router, prefix="/api")
+    # Раунд 10.47 (mca-17c, ADR-1028-23 D10/D11): витрина наблюдаемости —
+    # ровно 3 санкционированных маршрута (GET runs, GET experience/funnel,
+    # POST jobs/{id}/action — единственный write через TaskSupervisor).
+    # Отдельный файл-зона (прецедент stories); routes.py не меняется.
+    from web.api.oversight_router import oversight17c_router
+    app.include_router(oversight17c_router, prefix="/api/oversight")
 
     rendered_index = _render_index()   # один раз at startup (84.21.2)
     rendered_css = _render_app_css()   # F4 10.16: подстановка ?v= в @font-face
