@@ -1,6 +1,6 @@
 # deployment.md — mca-19-image-understanding (prod 2.58.63)
 
-**Статус: FAILED** (T-5126 @DevOps, серверное UTC 06.10.2026 03:51–04:05; локальная сессия 06.10.2026). Код-деплой и миграция v32 — чистые; **критический путь mca-19 на проде не работает**: vision worker падает на старте (`NameError: _aps`, fail-open). Прод стабилизирован документированным soft-режимом: `MCA_VISION_ENABLED=false` (vision-оси = бит-в-бит 2.58.62). **СТОП конвейера** до Builder-fix + review delta + повторного деплоя.
+**Статус: FAILED (T-5126) → VERIFIED (T-5126b, 06.10.2026)** — код-деплой и миграция v32 чистые; блокер T-5126 (`NameError: _aps`) устранён дельтой `d298f1f`, vision worker тикает на проде (детали §8).
 
 ## 1. Коммиты и деплой
 
@@ -49,3 +49,35 @@
 - Incidental: диск прод-ВМ 75% (5.7 GB свободно), guard-копия 1.32 GB — наблюдать; rotation работает.
 - Live-приёмка изображений (T-5127, владелец) — **не заявлять и невозможна** до recovery: worker OFF.
 - Служебное: `/tmp/t5126_dbcheck.py` на проде — одноразовый инспектор (read-only URI); preflight-тулы `_t5126_preflight_manifest.py`/`_t5126_recipe_variants.py`/`_t5126_commit_plan.py` остались untracked в дереве разработки.
+
+## 8. T-5126b — повторный деплой: VERIFIED (серверное UTC 06.10.2026 ~11:07–11:50)
+
+**Маршрут инцидента:** T-5126 FAILED (`NameError: _aps`, §4) → стабилизация K1 OFF (§5) → Builder-фикс + start-smoke-регрессия (B5) → дельта-ревью «к T-5126b ДА» (манифест `8a95bb46…`, FILE_COUNT 5, хеши `d6032dc0…`/`776e4f83…`) → T-5126b.
+
+**Коммит/деплой-сорс:** `d298f1f` fix(vision) — module-level `AsyncIOScheduler` import (mca_vision.py:45, прецедент dream/lore worker), мёртвый function-local импорт из `__init__` удалён, `start():1692` — модульное имя, K1-гейт не тронут; +2 start-smoke теста реального прод-пути (всего в файле 16, прогон 2/2 selected + focused 116 у Reviewer). Push `ff95669..d298f1f` (ff, без force); прод `git pull --ff-only` 11:07 UTC: `ff95669 → d298f1f`, «Already up to date» при повторе; sha256 `services/mca_vision.py` на проде = **`d6032dc0f18516f3…`** (байт-в-байт с манифестом). Миграция v32 **не повторялась**: book `(32, media_vision)` ×1, `user_version` 32.
+
+**Оверрайд:** строка `MCA_VISION_ENABLED=false` удалена из прод-.env (бэкап `.env.t5126b.bak`); после — **0 `MCA_VISION_*` оверрайдов**, все 4 KS default ON.
+
+**Рестарты/воркер:** служебных рестартов три (11:31:16 / 11:37:11 / 11:40:25 UTC — два первых из-за сбоев моего деплой-тула, не прода; каждый чистый): в каждом буте **`[vision] media worker started | tick=5s`**; «K1 OFF»-строк — **0**; текущий PID **4190707**, NRestarts=0, ExecMainStatus=0, ActiveEnter 11:40:06 UTC; **70 тиков** `VisionMediaWorker._tick … executed successfully` за первые ~6.5 мин (интервал 5 c подтверждён журналом); polling поднимался в каждом буте.
+
+**Health:** `/healthz` **200 `{"status":"ok","version":"2.58.63"}`** ×2 (подряд, +6 c); во время бута `TRY1=502 → TRY2=200` (подъём <20 c); `/api/health` **200**; «database is locked» — **0**; **NameError/Traceback с 11:40:06 — 0**.
+
+**Данные:** `mca_media_assets` 83 (intake жив; 1 чат; спан 06:23–11:44 UTC), `mca_media_analyses` 0; smart_messages/graph_facts/outputs не проверялись повторно (не в дельте).
+
+**Rollback:** не потребовался. Soft: вернуть `MCA_VISION_ENABLED=false` (бэкап `.env.t5126b.bak`) = бит-в-бит 2.58.62; cold: `git revert d298f1f` (v32 аддитивна, guard-полка §3 цела).
+
+**Infra-инцидент сессии (не прод):** fail2ban — 3 бана деплой-канала в течение дня (перебор юзеров в начале сессии → ~1 ч; TNC-проба без SSH-баннера на истёкшем окне → ре-бан; устаревшая первая запись пароля в `deploy_commands.txt` → AUTH+бан). Владелец: смена IP, перезапуск fail2ban, канонизация записи `pass:`; AGENTS.md дополнен правилом fail2ban-дисциплины. R17: пароли нигде не печатались.
+
+**Incidental (вне скоупа деплоя, факты):**
+1. **mca-18**: ежечасный `_tick_legacy_traits_parse` падает TypeError (`memory_maintenance.py:292` → `mca_self_model.py:1891`, `int(datetime)`), наблюдён 11:08:40 UTC на **старом** процессе (до рестартов T-5126b); fail-soft, бот не деградирует. Роут: backlog/Builder (домен mca-18).
+2. **mca-19 product**: intake пишет assets (83, один чат) при тикающем воркере, но `mca_media_analyses` = 0 — разборы не создаются (контрактные причины не диагностированы: per-chat effective-гейты / capability-probe). Критический путь деплоя (worker стартует/тикает без NameError) подтверждён; end-to-end распознавание — предмет live-приёмки **T-5127 (владелец)**.
+
+**ИТОГ: VERIFIED** — дельта `d298f1f` на проде (хеш ✓), 0 оверрайдов, воркер тикает, health чистый, откат-механики известны. Блокеров деплоя нет.
+
+## 8. T-5126b retry — INFRA-BLOCKED (06.10.2026, отложенная попытка после fail2ban-cooldown)
+
+- Биндинг подтверждён до коннекта: HEAD/origin `d298f1f` (review «к T-5126b ДА», дельта-манифест `8a95bb46…` FILE_COUNT 5); локальный sha256 `services/mca_vision.py` = `d6032dc0f18516f3…` — совпадает с биндингом.
+- Пауза 22 мин → **один** recon TCP22 198.46.175.136 (таймаут 15 с) — **ЗАКРЫТ** (timeout, cooldown ещё активен). Автоповторов нет: это был единственный разрешённый ретрай — дальнейшие попытки только по слову владельца.
+- Прод здоров по HTTP (порт 443 не ограничен): `/healthz` **200** `{"status":"ok","version":"2.58.63"}` ×2, `/api/health` **200** — бот на 2.58.63; K1=false и v32 — по последнему задокументированному состоянию (§5; SSH-верификация недоступна при закрытом канале).
+- Ру-бук НЕ выполнялся: pull/env/рестарты не производились, прод-`.env` не менялся — soft-стабилизация `MCA_VISION_ENABLED=false` сохранена.
+- Готовые тулы для следующей попытки: `tools/_t5126b_deploy.py` (полный ру-бук одной сессией: pull `d298f1f` → hash-gate → снять K1-оверрайд с бэкапом `.env.t5126b.bak` → рестарт ×2 → батарея: worker started `tick=5s`, 0 NameError/Traceback, locked=0, assets/analyses=0) или `tools/_t5126b_ssh.py` (пошагово). Миграцию v32 не повторять. R17: секретов нет.
