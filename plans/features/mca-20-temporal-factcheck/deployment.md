@@ -47,3 +47,21 @@
 **Механизм фикса** (`services/database.py` `_run_migrations`): INFO-лог-след guard→DDL→book с таймингами; busy_timeout 5s→30s на DDL-окно; bounded retry ×3 на `database is locked`. Попутно `services/mca_self_model.py` — 7-строчный fail-soft фикс int(datetime) `:1891` (mca-18 legacy traits, ежечасный TypeError из incidental попытки 1-эпохи). NEW: `tests/test_t5150_startup_migrations_round1046.py`, `tests/test_mca18_legacy_ts_datetime_round1046.py`, сим-тул `tools/_t5150_startup_sim.py` + лог `startup_sim_t5150r.log` (bound explicitly). Прогоны пре-деплоя: новые+focused mca-20 = **88 passed**.
 
 **Прод-фаза:** см. §7 (финал — VERIFIED/FAILED ниже).
+
+## 7. Попытка 2 — прод-фаза (2026-10-06 13:33–13:42 UTC) — **VERIFIED**
+
+- **Код:** pull ff прод `968b049 → 0db30a2` (фикс на диске); identity 5/5 байт-в-байт: `database.py 88c4395e…`, `mca_self_model.py 0774cdff…`, `temporal_factcheck.py 1905d61a…`, `mca_vision.py d6032dc0…`, `settings.py e8afffab…`. KS: 0 оверрайдов `MCA_TEMPORAL_*`, 0 `MCA_VISION_*`.
+- **Миграция v33:** применена **однократно**. Факт попытки 1: первое применение прошло в окне 12:19–12:28 на коде `968b049` (медленный guard read-back 1.3GB выглядел как зависание при 80-секундном поллинге; book/DDL успели примениться ДО отката кода — БД откат не трогал). Ретрай подтвердил целостность и идемпотентность: оба рестарта — `pending=[]`. Инструментированный след (рестарт #1, полный лог `startup_prod_t5150r.log`, 205 строк, R17-чист):
+  - `13:39:57,960 [database] migrations: start | current user_version=33 | pending=[]`
+  - `13:39:57,963 [database] migrations: complete | user_version=33 | total 0.0s`
+  - book (33,'factcheck_temporal') ×1, book32 ×1, **таблицы 120** (118+2: mca_factcheck_runs/mca_factcheck_evidence), **idx33=3**, user_version **33**.
+- **Данные целы** (pre=post после обоих рестартов): bot_outputs 102, graph_facts 16345, random_draws 21, media_assets 106, media_analyses 0.
+- **Рестарты и health:** #1 502→**200** (<30с); #2 (no-op) 502→200; `/healthz` **200 `{"status":"ok","version":"2.58.64"}` ×2** (подряд, +6с); `/api/health` **200**; ERR/CRIT/Traceback/NameError/**locked = 0**; `13:39:58,989 [vision] media worker started | tick=5s`, тики успешно; `[webapp] lifespan started | pg_available=True`; polling запущен; MainPID 21287, NRestarts 0, ExecMainStatus 0.
+- **Механизм фикса подтверждён продом:** instrumentation-след в логе присутствует, DDL-окно прошло без locked (retry не понадобился — pending=[] при обоих стартах).
+- **Постмортем-вывод по попытке 1:** корень — медленный backup-guard read-back 1.3GB на прод-FS (порядок минут), ложно интерпретированный как hang; старт-фикс (busy_timeout 30s + retry ×3 + след) закрывает и реальный риск блокировки. mca-18 int(datetime) TypeError в новых логах отсутствует (ранее ежечасный).
+- **R17:** 0 (лог 205 строк: SECRET_HITS=0 — grep sk-/password/token/Bearer).
+- **Финальное состояние:** прод `0db30a2` = origin/master, 2.58.64, v33 ×1, бот+web+vision-воркер здоровы. PG no-op (pg_db.py вне дельты). Live-LLM/search smoke — вне деплоя (T-5151 владелец).
+
+**Rollback-адреса:** soft 3×`MCA_TEMPORAL_*_ENABLED=false` (OFF = бит-в-бит `d298f1f`/2.58.63); cold `git revert 0db30a2` (v33 аддитивна; откат кода v33-БД не ломает). Не потребовались.
+
+*Итог T-5150/T-5150r: **VERIFIED** 06.10.2026 (попытка 2). Пост-деплой live-smoke — T-5151 (PENDING OWNER).*

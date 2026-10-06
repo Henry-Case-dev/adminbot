@@ -1,0 +1,205 @@
+Oct 06 13:38:35 racknerd-f4e3456 python[6772]: 2026-10-06 13:38:35,576 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:38:40 +05)" (scheduled at 2026-10-06 18:38:35.573488+05:00)
+Oct 06 13:38:35 racknerd-f4e3456 python[6772]: 2026-10-06 13:38:35,588 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:38:40 +05)" executed successfully
+Oct 06 13:38:40 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+Oct 06 13:38:40 racknerd-f4e3456 python[6772]: 2026-10-06 13:38:40,185 - aiogram.dispatcher - WARNING - Received SIGTERM signal
+Oct 06 13:38:40 racknerd-f4e3456 python[6772]: 2026-10-06 13:38:40,195 - aiogram.dispatcher - INFO - Polling stopped for bot @PERMsoc_bot id=8802473181 - 'Базовичок'
+Oct 06 13:38:40 racknerd-f4e3456 python[6772]: 2026-10-06 13:38:40,197 - aiogram.dispatcher - INFO - Polling stopped
+Oct 06 13:38:40 racknerd-f4e3456 python[6772]: 2026-10-06 13:38:40,575 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:38:45 +05)" (scheduled at 2026-10-06 18:38:40.573488+05:00)
+Oct 06 13:38:40 racknerd-f4e3456 python[6772]: 2026-10-06 13:38:40,580 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:38:45 +05)" executed successfully
+Oct 06 13:38:45 racknerd-f4e3456 python[6772]: 2026-10-06 13:38:45,085 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_intent_heartbeat (trigger: interval[0:05:00], next run at: 2026-10-06 18:43:45 +05)" (scheduled at 2026-10-06 18:38:45.083087+05:00)
+Oct 06 13:38:45 racknerd-f4e3456 python[6772]: 2026-10-06 13:38:45,092 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_intent_heartbeat (trigger: interval[0:05:00], next run at: 2026-10-06 18:43:45 +05)" executed successfully
+Oct 06 13:38:45 racknerd-f4e3456 python[6772]: 2026-10-06 13:38:45,575 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:38:50 +05)" (scheduled at 2026-10-06 18:38:45.573488+05:00)
+Oct 06 13:38:45 racknerd-f4e3456 python[6772]: 2026-10-06 13:38:45,580 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:38:50 +05)" executed successfully
+Oct 06 13:38:45 racknerd-f4e3456 python[6772]: 2026-10-06 13:38:45,741 - apscheduler.executors.default - INFO - Running job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-10-06 13:39:45 UTC)" (scheduled at 2026-10-06 13:38:45.739400+00:00)
+Oct 06 13:38:45 racknerd-f4e3456 python[6772]: 2026-10-06 13:38:45,750 - apscheduler.executors.default - INFO - Job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-10-06 13:39:45 UTC)" executed successfully
+Oct 06 13:38:50 racknerd-f4e3456 python[6772]: 2026-10-06 13:38:50,575 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:38:55 +05)" (scheduled at 2026-10-06 18:38:50.573488+05:00)
+Oct 06 13:38:50 racknerd-f4e3456 python[6772]: 2026-10-06 13:38:50,580 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:38:55 +05)" executed successfully
+Oct 06 13:38:55 racknerd-f4e3456 python[6772]: 2026-10-06 13:38:55,575 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:39:00 +05)" (scheduled at 2026-10-06 18:38:55.573488+05:00)
+Oct 06 13:38:55 racknerd-f4e3456 python[6772]: 2026-10-06 13:38:55,582 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:39:00 +05)" executed successfully
+Oct 06 13:39:00 racknerd-f4e3456 python[6772]: 2026-10-06 13:39:00,196 - services.mca_events - INFO - mca_event=WATCHDOG_SWEEP | ts=1791293940 | event_name=WATCHDOG_SWEEP | outcome=success | level=INFO | component=watchdog | stage=sweep
+Oct 06 13:39:00 racknerd-f4e3456 python[6772]: 2026-10-06 13:39:00,575 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:39:05 +05)" (scheduled at 2026-10-06 18:39:00.573488+05:00)
+Oct 06 13:39:00 racknerd-f4e3456 python[6772]: 2026-10-06 13:39:00,582 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:39:05 +05)" executed successfully
+Oct 06 13:39:05 racknerd-f4e3456 python[6772]: 2026-10-06 13:39:05,575 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:39:10 +05)" (scheduled at 2026-10-06 18:39:05.573488+05:00)
+Oct 06 13:39:05 racknerd-f4e3456 python[6772]: 2026-10-06 13:39:05,582 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:39:10 +05)" executed successfully
+Oct 06 13:39:10 racknerd-f4e3456 python[6772]: 2026-10-06 13:39:10,576 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:39:15 +05)" (scheduled at 2026-10-06 18:39:10.573488+05:00)
+Oct 06 13:39:10 racknerd-f4e3456 python[6772]: 2026-10-06 13:39:10,584 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:39:15 +05)" executed successfully
+Oct 06 13:39:15 racknerd-f4e3456 python[6772]: 2026-10-06 13:39:15,576 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:39:20 +05)" (scheduled at 2026-10-06 18:39:15.573488+05:00)
+Oct 06 13:39:15 racknerd-f4e3456 python[6772]: 2026-10-06 13:39:15,589 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:39:20 +05)" executed successfully
+Oct 06 13:39:20 racknerd-f4e3456 python[6772]: 2026-10-06 13:39:20,575 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:39:25 +05)" (scheduled at 2026-10-06 18:39:20.573488+05:00)
+Oct 06 13:39:20 racknerd-f4e3456 python[6772]: 2026-10-06 13:39:20,581 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:39:25 +05)" executed successfully
+Oct 06 13:39:25 racknerd-f4e3456 python[6772]: 2026-10-06 13:39:25,575 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:39:30 +05)" (scheduled at 2026-10-06 18:39:25.573488+05:00)
+Oct 06 13:39:25 racknerd-f4e3456 python[6772]: 2026-10-06 13:39:25,596 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:39:30 +05)" executed successfully
+Oct 06 13:39:30 racknerd-f4e3456 python[6772]: 2026-10-06 13:39:30,575 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:39:35 +05)" (scheduled at 2026-10-06 18:39:30.573488+05:00)
+Oct 06 13:39:30 racknerd-f4e3456 python[6772]: 2026-10-06 13:39:30,582 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:39:35 +05)" executed successfully
+Oct 06 13:39:35 racknerd-f4e3456 python[6772]: 2026-10-06 13:39:35,575 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:39:40 +05)" (scheduled at 2026-10-06 18:39:35.573488+05:00)
+Oct 06 13:39:35 racknerd-f4e3456 python[6772]: 2026-10-06 13:39:35,584 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:39:40 +05)" executed successfully
+Oct 06 13:39:40 racknerd-f4e3456 systemd[1]: admin_bot.service: State 'stop-sigterm' timed out. Killing.
+Oct 06 13:39:40 racknerd-f4e3456 systemd[1]: admin_bot.service: Killing process 6772 (python) with signal SIGKILL.
+Oct 06 13:39:40 racknerd-f4e3456 systemd[1]: admin_bot.service: Failed to kill control group /system.slice/admin_bot.service, ignoring: Invalid argument
+Oct 06 13:39:40 racknerd-f4e3456 systemd[1]: admin_bot.service: Main process exited, code=killed, status=9/KILL
+Oct 06 13:39:40 racknerd-f4e3456 systemd[1]: admin_bot.service: Failed with result 'timeout'.
+Oct 06 13:39:40 racknerd-f4e3456 systemd[1]: Stopped admin_bot.service - Telegram Admin Bot.
+Oct 06 13:39:40 racknerd-f4e3456 systemd[1]: admin_bot.service: Consumed 2min 46.031s CPU time.
+Oct 06 13:39:40 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,150 - __main__ - INFO - [betterstack] attached | host=s2736363.us-west-2a.betterstackdata.com | token_len=24 | from=LOGTAIL_SOURCE_TOKEN
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,298 - services.pg_db - INFO - [pg_db] asyncpg pool created (json/jsonb codecs)
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,412 - services.pg_db - INFO - [pg_db] DDL ok (таблицы + индексы)
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,424 - services.pg_db - INFO - [pg_db] roles seeded: ['admin', 'moderator', 'user', 'local_admin']
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,429 - services.pg_db - INFO - [pg_db] admins seeded: [5885953495, 1313107079, 134812796]
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,765 - services.pg_db - INFO - [pg_db] starter bot_settings seeded: 434 (ON CONFLICT DO NOTHING)
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,794 - services.config_cache - INFO - [config_cache] initialized: settings=476 roles=4 admins=3
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,892 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.direct_chat_system_prompt
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,895 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.summary_system_prompt
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,896 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.compress_system_prompt
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,896 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.checkup_system_prompt
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,896 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.factcheck_system_prompt
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,897 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.search_system_prompt
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,898 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.youtube_system_prompt
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,899 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.youtube_video_system_prompt
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,899 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.webpage_system_prompt
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,900 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.summary_editor_system_prompt
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,900 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.factcheck_analyst_system_prompt
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,901 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.summary_l1_clusterizer_system_prompt
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,901 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.summary_l2_writer_system_prompt
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,902 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.summary_narrator_system_prompt
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,903 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_repeat_threshold
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,904 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_importance_sum_threshold
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,905 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_min_new_facts_per_chat
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,905 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_max_clusters_per_run
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,906 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_distillations_per_day
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,906 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_tokens_per_day
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,906 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_quiet_check_minutes
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,907 - services.config_migrations - INFO - [budget_migration] уже новый дефолт | key=limits.chat_global_key_budget_requests
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,908 - services.config_migrations - INFO - [budget_migration] уже новый дефолт | key=limits.chat_global_key_budget_tokens
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,909 - services.config_migrations - INFO - [budget_migration] уже новый дефолт | key=limits.worker_daily_llm_calls_per_chat
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,909 - services.config_migrations - INFO - [budget_migration] уже новый дефолт | key=limits.worker_daily_llm_tokens_per_chat
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,909 - services.config_migrations - INFO - [context_migration] ключ отсутствует/пуст — сид сделает своё | key=limits.chat_global_context_max_tokens
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,910 - services.config_migrations - INFO - [context_migration] ключ отсутствует/пуст — сид сделает своё | key=limits.chat_thread_max_tokens
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,910 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=context_migration | key=limits.chat_context_budget_tokens | action=preserved_owner_custom
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,911 - services.config_migrations - INFO - [factcheck_context_migration] legacy == дефолт — мигрировать нечего | key=limits.factcheck_context_messages
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,912 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=image_migration | key=models.image_base_url | action=preserved_owner_custom
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,912 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=image_migration | key=models.image_model | action=preserved_owner_custom
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,912 - services.config_migrations - INFO - [image_migration] уже дефолт | key=models.image_get_mode
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,912 - services.config_migrations - INFO - [deep_sleep_migration] skip: выключено (ветка A аудита)
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,921 - services.chat_params_notify - INFO - [chat_params] LISTEN 'chat_params_updated' attached
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,927 - services.chat_settings_seed - INFO - [chat_settings_seed] без изменений (no-op) | chat=-1002661910336
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,960 - services.database - INFO - [database] migrations: start | current user_version=33 | pending=[]
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,963 - services.database - INFO - [database] migrations: complete | user_version=33 | total 0.0s
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,964 - __main__ - INFO - Database initialized
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,973 - __main__ - INFO - [media] jobs recovery | {'resumed': 0, 'unknown_after_disconnect': 0, 'active': 0}
+Oct 06 13:39:57 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:57,987 - __main__ - INFO - [random_source] startup | {'status': 'blocked', 'reason': 'provider_unconfigured'}
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,005 - __main__ - INFO - [cover_styles] seed ensure | profile=medved_press
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,009 - services.chat_lore - INFO - [chat_lore] ensure | chat_id=-1002661910336 | inserted=0 | skipped=2
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,009 - __main__ - INFO - [chat_lore] startup ensure | {'inserted': 0, 'skipped': 2}
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,010 - __main__ - INFO - [lore] store/cache/notify initialized (LISTEN lore_updated)
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,014 - __main__ - INFO - DeadPageRelay and Scheduler created
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,015 - handlers.war_alert - INFO - War Alert: using 5 default reply phrases
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,017 - handlers.war_alert - INFO - War Alert initialized: 5 replies, 2 channel IDs ({1654872411, 1973203607}), 0 channel usernames (set())
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,017 - handlers.common - INFO - Common Service: relay injected
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,017 - __main__ - INFO - Common Service (Epic 15) initialized
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,018 - handlers.common - INFO - Common Service: mimic relay injected
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,020 - __main__ - INFO - Mimic Service (Epic 18) initialized
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,021 - __main__ - INFO - Scheduler started
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,022 - services.scheduler - INFO - Scheduler running (no-op, join-trigger only)
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,102 - services.summary_memory - INFO - embed cache | hits=1 misses=0
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,108 - services.lore_notify - INFO - [lore_notify] listening on 'lore_updated'
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,110 - services.summary_memory - INFO - SmartModule: sqlite-vec loaded (dim=3072, int8=True)
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,113 - __main__ - INFO - SmartModule: sqlite-vec available
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,116 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,119 - apscheduler.scheduler - INFO - Added job "SummarySchedulerService._tick" to job store "default"
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,120 - apscheduler.scheduler - INFO - Scheduler started
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,120 - services.summary_scheduler - INFO - SmartModule scheduler started (cron 0,6,12,18 Asia/Yekaterinburg)
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,121 - __main__ - INFO - SmartModule Summary (Epic 24) initialized (TZ=Asia/Yekaterinburg)
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,121 - __main__ - INFO - SmartModule SmartSearch (Epic 33) initialized (FactCheck — после сборки ToolRouter)
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,122 - services.youtube_transcript_engine - INFO - [youtube engine] config | proxy=set | cookies=set | resproxy=set
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,362 - __main__ - INFO - SmartModule YouTube + Web (Epic 37) initialized
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,363 - __main__ - INFO - Checkup SQL API configured=True (R17: только факт)
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,367 - __main__ - INFO - SmartModule Checkup (Epic 42) initialized
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,388 - __main__ - INFO - SmartModule DirectChat (Epic 50) initialized
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,390 - __main__ - INFO - VoiceTranscriber enabled (max_dur=600s, groq=True openrouter=True, max_concurrency=1)
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,391 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,392 - apscheduler.scheduler - INFO - Added job "MemoryBackupService._tick" to job store "default"
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,392 - apscheduler.scheduler - INFO - Scheduler started
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,393 - services.memory_backup - INFO - MemoryBackup scheduler started (daily 05:00 Asia/Yekaterinburg)
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,393 - __main__ - INFO - MemoryBackup (Epic 60) initialized (daily 05:00 Asia/Yekaterinburg)
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,394 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,395 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,395 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,416 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,418 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,421 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,421 - apscheduler.scheduler - INFO - Added job "MemoryMaintenanceService._tick_merge" to job store "default"
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,422 - apscheduler.scheduler - INFO - Added job "MemoryMaintenanceService._tick_review" to job store "default"
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,423 - apscheduler.scheduler - INFO - Added job "MemoryMaintenanceService._tick_wal_checkpoint" to job store "default"
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,424 - apscheduler.scheduler - INFO - Added job "MemoryMaintenanceService._tick_experience_review" to job store "default"
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,424 - apscheduler.scheduler - INFO - Added job "MemoryMaintenanceService._tick_intent_heartbeat" to job store "default"
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,426 - apscheduler.scheduler - INFO - Added job "MemoryMaintenanceService._tick_legacy_traits_parse" to job store "default"
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,427 - apscheduler.scheduler - INFO - Scheduler started
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,428 - services.memory_maintenance - INFO - MemoryMaintenance started (merge=True/7d, review=True/3d, wal=True/6h)
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,428 - __main__ - INFO - MemoryMaintenance (Epic 60, Фаза D) initialized
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,430 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,431 - apscheduler.scheduler - INFO - Added job "LoreWorker.tick" to job store "default"
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,432 - apscheduler.scheduler - INFO - Scheduler started
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,433 - services.lore_worker - INFO - LoreWorker started | tick_minutes=30 | chats=auto loop
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,434 - __main__ - INFO - LoreWorker (раунд 7) initialized
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,435 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,436 - services.dream_worker - INFO - DreamWorker job registered (enabled resolved per-tick) | tick_minutes=60 (applies on restart)
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,437 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,437 - services.dream_worker - INFO - DeepSleep job registered (enabled resolved per-tick) | tick_minutes=60 (applies on restart)
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,438 - apscheduler.scheduler - INFO - Added job "DreamWorker._tick" to job store "default"
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,439 - apscheduler.scheduler - INFO - Added job "DreamWorker._deep_tick" to job store "default"
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,440 - apscheduler.scheduler - INFO - Scheduler started
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,441 - __main__ - INFO - DreamWorker (раунд 9) initialized
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,443 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,443 - apscheduler.scheduler - INFO - Added job "NostalgiaWorker._tick" to job store "default"
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,445 - apscheduler.scheduler - INFO - Scheduler started
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,446 - services.nostalgia_worker - INFO - NostalgiaWorker started (tick=60min, silence=45min, max_per_day=3, aggressiveness=0.3)
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,447 - __main__ - INFO - NostalgiaWorker (раунд 9) initialized
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,448 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,449 - apscheduler.scheduler - INFO - Added job "AntiClicheWorker.tick" to job store "default"
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,449 - apscheduler.scheduler - INFO - Scheduler started
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,450 - services.anticliche_worker - INFO - AntiClicheWorker started | interval_days=7 | first_run_delay_min=5 | next_run_time=2026-10-06 13:44:58.448403+00:00
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,453 - services.anticliche_worker - INFO - [pipeline] event=pipeline_step component=anticliche step=schedule status=ok reason=started interval_days=7 first_run_delay_min=5 next_run_time=2026-10-06 13:44:58.448403+00:00
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,453 - __main__ - INFO - AntiClicheWorker (раунд 10.23 F4) initialized
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,453 - __main__ - INFO - RelationsService + db + dream/nostalgia workers (раунд 9) initialized
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,929 - services.mca_events - INFO - mca_event=WATCHDOG_SWEEP | ts=1791293998 | event_name=WATCHDOG_SWEEP | outcome=success | level=INFO | component=watchdog | stage=sweep
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,931 - services.mca_events - INFO - mca_event=WATCHDOG_SWEEP | ts=1791293998 | event_name=WATCHDOG_SWEEP | outcome=success | level=INFO | component=watchdog | stage=sweep
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,960 - __main__ - INFO - [mca-17a] observability runtime initialized
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,987 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,988 - apscheduler.scheduler - INFO - Added job "VisionMediaWorker._tick" to job store "default"
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,989 - apscheduler.scheduler - INFO - Scheduler started
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,989 - services.mca_vision - INFO - [vision] media worker started | tick=5s
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,990 - __main__ - INFO - [mca-19] vision media worker initialized
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,992 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,993 - apscheduler.scheduler - INFO - Added job "GoodmorningSchedulerService._tick" to job store "default"
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,993 - apscheduler.scheduler - INFO - Scheduler started
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,994 - services.goodmorning_scheduler - INFO - Goodmorning scheduler started (07:00 Asia/Yekaterinburg, 1 chats)
+Oct 06 13:39:58 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:58,995 - __main__ - INFO - InfoService (Epic 43) initialized | file=info_text.md
+Oct 06 13:39:59 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:59,006 - services.summary_memory - INFO - embed cache | hits=0 misses=50
+Oct 06 13:39:59 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:59,008 - services.embedding_control_plane - WARNING - embedding pool rotation=none | group=unknown | keys=3 | hint=EMBEDDING_QUOTA_GROUP_LABELS
+Oct 06 13:39:59 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:59,009 - services.summary_memory - WARNING - SmartModule graph backfill: embed failed — deferred | processed=0
+Oct 06 13:39:59 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:59,019 - services.mca_events - INFO - mca_event=EMBEDDING_GENERATION_BUILD_START | ts=1791293999 | event_name=EMBEDDING_GENERATION_BUILD_START | outcome=start | level=INFO | component=graphrag_rebuild | job_id=168adb23141648248ad25f08c8036432
+Oct 06 13:39:59 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:59,020 - services.graphrag_rebuild - INFO - EMBEDDING_GENERATION_BUILD_START | index=smart_archive | gen=1 | fp=96f80838f683 | resumed=False | job=168adb2314164824
+Oct 06 13:39:59 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:59,023 - services.mca_events - INFO - mca_event=EMBEDDING_GENERATION_FAILED | ts=1791293999 | event_name=EMBEDDING_GENERATION_FAILED | outcome=failed | level=INFO | component=graphrag_rebuild | reason_code=knn_source_empty
+Oct 06 13:39:59 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:59,024 - services.graphrag_rebuild - INFO - EMBEDDING_GENERATION_FAILED | index=smart_archive | gen=1 | reason=knn_source_empty (source empty)
+Oct 06 13:39:59 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:59,104 - services.bot_commands - INFO - Bot commands registered (set_my_commands ok): ['summary', 'info', 'menu']
+Oct 06 13:39:59 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:59,106 - __main__ - INFO - Olya service disabled (OLYA_ENABLED=False)
+Oct 06 13:39:59 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:59,108 - __main__ - INFO - VideoDownloader enabled (cobalt=http://localhost:9000)
+Oct 06 13:39:59 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:59,108 - __main__ - INFO - All routers registered (v2.4.0)
+Oct 06 13:39:59 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:59,110 - __main__ - INFO - Relay channel media group tracker registered (Epic 14)
+Oct 06 13:39:59 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:59,111 - __main__ - INFO - Bot started, listening for messages...
+Oct 06 13:39:59 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:59,120 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 06 13:39:59 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:59,121 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 06 13:39:59 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:59,122 - apscheduler.scheduler - INFO - Added job "UptimeHeartbeatService._heartbeat" to job store "default"
+Oct 06 13:39:59 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:59,123 - apscheduler.scheduler - INFO - Added job "UptimeHeartbeatService._cleanup" to job store "default"
+Oct 06 13:39:59 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:59,123 - apscheduler.scheduler - INFO - Scheduler started
+Oct 06 13:39:59 racknerd-f4e3456 python[20962]: 2026-10-06 13:39:59,124 - services.uptime_heartbeat - INFO - [uptime] heartbeat started: interval=60s retention=72h
+Oct 06 13:40:02 racknerd-f4e3456 python[20962]: 2026-10-06 13:40:02,421 - web.app - INFO - [webapp] WEBAPP_URL | scheme=https | host=admin-bot.duckdns.org | path=/web/
+Oct 06 13:40:02 racknerd-f4e3456 python[20962]: 2026-10-06 13:40:02,429 - web.app - INFO - [webapp] MEDIA_PUBLIC_BASE_URL | scheme=https | host=admin-bot.duckdns.org | path=-
+Oct 06 13:40:02 racknerd-f4e3456 python[20962]: 2026-10-06 13:40:02,548 - aiogram.dispatcher - INFO - Start polling
+Oct 06 13:40:02 racknerd-f4e3456 python[20962]: 2026-10-06 13:40:02,556 - web.app - INFO - [webapp] lifespan started | pg_available=True
+Oct 06 13:40:02 racknerd-f4e3456 python[20962]: 2026-10-06 13:40:02,591 - aiogram.dispatcher - INFO - Run polling for bot @PERMsoc_bot id=8802473181 - 'Базовичок'
+Oct 06 13:40:03 racknerd-f4e3456 python[20962]: 2026-10-06 13:40:03,990 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:40:08 +05)" (scheduled at 2026-10-06 18:40:03.987259+05:00)
+Oct 06 13:40:04 racknerd-f4e3456 python[20962]: 2026-10-06 13:40:04,026 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:40:08 +05)" executed successfully
+Oct 06 13:40:08 racknerd-f4e3456 python[20962]: 2026-10-06 13:40:08,989 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:40:13 +05)" (scheduled at 2026-10-06 18:40:08.987259+05:00)
+Oct 06 13:40:08 racknerd-f4e3456 python[20962]: 2026-10-06 13:40:08,996 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-06 18:40:13 +05)" executed successfully
