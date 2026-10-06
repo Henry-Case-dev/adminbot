@@ -37,3 +37,13 @@
 
 ---
 *Попытка 1 (T-5150, 06.10.2026): FAILED, СТОП. Следующая попытка — после дельты Builder+Reviewer.*
+
+---
+
+## 6. Попытка 2 — T-5150r (старт-фикс, review iter.3 «к T-5150r ДА»)
+
+**Дельта-биндинг:** манифест итер.3 `plans/reports/mca20_wth_manifest_review.txt` (MANIFEST_SHA256 `695dac58…a6fd09`, FILE_COUNT 18; preflight DevOps 18/18 байт-в-байт, recipe воспроизведён). Параллельные lane-пакеты (mca-12/17c/21, MEMORY, AGENTS) — fingerprint-only, не коммичены.
+
+**Механизм фикса** (`services/database.py` `_run_migrations`): INFO-лог-след guard→DDL→book с таймингами; busy_timeout 5s→30s на DDL-окно; bounded retry ×3 на `database is locked`. Попутно `services/mca_self_model.py` — 7-строчный fail-soft фикс int(datetime) `:1891` (mca-18 legacy traits, ежечасный TypeError из incidental попытки 1-эпохи). NEW: `tests/test_t5150_startup_migrations_round1046.py`, `tests/test_mca18_legacy_ts_datetime_round1046.py`, сим-тул `tools/_t5150_startup_sim.py` + лог `startup_sim_t5150r.log` (bound explicitly). Прогоны пре-деплоя: новые+focused mca-20 = **88 passed**.
+
+**Прод-фаза:** см. §7 (финал — VERIFIED/FAILED ниже).

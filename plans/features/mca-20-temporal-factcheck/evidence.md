@@ -136,3 +136,57 @@ catalog **523** (GROUPS 113, _TAB_BY_GROUP 111, TAB_RULES 22, delta 112, Setting
 Остальные файлы манифеста ревью (включая mca_vision-зону mca-19, web, каталог/fixtures, легаси-хендлер) реворком не тронуты; хеши остальных 11 ключевых файлов из таблицы выше остаются в силе.
 
 **Готовность:** к дельта-речеку ревьюера (оба файла + 61 mca-20 + репро F-1/F-2; полный suite не требуется). Полный suite прогнан: 12285/4, все 4 — документированный pre-existing. Incidental: hang `db`-fixture test_summary_memory при 2-часовом foreground-прогоне (фоновый прогон без конкуренции прошёл за 7:39) — вне скоупа, отмечен для Scanner T-5149 (uncertain, load-флейк Windows).
+
+
+## Startup-fix T-5150r (lane B3-mca20-startup-fix, 07.10.2026) — причина старта 2.58.64 + защитный контур
+
+Задача: корень прод-инцидента T-5150 (v33 замирает после backup-guard'а, healthz 502, NRestarts=0) + минимальный фикс и наблюдаемость для retry. git-индекс не троган (коммитит DevOps).
+
+### Разбор гипотез (доказательства)
+
+1. **«Старт-порядок сломан 968b049» — ОПРОВЕРГНУТО.** `git show 968b049 --stat`: bot.py в диффе ОТСУТСТВУЕТ (113 файлов, bot.py не среди них). Порядок идентичен здоровому d298f1f/2.58.63: `on_startup()` → `await db.initialize()` (bot.py:283, миграции внутри) → … → `_vision_worker.start()` (bot.py:807) → возврат → uvicorn `server.serve()` (bot.py:1182→1247). Воркер не может тикать до завершения миграций. Зафиксировано пин-тестом `test_f_startup_order_migrations_before_workers_and_web` (миграции < воркеры < веб).
+2. **«vision-воркер тикал при живом loop» — артефакт журнала.** Стабилизация (`tools/_d2_mca20_stabilize.py`) смотрела `journalctl -u admin_bot --since "-15 min" | tail -n 50` в 12:26 — окно 12:11→12:26 включает ~96 тиков СТАРОГО процесса (d298f1f тикал каждые 5с до рестарта 12:19:37). «Тики» = предыдущая загрузка, не признак живого нового старта.
+3. **Реальное окно отказа: между backup-guard'ом и DDL.** Хронология по runbook-инструментам (`tools/_d2_mca20_deploy.py`): рестарт 12:19:37 → stamp копии pre_migration_20261006_121956 (12:19:56 = старт VACUUM INTO 1.3GB) → healthz-бюджет runbook 8×10с с +80с (12:20:57–12:21:37, все 502 — исчерпан до конца guard-фазы) → dbcheck `user_version=32, book33=0` снят ~12:22 (ВНУТРИ guard-фазы) → расширенный опрос стабилизации 12×20с (12:26→12:30) тоже без 200. Механизм: прод-старт парковался в guard-фазе (VACUUM INTO 1.3GB в aiosqlite-потоке + `_read_back` — синхронный `PRAGMA integrity_check` копии 1.3GB ПРЯМО на event-loop, services/memory_backup.py:229-252) — минуты на прод-диске, без единого лога. Все SQLite-статементы самого DDL имеют конечный busy_timeout=5с и на чужом локе ПАДАЛИ бы (`database is locked` → краш → NRestarts>0), а не висели: NRestarts=0 исключает лок-голодание DDL как причину 11+ минут тишины.
+4. **Residual uncertainty (честно):** какой именно под-шаг guard'а съел 11+ минут (VACUUM INTO vs sync read-back vs ротация) удалённо не доказать — на проде нет ни одного лога в окне. Ровно это закрывает новая instrumentation: на T-5150r лог покажет фазу с точностью до строки.
+
+### Фикс (минимальный, вне реестра миграций)
+
+- `services/database.py:70-80` — константы окна: `_MIGRATION_BUSY_TIMEOUT_MS=30000`, `_MIGRATION_LOCK_RETRIES=3`, `_MIGRATION_LOCK_BACKOFF_S=2.0`.
+- `services/database.py` `_run_migrations` — (а) полный INFO-след guard→DDL→book: `migrations: start | current user_version | pending`, `backup-guard: start`, `backup-guard: done in Xs`, `migration vN: retry k/3 after \`database is locked\``, `migration vN applied in Xs`, `migrations: complete | user_version | total`; (б) busy_timeout 5с→30с на всё DDL-окно (возврат в finally) — внешний держатель лока не роняет старт; (в) bounded retry шага на `database is locked` (шаги идемпотентны по контракту mca-14 — частично применённый шаг безопасно перезапускается); прочие OperationalError — raise как раньше. Δ книги/user_version/порядка шагов = 0; Δ commit-точек database.py = 0 (AST-пин mca-01 зелёный).
+- `services/mca_self_model.py:1889-1898` — попутный 1-строчный прод-дефект mca-18 (санкция владельца в брифе): `persona_traits.created_at` — timestamptz (asyncpg → datetime); `int(datetime)` = TypeError ежечасного legacy-тика. Фикс: datetime → `int(dt.timestamp())`, числа/None как раньше.
+
+### Тесты (NEW ×2 файла, 8 тестов; контрфакт — test_c)
+
+- `tests/test_t5150_startup_migrations_round1046.py`: (a) DDL-окно — конкурент держит write-лок 6с (> старых 5с) → v33 применяется (`test_a`); (b) bounded retry — окно 0.8с + лок 2.2с → retry 1/3 в логе, v33 применена (`test_b`); (c) контрфакт T-5150 — тот же лок без механизма (retries=0) → `database is locked` наружу, класс отказа документирован (`test_c`); (d) полный стартовый след guard→DDL→book в caplog (`test_d`); (e) prod-retry путь: БД v32+книга → guard + v33 ровно один раз, таблицы/индексы, повтор no-op (`test_e`); (f) старт-порядок миграции<воркеры<веб — пин bot.py (`test_f`).
+- `tests/test_mca18_legacy_ts_datetime_round1046.py`: created_at=datetime(timestamptz) → parsed, observed_at=int(dt.timestamp()); числовые строки без изменений; created_at=None → fallback time.time().
+
+### Прогоны (07.10.2026, Windows, .venv, foreground)
+
+- NEW 8/8 passed (13.9s). Focused mca-14 + mca-01 (AST-пин commit-точек): **50 passed**. Focused mca-20 (round1044+round1045+rework1) + mca-18 block E/F: **96 passed**. Factcheck-слайсы + 17a + tool_router + smart_cache + param_catalog: **267 passed**.
+- Старт-симуляция (полный прод-подобный старт): `tools/_t5150_startup_sim.py --rows 60000` (БД 27.8MB v32+книга) → run #1: guard 0.1s (VACUUM INTO+read-back+ротация) → v33 applied → complete user_version=33 за 0.2s; run #2 no-op. Полный лог: `plans/features/mca-20-temporal-factcheck/startup_sim_t5150r.log`.
+- Полный pytest foreground: **12293 passed / 4 failed, 7:51** — все 4 документированные pre-existing (mca09-pollution + tool_loop + nav_disclosure + status_control); изолированный перепрогон: mca09 1/1 passed (pollution-флейк), остальные 3 воспроизводятся = документированные. Δ к базовому 12285/4 = +8 NEW. Tail-шум `no active connection` = известный teardown leaked-aiosqlite (#121), на вердикт не влияет..
+
+### Дельта (границы lane)
+
+`services/database.py` (константы + `_run_migrations`), `services/mca_self_model.py` (import datetime + ts-конверсия :1891), NEW `tests/test_t5150_startup_migrations_round1046.py`, NEW `tests/test_mca18_legacy_ts_datetime_round1046.py`, NEW `tools/_t5150_startup_sim.py` (untracked, прецедент _t5126_prod_dbcheck), лог симуляции + этот append. НЕ тронуто: memory_backup.py/mca_vision/bot.py/реестр шагов/спека/чужие планы/current_task.
+
+### Хеши файлов (SHA256/16, дерево до фиксации)
+
+| файл | SHA256/16 |
+|---|---|
+| services/database.py | `88c4395ed92997bc` |
+| services/mca_self_model.py | `0774cdff732a781d` |
+| tests/test_t5150_startup_migrations_round1046.py | `722a043842f8699c` |
+| tests/test_mca18_legacy_ts_datetime_round1046.py | `46207ee60653bf36` |
+| tools/_t5150_startup_sim.py | `79b17f79a6680bbd` |
+| plans/features/mca-20-temporal-factcheck/startup_sim_t5150r.log | `5621cb512f0a89b3` |
+
+### Incidental findings (вне lane, не чинил)
+
+1. **related-nonblocking / для T-5150r-решения:** `services/memory_backup.py:229` `_read_back` — синхронный integrity_check копии (1.3GB на проде) ПРЯМО на event-loop (runbook-время минуты); готовый минимальный патч: `await asyncio.to_thread(_read_back, ...)` + длительности VACUUM/read-back в INFO + best-effort `PRAGMA wal_checkpoint(TRUNCATE)` перед VACUUM INTO (гасит WAL-раздувание, ускоряет копию). Вне WRITE_SCOPE lane → на санкцию родителя, иначе сейчас единственное место окна без лога — внутри guard'а.
+2. **unrelated (runbook DevOps):** healthz-бюджет деплой-драйвера 8×10с с +80с меньше реального guard-окна на прод-объёме (v32-деплой: ~60-90с только guard) — на T-5150r расширить/ждать лог `backup-guard: done`.
+3. **unrelated (методика журналов):** `journalctl --since -N min | tail` захватывает тики предыдущей загрузки → на retry сверять только строки после рестарта (`--since <ts>`, без tail-обрезки) — требование DevOps «полный стартовый лог без фильтров».
+
+R17: 0 секретов (в диффе/тестах/логе симуляции — только коды/имена таблиц/длительности).
+
+**Финальный полный pytest (оркестратор, то же дерево, 07.10.2026):** **12292 passed / 5 failed** = 4 стабильных pre-existing (tool_loop, nav_disclosure, status_control, mca09::test_registry_process_intent_initiative) + 1 экземпляр документированного mca-09-флейка `test_handle_initiative_cancelled_by_recheck` — изолированный перепрогон **1 passed** (2.72s). 0 новых падений; Δ к базовому 12285/4 = +8 NEW (2 файла). Прогон lane выше (12293/4) — второй чистый запуск того же дерева, расхождение только счётом mca-09-флейка. Старт-симуляция guard→DDL→book — лог в этой секции выше (startup_sim_t5150r.log).

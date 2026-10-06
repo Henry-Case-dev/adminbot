@@ -1,0 +1,11 @@
+2026-10-07 01:09:00,546 INFO services.database | [database] migrations: start | current user_version=32 | pending=[33]
+2026-10-07 01:09:00,603 INFO services.database | [database] migration backup-guard: start | target_version=32 (VACUUM INTO + read-back копии; на прод-объёме может занимать минуты)
+2026-10-07 01:09:00,738 INFO services.memory_backup | memory_backup: pre-migration copy created + read-back ok | target_version=32
+2026-10-07 01:09:00,743 INFO services.disk_retention | [disk_retention] migration backup rotated out | name=pre_migration_20261007_010843.db
+2026-10-07 01:09:00,743 INFO services.database | [database] migration backup-guard: done in 0.1s
+2026-10-07 01:09:00,746 INFO services.database | [database] migration v33: mca_factcheck_runs
+2026-10-07 01:09:00,747 INFO services.database | [database] migration v33: mca_factcheck_evidence
+2026-10-07 01:09:00,748 INFO services.database | [database] migration v33 applied in 0.0s | factcheck_temporal
+2026-10-07 01:09:00,748 INFO services.database | [database] migrations: complete | user_version=33 | total 0.2s
+2026-10-07 01:09:00,756 INFO services.database | [database] migrations: start | current user_version=33 | pending=[]
+2026-10-07 01:09:00,757 INFO services.database | [database] migrations: complete | user_version=33 | total 0.0s

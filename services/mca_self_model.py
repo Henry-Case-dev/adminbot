@@ -30,6 +30,7 @@ R17: в событиях/логах — только ID/коды/enum/числа
 from __future__ import annotations
 
 import dataclasses
+import datetime
 import hashlib
 import json
 import logging
@@ -1888,7 +1889,13 @@ async def run_legacy_traits_parse(db, *, limit: int | None = None,
             continue
         source = str(row["source"] or "deep_sleep")
         chat_id = row["chat_id"]
-        ts = int(row["created_at"] or time.time())
+        # T-5150 side-fix (mca-18 прод-дефект): PG `persona_traits.created_at`
+        # — timestamptz, asyncpg отдаёт datetime; `int(datetime)` = TypeError
+        # (ежечасный fail-soft legacy-тика). datetime → unix-секунды явно.
+        raw_ts = row["created_at"]
+        ts = (int(raw_ts.timestamp())
+              if isinstance(raw_ts, datetime.datetime)
+              else int(raw_ts or time.time()))
         obs_id = await record_trait_observation(
             db, agent_id=agent_id, text=text,
             source_refs=(f"legacy_trait:{legacy_id}",),

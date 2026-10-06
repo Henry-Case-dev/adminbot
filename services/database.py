@@ -67,6 +67,17 @@ _REFRESH_ACTIVE_CAP = 5000       # recalc_chat_users: потолок участ�
 _LOCK_RETRIES = 3                # зеркало services/memory_rebuild.py:71
 _LOCK_BACKOFF = 0.1              # зеркало services/memory_rebuild.py:72
 
+# ── T-5150r (prod-инцидент старта 2.58.64, retry-деплой mca-20) ─────────────
+# Окно DDL-миграций. На время `_run_migrations` busy_timeout соединения
+# поднимается 5с → 30с: внешний держатель write-лока (CLI/чужой процесс) не
+# должен ронять старт с `database is locked` раньше, чем шаг успеет дождаться
+# лока. Плюс bounded retry самого шага: шаги идемпотентны по контракту mca-14
+# (self-guard `sqlite_master`/`PRAGMA table_info`, повтор — no-op), поэтому
+# перезапуск шага после locked безопасен.
+_MIGRATION_BUSY_TIMEOUT_MS = 30000
+_MIGRATION_LOCK_RETRIES = 3
+_MIGRATION_LOCK_BACKOFF_S = 2.0
+
 # In-process счётчик исчерпаний (Δ DDL = 0: метрика = лог + счётчик; сброс
 # процесса = сброс счётчика — событие остаётся в логе).
 _lock_exhausted_total = 0
@@ -2734,55 +2745,107 @@ class DatabaseService:
         Legacy-БД (v1…v12 без книги): baseline-ряд `version=current, name=
         'legacy_baseline'` → шаги v1…v12 не исполняются повторно. Повторный
         запуск на актуальной БД — no-op (0 изменений, 0 дублей).
+
+        T-5150r: полный стартовый след цепочки guard→DDL→book на INFO — на
+        проде замирание 2.58.64 между backup-guard'ом и DDL не оставило в
+        логе ни одной точки отсчёта. Плюс busy_timeout окно 30с и bounded
+        retry шага на `database is locked` (см. константы выше).
         """
         cursor = await self.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
         current = int(row[0]) if row is not None else 0
         steps = sorted(self.migration_steps(), key=lambda s: s.version)
+        pending = [s.version for s in steps if s.version > current]
+        runner_started = time.monotonic()
+        logger.info("[database] migrations: start | current user_version=%d | "
+                    "pending=%s", current, pending)
         # MCA-14 (ADR-1027-1 D2): backup ПЕРЕД применением ЛЮБЫХ новых шагов
         # (включая книгу v13) — `VACUUM INTO` + free-space + read-back.
         # Провал → явный отказ применять (никакого частичного применения).
         # Свежая БД (current == 0) не содержит данных — бэкапить нечего.
         if current > 0 and any(s.version > current for s in steps):
             from services.memory_backup import migration_backup
+            guard_started = time.monotonic()
+            logger.info("[database] migration backup-guard: start | "
+                        "target_version=%d (VACUUM INTO + read-back копии; "
+                        "на прод-объёме может занимать минуты)", current)
             await migration_backup(self, target_version=current)
+            logger.info("[database] migration backup-guard: done in %.1fs",
+                        time.monotonic() - guard_started)
         # B-MCA14-1: книга создаётся БЕЗ выставления `user_version` (иначе
         # pre-call поднял бы маркер до 13 → на свежей БД при сбое раннего шага
         # повторный `initialize()` пропустил бы v1…v12). Версию v13 фиксирует
         # сам шаг v13 в общем цикле (по возрастанию, после v12).
-        await self._ensure_migration_book()
-        applied_versions: set[int] = set()
+        # T-5150r: на всё DDL-окно busy_timeout 5с → 30с (внешний лок — ждать,
+        # а не падать); возврат к 5с — в finally.
+        await self.db.execute(
+            f"PRAGMA busy_timeout = {_MIGRATION_BUSY_TIMEOUT_MS}")
         try:
-            cursor = await self.db.execute(
-                "SELECT version FROM schema_migrations")
-            applied_versions = {int(r[0]) for r in await cursor.fetchall()}
-        except Exception:
-            logger.warning("[database] migration book read failed", exc_info=True)
-        if current > 0 and current not in applied_versions:
-            # legacy v1…v12 без книги → один baseline-ряд (аудит/дрейф).
-            await self.db.execute(
-                "INSERT OR REPLACE INTO schema_migrations "
-                "(version, name, applied_at, checksum) VALUES (?, ?, ?, ?)",
-                (current, "legacy_baseline", int(time.time()),
-                 hashlib.sha256(b"legacy_baseline").hexdigest()))
-            await self.db.commit()
-        for step in steps:
-            if step.version <= current:
-                continue
-            # L-MCA14-3 (санкционированное исключение): runner работает на этапе
-            # `initialize()` ДО старта сервинга/конкурентных писателей, поэтому
-            # прямые `execute+commit` здесь безопасны и не интерливятся с чужой
-            # транзакцией (нет второго писателя). Доменные записи после старта
-            # идут только через single-writer (см. `_serialized_write`).
-            await step.apply(self)
-            await self.db.execute(
-                "INSERT OR REPLACE INTO schema_migrations "
-                "(version, name, applied_at, checksum) VALUES (?, ?, ?, ?)",
-                (step.version, step.name, int(time.time()),
-                 self._step_checksum(step)))
-            await self.db.commit()
-            logger.info("[database] migration v%d applied | %s",
-                        step.version, step.name)
+            await self._ensure_migration_book()
+            applied_versions: set[int] = set()
+            try:
+                cursor = await self.db.execute(
+                    "SELECT version FROM schema_migrations")
+                applied_versions = {int(r[0]) for r in await cursor.fetchall()}
+            except Exception:
+                logger.warning("[database] migration book read failed", exc_info=True)
+            if current > 0 and current not in applied_versions:
+                # legacy v1…v12 без книги → один baseline-ряд (аудит/дрейф).
+                await self.db.execute(
+                    "INSERT OR REPLACE INTO schema_migrations "
+                    "(version, name, applied_at, checksum) VALUES (?, ?, ?, ?)",
+                    (current, "legacy_baseline", int(time.time()),
+                     hashlib.sha256(b"legacy_baseline").hexdigest()))
+                await self.db.commit()
+            for step in steps:
+                if step.version <= current:
+                    continue
+                # L-MCA14-3 (санкционированное исключение): runner работает на этапе
+                # `initialize()` ДО старта сервинга/конкурентных писателей, поэтому
+                # прямые `execute+commit` здесь безопасны и не интерливятся с чужой
+                # транзакцией (нет второго писателя). Доменные записи после старта
+                # идут только через single-writer (см. `_serialized_write`).
+                attempt = 0
+                step_started = time.monotonic()
+                while True:
+                    try:
+                        if attempt:
+                            logger.warning(
+                                "[database] migration v%d: retry %d/%d after "
+                                "`database is locked` | %s", step.version,
+                                attempt, _MIGRATION_LOCK_RETRIES, step.name)
+                        await step.apply(self)
+                        break
+                    except aiosqlite.OperationalError as exc:
+                        # T-5150r: bounded retry — шаг идемпотентен (self-guard,
+                        # повтор no-op), частично применённый шаг безопасно
+                        # перезапускается. Прочие OperationalError — raise.
+                        if ("database is locked" not in str(exc)
+                                or attempt >= _MIGRATION_LOCK_RETRIES):
+                            raise
+                        attempt += 1
+                        await asyncio.sleep(_MIGRATION_LOCK_BACKOFF_S)
+                await self.db.execute(
+                    "INSERT OR REPLACE INTO schema_migrations "
+                    "(version, name, applied_at, checksum) VALUES (?, ?, ?, ?)",
+                    (step.version, step.name, int(time.time()),
+                     self._step_checksum(step)))
+                await self.db.commit()
+                logger.info("[database] migration v%d applied in %.1fs | %s",
+                            step.version,
+                            time.monotonic() - step_started, step.name)
+        finally:
+            try:
+                await self.db.execute(
+                    f"PRAGMA busy_timeout = {_BUSY_TIMEOUT_MS}")
+            except Exception:
+                logger.debug("[database] busy_timeout restore failed",
+                             exc_info=True)
+        cursor = await self.db.execute("PRAGMA user_version")
+        row = await cursor.fetchone()
+        logger.info("[database] migrations: complete | user_version=%d | "
+                    "total %.1fs", int(row[0]),
+                    time.monotonic() - runner_started)
 
     async def _ensure_migration_book(self) -> None:
         """B-MCA14-1: создать книгу `schema_migrations`, НЕ трогая
