@@ -158,11 +158,19 @@ async def save_live_message(db, *, chat_id: int, user_id=None, text=None,
                             forward_source="", tg_message_id=None,
                             media_ref=None, reply_to_id=None,
                             reply_to_author_id=None, quote_text=None,
-                            quote_author_id=None, forward_author_id=None) -> int:
+                            quote_author_id=None, forward_author_id=None,
+                            sender_chat_id=None, origin_type=None,
+                            origin_sent_at=None, origin_sender_user_id=None,
+                            origin_chat_id=None, origin_message_id=None,
+                            origin_display_name=None,
+                            origin_author_signature=None, thread_id=None,
+                            media_group_id=None) -> int:
     """Живой ingestion → канонический get-or-create (ON) либо legacy (OFF).
 
     OFF (`MCA_MESSAGE_IDENTITY_ENABLED=false`) → ровно `save_smart_message`
-    (паритет baseline: те же аргументы, new-columns остаются NULL)."""
+    (паритет baseline: те же аргументы, new-columns остаются NULL).
+    MCA-19 (ADR-1028-19 D2): Origin-блок — опциональные kwargs; None =
+    честный unknown (никаких выдуманных значений)."""
     now = int(timestamp if timestamp is not None else time.time())
     text = _as_str(text)
     caption = _as_str(caption)
@@ -174,12 +182,30 @@ async def save_live_message(db, *, chat_id: int, user_id=None, text=None,
     quote_author_id = _as_int(quote_author_id)
     forward_author_id = _as_int(forward_author_id)
     media_ref = _as_str(media_ref)
+    sender_chat_id = _as_int(sender_chat_id)
+    origin_type = _as_str(origin_type)
+    origin_sent_at = _as_int(origin_sent_at)
+    origin_sender_user_id = _as_int(origin_sender_user_id)
+    origin_chat_id = _as_int(origin_chat_id)
+    origin_message_id = _as_int(origin_message_id)
+    origin_display_name = _as_str(origin_display_name)
+    origin_author_signature = _as_str(origin_author_signature)
+    thread_id = _as_int(thread_id)
+    media_group_id = _as_str(media_group_id)
     if not identity_enabled():
         return await db.save_smart_message(
             user_id=user_id, chat_id=int(chat_id), text=text,
             reply_to_id=reply_to_id, timestamp=now, media_type=media_type,
             author_name=author_name, is_forward=bool(is_forward),
-            forward_source=forward_source or "", message_id=tg_message_id)
+            forward_source=forward_source or "", message_id=tg_message_id,
+            sender_chat_id=sender_chat_id, origin_type=origin_type,
+            origin_sent_at=origin_sent_at,
+            origin_sender_user_id=origin_sender_user_id,
+            origin_chat_id=origin_chat_id,
+            origin_message_id=origin_message_id,
+            origin_display_name=origin_display_name,
+            origin_author_signature=origin_author_signature,
+            thread_id=thread_id, media_group_id=media_group_id)
     if sent_at is None:
         sent_at_source = SENT_AT_SOURCE_UNKNOWN
     else:
@@ -211,6 +237,19 @@ async def save_live_message(db, *, chat_id: int, user_id=None, text=None,
         "tg_message_id": tg_message_id,
         "message_state": MESSAGE_STATE_ACTIVE,
         "current_revision": 1,
+        # MCA-19 (ADR-1028-19 D2): Origin-блок — кто ИСТОЧНИК пересылки,
+        # отдельно от отправителя (D3: sender ≠ original author ≠
+        # on-image author).
+        "sender_chat_id": sender_chat_id,
+        "origin_type": origin_type,
+        "origin_sent_at": origin_sent_at,
+        "origin_sender_user_id": origin_sender_user_id,
+        "origin_chat_id": origin_chat_id,
+        "origin_message_id": origin_message_id,
+        "origin_display_name": origin_display_name,
+        "origin_author_signature": origin_author_signature,
+        "thread_id": thread_id,
+        "media_group_id": media_group_id,
     }
     return await db.save_smart_message_identity(rec)
 

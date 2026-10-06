@@ -15,6 +15,7 @@ safety net when the generator is not injected (B6), INFO logs for every state
 доступ только ADMIN_USER_ID (ALLOWED_SUMMARY_IDS игнорируется).
 """
 import datetime
+import enum
 import logging
 import random
 import time
@@ -187,6 +188,83 @@ def _sent_at_of(message: types.Message) -> int | None:
     return None
 
 
+def _origin_ts_of(origin) -> int | None:
+    """Дата исходной публикации пересылки (origin.date) в unix; None — нет."""
+    try:
+        date = getattr(origin, "date", None)
+        if isinstance(date, datetime.datetime):
+            return int(date.timestamp())
+    except (AttributeError, TypeError, OverflowError, OSError, ValueError):
+        return None
+    return None
+
+
+def _extract_origin_fields(origin) -> dict:
+    """MCA-19 (ADR-1028-19 D1/D2, §29.1): структурированный Origin-блок
+    MessageOrigin. Отличается от display-строки `_extract_forward_source`
+    (остаётся рядом): sender ≠ оригинальный автор ≠ автор текста на
+    картинке (D3). Только доступные поля; нет — честный None (не выдумка).
+    R17: имена/ID — метаданные Telegram, секретов нет."""
+    if origin is None:
+        return {}
+    # aiogram >= 3.x: `type` — enum MessageOriginType; DDL-канон (v32, D1:
+    # CHECK IN ('user','hidden_user','chat','channel')) — это значения
+    # `.value`. Старые версии/моки отдают plain str. Значение вне канона →
+    # None (честный unknown, не выдумка; CHECK не нарушаем).
+    raw_type = getattr(origin, "type", None)
+    if isinstance(raw_type, enum.Enum):
+        raw_type = raw_type.value
+    origin_type = str(raw_type or type(origin).__name__.replace("MessageOrigin", "")
+                      .lower() or "")
+    if origin_type not in ("user", "hidden_user", "chat", "channel"):
+        origin_type = None
+    fields: dict = {
+        "origin_type": origin_type or None,
+        "origin_sent_at": _origin_ts_of(origin),
+        "origin_display_name": None,
+        "origin_author_signature": None,
+        "origin_sender_user_id": None,
+        "origin_chat_id": None,
+        "origin_message_id": None,
+    }
+    sender_user = getattr(origin, "sender_user", None)
+    if sender_user is not None:
+        # MCA-19 Wave 2 (guard): id — только настоящий int, имя — str
+        # (тестовые двойники → честный None; прод — реальные объекты).
+        sender_user_id = getattr(sender_user, "id", None)
+        if isinstance(sender_user_id, int):
+            fields["origin_sender_user_id"] = sender_user_id
+        display = (_build_nickname(sender_user)
+                   or getattr(sender_user, "username", None)
+                   or getattr(sender_user, "full_name", None))
+        if isinstance(display, str) and display.strip():
+            fields["origin_display_name"] = display
+    hidden_name = getattr(origin, "sender_user_name", None)
+    if isinstance(hidden_name, str) and hidden_name.strip():
+        fields["origin_display_name"] = hidden_name.strip()
+    sender_chat = getattr(origin, "sender_chat", None)
+    origin_chat = getattr(origin, "chat", None)
+    chat_obj = sender_chat if sender_chat is not None else origin_chat
+    if chat_obj is not None:
+        origin_chat_id = getattr(chat_obj, "id", None)
+        if isinstance(origin_chat_id, int):
+            fields["origin_chat_id"] = origin_chat_id
+        if fields["origin_display_name"] is None:
+            title = getattr(chat_obj, "title", None)
+            if isinstance(title, str) and title.strip():
+                fields["origin_display_name"] = title
+        if fields["origin_type"] in ("", None):
+            fields["origin_type"] = (
+                "chat" if sender_chat is not None else "channel")
+    signature = getattr(origin, "author_signature", None)
+    if isinstance(signature, str) and signature.strip():
+        fields["origin_author_signature"] = signature.strip()
+    origin_message_id = getattr(origin, "message_id", None)
+    if isinstance(origin_message_id, int):
+        fields["origin_message_id"] = origin_message_id
+    return fields
+
+
 # ── 0a. Observer ──────────────────────────────────────────────
 
 @summary_observer_router.message()
@@ -251,12 +329,39 @@ async def summary_observer(message: types.Message):
         if origin is not None:
             fwd_user = getattr(origin, "sender_user", None)
             forward_author_id = getattr(fwd_user, "id", None)
+            if not isinstance(forward_author_id, int):
+                forward_author_id = None
         # MCA-03 (ADR-1027-4 D3): дата СОБЫТИЯ (`sent_at` = message.date) и
         # дата ЗАПИСИ (`ingested_at` = now) считаются НЕЗАВИСИМО и не
         # приравниваются друг к другу; legacy `timestamp` = время записи.
         # Для «поздно доставленного» сообщения sent_at < ingested_at.
         sent_at = _sent_at_of(message)
         ingested_at = int(time.time())
+        # MCA-19 (ADR-1028-19 D1/D2): Origin-блок + thread/альбом; время
+        # события не переписывается — только честные значения Telegram.
+        # Fail-open (контракт observer, R28-1-стиль): сбой экстракции
+        # метаданных не роняет сохранение сообщения.
+        try:
+            origin_fields = _extract_origin_fields(origin)
+        except Exception:
+            logger.warning(
+                "SmartModule observer: origin fields extraction failed",
+                exc_info=True)
+            origin_fields = {}
+        sender_chat_id = getattr(getattr(message, "sender_chat", None),
+                                 "id", None)
+        thread_id = getattr(message, "message_thread_id", None)
+        media_group_id = getattr(message, "media_group_id", None)
+        # MCA-19 Wave 2 (guard): идентификаторы — только настоящие int/str;
+        # MagicMock-атрибуты (тестовые двойники сообщений) → честный None,
+        # не мусор в SQL-binding (прод-сообщения — реальные aiogram-
+        # объекты, поведение байт-в-байт).
+        if not isinstance(sender_chat_id, int):
+            sender_chat_id = None
+        if not isinstance(thread_id, int):
+            thread_id = None
+        if not isinstance(media_group_id, str) or not media_group_id:
+            media_group_id = None
         try:
             await message_identity.save_live_message(
                 _db,
@@ -278,11 +383,31 @@ async def summary_observer(message: types.Message):
                 quote_text=quote_text,
                 quote_author_id=quote_author_id,
                 forward_author_id=forward_author_id,
+                sender_chat_id=sender_chat_id,
+                thread_id=thread_id,
+                media_group_id=media_group_id,
+                **origin_fields,
             )
         except Exception:
             logger.warning(
                 "SmartModule observer: save failed | chat=%s user=%s",
                 message.chat.id, user.id, exc_info=True,
+            )
+        # MCA-19 (блок A): канонический реестр активов входящих изображений
+        # (фото/документ-изображение/стикер; альбом — каждый item + общая
+        # media_group_id). Гейт — env-мастер K1; fail-open (не роняет приём).
+        # MCA-19 Wave 2 (блок C, D18): ПОСЛЕ реестра/записи сообщения —
+        # durable-джобы автоочереди (порядок инверсии недопустим). Гейты
+        # enqueue — K1+K2+requested; fail-open.
+        try:
+            from services import mca_vision
+            _asset_ids = await mca_vision.register_intake_assets(
+                _db, message, message_row_id=None)
+            await mca_vision.enqueue_intake_jobs(_db, message, _asset_ids)
+        except Exception:
+            logger.warning(
+                "SmartModule observer: intake assets failed | chat=%s",
+                message.chat.id, exc_info=True,
             )
     except Exception:
         logger.warning("SmartModule observer: unexpected error", exc_info=True)

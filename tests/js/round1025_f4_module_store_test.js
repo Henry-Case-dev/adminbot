@@ -303,9 +303,9 @@ function summaryItem(extra) {
     })[0].value = null;
     const ctx = mkCtx({ configItems: items });
     const c = computed.moduleCounters.call(ctx);
-    assert.strictEqual(c.total, 13, 'h: всего 13');
+    assert.strictEqual(c.total, 14, 'h: всего 14 (MCA-19: +mod_vision)');
     assert.strictEqual(c.on, 1, 'h: включён ровно 1');
-    assert.strictEqual(c.off, 11, 'h: выключено 11');
+    assert.strictEqual(c.off, 12, 'h: выключено 12');
     assert.strictEqual(c.issues, 1, 'h: «Есть проблемы» = 1 (неизвестное)');
     assert.strictEqual(c.total, c.on + c.off + c.issues,
       'h: инвариант Всего = Вкл + Выкл + Проблемы (noToggle нет)');
@@ -318,9 +318,9 @@ function summaryItem(extra) {
     ctx2.visibleModules = computed.visibleModules.call(ctx2);
     ctx2.quickpickCandidates = computed.quickpickCandidates.call(ctx2);
     const c2 = computed.moduleCounters.call(ctx2);
-    assert.strictEqual(c2.total, 14, 'h: noToggle входит только в «Всего»');
+    assert.strictEqual(c2.total, 15, 'h: noToggle входит только в «Всего»');
     assert.strictEqual(c2.on, 1, 'h: noToggle не в «Включено»');
-    assert.strictEqual(c2.off, 11, 'h: noToggle не в «Выключено»');
+    assert.strictEqual(c2.off, 12, 'h: noToggle не в «Выключено»');
     assert.strictEqual(c2.issues, 1, 'h: noToggle не в «Есть проблемы»');
 
     // uiFlag OFF → mod_images вне витрины, поиска, панели и ВСЕХ счётчиков
@@ -329,7 +329,7 @@ function summaryItem(extra) {
     ctx3.visibleModules = computed.visibleModules.call(ctx3);
     ctx3.quickpickCandidates = computed.quickpickCandidates.call(ctx3);
     const c3 = computed.moduleCounters.call(ctx3);
-    assert.strictEqual(c3.total, 12, 'h: uiFlag OFF убирает карточку из «Всего»');
+    assert.strictEqual(c3.total, 13, 'h: uiFlag OFF убирает карточку из «Всего» (MCA-19: база 14 − mod_images)');
     const visIds = ctx3.visibleModules.map(function (m) { return m.id; });
     assert.strictEqual(visIds.indexOf('mod_images'), -1,
       'h: uiFlag OFF — вне витрины');
@@ -560,7 +560,7 @@ function summaryItem(extra) {
     // §45: конфликт — в «Есть проблемы», НЕ в «Включено»/«Выключено».
     const c = computed.moduleCounters.call(ctx);
     assert.strictEqual(c.on, 0, 'o: конфликт не в «Включено»');
-    assert.strictEqual(c.off, 12, 'o: конфликт не в «Выключено»');
+    assert.strictEqual(c.off, 13, 'o: конфликт не в «Выключено» (MCA-19: база 14)');
     assert.strictEqual(c.issues, 1, 'o: конфликт в «Есть проблемы»');
     assert.strictEqual(c.total, c.on + c.off + c.issues,
       'o: инвариант Всего = Вкл + Выкл + Проблемы');

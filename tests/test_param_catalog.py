@@ -1,4 +1,4 @@
-﻿"""Epic 85 (T-636) — тесты каталога-реестра параметров (84.12.2).
+"""Epic 85 (T-636) — тесты каталога-реестра параметров (84.12.2).
 
 DoD: полнота (каждое поле Settings покрыто), категории каноничны,
 секретность (все keys + прокси → secret), инфраструктура исключена
@@ -120,7 +120,7 @@ class TestCompleteness:
         #   COVER_STYLES_ENABLED — env-only ClassVar (Δ каталога = 0).
         #   MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): +13 instance-полей
         #   (memory.random_* ×4 + keys.random_quantum_* ×9) → 426→439.
-        assert len(fields) == 441
+        assert len(fields) == 450
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered - TestCompleteness._CLASSVAR_CATALOGUED == fields
 
@@ -364,7 +364,7 @@ class TestGroups8424:
         # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): +2 группы
         # (memory_random на mod_sleep, keys_random на llm_providers)
         # → GROUPS 107.
-        assert len(GROUPS) == 108
+        assert len(GROUPS) == 112
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -472,8 +472,11 @@ class TestGroups8424:
         # (memory.random_uses_*: conversation_variant/memory_recall/
         # archive_sample/belief_review/association_pair/ui_visualization)
         # → memory 46.
-        assert counts == {"prompts": 24, "models": 63, "keys": 33,
-                          "limits": 199, "flags": 76, "reactions": 39,
+        # MCA-19 (ADR-1028-19 D13, round 10.43): models +3 / keys +1 /
+        # flags +1 / limits +4 (vision-группы) → models 66, keys 34,
+        # flags 77, limits 203.
+        assert counts == {"prompts": 24, "models": 66, "keys": 34,
+                          "limits": 203, "flags": 77, "reactions": 39,
                           "content": 5, "memory": 46}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

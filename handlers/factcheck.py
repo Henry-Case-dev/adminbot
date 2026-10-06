@@ -66,7 +66,7 @@ async def _fetch_chat_context(chat_id: int, before: int, after: int,
     Fail-open: ЛЮБАЯ ошибка (БД/цепочка/рендер) → '' (R1023F2-03: рендер
     внутри общего try — прежнее поведение без контекста); цепочка — отдельный
     под-блок «не доказательства»."""
-    from services.chat_context import format_chat_context   # локальный импорт — без циклов
+    from services.chat_context import build_chat_context     # локальный импорт — без циклов
     if _db is None:
         return ""
     b, a = _clamp_window(before, after)
@@ -76,9 +76,13 @@ async def _fetch_chat_context(chat_id: int, before: int, after: int,
         rows = await _db.get_messages_around(
             chat_id, target_tg_message_id, b, a)
         reply_chains = await _build_reply_chains(chat_id, target_tg_message_id)
-        return format_chat_context(rows, trigger_message_id=trigger_message_id,
-                                   reply_chains=reply_chains,
-                                   anchor_message_id=target_tg_message_id)
+        # Rework R1 (H-2): прод-шов renderer'а D9 (гейт внутри — OFF →
+        # байт-в-байт прежний контекст).
+        return await build_chat_context(
+            _db, rows, chat_id=chat_id,
+            trigger_message_id=trigger_message_id,
+            reply_chains=reply_chains,
+            anchor_message_id=target_tg_message_id)
     except Exception:
         logger.warning("[factcheck] chat context build failed | chat=%s",
                        chat_id, exc_info=True)

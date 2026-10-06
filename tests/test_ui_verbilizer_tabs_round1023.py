@@ -80,10 +80,10 @@ class TestCatalogDelta:
     def test_counts(self):
         # F21 (10.24, ADR-1024-22 D8): +1 REGISTRY/GROUPS/mapped — теперь
         # 459/98/96; TAB_RULES 20 (новых вкладок нет).
-        assert len(pc.REGISTRY) == 510
-        assert len(pc.GROUPS) == 108
-        assert len(pc._TAB_BY_GROUP) == 106
-        assert len(pc.TAB_RULES) == 21
+        assert len(pc.REGISTRY) == 519
+        assert len(pc.GROUPS) == 112
+        assert len(pc._TAB_BY_GROUP) == 110
+        assert len(pc.TAB_RULES) == 22
 
     def test_new_group_bound_to_prompts_tab(self):
         g = pc.get_group("prompts_verbilizer")
@@ -415,6 +415,6 @@ class TestApiAndUiMarkers:
 
     def test_freeze_menu_21_tabs(self):
         # F5 (10.24, ADR-1024-9 D3): 20→21 config-вкладок (+mod_images).
-        assert len(pc.TAB_RULES) == 21
-        assert len(pc.CONFIG_TAB_TITLES) == 21
+        assert len(pc.TAB_RULES) == 22
+        assert len(pc.CONFIG_TAB_TITLES) == 22
         assert set(pc.TAB_NAV) == set(pc.CONFIG_TAB_TITLES)

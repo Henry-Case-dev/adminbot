@@ -273,6 +273,8 @@ _nostalgia_worker = None
 _relations_service = None
 # Раунд 10.23 (F4) — ref для on_shutdown: недельный воркер анти-клише.
 _anticliche_worker = None
+# MCA-19 (round 10.43) — ref для on_shutdown: единый vision-планировщик.
+_vision_worker = None
 
 
 async def on_startup():
@@ -794,6 +796,20 @@ async def on_startup():
             "[relations] runtime init failed — fail-open (SQLite-часть API "
             "пуста, 503 у воркеров)", exc_info=True)
 
+    # ── MCA-19 (round 10.43, ADR-1028-19 D18–D20): единый vision-контур —
+    # bind SQLite db/bot + ОДИН планировщик (durable task_jobs; K1 OFF →
+    # воркер не стартует). Fail-open: ошибка не роняет старт бота.
+    try:
+        from services import mca_vision as _mca_vision
+        _mca_vision.bind_runtime(db=db, bot=bot)
+        global _vision_worker
+        _vision_worker = _mca_vision.VisionMediaWorker(db, bot)
+        _vision_worker.start()
+        logger.info("[mca-19] vision media worker initialized")
+    except Exception:
+        logger.warning("[mca-19] vision worker init failed — fail-open",
+                       exc_info=True)
+
     # ── Goodmorning (Epic 30) — без роутера (D91): чистый планировщик-сервис ──
     global _goodmorning_scheduler
     goodmorning_relay = GoodmorningRelay(bot=bot, media_dir=hot.get("reactions.goodmorning_media_dir", settings.GOODMORNING_MEDIA_DIR))
@@ -985,6 +1001,9 @@ async def on_shutdown():
                 _nostalgia_worker.stop if _nostalgia_worker else None)
     await _safe("anticliche_worker",
                 _anticliche_worker.stop if _anticliche_worker else None)
+    # MCA-19 (round 10.43): единый vision-планировщик — graceful shutdown.
+    await _safe("vision_worker",
+                _vision_worker.shutdown if _vision_worker else None)
     await _safe("dream_worker",
                 _dream_worker.stop if _dream_worker else None)
     await _safe("lore_worker",

@@ -1,12 +1,12 @@
 # F8 — `param-registry-round1025` — провенанс `.meta.md`
 
-- **APP_VERSION:** `2.58.62`
-- **HEAD (short):** `897ce4f`
+- **APP_VERSION:** `2.58.63`
+- **HEAD (short):** `2dfb8c4`
 - **Источник:** `services/param_catalog.py` (REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES) + `inventory.tsv` (10.14) для дельты.
-- **Счётчики каталога:** REGISTRY **510** / GROUPS **108** / `_TAB_BY_GROUP` **106** / TAB_RULES **21**.
-- **Реестр:** 510 строк == REGISTRY.
+- **Счётчики каталога:** REGISTRY **519** / GROUPS **112** / `_TAB_BY_GROUP` **110** / TAB_RULES **22**.
+- **Реестр:** 519 строк == REGISTRY.
 - **inventory.tsv (10.14):** 411 baseline-ключей.
-- **Дельта 411 → 510 = 99** новых ключей (`status=new`).
+- **Дельта 411 → 519 = 108** новых ключей (`status=new`).
 - **Команда генерации:** `python tools/gen_param_registry_round1025.py`
 - **Проверка (маркер):** `python tools/gen_param_registry_round1025.py --check`
 
@@ -22,7 +22,7 @@
 - `-` = поле неприменимо/отсутствует (документированное отсутствие).
 - `ui_visibility=api-only` — ключ существует (env/каталог), но UI-места нет → **не** считается сохранённым в UI.
 
-## Дельта 411 → 510 = 99 (ключи, отсутствовавшие в inventory.tsv)
+## Дельта 411 → 519 = 108 (ключи, отсутствовавшие в inventory.tsv)
 
 - `api_token`
 - `betterstack_host`
@@ -45,6 +45,7 @@
 - `flags.summary_hybrid_l1_retry_enabled`
 - `flags.summary_hybrid_l2_enabled`
 - `flags.summary_legacy_fallback_enabled`
+- `flags.vision_enabled`
 - `info_text_file`
 - `keys.embedding_quota_group_labels`
 - `keys.image_api_key`
@@ -60,6 +61,7 @@
 - `keys.random_quantum_request_timeout_seconds`
 - `keys.summary_l1_api_key`
 - `keys.summary_l2_api_key`
+- `keys.vision_api_key`
 - `limits.anticliche_max_patterns`
 - `limits.chat_timezone`
 - `limits.factcheck_context_after`
@@ -72,6 +74,10 @@
 - `limits.summary_hybrid_response_mode`
 - `limits.summary_hybrid_target_chars`
 - `limits.summary_hybrid_target_paragraphs`
+- `limits.vision_chat_rate`
+- `limits.vision_image_max_dimension`
+- `limits.vision_queue_capacity`
+- `limits.vision_user_rate`
 - `local_bot_api_url`
 - `log_ring_max_entries`
 - `logtail_source_token`
@@ -98,6 +104,9 @@
 - `models.summary_l1_model_name`
 - `models.summary_l2_base_url`
 - `models.summary_l2_model_name`
+- `models.vision_api_base_url`
+- `models.vision_api_type`
+- `models.vision_model`
 - `postgres_db`
 - `postgres_dsn`
 - `postgres_password`

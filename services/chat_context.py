@@ -72,7 +72,8 @@ def _truncate_reply_chains(block: str, limit: int) -> str:
 
 def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
                         trigger_message_id=None, reply_chains: str = "",
-                        anchor_message_id=None) -> str:
+                        anchor_message_id=None,
+                        media_blocks: dict | None = None) -> str:
     """rows — хронологический список строк smart_messages (sqlite3.Row с
     author_name/user_id/text). → '<chat_context …>…</chat_context>' или ''
     (пустое окно / нет текстов).
@@ -116,6 +117,19 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
         text = (row["text"] or "").strip()
         if not text and media_enabled:
             text = row_media_marker(row, item_id=item_id)
+            # Rework R1 (H-2, review T-5124): прод-шов единого renderer'а D9 —
+            # блок фасада (OCR/описание/pending, два времени) поверх старого
+            # маркера. media_blocks=None (гейт OFF/ошибка) → прежний путь
+            # байт-в-байт; для строки без блока (не изображение/нет актива/
+            # ошибка рендера) старый маркер сохраняется.
+            if media_blocks:
+                try:
+                    tg_id = int(row_get(row, "tg_message_id") or 0)
+                except Exception:
+                    tg_id = 0
+                block = media_blocks.get(tg_id) if tg_id else None
+                if block:
+                    text = block
         if not text:
             continue
         name = row["author_name"] or f"id{row['user_id'] or '?'}"
@@ -185,3 +199,80 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
     if chain_out:
         body = body + "\n" + chain_out
     return wrapper[0] + body + wrapper[1]
+
+
+# ── Rework R1 (H-2, review T-5124): прод-шов renderer'а D9 ──────────────────
+# Единый renderer `render_media_context_async` (mca_vision, D9) получает
+# фактического потребителя в сборке контекста: для строк с нативным медиа
+# блок фасада (OCR/описание/pending, event ≠ knowledge) заменяет старый
+# маркер «[фото]». Read-only: готовые анализы читаются из БД, НОВЫХ
+# vision-вызовов/джоб здесь нет (AUTO-гейт — про запись, не про чтение).
+
+async def collect_media_analysis_blocks(db, chat_id: int,
+                                        rows) -> dict | None:
+    """Пре-рендер media-блоков строк окна (или None → байт-в-байт паритет).
+
+    Гейты: мастер K1 `MCA_VISION_ENABLED` AND requested владельца чата
+    (per-chat тумблер). OFF/ошибка/нет db/нет медиа-строк → None — вызывающий
+    получает прежний контекст байт-в-байт. Результат: {tg_message_id: текст
+    фасада D9}; для не-изображений (voice/video) renderer вернёт None →
+    строки в словаре нет → старый маркер сохраняется. Ошибка рендера одной
+    строки не ломает остальные; сам коллектор никогда не бросает."""
+    try:
+        from services import mca_gates
+        from services import mca_vision
+        from services.media_marker import is_media_type
+        if db is None or not mca_gates.vision_enabled():
+            return None
+        try:
+            requested = await mca_vision.resolve_requested(int(chat_id))
+        except Exception:
+            logger.warning("chat_context: requested resolve failed | chat=%s",
+                           chat_id, exc_info=True)
+            return None
+        if not requested:
+            return None
+        blocks: dict[int, str] = {}
+        seen: set[int] = set()
+        for row in rows or ():
+            try:
+                if not is_media_type(row_get(row, "media_type")):
+                    continue
+                row_chat = int(row_get(row, "chat_id") or chat_id or 0)
+                tg_id = int(row_get(row, "tg_message_id") or 0)
+            except Exception:
+                continue
+            if not row_chat or not tg_id or tg_id in seen:
+                continue
+            seen.add(tg_id)
+            try:
+                rendered = await mca_vision.render_media_context_async(
+                    db, chat_id=row_chat, tg_message_id=tg_id)
+            except Exception:
+                logger.warning("chat_context: media block render failed | "
+                               "chat=%s tg=%s", row_chat, tg_id,
+                               exc_info=True)
+                continue
+            text = str((rendered or {}).get("text") or "").strip()
+            if text:
+                blocks[tg_id] = text
+        return blocks or None
+    except Exception:
+        logger.warning("chat_context: media blocks collect failed",
+                       exc_info=True)
+        return None
+
+
+async def build_chat_context(db, rows, *, chat_id: int,
+                             max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
+                             trigger_message_id=None, reply_chains: str = "",
+                             anchor_message_id=None) -> str:
+    """Прод-сборка контекста (единственная точка шва H-2): окна чата для
+    direct/autonomous-потребителей (smartsearch/factcheck) с media-блоками
+    renderer'а D9 под гейтом. Гейт OFF → ``format_chat_context`` на тех же
+    строках без media_blocks — байт-в-байт прежний контекст."""
+    media_blocks = await collect_media_analysis_blocks(db, chat_id, rows)
+    return format_chat_context(
+        rows, max_chars=max_chars, trigger_message_id=trigger_message_id,
+        reply_chains=reply_chains, anchor_message_id=anchor_message_id,
+        media_blocks=media_blocks)

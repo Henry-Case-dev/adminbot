@@ -189,6 +189,17 @@
       sources: [
         { category: 'flags', groups: ['flags_module_images'] },
       ] },
+    // MCA-19 (10.43, ADR-1028-19 D16): вкладка модуля «Распознавание
+    // изображений» — главный тумблер владельца + лимиты; подключение
+    // (models_vision/keys_vision) остаётся «одним домом» в llm_providers.
+    // Иконка — переиспользуем visibility из сабсета (37 иконок, без правки
+    // шрифтов; прецедент F5/grid_view).
+    { id: 'mod_vision', icon: 'visibility', label: 'Распознавание изображений',
+      type: 'config', menu: 'modules',
+      sources: [
+        { category: 'flags', groups: ['flags_module_vision'] },
+        { category: 'limits', groups: ['limits_vision'] },
+      ] },
     // Список-витрина 11 модулей (не config; карточки + модалки).
     { id: 'modules', icon: 'extension', label: 'Модули', type: 'modules',
       menu: 'modules' },
@@ -278,6 +289,8 @@
     'mod_summary', 'mod_direct', 'mod_factcheck', 'mod_search',
     'mod_transcribe', 'mod_video_summary', 'mod_media_download', 'mod_web',
     'mod_checkup', 'mod_sleep', 'mod_nostalgia', 'mod_budgets', 'mod_images',
+    // MCA-19 (10.43): +mod_vision (22-я config-вкладка; зеркало TAB_RULES).
+    'mod_vision',
     'llm_providers', 'prompts',
     'memory_rag', 'smart_cache', 'people_names', 'relations', 'chat_lore',
     'permsoc',
@@ -344,6 +357,8 @@
     // F5 (10.24, ADR-1024-9 D5): переиспользуем существующий grid_view
     // (в font-subset) — без правки шрифтового сабсета.
     mod_images: 'grid_view',
+    // MCA-19 (10.43): visibility — из сабсета (распознавание/видение).
+    mod_vision: 'visibility',
     memory_rag: 'memory', smart_cache: 'bolt', people_names: 'badge',
     relations: 'group', permsoc: 'admin_panel_settings',
     access: 'supervisor_account', chat_lore: 'auto_stories',
@@ -584,6 +599,16 @@
       runtimeGate: 'per_chat',
       keywords: ['изображения', 'картинки', 'рисунки', 'генерация', 'image',
                  'generation'] },
+    // MCA-19 (10.43, ADR-1028-19 D16/D17): карточка модуля «Распознавание
+    // изображений» — в существующем списке модулей; requested (тумблер
+    // владельца) отдельно от effective-статуса (resolve_effective_state,
+    // показ — Wave 2 «Аналитика»/диагностика).
+    { id: 'mod_vision', title: 'Распознавание изображений',
+      subtitle: 'Читает текст и описание картинок', icon: 'visibility',
+      toggleKey: 'flags.vision_enabled', tab: 'mod_vision',
+      runtimeGate: 'per_chat',
+      keywords: ['распознавание', 'изображения', 'картинки', 'ocr', 'скрин',
+                 'vision', 'фото'] },
   ];
 
   // ═══ F5 (ADR-1025-15 D1/D6): витринные метаданные workspace-маршрута ═══
@@ -619,6 +644,9 @@
     mod_nostalgia: ['overview', 'settings', 'limits'],
     mod_budgets: ['overview', 'settings', 'limits'],
     mod_images: ['overview', 'settings', 'limits', 'models', 'testing'],
+    // MCA-19 (10.43): workspace-вкладки модуля «Распознавание изображений»
+    // (минимальный набор; «Аналитика»/диагностика — Wave 2, блок E).
+    mod_vision: ['overview', 'settings', 'models', 'limits'],
   };
   MODULES.forEach(function (m) {
     if (!m.routeSlug) m.routeSlug = String(m.id).replace(/^mod_/, '');
@@ -711,6 +739,8 @@
     mod_factcheck: ['direct'], mod_search: ['direct'], mod_web: ['direct'],
     mod_transcribe: ['transcription'], mod_video_summary: ['video_summary'],
     mod_checkup: [], mod_images: ['image_generation'],
+    // MCA-19 (10.43): блок подключения vision-модели на вкладке «Модели».
+    mod_vision: ['vision'],
     mod_sleep: [], mod_nostalgia: [], mod_budgets: [], mod_media_download: [],
   };
 
@@ -893,6 +923,28 @@
         { key: 'keys.image_api_key', label: 'Ключ', role: 'api_key',
           secret: true, globalSecret: true,
           dependsOn: 'models.image_get_mode' },
+      ] },
+    // MCA-19 (10.43, ADR-1028-19 D4/D5): модель распознавания изображений —
+    // по образцу настроек моделей (адрес/тип API/модель/ключ). Пусто →
+    // маршрут наследует основную диалоговую модель (D5). Ключ — секрет
+    // (маска; пустое маскированное поле = «оставить сохранённый»).
+    // Отдельный endpoint без отдельного ключа НЕ смешивается с ключом
+    // основного профиля (покажется «Проверка подключения»).
+    // Wave 2 (T-5103/T-5116): testable + POST /api/vision/test (проба —
+    // нейтральное изображение на бэкенде) + живая effective-линия
+    // (GET /api/vision/state при открытии вкладки «Модели», fail-open).
+    { id: 'vision', title: 'Распознавание изображений',
+      modules: 'Распознавание изображений',
+      testable: true,
+      probeEndpoint: '/api/vision/test',
+      note: '«Проверить подключение» использует сохранённые адрес, модель '
+        + 'и ключ из базы — сначала сохраните карточку.',
+      fields: [
+        { key: 'models.vision_api_base_url', label: 'Адрес сервера (пусто — основной)', role: 'base_url' },
+        { key: 'models.vision_api_type', label: 'Тип API (openai_compatible)', role: '' },
+        { key: 'models.vision_model', label: 'Модель (пусто — основная)', role: 'model' },
+        { key: 'keys.vision_api_key', label: 'Ключ (пусто — основной)', role: 'api_key',
+          secret: true, globalSecret: true },
       ] },
     // 10.11 (spec §2.5, OPEN-Q6): зона «Расширенные настройки».
     { id: 'llm_guard', title: 'Таймауты и защита', modules: 'Общий',
@@ -1138,6 +1190,10 @@
     // получила канонический маршрут (симметрично «Бюджетам»); при OFF
     // kill-switch `applyRoute` откатывает её на витрину `#/modules`.
     '#/modules/images': 'mod_images',
+    // MCA-19 (10.43): вкладка «Распознавание изображений» — канонический
+    // маршрут (симметрично images/budgets); при OFF kill-switch `applyRoute`
+    // откатывает на витрину `#/modules` (тот же механизм).
+    '#/modules/vision': 'mod_vision',
     '#/permsoc': 'permsoc',
     '#/ai': 'llm_providers',
     '#/ai/llm': 'llm_providers',
@@ -1173,6 +1229,7 @@
     modules: '#/modules', permsoc: '#/permsoc',
     mod_budgets: '#/modules/budgets',
     mod_images: '#/modules/images',
+    mod_vision: '#/modules/vision',
     llm_providers: '#/ai/llm', prompts: '#/ai/prompts',
     // F1 (ADR-1025-1 D3): «Память» живёт в своём разделе.
     memory_rag: '#/memory/rag', smart_cache: '#/ai/smart-cache',
@@ -1579,6 +1636,10 @@
           coverBusy: false,
           cover: null,
         },
+        // MCA-19 (T-5103/T-5116): живая effective-линия карточки «Распознава­
+        // ние изображений» (GET /api/vision/state при открытии вкладки
+        // «Модели»; null → линия скрыта, 403/RBAC — честно без линии).
+        visionState: null,
         // EXTRA (extra-cover-style-pipeline, ADR-1028-4 D12; spec §56/§75):
         // редактор обложечных стилей (вкладка «Стили обложки» модуля Саммари).
         // ASAP-3.2 (ADR-1028-5 D14, ТЗ §106–§114): management screen +
@@ -3983,6 +4044,9 @@
       workspaceTab: function (tab) {
         if (tab === 'testing') this.maybeLoadSummaryTest();
         if (tab === 'styles') this.loadCoverStyles();
+        // MCA-19 (T-5103/T-5116): вкладка «Модели» vision-модуля — живая
+        // effective-линия (fail-open: 403/RBAC → линии нет).
+        if (tab === 'models') this.maybeLoadVisionState();
       },
     },
 
@@ -7183,10 +7247,46 @@
       workspaceTabLabel: function (tabId) {
         return WORKSPACE_TAB_LABELS[tabId] || tabId || '';
       },
+      // MCA-19 (T-5103/T-5116, ADR-1028-19 D15): живая effective-линия
+      // карточки «Распознавание изображений». Fail-open: 403/ошибка →
+      // visionState=null (линия скрыта). Без сети на бэкенде — из кеша
+      // capabilities (не «проверка подключения», а честное состояние).
+      maybeLoadVisionState: function () {
+        var ws = this.workspace;
+        if (!ws || !ws.module || ws.module.id !== 'mod_vision'
+            || ws.tab !== 'models') {
+          return;
+        }
+        if (this.visionState && this._visionStateAt
+            && (Date.now() - this._visionStateAt) < 30000) {
+          return;
+        }
+        var self = this;
+        this.api('/api/vision/state')
+          .then(function (s) {
+            self.visionState = s || null;
+            self._visionStateAt = Date.now();
+          })
+          .catch(function () {
+            self.visionState = null;
+            self._visionStateAt = Date.now();
+          });
+      },
+      visionStateLine: function () {
+        var s = this.visionState;
+        if (!s) return '';
+        var head = (s.effective_enabled ? 'Работает' : 'Не активно');
+        if (s.visible_reason) head += ': ' + s.visible_reason;
+        if (s.model) head += ' · ' + s.model;
+        if (s.queue && (s.queue.queued || s.queue.running)) {
+          head += ' · очередь ' + (s.queue.running || 0) + '/'
+                  + ((s.queue.running || 0) + (s.queue.queued || 0));
+        }
+        return head;
+      },
       // ── S9 round1026 (ADR-1026-8 D1/D3/D4, §113): dry-run «Тестирование» ──
       // Probe доступности: env-флаг OFF → API 404 → секция скрыта (D8).
-      maybeLoadSummaryTest: function () {
-        var ws = this.workspace;
+      maybeLoadSummaryTest: function () {        var ws = this.workspace;
         if (!ws || !ws.module || ws.module.id !== 'mod_summary'
             || ws.tab !== 'testing') {
           return;
@@ -8397,6 +8497,26 @@
           // изображений — бэкенд шлёт реальный тестовый промпт и возвращает
           // ProbeResult; тост показывает успех или СЫРОЙ безопасный текст
           // ошибки провайдера (R17: без ключа).
+          if (b.probeEndpoint === '/api/vision/test') {
+            // MCA-19 (T-5103/T-5116): проверка модели распознавания —
+            // бэкенд шлёт нейтральное изображение (НЕ текст из формы) и
+            // возвращает capability + живую effective-линию (state).
+            var vprobe = await this.api(b.probeEndpoint, {
+              method: 'POST', body: JSON.stringify({ prompt: '' }),
+            });
+            var vok = !!(vprobe && vprobe.ok);
+            var vinfo = vok
+              ? ('OK · ' + (vprobe.model || '')
+                 + (vprobe.image_input ? ' · изображение поддерживается' : ''))
+              : ((vprobe && (vprobe.visible_reason || vprobe.reason))
+                 || (vprobe && vprobe.detail) || 'ошибка');
+            if (vprobe && vprobe.state) self.visionState = vprobe.state;
+            this.blockResults[b.id] = { ok: vok, text: vinfo };
+            this.toast(vok ? ('Подключение OK: ' + vinfo)
+                           : ('Ошибка подключения: ' + vinfo),
+                        vok ? 'ok' : 'err');
+            return;
+          }
           if (b.probeEndpoint) {
             var probe = await this.api(b.probeEndpoint, {
               method: 'POST', body: JSON.stringify({ prompt: '' }),

@@ -695,6 +695,7 @@ class ToolRouter:
             "transcribe_video": self._transcribe_video,
             "fetch_article": self._fetch_article,
             "get_user_context": self._get_user_context,
+            "recognize_image": self._recognize_image,
         }
         method = registry.get(name)
         if method is None:
@@ -2262,6 +2263,67 @@ class ToolRouter:
         if extra:
             payload.update(extra)
         return payload
+
+    # ── recognize_image (MCA-19, ADR-1028-19 D22/D23, round 10.43) ────────
+
+    async def _recognize_image(self, arguments: dict, ctx: ToolContext) -> str:
+        """Vision-инструмент (канон 13): target MessageRef → ЕДИНЫЙ сервис
+        mca-19 (`mca_vision.recognize_target`; auto/manual/tool — один вход).
+        ACL (D22): chat scope — из доверенного рантайма (ctx.chat_id); цель
+        в ДРУГОМ чате отклоняется (кэш/права не переносятся, TH-5);
+        произвольные URL/API key/модель от LLM НЕ принимаются (schema
+        additionalProperties: false + игнор неизвестных полей).
+        Серверная проверка OFF — defence in depth (инструмент может быть
+        скрыт из набора, устаревший вызов всё равно получает честный
+        disabled). Результат — JSON ToolResult-контракта D22 (прецедент
+        get_user_context): status ready/pending/disabled/unavailable/
+        unsupported/ambiguous/missing/failed + reason из финального
+        словаря (269) + cache_hit/analysis_revision/source refs.
+        Pending — связка с job; «посмотрю» ≠ «посмотрел» (D23)."""
+        import json as _json
+        from services import mca_gates, mca_vision
+        if not (mca_gates.vision_enabled()
+                and mca_gates.vision_tool_enabled()):
+            return _json.dumps({"status": "disabled",
+                                "reason": "vision_disabled"},
+                               ensure_ascii=False)
+        db = self.deps.db
+        if db is None:
+            return _json.dumps({"status": "failed",
+                                "reason": "vision_unavailable"},
+                               ensure_ascii=False)
+        args = arguments if isinstance(arguments, dict) else {}
+        target = args.get("target") if isinstance(args.get("target"),
+                                                  dict) else {}
+        try:
+            target_chat = int(target.get("chat_id"))
+            target_msg = int(target.get("message_id"))
+        except (TypeError, ValueError, AttributeError):
+            return _json.dumps(
+                {"status": "failed", "reason": "vision_failed",
+                 "note": "target required: chat_id + message_id"},
+                ensure_ascii=False)
+        if target_chat != int(ctx.chat_id):
+            # TH-5/SC-R3c: другой чат — вне ACL доверенного рантайма.
+            return _json.dumps(
+                {"status": "missing", "reason": "vision_missing_source",
+                 "out_of_scope": True},
+                ensure_ascii=False)
+        reply_id = target_msg or ctx.reply_to_message_id
+        selector = str(args.get("asset_selector") or "").strip() or None
+        question = str(args.get("question") or "").strip()[:200]
+        try:
+            result = await mca_vision.recognize_target(
+                db, chat_id=int(ctx.chat_id), reply_tg_id=reply_id,
+                selector=selector, question=question,
+                wait_seconds=mca_vision.RECOGNIZE_TOOL_WAIT_SECONDS)
+        except Exception as exc:
+            logger.warning("[tools] recognize_image failed | error=%s",
+                           type(exc).__name__)
+            return _json.dumps({"status": "failed",
+                                "reason": "vision_failed"},
+                               ensure_ascii=False)
+        return _json.dumps(result, ensure_ascii=False)
 
     def _resolve_tool_source(self, arguments: dict, ctx: ToolContext,
                              kinds: tuple[str, ...] | None = None):

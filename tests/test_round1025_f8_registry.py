@@ -78,8 +78,16 @@ ARTIFACTS = [ROOT / p for p in FIXTURE["artifacts"]]
 # + правка владельца/пауза/источники, T-5085/T-5086; rework M-1: sources
 # фильтруются по source_observation_ids правила). Каталог Δ=0
 # (ре-санкция errata). Хэш переутверждён осознанно (L-F11S-1).
+# MCA-19 (round 10.43, ADR-1028-19 D4/D15, T-5103/T-5116; Wave 2): эволюция —
+# routes +2 в СУЩЕСТВУЮЩЕМ экране «Распознавание изображений» (mod_vision):
+# POST /api/vision/test («Проверить подключение», проба — нейтральное
+# изображение на бэкенде, RBAC прецедента /api/random/test) и
+# GET /api/vision/state (живая effective-линия + компакт «Аналитики»,
+# без сетевых вызовов). Каталог Δ=0 (Wave 1 уже переиздал F8 → 519).
+# Хэш переутверждён осознанно (L-F11S-1); routes-набор f8_baseline
+# переиздан (tools/_mca19_wave2_bump_pins.py).
 ROUTES_SHA256_F11 = (
-    "72c22193406e6c4e201c1b75ca992808adcd728cd6dd00216499742ef6c4c461")
+    "eb0611aedb94b48457444b93aaec07d346940d7dd137b537bb82527d96559a5e")
 
 
 def _sha256(path: Path) -> str:
@@ -160,10 +168,10 @@ class TestFrozenInvariants:
         # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): +13 ключей / +2 группы
         # (memory_random/keys_random) / +2 tab-маппинга; TAB_RULES 21 in-place;
         # delta 78→91 → 502/107/105/21.
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 510
-        assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 108
-        assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 106
-        assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 21
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 519
+        assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 112
+        assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 110
+        assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 22
 
     def test_registry_keys_match_catalog_baseline(self):
         # F1-baseline фиксирует ключи REGISTRY (settings_field/env), не pg_key.
@@ -180,7 +188,7 @@ class TestFrozenInvariants:
         # `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.62"
+        assert APP_VERSION == "2.58.63"
     def test_routes_set_unchanged(self):
         import re
         txt = (ROOT / "web/api/routes.py").read_text(encoding="utf-8")
@@ -209,7 +217,7 @@ class TestRegistry:
         # ASAP 4.4 (T-4880): санкционированная Δ +1 → 489.
         # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): санкционированная
         # Δ +13 (memory.random_* ×4 + keys.random_quantum_* ×9) → 502.
-        assert len(rows) == 510
+        assert len(rows) == 519
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -224,7 +232,7 @@ class TestRegistry:
         # ASAP 4.4 (T-4880): санкционированная Δ +1 → дельта 78.
         # MCA-10a (ADR-1028-14 D8/D12): санкционированная Δ +13 → дельта 91.
         delta = _registry_keys() - _inventory_keys()
-        assert len(delta) == FIXTURE["counts"]["delta"] == 99
+        assert len(delta) == FIXTURE["counts"]["delta"] == 108
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -240,7 +248,7 @@ class TestRegistry:
         # api_key). Санкционная формулировка «secret 32→33» считала только
         # истинный секрет; семантика артефакта (`secret or category==keys`)
         # даёт 32→41 — см. evidence MCA-10a (блок C, F8-дельта).
-        assert len(secret_rows) == 41
+        assert len(secret_rows) == 42
         for row in secret_rows:
             assert row["current_value"] == gen.SECRET_MASK
             assert row["default_value"] == gen.SECRET_MASK
@@ -270,7 +278,7 @@ class TestRegistry:
         # ASAP-3.1 (ADR-1028-3): переиздание после Δ +1 (483→484, 72→73).
         # ASAP 4.4 (T-4880): переиздание после Δ +1 (488→489, 77→78).
         # MCA-10a (ADR-1028-14 D8/D12): переиздание после Δ +13 (502, 91).
-        assert "510" in meta and "411" in meta and "99" in meta
+        assert "519" in meta and "411" in meta and "108" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -286,7 +294,7 @@ class TestScreenMap:
         # ASAP 4.4 (T-4880): санкционированная Δ +1 → 489.
         # MCA-10a (ADR-1028-14 D8/D12): санкционированная Δ +13 → 502.
         # MCA-10b (ADR-1028-17 D16): санкционированная Δ +6 → 510.
-        assert len(keys) == 510
+        assert len(keys) == 519
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

@@ -218,10 +218,10 @@ def test_catalog_summary_filter_keys_removed():
     groups = {g.id for g in pc.GROUPS}
     assert "flags_summary_filter" not in groups
     assert "limits_summary_filter" not in groups
-    assert len(pc.REGISTRY) == 510
-    assert len(pc.GROUPS) == 108
-    assert len(pc._TAB_BY_GROUP) == 106
-    assert len(pc.TAB_RULES) == 21
+    assert len(pc.REGISTRY) == 519
+    assert len(pc.GROUPS) == 112
+    assert len(pc._TAB_BY_GROUP) == 110
+    assert len(pc.TAB_RULES) == 22
 
 
 def test_startup_tolerates_stale_db_values(monkeypatch):

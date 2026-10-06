@@ -181,6 +181,7 @@ class TestNavigationSnapshot:
         "mod_transcribe", "mod_video_summary", "mod_media_download", "mod_web",
         "mod_checkup", "mod_sleep", "mod_nostalgia", "mod_budgets",
         "mod_images",
+        "mod_vision",  # MCA-19 (10.43, ADR-1028-19 D16)
         "modules", "memory_rag", "smart_cache", "people_names", "relations",
         "permsoc", "access", "chat_lore", "status", "info", "oversight",
     ]
@@ -196,7 +197,7 @@ class TestNavigationSnapshot:
             assert "'" + nid + "'" in APP_JS
         mods = re.findall(r"\{ id: '(mod_[a-z_]+)',",
                           APP_JS[APP_JS.index("var MODULES = ["):])
-        assert len(mods) == 13
+        assert len(mods) == 14
 
 
 # ═══════════════════════════ Дефект 1: стекло ═════════════════════════════

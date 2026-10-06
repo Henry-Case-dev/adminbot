@@ -263,10 +263,10 @@ def test_blockE_catalog_random_uses_keys():
     memory_random: per-chat, не-секреты, все default ON (read-path
     fail-open True); GROUPS/_TAB_BY_GROUP/TAB_RULES без роста."""
     from services import param_catalog as pc
-    assert len(pc.REGISTRY) == 510
-    assert len(pc.GROUPS) == 108
-    assert len(pc._TAB_BY_GROUP) == 106
-    assert len(pc.TAB_RULES) == 21
+    assert len(pc.REGISTRY) == 519
+    assert len(pc.GROUPS) == 112
+    assert len(pc._TAB_BY_GROUP) == 110
+    assert len(pc.TAB_RULES) == 22
     uses = [f"memory.random_uses_{u}" for u in sorted(mx.USES)]
     assert len(uses) == 6
     for key in uses:
@@ -281,7 +281,7 @@ def test_blockE_catalog_random_uses_keys():
     assert pc.get_by_pg_key("memory.random_uses_enabled") is None
     # секрет-счётчик не изменился
     secrets = [s for s in pc.REGISTRY.values() if s.secret]
-    assert len(secrets) == 32
+    assert len(secrets) == 33
 
 
 def test_blockE_f8_check_green_and_baselines():
@@ -291,17 +291,17 @@ def test_blockE_f8_check_green_and_baselines():
         [sys.executable, str(ROOT / "tools/gen_param_registry_round1025.py"),
          "--check"], capture_output=True, text=True, timeout=120)
     assert res.returncode == 0, res.stdout + res.stderr
-    assert "510" in res.stdout
+    assert "519" in res.stdout
     fx = json.loads((ROOT / "tests/fixtures/round1025/f8_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert fx["counts"]["REGISTRY"] == 510
-    assert fx["counts"]["GROUPS"] == 108
-    assert fx["counts"]["TAB_BY_GROUP"] == 106
-    assert fx["counts"]["TAB_RULES"] == 21
-    assert fx["counts"]["delta"] == 99
+    assert fx["counts"]["REGISTRY"] == 519
+    assert fx["counts"]["GROUPS"] == 112
+    assert fx["counts"]["TAB_BY_GROUP"] == 110
+    assert fx["counts"]["TAB_RULES"] == 22
+    assert fx["counts"]["delta"] == 108
     cb = json.loads((ROOT / "tests/fixtures/round1025/catalog_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert len(cb["registry_keys"]) == 510
+    assert len(cb["registry_keys"]) == 519
     for key in ("memory.random_uses_belief_review",
                 "memory.random_uses_ui_visualization"):
         assert key in cb["registry_keys"]
@@ -311,8 +311,12 @@ def test_blockE_f8_check_green_and_baselines():
     # source_observation_ids правила (review M-1); хэш переутверждён
     # осознанно (L-F11S-1; прецедент mca-10a POST /api/random/test).
     # Каталог Δ=0 (errata).
+    # MCA-19 (10.43 Wave 2, ADR-1028-19 D4/D15): routes +2 в mod_vision
+    # (POST /api/vision/test + GET /api/vision/state) — хэш переутверждён
+    # осознанно (L-F11S-1; синхронно с ROUTES_SHA256_F11 в
+    # test_round1025_f8_registry).
     import hashlib
     routes_sha = hashlib.sha256(
         (ROOT / "web/api/routes.py").read_bytes()).hexdigest()
-    assert routes_sha == ("72c22193406e6c4e201c1b75ca992808adcd728cd6dd0021"
-                          "6499742ef6c4c461")
+    assert routes_sha == ("eb0611aedb94b48457444b93aaec07d346940d7dd137b"
+                          "537bb82527d96559a5e")

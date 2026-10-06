@@ -217,15 +217,15 @@ class TestD5FactsBudgetsCounters:
 
 class TestD6Invariants:
     def test_version_bump(self):
-        assert 'APP_VERSION = "2.58.62"' in SETTINGS
+        assert 'APP_VERSION = "2.58.63"' in SETTINGS
         assert "v2.58.34" in README
 
     def test_catalog_delta_zero(self):
         import services.param_catalog as pc
-        assert len(pc.REGISTRY) == 510
-        assert len(pc.GROUPS) == 108
-        assert len(pc._TAB_BY_GROUP) == 106
-        assert len(pc.TAB_RULES) == 21
+        assert len(pc.REGISTRY) == 519
+        assert len(pc.GROUPS) == 112
+        assert len(pc._TAB_BY_GROUP) == 110
+        assert len(pc.TAB_RULES) == 22
 
     def test_no_new_routes(self):
         routes = sorted(set(re.findall(

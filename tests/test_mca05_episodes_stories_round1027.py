@@ -229,12 +229,17 @@ from services.database import (  # noqa: E402
     _SCHEMA_VERSION_INTENTS as _SCHEMA_VERSION_TAIL_V29,
     _SCHEMA_VERSION_RANDOM_USES as _SCHEMA_VERSION_TAIL_V30,
     _SCHEMA_VERSION_SELF_MODEL as _SCHEMA_VERSION_TAIL_V31,
+    _SCHEMA_VERSION_MEDIA_VISION as _SCHEMA_VERSION_TAIL_V32,
 )
 # mca-10b (ADR-1028-17 D15, санкция §13.1): хвост реестра — v30
 # (random_uses) — mark обновлён по той же конвенции (прецедент v27→v28→v29).
 # mca-18 (ADR-1028-18 §8.1, санкция T-5074): хвост реестра — v31
 # (self_model) — mark обновлён по конвенции волн (прецедент v29→v30).
-_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V31
+# mca-19 (ADR-1028-19 D13, санкция spec §8.1): хвост реестра — v32
+# (media_vision: smart_messages +10 Origin-колонок, mca_media_assets/
+# mca_media_analyses, 4 индекса) — mark обновлён по той же конвенции
+# (прецедент v30→v31).
+_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V32
 
 
 # ═══ Kill-switch OFF-паритет (SC-20, T-4249) ═════════════════════════════════

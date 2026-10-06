@@ -414,6 +414,35 @@ KILL_SWITCHES: dict[str, tuple[bool, str]] = {
         "OFF → фоновый идемпотентный разбор `persona_traits` не запускается "
         "(лента/persona_traits не меняются)",
     ),
+    # ── mca-19 (ADR-1028-19 §8.3/D13, санкция T-5099): ровно 4 kill-switch
+    # фичи (76→80); env-only, default ON, OFF = бит-в-бит 2.58.62. K1 —
+    # мастер (весь модуль: intake-реестр/анализ/чтение effective-статуса);
+    # K2 — автоочередь новых изображений; K3 — архивный backfill; K4 — tool
+    # recognize_image. Каталоговый тумблер владельца — отдельно
+    # (flags.vision_enabled); OFF любого рубильника = новых vision-вызовов
+    # нет, сохранённые разборы читаются офлайн.
+    "MCA_VISION_ENABLED": (
+        True,
+        "OFF → бит-в-бит 2.58.62: модуль распознавания изображений не "
+        "существует (intake-активы не пишутся, анализы/чтение "
+        "effective-статуса недоступны)",
+    ),
+    "MCA_VISION_AUTO_ENABLED": (
+        True,
+        "OFF → автоочередь новых изображений не запускается (инертен при "
+        "мастере OFF); ручной/tool путь не гейтится этим рубильником",
+    ),
+    "MCA_VISION_BACKFILL_ENABLED": (
+        True,
+        "OFF → архивный backfill старых изображений не запускается "
+        "(инертен при мастере OFF)",
+    ),
+    "MCA_VISION_TOOL_ENABLED": (
+        True,
+        "OFF → tool recognize_image скрыт из набора; серверная проверка OFF "
+        "для устаревших вызовов остаётся (defence in depth; инертен при "
+        "мастере OFF)",
+    ),
 }
 
 
@@ -1726,3 +1755,84 @@ async def resolve_dream_gate(db, chat_id: int | None, *, memory=_UNSET,
         if res is not None:
             return res
     return _unblocked()
+
+
+# ── mca-19 (ADR-1028-19 §8.3/D13): kill-switch'и Vision + env-only лимиты ──
+# Ровно 4 рубильника фичи (76→80); резолв per-call, никогда не бросают.
+# Инертности: master OFF ⇒ auto/backfill/tool недостижимы. Каталоговый
+# тумблер владельца (flags.vision_enabled) резолвится в
+# services/mca_vision.py::resolve_effective_state (requested vs effective).
+
+def vision_enabled() -> bool:
+    """`MCA_VISION_ENABLED` (мастер, env-only, default ON; K1).
+
+    ON → модуль распознавания изображений существует (intake-активы,
+    анализы, effective-статус). OFF → бит-в-бит 2.58.62."""
+    return bool(getattr(settings, "MCA_VISION_ENABLED", True))
+
+
+def vision_auto_enabled() -> bool:
+    """`MCA_VISION_AUTO_ENABLED` (env-only, default ON; K2; инертен при K1).
+
+    ON → автоочередь новых изображений разрешена. OFF → новые авто-задания
+    не создаются (ручной/tool путь не гейтится этим рубильником)."""
+    if not vision_enabled():
+        return False
+    return bool(getattr(settings, "MCA_VISION_AUTO_ENABLED", True))
+
+
+def vision_backfill_enabled() -> bool:
+    """`MCA_VISION_BACKFILL_ENABLED` (env-only, default ON; K3; инертен при K1).
+
+    ON → архивный backfill старых изображений разрешён. OFF → backfill
+    не запускается (новые изображения — отдельно, K2)."""
+    if not vision_enabled():
+        return False
+    return bool(getattr(settings, "MCA_VISION_BACKFILL_ENABLED", True))
+
+
+def vision_tool_enabled() -> bool:
+    """`MCA_VISION_TOOL_ENABLED` (env-only, default ON; K4; инертен при K1).
+
+    ON → tool recognize_image доступен в общем пуле tool calling (при
+    effective-ON модуля). OFF → инструмент скрыт из набора; сервер всё
+    равно проверяет OFF для устаревших вызовов (defence in depth)."""
+    if not vision_enabled():
+        return False
+    return bool(getattr(settings, "MCA_VISION_TOOL_ENABLED", True))
+
+
+def vision_max_bytes() -> int:
+    """`MCA_VISION_MAX_BYTES` (env-only, default 20 MiB): аварийный потолок
+    размера загрузки; клампит владельческие значения (spec §8.4)."""
+    return _int_setting_min("MCA_VISION_MAX_BYTES", 20 * 1024 * 1024, 1)
+
+
+def vision_max_pixels() -> int:
+    """`MCA_VISION_MAX_PIXELS` (env-only, default 25 Mpx): потолок
+    декодированных пикселей — decompression-bomb protection (TH-4)."""
+    return _int_setting_min("MCA_VISION_MAX_PIXELS", 25_000_000, 1)
+
+
+def vision_download_concurrency() -> int:
+    """`MCA_VISION_DOWNLOAD_CONCURRENCY` (env-only, default 4): лимит
+    одновременных загрузок изображений."""
+    return _int_setting_min("MCA_VISION_DOWNLOAD_CONCURRENCY", 4, 1)
+
+
+def vision_deferred_ttl_hours() -> int:
+    """`MCA_VISION_DEFERRED_TTL_HOURS` (env-only, default 24): срок жизни
+    отложенных заданий (истечение → skipped с причиной)."""
+    return _int_setting_min("MCA_VISION_DEFERRED_TTL_HOURS", 24, 1)
+
+
+def vision_capability_ttl_hours() -> int:
+    """`MCA_VISION_CAPABILITY_TTL_HOURS` (env-only, default 6): TTL кеша
+    capabilities (ключ provider/endpoint/model/config_revision)."""
+    return _int_setting_min("MCA_VISION_CAPABILITY_TTL_HOURS", 6, 1)
+
+
+def vision_reocr_budget() -> int:
+    """`MCA_VISION_REOCR_BUDGET` (env-only, default 2): бюджет повторных
+    чтений сомнительного фрагмента (без бесконечной самопроверки)."""
+    return _int_setting_min("MCA_VISION_REOCR_BUDGET", 2, 0)

@@ -207,14 +207,41 @@ class Capabilities:
 
 # Имена инструментов, дающих анализ изображений. До mca-19 реестр таких не
 # объявляет — честный False (инвариант I-3: нет vision → не заявляем).
+# MCA-19 (ADR-1028-19 D14/§8.10): источник «могу» — НЕ реестр (инструмент
+# `recognize_image` ≠ доказательство работающего vision-маршрута), а ЕДИНЫЙ
+# сервис mca-19 (`resolve_effective_state`): requested ∧ capability ok.
+# Реестровый путь остаётся пустым — делегация ниже единственный источник True.
 IMAGE_ANALYSIS_TOOL_NAMES: frozenset[str] = frozenset()
 
 
-def build_capabilities(*, image_analysis_evidence: bool | None = None
+async def can_analyze_images_effective(chat_id: int | None = None) -> bool:
+    """MCA-19 (ADR-1028-19 D14, §8.10): владелец флага `can_analyze_images`
+    — mca-19. Делегация в ЕДИНЫЙ сервис: True ⇔ requested-ON ∧ пройденный
+    capability-чек (`effective_enabled`). K1/env-мастер OFF → немедленно
+    False (бит-в-бит 2.58.62); pending/ошибка → False (честно: «могу» ≠
+    «не проверено»). Никогда не бросает."""
+    try:
+        from services import mca_gates as _gates
+        if not _gates.vision_enabled():
+            return False
+        from services.mca_vision import resolve_effective_state
+        state = await resolve_effective_state(chat_id)
+        return bool(state.effective_enabled)
+    except Exception:
+        logger.warning("[mca18] can_analyze_images delegation failed",
+                       exc_info=True)
+        return False
+
+
+def build_capabilities(*, image_analysis_evidence: bool | None = None,
+                       can_analyze_images: bool | None = None
                        ) -> Capabilities:
     """Capabilities из `tool_schemas.active_tools()` (реестр + env-гейты);
     `image_analysis_evidence` — ТОЛЬКО runtime-доказательство успешного
-    анализа (не биография/настройка)."""
+    анализа (не биография/настройка).
+    MCA-19 (ADR-1028-19 D14): `can_analyze_images` — результат делегации
+    `can_analyze_images_effective()` (вызывает async-контекст); None →
+    прежний реестровый путь (сейчас всегда False, бит-в-бит)."""
     try:
         from services import tool_schemas
         names = tuple(sorted(
@@ -222,7 +249,10 @@ def build_capabilities(*, image_analysis_evidence: bool | None = None
     except Exception:
         logger.warning("[mca18] capabilities read failed", exc_info=True)
         names = ()
-    can_images = bool(IMAGE_ANALYSIS_TOOL_NAMES & set(names))
+    if can_analyze_images is None:
+        can_images = bool(IMAGE_ANALYSIS_TOOL_NAMES & set(names))
+    else:
+        can_images = bool(can_analyze_images)
     did_images = bool(can_images and image_analysis_evidence)
     return Capabilities(tool_names=names, can_analyze_images=can_images,
                         did_analyze_images=did_images)
@@ -527,7 +557,12 @@ async def resolve_self_model(db, scope_chat_id: int | None = None, *,
                                 if aware_state.effective(True) and
                                 not aware_state.is_error
                                 else MODE_IN_CHARACTER),
-        capabilities=build_capabilities(),
+        # MCA-19 (ADR-1028-19 D14): «могу посмотреть изображение» — через
+        # делегацию в единый vision-сервис (requested ∧ capability ok);
+        # OFF/pending → False (бит-в-бит прежнего поведения).
+        capabilities=build_capabilities(
+            can_analyze_images=await can_analyze_images_effective(
+                scope_chat_id)),
         rules_status=rules_status,
         version=_snapshot_version(
             agent_id=agent_id, persona_version=pver,

@@ -71,6 +71,10 @@ TOOL_CATEGORIES = {
     "download_media": CATEGORY_EXTERNAL_READ,
     "generate_image": CATEGORY_PAID_MEDIA,
     "compile_lore_story": CATEGORY_PAID_MEDIA,
+    # MCA-19 (ADR-1028-19 §8.6/§8.9): recognize_image в карту mca-11 НЕ
+    # входит — расход учитывается категорией `vision.media` в
+    # llm_usage_events + METERED_TOOLS (tool_loop); здесь неизвестный тул →
+    # консервативный external_read (никогда admin, D1).
     "get_bot_health": CATEGORY_ADMIN,
 }
 DEFAULT_CATEGORY = CATEGORY_EXTERNAL_READ

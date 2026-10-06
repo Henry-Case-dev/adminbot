@@ -908,19 +908,19 @@ class TestAdversarial:
 class TestBounds:
     def test_counts_sanctioned(self):
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
-        assert len(pc.REGISTRY) == 510
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 441
+        assert len(pc.REGISTRY) == 519
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 450
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 485
-        assert len(pc.GROUPS) == 108
-        assert len(pc._TAB_BY_GROUP) == 106
-        assert len(pc.TAB_RULES) == 21
+                    if s.category is not None]) == 494
+        assert len(pc.GROUPS) == 112
+        assert len(pc._TAB_BY_GROUP) == 110
+        assert len(pc.TAB_RULES) == 22
 
     def test_version_unchanged(self):
-        assert APP_VERSION == "2.58.62"
+        assert APP_VERSION == "2.58.63"
 
     def test_canon_twelve_tools(self):
-        assert len(TOOL_CALLING_TOOLS) == 12
+        assert len(TOOL_CALLING_TOOLS) == 13
 
     def test_kill_switch_not_in_catalog(self):
         assert "DIRECT_DECISION_MAKING_ENABLED" not in pc.REGISTRY

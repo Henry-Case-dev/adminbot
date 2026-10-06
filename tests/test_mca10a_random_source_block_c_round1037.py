@@ -80,10 +80,10 @@ class TestCatalogContract:
 
     def test_counts_sanctioned_delta(self):
         # Санкция §13.2: +13/+2/+2, TAB_RULES 21 in-place.
-        assert len(pc.REGISTRY) == 510
-        assert len(pc.GROUPS) == 108
-        assert len(pc._TAB_BY_GROUP) == 106
-        assert len(pc.TAB_RULES) == 21
+        assert len(pc.REGISTRY) == 519
+        assert len(pc.GROUPS) == 112
+        assert len(pc._TAB_BY_GROUP) == 110
+        assert len(pc.TAB_RULES) == 22
 
     def test_per_chat_vs_global(self):
         # memory.* — per-chat (mode/probability/fallback); keys.* — глобальные
@@ -126,7 +126,7 @@ class TestCatalogContract:
         assert s.RANDOM_QUANTUM_REQUEST_TIMEOUT_SECONDS == 5
         assert s.RANDOM_QUANTUM_REFILL_LOW_WATERMARK == 256
         assert s.RANDOM_QUANTUM_BUFFER_MAX_VALUES == 2048
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 441
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 450
 
     def test_per_chat_override_cast(self):
         # per-chat override mode через chat_params (каст по каталогу);

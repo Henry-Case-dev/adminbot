@@ -54,9 +54,12 @@ TOOL_CHAIN_MAX_METERED_CALLS = 4         # лимит «платных»/вне�
 
 # Метка «платного»/внешнего вызова (ADR-1026-15 D3). `worker_budget.image_calls`
 # внутри `generate_image` НЕ дублируется. Free/local: memory/dig/history/health.
+# MCA-19 (ADR-1028-19 §8.6): recognize_image — метричный (vision-вызов);
+# cache_hit НЕ тратит vision-токены (D20).
 METERED_TOOLS = frozenset({
     "execute_web_search", "fetch_article", "summarize_video", "download_media",
     "compile_lore_story", "generate_image", "transcribe_video",
+    "recognize_image",
 })
 
 # §17-причины деградации, аддитивные к существующим ok/round_limit/llm_error

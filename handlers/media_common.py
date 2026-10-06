@@ -60,14 +60,22 @@ def _resolve_transcript_author(message: types.Message) -> str:
 
 
 def wrap_media_fact(media_type: str, sender: str, text: str,
-                    forward_source: str | None = None) -> str:
+                    forward_source: str | None = None,
+                    event_ts: int | None = None) -> str:
     """Обёртка транскрипта для GraphRAG-экстрактора (D267):
     '<MediaMessage type="voice" sender="..." timestamp="<ISO8601 UTC>">...</MediaMessage>'.
     Epic 72 (74.B.3, D273): у форвардов добавляются атрибуты
     forwarded="true" forward_from="{автор источника}" (html.escape quote=True —
     ОВ-3: XML-совместимо и консистентно с D268; ОВ-3 решён в пользу html.escape).
-    """
-    timestamp = datetime.now(timezone.utc).isoformat()
+    MCA-19 (ADR-1028-19 D1, T-5100): `event_ts` — время СОБЫТИЯ исходника
+    (sent_at/origin_sent_at из Telegram), не время обработки; None/битое →
+    прежнее поведение (now) — voice/video пути не меняются (паритет)."""
+    ts = event_ts if isinstance(event_ts, int) and event_ts > 0 else None
+    if ts is not None:
+        timestamp = datetime.fromtimestamp(
+            ts, tz=timezone.utc).isoformat()
+    else:
+        timestamp = datetime.now(timezone.utc).isoformat()
     extra = ""
     if forward_source:
         extra = (f' forwarded="true"'

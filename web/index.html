@@ -1402,6 +1402,12 @@
                     <span v-if="blockDisplayName(b)" class="prov-modules text-xs text-gray-500">{{ blockDisplayName(b) }}</span>
                   </header>
                   <div v-if="b.note" class="text-xs text-gray-500 mb-2">{{ b.note }}</div>
+                  <!-- MCA-19 (T-5103/T-5116): живая effective-линия карточки
+                       «Распознавание изображений» (requested ≠ effective). -->
+                  <div v-if="b.id === 'vision' && visionStateLine"
+                       class="text-xs mb-2"
+                       :class="visionState && visionState.effective_enabled ? 'text-green-400' : 'text-yellow-400'"
+                       data-vision-effective-line>{{ visionStateLine }}</div>
                   <!-- 2.3: подблоки (эмбеддинги) — у каждого свой набор полей
                        и своя кнопка «Проверить» (testBlock(sb)). -->
                   <template v-if="b.subBlocks">

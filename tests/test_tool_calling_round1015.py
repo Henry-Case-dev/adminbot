@@ -105,7 +105,8 @@ class TestToolSet:
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "generate_image",
-            "transcribe_video", "fetch_article", "get_user_context"]
+            "transcribe_video", "fetch_article", "get_user_context",
+            "recognize_image"]
 
     def test_existing_schemas_unchanged(self):
         """Существующие 3 схемы — те же объекты и та же форма (не менялись)."""
@@ -649,5 +650,6 @@ class TestDirectChatContext:
         # 10.20 (C/T-1887): флаг «Летописца» default ON; 10.23 (F5): модуль
         # генерации изображений default ON; 10.24 (F19): transcribe_video
         # default ON; 10.26 (A2): fetch_article default ON; 10.26 (A6):
-        # get_user_context default ON → 12 инструментов.
-        assert len(captured["tools"]) == 12
+        # get_user_context default ON; MCA-19 (ADR-1028-19 §8.6):
+        # recognize_image default ON → 13 инструментов.
+        assert len(captured["tools"]) == 13

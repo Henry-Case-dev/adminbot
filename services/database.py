@@ -1478,6 +1478,114 @@ _SELF_MODEL_FACT_INDEX_DDL = (
     "ON graph_facts(subject_entity_id)",
 )
 
+# ── mca-19 T-5100…T-5102 (ADR-1028-19 D2/D3/D13, санкция spec §8.1): v32 —
+# строго аддитивный набор Vision: Origin-блок `smart_messages` (+10
+# nullable-колонок под guard `PRAGMA table_info`; sent_at/ingested_at/
+# edited_at/caption/content_hash/current_revision/forward_author_id — REUSE
+# v16 mca-03, `_MESSAGE_IDENTITY_COLUMNS`; `forward_source` остаётся
+# display-строкой summary) + `mca_media_assets` + `mca_media_analyses`
+# (CHECK-статусы + UNIQUE-гранула = ключ idempotent upsert + atomic
+# singleflight) + 4 индекса. Аддитивно/идемпотентно (`CREATE … IF NOT
+# EXISTS` под self-guard `sqlite_master`, ALTER под guard), повтор — no-op,
+# backfill нет (NULL = честный unknown/legacy), старый код v31 не читает
+# (cold-совместимо), PG — no-op (GEN-R4; pg_db.py вне diff).
+# Обоснование Δ DDL ≠ 0 — ADR D3: без реальных колонок/ограничений
+# невозможны CAS/fencing по revision, idempotent upsert и honest legacy
+# (JSON-блоб в smart_messages смешал бы raw с производными).
+# R17: raw-байты/OCR-текст приватного — НЕ в событиях; в таблицах —
+# контент по своему назначению (raw-сообщение/производные), доступ —
+# под действующими правами.
+_SCHEMA_VERSION_MEDIA_VISION = 32
+
+# Origin-блок §29.1 (`:1622`): тип MessageOrigin + доступные ID оригинала +
+# thread/topic + связь альбома. Порядок = порядок DDL spec D1.
+_SMART_MESSAGES_ORIGIN_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("sender_chat_id", "INTEGER"),
+    ("origin_type", "TEXT CHECK (origin_type IS NULL OR origin_type IN "
+     "('user','hidden_user','chat','channel'))"),
+    ("origin_sent_at", "INTEGER"),
+    ("origin_sender_user_id", "INTEGER"),
+    ("origin_chat_id", "INTEGER"),
+    ("origin_message_id", "INTEGER"),
+    ("origin_display_name", "TEXT"),
+    ("origin_author_signature", "TEXT"),
+    ("thread_id", "INTEGER"),
+    ("media_group_id", "TEXT"),
+)
+
+# MediaAsset (T-5101): канонический реестр полученных изображений.
+# Идентичность — (chat_id, tg_message_id, file_unique_id, size_variant);
+# asset_id — стабильный хеш этой четвёрки (детерминированный, см.
+# `make_asset_id`). content_hash — после безопасной загрузки (NULL до).
+_MCA_MEDIA_ASSETS_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_media_assets ("
+    "asset_id        TEXT PRIMARY KEY, "
+    "message_key     TEXT, "
+    "chat_id         INTEGER, "
+    "tg_message_id   INTEGER, "
+    "asset_kind      TEXT, "
+    "file_id         TEXT, "
+    "file_unique_id  TEXT, "
+    "size_variant    TEXT, "
+    "content_hash    TEXT, "
+    "mime            TEXT, "
+    "byte_size       INTEGER, "
+    "width           INTEGER, "
+    "height          INTEGER, "
+    "media_group_id  TEXT, "
+    "revision        INTEGER NOT NULL DEFAULT 1, "
+    "created_at      INTEGER, "
+    "updated_at      INTEGER)"
+)
+_MCA_MEDIA_ASSETS_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_media_assets_chat_tg "
+    "ON mca_media_assets(chat_id, tg_message_id)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_media_assets_file_unique "
+    "ON mca_media_assets(file_unique_id)",
+    "CREATE INDEX IF NOT EXISTS idx_mca_media_assets_content_hash "
+    "ON mca_media_assets(content_hash)",
+)
+
+# MediaAnalysis (T-5101): производные разборы asset'а. Статусы различимы
+# (`no_text` ≠ `unreadable` ≠ `unsupported` ≠ `unavailable` ≠ `failed`;
+# no_text — валидный исход «текста нет», не ошибка). self_reported_confidence
+# — имя фиксирует: self-reported VLM ≠ измеренная точность. UNIQUE-гранула —
+# ключ идемпотентного upsert + atomic singleflight (D2/CA-19-9).
+_MCA_MEDIA_ANALYSES_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_media_analyses ("
+    "id                        INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "asset_id                  TEXT, "
+    "access_scope              TEXT, "
+    "analysis_schema_version   INTEGER, "
+    "analyzer_provider         TEXT, "
+    "analyzer_model            TEXT, "
+    "analyzer_config_revision  TEXT, "
+    "prompt_version            TEXT, "
+    "quality_profile           TEXT, "
+    "status                    TEXT NOT NULL DEFAULT 'pending' CHECK (status IN "
+    "('pending','running','ready','no_text','unreadable','unsupported',"
+    "'unavailable','failed')), "
+    "revision                  INTEGER NOT NULL DEFAULT 1, "
+    "ocr_blocks                TEXT, "
+    "visual_description        TEXT, "
+    "uncertainty               TEXT, "
+    "source_coordinates        TEXT, "
+    "quality_flags             TEXT, "
+    "error_reason              TEXT, "
+    "self_reported_confidence  TEXT, "
+    "config_revision           TEXT, "
+    "started_at                INTEGER, "
+    "completed_at              INTEGER, "
+    "created_at                INTEGER, "
+    "updated_at                INTEGER, "
+    "UNIQUE (asset_id, access_scope, analysis_schema_version, "
+    "analyzer_config_revision, quality_profile, revision))"
+)
+_MCA_MEDIA_ANALYSES_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_media_analyses_scope_status "
+    "ON mca_media_analyses(access_scope, status)",
+)
+
 
 def _summary_window_unique_violation(exc: BaseException) -> bool:
     """IntegrityError «UNIQUE constraint» → write-once guard snapshot'а."""
@@ -2475,6 +2583,15 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_SELF_MODEL,
                           "self_model",
                           lambda svc: svc._migrate_self_model_v31()),
+            # mca-19 (ADR-1028-19 D2/D3/D13, санкция spec §8.1): v32 — строго
+            # аддитивный набор Vision: smart_messages +10 Origin-колонок
+            # (расширение контракта mca-03) + `mca_media_assets` +
+            # `mca_media_analyses` (CHECK-статусы + UNIQUE-гранула) + 4
+            # индекса. Идемпотентно, повтор — no-op, PG — no-op, старый код
+            # v31 не читает (cold-совместимо).
+            MigrationStep(_SCHEMA_VERSION_MEDIA_VISION,
+                          "media_vision",
+                          lambda svc: svc._migrate_media_vision_v32()),
             # ASAP 4.1 волна 5 (T-4616, spec §10.2–§10.3): v24 = 3 таблицы
             # (summary_source_windows + summary_runs + summary_run_stages).
             # Один MigrationStep на версию — книга `schema_migrations` имеет
@@ -3494,6 +3611,280 @@ class DatabaseService:
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_SELF_MODEL}")
         await self.db.commit()
+
+    async def _migrate_media_vision_v32(self) -> None:
+        """v32 (`mca-19-image-understanding` T-5100…T-5102, ADR-1028-19
+        D2/D3/D13, санкция spec §8.1): Vision — Origin-блок `smart_messages`
+        (+10 nullable-колонок: sender_chat_id/origin_*/thread_id/
+        media_group_id; расширение контракта mca-03, старые строки не
+        переписываются — время не ретроспективно) + `mca_media_assets` +
+        `mca_media_analyses` (CHECK-статусы + UNIQUE-гранула = идемпотентный
+        upsert/atomic singleflight) + 4 индекса.
+
+        Аддитивно (ALTER под guard `PRAGMA table_info`; CREATE TABLE/INDEX
+        IF NOT EXISTS под self-guard `sqlite_master`); НИ ОДНОГО UPDATE/DELETE
+        существующих строк; повтор — no-op; backfill не требуется (NULL =
+        честный legacy/unknown; старый код v31 не читает — cold-совместимо);
+        PG — no-op (GEN-R4). Фиксирует `PRAGMA user_version = 32`."""
+        if await self._table_exists("smart_messages"):
+            cols = await self._table_columns("smart_messages")
+            for name, decl in _SMART_MESSAGES_ORIGIN_COLUMNS:
+                if name not in cols:
+                    await self.db.execute(
+                        f"ALTER TABLE smart_messages ADD COLUMN {name} {decl}")
+                    logger.info("[database] migration v32: smart_messages.%s "
+                                "added", name)
+            await self.db.commit()
+        for table, ddl in (
+                ("mca_media_assets", _MCA_MEDIA_ASSETS_DDL),
+                ("mca_media_analyses", _MCA_MEDIA_ANALYSES_DDL)):
+            if not await self._table_exists(table):
+                await self.db.execute(ddl)
+                await self.db.commit()
+                logger.info("[database] migration v32: %s", table)
+        for ddl in (_MCA_MEDIA_ASSETS_INDEX_DDL
+                    + _MCA_MEDIA_ANALYSES_INDEX_DDL):
+            await self.db.execute(ddl)
+        await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_MEDIA_VISION}")
+        await self.db.commit()
+
+    # ── mca-19 (ADR-1028-19 D2/D19): MediaAsset/MediaAnalysis — тонкие
+    # методы ЕДИНОГО контракта v32. Валидность домена enforced вызывающим
+    # (`services/mca_vision.py`); схема — последний рубеж (CHECK/UNIQUE).
+    # Записи — только через `write_transaction` (mca-01). Кросс-чат
+    # изоляция кеша — `access_scope` в ключе анализа/UNIQUE-грануле (TH-5).
+
+    async def upsert_media_asset(self, rec: dict) -> str:
+        """Get-or-create MediaAsset по детерминированному `asset_id`.
+
+        Повторное наблюдение того же (chat, tg_id, file_unique_id, variant)
+        не создаёт вторую строку; изменяемые поля (file_id/mime/геометрия/
+        media_group) обновляются, `revision`/`content_hash` не трогаются
+        (content_hash ставит только безопасная загрузка). Возвращает
+        asset_id."""
+        asset_id = str(rec["asset_id"])
+        now = int(time.time())
+
+        async def _body(conn):
+            await conn.execute(
+                "INSERT INTO mca_media_assets (asset_id, message_key, "
+                "chat_id, tg_message_id, asset_kind, file_id, file_unique_id, "
+                "size_variant, mime, byte_size, width, height, "
+                "media_group_id, revision, created_at, updated_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(asset_id) DO UPDATE SET "
+                "message_key=COALESCE(excluded.message_key, message_key), "
+                "file_id=COALESCE(excluded.file_id, file_id), "
+                "mime=COALESCE(excluded.mime, mime), "
+                "byte_size=COALESCE(excluded.byte_size, byte_size), "
+                "width=COALESCE(excluded.width, width), "
+                "height=COALESCE(excluded.height, height), "
+                "media_group_id=COALESCE(excluded.media_group_id, "
+                "media_group_id), "
+                "updated_at=excluded.updated_at",
+                (asset_id, rec.get("message_key"), rec.get("chat_id"),
+                 rec.get("tg_message_id"), rec.get("asset_kind"),
+                 rec.get("file_id"), rec.get("file_unique_id"),
+                 rec.get("size_variant"), rec.get("mime"),
+                 rec.get("byte_size"), rec.get("width"), rec.get("height"),
+                 rec.get("media_group_id"), int(rec.get("revision", 1)),
+                 now, now))
+            return asset_id
+
+        return str(await self.write_transaction(
+            _body, op_name="upsert_media_asset"))
+
+    async def set_media_asset_content_hash(self, asset_id: str,
+                                           content_hash: str,
+                                           *, expected_revision: int | None = None
+                                           ) -> int | None:
+        """CAS-привязка content-hash после безопасной загрузки (D19).
+
+        `expected_revision` задан → fencing: обновление только при совпадении
+        revision (возвращает НОВЫЙ revision; None = stale — гонку проиграли).
+        Без expected — безусловная привязка (возвращает новый revision)."""
+
+        async def _body(conn):
+            if expected_revision is None:
+                cur = await conn.execute(
+                    "UPDATE mca_media_assets SET content_hash=?, "
+                    "revision=revision+1, updated_at=? WHERE asset_id=?",
+                    (content_hash, int(time.time()), asset_id))
+            else:
+                cur = await conn.execute(
+                    "UPDATE mca_media_assets SET content_hash=?, "
+                    "revision=revision+1, updated_at=? "
+                    "WHERE asset_id=? AND revision=?",
+                    (content_hash, int(time.time()), asset_id,
+                     int(expected_revision)))
+            return cur.rowcount or 0
+
+        changed = int(await self.write_transaction(
+            _body, op_name="set_media_asset_content_hash"))
+        if not changed:
+            return None
+        cur = await self.db.execute(
+            "SELECT revision FROM mca_media_assets WHERE asset_id=?",
+            (asset_id,))
+        row = await cur.fetchone()
+        return int(row["revision"]) if row is not None else None
+
+    async def get_media_assets_for_message(self, chat_id: int,
+                                           tg_message_id: int) -> list[dict]:
+        """Активы сообщения (альбом → несколько asset_id, общая
+        media_group_id); сортировка по asset_id — детерминизм."""
+        cur = await self.db.execute(
+            "SELECT * FROM mca_media_assets "
+            "WHERE chat_id=? AND tg_message_id=? ORDER BY asset_id",
+            (int(chat_id), int(tg_message_id)))
+        return [dict(r) for r in await cur.fetchall()]
+
+    async def record_media_analysis(self, rec: dict) -> int:
+        """Idempotent upsert MediaAnalysis по UNIQUE-грануле (D2/D19).
+
+        Повтор той же гранулы (asset, scope, schema_version, config_revision,
+        quality_profile, revision) из двух workers атомарен: второй получает
+        СУЩЕСТВУЮЩИЙ id (singleflight, CA-19-9). Failed/pending не становятся
+        success-кешем — это делает `get_ready_analysis`. Возвращает id."""
+        now = int(time.time())
+
+        async def _body(conn):
+            cur = await conn.execute(
+                "INSERT INTO mca_media_analyses (asset_id, access_scope, "
+                "analysis_schema_version, analyzer_provider, analyzer_model, "
+                "analyzer_config_revision, prompt_version, quality_profile, "
+                "status, revision, config_revision, started_at, created_at, "
+                "updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+                "ON CONFLICT (asset_id, access_scope, analysis_schema_version,"
+                " analyzer_config_revision, quality_profile, revision) "
+                "DO NOTHING",
+                (rec.get("asset_id"), rec.get("access_scope"),
+                 int(rec.get("analysis_schema_version", 1)),
+                 rec.get("analyzer_provider"), rec.get("analyzer_model"),
+                 rec.get("analyzer_config_revision"),
+                 rec.get("prompt_version"), rec.get("quality_profile"),
+                 rec.get("status", "pending"),
+                 int(rec.get("revision", 1)), rec.get("config_revision"),
+                 rec.get("started_at", now), now, now))
+            # Rework R1 (H-1, review T-5124): честное ветвление по rowcount.
+            # Сработал ON CONFLICT DO NOTHING (rowcount=0) → cur.lastrowid —
+            # stale rowid последней ЧУЖОЙ вставки shared-соединения, а НЕ id
+            # нашей гранулы (прежний «truthy lastrowid» возвращал
+            # несуществующий/чужой id → повторный платный vision-вызов с
+            # потерей результата либо CAS-перезапись чужой analysis-строки).
+            if (cur.rowcount or 0) > 0:
+                return int(cur.lastrowid)
+            # Конфликт UNIQUE-гранулы: истинный id уже существующей строки —
+            # семантика «уже есть — вот он» (singleflight, CA-19-9).
+            cur2 = await conn.execute(
+                "SELECT id FROM mca_media_analyses WHERE asset_id=? AND "
+                "access_scope=? AND analysis_schema_version=? AND "
+                "analyzer_config_revision IS ? AND quality_profile=? AND "
+                "revision=?",
+                (rec.get("asset_id"), rec.get("access_scope"),
+                 int(rec.get("analysis_schema_version", 1)),
+                 rec.get("analyzer_config_revision"),
+                 rec.get("quality_profile"), int(rec.get("revision", 1))))
+            row = await cur2.fetchone()
+            return int(row["id"]) if row is not None else 0
+
+        return int(await self.write_transaction(
+            _body, op_name="record_media_analysis"))
+
+    async def finish_media_analysis(
+            self, analysis_id: int, *, expected_revision: int, status: str,
+            ocr_blocks=None, visual_description=None, uncertainty=None,
+            source_coordinates=None, quality_flags=None, error_reason=None,
+            self_reported_confidence=None, completed_at=None) -> bool:
+        """CAS-завершение анализа (fencing по revision, D10/A66).
+
+        Старый job (`expected_revision` не совпал) НЕ перезаписывает новый
+        результат — возвращает False (stale discarded). `status` валидируется
+        CHECK-ом схемы; честный исход: ready/no_text/unreadable/unsupported/
+        unavailable/failed + error_reason для неуспеха."""
+        import json as _json
+
+        def _j(value):
+            return _json.dumps(value, ensure_ascii=False) if value is not None \
+                else None
+
+        async def _body(conn):
+            cur = await conn.execute(
+                "UPDATE mca_media_analyses SET status=?, ocr_blocks=?, "
+                "visual_description=?, uncertainty=?, source_coordinates=?, "
+                "quality_flags=?, error_reason=?, self_reported_confidence=?, "
+                "completed_at=COALESCE(?, ?), revision=revision+1, "
+                "updated_at=? WHERE id=? AND revision=?",
+                (status, _j(ocr_blocks), visual_description, _j(uncertainty),
+                 _j(source_coordinates), _j(quality_flags), error_reason,
+                 _j(self_reported_confidence), completed_at, int(time.time()),
+                 int(time.time()), int(analysis_id), int(expected_revision)))
+            return cur.rowcount or 0
+
+        changed = int(await self.write_transaction(
+            _body, op_name="finish_media_analysis"))
+        return bool(changed)
+
+    async def get_media_analysis(self, analysis_id: int) -> dict | None:
+        cur = await self.db.execute(
+            "SELECT * FROM mca_media_analyses WHERE id=?", (int(analysis_id),))
+        row = await cur.fetchone()
+        return dict(row) if row is not None else None
+
+    async def get_ready_analysis(
+            self, asset_id: str, access_scope: str, *,
+            analysis_schema_version: int = 1,
+            analyzer_config_revision: str | None = None,
+            quality_profile: str = "default") -> dict | None:
+        """Success-кеш по грануле: ТОЛЬКО status='ready' (failed/pending/
+        unavailable не переиспользуются — D19). `revision` (CAS-счётчик
+        результата) в ключ НЕ входит — гранула идентифицирует строку.
+        MCA-19 Wave 2 (D19 `:1719`): `analyzer_config_revision=None` →
+        БЕЗ фильтра по конфигурации анализатора — «смена модели сама по
+        себе не инвалидирует успешные результаты» (reuse-ключ не содержит
+        config; прецедент find_ready_analysis_by_content_hash).
+        Заданное значение фильтруется точно (IS ?). Не-«ready» → None
+        (честный промах кеша)."""
+        if analyzer_config_revision is None:
+            cur = await self.db.execute(
+                "SELECT * FROM mca_media_analyses WHERE asset_id=? AND "
+                "access_scope=? AND analysis_schema_version=? AND "
+                "quality_profile=? AND status='ready' "
+                "ORDER BY id DESC LIMIT 1",
+                (asset_id, access_scope, int(analysis_schema_version),
+                 quality_profile))
+        else:
+            cur = await self.db.execute(
+                "SELECT * FROM mca_media_analyses WHERE asset_id=? AND "
+                "access_scope=? AND analysis_schema_version=? AND "
+                "analyzer_config_revision IS ? AND quality_profile=? AND "
+                "status='ready' ORDER BY id DESC LIMIT 1",
+                (asset_id, access_scope, int(analysis_schema_version),
+                 analyzer_config_revision, quality_profile))
+        row = await cur.fetchone()
+        return dict(row) if row is not None else None
+
+    async def find_ready_analysis_by_content_hash(
+            self, content_hash: str, access_scope: str, *,
+            analysis_schema_version: int = 1,
+            quality_profile: str = "default") -> dict | None:
+        """Кеш по байтам (D19): join через `mca_media_assets.content_hash`.
+
+        Кросс-чат изоляция: `access_scope` — часть условия; анализ чужого
+        scope не возвращается (TH-5, негативный тест SC-R3c). Автор/дата/
+        пересылка берутся вызывающим из ТЕКУЩЕГО сообщения, не из кеша."""
+        cur = await self.db.execute(
+            "SELECT a.* FROM mca_media_analyses a "
+            "JOIN mca_media_assets m ON m.asset_id = a.asset_id "
+            "WHERE m.content_hash=? AND a.access_scope=? AND "
+            "a.analysis_schema_version=? AND a.quality_profile=? AND "
+            "a.status='ready' ORDER BY a.id DESC LIMIT 1",
+            (content_hash, access_scope, int(analysis_schema_version),
+             quality_profile))
+        row = await cur.fetchone()
+        return dict(row) if row is not None else None
 
     # ── mca-18 (ADR-1028-18 D1/D4): SelfModel — идентичность/типированная
     # память. Тонкие методы ЕДИНОГО контракта (graph_facts + v31); валидность
@@ -6070,16 +6461,37 @@ class DatabaseService:
         is_forward: bool = False,
         forward_source: str = "",
         message_id: int | None = None,
+        *,
+        sender_chat_id: int | None = None,
+        origin_type: str | None = None,
+        origin_sent_at: int | None = None,
+        origin_sender_user_id: int | None = None,
+        origin_chat_id: int | None = None,
+        origin_message_id: int | None = None,
+        origin_display_name: str | None = None,
+        origin_author_signature: str | None = None,
+        thread_id: int | None = None,
+        media_group_id: str | None = None,
     ) -> int:
         """Insert a chat message into smart_messages + FTS index. Returns the new row id.
         Epic 50 (58.7, D201): message_id = TG message_id (для reply-цепочек
-        <Conversation_Thread>); None → NULL (легаси-вызовы без изменений)."""
+        <Conversation_Thread>); None → NULL (легаси-вызовы без изменений).
+        MCA-19 (ADR-1028-19 D2): keyword-only Origin-блок (v32) — все значения
+        optional с default None; legacy-вызовы не меняются (NULL = честный
+        unknown, OFF-паритет)."""
         cursor = await self.db.execute(
             "INSERT INTO smart_messages "
             "(user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
-            "is_forward, forward_source, tg_message_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "is_forward, forward_source, tg_message_id, sender_chat_id, "
+            "origin_type, origin_sent_at, origin_sender_user_id, origin_chat_id, "
+            "origin_message_id, origin_display_name, origin_author_signature, "
+            "thread_id, media_group_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
+            "?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name,
-             int(is_forward), forward_source, message_id),
+             int(is_forward), forward_source, message_id, sender_chat_id,
+             origin_type, origin_sent_at, origin_sender_user_id,
+             origin_chat_id, origin_message_id, origin_display_name,
+             origin_author_signature, thread_id, media_group_id),
         )
         row_id = cursor.lastrowid
         if text:
@@ -6336,10 +6748,16 @@ class DatabaseService:
                         "sent_at=COALESCE(sent_at, ?), "
                         "ingested_at=COALESCE(ingested_at, ?), "
                         "sent_at_source=COALESCE(sent_at_source, ?), "
-                        "source_kind=COALESCE(source_kind, ?) WHERE id=?",
+                        "source_kind=COALESCE(source_kind, ?), "
+                        + ", ".join(f"{name}=COALESCE({name}, ?)"
+                                    for name, _ in
+                                    _SMART_MESSAGES_ORIGIN_COLUMNS)
+                        + " WHERE id=?",
                         (text, caption, content_hash, rec.get("media_ref"),
                          rec.get("sent_at"), rec.get("ingested_at", now),
                          rec.get("sent_at_source"), rec.get("source_kind"),
+                         *[rec.get(name)
+                           for name, _ in _SMART_MESSAGES_ORIGIN_COLUMNS],
                          message_id))
                     if text:
                         await conn.execute(
@@ -6351,9 +6769,15 @@ class DatabaseService:
                         "sent_at=COALESCE(sent_at, ?), "
                         "ingested_at=COALESCE(ingested_at, ?), "
                         "sent_at_source=COALESCE(sent_at_source, ?), "
-                        "source_kind=COALESCE(source_kind, ?) WHERE id=?",
+                        "source_kind=COALESCE(source_kind, ?), "
+                        + ", ".join(f"{name}=COALESCE({name}, ?)"
+                                    for name, _ in
+                                    _SMART_MESSAGES_ORIGIN_COLUMNS)
+                        + " WHERE id=?",
                         (rec.get("sent_at"), rec.get("ingested_at", now),
                          rec.get("sent_at_source"), rec.get("source_kind"),
+                         *[rec.get(name)
+                           for name, _ in _SMART_MESSAGES_ORIGIN_COLUMNS],
                          message_id))
                 await _record_occurrence(conn, message_id)
                 return message_id
@@ -6365,9 +6789,13 @@ class DatabaseService:
                 "source_record_id, content_hash, media_ref, reply_to_kind, "
                 "reply_to_author_id, quote_text, quote_author_id, "
                 "forward_author_id, message_state, state_evidence, "
-                "current_revision) "
+                "current_revision, "
+                + ", ".join(name for name, _ in
+                            _SMART_MESSAGES_ORIGIN_COLUMNS)
+                + ") "
                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,"
-                "?)",
+                "?,"
+                + ",".join("?" * len(_SMART_MESSAGES_ORIGIN_COLUMNS)) + ")",
                 (rec.get("user_id"), chat_id, text, rec.get("reply_to_id"),
                  int(rec.get("timestamp", now)), rec.get("media_type", "text"),
                  rec.get("author_name", ""), int(bool(rec.get("is_forward"))),
@@ -6379,7 +6807,9 @@ class DatabaseService:
                  rec.get("reply_to_author_id"), rec.get("quote_text"),
                  rec.get("quote_author_id"), rec.get("forward_author_id"),
                  rec.get("message_state"), rec.get("state_evidence"),
-                 rec.get("current_revision", 1)))
+                 rec.get("current_revision", 1),
+                 *[rec.get(name)
+                   for name, _ in _SMART_MESSAGES_ORIGIN_COLUMNS]))
             message_id = int(cur.lastrowid)
             if text:
                 await conn.execute(

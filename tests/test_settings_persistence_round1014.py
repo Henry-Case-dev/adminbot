@@ -44,14 +44,14 @@ class TestCatalogInvariant:
         import dataclasses
 
         from config.settings import Settings
-        assert len(pc.REGISTRY) == 510
-        assert len(pc.GROUPS) == 108
-        assert len(pc._TAB_BY_GROUP) == 106
-        assert len(pc.TAB_RULES) == 21
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 441
+        assert len(pc.REGISTRY) == 519
+        assert len(pc.GROUPS) == 112
+        assert len(pc._TAB_BY_GROUP) == 110
+        assert len(pc.TAB_RULES) == 22
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 450
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 485
+        assert len(categorized) == 494
 
     def test_per_chat_classification(self):
         """Маршрутизация scope: models.*/keys.* — строго глобальные (per_chat

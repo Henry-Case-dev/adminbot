@@ -86,6 +86,8 @@ const INDEX = fs.readFileSync(
     'mod_transcribe', 'mod_video_summary', 'mod_media_download', 'mod_web',
     'mod_checkup', 'mod_sleep', 'mod_nostalgia', 'mod_budgets',
     'mod_images',
+    // MCA-19 (10.43): +mod_vision (ADR-1028-19 D16).
+    'mod_vision',
     'modules', 'memory_rag', 'smart_cache', 'people_names', 'relations',
     'permsoc', 'access', 'chat_lore', 'status', 'info', 'oversight',
   ];
@@ -103,7 +105,7 @@ const INDEX = fs.readFileSync(
     ['status', 'how', 'modules', 'ai', 'memory', 'access', 'permsoc'],
     'F1: IA v2 navbar — 7 пунктов, «Память» отдельно');
   // Состав модулей (12 + «Генерация изображений») — F5 (10.24).
-  assert.strictEqual(data.modules.length, 13, 'T-1903: карточек модулей — 13');
+  assert.strictEqual(data.modules.length, 14, 'T-1903: карточек модулей — 13');
 })();
 
 // ── T-1895a: binding — значение из БД попадает в инпут; секрет → маска ────

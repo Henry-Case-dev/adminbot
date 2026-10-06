@@ -168,7 +168,7 @@ def test_t3960_js_workspace_sections():
 
 def test_t3960_tab_rules_mod_summary_covers_new_groups():
     """Правило mod_summary правится in-place (TAB_RULES 21 без роста)."""
-    assert len(pc.TAB_RULES) == 21
+    assert len(pc.TAB_RULES) == 22
     rules = dict(pc.TAB_RULES)[pc.TAB_MOD_SUMMARY]
     claimed: set[str] = set()
     for _cat, sel in rules:
@@ -181,6 +181,6 @@ def test_t3960_tab_rules_mod_summary_covers_new_groups():
             "reactions_summary"} <= claimed
     assert "flags_summary_filter" not in claimed
     assert "limits_summary_filter" not in claimed
-    assert len(pc._TAB_BY_GROUP) == 106
-    assert len(pc.GROUPS) == 108
-    assert len(pc.REGISTRY) == 510
+    assert len(pc._TAB_BY_GROUP) == 110
+    assert len(pc.GROUPS) == 112
+    assert len(pc.REGISTRY) == 519

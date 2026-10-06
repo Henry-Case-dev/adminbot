@@ -1145,7 +1145,7 @@ class TestFlagsAndCanon:
         import dataclasses
         from config.settings import APP_VERSION
         from services import param_catalog as pc
-        assert APP_VERSION == "2.58.62"
+        assert APP_VERSION == "2.58.63"
         assert "IMAGE_CONTEXT_MEMORY_ENABLED" not in pc.REGISTRY
         assert "IMAGE_CONTEXT_MEMORY_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}
@@ -1154,16 +1154,17 @@ class TestFlagsAndCanon:
         import dataclasses
         from services import param_catalog as pc
         # ASAP-3.1 (ADR-1028-3, санкция spec 10.1): +1 ключ → 484.
-        assert len(pc.REGISTRY) == 510
-        assert len(dataclasses.fields(Settings)) == 441
-        assert len(pc.GROUPS) == 108
-        assert len(pc._TAB_BY_GROUP) == 106
-        assert len(pc.TAB_RULES) == 21
+        assert len(pc.REGISTRY) == 519
+        assert len(dataclasses.fields(Settings)) == 450
+        assert len(pc.GROUPS) == 112
+        assert len(pc._TAB_BY_GROUP) == 110
+        assert len(pc.TAB_RULES) == 22
 
     def test_canon_stays_twelve(self):
         from services.tool_schemas import TOOL_CALLING_TOOLS
-        assert len(TOOL_CALLING_TOOLS) == 12
+        assert len(TOOL_CALLING_TOOLS) == 13
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
-        assert names[-1] == "get_user_context"
+        assert names[-2] == "get_user_context"
+        assert names[-1] == "recognize_image"   # MCA-19 (ADR-1028-19 §8.6)
         assert "request_reference" not in names
         assert "portrait" not in names

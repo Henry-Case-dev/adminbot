@@ -396,9 +396,11 @@ class TestRealErrorPropagation:
 class TestToolDescriptionU21:
     def test_canon_unchanged(self):
         # A6 (ADR-1026-18 D1): канон 11 → 12 (+get_user_context, в хвост).
+        # MCA-19 (ADR-1028-19 §8.6): канон → 13 (+recognize_image, в хвост).
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
         assert names == _FIRST_EIGHT + ["generate_image", "transcribe_video",
-                                        "fetch_article", "get_user_context"]
+                                        "fetch_article", "get_user_context",
+                                        "recognize_image"]
         assert names[8] == "generate_image"
 
     def test_schema_structure_identical_in_variants(self):
@@ -705,17 +707,17 @@ class TestBoundsA3:
         import dataclasses
         from services import param_catalog as pc
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.62"            # bump запрещён (D8)
+        assert APP_VERSION == "2.58.63"            # bump запрещён (D8)
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in pc.REGISTRY
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}
 
     def test_catalog_counts_unchanged(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 510
-        assert len(pc.GROUPS) == 108
-        assert len(pc._TAB_BY_GROUP) == 106
-        assert len(pc.TAB_RULES) == 21
+        assert len(pc.REGISTRY) == 519
+        assert len(pc.GROUPS) == 112
+        assert len(pc._TAB_BY_GROUP) == 110
+        assert len(pc.TAB_RULES) == 22
 
     def test_two_llm_calls_intact(self):
         # SC-A3-12: A3 не добавляет LLM-вызовов (тест уже в coordinator-сете);

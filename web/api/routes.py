@@ -179,6 +179,13 @@ class RandomTestRequest(BaseModel):
     key: str = Field(default="", max_length=512)
 
 
+class VisionTestRequest(BaseModel):
+    """MCA-19 (round 10.43, ADR-1028-19 D4/T-5103): проверка подключения
+    модели распознавания изображений. ``prompt`` игнорируется (проба —
+    нейтральное 1×1 PNG на бэкенде, не текст пользователя; R17)."""
+    prompt: str = ""
+
+
 class PersonaUpdate(BaseModel):
     """Раунд 10.14 (F2 persona-storage-core, spec §5): partial-правка персоны.
 
@@ -2008,6 +2015,91 @@ async def post_random_test(
     service = mca_random_source.get_service(lore_runtime.get_lore_db())
     result = await service.test_connection(draft_key=payload.key or None)
     return result
+
+
+# ── MCA-19 (round 10.43, ADR-1028-19 D4/D15, T-5103/T-5116): /api/vision/* ──
+# POST /api/vision/test — «Проверить подключение» (прецедент /api/random/test:
+# backend-only, RBAC global admin ИЛИ право на keys.vision_api_key; R17:
+# ключ/endpoint не эхо и не логируются; проба — нейтральное 1×1 PNG, НЕ текст
+# пользователя). GET /api/vision/state — живая effective-линия карточки +
+# компакт «Аналитики» (стадии/очередь/последний анализ; без сетевых вызовов).
+_VISION_TEST_MIN_INTERVAL = 10.0
+_VISION_TEST_LAST_TTL = 3600.0
+_VISION_TEST_LAST: dict[int, float] = {}
+
+
+def reset_vision_test_rate_limit() -> None:
+    """Тестовая точка сброса серверного rate-limit диагностики vision."""
+    _VISION_TEST_LAST.clear()
+
+
+def _prune_vision_test_last(now: float) -> None:
+    if len(_VISION_TEST_LAST) < 256:
+        return
+    stale = [k for k, ts in _VISION_TEST_LAST.items()
+             if now - ts > _VISION_TEST_LAST_TTL]
+    for k in stale:
+        _VISION_TEST_LAST.pop(k, None)
+
+
+@api_router.post("/vision/test")
+async def post_vision_test(
+    request: Request,
+    payload: VisionTestRequest,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Проверка подключения модели распознавания (D4/T-5103).
+
+    403 — нет прав; 429 — повтор чаще 10 секунд. Ответ всегда 200:
+    ``ok`` + capability/image_input/reason (доказанные по пробе, НЕ по имени
+    модели) + живая effective-линия (``state``) после проверки."""
+    cache: ConfigCache = get_cache(request)
+    ctx = await _ctx_global_admin(cache, user)
+    if not (ctx.is_global_admin or can_view_key_value(
+            cache, user.id, "keys.vision_api_key")):
+        raise HTTPException(status_code=403,
+                            detail="нет прав на управление ключом vision")
+    now = time.monotonic()
+    _prune_vision_test_last(now)
+    last = _VISION_TEST_LAST.get(user.id, 0.0)
+    if now - last < _VISION_TEST_MIN_INTERVAL:
+        raise HTTPException(status_code=429,
+                            detail="повтор теста чаще 10 секунд")
+    _VISION_TEST_LAST[user.id] = now
+    from services import lore_runtime, mca_vision
+    verdict = await mca_vision.probe_connection()
+    state = await mca_vision.runtime_snapshot(lore_runtime.get_lore_db())
+    return {
+        "ok": bool(verdict.capability == "ok" and verdict.image_input),
+        "capability": verdict.capability,
+        "image_input": verdict.image_input,
+        "status_code": None,          # R17: сырой статус не раскрываем
+        "latency_ms": None,
+        "model": state.get("model") or "",
+        "reason": verdict.reason,
+        "detail": (verdict.detail or ""),   # класс ошибки, без тела/ключа
+        "state": state,
+    }
+
+
+@api_router.get("/vision/state")
+async def get_vision_state(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Живая effective-линия карточки «Распознавание изображений» + компакт
+    «Аналитики» (D15/T-5116): requested/effective с человеческой причиной,
+    очередь (durable task_jobs), последний анализ, стадии `vision.media` v1.
+    БЕЗ сетевых вызовов (effective — из кеша capabilities). RBAC — как у
+    /api/vision/test. R17: без bytes/base64/OCR-текстов."""
+    cache: ConfigCache = get_cache(request)
+    ctx = await _ctx_global_admin(cache, user)
+    if not (ctx.is_global_admin or can_view_key_value(
+            cache, user.id, "keys.vision_api_key")):
+        raise HTTPException(status_code=403,
+                            detail="нет прав на управление ключом vision")
+    from services import lore_runtime, mca_vision
+    return await mca_vision.runtime_snapshot(lore_runtime.get_lore_db())
 
 
 # ── Раунд 10.14 (F2 persona-storage-core, spec §5): /api/persona ────────────

@@ -32,7 +32,8 @@ class TestToolSchemas:
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "generate_image",
-            "transcribe_video", "fetch_article", "get_user_context"]
+            "transcribe_video", "fetch_article", "get_user_context",
+            "recognize_image"]
 
     def _assert_function_schema(self, tool, name, required):
         assert tool["type"] == "function"
@@ -115,7 +116,7 @@ class TestToolSchemas:
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "transcribe_video", "fetch_article",
-            "get_user_context"]
+            "get_user_context", "recognize_image"]
         assert LORE_COMPILER_TOOL_NAME not in disabled
 
     def test_active_tools_image_flag_gate(self):
@@ -126,26 +127,27 @@ class TestToolSchemas:
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "transcribe_video",
-            "fetch_article", "get_user_context"]
+            "fetch_article", "get_user_context", "recognize_image"]
         names_on = [t["function"]["name"]
                     for t in active_tools(image_generation_enabled=True)]
         assert names_on == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "generate_image",
-            "transcribe_video", "fetch_article", "get_user_context"]
+            "transcribe_video", "fetch_article", "get_user_context",
+            "recognize_image"]
 
     def test_active_tools_default_on(self):
         """О3: код-дефолт «Летописца» — ON; F19 transcribe_video, A2
         fetch_article и A6 get_user_context — ON по умолчанию (image OFF →
         11 имён)."""
-        assert len(active_tools()) == 11
+        assert len(active_tools()) == 12
 
     def test_active_tools_does_not_mutate_snapshot(self):
         """active_tools возвращает новый список — снапшот не мутируется."""
         off = active_tools(False)
-        assert len(off) == 10
-        assert len(TOOL_CALLING_TOOLS) == 12
+        assert len(off) == 11
+        assert len(TOOL_CALLING_TOOLS) == 13
 
     # Bugfix 04.09.2026 (Часть 2, AC-3.4): расширенные description'ы.
     # 10.20 (БЛОК 7.4, T-1925): все description — EN (ревизия канона 3.3).
@@ -164,5 +166,5 @@ class TestToolSchemas:
         assert "memory" in desc
 
     def test_all_tools_list_is_mutable_snapshot(self):
-        # A6 (ADR-1026-18 D1): канон R9 = 12.
-        assert len(TOOL_CALLING_TOOLS) == 12
+        # A6 (ADR-1026-18 D1): канон R9 = 12; MCA-19 (ADR-1028-19 §8.6) = 13.
+        assert len(TOOL_CALLING_TOOLS) == 13

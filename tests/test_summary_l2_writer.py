@@ -551,14 +551,16 @@ class TestCanon:
         # SUMMARY_REVISION_PATCH_ENABLED, spec §8.2) — ClassVar (как все
         # env-рубильники ASAP-4) → dataclass-fields не растут (426);
         # Δ каталога = 0 (env-only, F8).
-        assert len(pc.REGISTRY) == 510
+        assert len(pc.REGISTRY) == 519
+        # MCA-19 Wave 1 (ADR-1028-19 §8.2): +9 vision-ключей → Settings 450
+        # (evidence-pin Wave 1; fixture-бампы см. tools/_mca19_reissue_f8.py).
         assert len({f.name for f in dataclasses.fields(settings.__class__)}) \
-            == 441
+            == 450
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 485
-        assert len(pc.GROUPS) == 108
-        assert len(pc._TAB_BY_GROUP) == 106
-        assert len(pc.TAB_RULES) == 21
+                    if s.category is not None]) == 494
+        assert len(pc.GROUPS) == 112
+        assert len(pc._TAB_BY_GROUP) == 110
+        assert len(pc.TAB_RULES) == 22
 
 
 # ── SC-13: R17-логи ────────────────────────────────────────────────────────

@@ -81,12 +81,14 @@ def setup_search(service, db=None) -> None:
 async def _fetch_chat_context(chat_id: int, limit: int) -> str:
     """Epic 65: последние limit сообщений чата → <chat_context> блок.
     Fail-open: любая ошибка БД → '' (старое поведение без контекста)."""
-    from services.chat_context import format_chat_context   # локальный импорт — без циклов
+    from services.chat_context import build_chat_context     # локальный импорт — без циклов
     if _db is None or limit <= 0:
         return ""
     try:
         rows = await _db.get_recent_messages(chat_id, limit)
-        return format_chat_context(rows)
+        # Rework R1 (H-2): прод-шов renderer'а D9 (гейт внутри — OFF →
+        # байт-в-байт прежний контекст).
+        return await build_chat_context(_db, rows, chat_id=chat_id)
     except Exception:
         logger.warning("[smartsearch] chat context fetch failed | chat=%s",
                        chat_id, exc_info=True)

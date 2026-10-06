@@ -22,6 +22,7 @@ from services.param_catalog import (
     TAB_MOD_SLEEP,
     TAB_MOD_SUMMARY,
     TAB_MOD_TRANSCRIBE,
+    TAB_MOD_VISION,
     TAB_MOD_VIDEO_SUMMARY,
     TAB_MOD_WEB,
     TAB_PEOPLE_NAMES,
@@ -40,6 +41,9 @@ ALL_TABS = [
     TAB_MOD_TRANSCRIBE, TAB_MOD_VIDEO_SUMMARY, TAB_MOD_MEDIA_DOWNLOAD,
     TAB_MOD_WEB, TAB_MOD_CHECKUP, TAB_MOD_SLEEP, TAB_MOD_NOSTALGIA,
     TAB_MOD_BUDGETS, TAB_MOD_IMAGES,
+    # MCA-19 (10.43, ADR-1028-19 D16): вкладка «Распознавание изображений»
+    # (22-я config-вкладка; nav «Модули»; подключение — в llm_providers).
+    TAB_MOD_VISION,
     TAB_LLM_PROVIDERS, TAB_PROMPTS, TAB_MEMORY_RAG, TAB_SMART_CACHE,
     TAB_PEOPLE_NAMES, TAB_RELATIONS, TAB_CHAT_LORE, TAB_PERMSOC,
 ]
@@ -50,8 +54,8 @@ class TestTabMappingAudit:
         # 10.19 (F3/ADR-1019-3 D1): +1 — mod_budgets («Бюджеты», nav «Модули»).
         # 10.24 (F5/ADR-1024-9 D1): +1 — mod_images («Генерация изображений»,
         # nav «Модули»; группа flags_module_images перенесена из mod_direct).
-        assert len(ALL_TABS) == 21
-        assert len(pc.TAB_RULES) == 21
+        assert len(ALL_TABS) == 22
+        assert len(pc.TAB_RULES) == 22
         assert set(pc.CONFIG_TAB_TITLES) == set(ALL_TABS)
 
     def test_tab_nav_covers_all_21_tabs(self):
@@ -163,9 +167,9 @@ class TestTabMappingAudit:
         # TAB_RULES 21 in-place → 481/105/103.
         # ASAP 4.4 (T-4880): +1 REGISTRY (keys.embedding_quota_group_labels,
         # группа keys_llm уже приписана вкладке llm_providers) → 489.
-        assert len(pc._TAB_BY_GROUP) == 106
-        assert len(GROUPS) == 108
-        assert len(pc.REGISTRY) == 510
+        assert len(pc._TAB_BY_GROUP) == 110
+        assert len(GROUPS) == 112
+        assert len(pc.REGISTRY) == 519
 
 
 class TestModuleTabs:
@@ -204,6 +208,21 @@ class TestModuleTabs:
         assert pc.CONFIG_TAB_TITLES[TAB_MOD_IMAGES] == "Генерация изображений"
         # провайдер остаётся «одним домом» на llm_providers.
         assert "flags_module_images" not in tab_group_ids(TAB_LLM_PROVIDERS)
+
+    def test_mod_vision_composition(self):
+        """MCA-19 (10.43, ADR-1028-19 D16): вкладка «Распознавание
+        изображений» — flags_module_vision (главный тумблер владельца) +
+        limits_vision (качество/очередь/антиспам). Подключение
+        (models_vision/keys_vision) — «один дом» в llm_providers
+        (прецедент mod_images/images). Nav «Модули»."""
+        assert tab_group_ids(TAB_MOD_VISION) == {
+            "flags_module_vision", "limits_vision"}
+        assert pc.tab_nav(TAB_MOD_VISION) == pc.NAV_MODULES
+        assert pc.CONFIG_TAB_TITLES[TAB_MOD_VISION] == \
+            "Распознавание изображений"
+        assert "models_vision" in tab_group_ids(TAB_LLM_PROVIDERS)
+        assert "keys_vision" in tab_group_ids(TAB_LLM_PROVIDERS)
+        assert "flags_module_vision" not in tab_group_ids(TAB_LLM_PROVIDERS)
 
     def test_mod_factcheck_and_search(self):
         assert tab_group_ids(TAB_MOD_FACTCHECK) == {

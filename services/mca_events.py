@@ -295,6 +295,17 @@ REASON_CODES = frozenset({
     "self_model_unavailable", "self_model_stale", "trait_conflict_core",
     "trait_step_limit", "trait_reinforcement_dedup",
     "legacy_trait_unverified", "trait_rule_rejected",
+    # расширение mca-19 (ADR-1028-19 §8.5/D13; санкция T-5099 — ровно +12
+    # в единый словарь, 257→269): честные исходы vision-контура. `no_text`/
+    # `pending`/`ready` — статусы MediaAnalysis (v32), НЕ reason-коды.
+    # 401/403/429/таймаут ≠ `main_model_no_vision` (spec D6: ошибка доступа/
+    # временная недоступность + ограниченный retry — без ложного
+    # авто-OFF); кросс-чат-кеш не переносит авторство/права (TH-5).
+    # Второй словарь причин запрещён.
+    "vision_disabled", "main_model_no_vision", "capability_check_pending",
+    "vision_unsupported", "vision_unreadable", "vision_unavailable",
+    "vision_failed", "vision_deferred", "vision_skipped_expired",
+    "vision_rate_limited", "vision_stale_discarded", "vision_missing_source",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────

@@ -41,11 +41,11 @@ class TestCatalogInvariant106:
         # 459/98/96/20/418; TAB_RULES 20 — новых вкладок нет.
         # 10.24 (F5/ADR-1024-9 D3): Δ REGISTRY/GROUPS/_TAB_BY_GROUP = 0
         # (group переносит вкладку) → 459/98/96; TAB_RULES 20→21 (+mod_images).
-        assert len(pc.REGISTRY) == 510
-        assert len(pc.GROUPS) == 108
-        assert len(pc._TAB_BY_GROUP) == 106
-        assert len(pc.TAB_RULES) == 21
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 441
+        assert len(pc.REGISTRY) == 519
+        assert len(pc.GROUPS) == 112
+        assert len(pc._TAB_BY_GROUP) == 110
+        assert len(pc.TAB_RULES) == 22
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 450
 
     def test_five_master_flags_default_true(self):
         s = Settings()
@@ -121,7 +121,7 @@ class TestModulesAndAi:
         mods = JS[start:JS.index("];", start)]
         # F21 (10.24, ADR-1024-22 D7): +1 toggleKey (mod_budgets) → 12.
         # F5 (10.24, ADR-1024-9 D1): +1 toggleKey (mod_images) → 13.
-        assert mods.count("toggleKey:") == 13
+        assert mods.count("toggleKey:") == 14
         for title in ("Саммаризация", "Прямые ответы", "Фактчек", "Поиск",
                       "Транскрипт голосовых и видео", "Выжимка видео",
                       "Скачивание медиа", "Веб-страницы", "Диагностика",
@@ -451,6 +451,9 @@ class TestProviderBlockTestability:
         # testable:false остаётся только у llm_guard (1 блок).
         # 10.24 (F12/ADR-1024-4 D3): image_generation стал testable —
         # кнопка «Проверить подключение» (probeEndpoint '/api/images/test').
+        # MCA-19 (round 10.43, Wave 2/T-5103): vision-блок стал testable
+        # (POST /api/vision/test + живая effective-линия); testable:false
+        # остаётся только у llm_guard.
         assert JS.count("testable: false") == 1
         assert "b.testable !== false" in HTML
 
@@ -542,8 +545,9 @@ class TestScannerR106Fixes:
         # 10.23 (F5/ADR-1023-5 D5): +4 поля (image_generation) → 58/51.
         # ASAP 4.4 (T-4880): +1 поле (keys.embedding_quota_group_labels
         # в embeddings_main) → 59/52.
-        assert len(keys) == 59          # полей в блоках + subBlocks
-        assert len(set(keys)) == 52     # уникальных ключей
+        # MCA-19 (10.43, ADR-1028-19 D4): +4 поля vision-блока → 63/56.
+        assert len(keys) == 63          # полей в блоках + subBlocks
+        assert len(set(keys)) == 56     # уникальных ключей
         # generic-фильтр только для llm_providers
         assert "(tab.id === 'llm_providers')" in JS
         # 10.11: subBlocks эмбеддингов покрыты рекурсивным обходом.

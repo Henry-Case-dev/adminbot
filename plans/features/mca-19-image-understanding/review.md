@@ -1,0 +1,123 @@
+# review.md — `mca-19-image-understanding` — Review (T-5124 @Reviewer, 06.10.2026)
+
+## Вердикт: **Needs Fixes**
+
+Блокирующих находок — 2 (H-1/H-2), обе с доказанным механизмом, точными координатами и минимальным критерием закрытия; один ограниченный rework-цикл. Санкции, хеши биндинга, прогонные числа и security-митигации Builder подтвердились независимо (8/8 контрольных хешей, REASON_CODES=269, KILL_SWITCHES=80, F8 идемпотентен 519, js 59/59, focused 105, смежные 135, SSRF/OCR-репро). Блокируют не инфраструктура, а: (a) дефект atomic-singleflight-примитива БД и (b) прод-невключённость единого renderer'а.
+
+## Binding
+
+- **HEAD:** `2dfb8c4f0047d8ea44da04b1daa727764cbe9e6d` (master). ⚠️ Примечание: бриф называл HEAD `2d4e3ad` — репозиторий ушёл вперёд на docs-коммит архивации mca-18 (код-бейзлайн `2d4e3ad`, прод 2.58.62 не менялся); биндинг взят на фактическом HEAD, на котором собран кандидат.
+- **Кандидат:** незакоммиченный working tree (B1 блоки A/F/B + B2 блоки C–H + B3 integration fix; git-индекс чист — 0 staged).
+- **Манифест:** `plans/reports/mca19_wth_manifest_review.txt` — MANIFEST_SHA256 `58aa7d864e251730cdbacc699797f793178fea20769f3bd769b1ef4c7dac1724`, FILE_COUNT **117** (102 tracked-modified минус workflow_state + 15 untracked-кандидатов; recipe: sha256 по отсортированным строкам «hash␣␣path» + trailing LF; прецедент mca18).
+- **Исключения из recipe:** `plans/workflow_state.md` (домен Orchestrator), untracked-debris (`.playwright-mcp/`, `node_modules/`, `package.json`, `package-lock.json`, `plans/verification_cache.json`, `tools/_ui_asap43_*`, `tools/_mca18_reissue_f8.py`, `tools/_mca18_repin_routes.py`, `tools/_mca19_wave2_bump_pins*.py`, `tools/_mca19_wave2_rebump_crlf.py` — служебные разовые скрипты), `plans/features/mca-19-image-understanding/review.md` (этот отчёт) и сам манифест. `deploy_commands.txt` в дереве отсутствует. Исключение-отступление от брифа, заявленное осознанно: `tools/_mca19_reissue_f8.py` ВКЛЮЧЁН в recipe — это санкционированный артефакт F8-переиздания (evidence блок F), не мусор.
+- Параллельные лейны в дереве (включены в fingerprint, за пределами моей оценки): `plans/MEMORY.md` (Memory), `plans/backlog.md`, `plans/docs/mca-round1027-arch-frames.md` (Architect §1.2.8).
+- **Контрольные хеши — 8/8 совпали:** mca_vision `744cabfb36ceef84`, database `28b9395b92c5aa05`, mca_self_model `c2245f99eb25901f`, routes `eb0611aedb94b484` (=ROUTES_SHA256_F11 после осознанного re-pin), app.js `8b2b9b3d4dcbbdec`, index.html `9e325656cd443b87`, summary `67f47705e835bb7d` (финальный B3, не промежуточный B2), bot.py `ad8044e004478a58`.
+- `plans/current_task.md` — не тронут (git diff пуст); ничего не staged/committed.
+
+## Находки
+
+| # | Severity | Файл:строка | Суть / evidence | Blocking |
+|---|---|---|---|---|
+| H-1 | **High** | `services/database.py:3771` (`record_media_analysis`) | После `INSERT … ON CONFLICT (гранула) DO NOTHING` код возвращает `cur.lastrowid`, если тот truthy. При конфликте UNIQUE-гранулы `lastrowid` содержит **stale rowid последней чужой вставки** shared single-writer-соединения (эмпирика: rowcount=0, lastrowid=3), поэтому обратный SELECT (:3773–3783) — мёртвый код. Репро на реальном `DatabaseService`: анализы id 1,2 → три посторонних `upsert_media_asset` → конфликтная повторная вставка гранулы assetA вернула **id=3 (не существует; истинный 1)**. Нарушение CA-19-9/TH-8/D19 («второй worker получает СУЩЕСТВУЮЩИЙ id», atomic singleflight). Последствия: (a) повторный платный vision-вызов, результат выбрасывается (`finish` по несуществующему id → rowcount=0 → job `vision_stale_discarded`) — двойной расход (TH-6); (b) если stale rowid указывает на существующий ЧУЖОЙ analysis-row, CAS-finish проходит (revision свежесчитан) и **перезаписывает чужую строку** (кросс-ассетное повреждение, нарушение D10 «старый job не перезаписывает»). Тест `test_analysis_idempotent_upsert_singleflight` не ловит: там последняя вставка соединения — сама гранула, lastrowid совпадает случайно. | **да** |
+| H-2 | **High** | `services/mca_vision.py:1903` (`render_media_context_async`) | Единый renderer D9 **не имеет ни одного прод-вызова**: grep всех *.py репозитория — только определение и тесты (test_mca19_block_d/g). Контекстные пути не изменились: `web`-независимая сборка контекста (`services/chat_context.py:118`) по-прежнему использует только старый `row_media_marker` (mca-03 «[фото]»). Нарушение §29.3 `:1668` (renderer для direct/autonomous/Summary Hybrid/RAG/истории/сон/фактчек), MCA19-R3/T-5110 (в scope §0), приёмка A65 существует только как прямой вызов фасада в тесте. Автоконвейер (intake→queue→analysis→store) производит анализы, которые в проде читают только tool `recognize_image` и GET /api/vision/state; стадия `consumers` при этом эмитится как success (`mca_vision.py:1559`) без фактических потребителей. Прецедент: mca-18 H-2 «прод-пайплайн инертен» — тесты зелёные, пользовательская ценность недостижима; live-приёмка T-5127 («факт внутри исходного поста») заведомо не показывает требуемое. | **да** |
+| M-1 | Medium | `services/mca_vision.py:390` (`_classify_probe`) | 2xx → `CapabilityVerdict("ok", "vision_unsupported", True)`: success-вердикт несёт reason-код «не поддерживается». Всплывает: /api/vision/state при работающем vision отвечает `reason="vision_unsupported"`; событие `vision_capability_probe` — outcome=success с reason_code=vision_unsupported (:495–509). Честность/наблюдаемость («Аналитика» причин) противоречива. Не блокер: effective_enabled/visible_reason корректны. Критерий: при ok — reason без кода (None/нейтральный), словарь 269 не расширять. | нет |
+| M-2 | Medium | `services/mca_vision.py:2401–2406` (`recognize_target`) | Timeout ожидания tool-пути возвращает `{"status":"pending","reason":"vision_deferred"}` — «deferred» в словаре означает переполнение очереди (D20), а не «ещё обрабатывается»: искажение причин в аналитике. Статус честен (pending, job_linked). Критерий: не указывать reason либо документировать семантику в ToolResult-доке. | нет |
+| L-1 | Low | `services/mca_vision.py:124–131` (`resolve_requested`) | Fail-open при ошибке per-chat резолва → глобальный слой: сбой `get_chat_param` может превратить per-chat OFF в ON (расходный контур). Устоявшаяся конвенция (прецедент image_generation), документирована в docstring; для vision-расходов предпочтителен fail-closed по OFF. | нет |
+| L-2 | Low | `services/mca_vision.py:1623–1624` (`_album_registered`) | Ошибка чтения → True (grace пропускается, альбом обрабатывается поэлементно). Безопасно (grace только откладывает); fail-open без события. | нет |
+
+Pre-existing (не mca-19, backlog §121, не вносились в findings): 4 красных полного прогона (`test_tool_loop…count_reaches_model`, `webapp_nav_disclosure…memory_rag_and_sleep_tabs`, `webapp_status_control…status_public_for_all_roles`, `test_mca09_intents_block_e…registry_process_intent_initiative`) + flake `test_handle_initiative_cancelled_by_recheck` (1/3 полных прогонов, изолированно зелёный) — подтверждены Builder'ом тремя прогонами одного замороженного дерева, мной не оспорены.
+
+## Ответы по §29.1–§29.8
+
+- **§29.1 (R1, изображение-факт внутри исходного поста; атрибуция):** канон — ✓: v32 (ALTER ×10 под guard + 2 таблицы + 4 idx; повтор no-op — тесты), Origin-блок из MessageOrigin (enum `.value`-нормализация B3, вне канона → честный None), `origin_sent_at` = origin.date ≠ ingested_at, sender ≠ origin-автор ≠ автор текста на картинке (тесты A64-примитивы), `forward_source` сохранён рядом, альбом — item+общая media_group_id, подпись не размножена, legacy-путь с NULL-паритетом. Рендер «на месте поста» — реализован в фасаде (заголовок `[время | автор | msg:chat:id | изображение]`, «Переслано из…», «Оригинальный автор», подпись отдельно), **но в проде недостижим — H-2**.
+- **§29.2 (R2, подключение vision):** ✓ D5-последовательность (dedicated с отдельным endpoint без ключа = честный pending, не молчаливый fallback — RED-тест; основная через models_main, не background/embedding/image-gen); 401/403/429/timeout ≠ `main_model_no_vision` (probe-классификация + mapping effective — тесты A74); кеш capabilities по config_revision (ключ не хешируется — R17), смена модели → auto-recheck (тест); probe двухступенчатый (нейтральный 1×1 PNG → при 400/404/422 контрольный текстовый = доказанный no_vision), секрет только в заголовке, событие без endpoint/ключа/тела. M-1 — косметика reason при ok.
+- **§29.3 (D7, безопасность загрузки):** ✓ getFile-only (в сервисе нет конструирования URL, inspect-тест; наружу только валидированные байты; семафор concurrency); произвольные URL — только SafeFetcher: fail-closed при disabled (моё репро ✓), SSRF-цели 127.0.0.1/169.254.169.254/10.0.0.5/[::1] отклонены детерминированно офлайн (моё репро: destination_blocked/metadata_endpoint_blocked); MIME-сниффер магических байтов (заявленный ≠ факт — тест), max bytes 20 MiB, 25 Mpx bomb-guard до отправки наружу (тест 10^10 px отсечён); временные файлы не создаются (bytes в памяти) — cleanup n/a.
+- **§29.4 (D8/GEN-R18, OCR = untrusted):** ✓ OCR никогда не в system prompt: константа-промпт (моё репро: hostile «system: ignore previous instructions…» остаётся в `ocr_blocks` с каналом `untrusted_image_data`; в system prompt отсутствует), тест фиксированности промпта; не-JSON → честный failed:parse_error (тест); no_text — валидный исход; конфликт OCR/подпись сохраняется (подпись в vision-запрос не подмешивается — тест TH-5); bounded-фрагменты ≤8 с overlap, последний прижат к низу, дедуп строк, parse_rate никогда не бросает (тесты).
+- **§29.5 (D18–D20, очередь/антиспам):** ✓ порядок «реестр → запись → durable job» (observer: save → register_intake_assets → enqueue_intake_jobs; тесты); альбомы bounded (grace ≤ ~30 c, ≤4 продлений); singleflight: coalesce_key по asset-грануле + UNIQUE (но сам примитив записи — H-1); кеш по content_hash с `access_scope` в WHERE — кросс-чат изоляция (негативный тест 111 vs 222 ✓); failed/pending не success-кеш (тесты); лимиты env-only K1–K4 + MAX_BYTES/MAX_PIXELS/CONCURRENCY/DEFERRED_TTL/CAPABILITY_TTL/REOCR_BUDGET (гейт-хелперы, дефолты по санкции — тест F8-блока); token bucket участник/чат (10/10, 60/30), queue capacity → deferred durable с TTL → `vision_skipped_expired` (тесты), recover_stale после рестарта (тест), breaker (3/60с), manual > auto > backfill (тест приоритета), backfill missing_source честный + идемпотентный (тесты).
+- **§29.6 (D9–D11, позднее обогащение):** idempotent upsert + CAS по revision ✓ (тест stale_discarded_no_resurrection; finish инкрементирует revision — фикс инцидента Wave 1 с кешем); shared job ✓ (coalesce — тест concurrent_coalesce; один анализ → N потребителей через resolve_ready_for_asset); автор/дата/пересылка всегда из текущего сообщения (тест); replay-режимы «что бот тогда знал»/«нынешняя реконструкция» ✓ в фасаде (тест); швы observer/mca-03 не сломаны ✓ (мой прогон test_summary_handlers 53 — TestObserverForward 10/10 после B3-фиксов enum/fail-open; тесты не подгонялись — ассерты оригинальные). Подключение renderer'а к потребителям — H-2.
+- **§29.7 (D12–D15, память/фактчек/архив/наблюдаемость):** SourceRef производных ✓ (до message + asset + analysis revision + OCR block / combined; provenance OFF → честный [] — тесты; в проде вызывается из tool-пути ready); контракт mca-20 `(asset_id, revision)` + селектор `caption|ocr_block:<i>|combined` — в коде (analysis_source_ref); missing_source честный (нет target/нет file_id — тесты); «Аналитика»/витрина read-only ✓ (GET /api/vision/state, RBAC global-admin/ключ-vision; snapshot: статус/модель/очередь/стадии, без OCR-текстов); процесс `vision.media` v1 в реестре mca-17a — стадии ровно `:1699` (тест exact + мой импорт vision_stages); R17 ✓: события — только коды/стадии/модель/chat_id; config_revision — presence-флаг ключа; бот-token URL не строится; bytes/base64/OCR в логи/события не попадают (код-ревью всех emit/log-точек vision).
+- **§29.8 (D21–D23, tool/pending):** ✓ recognize_image — канон 13 хвостом (порядок 1–12 байт-в-байт), METERED_TOOLS ✓, карта mca-11 не расширена (`category_for('recognize_image') → external_read` — мой вызов; cost через vision.media в llm_usage_events — только реальный вызов, usage-тест); ACL — chat scope из доверенного рантайма, чужой chat → missing/out_of_scope (тест), URL/key/модель от LLM не принимаются (фиксированная схема); pending без LLM-опросов ✓ (event-wait + re-read, bounded 45 c; тест), «посмотрю» ≠ «посмотрел» ✓ (pending до готовности; wake по завершении job — тест), дедуп trigger ≤1 ответ (bounded-память, TTL 600 c); OFF: скрытие из active_tools + серверная проверка disabled (тесты K4/K1); U21 не задет (image_generation не тронут, canon_unchanged-тест); mca-18 граница ✓: делегация `can_analyze_images_effective` → `resolve_effective_state`, OFF бит-в-бит (тест), True только при proven capability.
+
+## RED-согласованность (проверка на fabrication)
+
+Названные в evidence RED→GREEN соответствуют структуре тестов: `test_route_dedicated_endpoint_requires_dedicated_key` ассертит `api_key_present is False` + `capability_check_pending` (при старом молчаливом fallback в main_model — упал бы); `test_analysis_success_cache_*` требует reuse при revision>1 (старый фильтр revision=1 — упал бы); инцидент `resolve_requested` без await подтверждён кодом (теперь `await get_chat_param`). Признаков fabricated-тестов нет; T-5121-тесты бьют конкретные митигации threat-анализа, не happy-path.
+
+## Что я запускал (точные счётчики)
+
+- Focused mca-19 (7 файлов test_mca19_block_*): **105 passed** (8.0 c).
+- Смежные слайсы (мои прогоны): mca-03 identity `test_summary_handlers` + mca-22 атрибуция `test_mca22_core` + `test_mca22_truthset` — **135 passed** (warning «closed 39 leaked aiosqlite connections» — pre-existing, backlog).
+- JS-харнессы: **59/59 OK** (все `tests/js/*.js` node-прогоном) + `node --check web/app.js` OK.
+- F8 `tools/_mca19_reissue_f8.py --check`: реестр **519**/411/108, ROUTES_SHA256_F11 `eb0611ae…` — идемпотентен (двойной прогон, хеши фикстур/TSV не изменились; дельта в дереве ровно санкционированная 510→519/108→112/106→110/21→22).
+- Реестры (импорт факта): REASON_CODES=**269**, KILL_SWITCHES=**80** (+4 MCA_VISION_*), `category_for('recognize_image')='external_read'`, `vision_stages()` = 9 стадий `:1699`.
+- Репро H-1 (реальный DatabaseService): конфликт гранулы после посторонних вставок → возвращён id=3 (несуществующий), истинный 1 — см. находку.
+- Security-репро: OCR-инъекция (hostile → data-канал, system prompt — константа), SSRF (4 цели blocked, fail-closed при MCA_SAFE_FETCH_ENABLED=false) — см. §29.3/§29.4.
+- Хеши биндинга: 8/8 совпали (см. Binding).
+- Полный pytest мной не перезапускался — reused evidence Builder'а: три прогона одного замороженного дерева (13:13/13:29/13:40) со стабильным **12194 passed / 4 failed (все pre-existing backlog §121)** + collect 12198/0; согласованность трёх независимых прогонов принимаю как воспроизводимую. После rework-фиксов полный прогон обязателен (дельта уже не будет байт-в-байт этим кандидатом).
+
+## Bounded rework (ОДИН цикл; без других зон)
+
+1. **H-1:** `services/database.py::record_media_analysis` — ветвление по `cur.rowcount` (rowcount=1 → вставка, вернуть lastrowid; rowcount=0 → обратный SELECT гранулы). Acceptance: тест «конфликт UNIQUE-гранулы после посторонней INSERT-вставки на том же соединении → возвращается истинный id существующей строки» (на текущем коде RED — воспроизводится моим репро).
+2. **H-2:** подключить `render_media_context_async` к прод-сборке контекста — минимум direct/autonomous-путь (сборщик контекста чата): для сообщений с image-активами аддитивно добавлять строки фасада (pending-строка при отсутствии ready; гейты K1/requested/effective-OFF → прежний контекст байт-в-байт). Acceptance: сквозной тест через РЕАЛЬНУЮ точку сборки (сообщение с фото → в контексте строка исходника + OCR-лейбл канала; K1 OFF → контекст без изменений). Истории/сон/фактчек: либо тот же шов в этом цикле, либо явная запись в evidence (потребитель/срок) — без молчаливого сужения claims. Стадию `consumers` при отсутствии фактических потребителей не рапортовать success.
+3. Попутно (дешёвые, тот же цикл): M-1 (reason без «vision_unsupported» при ok-вердикте), M-2 (pending reason по семантике).
+4. После фикса: focused mca-19 + затронутые смежные (summary/context/direct) + перепроверка H-1/H-2-репро; полный suite по фактическому blast radius (если дифф не выйдет за 2 зоны + шов — достаточно focused+adjacent+полный прогон Builder/Orchestrator).
+
+## Residual notes
+
+- T-5122 (real-network image smoke / нагрузка) и T-5127 (live-приёмка, PENDING OWNER) — post-deploy этапы по spec §9.2/§9.4; до H-2 live-сценарий «факт внутри поста» в контексте невозможен.
+- K1 OFF паритет 2.58.62 — гейт-ревью кода + тесты (intake 0 строк, worker не стартует, tool hidden+disabled, делегация False, enqueue 0): подтверждено.
+- FTS/vector/summary-обогащение через mca-04/07 — «по требованию/механизмом mca-04/07» (D10): reindex-стадия честно skipped; не блокер этой волны.
+- Non-blocking L-1/L-2 — backlog-кандидаты.
+
+R17: секретов/сырого контекста в отчёте нет.
+---
+
+# Итерация 2 (rework-перепроверка R1, T-5124, 06.10.2026)
+
+## Вердикт: **Approved**
+
+Блокирующих находок нет. H-1 и H-2 закрыты в коде и подтверждены независимой инспекцией, моими репро (итер.1 воспроизведены байт-в-байт) и целевыми прогонами; M-1/M-2 закрыты; RED-доказательства Builder'а согласуются с реальными тестами (не fabricated); смежные швы (factcheck/search/epic65) не повреждены. Дельта реворка строго в границах моего списка итер.1 + два санкционированных UI-пин-бампа.
+
+## Binding (итерация 2)
+
+- **HEAD:** `2dfb8c4f0047d8ea44da04b1daa727764cbe9e6d` (не изменился с итер. 1). Кандидат — незакоммиченный working tree (rework поверх кандидата итер. 1; git-индекс чист — 0 staged; `plans/current_task.md` — diff пуст).
+- **Манифест:** `plans/reports/mca19_wth_manifest_review.txt` — MANIFEST_SHA256 `da8614268eb986af1c8b8be6546fbc918da7514c38e73899525cb287af028a17`, FILE_COUNT **122** (итер.1: 117; Δ = +chat_context/search/factcheck + rework-тест + 2 UI-пин-теста − ничего). Recipe/исключения — те же.
+- **Хеши реворка — 5/5 совпали:** database `e58338d2e55b4fb1`, mca_vision `7427ddf702da5546`, chat_context `f4112edc6a683324`, handlers/search `c26a54f29c300822`, handlers/factcheck `a0d983eba5123ed6`; rework-тест `tests/test_mca19_rework_r1_round1044.py` (9 тестов).
+
+## Перепроверка блокеров
+
+**H-1 — закрыт.** Код: `database.py:3771–3791` — ветвление по `cur.rowcount` (`>0` → вставка, `lastrowid`; `==0` → конфликт → обратный SELECT истинного id по UNIQUE-грануле, NULL-safe `IS ?`). Моё репро итер.1 (два анализа + три посторонних `upsert_media_asset` → конфликтная вставка гранулы) на новом коде: конфликт вернул **id=1 (истинный)**, `get_media_analysis` → строка гранулы `(1, 'assetA', 'running')` — воспроизведённый в итер.1 дефект (stale id=3) исчез. Второй платный вызов не нужен — воркер получает готовую строку (однократность расхода, CA-19-9/TH-6). RED Builder'а (`assert 3 == 1` при отключённом фиксе) согласуется с моим репро итер.1.
+
+**H-2 — закрыт (в объявленных границах).** Прод-шов: `chat_context.py` — `build_chat_context` (:266) → `collect_media_analysis_blocks` (:211, гейт K1 AND requested; OFF/ошибка → None) → `format_chat_context(..., media_blocks=)` (:118–131, блок фасада D9 заменяет старый маркер у media-строк). Прод-потребители: `handlers/factcheck.py:81` и `handlers/search.py:91` — это **все** прод-вызовы `format_chat_context` в репо (проверено grep'ом Builder'а и моим) — сборщик контекста чата подключён на 100% своих потребителей. Мои сквозные репро через реальную сборку: готовый анализ → в контексте `Текст на изображении…` + канал `untrusted_image_data` + hostile-OCR дословно + `Распознано:`; K1 OFF и requested OFF → **байт-в-байт** прежний контекст (сверено с legacy `format_chat_context`). Стадия `consumers` честная: `consumers_stage_outcome()` (mca_vision.py:1573) → success при фактических потребителях, K1 OFF → `('skipped','vision_disabled')` — проверено моим вызовом; безусловный success из итер.1 устранён. Read-only: сборка не создаёт vision-вызовов/джоб; решение «requested-гейт без effective на read-пути» — осознанное и D17-согласованное (`:1709` «сохранённое распознавание читается без нового API-вызова»), задокументировано в evidence.
+- Границы (задокументированы в evidence «Границы реворка», не молчаливое сужение): direct-chat history window / Summary Hybrid / истории / сон в этом цикле не подключены — follow-up тем же швом (`media_blocks`/`build_chat_context`); сборщики этих путей (summary.py/dream_worker) — зоны Wave 1/mca-18, трогать их bounded-rework не имел права. Основное диалоговое окно сегодня вообще не рендерит media-строки (фильтр по непустому тексту — pre-existing F13-scope round 10.24). Live-приёмка T-5127 обязана включить сценарий с фото в контексте фактических потребителей.
+
+**M-1 — закрыт.** `_classify_probe` 2xx → `CapabilityVerdict("ok", "", True)`; проверено моим вызовом probe: reason=`''`, capability=`ok`; в событии/`/api/vision/state` пустой код вместо противоречивого `vision_unsupported`. Словарь 269 не расширен.
+**M-2 — закрыт.** tool-pending timeout → `reason="deadline_exceeded"` (mca_vision.py:2429) — код присутствует в REASON_CODES (269, мой импорт-чек), семантика «бюджет ожидания исчерпан, job остался в очереди» корректна; `vision_deferred` остался только на D20-переполнении авто-очереди.
+
+## Находки итерации 2 (все non-blocking)
+
+| # | Severity | Файл:строка | Суть | Blocking |
+|---|---|---|---|---|
+| M-3 | Medium | `services/chat_context.py:118–131` | Шов подставляет блок фасада только у media-строк БЕЗ текста; фото **с подписью** показывает в контексте только caption — OCR/описание/два времени в окно не попадают (мой репро: captioned-фото → OCR-лейбл отсутствует, ON-сборка == caption-текст). Требование «распознавание внутри исходного поста» для captioned-кейса в этих окнах не выполнено; OCR остаётся доступен через tool/fасад/витрину. Follow-up: bounded-добавка фасад-строк к captioned media-строкам (или осознанная санкция «компактность окна»); проверить в T-5127. | нет |
+| L-3 | Low | `services/mca_vision.py:1573` | `consumers_stage_outcome` без db/списка потребителей не различает «потребители есть, но ни один не читал этот asset» — success на уровне модуля, не гранулы. Наблюдаемость, не корректность. | нет |
+| L-1/L-2 | Low | — | Без изменений с итер. 1 (fail-open `resolve_requested`, fail-open `_album_registered`); соответствующий код реворком не тронут. Backlog. | нет |
+
+Incidental: два изменённых реворком теста `tests/test_webapp_ui_rework_round1020.py` / `tests/js/round1020_ui_rework_test.js` — санкционированные UI-пин-бампы меню (mod_vision, 13→14 карточек; D16/T-5117), пропущенные Wave 1; node-прогон зелёный. Не scope-ползание.
+
+## Что я запускал (итерация 2)
+
+- Репро H-1 (моё итер.1-скриптом, байт-в-байт): конфликт гранулы → истинный id, строка гранулы на месте — **закрыт**.
+- Репро H-2 (моя независимая сборка: своё фото/анализ/hostile-OCR): ON → OCR-лейбл+канал+`Распознано:` в контексте через `build_chat_context`; K1 OFF и requested OFF → байт-в-байт legacy; consumers честная; M-1 reason='' ; словарь 269 без расширений (`deadline_exceeded` ∈ REASON_CODES).
+- Прогон: rework-тесты (9) + блоки A–G (105) + `test_summary_handlers` (53) — **167 passed** (ровно ожидание 158+9).
+- Смежный слайс шва (мой выбор): epic65 + factcheck_deep_context + factcheck_handlers + native_reply_media_context + mca22_core — **192 passed** (warning «21 leaked aiosqlite» — pre-existing backlog).
+- `node tests/js/round1020_ui_rework_test.js` — OK; F8 `--check` — 519/411/108/22, ROUTES pin `eb0611ae…`, идемпотентен (хеш фикстур до/после — неизменен).
+- Полный suite — reuse оркестраторской независимой верификации **12203 passed / 4 failed** (ровно документированный pre-existing-набор backlog §121; flake `test_handle_initiative_cancelled_by_recheck` не воспроизвёлся) + collect 12207/0; согласуется с моими focused-прогонами.
+
+## Disposition
+
+- Live-приёмка T-5127 (PENDING OWNER): обязательно включить сценарии (a) фото с подписью в окне фактчека/поиска (проверка M-3), (b) сообщение с фото в основном чате (валидация follow-up-границ шва). T-5122 (real-network smoke/нагрузка) — deploy-этап по spec §9.2.
+- M-3/L-3/L-1/L-2 — backlog-кандидаты, реестр в review итер.1+2.
+- Renderer-потребители direct-chat history/Summary Hybrid/истории/сон — follow-up тем же швом; зафиксировано в evidence «Границы реворка» (потребитель/механизм названы).
+
+**Join-barrier:** T-5125 (Scanner) — разблокирован этим Approved.
+
+R17: секретов/сырого контекста в отчёте нет.

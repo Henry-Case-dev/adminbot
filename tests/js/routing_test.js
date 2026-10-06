@@ -1057,8 +1057,11 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
         && id.indexOf('search_keys') < 0 && id.indexOf('media_share') < 0),
       ['direct', 'transcription', 'video_summary', 'embeddings',
        'intel_history', 'intel_background', 'intel_reflection',
-       'image_generation'],
-      '10.13 (F4) + 10.14 (F8) + 10.23 (F5): merged intel/image-блоки в «Подключениях»');
+       'image_generation',
+       // MCA-19 (10.43, ADR-1028-19 D4): блок подключения vision-модели
+       // (по образцу image_generation; Wave 1 — testable: false).
+       'vision'],
+      '10.13 (F4) + 10.14 (F8) + 10.23 (F5) + 10.43 (MCA-19): merged intel/image/vision-блоки в «Подключениях»');
     // 10.12: parent-блоки несут subBlocks; id'ы подблоков сохранены.
     const byId = {};
     blocks.forEach((b) => { byId[b.id] = b; });

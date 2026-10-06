@@ -535,7 +535,7 @@ class TestToolSchemasEnCanon:
         # 10.24 (F19/ADR-1024-20 §2.1): +transcribe_video → 10;
         # 10.26 (A2/ADR-1026-15 D5): +fetch_article → 11;
         # 10.26 (A6/ADR-1026-18 D1): +get_user_context → 12.
-        assert len(TOOL_CALLING_TOOLS) == 12
+        assert len(TOOL_CALLING_TOOLS) == 13
         for tool in TOOL_CALLING_TOOLS:
             fn = tool["function"]
             desc = fn["description"]
@@ -573,7 +573,8 @@ class TestToolSchemasEnCanon:
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "generate_image",
-            "transcribe_video", "fetch_article", "get_user_context"]
+            "transcribe_video", "fetch_article", "get_user_context",
+            "recognize_image"]
         assert TOOL_CALLING_TOOLS[0]["function"]["parameters"]["required"] == ["query"]
 
     def test_description_snapshot(self):

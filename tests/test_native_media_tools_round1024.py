@@ -484,8 +484,10 @@ class TestSchemasContract:
         (ADR-1026-15 D5) добавляет 11-м fetch_article; A6 (ADR-1026-18 D1)
         добавляет 12-м get_user_context."""
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
+        # MCA-19 (ADR-1028-19 §8.6): 13-й recognize_image — в хвосте.
         assert names == _FIRST_NINE + ["transcribe_video", "fetch_article",
-                                       "get_user_context"]
+                                       "get_user_context",
+                                       "recognize_image"]
         assert TOOL_TRANSCRIBE_VIDEO in TOOL_CALLING_TOOLS
         assert TOOL_CALLING_TOOLS[9] is TOOL_TRANSCRIBE_VIDEO
         assert TOOL_TRANSCRIBE_VIDEO["function"]["name"] == "transcribe_video"

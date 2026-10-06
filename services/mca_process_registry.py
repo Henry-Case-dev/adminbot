@@ -1085,12 +1085,51 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
              "«доказан эффект» (replay, вне процесса); K1 OFF → честный "
              "disabled/not_run; R17-safe (ID/коды/числа/refs)",
     ),
+    # MCA-19 (round 10.43, ADR-1028-19 D15/§8.7, T-5116): placeholder
+    # vision.analyze v0 АМЕНДИРОВАН до реального процесса vision.media v1
+    # (прецедент mca-18: self_model.update v0 → self.model v1). Стадии —
+    # ровно `:1699`; события — `vision_media` (component="vision.media",
+    # stage=...); widget-ID — контракт mca-17c.
     ProcessDefinition(
-        process_id="vision.analyze", version="0",
-        purpose="vision/MediaAsset/MediaAnalysis",
-        inputs=(), outputs=(), stages=(), trigger_kind="background",
-        owner_feature="mca-19", widget_id=WIDGET_NONE,
-        note="не реализовано (mca-19)",
+        process_id="vision.media", version="1",
+        purpose="Понимание изображений (mca-19): intake-реестр → durable "
+                "очередь (singleflight) → безопасная загрузка → единый "
+                "vision-анализ → CAS-store → обогащение на месте исходника "
+                "(ADR-1028-19 D18–D20)",
+        inputs=("входящие изображения (summary observer intake)",
+                "manual/tool запросы (recognize_image)",
+                "владелец (manual re-request)", "архивный backfill"),
+        outputs=("mca_media_assets", "mca_media_analyses",
+                 "task_jobs (vision.media/vision.backfill)", "mca_events",
+                 "usage_events (vision.media)"),
+        stages=("ingest", "download", "decode", "vision", "validate",
+                "store", "project", "reindex", "consumers"),
+        trigger_kind="background",
+        schedule="тик планировщика 5с (heartbeat mca-09) + intake live + "
+                 "backfill ниже live",
+        settings_ref=("MCA_VISION_ENABLED", "MCA_VISION_AUTO_ENABLED",
+                      "MCA_VISION_BACKFILL_ENABLED",
+                      "MCA_VISION_TOOL_ENABLED"),
+        state_source=("mca_media_assets", "mca_media_analyses", "task_jobs"),
+        recovery_ops=("job_coalesce", "recover_stale", "deferred_ttl"),
+        widget_id="Распознавание изображений",
+        stages_to_events={"ingest": "vision_media", "download": "vision_media",
+                          "decode": "vision_media", "vision": "vision_media",
+                          "validate": "vision_media", "store": "vision_media",
+                          "project": "vision_media", "reindex": "vision_media",
+                          "consumers": "vision_media"},
+        instrumentation=("ingest", "download", "decode", "vision", "validate",
+                         "store", "project", "reindex", "consumers"),
+        owner_feature="mca-19",
+        enabled_gate="MCA_VISION_ENABLED",
+        event_names=("vision_media", "vision_capability_probe"),
+        note="mca-19 (ADR-1028-19 D15): стадии `:1699` точно; события — "
+             "только id/коды/стадии/модель (R17: без bytes/base64/OCR "
+             "приватного); reindex — домен mca-04/07 по требованию (честный "
+             "skipped), consumers — renderer/tool читают resolve_ready_for_"
+             "asset; cache hit — 0 vision-токенов; завершение фонового "
+             "распознавания само не отправляет сообщение (D18); K1 OFF → "
+             "честный disabled/not_run",
     ),
     ProcessDefinition(
         process_id="temporal.factcheck", version="0",

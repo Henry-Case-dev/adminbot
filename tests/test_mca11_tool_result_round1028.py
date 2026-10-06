@@ -92,14 +92,21 @@ class TestContract:
             "delivery_unknown"}
 
     def test_categories_cover_canon_twelve(self):
+        # MCA-19 (ADR-1028-19 D22, санкция spec §8.6/§8.9): канон тулов
+        # 12→13 (+recognize_image). Карту категорий mca-11 (канон 12, D1)
+        # спека НЕ расширяет: учёт расхода recognize_image — отдельная
+        # категория `vision.media` в llm_usage_events + METERED_TOOLS
+        # (tool_loop.py). В mca-11 recognize_image — неизвестный тул →
+        # консервативный external_read (никогда admin, D1).
         names = {t["function"]["name"] for t in TOOL_CALLING_TOOLS}
-        assert len(names) == 12
-        assert names == set(tool_result.TOOL_CATEGORIES)
+        assert len(names) == 13
+        assert set(tool_result.TOOL_CATEGORIES) == names - {"recognize_image"}
+        assert tool_result.category_for("recognize_image") == "external_read"
         counts = {}
         for name in names:
             counts[tool_result.category_for(name)] = \
                 counts.get(tool_result.category_for(name), 0) + 1
-        assert counts == {"memory_read": 4, "external_read": 5,
+        assert counts == {"memory_read": 4, "external_read": 6,
                           "paid_media": 2, "admin": 1}
 
     def test_unknown_tool_conservative_never_admin(self):

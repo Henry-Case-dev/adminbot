@@ -85,7 +85,7 @@ def test_settings_catalog_group_and_defaults():
     import pathlib
     app_js = pathlib.Path("web/app.js").read_text(encoding="utf-8")
     assert "groups: ['memory_experience']" in app_js
-    assert "len(pc.TAB_RULES) == 21" not in app_js  # sanity: JS не пинит каталог
+    assert "len(pc.TAB_RULES) == 22" not in app_js  # sanity: JS не пинит каталог
 
 
 def test_settings_apply_without_restart(monkeypatch):
