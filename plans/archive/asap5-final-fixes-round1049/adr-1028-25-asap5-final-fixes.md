@@ -1,6 +1,6 @@
 # ADR-1028-25 — ASAP 5 (`asap5-final-fixes`): design-freeze политики Summary, прозрачности Cover, восстановления GraphRAG, embeddings-identity, Random-bootstrap, парадигм и графа
 
-**Статус:** Proposed (ратификация — по прод-валидации на PM-close T-5275; прецедент ADR-1028-21/-22/-23/-24).
+**Статус:** **Accepted** (ратифицирован 07.10.2026 @PM T-5275 по прод-валидации: review **Approved ×2** — итер.1 пакет 0 блокирующих + итер.2 web-слайс (F-1 закрыт); scanner **«к деплою ДА» ×2** — C0/H0 пакет и дельта; прод 2.58.68 `dd134cc` и 2.58.69 `bea9101` **VERIFIED** — DDL=0 доказано продом v33/tables=120, каталог 529=санкция, KS 85, reason 280, тулы 14, routes-пин `8153b8bd…` цел; прецедент ADR-1028-21/-22/-23/-24).
 **Дата:** 07.10.2026. **Автор:** @Architect (Step 2, T-5238/T-5239). **Свёрка:** @PM T-5240.
 **Источники:** `plans/current_task.md:27151–29600` (READ-ONLY); RCA: `rca_summary.md` (9/9 confirmed), `rca_cover.md`, `rca_graphrag_random.md`; requirements-map (ASAP5-R1…R30, Q1–Q13); tasks.md (T-5238…T-5275). Детали дизайна — `spec.md` этой папки (§1–§11); здесь — решения и последствия.
 **Supersedes:** —. **Superseded-by:** —.
