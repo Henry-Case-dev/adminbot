@@ -2091,6 +2091,9 @@ class RandomSourceService:
             "selected_source": selected,
             "effective_source": effective,
             "fallback_reason": blocker,
+            # T-5261 (asap5-final-fixes, §14): настройка fallback — проверяемое
+            # поле config-state (владелец видит, что PRNG-откаты разрешены).
+            "fallback_setting": await self.fallback_enabled(chat_id),
             "anu_state": await self.anu_state(),
             "key_present": bool(self._resolve_key()),
             "key_fingerprint": state.get("key_fingerprint"),

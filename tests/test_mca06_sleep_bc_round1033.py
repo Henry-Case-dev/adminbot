@@ -377,6 +377,12 @@ class TestWorkerWiring:
             return NOW - 3600
 
         monkeypatch.setattr(db, "last_deep_attempt", _last)
+        # D14/T-5264: класс C (bootstrap) неприменим — парадигмы у чата ЕСТЬ,
+        # поэтому обычный интервал держит cooldown как раньше.
+        async def _has_paradigms(chat_id=None):
+            return 1
+
+        monkeypatch.setattr(db, "count_paradigms", _has_paradigms)
         worker = DreamWorker(db, memory=_FakeMemory(), llm=_FakeWorkerLLM())
         out = await worker._run_deep_once(CHAT_ID, manual=False)
         assert out["status"] == "cooldown"
@@ -476,13 +482,22 @@ class TestDeepSleepApi:
 
     @pytest.mark.asyncio
     async def test_each_gate_distinct_reason(self, monkeypatch):
+        # D14/T-5264: структурные причины — paradigms_reason = gate-причина;
+        # scheduler-причины (cooldown/schedule/queue/resource) НЕ подменяют
+        # результат последней попытки → он независим в `scheduler_gate`,
+        # а paradigms_reason = last-attempt (пусто → "empty").
         for reason in mca_gates.DREAM_GATE_REASONS:
             st = mca_gates.DreamGateState(
                 gate="g", blocked=True, reason=reason, global_value=False,
                 chat_override=None, effective=False, source="global",
                 detail=f"key for {reason}")
             resp = await self._call(monkeypatch, _FakeGateDb(), st)
-            assert resp["paradigms_reason"] == reason, reason
+            if reason in mca_gates.SCHEDULER_GATE_REASONS:
+                assert resp["scheduler_gate"] == reason, reason
+                assert resp["paradigms_reason"] == "empty", reason
+            else:
+                assert resp["scheduler_gate"] is None, reason
+                assert resp["paradigms_reason"] == reason, reason
             assert resp["detail"] == f"key for {reason}"
 
     @pytest.mark.asyncio

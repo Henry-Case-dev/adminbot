@@ -43,6 +43,12 @@ _INIT_RETRY_DELAY = 2.0
 
 _INFO_KEY = "content.info_how_it_works"
 
+# D13 (asap5-final-fixes, T-5262, 14A.0): санкционированные secret-группы,
+# незаданные секреты которых ДОПОЛНЯЮТ /api/config синтетическими
+# catalog-only items (configured=false). Список в коде — расширение группы
+# только санкционированной правкой (R17: plaintext не существует).
+_SYNTHETIC_SECRET_GROUPS = frozenset({"keys_random"})
+
 
 def _read_guide_canon() -> str:
     """F9 10.23 (ADR-1023-9): чтение код-канона гайда из seed-файла
@@ -469,8 +475,52 @@ class ConfigCache:
         return self._settings.get(key, default)
 
     def get_all(self) -> dict:
-        """Снапшот всех bot_settings (копия — не мутировать)."""
-        return dict(self._settings)
+        """Снапшот всех bot_settings (копия — не мутировать).
+
+        D13 (asap5-final-fixes, T-5262, 14A.0 bootstrap paradox): снапшот
+        ДОПОЛНЯЕТСЯ синтетическими catalog-only items для НЕзаданных
+        ключей санкционированных secret-групп (`keys_random`; список в
+        коде). Секреты — пустая строка → `/api/config` маскирует как
+        {configured:false}; не-секреты — каталоговый дефолт Settings
+        (честное значение, которое рантайм и так использует). plaintext
+        не существует, строки в БД НЕ создаёт (деривация на чтении —
+        переживает рестарт by construction). Иначе карточка «Случайность:
+        подключение ANU» неоткуда рендерится: сид ключей категории keys
+        строки не создаёт (pg_db._seed_settings), а items строятся только
+        из bot_settings (RCA G5/14A.0)."""
+        snapshot = dict(self._settings)
+        snapshot.update(self._synthetic_group_items())
+        return snapshot
+
+    def _synthetic_group_items(self) -> dict:
+        """D13/T-5262: catalog-only items незаданных ключей санкциониро-
+        ванных secret-групп. Секреты → "" (маска configured=false), не-
+        секреты → дефолт Settings (без выдуманных значений). Никаких
+        фиктивных секретов/строк БД; незатронутые группы — прежнее
+        поведение."""
+        out: dict = {}
+        try:
+            from services.param_catalog import REGISTRY
+            from services.pg_db import coerce_catalog_value
+        except Exception:      # pragma: no cover - fail-open (старое поведение)
+            return out
+        for spec in REGISTRY.values():
+            if spec.group not in _SYNTHETIC_SECRET_GROUPS:
+                continue
+            key = spec.pg_key
+            if not key or key in self._settings:
+                continue
+            if spec.secret:
+                out[key] = ""
+                continue
+            try:
+                if spec.settings_field is None:
+                    continue
+                out[key] = coerce_catalog_value(
+                    spec, getattr(settings, spec.settings_field))
+            except Exception:      # нет Settings-поля → item не синтезируем
+                continue
+        return out
 
     def get_role(self, telegram_id: int) -> str | None:
         return self._admins.get(telegram_id)

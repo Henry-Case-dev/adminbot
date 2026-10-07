@@ -267,12 +267,18 @@ class TestShizPostfix:
     def test_marker_is_strip_only(self):
         import inspect
 
+        # ASAP 5 (asap5-final-fixes, 07.10.2026, SERIALIZE-1/ADR-1028-25 D8):
+        # маркер и его единственное strip-использование переехали в
+        # cover_prompt_assembly вместе с derive-функцией обложки.
+        # Инвариант прежний: маркер — только strip-константа.
+        import services.cover_prompt_assembly as cpa_module
         import services.summary_generator as sg_module
-        source = inspect.getsource(sg_module)
+        source = inspect.getsource(cpa_module)
         # Единственное использование маркера — strip в fallback-промпте обложки
         # (шутка модели не должна попасть в visual-промпт).
         assert source.count("_SHIZ_MARKER") == 2  # определение + strip
         assert ".replace(_SHIZ_MARKER" in source
+        assert "_SHIZ_MARKER" not in inspect.getsource(sg_module)
 
     @pytest.mark.asyncio
     async def test_pipeline_does_not_append_winner(self, no_sleep):

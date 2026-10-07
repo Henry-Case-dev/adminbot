@@ -169,7 +169,7 @@ class TestTabMappingAudit:
         # группа keys_llm уже приписана вкладке llm_providers) → 489.
         assert len(pc._TAB_BY_GROUP) == 111
         assert len(GROUPS) == 113
-        assert len(pc.REGISTRY) == 523
+        assert len(pc.REGISTRY) == 529
 
 
 class TestModuleTabs:

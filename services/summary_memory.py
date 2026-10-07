@@ -2162,7 +2162,12 @@ class MemoryManager:
         Durable media jobs recovery (§30) — в bot.on_startup (не зависит от
         summary-гейта). Fail-open; вызывается ТОЛЬКО через fire_and_forget."""
         try:
-            from services.graphrag_rebuild import maybe_schedule_rebuilds
+            from services.graphrag_rebuild import (maybe_schedule_rebuilds,
+                                                   start_resume_ticker)
+            # D10/T-5255: периодический тик future-resume — стартует один раз
+            # на процесс (идемпотентно), переживает рестарты (durable-состояние
+            # в task_jobs/реестре; в окне cooldown тик — no-op).
+            start_resume_ticker(self)
             await maybe_schedule_rebuilds(self)
         except Exception:
             logger.warning("SmartModule: graphrag rebuild schedule failed",

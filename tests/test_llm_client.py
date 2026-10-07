@@ -650,7 +650,9 @@ class TestEmbedFallbackKeyCascade:
     @pytest.mark.asyncio
     async def test_key1_403_then_key2_200(self, monkeypatch, caplog):
         """key1 403 (детерминированный) → key2 200 → векторы; по одному
-        запросу на ключ; OK-лог с key_idx=1; Bearer per-request."""
+        запросу на ключ; OK-лог с профилем fallback_2; Bearer per-request.
+        D11 (asap5-final-fixes, T-5256): каскад — по НЕЗАВИСИМЫМ профилям
+        (Fallback 1 → Fallback 2), у каждого свой base/model/key."""
         import logging
         seen = {"primary": 0, "fb_by_key": {}, "fb_urls": [],
                 "fb_auths": []}
@@ -664,16 +666,16 @@ class TestEmbedFallbackKeyCascade:
             "https://fallback.test/v1/embeddings"] * 2
         # Bearer каждого ключа — заголовком его запроса (клиент общий)
         assert seen["fb_auths"] == ["Bearer fb-key-1", "Bearer fb-key-2"]
-        assert any("LLM embed fallback OK | model=embed-model | key_idx=1"
+        assert any("LLM embed fallback OK | model=embed-model | profile_idx=1"
                    in r.message for r in caplog.records)
-        assert any("LLM embed fallback attempt | key_idx=0" in r.message
-                   for r in caplog.records)
-        assert any("LLM embed fallback key 0 failed" in r.message
-                   for r in caplog.records)
+        assert any("LLM embed fallback attempt | profile=fallback_1"
+                   in r.message for r in caplog.records)
+        assert any("LLM embed fallback profile fallback_1 failed"
+                   in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_key1_200_key2_not_called(self, monkeypatch, caplog):
-        """key1 200 → key2 НЕ вызывается; OK-лог с key_idx=0."""
+        """key1 200 → key2 НЕ вызывается; OK-лог с профилем fallback_1."""
         import logging
         seen = {"primary": 0, "fb_by_key": {}, "fb_urls": [],
                 "fb_auths": []}
@@ -684,10 +686,10 @@ class TestEmbedFallbackKeyCascade:
         assert vectors == [[5.5]]
         assert seen["fb_by_key"] == {"fb-key-1": 1}
         assert "fb-key-2" not in seen["fb_by_key"]
-        assert any("LLM embed fallback OK | model=embed-model | key_idx=0"
+        assert any("LLM embed fallback OK | model=embed-model | profile_idx=0"
                    in r.message for r in caplog.records)
-        assert not any("LLM embed fallback key 0 failed" in r.message
-                       for r in caplog.records)
+        assert not any("LLM embed fallback profile fallback_1 failed"
+                       in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_both_403_raises_original_one_request_per_key(
@@ -709,8 +711,8 @@ class TestEmbedFallbackKeyCascade:
         assert len(seen["fb_auths"]) == 2
         assert any("LLM embed fallback exhausted" in r.message
                    and "403" in r.message for r in caplog.records)
-        assert any("LLM embed fallback key 1 failed" in r.message
-                   for r in caplog.records)
+        assert any("LLM embed fallback profile fallback_2 failed"
+                   in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_no_keys_fallback_inactive_old_path(self, monkeypatch,

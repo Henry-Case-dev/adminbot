@@ -480,7 +480,10 @@ class TestGroups8424:
         # flags 77, limits 203.
         # MCA-20 (ADR-1028-20 D13, round 10.44): temporal +4
         # (temporal.default_mode / freshness ×2 / tool_enabled) → 523.
-        assert counts == {"prompts": 24, "models": 66, "keys": 34,
+        # ASAP 5 (asap5-final-fixes, T-5256, санкция §5): models +6 PG-only
+        # (models.embedding_fallback{1,2}_{base_url,model,quota_group})
+        # → models 72, итого 529; F8 meta-pin переиздан.
+        assert counts == {"prompts": 24, "models": 72, "keys": 34,
                           "limits": 203, "flags": 77, "reactions": 39,
                           "content": 5, "memory": 46, "temporal": 4}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)

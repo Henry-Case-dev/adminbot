@@ -511,13 +511,13 @@ class TestBounds:
         # ASAP-3 (ADR-1028-2 D12): санкционированная Δ +2 → 483.
         # ASAP-3.1 (ADR-1028-3, санкция spec 10.1): +1 ключ
         # models.chat_context_window_override → 484 (F8 переиздан атомарно).
-        assert len(pc.REGISTRY) == 523
+        assert len(pc.REGISTRY) == 529
         assert len(pc.GROUPS) == 113
         assert len(pc._TAB_BY_GROUP) == 111
         assert len(pc.TAB_RULES) == 22
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.67"
+        assert APP_VERSION == "2.58.68"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         assert "v2.58.34" in readme
 
@@ -626,13 +626,28 @@ class TestBounds:
         # Транспортная семантика пина продолжает проверяться супервизором
         # (tests/test_summary_supervisor_asap41.py); из AST-пина исключены
         # по прецеденту исключения `_run`/`_run_hybrid_l2`.
+        # NOTE (asap5-final-fixes, 07.10.2026, SERIALIZE-1/ADR-1028-25 D8):
+        # `_derive_fallback_cover_prompt` исключён из AST-пина — сборка
+        # cover-промпта вынесена в services/cover_prompt_assembly.py
+        # (санкционированный extraction, shim в summary_generator);
+        # поведение бит-в-бит покрыто тестами cover-домена (T-5268).
         for name in ("_hybrid_l2_enabled", "_compose_user_content",
                      "_extract_keywords", "_format_l2_quote",
-                     "_resolve_cover_prompt", "_derive_fallback_cover_prompt",
+                     "_resolve_cover_prompt",
                      "_chunk_by_whitespace", "_send_text_with_retry",
                      "_send_rich_with_retry", "_send_one_chunk", "_send_ux"):
             assert _func_dump(current, name) == _func_dump(proc.stdout, name), \
                 f"логика {name} изменилась (D1/ASAP-2 byte-parity Legacy)"
+        # ASAP 5 (asap5-final-fixes, 07.10.2026, SERIALIZE-1/ADR-1028-25 D8):
+        # пин верифицирует СОБРАННУЮ логику derive в новой локации —
+        # cover_prompt_assembly.derive_fallback_cover_prompt (тело перенесено
+        # бит-в-бит, lazy-imports вместо module-level), а не старую; в
+        # summary_generator остаётся shim-имя (join-инвариант тестов/web).
+        import inspect as _inspect_pin
+        import services.cover_prompt_assembly as _cpa_pin
+        assert hasattr(_cpa_pin, "derive_fallback_cover_prompt")
+        assert "_SHIZ_MARKER" in _inspect_pin.getsource(_cpa_pin)
+        assert "derive_fallback_cover_prompt" in current
         # Тело LEVEL-3 = извлечённый OFF-конур: пин структуры Legacy-контура —
         # `_run_legacy_pipeline` обязан содержать те же вызовы ядра.
         # NOTE (round1028, ASAP-2.1, контракт (e)): `_ensure_shiz_postfix`

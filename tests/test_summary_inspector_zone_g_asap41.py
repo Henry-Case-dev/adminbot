@@ -110,7 +110,12 @@ class TestHonestCoverageSemantics:
     def test_l1_failed_source_full_are_separate_axes(self):
         """ОБЯЗАТЕЛЬНЫЙ fixture-тест (T-4621, spec G.1): «839/839 Coverage
         100%» рядом с L1 failure НЕ показывается единым успехом — L1
-        result=failed отдельная ось рядом с source 100%."""
+        result — отдельная ось рядом с source 100%.
+
+        ASAP 5 D1 (ADR-1028-25): fixture содержит SUMMARY_L2_STAGE
+        (Writer продолжил от полного окна) → честный исход
+        degraded_map_fallback (⚠), а не красный крест: L1-fail при
+        writer-source ON не валит Summary (T-5245)."""
         events = _fixture_events_full_window(l1_failed=True)
         view = pa.build_run_view("run-g1", _snap(), events)
         br = view["coverage_breakdown"]
@@ -118,11 +123,15 @@ class TestHonestCoverageSemantics:
         # Источник честно полный…
         assert br["source"]["total"] == 839
         assert br["source"]["percent"] == 100.0
-        # …но structurer-L1 результат — ОТДЕЛЬНАЯ ось со своим failed.
-        assert br["l1"]["result"] == "failed"
+        # …но structurer-L1 результат — ОТДЕЛЬНАЯ ось, честная деградация
+        # с продолжением Writer'а (не ok-маска и не terminal-крест).
+        assert br["l1"]["result"] == "degraded_map_fallback"
         assert br["l1"]["input_total"] == 839
         assert br["l1"]["input_mode"] == "WHOLE_WINDOW"
         assert br["l1"]["input_requests"] == 1
+        # Узел L1 — резервный контур (⚠), не «не выполнено» (✕).
+        by_key = {n["key"]: n for n in view["nodes"]}
+        assert by_key["l1"]["state"] == pa.STATE_FALLBACK
         # Существующая first-class coverage (R4-E) сохраняется рядом.
         assert view["coverage"]["percent"] == 100.0
         # Ось Final — отдельная (результат not merged с L1).

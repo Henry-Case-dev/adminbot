@@ -188,7 +188,8 @@ def _compact_semantic_brief(text: str) -> str:
 
 def compile_prompt(components: list[PromptComponent], *,
                    capabilities: ImageModelCapabilities,
-                   budget_component: str = "") -> CompiledPrompt:
+                   budget_component: str = "",
+                   budget_floor_text: str = "") -> CompiledPrompt:
     """Собрать prompt под capability модели (spec §3/D3 P0–P3).
 
     ON `IMAGE_PROMPT_SEMANTIC_COMPRESSION_ENABLED`: P0 (механика edit) и P1
@@ -196,7 +197,12 @@ def compile_prompt(components: list[PromptComponent], *,
     ножницами; давление снимается сначала с P3, затем P2 → compact semantic
     brief; если P0+P1 не помещаются → `exceeded=True`,
     `reason="prompt_limit_exceeded"` (caller публикует Base Cover).
-    OFF → прежний 3-уровневый алгоритм байт-в-байт."""
+    OFF → прежний 3-уровневый алгоритм байт-в-байт.
+
+    `budget_floor_text` (ASAP 5/D9, T-5251): story-minimum (160 chars или
+    100% оригинала) — последняя попытка перед drop'ом бюджета: если compact
+    не влезает, а floor влезает, едет floor (сюжет не теряется при retry).
+    Аддитивно; без floor поведение байт-в-бит прежнее."""
     if not semantic_compression_enabled():
         return _compile_prompt_legacy(
             components, capabilities=capabilities,
@@ -253,7 +259,15 @@ def compile_prompt(components: list[PromptComponent], *,
             if compact and _units_of(trial2, unit) <= limit:
                 working = trial2
             else:
-                dropped.append("cover_brief")
+                # D9 (T-5251): story-minimum — последняя попытка перед drop:
+                # floor короче compact (граница слова от 160) и влезает → едет.
+                floor = str(budget_floor_text or "").strip()
+                trial3 = ((working + " " + floor).strip()
+                          if floor and floor != compact else "")
+                if floor and trial3 and _units_of(trial3, unit) <= limit:
+                    working = trial3
+                else:
+                    dropped.append("cover_brief")
     # P3 — декоративные, при давлении первыми.
     for comp in p3:
         trial = (working + " " + comp.text).strip()

@@ -56,7 +56,7 @@ def test_no_ddl_catalog_ks_tools_delta():
     assert len(mca_gates.KILL_SWITCHES) == 85         # Δ KS = 0
     assert len(TOOL_CALLING_TOOLS) == 14              # Δ тулов = 0
     # REGISTRY 523 (F8 --check отдельно; здесь — канон-число каталога)
-    assert len(pc.REGISTRY) == 523
+    assert len(pc.REGISTRY) == 529
 
 
 def test_registry_47_no_new_widgets():
@@ -114,7 +114,7 @@ def test_coverage_matrix_sync():
 
 def test_app_version_not_bumped():
     # bump 2.58.65→2.58.66 — домен @DevOps (T-5198), Builder не делает.
-    assert APP_VERSION == "2.58.67"
+    assert APP_VERSION == "2.58.68"
 
 
 def test_routes_plus3_and_registration():

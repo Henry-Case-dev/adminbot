@@ -508,7 +508,18 @@ async def memory_embeddings_panel(
     except Exception:
         logger.warning("[memory_api] provider panel failed", exc_info=True)
         provider = {}
-    return {"vector_memory": vector_panel, "provider": provider}
+    # D10/T-5255 (incidental RCA §2.4): написанный `rebuild_status()` долго
+    # не был подключён ни к одному API/UI — GraphRAG rebuild был невидим
+    # владельцу. Расширение СУЩЕСТВУЮЩЕГО read-API (без нового роута, D17).
+    rebuild: dict = {}
+    try:
+        from services.graphrag_rebuild import rebuild_status
+        rebuild = await rebuild_status(db)
+    except Exception:
+        logger.warning("[memory_api] rebuild_status failed", exc_info=True)
+        rebuild = {}
+    return {"vector_memory": vector_panel, "provider": provider,
+            "rebuild": rebuild}
 
 
 # ── GET /api/memory/deep-sleep (F3/T-1442, spec §6/§8) ──────────────────────
@@ -551,6 +562,20 @@ def _last_deep_reason(log) -> str | None:
         raw = str(row.get("status") or "").strip()
         if raw:
             return _DEEP_REASON_MAP.get(raw, "empty")
+    return None
+
+
+def _last_deep_attempt_row(log) -> dict | None:
+    """D14/T-5264: первая (самая свежая) строка deep-попытки из
+    скоупированного лога — сырой статус + run_at (для retry-класса и
+    next_auto_attempt_at). Никогда не бросает."""
+    for row in (log or []):
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("kind") or "") not in ("deep_run", "deep_skip"):
+            continue
+        if row.get("status") or row.get("run_at"):
+            return row
     return None
 
 
@@ -632,7 +657,16 @@ async def deep_sleep_status(
     elif counters_error and resolver_on and service_available:
         # A91/THR-12: сбой чтения ≠ пустой пул; не маскируем нулями.
         paradigms_status, paradigms_reason = "empty", "counters_error"
+    elif gate_state is not None and gate_state.blocked \
+            and str(gate_state.reason) in mca_gates.SCHEDULER_GATE_REASONS:
+        # D14/T-5264: scheduler-причина (cooldown/schedule/queue/resource)
+        # объясняет, почему НОВЫЙ запуск не начался, и НЕ подменяет
+        # результат предыдущей попытки (RCA P1: 16×no_anchors за «cooldown»).
+        paradigms_status = "empty"
+        paradigms_reason = _last_deep_reason(deep_log) or "empty"
     elif gate_state is not None and gate_state.blocked:
+        # Структурные причины (master/deep/rag off) — честный empty-state
+        # «данных нет до включения» (паритет прежних тестов).
         paradigms_status, paradigms_reason = "empty", str(gate_state.reason)
     elif (not resolver_on or not service_available) and (
             not master_enabled or not bool(deep_enabled)):
@@ -642,6 +676,15 @@ async def deep_sleep_status(
     else:
         paradigms_status = "empty"
         paradigms_reason = _last_deep_reason(deep_log) or "empty"
+    # ── D14/T-5264: gate ≠ last-attempt — независимые поля §13A.1 ──────────
+    last_row = _last_deep_attempt_row(deep_log) or {}
+    raw_last_status = str(last_row.get("status") or "").strip()
+    last_attempt_at = last_row.get("run_at")
+    last_attempt_at = int(last_attempt_at) if last_attempt_at else None
+    scheduler_gate = None
+    if gate_state is not None and gate_state.blocked \
+            and str(gate_state.reason) in mca_gates.SCHEDULER_GATE_REASONS:
+        scheduler_gate = str(gate_state.reason)
     response = {
         "enabled": bool(deep_enabled),
         "source": deep_source,
@@ -654,7 +697,25 @@ async def deep_sleep_status(
         "deep_enabled": bool(deep_enabled),
         "master_enabled": master_enabled,
         "log": [_dream_log_out(r) for r in deep_log],
+        # D14: диагностика независимо от gate-причины (аддитивно, R16).
+        "scheduler_gate": scheduler_gate,
+        "last_attempt_result": _last_deep_reason(deep_log),
+        "last_attempt_at": last_attempt_at,
+        "last_attempt_retry_class": mca_gates.deep_retry_class(
+            raw_last_status),
     }
+    if scheduler_gate == "cooldown" and last_attempt_at is not None:
+        # следующая автопопытка: bootstrap (парадигм 0) → раз в 2 ч (кап
+        # 6/сутки считает resolver), иначе обычный интервал.
+        from services.dream_worker import (_DEEP_SLEEP_MIN_INTERVAL_HOURS,
+                                           _hot_number)
+        if int(total) == 0:
+            window = mca_gates.DEEP_BOOTSTRAP_INTERVAL_SECONDS
+        else:
+            window = int(_hot_number(
+                "memory.deep_sleep_min_interval_hours",
+                _DEEP_SLEEP_MIN_INTERVAL_HOURS, int)) * 3600
+        response["next_auto_attempt_at"] = last_attempt_at + window
     if resolver_on and service_available:
         # T-4705/T-4706: counters_error + карточка состояния сна
         # (global/override/effective/source + конкретный detail) — аддитивно.

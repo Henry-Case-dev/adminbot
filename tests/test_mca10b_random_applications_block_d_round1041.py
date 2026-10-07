@@ -263,7 +263,7 @@ def test_blockE_catalog_random_uses_keys():
     memory_random: per-chat, не-секреты, все default ON (read-path
     fail-open True); GROUPS/_TAB_BY_GROUP/TAB_RULES без роста."""
     from services import param_catalog as pc
-    assert len(pc.REGISTRY) == 523
+    assert len(pc.REGISTRY) == 529
     assert len(pc.GROUPS) == 113
     assert len(pc._TAB_BY_GROUP) == 111
     assert len(pc.TAB_RULES) == 22
@@ -291,17 +291,19 @@ def test_blockE_f8_check_green_and_baselines():
         [sys.executable, str(ROOT / "tools/gen_param_registry_round1025.py"),
          "--check"], capture_output=True, text=True, timeout=120)
     assert res.returncode == 0, res.stdout + res.stderr
-    assert "523" in res.stdout   # mca-20 round 10.44: 519 → 523
+    # ASAP 5 (asap5-final-fixes, T-5256, санкция §5): 523→529 (+6 PG-only
+    # профилей embeddings); delta 112→118.
+    assert "529" in res.stdout
     fx = json.loads((ROOT / "tests/fixtures/round1025/f8_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert fx["counts"]["REGISTRY"] == 523
+    assert fx["counts"]["REGISTRY"] == 529
     assert fx["counts"]["GROUPS"] == 113
     assert fx["counts"]["TAB_BY_GROUP"] == 111
     assert fx["counts"]["TAB_RULES"] == 22
-    assert fx["counts"]["delta"] == 112
+    assert fx["counts"]["delta"] == 118
     cb = json.loads((ROOT / "tests/fixtures/round1025/catalog_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert len(cb["registry_keys"]) == 523
+    assert len(cb["registry_keys"]) == 529
     for key in ("memory.random_uses_belief_review",
                 "memory.random_uses_ui_visualization"):
         assert key in cb["registry_keys"]

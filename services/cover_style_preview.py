@@ -203,6 +203,21 @@ def _asset_url(asset_id) -> str | None:
     return f"/api/cover/assets/{asset_id}" if asset_id else None
 
 
+async def job_manifest(db, job_id: str, *,
+                       include_prompt: bool = False) -> dict | None:
+    """D7/T-5249: CoverPromptManifest durable-джобы для admin-API.
+
+    Единая fail-closed точка чтения для preview/production/base job'ов:
+    без ``include_prompt=True`` (admin-authorized вызывающий) отдаются
+    только числа/enum/статусы/хэши — полные тексты не покидают durable
+    job evidence. ``None`` — джобы/манифеста нет."""
+    state = await jobs.load_cover_state(db, job_id)
+    if state is None:
+        return None
+    return jobs.manifest_public(state.prompt_manifest,
+                                 include_prompt=include_prompt)
+
+
 async def job_status(db, job_id: str) -> dict | None:
     """Бесплатный снимок статуса (§2.3): только durable-чтение, без provider."""
     row = await jobs.get_cover_job(db, job_id)

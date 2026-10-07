@@ -1522,6 +1522,73 @@ DREAM_GATE_REASONS = (
     "queue_busy", "cooldown", "resource_limit",
 )
 
+# ── D14 (asap5-final-fixes, T-5264, Q11): gate ≠ last-attempt ───────────────
+# Scheduler-причины (cooldown/schedule/queue/resource) объясняют ТОЛЬКО почему
+# НОВЫЙ запуск не начался и НЕ подменяют результат предыдущей попытки
+# (RCA P1: 16×no_anchors за «cooldown» — владелец не видел причину).
+SCHEDULER_GATE_REASONS = frozenset({
+    "cooldown", "schedule_outside_window", "queue_busy", "resource_limit",
+})
+# Retry-классы (frozen D14; константы в коде — Δ каталога/KS = 0):
+DEEP_RETRY_CONTENT_EMPTY = "content_empty"   # A: обычный интервал
+DEEP_RETRY_TECH_ERROR = "tech_error"         # B: bounded backoff (Gate 7a)
+DEEP_RETRY_BOOTSTRAP = "bootstrap"           # C: 2 ч / ≤6 сутки, до первой записи
+# Контент-пустые статусы (класс A; статусы memory_dream_log).
+DEEP_CONTENT_EMPTY_STATUSES = frozenset({
+    "no_context", "no_anchors", "insufficient_evidence", "unchanged",
+    "duplicate",
+})
+# Класс C (bootstrap): интервал/кап автопопыток, пока парадигм 0.
+DEEP_BOOTSTRAP_INTERVAL_SECONDS = 2 * 3600   # раз в 2 ч
+DEEP_BOOTSTRAP_DAILY_CAP = 6                 # максимум 6/сутки
+
+
+def deep_retry_class(raw_status: str) -> str | None:
+    """D14: класс причины последней попытки по сырому статусу
+    memory_dream_log. ok/письмо → None (cooldown обычный); контент-пустые →
+    A; техошибки (llm/parse/write → status='error') → B. Никогда не бросает."""
+    s = str(raw_status or "").strip()
+    if not s or s in ("ok", "written"):
+        return None
+    if s in DEEP_CONTENT_EMPTY_STATUSES:
+        return DEEP_RETRY_CONTENT_EMPTY
+    if s == "error":
+        return DEEP_RETRY_TECH_ERROR
+    return None
+
+
+async def deep_bootstrap_pending(db, chat_id: int | None) -> bool:
+    """Класс C активен: парадигм у чата ещё НЕТ (paradigms_total==0).
+    Fail-open: ошибка чтения → False (класс C не активируется молча)."""
+    if db is None or chat_id is None:
+        return False
+    try:
+        total = int(await db.count_paradigms(int(chat_id)))
+    except Exception:
+        return False
+    return total == 0
+
+
+async def deep_bootstrap_cap_ok(db, chat_id: int | None, now: int,
+                                last_attempt: int | None = None) -> bool:
+    """Класс C: интервал (раз в DEEP_BOOTSTRAP_INTERVAL_SECONDS) + суточный
+    кап (≤ DEEP_BOOTSTRAP_DAILY_CAP). Считает ВСЕ попытки (вкл. дешёвые
+    no_anchors-скипы) — иначе кап был бы фикцией. Fail-open при ошибке
+    чтения → False (кап считают исчерпанным)."""
+    if db is None or chat_id is None:
+        return False
+    if last_attempt is not None and \
+            (int(now) - int(last_attempt)) < DEEP_BOOTSTRAP_INTERVAL_SECONDS:
+        return False            # 2-часовой интервал bootstrap-класса
+    try:
+        from services.dream_worker import _day_start_ts
+        day_start = _day_start_ts(int(now),
+                                  getattr(settings, "WORKER_BUDGET_TZ", "UTC"))
+        used = await db.count_deep_attempts_all(day_start, chat_id=int(chat_id))
+    except Exception:
+        return False
+    return int(used) < DEEP_BOOTSTRAP_DAILY_CAP
+
 
 @dataclasses.dataclass(frozen=True)
 class DreamGateState:
@@ -1669,6 +1736,15 @@ async def _cooldown_gate(db, chat_id: int | None, now: int) -> DreamGateState | 
         "memory.deep_sleep_min_interval_hours",
         _dw._DEEP_SLEEP_MIN_INTERVAL_HOURS, int)
     if (int(now) - int(last)) < int(cooldown_h) * 3600:
+        # D14/T-5264, класс C (bootstrap): парадигм у чата ещё нет —
+        # автопопытка раз в DEEP_BOOTSTRAP_INTERVAL_SECONDS (вместо полного
+        # 20-часового интервала), с капом DEEP_BOOTSTRAP_DAILY_CAP/сутки
+        # (считаются ВСЕ попытки). Не busy-loop: интервал + кап; до первой
+        # записи. LLM-защита (resource gate) не ослабляется.
+        if await deep_bootstrap_pending(db, chat_id) \
+                and await deep_bootstrap_cap_ok(db, chat_id, int(now),
+                                                last_attempt=int(last)):
+            return None
         return _blocked(
             "cooldown", "cooldown", global_value=True, effective=False,
             source="runtime",

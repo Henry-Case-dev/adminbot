@@ -148,9 +148,11 @@ class TestFallbackCoverDelivery:
 
         assert len(rec.rich) == 1
         # Успешный путь использует промпт Редактора, а не детерминированный.
+        # ASAP 5 (D8/T-5250): + bounded SUMMARY_CONTEXT от финального документа
+        # («готовый текст») после story.
         assert rec.image_prompts == [
             compose_cover_image_prompt(SUMMARY_COVER_STYLE_DEFAULT,
-                                       "a lone cat")]
+                                       "a lone cat") + " Тема готовый текст"]
 
     @pytest.mark.asyncio
     async def test_stage1_timeout_falls_back_to_single_and_rich(

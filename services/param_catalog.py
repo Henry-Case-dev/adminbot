@@ -994,6 +994,42 @@ _MODELS_PG_ONLY: list[tuple] = [
      "Модель OpenRouter для распознавания голосовых. По умолчанию openrouter/free."),
 ]
 
+# ── ASAP 5 (asap5-final-fixes, T-5256, 13C.1, ADR-1028-25 D11/§5): три
+# честных профиля embeddings — Primary / Fallback 1 / Fallback 2. +6 PG-only
+# ключей (санкция каталога: models.embedding_fallback{1,2}_{base_url,model,
+# quota_group}; 523→529 ожидаемо; F8 meta-pin переиздаётся). PG-only — без
+# Settings-полей (прецедент _SUMMARY_HYBRID_PG_ONLY); рантайм читает hot.get
+# с пустым дефолтом (embedding_control_plane.resolve_embedding_profiles /
+# llm_client), ключи `keys.embedding_fallback_api_key{,_2}` уже раздельные —
+# существующие credentials не теряются. Fallback 2 при незаданных base/model
+# честно помечается как наследующая Fallback 1 (режим миграции по умолчанию,
+# виден в статусе) — тихой подмены нет.
+_EMBEDDING_PROFILES_PG_ONLY: list[tuple] = [
+    ("models.embedding_fallback1_base_url", "models",
+     "Fallback 1: адрес модели памяти", "str", False, "models_embeddings",
+     "Адрес сервера первой запасной модели «отпечатков» текста. Пусто — "
+     "используется прежний общий адрес запасной модели."),
+    ("models.embedding_fallback1_model", "models",
+     "Fallback 1: модель памяти", "str", False, "models_embeddings",
+     "Модель первой запасной. Пусто — прежняя общая модель запасных."),
+    ("models.embedding_fallback1_quota_group", "models",
+     "Fallback 1: квота-группа", "str", False, "models_embeddings",
+     "Группа квоты ключа Fallback 1 (одна группа — общий лимит провайдера). "
+     "Пусто — группа из списка «Квоты: группы ключей памяти»."),
+    ("models.embedding_fallback2_base_url", "models",
+     "Fallback 2: адрес модели памяти", "str", False, "models_embeddings",
+     "Адрес сервера второй запасной модели «отпечатков» текста. Пусто — "
+     "Fallback 2 наследует адрес Fallback 1 (наследуется честно помечается "
+     "в статусе)."),
+    ("models.embedding_fallback2_model", "models",
+     "Fallback 2: модель памяти", "str", False, "models_embeddings",
+     "Модель второй запасной. Пусто — наследует модель Fallback 1."),
+    ("models.embedding_fallback2_quota_group", "models",
+     "Fallback 2: квота-группа", "str", False, "models_embeddings",
+     "Группа квоты ключа Fallback 2. Пусто — группа из списка «Квоты: "
+     "группы ключей памяти»."),
+]
+
 # ── ASAP-2 round1027 (`mca-asap2-summary-pipeline`, §13/§14, ADR-1027-10
 # D11): +16 PG-only записей Hybrid/Legacy контуров Summary. Слоты и тумблеры
 # живут env ClassVar-дефолтами (`getattr(settings, ...)`), которые НЕ являются
@@ -2298,6 +2334,12 @@ def _build_registry() -> dict[str, ParamSpec]:
     # ASAP-2 round1027: 16 PG-only записей Hybrid/Legacy Summary (см. список).
     for (pg_id, category, title, typ, secret, group, desc
          ) in _SUMMARY_HYBRID_PG_ONLY:
+        add(ParamSpec(None, None, category, title, typ, secret=secret,
+                      pg_id=pg_id, group=group, description=desc))
+    # ASAP 5 (asap5-final-fixes, T-5256): +6 PG-only профилей embeddings
+    # (см. список; 523→529, F8 meta-pin переиздаётся).
+    for (pg_id, category, title, typ, secret, group, desc
+         ) in _EMBEDDING_PROFILES_PG_ONLY:
         add(ParamSpec(None, None, category, title, typ, secret=secret,
                       pg_id=pg_id, group=group, description=desc))
     # ASAP-3 round1028: PG-only per-chat ключ silent-ack (см. список).

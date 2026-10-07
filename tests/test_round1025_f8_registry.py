@@ -172,7 +172,7 @@ class TestFrozenInvariants:
         # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): +13 ключей / +2 группы
         # (memory_random/keys_random) / +2 tab-маппинга; TAB_RULES 21 in-place;
         # delta 78→91 → 502/107/105/21.
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 523
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 529
         assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 113
         assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 111
         assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 22
@@ -192,7 +192,7 @@ class TestFrozenInvariants:
         # `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.67"
+        assert APP_VERSION == "2.58.68"
     def test_routes_set_unchanged(self):
         import re
         txt = (ROOT / "web/api/routes.py").read_text(encoding="utf-8")
@@ -221,7 +221,7 @@ class TestRegistry:
         # ASAP 4.4 (T-4880): санкционированная Δ +1 → 489.
         # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): санкционированная
         # Δ +13 (memory.random_* ×4 + keys.random_quantum_* ×9) → 502.
-        assert len(rows) == 523
+        assert len(rows) == 529
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -236,7 +236,7 @@ class TestRegistry:
         # ASAP 4.4 (T-4880): санкционированная Δ +1 → дельта 78.
         # MCA-10a (ADR-1028-14 D8/D12): санкционированная Δ +13 → дельта 91.
         delta = _registry_keys() - _inventory_keys()
-        assert len(delta) == FIXTURE["counts"]["delta"] == 112
+        assert len(delta) == FIXTURE["counts"]["delta"] == 118
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -282,7 +282,9 @@ class TestRegistry:
         # ASAP-3.1 (ADR-1028-3): переиздание после Δ +1 (483→484, 72→73).
         # ASAP 4.4 (T-4880): переиздание после Δ +1 (488→489, 77→78).
         # MCA-10a (ADR-1028-14 D8/D12): переиздание после Δ +13 (502, 91).
-        assert "523" in meta and "411" in meta and "112" in meta
+        # ASAP 5 (asap5-final-fixes, T-5256): переиздание после Δ +6
+        # (529, 118).
+        assert "529" in meta and "411" in meta and "118" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -298,7 +300,7 @@ class TestScreenMap:
         # ASAP 4.4 (T-4880): санкционированная Δ +1 → 489.
         # MCA-10a (ADR-1028-14 D8/D12): санкционированная Δ +13 → 502.
         # MCA-10b (ADR-1028-17 D16): санкционированная Δ +6 → 510.
-        assert len(keys) == 523
+        assert len(keys) == 529
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

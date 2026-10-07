@@ -88,6 +88,20 @@ from services.system2_handoff import (
     parse_summary_handoff_ex,
 )
 from services.external_log import log_external_api
+# ASAP 5 (SERIALIZE-1, D8): сборка cover-промпта вынесена в
+# services/cover_prompt_assembly.py (B2-владение); здесь — импортируемые
+# shim-имена (join-инвариант для тестов 10.23–10.25 и web/api/summary_test.py).
+# Файл после этого ленда B2 не трогает; Summary-функции — домен B1.
+from services import cover_prompt_assembly as _cpa
+from services.cover_prompt_assembly import (  # noqa: F401  (shim re-export)
+    COVER_IMAGE_PROMPT_MAX,
+    compose_base_cover_prompt,
+    compose_cover_image_prompt,
+    cover_style_markers,
+    derive_fallback_cover_prompt,
+    resolve_cover_style,
+    summary_context_text,
+)
 from services.image_generation import (
     generate_image_verbose,
     provider_label,
@@ -252,13 +266,6 @@ def _chain_tg_id(item_id) -> int | None:
     except (TypeError, ValueError):
         return None
 
-# Раунд 10.23 (F6, ADR-1023-6): прежний жёсткий кап (историческое имя —
-# используется тестами 10.23 как справка). Раунд 10.24 (F12/ADR-1024-4 D2):
-# общий кап вынесен в env-only `SUMMARY_COVER_PROMPT_MAX_CHARS` (1000), а
-# кап стиля — в `SUMMARY_COVER_STYLE_MAX_CHARS` (500).
-COVER_IMAGE_PROMPT_MAX = 300
-
-
 @dataclasses.dataclass
 class SummaryDraft:
     """Результат System 2 саммари (Stage-1 → Stage-2).
@@ -280,53 +287,18 @@ class SummaryDraft:
 
 
 def compose_cover_image_prompt(style: str | None, cover_prompt: str) -> str:
-    """«Стиль обложки» + visual prompt (F12/ADR-1024-4 D2, AMEND 1023-6).
-
-    Стиль сохраняется ПРИОРИТЕТНО (до своего капа
-    `SUMMARY_COVER_STYLE_MAX_CHARS`), visual добирает остаток до общего капа
-    `SUMMARY_COVER_PROMPT_MAX_CHARS`; при переполнении режется visual, а не
-    стиль (инструкция владельца типа «PERMsoc» обязана дойти до модели)."""
-    style_cap = int(getattr(settings, "SUMMARY_COVER_STYLE_MAX_CHARS", 500))
-    total_cap = int(getattr(settings, "SUMMARY_COVER_PROMPT_MAX_CHARS", 1000))
-    s = (style or "").strip()[:max(0, style_cap)]
-    remaining = total_cap - len(s) - 1
-    v = (cover_prompt or "").strip()[:max(0, remaining)]
-    return " ".join(part for part in (s, v) if part)
+    """Shim (SERIALIZE-1/D8): реализация в cover_prompt_assembly (бит-в-бит)."""
+    return _cpa.compose_cover_image_prompt(style, cover_prompt)
 
 
 def resolve_cover_style(value) -> str:
-    """T-2509 (hotfix4, ADR-1025-8 D1): эффективный «Стиль обложки».
-
-    Настроенный владельцем стиль применяется как есть; код-дефолт — ТОЛЬКО
-    когда значение реально отсутствует или пусто (``None``/пробелы). Гарантия:
-    потеря «стиля владельца» не превращается в пустой стиль, а честно
-    откатывается к дефолту."""
-    if value is None:
-        return SUMMARY_COVER_STYLE_DEFAULT
-    text = value if isinstance(value, str) else str(value)
-    return text.strip() or SUMMARY_COVER_STYLE_DEFAULT
+    """Shim (SERIALIZE-1/D8): реализация в cover_prompt_assembly (бит-в-бит)."""
+    return _cpa.resolve_cover_style(value)
 
 
 def cover_style_markers(style: str) -> dict:
-    """T-2508 (hotfix4, R17): маркеры содержимого стиля — БЕЗ самого текста.
-
-    * ``has_comic`` — стиль требует комикс-подачу;
-    * ``has_heading`` — явно задан короткий заголовок
-      (``heading``/``title``/``PERMsoc``/«заголовок»);
-    * ``style_is_default`` — доехал код-дефолт (настроенный стиль НЕ пришёл).
-
-    Review L10.25H4-3: токены заголовка — по ГРАНИЦАМ СЛОВ (``\\bpermsoc\\b``,
-    ``\\bheading\\b``, ``\\btitle\\b``) + «заголов» (рус.), чтобы не ловить
-    ложные подстроки («permanent», «permission», «entitled»).
-    """
-    text = (style or "").lower()
-    has_heading = bool(re.search(r"\b(?:permsoc|heading|title)\b", text)) \
-        or "заголов" in text
-    return {
-        "has_comic": "comic" in text,
-        "has_heading": has_heading,
-        "style_is_default": (style or "").strip() == SUMMARY_COVER_STYLE_DEFAULT,
-    }
+    """Shim (SERIALIZE-1/D8): реализация в cover_prompt_assembly (бит-в-бит)."""
+    return _cpa.cover_style_markers(style)
 
 
 @lru_cache(maxsize=1)
@@ -460,13 +432,6 @@ def _generation_code(stage: str | None) -> str | None:
     return (CODE_SUMMARY_GENERATION_FAILED
             if stage in ("l1", "package", "l2", "run") else None)
 
-
-# ASAP-2.1 (контракт (e)/T-3979): «главный шиз» — семантическое решение LLM.
-# Символы алгоритмического выбора (ensure-shiz-postfix / most-active-author /
-# @-regex) УДАЛЕНЫ из responsibility кода. Константа ниже — ТОЛЬКО strip-
-# защита в `_derive_fallback_cover_prompt`: модель может написать шутку в
-# тексте — в visual-промпт обложки она попасть не должна.
-_SHIZ_MARKER = "самым главным шизом объявляется"
 
 _KEYWORD_RE = re.compile(r"[а-яёa-z0-9]{3,}", re.IGNORECASE)
 
@@ -1843,6 +1808,15 @@ class SummaryGenerator:
         fallback_used = False
         package_result = None     # до первого присваивания в try (closure)
 
+        async def _final_policy(status: str, reason: str | None = None) -> None:
+            """ASAP 5 D6: финальная policy-запись run'а — строка
+            ``stage='final_policy'`` в существующей summary_run_stages
+            (status = HYBRID_PUBLISHED | HYBRID_DEGRADED_PUBLISHED |
+            LEGACY_FALLBACK; reason_code = точная причина). Δ DDL = 0 (D5).
+            Fail-open (обёртка _durable_stage_result)."""
+            await self._durable_stage_result(ctx, "final_policy", status,
+                                             reason=reason)
+
         async def _legacy_fallback(reason: str) -> bool:
             """LEVEL-3 (контракт (i), матрица строки 3–6/9–10): полный Legacy-
             пайплайн на уже готовых строках; guard — только если ничего не
@@ -1929,6 +1903,10 @@ class SummaryGenerator:
             return False
 
         stage = "l1"
+        # ASAP 5 D1: writer-source ON — Writer продолжит от полного окна
+        # (fallback package) даже при неудаче L1; решение нужно ДО записи
+        # честного L1 stage-исхода.
+        writer_source = _writer_source_input_enabled()
         # T-4616: checkpoint STRUCTURING (L1 старт). Fail-open.
         try:
             await self._durable_mark(ctx, _srs.STATE_STRUCTURING)
@@ -1966,16 +1944,20 @@ class SummaryGenerator:
                 pass
             # T-4616: checkpoint STRUCTURE_READY (L1 результат получен) +
             # append-only stage event честного исхода L1 (§50.54).
+            # ASAP 5 D1: трёхуровневая семантика — ok |
+            # degraded_map_fallback (Writer продолжит от окна/пакета) |
+            # failed_terminal (Writer не стартовал; корректируется ниже на
+            # empty-путях). L1-fail при writer-source ON НЕ валит Summary.
             try:
                 await self._durable_mark(ctx, _srs.STATE_STRUCTURE_READY)
                 await self._durable_stage_result(
-                    ctx, "l1", "ok" if l1_result.usable else "failed",
+                    ctx, "l1",
+                    "ok" if l1_result.usable else "degraded_map_fallback",
                     reason=str(getattr(l1_result, "invalid_reason", None)
                                or "") or None)
             except Exception:  # pragma: no cover - fail-open
                 pass
             payload_items = build_l1_payload(rows, chat_id)
-            writer_source = _writer_source_input_enabled()
             # T-4607: map-payload L1 (semantic map v1) — по форме выхода
             # (map-режим врезается только в capacity-first ветке run_l1).
             map_payload = None
@@ -2006,9 +1988,14 @@ class SummaryGenerator:
                         # Пустой payload (0 сообщений после фильтра) — НЕ
                         # failure: существующая empty-семантика (строка 2).
                         if ctx is not None:
+                            # ASAP 5 D1: Writer не стартовал (нет ни карты,
+                            # ни окна/пакета) → terminal L1-исход.
                             ctx.status = STATUS_EMPTY
                             ctx.stage = "package"
                             ctx.reason = "l1_empty_payload"
+                            await self._durable_stage_result(
+                                ctx, "l1", "failed_terminal",
+                                reason="l1_empty_payload")
                         return
                 else:
                     # ASAP-3.1 incident fix 29.09.2026 (M-ASAP31-3): тот же
@@ -2028,9 +2015,14 @@ class SummaryGenerator:
                         # Пустой payload (0 сообщений после фильтра) — НЕ
                         # failure: существующая empty-семантика (строка 2).
                         if ctx is not None:
+                            # ASAP 5 D1: Writer не стартовал (нет ни карты,
+                            # ни окна/пакета) → terminal L1-исход.
                             ctx.status = STATUS_EMPTY
                             ctx.stage = "package"
                             ctx.reason = "l1_empty_payload"
+                            await self._durable_stage_result(
+                                ctx, "l1", "failed_terminal",
+                                reason="l1_empty_payload")
                         return
             else:
                 stage = "package"
@@ -2254,18 +2246,38 @@ class SummaryGenerator:
             except Exception:  # pragma: no cover
                 pass
             # T-4616: append-only stage events Writer/Reviewer (§50.54).
+            # ASAP 5 D5: Writer и Reviewer — раздельные честные исходы.
+            # Reviewer-rejection (после bounded repair) НЕ превращает
+            # Writer в «не выполнено»: документ написан и прошёл
+            # deterministic-валидацию; «не выполнено» — за transport/
+            # структурным провалом писателя.
             try:
+                _l2_reason = str(getattr(l2_result, "invalid_reason", None)
+                                 or "") or None
+                _reviewer_reject = _l2_reason in (
+                    "l2_review_rejected", "l2_review_unusable")
                 await self._durable_stage_result(
-                    ctx, "l2", "ok" if getattr(l2_result, "usable", False)
-                    else "failed",
-                    reason=str(getattr(l2_result, "invalid_reason", None)
-                               or "") or None)
-                _rev_metrics = dict(getattr(l2_result, "metrics", None) or {})
-                if _rev_metrics.get("l2_review_iterations") is not None:
+                    ctx, "l2",
+                    "ok" if (getattr(l2_result, "usable", False)
+                             or _reviewer_reject) else "failed",
+                    reason=_l2_reason)
+                _rev_metrics = dict(getattr(l2_result, "metrics", None)
+                                    or {})
+                # D6: l2_review durable-строка — при реально запущенном
+                # review (l2_review_calls > 0; прежнее условие читало
+                # несуществующий ключ и строка никогда не писалась).
+                if _rev_metrics.get("l2_review_calls"):
+                    if _reviewer_reject:
+                        _rev_status, _rev_reason = "failed", _l2_reason
+                    elif _rev_metrics.get("l2_review_degraded"):
+                        _rev_status = "degraded"
+                        _rev_reason = str(
+                            _rev_metrics.get("l2_review_degraded_reason")
+                            or "l2_review_degraded")
+                    else:
+                        _rev_status, _rev_reason = "ok", None
                     await self._durable_stage_result(
-                        ctx, "l2_review",
-                        "degraded" if _rev_metrics.get(
-                            "l2_review_degraded") else "ok")
+                        ctx, "l2_review", _rev_status, reason=_rev_reason)
             except Exception:  # pragma: no cover - fail-open
                 pass
             if not l2_result.usable:
@@ -2285,6 +2297,12 @@ class SummaryGenerator:
                     ctx.pipeline_health = "degraded"
                 if await _legacy_fallback("l2_unusable"):
                     published = True
+                    # ASAP 5 D5/D6: server-подтверждённый unusable/hard
+                    # unresolved после bounded repair → LEGACY_FALLBACK.
+                    await _final_policy(
+                        "LEGACY_FALLBACK",
+                        str(getattr(l2_result, "invalid_reason", None)
+                            or "") or "l2_unusable")
                 else:
                     if ctx is not None:
                         ctx.status = STATUS_DEGRADED
@@ -2350,9 +2368,25 @@ class SummaryGenerator:
                     ctx.stage = "publish"
                 if await _legacy_fallback("delivery_failed"):
                     published = True
+                    await _final_policy("LEGACY_FALLBACK", "delivery_failed")
                 elif ctx is not None and ctx.status != STATUS_FAILED:
                     ctx.status = STATUS_DEGRADED
                     ctx.code = CODE_SUMMARY_GENERATION_FAILED
+            if published and getattr(l2_result, "usable", False):
+                # ASAP 5 D5/D6: финальная policy публикации Hybrid.
+                # HYBRID_DEGRADED_PUBLISHED — когда run честно помечен
+                # деградацией (reviewer outage / soft-only после bounded
+                # цикла); причина — точная (из metrics review-механики).
+                if ctx is not None and getattr(ctx, "pipeline_health",
+                                               None) == "degraded":
+                    _deg_reason = str((dict(
+                        getattr(l2_result, "metrics", None) or {}
+                    ).get("l2_review_degraded_reason")
+                        or "l2_review_degraded"))
+                    await _final_policy("HYBRID_DEGRADED_PUBLISHED",
+                                        _deg_reason)
+                else:
+                    await _final_policy("HYBRID_PUBLISHED")
         except LLMError as exc:
             # Матрица строка 10: непредвиденный LLMError на стадии, которая
             # его не гасит (доставка/обложка) → LEVEL-3 best-effort, если
@@ -2364,6 +2398,8 @@ class SummaryGenerator:
                            chat_id, exc)
             if not published and await _legacy_fallback(
                     "hybrid_exception:LLMError"):
+                await _final_policy("LEGACY_FALLBACK",
+                                    "hybrid_exception:LLMError")
                 return
             await self._send_ux(chat_id, _UX_LLM_FAILED)
         except _SQLITE_ERRORS:
@@ -2379,6 +2415,9 @@ class SummaryGenerator:
             logger.exception("summary: unexpected failure | chat_id=%s", chat_id)
             if not published and await _legacy_fallback(
                     "hybrid_exception:" + type(exc).__name__):
+                await _final_policy(
+                    "LEGACY_FALLBACK",
+                    "hybrid_exception:" + type(exc).__name__)
                 return
             await self._send_ux(chat_id, _UX_GENERIC_FAILED)
 
@@ -2700,9 +2739,20 @@ class SummaryGenerator:
         # snapshot — ЕДИНАЯ точка резолва стиля на run, до base generation
         # и style edit. Kill-switch OFF → None (бит-в-бит прежний контур).
         snapshot = await _csj.selection_stage(chat_id, run_id=correlation_id)
+        run_db = getattr(getattr(self, "memory", None), "db", None)
         try:
             style = await self._resolve_cover_style_text(chat_id)
-            image_prompt = compose_cover_image_prompt(style, cover_prompt)
+            # ASAP 5 (D8/T-5250): Base = STORY_SCENE + SUMMARY_CONTEXT
+            # (bounded representation ФИНАЛЬНОГО approved Summary: title +
+            # главные события; 0 LLM) + BASE_STYLE. Story-minimum: стиль не
+            # вытесняет сюжет (compose_base_cover_prompt).
+            _doc = document if isinstance(document, dict) else {}
+            summary_context = summary_context_text(
+                _doc.get("title"),
+                [p.get("text") for p in (_doc.get("paragraphs") or [])
+                 if isinstance(p, dict)])
+            image_prompt = compose_base_cover_prompt(
+                style, cover_prompt, summary_context)
             # F12/ADR-1024-4 D2 (UPD2 п.10.1) + T-2508 (hotfix4): доказательство
             # подмешивания стиля — R17-safe, без полного текста промпта (только
             # длины и МАРКЕРЫ содержимого).
@@ -2711,12 +2761,33 @@ class SummaryGenerator:
             markers = cover_style_markers(style)
             logger.info(
                 "summary cover: prompt composed | style_present=%s | "
-                "style_len=%d | visual_len=%d | final_len=%d | "
+                "style_len=%d | visual_len=%d | context_len=%d | "
+                "final_len=%d | "
                 "style_is_default=%s | has_comic=%s | has_heading=%s | "
                 "chat_id=%s",
                 bool(style_text), len(style_text), len(visual_text),
-                len(image_prompt), markers["style_is_default"],
+                len(summary_context), len(image_prompt),
+                markers["style_is_default"],
                 markers["has_comic"], markers["has_heading"], chat_id)
+
+            async def _remember_base_manifest(*, ok: bool,
+                                              reason: str) -> None:
+                # D7/T-5249: персист Base-манифеста (фактический sent prompt)
+                # в существующем job-evidence (task_jobs kind=cover_base);
+                # fail-open, полный prompt НЕ в лог.
+                manifest = _cpa.build_base_manifest(
+                    base_style=style_text, story_scene=visual_text,
+                    summary_context=summary_context,
+                    final_prompt=image_prompt, provider=provider_label(),
+                    outcome=("ok" if ok else "failed"), reason=reason)
+                try:
+                    await _csj.record_base_cover_manifest(
+                        run_db, summary_run_id=correlation_id,
+                        chat_id=chat_id, manifest=manifest)
+                except Exception:         # pragma: no cover - fail-open
+                    logger.debug("summary cover: base manifest persist "
+                                 "failed", exc_info=True)
+
             cover_started = log_cover_start(
                 run_id=correlation_id, chat_id=chat_id,
                 provider=provider_label())
@@ -2729,7 +2800,12 @@ class SummaryGenerator:
                 tmp_path, img_reason = await generate_image_verbose(
                     image_prompt, chat_id=chat_id,
                     correlation_id=correlation_id)
+                await _remember_base_manifest(
+                    ok=bool(tmp_path),
+                    reason=("ok" if tmp_path else str(img_reason or "")))
             except Exception as exc:
+                await _remember_base_manifest(ok=False,
+                                              reason=type(exc).__name__)
                 log_cover_error(
                     run_id=correlation_id, chat_id=chat_id,
                     provider=provider_label(), error_type=type(exc).__name__,
@@ -2798,7 +2874,9 @@ class SummaryGenerator:
                 pass
             style_meta = await self._maybe_apply_cover_style(
                 chat_id, base_path, correlation_id, cover_prompt=cover_prompt,
-                base_style=style, snapshot=snapshot)
+                base_style=style, snapshot=snapshot,
+                summary_text=(self._document_plain_text(document)
+                              or cover_prompt))
             if style_meta and style_meta.get("styled_path"):
                 styled_path = style_meta["styled_path"]
                 cover_outcome = _csj.RESULT_STYLED
@@ -2943,7 +3021,9 @@ class SummaryGenerator:
                                        correlation_id: str | None,
                                        cover_prompt: str = "",
                                        base_style: str = "",
-                                       snapshot: dict | None = None) -> dict | None:
+                                       snapshot: dict | None = None,
+                                       summary_text: str | None = None
+                                       ) -> dict | None:
         """EXTRA §3.2/§49: применить выбранный per-chat Style к base cover.
 
         REUSE durable-джобы (§42/§43, DoD-25): строка `task_jobs` создаётся
@@ -3004,7 +3084,12 @@ class SummaryGenerator:
                 chat_id=chat_id, base_image_path=base_image_path,
                 profile=profile, summary_run_id=correlation_id,
                 correlation_id=correlation_id, db=db, job_id=job_id,
-                state=state, summary_text=cover_prompt,
+                state=state,
+                # D8/T-5251: SUMMARY_CONTEXT — от ФИНАЛЬНОГО approved Summary
+                # (0 LLM); без явного summary_text — прежний путь (бит-в-бит).
+                summary_text=(summary_text
+                              if summary_text is not None else cover_prompt),
+                story_scene=cover_prompt,
                 base_style_prompt=base_style)
             try:
                 outcome = (csj.RESULT_STYLED if meta.get("styled_path")
@@ -3474,19 +3559,9 @@ class SummaryGenerator:
     def _derive_fallback_cover_prompt(text: str) -> str:
         """Детерминированный visual-промпт обложки из текста саммари (T-2485).
 
-        Без доп. LLM-вызова: корень фолбэка — провайдерские таймауты, поэтому
-        лишний вызов того же провайдера ненадёжен и/или зависает. Берём первую
-        фразу, снимаем rich-разметку и служебный шиз-постфикс, режем каноном
-        ``SUMMARY_COVER_PROMPT_MAX/300``. Никогда не бросает."""
-        try:
-            plain = downgrade_rich_to_plain(str(text or "")).strip()
-            plain = plain.replace(_SHIZ_MARKER, "").strip()
-            if not plain:
-                return ""
-            first = re.split(r"(?<=[.!?…])\s+", plain, maxsplit=1)[0].strip()
-            return normalize_cover_prompt(first)
-        except Exception:  # pragma: no cover - defensive
-            return ""
+        Shim (SERIALIZE-1/D8): реализация в cover_prompt_assembly.
+        derive_fallback_cover_prompt. Без доп. LLM-вызова; никогда не бросает."""
+        return derive_fallback_cover_prompt(text)
 
     async def _deliver_plain(self, chat_id: int, text: str, *,
                              title: str = "",

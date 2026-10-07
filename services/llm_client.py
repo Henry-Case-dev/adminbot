@@ -378,8 +378,33 @@ class LLMClient:
                                       or self._embed_model)
         self._embed_fallback_timeout = embed_fallback_timeout
         self._embed_fallback_max_retries = embed_fallback_max_retries
-        self._embed_fallback_active = bool(self._embed_fallback_base_url) and \
-            bool(self._embed_fallback_api_keys)
+        # D11 (asap5-final-fixes, T-5256, 13C.1): ДВА НЕЗАВИСИМЫХ фолбэк-
+        # профиля вместо общего base/model. Fallback 1: новые ключи
+        # models.embedding_fallback1_* → пусто = легаси-общие значения
+        # (миграция без потери credentials). Fallback 2: свои ключи
+        # models.embedding_fallback2_*; пусто = наследование Fallback 1
+        # (режим миграции по умолчанию; честно помечен в статусе —
+        # resolve_embedding_profiles). Ключи уже раздельные (key/key_2);
+        # значения ключей не логируются (R17).
+        _fb1_base = ((hot.get("models.embedding_fallback1_base_url", "")
+                      or "").strip() or self._embed_fallback_base_url)
+        _fb1_model = ((hot.get("models.embedding_fallback1_model", "")
+                       or "").strip() or self._embed_fallback_model)
+        _fb2_base = ((hot.get("models.embedding_fallback2_base_url", "")
+                      or "").strip() or _fb1_base)
+        _fb2_model = ((hot.get("models.embedding_fallback2_model", "")
+                       or "").strip() or _fb1_model)
+        self._embed_fallback_profiles = []
+        if self._embed_fallback_api_key:
+            self._embed_fallback_profiles.append(
+                {"alias": "fallback_1", "base_url": _fb1_base,
+                 "model": _fb1_model, "key": self._embed_fallback_api_key})
+        if self._embed_fallback_api_key_2:
+            self._embed_fallback_profiles.append(
+                {"alias": "fallback_2", "base_url": _fb2_base,
+                 "model": _fb2_model, "key": self._embed_fallback_api_key_2})
+        self._embed_fallback_active = bool(self._embed_fallback_profiles) \
+            and any(p["base_url"] for p in self._embed_fallback_profiles)
         self._client: httpx.AsyncClient | None = None
         self._client_key: str | None = None
         # Раунд 10.12 (ADR-1012-1 D1, OD-1): embed-канал имеет СВОЙ
@@ -1104,23 +1129,28 @@ class LLMClient:
         return None
 
     async def _post_embed_fallback(self, payload: dict,
-                                   api_key: str) -> httpx.Response:
+                                   api_key: str,
+                                   base_url: str | None = None,
+                                   model: str | None = None) -> httpx.Response:
         """Одна попытка POST {embed_fallback}/embeddings на ОБЩЕМ клиенте
         embed-фоллбэка; Bearer <api_key> каскада — заголовок конкретного
-        запроса (клиент без auth, ключей в нём нет). model —
-        _embed_fallback_model (пустая при конструировании → primary
-        embed-модель)."""
+        запроса (клиент без auth, ключей в нём нет). base_url/model —
+        профиль D11 (13C.1): None → легаси-общие значения (паритет)."""
         client = self._get_embed_fallback_client()
-        url = f"{self._embed_fallback_base_url.rstrip('/')}/embeddings"
+        url = (f"{(base_url or self._embed_fallback_base_url).rstrip('/')}"
+               "/embeddings")
         fallback_payload = dict(payload)
-        fallback_payload["model"] = self._embed_fallback_model
+        fallback_payload["model"] = model or self._embed_fallback_model
         return await client.post(
             url, json=fallback_payload,
             headers={"Authorization": f"Bearer {api_key}"})
 
     async def _embed_fallback_with_retries(self,
                                            payload: dict,
-                                           api_key: str) -> httpx.Response | None:
+                                           api_key: str,
+                                           base_url: str | None = None,
+                                           model: str | None = None
+                                           ) -> httpx.Response | None:
         """Embed-фоллбэк ОДНИМ ключом каскада с ретраями транзиентных отказов
         (429/5xx/транспорт; EMBEDDING_FALLBACK_MAX_RETRIES), общий таймаут
         попытки EMBEDDING_FALLBACK_TIMEOUT_SECONDS (asyncio.timeout).
@@ -1141,7 +1171,8 @@ class LLMClient:
                     attempt + 1, total_attempts, last_error)
             try:
                 async with asyncio.timeout(self._embed_fallback_timeout):
-                    fb_resp = await self._post_embed_fallback(payload, api_key)
+                    fb_resp = await self._post_embed_fallback(
+                        payload, api_key, base_url=base_url, model=model)
             except Exception as fb_exc:
                 last_error = f"{type(fb_exc).__name__}: {fb_exc}"
                 continue
@@ -1574,28 +1605,35 @@ class LLMClient:
                 raise
             fb_response = None
             fb_idx = 0
-            for idx, key in enumerate(self._embed_fallback_api_keys):
+            fb_model = self._embed_fallback_model
+            # D11 (13C.1): каскад по НЕЗАВИСИМЫМ профилям (Fallback 1 →
+            # Fallback 2), у каждого свой base_url/model/key.
+            for idx, prof in enumerate(self._embed_fallback_profiles):
                 logger.warning(
-                    "LLM embed fallback attempt | key_idx=%d | primary_error=%s",
-                    idx, f"{type(exc).__name__}: {exc}",
+                    "LLM embed fallback attempt | profile=%s | primary_error=%s",
+                    prof.get("alias") or idx, f"{type(exc).__name__}: {exc}",
                 )
                 fb_response = await self._embed_fallback_with_retries(
-                    {"input": texts}, api_key=key)
+                    {"input": texts}, prof["key"],
+                    base_url=prof.get("base_url") or None,
+                    model=prof.get("model") or None)
                 if fb_response is not None:
                     fb_idx = idx
+                    fb_model = prof.get("model") or self._embed_fallback_model
                     break
-                logger.warning("LLM embed fallback key %d failed", idx)
+                logger.warning("LLM embed fallback profile %s failed",
+                               prof.get("alias") or idx)
             if fb_response is None:
                 # Задача 2: человекочитаемая причина + рекомендация (консоль)
                 logger.warning(
-                    "LLM embed fallback exhausted | keys=%d | reason=%s",
-                    len(self._embed_fallback_api_keys),
+                    "LLM embed fallback exhausted | profiles=%d | reason=%s",
+                    len(self._embed_fallback_profiles),
                     humanize_embed_error(exc))
                 raise exc from None
             response = fb_response
-            used_model = self._embed_fallback_model
-            logger.warning("LLM embed fallback OK | model=%s | key_idx=%d",
-                           self._embed_fallback_model, fb_idx)
+            used_model = fb_model
+            logger.warning("LLM embed fallback OK | model=%s | profile_idx=%d",
+                           used_model, fb_idx)
         try:
             data = response.json()
         except ValueError as exc:

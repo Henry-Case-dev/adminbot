@@ -276,7 +276,19 @@ async def probe_openai(base_url: str, api_key: str = "", model: str = "",
                     sanitize_error(str(exc), api_key))
 
     if resp.status_code < 400:
-        return _res(True, "ok", resp.status_code)
+        out = _res(True, "ok", resp.status_code)
+        # D11 (asap5-final-fixes, T-5257, 13C.3): фактическая размерность из
+        # ответа probe — вход классификации совместимости (same dim + другой
+        # model ≠ INSTANT_COMPATIBLE). R17: только число, без тела ответа.
+        if kind == "embeddings":
+            try:
+                data = resp.json()
+                vec = ((data.get("data") or [{}])[0] or {}).get("embedding")
+                if isinstance(vec, list):
+                    out["dims"] = len(vec)
+            except Exception:
+                pass
+        return out
     return _res(False, "error", resp.status_code,
                 sanitize_error(resp.text, api_key))
 

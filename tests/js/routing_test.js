@@ -1939,6 +1939,8 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
         _graphSearchLastQ: '',
         toast() {}, renderCognitionGraph: async function () {},
         clearCognitionGraphSearch: methods.clearCognitionGraphSearch,
+        // D15/T-5265: подписи neighborhood (presentation-only) — стаб.
+        graphApplySelectionLabels() {},
       }, extra || {});
     }
 

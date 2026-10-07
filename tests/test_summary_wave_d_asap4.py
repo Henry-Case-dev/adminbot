@@ -741,9 +741,12 @@ class TestBoundedRevisionLoop:
         assert m["l2_legacy_after_review"] == 1
 
     @pytest.mark.asyncio
-    async def test_unusable_verdict_legacy_immediately(self):
-        """Вердикт unusable (статья широко противоречит пакету) → Legacy
-        немедленно (§50.2), без ревизий."""
+    async def test_unusable_without_evidence_downgraded_not_legacy(self):
+        """ASAP 5 D3/§16#5 (SUPERSEDE «unusable → Legacy немедленно»):
+        raw unusable БЕЗ evidence-квоты (0 findings, без deterministic
+        proof) НЕ terminal — даунгрейд до needs_fixes (l2_unusable_gate),
+        ремонта нет (0 findings) → deterministic-валидный черновик
+        публикуется degraded, а не выбрасывается в Legacy."""
         reviewer = StageStub([_verdict("unusable")])
         document = _doc("Что-то.")
         document["paragraphs"][0]["evidence_message_ids"] = [101]
@@ -751,9 +754,33 @@ class TestBoundedRevisionLoop:
             None, _package(), correlation_id=RID, chat_id=CHAT,
             llm_call=WriterStub(document), reviewer_call=reviewer,
             revision_call=StageStub([]))
+        assert result.usable is True
+        assert result.invalid_reason is None
+        assert result.metrics["l2_review_degraded"] == 1
+        assert result.metrics["l2_unusable_gate_downgrades"] == 1
+        assert result.metrics.get("l2_legacy_after_review", 0) == 0
+        assert reviewer.calls == 1
+
+    @pytest.mark.asyncio
+    async def test_unusable_with_two_independent_hard_legacy_immediately(
+            self):
+        """ASAP 5 D3/§16#6: server-подтверждённая HARD corruption
+        (≥2 независимых hard findings: разные коды И разные paragraph
+        targets) проходит gate → Legacy немедленно, без ревизий."""
+        document = _doc("Абзац один.", "Абзац два.")
+        document["paragraphs"][0]["evidence_message_ids"] = [101]
+        document["paragraphs"][1]["evidence_message_ids"] = [102]
+        reviewer = StageStub([_verdict("unusable", [
+            _finding("unsupported_number", index=0),
+            _finding("invented_name", index=1, refs=(102,))])])
+        result = await run_l2_with_review(
+            None, _package(), correlation_id=RID, chat_id=CHAT,
+            llm_call=WriterStub(document), reviewer_call=reviewer,
+            revision_call=StageStub([]))
         assert result.status == "invalid"
         assert result.invalid_reason == REASON_L2_REVIEW_UNUSABLE
         assert result.metrics["l2_legacy_after_review"] == 1
+        assert result.metrics["l2_unusable_gate"] == 1
         assert reviewer.calls == 1
 
     @pytest.mark.asyncio

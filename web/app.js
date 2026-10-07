@@ -1,4 +1,4 @@
-/* Epic 85 (84.7, T-620/T-621/T-632/T-639/T-640/T-644) — фронтенд TMA-админки.
+﻿/* Epic 85 (84.7, T-620/T-621/T-632/T-639/T-640/T-644) — фронтенд TMA-админки.
  * Vue 3 Options API (global build), zero-build. Все запросы — через api()
  * с заголовком X-Telegram-Init-Data (84.6). 401 → сессия устарела;
  * 403 → запрет. Вкладки «Статус» и «Справка» видны ВСЕГДА.
@@ -1168,6 +1168,19 @@
   // Каталог-Δ=0 — только код-константы (маркеры JS-тестов).
   var GRAPH_PHYSICS_ITERATIONS = 150;
   var GRAPH_PHYSICS_DISABLE_ON_STABILIZE = true;
+  // ── D15 (asap5-final-fixes, T-5265, §13B): semantic zoom — presentation- ──
+  // layer only. DataSet (nodes/edges) НЕ режется: канонический `node.label`
+  // из API сохраняется (полный текст — в detail/tooltip), на canvas — краткое
+  // представление; подписи появляются по масштабу (drawThreshold), hub-узлы
+  // (топ по degree) читаемы дальше остальных; selected neighborhood — свои
+  // подписи. RCA GR1: «стена текста» при фиксированных подписях всех узлов.
+  var GRAPH_LABEL_MAX_CHARS = 42;      // краткое canvas-представление label
+  var GRAPH_ZOOM_FAR = 0.45;           // scale < FAR → «далеко»
+  var GRAPH_ZOOM_CLOSE = 1.1;          // scale > CLOSE → «близко»
+  var GRAPH_HUB_DEGREE_MIN = 8;        // минимум degree для hub-узла
+  var GRAPH_FONT = { far: 9, medium: 12, close: 14 };     // размер узлов
+  var GRAPH_EDGE_FONT = { far: 1, medium: 6, close: 10 }; // подписи рёбер
+  var GRAPH_ZOOM_HYSTERESIS = 0.06;    // гистерезис режимов (без дёрганья)
 
   function arr(x) { return Array.isArray(x) ? x : []; }
 
@@ -1962,6 +1975,11 @@
         cognitionGate: null,
         cognitionGateSource: null,
         cognitionGateEffective: null,
+        // D14 (asap5-final-fixes, T-5264, §13A): gate ≠ last-attempt.
+        cognitionSchedulerGate: null,       // cooldown|schedule|queue|resource
+        cognitionLastAttemptResult: null,   // no_context|no_anchors|ok|…
+        cognitionLastAttemptClass: null,    // content_empty|tech_error|bootstrap
+        cognitionNextAutoAttemptAt: null,
         cognitionTraitsStatus: null,      // ok|empty|skip|error|never
         cognitionTraitsReason: null,      // код причины (R17-safe)
         cognitionSelfFactsCount: null,    // self-факты за окно (chat-scope)
@@ -2037,6 +2055,10 @@
         randomUsesReplayKey: null,
         randomUsesReplayStep: -1,
         randomUsesReplayed: {},
+        // D13 (asap5-final-fixes, T-5262, 14A.0): точка входа «Случайность»
+        // на вкладке «Модули → Сон» — состояние из /api/status.random; один
+        // ленивый GET при входе на вкладку (без нового поллера).
+        randomSleepState: null,
         // Раунд 10.39 (MCA-16, ADR-1028-15 D9/T-5007): «Опыт и уроки» —
         // таблица/карточка в «Памяти» + права (admin); черновик правки
         // живёт только в памяти (R17).
@@ -3154,6 +3176,12 @@
             state: 'ok' });
         }
         if (br.l1) {
+          // ASAP 5 D1: трёхуровневая семантика L1 — degraded ≠ красный
+          // крест (Writer продолжил от полного окна); «не выполнено» —
+          // только terminal (Writer не стартовал).
+          var l1Terminal = br.l1.result === 'failed_terminal'
+            || br.l1.result === 'failed';
+          var l1Degraded = br.l1.result === 'degraded_map_fallback';
           rows.push({
             key: 'l1',
             label: 'L1 · Структурирование',
@@ -3165,9 +3193,13 @@
                   ? ' · ' + br.l1.input_requests + ' сегментов'
                   : ''))
               + ' · результат: '
-              + (br.l1.result === 'failed' ? 'не выполнено' : 'ok')
+              + (l1Terminal ? 'не выполнено'
+                : l1Degraded
+                  ? 'деградировала — Writer продолжил от полного окна'
+                  : 'ok')
               + (br.l1.map_degraded ? ' · карта деградирована' : ''),
-            state: br.l1.result === 'failed' ? 'failed' : 'ok' });
+            state: l1Terminal ? 'failed'
+              : (l1Degraded ? 'warn' : 'ok') });
         }
         if (br.writer) {
           rows.push({
@@ -3200,6 +3232,65 @@
             state: br.overflow.segments_failed ? 'warn' : 'ok' });
         }
         return rows;
+      },
+      // ═══ ASAP 5 D6 (T-5244): Hybrid Decision Trace — 5 секций §3.1
+      // из существующих stage_events + final_policy (без новых LLM).
+      // Computed → свойство (урок H-ASAP31-2), рендер в index.html.
+      pipelineDecisionTrace: function () {
+        var t = this.pipelineRunView && this.pipelineRunView.decision_trace;
+        if (!t) return null;
+        var policyRu = {
+          HYBRID_PUBLISHED: 'Опубликовано (Hybrid)',
+          HYBRID_DEGRADED_PUBLISHED: 'Опубликовано с деградацией (Hybrid)',
+          LEGACY_FALLBACK: 'Резервный контур (Legacy)',
+        };
+        var statusRu = {
+          ok: 'успешно', failed: 'не выполнено', degraded: 'деградация',
+          stagnated: 'стагнация правок', needs_fixes: 'нужны правки',
+          unusable: 'unusable', approved: 'одобрено', invalid: 'отклонено',
+          error: 'ошибка',
+        };
+        var stageRow = function (row) {
+          if (!row) return null;
+          return {
+            status: row.status || '—',
+            status_ru: statusRu[row.status] || row.status || '—',
+            reason_code: row.reason_code || null,
+            reason_ru: row.reason_ru || null,
+            model: row.model || null,
+          };
+        };
+        var iterRow = function (e) {
+          return {
+            attempt: e.attempt != null ? e.attempt : '—',
+            status: e.status || '—',
+            status_ru: statusRu[e.status] || e.status || '—',
+            verdict: e.verdict || null,
+            codes: (e.finding_codes || []).join(', ') || null,
+            blocking: e.blocking_count != null ? e.blocking_count : null,
+            paragraphs: (e.paragraph_ids || []).join(', ') || null,
+            target: e.repair_target || null,
+            result: e.revision_result || null,
+            reason_code: e.reason_code || null,
+            reason_ru: e.reason_ru || null,
+            failure: e.revision_failure_reason || null,
+          };
+        };
+        var policy = t.final_policy ? {
+          status: t.final_policy.status,
+          ru: policyRu[t.final_policy.status]
+            || t.final_policy.status || '—',
+          reason_code: t.final_policy.reason_code || null,
+          reason_ru: t.final_policy.reason_ru || null,
+        } : null;
+        return {
+          l1: stageRow(t.l1),
+          writer: stageRow(t.writer),
+          review_stage: stageRow(t.review_stage),
+          reviewRows: (t.review_iterations || []).map(iterRow),
+          revisionRows: (t.revision_iterations || []).map(iterRow),
+          policy: policy,
+        };
       },
       // §39 ТЗ (T-4622): «КОНТЕКСТ МОДЕЛИ» — capacity и режим входа.
       pipelineCapacityCard: function () {
@@ -3585,68 +3676,13 @@
       // quantum-статус показывается ТОЛЬКО при фактическом quantum
       // (`quantum_active`); при PRNG — честная подпись + точный блокер.
       randomSource: function () {
-        var r = (this.statusData && this.statusData.random) || null;
-        if (!r) return { ready: false, enabled: false, quantum: false };
-        if (!r.enabled) {
-          return { ready: true, enabled: false, available: false,
-                   quantum: false, keyPresent: false, effective: null,
-                   selected: null,
-                   stateLabel: 'выключено', blockerLabel: null,
-                   reserve: null, bufferMax: null, watermark: null,
-                   lastBatch: null, draws: null, lastFallback: null,
-                   lastFallbackAt: null, plan: null, recent: [], scope: '' };
-        }
-        var stateRu = {
-          active: 'ANU активен (квантовые числа)',
-          unverified: 'ключ не проверен',
-          provider_unconfigured: 'ключ не настроен',
-          disabled: 'провайдер выключен',
-          degraded: 'провайдер недоступен',
-          quota_exhausted: 'квота исчерпана',
-        };
-        var blockerRu = {
-          provider_unavailable: 'провайдер недоступен',
-          provider_unconfigured: 'ключ не настроен',
-          auth_failed: 'ключ отклонён (401/403)',
-          quota_exhausted: 'квота исчерпана (429)',
-          validation_failed: 'ответ провайдера не прошёл проверку',
-          timeout: 'таймаут запроса',
-          rate_limit: 'слишком частые запросы',
-          delivery_unknown: 'доставка неизвестна',
-          disabled: 'квантовый режим выключен',
-          redirect_blocked: 'перенаправление заблокировано',
-          invalid_url: 'адрес не разрешён',
-          scheme_not_allowed: 'схема адреса не разрешена',
-          random_fallback: 'переход на локальный источник',
-          no_eligible_alternative: 'нет допустимой альтернативы',
-        };
-        var quantum = !!r.quantum_active;
-        var blocker = r.blocker || null;
-        return {
-          ready: true,
-          enabled: true,
-          available: !!r.available,
-          quantum: quantum,
-          keyPresent: !!r.key_present,
-          effective: r.effective_source || null,
-          selected: r.selected_source || null,
-          // При фактическом PRNG подпись — честная («псевдослучайный»),
-          // quantum-состояние НЕ показывается.
-          stateLabel: quantum
-            ? (stateRu[r.anu_state] || r.anu_state || '—')
-            : 'псевдослучайный (локальный)',
-          blockerLabel: blocker ? (blockerRu[blocker] || blocker) : null,
-          reserve: (r.reserve_remaining == null) ? null : r.reserve_remaining,
-          bufferMax: r.buffer_max || null,
-          watermark: r.low_watermark || null,
-          lastBatch: r.last_batch || null,
-          draws: r.draws || null,
-          lastFallback: r.last_fallback_reason || null,
-          lastFallbackAt: r.last_fallback_at || null,
-          plan: r.plan || null,
-          recent: r.recent_draws || [],
-          scope: r.recent_draws_scope || '',
-        };
+        return this._randomSourceView(
+          (this.statusData && this.statusData.random) || null);
+      },
+      // D13 (asap5-final-fixes, T-5262): состояние для точки входа
+      // «Случайность» на вкладке «Сон» (ленивый снимок /api/status).
+      randomSleepView: function () {
+        return this._randomSourceView(this.randomSleepState);
       },
       // Раунд 10.41 (MCA-10b, ADR-1028-17 D11/T-5060): живая лента
       // применений — read-only проекция random.uses. Bounded history (20)
@@ -5213,6 +5249,83 @@
         } finally {
           this.embeddingsBusy = false;
         }
+      },
+      // D13 (asap5-final-fixes, T-5262, 14A.0): ленивый снимок состояния
+      // случайности для точки входа на вкладке «Сон» — один GET /api/status
+      // (тот же payload, что у «Статуса»; новых маршрутов/поллеров нет).
+      loadRandomStateLazy: async function () {
+        try {
+          var st = await this.api('/api/status');
+          this.randomSleepState = (st && st.random) || null;
+        } catch (e) {
+          this.randomSleepState = null;   // честное «нет данных»
+        }
+      },
+      // Маппинг /api/status.random → витрина (общий для «Статуса» и точки
+      // входа на «Сне»; инвариант 10.37 — quantum-подпись только при
+      // фактическом quantum).
+      _randomSourceView: function (r) {
+        if (!r) return { ready: false, enabled: false, quantum: false };
+        if (!r.enabled) {
+          return { ready: true, enabled: false, available: false,
+                   quantum: false, keyPresent: false, effective: null,
+                   selected: null,
+                   stateLabel: 'выключено', blockerLabel: null,
+                   reserve: null, bufferMax: null, watermark: null,
+                   lastBatch: null, draws: null, lastFallback: null,
+                   lastFallbackAt: null, plan: null, recent: [], scope: '' };
+        }
+        var stateRu = {
+          active: 'ANU активен (квантовые числа)',
+          unverified: 'ключ не проверен',
+          provider_unconfigured: 'ключ не настроен',
+          disabled: 'провайдер выключен',
+          degraded: 'провайдер недоступен',
+          quota_exhausted: 'квота исчерпана',
+        };
+        var blockerRu = {
+          provider_unavailable: 'провайдер недоступен',
+          provider_unconfigured: 'ключ не настроен',
+          auth_failed: 'ключ отклонён (401/403)',
+          quota_exhausted: 'квота исчерпана (429)',
+          validation_failed: 'ответ провайдера не прошёл проверку',
+          timeout: 'таймаут запроса',
+          rate_limit: 'слишком частые запросы',
+          delivery_unknown: 'доставка неизвестна',
+          disabled: 'квантовый режим выключен',
+          redirect_blocked: 'перенаправление заблокировано',
+          invalid_url: 'адрес не разрешён',
+          scheme_not_allowed: 'схема адреса не разрешена',
+          random_fallback: 'переход на локальный источник',
+          no_eligible_alternative: 'нет допустимой альтернативы',
+        };
+        var quantum = !!r.quantum_active;
+        var blocker = r.blocker || null;
+        return {
+          ready: true,
+          enabled: true,
+          available: !!r.available,
+          quantum: quantum,
+          keyPresent: !!r.key_present,
+          effective: r.effective_source || null,
+          selected: r.selected_source || null,
+          // При фактическом PRNG подпись — честная («псевдослучайный»),
+          // quantum-состояние НЕ показывается.
+          stateLabel: quantum
+            ? (stateRu[r.anu_state] || r.anu_state || '—')
+            : 'псевдослучайный (локальный)',
+          blockerLabel: blocker ? (blockerRu[blocker] || blocker) : null,
+          reserve: (r.reserve_remaining == null) ? null : r.reserve_remaining,
+          bufferMax: r.buffer_max || null,
+          watermark: r.low_watermark || null,
+          lastBatch: r.last_batch || null,
+          draws: r.draws || null,
+          lastFallback: r.last_fallback_reason || null,
+          lastFallbackAt: r.last_fallback_at || null,
+          plan: r.plan || null,
+          recent: r.recent_draws || [],
+          scope: r.recent_draws_scope || '',
+        };
       },
       // F3 (10.24, ADR-1024-13): UI-флаг из `GET /api/me.ui_flags`.
       // До загрузки /api/me — безопасный дефолт ON (новое поведение =
@@ -10424,6 +10537,13 @@
             this.stopStoriesPolling();
           }
         }
+        if (id === 'mod_sleep') {
+          // D13/T-5262: точка входа «Случайность» — ленивый снимок состояния
+          // (один GET, без нового поллера; повторный вход — обновляет).
+          if (typeof this.loadRandomStateLazy === 'function') {
+            this.loadRandomStateLazy();
+          }
+        }
         if (id === 'oversight') {
           this.loadMemoryWidget();       // F5/§7: виджет «Сводка»
           this.loadPersonaHealth();      // F4/UPD п.4: метрики Личности
@@ -14831,6 +14951,17 @@
             this.cognitionGateSource = (deep && deep.gate_source) || null;
             this.cognitionGateEffective =
               (deep && deep.effective != null) ? deep.effective : null;
+            // D14 (asap5-final-fixes, T-5264, §13A): gate ≠ last-attempt —
+            // scheduler-причина (почему НОВЫЙ запуск не начался) и результат
+            // ПОСЛЕДНЕЙ попытки — независимые поля.
+            this.cognitionSchedulerGate =
+              (deep && deep.scheduler_gate) || null;
+            this.cognitionLastAttemptResult =
+              (deep && deep.last_attempt_result) || null;
+            this.cognitionLastAttemptClass =
+              (deep && deep.last_attempt_retry_class) || null;
+            this.cognitionNextAutoAttemptAt =
+              (deep && deep.next_auto_attempt_at) || null;
           } catch (de) {
             this.cognitionParadigmsStatus = null;
             this.cognitionParadigmsReason = null;
@@ -14874,6 +15005,33 @@
           this.cognitionBusy = false;
         }
         this.loadCognitionGraph();
+      },
+      // D14 (asap5-final-fixes, T-5264, §13A): подпись scheduler-гейта и
+      // результата последней попытки — раздельные честные строки.
+      schedulerGateLabel: function () {
+        var map = {
+          cooldown: 'кулдаун планировщика',
+          schedule_outside_window: 'вне окна расписания',
+          queue_busy: 'очередь занята',
+          resource_limit: 'суточный лимит',
+        };
+        var g = this.cognitionSchedulerGate;
+        return g ? (map[g] || g) : null;
+      },
+      lastAttemptLabel: function () {
+        var map = {
+          no_context: 'нет контекста в окне',
+          no_anchors: 'нет исторических якорей',
+          insufficient_evidence: 'мало подтверждённых данных',
+          empty: 'пусто (без изменений)',
+          duplicate: 'все кандидаты уже записаны',
+          budget_skip: 'пропущено по бюджету',
+          error: 'техническая ошибка',
+          ok: 'успешно',
+          master_off: 'выключено настройками',
+        };
+        var r = this.cognitionLastAttemptResult;
+        return r ? (map[r] || r) : null;
       },
       // Виджет «Интеллект и Память» в «Сводке» (T-1454..T-1456): компактный
       // набор — статус фаз + метрики + короткий Timeline.
@@ -14962,14 +15120,43 @@
         if (this.cognitionNetwork && sig === this._cognitionGraphSig
             && mode === this._cognitionGraphMode) return;
         this.destroyCognitionGraph();
-        var nodes = new window.vis.DataSet(g.nodes || []);
+        // D15/T-265: полные label'ы — вне DataSet-канонa не прячем: карта
+        // полного текста для detail/tooltip; на canvas — краткое представление.
+        var fullLabels = {};
+        var nodeRows = (g.nodes || []).map(function (n) {
+          var label = String(n.label == null ? n.id : n.label);
+          fullLabels[String(n.id)] = label;
+          var short = label;
+          if (short.length > GRAPH_LABEL_MAX_CHARS) {
+            short = short.slice(0, GRAPH_LABEL_MAX_CHARS - 1) + '…';
+          }
+          var degree = Number(n.degree || 0);
+          // Hub-узлы (заметные) — крупнее базового шрифта: их подписи
+          // пересекают drawThreshold раньше (medium-зум читает hub'ы).
+          return Object.assign({}, n, {
+            label: short,
+            title: label,
+            font: degree >= GRAPH_HUB_DEGREE_MIN
+              ? { size: GRAPH_FONT.medium + 4, color: '#e5e7eb' }
+              : undefined,
+          });
+        });
+        var nodes = new window.vis.DataSet(nodeRows);
         var edges = new window.vis.DataSet(g.edges || []);
+        this._graphFullLabels = fullLabels;
+        this._cognitionNodesDS = nodes;          // D15: пин подписей neighborhood
+        this._graphNeighborhoodIds = [];
+        this._graphZoomMode = 'medium';
         var options = {
           nodes: { shape: 'dot', size: 14,
-                   font: { size: 12, color: '#e5e7eb' } },
+                   // D15: подписи по масштабу — до порога не рисуются
+                   // (far → почти без подписей), maxVisible ограничивает рост.
+                   scaling: { label: { drawThreshold: 12, maxVisible: 26 } },
+                   font: { size: GRAPH_FONT.medium, color: '#e5e7eb' } },
           edges: { arrows: 'to', smooth: true,
                    color: { color: 'rgba(148,163,184,.45)' },
-                   font: { size: 10, color: '#94a3b8' } },
+                   scaling: { label: { drawThreshold: 14, maxVisible: 22 } },
+                   font: { size: GRAPH_EDGE_FONT.medium, color: '#94a3b8' } },
           // F11 (§16/D4): mobile-упрощение — без перетаскивания узлов;
           // desktop/полный экран — прежнее поведение.
           interaction: { hover: true, dragNodes: !simpleGraph, dragView: true,
@@ -15016,10 +15203,26 @@
           this.cognitionNetwork.on('selectNode', function (params) {
             var id = params && params.nodes && params.nodes[0];
             if (id != null) selfSel.graphSelectNode(id);
+            selfSel.graphApplySelectionLabels(params && params.nodes);
           });
           this.cognitionNetwork.on('deselectNode', function () {
             selfSel.graphClearDetail();
+            selfSel.graphApplySelectionLabels([]);
           });
+          // D15/T-5265: semantic zoom — far/medium/close c гистерезисом.
+          // presentation-only: DataSet не меняется, только font-опции сети.
+          var selfZoom = this;
+          this.cognitionNetwork.on('zoom', function (zoomParams) {
+            selfZoom.graphApplyZoomLevel(
+              zoomParams && typeof zoomParams.scale === 'number'
+                ? zoomParams.scale : null);
+          });
+          // Первичный режим — по текущему масштабу после fit/стабилизации.
+          try {
+            var s0 = this.cognitionNetwork.getViewScale
+              ? this.cognitionNetwork.getViewScale() : null;
+            this.graphApplyZoomLevel(typeof s0 === 'number' ? s0 : null);
+          } catch (e) { /* noop */ }
         }
         // F4 (ADR-1018-4 D2): выключаем physics ПОСЛЕ первичной расстановки.
         // `once` (не `on`) — обработчики не копятся при повторных рендерах.
@@ -15091,6 +15294,8 @@
         this.cognitionNetwork.focus(node.id,
           { scale: 1.1, animation: anim });
         this.cognitionNetwork.selectNodes([node.id]);
+        // D15/T-265: подписи выбранного neighborhood (как при клике).
+        this.graphApplySelectionLabels([node.id]);
         this.graphSearchStatus = 'Найден: ' + node.label +
           (hits.length > 1
             ? ' (' + (this._graphSearchIdx + 1) + '/' + hits.length + ')'
@@ -15153,6 +15358,92 @@
         this.graphDetail = null;
         this.graphNeighbors = [];
       },
+      // ── D15 (asap5-final-fixes, T-5265, §13B): semantic zoom helpers ─────
+      // Режим зума с гистерезисом (без дёрганья setOptions на тик).
+      _graphZoomModeOf: function (scale) {
+        var cur = this._graphZoomMode || 'medium';
+        if (typeof scale !== 'number') return cur;
+        var h = GRAPH_ZOOM_HYSTERESIS;
+        if (cur === 'far') return (scale < GRAPH_ZOOM_FAR + h) ? 'far' : 'medium';
+        if (cur === 'close') return (scale > GRAPH_ZOOM_CLOSE - h) ? 'close' : 'medium';
+        if (scale < GRAPH_ZOOM_FAR) return 'far';
+        if (scale > GRAPH_ZOOM_CLOSE) return 'close';
+        return 'medium';
+      },
+      // far — точки/рёбра все, подписи почти скрыты (кроме hub'ов);
+      // medium — подписи заметных; close — шире. Presentation-only:
+      // DataSet не меняется, только шрифтовые опции сети.
+      graphApplyZoomLevel: function (scale) {
+        var net = this.cognitionNetwork;
+        if (!net) return;
+        var mode = this._graphZoomModeOf(scale);
+        if (mode === this._graphZoomMode) return;
+        this._graphZoomMode = mode;
+        try {
+          net.setOptions({
+            nodes: { font: { size: GRAPH_FONT[mode] } },
+            edges: { font: { size: GRAPH_EDGE_FONT[mode] } },
+          });
+        } catch (e) { /* сеть уничтожена */ }
+        // Перезакрепить подписи neighborhood под новый пресет (выделение
+        // не «залипает» в старом размере).
+        if (this._graphNeighborhoodIds && this._graphNeighborhoodIds.length) {
+          this.graphPinNeighborhoodLabels(this._graphNeighborhoodIds);
+        }
+      },
+      _graphHubBaseline: function (n) {
+        return (Number((n && n.degree) || 0) >= GRAPH_HUB_DEGREE_MIN)
+          ? GRAPH_FONT.medium + 4 : GRAPH_FONT.medium;
+      },
+      // Подписи выбранного neighborhood (13B.2): label выбранного+соседей
+      // виден при любом зуме (пин = hub-базлайн + 4); остальные узлы —
+      // режим зума. Канонический label в DataSet НЕ меняется (полный текст —
+      // в detail/tooltip). Снятие выделения возвращает пресет.
+      graphPinNeighborhoodLabels: function (ids) {
+        var ds = this._cognitionNodesDS;
+        if (!ds) return;
+        var byId = {};
+        ((this.cognitionGraphData && this.cognitionGraphData.nodes) || [])
+          .forEach(function (n) { byId[String(n.id)] = n; });
+        var baseline = this._graphHubBaseline;
+        var updates = (ids || []).map(function (id) {
+          return { id: id,
+                   font: { size: baseline(byId[String(id)]) + 4 } };
+        });
+        try {
+          if (updates.length) ds.update(updates);
+        } catch (e) { /* сеть уничтожена */ }
+      },
+      graphApplySelectionLabels: function (selectedIds) {
+        var ds = this._cognitionNodesDS;
+        var self = this;
+        var sel = {};
+        (selectedIds || []).forEach(function (id) { sel[String(id)] = true; });
+        var ids = Object.keys(sel);
+        ids.forEach(function (id) {
+          self.graphNeighborsOf(id).forEach(function (nb) {
+            if (!sel[String(nb.id)]) ids.push(String(nb.id));
+          });
+        });
+        // Снять прежний пин (возврат к пресету/hub-базлайну).
+        var prev = this._graphNeighborhoodIds || [];
+        if (prev.length && ds) {
+          var preset = GRAPH_FONT[this._graphZoomMode || 'medium'];
+          var byId = {};
+          ((this.cognitionGraphData && this.cognitionGraphData.nodes) || [])
+            .forEach(function (n) { byId[String(n.id)] = n; });
+          try {
+            ds.update(prev.map(function (id) {
+              var n = byId[String(id)] || {};
+              var hub = Number(n.degree || 0) >= GRAPH_HUB_DEGREE_MIN;
+              return { id: id,
+                       font: { size: hub ? preset + 4 : preset } };
+            }));
+          } catch (e) { /* сеть уничтожена */ }
+        }
+        this._graphNeighborhoodIds = ids;
+        if (ids.length) this.graphPinNeighborhoodLabels(ids);
+      },
       // F11 (§16/D4): фокус на узле/соседе — камера + выделение (сеть не
       // пересоздаётся; layout не трогается).
       focusGraphNode: function (nodeId) {
@@ -15164,6 +15455,8 @@
           this.cognitionNetwork.selectNodes([nodeId]);
         } catch (e) { /* noop: сеть уничтожена */ }
         this.graphSelectNode(nodeId);
+        // D15/T-265: подписи neighborhood при фокусе из detail-панели.
+        this.graphApplySelectionLabels([nodeId]);
       },
       // F11 (§16/D4): витринный клиентский фильтр по group — выделяем
       // совпадающие узлы и подгоняем камеру. Физика/вес/дефолтный layout
@@ -15226,6 +15519,11 @@
         }
         this._cognitionGraphSig = null;
         this._cognitionGraphMode = null;
+        // D15 (T-5265): сброс semantic-zoom состояния вместе с инстансом.
+        this._cognitionNodesDS = null;
+        this._graphNeighborhoodIds = [];
+        this._graphZoomMode = 'medium';
+        this._graphFullLabels = null;
         if (typeof this.graphClearDetail === 'function') this.graphClearDetail();
       },
       // ── Polling 15с с паузой при document.hidden (F5-Q3, R10.11-5) ─────

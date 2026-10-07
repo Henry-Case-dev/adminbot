@@ -1,7 +1,7 @@
 # F8 — Карта экранов `screen-map-round1025.md` (ADR-1025-21 D3)
 
 > Сгенерировано `tools/gen_param_registry_round1025.py` (read-only). Провенанс — `param-registry-round1025.meta.md`.
-> Инвариант «ни один параметр не остался без нового места»: `set(param_key) ⊇ REGISTRY(523)`, «без места» = 0. Неизвестные ключи (нет в каталоге) → секция `registry-only` реестра.
+> Инвариант «ни один параметр не остался без нового места»: `set(param_key) ⊇ REGISTRY(529)`, «без места» = 0. Неизвестные ключи (нет в каталоге) → секция `registry-only` реестра.
 > `ui_visibility ∈ {visible,hidden,api-only}`; **api-only ≠ сохранено** (REQ-F8-08). Секреты без открытого значения (R17).
 
 | old_screen | param_key | new_screen | read_api | write_api | ui_visibility | secret | hidden | status |
@@ -392,7 +392,13 @@
 | LLM Провайдеры | models.embedding_base_url | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
 | LLM Провайдеры | models.embedding_dim | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
 | LLM Провайдеры | models.embedding_display_name | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
+| LLM Провайдеры | models.embedding_fallback1_base_url | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
+| LLM Провайдеры | models.embedding_fallback1_model | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
+| LLM Провайдеры | models.embedding_fallback1_quota_group | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
+| LLM Провайдеры | models.embedding_fallback2_base_url | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
 | LLM Провайдеры | models.embedding_fallback2_display_name | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
+| LLM Провайдеры | models.embedding_fallback2_model | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
+| LLM Провайдеры | models.embedding_fallback2_quota_group | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
 | LLM Провайдеры | models.embedding_fallback_base_url | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
 | LLM Провайдеры | models.embedding_fallback_display_name | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
 | LLM Провайдеры | models.embedding_fallback_model | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
@@ -532,4 +538,4 @@
 
 ## registry-only (неизвестные каталогу параметры)
 
-Нет: множество `internal_key` каталога == множество `REGISTRY` == 523; все ключи получили новое место. Расхождений нет.
+Нет: множество `internal_key` каталога == множество `REGISTRY` == 529; все ключи получили новое место. Расхождений нет.

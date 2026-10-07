@@ -61,6 +61,7 @@ l2_legacy_after_review`` (+ ``l2_review_calls``/``l2_revision_calls``/
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import logging
 import time
@@ -177,6 +178,58 @@ VERDICT_STATUSES = frozenset(
 SEVERITY_BLOCKING = "blocking"
 SEVERITY_MINOR = "minor"
 
+# ── ASAP 5 D2 (ADR-1028-25): server-owned таксономия finding-кодов ──────────
+# Класс находки решает СЕРВЕР по коду; severity-поле модели — advisory и
+# исход не принимает. hard — фактическая целостность (персоны/цитаты/числа/
+# имена/противоречия/приписки) → blocking, can_force_legacy=yes (INV-1
+# fail-closed, demote hard→soft ЗАПРЕЩЁН; promote soft→hard — только
+# детерминированный валидатор, D3(б)). soft — качество/полнота → minor,
+# can_force_legacy=no (soft-only набор не выбрасывает пригодный Hybrid —
+# D5). Код вне словаря отбрасывается на разборе (dropped_invalid) и
+# никогда не blocking. Код без класса на ревью = дефект (STOP §5).
+FINDING_CLASS_HARD = "hard"
+FINDING_CLASS_SOFT = "soft"
+
+FINDING_CODE_TAXONOMY: dict[str, dict[str, object]] = {
+    code: {"class": FINDING_CLASS_HARD, "can_force_legacy": True}
+    for code in (
+        FINDING_CODE_UNSUPPORTED_CLAIM,
+        FINDING_CODE_WRONG_PERSON,
+        FINDING_CODE_QUOTE_TEXT_NOT_FOUND,
+        FINDING_CODE_QUOTE_SPEAKER_UNRESOLVED,
+        FINDING_CODE_QUOTE_SPEAKER_MISMATCH,
+        FINDING_CODE_QUOTE_SOURCE_AMBIGUOUS,
+        FINDING_CODE_FORWARD_ATTRIBUTION,
+        FINDING_CODE_REPLY_ATTRIBUTION,
+        FINDING_CODE_UNSUPPORTED_NUMBER,
+        FINDING_CODE_TIMELINE,
+        FINDING_CODE_CONTRADICTION,
+        FINDING_CODE_INVENTED_NAME,
+        FINDING_CODE_FACTUAL_OVERSTATEMENT,
+    )
+}
+FINDING_CODE_TAXONOMY.update({
+    FINDING_CODE_DUPLICATE_EVENT:
+        {"class": FINDING_CLASS_SOFT, "can_force_legacy": False},
+    FINDING_CODE_MAJOR_TOPIC_OMITTED:
+        {"class": FINDING_CLASS_SOFT, "can_force_legacy": False},
+})
+
+
+def finding_class(code) -> str | None:
+    """Класс находки по server-таксономии (вне словаря → None)."""
+    entry = FINDING_CODE_TAXONOMY.get(str(code or ""))
+    return str(entry.get("class")) if entry else None
+
+
+def finding_severity(code) -> str:
+    """Server-owned severity (D2): hard → blocking; soft/unknown → minor.
+
+    Unknown-код НИКОГДА не blocking: такая находка отбрасывается при
+    разборе вердикта, severity нужен только валидным кодам."""
+    return (SEVERITY_BLOCKING if finding_class(code) == FINDING_CLASS_HARD
+            else SEVERITY_MINOR)
+
 # Причины fail-closed исходов ревизии (R17-safe коды;Legacy-триггеры —
 # только из перечня §50.2: «Writer не дал документа / пакет непригоден /
 # после bounded revision остались blocking errors / противоречие широко /
@@ -266,9 +319,10 @@ def parse_review_verdict(raw, *, package, document=None) -> ReviewVerdict:
     документа; evidence_refs непустые И ⊆ id-space пакета (доказательственная
     база: пустой список или отсутствующее поле = находка без доказательств —
     отбрасывается так же, как выдуманный ID; R17-safe лог
-    ``L2_REVIEW_FINDING_DROPPED``); severity нормализуется (unknown →
-    blocking — консервативно для progress criterion). Статус вне трёх
-    допустимых → invalid verdict (outage-путь §50.29). needs_fixes без
+    ``L2_REVIEW_FINDING_DROPPED``). Severity решает СЕРВЕР по таксономии
+    кода (ASAP 5 D2: hard → blocking, soft → minor; поле модели —
+    advisory; unknown/мусор от модели никогда не меняет класс). Статус вне
+    трёх допустимых → invalid verdict (outage-путь §50.29). needs_fixes без
     единой валидной находки → approved (нет основания). Не бросает.
     """
     data = parse_json_object(str(raw or ""))
@@ -323,9 +377,9 @@ def parse_review_verdict(raw, *, package, document=None) -> ReviewVerdict:
                     "L2_REVIEW_FINDING_DROPPED | code=%s | cause=%s",
                     code, "invalid_ref" if invalid_ref else "missing_refs")
                 continue
-            severity = str(item.get("severity") or "").strip().lower()
-            if severity not in (SEVERITY_BLOCKING, SEVERITY_MINOR):
-                severity = SEVERITY_BLOCKING
+            # ASAP 5 D2: severity решает сервер по коду таксономии (модель —
+            # advisory; unknown/мусор от модели класс не меняет).
+            severity = finding_severity(code)
             instruction = str(item.get("instruction") or "").strip()
             findings.append(ReviewFinding(
                 code=code, severity=severity, paragraph_index=index,
@@ -342,6 +396,61 @@ def _review_verdict_error(reason: str) -> ReviewVerdict:
                          raw_status="error", reason=reason)
 
 
+# ── ASAP 5 D3/D4 (ADR-1028-25): unusable-gate + stagnation fingerprint ──────
+# Оба reason-кода санкционированы spec §5 (Δ reason ≤ +2) и живут в
+# stage_events/summary_run_stages; словарь mca_events REASON_CODES не
+# расширяется (SERIALIZE-4 Δ=0).
+
+REASON_L2_UNUSABLE_GATE = "l2_unusable_gate"                # D3
+REASON_L2_STAGNATION_FINGERPRINT = "l2_stagnation_fingerprint"   # D4
+
+
+def _deterministic_unusable_proof(metrics: dict | None) -> bool:
+    """(б) D3: deterministic validator сам доказал непригодность —
+    незакрытые hard quote-механизмы (тот же механизм, что даёт hard proof
+    в контексте Reviewer)."""
+    return bool((metrics or {}).get("quote_reason_codes"))
+
+
+def _unusable_gate_accepts(verdict: ReviewVerdict,
+                           current_metrics: dict | None) -> bool:
+    """Server-gate для raw ``status=unusable`` (D3, прод-факт 8/8
+    l2_unusable → Legacy требует evidence-квоты, а не доверия статусу).
+
+    Terminal только если: (а) ≥2 независимых валидных HARD findings
+    (независимость = разные finding-коды И разные paragraph targets), или
+    (б) deterministic proof. Иначе — даунгрейд до needs_fixes."""
+    hard = [f for f in verdict.findings
+            if finding_class(f.code) == FINDING_CLASS_HARD]
+    if len(hard) >= 2:
+        if (len({f.code for f in hard}) >= 2
+                and len({f.paragraph_index for f in hard}) >= 2):
+            return True
+    return _deterministic_unusable_proof(current_metrics)
+
+
+def _hard_fingerprints(verdict: ReviewVerdict) -> frozenset:
+    """Идентичность hard-finding (D4): code + paragraph_id +
+    sorted(evidence_refs) + target (target ≡ paragraph_id — единственная
+    якорная ось документа). Soft-находки идентичность не образуют."""
+    return frozenset(
+        (f.code,
+         int(f.paragraph_index) if f.paragraph_index is not None else -1,
+         tuple(sorted(int(r) for r in f.evidence_refs)))
+        for f in verdict.findings
+        if finding_class(f.code) == FINDING_CLASS_HARD)
+
+
+def _document_fingerprint(document) -> str:
+    """Хеш документа (D4: «документ/target не изменился» = стагнация)."""
+    try:
+        payload = json.dumps(document or {}, ensure_ascii=False,
+                             sort_keys=True, default=str)
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+    except Exception:      # pragma: no cover - защитная ветка
+        return ""
+
+
 # ── ASAP 4.2 D1 (AM-1; spec §1; ADR-1028-10) — AnchorSpace review ───────────
 
 def anchor_review_enabled(anchor_map) -> bool:
@@ -355,12 +464,14 @@ def _verdict_from_anchor_result(result, anchor_map: SourceAnchorMap
     """``ReviewResult`` (AnchorSpace) → существующий ``ReviewVerdict`` контур.
 
     reason → finding_code; source_anchors → real ids (progress-criterion);
-    valid findings только с anchors из окна (unknown > hallucinated)."""
+    valid findings только с anchors из окна (unknown > hallucinated);
+    severity — server-owned по таксономии кода (ASAP 5 D2)."""
     findings: list[ReviewFinding] = []
     for issue in result.issues:
         real = tuple(anchor_map.to_real_ids(issue.source_anchors))
         findings.append(ReviewFinding(
-            code=issue.finding_code, severity=SEVERITY_BLOCKING,
+            code=issue.finding_code,
+            severity=finding_severity(issue.finding_code),
             paragraph_index=issue.paragraph_id, evidence_refs=real,
             instruction=issue.repair_instruction))
     return ReviewVerdict(status=result.status, findings=tuple(findings),
@@ -924,7 +1035,9 @@ async def run_l2_with_review(llm, package, *, service=None,
     revisions_done = 0
     patch_failures = 0
     last_revision_burned = False
-    prev_blocking: int | None = None
+    # ASAP 5 D4: fingerprint-стагнация вместо count-критерия (§50.25).
+    prev_fps: frozenset = frozenset()
+    prev_doc_fp: str | None = None
     first_blocking: int | None = None
     seen_codes: set[str] = set()
     first_findings_total = 0
@@ -1020,15 +1133,51 @@ async def run_l2_with_review(llm, package, *, service=None,
         if verdict.status == VERDICT_APPROVED:
             break
         if verdict.status == VERDICT_UNUSABLE:
-            # Статья широко противоречит пакету (§50.2) → Legacy немедленно.
-            metrics["l2_legacy_after_review"] = 1
-            metrics["l2_review_dropped_findings"] = dropped_total
-            _log_review(run_id=correlation_id, chat_id=chat_id,
-                        metrics=metrics, status="unusable",
-                        reason=REASON_L2_REVIEW_UNUSABLE)
-            return invalid_result(REASON_L2_REVIEW_UNUSABLE,
-                                  duration_ms=_elapsed(),
-                                  metrics=metrics)
+            # ── ASAP 5 D3: unusable server-gate ─────────────────────────
+            # Raw unusable terminal ТОЛЬКО с evidence-квотой (≥2 независимых
+            # hard findings или deterministic proof). Иначе — даунгрейд до
+            # needs_fixes: findings остаются blocking-набором и идут в
+            # bounded repair (прод-факт: 8/8 fallbacks были raw-unusable
+            # без разбора).
+            if _unusable_gate_accepts(verdict, current_doc_metrics):
+                metrics["l2_unusable_gate"] = 1
+                # Статья широко противоречит пакету (§50.2) → Legacy
+                # немедленно (server-подтверждённый unusable, §4.1).
+                metrics["l2_legacy_after_review"] = 1
+                metrics["l2_review_dropped_findings"] = dropped_total
+                _log_review(run_id=correlation_id, chat_id=chat_id,
+                            metrics=metrics, status="unusable",
+                            reason=REASON_L2_REVIEW_UNUSABLE)
+                return invalid_result(REASON_L2_REVIEW_UNUSABLE,
+                                      duration_ms=_elapsed(),
+                                      metrics=metrics)
+            # Даунгрейд фиксируется в трейсе отдельным событием (D3/D17).
+            metrics["l2_unusable_gate_downgrades"] = (
+                int(metrics.get("l2_unusable_gate_downgrades", 0)) + 1)
+            _record(ctx, _stage_event(
+                "l2_reviewer", attempt=metrics["l2_review_calls"],
+                status="needs_fixes", reason_code=REASON_L2_UNUSABLE_GATE,
+                started=review_started, verdict="unusable",
+                finding_codes=[f.code for f in verdict.findings],
+                blocking_count=verdict.blocking_count,
+                paragraph_ids=sorted({
+                    f.paragraph_index for f in verdict.findings
+                    if f.paragraph_index is not None}),
+                deterministic_validation_codes=deterministic_codes))
+            logger.info(
+                "L2_UNUSABLE_GATE | run_id=%s | chat_id=%s — unusable "
+                "downgraded to needs_fixes (evidence quota not met)",
+                correlation_id or "none", chat_id)
+            verdict = dataclasses.replace(verdict,
+                                          status=VERDICT_NEEDS_FIXES)
+            if not verdict.findings:
+                # Основания для revision нет (0 findings — нечем ремонтировать),
+                # документ deterministic-валиден → degraded publish
+                # (та же fail-soft механика §50.29, не потеря документа).
+                return _degraded_or_legacy(
+                    draft, current_doc, metrics,
+                    reason=REASON_L2_UNUSABLE_GATE,
+                    correlation_id=correlation_id, chat_id=chat_id)
         # ── NEEDS_FIXES: решения о ревизии (§50.24/§50.25) ──────────────
         if first_findings_total == 0:
             first_findings_total = len(verdict.findings)
@@ -1042,19 +1191,43 @@ async def run_l2_with_review(llm, package, *, service=None,
             metrics["l2_revision_new_findings"] = max(
                 int(metrics.get("l2_revision_new_findings", 0)), new_now)
         seen_codes.update(f.code for f in verdict.findings)
-        blocking_now = verdict.blocking_count
         if revisions_done >= MAX_REVISIONS:
             break                       # autonomous-циклов больше нет
         if calls >= CALL_BUDGET_L2_STAGE:
             break                       # бюджет исчерпан
-        # §50.25: blocking findings не уменьшились → safe fallback. НО:
-        # сожжённая ревизия (patch не прошёл deterministic-валидацию) — НЕ
-        # попытка исправления (документ не менялся) → единственная
-        # full-doc-ретриа допустима, пока есть бюджет (≤2 ревизий).
-        if (prev_blocking is not None and blocking_now >= prev_blocking
-                and not last_revision_burned):
-            break
-        prev_blocking = blocking_now
+        # D4: progress = старый hard-fingerprint исправлен
+        # (prev_fps − curr_fps ≠ ∅) — даже при новых находках («исправлен
+        # old + найден new» ≠ ноль прогресса). Стагнация: тот же
+        # fingerprint-набор после repair, ИЛИ документ не изменился (hash).
+        # Count — только вторичный сигнал в трейсе (blocking_count выше).
+        curr_fps = _hard_fingerprints(verdict)
+        curr_doc_fp = _document_fingerprint(current_doc)
+        if prev_doc_fp is not None and not last_revision_burned:
+            fixed_old = bool(prev_fps - curr_fps)
+            doc_changed = curr_doc_fp != prev_doc_fp
+            if not fixed_old or not doc_changed:
+                metrics["l2_stagnation_fingerprint"] = 1
+                _record(ctx, _stage_event(
+                    "revision", attempt=revisions_done,
+                    status="stagnated",
+                    reason_code=REASON_L2_STAGNATION_FINGERPRINT,
+                    finding_codes=[f.code for f in verdict.findings],
+                    blocking_count=verdict.blocking_count,
+                    paragraph_ids=sorted({
+                        f.paragraph_index for f in verdict.findings
+                        if f.paragraph_index is not None}),
+                    repair_target=repair_target,
+                    revision_target=repair_target,
+                    revision_result="stagnated",
+                    revision_failure_reason=None,
+                    deterministic_validation_codes=deterministic_codes))
+                logger.info(
+                    "L2_STAGNATION_FINGERPRINT | run_id=%s | chat_id=%s — "
+                    "no hard-finding progress after repair, stop cycle",
+                    correlation_id or "none", chat_id)
+                break
+        prev_fps = curr_fps
+        prev_doc_fp = curr_doc_fp
         # ── Revision (≤2, patch primary / full-doc escape-hatch) ────────
         paragraphs_now = current_doc.get("paragraphs") or []
         findings_paragraphs = {f.paragraph_index for f in verdict.findings
@@ -1206,7 +1379,20 @@ async def run_l2_with_review(llm, package, *, service=None,
         _log_review(run_id=correlation_id, chat_id=chat_id, metrics=metrics,
                     status="approved")
         return _ok_result(current_doc, metrics, draft, _elapsed())
-    # NEEDS_FIXES после исчерпания bounded-цикла → safe fallback (§50.2/§50.24).
+    # NEEDS_FIXES после исчерпания bounded-цикла (§50.2/§50.24) —
+    # ASAP 5 D5: soft-only набор НЕ выбрасывает пригодный Hybrid
+    # (документ deterministic-валиден → degraded publish, механика §50.29);
+    # остались HARD findings или deterministic hard proof → Legacy
+    # (fail-closed, INV-1 — случай §4.1 «подтверждённая HARD corruption»).
+    remaining_hard = (
+        _deterministic_unusable_proof(current_doc_metrics)
+        or any(finding_class(f.code) == FINDING_CLASS_HARD
+               for f in (last_verdict.findings if last_verdict else ())))
+    if not remaining_hard:
+        return _degraded_or_legacy(
+            draft, current_doc, metrics,
+            reason="l2_soft_only_needs_fixes",
+            correlation_id=correlation_id, chat_id=chat_id)
     metrics["l2_legacy_after_review"] = 1
     metrics["l2_review_dropped_findings"] = dropped_total
     _log_review(run_id=correlation_id, chat_id=chat_id, metrics=metrics,
@@ -1292,6 +1478,9 @@ def _degraded_or_legacy(draft: L2Result, document, metrics: dict, *,
         "publish degraded (deterministic checks passed)",
         correlation_id or "none", chat_id, reason)
     metrics[METRIC_REVIEW_DEGRADED] = 1
+    if reason:
+        # Точная причина деградации — для final_policy/трейса (ASAP 5 D5).
+        metrics["l2_review_degraded_reason"] = str(reason)[:80]
     _log_review(run_id=correlation_id, chat_id=chat_id, metrics=metrics,
                 status="degraded", reason=reason)
     try:
@@ -1306,10 +1495,13 @@ def _degraded_or_legacy(draft: L2Result, document, metrics: dict, *,
 __all__ = [
     "CALL_BUDGET_L2_STAGE",
     "FINDING_CODES",
+    "FINDING_CODE_TAXONOMY",
     "METRIC_REVIEW_DEGRADED",
     "MAX_REVISIONS",
     "REASON_L2_REVIEW_REJECTED",
     "REASON_L2_REVIEW_UNUSABLE",
+    "REASON_L2_STAGNATION_FINGERPRINT",
+    "REASON_L2_UNUSABLE_GATE",
     "ReviewFinding",
     "ReviewVerdict",
     "anchor_review_enabled",
@@ -1320,6 +1512,8 @@ __all__ = [
     "build_review_content",
     "build_review_evidence_slices",
     "build_revision_content",
+    "finding_class",
+    "finding_severity",
     "l2_review_enabled",
     "parse_review_verdict",
     "resolve_l2_reviewer_slot",

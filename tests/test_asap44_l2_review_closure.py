@@ -299,20 +299,29 @@ async def test_18_reviewer_strictness_not_weakened_dropped_evidence():
 
 
 @pytest.mark.asyncio
-async def test_18_reviewer_unusable_still_fail_closed():
+async def test_18_reviewer_unusable_without_evidence_not_terminal():
+    """ASAP 5 D3/§16#5 (SUPERSEDE raw-unusable fail-closed): unusable без
+    findings/deterministic proof — НЕ terminal: gate даунгрейдит до
+    needs_fixes (трейс-событие l2_unusable_gate), 0 findings →
+    deterministic-валидный черновик публикуется degraded."""
     _, am, anchors = _anchor_env("asap44-l2-18b")
     doc = {"schema_version": 1, "title": "Статья", "paragraphs": [
         {"text": "P0.", "source_anchors": [anchors[0]]},
     ]}
+    ctx = RunContextStub()
     reviewer = _Seq([_reviewer_json("unusable")])
     res = await run_l2_with_review(
         None, _package(), slot=L2Slot("http://x", "m", "k", False),
         reviewer_slot=L2Slot("http://x", "m", "k", False),
         correlation_id="asap44-l2-18b", chat_id=CHAT_ID,
         llm_call=_Writer(doc), reviewer_call=reviewer,
-        revision_call=_Seq([""]), anchor_map=am)
-    assert not res.usable
-    assert res.invalid_reason == REASON_L2_REVIEW_UNUSABLE
+        revision_call=_Seq([""]), anchor_map=am, ctx=ctx)
+    assert res.usable
+    assert res.metrics["l2_review_degraded"] == 1
+    assert res.metrics["l2_unusable_gate_downgrades"] == 1
+    gate_events = [e for e in ctx.stage_events
+                   if e.get("reason_code") == "l2_unusable_gate"]
+    assert gate_events, "даунгрейд гейта виден в трейсе (D3/D17)"
 
 
 # ══ named-механизм T-4877: targeted revision schema ═════════════════════════

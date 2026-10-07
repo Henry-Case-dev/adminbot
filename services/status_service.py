@@ -274,11 +274,23 @@ class StatusService:
         # ГЛАВНАЯ embed-модель. Прежний `or settings.EMBEDDING_FALLBACK_MODEL`
         # при ПУСТОМ значении в PG (не отсутствующем) возвращал env-модель,
         # тогда как рантайм брал главную.
-        fb_base = (hot.get("models.embedding_fallback_base_url",
-                           settings.EMBEDDING_FALLBACK_BASE_URL) or "").strip()
-        fb_model = ((hot.get("models.embedding_fallback_model",
-                             settings.EMBEDDING_FALLBACK_MODEL) or "").strip()
-                    or emb_model)
+        # D11 (asap5-final-fixes, T-5256, 13C.1): три честных профиля —
+        # зеркальный резолв рантайма (`llm_client`): Fallback 1 — новые
+        # ключи `models.embedding_fallback1_*` → легаси-общие значения;
+        # Fallback 2 — свои `…fallback2_*` → незадано = наследует Fallback 1
+        # (режим миграции по умолчанию; ключ у F2 всегда свой).
+        fb1_base_new = (hot.get("models.embedding_fallback1_base_url", "")
+                        or "").strip()
+        fb1_model_new = (hot.get("models.embedding_fallback1_model", "")
+                         or "").strip()
+        fb_base = (fb1_base_new
+                   or (hot.get("models.embedding_fallback_base_url",
+                               settings.EMBEDDING_FALLBACK_BASE_URL)
+                       or "").strip())
+        fb_model = ((fb1_model_new
+                     or (hot.get("models.embedding_fallback_model",
+                                 settings.EMBEDDING_FALLBACK_MODEL)
+                        or "").strip()) or emb_model)
         fb_key1 = (hot.get("keys.embedding_fallback_api_key",
                            settings.EMBEDDING_FALLBACK_API_KEY) or "").strip()
         fb_key2 = (hot.get("keys.embedding_fallback_api_key_2",
@@ -293,7 +305,11 @@ class StatusService:
                     "Запасная модель памяти"),
                 fb_base, fb_model, fb_key1,
                 None, "embeddings"))
-        if fb_base and fb_key2:
+        fb2_base = ((hot.get("models.embedding_fallback2_base_url", "")
+                     or "").strip() or fb_base)
+        fb2_model = ((hot.get("models.embedding_fallback2_model", "")
+                      or "").strip() or fb_model)
+        if fb2_base and fb_key2:
             providers.append(_entry(
                 "emb_fallback2", "Запасная модель памяти 2",
                 (g_emb_id, g_emb_title),
@@ -301,7 +317,7 @@ class StatusService:
                     "models.embedding_fallback2_display_name",
                     "EMBEDDING_FALLBACK2_DISPLAY_NAME",
                     "Запасная модель памяти 2"),
-                fb_base, fb_model, fb_key2,
+                fb2_base, fb2_model, fb_key2,
                 None, "embeddings"))
         return providers
 
@@ -554,6 +570,9 @@ class StatusService:
                 "last_fallback_reason": snap.get("last_fallback_reason"),
                 "last_fallback_at": snap.get("last_fallback_at"),
                 "activated_at": snap.get("activated_at"),
+                # T-5261 (asap5-final-fixes, §14): проверяемое поле
+                # config-state — разрешены ли PRNG-откаты настройкой.
+                "fallback_setting": snap.get("fallback_setting"),
                 "plan": snap.get("plan"),
                 "policy_version": snap.get("policy_version"),
                 "recent_draws": [self._public_draw(r) for r in recent],

@@ -99,10 +99,24 @@ REASONS_RU = {
     # Волна D — review/revision.
     "l2_review_rejected": ("Проверка отклонила статью после повторов — "
                            "отправлена в резервный контур."),
-    "l2_review_unusable": ("Ответ писателя не удалось разобрать — резервный "
-                           "контур."),
+    # ASAP 5 D5: честный текст — unusable это вердикт Reviewer, а не
+    # parse-failure писателя (RCA §1.2A/п.7).
+    "l2_review_unusable": ("Reviewer вернул semantic unusable (статья "
+                           "противоречит источнику) — резервный контур."),
     "review_degraded": ("Проверка временно недоступна — статья опубликована "
                         "без семантической проверки."),
+    # ASAP 5 (D3/D4/D5): гейты/стагнация/soft-only деградация — видимые
+    # причины в трейсе/витрине (display-only; словарь mca_events не растёт).
+    "l2_unusable_gate": ("Reviewer вернул unusable без достаточной "
+                         "доказательной базы — понижено до правок."),
+    "l2_stagnation_fingerprint": ("Правки не исправляют те же hard-находки — "
+                                  "цикл остановлен без прогресса."),
+    "l2_review_degraded": ("Проверка не завершилась (сбой/только soft-"
+                           "замечания) — статья опубликована с пометкой "
+                           "деградации."),
+    "l2_soft_only_needs_fixes": ("Остались только soft-замечания качества — "
+                                 "опубликовано с пометкой деградации."),
+    "l1_empty_payload": "Пустое окно — суммаризировать нечего.",
     # Волна B — cover style.
     "no_style": "Стиль не выбран («Без дополнительного стиля»).",
     "profile_missing": "Профиль стиля не найден.",
@@ -758,10 +772,20 @@ def _coverage_breakdown(snapshot, usage, events) -> dict | None:
         l1_ev = l1_rows[-1] if l1_rows else None
         l1_usage = _parse_usage((l1_ev or {}).get("usage_json"))
         failed = bool(l1_ev) and str(l1_ev.get("outcome") or "") == "failed"
+        # ASAP 5 D1: трёхуровневая семантика L1 (ADR-1028-25). L1-fail при
+        # writer-source ON НЕ валит Summary — Writer продолжил от полного
+        # окна/fallback package → degraded_map_fallback (не красный крест);
+        # failed_terminal — только когда Writer не стартовал (нет ни карты,
+        # ни окна/пакета).
+        if failed:
+            result = ("degraded_map_fallback" if writer_rows
+                      else "failed_terminal")
+        else:
+            result = "ok"
         l1_view = {
             "input_total": src_total,
             "input_mode": None,
-            "result": "failed" if failed else "ok",
+            "result": result,
             "map_degraded": bool(l1_usage.get("map_degraded")),
         }
         reason_map = str(l1_usage.get("map_reason") or "") or None
@@ -879,24 +903,52 @@ def build_run_view(run_id, snapshot, events, *, running: bool = False,
     l1_ev = last("SUMMARY_L1_STAGE")
     if l1_ev is not None:
         failed = str(l1_ev.get("outcome") or "") == "failed"
-        state = STATE_FAILED if failed else STATE_SUCCESS
+        # ASAP 5 D1: L1-fail ≠ красный крест, если Writer продолжил
+        # (fallback package / полное окно) — это резервный контур (⚠);
+        # «не выполнено» — только когда Writer реально не стартовал.
+        writer_ev = last("SUMMARY_L2_STAGE")
+        degraded_continue = failed and writer_ev is not None
+        if degraded_continue:
+            state = STATE_FALLBACK
+        else:
+            state = STATE_FAILED if failed else STATE_SUCCESS
         lu = _parse_usage(l1_ev.get("usage_json"))
+        detail = [{"k": "Тем выделено", "v": lu.get("threads")}
+                  if lu.get("threads") is not None else None]
+        if degraded_continue:
+            detail.append({
+                "k": "Продолжение",
+                "v": "Writer продолжил от полного окна (fallback package)"
+                if lu.get("map_degraded")
+                else "Writer продолжил без semantic map "
+                     "(fallback package / полное окно)"})
         nodes.append(_node(
             NODE_L1, "L1 · Кластеризатор", TEXT_BRANCH, state,
             reason_code=l1_ev.get("reason_code"), latency_ms=_lat(l1_ev),
             counts={"out": _int(lu.get("threads"))},
-            detail=[{"k": "Тем выделено", "v": lu.get("threads")}
-                    if lu.get("threads") is not None else None]))
-        nodes[-1]["detail"] = [d for d in nodes[-1]["detail"] if d]
+            detail=[d for d in detail if d]))
 
     l2_ev = last("SUMMARY_L2_STAGE")
     if l2_ev is not None:
         failed = str(l2_ev.get("outcome") or "") == "failed"
+        l2_reason = str(l2_ev.get("reason_code") or "")
+        # ASAP 5 D5: Writer и Reviewer — раздельные честные исходы.
+        # Reviewer-rejection (после bounded repair) — НЕ «Writer не
+        # выполнено»: документ написан и прошёл deterministic-валидацию;
+        # отказ фиксирует узел Проверки. «не выполнено» — за transport/
+        # структурным провалом писателя.
+        reviewer_reject = l2_reason in ("l2_review_rejected",
+                                        "l2_review_unusable")
+        state = (STATE_SUCCESS if (reviewer_reject or not failed)
+                 else STATE_FAILED)
+        detail = [{"k": "Проверка", "v": "отклонила после bounded repair — "
+                   "резервный контур"}] if (failed and reviewer_reject) \
+            else []
         nodes.append(_node(
-            NODE_L2, "L2 · Писатель", TEXT_BRANCH,
-            STATE_FAILED if failed else STATE_SUCCESS,
+            NODE_L2, "L2 · Писатель", TEXT_BRANCH, state,
             reason_code=l2_ev.get("reason_code"), latency_ms=_lat(l2_ev),
             model=l2_ev.get("model"), provider=l2_ev.get("provider"),
+            detail=detail,
             counts={"out": _int(_parse_usage(
                 l2_ev.get("usage_json")).get("output_count"))}))
 
@@ -1169,6 +1221,92 @@ def _developer_block(snapshot, events) -> dict:
         "reason": snapshot.get("reason"),
         "stage_events": rows,
         "events_total": len(events or []),
+    }
+
+
+# ── ASAP 5 D6 (T-5244, ADR-1028-25 §3.1): Hybrid Decision Trace ─────────────
+# Источник — СУЩЕСТВУЮЩИЕ данные (без новых LLM-вызовов): per-attempt
+# stage_events снапшота (Reviewer/Revision: verdict/finding_codes/
+# blocking_count/paragraph_ids/revision-результаты) + durable строки
+# summary_run_stages (l1/l2/l2_review/final_policy — переживают рестарт).
+# Телеметрия mca_events не расширяется (D6). R17-safe: коды/числа/id.
+
+_TRACE_REVIEW_MAX = 12
+_TRACE_STAGES = ("l1", "l2", "l2_review", "final_policy")
+
+
+def _trace_stage_row(row: dict | None) -> dict | None:
+    if not isinstance(row, dict) or not row.get("stage"):
+        return None
+    status = str(row.get("status") or "") or None
+    return {
+        "stage": str(row.get("stage")),
+        "status": status,
+        "reason_code": row.get("reason_code") or None,
+        "reason_ru": reason_ru(row.get("reason_code")) or None,
+        "attempt": _int(row.get("attempt")),
+        "provider": row.get("provider"),
+        "model": row.get("model"),
+    }
+
+
+def _trace_event_row(ev: dict) -> dict:
+    """R17-safe проекция одного stage_event для секций трассы."""
+    return {
+        "stage": str(ev.get("stage") or ""),
+        "attempt": _int(ev.get("attempt")),
+        "status": str(ev.get("status") or "") or None,
+        "reason_code": ev.get("reason_code") or None,
+        "reason_ru": reason_ru(ev.get("reason_code")) or None,
+        "verdict": ev.get("verdict"),
+        "finding_codes": list(ev.get("finding_codes") or []) or None,
+        "blocking_count": _int(ev.get("blocking_count")),
+        "paragraph_ids": list(ev.get("paragraph_ids") or []) or None,
+        "repair_target": ev.get("repair_target")
+        or ev.get("revision_target"),
+        "revision_result": ev.get("revision_result"),
+        "revision_failure_reason": ev.get("revision_failure_reason"),
+        "deterministic_validation_codes": (
+            list(ev.get("deterministic_validation_codes") or []) or None),
+    }
+
+
+def _decision_trace(snapshot, stage_rows) -> dict | None:
+    """5 секций §3.1 (L1 / L2 Writer / Reviewer-итерации / Revision-
+    итерации / Final policy). None — данных нет (не-Hybrid/старый run)."""
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    rows = [dict(r) for r in (stage_rows or []) if isinstance(r, dict)]
+
+    def _last_stage(name: str) -> dict | None:
+        found = [r for r in rows if str(r.get("stage") or "") == name]
+        return found[-1] if found else None
+
+    events = [dict(e) for e in (snapshot.get("stage_events") or [])
+              if isinstance(e, dict)]
+    reviewer = [_trace_event_row(e) for e in events
+                if str(e.get("stage") or "") == "l2_reviewer"]
+    revision = [_trace_event_row(e) for e in events
+                if str(e.get("stage") or "") == "revision"]
+    l1 = _trace_stage_row(_last_stage("l1"))
+    writer = _trace_stage_row(_last_stage("l2"))
+    review_stage = _trace_stage_row(_last_stage("l2_review"))
+    policy_row = _last_stage("final_policy")
+    policy = None
+    if policy_row is not None:
+        policy = {
+            "status": str(policy_row.get("status") or ""),
+            "reason_code": policy_row.get("reason_code") or None,
+            "reason_ru": reason_ru(policy_row.get("reason_code")) or None,
+        }
+    if not any([l1, writer, review_stage, reviewer, revision, policy]):
+        return None
+    return {
+        "l1": l1,
+        "writer": writer,
+        "review_stage": review_stage,
+        "review_iterations": reviewer[-_TRACE_REVIEW_MAX:],
+        "revision_iterations": revision[-_TRACE_REVIEW_MAX:],
+        "final_policy": policy,
     }
 
 
@@ -1529,6 +1667,12 @@ async def collect_run(db, run_id: str) -> dict:
     else:
         # Без durable stage-истории liveness строится из событий честно.
         view["liveness"] = _liveness_cards(events, running=running)
+    # ASAP 5 D6 (T-5244): Hybrid Decision Trace — из существующих
+    # stage_events + durable stage-строк (final_policy). Fail-open.
+    try:
+        view["decision_trace"] = _decision_trace(snapshot, rows)
+    except Exception:      # pragma: no cover - fail-open
+        view["decision_trace"] = None
     return view
 
 

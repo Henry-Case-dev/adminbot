@@ -42,7 +42,7 @@ VISION_KILL_SWITCHES = {"MCA_VISION_ENABLED", "MCA_VISION_AUTO_ENABLED",
 # ── Δ каталога +9 (F8-переиздание) ──────────────────────────────────────────
 
 def test_catalog_counts_sanctioned():
-    assert len(pc.REGISTRY) == 523          # 510 → 519 (+9)
+    assert len(pc.REGISTRY) == 529          # 510 → 519 (+9)
     assert len(pc.GROUPS) == 113            # 108 → 112 (+4 группы)
     assert len(pc._TAB_BY_GROUP) == 111     # 106 → 110
     assert len(pc.TAB_RULES) == 22          # 21 → 22 (mod_vision)
@@ -106,11 +106,13 @@ def test_new_groups_on_tabs():
 def test_screen_map_and_registry_artifacts_regenerated():
     tsv = (ROOT / "plans/docs/param-registry-round1025.tsv").read_text(
         encoding="utf-8").splitlines()
-    assert len(tsv) == 524            # header + 523 (mca-20 round 10.44: 519→523)
+    # ASAP 5 (asap5-final-fixes, T-5256, санкция §5): 523→529 (+6 PG-only
+    # профилей embeddings) → header + 529 = 530 строк.
+    assert len(tsv) == 530
     assert "flags.vision_enabled" in "\t".join(tsv)
     meta = (ROOT / "plans/docs/param-registry-round1025.meta.md").read_text(
         encoding="utf-8")
-    assert "523" in meta and "411" in meta and "112" in meta
+    assert "529" in meta and "411" in meta and "118" in meta
 
 
 # ── Kill-switches +4 (76→80; env-only default ON; OFF-инертности) ───────────

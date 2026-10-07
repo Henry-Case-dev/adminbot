@@ -172,7 +172,12 @@ class TestRunViewScenarios:
         view = pa.build_run_view("run-1", snapshot, events)
         assert view["health"] == pa.HEALTH_DEGRADED
         by_key = {n["key"]: n for n in view["nodes"]}
-        assert by_key["l2"]["icon"] == "✕"
+        # ASAP 5 D5: Writer и Reviewer — раздельные честные исходы.
+        # Reviewer-rejection НЕ помечает Writer «не выполнено» (документ
+        # написан и прошёл deterministic-валидацию); отказ несёт узел
+        # Проверки, Legacy — резервный контур ⚠.
+        assert by_key["l2"]["icon"] == "✓"
+        assert by_key["l2_review"]["state"] == pa.STATE_FALLBACK
         assert by_key["legacy"]["state"] == pa.STATE_FALLBACK
         assert by_key["legacy"]["icon"] == "⚠"
 

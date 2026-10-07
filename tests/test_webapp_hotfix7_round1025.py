@@ -172,7 +172,7 @@ class TestAreaC_GlassShell:
 class TestAreaD_FlagsAcceptance:
     def test_app_version_bumped(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.67", m and m.group(1)
+        assert m and m.group(1) == "2.58.68", m and m.group(1)
 
     def test_env_only_flags_delivered(self):
         for flag in HOTFIX7_FLAGS:
@@ -187,7 +187,7 @@ class TestAreaD_FlagsAcceptance:
 
     def test_catalog_invariants(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 523
+        assert len(pc.REGISTRY) == 529
         assert len(pc.GROUPS) == 113
         assert len(pc._TAB_BY_GROUP) == 111
         assert len(pc.TAB_RULES) == 22

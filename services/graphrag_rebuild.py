@@ -97,6 +97,18 @@ _FAILURE_CAS_FROM = frozenset({ST_BUILDING, ST_RUNNING, ST_CHECKPOINT,
 _KIND = "graphrag_rebuild"
 _OWNER = "memory"
 
+# ── D10 (asap5-final-fixes, T-5255): future-resume переживает рестарты ──────
+# RCA G2: `_ensure_job` при неистёкшем `next_allowed_at` даёт no-op БЕЗ
+# планирования resume, а in-process auto-resume (`_schedule_auto_resume`)
+# умирает вместе с процессом (рестарты прода ~1.3 ч). Лечение — БЕЗ in-process
+# sleep: периодический scheduler-тик (период ≤ 15 мин, константа в коде)
+# вызывает `maybe_schedule_rebuilds(include_failed=False)`; в окне cooldown
+# `_ensure_job` даёт no-op, после истечения — следующий тик возобновляет job.
+# Тик периодический → переживает рестарты by construction (durable-состояние
+# в task_jobs/реестре не меняется).
+RESUME_TICK_SECONDS = 900          # ≤ 15 мин (D10)
+_resume_ticker_started = False
+
 # Спецификация индексов: source (source of truth, НЕ удалять — R18), live
 # vec-таблица, колонки копирования (int8-вариант добавляет embedding_i8).
 _INDEX_SPECS: dict[str, dict] = {
@@ -443,6 +455,45 @@ async def _horizon_exhausted(db, job_id: str) -> bool:
     if not started:
         return False
     return (int(time.time()) - started) >= _retry_horizon_seconds()
+
+
+async def resume_tick_once(memory) -> list[str]:
+    """D10/T-5255: один тик future-resume — `maybe_schedule_rebuilds` с
+    include_failed=False (bounded retry: failure-класс не переоткрывается
+    тиком, только startup/явный триггер). Отдельная функция — для тикера
+    и тестов (симуляция рестарта = новый вызов после истечения cooldown)."""
+    return await maybe_schedule_rebuilds(memory, include_failed=False)
+
+
+def start_resume_ticker(memory) -> bool:
+    """D10/T-5255: запустить периодический тик future-resume (один на
+    процесс; идемпотентно). Никогда не бросает; возвращает факт старта.
+    Warning НЕ глушится — guard `_index_generation_ok` продолжает честно
+    предупреждать, тик лишь устраняет resume-gap (RCA G2/G3)."""
+    global _resume_ticker_started
+    if _resume_ticker_started:
+        return False
+    if not graphrag_rebuild_enabled():
+        return False
+    _resume_ticker_started = True
+
+    async def _loop():
+        while True:
+            await asyncio.sleep(RESUME_TICK_SECONDS)
+            try:
+                await resume_tick_once(memory)
+            except Exception:      # тик живёт дольше любого сбоя
+                logger.warning("graphrag rebuild: resume tick failed",
+                               exc_info=True)
+
+    try:
+        from services.summary_memory import fire_and_forget
+        fire_and_forget(_loop(), "graphrag_resume_ticker")
+    except Exception:      # pragma: no cover
+        asyncio.ensure_future(_loop())
+    logger.info("graphrag rebuild: resume ticker started | period_s=%d",
+                RESUME_TICK_SECONDS)
+    return True
 
 
 def _schedule_auto_resume(memory, db, index_name: str, delay_s: float) -> None:
@@ -1641,6 +1692,50 @@ async def _source_remaining(db, index_name: str, fp: str) -> int:
         return 10**9      # неизвестно → самый низкий приоритет оценки
 
 
+def ticker_active() -> bool:
+    """D10/T-5255: запущен ли в этом процессе periodic future-resume тик."""
+    return _resume_ticker_started
+
+
+async def _source_empty(db, index_name: str) -> bool:
+    """D10/T-5255: источник rebuild'а пуст (eligible-строк 0)? Fail-open:
+    ошибка чтения → False (не «пусто») — reopen остаётся возможен, честный
+    reason `knn_source_empty` джоба вернёт сама при следующем прогоне."""
+    try:
+        spec = _INDEX_SPECS[index_name]
+        now = int(time.time())
+        if spec["eligible_ts"]:
+            sql = (f"SELECT COUNT(*) AS c FROM {spec['source']} "
+                   "WHERE (expires_at IS NULL OR expires_at > ?)")
+            cursor = await db.db.execute(sql, (now,))
+        else:
+            cursor = await db.db.execute(
+                f"SELECT COUNT(*) AS c FROM {spec['source']}")
+        row = await cursor.fetchone()
+        return row is None or int(row["c"]) == 0
+    except Exception:
+        return False
+
+
+async def _source_total(db, index_name: str) -> int:
+    """D10/T-5255: всего eligible-строк источника (знаменатель «N/M»).
+    Fail-open: ошибка → 0 (панель покажет M=0, не выдумывает число)."""
+    try:
+        spec = _INDEX_SPECS[index_name]
+        now = int(time.time())
+        if spec["eligible_ts"]:
+            sql = (f"SELECT COUNT(*) AS c FROM {spec['source']} "
+                   "WHERE (expires_at IS NULL OR expires_at > ?)")
+            cursor = await db.db.execute(sql, (now,))
+        else:
+            cursor = await db.db.execute(
+                f"SELECT COUNT(*) AS c FROM {spec['source']}")
+        row = await cursor.fetchone()
+        return int(row["c"]) if row is not None else 0
+    except Exception:
+        return 0
+
+
 async def _ensure_job(db, index_name: str, fp: str, generation: int
                       ) -> str | None:
     """Найти/создать durable-джобу rebuild'а (coalesce по index+fp).
@@ -1666,7 +1761,10 @@ async def _ensure_job(db, index_name: str, fp: str, generation: int
             return None                 # явная пауза — не авто-возобновляем
         if status in AUTO_RESUME_STATUSES:
             # §68: restart during pause — читаем next_allowed_at из реестра;
-            # не истёк → ждём (generation НЕ сбрасывается).
+            # не истёк → ждём (generation НЕ сбрасывается). D10/T-5255: ожидание
+            # в окне cooldown — норма (no-op тика); resume приходит следующим
+            # тиком `start_resume_ticker` ПОСЛЕ истечения next_allowed_at,
+            # в т.ч. в новом процессе после рестарта.
             gen = await db.get_generation_by_fingerprint(index_name, fp)
             next_allowed = int((gen or {}).get("next_allowed_at") or 0)
             if next_allowed and int(time.time()) < next_allowed:
@@ -1677,6 +1775,15 @@ async def _ensure_job(db, index_name: str, fp: str, generation: int
             return jid
         if status in (ST_QUEUED, ST_CHECKPOINT, ST_VALIDATION_FAILED,
                       "interrupted"):
+            if status == ST_VALIDATION_FAILED:
+                # D10/T-5255 (RCA §2.4): `knn_source_empty` при ПУСТОМ
+                # источнике — stable terminal с видимой причиной (vectors
+                # сохранены, T-4409): по schedule не переоткрываем, иначе
+                # вечный startup-цикл BUILD_START→FAILED на каждом рестарте.
+                # Появились строки в источнике → reopen снова разрешён.
+                if str(job.get("reason_code") or "") == "knn_source_empty" \
+                        and await _source_empty(db, index_name):
+                    return None
             if status == "interrupted":
                 await _job_cas(db, jid, expect="interrupted",
                                set_status=ST_QUEUED,
@@ -1793,4 +1900,5 @@ __all__ = [
     "ST_ACTIVATED", "ST_FAILED", "ST_CANCELLED",
     "graphrag_rebuild_enabled", "maybe_schedule_rebuilds", "run_job",
     "pause_rebuild", "resume_rebuild", "cancel_rebuild", "rebuild_status",
+    "RESUME_TICK_SECONDS", "start_resume_ticker", "resume_tick_once",
 ]

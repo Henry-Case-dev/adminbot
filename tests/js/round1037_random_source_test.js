@@ -62,7 +62,12 @@ assert(methods && methods.randomCheckStatus,
   'methods.randomCheckStatus не найден');
 assert(methods && methods.onKeyDraft, 'methods.onKeyDraft не найден');
 
-function ctx(statusData) { return { statusData: statusData }; }
+function ctx(statusData) {
+  // D13/T-5262: randomSource вынесен в methods._randomSourceView (общий
+  // маппинг для «Статуса» и точки входа на «Сне») — харнесс биндит его.
+  return { statusData: statusData, randomSleepState: null,
+           _randomSourceView: methods._randomSourceView };
+}
 function rs(statusData) {
   return computed.randomSource.call(ctx(statusData));
 }

@@ -34,6 +34,8 @@ from services import cover_style_assets as assets
 from services import cover_style_registry as registry
 from services import image_capabilities as cap
 from services import image_prompt_compiler as compiler
+# ASAP 5 (SERIALIZE-1/D7–D9): единая сборка cover-промптов и манифеста.
+from services import cover_prompt_assembly as cpa
 from services.cover_style_edit import EditResult, edit_image
 from services.cover_style_pipeline import (
     KEY_STYLE_API_KEY,
@@ -510,6 +512,11 @@ class CoverJobState:
     # Snapshot — не профиль: в DB не сохраняется, живёт в durable job state.
     draft_snapshot: dict | None = None
     draft_fingerprint: str | None = None
+    # ASAP 5 (D7/T-5249): CoverPromptManifest — фактические sent prompt'ы
+    # (обе attempts) + компоненты. Полный prompt живёт ТОЛЬКО здесь (durable
+    # job evidence, bounded retention вместе с task_jobs); наружу — только
+    # admin-authorized API через cpa.manifest_public (fail-closed).
+    prompt_manifest: dict | None = None
 
     def mark(self, state: str, *, provider_task_id: str | None = None,
              note: str | None = None) -> None:
@@ -541,6 +548,7 @@ class CoverJobState:
             "prompt_diagnostics": self.prompt_diagnostics,
             "draft_snapshot": self.draft_snapshot,
             "draft_fingerprint": self.draft_fingerprint,
+            "prompt_manifest": self.prompt_manifest,
             "stages": self.stages[-32:]}, ensure_ascii=False)
 
     @classmethod
@@ -574,6 +582,9 @@ class CoverJobState:
                             if isinstance(data.get("draft_snapshot"),
                                           dict) else None),
             draft_fingerprint=data.get("draft_fingerprint"),
+            prompt_manifest=(data.get("prompt_manifest")
+                             if isinstance(data.get("prompt_manifest"),
+                                           dict) else None),
             stages=list(data.get("stages") or []))
 
 
@@ -737,6 +748,62 @@ async def _persist_state(db, job_id: str | None,
     if db is None or not job_id or state is None:
         return False
     return await save_cover_state(db, job_id, state)
+
+
+# ── ASAP 5 (D7/T-5249): durable персист Base-манифеста ──────────────────────
+
+BASE_JOB_PREFIX = "covbase_"
+
+
+def base_manifest_job_key(summary_run_id: str | None) -> str:
+    """Детерминированный job_id Base-манифеста run'а (restart-safe: одна
+    строка task_jobs на Summary run, повторный прогон — no-op)."""
+    raw = str(summary_run_id or "")
+    return BASE_JOB_PREFIX + hashlib.sha256(
+        raw.encode("utf-8")).hexdigest()[:24]
+
+
+async def record_base_cover_manifest(db, *, summary_run_id: str | None,
+                                     chat_id: int | None = None,
+                                     manifest: dict | None) -> bool:
+    """Персист Base CoverPromptManifest в существующем job-evidence (D7).
+
+    Носитель — `task_jobs` (kind=cover_base, payload/checkpoint как у Style
+    Edit, retention bounded вместе с ним); полный prompt в generic log НЕ
+    попадает. Fail-open: нет БД/run_id — False (обложка не ломается)."""
+    if db is None or not summary_run_id or not isinstance(manifest, dict):
+        return False
+    jid = base_manifest_job_key(summary_run_id)
+    try:
+        started = await start_cover_job(
+            db, chat_id=int(chat_id or 0), correlation_id=str(summary_run_id),
+            payload={"kind": "cover_base"}, job_id=jid,
+            coalesce_key="cover_base:%s" % summary_run_id,
+            kind="cover_base")
+        if not started:
+            return False
+        state = await load_cover_state(db, started)
+        if state is None:
+            state = CoverJobState()
+        state.prompt_manifest = manifest
+        await _persist_state(db, started, state)
+        await finish_cover_job(db, started, outcome=RESULT_BASE)
+        return True
+    except Exception:
+        logger.warning("[cover_style_jobs] base manifest persist failed",
+                       exc_info=True)
+        return False
+
+
+async def load_base_cover_manifest(db, summary_run_id: str | None) -> dict | None:
+    """Прочитать Base-манифест run'а (None — нет/битый). Полный prompt
+    отдаётся только admin-authorized вызывающим (ср. cpa.manifest_public)."""
+    if db is None or not summary_run_id:
+        return None
+    state = await load_cover_state(db, base_manifest_job_key(summary_run_id))
+    if state is None:
+        return None
+    return state.prompt_manifest
 
 
 # ── profile/selection helpers ───────────────────────────────────────────────
@@ -1074,47 +1141,101 @@ async def profile_diagnostics(pg, profile: dict, *,
 
 # ── prompt compilation (§19–§21) ────────────────────────────────────────────
 
+def style_reference_text(profile: dict) -> str:
+    """P2-текст описаний референсов (§19; единый источник для compile/manifest)."""
+    refs = profile.get("references") or []
+    if not refs:
+        return ""
+    return "; ".join(
+        "%s: %s" % (r.get("label") or "reference",
+                    r.get("description") or "")
+        for r in refs)
+
+
 def compile_style_prompt(profile: dict, *, issue_display: str,
                          capabilities, base_style_prompt: str = "",
-                         brief=None, minimal: bool = False
+                         brief=None, story_scene: str = "",
+                         retry_core: bool = False
                          ) -> compiler.CompiledPrompt:
     """Собрать priority-aware prompt Style Edit (§19–§21).
 
     P0 — runtime-инварианты (номер выпуска, запрет дубликатов) — не режется;
     P1 — инструкция стиля профиля и base style prompt (§19: «base style
-    prompt»); P2 — описания референсов (режется первым). Динамический
-    `CoverBrief` (§21) передаётся как сюжетная часть и масштабируется под
-    остаток capability.
+    prompt»); P2 — описания референсов (режется первым). Сюжетная часть —
+    STORY_SCENE (сцена base, D8) + `CoverBrief` от финального Summary
+    (D8/T-5251: больше НЕ 300-char seed).
 
-    `minimal=True` (ASAP 4.4/T-4875, adaptive retry без известного лимита):
-    только P0+P1 инварианты — P2 (refs/brief) и P3 НЕ добавляются, чтобы
-    retry был реально короче и не терял обязательную механику.
+    `retry_core=True` (ASAP 5/D9/T-5251): bounded semantic squeeze для
+    unknown-limit retry — mandatory-ядро вместо прежнего `minimal=True`
+    (потеря сюжета ЗАПРЕЩЕНА): P0 runtime полностью + story-minimum
+    (160 chars или 100% оригинала) + minimum profile identity (≥50%
+    instruction) + mandatory reference roles; описания референсов и
+    контекст сверх минимума опускаются, все сокращения фиксируются в
+    Manifest. Old `minimal` parameter removed — запрещён spec'ом (D9).
     """
+    runtime_text = cpa.runtime_invariants_text(issue_display)
+    instruction = str(profile.get("instruction") or "")
+    base_style = str(base_style_prompt or "").strip()
+    refs_text = style_reference_text(profile)
+    if retry_core:
+        # D9: mandatory-ядро в порядке §9 (runtime → story → profile identity
+        # → reference roles); optional details (описания refs, контекст сверх
+        # минимума, хвост instruction) — опущены и видны в Manifest.
+        story_text = story_scene if story_scene.strip() else \
+            (brief.render() if brief is not None else "")
+        parts = [
+            runtime_text,
+            cpa.profile_identity_floor(instruction),
+            base_style,
+            cpa.reference_roles_text(profile.get("references") or []),
+            cpa.story_floor_text(story_text),
+        ]
+        prompt = " ".join(p for p in parts if p)
+        dropped: list[str] = []
+        sent_floor = cpa.profile_identity_floor(instruction)
+        if instruction.strip() and sent_floor != instruction.strip():
+            dropped.append("style_instruction_tail")
+        if refs_text and refs_text not in prompt:
+            dropped.append("references_descriptions")
+        brief_text_full = brief.render() if brief is not None else ""
+        if brief_text_full and brief_text_full not in prompt \
+                and not story_scene.strip():
+            dropped.append("summary_context")
+        return compiler.CompiledPrompt(
+            prompt=prompt,
+            static_len=len(prompt), reserve_len=0, scene_allowance=0,
+            limit=None, unit="unknown", dropped=dropped,
+            original_len=len(prompt), resolved_limit=None, exceeded=False,
+            reason="semantic_squeeze",
+            components={
+                "runtime_invariants": len(runtime_text),
+                "style_instruction": len(sent_floor) if instruction else 0,
+                "base_style_prompt": len(base_style),
+                "references": len(cpa.reference_roles_text(
+                    profile.get("references") or [])),
+                "cover_brief": len(cpa.story_floor_text(story_text)),
+            })
     components = [
-        compiler.PromptComponent(
-            ("Сохрани номер выпуска «%s». Не добавляй дубликатов уже "
-             "присутствующих на обложке элементов." % issue_display),
-            priority=compiler.P0, label="runtime_invariants"),
-        compiler.PromptComponent(profile.get("instruction") or "",
+        compiler.PromptComponent(runtime_text,
+                                 priority=compiler.P0,
+                                 label="runtime_invariants"),
+        compiler.PromptComponent(instruction,
                                  priority=compiler.P1, label="style_instruction"),
     ]
-    base_style = str(base_style_prompt or "").strip()
     if base_style:
         components.append(compiler.PromptComponent(
             base_style, priority=compiler.P1, label="base_style_prompt"))
-    if minimal:
-        return compiler.compile_prompt(components, capabilities=capabilities)
-    refs = profile.get("references") or []
-    if refs:
-        ref_text = "; ".join(
-            "%s: %s" % (r.get("label") or "reference",
-                        r.get("description") or "")
-            for r in refs)
+    if refs_text:
         components.append(compiler.PromptComponent(
-            ref_text, priority=compiler.P2, label="references"))
+            refs_text, priority=compiler.P2, label="references"))
+    # Сюжетная часть (§21): сцена base + компактный контекст финального
+    # Summary; budget floor — D9 story-minimum перед drop'ом.
     brief_text = brief.render() if brief is not None else ""
+    budget_text = " ".join(p for p in (story_scene.strip(), brief_text) if p)
+    budget_floor = cpa.story_floor_text(budget_text) if budget_text else ""
     return compiler.compile_prompt(components, capabilities=capabilities,
-                                   budget_component=brief_text)
+                                   budget_component=budget_text,
+                                   budget_floor_text=budget_floor)
 
 
 def _prompt_breakdown(compiled) -> dict:
@@ -1201,7 +1322,90 @@ def _resolve_api_key() -> str:
     return str(value or "")
 
 
+manifest_public = cpa.manifest_public  # ASAP 5 (D7): fail-closed view (admin-only)
+
+
 # ── Style stage (§3.2/§23/§38/§49) ──────────────────────────────────────────
+
+def _manifest_mark_outcome(manifest: dict | None, *, applied: bool,
+                           reason: str = "") -> None:
+    """Финализировать исход ПОСЛЕДНЕЙ attempt (после результата provider'а).
+
+    Манифест строится сразу после retry-блока (персист-точки state ниже),
+    исход дописывается в тот же dict — durable-персист забирает финал."""
+    if not isinstance(manifest, dict) or not manifest.get("attempts"):
+        return
+    last = max(int(a.get("attempt") or 0) for a in manifest["attempts"])
+    for att in manifest["attempts"]:
+        if int(att.get("attempt") or 0) == last:
+            att["outcome"] = "ok" if applied else "failed"
+            if not applied and reason:
+                att["reason"] = str(reason)
+
+
+def _build_style_manifest(*, profile: dict, issue_display: str,
+                          base_style_prompt: str, brief_text: str,
+                          scene_text: str, sent_prompts: list,
+                          meta: dict, caps) -> dict | None:
+    """D7/T-5249: CoverPromptManifest Style Edit по факту отправки.
+
+    ``sent_prompts`` — фактически отправленные строки (attempt 1 + retry);
+    полный prompt живёт только в манифесте (durable job evidence), в
+    generic log/events не попадает. R17: тексты компонентов — chat data,
+    наружу только через cpa.manifest_public (fail-closed, admin-only)."""
+    if not sent_prompts:
+        return None
+    applied = bool(meta.get("applied"))
+    fail_reason = str(meta.get("fail_reason") or "")
+    limit_known = None
+    limit_source = "unknown"
+    limit_unit_raw = "unknown"
+    resolved_limit = None
+    if caps is not None:
+        pl = getattr(caps, "prompt_limit", None)
+        limit_known = bool(getattr(pl, "known", False))
+        limit_source = str(getattr(pl, "source", "") or "unknown")
+        limit_unit_raw = str(getattr(pl, "unit", "") or "unknown")
+        if limit_known:
+            resolved_limit = getattr(pl, "value", None)
+    attempts = []
+    last = sent_prompts[-1][0]
+    retry_reason = ""
+    if len(sent_prompts) > 1:
+        retry_reason = ("prompt_limit_unknown"
+                        if meta.get("prompt_limit_unknown_retry")
+                        else "prompt_limit")
+    for num, text in sent_prompts:
+        if num == last:
+            outcome = "ok" if applied else "failed"
+            reason = "" if applied else fail_reason
+        else:
+            outcome = "retry_superseded"
+            reason = retry_reason
+        attempts.append({"attempt": int(num), "prompt": str(text or ""),
+                         "outcome": outcome, "reason": reason})
+    final_prompt = str(sent_prompts[-1][1] or "")
+    limit_unit = (str(resolved_limit) if resolved_limit is not None
+                  else "unknown") + ":" + limit_unit_raw
+    return cpa.build_style_manifest(
+        issue_display=issue_display,
+        instruction=str(profile.get("instruction") or ""),
+        base_style_prompt=base_style_prompt,
+        refs_text=style_reference_text(profile),
+        ref_roles_text=cpa.reference_roles_text(
+            profile.get("references") or []),
+        story_scene=scene_text,
+        context_text=brief_text,
+        final_prompt=final_prompt,
+        provider=str(meta.get("provider") or ""),
+        model=str(meta.get("model") or ""),
+        route=str(meta.get("edit_route") or ""),
+        operation=("preview" if meta.get("mode") == MODE_PREVIEW else "edit"),
+        resolved_limit=resolved_limit,
+        limit_unit=limit_unit,
+        limit_source=limit_source,
+        attempts=attempts)
+
 
 async def run_style_job(*, chat_id: int, base_image_path: str | None,
                         profile: dict | None, summary_run_id: str | None,
@@ -1213,7 +1417,9 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                         edit_call=None, mode: str = MODE_PRODUCTION,
                         state: CoverJobState | None = None,
                         summary_text: str | None = None,
-                        base_style_prompt: str | None = None) -> dict:
+                        base_style_prompt: str | None = None,
+                        story_scene: str | None = None,
+                        manifest_out: dict | None = None) -> dict:
     """Выполнить Style Edit поверх готовой base cover (нормализатор, §23).
 
     Возвращает meta-словарь. При любом сбое `applied=False`,
@@ -1221,8 +1427,14 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
     (base НЕ перегенерируется, §49).
 
     §19/§21: prompt собирается из base style prompt + dynamic cover brief
-    (компактный сюжет из Summary-prose `summary_text`), инструкции профиля,
-    runtime-номера выпуска и описаний референсов — `compile_style_prompt`.
+    (компактный сюжет), инструкции профиля, runtime-номера выпуска и
+    описаний референсов — `compile_style_prompt`.
+
+    ASAP 5 (D8/T-5251): `summary_text` — ФИНАЛЬНЫЙ approved Summary
+    (SUMMARY_CONTEXT: title + главные события; больше не 300-char seed),
+    `story_scene` — сцена base cover (STORY_SCENE). `manifest_out` —
+    опциональный dict вызывающего, куда кладётся фактический
+    CoverPromptManifest (T-5249); durable-персист — в `state`.
 
     ASAP-4 волна B (spec §2 B.4/B.5, T-4418/T-4419; `snapshot_enabled()`):
     ON — pre-execution конфигурационные фейлы (`connection_missing`/
@@ -1444,18 +1656,26 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
     snapshot = registry.build_revision_snapshot(
         profile, issue_number=issue_no, capabilities=caps.as_dict(),
         slot=slot)
-    # §21: dynamic cover brief из Summary-prose (компактный сюжет).
+    # §21 + ASAP 5 (D8/T-5251): сюжетная часть = STORY_SCENE (сцена base
+    # cover) + SUMMARY_CONTEXT (CoverBrief от ФИНАЛЬНОГО approved Summary —
+    # больше не 300-char seed; 0 LLM).
     brief = compiler.brief_from_text(summary_text)
+    scene_text = str(story_scene or "").strip()
+    brief_text = brief.render() if brief is not None else ""
+    budget_text = " ".join(p for p in (scene_text, brief_text) if p)
     meta["base_asset_id"] = _asset_id_of(base_image_path)
     compiled = compile_style_prompt(
         profile, issue_display=issue_display, capabilities=caps,
-        base_style_prompt=base_style_prompt or "", brief=brief)
+        base_style_prompt=base_style_prompt or "", brief=brief,
+        story_scene=scene_text)
+    # D7 attempts[]: фактически отправленные строки (attempt 1 + retry).
+    sent_prompts: list = [(1, compiled.prompt)]
     if _wb:
         # §46 (T-4418): prompt compilation diagnostics (safe-числа/флаги).
-        brief_text = brief.render() if brief is not None else ""
         meta["prompt_diagnostics"] = {
             "instruction_chars": len(str(profile.get("instruction") or "")),
-            "brief_chars": len(brief_text),
+            "brief_chars": len(budget_text),
+            "story_chars": len(scene_text),
             "issue_present": bool(issue_display in compiled.prompt),
             "references_count": len(ref_paths),
             "compiled_chars": len(compiled.prompt),
@@ -1616,7 +1836,7 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                         profile, issue_display=issue_display,
                         capabilities=caps_retry,
                         base_style_prompt=base_style_prompt or "",
-                        brief=brief)
+                        brief=brief, story_scene=scene_text)
                     shorter = len(recompiled.prompt) < len(compiled.prompt)
                     retry_ok = (not getattr(recompiled, "exceeded", False)
                                 and shorter)
@@ -1641,6 +1861,7 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                                             provider=meta["provider"],
                                             meta=result.meta)
                     else:
+                        sent_prompts.append((2, recompiled.prompt))
                         emit_cover_event(
                             COVER_STYLE_SUBMITTED, outcome="retry",
                             run_id=correlation_id, job_id=job_id,
@@ -1662,22 +1883,28 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                                 ok=False, reason=type(exc).__name__,
                                 model=meta["model"], provider=meta["provider"])
             elif result.reason == "prompt_limit_unknown":
-                # T-4875: без числа — P2/P3 сбрасываются, P0/P1 (номер
-                # выпуска, запрет дублей, стиль/роли) сохраняются.
+                # T-4875 + ASAP 5 (D9/T-5251): без числа — bounded semantic
+                # squeeze до mandatory-ядра (runtime полностью + story-minimum
+                # 160 chars/100% + profile identity ≥50% + mandatory reference
+                # roles). Прежний `minimal=True` (потеря сюжета) ЗАПРЕЩЁН.
                 recompiled = compile_style_prompt(
                     profile, issue_display=issue_display,
                     capabilities=caps, base_style_prompt=base_style_prompt
-                    or "", brief=None, minimal=True)
+                    or "", brief=brief, story_scene=scene_text,
+                    retry_core=True)
                 shorter = len(recompiled.prompt) < len(compiled.prompt)
                 retry_info = {
+                    "mode": "semantic_squeeze",
                     "original_chars": len(compiled.prompt),
                     "recompiled_chars": len(recompiled.prompt),
+                    "story_min_chars": len(cpa.story_floor_text(budget_text)),
                     "retry_sent": bool(shorter),
                 }
                 if not shorter:
                     # Идентичный/не короче — resend запрещён (деньги впустую).
                     retry_info["skipped"] = "not_shorter"
                 else:
+                    sent_prompts.append((2, recompiled.prompt))
                     emit_cover_event(
                         COVER_STYLE_SUBMITTED, outcome="retry",
                         run_id=correlation_id, job_id=job_id, chat_id=chat_id,
@@ -1723,6 +1950,22 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
         except Exception:
             logger.debug("[cover_style_jobs] prompt-limit retry failed",
                          exc_info=True)
+
+    # ── ASAP 5 (D7/T-5249): CoverPromptManifest — фактические sent prompt'ы
+    # обеих attempts. Полный prompt живёт в durable state (task_jobs payload);
+    # в generic log/events НЕ попадает (SAFE_LOG_FIELDS не расширялись).
+    manifest = _build_style_manifest(
+        profile=profile, issue_display=issue_display,
+        base_style_prompt=base_style_prompt or "", brief_text=brief_text,
+        scene_text=scene_text, sent_prompts=sent_prompts,
+        meta=meta, caps=caps)
+    if manifest is not None:
+        if state is not None:
+            state.prompt_manifest = manifest
+        if manifest_out is not None:
+            manifest_out["prompt_manifest"] = manifest
+        meta["prompt_manifest_hash"] = manifest.get("prompt_hash") or ""
+        meta["prompt_manifest_chars"] = manifest.get("final_chars") or 0
     meta["provider_task_id"] = result.task_id
     meta["async_used"] = bool(result.async_used)
     record_latency(meta["model"], "style_edit", result.latency_ms,
@@ -1742,6 +1985,7 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
             meta.update(applied=True, styled_path=path, outcome=RESULT_STYLED,
                         reason="", duration_ms=_elapsed(started),
                         final_asset_id=_asset_id_of(path))
+            _manifest_mark_outcome(manifest, applied=True)
             if state is not None:
                 state.mark(STATE_STYLE_SUCCEEDED,
                            provider_task_id=result.task_id)
@@ -1762,6 +2006,7 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                             model=meta["model"], provider=meta["provider"])
 
     meta["fail_reason"] = result.reason
+    _manifest_mark_outcome(manifest, applied=False, reason=result.reason)
     await _record_provenance(
         obj, meta, summary_run_id=summary_run_id, job_id=job_id,
         snapshot=snapshot, status=registry.PROVENANCE_BASE,
@@ -1873,6 +2118,10 @@ __all__ = [
     "run_style_preview", "classify_cover_result", "build_timeline",
     "record_latency", "latency_stats", "record_cost", "cost_summary",
     "reset_metrics", "emit_cover_event", "prompt_hash", "compile_style_prompt",
+    # ASAP 5 (D7-D9): манифест/сборка/персист
+    "record_base_cover_manifest", "load_base_cover_manifest",
+    "base_manifest_job_key", "manifest_public",
+    "style_reference_text",
     "snapshot_enabled", "resolve_selection", "emit_style_selection",
     "selection_stage", "profile_for_snapshot", "report_style_skip",
     "record_no_cover_provenance", "style_reason_code", "reason_detail_ru",

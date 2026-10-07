@@ -290,10 +290,14 @@ class TestRichDelivery:
         assert rec.rich[0]["media"] and len(rec.rich[0]["media"]) == 1
         assert "богатый дерзкий рассказ" in rec.rich[0]["text"]
         assert rec.ux == []                        # без сообщений об ошибках
-        # конкатенация стиля и visual prompt
-        assert rec.image_prompts == [
-            compose_cover_image_prompt(sg.SUMMARY_COVER_STYLE_DEFAULT,
-                                       "a lone cat on a neon rooftop")]
+        # конкатенация стиля и visual prompt; ASAP 5 (D8/T-5250): после
+        # story едет bounded SUMMARY_CONTEXT от финального документа.
+        base_part = compose_cover_image_prompt(
+            sg.SUMMARY_COVER_STYLE_DEFAULT, "a lone cat on a neon rooftop")
+        assert len(rec.image_prompts) == 1
+        assert rec.image_prompts[0] == base_part \
+            or rec.image_prompts[0].startswith(base_part + " ")
+        assert len(rec.image_prompts[0]) >= len(base_part)
         # tmp-файл обложки удалён после отправки
         assert not img.exists()
 

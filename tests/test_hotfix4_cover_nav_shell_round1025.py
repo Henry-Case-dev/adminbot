@@ -164,9 +164,12 @@ class TestCoverStyleApplied:
             await gen._deliver_rich(-100, "текст", "a lone cat")
 
         # Настроенный стиль РЕАЛЬНО доходит до image-API (первым в промпте).
+        # ASAP 5 (D8/T-5250): после story едет bounded SUMMARY_CONTEXT
+        # от финального документа («текст»).
         final_prompt = image_mock.await_args.args[0]
         assert final_prompt.startswith(_CUSTOM_STYLE)
-        assert final_prompt.endswith("a lone cat")
+        assert "a lone cat" in final_prompt
+        assert final_prompt.endswith("a lone cat текст")
         joined = "\n".join(r.getMessage() for r in caplog.records)
         assert "style_is_default=False" in joined
         assert "has_comic=True" in joined
@@ -285,8 +288,10 @@ class TestCoverStyleApplied:
             monkeypatch.setattr(sg, "generate_image_verbose", image_mock)
             monkeypatch.setattr(SummaryGenerator, "_plain_fallback", AsyncMock())
             await gen._deliver_rich(-100, "текст", "a lone cat")
+            # ASAP 5 (D8/T-5250): story + bounded SUMMARY_CONTEXT от документа.
             assert image_mock.await_args.args[0].startswith(_CUSTOM_STYLE)
-            assert image_mock.await_args.args[0].endswith("a lone cat")
+            assert "a lone cat" in image_mock.await_args.args[0]
+            assert image_mock.await_args.args[0].endswith("a lone cat текст")
         finally:
             chat_params.set_chat_params_cache(None)
 
@@ -380,7 +385,9 @@ class TestCoverFallbackEmptyDraft:
 
         assert len(rec.rich) == 1
         assert rec.image_prompts
-        assert rec.image_prompts[0].endswith("a lone cat")
+        # ASAP 5 (D8/T-5250): после story едет bounded SUMMARY_CONTEXT
+        # («Тема готовый текст» — title + текст финального документа).
+        assert rec.image_prompts[0].endswith("a lone cat Тема готовый текст")
 
 
 # ── B. Панель mobile: offset + CSS-фолбэк + viewport-fit + матрица ────────

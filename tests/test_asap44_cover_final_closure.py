@@ -782,8 +782,11 @@ def test_cover11_ui_and_runtime_share_one_effective_capability(
 
 def test_cover12_prompt_limit_unknown_one_shorter_retry(
         tmp_path, monkeypatch):
-    """T-4875: 400-too-long без числа → `prompt_limit_unknown`; ровно один
-    shorter retry (P2 refs/brief сброшены, P0/P1 сохранены)."""
+    """T-4875 + ASAP 5 (D9/T-5251): 400-too-long без числа →
+    `prompt_limit_unknown`; ровно один shorter retry — bounded semantic
+    squeeze: runtime полностью + story-minimum (сюжет НЕ выбрасывается) +
+    profile identity ≥50% + mandatory reference role (label). Прежний
+    `minimal=True` (P0+style без сюжета) запрещён."""
     cap.reset_cache()
     _nanogpt_slot_stub(monkeypatch)
     base = tmp_path / "c12_base.png"
@@ -809,12 +812,20 @@ def test_cover12_prompt_limit_unknown_one_shorter_retry(
         assert len(prompts) == 2, "ровно один bounded retry"
         assert len(prompts[1]) < len(prompts[0]), "retry реально короче"
         assert "ВЫПУСК" in prompts[1]
-        assert profile["instruction"] in prompts[1]
-        assert "REF-UNIQUE-LABEL" not in prompts[1], "P2 refs не сброшены"
-        assert "Сюжетная фраза" not in prompts[1], "P2 brief не сброшен"
+        # D9 minimum profile identity: ≥50% instruction сохраняется
+        # (здесь — до границы слова), полный текст опущен.
+        assert "Сделай обложку в стиле серии" in prompts[1]
+        assert profile["instruction"] not in prompts[1]
+        # D9 story-minimum: оригинал короче 160 chars → едет 100% сюжета.
+        assert "Сюжетная фраза" in prompts[1]
+        # mandatory reference role: label не выбрасывается молча
+        # (описание — optional detail, опускается).
+        assert "REF-UNIQUE-LABEL" in prompts[1]
+        assert "уникальное описание референса" not in prompts[1]
         assert meta["applied"] is True, meta
         retry = meta.get("prompt_limit_unknown_retry") or {}
         assert retry.get("retry_sent") is True, retry
+        assert retry.get("mode") == "semantic_squeeze", retry
     finally:
         cap.reset_cache()
 
@@ -852,7 +863,10 @@ def test_cover12b_prompt_limit_unknown_after_retry_honest_reason(
 
 def test_cover12c_prompt_limit_unknown_no_oversized_resend(
         tmp_path, monkeypatch):
-    """Если сократить нечего (нет P2/P3) — paid retry НЕ отправляется."""
+    """T-4875 + ASAP 5 (D9/T-5251): resend только если retry реально короче.
+    Без refs/brief squeeze режет instruction до identity floor (≥50%) —
+    retry короче и отправляется; identical/oversized resend по-прежнему
+    запрещён (гарантия `retry_sent` только при shorter)."""
     cap.reset_cache()
     _nanogpt_slot_stub(monkeypatch)
     base = tmp_path / "c12c.png"
@@ -869,11 +883,15 @@ def test_cover12c_prompt_limit_unknown_no_oversized_resend(
         meta = _run(cjobs.run_style_job(
             chat_id=0, base_image_path=str(base), profile=profile,
             summary_run_id=None, edit_call=edit_call, reference_paths=[]))
-        assert len(prompts) == 1, "oversized/identical resend запрещён"
+        assert len(prompts) == 2, "bounded retry: squeeze короче оригинала"
+        assert len(prompts[1]) < len(prompts[0]), "retry короче"
+        assert "ВЫПУСК" in prompts[1], "P0 runtime сохранён"
         retry = meta.get("prompt_limit_unknown_retry") or {}
-        assert retry.get("retry_sent") is False, retry
-        assert retry.get("skipped") == "not_shorter", retry
-        assert meta["fail_reason"] == "prompt_limit_unknown"
+        assert retry.get("retry_sent") is True, retry
+        assert retry.get("mode") == "semantic_squeeze", retry
+        # Сюжет не выдумывается: без brief/scene в retry его нет.
+        assert "Сюжет:" not in prompts[1]
+        assert meta["fail_reason"] == "prompt_limit_unknown_after_retry"
     finally:
         cap.reset_cache()
 

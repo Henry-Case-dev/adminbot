@@ -943,7 +943,11 @@ def test_write_points_go_through_single_writer():
         # PRAGMA user_version; раннер) + runtime run/evidence-записи через
         # `write_transaction` (`record_factcheck_run`/`record_factcheck_
         # evidence`); чтение виджета — read-only.
-        "database.py": 189,
+        # +2 asap5 B3 (ADR-1028-25, T-5256/T-5257, санкция census-sweep
+        # D-1 / T-5270): `set_embedding_generation_status` — D12/13E
+        # валидированный transition-хелпер поколений (fail-open, OPT-IN для
+        # migration-машины; одиночный UPDATE + commit, rollback в сайте нет).
+        "database.py": 191,
         "dossier_rebuild_jobs.py": 1,   # внутри `async with db.serialized()`
         # ASAP-3.2 (ADR-1028-5 D1/D2, T-4191): shadow-rebuild — 3 прямых
         # commit внутри `async with memory.db.serialized()` (идемпотентный
@@ -954,6 +958,12 @@ def test_write_points_go_through_single_writer():
         "persistent_throttling.py": 1,  # fallback-двойник без write_transaction
         "smart_cache.py": 3,            # ОТДЕЛЬНОЕ соединение (F17), не общая
         "summary_memory.py": 13,        # 12 в serialized() + 1 fallback-двойник
+        # +1 asap5 B3 (ADR-1028-25, T-5257, санкция census-sweep D-1 /
+        # T-5270): `embedding_canary_check` — canary-эталоны в
+        # `embedding_cache` (INSERT..ON CONFLICT + commit, fail-open; это
+        # canary-хранилище, не пользовательские векторы; после смены identity
+        # ключи другие — смешивания нет).
+        "embedding_control_plane.py": 1,
     }
     # database.py: санкционированные точки (DDL/инициализация до сервинга,
     # машинерия write_transaction). Остальное обязано быть `@_serialized_write`.
@@ -963,6 +973,15 @@ def test_write_points_go_through_single_writer():
         "_write_transaction_owned", "_commit_locked",
     }
     separate_connection = {"smart_cache.py"}
+    # T-5270/census-sweep D-1: санкционированные прямые commit asap5 B3
+    # (ADR-1028-25) — API миграционной машины embedding-поколений:
+    # fail-open, одиночные execute+commit (rollback в сайтах нет), в
+    # рантайме вызываются future-resume воркером (тик 900с); рост числа
+    # сайтов по-прежнему ловится сверкой `found == allow`.
+    sanctioned_b3 = {
+        ("database.py", "set_embedding_generation_status"),
+        ("embedding_control_plane.py", "embedding_canary_check"),
+    }
 
     def _decorators(node) -> list[str]:
         return [ast.unparse(d) for d in node.decorator_list]
@@ -1002,6 +1021,8 @@ def test_write_points_go_through_single_writer():
             lineno = call.lineno
             found[path.name] = found.get(path.name, 0) + 1
             func, in_serialized = _walk_up(call)
+            if (path.name, func.name if func else None) in sanctioned_b3:
+                continue    # санкция census-sweep D-1 / T-5270 (см. выше)
             if path.name == "database.py":
                 guarded = in_serialized or (
                     func is not None

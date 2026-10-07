@@ -701,7 +701,7 @@ class TestR17AndBoundaries:
 
     def test_catalog_counts_unchanged(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 523
+        assert len(pc.REGISTRY) == 529
         assert len(pc.GROUPS) == 113
         assert len(pc._TAB_BY_GROUP) == 111
         assert len(pc.TAB_RULES) == 22

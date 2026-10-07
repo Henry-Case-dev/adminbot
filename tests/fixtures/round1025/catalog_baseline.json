@@ -1,11 +1,11 @@
 {
   "_provenance": {
     "feature": "F1 ia-shell-navigation-round1025 (T-2402)",
-    "note": "Снимок множеств pg_key / групп / {group_id: tab_id} из services/param_catalog.py. Обновлён round1026 S1 (ADR-1026-1 D1): санкционированная Δ каталога +8 записей / +2 группы (REGISTRY 459→467, GROUPS 98→100, _TAB_BY_GROUP 96→98); round1026 S3 (ADR-1026-5 D4): санкционированная Δ каталога +1 (промпт-ключ prompts.summary_l1_clusterizer_system_prompt; REGISTRY 467→468, GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений). Множество = источник истины инвентаря (ни один параметр не потерян). round1026 S5 summary-l2-writer-formatter (ADR-1026-7 D3): санкционированная Δ каталога +1 (промпт-ключ prompts.summary_l2_writer_system_prompt; REGISTRY 468→469, categorized 443→444; GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений). round1026 A7 decision-making (ADR-1026-20 D6): санкционированная Δ каталога +3 CHAT_DECISION_* + 1 группа flags_decision_making (REGISTRY 470→473, GROUPS 101→102, _TAB_BY_GROUP 99→100, TAB_RULES 21 без изменений). ASAP-2.1 mca-asap21-summary-quality-ui-cleanup (ADR-1028-1 D1, контракт (i)): санкционированная ОТРИЦАТЕЛЬНАЯ Δ каталога: -8 ключей summary_filter_* и -2 группы (flags_summary_filter, limits_summary_filter); TAB_RULES 21 без изменений (in-place). REGISTRY 489→481, GROUPS 107→105, _TAB_BY_GROUP 105→103. Титулы 6 промпт-ключей приведены к §9 (контент-дифф, Δ количества=0). Старые БД-значения summary_filter_* игнорируются безопасно (читателей нет, startup не валидирует каталог против БД). | ASAP-3 round1028 reissue: +2 keys (flags.chat_autonomous_reply_enabled, flags.chat_silent_ack_enabled) — санкция spec §6 / ADR-1028-2 D12 | ASAP-3 round1028 reissue: +2 keys (flags.chat_autonomous_reply_enabled, flags.chat_silent_ack_enabled) — санкция spec §6 / ADR-1028-2 D12 | ASAP-3 round1028 reissue: +2 keys (flags.chat_autonomous_reply_enabled, flags.chat_silent_ack_enabled) — санкция spec §6 / ADR-1028-2 D12",
+    "note": "Снимок множеств pg_key / групп / {group_id: tab_id} из services/param_catalog.py. Обновлён round1026 S1 (ADR-1026-1 D1): санкционированная Δ каталога +8 записей / +2 группы (REGISTRY 459→467, GROUPS 98→100, _TAB_BY_GROUP 96→98); round1026 S3 (ADR-1026-5 D4): санкционированная Δ каталога +1 (промпт-ключ prompts.summary_l1_clusterizer_system_prompt; REGISTRY 467→468, GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений). Множество = источник истины инвентаря (ни один параметр не потерян). round1026 S5 summary-l2-writer-formatter (ADR-1026-7 D3): санкционированная Δ каталога +1 (промпт-ключ prompts.summary_l2_writer_system_prompt; REGISTRY 468→469, categorized 443→444; GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений). round1026 A7 decision-making (ADR-1026-20 D6): санкционированная Δ каталога +3 CHAT_DECISION_* + 1 группа flags_decision_making (REGISTRY 470→473, GROUPS 101→102, _TAB_BY_GROUP 99→100, TAB_RULES 21 без изменений). ASAP-2.1 mca-asap21-summary-quality-ui-cleanup (ADR-1028-1 D1, контракт (i)): санкционированная ОТРИЦАТЕЛЬНАЯ Δ каталога: -8 ключей summary_filter_* и -2 группы (flags_summary_filter, limits_summary_filter); TAB_RULES 21 без изменений (in-place). REGISTRY 489→481, GROUPS 107→105, _TAB_BY_GROUP 105→103. Титулы 6 промпт-ключей приведены к §9 (контент-дифф, Δ количества=0). Старые БД-значения summary_filter_* игнорируются безопасно (читателей нет, startup не валидирует каталог против БД). | ASAP-3 round1028 reissue: +2 keys (flags.chat_autonomous_reply_enabled, flags.chat_silent_ack_enabled) — санкция spec §6 / ADR-1028-2 D12 | ASAP-3 round1028 reissue: +2 keys (flags.chat_autonomous_reply_enabled, flags.chat_silent_ack_enabled) — санкция spec §6 / ADR-1028-2 D12 | ASAP-3 round1028 reissue: +2 keys (flags.chat_autonomous_reply_enabled, flags.chat_silent_ack_enabled) — санкция spec §6 / ADR-1028-2 D12 | ASAP-5 asap5-final-fixes reissue (ADR-1028-25 §5, T-5256): +6 PG-only профилей embeddings models.embedding_fallback{1,2}_{base_url,model,quota_group} (REGISTRY 523→529, delta 112→118); F8 meta-pin переиздан",
     "source": "services/param_catalog.py"
   },
   "counts": {
-    "REGISTRY": 523,
+    "REGISTRY": 529,
     "GROUPS": 113,
     "_TAB_BY_GROUP": 111,
     "TAB_RULES": 22
@@ -744,6 +744,12 @@
     "memory.random_uses_conversation_variant",
     "memory.random_uses_memory_recall",
     "memory.random_uses_ui_visualization",
+    "models.embedding_fallback1_base_url",
+    "models.embedding_fallback1_model",
+    "models.embedding_fallback1_quota_group",
+    "models.embedding_fallback2_base_url",
+    "models.embedding_fallback2_model",
+    "models.embedding_fallback2_quota_group",
     "models.groq_base_url",
     "models.groq_transcribe_model",
     "models.openrouter_base_url",

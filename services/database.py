@@ -5382,6 +5382,96 @@ class DatabaseService:
         return await self.write_transaction(
             _body, op_name="dossier_generation_activate")
 
+    # ── D12 (asap5-final-fixes, T-5258, 13D/13E): state machine реестра ────
+    # Словарь статусов РАСШИРЯЕТСЯ значениями state machine миграций поверх
+    # существующего TEXT-столбца (CHECK нет; per-chat = index-namespace):
+    # ACTIVE_OLD → BUILDING_TARGET → CATCHING_UP → READY → atomic PROMOTE
+    # (active) + FAILED/SUPERSEDED/CANCELLED/BLOCKED. ΔDDL = 0.
+    EGEN_ACTIVE_OLD = "active_old"
+    EGEN_BUILDING_TARGET = "building_target"
+    EGEN_CATCHING_UP = "catching_up"
+    EGEN_READY = "ready"
+    EGEN_BLOCKED = "blocked"
+
+    _EGEN_TRANSITIONS: dict[str, frozenset] = {
+        # машина миграций (13E)
+        "building": frozenset({"building_target", "blocked", "failed",
+                               "superseded", "cancelled"}),
+        "building_target": frozenset({"catching_up", "blocked", "failed",
+                                      "superseded", "cancelled"}),
+        "catching_up": frozenset({"ready", "building_target", "blocked",
+                                  "failed", "superseded", "cancelled"}),
+        "ready": frozenset({"active", "catching_up", "failed",
+                            "superseded", "cancelled"}),
+        "active_old": frozenset({"superseded", "active"}),
+        # терминалы/легаси: валидатор НЕ пускает тихий выход (frozen);
+        # легаси-пути (_activate и др.) работают напрямую с SQL и этот
+        # OPT-IN хелпер не используют.
+        "active": frozenset({"superseded", "active_old"}),
+        "validated": frozenset({"active", "failed", "superseded"}),
+        "failed": frozenset({"building", "building_target"}),
+        "superseded": frozenset(),
+        "cancelled": frozenset(),
+        "blocked": frozenset({"building_target", "building", "failed",
+                              "cancelled", "superseded"}),
+    }
+
+    async def set_embedding_generation_status(self, generation_id: str,
+                                              new_status: str) -> bool:
+        """Валидированный переход статуса поколения (D12, 13E). Известные
+        пары «старый→новый» разрешает словарь; легаси-переходы существующих
+        путей (_activate и др.) не через этот хелпер — он OPT-IN для
+        migration-машины. Неизвестная пара → False (без тихой перезаписи).
+        Fail-open: ошибка БД → False."""
+        new_status = str(new_status or "").strip()
+        if not new_status or not str(generation_id):
+            return False
+        try:
+            cursor = await self.db.execute(
+                "SELECT status FROM mca_embedding_index_generations "
+                "WHERE generation_id = ?", (str(generation_id),))
+            row = await cursor.fetchone()
+            if row is None:
+                return False
+            old = str(row["status"] or "")
+            allowed = self._EGEN_TRANSITIONS.get(old)
+            if allowed is not None and new_status not in allowed:
+                return False
+            now = int(time.time())
+            sets = ["status = ?"]
+            params: list = [new_status]
+            if new_status == "active":
+                sets.append("activated_at = ?")
+                params.append(now)
+                sets.append("superseded_at = NULL")
+            elif new_status == "superseded":
+                sets.append("superseded_at = ?")
+                params.append(now)
+            params.append(str(generation_id))
+            await self.db.execute(
+                "UPDATE mca_embedding_index_generations SET "
+                + ", ".join(sets) + " WHERE generation_id = ?", tuple(params))
+            await self.db.commit()
+            return True
+        except Exception:
+            logger.warning("[database] set_embedding_generation_status failed",
+                           exc_info=True)
+            return False
+
+    async def get_active_embedding_generations(self) -> list[dict]:
+        """Все активные поколения (инвариант 13D.1 «chat → одна ACTIVE»
+        моделируется index-namespace + partial UNIQUE; хелпер — аудит)."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT generation_id, index_name, generation, fingerprint, "
+                "provider, model, dims, status, created_at, activated_at "
+                "FROM mca_embedding_index_generations WHERE status = 'active'")
+            return [dict(r) for r in await cursor.fetchall()]
+        except Exception:
+            logger.debug("[database] active generations read failed",
+                         exc_info=True)
+            return []
+
     async def activate_embedding_generation(
             self, index_name: str, generation_id: str) -> dict | None:
         """N-MCA07-1 (ADR-1027-9 D12/spec §4.8): single-writer операция
@@ -5595,6 +5685,44 @@ class DatabaseService:
                                exc_info=True)
                 return None
             return await self.get_active_embedding_generation(index_name)
+
+    async def register_embedding_target_generation(
+            self, index_name: str, fingerprint: str, *, provider=None,
+            model=None, dims=None, preprocessing_version=None,
+            endpoint_fingerprint=None) -> int | None:
+        """D12 (13D.3, T-5258): зарегистрировать НОВУЮ target-генерацию
+        (status=`building`, далее state machine через
+        `set_embedding_generation_status`) при УЖЕ существующем активном
+        поколении другого identity. `ensure_embedding_generation` здесь
+        не подходит (A06: возвращает существующее active и не вставляет).
+        Инвариант 13D.1: active остаётся ровно один (partial UNIQUE).
+        Возвращает generation (номер) или None. Fail-open."""
+        if not fingerprint:
+            return None
+        try:
+            async with self.serialized():
+                now = int(time.time())
+                cursor = await self.db.execute(
+                    "SELECT COALESCE(MAX(generation), 0) AS m FROM "
+                    "mca_embedding_index_generations WHERE index_name = ?",
+                    (str(index_name),))
+                row = await cursor.fetchone()
+                next_gen = int(row["m"] or 0) + 1
+                await self.db.execute(
+                    "INSERT INTO mca_embedding_index_generations "
+                    "(index_name, generation, fingerprint, provider, model, "
+                    "dims, preprocessing_version, endpoint_fingerprint, "
+                    "status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    (str(index_name), next_gen, str(fingerprint), provider,
+                     model, dims, preprocessing_version, endpoint_fingerprint,
+                     "building", now))
+                await self.db.commit()
+                return next_gen
+        except Exception:
+            await self.db.rollback()
+            logger.warning("[database] register_embedding_target failed",
+                           exc_info=True)
+            return None
 
     async def initialize(self) -> None:
         """Open connection, create tables, enable WAL mode."""
@@ -8775,6 +8903,24 @@ class DatabaseService:
                "WHERE run_at >= ? AND (kind = 'deep_run' OR "
                "(kind = 'deep_skip' AND status IN (?, ?, ?)))")
         params: list = [int(since_ts)] + list(self._DEEP_SKIP_COST_STATUSES)
+        if chat_id is not None:
+            sql += " AND chat_id = ?"
+            params.append(int(chat_id))
+        cursor = await self.db.execute(sql, params)
+        row = await cursor.fetchone()
+        return int(row["c"]) if row else 0
+
+    async def count_deep_attempts_all(self, since_ts: int, *,
+                                      chat_id: int | None = None) -> int:
+        """D14 (asap5-final-fixes, T-5264): ВСЕ попытки глубокого сна за
+        период — `deep_run` + `deep_skip` ЛЮБОГО статуса, включая пре-LLM
+        скип (no_anchors/no_context/insufficient_evidence/budget_skip).
+        Нужен капу bootstrap-класса C (иначе 6/сутки были бы фикцией:
+        дешёвые скип-попытки не считались бы). `count_deep_attempts`
+        (стоимостной) остаётся как был — паритет 2.58.48."""
+        sql = ("SELECT COUNT(*) AS c FROM memory_dream_log "
+               "WHERE run_at >= ? AND kind IN ('deep_run', 'deep_skip')")
+        params: list = [int(since_ts)]
         if chat_id is not None:
             sql += " AND chat_id = ?"
             params.append(int(chat_id))

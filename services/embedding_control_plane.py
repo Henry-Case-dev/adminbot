@@ -61,6 +61,7 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
+import hashlib
 import json
 import logging
 import re
@@ -1665,8 +1666,28 @@ def _human_status(job_status: str, reason: str | None) -> str:
 async def vector_memory_panel(db) -> dict:
     """Панель «Векторная память» (§32): per index — статус по-русски,
     готовность %, next attempt, источник поиска (FTS5/KNN). Только
-    structured state (task_jobs + реестр поколений), не логи (T-4411)."""
-    out: dict = {"indexes": [], "lease": await RebuildLease.holder(db)}
+    structured state (task_jobs + реестр поколений), не логи (T-4411).
+    D10/T-5255 (asap5-final-fixes): + `total` (eligible-строки источника)
+    — «Vector rebuild in progress N/M»; + `resume_ticker` (жив ли тик
+    future-resume — диагностика resume-gap §13)."""
+    out: dict = {"indexes": [], "lease": await RebuildLease.holder(db),
+                 "resume_ticker": False}
+    try:
+        from services.graphrag_rebuild import (_INDEX_SPECS, _source_empty,
+                                               _source_total)
+        out["resume_ticker"] = True   # импорт жив; факт старта — см. поле ниже
+        try:
+            from services.graphrag_rebuild import ticker_active
+            out["resume_ticker"] = ticker_active()
+        except Exception:
+            pass
+        source_specs = dict(_INDEX_SPECS)
+        source_empty = _source_empty
+        source_total = _source_total
+    except Exception:
+        source_specs = {}
+        source_empty = None
+        source_total = None
     try:
         cursor = await db.db.execute(
             "SELECT coalesce_key, status, reason_code, payload, updated_at "
@@ -1696,7 +1717,17 @@ async def vector_memory_panel(db) -> dict:
                 # последней активности job (structured state task_jobs).
                 "processed": _safe_int(payload.get("processed")),
                 "updated_at": _safe_int(job.get("updated_at")),
+                # D10/T-5255: знаменатель «N/M» (eligible-строки источника).
+                "total": None,
+                "source_empty": None,
             }
+            if source_total is not None and index in source_specs:
+                try:
+                    entry["total"] = await source_total(db, index)
+                    if source_empty is not None:
+                        entry["source_empty"] = await source_empty(db, index)
+                except Exception:
+                    pass
             gen = await db.get_generation_by_fingerprint(
                 index, str(payload.get("fingerprint") or ""))
             if gen is not None:
@@ -1711,6 +1742,454 @@ async def vector_memory_panel(db) -> dict:
     except Exception:
         logger.warning("vector memory panel failed", exc_info=True)
     return out
+
+
+# ── D11 (asap5-final-fixes, T-5256/T-5257, 13C.1–13C.4, ADR-1028-25) ────────
+# Три честных профиля embeddings (Primary / Fallback 1 / Fallback 2),
+# identity-отпечаток канонического JSON (sha256[:16]), canary-проба
+# косинусной близостью и одна server-side классификация совместимости.
+# R17: значения ключей не читаются и не логируются — только факты конфига.
+
+# Классы совместимости (одна server-side классификация для backend/MiniApp).
+COMPAT_INSTANT = "INSTANT_COMPATIBLE"        # identity совпала (key/quota/route)
+COMPAT_REINDEX = "REINDEX_REQUIRED"          # та же размерность, другая identity
+COMPAT_DIMENSION = "INCOMPATIBLE_DIMENSION"  # размерность разная
+COMPAT_UNKNOWN = "COMPATIBILITY_UNKNOWN"     # не доказано — fail-safe
+
+# Вердикты canary-пробы.
+CANARY_STABLE = "stable"
+CANARY_DRIFT = "drift"
+CANARY_UNKNOWN = "unknown"
+
+# Пороги косинусной близости canary (frozen D11/Q6).
+CANARY_MEAN_MIN = 0.98
+CANARY_MIN_SIMILARITY = 0.95
+
+# 3 фиксированные non-sensitive строки-пробы (frozen D11; без данных чатов).
+CANARY_TEXTS = (
+    "adminbot canary alpha 0123 stabilis",
+    "проба стабильности отпечатков текста (asap5)",
+    "vector identity probe -- 42 fixed line",
+)
+
+# task/mode + нормализация — часть identity (не меняются между вызовами).
+EMBEDDING_TASK_MODE = "text-embedding/retrieval.v1"
+EMBEDDING_NORMALIZATION = "as-returned-v1"   # вектора хранятся как вернул API
+
+
+def _profile_hot(key: str, default: str = "") -> str:
+    """hot.get c настройко-дефолтом (env-слой): absent PG-ключ → settings."""
+    try:
+        from services import hot_config as hot
+        return str(hot.get(key, default) or "").strip()
+    except Exception:      # pragma: no cover - защитная ветка
+        return str(default or "").strip()
+
+
+def _settings_default(field: str, default: str = "") -> str:
+    try:
+        from config.settings import settings
+        return str(getattr(settings, field, default) or "").strip()
+    except Exception:      # pragma: no cover
+        return default
+
+
+@dataclass(frozen=True)
+class EmbeddingProfile:
+    """Честный профиль подключения embeddings (13C.1): независимые
+    base_url/model/quota_group; `inherited` — F2 наследует Fallback 1
+    (режим по умолчанию миграции, честно помечен в статусе/UI)."""
+    alias: str                 # primary | fallback_1 | fallback_2
+    base_url: str
+    model: str
+    quota_group: str
+    inherited: bool = False
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.base_url) and bool(self.model)
+
+
+def _profile_quota_group(alias: str, override: str) -> str:
+    if override:
+        return override
+    try:
+        labels = parse_quota_group_labels(_profile_hot(
+            "keys.embedding_quota_group_labels"))
+        group, _known = resolve_quota_group(alias, labels)
+        return group
+    except Exception:      # pragma: no cover
+        return GROUP_UNKNOWN
+
+
+def resolve_embedding_profiles() -> dict:
+    """13C.1: три честных профиля. Primary — как раньше. Fallback 1 —
+    новые ключи (`models.embedding_fallback1_*`), пусто → легаси-значения
+    общего фолбэка (`models.embedding_fallback_*` — они становятся
+    значениями Fallback 1, миграция без потери credentials). Fallback 2 —
+    новые ключи `models.embedding_fallback2_*`; пусто → наследование
+    Fallback 1 (режим по умолчанию, `inherited=true` — честная пометка;
+    ключ у F2 всегда свой: `keys.embedding_fallback_api_key_2`).
+    Никогда не бросает."""
+    primary_base = _profile_hot("models.embedding_base_url",
+                                _settings_default("EMBEDDING_BASE_URL"))
+    primary_model = _profile_hot("models.embedding_model_name",
+                                 _settings_default("EMBEDDING_MODEL_NAME"))
+    # Легаси-общие значения обоих фолбэков → значения Fallback 1
+    # (settings-дефолт = env-слой — паритет llm_client/status_service).
+    legacy_base = _profile_hot("models.embedding_fallback_base_url",
+                               _settings_default("EMBEDDING_FALLBACK_BASE_URL"))
+    legacy_model = _profile_hot("models.embedding_fallback_model",
+                                _settings_default("EMBEDDING_FALLBACK_MODEL"))
+    fb1_base_new = _profile_hot("models.embedding_fallback1_base_url")
+    fb1_model_new = _profile_hot("models.embedding_fallback1_model")
+    fb1_base = fb1_base_new or legacy_base
+    fb1_model = fb1_model_new or legacy_model
+    fb2_base = _profile_hot("models.embedding_fallback2_base_url")
+    fb2_model = _profile_hot("models.embedding_fallback2_model")
+    fb2_inherit = not (fb2_base or fb2_model)
+    eff_fb2_base = fb2_base or fb1_base
+    eff_fb2_model = fb2_model or fb1_model
+    return {
+        "primary": EmbeddingProfile(
+            alias="primary", base_url=primary_base, model=primary_model,
+            quota_group=_profile_quota_group("primary",
+                                             _profile_hot(
+                                                 "models.embedding_quota_group"))),
+        "fallback_1": EmbeddingProfile(
+            alias="fallback_1", base_url=fb1_base, model=fb1_model,
+            quota_group=_profile_quota_group("fallback_1",
+                                             _profile_hot(
+                                                 "models.embedding_fallback1_quota_group")),
+            inherited=not (fb1_base_new or fb1_model_new)),
+        "fallback_2": EmbeddingProfile(
+            alias="fallback_2", base_url=eff_fb2_base, model=eff_fb2_model,
+            quota_group=_profile_quota_group("fallback_2",
+                                             _profile_hot(
+                                                 "models.embedding_fallback2_quota_group")),
+            inherited=fb2_inherit),
+    }
+
+
+def embedding_identity_v2(*, provider_family: str, endpoint_host: str,
+                          model: str, revision: str | None = None,
+                          dimension: int | None = None,
+                          dimension_override: int | None = None,
+                          task_mode: str = EMBEDDING_TASK_MODE,
+                          normalization: str = EMBEDDING_NORMALIZATION,
+                          material_params: dict | None = None) -> str:
+    """D11/Q6: identity-отпечаток = sha256[:16] канонического JSON
+    {provider family, resolved endpoint host, resolved model + revision,
+    dimension (+override), task/mode, normalization, материальные параметры}.
+    key/quota/timeout/route identity НЕ меняют (канонический состав).
+    Каноничность: sort_keys + компактные сепараторы + UTF-8."""
+    payload = {
+        "provider_family": str(provider_family or "").strip().lower(),
+        "endpoint_host": str(endpoint_host or "").strip().lower(),
+        "model": str(model or "").strip(),
+        "revision": str(revision or "").strip(),
+        "dimension": int(dimension) if dimension else None,
+        "dimension_override": (int(dimension_override)
+                               if dimension_override else None),
+        "task_mode": str(task_mode),
+        "normalization": str(normalization),
+        "params": {str(k): str(v) for k, v in
+                   sorted((material_params or {}).items())},
+    }
+    canon = json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                       ensure_ascii=False)
+    return hashlib.sha256(canon.encode("utf-8")).hexdigest()[:16]
+
+
+def profile_identity(profile: EmbeddingProfile,
+                     dimension: int | None = None) -> str:
+    """Identity-отпечаток профиля (канонический JSON D11)."""
+    host = ""
+    try:
+        from urllib.parse import urlsplit
+        host = urlsplit(profile.base_url or "").hostname or ""
+    except Exception:      # pragma: no cover
+        host = ""
+    return embedding_identity_v2(
+        provider_family=_provider_of(profile.base_url) if profile.base_url
+        else "",
+        endpoint_host=host,
+        model=profile.model,
+        dimension=dimension,
+    )
+
+
+def classify_identity_compatibility(*, current_identity: str,
+                                    stored_identity: str | None,
+                                    current_dim: int | None = None,
+                                    stored_dim: int | None = None,
+                                    canary_verdict: str | None = None) -> str:
+    """13C.4: одна server-side классификация (backend + MiniApp).
+    Fail-safe: не доказано → COMPATIBILITY_UNKNOWN (без writes в active);
+    одинаковая размерность сама по себе НЕ даёт INSTANT_COMPATIBLE."""
+    if current_dim and stored_dim and int(current_dim) != int(stored_dim):
+        return COMPAT_DIMENSION
+    if canary_verdict == CANARY_DRIFT:
+        return COMPAT_REINDEX
+    if not stored_identity or canary_verdict not in (CANARY_STABLE,):
+        return COMPAT_UNKNOWN
+    if str(stored_identity) == str(current_identity):
+        return COMPAT_INSTANT
+    return COMPAT_REINDEX
+
+
+def _cosine(a: list[float], b: list[float]) -> float:
+    """Косинусная близость (canary, D11: НЕ byte-hash float-векторов)."""
+    try:
+        if not a or not b or len(a) != len(b):
+            return 0.0
+        num = sum(float(x) * float(y) for x, y in zip(a, b))
+        da = sum(float(x) * float(x) for x in a) ** 0.5
+        db_ = sum(float(y) * float(y) for y in b) ** 0.5
+        if da <= 0.0 or db_ <= 0.0:
+            return 0.0
+        return num / (da * db_)
+    except Exception:      # pragma: no cover
+        return 0.0
+
+
+def _canary_cache_key(identity_fp: str, text: str) -> str:
+    """Ключ embedding_cache для canary-строки (та же формула, что
+    summary_memory._embed_cache_key: H(identity \\x00 casefold+strip))."""
+    base = str(text).casefold().strip()
+    material = f"{identity_fp}\x00{base}"
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+async def embedding_canary_check(llm, db, identity_fp: str, *,
+                                 embed_fn=None, profile=None) -> dict:
+    """Canary floating-alias (D11/Q6): 3 фиксированные строки; эталоны —
+    в существующем `embedding_cache` под identity_fingerprint профиля;
+    сверка КОСИНУСОМ (mean < 0.98 или min < 0.95 → drift). Недоступность
+    провайдера/БД → `unknown` (fail-safe: без writes в active). Никогда
+    не бросает. `embed_fn(texts)->vectors` — точка подмены в тестах."""
+    out = {"verdict": CANARY_UNKNOWN, "mean": None, "min": None,
+           "checked": 0, "stored": 0, "identity": str(identity_fp)[:16]}
+    try:
+        vectors: list[list[float]] | None = None
+        if embed_fn is not None:
+            vectors = list(await embed_fn(list(CANARY_TEXTS)))
+        elif llm is not None:
+            vectors = list(await llm.embed(list(CANARY_TEXTS)))
+        if vectors is None or len(vectors) != len(CANARY_TEXTS) \
+                or not all(v for v in vectors):
+            return out
+        # 1) Эталоны из embedding_cache (identity-колонки уже в схеме).
+        stored: dict[int, list[float]] = {}
+        try:
+            for idx, text in enumerate(CANARY_TEXTS):
+                key = _canary_cache_key(identity_fp, text)
+                cursor = await db.db.execute(
+                    "SELECT vector, dim FROM embedding_cache "
+                    "WHERE text_hash = ? AND identity_fingerprint = ?",
+                    (key, identity_fp))
+                row = await cursor.fetchone()
+                if row is not None:
+                    stored[idx] = json.loads(str(row["vector"]))
+        except Exception:
+            stored = {}
+        # 2) Недостающие эталоны — записать (перезапись той же identity
+        #    обновляет эталон: это canary-хранилище, не пользовательские
+        #    векторы; после смены identity ключи другие — смешивания нет).
+        fresh: dict[int, list[float]] = {}
+        for idx, vec in enumerate(vectors):
+            if idx not in stored:
+                fresh[idx] = vec
+        try:
+            now = time.time()
+            provider = profile.base_url if profile is not None else ""
+            model = profile.model if profile is not None else ""
+            for idx, vec in fresh.items():
+                key = _canary_cache_key(identity_fp, CANARY_TEXTS[idx])
+                dim = len(vec)
+                await db.db.execute(
+                    "INSERT INTO embedding_cache(text_hash, text, vector, "
+                    "dim, created_at, last_used_at, provider, model, "
+                    "preprocessing_version, endpoint_fingerprint, "
+                    "identity_fingerprint) VALUES (?,?,?,?,?,?,?,?,?,?,?) "
+                    "ON CONFLICT(text_hash) DO UPDATE SET vector=excluded."
+                    "vector, dim=excluded.dim, last_used_at=excluded."
+                    "last_used_at, provider=excluded.provider, model=excluded."
+                    "model, identity_fingerprint=excluded.identity_fingerprint",
+                    (key, CANARY_TEXTS[idx], json.dumps(vec), dim, now, now,
+                     str(provider)[:120] or None, str(model)[:120] or None,
+                     None, None, identity_fp))
+            await db.db.commit()
+            out["stored"] = len(fresh)
+        except Exception:
+            out["stored"] = 0   # кэш недоступен → сверка только в памяти
+        # 3) Сверка косинусом свежих против эталонных.
+        sims: list[float] = []
+        for idx, vec in enumerate(vectors):
+            if idx not in stored:
+                continue
+            sims.append(_cosine(vec, stored[idx]))
+        out["checked"] = len(sims)
+        if not sims:
+            return out          # первых эталонов ещё нет — unknown, не «ок»
+        mean = sum(sims) / len(sims)
+        low = min(sims)
+        out["mean"] = round(float(mean), 6)
+        out["min"] = round(float(low), 6)
+        if mean < CANARY_MEAN_MIN or low < CANARY_MIN_SIMILARITY:
+            out["verdict"] = CANARY_DRIFT
+        else:
+            out["verdict"] = CANARY_STABLE
+        return out
+    except Exception:
+        logger.warning("embedding canary check failed — unknown", exc_info=True)
+        return out
+
+
+# ── D12 (asap5-final-fixes, T-5258, 13D/13E/13H): migration jobs ────────────
+# Migration job'ы — в существующем `task_jobs` (kind='embedding_migration',
+# checkpoint/cursor по прецеденту graphrag-rebuild); generation-isolated
+# storage — через существующий shadow/swap `_activate` (build в shadow
+# `{index}_g{generation}` → атомарная активация одной транзакцией,
+# graphrag_rebuild.py). Destructive ALTER/resize запрещён (ΔDDL=0).
+
+MIGRATION_JOB_KIND = "embedding_migration"
+MIGRATION_OWNER = "memory"
+
+
+def shadow_table_name(index_name: str, generation: int) -> str:
+    """Имя shadow-таблицы поколения (та же конвенция, что graphrag)."""
+    return f"{index_name}_g{int(generation)}"
+
+
+async def enqueue_embedding_migration(db, *, index_name: str,
+                                      source_generation: int,
+                                      target_generation: int,
+                                      fingerprint: str,
+                                      total: int) -> str | None:
+    """Зарегистрировать migration job (task_jobs, REUSE v14, ΔDDL=0).
+    Coalesce по index+target — повторный вызов не плодит дубли."""
+    try:
+        from services.task_supervisor import TaskJobStore
+        store = TaskJobStore(db)
+        return await store.enqueue(
+            owner=MIGRATION_OWNER, kind=MIGRATION_JOB_KIND,
+            coalesce_key=f"embedding_migration:{index_name}:"
+                         f"{int(target_generation)}",
+            payload=json.dumps({
+                "index": index_name,
+                "source_generation": int(source_generation),
+                "target_generation": int(target_generation),
+                "fingerprint": str(fingerprint),
+                "total": int(total),
+            }, ensure_ascii=False))
+    except Exception:
+        logger.warning("embedding migration enqueue failed | index=%s",
+                       index_name, exc_info=True)
+        return None
+
+
+async def migration_jobs_snapshot(db, *, limit: int = 16) -> list[dict]:
+    """Снимок migration job'ов (structured state; дляobservability 13M)."""
+    out: list[dict] = []
+    try:
+        cursor = await db.db.execute(
+            "SELECT job_id, status, reason_code, payload, progress_at, "
+            "created_at, updated_at FROM task_jobs WHERE kind = ? "
+            "ORDER BY created_at DESC LIMIT ?", (MIGRATION_JOB_KIND,
+                                                 int(limit)))
+        for row in await cursor.fetchall():
+            job = dict(row)
+            try:
+                job["payload"] = json.loads(job.pop("payload") or "{}")
+            except ValueError:
+                job["payload"] = {}
+            out.append(job)
+    except Exception:
+        logger.warning("embedding migration snapshot failed", exc_info=True)
+    return out
+
+
+async def run_embedding_migration_chunk(memory, db, job_id: str, *,
+                                        embed_fn=None) -> dict:
+    """Один чекпоинт-чанк migration job'а (13E.1: resumable/chunked — никаких
+    one-shot jobs): source-строки без векторов под cursor → embed под текущий
+    fingerprint → INSERT в shadow `{index}_g{gen}` (DDL/вставка — СУЩЕСТВУЮЩИЕ
+    хелперы graphrag `_create_shadow`/`_insert_shadow_rows`, ΔDDL=0) →
+    checkpoint (TaskJobStore.save_checkpoint, прецедент graphrag). Атомарная
+    активация — СУЩЕСТВУЮЩИЙ `_activate` graphrag (shadow/swap в одной
+    транзакции; destructive ALTER/resize запрещён). Возвращает
+    {processed, remaining, done} (никогда не бросает)."""
+    out = {"processed": 0, "remaining": 0, "done": False}
+    try:
+        cursor = await db.db.execute(
+            "SELECT payload, status FROM task_jobs WHERE job_id = ?",
+            (str(job_id),))
+        row = await cursor.fetchone()
+        if row is None:
+            return out
+        try:
+            payload = json.loads(str(row["payload"]) or "{}")
+        except ValueError:
+            payload = {}
+        index_name = str(payload.get("index") or "")
+        generation = int(payload.get("target_generation") or 0)
+        if not index_name or generation <= 0:
+            return out
+        from services.graphrag_rebuild import (_INDEX_SPECS, _create_shadow,
+                                               _fetch_batch, _insert_shadow_rows,
+                                               _shadow_name)
+        if index_name not in _INDEX_SPECS:
+            return out
+        spec = _INDEX_SPECS[index_name]
+        shadow = _shadow_name(index_name, generation)
+        last_id = 0
+        processed_before = 0
+        try:
+            from services.task_supervisor import TaskJobStore
+            cp = await TaskJobStore(db).get_checkpoint(str(job_id))
+            if cp and cp.get("cursor"):
+                cur = json.loads(str(cp["cursor"]))
+                last_id = int(cur.get("last_id") or 0)
+                processed_before = int(cur.get("processed") or 0)
+        except Exception:
+            last_id = 0
+        batch = await _fetch_batch(memory, spec, last_id)
+        # Cursor-batch может содержать строки, уже перенесённые в shadow
+        # (expires-динамика) — фильтр по shadow, как у rebuild-лупа.
+        batch = [b for b in batch]
+        if not batch:
+            out["done"] = True
+            return out
+        await _create_shadow(memory, index_name, shadow)
+        texts = [str(b["fact"]) for b in batch]
+        if embed_fn is not None:
+            vectors = list(await embed_fn(texts))
+        else:
+            vectors = list(await memory._embed(texts))
+        if len(vectors) != len(batch):
+            return out
+        await _insert_shadow_rows(memory, spec, shadow, batch, vectors)
+        from services.task_supervisor import TaskJobStore
+        store = TaskJobStore(db)
+        processed = processed_before + len(batch)
+        await store.save_checkpoint(
+            str(job_id),
+            cursor_token=json.dumps({"last_id": int(batch[-1]["id"]),
+                                     "processed": processed}),
+            processed=processed,
+            checkpoint_ref=f"cp:embedding_migration:{index_name}:{generation}")
+        out["processed"] = len(batch)
+        cur = await db.db.execute(
+            f"SELECT COUNT(*) AS c FROM {spec['source']} WHERE id > ?",
+            (int(batch[-1]["id"]),))
+        out["remaining"] = int((await cur.fetchone())["c"])
+        out["done"] = out["remaining"] == 0
+        return out
+    except Exception:
+        logger.warning("embedding migration chunk failed | job=%s",
+                       str(job_id)[:16], exc_info=True)
+        return out
 
 
 __all__ = [
@@ -1734,4 +2213,12 @@ __all__ = [
     "EmbeddingGroupCoolingDown", "EmbeddingConcurrencyBusy",
     "EmbeddingBudgetExhausted", "EmbeddingControlPlaneError",
     "is_serviceability_error",
+    # D11/D12 (asap5-final-fixes, T-5256…T-5258)
+    "EmbeddingProfile", "resolve_embedding_profiles", "profile_identity",
+    "embedding_identity_v2", "classify_identity_compatibility",
+    "COMPAT_INSTANT", "COMPAT_REINDEX", "COMPAT_DIMENSION", "COMPAT_UNKNOWN",
+    "CANARY_STABLE", "CANARY_DRIFT", "CANARY_UNKNOWN", "CANARY_TEXTS",
+    "embedding_canary_check", "MIGRATION_JOB_KIND",
+    "enqueue_embedding_migration", "migration_jobs_snapshot",
+    "run_embedding_migration_chunk", "shadow_table_name",
 ]

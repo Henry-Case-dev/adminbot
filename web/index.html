@@ -3101,6 +3101,40 @@
                      (spec §3.6.2). -->
                 <div v-if="activeModule && activeModule.id === 'mod_sleep' && isGlobalAdmin"
                      class="space-y-4" style="grid-column: 1 / -1;">
+                  <!-- D13 (asap5-final-fixes, T-5262, 14A.0): точка входа
+                       «Случайность» — selected/effective/ANU-state + кнопка
+                       на реально отображаемую карточку подключения
+                       (keys_random на «LLM Провайдерах»). До настройки ключа
+                       карточка видна (bootstrap-фикс /api/config) и
+                       переживает reload/restart (деривация на чтении). -->
+                  <div class="card p-4" data-random-entry>
+                    <div class="flex items-center gap-2 flex-wrap mb-2">
+                      <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('bolt') }}</span> Случайность</div>
+                      <template v-if="randomSleepView && randomSleepView.ready && randomSleepView.enabled">
+                        <span class="badge"
+                              :class="randomSleepView.quantum ? 'badge-ok' : 'badge-muted'">
+                          {{ randomSleepView.quantum ? 'квантовый' : 'псевдослучайный' }}
+                        </span>
+                        <span class="text-xs text-gray-500">
+                          выбрано: {{ randomSleepView.selected || '—' }} · фактически:
+                          {{ randomSleepView.effective || '—' }}
+                          <span v-if="randomSleepView.blockerLabel"> · причина:
+                            {{ randomSleepView.blockerLabel }}</span>
+                        </span>
+                      </template>
+                      <span v-else class="text-xs text-gray-500">состояние недоступно</span>
+                      <button class="btn-accent text-xs ml-auto shrink-0" type="button"
+                              @click="openTab('llm_providers')"
+                              data-random-entry-goto>
+                        Настроить подключение ANU →
+                      </button>
+                    </div>
+                    <div class="text-xs text-gray-500">
+                      Ключ ANU: <b>{{ randomSleepView && randomSleepView.keyPresent ? 'настроен' : 'не настроен' }}</b>.
+                      Подключение и параметры — карточка «Случайность: подключение ANU»
+                      на вкладке LLM Провайдеры.
+                    </div>
+                  </div>
                   <!-- Синтез (сон): ручной запуск + последние убеждения + лог -->
                   <div class="card p-4">
                     <div class="flex items-center gap-2 flex-wrap mb-1">
@@ -4226,6 +4260,28 @@
                     <!-- Публикация (§61.1) -->
                     <div class="mt-2 text-xs text-gray-300"
                          v-if="pipelinePublicationLine">{{ pipelinePublicationLine }}</div>
+                    <!-- ═══ ASAP 5 D6 (T-5244): Hybrid Decision Trace —
+                         5 секций §3.1 из существующих stage_events +
+                         final_policy. R17-safe: коды/числа/id. -->
+                    <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 text-xs"
+                         v-if="pipelineDecisionTrace"
+                         id="pipeline-decision-trace">
+                      <div class="font-bold mb-0.5">Решение по прогону (Decision Trace)</div>
+                      <div class="pipe-node__row" v-if="pipelineDecisionTrace.l1"><span class="text-gray-300">L1 · Структурирование</span><span class="text-gray-400 ml-auto">{{ pipelineDecisionTrace.l1.status_ru }}<template v-if="pipelineDecisionTrace.l1.reason_ru"> — {{ pipelineDecisionTrace.l1.reason_ru }}</template></span></div>
+                      <div class="pipe-node__row" v-if="pipelineDecisionTrace.writer"><span class="text-gray-300">L2 · Writer</span><span class="text-gray-400 ml-auto">{{ pipelineDecisionTrace.writer.status_ru }}<template v-if="pipelineDecisionTrace.writer.reason_ru"> — {{ pipelineDecisionTrace.writer.reason_ru }}</template></span></div>
+                      <div class="mt-1 text-gray-300 font-bold" v-if="pipelineDecisionTrace.reviewRows.length">Проверка (Reviewer)</div>
+                      <div class="text-gray-400" v-for="(r, i) in pipelineDecisionTrace.reviewRows" :key="'tr' + i">
+                        попытка {{ r.attempt }} · {{ r.status_ru }}<template v-if="r.verdict"> · вердикт {{ r.verdict }}</template><template v-if="r.codes"> · находки: {{ r.codes }}</template><template v-if="r.blocking != null"> · blocking: {{ r.blocking }}</template><template v-if="r.paragraphs"> · абзацы: {{ r.paragraphs }}</template><template v-if="r.reason_ru"> — {{ r.reason_ru }}</template>
+                      </div>
+                      <div class="mt-1 text-gray-300 font-bold" v-if="pipelineDecisionTrace.revisionRows.length">Правки (Revision)</div>
+                      <div class="text-gray-400" v-for="(r, i) in pipelineDecisionTrace.revisionRows" :key="'td' + i">
+                        попытка {{ r.attempt }} · {{ r.status_ru }}<template v-if="r.target"> · цель {{ r.target }}</template><template v-if="r.failure"> · причина: {{ r.failure }}</template><template v-if="r.reason_ru"> — {{ r.reason_ru }}</template>
+                      </div>
+                      <div class="mt-1 pipe-node__row" v-if="pipelineDecisionTrace.policy">
+                        <span class="text-gray-300 font-bold">Итог (final policy)</span>
+                        <span class="text-gray-200 ml-auto">{{ pipelineDecisionTrace.policy.ru }}<template v-if="pipelineDecisionTrace.policy.reason_ru"> — {{ pipelineDecisionTrace.policy.reason_ru }}</template><template v-else-if="pipelineDecisionTrace.policy.reason_code"> — {{ pipelineDecisionTrace.policy.reason_code }}</template></span>
+                      </div>
+                    </div>
                     <!-- Developer details (§76, collapsible) -->
                     <details class="mt-2 text-xs" v-if="pipelineRunView.developer">
                       <summary class="cursor-pointer text-gray-400">Developer details</summary>
@@ -4338,9 +4394,12 @@
                     <div class="text-gray-400">
                       Поколение: {{ ix.generation != null ? ix.generation : '—' }}
                       · Попыток: {{ ix.attempts_total != null ? ix.attempts_total : 0 }}
-                      · Прогресс: {{ ix.processed != null ? ix.processed : '—' }}
+                      <!-- D10/T-5255 (§13): «Vector rebuild in progress N/M» —
+                           прогресс строимого поколения (structured state). -->
+                      · Прогресс: {{ ix.processed != null ? ix.processed : '—' }}<template v-if="ix.total"> / {{ ix.total }}</template>
                       <template v-if="ix.next_attempt_at"> · Кулдаун до {{ fmtTs(ix.next_attempt_at) }}</template>
                       <template v-if="ix.reason_code"> · код: {{ ix.reason_code }}</template>
+                      <template v-if="ix.source_empty"> · источник пуст (knn_source_empty — stable terminal)</template>
                     </div>
                   </div>
                   <div v-if="!(embeddingsPanel.vector_memory.indexes || []).length"
@@ -5841,7 +5900,12 @@
                     <div v-if="!cognitionParadigmsLoop.length" class="ribbon-empty">
                       <div class="ribbon-empty__title">Пул парадигм пуст.</div>
                       <div class="ribbon-empty__text">Парадигмы — мета-факты о динамике («что было раньше и что стало»). Глубокий сон выводит их, сопоставляя свежие убеждения с историческими фактами: нужны минимум 2 опоры старше 90 дней. Пока условий нет, выводы не выдумываются.</div>
-                      <div class="ribbon-empty__reason">Причина: {{ cognitionParadigmsEmptyReason }}.</div>
+                      <!-- D14 (asap5-final-fixes, T-5264, §13A): gate ≠
+                           last-attempt — планировщик и результат последней
+                           попытки показываются РАЗДЕЛЬНО. -->
+                      <div class="ribbon-empty__reason" v-if="lastAttemptLabel()">Последняя попытка: {{ lastAttemptLabel() }}<template v-if="cognitionNextAutoAttemptAt"> · следующая автопопытка {{ fmtTs(cognitionNextAutoAttemptAt) }}</template>.</div>
+                      <div class="ribbon-empty__reason" v-if="schedulerGateLabel()">Планировщик: {{ schedulerGateLabel() }}.</div>
+                      <div class="ribbon-empty__reason" v-if="!lastAttemptLabel() && !schedulerGateLabel()">Причина: {{ cognitionParadigmsEmptyReason }}.</div>
                     </div>
                     <div v-else class="ribbon-track">
                       <div v-for="it in cognitionParadigmsLoop" :key="it.key"

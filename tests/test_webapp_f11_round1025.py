@@ -217,12 +217,12 @@ class TestD5FactsBudgetsCounters:
 
 class TestD6Invariants:
     def test_version_bump(self):
-        assert 'APP_VERSION = "2.58.67"' in SETTINGS
+        assert 'APP_VERSION = "2.58.68"' in SETTINGS
         assert "v2.58.34" in README
 
     def test_catalog_delta_zero(self):
         import services.param_catalog as pc
-        assert len(pc.REGISTRY) == 523
+        assert len(pc.REGISTRY) == 529
         assert len(pc.GROUPS) == 113
         assert len(pc._TAB_BY_GROUP) == 111
         assert len(pc.TAB_RULES) == 22
