@@ -1387,4 +1387,14 @@ async def cover_test_style_status(
     except Exception:
         logger.debug("[cover_styles] preview resume check failed",
                      exc_info=True)
+    # D7/T-5252/T-5253 (web-slice): CoverPromptManifest — расширение ответа
+    # СУЩЕСТВУЮЩЕГО job-endpoint'а (D17: не новые роуты; routes.py пин цел).
+    # Fail-closed: полный манифест (include_prompt=True) видит только
+    # глобальный админ; не-админ — ничего (ключа нет), нет манифеста —
+    # ключа нет (UI прячет блок, не показывает «пусто»).
+    if _viewer_is_admin(request, user):
+        manifest = await preview_jobs.job_manifest(db, job_id,
+                                                   include_prompt=True)
+        if manifest is not None:
+            snapshot["prompt_manifest"] = manifest
     return snapshot

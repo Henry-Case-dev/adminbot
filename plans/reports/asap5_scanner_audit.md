@@ -53,3 +53,67 @@ routes.py sha256 = `8153b8bd…c7b45` = `ROUTES_SHA256_F11` байт-в-байт
 Working tree 07.10.2026 поверх `fbdc95c`; контроль: routes sha256 8153b8bd…c7b45; хеши лейн — evidence.md/integration_evidence.md (все перепроверены, 0 drift в продуктовом дереве). Любая позднейшая правка сервисов/tests инвалидирует этот вердикт.
 
 **Следующий шаг Orchestrator:** DevOps — деплой 2.58.68 (bump по D18, миграций нет — DDL 0/v33, smoke не требуется; rollback soft/cold по spec §8; fail2ban-дисциплина AGENTS.md). Параллельно — Review T-5271 и открытые UI-задачи T-5252/T-5253/T-5266 до T-5275.
+
+---
+
+## Дельта web-слайса (T-5252/T-5253, scanner, 07.10.2026)
+
+Скоуп дельты: `web/api/cover_styles.py` +10 (расширение ответа СУЩЕСТВУЮЩЕГО
+GET /api/cover/test-style/{job_id}: `prompt_manifest` только при `_viewer_is_admin`),
+`web/app.js` +46 (поллер, обе ветки completed/failed), `web/index.html` +45
+(таблица 6 компонент + attempts[] + hash, двойной admin-гейт), NEW
+`tests/test_asap5_cover_manifest_web.py` (4) + `tests/js/asap5_cover_manifest_test.js`.
+Биндинг: база fbdc95c + dd134cc (субстрат T-5249), пин routes.py должен остаться цел.
+
+1. **R17/утечка — чисто.** Гейт в коде: `cover_styles.py:1395-1399` — ключ
+   `prompt_manifest` ставится только при `_viewer_is_admin`; `include_prompt=True`
+   в web/ ровно один сайт (grep web/*.py = 1). Независимый контрпример-прогон
+   (роль user+секция access, 200): в теле НЕТ ключа и НЕТ ни одного фрагмента
+   промпта (ASCII-маркеры HOSTILE_MARKER_XYZ/style/scene/context — все False),
+   admin-sanity True; `job_status` отдаёт только safe-числа `_prompt_public`
+   (cover_style_preview.py:182-199). Логи: эндпоинт пишет только debug
+   resume-failure без payload; кэш-мидлвари нет (grep add_middleware = 0),
+   localStorage/sessionStorage промпт/манифест не пишут (in-memory Vue state).
+2. **RBAC — граница серверная, подделки нет.** `_viewer_is_admin` →
+   `user_is_global_admin` (deps.py:198-213): роль из серверного cache по
+   telegram_id, где user — из HMAC-валидированного initData
+   (`safe_parse_webapp_init_data` + expiry), exception → False (fail-closed).
+   Клиентский `coverStyles.isAdmin` (app.js:9099, из серверного `data.is_admin`)
+   — UX-гейт, не граница: подмена флага в devtools манифест не приносит
+   (сервер ключ не отдал). Тест 2 покрывает роль user без wildcard/global_admin.
+3. **Пин routes.py — цел, пересчитан.** sha256(web/api/routes.py) =
+   `8153b8bd389711e9cb7a61352e58f6f8217c0a236575f75489ca617c0d0c7b45`
+   = 8153b8bd…c7b45 ✓. Δ эндпоинтов = 0 (расширение ответа существующего
+   endpoint'а; тест test_routes_py_untouched + grep job_manifest/prompt_manifest
+   в routes.py = 0).
+4. **XSS — чисто.** Новые 45 строк index.html — только `{{ }}`-интерполяции
+   Vue 3 (экранирование по умолчанию), v-html/x-html в блоке = 0 (6 v-html в
+   файле — pre-existing вне блока). Hostile sent_text/original_text рендерится
+   текстом; `:key`-биндинги — атрибутные, безопасные.
+5. **Секреты — 0.** Sweep 7 файлов дельты (TG-токен-формат, sk-, xox, AIza,
+   ghp_, api_key/password/bearer-присвоения) = 0 хитов; TEST_TOKEN/фикстуры в
+   тестах — синтетика короткого не-токен-формата.
+
+Прогоны (новые + перепроверенные независимо): pytest
+`test_asap5_cover_manifest_web.py` 4/4; js-набор tests/js — 64 файла, 0 fail
+(63 прежних + NEW asap5_cover_manifest_test.js → ASAP5-COVER-MANIFEST-OK);
+окружение cover-тестов 68/68 (manifest+api+ui+asap43) — регрессий поллера/эндпоинта нет.
+
+**Findings: C = 0. H = 0.**
+- I (unrelated/pre-existing, не блокер): GET /api/cover/test-style/{job_id} не
+  проверяет владельца джобы — знавший job_id не-админ читает статус/preview-URL
+  чужой джобы. id = `cov_<uuid4.hex>` — не нумеруется; поведение ДО дельты,
+  дельта его не расширяет (манифест admin-only). Кандидат в backlog
+  (owner-гейт на job-status), к деплою не относится.
+- I (info): JSON-ответ эндпоинта без Cache-Control — при появлении shared-CDN
+  перед /api админский ответ с манифестом теоретически кэшируем по общему URL;
+  в текущем контуре shared-кэша нет (мидлвари/прокси-кэша в репо 0).
+  Не блокер, можно закрыть together с backlog-пунктом выше.
+
+## Вердикт дельты
+
+**К деплою ДА** (2.58.69, web-слайс T-5252/T-5253). Binding: рабочее дерево
+07.10.2026 поверх dd134cc (база 09074b3); identity-файлы дельты —
+cover_styles.py/app.js/index.html + 2 NEW тест-файла; routes.py
+8153b8bd…c7b45 байт-цел. Любая правка дельты после этого скана инвалидирует
+вердикт.

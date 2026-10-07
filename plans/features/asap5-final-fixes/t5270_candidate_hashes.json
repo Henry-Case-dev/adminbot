@@ -140,6 +140,9 @@
  "tools/_t5270_full_pytest.ps1": "9b3da2d99a953e3940f3432e7745dc29470740b60f8cdaa81a914e2f969b14ea",
  "tools/_t5270_r17_scan.py": "ae30170206a6eef1e5faefc3f88a46da3421fdb875c198c8bfce8c769241db09",
  "web/api/memory_agi.py": "4f5239f7dc8e6d3d88cc4cda83dc091a412a0e79ef704e2ecc5b377a80e05266",
- "web/app.js": "4d297102214521d8f45856ac0c7e741674e2c19204eb1d54fb054842b9bc5602",
- "web/index.html": "fe4997a84e315d01cbf2a8121840cc748822a9064276a7bafda5a05f47840478"
+ "web/app.js": "d6c3f3a81d2b9f3b1374d9c91bf536bac581b2c4bf7fb128ee37629a23bfe035",
+ "web/index.html": "1673bf0ed4580448188d6df7b03fa64e5a6c48da1ad0749e2e5b9372d36dfd6f",
+ "web/api/cover_styles.py": "5f4ce81ee0b4921812a4b98e21126ee11862480859836af855a263598236696a",
+ "tests/test_asap5_cover_manifest_web.py": "023d794a8bbaf045bdafff13bc1806809601f888cf805cae80357edbf96f9ac6",
+ "tests/js/asap5_cover_manifest_test.js": "edf4108c731445be74b4082e91f1ec786cb66b70a506b113868b813ed02a086b"
 }

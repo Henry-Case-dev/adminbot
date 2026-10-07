@@ -9671,6 +9671,7 @@
                 preview_before_url: snap.preview_before_url,
                 preview_after_url: snap.preview_after_url,
                 prompt: snap.prompt || null,
+                prompt_manifest: snap.prompt_manifest || null,
                 duration_ms: null,
               };
               var c = st.current;
@@ -9689,6 +9690,7 @@
                   'Стиль не применён: провайдер отклонил запрос.',
                 developer_reason: (snap && snap.machine_reason) || '',
                 prompt: snap.prompt || null,
+                prompt_manifest: snap.prompt_manifest || null,
               };
               return;
             }
@@ -9806,6 +9808,50 @@
             + (p.limit != null ? p.limit : 'неизвестно'));
         }
         return parts.join(' · ');
+      },
+      // D7/T-5252 (web-slice): блок «Что отправилось модели» —
+      // CoverPromptManifest фактической отправки. Fail-closed: нет
+      // манифеста/компонент — блок скрыт (не «пустая таблица»).
+      coverManifestVisible: function (m) {
+        return !!(m && Array.isArray(m.components)
+                  && m.components.length > 0);
+      },
+      coverManifestSourceLabel: function (c) {
+        var keys = {
+          BASE_STYLE: 'Базовый стиль',
+          STORY_SCENE: 'Сюжет выпуска',
+          SUMMARY_CONTEXT: 'Контекст саммари',
+          STYLE_PROFILE: 'Профиль стиля',
+          RUNTIME_INVARIANTS: 'Обязательные инварианты',
+          REFERENCES: 'Референсы',
+        };
+        var k = (c && c.key) || '';
+        return keys[k] || (c && c.source) || k || '—';
+      },
+      coverManifestStatusText: function (c) {
+        var map = { kept: 'отправлено полностью',
+                    compacted: 'сжато при сборке',
+                    omitted: 'не отправлено' };
+        var s = (c && c.status) || 'omitted';
+        return map[s] || s;
+      },
+      coverManifestStatusClass: function (c) {
+        var s = (c && c.status) || '';
+        return s === 'kept' ? 'text-green-400'
+          : (s === 'compacted' ? 'text-amber-300' : 'text-gray-500');
+      },
+      coverManifestAttemptLabel: function (a) {
+        if (!a) return '';
+        var outcomes = { sent: 'отправлен провайдеру',
+                         ok: 'отправлен провайдеру',
+                         retry_superseded: 'заменён повторной попыткой',
+                         failed: 'провален' };
+        var label = 'Попытка ' + (a.attempt || 1) + ' — '
+          + (a.chars || 0) + ' зн., '
+          + (outcomes[a.outcome] || a.outcome || 'неизвестно');
+        if (a.reason) label += ' (' + a.reason + ')';
+        if (a.prompt_hash) label += ' · hash ' + a.prompt_hash;
+        return label;
       },
       coverBudgetBreakdown: function () {
         var st = this.coverStyles;

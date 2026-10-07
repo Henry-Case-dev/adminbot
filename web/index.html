@@ -794,6 +794,51 @@
                  class="text-gray-500 mt-1" data-cover-test-breakdown>
               Последняя сборка: {{ coverPromptBreakdownText(coverStyles.preview.prompt) }}
             </div>
+            <!-- D7/T-5252/T-5253 (web-slice): «Что отправилось модели» —
+                 CoverPromptManifest фактической отправки. Admin-only: сервер
+                 отдаёт манифест только глобальному админу (fail-closed,
+                 include_prompt=True); UI дополнительно прячет блок у
+                 не-админа. Нет манифеста — блок скрыт, не «пусто». -->
+            <details v-if="coverStyles.isAdmin
+                             && coverManifestVisible(coverStyles.preview.prompt_manifest)"
+                     class="mt-2 text-xs" data-cover-manifest>
+              <summary class="cursor-pointer text-gray-300"
+                       data-cover-manifest-toggle>Что отправилось модели (манифест сборки)</summary>
+              <div class="mt-1 flex flex-col gap-1" data-cover-manifest-body>
+                <div class="text-gray-500" data-cover-manifest-meta>
+                  <span v-if="coverStyles.preview.prompt_manifest.provider">{{ coverStyles.preview.prompt_manifest.provider }}</span><span v-if="coverStyles.preview.prompt_manifest.provider && coverStyles.preview.prompt_manifest.model"> · </span><span v-if="coverStyles.preview.prompt_manifest.model">{{ coverStyles.preview.prompt_manifest.model }}</span><span v-if="coverStyles.preview.prompt_manifest.route"> · {{ coverStyles.preview.prompt_manifest.route }}</span><span v-if="coverStyles.preview.prompt_manifest.prompt_hash"> · hash {{ coverStyles.preview.prompt_manifest.prompt_hash }}</span>
+                </div>
+                <table class="w-full text-left" data-cover-manifest-table>
+                  <thead>
+                    <tr class="text-gray-500">
+                      <th class="pr-2 font-normal">Компонента</th>
+                      <th class="pr-2 font-normal">Приоритет</th>
+                      <th class="pr-2 font-normal">Отправлено</th>
+                      <th class="pr-2 font-normal">Статус</th>
+                      <th class="font-normal">Причина</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="c in coverStyles.preview.prompt_manifest.components"
+                        :key="'mc-' + c.key" data-cover-manifest-row>
+                      <td class="pr-2 align-top">{{ coverManifestSourceLabel(c) }}</td>
+                      <td class="pr-2 align-top text-gray-500">{{ c.priority || '—' }}</td>
+                      <td class="pr-2 align-top">{{ c.sent_chars || 0 }}<span v-if="c.original_chars" class="text-gray-500"> / {{ c.original_chars }}</span></td>
+                      <td class="pr-2 align-top" :class="coverManifestStatusClass(c)">{{ coverManifestStatusText(c) }}</td>
+                      <td class="align-top text-gray-500">{{ c.reason || '—' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div v-for="a in coverStyles.preview.prompt_manifest.attempts"
+                     :key="'ma-' + a.attempt" class="text-gray-400"
+                     data-cover-manifest-attempt>
+                  {{ coverManifestAttemptLabel(a) }}
+                </div>
+                <div class="text-gray-500" data-cover-manifest-limit>
+                  Лимит: {{ coverStyles.preview.prompt_manifest.resolved_limit != null ? coverStyles.preview.prompt_manifest.resolved_limit : 'неизвестно' }}<span v-if="coverStyles.preview.prompt_manifest.limit_source && coverStyles.preview.prompt_manifest.limit_source !== 'unknown'"> ({{ coverStyles.preview.prompt_manifest.limit_source }})</span>
+                </div>
+              </div>
+            </details>
           </div>
         </div>
 

@@ -94,3 +94,50 @@
 **APPROVED** → сигнал Scanner (параллельно) + деплой 2.58.68 (@DevOps; bump на деплое, миграционный smoke не требуется — Δ DDL=0).
 
 Обязательно до закрытия фичи ASAP 5 (не блокирует деплой): диспозиция F1 (web-слайс CoverPromptManifest T-5252/T-5253) и хвостов B3 (embeddings UI 13J/13K, per-chat migration orchestration) + owner-gates T-5248/T-5254/T-5266/T-5274.
+
+---
+
+# Итерация 2 (web-слайс T-5252/T-5253) — дельта поверх итерации 1
+
+**Вердикт: Approved (web-слайс)** — F1 закрыт в доставленном объёме; сигнал на деплой 2.58.69.
+
+Дата: 07.10.2026 (дельта-речек, ревью итерации 1 в силе). Кандидат: working tree поверх HEAD `dd134cc` (прод 2.58.68). Дельта 5 файлов, +101/−0: `web/api/cover_styles.py` +10, `web/app.js` +46, `web/index.html` +45, `tests/test_asap5_cover_manifest_web.py` (new), `tests/js/asap5_cover_manifest_test.js` (new).
+
+## 1. F1 диспозиция — закрыт (доставленный объём)
+- Сервер: СУЩЕСТВУЮЩИЙ `GET /api/cover/test-style/{job_id}` при `_viewer_is_admin` (= `user_is_global_admin`, exception → False) дополняет ответ `prompt_manifest = preview_jobs.job_manifest(db, job_id, include_prompt=True)`; `None` → ключа нет. Не-админ — ключа нет вообще (R17, fail-closed). Новых роутов 0.
+- UI: поллер `coverStylePollJob` держит `prompt_manifest` в ОБЕИХ ветках (completed/failed); блок «Что отправилось модели» (`data-cover-manifest`) с двойным гейтом: серверный `is_admin` + `coverStyles.isAdmin` в v-if и `coverManifestVisible` (нет манифеста/компонент → блок скрыт, не «пусто»). Слои независимы: устаревший/подменённый isAdmin не даёт данных — сервер их не отдаёт.
+- Схема-матч: UI читает ровно существующие поля сериализации (`sent_chars/original_chars/priority/status/reason`, attempts `attempt/chars/outcome/reason/prompt_hash`, `resolved_limit/limit_source/provider/model/route/prompt_hash`).
+- Репро через HTTP-поверхность (TestClient + durable job): тест 1 — админ получает полный манифест (include_prompt=True: 6 компонент D7, attempts с полными строками, prompt_hash); тест 2 — не-админ 200 и ключа НЕТ (базовый снимок жив); тест 3 — админ без манифеста — ключа нет; тест 4 — пин-сторож routes.py.
+
+## 2. Binding (хеши пересчитаны мной post-дельтой, все MATCH evidence)
+| Файл | sha256[:16] |
+|---|---|
+| web/api/cover_styles.py | `5f4ce81ee0b49218` |
+| web/app.js | `d6c3f3a81d2b9f3b` |
+| web/index.html | `1673bf0ed4580448` |
+| tests/test_asap5_cover_manifest_web.py | `023d794a8bbaf045` |
+| tests/js/asap5_cover_manifest_test.js | `edf4108c731445be` |
+
+- routes.py: файл-SHA256 `8153b8bd389711e9cb7a61352e58f6f8217c0a236575f75489ca617c0d0c7b45` — пин `8153b8bd…c7b45` бит-в-бит, Δ эндпоинтов 0.
+- `t5270_candidate_hashes.json`: 143 → 146 (обновлены app.js/index.html, добавлены cover_styles.py + 2 тест-файла; diff файла 5+/2−, CRLF сохранён; self-check drift=0).
+
+## 3. Прогоны (мои, post-дельта)
+- `tests/test_asap5_cover_manifest_web.py` — **4/4**.
+- Cover-семейство (`-k cover`) — **539 passed / 0 failed** (надмножество заявленных 69).
+- JS — **64/64** файлов exit 0 (вкл. новый `asap5_cover_manifest_test.js`).
+- R17-скан дельты (6 паттернов) — **0 хитов** (синтетика тестов — фикстуры).
+
+## 4. Честные остатки спеки (non-blocking для деплоя, хвост ASAP 5)
+Доставленный слайс = read-surface манифеста (endpoint + карточка Constructor, счётчики/статусы/hash/причины). По спеке шире, остаётся открытым (как хвост фичи, НЕ регрессия, деплой 2.58.68→69 строго аддитивен и fail-closed):
+- R11 «FINAL PROMPT полностью»: UI рендерит counts/hash, полные тексты (final_prompt/attempts.prompt/original_text/sent_text) приходят в ответ админу, но не отображаются.
+- T-5253 Analytics-поверхность (Run Inspector Cover: Base/Style раздельно; visual 15E#4) — не в дельте.
+- T-5252 «Settings UI: Что реально уйдёт модели» (pre-send прогноз) — не в дельте.
+- «3 UI» из R8: доставлено 2 из 3 (карточка completed + failed-ветка).
+
+## 5. Checks vs reused
+- Reuse: ревью итерации 1 (Approved, код-субстрат D7/manifest_public не менялся — хеши services/ бит-в-бит).
+- Новое: 5 хешей дельты, routes-пин, 4 py-теста, cover 539, js 64, R17, код-инспекция гейтов (fail-closed оба слоя), сверка схемы UI↔сериализации.
+- Недоступно/не требуется: live visual 15E#2–#4 — owner-gate T-5274 (как в итерации 1).
+
+## 6. Итог
+**Approved (web-слайс)** — деплой 2.58.69 разрешён: Δ только read-side + UI + тесты, routes-пин цел, DDL/каталог/KS/reason не менялись, R17 чисто. Откат: soft `git revert` (read-side нейтрален).

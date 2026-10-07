@@ -673,3 +673,67 @@ NB: summary_generator/web/app.js/web/index.html содержат также ле
 
 **R17**: секретов в дельте нет (коды/числа/id; логи R17-safe; чат-ID в
 тестах — фиктивные -1001/-100267, прецедент wave_d).
+
+## Web-slice T-5252/T-5253 — CoverPromptManifest подключён к API/UI (пост-деплой 2.58.68)
+
+Дата: 07.10.2026. Лейн: B2-продолжение (leaf web-slice). Санкция: spec D7
+«чтение — только admin-authorized существующие API (**расширение ответов,
+не новые роуты** — D17)» + review F1 Smallest recheck («появление
+`job_manifest` в web/api/cover_styles.py + рендер»). routes.py НЕ тронут.
+
+### Дельта (Δ=1 read-side расширение существующего endpoint'а + UI + тесты)
+
+- `web/api/cover_styles.py` (+10, sha256[:16] `5f4ce81ee0b49218`):
+  `cover_test_style_status` (СУЩЕСТВУЮЩИЙ GET /api/cover/test-style/{job_id})
+  дополняет ответ полем `prompt_manifest` = `preview_jobs.job_manifest(db,
+  job_id, include_prompt=True)` — ТОЛЬКО при `_viewer_is_admin` (global
+  admin). Fail-closed: не-админ — ключа нет вообще; нет манифеста — ключа
+  нет даже у админа. Новых роутов 0; routes.py byte-freeze цел
+  (sha256 `8153b8bd389711e9cb7a61352e58f6f8217c0a236575f75489ca617c0d0c7b45`
+  = пин 8153b8bd…c7b45, сверка post-дельтой).
+- `web/app.js` (+46, `d6c3f3a81d2b9f3b`): поллер `coverStylePollJob`
+  сохраняет `prompt_manifest` из job-snapshot в ОБЕ ветки (completed и
+  failed — манифест виден и у провала); хелперы `coverManifestVisible`
+  (fail-closed: нет манифеста/компонент → блок скрыт, не «пусто»),
+  `coverManifestSourceLabel` (RU: 6 компонент D7),
+  `coverManifestStatusText/Class` (kept/compacted/omitted — честно),
+  `coverManifestAttemptLabel` (попытка/chars/outcome/reason/hash).
+- `web/index.html` (+45, `1673bf0ed4580448`): карточка обложки
+  (`data-cover-test-result`) — блок «Что отправилось модели (манифест
+  сборки)» (`data-cover-manifest`): meta provider/model/route/hash,
+  таблица 6 компонент (Источник/Приоритет/Отправлено N/М/Статус/Причина),
+  attempts[] построчно, лимит+source. Admin-only видимость двойная:
+  сервер (реальный R17-гейт) + `coverStyles.isAdmin` в v-if.
+- Тесты: `tests/test_asap5_cover_manifest_web.py` (new, `023d794a8bbaf045`)
+  — 4 теста: админ получает ПОЛНЫЙ манифест (include_prompt=True:
+  6 компонент/attempts c полными строками/prompt_hash); не-админ (роль
+  user, секция access) — 200 и НЕТ ключа `prompt_manifest` (R17);
+  админ без манифеста — ключа нет; routes.py не содержит web-слайс
+  дельты (пин-сторож). `tests/js/asap5_cover_manifest_test.js` (new,
+  `edf4108c731445be`) — fail-closed видимость, RU-подписи/статусы/attempts,
+  поллер-проводка обеих веток, разметка admin-only+таблица+hash,
+  R17-гигиена блока.
+
+### Прогоны (фокус, полный pytest НЕ гонялся — финальный у DevOps на T-5275)
+
+- `tests/test_asap5_cover_manifest_web.py` — 4 passed.
+- Фокус cover-семейства: test_asap5_cover_prompt_manifest +
+  test_asap44_cover_final_closure + test_asap42_step2c2_miniapp_seeds +
+  test_asap43_cover_style_surgical — **69 passed** (соседство
+  read-side-расширения: существующие poll-тесты эндпоинта зелёные).
+- js: все 64 файла tests/js (63 базовых + новый asap5_cover_manifest) —
+  0 fails; новый: `ASAP5-COVER-MANIFEST-OK`.
+- routes.py sha256 post-дельта = `8153b8bd…c7b45` — **пин цел, Δ=0
+  эндпоинтов**.
+
+### R17 / границы
+
+- Полные тексты покидают durable evidence ТОЛЬКО админ-авторизованному
+  вызывающему (`_viewer_is_admin` → `include_prompt=True`); не-админ не
+  получает ничего (ключ отсутствует — vacuously fail-closed, диспозиция
+  scanner M сохранена). В generic логи prompt не попадает (SAFE_LOG_FIELDS
+  не менялись). Секретов в дельте нет (скан 5 файлов: 0 хитов).
+- Вне скоупа слайса (честно): Analytics Run Inspector для Cover Base
+  (kind=cover_base читается `load_base_cover_manifest`, отдельная
+  поверхность — T-5253-хвост при live-приёмке T-5274); визуальная
+  приёмка §15E#2–#4 — T-5266/T-5274 owner.
