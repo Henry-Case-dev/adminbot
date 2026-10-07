@@ -102,6 +102,7 @@ from services import negative_constraints as _nc    # MCA-08 (D8, T-4907)
 from services import command_prefix  # ASAP-3: persona-name force-детект (F6)
 from services import mca_intents as _mca_intents  # MCA-09 (D3, T-5029)
 from services import telegram_send as _tg_send     # MCA-09 (T-5038: транспорт)
+from services import response_extent as _extent  # MCA-23 (W3): ResponsePlan
 from services.chat_params import (
     chat_summary_enabled,
     get_chat_param as _cp_g,  # G-3 per-chat
@@ -1087,6 +1088,15 @@ class CoordinatorDecision:
     # поведения (enum/action-schema mca-09 не меняются; None = кадр не
     # активен — K1 OFF/ошибка). Черта не создаёт намерений.
     frame_version: str | None = None
+    # MCA-23 (W3, §3/§4 current_task): оси ResponsePlan — детерминированные,
+    # заполняются ДО LLM-стадии (classify_request, 0 LLM-вызовов). Пусто =
+    # план не строился (kill-switch OFF). В wire-JSON не сериализуются
+    # (граница A7): internal metadata.
+    task_kind: str = ""
+    extent: str = ""
+    structure: str = ""
+    delivery_hint: str = ""
+    tool_policy: str = ""
 
     def __post_init__(self) -> None:
         # Инварианты 1/2 (ADR D1/§39): action ∈ {reply,react,silent,tool};
@@ -1133,6 +1143,12 @@ class CoordinatorDecision:
         self.random_metadata = _sanitize_random_metadata(self.random_metadata)
         if self.tool_outcome not in _mca_tool_result_statuses():
             self.tool_outcome = None
+        # MCA-23 (W3): нормализация осей плана (незнакомое → "", fail-open).
+        self.task_kind = _extent.normalize_task_kind(self.task_kind)
+        self.extent = _extent.normalize_extent(self.extent)
+        self.structure = _extent.normalize_structure(self.structure)
+        self.delivery_hint = _extent.normalize_delivery_hint(self.delivery_hint)
+        self.tool_policy = _extent.normalize_tool_policy(self.tool_policy)
 
 
 def _mca_tool_result_statuses() -> frozenset:
@@ -1255,9 +1271,15 @@ def build_coordinator_decision(*, query: str, message, raw, user_id,
                                lore_compiled: bool,
                                pre_reason: str = REASON_DEFAULT,
                                pre_reaction: str | None = None,
-                               target_message_id: int | None = None
+                               target_message_id: int | None = None,
+                               plan=None
                                ) -> CoordinatorDecision:
-    """Собрать внутреннее решение Координатора (0 LLM). Никогда не бросает."""
+    """Собрать внутреннее решение Координатора (0 LLM). Никогда не бросает.
+
+    MCA-23 (W3): ``plan`` — ResponsePlan, классифицированный ДО LLM-стадии
+    (None → детерминированный :func:`classify_request` здесь — тот же
+    результат, план не зависит от стадии). Оси плана едут в решение
+    аддитивно; action/style-контракт не меняется."""
     forward = bool(_forward_source_of(message))
     tool_trace = getattr(raw, "tool_trace", None) or []
     tool_names = _coordinator_tool_names(tool_trace)
@@ -1266,6 +1288,11 @@ def build_coordinator_decision(*, query: str, message, raw, user_id,
     action = _coordinator_choose_action(
         has_tools=bool(tool_trace), degraded=degraded,
         lore_compiled=lore_compiled)
+    if plan is None:
+        try:
+            plan = _extent.classify_request(query)
+        except Exception:      # pragma: no cover - защитная ветка
+            plan = None
     return CoordinatorDecision(
         intent=_coordinator_intent(query, image_fired=image_fired,
                                    dig_fired=dig_fired, forward=forward),
@@ -1283,6 +1310,13 @@ def build_coordinator_decision(*, query: str, message, raw, user_id,
             degraded=degraded, lore_compiled=lore_compiled,
             pre_reason=pre_reason),
         needs_tools=bool(tool_names),
+        task_kind=(getattr(plan, "task_kind", "") if plan is not None else ""),
+        extent=(getattr(plan, "extent", "") if plan is not None else ""),
+        structure=(getattr(plan, "structure", "") if plan is not None else ""),
+        delivery_hint=(getattr(plan, "delivery_hint", "")
+                       if plan is not None else ""),
+        tool_policy=(getattr(plan, "tool_policy", "")
+                     if plan is not None else ""),
     )
 
 
@@ -1408,14 +1442,18 @@ def _log_coordinator_decision(decision: CoordinatorDecision, *,
     logger.info(
         "[coordinator] decision | chat=%s | intent=%s | addressee=%s | "
         "memory=%d | tools=%s | eval=%s | action=%s | reason=%s | target=%s | "
-        "needs_tools=%d | reaction=%s",
+        "needs_tools=%d | reaction=%s | kind=%s | extent=%s | struct=%s | "
+        "delivery=%s | tool_policy=%s",
         chat_id, decision.intent, decision.addressee,
         1 if decision.memory_need else 0,
         ",".join(decision.tool_calls) or "-",
         decision.evaluation, decision.action, decision.reason_code,
         decision.target_message_id if decision.target_message_id is not None
         else "-",
-        1 if decision.needs_tools else 0, decision.reaction or "-")
+        1 if decision.needs_tools else 0, decision.reaction or "-",
+        decision.task_kind or "-", decision.extent or "-",
+        decision.structure or "-", decision.delivery_hint or "-",
+        decision.tool_policy or "-")
 
 
 def _log_coordinator_outcome(*, chat_id: int, action: str, style: str,
@@ -2262,6 +2300,35 @@ class DirectChatService:
                                      if _speech_u.clarify == _ce.CLARIFY_ASK
                                      else "clarification_assumption_used"),
                         chat_id=chat_id)
+            # ── MCA-23 (W3): ResponsePlan — детерминированная классификация
+            # ДО LLM-стадии (0 LLM-вызовов; §8 fast path не меняется: для
+            # очевидного chat/micro тот же один Stage-1 вызов). Extent-блок
+            # едет в системный промпт («Ожидаемая полнота»); для
+            # longform-семейства — prompt-conflict scrub старого cap-текста
+            # (PG-кастом не правится) и model-слот max_tokens.
+            response_plan = None
+            extent_block = ""
+            longform_max_tokens = None
+            if _extent.response_plan_enabled():
+                try:
+                    response_plan = _extent.classify_request(query)
+                except Exception:      # pragma: no cover - защитная ветка
+                    response_plan = None
+                if response_plan is not None:
+                    extent_block = _extent.render_extent_block(response_plan)
+                    if extent_block:
+                        system_prompt = (system_prompt + "\n\n"
+                                         + extent_block)
+                    if response_plan.is_longform():
+                        system_prompt, _scrubbed = _extent.scrub_for_plan(
+                            system_prompt, response_plan)
+                        if _scrubbed:
+                            logger.warning(
+                                "[direct] extent-conflict scrub | chat=%s | "
+                                "stage=system_prompt | removed=%d",
+                                chat_id, _scrubbed)
+                        longform_max_tokens = \
+                            _extent.longform_max_output_tokens()
             time_line = await self._chat_time_line(chat_id)
             payload = build_messages(system_prompt, user_blocks,
                                      time_line=time_line)
@@ -2446,7 +2513,8 @@ class DirectChatService:
                             correlation_id=correlation_id,
                             fallback_payload_adapter=(
                                 _fb_factory(time_line) if _fb_factory
-                                else None))
+                                else None),
+                            max_output_tokens=longform_max_tokens)
             except NoApiKeyForChat as exc:
                 # Раунд 10 (F-7 §5.2): у чата нет своего ключа, глобальный
                 # запрещён/исчерпан → sandbox-фраза content.no_key_reply
@@ -2659,7 +2727,8 @@ class DirectChatService:
                     lore_compiled=bool(
                         getattr(tool_ctx, "lore_compiled", False)),
                     pre_reason=pre_reason, pre_reaction=pre_reaction,
-                    target_message_id=getattr(message, "message_id", None))
+                    target_message_id=getattr(message, "message_id", None),
+                    plan=response_plan)
                 # mca-18 (T-5081/CA-18-7): версия кадра запуска — аддитивно
                 # в решение (in-flight версия в trace, `:1574`); None = кадр
                 # не активен. Ошибка чтения holder'а → None (fail-open).
@@ -2697,7 +2766,8 @@ class DirectChatService:
                     bundle=evidence_bundle,
                     character_block=character_block,
                     style_directives=style_directives,
-                    numeric_contract=numeric_contract)
+                    numeric_contract=numeric_contract,
+                    plan=response_plan)
                 if synthesized:
                     # F3 (ADR-1023-3): режим несёт и стиль, и канал доставки.
                     raw, response_mode = synthesized
@@ -2836,10 +2906,24 @@ class DirectChatService:
                 _log_coordinator_outcome(
                     chat_id=chat_id, action=ACTION_REPLY,
                     style=response_mode, chars=len(answer))
+            # ── MCA-23 (W3, §Delivery Router): RichMessage — опциональная
+            # ветка для явных report/deep-research планов. Любой сбой
+            # (aiogram<3.30 / capability / TelegramBadRequest) → прежний
+            # safe-HTML/plain путь на ТОМ ЖЕ answer (без регенерации, §O).
+            # Дедуп/freshness/ledger не затронуты: наружу — id доставленного.
+            _rich_wanted = (
+                response_plan is not None
+                and response_plan.delivery_hint == "rich"
+                and _extent.rich_delivery_enabled()
+                and (response_mode == "deep_research"
+                     or response_plan.structure == "report")
+                and len(answer) >= _extent.RICH_MIN_ANSWER_CHARS
+                and not getattr(tool_ctx, "lore_compiled", False))
             sent_id = await self._send_direct_answer(
                 bot, chat_id, answer, message.message_id,
                 lore=bool(getattr(tool_ctx, "lore_compiled", False)),
-                deep_research=(response_mode == "deep_research"))
+                deep_research=(response_mode == "deep_research"),
+                rich=_rich_wanted)
             if sent_id is not None:
                 answer_text = answer
                 # MCA-07 (T-3852, D11): `context_version`/число исключений —
@@ -2963,7 +3047,8 @@ class DirectChatService:
                                         bundle=None,
                                         character_block: str = "",
                                         style_directives: str = "",
-                                        numeric_contract=None
+                                        numeric_contract=None,
+                                        plan=None
                                         ) -> tuple[str, str] | None:
         """Синтезатор тулов → Вербализатор. ``None`` → финал tool-loop.
 
@@ -2996,6 +3081,15 @@ class DirectChatService:
         проверки чисел ЭТОГО хода (default None → паритет); нарушение →
         ≤1 numeric-повтор тем же Вербализатором, затем детерминированная
         замена/снятие (второго LLM-судьи нет).
+
+        MCA-23 (W3, §4/§11): `plan` — ResponsePlan, классифицированный до
+        LLM-стадии. Непустой план → Вербализатор получает extent-блок
+        («ОЖИДАЕМАЯ ПОЛНОТА») ВМЕСТО mode-блока (response_mode остаётся
+        compat-алиасом: routing/format/доставка без изменений); при
+        longform-плане из собранного промпта детерминированно вычищается
+        старый cap-текст (PG-кастом не правится, WARN в лог) и на Stage-2
+        передаётся max_output_tokens. plan=None (тесты/legacy) → байт-
+        паритет прежней сборки.
         """
         draft_text = strip_reasoning_tags(str(raw).strip())
         form_contract = (_nc.FormContract(source_text=draft_text)
@@ -3041,13 +3135,34 @@ class DirectChatService:
                 resolve_prompt("prompts.direct_chat_verbalizer_system_prompt",
                                DIRECT_VERBALIZER_SYSTEM_PROMPT)
                 if modes_on else PREV_CHAT_VERBALIZER_R1023)
+            # MCA-23 (W3, §11): план — источник полноты; extent-блок заменяет
+            # mode-блок. plan=None → "" → прежняя mode-сборка (паритет).
+            _plan_extent_block = ""
+            if plan is not None and modes_on:
+                _plan_extent_block = _extent.render_extent_block(plan)
             # Review iter1 (H2): direct deep_research доставляется safe-HTML
             # (`parse_mode="HTML"` + escape_lore_html) → HTML-capable блок.
             verbalizer_system = (compose_verbalizer_system(
                 verbalizer_template, response_mode, "plain", html_safe=True,
                 character_block=character_block,
-                style_directives=style_directives)
+                style_directives=style_directives,
+                extent_block=_plan_extent_block)
                 if modes_on else verbalizer_template)
+            # MCA-23 (W3, §11/§32): prompt-conflict scrub — старый cap-текст
+            # (PG-кастом 10.23) не должен душить longform. Детерминированная
+            # вычистка из ФИНАЛЬНОЙ сборки; БД не трогается, WARN в лог.
+            if modes_on:
+                verbalizer_system, _scrubbed = _extent.scrub_for_plan(
+                    verbalizer_system, plan)
+                if _scrubbed:
+                    logger.warning(
+                        "[direct] extent-conflict scrub | chat=%s | "
+                        "stage=verbalizer | removed=%d", chat_id, _scrubbed)
+            # MCA-23 (W3, §Model slots): longform-план получает явный
+            # max_tokens; compact/micro/None → None (ключ не едет, паритет).
+            _longform_tokens = (_extent.longform_max_output_tokens()
+                                if (plan is not None
+                                    and plan.is_longform()) else None)
             base_messages = [
                 {"role": "system", "content": verbalizer_system},
                 {"role": "user",
@@ -3060,7 +3175,8 @@ class DirectChatService:
                 return await self.llm.generate(
                     messages, temperature=temperature, chat_id=chat_id,
                     module="direct_chat", step="stage2",
-                    correlation_id=correlation_id)
+                    correlation_id=correlation_id,
+                    max_output_tokens=_longform_tokens)
 
             enabled_rules = (channel_enabled_rules("plain", response_mode)
                              if modes_on else None)
@@ -3123,7 +3239,8 @@ class DirectChatService:
     async def _send_direct_answer(bot, chat_id: int, answer: str,
                                   reply_to: int | None, *,
                                   lore: bool = False,
-                                  deep_research: bool = False):
+                                  deep_research: bool = False,
+                                  rich: bool = False):
         """Доставка ответа DirectChat (раунд 10.20, T-1892, О5/ADR-1020-6 п.3).
 
         Обычный путь — байт-в-байт `parse_mode=None`. Под-путь safe-HTML
@@ -3137,7 +3254,30 @@ class DirectChatService:
         влезает в одно сообщение (≤4096). Иначе чанкинг по пробелам мог
         разорвать тег → `TelegramBadRequest` на 2-м чанке → фолбэк пересылал
         ВЕСЬ ответ plain (дубль). Длинный ответ уходит одной plain-доставкой
-        без тегов — без дублей и без сырой разметки."""
+        без тегов — без дублей и без сырой разметки.
+
+        MCA-23 (W3, §Delivery Router): `rich` — опциональная попытка
+        ``sendRichMessage`` для явных report/deep-research планов. Первый
+        класс ошибки (нет Bot API 10.1+ / aiogram<3.30 / битый payload) →
+        прежние ветки ниже на ТОМ ЖЕ `answer` (без регенерации — §O «Rich
+        failure»: same document → Plain). HTML-акценты Вербализатора перед
+        rich-каналом снимаются `strip_lore_html` (rich-сборщик строит
+        статью сам). Возврат — id доставленного сообщения (ledger/
+        remember_bot_reply работают без изменений)."""
+        if rich:
+            try:
+                sent = await _tg_send.send_rich_message(
+                    bot, chat_id, strip_lore_html(answer))
+                sent_id = getattr(sent, "message_id", None)
+                if sent_id is not None:
+                    return sent_id
+                logger.warning(
+                    "[direct] rich send: no message_id — legacy path | "
+                    "chat=%s", chat_id)
+            except Exception as exc:      # fail-open → прежние ветки
+                logger.warning(
+                    "[direct] rich send failed — legacy path | chat=%s | "
+                    "error=%s", chat_id, type(exc).__name__)
         if not (lore or deep_research):
             return await send_chunked_reply(bot, chat_id, answer, reply_to)
         escaped = escape_lore_html(answer)

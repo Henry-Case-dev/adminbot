@@ -23,6 +23,7 @@ import re
 from services.chat_prompts import (
     CHAT_SYSTEM_PROMPT,
     LEGACY_CHAT_SYSTEM_PROMPT,
+    PREV_CHAT_MCA23_SYSTEM_PROMPT,
     PREV_CHAT_R1021_SYSTEM_PROMPT,
     PREV_CHAT_R2020_SYSTEM_PROMPT,
     PREV_CHAT_SYSTEM_PROMPT,
@@ -216,12 +217,25 @@ _CHAT_SYSTEM_PROMPT_REFERENCE = """КАК ЧИТАТЬ КОНТЕКСТ:
 ГЛАВНОЕ ОГРАНИЧЕНИЕ (КРИТИЧЕСКИ ВАЖНО):
 Ты должен отвечать ОЧЕНЬ коротко. Твой ответ должен состоять СТРОГО ИЗ ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ. \nНе объясняй свои мысли, не пиши списки. Максимум пара язвительных фраз. Если напишешь больше двух предложений — система упадет."""
 
-# Раунд 10.21 (F3): ожидаемый канон = R1020-текст + блоки A/B.
-# Раунд 10.23 (F1, ADR-1023-1): перед блоками A/B вставлено правило
-# маркировки целевого сообщения-команды (TARGET_INSTRUCTION_BLOCK).
-_EXPECTED_CHAT_SYSTEM_PROMPT = (_CHAT_SYSTEM_PROMPT_REFERENCE
-                                + "\n\n" + TARGET_INSTRUCTION_BLOCK
-                                + STYLE_BLOCKS_SUFFIX)
+# Эталон нового канона (MCA-23, §10): канон 10.20 с заменой cap-блока
+# «СТРОГО 1-2 предложения» на extent-семантику («краткость - дефолт
+# болтовни, длину определяет задача»). Остальное байт-в-байт как в R1020.
+_MCA23_CAP_BLOCK_OLD = """ГЛАВНОЕ ОГРАНИЧЕНИЕ (КРИТИЧЕСКИ ВАЖНО):
+Ты должен отвечать ОЧЕНЬ коротко. Твой ответ должен состоять СТРОГО ИЗ ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ. \nНе объясняй свои мысли, не пиши списки. Максимум пара язвительных фраз. Если напишешь больше двух предложений — система упадет."""
+
+_MCA23_LIMIT_BLOCK_NEW = """ГЛАВНОЕ ОГРАНИЧЕНИЕ (КРИТИЧЕСКИ ВАЖНО):
+В обычной болтовне будь кратким по умолчанию. Но длина и структура ответа определяются задачей пользователя, а не лимитом предложений. Не сокращай ответ так, чтобы задача осталась неполной: просят историю - пиши законченную историю, просят разбор - давай полный разбор."""
+
+# Слепок прод-канона ДО MCA-23 (= прежний CHAT_SYSTEM_PROMPT 10.21/10.23)
+# — байт-в-байт, для авто-миграции PG.
+_PREV_CHAT_MCA23_SYSTEM_PROMPT_REFERENCE = (
+    _CHAT_SYSTEM_PROMPT_REFERENCE
+    + "\n\n" + TARGET_INSTRUCTION_BLOCK + STYLE_BLOCKS_SUFFIX)
+
+_EXPECTED_CHAT_SYSTEM_PROMPT = (
+    _CHAT_SYSTEM_PROMPT_REFERENCE.replace(_MCA23_CAP_BLOCK_OLD,
+                                          _MCA23_LIMIT_BLOCK_NEW)
+    + "\n\n" + TARGET_INSTRUCTION_BLOCK + STYLE_BLOCKS_SUFFIX)
 
 _EXPECTED_COOLDOWN = (
     "ты заебал спамить, я пошел курить на {remaining_time}",
@@ -240,6 +254,16 @@ _EXPECTED_ERROR = (
 class TestChatSystemPromptCanon:
     def test_byte_for_byte(self):
         assert CHAT_SYSTEM_PROMPT == _EXPECTED_CHAT_SYSTEM_PROMPT
+
+    def test_prev_mca23_snapshot_is_pre_mca23_canon(self):
+        """MCA-23 (§10): PREV_CHAT_MCA23 == прод-канон 10.21/10.23
+        (R1020-канон + блоки A/B, с cap «1-2 предложения») — байт-в-байт."""
+        assert (PREV_CHAT_MCA23_SYSTEM_PROMPT
+                == _PREV_CHAT_MCA23_SYSTEM_PROMPT_REFERENCE)
+        assert "СТРОГО ИЗ ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ" \
+            in PREV_CHAT_MCA23_SYSTEM_PROMPT
+        assert "СТРОГО ИЗ ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ" \
+            not in CHAT_SYSTEM_PROMPT
 
     def test_prev_r1021_snapshot_is_round1020_canon(self):
         """Раунд 10.21: PREV_CHAT_R1021 == R1020-канон (байт-в-байт) до
@@ -460,8 +484,15 @@ class TestChatSystemPromptCanon:
             assert "«" not in segment and "»" not in segment
             assert "—" not in segment
 
-    def test_short_answer_limit_preserved(self):
-        assert "ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ" in CHAT_SYSTEM_PROMPT
+    def test_no_global_hard_cap_mca23(self):
+        """MCA-23 (§10): глобальный hard cap «1-2 предложения» больше НЕ
+        effective contract. Краткость — дефолт болтовни, длину определяет
+        задача; задача не может быть обрезана."""
+        assert "СТРОГО ИЗ ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ" not in CHAT_SYSTEM_PROMPT
+        assert "В обычной болтовне будь кратким по умолчанию." \
+            in CHAT_SYSTEM_PROMPT
+        assert "Не сокращай ответ так, чтобы задача осталась неполной" \
+            in CHAT_SYSTEM_PROMPT
 
     # ── Раунд 9 (AGI Memory, T-821, spec §3.2.2): dig_into_lore + ОТНОШЕНИЯ ──
 

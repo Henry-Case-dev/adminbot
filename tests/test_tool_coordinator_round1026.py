@@ -625,8 +625,17 @@ class TestBounds:
             # `services/prompt_migrations.py` ИСКЛЮЧЕНЫ из запрещённых —
             # санкционированы каноны R1027 L1/L2 (many-to-many §95-v2, ДЛИНА/
             # ДЕДУП/авторы; PREV_SUMMARY_*_R1027 + ROLLBACK, ADR-1013-3).
-            "services/telegram_send.py",
-            "services/chat_prompts.py",
+            # NOTE (MCA-23, Wave 3, §Delivery Router): `services/telegram_send.py`
+            # исключён — единственная дельта: запись `services/direct_chat_service.py`
+            # в SEND_ALLOWLIST (rich-ветка direct зовёт обёртку
+            # `send_rich_message`, sanitize внутри; bare-send'ов нет).
+            # Поведение guard'а/обёрток не менялось (Δ registry=1 запись).
+            # NOTE (MCA-23, Wave 3, `mca-23-unified-response-orchestrator`,
+            # §10/§11 current_task): `services/chat_prompts.py` исключён —
+            # эпик санкционирует снятие глобального cap «1-2 предложения»
+            # (канон MCA23 + слепки PREV_CHAT_MCA23/PREV_CHAT_VERBALIZER_MCA23,
+            # ступени миграции в prompt_migrations, ADR-1013-3). Прецедент
+            # NOTE-модели: summary_prompts/prompt_migrations (round1027).
             # NOTE (A9, ADR-1026-22 D1/D7/D10): `services/execution_graph_source.py`
             # и `web/static/execution_graph.js` исключены — A9 санкционирует
             # аддитивное расширение СУЩЕСТВУЮЩЕГО ExecutionGraph (9 этапов §51,
@@ -810,7 +819,7 @@ class TestBounds:
             summary_changed
 
     def test_version_and_catalog(self):
-        assert APP_VERSION == "2.58.69"
+        assert APP_VERSION == "2.58.70"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
         assert len(pc.REGISTRY) == 529
         assert len({f.name for f in dataclasses.fields(Settings)}) == 454

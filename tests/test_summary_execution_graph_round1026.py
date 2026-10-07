@@ -436,7 +436,14 @@ class TestBoundaries:
     """T-3427/T-3425: публикация/§110-viewer/S9/routes.py/param_catalog/db — вне diff."""
 
     _FORBIDDEN = [
-        "services/telegram_send.py",
+        # NOTE (MCA-23, Wave 3, §Delivery Router): `services/telegram_send.py`
+        # исключён — единственная дельта: запись
+        # `services/direct_chat_service.py` в SEND_ALLOWLIST (rich-ветка
+        # direct зовёт обёртку `send_rich_message`, sanitize внутри;
+        # bare-send'ов нет). Поведение guard'а/обёрток не менялось
+        # (Δ registry = 1 запись); гейтится test_outgoing_guard_round1022 +
+        # rich-fallback тестами test_mca23_response_plan. Прецедент
+        # NOTE-модели: test_tool_coordinator_round1026.TestBounds.
         # NOTE (round1030, ASAP 4.1 волна 3, T-4611, spec §3, ADR-1028-8
         # D7 EXTEND): `services/summary_xml.py` исключён из запрета — зона C
         # санкционирует аддитивный параметр `window_caps` (kill-switch

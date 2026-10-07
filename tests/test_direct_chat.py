@@ -1,4 +1,4 @@
-﻿"""Epic 50 (R50-3/R50-7, Section 58.5/58.6): DirectChatThrottle (token bucket)
+"""Epic 50 (R50-3/R50-7, Section 58.5/58.6): DirectChatThrottle (token bucket)
 и DirectChatService (context partitioning, handle-поток, memorize-хук).
 Epic 60 (Section 63.1/63.2, T-460/T-461): persistent-троттлинг
 (PersistentThrottle), bot_replies в БД, per-chat замок генерации.
@@ -962,7 +962,12 @@ class TestHandleFlow:
 
     @pytest.mark.asyncio
     async def test_success_reply_and_memorize(self, fake_time, monkeypatch):
+        from config.settings import Settings
         _force_self_awareness(monkeypatch, True)     # F1: ON-путь явно
+        # MCA-23: план OFF — этот тест про R51/memorize-контракт и
+        # байт-паритет системного промпта (extent-блок не едет).
+        monkeypatch.setattr(Settings, "DIRECT_RESPONSE_PLAN_ENABLED", False,
+                            raising=False)
         tasks = self._collect_fire_forget(monkeypatch)
         memory = FakeMemory(window=[_window_row()])
         llm = FakeLLM(text="короткий ответ бота")
@@ -3272,7 +3277,11 @@ def _force_persona_flag(monkeypatch, value: bool) -> None:
 class TestPersonaPromptIntegration:
     @pytest.mark.asyncio
     async def test_block_appended_to_system_prompt(self, monkeypatch, fake_time):
+        from config.settings import Settings
         from services import bot_persona
+        # MCA-23: план OFF — тест про persona-слои, байт-паритет хвоста.
+        monkeypatch.setattr(Settings, "DIRECT_RESPONSE_PLAN_ENABLED", False,
+                            raising=False)
         _force_persona_flag(monkeypatch, True)
 
         async def _resolve(chat_id):
@@ -3306,7 +3315,11 @@ class TestPersonaPromptIntegration:
     @pytest.mark.asyncio
     async def test_flag_off_keeps_prompt_byte_identical(self, monkeypatch,
                                                         fake_time):
+        from config.settings import Settings
         from services import bot_persona
+        # MCA-23: план OFF — тест про persona-флаг, байт-паритет промпта.
+        monkeypatch.setattr(Settings, "DIRECT_RESPONSE_PLAN_ENABLED", False,
+                            raising=False)
         _force_persona_flag(monkeypatch, False)
 
         async def _boom(chat_id):       # не должен вызываться при OFF

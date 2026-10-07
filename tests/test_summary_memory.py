@@ -863,7 +863,12 @@ class TestMemorizeResilience:
             with caplog.at_level(logging.WARNING):
                 await memory.memorize_facts(1, "какой-то текст", "chat_history")   # без raise
         assert llm.generate_calls == 4          # 3 extract + 1 recovery-retry
-        warns = [r for r in caplog.records if r.levelno == logging.WARNING]
+        # MCA-17 (W1-C1): структурное событие FACTS_EXTRACT логируется
+        # отдельным логгером `services.mca_events` — фильтр по логгеру
+        # (семантика проверки: ОДИН human-WARNING «facts lost»).
+        warns = [r for r in caplog.records
+                 if r.levelno == logging.WARNING
+                 and r.name == "services.summary_memory"]
         assert len(warns) == 1
         assert "graphrag memorize: facts lost" in warns[0].message
         assert "reason=llm_error" in warns[0].message

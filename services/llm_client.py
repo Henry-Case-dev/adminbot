@@ -1191,12 +1191,19 @@ class LLMClient:
                        step: str | None = None,
                        correlation_id: str | None = None,
                        fallback_payload_adapter=None,
-                       supervised_transport: dict | None = None) -> str:
+                       supervised_transport: dict | None = None,
+                       max_output_tokens: int | None = None) -> str:
         """POST /chat/completions → choices[0].message.content.
 
         Epic 60 (65.8, T-476): temperature — опциональный kwarg; None →
         ключ в payload НЕ добавляется (ровно старое поведение для всех
         остальных вызовов; дефолт провайдера).
+
+        MCA-23 (Wave 3, §Model slots): ``max_output_tokens`` — опциональный
+        kwarg; None/<=0 → ключ ``max_tokens`` в payload НЕ добавляется
+        (байт-паритет всех прежних вызовов). Передаётся только явно
+        longform-планами (services/response_extent); fallback-адаптер
+        затрагивает только messages, ключ переживает recompose.
 
         Раунд 10 (F-7 §5.2): chat_id — BYOK-слой (свой ключ чата →
         глобальный с бюджетом; None → ровно старое поведение — глобальный
@@ -1230,6 +1237,15 @@ class LLMClient:
         payload = {"model": self._chat_model, "messages": messages}
         if temperature is not None:
             payload["temperature"] = temperature
+        # MCA-23 (Wave 3): модельный слот длины для longform-планов. Не-верхняя
+        # граница ответа, а потолок; None → ключ отсутствует (паритет).
+        if max_output_tokens is not None:
+            try:
+                _max_out = int(max_output_tokens)
+            except (TypeError, ValueError):
+                _max_out = 0
+            if _max_out > 0:
+                payload["max_tokens"] = _max_out
         # F7 (review iter1): фактически использованная модель — при срабатывании
         # фоллбэка цена/токены атрибутируются правильной модели.
         used_model = self._chat_model

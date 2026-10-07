@@ -90,8 +90,12 @@ ARTIFACTS = [ROOT / p for p in FIXTURE["artifacts"]]
 # GET /api/factcheck/temporal/runs и GET .../runs/{run_id} (виджет «Временной фактчек»,
 # RBAC global admin — прецедент /api/random/test). Хэш переутверждён осознанно (L-F11S-1);
 # routes-набор f8_baseline переиздан (tools/_mca20_reissue_f8.py).
+# P0 round1028 (таксономия секретов, W1-B): /api/params/meta — secret_mask
+# строго по spec.secret (keys_random: ровно один секрет-фолд ANU-ключ;
+# категория keys целиком секретной не является). Контентных Δ-routes нет
+# (тот же эндпоинт, смена маски поля). Хэш переутверждён осознанно (L-F11S-1).
 ROUTES_SHA256_F11 = (
-    "8153b8bd389711e9cb7a61352e58f6f8217c0a236575f75489ca617c0d0c7b45")
+    "f25e759efeb610c5b28fe91a691eb8011eb9defda6042b0480687468b8353a98")
 
 
 def _sha256(path: Path) -> str:
@@ -192,7 +196,7 @@ class TestFrozenInvariants:
         # `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.69"
+        assert APP_VERSION == "2.58.70"
     def test_routes_set_unchanged(self):
         import re
         txt = (ROOT / "web/api/routes.py").read_text(encoding="utf-8")

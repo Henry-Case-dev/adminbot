@@ -82,6 +82,13 @@ SEND_ALLOWLIST: dict[str, str] = {
     # в Справке — текст админ-канон/PG (не Stage-2 LLM-текст), правится только
     # `/edit_info`; rich-текст саммари идёт через обёртку `send_rich_message`.
     "handlers/info.py": "текст справки — админ-канон/PG, не Stage-2 LLM",
+    # MCA-23 (Wave 3, §Delivery Router): direct rich-ветка зовёт ТОЛЬКО
+    # обёртку `send_rich_message` (sanitize внутри, plain-фолбэк на прежних
+    # обёртках send_chunked_reply); bare-send'ов в модуле нет — в SEND_POINTS
+    # не регистрируется (нулевое matches ломает test_migrated_modules).
+    "services/direct_chat_service.py": (
+        "rich-ветка доставки через обёртку send_rich_message (sanitize "
+        "внутри); plain/safe-HTML — существующие обёртки"),
 }
 
 

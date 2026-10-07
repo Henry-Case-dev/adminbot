@@ -33,7 +33,7 @@ from services.grounding_validator import (
     collect_allowed_anchors,
     strip_phantom_tags,
 )
-from services.llm_client import LLMBadResponseError, LLMClient
+from services.llm_client import LLMBadResponseError, LLMClient, LLMError
 from services import anticliche_cache
 from services import mca_gates
 from services import usage_events
@@ -65,6 +65,21 @@ from services.tool_schemas import factcheck_tools
 logger = logging.getLogger(__name__)
 
 
+def _emit_factcheck(outcome: str, *, level: str = "INFO", **fields):
+    """MCA-17 (`factcheck.run`): fail-open эмиссия (REUSE mca-13).
+
+    Это событие ВЕРДИКТ-пайплайна (`check_claim`, process `factcheck.run`);
+    события mca-20 temporal-пайплайна (`factcheck_temporal`,
+    `check_claim_envelope`) — отдельный контур и здесь НЕ дублируются.
+    R17: только chat_id/коды/длительность — claim-текст не переносится."""
+    try:
+        from services.mca_events import emit_mca_event
+        emit_mca_event("factcheck_run", outcome=outcome, level=level,
+                       component="factcheck", **fields)
+    except Exception:      # контракт не рвёт вердикт
+        pass
+
+
 def _temporal_max_evidence() -> int:
     """mca-20: потолок evidence-строк прогона (env-лимит gates, D16)."""
     try:
@@ -87,6 +102,48 @@ class FactCheckService:
         self.tool_router = tool_router
 
     async def check_claim(
+        self,
+        target_text: str,
+        user_hint: str | None = None,
+        forward_source: str | None = None,
+        chat_id: int | None = None,
+        chat_context: str | None = None,
+    ) -> str:
+        """MCA-17 (`factcheck.run`): терминал verify — success/failed +
+        reason из словаря §17.2, затем делегация в пайплайн 10.22."""
+        started = time.monotonic()
+
+        def duration_ms() -> int:
+            return int((time.monotonic() - started) * 1000)
+
+        try:
+            result = await self._check_claim_pipeline(
+                target_text, user_hint=user_hint,
+                forward_source=forward_source, chat_id=chat_id,
+                chat_context=chat_context)
+        except AllSearchEnginesFailedException:
+            _emit_factcheck("failed", level="WARN", chat_id=chat_id,
+                            reason_code="provider_unavailable",
+                            duration_ms=duration_ms())
+            raise
+        except LLMError:
+            # LLMError-семейство (таймаут/лимит/пустой ответ) — недоступность
+            # модели, а не движков поиска.
+            _emit_factcheck("failed", level="WARN", chat_id=chat_id,
+                            reason_code="model_unavailable",
+                            duration_ms=duration_ms())
+            raise
+        except Exception:
+            # Вне классифицированных семейств — честный failed без
+            # выдуманного reason-кода.
+            _emit_factcheck("failed", level="WARN", chat_id=chat_id,
+                            duration_ms=duration_ms())
+            raise
+        _emit_factcheck("success", chat_id=chat_id,
+                        duration_ms=duration_ms())
+        return result
+
+    async def _check_claim_pipeline(
         self,
         target_text: str,
         user_hint: str | None = None,

@@ -144,6 +144,66 @@ def _trace_deep(chat_id, step, status, reason=None, extra=None,
     trace_step(logger, component="dream", step=step, status=status,
                reason=reason, chat_id=chat_id, extra=extra, level=level)
 
+
+# ── MCA-17 (группа «Фоновые воркеры сна/памяти») ────────────────────────────
+_SLEEP_DREAM_COMPONENT = "sleep.dream"    # process_id `sleep.dream`
+_PERSONA_TRAITS_COMPONENT = "persona.traits"   # process_id `persona.traits`
+
+
+def _emit(event_name: str, outcome: str, *, level: str = "INFO",
+          **fields) -> None:
+    """Fail-open эмиссия события контракта §17.1 (REUSE `emit_mca_event`,
+    mca-13; паттерн `graphrag_rebuild._emit`). R17: только ID/коды/числа —
+    без текстов убеждений/фактов."""
+    try:
+        from services.mca_events import emit_mca_event
+        emit_mca_event(event_name, outcome=outcome, level=level, **fields)
+    except Exception:      # контракт не рвёт поток воркера
+        pass
+
+
+def _ms_since(mono: float) -> int:
+    """Длительность в мс от mono-отметки (bounded int, R17-safe)."""
+    try:
+        return max(0, int((time.monotonic() - mono) * 1000))
+    except Exception:
+        return 0
+
+
+def _sleep_dream_terminal(stats: dict) -> tuple[str, str | None]:
+    """Честный исход тика сна (MCA-17): (outcome, reason_code) — только
+    существующие коды словаря §17.2. Per-chat аудит НЕ дублируется (у сна
+    есть собственный журнал `memory_dream_log` kind run/distilled)."""
+    if stats.get("budget_stop"):
+        # Бюджет исчерпан: частичный успех (уже есть дистилляции) — честный
+        # run_partial рядом с результатом; иначе — resource_limit (skipped).
+        return (("success", "run_partial") if stats.get("distilled")
+                else ("skipped", "resource_limit"))
+    if stats.get("errors"):
+        return "failed", "model_unavailable"
+    if stats.get("window_skips") and not stats.get("clusters"):
+        return "skipped", "schedule_outside_window"
+    if not stats.get("chats"):
+        return "skipped", "no_relevant_memory"
+    if not (stats.get("clusters") or stats.get("distilled")):
+        return "skipped", "no_new_contribution"
+    return "success", None
+
+
+def _persona_traits_terminal(stats: dict) -> tuple[str, str | None]:
+    """Исход шага черт (MCA-17): статус `_run_persona_traits_once` →
+    (outcome, reason_code §17.2). `empty` = нет self-фактов за окно."""
+    status = str((stats or {}).get("status") or "")
+    if status == "ok":
+        return (("success", None) if int((stats or {}).get("traits") or 0)
+                else ("skipped", "no_new_contribution"))
+    if status == "budget":
+        return "skipped", "resource_limit"
+    if status == "error":
+        return "failed", None
+    return "skipped", "no_relevant_memory"
+
+
 _DREAM_BELIEF_WEIGHT = 0.6       # spec §3.4.6: вес belief (константа)
 _DREAM_MAX_BELIEFS = 2           # spec §3.4.5: 0–2 убеждения на кластер
 _DREAM_MAX_USER_FACTS = 25       # user-блок дистилляции: до 25 фактов
@@ -637,6 +697,37 @@ class DreamWorker:
 
     async def _run(self, *, manual: bool,
                    only_chat: int | None = None) -> dict:
+        """Тик сна (MCA-17 `sleep.dream`): событие start + ОДИН терминальный
+        outcome на тик с reason §17.2 (per-chat аудит НЕ дублируется — есть
+        собственный журнал `memory_dream_log`). Master OFF → событий нет
+        (паритет «тихого» OFF: джоб зарегистрирован всегда, шуметь skipped
+        каждый тик запрещено); ручной прогон (`manual`) — событий ждут, emit
+        всегда. R17: только счётчики/коды. Тело — `_run_impl`."""
+        started = time.monotonic()
+        try:
+            master_on = bool(await self._dream_master_on())
+        except Exception:
+            master_on = False
+        emit_on = bool(manual) or master_on
+        if emit_on:
+            _emit("sleep_dream", "start", component=_SLEEP_DREAM_COMPONENT)
+        try:
+            stats = await self._run_impl(manual=manual, only_chat=only_chat)
+        except Exception:
+            if emit_on:
+                _emit("sleep_dream", "failed",
+                      component=_SLEEP_DREAM_COMPONENT,
+                      duration_ms=_ms_since(started))
+            raise
+        if emit_on:
+            outcome, reason = _sleep_dream_terminal(stats)
+            _emit("sleep_dream", outcome,
+                  component=_SLEEP_DREAM_COMPONENT, reason_code=reason,
+                  duration_ms=_ms_since(started))
+        return stats
+
+    async def _run_impl(self, *, manual: bool,
+                        only_chat: int | None = None) -> dict:
         now = _now_ts()
         self._last_run_started = now
         stats = {"chats": 0, "clusters": 0, "distilled": 0, "unchanged": 0,
@@ -2373,6 +2464,10 @@ class DreamWorker:
                 "[persona_traits] skip | reason=persona_disabled | chat_id=%s",
                 chat_id)
             _trace_deep(chat_id, "traits", "skip", reason="persona_disabled")
+            # MCA-17 (`persona.traits`): терминальный исход шага (skipped).
+            _emit("persona_traits", "skipped",
+                  component=_PERSONA_TRAITS_COMPONENT,
+                  chat_id=int(chat_id), reason_code="disabled")
             try:
                 from services import bot_persona
                 await bot_persona.record_trait_status("persona_disabled")
@@ -2387,7 +2482,17 @@ class DreamWorker:
             logger.warning("[persona_traits] run failed — fail-open | "
                            "chat_id=%s", chat_id, exc_info=True)
             _trace_deep(chat_id, "traits", "error", reason="run_exception")
+            # MCA-17 (`persona.traits`): непредвиденный сбой шага (failed).
+            _emit("persona_traits", "failed",
+                  component=_PERSONA_TRAITS_COMPONENT,
+                  chat_id=int(chat_id))
             return 0
+        # MCA-17 (`persona.traits`): терминальный исход шага (success/skipped
+        # по статусу `_run_persona_traits_once`; reason — только из §17.2).
+        outcome, reason = _persona_traits_terminal(stats)
+        _emit("persona_traits", outcome,
+              component=_PERSONA_TRAITS_COMPONENT, chat_id=int(chat_id),
+              reason_code=reason)
         return int(stats.get("traits") or 0)
 
     async def _run_persona_traits_once(self, chat_id: int, *,

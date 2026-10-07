@@ -1310,7 +1310,7 @@ class TestBoundaries:
         assert len(pc.TAB_RULES) == 22
 
     def test_app_version(self):
-        assert APP_VERSION == "2.58.69"
+        assert APP_VERSION == "2.58.70"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         assert "v2.58.34" in readme
 
@@ -1348,7 +1348,14 @@ class TestBoundaries:
         # аддитивную DI-строку `extractor=_web_extractor` (reuse
         # WebContentExtractor для `fetch_article`); больше bot.py A2 не менял.
         forbidden = [
-            "services/telegram_send.py",
+            # NOTE (MCA-23, Wave 3, §Delivery Router): `services/telegram_send.py`
+            # исключён — единственная дельта: запись
+            # `services/direct_chat_service.py` в SEND_ALLOWLIST (rich-ветка
+            # direct зовёт обёртку `send_rich_message`, sanitize внутри;
+            # bare-send'ов нет). Поведение guard'а/обёрток не менялось
+            # (Δ registry = 1 запись); гейтится test_outgoing_guard_round1022 +
+            # rich-fallback тестами test_mca23_response_plan. Прецедент
+            # NOTE-модели: test_tool_coordinator_round1026.TestBounds.
             # NOTE (A3, ADR-1026-16 D2/D6): `services/image_generation.py`
             # исключён — санction A3 (ImageRequest-контракт); §104 гейтится
             # AST-гейтом A3 (test_unified_image_request_round1026.py).

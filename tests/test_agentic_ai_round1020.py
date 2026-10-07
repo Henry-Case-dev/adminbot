@@ -325,9 +325,13 @@ class TestStripReasoningTags:
 
 
 class TestCanonRemovalLocal:
-    def test_general_answer_still_one_or_two_sentences(self):
+    def test_general_answer_no_global_cap_mca23(self):
+        """MCA-23 (§10): cap «1-2 предложения» снят из канона — длину
+        определяет задача, краткость остаётся дефолтом болтовни."""
         from services.chat_prompts import CHAT_SYSTEM_PROMPT
-        assert "ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ" in CHAT_SYSTEM_PROMPT
+        assert "ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ" not in CHAT_SYSTEM_PROMPT
+        assert "Не сокращай ответ так, чтобы задача осталась неполной" \
+            in CHAT_SYSTEM_PROMPT
 
     def test_lore_prompt_has_no_short_canon(self):
         from services.lore_prompts import LORE_STORY_SYSTEM_PROMPT

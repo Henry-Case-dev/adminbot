@@ -2839,8 +2839,12 @@ class TestF8MemorizeRobustness:
         with caplog.at_level(logging.WARNING):
             with patch("services.summary_memory.settings", mod):
                 await memory.memorize_facts(-100, "текст", "search_fact")
+        # MCA-17 (W1-C1): структурное событие FACTS_EXTRACT (failed) логируется
+        # отдельным логгером `services.mca_events` — фильтр по логгеру
+        # (семантика проверки: ОДИН human-WARNING reason=llm_error).
         warns = [r.message for r in caplog.records
-                 if r.levelno == logging.WARNING]
+                 if r.levelno == logging.WARNING
+                 and r.name == "services.summary_memory"]
         assert len(warns) == 1
         assert "facts lost" in warns[0] and "reason=llm_error" in warns[0]
         cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")

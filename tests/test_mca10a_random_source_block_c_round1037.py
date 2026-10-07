@@ -342,6 +342,47 @@ class TestAnuSecretContour:
         assert resp.status_code == 200, resp.text
 
 
+# ── P0 round1028: таксономия секретов в группе keys_random ──────────────────
+class TestAnuSecretTaxonomy:
+    """Секрет-поле в keys_random — РОВНО ОДИН (ANU-ключ). Остальные 8
+    параметров — обычные (редактируемые) поля: secret_mask по spec.secret,
+    значения отдаются открыто (дефолты Settings / сохранённое)."""
+
+    def test_params_meta_secret_mask_strictly_by_spec(self, client):
+        resp = client.get("/api/config/params-meta", headers=_hdr())
+        assert resp.status_code == 200
+        group = {k: v for k, v in resp.json()["items"].items()
+                 if v["group"] == "keys_random"}
+        assert len(group) == 9
+        secrets = sorted(k for k, v in group.items() if v["secret_mask"])
+        assert secrets == [ANU_KEY]
+
+    def test_get_config_non_secret_anu_params_are_plain(self, client):
+        resp = client.get("/api/config", headers=_hdr())
+        assert resp.status_code == 200
+        assert "stored-anu-key-1234" not in resp.text      # R17: raw никогда
+        by_key = {i["key"]: i for i in resp.json()["items"]}
+        # Секрет — по-прежнему маска.
+        anu = by_key[ANU_KEY]
+        assert anu["secret"] is True
+        assert anu["value"] == {"configured": True, "last4": "1234"}
+        # Не-секретные — открытые значения (синтетика каталоговых дефолтов).
+        from services.pg_db import coerce_catalog_value
+        settings = Settings()
+        for pg_key in ("keys.random_quantum_provider",
+                       "keys.random_quantum_endpoint",
+                       "keys.random_quantum_plan",
+                       "keys.random_quantum_batch_length",
+                       "keys.random_quantum_request_timeout_seconds"):
+            item = by_key[pg_key]
+            assert item["secret"] is False, pg_key
+            assert not isinstance(item["value"], dict), pg_key
+            spec = pc.get_by_pg_key(pg_key)
+            expected = coerce_catalog_value(
+                spec, getattr(settings, spec.settings_field))
+            assert item["value"] == expected, pg_key
+
+
 # ── кнопка «Проверить подключение»: POST /api/random/test ───────────────────
 class FakeClock:
     def __init__(self, start: float = 1000.0):

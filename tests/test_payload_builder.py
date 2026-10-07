@@ -1,4 +1,4 @@
-﻿"""Epic 51 (R51-2/R51-4в, Section 59.3, D211): payload-билдер.
+"""Epic 51 (R51-2/R51-4в, Section 59.3, D211): payload-билдер.
 
 build_messages: system на индексе 0, user = "\n\n".join(блоков) в порядке.
 Guard-тест (59.5 #9): у ВСЕХ LLM-генераторов messages[0]["role"] == "system"
@@ -170,10 +170,16 @@ class TestSystemPromptGuard:
         await service.handle(bot, msg, msg.from_user)
         _assert_system_at_zero(llm)
         # канон раунда 8 (T-790): первый абзац «как читать блоки», блоки
-        # СИСТЕМНАЯ РОЛЬ/ПРИОРИТЕТЫ/ИНСТРУМЕНТЫ/ограничение сохранены
+        # СИСТЕМНАЯ РОЛЬ/ПРИОРИТЕТЫ/ИНСТРУМЕНТЫ сохранены; MCA-23 (§10):
+        # глобальный cap снят, extent-семантика в каноне
         assert llm.messages[0]["content"].startswith("КАК ЧИТАТЬ КОНТЕКСТ:")
         assert "СИСТЕМНАЯ РОЛЬ:" in llm.messages[0]["content"]
-        assert "ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ" in llm.messages[0]["content"]
+        assert "ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ" not in llm.messages[0]["content"]
+        assert "Не сокращай ответ так, чтобы задача осталась неполной" \
+            in llm.messages[0]["content"]
+        # MCA-23 (§2): extent-блок «Ожидаемая полнота» едет в системный
+        # промпт («привет» -> болтовня -> КОМПАКТНО)
+        assert "ОЖИДАЕМАЯ ПОЛНОТА: КОМПАКТНО" in llm.messages[0]["content"]
 
     @pytest.mark.asyncio
     async def test_memory_compress_batch(self):

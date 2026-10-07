@@ -761,8 +761,12 @@ class TestStyleDirectIntegration:
 
     @pytest.mark.asyncio
     async def test_k3_off_byte_parity_and_no_write(self, tmp_path, monkeypatch):
+        from config.settings import Settings
         from services import bot_persona
         from services.chat_prompts import CHAT_SYSTEM_PROMPT
+        # MCA-23: байт-паритет этого теста — про MCA-08 слои; план OFF.
+        monkeypatch.setattr(Settings, "DIRECT_RESPONSE_PLAN_ENABLED", False,
+                            raising=False)
         db = await _db(tmp_path)
         _force_persona_flag(monkeypatch, True)
         _persona_patch(monkeypatch)

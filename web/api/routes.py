@@ -723,7 +723,10 @@ async def get_params_meta(
 ):
     """Раунд 10 (F-7 §4.4): мета-каталог {pg_key: {per_chat,
     progressive_level, group, title, type, secret_mask}} — без значений
-    секретов (для TMA-витрины и F-11 прогрессивного раскрытия)."""
+    секретов (для TMA-витрины и F-11 прогрессивного раскрытия).
+    P0 round1028 (таксономия секретов): secret_mask строго по spec.secret —
+    категория keys целиком секрет-категорией не является (keys_random:
+    ровно одно секрет-поле, ANU-ключ; остальные параметры — обычные)."""
     items = {}
     for spec_key in sorted(param_catalog.REGISTRY):
         spec = param_catalog.REGISTRY[spec_key]
@@ -738,7 +741,7 @@ async def get_params_meta(
             "group": spec.group,
             "title": spec.title_ru,
             "type": spec.type,
-            "secret_mask": bool(spec.secret or spec.category == CATEGORY_KEYS),
+            "secret_mask": bool(spec.secret),
         }
     return {"items": items}
 

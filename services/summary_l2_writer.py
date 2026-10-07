@@ -748,6 +748,10 @@ def validate_l2_document(document: dict,
         "quotes_verified": 0,
         "quotes_repaired": 0,
         "quotes_removed": 0,
+        # W1-A: раздельные каналы — история успешных ремонтов vs живые
+        # неустранённые блокеры (union в quote_reason_codes — совместимость).
+        "quote_repair_reason_codes": [],
+        "quote_unresolved_blockers": [],
         "emphasis_dropped_count": 0,
         "emphasis_spans_count": 0,
         "finale_present": 0,
@@ -980,11 +984,25 @@ def _validate(document, package, metrics):
             metrics["quotes_removed"] += qstats.removed
             metrics["quote_unverified_count"] += (
                 qstats.quotes_total - qstats.verified)
-            if qstats.reason_codes:
-                codes = metrics.setdefault("quote_reason_codes", [])
+            if qstats.reason_codes or qstats.unresolved_blockers:
+                # W1-A: история успешных ремонтов и живые неустранённые
+                # блокеры ведутся раздельно; quote_reason_codes = union
+                # (совместимость Decision Trace/логов/исторических runs).
+                all_codes = metrics.setdefault("quote_reason_codes", [])
+                repair_codes = metrics.setdefault(
+                    "quote_repair_reason_codes", [])
+                blockers = metrics.setdefault(
+                    "quote_unresolved_blockers", [])
                 for code in qstats.reason_codes:
-                    if code not in codes:
-                        codes.append(code)
+                    if code not in all_codes:
+                        all_codes.append(code)
+                    if code not in repair_codes:
+                        repair_codes.append(code)
+                for code in qstats.unresolved_blockers:
+                    if code not in all_codes:
+                        all_codes.append(code)
+                    if code not in blockers:
+                        blockers.append(code)
             if qstats.failure_reason:
                 # Umbrella-совместимость: отказ repairable-цепочки виден и
                 # под прежним классом, и точной подпричиной.

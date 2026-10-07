@@ -140,6 +140,53 @@ from services.lore_prompts import (
 
 logger = logging.getLogger(__name__)
 
+# ── MCA-17 (группа «Фоновые воркеры сна/памяти»): событие lore.compile ──────
+_LORE_COMPONENT = "lore.compile"
+
+# Маппинг skip-причин `generate_for_chat` → существующие reason_code §17.2
+# (второй словарь причин запрещён; отсутствующего кода не изобретаем).
+_LORE_SKIP_REASONS = {
+    "no_profile": "source_missing",
+    "inactive": "disabled",
+    "auto_disabled": "disabled",
+    "auto_flag_disabled": "disabled",
+    "gate_lore_auto": "disabled",
+    "period_not_due": "intent_not_due",
+    "cooldown": "cooldown",
+    "quiet_window": "retrieval_empty",
+    "locked": "lock_exhausted",
+    "budget_skip": "budget_exceeded",
+}
+
+
+def _emit(event_name: str, outcome: str, *, level: str = "INFO",
+          **fields) -> None:
+    """Fail-open эмиссия события контракта §17.1 (REUSE `emit_mca_event`,
+    mca-13; паттерн `graphrag_rebuild._emit`). R17: только ID/коды/числа —
+    без текстов сообщений/лора."""
+    try:
+        from services.mca_events import emit_mca_event
+        emit_mca_event(event_name, outcome=outcome, level=level, **fields)
+    except Exception:      # контракт не рвёт поток воркера
+        pass
+
+
+def _lore_terminal(result: dict) -> tuple[str, str | None]:
+    """Честный исход прогона чата (MCA-17): (outcome, reason_code §17.2).
+    `ok` → success; `error` (LLM) → failed/model_unavailable; `failed`
+    (непредвиденное) → failed без выдуманного кода; skip-причины — по
+    `_LORE_SKIP_REASONS` (неизвестная причина → код опускается)."""
+    status = str((result or {}).get("status") or "")
+    if status == "ok":
+        return "success", None
+    if status == "error":
+        return "failed", "model_unavailable"
+    if status == "failed":
+        return "failed", None
+    return "skipped", _LORE_SKIP_REASONS.get(
+        str((result or {}).get("reason") or ""))
+
+
 _WINDOW_TS_FORMAT = "%Y-%m-%d %H:%M"
 
 # Фильтр «осмысленности» (spec §3.5/Q5). `?`-плейсхолдеры (aiosqlite):
@@ -441,6 +488,32 @@ class LoreWorker:
 
     async def generate_for_chat(self, chat_id: int, *,
                                 manual: bool = False) -> dict:
+        """Прогон генерации лора чата (MCA-17 `lore.compile`): событие
+        start + терминальный outcome НА ПРОГОН ЧАТА (осмысленный шаг;
+        сам `tick` не инструментируется). R17: только chat_id/коды/
+        длительность. Тело — `_generate_for_chat_impl` (без изменений);
+        контракт возврата прежний."""
+        started = time.monotonic()
+        _emit("lore_compile", "start", component=_LORE_COMPONENT,
+              chat_id=int(chat_id))
+        try:
+            result = await self._generate_for_chat_impl(chat_id,
+                                                        manual=manual)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            _emit("lore_compile", "failed", component=_LORE_COMPONENT,
+                  chat_id=int(chat_id),
+                  duration_ms=int((time.monotonic() - started) * 1000))
+            raise
+        outcome, reason = _lore_terminal(result)
+        _emit("lore_compile", outcome, component=_LORE_COMPONENT,
+              chat_id=int(chat_id), reason_code=reason,
+              duration_ms=int((time.monotonic() - started) * 1000))
+        return result
+
+    async def _generate_for_chat_impl(self, chat_id: int, *,
+                                      manual: bool = False) -> dict:
         """Полный прогон генерации/обновления авто-лора чата.
 
         Возврат:

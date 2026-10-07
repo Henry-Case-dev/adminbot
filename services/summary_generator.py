@@ -423,6 +423,20 @@ def _elapsed_since(started) -> float | None:
         return None
 
 
+def _emit_publish(event_name: str, outcome: str, *, level: str = "INFO",
+                  **fields) -> None:
+    """MCA-17 (summary.publish): fail-open эмиссия `SUMMARY_PUBLISH`
+    (§17; REUSE mca-13). R17-safe: только id/числа/коды; COVER_* /
+    SUMMARY_*-стадии не дублируются (publish-процесса они не покрывают).
+    Ошибка эмиссии не рвёт публикацию."""
+    try:
+        from services.mca_events import emit_mca_event
+        emit_mca_event(event_name, outcome=outcome, level=level,
+                       component="publish", **fields)
+    except Exception:  # pragma: no cover - контракт не рвёт поток
+        pass
+
+
 def _generation_code(stage: str | None) -> str | None:
     """§106/D5: код ``SUMMARY_GENERATION_FAILED`` для этапов генерации.
 
@@ -2708,6 +2722,76 @@ class SummaryGenerator:
                                      correlation_id: str | None = None,
                                      ctx=None,
                                      max_chunks: int | None = None) -> bool:
+        """Обёртка MCA-17 (summary.publish): start + терминальный outcome
+        `SUMMARY_PUBLISH` вокруг ядра rich-доставки
+        (`_publish_rich_document_impl`). rich_published → success;
+        plain/degraded-фолбэк → success+fallback_engaged; ничего не
+        опубликовано / идемпотентный skip → failed/skipped. Fail-open:
+        ошибка эмиссии не влияет на публикацию; контракт bool/исключений
+        не меняется."""
+        meta: dict = {}
+        _t0 = time.perf_counter()
+        _emit_publish("SUMMARY_PUBLISH", "start", chat_id=chat_id,
+                      stage="publish")
+        try:
+            published = await self._publish_rich_document_impl(
+                chat_id, document, cover_prompt,
+                correlation_id=correlation_id, ctx=ctx,
+                max_chunks=max_chunks, _publish_meta=meta)
+        except Exception as exc:
+            _emit_publish("SUMMARY_PUBLISH", "failed", level="ERROR",
+                          chat_id=chat_id, stage="publish",
+                          duration_ms=int((time.perf_counter() - _t0) * 1000),
+                          error_json={"type": type(exc).__name__})
+            raise
+        self._emit_publish_terminal(
+            chat_id, bool(published), meta,
+            int((time.perf_counter() - _t0) * 1000))
+        return published
+
+    @staticmethod
+    def _emit_publish_terminal(chat_id: int, published: bool, meta: dict,
+                               duration_ms: int) -> None:
+        """MCA-17: терминальный `SUMMARY_PUBLISH` по факту доставки."""
+        meta = meta or {}
+        reason = str(meta.get("reason") or "")
+        fields = dict(chat_id=chat_id, stage="publish",
+                      duration_ms=duration_ms)
+        if meta.get("channel") == "skip":
+            # T-4617: уже опубликовано ранее (идемпотентность публикации).
+            _emit_publish("SUMMARY_PUBLISH", "skipped",
+                          reason_code="action_idempotent_replay", **fields)
+            return
+        if published and not reason:
+            message_id = meta.get("message_id")
+            if isinstance(message_id, int):
+                fields["message_id"] = message_id
+            _emit_publish("SUMMARY_PUBLISH", "success", status="rich",
+                          **fields)
+            return
+        if reason:
+            fields["usage_json"] = {"fallback_reason": reason[:64]}
+        if published:
+            # Сводка доставлена фолбэк-каналом: plain (rich_overflow/
+            # rich_error) либо degraded rich без обложки (cover_*).
+            fields["status"] = ("degraded" if reason in
+                                ("cover_error", "cover_unavailable")
+                                else "plain")
+            fields["reason_code"] = "fallback_engaged"
+            _emit_publish("SUMMARY_PUBLISH", "success", **fields)
+            return
+        # Ничего не опубликовано (фолбэк тоже не дошёл).
+        if reason:
+            fields["status"] = "plain"
+        _emit_publish("SUMMARY_PUBLISH", "failed", level="WARN", **fields)
+
+    async def _publish_rich_document_impl(self, chat_id: int, document: dict,
+                                          cover_prompt: str, *,
+                                          correlation_id: str | None = None,
+                                          ctx=None,
+                                          max_chunks: int | None = None,
+                                          _publish_meta: dict | None = None
+                                          ) -> bool:
         """§101/§102/S6: единое ядро rich-доставки (OFF+ON).
 
         Порядок: ``<img src="tg://photo?id=…">`` → **настоящий** ``<h1>`` →
@@ -2720,6 +2804,8 @@ class SummaryGenerator:
         ``RICH_MESSAGE_SEND_FAILED`` (≤1 retry на RetryAfter → plain-фолбэк);
         §108/D6: ``PUBLISH_RICH_*``. События — best-effort, R17-safe; временный
         файл обложки удаляется в ``finally``.
+        MCA-17: ``_publish_meta`` (если передан) — out-параметр для
+        терминального события `SUMMARY_PUBLISH` (channel/reason/message_id).
         """
         from services.summary_article_formatter import rich_document_limits
         from services import cover_style_jobs as _csj
@@ -2825,6 +2911,8 @@ class SummaryGenerator:
                 await _csj.record_no_cover_provenance(
                     snapshot, summary_run_id=correlation_id)
                 fallback_done = True
+                if _publish_meta is not None:
+                    _publish_meta["reason"] = "cover_error"
                 return await self._degrade_without_cover(
                     chat_id, document, correlation_id=correlation_id, ctx=ctx,
                     reason="cover_error", max_chunks=max_chunks)
@@ -2853,6 +2941,8 @@ class SummaryGenerator:
                 await _csj.record_no_cover_provenance(
                     snapshot, summary_run_id=correlation_id)
                 fallback_done = True
+                if _publish_meta is not None:
+                    _publish_meta["reason"] = "cover_unavailable"
                 return await self._degrade_without_cover(
                     chat_id, document, correlation_id=correlation_id, ctx=ctx,
                     reason="cover_unavailable", max_chunks=max_chunks)
@@ -2910,6 +3000,8 @@ class SummaryGenerator:
                         run_id=correlation_id, chat_id=chat_id,
                         fallback="rich_overflow")
                     fallback_done = True
+                    if _publish_meta is not None:
+                        _publish_meta["reason"] = "rich_overflow"
                     return await self._plain_fallback(
                         chat_id, document, correlation_id=correlation_id,
                         ctx=ctx, reason="rich_overflow",
@@ -2922,6 +3014,8 @@ class SummaryGenerator:
                 except Exception:      # pragma: no cover - fail-open
                     gate = None
                 if gate == "skip":
+                    if _publish_meta is not None:
+                        _publish_meta["channel"] = "skip"
                     return True
                 publish_started = log_publish_rich_start(
                     run_id=correlation_id, chat_id=chat_id)
@@ -2951,6 +3045,8 @@ class SummaryGenerator:
                     run_id=correlation_id, chat_id=chat_id,
                     fallback=_csj.REASON_RICH_FAILED)
                 fallback_done = True
+                if _publish_meta is not None:
+                    _publish_meta["reason"] = "rich_error"
                 return await self._plain_fallback(
                     chat_id, document, correlation_id=correlation_id, ctx=ctx,
                     reason="rich_error", max_chunks=max_chunks)
@@ -2995,6 +3091,10 @@ class SummaryGenerator:
             await self._record_published_output(
                 chat_id, message_id, self._document_plain_text(document),
                 correlation_id=correlation_id)
+            if _publish_meta is not None:
+                _publish_meta["channel"] = "rich"
+                if isinstance(message_id, int):
+                    _publish_meta["message_id"] = message_id
             return True
         except Exception as exc:
             # Защитная ветка (сбой prep до/вне send-блока): тихий plain-фолбэк.
@@ -3005,6 +3105,8 @@ class SummaryGenerator:
                 chat_id, type(exc).__name__)
             if not fallback_done:
                 fallback_done = True
+                if _publish_meta is not None:
+                    _publish_meta["reason"] = "rich_error"
                 return await self._degrade_without_cover(
                     chat_id, document, correlation_id=correlation_id, ctx=ctx,
                     reason="rich_error", max_chunks=max_chunks)

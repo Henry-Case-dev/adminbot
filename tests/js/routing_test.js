@@ -1074,9 +1074,12 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     assert.deepStrictEqual(byId.video_summary.subBlocks.map((sb) => sb.id),
       ['video_summary_openrouter', 'video_fallback'],
       '2.4: запасная видео-модель сразу под основной');
+    // ASAP 6 §7: 4 подблока — 3 профиля (Primary/Запасная 1/Запасная 2,
+    // НЕЗАВИСИМЫЕ привязки) + Developer-подблок сырой alias-строки квот.
     assert.deepStrictEqual(byId.embeddings.subBlocks.map((sb) => sb.id),
-      ['embeddings_main', 'embeddings_fallback1', 'embeddings_fallback2'],
-      '2.3: ровно 3 подблока в порядке Основная/Ф1/Ф2');
+      ['embeddings_main', 'embeddings_fallback1', 'embeddings_fallback2',
+       'embeddings_developer'],
+      'ASAP 6 §7: 3 профиля + Developer (raw alias-строка не основное поле)');
     // 10.12: новый STT display-name (не общий с видео).
     assert.ok(byId.transcription.subBlocks[1].fields.some(
       (f) => f.key === 'models.openrouter_transcribe_display_name'),
@@ -1089,20 +1092,39 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       '10.12: embeddings_main использует keys.embedding_api_key');
     const emb = byId.embeddings;
     assert.ok(emb && emb.subBlocks, '2.3: блок эмбеддингов — subBlocks');
-    emb.subBlocks.forEach((sb) => {
-      const roles = sb.fields.map((f) => f.role);
-      assert.ok(roles.indexOf('base_url') >= 0 && roles.indexOf('model') >= 0
-        && roles.indexOf('api_key') >= 0,
-        '2.3: у подблока есть Base URL + Модель + Ключ');
-    });
+    // ASAP 6 §7: инвариант Base URL+Модель+Ключ — для ПРОФИЛЬНЫХ подблоков;
+    // Developer-подблок (raw alias-строка квот) — без probe-полей.
+    emb.subBlocks.filter((sb) => sb.id !== 'embeddings_developer')
+      .forEach((sb) => {
+        const roles = sb.fields.map((f) => f.role);
+        assert.ok(roles.indexOf('base_url') >= 0 && roles.indexOf('model') >= 0
+          && roles.indexOf('api_key') >= 0,
+          '2.3: у профиля есть Base URL + Модель + Ключ');
+      });
     const media = blocks.filter((b) => b.id === 'media_share')[0];
     assert.strictEqual(media.zone, 'advanced', '2.5: media_share — advanced');
     assert.ok(media.note && media.note.indexOf('Секретный токен') >= 0,
       '2.5: media_share с human-subtext');
     // providerCoveredKeys рекурсивно покрывает subBlocks (нет generic-дублей).
     const covered = methods.providerCoveredKeys.call({ providerBlocks: blocks });
-    assert.ok(covered['models.embedding_fallback_base_url'],
-      '2.3: subBlock-ключи скрыты из generic-рендера');
+    // ASAP 6 §7: легаси-общие поля фолбэков БОЛЬШЕ не в блоках (F1/F2 —
+    // собственные привязки) → они уходят в generic-рендер «Расширенных»
+    // как честный легаси-источник наследования, а не скрытое зеркало.
+    assert.ok(!covered['models.embedding_fallback_base_url']
+      && !covered['models.embedding_fallback_model'],
+      'ASAP 6 §7: легаси-общие поля фолбэков вне блоков (нет зеркала F1/F2)');
+    assert.ok(covered['keys.embedding_quota_group_labels'],
+      'ASAP 6 §7: raw alias-строка квот — в Developer-подблоке (покрыта)');
+    assert.ok(covered['models.embedding_fallback1_base_url'],
+      'ASAP 6 §7: собственный адрес Запасной 1 покрыт (нет generic-дубля)');
+    assert.ok(covered['models.embedding_fallback1_model'],
+      'ASAP 6 §7: собственная модель Запасной 1 покрыта');
+    assert.ok(covered['models.embedding_fallback2_base_url']
+      && covered['models.embedding_fallback2_model'],
+      'ASAP 6 §7: собственные адрес/модель Запасной 2 покрыты');
+    assert.ok(covered['models.embedding_fallback1_quota_group']
+      && covered['models.embedding_fallback2_quota_group'],
+      'ASAP 6 §7: квота-группы запасных — человекочитаемые поля профилей');
     assert.ok(covered['keys.embedding_fallback_api_key_2'],
       '2.3: второй ключ фоллбэка скрыт из generic-рендера');
     assert.ok(covered['models.embedding_base_url'],

@@ -1,4 +1,4 @@
-﻿"""MCA-10b `mca-10b-random-applications` — focused-тесты блока D
+"""MCA-10b `mca-10b-random-applications` — focused-тесты блока D
 (T-5060 живая визуализация §14.11 / T-5061 наблюдаемость / блок E —
 каталог `random.uses.*` + F8-переиздание; ADR-1028-17 D11/D12/D16;
 приёмка A35 + OFF-честность витрины).
@@ -320,8 +320,11 @@ def test_blockE_f8_check_green_and_baselines():
     # MCA-20 (round 10.44, ADR-1028-20 D11/D13): routes +2 в «Аналитике»
     # (GET /api/factcheck/temporal/runs[/{run_id}]) — хэш переутверждён
     # осознанно (L-F11S-1; tools/_mca20_reissue_f8.py).
+    # P0 round1028 (таксономия секретов, W1-B): secret_mask в
+    # /api/params/meta строго по spec.secret — контентных Δ-routes нет;
+    # re-pin синхронно с ROUTES_SHA256_F11.
     import hashlib
     routes_sha = hashlib.sha256(
         (ROOT / "web/api/routes.py").read_bytes()).hexdigest()
-    assert routes_sha == ("8153b8bd389711e9cb7a61352e58f6f8217c0a23657"
-                          "5f75489ca617c0d0c7b45")
+    assert routes_sha == ("f25e759efeb610c5b28fe91a691eb8011eb9defda6042"
+                          "b0480687468b8353a98")

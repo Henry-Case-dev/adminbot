@@ -88,14 +88,33 @@ class TestD1Grid:
         assert '"UI_STATUS_GRID_V2": bool(settings.UI_STATUS_GRID_V2),' in ROUTES
 
     def test_dom_order_section12(self):
+        # NOTE (FIX-logs-anchor, поправка владельца): «Логи» — НЕ вкладка,
+        # а ФИЗИЧЕСКИЙ дом внизу «Аналитики» (вне таб-гвардов, всегда в DOM);
+        # на «Статусе» — компактная карточка-переход id="status-logs-link".
+        # Хвост §12 — ссылка-переход; дом логов ассертится ниже (защита
+        # от потери блока сохранена).
         order = ["status-hero", 'class="card p-4 status-block"', "status-graph",
                  "status-sleep", "Мониторинг Интеллекта", "exec-preview",
-                 "status-facts", "status-budgets", "status-logs"]
+                 "status-facts", "status-budgets", "status-logs-link"]
         prev = -1
         for marker in order:
             i = INDEX.index(marker)
             assert i > prev, "§12: порядок DOM нарушен на %s" % marker
             prev = i
+        # Перенесённый дом логов существует ровно один раз — в шаблоне
+        # «Аналитики» ВНЕ таб-гвардов (последний блок oversight); на
+        # «Статусе» — ссылка, не дубликат.
+        j = INDEX.index('id="status-logs"')
+        overs_end = INDEX.index("</template>", j)
+        assert j < INDEX.index("activeTab === 'status'"), \
+            "дом логов — внутри шаблона «Аналитики»"
+        logs_tail = INDEX[j:overs_end]
+        assert "oversightTab ===" not in logs_tail, \
+            "логи — последний блок oversight, после них таб-гвардов нет"
+        assert "oversightTab === 'logs'" not in logs_tail, \
+            "логи не под v-if вкладки «Логи» (якорь-контракт)"
+        assert INDEX.count('id="status-logs"') == 1
+        assert INDEX.count('id="status-logs-link"') == 1
 
 
 class TestD2HeroMetrics:
@@ -217,7 +236,7 @@ class TestD5FactsBudgetsCounters:
 
 class TestD6Invariants:
     def test_version_bump(self):
-        assert 'APP_VERSION = "2.58.69"' in SETTINGS
+        assert 'APP_VERSION = "2.58.70"' in SETTINGS
         assert "v2.58.34" in README
 
     def test_catalog_delta_zero(self):

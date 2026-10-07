@@ -98,6 +98,49 @@ def _intent_delegation_enabled() -> bool:
         return False
 
 
+# ── MCA-17 (группа «Фоновые воркеры сна/памяти»): событие nostalgia.run ─────
+_NOSTALGIA_COMPONENT = "nostalgia.run"
+
+
+def _emit(event_name: str, outcome: str, *, level: str = "INFO",
+          **fields) -> None:
+    """Fail-open эмиссия события контракта §17.1 (REUSE `emit_mca_event`,
+    mca-13; паттерн `graphrag_rebuild._emit`). R17: только ID/коды/числа —
+    без текстов убеждений/сообщений."""
+    try:
+        from services.mca_events import emit_mca_event
+        emit_mca_event(event_name, outcome=outcome, level=level, **fields)
+    except Exception:      # контракт не рвёт поток воркера
+        pass
+
+
+def _ms_since(mono: float) -> int:
+    """Длительность в мс от mono-отметки (bounded int, R17-safe)."""
+    try:
+        return max(0, int((time.monotonic() - mono) * 1000))
+    except Exception:
+        return 0
+
+
+def _nostalgia_terminal(stats: dict, *, enabled: bool,
+                        no_op: str | None = None) -> tuple[str, str | None]:
+    """Честный исход прогона ностальгии (MCA-17): (outcome, reason_code) —
+    ТОЛЬКО существующие коды словаря §17.2. Тексты кандидатов не переносятся
+    (R17) — их аудит уже в nostalgia_log. `no_op` — внутренний маркер раннего
+    выхода `_run_tick` (store отсутствует/PG down/нет чатов): недоступность
+    PG-лора — это failed (не «нет кандидатов»)."""
+    if not enabled:
+        return "skipped", "disabled"
+    if no_op in ("store_missing", "pg_down"):
+        return "failed", "memory_service_missing"
+    if stats.get("errors") and not stats.get("sent") \
+            and stats.get("candidates"):
+        return "failed", "provider_unavailable"
+    if not stats.get("candidates") and not stats.get("sent"):
+        return "skipped", "no_relevant_memory"
+    return "success", None
+
+
 def _day_start_ts(now_ts: int, tz_name: str | None = None) -> int:
     """Начало local-суток (полночь в timezone ностальгии) — дневной лимит
     §3.5.3 п.5 (edge 20: окна/сутки — local summary_timezone)."""
@@ -240,6 +283,31 @@ class NostalgiaWorker:
 
     async def _run(self, *, manual: bool,
                    only_chat: int | None = None) -> dict:
+        """Тик ностальгии (MCA-17 `nostalgia.run`): событие start +
+        ОДИН терминальный outcome на прогон (не на каждый чат/гейт).
+        R17: только счётчики/коды. Тело — `_run_tick` (без изменений)."""
+        started = time.monotonic()
+        _emit("nostalgia_run", "start", component=_NOSTALGIA_COMPONENT)
+        try:
+            stats = await self._run_tick(manual=manual, only_chat=only_chat)
+        except Exception:
+            _emit("nostalgia_run", "failed",
+                  component=_NOSTALGIA_COMPONENT,
+                  duration_ms=_ms_since(started))
+            raise
+        # Внутренний маркер раннего выхода (no-op) не покидает воркер:
+        # контракт возврата run_once остаётся бит-в-бит.
+        no_op = stats.pop("_no_op", None)
+        outcome, reason = _nostalgia_terminal(
+            stats, enabled=self._flag("enabled", settings.NOSTALGIA_ENABLED),
+            no_op=no_op)
+        _emit("nostalgia_run", outcome,
+              component=_NOSTALGIA_COMPONENT, reason_code=reason,
+              duration_ms=_ms_since(started))
+        return stats
+
+    async def _run_tick(self, *, manual: bool,
+                        only_chat: int | None = None) -> dict:
         now = _now_ts()
         stats = {"chats": 0, "candidates": 0, "sent": 0, "skipped": 0,
                  "errors": 0}
@@ -249,6 +317,7 @@ class NostalgiaWorker:
             logger.warning(
                 "[nostalgia] tick: store отсутствует (PG-лор) — чатов нет "
                 "(no-op, Q13)")
+            stats["_no_op"] = "store_missing"     # MCA-17: failed, не «skip»
             return stats
         else:
             try:
@@ -258,9 +327,11 @@ class NostalgiaWorker:
                 logger.warning(
                     "[nostalgia] tick: PG down/список чатов недоступен — "
                     "no-op (Q13)", exc_info=True)
+                stats["_no_op"] = "pg_down"       # MCA-17: failed, не «skip»
                 return stats
             if not chats:
                 logger.info("[nostalgia] tick: нет активных чатов (no-op)")
+                stats["_no_op"] = "no_chats"
                 return stats
         for chat_id in chats:
             result = await self._process_chat(chat_id, now, manual=manual)

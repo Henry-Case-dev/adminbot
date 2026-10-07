@@ -33,6 +33,20 @@ logger = logging.getLogger(__name__)
 
 chat_lifecycle_router = Router(name="chat_lifecycle")
 
+
+def _emit_lifecycle(event_name: str, outcome: str, *, level: str = "INFO",
+                    **fields):
+    """MCA-17 (`chat.lifecycle`): fail-open эмиссия (REUSE mca-13).
+
+    Прецедент graphrag_rebuild._emit; R17: только id/коды — заголовки
+    чатов/имена не переносятся."""
+    try:
+        from services.mca_events import emit_mca_event
+        emit_mca_event(event_name, outcome=outcome, level=level,
+                       component="chat_lifecycle", **fields)
+    except Exception:      # контракт не рвёт lifecycle-хендлер
+        pass
+
 _store = None          # ChatLoreStore (DI из bot.py)
 _bot_id = None         # bot.id (DI из bot.py; None → сравнение отключено)
 _db = None             # SQLite DatabaseService (DI из bot.py; MCA-03 D6)
@@ -173,7 +187,15 @@ async def on_chat_migrated(message: types.Message):
                 await _mi.register_chat_id_migration(
                     _db, old_chat_id=old_chat_id, new_chat_id=new_chat_id,
                     evidence="telegram:migrate_to_chat_id")
+                # MCA-17 (`chat.lifecycle`): терминал записи chat_id_migrations.
+                _emit_lifecycle(
+                    "chat_id_migration", "success", chat_id=new_chat_id,
+                    entity_ids={"old_chat_id": old_chat_id})
             except Exception:
+                _emit_lifecycle(
+                    "chat_id_migration", "failed", level="WARN",
+                    chat_id=new_chat_id,
+                    entity_ids={"old_chat_id": old_chat_id})
                 logger.warning(
                     "[chat_lifecycle] chat_id_migration record failed — "
                     "fail-open | old=%s new=%s", old_chat_id, new_chat_id,

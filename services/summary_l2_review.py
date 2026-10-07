@@ -406,10 +406,12 @@ REASON_L2_STAGNATION_FINGERPRINT = "l2_stagnation_fingerprint"   # D4
 
 
 def _deterministic_unusable_proof(metrics: dict | None) -> bool:
-    """(б) D3: deterministic validator сам доказал непригодность —
-    незакрытые hard quote-механизмы (тот же механизм, что даёт hard proof
-    в контексте Reviewer)."""
-    return bool((metrics or {}).get("quote_reason_codes"))
+    """(б) D3: deterministic validator сам доказал непригодность — живые
+    неустранённые quote-блокеры (W1-A: история УСПЕШНЫХ ремонтов
+    (``quote_reason_codes`` из repair-кодов) proof'ом НЕ является —
+    валидный документ с отремонтированной цитатой не уходит в Legacy;
+    тот же механизм, что даёт hard proof в контексте Reviewer)."""
+    return bool((metrics or {}).get("quote_unresolved_blockers"))
 
 
 def _unusable_gate_accepts(verdict: ReviewVerdict,
@@ -1361,10 +1363,12 @@ async def run_l2_with_review(llm, package, *, service=None,
             patch_failures = 0
         current_doc = revised
         # T-4876: metrics/findings следующей review-итерации — от ТЕКУЩЕГО
-        # validated-документа (единый §99-валидатор, без сети).
+        # validated-документа (единый §99-валидатор, без сети). W1-A:
+        # при ошибке пересчёта сохраняются последние известные metrics —
+        # deterministic proof (unresolved-блокеры) не исчезает.
         current_doc_metrics = _revalidate_metrics(
             current_doc, run_package, anchor_mode=anchor_mode,
-            anchor_map=anchor_map)
+            anchor_map=anchor_map, fallback=current_doc_metrics)
 
     # ── Итог цикла ──────────────────────────────────────────────────────
     if last_verdict is not None and last_verdict.status == VERDICT_APPROVED:
@@ -1415,10 +1419,14 @@ async def _writer_call(llm, package, *, service, correlation_id, chat_id,
 def _deterministic_findings_from_metrics(metrics: dict | None) -> list[dict]:
     """Детерминированные находки по АКТУАЛЬНЫМ metrics валидатора (§50.10;
     codes/числа, без текстов). T-4876: после каждой успешной revision findings
-    пересчитываются от current_doc/current metrics, а не от исходного draft."""
+    пересчитываются от current_doc/current metrics, а не от исходного draft.
+    W1-A: коды берутся ТОЛЬКО из живых unresolved-блокеров; история успешных
+    ремонтов (``quote_repair_reason_codes``/union ``quote_reason_codes``,
+    вкл. ``quote_attribution_repaired`` вне FINDING_CODES) в контекст
+    ревьюера не подаётся."""
     findings: list[dict] = []
     metrics = metrics or {}
-    for code in metrics.get("quote_reason_codes") or []:
+    for code in metrics.get("quote_unresolved_blockers") or []:
         findings.append({"source": "deterministic", "code": code})
     for key in ("quote_unverified_count", "ids_stripped_count",
                 "emphasis_dropped_count", "paragraphs_without_evidence"):
@@ -1437,19 +1445,24 @@ def _deterministic_findings(draft: L2Result) -> list[dict]:
 
 
 def _revalidate_metrics(document, package, *, anchor_mode: bool,
-                        anchor_map) -> dict:
+                        anchor_map, fallback: dict | None = None) -> dict:
     """T-4876: metrics валидатора для ТЕКУЩЕГО validated-документа (та же
-    единственная §99-валидация, без сети). Ошибка/None → {} (консервативно:
-    findings просто исчезают, strictness не ослабляется)."""
+    единственная §99-валидация, без сети). W1-A: ошибка/None-метрики
+    пересчёта НЕ стирают proof молча — возвращаются последние известные
+    metrics (``fallback``) + warning; иначе deterministic proof
+    (unresolved-блокеры) исчезал бы из-за исключения пересчёта."""
     try:
         if anchor_mode:
             _canonical, metrics = validate_l2_document_anchors(
                 document, package, anchor_map)
         else:
             _canonical, metrics = validate_l2_document(document, package)
-        return dict(metrics or {})
-    except Exception:      # pragma: no cover - защитная ветка
-        return {}
+        return dict(metrics or fallback or {})
+    except Exception:      # pragma: no cover - защитная ветка: не fail-open
+        logger.warning(
+            "L2_REVALIDATE_METRICS_FAILED | revalidation error — keeping "
+            "last known metrics (deterministic proof must not vanish)")
+        return dict(fallback or {})
 
 
 def _ok_result(document, metrics: dict, draft: L2Result,

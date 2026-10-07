@@ -230,13 +230,16 @@ class TestCanonR1022:
         # S3 (10.26): ключ L1-Кластеризатора — тоже вне R1022.
         # S5 (10.26): ключ L2-Писателя — тоже вне R1022.
         # ASAP-2.1 (round1028): ключ Narrator — вне R1022.
+        # MCA-23 (Wave 3, §11): ключ Вербализатора direct — первые ступени
+        # заведены эпиком (снятие cap), вне R1022.
         assert set(pairs) == {k for k in PROMPT_MIGRATIONS if k not in (
             "prompts.compress_system_prompt",
             "prompts.summary_editor_system_prompt",
             "prompts.factcheck_analyst_system_prompt",
             "prompts.summary_l1_clusterizer_system_prompt",
             "prompts.summary_l2_writer_system_prompt",
-            "prompts.summary_narrator_system_prompt")}
+            "prompts.summary_narrator_system_prompt",
+            "prompts.direct_chat_verbalizer_system_prompt")}
         from services import (chat_prompts, checkup_prompts, factcheck_prompts,
                               search_prompts, summary_prompts, web_prompts,
                               youtube_prompts)

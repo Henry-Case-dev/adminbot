@@ -759,6 +759,14 @@
   // role задаёт, какое поле тела POST /api/llm/test заполняет значение.
   // 10.9 (T-1303): «Название модели» — ПЕРВОЕ поле каждого блока; label'ы —
   // человеческие (spec §4.1/§4.2).
+  // ASAP 5 §13C / ASAP 6 §7: человекочитаемое пояснение квота-групп ключей
+  // эмбеддингов. Одна группа = общий реальный лимит провайдера: два ключа
+  // в одной группе НЕ дают второй квоты (частая ошибка владельца).
+  var EMBEDDING_QUOTA_GROUP_HINT =
+    'Ключи с одинаковой группой считаются имеющими общий реальный лимит ' +
+    'провайдера. Пример: основная → project-A, запасная 1 → project-B, ' +
+    'запасная 2 → project-B — это 2 независимые квоты. Пусто — группа из ' +
+    'списка алиасов (Developer-подблок ниже).';
   var PROVIDER_BLOCKS = [
     // Раунд 10.12 (ADR-1012-1 §2.2): parent-блок + subBlocks (как embeddings).
     // main+fallback, groq+openrouter(STT), video primary+fallback — merged
@@ -822,14 +830,24 @@
             { key: 'keys.openrouter_api_key', label: 'Ключ', role: 'api_key', secret: true },
           ] },
       ] },
-    // 10.11 (spec §2.3, ADR-1011-2): один визуальный блок = ровно 3 подблока
-    // (Основная модель / Фоллбэк 1 / Фоллбэк 2); у каждого Base URL + Модель +
-    // Ключ + «Проверить». `dim` уходит в «Расширенные» (generic-группа).
+    // 10.11 (spec §2.3, ADR-1011-2): один визуальный блок = подблоки-профили;
+    // у профиля Base URL + Модель + Ключ + «Проверить». `dim` уходит в
+    // «Расширенные» (generic-группа).
+    // ASAP 5 §13C / ASAP 6 §7: Primary / Запасная 1 / Запасная 2 — ТРИ
+    // НЕЗАВИСИМЫХ профиля подключения: у каждого СВОИ base_url/model/
+    // quota_group (каталог models.embedding_fallback{1,2}_*) и свой ключ.
+    // Никакого скрытого зеркалирования: общих полей между подблоками нет,
+    // saveBlock пишет строго поля своего подблока. Пустое поле запасной —
+    // честное наследование (легаси-общее для F1, «Запасная 1» для F2) с
+    // видимой подписью blockEffectiveNote (§7.3); легаси-поля остаются
+    // в generic-рендере («Расширенные»), не в блоках. Raw alias-строка
+    // квот — в Developer-подблоке, не как основное поле.
     { id: 'embeddings', title: 'Эмбеддинги',
       modules: 'Поиск по памяти',
       subBlocks: [
-        { id: 'embeddings_main', title: 'Основная модель',
+        { id: 'embeddings_main', title: 'Основная модель (Primary)',
           modules: 'Поиск по памяти',
+          note: 'Группа квоты ключа Primary задаётся в списке алиасов (Developer-подблок ниже, значение «primary:группа»)',
           fields: [
             { key: 'models.embedding_display_name', label: 'Название модели', role: '' },
             // Раунд 10.12 (ADR-1012-1 D1): СОБСТВЕННЫЙ адрес/ключ эмбеддингов
@@ -837,27 +855,47 @@
             { key: 'models.embedding_base_url', label: 'Адрес сервера', role: 'base_url' },
             { key: 'models.embedding_model_name', label: 'Модель', role: 'model' },
             { key: 'keys.embedding_api_key', label: 'Ключ', role: 'api_key', secret: true },
-            // ASAP 4.4 (T-4880): quota-группы ключей (не секрет). Формат
-            // «primary:group,fallback_1:group,…»; один billing-проект —
-            // одна группа, независимость — только из label, не из ключа.
-            { key: 'keys.embedding_quota_group_labels', label: 'Группы квот (alias:group,…)', role: '' },
           ] },
-        { id: 'embeddings_fallback1', title: 'Фоллбэк 1',
-          modules: 'Поиск по памяти (фолбэк 1)',
+        { id: 'embeddings_fallback1', title: 'Запасная модель 1',
+          modules: 'Поиск по памяти (запасная 1)',
+          note: 'Независимый профиль: свой адрес, модель и ключ',
           fields: [
             { key: 'models.embedding_fallback_display_name', label: 'Название модели', role: '' },
-            { key: 'models.embedding_fallback_base_url', label: 'Адрес сервера', role: 'base_url' },
-            { key: 'models.embedding_fallback_model', label: 'Модель', role: 'model' },
+            { key: 'models.embedding_fallback1_base_url', label: 'Адрес сервера',
+              role: 'base_url', effectiveAlias: 'fallback_1',
+              placeholder: 'Пусто — прежний общий адрес запасных' },
+            { key: 'models.embedding_fallback1_model', label: 'Модель',
+              role: 'model', effectiveAlias: 'fallback_1',
+              placeholder: 'Пусто — прежняя общая модель запасных' },
             { key: 'keys.embedding_fallback_api_key', label: 'Ключ', role: 'api_key', secret: true },
+            { key: 'models.embedding_fallback1_quota_group', label: 'Квота-группа ключа',
+              role: '', hint: EMBEDDING_QUOTA_GROUP_HINT },
           ] },
-        { id: 'embeddings_fallback2', title: 'Фоллбэк 2',
-          note: 'Адрес и модель общие с «Фоллбэк 1»',
-          modules: 'Поиск по памяти (фолбэк 2)',
+        { id: 'embeddings_fallback2', title: 'Запасная модель 2',
+          modules: 'Поиск по памяти (запасная 2)',
+          note: 'Независимый профиль: свой адрес, модель и ключ. Пустой адрес/модель означают наследование «Запасной 1» (см. подпись под полем), ключ — всегда свой',
           fields: [
             { key: 'models.embedding_fallback2_display_name', label: 'Название модели', role: '' },
-            { key: 'models.embedding_fallback_base_url', label: 'Адрес сервера', role: 'base_url' },
-            { key: 'models.embedding_fallback_model', label: 'Модель', role: 'model' },
+            { key: 'models.embedding_fallback2_base_url', label: 'Адрес сервера',
+              role: 'base_url', effectiveAlias: 'fallback_2',
+              placeholder: 'Пусто — наследует адрес «Запасной 1»' },
+            { key: 'models.embedding_fallback2_model', label: 'Модель',
+              role: 'model', effectiveAlias: 'fallback_2',
+              placeholder: 'Пусто — наследует модель «Запасной 1»' },
             { key: 'keys.embedding_fallback_api_key_2', label: 'Ключ', role: 'api_key', secret: true },
+            { key: 'models.embedding_fallback2_quota_group', label: 'Квота-группа ключа',
+              role: '', hint: EMBEDDING_QUOTA_GROUP_HINT },
+          ] },
+        { id: 'embeddings_developer', title: 'Developer: группы квот (алиасы)',
+          modules: 'Поиск по памяти (developer)',
+          note: 'Технический формат «alias:group,…» (primary, fallback_1, fallback_2). Обычный путь — поля «Квота-группа ключа» у профилей выше',
+          testable: false,
+          fields: [
+            // ASAP 4.4 (T-4880) legacy: quota-группы по алиасам (не секрет).
+            // ASAP 6 §7: сырая alias-строка живёт в Developer; человекочитаемое
+            // поле — «Квота-группа ключа» в профиле.
+            { key: 'keys.embedding_quota_group_labels',
+              label: 'Квоты: группы ключей (alias:group,…)', role: '' },
           ] },
       ] },
     // Раунд 10.13 (F4, ADR-1013-1 §2.3): два выделенных LLM для Интеллекта.
@@ -1807,6 +1845,25 @@
         dossierFeedError: '',
         // ── mca-17c (round 10.47, ADR-1028-23): витрина наблюдаемости ──
         oversightView: 'processes',   // processes|runs|incidents|learning
+        // ── ASAP 6 Wave 2 UX: суб-вкладки внутри #/oversight (новых
+        //    маршрутов/страниц нет; view-механика mca-17c сохранена, таб —
+        //    надстройка: какой набор секций виден). ──
+        // FIX-logs-anchor: «Логи» — НЕ значение oversightTab (не режим):
+        // вкладка-якорь скроллит к физическому блоку логов внизу Аналитики.
+        oversightTab: 'overview',     // overview|processes|runs|incidents|memory|models|summary
+        oversightTabs: [
+          { id: 'overview', label: 'Обзор' },
+          { id: 'processes', label: 'Процессы' },
+          { id: 'runs', label: 'Запуски' },
+          { id: 'incidents', label: 'Инциденты' },
+          { id: 'memory', label: 'Память и интеллект' },
+          { id: 'models', label: 'Модели и расходы' },
+          { id: 'summary', label: 'Саммари' },
+          // anchor-вкладка: ведёт к блоку #status-logs, oversightTab не меняет
+          { id: 'logs', label: 'Логи' },
+        ],
+        // FIX-logs-anchor: короткая вспышка блока логов после якорь-скролла
+        logsAnchorFlash: false,
         mca17cProcesses: null,        // GET /api/oversight/processes (кэш)
         mca17cProcessesBusy: false,
         mca17cProcessQuery: '',
@@ -2894,6 +2951,28 @@
         });
         return order.map(function (id) { return byId[id]; });
       },
+      // Wave 2 UX (hero «Статуса»): честное число проблем для строки
+      // «Проблемы: N · Открыть в Аналитике». Только существующие источники:
+      // /api/status.llm (probe ключей) + /api/oversight.mca_metrics.incidents
+      // (активные инциденты). Нет данных → строка не рендерится (v-if),
+      // ноль не выдумывается.
+      statusProblemsCount: function () {
+        var cards = (this.statusData && this.statusData.llm) || [];
+        var problems = 0;
+        cards.forEach(function (c) {
+          if (!c || !c.key || !c.key.configured) { problems++; return; }
+          var st = c.health && c.health.status;
+          if (st === 'error' || st === 'timeout' || st === 'unreachable') {
+            problems++;
+          }
+        });
+        var inc = this.oversightData && this.oversightData.mca_metrics
+          && this.oversightData.mca_metrics.incidents;
+        if (inc && inc.available !== false && inc.active != null) {
+          problems += (inc.active || 0);
+        }
+        return problems;
+      },
       permissions: function () {
         return (this.me && this.me.permissions) ? this.me.permissions : {};
       },
@@ -3394,6 +3473,13 @@
         var list = (p && p.credential_aliases) || [];
         return list.length ? list.join(', ') : '—';
       },
+      // Wave 2 UX (fail-open, тот же класс, что P0-guard counters): старый
+      // сервер/частичный ответ без vector_memory раньше ронял рендер
+      // (v-for по undefined.indexes). Честный пустой список — empty state.
+      embeddingsIndexes: function () {
+        var vm_ = this.embeddingsPanel && this.embeddingsPanel.vector_memory;
+        return (vm_ && vm_.indexes) || [];
+      },
       // 3.10: любая операция лора в процессе — блокировка кнопок-мутаций
       chatLoreBusy: function () {
         return this.chatLoreProfileLoading
@@ -3856,13 +3942,16 @@
       // ── Раунд 10.20 (БЛОК 3.6/T-1900): sticky-save — dirty-поля модалки ──
       // Значения, изменённые относительно baseline (configSnapshot), для
       // которых есть право записи. Секреты — отдельно (dirtyKeyItems).
+      // P0 round1028: гейт только it.secret (spec.secret). Не-секретные
+      // параметры категории keys (keys_random: endpoint/plan/batch/…) —
+      // обычные dirty-поля → POST /api/config.
       dirtyItems: function () {
         var self = this;
         var snap = this.configSnapshot || {};
         var out = [];
         (this.configItems || []).forEach(function (it) {
           if (!it || it.key == null) return;
-          if (it.secret || it.category === 'keys') return;
+          if (it.secret) return;
           if (!self.canEditConfig(it.key)) return;
           if (!Object.prototype.hasOwnProperty.call(snap, it.key)) return;
           if (snap[it.key] !== self._serializeValue(it.value)) out.push(it);
@@ -3872,9 +3961,11 @@
       dirtyKeyItems: function () {
         var self = this;
         var drafts = this.keyDrafts || {};
+        // P0 round1028: только настоящие секреты (spec.secret); категория
+        // keys целиком секрет-треком больше не является.
         return (this.configItems || []).filter(function (it) {
           return it && it.key != null
-            && (it.category === 'keys' || it.secret)
+            && it.secret
             && !!drafts[it.key]
             // UPD3/R31: маска и её композит (`маска+ввод`) ≠ изменение.
             && !hasSecretMask(drafts[it.key])
@@ -4212,6 +4303,13 @@
           norm = '#/';
         }
         _appVm.applyRoute(norm || '#/');
+        // Wave 2 UX: суб-вкладки/представления «Аналитики» парсим из RAW
+        // hash (?tab=…&view=…): normalizeRoute отбрасывает query (T-1099),
+        // а клик по deep-link внутри #/oversight не меняет нормализованный
+        // маршрут → applyRoute выходит early и таб бы не переключился.
+        if (typeof _appVm.oversightApplyDeepLink === 'function') {
+          _appVm.oversightApplyDeepLink();
+        }
       };
       window.addEventListener('hashchange', _onHashChange);
       // F1 (§6/§7): пересчёт shell-режима при ресайзе (sidebar строго ≥1200).
@@ -7549,8 +7647,9 @@
 
       // Чистый парсер deep link `#/oversight?view=runs&run_id=X&...`
       // (normalizeRoute отбрасывает query — T-1099, поэтому парсим сами).
+      // Wave 2: дополнительно параметр `tab` (суб-вкладка Аналитики).
       oversightParseDeepLink: function (hash) {
-        var out = { view: null, params: {} };
+        var out = { view: null, tab: null, params: {} };
         if (typeof hash !== 'string') return out;
         var qIndex = hash.indexOf('?');
         if (qIndex < 0 || hash.indexOf('#/oversight') !== 0) return out;
@@ -7560,18 +7659,49 @@
           if (!kv[0]) continue;
           var val = kv.length > 1 ? decodeURIComponent(kv[1]) : '';
           if (kv[0] === 'view' && val) out.view = val;
+          else if (kv[0] === 'tab' && val) out.tab = val;
           else out.params[kv[0]] = val;
         }
         return out;
+      },
+
+      // Wave 2: id суб-вкладок (из data.oversightTabs) — для валидации
+      // deep-link и hash-синхронизации. mca-группа табов управляет
+      // существующим oversightView (processes|runs|incidents|learning).
+      oversightMcaTabOfView: function (v) {
+        return ({ processes: 'processes', runs: 'runs',
+                  incidents: 'incidents', learning: 'processes' })[v] || null;
       },
 
       // Применить deep link (setTab('oversight') и hashchange): переживает F5.
       oversightApplyDeepLink: function () {
         var link = this.oversightParseDeepLink(
           typeof window !== 'undefined' ? window.location.hash : '');
+        // FIX-logs-anchor: «Логи» — якорь, а не режим: deep-link `?tab=logs`
+        // (как клик по вкладке) скроллит к физическому блоку логов,
+        // oversightTab не переключается.
+        if (link.tab === 'logs') {
+          link.tab = null;
+          link.params.scroll = 'logs';
+        }
         var views = ['processes', 'runs', 'incidents', 'learning'];
+        var tabs = (this.oversightTabs || []).map(function (t) {
+          return t.id;
+        });
+        var changed = false;
+        if (link.tab && tabs.indexOf(link.tab) >= 0
+            && this.oversightTab !== link.tab) {
+          this.oversightTab = link.tab;
+          changed = true;
+        }
         if (link.view && views.indexOf(link.view) >= 0) {
           this.oversightView = link.view;
+          // Wave 2: view тянет свою суб-вкладку (если `tab` не задан явно).
+          var mcaTab = this.oversightMcaTabOfView(link.view);
+          if (!link.tab && mcaTab && this.oversightTab !== mcaTab) {
+            this.oversightTab = mcaTab;
+            changed = true;
+          }
         }
         var p = link.params;
         if (p.status && ['succeeded', 'partial', 'degraded', 'failed',
@@ -7589,9 +7719,20 @@
           this.mca17cFunnelDays = p.days;
         }
         if (p.run_id) this.oversightOpenRun(String(p.run_id).slice(0, 120));
-        if (link.view || p.run_id) {
+        if (link.view || link.tab || p.run_id) {
           this.mca17cDeepLinkDone = true;
           this.oversightViewEnter();
+          this.oversightTabEnter();
+        }
+        // FIX-logs-anchor: `?scroll=logs` (карточка «Логи → Аналитика» на
+        // «Статусе» / deep-link) — скролл к физическому блоку логов после
+        // рендера oversight; режимов/страниц не создаёт. Hash сразу
+        // нормализуется к реальному табу: якорь не «режим», F5 после
+        // перехода не должен повторно скроллить и держать мёртвый
+        // `tab=logs`/`scroll=logs` в URL.
+        if (p.scroll === 'logs') {
+          this._scrollToLogsAnchor();
+          this.oversightSyncHash();
         }
         return this.mca17cDeepLinkDone;
       },
@@ -7632,10 +7773,71 @@
         this.oversightStopIncidentsPolling();
       },
 
+      // Wave 2: смена суб-вкладки Аналитики (какой набор секций виден).
+      // mca-группа табов синхронизирует существующий oversightView; уход
+      // с mca-таба останавливает суб-поллинг (как oversightLeave).
+      // FIX-logs-anchor: «Логи» — якорь/шорткат, НЕ режим: не переключает
+      // oversightTab, а скроллит к физическому блоку логов внизу Аналитики
+      // (+ вспышка контура — пользователь видит, что произошло).
+      oversightSetTab: function (tab) {
+        if (tab === 'logs') {
+          this._scrollToLogsAnchor();
+          return;
+        }
+        if (!tab || this.oversightTab === tab) return;
+        this.oversightTab = tab;
+        var mcaViews = ['processes', 'runs', 'incidents'];
+        if (mcaViews.indexOf(tab) >= 0) {
+          // тот же контракт, что внутренние кнопки data-mca17c="tab-*"
+          if (this.oversightView !== tab) {
+            this.oversightView = tab;
+            this.oversightLeave();
+            this.oversightViewEnter();
+          }
+        } else {
+          this.oversightLeave();
+        }
+        this.oversightTabEnter();
+        this.oversightSyncHash();
+      },
+
+      // Ленивые загрузки активной суб-вкладки (только существующие API;
+      // Δ endpoint = 0). Поллинг управляется oversightViewEnter/Leave.
+      oversightTabEnter: function () {
+        var t = this.oversightTab;
+        if (t === 'overview') {
+          // данные strips — из существующих /api/status и /api/oversight
+          if (!this.statusData) this.loadStatus();
+          if (!this.oversightData) this.loadOversight();
+        }
+        if (t === 'memory') {
+          if (!this.temporalRuns && !this.temporalRunsBusy) {
+            this.loadTemporalRuns();
+          }
+        }
+        if (t === 'models') {
+          if (!this.budgetsAuto && !this.budgetsAutoBusy) {
+            this.loadBudgetsAuto();
+          }
+          if (this.isGlobalAdmin && !this.keyHistory) this.loadKeyHistory();
+        }
+        // FIX-logs-anchor: блок логов живёт в «Аналитике» ВСЕГДА (вне
+        // таб-гвардов) → данные грузим при входе на любую суб-вкладку
+        // (viewer, level-select, чип «Саммари» — без изменений).
+        if (!this.logs.length && !this.logsLoading) this.loadLogs();
+        this.loadLogCounts();
+      },
+
       // Смена суб-представления (без перезагрузки чужих блоков oversight).
+      // Wave 2: внутренние кнопки data-mca17c="tab-*" тянут свою суб-вкладку
+      // (обратная совместимость со старыми вызовами oversightSetView).
       oversightSetView: function (v) {
         if (this.oversightView === v) return;
         this.oversightView = v;
+        var mcaTab = this.oversightMcaTabOfView(v);
+        if (mcaTab && this.oversightTab !== mcaTab) {
+          this.oversightTab = mcaTab;
+        }
         this.oversightLeave();
         this.oversightSyncHash();
         this.oversightViewEnter();
@@ -7658,10 +7860,18 @@
       },
 
       // Hash-синхронизация без спама history (replaceState, без hashchange).
+      // Wave 2: mca-группа табов пишет `?view=` (совместимость со старыми
+      // ссылками), остальные суб-вкладки — `?tab=`.
       oversightSyncHash: function () {
         try {
           if (typeof window === 'undefined' || !window.history) return;
-          var base = '#/oversight?view=' + this.oversightView;
+          var mcaViews = ['processes', 'runs', 'incidents'];
+          var isMca = mcaViews.indexOf(this.oversightTab) >= 0
+            || (this.oversightTab === 'processes'
+                && this.oversightView === 'learning');
+          var base = '#/oversight?'
+            + (isMca ? 'view=' + this.oversightView
+                     : 'tab=' + this.oversightTab);
           var f = this.mca17cRunF;
           if (this.oversightView === 'runs') {
             if (f.status) base += '&status=' + encodeURIComponent(f.status);
@@ -10026,7 +10236,9 @@
         if (draft != null) return draft;
         var it = this.configItems.find(function (i) { return i.key === f.key; });
         if (!it) return '';
-        var isSecret = !!(f.secret || it.secret || it.category === 'keys');
+        // P0 round1028: секретность — только по флагу секрета (spec.secret);
+        // не-секретные параметры keys_random показывают сохранённое значение.
+        var isSecret = !!(f.secret || it.secret);
         if (isSecret) return '';
         if (it.value && typeof it.value === 'object') return '';
         if (typeof it.value === 'string') return it.value;
@@ -10101,12 +10313,72 @@
         var it = this.configItems.find(function (i) { return i.key === f.key; });
         // F9 (ADR-1025-22 D1): секрет-поле — всегда пустое; подсказка говорит,
         // что делать (заменить), а не показывает маску как значение.
-        if (it && (f.secret || it.secret || it.category === 'keys')) {
+        // P0 round1028: гейт без категории keys — не-секретные параметры
+        // keys_random получают обычную подсказку f.label.
+        if (it && (f.secret || it.secret)) {
           var configured = !!(it.value && typeof it.value === 'object'
                               && it.value.configured);
           return configured ? 'Новый ключ (заменить)…' : 'Ключ…';
         }
-        return f.label;
+        return f.placeholder || f.label;
+      },
+      // ASAP 5 §13C / ASAP 6 §7.3: честный effective-статус запасных
+      // профилей эмбеддингов. Пустое поле = режим «наследовать»; резолв
+      // зеркалирует embedding_control_plane.resolve_embedding_profiles:
+      // Fallback 1 = своё поле || легаси-общее (models.embedding_fallback_*),
+      // Fallback 2 = своё || «Запасная 1». Значения — из configItems (тот же
+      // конфиг-store, который читает бэкенд hot.get), без выдуманных имён:
+      // если резолв пуст (env-дефолт фронт не видит) — честная общая фраза.
+      // Follow-up (не выдумываем здесь): backend-endpoint с готовым
+      // resolved-профилем; когда появится — подпись перейдёт на него.
+      cfgStrValue: function (key) {
+        var it = (this.configItems || []).find(function (i) {
+          return i.key === key;
+        });
+        if (!it || it.secret) return '';
+        if (typeof it.value === 'string') return it.value.trim();
+        if (it.value != null && typeof it.value !== 'object') {
+          return String(it.value).trim();
+        }
+        return '';
+      },
+      embeddingResolvedFor: function (alias, role) {
+        var isBase = role === 'base_url';
+        var legacy = this.cfgStrValue(isBase
+          ? 'models.embedding_fallback_base_url'
+          : 'models.embedding_fallback_model');
+        var fb1 = this.cfgStrValue(isBase
+          ? 'models.embedding_fallback1_base_url'
+          : 'models.embedding_fallback1_model') || legacy;
+        if (alias === 'fallback_1') return fb1;
+        var fb2 = this.cfgStrValue(isBase
+          ? 'models.embedding_fallback2_base_url'
+          : 'models.embedding_fallback2_model');
+        return fb2 || fb1;
+      },
+      // Подпись под пустым полем модели/адреса запасной: «Настроено:
+      // наследовать · Фактически: <resolved>». Непустое своё значение —
+      // подписи нет (поле настроено явно). Черновик ввода скрывает подпись.
+      blockEffectiveNote: function (f) {
+        if (!f || !f.effectiveAlias) return '';
+        var own = String(this.blockFieldValue(f) || '').trim();
+        if (own) return '';
+        var what = f.role === 'base_url' ? 'адрес' : 'модель';
+        var resolved = this.embeddingResolvedFor(f.effectiveAlias, f.role);
+        var tail;
+        if (resolved) {
+          tail = 'Фактически: ' + resolved
+               + (f.effectiveAlias === 'fallback_2'
+                  ? ' (из «Запасной 1»)' : ' (общее поле запасных)');
+        } else {
+          var legacyPhrase = f.role === 'base_url'
+            ? 'прежний общий адрес запасных (легаси)'
+            : 'прежняя общая модель запасных (легаси)';
+          tail = 'Фактически: ' + (f.effectiveAlias === 'fallback_2'
+            ? ('наследует ' + what + ' «Запасной 1»')
+            : legacyPhrase);
+        }
+        return 'Настроено: наследовать · ' + tail;
       },
       // 10.11 (ADR-1011-1): R17-безопасный индикатор «ключ уже сохранён»
       // (configItems отдаёт только {configured,last4}, без сырого секрета).
@@ -10562,7 +10834,10 @@
         });
         if (id === 'status') {
           this.loadStatus();
-          this.loadLogs();
+          // Wave 2 UX: полный viewer логов переехал в «Аналитику» (вкладка
+          // «Логи») — на «Статусе» остались только счётчики (loadLogCounts
+          // внутри loadStatus); 200-строчный fetch логов на каждый вход
+          // больше не нужен.
           this.startStatusPolling();
           this.loadCognition();          // F5/§5: блок «Осмысление»
           this.startCognitionPolling();  // F5-Q3: polling 15с
@@ -10618,6 +10893,11 @@
           }
           if (typeof this.oversightViewEnter === 'function') {
             this.oversightViewEnter();
+          }
+          // Wave 2 UX: ленивые данные активной суб-вкладки (обзор →
+          // /api/status для strips; модели → key-history; логи → viewer).
+          if (typeof this.oversightTabEnter === 'function') {
+            this.oversightTabEnter();
           }
         } else {
           if (typeof this.stopPipelinePolling === 'function') {
@@ -13355,6 +13635,149 @@
         }[health.status] || health.status;
       },
 
+      // ═══ Wave 2 UX: компактный strip «Доступность ключей» (Статус) ═══
+      // 3 строки-бейджа (Основная LLM / Embeddings / Quantum) со статусом
+      // ●/▲/■ + текст (цвет — не единственный носитель). Полная история —
+      // в «Аналитике» → «Модели и расходы» (deep-link под strip). Данные —
+      // только существующие /api/status (llm + random); нет данных → честное
+      // «нет данных», не 0.
+      statusKeyStripRows: function () {
+        var self = this;
+        var rank = { ok: 0, none: 1, warn: 2, err: 3 };
+        function worstOf(cards) {
+          var worst = { lvl: 'ok', label: 'OK', card: null };
+          (cards || []).forEach(function (c) {
+            var st = (c && c.health && c.health.status) || 'not_configured';
+            var lvl = st === 'ok' ? 'ok'
+              : (st === 'error') ? 'err'
+              : (st === 'timeout' || st === 'unreachable') ? 'warn' : 'none';
+            if (rank[lvl] > rank[worst.lvl]) {
+              worst = { lvl: lvl,
+                        label: self.healthLabel(c && c.health), card: c };
+            }
+          });
+          return worst;
+        }
+        function providerRow(label, gid) {
+          if (!self.statusData) {
+            return { label: label, glyph: '—', cls: 'badge-muted',
+                     text: 'нет данных' };
+          }
+          var cards = ((self.statusData.llm) || []).filter(function (c) {
+            return c.group_id === gid;
+          });
+          if (!cards.length) {
+            return { label: label, glyph: '—', cls: 'badge-muted',
+                     text: 'нет данных' };
+          }
+          var w = worstOf(cards);
+          var okCount = cards.filter(function (c) {
+            return c.health && c.health.status === 'ok';
+          }).length;
+          var text = w.lvl === 'ok'
+            ? okCount + ' из ' + cards.length + ' OK'
+            : w.label + (w.card && w.card.provider
+              ? ' · ' + w.card.provider : '');
+          return {
+            label: label,
+            glyph: w.lvl === 'ok' ? '●' : (w.lvl === 'warn' ? '▲' : '■'),
+            cls: w.lvl === 'ok' ? 'badge-ok'
+              : (w.lvl === 'warn' ? 'badge-warn'
+                : (w.lvl === 'err' ? 'badge-err' : 'badge-muted')),
+            text: text,
+          };
+        }
+        var rows = [providerRow('Основная LLM', 'llm_functions'),
+                    providerRow('Embeddings', 'embeddings')];
+        var r = this.randomSource;
+        if (!this.statusData || !r.ready) {
+          rows.push({ label: 'Quantum', glyph: '—', cls: 'badge-muted',
+                      text: 'нет данных' });
+        } else if (!r.enabled) {
+          rows.push({ label: 'Quantum', glyph: '■', cls: 'badge-muted',
+                      text: 'выключен' });
+        } else {
+          rows.push({
+            label: 'Quantum',
+            glyph: r.quantum ? '●' : '▲',
+            cls: r.quantum ? 'badge-ok' : 'badge-warn',
+            text: (r.quantum ? 'квантовый' : 'псевдослучайный')
+              + ' · запас ' + (r.reserve == null ? '—' : r.reserve)
+              + '/' + (r.bufferMax || '—'),
+          });
+        }
+        return rows;
+      },
+
+      // ═══ Wave 2 UX: сводка «Обзор» Аналитики ═══
+      // Только существующие данные (/api/status.llm+random, Run Inspector,
+      // /api/memory/embeddings, /api/oversight mca_metrics). Показателя нет —
+      // честное «—». Каждый показатель: название/значение/период.
+      overviewHealthStrip: function () {
+        var rows = [];
+        var cards = (this.statusData && this.statusData.llm) || [];
+        if (cards.length) {
+          var ok = 0, bad = 0, off = 0;
+          cards.forEach(function (c) {
+            var st = c && c.health && c.health.status;
+            if (st === 'ok') ok++;
+            else if (st === 'error' || st === 'timeout'
+                     || st === 'unreachable') bad++;
+            else off++;
+          });
+          rows.push({ label: 'Ключи моделей',
+            value: ok + ' OK · ' + bad + ' деград. · ' + off + ' без ключа',
+            cls: bad ? 'badge-warn' : 'badge-ok',
+            period: 'последняя проверка' });
+        } else {
+          rows.push({ label: 'Ключи моделей', value: '—',
+                      cls: 'badge-muted', period: 'последняя проверка' });
+        }
+        if (this.pipelineMode !== 'latest' && this.pipelineAggregate
+            && this.pipelineAggregate.available) {
+          var t = this.pipelineAggregate.totals || {};
+          rows.push({ label: 'Саммари ' + (this.pipelineMode === '24h'
+                      ? '24ч' : '7 дней'),
+            value: 'здоровых ' + (t.healthy || 0) + ' · деград. '
+              + (t.degraded || 0) + ' · не издано ' + (t.failed || 0),
+            cls: (t.failed || t.degraded) ? 'badge-warn' : 'badge-ok',
+            period: this.pipelineMode === '24h' ? '24 часа' : '7 дней' });
+        } else if (this.pipelineRunView
+                   && this.pipelineRunView.health_label) {
+          rows.push({ label: 'Саммари',
+            value: this.pipelineRunView.health_label,
+            cls: this.pipelineHealthBadge(this.pipelineRunView.health).cls,
+            period: 'последний запуск' });
+        } else {
+          rows.push({ label: 'Саммари', value: '—', cls: 'badge-muted',
+                      period: 'последний запуск' });
+        }
+        var ep = this.embeddingsPanel;
+        var idx = (ep && ep.vector_memory && ep.vector_memory.indexes) || [];
+        if (ep && ep.provider && ep.provider.provider) {
+          rows.push({ label: 'GraphRAG',
+            value: ep.provider.provider
+              + (ep.provider.model ? ' · ' + ep.provider.model : '')
+              + ' · индексов ' + idx.length,
+            cls: 'badge-ok', period: 'сейчас' });
+        } else {
+          rows.push({ label: 'GraphRAG', value: '—', cls: 'badge-muted',
+                      period: 'сейчас' });
+        }
+        var inc = this.oversightData && this.oversightData.mca_metrics
+          && this.oversightData.mca_metrics.incidents;
+        rows.push({ label: 'Инциденты', value: this.mcaIncidentLabel(inc),
+                    cls: this.incidentBadge(inc), period: 'активные' });
+        var r = this.randomSource;
+        rows.push({ label: 'Случайность',
+          value: !r.ready ? '—' : (!r.enabled ? 'выключена'
+            : (r.quantum ? 'квантовый' : 'псевдослучайный')),
+          cls: (!r.ready || !r.enabled) ? 'badge-muted'
+            : (r.quantum ? 'badge-ok' : 'badge-warn'),
+          period: 'сейчас' });
+        return rows;
+      },
+
       // ═══ B1/OD8 (T-1128/T-1129): доступность ключей ═══
       loadKeyHistory: async function () {
         try {
@@ -13633,22 +14056,54 @@
           this.logWarnCount = null;
         }
       },
-      // F11 (§20/D5): клик по счётчику — плавный скролл к карточке логов.
+      // F11 (§20/D5): клик по счётчику. FIX-logs-anchor (поправка владельца):
+      // логи — ФИЗИЧЕСКИЙ блок внизу «Аналитики» (вне таб-гвардов), а вкладка
+      // «Логи» и карточка «Логи → Аналитика» — якоря: со «Статуса» →
+      // deep-link `#/oversight?scroll=logs` (hash-change → applyRoute →
+      // oversightApplyDeepLink → _scrollToLogsAnchor после рендера); внутри
+      // «Аналитики» — скролл к карточке сразу (id сохранён). Режимов/страниц
+      // якорь не создаёт.
       // I-F11S-1: `$refs.statusLogs` в разметке нет — мёртвая ветка удалена.
       scrollToLogs: function () {
+        if (this.activeTab !== 'oversight') {
+          try { window.location.hash = '#/oversight?scroll=logs'; }
+          catch (e) { /* file:// — fallback ниже */ }
+          return;
+        }
+        this._scrollToLogsAnchor();
+      },
+      // FIX-logs-anchor: скролл к физическому блоку логов + вспышка контура.
+      // Рендер #/oversight асинхронный (Vue batch) — если блока ещё нет в
+      // DOM, добираемся следующими тиками (до 5 попыток), без таймеров.
+      _scrollToLogsAnchor: function (attempt) {
         var self = this;
-        this.$nextTick(function () {
-          var el = (typeof document !== 'undefined')
-            ? document.getElementById('status-logs') : null;
-          if (!el || typeof el.scrollIntoView !== 'function') return;
-          try {
-            el.scrollIntoView({
-              behavior: self.reducedMotion ? 'auto' : 'smooth',
-              block: 'start',
-            });
-          } catch (e) {
-            el.scrollIntoView();
-          }
+        var el = (typeof document !== 'undefined')
+          ? document.getElementById('status-logs') : null;
+        if (!el && (attempt || 0) < 5) {
+          this.$nextTick(function () {
+            self._scrollToLogsAnchor((attempt || 0) + 1);
+          });
+          return;
+        }
+        if (!el || typeof el.scrollIntoView !== 'function') return;
+        try {
+          el.scrollIntoView({
+            behavior: this.reducedMotion ? 'auto' : 'smooth',
+            block: 'start',
+          });
+        } catch (e) {
+          el.scrollIntoView();
+        }
+        this._flashLogsAnchor();
+      },
+      // Вспышка контура блока (~1с): пользователь видит, куда пришёл якорь.
+      // Цвет — не единственный носитель: движение (анимация) + позиция скролла.
+      _flashLogsAnchor: function () {
+        var self = this;
+        this.logsAnchorFlash = false;
+        this.$nextTick(function () {   // форс-рестарт CSS-анимации
+          self.logsAnchorFlash = true;
+          setTimeout(function () { self.logsAnchorFlash = false; }, 1000);
         });
       },
       // S7 (ADR-1026-9 D4, §110) + S6 (ADR-1026-11 D6): маркеры событий Саммари

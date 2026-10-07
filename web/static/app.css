@@ -1322,8 +1322,73 @@
        полноэкранного графа. */
     .status-counts .btn-ghost { min-height: 44px; }
     .status-graph-full .btn-ghost { min-height: 44px; }
+
+    /* ═══ Wave 2 UX: суб-вкладки «Аналитики» (#/oversight) ═══
+       Desktop: горизонтальный ряд табов; mobile/narrow: горизонтальный
+       скролл (свайп), тач-цели ≥44px, без переноса строк. Активная вкладка —
+       заливка + рамка; цвет НЕ единственный носитель (aria-selected +
+       is-active + вес шрифта). */
+    .oversight-tabs__row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      min-width: 0;
+    }
+    .oversight-tab {
+      appearance: none;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-2, #AAB6C8);
+      font-size: .8rem;
+      line-height: 1;
+      padding: 8px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      white-space: nowrap;
+      min-height: 36px;
+      min-width: 0;
+    }
+    .oversight-tab:hover { background: rgba(255, 255, 255, .06); }
+    .oversight-tab.is-active {
+      background: rgba(139, 92, 246, .18);
+      border-color: rgba(139, 92, 246, .5);
+      color: var(--text-1, #F4F7FB);
+      font-weight: 600;
+    }
+    .oversight-tab:focus-visible {
+      outline: 2px solid rgba(139, 92, 246, .7);
+      outline-offset: 2px;
+    }
+    @media (max-width: 767px) {
+      .oversight-tabs__row {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      .oversight-tabs__row::-webkit-scrollbar { display: none; }
+      .oversight-tab {
+        flex: 0 0 auto;
+        min-height: 44px;
+        padding: 10px 14px;
+      }
+    }
     .status-graph-full .badge {
       min-height: 44px; display: inline-flex; align-items: center;
+    }
+    /* FIX-logs-anchor: логи — физический блок внизу «Аналитики» (вне
+       таб-гвардов); вкладка «Логи» и карточка «Логи → Аналитика» — якоря:
+       скролл к блоку + короткая вспышка контура (~1с). Цвет не единственный
+       носитель — движение и позиция скролла. */
+    .status-logs--flash {
+      animation: status-logs-flash 1s ease-out 1;
+    }
+    @keyframes status-logs-flash {
+      0% { box-shadow: 0 0 0 2px rgba(139, 92, 246, .8); }
+      100% { box-shadow: 0 0 0 2px rgba(139, 92, 246, 0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .status-logs--flash { animation: none; }
     }
 
     /* §13 Hero: компактная карточка состояния бота (Liquid Glass, без

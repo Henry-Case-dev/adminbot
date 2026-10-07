@@ -58,12 +58,21 @@ class TestKeyAvailabilityUi:
         assert "keys." not in body
 
     def test_no_hardcoded_provider_markers_in_registry(self):
+        # NOTE (санкция владельца: ASAP 6 Wave 2 — current_task.md
+        # §13.1:30978-30988 + visual-preservation-map REDESIGN): «История
+        # доступности ключей» переехала со «Статуса» в «Аналитику» →
+        # суб-вкладка «Модели и расходы» (data-key-history,
+        # v-if="oversightTab === 'models'"). Носитель динамического рендера
+        # провайдер/модель теперь таблица реестра p.provider/p.model
+        # (статусный каталог llm-row снят со «Статуса»); инвариант
+        # «без хардкода провайдеров» сохранён.
         html = _html()
-        # Динамический провайдер/модель: карточки берут model/provider с сервера.
-        assert "card.model" in html
+        block = html[html.index("data-key-history"):]
+        block = block[:block.index('id="status-logs"')]
+        # Динамический провайдер/модель: значения берутся с сервера.
+        assert "p.provider" in block
+        assert "p.model" in block
         # нет хардкода провайдеров в рендере key-availability
-        block = html[html.index("История доступности ключей"):]
-        block = block[:block.index("<!-- Логи -->")]
         for bad in ("Deepseek", "Groq", "OpenRouter"):
             assert bad not in block
 

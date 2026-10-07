@@ -619,10 +619,22 @@ class TestBoundsA3:
             # `services/prompt_migrations.py` ИСКЛЮЧЕНЫ — санкционированы каноны
             # R1027 L1/L2 (PREV_*/ROLLBACK, ADR-1013-3); §104/A3-контракт не
             # затронуты (AST-гейт A3 ниже сохраняет пин).
+            # NOTE (MCA-23, Wave 3, §10/§11 current_task):
+            # `services/chat_prompts.py` исключён — эпик санкционирует снятие
+            # глобального cap «1-2 предложения» (канон MCA23 + слепки
+            # PREV_CHAT_MCA23/PREV_CHAT_VERBALIZER_MCA23, ступени миграции в
+            # prompt_migrations, ADR-1013-3). §104/A3-контракт не затронут
+            # (AST-гейт выше сохраняет пин). Прецедент NOTE-модели:
+            # test_tool_coordinator_round1026.TestBounds.
+            # NOTE (MCA-23, Wave 3, §Delivery Router): `services/telegram_send.py`
+            # исключён — единственная дельта: запись
+            # `services/direct_chat_service.py` в SEND_ALLOWLIST (rich-ветка
+            # direct зовёт обёртку `send_rich_message`, sanitize внутри;
+            # bare-send'ов нет). Поведение guard'а/обёрток не менялось
+            # (Δ registry = 1 запись); гейтится test_outgoing_guard_round1022 +
+            # rich-fallback тестами test_mca23_response_plan.
             # NOTE (A5, ADR-1026-17 D9): `services/param_catalog.py` исключён —
             # A5 санкционирует Δ каталога +1 ParamSpec +1 GroupSpec.
-            "services/telegram_send.py",
-            "services/chat_prompts.py",
             # NOTE (A9, ADR-1026-22 D1/D7/D10): `services/execution_graph_source.py`
             # и `web/static/execution_graph.js` исключены — A9 санкционирует
             # аддитивное расширение СУЩЕСТВУЮЩЕГО ExecutionGraph (9 этапов §51,
@@ -723,7 +735,7 @@ class TestBoundsA3:
         import dataclasses
         from services import param_catalog as pc
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.69"            # bump запрещён (D8)
+        assert APP_VERSION == "2.58.70"            # bump запрещён (D8)
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in pc.REGISTRY
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}

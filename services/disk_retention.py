@@ -44,6 +44,21 @@ from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
 
+
+def _emit_retention(outcome: str, *, level: str = "INFO", **fields):
+    """MCA-17 (`maintenance.retention`): терминал `apply_cleanup` (REUSE
+    mca-13, fail-open, прецедент graphrag_rebuild._emit).
+
+    Sync-контекст (CLI/daily) — эмиссия синхронная. R17: только счётчики/
+    категории/коды — имена файлов не переносятся в событие (в структурном
+    логе остаются, как раньше)."""
+    try:
+        from services.mca_events import emit_mca_event
+        emit_mca_event("maintenance_retention", outcome=outcome, level=level,
+                       component="disk_retention", **fields)
+    except Exception:      # контракт не рвёт очистку
+        pass
+
 # ── таксономия (ADR-1024-2 D2, spec §5) ─────────────────────────────────────
 
 IMMUTABLE_PATTERNS = ("imported_history_*.jsonl",)
@@ -435,6 +450,9 @@ def apply_cleanup(plan, *, verify: bool = True, dirs=None) -> dict:
            "skipped": 0, "errors": 0, "blocked": 0, "categories": {}}
     items = list(plan or [])
     if not items:
+        # MCA-17: пустой план — честный silent (чистить нечего, не skip
+        # политики и не успех удаления).
+        _emit_retention("silent", usage_json={"candidates": 0})
         return out
     if verify:
         delete_paths = {str(item.get("path")) for item in items
@@ -445,6 +463,10 @@ def apply_cleanup(plan, *, verify: bool = True, dirs=None) -> dict:
             logger.warning("[disk_retention] cleanup aborted — no valid fresh "
                            "db backup (fail-closed)")
             out["aborted_reason"] = "no_valid_backup"
+            # MCA-17: fail-closed-отказ — skip с существующим кодом §17.2.
+            _emit_retention("skipped",
+                            reason_code="cleanup_deferred_dependency_unverified",
+                            usage_json={"candidates": len(items)})
             return out
     for item in items:
         path = Path(str(item.get("path")))
@@ -480,6 +502,16 @@ def apply_cleanup(plan, *, verify: bool = True, dirs=None) -> dict:
     logger.info("[disk_retention] cleanup done | deleted=%d freed=%d "
                 "skipped=%d blocked=%d", out["deleted"], out["bytes_freed"],
                 out["skipped"], out["blocked"])
+    # MCA-17 (`maintenance.retention`): терминал + счётчики файлов/байт
+    # (usage_json — whitelist-поле контракта §17.1).
+    _emit_retention(
+        "failed" if out["errors"] else "success",
+        level="WARN" if out["errors"] else "INFO",
+        usage_json={"deleted": out["deleted"],
+                    "bytes_freed": out["bytes_freed"],
+                    "skipped": out["skipped"],
+                    "blocked": out["blocked"],
+                    "errors": out["errors"]})
     return out
 
 

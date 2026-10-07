@@ -77,17 +77,31 @@ const methods = captured.methods || {};
   for (const span of ['sg-5', 'sg-7', 'sg-8', 'sg-4', 'sg-12']) {
     assert.ok(INDEX.indexOf(span) >= 0, '§12: span ' + span);
   }
-  // DOM-порядок §12: Hero → метрики(`status-block`) → граф → сон → мониторинг
-  // → превью → факты → бюджеты → логи.
+  // DOM-порядок §12 (Wave 2 UX: логи переехали в «Аналитику» → вкладка
+  // «Логи», на «Статусе» — карточка-переход `status-logs-link`):
+  // Hero → метрики(`status-block`) → граф → сон → мониторинг
+  // → превью → факты → бюджеты → карточка-переход к логам.
   const order = ['status-hero', 'class="card p-4 status-block"', 'status-graph',
     'status-sleep', 'Мониторинг Интеллекта', 'exec-preview', 'status-facts',
-    'status-budgets', 'status-logs'];
+    'status-budgets', 'status-logs-link'];
   let prev = -1;
   order.forEach(function (m) {
     const i = INDEX.indexOf(m);
     assert.ok(i > prev, '§12: порядок DOM ' + m);
     prev = i;
   });
+  // Wave 2: полный viewer логов — в шаблоне «Аналитики» (до «Статуса»),
+  // а НЕ в .status-grid; на «Статусе» — компактная карточка-переход.
+  const statusStart = INDEX.indexOf("activeTab === 'status'");
+  const oversightStart = INDEX.indexOf("activeTab === 'oversight'");
+  assert.ok(oversightStart > 0 && oversightStart < statusStart,
+    'Wave 2: oversight-шаблон раньше status-шаблона');
+  const logsAnchor = INDEX.indexOf('id="status-logs"');
+  assert.ok(logsAnchor > 0 && logsAnchor < statusStart,
+    'Wave 2: логи в шаблоне Аналитики (до Статуса)');
+  assert.ok(INDEX.indexOf('data-key-history') > oversightStart
+    && INDEX.indexOf('data-key-history') < statusStart,
+    'Wave 2: история ключей переехала в Аналитику');
   // CSS: 12 → 6 → 1 и анти-overflow.
   assert.ok(/\.status-grid \{[\s\S]{0,220}repeat\(12, minmax\(0, 1fr\)\)/.test(CSS),
     '§12: 12 колонок');

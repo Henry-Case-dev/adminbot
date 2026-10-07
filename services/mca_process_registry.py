@@ -228,10 +228,14 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         state_source=("smart_messages", "message_source_records"),
         recovery_ops=("resume_stream",),
         widget_id="Приём/импорт/редакции",
+        stages_to_events={"persist": "ingestion_live"},
+        instrumentation=("persist",),
         owner_feature="mca-03",
         enabled_gate="MCA_MESSAGE_IDENTITY_ENABLED",
-        note="handler не эмитит mca_events (identity-события — у "
-             "identity.resolve); зарегистрировано как not_instrumented",
+        event_names=("ingestion_live",),
+        note="mca-17 (handlers/summary._emit_ingest): терминалы success/"
+             "failed после persist — notable-only, горячего пути start нет "
+             "(R17: id/длительность/коды, тексты не переносятся)",
     ),
     ProcessDefinition(
         process_id="ingestion.import", version="1",
@@ -243,8 +247,13 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         state_source=("import_checkpoints", "task_jobs"),
         recovery_ops=("resume_checkpoint",),
         widget_id="Приём/импорт/редакции",
+        stages_to_events={"load": "import_history_batch"},
+        instrumentation=("load",),
         owner_feature="mca-03",
-        note="инструментирование mca_events не подключено",
+        event_names=("import_history_batch", "import_history_fts"),
+        note="mca-17 (tools/history_import/loader._emit_import): "
+             "import_history_batch — notable-only failed; import_history_fts "
+             "— терминал импорта (silent при dry_run / success / failed)",
     ),
     ProcessDefinition(
         process_id="identity.resolve", version="1",
@@ -275,7 +284,12 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         widget_id="Приём/импорт",
         owner_feature="mca-03",
         enabled_gate="MCA_MESSAGE_IDENTITY_ENABLED",
-        note="инструментирование mca_events не подключено",
+        stages_to_events={"migrate": "chat_id_migration"},
+        instrumentation=("migrate",),
+        event_names=("chat_id_migration",),
+        note="mca-17 (handlers/chat_lifecycle._emit_lifecycle): терминал "
+             "success/failed записи chat_id_migrations при "
+             "migrate_to_chat_id",
     ),
     # ── процессы памяти/сводок (инструментирование mca_events не подключено) ──
     ProcessDefinition(
@@ -288,8 +302,16 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         state_source=("chat_running_summary",),
         recovery_ops=("rebuild_window",),
         widget_id="Окно/summary",
+        stages_to_events={"collect": "SUMMARY_WINDOW_BUILD",
+                          "summarize": "SUMMARY_WINDOW_BUILD",
+                          "persist": "SUMMARY_WINDOW_BUILD"},
+        instrumentation=("collect", "summarize", "persist"),
         owner_feature="summary",
-        note="инструментирование mca_events не подключено",
+        event_names=("SUMMARY_WINDOW_BUILD",),
+        note="mca-17 (summary_memory._emit_mca): run-событие окна — start + "
+             "терминалы success / skipped (summary_stale_dropped, "
+             "parse_error, no_new_contribution) / failed (model_unavailable, "
+             "unexpected)",
     ),
     ProcessDefinition(
         process_id="summary.hybrid", version="1",
@@ -301,10 +323,28 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         state_source=("chat_summary_levels",),
         recovery_ops=("rebuild_level",),
         widget_id="Summary Hybrid",
+        stages_to_events={"filter": "SUMMARY_SOURCE_WINDOW",
+                          "l1": "SUMMARY_L1_STAGE",
+                          "l2": "SUMMARY_L2_STAGE",
+                          "format": "SUMMARY_TEXT_READY"},
+        instrumentation=("filter", "l1", "l2", "format"),
         owner_feature="summary",
         enabled_gate="SUMMARY_HYBRID_L2_ENABLED",
-        note="инструментирование mca_events не подключено (mca07_summary — "
-             "стадия retrieval-контура, а не hybrid-писателя)",
+        event_names=("SUMMARY_RUN_START", "SUMMARY_SOURCE_WINDOW",
+                     "SUMMARY_SOURCE_WINDOW_READY",
+                     "SUMMARY_CAPACITY_RESOLVED",
+                     "SUMMARY_EXECUTION_MODE_SELECTED", "SUMMARY_SEGMENT_PLAN",
+                     "SUMMARY_SEGMENT_RESULT", "SUMMARY_SEGMENT_LEDGER",
+                     "SUMMARY_L1_STAGE", "SUMMARY_L2_STAGE",
+                     "SUMMARY_L2_REVIEW", "SUMMARY_LEGACY_FALLBACK",
+                     "SUMMARY_L1_ACTIVITY", "SUMMARY_WRITER_ACTIVITY",
+                     "SUMMARY_LLM_SUPERVISOR", "SUMMARY_TEXT_READY",
+                     "SUMMARY_REVISION_RESULT", "SUMMARY_RUN_DONE"),
+        note="mca-17: единая точка эмиссии текстовой ветки — pipeline_events."
+             "py (EV_*-константы, fail-open _emit → mca_trace.emit_stage): "
+             "run-обрамление, окно/сегменты, l1/l2/review, liveness "
+             "(L1_ACTIVITY/WRITER_ACTIVITY), LLM_SUPERVISOR, legacy-fallback; "
+             "mca07_summary — стадия retrieval-контура, сюда не относится",
     ),
     ProcessDefinition(
         process_id="facts.extract", version="1",
@@ -316,8 +356,13 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         state_source=("graph_facts",),
         recovery_ops=("reprocess_batch",),
         widget_id="Факты/граф",
+        stages_to_events={"extract": "FACTS_EXTRACT"},
+        instrumentation=("extract",),
         owner_feature="factext",
-        note="инструментирование mca_events не подключено",
+        event_names=("FACTS_EXTRACT",),
+        note="mca-17 (summary_memory._emit_mca): start + терминалы success / "
+             "skipped (disabled, validation_failed, parse_error, "
+             "no_new_contribution) / failed (model_unavailable)",
     ),
     ProcessDefinition(
         process_id="dossier.rebuild", version="2",
@@ -378,10 +423,22 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         state_source=("embedding_cache", "mca_embedding_index_generations"),
         recovery_ops=("rebuild_index",),
         widget_id="Embeddings/индексы",
+        stages_to_events={"embed": "EMBED_API_FAILED",
+                          "generation": "EMBEDDING_GENERATION_BUILD_START"},
+        instrumentation=("embed", "generation"),
         owner_feature="mca-07",
         enabled_gate="MCA_RETRIEVAL_CONTEXT_ENABLED",
-        note="инструментирование mca_events не подключено (mca07_* — стадии "
-             "retrieval-контура)",
+        event_names=("EMBED_API_FAILED", "EMBED_API_DEFERRED",
+                     "EMBEDDING_GENERATION_BUILD_START",
+                     "EMBEDDING_GENERATION_PROGRESS",
+                     "EMBEDDING_GENERATION_VALIDATED",
+                     "EMBEDDING_GENERATION_ACTIVATED",
+                     "EMBEDDING_GENERATION_FAILED"),
+        note="mca-17: embed-путь summary_memory (EMBED_API_FAILED — failed, "
+             "EMBED_API_DEFERRED — skipped/deferred) + поколения индекса "
+             "graphrag_rebuild (BUILD_START/PROGRESS/VALIDATED/ACTIVATED/"
+             "FAILED; PAUSED — silent-ветка вне декларации); mca07_* — "
+             "стадии retrieval-контура",
     ),
     # ── mca-07: retrieval (реальные события mca07_<stage>) ──────────────────
     ProcessDefinition(
@@ -416,8 +473,12 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         state_source=("task_jobs", "graph_facts"),
         recovery_ops=("resume_job",),
         widget_id="Ностальгия",
+        stages_to_events={"select": "nostalgia_run", "render": "nostalgia_run"},
+        instrumentation=("select", "render"),
         owner_feature="nostalgia", enabled_gate="NOSTALGIA_ENABLED",
-        note="инструментирование mca_events не подключено",
+        event_names=("nostalgia_run",),
+        note="mca-17 (nostalgia_worker._emit): start + терминалы success/"
+             "skipped/failed (reason_code)",
     ),
     ProcessDefinition(
         process_id="lore.compile", version="1",
@@ -429,8 +490,13 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         state_source=("lore_stories",),
         recovery_ops=("resume_job",),
         widget_id="Эпизоды/lore",
+        stages_to_events={"select": "lore_compile", "compile": "lore_compile",
+                          "persist": "lore_compile"},
+        instrumentation=("select", "compile", "persist"),
         owner_feature="lore", enabled_gate="LORE_WORKER_ENABLED",
-        note="инструментирование mca_events не подключено",
+        event_names=("lore_compile",),
+        note="mca-17 (lore_worker._emit): start + терминалы success/skipped/"
+             "failed (reason_code)",
     ),
     ProcessDefinition(
         process_id="sleep.dream", version="1",
@@ -442,8 +508,13 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         state_source=("task_jobs",),
         recovery_ops=("resume_job",),
         widget_id="Сон/убеждения",
+        stages_to_events={"collect": "sleep_dream", "dream": "sleep_dream",
+                          "persist": "sleep_dream"},
+        instrumentation=("collect", "dream", "persist"),
         owner_feature="dream", enabled_gate="DREAM_ENABLED",
-        note="инструментирование mca_events не подключено",
+        event_names=("sleep_dream",),
+        note="mca-17 (dream_worker._emit): start + терминалы (stats-aware "
+             "outcome/reason_code)",
     ),
     ProcessDefinition(
         process_id="sleep.deep", version="1",
@@ -476,8 +547,13 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         state_source=("persona_*",),
         recovery_ops=("recompute",),
         widget_id="Личность/интересы",
+        stages_to_events={"derive": "persona_traits", "persist":
+                          "persona_traits"},
+        instrumentation=("derive", "persist"),
         owner_feature="persona", enabled_gate="PERSONA_ENABLED",
-        note="инструментирование mca_events не подключено",
+        event_names=("persona_traits",),
+        note="mca-17 (dream_worker._emit, шаг persona-traits): start + "
+             "терминалы (stats-aware outcome/reason_code)",
     ),
     ProcessDefinition(
         process_id="anticliche.run", version="1",
@@ -489,9 +565,15 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         state_source=("anticliche_cache",),
         recovery_ops=("recompute",),
         widget_id="Анти-клише",
+        stages_to_events={"detect": "anticliche_run",
+                          "generate": "anticliche_run",
+                          "persist": "anticliche_run"},
+        instrumentation=("detect", "generate", "persist"),
         owner_feature="anticliche", enabled_gate="DYNAMIC_ANTICLICHE_ENABLED",
-        note="инструментирование mca_events не подключено (agentic_events — "
-             "отдельный контракт ExecutionGraph)",
+        event_names=("anticliche_run",),
+        note="mca-17 (anticliche_worker._emit): start + терминалы success/"
+             "skipped/failed (reason_code); agentic_events — отдельный "
+             "контракт ExecutionGraph",
     ),
     ProcessDefinition(
         process_id="goodmorning.run", version="1",
@@ -503,21 +585,28 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         state_source=("task_jobs",),
         recovery_ops=("resume_job",),
         widget_id="Планировщики",
+        stages_to_events={"due_check": "goodmorning_run",
+                          "send": "goodmorning_run"},
+        instrumentation=("due_check", "send"),
         owner_feature="goodmorning",
-        note="инструментирование mca_events не подключено",
+        event_names=("goodmorning_run",),
+        note="mca-17 (goodmorning_scheduler._emit_goodmorning): skipped/"
+             "failed + терминалы success/silent",
     ),
     ProcessDefinition(
-        process_id="scheduler.reactions", version="1",
-        purpose="Планировщик реакций бота на события чата",
-        inputs=("schedule/event",), outputs=("telegram reaction",),
-        stages=("due_check", "react"),
-        trigger_kind="schedule",
+        process_id="scheduler.reactions", version="0",
+        purpose="Реакции бота на события чата (синхронный per-message контур)",
+        inputs=("message/event",), outputs=("telegram reaction",),
+        stages=(), trigger_kind="per_message",
         settings_ref=("REACTION_MECHANICS_ENABLED",),
-        state_source=("task_jobs",),
-        recovery_ops=("resume_job",),
-        widget_id="Планировщики",
+        state_source=(),
+        recovery_ops=(),
+        widget_id=WIDGET_NONE,
         owner_feature="scheduler",
-        note="инструментирование mca_events не подключено",
+        note="честный аменд (mca-17): выделенного планировщика due_check в "
+             "коде нет — контур реакций синхронный per-message путь "
+             "(smartmodule_utils/direct_chat); декларация stages снята, "
+             "события не выдумываются",
     ),
     # ── direct_chat: стадия answer_cache эмитит mca07_answer_cache ──────────
     ProcessDefinition(
@@ -665,9 +754,17 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         state_source=("task_jobs", "filesystem"),
         recovery_ops=("resume_download",),
         widget_id="Web/видео/медиа",
+        stages_to_events={"prepare": "media_download",
+                          "download": "media_download",
+                          "transcribe": "media_download"},
+        instrumentation=("prepare", "download", "transcribe"),
         owner_feature="media",
         enabled_gate="DOWNLOAD_ENABLED",
-        note="инструментирование mca_events не подключено",
+        event_names=("media_download",),
+        note="mca-17 (tools/video_downloader._emit_download): терминал "
+             "media-job (outcome/duration_ms/error_json, R17-safe); "
+             "MEDIA_JOB_* media_execution — ExecutionGraph-контракт, в "
+             "декларацию не входит",
     ),
     ProcessDefinition(
         process_id="image.generate", version="1",
@@ -679,9 +776,15 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         state_source=("mca_events", "reservation"),
         recovery_ops=("release_reservation",),
         widget_id="Tool chain",
+        stages_to_events={"reserve": "image_generate",
+                          "generate": "image_generate",
+                          "deliver": "image_generate"},
+        instrumentation=("reserve", "generate", "deliver"),
         owner_feature="image",
         enabled_gate="IMAGE_GENERATION_ENABLED",
-        note="инструментирование mca_events не подключено",
+        event_names=("image_generate",),
+        note="mca-17 (image_generation._emit_image): терминал генерации "
+             "(outcome, R17-safe)",
     ),
     ProcessDefinition(
         process_id="summary.publish", version="1",
@@ -693,8 +796,14 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         state_source=("mca_events",),
         recovery_ops=("delivery_reconcile",),
         widget_id="Публикация",
+        stages_to_events={"send": "SUMMARY_PUBLISH"},
+        instrumentation=("send",),
         owner_feature="summary", enabled_gate="SUMMARY_ENABLED",
-        note="инструментирование mca_events не подключено",
+        event_names=("SUMMARY_PUBLISH",),
+        note="mca-17 (summary_generator._emit_publish): fail-open вокруг "
+             "ядра rich-доставки — start + терминалы success (rich/plain/"
+             "degraded, fallback_engaged) / skipped (action_idempotent_"
+             "replay) / failed",
     ),
     ProcessDefinition(
         process_id="factcheck.run", version="1",
@@ -706,8 +815,14 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         state_source=("in-memory", "mca_events"),
         recovery_ops=("fallback_single",),
         widget_id="Фактчек",
+        stages_to_events={"extract_claims": "factcheck_run",
+                          "verify": "factcheck_run",
+                          "summary": "factcheck_run"},
+        instrumentation=("extract_claims", "verify", "summary"),
         owner_feature="factcheck", enabled_gate="FACTCHECK_ENABLED",
-        note="инструментирование mca_events не подключено",
+        event_names=("factcheck_run",),
+        note="mca-17 (factcheck_service._emit): терминал вердикта "
+             "(outcome/reason_code, контракт не рвёт вердикт)",
     ),
     ProcessDefinition(
         process_id="maintenance.retention", version="1",
@@ -719,8 +834,13 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         state_source=("task_jobs", "filesystem"),
         recovery_ops=("resume_job",),
         widget_id="Сохранение/ресурсы",
+        stages_to_events={"select": "maintenance_retention",
+                          "delete": "maintenance_retention"},
+        instrumentation=("select", "delete"),
         owner_feature="maintenance",
-        note="инструментирование mca_events не подключено",
+        event_names=("maintenance_retention",),
+        note="mca-17 (disk_retention._emit_retention): терминал очистки "
+             "(outcome, контракт не рвёт очистку)",
     ),
     ProcessDefinition(
         process_id="backup.memory", version="1",
@@ -732,8 +852,13 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         state_source=("filesystem", "task_jobs"),
         recovery_ops=("restore",),
         widget_id="Сохранение/ресурсы",
+        stages_to_events={"snapshot": "memory_backup",
+                          "verify": "memory_backup"},
+        instrumentation=("snapshot", "verify"),
         owner_feature="backup", enabled_gate="MEMORY_BACKUP_ENABLED",
-        note="инструментирование mca_events не подключено",
+        event_names=("memory_backup",),
+        note="mca-17 (memory_backup._emit_backup): терминалы бэкап-прогона "
+             "(outcome/reason_code)",
     ),
     ProcessDefinition(
         process_id="uptime.heartbeat", version="1",
@@ -746,7 +871,9 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         recovery_ops=("restart_notice",),
         widget_id="Сохранение/ресурсы",
         owner_feature="uptime",
-        note="инструментирование mca_events не подключено",
+        note="not_instrumented осознанно: наблюдаемость — собственный "
+             "durable-журнал uptime_events (PG); дублирование в mca_events "
+             "не требуется",
     ),
     ProcessDefinition(
         process_id="telemetry.events", version="1",

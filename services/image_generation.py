@@ -1425,6 +1425,40 @@ async def _reserve_or_consume(chat_id: int | None, *, source: str,
     return "reserve", idem_key, "ok"
 
 
+# ── MCA-17 (`image.generate`): deliver-исход §17.1 (REUSE mca-13) ───────────
+# MEDIA_JOB_* (services/media_execution.py) — телеметрия durable-джоб ДРУГОГО
+# пути (worker/транскрипт); здесь не дублируется. Событие — терминал
+# generate_and_send (reserve→generate→deliver).
+_IMAGE_REASON_TO_CODE = {
+    "timeout": "timeout",
+    "empty_prompt": "validation_failed",
+    "too_large": "too_many_bytes",
+    "budget": "financial_limit_reached",
+    "send_failed": "delivery_unknown",
+    "no_bot": "delivery_unknown",
+}
+
+
+def _image_reason_code(reason: str | None) -> str:
+    """GenerationResult.reason / journal error_code → код словаря §17.2."""
+    key = str(reason or "")
+    if key in _IMAGE_REASON_TO_CODE:
+        return _IMAGE_REASON_TO_CODE[key]
+    return "provider_unavailable"
+
+
+def _emit_image(outcome: str, *, level: str = "INFO", **fields):
+    """Fail-open терминал генерации (прецедент graphrag_rebuild._emit).
+
+    R17: только chat_id/коды/длительность; промпт/байты/URL не переносятся."""
+    try:
+        from services.mca_events import emit_mca_event
+        emit_mca_event("image_generate", outcome=outcome, level=level,
+                       component="image_generation", **fields)
+    except Exception:      # контракт не рвёт чат
+        pass
+
+
 async def _commit_or_release(idem_key: str, chat_id: int, *,
                              generation_failed: bool,
                              error_code: str = "generation_failed",
@@ -1471,14 +1505,20 @@ async def generate_and_send(bot, chat_id: int, prompt: str, *,
     (ok=True, reason='already'); released/denied → прежний journaled-отказ
     (ok=False, без нового списания и без генерации). Kill-switch/fail-open
     OFF → legacy-путь байт-в-байт (consume внутри generate)."""
+    started = time.monotonic()
     action, idem_key, reason = await _reserve_or_consume(
         chat_id, source=source, message_id=reply_to_message_id,
         correlation_id=correlation_id)
     if action == "deny":
+        # MCA-17: отказ бюджета — ожидаемый skip (не failed-механика).
+        _emit_image("skipped", reason_code=_image_reason_code(reason),
+                    chat_id=chat_id)
         return GenerationResult(ok=False, reason=str(reason or "budget")[:64])
     if action == "already_ok":
         # D3: прежний исход committed/reserved — генерация уже выполнена
         # (или in-flight); повторный платный вызов и повторная отправка НЕТ.
+        _emit_image("skipped", reason_code="action_idempotent_replay",
+                    chat_id=chat_id)
         return GenerationResult(ok=True, reason="already")
     if action == "reserve":
         result = await generate(prompt, chat_id=chat_id,
@@ -1494,6 +1534,9 @@ async def generate_and_send(bot, chat_id: int, prompt: str, *,
         await _commit_or_release(
             idem_key, chat_id, generation_failed=True,
             error_code=str(result.reason or "generation_failed")[:64])
+        _emit_image("failed", reason_code=_image_reason_code(result.reason),
+                    chat_id=chat_id,
+                    duration_ms=int((time.monotonic() - started) * 1000))
         return result
     if bot is None:
         # Успех генерации, доставка невозможна: платный вызов состоялся →
@@ -1501,6 +1544,9 @@ async def generate_and_send(bot, chat_id: int, prompt: str, *,
         # без бота POSITIVE delivery-исход недостижим.
         await _commit_or_release(idem_key, chat_id, generation_failed=False,
                                  delivery_failed=True)
+        _emit_image("failed", reason_code="delivery_unknown",
+                    chat_id=chat_id,
+                    duration_ms=int((time.monotonic() - started) * 1000))
         return GenerationResult(ok=False, reason="no_bot")
     # Успех генерации → commit (расход уже состоялся; §28), затем доставка.
     await _commit_or_release(idem_key, chat_id, generation_failed=False)
@@ -1525,9 +1571,14 @@ async def generate_and_send(bot, chat_id: int, prompt: str, *,
                        chat_id, type(exc).__name__)
         await _commit_or_release(idem_key, chat_id, generation_failed=False,
                                  delivery_failed=True)
+        _emit_image("failed", reason_code="delivery_unknown",
+                    chat_id=chat_id,
+                    duration_ms=int((time.monotonic() - started) * 1000))
         return GenerationResult(ok=False, reason="send_failed")
     logger.info("[image] sent | chat=%s | bytes=%d | delivery_failed=%s",
                 chat_id, len(result.content or b""), delivery_failed)
+    _emit_image("success", chat_id=chat_id,
+                duration_ms=int((time.monotonic() - started) * 1000))
     return result
 
 

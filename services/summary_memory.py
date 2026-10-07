@@ -318,6 +318,52 @@ def _is_serviceability_error(exc: BaseException) -> bool:
         return False
 
 
+# ── MCA-17 (W1-C1, группа «Сводки и память»): события mca_events §17 ────────
+# process_id → event_name: summary.window → SUMMARY_WINDOW_BUILD;
+# facts.extract → FACTS_EXTRACT; embeddings.index → EMBED_API_FAILED /
+# EMBED_API_DEFERRED. Единый транспорт mca-13 (`emit_mca_event`), второй
+# эмиттер не вводится. Fail-open: контракт не рвёт поток. R17: наружу только
+# id/числа/коды/счётчики — тексты сообщений/промптов не передаются.
+_MCA_EVENT_COMPONENTS = {
+    "SUMMARY_WINDOW_BUILD": "summary",
+    "FACTS_EXTRACT": "facts",
+    "EMBED_API_FAILED": "embeddings",
+    "EMBED_API_DEFERRED": "embeddings",
+}
+
+
+def _emit_mca(event_name: str, outcome: str, *, level: str = "INFO",
+              **fields) -> None:
+    """Fail-open эмиссия события контракта §17 (REUSE mca-13)."""
+    try:
+        from services.mca_events import emit_mca_event
+        emit_mca_event(event_name, outcome=outcome, level=level,
+                       component=_MCA_EVENT_COMPONENTS.get(
+                           event_name, "summary"),
+                       **fields)
+    except Exception:      # контракт не рвёт поток
+        pass
+
+
+def _embed_fail_reason(exc: BaseException) -> str | None:
+    """Класс исключения embed → код из словаря `mca_events.REASON_CODES`
+    (неизвестное → None — честный unknown, не подмена)."""
+    name = type(exc).__name__
+    if name == "EmbeddingGroupCoolingDown":
+        return "quota_group_cooling_down"
+    if name == "EmbeddingBudgetExhausted":
+        return "budget_exceeded"
+    if name == "EmbeddingConcurrencyBusy":
+        return "queue_busy"
+    if name == "LLMRateLimitError":
+        return "rate_limit"
+    if name == "LLMTimeoutError":
+        return "timeout"
+    if isinstance(exc, LLMError):
+        return "provider_unavailable"
+    return None
+
+
 # ── ASAP-4 (T-4406, spec §1 A.4): классы трафика для EmbeddingExecutor ──────
 # P0 online query / P1 live write (дефолт контекста) / P2 repair+backfill /
 # P3 full rebuild (ставится graphrag_rebuild на цикл батчей). Импорт
@@ -1804,8 +1850,25 @@ class MemoryManager:
         from services.embedding_control_plane import control_plane_enabled
         if control_plane_enabled():
             from services import embedding_control_plane as ecp
-            return await ecp.execute_embed(self.llm, list(texts),
-                                           priority=priority)
+            try:
+                return await ecp.execute_embed(self.llm, list(texts),
+                                               priority=priority)
+            except Exception as exc:
+                # MCA-17 (embeddings.index): терминал control-plane пути —
+                # только НЕ-serviceability сбои (hard fail). CoolingDown/
+                # BudgetExhausted — штатный paused-флоу (видим через batch-
+                # breaker / состояние контрол-плейна), per-call событие —
+                # спам, не эмитим. Fail-open, затем re-raise (поведение
+                # вызывающих не меняется).
+                if not _is_serviceability_error(exc):
+                    fields = dict(stage="embed_api",
+                                  error_json={"type": type(exc).__name__})
+                    reason = _embed_fail_reason(exc)
+                    if reason:
+                        fields["reason_code"] = reason
+                    _emit_mca("EMBED_API_FAILED", "failed", level="ERROR",
+                              **fields)
+                raise
         last_exc = None
         for attempt in range(_EMBED_RETRY_ATTEMPTS):
             try:
@@ -1819,6 +1882,15 @@ class MemoryManager:
                 )
                 if attempt < _EMBED_RETRY_ATTEMPTS - 1:
                     await asyncio.sleep(_EMBED_RETRY_BACKOFF * (2 ** attempt))
+        # MCA-17 (embeddings.index): терминал legacy-цикла — после исчерпания
+        # всех попыток/ключей (до raise: KNN→FTS-каскад решает деградацию
+        # ниже; здесь — видимый failed контракта §17).
+        fields = dict(stage="embed_api", attempt=_EMBED_RETRY_ATTEMPTS,
+                      error_json={"type": type(last_exc).__name__})
+        reason = _embed_fail_reason(last_exc)
+        if reason:
+            fields["reason_code"] = reason
+        _emit_mca("EMBED_API_FAILED", "failed", level="ERROR", **fields)
         logger.error(
             "embed failed after %d attempts | error=%s",
             _EMBED_RETRY_ATTEMPTS,
@@ -2273,6 +2345,42 @@ class MemoryManager:
         fire_and_forget(_run(), "running_summary")
 
     async def _build_running_summary(self, chat_id: int, rows: list) -> None:
+        """Обёртка MCA-17 (summary.window): start + терминальный outcome
+        `SUMMARY_WINDOW_BUILD` вокруг сборки (`_build_running_summary_impl`).
+        Fail-open: ошибка эмиссии не влияет на сборку; исключения пробрасываются
+        как раньше (fire_and_forget ловит)."""
+        _t0 = time.perf_counter()
+        _emit_mca("SUMMARY_WINDOW_BUILD", "start",
+                  chat_id=chat_id, stage="build")
+        try:
+            status = await self._build_running_summary_impl(chat_id, rows)
+        except LLMError as exc:
+            _emit_mca("SUMMARY_WINDOW_BUILD", "failed", level="WARN",
+                      chat_id=chat_id, stage="build",
+                      reason_code="model_unavailable",
+                      duration_ms=int((time.perf_counter() - _t0) * 1000),
+                      error_json={"type": type(exc).__name__})
+            raise
+        except Exception as exc:
+            _emit_mca("SUMMARY_WINDOW_BUILD", "failed", level="ERROR",
+                      chat_id=chat_id, stage="build",
+                      duration_ms=int((time.perf_counter() - _t0) * 1000),
+                      error_json={"type": type(exc).__name__})
+            raise
+        outcome, reason = {
+            "success": ("success", None),
+            "skipped_stale": ("skipped", "summary_stale_dropped"),
+            "skipped_empty": ("skipped", "parse_error"),
+            "skipped_no_head": ("skipped", "no_new_contribution"),
+        }.get(str(status), ("success", None))
+        fields = dict(chat_id=chat_id, stage="build",
+                      duration_ms=int((time.perf_counter() - _t0) * 1000))
+        if reason:
+            fields["reason_code"] = reason
+        _emit_mca("SUMMARY_WINDOW_BUILD", outcome, **fields)
+
+    async def _build_running_summary_impl(self, chat_id: int,
+                                          rows: list) -> str:
         """64.6 (T-467): head окна → COMPRESS_PROMPT (канон-сосед R11 — новый
         промпт НЕ вводим); хвост CHAT_RUNNING_SUMMARY_TAIL — ДОСЛОВНО
         tail-блоком в тот же запрос. Результат → UPSERT в chat_running_summary
@@ -2282,7 +2390,10 @@ class MemoryManager:
         Раунд 8 (E2/T-804, spec §3.E2.2): ПРЕДЫДУЩИЙ level-1 читается ДО
         upsert (после перезаписи его уже не достать), а после успешного
         upsert ПРЕДЫДУЩИЙ L1 сжимается в level 2 (wide) отдельной
-        fire-and-forget-задачей _build_level2 — progressive summarization."""
+        fire-and-forget-задачей _build_level2 — progressive summarization.
+        MCA-17: возвращает статус исхода для терминального события
+        `SUMMARY_WINDOW_BUILD` (success / skipped_stale / skipped_empty /
+        skipped_no_head)."""
         # E2: prev-L1 (до перезаписи) — кандидат на сжатие в level 2.
         prev_l1 = None
         try:
@@ -2294,7 +2405,7 @@ class MemoryManager:
         tail = (hot.get("limits.chat_running_summary_tail", settings.CHAT_RUNNING_SUMMARY_TAIL) or 0)
         head, tail_rows = rows[:-tail], rows[-tail:]
         if not head:
-            return                          # нечего сжимать — конспект не нужен
+            return "skipped_no_head"       # нечего сжимать — конспект не нужен
         head_text = _build_batch_text(head, skip_empty=True)
         if len(head_text) > _RUNNING_SUMMARY_HEAD_MAX_CHARS:
             head_text = head_text[-_RUNNING_SUMMARY_HEAD_MAX_CHARS:]
@@ -2309,7 +2420,7 @@ class MemoryManager:
         summary = str(raw or "").strip()
         if not summary:
             logger.warning("running summary: empty result | chat_id=%s", chat_id)
-            return
+            return "skipped_empty"
         now = time.time()
         # MCA-07 D8/A03: CAS — поздний старый запрос НЕ перезаписывает новую
         # версию (written=False). OFF-гейт внутри upsert → всегда True.
@@ -2322,7 +2433,7 @@ class MemoryManager:
                                      chat_id=chat_id)
             logger.info("running summary: stale dropped (CAS) | chat_id=%s",
                         chat_id)
-            return
+            return "skipped_stale"
         logger.info("running summary: built | chat_id=%s | chars=%d",
                     chat_id, len(summary))
         # E2/T-804: ПРЕДЫДУЩИЙ L1 (до перезаписи) — кандидат на сжатие в
@@ -2331,6 +2442,7 @@ class MemoryManager:
         # (prev_l1 is None) L2 не строит — сжимать нечего.
         if prev_l1 is not None:
             fire_and_forget(self._build_level2(chat_id, prev_l1), "level2")
+        return "success"
 
     async def _build_level2(self, chat_id: int, prev_l1_row: dict) -> None:
         """E2/T-804 (spec §3.E2.2): сжатие ПРЕДЫДУЩЕГО level-1 в level 2
@@ -2544,17 +2656,32 @@ class MemoryManager:
         TTL — CHAT_DIRECT_REPLY_TTL_DAYS (пусто/0 → expires_at NULL, вечное).
         Раунд 10.20 (БЛОК 7.3b, ADR-1020-1 ред. 3, T-1924): аддитивные
         `tg_message_id`/`forward_from` — provenance факта (ID-политика `tg:`
-        и «Переслано:»); None/'' → NULL/'' (R16: не выдумываем)."""
+        и «Переслано:»); None/'' → NULL/'' (R16: не выдумываем).
+        MCA-17 (facts.extract): start + терминальный outcome `FACTS_EXTRACT`
+        (success/skipped/failed; гейты — отдельные skipped без start).
+        Fail-open, R17 (только id/числа/коды/счётчики)."""
         if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
+            _emit_mca("FACTS_EXTRACT", "skipped",
+                      chat_id=chat_id, stage="gate", reason_code="disabled")
             return
         if source_type not in _FACT_ORIGINS:
+            _emit_mca("FACTS_EXTRACT", "skipped",
+                      chat_id=chat_id, stage="gate",
+                      reason_code="validation_failed")
             logger.warning("graphrag memorize: unknown source_type=%r — skipped", source_type)
             return
+        _t0 = time.perf_counter()
+        _emit_mca("FACTS_EXTRACT", "start", chat_id=chat_id, stage="extract")
         try:
-            await self._memorize_facts_inner(
+            result = await self._memorize_facts_inner(
                 chat_id, raw_text, source_type, target_user,
                 tg_message_id=tg_message_id, forward_from=forward_from)
         except LLMError as exc:
+            _emit_mca("FACTS_EXTRACT", "failed", level="WARN",
+                      chat_id=chat_id, stage="extract",
+                      reason_code="model_unavailable",
+                      duration_ms=int((time.perf_counter() - _t0) * 1000),
+                      error_json={"type": type(exc).__name__})
             # F8 (ADR-1019-7 D2): первичная LLMError теперь перехватывается
             # ВНУТРИ _memorize_facts_inner (с восстановлением), поэтому здесь —
             # только страховка (unexpected): падение ПОСЛЕ попытки
@@ -2564,11 +2691,30 @@ class MemoryManager:
                 "LLMError) | chat_id=%s | source=%s | error=%s",
                 chat_id, source_type, exc,
             )
-        except Exception:
+            return
+        except Exception as exc:
+            _emit_mca("FACTS_EXTRACT", "failed", level="ERROR",
+                      chat_id=chat_id, stage="extract",
+                      duration_ms=int((time.perf_counter() - _t0) * 1000),
+                      error_json={"type": type(exc).__name__})
             logger.exception(
                 "graphrag memorize: unexpected failure | chat_id=%s | source=%s",
                 chat_id, source_type,
             )
+            return
+        result = dict(result or {})
+        status = str(result.pop("status", "success"))
+        reason = result.pop("reason", None)
+        outcome = "success" if status == "success" else status
+        fields = dict(chat_id=chat_id, stage="extract",
+                      duration_ms=int((time.perf_counter() - _t0) * 1000))
+        if reason:
+            fields["reason_code"] = reason
+        if outcome == "failed":
+            fields["level"] = "WARN"
+        if result:
+            fields["usage_json"] = result      # счётчики saved/skipped/...
+        _emit_mca("FACTS_EXTRACT", outcome, **fields)
 
     async def _extract_facts(self, tail: str) -> str:
         """R47-3/D188 (56.5): bounded-ретраи ПОСЛЕ _post-ретраев. Только LLMError.
@@ -2607,10 +2753,13 @@ class MemoryManager:
     async def _memorize_facts_inner(self, chat_id, raw_text, source_type,
                                     target_user=None, *,
                                     tg_message_id: int | None = None,
-                                    forward_from: str = "") -> None:
+                                    forward_from: str = "") -> dict:
+        """MCA-17: возвращает результат для терминала `FACTS_EXTRACT`:
+        `{"status": "success", saved/skipped/deduped/superseded/text_only}`
+        либо `{"status": "skipped"|"failed", "reason": <reason_code>}`."""
         text = " ".join(str(raw_text).split())
         if not text:
-            return
+            return {"status": "skipped", "reason": "validation_failed"}
         tail = text[-_FACT_EXTRACT_MAX_CHARS:]
         # F8 (ADR-1019-7 D2): `LLMError` первичной экстракции (timeout nano-gpt
         # после исчерпания bounded-ретраев) больше НЕ теряет факты молча —
@@ -2618,10 +2767,12 @@ class MemoryManager:
         raw = None
         status = PARSE_INVALID
         reason = "llm_error"
+        llm_failed = False
         facts: list[dict] = []
         try:
             raw = await self._extract_facts(tail)   # Epic 47 (D188): bounded-повтор
         except LLMError as exc:
+            llm_failed = True
             # Промежуточный сигнал — debug (единый WARNING даёт _log_memorize_lost).
             logger.debug(
                 "graphrag memorize: primary extract LLMError — trying recovery "
@@ -2660,10 +2811,16 @@ class MemoryManager:
                 # F8 (ADR-1019-7 D4): единый rate-limited WARNING на событие.
                 _log_memorize_lost(chat_id, source_type, status, reason, raw)
         if not facts:
+            if llm_failed:
+                # MCA-17: честный терминал — факты потеряны из-за недоступности
+                # модели (не parse_error: ответа не было).
+                return {"status": "failed", "reason": "model_unavailable"}
             if status == PARSE_EMPTY_VALID:
                 # S10.19-1: rate-limited INFO (виден в journald/root=INFO).
                 _log_empty_valid(chat_id, source_type)
-            return
+                return {"status": "skipped",
+                        "reason": "no_new_contribution"}
+            return {"status": "skipped", "reason": "parse_error"}
         # Раунд 8 (C4/T-795, spec §3.C4/Q4): «карта дисплеев» чата — участники
         # за limits.chat_map_participants_hours (тот же C2-запрос, что карта
         # UserResolutionMap). Subject/object факта, совпавшие (casefold) с
@@ -2842,10 +2999,20 @@ class MemoryManager:
                 chat_id, source_type, batch.quota_group or "unknown",
                 batch.state or "-", batch.next_allowed_at or "-",
                 batch.text_only, batch.dedup_skipped)
+            # MCA-17 (embeddings.index): notable WARN как событие — ровно одно
+            # на logical batch (embed_deferred: факты сохранены text-only).
+            _emit_mca("EMBED_API_DEFERRED", "skipped", level="WARN",
+                      chat_id=chat_id, stage="embed_batch",
+                      reason_code="embed_deferred",
+                      usage_json={"facts_text_only": batch.text_only,
+                                  "dedup_vector_skipped": batch.dedup_skipped})
         logger.info(
             "graphrag memorize: saved=%d skipped=%d deduped=%d superseded=%d "
             "| chat_id=%s | source=%s",
             saved, skipped, deduped, superseded, chat_id, source_type)
+        return {"status": "success", "saved": saved, "skipped": skipped,
+                "deduped": deduped, "superseded": superseded,
+                "text_only": batch.text_only}
 
     def _canon_fact_name(self, name: str) -> str:
         """66.9 (T-487): имя → канон-алиас (обратная карта). Без aliases —

@@ -677,6 +677,33 @@ class TestBoundedRevisionLoop:
         assert "Макс сказал" not in result.document["paragraphs"][0]["text"]
 
     @pytest.mark.asyncio
+    async def test_golden_d_repaired_quote_raw_unusable_not_legacy(self):
+        """W1-A: repaired-цитата (история ремонтов в quote_reason_codes) +
+        raw unusable вердикт ревьюера → НЕ Legacy: deterministic proof
+        только от unresolved-блокеров → гейт даунгрейдит, документ
+        выживает (degraded publish)."""
+        document = _doc('Макс сказал: "толщину стенку с длиной перепутала".',
+                        "Тема закрылась.")
+        document["paragraphs"][0]["evidence_message_ids"] = [101]
+        document["paragraphs"][1]["evidence_message_ids"] = [102]
+        result = await run_l2_with_review(
+            None, _package(fragments=[
+                _frag(101, 7001, "Тагир",
+                      "толщину стенку с длиной перепутала")]),
+            correlation_id=RID, chat_id=CHAT,
+            llm_call=WriterStub(document), reviewer_call=StageStub([
+                _verdict("unusable")]),
+            revision_call=StageStub([]))
+        # цитата была отремонтирована deterministic-слоем (usable-документ)
+        assert result.metrics.get("quotes_repaired") == 1
+        assert result.metrics.get("quote_unresolved_blockers") == []
+        assert result.usable is True
+        assert result.invalid_reason is None
+        assert result.metrics.get("l2_legacy_after_review", 0) == 0
+        assert result.metrics.get("l2_unusable_gate_downgrades") == 1
+        assert result.metrics.get("l2_review_degraded") == 1
+
+    @pytest.mark.asyncio
     async def test_call_budget_ceiling_six_calls(self):
         """ADR D3.3: потолок ≤6 логических вызовов L2-стадии. Reviewer
         всегда needs_fixes с УМЕНЬШАЮЩИМСЯ числом blocking (progress ок) →

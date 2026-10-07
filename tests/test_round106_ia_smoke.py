@@ -454,7 +454,11 @@ class TestProviderBlockTestability:
         # MCA-19 (round 10.43, Wave 2/T-5103): vision-блок стал testable
         # (POST /api/vision/test + живая effective-линия); testable:false
         # остаётся только у llm_guard.
-        assert JS.count("testable: false") == 1
+        # ASAP 6 §7: +1 — Developer-подблок эмбеддингов (raw alias-строка
+        # квот) не имеет подключения и кнопки «Проверить» → стало 2.
+        assert JS.count("testable: false") == 2
+        # ASAP 6 §7: guard действует и для ПОДблоков (оба рендера).
+        assert HTML.count('v-if="sb.testable !== false"') == 2
         assert "b.testable !== false" in HTML
 
     def test_image_generation_probe_contract(self):
@@ -546,8 +550,12 @@ class TestScannerR106Fixes:
         # ASAP 4.4 (T-4880): +1 поле (keys.embedding_quota_group_labels
         # в embeddings_main) → 59/52.
         # MCA-19 (10.43, ADR-1028-19 D4): +4 поля vision-блока → 63/56.
-        assert len(keys) == 63          # полей в блоках + subBlocks
-        assert len(set(keys)) == 56     # уникальных ключей
+        # ASAP 6 §7: эмбеддинги — 3 НЕЗАВИСИМЫХ профиля (собственные
+        # base_url/model/quota_group у обеих запасных; легаси-общие поля
+        # ушли из блоков) + Developer-подблок (raw alias-строка) →
+        # 4-1+3+3+1 = 65 полей / 59 уникальных (нет зеркала F1/F2).
+        assert len(keys) == 65          # полей в блоках + subBlocks
+        assert len(set(keys)) == 60     # уникальных ключей
         # generic-фильтр только для llm_providers
         assert "(tab.id === 'llm_providers')" in JS
         # 10.11: subBlocks эмбеддингов покрыты рекурсивным обходом.

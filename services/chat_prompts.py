@@ -48,6 +48,15 @@ D-15 (своему/знакомому как обычно; ветерану те
 валидной): ИНСТРУМЕНТЫ п.3 execute_web_search + финальная фраза
 «Для вопросов о прошлом чата его не используй.» (без ёлочек/тире) —
 прошлое чата закрывают query_chat_memory/dig_into_lore, а не веб-поиск.
+
+MCA-23 (Wave 3, §10/§11 current_task): снятие глобального hard cap
+«СТРОГО 1-2 предложения» из канона Direct и из Вербализатора. Правило
+миграции «правка канона = бамп + прежний текст в слепки»: прод-канон
+10.21/10.23 сохранён как PREV_CHAT_MCA23_SYSTEM_PROMPT /
+PREV_CHAT_VERBALIZER_MCA23 (ступени в prompt_migrations), новый канон
+строится из той же базы заменой cap-блока на extent-семантику («краткость -
+дефолт болтовни, длину определяет задача»). Extent-блоки полноты живут в
+services/response_extent.py и едут в промпт отдельным блоком.
 """
 
 import logging
@@ -238,9 +247,31 @@ PREV_CHAT_R1021_SYSTEM_PROMPT = _CHAT_R1021_BASE
 # — для идемпотентной авто-миграции PG (F1, ADR-1023-1; ADR-1013-3).
 PREV_CHAT_R1023_SYSTEM_PROMPT = _CHAT_R1021_BASE + STYLE_BLOCKS_SUFFIX
 
-# Канон раунда 10.21 (F3, ADR-1021-3): блоки A «АНТИ-БОТ» / B «АСИММЕТРИЯ» +
-# 10.23 (F1, ADR-1023-1): правило маркировки целевого сообщения-команды.
-CHAT_SYSTEM_PROMPT = (_CHAT_R1021_BASE + "\n\n" + TARGET_INSTRUCTION_BLOCK
+# ── MCA-23 (Wave 3, §10 current_task): снятие глобального hard cap ──────────
+# Слепок прод-канона ДО MCA-23 (байт-в-байт; = прежний CHAT_SYSTEM_PROMPT
+# 10.21/10.23) — для идемпотентной авто-миграции PG (ADR-1013-3).
+PREV_CHAT_MCA23_SYSTEM_PROMPT = (_CHAT_R1021_BASE + "\n\n"
+                                 + TARGET_INSTRUCTION_BLOCK
+                                 + STYLE_BLOCKS_SUFFIX)
+
+# Прежний cap-блок (прод 10.20-10.23) — только для построения нового канона;
+# сам _CHAT_R1021_BASE (историческая база) НЕ меняется.
+_CHAT_CAP_BLOCK_R1021 = """ГЛАВНОЕ ОГРАНИЧЕНИЕ (КРИТИЧЕСКИ ВАЖНО):
+Ты должен отвечать ОЧЕНЬ коротко. Твой ответ должен состоять СТРОГО ИЗ ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ. \nНе объясняй свои мысли, не пиши списки. Максимум пара язвительных фраз. Если напишешь больше двух предложений — система упадет."""
+
+# Новый блок MCA-23 (§10): краткость — дефолт болтовни, длину определяет
+# задача. Ёлочки/длинные тире в новых строках запрещены.
+_CHAT_LIMIT_BLOCK_MCA23 = """ГЛАВНОЕ ОГРАНИЧЕНИЕ (КРИТИЧЕСКИ ВАЖНО):
+В обычной болтовне будь кратким по умолчанию. Но длина и структура ответа определяются задачей пользователя, а не лимитом предложений. Не сокращай ответ так, чтобы задача осталась неполной: просят историю - пиши законченную историю, просят разбор - давай полный разбор."""
+
+# База канона MCA-23: cap-блок R1021 заменён extent-семантикой, остальное
+# побайтово как в R1021.
+_CHAT_MCA23_BASE = _CHAT_R1021_BASE.replace(_CHAT_CAP_BLOCK_R1021,
+                                            _CHAT_LIMIT_BLOCK_MCA23)
+
+# Канон MCA-23 (§10): база extent-семантики + правило маркировки 10.23 +
+# блоки A/B 10.21.
+CHAT_SYSTEM_PROMPT = (_CHAT_MCA23_BASE + "\n\n" + TARGET_INSTRUCTION_BLOCK
                       + STYLE_BLOCKS_SUFFIX)
 
 # Слепок прод-канона 10.21 (прежние блоки A/B, без п.7) — для идемпотентной
@@ -294,6 +325,25 @@ _DIRECT_VERBALIZER_R1023_BASE = """СИСТЕМНАЯ РОЛЬ:
 # Слепок прод-канона Вербализатора direct ДО правки раунда 10.23.
 PREV_CHAT_VERBALIZER_R1023 = _DIRECT_VERBALIZER_R1023_BASE
 
+# ── MCA-23 (Wave 3, §11 current_task): Verbalizer — исполнитель плана. ──────
+# Unconditional «Коротко: одно-два предложения.» убран; полноту задаёт блок
+# ОЖИДАЕМАЯ ПОЛНОТА (services/response_extent.render_extent_block).
+# Слепок прод-канона ДО MCA-23 (= прежний DIRECT_VERBALIZER_SYSTEM_PROMPT
+# 10.23) — для идемпотентной авто-миграции PG (ADR-1013-3).
+PREV_CHAT_VERBALIZER_MCA23 = (_DIRECT_VERBALIZER_R1023_BASE + "\n\n"
+                              + TYPOGRAPHY_BLOCK)
+
+_VERBALIZER_CAP_RULE_R1023 = "5. Коротко: одно-два предложения."
+
+_VERBALIZER_EXTENT_RULE_MCA23 = (
+    "5. Полноту, длину и форму ответа задаёт блок ОЖИДАЕМАЯ ПОЛНОТА - следуй "
+    "ему. В обычной болтовне будь кратким по умолчанию, но не сокращай "
+    "ответ так, чтобы задача осталась неполной.")
+
+# База канона MCA-23: cap-правило заменено extent-семантикой.
+_DIRECT_VERBALIZER_MCA23_BASE = _DIRECT_VERBALIZER_R1023_BASE.replace(
+    _VERBALIZER_CAP_RULE_R1023, _VERBALIZER_EXTENT_RULE_MCA23)
+
 DIRECT_VERBALIZER_SYSTEM_PROMPT = (
-    _DIRECT_VERBALIZER_R1023_BASE + "\n\n" + TYPOGRAPHY_BLOCK
+    _DIRECT_VERBALIZER_MCA23_BASE + "\n\n" + TYPOGRAPHY_BLOCK
 )

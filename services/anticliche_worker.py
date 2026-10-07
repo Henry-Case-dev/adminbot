@@ -87,6 +87,39 @@ def _event(name: str, **fields) -> None:
     emit_agentic_event(name, **fields)
 
 
+# ── MCA-17 (группа «Фоновые воркеры сна/памяти»): событие anticliche.run ────
+# Существующий agentic_events-контракт (ANTI_CLICHE_* выше) НЕ затрагивается:
+# здесь только пары start+терминал через единый `emit_mca_event` (mca-13),
+# не более одного терминала на refresh-цикл (без шума по раундам).
+_ANTICLICHE_COMPONENT = "anticliche.run"
+
+# Маппинг статуса `refresh` → (outcome §17.1, reason_code §17.2) — только
+# существующие коды словаря; отсутствующего кода не изобретаем.
+_ANTICLICHE_TERMINAL = {
+    "ok": ("success", None),
+    "empty": ("skipped", "no_new_contribution"),
+    "fresh": ("skipped", "cooldown"),
+    "disabled": ("skipped", "disabled"),
+    "budget_skip": ("skipped", "budget_exceeded"),
+    "fetch_error": ("failed", "provider_unavailable"),
+    "llm_error": ("failed", "model_unavailable"),
+    "parse_error": ("failed", "parse_error"),
+    "write_error": ("failed", None),
+}
+
+
+def _emit(event_name: str, outcome: str, *, level: str = "INFO",
+          **fields) -> None:
+    """Fail-open эмиссия события контракта §17.1 (REUSE `emit_mca_event`,
+    mca-13; паттерн `graphrag_rebuild._emit`). R17: только коды/числа —
+    без фраз/секретов."""
+    try:
+        from services.mca_events import emit_mca_event
+        emit_mca_event(event_name, outcome=outcome, level=level, **fields)
+    except Exception:      # контракт не рвёт поток воркера
+        pass
+
+
 def _normalize_stored(patterns) -> list[dict]:
     """F0.3: уже сохранённые паттерны → нормализованный список (для merge).
 
@@ -443,6 +476,29 @@ class AntiClicheWorker:
 
     async def refresh(self, *, source: str | None = None,
                       force: bool = False) -> dict:
+        """Полный цикл обновления (MCA-17 `anticliche.run`): событие start +
+        ОДИН терминальный outcome на refresh-цикл (не на раунд добора).
+        Существующий agentic_events-контракт (`ANTI_CLICHE_*`) не затронут.
+        R17: только коды/числа. Тело — `_refresh_impl` (без изменений);
+        контракт возврата прежний, метод по-прежнему никогда не бросает."""
+        started = time.monotonic()
+        _emit("anticliche_run", "start", component=_ANTICLICHE_COMPONENT)
+        try:
+            result = await self._refresh_impl(source=source, force=force)
+        except Exception:
+            _emit("anticliche_run", "failed",
+                  component=_ANTICLICHE_COMPONENT,
+                  duration_ms=int((time.monotonic() - started) * 1000))
+            raise
+        outcome, reason = _ANTICLICHE_TERMINAL.get(
+            str((result or {}).get("status") or ""), ("failed", None))
+        _emit("anticliche_run", outcome,
+              component=_ANTICLICHE_COMPONENT, reason_code=reason,
+              duration_ms=int((time.monotonic() - started) * 1000))
+        return result
+
+    async def _refresh_impl(self, *, source: str | None = None,
+                            force: bool = False) -> dict:
         """Полный цикл забора источника → LLM → запись. Никогда не бросает.
 
         F7/ADR-1024-3 D2: при `force=False` и свежем `fetched_at` (младше

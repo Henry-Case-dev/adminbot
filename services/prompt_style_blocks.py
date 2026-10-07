@@ -269,7 +269,8 @@ def compose_verbalizer_system(base_prompt: str, response_mode: str = "",
                               channel: str = _CHANNEL_PLAIN, *,
                               html_safe: bool = False,
                               character_block: str = "",
-                              style_directives: str = "") -> str:
+                              style_directives: str = "",
+                              extent_block: str = "") -> str:
     """Narrator-промпт по режиму и каналу.
 
     Формула (ADR-1023-3 §Decision 4/10): модульный базовый narrator
@@ -287,6 +288,13 @@ def compose_verbalizer_system(base_prompt: str, response_mode: str = "",
     ``<Style_Requests>``-блок (default "" → байт-паритет); идёт после
     ``character_block`` (порядок хвоста: rules → style).
 
+    MCA-23 (§11, Wave 3): ``extent_block`` — опциональный блок полноты из
+    ResponsePlan (services/response_extent.render_extent_block). Непустой
+    блок заменяет собой ``MODE_*_BLOCK`` (план — источник полноты; старые
+    режимы остаются compat-алиасом и больше не задают длину Direct).
+    Default "" → байт-паритет всех прежних потребителей (factcheck/summary
+    продолжают получать mode-блок из PG/канона без изменений).
+
     Fallback-контракт (F6, ADR-1024-10 D3): валидный ``response_mode`` из
     Stage-1 приоритетен — ключ ``prompts.verbilizer_default_mode`` при этом
     **не читается**. ``_resolve_default_mode()`` (значение ключа, код-дефолт
@@ -302,7 +310,11 @@ def compose_verbalizer_system(base_prompt: str, response_mode: str = "",
     if candidate not in MODE_BLOCKS:
         candidate = _resolve_default_mode()
     base = _apply_mode_overrides(str(base_prompt or "").rstrip(), candidate)
-    parts = [base, _resolve_mode_block(candidate)]
+    parts = [base]
+    if str(extent_block or "").strip():
+        parts.append(str(extent_block))
+    else:
+        parts.append(_resolve_mode_block(candidate))
     if candidate == "deep_research":
         parts.append(format_block(channel, html_safe=html_safe))
     if character_block:

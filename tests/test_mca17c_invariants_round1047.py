@@ -86,10 +86,14 @@ def test_coverage_matrix_sync():
         ids.add(p.process_id)
     # 47 уникальных process_id
     assert len(ids) == 47
-    # v0-заготовки — без widget (честная «заготовка», не активный процесс)
+    # v0-заготовки — без widget (честная «заготовка», не активный процесс).
+    # mca-17 (round 1050+): scheduler.reactions — честный v0-аменд
+    # (выделенного due_check-планировщика в коде нет, контур реакций —
+    # синхронный per-message путь; не «будущая фича», а снятая декларация).
     v0 = {p.process_id for p in PROCESS_REGISTRY if p.version == "0"}
     assert v0 == {"context.compress", "context.selective",
-                  "memory.lifecycle", "relations.semantic"}
+                  "memory.lifecycle", "relations.semantic",
+                  "scheduler.reactions"}
     for p in PROCESS_REGISTRY:
         if p.version == "0":
             assert p.widget_id == WIDGET_NONE
@@ -114,7 +118,7 @@ def test_coverage_matrix_sync():
 
 def test_app_version_not_bumped():
     # bump 2.58.65→2.58.66 — домен @DevOps (T-5198), Builder не делает.
-    assert APP_VERSION == "2.58.69"
+    assert APP_VERSION == "2.58.70"
 
 
 def test_routes_plus3_and_registration():

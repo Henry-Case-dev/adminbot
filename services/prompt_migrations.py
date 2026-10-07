@@ -28,11 +28,15 @@ import logging
 
 from services.chat_prompts import (
     CHAT_SYSTEM_PROMPT,
+    DIRECT_VERBALIZER_SYSTEM_PROMPT,
     LEGACY_CHAT_SYSTEM_PROMPT,
+    PREV_CHAT_MCA23_SYSTEM_PROMPT,
     PREV_CHAT_R2020_SYSTEM_PROMPT,
     PREV_CHAT_R1021_SYSTEM_PROMPT,
     PREV_CHAT_R1023_SYSTEM_PROMPT,
     PREV_CHAT_SYSTEM_PROMPT,
+    PREV_CHAT_VERBALIZER_MCA23,
+    PREV_CHAT_VERBALIZER_R1023,
     PREV_R1022_CHAT_SYSTEM_PROMPT,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
@@ -108,6 +112,9 @@ from services.youtube_prompts import (
 logger = logging.getLogger(__name__)
 
 PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
+    # MCA-23 (Wave 3, §10): новая ступень — прод-канон 10.21/10.23 (cap
+    # «1-2 предложения») ведёт на канон MCA23 (extent-семантика). Прежние
+    # 8 ступеней сохранены и указывают на новый канон автоматически.
     "prompts.direct_chat_system_prompt": [
         (LEGACY_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
         (PREV_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
@@ -116,7 +123,14 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         (PREV_CHAT_R2020_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
         (PREV_CHAT_R1021_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
         (PREV_R1022_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
-        (PREV_CHAT_R1023_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)],
+        (PREV_CHAT_R1023_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
+        (PREV_CHAT_MCA23_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)],
+    # MCA-23 (Wave 3, §11): первые ступени ключа Вербализатора direct —
+    # прод-значения 10.23 (база без типографики и полный канон) ведут на
+    # новый канон без unconditional cap-правила.
+    "prompts.direct_chat_verbalizer_system_prompt": [
+        (PREV_CHAT_VERBALIZER_R1023, DIRECT_VERBALIZER_SYSTEM_PROMPT),
+        (PREV_CHAT_VERBALIZER_MCA23, DIRECT_VERBALIZER_SYSTEM_PROMPT)],
     "prompts.summary_system_prompt": [
         (PREV_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
         (PREV_R2020_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
@@ -222,8 +236,15 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
 ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # F1 (10.23, R1023F1-07): откат чата ведёт на непосредственный прежний
     # канон PREV_CHAT_R1023 (снимает только F1, сохраняя блоки A/B 10.21/10.22).
+    # MCA-23 (Wave 3): откат снимает ТОЛЬКО ступень MCA-23 — на
+    # НЕПОСРЕДСТВЕННО прежний прод-канон PREV_CHAT_MCA23 (блоки A/B и
+    # правило маркировки сохранены; стек ступеней цел, ADR-1013-3).
     "prompts.direct_chat_system_prompt":
-        (CHAT_SYSTEM_PROMPT, PREV_CHAT_R1023_SYSTEM_PROMPT),
+        (CHAT_SYSTEM_PROMPT, PREV_CHAT_MCA23_SYSTEM_PROMPT),
+    # MCA-23 (Wave 3, §11): откат Вербализатора direct — на прод-канон
+    # 10.23 (с cap-правилом); ключ в PG не удаляется.
+    "prompts.direct_chat_verbalizer_system_prompt":
+        (DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_MCA23),
     "prompts.summary_system_prompt":
         (SYSTEM_PROMPT, PREV_SUMMARY_SYSTEM_R1028),
     "prompts.checkup_system_prompt":

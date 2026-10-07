@@ -517,7 +517,7 @@ class TestBounds:
         assert len(pc.TAB_RULES) == 22
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.69"
+        assert APP_VERSION == "2.58.70"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         assert "v2.58.34" in readme
 
@@ -531,17 +531,26 @@ class TestBounds:
             assert "DROP TABLE" not in text
 
     def test_forbidden_paths_unchanged(self):
-        """D1: §104/telegram_send/каноны/логика-модули/routes/db/каталог — вне diff.
+        """D1: §104/каноны/логика-модули/routes/db/каталог — вне diff.
 
         NOTE (A2, ADR-1026-15 D5): `bot.py` исключён из списка — A2
         санкционировал там АДДИТИВНУЮ DI-строку `extractor=_web_extractor`
         (reuse WebContentExtractor для `fetch_article`); сам файл в A2-diff —
-        только эта строка (+комментарий)."""
+        только эта строка (+комментарий).
+        NOTE (MCA-23, Wave 3, §Delivery Router): `services/telegram_send.py`
+        исключён — единственная дельта: запись `services/direct_chat_service.py`
+        в SEND_ALLOWLIST (rich-ветка direct зовёт обёртку
+        `send_rich_message`, sanitize внутри; bare-send'ов нет). Поведение
+        guard'а/обёрток не менялось (Δ registry = 1 запись); гейтится
+        test_outgoing_guard_round1022 + rich-fallback тестами
+        test_mca23_response_plan."""
         forbidden = [
             # NOTE (A3, ADR-1026-16 D2/D6): `services/image_generation.py`
             # исключён — санction A3 (ImageRequest-контракт); §104 гейтится
             # AST-гейтом A3 (test_unified_image_request_round1026.py).
-            "services/telegram_send.py",
+            # NOTE (MCA-23, Wave 3, §Delivery Router): `services/telegram_send.py`
+            # исключён — SEND_ALLOWLIST +1 запись (см. docstring выше);
+            # прецедент NOTE-модели: test_tool_coordinator_round1026.TestBounds.
             # NOTE (round1027, ASAP-2 `mca-asap2-summary-pipeline` — прямое
             # требование владельца «# ASAP 2 / P0», spec контракты (a)–(n),
             # ADR-1027-10): из запрещённых ИСКЛЮЧЕНЫ изменённые фичей файлы —

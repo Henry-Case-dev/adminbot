@@ -99,10 +99,23 @@ class TestShellMarkers:
 
 class TestNoCompetingHome:
     def test_no_obzor_screen(self):
-        # «Обзор» как конкурирующая главная запрещён (§4); есть «Аналитика».
-        for forbidden in ("label: 'Обзор'", "label: 'Обор'",
-                          "id: 'overview'"):
-            assert forbidden not in JS, forbidden
+        # NOTE (санкция владельца: current_task.md §13.1:30978-30988, ASAP 6
+        # Wave 2 «разделить внутри существующей Analytics route на локальные
+        # вкладки»): вкладка «Обзор» САНКЦИОНИРОВАНА как суб-вкладка внутри
+        # СУЩЕСТВУЮЩЕГО маршрута #/oversight (oversightTabs; view-механика
+        # mca-17c сохранена, новых маршрутов/страниц нет). Инвариант сужен,
+        # НЕ снят: «Обзор» запрещён как конкурирующая ГЛАВНАЯ — отдельный
+        # top-level экран/маршрут/пункт навигации.
+        # Ровно один «Обзор»-лейбл во всём app-shell — суб-вкладка Аналитики.
+        assert JS.count("label: 'Обзор'") == 1
+        tabs_seg = JS[JS.index("oversightTabs: ["):]
+        tabs_seg = tabs_seg[:tabs_seg.index("mca17cProcesses: null")]
+        assert "{ id: 'overview', label: 'Обзор' }" in tabs_seg
+        # «Обзор» — дефолт суб-вкладки Аналитики; отдельного маршрута нет.
+        assert "oversightTab: 'overview'" in JS
+        assert "'#/overview'" not in JS
+        # «Аналитика» — точка входа диагностики; «Обзор» в top-level nav
+        # по-прежнему отсутствует.
         assert "label: 'Аналитика'" in JS
         assert "'#/oversight'" in JS
         # Статус — стартовая (#/ → status).

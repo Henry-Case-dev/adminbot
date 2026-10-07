@@ -26,16 +26,19 @@ from services.summary_l2_review import (
     MAX_REVISIONS,
     REASON_L2_REVIEW_REJECTED,
     REASON_L2_REVIEW_UNUSABLE,
+    REASON_L2_UNUSABLE_GATE,
     ReviewVerdict,
+    _deterministic_findings_from_metrics,
     _deterministic_unusable_proof,
     _hard_fingerprints,
+    _revalidate_metrics,
     _unusable_gate_accepts,
     finding_class,
     finding_severity,
     parse_review_verdict,
     run_l2_with_review,
 )
-from services.summary_l2_writer import L2Slot
+from services.summary_l2_writer import L2Result, L2Slot
 
 RID = "asap5-run-0001"
 CHAT = -100267
@@ -223,7 +226,9 @@ def test_hard_finding_fingerprint_shape():
 
 def test_gate_units_deterministic_proof_and_independence():
     """(а) ≥2 независимых hard (разные коды И разные targets);
-    (б) deterministic proof (quote_reason_codes). Одна находка/одна
+    (б) deterministic proof — ТОЛЬКО от живых unresolved-блокеров (W1-A):
+    история УСПЕШНЫХ ремонтов (quote_reason_codes /
+    quote_repair_reason_codes) proof'ом НЕ является. Одна находка/одна
     мишень/дублирующийся код — НЕ terminal."""
     # (а) passes: 2 кода × 2 абзаца
     v_ok = ReviewVerdict(status="unusable", findings=(
@@ -244,13 +249,30 @@ def test_gate_units_deterministic_proof_and_independence():
         type("F", (), {"code": "unsupported_number", "paragraph_index": 0,
                        "evidence_refs": (101,), "blocking": True})(),))
     assert _unusable_gate_accepts(v_one, {}) is False
-    # (б) deterministic proof → terminal даже без findings
+    # (б) W1-A: ремонт-история НЕ proof — успешно отремонтированная цитата
+    # не отправляет валидный документ в Legacy.
+    repaired_metrics = {
+        "quote_repair_reason_codes": ["quote_speaker_mismatch",
+                                      "quote_attribution_repaired"],
+        "quote_unresolved_blockers": [],
+        "quote_reason_codes": ["quote_speaker_mismatch",
+                               "quote_attribution_repaired"],
+    }
+    assert _deterministic_unusable_proof(repaired_metrics) is False
+    assert _unusable_gate_accepts(
+        ReviewVerdict(status="unusable", findings=()),
+        repaired_metrics) is False
+    # непустой quote_reason_codes из ремонтов сам по себе — тоже НЕ proof
     assert _deterministic_unusable_proof(
-        {"quote_reason_codes": ["quote_text_not_found"]}) is True
+        {"quote_reason_codes": ["quote_text_not_found",
+                                "quote_attribution_repaired"]}) is False
+    # (б) живой неустранённый блокер → proof (hard safety не ослаблен)
+    assert _deterministic_unusable_proof(
+        {"quote_unresolved_blockers": ["quote_text_not_found"]}) is True
     assert _deterministic_unusable_proof({}) is False
     assert _unusable_gate_accepts(
         ReviewVerdict(status="unusable", findings=()),
-        {"quote_reason_codes": ["quote_speaker_mismatch"]}) is True
+        {"quote_unresolved_blockers": ["quote_speaker_mismatch"]}) is True
     # soft findings не считаются evidence-квотой
     v_soft = ReviewVerdict(status="unusable", findings=(
         type("F", (), {"code": FINDING_CODE_DUPLICATE_EVENT,
@@ -260,6 +282,94 @@ def test_gate_units_deterministic_proof_and_independence():
                        "paragraph_index": 1, "evidence_refs": (102,),
                        "blocking": False})(),))
     assert _unusable_gate_accepts(v_soft, {}) is False
+
+
+@pytest.mark.asyncio
+async def test_repaired_quote_history_not_legacy_on_raw_unusable():
+    """W1-A (RED на старом коде): usable-документ с одной УСПЕШНО
+    отремонтированной цитатой (repair-история попадает в
+    quote_reason_codes) + raw unusable вердикт ревьюера → НЕ Legacy:
+    deterministic proof от ремонт-истории не считается, гейт даунгрейдит
+    до needs_fixes → 0 findings → degraded publish, документ выживает."""
+    doc = _doc('Лёха: "клиентка перепутала трубы".', "Тема закрылась.")
+    res = await _run(doc, [_verdict("unusable")], [])
+    assert res.usable is True
+    assert res.invalid_reason is None
+    # цитата действительно была отремонтирована (история ремонтов не пуста)
+    assert res.metrics.get("quotes_repaired") == 1
+    assert "quote_attribution_repaired" in (
+        res.metrics.get("quote_reason_codes") or [])
+    assert res.metrics.get("quote_unresolved_blockers") == []
+    assert res.metrics.get("l2_legacy_after_review", 0) == 0
+    assert res.metrics.get("l2_unusable_gate_downgrades") == 1
+    assert res.metrics.get("l2_review_degraded") == 1
+    assert res.metrics.get("l2_review_degraded_reason") == \
+        REASON_L2_UNUSABLE_GATE
+
+
+@pytest.mark.asyncio
+async def test_unresolved_blocker_is_deterministic_proof_terminal(monkeypatch):
+    """W1-A (RED на старом коде): живой неустранённый блокер
+    (quote_unresolved_blockers — future-proof: валидатор перестал
+    reject'ить документ с проблемой) → deterministic proof работает:
+    raw unusable → terminal Legacy (hard safety сохранён)."""
+    import services.summary_l2_review as rev
+
+    async def _writer_with_blocker(llm, package, **kwargs):
+        return L2Result(
+            status="ok", document=_doc("Пункт один.", "Пункт два."),
+            invalid_reason=None, usage=None,
+            metrics={"quote_unresolved_blockers": ["quote_text_not_found"]},
+            duration_ms=0.0)
+
+    monkeypatch.setattr(rev, "_writer_call", _writer_with_blocker)
+    res = await _run(_doc("Пункт один.", "Пункт два."),
+                     [_verdict("unusable")], [])
+    assert res.usable is False
+    assert res.invalid_reason == REASON_L2_REVIEW_UNUSABLE
+    assert res.metrics.get("l2_unusable_gate") == 1
+    assert res.metrics.get("l2_legacy_after_review") == 1
+
+
+def test_deterministic_findings_exclude_repair_history():
+    """W1-A: ревьюер НЕ получает историю ремонтов (в т.ч.
+    quote_attribution_repaired, которого нет в FINDING_CODES) как
+    deterministic findings; только живые unresolved-блокеры."""
+    history = _deterministic_findings_from_metrics({
+        "quote_reason_codes": ["quote_speaker_mismatch",
+                               "quote_attribution_repaired"],
+        "quote_repair_reason_codes": ["quote_speaker_mismatch",
+                                      "quote_attribution_repaired"],
+        "quote_unresolved_blockers": [],
+    })
+    assert [f["code"] for f in history] == []
+    blocker = _deterministic_findings_from_metrics({
+        "quote_reason_codes": ["quote_text_not_found",
+                               "quote_attribution_repaired"],
+        "quote_repair_reason_codes": ["quote_text_not_found",
+                                      "quote_attribution_repaired"],
+        "quote_unresolved_blockers": ["quote_text_not_found"],
+    })
+    assert [f["code"] for f in blocker] == ["quote_text_not_found"]
+
+
+def test_revalidate_metrics_failure_keeps_last_known_metrics(monkeypatch):
+    """W1-A: исключение пересчёта НЕ стирает deterministic proof молча —
+    возвращаются последние известные metrics (fallback) + warning."""
+    import services.summary_l2_review as rev
+
+    def _boom(document, package):
+        raise RuntimeError("revalidate boom")
+
+    monkeypatch.setattr(rev, "validate_l2_document", _boom)
+    last = {"quote_unresolved_blockers": ["quote_text_not_found"],
+            "quote_reason_codes": ["quote_text_not_found"]}
+    out = rev._revalidate_metrics({}, {}, anchor_mode=False, anchor_map=None,
+                                  fallback=last)
+    assert out.get("quote_unresolved_blockers") == ["quote_text_not_found"]
+    # без fallback поведение прежнее defensive: пустой dict, не исключение
+    assert rev._revalidate_metrics({}, {}, anchor_mode=False, anchor_map=None,
+                                   fallback=None) == {}
 
 
 @pytest.mark.asyncio

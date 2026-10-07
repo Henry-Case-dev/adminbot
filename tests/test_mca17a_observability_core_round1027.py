@@ -236,7 +236,8 @@ def _scan_real_event_names() -> set:
     from pathlib import Path
     root = Path(__file__).resolve().parent.parent
     files = (list((root / "services").glob("*.py"))
-             + list((root / "handlers").glob("*.py")) + [root / "bot.py"])
+             + list((root / "handlers").glob("*.py"))
+             + list((root / "tools").rglob("*.py")) + [root / "bot.py"])
     real: set = set()
     for path in files:
         text = path.read_text(encoding="utf-8", errors="replace")
@@ -251,9 +252,22 @@ def _scan_real_event_names() -> set:
         for m in re.finditer(
                 r'emit_story_event\(\s*["\']([A-Za-z0-9_]+)["\']', text):
             real.add(m.group(1))
+        # mca-17 (round 1050+): санкционированные обёртки mca-13
+        # (_emit_<domain> → emit_mca_event; прецедент emit_story_event) —
+        # имена литеральные на call-site. Новая обёртка = осознанный
+        # re-pin этого перечня (L-F11S-1).
         for m in re.finditer(
-                r'(?:emit_stage|_emit)\(\s*["\']([A-Za-z0-9_]+)["\']', text):
+                r'(?:emit_stage|_emit(?:_mca|_publish|_ingest|_lifecycle'
+                r'|_import|_goodmorning)?)\(\s*["\']([A-Za-z0-9_]+)["\']',
+                text):
             real.add(m.group(1))
+        # mca-17 (summary.hybrid): pipeline_events.py — единая точка эмиссии
+        # текстовой ветки; имена — литералы EV_*-констант (fail-open _emit →
+        # mca_trace.emit_stage), call-site литералов не содержит.
+        if path.name == "pipeline_events.py":
+            for m in re.finditer(
+                    r'EV_[A-Z0-9_]+\s*=\s*["\']([A-Za-z0-9_]+)["\']', text):
+                real.add(m.group(1))
     real.discard("mca07_")      # динамический литерал-префикс
     return real
 
@@ -292,10 +306,21 @@ def test_registry_real_events_flip_closed_features_to_implemented():
             p, event_names_present=frozenset(events)) \
             == reg.STATUS_IMPLEMENTED, pid
     # неинструментированный процесс не выдаёт себя за implemented
+    # (uptime.heartbeat — осознанный not_instrumented: собственный
+    # durable-журнал uptime_events PG, дублирование в mca_events не нужно)
     assert reg.runtime_status(
-        reg.get_process("ingestion.live"),
+        reg.get_process("uptime.heartbeat"),
         event_names_present=frozenset({"message_revision"})) \
         == reg.STATUS_NOT_INSTRUMENTED
+    # mca-17 (round 1050+): instrumented-процессы флипаются реальным
+    # событием из durable-стора; честный v0-аменд scheduler.reactions
+    # (выделенного due_check-планировщика в коде нет) остаётся not_run
+    assert reg.runtime_status(
+        reg.get_process("ingestion.live"),
+        event_names_present=frozenset({"ingestion_live"})) \
+        == reg.STATUS_IMPLEMENTED
+    assert reg.runtime_status(
+        reg.get_process("scheduler.reactions")) == reg.STATUS_NOT_RUN
 
 
 def test_registry_runtime_status_variants(monkeypatch):

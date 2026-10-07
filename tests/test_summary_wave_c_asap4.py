@@ -491,6 +491,59 @@ class TestQuoteRepair:
         assert stats.as_metrics()["quotes_total"] == 1
         assert stats.as_metrics()["quotes_repaired"] == 1
 
+    def test_metrics_split_repair_history_vs_unresolved_blockers(self):
+        """W1-A: as_metrics разделяет историю УСПЕШНЫХ ремонтов
+        (quote_repair_reason_codes: конкретная причина + repaired-маркер) и
+        текущие неустранённые блокеры (quote_unresolved_blockers — на
+        usable-документе пусто); quote_reason_codes = union обоих
+        (совместимость старых читателей логов/observability)."""
+        package = _pkg(fragments=[_frag(101, 10, "Вася", QUOTE)])
+        _text, stats = process_paragraph_quotes(
+            f'Лёха: "{QUOTE}"', package)
+        m = stats.as_metrics()
+        assert REASON_QUOTE_SPEAKER_MISMATCH in m["quote_repair_reason_codes"]
+        assert REASON_QUOTE_ATTRIBUTION_REPAIRED in \
+            m["quote_repair_reason_codes"]
+        assert m["quote_unresolved_blockers"] == []
+        assert m["quote_reason_codes"] == sorted(
+            set(m["quote_repair_reason_codes"])
+            | set(m["quote_unresolved_blockers"]))
+
+    def test_metrics_unresolved_blockers_on_repair_impossible(
+            self, monkeypatch):
+        """W1-A: repair невозможен (fail-closed путь §54) → причина
+        фиксируется как ЖИВОЙ unresolved-блокер (proof для review) +
+        failure_reason для писателя; в union она тоже видна."""
+        import services.summary_quote_repair as qr
+        package = _pkg(fragments=[_frag(101, 10, "Вася", QUOTE)])
+        monkeypatch.setattr(qr, "_repair_quote_span", lambda t, q: (t, False))
+        monkeypatch.setattr(qr, "_remove_quote_span", lambda t, q: (t, False))
+        _text, stats = qr.process_paragraph_quotes(
+            f'Лёха: "{QUOTE}"', package)
+        # цитата в пуле, имя атрибуции ≠ автор фрагмента → speaker mismatch
+        assert stats.failure_reason == REASON_QUOTE_SPEAKER_MISMATCH
+        assert stats.unresolved_blockers == [REASON_QUOTE_SPEAKER_MISMATCH]
+        m = stats.as_metrics()
+        assert m["quote_unresolved_blockers"] == [REASON_QUOTE_SPEAKER_MISMATCH]
+        assert REASON_QUOTE_SPEAKER_MISMATCH in m["quote_reason_codes"]
+
+    def test_validate_metrics_split_fields_writer_merge(self):
+        """W1-A: валидатор несёт раздельные каналы в metrics: repair-история
+        (+ repaired-маркер), unresolved-блокеры пусты на usable-документе,
+        quote_reason_codes = union (совместимость Decision Trace/логов)."""
+        package = _pkg(fragments=[_frag(101, 10, "Вася", QUOTE)])
+        doc = _doc(paragraphs=[{"text": f'Лёха: "{QUOTE}"',
+                                "emphasis": None}])
+        document, metrics = validate_l2_document(doc, package)
+        assert document is not None
+        assert set(metrics["quote_repair_reason_codes"]) == {
+            REASON_QUOTE_SPEAKER_MISMATCH, REASON_QUOTE_ATTRIBUTION_REPAIRED}
+        assert metrics["quote_unresolved_blockers"] == []
+        # union (писатель сохраняет порядок поступления — сравниваем множества)
+        assert set(metrics["quote_reason_codes"]) == (
+            set(metrics["quote_repair_reason_codes"])
+            | set(metrics["quote_unresolved_blockers"]))
+
     def test_validate_document_with_repairable_quote_ok(self):
         """Интеграция валидатора (ON): один плохой quote в живой статье →
         документ валиден, абзац отремонтирован (§75 — repair до Legacy)."""

@@ -147,7 +147,11 @@ class TestReadSideLayers:
 class TestCharacterRulesInDirect:
     @pytest.mark.asyncio
     async def test_rules_rendered_with_nonempty_persona(self, monkeypatch):
+        from config.settings import Settings
         from services.chat_prompts import CHAT_SYSTEM_PROMPT
+        # MCA-23: байт-паритет этого теста — про MCA-08 слои; план OFF.
+        monkeypatch.setattr(Settings, "DIRECT_RESPONSE_PLAN_ENABLED", False,
+                            raising=False)
         _force_persona_flag(monkeypatch, True)
         _persona_patch(monkeypatch)
         llm = FakeLLM(text="ок")
@@ -160,7 +164,11 @@ class TestCharacterRulesInDirect:
 
     @pytest.mark.asyncio
     async def test_empty_persona_no_rules_parity(self, monkeypatch):
+        from config.settings import Settings
         from services.chat_prompts import CHAT_SYSTEM_PROMPT
+        # MCA-23: байт-паритет этого теста — про MCA-08 слои; план OFF.
+        monkeypatch.setattr(Settings, "DIRECT_RESPONSE_PLAN_ENABLED", False,
+                            raising=False)
         _force_persona_flag(monkeypatch, True)
         _persona_patch(monkeypatch, name="", biography="", overrides="",
                        traits=())
@@ -173,7 +181,11 @@ class TestCharacterRulesInDirect:
 
     @pytest.mark.asyncio
     async def test_k1_off_byte_parity(self, monkeypatch):
+        from config.settings import Settings
         from services.chat_prompts import CHAT_SYSTEM_PROMPT
+        # MCA-23: байт-паритет этого теста — про MCA-08 слои; план OFF.
+        monkeypatch.setattr(Settings, "DIRECT_RESPONSE_PLAN_ENABLED", False,
+                            raising=False)
         _force_persona_flag(monkeypatch, True)
         _persona_patch(monkeypatch)
         _gates(monkeypatch, layers=False, speech=False)
@@ -363,7 +375,11 @@ class TestSpeechInDirectPath:
 
     @pytest.mark.asyncio
     async def test_no_speech_block_on_plain_message(self, monkeypatch):
+        from config.settings import Settings
         from services.chat_prompts import CHAT_SYSTEM_PROMPT
+        # MCA-23: байт-паритет этого теста — про MCA-08 слои; план OFF.
+        monkeypatch.setattr(Settings, "DIRECT_RESPONSE_PLAN_ENABLED", False,
+                            raising=False)
         llm = FakeLLM(text="ок")
         svc = _make_service(llm=llm)
         msg = _message(text="привет, бот", message_id=95)
@@ -372,7 +388,11 @@ class TestSpeechInDirectPath:
 
     @pytest.mark.asyncio
     async def test_k2_off_byte_parity(self, monkeypatch):
+        from config.settings import Settings
         from services.chat_prompts import CHAT_SYSTEM_PROMPT
+        # MCA-23: байт-паритет этого теста — про MCA-08 слои; план OFF.
+        monkeypatch.setattr(Settings, "DIRECT_RESPONSE_PLAN_ENABLED", False,
+                            raising=False)
         _gates(monkeypatch, layers=True, speech=False)
         llm = FakeLLM(text="ок")
         svc = _make_service(llm=llm)

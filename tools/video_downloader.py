@@ -141,7 +141,6 @@ class DownloadError(Exception):
     набор токенов (см. spec §3): invalid_quality, probe_*, direct_*,
     ytdlp_*, cobalt_*, tunnel_http, stream_failed, stream_too_big, busy,
     unknown."""
-
     #: код по умолчанию, если raise-site не передал явный reason
     default_reason = "unknown"
 
@@ -173,6 +172,65 @@ class DownloadUnavailableError(DownloadError):
     live. Понятное русское сообщение пользователю (пул VD_UNAVAILABLE_PHRASES)."""
 
     default_reason = "ytdlp_unavailable"
+
+
+# ── MCA-17 (`media.download`): терминальное событие §17.1 (REUSE mca-13) ────
+# Внутренний reason-токен DownloadError → существующий код словаря §17.2
+# (mca_events.REASON_CODES). Внутренние токены НЕ меняются — маппинг только
+# для эмиссии; отсутствующие в словаре классы фиксируются отчётом MCA-17.
+_DOWNLOAD_REASON_TO_CODE = {
+    "busy": "queue_busy",
+    "probe_timeout": "timeout",
+    "cobalt_timeout": "timeout",
+    "probe_bot_check": "auth_failed",
+    "ytdlp_bot_check": "auth_failed",
+    "invalid_quality": "validation_failed",
+    "cobalt_unsupported": "validation_failed",
+    "destination_blocked": "destination_blocked",
+    "direct_http_4xx": "client_error",
+    "tunnel_http": "client_error",
+    "cobalt_down": "provider_unavailable",
+    "probe_failed": "provider_unavailable",
+    "direct_failed": "provider_unavailable",
+    "ytdlp_failed": "provider_unavailable",
+    "ytdlp_unavailable": "provider_unavailable",
+    "ytdlp_drm": "provider_unavailable",
+    "cobalt_error": "provider_unavailable",
+    "stream_failed": "provider_unavailable",
+    "unknown": "provider_unavailable",
+}
+
+
+def _download_reason_code(reason: str | None) -> str:
+    """Внутренний reason → код словаря §17.2 (только существующие коды)."""
+    key = str(reason or "unknown")
+    if key in _DOWNLOAD_REASON_TO_CODE:
+        return _DOWNLOAD_REASON_TO_CODE[key]
+    if key.endswith("_too_big"):
+        return "too_many_bytes"
+    return "provider_unavailable"
+
+
+def _emit_download(outcome: str, *, level: str = "INFO", exc=None,
+                   reason_code: str | None = None,
+                   duration_ms: int | None = None):
+    """Fail-open терминал скачивания (прецедент graphrag_rebuild._emit).
+
+    R17: только коды/длительность — URL/заголовки/пути файлов не
+    переносятся в событие."""
+    try:
+        from services.mca_events import build_error_metadata, emit_mca_event
+        fields: dict = {}
+        if reason_code is not None:
+            fields["reason_code"] = reason_code
+        if duration_ms is not None:
+            fields["duration_ms"] = duration_ms
+        if exc is not None:
+            fields["error_json"] = build_error_metadata(exc)
+        emit_mca_event("media_download", outcome=outcome, level=level,
+                       component="video_downloader", **fields)
+    except Exception:      # контракт не рвёт скачивание
+        pass
 
 
 @dataclass(frozen=True)
@@ -397,24 +455,61 @@ class VideoDownloader:
         1080 → конкретная высота. Ветвление direct vs платформа — ТОЛЬКО по URL
         (`is_direct_media_url`), без сетевой пробы. 84.23 (D303):
         progress_cb — колбэк прогресса (raw dict yt-dlp/синтетика direct),
-        не влияет на результат и на исключения."""
-        if self._lock.locked():
-            raise DownloadBusyError("another download is running")
-        async with self._lock:
-            self._download_dir.mkdir(parents=True, exist_ok=True)
-            await self._preflight(url)
-            # Прод-хотфикс: прямые медиа-ссылки (mp4/webm/…) — стрим-даунлоад
-            # (quality для direct игнорируется — нормализация НЕ нужна).
-            if is_direct_media_url(url):
-                return await self.download_direct(url, progress_cb=progress_cb)
-            # ADR-1016-1 §2.4/§2.5: качество нормализуется ЗДЕСЬ (до сети) —
-            # «auto»/None/«direct»→«max», «1080p»→«1080»; мусор → ошибка.
-            quality_norm = self._normalize_quality(quality)
-            if hot.get("flags.ytdlp_for_youtube", settings.YTDLP_FOR_YOUTUBE) and is_youtube_url(url):
-                return await self.download_ytdlp(url, quality_norm,
-                                                 progress_cb=progress_cb)
-            tunnel_url, filename = await self._request_tunnel(url, quality_norm)
-            return await self._stream_to_file(tunnel_url, filename)
+        не влияет на результат и на исключения.
+
+        MCA-17 (`media.download`): терминальный emit `media_download` —
+        success / failed (reason из словаря §17.2) / skipped (лок занят) /
+        interrupted (отмена). Fail-open; R17: URL не переносится."""
+        started = time.monotonic()
+        try:
+            if self._lock.locked():
+                raise DownloadBusyError("another download is running")
+            async with self._lock:
+                self._download_dir.mkdir(parents=True, exist_ok=True)
+                await self._preflight(url)
+                # Прод-хотфикс: прямые медиа-ссылки (mp4/webm/…) — стрим-даунлоад
+                # (quality для direct игнорируется — нормализация НЕ нужна).
+                if is_direct_media_url(url):
+                    result_path = await self.download_direct(
+                        url, progress_cb=progress_cb)
+                else:
+                    # ADR-1016-1 §2.4/§2.5: качество нормализуется ЗДЕСЬ (до
+                    # сети) — «auto»/None/«direct»→«max», «1080p»→«1080»;
+                    # мусор → ошибка.
+                    quality_norm = self._normalize_quality(quality)
+                    if hot.get("flags.ytdlp_for_youtube",
+                               settings.YTDLP_FOR_YOUTUBE) and is_youtube_url(url):
+                        result_path = await self.download_ytdlp(
+                            url, quality_norm, progress_cb=progress_cb)
+                    else:
+                        tunnel_url, filename = await self._request_tunnel(
+                            url, quality_norm)
+                        result_path = await self._stream_to_file(
+                            tunnel_url, filename)
+            # MCA-17: терминал успеха (вне лока; fail-open).
+            _emit_download("success",
+                           duration_ms=int((time.monotonic() - started) * 1000))
+            return result_path
+        except asyncio.CancelledError:
+            _emit_download("interrupted",
+                           duration_ms=int((time.monotonic() - started) * 1000))
+            raise
+        except DownloadBusyError:
+            _emit_download("skipped", reason_code="queue_busy",
+                           duration_ms=int((time.monotonic() - started) * 1000))
+            raise
+        except DownloadError as exc:
+            _emit_download("failed", level="WARN",
+                           reason_code=_download_reason_code(exc.reason),
+                           exc=exc,
+                           duration_ms=int((time.monotonic() - started) * 1000))
+            raise
+        except Exception as exc:
+            # Вне семейства DownloadError — дефект/неожиданный сбой: честный
+            # failed без reason-кода (только класс ошибки в error_json).
+            _emit_download("failed", level="WARN", exc=exc,
+                           duration_ms=int((time.monotonic() - started) * 1000))
+            raise
 
     async def download_direct(self, url: str,
                               progress_cb: Callable[[dict], None] | None = None) -> Path:

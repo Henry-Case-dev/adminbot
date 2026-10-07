@@ -30,6 +30,21 @@ _BACKUP_PREFIX = "local_database_"
 _EXPORT_PREFIX = "facts_"
 
 
+def _emit_backup(outcome: str, *, level: str = "INFO",
+                 exc: BaseException | None = None, **fields):
+    """MCA-17 (`backup.memory`): терминал ежедневного job (REUSE mca-13,
+    fail-open, прецедент graphrag_rebuild._emit). R17: только счётчики/
+    коды — имена копий/пути не переносятся в событие."""
+    try:
+        from services.mca_events import build_error_metadata, emit_mca_event
+        if exc is not None:
+            fields["error_json"] = build_error_metadata(exc)
+        emit_mca_event("memory_backup", outcome=outcome, level=level,
+                       component="memory_backup", **fields)
+    except Exception:      # контракт не рвёт бэкап
+        pass
+
+
 class MemoryBackupService:
     """Daily VACUUM INTO-бэкап + построчный текстовый экспорт фактов."""
 
@@ -78,18 +93,24 @@ class MemoryBackupService:
     async def _tick(self) -> None:
         try:
             await self.backup_and_export()
-        except Exception:
+        except Exception as exc:
             logger.warning("memory_backup: daily job failed", exc_info=True)
+            # MCA-17 (`backup.memory`): терминал прерванного job.
+            _emit_backup("failed", level="WARN", exc=exc)
 
     async def backup_and_export(self) -> None:
         """64.3: VACUUM INTO-копия + facts_*.txt; ленивый скип на пустой
-        памяти; ротация KEEP."""
+        памяти; ротация KEEP. MCA-17: один терминальный emit на прогон —
+        success / skipped (пустая память / каталог) / failed."""
         cursor = await self._db.db.execute(
             "SELECT (SELECT COUNT(*) FROM graph_facts) + "
             "(SELECT COUNT(*) FROM smart_archive_facts)")
         row = await cursor.fetchone()
         if not row or not row[0]:
             logger.info("memory_backup: memory empty — backup/export skipped")
+            # MCA-17: честный skip (входа нет; reason-кода «пустой вход»
+            # в словаре §17.2 нет — зафиксировано отчётом MCA-17).
+            _emit_backup("skipped")
             return
         directory = Path(hot.get("reactions.memory_backup_dir", settings.MEMORY_BACKUP_DIR))
         try:
@@ -97,11 +118,14 @@ class MemoryBackupService:
         except OSError as exc:
             logger.warning("memory_backup: cannot create %s (%s) — skipped",
                            directory, exc)
+            _emit_backup("failed", level="WARN", exc=exc)
             return
         stamp = datetime.datetime.now().strftime("%Y%m%d")
         await self._backup_db(directory, stamp)
         await self._export_facts(directory, stamp)
         self._rotate(directory)
+        # MCA-17: терминал успешного прогона (после _rotate).
+        _emit_backup("success")
 
     async def _backup_db(self, directory: Path, stamp: str) -> None:
         target = directory / f"{_BACKUP_PREFIX}{stamp}.db"

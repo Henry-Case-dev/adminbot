@@ -111,7 +111,14 @@ class TestEmbeddingsAndVideo:
         assert "id: 'embeddings_main'" in JS
         assert "id: 'embeddings_fallback1'" in JS
         assert "id: 'embeddings_fallback2'" in JS
-        assert "Адрес и модель общие с «Фоллбэк 1»" in JS
+        # ASAP 6 §7: скрытое зеркало убрано — F2 больше НЕ рендерится через
+        # легаси-общие поля F1; честное наследование подписью
+        # blockEffectiveNote, raw alias-строка квот — в Developer-подблоке.
+        assert "Адрес и модель общие" not in JS
+        assert "models.embedding_fallback1_base_url" in JS
+        assert "models.embedding_fallback2_model" in JS
+        assert "blockEffectiveNote" in JS
+        assert "id: 'embeddings_developer'" in JS
         assert "b.subBlocks" in HTML
         # generic-фильтр рекурсивно покрывает подблоки.
         assert "b.subBlocks || []" in JS

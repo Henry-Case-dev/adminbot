@@ -44,7 +44,9 @@ Attribution НЕ ослабляется (§54): неподтверждённая
 публикуется никогда — если repair невозможен, документ fail-closed.
 
 Метрики (safe, без текстов цитат): ``quotes_total / verified / repaired /
-removed / failure_reason``.
+removed / failure_reason``; W1-A: ``quote_repair_reason_codes`` (история
+успешных ремонтов) и ``quote_unresolved_blockers`` (живые неустранённые
+причины) раздельны; ``quote_reason_codes`` — union для совместимости.
 
 Kill-switch ``SUMMARY_QUOTE_REPAIR_ENABLED`` (env, default ON): OFF →
 прежняя validator-матрица §50.20 бит-в-бит (баг живёт — осознанный
@@ -128,16 +130,29 @@ class QuoteStats:
     verified: int = 0
     repaired: int = 0
     removed: int = 0
+    # История УСПЕШНЫХ ремонтов: конкретная причина + repaired-маркер (W1-A).
     reason_codes: list = dataclasses.field(default_factory=list)
+    # Текущие неустранённые причины (W1-A): на usable-документе пусто;
+    # заполняется только когда repair невозможен (future-proof: если
+    # валидатор перестанет reject'ить документ с живой проблемой, review
+    # всё равно увидит proof).
+    unresolved_blockers: list = dataclasses.field(default_factory=list)
     failure_reason: str | None = None
 
     def as_metrics(self) -> dict:
+        repair_codes = sorted(set(self.reason_codes))
+        blockers = sorted(set(self.unresolved_blockers))
         return {
             "quotes_total": self.quotes_total,
             "quotes_verified": self.verified,
             "quotes_repaired": self.repaired,
             "quotes_removed": self.removed,
-            "quote_reason_codes": sorted(set(self.reason_codes)),
+            # W1-A: история ремонтов ≠ живые блокеры; union сохранён для
+            # совместимости старых читателей (Decision Trace, исторические
+            # runs).
+            "quote_repair_reason_codes": repair_codes,
+            "quote_unresolved_blockers": blockers,
+            "quote_reason_codes": sorted(set(repair_codes) | set(blockers)),
             "quote_failure_reason": self.failure_reason,
         }
 
@@ -342,6 +357,9 @@ def process_paragraph_quotes(text: str, package) -> tuple[str, QuoteStats]:
             if not ok or not repaired_text.strip():
                 # Repair невозможен → неподтверждённая прямая речь не
                 # публикуется (§54): fail-closed с конкретной причиной.
+                # W1-A: причина — ЖИВОЙ unresolved-блокер (review-proof,
+                # если writer-reject когда-нибудь уберут), не ремонт-история.
+                stats.unresolved_blockers.append(reason)
                 stats.failure_reason = reason
                 return working, stats
             if removed:

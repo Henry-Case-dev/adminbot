@@ -1156,12 +1156,19 @@
                                    :value="blockFieldValue(f)"
                                    @input="blockDrafts[f.key] = $event.target.value"
                                    :disabled="!canEditConfig(f.key)">
+                            <!-- ASAP 6 §7: пояснение квота-групп + честная
+                                 effective-подпись наследования (пустое поле). -->
+                            <div v-if="f.hint && !f.secret"
+                                 class="text-[10px] text-gray-500 mt-0.5">{{ f.hint }}</div>
+                            <div v-if="blockEffectiveNote(f)"
+                                 class="text-[10px] text-violet-300/80 mt-0.5"
+                                 data-effective-note>{{ blockEffectiveNote(f) }}</div>
                           </div>
                         </div>
                         <div class="flex items-center gap-2 flex-wrap">
                           <button class="btn-ghost text-xs" :disabled="blockSaving[sb.id]"
                                   @click="saveBlock(sb)">{{ blockSaving[sb.id] ? 'Сохранение…' : 'Сохранить' }}</button>
-                          <button class="btn-accent prov-test-btn text-xs"
+                          <button v-if="sb.testable !== false" class="btn-accent prov-test-btn text-xs"
                                   :disabled="blockTesting[sb.id]"
                                   @click="testBlock(sb)">Проверить</button>
                           <span v-if="blockResults[sb.id]" class="prov-test-status text-xs"
@@ -1480,6 +1487,13 @@
                                  :value="blockFieldValue(f)"
                                  @input="blockDrafts[f.key] = $event.target.value"
                                  :disabled="!canEditConfig(f.key)">
+                          <!-- ASAP 6 §7: пояснение квота-групп + честная
+                               effective-подпись наследования (пустое поле). -->
+                          <div v-if="f.hint && !f.secret"
+                               class="text-[10px] text-gray-500 mt-0.5">{{ f.hint }}</div>
+                          <div v-if="blockEffectiveNote(f)"
+                               class="text-[10px] text-violet-300/80 mt-0.5"
+                               data-effective-note>{{ blockEffectiveNote(f) }}</div>
                         </div>
                       </div>
                       <div class="flex items-center gap-2 flex-wrap">
@@ -1487,7 +1501,7 @@
                                 :disabled="blockSaving[sb.id]" @click="saveBlock(sb)">
                           {{ blockSaving[sb.id] ? 'Сохранение…' : 'Сохранить' }}
                         </button>
-                        <button class="btn-accent prov-test-btn text-xs"
+                        <button v-if="sb.testable !== false" class="btn-accent prov-test-btn text-xs"
                                 :disabled="blockTesting[sb.id]" @click="testBlock(sb)">
                           {{ blockTesting[sb.id] ? 'Проверка…' : 'Проверить' }}
                         </button>
@@ -2678,9 +2692,12 @@
                       <textarea class="field scroll-thin" :rows="item.type === 'json' ? 4 : 6"
                                 v-model="item.value"></textarea>
                     </template>
-                    <template v-else-if="item.category === 'keys' || item.secret">
-                      <!-- F9 (ADR-1025-22 D4): единый компонент секрет-поля.
-                           Маска — display-индикатор, поле ввода всегда пустое. -->
+                    <template v-else-if="item.secret">
+                      <!-- P0 round1028 (таксономия секретов): ветка ТОЛЬКО по
+                           item.secret (spec.secret). Группа keys_random:
+                           secret-поле ровно одно (ANU-ключ); остальные 8
+                           параметров — обычные редактируемые поля (else-
+                           ветки ниже). Категория keys ≠ секрет. -->
                       <secret-field
                         :title="item.title" :tech-key="item.key"
                         :description="item.description"
@@ -2824,8 +2841,11 @@
                         <textarea class="field scroll-thin" :rows="item.type === 'json' ? 4 : 6"
                                   v-model="item.value"></textarea>
                       </div>
-                      <div v-else-if="item.category === 'keys' || item.secret">
-                        <!-- F9 (ADR-1025-22 D4): единый компонент секрет-поля. -->
+                      <div v-else-if="item.secret">
+                        <!-- F9 (ADR-1025-22 D4): единый компонент секрет-поля.
+                             P0 round1028: условие только item.secret — не-
+                             секретные параметры keys_random (endpoint/plan/
+                             batch/…) проваливаются в обычные ветки ниже. -->
                         <secret-field
                           :title="item.title" :tech-key="item.key"
                           :description="item.description"
@@ -3086,9 +3106,10 @@
                             <list-editor :item="item" :can-edit="canEditConfig(item.key)"
                                    v-bind="listEditorProps(item)"></list-editor>
                           </template>
-                          <template v-else-if="item.category === 'keys' || item.secret">
+                          <template v-else-if="item.secret">
                             <!-- F9 (ADR-1025-22 D4): единый компонент секрет-поля;
-                                 маска — display-индикатор, не значение input. -->
+                                 маска — display-индикатор, не значение input.
+                                 P0 round1028: только item.secret (не категория). -->
                             <secret-field
                               :title="item.title" :tech-key="item.key"
                               :description="item.description"
@@ -3301,13 +3322,32 @@
             </div>
           </template>
           <template v-else-if="activeTab === 'oversight'">
+              <!-- ═══ ASAP 6 Wave 2 UX: суб-вкладки внутри существующего
+                   #/oversight (новых маршрутов/страниц НЕТ; view-механика
+                   mca-17c сохранена — табы лишь решают, какие секции видно).
+                   Desktop: горизонтальные табы; mobile: горизонтальный
+                   скролл (.oversight-tabs). Разделение секций — по
+                   visual-preservation-map. ═══ -->
+              <div class="card glass-panel p-2 col-span-full oversight-tabs"
+                   data-glass="a" data-oversight-tabs>
+                <div class="oversight-tabs__row" role="tablist"
+                     aria-label="Разделы аналитики">
+                  <button v-for="t in oversightTabs" :key="'ot' + t.id"
+                          type="button" role="tab"
+                          class="oversight-tab"
+                          :class="{ 'is-active': oversightTab === t.id }"
+                          :aria-selected="oversightTab === t.id ? 'true' : 'false'"
+                          @click="oversightSetTab(t.id)">{{ t.label }}</button>
+                </div>
+              </div>
               <!-- ═══ Сводка (F-12 C1/C2) — только global admin ═══ -->
               <!-- ASAP-3.1 (T-4076, §104/§88): секция «Модели и автобюджеты» —
                    human-first карточки (формула не первая, детали — под
                    «Подробнее»); fail-open (§73): ошибка блока — русская
                    подпись, остальная страница живёт. -->
+              <!-- Wave 2: блок переехал на суб-вкладку «Модели и расходы». -->
               <div class="card glass-panel p-4 col-span-full" data-glass="a"
-                   v-if="uiFlag('ANALYTICS_CONTEXT_BUDGETS_ENABLED')"
+                   v-if="oversightTab === 'models' && uiFlag('ANALYTICS_CONTEXT_BUDGETS_ENABLED')"
                    data-testid="autobudget-block">
                 <div class="flex items-center gap-2 flex-wrap mb-2">
                   <div class="text-sm font-bold">Модели и автобюджеты</div>
@@ -3359,7 +3399,25 @@
                   Саммари · полнота источника: {{ summaryCoverageLabel() }}
                 </div>
               </div>
-            <div class="card glass-panel p-4 col-span-full" data-glass="a">
+            <!-- Wave 2: шапка «Аналитики» (поиск/сортировка/бюджет фона)
+                 — на суб-вкладке «Обзор» (таблица чатов там же). -->
+            <div class="card glass-panel p-4 col-span-full" data-glass="a"
+                 v-if="oversightTab === 'overview'">
+              <!-- ═══ Wave 2: сводка-«здоровье» Обзора — только
+                   существующие данные; отсутствующее число — честное «—».
+                   Каждый показатель: название/значение/период. ═══ -->
+              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2"
+                   data-oversight-health>
+                <div class="text-xs font-bold mb-1">Здоровье сейчас</div>
+                <div class="flex flex-wrap gap-2 text-xs">
+                  <span v-for="row in overviewHealthStrip()" :key="'ohs' + row.label"
+                        class="badge" :class="row.cls"
+                        :title="row.label + ' (' + row.period + ')'">
+                    {{ row.label }}: {{ row.value }}
+                    <span class="text-gray-500 font-normal">· {{ row.period }}</span>
+                  </span>
+                </div>
+              </div>
               <div class="flex items-center gap-2 flex-wrap mb-2">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('radar') }}</span> Аналитика</div>
                 <span class="text-xs text-gray-500">сводка всех чатов (кэш 60 с)</span>
@@ -3403,8 +3461,10 @@
                    компактный индикатор инцидентов на СУЩЕСТВУЮЩЕЙ витрине
                    (REUSE viewer, без новых панелей/маршрутов/endpoint).
                    Группа без продюсера — честно «неизвестно», не 0. -->
+              <!-- Wave 2: сводный индикатор наблюдаемости — на «Обзоре». -->
               <div class="mb-3 rounded-lg border border-white/10 px-3 py-2"
-                   id="mca-metrics-block" v-if="oversightData && oversightData.mca_metrics">
+                   id="mca-metrics-block"
+                   v-if="oversightTab === 'overview' && oversightData && oversightData.mca_metrics">
                 <div class="flex items-center gap-2 flex-wrap mb-1">
                   <div class="text-xs font-bold">Наблюдаемость (mca)</div>
                   <!-- F3/SC-13: при недоступной телеметрии — честный
@@ -3430,14 +3490,18 @@
                   нет данных: {{ (oversightData.mca_metrics.unknown || []).join(', ') || '—' }}
                 </div>
               </div>
+              </div><!-- /Wave 2: шапка «Обзора» (поиск/бюджет фона/здоровье) -->
               <!-- MCA-20 (round 10.44, ADR-1028-20 D14/T-5143): «Временной
                    фактчек» — виджет в СУЩЕСТВУЮЩЕЙ «Аналитике» (новых
                    разделов/маршрутов нет; экран уже global-admin-only).
                    Список runs — компакт (без claim-текста, R17); детали —
                    по клику: timeline дат, «почему выбрана дата», evidence,
                    trace стадий, версии. -->
-              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2"
-                   id="temporal-factcheck-block">
+              <!-- Wave 2: «Временной фактчек» — суб-вкладка
+                   «Память и интеллект» (перенос по visual-preservation-map). -->
+              <div class="card p-4 col-span-full mb-3"
+                   id="temporal-factcheck-block"
+                   v-if="oversightTab === 'memory'">
                 <div class="flex items-center gap-2 flex-wrap mb-1">
                   <div class="text-xs font-bold">Временной фактчек</div>
                   <span class="text-xs text-gray-500">проверки во времени ·
@@ -3487,8 +3551,12 @@
                    существующего #/oversight (новых маршрутов/страниц нет;
                    REUSE read-API mca-17a/13/16/18/19/20; честные состояния
                    §27.3/4/5/7; deep links переживают F5 — A54). -->
-              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2"
-                   data-mca17c="root">
+              <!-- Wave 2: блок mca-17c — на суб-вкладках «Процессы» /
+                   «Запуски» / «Инциденты» (внутренние кнопки представлений
+                   сохранены; deep-link `?view=` работает как раньше). -->
+              <div class="card p-4 col-span-full"
+                   data-mca17c="root"
+                   v-if="oversightTab === 'processes' || oversightTab === 'runs' || oversightTab === 'incidents'">
                 <div class="flex items-center gap-2 flex-wrap mb-1">
                   <div class="text-xs font-bold">Наблюдаемость процессов</div>
                   <div class="ml-auto flex gap-1 flex-wrap" role="tablist">
@@ -3935,7 +4003,10 @@
                    меняется (tma-menu-freeze). Источник — /api/analytics/*.
                    Гейт uiFlag('TOKEN_FLOW_NODEFLOW_ENABLED'): OFF (v-else) —
                    прежние плоские бейджи 10.23 байт-в-байт. -->
-              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2">
+              <!-- Wave 2: «Аналитика токенов» — суб-вкладка
+                   «Модели и расходы» (перенос по visual-preservation-map). -->
+              <div class="card p-4 col-span-full mb-3"
+                   v-if="oversightTab === 'models'">
                 <!-- F6 (ADR-1025-19 D2/§26): два НЕСМЕШИВАЕМЫХ режима.
                      «Последний вызов» ← /usage/latest (трассировка);
                      День/Неделя/Месяц ← /usage/summary (агрегат). -->
@@ -4125,8 +4196,10 @@
                    developer details collapsible (§76). Источник —
                    /api/analytics/pipeline/* (structured state, §61.12:
                    human-логи НЕ читаются). -->
-              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2"
-                   id="pipeline-inspector-block" v-if="isGlobalAdmin">
+              <!-- Wave 2: Run Inspector — суб-вкладка «Саммари». -->
+              <div class="card p-4 col-span-full mb-3"
+                   id="pipeline-inspector-block"
+                   v-if="oversightTab === 'summary' && isGlobalAdmin">
                 <div class="flex items-center gap-2 flex-wrap mb-2">
                   <div class="text-xs font-bold">Пайплайн саммари</div>
                   <span class="text-xs text-gray-500">Run Inspector</span>
@@ -4400,8 +4473,10 @@
                    /api/memory/embeddings): provider/группы/состояние,
                    Векторная память per-index (статус по-русски, пауза/
                    кулдаун/прогресс). Только алиасы — БЕЗ ключей (§63). -->
-              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2"
-                   id="embeddings-inspector-block" v-if="isGlobalAdmin">
+              <!-- Wave 2: Embeddings — суб-вкладка «Память и интеллект». -->
+              <div class="card p-4 col-span-full mb-3"
+                   id="embeddings-inspector-block"
+                   v-if="oversightTab === 'memory' && isGlobalAdmin">
                 <div class="flex items-center gap-2 flex-wrap mb-2">
                   <div class="text-xs font-bold">Embeddings и векторная память</div>
                   <span class="text-xs text-gray-500">только алиасы, без ключей</span>
@@ -4433,7 +4508,7 @@
                     </div>
                   </div>
                   <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 text-xs"
-                       v-for="ix in embeddingsPanel.vector_memory.indexes || []"
+                       v-for="ix in embeddingsIndexes"
                        :key="ix.index">
                     <div class="font-bold">{{ ix.index }} — {{ ix.status_ru }}</div>
                     <div class="text-gray-400">
@@ -4447,11 +4522,11 @@
                       <template v-if="ix.source_empty"> · источник пуст (knn_source_empty — stable terminal)</template>
                     </div>
                   </div>
-                  <div v-if="!(embeddingsPanel.vector_memory.indexes || []).length"
+                  <div v-if="!embeddingsIndexes.length"
                        class="text-xs text-gray-500">Индексы ещё не строились.</div>
                   <div class="text-xs text-gray-400"
-                       v-if="embeddingsPanel.vector_memory.lease">
-                    Rebuild активен: {{ embeddingsPanel.vector_memory.lease.holder_index || embeddingsPanel.vector_memory.lease.job_id }}
+                       v-if="(embeddingsPanel.vector_memory || {}).lease">
+                    Rebuild активен: {{ (embeddingsPanel.vector_memory.lease || {}).holder_index || (embeddingsPanel.vector_memory.lease || {}).job_id }}
                   </div>
                 </template>
                 <div v-else class="text-xs text-gray-500">Панель недоступна.</div>
@@ -4460,7 +4535,10 @@
                    процессов, прогресс-бары бюджета/лимитов, метрики БД и
                    компактный Timeline. Источник — cognition/status, stats,
                    timeline + /api/status.context + workers/budget. -->
-              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2">
+              <!-- Wave 2: «Интеллект и Память» — суб-вкладка
+                   «Память и интеллект». -->
+              <div class="card p-4 col-span-full mb-3"
+                   v-if="oversightTab === 'memory'">
                 <div class="flex items-center gap-2 flex-wrap mb-2">
                   <div class="text-xs font-bold">Интеллект и Память</div>
                   <span class="text-xs text-gray-500">пульс · лимиты · Timeline</span>
@@ -4548,7 +4626,9 @@
                    последнего пересмотра характера, статус экстрактора
                    самосознания. Источник — GET /api/persona/health; fail-open
                    (нет данных → «—»). -->
-              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2">
+              <!-- Wave 2: «Личность» — суб-вкладка «Память и интеллект». -->
+              <div class="card p-4 col-span-full mb-3"
+                   v-if="oversightTab === 'memory'">
                 <div class="flex items-center gap-2 flex-wrap mb-1">
                   <div class="text-xs font-bold">Личность</div>
                   <span class="text-xs text-gray-500">черты · пересмотр · экстрактор</span>
@@ -4568,6 +4648,10 @@
                    конкретный чат → только его участники. CSS-анимация без
                    сторонних библиотек (CSP). Реактивность — один запрос на
                    смену чата (см. setActiveChat/setTab('oversight')). -->
+              <!-- Wave 2: «Живая лента досье» + таблица чатов — суб-вкладка
+                   «Обзор» (п.11/п.12 visual-preservation-map). -->
+              <div class="card glass-panel p-4 col-span-full" data-glass="a"
+                   v-if="oversightTab === 'overview'">
               <div class="mb-3 rounded-lg border border-white/10 px-3 py-2 dossier-ticker-wrap">
                 <div class="flex items-center gap-2 flex-wrap mb-1">
                   <div class="text-xs font-bold">Живая лента досье</div>
@@ -4581,7 +4665,10 @@
                 <div v-else-if="!dossierFeedLoop.length" class="text-xs text-gray-500">
                   Пока нечего показать — в графе памяти нет подтверждённых фактов.
                 </div>
-                <template v-if="uiFlag('DOSSIER_LIVE_FEED_ENABLED')">
+                <!-- Wave 2 UX (Visual Neighborhood Sweep): пустая лента не
+                     резервирует высокую зону тикера — empty-state вместо
+                     пустого трека. Флаг-ветки сохранены для непустой ленты. -->
+                <template v-else-if="uiFlag('DOSSIER_LIVE_FEED_ENABLED')">
                   <!-- F4 (10.24, ADR-1024-8 D1/D4): вертикальная лента
                        «снизу вверх»; строка с user_id — кнопка (клик/Enter/
                        Space → openFeedDossier: контекст чата + модалка
@@ -4709,6 +4796,158 @@
                    class="text-xs text-red-300 mt-2">
                 Внимание: {{ oversightData.errors.length }} источник(ов) ошибок —
                 данные частичные.
+              </div>
+              </div><!-- /Wave 2: карточка «Обзора» (лента досье + чаты) -->
+
+              <!-- ═══ Wave 2: «История доступности ключей» — переехала со
+                   «Статуса» в «Аналитику» → вкладка «Модели и расходы»
+                   (REDESIGN по visual-preservation-map; функционал таблицы
+                   и графика сохранён целиком). ═══ -->
+              <div class="card p-4 col-span-full keys-avail"
+                   v-if="oversightTab === 'models' && isGlobalAdmin"
+                   data-key-history>
+                <div class="flex items-center gap-2 mb-2 flex-wrap">
+                  <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('key') }}</span> История доступности ключей</div>
+                  <span class="text-xs text-gray-500">проверки провайдеров по времени</span>
+                  <button class="btn-ghost text-xs ml-auto"
+                          @click="loadKeyHistory()">⟳ Обновить</button>
+                </div>
+                <div v-if="!keyHistory || !(keyHistory.providers || []).length"
+                     class="text-gray-500 text-sm">
+                  История появится после нескольких проверок.
+                </div>
+                <template v-else>
+                  <table class="avail-list">
+                    <thead><tr>
+                      <th>Модуль</th><th>Провайдер</th><th>Модель</th>
+                      <th>Код</th><th>Статус</th>
+                    </tr></thead>
+                    <tbody>
+                      <tr v-for="p in keyHistory.providers" :key="p.module_id">
+                        <td :title="p.module_title || p.module_id">{{ p.module_title || p.module_id }}</td>
+                        <td :title="p.provider">{{ p.provider }}</td>
+                        <td class="mono" :title="p.model || '—'">{{ p.model || '—' }}</td>
+                        <td class="mono avail-code"
+                            :class="availabilityClass(latestSample(p))">
+                          {{ availabilityCode(latestSample(p)) }}
+                        </td>
+                        <td>
+                          <span class="avail-dot"
+                                :class="availabilityClass(latestSample(p))"></span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div class="keys-chart mt-3" :style="{ height: keyHistoryChartHeight + 'px' }">
+                    <canvas ref="keyHistoryCanvas" height="80"></canvas>
+                  </div>
+                </template>
+              </div>
+
+              <!-- ═══ FIX-logs-anchor (поправка владельца): «Логи» — НЕ
+                   отдельный режим, а ФИЗИЧЕСКИЙ блок внизу «Аналитики»:
+                   после таб-контейнера, ВНЕ v-if-гвардов вкладок, всегда
+                   в DOM при любой активной вкладке. Viewer, level-select,
+                   чип «Саммари», trace-фильтры, копирование, счётчики —
+                   как до Wave 2. Вкладка «Логи» в таб-баре и карточка
+                   «Логи → Аналитика» на «Статусе» — якоря/шорткаты: они
+                   скроллят к этому блоку (scrollToLogs) + короткая
+                   вспышка контура (.status-logs--flash). ═══ -->
+              <div class="card p-4 status-logs col-span-full" id="status-logs"
+                   data-glass="c"
+                   :class="{ 'status-logs--flash': logsAnchorFlash }">
+                <div class="flex items-center gap-2 flex-wrap mb-2">
+                  <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('receipt_long') }}</span> Логи</div>
+                  <select class="field w-32 shrink-0" v-model="logLevel" aria-label="Уровень логов">
+                    <option v-for="lvl in ['ERROR+WARNING','ERROR','WARNING','INFO','DEBUG','CRITICAL','ALL']" :key="lvl" :value="lvl">{{ lvl }}</option>
+                  </select>
+                  <!-- S7 (ADR-1026-9 D4, §110): клиентский чип «Саммари» —
+                       существующий viewer, без нового endpoint; раскрытие и
+                       копирование строк сохраняются. -->
+                  <button class="btn-ghost log-chip text-xs shrink-0"
+                          :class="{ active: logSummaryOnly }"
+                          :aria-pressed="logSummaryOnly ? 'true' : 'false'"
+                          title="Показать только события Саммари (run_id, этапы, ошибки)"
+                          @click="toggleLogSummary()">Саммари</button>
+                  <button class="btn-ghost text-sm shrink-0" @click="loadLogs()">Обновить</button>
+                  <span class="text-xs text-gray-500 min-w-0 truncate">показано {{ shownLogs.length }} из {{ logsCount }}</span>
+                  <button class="btn-ghost text-xs ml-auto shrink-0" @click="copyAllLogs()">Копировать всё</button>
+                </div>
+                <div class="text-xs mb-2">
+                  <span class="badge badge-err mr-1">ERROR {{ errorLogs.length }}</span>
+                  <span class="badge badge-warn">WARN {{ warnLogs.length }}</span>
+                </div>
+                <!-- mca-17a (10.27, carry-over §94.5/SC-14): аддитивные фильтры
+                     связанных событий trace в СУЩЕСТВУЮЩЕМ viewer; без новых
+                     панелей/маршрутов/endpoint. Пустой результат — empty state. -->
+                <div class="flex items-center gap-2 flex-wrap mb-2" id="mca-log-filters">
+                  <input class="field w-40" v-model="mcaLogFilter.trace_id"
+                         placeholder="trace_id / run_id" aria-label="Фильтр trace_id">
+                  <input class="field w-28" v-model="mcaLogFilter.chat_id"
+                         placeholder="chat_id" aria-label="Фильтр chat_id">
+                  <input class="field w-32" v-model="mcaLogFilter.component"
+                         placeholder="component" aria-label="Фильтр component">
+                  <input class="field w-32" v-model="mcaLogFilter.reason_code"
+                         placeholder="reason_code" aria-label="Фильтр reason_code">
+                  <button class="btn-ghost text-xs shrink-0"
+                          @click="loadRelatedEvents()">Связанные события</button>
+                  <button class="btn-ghost text-xs shrink-0"
+                          v-if="mcaEvents.length || mcaLogFilter.trace_id || mcaLogFilter.chat_id || mcaLogFilter.component || mcaLogFilter.reason_code"
+                          @click="clearMcaLogFilter()">Сброс</button>
+                </div>
+                <div v-if="mcaEvents.length" class="mb-2" id="mca-related-events">
+                  <div class="text-xs text-gray-500 mb-1">Связанные события: {{ mcaEvents.length }}</div>
+                  <div class="log-code">
+                    <div v-for="(ev, i) in mcaEvents" :key="'me' + i"
+                         class="log-row border-b border-white/5 py-1 text-xs">
+                      <span class="badge" :class="levelBadge(ev.level)">{{ ev.level }}</span>
+                      <span class="text-gray-300 ml-1">{{ ev.event_name }}</span>
+                      <span class="text-gray-500 ml-1">{{ ev.stage || '' }}</span>
+                      <span class="text-gray-500 ml-1">{{ ev.status || '' }}</span>
+                      <span class="text-gray-500 ml-1">{{ ev.trace_id || ev.pipeline_run_id || '' }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div v-else-if="mcaLogFilter.trace_id || mcaLogFilter.pipeline_run_id"
+                     class="text-xs text-gray-500 mb-2">Связанных событий нет.</div>
+                <!-- Раунд 10 (F-8 T-871), 10.8 (§3.2): блочная раскладка логов
+                     (div вместо <pre><span>) — на Android WebView строка тянется
+                     на ширину карточки. Toggle — Material-иконка (только при
+                     exc_text; иначе spacer). Клик = копировать; автоскролл к
+                     ВЕРХУ (сервер отдаёт новые сверху). -->
+                <div class="log-panel scroll-thin" ref="logPanel">
+                  <div v-if="logsLoading" class="spinner my-4"></div>
+                  <div v-else-if="shownLogs.length === 0" class="text-gray-500 text-sm py-2">Логов нет.</div>
+                  <div v-else class="log-code">
+                    <template v-for="(log, i) in shownLogs">
+                      <div :key="i" class="log-row border-b border-white/5 py-1.5 cursor-pointer"
+                           title="Клик — копировать строку"
+                           :class="{ 'log-copied': copiedIndex === i }"
+                           @click="copyLogRow(log, i)">
+                        <div class="log-head">
+                          <button v-if="log.exc_text" class="log-toggle shrink-0"
+                                  :title="log.expanded ? 'Свернуть стек' : 'Развернуть стек'"
+                                  :aria-expanded="log.expanded ? 'true' : 'false'"
+                                  aria-label="Развернуть или свернуть стек"
+                                  @click.stop="log.expanded = !log.expanded">
+                            <span class="msr" aria-hidden="true">{{ iconGlyph(log.expanded ? 'expand_more' : 'chevron_right') }}</span>
+                          </button>
+                          <span v-else class="log-toggle-spacer" aria-hidden="true"></span>
+                          <span class="log-level">
+                            <span class="badge" :class="levelBadge(log.level)">{{ log.level }}</span>
+                          </span>
+                          <span class="log-ts" :title="fmtLogTs(log.ts)">{{ fmtLogTime(log.ts) }}</span>
+                          <span class="log-logger text-gray-400">{{ log.logger }}</span>
+                        </div>
+                        <div class="log-msg text-gray-200">
+                          <span v-if="logSummaryOnly && summaryErrorLabel(log)"
+                                class="badge badge-err mr-1">{{ summaryErrorLabel(log) }}</span>{{ log.message }}
+                        </div>
+                        <div v-if="log.expanded && log.exc_text" class="log-exc">{{ log.exc_text }}</div>
+                      </div>
+                    </template>
+                  </div>
+                </div>
               </div>
             </div>
           </template>
@@ -5716,6 +5955,13 @@
                   <div v-if="statusData.bot.errors_total > 0" class="text-red-300">
                     ⚠ Ошибок с момента старта: {{ statusData.bot.errors_total }}
                   </div>
+                  <!-- Wave 2 UX: деградации — не приборная панель, а одна
+                       строка-переход (данные из существующих /api/status.llm
+                       и /api/oversight mca_metrics; нет данных → строки нет). -->
+                  <div v-if="statusProblemsCount" class="text-amber-300">
+                    <a class="underline hover:text-amber-200"
+                       href="#/oversight?tab=overview">Проблемы: {{ statusProblemsCount }} · Открыть в Аналитике →</a>
+                  </div>
                 </div>
                 <div class="flex gap-2 pt-3">
                   <button v-if="hasPerm('action.control.restart')" class="btn-ghost text-sm"
@@ -6264,8 +6510,12 @@
               </div>
               <template v-else>
                 <!-- Прогресс архивной обработки и последнее состояние (D5):
-                     read-рендер существующих процессов episodes.build/backfill. -->
-                <div class="flex flex-wrap gap-2 text-xs mb-2" data-stories-progress>
+                     read-рендер существующих процессов episodes.build/backfill.
+                     Fail-open (прецедент P0-guard storiesSummary.counters):
+                     частичный ответ без progress → честная подпись, не падение
+                     рендера всей витрины. -->
+                <div class="flex flex-wrap gap-2 text-xs mb-2" data-stories-progress
+                     v-if="storiesSummary.progress">
                   <span class="badge badge-muted">
                     Обработка (episodes.build):
                     {{ storiesSummary.progress.episodes_build.state === 'not_run'
@@ -6281,8 +6531,11 @@
                        : storiesSummary.progress.episodes_backfill.state
                          + (storiesSummary.progress.episodes_backfill.active ? ' · выполняется' : '') }}
                   </span>
-                  <span v-if="storiesSummary.counters.contradictions_window"
+                  <span v-if="storiesSummary.counters && storiesSummary.counters.contradictions_window"
                         class="badge badge-warn">противоречий за окно: {{ storiesSummary.counters.contradictions_window }}</span>
+                </div>
+                <div v-else class="text-xs text-gray-500 mb-2">
+                  Состояние процессов обработки пока неизвестно.
                 </div>
                 <!-- Живая вертикальная лента (A26: prepend без сброса scroll;
                      стабильный :key — открытая карточка не дёргается). -->
@@ -6352,33 +6605,29 @@
             <!-- LLM: ОДИН блок «Доступность ключей», 4 группы функций
                  (10.9/п.7.1). Провайдер/модель — реальные (host), без
                  хардкода имён; Health — реальный probe (timeout/502).
-                 F11 (§11/§12): карточка сохранена (12 кол.). -->
-            <div class="card p-4 sg-12">
+                 F11 (§11/§12): карточка сохранена (12 кол.).
+                 Wave 2 UX (REDESIGN по visual-preservation-map): вместо
+                 provider-dump — компактный strip из 3 строк-бейджей
+                 (Основная LLM / Embeddings / Quantum), статус ●/▲/■ + текст;
+                 полная история — в «Аналитике» → «Модели и расходы». -->
+            <div class="card p-4 sg-12" data-key-strip>
               <div class="flex items-center gap-2 mb-2 flex-wrap">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('key') }}</span> Доступность ключей</div>
                 <button class="btn-ghost text-xs ml-auto" @click="loadStatus()">⟳</button>
               </div>
               <div v-if="!statusData" class="spinner my-3"></div>
-              <div v-else-if="!llmGroups.length" class="text-xs text-gray-500">Данные провайдеров недоступны.</div>
-              <div v-else class="space-y-3">
-                <div v-for="g in llmGroups" :key="g.id">
-                  <div class="text-xs font-bold text-violet-300 uppercase tracking-wide mb-1">{{ g.title }}</div>
-                  <div v-for="card in g.cards" :key="card.module_id" class="llm-row">
-                    <div class="min-w-0">
-                      <div class="text-sm font-semibold truncate">{{ card.display_name || card.module_title }}</div>
-                      <div class="text-xs text-gray-400 truncate">{{ card.provider }} · {{ card.model }}</div>
-                    </div>
-                    <div class="text-xs">
-                      <span v-if="card.key.configured" class="badge badge-ok">configured<span v-if="card.key.last4"> ••••{{ card.key.last4 }}</span></span>
-                      <span v-else class="badge badge-muted">не настроен</span>
-                    </div>
-                    <div class="text-xs text-gray-400">{{ card.last_latency_ms != null ? Math.round(card.last_latency_ms) + ' мс' : '—' }}</div>
-                    <div class="text-xs">
-                      <span class="badge" :class="healthBadge(card.health)">{{ healthLabel(card.health) }}</span>
-                      <span v-if="card.health.http_status" class="text-gray-400 ml-1">HTTP {{ card.health.http_status }}</span>
-                    </div>
-                  </div>
+              <div v-else class="space-y-2" data-key-strip-rows>
+                <div v-for="row in statusKeyStripRows()" :key="'ksr' + row.label"
+                     class="flex items-center gap-2 flex-wrap text-sm">
+                  <span class="text-xs text-gray-400 w-28 shrink-0">{{ row.label }}</span>
+                  <span class="badge" :class="row.cls">
+                    <span aria-hidden="true" class="mr-1">{{ row.glyph }}</span>{{ row.text }}
+                  </span>
                 </div>
+              </div>
+              <div class="mt-3">
+                <a class="text-xs underline text-violet-300"
+                   href="#/oversight?tab=models">Подробнее в Аналитике →</a>
               </div>
             </div>
 
@@ -6387,7 +6636,11 @@
                  (нового виджета/маршрута нет). Данные — аддитивное поле
                  `random` из GET /api/status; открытие/повтор НЕ делают
                  QRNG/LLM-вызовов (A35). При фактическом PRNG quantum-статус
-                 НЕ показывается — честная подпись + точный блокер. -->
+                 НЕ показывается — честная подпись + точный блокер.
+                 Wave 2 UX (REDESIGN по visual-preservation-map): компактный
+                 бейдж (выбран/фактически + запас); техно-детали
+                 (fingerprint/quota/watermark/решения/применения) — в
+                 раскрывающемся <details>, функционал сохранён. -->
             <div class="card p-4 sg-12" data-random-source>
               <div class="flex items-center gap-2 mb-2 flex-wrap">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('bolt') }}</span> Источник случайности</div>
@@ -6398,6 +6651,7 @@
                 <span v-if="randomSource.ready && randomSource.enabled"
                       class="text-xs text-gray-500">
                   выбран: {{ randomSource.selected || '—' }} · фактически: {{ randomSource.effective || '—' }}
+                  · запас: {{ randomSource.reserve == null ? '—' : randomSource.reserve }}/{{ randomSource.bufferMax || '—' }}
                 </span>
               </div>
               <div v-if="!randomSource.ready" class="spinner my-2"></div>
@@ -6405,7 +6659,11 @@
                 Источник случайности выключен — новых записей, запросов и событий нет.
               </div>
               <template v-else>
-                <div class="text-sm space-y-1">
+                <!-- Wave 2: техно-детали спрятаны в <details>, но доступны
+                     (честность > скрытие); ленты решений/применений живут тут же. -->
+                <details class="mt-1 text-xs" data-random-details>
+                  <summary class="cursor-pointer select-none text-gray-400">Технические детали</summary>
+                <div class="text-sm space-y-1 mt-2">
                   <div>
                     Состояние: <b>{{ randomSource.stateLabel }}</b>
                     <span v-if="randomSource.blockerLabel" class="text-amber-300">
@@ -6539,6 +6797,7 @@
                     выбор ≠ отправленный ответ; отклонённый кандидат отправленным не показывается.
                   </div>
                 </div>
+                </details><!-- /Wave 2: техно-детали случайности -->
               </template>
             </div>
 
@@ -6590,142 +6849,25 @@
               </template>
             </div>
 
-            <!-- Доступность ключей API (B1/OD8, T-1128/T-1129): плотный
-                 список + график по времени + легенда. Данные — leak-safe
-                 GET /api/status/key-history (allowlist, R17). -->
-            <div class="card p-4 keys-avail sg-12" data-glass="c">
-              <div class="flex items-center gap-2 mb-2 flex-wrap">
-                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('key') }}</span> История доступности ключей</div>
-                <button class="btn-ghost text-xs ml-auto"
-                        @click="loadKeyHistory()">⟳ Обновить</button>
-              </div>
-              <div v-if="!keyHistory || !(keyHistory.providers || []).length"
-                   class="text-gray-500 text-sm">
-                История появится после нескольких проверок.
-              </div>
-              <template v-else>
-                <table class="avail-list">
-                  <thead><tr>
-                    <th>Модуль</th><th>Провайдер</th><th>Модель</th>
-                    <th>Код</th><th>Статус</th>
-                  </tr></thead>
-                  <tbody>
-                    <tr v-for="p in keyHistory.providers" :key="p.module_id">
-                      <td :title="p.module_title || p.module_id">{{ p.module_title || p.module_id }}</td>
-                      <td :title="p.provider">{{ p.provider }}</td>
-                      <td class="mono" :title="p.model || '—'">{{ p.model || '—' }}</td>
-                      <td class="mono avail-code"
-                          :class="availabilityClass(latestSample(p))">
-                        {{ availabilityCode(latestSample(p)) }}
-                      </td>
-                      <td>
-                        <span class="avail-dot"
-                              :class="availabilityClass(latestSample(p))"></span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-                <div class="keys-chart mt-3" :style="{ height: keyHistoryChartHeight + 'px' }">
-                  <canvas ref="keyHistoryCanvas" height="80"></canvas>
-                </div>
-              </template>
-            </div>
+            <!-- Wave 2 UX: «История доступности ключей» переехала со
+                 «Статуса» в «Аналитику» → вкладка «Модели и расходы»
+                 (REDESIGN по visual-preservation-map). На «Статусе» —
+                 компактный strip «Доступность ключей» + deep-link. -->
 
-            <!-- Логи -->
-            <!-- F11 (§12/§20, ADR-1025-23 D1/D5): строка 6 — вся ширина;
-                 viewer/столбцы/фильтры/копирование НЕ переписываются. -->
-            <div class="card p-4 status-logs sg-12" id="status-logs" data-glass="c">
-              <div class="flex items-center gap-2 flex-wrap mb-2">
+            <!-- Wave 2 UX: «Логи» переехали в «Аналитику» → вкладка «Логи»
+                 (REDESIGN по visual-preservation-map; viewer/level-select/
+                 чип «Саммари» сохранены байт-в-байт). Здесь — компактная
+                 карточка-переход. -->
+            <div class="card p-4 sg-12" data-glass="c" id="status-logs-link">
+              <div class="flex items-center gap-2 flex-wrap">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('receipt_long') }}</span> Логи</div>
-                <select class="field w-32 shrink-0" v-model="logLevel" aria-label="Уровень логов">
-                  <option v-for="lvl in ['ERROR+WARNING','ERROR','WARNING','INFO','DEBUG','CRITICAL','ALL']" :key="lvl" :value="lvl">{{ lvl }}</option>
-                </select>
-                <!-- S7 (ADR-1026-9 D4, §110): клиентский чип «Саммари» —
-                     существующий viewer, без нового endpoint; раскрытие и
-                     копирование строк сохраняются. -->
-                <button class="btn-ghost log-chip text-xs shrink-0"
-                        :class="{ active: logSummaryOnly }"
-                        :aria-pressed="logSummaryOnly ? 'true' : 'false'"
-                        title="Показать только события Саммари (run_id, этапы, ошибки)"
-                        @click="toggleLogSummary()">Саммари</button>
-                <button class="btn-ghost text-sm shrink-0" @click="loadLogs()">Обновить</button>
-                <span class="text-xs text-gray-500 min-w-0 truncate">показано {{ shownLogs.length }} из {{ logsCount }}</span>
-                <button class="btn-ghost text-xs ml-auto shrink-0" @click="copyAllLogs()">Копировать всё</button>
+                <span class="text-xs text-gray-500">полный просмотр — в «Аналитике»</span>
+                <button type="button" class="btn-ghost text-xs ml-auto"
+                        @click="scrollToLogs()">Логи → Аналитика</button>
               </div>
-              <div class="text-xs mb-2">
-                <span class="badge badge-err mr-1">ERROR {{ errorLogs.length }}</span>
-                <span class="badge badge-warn">WARN {{ warnLogs.length }}</span>
-              </div>
-              <!-- mca-17a (10.27, carry-over §94.5/SC-14): аддитивные фильтры
-                   связанных событий trace в СУЩЕСТВУЮЩЕМ viewer; без новых
-                   панелей/маршрутов/endpoint. Пустой результат — empty state. -->
-              <div class="flex items-center gap-2 flex-wrap mb-2" id="mca-log-filters">
-                <input class="field w-40" v-model="mcaLogFilter.trace_id"
-                       placeholder="trace_id / run_id" aria-label="Фильтр trace_id">
-                <input class="field w-28" v-model="mcaLogFilter.chat_id"
-                       placeholder="chat_id" aria-label="Фильтр chat_id">
-                <input class="field w-32" v-model="mcaLogFilter.component"
-                       placeholder="component" aria-label="Фильтр component">
-                <input class="field w-32" v-model="mcaLogFilter.reason_code"
-                       placeholder="reason_code" aria-label="Фильтр reason_code">
-                <button class="btn-ghost text-xs shrink-0"
-                        @click="loadRelatedEvents()">Связанные события</button>
-                <button class="btn-ghost text-xs shrink-0"
-                        v-if="mcaEvents.length || mcaLogFilter.trace_id || mcaLogFilter.chat_id || mcaLogFilter.component || mcaLogFilter.reason_code"
-                        @click="clearMcaLogFilter()">Сброс</button>
-              </div>
-              <div v-if="mcaEvents.length" class="mb-2" id="mca-related-events">
-                <div class="text-xs text-gray-500 mb-1">Связанные события: {{ mcaEvents.length }}</div>
-                <div class="log-code">
-                  <div v-for="(ev, i) in mcaEvents" :key="'me' + i"
-                       class="log-row border-b border-white/5 py-1 text-xs">
-                    <span class="badge" :class="levelBadge(ev.level)">{{ ev.level }}</span>
-                    <span class="text-gray-300 ml-1">{{ ev.event_name }}</span>
-                    <span class="text-gray-500 ml-1">{{ ev.stage || '' }}</span>
-                    <span class="text-gray-500 ml-1">{{ ev.status || '' }}</span>
-                    <span class="text-gray-500 ml-1">{{ ev.trace_id || ev.pipeline_run_id || '' }}</span>
-                  </div>
-                </div>
-              </div>
-              <div v-else-if="mcaLogFilter.trace_id || mcaLogFilter.pipeline_run_id"
-                   class="text-xs text-gray-500 mb-2">Связанных событий нет.</div>
-              <!-- Раунд 10 (F-8 T-871), 10.8 (§3.2): блочная раскладка логов
-                   (div вместо <pre><span>) — на Android WebView строка тянется
-                   на ширину карточки. Toggle — Material-иконка (только при
-                   exc_text; иначе spacer). Клик = копировать; автоскролл к
-                   ВЕРХУ (сервер отдаёт новые сверху). -->
-              <div class="log-panel scroll-thin" ref="logPanel">
-                <div v-if="logsLoading" class="spinner my-4"></div>
-                <div v-else-if="shownLogs.length === 0" class="text-gray-500 text-sm py-2">Логов нет.</div>
-                <div v-else class="log-code">
-                  <template v-for="(log, i) in shownLogs">
-                    <div :key="i" class="log-row border-b border-white/5 py-1.5 cursor-pointer"
-                         title="Клик — копировать строку"
-                         :class="{ 'log-copied': copiedIndex === i }"
-                         @click="copyLogRow(log, i)">
-                      <div class="log-head">
-                        <button v-if="log.exc_text" class="log-toggle shrink-0"
-                                :title="log.expanded ? 'Свернуть стек' : 'Развернуть стек'"
-                                :aria-expanded="log.expanded ? 'true' : 'false'"
-                                aria-label="Развернуть или свернуть стек"
-                                @click.stop="log.expanded = !log.expanded">
-                          <span class="msr" aria-hidden="true">{{ iconGlyph(log.expanded ? 'expand_more' : 'chevron_right') }}</span>
-                        </button>
-                        <span v-else class="log-toggle-spacer" aria-hidden="true"></span>
-                        <span class="log-level">
-                          <span class="badge" :class="levelBadge(log.level)">{{ log.level }}</span>
-                        </span>
-                        <span class="log-ts" :title="fmtLogTs(log.ts)">{{ fmtLogTime(log.ts) }}</span>
-                        <span class="log-logger text-gray-400">{{ log.logger }}</span>
-                      </div>
-                      <div class="log-msg text-gray-200">
-                        <span v-if="logSummaryOnly && summaryErrorLabel(log)"
-                              class="badge badge-err mr-1">{{ summaryErrorLabel(log) }}</span>{{ log.message }}
-                      </div>
-                      <div v-if="log.expanded && log.exc_text" class="log-exc">{{ log.exc_text }}</div>
-                    </div>
-                  </template>
-                </div>
+              <div class="text-xs mt-2">
+                <span class="badge badge-err mr-1">Ошибки: {{ logErrorCount == null ? '—' : logErrorCount }}</span>
+                <span class="badge badge-warn">Предупреждения: {{ logWarnCount == null ? '—' : logWarnCount }}</span>
               </div>
             </div>
             </div><!-- /F11 §12 .status-grid -->

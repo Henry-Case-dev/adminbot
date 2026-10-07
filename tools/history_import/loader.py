@@ -41,6 +41,24 @@ from services.message_identity import message_content_hash
 logger = logging.getLogger(__name__)
 
 _BUSY_TIMEOUT_MS = 5000
+
+
+def _emit_import(event_name: str, outcome: str, *, level: str = "INFO",
+                 exc: BaseException | None = None, stage: str | None = None,
+                 **fields):
+    """MCA-17 (`ingestion.import`): fail-open эмиссия (REUSE mca-13).
+
+    CLI-инструмент: телеметрия не рвёт импорт (прецедент
+    graphrag_rebuild._emit). R17: только счётчики/коды/длительность —
+    пути файлов/тексты сообщений не переносятся."""
+    try:
+        from services.mca_events import build_error_metadata, emit_mca_event
+        if exc is not None:
+            fields["error_json"] = build_error_metadata(exc, stage=stage)
+        emit_mca_event(event_name, outcome=outcome, level=level,
+                       component="history_import", **fields)
+    except Exception:      # контракт не рвёт импорт
+        pass
 # Legacy-namespace существующих (backfill v16) импортных строк: сохраняем для
 # совместимости; НОВЫЕ импорты получают per-dataset namespace (см. ниже).
 _LEGACY_IMPORT_NAMESPACE = "legacy_import_v1"
@@ -205,44 +223,55 @@ async def _flush_batch(conn, fr: FileResult, buffer: list[dict],
     reply_to_kind; OFF — точный legacy-INSERT (паритет baseline)."""
     identity_on = mca_gates.message_identity_enabled()
     now = int(time.time())
-    for msg in buffer:
-        if identity_on:
-            namespace = msg.get("namespace") or _LEGACY_IMPORT_NAMESPACE
-            content_hash = msg.get("content_hash")
-            if content_hash is None and (msg["text"] or msg.get("caption")):
-                content_hash = message_content_hash(msg["text"],
-                                                    msg.get("caption"))
-            row = (msg["user_id"], msg["chat_id"], msg["text"],
-                   msg["reply_to_id"], msg["timestamp"], msg["media_type"],
-                   msg["author_name"], msg["is_forward"],
-                   msg["forward_source"], msg["import_key"],
-                   msg.get("caption"), msg.get("sent_at"), now,
-                   msg.get("sent_at_source"), msg.get("source_kind") or "import",
-                   namespace, msg.get("source_record_id"), content_hash,
-                   msg.get("reply_to_kind"))
-            cursor = await conn.execute(_INSERT_SQL_IDENTITY, row)
-        else:
-            row = (msg["user_id"], msg["chat_id"], msg["text"],
-                   msg["reply_to_id"], msg["timestamp"], msg["media_type"],
-                   msg["author_name"], msg["is_forward"],
-                   msg["forward_source"], msg["import_key"])
-            cursor = await conn.execute(_INSERT_SQL, row)
-        if cursor.rowcount == 1:
-            fr.inserted += 1
-            if msg["text"]:
-                await conn.execute(_FTS_INSERT_SQL, (cursor.lastrowid,
-                                                     msg["text"]))
-            if identity_on and msg.get("source_record_id"):
-                ns = msg.get("namespace") or _LEGACY_IMPORT_NAMESPACE
-                await conn.execute(
-                    _SOURCE_RECORD_SQL,
-                    (cursor.lastrowid, ns, msg["source_record_id"],
-                     chat_id, now))
-        else:
-            fr.duplicates += 1
-    await checkpoints.mark(conn, path, chat_id, fr.read, est_total or fr.read,
-                           done=False)
-    await conn.commit()
+    try:
+        for msg in buffer:
+            if identity_on:
+                namespace = msg.get("namespace") or _LEGACY_IMPORT_NAMESPACE
+                content_hash = msg.get("content_hash")
+                if content_hash is None and (msg["text"] or msg.get("caption")):
+                    content_hash = message_content_hash(msg["text"],
+                                                        msg.get("caption"))
+                row = (msg["user_id"], msg["chat_id"], msg["text"],
+                       msg["reply_to_id"], msg["timestamp"], msg["media_type"],
+                       msg["author_name"], msg["is_forward"],
+                       msg["forward_source"], msg["import_key"],
+                       msg.get("caption"), msg.get("sent_at"), now,
+                       msg.get("sent_at_source"),
+                       msg.get("source_kind") or "import",
+                       namespace, msg.get("source_record_id"), content_hash,
+                       msg.get("reply_to_kind"))
+                cursor = await conn.execute(_INSERT_SQL_IDENTITY, row)
+            else:
+                row = (msg["user_id"], msg["chat_id"], msg["text"],
+                       msg["reply_to_id"], msg["timestamp"], msg["media_type"],
+                       msg["author_name"], msg["is_forward"],
+                       msg["forward_source"], msg["import_key"])
+                cursor = await conn.execute(_INSERT_SQL, row)
+            if cursor.rowcount == 1:
+                fr.inserted += 1
+                if msg["text"]:
+                    await conn.execute(_FTS_INSERT_SQL, (cursor.lastrowid,
+                                                         msg["text"]))
+                if identity_on and msg.get("source_record_id"):
+                    ns = msg.get("namespace") or _LEGACY_IMPORT_NAMESPACE
+                    await conn.execute(
+                        _SOURCE_RECORD_SQL,
+                        (cursor.lastrowid, ns, msg["source_record_id"],
+                         chat_id, now))
+            else:
+                fr.duplicates += 1
+        await checkpoints.mark(conn, path, chat_id, fr.read,
+                               est_total or fr.read, done=False)
+        await conn.commit()
+    except Exception as exc:
+        # MCA-17 (`ingestion.import`): notable WARN при ошибке батча
+        # (терминал импорта эмитит import_history_fts). Чекпоинты
+        # import_checkpoints — отдельный механизм, событиями НЕ дублируется.
+        _emit_import("import_history_batch", "failed", level="WARN",
+                     exc=exc, stage="flush_batch", chat_id=chat_id,
+                     usage_json={"read": fr.read, "inserted": fr.inserted,
+                                 "duplicates": fr.duplicates})
+        raise
     buffer.clear()
 
 
@@ -389,6 +418,16 @@ async def import_history_fts(db_path: str, files: list[str],
                                  batch_size=batch_size, dry_run=dry_run,
                                  progress=progress, namespace=namespace)
             results.append(fr)
+    except Exception as exc:
+        # MCA-17 (`ingestion.import`): терминал прерванного импорта.
+        _emit_import("import_history_fts", "failed", level="WARN",
+                     exc=exc, stage="import", chat_id=target_chat,
+                     usage_json={"files": len(results),
+                                 "inserted": sum(f.inserted for f in results),
+                                 "read": sum(f.read for f in results),
+                                 "errors": sum(f.errors for f in results)},
+                     duration_ms=int((time.monotonic() - started) * 1000))
+        raise
     finally:
         if conn is not None:
             try:
@@ -412,6 +451,16 @@ async def import_history_fts(db_path: str, files: list[str],
     }
     if not dry_run and not no_vacuum and inserted > 0:
         summary["vacuumed"] = await vacuum_db(db_path)
+    # MCA-17 (`ingestion.import`): терминал полного прогона. dry_run —
+    # честный silent (записи не было). Счётчики сообщений — usage_json.
+    _emit_import(
+        "import_history_fts", "silent" if dry_run else "success",
+        chat_id=target_chat,
+        usage_json={"files": len(results), "inserted": inserted,
+                    "duplicates": summary["duplicates"],
+                    "read": summary["read"], "accepted": summary["accepted"],
+                    "errors": summary["errors"]},
+        duration_ms=int(summary["duration"] * 1000))
     return summary
 
 

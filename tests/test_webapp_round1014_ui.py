@@ -259,8 +259,10 @@ class TestPersonaHealthPanel:
 
 # ═══ F7 `status-layout-reorder-round1014` (ТЗ §7) ════════════════════════
 # Порядок блоков страницы «Статус»: Сводка → Сердцебиение → Бот → Сервер →
-# Мониторинг Интеллекта → Доступность ключей → История. Чистая перестановка
+# Мониторинг Интеллекта → Доступность ключей. Чистая перестановка
 # разметки (каталог-Δ = 0), без правок web/app.js.
+# NOTE (ASAP 6 Wave 2, санкция visual-preservation-map): хвост «История»
+# переехал в «Аналитику» (см. TestStatusLayoutOrderF7.ORDER).
 
 def _status_block() -> str:
     """Срез разметки активной вкладки «Статус» (T-1535: границы v-else-if)."""
@@ -269,6 +271,14 @@ def _status_block() -> str:
 
 class TestStatusLayoutOrderF7:
     # Заголовки-маркеры блоков (по видимому тексту, не по комментариям).
+    # NOTE (санкция владельца: ASAP 6 Wave 2 — current_task.md §13.1:30978-30988
+    # + visual-preservation-map «STATUS»): «История доступности ключей» и
+    # «Логи» — REDESIGN и ПЕРЕНОС в «Аналитику» (вкладки «Модели и расходы»
+    # и «Логи»); на «Статусе» остались компактный strip «Доступность ключей»,
+    # случайность с техно-деталями в <details> и карточка-переход логов.
+    # Порядок обновлён под санкционированный layout; перенесённые блоки
+    # ассертятся в новом доме (test_moved_blocks_live_in_analytics ниже) —
+    # защита от потери блока сохранена, не снята.
     ORDER = (
         # F1 (10.25, Human Gate §8.1): «Сводка» → «Аналитика» (route цел).
         ("Аналитика", "hub-card-title block\">Аналитика</span>"),
@@ -278,7 +288,9 @@ class TestStatusLayoutOrderF7:
         ("Мониторинг Интеллекта",
          "psychology') }}</span> Мониторинг Интеллекта</div>"),
         ("Доступность ключей", "key') }}</span> Доступность ключей</div>"),
-        ("История", "key') }}</span> История доступности ключей</div>"),
+        ("Источник случайности",
+         "bolt') }}</span> Источник случайности</div>"),
+        ("Логи (переход)", "receipt_long') }}</span> Логи</div>"),
     )
 
     def test_order_confirmed(self):
@@ -289,7 +301,7 @@ class TestStatusLayoutOrderF7:
             idx.append(block.index(marker))
         assert idx == sorted(idx), \
             "F7: порядок блоков нарушен (Сводка→Сердцебиение→Бот→Сервер→" \
-            "Мониторинг→Доступность→История)"
+            "Мониторинг→Доступность→Случайность→Логи-переход)"
 
     def test_no_block_lost_or_duplicated(self):
         block = _status_block()
@@ -297,6 +309,44 @@ class TestStatusLayoutOrderF7:
             # «Доступность ключей» — подстрока «История доступности ключей»
             # не совпадает: регистр первой буквы и иконка разные.
             assert block.count(marker) == 1, (name, block.count(marker))
+
+    def test_moved_blocks_live_in_analytics(self):
+        """Перенесённые блоки не потеряны: полный дом — в «Аналитике».
+
+        NOTE (FIX-logs-anchor, поправка владельца): блок «Логи» — НЕ вкладка,
+        а ФИЗИЧЕСКИЙ дом внизу «Аналитики» (вне таб-гвардов, всегда в DOM,
+        последний блок oversight); вкладка «Логи» — якорь/шорткат (скролл к
+        #status-logs), отдельный режим не создаётся. «История доступности
+        ключей» остаётся на вкладке «Модели и расходы». Рендер-внутренности
+        реестра ключей гейтятся test_webapp_key_availability_ui (компактный
+        список/график/no-hardcode), поведение логов — test_webapp_f11
+        (log counts) + js-тесты; здесь — инвариант ПЕРЕНОСА (дом + отсутствие
+        дублей + якорная ссылка на Статусе)."""
+        # «История доступности ключей» → «Модели и расходы» (единый дом).
+        i = HTML.index("data-key-history")
+        seg_keys = HTML[HTML.rfind("<div", 0, i):HTML.index('id="status-logs"', i)]
+        assert "История доступности ключей" in seg_keys
+        assert "oversightTab === 'models'" in seg_keys
+        assert "isGlobalAdmin" in seg_keys
+        # «Логи» — физический дом в #/oversight ВНЕ таб-гвардов (последним):
+        # НЕ внутри v-if вкладки «Логи»; viewer/level-select/чип «Саммари».
+        j = HTML.index('id="status-logs"')
+        seg_logs = HTML[j:HTML.index("</template>", j)]
+        assert "oversightTab === 'logs'" not in seg_logs, \
+            "логи не должны жить под v-if вкладки «Логи» (якорь-контракт)"
+        assert 'v-model="logLevel"' in seg_logs
+        assert "toggleLogSummary()" in seg_logs
+        # Полный дом: trace-фильтры и копирование на месте.
+        assert 'id="mca-log-filters"' in seg_logs
+        assert "copyAllLogs()" in seg_logs
+        # На «Статусе» остались strip ключей и карточка-переход логов.
+        block = _status_block()
+        assert "data-key-strip" in block
+        assert 'id="status-logs-link"' in block
+        assert "scrollToLogs()" in block
+        # Прежний статусный дом истории ключей не дублируется: блок ровно один.
+        assert HTML.count("data-key-history") == 1
+        assert HTML.count('id="status-logs"') == 1
 
     def test_heartbeat_between_summary_and_bot(self):
         block = _status_block()

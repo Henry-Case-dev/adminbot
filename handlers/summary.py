@@ -69,6 +69,21 @@ _UX_NOT_READY = "не смог сделать саммари"     # B6: стра
 _FORWARD_SOURCE_MAX_CHARS = 100
 
 
+def _emit_ingest(event_name: str, outcome: str, *, level: str = "INFO",
+                 **fields):
+    """MCA-17 (`ingestion.live`): fail-open эмиссия контракта §17.1.
+
+    Горячий путь (на каждое сообщение чата): ленивый импорт + молчаливый
+    проглат любых ошибок телеметрии (прецедент graphrag_rebuild._emit).
+    R17: только id/длительность/коды — тексты сообщений не переносятся."""
+    try:
+        from services.mca_events import emit_mca_event
+        emit_mca_event(event_name, outcome=outcome, level=level,
+                       component="ingestion", **fields)
+    except Exception:      # контракт не рвёт поток сообщений
+        pass
+
+
 def _extract_forward_source(origin) -> str | None:
     """Epic 28 (R28-1): label of the forward origin; None = save as ordinary."""
     if origin is None:
@@ -362,6 +377,7 @@ async def summary_observer(message: types.Message):
             thread_id = None
         if not isinstance(media_group_id, str) or not media_group_id:
             media_group_id = None
+        persist_started = time.monotonic()
         try:
             await message_identity.save_live_message(
                 _db,
@@ -393,6 +409,19 @@ async def summary_observer(message: types.Message):
                 "SmartModule observer: save failed | chat=%s user=%s",
                 message.chat.id, user.id, exc_info=True,
             )
+            # MCA-17 (`ingestion.live`): терминальный failed persist.
+            # R17: только id/длительность; тексты сообщений не переносятся.
+            _emit_ingest(
+                "ingestion_live", "failed", level="WARN",
+                chat_id=message.chat.id, message_id=message.message_id,
+                duration_ms=int((time.monotonic() - persist_started) * 1000))
+        else:
+            # MCA-17 (`ingestion.live`): ровно 1 терминальный emit на
+            # сообщение ПОСЛЕ успешного persist (fail-open, дешёвый).
+            _emit_ingest(
+                "ingestion_live", "success",
+                chat_id=message.chat.id, message_id=message.message_id,
+                duration_ms=int((time.monotonic() - persist_started) * 1000))
         # MCA-19 (блок A): канонический реестр активов входящих изображений
         # (фото/документ-изображение/стикер; альбом — каждый item + общая
         # media_group_id). Гейт — env-мастер K1; fail-open (не роняет приём).
