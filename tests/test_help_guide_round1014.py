@@ -169,8 +169,8 @@ def client(monkeypatch, tmp_path):
             INFO_TEXT_FILE=str(tmp_path / "info_text.md"),
             ADMIN_USER_ID=ADMIN_ID))
     guide_value = {"markdown": DB_MARKDOWN,
-                   "guide_version": 3,
-                   "guide_delivered_version": 3,
+                   "guide_version": 4,
+                   "guide_delivered_version": 4,
                    "updated_at": "2026-09-13T00:00:00+00:00",
                    "updated_by": ADMIN_ID}
     conn = _FakeConn(*_rows(guide_value))
@@ -254,9 +254,9 @@ class TestGuideSeed:
             types.SimpleNamespace(ADMIN_USER_ID=ADMIN_ID))
         # F9 10.23 (ADR-1023-9): значение уже доставлено и правилось вручную —
         # маркер guide_delivered_version защищает его от перезаписи миграцией.
-        # mca-21 (round 10.48): текущая версия канона — 3.
+        # mca-23 (2.58.71): текущая версия канона — 4.
         value_in_db = {"markdown": "# Правка админа",
-                       "guide_version": 3, "guide_delivered_version": 3,
+                       "guide_version": 4, "guide_delivered_version": 4,
                        "updated_at": "t", "updated_by": 7}
         cache = ConfigCache(pg=_FakePg(_FakeConn(*_rows(value_in_db))),
                             retry_attempts=1, retry_delay=0)
@@ -436,10 +436,10 @@ class TestGuideApi:
 
     def test_reset_admin_ok_returns_canon_and_backup(self, client):
         # F9 10.23 (ADR-1023-9 Decision 6): откат гайда к код-канону из сид-файла.
-        # mca-21 (round 10.48): текущая версия канона — 3.
+        # mca-23 (2.58.71): текущая версия канона — 4.
         resp = client.post("/api/info/guide/reset", headers=_hdr(ADMIN_ID))
         assert resp.status_code == 200
-        assert resp.json()["guide_version"] == 3
+        assert resp.json()["guide_version"] == 4
         # reset-ответ (RBAC edit_info) содержит бэкап прежней правки.
         assert resp.json()["prev_markdown"] == DB_MARKDOWN
         again = client.get("/api/info/guide", headers=_hdr(ADMIN_ID))

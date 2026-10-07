@@ -27,6 +27,7 @@ from services.info_service import (
     INFO_CANON_VERSION,
     KNOWN_INFO_SNAPSHOTS,
     PREV_DEFAULT_INFO_TEXT,
+    PREV_MCA23_DEFAULT_INFO_TEXT,
     PREV_R1022_DEFAULT_INFO_TEXT,
     PREV_R1023_DEFAULT_INFO_TEXT,
     PREV_R1048_DEFAULT_INFO_TEXT,
@@ -58,8 +59,9 @@ def _between_adjacent_blockquotes(text: str) -> list[str]:
 class TestCanonV4:
     def test_version_bumped(self):
         # mca-21 (round 10.48): канон бампнут 5 → 6. v5-текст заморожен как
-        # PREV_R1048_DEFAULT_INFO_TEXT (слепок миграции).
-        assert INFO_CANON_VERSION == 6
+        # PREV_R1048_DEFAULT_INFO_TEXT (слепок миграции);
+        # mca-23 (2.58.71): 6 → 7, v6 заморожен как PREV_MCA23_DEFAULT_INFO_TEXT.
+        assert INFO_CANON_VERSION == 7
 
     def test_v3_snapshot_registered(self):
         assert PREV_R1022_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
@@ -67,7 +69,8 @@ class TestCanonV4:
         assert PREV_R2020_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
         assert PREV_R1023_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
         assert PREV_R1048_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
-        assert len(KNOWN_INFO_SNAPSHOTS) == 5
+        assert PREV_MCA23_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
+        assert len(KNOWN_INFO_SNAPSHOTS) == 6
 
     def test_v3_snapshot_is_previous_canon_not_current(self):
         # v3-слепок — прошлый текст (h4/h5 + безлимиты), а не текущий канон.
@@ -90,8 +93,9 @@ class TestLayoutRules:
         text = DEFAULT_INFO_TEXT
         assert text.count("<h1>") == text.count("</h1>") == 1
         # F9 10.23 добавил секцию «11. Генерация изображений» → h2 == 11;
-        # mca-21 (round 10.48) добавил «12. Распознавание изображений» → 12.
-        assert text.count("<h2>") == text.count("</h2>") == 12
+        # mca-21 (round 10.48) добавил «12. Распознавание изображений» → 12;
+        # mca-23 (2.58.71) добавил «13. Просьбы посложнее» → 13.
+        assert text.count("<h2>") == text.count("</h2>") == 13
         for tag in ("h3", "h4", "h5", "h6"):
             assert text.count(f"<{tag}>") == 0, tag
             assert text.count(f"</{tag}>") == 0, tag
@@ -99,8 +103,9 @@ class TestLayoutRules:
     def test_every_command_group_in_blockquote(self):
         text = DEFAULT_INFO_TEXT
         # F9 10.23 добавил 3 команды изображений → blockquote == 24;
-        # mca-21 добавил 3 команды распознавания → 27.
-        assert text.count("<blockquote>") == text.count("</blockquote>") == 27
+        # mca-21 добавил 3 команды распознавания → 27;
+        # mca-23 добавил 2 примера сравнения ссылок → 29.
+        assert text.count("<blockquote>") == text.count("</blockquote>") == 29
         # ключевые команды — в цитате (выделенная цитата/код в UI).
         for cmd in ("Бот, транскрипт", "Бот, поясни за видос", "Бот, о чем видео",
                     "Бот, загугли", "Бот, скачай", "фактчек"):
@@ -138,7 +143,7 @@ class TestContent:
         assert "Модули → Бюджеты" not in text
         # F9 10.23: п.11 теперь «Генерация изображений» (а не «Безлимиты»).
         assert "<h2>11. Безлимиты" not in text
-        assert text.count("<h2>") == 12
+        assert text.count("<h2>") == 13
 
     def test_tone_of_voice_preserved(self):
         text = DEFAULT_INFO_TEXT
@@ -261,7 +266,7 @@ class TestMigrationV3ToV4:
         await cache.init()
         value = cache.get(INFO_KEY)
         assert value["html"] == DEFAULT_INFO_TEXT
-        assert value["canon_version"] == INFO_CANON_VERSION == 6
+        assert value["canon_version"] == INFO_CANON_VERSION == 7
         assert value["canon_delivered_version"] == INFO_CANON_VERSION
         assert len(_info_inserts(conn)) == 1
 

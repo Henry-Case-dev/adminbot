@@ -1,20 +1,24 @@
 """F9 `help-ui-v5-round1023` — Справка v5 и «Гайд по возможностям» v2.
 Обновлено mca-21 (round 10.48): каноны бампнуты до v6 (Справка) и v3 (гайд);
 тесты переведены на новые версии и слепки (PREV_R1048_*).
+Обновлено mca-23 (2.58.71): каноны бампнуты до v7 (Справка) и v4 (гайд);
+слепки v6/v3 — PREV_MCA23_*.
 
-Покрытие (ADR-1023-9, spec §6; review iter1; mca-21):
-  * канон-версия ``INFO_CANON_VERSION == 6`` + слепки v1…v5
-    (``PREV_R1048_DEFAULT_INFO_TEXT`` = v5) в ``KNOWN_INFO_SNAPSHOTS``;
+Покрытие (ADR-1023-9, spec §6; review iter1; mca-21; mca-23):
+  * канон-версия ``INFO_CANON_VERSION == 7`` + слепки v1…v6
+    (``PREV_MCA23_DEFAULT_INFO_TEXT`` = v6) в ``KNOWN_INFO_SNAPSHOTS``;
   * байт-зеркало ``DEFAULT_INFO_TEXT ↔ info_text.md``;
   * секция «11. Генерация изображений»: команды в ``<blockquote>``, только
     ``<h1>``/``<h2>``, без точек/запятых/«или» между соседними примерами,
     без секретов/URL провайдера (R18);
-  * идемпотентная PG-миграция справки v5 → v6 (слепок → канон; повтор → no-op;
-    ручной дрейф → не затирается; «текст == канон, маркеры устарели»; откат v6→v5);
-  * версионирование гайда: ``GUIDE_CANON_VERSION == 3`` + слепки v1/v2 в
-    ``KNOWN_GUIDE_SNAPSHOTS``; контент v2 (манеры ответа, анти-штампы, System 2);
+  * идемпотентная PG-миграция справки слепок → канон (повтор → no-op;
+    ручной дрейф → не затирается; «текст == канон, маркеры устарели»; откат);
+    mca-23: v6 → v7;
+  * версионирование гайда: ``GUIDE_CANON_VERSION == 4`` + слепки v1/v2/v3 в
+    ``KNOWN_GUIDE_SNAPSHOTS``; контент (манеры ответа, анти-штампы, System 2,
+    mca-23: объём/уточняющий вопрос/цепочка/статья);
     целостность канона (заголовки §1…§19 по порядку); идемпотентная миграция
-    v2 → v3, ручная правка не затирается; ``reset_guide`` (откат к код-канону)
+    v3 → v4, ручная правка не затирается; ``reset_guide`` (откат к код-канону)
     с бэкапом; ``get_guide`` отдаёт новый markdown и ``prev_markdown``.
 """
 import json
@@ -32,6 +36,8 @@ from services.info_service import (
     KNOWN_GUIDE_SNAPSHOTS,
     KNOWN_INFO_SNAPSHOTS,
     PREV_DEFAULT_INFO_TEXT,
+    PREV_MCA23_DEFAULT_INFO_TEXT,
+    PREV_MCA23_INTELLIGENCE_GUIDE,
     PREV_R1022_DEFAULT_INFO_TEXT,
     PREV_R1023_DEFAULT_INFO_TEXT,
     PREV_R1023_INTELLIGENCE_GUIDE,
@@ -58,25 +64,35 @@ GUIDE_MD = ROOT / "plans" / "docs" / "intelligence_user_guide.md"
 class TestInfoCanonV5:
     def test_version_is_5(self):
         # mca-21 (round 10.48): канон бампнут 5 → 6 (раздел изображений +
-        # актуализация фактчека/саммари/обращения); v5 заморожен слепком.
-        assert INFO_CANON_VERSION == 6
+        # актуализация фактчека/саммари/обращения); v5 заморожен слепком;
+        # mca-23 (2.58.71): 6 → 7 (раздел «13. Просьбы посложнее» + §7);
+        # v6 заморожен слепком PREV_MCA23_DEFAULT_INFO_TEXT.
+        assert INFO_CANON_VERSION == 7
 
     def test_v4_snapshot_registered_and_chain_kept(self):
+        assert PREV_MCA23_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS    # v6
         assert PREV_R1048_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS    # v5
         assert PREV_R1023_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS   # v4
         assert PREV_R1022_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS   # v3
         assert PREV_R2020_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS   # v2
         assert PREV_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS         # v1
-        assert len(KNOWN_INFO_SNAPSHOTS) == 5
+        assert len(KNOWN_INFO_SNAPSHOTS) == 6
 
     def test_v4_snapshot_is_previous_not_current(self):
+        assert normalize_canon(PREV_MCA23_DEFAULT_INFO_TEXT) != \
+            normalize_canon(DEFAULT_INFO_TEXT)
         assert normalize_canon(PREV_R1048_DEFAULT_INFO_TEXT) != \
             normalize_canon(DEFAULT_INFO_TEXT)
+        assert canon_drift(PREV_MCA23_DEFAULT_INFO_TEXT) is True
         assert canon_drift(PREV_R1048_DEFAULT_INFO_TEXT) is True
         assert canon_drift(DEFAULT_INFO_TEXT) is False
         # Слепок v5 — это прежний канон F9 (= v4 + «11. Генерация изображений»).
         assert "<h2>11. Генерация изображений</h2>" in PREV_R1048_DEFAULT_INFO_TEXT
         assert "<h2>12." not in PREV_R1048_DEFAULT_INFO_TEXT
+        # Слепок v6 — прежний канон mca-21 (= v5 + «12. Распознавание
+        # изображений»), без раздела 13 (mca-23).
+        assert "<h2>12. Распознавание изображений" in PREV_MCA23_DEFAULT_INFO_TEXT
+        assert "<h2>13." not in PREV_MCA23_DEFAULT_INFO_TEXT
 
     def test_byte_for_byte_mirror(self):
         assert DEFAULT_INFO_TEXT == INFO_MD.read_text(encoding="utf-8")
@@ -91,8 +107,9 @@ class TestImageSectionLayout:
     def test_only_h1_h2_headings(self):
         text = DEFAULT_INFO_TEXT
         assert text.count("<h1>") == text.count("</h1>") == 1
-        # mca-21 (round 10.48): v5 + «12. Распознавание изображений» → 12.
-        assert text.count("<h2>") == text.count("</h2>") == 12
+        # mca-21 (round 10.48): v5 + «12. Распознавание изображений» → 12;
+        # mca-23 (2.58.71): v6 + «13. Просьбы посложнее» → 13.
+        assert text.count("<h2>") == text.count("</h2>") == 13
         for tag in ("h3", "h4", "h5", "h6"):
             assert text.count(f"<{tag}>") == 0, tag
             assert text.count(f"</{tag}>") == 0, tag
@@ -105,7 +122,7 @@ class TestImageSectionLayout:
             "<blockquote><b><i>Бот, создай мем",
         ):
             assert frag in text, frag
-        assert text.count("<blockquote>") == text.count("</blockquote>") == 27
+        assert text.count("<blockquote>") == text.count("</blockquote>") == 29
 
     def test_no_punctuation_or_conjunction_between_examples(self):
         gaps = between_adjacent_blockquotes(DEFAULT_INFO_TEXT)
@@ -230,7 +247,19 @@ class TestInfoMigrationV5ToV6:
         await cache.init()
         value = cache.get(INFO_KEY)
         assert value["html"] == DEFAULT_INFO_TEXT
-        assert value["canon_version"] == INFO_CANON_VERSION == 6
+        assert value["canon_version"] == INFO_CANON_VERSION == 7
+        assert value["canon_delivered_version"] == INFO_CANON_VERSION
+        assert len(_inserts(conn, INFO_KEY)) == 1
+
+    @pytest.mark.asyncio
+    async def test_v6_snapshot_migrated_to_v7(self, monkeypatch):
+        """mca-23 (2.58.71): прод-слепок v6 (канон mca-21) → канон v7."""
+        cache, conn = _cache(_info_row(PREV_MCA23_DEFAULT_INFO_TEXT),
+                             monkeypatch)
+        await cache.init()
+        value = cache.get(INFO_KEY)
+        assert value["html"] == DEFAULT_INFO_TEXT
+        assert value["canon_version"] == INFO_CANON_VERSION == 7
         assert value["canon_delivered_version"] == INFO_CANON_VERSION
         assert len(_inserts(conn, INFO_KEY)) == 1
 
@@ -271,22 +300,23 @@ class TestInfoMigrationV5ToV6:
         assert len(_inserts(conn, INFO_KEY)) == 1
 
     @pytest.mark.asyncio
-    async def test_rollback_v6_to_v5(self, monkeypatch):
-        """Обратимость: «откаченный» код (v5) находит в PG v6 → одноразовая
-        форс-доставка v5 с бэкапом prev_html (ровно 1 INSERT)."""
-        monkeypatch.setattr("services.config_cache._INFO_CANON_VERSION", 5)
+    async def test_rollback_v7_to_v6(self, monkeypatch):
+        """Обратимость: «откаченный» код (v6) находит в PG v7 → одноразовая
+        форс-доставка v6 с бэкапом prev_html (ровно 1 INSERT)."""
+        monkeypatch.setattr("services.config_cache._INFO_CANON_VERSION", 6)
         monkeypatch.setattr("services.config_cache._DEFAULT_INFO_TEXT",
-                            PREV_R1048_DEFAULT_INFO_TEXT)
+                            PREV_MCA23_DEFAULT_INFO_TEXT)
         monkeypatch.setattr(
             "services.config_cache._KNOWN_INFO_SNAPSHOTS",
             (PREV_DEFAULT_INFO_TEXT, PREV_R2020_DEFAULT_INFO_TEXT,
-             PREV_R1022_DEFAULT_INFO_TEXT, PREV_R1023_DEFAULT_INFO_TEXT))
-        rows = _info_row(DEFAULT_INFO_TEXT, canon_version=6, delivered=6)
+             PREV_R1022_DEFAULT_INFO_TEXT, PREV_R1023_DEFAULT_INFO_TEXT,
+             PREV_R1048_DEFAULT_INFO_TEXT))
+        rows = _info_row(DEFAULT_INFO_TEXT, canon_version=7, delivered=7)
         cache, conn = _cache(rows, monkeypatch)
         await cache.init()
         value = cache.get(INFO_KEY)
-        assert value["html"] == PREV_R1048_DEFAULT_INFO_TEXT
-        assert value["canon_version"] == 5
+        assert value["html"] == PREV_MCA23_DEFAULT_INFO_TEXT
+        assert value["canon_version"] == 6
         assert value["prev_html"] == DEFAULT_INFO_TEXT
         assert len(_inserts(conn, INFO_KEY)) == 1
 
@@ -299,19 +329,24 @@ V2_CANON = "# Гайд по возможностям (v2, тестовый ка�
 class TestGuideCanonV3:
     def test_version_is_2(self):
         # mca-21 (round 10.48): канон гайда бампнут 2 → 3 (актуализация на
-        # финальной системе MCA-релиза); v2 заморожен слепком.
-        assert GUIDE_CANON_VERSION == 3
+        # финальной системе MCA-релиза); v2 заморожен слепком;
+        # mca-23 (2.58.71): 3 → 4 (объём/уточняющий вопрос/цепочка/статья);
+        # v3 заморожен слепком PREV_MCA23_INTELLIGENCE_GUIDE.
+        assert GUIDE_CANON_VERSION == 4
 
     def test_v1_snapshot_registered(self):
         assert PREV_R1023_INTELLIGENCE_GUIDE in KNOWN_GUIDE_SNAPSHOTS
         assert PREV_R1048_INTELLIGENCE_GUIDE in KNOWN_GUIDE_SNAPSHOTS
-        assert len(KNOWN_GUIDE_SNAPSHOTS) == 2
+        assert PREV_MCA23_INTELLIGENCE_GUIDE in KNOWN_GUIDE_SNAPSHOTS
+        assert len(KNOWN_GUIDE_SNAPSHOTS) == 3
 
     def test_v1_snapshot_differs_from_current_file(self):
         current = GUIDE_MD.read_text(encoding="utf-8")
         assert normalize_canon(PREV_R1023_INTELLIGENCE_GUIDE) != \
             normalize_canon(current)
         assert normalize_canon(PREV_R1048_INTELLIGENCE_GUIDE) != \
+            normalize_canon(current)
+        assert normalize_canon(PREV_MCA23_INTELLIGENCE_GUIDE) != \
             normalize_canon(current)
 
     def test_v2_content_has_new_blocks(self):
@@ -353,9 +388,11 @@ class TestGuideCanonV3:
 
     def test_guide_version_for_matches_content(self):
         """Версия вычисляется по содержимому: текущий канон → константа,
-        v1-слепок → 1, v2-слепок → 2, пусто → безопасный дефолт."""
+        v1-слепок → 1, v2-слепок → 2, v3-слепок → 3, пусто → безопасный
+        дефолт."""
         assert guide_version_for(GUIDE_MD.read_text(encoding="utf-8")) == \
             GUIDE_CANON_VERSION
+        assert guide_version_for(PREV_MCA23_INTELLIGENCE_GUIDE) == 3
         assert guide_version_for(PREV_R1048_INTELLIGENCE_GUIDE) == 2
         assert guide_version_for(PREV_R1023_INTELLIGENCE_GUIDE) == 1
         assert guide_version_for("") == GUIDE_CANON_VERSION
@@ -389,7 +426,19 @@ class TestGuideMigrationV2ToV3:
         await cache.init()
         value = cache.get(GUIDE_KEY)
         assert value["markdown"] == V2_CANON
-        assert value["guide_version"] == GUIDE_CANON_VERSION == 3
+        assert value["guide_version"] == GUIDE_CANON_VERSION == 4
+        assert value["guide_delivered_version"] == GUIDE_CANON_VERSION
+        assert len(_inserts(conn, GUIDE_KEY)) == 1
+
+    @pytest.mark.asyncio
+    async def test_v3_snapshot_migrated_to_v4_canon(self, monkeypatch, tmp_path):
+        """mca-23 (2.58.71): прод-слепок v3 (канон mca-21) → канон v4."""
+        cache, conn = _cache(_guide_row(PREV_MCA23_INTELLIGENCE_GUIDE),
+                             monkeypatch, guide_seed=self._seed(tmp_path))
+        await cache.init()
+        value = cache.get(GUIDE_KEY)
+        assert value["markdown"] == V2_CANON
+        assert value["guide_version"] == GUIDE_CANON_VERSION == 4
         assert value["guide_delivered_version"] == GUIDE_CANON_VERSION
         assert len(_inserts(conn, GUIDE_KEY)) == 1
 
@@ -470,7 +519,7 @@ class TestGuideMigrationV2ToV3:
         svc = InfoService(file_path=str(INFO_MD))
         value = await svc.reset_guide(updated_by=42, cache=cache)
         assert value["markdown"] == V2_CANON
-        assert value["guide_version"] == GUIDE_CANON_VERSION == 3
+        assert value["guide_version"] == GUIDE_CANON_VERSION == 4
         assert value["prev_markdown"] == manual
         assert value["updated_by"] == 42
         persisted = _persisted(conn, GUIDE_KEY)

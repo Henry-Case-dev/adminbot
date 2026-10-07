@@ -27,6 +27,8 @@ from services.info_service import (
     INFO_CANON_VERSION,
     KNOWN_GUIDE_SNAPSHOTS,
     KNOWN_INFO_SNAPSHOTS,
+    PREV_MCA23_DEFAULT_INFO_TEXT,
+    PREV_MCA23_INTELLIGENCE_GUIDE,
     PREV_R1048_DEFAULT_INFO_TEXT,
     PREV_R1048_INTELLIGENCE_GUIDE,
     canon_drift,
@@ -189,8 +191,9 @@ class TestRenderSafety:
     def test_info_canon_anchor_titles_unique(self):
         # Поиск по «Справке» строит якоря из h1/h2 — заголовки уникальны.
         titles = re.findall(r"<h2>(\d+\..+?)</h2>", DEFAULT_INFO_TEXT)
-        assert len(titles) == len(set(titles)) == 12
+        assert len(titles) == len(set(titles)) == 13
         assert "12. Распознавание изображений (бот видит картинки)" in titles
+        assert "13. Просьбы посложнее (объём и несколько дел за раз)" in titles
 
     def test_guide1_anchor_titles_unique(self):
         titles = re.findall(r"^## (\d+\. .+)$", GUIDE_MD, re.M)
@@ -230,20 +233,24 @@ class TestCanonVersionInvariant:
     """D7/SC-R3a: версии/слепки согласованы; инвариант guide_version_for."""
 
     def test_versions_and_registries(self):
-        assert INFO_CANON_VERSION == 6
-        assert GUIDE_CANON_VERSION == 3
-        assert len(KNOWN_INFO_SNAPSHOTS) == 5
-        assert len(KNOWN_GUIDE_SNAPSHOTS) == 2
-        assert KNOWN_INFO_SNAPSHOTS[-1] is PREV_R1048_DEFAULT_INFO_TEXT
-        assert KNOWN_GUIDE_SNAPSHOTS[-1] is PREV_R1048_INTELLIGENCE_GUIDE
+        # mca-23 (2.58.71): INFO 6→7 (раздел «13. Просьбы посложнее» + §7),
+        # GUIDE 3→4 (§11/§1/словарик); прежние каноны — в слепках.
+        assert INFO_CANON_VERSION == 7
+        assert GUIDE_CANON_VERSION == 4
+        assert len(KNOWN_INFO_SNAPSHOTS) == 6
+        assert len(KNOWN_GUIDE_SNAPSHOTS) == 3
+        assert KNOWN_INFO_SNAPSHOTS[-1] is PREV_MCA23_DEFAULT_INFO_TEXT
+        assert KNOWN_GUIDE_SNAPSHOTS[-1] is PREV_MCA23_INTELLIGENCE_GUIDE
 
     def test_guide_version_for_invariant(self):
         assert guide_version_for(GUIDE_MD) == GUIDE_CANON_VERSION
+        assert guide_version_for(PREV_MCA23_INTELLIGENCE_GUIDE) == 3
         assert guide_version_for(PREV_R1048_INTELLIGENCE_GUIDE) == 2
         assert guide_version_for(KNOWN_GUIDE_SNAPSHOTS[0]) == 1
         assert guide_version_for("") == GUIDE_CANON_VERSION
 
     def test_prev_snapshots_are_drift_not_canon(self):
+        assert canon_drift(PREV_MCA23_DEFAULT_INFO_TEXT) is True
         assert canon_drift(PREV_R1048_DEFAULT_INFO_TEXT) is True
         assert canon_drift(DEFAULT_INFO_TEXT) is False
         assert DEFAULT_INFO_TEXT == INFO_MD   # байт-зеркало сид-файла
