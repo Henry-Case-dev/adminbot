@@ -54,3 +54,31 @@
 - Owner-gates: T-5248/T-5254 (real-provider), T-5274 (live-приёмка).
 
 **Статус: VERIFIED.** Прод `dd134cc` / 2.58.68 / v33 / каталог 529 / KS 85 (0 env) / reason 280 / тулы 14. R17: секретов нет.
+
+
+---
+
+## Доставка web-слайса T-5252/T-5253 (2.58.69) — VERIFIED
+
+Дата: 07.10.2026. Биндинги: дельта-ревью **Approved (web-слайс)** (review.md итерация 2 — F1 закрыт в доставленном объёме) + дельта-скан **«к деплою ДА»** (C0/H0; условие «правка дельты инвалидирует вердикт» соблюдено — свип бампа дельту не трогал: 0 вхождений версий в дельта-файлах, identity бит-в-бит манифесту).
+
+### Кандидат и DEPLOY_SOURCE
+- **DEPLOY_SOURCE:** immutable коммит `bea9101` (feat web-слайс; push ff `09074b3..bea9101`). Прод: pull --ff-only `dd134cc → bea9101`. **MUTABLE_WORKTREE_REQUIRED: no.**
+- Дельта 5 файлов +101/−0: cover_styles.py +10 (расширение ответа СУЩЕСТВУЮЩЕГО GET test-style/{job_id}: prompt_manifest admin-only, None → ключа нет), app.js +46 / index.html +45 (блок «Что отправилось модели», двойной независимый гейт: серверный is_admin + coverStyles.isAdmin в v-if + coverManifestVisible), тесты new ×2 (4 py-теста + js). Δ DDL=0, каталог 529, KS 85, reason 280, тулы 14, routes-пин `8153b8bd…c7b45` цел (0 новых эндпоинтов).
+- Свип: APP_VERSION 2.58.68→2.58.69, README header, F8 meta, py-пины 24 файлов (25 пинов), 4 js-харнесса `2\.58\.69`.
+
+### Прогоны
+- Web-слайс + cover-семейство: **171 passed** (вкл. 4/4 web-слайса, AST-пин, backend_additions 11); js **64/64**.
+- Полный pytest: сегменты DevOps **12426/5** (4 identity + betterstack real_302 средофлейк, изолированно **1 passed**; арифметика 12431+11 = 12442 = 12438+4 новых) + контрольный оркестратора **12438/4** — ровно 4 pre-existing identity, 0 новых, hang #121 нет.
+
+### Прод
+- **A:** pre `dd134cc` @2.58.68, DIRTY=13 (все ?? untracked runtime-junk, TRACKED=0), UV=33/120, KS 0 оверрайдов → pull --ff-only → `bea9101`; **identity 5/5** (cover_styles 5f4ce81e, app.js d6c3f3a8, index.html 1673bf0e, info_service 61105570, settings c510960e); settings 2.58.69.
+- **B:** бэкап `backups/pre_t5274_20261007_055326.db` integrity ok UV=33/120 (1.32 GB) → рестарт #1 → healthz **200 @2.58.69** (502×5 — systemd-интервал).
+- **C:** canon-gate venv: **CANON v6/delivered=6** (1df850a6, 9685) + **CANON v3/delivered=3** (149ae469, 27590), **GATE_DRIFT=0**; смоуки: /api/info + guide **401**, oversight **401 ×3**, **TSTYLE unauth 401** (маршрут смонтирован, RBAC жив; admin-smoke манифеста — owner-gate, no-false-acceptance, не имитируется), /api/health **200**; рестарт #2 → **healthz 200 @2.58.69 ×2**.
+- **Батарея boot #2** (since `Wed 2026-10-07 05:58:16 UTC`, 202 строки): **ERROR/CRITICAL=0, Traceback/NameError=0, locked=0**, `journalctl -p err` = **0**, DDL-строк 0, **[vision] media worker started жив** (1), R17 6 паттернов = **0**; MainPID=215585, **NRestarts=0**; пост-счётчики **UV=33/tables=120** (DDL=0 доказано, МИГРАЦИЙ НЕТ).
+- R17-скан артефакта `startup_prod_t5274.log` (205 строк, git add -f): **0 секретов**; chat-ID ×2 — tracked-прецедент t5198/t5216/t5273 (I-1 Info).
+
+### Rollback 2.58.69
+- **Cold:** `git revert bea9101` → рестарт; DDL=0 — v33 совместима в обе стороны; якорь `backups/pre_t5274_20261007_055326.db`. **Soft:** не требуется — read-side admin-only, env/KS/каноны не менялись; env-рубильника нет по дизайну (двойной гейт = fail-closed).
+
+**Статус: VERIFIED.** Прод `bea9101` / 2.58.69 / v33 / каталог 529 / KS 85 (0 env) / reason 280 / тулы 14. R17: секретов нет. Финал ASAP 5 — current_task полностью выполнен.
