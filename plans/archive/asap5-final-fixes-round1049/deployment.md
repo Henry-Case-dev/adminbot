@@ -82,3 +82,27 @@
 - **Cold:** `git revert bea9101` → рестарт; DDL=0 — v33 совместима в обе стороны; якорь `backups/pre_t5274_20261007_055326.db`. **Soft:** не требуется — read-side admin-only, env/KS/каноны не менялись; env-рубильника нет по дизайну (двойной гейт = fail-closed).
 
 **Статус: VERIFIED.** Прод `bea9101` / 2.58.69 / v33 / каталог 529 / KS 85 (0 env) / reason 280 / тулы 14. R17: секретов нет. Финал ASAP 5 — current_task полностью выполнен.
+
+
+---
+
+## P0 hotfix miniapp blank (2.58.69, `42f8963`) — VERIFIED
+
+Дата: 07.10.2026. **Root cause (H1-лейн):** `web/index.html:6235` (вставка mca-12) — `v-if="storiesSummary && storiesSummary.counters.pending_verification"`: при серверном `{"state":"no_chat","counters":null}` → TypeError в render-фазе → Vue 3 prod валил весь mount (#app пуст, фон жив). **Фикс:** guard `storiesSummary.counters &&` (1 строка). Регресс-тест `tests/js/p0_stories_no_chat_render_test.js` (self-host Vue 3.5.42, прод-фрагмент, RED→GREEN).
+
+### Верификация H1 (reuse, валидный)
+- Реплей 29 реальных прод-ответов в Playwright с TMA-эмуляцией: до фикса #app пуст + TypeError 1-в-1; после — 4/4 монтируются, pageerrors 0.
+- js **65/65**; focused **311 passed**; E2E MCA12 OK.
+
+### Деплой (DevOps)
+- **DEPLOY_SOURCE:** коммит `42f8963` (push ff `73249a3..42f8963`); прод pull --ff-only `bea9101 → 42f8963`. **MUTABLE_WORKTREE_REQUIRED: no.** APP_VERSION не менялся (2.58.69 — хотфикс контента, release-owned).
+- Файл: `web/index.html` sha256 **`50bf6faa…f04cba`** бит-в-бит прод=локал; guard в файле **1**; KS 0 оверрайдов; UV=33/120 pre.
+- Рестарт ×2 (502×5 → 200 — systemd-интервал) — **обязателен**: `_render_index()` читает index.html один раз при старте (`web/app.py:97/239`), no-store.
+- **Ключевая верификация (живой прод):** `GET /web/` (через 302 от `/`) содержит guard `storiesSummary.counters &&` — **1**; уязвимое выражение — **0**; SERVED_SIZE 577116; `v=2.58.69` ×12 (свежий рендер). Первые две попытки чека дали ложный 0: (1) `curl /` без `-L` получал тело 302-редиректа — `/` это RedirectResponse на `/web/`; (2) ANSI-CR перед цифрой ломал `^(\d+)$`-парсинг (RAW grep = 1). Исправлено: `curl -sL /web/` + `KEY=$(…)`-парсинг. Это артефакты проверки, не прода.
+- healthz **200 @2.58.69 ×2**, /api/health 200; смоуки INFO/GUIDE **401**; батарея boot #2 (171 строка, since 07:21:09 UTC): **ERROR/CRITICAL=0, Traceback/NameError=0, locked=0**, `-p err` = 0, DDL-строк 0, **vision-воркер жив**; NRestarts=0; пост-счётчики **UV=33/120** — МИГРАЦИЙ НЕТ.
+- R17: журнал 6 паттернов = 0; артефакт `startup_prod_p0_42f8963.log` — 0 секретов.
+
+### Rollback
+- Cold: `git revert 42f8963` → рестарт (index рендерится при старте — рестарт обязателен); DDL=0 — v33 совместима в обе стороны. Soft: не применим (шаблонный guard, env-рубильника нет по дизайну; revert однострочный).
+
+**Статус: VERIFIED.** Прод `42f8963` / 2.58.69 / v33 / миниапп рендерится (guard в отдаваемом index, vuln-выражение отсутствует). R17: секретов нет.
